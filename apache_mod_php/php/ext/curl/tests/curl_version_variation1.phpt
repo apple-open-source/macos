@@ -21,7 +21,7 @@ unset($unset_var);
 class sample  {
   public function __toString() {
     return "sample object";
-  } 
+  }
 }
 
 //getting the resource
@@ -47,7 +47,7 @@ $inputs =  array (
   array(),
   array(0),
   array(1, 2),
-  
+
   //string values
   "ABC",
   'abc',
@@ -110,23 +110,23 @@ bool(true)
 bool(true)
 -- Iteration 10 --
 
-Warning: curl_version() expects parameter 1 to be integer, array given in %s on line %d
+Warning: curl_version() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 -- Iteration 11 --
 
-Warning: curl_version() expects parameter 1 to be integer, array given in %s on line %d
+Warning: curl_version() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 -- Iteration 12 --
 
-Warning: curl_version() expects parameter 1 to be integer, array given in %s on line %d
+Warning: curl_version() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 -- Iteration 13 --
 
-Warning: curl_version() expects parameter 1 to be integer, string given in %s on line %d
+Warning: curl_version() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 -- Iteration 14 --
 
-Warning: curl_version() expects parameter 1 to be integer, string given in %s on line %d
+Warning: curl_version() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 -- Iteration 15 --
 
@@ -146,11 +146,11 @@ bool(true)
 bool(true)
 -- Iteration 22 --
 
-Warning: curl_version() expects parameter 1 to be integer, object given in %s on line %d
+Warning: curl_version() expects parameter 1 to be int, object given in %s on line %d
 bool(false)
 -- Iteration 23 --
 
-Warning: curl_version() expects parameter 1 to be integer, resource given in %s on line %d
+Warning: curl_version() expects parameter 1 to be int, resource given in %s on line %d
 bool(false)
 -- Iteration 24 --
 bool(true)

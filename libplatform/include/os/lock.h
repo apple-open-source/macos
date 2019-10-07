@@ -39,8 +39,7 @@ OS_ASSUME_NONNULL_BEGIN
 __BEGIN_DECLS
 
 #define OS_UNFAIR_LOCK_AVAILABILITY \
-		__OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) \
-		__TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0)
+		__API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0))
 
 /*!
  * @typedef os_unfair_lock
@@ -55,7 +54,7 @@ __BEGIN_DECLS
  * defined, they contain thread ownership information that the system may use
  * to attempt to resolve priority inversions.
  *
- * This lock must be unlocked from the same thread that locked it, attemps to
+ * This lock must be unlocked from the same thread that locked it, attempts to
  * unlock from a different thread will cause an assertion aborting the process.
  *
  * This lock must not be accessed from multiple processes or threads via shared

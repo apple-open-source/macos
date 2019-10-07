@@ -132,7 +132,7 @@ _seekdir(DIR *dirp, long loc)
 	dirp->dd_seek = lp->loc_seek;
 #endif /* __DARWIN_64_BIT_INO_T */
 	dirp->dd_loc = 0;
-	dirp->dd_flags &= ~__DTF_SKIPREAD; /* current contents are invalid */
+	dirp->dd_flags &= ~(__DTF_SKIPREAD | __DTF_ATEND); /* current contents are invalid */
 	while (dirp->dd_loc < lp->loc_loc) {
 		dp = _readdir_unlocked(dirp, 0);
 		if (dp == NULL)

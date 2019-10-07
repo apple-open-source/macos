@@ -42,7 +42,7 @@
 #include <string.h>
 
 #ifdef HAVE_ELF_H
-#include <elf.h>
+#include <sys/elf.h>
 #endif
 
 #include <limits.h>

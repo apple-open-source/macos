@@ -41,9 +41,7 @@
 #include "platform.h"
 #include "byteRep.h"
 #include "feeECDSA.h"
-#if	CRYPTKIT_DER_ENABLE
 #include "CryptKitDER.h"
-#endif
 
 #include <stdlib.h>
 #include "ellipticProj.h"
@@ -70,10 +68,8 @@ int	sigDebug=1;		// tweakable at runtime via debugger
 
 typedef struct {
 	giant		PmX;		// m 'o' P1; m = random
-	#if	CRYPTKIT_ELL_PROJ_ENABLE
 	giant		PmY;		// y-coord of m 'o' P1 if we're
 					//  using projective coords
-	#endif	/* CRYPTKIT_ELL_PROJ_ENABLE */
 
 	giant		u;
 	giant		randGiant;	// random m as giant - only known
@@ -144,8 +140,6 @@ feeSig feeSigNewWithKey(
 	/* PmX := randGiant 'o' P1 */
 	sinst->PmX = newGiant(cp->maxDigits);
 
-	#if 	CRYPTKIT_ELL_PROJ_ENABLE
-
 	if(cp->curveType == FCT_Weierstrass) {
 
 		pointProjStruct pt0;
@@ -177,17 +171,6 @@ feeSig feeSigNewWithKey(
 #pragma clang diagnostic pop
 		elliptic_simple(sinst->PmX, sinst->randGiant, cp);
 	}
-	#else	/* CRYPTKIT_ELL_PROJ_ENABLE */
-
-	if(SIG_CURVE == CURVE_PLUS) {
-		gtog(cp->x1Plus, sinst->PmX);
-	}
-	else {
-		gtog(cp->x1Minus, sinst->PmX);
-	}
-	elliptic_simple(sinst->PmX, sinst->randGiant, cp);
-
-	#endif	/* CRYPTKIT_ELL_PROJ_ENABLE */
 
 	return sinst;
 }
@@ -200,12 +183,12 @@ void feeSigFree(feeSig sig)
 		clearGiant(sinst->PmX);
 		freeGiant(sinst->PmX);
 	}
-	#if 	CRYPTKIT_ELL_PROJ_ENABLE
+    
 	if(sinst->PmY) {
 		clearGiant(sinst->PmY);
 		freeGiant(sinst->PmY);
 	}
-	#endif	/* CRYPTKIT_ELL_PROJ_ENABLE */
+    
 	if(sinst->u) {
 		clearGiant(sinst->u);
 		freeGiant(sinst->u);
@@ -351,19 +334,8 @@ feeReturn feeSigData(feeSig sig,
 {
 	sigInst  *sinst = (sigInst*) sig;
 
-	#if		CRYPTKIT_DER_ENABLE
 	return feeDEREncodeElGamalSignature(sinst->u, sinst->PmX, sigData, sigDataLen);
-	#else
-	*sigDataLen = lengthOfByteRepSig(sinst->u, sinst->PmX);
-	*sigData = (unsigned char*) fmalloc(*sigDataLen);
-	sigToByteRep(FEE_SIG_MAGIC,
-		FEE_SIG_VERSION,
-		FEE_SIG_VERSION_MIN,
-		sinst->u,
-		sinst->PmX,
-		*sigData);
-	return FR_Success;
-	#endif
+	
 }
 
 /*
@@ -377,43 +349,14 @@ feeReturn feeSigParse(const unsigned char *sigData,
 {
 	sigInst		*sinst = NULL;
 	feeReturn	frtn;
-	#if	!CRYPTKIT_DER_ENABLE
-	int			version;
-	int			magic;
-	int			minVersion;
-	int			rtn;
-	#endif
 	
 	sinst = sinstAlloc();
-	#if		CRYPTKIT_DER_ENABLE
+    
 	frtn = feeDERDecodeElGamalSignature(sigData, sigDataLen, &sinst->u, &sinst->PmX);
 	if(frtn) {
 		goto abort;
 	}
-	#else
-	rtn = byteRepToSig(sigData,
-		sigDataLen,
-		FEE_SIG_VERSION,
-		&magic,
-		&version,
-		&minVersion,
-		&sinst->u,
-		&sinst->PmX);
-	if(rtn == 0) {
-		frtn = FR_BadSignatureFormat;
-		goto abort;
-	}
-	switch(magic) {
-	    case FEE_ECDSA_MAGIC:
-	    	frtn = FR_WrongSignatureType;		// ECDSA!
-		goto abort;
-	    case FEE_SIG_MAGIC:
-	    	break;					// proceed
-	    default:
-	    	frtn = FR_BadSignatureFormat;
-		goto abort;
-	}
-	#endif		/* CRYPTKIT_DER_ENABLE */
+	
 	
 	#if	SIG_DEBUG
 	if(sigDebug) {
@@ -440,8 +383,6 @@ abort:
  */
 
 #define LOG_BAD_SIG	0
-
-#if	CRYPTKIT_ELL_PROJ_ENABLE
 
 feeReturn feeSigVerifyNoProj(feeSig sig,
 	const unsigned char *data,
@@ -548,12 +489,6 @@ feeReturn feeSigVerify(feeSig sig,
     	returnPointProj(&scratch);
 	return frtn;
 }
-
-#else	/* CRYPTKIT_ELL_PROJ_ENABLE */
-
-#define feeSigVerifyNoProj(s, d, l, k) feeSigVerify(s, d, l, k)
-
-#endif	/* CRYPTKIT_ELL_PROJ_ENABLE */
 
 /*
  * FEE_SIG_USING_PROJ true  : this is the "no Weierstrass" case
@@ -671,10 +606,8 @@ feeReturn feeSigSize(
 	if(cp == NULL) {
 		return FR_BadPubKey;
 	}
-	#if	CRYPTKIT_DER_ENABLE
+    
 	*maxSigLen = feeSizeOfDERSig(cp->basePrime, cp->basePrime);
-	#else
-	*maxSigLen = (unsigned)lengthOfByteRepSig(cp->basePrime, cp->basePrime);
-	#endif
+	
 	return FR_Success;
 }

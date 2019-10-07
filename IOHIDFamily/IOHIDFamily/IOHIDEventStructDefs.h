@@ -663,6 +663,12 @@ typedef struct {
         struct {
             uint32_t usage;
         } deviceOrientation;
+        struct {
+            IOFixed w;
+            IOFixed x;
+            IOFixed y;
+            IOFixed z;
+        } quaternion;
     } orientation;
 } IOHIDOrientationEventData;
 

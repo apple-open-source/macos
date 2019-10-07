@@ -27,6 +27,7 @@
 #import <CloudKit/CloudKit.h>
 #import <CloudKit/CloudKit_Private.h>
 
+#import "keychain/ot/OTConstants.h"
 #import "keychain/ot/OTCloudStore.h"
 #import "keychain/ot/OTCloudStoreState.h"
 #import "keychain/ckks/CKKSZoneStateEntry.h"
@@ -34,6 +35,8 @@
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ckks/CKKSReachabilityTracker.h"
 #import <utilities/debugging.h>
+
+#import "keychain/ckks/CKKSZoneModifier.h"
 
 
 NS_ASSUME_NONNULL_BEGIN
@@ -78,7 +81,6 @@ static NSString* const bottledPeerTable = @"bp";
 static NSString* const octagonZoneName = @"OctagonTrustZone";
 
 /* Octagon Cloud Kit defines */
-static NSString* OTCKContainerName = @"com.apple.security.keychain";
 static NSString* OTCKZoneName = @"OctagonTrust";
 static NSString* OTCKRecordName = @"bp-";
 static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
@@ -94,7 +96,7 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
 @property (nonatomic, strong) NSError* error;
 @end
 
-@class CKKSAPSReceiver;
+@class OctagonAPSReceiver;
 
 @interface OTCloudStore()
 
@@ -111,17 +113,13 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
 
 - (instancetype) initWithContainer:(CKContainer*) container
                           zoneName:(NSString*)zoneName
-                    accountTracker:(nullable CKKSCKAccountStateTracker*)accountTracker
+                    accountTracker:(nullable CKKSAccountStateTracker*)accountTracker
                reachabilityTracker:(nullable CKKSReachabilityTracker*)reachabilityTracker
                         localStore:(OTLocalStore*)localStore
                          contextID:(NSString*)contextID
                               dsid:(NSString*)dsid
-fetchRecordZoneChangesOperationClass:(Class<CKKSFetchRecordZoneChangesOperation>) fetchRecordZoneChangesOperationClass
-        fetchRecordsOperationClass:(Class<CKKSFetchRecordsOperation>)fetchRecordsOperationClass
-               queryOperationClass:(Class<CKKSQueryOperation>)queryOperationClass
- modifySubscriptionsOperationClass:(Class<CKKSModifySubscriptionsOperation>) modifySubscriptionsOperationClass
-   modifyRecordZonesOperationClass:(Class<CKKSModifyRecordZonesOperation>) modifyRecordZonesOperationClass
-                apsConnectionClass:(Class<CKKSAPSConnection>) apsConnectionClass
+                      zoneModifier:(CKKSZoneModifier*)zoneModifier
+         cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
                     operationQueue:(nullable NSOperationQueue *)operationQueue
 {
     
@@ -129,12 +127,8 @@ fetchRecordZoneChangesOperationClass:(Class<CKKSFetchRecordZoneChangesOperation>
                            zoneName:zoneName
                      accountTracker:accountTracker
                 reachabilityTracker:reachabilityTracker
-fetchRecordZoneChangesOperationClass:fetchRecordZoneChangesOperationClass
-         fetchRecordsOperationClass:fetchRecordsOperationClass
-                queryOperationClass:queryOperationClass
-  modifySubscriptionsOperationClass:modifySubscriptionsOperationClass
-    modifyRecordZonesOperationClass:modifyRecordZonesOperationClass
-                 apsConnectionClass:apsConnectionClass];
+                       zoneModifier:zoneModifier
+          cloudKitClassDependencies:cloudKitClassDependencies];
     
     if(self){
         if (!operationQueue) {
@@ -146,7 +140,7 @@ fetchRecordZoneChangesOperationClass:fetchRecordZoneChangesOperationClass
         _dsid = [dsid copy];
         _operationQueue = operationQueue;
         self.queue = dispatch_queue_create([[NSString stringWithFormat:@"OctagonTrustQueue.%@.zone.%@", container.containerIdentifier, zoneName] UTF8String], DISPATCH_QUEUE_SERIAL);
-        [self initializeZone];
+        [self beginCloudKitOperation];
     }
     return self;
     
@@ -165,7 +159,7 @@ fetchRecordZoneChangesOperationClass:fetchRecordZoneChangesOperationClass
         CKFetchRecordZoneChangesConfiguration* options = [[CKFetchRecordZoneChangesConfiguration alloc] init];
         options.previousServerChangeToken = state.changeToken;
 
-        self.fetchRecordZoneChangesOperation = [[[self.fetchRecordZoneChangesOperationClass class] alloc] initWithRecordZoneIDs:@[self.zoneID] configurationsByRecordZoneID:@{self.zoneID : options}];
+        self.fetchRecordZoneChangesOperation = [[[self.cloudKitClassDependencies.fetchRecordZoneChangesOperationClass class] alloc] initWithRecordZoneIDs:@[self.zoneID] configurationsByRecordZoneID:@{self.zoneID : options}];
 
         self.fetchRecordZoneChangesOperation.recordChangedBlock = ^(CKRecord *record) {
             secinfo("octagon", "CloudKit notification: record changed(%@): %@", [record recordType], record);
@@ -173,7 +167,7 @@ fetchRecordZoneChangesOperationClass:fetchRecordZoneChangesOperationClass
 
             if(!strongSelf) {
                 secnotice("octagon", "received callback for released object");
-                fetchOp.error = [NSError errorWithDomain:octagonErrorDomain code:OTErrorOTCloudStore userInfo:@{NSLocalizedDescriptionKey: @"received callback for released object"}];
+                fetchOp.error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorOTCloudStore userInfo:@{NSLocalizedDescriptionKey: @"received callback for released object"}];
 
                 fetchOp.descriptionErrorCode = CKKSResultDescriptionPendingBottledPeerFetchRecords;
 
@@ -257,7 +251,7 @@ fetchRecordZoneChangesOperationClass:fetchRecordZoneChangesOperationClass
             __strong __typeof(weakSelf) strongSelf = weakSelf;
             if(!strongSelf) {
                 secnotice("octagon", "received callback for released object");
-                fetchOp.error = [NSError errorWithDomain:octagonErrorDomain code:OTErrorOTCloudStore userInfo:@{NSLocalizedDescriptionKey: @"received callback for released object"}];
+                fetchOp.error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorOTCloudStore userInfo:@{NSLocalizedDescriptionKey: @"received callback for released object"}];
                 fetchOp.descriptionErrorCode = CKKSResultDescriptionPendingBottledPeerFetchRecords;
                 return;
             }
@@ -390,7 +384,7 @@ fetchRecordZoneChangesOperationClass:fetchRecordZoneChangesOperationClass
     if(record == nil){
         secerror("octagon: failed to create cloud kit record");
         if(error){
-            *error = [NSError errorWithDomain:octagonErrorDomain code:OTErrorOTCloudStore userInfo:@{NSLocalizedDescriptionKey: @"failed to create cloud kit record"}];
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorOTCloudStore userInfo:@{NSLocalizedDescriptionKey: @"failed to create cloud kit record"}];
         }
         return nil;
     }
@@ -420,6 +414,7 @@ fetchRecordZoneChangesOperationClass:fetchRecordZoneChangesOperationClass
         // Currently done during buddy. User is waiting.
         self.modifyRecordsOperation.configuration.automaticallyRetryNetworkFailures = NO;
         self.modifyRecordsOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
+        self.modifyRecordsOperation.configuration.isCloudKitSupportOperation = YES;
 
         self.modifyRecordsOperation.savePolicy = CKRecordSaveIfServerRecordUnchanged;
 
@@ -451,7 +446,7 @@ fetchRecordZoneChangesOperationClass:fetchRecordZoneChangesOperationClass
             }
             if(!strongSelf) {
                 secerror("octagon: received callback for released object");
-                modifyOp.error = [NSError errorWithDomain:octagonErrorDomain code:OTErrorOTCloudStore userInfo:@{NSLocalizedDescriptionKey: @"received callback for released object"}];
+                modifyOp.error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorOTCloudStore userInfo:@{NSLocalizedDescriptionKey: @"received callback for released object"}];
                 modifyOp.descriptionErrorCode = CKKSResultDescriptionPendingBottledPeerModifyRecords;
                 [strongSelf.operationQueue addOperation:modifyOp];
                 return;
@@ -593,7 +588,7 @@ fetchRecordZoneChangesOperationClass:fetchRecordZoneChangesOperationClass
 
         [strongSelf dispatchSync: ^bool {
             ckksnotice("octagon", strongSelf, "Zone setup progress: %@ %d %@ %d %@",
-                       [CKKSCKAccountStateTracker stringFromAccountStatus:strongSelf.accountStatus],
+                       [CKKSAccountStateTracker stringFromAccountStatus:strongSelf.accountStatus],
                        strongSelf.zoneCreated, strongSelf.zoneCreatedError, strongSelf.zoneSubscribed, strongSelf.zoneSubscribedError);
 
             NSError* error = nil;

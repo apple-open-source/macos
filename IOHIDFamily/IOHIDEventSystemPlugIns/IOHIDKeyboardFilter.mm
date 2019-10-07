@@ -24,6 +24,8 @@
 #include <IOKit/hidsystem/event_status_driver.h>
 #include <IOKit/hidsystem/IOHIDShared.h>
 #include <IOKit/hid/IOHIDServiceKeys.h>
+#include <IOKit/hid/IOHIDEventServiceTypes.h>
+#include <IOKit/hidsystem/IOHIDParameter.h>
 #include "IOHIDFamilyPrivate.h"
 #include <IOKit/IOKitLib.h>
 #include <IOKit/usb/USB.h>
@@ -41,6 +43,15 @@
 #include "IOHIDKeys.h"
 #include "IOHIDevicePrivateKeys.h"
 
+#ifdef DEBUG_ASSERT_MESSAGE
+#undef DEBUG_ASSERT_MESSAGE
+#endif
+
+#define DEBUG_ASSERT_MESSAGE(name, assertion, label, message, file, line, value) \
+    HIDLogError("AssertMacros: %s, %s", assertion, (message!=0) ? message : "");
+
+#include <AssertMacros.h>
+
 #import "AppleKeyboardStateManager.h"
 
 #define kCapsLockDelayMS    75
@@ -51,7 +62,7 @@
 #define kMouseKeyActivationCount      5
 #define kMouseKeyActivationReset      30
 
-#if TARGET_OS_EMBEDDED // Repeats handled in backboard on embedded platforms
+#if TARGET_OS_IPHONE // Repeats handled in backboard on embedded platforms
 #define kInitialKeyRepeatMS 0
 #define kKeyRepeatMS        0
 #define kMinKeyRepeatMS     0
@@ -60,6 +71,11 @@
 #define kKeyRepeatMS        83 // 1/12 sec
 #define kMinKeyRepeatMS     16 // 1/60 sec
 #endif
+
+#define kHIDNonEscKeyKeyboardDesignANSIID 58
+#define kHIDNonEscKeyKeyboardDesignISOID 59
+#define kHIDNonEscKeyKeyboardDesignJISID 60
+
 
 // Legacy modifier key values
 // Used for compatibility with old modifier key remapping property
@@ -97,7 +113,7 @@ bool    isModifier(UInt32 usagePage, UInt32 usage);
 bool    isShiftKey(UInt32 usagePage, UInt32 usage);
 bool    isNotRepeated(UInt32 usagePage, UInt32 usage);
 bool    isStickyModifier(UInt32 usagePage, UInt32 usage);
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 static  NXEventHandle openHIDSystem(void);
 #endif
 
@@ -173,7 +189,7 @@ _delayedCapsLockEvent(0),
 _capsLockDelayMS(kCapsLockDelayMS),
 _capsLockDelayOverrideMS(-1),
 _numLockOn (0),
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 _delayedEjectKeyEvent(NULL),
 _ejectKeyDelayMS(kEjectKeyDelayMS),
 _mouseKeyActivationEnable(false),
@@ -191,8 +207,8 @@ _slowKeysTimer(0),
 _keyRepeatTimer(0),
 _capsLockDelayTimer(0),
 _restoreState(nil),
-_locationID(nil)
-
+_locationID(nil),
+_stickyKeyHandler(nil)
 {
     CFPlugInAddInstanceForFactory( factoryID );
     for (int i = 0; i < MAX_STICKY_KEYS; i++) {
@@ -276,6 +292,38 @@ ULONG IOHIDKeyboardFilter::Release()
     return _refCount;
 }
 
+void IOHIDKeyboardFilter::setEjectKeyProperty(uint32_t keyboardID)
+{
+    bool supported = false;
+    id val = nil;
+    
+    NSNumber *up = CFBridgingRelease(IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDPrimaryUsagePageKey)));
+    NSNumber *u = CFBridgingRelease(IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDPrimaryUsageKey)));
+    NSNumber *vid = CFBridgingRelease(IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDVendorIDKey)));
+    
+    require(up.unsignedIntValue == kHIDPage_GenericDesktop &&
+            u.unsignedIntValue == kHIDUsage_GD_Keyboard &&
+            vid.unsignedIntValue == kIOUSBVendorIDAppleComputer, exit);
+    
+    // no virtual devices, like DFR keyboard
+    val = CFBridgingRelease(IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDVirtualHIDevice)));
+    require(!val, exit);
+    
+    if (((keyboardID >= 0xc3) && (keyboardID <= 0xc9)) ||
+        ((keyboardID >= 0x28) && (keyboardID <= 0x2a)) ||
+        keyboardID <= 0x1e) {
+        supported = true;
+    }
+    require(supported, exit);
+    
+    IOHIDServiceSetProperty(_service,
+                            CFSTR(kIOHIDKeyboardSupportsF12EjectKey),
+                            kCFBooleanTrue);
+    
+exit:
+    return;
+}
+
 //------------------------------------------------------------------------------
 // IOHIDKeyboardFilter::open
 //------------------------------------------------------------------------------
@@ -296,34 +344,29 @@ void IOHIDKeyboardFilter::open(IOHIDServiceRef service, IOOptionBits options)
     _restoreState = CFBridgingRelease(IOHIDServiceCopyProperty(service, (__bridge CFStringRef)@kIOHIDKeyboardRestoreStateKey));
     _locationID = CFBridgingRelease(IOHIDServiceCopyProperty(service, (__bridge CFStringRef)@kIOHIDLocationIDKey));
 
-#if !TARGET_OS_EMBEDDED
-    uint32_t keyboardID;
+#if TARGET_OS_OSX
+    uint32_t keyboardID = 0;
     value = IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDSubinterfaceIDKey));
     if (value == NULL) {
         keyboardID = getKeyboardID();
         value = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &keyboardID);
         if (value) {
             IOHIDServiceSetProperty(_service, CFSTR(kIOHIDSubinterfaceIDKey), value);
-            CFRelease(value);
         }
-    } else {
+    }
+    if (value) {
         CFNumberGetValue((CFNumberRef)value, kCFNumberSInt32Type, &keyboardID);
         CFRelease(value);
     }
-    value = IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDKeyboardSupportsF12EjectKey));
-    if (value == NULL) {
-        boolean_t f12Support = false;
-        if (((keyboardID >= 0xc3) && (keyboardID <= 0xc9)) ||
-            ((keyboardID >= 0x28) && (keyboardID <= 0x2a)) ||
-              keyboardID <= 0x1e) {
-            f12Support = true;
-        }
-        IOHIDServiceSetProperty(_service, CFSTR(kIOHIDKeyboardSupportsF12EjectKey), f12Support ? kCFBooleanTrue : kCFBooleanFalse);
-    } else {
-        CFRelease(value);
+    
+    setEjectKeyProperty(keyboardID);
+
+    if (keyboardID == kHIDNonEscKeyKeyboardDesignANSIID || keyboardID == kHIDNonEscKeyKeyboardDesignISOID || keyboardID == kHIDNonEscKeyKeyboardDesignJISID) {
+        
+        IOHIDServiceSetProperty(_service, CFSTR(kIOHIDKeyboardSupportsEscKey), kCFBooleanFalse);
     }
 #endif
-
+    
     value = IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDKeyboardSupportedModifiersKey));
     if (value) {
         if (CFGetTypeID(value) == CFNumberGetTypeID()) {
@@ -362,7 +405,7 @@ void IOHIDKeyboardFilter::open(IOHIDServiceRef service, IOOptionBits options)
     if (propDict) {
         
         value = CFDictionaryGetValue(propDict, CFSTR("HIDCapsLockStateCache"));
-        _capsLockState = ( value ? CFBooleanGetValue((CFBooleanRef)value) : false );
+        _capsLockLEDState = _capsLockState = ( value ? CFBooleanGetValue((CFBooleanRef)value) : false );
         
         value = CFDictionaryGetValue(propDict, CFSTR(kIOHIDServiceCapsLockLEDInhibitKey));
         _capsLockLEDInhibit = ( value ? CFBooleanGetValue((CFBooleanRef)value) : false );
@@ -416,7 +459,7 @@ void IOHIDKeyboardFilter::open(IOHIDServiceRef service, IOOptionBits options)
             }
         }
       
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
         value = CFDictionaryGetValue(propDict, CFSTR(kIOHIDServiceEjectDelayKey));
         if (value) {
             CFNumberGetValue((CFNumberRef)value, kCFNumberSInt32Type, &_ejectKeyDelayMS);
@@ -461,6 +504,9 @@ void IOHIDKeyboardFilter::scheduleWithDispatchQueue(dispatch_queue_t queue)
     
     _queue = queue;
     
+    _stickyKeyHandler = [[StickyKeyHandler alloc] initWithFilter:this
+                                                         service:_service];
+    
     _stickyKeysShiftResetTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _queue);
     if (_stickyKeysShiftResetTimer != NULL) {
         dispatch_source_set_event_handler(_stickyKeysShiftResetTimer, ^{
@@ -502,7 +548,7 @@ void IOHIDKeyboardFilter::scheduleWithDispatchQueue(dispatch_queue_t queue)
         dispatch_resume(_capsLockDelayTimer);
     }
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     _mouseKeyActivationResetTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _queue);
     if (_mouseKeyActivationResetTimer != NULL) {
         dispatch_source_set_event_handler(_mouseKeyActivationResetTimer, ^{
@@ -552,7 +598,7 @@ void IOHIDKeyboardFilter::unscheduleFromDispatchQueue(__unused dispatch_queue_t 
 {
     
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     if (_mouseKeyActivationResetTimer) {
         dispatch_source_cancel(_mouseKeyActivationResetTimer);
     }
@@ -576,11 +622,14 @@ void IOHIDKeyboardFilter::unscheduleFromDispatchQueue(__unused dispatch_queue_t 
     }
   
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     if (_ejectKeyDelayTimer) {
         dispatch_source_cancel(_ejectKeyDelayTimer);
     }
 #endif
+    
+    [_stickyKeyHandler removeObserver];
+    
     __block IOHIDServiceRef service = (IOHIDServiceRef)CFRetain(_service);
     
     dispatch_async(_queue, ^(void){
@@ -591,7 +640,7 @@ void IOHIDKeyboardFilter::unscheduleFromDispatchQueue(__unused dispatch_queue_t 
             CFRelease(_slowKeysSlowEvent);
             _slowKeysSlowEvent = NULL;
         }
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
         if (_keyRepeatEvent) {
             CFRelease(_keyRepeatEvent);
             _keyRepeatEvent = NULL;
@@ -605,6 +654,7 @@ void IOHIDKeyboardFilter::unscheduleFromDispatchQueue(__unused dispatch_queue_t 
             CFRelease(_delayedCapsLockEvent);
             _delayedCapsLockEvent = NULL;
         }
+        
         CFRelease(service);
     });
     
@@ -799,12 +849,12 @@ void IOHIDKeyboardFilter::setPropertyForClient(CFStringRef key,CFTypeRef propert
             } else {
                 _slowKeysDelayMS =  _slowKeysDelayMS < kSlowKeyMinMS ? kSlowKeyMinMS : _slowKeysDelayMS;
                 resetCapsLockDelay();
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
                 resetEjectKeyDelay();
 #endif
             }
         }
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     } else if (CFStringCompare(key, CFSTR(kIOHIDServiceEjectDelayKey), kNilOptions) == kCFCompareEqualTo) {
         if ( property && CFGetTypeID(property) == CFNumberGetTypeID() )
         {
@@ -834,24 +884,7 @@ void IOHIDKeyboardFilter::setPropertyForClient(CFStringRef key,CFTypeRef propert
             }
             
         }
-    } else if (CFEqual(key,CFSTR(kIOHIDResetStickyKeyNotification))) {
-       //reset in flight modifier key
-       if (_queue) {
-         
-            updateStickyKeysState(kStickyKeyState_Down_Locked, kStickyKeyState_Down_Unlocked);
-         
-            dispatch_async(_queue, ^{
-                dispatchStickyKeys(kStickyKeyState_Down);
-            });
-       }
-       //reset in flight mouse key activation
-#if !TARGET_OS_EMBEDDED
-       _mouseKeyActivationCount = 0;
-#endif       
-       //reset in flight sticky key activation
-       _stickyKeysShiftKeyCount = 0;
-       
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     } else if (CFEqual(key, CFSTR (kIOHIDMouseKeysOnKey)) && property) {
           
         CFNumberGetValue((CFNumberRef)property, kCFNumberSInt32Type, &_numLockOn);
@@ -930,19 +963,47 @@ IOHIDEventRef IOHIDKeyboardFilter::filter(void * self, IOHIDEventRef event)
     return static_cast<IOHIDKeyboardFilter *>(self)->filter(event);
 }
 
+void IOHIDKeyboardFilter::dispatchEventCopy(IOHIDEventRef event)
+{
+    UInt32 usagePage = 0;
+    UInt32 usage = 0;
+    bool keyState = 0;
+    
+    usage       = (UInt32)IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardUsage);
+    usagePage   = (UInt32)IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardUsagePage);
+    
+    if (usagePage != kHIDPage_KeyboardOrKeypad || usage != kHIDUsage_KeyboardCapsLock) {
+        return;
+    }
+    
+    keyState = (bool)IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardDown);
+    
+    IOHIDEventRef keyboardVendorEvent = IOHIDEventCreateVendorDefinedEvent(kCFAllocatorDefault, mach_absolute_time(), kHIDPage_AppleVendorKeyboard, kHIDUsage_AppleVendorKeyboard_CapsLockState,0, (uint8_t*)&keyState,sizeof(keyState),kIOHIDEventOptionIsZeroEvent);
+    
+    if (keyboardVendorEvent) {
+        _eventCallback(_eventTarget, _eventContext, &_serviceInterface, keyboardVendorEvent, 0);
+        CFRelease(keyboardVendorEvent);
+    }
+}
+
 IOHIDEventRef IOHIDKeyboardFilter::filter(IOHIDEventRef event)
 {
     IOHIDEventSenderID serviceID = 0;
+    uint32_t options = 0;
     
     if (!event || IOHIDEventGetType(event) != kIOHIDEventTypeKeyboard) {
         return event;
     }
 
     serviceID = IOHIDEventGetSenderID(event);
+    options = IOHIDEventGetEventFlags(event);
     
     do
     {
         processFnKeyState(event);
+        
+        dispatchEventCopy(event);
+        
         event = processKeyMappings(event);
         
         if (_slowKeysDelayMS) {
@@ -953,7 +1014,7 @@ IOHIDEventRef IOHIDKeyboardFilter::filter(IOHIDEventRef event)
             event = processCapsLockDelay(event);
         }
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
         if (!_slowKeysDelayMS && _ejectKeyDelayMS && !isModifiersPressed()) {
             event = processEjectKeyDelay(event);
         }
@@ -965,13 +1026,15 @@ IOHIDEventRef IOHIDKeyboardFilter::filter(IOHIDEventRef event)
         
         processCapsLockState(event);
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
         if (_mouseKeyActivationEnable) {
             event = processMouseKeys(event);
         }
 #endif
         // Process key repeats if both key delays are set.
-        if (_keyRepeatInitialDelayMS) {
+        
+        if (_keyRepeatInitialDelayMS &&
+            !(options & kIOHIDKeyboardEventOptionsNoKeyRepeat)) {
             if (_slowKeysDelayMS) {
                 event = processKeyRepeats(event, kSlowRepeatDelayMS, kSlowRepeatDelayMS);
             } else {
@@ -1181,6 +1244,12 @@ bool isNotRepeated(UInt32 usagePage, UInt32 usage)
     }
     
     else if (usagePage == kHIDPage_Telephony) {
+        isNotRepeated = true;
+    }
+    
+    else if (usagePage == kHIDPage_AppleVendorKeyboard &&
+             usage == kHIDUsage_AppleVendorKeyboard_CapsLockState) {
+        
         isNotRepeated = true;
     }
     
@@ -1539,6 +1608,23 @@ UInt32 IOHIDKeyboardFilter::processStickyKeyUp(UInt32 usagePage, UInt32 usage, U
 }
 
 //------------------------------------------------------------------------------
+// IOHIDKeyboardFilter::resetStickyKeys
+//------------------------------------------------------------------------------
+void IOHIDKeyboardFilter::resetStickyKeys()
+{
+    dispatch_async(_queue, ^{
+        updateStickyKeysState(kStickyKeyState_Down_Locked, kStickyKeyState_Down_Unlocked);
+        
+        dispatchStickyKeys(kStickyKeyState_Down);
+        
+#if TARGET_OS_OSX
+        _mouseKeyActivationCount = 0;
+#endif
+        _stickyKeysShiftKeyCount = 0;
+    });
+}
+
+//------------------------------------------------------------------------------
 // IOHIDKeyboardFilter::updateStickyKeysState
 //------------------------------------------------------------------------------
 void IOHIDKeyboardFilter::updateStickyKeysState(StickyKeyState from, StickyKeyState to) {
@@ -1621,7 +1707,7 @@ void IOHIDKeyboardFilter::processShiftKey(void)
       
         IOHIDServiceSetProperty(_service, CFSTR(kIOHIDServiceStickyKeysOnKey), (_stickyKeyOn ? kCFBooleanTrue : kCFBooleanFalse));
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
         setHIDSystemParam (CFSTR(kIOHIDStickyKeysOnKey), _stickyKeyOn ? 0 : 1);
 #endif        
         if (_stickyKeyOn) {
@@ -1822,7 +1908,7 @@ IOHIDEventRef IOHIDKeyboardFilter::processSlowKeys(IOHIDEventRef event)
     usagePage   = (UInt32)IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardUsagePage);
     keyDown     = (UInt32)IOHIDEventGetIntegerValue(event, kIOHIDEventFieldKeyboardDown);
     
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     // 29559398: slow key should not be allowed for mesa button since
     // triple-click is used to bring up accessibility options.
     if (usagePage == kHIDPage_Consumer && usage == kHIDUsage_Csmr_Menu) {
@@ -1831,7 +1917,7 @@ IOHIDEventRef IOHIDKeyboardFilter::processSlowKeys(IOHIDEventRef event)
 #endif
  
     if (keyDown) {
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
         if (_slowKeysSlowEvent &&
             ((UInt32)IOHIDEventGetIntegerValue(_slowKeysSlowEvent, kIOHIDEventFieldKeyboardUsage) != usage ||
              (UInt32)IOHIDEventGetIntegerValue(_slowKeysSlowEvent, kIOHIDEventFieldKeyboardUsagePage)!= usagePage)) {
@@ -2088,7 +2174,7 @@ exit:
     return event;
 }
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 //------------------------------------------------------------------------------
 // IOHIDKeyboardFilter::resetEjectKeyDelay
 //------------------------------------------------------------------------------
@@ -2310,7 +2396,7 @@ void IOHIDKeyboardFilter::setCapsLockState(boolean_t state, CFTypeRef client) {
     
     HIDLogInfo("[%@] Set capslock state: %d client: %@", SERVICE_ID, state, client);
     
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     updateCapslockLED(client);
 #endif
 }
@@ -2319,15 +2405,19 @@ void IOHIDKeyboardFilter::setCapsLockState(boolean_t state, CFTypeRef client) {
 // IOHIDKeyboardFilter::updateCapslockLED
 //------------------------------------------------------------------------------
 void IOHIDKeyboardFilter::updateCapslockLED(CFTypeRef client) {
-  
+    bool prevState = _capsLockLEDState;
+    
     if ((_supportedModifiers & NX_ALPHASHIFT_STATELESS_MASK) == 0) {
         return;
     }
 
-    _capsLockLEDState = _capsLockState;
+    // _capsLockLEDState remain the same as last time if inhibit is called.
     if (CFEqual(_capsLockLED,  kIOHIDServiceCapsLockLEDKey_Inhibit)) {
       return;
-    } else if (CFEqual(_capsLockLED,  kIOHIDServiceCapsLockLEDKey_On)) {
+    }
+     _capsLockLEDState = _capsLockState;
+
+    if (CFEqual(_capsLockLED,  kIOHIDServiceCapsLockLEDKey_On)) {
         _capsLockLEDState = true;
     } else if (CFEqual(_capsLockLED,  kIOHIDServiceCapsLockLEDKey_Off)) {
         _capsLockLEDState = false;
@@ -2335,8 +2425,8 @@ void IOHIDKeyboardFilter::updateCapslockLED(CFTypeRef client) {
         // this is wrong  and we want to deprecate , keep it to maintain compatibility
         _capsLockLEDState = false;
     }
-    
-    if (_service) {
+        
+    if (_service && (prevState != _capsLockLEDState)) {
         HIDLogInfo("[%@] Set capslock LED: %d client: %@", SERVICE_ID, _capsLockLEDState, client);
         IOHIDServiceSetElementValue(_service, kHIDPage_LEDs, kHIDUsage_LED_CapsLock, _capsLockLEDState);
     }
@@ -2394,7 +2484,7 @@ bool IOHIDKeyboardFilter::isDelayedEvent(IOHIDEventRef event)
     return result;
 }
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 //------------------------------------------------------------------------------
 // IOHIDKeyboardFilter::getKeyboardID
 //------------------------------------------------------------------------------
@@ -2530,3 +2620,42 @@ static NXEventHandle openHIDSystem(void)
 }
 
 #endif
+
+@implementation StickyKeyHandler {
+    IOHIDKeyboardFilter *_filter;
+    IOHIDServiceRef _service;
+}
+
+- (id)initWithFilter:(IOHIDKeyboardFilter *)filter service:(IOHIDServiceRef)service
+{
+    self = [super init];
+    if (!self) {
+        return self;
+    }
+    
+    _filter = filter;
+    _service = service;
+    
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(StickyKeyNotification:)
+                                                 name:@(kIOHIDResetStickyKeyNotification)
+                                               object:nil];
+    
+    return self;
+}
+
+- (void)StickyKeyNotification:(NSNotification *)notification;
+{
+    if ((__bridge IOHIDServiceRef)notification.object != _service) {
+        _filter->resetStickyKeys();
+    }
+}
+
+- (void)removeObserver
+{
+    [[NSNotificationCenter defaultCenter] removeObserver:self
+                                                    name:@(kIOHIDResetStickyKeyNotification)
+                                                  object:nil];
+}
+
+@end

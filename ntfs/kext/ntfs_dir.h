@@ -60,7 +60,7 @@ typedef struct {
 } ntfs_dir_lookup_name;
 
 /* The little endian Unicode string $I30 as a global constant. */
-__private_extern__ ntfschar I30[5];
+__attribute__((visibility("hidden"))) extern ntfschar I30[5];
 
 __private_extern__ errno_t ntfs_lookup_inode_by_name(ntfs_inode *dir_ni,
 		const ntfschar *uname, const signed uname_len,

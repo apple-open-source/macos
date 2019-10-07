@@ -652,7 +652,7 @@ IPConfigurationServiceSetServiceID(IPConfigurationServiceRef service,
  ** IPConfigurationService APIs
  **/
 
-PRIVATE_EXTERN CFTypeID
+CFTypeID
 IPConfigurationServiceGetTypeID(void)
 {
     __IPConfigurationServiceRegisterClass();

@@ -57,7 +57,6 @@
 
 @interface RateLimiterTests : XCTestCase
 @property NSDictionary *config;
-@property NSString *filepath;
 @property NSDate *time;
 @property RateLimiter *RL;
 @property TestObject *obj;
@@ -126,21 +125,9 @@
     if (!_config) {
         XCTFail(@"Could not deserialize property list: %@", err);
     }
-    _filepath = [NSString stringWithFormat:@"/tmp/ratelimitertests_%@.plist", [[NSUUID UUID] UUIDString]];
-    if (![configData writeToFile:_filepath atomically:NO]) {
-        XCTFail(@"Could not write plist to %@", _filepath);
-    }
     _RL = [[RateLimiter alloc] initWithConfig:_config];
     _obj = [TestObject new];
     _time = [NSDate date];
-}
-
-- (void)tearDown {
-    NSError *err = nil;
-    if (![[NSFileManager defaultManager] removeItemAtPath:_filepath error:&err]) {
-        XCTFail(@"Couldn't delete file %@: %@", _filepath, err);
-    }
-    [super tearDown];
 }
 
 - (void)testInitWithConfig {
@@ -148,15 +135,6 @@
     XCTAssertNotNil(self.RL, @"RateLimiter with config succeeds");
     XCTAssertNil(self.RL.assetType, @"initWithConfig means no assetType");
     XCTAssertEqualObjects(self.config, self.RL.config, @"config was copied properly");
-}
-
-- (void)testInitWithPlist {
-    RateLimiter *RL = [[RateLimiter alloc] initWithPlistFromURL:[NSURL URLWithString:[NSString stringWithFormat:@"file://%@", self.filepath]]];
-    XCTAssertNotNil(RL, @"RateLimiter with plist succeeds");
-    XCTAssertNil(RL.assetType, @"initWithPlist means no assetType");
-    XCTAssertEqualObjects(self.config, RL.config, @"config was loaded properly");
-    RL = [[RateLimiter alloc] initWithPlistFromURL:[NSURL URLWithString:[NSString stringWithFormat:@"file://%@.nonexisting", self.filepath]]];
-    XCTAssertNil(RL, "Cannot instantiate RateLimiter with invalid plist URL");
 }
 
 - (void)testEncodingAndDecoding {
@@ -177,11 +155,6 @@
     XCTAssertEqualObjects(self.RL.config, RL2.config, @"config is the same after encoding and decoding");
     XCTAssertTrue([self.RL isEqual:RL2], @"RateLimiters believe they are the same");
     XCTAssertNil(RL2.assetType, @"assetType remains nil");
-}
-
-- (void)testInitWithAssetType {
-    // Not implemented yet, expect nil
-    XCTAssertNil([[RateLimiter alloc] initWithAssetType:@"test"]);
 }
 
 - (void)testReset {
@@ -231,7 +204,7 @@
 
     // While check is performed at the start of the loop, so now stateSize > maxStateSize. Judge should realize this right away, try to cope, fail and throw a fit
     XCTAssertEqual([self.RL judge:self.obj at:self.time limitTime:&limitTime], RateLimiterBadnessOverloaded, @"RateLimiter overloaded");
-    XCTAssertEqualObjects(limitTime, [self.time dateByAddingTimeInterval:[self.config[@"general"][@"overloadDuration"] intValue]], @"Overload duration matches expectations");
+    XCTAssertEqualObjects(limitTime, [self.time dateByAddingTimeInterval:[self.config[@"general"][@"overloadDuration"] unsignedIntValue]], @"Overload duration matches expectations");
 }
 
 - (void)testTrimmingDueToTime {

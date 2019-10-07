@@ -37,20 +37,24 @@
 #include <asl.h>
 #include <AssertMacros.h>
 #include "IOHIDDevicePlugIn.h"
-#include "IOHIDDevice.h"
+#include "IOHIDDevicePrivate.h"
 #include "IOHIDQueue.h"
 #include "IOHIDElement.h"
 #include "IOHIDTransaction.h"
 #include "IOHIDLibPrivate.h"
 #include "IOHIDManagerPersistentProperties.h"
+#include <os/assumes.h>
+#include <dispatch/private.h>
+#include "HIDDeviceIvar.h"
+
+typedef struct  __IOHIDDevice {
+    struct objc_object base;
+    struct {
+    HIDDeviceIvar
+    };
+} __IOHIDDevice;
 
 //------------------------------------------------------------------------------
-static IOHIDDeviceRef   __IOHIDDeviceCreate(
-                                    CFAllocatorRef          allocator, 
-                                    CFAllocatorContext *    context __unused);
-static void             __IOHIDDeviceExtRelease( CFTypeRef object );
-static void             __IOHIDDeviceIntRelease( CFTypeRef object );
-static void             __IOHIDDeviceRegister(void);
 static CFArrayRef       __IOHIDDeviceCopyMatchingInputElements(
                                     IOHIDDeviceRef          device, 
                                     CFArrayRef              multiple);
@@ -115,8 +119,7 @@ static void             __IOHIDDeviceTransactionCallback(
 static Boolean          __IOHIDDeviceCallbackBaseDataIsEqual(
                                     const void *            value1,
                                     const void *            value2);
-
-static CFStringRef      __IOHIDDeviceCopyDebugDescription(CFTypeRef cf);
+static Boolean          __IOHIDDeviceSetupAsyncSupport(IOHIDDeviceRef device);
 
 //------------------------------------------------------------------------------
 typedef struct {
@@ -165,60 +168,16 @@ typedef struct {
     IOHIDDeviceRef                      device;
 } IOHIDDeviceReportCallbackInfo;
 
-typedef struct __IOHIDDevice
-{
-    IOHIDObjectBase                 hidBase;
-
-    io_service_t                    service;
-    IOHIDDeviceDeviceInterface**    deviceInterface;
-    IOHIDDeviceTimeStampedDeviceInterface** deviceTimeStampedInterface;
-    IOCFPlugInInterface **          plugInInterface;
-    CFMutableDictionaryRef          properties;
-    CFMutableSetRef                 elements;
-    CFStringRef                     rootKey;
-    CFStringRef                     UUIDKey;
-    IONotificationPortRef           notificationPort;
-    io_object_t                     notification;
-    CFTypeRef                       asyncEventSource;
-    CFRunLoopRef                    runLoop;
-    CFStringRef                     runLoopMode;
-    
-    IOHIDQueueRef                   queue;
-    CFArrayRef                      inputMatchingMultiple;
-    Boolean                         loadProperties;
-    Boolean                         isDirty;
-    
-    // RY: This API was never meant to be thread safe.  Calling frameworks
-    // should guard against multithreaded access
-    CFMutableSetRef                 removalCallbackSet;
-    CFMutableSetRef                 inputReportCallbackSet;
-    CFMutableSetRef                 inputValueCallbackSet;
-} __IOHIDDevice, *__IOHIDDeviceRef;
-
-static const IOHIDObjectClass __IOHIDDeviceClass = {
-    {
-        .version        = _kCFRuntimeCustomRefCount,
-        .className      = "IOHIDDevice",
-        .finalize       = __IOHIDDeviceExtRelease,
-        .copyDebugDesc  = __IOHIDDeviceCopyDebugDescription,
-        .refcount       = _IOHIDObjectExtRetainCount,
-    },
-    _IOHIDObjectIntRetainCount,
-    __IOHIDDeviceIntRelease
-};
-
-static  pthread_once_t  __deviceTypeInit            = PTHREAD_ONCE_INIT;
-static  CFTypeID        __kIOHIDDeviceTypeID        = _kCFRuntimeNotATypeID;
+static dispatch_once_t  __deviceInit = 0;
 static  CFSetCallBacks  __callbackBaseSetCallbacks  = {};
 
 static CFStringRef __debugKeys[] = {CFSTR(kIOHIDTransportKey), CFSTR(kIOHIDVendorIDKey), CFSTR(kIOHIDVendorIDSourceKey), CFSTR(kIOHIDProductIDKey), CFSTR(kIOHIDManufacturerKey), CFSTR(kIOHIDProductKey), CFSTR(kIOHIDPrimaryUsagePageKey), CFSTR(kIOHIDPrimaryUsageKey), CFSTR(kIOHIDCategoryKey), CFSTR(kIOHIDReportIntervalKey), CFSTR(kIOHIDSampleIntervalKey), CFSTR(kIOHIDBatchIntervalKey)};
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// __IOHIDDeviceCopyDebugDescription
+// IOHIDDeviceCopyDescription
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-CFStringRef __IOHIDDeviceCopyDebugDescription(CFTypeRef cf)
+CFStringRef IOHIDDeviceCopyDescription(IOHIDDeviceRef device)
 {
-    IOHIDDeviceRef      device         = ( IOHIDDeviceRef ) cf;
     CFMutableStringRef  description     = NULL;
     CFStringRef         subDescription  = NULL;
     io_name_t           name            = "";
@@ -238,13 +197,10 @@ CFStringRef __IOHIDDeviceCopyDebugDescription(CFTypeRef cf)
         IOObjectGetClass(regEntry, name);
     }
     
-    
-    subDescription = CFStringCreateWithFormat(CFGetAllocator(device), NULL, CFSTR("<IOHIDDevice %p [%p]  'ClassName=%s' (ref:%d xref:%d) "),
+    subDescription = CFStringCreateWithFormat(CFGetAllocator(device), NULL, CFSTR("<IOHIDDevice %p [%p]  'ClassName=%s'"),
                                               device,
                                               CFGetAllocator(device),
-                                              name,
-                                              (int)device->hidBase.ref,
-                                              (int)device->hidBase.xref);
+                                              name);
     if ( subDescription ) {
         CFStringAppend(description, subDescription);
         CFRelease(subDescription);
@@ -287,54 +243,23 @@ exit:
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// __IOHIDDeviceRegister
+// _IOHIDDeviceReleasePrivate
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-void __IOHIDDeviceRegister(void)
+void _IOHIDDeviceReleasePrivate(IOHIDDeviceRef device)
 {
-    __callbackBaseSetCallbacks = kCFTypeSetCallBacks;
-    __callbackBaseSetCallbacks.equal = __IOHIDDeviceCallbackBaseDataIsEqual;
-
-    __kIOHIDDeviceTypeID = _CFRuntimeRegisterClass(&__IOHIDDeviceClass.cfClass);
-}
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// __IOHIDDeviceCreate
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-IOHIDDeviceRef __IOHIDDeviceCreate(
-                                CFAllocatorRef              allocator, 
-                                CFAllocatorContext *        context __unused)
-{
-    uint32_t        size;
-
-    /* allocate service */
-    size  = sizeof(__IOHIDDevice) - sizeof(CFRuntimeBase);
+    if (device->dispatchQueue) {
+        // enforce the call to activate/cancel
+        os_assert(device->dispatchStateMask == (kIOHIDDispatchStateActive | kIOHIDDispatchStateCancelled),
+                  "Invalid dispatch state: 0x%x", device->dispatchStateMask);
+    }
     
-    return (IOHIDDeviceRef)_IOHIDObjectCreateInstance(allocator, IOHIDDeviceGetTypeID(), size, NULL);
-}
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// __IOHIDDeviceExtRelease
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-void __IOHIDDeviceExtRelease( CFTypeRef object __unused )
-{
-    
-}
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// __IOHIDDeviceIntRelease
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-void __IOHIDDeviceIntRelease( CFTypeRef object )
-{
-    IOHIDDeviceRef device = (IOHIDDeviceRef)object;
+    if (device->queue) {
+        CFRelease(device->queue);
+    }
     
     if ( device->inputMatchingMultiple ) {
         CFRelease(device->inputMatchingMultiple);
         device->inputMatchingMultiple = NULL;
-    }
-    
-    if ( device->queue ) {
-        CFRelease(device->queue);
-        device->queue = NULL;
     }
     
     CFRELEASE_IF_NOT_NULL(device->properties);
@@ -354,11 +279,7 @@ void __IOHIDDeviceIntRelease( CFTypeRef object )
         (*device->deviceTimeStampedInterface)->Release(device->deviceTimeStampedInterface);
         device->deviceTimeStampedInterface = NULL;
     }
-    
-    if ( device->plugInInterface ) {
-        IODestroyPlugInInterface(device->plugInInterface);
-        device->plugInInterface = NULL;
-    }
+
     
     if ( device->service ) {
         IOObjectRelease(device->service);
@@ -373,6 +294,35 @@ void __IOHIDDeviceIntRelease( CFTypeRef object )
     if (device->notificationPort) {
         IONotificationPortDestroy(device->notificationPort);
         device->notificationPort = NULL;
+    }
+    
+    if (device->plugInInterface) {
+        IODestroyPlugInInterface(device->plugInInterface);
+        device->plugInInterface = NULL;
+    }
+    
+    if (device->elementHandler) {
+        Block_release(device->elementHandler);
+    }
+    
+    if (device->removalHandler) {
+        Block_release(device->removalHandler);
+    }
+    
+    if (device->inputReportHandler) {
+        Block_release(device->inputReportHandler);
+    }
+    
+    if (device->reportBuffer) {
+        CFRelease(device->reportBuffer);
+    }
+    
+    if (device->transaction) {
+        CFRelease(device->transaction);
+    }
+    
+    if (device->batchElements) {
+        CFRelease(device->batchElements);
     }
 }
 
@@ -428,17 +378,6 @@ IOCFPlugInInterface ** _IOHIDDeviceGetIOCFPlugInInterface(
 }
 
 //------------------------------------------------------------------------------
-// IOHIDDeviceGetTypeID
-//------------------------------------------------------------------------------
-CFTypeID IOHIDDeviceGetTypeID(void) 
-{
-    if ( _kCFRuntimeNotATypeID == __kIOHIDDeviceTypeID )
-        pthread_once(&__deviceTypeInit, __IOHIDDeviceRegister);
-        
-    return __kIOHIDDeviceTypeID;
-}
-
-//------------------------------------------------------------------------------
 // IOHIDDeviceCreate
 //------------------------------------------------------------------------------
 IOHIDDeviceRef IOHIDDeviceCreate(
@@ -451,6 +390,11 @@ IOHIDDeviceRef IOHIDDeviceCreate(
     IOHIDDeviceRef                  device              = NULL;
     SInt32                          score               = 0;
     HRESULT                         result;
+    
+    dispatch_once(&__deviceInit, ^{
+        __callbackBaseSetCallbacks = kCFTypeSetCallBacks;
+        __callbackBaseSetCallbacks.equal = __IOHIDDeviceCallbackBaseDataIsEqual;
+    });
 
     require_noerr(IOObjectRetain(service), retain_fail);
     require_noerr(IOCreatePlugInInterfaceForService(service, kIOHIDDeviceTypeID, kIOCFPlugInInterfaceID, &plugInInterface, &score), plugin_fail);
@@ -459,13 +403,15 @@ IOHIDDeviceRef IOHIDDeviceCreate(
     if (result != S_OK) {
         deviceTimeStampedInterface = NULL;
     }
-    device = __IOHIDDeviceCreate(allocator, NULL);
+    device = _IOHIDDeviceCreatePrivate(allocator);
     require(device, create_fail);
         
     device->plugInInterface = plugInInterface;
     device->deviceInterface = deviceInterface;
     device->deviceTimeStampedInterface = deviceTimeStampedInterface;
     device->service         = service;
+    
+    IORegistryEntryGetRegistryEntryID(service, &device->regID);
 
     return device;
     
@@ -620,9 +566,18 @@ Boolean IOHIDDeviceSetProperty(
     
     device->isDirty = TRUE;
     CFDictionarySetValue(device->properties, key, property);
-
-    // A device does not apply its properties to its elements.
-
+    
+    if (CFEqual(key, CFSTR(kIOHIDDeviceSuspendKey)) && CFGetTypeID(property) == CFBooleanGetTypeID()) {
+        require(device->queue, exit);
+        
+        if (property == kCFBooleanTrue) {
+            IOHIDQueueStop(device->queue);
+        } else {
+            IOHIDQueueStart(device->queue);
+        }
+    }
+    
+exit:
     return (*device->deviceInterface)->setProperty(device->deviceInterface, 
                                                    key, 
                                                    property) == kIOReturnSuccess;
@@ -677,6 +632,43 @@ CFArrayRef IOHIDDeviceCopyMatchingElements(
 }
 
 //------------------------------------------------------------------------------
+// __IOHIDDeviceSetupAsyncSupport
+//------------------------------------------------------------------------------
+Boolean __IOHIDDeviceSetupAsyncSupport(IOHIDDeviceRef device)
+{
+    IOReturn                    ret             = kIOReturnError;
+    CFTypeRef                   asyncSource     = NULL;
+    Boolean                     result          = false;
+    CFRunLoopSourceContext1     sourceContext   = { 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+    
+    // we've already been scheduled
+    os_assert(!device->runLoop && !device->dispatchQueue, "Device already scheduled");
+    
+    require_action(!device->asyncEventSource, exit, result = true);
+    
+    ret = (*device->deviceInterface)->getAsyncEventSource(device->deviceInterface, &asyncSource);
+    
+    os_assert(ret == kIOReturnSuccess && asyncSource, "Failed to get async event source: 0x%x %p", ret, asyncSource);
+    device->asyncEventSource = (CFRunLoopSourceRef)asyncSource;
+    
+    CFRunLoopSourceGetContext(device->asyncEventSource, (CFRunLoopSourceContext *)&sourceContext);
+    device->sourceContext = sourceContext;
+    
+    device->queuePort = (CFMachPortRef)device->sourceContext.info;
+    os_assert(device->queuePort, "Failed to get queue port %p %p", device->queuePort, &device->sourceContext);
+    
+    if (!device->notificationPort) {
+        device->notificationPort = IONotificationPortCreate(kIOMasterPortDefault);
+    }
+    os_assert(device->notificationPort, "Failed to create notification port %p", device->notificationPort);
+    
+    result = true;
+    
+exit:
+    return result;
+}
+
+//------------------------------------------------------------------------------
 // IOHIDDeviceScheduleWithRunLoop
 //------------------------------------------------------------------------------
 void IOHIDDeviceScheduleWithRunLoop(
@@ -684,46 +676,27 @@ void IOHIDDeviceScheduleWithRunLoop(
                                 CFRunLoopRef                    runLoop, 
                                 CFStringRef                     runLoopMode)
 {
+    if (device->runLoop) {
+        IOHIDDeviceUnscheduleFromRunLoop(device, device->runLoop, device->runLoopMode);
+    }
+    
+    os_assert(__IOHIDDeviceSetupAsyncSupport(device));
+    
     device->runLoop     = runLoop;
     device->runLoopMode = runLoopMode;
-
-
-    if ( !device->asyncEventSource) {
-        IOReturn ret;
-        
-        ret = (*device->deviceInterface)->getAsyncEventSource(
-                                                    device->deviceInterface,
-                                                    &device->asyncEventSource);
-        
-        if (ret != kIOReturnSuccess || !device->asyncEventSource)
-            return;
-    }
-
-    if (CFGetTypeID(device->asyncEventSource) == CFRunLoopSourceGetTypeID())
-        CFRunLoopAddSource( device->runLoop, 
-                            (CFRunLoopSourceRef)device->asyncEventSource, 
-                            device->runLoopMode);
-    else if (CFGetTypeID(device->asyncEventSource) == CFRunLoopTimerGetTypeID())
-        CFRunLoopAddTimer(  device->runLoop, 
-                            (CFRunLoopTimerRef)device->asyncEventSource, 
-                            device->runLoopMode);
-
-    if ( device->notificationPort ) {
-        CFRunLoopSourceRef source = IONotificationPortGetRunLoopSource(device->notificationPort);
-        if (source) {
-            CFRunLoopAddSource(device->runLoop, source, device->runLoopMode);
-        }
+    
+    CFRunLoopAddSource(device->runLoop, device->asyncEventSource, device->runLoopMode);
+    
+    CFRunLoopSourceRef source = IONotificationPortGetRunLoopSource(device->notificationPort);
+    if (source) {
+        CFRunLoopAddSource(device->runLoop, source, device->runLoopMode);
     }
     
     // Default queue has already been created, so go ahead and schedule it
-    if ( device->queue ) {
-        IOHIDQueueScheduleWithRunLoop(  device->queue, 
-                                        device->runLoop, 
-                                        device->runLoopMode);
-     
+    if (device->queue) {
+        IOHIDQueueScheduleWithRunLoop(device->queue, device->runLoop, device->runLoopMode);
         IOHIDQueueStart(device->queue);
     }
-
 }
 
 //------------------------------------------------------------------------------
@@ -731,38 +704,151 @@ void IOHIDDeviceScheduleWithRunLoop(
 //------------------------------------------------------------------------------
 void IOHIDDeviceUnscheduleFromRunLoop(  
                                 IOHIDDeviceRef                  device, 
-                                CFRunLoopRef                    runLoop, 
-                                CFStringRef                     runLoopMode)
+                                CFRunLoopRef                    runLoop __unused,
+                                CFStringRef                     runLoopMode __unused)
 {
-    if ( CFEqual(device->runLoop, runLoop) && 
-            CFEqual(device->runLoopMode, runLoopMode)) {
- 
-        if ( device->queue ) {
-          IOHIDQueueStop(device->queue);
+    if (!device->runLoop) {
+        return;
+    }
+    
+    if (device->queue) {
+      IOHIDQueueStop(device->queue);
+      IOHIDQueueUnscheduleFromRunLoop(device->queue, device->runLoop, device->runLoopMode);
+    }
+    
+    if (device->notificationPort) {
+        CFRunLoopSourceRef source = IONotificationPortGetRunLoopSource(device->notificationPort);
+        if (source) {
+            CFRunLoopRemoveSource(device->runLoop, source, device->runLoopMode);
+        }
+    }
+    
+    if (device->asyncEventSource) {
+        CFRunLoopRemoveSource(device->runLoop, device->asyncEventSource, device->runLoopMode);
+    }
+    
+    device->runLoop = NULL;
+    device->runLoopMode = NULL;
+}
 
-          IOHIDQueueUnscheduleFromRunLoop(device->queue,
-                                          device->runLoop,
-                                          device->runLoopMode);
-        }
-      
-        if ( device->notificationPort ) {
-            CFRunLoopSourceRef source = IONotificationPortGetRunLoopSource(device->notificationPort);
-            if (source) {
-                CFRunLoopRemoveSource(device->runLoop, source, device->runLoopMode);
+//------------------------------------------------------------------------------
+// IOHIDDeviceSetDispatchQueue
+//------------------------------------------------------------------------------
+void IOHIDDeviceSetDispatchQueue(IOHIDDeviceRef device, dispatch_queue_t queue)
+{
+    os_assert(__IOHIDDeviceSetupAsyncSupport(device));
+    
+    device->dispatchQueue = dispatch_queue_create_with_target("IOHIDDeviceDispatchQueue", DISPATCH_QUEUE_SERIAL, queue);
+    require(device->dispatchQueue, exit);
+    
+    CFRetain(device);
+    device->dispatchMach = dispatch_mach_create("IOHIDDeviceDispatchMach", device->dispatchQueue,
+                                                ^(dispatch_mach_reason_t reason,
+                                                  dispatch_mach_msg_t message,
+                                                  mach_error_t error __unused) {
+        switch (reason) {
+            case DISPATCH_MACH_MESSAGE_RECEIVED: {
+                size_t size = 0;
+                mach_msg_header_t *header = dispatch_mach_msg_get_msg(message, &size);
+                
+                // this will call into _cfmachPortCallback in IOHIDDeviceClass
+                ((CFRunLoopSourceContext1*)&device->sourceContext)->perform(header, size, NULL, device->queuePort);
+                break;
             }
+            case DISPATCH_MACH_CANCELED: {
+                dispatch_release(device->dispatchMach);
+                device->dispatchMach = NULL;
+                
+                if (device->cancelHandler && !device->queue) {
+                    (device->cancelHandler)();
+                    Block_release(device->cancelHandler);
+                    device->cancelHandler = NULL;
+                }
+                
+                 dispatch_release(device->dispatchQueue);
+                CFRelease(device);
+                break;
+            }
+            default:
+            break;
         }
+    });
+    
+    require_action(device->dispatchMach, exit, CFRelease(device));
+    
+    if (device->queue) {
+        IOHIDQueueSetDispatchQueue(device->queue, device->dispatchQueue);
         
-        if (device->asyncEventSource) {
-            if (CFGetTypeID(device->asyncEventSource) == CFRunLoopSourceGetTypeID())
-                CFRunLoopRemoveSource( device->runLoop, 
-                                    (CFRunLoopSourceRef)device->asyncEventSource, 
-                                    device->runLoopMode);
-            else if (CFGetTypeID(device->asyncEventSource) == CFRunLoopTimerGetTypeID())
-                CFRunLoopAddTimer(  device->runLoop, 
-                                    (CFRunLoopTimerRef)device->asyncEventSource, 
-                                    device->runLoopMode);
-        
-        }
+        CFRetain(device);
+        IOHIDQueueSetCancelHandler(device->queue, ^{
+            CFRelease(device->queue);
+            device->queue = NULL;
+            
+            if (device->cancelHandler && !device->dispatchMach) {
+                (device->cancelHandler)();
+                Block_release(device->cancelHandler);
+                device->cancelHandler = NULL;
+            }
+            CFRelease(device);
+        });
+    }
+    
+exit:
+    return;
+}
+
+//------------------------------------------------------------------------------
+// IOHIDDeviceSetCancelHandler
+//------------------------------------------------------------------------------
+void IOHIDDeviceSetCancelHandler(IOHIDDeviceRef device, dispatch_block_t handler)
+{
+    os_assert(!device->cancelHandler && handler);
+    
+    device->cancelHandler = Block_copy(handler);
+}
+
+//------------------------------------------------------------------------------
+// IOHIDDeviceActivate
+//------------------------------------------------------------------------------
+void IOHIDDeviceActivate(IOHIDDeviceRef device)
+{
+    os_assert(device->dispatchQueue && !device->runLoop,
+              "Activate failed queue: %p runLoop: %p", device->dispatchQueue, device->runLoop);
+    
+    if (atomic_fetch_or(&device->dispatchStateMask, kIOHIDDispatchStateActive) & kIOHIDDispatchStateActive) {
+        return;
+    }
+    
+    dispatch_mach_connect(device->dispatchMach, CFMachPortGetPort(device->queuePort), MACH_PORT_NULL, 0);
+    
+    IONotificationPortSetDispatchQueue(device->notificationPort, device->dispatchQueue);
+    
+    if (device->queue) {
+        IOHIDQueueActivate(device->queue);
+    }
+}
+
+//------------------------------------------------------------------------------
+// IOHIDDeviceCancel
+//------------------------------------------------------------------------------
+void IOHIDDeviceCancel(IOHIDDeviceRef device)
+{
+    os_assert(device->dispatchQueue && !device->runLoop,
+              "Cancel failed queue: %p runLoop: %p", device->dispatchQueue, device->runLoop);
+    
+    if (atomic_fetch_or(&device->dispatchStateMask, kIOHIDDispatchStateCancelled) & kIOHIDDispatchStateCancelled) {
+        return;
+    }
+    
+    dispatch_mach_cancel(device->dispatchMach);
+    
+    if (device->notificationPort) {
+        IONotificationPortDestroy(device->notificationPort);
+        device->notificationPort = NULL;
+    }
+    
+    if (device->queue) {
+        IOHIDQueueCancel(device->queue);
     }
 }
 
@@ -773,13 +859,11 @@ void IOHIDDeviceRegisterRemovalCallback(
                                 IOHIDDeviceRef                  device, 
                                 IOHIDCallback                   callback, 
                                 void *                          context)
-{    
+{
     IOHIDDeviceRemovalCallbackInfo  info    = { context, callback };
     CFDataRef                       infoRef = NULL;
     
-    CFRetain(device);   
-    if (!context)
-        os_log(_IOHIDLog(), "called with a null context");
+    os_assert(device->dispatchStateMask == kIOHIDDispatchStateInactive, "Device has already been activated/cancelled.");
     
     if (!device->removalCallbackSet) {
         device->removalCallbackSet = CFSetCreateMutable(NULL, 0, &__callbackBaseSetCallbacks);
@@ -791,39 +875,37 @@ void IOHIDDeviceRegisterRemovalCallback(
     require(infoRef, cleanup);
 
     if (callback) {
+        kern_return_t kret = 0;
         
         CFSetAddValue(device->removalCallbackSet, infoRef);
         
-        if ( !device->notificationPort ) {
-            kern_return_t kret = 0;
+        if (!device->notificationPort) {
             device->notificationPort = IONotificationPortCreate(kIOMasterPortDefault);
             require(device->notificationPort, cleanup);
             require(device->service, cleanup);
-            
-            if ( device->runLoop ) {
-                CFRunLoopSourceRef source = IONotificationPortGetRunLoopSource(device->notificationPort);
-                if (source) {
-                    CFRunLoopAddSource(device->runLoop, source, device->runLoopMode);
-                }
-            }
-            
-            kret = IOServiceAddInterestNotification(device->notificationPort,   // notifyPort
-                                                    device->service,            // service
-                                                    kIOGeneralInterest,         // interestType
-                                                    (IOServiceInterestCallback)__IOHIDDeviceNotification, // callback
-                                                    device,                     // refCon
-                                                    &(device->notification)     // notification
-                                                    );
-            require_noerr(kret, cleanup);
         }
-    }
-    else {
+        
+        if (device->runLoop) {
+            CFRunLoopSourceRef source = IONotificationPortGetRunLoopSource(device->notificationPort);
+            if (source) {
+                CFRunLoopAddSource(device->runLoop, source, device->runLoopMode);
+            }
+        }
+        
+        kret = IOServiceAddInterestNotification(device->notificationPort,   // notifyPort
+                                                device->service,            // service
+                                                kIOGeneralInterest,         // interestType
+                                                (IOServiceInterestCallback)__IOHIDDeviceNotification, // callback
+                                                device,                     // refCon
+                                                &(device->notification)     // notification
+                                                );
+        require_noerr(kret, cleanup);
+    } else {
         CFSetRemoveValue(device->removalCallbackSet, infoRef);
     }
     
 cleanup:
     CFRELEASE_IF_NOT_NULL(infoRef);
-    CFRelease(device);
 }
 
 //******************************************************************************
@@ -940,9 +1022,9 @@ void IOHIDDeviceRegisterInputValueCallback(
     CFDataRef                                   infoRef = NULL;
     IOHIDDeviceInputElementValueCallbackInfo    info    = {context, callback};
     
+    os_assert(device->dispatchStateMask == kIOHIDDispatchStateInactive, "Device has already been activated/cancelled.");
+    
     CFRetain(device);
-    if (!context)
-        os_log(_IOHIDLog(), "called with a null context");
     
     if (!device->inputValueCallbackSet) {
         device->inputValueCallbackSet = CFSetCreateMutable(NULL, 0, &__callbackBaseSetCallbacks);
@@ -969,6 +1051,22 @@ void IOHIDDeviceRegisterInputValueCallback(
                 IOHIDQueueStart(device->queue);
             }
             
+            if (device->dispatchQueue) {
+                IOHIDQueueSetDispatchQueue(device->queue, device->dispatchQueue);
+                
+                CFRetain(device);
+                IOHIDQueueSetCancelHandler(device->queue, ^{
+                    CFRelease(device->queue);
+                    device->queue = NULL;
+                    
+                    if (device->cancelHandler && !device->dispatchMach) {
+                        (device->cancelHandler)();
+                        Block_release(device->cancelHandler);
+                        device->cancelHandler = NULL;
+                    }
+                    CFRelease(device);
+                });
+            }
         }
         CFSetAddValue(device->inputValueCallbackSet, infoRef);
     }
@@ -994,6 +1092,8 @@ void IOHIDDeviceSetInputValueMatching(
                                 IOHIDDeviceRef                  device, 
                                 CFDictionaryRef                 matching)
 {
+    os_assert(device->dispatchStateMask == kIOHIDDispatchStateInactive, "Device has already been activated/cancelled.");
+    
     if ( matching ) {
         CFArrayRef multiple = CFArrayCreate(CFGetAllocator(device), (const void **)&matching, 1, &kCFTypeArrayCallBacks);
         
@@ -1012,6 +1112,8 @@ void IOHIDDeviceSetInputValueMatchingMultiple(
                                 IOHIDDeviceRef                  device, 
                                 CFArrayRef                      multiple)
 {
+    os_assert(device->dispatchStateMask == kIOHIDDispatchStateInactive, "Device has already been activated/cancelled.");
+    
     if ( device->queue ) {
         IOHIDValueRef   value;
         CFArrayRef      elements;
@@ -1702,9 +1804,6 @@ void __IOHIDDeviceRegisterInputReportCallback(IOHIDDeviceRef                    
     
     CFRetain(device);
     
-    if (!context)
-        os_log(_IOHIDLog(), "called with a null context");
-    
     if (!device->inputReportCallbackSet) {
         device->inputReportCallbackSet = CFSetCreateMutable(NULL, 0, &__callbackBaseSetCallbacks);
     }
@@ -1752,7 +1851,9 @@ void IOHIDDeviceRegisterInputReportCallback(IOHIDDeviceRef                  devi
                                             CFIndex                         reportLength,
                                             IOHIDReportCallback             callback, 
                                             void *                          context)
-{    
+{
+    os_assert(device->dispatchStateMask == kIOHIDDispatchStateInactive, "Device has already been activated/cancelled.");
+    
     __IOHIDDeviceRegisterInputReportCallback(device, report, reportLength, callback, NULL, context);
 }
 
@@ -1765,6 +1866,8 @@ void IOHIDDeviceRegisterInputReportWithTimeStampCallback(IOHIDDeviceRef         
                                                          IOHIDReportWithTimeStampCallback    callback,
                                                          void *                              context)
 {
+    os_assert(device->dispatchStateMask == kIOHIDDispatchStateInactive, "Device has already been activated/cancelled.");
+    
     __IOHIDDeviceRegisterInputReportCallback(device, report, reportLength, NULL, callback, context);
 }
 
@@ -1890,6 +1993,14 @@ IOReturn IOHIDDeviceGetReportWithCallback(
     if (result)
         free(info_ptr);
     return result;
+}
+
+//------------------------------------------------------------------------------
+// IOHIDDeviceGetRegistryEntryID
+//------------------------------------------------------------------------------
+uint64_t IOHIDDeviceGetRegistryEntryID(IOHIDDeviceRef device)
+{
+    return device->regID;
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.fds.c	1.1	06/08/28 SMI"
-
 #include <assert.h>
 #include <setjmp.h>
 #include <signal.h>

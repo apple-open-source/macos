@@ -33,7 +33,7 @@ WI.DefaultDashboard = class DefaultDashboard extends WI.Object
 
         // Necessary event required to track page load time and resource sizes.
         WI.Frame.addEventListener(WI.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
-        WI.timelineManager.addEventListener(WI.TimelineManager.Event.CapturingStopped, this._capturingStopped, this);
+        WI.timelineManager.addEventListener(WI.TimelineManager.Event.CapturingStateChanged, this._handleTimelineCapturingStateChanged, this);
 
         // Necessary events required to track load of resources.
         WI.Frame.addEventListener(WI.Frame.Event.ResourceWasAdded, this._resourceWasAdded, this);
@@ -163,8 +163,11 @@ WI.DefaultDashboard = class DefaultDashboard extends WI.Object
             this._transitioningPageTarget = false;
     }
 
-    _capturingStopped(event)
+    _handleTimelineCapturingStateChanged(event)
     {
+        if (WI.timelineManager.isCapturing())
+            return;
+
         // If recording stops, we should stop the timer if it hasn't stopped already.
         this._stopUpdatingTime();
     }
@@ -183,7 +186,10 @@ WI.DefaultDashboard = class DefaultDashboard extends WI.Object
     {
         if (event.target.urlComponents.scheme === "data")
             return;
-        this.resourcesSize += event.target.size - event.data.previousSize;
+
+        let delta = event.target.size - event.data.previousSize;
+        console.assert(!isNaN(delta), "Resource size change should never be NaN.");
+        this.resourcesSize += delta;
     }
 
     _startUpdatingTime()

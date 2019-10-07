@@ -26,6 +26,7 @@
 #import "SecdTestKeychainUtilities.h"
 #import "CKKS.h"
 #import "SecDbKeychainItemV7.h"
+#import "SecDbKeychainMetadataKeyStore.h"
 #import "SecItemPriv.h"
 #import "SecItemServer.h"
 #import "spi.h"
@@ -47,7 +48,7 @@
 @end
 
 #if USE_KEYSTORE
-#import <libaks.h>
+#include "OSX/utilities/SecAKSWrappers.h"
 
 @interface KeychainCryptoTests : KeychainXCTest
 @end
@@ -92,7 +93,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
                                 (id)kSecAttrAccount : account,
                                 (id)kSecAttrService : [NSString stringWithFormat:@"%@-Service", account],
                                 (id)kSecAttrAccessible : (id)accessible,
-                                (id)kSecAttrNoLegacy : @(YES),
+                                (id)kSecUseDataProtectionKeychain : @(YES),
                                 (id)kSecReturnAttributes : @(YES),
                                 };
     CFTypeRef result = NULL;
@@ -101,7 +102,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
         XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)addQuery, &result), code, @"Should have succeeded in adding test item to keychain");
         XCTAssertNotNil((__bridge id)result, @"Should have received a dictionary back from SecItemAdd");
     } else {
-        XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)addQuery, &result), code, @"Should have failed to adding test item to keychain with code %d", code);
+        XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)addQuery, &result), code, @"Should have failed to adding test item to keychain with code %d", (int)code);
         XCTAssertNil((__bridge id)result, @"Should not have received a dictionary back from SecItemAdd");
     }
 
@@ -113,7 +114,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     NSDictionary* findQuery = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                                  (id)kSecAttrAccount : account,
                                  (id)kSecAttrService : [NSString stringWithFormat:@"%@-Service", account],
-                                 (id)kSecAttrNoLegacy : @(YES),
+                                 (id)kSecUseDataProtectionKeychain : @(YES),
                                  (id)kSecReturnAttributes : @(YES),
                                  };
     CFTypeRef result = NULL;
@@ -122,7 +123,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
         XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)findQuery, &result), code, @"Should have succeeded in finding test tiem");
         XCTAssertNotNil((__bridge id)result, @"Should have received a dictionary back from SecItemCopyMatching");
     } else {
-        XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)findQuery, &result), code, @"Should have failed to find items in keychain with code %d", code);
+        XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)findQuery, &result), code, @"Should have failed to find items in keychain with code %d", (int)code);
         XCTAssertNotNil((__bridge id)result, @"Should not have received a dictionary back from SecItemCopyMatching");
     }
 
@@ -174,7 +175,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
                             (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
                             (id)kSecAttrAccount : @"TestAccount",
                             (id)kSecAttrService : @"TestService",
-                            (id)kSecAttrNoLegacy : @(YES) };
+                            (id)kSecUseDataProtectionKeychain : @(YES) };
 
     OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
     XCTAssertEqual(result, 0, @"failed to add test item to keychain");
@@ -189,7 +190,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     NSMutableDictionary* dataQuery = [(__bridge NSDictionary*)foundItem mutableCopy];
     dataQuery[(id)kSecReturnData] = @(YES);
     dataQuery[(id)kSecClass] = (id)kSecClassGenericPassword;
-    dataQuery[(id)kSecAttrNoLegacy] = @(YES);
+    dataQuery[(id)kSecUseDataProtectionKeychain] = @(YES);
     result = SecItemCopyMatching((__bridge CFDictionaryRef)dataQuery, &foundItem);
     XCTAssertEqual(result, 0, @"failed to find the data for the item we just added to the keychain");
 
@@ -210,7 +211,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     NSDictionary* item = @{ (id)kSecClass : (id)kSecClassKey,
                             (id)kSecValueRef : (__bridge id)key,
                             (id)kSecAttrLabel : @"TestLabel",
-                            (id)kSecAttrNoLegacy : @(YES) };
+                            (id)kSecUseDataProtectionKeychain : @(YES) };
 
     OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
     XCTAssertEqual(result, 0, @"failed to add test item to keychain");
@@ -233,7 +234,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
                             (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
                             (id)kSecAttrAccount : @"TestAccount",
                             (id)kSecAttrService : @"TestService",
-                            (id)kSecAttrNoLegacy : @(YES) };
+                            (id)kSecUseDataProtectionKeychain : @(YES) };
 
     OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
     XCTAssertEqual(result, 0, @"failed to add test item to keychain");
@@ -255,7 +256,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
                             (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
                             (id)kSecAttrAccount : @"TestAccount",
                             (id)kSecAttrService : @"TestService",
-                            (id)kSecAttrNoLegacy : @(YES) };
+                            (id)kSecUseDataProtectionKeychain : @(YES) };
 
     OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
     XCTAssertEqual(result, 0, @"failed to add test item to keychain");
@@ -273,9 +274,12 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
 
 - (SecDbKeychainSerializedItemV7*)serializedItemWithPassword:(NSString*)password metadataAttributes:(NSDictionary*)metadata
 {
+    NSError* error;
     SecDbKeychainItemV7* item = [[SecDbKeychainItemV7 alloc] initWithSecretAttributes:@{(id)kSecValueData : password} metadataAttributes:metadata tamperCheck:[[NSUUID UUID] UUIDString] keyclass:9];
-    [item encryptMetadataWithKeybag:0 error:nil];
-    [item encryptSecretDataWithKeybag:0 accessControl:SecAccessControlCreate(NULL, NULL) acmContext:nil error:nil];
+    [item encryptMetadataWithKeybag:0 error:&error];
+    XCTAssertNil(error, @"Successfully encrypted metadata");
+    [item encryptSecretDataWithKeybag:0 accessControl:SecAccessControlCreate(NULL, NULL) acmContext:nil error:&error];
+    XCTAssertNil(error, @"Successfully encrypted secret data");
     SecDbKeychainSerializedItemV7* serializedItem = [[SecDbKeychainSerializedItemV7 alloc] init];
     serializedItem.encryptedMetadata = item.encryptedMetadataBlob;
     serializedItem.encryptedSecretData = item.encryptedSecretDataBlob;
@@ -305,7 +309,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
                             (id)kSecAttrAccount : @"TestAccount",
                             (id)kSecAttrService : @"TestService",
                             (id)kSecAttrAccessible : (id)kSecAttrAccessibleWhenUnlocked,
-                            (id)kSecAttrNoLegacy : @YES };
+                            (id)kSecUseDataProtectionKeychain : @YES };
 
     OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
     XCTAssertEqual(result, 0, @"failed to add test item to keychain");
@@ -321,7 +325,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     CFReleaseNull(foundItem);
 
     self.lockState = LockStateLockedAndDisallowAKS;
-
+    
     result = SecItemCopyMatching((__bridge CFDictionaryRef)dataQuery, &foundItem);
     XCTAssertEqual(result, errSecInteractionNotAllowed, @"get the lock error");
     XCTAssertEqual(foundItem, NULL, @"got item anyway: %@", foundItem);
@@ -392,7 +396,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
                             (id)kSecAttrAccount : @"TestAccount",
                             (id)kSecAttrService : @"TestService",
                             (id)kSecAttrAccessible : (id)kSecAttrAccessibleWhenUnlocked,
-                            (id)kSecAttrNoLegacy : @YES };
+                            (id)kSecUseDataProtectionKeychain : @YES };
 
     OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
     XCTAssertEqual(result, 0, @"failed to add test item to keychain");
@@ -416,12 +420,12 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     XCTAssertEqual(result, errSecItemNotFound, @"failed to find the data for the item we just added in the keychain");
     CFReleaseNull(foundItem);
 
-    // Just calling SecItemCopyMatching shouldn't have created a new metdata key
+    // Just calling SecItemCopyMatching shouldn't have created a new metadata key
     [self checkDatabaseExistenceOfMetadataKey:key_class_ak shouldExist:false];
 
-    /* semantics are odd, we should be able to delete it */
+    /* CopyMatching will delete corrupt pre-emptively */
     result = SecItemDelete((__bridge CFDictionaryRef)dataQuery);
-    XCTAssertEqual(result, 0, @"failed to delete item");
+    XCTAssertEqual(result, -25300, @"corrupt item was not deleted for us");
 }
 
 - (void)testKeychainCorruptionAddOverCorruptedEntry
@@ -432,7 +436,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
                             (id)kSecAttrAccount : @"TestAccount",
                             (id)kSecAttrService : @"TestService",
                             (id)kSecAttrAccessible : (id)kSecAttrAccessibleWhenUnlocked,
-                            (id)kSecAttrNoLegacy : @YES };
+                            (id)kSecUseDataProtectionKeychain : @YES };
 
     OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
     XCTAssertEqual(result, 0, @"failed to add test item to keychain");
@@ -462,7 +466,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
                             (id)kSecAttrAccount : @"TestAccount",
                             (id)kSecAttrService : @"TestService",
                             (id)kSecAttrAccessible : (id)kSecAttrAccessibleWhenUnlocked,
-                            (id)kSecAttrNoLegacy : @YES };
+                            (id)kSecUseDataProtectionKeychain : @YES };
 
     OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
     XCTAssertEqual(result, 0, @"failed to add test item to keychain");
@@ -489,11 +493,6 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
 
     result = SecItemDelete((__bridge CFDictionaryRef)dataQuery);
     XCTAssertEqual(result, 0, @"failed to delete item");
-}
-
-- (id)encryptionOperation
-{
-    return nil;
 }
 
 - (void)testNoCrashWhenMetadataDecryptionFails
@@ -537,7 +536,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
                             (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
                             (id)kSecAttrAccount : @"TestAccount",
                             (id)kSecAttrService : @"TestService",
-                            (id)kSecAttrNoLegacy : @(YES) };
+                            (id)kSecUseDataProtectionKeychain : @(YES) };
 
     OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
     XCTAssertEqual(result, 0, @"failed to add test item to keychain");
@@ -572,7 +571,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
                             (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
                             (id)kSecAttrAccount : @"TestAccount",
                             (id)kSecAttrService : @"TestService",
-                            (id)kSecAttrNoLegacy : @(YES) };
+                            (id)kSecUseDataProtectionKeychain : @(YES) };
 
     OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
     XCTAssertEqual(result, 0, @"failed to add test item to keychain");
@@ -588,6 +587,11 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
 }
 #endif
 
++ (NSData*)fakeDecrypt:(SFAuthenticatedCiphertext*)ciphertext withKey:(SFSymmetricKey*)key error:(NSError**)error
+{
+    return nil;
+}
+
 - (void)testRecoverFromBadMetadataKey
 {
     // Disable caching, so we can change AKS encrypt/decrypt
@@ -598,14 +602,14 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
                                 (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
                                 (id)kSecAttrAccount : @"TestAccount",
                                 (id)kSecAttrService : @"TestService",
-                                (id)kSecAttrNoLegacy : @(YES),
+                                (id)kSecUseDataProtectionKeychain : @(YES),
                                 (id)kSecReturnAttributes : @(YES),
                              };
 
     NSDictionary* findQuery = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                                  (id)kSecAttrAccount : @"TestAccount",
                                  (id)kSecAttrService : @"TestService",
-                                 (id)kSecAttrNoLegacy : @(YES),
+                                 (id)kSecUseDataProtectionKeychain : @(YES),
                                  (id)kSecReturnAttributes : @(YES),
                                 };
     
@@ -616,7 +620,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     NSDictionary* updateQuery = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                                    (id)kSecAttrAccount : @"TestAccount",
                                    (id)kSecAttrService : @"TestService",
-                                   (id)kSecAttrNoLegacy : @(YES),
+                                   (id)kSecUseDataProtectionKeychain : @(YES),
                                  };
 #endif
 
@@ -624,14 +628,14 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
                                  (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
                                  (id)kSecAttrAccount : @"TestAccount-second",
                                  (id)kSecAttrService : @"TestService-second",
-                                 (id)kSecAttrNoLegacy : @(YES),
+                                 (id)kSecUseDataProtectionKeychain : @(YES),
                                  (id)kSecReturnAttributes : @(YES),
                                  };
 
     NSDictionary* findQuery2 = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                                   (id)kSecAttrAccount : @"TestAccount-second",
                                   (id)kSecAttrService : @"TestService-second",
-                                  (id)kSecAttrNoLegacy : @(YES),
+                                  (id)kSecUseDataProtectionKeychain : @(YES),
                                   (id)kSecReturnAttributes : @(YES),
                                  };
 
@@ -671,7 +675,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
 
     ///////////////////////////////////////////////////////////////////////////////////
     // Now, the metadata keys go corrupt (fake that by changing the underlying AKS key)
-    [self setNewFakeAKSKey:[NSData dataWithBytes:"1234567890123456789000" length:32]];
+    [self setNewFakeAKSKey:[NSData dataWithBytes:"NotthesameAKSkeyas0123456789etc" length:32]];
 
     XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)findQuery, &result), errSecItemNotFound,
                    "should have received errSecItemNotFound when metadata keys are invalid");

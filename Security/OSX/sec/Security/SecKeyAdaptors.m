@@ -33,6 +33,7 @@
 #include <Security/SecBase.h>
 #include <Security/SecKeyInternal.h>
 #include <Security/SecItem.h>
+#include <Security/SecItemPriv.h>
 #include <Security/SecCFAllocator.h>
 
 #include <AssertMacros.h>
@@ -49,6 +50,8 @@
 #include <corecrypto/ccansikdf.h>
 #include <corecrypto/ccmode.h>
 #include <corecrypto/ccaes.h>
+#include <corecrypto/ccder.h>
+
 
 #pragma mark Algorithm constants value definitions
 
@@ -227,6 +230,106 @@ DIGEST_ECDSA_ADAPTORS(X962SHA512, ccsha512_di())
 #undef DIGEST_RSA_ADAPTORS
 #undef DIGEST_ECDSA_ADAPTORS
 
+typedef CF_ENUM(CFIndex, SecKeyECSignatureType) {
+    kSecKeyECSignatureTypeRFC4754,
+    kSecKeyECSignatureTypeX962,
+};
+
+static CFDataRef SecKeyCopyConvertedECDSASignature(SecKeyOperationContext *context, SecKeyECSignatureType targetType, CFDataRef sourceSignature, OSStatus errorStatus, CFErrorRef *error) {
+    CFMutableDataRef targetSignature = NULL;
+    CFIndex keySize = SecKeyGetBlockSize(context->key);
+    cc_size ccn = ccn_nof_size(keySize);
+    cc_unit ccr[ccn], ccs[ccn];
+    const uint8_t *data = CFDataGetBytePtr(sourceSignature);
+    if (targetType == kSecKeyECSignatureTypeRFC4754) {
+        // Extract ASN.1 DER signature and create raw r-s big-endian encoded signature.
+        const uint8_t *der_end = data + CFDataGetLength(sourceSignature);
+        if (ccder_decode_seqii(ccn, ccr, ccs, data, der_end) == der_end) {
+            targetSignature = CFDataCreateMutableWithScratch(kCFAllocatorDefault, keySize * 2);
+            uint8_t *target = CFDataGetMutableBytePtr(targetSignature);
+            ccn_write_uint_padded(ccn, ccr, keySize, target);
+            ccn_write_uint_padded(ccn, ccs, keySize, target + keySize);
+        } else {
+            SecError(errorStatus, error, CFSTR("Wrong ECDSA X962 signature"));
+        }
+    } else {
+        // Extract raw r-s big-endian encoded signature and encode ASN.1 DER signature.
+        if (CFDataGetLength(sourceSignature) == 2 * (CFIndex)keySize &&
+            ccn_read_uint(ccn, ccr, keySize, data) == 0 && ccn_read_uint(ccn, ccs, keySize, data + keySize) == 0) {
+            size_t s_len = ccder_sizeof(CCDER_CONSTRUCTED_SEQUENCE,
+                                        ccder_sizeof_integer(ccn, ccr) +
+                                        ccder_sizeof_integer(ccn, ccs));
+            targetSignature = CFDataCreateMutableWithScratch(kCFAllocatorDefault, s_len);
+            uint8_t *der = CFDataGetMutableBytePtr(targetSignature);
+            uint8_t *der_end = der + s_len;
+            if (ccder_encode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, der_end, der,
+                                            ccder_encode_integer(ccn, ccr, der,
+                                                                 ccder_encode_integer(ccn, ccs, der, der_end))) == NULL) {
+                CFReleaseNull(targetSignature);
+                SecError(errSecInternal, error, CFSTR("Failed to encode X962 signature"));
+            }
+        } else {
+            SecError(errorStatus, error, CFSTR("Wrong ECDSA RFC4754 signature"));
+        }
+    }
+
+    return targetSignature;
+}
+
+static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Sign_ECDSASignatureConvert(SecKeyOperationContext *context,
+                                                                             SecKeyECSignatureType signatureType,
+                                                                             CFTypeRef digest, CFTypeRef in2, CFErrorRef *error) {
+    CFArrayAppendValue(context->algorithm, signatureType == kSecKeyECSignatureTypeRFC4754 ? kSecKeyAlgorithmECDSASignatureDigestX962 : kSecKeyAlgorithmECDSASignatureRFC4754);
+    if (context->mode == kSecKeyOperationModeCheckIfSupported) {
+        return SecKeyRunAlgorithmAndCopyResult(context, NULL, NULL, error);
+    }
+
+    CFDataRef signature = SecKeyRunAlgorithmAndCopyResult(context, digest, in2, error);
+    if (signature == NULL || CFEqual(signature, kCFNull)) {
+        return signature;
+    }
+
+    // Convert the signature.
+    CFAssignRetained(signature, SecKeyCopyConvertedECDSASignature(context, signatureType, signature, errSecParam, error));
+    return signature;
+}
+
+static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Verify_ECDSASignatureConvert(SecKeyOperationContext *context,
+                                                                               SecKeyECSignatureType signatureType,
+                                                                               CFTypeRef digest, CFTypeRef signature, CFErrorRef *error) {
+    SecKeyECSignatureType targetSignatureType = (signatureType == kSecKeyECSignatureTypeRFC4754) ? kSecKeyECSignatureTypeX962 : kSecKeyECSignatureTypeRFC4754;
+    CFArrayAppendValue(context->algorithm, targetSignatureType == kSecKeyECSignatureTypeRFC4754 ? kSecKeyAlgorithmECDSASignatureRFC4754 : kSecKeyAlgorithmECDSASignatureDigestX962);
+    if (context->mode == kSecKeyOperationModeCheckIfSupported) {
+        return SecKeyRunAlgorithmAndCopyResult(context, NULL, NULL, error);
+    }
+
+    CFDataRef convertedSignature = SecKeyCopyConvertedECDSASignature(context, targetSignatureType, signature, errSecVerifyFailed, error);
+    CFTypeRef result = NULL;
+    if (convertedSignature != NULL) {
+        result = SecKeyRunAlgorithmAndCopyResult(context, digest, convertedSignature, error);
+        CFReleaseNull(convertedSignature);
+    }
+    return result;
+}
+
+static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Sign_ECDSASignatureRFC4754(SecKeyOperationContext *context,
+                                                                             CFTypeRef digest, CFTypeRef signature, CFErrorRef *error) {
+    return SecKeyAlgorithmAdaptorCopyResult_Sign_ECDSASignatureConvert(context, kSecKeyECSignatureTypeRFC4754, digest, signature, error);
+}
+static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Sign_ECDSASignatureDigestX962(SecKeyOperationContext *context,
+                                                                                CFTypeRef digest, CFTypeRef signature, CFErrorRef *error) {
+    return SecKeyAlgorithmAdaptorCopyResult_Sign_ECDSASignatureConvert(context, kSecKeyECSignatureTypeX962, digest, signature, error);
+}
+
+static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Verify_ECDSASignatureRFC4754(SecKeyOperationContext *context,
+                                                                               CFTypeRef digest, CFTypeRef signature, CFErrorRef *error) {
+    return SecKeyAlgorithmAdaptorCopyResult_Verify_ECDSASignatureConvert(context, kSecKeyECSignatureTypeRFC4754, digest, signature, error);
+}
+static CFTypeRef SecKeyAlgorithmAdaptorCopyResult_Verify_ECDSASignatureDigestX962(SecKeyOperationContext *context,
+                                                                                  CFTypeRef digest, CFTypeRef signature, CFErrorRef *error) {
+    return SecKeyAlgorithmAdaptorCopyResult_Verify_ECDSASignatureConvert(context, kSecKeyECSignatureTypeX962, digest, signature, error);
+}
+
 static CFDataRef SecKeyRSACopyBigEndianToCCUnit(CFDataRef bigEndian, size_t size) {
     CFMutableDataRef result = NULL;
     if (bigEndian != NULL) {
@@ -234,7 +337,7 @@ static CFDataRef SecKeyRSACopyBigEndianToCCUnit(CFDataRef bigEndian, size_t size
         if (dataSize > size) {
             size = dataSize;
         }
-        result = CFDataCreateMutableWithScratch(kCFAllocatorDefault, ccrsa_sizeof_n_from_size(size));
+        result = CFDataCreateMutableWithScratch(kCFAllocatorDefault, ccn_sizeof_size(size));
         ccn_read_uint(ccn_nof_size(size), (cc_unit *)CFDataGetMutableBytePtr(result), dataSize, CFDataGetBytePtr(bigEndian));
     }
     return result;
@@ -248,7 +351,7 @@ static void PerformWithBigEndianToCCUnit(CFDataRef bigEndian, size_t size, void 
     if (dataSize > size) {
         size = dataSize;
     }
-    PerformWithCFDataBuffer(ccrsa_sizeof_n_from_size(size), ^(uint8_t *buffer, CFDataRef data) {
+    PerformWithCFDataBuffer(ccn_sizeof_size(size), ^(uint8_t *buffer, CFDataRef data) {
         ccn_read_uint(ccn_nof_size(size), (cc_unit *)buffer, dataSize, CFDataGetBytePtr(bigEndian));
         operation(data);
     });
@@ -311,7 +414,7 @@ static CFTypeRef SecKeyRSACopyEMSASignature(SecKeyOperationContext *context,
         SecError(errSecParam, error, CFSTR("expecting RSA key"));
         return NULL;
     }
-    PerformWithCFDataBuffer(size, ^(uint8_t *buffer, CFDataRef data) {
+    PerformWithCFDataBuffer(ccn_sizeof_size(size), ^(uint8_t *buffer, CFDataRef data) {
         NSMutableData *s = [NSMutableData dataWithLength:size];
         require_action_quiet(s != nil, out, SecError(errSecAllocate, error, CFSTR("out of memory")));
         if (pss) {
@@ -500,7 +603,7 @@ static CFTypeRef SecKeyRSACopyEncryptedWithPadding(SecKeyOperationContext *conte
     }
 
     __block CFTypeRef result = NULL;
-    PerformWithCFDataBuffer(size, ^(uint8_t *buffer, CFDataRef data) {
+    PerformWithCFDataBuffer(ccn_sizeof_size(size), ^(uint8_t *buffer, CFDataRef data) {
         int err;
         if (di != NULL) {
             err = ccrsa_oaep_encode(di, ccrng_seckey, size, (cc_unit *)buffer,
@@ -511,6 +614,7 @@ static CFTypeRef SecKeyRSACopyEncryptedWithPadding(SecKeyOperationContext *conte
         }
         require_noerr_action_quiet(err, out, SecError(errSecParam, error,
                                                       CFSTR("RSAencrypt wrong input size (err %d)"), err));
+        cc_clear(ccn_sizeof_size(size) - size, buffer + size);
         require_quiet(result = SecKeyRunAlgorithmAndCopyResult(context, data, NULL, error), out);
         CFAssignRetained(result, SecKeyRSACopyCCUnitToBigEndian(result, SecKeyGetBlockSize(context->key)));
     out:;
@@ -533,15 +637,15 @@ static CFTypeRef SecKeyRSACopyDecryptedWithPadding(SecKeyOperationContext *conte
     PerformWithBigEndianToCCUnit(in1, SecKeyGetBlockSize(context->key), ^(CFDataRef ccunits) {
         CFDataRef cc_result = NULL;
         require_quiet(cc_result = SecKeyRunAlgorithmAndCopyResult(context, ccunits, NULL, error), out);
-        size_t size = CFDataGetLength(cc_result);
+        size_t size = SecKeyGetBlockSize(context->key);
         result = CFDataCreateMutableWithScratch(NULL, size);
         int err;
         if (di != NULL) {
             err = ccrsa_oaep_decode(di, &size, CFDataGetMutableBytePtr(result),
-                                    CFDataGetLength(cc_result), (cc_unit *)CFDataGetBytePtr(cc_result));
+                                    size, (cc_unit *)CFDataGetBytePtr(cc_result));
         } else {
             err = ccrsa_eme_pkcs1v15_decode(&size, CFDataGetMutableBytePtr(result),
-                                            CFDataGetLength(cc_result), (cc_unit *)CFDataGetBytePtr(cc_result));
+                                            size, (cc_unit *)CFDataGetBytePtr(cc_result));
         }
         require_noerr_action_quiet(err, out, (CFReleaseNull(result),
                                               SecError(errSecParam, error, CFSTR("RSAdecrypt wrong input (err %d)"), err)));
@@ -590,8 +694,8 @@ const CFStringRef kSecKeyEncryptionParameterRecryptCertificate = CFSTR("recryptC
 
 static CFTypeRef SecKeyECDHCopyX963Result(SecKeyOperationContext *context, const struct ccdigest_info *di,
                                           CFTypeRef in1, CFTypeRef params, CFErrorRef *error) {
-    CFTypeRef result = NULL;
-    require_quiet(result = SecKeyRunAlgorithmAndCopyResult(context, in1, NULL, error), out);
+    CFTypeRef result = NULL, sharedSecret;
+    require_quiet(sharedSecret = SecKeyRunAlgorithmAndCopyResult(context, in1, NULL, error), out);
 
     if (context->mode == kSecKeyOperationModePerform) {
         // Parse params.
@@ -603,20 +707,24 @@ static CFTypeRef SecKeyECDHCopyX963Result(SecKeyOperationContext *context, const
                              SecError(errSecParam, error, CFSTR("kSecKeyKeyExchangeParameterRequestedSize is missing")));
         size_t sharedInfoLength = 0;
         const void *sharedInfo = NULL;
-        if ((value = CFDictionaryGetValue(params, kSecKeyKeyExchangeParameterSharedInfo)) != NULL &&
-            CFGetTypeID(value) == CFDataGetTypeID()) {
+        if ((value = CFDictionaryGetValue(params, kSecKeyKeyExchangeParameterSharedInfo)) != NULL) {
+            require_action_quiet(CFGetTypeID(value) == CFDataGetTypeID(), out, SecError(errSecParam, error, CFSTR("ECDHKeyExchange wrong sharedInfo type (must be CFData/NSData)")));
             sharedInfo = CFDataGetBytePtr(value);
             sharedInfoLength = CFDataGetLength(value);
         }
 
         CFMutableDataRef kdfResult = CFDataCreateMutableWithScratch(kCFAllocatorDefault, requestedSize);
-        int err = ccansikdf_x963(di, CFDataGetLength(result), CFDataGetBytePtr(result), sharedInfoLength, sharedInfo,
+        int err = ccansikdf_x963(di, CFDataGetLength(sharedSecret), CFDataGetBytePtr(sharedSecret), sharedInfoLength, sharedInfo,
                                  requestedSize, CFDataGetMutableBytePtr(kdfResult));
-        CFAssignRetained(result, kdfResult);
         require_noerr_action_quiet(err, out, (CFReleaseNull(result),
                                               SecError(errSecParam, error, CFSTR("ECDHKeyExchange wrong input (%d)"), err)));
+        CFAssignRetained(result, kdfResult);
+    } else {
+        // In test-only mode, propagate result (YES/NO) of underlying operation.
+        result = CFRetainAssign(result, sharedSecret);
     }
 out:
+    CFReleaseNull(sharedSecret);
     return result;
 }
 
@@ -676,6 +784,9 @@ static CFTypeRef SecKeyECIESCopyEncryptedData(SecKeyOperationContext *context, S
     // Generate ephemeral key.
     require_quiet(pubKeyData = SecKeyCopyExternalRepresentation(context->key, error), out);
     CFAssignRetained(parameters, CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+#if TARGET_OS_OSX
+                                                              kSecUseDataProtectionKeychain, kCFBooleanTrue,
+#endif
                                                               kSecAttrKeyType, CFDictionaryGetValue(parameters, kSecAttrKeyType),
                                                               kSecAttrKeySizeInBits, CFDictionaryGetValue(parameters, kSecAttrKeySizeInBits),
                                                               NULL));
@@ -1105,6 +1216,9 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
             kSecKeyAlgorithmECDSASignatureDigestX962SHA256,
             kSecKeyAlgorithmECDSASignatureDigestX962SHA384,
             kSecKeyAlgorithmECDSASignatureDigestX962SHA512,
+
+            kSecKeyAlgorithmECDSASignatureRFC4754,
+            kSecKeyAlgorithmECDSASignatureDigestX962,
         };
         const void *signValues[] = {
             SecKeyAlgorithmAdaptorCopyResult_Sign_RSASignatureDigestPKCS1v15SHA1,
@@ -1148,6 +1262,9 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_ECDSASignatureDigestX962SHA256,
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_ECDSASignatureDigestX962SHA384,
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_ECDSASignatureDigestX962SHA512,
+
+            SecKeyAlgorithmAdaptorCopyResult_Sign_ECDSASignatureRFC4754,
+            SecKeyAlgorithmAdaptorCopyResult_Sign_ECDSASignatureDigestX962,
         };
         check_compile_time(array_size(signKeys) == array_size(signValues));
         adaptors[kSecKeyOperationTypeSign] = CFDictionaryCreate(kCFAllocatorDefault, signKeys, signValues,
@@ -1194,6 +1311,9 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
             kSecKeyAlgorithmECDSASignatureDigestX962SHA256,
             kSecKeyAlgorithmECDSASignatureDigestX962SHA384,
             kSecKeyAlgorithmECDSASignatureDigestX962SHA512,
+
+            kSecKeyAlgorithmECDSASignatureRFC4754,
+            kSecKeyAlgorithmECDSASignatureDigestX962,
         };
         const void *verifyValues[] = {
             SecKeyAlgorithmAdaptorCopyResult_Verify_RSASignatureRaw,
@@ -1236,6 +1356,9 @@ SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, 
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_ECDSASignatureDigestX962SHA256,
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_ECDSASignatureDigestX962SHA384,
             SecKeyAlgorithmAdaptorCopyResult_SignVerify_ECDSASignatureDigestX962SHA512,
+
+            SecKeyAlgorithmAdaptorCopyResult_Verify_ECDSASignatureRFC4754,
+            SecKeyAlgorithmAdaptorCopyResult_Verify_ECDSASignatureDigestX962,
         };
         check_compile_time(array_size(verifyKeys) == array_size(verifyValues));
         adaptors[kSecKeyOperationTypeVerify] = CFDictionaryCreate(kCFAllocatorDefault, verifyKeys, verifyValues,

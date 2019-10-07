@@ -48,6 +48,7 @@
 #include "dhcp_thread.h"
 #include "DHCPv6Options.h"
 #include "ifutil.h"
+#include "symbol_scope.h"
 
 #define kNetworkSignature	CFSTR("NetworkSignature")
 
@@ -111,7 +112,7 @@ typedef struct {
  *   Perform some cursory checks on the IP address
  *   supplied by the server
  */
-static __inline__ boolean_t
+INLINE boolean_t
 ip_valid(struct in_addr ip)
 {
     if (ip.s_addr == 0
@@ -279,19 +280,6 @@ ServiceRemoveIPv6Address(ServiceRef service_p,
 boolean_t
 ServiceDADIsEnabled(ServiceRef service_p);
 
-#if TARGET_OS_EMBEDDED
-static __inline__ void
-ServiceReportIPv6AddressConflict(ServiceRef service_p,
-				 const struct in6_addr * addr_p)
-{
-    /* nothing to do */
-}
-#else  /* TARGET_OS_EMBEDDED */
-void
-ServiceReportIPv6AddressConflict(ServiceRef service_p,
-				 const struct in6_addr * addr_p);
-#endif /* TARGET_OS_EMBEDDED */
-
 void
 ServiceGenerateFailureSymptom(ServiceRef service_p);
 
@@ -302,27 +290,39 @@ void
 service_publish_failure_sync(ServiceRef service_p, ipconfig_status_t status,
 			     boolean_t sync);
 
-#if TARGET_OS_EMBEDDED
-static __inline__ void
-ServiceReportIPv4AddressConflict(ServiceRef service_p, struct in_addr ip)
-{
-    /* nothing to do */
-}
-
-static __inline__ void
-ServiceRemoveAddressConflict(ServiceRef service_p)
-{
-    /* nothing to do */
-}
-
-#else /* TARGET_OS_EMBEDDED */
+#if TARGET_OS_OSX
 void
 ServiceReportIPv4AddressConflict(ServiceRef service_p, struct in_addr ip);
 
 void
 ServiceRemoveAddressConflict(ServiceRef service_p);
 
-#endif /* TARGET_OS_EMBDEDDED */
+void
+ServiceReportIPv6AddressConflict(ServiceRef service_p,
+				 const struct in6_addr * addr_p);
+
+#else /* TARGET_OS_OSX */
+
+INLINE void
+ServiceReportIPv4AddressConflict(ServiceRef service_p, struct in_addr ip)
+{
+    /* nothing to do */
+}
+
+INLINE void
+ServiceRemoveAddressConflict(ServiceRef service_p)
+{
+    /* nothing to do */
+}
+
+INLINE void
+ServiceReportIPv6AddressConflict(ServiceRef service_p,
+				 const struct in6_addr * addr_p)
+{
+    /* nothing to do */
+}
+
+#endif /* TARGET_OS_OSX */
 
 CFStringRef
 ServiceGetInterfaceName(ServiceRef service_p);

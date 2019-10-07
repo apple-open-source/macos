@@ -352,8 +352,7 @@ routename(sa)
 			}
 		}
 		if (cp) {
-			strncpy(line, cp, sizeof(line) - 1);
-			line[sizeof(line) - 1] = '\0';
+			strlcpy(line, cp, sizeof(line));
 		} else {
 			/* XXX - why not inet_ntoa()? */
 #define C(x)	(unsigned)((x) & 0xff)
@@ -393,7 +392,7 @@ routename(sa)
 			niflags |= NI_NUMERICHOST;
 		if (getnameinfo((struct sockaddr *)&sin6, sin6.sin6_len,
 		    line, sizeof(line), NULL, 0, niflags) != 0)
-			strncpy(line, "invalid", sizeof(line));
+			strlcpy(line, "invalid", sizeof(line));
 
 		return(line);
 	}
@@ -445,7 +444,7 @@ netname(sa)
 		       }
 #define C(x)    (unsigned)((x) & 0xff)
 		       if (cp != NULL)
-			       strncpy(line, cp, sizeof(line));
+			       strlcpy(line, cp, sizeof(line));
 		       else if ((in.s_addr & 0xffffff) == 0)
 			       (void) sprintf(line, "%u", C(in.s_addr >> 24));
 		       else if ((in.s_addr & 0xffff) == 0)
@@ -490,7 +489,7 @@ netname(sa)
 			niflags |= NI_NUMERICHOST;
 		if (getnameinfo((struct sockaddr *)&sin6, sin6.sin6_len,
 		    line, sizeof(line), NULL, 0, niflags) != 0)
-			strncpy(line, "invalid", sizeof(line));
+			strlcpy(line, "invalid", sizeof(line));
 
 		return(line);
 	}

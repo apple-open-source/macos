@@ -88,7 +88,7 @@ OSStatus SecIdentityFindPreferenceItem(
      CFTypeRef keychainOrArray,
      CFStringRef idString,
      SecKeychainItemRef *itemRef)
-     DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+     API_DEPRECATED_WITH_REPLACEMENT("SecIdentityCopyPreferred", macos(10.0, 10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
     @function SecIdentityAddPreferenceItem
@@ -106,7 +106,7 @@ OSStatus SecIdentityAddPreferenceItem(
      SecIdentityRef identityRef,
      CFStringRef idString,
      SecKeychainItemRef *itemRef)
-     DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
+     API_DEPRECATED_WITH_REPLACEMENT("SecIdentitySetPreference", macos(10.0, 10.5)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
     @function SecIdentityUpdatePreferenceItem
@@ -120,7 +120,7 @@ OSStatus SecIdentityAddPreferenceItem(
 OSStatus SecIdentityUpdatePreferenceItem(
      SecKeychainItemRef itemRef,
      SecIdentityRef identityRef)
-     DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
+     API_DEPRECATED_WITH_REPLACEMENT("SecIdentitySetPreference", macos(10.0, 10.5)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
     @function SecIdentityCopyFromPreferenceItem
@@ -134,7 +134,7 @@ OSStatus SecIdentityUpdatePreferenceItem(
 OSStatus SecIdentityCopyFromPreferenceItem(
      SecKeychainItemRef itemRef,
      SecIdentityRef *identityRef)
-     DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
+     API_DEPRECATED_WITH_REPLACEMENT("SecIdentityCopyPreference", macos(10.0, 10.5)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
     @function ConvertArrayToKeyUsage

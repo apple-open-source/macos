@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1929,17 +1929,17 @@ endswitch:
 
     switch (rc) {
     case CONFACK:
-	*lenp = next - inp;
+	*lenp = (int)(next - inp);
 	break;
     case CONFNAK:
 	/*
 	 * Copy the Nak'd options from the nak_buffer to the caller's buffer.
 	 */
-	*lenp = nakp - nak_buffer;
+	*lenp = (int)(nakp - nak_buffer);
 	BCOPY(nak_buffer, inp, *lenp);
 	break;
     case CONFREJ:
-	*lenp = rejp - inp;
+	*lenp = (int)(rejp - inp);
 	break;
     }
 
@@ -2276,7 +2276,7 @@ lcp_printpkt(p, plen, printer, arg)
 	p += len - i;
     }
 
-    return p - pstart;
+    return (int)(p - pstart);
 }
 
 /*
@@ -2419,7 +2419,7 @@ LcpSendEchoRequest (f)
         lcp_magic = lcp_gotoptions[f->unit].magicnumber;
 	pktp = pkt;
 	PUTLONG(lcp_magic, pktp);
-        fsm_sdata(f, ECHOREQ, lcp_echo_number++ & 0xFF, pkt, pktp - pkt);
+        fsm_sdata(f, ECHOREQ, lcp_echo_number++ & 0xFF, pkt, (int)(pktp - pkt));
 	++lcp_echos_pending;
     }
 }

@@ -29,6 +29,7 @@
 #import "CKKSAnalytics.h"
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
+#import "keychain/ot/ObjCImprovements.h"
 
 #if OCTAGON
 
@@ -59,7 +60,7 @@
      * The answer "nothing, everything is terrible" is acceptable.
      */
 
-    __weak __typeof(self) weakSelf = self;
+    WEAKIFY(self);
 
     CKKSKeychainView* ckks = self.ckks;
     if(!ckks) {
@@ -81,7 +82,7 @@
 
         NSError* error = nil;
 
-        CKKSCurrentKeySet* keyset = [[CKKSCurrentKeySet alloc] initForZone:ckks.zoneID];
+        CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:ckks.zoneID];
 
         bool changedCurrentTLK = false;
         bool changedCurrentClassA = false;
@@ -155,6 +156,13 @@
                                                                                                                                     [NSString stringWithFormat:@"Key hierarchy has split: %@ and %@ are roots", newTLK, topKey]}]];
                     return true;
                 }
+            }
+
+            if(!newTLK) {
+                // We don't have any TLKs lying around, but we're supposed to heal the key hierarchy. This isn't any good; let's wait for TLK creation.
+                ckkserror("ckksheal", ckks, "No possible TLK found. Waiting for creation.");
+                [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForTLKCreation withError:nil];
+                return true;
             }
 
             if(![ckks _onqueueWithAccountKeysCheckTLK: newTLK error: &error]) {
@@ -271,14 +279,14 @@
             }
 
             // We've selected a new TLK. Compute any TLKShares that should go along with it.
-            NSSet<CKKSTLKShare*>* tlkShares = [ckks _onqueueCreateMissingKeyShares:keyset.tlk
+            NSSet<CKKSTLKShareRecord*>* tlkShares = [ckks _onqueueCreateMissingKeyShares:keyset.tlk
                                                                              error:&error];
             if(error) {
                 ckkserror("ckksshare", ckks, "Unable to create TLK shares for new tlk: %@", error);
                 return false;
             }
 
-            for(CKKSTLKShare* share in tlkShares) {
+            for(CKKSTLKShareRecord* share in tlkShares) {
                 CKRecord* record = [share CKRecordWithZoneID:ckks.zoneID];
                 [recordsToSave addObject: record];
             }
@@ -306,13 +314,14 @@
             // This needs to happen for CKKS to be usable by PCS/cloudd. Make it happen.
             modifyRecordsOp.configuration.automaticallyRetryNetworkFailures = NO;
             modifyRecordsOp.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
+            modifyRecordsOp.configuration.isCloudKitSupportOperation = YES;
 
             modifyRecordsOp.group = self.ckoperationGroup;
             ckksnotice("ckksheal", ckks, "Operation group is %@", self.ckoperationGroup);
 
             modifyRecordsOp.perRecordCompletionBlock = ^(CKRecord *record, NSError * _Nullable error) {
-                __strong __typeof(weakSelf) strongSelf = weakSelf;
-                __strong __typeof(strongSelf.ckks) blockCKKS = strongSelf.ckks;
+                STRONGIFY(self);
+                CKKSKeychainView* blockCKKS = self.ckks;
 
                 // These should all fail or succeed as one. Do the hard work in the records completion block.
                 if(!error) {
@@ -323,9 +332,9 @@
             };
 
             modifyRecordsOp.modifyRecordsCompletionBlock = ^(NSArray<CKRecord *> *savedRecords, NSArray<CKRecordID *> *deletedRecordIDs, NSError *error) {
-                __strong __typeof(weakSelf) strongSelf = weakSelf;
-                __strong __typeof(strongSelf.ckks) strongCKKS = strongSelf.ckks;
-                if(!strongSelf) {
+                STRONGIFY(self);
+                CKKSKeychainView* strongCKKS = self.ckks;
+                if(!self) {
                     secerror("ckks: received callback for released object");
                     return;
                 }
@@ -366,7 +375,7 @@
                         [keyset.currentClassCPointer saveToDatabase: &localerror];
 
                         // save all the TLKShares, too
-                        for(CKKSTLKShare* share in tlkShares) {
+                        for(CKKSTLKShareRecord* share in tlkShares) {
                             [share saveToDatabase:&localerror];
                         }
 
@@ -389,7 +398,7 @@
                 }];
 
                 // Notify that we're done
-                [strongSelf.operationQueue addOperation: strongSelf.cloudkitModifyOperationFinished];
+                [self.operationQueue addOperation: self.cloudkitModifyOperationFinished];
             };
 
             [ckks.database addOperation: modifyRecordsOp];
@@ -402,7 +411,7 @@
             ckksnotice("ckkskey", ckks, "Failed to load TLK from keychain, keybag is locked. Entering waitforunlock: %@", error);
             [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForUnlock withError:nil];
             return false;
-        } else if(error && error.code == errSecItemNotFound) {
+        } else if(error && [error.domain isEqualToString: @"securityd"] && error.code == errSecItemNotFound) {
             ckkserror("ckksheal", ckks, "CKKS couldn't find TLK, triggering move to wait state: %@", error);
             [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateWaitForTLK withError: nil];
 

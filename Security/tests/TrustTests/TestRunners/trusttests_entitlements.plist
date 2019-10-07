@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>application-identifier</key>
+	<string>com.apple.trusttests</string>
+	<key>com.apple.application-identifier</key>
+	<string>com.apple.trusttests</string>
+	<key>com.apple.private.keychain.certificates</key>
+	<true/>
+	<key>modify-anchor-certificates</key>
+	<true/>
+	<key>com.apple.private.assets.accessible-asset-types</key>
+	<array>
+		<string>com.apple.MobileAsset.PKITrustSupplementals</string>
+	</array>
+</dict>
+</plist>

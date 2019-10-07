@@ -27,6 +27,11 @@
 
 #include <IOKit/IOSharedDataQueue.h>
 
+enum {
+    kIOHIDEventServiceQueueOptionNotificationForce = 0x1,
+    kIOHIDEventServiceQueueOptionNoFullNotification = 0x2,
+};
+
 class IOHIDEvent;
 //---------------------------------------------------------------------------
 // IOHIDEventSeviceQueue class.
@@ -41,12 +46,16 @@ protected:
     IOMemoryDescriptor *    _descriptor;
     Boolean                 _state;
     OSObject                *_owner;
+    UInt32                  _options;
+    UInt64                  _notificationCount;
+
+    virtual void sendDataAvailableNotification() APPLE_KEXT_OVERRIDE;
 
 public:
-    static IOHIDEventServiceQueue *withCapacity(UInt32 size);
-    static IOHIDEventServiceQueue *withCapacity(OSObject *owner, UInt32 size);
+    static IOHIDEventServiceQueue *withCapacity(UInt32 size, UInt32 options = 0);
+    static IOHIDEventServiceQueue *withCapacity(OSObject *owner, UInt32 size, UInt32 options = 0);
     
-    virtual void free();
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
     
     inline Boolean getState() { return _state; }
     inline void setState(Boolean state) { _state = state; }
@@ -55,9 +64,9 @@ public:
 
     virtual Boolean enqueueEvent(IOHIDEvent * event);
 
-    virtual IOMemoryDescriptor *getMemoryDescriptor();
-    virtual void setNotificationPort(mach_port_t port);
-    virtual bool serialize(OSSerialize * serializer) const;
+    virtual IOMemoryDescriptor *getMemoryDescriptor(void) APPLE_KEXT_OVERRIDE;
+    virtual void setNotificationPort(mach_port_t port) APPLE_KEXT_OVERRIDE;
+    virtual bool serialize(OSSerialize * serializer) const APPLE_KEXT_OVERRIDE;
 
 };
 

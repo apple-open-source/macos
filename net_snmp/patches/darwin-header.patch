@@ -1,9 +1,24 @@
+diff -Naur net-snmp-5.6.2.1.orig/include/net-snmp/system/darwin20.h net-snmp-5.6.2.1.work/include/net-snmp/system/darwin20.h
+--- net-snmp-5.6.2.1.orig/include/net-snmp/system/darwin20.h        1969-12-31 16:00:00.000000000 -0800
++++ net-snmp-5.6.2.1.work/include/net-snmp/system/darwin20.h     2019-02-04 16:28:21.000000000 -0800
+@@ -0,0 +1,11 @@
++/* This is a place for the changes needed to get net_snmp runnning on darwin19
++   Currently this just entails including darwin19.h, Yes we are still kicking this can down the road.
++*/
++
++#include "darwin19.h"
++
++#ifndef darwin20
++#   define darwin20 darwin
++#endif
++
++
 diff -Naur net-snmp-5.6.2.1.orig/include/net-snmp/system/darwin16.h net-snmp-5.6.2.1.work/include/net-snmp/system/darwin16.h
 --- net-snmp-5.6.2.1.orig/include/net-snmp/system/darwin19.h        1969-12-31 16:00:00.000000000 -0800
 +++ net-snmp-5.6.2.1.work/include/net-snmp/system/darwin19.h     2018-01-19 16:28:21.000000000 -0800
 @@ -0,0 +1,11 @@
 +/* This is a place for the changes needed to get net_snmp runnning on darwin19
-+   Currently this just entails including darwin17.h, Yes we are still kicking this can down the road.
++   Currently this just entails including darwin18.h, Yes we are still kicking this can down the road.
 +*/
 +
 +#include "darwin18.h"
@@ -143,7 +158,7 @@ diff -Naur net-snmp-5.6.2.1.orig/Makefile.in net-snmp-5.6.2.1.work/Makefile.in
  INCLUDESUBDIRHEADERS= aix.h bsd.h bsdi3.h bsdi4.h bsdi.h cygwin.h \
 -	darwin.h darwin7.h darwin8.h darwin9.h darwin10.h dragonfly.h dynix.h \
 +	darwin.h darwin7.h darwin8.h darwin9.h darwin10.h darwin11.h darwin12.h \
-+	darwin13.h darwin14.h darwin15.h darwin16.h darwin17.h darwin18.h darwin19.h dragonfly.h dynix.h \
++	darwin13.h darwin14.h darwin15.h darwin16.h darwin17.h darwin18.h darwin19.h darwin20.h dragonfly.h dynix.h \
  	freebsd2.h freebsd3.h freebsd4.h freebsd5.h freebsd6.h \
  	freebsd7.h freebsd8.h freebsd9.h freebsd10.h freebsd.h \
          generic.h \

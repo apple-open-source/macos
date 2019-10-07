@@ -81,5 +81,4 @@ enum {
 #define HIDFUNCEND(code, a, b, c, d)     _IOHIDDebugTrace (code, DBG_FUNC_END, a, b, c, d)
 #define HIDEVENTPERF(event,point,time)   _IOHIDDebugEventAddPerfData (event, point, time)
 
-
 #endif

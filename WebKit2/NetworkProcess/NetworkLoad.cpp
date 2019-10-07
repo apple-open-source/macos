@@ -27,8 +27,11 @@
 #include "NetworkLoad.h"
 
 #include "AuthenticationChallengeDisposition.h"
+#include "AuthenticationManager.h"
+#include "NetworkDataTaskBlob.h"
 #include "NetworkProcess.h"
 #include "NetworkSession.h"
+#include "WebErrors.h"
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/SharedBuffer.h>
 #include <wtf/Seconds.h>
@@ -38,6 +41,8 @@ namespace WebKit {
 using namespace WebCore;
 
 struct NetworkLoad::Throttle {
+    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+
     Throttle(NetworkLoad& load, Seconds delay, ResourceResponse&& response, ResponseCompletionHandler&& handler)
         : timer(load, &NetworkLoad::throttleDelayCompleted)
         , response(WTFMove(response))
@@ -50,20 +55,24 @@ struct NetworkLoad::Throttle {
     ResponseCompletionHandler responseCompletionHandler;
 };
 
-NetworkLoad::NetworkLoad(NetworkLoadClient& client, NetworkLoadParameters&& parameters, NetworkSession& networkSession)
+NetworkLoad::NetworkLoad(NetworkLoadClient& client, BlobRegistryImpl* blobRegistry, NetworkLoadParameters&& parameters, NetworkSession& networkSession)
     : m_client(client)
+    , m_networkProcess(networkSession.networkProcess())
     , m_parameters(WTFMove(parameters))
     , m_loadThrottleLatency(networkSession.loadThrottleLatency())
     , m_currentRequest(m_parameters.request)
 {
-    initialize(networkSession);
+    initialize(networkSession, blobRegistry);
 }
 
-void NetworkLoad::initialize(NetworkSession& networkSession)
+void NetworkLoad::initialize(NetworkSession& networkSession, WebCore::BlobRegistryImpl* blobRegistry)
 {
-    m_task = NetworkDataTask::create(networkSession, *this, m_parameters);
-    if (!m_parameters.defersLoading)
-        m_task->resume();
+    if (blobRegistry && m_parameters.request.url().protocolIsBlob())
+        m_task = NetworkDataTaskBlob::create(networkSession, *blobRegistry, *this, m_parameters.request, m_parameters.contentSniffingPolicy, m_parameters.blobFileReferences);
+    else
+        m_task = NetworkDataTask::create(networkSession, *this, m_parameters);
+
+    m_task->resume();
 }
 
 NetworkLoad::~NetworkLoad()
@@ -75,30 +84,32 @@ NetworkLoad::~NetworkLoad()
         m_task->clearClient();
 }
 
-void NetworkLoad::setDefersLoading(bool defers)
-{
-    if (m_task) {
-        if (defers)
-            m_task->suspend();
-        else
-            m_task->resume();
-    }
-}
-
 void NetworkLoad::cancel()
 {
     if (m_task)
         m_task->cancel();
 }
 
-void NetworkLoad::continueWillSendRequest(WebCore::ResourceRequest&& newRequest)
+static inline void updateRequest(ResourceRequest& currentRequest, const ResourceRequest& newRequest)
 {
 #if PLATFORM(COCOA)
-    m_currentRequest.updateFromDelegatePreservingOldProperties(newRequest.nsURLRequest(HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody));
+    currentRequest.updateFromDelegatePreservingOldProperties(newRequest.nsURLRequest(HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody));
 #else
     // FIXME: Implement ResourceRequest::updateFromDelegatePreservingOldProperties. See https://bugs.webkit.org/show_bug.cgi?id=126127.
-    m_currentRequest.updateFromDelegatePreservingOldProperties(newRequest);
+    currentRequest.updateFromDelegatePreservingOldProperties(newRequest);
 #endif
+}
+
+void NetworkLoad::updateRequestAfterRedirection(WebCore::ResourceRequest& newRequest) const
+{
+    ResourceRequest updatedRequest = m_currentRequest;
+    updateRequest(updatedRequest, newRequest);
+    newRequest = WTFMove(updatedRequest);
+}
+
+void NetworkLoad::continueWillSendRequest(WebCore::ResourceRequest&& newRequest)
+{
+    updateRequest(m_currentRequest, newRequest);
 
     auto redirectCompletionHandler = std::exchange(m_redirectCompletionHandler, nullptr);
     ASSERT(redirectCompletionHandler);
@@ -133,7 +144,7 @@ void NetworkLoad::convertTaskToDownload(PendingDownload& pendingDownload, const 
     m_currentRequest = updatedRequest;
     m_task->setPendingDownload(pendingDownload);
     
-    NetworkProcess::singleton().findPendingDownloadLocation(*m_task.get(), WTFMove(completionHandler), response);
+    m_networkProcess->findPendingDownloadLocation(*m_task.get(), WTFMove(completionHandler), response);
 }
 
 void NetworkLoad::setPendingDownloadID(DownloadID downloadID)
@@ -188,9 +199,9 @@ void NetworkLoad::didReceiveChallenge(AuthenticationChallenge&& challenge, Chall
     }
     
     if (auto* pendingDownload = m_task->pendingDownload())
-        NetworkProcess::singleton().authenticationManager().didReceiveAuthenticationChallenge(*pendingDownload, challenge, WTFMove(completionHandler));
+        m_networkProcess->authenticationManager().didReceiveAuthenticationChallenge(*pendingDownload, challenge, WTFMove(completionHandler));
     else
-        NetworkProcess::singleton().authenticationManager().didReceiveAuthenticationChallenge(m_parameters.webPageID, m_parameters.webFrameID, challenge, WTFMove(completionHandler));
+        m_networkProcess->authenticationManager().didReceiveAuthenticationChallenge(m_parameters.webPageID, m_parameters.webFrameID, challenge, WTFMove(completionHandler));
 }
 
 void NetworkLoad::didReceiveResponse(ResourceResponse&& response, ResponseCompletionHandler&& completionHandler)
@@ -199,7 +210,7 @@ void NetworkLoad::didReceiveResponse(ResourceResponse&& response, ResponseComple
     ASSERT(!m_throttle);
 
     if (m_task && m_task->isDownload()) {
-        NetworkProcess::singleton().findPendingDownloadLocation(*m_task.get(), WTFMove(completionHandler), response);
+        m_networkProcess->findPendingDownloadLocation(*m_task.get(), WTFMove(completionHandler), response);
         return;
     }
 
@@ -265,6 +276,10 @@ void NetworkLoad::cannotShowURL()
     m_client.get().didFailLoading(cannotShowURLError(m_currentRequest));
 }
 
+void NetworkLoad::wasBlockedByRestrictions()
+{
+    m_client.get().didFailLoading(wasBlockedByRestrictionsError(m_currentRequest));
+}
 
 String NetworkLoad::description() const
 {

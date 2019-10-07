@@ -1535,7 +1535,7 @@ INTERNAL unsigned32     do_alter_cont_req_action_rtn
     resp_header = (rpc_cn_packet_t *) (fragbuf->data_p);
     header_size = RPC_CN_PKT_SIZEOF_ALT_CTX_R_HDR;
 
-    sec_addr = (rpc_cn_port_any_t *)
+    sec_addr = (rpc_cn_port_any_t *)(void *)
         ((unsigned8 *)(resp_header) + header_size);
 
     /* changed from 1 to 0 - lukeh May 2003 */
@@ -1544,7 +1544,7 @@ INTERNAL unsigned32     do_alter_cont_req_action_rtn
 
     header_size = (2 + header_size + 3) & ~0x03;
 
-    pres_cont_list = (rpc_cn_pres_cont_list_t *)
+    pres_cont_list = (rpc_cn_pres_cont_list_t *)(void *)
         ((unsigned8 *) req_header + RPC_CN_PKT_SIZEOF_ALT_CTX_HDR);
 
     /* points to end of pkt whether n_context_elem is 0 or not */
@@ -1561,7 +1561,7 @@ INTERNAL unsigned32     do_alter_cont_req_action_rtn
     }
     else
     {
-        pres_result_list = (rpc_cn_pres_result_list_t *)
+        pres_result_list = (rpc_cn_pres_result_list_t *)(void *)
             ((unsigned8 *)(resp_header) + header_size);
 
         result_list_len = rpc_g_cn_large_frag_size - header_size;
@@ -1585,7 +1585,7 @@ INTERNAL unsigned32     do_alter_cont_req_action_rtn
                                         &header_size,
                                         &auth_len,
                                         &assoc->security.assoc_current_sec_context,
-					old_client,
+                                        old_client,
                                         &assoc->assoc_status);
 
     }
@@ -1846,10 +1846,10 @@ INTERNAL unsigned32     do_authent3_action_rtn
      * Allocate a temporary "response" buffer so we can
      * call rpc__cn_assoc_process_auth_tlr()
      */
-    tmp_resp_header = (rpc_cn_packet_t *) (tmp);
+    tmp_resp_header = (rpc_cn_packet_t *)(void *) (tmp);
     header_size = RPC_CN_PKT_SIZEOF_BIND_ACK_HDR; /* not really, but. */
 
-    sec_addr = (rpc_cn_port_any_t *)((unsigned8 *)(tmp_resp_header) + header_size);
+    sec_addr = (rpc_cn_port_any_t *)(void *)((unsigned8 *)(tmp_resp_header) + header_size);
     /* changed from 1 to 0 - lukeh May 2003 */
     sec_addr->length = 0;
     sec_addr->s[0] = '\0';
@@ -2180,7 +2180,7 @@ INTERNAL unsigned32     do_assoc_req_action_rtn
              * actual endpoint into the PDU. If the endpoint won't fit fall
              * through and send an rpc_bind_nak.
              */
-            sec_addr = (rpc_cn_port_any_t *)
+            sec_addr = (rpc_cn_port_any_t *)(void *)
                 ((unsigned8 *) (resp_header) + header_size);
             sec_addr->length =
                 strlen ((char *)assoc->cn_ctlblk.cn_listening_endpoint) + 1;
@@ -2200,7 +2200,7 @@ INTERNAL unsigned32     do_assoc_req_action_rtn
 
                 header_size = (header_size + 2 + sec_addr->length + 3) & ~0x3;
 
-                pres_result_list = (rpc_cn_pres_result_list_t *)
+                pres_result_list = (rpc_cn_pres_result_list_t *)(void *)
                     ((unsigned8 *) resp_header + header_size);
 
                 /*
@@ -2213,7 +2213,7 @@ INTERNAL unsigned32     do_assoc_req_action_rtn
                  * not fit in the balance of the fragbuf. Fall through and
                  * send an rpc_bind_nak.
                  */
-                pres_cont_list = (rpc_cn_pres_cont_list_t *)
+                pres_cont_list = (rpc_cn_pres_cont_list_t *)(void *)
                     ((unsigned8 *) req_header + RPC_CN_PKT_SIZEOF_BIND_HDR);
 
                 /* points to end of pkt whether n_context_elem is 0 or not */
@@ -3834,7 +3834,7 @@ INTERNAL void rpc__cn_assoc_process_auth_tlr
          */
         rpc_dce_svc_printf (
             __FILE__, __LINE__,
-            "%s %x",
+            "%s %s",
             rpc_svc_auth,
             svc_c_sev_error,
             rpc_m_call_failed,
@@ -3873,19 +3873,19 @@ INTERNAL void rpc__cn_assoc_process_auth_tlr
      */
     if (assoc->security.auth_buffer_info.auth_buffer != NULL)
     {
-        local_auth_value = (rpc_cn_bind_auth_value_priv_t *)
+        local_auth_value = (rpc_cn_bind_auth_value_priv_t *)(void *)
                             assoc->security.auth_buffer_info.auth_buffer;
         local_auth_value_len = assoc->security.auth_buffer_info.auth_buffer_len;
         /*
          * Better safe than sorry: make sure we get sub_type from the
          * packet we are going to checksum.
          */
-        local_auth_value->sub_type = ((rpc_cn_bind_auth_value_priv_t *)
+        local_auth_value->sub_type = ((rpc_cn_bind_auth_value_priv_t *)(void *)
                                        req_auth_tlr->auth_value)->sub_type;
     }
     else
     {
-        local_auth_value = (rpc_cn_bind_auth_value_priv_t *)
+        local_auth_value = (rpc_cn_bind_auth_value_priv_t *)(void *)
                             req_auth_tlr->auth_value;
         local_auth_value_len = RPC_CN_PKT_AUTH_LEN(req_header);
     }
@@ -3912,7 +3912,7 @@ INTERNAL void rpc__cn_assoc_process_auth_tlr
          * in the others.  We want to pass the cred_length of the packet
          * we are doing the checksum on.
          */
-        priv_auth_value = (rpc_cn_bind_auth_value_priv_t *)
+        priv_auth_value = (rpc_cn_bind_auth_value_priv_t *)(void *)
                                req_auth_tlr->auth_value;
         if (assoc->raw_packet_p != NULL)
         {
@@ -3966,7 +3966,7 @@ INTERNAL void rpc__cn_assoc_process_auth_tlr
      * Start filling in the response packet
      */
     *header_size = ((*header_size + 3) & ~0x3);
-    resp_auth_tlr = (rpc_cn_auth_tlr_t *)
+    resp_auth_tlr = (rpc_cn_auth_tlr_t *)(void *)
                     ((unsigned8 *)(resp_header) + *header_size);
     (void) memset(resp_auth_tlr, 0, (rpc_g_cn_large_frag_size - *header_size));
     resp_auth_tlr->auth_type = req_auth_tlr->auth_type;
@@ -4014,7 +4014,7 @@ INTERNAL void rpc__cn_assoc_process_auth_tlr
          */
         rpc_dce_svc_printf (
             __FILE__, __LINE__,
-            "%s %x",
+            "%s %s",
             rpc_svc_auth,
             svc_c_sev_error,
             rpc_m_call_failed_s,
@@ -4127,7 +4127,7 @@ rpc_cn_packet_p_t       header;
     cred_remain = krb_message_ptr->length;
 
     auth_tlr = RPC_CN_PKT_AUTH_TLR (header, RPC_CN_PKT_FRAG_LEN (header));
-    auth_value = (rpc_cn_bind_auth_value_priv_t *)auth_tlr->auth_value;
+    auth_value = (rpc_cn_bind_auth_value_priv_t *)(void *)auth_tlr->auth_value;
 
     /*
      * We want to send the first PDU as is, since its all set
@@ -4344,7 +4344,7 @@ INTERNAL unsigned32 save_sec_fragment(rpc_cn_assoc_p_t assoc,
      * auth trailer, we only want to recover the KRB_AP_{REQ|REP} message.
      */
     auth_tlr = RPC_CN_PKT_AUTH_TLR(header, RPC_CN_PKT_FRAG_LEN (header));
-    auth_value = (rpc_cn_bind_auth_value_priv_t *)auth_tlr->auth_value;
+    auth_value = (rpc_cn_bind_auth_value_priv_t *)(void *)auth_tlr->auth_value;
 
     if (RPC_CN_PKT_AUTH_LEN (header) < auth_value->checksum_length)
     {
@@ -4401,7 +4401,7 @@ INTERNAL unsigned32 save_sec_fragment(rpc_cn_assoc_p_t assoc,
         memcpy(auth_buffer + auth_buffer_len,
                auth_value->credentials,
                auth_value->cred_length);
-        ((rpc_cn_bind_auth_value_priv_t *)auth_buffer)->cred_length += auth_value->cred_length;
+        ((rpc_cn_bind_auth_value_priv_t *)(void *)auth_buffer)->cred_length += auth_value->cred_length;
     }
 
     RPC_DBG_PRINTF (rpc_e_dbg_auth, RPC_C_CN_DBG_AUTH_BIG_PAC,

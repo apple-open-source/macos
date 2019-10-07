@@ -40,6 +40,7 @@
 	
 =============================================================================*/
 
+
 #include <TargetConditionals.h>
 
 #define _MM_MALLOC_H_INCLUDED 1	// we don't want this header
@@ -946,4 +947,5 @@ VectorCleanup:
 		}
 	}
 }
+
 

@@ -163,4 +163,3 @@ isa_xpc_error(xpc_object_t obj)
 {
 	return isa_xpc_object_of_type(obj, XPC_TYPE_ERROR);
 }
-

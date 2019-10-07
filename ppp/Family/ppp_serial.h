@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,11 +23,11 @@
 
 
 #ifndef __PPPSERIAL_H__
-#define __PPPSERIAL_H_
+#define __PPPSERIAL_H__
 
 
-int pppserial_init();
-int pppserial_dispose();
+int pppserial_init(void);
+int pppserial_dispose(void);
 
 #define APPLE_PPP_NAME_SERIAL	"serial"
 

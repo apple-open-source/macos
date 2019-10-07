@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,6 +56,7 @@
 #include <arpa/inet.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
+#include <TargetConditionals.h>
 
 #include "ipconfig_ext.h"
 #include "ipconfig_types.h"
@@ -1097,11 +1098,11 @@ S_get_awd_interfaces(mach_port_t server, int argc, char * argv[])
     return (0);
 }
 
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 extern Boolean
 IPConfigurationForgetNetwork(CFStringRef ifname, CFStringRef ssid)
 __attribute__((weak_import));
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 
 static int
 S_forget_network(mach_port_t server, int argc, char * argv[])
@@ -1110,12 +1111,12 @@ S_forget_network(mach_port_t server, int argc, char * argv[])
     CFStringRef		ssid;
     Boolean		success;
 
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     if (IPConfigurationForgetNetwork == NULL) {
 	fprintf(stderr, "IPConfigurationForgetNetwork unavailable\n");
 	return (1);
     }
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
     ifname = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
     ssid = CFStringCreateWithCString(NULL, argv[1], kCFStringEncodingUTF8);
     success = IPConfigurationForgetNetwork(ifname, ssid);

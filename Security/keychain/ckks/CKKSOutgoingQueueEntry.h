@@ -33,6 +33,8 @@
 #if OCTAGON
 #import <CloudKit/CloudKit.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 @class CKKSKeychainView;
 
 @interface CKKSOutgoingQueueEntry : CKKSSQLDatabaseObject
@@ -48,7 +50,7 @@
 - (instancetype)initWithCKKSItem:(CKKSItem*)item
                           action:(NSString*)action
                            state:(NSString*)state
-                       waitUntil:(NSDate*)waitUntil
+                       waitUntil:(NSDate* _Nullable)waitUntil
                      accessGroup:(NSString*)accessgroup;
 
 + (instancetype)withItem:(SecDbItemRef)item
@@ -78,5 +80,6 @@
 
 @end
 
+NS_ASSUME_NONNULL_END
 #endif
 #endif /* CKKSOutgoingQueueEntry_h */

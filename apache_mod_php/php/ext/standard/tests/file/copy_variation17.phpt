@@ -14,7 +14,7 @@ $file_path = dirname(__FILE__);
 echo "*** Test copy() function: With source file names containing wild-card chars ***\n";
 $src_file = $file_path."/copy_variation17.tmp";
 $file_handle =  fopen($src_file, "w");
-fwrite($file_handle, str_repeat(b"Hello2world...\n", 100));
+fwrite($file_handle, str_repeat("Hello2world...\n", 100));
 fclose($file_handle);
 
 $dir = $file_path."/copy_variation17";
@@ -32,11 +32,11 @@ $dest_file_name = $dir."/copy_copy_variation17.tmp";
 
 $count = 1;
 foreach($src_file_names as $src_file_name) {
-  var_dump( copy($src_file_name, $dest_file_name) ); 
+  var_dump( copy($src_file_name, $dest_file_name) );
   var_dump( file_exists($dest_file_name) );
 
   if( file_exists($dest_file_name) ) {
-  var_dump( filesize($dest_file_name) );  //size of destination 
+  var_dump( filesize($dest_file_name) );  //size of destination
   unlink($dest_file_name);
   }
 
@@ -45,13 +45,11 @@ foreach($src_file_names as $src_file_name) {
 
 echo "*** Done ***\n";
 ?>
-
 --CLEAN--
 <?php
 unlink(dirname(__FILE__)."/copy_variation17.tmp");
 rmdir(dirname(__FILE__)."/copy_variation17");
 ?>
-
 --EXPECTF--
 *** Test copy() function: With source file names containing wild-card chars ***
 bool(true)

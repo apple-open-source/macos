@@ -160,6 +160,7 @@
 		D63C4CF00B20BFAE0047FE0F /* IOAudioFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOAudioFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		D63C4CFB0B20BFAE0047FE0F /* libIOAudioFloatLib.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libIOAudioFloatLib.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		D63C4D160B20BFAE0047FE0F /* audio */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = audio; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB8909F7222A069E00B81CD5 /* libAccelerateAudioDriverKernel.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libAccelerateAudioDriverKernel.a; path = usr/local/lib/libAccelerateAudioDriverKernel.a; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -221,6 +222,7 @@
 				3095886B126D4F9A0024DE0C /* BlitterLib */,
 				0118E627009F9D167F000001 /* Kernel.framework */,
 				4027DBBA010E55A905CA29EB /* IOAudioFamily-README.rtf */,
+				EB8909F6222A069E00B81CD5 /* Frameworks */,
 			);
 			name = IOAudioFamily;
 			sourceTree = "<group>";
@@ -274,6 +276,14 @@
 				30958872126D4FC90024DE0C /* IOAudioBlitterLibX86.cpp */,
 			);
 			name = BlitterLib;
+			sourceTree = "<group>";
+		};
+		EB8909F6222A069E00B81CD5 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				EB8909F7222A069E00B81CD5 /* libAccelerateAudioDriverKernel.a */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -594,10 +604,11 @@
 					"-DIOAUDIOFAMILY_SELF_BUILD",
 				);
 				OTHER_LDFLAGS = "";
+				"OTHER_LDFLAGS[sdk=macosx*.*internal]" = "-lAccelerateAudioDriverKernel";
+				"OTHER_LDFLAGS[sdk=macosx.internal]" = "-lAccelerateAudioDriverKernel";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOAudioFamily;
 				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
-				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				UNSTRIPPED_PRODUCT = YES;
 				VALID_ARCHS = x86_64;
@@ -638,10 +649,11 @@
 					"-DIOAUDIOFAMILY_SELF_BUILD",
 				);
 				OTHER_LDFLAGS = "";
+				"OTHER_LDFLAGS[sdk=macosx*.*internal]" = "-lAccelerateAudioDriverKernel";
+				"OTHER_LDFLAGS[sdk=macosx.internal]" = "-lAccelerateAudioDriverKernel";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOAudioFamily;
 				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
-				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
@@ -682,10 +694,11 @@
 					"-DIOAUDIOFAMILY_SELF_BUILD",
 				);
 				OTHER_LDFLAGS = "";
+				"OTHER_LDFLAGS[sdk=macosx*.*internal]" = "-lAccelerateAudioDriverKernel";
+				"OTHER_LDFLAGS[sdk=macosx.internal]" = "-lAccelerateAudioDriverKernel";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOAudioFamily;
 				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
-				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
@@ -745,7 +758,6 @@
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include;
 				REZ_EXECUTABLE = YES;
 				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
-				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
 				UNSTRIPPED_PRODUCT = YES;
@@ -804,7 +816,6 @@
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include;
 				REZ_EXECUTABLE = YES;
 				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
-				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
 				VALID_ARCHS = x86_64;
@@ -861,7 +872,6 @@
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include;
 				REZ_EXECUTABLE = YES;
 				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
-				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
 				VALID_ARCHS = x86_64;
@@ -889,7 +899,6 @@
 				PRODUCT_NAME = audio;
 				PUBLIC_HEADERS_FOLDER_PATH = /System/Library/Frameworks/Kernel.framework/Versions/A/Headers/IOKit;
 				REZ_EXECUTABLE = YES;
-				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				UNSTRIPPED_PRODUCT = YES;
 				WARNING_CFLAGS = (
@@ -914,7 +923,6 @@
 				PRODUCT_NAME = audio;
 				PUBLIC_HEADERS_FOLDER_PATH = /System/Library/Frameworks/Kernel.framework/Versions/A/Headers/IOKit;
 				REZ_EXECUTABLE = YES;
-				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -939,7 +947,6 @@
 				PRODUCT_NAME = audio;
 				PUBLIC_HEADERS_FOLDER_PATH = /System/Library/Frameworks/Kernel.framework/Versions/A/Headers/IOKit;
 				REZ_EXECUTABLE = YES;
-				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",

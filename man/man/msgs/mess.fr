@@ -172,7 +172,7 @@ NO_CAT_FOR_NONSTD_LL
 BROWSER_IS
         "\nutilisation de %s comme navigateur\n"
 HTMLPAGER_IS
-        "\nutilisation de %s pour transformer les pages HTML en texte"
+        "\nutilisation de %s pour transformer les pages HTML en texte\n"
 FOUND_FILE
         "manfile_from_sec_and_dir() a trouvé %s\n"
 CALLTRACE1

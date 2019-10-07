@@ -18,7 +18,7 @@ unset($unset_var);
 class sample  {
   public function __toString() {
     return "sample object";
-  } 
+  }
 }
 
 //getting the resource
@@ -34,36 +34,36 @@ $limits =  array (
 		  256,
 	      2147483647,
 		  -2147483648,
-		
+
 		  // float values
 /*7*/	  10.5,
 		  -20.5,
 		  10.1234567e5,
-		
+
 		  // array values
 /*10*/	  array(),
 		  array(0),
 		  array(1, 2),
-		
+
 		  // boolean values
 /*13*/	  true,
 		  false,
 		  TRUE,
 		  FALSE,
-		
+
 		  // null values
 /*17*/	  NULL,
 		  null,
-		
+
 		  // objects
 /*19*/	  new sample(),
-		
+
 		  // resource
 /*20*/	  $file_handle,
-		
+
 		  // undefined variable
 /*21*/	  @$undefined_var,
-		
+
 		  // unset variable
 /*22*/	  @$unset_var
 );
@@ -177,15 +177,15 @@ array(6) {
 }
 -- Iteration 10 --
 
-Warning: explode() expects parameter 3 to be integer, array given in %s on line %d
+Warning: explode() expects parameter 3 to be int, array given in %s on line %d
 NULL
 -- Iteration 11 --
 
-Warning: explode() expects parameter 3 to be integer, array given in %s on line %d
+Warning: explode() expects parameter 3 to be int, array given in %s on line %d
 NULL
 -- Iteration 12 --
 
-Warning: explode() expects parameter 3 to be integer, array given in %s on line %d
+Warning: explode() expects parameter 3 to be int, array given in %s on line %d
 NULL
 -- Iteration 13 --
 array(1) {
@@ -219,11 +219,11 @@ array(1) {
 }
 -- Iteration 19 --
 
-Warning: explode() expects parameter 3 to be integer, object given in %s on line %d
+Warning: explode() expects parameter 3 to be int, object given in %s on line %d
 NULL
 -- Iteration 20 --
 
-Warning: explode() expects parameter 3 to be integer, resource given in %s on line %d
+Warning: explode() expects parameter 3 to be int, resource given in %s on line %d
 NULL
 -- Iteration 21 --
 array(1) {

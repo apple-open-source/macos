@@ -9,8 +9,9 @@
 
 **********************************************************************/
 
-#include "internal.h"
+#include "ruby/encoding.h"
 #include "ruby/st.h"
+#include "internal.h"
 #include "symbol.h"
 #include "gc.h"
 #include "probes.h"
@@ -28,7 +29,7 @@ static ID register_static_symid_str(ID, VALUE);
 #define REGISTER_SYMID(id, name) register_static_symid((id), (name), strlen(name), enc)
 #include "id.c"
 
-#define is_identchar(p,e,enc) (rb_enc_isalnum((unsigned char)(*(p)),(enc)) || (*(p)) == '_' || !ISASCII(*(p)))
+#define is_identchar(p,e,enc) (ISALNUM((unsigned char)*(p)) || (*(p)) == '_' || !ISASCII(*(p)))
 
 #define op_tbl_count numberof(op_tbl)
 STATIC_ASSERT(op_tbl_name_size, sizeof(op_tbl[0].name) == 3);
@@ -51,7 +52,7 @@ Init_op_tbl(void)
     }
 }
 
-enum {ID_ENTRY_UNIT = 512};
+static const int ID_ENTRY_UNIT = 512;
 
 enum id_entry_type {
     ID_ENTRY_STR,
@@ -177,11 +178,11 @@ is_special_global_name(const char *m, const char *e, rb_encoding *enc)
 	}
     }
     else {
-	if (!rb_enc_isdigit(*m, enc)) return 0;
+	if (!ISDIGIT(*m)) return 0;
 	do {
 	    if (!ISASCII(*m)) mb = 1;
 	    ++m;
-	} while (m < e && rb_enc_isdigit(*m, enc));
+	} while (m < e && ISDIGIT(*m));
     }
     return m == e ? mb + 1 : 0;
 }
@@ -198,10 +199,46 @@ rb_enc_symname_p(const char *name, rb_encoding *enc)
     return rb_enc_symname2_p(name, strlen(name), enc);
 }
 
+static int
+rb_sym_constant_char_p(const char *name, long nlen, rb_encoding *enc)
+{
+    int c, len;
+    const char *end = name + nlen;
+
+    if (nlen < 1) return FALSE;
+    if (ISASCII(*name)) return ISUPPER(*name);
+    c = rb_enc_precise_mbclen(name, end, enc);
+    if (!MBCLEN_CHARFOUND_P(c)) return FALSE;
+    len = MBCLEN_CHARFOUND_LEN(c);
+    c = rb_enc_mbc_to_codepoint(name, end, enc);
+    if (ONIGENC_IS_UNICODE(enc)) {
+	static int ctype_titlecase = 0;
+	if (rb_enc_isupper(c, enc)) return TRUE;
+	if (rb_enc_islower(c, enc)) return FALSE;
+	if (!ctype_titlecase) {
+	    static const UChar cname[] = "titlecaseletter";
+	    static const UChar *const end = cname + sizeof(cname) - 1;
+	    ctype_titlecase = ONIGENC_PROPERTY_NAME_TO_CTYPE(enc, cname, end);
+	}
+	if (rb_enc_isctype(c, ctype_titlecase, enc)) return TRUE;
+    }
+    else {
+	/* fallback to case-folding */
+	OnigUChar fold[ONIGENC_GET_CASE_FOLD_CODES_MAX_NUM];
+	const OnigUChar *beg = (const OnigUChar *)name;
+	int r = enc->mbc_case_fold(ONIGENC_CASE_FOLD,
+				   &beg, (const OnigUChar *)end,
+				   fold, enc);
+	if (r > 0 && (r != len || memcmp(fold, name, r)))
+	    return TRUE;
+    }
+    return FALSE;
+}
+
 #define IDSET_ATTRSET_FOR_SYNTAX ((1U<<ID_LOCAL)|(1U<<ID_CONST))
 #define IDSET_ATTRSET_FOR_INTERN (~(~0U<<(1<<ID_SCOPE_SHIFT)) & ~(1U<<ID_ATTRSET))
 
-static int
+int
 rb_enc_symname_type(const char *name, long len, rb_encoding *enc, unsigned int allowed_attrset)
 {
     const char *m = name;
@@ -278,9 +315,9 @@ rb_enc_symname_type(const char *name, long len, rb_encoding *enc, unsigned int a
 	break;
 
       default:
-	type = rb_enc_isupper(*m, enc) ? ID_CONST : ID_LOCAL;
+	type = rb_sym_constant_char_p(m, e-m, enc) ? ID_CONST : ID_LOCAL;
       id:
-	if (m >= e || (*m != '_' && !rb_enc_isalpha(*m, enc) && ISASCII(*m))) {
+	if (m >= e || (*m != '_' && !ISALPHA(*m) && ISASCII(*m))) {
 	    if (len > 1 && *(e-1) == '=') {
 		type = rb_enc_symname_type(name, len-1, enc, allowed_attrset);
 		if (type != ID_ATTRSET) return ID_ATTRSET;
@@ -430,7 +467,8 @@ sym_check_asciionly(VALUE str)
     if (!rb_enc_asciicompat(rb_enc_get(str))) return FALSE;
     switch (rb_enc_str_coderange(str)) {
       case ENC_CODERANGE_BROKEN:
-	rb_raise(rb_eEncodingError, "invalid encoding symbol");
+	rb_raise(rb_eEncodingError, "invalid symbol in encoding %s :%+"PRIsVALUE,
+		 rb_enc_name(rb_enc_get(str)), str);
       case ENC_CODERANGE_7BIT:
 	return TRUE;
     }
@@ -471,7 +509,7 @@ dsymbol_alloc(const VALUE klass, const VALUE str, rb_encoding * const enc, const
     const VALUE dsym = rb_newobj_of(klass, T_SYMBOL | FL_WB_PROTECTED);
     long hashval;
 
-    rb_enc_associate(dsym, enc);
+    rb_enc_set_index(dsym, rb_enc_to_index(enc));
     OBJ_FREEZE(dsym);
     RB_OBJ_WRITE(dsym, &RSYMBOL(dsym)->fstr, str);
     RSYMBOL(dsym)->id = type;
@@ -743,15 +781,7 @@ rb_sym2str(VALUE sym)
 VALUE
 rb_id2str(ID id)
 {
-    VALUE str;
-
-    if ((str = lookup_id_str(id)) != 0) {
-        if (RBASIC(str)->klass == 0)
-            RBASIC_SET_CLASS_RAW(str, rb_cString);
-	return str;
-    }
-
-    return 0;
+    return lookup_id_str(id);
 }
 
 const char *
@@ -1049,6 +1079,12 @@ VALUE
 rb_sym_intern_ascii_cstr(const char *ptr)
 {
     return rb_sym_intern_ascii(ptr, strlen(ptr));
+}
+
+VALUE
+rb_to_symbol_type(VALUE obj)
+{
+    return rb_convert_type_with_id(obj, T_SYMBOL, "Symbol", idTo_sym);
 }
 
 static ID

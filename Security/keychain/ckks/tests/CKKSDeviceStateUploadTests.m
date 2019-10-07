@@ -46,7 +46,7 @@
 
 @implementation CloudKitKeychainSyncingDeviceStateUploadTests
 
-- (void)testDeviceStateUploadGood {
+- (void)testDeviceStateUploadGoodSOSOnly {
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
 
     [self startCKKSSubsystem];
@@ -69,7 +69,7 @@
                     XCTAssertTrue([self.utcCalendar isDate:record[SecCKSRecordLastUnlockTime] equalToDate:[NSDate date] toUnitGranularity:NSCalendarUnitDay],
                                   "last unlock date (%@) similar to Now (%@)", record[SecCKSRecordLastUnlockTime], [NSDate date]);
 
-                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.circlePeerID, "peer ID matches what we gave it");
+                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.mockSOSAdapter.selfPeer.peerID, "peer ID matches what we gave it");
                     XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCInCircle], "device is in circle");
 
                     XCTAssertNil(record[SecCKRecordOctagonPeerID], "octagon peer ID should be missing");
@@ -115,7 +115,7 @@
                     XCTAssertTrue([self.utcCalendar isDate:record[SecCKSRecordLastUnlockTime] equalToDate:[NSDate date] toUnitGranularity:NSCalendarUnitDay],
                                   "last unlock date (%@) similar to Now (%@)", record[SecCKSRecordLastUnlockTime], [NSDate date]);
 
-                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.circlePeerID, "peer ID matches what we gave it");
+                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.mockSOSAdapter.selfPeer.peerID, "peer ID matches what we gave it");
                     XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCInCircle], "device is in circle");
 
                     XCTAssertNil(record[SecCKRecordOctagonPeerID], "octagon peer ID should be missing");
@@ -190,6 +190,104 @@
     [op waitUntilFinished];
 }
 
+- (void)testDeviceStateDoNotUploadIfNoDeviceID {
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
+
+    [self startCKKSSubsystem];
+    [self.keychainView waitForKeyHierarchyReadiness];
+
+    [self expectCKModifyRecords:@{SecCKRecordDeviceStateType: @1}
+        deletedRecordTypeCounts:nil
+                         zoneID:self.keychainZoneID
+            checkModifiedRecord: ^BOOL (CKRecord* record) {
+                return [record.recordType isEqualToString: SecCKRecordDeviceStateType];
+            }
+           runAfterModification:nil];
+
+    CKKSUpdateDeviceStateOperation* op = [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [op waitUntilFinished];
+
+    // Device ID goes away
+    NSString* oldDeviceID = self.accountStateTracker.ckdeviceID;
+    self.accountStateTracker.ckdeviceID = nil;
+
+    [self.keychainView dispatchSync:^bool {
+        NSError* error = nil;
+        CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry fromDatabase:oldDeviceID zoneID:self.keychainZoneID error:&error];
+        XCTAssertNil(error, "No error fetching device state entry");
+        XCTAssertNotNil(cdse, "Fetched device state entry");
+
+        CKRecord* record = cdse.storedCKRecord;
+
+        NSDate* m = record.modificationDate;
+        XCTAssertNotNil(m, "Have modification date");
+
+        return true;
+    }];
+
+    // It shouldn't try to upload a new CDSE; there's no device ID
+    op = [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
+    [op waitUntilFinished];
+
+    // And add a new keychain item, and expect it to sync, but without a device state
+    [self expectCKModifyRecords:@{SecCKRecordItemType: @1,
+                                  SecCKRecordCurrentKeyType: @1,
+                                  }
+        deletedRecordTypeCounts:@{}
+                         zoneID:self.keychainZoneID
+            checkModifiedRecord: ^BOOL (CKRecord* record){
+                return YES;
+            }
+           runAfterModification:nil];
+
+    [self addGenericPassword: @"data" account: @"account-delete-me"];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
+
+// Note that CKKS shouldn't even be functioning in SA, but pretend that it is
+- (void)testDeviceStateDoNotUploadIfSAAccount {
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
+
+    [self startCKKSSubsystem];
+    [self.keychainView waitForKeyHierarchyReadiness];
+
+    [self expectCKModifyRecords:@{SecCKRecordDeviceStateType: @1}
+        deletedRecordTypeCounts:nil
+                         zoneID:self.keychainZoneID
+            checkModifiedRecord: ^BOOL (CKRecord* record) {
+                return [record.recordType isEqualToString: SecCKRecordDeviceStateType];
+            }
+           runAfterModification:nil];
+
+    CKKSUpdateDeviceStateOperation* op = [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [op waitUntilFinished];
+
+    // The account downgrades, I guess?
+
+    self.fakeHSA2AccountStatus = CKKSAccountStatusNoAccount;
+    [self.accountStateTracker setHSA2iCloudAccountStatus:self.fakeHSA2AccountStatus];
+
+    // It shouldn't try to upload a new CDSE; the account is SA
+    op = [self.keychainView updateDeviceState:false waitForKeyHierarchyInitialization:2*NSEC_PER_SEC ckoperationGroup:nil];
+    [op waitUntilFinished];
+
+    // And add a new keychain item, and expect it to sync, but without a device state
+    [self expectCKModifyRecords:@{SecCKRecordItemType: @1,
+                                  SecCKRecordCurrentKeyType: @1,
+                                  }
+        deletedRecordTypeCounts:@{}
+                         zoneID:self.keychainZoneID
+            checkModifiedRecord: ^BOOL (CKRecord* record){
+                return YES;
+            }
+           runAfterModification:nil];
+
+    [self addGenericPassword: @"data" account: @"account-delete-me"];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
+
 - (void)testDeviceStateUploadRateLimitedAfterNormalUpload {
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
 
@@ -228,7 +326,7 @@
                     XCTAssertTrue([self.utcCalendar isDate:record[SecCKSRecordLastUnlockTime] equalToDate:[NSDate date] toUnitGranularity:NSCalendarUnitDay],
                                   "last unlock date (%@) similar to Now (%@)", record[SecCKSRecordLastUnlockTime], [NSDate date]);
 
-                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.circlePeerID, "peer ID matches what we gave it");
+                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.mockSOSAdapter.selfPeer.peerID, "peer ID matches what we gave it");
                     XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCInCircle], "device is in circle");
 
                     XCTAssertNil(record[SecCKRecordOctagonPeerID], "octagon peer ID should be missing");
@@ -276,7 +374,7 @@
                     XCTAssertTrue([self.utcCalendar isDate:record[SecCKSRecordLastUnlockTime] equalToDate:[NSDate date] toUnitGranularity:NSCalendarUnitDay],
                                   "last unlock date (%@) similar to Now (%@)", record[SecCKSRecordLastUnlockTime], [NSDate date]);
 
-                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.circlePeerID, "peer ID should matche what we gave it");
+                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.mockSOSAdapter.selfPeer.peerID, "peer ID should matche what we gave it");
                     XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCInCircle], "device should be in circle");
 
                     XCTAssertNil(record[SecCKRecordOctagonPeerID], "octagon peer ID should be missing");
@@ -451,7 +549,7 @@
                     XCTAssertTrue([self.utcCalendar isDate:record[SecCKSRecordLastUnlockTime] equalToDate:[NSDate date] toUnitGranularity:NSCalendarUnitDay],
                                   "last unlock date (%@) similar to Now (%@)", record[SecCKSRecordLastUnlockTime], [NSDate date]);
 
-                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.circlePeerID, "peer ID matches what we gave it");
+                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.mockSOSAdapter.selfPeer.peerID, "peer ID matches what we gave it");
                     XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCInCircle], "device is in circle");
                     XCTAssertEqualObjects(record[SecCKRecordKeyState], CKKSZoneKeyToNumber(SecCKKSZoneKeyStateWaitForTLK), "Device is in waitfortlk");
 
@@ -505,7 +603,7 @@
                     XCTAssertTrue([self.utcCalendar isDate:record[SecCKSRecordLastUnlockTime] equalToDate:threeDaysAgo toUnitGranularity:NSCalendarUnitDay],
                                   "last unlock date (%@) similar to three days ago (%@)", record[SecCKSRecordLastUnlockTime], threeDaysAgo);
 
-                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.circlePeerID, "peer ID matches what we gave it");
+                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.mockSOSAdapter.selfPeer.peerID, "peer ID matches what we gave it");
                     XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCInCircle], "device is in circle");
                     XCTAssertEqualObjects(record[SecCKRecordKeyState], CKKSZoneKeyToNumber(SecCKKSZoneKeyStateWaitForUnlock), "Device is in waitforunlock");
 
@@ -535,6 +633,7 @@
 
     // And restart CKKS...
     self.keychainView = [[CKKSViewManager manager] restartZone: self.keychainZoneID.zoneName];
+    [self beginSOSTrustedViewOperation:self.keychainView];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "CKKS entered waitfortlk");
     XCTAssertEqualObjects(self.keychainView.keyHierarchyState, SecCKKSZoneKeyStateWaitForTLK, "CKKS entered waitfortlk");
 
@@ -552,7 +651,7 @@
                     XCTAssertTrue([self.utcCalendar isDate:record[SecCKSRecordLastUnlockTime] equalToDate:[NSDate date] toUnitGranularity:NSCalendarUnitDay],
                                   "last unlock date (%@) similar to Now (%@)", record[SecCKSRecordLastUnlockTime], [NSDate date]);
 
-                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.circlePeerID, "peer ID matches what we gave it");
+                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.mockSOSAdapter.selfPeer.peerID, "peer ID matches what we gave it");
                     XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCInCircle], "device is in circle");
                     XCTAssertEqualObjects(record[SecCKRecordKeyState], CKKSZoneKeyToNumber(SecCKKSZoneKeyStateWaitForTLK), "Device is in waitfortlk");
 
@@ -573,16 +672,17 @@
 
 
 - (void)testDeviceStateUploadBadCircleState {
-    self.circleStatus = [[SOSAccountStatus alloc] init:kSOSCCNotInCircle error:nil];;
+    self.mockSOSAdapter.circleStatus = kSOSCCNotInCircle;
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
 
     // This test has stuff in CloudKit, but no TLKs.
-    [self putFakeKeyHierarchyInCloudKit: self.keychainZoneID];
+    // It should NOT reset the CK zone.
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    self.zones[self.keychainZoneID].flag = true;
 
     [self startCKKSSubsystem];
 
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateLoggedOut] wait:20*NSEC_PER_SEC], "CKKS entered logged out");
-    XCTAssertEqualObjects(self.keychainView.keyHierarchyState, SecCKKSZoneKeyStateLoggedOut, "CKKS thinks it's logged out");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "CKKS entered waitfortrust");
 
     __weak __typeof(self) weakSelf = self;
     [self expectCKModifyRecords: @{SecCKRecordDeviceStateType: [NSNumber numberWithInt:1]}
@@ -600,7 +700,7 @@
 
                     XCTAssertNil(record[SecCKRecordCirclePeerID], "no peer ID if device is not in circle");
                     XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCNotInCircle], "device is not in circle");
-                    XCTAssertEqualObjects(record[SecCKRecordKeyState], CKKSZoneKeyToNumber(SecCKKSZoneKeyStateLoggedOut), "Device is in keystate:loggedout");
+                    XCTAssertEqualObjects(record[SecCKRecordKeyState], CKKSZoneKeyToNumber(SecCKKSZoneKeyStateWaitForTrust), "Device is in keystate:waitfortrust");
 
                     XCTAssertNil(record[SecCKRecordCurrentTLK]   , "No TLK");
                     XCTAssertNil(record[SecCKRecordCurrentClassA], "No class A key");
@@ -617,6 +717,10 @@
 
     [op waitUntilFinished];
     XCTAssertNil(op.error, "No error uploading 'out of circle' device state");
+
+    FakeCKZone* keychainZone = self.zones[self.keychainZoneID];
+    XCTAssertNotNil(keychainZone, "Should still have a keychain zone");
+    XCTAssertTrue(keychainZone.flag, "keychain zone should not have been recreated");
 }
 
 - (void)testDeviceStateUploadWithTardyNetworkAfterRestart {
@@ -649,7 +753,7 @@
                     XCTAssertTrue([self.utcCalendar isDate:record[SecCKSRecordLastUnlockTime] equalToDate:[NSDate date] toUnitGranularity:NSCalendarUnitDay],
                                   "last unlock date (%@) similar to Now (%@)", record[SecCKSRecordLastUnlockTime], [NSDate date]);
 
-                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.circlePeerID, "peer ID matches what we gave it");
+                    XCTAssertEqualObjects(record[SecCKRecordCirclePeerID], strongSelf.mockSOSAdapter.selfPeer.peerID, "peer ID matches what we gave it");
                     XCTAssertEqualObjects(record[SecCKRecordCircleStatus], [NSNumber numberWithInt:kSOSCCInCircle], "device is in circle");
                     XCTAssertEqualObjects(record[SecCKRecordKeyState], CKKSZoneKeyToNumber(SecCKKSZoneKeyStateReady), "Device is in ready");
 

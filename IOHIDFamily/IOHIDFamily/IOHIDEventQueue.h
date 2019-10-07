@@ -41,6 +41,9 @@ enum {
 #define HID_QUEUE_CAPACITY_MAX              131072      // 128k
 #define HID_QUEUE_CAPACITY_MAX_ENTITLED     3145728     // 3mb
 
+#define HID_QUEUE_USAGE_BUCKETS 11
+#define HID_QUEUE_BUCKET_DENOM (100/(HID_QUEUE_USAGE_BUCKETS-1))
+
 //---------------------------------------------------------------------------
 // IOHIDEventQueue class.
 //
@@ -58,12 +61,16 @@ protected:
     IOOptionBits            _state;
     IOHIDQueueOptionsType   _options;
     UInt64                  _enqueueErrorCount;
+    UInt64                  _usageCounts[HID_QUEUE_USAGE_BUCKETS];
+
+    void            updateUsageCounts();
+    OSDictionary    *copyUsageCountDict() const;
 
 public:
     static IOHIDEventQueue *withCapacity(UInt32 size);
     static IOHIDEventQueue *withEntries(UInt32 numEntries, UInt32 entrySize);
     
-    virtual Boolean enqueue(void *data, UInt32 dataSize);
+    virtual Boolean enqueue(void *data, UInt32 dataSize) APPLE_KEXT_OVERRIDE;
     
     inline virtual void setOptions(IOHIDQueueOptionsType flags) { _options = flags; }
     inline virtual IOHIDQueueOptionsType getOptions() { return _options; }
@@ -76,7 +83,8 @@ public:
     inline virtual void enable() { _state &= ~kHIDQueueDisabled; }
     inline virtual void disable() { _state |= kHIDQueueDisabled; }
     
-    virtual bool serialize(OSSerialize * serializer) const;
+    virtual bool serialize(OSSerialize * serializer) const APPLE_KEXT_OVERRIDE;
+
 };
 
 #endif /* !_IOKIT_HID_IOHIDEVENTQUEUE_H */

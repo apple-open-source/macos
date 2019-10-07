@@ -26,7 +26,7 @@
 enum {
     kKextstatExitOK          = EX_OK,
     kKextstatExitError  = 1,
-    
+
     // don't think we use it
     kKextstatExitUnspecified = 11,
 
@@ -100,7 +100,7 @@ typedef struct {
     Boolean            flagShowArchitecture;
     Boolean            flagSortByLoadAddress;
     CFMutableArrayRef  bundleIDs;          // must release
-    
+
     CFDictionaryRef    loadedKextInfo;     // must release
     const NXArchInfo * runningKernelArch;  // do not free
 } KextstatArgs;

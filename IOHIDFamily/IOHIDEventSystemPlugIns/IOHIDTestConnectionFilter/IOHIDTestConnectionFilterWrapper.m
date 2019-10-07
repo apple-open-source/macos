@@ -11,9 +11,10 @@
 #endif
 
 #include <IOKit/hid/IOHIDEventSystemConnection.h>
-#include <IOKit/hid/IOHIDConnectionFilterPlugIn.h>
+#include <IOKit/hid/IOHIDConnectionFilterPlugin.h>
 #include "IOHIDTestConnectionFilter.h"
 #include <os/log.h>
+
 
 void * IOHIDTestConnectionFilterFactory (CFAllocatorRef allocator, CFUUIDRef typeUUID);
 static HRESULT _QueryInterface (void *self, REFIID iid, LPVOID *ppv);
@@ -44,7 +45,7 @@ IOHIDConnectionFilterPlugInInterface  __ftbl =
 };
 
 @interface HIDTestConnectionFilterWrapper : HIDTestConnectionFilter {
-
+    
     IOHIDConnectionFilterPlugInInterface  _ftbl;
 @public
     IOHIDConnectionFilterPlugInInterface  *_ftblPrt;

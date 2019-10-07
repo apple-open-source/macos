@@ -53,7 +53,7 @@ void intl_convert_utf8_to_utf16(
 	UErrorCode* status )
 {
 	UChar*      dst_buf = NULL;
-	uint32_t    dst_len = 0;
+	int32_t     dst_len = 0;
 
 	/* If *target is NULL determine required destination buffer size (pre-flighting).
 	 * Otherwise, attempt to convert source string; if *target buffer is not large enough
@@ -141,7 +141,7 @@ zend_string* intl_convert_utf16_to_utf8(
 	u_strToUTF8( ZSTR_VAL(dst), dst_len, NULL, src, src_len, status );
 	if( U_FAILURE( *status ) )
 	{
-		zend_string_free(dst);
+		zend_string_efree(dst);
 		return NULL;
 	}
 

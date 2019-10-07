@@ -132,7 +132,7 @@ to{
         GU{"Kuamu"}
         GW{"Kini-Pisau"}
         GY{"Kuiana"}
-        HK{"Hongi Kongi SAR Siaina"}
+        HK{"Hongi Kongi"}
         HM{"ʻOtumotu Heati mo Makitonali"}
         HN{"Honitulasi"}
         HR{"Kuloisia"}
@@ -184,9 +184,9 @@ to{
         MH{"ʻOtumotu Māsolo"}
         MK{"Masetōnia"}
         ML{"Māli"}
-        MM{"Pema"}
+        MM{"Mianimā (Pema)"}
         MN{"Mongokōlia"}
-        MO{"Makau SAR Siaina"}
+        MO{"Makau"}
         MP{"ʻOtumotu Maliana tokelau"}
         MQ{"Mātiniki"}
         MR{"Maulitenia"}
@@ -296,8 +296,6 @@ to{
     }
     Countries%short{
         GB{"Pilitānia"}
-        HK{"Hongi Kongi"}
-        MO{"Makau"}
         PS{"Palesitaine"}
         US{"ʻAmelika"}
     }
@@ -307,5 +305,5 @@ to{
         CZ{"Lepupelika Seki"}
         MK{"Masetōnia (FYROM)"}
     }
-    Version{"2.1.38.39"}
+    Version{"2.1.47.82"}
 }

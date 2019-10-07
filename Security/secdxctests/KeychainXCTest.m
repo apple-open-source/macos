@@ -26,6 +26,8 @@
 #import "SecdTestKeychainUtilities.h"
 #import "CKKS.h"
 #import "SecDbKeychainItemV7.h"
+#import "SecDbKeychainMetadataKeyStore.h"
+#import "SecAKSObjCWrappers.h"
 #import "SecItemPriv.h"
 #import "SecTaskPriv.h"
 #import "server_security_helpers.h"
@@ -116,7 +118,6 @@
 @implementation KeychainXCTest {
     id _keychainPartialMock;
     CFArrayRef _originalAccessGroups;
-
 }
 
 @synthesize keychainPartialMock = _keychainPartialMock;
@@ -142,14 +143,16 @@
     self.keyclassUsedForAKSDecryption = 0;
     
     self.keySpecifier = [[SFAESKeySpecifier alloc] initWithBitSize:SFAESKeyBitSize256];
-    [self setNewFakeAKSKey:[NSData dataWithBytes:"1234567890123456789012" length:32]];
+    [self setNewFakeAKSKey:[NSData dataWithBytes:"1234567890123456789012345678901" length:32]];
 
     [SecDbKeychainMetadataKeyStore resetSharedStore];
     
     self.mockSecDbKeychainItemV7 = OCMClassMock([SecDbKeychainItemV7 class]);
-    [[[[self.mockSecDbKeychainItemV7 stub] andCall:@selector(fakeAKSEncryptWithKeybag:keyclass:keyData:outKeyclass:wrappedKey:error:) onObject:self] ignoringNonObjectArgs] aksEncryptWithKeybag:0 keyclass:0 keyData:[OCMArg any] outKeyclass:NULL wrappedKey:[OCMArg any] error:NULL];
-    [[[[self.mockSecDbKeychainItemV7 stub] andCall:@selector(fakeAKSDecryptWithKeybag:keyclass:wrappedKeyData:outKeyclass:unwrappedKey:error:) onObject:self] ignoringNonObjectArgs] aksDecryptWithKeybag:0 keyclass:0 wrappedKeyData:[OCMArg any] outKeyclass:NULL unwrappedKey:[OCMArg any] error:NULL];
     [[[self.mockSecDbKeychainItemV7 stub] andCall:@selector(decryptionOperation) onObject:self] decryptionOperation];
+
+    self.mockSecAKSObjCWrappers = OCMClassMock([SecAKSObjCWrappers class]);
+    [[[[self.mockSecAKSObjCWrappers stub] andCall:@selector(fakeAKSEncryptWithKeybag:keyclass:plaintext:outKeyclass:ciphertext:error:) onObject:self] ignoringNonObjectArgs] aksEncryptWithKeybag:0 keyclass:0 plaintext:[OCMArg any] outKeyclass:NULL ciphertext:[OCMArg any] error:NULL];
+    [[[[self.mockSecAKSObjCWrappers stub] andCall:@selector(fakeAKSDecryptWithKeybag:keyclass:ciphertext:outKeyclass:plaintext:error:) onObject:self] ignoringNonObjectArgs] aksDecryptWithKeybag:0 keyclass:0 ciphertext:[OCMArg any] outKeyclass:NULL plaintext:[OCMArg any] error:NULL];
 
     // bring back with <rdar://problem/37523001>
 //    [[[self.mockSecDbKeychainItemV7 stub] andCall:@selector(isKeychainUnlocked) onObject:self] isKeychainUnlocked];
@@ -166,6 +169,7 @@
 - (void)tearDown
 {
     [self.mockSecDbKeychainItemV7 stopMocking];
+    [self.mockSecAKSObjCWrappers stopMocking];
     SecAccessGroupsSetCurrent(_originalAccessGroups);
 
     [super tearDown];
@@ -192,9 +196,9 @@
 
 - (bool)fakeAKSEncryptWithKeybag:(keybag_handle_t)keybag
                         keyclass:(keyclass_t)keyclass
-                         keyData:(NSData*)keyData
+                       plaintext:(NSData*)plaintext
                      outKeyclass:(keyclass_t*)outKeyclass
-                      wrappedKey:(NSMutableData*)wrappedKey
+                      ciphertext:(NSMutableData*)ciphertextOut
                            error:(NSError**)error
 {
     if (self.lockState == LockStateLockedAndDisallowAKS) {
@@ -204,8 +208,8 @@
         return false;
     }
     
-    uint32_t keyLength = (uint32_t)keyData.length;
-    const uint8_t* keyBytes = keyData.bytes;
+    uint32_t keyLength = (uint32_t)plaintext.length;
+    const uint8_t* keyBytes = plaintext.bytes;
     
     NSData* dataToEncrypt = [NSData dataWithBytes:keyBytes length:keyLength];
     NSError* localError = nil;
@@ -217,9 +221,9 @@
     if (error) {
         *error = localError;
     }
-    
+
     if (ciphertext) {
-        void* wrappedKeyMutableBytes = wrappedKey.mutableBytes;
+        void* wrappedKeyMutableBytes = ciphertextOut.mutableBytes;
         memcpy(wrappedKeyMutableBytes, ciphertext.ciphertext.bytes, 32);
         memcpy(wrappedKeyMutableBytes + 32, ciphertext.initializationVector.bytes, 32);
         memcpy(wrappedKeyMutableBytes + 64, ciphertext.authenticationCode.bytes, 8);
@@ -239,9 +243,9 @@
 
 - (bool)fakeAKSDecryptWithKeybag:(keybag_handle_t)keybag
                         keyclass:(keyclass_t)keyclass
-                  wrappedKeyData:(NSData*)wrappedKeyData
+                      ciphertext:(NSData*)ciphertextIn
                      outKeyclass:(keyclass_t*)outKeyclass
-                    unwrappedKey:(NSMutableData*)unwrappedKey
+                       plaintext:(NSMutableData*)plaintext
                            error:(NSError**)error
 {
     if (self.lockState == LockStateLockedAndDisallowAKS) {
@@ -256,7 +260,7 @@
         return false;
     }
     
-    const uint8_t* wrappedKeyBytes = wrappedKeyData.bytes;
+    const uint8_t* wrappedKeyBytes = ciphertextIn.bytes;
     
     NSData* ciphertextData = [NSData dataWithBytes:wrappedKeyBytes length:32];
     NSData* ivData = [NSData dataWithBytes:wrappedKeyBytes + 32 length:32];
@@ -286,9 +290,9 @@
     }
     
     self.keyclassUsedForAKSDecryption = keyclass;
-    if (decryptedData && decryptedData.length <= unwrappedKey.length) {
-        memcpy(unwrappedKey.mutableBytes, decryptedData.bytes, decryptedData.length);
-        unwrappedKey.length = decryptedData.length;
+    if (decryptedData && decryptedData.length <= plaintext.length) {
+        memcpy(plaintext.mutableBytes, decryptedData.bytes, decryptedData.length);
+        plaintext.length = decryptedData.length;
         self.didAKSDecrypt = YES;
         return true;
     }
@@ -300,7 +304,7 @@
 - (NSData*)getDatabaseKeyDataithError:(NSError**)error
 {
     if (_lockState == LockStateUnlocked) {
-        return [NSData dataWithBytes:"12345678901234567890123456789012" length:32];
+        return [NSData dataWithBytes:"1234567890123456789012345678901" length:32];
     }
     else {
         if (error) {

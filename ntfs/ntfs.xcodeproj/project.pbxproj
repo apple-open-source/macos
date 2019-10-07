@@ -154,6 +154,7 @@
 
 /* Begin PBXFileReference section */
 		3840A0332062FF12008C2E45 /* kext.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
+		38A3DC1F230396FD0064CA2A /* newfs.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = newfs.entitlements; path = newfs/newfs.entitlements; sourceTree = "<group>"; };
 		4DDA8CC2150E65F100631F4D /* ntfs.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = ntfs.xcconfig; sourceTree = "<group>"; };
 		4DF954BD1BF12917004AE1B4 /* BootCampFormatter */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = BootCampFormatter; sourceTree = BUILT_PRODUCTS_DIR; };
 		4DF954C41BF12956004AE1B4 /* attrdef.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = attrdef.c; path = newfs/attrdef.c; sourceTree = "<group>"; };
@@ -220,7 +221,7 @@
 		72B3866F09277DE500DC8718 /* ntfs_endian.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_endian.h; sourceTree = "<group>"; };
 		72B3867009277DE500DC8718 /* ntfs_layout.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_layout.h; sourceTree = "<group>"; };
 		72B3867109277DE500DC8718 /* ntfs_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_types.h; sourceTree = "<group>"; };
-		72BFC8DD0923A5940052BF8D /* ntfs_vfsops.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_vfsops.c; sourceTree = "<group>"; usesTabs = 1; };
+		72BFC8DD0923A5940052BF8D /* ntfs_vfsops.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_vfsops.c; sourceTree = "<group>"; usesTabs = 1; };
 		72D1E3EE097AFAA800A661AF /* ntfs_mft.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_mft.c; sourceTree = "<group>"; };
 		72D1E3EF097AFAA800A661AF /* ntfs_mft.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_mft.h; sourceTree = "<group>"; };
 		72D60B9A09766BEA00E0D450 /* ntfs_hash.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_hash.c; sourceTree = "<group>"; };
@@ -241,7 +242,7 @@
 		72E75FD90986D74A0050048E /* ntfs_attr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_attr.h; sourceTree = "<group>"; };
 		72E75FED098714850050048E /* ntfs_unistr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_unistr.c; sourceTree = "<group>"; };
 		72E75FEE098714850050048E /* ntfs_unistr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_unistr.h; sourceTree = "<group>"; };
-		72FE849209313B0D00752581 /* ntfs.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.h; path = ntfs.h; sourceTree = "<group>"; usesTabs = 1; };
+		72FE849209313B0D00752581 /* ntfs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs.h; sourceTree = "<group>"; usesTabs = 1; };
 		72FE849709313B5100752581 /* ntfs_volume.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_volume.h; sourceTree = "<group>"; };
 		BE2956350B7B373B00E0CE44 /* ntfs_collate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_collate.c; sourceTree = "<group>"; };
 		BE2956370B7B375F00E0CE44 /* ntfs_collate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_collate.h; sourceTree = "<group>"; };
@@ -316,6 +317,7 @@
 		4DF954FB1BF12961004AE1B4 /* newfs */ = {
 			isa = PBXGroup;
 			children = (
+				38A3DC1F230396FD0064CA2A /* newfs.entitlements */,
 				4DF955171BF12E9B004AE1B4 /* newfs_ntfs.h */,
 				4DF954C41BF12956004AE1B4 /* attrdef.c */,
 				4DF954C51BF12956004AE1B4 /* attrdef.h */,
@@ -406,57 +408,57 @@
 			isa = PBXGroup;
 			children = (
 				3840A0332062FF12008C2E45 /* kext.xcconfig */,
-				BE7EC82A0B85E7C900392660 /* ntfs_bitmap.c */,
-				BE7EC82B0B85E7C900392660 /* ntfs_lcnalloc.c */,
-				BE7EC8260B85E72700392660 /* ntfs_bitmap.h */,
-				BE7EC8270B85E72700392660 /* ntfs_lcnalloc.h */,
-				BE2956470B7BE55D00E0CE44 /* ntfs_index.h */,
-				BE2956480B7BE58100E0CE44 /* ntfs_index.c */,
-				BE361A610B38920100E5885A /* ntfs_quota.c */,
-				BE361A620B38920100E5885A /* ntfs_quota.h */,
-				BE7AAB140B3768630005CEE2 /* ntfs_usnjrnl.c */,
-				BE7AAB150B3768630005CEE2 /* ntfs_usnjrnl.h */,
-				72E50C1D099FF6C80061DB40 /* ntfs_time.h */,
-				72E4A3D00987D53F001B223B /* ntfs_runlist.c */,
-				72E75FED098714850050048E /* ntfs_unistr.c */,
-				72E75FEE098714850050048E /* ntfs_unistr.h */,
-				72E75FD80986D74A0050048E /* ntfs_attr.c */,
-				BE92B9820CBBA333004DBCFB /* ntfs_sfm.c */,
-				BE92B9830CBBA333004DBCFB /* ntfs_sfm.h */,
-				BE91B1C60C9B35E300F0BE50 /* ntfs_attr_list.c */,
-				BE91B1C30C9B35D400F0BE50 /* ntfs_attr_list.h */,
-				72E75FD90986D74A0050048E /* ntfs_attr.h */,
-				72E75FC30986C87D0050048E /* ntfs_mst.c */,
-				72E75FC40986C87D0050048E /* ntfs_mst.h */,
-				72D1E3EE097AFAA800A661AF /* ntfs_mft.c */,
-				72D1E3EF097AFAA800A661AF /* ntfs_mft.h */,
-				72D60BC50976768E00E0D450 /* ntfs_dir.c */,
-				BED5DA030AA78E2C000AD756 /* ntfs_page.c */,
-				BED5DA040AA78E2C000AD756 /* ntfs_page.h */,
-				72D60BBE0976734E00E0D450 /* ntfs_dir.h */,
-				72D60B9A09766BEA00E0D450 /* ntfs_hash.c */,
-				72D60B9B09766BEA00E0D450 /* ntfs_hash.h */,
-				BE2956350B7B373B00E0CE44 /* ntfs_collate.c */,
-				BE2956370B7B375F00E0CE44 /* ntfs_collate.h */,
-				BE63703B0A24FD6A003CD14D /* ntfs_compress.c */,
-				72D60B9C09766BEA00E0D450 /* ntfs_inode.c */,
-				72D60B9D09766BEA00E0D450 /* ntfs_inode.h */,
-				72D60B9E09766BEA00E0D450 /* ntfs_runlist.h */,
-				72FE849709313B5100752581 /* ntfs_volume.h */,
 				72FE849209313B0D00752581 /* ntfs.h */,
-				72B3866F09277DE500DC8718 /* ntfs_endian.h */,
+				72E75FD90986D74A0050048E /* ntfs_attr.h */,
+				72E75FD80986D74A0050048E /* ntfs_attr.c */,
+				BE91B1C30C9B35D400F0BE50 /* ntfs_attr_list.h */,
+				BE91B1C60C9B35E300F0BE50 /* ntfs_attr_list.c */,
+				BE7EC8260B85E72700392660 /* ntfs_bitmap.h */,
+				BE7EC82A0B85E7C900392660 /* ntfs_bitmap.c */,
+				BE2956370B7B375F00E0CE44 /* ntfs_collate.h */,
+				BE2956350B7B373B00E0CE44 /* ntfs_collate.c */,
 				BE6370210A24EE78003CD14D /* ntfs_compress.h */,
-				72B3867009277DE500DC8718 /* ntfs_layout.h */,
-				72B3867109277DE500DC8718 /* ntfs_types.h */,
-				721548B309240A1C008BD7DA /* ntfs_vnops.h */,
-				721548AD09240A10008BD7DA /* ntfs_vnops.c */,
-				72BFC8DD0923A5940052BF8D /* ntfs_vfsops.c */,
+				BE63703B0A24FD6A003CD14D /* ntfs_compress.c */,
 				721548A8092409F7008BD7DA /* ntfs_debug.h */,
 				721548A2092409E3008BD7DA /* ntfs_debug.c */,
-				BE7AAADC0B3740FC0005CEE2 /* ntfs_logfile.c */,
+				72D60BBE0976734E00E0D450 /* ntfs_dir.h */,
+				72D60BC50976768E00E0D450 /* ntfs_dir.c */,
+				72B3866F09277DE500DC8718 /* ntfs_endian.h */,
+				72D60B9B09766BEA00E0D450 /* ntfs_hash.h */,
+				72D60B9A09766BEA00E0D450 /* ntfs_hash.c */,
+				BE2956470B7BE55D00E0CE44 /* ntfs_index.h */,
+				BE2956480B7BE58100E0CE44 /* ntfs_index.c */,
+				72D60B9D09766BEA00E0D450 /* ntfs_inode.h */,
+				72D60B9C09766BEA00E0D450 /* ntfs_inode.c */,
+				72B3867009277DE500DC8718 /* ntfs_layout.h */,
+				BE7EC8270B85E72700392660 /* ntfs_lcnalloc.h */,
+				BE7EC82B0B85E7C900392660 /* ntfs_lcnalloc.c */,
 				BE7AAADD0B3740FC0005CEE2 /* ntfs_logfile.h */,
-				BE7AAADE0B3740FC0005CEE2 /* ntfs_secure.c */,
+				BE7AAADC0B3740FC0005CEE2 /* ntfs_logfile.c */,
+				72D1E3EF097AFAA800A661AF /* ntfs_mft.h */,
+				72D1E3EE097AFAA800A661AF /* ntfs_mft.c */,
+				72E75FC40986C87D0050048E /* ntfs_mst.h */,
+				72E75FC30986C87D0050048E /* ntfs_mst.c */,
+				BED5DA040AA78E2C000AD756 /* ntfs_page.h */,
+				BED5DA030AA78E2C000AD756 /* ntfs_page.c */,
+				BE361A620B38920100E5885A /* ntfs_quota.h */,
+				BE361A610B38920100E5885A /* ntfs_quota.c */,
+				72D60B9E09766BEA00E0D450 /* ntfs_runlist.h */,
+				72E4A3D00987D53F001B223B /* ntfs_runlist.c */,
 				BE7AAADF0B3740FC0005CEE2 /* ntfs_secure.h */,
+				BE7AAADE0B3740FC0005CEE2 /* ntfs_secure.c */,
+				BE92B9830CBBA333004DBCFB /* ntfs_sfm.h */,
+				BE92B9820CBBA333004DBCFB /* ntfs_sfm.c */,
+				72E50C1D099FF6C80061DB40 /* ntfs_time.h */,
+				72B3867109277DE500DC8718 /* ntfs_types.h */,
+				72E75FEE098714850050048E /* ntfs_unistr.h */,
+				72E75FED098714850050048E /* ntfs_unistr.c */,
+				BE7AAB150B3768630005CEE2 /* ntfs_usnjrnl.h */,
+				BE7AAB140B3768630005CEE2 /* ntfs_usnjrnl.c */,
+				72BFC8DD0923A5940052BF8D /* ntfs_vfsops.c */,
+				721548B309240A1C008BD7DA /* ntfs_vnops.h */,
+				721548AD09240A10008BD7DA /* ntfs_vnops.c */,
+				72FE849709313B5100752581 /* ntfs_volume.h */,
 				72E410AF091CF9A100674539 /* Info.plist */,
 				72E4192E091CFC2500674539 /* Kernel.framework */,
 			);
@@ -813,6 +815,7 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = newfs/newfs.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -858,6 +861,7 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = newfs/newfs.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -884,7 +888,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 4DDA8CC2150E65F100631F4D /* ntfs.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				ARCHS = "$(ARCHS_STANDARD)";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DEBUGGING_SYMBOLS = full;
@@ -922,7 +926,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 4DDA8CC2150E65F100631F4D /* ntfs.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				ARCHS = "$(ARCHS_STANDARD)";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DEBUGGING_SYMBOLS = full;

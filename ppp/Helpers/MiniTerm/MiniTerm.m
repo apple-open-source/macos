@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -77,7 +77,7 @@ int recv_fd(int servfd)
         msg.msg_control = (caddr_t) &cmsg;
         msg.msg_controllen = sizeof(struct cmsg);
 
-        nread = recvmsg(servfd, &msg, 0);
+        nread = (int)recvmsg(servfd, &msg, 0);
         if (nread == 0) {
             return -1;
         }
@@ -177,7 +177,7 @@ int recv_fd(int servfd)
 {
 
     u_char 		c, *p;
-    int 		i, len = [replacementString length];
+    NSUInteger 		i, len = [replacementString length];
     NSMutableData 	*data;
     
     // are we inserting the incoming char from the line ?
@@ -278,7 +278,7 @@ int recv_fd(int servfd)
     
         if (match == MATCH_COMPLETE) {
             // display what was valid before we exit
-            [self display:p0 length:p - p0];
+            [self display:p0 length:(u_int)(p - p0)];
             // will quit app, successfully
             [self continuechat: self];
             return;
@@ -296,7 +296,7 @@ int recv_fd(int servfd)
         }
         else {
             // got a non printable byte, display what was valid so far
-            [self display:p0 length:p - p0];
+            [self display:p0 length:(u_int)(p - p0)];
             p0 = p + 1;
             
             // check for delete char
@@ -312,7 +312,7 @@ int recv_fd(int servfd)
     }
     
     // display all the undisplayed bytes
-    [self display:p0 length:p - p0];
+    [self display:p0 length:(u_int)(p - p0)];
     
     // post an other read
     [file_tty readInBackgroundAndNotify];    

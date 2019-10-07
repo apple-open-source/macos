@@ -58,6 +58,13 @@ tdtrav_plain(tdesc_t *this, tdtrav_data_t *tdtd)
 }
 
 static int
+tdtrav_ptrauth(tdesc_t *this, tdtrav_data_t *tdtd)
+{
+	return (tdtraverse(this->t_ptrauth->pta_type,
+	    &this->t_ptrauth->pta_type, tdtd));
+}
+
+static int
 tdtrav_func(tdesc_t *this, tdtrav_data_t *tdtd)
 {
 	fndef_t *fn = this->t_fndef;
@@ -125,7 +132,8 @@ tdtrav_cb_f tdnops[] = {
 	NULL,			/* typedef_unres */
 	NULL,			/* volatile */
 	NULL,			/* const */
-	NULL			/* restrict */
+	NULL,			/* restrict */
+	NULL			/* ptrauth */
 };
 
 int (*tddescenders[])(tdesc_t *, tdtrav_data_t *) = {
@@ -142,7 +150,8 @@ int (*tddescenders[])(tdesc_t *, tdtrav_data_t *) = {
 	NULL,			/* typedef_unres */
 	tdtrav_plain,		/* volatile */
 	tdtrav_plain,		/* const */
-	tdtrav_plain		/* restrict */
+	tdtrav_plain,		/* restrict */
+	tdtrav_ptrauth		/* ptrauth */
 };
 
 int

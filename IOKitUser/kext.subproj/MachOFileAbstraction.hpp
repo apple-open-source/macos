@@ -29,15 +29,6 @@
 #include <mach-o/reloc.h>
 #include <mach/machine.h>
 
-// suport older versions of mach-o/loader.h
-#ifndef LC_UUID
-#define LC_UUID		0x1b
-struct uuid_command {
-    uint32_t	cmd;		/* LC_UUID */
-    uint32_t	cmdsize;	/* sizeof(struct uuid_command) */
-    uint8_t	uuid[16];	/* the 128-bit uuid */
-};
-#endif
 
 #ifndef S_16BYTE_LITERALS
 #define S_16BYTE_LITERALS 0xE

@@ -501,7 +501,7 @@ termScav:
 		int rv = CacheRead(&fscache, offset, len, &buf);
 		if (rv == 0) {
 			fprintf(stderr, "Offset %llu length %u:\n", offset, len);
-			DumpData(buf->Buffer, len);
+			DumpData(buf->Buffer, len, NULL);
 			CacheRelease(&fscache, buf, 0);
 		} else {
 			fprintf(stderr, "%s(%d):  rv = %d\n", __FUNCTION__, __LINE__, rv);
@@ -1349,7 +1349,7 @@ static int ScavSetUp( SGlob *GPtr)
  	InitializeVolumeObject( GPtr );
 
 	/* Check if the volume type of initialized object is valid.  If not, return error */
-	if (VolumeObjectIsValid() == false) {
+	if (VolumeObjectIsValid(GPtr) == false) {
 		return (R_BadSig);
 	}
  	

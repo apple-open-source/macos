@@ -60,6 +60,7 @@ my %defines = map { $_ => 1 } split(/ /, $defines);
 
 my @names;
 my @internalProprerties;
+my %runtimeFlags;
 my $numPredefinedProperties = 2;
 my %nameIsInherited;
 my %nameIsHighPriority;
@@ -199,6 +200,8 @@ sub addProperty($$)
                 } elsif ($codegenOptionName eq "internal-only") {
                     # internal-only properties exist to make it easier to parse compound properties (e.g. background-repeat) as if they were shorthands.
                     push @internalProprerties, $name
+                } elsif ($codegenOptionName eq "runtime-flag") {
+                    $runtimeFlags{$name} = $codegenProperties->{"runtime-flag"};
                 } else {
                     die "Unrecognized codegen property \"$codegenOptionName\" for $name property.";
                 }
@@ -243,8 +246,9 @@ print GPERF << "EOF";
 #include \"CSSProperty.h\"
 #include \"CSSPropertyNames.h\"
 #include \"HashTools.h\"
+#include "RuntimeEnabledFeatures.h"
 #include <wtf/ASCIICType.h>
-#include <wtf/text/AtomicString.h>
+#include <wtf/text/AtomString.h>
 #include <wtf/text/WTFString.h>
 #include <string.h>
 
@@ -320,6 +324,22 @@ print GPERF << "EOF";
     }
 }
 
+bool isEnabledCSSProperty(const CSSPropertyID id)
+{
+    switch (id) {
+EOF
+
+foreach my $name (keys %runtimeFlags) {
+  print GPERF "    case CSSPropertyID::CSSProperty" . $nameToId{$name} . ":\n";
+  print GPERF "        return RuntimeEnabledFeatures::sharedFeatures()." . $runtimeFlags{$name} . "Enabled();\n";
+}
+
+print GPERF << "EOF";
+    default:
+        return true;
+    }
+}
+
 const char* getPropertyName(CSSPropertyID id)
 {
     if (id < firstCSSProperty)
@@ -330,7 +350,7 @@ const char* getPropertyName(CSSPropertyID id)
     return propertyNameStrings[index];
 }
 
-const AtomicString& getPropertyNameAtomicString(CSSPropertyID id)
+const AtomString& getPropertyNameAtomString(CSSPropertyID id)
 {
     if (id < firstCSSProperty)
         return nullAtom();
@@ -338,19 +358,19 @@ const AtomicString& getPropertyNameAtomicString(CSSPropertyID id)
     if (index >= numCSSProperties)
         return nullAtom();
 
-    static AtomicString* propertyStrings = new AtomicString[numCSSProperties]; // Intentionally never destroyed.
-    AtomicString& propertyString = propertyStrings[index];
+    static AtomString* propertyStrings = new AtomString[numCSSProperties]; // Intentionally never destroyed.
+    AtomString& propertyString = propertyStrings[index];
     if (propertyString.isNull()) {
         const char* propertyName = propertyNameStrings[index];
-        propertyString = AtomicString(propertyName, strlen(propertyName), AtomicString::ConstructFromLiteral);
+        propertyString = AtomString(propertyName, strlen(propertyName), AtomString::ConstructFromLiteral);
     }
     return propertyString;
 }
 
 String getPropertyNameString(CSSPropertyID id)
 {
-    // We share the StringImpl with the AtomicStrings.
-    return getPropertyNameAtomicString(id).string();
+    // We share the StringImpl with the AtomStrings.
+    return getPropertyNameAtomString(id).string();
 }
 
 String getJSPropertyName(CSSPropertyID id)
@@ -465,8 +485,9 @@ print HEADER "const CSSPropertyID lastHighPriorityProperty = CSSProperty" . $nam
 print HEADER << "EOF";
 
 bool isInternalCSSProperty(const CSSPropertyID);
+bool isEnabledCSSProperty(const CSSPropertyID);
 const char* getPropertyName(CSSPropertyID);
-const WTF::AtomicString& getPropertyNameAtomicString(CSSPropertyID id);
+const WTF::AtomString& getPropertyNameAtomString(CSSPropertyID id);
 WTF::String getPropertyNameString(CSSPropertyID id);
 WTF::String getJSPropertyName(CSSPropertyID);
 

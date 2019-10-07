@@ -44,6 +44,10 @@
 #endif
 #include <wtf/text/CString.h>
 
+#if USE(GLIB_EVENT_LOOP)
+#include <wtf/glib/RunLoopSourcePriority.h>
+#endif
+
 namespace WebCore {
 
 Ref<GraphicsLayer> GraphicsLayer::create(GraphicsLayerFactory* factory, GraphicsLayerClient& client, Type layerType)
@@ -121,6 +125,7 @@ CoordinatedGraphicsLayer::CoordinatedGraphicsLayer(Type layerType, GraphicsLayer
     , m_coordinator(0)
     , m_compositedNativeImagePtr(0)
     , m_animationStartedTimer(*this, &CoordinatedGraphicsLayer::animationStartedTimerFired)
+    , m_requestPendingTileCreationTimer(RunLoop::main(), this, &CoordinatedGraphicsLayer::requestPendingTileCreationTimerFired)
 {
     static Nicosia::PlatformLayer::LayerID nextLayerID = 1;
     m_id = nextLayerID++;
@@ -130,6 +135,10 @@ CoordinatedGraphicsLayer::CoordinatedGraphicsLayer(Type layerType, GraphicsLayer
 
     // Enforce a complete flush on the first occasion.
     m_nicosia.delta.value = UINT_MAX;
+
+#if USE(GLIB_EVENT_LOOP)
+    m_requestPendingTileCreationTimer.setPriority(RunLoopSourcePriority::LayerFlushTimer);
+#endif
 }
 
 CoordinatedGraphicsLayer::~CoordinatedGraphicsLayer()
@@ -140,6 +149,8 @@ CoordinatedGraphicsLayer::~CoordinatedGraphicsLayer()
     }
     ASSERT(!m_nicosia.imageBacking);
     ASSERT(!m_nicosia.backingStore);
+    if (m_animatedBackingStoreHost)
+        m_animatedBackingStoreHost->layerWillBeDestroyed();
     willBeDestroyed();
 }
 
@@ -395,7 +406,7 @@ bool GraphicsLayer::supportsContentsTiling()
 
 void CoordinatedGraphicsLayer::setContentsNeedsDisplay()
 {
-#if USE(COORDINATED_GRAPHICS_THREADED) && USE(NICOSIA)
+#if USE(COORDINATED_GRAPHICS) && USE(NICOSIA)
     if (m_nicosia.contentLayer)
         m_shouldUpdatePlatformLayer = true;
 #endif
@@ -406,11 +417,13 @@ void CoordinatedGraphicsLayer::setContentsNeedsDisplay()
 
 void CoordinatedGraphicsLayer::setContentsToPlatformLayer(PlatformLayer* platformLayer, ContentsLayerPurpose)
 {
-#if USE(COORDINATED_GRAPHICS_THREADED) && USE(NICOSIA)
+#if USE(COORDINATED_GRAPHICS) && USE(NICOSIA)
     auto* contentLayer = downcast<Nicosia::ContentLayer>(platformLayer);
     if (m_nicosia.contentLayer != contentLayer) {
         m_nicosia.contentLayer = contentLayer;
         m_nicosia.delta.contentLayerChanged = true;
+        if (m_nicosia.contentLayer)
+            m_shouldUpdatePlatformLayer = true;
     }
     notifyFlushRequired();
 #else
@@ -614,14 +627,98 @@ void CoordinatedGraphicsLayer::updatePlatformLayer()
         return;
 
     m_shouldUpdatePlatformLayer = false;
-#if USE(COORDINATED_GRAPHICS_THREADED) && USE(NICOSIA)
+#if USE(COORDINATED_GRAPHICS) && USE(NICOSIA)
     if (m_nicosia.contentLayer)
         downcast<Nicosia::ContentLayerTextureMapperImpl>(m_nicosia.contentLayer->impl()).swapBuffersIfNeeded();
 #endif
 }
 
+static void clampToContentsRectIfRectIsInfinite(FloatRect& rect, const FloatSize& contentsSize)
+{
+    if (rect.width() >= LayoutUnit::nearlyMax() || rect.width() <= LayoutUnit::nearlyMin()) {
+        rect.setX(0);
+        rect.setWidth(contentsSize.width());
+    }
+
+    if (rect.height() >= LayoutUnit::nearlyMax() || rect.height() <= LayoutUnit::nearlyMin()) {
+        rect.setY(0);
+        rect.setHeight(contentsSize.height());
+    }
+}
+
+class CoordinatedAnimatedBackingStoreClient final : public Nicosia::AnimatedBackingStoreClient {
+public:
+    static Ref<CoordinatedAnimatedBackingStoreClient> create(RefPtr<CoordinatedGraphicsLayer::AnimatedBackingStoreHost>&& host, const FloatRect& visibleRect, const FloatRect& coverRect, const FloatSize& size, float contentsScale)
+    {
+        return adoptRef(*new CoordinatedAnimatedBackingStoreClient(WTFMove(host), visibleRect, coverRect, size, contentsScale));
+    }
+
+    ~CoordinatedAnimatedBackingStoreClient() = default;
+
+    void setCoverRect(const IntRect& rect) { m_coverRect = rect; }
+    void requestBackingStoreUpdateIfNeeded(const TransformationMatrix& transform) final
+    {
+        ASSERT(!isMainThread());
+
+        // Calculate the contents rectangle of the layer in backingStore coordinates.
+        FloatRect contentsRect = { { 0, 0 }, m_size };
+        contentsRect.scale(m_contentsScale);
+
+        // If the area covered by tiles (the coverRect, already in backingStore coordinates) covers the whole
+        // layer contents then we don't need to do anything.
+        if (m_coverRect.contains(contentsRect))
+            return;
+
+        // Non-invertible layers are not visible.
+        if (!transform.isInvertible())
+            return;
+
+        // Calculate the inverse of the layer transformation. The inverse transform will have the inverse of the
+        // scaleFactor applied, so we need to scale it back.
+        TransformationMatrix inverse = transform.inverse().valueOr(TransformationMatrix()).scale(m_contentsScale);
+
+        // Apply the inverse transform to the visible rectangle, so we have the visible rectangle in layer coordinates.
+        FloatRect rect = inverse.clampedBoundsOfProjectedQuad(FloatQuad(m_visibleRect));
+        clampToContentsRectIfRectIsInfinite(rect, m_size);
+        FloatRect transformedVisibleRect = enclosingIntRect(rect);
+
+        // Convert the calculated visible rectangle to backingStore coordinates.
+        transformedVisibleRect.scale(m_contentsScale);
+
+        // Restrict the calculated visible rect to the contents rectangle of the layer.
+        transformedVisibleRect.intersect(contentsRect);
+
+        // If the coverRect doesn't contain the calculated visible rectangle we need to request a backingStore
+        // update to render more tiles.
+        if (!m_coverRect.contains(transformedVisibleRect)) {
+            callOnMainThread([protectedHost = m_host.copyRef()]() {
+                protectedHost->requestBackingStoreUpdate();
+            });
+        }
+    }
+
+private:
+    CoordinatedAnimatedBackingStoreClient(RefPtr<CoordinatedGraphicsLayer::AnimatedBackingStoreHost>&& host, const FloatRect& visibleRect, const FloatRect& coverRect, const FloatSize& size, float contentsScale)
+        : Nicosia::AnimatedBackingStoreClient(Type::Coordinated)
+        , m_host(WTFMove(host))
+        , m_visibleRect(visibleRect)
+        , m_coverRect(coverRect)
+        , m_size(size)
+        , m_contentsScale(contentsScale)
+    { }
+
+    RefPtr<CoordinatedGraphicsLayer::AnimatedBackingStoreHost> m_host;
+    FloatRect m_visibleRect;
+    FloatRect m_coverRect;
+    FloatSize m_size;
+    float m_contentsScale;
+};
+
 void CoordinatedGraphicsLayer::flushCompositingStateForThisLayerOnly()
 {
+    // Whether it kicked or not, we don't need this timer running anymore.
+    m_requestPendingTileCreationTimer.stop();
+
     // When we have a transform animation, we need to update visible rect every frame to adjust the visible rect of a backing store.
     bool hasActiveTransformAnimation = selfOrAncestorHasActiveTransformAnimation();
     if (hasActiveTransformAnimation)
@@ -651,6 +748,19 @@ void CoordinatedGraphicsLayer::flushCompositingStateForThisLayerOnly()
         m_nicosia.backingStore = nullptr;
         m_nicosia.delta.backingStoreChanged = true;
     }
+
+    if (hasActiveTransformAnimation && m_nicosia.backingStore) {
+        // The layer has a backingStore and a transformation animation. This means that we need to add an
+        // AnimatedBackingStoreClient to check whether we need to update the backingStore due to the animation.
+        // At this point we don't know the area covered by tiles available, so we just pass an empty rectangle
+        // for that. The call to updateContentBuffers will calculate the tile coverage and set the appropriate
+        // rectangle to the client.
+        if (!m_animatedBackingStoreHost)
+            m_animatedBackingStoreHost = AnimatedBackingStoreHost::create(*this);
+        m_nicosia.animatedBackingStoreClient = CoordinatedAnimatedBackingStoreClient::create(m_animatedBackingStoreHost.copyRef(), m_coordinator->visibleContentsRect(), { }, m_size, effectiveContentsScale());
+    }
+    // Each layer flush changes the AnimatedBackingStoreClient, being it null or a real one.
+    m_nicosia.delta.animatedBackingStoreClientChanged = true;
 
     // Determine image backing presence according to the composited image source.
     if (m_compositedNativeImagePtr) {
@@ -773,6 +883,8 @@ void CoordinatedGraphicsLayer::flushCompositingStateForThisLayerOnly()
                     state.contentLayer = m_nicosia.contentLayer;
                 if (localDelta.imageBackingChanged)
                     state.imageBacking = m_nicosia.imageBacking;
+                if (localDelta.animatedBackingStoreClientChanged)
+                    state.animatedBackingStoreClient = m_nicosia.animatedBackingStoreClient;
             });
         m_nicosia.performLayerSync = !!m_nicosia.delta.value;
         m_nicosia.delta = { };
@@ -803,19 +915,6 @@ float CoordinatedGraphicsLayer::effectiveContentsScale()
     return selfOrAncestorHaveNonAffineTransforms() ? 1 : deviceScaleFactor() * pageScaleFactor();
 }
 
-static void clampToContentsRectIfRectIsInfinite(FloatRect& rect, const FloatSize& contentsSize)
-{
-    if (rect.width() >= LayoutUnit::nearlyMax() || rect.width() <= LayoutUnit::nearlyMin()) {
-        rect.setX(0);
-        rect.setWidth(contentsSize.width());
-    }
-
-    if (rect.height() >= LayoutUnit::nearlyMax() || rect.height() <= LayoutUnit::nearlyMin()) {
-        rect.setY(0);
-        rect.setHeight(contentsSize.height());
-    }
-}
-
 IntRect CoordinatedGraphicsLayer::transformedVisibleRect()
 {
     // Non-invertible layers are not visible.
@@ -829,6 +928,12 @@ IntRect CoordinatedGraphicsLayer::transformedVisibleRect()
     FloatRect rect = m_cachedInverseTransform.clampedBoundsOfProjectedQuad(FloatQuad(m_coordinator->visibleContentsRect()));
     clampToContentsRectIfRectIsInfinite(rect, size());
     return enclosingIntRect(rect);
+}
+
+void CoordinatedGraphicsLayer::requestBackingStoreUpdate()
+{
+    setNeedsVisibleRectAdjustment();
+    notifyFlushRequired();
 }
 
 void CoordinatedGraphicsLayer::updateContentBuffersIncludingSubLayers()
@@ -888,7 +993,7 @@ void CoordinatedGraphicsLayer::updateContentBuffers()
 
     if (!m_needsDisplay.completeLayer) {
         for (auto& rect : m_needsDisplay.rects)
-            layerState.mainBackingStore->invalidate(IntRect { rect });
+            layerState.mainBackingStore->invalidate(enclosingIntRect(rect));
     } else
         layerState.mainBackingStore->invalidate({ { }, IntSize { m_size } });
 
@@ -898,6 +1003,11 @@ void CoordinatedGraphicsLayer::updateContentBuffers()
     if (m_pendingVisibleRectAdjustment) {
         m_pendingVisibleRectAdjustment = false;
         layerState.mainBackingStore->createTilesIfNeeded(transformedVisibleRect(), IntRect(0, 0, m_size.width(), m_size.height()));
+    }
+
+    if (is<CoordinatedAnimatedBackingStoreClient>(m_nicosia.animatedBackingStoreClient)) {
+        // Determine the coverRect and set it to the client.
+        downcast<CoordinatedAnimatedBackingStoreClient>(*m_nicosia.animatedBackingStoreClient).setCoverRect(layerState.mainBackingStore->coverRect());
     }
 
     ASSERT(m_coordinator && m_coordinator->isFlushingLayerChanges());
@@ -935,10 +1045,11 @@ void CoordinatedGraphicsLayer::updateContentBuffers()
             didUpdateTileBuffers();
     }
 
-    // Request a second update immediately if some tiles are still pending creation.
+    // Request a new update immediately if some tiles are still pending creation. Do this on a timer
+    // as we're in a layer flush and flush requests at this point would be discarded.
     if (layerState.hasPendingTileCreation) {
         setNeedsVisibleRectAdjustment();
-        notifyFlushRequired();
+        m_requestPendingTileCreationTimer.startOneShot(0_s);
     }
 
     finishUpdate();
@@ -976,7 +1087,7 @@ void CoordinatedGraphicsLayer::setCoordinator(CoordinatedGraphicsLayerClient* co
 
 void CoordinatedGraphicsLayer::setCoordinatorIncludingSubLayersIfNeeded(CoordinatedGraphicsLayerClient* coordinator)
 {
-    if (m_coordinator == coordinator)
+    if (!coordinator || m_coordinator == coordinator)
         return;
 
     // If the coordinators are different it means that we are attaching a layer that was created by a different
@@ -1181,11 +1292,18 @@ void CoordinatedGraphicsLayer::animationStartedTimerFired()
     client().notifyAnimationStarted(this, "", m_lastAnimationStartTime);
 }
 
+void CoordinatedGraphicsLayer::requestPendingTileCreationTimerFired()
+{
+    notifyFlushRequired();
+}
+
 bool CoordinatedGraphicsLayer::usesContentsLayer() const
 {
     return m_nicosia.contentLayer || m_compositedImage;
 }
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_ANIMATEDBACKINGSTORECLIENT(WebCore::CoordinatedAnimatedBackingStoreClient, type() == Nicosia::AnimatedBackingStoreClient::Type::Coordinated)
 
 #endif // USE(COORDINATED_GRAPHICS)

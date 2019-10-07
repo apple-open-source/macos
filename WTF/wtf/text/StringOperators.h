@@ -23,12 +23,11 @@
 
 namespace WTF {
 
-template<typename StringType1, typename StringType2>
-class StringAppend {
+template<typename StringType1, typename StringType2> class StringAppend {
 public:
     StringAppend(StringType1 string1, StringType2 string2)
-        : m_string1(string1)
-        , m_string2(string2)
+        : m_string1 { string1 }
+        , m_string2 { string2 }
     {
     }
 
@@ -40,7 +39,7 @@ public:
         return result;
     }
 
-    operator AtomicString() const
+    operator AtomString() const
     {
         return operator String();
     }
@@ -85,18 +84,13 @@ template<typename StringType1, typename StringType2>
 class StringTypeAdapter<StringAppend<StringType1, StringType2>> {
 public:
     StringTypeAdapter<StringAppend<StringType1, StringType2>>(StringAppend<StringType1, StringType2>& buffer)
-        : m_buffer(buffer)
+        : m_buffer { buffer }
     {
     }
 
-    unsigned length() { return m_buffer.length(); }
-
-    bool is8Bit() { return m_buffer.is8Bit(); }
-
-    void writeTo(LChar* destination) { m_buffer.writeTo(destination); }
-    void writeTo(UChar* destination) { m_buffer.writeTo(destination); }
-
-    String toString() const { return m_buffer; }
+    unsigned length() const { return m_buffer.length(); }
+    bool is8Bit() const { return m_buffer.is8Bit(); }
+    template<typename CharacterType> void writeTo(CharacterType* destination) const { m_buffer.writeTo(destination); }
 
 private:
     StringAppend<StringType1, StringType2>& m_buffer;
@@ -107,9 +101,9 @@ inline StringAppend<const char*, String> operator+(const char* string1, const St
     return StringAppend<const char*, String>(string1, string2);
 }
 
-inline StringAppend<const char*, AtomicString> operator+(const char* string1, const AtomicString& string2)
+inline StringAppend<const char*, AtomString> operator+(const char* string1, const AtomString& string2)
 {
-    return StringAppend<const char*, AtomicString>(string1, string2);
+    return StringAppend<const char*, AtomString>(string1, string2);
 }
 
 template<typename T, typename = std::enable_if_t<std::is_same<std::decay_t<T>, StringView>::value>>
@@ -129,9 +123,9 @@ inline StringAppend<const UChar*, String> operator+(const UChar* string1, const 
     return StringAppend<const UChar*, String>(string1, string2);
 }
 
-inline StringAppend<const UChar*, AtomicString> operator+(const UChar* string1, const AtomicString& string2)
+inline StringAppend<const UChar*, AtomString> operator+(const UChar* string1, const AtomString& string2)
 {
-    return StringAppend<const UChar*, AtomicString>(string1, string2);
+    return StringAppend<const UChar*, AtomString>(string1, string2);
 }
 
 template<typename T, typename = std::enable_if_t<std::is_same<std::decay_t<T>, StringView>::value>>
@@ -151,9 +145,9 @@ inline StringAppend<ASCIILiteral, String> operator+(const ASCIILiteral& string1,
     return StringAppend<ASCIILiteral, String>(string1, string2);
 }
 
-inline StringAppend<ASCIILiteral, AtomicString> operator+(const ASCIILiteral& string1, const AtomicString& string2)
+inline StringAppend<ASCIILiteral, AtomString> operator+(const ASCIILiteral& string1, const AtomString& string2)
 {
-    return StringAppend<ASCIILiteral, AtomicString>(string1, string2);
+    return StringAppend<ASCIILiteral, AtomString>(string1, string2);
 }
 
 template<typename T, typename = std::enable_if_t<std::is_same<std::decay_t<T>, StringView>::value>>

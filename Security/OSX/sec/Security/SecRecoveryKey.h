@@ -7,7 +7,6 @@
 #define SecRecoveryKey_h
 
 #include <Security/Security.h>
-
 #if __OBJC__
 @class SecRecoveryKey;
 #else

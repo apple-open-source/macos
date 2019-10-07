@@ -15,7 +15,7 @@
 #include "IOHIDDebug.h"
 
 #define DEBUG_ASSERT_MESSAGE(name, assertion, label, message, file, line, value) \
-os_log_error(_HIDLog(), "AssertMacros: %s, %s", assertion, (message!=0) ? message : "");
+os_log_error(_HIDLogCategory(kHIDLogCategoryDefault), "AssertMacros: %s, %s", assertion, (message!=0) ? message : "");
 
 #include <AssertMacros.h>
 
@@ -145,6 +145,25 @@ ULONG IOHIDT8027USBSessionFilter::Release()
 }
 
 
+static CFStringRef __createDetailString(IOHIDServiceRef service)
+{
+    CFStringRef product = CFSTR("");
+    uint64_t    senderID = 0;
+    CFTypeRef   prop;
+
+    prop = IOHIDServiceGetProperty(service, CFSTR(kIOHIDProductKey));
+    if (prop && CFGetTypeID(prop) == CFStringGetTypeID()) {
+        product = (CFStringRef)prop;
+    }
+
+    prop = IOHIDServiceGetRegistryID(service);
+    if (prop && CFGetTypeID(prop) == CFNumberGetTypeID()) {
+        CFNumberGetValue((CFNumberRef)prop, kCFNumberSInt64Type, &senderID);
+    }
+
+    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("RegID:0x%llx %@"), senderID, product);
+}
+
 void IOHIDT8027USBSessionFilter::_registerService(void * self, IOHIDServiceRef service)
 {
     static_cast<IOHIDT8027USBSessionFilter *>(self)->registerService(service);
@@ -171,24 +190,15 @@ void IOHIDT8027USBSessionFilter::registerService(IOHIDServiceRef service)
 
     _usbHIDServices.SetValue(service);
 
+    // If assertion previously timed out, do not take assertion on service connection,
+    // until user activity has occured.
+    require_action_quiet(_timedOut == false, exit,
+                         os_log(_HIDLogCategory(kHIDLogCategoryDefault), "T8027 assertion previously timed out, not taking assertion"));
+
     if (_hasT8027USB) {
-        CFStringRef         detail = CFSTR("");
-        CFStringRef         product = CFSTR("");
-        uint64_t            senderID = 0;
+        CFStringRef detail = __createDetailString(service);
 
-        prop = IOHIDServiceGetProperty(service, CFSTR(kIOHIDProductKey));
-        if (prop && CFGetTypeID(prop) == CFStringGetTypeID()) {
-            product = (CFStringRef)prop;
-        }
-
-        prop = IOHIDServiceGetRegistryID(service);
-        if (prop && CFGetTypeID(prop) == CFNumberGetTypeID()) {
-            CFNumberGetValue((CFNumberRef)prop, kCFNumberSInt64Type, &senderID);
-        }
-
-        detail = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("RegID:0x%llx %@"), senderID, product);
-
-        os_log(_HIDLog(), "Creating T8027USB assertion for %@", detail);
+        os_log(_HIDLogCategory(kHIDLogCategoryDefault), "Creating T8027USB assertion for %@", detail);
 
         preventIdleSleepAssertion(detail);
 
@@ -215,8 +225,8 @@ void IOHIDT8027USBSessionFilter::unregisterService(IOHIDServiceRef service)
         _usbHIDServices.RemoveValue(service);
 
         // When all applicable devices are disconnected, release power assertion.
-        if (_usbHIDServices.Count() == 0) {
-            os_log(_HIDLog(), "Removing T8027USB assertion");
+        if (_hasT8027USB && _usbHIDServices.Count() == 0) {
+            os_log(_HIDLogCategory(kHIDLogCategoryDefault), "Removing T8027USB assertion");
 
             releaseIdleSleepAssertion();
         }
@@ -244,13 +254,13 @@ void IOHIDT8027USBSessionFilter::scheduleWithDispatchQueue(dispatch_queue_t queu
     result =
     IOServiceAddMatchingNotification(_port,
                                      kIOFirstPublishNotification,
-                                     IOServiceNameMatching("usb-device,t8027"),
+                                     IOServiceNameMatching("usb-drd,t8027"),
                                      &_serviceNotificationCallback,
                                      this,
                                      &_iterator);
     require_noerr_action(result,
                          exit,
-                         os_log_error(_HIDLog(), "%s adding matching notification 0x%x", __PRETTY_FUNCTION__, (int)result));
+                         os_log_error(_HIDLogCategory(kHIDLogCategoryDefault), "%s adding matching notification 0x%x", __PRETTY_FUNCTION__, (int)result));
     require(_iterator, exit);
 
     IONotificationPortSetDispatchQueue(_port, _queue);
@@ -318,10 +328,19 @@ IOHIDEventRef IOHIDT8027USBSessionFilter::filter(IOHIDServiceRef sender, IOHIDEv
     require_quiet(_usbHIDServices.ContainValue(sender), exit);
 
     // Push out the assertion timeout.
-    if (_assertionID) {
-        os_log_info(_HIDLog(), "T8027USB HID activity");
+    if (_hasT8027USB) {
+        CFStringRef detail = __createDetailString(sender);
 
-        preventIdleSleepAssertion();
+        os_log_info(_HIDLogCategory(kHIDLogCategoryDefault), "T8027USB HID activity");
+
+        preventIdleSleepAssertion(detail);
+
+        // User activity has occured, so re-allow assertions on service connection.
+        _timedOut = false;
+
+        if (detail) {
+            CFRelease(detail);
+        }
     }
 
 exit:
@@ -361,7 +380,7 @@ void IOHIDT8027USBSessionFilter::setPropertyForClient (CFStringRef key, CFTypeRe
     if (CFEqual(key, CFSTR(kAssertionTimeoutKey))) {
         uint64_t timeout;
 
-        os_log(_HIDLog(), "Setting T8027 USB assertion timeout from %llu to %@", _assertionTimeout, (property ? property : CFSTR("")));
+        os_log(_HIDLogCategory(kHIDLogCategoryDefault), "Setting T8027 USB assertion timeout from %llu to %@", _assertionTimeout, (property ? property : CFSTR("")));
 
         require(property && CFGetTypeID(property) == CFNumberGetTypeID(), exit);
 
@@ -369,7 +388,7 @@ void IOHIDT8027USBSessionFilter::setPropertyForClient (CFStringRef key, CFTypeRe
         _assertionTimeout = timeout;
 
     } else if (CFEqual(key, CFSTR(kSetAssertionKey))) {
-        os_log(_HIDLog(), "Setting T8027 USB assertion state %@", (property ? property : CFSTR("")));
+        os_log(_HIDLogCategory(kHIDLogCategoryDefault), "Setting T8027 USB assertion state %@", (property ? property : CFSTR("")));
 
         if (property == kCFBooleanTrue) {
             preventIdleSleepAssertion(CFSTR("SetProperty"));
@@ -419,7 +438,7 @@ void IOHIDT8027USBSessionFilter::preventIdleSleepAssertion(CFStringRef detail)
                                                     &_assertionID);
         require_noerr_action(status,
                              exit,
-                             os_log_error(_HIDLog(), "%s error creating assertion 0x%x", __PRETTY_FUNCTION__, (int)status));
+                             os_log_error(_HIDLogCategory(kHIDLogCategoryDefault), "%s error creating assertion 0x%x", __PRETTY_FUNCTION__, (int)status));
     } else {
         // Re-enable the assertion.
         num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &on);
@@ -427,7 +446,7 @@ void IOHIDT8027USBSessionFilter::preventIdleSleepAssertion(CFStringRef detail)
         status = IOPMAssertionSetProperty(_assertionID, kIOPMAssertionLevelKey, num);
         require_noerr_action(status,
                              exit,
-                             os_log_error(_HIDLog(), "%s error turning on assertion 0x%x", __PRETTY_FUNCTION__, (int)status));
+                             os_log_error(_HIDLogCategory(kHIDLogCategoryDefault), "%s error turning on assertion 0x%x", __PRETTY_FUNCTION__, (int)status));
     }
 
     // Kick out the timeout.
@@ -457,7 +476,7 @@ void IOHIDT8027USBSessionFilter::releaseIdleSleepAssertion()
     status = IOPMAssertionRelease(_assertionID);
     require_noerr_action(status,
                          exit,
-                         os_log_error(_HIDLog(), "%s error releasing assertion 0x%x", __PRETTY_FUNCTION__, (int)status));
+                         os_log_error(_HIDLogCategory(kHIDLogCategoryDefault), "%s error releasing assertion 0x%x", __PRETTY_FUNCTION__, (int)status));
 
 exit:
     _assertionID = 0;
@@ -494,7 +513,7 @@ bool IOHIDT8027USBSessionFilter::initTimer()
 
 exit:
     if (!ret) {
-        os_log_error(_HIDLog(), "%s error", __PRETTY_FUNCTION__);
+        os_log_error(_HIDLogCategory(kHIDLogCategoryDefault), "%s error", __PRETTY_FUNCTION__);
     }
     return ret;
 }
@@ -507,7 +526,7 @@ void IOHIDT8027USBSessionFilter::timerHandler()
 
     require(_assertionID != 0, exit);
 
-    os_log(_HIDLog(), "T8027USB HID assertion timeout");
+    os_log(_HIDLogCategory(kHIDLogCategoryDefault), "T8027USB HID assertion timeout");
 
     num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &off);
     require(num, exit);
@@ -515,9 +534,10 @@ void IOHIDT8027USBSessionFilter::timerHandler()
     status = IOPMAssertionSetProperty(_assertionID, kIOPMAssertionLevelKey, num);
     require_noerr_action(status,
                          exit,
-                         os_log_error(_HIDLog(), "%s error turning off assertion 0x%x", __PRETTY_FUNCTION__, (int)status));
+                         os_log_error(_HIDLogCategory(kHIDLogCategoryDefault), "%s error turning off assertion 0x%x", __PRETTY_FUNCTION__, (int)status));
 
     _asserting = false;
+    _timedOut = true;
 
 exit:
     if (num) {

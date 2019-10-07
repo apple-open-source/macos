@@ -38,6 +38,6 @@ On a RedHat 5.0 system:
   This also confuses whatis, and generates bad links.
   (But right now these happen to work.)
 
+Of course, patches are welcome!
 
-Many browsers do not handle tables well (or at all).
-Arena (arena-0.98.beta3-3) fails on many constructions.
+

@@ -24,13 +24,13 @@
 
 // Test save and restore of SOSEngine states
 
-#include <SOSCircle/Regressions/SOSTestDevice.h>
-#include <SOSCircle/Regressions/SOSTestDataSource.h>
+#include "keychain/SecureObjectSync/Regressions/SOSTestDevice.h"
+#include "keychain/SecureObjectSync/Regressions/SOSTestDataSource.h"
 #include "secd_regressions.h"
 #include "SecdTestKeychainUtilities.h"
 
-#include <Security/SecureObjectSync/SOSEngine.h>
-#include <Security/SecureObjectSync/SOSPeer.h>
+#include "keychain/SecureObjectSync/SOSEngine.h"
+#include "keychain/SecureObjectSync/SOSPeer.h"
 #include <Security/SecBase64.h>
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>

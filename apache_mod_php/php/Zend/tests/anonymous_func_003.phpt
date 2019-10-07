@@ -1,7 +1,7 @@
 --TEST--
 Using throw $var with anonymous function return
 --FILE--
-<?php 
+<?php
 
 try {
 	$a = create_function('', 'return new Exception("test");');
@@ -11,5 +11,6 @@ try {
 }
 
 ?>
---EXPECT--
+--EXPECTF--
+Deprecated: Function create_function() is deprecated in %s on line %d
 bool(true)

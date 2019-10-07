@@ -969,7 +969,7 @@ sendmsg_again:
     msg.msg_iovlen = iovcnt;
 
     ret = dcethread_sendmsg (lrpc->fd, &msg, 0);
-    if (ret == (size_t) -1)
+    if (ret == (ssize_t) -1)
     {
         serr = errno;
     }
@@ -1012,7 +1012,6 @@ INTERNAL rpc_socket_error_t rpc__bsd_socket_recvfrom
 {
     ssize_t             ret;
     rpc_socket_error_t  serr;
-    struct msghdr       msg;
     rpc_bsd_socket_p_t  lrpc = (rpc_bsd_socket_p_t) sock->data.pointer;
 
     *cc = 0;
@@ -1026,8 +1025,8 @@ recvfrom_again:
     RPC_LOG_SOCKET_RECVFROM_NTR;
 
     ret = dcethread_recvfrom(lrpc->fd, buf, len, 0 /* flags */,
-                    &from->sa, &from->len);
-    if (ret == (size_t) -1)
+                    (struct sockaddr *) &from->sa, &from->len);
+    if (ret == (ssize_t) -1)
     {
         serr = errno;
     }
@@ -1816,7 +1815,7 @@ rpc__bsd_socket_enum_ifaces(
     struct ifreq            ifreq;
     short                   if_flags;
     struct sockaddr         if_addr;
-    unsigned int                     i;
+    unsigned int            i;
 #ifdef _SOCKADDR_LEN
     int                     prev_size;
 #else
@@ -1932,10 +1931,10 @@ ifconf_again:
      */
     assert(rpc_addr_vec != NULL);
     (*rpc_addr_vec)->len = 0;
-    last_ifr = (struct ifreq *) (ifc.ifc_buf + ifc.ifc_len);
+    last_ifr = (struct ifreq *)(void *) (ifc.ifc_buf + ifc.ifc_len);
 
     for (i=0, ifr = ifc.ifc_req; ifr < last_ifr ;
-         i++, ifr = (struct ifreq *)(( (char *) ifr ) + prev_size))
+         i++, ifr = (struct ifreq *)(void *)(( (char *) ifr ) + prev_size))
     {
 #ifdef _SOCKADDR_LEN
         prev_size = sizeof (struct ifreq) - sizeof(struct sockaddr) + ifr->ifr_addr.sa_len ;

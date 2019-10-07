@@ -26,7 +26,6 @@
 #include "XCTest_FunctionDefinitions.h"
 #include "PrivateLib.h"
 
-#define TCPKEEPALIVE 1
 
 #define kTCPKeepAliveExpireSecs (12*60*60) // 12 hours
 
@@ -54,18 +53,18 @@ typedef struct {
  *  @result         Returns a state value from enum tcpKeepAliveStates_et
  */
 __private_extern__ tcpKeepAliveStates_et  getTCPKeepAliveState(char *buf, int buflen);
-__private_extern__ long getTCPKeepAliveOverrideSec( );
+__private_extern__ long getTCPKeepAliveOverrideSec(void);
 
-__private_extern__ void startTCPKeepAliveExpTimer( );
-__private_extern__ void cancelTCPKeepAliveExpTimer( );
-__private_extern__ CFTimeInterval getTcpkaTurnOffTime( );
+__private_extern__ void startTCPKeepAliveExpTimer(void);
+__private_extern__ void cancelTCPKeepAliveExpTimer(void);
+__private_extern__ CFTimeInterval getTcpkaTurnOffTime(void);
 
-__private_extern__ void enableTCPKeepAlive();
-__private_extern__ void disableTCPKeepAlive();
-__private_extern__ void evalTcpkaForPSChange();
+__private_extern__ void enableTCPKeepAlive(void);
+__private_extern__ void disableTCPKeepAlive(void);
+__private_extern__ void evalTcpkaForPSChange(void);
 
 
 __private_extern__ void setPushConnectionState(bool active);
-__private_extern__ bool getPushConnectionState();
-__private_extern__ bool getWakeOnLanState();
+__private_extern__ bool getPushConnectionState(void);
+__private_extern__ bool getWakeOnLanState(void);
 #endif

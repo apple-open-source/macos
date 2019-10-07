@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -94,14 +94,20 @@ __unused static const char copyright[] =
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 #include <sysexits.h>
 #include <syslog.h>
 
 #include "ifconfig.h"
+
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
 
 /*
  * Since "struct ifreq" is composed of various union members, callers
@@ -121,13 +127,13 @@ int all;
 
 int bond_details = 0;
 int	supmedia = 0;
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 int	verbose = 1;
 int	showrtref = 1;
-#else /* !TARGET_OS_EMBEDDED */
+#else /* (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) */
 int	verbose = 0;
 int	showrtref = 0;
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) */
 int	printkeys = 0;		/* Print keying material for interfaces. */
 
 static	int ifconfig(int argc, char *const *argv, int iscreate,
@@ -144,6 +150,7 @@ static	void usage(void);
 static char *sched2str(unsigned int s);
 static char *tl2str(unsigned int s);
 static char *ift2str(unsigned int t, unsigned int f, unsigned int sf);
+static char *iffunct2str(u_int32_t functional_type);
 
 static struct afswtch *af_getbyname(const char *name);
 static struct afswtch *af_getbyfamily(int af);
@@ -328,7 +335,7 @@ main(int argc, char *argv[])
 	ifindex = 0;
 	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
 		memset(&paifr, 0, sizeof(paifr));
-		strncpy(paifr.ifr_name, ifa->ifa_name, sizeof(paifr.ifr_name));
+		strlcpy(paifr.ifr_name, ifa->ifa_name, sizeof(paifr.ifr_name));
 		if (sizeof(paifr.ifr_addr) >= ifa->ifa_addr->sa_len) {
 			memcpy(&paifr.ifr_addr, ifa->ifa_addr,
 			    ifa->ifa_addr->sa_len);
@@ -498,9 +505,9 @@ ifconfig(int argc, char *const *argv, int iscreate, const struct afswtch *afp)
 {
 	const struct afswtch *nafp;
 	struct callback *cb;
-	int s;
+	int ret, s;
 
-	strncpy(ifr.ifr_name, name, sizeof ifr.ifr_name);
+	strlcpy(ifr.ifr_name, name, sizeof ifr.ifr_name);
 top:
 	if (afp == NULL)
 		afp = af_getbyname("inet");
@@ -566,8 +573,15 @@ top:
 					    p->c_name);
 				p->c_u.c_func2(argv[1], argv[2], s, afp);
 				argc -= 2, argv += 2;
-			} else
+			} else if (p->c_parameter == VAARGS) {
+				ret = p->c_u.c_funcv(argc - 1, argv + 1, s, afp);
+				if (ret < 0)
+					errx(1, "'%s' command error",
+					    p->c_name);
+				argc -= ret, argv += ret;
+			} else {
 				p->c_u.c_func(*argv, p->c_parameter, s, afp);
+			}
 		}
 		argc--, argv++;
 	}
@@ -594,8 +608,7 @@ top:
 		}
 	}
 	if (clearaddr) {
-		int ret;
-		strncpy(afp->af_ridreq, name, sizeof ifr.ifr_name);
+		strlcpy(afp->af_ridreq, name, sizeof ifr.ifr_name);
 		ret = ioctl(s, afp->af_difaddr, afp->af_ridreq);
 		if (ret < 0) {
 			if (errno == EADDRNOTAVAIL && (doalias >= 0)) {
@@ -612,7 +625,7 @@ top:
 		}
 	}
 	if (newaddr && (setaddr || setmask)) {
-		strncpy(afp->af_addreq, name, sizeof ifr.ifr_name);
+		strlcpy(afp->af_addreq, name, sizeof ifr.ifr_name);
 		if (ioctl(s, afp->af_aifaddr, afp->af_addreq) < 0)
 			Perror("ioctl (SIOCAIFADDR)");
 	}
@@ -753,7 +766,7 @@ setifflags(const char *vname, int value, int s, const struct afswtch *afp)
  		Perror("ioctl (SIOCGIFFLAGS)");
  		exit(1);
  	}
-	strncpy(my_ifr.ifr_name, name, sizeof (my_ifr.ifr_name));
+	strlcpy(my_ifr.ifr_name, name, sizeof (my_ifr.ifr_name));
 	flags = my_ifr.ifr_flags;
 	
 	if (value < 0) {
@@ -791,7 +804,7 @@ static void
 setifmetric(const char *val, int dummy __unused, int s, 
     const struct afswtch *afp)
 {
-	strncpy(ifr.ifr_name, name, sizeof (ifr.ifr_name));
+	strlcpy(ifr.ifr_name, name, sizeof (ifr.ifr_name));
 	ifr.ifr_metric = atoi(val);
 	if (ioctl(s, SIOCSIFMETRIC, (caddr_t)&ifr) < 0)
 		warn("ioctl (set metric)");
@@ -801,7 +814,7 @@ static void
 setifmtu(const char *val, int dummy __unused, int s, 
     const struct afswtch *afp)
 {
-	strncpy(ifr.ifr_name, name, sizeof (ifr.ifr_name));
+	strlcpy(ifr.ifr_name, name, sizeof (ifr.ifr_name));
 	ifr.ifr_mtu = atoi(val);
 	if (ioctl(s, SIOCSIFMTU, (caddr_t)&ifr) < 0)
 		warn("ioctl (set mtu)");
@@ -848,9 +861,9 @@ setifdesc(const char *val, int dummy __unused, int s, const struct afswtch *afp)
 	struct if_descreq ifdr;
 
 	bzero(&ifdr, sizeof (ifdr));
-	strncpy(ifdr.ifdr_name, name, sizeof (ifdr.ifdr_name));
+	strlcpy(ifdr.ifdr_name, name, sizeof (ifdr.ifdr_name));
 	ifdr.ifdr_len = strlen(val);
-	strncpy((char *)ifdr.ifdr_desc, val, sizeof (ifdr.ifdr_desc));
+	strlcpy((char *)ifdr.ifdr_desc, val, sizeof (ifdr.ifdr_desc));
 
 	if (ioctl(s, SIOCSIFDESC, (caddr_t)&ifdr) < 0) {
 		warn("ioctl (set desc)");
@@ -868,7 +881,7 @@ settbr(const char *val, int dummy __unused, int s, const struct afswtch *afp)
 
 	errno = 0;
 	bzero(&iflpr, sizeof (iflpr));
-	strncpy(iflpr.iflpr_name, name, sizeof (iflpr.iflpr_name));
+	strlcpy(iflpr.iflpr_name, name, sizeof (iflpr.iflpr_name));
 
 	bps = strtold(val, &cp);
 	if (val == cp || errno != 0) {
@@ -903,7 +916,7 @@ settbr(const char *val, int dummy __unused, int s, const struct afswtch *afp)
 		warn("ioctl (set link params)");
 	} else if (errno == ENXIO) {
 		printf("TBR cannot be set on %s\n", name);
-	} else if (errno == ENOENT || rate == 0) {
+	} else if (errno == 0 && rate == 0) {
 		printf("%s: TBR is now disabled\n", name);
 	} else if (errno == ENODEV) {
 		printf("%s: requires absolute TBR rate\n", name);
@@ -915,6 +928,327 @@ settbr(const char *val, int dummy __unused, int s, const struct afswtch *afp)
 	}
 }
 
+static int
+get_int64(uint64_t *i, char const *s)
+{
+	char *cp;
+	*i = strtol(s, &cp, 10);
+	if (cp == s || errno != 0) {
+		return (-1);
+	}
+	return (0);
+}
+
+static int
+get_int32(uint32_t *i, char const *s)
+{
+	char *cp;
+	*i = strtol(s, &cp, 10);
+	if (cp == s || errno != 0) {
+		return (-1);
+	}
+	return (0);
+}
+
+static int
+get_percent(double *d, const char *s)
+{
+	char *cp;
+	*d = strtod(s, &cp) / (double)100;
+	if (*d == HUGE_VALF || *d == HUGE_VALL) {
+		return (-1);
+	}
+	if (*d == 0.0 || (*cp != '\0' && strcmp(cp, "%") != 0)) {
+		return (-1);
+	}
+	return (0);
+}
+
+static int
+get_percent_fixed_point(uint32_t *i, const char *s)
+{
+	double p;
+
+	if (get_percent(&p, s) != 0){
+		return (-1);
+	}
+
+	*i = p * IF_NETEM_PARAMS_PSCALE;
+	return (0);
+}
+
+static int
+netem_parse_args(struct if_netem_params *p, int argc, char *const *argv)
+{
+	int argc_saved = argc;
+	uint64_t bandwitdh = 0;
+	uint32_t latency = 0, jitter = 0;
+	uint32_t corruption = 0;
+	uint32_t duplication = 0;
+	uint32_t loss_p_gr_gl = 0, loss_p_gr_bl = 0, loss_p_bl_br = 0,
+	    loss_p_bl_gr = 0, loss_p_br_bl = 0;
+	uint32_t reordering = 0;
+
+	bzero(p, sizeof (*p));
+
+	/* take out "input"/"output" */
+	argc--, argv++;
+
+	for ( ; argc > 0; ) {
+		if (strcmp(*argv, "bandwidth") == 0) {
+			argc--, argv++;
+			if (argc <= 0 || get_int64(&bandwitdh, *argv) != 0) {
+				err(1, "Invalid value '%s'", *argv);
+			}
+			argc--, argv++;
+		} else if (strcmp(*argv, "corruption") == 0) {
+			argc--, argv++;
+			if (argc <= 0 ||
+			    get_percent_fixed_point(&corruption, *argv) != 0) {
+				err(1, "Invalid value '%s'", *argv);
+			}
+			argc--, argv++;
+		} else if (strcmp(*argv, "delay") == 0) {
+			argc--, argv++;
+			if (argc <= 0 || get_int32(&latency, *argv) != 0) {
+				err(1, "Invalid value '%s'", *argv);
+			}
+			argc--, argv++;
+			if (argc > 0 && get_int32(&jitter, *argv) == 0) {
+				argc--, argv++;
+			}
+		} else if (strcmp(*argv, "duplication") == 0) {
+			argc--, argv++;
+			if (argc <= 0 ||
+			    get_percent_fixed_point(&duplication, *argv) != 0) {
+				err(1, "Invalid value '%s'", *argv);
+				return (-1);
+			}
+			argc--, argv++;
+		} else if (strcmp(*argv, "loss") == 0) {
+			argc--, argv++;
+			if (argc <= 0 || get_percent_fixed_point(&loss_p_gr_gl, *argv) != 0) {
+				err(1, "Invalid value '%s'", *argv);
+			}
+			/* we may have all 5 probs, use naive model if not */
+			argc--, argv++;
+			if (argc <= 0 || get_percent_fixed_point(&loss_p_gr_bl, *argv) != 0) {
+				continue;
+			}
+			/* if more than p_gr_gl, then should have all probs */
+			argc--, argv++;
+			if (argc <= 0 || get_percent_fixed_point(&loss_p_bl_br, *argv) != 0) {
+				err(1, "Invalid value '%s' for p_bl_br", *argv);
+			}
+			argc--, argv++;
+			if (argc <= 0 || get_percent_fixed_point(&loss_p_bl_gr, *argv) != 0) {
+				err(1, "Invalid value '%s' for p_bl_gr", *argv);
+			}
+			argc--, argv++;
+			if (argc <= 0 || get_percent_fixed_point(&loss_p_br_bl, *argv) != 0) {
+				err(1, "Invalid value '%s' for p_br_bl", *argv);
+			}
+			argc--, argv++;
+		} else if (strcmp(*argv, "reordering") == 0) {
+			argc--, argv++;
+			if (argc <= 0 || get_percent_fixed_point(&reordering, *argv) != 0) {
+				err(1, "Invalid value '%s'", *argv);
+			}
+			argc--, argv++;
+		} else {
+			return (-1);
+		}
+	}
+
+	if (corruption > IF_NETEM_PARAMS_PSCALE) {
+		err(1, "corruption percentage > 100%%");
+	}
+
+	if (duplication > IF_NETEM_PARAMS_PSCALE) {
+		err(1, "duplication percentage > 100%%");
+	}
+
+	if (duplication > 0 && latency == 0) {
+		/* we need to insert dup'ed packet with latency */
+		err(1, "duplication needs latency param");
+	}
+
+	if (latency > 1000) {
+		err(1, "latency %dms too big (> 1 sec)", latency);
+	}
+
+	if (jitter * 3 > latency) {
+		err(1, "jitter %dms too big (latency %dms)", jitter, latency);
+	}
+
+	/* if gr_gl == 0 (no loss), other prob should all be zero */
+	if (loss_p_gr_gl == 0 &&
+	    (loss_p_gr_bl != 0 || loss_p_bl_br != 0 || loss_p_bl_gr != 0 ||
+	    loss_p_br_bl != 0)) {
+		err(1, "loss params not all zero when gr_gl is zero");
+	}
+
+	/* check state machine transition prob integrity */
+	if (loss_p_gr_gl > IF_NETEM_PARAMS_PSCALE ||
+	    /* gr_gl = IF_NETEM_PARAMS_PSCALE for total loss */
+	    loss_p_gr_bl > IF_NETEM_PARAMS_PSCALE ||
+	    loss_p_bl_br > IF_NETEM_PARAMS_PSCALE ||
+	    loss_p_bl_gr > IF_NETEM_PARAMS_PSCALE ||
+	    loss_p_br_bl > IF_NETEM_PARAMS_PSCALE ||
+	    loss_p_gr_gl + loss_p_gr_bl > IF_NETEM_PARAMS_PSCALE ||
+	    loss_p_bl_br + loss_p_bl_gr > IF_NETEM_PARAMS_PSCALE) {
+		err(1, "loss params too big");
+	}
+
+	if (reordering > IF_NETEM_PARAMS_PSCALE) {
+	        err(1, "reordering percentage > 100%%");
+	}
+
+	p->ifnetem_bandwidth_bps = bandwitdh;
+	p->ifnetem_latency_ms = latency;
+	p->ifnetem_jitter_ms = jitter;
+	p->ifnetem_corruption_p = corruption;
+	p->ifnetem_duplication_p = duplication;
+	p->ifnetem_loss_p_gr_gl = loss_p_gr_gl;
+	p->ifnetem_loss_p_gr_bl = loss_p_gr_bl;
+	p->ifnetem_loss_p_bl_br = loss_p_bl_br;
+	p->ifnetem_loss_p_bl_gr = loss_p_bl_gr;
+	p->ifnetem_loss_p_br_bl = loss_p_br_bl;
+	p->ifnetem_reordering_p = reordering;
+
+	return (argc_saved - argc);
+}
+
+void
+print_netem_params(struct if_netem_params *p, const char *desc)
+{
+	struct if_netem_params zero_params;
+	double pscale = IF_NETEM_PARAMS_PSCALE / 100;
+	bzero(&zero_params, sizeof (zero_params));
+
+	if (memcmp(p, &zero_params, sizeof (zero_params)) == 0) {
+		printf("%s NetEm Disabled\n\n", desc);
+	} else {
+		printf(
+		    "%s NetEm Parameters\n"
+		    "\tbandwidth rate                 %llubps\n"
+		    "\tdelay latency                  %dms\n"
+		    "\t      jitter                   %dms\n",
+		    desc, p->ifnetem_bandwidth_bps,
+		    p->ifnetem_latency_ms, p->ifnetem_jitter_ms);
+		if (p->ifnetem_loss_p_gr_bl == 0 &&
+		    p->ifnetem_loss_p_bl_br == 0 &&
+		    p->ifnetem_loss_p_bl_gr == 0 &&
+		    p->ifnetem_loss_p_br_bl == 0) {
+			printf(
+		    "\tloss                           %.3f%%\n",
+		    (double) p->ifnetem_loss_p_gr_gl / pscale);
+		} else {
+			printf(
+		    "\tloss GAP_RECV   -> GAP_LOSS    %.3f%%\n"
+		    "\t     GAP_RECV   -> BURST_LOSS  %.3f%%\n"
+		    "\t     BURST_LOSS -> BURST_RECV  %.3f%%\n"
+		    "\t     BURST_LOSS -> GAP_RECV    %.3f%%\n"
+		    "\t     BURST_RECV -> BURST_LOSS  %.3f%%\n",
+		    (double) p->ifnetem_loss_p_gr_gl / pscale,
+		    (double) p->ifnetem_loss_p_gr_bl / pscale,
+		    (double) p->ifnetem_loss_p_bl_br / pscale,
+		    (double) p->ifnetem_loss_p_bl_gr / pscale,
+		    (double) p->ifnetem_loss_p_br_bl / pscale);
+		}
+		printf(
+		    "\tcorruption                     %.3f%%\n"
+		    "\treordering                     %.3f%%\n\n",
+		    (double) p->ifnetem_corruption_p / pscale,
+		    (double) p->ifnetem_reordering_p / pscale);
+	}
+}
+
+static int
+setnetem(int argc, char *const *argv, int s, const struct afswtch *afp)
+{
+	struct if_linkparamsreq iflpr;
+	struct if_netem_params input_params, output_params;
+	int ret = 0, error = 0;
+
+	bzero(&iflpr, sizeof (iflpr));
+	bzero(&input_params, sizeof (input_params));
+	bzero(&output_params, sizeof (output_params));
+
+	if (argc > 1) {
+		if (strcmp(argv[0], "input") == 0) {
+			ret = netem_parse_args(&input_params, argc, argv);
+		} else if (strcmp(argv[0], "output") == 0) {
+			ret = netem_parse_args(&output_params, argc, argv);
+		} else if (strcmp(argv[0], "-h") == 0 || strcmp(argv[0], "--help") == 0) {
+			goto bad_args;
+		} else {
+			fprintf(stderr, "uknown option %s\n", argv[0]);
+			goto bad_args;
+		}
+		if (ret < 0) {
+			goto bad_args;
+		}
+	}
+
+	errno = 0;
+	strlcpy(iflpr.iflpr_name, name, sizeof (iflpr.iflpr_name));
+	error = ioctl(s, SIOCGIFLINKPARAMS, &iflpr);
+	if (error < 0) {
+		warn("ioctl (get link params)");
+	}
+
+	if (argc == 0) {
+		print_netem_params(&iflpr.iflpr_input_netem, "Input");
+		print_netem_params(&iflpr.iflpr_output_netem, "Output");
+		return (0);
+	} else if (argc == 1) {
+		if (strcmp(argv[0], "input") == 0) {
+			bzero(&iflpr.iflpr_input_netem,
+			    sizeof (iflpr.iflpr_input_netem));
+		} else if (strcmp(argv[0], "output") == 0) {
+			bzero(&iflpr.iflpr_output_netem,
+			    sizeof (iflpr.iflpr_output_netem));
+		} else {
+			fprintf(stderr, "uknown option %s\n", argv[0]);
+			goto bad_args;
+		}
+		printf("%s: netem is now disabled for %s\n", name, argv[0]);
+		ret = 1;
+	} else {
+		if (strcmp(argv[0], "input") == 0) {
+			iflpr.iflpr_input_netem = input_params;
+		} else if (strcmp(argv[0], "output") == 0) {
+			iflpr.iflpr_output_netem = output_params;
+		}
+	}
+
+	error = ioctl(s, SIOCSIFLINKPARAMS, &iflpr);
+	if (error < 0 && errno != ENOENT && errno != ENXIO && errno != ENODEV) {
+		warn("ioctl (set link params)");
+	} else if (errno == ENXIO) {
+		printf("netem cannot be set on %s\n", name);
+	} else {
+		printf("%s: netem configured\n", name);
+	}
+
+	return (ret);
+bad_args:
+	fprintf(stderr, "Usage:\n"
+			"\tTo enable/set netem params\n"
+			"\t\tnetem <input|output>\n"
+			"\t\t      [ bandwidth BIT_PER_SEC ]\n"
+			"\t\t      [ delay DELAY_MSEC [ JITTER_MSEC ] ]\n"
+			"\t\t      [ loss PERCENTAGE ]\n"
+			"\t\t      [ duplication PERCENTAGE ]\n"
+			"\t\t      [ reordering PERCENTAGE ]\n\n"
+			"\tTo disable <input|output> netem\n"
+			"\t\tnetem <input|output>\n\n"
+			"\tTo show current settings\n"
+			"\t\tnetem\n\n");
+	return (-1);
+}
+
 static void
 setthrottle(const char *val, int dummy __unused, int s,
     const struct afswtch *afp)
@@ -924,7 +1258,7 @@ setthrottle(const char *val, int dummy __unused, int s,
 
 	errno = 0;
 	bzero(&iftr, sizeof (iftr));
-	strncpy(iftr.ifthr_name, name, sizeof (iftr.ifthr_name));
+	strlcpy(iftr.ifthr_name, name, sizeof (iftr.ifthr_name));
 
 	iftr.ifthr_level = strtold(val, &cp);
 	if (val == cp || errno != 0) {
@@ -950,7 +1284,7 @@ setdisableoutput(const char *val, int dummy __unused, int s,
 	char *cp;
 	errno = 0;
 	bzero(&ifr, sizeof (ifr));
-	strncpy(ifr.ifr_name, name, sizeof (ifr.ifr_name));
+	strlcpy(ifr.ifr_name, name, sizeof (ifr.ifr_name));
 
 	ifr.ifr_ifru.ifru_disable_output = strtold(val, &cp);
 	if (val == cp || errno != 0) {
@@ -976,7 +1310,7 @@ setlog(const char *val, int dummy __unused, int s,
 	char *cp;
 
 	errno = 0;
-	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 
 	ifr.ifr_log.ifl_level = strtold(val, &cp);
 	if (val == cp || errno != 0) {
@@ -993,7 +1327,7 @@ setlog(const char *val, int dummy __unused, int s,
 void
 setcl2k(const char *vname, int value, int s, const struct afswtch *afp)
 {
-	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 	ifr.ifr_ifru.ifru_2kcl = value;
 	
 	if (ioctl(s, SIOCSIF2KCL, (caddr_t)&ifr) < 0)
@@ -1003,17 +1337,39 @@ setcl2k(const char *vname, int value, int s, const struct afswtch *afp)
 void
 setexpensive(const char *vname, int value, int s, const struct afswtch *afp)
 {
-	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 	ifr.ifr_ifru.ifru_expensive = value;
 	
 	if (ioctl(s, SIOCSIFEXPENSIVE, (caddr_t)&ifr) < 0)
 		Perror(vname);
 }
 
+#ifdef SIOCSIFCONSTRAINED
+void
+setconstrained(const char *vname, int value, int s, const struct afswtch *afp)
+{
+    strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+    ifr.ifr_ifru.ifru_constrained = value;
+
+    if (ioctl(s, SIOCSIFCONSTRAINED, (caddr_t)&ifr) < 0)
+        Perror(vname);
+}
+#endif
+
+static void
+setifmpklog(const char *vname, int value, int s, const struct afswtch *afp)
+{
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	ifr.ifr_ifru.ifru_mpk_log = value;
+
+	if (ioctl(s, SIOCSIFMPKLOG, (caddr_t)&ifr) < 0)
+		Perror(vname);
+}
+
 void
 settimestamp(const char *vname, int value, int s, const struct afswtch *afp)
 {
-	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 	
 	if (value == 0) {
 		if (ioctl(s, SIOCSIFTIMESTAMPDISABLE, (caddr_t)&ifr) < 0)
@@ -1044,7 +1400,7 @@ setecnmode(const char *val, int dummy __unused, int s,
 		}
 	}
 	
-	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 	
 	if (ioctl(s, SIOCSECNMODE, (caddr_t)&ifr) < 0)
 		Perror("ioctl(SIOCSECNMODE)");
@@ -1071,13 +1427,15 @@ setqosmarking(const char *cmd, const char *arg, int s, const struct afswtch *afp
 	printf("%s(%s, %s)\n", __func__, cmd, arg);
 #endif /* (DEBUG | DEVELOPMENT) */
 	
-	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 	
 	if (strcmp(cmd, "mode") == 0) {
 		ioc = SIOCSQOSMARKINGMODE;
 		
 		if (strcmp(arg, "fastlane") == 0)
 			ifr.ifr_qosmarking_mode = IFRTYPE_QOSMARKING_FASTLANE;
+        else if (strcmp(arg, "rfc4594") == 0)
+            ifr.ifr_qosmarking_mode = IFRTYPE_QOSMARKING_RFC4594;
 		else if (strcasecmp(arg, "none") == 0 || strcasecmp(arg, "off") == 0)
 			ifr.ifr_qosmarking_mode = IFRTYPE_QOSMARKING_MODE_NONE;
 		else
@@ -1103,7 +1461,7 @@ setqosmarking(const char *cmd, const char *arg, int s, const struct afswtch *afp
 void
 setfastlane(const char *cmd, const char *arg, int s, const struct afswtch *afp)
 {
-	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 	
 	warnx("### fastlane is obsolete, use qosmarking ###");
 	
@@ -1138,7 +1496,7 @@ setfastlane(const char *cmd, const char *arg, int s, const struct afswtch *afp)
 	int value;
 	u_long ioc;
 	
-	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 	
 	if (strcmp(cmd, "capable") == 0)
 		ioc = SIOCSFASTLANECAPABLE;
@@ -1202,6 +1560,74 @@ setlowpowermode(const char *vname, int value, int s, const struct afswtch *afp)
 		Perror(vname);
 }
 
+struct str2num {
+	const char *str;
+	uint32_t num;
+};
+
+static struct str2num subfamily_str2num[] = {
+	{ .str = "any", .num = IFRTYPE_SUBFAMILY_ANY },
+	{ .str = "USB", .num = IFRTYPE_SUBFAMILY_USB },
+	{ .str = "Bluetooth", .num = IFRTYPE_SUBFAMILY_BLUETOOTH },
+	{ .str = "Wi-Fi", .num = IFRTYPE_SUBFAMILY_WIFI },
+	{ .str = "wifi", .num = IFRTYPE_SUBFAMILY_WIFI },
+	{ .str = "Thunderbolt", .num = IFRTYPE_SUBFAMILY_THUNDERBOLT },
+	{ .str = "reserverd", .num = IFRTYPE_SUBFAMILY_RESERVED },
+	{ .str = "intcoproc", .num = IFRTYPE_SUBFAMILY_INTCOPROC },
+	{ .str = "QuickRelay", .num = IFRTYPE_SUBFAMILY_QUICKRELAY },
+	{ .str = "Default", .num = IFRTYPE_SUBFAMILY_DEFAULT },
+	{ .str = NULL, .num = 0 },
+};
+
+static uint32_t
+get_num_from_str(struct str2num* str2nums, const char *str)
+{
+	struct str2num *str2num = str2nums;
+
+	while (str2num != NULL && str2num->str != NULL) {
+		if (strcasecmp(str2num->str, str) == 0) {
+			return str2num->num;
+		}
+		str2num++;
+	}
+	return 0;
+}
+
+static void
+setifsubfamily(const char *val, int dummy __unused, int s,
+	 const struct afswtch *afp)
+{
+	strlcpy(ifr.ifr_name, name, sizeof (ifr.ifr_name));
+
+	char *endptr;
+	uint32_t subfamily = strtoul(val, &endptr, 0);
+	if (*endptr != 0) {
+		subfamily = get_num_from_str(subfamily_str2num, val);
+		if (subfamily == 0) {
+			return;
+		}
+	}
+
+	ifr.ifr_type.ift_subfamily = subfamily;
+	if (ioctl(s, SIOCSIFSUBFAMILY, (caddr_t)&ifr) < 0)
+		warn("ioctl(SIOCSIFSUBFAMILY)");
+}
+
+void
+setifavailability(const char *vname, int value, int s, const struct afswtch *afp)
+{
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	ifr.ifr_interface_state.valid_bitmask = IF_INTERFACE_STATE_INTERFACE_AVAILABILITY_VALID;
+	if (value == 0) {
+		ifr.ifr_interface_state.interface_availability = IF_INTERFACE_STATE_INTERFACE_UNAVAILABLE;
+	} else {
+		ifr.ifr_interface_state.interface_availability = IF_INTERFACE_STATE_INTERFACE_AVAILABLE;
+	}
+	if (ioctl(s, SIOCSIFINTERFACESTATE, (caddr_t)&ifr) < 0)
+		warn("ioctl(SIOCSIFINTERFACESTATE)");
+}
+
+
 #define	IFFBITS \
 "\020\1UP\2BROADCAST\3DEBUG\4LOOPBACK\5POINTOPOINT\6SMART\7RUNNING" \
 "\10NOARP\11PROMISC\12ALLMULTI\13OACTIVE\14SIMPLEX\15LINK0\16LINK1\17LINK2" \
@@ -1213,6 +1639,10 @@ setlowpowermode(const char *vname, int value, int s, const struct afswtch *afp)
 "\21ROUTER6\22LOCALNET_PRIVATE\23ND6ALT\24RESTRICTED_RECV\25AWDL\26NOACKPRI" \
 "\27AWDL_RESTRICTED\30CL2K\31ECN_ENABLE\32ECN_DISABLE\33CHANNEL_DRV\34CA" \
 "\35SENDLIST\36DIRECTLINK\37FASTLN_ON\40UPDOWNCHANGE"
+
+#define	IFXFBITS \
+"\020\1WOL\2TIMESTAMP\3NOAUTONX\4LEGACY\5TXLOWINET\6RXLOWINET\7ALLOCKPI" \
+"\10LOWPOWER\11MPKLOG\12CONSTRAINED"
 
 #define	IFCAPBITS \
 "\020\1RXCSUM\2TXCSUM\3VLAN_MTU\4VLAN_HWTAGGING\5JUMBO_MTU" \
@@ -1239,6 +1669,7 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 	struct ifmibdata_supplemental ifmsupp;
 	size_t miblen = sizeof(struct ifmibdata_supplemental);
 	u_int64_t eflags = 0;
+	u_int64_t xflags = 0;
 	int curcap = 0;
 	
 	if (afp == NULL) {
@@ -1248,7 +1679,7 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		allfamilies = 0;
 
 	ifr.ifr_addr.sa_family = afp->af_af == AF_LINK ? AF_INET : afp->af_af;
-	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 
 	s = socket(ifr.ifr_addr.sa_family, SOCK_DGRAM, 0);
 	if (s < 0)
@@ -1268,11 +1699,24 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		if (ifindex != 0)
 			printf(" index %u", ifindex);
 	}
+#ifdef SIOCGIFCONSTRAINED
+    // Constrained is stored in if_xflags which isn't exposed directly
+    if (ioctl(s, SIOCGIFCONSTRAINED, (caddr_t)&ifr) == 0 &&
+        ifr.ifr_constrained != 0) {
+        printf(" constrained");
+    }
+#endif
 	putchar('\n');
 
 	if (verbose && ioctl(s, SIOCGIFEFLAGS, (caddr_t)&ifr) != -1 &&
 	    (eflags = ifr.ifr_eflags) != 0) {
 		printb("\teflags", eflags, IFEFBITS);
+		putchar('\n');
+	}
+
+	if (verbose && ioctl(s, SIOCGIFXFLAGS, (caddr_t)&ifr) != -1 &&
+	    (xflags = ifr.ifr_xflags) != 0) {
+		printb("\txflags", xflags, IFXFBITS);
 		putchar('\n');
 	}
 
@@ -1287,7 +1731,7 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 			putchar('\n');
 		}
 	}
-	
+
 	tunnel_status(s);
 
 	for (ift = ifa; ift != NULL; ift = ift->ifa_next) {
@@ -1332,7 +1776,7 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 	else if (afp->af_other_status != NULL)
 		afp->af_other_status(s);
 
-	strncpy(ifs.ifs_name, name, sizeof ifs.ifs_name);
+	strlcpy(ifs.ifs_name, name, sizeof ifs.ifs_name);
 	if (ioctl(s, SIOCGIFSTATUS, &ifs) == 0) 
 		printf("%s", ifs.ascii);
 
@@ -1345,6 +1789,14 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		    ifr.ifr_type.ift_family, ifr.ifr_type.ift_subfamily);
 		if (c != NULL)
 			printf("\ttype: %s\n", c);
+	}
+
+	if (verbose > 1) {
+		if (ioctl(s, SIOCGIFFUNCTIONALTYPE, &ifr) != -1) {
+			char *c = iffunct2str(ifr.ifr_functional_type);
+			if (c != NULL)
+				printf("\tfunctional type: %s\n", c);
+		}
 	}
 
 	if (verbose > 0) {
@@ -1465,7 +1917,7 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 	}
 	
 	bzero(&iflpr, sizeof (iflpr));
-	strncpy(iflpr.iflpr_name, name, sizeof (iflpr.iflpr_name));
+	strlcpy(iflpr.iflpr_name, name, sizeof (iflpr.iflpr_name));
 	if (ioctl(s, SIOCGIFLINKPARAMS, &iflpr) != -1) {
 		u_int64_t ibw_max = iflpr.iflpr_input_bw.max_bw;
 		u_int64_t ibw_eff = iflpr.iflpr_input_bw.eff_bw;
@@ -1492,7 +1944,7 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 			printf("\n");
 
 			bzero(&iftr, sizeof (iftr));
-			strncpy(iftr.ifthr_name, name,
+			strlcpy(iftr.ifthr_name, name,
 			    sizeof (iftr.ifthr_name));
 			if (ioctl(s, SIOCGIFTHROTTLE, &iftr) != -1 &&
 			    iftr.ifthr_level != IFNET_THROTTLE_OFF)
@@ -1587,7 +2039,7 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 	}
 
 	bzero(&ifdr, sizeof (ifdr));
-	strncpy(ifdr.ifdr_name, name, sizeof (ifdr.ifdr_name));
+	strlcpy(ifdr.ifdr_name, name, sizeof (ifdr.ifdr_name));
 	if (ioctl(s, SIOCGIFDESC, &ifdr) != -1 && ifdr.ifdr_len) {
 		printf("\tdesc: %s\n", ifdr.ifdr_desc);
 	}
@@ -1629,6 +2081,9 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 				case IFRTYPE_QOSMARKING_FASTLANE:
 					printf("fastlane\n");
 					break;
+                case IFRTYPE_QOSMARKING_RFC4594:
+                    printf("RFC4594\n");
+                    break;
 				case IFRTYPE_QOSMARKING_MODE_NONE:
 					printf("none\n");
 					break;
@@ -1643,6 +2098,10 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 	if (verbose > 0 && ioctl(s, SIOCGIFLOWPOWER, &ifr) != -1) {
 		printf("\tlow power mode: %s\n",
 		       (ifr.ifr_low_power_mode != 0) ? "enabled" : "disabled");
+	}
+	if (verbose > 0 && ioctl(s, SIOCGIFMPKLOG, &ifr) != -1) {
+		printf("\tmulti layer packet logging (mpklog): %s\n",
+		       (ifr.ifr_mpk_log != 0) ? "enabled" : "disabled");
 	}
 done:
 	close(s);
@@ -1927,6 +2386,8 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD("monitor",	IFF_MONITOR:,	setifflags),
 	DEF_CMD("-monitor",	-IFF_MONITOR,	setifflags),
 #endif /* IFF_MONITOR */
+	DEF_CMD("mpklog",	1,		setifmpklog),
+	DEF_CMD("-mpklog",	0,		setifmpklog),
 #ifdef IFF_STATICARP
 	DEF_CMD("staticarp",	IFF_STATICARP,	setifflags),
 	DEF_CMD("-staticarp",	-IFF_STATICARP,	setifflags),
@@ -1986,12 +2447,17 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD("-router",	0,		setrouter),
 	DEF_CMD_ARG("desc",			setifdesc),
 	DEF_CMD_ARG("tbr",			settbr),
+	DEF_CMD_VA("netem",			setnetem),
 	DEF_CMD_ARG("throttle",			setthrottle),
 	DEF_CMD_ARG("log",			setlog),
 	DEF_CMD("cl2k",	1,			setcl2k),
 	DEF_CMD("-cl2k",	0,		setcl2k),
 	DEF_CMD("expensive",	1,		setexpensive),
 	DEF_CMD("-expensive",	0,		setexpensive),
+#ifdef SIOCSIFCONSTRAINED
+    DEF_CMD("constrained",  1,      setconstrained),
+    DEF_CMD("-constrained", 0,      setconstrained),
+#endif
 	DEF_CMD("timestamp",	1,		settimestamp),
 	DEF_CMD("-timestamp",	0,		settimestamp),
 	DEF_CMD_ARG("ecn",			setecnmode),
@@ -2002,6 +2468,10 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD("-probe_connectivity",	0,		setprobeconnectivity),
 	DEF_CMD("lowpowermode",	1,		setlowpowermode),
 	DEF_CMD("-lowpowermode",	0,	setlowpowermode),
+	DEF_CMD_ARG("subfamily",		setifsubfamily),
+	DEF_CMD("available",	1,	setifavailability),
+	DEF_CMD("-available",	0,	setifavailability),
+	DEF_CMD("unavailable",	0,	setifavailability),
 };
 
 static __constructor void
@@ -2101,10 +2571,23 @@ ift2str(unsigned int t, unsigned int f, unsigned int sf)
 		c = "Cellular";
 		break;
 
+	case IFT_OTHER:
+		if (ifr.ifr_type.ift_family == APPLE_IF_FAM_IPSEC) {
+			if (ifr.ifr_type.ift_subfamily == IFRTYPE_SUBFAMILY_BLUETOOTH) {
+				c = "Companion Link Bluetooth";
+			} else if (ifr.ifr_type.ift_subfamily == IFRTYPE_SUBFAMILY_QUICKRELAY) {
+				c = "Companion Link QuickRelay";
+			} else if (ifr.ifr_type.ift_subfamily == IFRTYPE_SUBFAMILY_WIFI) {
+				c = "Companion Link Wi-Fi";
+			} else if (ifr.ifr_type.ift_subfamily == IFRTYPE_SUBFAMILY_DEFAULT) {
+				c = "Companion Link Default";
+			}
+		}
+		break;
+
 	case IFT_BRIDGE:
 	case IFT_PFLOG:
 	case IFT_PFSYNC:
-	case IFT_OTHER:
 	case IFT_PPP:
 	case IFT_LOOP:
 	case IFT_GIF:
@@ -2131,4 +2614,46 @@ ift2str(unsigned int t, unsigned int f, unsigned int sf)
 	}
 
 	return (c);
+}
+
+static char *
+iffunct2str(u_int32_t functional_type)
+{
+	char *str = NULL;
+
+	switch (functional_type) {
+		case IFRTYPE_FUNCTIONAL_UNKNOWN:
+			break;
+
+		case IFRTYPE_FUNCTIONAL_LOOPBACK:
+			str = "loopback";
+			break;
+
+		case IFRTYPE_FUNCTIONAL_WIRED:
+			str = "wired";
+			break;
+
+		case IFRTYPE_FUNCTIONAL_WIFI_INFRA:
+			str = "wifi";
+			break;
+
+		case IFRTYPE_FUNCTIONAL_WIFI_AWDL:
+			str = "awdl";
+			break;
+
+		case IFRTYPE_FUNCTIONAL_CELLULAR:
+			str = "cellular";
+			break;
+
+		case IFRTYPE_FUNCTIONAL_INTCOPROC:
+			break;
+
+		case IFRTYPE_FUNCTIONAL_COMPANIONLINK:
+			str = "companionlink";
+			break;
+
+		default:
+			break;
+	}
+	return str;
 }

@@ -25,18 +25,38 @@
 
 WI.AuditTestGroup = class AuditTestGroup extends WI.AuditTestBase
 {
-    constructor(name, tests, {description} = {})
+    constructor(name, tests, options = {})
     {
         console.assert(Array.isArray(tests));
 
-        super(name, {description});
+        // Set disabled once `_tests` is set so that it propagates.
+        let disabled = options.disabled;
+        options.disabled = false;
+
+        super(name, options);
 
         this._tests = tests;
+        this._preventDisabledPropagation = false;
+
+        if (disabled || !this.supported)
+            this.disabled = true;
+
+        let hasSupportedTest = false;
 
         for (let test of this._tests) {
+            if (!this.supported)
+                test.supported = false;
+            else if (test.supported)
+                hasSupportedTest = true;
+
             test.addEventListener(WI.AuditTestBase.Event.Completed, this._handleTestCompleted, this);
+            test.addEventListener(WI.AuditTestBase.Event.DisabledChanged, this._handleTestDisabledChanged, this);
             test.addEventListener(WI.AuditTestBase.Event.Progress, this._handleTestProgress, this);
+
         }
+
+        if (!hasSupportedTest)
+            this.supported = false;
     }
 
     // Static
@@ -46,18 +66,20 @@ WI.AuditTestGroup = class AuditTestGroup extends WI.AuditTestBase
         if (typeof payload !== "object" || payload === null)
             return null;
 
-        let {type, name, tests, description} = payload;
-
-        if (type !== WI.AuditTestGroup.TypeIdentifier)
+        if (payload.type !== WI.AuditTestGroup.TypeIdentifier)
             return null;
 
-        if (typeof name !== "string")
+        if (typeof payload.name !== "string") {
+            WI.AuditManager.synthesizeError(WI.UIString("\u0022%s\u0022 has a non-string \u0022%s\u0022 value").format(payload.name, WI.unlocalizedString("name")));
             return null;
+        }
 
-        if (!Array.isArray(tests))
+        if (!Array.isArray(payload.tests)) {
+            WI.AuditManager.synthesizeError(WI.UIString("\u0022%s\u0022 has a non-array \u0022%s\u0022 value").format(payload.name, WI.unlocalizedString("tests")));
             return null;
+        }
 
-        tests = await Promise.all(tests.map(async (test) => {
+        let tests = await Promise.all(payload.tests.map(async (test) => {
             let testCase = await WI.AuditTestCase.fromPayload(test);
             if (testCase)
                 return testCase;
@@ -73,15 +95,59 @@ WI.AuditTestGroup = class AuditTestGroup extends WI.AuditTestBase
             return null;
 
         let options = {};
-        if (typeof description === "string")
-            options.description = description;
 
-        return new WI.AuditTestGroup(name, tests, options);
+        if (typeof payload.description === "string")
+            options.description = payload.description;
+        else if ("description" in payload)
+            WI.AuditManager.synthesizeWarning(WI.UIString("\u0022%s\u0022 has a non-string \u0022%s\u0022 value").format(payload.name, WI.unlocalizedString("description")));
+
+        if (typeof payload.supports === "number")
+            options.supports = payload.supports;
+        else if ("supports" in payload)
+            WI.AuditManager.synthesizeWarning(WI.UIString("\u0022%s\u0022 has a non-number \u0022%s\u0022 value").format(payload.name, WI.unlocalizedString("supports")));
+
+        if (typeof payload.setup === "string")
+            options.setup = payload.setup;
+        else if ("setup" in payload)
+            WI.AuditManager.synthesizeWarning(WI.UIString("\u0022%s\u0022 has a non-string \u0022%s\u0022 value").format(payload.name, WI.unlocalizedString("setup")));
+
+        if (typeof payload.disabled === "boolean")
+            options.disabled = payload.disabled;
+
+        return new WI.AuditTestGroup(payload.name, tests, options);
     }
 
     // Public
 
     get tests() { return this._tests; }
+
+    get supported()
+    {
+        return super.supported;
+    }
+
+    set supported(supported)
+    {
+        for (let test of this._tests)
+            test.supported = supported;
+
+        super.supported = supported;
+    }
+
+    get disabled()
+    {
+        return super.disabled;
+    }
+
+    set disabled(disabled)
+    {
+        if (!this._preventDisabledPropagation) {
+            for (let test of this._tests)
+                test.disabled = disabled;
+        }
+
+        super.disabled = disabled;
+    }
 
     stop()
     {
@@ -103,14 +169,14 @@ WI.AuditTestGroup = class AuditTestGroup extends WI.AuditTestBase
 
         return super.clearResult({
             ...options,
-            suppressResultClearedEvent: !cleared,
+            suppressResultChangedEvent: !cleared,
         });
     }
 
-    toJSON()
+    toJSON(key)
     {
-        let json = super.toJSON();
-        json.tests = this._tests.map((testCase) => testCase.toJSON());
+        let json = super.toJSON(key);
+        json.tests = this._tests.map((testCase) => testCase.toJSON(key));
         return json;
     }
 
@@ -121,6 +187,8 @@ WI.AuditTestGroup = class AuditTestGroup extends WI.AuditTestBase
         let count = this._tests.length;
         for (let index = 0; index < count && this._runningState === WI.AuditManager.RunningState.Active; ++index) {
             let test = this._tests[index];
+            if (test.disabled)
+                continue;
 
             await test.start();
 
@@ -142,6 +210,8 @@ WI.AuditTestGroup = class AuditTestGroup extends WI.AuditTestBase
         this._result = new WI.AuditTestGroupResult(this.name, results, {
             description: this.description,
         });
+
+        this.dispatchEventToListeners(WI.AuditTestBase.Event.ResultChanged);
     }
 
     _handleTestCompleted(event)
@@ -153,6 +223,21 @@ WI.AuditTestGroup = class AuditTestGroup extends WI.AuditTestBase
         this.dispatchEventToListeners(WI.AuditTestBase.Event.Completed);
     }
 
+    _handleTestDisabledChanged(event)
+    {
+        let enabledTestCount = this._tests.filter((test) => !test.disabled).length;
+        if (event.target.disabled && !enabledTestCount)
+            this.disabled = true;
+        else if (!event.target.disabled && enabledTestCount === 1) {
+            this._preventDisabledPropagation = true;
+            this.disabled = false;
+            this._preventDisabledPropagation = false;
+        } else {
+            // Don't change `disabled`, as we're currently in an "indeterminate" state.
+            this.dispatchEventToListeners(WI.AuditTestBase.Event.DisabledChanged);
+        }
+    }
+
     _handleTestProgress(event)
     {
         if (this._runningState !== WI.AuditManager.RunningState.Active)
@@ -161,6 +246,9 @@ WI.AuditTestGroup = class AuditTestGroup extends WI.AuditTestBase
         let walk = (tests) => {
             let count = 0;
             for (let test of tests) {
+                if (test.disabled)
+                    continue;
+
                 if (test instanceof WI.AuditTestCase)
                     ++count;
                 else if (test instanceof WI.AuditTestGroup)
@@ -170,8 +258,8 @@ WI.AuditTestGroup = class AuditTestGroup extends WI.AuditTestBase
         };
 
         this.dispatchEventToListeners(WI.AuditTestBase.Event.Progress, {
-            index: event.data.index + walk(this.tests.slice(0, this.tests.indexOf(event.target))),
-            count: walk(this.tests),
+            index: event.data.index + walk(this._tests.slice(0, this._tests.indexOf(event.target))),
+            count: walk(this._tests),
         });
     }
 };

@@ -50,20 +50,22 @@ void WebPageProxy::saveRecentSearches(const String& name, const Vector<WebCore::
     return WebCore::SearchPopupMenuDB::singleton().saveRecentSearches(name, searchItems);
 }
 
-void WebPageProxy::loadRecentSearches(const String& name, Vector<WebCore::RecentSearch>& searchItems)
+void WebPageProxy::loadRecentSearches(const String& name, CompletionHandler<void(Vector<WebCore::RecentSearch>&&)>&& completionHandler)
 {
     if (!name)
-        return;
+        return completionHandler({ });
 
-    return WebCore::SearchPopupMenuDB::singleton().loadRecentSearches(name, searchItems);
+    Vector<WebCore::RecentSearch> searchItems;
+    WebCore::SearchPopupMenuDB::singleton().loadRecentSearches(name, searchItems);
+    completionHandler(WTFMove(searchItems));
 }
 
-void WebPageProxy::editorStateChanged(const EditorState& editorState)
+void WebPageProxy::updateEditorState(const EditorState& editorState)
 {
     m_editorState = editorState;
 }
 
-PlatformWidget WebPageProxy::viewWidget()
+PlatformViewWidget WebPageProxy::viewWidget()
 {
     return static_cast<PageClientImpl&>(pageClient()).viewWidget();
 }

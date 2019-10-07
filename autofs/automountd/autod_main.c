@@ -49,6 +49,7 @@
 #include <assert.h>
 #include <mach/mach.h>
 #include <servers/bootstrap.h>
+#include <bsm/libbsm.h>
 
 #include "automount.h"
 #include "automountd.h"
@@ -70,6 +71,7 @@ static void compute_new_timeout(struct timespec *);
 static void *shutdown_thread(void *);
 static void *timeout_thread(void *);
 static void *wait_for_flush_indication_thread(void *);
+static int get_audit_token_pid(audit_token_t *atoken);
 static int do_mount_subtrigger(autofs_pathname, autofs_pathname,
     autofs_pathname, autofs_opts, autofs_pathname, autofs_pathname,
     autofs_component, uint32_t, uint32_t, int32_t, fsid_t *, boolean_t *);
@@ -423,7 +425,7 @@ automount_thread(__unused void *arg)
 	pthread_setname_np("upcall receiver");
 	ret = mach_msg_server_once(autofs_server, AUTOFS_MAX_MSG_SIZE,
 	    service_port_receive_right,
-	    MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_SENDER) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0));
+	    MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0));
 	if (ret != KERN_SUCCESS) {
 		syslog(LOG_ERR, "automounter mach_msg_server_once failed: %s",
 		    mach_error_string(ret));
@@ -619,6 +621,17 @@ wait_for_flush_indication_thread(__unused void *arg)
 	return (NULL);
 }
 
+static pid_t
+get_audit_token_pid(audit_token_t *atoken)
+{
+	if (atoken) {
+		pid_t remote_pid = -1;
+		audit_token_to_au32(*atoken, /* audit UID */ NULL, /* euid */ NULL, /* egid */ NULL, /* ruid */ NULL, /* rgid */ NULL, &remote_pid, /* au_asid_t */ NULL, /* au_tid_t */ NULL);
+		return remote_pid;
+	}
+	return -1;
+}
+
 kern_return_t
 autofs_readdir(__unused mach_port_t server,
 	       autofs_pathname rda_map,				/* IN */
@@ -629,7 +642,7 @@ autofs_readdir(__unused mach_port_t server,
 	       boolean_t *rddir_eof,				/* OUT */
 	       byte_buffer *rddir_entries,			/* OUT */
 	       mach_msg_type_number_t *rddir_entriesCnt,	/* OUT */
-	       security_token_t token)
+	       audit_token_t atoken)
 {
 	/* Sanitize our OUT parameters */
 	*status = EPERM;
@@ -641,11 +654,12 @@ autofs_readdir(__unused mach_port_t server,
 	new_worker_thread();
 
 	pthread_setname_np("readdir worker");
+
 	/*
-	 * Reject this if the sender wasn't root
-	 * (all messages from the kernel will be from root).
+	 * Reject this if the sender wasn't a kernel process
+	 * (all messages from the kernel must have zero pid in audit_token_t).
 	 */
-	if (token.val[0] != 0) {
+	if (get_audit_token_pid(&atoken) != 0) {
 		goto out;
 	}
 
@@ -685,7 +699,7 @@ autofs_readsubdir(__unused mach_port_t server,
 		  boolean_t *rddir_eof,				/* OUT */
 		  byte_buffer *rddir_entries,			/* OUT */
 		  mach_msg_type_number_t *rddir_entriesCnt,	/* OUT */
-		  security_token_t token)
+		  audit_token_t atoken)
 {
 	char *key;
 
@@ -699,10 +713,10 @@ autofs_readsubdir(__unused mach_port_t server,
 	new_worker_thread();
 
 	/*
-	 * Reject this if the sender wasn't root
-	 * (all messages from the kernel will be from root).
+	 * Reject this if the sender wasn't a kernel process
+	 * (all messages from the kernel must have zero pid in audit_token_t).
 	 */
-	if (token.val[0] != 0) {
+	if (get_audit_token_pid(&atoken) != 0) {
 		goto out;
 	}
 
@@ -755,7 +769,7 @@ autofs_unmount(__unused mach_port_t server,
 	       autofs_component fstype,				/* IN */
 	       autofs_opts mntopts,				/* IN */
 	       int *status,					/* OUT */
-	       security_token_t token)
+	       audit_token_t atoken)
 {
 	/* Sanitize our OUT parameters */
 	*status = EPERM;
@@ -765,10 +779,10 @@ autofs_unmount(__unused mach_port_t server,
 	pthread_setname_np("unmount worker");
 
 	/*
-	 * Reject this if the sender wasn't root
-	 * (all messages from the kernel will be from root).
+	 * Reject this if the sender wasn't a kernel process
+	 * (all messages from the kernel must have zero pid in audit_token_t).
 	 */
-	if (token.val[0] != 0) {
+	if (get_audit_token_pid(&atoken) != 0) {
 		goto out;
 	}
 
@@ -804,7 +818,7 @@ autofs_lookup(__unused mach_port_t server,
 	      int *err,						/* OUT */
 	      int *node_type,					/* OUT */
 	      boolean_t *lu_verbose,				/* OUT */
-	      security_token_t token)
+	      audit_token_t atoken)
 {
 	char *key;
 
@@ -818,10 +832,10 @@ autofs_lookup(__unused mach_port_t server,
 	pthread_setname_np("lookup worker");
 
 	/*
-	 * Reject this if the sender wasn't root
-	 * (all messages from the kernel will be from root).
+	 * Reject this if the sender wasn't a kernel process
+	 * (all messages from the kernel must have zero pid in audit_token_t).
 	 */
-	if (token.val[0] != 0) {
+	if (get_audit_token_pid(&atoken) != 0) {
 		goto out;
 	}
 
@@ -879,7 +893,7 @@ autofs_mount(__unused mach_port_t server,
 	     mach_msg_type_number_t *actionsCnt,		/* OUT */
 	     int *err,						/* OUT */
 	     boolean_t *mr_verbose,				/* OUT */
-	     security_token_t token)
+	     audit_token_t atoken)
 {
 	char *key;
 	int status;
@@ -899,10 +913,10 @@ autofs_mount(__unused mach_port_t server,
 	pthread_setname_np("mount worker");
 
 	/*
-	 * Reject this if the sender wasn't root
-	 * (all messages from the kernel will be from root).
+	 * Reject this if the sender wasn't a kernel process
+	 * (all messages from the kernel must have zero pid in audit_token_t).
 	 */
-	if (token.val[0] != 0) {
+	if (get_audit_token_pid(&atoken) != 0) {
 		goto out;
 	}
 
@@ -1003,7 +1017,7 @@ autofs_mount_subtrigger(__unused mach_port_t server,
 			fsid_t *fsidp,				/* OUT */
 			boolean_t *top_level,			/* OUT */
 			int *err,				/* OUT */
-			security_token_t token)
+			audit_token_t atoken)
 {
 	/* Sanitize our OUT parameters */
 	*err = EPERM;
@@ -1015,10 +1029,10 @@ autofs_mount_subtrigger(__unused mach_port_t server,
 	pthread_setname_np("mount-subtrigger worker");
 
 	/*
-	 * Reject this if the sender wasn't root
-	 * (all messages from the kernel will be from root).
+	 * Reject this if the sender wasn't a kernel process
+	 * (all messages from the kernel must have zero pid in audit_token_t).
 	 */
-	if (token.val[0] != 0) {
+	if (get_audit_token_pid(&atoken) != 0) {
 		goto out;
 	}
 
@@ -1138,7 +1152,7 @@ autofs_mount_url(__unused mach_port_t server,
 		 fsid_t *fsidp,					/* OUT */
 		 uint32_t *retflags,				/* OUT */
 		 int *err,					/* OUT */
-		 security_token_t token)
+		 audit_token_t atoken)
 {
 	int status;
 
@@ -1152,10 +1166,10 @@ autofs_mount_url(__unused mach_port_t server,
 	pthread_setname_np("mount-url worker");
 
 	/*
-	 * Reject this if the sender wasn't root
-	 * (all messages from the kernel will be from root).
+	 * Reject this if the sender wasn't a kernel process
+	 * (all messages from the kernel must have zero pid in audit_token_t).
 	 */
-	if (token.val[0] != 0) {
+	if (get_audit_token_pid(&atoken) != 0) {
 		goto out;
 	}
 
@@ -1187,7 +1201,7 @@ autofs_smb_remount_server(__unused mach_port_t server,
 			  byte_buffer blob,			/* IN */
 			  mach_msg_type_number_t blobCnt,	/* IN */
 			  au_asid_t asid,			/* IN */
-			  security_token_t token)
+			  audit_token_t atoken)
 {
 	int pipefds[2];
 	int child_pid;
@@ -1201,10 +1215,10 @@ autofs_smb_remount_server(__unused mach_port_t server,
 	pthread_setname_np("smb-remount-server worker");
 
 	/*
-	 * Reject this if the sender wasn't root
-	 * (all messages from the kernel will be from root).
+	 * Reject this if the sender wasn't a kernel process
+	 * (all messages from the kernel must have zero pid in audit_token_t).
 	 */
-	if (token.val[0] != 0) {
+	if (get_audit_token_pid(&atoken) != 0) {
 		goto out;
 	}
 

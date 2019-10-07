@@ -88,10 +88,8 @@ WI.BreakpointPopoverController = class BreakpointPopoverController extends WI.Ob
         if (!breakpoint.autoContinue && !breakpoint.disabled && breakpoint.actions.length)
             contextMenu.appendItem(WI.UIString("Set to Automatically Continue"), toggleAutoContinue);
 
-        if (WI.debuggerManager.isBreakpointRemovable(breakpoint)) {
-            contextMenu.appendSeparator();
+        if (WI.debuggerManager.isBreakpointRemovable(breakpoint))
             contextMenu.appendItem(WI.UIString("Delete Breakpoint"), removeBreakpoint);
-        }
 
         if (breakpoint._sourceCodeLocation.hasMappedLocation()) {
             contextMenu.appendSeparator();
@@ -291,7 +289,7 @@ WI.BreakpointPopoverController = class BreakpointPopoverController extends WI.Ob
         this._popoverContentElement.classList.add(WI.BreakpointPopoverController.WidePopoverClassName);
         this._actionsContainer.removeChildren();
 
-        let newAction = this._breakpoint.createAction(WI.Breakpoint.DefaultBreakpointActionType);
+        let newAction = this._breakpoint.createAction(WI.BreakpointAction.Type.Log);
         let newBreakpointActionView = new WI.BreakpointActionView(newAction, this);
         this._popoverActionsInsertBreakpointActionView(newBreakpointActionView, -1);
         this._popoverOptionsRowElement.classList.remove(WI.BreakpointPopoverController.HiddenStyleClassName);

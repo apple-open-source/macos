@@ -30,21 +30,21 @@
 
 namespace WebCore {
 
-AnimationPlaybackEvent::AnimationPlaybackEvent(const AtomicString& type, const AnimationPlaybackEventInit& initializer, IsTrusted isTrusted)
+AnimationPlaybackEvent::AnimationPlaybackEvent(const AtomString& type, const AnimationPlaybackEventInit& initializer, IsTrusted isTrusted)
     : Event(type, initializer, isTrusted)
 {
-    if (initializer.currentTime == WTF::nullopt)
+    if (initializer.currentTime)
+        m_currentTime = Seconds::fromMilliseconds(*initializer.currentTime);
+    else
         m_currentTime = WTF::nullopt;
-    else
-        m_currentTime = Seconds::fromMilliseconds(initializer.currentTime.value());
 
-    if (initializer.timelineTime == WTF::nullopt)
-        m_timelineTime = WTF::nullopt;
+    if (initializer.timelineTime)
+        m_timelineTime = Seconds::fromMilliseconds(*initializer.timelineTime);
     else
-        m_timelineTime = Seconds::fromMilliseconds(initializer.timelineTime.value());
+        m_timelineTime = WTF::nullopt;
 }
 
-AnimationPlaybackEvent::AnimationPlaybackEvent(const AtomicString& type, Optional<Seconds> currentTime, Optional<Seconds> timelineTime)
+AnimationPlaybackEvent::AnimationPlaybackEvent(const AtomString& type, Optional<Seconds> currentTime, Optional<Seconds> timelineTime)
     : Event(type, CanBubble::Yes, IsCancelable::No)
     , m_currentTime(currentTime)
     , m_timelineTime(timelineTime)

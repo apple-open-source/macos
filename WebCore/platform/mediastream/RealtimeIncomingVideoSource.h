@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -47,7 +47,10 @@ namespace WebCore {
 
 class CaptureDevice;
 
-class RealtimeIncomingVideoSource : public RealtimeMediaSource, private rtc::VideoSinkInterface<webrtc::VideoFrame> {
+class RealtimeIncomingVideoSource
+    : public RealtimeMediaSource
+    , private rtc::VideoSinkInterface<webrtc::VideoFrame>
+{
 public:
     static Ref<RealtimeIncomingVideoSource> create(rtc::scoped_refptr<webrtc::VideoTrackInterface>&&, String&&);
     ~RealtimeIncomingVideoSource()
@@ -60,6 +63,10 @@ public:
 protected:
     RealtimeIncomingVideoSource(rtc::scoped_refptr<webrtc::VideoTrackInterface>&&, String&&);
 
+#if !RELEASE_LOG_DISABLED
+    const char* logClassName() const final { return "RealtimeIncomingVideoSource"; }
+#endif
+    
 private:
     // RealtimeMediaSource API
     void startProducingData() final;
@@ -73,6 +80,11 @@ private:
 
     Optional<RealtimeMediaSourceSettings> m_currentSettings;
     rtc::scoped_refptr<webrtc::VideoTrackInterface> m_videoTrack;
+
+#if !RELEASE_LOG_DISABLED
+    mutable RefPtr<const Logger> m_logger;
+    const void* m_logIdentifier;
+#endif
 };
 
 } // namespace WebCore

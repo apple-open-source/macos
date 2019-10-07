@@ -43,6 +43,7 @@
 #include <os/api.h>
 #include <os/assumes.h>
 #include <os/object_private.h>
+#include <os/lock.h>
 
 #include <sys/errno.h>
 #include <sys/cdefs.h>
@@ -54,6 +55,7 @@
 #include <mach/port.h>
 #include <mach/mach_port.h>
 #include <mach/kern_return.h>
+#include <mach/mach_right.h>
 
 __BEGIN_DECLS;
 
@@ -121,11 +123,11 @@ __os_cleanup_fclose(FILE **__fp)
 /*!
  * @define __os_close_mach_recv
  * An attribute that may be applied to a variable's type. This attribute causes
- * the variable to be passed to {@link darwin_mach_port_close_recv} when it goes
- * out of scope. Applying this attribute to variables that do not reference a
- * valid Mach port receive right will result in undefined behavior. If the
- * variable's value is MACH_PORT_NULL or MACH_PORT_DEAD upon going out-of-scope,
- * no cleanup is performed.
+ * the variable to be wrapped in a mach receive right object and passed to
+ * {@link mach_right_recv_destruct} when it goes out of scope. Applying this
+ * attribute to variables that do not reference a valid Mach port receive right
+ * will result in undefined behavior. If the variable's value is MACH_PORT_NULL
+ * or MACH_PORT_DEAD upon going out-of-scope, no cleanup is performed.
  */
 #define __os_close_mach_recv \
 		__attribute__((cleanup(__os_cleanup_close_mach_recv)))
@@ -133,24 +135,24 @@ static inline void
 __os_cleanup_close_mach_recv(mach_port_t *__p)
 {
 	mach_port_t p = *__p;
-	kern_return_t kr = KERN_FAILURE;
+	mach_right_recv_t mr = mach_right_recv(p);
 
 	if (!MACH_PORT_VALID(p)) {
 		return;
 	}
 
-	kr = mach_port_destruct(mach_task_self(), p, 0, 0);
-	os_assert_zero(kr);
+	mach_right_recv_destruct(mr, NULL, 0);
 }
 
 /*!
  * @define __os_release_mach_send
  * An attribute that may be applied to a variable's type. This attribute causes
- * the variable to be passed to {@link darwin_mach_port_release} when it goes
- * out of scope. Applying this attribute to variables that do not reference a
- * valid Mach port send right or MACH_PORT_NULL or MACH_PORT_DEAD will result
- * in undefined behavior. If the variable's value is MACH_PORT_NULL or
- * MACH_PORT_DEAD upon going out-of-scope, no cleanup is performed.
+ * the variable to be wrapped in a mach send right object and passed to
+ * {@link mach_right_send_release} when it goes out of scope. Applying this
+ * attribute to variables that do not reference a valid Mach port send right or
+ * MACH_PORT_NULL or MACH_PORT_DEAD will result in undefined behavior. If the
+ * variable's value is MACH_PORT_NULL or MACH_PORT_DEAD upon going out-of-scope,
+ * no cleanup is performed.
  */
 #define __os_release_mach_send \
 		__attribute__((cleanup(__os_cleanup_release_mach_send)))
@@ -158,14 +160,13 @@ static inline void
 __os_cleanup_release_mach_send(mach_port_t *__p)
 {
 	mach_port_t p = *__p;
-	kern_return_t kr = KERN_FAILURE;
+	mach_right_send_t ms = mach_right_send(p);
 
 	if (!MACH_PORT_VALID(p)) {
 		return;
 	}
 
-	kr = mach_port_deallocate(mach_task_self(), p);
-	os_assert_zero(kr);
+	mach_right_send_release(ms);
 }
 
 /*!
@@ -192,7 +193,12 @@ __os_cleanup_errno(int *__e)
  * upon going out-of-scope, no cleanup is performed.
  *
  * This attribute may be applied to dispatch and XPC objects.
+ *
+ * When compiling with ARC, this attribute does nothing.
  */
+#if __has_feature(objc_arc)
+#define __os_release
+#else
 #define __os_release __attribute__((cleanup(__os_cleanup_os_release)))
 static inline void
 __os_cleanup_os_release(void *__p)
@@ -204,6 +210,7 @@ __os_cleanup_os_release(void *__p)
 	}
 	os_release(o);
 }
+#endif
 
 #if __COREFOUNDATION__
 /*!
@@ -227,15 +234,53 @@ __os_cleanup_cfrelease(void *__p)
 }
 #endif // __COREFOUNDATION__
 
+/*!
+ * @define __os_unfair_unlock
+ * An attribute that may be applied to a variable's type. This attribute causes
+ * the variable to be passed to os_unfair_lock_unlock() when it goes out of
+ * scope. Applying this attribute to a variable which does not reference a valid
+ * os_unfair_lock_t object will result in undefined behavior. If the variable's
+ * value is NULL upon going out-of-scope, no cleanup is performed.
+ *
+ * This attribute is useful even when the target lock is taken conditionally via
+ * the following pattern:
+ *
+ *     os_unfair_lock lock = OS_UNFAIR_LOCK_INIT;
+ *     os_unfair_lock_t __os_unfair_unlock l2un = NULL;
+ *
+ *     if (take_the_lock) {
+ *         os_unfair_lock_lock(&lock);
+ *
+ *         // Guarantee that 'lock' will be unconditionally released when the
+ *         // scope containing 'l2un' ends.
+ *         l2un = &lock;
+ *     }
+ */
+#define __os_unfair_unlock __attribute__((cleanup(__os_cleanup_unfair_unlock)))
+static inline void
+__os_cleanup_unfair_unlock(void *__p)
+{
+	os_unfair_lock_t *tp = (os_unfair_lock_t *)__p;
+	os_unfair_lock_t ufl = *tp;
+	if (!ufl) {
+		return;
+	}
+	os_unfair_lock_assert_owner(ufl);
+	os_unfair_lock_unlock(ufl);
+}
+
 #else // __has_attribute(cleanup)
-#define __os_free __attribute__((__os_not_supported))
-#define __os_close __attribute__((__os_not_supported))
-#define __os_fclose __attribute__((__os_not_supported))
-#define __os_close_mach_recv __attribute__((__os_not_supported))
-#define __os_release_mach_send __attribute__((__os_not_supported))
-#define __os_preserve_errno __attribute__((__os_not_supported))
-#define __os_release __attribute__((__os_not_supported))
-#define __os_cfrelease __attribute__((__os_not_supported))
+#define __os_cleanup_unsupported \
+		_Pragma("GCC error \"automatic cleanup not supported\"")
+#define __os_free __os_cleanup_unsupported
+#define __os_close __os_cleanup_unsupported
+#define __os_fclose __os_cleanup_unsupported
+#define __os_close_mach_recv __os_cleanup_unsupported
+#define __os_release_mach_send __os_cleanup_unsupported
+#define __os_preserve_errno __os_cleanup_unsupported
+#define __os_release __os_cleanup_unsupported
+#define __os_cfrelease __os_cleanup_unsupported
+#define __os_unfair_unlock __os_cleanup_unsupported
 #endif // __has_attribute(cleanup)
 
 __END_DECLS;

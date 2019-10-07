@@ -34,7 +34,7 @@
 
 #include "vmbuf.h"
 #include "racoon_types.h"
-#include <schedule.h>
+#include "schedule.h"
 #if __has_include(<nw/private.h>)
 #include <nw/private.h>
 #else

@@ -16,9 +16,7 @@ var_dump($c->getTimeZone(1));
 
 var_dump(intlcal_get_time_zone($c, 1));
 var_dump(intlcal_get_time_zone(1));
-
 --EXPECTF--
-
 Warning: IntlCalendar::getTimeZone() expects exactly 0 parameters, 1 given in %s on line %d
 
 Warning: IntlCalendar::getTimeZone(): intlcal_get_time_zone: bad arguments in %s on line %d
@@ -29,7 +27,7 @@ Warning: intlcal_get_time_zone() expects exactly 1 parameter, 2 given in %s on l
 Warning: intlcal_get_time_zone(): intlcal_get_time_zone: bad arguments in %s on line %d
 bool(false)
 
-Fatal error: Uncaught TypeError: Argument 1 passed to intlcal_get_time_zone() must be an instance of IntlCalendar, integer given in %s:%d
+Fatal error: Uncaught TypeError: Argument 1 passed to intlcal_get_time_zone() must be an instance of IntlCalendar, int given in %s:%d
 Stack trace:
 #0 %s(%d): intlcal_get_time_zone(1)
 #1 {main}

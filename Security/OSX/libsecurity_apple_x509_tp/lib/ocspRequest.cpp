@@ -36,7 +36,7 @@
 #include <Security/oidsalg.h>
 #include <Security/oidscert.h>
 #include <Security/ocspTemplates.h>
-#include <security_utilities/devrandom.h>
+#include <Security/SecRandom.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <security_cdsa_utilities/cssmerrors.h>
 
@@ -159,8 +159,8 @@ const CSSM_DATA *OCSPRequest::encode()
 
 	/* one extension - the nonce */
 	if(mGenNonce) {
-		DevRandomGenerator drg;
-		drg.random(nonceBytes, OCSP_NONCE_SIZE);
+        MacOSError::check(SecRandomCopyBytes(kSecRandomDefault, OCSP_NONCE_SIZE, nonceBytes));
+        
 		nonce = new OCSPNonce(mCoder, false, nonceData);
 		extenArray[0] = nonce->nssExt();
 		tbs.requestExtensions = extenArray;

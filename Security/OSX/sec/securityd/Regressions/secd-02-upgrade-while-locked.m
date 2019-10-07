@@ -44,7 +44,7 @@
 #include <pthread.h>
 
 #if TARGET_OS_IPHONE && USE_KEYSTORE
-#include <libaks.h>
+#include "OSX/utilities/SecAKSWrappers.h"
 
 #include "SecdTestKeychainUtilities.h"
 
@@ -135,21 +135,21 @@ int secd_02_upgrade_while_locked(int argc, char *const *argv)
             SecItemServerSetKeychainChangedNotification("com.apple.secdtests.keychainchanged");
             
             /* Create and lock custom keybag */            
-            ok(kIOReturnSuccess==aks_create_bag(passcode, passcode_len, kAppleKeyStoreDeviceBag, &keybag), "create keybag");
-            ok(kIOReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
+            ok(kAKSReturnSuccess==aks_create_bag(passcode, passcode_len, kAppleKeyStoreDeviceBag, &keybag), "create keybag");
+            ok(kAKSReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
             ok(!(state&keybag_state_locked), "keybag unlocked");
             SecItemServerSetKeychainKeybag(keybag);
             
             /* lock */
-            ok(kIOReturnSuccess==aks_lock_bag(keybag), "lock keybag");
-            ok(kIOReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
+            ok(kAKSReturnSuccess==aks_lock_bag(keybag), "lock keybag");
+            ok(kAKSReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
             ok(state&keybag_state_locked, "keybag locked");
         });
         
         CFReleaseSafe(keychain_path_cf);
     });
 
-    CFArrayRef old_ag = SecAccessGroupsGetCurrent();
+    CFArrayRef old_ag = CFRetainSafe(SecAccessGroupsGetCurrent());
     CFMutableArrayRef test_ag = CFArrayCreateMutableCopy(NULL, 0, old_ag);
     CFArrayAppendValue(test_ag, CFSTR("test"));
     SecAccessGroupsSetCurrent(test_ag);
@@ -171,8 +171,8 @@ int secd_02_upgrade_while_locked(int argc, char *const *argv)
         ok(query_err[i]==NULL, "query thread ok");
     ok(sos_err==NULL, "sos thread ok");
 
-    ok(kIOReturnSuccess==aks_unlock_bag(keybag, passcode, passcode_len), "lock keybag");
-    ok(kIOReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
+    ok(kAKSReturnSuccess==aks_unlock_bag(keybag, passcode, passcode_len), "lock keybag");
+    ok(kAKSReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
     ok(!(state&keybag_state_locked), "keybag unlocked");
 
     is_status(query_one(), errSecItemNotFound, "Query after unlock");
@@ -182,6 +182,7 @@ int secd_02_upgrade_while_locked(int argc, char *const *argv)
 
     // Reset server accessgroups.
     SecAccessGroupsSetCurrent(old_ag);
+    CFReleaseNull(old_ag);
     CFReleaseSafe(test_ag);
 
     return 0;

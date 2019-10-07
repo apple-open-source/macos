@@ -38,9 +38,27 @@ __BEGIN_DECLS
 #define kKextLoadPathKey         CFSTR("KextLoadPath")
 #define kKextLoadDependenciesKey CFSTR("KextLoadDependencyPaths")
 
+#define kExtPathKey             CFSTR("ExtPath")
+#define kExtEnabledKey          CFSTR("ExtEnabled")
+
 CFArrayRef _KextManagerCreatePropertyValueArray(
     CFAllocatorRef allocator,
     CFStringRef    propertyKey);
+
+/*
+ * This is part of a private, entitled interface between kextd, which manages
+ * the lifecycle of kernel and userspace driver extensions, and sysextd,
+ * which manages the installation of third-party system extensions.
+ * If you are not sysextd or kextd, you should not use these functions.
+ * They are liable to change at any time.
+ */
+
+/* Validate an extension in-place on the filesystem. */
+OSReturn _KextManagerValidateExtension(CFStringRef extPath);
+/* Update an extension's enablement state. */
+OSReturn _KextManagerUpdateExtension(CFStringRef extPath, bool extIsEnabled);
+/* Ask kextd to stop an extension - it can say no if it is unable. */
+OSReturn _KextManagerStopExtension(CFStringRef extPath);
 
 __END_DECLS
 

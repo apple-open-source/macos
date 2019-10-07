@@ -21,47 +21,47 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if DTRACE_USE_CORESYMBOLICATION
 #include <CoreSymbolication/CoreSymbolication.h>
 #include <CoreSymbolication/CoreSymbolicationPrivate.h>
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 
 #include <mach/mach.h>
 #include <mach/mach_vm.h>
 #include <mach/mach_error.h>
-#include <servers/bootstrap.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <sys/sysctl.h>
 
-// /System//Library/Frameworks/System.framework/Versions/B/PrivateHeaders/sys/proc_info.h
 #include <sys/proc_info.h>
 #include <sys/codesign.h>
 #include <sys/fasttrap_isa.h>
 
-#if !TARGET_OS_EMBEDDED
+#if DTRACE_TARGET_APPLE_MAC
 #include <sys/csr.h>
 #include <sandbox/rootless.h>
-#endif
-
-// This must be done *after* any references to Foundation.h!
-#define uint_t  __Solaris_uint_t
+#endif /* DTRACE_TARGET_APPLE_MAC */
 
 #include "libproc.h"
 #include "libproc_apple.h"
+#include "libproc_internal.h"
 
 #include <spawn.h>
 #include <pthread.h>
 
-#include <crt_externs.h>
-
-// We cannot import dt_impl.h, so define this here.
-extern void dt_dprintf(const char *, ...);
+#include <os/log.h>
 
 extern int _dtrace_disallow_dsym;
 extern int _dtrace_mangled;
 
+#define APPLE_PCREATE_BAD_SYMBOLICATOR		0x0F000001
+#define APPLE_EXECUTABLE_RESTRICTED		0x0F000003
+#define APPLE_EXECUTABLE_NOT_ATTACHABLE		0x0F000004
 
+
+#if DTRACE_USE_CORESYMBOLICATION
 /*
  * This is a helper method, it does extended lookups following roughly these rules
  *
@@ -70,7 +70,7 @@ extern int _dtrace_mangled;
  * 3. An initial basename match up to a '.' suffix: "libc.so" or "libc"
  * 4. The literal string "a.out" is an alias for the executable mapping
  */
-int forEachSymbolOwner(CSSymbolicatorRef symbolicator, const char* name, void (^cb)(CSSymbolOwnerRef owner)) {
+static int forEachSymbolOwner(CSSymbolicatorRef symbolicator, const char* name, void (^cb)(CSSymbolOwnerRef owner)) {
 	// Check for a.out specifically
 	if (strcmp(name, "a.out") == 0) {
 		if (CSSymbolicatorForeachSymbolOwnerWithFlagsAtTime(symbolicator, kCSSymbolOwnerIsAOut, kCSNow, ^(CSSymbolOwnerRef t) { cb(t); }) == 1) {
@@ -114,10 +114,6 @@ int forEachSymbolOwner(CSSymbolicatorRef symbolicator, const char* name, void (^
 	return found_match ? 0 : -1;
 }
 
-#define APPLE_PCREATE_BAD_SYMBOLICATOR		0x0F000001
-#define APPLE_EXECUTABLE_RESTRICTED		0x0F000003
-#define APPLE_EXECUTABLE_NOT_ATTACHABLE		0x0F000004
-
 //
 // Helper function so that Pcreate & Pgrab can use the same code.
 //
@@ -129,7 +125,13 @@ int forEachSymbolOwner(CSSymbolicatorRef symbolicator, const char* name, void (^
 // dyld listener thread. The listener thread does not directly call into dtrace. The reason is that the thread
 // calling into dtrace sometimes gets put to sleep. If dtrace decides to release/deallocate due to a notice
 // from the listener thread, it deadlocks waiting for the listener to acknowledge that it has shut down.
-static struct ps_prochandle* createProcAndSymbolicator(pid_t pid, task_t task, int* perr, bool should_queue_proc_activity_notices) {	
+static struct ps_prochandle* createProcAndSymbolicator(pid_t pid, task_t task, int* perr, bool should_queue_proc_activity_notices) {
+	static os_log_t proc_log;
+	static dispatch_once_t once;
+	dispatch_once(&once, ^{
+		proc_log = os_log_create("com.apple.dtrace", "libproc");
+	});
+
 	// The symbolicator block captures proc, and actually uses it before completing.
 	// We allocate and initialize it first.
 	struct ps_prochandle* proc = calloc(sizeof(struct ps_prochandle), 1);
@@ -150,54 +152,54 @@ static struct ps_prochandle* createProcAndSymbolicator(pid_t pid, task_t task, i
 	CSSymbolicatorRef symbolicator = CSSymbolicatorCreateWithTaskFlagsAndNotification(task, flags, ^(uint32_t notification_type, CSNotificationData data) {
 		switch (notification_type) {
 			case kCSNotificationTaskMain:
-				dt_dprintf("pid %d: kCSNotificationTaskMain\n", CSSymbolicatorGetPid(data.symbolicator));
+				os_log(proc_log, "pid %d: kCSNotificationTaskMain", CSSymbolicatorGetPid(data.symbolicator));
 				// We're faking a "POSTINIT" breakpoint here.
 				if (should_queue_proc_activity_notices)
 					Pcreate_sync_proc_activity(proc, RD_POSTINIT);
 				break;
 
 			case kCSNotificationPing:
-				dt_dprintf("pid %d: kCSNotificationPing (value: %d)\n", CSSymbolicatorGetPid(data.symbolicator), data.u.ping.value);
+				os_log(proc_log, "pid %d: kCSNotificationPing (value: %d)", CSSymbolicatorGetPid(data.symbolicator), data.u.ping.value);
 				// We're faking a "POSTINIT" breakpoint here.
 				if (should_queue_proc_activity_notices)
 					Pcreate_sync_proc_activity(proc, RD_POSTINIT);
 				break;
 				
 			case kCSNotificationInitialized:
-				dt_dprintf("pid %d: kCSNotificationInitialized\n", CSSymbolicatorGetPid(data.symbolicator));
+				os_log(proc_log, "pid %d: kCSNotificationInitialized", CSSymbolicatorGetPid(data.symbolicator));
 				// We're faking a "PREINIT" breakpoint here. NOTE! The target is not actually suspended at this point. Racey!
 				if (should_queue_proc_activity_notices)
 					Pcreate_async_proc_activity(proc, RD_PREINIT);
 				break;
 				
 			case kCSNotificationDyldLoad:
-				dt_dprintf("pid %d: kCSNotificationDyldLoad %s\n", CSSymbolicatorGetPid(data.symbolicator), CSSymbolOwnerGetPath(data.u.dyldLoad.symbolOwner));
+				os_log(proc_log, "pid %d: kCSNotificationDyldLoad %s", CSSymbolicatorGetPid(data.symbolicator), CSSymbolOwnerGetPath(data.u.dyldLoad.symbolOwner));
 				if (should_queue_proc_activity_notices)
 					Pcreate_sync_proc_activity(proc, RD_DLACTIVITY);
 				break;
 				
 			case kCSNotificationDyldUnload:
-				dt_dprintf("pid %d: kCSNotificationDyldUnload %s\n", CSSymbolicatorGetPid(data.symbolicator), CSSymbolOwnerGetPath(data.u.dyldLoad.symbolOwner));
+				os_log(proc_log, "pid %d: kCSNotificationDyldUnload %s", CSSymbolicatorGetPid(data.symbolicator), CSSymbolOwnerGetPath(data.u.dyldLoad.symbolOwner));
 				break;
 				
 			case kCSNotificationTimeout:
-				dt_dprintf("pid %d: kCSNotificationTimeout\n", CSSymbolicatorGetPid(data.symbolicator));
+				os_log(proc_log, "pid %d: kCSNotificationTimeout", CSSymbolicatorGetPid(data.symbolicator));
 				if (should_queue_proc_activity_notices)
 					Pcreate_async_proc_activity(proc, RD_DYLD_LOST);
 				break;
 				
 			case kCSNotificationTaskExit:
-				dt_dprintf("pid %d: kCSNotificationTaskExit\n", CSSymbolicatorGetPid(data.symbolicator));
+				os_log(proc_log, "pid %d: kCSNotificationTaskExit", CSSymbolicatorGetPid(data.symbolicator));
 				if (should_queue_proc_activity_notices)
 					Pcreate_async_proc_activity(proc, RD_DYLD_EXIT);
 				break;
 				
 			case kCSNotificationFini:
-				dt_dprintf("pid %d: kCSNotificationFini\n", CSSymbolicatorGetPid(data.symbolicator));
+				os_log(proc_log, "pid %d: kCSNotificationFini", CSSymbolicatorGetPid(data.symbolicator));
 				break;
 				
 			default:
-				dt_dprintf("pid %d: 0x%x UNHANDLED notification from CoreSymbolication\n", CSSymbolicatorGetPid(data.symbolicator), notification_type);
+				os_log(proc_log, "pid %d: 0x%x UNHANDLED notification from CoreSymbolication", CSSymbolicatorGetPid(data.symbolicator), notification_type);
 		}
 	});
 	if (!CSIsNull(symbolicator)) {
@@ -212,21 +214,24 @@ static struct ps_prochandle* createProcAndSymbolicator(pid_t pid, task_t task, i
 	
 	return proc;
 }
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 
 struct ps_prochandle *
-Pcreate(const char *file,	/* executable file name */
+Pxcreate(const char *file,	/* executable file name */
         char *const *argv,	/* argument vector */
+        char *const *envp,	/* environment */
         int *perr,		    /* pointer to error return code */
         char *path,		    /* if non-null, holds exec path name on return */
         size_t len, 	    /* size of the path buffer */
         cpu_type_t arch)    /* architecture to launch */
-{		
+{
+#pragma unused(path, len)
+#if DTRACE_USE_CORESYMBOLICATION
 	struct ps_prochandle* proc = NULL;
 
 	int pid;
 	posix_spawnattr_t attr;
 	task_t task;
-	uint32_t flags;
 
 	*perr = posix_spawnattr_init(&attr);
 	if (0 != *perr) goto destroy_attr;
@@ -238,13 +243,13 @@ Pcreate(const char *file,	/* executable file name */
 	
 	*perr = posix_spawnattr_setflags(&attr, POSIX_SPAWN_START_SUSPENDED);
 	if (0 != *perr) goto destroy_attr;
-	*perr = posix_spawnp(&pid, file, NULL, &attr, argv, *_NSGetEnviron());
+	*perr = posix_spawnp(&pid, file, NULL, &attr, argv, envp);
 	
 destroy_attr:
 	posix_spawnattr_destroy(&attr);
 	
 	if (0 == *perr) {
-#if !TARGET_OS_EMBEDDED
+#if DTRACE_TARGET_APPLE_MAC
 		/*
 		 * <rdar://problem/13969762>:
 		 * If the process is signed with restricted entitlements, the libdtrace_dyld
@@ -259,7 +264,7 @@ destroy_attr:
 			*perr = APPLE_EXECUTABLE_RESTRICTED;
 			return NULL;
 		}
-#endif
+#endif /* DTRACE_TARGET_APPLE_MAC */
 		*perr = task_for_pid(mach_task_self(), pid, &task);
 		if (*perr == KERN_SUCCESS) {
 			proc = createProcAndSymbolicator(pid, task, perr, true);
@@ -271,6 +276,9 @@ destroy_attr:
 	}
 
 	return proc;
+#else
+	return NULL;
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 }
 
 /*
@@ -328,7 +336,7 @@ Pcreate_error(int error)
 
 struct ps_prochandle *Pgrab(pid_t pid, int flags, int *perr) {
 	struct ps_prochandle* proc = NULL;
-	
+#if DTRACE_USE_CORESYMBOLICATION
 	if (flags & PGRAB_RDONLY || (0 == flags)) {	
 		task_t task;
 
@@ -342,7 +350,7 @@ struct ps_prochandle *Pgrab(pid_t pid, int flags, int *perr) {
 	} else {
 		*perr = APPLE_PGRAB_UNSUPPORTED_FLAGS;
 	}
-	
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 	return proc;
 }
 
@@ -370,8 +378,6 @@ const char *Pgrab_error(int err) {
 /*
  * Release the process.  Frees the process control structure.
  * flags:
- *	PRELEASE_CLEAR	Clear all tracing flags.
- *	PRELEASE_RETAIN	Retain current tracing flags.
  *	PRELEASE_HANG	Leave the process stopped and abandoned.
  *	PRELEASE_KILL	Terminate the process with SIGKILL.
  */
@@ -380,7 +386,9 @@ const char *Pgrab_error(int err) {
  *
  * We're ignoring most flags for now. They will eventually need to be honored.
  */
-void Prelease(struct ps_prochandle *P, int flags) {        
+void Prelease(struct ps_prochandle *P, int flags)
+{
+#if DTRACE_USE_CORESYMBOLICATION
 	if (0 == flags) {
 		if (P->status.pr_flags & PR_KLC)
 			(void)kill(P->status.pr_pid, SIGKILL);
@@ -410,6 +418,7 @@ void Prelease(struct ps_prochandle *P, int flags) {
 	(void) pthread_cond_destroy(&P->proc_activity_queue_cond);
 
 	free(P);
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 }
 
 /*
@@ -419,17 +428,20 @@ void Prelease(struct ps_prochandle *P, int flags) {
  * calls to give us roughly the same functionality.
  *
  */
-int Psetbkpt(struct ps_prochandle *P, uintptr_t addr, ulong_t *instr) {
+int
+Psetbkpt(struct ps_prochandle *P, uintptr_t addr, ulong_t *instr)
+{
+#pragma unused(P, addr, instr)
 	return 0;
 }
 
-int Pdelbkpt(struct ps_prochandle *P, uintptr_t addr, ulong_t instr) {
+int
+Pdelbkpt(struct ps_prochandle *P, uintptr_t addr, ulong_t instr)
+{
+#pragma unused(P, addr, instr)
 	return 0;
 }
 
-int	Pxecbkpt(struct ps_prochandle *P, ulong_t instr) {
-	return 0;
-}
 
 /*
  * APPLE NOTE:
@@ -452,21 +464,7 @@ int Punsetflags(struct ps_prochandle *P, long flags) {
 	return 0;
 }
 
-int pr_open(struct ps_prochandle *P, const char *foo, int bar, mode_t baz) {
-	printf("libProc.a UNIMPLEMENTED: pr_open()");
-	return 0;
-}
-
-int pr_close(struct ps_prochandle *P, int foo) {
-	printf("libProc.a UNIMPLEMENTED: pr_close");
-	return 0;
-}
-
-int pr_ioctl(struct ps_prochandle *P, int foo, int bar, void *baz, size_t blah) {
-	printf("libProc.a UNIMPLEMENTED: pr_ioctl");
-	return 0;
-}
-
+#if DTRACE_USE_CORESYMBOLICATION
 /*
  * When processing new modules loaded in a process, we only want to look at
  * what has changed since the last processing attempt.
@@ -497,6 +495,7 @@ update_check_symbol_gen(struct ps_prochandle *P, CSSymbolRef symbol, bool err_on
 	CSSymbolOwnerRef owner = CSSymbolGetSymbolOwner(symbol);
 	return update_check_symbol_owner_gen(P, owner, err_on_mismatched_gen);
 }
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 
 #if defined(__arm__) || defined(__arm64__)
 static uint32_t
@@ -538,7 +537,8 @@ get_arm_arch_subinfo(CSSymbolRef symbol)
  * Most of the time, prsyminfo_t is null, and when it is used, only
  * prs_lmid is set.
  */
-int Pxlookup_by_name_sym(
+static int
+Pxlookup_by_name_sym(
 		     struct ps_prochandle *P,
 		     Lmid_t lmid,		/* link map to match, or -1 (PR_LMID_EVERY) for any */
 		     const char *oname,		/* load object name */
@@ -547,6 +547,8 @@ int Pxlookup_by_name_sym(
 		     prsyminfo_t *sip,		/* returned symbol info */
 		     bool only_current_gen)
 {
+#pragma unused(lmid)
+#if DTRACE_USE_CORESYMBOLICATION
 	__block CSSymbolRef symbol = kCSNull;
 	if (oname != NULL) {
 		if (_dtrace_mangled) {
@@ -597,8 +599,10 @@ int Pxlookup_by_name_sym(
 	if (sip) {
 		sip->prs_lmid = LM_ID_BASE;
 	}
-
 	return 0;
+#else
+	return PLOOKUP_NOT_FOUND;
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 }
 
 int
@@ -652,7 +656,8 @@ Pxlookup_by_addr(
                  prsyminfo_t *sip)		/* returned symbol info (used only by plockstat) */
 {
 	int err = -1;
-        
+
+#if DTRACE_USE_CORESYMBOLICATION
 	CSSymbolRef symbol = CSSymbolicatorGetSymbolWithAddressAtTime(P->symbolicator, (mach_vm_address_t)addr, kCSNow);
 	
 	// See comments in Ppltdest()
@@ -714,7 +719,7 @@ Pxlookup_by_addr(
 			sip->prs_lmid = LM_ID_BASE;
 		}
 	}
-        
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 	return err;
 }
 
@@ -732,25 +737,31 @@ int Psetrun(struct ps_prochandle *P,
 	    int sig,	/* Ignored in OS X. Nominally supposed to be the signal passed to the target process */
 	    int flags	/* Ignored in OS X. PRSTEP|PRSABORT|PRSTOP|PRCSIG|PRCFAULT */)
 {
+#pragma unused(sig, flags)
+#if DTRACE_USE_CORESYMBOLICATION
 	/* If PR_KLC is set, we created the process with posix_spawn(); otherwise we grabbed it with task_suspend. */
 	if (P->status.pr_flags & PR_KLC)
 		return kill(P->status.pr_pid, SIGCONT); // Advances BSD p_stat from SSTOP to SRUN
 	else
 		return (int)task_resume(CSSymbolicatorGetTask(P->symbolicator));
+#else
+	return (0);
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 }
 
 ssize_t Pread(struct ps_prochandle *P, void *buf, size_t nbyte, mach_vm_address_t address) {
 	vm_offset_t mapped_address;
 	mach_msg_type_number_t mapped_size;
 	ssize_t bytes_read = 0;
-	
+
+#if DTRACE_USE_CORESYMBOLICATION
 	kern_return_t err = mach_vm_read(CSSymbolicatorGetTask(P->symbolicator), (mach_vm_address_t)address, (mach_vm_size_t)nbyte, &mapped_address, &mapped_size);
 	if (! err) {
 		bytes_read = nbyte;
 		memcpy(buf, (void*)mapped_address, nbyte);
 		vm_deallocate(mach_task_self(), (vm_address_t)mapped_address, (vm_size_t)mapped_size);
-	}  
-	
+	}
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 	return bytes_read;
 }
 
@@ -758,7 +769,7 @@ static int
 Pobject_iter_symbols(struct ps_prochandle *P, proc_map_f *func, void *cd, bool only_current_gen)
 {
 	__block int err = 0;
-
+#if DTRACE_USE_CORESYMBOLICATION
 	CSSymbolicatorForeachSymbolOwnerAtTime(P->symbolicator, kCSNow, ^(CSSymbolOwnerRef owner) {
 		if (update_check_symbol_owner_gen(P, owner, only_current_gen) == 0) {
 			if (err) return; // skip everything after error
@@ -771,7 +782,7 @@ Pobject_iter_symbols(struct ps_prochandle *P, proc_map_f *func, void *cd, bool o
 			err = func(cd, &map, name);
 		}
 	});
-
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 	return err;
 }
 
@@ -788,6 +799,7 @@ int Pobject_iter_new_syms(struct ps_prochandle *P, proc_map_f *func, void *cd) {
 // have an equivalent, and these are cheaper to fill in on the fly than to store.
 
 const prmap_t *Paddr_to_map(struct ps_prochandle *P, mach_vm_address_t addr, prmap_t* map) {        
+#if DTRACE_USE_CORESYMBOLICATION
 	CSSymbolOwnerRef owner = CSSymbolicatorGetSymbolOwnerWithAddressAtTime(P->symbolicator, addr, kCSNow);
 	
 	// <rdar://problem/4877551>
@@ -797,8 +809,8 @@ const prmap_t *Paddr_to_map(struct ps_prochandle *P, mach_vm_address_t addr, prm
 		
 		return map;
 	}
-	
-	return NULL;	
+#endif /* DTRACE_USE_CORESYMBOLICATION */
+	return NULL;
 }
 
 const prmap_t *Pname_to_map(struct ps_prochandle *P, const char *name, prmap_t* map) {
@@ -831,7 +843,11 @@ const prmap_t *Pname_to_map(struct ps_prochandle *P, const char *name, prmap_t* 
  * they share the same v_addr.
  */
 
-const prmap_t *Plmid_to_map(struct ps_prochandle *P, Lmid_t ignored, const char *cname, prmap_t* map) {
+const prmap_t*
+Plmid_to_map(struct ps_prochandle *P, Lmid_t ignored, const char *cname, prmap_t* map)
+{
+#pragma unused(ignored)
+#if DTRACE_USE_CORESYMBOLICATION
 	// Need to handle some special case defines
 	if (cname == PR_OBJ_LDSO)
 		cname = "dyld";
@@ -852,6 +868,9 @@ const prmap_t *Plmid_to_map(struct ps_prochandle *P, Lmid_t ignored, const char 
 	map->pr_mflags = MA_READ; // Anything we get from a symbolicator is readable
 
 	return map;
+#else
+	return NULL;
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 }
 
 /*
@@ -859,13 +878,17 @@ const prmap_t *Plmid_to_map(struct ps_prochandle *P, Lmid_t ignored, const char 
  * mapped object (file), as provided by the dynamic linker.
  * Return NULL on failure (no underlying shared library).
  */
-char *Pobjname(struct ps_prochandle *P, mach_vm_address_t addr, char *buffer, size_t bufsize) {    
+char
+*Pobjname(struct ps_prochandle *P, mach_vm_address_t addr, char *buffer, size_t bufsize)
+{
+#if DTRACE_USE_CORESYMBOLICATION
 	CSSymbolOwnerRef owner = CSSymbolicatorGetSymbolOwnerWithAddressAtTime(P->symbolicator, addr, kCSNow);
 	if (!CSIsNull(owner)) {
 		strncpy(buffer, CSSymbolOwnerGetPath(owner), bufsize);
 		buffer[bufsize-1] = 0; // Make certain buffer is NULL terminated.
 		return buffer;
 	}
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 	buffer[0] = 0;
 	return NULL;
 }
@@ -879,7 +902,10 @@ char *Pobjname(struct ps_prochandle *P, mach_vm_address_t addr, char *buffer, si
  *
  * We are treating everything as being in the base map, so no work is needed.
  */
-int Plmid(struct ps_prochandle *P, mach_vm_address_t addr, Lmid_t *lmidp) {
+int
+Plmid(struct ps_prochandle *P, mach_vm_address_t addr, Lmid_t *lmidp)
+{
+#pragma unused(P, addr)
 	*lmidp = LM_ID_BASE;
 	return 0;
 }
@@ -891,6 +917,7 @@ int Plmid(struct ps_prochandle *P, mach_vm_address_t addr, Lmid_t *lmidp) {
 static int
 Pobjc_method_iter_syms(struct ps_prochandle *P, proc_objc_f *func, void *cd, bool only_current_gen) {
 	__block int err = 0;
+#if DTRACE_USE_CORESYMBOLICATION
 	CSSymbolicatorForeachSymbolOwnerAtTime(P->symbolicator, kCSNow, ^(CSSymbolOwnerRef owner) {
 		if (update_check_symbol_owner_gen(P, owner, only_current_gen) == 0) {
 			if (err) return; // Have to bail out on error condition
@@ -949,7 +976,7 @@ Pobjc_method_iter_syms(struct ps_prochandle *P, proc_objc_f *func, void *cd, boo
 			});
 		}
 	});
-	
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 	return err;
 }
 
@@ -981,7 +1008,7 @@ Psymbol_iter_by_addr_syms(struct ps_prochandle *P, const char *object_name,
      int which, int mask, proc_sym_f *func, void *cd, bool only_current_gen)
 {
 	__block int err = 0;
-	
+#if DTRACE_USE_CORESYMBOLICATION
 	if (which != PR_SYMTAB)
 		return err;
 
@@ -1027,6 +1054,7 @@ Psymbol_iter_by_addr_syms(struct ps_prochandle *P, const char *object_name,
 			});
 		}
 	});
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 	return err;
 }
 
@@ -1046,7 +1074,10 @@ Psymbol_iter_by_addr(struct ps_prochandle *P, const char *object_name,
 	       cd, false);
 }
 
-void Pupdate_maps(struct ps_prochandle *P) {
+void
+Pupdate_maps(struct ps_prochandle *P)
+{
+#pragma unused(P)
 }
 
 //
@@ -1055,12 +1086,15 @@ void Pupdate_maps(struct ps_prochandle *P) {
 // Following invocations to "iter_by_xyz()" should only process libraries newer
 // than the checkpoint time.
 //
-void Pcheckpoint_syms(struct ps_prochandle *P) {
+void
+Pcheckpoint_syms(struct ps_prochandle *P)
+{
 	// In future iterations of the symbolicator, we will only process symbol owners older than what we have already seen.
 	P->current_symbol_owner_generation++;
 }
 
 void Pupdate_syms(struct ps_prochandle *P) {    
+#pragma unused(P)
 }
 
 /*
@@ -1086,13 +1120,13 @@ void Pupdate_syms(struct ps_prochandle *P) {
  */
 const char *Ppltdest(struct ps_prochandle *P, mach_vm_address_t addr) {
 	const char* err = NULL;
-	
+#if DTRACE_USE_CORESYMBOLICATION
 	CSSymbolRef symbol = CSSymbolicatorGetSymbolWithAddressAtTime(P->symbolicator, addr, kCSNow);
 	
 	// Do not allow dyld stubs, !functions, or commpage entries (<rdar://problem/4877551>)
 	if (!CSIsNull(symbol) && (CSSymbolIsDyldStub(symbol) || !CSSymbolIsFunction(symbol)))
 		err = "Ppltdest is not implemented";
-	
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 	return err;
 }
 
@@ -1100,7 +1134,8 @@ rd_agent_t *Prd_agent(struct ps_prochandle *P) {
 	return (rd_agent_t *)P; // rd_agent_t is type punned onto ps_proc_handle (see below).
 }
 
-void Penqueue_proc_activity(struct ps_prochandle* P, struct ps_proc_activity_event* activity)
+static void
+Penqueue_proc_activity(struct ps_prochandle* P, struct ps_proc_activity_event* activity)
 {
 	pthread_mutex_lock(&P->proc_activity_queue_mutex);
 	
@@ -1224,20 +1259,26 @@ rd_err_e rd_event_getmsg(rd_agent_t *oo7, rd_event_msg_t *rdm) {
 	return RD_OK;
 }
 
-//
-// Procedural replacement called from dt_proc_bpmatch() to simulate "psp->pr_reg[R_PC]"
-//
+
+psaddr_t rd_event_mock_addr(struct ps_prochandle *P);
+/*
+ * Procedural replacement called from dt_proc_bpmatch() to simulate "psp->pr_reg[R_PC]"
+ */
 psaddr_t rd_event_mock_addr(struct ps_prochandle *P)
 {
 	return (psaddr_t)(P->rd_event.type);
 }
 
-rd_err_e rd_event_enable(rd_agent_t *oo7, int onoff) {
+rd_err_e
+rd_event_enable(rd_agent_t *oo7, int onoff)
+{
+#pragma unused(oo7, onoff)
 	return RD_OK;
 }
 
 rd_err_e rd_event_addr(rd_agent_t *oo7, rd_event_e ev, rd_notify_t *rdn)
 {
+#pragma unused(oo7)
 	rdn->type = RD_NOTIFY_BPT;
 	rdn->u.bptaddr = (psaddr_t)ev;
 	
@@ -1246,20 +1287,8 @@ rd_err_e rd_event_addr(rd_agent_t *oo7, rd_event_e ev, rd_notify_t *rdn)
 
 char *rd_errstr(rd_err_e err) {
 	switch (err) {
-		case RD_ERR:
-			return "RD_ERR";
 		case RD_OK:
 			return "RD_OK";
-		case RD_NOCAPAB:
-			return "RD_NOCAPAB";
-		case RD_DBERR:
-			return "RD_DBERR";
-		case RD_NOBASE:
-			return "RD_NOBASE";
-		case RD_NODYNAM:
-			return "RD_NODYNAM";
-		case RD_NOMAPS:
-			return "RD_NOMAPS";
 		default:
 			return "RD_UNKNOWN";
 	}

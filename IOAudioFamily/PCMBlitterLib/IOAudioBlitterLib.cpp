@@ -42,6 +42,7 @@
 
 #include "IOAudioBlitterLib.h"
 
+
 /*
 	This file contains portable int<->float blitters.
 */
@@ -240,3 +241,5 @@ void	SwapInt24ToFloat32_Portable( const UInt8 *vsrc, Float32 *dest, unsigned int
 		*dest++ = lv * scale;
 	}
 }
+
+

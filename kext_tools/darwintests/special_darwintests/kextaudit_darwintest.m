@@ -19,6 +19,8 @@
 #include <MultiverseSupport/kext_audit_plugin_common.h>
 #include <darwintest.h>
 
+T_GLOBAL_META(T_META_NAMESPACE("kext_tools.kextaudit"));
+
 #include "../../security.h"
 #include "../../kextaudit.h"
 #include "../../kext_tools_util.h"
@@ -214,7 +216,7 @@ static uint64_t kextaudit_lasio_get_state() {
 	return currentState;
 }
 
-T_DECL(kextaudit_lasio_verify_kext_registration, "testing if a loaded kext is recorded by the kext_audit plugin and lasio", T_META_ASROOT(true))
+T_DECL(lasio_verify_kext_registration, "testing if a loaded kext is recorded by the kext_audit plugin and lasio", T_META_ASROOT(true))
 {
 	bool lasio_initialState = false; // initializing to insecure
 

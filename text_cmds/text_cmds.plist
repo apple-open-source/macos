@@ -446,13 +446,13 @@
 		<key>OpenSourceProject</key>
 		<string>sort</string>
 		<key>OpenSourceVersion</key>
-		<string>2016-09-08</string>
+		<string>2017-09-27</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>https://svnweb.freebsd.org/base/head/usr.bin/sort/</string>
 		<key>OpenSourceSCM</key>
 		<string>svn co http://svn.freebsd.org/base/head/usr.bin/sort</string>
 		<key>OpenSourceImportDate</key>
-		<string>2016-10-12</string>
+		<string>2017-09-27</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>file.c: mmap portability</string>

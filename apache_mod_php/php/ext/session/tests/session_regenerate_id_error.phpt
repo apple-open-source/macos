@@ -7,10 +7,10 @@ Test session_regenerate_id() function : error functionality
 
 ob_start();
 
-/* 
+/*
  * Prototype : bool session_regenerate_id([bool $delete_old_session])
- * Description : Update the current session id with a newly generated one 
- * Source code : ext/session/session.c 
+ * Description : Update the current session id with a newly generated one
+ * Source code : ext/session/session.c
  */
 
 echo "*** Testing session_regenerate_id() : error functionality ***\n";
@@ -57,7 +57,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // Empty strings
 /*16*/ "",
        '',
@@ -66,7 +66,7 @@ $inputs = array(
 /*18*/ "Nothing",
        'Nothing',
        $heredoc,
-       
+
        // Object data
 /*21*/ new classA(),
 
@@ -197,7 +197,7 @@ bool(false)
 
 -- Iteration 21 --
 
-Warning: session_regenerate_id() expects parameter 1 to be boolean, object given in %s on line %d
+Warning: session_regenerate_id() expects parameter 1 to be bool, object given in %s on line %d
 NULL
 
 -- Iteration 22 --
@@ -212,7 +212,6 @@ bool(false)
 
 -- Iteration 24 --
 
-Warning: session_regenerate_id() expects parameter 1 to be boolean, resource given in %s on line %d
+Warning: session_regenerate_id() expects parameter 1 to be bool, resource given in %s on line %d
 NULL
 Done
-

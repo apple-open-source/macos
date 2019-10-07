@@ -57,21 +57,42 @@ CF_ASSUME_NONNULL_BEGIN
 CF_IMPLICIT_BRIDGING_ENABLED
 
 /*!
- @enum IOHIDManagerOptions
- @abstract Various options that can be supplied to IOHIDManager functions.
- @const kIOHIDManagerOptionNone For those times when supplying 0 just isn't explicit enough.
- @const kIOHIDManagerOptionUsePersistentProperties This constant can be supplied to @link IOHIDManagerCreate @/link
- to create and/or use a persistent properties store.
- @const kIOHIDManagerOptionDoNotLoadProperties This constant can be supplied to @link IOHIDManagerCreate when you wish to overwrite 
- the persistent properties store without loading it first.
- @const kIOHIDManagerOptionDoNotSaveProperties This constant can be supplied to @link IOHIDManagerCreate @/link when you want to 
- use the persistent property store but do not want to add to it.
+ @enum      IOHIDManagerOptions
+ @abstract  Various options that can be supplied to IOHIDManager functions.
+ @const     kIOHIDManagerOptionNone For those times when supplying 0 just isn't
+            explicit enough.
+ @const     kIOHIDManagerOptionUsePersistentProperties This constant can be
+            supplied to @link IOHIDManagerCreate @/link to create and/or use a
+            persistent properties store.
+ @const     kIOHIDManagerOptionDoNotLoadProperties This constant can be supplied
+            to @link IOHIDManagerCreate when you wish to overwrite the
+            persistent properties store without loading it first.
+ @const     kIOHIDManagerOptionDoNotSaveProperties This constant can be supplied
+            to @link IOHIDManagerCreate @/link when you want to use the
+            persistent property store but do not want to add to it.
+ @const     kIOHIDManagerOptionIndependentDevices Devices maintained by the
+            manager will act independently from calls to the manager.
+            This allows for devices to be scheduled on separate queues, and
+            their lifetime can persist after the manager is gone.
+ 
+            The following calls will not be propagated to the devices:
+            IOHIDManagerOpen, IOHIDManagerClose, IOHIDManagerScheduleWithRunLoop,
+            IOHIDManagerUnscheduleFromRunLoop, IOHIDManagerSetDispatchQueue,
+            IOHIDManagerSetCancelHandler, IOHIDManagerActivate, IOHIDManagerCancel,
+            IOHIDManagerRegisterInputReportCallback,
+            IOHIDManagerRegisterInputReportWithTimeStampCallback,
+            IOHIDManagerRegisterInputValueCallback, IOHIDManagerSetInputValueMatching,
+            IOHIDManagerSetInputValueMatchingMultiple,
+ 
+            This also means that the manager will not be able to receive input
+            reports or input values, since the devices may or may not be scheduled.
  */
 typedef CF_OPTIONS(uint32_t, IOHIDManagerOptions) {
     kIOHIDManagerOptionNone = 0x0,
     kIOHIDManagerOptionUsePersistentProperties = 0x1,
     kIOHIDManagerOptionDoNotLoadProperties = 0x2,
     kIOHIDManagerOptionDoNotSaveProperties = 0x4,
+    kIOHIDManagerOptionIndependentDevices = 0x8,
 };
 
 /*! @typedef IOHIDManagerRef
@@ -205,6 +226,136 @@ void IOHIDManagerUnscheduleFromRunLoop(
                                 CFRunLoopRef                    runLoop, 
                                 CFStringRef                     runLoopMode)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+ * @function IOHIDManagerSetDispatchQueue
+ *
+ * @abstract
+ * Sets the dispatch queue to be associated with the IOHIDManager.
+ * This is necessary in order to receive asynchronous events from the kernel.
+ *
+ * @discussion
+ * An IOHIDManager should not be associated with both a runloop and
+ * dispatch queue. A call to IOHIDManagerSetDispatchQueue should only be made once.
+ *
+ * If a dispatch queue is set but never used, a call to IOHIDManagerCancel followed
+ * by IOHIDManagerActivate should be performed in that order.
+ *
+ * After a dispatch queue is set, the IOHIDManager must make a call to activate
+ * via IOHIDManagerActivate and cancel via IOHIDManagerCancel. All calls to "Register"
+ * functions should be done before activation and not after cancellation.
+ *
+ * @param manager
+ * Reference to an IOHIDManager
+ *
+ * @param queue
+ * The dispatch queue to which the event handler block will be submitted.
+ */
+CF_EXPORT
+void IOHIDManagerSetDispatchQueue(
+                                IOHIDManagerRef                 manager,
+                                dispatch_queue_t                queue)
+__OSX_AVAILABLE(10.15) __IOS_AVAILABLE(13.0) __TVOS_AVAILABLE(13.0) __WATCHOS_AVAILABLE(6.0);
+
+/*!
+ * @function IOHIDManagerSetCancelHandler
+ *
+ * @abstract
+ * Sets a cancellation handler for the dispatch queue associated with
+ * IOHIDManagerSetDispatchQueue.
+ *
+ * @discussion
+ * The cancellation handler (if specified) will be will be submitted to the
+ * manager's dispatch queue in response to a call to IOHIDManagerCancel after
+ * all the events have been handled.
+ *
+ * IOHIDManagerSetCancelHandler should not be used when scheduling with
+ * a run loop.
+ *
+ * The IOHIDManagerRef should only be released after the manager has been
+ * cancelled, and the cancel handler has been called. This is to ensure all
+ * asynchronous objects are released. For example:
+ *
+ *     dispatch_block_t cancelHandler = dispatch_block_create(0, ^{
+ *         CFRelease(manager);
+ *     });
+ *     IOHIDManagerSetCancelHandler(manager, cancelHandler);
+ *     IOHIDManagerActivate(manager);
+ *     IOHIDManageCancel(manager);
+ *
+ * @param manager
+ * Reference to an IOHIDManager.
+ *
+ * @param handler
+ * The cancellation handler block to be associated with the dispatch queue.
+ */
+CF_EXPORT
+void IOHIDManagerSetCancelHandler(
+                                IOHIDManagerRef                 manager,
+                                dispatch_block_t                handler)
+__OSX_AVAILABLE(10.15) __IOS_AVAILABLE(13.0) __TVOS_AVAILABLE(13.0) __WATCHOS_AVAILABLE(6.0);
+
+/*!
+ * @function IOHIDManagerActivate
+ *
+ * @abstract
+ * Activates the IOHIDManager object.
+ *
+ * @discussion
+ * An IOHIDManager object associated with a dispatch queue is created
+ * in an inactive state. The object must be activated in order to
+ * receive asynchronous events from the kernel.
+ *
+ * A dispatch queue must be set via IOHIDManagerSetDispatchQueue before
+ * activation.
+ *
+ * An activated manager must be cancelled via IOHIDManagerCancel. All calls
+ * to "Register" functions should be done before activation
+ * and not after cancellation.
+ *
+ * Calling IOHIDManagerActivate on an active IOHIDManager has no effect.
+ *
+ * @param manager
+ * Reference to an IOHIDManager
+ */
+CF_EXPORT
+void IOHIDManagerActivate(      IOHIDManagerRef                 manager)
+__OSX_AVAILABLE(10.15) __IOS_AVAILABLE(13.0) __TVOS_AVAILABLE(13.0) __WATCHOS_AVAILABLE(6.0);
+
+/*!
+ * @function IOHIDManagerCancel
+ *
+ * @abstract
+ * Cancels the IOHIDManager preventing any further invocation
+ * of its event handler block.
+ *
+ * @discussion
+ * Cancelling prevents any further invocation of the event handler block for
+ * the specified dispatch queue, but does not interrupt an event handler
+ * block that is already in progress.
+ *
+ * Explicit cancellation of the IOHIDManager is required, no implicit
+ * cancellation takes place.
+ *
+ * Calling IOHIDManagerCancel on an already cancelled queue has no effect.
+ *
+ * The IOHIDManagerRef should only be released after the manager has been
+ * cancelled, and the cancel handler has been called. This is to ensure all
+ * asynchronous objects are released. For example:
+ *
+ *     dispatch_block_t cancelHandler = dispatch_block_create(0, ^{
+ *         CFRelease(manager);
+ *     });
+ *     IOHIDManagerSetCancelHandler(manager, cancelHandler);
+ *     IOHIDManagerActivate(manager);
+ *     IOHIDManageCancel(manager);
+ *
+ * @param manager
+ * Reference to an IOHIDManager
+ */
+CF_EXPORT
+void IOHIDManagerCancel(        IOHIDManagerRef                 manager)
+__OSX_AVAILABLE(10.15) __IOS_AVAILABLE(13.0) __TVOS_AVAILABLE(13.0) __WATCHOS_AVAILABLE(6.0);
                                 
 /*! @function   IOHIDManagerSetDeviceMatching
     @abstract   Sets matching criteria for device enumeration.
@@ -215,6 +366,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                 restart the enuerate process using the revised criteria.  If 
                 interested in multiple, specific device classes, please defer to
                 using IOHIDManagerSetDeviceMatchingMultiple.
+                If a dispatch queue is set, this call must occur before activation.
     @param      manager Reference to an IOHIDManager.
     @param      matching CFDictionaryRef containg device matching criteria.
 */
@@ -229,6 +381,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @discussion Matching keys are prefixed by kIOHIDDevice and declared in 
                 <IOKit/hid/IOHIDKeys.h>.  This method is useful if interested 
                 in multiple, specific device classes.
+                If a dispatch queue is set, this call must occur before activation.
     @param      manager Reference to an IOHIDManager.
     @param      multiple CFArrayRef containing multiple CFDictionaryRef objects
                 containg device matching criteria.
@@ -252,6 +405,10 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 /*! @function   IOHIDManagerRegisterDeviceMatchingCallback
     @abstract   Registers a callback to be used a device is enumerated.
     @discussion Only device matching the set criteria will be enumerated.
+                If a dispatch queue is set, this call must occur before activation.
+                Devices provided in the callback will be scheduled with the same
+                runloop/dispatch queue as the IOHIDManagerRef, and should not be
+                rescheduled.
     @param      manager Reference to an IOHIDManagerRef.
     @param      callback Pointer to a callback method of type 
                 IOHIDDeviceCallback.
@@ -268,6 +425,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @abstract   Registers a callback to be used when any enumerated device is 
                 removed.
     @discussion In most cases this occurs when a device is unplugged.
+                If a dispatch queue is set, this call must occur before activation.
     @param      manager Reference to an IOHIDManagerRef.
     @param      callback Pointer to a callback method of type 
                 IOHIDDeviceCallback.
@@ -284,6 +442,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @abstract   Registers a callback to be used when an input report is issued by 
                 any enumerated device.
     @discussion An input report is an interrupt driver report issued by a device.
+                If a dispatch queue is set, this call must occur before activation.
     @param      manager Reference to an IOHIDManagerRef.
     @param      callback Pointer to a callback method of type IOHIDReportCallback.
     @param      context Pointer to data to be passed to the callback.
@@ -294,6 +453,22 @@ void IOHIDManagerRegisterInputReportCallback(
                                 IOHIDReportCallback _Nullable   callback,
                                 void * _Nullable                context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*! @function   IOHIDManagerRegisterInputReportWithTimeStampCallback
+    @abstract   Registers a callback to be used when an input report is issued by
+                any enumerated device.
+    @discussion An input report is an interrupt driver report issued by a device.
+                If a dispatch queue is set, this call must occur before activation.
+    @param      manager Reference to an IOHIDManagerRef.
+    @param      callback Pointer to a callback method of type
+                IOHIDReportWithTimeStampCallback.
+    @param      context Pointer to data to be passed to the callback.
+ */
+void IOHIDManagerRegisterInputReportWithTimeStampCallback(
+                                IOHIDManagerRef                    manager,
+                                IOHIDReportWithTimeStampCallback   callback,
+                                void * _Nullable                   context)
+__OSX_AVAILABLE(10.15) __IOS_AVAILABLE(13.0) __TVOS_AVAILABLE(13.0) __WATCHOS_AVAILABLE(6.0);
                                                                     
 /*! @function   IOHIDManagerRegisterInputValueCallback
     @abstract   Registers a callback to be used when an input value is issued by 
@@ -301,6 +476,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @discussion An input element refers to any element of type 
                 kIOHIDElementTypeInput and is usually issued by interrupt driven
                 reports.
+                If a dispatch queue is set, this call must occur before activation.
     @param      manager Reference to an IOHIDManagerRef.
     @param      callback Pointer to a callback method of type IOHIDValueCallback.
     @param      context Pointer to data to be passed to the callback.
@@ -322,6 +498,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                 restart the matching process using the revised criteria.  If 
                 interested in multiple, specific device elements, please defer to
                 using IOHIDManagerSetInputValueMatchingMultiple.
+                If a dispatch queue is set, this call must occur before activation.
     @param      manager Reference to an IOHIDManager.
     @param      matching CFDictionaryRef containg device matching criteria.
 */
@@ -336,7 +513,8 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                 IOHIDManagerRegisterInputValueCallback.
     @discussion Matching keys are prefixed by kIOHIDElement and declared in 
                 <IOKit/hid/IOHIDKeys.h>.  This method is useful if interested 
-                in multiple, specific elements .
+                in multiple, specific elements.
+                If a dispatch queue is set, this call must occur before activation.
     @param      manager Reference to an IOHIDManager.
     @param      multiple CFArrayRef containing multiple CFDictionaryRef objects
                 containing input element matching criteria.

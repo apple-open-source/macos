@@ -1,6 +1,6 @@
 --- MacOSX/configure
 +++ MacOSX/configure
-@@ -39,6 +39,10 @@ then
+@@ -40,6 +40,10 @@ then
         exit;
  fi
  

@@ -480,7 +480,6 @@
 		73452E5A1A9A715C00633C3B /* smult_curve25519_ref.c in Sources */ = {isa = PBXBuildFile; fileRef = 73452E521A9A715C00633C3B /* smult_curve25519_ref.c */; };
 		73452E5B1A9A715C00633C3B /* ssh-ed25519.c in Sources */ = {isa = PBXBuildFile; fileRef = 73452E531A9A715C00633C3B /* ssh-ed25519.c */; };
 		73452E5C1A9A715C00633C3B /* verify.c in Sources */ = {isa = PBXBuildFile; fileRef = 73452E541A9A715C00633C3B /* verify.c */; };
-		73452E601A9A71DD00633C3B /* setuid-allowed.c in CopyFiles */ = {isa = PBXBuildFile; fileRef = 73452E5D1A9A71DC00633C3B /* setuid-allowed.c */; };
 		73452E611A9A71DD00633C3B /* sftp-chroot.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 73452E5E1A9A71DD00633C3B /* sftp-chroot.sh */; };
 		73452E621A9A71DD00633C3B /* sftp-perm.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 73452E5F1A9A71DD00633C3B /* sftp-perm.sh */; };
 		7351403A1A9FE30C00A40ED8 /* setuid-allowed.c in Sources */ = {isa = PBXBuildFile; fileRef = 73452E5D1A9A71DC00633C3B /* setuid-allowed.c */; };
@@ -508,7 +507,6 @@
 		739A2FAA1B5D9ABC0073A9BC /* principals-command.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 739A2FA21B5D9ABC0073A9BC /* principals-command.sh */; };
 		739A2FAB1B5D9ABC0073A9BC /* t11.ok in CopyFiles */ = {isa = PBXBuildFile; fileRef = 739A2FA31B5D9ABC0073A9BC /* t11.ok */; };
 		739A2FAD1B5D9B270073A9BC /* valgrind-unit.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 739A2FAC1B5D9AFA0073A9BC /* valgrind-unit.sh */; };
-		739A2FAF1B5D9B5A0073A9BC /* unittests in CopyFiles */ = {isa = PBXBuildFile; fileRef = 739A2FAE1B5D9B5A0073A9BC /* unittests */; };
 		739A2FBD1B5D9DF70073A9BC /* libopenbsd-compat.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C6B2CBB0FEC4E73004F1935 /* libopenbsd-compat.a */; };
 		739A2FBF1B5DD2170073A9BC /* netcat.c in Sources */ = {isa = PBXBuildFile; fileRef = 739A2FBE1B5DD2170073A9BC /* netcat.c */; };
 		739A2FC41B5ECFDC0073A9BC /* libssh.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C6B2DAC0FEC5695004F1935 /* libssh.a */; };
@@ -1080,7 +1078,6 @@
 				1C18263F10FFE3F400C8B173 /* cipher-speed.sh in CopyFiles */,
 				1C18264010FFE3F400C8B173 /* conch-ciphers.sh in CopyFiles */,
 				1C18264110FFE3F400C8B173 /* connect-privsep.sh in CopyFiles */,
-				73452E601A9A71DD00633C3B /* setuid-allowed.c in CopyFiles */,
 				1C18264210FFE3F400C8B173 /* connect.sh in CopyFiles */,
 				739A2FA41B5D9ABC0073A9BC /* cfgparse.sh in CopyFiles */,
 				73F2463A17739422006986BE /* forward-control.sh in CopyFiles */,
@@ -1092,7 +1089,6 @@
 				1C18264610FFE3F400C8B173 /* envpass.sh in CopyFiles */,
 				73452E611A9A71DD00633C3B /* sftp-chroot.sh in CopyFiles */,
 				FEAAFCC81E25894B00BB4AA2 /* keygen-moduli.sh in CopyFiles */,
-				739A2FAF1B5D9B5A0073A9BC /* unittests in CopyFiles */,
 				1C18264710FFE3F400C8B173 /* exit-status.sh in CopyFiles */,
 				1C18264810FFE3F400C8B173 /* forcecommand.sh in CopyFiles */,
 				1C18264910FFE3F400C8B173 /* forwarding.sh in CopyFiles */,
@@ -1627,7 +1623,6 @@
 		739A2FA21B5D9ABC0073A9BC /* principals-command.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "principals-command.sh"; path = "openssh/regress/principals-command.sh"; sourceTree = "<group>"; };
 		739A2FA31B5D9ABC0073A9BC /* t11.ok */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = t11.ok; path = openssh/regress/t11.ok; sourceTree = "<group>"; };
 		739A2FAC1B5D9AFA0073A9BC /* valgrind-unit.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = "valgrind-unit.sh"; path = "openssh/regress/valgrind-unit.sh"; sourceTree = "<group>"; };
-		739A2FAE1B5D9B5A0073A9BC /* unittests */ = {isa = PBXFileReference; lastKnownFileType = folder; name = unittests; path = openssh/regress/unittests; sourceTree = "<group>"; };
 		739A2FB41B5D9D770073A9BC /* netcat */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = netcat; sourceTree = BUILT_PRODUCTS_DIR; };
 		739A2FBE1B5DD2170073A9BC /* netcat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = netcat.c; path = openssh/regress/netcat.c; sourceTree = "<group>"; };
 		73F246231773930F006986BE /* krl.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = krl.c; path = openssh/krl.c; sourceTree = "<group>"; };
@@ -2259,6 +2254,21 @@
 		1C7D817F10FFC4CD00F0889F /* regress */ = {
 			isa = PBXGroup;
 			children = (
+				1C1825FA10FFE3F400C8B173 /* Makefile */,
+				FEC3D3F71C9BE9CE00B698D9 /* check-perm.c */,
+				73F2463917739422006986BE /* modpipe.c */,
+				739A2FBE1B5DD2170073A9BC /* netcat.c */,
+				73452E5D1A9A71DC00633C3B /* setuid-allowed.c */,
+				FEAAFCC91E25D31700BB4AA2 /* moduli.in */,
+				1C18262A10FFE3F400C8B173 /* t4.ok */,
+				1C18262B10FFE3F400C8B173 /* t5.ok */,
+				739A2FA31B5D9ABC0073A9BC /* t11.ok */,
+				1C1825EB10FFE3F400C8B173 /* dsa_ssh2.prv */,
+				1C18260810FFE3F400C8B173 /* rsa_openssh.prv */,
+				1C18260A10FFE3F400C8B173 /* rsa_ssh2.prv */,
+				1C1825EC10FFE3F400C8B173 /* dsa_ssh2.pub */,
+				1C18260910FFE3F400C8B173 /* rsa_openssh.pub */,
+				1C18260210FFE3F400C8B173 /* README.regress */,
 				1C1825DC10FFE3F400C8B173 /* addrmatch.sh */,
 				1C1825DD10FFE3F400C8B173 /* agent-getpeereid.sh */,
 				1C7924981162CB9500C4DB0B /* agent-pkcs11.sh */,
@@ -2277,15 +2287,12 @@
 				1C1825E610FFE3F400C8B173 /* cfgmatch.sh */,
 				FEB9B17B215E8F0700487B1E /* cfgmatchlisten.sh */,
 				739A2F9C1B5D9ABC0073A9BC /* cfgparse.sh */,
-				FEC3D3F71C9BE9CE00B698D9 /* check-perm.c */,
 				1C1825E710FFE3F400C8B173 /* cipher-speed.sh */,
 				1C1825E810FFE3F400C8B173 /* conch-ciphers.sh */,
 				1C1825E910FFE3F400C8B173 /* connect-privsep.sh */,
 				FEEF84BC20B2618B00CB7E8E /* connect-uri.sh */,
 				1C1825EA10FFE3F400C8B173 /* connect.sh */,
 				737269201AA00C970042DD0E /* dhgex.sh */,
-				1C1825EB10FFE3F400C8B173 /* dsa_ssh2.prv */,
-				1C1825EC10FFE3F400C8B173 /* dsa_ssh2.pub */,
 				1C1825ED10FFE3F400C8B173 /* dynamic-forward.sh */,
 				1C1825EE10FFE3F400C8B173 /* envpass.sh */,
 				1C1825EF10FFE3F400C8B173 /* exit-status.sh */,
@@ -2315,7 +2322,6 @@
 				FEAAFCC91E25D31700BB4AA2 /* moduli.in */,
 				1C1825FB10FFE3F400C8B173 /* multiplex.sh */,
 				739A2FA11B5D9ABC0073A9BC /* multipubkey.sh */,
-				739A2FBE1B5DD2170073A9BC /* netcat.c */,
 				1C79249C1162CB9500C4DB0B /* portnum.sh */,
 				739A2FA21B5D9ABC0073A9BC /* principals-command.sh */,
 				1C1825FC10FFE3F400C8B173 /* proto-mismatch.sh */,
@@ -2324,17 +2330,12 @@
 				1C1825FF10FFE3F400C8B173 /* putty-ciphers.sh */,
 				1C18260010FFE3F400C8B173 /* putty-kex.sh */,
 				1C18260110FFE3F400C8B173 /* putty-transfer.sh */,
-				1C18260210FFE3F400C8B173 /* README.regress */,
 				1C18260310FFE3F400C8B173 /* reconfigure.sh */,
 				1C18260410FFE3F400C8B173 /* reexec.sh */,
 				1C18260510FFE3F400C8B173 /* rekey.sh */,
-				1C18260810FFE3F400C8B173 /* rsa_openssh.prv */,
-				1C18260910FFE3F400C8B173 /* rsa_openssh.pub */,
-				1C18260A10FFE3F400C8B173 /* rsa_ssh2.prv */,
 				1C18261310FFE3F400C8B173 /* scp-ssh-wrapper.sh */,
 				FEEF84BA20B2618900CB7E8E /* scp-uri.sh */,
 				1C18261410FFE3F400C8B173 /* scp.sh */,
-				73452E5D1A9A71DC00633C3B /* setuid-allowed.c */,
 				1C18261510FFE3F400C8B173 /* sftp-badcmds.sh */,
 				1C18261610FFE3F400C8B173 /* sftp-batch.sh */,
 				73452E5E1A9A71DD00633C3B /* sftp-chroot.sh */,
@@ -2352,13 +2353,9 @@
 				1C18262610FFE3F400C8B173 /* sshd-log-wrapper.sh */,
 				1C18262710FFE3F400C8B173 /* stderr-after-eof.sh */,
 				1C18262810FFE3F400C8B173 /* stderr-data.sh */,
-				1C18262A10FFE3F400C8B173 /* t4.ok */,
-				1C18262B10FFE3F400C8B173 /* t5.ok */,
-				739A2FA31B5D9ABC0073A9BC /* t11.ok */,
 				1C18263010FFE3F400C8B173 /* test-exec.sh */,
 				1C18263110FFE3F400C8B173 /* transfer.sh */,
 				1C18263210FFE3F400C8B173 /* try-ciphers.sh */,
-				739A2FAE1B5D9B5A0073A9BC /* unittests */,
 				739A2FAC1B5D9AFA0073A9BC /* valgrind-unit.sh */,
 				1C18263310FFE3F400C8B173 /* yes-head.sh */,
 			);
@@ -4777,7 +4774,7 @@
 					__APPLE_SANDBOX_NAMED_EXTERNAL__,
 					__APPLE_TMPDIR__,
 					__APPLE_DISPLAY_VAR__,
-					__APPLE_TCP_CONNECTION__,
+					__APPLE_NW_CONNECTION__,
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -4906,7 +4903,7 @@
 					__APPLE_SANDBOX_NAMED_EXTERNAL__,
 					__APPLE_TMPDIR__,
 					__APPLE_DISPLAY_VAR__,
-					__APPLE_TCP_CONNECTION__,
+					__APPLE_NW_CONNECTION__,
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;

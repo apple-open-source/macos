@@ -71,7 +71,16 @@ const char *_pam_err_name[PAM_NUM_ERRORS] = {
 	"PAM_ABORT",
 	"PAM_TRY_AGAIN",
 	"PAM_MODULE_UNKNOWN",
-	"PAM_DOMAIN_UNKNOWN"
+	"PAM_DOMAIN_UNKNOWN",
+	/*
+	 * This array only defines strings for OpenPAM error codes.
+	 * See below for Apple-specific custom errors, e.g. PAM_APPLE_ACCT_TEMP_LOCK etc..
+	 */
+};
+
+const char *_pam_apple_err_name[PAM_APPLE_NUM_ERRORS] = {
+	"PAM_APPLE_ACCT_TEMP_LOCK",
+	"PAM_APPLE_ACCT_LOCKED",
 };
 
 /*
@@ -150,6 +159,10 @@ pam_strerror(const pam_handle_t *pamh,
 		return ("unknown module type");
 	case PAM_DOMAIN_UNKNOWN:
 		return ("unknown authentication domain");
+	case PAM_APPLE_ACCT_TEMP_LOCK:
+		return ("account temporarily locked");
+	case PAM_APPLE_ACCT_LOCKED:
+		return ("account locked");
 	default:
 		snprintf(unknown, sizeof unknown, "#%d", error_number);
 		return (unknown);

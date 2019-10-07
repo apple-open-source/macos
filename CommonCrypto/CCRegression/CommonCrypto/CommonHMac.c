@@ -154,7 +154,8 @@ static int testAllHMacs(CCDigestAlgorithm alg, byteBuffer key, char *input, byte
 static int testHMac(HMacVector *hv) {
     byteBuffer key = hexStringToBytes(hv->keystr);
     int status = 0;
-    
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     byteBuffer expectedMD = hexStringToBytesIfNotNULL(hv->md5str);
     ok(status = testAllHMacs(kCCDigestMD5, key, hv->input, expectedMD), "Testing all MD5 Implementations");
     free(expectedMD);
@@ -162,7 +163,7 @@ static int testHMac(HMacVector *hv) {
     expectedMD = hexStringToBytesIfNotNULL(hv->sha1str);
     ok(status &= testAllHMacs(kCCDigestSHA1, key, hv->input, expectedMD), "Testing all SHA1 Implementations");
     free(expectedMD);
-    
+#pragma clang diagnostic pop
     expectedMD = hexStringToBytesIfNotNULL(hv->sha224str);
     ok(status &= testAllHMacs(kCCDigestSHA224, key, hv->input, expectedMD), "Testing all SHA224 Implementations");
     free(expectedMD);

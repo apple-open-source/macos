@@ -49,6 +49,7 @@
 static int
 pfcheck_addr(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
+#pragma unused(pfd, pfv)
 	return (dt_node_is_pointer(dnp) || dt_node_is_integer(dnp));
 }
 
@@ -56,6 +57,7 @@ pfcheck_addr(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 static int
 pfcheck_kaddr(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
+#pragma unused(pfd, pfv)
 	return (dt_node_is_pointer(dnp) || dt_node_is_integer(dnp) ||
 	    dt_node_is_symaddr(dnp));
 }
@@ -64,6 +66,7 @@ pfcheck_kaddr(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 static int
 pfcheck_uaddr(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
+#pragma unused(pfd)
 	dtrace_hdl_t *dtp = pfv->pfv_dtp;
 	dt_ident_t *idp = dt_idhash_lookup(dtp->dt_macros, "target");
 
@@ -80,6 +83,7 @@ pfcheck_uaddr(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 static int
 pfcheck_stack(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
+#pragma unused(pfd, pfv)
 	return (dt_node_is_stack(dnp));
 }
 
@@ -87,6 +91,7 @@ pfcheck_stack(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 static int
 pfcheck_time(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
+#pragma unused(pfd, pfv)
 	return (dt_node_is_integer(dnp) &&
 	    dt_node_type_size(dnp) == sizeof (uint64_t));
 }
@@ -95,6 +100,7 @@ pfcheck_time(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 static int
 pfcheck_str(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
+#pragma unused(pfd, pfv)
 	ctf_file_t *ctfp;
 	ctf_encoding_t e;
 	ctf_arinfo_t r;
@@ -117,6 +123,7 @@ pfcheck_str(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 static int
 pfcheck_wstr(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
+#pragma unused(pfd, pfv)
 	ctf_file_t *ctfp = dnp->dn_ctfp;
 	ctf_id_t base = ctf_type_resolve(ctfp, dnp->dn_type);
 	uint_t kind = ctf_type_kind(ctfp, base);
@@ -134,6 +141,7 @@ pfcheck_wstr(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 static int
 pfcheck_csi(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
+#pragma unused(pfd, pfv)
 	return (dt_node_is_integer(dnp) &&
 	    dt_node_type_size(dnp) <= sizeof (int));
 }
@@ -142,6 +150,7 @@ pfcheck_csi(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 static int
 pfcheck_fp(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
+#pragma unused(pfd, pfv)
 	return (dt_node_is_float(dnp));
 }
 
@@ -149,6 +158,7 @@ pfcheck_fp(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 static int
 pfcheck_xint(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
+#pragma unused(pfd, pfv)
 	return (dt_node_is_integer(dnp));
 }
 
@@ -156,6 +166,7 @@ pfcheck_xint(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 static int
 pfcheck_dint(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
+#pragma unused(pfv)
 	if (dnp->dn_flags & DT_NF_SIGNED)
 		pfd->pfd_fmt[strlen(pfd->pfd_fmt) - 1] = 'i';
 	else
@@ -168,6 +179,7 @@ pfcheck_dint(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 static int
 pfcheck_xshort(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
+#pragma unused(pfd, pfv)
 	ctf_file_t *ctfp = dnp->dn_ctfp;
 	ctf_id_t type = ctf_type_resolve(ctfp, dnp->dn_type);
 	char n[DT_TYPE_NAMELEN];
@@ -181,6 +193,7 @@ pfcheck_xshort(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 static int
 pfcheck_xlong(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
+#pragma unused(pfd, pfv)
 	ctf_file_t *ctfp = dnp->dn_ctfp;
 	ctf_id_t type = ctf_type_resolve(ctfp, dnp->dn_type);
 	char n[DT_TYPE_NAMELEN];
@@ -194,6 +207,7 @@ pfcheck_xlong(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 static int
 pfcheck_xlonglong(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
+#pragma unused(pfd, pfv)
 	ctf_file_t *ctfp = dnp->dn_ctfp;
 	ctf_id_t type = dnp->dn_type;
 	char n[DT_TYPE_NAMELEN];
@@ -225,6 +239,7 @@ pfcheck_xlonglong(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 static int
 pfcheck_type(dt_pfargv_t *pfv, dt_pfargd_t *pfd, dt_node_t *dnp)
 {
+#pragma unused(pfv)
 	return (ctf_type_printf_compat(dnp->dn_ctfp, ctf_type_resolve(dnp->dn_ctfp,
 	    dnp->dn_type), pfd->pfd_conv->pfc_dctfp, pfd->pfd_conv->pfc_dtype));
 }
@@ -234,6 +249,7 @@ static int
 pfprint_sint(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t unormal)
 {
+#pragma unused(pfd)
 	int64_t normal = (int64_t)unormal;
 	int32_t n = (int32_t)normal;
 
@@ -260,6 +276,7 @@ static int
 pfprint_uint(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
 {
+#pragma unused(pfd)
 	uint32_t n = (uint32_t)normal;
 
 	switch (size) {
@@ -295,6 +312,7 @@ static int
 pfprint_fp(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
 {
+#pragma unused(pfd)
 	double n = (double)normal;
 	long double ldn = (long double)normal;
 
@@ -320,6 +338,7 @@ static int
 pfprint_addr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
 {
+#pragma unused(pfd, normal)
 	char *s;
 	int n, len = 256;
 	uint64_t val;
@@ -348,6 +367,7 @@ static int
 pfprint_mod(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
 {
+#pragma unused(pfd, normal, size)
 	return (dt_print_mod(dtp, fp, format, (caddr_t)addr));
 }
 
@@ -356,6 +376,7 @@ static int
 pfprint_umod(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
 {
+#pragma unused(pfd, size, normal)
 	return (dt_print_umod(dtp, fp, format, (caddr_t)addr));
 }
 
@@ -364,6 +385,7 @@ static int
 pfprint_uaddr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
 {
+#pragma unused(pfd, normal)
 	char *s;
 	int n, len = 256;
 	uint64_t val, pid = 0;
@@ -401,6 +423,7 @@ static int
 pfprint_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *vaddr, size_t size, uint64_t normal)
 {
+#pragma unused(size, normal)
 	int width;
 	dtrace_optval_t saved = dtp->dt_options[DTRACEOPT_STACKINDENT];
 	const dtrace_recdesc_t *rec = pfd->pfd_rec;
@@ -452,6 +475,7 @@ static int
 pfprint_time(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
 {
+#pragma unused(pfd, size, normal)
 	char src[32], buf[32], *dst = buf;
 	hrtime_t time = *((uint64_t *)addr);
 	time_t sec = (time_t)(time / NANOSEC);
@@ -490,6 +514,7 @@ static int
 pfprint_time822(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
 {
+#pragma unused(pfd, size, normal)
 	hrtime_t time = *((uint64_t *)addr);
 	time_t sec = (time_t)(time / NANOSEC);
 	struct tm tm;
@@ -505,6 +530,7 @@ static int
 pfprint_cstr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
 {
+#pragma unused(pfd, normal)
 	char *s = alloca(size + 1);
 
 	bcopy(addr, s, size);
@@ -517,6 +543,7 @@ static int
 pfprint_wstr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
 {
+#pragma unused(pfd, normal)
 	wchar_t *ws = alloca(size + sizeof (wchar_t));
 
 	bcopy(addr, ws, size);
@@ -529,6 +556,7 @@ static int
 pfprint_estr(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
 {
+#pragma unused(pfd, normal)
 	char *s;
 	int n;
 
@@ -568,6 +596,7 @@ static int
 pfprint_pct(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
 {
+#pragma unused(format, pfd, addr, size, normal)
 	return (dt_printf(dtp, fp, "%%"));
 }
 
@@ -707,7 +736,7 @@ dt_pfdict_create(dtrace_hdl_t *dtp)
 			return (dt_set_errno(dtp, EDT_BADCONV));
 		}
 
-		dt_dprintf("loaded printf conversion %%%s\n", pfc->pfc_name);
+		dt_dprintf("loaded printf conversion %%%s", pfc->pfc_name);
 	}
 
 	return (0);
@@ -1220,6 +1249,7 @@ static int
 pfprint_average(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
 {
+#pragma unused(pfd)
 	const uint64_t *data = addr;
 
 	if (size != sizeof (uint64_t) * 2)
@@ -1234,6 +1264,7 @@ static int
 pfprint_standard_deviation(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
 {
+#pragma unused(pfd)
 	const uint64_t *data = addr;
 
 	if (size != sizeof (uint64_t) * 4)
@@ -1248,6 +1279,7 @@ static int
 pfprint_quantize(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
 {
+#pragma unused(format, pfd)
 	return (dt_print_quantize(dtp, fp, addr, size, normal));
 }
 
@@ -1256,6 +1288,7 @@ static int
 pfprint_lquantize(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
 {
+#pragma unused(pfd, format)
 	return (dt_print_lquantize(dtp, fp, addr, size, normal));
 }
 
@@ -1264,6 +1297,7 @@ static int
 pfprint_llquantize(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
 {
+#pragma unused(format, pfd)
 	return (dt_print_llquantize(dtp, fp, addr, size, normal));
 }
 
@@ -1427,14 +1461,14 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 		size = rec->dtrd_size;
 
 		if (addr + size > limit) {
-			dt_dprintf("bad size: addr=%p size=0x%x lim=%p\n",
+			dt_dprintf("bad size: addr=%p size=0x%x lim=%p",
 			    (void *)addr, rec->dtrd_size, (void *)lim);
 			return (dt_set_errno(dtp, EDT_DOFFSET));
 		}
 
 		if (rec->dtrd_alignment != 0 &&
 		    ((uintptr_t)addr & (rec->dtrd_alignment - 1)) != 0) {
-			dt_dprintf("bad align: addr=%p size=0x%x align=0x%x\n",
+			dt_dprintf("bad align: addr=%p size=0x%x align=0x%x",
 			    (void *)addr, rec->dtrd_size, rec->dtrd_alignment);
 			return (dt_set_errno(dtp, EDT_DALIGN));
 		}
@@ -1518,7 +1552,7 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 	return ((int)(recp - recs));
 }
 
-int
+static int
 dtrace_sprintf(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
     const dtrace_recdesc_t *recp, uint_t nrecs, const void *buf, size_t len)
 {
@@ -1553,6 +1587,7 @@ dtrace_system(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
     const dtrace_probedata_t *data, const dtrace_recdesc_t *recp,
     uint_t nrecs, const void *buf, size_t len)
 {
+#pragma unused(data)
 	int rval = dtrace_sprintf(dtp, fp, fmtdata, recp, nrecs, buf, len);
 
 	if (rval == -1)
@@ -1632,12 +1667,12 @@ dtrace_freopen(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 	 */
 	if ((nfp = fopen(filename, "aF")) == NULL) {
 		char *msg = strerror(errno), *faultstr;
-		int len = 80;
+		int errlen = 80;
 
-		len += strlen(msg) + strlen(filename);
-		faultstr = alloca(len);
+		errlen += strlen(msg) + strlen(filename);
+		faultstr = alloca(errlen);
 
-		(void) snprintf(faultstr, len, "couldn't freopen() \"%s\": %s",
+		(void) snprintf(faultstr, errlen, "couldn't freopen() \"%s\": %s",
 		    filename, strerror(errno));
 
 		if ((errval = dt_handle_liberr(dtp, data, faultstr)) == 0)
@@ -1677,6 +1712,7 @@ dtrace_fprintf(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
     const dtrace_probedata_t *data, const dtrace_recdesc_t *recp,
     uint_t nrecs, const void *buf, size_t len)
 {
+#pragma unused(data)
 	return (dt_printf_format(dtp, fp, fmtdata,
 	    recp, nrecs, buf, len, NULL, 0));
 }
@@ -1733,6 +1769,7 @@ dtrace_printa_create(dtrace_hdl_t *dtp, const char *s)
 size_t
 dtrace_printf_format(dtrace_hdl_t *dtp, void *fmtdata, char *s, size_t len)
 {
+#pragma unused(dtp)
 	dt_pfargv_t *pfv = fmtdata;
 	dt_pfargd_t *pfd = pfv->pfv_argv;
 
@@ -1874,6 +1911,7 @@ dtrace_fprinta(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
     const dtrace_probedata_t *data, const dtrace_recdesc_t *recs,
     uint_t nrecs, const void *buf, size_t len)
 {
+#pragma unused(data, len)
 	dt_pfwalk_t pfw;
 	int i, naggvars = 0;
 	dtrace_aggvarid_t *aggvars;

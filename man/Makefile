@@ -14,14 +14,14 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 Configure_Flags = -d -prefix="$(Install_Prefix)" \
                   -confdir="$(ETCDIR)" \
                   -compatibility_mode_for_colored_groff
-Extra_Make_Flags = LIBS=-lxcselect
+Extra_Make_Flags = CFLAGS="$(RC_CFLAGS)" LDFLAGS="$(RC_CFLAGS)" LIBS=-lxcselect
 Install_Flags   = DESTDIR="$(DSTROOT)"
 Install_Target  = install
 
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 1.6c
+AEP_Version    = 1.6g
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
@@ -46,7 +46,8 @@ AEP_Patches    = Makefile.in.diff \
                  PR5291011.diff \
                  PR5024303.diff \
                  PR11291804-xcode.diff \
-                 PR13528825.diff
+                 PR13528825.diff \
+                 PR54111703.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -61,7 +62,7 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
 	for patchfile in $(AEP_Patches); do \
-		(cd $(SRCROOT)/$(Project) && patch -p0 -F0 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
+		(cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
 	done
 endif
 

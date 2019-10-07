@@ -56,11 +56,6 @@ public:
     virtual void systemIsWaking();
     virtual void systemWillPowerDown();
 	virtual void systemWillPowerOn();
-
-    bool inDarkWake() { return mInDarkWake; }
-
- protected:
-    bool mInDarkWake;
 };
 
 
@@ -76,20 +71,9 @@ protected:
     io_connect_t mKernelPort;
     IONotificationPortRef mPortRef;
     io_object_t mHandle;
-    IOPMConnection mIOPMconn;
-    dispatch_queue_t mIOPMqueue;
-    dispatch_group_t mDarkWakeGroup;
-    IOPMNotificationHandle mUserActiveHandle;
-    
+
     static void ioCallback(void *refCon, io_service_t service,
         natural_t messageType, void *argument);
-
-    static void
-    iopmcallback(void * param,  IOPMConnection connection,
-		 IOPMConnectionMessageToken token, 
-		 IOPMSystemPowerStateCapabilities capabilities);
-
-    void setupDarkWake();
 
 };
 

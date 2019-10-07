@@ -27,18 +27,26 @@
 #include <curses.h>
 #include "libtop.h"
 #include "generic.h"
+#include "preferences.h"
 #include "log.h"
 #include "top.h"
 
 enum { HEADER_SIZE = 1 };
 
 int generic_draw_header(struct statistic *s, int x, int y, int anchor) {
-    if(s->header) {
-	generic_draw_extended(s, x, y, anchor, s->header, strlen(s->header));
-	y += HEADER_SIZE; 
-    }
+	if (s->header) {
+		int sort_type = top_prefs_get_sort();
+		if (sort_type == s->type) {
+			wattron(s->window, A_REVERSE);
+		}
+		generic_draw_extended(s, x, y, anchor, s->header, strlen(s->header));
+		if (sort_type == s->type) {
+			wattroff(s->window, A_REVERSE);
+		}
+		y += HEADER_SIZE;
+	}
 
-    return y;
+	return y;
 }
 
 void generic_draw_aligned(struct statistic *s, int x) {

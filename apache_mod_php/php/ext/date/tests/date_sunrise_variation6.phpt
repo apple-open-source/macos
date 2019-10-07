@@ -3,9 +3,9 @@ Test date_sunrise() function : usage variation - Passing unexpected values to si
 --FILE--
 <?php
 /* Prototype  : mixed date_sunrise(mixed time [, int format [, float latitude [, float longitude [, float zenith [, float gmt_offset]]]]])
- * Description: Returns time of sunrise for a given day and location 
+ * Description: Returns time of sunrise for a given day and location
  * Source code: ext/date/php_date.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing date_sunrise() : usage variation ***\n";
@@ -102,24 +102,24 @@ foreach($inputs as $key =>$value) {
 *** Testing date_sunrise() : usage variation ***
 
 --int 0--
-string(5) "05:48"
-float(5.800%d)
-int(1218174483)
+string(5) "05:47"
+float(5.796%d)
+int(1218174468)
 
 --int 1--
-string(5) "06:48"
-float(6.800%d)
-int(1218174483)
+string(5) "06:47"
+float(6.796%d)
+int(1218174468)
 
 --int 12345--
-string(5) "14:48"
-float(14.800%d)
-int(1218174483)
+string(5) "14:47"
+float(14.796%d)
+int(1218174468)
 
 --int -12345--
-string(5) "12:48"
-float(12.800%d)
-int(1218174483)
+string(5) "12:47"
+float(12.796%d)
+int(1218174468)
 
 --empty array--
 
@@ -166,34 +166,34 @@ Warning: date_sunrise() expects parameter 6 to be float, array given in %s on li
 bool(false)
 
 --uppercase NULL--
-string(5) "05:48"
-float(5.800%d)
-int(1218174483)
+string(5) "05:47"
+float(5.796%d)
+int(1218174468)
 
 --lowercase null--
-string(5) "05:48"
-float(5.800%d)
-int(1218174483)
+string(5) "05:47"
+float(5.796%d)
+int(1218174468)
 
 --lowercase true--
-string(5) "06:48"
-float(6.800%d)
-int(1218174483)
+string(5) "06:47"
+float(6.796%d)
+int(1218174468)
 
 --lowercase false--
-string(5) "05:48"
-float(5.800%d)
-int(1218174483)
+string(5) "05:47"
+float(5.796%d)
+int(1218174468)
 
 --uppercase TRUE--
-string(5) "06:48"
-float(6.800%d)
-int(1218174483)
+string(5) "06:47"
+float(6.796%d)
+int(1218174468)
 
 --uppercase FALSE--
-string(5) "05:48"
-float(5.800%d)
-int(1218174483)
+string(5) "05:47"
+float(5.796%d)
+int(1218174468)
 
 --empty string DQ--
 
@@ -284,12 +284,12 @@ Warning: date_sunrise() expects parameter 6 to be float, object given in %s on l
 bool(false)
 
 --undefined var--
-string(5) "05:48"
-float(5.800%d)
-int(1218174483)
+string(5) "05:47"
+float(5.796%d)
+int(1218174468)
 
 --unset var--
-string(5) "05:48"
-float(5.800%d)
-int(1218174483)
+string(5) "05:47"
+float(5.796%d)
+int(1218174468)
 ===DONE===

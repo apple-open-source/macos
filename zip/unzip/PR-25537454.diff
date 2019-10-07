@@ -1,0 +1,83 @@
+diff -Naur unzip60.orig/extract.c unzip60/extract.c
+--- unzip60.orig/extract.c	2009-03-13 18:32:52.000000000 -0700
++++ unzip60/extract.c	2019-03-21 15:46:52.000000000 -0700
+@@ -472,7 +472,7 @@
+                      */
+                     Info(slide, 0x401, ((char *)slide,
+                       LoadFarString(CentSigMsg), j + blknum*DIR_BLKSIZ + 1));
+-                    Info(slide, 0x401, ((char *)slide,
++                    Info(slide, 0x401, ((char *)slide, "%s",
+                       LoadFarString(ReportMsg)));
+                     error_in_archive = PK_BADERR;
+                 }
+@@ -752,8 +752,8 @@
+ 
+ #ifndef SFX
+     if (no_endsig_found) {                      /* just to make sure */
+-        Info(slide, 0x401, ((char *)slide, LoadFarString(EndSigMsg)));
+-        Info(slide, 0x401, ((char *)slide, LoadFarString(ReportMsg)));
++        Info(slide, 0x401, ((char *)slide, "%s", LoadFarString(EndSigMsg)));
++        Info(slide, 0x401, ((char *)slide, "%s", LoadFarString(ReportMsg)));
+         if (!error_in_archive)       /* don't overwrite stronger error */
+             error_in_archive = PK_WARN;
+     }
+diff -Naur unzip60.orig/list.c unzip60/list.c
+--- unzip60.orig/list.c	2009-02-08 09:11:34.000000000 -0800
++++ unzip60/list.c	2019-03-21 16:06:32.000000000 -0700
+@@ -181,7 +181,7 @@
+                 Info(slide, 0x401,
+                      ((char *)slide, LoadFarString(CentSigMsg), j));
+                 Info(slide, 0x401,
+-                     ((char *)slide, LoadFarString(ReportMsg)));
++                     ((char *)slide, "%s", LoadFarString(ReportMsg)));
+                 return PK_BADERR;   /* sig not found */
+             }
+         }
+@@ -507,7 +507,7 @@
+             && (!G.ecrec.is_zip64_archive)
+             && (memcmp(G.sig, end_central_sig, 4) != 0)
+            ) {          /* just to make sure again */
+-            Info(slide, 0x401, ((char *)slide, LoadFarString(EndSigMsg)));
++            Info(slide, 0x401, ((char *)slide, "%s", LoadFarString(EndSigMsg)));
+             error_in_archive = PK_WARN;   /* didn't find sig */
+         }
+ 
+@@ -591,7 +591,7 @@
+                 Info(slide, 0x401,
+                      ((char *)slide, LoadFarString(CentSigMsg), j));
+                 Info(slide, 0x401,
+-                     ((char *)slide, LoadFarString(ReportMsg)));
++                     ((char *)slide, "%s", LoadFarString(ReportMsg)));
+                 return PK_BADERR;   /* sig not found */
+             }
+         }
+@@ -674,7 +674,7 @@
+   ---------------------------------------------------------------------------*/
+ 
+     if (memcmp(G.sig, end_central_sig, 4)) {    /* just to make sure again */
+-        Info(slide, 0x401, ((char *)slide, LoadFarString(EndSigMsg)));
++        Info(slide, 0x401, ((char *)slide, "%s", LoadFarString(EndSigMsg)));
+         error_in_archive = PK_WARN;
+     }
+     if (*nmember == 0L && error_in_archive <= PK_WARN)
+diff -Naur unzip60.orig/zipinfo.c unzip60/zipinfo.c
+--- unzip60.orig/zipinfo.c	2009-02-08 09:04:30.000000000 -0800
++++ unzip60/zipinfo.c	2019-03-21 16:09:09.000000000 -0700
+@@ -771,7 +771,7 @@
+                 Info(slide, 0x401,
+                      ((char *)slide, LoadFarString(CentSigMsg), j));
+                 Info(slide, 0x401,
+-                     ((char *)slide, LoadFarString(ReportMsg)));
++                     ((char *)slide, "%s", LoadFarString(ReportMsg)));
+                 error_in_archive = PK_BADERR;   /* sig not found */
+                 break;
+             }
+@@ -960,7 +960,7 @@
+             && (!G.ecrec.is_zip64_archive)
+             && (memcmp(G.sig, end_central_sig, 4) != 0)
+            ) {          /* just to make sure again */
+-            Info(slide, 0x401, ((char *)slide, LoadFarString(EndSigMsg)));
++            Info(slide, 0x401, ((char *)slide, "%s", LoadFarString(EndSigMsg)));
+             error_in_archive = PK_WARN;   /* didn't find sig */
+         }
+ 

@@ -31,8 +31,12 @@
 
 //===========================================================================
 // An object that describes a single HID element.
-    
-class IOHIDElement: public OSCollection
+
+#if defined(KERNEL) && !defined(KERNEL_PRIVATE)
+class __deprecated_msg("Use DriverKit") IOHIDElement : public OSCollection
+#else
+class IOHIDElement : public OSCollection
+#endif
 {
     OSDeclareAbstractStructors( IOHIDElement )
     

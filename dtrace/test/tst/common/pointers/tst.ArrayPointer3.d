@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.ArrayPointer3.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: In D, the an array variable can be assigned to a pointer.
  *

@@ -1,0 +1,17 @@
+--- src/apropos.sh.orig	2019-08-28 21:07:14.000000000 -0700
++++ src/apropos.sh	2019-08-28 21:45:04.000000000 -0700
+@@ -74,6 +74,14 @@
+ # But it is better to give all
+ #               break
+             fi
++        else
++            if [ -d $d ] && /usr/libexec/makewhatis.local "-o /dev/stdout" $d | grep -"$grepopt1" "$grepopt2""$1"
++            then
++                found=1
++# Some people are satisfied with a single occurrence
++# But it is better to give all
++#               break
++            fi
+         fi
+     done
+ 

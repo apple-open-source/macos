@@ -63,4 +63,5 @@ extern const gss_OID GSS_KRB5_NT_STRING_UID_NAME;
 extern const gss_OID GSS_KRB5_NT_USER_NAME;
 
 
-#endif /* dummy_h */(void);
+#endif
+

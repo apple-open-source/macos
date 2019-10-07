@@ -1,8 +1,11 @@
 framework module Tcl [extern_c] {
-  umbrella header "tcl.h"
+  header "tcl.h"
+  header "tclDecls.h"
+  header "tclPlatDecls.h"
+  header "tclTomMath.h"
+  header "tclTomMathDecls.h"
 
   export *
-  module * { export * }
 
   module Private {
     textual header "tcl-private/tclCompile.h"
@@ -11,16 +14,6 @@ framework module Tcl [extern_c] {
     textual header "tcl-private/tclIntPlatDecls.h"
     textual header "tcl-private/tclPort.h"
     textual header "tcl-private/tclUnixPort.h"
-  }
-
-  explicit module tclTomMath {
-    header "tclTomMath.h"
-    export *
-  }
-
-  explicit module tclTomMathDecls {
-    header "tclTomMathDecls.h"
-    export *
   }
 }
 

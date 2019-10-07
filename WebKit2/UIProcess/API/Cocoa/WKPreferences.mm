@@ -26,8 +26,6 @@
 #import "config.h"
 #import "WKPreferencesInternal.h"
 
-#if WK_API_ENABLED
-
 #import "APIArray.h"
 #import "PluginProcessManager.h"
 #import "WKNSArray.h"
@@ -71,8 +69,10 @@
     [coder encodeBool:self.javaScriptCanOpenWindowsAutomatically forKey:@"javaScriptCanOpenWindowsAutomatically"];
 
 #if PLATFORM(MAC)
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [coder encodeBool:self.javaEnabled forKey:@"javaEnabled"];
     [coder encodeBool:self.plugInsEnabled forKey:@"plugInsEnabled"];
+ALLOW_DEPRECATED_DECLARATIONS_END
     [coder encodeBool:self.tabFocusesLinks forKey:@"tabFocusesLinks"];
 #endif
 }
@@ -87,8 +87,10 @@
     self.javaScriptCanOpenWindowsAutomatically = [coder decodeBoolForKey:@"javaScriptCanOpenWindowsAutomatically"];
 
 #if PLATFORM(MAC)
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     self.javaEnabled = [coder decodeBoolForKey:@"javaEnabled"];
     self.plugInsEnabled = [coder decodeBoolForKey:@"plugInsEnabled"];
+ALLOW_DEPRECATED_DECLARATIONS_END
     self.tabFocusesLinks = [coder decodeBoolForKey:@"tabFocusesLinks"];
 #endif
 
@@ -120,6 +122,16 @@
     _preferences->setJavaScriptEnabled(javaScriptEnabled);
 }
 
+- (void)setFraudulentWebsiteWarningEnabled:(BOOL)enabled
+{
+    _preferences->setSafeBrowsingEnabled(enabled);
+}
+
+- (BOOL)isFraudulentWebsiteWarningEnabled
+{
+    return _preferences->safeBrowsingEnabled();
+}
+
 - (BOOL)javaScriptCanOpenWindowsAutomatically
 {
     return _preferences->javaScriptCanOpenWindowsAutomatically();
@@ -130,39 +142,9 @@
     _preferences->setJavaScriptCanOpenWindowsAutomatically(javaScriptCanOpenWindowsAutomatically);
 }
 
-- (BOOL)_storageAccessPromptsEnabled
-{
-    return _preferences->storageAccessPromptsEnabled();
-}
-
-- (void)_setStorageAccessPromptsEnabled:(BOOL)enabled
-{
-    _preferences->setStorageAccessPromptsEnabled(enabled);
-}
-
 #pragma mark OS X-specific methods
 
 #if PLATFORM(MAC)
-
-- (BOOL)javaEnabled
-{
-    return _preferences->javaEnabled();
-}
-
-- (void)setJavaEnabled:(BOOL)javaEnabled
-{
-    _preferences->setJavaEnabled(javaEnabled);
-}
-
-- (BOOL)plugInsEnabled
-{
-    return _preferences->pluginsEnabled();
-}
-
-- (void)setPlugInsEnabled:(BOOL)plugInsEnabled
-{
-    _preferences->setPluginsEnabled(plugInsEnabled);
-}
 
 - (BOOL)tabFocusesLinks
 {
@@ -337,6 +319,16 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
     _preferences->setSimpleLineLayoutDebugBordersEnabled(simpleLineLayoutDebugBordersEnabled);
 }
 
+- (BOOL)_contentChangeObserverEnabled
+{
+    return _preferences->contentChangeObserverEnabled();
+}
+
+- (void)_setContentChangeObserverEnabled:(BOOL)contentChangeObserverEnabled
+{
+    _preferences->setContentChangeObserverEnabled(contentChangeObserverEnabled);
+}
+
 - (BOOL)_acceleratedDrawingEnabled
 {
     return _preferences->acceleratedDrawingEnabled();
@@ -355,16 +347,6 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
 - (void)_setDisplayListDrawingEnabled:(BOOL)displayListDrawingEnabled
 {
     _preferences->setDisplayListDrawingEnabled(displayListDrawingEnabled);
-}
-
-- (BOOL)_visualViewportEnabled
-{
-    return _preferences->visualViewportEnabled();
-}
-
-- (void)_setVisualViewportEnabled:(BOOL)_visualViewportEnabled
-{
-    _preferences->setVisualViewportEnabled(_visualViewportEnabled);
 }
 
 - (BOOL)_largeImageAsyncDecodingEnabled
@@ -677,6 +659,16 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
     _preferences->setInactiveMediaCaptureSteamRepromptIntervalInMinutes(interval);
 }
 
+- (BOOL)_interruptAudioOnPageVisibilityChangeEnabled
+{
+    return _preferences->interruptAudioOnPageVisibilityChangeEnabled();
+}
+
+- (void)_setInterruptAudioOnPageVisibilityChangeEnabled:(BOOL)enabled
+{
+    _preferences->setInterruptAudioOnPageVisibilityChangeEnabled(enabled);
+}
+
 - (BOOL)_enumeratingAllNetworkInterfacesEnabled
 {
     return _preferences->enumeratingAllNetworkInterfacesEnabled();
@@ -719,6 +711,16 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
 - (void)_setShouldAllowUserInstalledFonts:(BOOL)_shouldAllowUserInstalledFonts
 {
     _preferences->setShouldAllowUserInstalledFonts(_shouldAllowUserInstalledFonts);
+}
+
+- (BOOL)_shouldAllowDesignSystemUIFonts
+{
+    return _preferences->shouldAllowDesignSystemUIFonts();
+}
+
+- (void)_setShouldAllowDesignSystemUIFonts:(BOOL)_shouldAllowDesignSystemUIFonts
+{
+    _preferences->setShouldAllowDesignSystemUIFonts(_shouldAllowDesignSystemUIFonts);
 }
 
 static _WKEditableLinkBehavior toAPI(WebCore::EditableLinkBehavior behavior)
@@ -819,6 +821,36 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
     return _preferences->shouldIgnoreMetaViewport();
 }
 
+- (void)_setNeedsSiteSpecificQuirks:(BOOL)enabled
+{
+    _preferences->setNeedsSiteSpecificQuirks(enabled);
+}
+
+- (BOOL)_needsSiteSpecificQuirks
+{
+    return _preferences->needsSiteSpecificQuirks();
+}
+
+- (void)_setItpDebugModeEnabled:(BOOL)enabled
+{
+    _preferences->setItpDebugModeEnabled(enabled);
+}
+
+- (BOOL)_itpDebugModeEnabled
+{
+    return _preferences->itpDebugModeEnabled();
+}
+
+- (void)_setMediaSourceEnabled:(BOOL)enabled
+{
+    _preferences->setMediaSourceEnabled(enabled);
+}
+
+- (BOOL)_mediaSourceEnabled
+{
+    return _preferences->mediaSourceEnabled();
+}
+
 #if PLATFORM(MAC)
 - (void)_setJavaEnabledForLocalFiles:(BOOL)enabled
 {
@@ -858,16 +890,6 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 - (NSString *)_defaultTextEncodingName
 {
     return _preferences->defaultTextEncodingName();
-}
-
-- (void)_setNeedsSiteSpecificQuirks:(BOOL)enabled
-{
-    _preferences->setNeedsSiteSpecificQuirks(enabled);
-}
-
-- (BOOL)_needsSiteSpecificQuirks
-{
-    return _preferences->needsSiteSpecificQuirks();
 }
 
 - (void)_setAuthorAndUserStylesEnabled:(BOOL)enabled
@@ -1031,16 +1053,6 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 - (BOOL)_subpixelCSSOMElementMetricsEnabled
 {
     return _preferences->subpixelCSSOMElementMetricsEnabled();
-}
-
-- (void)_setMediaSourceEnabled:(BOOL)enabled
-{
-    _preferences->setMediaSourceEnabled(enabled);
-}
-
-- (BOOL)_mediaSourceEnabled
-{
-    return _preferences->mediaSourceEnabled();
 }
 
 - (void)_setViewGestureDebuggingEnabled:(BOOL)enabled
@@ -1283,6 +1295,16 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
     return _preferences->aggressiveTileRetentionEnabled();
 }
 
+- (void)_setAppNapEnabled:(BOOL)enabled
+{
+    _preferences->setPageVisibilityBasedProcessSuppressionEnabled(enabled);
+}
+
+- (BOOL)_appNapEnabled
+{
+    return _preferences->pageVisibilityBasedProcessSuppressionEnabled();
+}
+
 #endif // PLATFORM(MAC)
 
 - (BOOL)_javaScriptCanAccessClipboard
@@ -1364,4 +1386,30 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 
 @end
 
-#endif // WK_API_ENABLED
+#if !TARGET_OS_IPHONE
+
+@implementation WKPreferences (WKDeprecated)
+
+- (BOOL)javaEnabled
+{
+    return _preferences->javaEnabled();
+}
+
+- (void)setJavaEnabled:(BOOL)javaEnabled
+{
+    _preferences->setJavaEnabled(javaEnabled);
+}
+
+- (BOOL)plugInsEnabled
+{
+    return _preferences->pluginsEnabled();
+}
+
+- (void)setPlugInsEnabled:(BOOL)plugInsEnabled
+{
+    _preferences->setPluginsEnabled(plugInsEnabled);
+}
+
+@end
+
+#endif

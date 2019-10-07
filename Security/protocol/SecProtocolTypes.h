@@ -28,6 +28,8 @@
 #include <Security/SecTrust.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecIdentity.h>
+#include <Security/CipherSuite.h>
+#include <Security/SecBase.h>
 
 #ifndef SEC_OBJECT_IMPL
 /*!
@@ -40,6 +42,132 @@ SEC_OBJECT_DECL(sec_trust);
 SEC_OBJECT_DECL(sec_identity);
 SEC_OBJECT_DECL(sec_certificate);
 #endif // !SEC_OBJECT_IMPL
+
+/*!
+ * @enum tls_protocol_version_t enumeration
+ * @abstract Enumerations for the set of supported TLS and DTLS protocol versions.
+ *
+ * @constant tls_protocol_version_TLSv10 TLS 1.0 [https://tools.ietf.org/html/rfc4346]
+ * @constant tls_protocol_version_TLSv11 TLS 1.1 [https://tools.ietf.org/html/rfc2246]
+ * @constant tls_protocol_version_TLSv12 TLS 1.2 [https://tools.ietf.org/html/rfc5246]
+ * @constant tls_protocol_version_TLSv13 TLS 1.3 [https://tools.ietf.org/html/rfc8446]
+ * @constant tls_protocol_version_DTLSv10 DTLS 1.0 [https://tools.ietf.org/html/rfc4347]
+ * @constant tls_protocol_version_DTLSv12 DTLS 1.2 [https://tools.ietf.org/html/rfc6347]
+ */
+typedef CF_ENUM(uint16_t, tls_protocol_version_t) {
+    tls_protocol_version_TLSv10 CF_SWIFT_NAME(TLSv10) = 0x0301,
+    tls_protocol_version_TLSv11 CF_SWIFT_NAME(TLSv11) = 0x0302,
+    tls_protocol_version_TLSv12 CF_SWIFT_NAME(TLSv12) = 0x0303,
+    tls_protocol_version_TLSv13 CF_SWIFT_NAME(TLSv13) = 0x0304,
+    tls_protocol_version_DTLSv10 CF_SWIFT_NAME(DTLSv10) = 0xfeff,
+    tls_protocol_version_DTLSv12 CF_SWIFT_NAME(DTLSv12) = 0xfefd,
+};
+
+/*!
+ * @enum tls_ciphersuite_t enumeration
+ * @abstract Enumerations for the set of supported TLS and DTLS ciphersuites.
+ *
+ * See https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4
+ * for ciphersuite codepoint allocations and reference RFCs.
+ *
+ * @constant tls_ciphersuite_RSA_WITH_3DES_EDE_CBC_SHA
+ * @constant tls_ciphersuite_RSA_WITH_AES_128_CBC_SHA
+ * @constant tls_ciphersuite_RSA_WITH_AES_256_CBC_SHA
+ * @constant tls_ciphersuite_RSA_WITH_AES_128_GCM_SHA256
+ * @constant tls_ciphersuite_RSA_WITH_AES_256_GCM_SHA384
+ * @constant tls_ciphersuite_RSA_WITH_AES_128_CBC_SHA256
+ * @constant tls_ciphersuite_RSA_WITH_AES_256_CBC_SHA256
+ * @constant tls_ciphersuite_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA
+ * @constant tls_ciphersuite_ECDHE_ECDSA_WITH_AES_128_CBC_SHA
+ * @constant tls_ciphersuite_ECDHE_ECDSA_WITH_AES_256_CBC_SHA
+ * @constant tls_ciphersuite_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA
+ * @constant tls_ciphersuite_ECDHE_RSA_WITH_AES_128_CBC_SHA
+ * @constant tls_ciphersuite_ECDHE_RSA_WITH_AES_256_CBC_SHA
+ * @constant tls_ciphersuite_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256
+ * @constant tls_ciphersuite_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384
+ * @constant tls_ciphersuite_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+ * @constant tls_ciphersuite_ECDHE_RSA_WITH_AES_256_CBC_SHA384
+ * @constant tls_ciphersuite_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+ * @constant tls_ciphersuite_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+ * @constant tls_ciphersuite_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+ * @constant tls_ciphersuite_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+ * @constant tls_ciphersuite_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+ * @constant tls_ciphersuite_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+ * @constant tls_ciphersuite_AES_128_GCM_SHA256
+ * @constant tls_ciphersuite_AES_256_GCM_SHA384
+ * @constant tls_ciphersuite_CHACHA20_POLY1305_SHA256
+ */
+typedef CF_ENUM(uint16_t, tls_ciphersuite_t) {
+    tls_ciphersuite_RSA_WITH_3DES_EDE_CBC_SHA CF_SWIFT_NAME(RSA_WITH_3DES_EDE_CBC_SHA) = 0x000A,
+    tls_ciphersuite_RSA_WITH_AES_128_CBC_SHA CF_SWIFT_NAME(RSA_WITH_AES_128_CBC_SHA) = 0x002F,
+    tls_ciphersuite_RSA_WITH_AES_256_CBC_SHA CF_SWIFT_NAME(RSA_WITH_AES_256_CBC_SHA) = 0x0035,
+    tls_ciphersuite_RSA_WITH_AES_128_GCM_SHA256 CF_SWIFT_NAME(RSA_WITH_AES_128_GCM_SHA256) = 0x009C,
+    tls_ciphersuite_RSA_WITH_AES_256_GCM_SHA384 CF_SWIFT_NAME(RSA_WITH_AES_256_GCM_SHA384) = 0x009D,
+    tls_ciphersuite_RSA_WITH_AES_128_CBC_SHA256 CF_SWIFT_NAME(RSA_WITH_AES_128_CBC_SHA256) = 0x003C,
+    tls_ciphersuite_RSA_WITH_AES_256_CBC_SHA256 CF_SWIFT_NAME(RSA_WITH_AES_256_CBC_SHA256) = 0x003D,
+    tls_ciphersuite_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA CF_SWIFT_NAME(ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA) = 0xC008,
+    tls_ciphersuite_ECDHE_ECDSA_WITH_AES_128_CBC_SHA CF_SWIFT_NAME(ECDHE_ECDSA_WITH_AES_128_CBC_SHA) = 0xC009,
+    tls_ciphersuite_ECDHE_ECDSA_WITH_AES_256_CBC_SHA CF_SWIFT_NAME(ECDHE_ECDSA_WITH_AES_256_CBC_SHA) = 0xC00A,
+    tls_ciphersuite_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA CF_SWIFT_NAME(ECDHE_RSA_WITH_3DES_EDE_CBC_SHA) = 0xC012,
+    tls_ciphersuite_ECDHE_RSA_WITH_AES_128_CBC_SHA CF_SWIFT_NAME(ECDHE_RSA_WITH_AES_128_CBC_SHA) = 0xC013,
+    tls_ciphersuite_ECDHE_RSA_WITH_AES_256_CBC_SHA CF_SWIFT_NAME(ECDHE_RSA_WITH_AES_256_CBC_SHA) = 0xC014,
+    tls_ciphersuite_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256 CF_SWIFT_NAME(ECDHE_ECDSA_WITH_AES_128_CBC_SHA256) = 0xC023,
+    tls_ciphersuite_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384 CF_SWIFT_NAME(ECDHE_ECDSA_WITH_AES_256_CBC_SHA384) = 0xC024,
+    tls_ciphersuite_ECDHE_RSA_WITH_AES_128_CBC_SHA256 CF_SWIFT_NAME(ECDHE_RSA_WITH_AES_128_CBC_SHA256) = 0xC027,
+    tls_ciphersuite_ECDHE_RSA_WITH_AES_256_CBC_SHA384 CF_SWIFT_NAME(ECDHE_RSA_WITH_AES_256_CBC_SHA384) = 0xC028,
+    tls_ciphersuite_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 CF_SWIFT_NAME(ECDHE_ECDSA_WITH_AES_128_GCM_SHA256) = 0xC02B,
+    tls_ciphersuite_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 CF_SWIFT_NAME(ECDHE_ECDSA_WITH_AES_256_GCM_SHA384) = 0xC02C,
+    tls_ciphersuite_ECDHE_RSA_WITH_AES_128_GCM_SHA256 CF_SWIFT_NAME(ECDHE_RSA_WITH_AES_128_GCM_SHA256) = 0xC02F,
+    tls_ciphersuite_ECDHE_RSA_WITH_AES_256_GCM_SHA384 CF_SWIFT_NAME(ECDHE_RSA_WITH_AES_256_GCM_SHA384) = 0xC030,
+    tls_ciphersuite_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 CF_SWIFT_NAME(ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256) = 0xCCA8,
+    tls_ciphersuite_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 CF_SWIFT_NAME(ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256) = 0xCCA9,
+    tls_ciphersuite_AES_128_GCM_SHA256 CF_SWIFT_NAME(AES_128_GCM_SHA256) = 0x1301,
+    tls_ciphersuite_AES_256_GCM_SHA384 CF_SWIFT_NAME(AES_256_GCM_SHA384) = 0x1302,
+    tls_ciphersuite_CHACHA20_POLY1305_SHA256 CF_SWIFT_NAME(CHACHA20_POLY1305_SHA256) = 0x1303,
+};
+
+/*!
+ * @enum tls_ciphersuite_group_t enumeration
+ * @abstract Convenience ciphersuite groups that collate ciphersuites of comparable security
+ *  properties into a single alias.
+ *
+ * @constant tls_ciphersuite_group_default
+ * @constant tls_ciphersuite_group_compatibility
+ * @constant tls_ciphersuite_group_legacy
+ * @constant tls_ciphersuite_group_ats
+ * @constant tls_ciphersuite_group_ats_compatibility
+ */
+typedef CF_ENUM(uint16_t, tls_ciphersuite_group_t) {
+    tls_ciphersuite_group_default,
+    tls_ciphersuite_group_compatibility,
+    tls_ciphersuite_group_legacy,
+    tls_ciphersuite_group_ats,
+    tls_ciphersuite_group_ats_compatibility,
+};
+
+/*!
+ * @enum SSLProtocol enumeration
+ * @abstract Enumerations for the set of supported TLS and DTLS protocol versions.
+ *
+ * @note This enumeration is deprecated. Use `tls_protocol_version_t` instead.
+ */
+typedef CF_ENUM(int, SSLProtocol) {
+    kSSLProtocolUnknown CF_ENUM_DEPRECATED(10_2, 10_15, 5_0, 13_0) = 0,
+    kTLSProtocol1 CF_ENUM_DEPRECATED(10_2, 10_15, 5_0, 13_0) = 4,
+    kTLSProtocol11 CF_ENUM_DEPRECATED(10_2, 10_15, 5_0, 13_0) = 7,
+    kTLSProtocol12 CF_ENUM_DEPRECATED(10_2, 10_15, 5_0, 13_0) = 8,
+    kDTLSProtocol1 CF_ENUM_DEPRECATED(10_2, 10_15, 5_0, 13_0) = 9,
+    kTLSProtocol13 CF_ENUM_DEPRECATED(10_2, 10_15, 5_0, 13_0) = 10,
+    kDTLSProtocol12 CF_ENUM_DEPRECATED(10_2, 10_15, 5_0, 13_0) = 11,
+    kTLSProtocolMaxSupported CF_ENUM_DEPRECATED(10_2, 10_15, 5_0, 13_0) = 999,
+    kSSLProtocol2 CF_ENUM_DEPRECATED(10_2, 10_15, 5_0, 13_0) = 1,
+    kSSLProtocol3 CF_ENUM_DEPRECATED(10_2, 10_15, 5_0, 13_0) = 2,
+    kSSLProtocol3Only CF_ENUM_DEPRECATED(10_2, 10_15, 5_0, 13_0) = 3,
+    kTLSProtocol1Only CF_ENUM_DEPRECATED(10_2, 10_15, 5_0, 13_0) = 5,
+    kSSLProtocolAll CF_ENUM_DEPRECATED(10_2, 10_15, 5_0, 13_0) = 6,
+};
+
+__BEGIN_DECLS
 
 SEC_ASSUME_NONNULL_BEGIN
 
@@ -56,7 +184,7 @@ SEC_ASSUME_NONNULL_BEGIN
  */
 API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
 SEC_RETURNS_RETAINED _Nullable sec_trust_t
-sec_trust_create(SecTrustRef __nonnull trust);
+sec_trust_create(SecTrustRef trust);
 
 /*!
  * @function sec_trust_copy_ref
@@ -71,7 +199,7 @@ sec_trust_create(SecTrustRef __nonnull trust);
  */
 API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
 SecTrustRef
-sec_trust_copy_ref(sec_trust_t __nonnull trust);
+sec_trust_copy_ref(sec_trust_t trust);
 
 /*!
  * @function sec_identity_create
@@ -86,7 +214,7 @@ sec_trust_copy_ref(sec_trust_t __nonnull trust);
  */
 API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
 SEC_RETURNS_RETAINED _Nullable sec_identity_t
-sec_identity_create(SecIdentityRef __nonnull identity);
+sec_identity_create(SecIdentityRef identity);
 
 /*!
  * @function sec_identity_create_with_certificates
@@ -105,7 +233,28 @@ sec_identity_create(SecIdentityRef __nonnull identity);
  */
 API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
 SEC_RETURNS_RETAINED _Nullable sec_identity_t
-sec_identity_create_with_certificates(SecIdentityRef __nonnull identity, CFArrayRef __nonnull certificates);
+sec_identity_create_with_certificates(SecIdentityRef identity, CFArrayRef certificates);
+
+#ifdef __BLOCKS__
+/*!
+ * @function sec_identity_access_certificates
+ *
+ * @abstract
+ *      Access the certificates associated with the `sec_identity_t` instance.
+ *
+ * @param identity
+ *      A `sec_identity_t` instance.
+ *
+ * @param handler
+ *      A block to invoke one or more times with `sec_certificate_t` instances.
+ *
+ * @return Returns true if the peer certificates were accessible, false otherwise.
+ */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+bool
+sec_identity_access_certificates(sec_identity_t identity,
+                                 void (^handler)(sec_certificate_t certificate));
+#endif // __BLOCKS__
 
 /*!
  * @function sec_identity_copy_ref
@@ -119,8 +268,8 @@ sec_identity_create_with_certificates(SecIdentityRef __nonnull identity, CFArray
  * @return The underlying `SecIdentityRef` instance.
  */
 API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
-SecIdentityRef
-sec_identity_copy_ref(sec_identity_t __nonnull identity);
+_Nullable SecIdentityRef
+sec_identity_copy_ref(sec_identity_t identity);
 
 /*!
  * @function sec_identity_copy_certificates_ref
@@ -134,8 +283,8 @@ sec_identity_copy_ref(sec_identity_t __nonnull identity);
  * @return The underlying `CFArrayRef` container with `SecCertificateRef` instances.
  */
 API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
-CFArrayRef
-sec_identity_copy_certificates_ref(sec_identity_t __nonnull identity);
+_Nullable CFArrayRef
+sec_identity_copy_certificates_ref(sec_identity_t identity);
 
 /*!
  * @function sec_certificate_create
@@ -150,7 +299,7 @@ sec_identity_copy_certificates_ref(sec_identity_t __nonnull identity);
  */
 API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
 SEC_RETURNS_RETAINED _Nullable sec_certificate_t
-sec_certificate_create(SecCertificateRef __nonnull certificate);
+sec_certificate_create(SecCertificateRef certificate);
 
 /*!
  * @function sec_certificate_copy_ref
@@ -165,8 +314,10 @@ sec_certificate_create(SecCertificateRef __nonnull certificate);
  */
 API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
 SecCertificateRef
-sec_certificate_copy_ref(sec_certificate_t __nonnull certificate);
+sec_certificate_copy_ref(sec_certificate_t certificate);
 
 SEC_ASSUME_NONNULL_END
+
+__END_DECLS
 
 #endif // SecProtocolTypes_h

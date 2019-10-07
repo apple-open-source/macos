@@ -188,6 +188,11 @@ char *flags_other
 boolean is_number
 (
     char *str
+);
+
+boolean is_number
+(
+    char *str
 )
 {
     if (*str == '+' || *str == '-')
@@ -211,16 +216,16 @@ void getflags
 )
 {
     int             o;
-    int             optlen;
+    size_t          optlen;
     int             nflags, type;
     int             vflag;
     boolean         optval;
-    register char   **pstring;
-    register char   *pchar;
-    register int    *pint;
-    register char   *flag = NULL;
-    register long   *plong;
-    register double *pfloat;
+    char   **pstring;
+    char   *pchar;
+    int    *pint;
+    char   *flag = NULL;
+    long   *plong;
+    double *pfloat;
 
     last_string = NULL;
 
@@ -253,7 +258,7 @@ void getflags
                     INTERNAL_ERROR("Illegal option type");
 
                 case INTARG:
-                    pint = (int *)table[o].dest;
+                    pint = (int *) (void *) table[o].dest;
                     if (vflag)
                         pint += option_count[o];
                     /*
@@ -265,7 +270,8 @@ void getflags
                     {
                         if (is_number(av[1]))
                         {
-                            GETINT(*pint++);
+                            GETINT(pint);
+                            pint++;
                         }
                         else
                             goto nextf;
@@ -275,7 +281,7 @@ void getflags
                     goto nextf;
 
                 case STRARG:
-                    pstring = (char **)table[o].dest;
+                    pstring = (char **) (void *) table[o].dest;
 
                     if (vflag)
                         pstring += option_count[o];
@@ -293,7 +299,7 @@ void getflags
                      */
                     if (nflags && (ac > 1))
                     {
-                        GETSTR(*pstring);
+                        GETSTR(pstring);
                         if (ac > 0 && vflag && **av == '-')
                         {
                             *pstring = NULL;
@@ -305,7 +311,7 @@ void getflags
 
                 case OSTRARG:
                     /* Similar to STRARG, but allows for optional string arg. */
-                    pstring = (char **)table[o].dest;
+                    pstring = (char **) (void *) table[o].dest;
 
                     /*
                      * Allow the string argument to be optional.
@@ -328,7 +334,7 @@ void getflags
                      */
                     if (nflags && (ac > 1))
                     {
-                        GETSTR(*pstring);
+                        GETSTR(pstring);
                         if (ac > 0 && vflag && **av == '-')
                         {
                             *pstring = NULL;
@@ -377,7 +383,8 @@ void getflags
                     goto nextf;
 
                 case FLTARG:
-                    pfloat = (double *)table[o].dest;
+                    pfloat = (double *) (void *) table[o].dest;
+
                     if (vflag)
                         pfloat += option_count[o];
                     /*
@@ -387,14 +394,16 @@ void getflags
                      */
                     if (nflags && (ac > 1))
                     {
-                        GETFLT(*pfloat++);
+                        GETFLT(pfloat);
+                        pfloat++;
                         if (ac > 0 && vflag && **av == '-') goto thisf;
                         option_count[o]++;
                     }
                     goto nextf;
 
                 case LONGARG:
-                    plong = (long *)table[o].dest;
+                    plong = (long *) (void *) table[o].dest;
+                        
                     if (vflag)
                         plong += option_count[o];
                     /*
@@ -406,7 +415,8 @@ void getflags
                     {
                         if (is_number(av[1]))
                         {
-                            GETLONG(*plong++);
+                            GETLONG(plong);
+                            plong++;
                         }
                         else
                             goto nextf;
@@ -497,7 +507,7 @@ void printflags
     char            **pstring;
     long            *plong;
     double          *pdouble;
-    unsigned int             option_len;
+    size_t          option_len;
 
     option_len = 0;
 
@@ -519,7 +529,7 @@ void printflags
             nflags = option_count[o];
 
         type &= 255;
-        fprintf(stderr, "    %-*s", option_len, table[o].option);
+        fprintf(stderr, "    %-*s", (int) option_len, table[o].option);
 
         if (!vflag && nflags <= 0)
             nflags = 1;
@@ -532,7 +542,7 @@ void printflags
             exit(pgm_error);
 
         case INTARG:
-            pint = (int *)table[o].dest;
+            pint = (int *) (void *) table[o].dest;
             while (nflags-- > 0)
                 fprintf(stderr, "\t%d", *pint++);
             fprintf(stderr, "\n");
@@ -540,7 +550,7 @@ void printflags
 
         case STRARG:
         case OSTRARG:
-            pstring = (char **)table[o].dest;
+            pstring = (char **) (void *) table[o].dest;
             while (nflags-- > -0)
                 fprintf(stderr, "\t%s", *pstring++);
             fprintf(stderr, "\n");
@@ -569,14 +579,14 @@ void printflags
             break;
 
         case FLTARG:
-            pdouble = (double *)table[o].dest;
+            pdouble = (double *) (void *) table[o].dest;
             while (nflags-- > 0)
                 fprintf(stderr, "\t%.3f", *pdouble++);
             fprintf(stderr, "\n");
             break;
 
         case LONGARG:
-            plong = (long *)table[o].dest;
+            plong = (long *) (void *) table[o].dest;
             while (nflags-- > 0)
                 fprintf(stderr, "\t%ld", *plong++);
             fprintf(stderr, "\n");

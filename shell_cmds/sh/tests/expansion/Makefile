@@ -1,4 +1,4 @@
-# $FreeBSD: head/bin/sh/tests/expansion/Makefile 302937 2016-07-16 13:26:18Z ache $
+# $FreeBSD: head/bin/sh/tests/expansion/Makefile 317514 2017-04-27 18:52:18Z jilles $
 
 PACKAGE=	tests
 
@@ -39,6 +39,15 @@ ${PACKAGE}FILES+=	cmdsubst14.0
 ${PACKAGE}FILES+=	cmdsubst15.0
 ${PACKAGE}FILES+=	cmdsubst16.0
 ${PACKAGE}FILES+=	cmdsubst17.0
+${PACKAGE}FILES+=	cmdsubst18.0
+${PACKAGE}FILES+=	cmdsubst19.0
+${PACKAGE}FILES+=	cmdsubst20.0
+${PACKAGE}FILES+=	cmdsubst21.0
+${PACKAGE}FILES+=	cmdsubst22.0
+${PACKAGE}FILES+=	cmdsubst23.0
+${PACKAGE}FILES+=	cmdsubst24.0
+${PACKAGE}FILES+=	cmdsubst25.0
+${PACKAGE}FILES+=	cmdsubst26.0
 ${PACKAGE}FILES+=	export1.0
 ${PACKAGE}FILES+=	export2.0
 ${PACKAGE}FILES+=	export3.0

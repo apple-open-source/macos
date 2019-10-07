@@ -32,8 +32,8 @@
 #import <wtf/PrintStream.h>
 #import <wtf/cf/TypeCastsCF.h>
 
-#import <pal/cf/CoreMediaSoftLink.h>
 #import "CoreVideoSoftLink.h"
+#import <pal/cf/CoreMediaSoftLink.h>
 
 using namespace PAL;
 
@@ -309,6 +309,20 @@ RefPtr<JSC::Uint8ClampedArray> MediaSampleAVFObjC::getRGBAImageData() const
 #else
     return nullptr;
 #endif
+}
+
+String MediaSampleAVFObjC::toJSONString() const
+{
+    auto object = JSON::Object::create();
+
+    object->setObject("pts"_s, presentationTime().toJSONObject());
+    object->setObject("opts"_s, outputPresentationTime().toJSONObject());
+    object->setObject("dts"_s, decodeTime().toJSONObject());
+    object->setObject("duration"_s, duration().toJSONObject());
+    object->setInteger("flags"_s, static_cast<unsigned>(flags()));
+    object->setObject("presentationSize"_s, presentationSize().toJSONObject());
+
+    return object->toJSONString();
 }
 
 }

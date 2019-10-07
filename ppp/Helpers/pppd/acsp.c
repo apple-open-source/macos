@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -610,7 +610,7 @@ static void acsp_plugin_read_routes(CFPropertyListRef serverRef)
     CFDictionaryRef		dict;
     CFStringRef			stringRef;
     CFArrayRef			addrArrayRef, maskArrayRef, typeArrayRef;
-    int				addrCount, maskCount, typeCount, i;
+    CFIndex				addrCount, maskCount, typeCount, i;
     char			addrStr[STR_BUFSIZE], maskStr[STR_BUFSIZE];
     acsp_route			*route;
     struct in_addr 		outAddr, outMask;
@@ -698,7 +698,8 @@ static void acsp_plugin_read_domains(CFPropertyListRef serverRef)
     CFDictionaryRef		dict;
     CFStringRef			stringRef;
     CFArrayRef			nameArrayRef, serverArrayRef;
-    int				nameCount, serverCount, outlen, i;
+	size_t				outlen;
+    CFIndex				nameCount, serverCount, i;
     char			str[STR_BUFSIZE];
     acsp_domain			*domain;
     struct in_addr		outAddr;
@@ -792,7 +793,7 @@ static void acsp_plugin_read_domain_from_store(void)
                 if (stringRef && CFGetTypeID(stringRef) == CFStringGetTypeID()) {
                     str[0] = 0;
                     CFStringGetCString(stringRef, str, STR_BUFSIZE, kCFStringEncodingUTF8);
-                    len = strlen(str);
+                    len = (int)strlen(str);
                     if (len) {
                         if ((domain = (acsp_domain*)malloc(sizeof(acsp_domain))) == 0) {
                             error("ACSP plugin: no memory\n");
@@ -1102,7 +1103,7 @@ static void acsp_plugin_send(acsp_plugin_context* context, ACSP_Input* acsp_in, 
     	case CI_DOMAINS:
             // WCast-align fix - use memcpy for unaligned access
             outPtr = pkt->data;
-            while (context->next_to_send && space >= (len + (slen = strlen(((acsp_domain*)(context->next_to_send))->name)) + 6)) {
+            while (context->next_to_send && space >= (len + (slen = (int)strlen(((acsp_domain*)(context->next_to_send))->name)) + 6)) {
                 domain_data.server = ((acsp_domain*)(context->next_to_send))->server.s_addr;
                 domain_data.len = htons(slen);
                 memcpy(outPtr, &domain_data, ACSP_DOMAIN_DATA_HDRSIZE);
@@ -1895,7 +1896,7 @@ acsp_ipdata_input_server(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_in
 			while (list->next) list = list->next;
 				
 			PUTCHAR(DHCP_OPTION_DOMAIN_NAME, outp);	// dhcp domain name
-			len = strlen(list->name);
+			len = (int)strlen(list->name);
 			if (outlen + len + 2 >= sizeof(outpacket_buf)) {
 				warning("Domain name too large for DHCP\n");
 				return;
@@ -2573,7 +2574,7 @@ void *arg;
 			ACSP_PRINTPKT_PAYLOAD(NULL);
 			p = pkt->data;
 		}
-		return (p - pstart);
+		return (int)(p - pstart);
 	}
 	return 0;
 }

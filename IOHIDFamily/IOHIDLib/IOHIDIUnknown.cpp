@@ -27,34 +27,23 @@
 #include <IOKit/hid/IOHIDDevicePlugIn.h>
 #include <IOKit/hid/IOHIDServicePlugIn.h>
 #include "IOHIDIUnknown.h"
-#include "IOHIDDeviceClass.h"
-#include "IOHIDUPSClass.h"
-//YG #if TARGET_OS_EMBEDDED
-    #include "IOHIDEventServiceClass.h"
-//YG #endif
-
+#include <stdatomic.h>
+#include <os/log.h>
 
 int IOHIDIUnknown::factoryRefCount = 0;
 
 
 void IOHIDIUnknown::factoryAddRef()
 {
-    if (0 == factoryRefCount++) {
-        CFUUIDRef factoryId = kIOHIDDeviceFactoryID;
-        
-        CFPlugInAddInstanceForFactory(factoryId);
-    }
+    CFUUIDRef factoryId = kIOHIDDeviceFactoryID;
+    CFPlugInAddInstanceForFactory(factoryId);
 }
 
 void IOHIDIUnknown::factoryRelease()
 {
-    if (1 == factoryRefCount--) {
-        CFUUIDRef factoryId = kIOHIDDeviceFactoryID;
-    
-        CFPlugInRemoveInstanceForFactory(factoryId);
-    }
-    else if (factoryRefCount < 0)
-        factoryRefCount = 0;
+    CFUUIDRef factoryId = kIOHIDDeviceFactoryID;
+    CFPlugInRemoveInstanceForFactory(factoryId);
+
 }
 
 IOHIDIUnknown::IOHIDIUnknown(void *unknownVTable)
@@ -73,24 +62,20 @@ IOHIDIUnknown::~IOHIDIUnknown()
 
 UInt32 IOHIDIUnknown::addRef()
 {
-    refCount += 1;
-    return refCount;
+    return atomic_fetch_add((_Atomic UInt32*)&refCount, 1) + 1;
 }
 
 UInt32 IOHIDIUnknown::release()
 {
-    UInt32 retVal = refCount - 1;
-
-    if (retVal > 0)
-        refCount = retVal;
-    else if (retVal == 0) {
-        refCount = retVal;
+    UInt32 retVal = atomic_fetch_sub((_Atomic UInt32*)&refCount, 1);
+    
+    if (retVal < 1) {
+        os_log_fault(OS_LOG_DEFAULT, "Over Release IOHIDIUnknown Reference");
+    } else if (retVal == 1) {
         delete this;
     }
-    else
-        retVal = 0;
-
-    return retVal;
+    
+    return retVal - 1;
 }
 
 HRESULT IOHIDIUnknown::

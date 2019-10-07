@@ -39,18 +39,25 @@
 #import "keychain/ckks/tests/CloudKitMockXCTest.h"
 #import "keychain/ckks/tests/MockCloudKit.h"
 
+#import "keychain/ot/OTFollowup.h"
+#import <CoreCDP/CDPFollowUpContext.h>
+#import <CoreCDP/CDPAccount.h>
+
 NS_ASSUME_NONNULL_BEGIN
 
 @interface CloudKitKeychainSyncingTestsBase : CloudKitKeychainSyncingMockXCTest
 @property (nullable) CKRecordZoneID* keychainZoneID;
 @property (nullable) CKKSKeychainView* keychainView;
 @property (nullable) FakeCKZone* keychainZone;
-
 @property (nullable, readonly) ZoneKeys* keychainZoneKeys;
 
 @property NSCalendar* utcCalendar;
 
+- (NSSet<NSString*>*)managedViewList;
+
+
 - (ZoneKeys*)keychainZoneKeys;
+
 @end
 
 NS_ASSUME_NONNULL_END

@@ -48,7 +48,7 @@ hash_builtin (list)
 
   if (hashing_enabled == 0)
     {
-      builtin_error (_("hashing disabled"));
+      builtin_error ("%s", _("hashing disabled"));
       return (EXECUTION_FAILURE);
     }
 

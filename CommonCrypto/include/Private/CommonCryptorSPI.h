@@ -31,9 +31,14 @@
 #include <limits.h>
 #include <stdlib.h>
 
+#if defined(_MSC_VER)
+#include <availability.h>
+#else
 #include <os/availability.h>
+#endif
 
 #include <CommonCrypto/CommonCryptoError.h>
+#include <CommonCrypto/CommonCryptoErrorSPI.h>
 #include <CommonCrypto/CommonCryptor.h>
 
 #ifdef __cplusplus
@@ -42,6 +47,7 @@ extern "C" {
 
 #if defined(_WIN32)
     int timingsafe_bcmp(const void *b1, const void *b2, size_t n);
+
 #endif
 /*
 	This is an SPI header.  It includes some work in progress implementation notes that
@@ -57,19 +63,14 @@ extern "C" {
  */
 
 enum {
-    ccDefaultPadding			= 0,
-};
-
-
-enum {
-	kCCAlgorithmAES128NoHardware = 20,
-	kCCAlgorithmAES128WithHardware = 21
+    ccDefaultPadding = ccNoPadding,
 };
 
 /*
  	Private Modes
  */
 enum {
+	kCCModeXTS		= 8,
 	kCCModeGCM		= 11,
 	kCCModeCCM		= 12,
 };
@@ -78,8 +79,6 @@ enum {
  	Private Paddings
  */
 enum {
-    ccCBCCTS1			= 10,
-    ccCBCCTS2			= 11,
     ccCBCCTS3			= 12,
 };
 
@@ -149,7 +148,6 @@ CCCryptorStatus CCCryptorDecryptDataBlock(
 	size_t dataInLength,
 	void *dataOut)
 API_AVAILABLE(macos(10.7), ios(5.0));
-
 
 /*!
     @function   CCCryptorReset_binary_compatibility
@@ -358,7 +356,7 @@ API_DEPRECATED_WITH_REPLACEMENT("CCCryptorGCMOneshotEncrypt or CCCryptorGCMOnesh
      @function   CCCryptorGCMOneshotDecrypt
      @abstract   Encrypts using AES-GCM and outputs encrypted data and an authentication tag
      @param      alg            It can only be kCCAlgorithmAES
-     @param      key            Key for the underlying AES blockcipher. It must be 16 bytes. *****
+     @param      key            AES key size (kCCKeySizeAES128, kCCKeySizeAES192 or kCCKeySizeAES256)
      @param      keyLength      Length of the key in bytes
 
      @param      iv             Initialization vector, must be at least 12 bytes
@@ -472,7 +470,8 @@ typedef uint32_t CCParameter;
     cryptor type and state, parameter can be either accepted or
     refused with kCCUnimplemented (when given parameter is not
     supported for this type of cryptor at all) or kCCParamError (bad
-    data length or format).
+    data length or format) or kCCCallSequenceError (bad sequence of
+    calls when using GCM or CCM).
 */
 
 CCCryptorStatus CCCryptorAddParameter(

@@ -1,0 +1,11 @@
+#include "../IOHIDFamily/IOHIDFamily.xcconfig"
+
+MACH_O_TYPE = mh_dylib
+MACH_O_TYPE[sdk=macosx*] = mh_bundle
+PRODUCT_TYPE = com.apple.product-type.framework
+PRODUCT_TYPE[sdk=macosx*] = com.apple.product-type.bundle
+OTHER_LDFLAGS[sdk=macosx*] = $(inherited) -bundle
+ARCHS[sdk=macosx*] = i386 x86_64
+VALID_ARCHS[sdk=macosx*] = i386 x86_64
+OTHER_CFLAGS =  $(inherited) -ftrivial-auto-var-init=pattern
+OTHER_CPLUSPLUSFLAGS = $(inherited) -ftrivial-auto-var-init=pattern

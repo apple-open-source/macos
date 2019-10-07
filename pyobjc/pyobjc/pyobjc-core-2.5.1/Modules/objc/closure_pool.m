@@ -4,59 +4,67 @@
  */
 #include "pyobjc.h"
 
-#include <sys/mman.h>
+#include <stdlib.h>
+#include <sys/queue.h>
+#include <os/lock.h>
 
-typedef struct freelist {
-	struct freelist* next;
-} freelist;
+SLIST_HEAD(closurelist, closureelem);
 
-static freelist* closure_freelist = NULL;
+struct closurelist freelist = SLIST_HEAD_INITIALIZER(freelist);
+struct closurelist usedlist = SLIST_HEAD_INITIALIZER(usedlist);
+os_unfair_lock listlock;
 
+typedef struct closureelem {
+	ffi_closure_wrapper wrapper;
+	SLIST_ENTRY(closureelem) entries;
+} closureelem;
 
-static freelist* allocate_block(void)
-{
-
-	/* Allocate ffi_closure in groups of 10 VM pages */
-#define BLOCKSIZE ((PAGE_SIZE*10)/sizeof(ffi_closure*))
-
-	freelist* newblock = mmap(NULL, BLOCKSIZE * sizeof(ffi_closure),
-		PROT_READ|PROT_WRITE|PROT_EXEC,
-		MAP_PRIVATE|MAP_ANON, -1, 0);
-	size_t i;
-
-	if (newblock == (void*)-1) {
-		PyErr_NoMemory();
-		return NULL;
-	}
-	for (i = 0; i < BLOCKSIZE-1; i++) {
-		((freelist*)(((ffi_closure*)newblock)+i))->next = 
-			(freelist*)(((ffi_closure*)newblock)+(i+1));
-	}
-
-	((freelist*)(((ffi_closure*)newblock)+(BLOCKSIZE-1)))->next = NULL;
-	return newblock;
-}
-
-
-
-ffi_closure* 
+ffi_closure_wrapper*
 PyObjC_malloc_closure(void)
 {
-	if (closure_freelist == NULL) {
-		closure_freelist = allocate_block();
-		if (closure_freelist == NULL) {
-			return NULL;
-		}
+	closureelem* entry;
+	os_unfair_lock_lock(&listlock);
+	entry = SLIST_FIRST(&freelist);
+	if (entry)
+	{
+		SLIST_REMOVE_HEAD(&freelist, entries);
 	}
-	ffi_closure* result = (ffi_closure*)closure_freelist;
-	closure_freelist = closure_freelist->next;
-	return result;
+	else
+	{
+		entry = calloc(1, sizeof(*entry));
+		entry->wrapper.closure = ffi_closure_alloc(sizeof(ffi_closure), &entry->wrapper.code_addr);
+	}
+	SLIST_INSERT_HEAD(&usedlist, entry, entries);
+	os_unfair_lock_unlock(&listlock);
+	return &entry->wrapper;
 }
 
 int
-PyObjC_free_closure(ffi_closure* cl)
+PyObjC_free_closure(ffi_closure_wrapper* cl)
 {
-	((freelist*)cl)->next = closure_freelist;
-	closure_freelist = (freelist*)cl;
+	if (cl)
+	{
+		closureelem *entry = (closureelem *)cl;
+		os_unfair_lock_lock(&listlock);
+		SLIST_REMOVE(&usedlist, entry, closureelem, entries);
+		SLIST_INSERT_HEAD(&freelist, entry, entries);
+		os_unfair_lock_unlock(&listlock);
+	}
 	return 0;
+}
+
+ffi_closure_wrapper*
+PyObjC_closure_from_code(void* code)
+{
+	ffi_closure_wrapper* result = NULL;
+	if (code)
+	{
+		closureelem *entry;
+		os_unfair_lock_lock(&listlock);
+		SLIST_FOREACH(entry, &usedlist, entries)
+		if (entry->wrapper.code_addr == code)
+			result = &entry->wrapper;
+		os_unfair_lock_unlock(&listlock);
+	}
+	return result;
 }

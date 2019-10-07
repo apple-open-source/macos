@@ -12,7 +12,7 @@ if( (stristr(PHP_OS, "Darwin")) || (stristr(PHP_OS, "Win")) )
      Returns TRUE on success or FALSE on failure.
 */
 
-/* Test copy() function: Checking case sensitivity in creation of destination file names 
+/* Test copy() function: Checking case sensitivity in creation of destination file names
      and the existence and size of destination files
 */
 
@@ -20,7 +20,7 @@ echo "*** Test copy() function: checking case sensitivity in creation of destina
 $file_path = dirname(__FILE__);
 $src_file_name = $file_path."/copy_variation5.tmp";
 $file_handle = fopen($src_file_name, "w");
-fwrite( $file_handle, str_repeat(b"Hello2World...\n", 100) );
+fwrite( $file_handle, str_repeat("Hello2World...\n", 100) );
 fclose($file_handle);
 
 /* array of destination file names */
@@ -72,12 +72,10 @@ foreach($dest_files as $dest_file) {
 
 echo "*** Done ***\n";
 ?>
-
 --CLEAN--
 <?php
 unlink(dirname(__FILE__)."/copy_variation5.tmp");
 ?>
-
 --EXPECTF--
 *** Test copy() function: checking case sensitivity in creation of destination file names ***
 Size of the source file before copy operation => int(1500)

@@ -69,6 +69,10 @@ static int proxy_match_domainname(struct dirconn_entry *This, request_rec *r);
 static int proxy_match_hostname(struct dirconn_entry *This, request_rec *r);
 static int proxy_match_word(struct dirconn_entry *This, request_rec *r);
 static int ap_proxy_retry_worker(const char *proxy_function, proxy_worker *worker, server_rec *s);
+static proxy_worker *proxy_balancer_get_best_worker(proxy_balancer *balancer,
+                                                    request_rec *r,
+                                                    proxy_is_best_callback_fn_t *is_best,
+                                                    void *baton);
 
 APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(proxy, PROXY, int, create_req,
                                    (request_rec *r, request_rec *pr), (r, pr),
@@ -364,12 +368,9 @@ PROXY_DECLARE(char *)
 
 PROXY_DECLARE(int) ap_proxyerror(request_rec *r, int statuscode, const char *message)
 {
-    const char *uri = ap_escape_html(r->pool, r->uri);
     apr_table_setn(r->notes, "error-notes",
         apr_pstrcat(r->pool,
-            "The proxy server could not handle the request <em><a href=\"",
-            uri, "\">", ap_escape_html(r->pool, r->method), "&nbsp;", uri,
-            "</a></em>.<p>\n"
+            "The proxy server could not handle the request<p>"
             "Reason: <strong>", ap_escape_html(r->pool, message),
             "</strong></p>",
             NULL));
@@ -833,7 +834,7 @@ PROXY_DECLARE(const char *) ap_proxy_location_reverse_map(request_rec *r,
 {
     proxy_req_conf *rconf;
     struct proxy_alias *ent;
-    int i, l1, l2;
+    int i, l1, l1_orig, l2;
     char *u;
 
     /*
@@ -845,7 +846,7 @@ PROXY_DECLARE(const char *) ap_proxy_location_reverse_map(request_rec *r,
         return url;
     }
 
-    l1 = strlen(url);
+    l1_orig = strlen(url);
     if (conf->interpolate_env == 1) {
         rconf = ap_get_module_config(r->request_config, &proxy_module);
         ent = (struct proxy_alias *)rconf->raliases->elts;
@@ -858,6 +859,10 @@ PROXY_DECLARE(const char *) ap_proxy_location_reverse_map(request_rec *r,
             ap_get_module_config(r->server->module_config, &proxy_module);
         proxy_balancer *balancer;
         const char *real = ent[i].real;
+
+        /* Restore the url length, if it had been changed by the code below */
+        l1 = l1_orig;
+
         /*
          * First check if mapping against a balancer and see
          * if we have such a entity. If so, then we need to
@@ -1164,11 +1169,11 @@ PROXY_DECLARE(char *) ap_proxy_define_balancer(apr_pool_t *p,
      * exist, that's OK at this time. We check when we share and sync
      */
     lbmethod = ap_lookup_provider(PROXY_LBMETHOD, "byrequests", "0");
-
+    (*balancer)->lbmethod = lbmethod;
+    
     (*balancer)->workers = apr_array_make(p, 5, sizeof(proxy_worker *));
     (*balancer)->gmutex = NULL;
     (*balancer)->tmutex = NULL;
-    (*balancer)->lbmethod = lbmethod;
 
     if (do_malloc)
         bshared = ap_malloc(sizeof(proxy_balancer_shared));
@@ -1182,6 +1187,8 @@ PROXY_DECLARE(char *) ap_proxy_define_balancer(apr_pool_t *p,
     if (PROXY_STRNCPY(bshared->name, uri) != APR_SUCCESS) {
         return apr_psprintf(p, "balancer name (%s) too long", uri);
     }
+    (*balancer)->lbmethod_set = 1;
+
     /*
      * We do the below for verification. The real sname will be
      * done post_config
@@ -1236,6 +1243,7 @@ PROXY_DECLARE(apr_status_t) ap_proxy_share_balancer(proxy_balancer *balancer,
     lbmethod = ap_lookup_provider(PROXY_LBMETHOD, balancer->s->lbpname, "0");
     if (lbmethod) {
         balancer->lbmethod = lbmethod;
+        balancer->lbmethod_set = 1;
     } else {
         ap_log_error(APLOG_MARK, APLOG_CRIT, 0, ap_server_conf, APLOGNO(02432)
                      "Cannot find LB Method: %s", balancer->s->lbpname);
@@ -1244,10 +1252,11 @@ PROXY_DECLARE(apr_status_t) ap_proxy_share_balancer(proxy_balancer *balancer,
     if (*balancer->s->nonce == PROXY_UNSET_NONCE) {
         char nonce[APR_UUID_FORMATTED_LENGTH + 1];
         apr_uuid_t uuid;
-        /* Retrieve a UUID and store the nonce for the lifetime of
-         * the process.
-         */
-        apr_uuid_get(&uuid);
+
+        /* Generate a pseudo-UUID from the PRNG to use as a nonce for
+         * the lifetime of the process. uuid.data is a char array so
+         * this is an adequate substitute for apr_uuid_get(). */
+        ap_random_insecure_bytes(uuid.data, sizeof uuid.data);
         apr_uuid_format(nonce, &uuid);
         rv = PROXY_STRNCPY(balancer->s->nonce, nonce);
     }
@@ -1307,10 +1316,10 @@ PROXY_DECLARE(apr_status_t) ap_proxy_initialize_balancer(proxy_balancer *balance
     return APR_SUCCESS;
 }
 
-PROXY_DECLARE(proxy_worker *) ap_proxy_balancer_get_best_worker(proxy_balancer *balancer,
-                                                                request_rec *r,
-                                                                proxy_is_best_callback_fn_t *is_best,
-                                                                void *baton)
+static proxy_worker *proxy_balancer_get_best_worker(proxy_balancer *balancer,
+                                                    request_rec *r,
+                                                    proxy_is_best_callback_fn_t *is_best,
+                                                    void *baton)
 {
     int i = 0;
     int cur_lbset = 0;
@@ -1422,6 +1431,14 @@ PROXY_DECLARE(proxy_worker *) ap_proxy_balancer_get_best_worker(proxy_balancer *
     return best_worker;
 }
 
+PROXY_DECLARE(proxy_worker *) ap_proxy_balancer_get_best_worker(proxy_balancer *balancer,
+                                                                request_rec *r,
+                                                                proxy_is_best_callback_fn_t *is_best,
+                                                                void *baton)
+{
+    return proxy_balancer_get_best_worker(balancer, r, is_best, baton);
+}
+
 /*
  * CONNECTION related...
  */
@@ -1515,6 +1532,13 @@ static apr_status_t connection_cleanup(void *theconn)
                     && conn->connection->keepalive == AP_CONN_CLOSE)) {
         socket_cleanup(conn);
         conn->close = 0;
+    }
+    else if (conn->is_ssl) {
+        /* Unbind/reset the SSL connection dir config (sslconn->dc) from
+         * r->per_dir_config, r will likely get destroyed before this proxy
+         * conn is reused.
+         */
+        ap_proxy_ssl_engine(conn->connection, worker->section_config, 1);
     }
 
     if (worker->s->hmax && worker->cp->res) {
@@ -1879,7 +1903,8 @@ PROXY_DECLARE(apr_status_t) ap_proxy_share_worker(proxy_worker *worker, proxy_wo
     }
     worker->s = shm;
     worker->s->index = i;
-    {
+
+    if (APLOGdebug(ap_server_conf)) {
         apr_pool_t *pool;
         apr_pool_create(&pool, ap_server_conf->process->pool);
         ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, ap_server_conf, APLOGNO(02338)
@@ -3155,6 +3180,12 @@ static int proxy_connection_create(const char *proxy_function,
     apr_bucket_alloc_t *bucket_alloc;
 
     if (conn->connection) {
+        if (conn->is_ssl) {
+            /* on reuse, reinit the SSL connection dir config with the current
+             * r->per_dir_config, the previous one was reset on release.
+             */
+            ap_proxy_ssl_engine(conn->connection, per_dir_config, 1);
+        }
         return OK;
     }
 
@@ -3189,6 +3220,16 @@ static int proxy_connection_create(const char *proxy_function,
                          "for %pI (%s)", proxy_function,
                          backend_addr, conn->hostname);
             return HTTP_INTERNAL_SERVER_ERROR;
+        }
+        if (conn->ssl_hostname) {
+            /* Set a note on the connection about what CN is requested,
+             * such that mod_ssl can check if it is requested to do so.
+             */
+            ap_log_cerror(APLOG_MARK, APLOG_TRACE1, 0, conn->connection, 
+                          "%s: set SNI to %s for (%s)", proxy_function,
+                          conn->ssl_hostname, conn->hostname);
+            apr_table_setn(conn->connection->notes, "proxy-request-hostname",
+                           conn->ssl_hostname);
         }
     }
     else {
@@ -3563,10 +3604,7 @@ PROXY_DECLARE(int) ap_proxy_create_hdrbrgd(apr_pool_t *p,
      * To be compliant, we only use 100-Continue for requests with bodies.
      * We also make sure we won't be talking HTTP/1.0 as well.
      */
-    do_100_continue = (worker->s->ping_timeout_set
-                       && ap_request_has_body(r)
-                       && (PROXYREQ_REVERSE == r->proxyreq)
-                       && !(apr_table_get(r->subprocess_env, "force-proxy-request-1.0")));
+    do_100_continue = PROXY_DO_100_CONTINUE(worker, r);
 
     if (apr_table_get(r->subprocess_env, "force-proxy-request-1.0")) {
         /*
@@ -3583,7 +3621,9 @@ PROXY_DECLARE(int) ap_proxy_create_hdrbrgd(apr_pool_t *p,
         buf = apr_pstrcat(p, r->method, " ", url, " HTTP/1.1" CRLF, NULL);
     }
     if (apr_table_get(r->subprocess_env, "proxy-nokeepalive")) {
-        origin->keepalive = AP_CONN_CLOSE;
+        if (origin) {
+            origin->keepalive = AP_CONN_CLOSE;
+        }
         p_conn->close = 1;
     }
     ap_xlate_proto_to_ascii(buf, strlen(buf));
@@ -3674,14 +3714,6 @@ PROXY_DECLARE(int) ap_proxy_create_hdrbrgd(apr_pool_t *p,
      */
     if (do_100_continue) {
         const char *val;
-
-        if (!r->expecting_100) {
-            /* Don't forward any "100 Continue" response if the client is
-             * not expecting it.
-             */
-            apr_table_setn(r->subprocess_env, "proxy-interim-response",
-                                              "Suppress");
-        }
 
         /* Add the Expect header if not already there. */
         if (((val = apr_table_get(r->headers_in, "Expect")) == NULL)
@@ -4028,4 +4060,5 @@ void proxy_util_register_hooks(apr_pool_t *p)
 {
     APR_REGISTER_OPTIONAL_FN(ap_proxy_retry_worker);
     APR_REGISTER_OPTIONAL_FN(ap_proxy_clear_connection);
+    APR_REGISTER_OPTIONAL_FN(proxy_balancer_get_best_worker);
 }

@@ -5,7 +5,7 @@
 ifeq ($(PLATFORM),iphoneos)
 # iOS internal SDK
 CORETELEPHONY=-framework CoreTelephony
-ARCHS=armv7
+ARCHS=arm64
 endif
 
 ifeq ($(PLATFORM),macosx)
@@ -36,9 +36,9 @@ SCPRIV += -DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS=1
 certattrs: EAPLog.c EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c EAPUtil.c EAPClientModule.c
 	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -DTEST_EAPSecCertificateCopyAttributesDictionary $(PF_INC) -framework Security -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
 
-identity: EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c EAPUtil.c EAPClientModule.c EAPLog.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c
+identity: EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c EAPUtil.c EAPClientModule.c EAPLog.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c EAPOLSIMPrefsManage.c
 	$(CC) $(ARCH_FLAGS) $(SCPRIV) -isysroot $(SYSROOT) -Wall -I.. -DTEST_EAPSecIdentity $(PF_INC) -framework Security -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
-	xcrun -sdk $(SDK) codesign -s - -f --entitlements ../eapolclient.tproj/entitlements.plist $@
+	xcrun -sdk $(SDK) codesign -s - -f --entitlements identity-entitlements.plist $@
 
 
 identity_trust_chain: EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c EAPUtil.c EAPClientModule.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c
@@ -83,7 +83,7 @@ siminfo: eapsim_plugin.c SIMAccess.c fips186prf.c fr_sha1.c myCFUtil.c printdata
 	xcrun -sdk $(SDK) codesign -s - -f --entitlements ../eapolclient.tproj/entitlements.plist $@
 
 SIMAccess: SIMAccess.c printdata.c myCFUtil.c EAPSIMAKAUtil.c EAPUtil.c EAPClientModule.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c EAPSecurity.c fips186prf.c fr_sha1.c EAPLog.c
-	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) $(SCPRIV) -Wall -I. -DTARGET_OS_EMBEDDED -DTEST_SIMACCESS $(PF_INC) -framework CoreFoundation $(CORETELEPHONY) -framework SystemConfiguration -framework Security -g -o $@ $^
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) $(SCPRIV) -Wall -I. -DTEST_SIMACCESS $(PF_INC) -framework CoreFoundation $(CORETELEPHONY) -framework SystemConfiguration -framework Security -g -o $@ $^
 	xcrun -sdk $(SDK) codesign -s - -f --entitlements ../eapolclient.tproj/entitlements.plist $@
 
 verify_server: EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c myCFUtil.c printdata.c EAPUtil.c EAPClientModule.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c EAPLog.c

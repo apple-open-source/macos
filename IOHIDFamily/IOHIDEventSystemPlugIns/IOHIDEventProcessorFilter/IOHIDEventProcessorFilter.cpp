@@ -399,7 +399,7 @@ SInt32 IOHIDEventProcessor::match(void * self, IOHIDServiceRef service, IOOption
 
 SInt32 IOHIDEventProcessor::match(IOHIDServiceRef service, IOOptionBits options __unused)
 {
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     CFNumberRef queueSize = (CFNumberRef)IOHIDServiceCopyProperty(service, CFSTR(kIOHIDEventServiceQueueSize));
     if (queueSize) {
         uint32_t value = 0;

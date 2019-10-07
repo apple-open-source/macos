@@ -1,5 +1,5 @@
 
-#include <config.h>
+#include "config.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -10,9 +10,9 @@
 #include <fcntl.h>
 #include <assert.h>
 
-#include <sasl.h>
-#include <saslplug.h>
-#include <saslutil.h>
+#include "sasl.h"
+#include "saslplug.h"
+#include "saslutil.h"
 
 #include "plugin_common.h"
 

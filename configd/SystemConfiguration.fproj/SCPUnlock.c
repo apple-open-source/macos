@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004-2010, 2013, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004-2010, 2013, 2015, 2016, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,6 +37,7 @@
 #include <unistd.h>
 #include <pthread.h>
 
+
 static Boolean
 __SCPreferencesUnlock_helper(SCPreferencesRef prefs)
 {
@@ -64,7 +65,7 @@ __SCPreferencesUnlock_helper(SCPreferencesRef prefs)
 		goto error;
 	}
 
-	prefsPrivate->locked = FALSE;
+	__SCPreferencesUpdateLockedState(prefs, FALSE);
 	return TRUE;
 
     fail :
@@ -148,7 +149,7 @@ SCPreferencesUnlock(SCPreferencesRef prefs)
 	SC_log(LOG_DEBUG, "SCPreferences() unlock: %s",
 	       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
 
-	prefsPrivate->locked = FALSE;
+	__SCPreferencesUpdateLockedState(prefs, FALSE);
 
 	pthread_mutex_unlock(&prefsPrivate->lock);
 	return TRUE;

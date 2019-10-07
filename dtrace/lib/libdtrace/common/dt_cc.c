@@ -126,6 +126,7 @@ static void *dt_compile(dtrace_hdl_t *, int, dtrace_probespec_t, void *,
 static int
 dt_idreset(dt_idhash_t *dhp, dt_ident_t *idp, void *ignored)
 {
+#pragma unused(dhp, ignored)
 	idp->di_flags &= ~(DT_IDFLG_REF | DT_IDFLG_MOD |
 	    DT_IDFLG_DIFR | DT_IDFLG_DIFW);
 	return (0);
@@ -135,6 +136,7 @@ dt_idreset(dt_idhash_t *dhp, dt_ident_t *idp, void *ignored)
 static int
 dt_idpragma(dt_idhash_t *dhp, dt_ident_t *idp, void *ignored)
 {
+#pragma unused(dhp, ignored)
 	yylineno = idp->di_lineno;
 	xyerror(D_PRAGMA_UNUSED, "unused #pragma %s\n", (char *)idp->di_iarg);
 	return (0);
@@ -665,8 +667,6 @@ dt_action_printflike(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp,
 static void
 dt_action_trace(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
-	int ctflib;
-
 	dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
 	boolean_t istrace = (dnp->dn_ident->di_id == DT_ACT_TRACE);
 	const char *act = istrace ?  "trace" : "print";
@@ -711,13 +711,13 @@ dt_action_trace(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 		dret = yypcb->pcb_dret;
 		dmp = dt_module_lookup_by_ctf(dtp, dret->dn_ctfp);
 
-		n = snprintf(NULL, 0, "%s`%d", dmp->dm_name,
+		n = snprintf(NULL, 0, "%s`%ld", dmp->dm_name,
 		    dret->dn_type) + 1;
 
 		sdp->dtsd_strdata = dt_alloc(dtp, n);
 		if (sdp->dtsd_strdata == NULL)
 			longjmp(yypcb->pcb_jmpbuf, EDT_NOMEM);
-		(void) snprintf(sdp->dtsd_strdata, n, "%s`%d",
+		(void) snprintf(sdp->dtsd_strdata, n, "%s`%ld",
 		    dmp->dm_name, dret->dn_type);
 	}
 
@@ -910,6 +910,7 @@ static void
 dt_action_symmod_args(dtrace_hdl_t *dtp, dtrace_actdesc_t *ap,
     dt_node_t *dnp, dtrace_actkind_t kind)
 {
+#pragma unused(dtp)
 	assert(kind == DTRACEACT_SYM || kind == DTRACEACT_MOD ||
 	    kind == DTRACEACT_USYM || kind == DTRACEACT_UMOD ||
 	    kind == DTRACEACT_UADDR);
@@ -932,6 +933,7 @@ dt_action_symmod(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp,
 static void
 dt_action_ftruncate(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
+#pragma unused(dnp)
 	dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
 
 	/*
@@ -948,6 +950,7 @@ dt_action_ftruncate(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 static void
 dt_action_stop(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
+#pragma unused(dnp)
 	dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
 
 	ap->dtad_kind = DTRACEACT_STOP;
@@ -958,6 +961,7 @@ dt_action_stop(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 static void
 dt_action_breakpoint(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
+#pragma unused(dnp)
 	dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
 
 	ap->dtad_kind = DTRACEACT_BREAKPOINT;
@@ -968,6 +972,7 @@ dt_action_breakpoint(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 static void
 dt_action_panic(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
+#pragma unused(dnp)
 	dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
 
 	ap->dtad_kind = DTRACEACT_PANIC;
@@ -1117,9 +1122,10 @@ dt_action_apple_flag(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 /*
  * This function is not defined static so we can override it externally.
  */
-void
+static void
 dt_action_apple_general(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
+#pragma unused(dtp, sdp)
     /*
      * The intent of this function is that it will be interposed on by an
      * Apple service which links to libdtrace to provide a special feature
@@ -1176,22 +1182,6 @@ dt_action_apple_stack(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
      * 2.) Add a stack command
      */
     dt_action_stack(dtp, dnp, sdp);
-}
-static void
-dt_action_apple_ustack(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
-{
-    /*
-     * 1.) Insert a marker to note that a stack is coming
-     */
-    dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
-
-    dt_action_difconst(ap, 0, DTRACEACT_APPLEBINARY);
-    ap->dtad_arg = dt_action_apple_build_arg(6, 0, 1);
-
-    /*
-     * 2.) Add a stack command
-     */
-    dt_action_ustack(dtp, dnp, sdp);
 }
 
 /*
@@ -1889,7 +1879,7 @@ dt_setcontext(dtrace_hdl_t *dtp, dtrace_probedesc_t *pdp)
 			    "match any probes\n", pdp->dtpd_provider, pdp->dtpd_mod,
 			    pdp->dtpd_func, pdp->dtpd_name);
 		}
-		else if (err == EDT_PROBE_RESTRICTED) {
+		else if (err == EDT_PROBERESTRICTED) {
 			xyerror(D_PDESC_ZERO, "probe description %s:%s:%s:%s does not "
 			    "match any probes. %s\n", pdp->dtpd_provider, pdp->dtpd_mod,
 			    pdp->dtpd_func, pdp->dtpd_name, dtrace_errmsg(dtp, err));
@@ -1898,10 +1888,10 @@ dt_setcontext(dtrace_hdl_t *dtp, dtrace_probedesc_t *pdp)
 	}
 	
 
-	if (err != EDT_NOPROBE && err != EDT_PROBE_RESTRICTED && err != EDT_UNSTABLE && err != 0)
+	if (err != EDT_NOPROBE && err != EDT_PROBERESTRICTED && err != EDT_UNSTABLE && err != 0)
 		xyerror(D_PDESC_INVAL, "%s\n", dtrace_errmsg(dtp, err));
 
-	dt_dprintf("set context to %s:%s:%s:%s [%u] prp=%p attr=%s argc=%d\n",
+	dt_dprintf("set context to %s:%s:%s:%s [%u] prp=%p attr=%s argc=%d",
 	    pdp->dtpd_provider, pdp->dtpd_mod, pdp->dtpd_func, pdp->dtpd_name,
 	    pdp->dtpd_id, (void *)prp, dt_attr_str(yypcb->pcb_pinfo.dtp_attr,
 	    attrstr, sizeof (attrstr)), yypcb->pcb_pinfo.dtp_argc);
@@ -1978,7 +1968,7 @@ dt_reduce(dtrace_hdl_t *dtp, dt_version_t v)
 	else if (v == dtp->dt_vmax)
 		return (0); /* no reduction necessary */
 
-	dt_dprintf("reducing api version to %s\n",
+	dt_dprintf("reducing api version to %s",
 	    dt_version_num2str(v, s, sizeof (s)));
 
 	dtp->dt_vmax = v;
@@ -2003,7 +1993,7 @@ dt_reduce(dtrace_hdl_t *dtp, dt_version_t v)
  * and return a FILE handle for the cpp output.  We use the /dev/fd filesystem
  * here to simplify the code by leveraging file descriptor inheritance.
  */
-FILE *
+static FILE *
 dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 {
 	int argc = dtp->dt_cpp_argc;
@@ -2037,7 +2027,7 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	 * We start cpp just prior to the \n at the end of this line so that
 	 * it still sees the newline, ensuring that #line values are correct.
 	 */
-	if (isatty(fileno(ifp)) == 0 && (off = ftello64(ifp)) != -1) {
+	if (isatty(fileno(ifp)) == 0 && (off = ftello(ifp)) != -1) {
 		if ((c = fgetc(ifp)) == '#' && (c = fgetc(ifp)) == '!') {
 			for (off += 2; c != '\n'; off++) {
 				if ((c = fgetc(ifp)) == EOF)
@@ -2047,7 +2037,7 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 				off--; /* start cpp just prior to \n */
 		}
 		(void) fflush(ifp);
-		(void) fseeko64(ifp, off, SEEK_SET);
+		(void) fseeko(ifp, off, SEEK_SET);
 	}
 
 	/*
@@ -2064,8 +2054,8 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 
 	(void) fflush(tfp);
 	(void) clearerr(tfp);
-	(void) fseeko64(tfp, 0, SEEK_SET);
-	(void) fseeko64(ifp, off, SEEK_SET);
+	(void) fseeko(tfp, 0, SEEK_SET);
+	(void) fseeko(ifp, off, SEEK_SET);
 
 	(void) snprintf(ipath, sizeof (ipath), "/dev/fd/%d", fileno(tfp));
 	(void) snprintf(opath, sizeof (opath), "/dev/fd/%d", fileno(ofp));
@@ -2097,7 +2087,7 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	act.sa_handler = SIG_DFL;
 	(void) sigaction(SIGCHLD, &act, &oact);
 
-	if ((pid = fork1()) == -1) {
+	if ((pid = fork()) == -1) {
 		(void) sigaction(SIGCHLD, &oact, NULL);
 		(void) sigprocmask(SIG_SETMASK, &omask, NULL);
 		(void) dt_set_errno(dtp, EDT_CPPFORK);
@@ -2110,14 +2100,14 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	}
 
 	do {
-		dt_dprintf("waiting for %s (PID %d)\n", dtp->dt_cpp_path,
+		dt_dprintf("waiting for %s (PID %d)", dtp->dt_cpp_path,
 		    (int)pid);
 	} while (waitpid(pid, &wstat, 0) == -1 && errno == EINTR);
 
 	(void) sigaction(SIGCHLD, &oact, NULL);
 	(void) sigprocmask(SIG_SETMASK, &omask, NULL);
 
-	dt_dprintf("%s returned exit status 0x%x\n", dtp->dt_cpp_path, wstat);
+	dt_dprintf("%s returned exit status 0x%x", dtp->dt_cpp_path, wstat);
 	estat = WIFEXITED(wstat) ? WEXITSTATUS(wstat) : -1;
 
 	if (estat != 0) {
@@ -2144,6 +2134,43 @@ err:
 	free(argv);
 	(void) fclose(tfp);
 	(void) fclose(ofp);
+	return (NULL);
+}
+
+static FILE*
+dt_readfile(dtrace_hdl_t *dtp, dt_pcb_t *pcb, FILE *ifp)
+{
+	char *buf = NULL;
+	int d;
+	size_t size;
+
+	FILE *mfp = open_memstream(&buf, &size), *ofp;
+	if (mfp == NULL) {
+		goto err;
+	}
+
+	while((d = fgetc(ifp)) != EOF) {
+		fputc(d, mfp);
+	}
+
+	/* fmemopen will fail if size is 0 (POSIX) */
+	fputc('\0', mfp);
+
+	fclose(mfp);
+
+	if (dtp->dt_cflags & DTRACE_C_CPP) {
+		fclose(ifp); /* close dt_preproc() file */
+	}
+	pcb->pcb_filebuf = buf;
+
+	ofp = fmemopen(buf, size, "r");
+	if (ofp == NULL) {
+		goto err;
+	}
+	return (ofp);
+err:
+	free(buf);
+	dt_set_errno(dtp, errno);
 	return (NULL);
 }
 
@@ -2268,7 +2295,7 @@ dt_topo_sort(dtrace_hdl_t *dtp, dt_lib_depend_t *dld, int *count)
 	new->dtld_finish = dld->dtld_finish = ++(*count);
 	dt_list_prepend(&dtp->dt_lib_dep_sorted, new);
 
-	dt_dprintf("library %s sorted (%d/%d)\n", new->dtld_library,
+	dt_dprintf("library %s sorted (%d/%d)", new->dtld_library,
 	    new->dtld_start, new->dtld_finish);
 
 	return (0);
@@ -2375,7 +2402,7 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 	dt_lib_depend_t *dld;
 
 	if ((dirp = opendir(path)) == NULL) {
-		dt_dprintf("skipping lib dir %s: %s\n", path, strerror(errno));
+		dt_dprintf("skipping lib dir %s: %s", path, strerror(errno));
 		return (0);
 	}
 
@@ -2388,7 +2415,7 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 		    "%s/%s", path, dp->d_name);
 
 		if ((fp = fopen(fname, "r")) == NULL) {
-			dt_dprintf("skipping library %s: %s\n",
+			dt_dprintf("skipping library %s: %s",
 			    fname, strerror(errno));
 			continue;
 		}
@@ -2427,7 +2454,7 @@ dt_load_libs_dir(dtrace_hdl_t *dtp, const char *path)
 			return (-1); /* preserve dt_errno */
 
 		if (dtp->dt_errno)
-			dt_dprintf("error parsing library %s: %s\n",
+			dt_dprintf("error parsing library %s: %s",
 			    fname, dtrace_errmsg(dtp, dtrace_errno(dtp)));
 
 		(void) fclose(fp);
@@ -2467,7 +2494,7 @@ dt_load_libs_sort(dtrace_hdl_t *dtp)
 	    dld = dt_list_next(dld)) {
 
 		if ((fp = fopen(dld->dtld_library, "r")) == NULL) {
-			dt_dprintf("skipping library %s: %s\n",
+			dt_dprintf("skipping library %s: %s",
 			    dld->dtld_library, strerror(errno));
 			continue;
 		}
@@ -2482,7 +2509,7 @@ dt_load_libs_sort(dtrace_hdl_t *dtp)
 			goto err;
 
 		if (pgp == NULL) {
-			dt_dprintf("skipping library %s: %s\n",
+			dt_dprintf("skipping library %s: %s",
 			    dld->dtld_library,
 			    dtrace_errmsg(dtp, dtrace_errno(dtp)));
 		} else {
@@ -2565,10 +2592,21 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	(void) dt_idhash_iter(dtp->dt_globals, dt_idreset, NULL);
 	(void) dt_idhash_iter(dtp->dt_tls, dt_idreset, NULL);
 
-	if (fp && (cflags & DTRACE_C_CPP) && (fp = dt_preproc(dtp, fp)) == NULL)
-		return (NULL); /* errno is set for us */
-
 	dt_pcb_push(dtp, &pcb);
+
+	if (fp) {
+		if ((cflags & DTRACE_C_CPP) &&
+		    (fp = dt_preproc(dtp, fp)) == NULL) {
+			return (NULL); /* errno is set for us */
+		}
+		if ((fp = dt_readfile(dtp, &pcb, fp)) == NULL) {
+			return (NULL);
+		}
+		dt_log("compiling file\n%s", pcb.pcb_filebuf);
+	}
+	else if (s) {
+		dt_log("compiling string %s", s);
+	}
 
 	pcb.pcb_fileptr = fp;
 	pcb.pcb_string = s;
@@ -2580,7 +2618,7 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	pcb.pcb_pspec = pspec;
 	pcb.pcb_cflags = dtp->dt_cflags | cflags;
 	pcb.pcb_amin = dtp->dt_amin;
-	pcb.pcb_yystate = -1;
+	pcb.pcb_yystate = YYS_INVALID;
 	pcb.pcb_context = context;
 	pcb.pcb_token = context;
 
@@ -2717,18 +2755,18 @@ out:
 	if (context != DT_CTX_DTYPE && DT_TREEDUMP_PASS(dtp, 3))
 		dt_node_printr(yypcb->pcb_root, stderr, 0);
 
-	if (dtp->dt_cdefs_fd != -1 && (ftruncate64(dtp->dt_cdefs_fd, 0) == -1 ||
-	    lseek64(dtp->dt_cdefs_fd, 0, SEEK_SET) == -1 ||
+	if (dtp->dt_cdefs_fd != -1 && (ftruncate(dtp->dt_cdefs_fd, 0) == -1 ||
+	    lseek(dtp->dt_cdefs_fd, 0, SEEK_SET) == -1 ||
 	    ctf_write(dtp->dt_cdefs->dm_ctfp, dtp->dt_cdefs_fd) == CTF_ERR))
-		dt_dprintf("failed to update CTF cache: %s\n", strerror(errno));
+		dt_dprintf("failed to update CTF cache: %s", strerror(errno));
 
-	if (dtp->dt_ddefs_fd != -1 && (ftruncate64(dtp->dt_ddefs_fd, 0) == -1 ||
-	    lseek64(dtp->dt_ddefs_fd, 0, SEEK_SET) == -1 ||
+	if (dtp->dt_ddefs_fd != -1 && (ftruncate(dtp->dt_ddefs_fd, 0) == -1 ||
+	    lseek(dtp->dt_ddefs_fd, 0, SEEK_SET) == -1 ||
 	    ctf_write(dtp->dt_ddefs->dm_ctfp, dtp->dt_ddefs_fd) == CTF_ERR))
-		dt_dprintf("failed to update CTF cache: %s\n", strerror(errno));
+		dt_dprintf("failed to update CTF cache: %s", strerror(errno));
 
-	if (yypcb->pcb_fileptr && (cflags & DTRACE_C_CPP))
-		(void) fclose(yypcb->pcb_fileptr); /* close dt_preproc() file */
+	if (yypcb->pcb_fileptr)
+		(void) fclose(yypcb->pcb_fileptr); /* close dt_readfile() stream */
 
 	dt_pcb_pop(dtp, err);
 	(void) dt_set_errno(dtp, err);

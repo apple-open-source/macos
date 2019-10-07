@@ -1,0 +1,33 @@
+BUILD_VARIANTS = normal development
+BUILD_VARIANTS[sdk=macosx*] = normal development
+BUILD_VARIANTS[sdk=iphoneos*] = normal development
+
+SDKROOT[sdk=driverkit*] = driverkit.internal
+SDKROOT[sdk=macosx*] = macosx.internal
+
+INSTALL_PATH[sdk=driverkit*] = $(DRIVERKITROOT)/System/Library/Frameworks
+INSTALL_PATH[sdk=macosx*] = $(SYSTEM_LIBRARY_DIR)/Frameworks
+
+CODE_SIGN_IDENTITY = -
+OTHER_CFLAGS = -Wno-shorten-64-to-32 -fno-exceptions -ftrivial-auto-var-init=pattern
+OTHER_CPLUSPLUSFLAGS = -Wno-shorten-64-to-32 -fno-exceptions -ftrivial-auto-var-init=pattern
+OTHER_CFLAGS_development = -DDEVELOPMENT=1
+OTHER_IIG_CFLAGS = -I$(SRCROOT) -isystem $(SDKROOT)/$(DRIVERKITROOT)/usr/local/include -isystem $(SDKROOT)/$(DRIVERKITROOT)/usr/include -iframework $(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks
+GCC_SYMBOLS_PRIVATE_EXTERN = NO
+GCC_ENABLE_CPP_EXCEPTIONS = NO
+GCC_ENABLE_CPP_RTTI[sdk=driverkit*] = NO
+OTHER_TAPI_FLAGS = -x c++ -std=gnu++1z
+OTHER_TAPI_FLAGS[sdk=driverkit*] = $(OTHER_TAPI_FLAGS) -fno-rtti
+
+SUPPORTS_TEXT_BASED_API = YES
+TAPI_VERIFY_MODE = Pedantic
+GCC_WARN_NON_VIRTUAL_DESTRUCTOR = NO
+GCC_WARN_UNUSED_PARAMETER = NO
+LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/../Frameworks @loader_path/Frameworks
+LD_DYLIB_INSTALL_NAME = $(DRIVERKITROOT)/System/Library/Frameworks/$(EXECUTABLE_PATH)
+MACH_O_TYPE = mh_dylib
+INFOPLIST_FILE = HIDDriverKit/Info.plist
+PRODUCT_BUNDLE_IDENTIFIER = com.apple.HIDDriverKit
+UNEXPORTED_SYMBOLS_FILE = HIDDriverKit/HIDDriverKit.unexports
+INSTALLHDRS_SCRIPT_PHASE = YES
+INSTALLHDRS_COPY_PHASE = YES

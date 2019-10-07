@@ -28,6 +28,61 @@
 #import "keychain/ckks/CKKS.h"
 #import "CKKSKeychainView.h"
 
+@interface CKKSSQLResult ()
+@property (nullable) NSString* stringValue;
+@end
+
+@implementation CKKSSQLResult
+- (instancetype)init:(NSString* _Nullable)value
+{
+    if((self = [super init])) {
+        _stringValue = value;
+    }
+    return self;
+}
+
+- (BOOL)asBOOL
+{
+    return [self.stringValue boolValue];
+}
+
+- (NSInteger)asNSInteger
+{
+    return [self.stringValue integerValue];
+}
+
+- (NSString* _Nullable)asString
+{
+    return self.stringValue;
+}
+
+- (NSNumber* _Nullable)asNSNumberInteger
+{
+    if(self.stringValue == nil) {
+        return nil;
+    }
+    return [NSNumber numberWithInteger: [self.stringValue integerValue]];
+}
+
+- (NSDate* _Nullable)asISO8601Date
+{
+    if(self.stringValue == nil) {
+        return nil;
+    }
+
+    NSISO8601DateFormatter* dateFormat = [[NSISO8601DateFormatter alloc] init];
+    return [dateFormat dateFromString:self.stringValue];
+}
+
+- (NSData* _Nullable)asBase64DecodedData
+{
+    if(self.stringValue == nil) {
+        return nil;
+    }
+    return [[NSData alloc] initWithBase64EncodedString:self.stringValue options:0];
+}
+@end
+
 @implementation CKKSSQLDatabaseObject
 
 + (bool) saveToDatabaseTable: (NSString*) table row: (NSDictionary*) row connection: (SecDbConnectionRef) dbconn error: (NSError * __autoreleasing *) error {
@@ -180,14 +235,14 @@
     return status;
 }
 
-+ (bool) queryDatabaseTable:(NSString*) table
-                      where:(NSDictionary*) whereDict
-                    columns:(NSArray*) names
-                    groupBy:(NSArray*) groupColumns
-                    orderBy:(NSArray*) orderColumns
-                      limit:(ssize_t)limit
-                 processRow:(void (^)(NSDictionary*)) processRow
-                      error:(NSError * __autoreleasing *) error {
++ (bool)queryDatabaseTable:(NSString*)table
+                     where:(NSDictionary*)whereDict
+                   columns:(NSArray*)names
+                   groupBy:(NSArray*)groupColumns
+                   orderBy:(NSArray*)orderColumns
+                     limit:(ssize_t)limit
+                processRow:(void (^)(NSDictionary<NSString*, CKKSSQLResult*>*)) processRow
+                     error:(NSError * __autoreleasing *) error {
     __block CFErrorRef cferror = NULL;
 
     kc_with_dbt(true, &cferror, ^bool (SecDbConnectionRef dbconn) {
@@ -209,11 +264,11 @@
             }];
 
             SecDbStep(dbconn, stmt, &cferror, ^(bool *stop) {
-                __block NSMutableDictionary* row = [[NSMutableDictionary alloc] init];
+                __block NSMutableDictionary<NSString*, CKKSSQLResult*>* row = [[NSMutableDictionary alloc] init];
 
                 [names enumerateObjectsUsingBlock:^(id  _Nonnull name, NSUInteger i, BOOL * _Nonnull stop) {
                     const char * col = (const char *) sqlite3_column_text(stmt, (int)i);
-                    row[name] = col ? [NSString stringWithUTF8String:col] : [NSNull null];
+                    row[name] = [[CKKSSQLResult alloc] init:col ? [NSString stringWithUTF8String:col] : nil];
                 }];
 
                 processRow(row);
@@ -227,15 +282,38 @@
     return ret;
 }
 
-+ (bool)queryMaxValueForField:(NSString*)maxField inTable:(NSString*)table where:(NSDictionary*)whereDict columns:(NSArray*)names processRow:(void (^)(NSDictionary*))processRow
++ (NSString *)quotedString:(NSString *)string
+{
+    char *quotedMaxField = sqlite3_mprintf("%q", [string UTF8String]);
+    if (quotedMaxField == NULL) {
+        abort();
+    }
+    NSString *rstring = [NSString stringWithUTF8String:quotedMaxField];
+    sqlite3_free(quotedMaxField);
+    return rstring;
+}
+
++ (bool)queryMaxValueForField:(NSString*)maxField
+                      inTable:(NSString*)table
+                        where:(NSDictionary*)whereDict
+                      columns:(NSArray*)names
+                   processRow:(void (^)(NSDictionary<NSString*, CKKSSQLResult*>*))processRow
 {
     __block CFErrorRef cferror = NULL;
-    
+
     kc_with_dbt(false, &cferror, ^bool(SecDbConnectionRef dbconn) {
-        NSString* columns = [[names componentsJoinedByString:@", "] stringByAppendingFormat:@", %@", maxField];
+        NSString *quotedMaxField = [self quotedString:maxField];
+        NSString *quotedTable = [self quotedString:table];
+
+        NSMutableArray<NSString *>* quotedNames = [NSMutableArray array];
+        for (NSString *element in names) {
+            [quotedNames addObject:[self quotedString:element]];
+        }
+
+        NSString* columns = [[quotedNames componentsJoinedByString:@", "] stringByAppendingFormat:@", %@", quotedMaxField];
         NSString* whereClause = [CKKSSQLDatabaseObject makeWhereClause:whereDict];
         
-        NSString* sql = [[NSString alloc] initWithFormat:@"SELECT %@ FROM %@%@", columns, table, whereClause];
+        NSString* sql = [[NSString alloc] initWithFormat:@"SELECT %@ FROM %@%@", columns, quotedTable, whereClause];
         SecDbPrepare(dbconn, (__bridge CFStringRef)sql, &cferror, ^(sqlite3_stmt* stmt) {
             [whereDict.allKeys enumerateObjectsUsingBlock:^(id  _Nonnull key, NSUInteger i, BOOL* _Nonnull stop) {
                 if ([whereDict[key] class] != [CKKSSQLWhereObject class]) {
@@ -244,11 +322,11 @@
             }];
             
             SecDbStep(dbconn, stmt, &cferror, ^(bool*stop) {
-                __block NSMutableDictionary* row = [[NSMutableDictionary alloc] init];
+                __block NSMutableDictionary<NSString*, CKKSSQLResult*>* row = [[NSMutableDictionary alloc] init];
                 
                 [names enumerateObjectsUsingBlock:^(id  _Nonnull name, NSUInteger i, BOOL * _Nonnull stop) {
                     const char * col = (const char *) sqlite3_column_text(stmt, (int)i);
-                    row[name] = col ? [NSString stringWithUTF8String:col] : [NSNull null];
+                    row[name] = [[CKKSSQLResult alloc] init:col ? [NSString stringWithUTF8String:col] : nil];
                 }];
                 
                 processRow(row);
@@ -338,7 +416,7 @@
                                       groupBy: nil
                                       orderBy:nil
                                         limit: -1
-                                   processRow: ^(NSDictionary* row) {
+                                   processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
                                    ret = [[self fromDatabaseRow: row] memoizeOriginalSelfWhereClause];
                                }
                                         error: error];
@@ -359,7 +437,7 @@
                                       groupBy: nil
                                       orderBy:nil
                                         limit: -1
-                                   processRow: ^(NSDictionary* row) {
+                                   processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
                                        [items addObject: [[self fromDatabaseRow: row] memoizeOriginalSelfWhereClause]];
                                    }
                                         error: error];
@@ -387,7 +465,7 @@
                                       groupBy:nil
                                       orderBy:orderColumns
                                         limit: (ssize_t) count
-                                   processRow: ^(NSDictionary* row) {
+                                   processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
                                        [items addObject: [[self fromDatabaseRow: row] memoizeOriginalSelfWhereClause]];
                                    }
                                         error: error];
@@ -402,7 +480,7 @@
 
 #pragma mark - Subclass methods
 
-+ (instancetype) fromDatabaseRow:(NSDictionary *)row {
++ (instancetype)fromDatabaseRow:(NSDictionary<NSString *, CKKSSQLResult*>*)row {
     @throw [NSException exceptionWithName:NSInternalInconsistencyException
                                    reason:[NSString stringWithFormat:@"A subclass must override %@", NSStringFromSelector(_cmd)]
                                  userInfo:nil];

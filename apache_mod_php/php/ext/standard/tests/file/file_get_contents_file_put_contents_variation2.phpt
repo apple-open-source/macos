@@ -1,9 +1,8 @@
 --TEST--
 Test file_get_contents() and file_put_contents() functions : usage variations - use_include_path
-
 --FILE--
 <?php
-/* Prototype: string file_get_contents( string $filename[, bool $use_include_path[, 
+/* Prototype: string file_get_contents( string $filename[, bool $use_include_path[,
  *                                      resource $context[, int $offset[, int $maxlen]]]] )
  * Description: Reads entire file into a string
  */
@@ -46,7 +45,7 @@ $file_path = dirname(__FILE__);
 unlink($file_path."/file_get_contents_variation2/file_get_contents_variation2.tmp");
 rmdir($file_path."/file_get_contents_variation2");
 ?>
---EXPECTF--
+--EXPECT--
 *** Testing with variation in use_include_path argument ***
 string(240) "text text text text text text text text text text text text text text text text text text text text 22222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222221  Data1 in an array2  Data2 in an array"
 string(240) "text text text text text text text text text text text text text text text text text text text text 22222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222221  Data1 in an array2  Data2 in an array"

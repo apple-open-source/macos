@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -107,21 +107,16 @@ typedef struct {
  * Purpose:
  *   Interface list routines.
  */
-interface_list_t * 	ifl_init();
+interface_list_t * 	ifl_init(void);
 interface_t * 		ifl_first_broadcast_inet(interface_list_t * intface);
 interface_t *		ifl_find_name(interface_list_t * intface, 
 				      const char * name);
-interface_t *		ifl_find_link(interface_list_t * intface,
-				      int link_index);
 interface_t *		ifl_find_ip(interface_list_t * intface,
 				    struct in_addr iaddr);
-interface_t *		ifl_find_subnet(interface_list_t * intface, 
-					struct in_addr iaddr);
 void			ifl_free(interface_list_t * * list_p);
 int			ifl_count(interface_list_t * list_p);
 interface_t *		ifl_at_index(interface_list_t * list_p, int i);
-int			ifl_index(interface_list_t * list_p, 
-				  interface_t * if_p);
+interface_t *		ifl_find_stable_interface(interface_list_t * list_p);
 
 /*
  * Functions: if_*
@@ -135,14 +130,32 @@ uint16_t		if_flags(interface_t * if_p);
 void			if_setflags(interface_t * if_p, uint16_t flags);
 
 int			if_inet_count(interface_t * if_p);
-int			if_inet_find_ip(interface_t * if_p, 
-					struct in_addr iaddr);
 struct in_addr		if_inet_addr(interface_t * if_p);
 struct in_addr		if_inet_netmask(interface_t * if_p);
 struct in_addr		if_inet_netaddr(interface_t * if_p);
 struct in_addr		if_inet_broadcast(interface_t * if_p);
 boolean_t		if_inet_valid(interface_t * if_p);
 inet_addrinfo_t *	if_inet_addr_at(interface_t * if_p, int i);
+int			if_inet_match_subnet(interface_t * if_p,
+					     struct in_addr match);
+static inline struct in_addr
+if_inet_addr_best_match(interface_t * if_p, struct in_addr match)
+{
+    struct in_addr	iaddr;
+    int			where;
+
+    where = if_inet_match_subnet(if_p, match);
+    if (where == INDEX_BAD) {
+	iaddr = if_inet_addr(if_p);
+    }
+    else {
+	inet_addrinfo_t * 	info;
+
+	info = if_inet_addr_at(if_p, where);
+	iaddr = info->addr;
+    }
+    return (iaddr);
+}
 
 int			if_ift_type(interface_t * if_p);
 

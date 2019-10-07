@@ -21,19 +21,24 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if OCTAGON
+
 #import <Foundation/Foundation.h>
 #import "keychain/ckks/CKKSGroupOperation.h"
+#import "keychain/ckks/CKKSProvideKeySetOperation.h"
 
-#if OCTAGON
+NS_ASSUME_NONNULL_BEGIN
 
 @class CKKSKeychainView;
 
-@interface CKKSNewTLKOperation : CKKSGroupOperation
+@interface CKKSNewTLKOperation : CKKSGroupOperation <CKKSKeySetContainerProtocol>
 @property (weak) CKKSKeychainView* ckks;
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif  // OCTAGON

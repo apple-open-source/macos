@@ -49,11 +49,20 @@
 + (NSString*)databasePathForTrust;
 + (NSString*)databasePathForTrustdHealth;
 + (NSString*)databasePathForTLS;
++ (NSString*)databasePathForSignIn;
++ (NSString*)databasePathForCloudServices;
 @end
 
 @interface SFAnalyticsReporter : NSObject
 - (BOOL)saveReport:(NSData *)reportData fileName:(NSString *)fileName;
 @end
+
+extern NSString* const SupdErrorDomain;
+typedef NS_ENUM(NSInteger, SupdError) {
+    SupdNoError = 0,
+    SupdGenericError,
+    SupdInvalidJSONError,
+};
 
 @interface supd : NSObject <supdProtocol>
 + (instancetype)instance;

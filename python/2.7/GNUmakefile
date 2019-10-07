@@ -4,7 +4,7 @@
 # tarball to create the project source directory
 ##---------------------------------------------------------------------
 PROJECT = python
-VERSION = 2.7.10
+VERSION = 2.7.16
 
 PWD := $(shell pwd)
 
@@ -91,7 +91,7 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/Lib/distutils/command/install.py < $(FIX)/install.py.ed && \
 	ed - $(PROJECT)/Lib/distutils/sysconfig.py < $(FIX)/sysconfig.py.ed && \
 	ed - $(PROJECT)/Lib/distutils/tests/test_build_ext.py < $(FIX)/Lib_distutils_tests_test_build_ext.py.ed && \
-	ed - $(PROJECT)/Lib/distutils/ccompiler.py < $(FIX)/ccompiler.py.ed && \
+	patch $(PROJECT)/Lib/distutils/ccompiler.py $(FIX)/ccompiler.py.patch && \
 	ed - $(PROJECT)/Lib/distutils/unixccompiler.py < $(FIX)/unixccompiler.py.ed && \
 	ed - $(PROJECT)/Lib/logging/handlers.py < $(FIX)/Lib_logging_handlers.py.ed && \
 	patch $(PROJECT)/Lib/_osx_support.py $(FIX)/Lib__osx_support.py.patch && \
@@ -103,12 +103,12 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/Lib/test/test_httpservers.py < $(FIX)/Lib_test_test_httpservers.py.ed && \
 	patch $(PROJECT)/Mac/Modules/cf/_CFmodule.c $(FIX)/_CFmodule.c.patch && \
 	patch $(PROJECT)/Mac/Resources/app/Info.plist.in $(FIX)/Mac_Resources_app_Info.plist.in.patch && \
+	ed - $(PROJECT)/Mac/Tools/pythonw.c < $(FIX)/pythonw.c.ed && \
 	ed - $(PROJECT)/Makefile.pre.in < $(FIX)/Makefile.pre.in.ed && \
 	patch $(PROJECT)/Misc/python-config.in $(FIX)/Misc_python-config.in.patch && \
 	patch $(PROJECT)/Misc/python.man $(FIX)/python.man.patch && \
 	ed - $(PROJECT)/Modules/_ctypes/ctypes.h < $(FIX)/ctypes.h.ed && \
-	ed - $(PROJECT)/Modules/_cursesmodule.c < $(FIX)/_cursesmodule.c.ed && \
-	ed - $(PROJECT)/Modules/dlmodule.c < $(FIX)/dlmodule.c.ed && \
+	patch $(PROJECT)/Modules/dlmodule.c $(FIX)/dlmodule.c.patch && \
 	ed - $(PROJECT)/Modules/errnomodule.c < $(FIX)/errnomodule.c.ed && \
 	rm $(PROJECT)/Modules/expat/expat.h $(PROJECT)/Modules/expat/expat_external.h && \
 	ed - $(PROJECT)/Modules/getpath.c < $(FIX)/getpath.c.ed && \
@@ -117,16 +117,16 @@ $(OBJROOT)/$(PROJECT):
 	sed 's/@VERSION@/$(VERS)/' $(FIX)/python.c.ed | ed - $(PROJECT)/Modules/python.c && \
 	ed - $(PROJECT)/Modules/readline.c < $(FIX)/readline.c.ed && \
 	ex - $(PROJECT)/Modules/selectmodule.c < $(FIX)/selectmodule.c.ex && \
-	patch $(PROJECT)/Modules/zipimport.c $(FIX)/Modules_zipimport.c.patch && \
-	ed - $(PROJECT)/Python/ceval.c < $(FIX)/ceval.c.ed && \
+	patch $(PROJECT)/Python/ceval.c $(FIX)/ceval.c.patch && \
 	ed - $(PROJECT)/Python/dynload_shlib.c < $(FIX)/dynload_shlib.c.ed && \
 	patch $(PROJECT)/setup.py $(FIX)/setup.py.patch && \
 	patch $(PROJECT)/setup.py $(FIX)/setup.py-21106613.patch && \
 	ed - $(PROJECT)/setup.py < $(FIX)/setup.py.ed && \
 	ed - $(PROJECT)/Modules/main.c < $(FIX)/Modules_main.c.ed && \
+	patch $(PROJECT)/Modules/main.c $(FIX)/deprecate.diff && \
 	patch $(PROJECT)/Mac/Makefile.in $(FIX)/Mac.Makefile.in.patch && \
 	patch $(PROJECT)/setup.py $(FIX)/setup.py-23359785.patch && \
-	patch $(PROJECT)/Include/pymactoolbox.h $(FIX)/pymactoolbox.h.diff && \
+	(cd $(PROJECT) && patch -p1 < $(FIX)/lchmod.patch) && \
 	patch $(PROJECT)/Python/mactoolboxglue.c $(FIX)/mactoolboxglue.c.diff && \
 	for i in `find $(PROJECT)/Mac -name setup.py | xargs fgrep -l "'-framework', 'Carbon'"`; do \
 	    ed - $$i < $(FIX)/Mac_setup.py.ed || exit 1; \
@@ -135,7 +135,9 @@ $(OBJROOT)/$(PROJECT):
 	    echo '#' > $$i; \
 	done && \
 	echo > $(PROJECT)/Lib/test/nullcert.pem
+	(cd $(PROJECT) && patch -p1 < $(FIX)/PR-46170992.diff)
 	dtrace -h -s $(FIX)/pydtrace.d -o '$(PYDTRACE_H)'
+	(cd $(PROJECT) && patch -R -p1 <$(FIX)/system-paths-revert.patch)
 
 install: installpython
 	install $(FIX)/audiotest.au $(DSTROOT)$(LIBPYTHONVERS)/email/test/data/audiotest.au

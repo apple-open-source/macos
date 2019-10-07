@@ -186,11 +186,9 @@ errno_t ntfs_lookup_inode_by_name(ntfs_inode *dir_ni, const ntfschar *uname,
 		ntfs_debug("In index root, offset 0x%x.",
 				(unsigned)((u8*)ie - (u8*)ir));
 		/* Bounds checks. */
-		if ((u8*)ie < (u8*)&ir->index || (u8*)ie +
-				sizeof(INDEX_ENTRY_HEADER) > index_end ||
-				(u8*)ie + le16_to_cpu(ie->length) >
-				index_end)
+        if (!ntfs_is_index_entry_valid(ie, &ir->index, index_end)) {
 			goto dir_err;
+        }
 		/*
 		 * The last entry cannot contain a name.  It can however
 		 * contain a pointer to a child node in the B+tree so we just
@@ -206,7 +204,7 @@ errno_t ntfs_lookup_inode_by_name(ntfs_inode *dir_ni, const ntfschar *uname,
 		 * returning.
 		 */
 		if (ntfs_are_names_equal(uname, uname_len,
-				(ntfschar*)&ie->key.filename.filename,
+				ie->key.filename.filename,
 				ie->key.filename.filename_length, TRUE,
 				vol->upcase, vol->upcase_len)) {
 found_it:
@@ -260,7 +258,7 @@ found_it:
 		 */
 		if (!NVolCaseSensitive(vol) &&
 				ntfs_are_names_equal(uname, uname_len,
-				(ntfschar*)&ie->key.filename.filename,
+				ie->key.filename.filename,
 				ie->key.filename.filename_length, FALSE,
 				vol->upcase, vol->upcase_len)) {
 			u8 type;
@@ -298,7 +296,7 @@ found_it:
 		 * know which way in the B+tree we have to go.
 		 */
 		rc = ntfs_collate_names(uname, uname_len,
-				(ntfschar*)&ie->key.filename.filename,
+				ie->key.filename.filename,
 				ie->key.filename.filename_length, 1, FALSE,
 				vol->upcase, vol->upcase_len);
 		/*
@@ -318,7 +316,7 @@ found_it:
 		 * collation.
 		 */
 		rc = ntfs_collate_names(uname, uname_len,
-				(ntfschar*)&ie->key.filename.filename,
+				ie->key.filename.filename,
 				ie->key.filename.filename_length, 1, TRUE,
 				vol->upcase, vol->upcase_len);
 		if (rc == -1)
@@ -444,13 +442,8 @@ fast_descend_into_child_node:
 	 */
 	for (;; ie = (INDEX_ENTRY*)((u8*)ie + le16_to_cpu(ie->length))) {
 		/* Bounds check. */
-		if ((u8*)ie < (u8*)&ia->index || (u8*)ie +
-				sizeof(INDEX_ENTRY_HEADER) > index_end ||
-				(u8*)ie + le16_to_cpu(ie->length) >
-				index_end) {
-			ntfs_error(mp, "Index entry out of bounds in "
-					"directory inode 0x%llx.",
-					(unsigned long long)dir_ni->mft_no);
+		if (!ntfs_is_index_entry_valid(ie, &ia->index, index_end)) {
+			ntfs_error(mp, "Index entry out of bounds in directory inode 0x%llx.", (unsigned long long)dir_ni->mft_no);
 			goto page_err;
 		}
 		/*
@@ -468,7 +461,7 @@ fast_descend_into_child_node:
 		 * returning.
 		 */
 		if (ntfs_are_names_equal(uname, uname_len,
-				(ntfschar*)&ie->key.filename.filename,
+				ie->key.filename.filename,
 				ie->key.filename.filename_length, TRUE,
 				vol->upcase, vol->upcase_len)) {
 found_it2:
@@ -524,7 +517,7 @@ found_it2:
 		 */
 		if (!NVolCaseSensitive(vol) &&
 				ntfs_are_names_equal(uname, uname_len,
-				(ntfschar*)&ie->key.filename.filename,
+				ie->key.filename.filename,
 				ie->key.filename.filename_length, FALSE,
 				vol->upcase, vol->upcase_len)) {
 			u8 type;
@@ -562,7 +555,7 @@ found_it2:
 		 * know which way in the B+tree we have to go.
 		 */
 		rc = ntfs_collate_names(uname, uname_len,
-				(ntfschar*)&ie->key.filename.filename,
+				ie->key.filename.filename,
 				ie->key.filename.filename_length, 1, FALSE,
 				vol->upcase, vol->upcase_len);
 		/*
@@ -582,7 +575,7 @@ found_it2:
 		 * collation.
 		 */
 		rc = ntfs_collate_names(uname, uname_len,
-				(ntfschar*)&ie->key.filename.filename,
+				ie->key.filename.filename,
 				ie->key.filename.filename_length, 1, TRUE,
 				vol->upcase, vol->upcase_len);
 		if (rc == -1)
@@ -730,7 +723,7 @@ static inline int ntfs_do_dirent(ntfs_volume *vol, INDEX_ENTRY *ie,
 	}
 	utf8_name = (u8*)de->d_name;
 	utf8_size = sizeof(de->d_name);
-	res_size = ntfs_to_utf8(vol, (ntfschar*)&ie->key.filename.filename,
+	res_size = ntfs_to_utf8(vol, ie->key.filename.filename,
 			ie->key.filename.filename_length << NTFSCHAR_SIZE_SHIFT,
 			&utf8_name, &utf8_size);
 	if (res_size <= 0) {
@@ -1593,10 +1586,9 @@ errno_t ntfs_dir_is_empty(ntfs_inode *dir_ni)
 	ie = (INDEX_ENTRY*)((u8*)&ir->index +
 			le32_to_cpu(ir->index.entries_offset));
 	/* Bounds checks. */
-	if ((u8*)ie < (u8*)&ir->index ||
-			(u8*)ie + sizeof(INDEX_ENTRY_HEADER) > index_end ||
-			(u8*)ie + le16_to_cpu(ie->length) > index_end)
+    if (!ntfs_is_index_entry_valid(ie, &ir->index, index_end)) {
 		goto dir_err;
+    }
 	/*
 	 * If this is not the end node, it is a filename and thus the directory
 	 * is not empty.
@@ -1756,10 +1748,9 @@ find_next_index_buffer:
 	ie = (INDEX_ENTRY*)((u8*)&ia->index +
 			le32_to_cpu(ia->index.entries_offset));
 	/* Bounds checks. */
-	if ((u8*)ie < (u8*)&ia->index ||
-			(u8*)ie + sizeof(INDEX_ENTRY_HEADER) > index_end ||
-			(u8*)ie + le16_to_cpu(ie->length) > index_end)
+    if (!ntfs_is_index_entry_valid(ie, &ia->index, index_end)) {
 		goto dir_err;
+    }
 	/*
 	 * If this is the end node, it is not a filename so we continue to the
 	 * next index block.

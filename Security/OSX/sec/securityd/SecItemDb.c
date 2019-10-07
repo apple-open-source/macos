@@ -27,6 +27,12 @@
     passwords.)
  */
 
+#if TARGET_DARWINOS
+#undef OCTAGON
+#undef SECUREOBJECTSYNC
+#undef SHAREDWEBCREDENTIALS
+#endif
+
 #include <securityd/SecItemDb.h>
 #include <utilities/SecAKSWrappers.h>
 
@@ -43,7 +49,6 @@
 #include <utilities/array_size.h>
 #include <utilities/SecIOFormat.h>
 #include <utilities/SecCFCCWrappers.h>
-#include <SecAccessControlPriv.h>
 #include <uuid/uuid.h>
 #include "sec_action.h"
 
@@ -68,7 +73,7 @@ const SecDbAttr *SecDbAttrWithKey(const SecDbClass *c,
             if (CFEqual(a->name, key))
                 return a;
         }
-        if (CFEqual(kSecAttrNoLegacy, key)) {
+        if (CFEqual(kSecUseDataProtectionKeychain, key)) {
             return NULL; /* results in no ops for this attribute */
         }
     }
@@ -428,6 +433,10 @@ handle_result(Query *q,
     CFTypeRef a_result;
     CFDataRef data;
     data = CFDictionaryGetValue(item, kSecValueData);
+	CFDataRef pref = NULL;
+	if (q->q_return_type & kSecReturnPersistentRefMask) {
+		pref = _SecItemCreatePersistentRef(q->q_class->name, rowid, item);
+	}
 	if (q->q_return_type == 0) {
 		/* Caller isn't interested in any results at all. */
 		a_result = kCFNull;
@@ -481,16 +490,14 @@ handle_result(Query *q,
             }
             CFReleaseSafe(data);
         }
-		if (q->q_return_type & kSecReturnPersistentRefMask) {
-            CFDataRef pref = _SecItemCreatePersistentRef(q->q_class->name, rowid, item);
+		if (q->q_return_type & kSecReturnPersistentRefMask && pref != NULL) {
 			CFDictionarySetValue(item, kSecValuePersistentRef, pref);
-            CFRelease(pref);
 		}
 
 		a_result = item;
         CFRetain(item);
 	}
-
+	CFReleaseSafe(pref);
 	return a_result;
 }
 
@@ -500,6 +507,7 @@ static void s3dl_merge_into_dict(const void *key, const void *value, void *conte
 
 static bool checkTokenObjectID(CFDataRef token_object_id, CFDataRef value_data) {
     bool equalOID = false;
+    require_quiet(value_data, out);
     CFDictionaryRef itemValue = SecTokenItemValueCopy(value_data, NULL);
     require_quiet(itemValue, out);
     CFDataRef oID = CFDictionaryGetValue(itemValue, kSecTokenValueObjectIDKey);
@@ -526,6 +534,29 @@ decode:
         if (status == errSecDecode) {
             secwarning("ignoring corrupt %@,rowid=%" PRId64 " %@", q->q_class->name, rowid, q->q_error);
             {
+                CFStringRef tablename = CFStringCreateCopy(kCFAllocatorDefault, q->q_class->name);
+                // Can't get rid of this item on the read path. Let's come back from elsewhere.
+                dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+                    __block CFErrorRef localErr = NULL;
+                    __block bool ok = true;
+                    ok &= kc_with_dbt(true, &localErr, ^bool(SecDbConnectionRef dbt) {
+                        CFStringRef sql = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("DELETE FROM %@ WHERE rowid=%lli"), tablename, rowid);
+                        ok &= SecDbPrepare(dbt, sql, &localErr, ^(sqlite3_stmt *stmt) {
+                            ok &= SecDbStep(dbt, stmt, &localErr, NULL);
+                        });
+
+                        if (!ok || localErr) {
+                            secerror("Failed to delete corrupt item, %@ row %lli: %@", tablename, rowid, localErr);
+                        } else {
+                            secnotice("item", "Deleted corrupt rowid %lli from table %@", rowid, tablename);
+                        }
+                        CFReleaseNull(localErr);
+                        CFReleaseNull(sql);
+                        CFReleaseSafe(tablename);
+                        return ok;
+                    });
+                });
+
                 CFDataRef edata = s3dl_copy_data_from_col(stmt, 1, NULL);
                 CFMutableStringRef edatastring =  CFStringCreateMutable(kCFAllocatorDefault, 0);
                 if(edatastring) {
@@ -535,7 +566,7 @@ decode:
                 CFReleaseSafe(edata);
                 CFReleaseSafe(edatastring);
             }
-            CFReleaseNull(q->q_error);
+            CFReleaseNull(q->q_error);  // This item was never here, keep going
         } else if (status == errSecAuthNeeded) {
             secwarning("Authentication is needed for %@,rowid=%" PRId64 " (%" PRIdOSStatus "): %@", q->q_class->name, rowid, status, q->q_error);
         } else if (status == errSecInteractionNotAllowed) {
@@ -548,6 +579,10 @@ decode:
                 });
             });
             sec_action_perform(kclockedaction);
+        } else if (status == errSecMissingEntitlement) {
+            // That's fine, let's pretend the item never existed for this query.
+            // We may find other, better items for the caller!
+            CFReleaseNull(q->q_error);
         } else {
             secerror("decode %@,rowid=%" PRId64 " failed (%" PRIdOSStatus "): %@", q->q_class->name, rowid, status, q->q_error);
         }
@@ -1290,6 +1325,16 @@ bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bool mult
                 return true;
             }
         }
+
+        if (isString(service) && CFEqual(service, CFSTR("com.apple.account.CloudKit.token"))) {
+            secdebug("backup", "found sys_bound item: %@", item);
+            return true;
+        }
+
+        if (isString(service) && CFEqual(service, CFSTR("com.apple.account.idms.continuation-key"))) {
+            secdebug("backup", "found sys_bound item: %@", item);
+            return true;
+        }
     }
 
     if (multiUser && CFEqual(agrp, CFSTR("com.apple.apsd")) && cls == genp_class()) {
@@ -1397,6 +1442,10 @@ bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bool mult
         }
     }
 
+    if (multiUser && CFEqual(agrp, CFSTR("com.apple.rapport")) && cls == genp_class()) {
+        secdebug("backup", "found exact sys_bound item: %@", item);
+        return true;
+    }
 
     secdebug("backup", "found non sys_bound item: %@", item);
     return false;
@@ -1510,8 +1559,9 @@ static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
         }
     }
 
-    bool is_akpu = access_control ? CFEqualSafe(SecAccessControlGetProtection(access_control),
-                                                kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly) : keyclass == key_class_akpu;
+    bool is_akpu = access_control ? CFEqualSafe(SecAccessControlGetProtection(access_control), kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly)
+                                  // Mask generation, only look at class per se
+                                  : (keyclass & key_class_last) == key_class_akpu;
     bool is_token = (ok && allAttributes != NULL) ? CFDictionaryContainsKey(allAttributes, kSecAttrTokenID) : false;
 
     if (ok && allAttributes && !(skip_akpu_or_token && (is_akpu || is_token))) {
@@ -1558,7 +1608,13 @@ static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
     } else {
         OSStatus status = SecErrorGetOSStatus(localError);
 
-        if (status == errSecInteractionNotAllowed && is_akpu && skip_akpu_or_token) {
+        if (status == errSecInteractionNotAllowed && is_akpu) {
+            if (skip_akpu_or_token) {
+                secdebug("item", "Skipping akpu item for backup");
+            } else {    // Probably failed to decrypt sysbound item. Should never be an akpu item in backup.
+                secerror("Encountered akpu item we cannot export (filter %d), skipping. %@", c->filter, localError);
+                // TODO: Find out who is doing this somehow and make them not do this
+            }
             // We expect akpu items to be inaccessible when the device is locked.
             CFReleaseNull(localError);
         } else {
@@ -1566,11 +1622,11 @@ static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
             /* If the error is "corrupted item" then we just ignore it, otherwise we save it in the query */
             secinfo("item","Could not export item for rowid %llu: %@", rowid, localError);
 
-            if(status == errSecDecode) {
+            if (status == errSecDecode) {
                 CFReleaseNull(localError);
             } else {
                 CFReleaseSafe(q->q_error);
-                q->q_error=localError;
+                q->q_error = localError;
             }
         }
     }
@@ -1638,8 +1694,9 @@ SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
         CFRetain(q.q_musrView);
 
         keybaguuid = SecCreateKeybagUUID(dest_keybag);
-        if (keybaguuid)
+        if (keybaguuid) {
             CFDictionarySetValue(keychain, kSecBackupKeybagUUIDKey, keybaguuid);
+        }
     }
 
     /* Get rid of this duplicate. */
@@ -1659,10 +1716,11 @@ SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
             .multiUser = inMultiUser,
         };
 
-        secnotice("item", "exporting class '%@'", q.q_class->name);
+        secnotice("item", "exporting %ssysbound class '%@'", filter != kSecSysBoundItemFilter ? "non-" : "", q.q_class->name);
 
         CFErrorRef localError = NULL;
         if (s3dl_query(s3dl_export_row, &ctx, &localError)) {
+            secnotice("item", "exporting class '%@' complete", q.q_class->name);
             if (CFArrayGetCount(ctx.qc.result)) {
                 SecSignpostBackupCount(SecSignpostImpulseBackupClassCount, q.q_class->name, CFArrayGetCount(ctx.qc.result), filter);
                 CFDictionaryAddValue(keychain, q.q_class->name, ctx.qc.result);
@@ -1671,9 +1729,10 @@ SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
         } else {
             OSStatus status = (OSStatus)CFErrorGetCode(localError);
             if (status == errSecItemNotFound) {
+                secnotice("item", "exporting class '%@' complete (no items)", q.q_class->name);
                 CFRelease(localError);
             } else {
-                secerror("Export failed: %@", localError);
+                secerror("exporting class '%@' failed: %@", q.q_class->name, localError);
                 if (error) {
                     CFReleaseSafe(*error);
                     *error = localError;
@@ -1731,44 +1790,7 @@ SecServerImportItem(const void *value, void *context)
 
     secdebug("item", "Import Item : %@", dict);
 
-    /* We use the kSecSysBoundItemFilter to indicate that we don't
-     * preserve rowid's during import.
-     */
-    if (state->s->filter == kSecBackupableItemFilter) {
-        CFTypeRef pdmu;
-        
-        /* We don't filter non sys_bound items during import since we know we
-         * will never have any in this case.
-         */
-        if (SecItemIsSystemBound(dict, state->class, inMultiUser))
-            return;
-        
-        /* 
-         * Don't bother with u items when in edu mode since our current backup system
-         * don't keep track of items that blongs to the device (u) but rather just
-         * merge them into one blob.
-         */
-        if (inMultiUser && (pdmu = CFDictionaryGetValue(dict, kSecAttrAccessible))) {
-            if (CFEqual(pdmu, kSecAttrAccessibleWhenUnlockedThisDeviceOnly)     ||
-                CFEqual(pdmu, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly) ||
-                CFEqual(pdmu, kSecAttrAccessibleWhenUnlockedThisDeviceOnly)     ||
-                CFEqual(pdmu, kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly))
-            {
-                secdebug("item", "Skipping KU item : %@", dict);
-                return;
-            }
-        }
-
-        /* Avoid importing token-based items.  Although newer backups should not have them,
-         * older (iOS9, iOS10.0) produced backups with token-based items.
-         */
-        if (CFDictionaryContainsKey(dict, kSecAttrTokenID)) {
-            secdebug("item", "Skipping token-based item : %@", dict);
-            return;
-        }
-    }
-
-    SecDbItemRef item;
+    SecDbItemRef item = NULL;
 
     /* This is sligthly confusing:
      - During upgrade all items are exported with KEYBAG_NONE.
@@ -1781,13 +1803,62 @@ SecServerImportItem(const void *value, void *context)
         item = SecDbItemCreateWithBackupDictionary(kCFAllocatorDefault, state->class, dict, state->s->src_keybag, state->s->dest_keybag, &state->s->error);
     }
 
+    /* If item is NULL here, control flow ends up at the end where error is cleared. */
+    if (item && !SecDbItemEnsureDecrypted(item, true, &state->s->error)) {
+        secdebug("item", "Failed to import item because of decryption failure: %@", state->s->error);
+        CFReleaseNull(item);
+        /* No early return; as just above, go to the end where error is cleared. */
+    }
+
+    /* We use the kSecSysBoundItemFilter to indicate that we don't
+     * preserve rowid's during import.
+     */
+    if (item && item->attributes && state->s->filter == kSecBackupableItemFilter) {
+        CFTypeRef pdmu;
+
+        /* We don't filter non sys_bound items during import since we know we
+         * will never have any in this case.
+         */
+        if (SecItemIsSystemBound(item->attributes, state->class, inMultiUser)) {
+            secdebug("item", "skipping backup of item: %@", dict);
+            CFReleaseNull(item);
+            return;
+        }
+
+        /*
+         * Don't bother with u items when in edu mode since our current backup system
+         * don't keep track of items that blongs to the device (u) but rather just
+         * merge them into one blob.
+         */
+        if (inMultiUser && (pdmu = CFDictionaryGetValue(item->attributes, kSecAttrAccessible))) {
+            if (CFEqual(pdmu, kSecAttrAccessibleWhenUnlockedThisDeviceOnly)     ||
+                CFEqual(pdmu, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly) ||
+                CFEqual(pdmu, kSecAttrAccessibleWhenUnlockedThisDeviceOnly)     ||
+                CFEqual(pdmu, kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly))
+            {
+                secdebug("item", "Skipping KU item : %@", dict);
+                CFReleaseNull(item);
+                return;
+            }
+        }
+
+        /* Avoid importing token-based items.  Although newer backups should not have them,
+         * older (iOS9, iOS10.0) produced backups with token-based items.
+         */
+        if (CFDictionaryContainsKey(item->attributes, kSecAttrTokenID)) {
+            secdebug("item", "Skipping token-based item : %@", dict);
+            CFReleaseNull(item);
+            return;
+        }
+    }
+
     /*
      *
      */
 
-    if (item) {
+    if (item && item->attributes) {
         CFDataRef musr = NULL;
-        CFDataRef musrBackup = CFDictionaryGetValue(dict, kSecAttrMultiUser);
+        CFDataRef musrBackup = CFDictionaryGetValue(item->attributes, kSecAttrMultiUser);
         CFDataRef systemKeychainUUID = SecMUSRGetSystemKeychainUUID();
         bool systemKeychain = CFEqualSafe(musrBackup, systemKeychainUUID);
 
@@ -1843,7 +1914,7 @@ SecServerImportItem(const void *value, void *context)
             SecDbItemClearRowId(item, NULL);
             SecDbItemInsert(item, state->s->dbt, &state->s->error);
         }
-	}
+    }
 
     /* Reset error if we had one, since we just skip the current item
      and continue importing what we can. */
@@ -1948,11 +2019,16 @@ bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt, SecurityClient *clie
             // Custom hack to support bluetooth's workflow for 11.3. Should be removed in a future release.
             __block CFErrorRef btError = NULL;
             bool deletedBT = kc_transaction(dbt, &btError, ^bool{
-                bool ok = SecDbExec(dbt, CFSTR("DELETE FROM genp WHERE sync = 0 AND NOT agrp IN ('com.apple.security.sos', 'com.apple.security.sos-usercredential', 'com.apple.security.ckks');"), &btError);
-                ok &= SecDbExec(dbt, CFSTR("DELETE FROM inet WHERE sync = 0 AND NOT agrp IN ('com.apple.security.sos', 'com.apple.security.sos-usercredential', 'com.apple.security.ckks');"), &btError);
-                ok &= SecDbExec(dbt, CFSTR("DELETE FROM cert WHERE sync = 0 AND NOT agrp IN ('com.apple.security.sos', 'com.apple.security.sos-usercredential', 'com.apple.security.ckks');"), &btError);
-                ok &= SecDbExec(dbt, CFSTR("DELETE FROM keys WHERE sync = 0 AND NOT agrp IN ('com.apple.security.sos', 'com.apple.security.sos-usercredential', 'com.apple.security.ckks');"), &btError);
-                return ok;
+
+#define EXCLUDE_AGRPS "'com.apple.security.sos', 'com.apple.security.sos-usercredential', 'com.apple.security.ckks', 'com.apple.security.egoIdentities', 'com.apple.security.octagon'"
+
+                bool tok = SecDbExec(dbt, CFSTR("DELETE FROM genp WHERE sync = 0 AND NOT agrp IN (" EXCLUDE_AGRPS ");"), &btError);
+                tok &= SecDbExec(dbt, CFSTR("DELETE FROM inet WHERE sync = 0 AND NOT agrp IN (" EXCLUDE_AGRPS ");"), &btError);
+                tok &= SecDbExec(dbt, CFSTR("DELETE FROM cert WHERE sync = 0 AND NOT agrp IN (" EXCLUDE_AGRPS ");"), &btError);
+                tok &= SecDbExec(dbt, CFSTR("DELETE FROM keys WHERE sync = 0 AND NOT agrp IN (" EXCLUDE_AGRPS ");"), &btError);
+
+#undef EXCLUDE_AGRPS
+                return tok;
             });
             if (!deletedBT) {
                 secerror("Unable to delete nonsyncable items prior to keychain restore: %@", btError);
@@ -1993,7 +2069,9 @@ bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt, SecurityClient *clie
 
     // If CKKS had spun up, it's very likely that we just deleted its data.
     // Tell it to perform a local resync.
+#if OCTAGON
     SecCKKSPerformLocalResync();
+#endif
 
 errOut:
     CFReleaseSafe(sys_bound);
@@ -2103,7 +2181,7 @@ bool s3dl_dbt_update_keys(SecDbConnectionRef dbt, SecurityClient *client, CFErro
             (keystore_generation_status & generation_change_in_progress)) {
             
             /* take a lock assertion */
-            bool operated_while_unlocked = SecAKSDoWhileUserBagLocked(error, ^{
+            bool operated_while_unlocked = SecAKSDoWithUserBagLockAssertion(error, ^{
                 CFErrorRef localError = NULL;
                 CFDictionaryRef backup = SecServerCopyKeychainPlist(dbt, NULL,
                                                                     KEYBAG_DEVICE, KEYBAG_NONE, kSecNoItemFilter, &localError);

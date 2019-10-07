@@ -14,6 +14,7 @@
 				1812F1ED1C8F923900F3DC9E /* CopyFiles */,
 			);
 			dependencies = (
+				358407D62245AD55006A0D8E /* PBXTargetDependency */,
 				926913A61EC706130079D787 /* PBXTargetDependency */,
 				1812F18D1C8F923900F3DC9E /* PBXTargetDependency */,
 				1812F18F1C8F923900F3DC9E /* PBXTargetDependency */,
@@ -72,6 +73,7 @@
 				C9D64CD21B91066B00CFA43B /* CopyFiles */,
 			);
 			dependencies = (
+				358407D22245AD40006A0D8E /* PBXTargetDependency */,
 				926913A21EC706010079D787 /* PBXTargetDependency */,
 				08CE3D361E6E24CC00DF1B78 /* PBXTargetDependency */,
 				C21481471C1A1447003BCA63 /* PBXTargetDependency */,
@@ -229,6 +231,7 @@
 				C9D64CD01B91064700CFA43B /* CopyFiles */,
 			);
 			dependencies = (
+				358407D42245AD4B006A0D8E /* PBXTargetDependency */,
 				926913A41EC706080079D787 /* PBXTargetDependency */,
 				08CE3D381E6E24DF00DF1B78 /* PBXTargetDependency */,
 				C21481491C1A14AD003BCA63 /* PBXTargetDependency */,
@@ -316,6 +319,10 @@
 		1523FE6C1595056C00661E82 /* ltop.c in Sources */ = {isa = PBXBuildFile; fileRef = 1523FE6B1595056C00661E82 /* ltop.c */; };
 		1523FE6D1595058100661E82 /* ltop.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1523FE6A1595056C00661E82 /* ltop.1 */; };
 		1812F1EE1C8F923900F3DC9E /* system_cmds.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C9D64CCF1B91063200CFA43B /* system_cmds.plist */; };
+		358407CE2245AC09006A0D8E /* cpuctl.c in Sources */ = {isa = PBXBuildFile; fileRef = 358407CD2245AC09006A0D8E /* cpuctl.c */; };
+		358407D02245AC32006A0D8E /* cpuctl.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 358407CF2245AC32006A0D8E /* cpuctl.8 */; };
+		5262264121E8295A0053ABA1 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 189337C21CC7CB4800B2A6A4 /* CoreFoundation.framework */; };
+		5262264221ED5A780053ABA1 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C9E0691D1C58BDB800C956EB /* IOKit.framework */; };
 		550C19E61804D226001DA380 /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = BA4B7A091373BA4600003422 /* libutil.dylib */; };
 		550C19EC1804D281001DA380 /* iosim.c in Sources */ = {isa = PBXBuildFile; fileRef = 550C19E11804C55E001DA380 /* iosim.c */; };
 		550C19ED1804D295001DA380 /* iosim.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 550C19E01804C55E001DA380 /* iosim.1 */; };
@@ -894,6 +901,27 @@
 			proxyType = 1;
 			remoteGlobalIDString = BACC1D0D1377B481007728F4;
 			remoteInfo = mean;
+		};
+		358407D12245AD40006A0D8E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA2DE9181372FA9100D1913C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3521C84C2245AA92001B3201;
+			remoteInfo = cpuctl;
+		};
+		358407D32245AD4B006A0D8E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA2DE9181372FA9100D1913C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3521C84C2245AA92001B3201;
+			remoteInfo = cpuctl;
+		};
+		358407D52245AD55006A0D8E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA2DE9181372FA9100D1913C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3521C84C2245AA92001B3201;
+			remoteInfo = cpuctl;
 		};
 		550C19EE1804D2AD001DA380 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -1729,6 +1757,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		3521C84B2245AA92001B3201 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				358407D02245AC32006A0D8E /* cpuctl.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		550C19E71804D226001DA380 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2328,6 +2366,10 @@
 		1523FE6B1595056C00661E82 /* ltop.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ltop.c; sourceTree = "<group>"; };
 		189337C21CC7CB4800B2A6A4 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		18EA07101C99C76C006D3005 /* EmbeddedOSSupportHost.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = EmbeddedOSSupportHost.framework; path = System/Library/PrivateFrameworks/EmbeddedOSSupportHost.framework; sourceTree = SDKROOT; };
+		3521C84D2245AA92001B3201 /* cpuctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cpuctl; sourceTree = BUILT_PRODUCTS_DIR; };
+		3521C8562245AB52001B3201 /* cpuctl.tproj */ = {isa = PBXFileReference; lastKnownFileType = folder; path = cpuctl.tproj; sourceTree = "<group>"; };
+		358407CD2245AC09006A0D8E /* cpuctl.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = cpuctl.c; path = cpuctl.tproj/cpuctl.c; sourceTree = "<group>"; };
+		358407CF2245AC32006A0D8E /* cpuctl.8 */ = {isa = PBXFileReference; lastKnownFileType = text; name = cpuctl.8; path = cpuctl.tproj/cpuctl.8; sourceTree = "<group>"; };
 		550C19E01804C55E001DA380 /* iosim.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = iosim.1; sourceTree = "<group>"; };
 		550C19E11804C55E001DA380 /* iosim.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = iosim.c; sourceTree = "<group>"; };
 		550C19EB1804D226001DA380 /* iosim */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = iosim; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -2540,7 +2582,6 @@
 		BA4FD2E51372FAFA0025925C /* zprint.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = zprint.1; sourceTree = "<group>"; };
 		BA4FD2E61372FAFA0025925C /* zprint.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = zprint.c; sourceTree = "<group>"; };
 		BA4FD2EF1372FB3D0025925C /* ac */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ac; sourceTree = BUILT_PRODUCTS_DIR; };
-		BA4FD2FB1372FB710025925C /* BSD.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = BSD.xcconfig; path = Makefiles/CoreOS/Xcode/BSD.xcconfig; sourceTree = DEVELOPER_DIR; };
 		BA4FD30D1372FFD80025925C /* accton */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = accton; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA4FD323137300EE0025925C /* arch */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = arch; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA4FD3411373073E0025925C /* at */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = at; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -2601,6 +2642,7 @@
 		C625B28816D6F27E00168EF7 /* taskpolicy */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = taskpolicy; sourceTree = BUILT_PRODUCTS_DIR; };
 		C625B28A16D6F27E00168EF7 /* taskpolicy.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = taskpolicy.c; sourceTree = "<group>"; };
 		C625B28C16D6F27E00168EF7 /* taskpolicy.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = taskpolicy.8; sourceTree = "<group>"; };
+		C913CA2E2228B622000051A0 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
 		C96F50AC15BDCBF0008682F7 /* lsmp.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = lsmp.1; path = lsmp.tproj/lsmp.1; sourceTree = SOURCE_ROOT; };
 		C96F50AD15BDCE8E008682F7 /* lsmp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = lsmp.c; path = lsmp.tproj/lsmp.c; sourceTree = SOURCE_ROOT; };
 		C96F50B715BDCEC3008682F7 /* lsmp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = lsmp; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -2648,10 +2690,19 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		3521C84A2245AA92001B3201 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		550C19E51804D226001DA380 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5262264221ED5A780053ABA1 /* IOKit.framework in Frameworks */,
+				5262264121E8295A0053ABA1 /* CoreFoundation.framework in Frameworks */,
 				550C19E61804D226001DA380 /* libutil.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3150,10 +3201,13 @@
 		BA2DE9161372FA9100D1913C = {
 			isa = PBXGroup;
 			children = (
+				358407CF2245AC32006A0D8E /* cpuctl.8 */,
+				358407CD2245AC09006A0D8E /* cpuctl.c */,
+				3521C8562245AB52001B3201 /* cpuctl.tproj */,
+				C913CA2E2228B622000051A0 /* base.xcconfig */,
 				08CE3D321E6E22DE00DF1B78 /* stackshot.c */,
 				18EA07101C99C76C006D3005 /* EmbeddedOSSupportHost.framework */,
 				BA4FD1E11372FAFA0025925C /* APPLE_LICENSE */,
-				BA4FD2FB1372FB710025925C /* BSD.xcconfig */,
 				C9D64CCF1B91063200CFA43B /* system_cmds.plist */,
 				BA4FD1D91372FAFA0025925C /* ac.tproj */,
 				BA4FD1DD1372FAFA0025925C /* accton.tproj */,
@@ -3748,6 +3802,7 @@
 				08CE3D291E6E22A200DF1B78 /* stackshot */,
 				0D06BC5E1E8F08CB00C6EC2D /* mslutil */,
 				F2291F5D1FFEBB6A00161936 /* zlog */,
+				3521C84D2245AA92001B3201 /* cpuctl */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -3931,6 +3986,23 @@
 			name = ltop;
 			productName = ac;
 			productReference = 1523FE631595048900661E82 /* ltop */;
+			productType = "com.apple.product-type.tool";
+		};
+		3521C84C2245AA92001B3201 /* cpuctl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3521C8512245AA92001B3201 /* Build configuration list for PBXNativeTarget "cpuctl" */;
+			buildPhases = (
+				3521C8492245AA92001B3201 /* Sources */,
+				3521C84A2245AA92001B3201 /* Frameworks */,
+				3521C84B2245AA92001B3201 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = cpuctl;
+			productName = cpuctl;
+			productReference = 3521C84D2245AA92001B3201 /* cpuctl */;
 			productType = "com.apple.product-type.tool";
 		};
 		550C19E21804D226001DA380 /* iosim */ = {
@@ -4772,6 +4844,7 @@
 		BA2DE9181372FA9100D1913C /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				DefaultBuildSystemTypeForWorkspace = Original;
 				LastUpgradeCheck = 0600;
 				TargetAttributes = {
 					08CE3D281E6E22A200DF1B78 = {
@@ -4791,6 +4864,10 @@
 					};
 					1812F18C1C8F923900F3DC9E = {
 						ProvisioningStyle = Manual;
+					};
+					3521C84C2245AA92001B3201 = {
+						CreatedOnToolsVersion = 11.0;
+						ProvisioningStyle = Automatic;
 					};
 					550C19E21804D226001DA380 = {
 						ProvisioningStyle = Manual;
@@ -5046,6 +5123,7 @@
 				08CE3D281E6E22A200DF1B78 /* stackshot */,
 				0D06BC5D1E8F08CB00C6EC2D /* mslutil */,
 				F2291F501FFEBB6A00161936 /* zlog */,
+				3521C84C2245AA92001B3201 /* cpuctl */,
 			);
 		};
 /* End PBXProject section */
@@ -5360,6 +5438,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				1523FE6C1595056C00661E82 /* ltop.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3521C8492245AA92001B3201 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				358407CE2245AC09006A0D8E /* cpuctl.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6053,6 +6139,21 @@
 			isa = PBXTargetDependency;
 			target = BACC1D0D1377B481007728F4 /* mean */;
 			targetProxy = 1812F1EC1C8F923900F3DC9E /* PBXContainerItemProxy */;
+		};
+		358407D22245AD40006A0D8E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3521C84C2245AA92001B3201 /* cpuctl */;
+			targetProxy = 358407D12245AD40006A0D8E /* PBXContainerItemProxy */;
+		};
+		358407D42245AD4B006A0D8E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3521C84C2245AA92001B3201 /* cpuctl */;
+			targetProxy = 358407D32245AD4B006A0D8E /* PBXContainerItemProxy */;
+		};
+		358407D62245AD55006A0D8E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3521C84C2245AA92001B3201 /* cpuctl */;
+			targetProxy = 358407D52245AD55006A0D8E /* PBXContainerItemProxy */;
 		};
 		550C19EF1804D2AD001DA380 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -6900,8 +7001,9 @@
 		};
 		18732FE218CBD4A700275344 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = BA4FD2FB1372FB710025925C /* BSD.xcconfig */;
+			baseConfigurationReference = C913CA2E2228B622000051A0 /* base.xcconfig */;
 			buildSettings = {
+				APPLY_RULES_IN_COPY_FILES = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -6910,6 +7012,7 @@
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				PLIST_FILE_OUTPUT_FORMAT = binary;
 				SUPPORTED_PLATFORMS = "macosx watchos iphoneos";
 				WARNING_CFLAGS = (
 					"-Wall",
@@ -7469,6 +7572,56 @@
 			};
 			name = Debug;
 		};
+		3521C8522245AA92001B3201 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = cpuctl;
+			};
+			name = Release;
+		};
+		3521C8532245AA92001B3201 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = cpuctl;
+			};
+			name = Debug;
+		};
 		550C19EA1804D226001DA380 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -7731,14 +7884,16 @@
 		};
 		BA2DE91E1372FA9100D1913C /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = BA4FD2FB1372FB710025925C /* BSD.xcconfig */;
+			baseConfigurationReference = C913CA2E2228B622000051A0 /* base.xcconfig */;
 			buildSettings = {
+				APPLY_RULES_IN_COPY_FILES = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				PLIST_FILE_OUTPUT_FORMAT = binary;
 				SUPPORTED_PLATFORMS = "macosx watchos iphoneos";
 				WARNING_CFLAGS = (
 					"-Wall",
@@ -8367,6 +8522,15 @@
 			buildConfigurations = (
 				1812F1F01C8F923900F3DC9E /* Release */,
 				1812F1F11C8F923900F3DC9E /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3521C8512245AA92001B3201 /* Build configuration list for PBXNativeTarget "cpuctl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3521C8522245AA92001B3201 /* Release */,
+				3521C8532245AA92001B3201 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

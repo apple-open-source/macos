@@ -124,6 +124,7 @@ extern NSString *WebQuickLookUTIKey;
 extern NSString * const WebViewWillCloseNotification;
 
 #if ENABLE_DASHBOARD_SUPPORT
+// FIXME: Remove this once it is verified no one is dependent on it.
 typedef enum {
     WebDashboardBehaviorAlwaysSendMouseEventsToAllWindows,
     WebDashboardBehaviorAlwaysSendActiveNullEventsToPlugIns,
@@ -321,6 +322,12 @@ typedef enum {
 
 + (void)_setIconLoadingEnabled:(BOOL)enabled;
 + (BOOL)_isIconLoadingEnabled;
+
+@property (nonatomic, assign, setter=_setUseDarkAppearance:) BOOL _useDarkAppearance;
+@property (nonatomic, assign, setter=_setUseElevatedUserInterfaceLevel:) BOOL _useElevatedUserInterfaceLevel;
+
+- (void)_setUseDarkAppearance:(BOOL)useDarkAppearance useInactiveAppearance:(BOOL)useInactiveAppearance;
+- (void)_setUseDarkAppearance:(BOOL)useDarkAppearance useElevatedUserInterfaceLevel:(BOOL)useElevatedUserInterfaceLevel;
 
 - (WebInspector *)inspector;
 
@@ -549,6 +556,7 @@ Could be worth adding to the API.
 #endif
 
 #if ENABLE_DASHBOARD_SUPPORT
+// FIXME: Remove these once we have verified no one is calling them
 - (void)_addScrollerDashboardRegions:(NSMutableDictionary *)regions;
 - (NSDictionary *)_dashboardRegions;
 

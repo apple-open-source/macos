@@ -6,6 +6,10 @@
 	<string>com.apple.rsyncd</string>
 	<key>POSIXSpawnType</key>
 	<string>Interactive</string>
+	<key>EnablePressuredExit</key>
+	<false/>
+	<key>EnableTransactions</key>
+	<false/>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/usr/bin/rsync</string>

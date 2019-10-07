@@ -31,7 +31,7 @@
 #import <CloudKit/CloudKit_Private.h>
 #import "keychain/ckks/CKKSDeviceStateEntry.h"
 #import "keychain/ckks/CKKSKeychainView.h"
-#include <Security/SecureObjectSync/SOSAccount.h>
+#include "keychain/SecureObjectSync/SOSAccount.h"
 
 @implementation CKKSDeviceStateEntry
 
@@ -121,7 +121,7 @@
     return [NSNumber numberWithInt:(int)status.status];
 }
 
-+ (OTCliqueStatusWrapper* _Nullable)cktypeToOTCliqueStatusWrapper:(id)object {
+- (OTCliqueStatusWrapper* _Nullable)cktypeToOTCliqueStatusWrapper:(id)object {
     if(object == nil) {
         return nil;
     }
@@ -294,7 +294,7 @@
     }
 
     if((!(self.octagonStatus == nil && record[SecCKRecordOctagonStatus] == nil)) &&
-       [self.octagonStatus isEqual: [CKKSDeviceStateEntry cktypeToOTCliqueStatusWrapper:record[SecCKRecordOctagonStatus]]]) {
+       [self.octagonStatus isEqual: [self cktypeToOTCliqueStatusWrapper:record[SecCKRecordOctagonStatus]]]) {
         return false;
     }
 
@@ -334,7 +334,7 @@
     self.device = [CKKSDeviceStateEntry nameFromCKRecordID: record.recordID];
 
     self.octagonPeerID = record[SecCKRecordOctagonPeerID];
-    self.octagonStatus = [CKKSDeviceStateEntry cktypeToOTCliqueStatusWrapper:record[SecCKRecordOctagonStatus]];
+    self.octagonStatus = [self cktypeToOTCliqueStatusWrapper:record[SecCKRecordOctagonStatus]];
 
     self.circlePeerID = record[SecCKRecordCirclePeerID];
 
@@ -354,9 +354,10 @@
 }
 
 + (NSArray<NSString*>*)sqlColumns {
-    // NOTE: due to schedule reasons, in this release we can't modify the DB schema, so octagon status and peer ID can't be stored
-    // in normal columns. So, they're stored in the ckrecord field. Good luck!
-    return @[@"device", @"ckzone", @"osversion", @"lastunlock", @"peerid", @"circlestatus", @"keystate", @"currentTLK", @"currentClassA", @"currentClassC", @"ckrecord"];
+    return @[@"device", @"ckzone", @"osversion", @"lastunlock",
+             @"peerid", @"circlestatus",
+             @"octagonpeerid", @"octagonstatus",
+             @"keystate", @"currentTLK", @"currentClassA", @"currentClassC", @"ckrecord"];
 }
 
 - (NSDictionary<NSString*,NSString*>*)whereClauseToFindSelf {
@@ -372,6 +373,8 @@
              @"lastunlock":    CKKSNilToNSNull(self.lastUnlockTime ? [dateFormat stringFromDate:self.lastUnlockTime] : nil),
              @"peerid":        CKKSNilToNSNull(self.circlePeerID),
              @"circlestatus":  (__bridge NSString*)SOSAccountGetSOSCCStatusString(self.circleStatus),
+             @"octagonpeerid": CKKSNilToNSNull(self.octagonPeerID),
+             @"octagonstatus": CKKSNilToNSNull(self.octagonStatus ? OTCliqueStatusToString(self.octagonStatus.status) : nil),
              @"keystate":      CKKSNilToNSNull(self.keyState),
              @"currentTLK":    CKKSNilToNSNull(self.currentTLKUUID),
              @"currentClassA": CKKSNilToNSNull(self.currentClassAUUID),
@@ -380,34 +383,27 @@
              };
 }
 
-+ (instancetype)fromDatabaseRow:(NSDictionary*)row {
-    NSISO8601DateFormatter* dateFormat = [[NSISO8601DateFormatter alloc] init];
-
-    CKKSDeviceStateEntry* entry =
-           [[CKKSDeviceStateEntry alloc] initForDevice:row[@"device"]
-                                             osVersion:CKKSNSNullToNil(row[@"osversion"])
-                                        lastUnlockTime:[row[@"lastunlock"] isEqual: [NSNull null]] ? nil : [dateFormat dateFromString: row[@"lastunlock"]]
-                                         octagonPeerID:nil
-                                         octagonStatus:nil
-                                          circlePeerID:CKKSNSNullToNil(row[@"peerid"])
-                                          circleStatus:SOSAccountGetSOSCCStatusFromString((__bridge CFStringRef) CKKSNSNullToNil(row[@"circlestatus"]))
-                                              keyState:CKKSNSNullToNil(row[@"keystate"])
-                                        currentTLKUUID:CKKSNSNullToNil(row[@"currentTLK"])
-                                     currentClassAUUID:CKKSNSNullToNil(row[@"currentClassA"])
-                                     currentClassCUUID:CKKSNSNullToNil(row[@"currentClassC"])
-                                                zoneID:[[CKRecordZoneID alloc] initWithZoneName: row[@"ckzone"] ownerName:CKCurrentUserDefaultName]
-                                       encodedCKRecord:CKKSUnbase64NullableString(row[@"ckrecord"])
-            ];
-
-    // NOTE: due to schedule reasons, in this release we can't modify the DB schema, so octagon status and peer ID can't be stored
-    // in normal columns. So, if they're stored in the ckrecord field, use that!
-    CKRecord* record = entry.storedCKRecord;
-    if(record) {
-        entry.octagonPeerID = record[SecCKRecordOctagonPeerID];
-        entry.octagonStatus = [self cktypeToOTCliqueStatusWrapper:record[SecCKRecordOctagonStatus]];
++ (instancetype)fromDatabaseRow:(NSDictionary<NSString*, CKKSSQLResult*>*)row {
+    OTCliqueStatusWrapper* octagonStatus = nil;
+    NSString* octagonStatusString = row[@"octagonstatus"].asString;
+    if(octagonStatusString) {
+        octagonStatus = [[OTCliqueStatusWrapper alloc] initWithStatus:OTCliqueStatusFromString(octagonStatusString)];
     }
 
-    return entry;
+    return [[CKKSDeviceStateEntry alloc] initForDevice:row[@"device"].asString
+                                             osVersion:row[@"osversion"].asString
+                                        lastUnlockTime:row[@"lastunlock"].asISO8601Date
+                                         octagonPeerID:row[@"octagonpeerid"].asString
+                                         octagonStatus:octagonStatus
+                                          circlePeerID:row[@"peerid"].asString
+                                          circleStatus:SOSAccountGetSOSCCStatusFromString((__bridge CFStringRef) row[@"circlestatus"].asString)
+                                              keyState:(CKKSZoneKeyState*)row[@"keystate"].asString
+                                        currentTLKUUID:row[@"currentTLK"].asString
+                                     currentClassAUUID:row[@"currentClassA"].asString
+                                     currentClassCUUID:row[@"currentClassC"].asString
+                                                zoneID:[[CKRecordZoneID alloc] initWithZoneName: row[@"ckzone"].asString ownerName:CKCurrentUserDefaultName]
+                                       encodedCKRecord:row[@"ckrecord"].asBase64DecodedData
+            ];
 }
 
 @end

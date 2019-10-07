@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2019-04-22</string>
+	<key>OpenSourceProject</key>
+	<string>perl</string>
+	<key>OpenSourceVersion</key>
+	<string>5.28.2</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://www.perl.com/</string>
+	<key>OpenSourceURL</key>
+	<string>https://www.cpan.org/src/5.0/perl-5.28.2.tar.gz</string>
+	<key>OpenSourceSHA512256</key>
+	<string>51158b071bd9a8aae88745577539436b5b271933069f3419504b2966c27d37c3</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>regenerate perly.h with bison 2.3</string>
+		<string>changes to build under XBS</string>
+		<string>prepend and append paths to @INC, using /Library/Perl/%lt;version%gt;/PrependToPath and /Library/Perl/%lt;version%gt;/AppendToPath</string>
+		<string>Config returns the correct sizes for both 32 and 64-bit</string>
+		<string>make CPAN::HandleConfig more forgiving about directory permissions</string>
+		<string>added new /Library/Perl/Updates/%lt;version%gt; directory that comes before the system perl directories in the module search order; installprivlib and installarchlib now point to this Updates directory</string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>Artistic</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>perl.txt</string>
+</dict>
+</plist>

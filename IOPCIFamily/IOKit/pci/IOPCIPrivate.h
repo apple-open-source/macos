@@ -74,6 +74,8 @@ struct IOPCIDeviceExpansionData
 	IOInterruptVector * msiVectors;
 
     uint16_t latencyToleranceCapability;
+    uint16_t acsCapability;
+    uint16_t acsCaps;
 
     uint8_t  headerType;
     uint8_t  rootPort;
@@ -152,6 +154,9 @@ struct IOPCIConfigSave
 	
 	// ltr save
 	uint32_t				 savedLTR;
+
+    // acs save
+    uint16_t                 savedACS;
 
 	// aer save
 	uint32_t				 savedAERCapsControl; // 0x18
@@ -296,6 +301,18 @@ enum
     kIOPCIMSIFlagRespect = 0x00000001,
 };
 
+enum
+{
+    kIOPCIExpressACSSourceValidation            = (1 << 0),
+    kIOPCIExpressACSTranslationBlocking         = (1 << 1),
+    kIOPCIExpressACSP2PRequestRedirect          = (1 << 2),
+    kIOPCIExpressACSP2PCompletionRedirect       = (1 << 3),
+    kIOPCIExpressACSP2PUpstreamForwarding       = (1 << 4),
+    kIOPCIExpressACSP2PEgressControl            = (1 << 5),
+    kIOPCIExpressACSDirectTranslatedP2PEnable   = (1 << 6)
+};
+#define kIOPCIExpressACSDefault (kIOPCIExpressACSSourceValidation | kIOPCIExpressACSTranslationBlocking)
+
 #define kIOPCIExpressL1PMControlKey	"pci-l1pm-control"
 #define kIOPCIDeviceHiddenKey       "pci-device-hidden"
 
@@ -308,6 +325,9 @@ enum
 #endif
 
 #define kIOPCIDeviceChangedKey			"IOPCIDeviceChanged"
+
+// Entitlements
+#define kIOPCITransportDextEntitlement "com.apple.developer.driverkit.transport.pcie"
 
 extern const    IORegistryPlane * gIOPCIACPIPlane;
 extern const    OSSymbol *        gIOPlatformDeviceASPMEnableKey;

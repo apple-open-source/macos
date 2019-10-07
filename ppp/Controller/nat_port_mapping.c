@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2010-2016, 2018 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,7 +36,6 @@
 #include <CoreFoundation/CFUserNotification.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>      // for SCLog()
-#include <SystemConfiguration/SCPreferencesPathKey.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <IOKit/IOMessage.h>
 #include <mach/mach_time.h>

@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <sys/cdefs.h>
 #include <AssertMacros.h>
 
 #include <utilities/SecCFRelease.h>
@@ -38,6 +39,7 @@
 #define kSystemLoginKeychainPath "/Library/Keychains/System.keychain"
 
 #include "regressions/test/testmore.h"
+#include "cms_regressions.h"
 #include "cms-trust-settings-test.h"
 
 // See <rdar://problem/8115188>

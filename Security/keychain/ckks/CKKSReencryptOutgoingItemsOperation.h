@@ -26,6 +26,8 @@
 #import <Foundation/Foundation.h>
 #import "keychain/ckks/CKKSGroupOperation.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 @class CKKSKeychainView;
 
 @interface CKKSReencryptOutgoingItemsOperation : CKKSResultOperation
@@ -36,5 +38,7 @@
 - (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif  // OCTAGON

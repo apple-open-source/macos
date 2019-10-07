@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.boolopt.d	1.1	06/08/28 SMI"
-
 #pragma D option quiet=yes
 #pragma D option quiet=YES
 #pragma D option quiet=true

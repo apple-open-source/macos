@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2017-02-01</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>LICENSE</string>
+	<key>OpenSourceProject</key>
+	<string>libpcap</string>
+	<key>OpenSourceSHA1</key>
+	<string>32d7526dde8f8a2f75baf40c01670602aeef7e39</string>
+	<key>OpenSourceURL</key>
+	<string>http://www.tcpdump.org/release/libpcap-1.8.1.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>1.8.1</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.tcpdump.org/</string>
+</dict>
+</plist>

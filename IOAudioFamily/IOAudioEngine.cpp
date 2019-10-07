@@ -20,7 +20,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <emmintrin.h>
 #include "IOAudioDebug.h"
 #include "IOAudioEngine.h"
 #include "IOAudioEngineUserClient.h"
@@ -29,7 +28,10 @@
 #include "IOAudioTypes.h"
 #include "IOAudioDefines.h"
 #include "IOAudioControl.h"
-#include <IOKit/audio/AudioTracepoints.h>
+// Unused macros in open source
+#define AudioTrace_Start(a, b, c, d, e, f)
+#define AudioTrace_End(a, b, c, d, e, f)
+#define AudioTrace(a, b, c, d, e, f)
 
 #include <IOKit/IOLib.h>
 #include <IOKit/IOWorkLoop.h>
@@ -40,6 +42,18 @@
 #include <libkern/c++/OSOrderedSet.h>
 
 #include <kern/clock.h>
+
+#define AbsoluteTime_to_scalar(x)       (*(uint64_t *)(x))
+
+/* t1 < = > t2 */
+#define CMP_ABSOLUTETIME(t1, t2)    (AbsoluteTime_to_scalar(t1) > AbsoluteTime_to_scalar(t2)? (int)+1 :   \
+(AbsoluteTime_to_scalar(t1) < AbsoluteTime_to_scalar(t2)? (int)-1 : 0))
+
+/* t1 += t2 */
+#define ADD_ABSOLUTETIME(t1, t2)    (AbsoluteTime_to_scalar(t1) += AbsoluteTime_to_scalar(t2))
+
+/* t1 -= t2 */
+#define SUB_ABSOLUTETIME(t1, t2)    (AbsoluteTime_to_scalar(t1) -= AbsoluteTime_to_scalar(t2))
 
 #define WATCHDOG_THREAD_LATENCY_PADDING_NS	(125000)	// 125us
 #define DEFAULT_MIX_CLIP_OVERHEAD			10			// <rdar://12188841>

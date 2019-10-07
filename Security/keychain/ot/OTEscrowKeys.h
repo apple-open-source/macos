@@ -50,8 +50,18 @@ typedef enum {
                                     dsid:(NSString*)dsid
                                    error:(NSError* __autoreleasing *)error;
 
+- (nullable instancetype) initWithSigningKey:(SFECKeyPair*)signingKey
+                               encryptionKey:(SFECKeyPair*)encryptionKey
+                                symmetricKey:(SFAESKey*)symmetricKey;
+
 + (SecKeyRef) createSecKey:(NSData*)keyData;
 + (BOOL) setKeyMaterialInKeychain:(NSDictionary*)query error:(NSError* __autoreleasing *)error;
++ (BOOL)findEscrowKeysForLabel:(NSString*)label
+               foundSigningKey:(SFECKeyPair*_Nonnull*_Nullable)signingKey
+            foundEncryptionKey:(SFECKeyPair*_Nonnull*_Nullable)encryptionKey
+             foundSymmetricKey:(SFAESKey*_Nonnull*_Nullable)symmetricKey
+                         error:(NSError**)error;
++ (NSString*) hashEscrowedSigningPublicKey:(NSData*)keyData;
 
 + (NSData* _Nullable) generateEscrowKey:(escrowKeyType)keyType
                           masterSecret:(NSData*)masterSecret

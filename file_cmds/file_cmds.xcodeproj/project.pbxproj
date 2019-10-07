@@ -7,6 +7,18 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		3E966CE71FB2211F0019F7A1 /* tests */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 3E966CE91FB2211F0019F7A1 /* Build configuration list for PBXAggregateTarget "tests" */;
+			buildPhases = (
+				3E966CED1FB2215C0019F7A1 /* CopyFiles */,
+				3E966CEF1FB221740019F7A1 /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = tests;
+			productName = tests;
+		};
 		FC8A8C3C14B64A9D001B97AD /* shar */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FC8A8C3D14B64A9D001B97AD /* Build configuration list for PBXAggregateTarget "shar" */;
@@ -186,6 +198,8 @@
 
 /* Begin PBXBuildFile section */
 		3E59B9311D4A767600D3128C /* futimens.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E59B9301D4A767600D3128C /* futimens.c */; };
+		3E966CEE1FB2216F0019F7A1 /* file_cmds.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3E966CEC1FB2214F0019F7A1 /* file_cmds.plist */; };
+		3E966CF01FB2218A0019F7A1 /* chgrp.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3E966CEB1FB2214F0019F7A1 /* chgrp.sh */; };
 		FC8A8A2814B6486E001B97AD /* chflags.c in Sources */ = {isa = PBXBuildFile; fileRef = FCB1BDCC14B6460C0070FACB /* chflags.c */; };
 		FC8A8BE414B6494B001B97AD /* chflags.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FCB1BDCB14B6460C0070FACB /* chflags.1 */; };
 		FC8A8BE514B64958001B97AD /* chmod.c in Sources */ = {isa = PBXBuildFile; fileRef = FCB1BDD014B6460C0070FACB /* chmod.c */; };
@@ -200,7 +214,6 @@
 		FC8A8BEF14B6497A001B97AD /* sum1.c in Sources */ = {isa = PBXBuildFile; fileRef = FCB1BDE114B6460C0070FACB /* sum1.c */; };
 		FC8A8BF014B6497D001B97AD /* sum2.c in Sources */ = {isa = PBXBuildFile; fileRef = FCB1BDE214B6460C0070FACB /* sum2.c */; };
 		FC8A8BF114B64982001B97AD /* compress.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FCB1BDE414B6460C0070FACB /* compress.1 */; };
-		FC8A8BF214B64984001B97AD /* uncompress.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FCB1BDEB14B6460C0070FACB /* uncompress.1 */; };
 		FC8A8BF314B64988001B97AD /* compress.c in Sources */ = {isa = PBXBuildFile; fileRef = FCB1BDE514B6460C0070FACB /* compress.c */; };
 		FC8A8BF414B6498A001B97AD /* zopen.c in Sources */ = {isa = PBXBuildFile; fileRef = FCB1BDEE14B6460C0070FACB /* zopen.c */; };
 		FC8A8BF514B64995001B97AD /* cp.c in Sources */ = {isa = PBXBuildFile; fileRef = FCB1BDF214B6460C0070FACB /* cp.c */; };
@@ -798,6 +811,26 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		3E966CED1FB2215C0019F7A1 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				3E966CEE1FB2216F0019F7A1 /* file_cmds.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3E966CEF1FB221740019F7A1 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /AppleInternal/Tests/file_cmds;
+			dstSubfolderSpec = 0;
+			files = (
+				3E966CF01FB2218A0019F7A1 /* chgrp.sh in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FC8A8B0F14B648D7001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -834,7 +867,6 @@
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
-				FC8A8BF214B64984001B97AD /* uncompress.1 in CopyFiles */,
 				FC8A8BF114B64982001B97AD /* compress.1 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
@@ -1146,6 +1178,8 @@
 /* Begin PBXFileReference section */
 		0773099A1A3A4DFE00E9B4EA /* dd.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = dd.entitlements; sourceTree = "<group>"; };
 		3E59B9301D4A767600D3128C /* futimens.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = futimens.c; sourceTree = "<group>"; };
+		3E966CEB1FB2214F0019F7A1 /* chgrp.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = chgrp.sh; sourceTree = "<group>"; };
+		3E966CEC1FB2214F0019F7A1 /* file_cmds.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = file_cmds.plist; sourceTree = "<group>"; };
 		FC8A8B1214B648D7001B97AD /* chmod */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chmod; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC8A8B1A14B648E0001B97AD /* chown */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chown; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC8A8B2214B648E3001B97AD /* cksum */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cksum; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1235,7 +1269,7 @@
 		FCB1BE1D14B6460C0070FACB /* symlink.7 */ = {isa = PBXFileReference; lastKnownFileType = text; path = symlink.7; sourceTree = "<group>"; };
 		FCB1BE1F14B6460C0070FACB /* cmp.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = cmp.c; sourceTree = "<group>"; };
 		FCB1BE2014B6460C0070FACB /* extern.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = extern.h; sourceTree = "<group>"; };
-		FCB1BE2114B6460C0070FACB /* ls.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = ls.1; sourceTree = "<group>"; };
+		FCB1BE2114B6460C0070FACB /* ls.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; lineEnding = 0; path = ls.1; sourceTree = "<group>"; };
 		FCB1BE2214B6460C0070FACB /* ls.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ls.c; sourceTree = "<group>"; };
 		FCB1BE2314B6460C0070FACB /* ls.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ls.h; sourceTree = "<group>"; };
 		FCB1BE2514B6460C0070FACB /* print.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = print.c; sourceTree = "<group>"; };
@@ -1528,9 +1562,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		3E966CEA1FB221330019F7A1 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				3E966CEB1FB2214F0019F7A1 /* chgrp.sh */,
+				3E966CEC1FB2214F0019F7A1 /* file_cmds.plist */,
+			);
+			path = tests;
+			sourceTree = "<group>";
+		};
 		FCB1BDAD14B645D00070FACB = {
 			isa = PBXGroup;
 			children = (
+				3E966CEA1FB221330019F7A1 /* tests */,
 				FCB1BDCA14B6460C0070FACB /* chflags */,
 				FCB1BDCE14B6460C0070FACB /* chmod */,
 				FCB1BDD414B6460C0070FACB /* chown */,
@@ -2448,12 +2492,19 @@
 			attributes = {
 				LastUpgradeCheck = 0610;
 				ORGANIZATIONNAME = "Apple Inc.";
+				TargetAttributes = {
+					3E966CE71FB2211F0019F7A1 = {
+						CreatedOnToolsVersion = 9.2;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = FCB1BDB214B645D00070FACB /* Build configuration list for PBXProject "file_cmds" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = FCB1BDAD14B645D00070FACB;
@@ -2496,6 +2547,7 @@
 				FC8A8BCC14B648F0001B97AD /* touch */,
 				FC8A8CC814B65F92001B97AD /* uncompress */,
 				FC8A8C5014B650CF001B97AD /* unlink */,
+				3E966CE71FB2211F0019F7A1 /* tests */,
 			);
 		};
 /* End PBXProject section */
@@ -3268,6 +3320,14 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		3E966CE81FB2211F0019F7A1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		FC8A8B1114B648D7001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -3563,6 +3623,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		3E966CE91FB2211F0019F7A1 /* Build configuration list for PBXAggregateTarget "tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3E966CE81FB2211F0019F7A1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		FC8A8B1014B648D7001B97AD /* Build configuration list for PBXNativeTarget "chmod" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

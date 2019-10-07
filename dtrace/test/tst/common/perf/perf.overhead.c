@@ -8,7 +8,7 @@ static dtrace_hdl_t	*g_dtp;
 /*
  * Measures the performance overhead of various dtrace providers
  */
-
+T_GLOBAL_META(T_META_NAMESPACE("dtrace.overhead"));
 
 /*
  * Enable the probes of a dtrace program, contained in str. This function does
@@ -49,7 +49,7 @@ disable_dtrace(void)
     dtrace_close(g_dtp);
 }
 
-T_DECL(overhead_baseline, "overhead_baseline", T_META_CHECK_LEAKS(false)) {
+T_DECL(overhead_baseline, "baseline", T_META_CHECK_LEAKS(false)) {
 	geteuid();
 	dt_stat_time_t s = dt_stat_time_create("time");
 	
@@ -67,7 +67,7 @@ T_DECL(overhead_baseline, "overhead_baseline", T_META_CHECK_LEAKS(false)) {
 	dt_stat_finalize(i);
 }
 
-T_DECL(overhead_syscall, "overhead_syscall", T_META_CHECK_LEAKS(false)) {
+T_DECL(overhead_syscall, "syscall", T_META_CHECK_LEAKS(false)) {
 	geteuid();
 	dt_stat_time_t s = dt_stat_time_create("time");
 	enable_dtrace_probes("syscall::geteuid:");
@@ -87,7 +87,7 @@ T_DECL(overhead_syscall, "overhead_syscall", T_META_CHECK_LEAKS(false)) {
 	dt_stat_finalize(s);
 }
 
-T_DECL(overhead_fbt, "overhead_fbt", T_META_CHECK_LEAKS(false)) {
+T_DECL(overhead_fbt, "fbt", T_META_CHECK_LEAKS(false)) {
 	geteuid();
 	dt_stat_time_t s = dt_stat_time_create("fbt");
 	enable_dtrace_probes("fbt:mach_kernel:geteuid:");

@@ -154,7 +154,7 @@ enum {
     kIOPCIConfiguratorNoTunnelDrv    = 0x00100000,
     kIOPCIConfiguratorNoTerminate    = 0x00200000,
     kIOPCIConfiguratorDeferHotPlug   = 0x00400000,
-    //                               = 0x00800000,
+    kIOPCIConfiguratorNoACS          = 0x00800000,
 
     kIOPCIConfiguratorTBPanics       = 0x01000000,
     kIOPCIConfiguratorTBUSBCPanics   = 0x02000000,
@@ -336,6 +336,7 @@ class IOPCIConfigurator : public IOService
     IOOptionBits            fFlags;
     IOPCIBridge *           fHostBridge;
     IOPCIConfigEntry *      fRoot;
+    uint64_t                fPFM64Size;
 	uint32_t				fRootVendorProduct;
 
 	uint8_t					fMaxPayload;

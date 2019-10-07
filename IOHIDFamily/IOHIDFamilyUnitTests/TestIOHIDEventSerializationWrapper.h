@@ -33,7 +33,7 @@ public:
     void release();
     void retain();
     bool init();
-    void free();
+    virtual void free();
     OSObject() : _refcount(1) {}
     virtual ~OSObject() {}
     
@@ -49,6 +49,13 @@ public:
     unsigned int getCount();
     std::vector<const OSObject*> _array;
     
+};
+
+class OSData
+{
+public:
+    static OSData* withCapacity(unsigned int inCapacity);
+    bool appendBytes(const void *bytes, unsigned int inLength);
 };
 
 void  IOFree(void * address, size_t size);

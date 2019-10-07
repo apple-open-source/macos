@@ -58,7 +58,7 @@ tr{
         as{"Assamca"}
         asa{"Asu"}
         ase{"Amerikan İşaret Dili"}
-        ast{"Asturyasca"}
+        ast{"Asturyasça"}
         av{"Avar Dili"}
         avk{"Kotava"}
         awa{"Awadhi"}
@@ -110,6 +110,7 @@ tr{
         car{"Carib"}
         cay{"Kayuga dili"}
         cch{"Atsam"}
+        ccp{"Chakma"}
         ce{"Çeçence"}
         ceb{"Sebuano dili"}
         cgg{"Kigaca"}
@@ -188,8 +189,8 @@ tr{
         fi{"Fince"}
         fil{"Filipince"}
         fit{"Tornedalin Fincesi"}
-        fj{"Fiji Dili"}
-        fo{"Faroe Dili"}
+        fj{"Fiji dili"}
+        fo{"Faroe dili"}
         fon{"Fon"}
         fr{"Fransızca"}
         fr_CA{"Kanada Fransızcası"}
@@ -315,6 +316,7 @@ tr{
         krl{"Karelyaca"}
         kru{"Kurukh dili"}
         ks{"Keşmir dili"}
+        ks_Arab{"Keşmir dili (Nesih)"}
         ksb{"Shambala"}
         ksf{"Bafia"}
         ksh{"Köln lehçesi"}
@@ -440,6 +442,7 @@ tr{
         osa{"Osage"}
         ota{"Osmanlı Türkçesi"}
         pa{"Pencapça"}
+        pa_Arab{"Pencapça (Nesih)"}
         pag{"Pangasinan dili"}
         pal{"Pehlevi Dili"}
         pam{"Pampanga"}
@@ -594,6 +597,7 @@ tr{
         umb{"Umbundu"}
         und{"Bilinmeyen Dil"}
         ur{"Urduca"}
+        ur_Arab{"Urduca (Nesih)"}
         uz{"Özbekçe"}
         vai{"Vai"}
         ve{"Venda dili"}
@@ -649,6 +653,7 @@ tr{
         Afak{"Afaka"}
         Aghb{"Kafkas Albanyası"}
         Arab{"Arap"}
+        Aran{"Nestâlik"}
         Armi{"İmparatorluk Aramicesi"}
         Armn{"Ermeni"}
         Avst{"Avesta"}
@@ -666,7 +671,6 @@ tr{
         Cakm{"Chakma"}
         Cans{"UCAS"}
         Cari{"Karya"}
-        Cham{"Cham"}
         Cher{"Çeroki"}
         Cirt{"Cirth"}
         Copt{"Kıpti"}
@@ -731,13 +735,11 @@ tr{
         Lydi{"Lidya"}
         Mahj{"Mahajani"}
         Mand{"Manden"}
-        Mani{"Mani"}
         Maya{"Maya Hiyeroglifleri"}
         Mend{"Mende"}
         Merc{"Meroitik El Yazısı"}
         Mero{"Meroitik"}
         Mlym{"Malayalam"}
-        Modi{"Modi"}
         Mong{"Moğol"}
         Moon{"Moon"}
         Mroo{"Mro"}
@@ -763,6 +765,7 @@ tr{
         Phnx{"Fenike"}
         Plrd{"Pollard Fonetik"}
         Prti{"Partça Kitabe Dili"}
+        Qaag{"Zawgyi"}
         Rjng{"Rejang"}
         Roro{"Rongorongo"}
         Runr{"Runik"}
@@ -1038,7 +1041,7 @@ tr{
         VALENCIA{"Valensiyaca"}
         WADEGILE{"Wade-Giles (Latin Alfabesinde Yazımı)"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.42"}
     characterLabelPattern{
         all{"{0} — tümü"}
         category-list{"{0}: {1}"}

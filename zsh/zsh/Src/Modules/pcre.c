@@ -75,7 +75,7 @@ zpcre_utf8_enabled(void)
 static int
 bin_pcre_compile(char *nam, char **args, Options ops, UNUSED(int func))
 {
-    int pcre_opts = 0, pcre_errptr;
+    int pcre_opts = 0, pcre_errptr, target_len;
     const char *pcre_error;
     char *target;
     
@@ -88,16 +88,29 @@ bin_pcre_compile(char *nam, char **args, Options ops, UNUSED(int func))
     if (zpcre_utf8_enabled())
 	pcre_opts |= PCRE_UTF8;
 
-    pcre_hints = NULL;  /* Is this necessary? */
-    
+#ifdef HAVE_PCRE_STUDY
+    if (pcre_hints)
+#ifdef PCRE_CONFIG_JIT
+	pcre_free_study(pcre_hints);
+#else
+	pcre_free(pcre_hints);
+#endif
+    pcre_hints = NULL;
+#endif
+
     if (pcre_pattern)
 	pcre_free(pcre_pattern);
+    pcre_pattern = NULL;
 
     target = ztrdup(*args);
-    unmetafy(target, NULL);
+    unmetafy(target, &target_len);
+
+    if ((int)strlen(target) != target_len) {
+	zwarnnam(nam, "embedded NULs in PCRE pattern terminate pattern");
+    }
 
     pcre_pattern = pcre_compile(target, pcre_opts, &pcre_error, &pcre_errptr, NULL);
-    
+
     free(target);
 
     if (pcre_pattern == NULL)
@@ -124,6 +137,14 @@ bin_pcre_study(char *nam, UNUSED(char **args), UNUSED(Options ops), UNUSED(int f
 	return 1;
     }
     
+    if (pcre_hints)
+#ifdef PCRE_CONFIG_JIT
+	pcre_free_study(pcre_hints);
+#else
+	pcre_free(pcre_hints);
+#endif
+    pcre_hints = NULL;
+
     pcre_hints = pcre_study(pcre_pattern, 0, &pcre_error);
     if (pcre_error != NULL)
     {
@@ -144,7 +165,7 @@ bin_pcre_study(char *nam, UNUSED(char **args), UNUSED(Options ops), UNUSED(int f
 
 /**/
 static int
-zpcre_get_substrings(char *arg, int *ovec, int ret, char *matchvar,
+zpcre_get_substrings(char *arg, int *ovec, int captured_count, char *matchvar,
 		     char *substravar, int want_offset_pair, int matchedinarr,
 		     int want_begin_end)
 {
@@ -152,42 +173,61 @@ zpcre_get_substrings(char *arg, int *ovec, int ret, char *matchvar,
     char offset_all[50];
     int capture_start = 1;
 
-    if (matchedinarr)
+    if (matchedinarr) {
+	/* bash-style captures[0] entire-matched string in the array */
 	capture_start = 0;
-    if (matchvar == NULL)
-	matchvar = "MATCH";
-    if (substravar == NULL)
-	substravar = "match";
-    
+    }
+
     /* captures[0] will be entire matched string, [1] first substring */
-    if (!pcre_get_substring_list(arg, ovec, ret, (const char ***)&captures)) {
+    if (!pcre_get_substring_list(arg, ovec, captured_count, (const char ***)&captures)) {
 	int nelem = arrlen(captures)-1;
 	/* Set to the offsets of the complete match */
 	if (want_offset_pair) {
 	    sprintf(offset_all, "%d %d", ovec[0], ovec[1]);
 	    setsparam("ZPCRE_OP", ztrdup(offset_all));
 	}
-	match_all = metafy(captures[0], -1, META_DUP);
-	setsparam(matchvar, match_all);
+	/*
+	 * Result strings can contain embedded NULs; the length of each is the
+	 * difference between the two values in each paired entry in ovec.
+	 * ovec is length 2*(1+capture_list_length)
+	 */
+	if (matchvar) {
+	    match_all = metafy(captures[0], ovec[1] - ovec[0], META_DUP);
+	    setsparam(matchvar, match_all);
+	}
 	/*
 	 * If we're setting match, mbegin, mend we only do
 	 * so if there were parenthesised matches, for consistency
-	 * (c.f. regex.c).
+	 * (c.f. regex.c).  That's the next block after this one.
+	 * Here we handle the simpler case where we don't worry about
+	 * Unicode lengths, etc.
+	 * Either !want_begin_end (ie, this is bash) or nelem; if bash
+	 * then we're invoked always, even without nelem results, to
+	 * set the array variable with one element in it, the complete match.
 	 */
-	if (!want_begin_end || nelem) {
+	if (substravar &&
+	    (!want_begin_end || nelem)) {
 	    char **x, **y;
+	    int vec_off, i;
 	    y = &captures[capture_start];
-	    matches = x = (char **) zalloc(sizeof(char *) * (arrlen(y) + 1));
-	    do {
+	    matches = x = (char **) zalloc(sizeof(char *) * (captured_count+1-capture_start));
+	    for (i = capture_start; i < captured_count; i++, y++) {
+		vec_off = 2*i;
 		if (*y)
-		    *x++ = metafy(*y, -1, META_DUP);
+		    *x++ = metafy(*y, ovec[vec_off+1]-ovec[vec_off], META_DUP);
 		else
 		    *x++ = NULL;
-	    } while (*y++);
+	    }
+	    *x = NULL;
 	    setaparam(substravar, matches);
 	}
 
 	if (want_begin_end) {
+	    /*
+	     * cond-infix rather than builtin; also not bash; so we set a bunch
+	     * of variables and arrays to values which require handling Unicode
+	     * lengths
+	     */
 	    char *ptr = arg;
 	    zlong offs = 0;
 	    int clen, leftlen;
@@ -294,7 +334,9 @@ bin_pcre_match(char *nam, char **args, Options ops, UNUSED(int func))
 	zwarnnam(nam, "no pattern has been compiled");
 	return 1;
     }
-    
+
+    matched_portion = "MATCH";
+    receptacle = "match";
     if(OPT_HASARG(ops,c='a')) {
 	receptacle = OPT_ARG(ops,c);
     }
@@ -306,8 +348,8 @@ bin_pcre_match(char *nam, char **args, Options ops, UNUSED(int func))
 	    return 1;
     }
     /* For the entire match, 'Return' the offset byte positions instead of the matched string */
-    if(OPT_ISSET(ops,'b')) want_offset_pair = 1; 
-    
+    if(OPT_ISSET(ops,'b')) want_offset_pair = 1;
+
     if ((ret = pcre_fullinfo(pcre_pattern, pcre_hints, PCRE_INFO_CAPTURECOUNT, &capcount)))
     {
 	zwarnnam(nam, "error %d in fullinfo", ret);
@@ -318,8 +360,7 @@ bin_pcre_match(char *nam, char **args, Options ops, UNUSED(int func))
     ovec = zalloc(ovecsize*sizeof(int));
 
     plaintext = ztrdup(*args);
-    unmetafy(plaintext, NULL);
-    subject_len = (int)strlen(plaintext);
+    unmetafy(plaintext, &subject_len);
 
     if (offset_start > 0 && offset_start >= subject_len)
 	ret = PCRE_ERROR_NOMATCH;
@@ -339,6 +380,7 @@ bin_pcre_match(char *nam, char **args, Options ops, UNUSED(int func))
     
     if (ovec)
 	zfree(ovec, ovecsize*sizeof(int));
+    zsfree(plaintext);
 
     return return_value;
 }
@@ -349,8 +391,9 @@ cond_pcre_match(char **a, int id)
 {
     pcre *pcre_pat;
     const char *pcre_err;
-    char *lhstr, *rhre, *lhstr_plain, *rhre_plain, *avar=NULL;
+    char *lhstr, *rhre, *lhstr_plain, *rhre_plain, *avar, *svar;
     int r = 0, pcre_opts = 0, pcre_errptr, capcnt, *ov, ovsize;
+    int lhstr_plain_len, rhre_plain_len;
     int return_value = 0;
 
     if (zpcre_utf8_enabled())
@@ -362,17 +405,25 @@ cond_pcre_match(char **a, int id)
     rhre = cond_str(a,1,0);
     lhstr_plain = ztrdup(lhstr);
     rhre_plain = ztrdup(rhre);
-    unmetafy(lhstr_plain, NULL);
-    unmetafy(rhre_plain, NULL);
+    unmetafy(lhstr_plain, &lhstr_plain_len);
+    unmetafy(rhre_plain, &rhre_plain_len);
     pcre_pat = NULL;
     ov = NULL;
     ovsize = 0;
 
-    if (isset(BASHREMATCH))
-	avar="BASH_REMATCH";
+    if (isset(BASHREMATCH)) {
+	svar = NULL;
+	avar = "BASH_REMATCH";
+    } else {
+	svar = "MATCH";
+	avar = "match";
+    }
 
     switch(id) {
 	 case CPCRE_PLAIN:
+		if ((int)strlen(rhre_plain) != rhre_plain_len) {
+		    zwarn("embedded NULs in PCRE pattern terminate pattern");
+		}
 		pcre_pat = pcre_compile(rhre_plain, pcre_opts, &pcre_err, &pcre_errptr, NULL);
 		if (pcre_pat == NULL) {
 		    zwarn("failed to compile regexp /%s/: %s", rhre, pcre_err);
@@ -381,7 +432,7 @@ cond_pcre_match(char **a, int id)
                 pcre_fullinfo(pcre_pat, NULL, PCRE_INFO_CAPTURECOUNT, &capcnt);
     		ovsize = (capcnt+1)*3;
 		ov = zalloc(ovsize*sizeof(int));
-    		r = pcre_exec(pcre_pat, NULL, lhstr_plain, strlen(lhstr_plain), 0, 0, ov, ovsize);
+    		r = pcre_exec(pcre_pat, NULL, lhstr_plain, lhstr_plain_len, 0, 0, ov, ovsize);
 		/* r < 0 => error; r==0 match but not enough size in ov
 		 * r > 0 => (r-1) substrings found; r==1 => no substrings
 		 */
@@ -399,7 +450,7 @@ cond_pcre_match(char **a, int id)
 		    break;
 		}
                 else if (r>0) {
-		    zpcre_get_substrings(lhstr_plain, ov, r, NULL, avar, 0,
+		    zpcre_get_substrings(lhstr_plain, ov, r, svar, avar, 0,
 					 isset(BASHREMATCH),
 					 !isset(BASHREMATCH));
 		    return_value = 1;
@@ -495,5 +546,21 @@ cleanup_(Module m)
 int
 finish_(UNUSED(Module m))
 {
+#if defined(HAVE_PCRE_COMPILE) && defined(HAVE_PCRE_EXEC)
+#ifdef HAVE_PCRE_STUDY
+    if (pcre_hints)
+#ifdef PCRE_CONFIG_JIT
+	pcre_free_study(pcre_hints);
+#else
+	pcre_free(pcre_hints);
+#endif
+    pcre_hints = NULL;
+#endif
+
+    if (pcre_pattern)
+	pcre_free(pcre_pattern);
+    pcre_pattern = NULL;
+#endif
+
     return 0;
 }

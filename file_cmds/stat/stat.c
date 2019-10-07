@@ -731,7 +731,14 @@ format1(const struct stat *st,
 		small = (sizeof(st->st_flags) == 4);
 		data = st->st_flags;
 		sdata = NULL;
-		formats = FMTF_DECIMAL | FMTF_OCTAL | FMTF_UNSIGNED | FMTF_HEX;
+		formats = FMTF_DECIMAL | FMTF_OCTAL | FMTF_UNSIGNED | FMTF_HEX |
+			FMTF_STRING;
+		if (ofmt == FMTF_STRING) {
+			small = 0;
+			data = 0;
+			snprintf(path, sizeof(path), "%s", fflagstostr(st->st_flags));
+			sdata = path;
+		}
 		if (ofmt == 0)
 			ofmt = FMTF_UNSIGNED;
 		break;

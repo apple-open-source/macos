@@ -8,14 +8,6 @@ zh_Hant{
         " 羯 聳 肖 艇 芒 苗 茨 蓬 虹 蚩 蛛 蜀 蜘 蝴 蝸 蠟 裘 裙 謬 豚 躬 酋 釘 鈔 鈕 鉛 鎚 鎬 鐺 鑰 鑽 隴 霄 鞠 骰 骷 髏 鯉"
         " 鳶]"
     }
-    Ellipsis{
-        final{"{0}…"}
-        initial{"…{0}"}
-        medial{"{0}…{1}"}
-        word-final{"{0} …"}
-        word-initial{"… {0}"}
-        word-medial{"{0} … {1}"}
-    }
     ExemplarCharacters{
         "[一 丁 七 丈-不 丑 且 世 丘 丙 丟 並 中 串 丸 丹 主 乃 久 么 之 乎 乏 乖 乘 乙 九 也 乾 亂 了 予 事 二 于 云 互 五"
         " 井 些 亞 亡 交-亦 亨 享 京 亮 人 什 仁 仇 今 介 仍 仔 他 付 仙 代-以 仰 仲 件 任 份 企 伊 伍 伐 休 伙 伯 估 伴 伸"
@@ -90,22 +82,13 @@ zh_Hant{
                 range{"{0}-{1}"}
             }
             patterns{
-                decimalFormat{"#,##0.###"}
-                scientificFormat{"#E0"}
+                accountingFormat{"#,##0.00 ¤"}
+                currencyFormat{"#,##0.00 ¤"}
+                percentFormat{"#,##0%"}
             }
             symbols{
-                decimal{"٫"}
-                exponential{"اس"}
-                group{"٬"}
-                infinity{"∞"}
-                list{"؛"}
                 minusSign{"-"}
                 nan{"非數值"}
-                perMille{"؉"}
-                percentSign{"٪؜"}
-                plusSign{"؜+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         arabext{
@@ -116,23 +99,10 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"٫"}
-                exponential{"×۱۰^"}
-                group{"٬"}
-                infinity{"∞"}
-                list{"؛"}
-                minusSign{"‎-‎"}
                 nan{"非數值"}
-                perMille{"؉"}
-                percentSign{"٪"}
                 plusSign{"+‎"}
-                superscriptingExponent{"×"}
-                timeSeparator{"٫"}
             }
         }
         bali{
@@ -143,23 +113,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         beng{
@@ -170,23 +126,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         brah{
@@ -197,23 +139,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         cakm{
@@ -224,23 +152,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         cham{
@@ -251,26 +165,11 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
-        default{"latn"}
         deva{
             miscPatterns{
                 atLeast{"{0}+"}
@@ -279,23 +178,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         finance{"hantfin"}
@@ -307,23 +192,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         gonm{
@@ -334,23 +205,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         gujr{
@@ -361,23 +218,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         guru{
@@ -388,23 +231,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         hanidec{
@@ -415,21 +244,15 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0%"}
                 scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
                 exponential{"E"}
-                group{","}
                 infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
                 perMille{"‰"}
                 percentSign{"%"}
-                plusSign{"+"}
                 superscriptingExponent{"×"}
                 timeSeparator{":"}
             }
@@ -442,23 +265,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         kali{
@@ -469,23 +278,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         khmr{
@@ -496,23 +291,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         knda{
@@ -523,23 +304,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         lana{
@@ -550,23 +317,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         lanatham{
@@ -577,23 +330,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         laoo{
@@ -604,34 +343,21 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         latn{
             miscPatterns{
+                approximately{"~{0}"}
                 atLeast{"{0}+"}
+                atMost{"≤{0}"}
                 range{"{0}-{1}"}
             }
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0%"}
                 scientificFormat{"#E0"}
             }
@@ -754,16 +480,11 @@ zh_Hant{
                 }
             }
             symbols{
-                decimal{"."}
                 exponential{"E"}
-                group{","}
                 infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
                 perMille{"‰"}
                 percentSign{"%"}
-                plusSign{"+"}
                 superscriptingExponent{"×"}
                 timeSeparator{":"}
             }
@@ -776,23 +497,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         limb{
@@ -803,28 +510,14 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         minimalPairs{
             ordinal{
-                other{"在第 {0} 個路口右轉。"}
+                other{"在第{0}個路口右轉。"}
             }
             plural{
                 other{"{0} 日"}
@@ -839,23 +532,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         mong{
@@ -866,23 +545,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         mtei{
@@ -893,23 +558,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         mymr{
@@ -920,23 +571,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         mymrshan{
@@ -947,23 +584,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         native{"hanidec"}
@@ -975,23 +598,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         olck{
@@ -1002,23 +611,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         orya{
@@ -1029,23 +624,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         osma{
@@ -1056,23 +637,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         saur{
@@ -1083,23 +650,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         shrd{
@@ -1110,23 +663,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         sora{
@@ -1137,23 +676,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         sund{
@@ -1164,23 +689,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         takr{
@@ -1191,23 +702,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         talu{
@@ -1218,23 +715,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         tamldec{
@@ -1245,23 +728,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         telu{
@@ -1272,23 +741,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         thai{
@@ -1299,23 +754,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         tibt{
@@ -1326,23 +767,9 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         traditional{"hant"}
@@ -1354,27 +781,13 @@ zh_Hant{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
-                decimal{"."}
-                exponential{"E"}
-                group{","}
-                infinity{"∞"}
-                list{";"}
-                minusSign{"-"}
                 nan{"非數值"}
-                perMille{"‰"}
-                percentSign{"%"}
-                plusSign{"+"}
-                superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -1473,6 +886,7 @@ zh_Hant{
                 d{
                     d{"d日至d日"}
                 }
+                fallback{"{0} – {1}"}
                 h{
                     a{"ah時至ah時"}
                     h{"ah時至h時"}
@@ -1492,39 +906,39 @@ zh_Hant{
                     h{"ah時至h時 [v]"}
                 }
                 y{
-                    y{"G y至y"}
+                    y{"Gy至y"}
                 }
                 yM{
-                    M{"G y/M至y/M"}
-                    y{"G y/M至y/M"}
+                    M{"Gy/M至y/M"}
+                    y{"Gy/M至y/M"}
                 }
                 yMEd{
-                    M{"G y/M/dE至y/M/dE"}
-                    d{"G y/M/dE至y/M/dE"}
-                    y{"G y/M/dE至y/M/dE"}
+                    M{"Gy/M/dE至y/M/dE"}
+                    d{"Gy/M/dE至y/M/dE"}
+                    y{"Gy/M/dE至y/M/dE"}
                 }
                 yMMM{
-                    M{"G y年M月至M月"}
-                    y{"G y年M月至y年M月"}
+                    M{"Gy年M月至M月"}
+                    y{"Gy年M月至y年M月"}
                 }
                 yMMMEd{
-                    M{"G y年M月d日E至M月d日E"}
-                    d{"G y年M月d日E至d日E"}
-                    y{"G y年M月d日E至y年M月d日E"}
+                    M{"Gy年M月d日E至M月d日E"}
+                    d{"Gy年M月d日E至d日E"}
+                    y{"Gy年M月d日E至y年M月d日E"}
                 }
                 yMMMM{
-                    M{"G y年M月至M月"}
-                    y{"G y年M月至y年M月"}
+                    M{"Gy年M月至M月"}
+                    y{"Gy年M月至y年M月"}
                 }
                 yMMMd{
-                    M{"G y年M月d日至M月d日"}
-                    d{"G y年M月d日至d日"}
-                    y{"G y年M月d日至y年M月d日"}
+                    M{"Gy年M月d日至M月d日"}
+                    d{"Gy年M月d日至d日"}
+                    y{"Gy年M月d日至y年M月d日"}
                 }
                 yMd{
-                    M{"G y/M/d至y/M/d"}
-                    d{"G y/M/d至y/M/d"}
-                    y{"G y/M/d至y/M/d"}
+                    M{"Gy/M/d至y/M/d"}
+                    d{"Gy/M/d至y/M/d"}
+                    y{"Gy/M/d至y/M/d"}
                 }
             }
         }
@@ -2661,6 +2075,7 @@ zh_Hant{
                 d{
                     d{"d日至d日"}
                 }
+                fallback{"{0} – {1}"}
                 h{
                     a{"ah時至ah時"}
                     h{"ah時至h時"}
@@ -2732,21 +2147,6 @@ zh_Hant{
                         "12月",
                         "13月",
                     }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                        "13",
-                    }
                     wide{
                         "1月",
                         "2月",
@@ -2778,21 +2178,6 @@ zh_Hant{
                         "11月",
                         "12月",
                         "13月",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                        "13",
                     }
                     wide{
                         "1月",
@@ -2829,6 +2214,7 @@ zh_Hant{
                 "{1} {0}",
             }
             availableFormats{
+                E{"ccc"}
                 Ed{"d日E"}
                 Gy{"rU年"}
                 GyMMM{"rU年MMM"}
@@ -2836,6 +2222,7 @@ zh_Hant{
                 GyMMMd{"r年MMMd"}
                 M{"MMM"}
                 MEd{"M/dE"}
+                MMM{"LLL"}
                 MMMEd{"MMMd日E"}
                 MMMMd{"MMMMd日"}
                 MMMd{"MMMd日"}
@@ -3605,6 +2992,13 @@ zh_Hant{
                 }
             }
             intervalFormats{
+                H{
+                    H{"HH至HH"}
+                }
+                Hm{
+                    H{"HH:mm至HH:mm"}
+                    m{"HH:mm至HH:mm"}
+                }
                 Hmv{
                     H{"HH:mm–HH:mm [v]"}
                     m{"HH:mm–HH:mm [v]"}
@@ -3915,6 +3309,7 @@ zh_Hant{
                 d{
                     d{"d日至d日"}
                 }
+                fallback{"{0} – {1}"}
                 h{
                     a{"ah時至ah時"}
                     h{"ah時至h時"}
@@ -3986,21 +3381,6 @@ zh_Hant{
                         "12月",
                         "13月",
                     }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                        "13",
-                    }
                     wide{
                         "1月",
                         "2月",
@@ -4033,21 +3413,6 @@ zh_Hant{
                         "12月",
                         "13月",
                     }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                        "13",
-                    }
                     wide{
                         "1月",
                         "2月",
@@ -4066,29 +3431,16 @@ zh_Hant{
                 }
             }
         }
-        ethiopic-amete-alem{
-            eras{
-                abbreviated{
-                    "ERA0",
-                }
-                narrow{
-                    "ERA0",
-                }
-                wide{
-                    "ERA0",
-                }
-            }
-        }
         generic{
             DateTimePatterns{
                 "zzzz ah:mm:ss",
                 "z ah:mm:ss",
                 "ah:mm:ss",
                 "ah:mm",
-                "Gy年M月d日 EEEE",
-                "Gy年M月d日",
-                "Gy年M月d日",
-                "Gy/M/d",
+                "G y年M月d日 EEEE",
+                "G y年M月d日",
+                "G y年M月d日",
+                "G y/M/d",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -4107,10 +3459,10 @@ zh_Hant{
                 Ed{"d E"}
                 Ehm{"E ah:mm"}
                 Ehms{"E ah:mm:ss"}
-                Gy{"Gy年"}
-                GyMMM{"Gy年M月"}
-                GyMMMEd{"Gy年M月d日 E"}
-                GyMMMd{"Gy年M月d日"}
+                Gy{"G y年"}
+                GyMMM{"G y年M月"}
+                GyMMMEd{"G y年M月d日 E"}
+                GyMMMd{"G y年M月d日"}
                 H{"H時"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -4126,19 +3478,66 @@ zh_Hant{
                 hm{"ah:mm"}
                 hms{"ah:mm:ss"}
                 ms{"mm:ss"}
-                y{"Gy年"}
-                yyyy{"Gy年"}
-                yyyyM{"Gy/M"}
-                yyyyMEd{"Gy/M/d（E）"}
-                yyyyMMM{"Gy年M月"}
-                yyyyMMMEd{"Gy年M月d日 E"}
-                yyyyMMMM{"Gy年M月"}
-                yyyyMMMd{"Gy年M月d日"}
-                yyyyMd{"Gy/M/d"}
-                yyyyQQQ{"Gy年QQQ"}
-                yyyyQQQQ{"Gy年QQQQ"}
+                y{"G y年"}
+                yyyy{"G y年"}
+                yyyyM{"G y/M"}
+                yyyyMEd{"G y/M/d（E）"}
+                yyyyMMM{"G y年M月"}
+                yyyyMMMEd{"G y年M月d日 E"}
+                yyyyMMMM{"G y年M月"}
+                yyyyMMMd{"G y年M月d日"}
+                yyyyMd{"G y/M/d"}
+                yyyyQQQ{"G y年QQQ"}
+                yyyyQQQQ{"G y年QQQQ"}
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h–h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm–h:mm B"}
+                    m{"h:mm–h:mm B"}
+                }
+                Gy{
+                    G{"G y – G y"}
+                    y{"G y–y"}
+                }
+                GyM{
+                    G{"GGGGG y-MM – GGGGG y-MM"}
+                    M{"GGGGG y-MM – y-MM"}
+                    y{"GGGGG y-MM – y-MM"}
+                }
+                GyMEd{
+                    G{"GGGGG y-MM-dd, E – GGGGG y-MM-dd, E"}
+                    M{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                    d{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                    y{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                }
+                GyMMM{
+                    G{"G y MMM – G y MMM"}
+                    M{"G y MMM–MMM"}
+                    y{"G y MMM – y MMM"}
+                }
+                GyMMMEd{
+                    G{"G y MMM d, E – G y MMM d, E"}
+                    M{"G y MMM d, E – MMM d, E"}
+                    d{"G y MMM d, E – MMM d, E"}
+                    y{"G y MMM d, E – y MMM d, E"}
+                }
+                GyMMMd{
+                    G{"G y MMM d – G y MMM d"}
+                    M{"G y MMM d – MMM d"}
+                    d{"G y MMM d–d"}
+                    y{"G y MMM d – y MMM d"}
+                }
+                GyMd{
+                    G{"GGGGG y-MM-dd – GGGGG y-MM-dd"}
+                    M{"GGGGG y-MM-dd – y-MM-dd"}
+                    d{"GGGGG y-MM-dd – y-MM-dd"}
+                    y{"GGGGG y-MM-dd – y-MM-dd"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -4294,7 +3693,7 @@ zh_Hant{
                 MMM{"LLL"}
                 MMMEd{"M月d日 E"}
                 MMMMW{
-                    other{"MMM的第W週"}
+                    other{"MMMM的第W週"}
                 }
                 MMMMd{"M月d日"}
                 MMMd{"M月d日"}
@@ -4493,6 +3892,53 @@ zh_Hant{
                 }
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h–h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm–h:mm B"}
+                    m{"h:mm–h:mm B"}
+                }
+                Gy{
+                    G{"G y – G y"}
+                    y{"G y–y"}
+                }
+                GyM{
+                    G{"GGGGG y-MM – GGGGG y-MM"}
+                    M{"GGGGG y-MM – y-MM"}
+                    y{"GGGGG y-MM – y-MM"}
+                }
+                GyMEd{
+                    G{"GGGGG y-MM-dd, E – GGGGG y-MM-dd, E"}
+                    M{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                    d{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                    y{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                }
+                GyMMM{
+                    G{"G y MMM – G y MMM"}
+                    M{"G y MMM–MMM"}
+                    y{"G y MMM – y MMM"}
+                }
+                GyMMMEd{
+                    G{"G y MMM d, E – G y MMM d, E"}
+                    M{"G y MMM d, E – MMM d, E"}
+                    d{"G y MMM d, E – MMM d, E"}
+                    y{"G y MMM d, E – y MMM d, E"}
+                }
+                GyMMMd{
+                    G{"G y MMM d – G y MMM d"}
+                    M{"G y MMM d – MMM d"}
+                    d{"G y MMM d–d"}
+                    y{"G y MMM d – y MMM d"}
+                }
+                GyMd{
+                    G{"GGGGG y-MM-dd – GGGGG y-MM-dd"}
+                    M{"GGGGG y-MM-dd – y-MM-dd"}
+                    d{"GGGGG y-MM-dd – y-MM-dd"}
+                    y{"GGGGG y-MM-dd – y-MM-dd"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -4606,20 +4052,6 @@ zh_Hant{
                         "11月",
                         "12月",
                     }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                    }
                     wide{
                         "1月",
                         "2月",
@@ -4649,20 +4081,6 @@ zh_Hant{
                         "10月",
                         "11月",
                         "12月",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
                     }
                     wide{
                         "1月",
@@ -4742,10 +4160,10 @@ zh_Hant{
             availableFormats{
                 E{"ccc"}
                 Ed{"d E"}
-                Gy{"G y年"}
-                GyMMM{"G y年M月"}
-                GyMMMEd{"G y年M月d日 E"}
-                GyMMMd{"G y年M月d日"}
+                Gy{"Gy年"}
+                GyMMM{"Gy年M月"}
+                GyMMMEd{"Gy年M月d日 E"}
+                GyMMMd{"Gy年M月d日"}
                 M{"M月"}
                 MEd{"M/d（E）"}
                 MMM{"LLL"}
@@ -4754,17 +4172,17 @@ zh_Hant{
                 MMMd{"M月d日"}
                 Md{"M/d"}
                 d{"d日"}
-                y{"G y年"}
-                yyyy{"G y年"}
-                yyyyM{"G y/M"}
-                yyyyMEd{"G y/M/d（E）"}
-                yyyyMMM{"G y年M月"}
-                yyyyMMMEd{"G y年M月d日 E"}
-                yyyyMMMM{"G y年M月"}
-                yyyyMMMd{"G y年M月d日"}
-                yyyyMd{"G y/M/d"}
-                yyyyQQQ{"G y年QQQ"}
-                yyyyQQQQ{"G y年QQQQ"}
+                y{"Gy年"}
+                yyyy{"Gy年"}
+                yyyyM{"Gy/M"}
+                yyyyMEd{"Gy/M/d（E）"}
+                yyyyMMM{"Gy年M月"}
+                yyyyMMMEd{"Gy年M月d日 E"}
+                yyyyMMMM{"Gy年M月"}
+                yyyyMMMd{"Gy年M月d日"}
+                yyyyMd{"Gy/M/d"}
+                yyyyQQQ{"Gy年QQQ"}
+                yyyyQQQQ{"Gy年QQQQ"}
             }
             eras{
                 abbreviated{
@@ -4820,6 +4238,7 @@ zh_Hant{
                 d{
                     d{"d日至d日"}
                 }
+                fallback{"{0} – {1}"}
                 h{
                     a{"ah時至ah時"}
                     h{"ah時至h時"}
@@ -4839,39 +4258,39 @@ zh_Hant{
                     h{"ah時至h時 [v]"}
                 }
                 y{
-                    y{"G y至y"}
+                    y{"Gy至y"}
                 }
                 yM{
-                    M{"G y/M至y/M"}
-                    y{"G y/M至y/M"}
+                    M{"Gy/M至y/M"}
+                    y{"Gy/M至y/M"}
                 }
                 yMEd{
-                    M{"G y/M/dE至y/M/dE"}
-                    d{"G y/M/dE至y/M/dE"}
-                    y{"G y/M/dE至y/M/dE"}
+                    M{"Gy/M/dE至y/M/dE"}
+                    d{"Gy/M/dE至y/M/dE"}
+                    y{"Gy/M/dE至y/M/dE"}
                 }
                 yMMM{
-                    M{"G y年M月至M月"}
-                    y{"G y年M月至y年M月"}
+                    M{"Gy年M月至M月"}
+                    y{"Gy年M月至y年M月"}
                 }
                 yMMMEd{
-                    M{"G y年M月d日E至M月d日E"}
-                    d{"G y年M月d日E至d日E"}
-                    y{"G y年M月d日E至y年M月d日E"}
+                    M{"Gy年M月d日E至M月d日E"}
+                    d{"Gy年M月d日E至d日E"}
+                    y{"Gy年M月d日E至y年M月d日E"}
                 }
                 yMMMM{
-                    M{"G y年M月至M月"}
-                    y{"G y年M月至y年M月"}
+                    M{"Gy年M月至M月"}
+                    y{"Gy年M月至y年M月"}
                 }
                 yMMMd{
-                    M{"G y年M月d日至M月d日"}
-                    d{"G y年M月d日至d日"}
-                    y{"G y年M月d日至y年M月d日"}
+                    M{"Gy年M月d日至M月d日"}
+                    d{"Gy年M月d日至d日"}
+                    y{"Gy年M月d日至y年M月d日"}
                 }
                 yMd{
-                    M{"G y/M/d至y/M/d"}
-                    d{"G y/M/d至y/M/d"}
-                    y{"G y/M/d至y/M/d"}
+                    M{"Gy/M/d至y/M/d"}
+                    d{"Gy/M/d至y/M/d"}
+                    y{"Gy/M/d至y/M/d"}
                 }
             }
             monthNames{
@@ -4892,29 +4311,13 @@ zh_Hant{
                         "13月",
                         "閏7月",
                     }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                        "13",
-                        "7",
-                    }
                     wide{
                         "提斯利月",
                         "瑪西班月",
                         "基斯流月",
                         "提別月",
                         "細罷特月",
-                        "亞達月 I",
+                        "亞達月I",
                         "亞達月",
                         "尼散月",
                         "以珥月",
@@ -4922,7 +4325,7 @@ zh_Hant{
                         "搭模斯月",
                         "埃波月",
                         "以祿月",
-                        "亞達月 II",
+                        "亞達月II",
                     }
                 }
                 stand-alone{
@@ -4942,29 +4345,13 @@ zh_Hant{
                         "13月",
                         "閏7月",
                     }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                        "13",
-                        "7",
-                    }
                     wide{
                         "提斯利月",
                         "瑪西班月",
                         "基斯流月",
                         "提別月",
                         "細罷特月",
-                        "亞達月 I",
+                        "亞達月I",
                         "亞達月",
                         "尼散月",
                         "以珥月",
@@ -4972,7 +4359,7 @@ zh_Hant{
                         "搭模斯月",
                         "埃波月",
                         "以祿月",
-                        "亞達月 II",
+                        "亞達月II",
                     }
                 }
             }
@@ -4983,10 +4370,10 @@ zh_Hant{
                 "ah:mm:ss [z]",
                 "ah:mm:ss",
                 "ah:mm",
-                "G y年M月d日 EEEE",
-                "G y年M月d日",
-                "G y年M月d日",
-                "G y/M/d",
+                "Gy年M月d日 EEEE",
+                "Gy年M月d日",
+                "Gy年M月d日",
+                "Gy/M/d",
                 "{1} {0}",
                 "{1}{0}",
                 "{1} {0}",
@@ -4996,10 +4383,10 @@ zh_Hant{
             availableFormats{
                 E{"ccc"}
                 Ed{"d E"}
-                Gy{"G y年"}
-                GyMMM{"G y年M月"}
-                GyMMMEd{"G y年M月d日 E"}
-                GyMMMd{"G y年M月d日"}
+                Gy{"Gy年"}
+                GyMMM{"Gy年M月"}
+                GyMMMEd{"Gy年M月d日 E"}
+                GyMMMd{"Gy年M月d日"}
                 M{"M月"}
                 MEd{"M/d（E）"}
                 MMM{"LLL"}
@@ -5008,17 +4395,17 @@ zh_Hant{
                 MMMd{"M月d日"}
                 Md{"M/d"}
                 d{"d日"}
-                y{"G y年"}
-                yyyy{"G y年"}
-                yyyyM{"G y/M"}
-                yyyyMEd{"G y/M/d（E）"}
-                yyyyMMM{"G y年M月"}
-                yyyyMMMEd{"G y年M月d日 E"}
-                yyyyMMMM{"G y年M月"}
-                yyyyMMMd{"G y年M月d日"}
-                yyyyMd{"G y/M/d"}
-                yyyyQQQ{"G y年QQQ"}
-                yyyyQQQQ{"G y年QQQQ"}
+                y{"Gy年"}
+                yyyy{"Gy年"}
+                yyyyM{"Gy/M"}
+                yyyyMEd{"Gy/M/d（E）"}
+                yyyyMMM{"Gy年M月"}
+                yyyyMMMEd{"Gy年M月d日 E"}
+                yyyyMMMM{"Gy年M月"}
+                yyyyMMMd{"Gy年M月d日"}
+                yyyyMd{"Gy/M/d"}
+                yyyyQQQ{"Gy年QQQ"}
+                yyyyQQQQ{"Gy年QQQQ"}
             }
             eras{
                 abbreviated{
@@ -5074,6 +4461,7 @@ zh_Hant{
                 d{
                     d{"d日至d日"}
                 }
+                fallback{"{0} – {1}"}
                 h{
                     a{"ah時至ah時"}
                     h{"ah時至h時"}
@@ -5093,39 +4481,39 @@ zh_Hant{
                     h{"ah時至h時 [v]"}
                 }
                 y{
-                    y{"G y至y"}
+                    y{"Gy至y"}
                 }
                 yM{
-                    M{"G y/M至y/M"}
-                    y{"G y/M至y/M"}
+                    M{"Gy/M至y/M"}
+                    y{"Gy/M至y/M"}
                 }
                 yMEd{
-                    M{"G y/M/dE至y/M/dE"}
-                    d{"G y/M/dE至y/M/dE"}
-                    y{"G y/M/dE至y/M/dE"}
+                    M{"Gy/M/dE至y/M/dE"}
+                    d{"Gy/M/dE至y/M/dE"}
+                    y{"Gy/M/dE至y/M/dE"}
                 }
                 yMMM{
-                    M{"G y年M月至M月"}
-                    y{"G y年M月至y年M月"}
+                    M{"Gy年M月至M月"}
+                    y{"Gy年M月至y年M月"}
                 }
                 yMMMEd{
-                    M{"G y年M月d日E至M月d日E"}
-                    d{"G y年M月d日E至d日E"}
-                    y{"G y年M月d日E至y年M月d日E"}
+                    M{"Gy年M月d日E至M月d日E"}
+                    d{"Gy年M月d日E至d日E"}
+                    y{"Gy年M月d日E至y年M月d日E"}
                 }
                 yMMMM{
-                    M{"G y年M月至M月"}
-                    y{"G y年M月至y年M月"}
+                    M{"Gy年M月至M月"}
+                    y{"Gy年M月至y年M月"}
                 }
                 yMMMd{
-                    M{"G y年M月d日至M月d日"}
-                    d{"G y年M月d日至d日"}
-                    y{"G y年M月d日至y年M月d日"}
+                    M{"Gy年M月d日至M月d日"}
+                    d{"Gy年M月d日至d日"}
+                    y{"Gy年M月d日至y年M月d日"}
                 }
                 yMd{
-                    M{"G y/M/d至y/M/d"}
-                    d{"G y/M/d至y/M/d"}
-                    y{"G y/M/d至y/M/d"}
+                    M{"Gy/M/d至y/M/d"}
+                    d{"Gy/M/d至y/M/d"}
+                    y{"Gy/M/d至y/M/d"}
                 }
             }
             monthNames{
@@ -5143,20 +4531,6 @@ zh_Hant{
                         "報沙月",
                         "磨祛月",
                         "頗勒窶拏月",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
                     }
                     wide{
                         "制檀邏月",
@@ -5187,20 +4561,6 @@ zh_Hant{
                         "報沙月",
                         "磨祛月",
                         "頗勒窶拏月",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
                     }
                     wide{
                         "制檀邏月",
@@ -5332,6 +4692,7 @@ zh_Hant{
                 d{
                     d{"d日至d日"}
                 }
+                fallback{"{0} – {1}"}
                 h{
                     a{"ah時至ah時"}
                     h{"ah時至h時"}
@@ -5351,39 +4712,39 @@ zh_Hant{
                     h{"ah時至h時 [v]"}
                 }
                 y{
-                    y{"G y至y"}
+                    y{"Gy至y"}
                 }
                 yM{
-                    M{"G y/M至y/M"}
-                    y{"G y/M至y/M"}
+                    M{"Gy/M至y/M"}
+                    y{"Gy/M至y/M"}
                 }
                 yMEd{
-                    M{"G y/M/dE至y/M/dE"}
-                    d{"G y/M/dE至y/M/dE"}
-                    y{"G y/M/dE至y/M/dE"}
+                    M{"Gy/M/dE至y/M/dE"}
+                    d{"Gy/M/dE至y/M/dE"}
+                    y{"Gy/M/dE至y/M/dE"}
                 }
                 yMMM{
-                    M{"G y年M月至M月"}
-                    y{"G y年M月至y年M月"}
+                    M{"Gy年M月至M月"}
+                    y{"Gy年M月至y年M月"}
                 }
                 yMMMEd{
-                    M{"G y年M月d日E至M月d日E"}
-                    d{"G y年M月d日E至d日E"}
-                    y{"G y年M月d日E至y年M月d日E"}
+                    M{"Gy年M月d日E至M月d日E"}
+                    d{"Gy年M月d日E至d日E"}
+                    y{"Gy年M月d日E至y年M月d日E"}
                 }
                 yMMMM{
-                    M{"G y年M月至M月"}
-                    y{"G y年M月至y年M月"}
+                    M{"Gy年M月至M月"}
+                    y{"Gy年M月至y年M月"}
                 }
                 yMMMd{
-                    M{"G y年M月d日至M月d日"}
-                    d{"G y年M月d日至d日"}
-                    y{"G y年M月d日至y年M月d日"}
+                    M{"Gy年M月d日至M月d日"}
+                    d{"Gy年M月d日至d日"}
+                    y{"Gy年M月d日至y年M月d日"}
                 }
                 yMd{
-                    M{"G y/M/d至y/M/d"}
-                    d{"G y/M/d至y/M/d"}
-                    y{"G y/M/d至y/M/d"}
+                    M{"Gy/M/d至y/M/d"}
+                    d{"Gy/M/d至y/M/d"}
+                    y{"Gy/M/d至y/M/d"}
                 }
             }
             monthNames{
@@ -5402,27 +4763,13 @@ zh_Hant{
                         "11月",
                         "12月",
                     }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                    }
                     wide{
                         "穆哈蘭姆月",
                         "色法爾月",
-                        "賴比月 I",
-                        "賴比月 II",
-                        "主馬達月 I",
-                        "主馬達月 II",
+                        "賴比月I",
+                        "賴比月II",
+                        "主馬達月I",
+                        "主馬達月II",
                         "賴哲卜月",
                         "舍爾邦月",
                         "賴買丹月",
@@ -5446,27 +4793,13 @@ zh_Hant{
                         "11月",
                         "12月",
                     }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                    }
                     wide{
                         "穆哈蘭姆月",
                         "色法爾月",
-                        "賴比月 I",
-                        "賴比月 II",
-                        "主馬達月 I",
-                        "主馬達月 II",
+                        "賴比月I",
+                        "賴比月II",
+                        "主馬達月I",
+                        "主馬達月II",
                         "賴哲卜月",
                         "舍爾邦月",
                         "賴買丹月",
@@ -5488,7 +4821,7 @@ zh_Hant{
                 "Gy年M月d日",
                 "Gy/M/d",
                 "{1} {0}",
-                "{1} {0}",
+                "{1}{0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -6247,6 +5580,44 @@ zh_Hant{
                 }
             }
             intervalFormats{
+                Gyyyy{
+                    G{"Gy至Gy"}
+                    y{"Gy至y"}
+                }
+                GyyyyM{
+                    G{"Gy/M至Gy/M"}
+                    M{"Gy/M至y/M"}
+                    y{"Gy/M至y/M"}
+                }
+                GyyyyMEd{
+                    G{"Gy/M/dE至Gy/M/dE"}
+                    M{"Gy/M/dE至y/M/dE"}
+                    d{"Gy/M/dE至y/M/dE"}
+                    y{"Gy/M/dE至y/M/dE"}
+                }
+                GyyyyMMM{
+                    G{"Gy年M月至Gy年M月"}
+                    M{"Gy年M月至M月"}
+                    y{"Gy年M月至y年M月"}
+                }
+                GyyyyMMMEd{
+                    G{"Gy年M月d日E至Gy年M月d日E"}
+                    M{"Gy年M月d日E至M月d日E"}
+                    d{"Gy年M月d日E至d日E"}
+                    y{"Gy年M月d日E至y年M月d日E"}
+                }
+                GyyyyMMMd{
+                    G{"Gy年M月d日至Gy年M月d日"}
+                    M{"Gy年M月d日至M月d日"}
+                    d{"Gy年M月d日至d日"}
+                    y{"Gy年M月d日至y年M月d日"}
+                }
+                GyyyyMd{
+                    G{"Gy/M/d至Gy/M/d"}
+                    M{"Gy/M/d至y/M/d"}
+                    d{"Gy/M/d至y/M/d"}
+                    y{"Gy/M/d至y/M/d"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -6289,6 +5660,7 @@ zh_Hant{
                 d{
                     d{"d日至d日"}
                 }
+                fallback{"{0} – {1}"}
                 h{
                     a{"ah時至ah時"}
                     h{"ah時至h時"}
@@ -6307,40 +5679,40 @@ zh_Hant{
                     a{"ah時至ah時 [v]"}
                     h{"ah時至h時 [v]"}
                 }
-                y{
-                    y{"G y至y"}
+                yyyy{
+                    y{"Gy至y"}
                 }
-                yM{
-                    M{"G y/M至y/M"}
-                    y{"G y/M至y/M"}
+                yyyyM{
+                    M{"Gy/M至y/M"}
+                    y{"Gy/M至y/M"}
                 }
-                yMEd{
-                    M{"G y/M/dE至y/M/dE"}
-                    d{"G y/M/dE至y/M/dE"}
-                    y{"G y/M/dE至y/M/dE"}
+                yyyyMEd{
+                    M{"Gy/M/dE至y/M/dE"}
+                    d{"Gy/M/dE至y/M/dE"}
+                    y{"Gy/M/dE至y/M/dE"}
                 }
-                yMMM{
-                    M{"G y年M月至M月"}
-                    y{"G y年M月至y年M月"}
+                yyyyMMM{
+                    M{"Gy年M月至M月"}
+                    y{"Gy年M月至y年M月"}
                 }
-                yMMMEd{
-                    M{"G y年M月d日E至M月d日E"}
-                    d{"G y年M月d日E至d日E"}
-                    y{"G y年M月d日E至y年M月d日E"}
+                yyyyMMMEd{
+                    M{"Gy年M月d日E至M月d日E"}
+                    d{"Gy年M月d日E至d日E"}
+                    y{"Gy年M月d日E至y年M月d日E"}
                 }
-                yMMMM{
-                    M{"G y年M月至M月"}
-                    y{"G y年M月至y年M月"}
+                yyyyMMMM{
+                    M{"Gy年M月至M月"}
+                    y{"Gy年M月至y年M月"}
                 }
-                yMMMd{
-                    M{"G y年M月d日至M月d日"}
-                    d{"G y年M月d日至d日"}
-                    y{"G y年M月d日至y年M月d日"}
+                yyyyMMMd{
+                    M{"Gy年M月d日至M月d日"}
+                    d{"Gy年M月d日至d日"}
+                    y{"Gy年M月d日至y年M月d日"}
                 }
-                yMd{
-                    M{"G y/M/d至y/M/d"}
-                    d{"G y/M/d至y/M/d"}
-                    y{"G y/M/d至y/M/d"}
+                yyyyMd{
+                    M{"Gy/M/d至y/M/d"}
+                    d{"Gy/M/d至y/M/d"}
+                    y{"Gy/M/d至y/M/d"}
                 }
             }
         }
@@ -6350,10 +5722,10 @@ zh_Hant{
                 "ah:mm:ss [z]",
                 "ah:mm:ss",
                 "ah:mm",
-                "G y年M月d日 EEEE",
-                "G y年M月d日",
-                "G y年M月d日",
-                "G y/M/d",
+                "Gy年M月d日 EEEE",
+                "Gy年M月d日",
+                "Gy年M月d日",
+                "Gy/M/d",
                 "{1} {0}",
                 "{1}{0}",
                 "{1} {0}",
@@ -6363,10 +5735,10 @@ zh_Hant{
             availableFormats{
                 E{"ccc"}
                 Ed{"d E"}
-                Gy{"G y年"}
-                GyMMM{"G y年M月"}
-                GyMMMEd{"G y年M月d日 E"}
-                GyMMMd{"G y年M月d日"}
+                Gy{"Gy年"}
+                GyMMM{"Gy年M月"}
+                GyMMMEd{"Gy年M月d日 E"}
+                GyMMMd{"Gy年M月d日"}
                 M{"M月"}
                 MEd{"M/d（E）"}
                 MMM{"LLL"}
@@ -6375,17 +5747,17 @@ zh_Hant{
                 MMMd{"M月d日"}
                 Md{"M/d"}
                 d{"d日"}
-                y{"G y年"}
-                yyyy{"G y年"}
-                yyyyM{"G y/M"}
-                yyyyMEd{"G y/M/d（E）"}
-                yyyyMMM{"G y年M月"}
-                yyyyMMMEd{"G y年M月d日 E"}
-                yyyyMMMM{"G y年M月"}
-                yyyyMMMd{"G y年M月d日"}
-                yyyyMd{"G y/M/d"}
-                yyyyQQQ{"G y年QQQ"}
-                yyyyQQQQ{"G y年QQQQ"}
+                y{"Gy年"}
+                yyyy{"Gy年"}
+                yyyyM{"Gy/M"}
+                yyyyMEd{"Gy/M/d（E）"}
+                yyyyMMM{"Gy年M月"}
+                yyyyMMMEd{"Gy年M月d日 E"}
+                yyyyMMMM{"Gy年M月"}
+                yyyyMMMd{"Gy年M月d日"}
+                yyyyMd{"Gy/M/d"}
+                yyyyQQQ{"Gy年QQQ"}
+                yyyyQQQQ{"Gy年QQQQ"}
             }
             eras{
                 abbreviated{
@@ -6441,6 +5813,7 @@ zh_Hant{
                 d{
                     d{"d日至d日"}
                 }
+                fallback{"{0} – {1}"}
                 h{
                     a{"ah時至ah時"}
                     h{"ah時至h時"}
@@ -6460,39 +5833,39 @@ zh_Hant{
                     h{"ah時至h時 [v]"}
                 }
                 y{
-                    y{"G y至y"}
+                    y{"Gy至y"}
                 }
                 yM{
-                    M{"G y/M至y/M"}
-                    y{"G y/M至y/M"}
+                    M{"Gy/M至y/M"}
+                    y{"Gy/M至y/M"}
                 }
                 yMEd{
-                    M{"G y/M/dE至y/M/dE"}
-                    d{"G y/M/dE至y/M/dE"}
-                    y{"G y/M/dE至y/M/dE"}
+                    M{"Gy/M/dE至y/M/dE"}
+                    d{"Gy/M/dE至y/M/dE"}
+                    y{"Gy/M/dE至y/M/dE"}
                 }
                 yMMM{
-                    M{"G y年M月至M月"}
-                    y{"G y年M月至y年M月"}
+                    M{"Gy年M月至M月"}
+                    y{"Gy年M月至y年M月"}
                 }
                 yMMMEd{
-                    M{"G y年M月d日E至M月d日E"}
-                    d{"G y年M月d日E至d日E"}
-                    y{"G y年M月d日E至y年M月d日E"}
+                    M{"Gy年M月d日E至M月d日E"}
+                    d{"Gy年M月d日E至d日E"}
+                    y{"Gy年M月d日E至y年M月d日E"}
                 }
                 yMMMM{
-                    M{"G y年M月至M月"}
-                    y{"G y年M月至y年M月"}
+                    M{"Gy年M月至M月"}
+                    y{"Gy年M月至y年M月"}
                 }
                 yMMMd{
-                    M{"G y年M月d日至M月d日"}
-                    d{"G y年M月d日至d日"}
-                    y{"G y年M月d日至y年M月d日"}
+                    M{"Gy年M月d日至M月d日"}
+                    d{"Gy年M月d日至d日"}
+                    y{"Gy年M月d日至y年M月d日"}
                 }
                 yMd{
-                    M{"G y/M/d至y/M/d"}
-                    d{"G y/M/d至y/M/d"}
-                    y{"G y/M/d至y/M/d"}
+                    M{"Gy/M/d至y/M/d"}
+                    d{"Gy/M/d至y/M/d"}
+                    y{"Gy/M/d至y/M/d"}
                 }
             }
             monthNames{
@@ -6510,20 +5883,6 @@ zh_Hant{
                         "10月",
                         "11月",
                         "12月",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
                     }
                     wide{
                         "1月",
@@ -6554,20 +5913,6 @@ zh_Hant{
                         "10月",
                         "11月",
                         "12月",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
                     }
                     wide{
                         "1月",
@@ -6709,10 +6054,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 天後"}
+                    other{"{0}天後"}
                 }
                 past{
-                    other{"{0} 天前"}
+                    other{"{0}天前"}
                 }
             }
         }
@@ -6727,10 +6072,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 天後"}
+                    other{"{0}天後"}
                 }
                 past{
-                    other{"{0} 天前"}
+                    other{"{0}天前"}
                 }
             }
         }
@@ -6745,10 +6090,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 天後"}
+                    other{"{0}天後"}
                 }
                 past{
-                    other{"{0} 天前"}
+                    other{"{0}天前"}
                 }
             }
         }
@@ -6787,10 +6132,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週五後"}
+                    other{"{0}個週五後"}
                 }
                 past{
-                    other{"{0} 個週五前"}
+                    other{"{0}個週五前"}
                 }
             }
         }
@@ -6802,10 +6147,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週五後"}
+                    other{"{0}個週五後"}
                 }
                 past{
-                    other{"{0} 個週五前"}
+                    other{"{0}個週五前"}
                 }
             }
         }
@@ -6817,10 +6162,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週五後"}
+                    other{"{0}個週五後"}
                 }
                 past{
-                    other{"{0} 個週五前"}
+                    other{"{0}個週五前"}
                 }
             }
         }
@@ -6831,10 +6176,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 小時後"}
+                    other{"{0}小時後"}
                 }
                 past{
-                    other{"{0} 小時前"}
+                    other{"{0}小時前"}
                 }
             }
         }
@@ -6845,10 +6190,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 小時後"}
+                    other{"{0}小時後"}
                 }
                 past{
-                    other{"{0} 小時前"}
+                    other{"{0}小時前"}
                 }
             }
         }
@@ -6859,10 +6204,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 小時後"}
+                    other{"{0}小時後"}
                 }
                 past{
-                    other{"{0} 小時前"}
+                    other{"{0}小時前"}
                 }
             }
         }
@@ -6873,10 +6218,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 分鐘後"}
+                    other{"{0}分鐘後"}
                 }
                 past{
-                    other{"{0} 分鐘前"}
+                    other{"{0}分鐘前"}
                 }
             }
         }
@@ -6887,10 +6232,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 分鐘後"}
+                    other{"{0}分鐘後"}
                 }
                 past{
-                    other{"{0} 分鐘前"}
+                    other{"{0}分鐘前"}
                 }
             }
         }
@@ -6901,10 +6246,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 分鐘後"}
+                    other{"{0}分鐘後"}
                 }
                 past{
-                    other{"{0} 分鐘前"}
+                    other{"{0}分鐘前"}
                 }
             }
         }
@@ -6916,10 +6261,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週一後"}
+                    other{"{0}個週一後"}
                 }
                 past{
-                    other{"{0} 個週一前"}
+                    other{"{0}個週一前"}
                 }
             }
         }
@@ -6931,10 +6276,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週一後"}
+                    other{"{0}個週一後"}
                 }
                 past{
-                    other{"{0} 個週一前"}
+                    other{"{0}個週一前"}
                 }
             }
         }
@@ -6946,10 +6291,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週一後"}
+                    other{"{0}個週一後"}
                 }
                 past{
-                    other{"{0} 個週一前"}
+                    other{"{0}個週一前"}
                 }
             }
         }
@@ -6962,10 +6307,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個月後"}
+                    other{"{0}個月後"}
                 }
                 past{
-                    other{"{0} 個月前"}
+                    other{"{0}個月前"}
                 }
             }
         }
@@ -6978,10 +6323,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個月後"}
+                    other{"{0}個月後"}
                 }
                 past{
-                    other{"{0} 個月前"}
+                    other{"{0}個月前"}
                 }
             }
         }
@@ -6994,10 +6339,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個月後"}
+                    other{"{0}個月後"}
                 }
                 past{
-                    other{"{0} 個月前"}
+                    other{"{0}個月前"}
                 }
             }
         }
@@ -7010,10 +6355,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 季後"}
+                    other{"{0}季後"}
                 }
                 past{
-                    other{"{0} 季前"}
+                    other{"{0}季前"}
                 }
             }
         }
@@ -7026,10 +6371,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 季後"}
+                    other{"{0}季後"}
                 }
                 past{
-                    other{"{0} 季前"}
+                    other{"{0}季前"}
                 }
             }
         }
@@ -7042,10 +6387,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 季後"}
+                    other{"{0}季後"}
                 }
                 past{
-                    other{"{0} 季前"}
+                    other{"{0}季前"}
                 }
             }
         }
@@ -7057,10 +6402,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週六後"}
+                    other{"{0}個週六後"}
                 }
                 past{
-                    other{"{0} 個週六前"}
+                    other{"{0}個週六前"}
                 }
             }
         }
@@ -7072,10 +6417,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週六後"}
+                    other{"{0}個週六後"}
                 }
                 past{
-                    other{"{0} 個週六前"}
+                    other{"{0}個週六前"}
                 }
             }
         }
@@ -7087,10 +6432,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週六後"}
+                    other{"{0}個週六後"}
                 }
                 past{
-                    other{"{0} 個週六前"}
+                    other{"{0}個週六前"}
                 }
             }
         }
@@ -7101,10 +6446,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 秒後"}
+                    other{"{0}秒後"}
                 }
                 past{
-                    other{"{0} 秒前"}
+                    other{"{0}秒前"}
                 }
             }
         }
@@ -7115,10 +6460,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 秒後"}
+                    other{"{0}秒後"}
                 }
                 past{
-                    other{"{0} 秒前"}
+                    other{"{0}秒前"}
                 }
             }
         }
@@ -7129,10 +6474,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 秒後"}
+                    other{"{0}秒後"}
                 }
                 past{
-                    other{"{0} 秒前"}
+                    other{"{0}秒前"}
                 }
             }
         }
@@ -7144,10 +6489,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週日後"}
+                    other{"{0}個週日後"}
                 }
                 past{
-                    other{"{0} 個週日前"}
+                    other{"{0}個週日前"}
                 }
             }
         }
@@ -7159,10 +6504,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週日後"}
+                    other{"{0}個週日後"}
                 }
                 past{
-                    other{"{0} 個週日前"}
+                    other{"{0}個週日前"}
                 }
             }
         }
@@ -7174,10 +6519,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週日後"}
+                    other{"{0}個週日後"}
                 }
                 past{
-                    other{"{0} 個週日前"}
+                    other{"{0}個週日前"}
                 }
             }
         }
@@ -7189,10 +6534,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週四後"}
+                    other{"{0}個週四後"}
                 }
                 past{
-                    other{"{0} 個週四前"}
+                    other{"{0}個週四前"}
                 }
             }
         }
@@ -7204,10 +6549,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週四後"}
+                    other{"{0}個週四後"}
                 }
                 past{
-                    other{"{0} 個週四前"}
+                    other{"{0}個週四前"}
                 }
             }
         }
@@ -7219,10 +6564,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週四後"}
+                    other{"{0}個週四後"}
                 }
                 past{
-                    other{"{0} 個週四前"}
+                    other{"{0}個週四前"}
                 }
             }
         }
@@ -7234,10 +6579,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週二後"}
+                    other{"{0}個週二後"}
                 }
                 past{
-                    other{"{0} 個週二前"}
+                    other{"{0}個週二前"}
                 }
             }
         }
@@ -7249,10 +6594,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週二後"}
+                    other{"{0}個週二後"}
                 }
                 past{
-                    other{"{0} 個週二前"}
+                    other{"{0}個週二前"}
                 }
             }
         }
@@ -7264,10 +6609,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週二後"}
+                    other{"{0}個週二後"}
                 }
                 past{
-                    other{"{0} 個週二前"}
+                    other{"{0}個週二前"}
                 }
             }
         }
@@ -7279,10 +6624,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週三後"}
+                    other{"{0}個週三後"}
                 }
                 past{
-                    other{"{0} 個週三前"}
+                    other{"{0}個週三前"}
                 }
             }
         }
@@ -7294,10 +6639,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週三後"}
+                    other{"{0}個週三後"}
                 }
                 past{
-                    other{"{0} 個週三前"}
+                    other{"{0}個週三前"}
                 }
             }
         }
@@ -7309,10 +6654,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 個週三後"}
+                    other{"{0}個週三後"}
                 }
                 past{
-                    other{"{0} 個週三前"}
+                    other{"{0}個週三前"}
                 }
             }
         }
@@ -7323,13 +6668,13 @@ zh_Hant{
                 "0"{"本週"}
                 "1"{"下週"}
             }
-            relativePeriod{"{0} 當週"}
+            relativePeriod{"{0}當週"}
             relativeTime{
                 future{
-                    other{"{0} 週後"}
+                    other{"{0}週後"}
                 }
                 past{
-                    other{"{0} 週前"}
+                    other{"{0}週前"}
                 }
             }
         }
@@ -7340,13 +6685,13 @@ zh_Hant{
                 "0"{"本週"}
                 "1"{"下週"}
             }
-            relativePeriod{"{0} 當週"}
+            relativePeriod{"{0}當週"}
             relativeTime{
                 future{
-                    other{"{0} 週後"}
+                    other{"{0}週後"}
                 }
                 past{
-                    other{"{0} 週前"}
+                    other{"{0}週前"}
                 }
             }
         }
@@ -7357,13 +6702,13 @@ zh_Hant{
                 "0"{"本週"}
                 "1"{"下週"}
             }
-            relativePeriod{"{0} 當週"}
+            relativePeriod{"{0}當週"}
             relativeTime{
                 future{
-                    other{"{0} 週後"}
+                    other{"{0}週後"}
                 }
                 past{
-                    other{"{0} 週前"}
+                    other{"{0}週前"}
                 }
             }
         }
@@ -7403,10 +6748,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 年後"}
+                    other{"{0}年後"}
                 }
                 past{
-                    other{"{0} 年前"}
+                    other{"{0}年前"}
                 }
             }
         }
@@ -7419,10 +6764,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 年後"}
+                    other{"{0}年後"}
                 }
                 past{
-                    other{"{0} 年前"}
+                    other{"{0}年前"}
                 }
             }
         }
@@ -7435,10 +6780,10 @@ zh_Hant{
             }
             relativeTime{
                 future{
-                    other{"{0} 年後"}
+                    other{"{0}年後"}
                 }
                 past{
-                    other{"{0} 年前"}
+                    other{"{0}年前"}
                 }
             }
         }
@@ -7465,6 +6810,12 @@ zh_Hant{
             middle{"{0}、{1}"}
             start{"{0}、{1}"}
         }
+        standard-narrow{
+            2{"{0}和{1}"}
+            end{"{0}和{1}"}
+            middle{"{0}、{1}"}
+            start{"{0}、{1}"}
+        }
         standard-short{
             2{"{0}和{1}"}
             end{"{0}和{1}"}
@@ -7472,27 +6823,59 @@ zh_Hant{
             start{"{0}、{1}"}
         }
         unit{
-            2{"{0} {1}"}
-            end{"{0} {1}"}
-            middle{"{0} {1}"}
-            start{"{0} {1}"}
+            2{"{0}{1}"}
+            end{"{0}{1}"}
+            middle{"{0}{1}"}
+            start{"{0}{1}"}
         }
         unit-narrow{
-            2{"{0} {1}"}
-            end{"{0} {1}"}
-            middle{"{0} {1}"}
-            start{"{0} {1}"}
+            2{"{0}{1}"}
+            end{"{0}{1}"}
+            middle{"{0}{1}"}
+            start{"{0}{1}"}
         }
         unit-short{
-            2{"{0} {1}"}
-            end{"{0} {1}"}
-            middle{"{0} {1}"}
-            start{"{0} {1}"}
+            2{"{0}{1}"}
+            end{"{0}{1}"}
+            middle{"{0}{1}"}
+            start{"{0}{1}"}
         }
     }
     measurementSystemNames{
         UK{"英制"}
         US{"美制"}
         metric{"公制"}
+    }
+    parse{
+        date{
+            lenient{
+                "[\\--/]",
+                "[\\:∶︓﹕：]",
+            }
+        }
+        general{
+            lenient{
+                "[.․。︒﹒．｡]",
+                "['ʼ՚᾽᾿’＇]",
+                "[%٪﹪％]",
+                "[؉‰]",
+                "[\$﹩＄]",
+                "[£₤￡]",
+                "[¥￥]",
+                "[₩￦]",
+                "[₨₹{Rp}{Rs}]",
+            }
+        }
+        number{
+            lenient{
+                "[\\-‐‒–⁻₋−➖﹣－]",
+                "[,،٫、︐︑﹐﹑，､]",
+                "[+⁺₊➕﬩﹢＋]",
+            }
+            stricter{
+                "[,٫︐﹐，]",
+                "[.․﹒．｡]",
+            }
+        }
     }
 }

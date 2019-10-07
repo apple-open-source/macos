@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_DECL_PROTO_VARARGS.VarLenArgs.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * array tuples may not use variable-length argument lists

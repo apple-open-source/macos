@@ -1,0 +1,35 @@
+--- unzip60/man/unzip.1	2009-04-19 17:33:10.000000000 -0700
++++ unzip60-fix/man/unzip.1	2019-03-31 10:30:27.000000000 -0700
+@@ -307,9 +307,6 @@
+ with the default \fB\-D\fP to do what an explicit \fB\-DD\fP does on other
+ systems.)
+ .TP
+-.B \-E
+-[MacOS only] display contents of MacOS extra field during restore operation.
+-.TP
+ .B \-F
+ [Acorn only] suppress removal of NFS filetype extension from stored filenames.
+ .TP
+@@ -321,11 +318,6 @@
+ (When the stored filename appears to already have an appended NFS filetype
+ extension, it is replaced by the info from the extra field.)
+ .TP
+-.B \-i
+-[MacOS only] ignore filenames stored in MacOS extra fields. Instead, the
+-most compatible filename stored in the generic part of the entry's header
+-is used.
+-.TP
+ .B \-j
+ junk paths.  The archive's directory structure is not recreated; all files
+ are deposited in the extraction directory (by default, the current one).
+@@ -334,10 +326,6 @@
+ [BeOS only] junk file attributes.  The file's BeOS file attributes are not
+ restored, just the file's data.
+ .TP
+-.B \-J
+-[MacOS only] ignore MacOS extra fields.  All Macintosh specific info
+-is skipped. Data-fork and resource-fork are restored as separate files.
+-.TP
+ .B \-K
+ [AtheOS, BeOS, Unix only] retain SUID/SGID/Tacky file attributes.  Without
+ this flag, these attribute bits are cleared for security reasons.

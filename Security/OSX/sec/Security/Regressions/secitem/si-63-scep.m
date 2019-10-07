@@ -37,7 +37,7 @@
 #include <Foundation/Foundation.h>
 
 #include "Security_regressions.h"
-#include <test/testcert.h>
+#include "test/testcert.h"
 
 static uint8_t msscep_getcacert[] = {
 	0x30, 0x82, 0x10, 0x8d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d,

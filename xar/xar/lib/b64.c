@@ -133,6 +133,14 @@ static unsigned int raw_base64_decode(
 					   input block can be padding */
                     return B64_decodeError;
                 } else if (B64_INPUT_BLOCK_OFFSET == 2) {
+					/* inputIndex points to the next byte in the input buffer. If this is the last byte the
+					 	inputIndex is dangling past the end of the array. If it is, then by definition = is not
+					   	the next char. Just throw overrun.*/
+					if (inputIndex > inLengthToDecode)
+					{
+						return B64_bufferOverrun;
+					}
+					
                     /* Make sure there's appropriate padding */
                     if (input[inputIndex] != '=') return B64_decodeError;
                     decodedBuffer[2] = 0;
@@ -174,7 +182,10 @@ static unsigned int raw_base64_decode(
         }
     }
 	
-    if (inputIndex > inLengthToDecode) return B64_bufferOverrun;
+    if (inputIndex > inLengthToDecode)
+	{
+		return B64_bufferOverrun;
+	}
 	
     for (i = 0; i < (3 - currentInputBlockPaddingCharacterCount); i++) {
 		*output++ = decodedBuffer[i];

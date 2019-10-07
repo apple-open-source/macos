@@ -27,8 +27,14 @@
 
 #include "MessageSender.h"
 #include "NetworkLoadClient.h"
+#include "SandboxExtension.h"
+
+namespace IPC {
+class Connection;
+}
 
 namespace WebCore {
+class BlobRegistryImpl;
 class ResourceResponse;
 }
 
@@ -39,12 +45,12 @@ class DownloadID;
 class NetworkLoad;
 class NetworkLoadParameters;
 class NetworkSession;
-    
+
 class PendingDownload : public NetworkLoadClient, public IPC::MessageSender {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    PendingDownload(NetworkLoadParameters&&, DownloadID, NetworkSession&, const String& suggestedName);
-    PendingDownload(std::unique_ptr<NetworkLoad>&&, ResponseCompletionHandler&&, DownloadID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
+    PendingDownload(IPC::Connection*, NetworkLoadParameters&&, DownloadID, NetworkSession&, WebCore::BlobRegistryImpl*, const String& suggestedName);
+    PendingDownload(IPC::Connection*, std::unique_ptr<NetworkLoad>&&, ResponseCompletionHandler&&, DownloadID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
 
     void continueWillSendRequest(WebCore::ResourceRequest&&);
     void cancel();
@@ -66,11 +72,12 @@ private:
     void didFailLoading(const WebCore::ResourceError&) override;
 
     // MessageSender.
-    IPC::Connection* messageSenderConnection() override;
-    uint64_t messageSenderDestinationID() override;
+    IPC::Connection* messageSenderConnection() const override;
+    uint64_t messageSenderDestinationID() const override;
 
 private:
     std::unique_ptr<NetworkLoad> m_networkLoad;
+    RefPtr<IPC::Connection> m_parentProcessConnection;
     bool m_isAllowedToAskUserForCredentials;
 
 #if PLATFORM(COCOA)

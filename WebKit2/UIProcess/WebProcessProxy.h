@@ -26,8 +26,8 @@
 #pragma once
 
 #include "APIUserInitiatedAction.h"
+#include "AuxiliaryProcessProxy.h"
 #include "BackgroundProcessResponsivenessTimer.h"
-#include "ChildProcessProxy.h"
 #include "MessageReceiverMap.h"
 #include "PluginInfoStore.h"
 #include "ProcessLauncher.h"
@@ -40,7 +40,9 @@
 #include "WebProcessProxyMessages.h"
 #include <WebCore/MessagePortChannelProvider.h>
 #include <WebCore/MessagePortIdentifier.h>
-#include <WebCore/Process.h>
+#include <WebCore/PageIdentifier.h>
+#include <WebCore/ProcessIdentifier.h>
+#include <WebCore/RegistrableDomain.h>
 #include <WebCore/SharedStringHash.h>
 #include <memory>
 #include <pal/SessionID.h>
@@ -50,16 +52,13 @@
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
-#if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
-#include "DisplayLink.h"
-#endif
-
 namespace API {
 class Navigation;
 class PageConfiguration;
 }
 
 namespace WebCore {
+class DeferrableOneShotTimer;
 class ResourceRequest;
 struct PluginInfo;
 struct SecurityOriginData;
@@ -94,10 +93,12 @@ typedef RefCounter<BackgroundWebProcessCounterType> BackgroundWebProcessCounter;
 typedef BackgroundWebProcessCounter::Token BackgroundWebProcessToken;
 #endif
 
-class WebProcessProxy : public ChildProcessProxy, public ResponsivenessTimer::Client, public ThreadSafeRefCounted<WebProcessProxy>, public CanMakeWeakPtr<WebProcessProxy>, private ProcessThrottlerClient {
+enum class AllowProcessCaching { No, Yes };
+
+class WebProcessProxy : public AuxiliaryProcessProxy, public ResponsivenessTimer::Client, public ThreadSafeRefCounted<WebProcessProxy>, public CanMakeWeakPtr<WebProcessProxy>, private ProcessThrottlerClient {
 public:
     typedef HashMap<uint64_t, RefPtr<WebFrameProxy>> WebFrameProxyMap;
-    typedef HashMap<uint64_t, WebPageProxy*> WebPageProxyMap;
+    typedef HashMap<WebCore::PageIdentifier, WebPageProxy*> WebPageProxyMap;
     typedef HashMap<uint64_t, RefPtr<API::UserInitiatedAction>> UserInitiatedActionMap;
 
     enum class IsPrewarmed {
@@ -105,36 +106,42 @@ public:
         Yes
     };
 
-    static Ref<WebProcessProxy> create(WebProcessPool&, WebsiteDataStore&, IsPrewarmed);
+    enum class ShouldLaunchProcess : bool { No, Yes };
+
+    static Ref<WebProcessProxy> create(WebProcessPool&, WebsiteDataStore*, IsPrewarmed, ShouldLaunchProcess = ShouldLaunchProcess::Yes);
     ~WebProcessProxy();
+
+    static void forWebPagesWithOrigin(PAL::SessionID, const WebCore::SecurityOriginData&, const Function<void(WebPageProxy&)>&);
 
     WebConnection* webConnection() const { return m_webConnection.get(); }
 
+    unsigned suspendedPageCount() const { return m_suspendedPageCount; }
     void incrementSuspendedPageCount();
     void decrementSuspendedPageCount();
 
-    WebProcessPool& processPool() const { ASSERT(m_processPool); return *m_processPool.get(); }
+    WebProcessPool* processPoolIfExists() const;
+    WebProcessPool& processPool() const;
 
-    String registrableDomain() const { return m_registrableDomain.valueOr(String()); }
+    WebCore::RegistrableDomain registrableDomain() const { return m_registrableDomain.valueOr(WebCore::RegistrableDomain { }); }
     void setIsInProcessCache(bool);
     bool isInProcessCache() const { return m_isInProcessCache; }
 
-    // FIXME: WebsiteDataStores should be made per-WebPageProxy throughout WebKit2
-    WebsiteDataStore& websiteDataStore() const { return m_websiteDataStore.get(); }
+    WebsiteDataStore& websiteDataStore() const { ASSERT(m_websiteDataStore); return *m_websiteDataStore; }
+    void setWebsiteDataStore(WebsiteDataStore&);
 
     static WebProcessProxy* processForIdentifier(WebCore::ProcessIdentifier);
-    static WebPageProxy* webPage(uint64_t pageID);
+    static WebPageProxy* webPage(WebCore::PageIdentifier);
     Ref<WebPageProxy> createWebPage(PageClient&, Ref<API::PageConfiguration>&&);
 
     enum class BeginsUsingDataStore : bool { No, Yes };
-    void addExistingWebPage(WebPageProxy&, uint64_t pageID, BeginsUsingDataStore);
+    void addExistingWebPage(WebPageProxy&, BeginsUsingDataStore);
 
     enum class EndsUsingDataStore : bool { No, Yes };
-    void removeWebPage(WebPageProxy&, uint64_t pageID, EndsUsingDataStore);
+    void removeWebPage(WebPageProxy&, EndsUsingDataStore);
 
     void addProvisionalPageProxy(ProvisionalPageProxy&);
     void removeProvisionalPageProxy(ProvisionalPageProxy&);
-
+    
     typename WebPageProxyMap::ValuesConstIteratorRange pages() const { return m_pageMap.values(); }
     unsigned pageCount() const { return m_pageMap.size(); }
     unsigned provisionalPageCount() const { return m_provisionalPages.size(); }
@@ -144,9 +151,12 @@ public:
 
     virtual bool isServiceWorkerProcess() const { return false; }
 
-    void addVisitedLinkStore(VisitedLinkStore&);
+    void didCreateWebPageInProcess(WebCore::PageIdentifier);
+
+    void addVisitedLinkStoreUser(VisitedLinkStore&, WebCore::PageIdentifier);
+    void removeVisitedLinkStoreUser(VisitedLinkStore&, WebCore::PageIdentifier);
+
     void addWebUserContentControllerProxy(WebUserContentControllerProxy&, WebPageCreationParameters&);
-    void didDestroyVisitedLinkStore(VisitedLinkStore&);
     void didDestroyWebUserContentControllerProxy(WebUserContentControllerProxy&);
 
     RefPtr<API::UserInitiatedAction> userInitiatedActivity(uint64_t);
@@ -179,10 +189,14 @@ public:
     void fetchWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, CompletionHandler<void(WebsiteData)>&&);
     void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, CompletionHandler<void()>&&);
     void deleteWebsiteDataForOrigins(PAL::SessionID, OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>&, CompletionHandler<void()>&&);
-    static void deleteWebsiteDataForTopPrivatelyControlledDomainsInAllPersistentDataStores(OptionSet<WebsiteDataType>, Vector<String>&& topPrivatelyControlledDomains, bool shouldNotifyPages, CompletionHandler<void (const HashSet<String>&)>&&);
-    static void topPrivatelyControlledDomainsWithWebsiteData(OptionSet<WebsiteDataType> dataTypes, bool shouldNotifyPage, CompletionHandler<void(HashSet<String>&&)>&&);
+
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
     static void notifyPageStatisticsAndDataRecordsProcessed();
     static void notifyPageStatisticsTelemetryFinished(API::Object* messageBody);
+
+    static void notifyWebsiteDataDeletionForRegistrableDomainsFinished();
+    static void notifyWebsiteDataScanForRegistrableDomainsFinished();
+#endif
 
     void enableSuddenTermination();
     void disableSuddenTermination();
@@ -210,6 +224,7 @@ public:
     ProcessThrottler& throttler() { return m_throttler; }
 
     void isResponsive(CompletionHandler<void(bool isWebProcessResponsive)>&&);
+    void isResponsiveWithLazyStop();
     void didReceiveMainThreadPing();
     void didReceiveBackgroundResponsivenessPing();
 
@@ -237,7 +252,7 @@ public:
     void markIsNoLongerInPrewarmedPool();
 
 #if PLATFORM(COCOA)
-    Vector<String> mediaMIMETypes();
+    Vector<String> mediaMIMETypes() const;
     void cacheMediaMIMETypes(const Vector<String>&);
 #endif
 
@@ -254,15 +269,50 @@ public:
     // Called when the web process has crashed or we know that it will terminate soon.
     // Will potentially cause the WebProcessProxy object to be freed.
     void shutDown();
-    void maybeShutDown();
+    void maybeShutDown(AllowProcessCaching = AllowProcessCaching::Yes);
 
     void didStartProvisionalLoadForMainFrame(const URL&);
 
-protected:
-    static uint64_t generatePageID();
-    WebProcessProxy(WebProcessPool&, WebsiteDataStore&, IsPrewarmed);
+    // ProcessThrottlerClient
+    void sendProcessWillSuspendImminently() override;
+    void sendPrepareToSuspend() override;
+    void sendCancelPrepareToSuspend() override;
+    void sendProcessDidResume() override;
+    void didSetAssertionState(AssertionState) override;
 
-    // ChildProcessProxy
+#if PLATFORM(COCOA)
+    enum SandboxExtensionType : uint32_t {
+        None = 0,
+        Video = 1 << 0,
+        Audio = 1 << 1
+    };
+
+    typedef uint32_t MediaCaptureSandboxExtensions;
+
+    bool hasVideoCaptureExtension() const { return m_mediaCaptureSandboxExtensions & Video; }
+    void grantVideoCaptureExtension() { m_mediaCaptureSandboxExtensions |= Video; }
+    void revokeVideoCaptureExtension() { m_mediaCaptureSandboxExtensions &= ~Video; }
+
+    bool hasAudioCaptureExtension() const { return m_mediaCaptureSandboxExtensions & Audio; }
+    void grantAudioCaptureExtension() { m_mediaCaptureSandboxExtensions |= Audio; }
+    void revokeAudioCaptureExtension() { m_mediaCaptureSandboxExtensions &= ~Audio; }
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+    void unblockAccessibilityServerIfNeeded();
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+    void processWasUnexpectedlyUnsuspended(CompletionHandler<void()>&&);
+#endif
+
+    void webPageMediaStateDidChange(WebPageProxy&);
+
+protected:
+    static WebCore::PageIdentifier generatePageID();
+    WebProcessProxy(WebProcessPool&, WebsiteDataStore*, IsPrewarmed);
+
+    // AuxiliaryProcessProxy
     void getLaunchOptions(ProcessLauncher::LaunchOptions&) override;
     void platformGetLaunchOptions(ProcessLauncher::LaunchOptions&) override;
     void connectionWillOpen(IPC::Connection&) override;
@@ -276,20 +326,17 @@ protected:
 #endif
 
     bool isJITEnabled() const final;
-    
+
+    void validateFreezerStatus();
+
 private:
     // IPC message handlers.
     void updateBackForwardItem(const BackForwardListItemState&);
     void didDestroyFrame(uint64_t);
     void didDestroyUserGestureToken(uint64_t);
 
-    void sendPageDataStore(WebPageProxy&);
-    void destroyDataStoreIfUnused(PAL::SessionID);
-
     bool canBeAddedToWebProcessCache() const;
-    void shouldTerminate(bool& shouldTerminate);
-
-    bool hasPageUsingSession(PAL::SessionID) const;
+    void shouldTerminate(CompletionHandler<void(bool)>&&);
 
     void createNewMessagePortChannel(const WebCore::MessagePortIdentifier& port1, const WebCore::MessagePortIdentifier& port2);
     void entangleLocalPortInThisProcessToRemote(const WebCore::MessagePortIdentifier& local, const WebCore::MessagePortIdentifier& remote);
@@ -301,12 +348,12 @@ private:
     void didDeliverMessagePortMessages(uint64_t messageBatchIdentifier);
     void didCheckProcessLocalPortForActivity(uint64_t callbackIdentifier, bool isLocallyReachable);
 
-    bool hasProvisionalPageWithID(uint64_t pageID) const;
+    bool hasProvisionalPageWithID(WebCore::PageIdentifier) const;
     bool isAllowedToUpdateBackForwardItem(WebBackForwardListItem&) const;
 
     // Plugins
 #if ENABLE(NETSCAPE_PLUGIN_API)
-    void getPlugins(bool refresh, Vector<WebCore::PluginInfo>& plugins, Vector<WebCore::PluginInfo>& applicationPlugins, Optional<Vector<WebCore::SupportedPluginIdentifier>>&);
+    void getPlugins(bool refresh, CompletionHandler<void(Vector<WebCore::PluginInfo>&& plugins, Vector<WebCore::PluginInfo>&& applicationPlugins, Optional<Vector<WebCore::SupportedPluginIdentifier>>&&)>&&);
 #endif // ENABLE(NETSCAPE_PLUGIN_API)
 #if ENABLE(NETSCAPE_PLUGIN_API)
     void getPluginProcessConnection(uint64_t pluginProcessToken, Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply&&);
@@ -322,6 +369,8 @@ private:
 
     void processDidTerminateOrFailedToLaunch();
 
+    bool isReleaseLoggingAllowed() const;
+
     // IPC::Connection::Client
     friend class WebConnectionToWebProcess;
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
@@ -336,22 +385,17 @@ private:
     void didChangeIsResponsive() override;
     bool mayBecomeUnresponsive() override;
 
-    // ProcessThrottlerClient
-    void sendProcessWillSuspendImminently() override;
-    void sendPrepareToSuspend() override;
-    void sendCancelPrepareToSuspend() override;
-    void sendProcessDidResume() override;
-    void didSetAssertionState(AssertionState) override;
-
     // Implemented in generated WebProcessProxyMessageReceiver.cpp
     void didReceiveWebProcessProxyMessage(IPC::Connection&, IPC::Decoder&);
     void didReceiveSyncWebProcessProxyMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&);
 
-    bool canTerminateChildProcess();
+    bool canTerminateAuxiliaryProcess();
 
-    void didCollectPrewarmInformation(const String& domain, const WebCore::PrewarmInformation&);
+    void didCollectPrewarmInformation(const WebCore::RegistrableDomain&, const WebCore::PrewarmInformation&);
 
     void logDiagnosticMessageForResourceLimitTermination(const String& limitKey);
+    
+    void updateRegistrationWithDataStore();
 
     enum class IsWeak { No, Yes };
     template<typename T> class WeakOrStrongPtr {
@@ -399,7 +443,7 @@ private:
     HashSet<ProvisionalPageProxy*> m_provisionalPages;
     UserInitiatedActionMap m_userInitiatedActionMap;
 
-    HashSet<VisitedLinkStore*> m_visitedLinkStores;
+    HashMap<VisitedLinkStore*, HashSet<WebCore::PageIdentifier>> m_visitedLinkStoresWithUsers;
     HashSet<WebUserContentControllerProxy*> m_webUserContentControllerProxies;
 
     int m_numberOfTimesSuddenTerminationWasDisabled;
@@ -408,11 +452,13 @@ private:
 #if PLATFORM(IOS_FAMILY)
     ForegroundWebProcessToken m_foregroundToken;
     BackgroundWebProcessToken m_backgroundToken;
+    bool m_hasSentMessageToUnblockAccessibilityServer { false };
+    std::unique_ptr<WebCore::DeferrableOneShotTimer> m_unexpectedActivityTimer;
 #endif
 
     HashMap<String, uint64_t> m_pageURLRetainCountMap;
 
-    Optional<String> m_registrableDomain;
+    Optional<WebCore::RegistrableDomain> m_registrableDomain;
     bool m_isInProcessCache { false };
 
     enum class NoOrMaybe { No, Maybe } m_isResponsive;
@@ -420,8 +466,7 @@ private:
 
     VisibleWebPageCounter m_visiblePageCounter;
 
-    // FIXME: WebsiteDataStores should be made per-WebPageProxy throughout WebKit2. Get rid of this member.
-    Ref<WebsiteDataStore> m_websiteDataStore;
+    RefPtr<WebsiteDataStore> m_websiteDataStore;
 
     bool m_isUnderMemoryPressure { false };
 
@@ -436,13 +481,14 @@ private:
     unsigned m_suspendedPageCount { 0 };
     bool m_hasCommittedAnyProvisionalLoads { false };
     bool m_isPrewarmed;
+    bool m_hasAudibleWebPage { false };
 
 #if PLATFORM(WATCHOS)
     ProcessThrottler::BackgroundActivityToken m_backgroundActivityTokenForFullscreenFormControls;
 #endif
 
-#if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
-    Vector<std::unique_ptr<DisplayLink>> m_displayLinks;
+#if PLATFORM(COCOA)
+    MediaCaptureSandboxExtensions m_mediaCaptureSandboxExtensions { SandboxExtensionType::None };
 #endif
 };
 

@@ -26,7 +26,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/usr.bin/sort/bwstring.c 298089 2016-04-15 22:31:22Z pfg $");
+__FBSDID("$FreeBSD$");
 
 #include <ctype.h>
 #include <errno.h>
@@ -268,7 +268,7 @@ bwscsbdup(const unsigned char *str, size_t len)
 			const char *s;
 			size_t charlen, chars, cptr;
 
-			charlen = chars = 0;
+			chars = 0;
 			cptr = 0;
 			s = (const char *) str;
 
@@ -581,7 +581,6 @@ bwsncmp(const struct bwstring *bws1, const struct bwstring *bws2,
 	size_t cmp_len, len1, len2;
 	int res = 0;
 
-	cmp_len = 0;
 	len1 = bws1->len;
 	len2 = bws2->len;
 
@@ -859,7 +858,7 @@ bwstod(struct bwstring *s0, bool *empty)
 		end = s + s0->len;
 		ep = NULL;
 
-		while (isblank(*s) && s < end)
+		while (isblank_f(*s) && s < end)
 			++s;
 
 		if (!isprint(*s)) {
@@ -879,7 +878,7 @@ bwstod(struct bwstring *s0, bool *empty)
 		end = s + s0->len;
 		ep = NULL;
 
-		while (iswblank(*s) && s < end)
+		while (iswblank_f(*s) && s < end)
 			++s;
 
 		if (!iswprint(*s)) {
@@ -910,15 +909,12 @@ bws_month_score(const struct bwstring *s0)
 
 	if (MB_CUR_MAX == 1) {
 		const unsigned char *end, *s;
-		size_t len;
 
 		s = s0->data.cstr;
 		end = s + s0->len;
 
-		while (isblank(*s) && s < end)
+		while (isblank_f(*s) && s < end)
 			++s;
-
-		len = strlen((const char*)s);
 
 		for (int i = 11; i >= 0; --i) {
 			if (cmonths[i] &&
@@ -928,15 +924,12 @@ bws_month_score(const struct bwstring *s0)
 
 	} else {
 		const wchar_t *end, *s;
-		size_t len;
 
 		s = s0->data.wstr;
 		end = s + s0->len;
 
-		while (iswblank(*s) && s < end)
+		while (iswblank_f(*s) && s < end)
 			++s;
-
-		len = wcslen(s);
 
 		for (int i = 11; i >= 0; --i) {
 			if (wmonths[i] && (s == wcsstr(s, wmonths[i])))
@@ -961,7 +954,7 @@ ignore_leading_blanks(struct bwstring *str)
 		dst = src;
 		end = src + str->len;
 
-		while (src < end && isblank(*src))
+		while (src < end && isblank_f(*src))
 			++src;
 
 		if (src != dst) {
@@ -983,7 +976,7 @@ ignore_leading_blanks(struct bwstring *str)
 		dst = src;
 		end = src + str->len;
 
-		while (src < end && iswblank(*src))
+		while (src < end && iswblank_f(*src))
 			++src;
 
 		if (src != dst) {
@@ -1073,7 +1066,7 @@ dictionary_order(struct bwstring *str)
 
 		while (src < end) {
 			c = *src;
-			if (isalnum(c) || isblank(c)) {
+			if (isalnum(c) || isblank_f(c)) {
 				*dst = c;
 				++dst;
 				++src;
@@ -1092,7 +1085,7 @@ dictionary_order(struct bwstring *str)
 
 		while (src < end) {
 			c = *src;
-			if (iswalnum(c) || iswblank(c)) {
+			if (iswalnum(c) || iswblank_f(c)) {
 				*dst = c;
 				++dst;
 				++src;

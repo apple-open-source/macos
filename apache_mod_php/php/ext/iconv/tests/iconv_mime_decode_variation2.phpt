@@ -2,8 +2,8 @@
 Test iconv_mime_decode() function : usage variations - Pass different data types to mode arg
 --SKIPIF--
 <?php
-PHP_INT_SIZE == 4 or die('skip');
-extension_loaded('iconv') or die('skip');
+PHP_INT_SIZE == 4 or die('skip 32-bit only');
+extension_loaded('iconv') or die('skip iconv extension not loaded');
 function_exists('iconv_mime_decode') or die("skip iconv_mime_decode() is not available in this build");
 ?>
 --FILE--
@@ -20,7 +20,7 @@ function_exists('iconv_mime_decode') or die("skip iconv_mime_decode() is not ava
 echo "*** Testing iconv_mime_decode() : usage variations ***\n";
 
 // Initialise function arguments not being substituted
-$header = b'Subject: =?UTF-8?B?UHLDvGZ1bmcgUHLDvGZ1bmc=?=';
+$header = 'Subject: =?UTF-8?B?UHLDvGZ1bmcgUHLDvGZ1bmc=?=';
 $mode = ICONV_MIME_DECODE_CONTINUE_ON_ERROR;
 $charset = 'UTF-8';
 
@@ -70,7 +70,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
@@ -79,7 +79,7 @@ $inputs = array(
 /*18*/ "string",
        'string',
        $heredoc,
-       
+
        // object data
 /*21*/ new classA(),
 
@@ -128,7 +128,7 @@ string(52) "5375626a6563743a205072c3bc66756e67205072c3bc66756e67"
 
 -- Iteration 7 --
 
-Warning: iconv_mime_decode() expects parameter 2 to be integer, float given in %s on line %d
+Warning: iconv_mime_decode() expects parameter 2 to be int, float given in %s on line %d
 string(0) ""
 
 -- Iteration 8 --
@@ -157,32 +157,32 @@ string(52) "5375626a6563743a205072c3bc66756e67205072c3bc66756e67"
 
 -- Iteration 16 --
 
-Warning: iconv_mime_decode() expects parameter 2 to be integer, string given in %s on line %d
+Warning: iconv_mime_decode() expects parameter 2 to be int, string given in %s on line %d
 string(0) ""
 
 -- Iteration 17 --
 
-Warning: iconv_mime_decode() expects parameter 2 to be integer, string given in %s on line %d
+Warning: iconv_mime_decode() expects parameter 2 to be int, string given in %s on line %d
 string(0) ""
 
 -- Iteration 18 --
 
-Warning: iconv_mime_decode() expects parameter 2 to be integer, string given in %s on line %d
+Warning: iconv_mime_decode() expects parameter 2 to be int, string given in %s on line %d
 string(0) ""
 
 -- Iteration 19 --
 
-Warning: iconv_mime_decode() expects parameter 2 to be integer, string given in %s on line %d
+Warning: iconv_mime_decode() expects parameter 2 to be int, string given in %s on line %d
 string(0) ""
 
 -- Iteration 20 --
 
-Warning: iconv_mime_decode() expects parameter 2 to be integer, string given in %s on line %d
+Warning: iconv_mime_decode() expects parameter 2 to be int, string given in %s on line %d
 string(0) ""
 
 -- Iteration 21 --
 
-Warning: iconv_mime_decode() expects parameter 2 to be integer, object given in %s on line %d
+Warning: iconv_mime_decode() expects parameter 2 to be int, object given in %s on line %d
 string(0) ""
 
 -- Iteration 22 --
@@ -193,6 +193,6 @@ string(52) "5375626a6563743a205072c3bc66756e67205072c3bc66756e67"
 
 -- Iteration 24 --
 
-Warning: iconv_mime_decode() expects parameter 2 to be integer, resource given in %s on line %d
+Warning: iconv_mime_decode() expects parameter 2 to be int, resource given in %s on line %d
 string(0) ""
 Done

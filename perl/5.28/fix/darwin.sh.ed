@@ -1,0 +1,13 @@
+g,/usr/include/stdint\.h,s//${SDKROOT}&/
+/cppflags="${cppflags} -no-cpp-precomp"/a
+.
+?^#?,/^fi$/+1d
+/lddlflags=/a
+.
+/^\*)/s//[78].*)/
+/^esac/i
+*)
+   lddlflags="${ldflags} -bundle -undefined dynamic_lookup"
+   ;;
+.
+w

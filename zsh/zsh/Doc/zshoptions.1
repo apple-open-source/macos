@@ -1,4 +1,4 @@
-.TH "ZSHOPTIONS" "1" "December 11, 2016" "zsh 5\&.3"
+.TH "ZSHOPTIONS" "1" "February 3, 2019" "zsh 5\&.7\&.1"
 .SH "NAME"
 zshoptions \- zsh options
 .\" Yodl file: Zsh/options.yo
@@ -245,8 +245,9 @@ When there are no more matches, go back to the first one again\&.
 in the other direction\&. This option overrides \fBAUTO_MENU\fP\&.
 .TP
 \fBREC_EXACT\fP (\fB\-S\fP)
-In completion, recognize exact matches even
-if they are ambiguous\&.
+If the string on the command line exactly matches one of the possible
+completions, it is accepted, even if there is another completion (i\&.e\&. that
+string with something else added) that also matches\&.
 .PP
 .SS "Expansion and Globbing"
 .PD 0
@@ -450,9 +451,10 @@ Array expansions of the form
 `\fIfooa b cbar\fP\&'\&.  Note that an empty array will therefore cause
 all arguments to be removed\&.
 .TP
-\fBREMATCH_PCRE\fP <Z>
+\fBREMATCH_PCRE\fP
 If set, regular expression matching with the \fB=~\fP operator will use
-Perl\-Compatible Regular Expressions from the PCRE library, if available\&.
+Perl\-Compatible Regular Expressions from the PCRE library\&.
+(The \fBzsh/pcre\fP module must be available\&.)
 If not set, regular expressions will use the extended regexp syntax
 provided by the system libraries\&.
 .TP
@@ -468,7 +470,9 @@ is interpreted as if there were a space after the \fB!\fP\&.  This option is
 set by default if zsh is invoked as \fBsh\fP or \fBksh\fP\&.
 .TP
 \fBUNSET\fP (\fB+u\fP, ksh: \fB+u\fP) <K> <S> <Z>
-Treat unset parameters as if they were empty when substituting\&.
+Treat unset parameters as if they were empty when substituting, and as if
+they were zero when reading their values in arithmetic expansion and
+arithmetic commands\&.
 Otherwise they are treated as an error\&.
 .TP
 \fBWARN_CREATE_GLOBAL\fP
@@ -479,6 +483,38 @@ declared local when it should have been\&.  Parameters explicitly declared
 global from within a function using \fBtypeset \-g\fP do not cause a warning\&.
 Note that there is no warning when a local parameter is assigned to in
 a nested function, which may also indicate an error\&.
+.TP
+\fBWARN_NESTED_VAR\fP
+Print a warning message when an existing parameter from an
+enclosing function scope, or global, is set in a function
+by an assignment or in math context\&.  Assignment to shell
+special parameters does not cause a warning\&.  This is the companion
+to \fBWARN_CREATE_GLOBAL\fP as in this case the warning is only
+printed when a parameter is \fInot\fP created\&.  Where possible,
+use of \fBtypeset \-g\fP to set the parameter suppresses the error,
+but note that this needs to be used every time the parameter is set\&.
+To restrict the effect of this option to a single function scope,
+use `\fBfunctions \-W\fP\&'\&.
+.RS
+.PP
+For example, the following code produces a warning for the assignment
+inside the function \fBnested\fP as that overrides the value within
+\fBtoplevel\fP
+.PP
+.RS
+.nf
+\fBtoplevel() {
+  local foo="in fn"
+  nested
+}
+nested() {
+     foo="in nested"
+}
+setopt warn_nested_var
+toplevel\fP
+.fi
+.RE
+.RE
 .PP
 .SS "History"
 .PD 0
@@ -491,7 +527,7 @@ zsh sessions will all have the new entries from their history lists
 added to the history file, in the order that they exit\&.
 The file will still be periodically re\-written to trim it when the
 number of lines grows 20% beyond the value specified by
-\fB$SAVEHIST\fP (see also the HIST_SAVE_BY_COPY option)\&.
+\fB$SAVEHIST\fP (see also the \fBHIST_SAVE_BY_COPY\fP option)\&.
 .TP
 \fBBANG_HIST\fP (\fB+K\fP) <C> <Z>
 Perform textual history expansion, \fBcsh\fP\-style,
@@ -610,7 +646,7 @@ don\&'t execute the line directly; instead, perform
 history expansion and reload the line into the editing buffer\&.
 .TP
 \fBINC_APPEND_HISTORY\fP
-This options works like \fBAPPEND_HISTORY\fP except that new history lines
+This option works like \fBAPPEND_HISTORY\fP except that new history lines
 are added to the \fB$HISTFILE\fP incrementally (as soon as they are
 entered), rather than waiting until the shell exits\&.
 The file will still be periodically re\-written to trim it when the
@@ -875,12 +911,21 @@ the section SPECIAL FUNCTIONS in \fIzshmisc\fP(1)
 is not counted for this purpose\&.
 .RE
 .TP
+\fBCHECK_RUNNING_JOBS\fP <Z>
+Check for both running and suspended jobs when \fBCHECK_JOBS\fP is enabled\&.
+When this option is disabled, zsh checks only for suspended jobs, which
+matches the default behavior of bash\&.
+.RS
+.PP
+This option has no effect unless \fBCHECK_JOBS\fP is set\&.
+.RE
+.TP
 \fBHUP\fP <Z>
 Send the \fBHUP\fP signal to running jobs when the
 shell exits\&.
 .TP
 \fBLONG_LIST_JOBS\fP (\fB\-R\fP)
-List jobs in the long format by default\&.
+Print job notifications in the long format by default\&.
 .TP
 \fBMONITOR\fP (\fB\-m\fP, ksh: \fB\-m\fP)
 Allow job control\&.  Set by default in interactive shells\&.
@@ -965,6 +1010,36 @@ line\&.  This may be useful with terminals with other cut/paste methods\&.
 .PD 0
 .TP
 .PD
+\fBALIAS_FUNC_DEF\fP <S>
+By default, zsh does not allow the definition of functions using
+the `\fIname\fP \fB()\fP\&' syntax if \fIname\fP was expanded as an
+alias: this causes an error\&.  This is usually the desired behaviour, as
+otherwise the combination of an alias and a function based on the same
+definition can easily cause problems\&.
+.RS
+.PP
+When this option is set, aliases can be used for defining functions\&.
+.PP
+For example, consider the following definitions as they might
+occur in a startup file\&.
+.PP
+.RS
+.nf
+\fBalias foo=bar
+foo() {
+  print This probably does not do what you expect\&.
+}\fP
+.fi
+.RE
+.PP
+Here, \fBfoo\fP is expanded as an alias to \fBbar\fP before the
+\fB()\fP is encountered, so the function defined would be named
+\fBbar\fP\&.  By default this is instead an error in native mode\&.  Note that
+quoting any part of the function name, or using the keyword
+\fBfunction\fP, avoids the problem, so is recommended when the function
+name can also be an alias\&.
+.RE
+.TP
 \fBC_BASES\fP
 Output hexadecimal numbers in the standard C format, for example `\fB0xFF\fP\&'
 instead of the usual `\fB16#FF\fP\&'\&.  If the option \fBOCTAL_ZEROES\fP is also
@@ -998,6 +1073,17 @@ as it is by default, and the option \fBERR_EXIT\fP is found to have been set
 on exit, then the command for which the \fBDEBUG\fP trap is being executed is
 skipped\&.  The option is restored after the trap exits\&.
 .PP
+Non\-zero status in a command list containing \fB&&\fP or \fB||\fP is ignored
+for commands not at the end of the list\&.  Hence
+.PP
+.RS
+.nf
+\fBfalse && true\fP
+.fi
+.RE
+.PP
+does not trigger exit\&.
+.PP
 Exiting due to \fBERR_EXIT\fP has certain interactions with asynchronous
 jobs noted in
 the section JOBS in \fIzshmisc\fP(1)\&.
@@ -1005,10 +1091,31 @@ the section JOBS in \fIzshmisc\fP(1)\&.
 .TP
 \fBERR_RETURN\fP
 If a command has a non\-zero exit status, return immediately from the
-enclosing function\&.  The logic is identical to that for \fBERR_EXIT\fP,
+enclosing function\&.  The logic is similar to that for \fBERR_EXIT\fP,
 except that an implicit \fBreturn\fP statement is executed instead of an
 \fBexit\fP\&.  This will trigger an exit at the outermost level of a
 non\-interactive script\&.
+.RS
+.PP
+Normally this option inherits the behaviour of \fBERR_EXIT\fP that
+code followed by `\fB&&\fP\&' `\fB||\fP' does not trigger a return\&.  Hence
+in the following:
+.PP
+.RS
+.nf
+\fBsummit || true\fP
+.fi
+.RE
+.PP
+no return is forced as the combined effect always has a zero return
+status\&.
+.PP
+Note\&. however, that if \fBsummit\fP in the above example is itself a
+function, code inside it is considered separately: it may force a return
+from \fBsummit\fP (assuming the option remains set within \fBsummit\fP), but
+not from the enclosing context\&.  This behaviour is different from
+\fBERR_EXIT\fP which is unaffected by function scope\&.
+.RE
 .TP
 \fBEVAL_LINENO\fP <Z>
 If set, line numbers of expressions evaluated using the builtin \fBeval\fP
@@ -1340,9 +1447,16 @@ In addition, various error conditions associated with the above builtins
 or \fBexec\fP cause a non\-interactive shell to exit and an interactive
 shell to return to its top\-level processing\&.
 .PP
+Furthermore, functions and shell builtins are not executed after
+an \fBexec\fP prefix; the command to be executed must be an external
+command found in the path\&.
+.PP
 Furthermore, the \fBgetopts\fP builtin behaves in a POSIX\-compatible
 fashion in that the associated variable \fBOPTIND\fP is not made
 local to functions\&.
+.PP
+Moreover, the warning and special exit code from
+\fB[[ \-o \fP\fInon_existent_option\fP\fB ]]\fP are suppressed\&.
 .RE
 .TP
 \fBPOSIX_IDENTIFIERS\fP <K> <S>

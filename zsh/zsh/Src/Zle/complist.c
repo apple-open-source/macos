@@ -1096,6 +1096,10 @@ compprintfmt(char *fmt, int n, int dopr, int doesc, int ml, int *stop)
 	    p += len;
 	    if (*p) {
 		int arg = 0, is_fg;
+		zattr atr;
+
+		if (idigit(*p))
+		    arg = zstrtol(p, &p, 10);
 
 		len = MB_METACHARLENCONV(p, &cchar);
 #ifdef MULTIBYTE_SUPPORT
@@ -1103,9 +1107,6 @@ compprintfmt(char *fmt, int n, int dopr, int doesc, int ml, int *stop)
 		    cchar = (wchar_t)(*p == Meta ? p[1] ^ 32 : *p);
 #endif
 		p += len;
-
-		if (idigit(*p))
-		    arg = zstrtol(p, &p, 10);
 
 		m = 0;
 		switch (cchar) {
@@ -1159,13 +1160,13 @@ compprintfmt(char *fmt, int n, int dopr, int doesc, int ml, int *stop)
 		    /* colours must be ASCII */
 		    if (*p == '{') {
 			p++;
-			arg = match_colour((const char **)&p, is_fg, 0);
+			atr = match_colour((const char **)&p, is_fg, 0);
 			if (*p == '}')
 			    p++;
 		    } else
-			arg = match_colour(NULL, is_fg, arg);
-		    if (arg >= 0 && dopr)
-			set_colour_attribute(arg, is_fg ? COL_SEQ_FG :
+			atr = match_colour(NULL, is_fg, arg);
+		    if (atr != TXT_ERROR && dopr)
+			set_colour_attribute(atr, is_fg ? COL_SEQ_FG :
 					     COL_SEQ_BG, 0);
 		    break;
 		case ZWC('f'):
@@ -1993,7 +1994,8 @@ complistmatches(UNUSED(Hookdef dummy), Chdata dat)
     if (noselect > 0)
 	noselect = 0;
 
-    if ((minfo.asked == 2 && mselect < 0) || nlnct >= zterm_lines) {
+    if ((minfo.asked == 2 && mselect < 0) || nlnct >= zterm_lines ||
+	errflag) {
 	showinglist = 0;
 	amatches = oamatches;
 	return (noselect = 1);
@@ -2333,11 +2335,6 @@ msearch(Cmatch **ptr, char *ins, int back, int rep, int *wrapp)
             }
         }
         if (x == ex && y == ey) {
-            if (wrap) {
-                msearchstate = MS_FAILED | owrap;
-                break;
-            }
-            msearchstate |= MS_WRAPPED;
 
             if (back) {
                 x = mcols - 1;
@@ -2349,6 +2346,13 @@ msearch(Cmatch **ptr, char *ins, int back, int rep, int *wrapp)
             }
             ex = mcol;
             ey = mline;
+
+            if (wrap || (x == ex && y == ey)) {
+                msearchstate = MS_FAILED | owrap;
+                break;
+            }
+
+            msearchstate |= MS_WRAPPED;
             wrap = 1;
             *wrapp = 1;
         }

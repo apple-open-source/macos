@@ -127,7 +127,7 @@ rpc_ss_mr_enum
   mp = NIDL_msp->mp;
   op = NIDL_msp->op;
   rpc_align_mop(mp, op, 2);
-  rpc_marshall_enum(mp, (*p_node));
+  rpc_marshall_enum(mp, (p_node));
   rpc_advance_mop(mp, op, 2);
   NIDL_msp->space_in_buff -= (op - NIDL_msp->op);
   NIDL_msp->mp = mp;
@@ -164,9 +164,11 @@ rpc_ss_ur_enum
   {
     node_size =    sizeof(int );
     if (NIDL_node_type == rpc_ss_mutable_node_k)
-      p_node = (int *)rpc_ss_return_pointer_to_node(
+    {
+      p_node = (int *) (void *) rpc_ss_return_pointer_to_node(
           p_unmar_params->node_table, node_number, node_size,
           &p_unmar_params->allocator, &NIDL_already_unmarshalled, (long *)NULL);
+    }
     else
     {
         p_node = (int *)rpc_ss_mem_alloc(
@@ -181,6 +183,6 @@ rpc_ss_ur_enum
   {
     rpc_ss_new_recv_buff(p_unmar_params->p_rcvd_data, p_unmar_params->call_h, &(p_unmar_params->mp), &(*p_unmar_params->p_st));
   }
-  rpc_convert_enum(p_unmar_params->src_drep, ndr_g_local_drep, p_unmar_params->mp, (*p_node));
+  rpc_convert_enum(p_unmar_params->src_drep, ndr_g_local_drep, p_unmar_params->mp, (p_node));
   rpc_advance_mop(p_unmar_params->mp, p_unmar_params->op, 2);
 }

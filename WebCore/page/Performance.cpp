@@ -33,6 +33,7 @@
 #include "config.h"
 #include "Performance.h"
 
+#include "CustomHeaderFields.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Event.h"
@@ -46,8 +47,11 @@
 #include "PerformanceUserTiming.h"
 #include "ResourceResponse.h"
 #include "ScriptExecutionContext.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(Performance);
 
 Performance::Performance(ScriptExecutionContext* context, MonotonicTime timeOrigin)
     : ContextDestructionObserver(context)
@@ -64,7 +68,7 @@ Performance::~Performance() = default;
 void Performance::contextDestroyed()
 {
     m_performanceTimelineTaskQueue.close();
-
+    m_resourceTimingBufferFullTimer.stop();
     ContextDestructionObserver::contextDestroyed();
 }
 
@@ -178,6 +182,8 @@ void Performance::setResourceTimingBufferSize(unsigned size)
 
 void Performance::addResourceTiming(ResourceTiming&& resourceTiming)
 {
+    ASSERT(scriptExecutionContext());
+
     auto entry = PerformanceResourceTiming::create(m_timeOrigin, WTFMove(resourceTiming));
 
     if (m_waitingForBackupBufferToBeProcessed) {
@@ -211,12 +217,18 @@ bool Performance::isResourceTimingBufferFull() const
 
 void Performance::resourceTimingBufferFullTimerFired()
 {
+    ASSERT(scriptExecutionContext());
+
     while (!m_backupResourceTimingBuffer.isEmpty()) {
+        auto beforeCount = m_backupResourceTimingBuffer.size();
+
         auto backupBuffer = WTFMove(m_backupResourceTimingBuffer);
         ASSERT(m_backupResourceTimingBuffer.isEmpty());
 
-        m_resourceTimingBufferFullFlag = true;
-        dispatchEvent(Event::create(eventNames().resourcetimingbufferfullEvent, Event::CanBubble::No, Event::IsCancelable::No));
+        if (isResourceTimingBufferFull()) {
+            m_resourceTimingBufferFullFlag = true;
+            dispatchEvent(Event::create(eventNames().resourcetimingbufferfullEvent, Event::CanBubble::No, Event::IsCancelable::No));
+        }
 
         if (m_resourceTimingBufferFullFlag) {
             for (auto& entry : backupBuffer)
@@ -238,6 +250,13 @@ void Performance::resourceTimingBufferFullTimerFired()
                 queueEntry(*entry);
             } else
                 m_backupResourceTimingBuffer.append(entry.copyRef());
+        }
+
+        auto afterCount = m_backupResourceTimingBuffer.size();
+
+        if (beforeCount <= afterCount) {
+            m_backupResourceTimingBuffer.clear();
+            break;
         }
     }
     m_waitingForBackupBufferToBeProcessed = false;

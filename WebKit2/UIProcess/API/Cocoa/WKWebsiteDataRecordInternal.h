@@ -25,8 +25,6 @@
 
 #import "WKWebsiteDataRecordPrivate.h"
 
-#if WK_API_ENABLED
-
 #import "APIWebsiteDataRecord.h"
 #import "WKObject.h"
 #import <wtf/OptionSet.h>
@@ -76,6 +74,8 @@ static inline Optional<WebsiteDataType> toWebsiteDataType(NSString *websiteDataT
         return WebsiteDataType::ResourceLoadStatistics;
     if ([websiteDataType isEqualToString:_WKWebsiteDataTypeCredentials])
         return WebsiteDataType::Credentials;
+    if ([websiteDataType isEqualToString:_WKWebsiteDataTypeAdClickAttributions])
+        return WebsiteDataType::AdClickAttributions;
     return WTF::nullopt;
 }
 
@@ -131,6 +131,8 @@ static inline RetainPtr<NSSet> toWKWebsiteDataTypes(OptionSet<WebKit::WebsiteDat
         [wkWebsiteDataTypes addObject:_WKWebsiteDataTypeResourceLoadStatistics];
     if (websiteDataTypes.contains(WebsiteDataType::Credentials))
         [wkWebsiteDataTypes addObject:_WKWebsiteDataTypeCredentials];
+    if (websiteDataTypes.contains(WebsiteDataType::AdClickAttributions))
+        [wkWebsiteDataTypes addObject:_WKWebsiteDataTypeAdClickAttributions];
 
     return wkWebsiteDataTypes;
 }
@@ -142,5 +144,3 @@ static inline RetainPtr<NSSet> toWKWebsiteDataTypes(OptionSet<WebKit::WebsiteDat
     API::ObjectStorage<API::WebsiteDataRecord> _websiteDataRecord;
 }
 @end
-
-#endif

@@ -34,7 +34,7 @@ Extra_Configure_Environment	= CFLAGS="$$RC_CFLAGS $(Extra_CC_Flags)" \
 					LDFLAGS_EX="-mdynamic-no-pic" \
 					EXTRA_LDFLAGS_PROGRAM="-mdynamic-no-pic" \
 					LIBS="-L$(SDKROOT)/usr/lib" \
-					INCLUDES="-I$(SDKROOT)/usr/include/libxml2"
+					INCLUDES="-I$(SDKROOT)/usr/include/libxml2 -I$(SDKROOT)/usr/include"
 
 # The configure flags are ordered to match current output of ./configure --help.
 # Extra indentation represents suboptions.
@@ -45,7 +45,6 @@ Extra_Configure_Flags	= --prefix=$(SERVER_INSTALL_PATH_PREFIX)$(USRDIR) --sbindi
 	--enable-thread-safety \
 	--includedir=$(REALSDKROOT)/usr/local/include \
 	--enable-dtrace \
-	--with-perl \
 	--with-python \
 	--with-gssapi \
 	--with-krb5 \

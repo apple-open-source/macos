@@ -29,11 +29,11 @@
 
 #include <CoreFoundation/CFDictionary.h>
 
-#include <Security/SecureObjectSync/SOSAccount.h>
+#include "keychain/SecureObjectSync/SOSAccount.h"
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
-#include <Security/SecureObjectSync/SOSInternal.h>
-#include <Security/SecureObjectSync/SOSUserKeygen.h>
-#include <Security/SecureObjectSync/SOSTransport.h>
+#include "keychain/SecureObjectSync/SOSInternal.h"
+#include "keychain/SecureObjectSync/SOSUserKeygen.h"
+#include "keychain/SecureObjectSync/SOSTransport.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -50,8 +50,6 @@
 #include "SOSAccountTesting.h"
 
 #include "SecdTestKeychainUtilities.h"
-
-static int kTestTestCount = 181;
 
 #define kAccountPasswordString ((uint8_t*) "FooFooFoo")
 #define kAccountPasswordStringLen 10
@@ -214,7 +212,7 @@ static void tests(void)
 
 int secd_56_account_apply(int argc, char *const *argv)
 {
-    plan_tests(kTestTestCount);
+    plan_tests(181);
     
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
 

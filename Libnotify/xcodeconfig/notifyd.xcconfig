@@ -7,4 +7,5 @@ SANDBOX_PATH = /System/Library/Sandbox/Profiles
 SANDBOX_PATH[sdk=iphone*] =
 SANDBOX_NAME = com.apple.notifyd
 SANDBOX_PROFILE = com.apple.notifyd.sb
+OTHER_MIGFLAGS = -DMACH_NOTIFY_SEND_POSSIBLE_EXPECTED=1
 

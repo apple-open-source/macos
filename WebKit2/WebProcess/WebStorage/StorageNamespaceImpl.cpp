@@ -47,12 +47,12 @@ Ref<StorageNamespaceImpl> StorageNamespaceImpl::createSessionStorageNamespace(ui
 
 Ref<StorageNamespaceImpl> StorageNamespaceImpl::createEphemeralLocalStorageNamespace(uint64_t identifier, unsigned quotaInBytes)
 {
-    return createSessionStorageNamespace(identifier, quotaInBytes);
+    return createLocalStorageNamespace(identifier, quotaInBytes, IsEphemeral::Yes);
 }
 
-Ref<StorageNamespaceImpl> StorageNamespaceImpl::createLocalStorageNamespace(uint64_t identifier, unsigned quotaInBytes)
+Ref<StorageNamespaceImpl> StorageNamespaceImpl::createLocalStorageNamespace(uint64_t identifier, unsigned quotaInBytes, IsEphemeral isEphemeral)
 {
-    return adoptRef(*new StorageNamespaceImpl(StorageType::Local, identifier, nullptr, quotaInBytes));
+    return adoptRef(*new StorageNamespaceImpl(isEphemeral == IsEphemeral::Yes ? StorageType::EphemeralLocal : StorageType::Local, identifier, nullptr, quotaInBytes));
 }
 
 Ref<StorageNamespaceImpl> StorageNamespaceImpl::createTransientLocalStorageNamespace(uint64_t identifier, WebCore::SecurityOrigin& topLevelOrigin, uint64_t quotaInBytes)
@@ -96,12 +96,12 @@ Ref<StorageNamespace> StorageNamespaceImpl::copy(Page* newPage)
     ASSERT(m_storageNamespaceID);
 
     if (m_storageType == StorageType::Session)
-        return createSessionStorageNamespace(WebPage::fromCorePage(newPage)->pageID(), m_quotaInBytes);
+        return createSessionStorageNamespace(WebPage::fromCorePage(newPage)->pageID().toUInt64(), m_quotaInBytes);
 
     ASSERT(m_storageType == StorageType::EphemeralLocal);
     auto newNamespace = adoptRef(*new StorageNamespaceImpl(m_storageType, m_storageNamespaceID, m_topLevelOrigin.get(), m_quotaInBytes));
 
-    return WTFMove(newNamespace);
+    return newNamespace;
 }
 
 } // namespace WebKit

@@ -18,6 +18,11 @@
 #ifndef _GENDER
 #define _GENDER
 
+/**
+ * \file
+ * \brief C++ API: GenderInfo computes the gender of a list.
+ */
+
 #include "unicode/utypes.h"
 
 #if !UCONFIG_NO_FORMATTING
@@ -31,7 +36,7 @@ class GenderInfoTest;
 #if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
-// Forward Declaration
+/** \internal Forward Declaration  */
 void U_CALLCONV GenderInfo_initCache(UErrorCode &status);
 
 /**

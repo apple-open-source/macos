@@ -36,9 +36,13 @@
 #include "KeyframeEffect.h"
 #include "Microtasks.h"
 #include "WebAnimationUtilities.h"
+#include <wtf/IsoMallocInlines.h>
+#include <wtf/Optional.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(WebAnimation);
 
 Ref<WebAnimation> WebAnimation::create(Document& document, AnimationEffect* effect)
 {
@@ -527,7 +531,7 @@ auto WebAnimation::playState() const -> PlayState
     // animation's effective playback rate > 0 and current time ≥ target effect end; or
     // animation's effective playback rate < 0 and current time ≤ 0,
     // → finished
-    if (animationCurrentTime && ((effectivePlaybackRate() > 0 && animationCurrentTime.value() >= effectEndTime()) || (effectivePlaybackRate() < 0 && animationCurrentTime.value() <= 0_s)))
+    if (animationCurrentTime && ((effectivePlaybackRate() > 0 && (*animationCurrentTime + timeEpsilon) >= effectEndTime()) || (effectivePlaybackRate() < 0 && (*animationCurrentTime - timeEpsilon) <= 0_s)))
         return PlayState::Finished;
 
     // Otherwise → running
@@ -538,7 +542,7 @@ Seconds WebAnimation::effectEndTime() const
 {
     // The target effect end of an animation is equal to the end time of the animation's target effect.
     // If the animation has no target effect, the target effect end is zero.
-    return m_effect ? m_effect->endTime() : 0_s;
+    return m_effect ? m_effect->getBasicTiming().endTime : 0_s;
 }
 
 void WebAnimation::cancel()
@@ -594,7 +598,7 @@ void WebAnimation::cancel(Silently silently)
     invalidateEffect();
 }
 
-void WebAnimation::enqueueAnimationPlaybackEvent(const AtomicString& type, Optional<Seconds> currentTime, Optional<Seconds> timelineTime)
+void WebAnimation::enqueueAnimationPlaybackEvent(const AtomString& type, Optional<Seconds> currentTime, Optional<Seconds> timelineTime)
 {
     auto event = AnimationPlaybackEvent::create(type, currentTime, timelineTime);
     event->setTarget(this);
@@ -1153,13 +1157,23 @@ const char* WebAnimation::activeDOMObjectName() const
 
 bool WebAnimation::canSuspendForDocumentSuspension() const
 {
-    return !hasPendingActivity();
+    // Use the base class's implementation of hasPendingActivity() since we wouldn't want the custom implementation
+    // in this class designed to keep JS wrappers alive to interfere with the ability for a page using animations
+    // to enter the page cache.
+    return !ActiveDOMObject::hasPendingActivity();
 }
 
 void WebAnimation::stop()
 {
+    ActiveDOMObject::stop();
     m_isStopped = true;
     removeAllEventListeners();
+}
+
+bool WebAnimation::hasPendingActivity() const
+{
+    // Keep the JS wrapper alive if the animation is considered relevant or could become relevant again by virtue of having a timeline.
+    return m_timeline || m_isRelevant || ActiveDOMObject::hasPendingActivity();
 }
 
 void WebAnimation::updateRelevance()
@@ -1173,8 +1187,10 @@ bool WebAnimation::computeRelevance()
     if (!m_effect)
         return false;
 
+    auto timing = m_effect->getBasicTiming();
+
     // An animation effect is in effect if its active time is not unresolved.
-    if (m_effect->activeTime())
+    if (timing.activeTime)
         return true;
 
     // An animation effect is current if either of the following conditions is true:
@@ -1184,8 +1200,7 @@ bool WebAnimation::computeRelevance()
     // An animation effect is in play if all of the following conditions are met:
     // - the animation effect is in the active phase, and
     // - the animation effect is associated with an animation that is not finished.
-    auto phase = m_effect->phase();
-    return phase == AnimationEffect::Phase::Before || (phase == AnimationEffect::Phase::Active && playState() != PlayState::Finished);
+    return timing.phase == AnimationEffectPhase::Before || (timing.phase == AnimationEffectPhase::Active && playState() != PlayState::Finished);
 }
 
 Seconds WebAnimation::timeToNextTick() const
@@ -1202,9 +1217,11 @@ Seconds WebAnimation::timeToNextTick() const
     // CSS Animations dispatch events for each iteration, so compute the time until
     // the end of this iteration. Any other animation only cares about remaning total time.
     if (isCSSAnimation()) {
+        auto* animationEffect = effect();
+        auto timing = animationEffect->getComputedTiming();
         // If we're actively running, we need the time until the next iteration.
-        if (auto iterationProgress = effect()->simpleIterationProgress())
-            return effect()->iterationDuration() * (1 - iterationProgress.value());
+        if (auto iterationProgress = timing.simpleIterationProgress)
+            return animationEffect->iterationDuration() * (1 - *iterationProgress);
 
         // Otherwise we're probably in the before phase waiting to reach our start time.
         if (auto animationCurrentTime = currentTime()) {
@@ -1214,11 +1231,11 @@ Seconds WebAnimation::timeToNextTick() const
             auto localTime = animationCurrentTime.value();
             if (localTime < 0_s)
                 return -localTime;
-            if (localTime < effect()->delay())
-                return effect()->delay() - localTime;
+            if (localTime < animationEffect->delay())
+                return animationEffect->delay() - localTime;
         }
     } else if (auto animationCurrentTime = currentTime())
-        return effect()->endTime() - animationCurrentTime.value();
+        return effect()->getBasicTiming().endTime - *animationCurrentTime;
 
     ASSERT_NOT_REACHED();
     return Seconds::infinity();

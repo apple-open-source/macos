@@ -333,8 +333,12 @@ main(int ac, char **av)
 		miblen = 4;
 	}
 
-	st = sysctl(mib, miblen, NULL, &size, NULL, 0);
 	do {
+		st = sysctl(mib, miblen, NULL, &size, NULL, 0);
+		if (st == -1)
+			err(1, "could not sysctl(KERN_PROC)");
+		if (!size)
+			errx(1, "could not get size from sysctl(KERN_PROC)");
 		size += size / 10;
 		newprocs = realloc(procs, size);
 		if (newprocs == 0) {
@@ -380,11 +384,7 @@ main(int ac, char **av)
 			continue;
 
 		mib[0] = CTL_KERN;
-#if defined(__APPLE__) && TARGET_OS_EMBEDDED
 		mib[1] = KERN_PROCARGS2;
-#else
-		mib[1] = KERN_PROCARGS;
-#endif
 		mib[2] = thispid;
 
 		syssize = (size_t)argmax;

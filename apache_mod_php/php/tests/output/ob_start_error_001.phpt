@@ -2,10 +2,10 @@
 Test wrong number of arguments and wrong arg types for ob_start()
 --FILE--
 <?php
-/* 
+/*
  * proto bool ob_start([ string|array user_function [, int chunk_size [, bool erase]]])
  * Function is implemented in main/output.c
-*/ 
+*/
 
 function justPrint($str) {
 	return $str;
@@ -44,10 +44,10 @@ bool(false)
 
 - Arg 2 wrong type
 
-Warning: ob_start() expects parameter 2 to be integer, string given in %s on line 23
+Warning: ob_start() expects parameter 2 to be int, string given in %s on line 23
 NULL
 
 - Arg 3 wrong type
 
-Warning: ob_start() expects parameter 3 to be integer, string given in %s on line 26
+Warning: ob_start() expects parameter 3 to be int, string given in %s on line 26
 NULL

@@ -2,14 +2,14 @@
  * Copyright (c) 2000-2008 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <CoreFoundation/CoreFoundation.h>
@@ -59,6 +59,7 @@
 #include "signposts.h"
 #include "staging.h"
 #include "syspolicy.h"
+#include "driverkit.h"
 
 #include "pgo.h"
 
@@ -71,15 +72,27 @@
 #define CRASH_INFO_USER_KEXT_LOAD        "user kext load request: %s"
 #define CRASH_INFO_USER_KEXT_PATH        "user kext path request: %s"
 #define CRASH_INFO_USER_PROPERTY         "user kext property request: %s"
- 
+
 kern_return_t sendPropertyValueResponse(
     CFArrayRef    propertyValues,
     char       ** xml_data_out,
     int         * xml_data_length);
+
+void kextdProcessDaemonLaunchRequest(
+    CFDictionaryRef request);
 void kextdProcessKernelLoadRequest(
     CFDictionaryRef   request);
 void kextdProcessKernelResourceRequest(
     CFDictionaryRef   request);
+int kextdProcessExtStopRequest(
+    CFDictionaryRef   request,
+    audit_token_t     audit_token);
+int kextdProcessExtValidationRequest(
+    CFDictionaryRef   request,
+    audit_token_t     audit_token);
+int kextdProcessExtUpdateRequest(
+    CFDictionaryRef   request,
+    audit_token_t     audit_token);
 kern_return_t kextdProcessUserLoadRequest(
     CFDictionaryRef request,
     audit_token_t   audit_token);
@@ -87,6 +100,8 @@ static OSReturn checkNonrootLoadAllowed(
     OSKextRef kext,
     uid_t     remote_euid,
     pid_t     remote_pid);
+
+extern AuthOptions_t KextdAuthenticationOptions;
 
 #pragma mark KextManager RPC routines & support
 /*******************************************************************************
@@ -113,7 +128,7 @@ kern_return_t _kextmanager_path_for_bundle_id(
 
     *kext_result = kOSReturnError;
     path[0] = '\0';
-    
+
     OSKextLog(/* kext */ NULL,
         kOSKextLogDebugLevel | kOSKextLogIPCFlag,
         "Received client request for path to bundle %s.",
@@ -150,7 +165,7 @@ kern_return_t _kextmanager_path_for_bundle_id(
     }
     if (!CFURLGetFileSystemRepresentation(absURL, /* resolveToBase */ true,
         (UInt8 *)path, PATH_MAX)) {
-        
+
         *kext_result = kOSKextReturnSerialization;
         goto finish;
     }
@@ -235,6 +250,198 @@ finish:
     return result;
 }
 
+#pragma mark System Extension RPC Routines & Support
+
+Boolean clientIsEntitledToManageExtensions(
+        audit_token_t audit_token)
+{
+    Boolean      result     = false;
+    CFErrorRef   error      = NULL; // must release
+    CFBooleanRef entitled   = NULL; // must release
+    SecTaskRef   clientTask = NULL; // must release
+
+    clientTask = SecTaskCreateWithAuditToken(kCFAllocatorDefault, audit_token);
+    if (!clientTask) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            "Could not create task ref from audit token");
+        goto finish;
+    }
+
+    entitled = SecTaskCopyValueForEntitlement(
+                clientTask,
+                CFSTR(EXTMANAGER_ENTITLEMENT_NAME),
+                &error);
+    if (error || !entitled || (CFGetTypeID(entitled) != CFBooleanGetTypeID())) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Could not get entitlement for task");
+        goto finish;
+    }
+
+    if (!CFBooleanGetValue(entitled)) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Client is not entitled for this interface");
+        goto finish;
+    }
+    result = true;
+
+finish:
+    SAFE_RELEASE(error);
+    SAFE_RELEASE(entitled);
+    SAFE_RELEASE(clientTask);
+    return result;
+}
+
+kern_return_t createRequestDictFromXMLData(
+    CFDictionaryRef *out,
+    char *xml_data_in,
+    int xml_data_length)
+{
+    kern_return_t   result      = kOSReturnError;
+    CFDataRef       requestData = NULL; // must release
+    CFDictionaryRef request     = NULL; // must release
+    CFErrorRef      error       = NULL; // must release
+
+    if (!out) {
+        result = kOSKextReturnInvalidArgument;
+        goto finish;
+    }
+
+    requestData = CFDataCreate(kCFAllocatorDefault,
+        (const UInt8 *)xml_data_in, xml_data_length);
+    if (!requestData) {
+        OSKextLogMemError();
+        result = kOSKextReturnNoMemory;
+        goto finish;
+    }
+
+    request = CFPropertyListCreateWithData(kCFAllocatorDefault,
+        requestData, /* options */ 0, /* format */ NULL,
+        &error);
+
+    if (!request) {
+        OSKextLogCFString(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            CFSTR("Can't read kext load request: %@"), error);
+        result = kOSKextReturnSerialization;
+        goto finish;
+    }
+
+    if (CFGetTypeID(request) != CFDictionaryGetTypeID()) {
+        result = kOSKextReturnBadData;
+        goto finish;
+    }
+
+    *out   = request;
+    result = kOSReturnSuccess;
+
+finish:
+    SAFE_RELEASE(requestData);
+    SAFE_RELEASE(error);
+    return result;
+}
+
+kern_return_t _kextmanager_validate_ext(
+    mach_port_t   server,
+    audit_token_t audit_token,
+    char        * xml_data_in,
+    int           xml_data_length)
+{
+    OSReturn        result  = kOSReturnError;
+    CFDictionaryRef request = NULL; // must release
+
+    if (!clientIsEntitledToManageExtensions(audit_token)) {
+        result = kOSKextReturnNotPrivileged;
+        goto finish;
+    }
+
+    result = createRequestDictFromXMLData(&request, xml_data_in, xml_data_length);
+    if (result != kOSReturnSuccess) {
+        goto finish;
+    }
+
+    result = kextdProcessExtValidationRequest(request, audit_token);
+
+finish:
+    SAFE_RELEASE(request);
+
+    /* MIG is consume-on-success */
+    if (result == kOSReturnSuccess) {
+        vm_deallocate(mach_task_self(), (vm_address_t)xml_data_in,
+            (vm_size_t)xml_data_length);
+    }
+
+    return kOSReturnSuccess;
+}
+
+kern_return_t _kextmanager_update_ext(
+    mach_port_t   server,
+    audit_token_t audit_token,
+    char        * xml_data_in,
+    int           xml_data_length)
+{
+    OSReturn        result  = kOSReturnError;
+    CFDictionaryRef request = NULL; // must release
+
+    if (!clientIsEntitledToManageExtensions(audit_token)) {
+        result = kOSKextReturnNotPrivileged;
+        goto finish;
+    }
+
+    result = createRequestDictFromXMLData(&request, xml_data_in, xml_data_length);
+    if (result != kOSReturnSuccess) {
+        goto finish;
+    }
+
+    result = kextdProcessExtUpdateRequest(request, audit_token);
+
+finish:
+    SAFE_RELEASE(request);
+
+    /* MIG is consume-on-success */
+    if (result == kOSReturnSuccess) {
+        vm_deallocate(mach_task_self(), (vm_address_t)xml_data_in,
+            (vm_size_t)xml_data_length);
+    }
+
+    return result;
+}
+
+kern_return_t _kextmanager_stop_ext(
+    mach_port_t   server,
+    audit_token_t audit_token,
+    char        * xml_data_in,
+    int           xml_data_length)
+{
+    OSReturn        result      = kOSReturnError;
+    CFDictionaryRef request     = NULL;  // must release
+
+    if (!clientIsEntitledToManageExtensions(audit_token)) {
+        result = kOSKextReturnNotPrivileged;
+        goto finish;
+    }
+
+    result = createRequestDictFromXMLData(&request, xml_data_in, xml_data_length);
+    if (result != kOSReturnSuccess) {
+        goto finish;
+    }
+
+    result = kextdProcessExtStopRequest(request, audit_token);
+
+finish:
+    SAFE_RELEASE(request);
+
+    /* MIG is consume-on-success */
+    if (result == kOSReturnSuccess) {
+        vm_deallocate(mach_task_self(), (vm_address_t)xml_data_in,
+            (vm_size_t)xml_data_length);
+    }
+
+    return result;
+}
+
 /*******************************************************************************
 *******************************************************************************/
 kern_return_t sendPropertyValueResponse(
@@ -277,7 +484,7 @@ kern_return_t sendPropertyValueResponse(
 finish:
     SAFE_RELEASE(plistData);
     SAFE_RELEASE(error);
-    
+
     return result;
 }
 
@@ -326,7 +533,7 @@ bool kextd_process_kernel_requests(void)
         if (!kernelRequests || !CFArrayGetCount(kernelRequests)) {
             break;
         }
-        
+
         count = CFArrayGetCount(kernelRequests);
         for (i = 0; i < count; i++) {
             CFDictionaryRef request      = NULL; // do not release
@@ -370,20 +577,19 @@ bool kextd_process_kernel_requests(void)
                     "Got load request from kernel.");
                 kextdProcessKernelLoadRequest(request);
             } else if (CFEqual(predicate, CFSTR(kKextRequestPredicateLoadNotification))) {
-               /* We don't do anything with the kext identifier because notify(3)
-                * doesn't allow for an argument.
-                */
                 loadNotificationReceived = true;
             } else if (CFEqual(predicate, CFSTR(kKextRequestPredicateUnloadNotification))) {
-               /* We don't do anything with the kext identifier because notify(3)
-                * doesn't allow for an argument.
-                */
                 unloadNotificationReceived = true;
             } else if (CFEqual(predicate, CFSTR(kKextRequestPredicateRequestResource))) {
                 OSKextLog(/* kext */ NULL,
                     kOSKextLogProgressLevel | kOSKextLogIPCFlag,
                     "Got resource file request from kernel.");
                 kextdProcessKernelResourceRequest(request);
+            } else if (CFEqual(predicate, CFSTR(kKextRequestPredicateRequestDaemonLaunch))) {
+                OSKextLog(/* kext */ NULL,
+                    kOSKextLogProgressLevel | kOSKextLogIPCFlag,
+                    "Got DriverKit daemon launch request from kernel.");
+                kextdProcessDaemonLaunchRequest(request);
             } else {
                 scratchCString = createUTF8CStringForCFString(predicate);
                 OSKextLog(/* kext */ NULL,
@@ -394,7 +600,7 @@ bool kextd_process_kernel_requests(void)
             }
         } /* for (i = 0; i < count; i++) */
     } /* while (1) */
-    
+
 // finish:
 
     if (prelinkedKernelRequested) {
@@ -402,8 +608,8 @@ bool kextd_process_kernel_requests(void)
         struct statfs statfsBuffer;
 
        /* If the statfs() fails we will forge ahead and try kextcache.
-        * We will skip rebuild if volume is read-only or if kext-dev-mode 
-        * has disable auto rebuilds. 
+        * We will skip rebuild if volume is read-only or if kext-dev-mode
+        * has disable auto rebuilds.
         */
         if (statfs("/System/Library/Caches", &statfsBuffer) == 0) {
             if (statfsBuffer.f_flags & MNT_RDONLY) {
@@ -421,7 +627,7 @@ bool kextd_process_kernel_requests(void)
                       "Skipping prelinked kernel rebuild request; kext-dev-mode setting.");
             skipRebuild = TRUE;
         }
-        
+
         if (!skipRebuild) {
             char * const kextcacheArgs[] = {
                 "/usr/sbin/kextcache",
@@ -438,7 +644,10 @@ bool kextd_process_kernel_requests(void)
                 /* waitFlag */ false);
         }
     }
-    
+
+   /* We don't do anything with the kext identifier because notify(3)
+    * doesn't allow for an argument.
+    */
     if (loadNotificationReceived) {
         notify_post(kOSKextLoadNotification);
     }
@@ -455,6 +664,126 @@ bool kextd_process_kernel_requests(void)
     OSKextFlushLoadInfo(NULL /* all kexts */, /* flushDependencies */ true);
 
     return shutdownRequested;
+}
+
+/*******************************************************************************
+* Kernel load notification: we might need to launch a DriverKit host for the kext,
+* so check if the newly-loaded kext is a driver extension and if so, launch it.
+*******************************************************************************/
+void
+kextdProcessDaemonLaunchRequest(CFDictionaryRef request)
+{
+    CFDictionaryRef  requestArgs     = NULL;  // do not release
+    CFStringRef      kextIdentifier  = NULL;  // do not release
+    CFStringRef      serverName      = NULL;  // do not release
+    CFNumberRef      serverTag       = NULL;  // do not release
+    OSKextRef        osKext          = NULL;  // do not release
+    char           * kext_id         = NULL;  // must free
+    bool             result          = false;
+    os_signpost_id_t spid            = generate_signpost_id();
+
+    os_signpost_interval_begin(get_signpost_log(), spid, SIGNPOST_KEXTD_DEXT_LAUNCH);
+
+    requestArgs = request ? CFDictionaryGetValue(request,
+        CFSTR(kKextRequestArgumentsKey)) : NULL;
+    kextIdentifier = requestArgs ? CFDictionaryGetValue(requestArgs,
+        CFSTR(kKextRequestArgumentBundleIdentifierKey)) : NULL;
+    serverName = requestArgs ? CFDictionaryGetValue(requestArgs,
+        CFSTR(kKextRequestArgumentDriverExtensionServerName)) : NULL;
+    serverTag = requestArgs ? CFDictionaryGetValue(requestArgs,
+        CFSTR(kKextRequestArgumentDriverExtensionServerTag)) : NULL;
+
+    if (!requestArgs) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+            "No arguments in kernel daemon launch request.\n");
+        goto finish;
+    }
+    if (!kextIdentifier) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+            "No kext ID in kernel daemon launch request.\n");
+        goto finish;
+    }
+    if (!serverName) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+            "No server name in kernel daemon launch request.\n");
+        goto finish;
+    }
+    if (!serverTag) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+            "No server tag in kernel daemon launch request.\n");
+        goto finish;
+    }
+
+    kext_id = createUTF8CStringForCFString(kextIdentifier);
+    if (!kext_id) {
+        // xxx - not much we can do here.
+        OSKextLogMemError();
+        goto finish;
+    }
+
+   /* Read the extensions if necessary (also resets the release timer).
+    */
+    readExtensions();
+
+    osKext = OSKextGetKextWithIdentifier(kextIdentifier);
+    if (!osKext) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+            "Launch request: kext id %s not found.", kext_id);
+        goto finish;
+    }
+
+    signpost_kext_properties(osKext, spid);
+
+    if (!OSKextDeclaresUserExecutable(osKext)) {
+        OSKextLog(osKext,
+            kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+            "Received daemon launch request for %s, which is not a driver extension.",
+            kext_id);
+        goto finish;
+    }
+
+    /*
+     * Force authentication checks now so they can be reported gracefully.
+     */
+    if (!OSKextIsAuthentic(osKext)) {
+        OSKextLog(NULL,
+                  kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                  kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                  "%s failed security checks; failing.", kext_id);
+        OSKextRemovePersonalitiesForIdentifierFromKernel(kextIdentifier);
+        goto finish;
+    }
+
+    if (!OSKextAuthenticateDependencies(osKext)) {
+        OSKextLog(NULL,
+                  kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                  kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                  "%s's dependencies failed security checks; failing.", kext_id);
+        OSKextRemovePersonalitiesForIdentifierFromKernel(kextIdentifier);
+        goto finish;
+    }
+
+    if (!startUserExtension(osKext, serverName, serverTag)) {
+        OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+                "Failed to start dext %s", kext_id);
+        goto finish;
+    }
+
+    result = true; /* success */
+
+finish:
+    os_signpost_event_emit(get_signpost_log(), spid, SIGNPOST_EVENT_RESULT,
+            "%s", result ? "Success" : "Failure");
+    os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXTD_DEXT_LAUNCH);
+
+    SAFE_FREE(kext_id);
+    return;
 }
 
 /*******************************************************************************
@@ -506,7 +835,7 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
         kext_id);
 
     setCrashLogMessage(crashInfo);
-    
+
    /* Read the extensions if necessary (also resets the release timer).
     */
     readExtensions();
@@ -611,6 +940,7 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
         if (pgo) {
             pgo_start_thread(osKext);
         }
+
         if (kOSReturnSuccess != IOCatalogueModuleLoaded(
             kIOMasterPortDefault, kext_id)) {
 
@@ -774,7 +1104,7 @@ kextdProcessKernelResourceRequest(
         requestResult = kOSKextReturnValidation;
         goto finish;
     }
-    
+
 
     if (!OSKextIsAuthentic(osKext)) {
         OSKextLog(/* kext */ NULL,
@@ -784,7 +1114,7 @@ kextdProcessKernelResourceRequest(
         requestResult = kOSKextReturnAuthentication;
         goto finish;
     }
-    
+
     resource = OSKextCopyResource(osKext, resourceName,
         /* resourceType */ NULL);
     if (!resource) {
@@ -830,42 +1160,16 @@ _kextmanager_load_kext(
     int           xml_data_length)
 {
     OSReturn        result      = kOSReturnError;
-    CFDataRef       requestData = NULL;  // must release
     CFDictionaryRef request     = NULL;  // must release
-    CFErrorRef      error       = NULL;  // must release
 
-    requestData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
-        (const UInt8 *)xml_data_in, xml_data_length,
-        /* deallocator */ kCFAllocatorNull);
-    if (!requestData) {
-        OSKextLogMemError();
-        result = kOSKextReturnNoMemory;
+    result = createRequestDictFromXMLData(&request, xml_data_in, xml_data_length);
+    if (result != kOSReturnSuccess) {
         goto finish;
     }
-    request = CFPropertyListCreateWithData(kCFAllocatorDefault,
-        requestData, /* options */ 0, /* format */ NULL,
-        &error);
-    if (!request) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
-            "Can't read kext load request.");
-        log_CFError(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
-            error);
-        result = kOSKextReturnSerialization;
-        goto finish;
-    }
-    if (CFGetTypeID(request) != CFDictionaryGetTypeID()) {
-        result = kOSKextReturnBadData;
-        goto finish;
-    }
-
     result = kextdProcessUserLoadRequest(request, audit_token);
 
 finish:
-    SAFE_RELEASE(requestData);
     SAFE_RELEASE(request);
-    SAFE_RELEASE(error);
 
     OSKextFlushInfoDictionary(NULL /* all kexts */);
     OSKextFlushLoadInfo(NULL /* all kexts */, /* flushDependencies */ true);
@@ -920,7 +1224,7 @@ static Boolean inExtensionsDir(const char *urlPathCString)
             continue;
 
         // Append trailing slash if necessary, we don't want a false
-        // positive on something like /Library/ExtensionsFake/rootkit.kext 
+        // positive on something like /Library/ExtensionsFake/rootkit.kext
         if (extensionPath[len - 1] != '/') {
             extensionPath[len] = '/';
             extensionPath[len + 1] = '\0';
@@ -1046,7 +1350,7 @@ checkNonrootLoadAllowed(
         result = kOSKextReturnDependencies;
         goto finish;
     }
-    
+
     count = CFArrayGetCount(loadList);
     for (index = count - 1; index >= 0; index--) {
         OSKextRef thisKext = (OSKextRef)CFArrayGetValueAtIndex(loadList, index);
@@ -1081,7 +1385,7 @@ checkNonrootLoadAllowed(
     }
 
     result = kOSReturnSuccess;
-    
+
 finish:
     SAFE_RELEASE(loadList);
     SAFE_RELEASE(kextPath);
@@ -1095,6 +1399,300 @@ finish:
             nameForPID(remote_pid), remote_euid, kextPathCString);
     }
 
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+kern_return_t
+kextdProcessExtStopRequest(
+        CFDictionaryRef request,
+        audit_token_t audit_token)
+{
+    CFStringRef       extPath     = NULL; // don't release
+    CFURLRef          extURL      = NULL; // must release
+    CFURLRef          absoluteURL = NULL; // must release
+    OSKextRef         theExt      = NULL; // must release
+    kern_return_t     result      = kOSReturnError;
+    pid_t             remote_pid  = -1;
+    uid_t             remote_euid = -1;
+    os_signpost_id_t  spid        = generate_signpost_id();
+
+    os_signpost_interval_begin(get_signpost_log(), spid, SIGNPOST_KEXTD_EXTMAN_VALIDATE);
+
+    audit_token_to_au32(audit_token,
+                        /* audit UID */ NULL,
+                        &remote_euid,
+                        /* egid */ NULL,
+                        /* ruid */ NULL,
+                        /* rgid */ NULL,
+                        &remote_pid,
+                        /* asid */ NULL,
+                        /* au_tid_t */ NULL);
+
+    extPath = CFDictionaryGetValue(request, kExtPathKey);
+    if (!extPath || CFGetTypeID(extPath) != CFStringGetTypeID()) {
+        result = kOSKextReturnInvalidArgument;
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            "Nonexistent or bad extension url request data");
+        goto finish;
+    }
+
+    extURL = CFURLCreateWithString(kCFAllocatorDefault, extPath, NULL);
+    if (!extURL) {
+        result = kOSKextReturnInvalidArgument;
+        OSKextLogStringError(/* aKext */ NULL);
+        goto finish;
+    }
+
+    absoluteURL = createAbsOrRealURLForURL(extURL,
+                    remote_euid, remote_pid, &result);
+    if (!absoluteURL || result != kOSReturnSuccess) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            "Couldn't create absolute url for extension");
+        goto finish;
+    }
+
+    theExt = OSKextCreate(kCFAllocatorDefault, absoluteURL);
+    if (!theExt) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            "Couldn't create extension object for staging");
+        goto finish;
+    }
+
+    if (!OSKextDeclaresUserExecutable(theExt)) {
+        result = kOSKextReturnInvalidArgument;
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            "Extension URL sent to kextd is not a driver extension");
+        goto finish;
+    }
+
+    result = OSKextUnload(theExt, /* terminateServiceAndRemovePersonalities */ true);
+
+finish:
+    os_signpost_event_emit(get_signpost_log(), spid, SIGNPOST_EVENT_RESULT, "%d", result);
+    os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXTD_EXTMAN_STOP);
+
+    SAFE_RELEASE(absoluteURL);
+    SAFE_RELEASE(theExt);
+    return result;
+}
+
+/*******************************************************************************
+ * Allow private clients to add extensions without manually putting a bundle in
+ * /Library/Extensions, touching the directory, waving a dead chicken in the air,
+ * and waiting for five minutes (at least until we have OSKextDeadChicken SPI...)
+ *******************************************************************************/
+kern_return_t
+kextdProcessExtUpdateRequest(
+        CFDictionaryRef request,
+        audit_token_t audit_token)
+{
+    CFStringRef       extPath     = NULL; // don't release
+    CFURLRef          extURL      = NULL; // must release
+    CFURLRef          absoluteURL = NULL; // must release
+    OSKextRef         theExt      = NULL; // must release
+    CFBooleanRef      willEnable  = NULL; // do not release
+    kern_return_t     result      = kOSReturnError;
+    pid_t             remote_pid  = -1;
+    uid_t             remote_euid = -1;
+    os_signpost_id_t  spid        = generate_signpost_id();
+
+    os_signpost_interval_begin(get_signpost_log(), spid, SIGNPOST_KEXTD_EXTMAN_UPDATE);
+
+    audit_token_to_au32(audit_token,
+                        /* audit UID */ NULL,
+                        &remote_euid,
+                        /* egid */ NULL,
+                        /* ruid */ NULL,
+                        /* rgid */ NULL,
+                        &remote_pid,
+                        /* asid */ NULL,
+                        /* au_tid_t */ NULL);
+
+    extPath = CFDictionaryGetValue(request, kExtPathKey);
+    if (!extPath || CFGetTypeID(extPath) != CFStringGetTypeID()) {
+        result = kOSKextReturnInvalidArgument;
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            "Nonexistent or bad extension url request data");
+        goto finish;
+    }
+
+    extURL = CFURLCreateWithString(kCFAllocatorDefault, extPath, NULL);
+    if (!extURL) {
+        OSKextLogStringError(/* aKext */ NULL);
+        result = kOSKextReturnInvalidArgument;
+        goto finish;
+    }
+
+    willEnable = CFDictionaryGetValue(request, kExtEnabledKey);
+    if (!willEnable || CFGetTypeID(willEnable) != CFBooleanGetTypeID()) {
+        result = kOSKextReturnInvalidArgument;
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            "Nonexistent or bad enablement state");
+        goto finish;
+    }
+
+    absoluteURL = createAbsOrRealURLForURL(extURL,
+                    remote_euid, remote_pid, &result);
+    if (!absoluteURL || result != kOSReturnSuccess) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            "Couldn't create absolute url for extension");
+        goto finish;
+    }
+
+    /* Assumes the kext is in a kext repository url. This lets us look the
+     * kext up by URL / bundle id later on if we end up getting a load request. */
+    theExt = OSKextCreate(kCFAllocatorDefault, absoluteURL);
+    if (!theExt) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            "Couldn't create extension object for staging");
+        goto finish;
+    }
+
+    if (!OSKextDeclaresUserExecutable(theExt)) {
+        result = kOSKextReturnInvalidArgument;
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            "Extension URL sent to kextd is not a driver extension");
+        goto finish;
+    }
+
+    if (CFBooleanGetValue(willEnable)) {
+        result = OSKextSendKextPersonalitiesToKernel(theExt, NULL);
+        if (result != kOSReturnSuccess) {
+            OSKextLog(theExt,
+                kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+                "Could not send personalities to kernel!");
+            goto finish;
+        }
+    } else {
+        result = OSKextRemoveKextPersonalitiesFromKernel(theExt);
+        if (result != kOSReturnSuccess) {
+            OSKextLog(theExt,
+                kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+                "Could not remove personalities from kernel!");
+            goto finish;
+        }
+    }
+
+    result = kOSReturnSuccess;
+
+finish:
+    os_signpost_event_emit(get_signpost_log(), spid, SIGNPOST_EVENT_RESULT, "%d", result);
+    os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXTD_EXTMAN_UPDATE);
+
+    SAFE_RELEASE(absoluteURL);
+    SAFE_RELEASE(theExt);
+    return result;
+}
+
+/*******************************************************************************
+ * Allow private clients to inquire whether or not a certain extension is valid.
+ *******************************************************************************/
+kern_return_t
+kextdProcessExtValidationRequest(
+        CFDictionaryRef request,
+        audit_token_t audit_token)
+{
+    CFStringRef       extPath     = NULL; // don't release
+    CFURLRef          extURL      = NULL; // must release
+    CFURLRef          absoluteURL = NULL; // must release
+    OSKextRef         theExt      = NULL; // must release
+    kern_return_t     result      = kOSKextReturnValidation;
+    pid_t             remote_pid  = -1;
+    uid_t             remote_euid = -1;
+    os_signpost_id_t  spid        = generate_signpost_id();
+
+    os_signpost_interval_begin(get_signpost_log(), spid, SIGNPOST_KEXTD_EXTMAN_VALIDATE);
+
+    audit_token_to_au32(audit_token,
+                        /* audit UID */ NULL,
+                        &remote_euid,
+                        /* egid */ NULL,
+                        /* ruid */ NULL,
+                        /* rgid */ NULL,
+                        &remote_pid,
+                        /* asid */ NULL,
+                        /* au_tid_t */ NULL);
+
+    extPath = CFDictionaryGetValue(request, kExtPathKey);
+    if (!extPath || CFGetTypeID(extPath) != CFStringGetTypeID()) {
+        result = kOSKextReturnInvalidArgument;
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Nonexistent or bad extension url request data");
+        goto finish;
+    }
+
+    extURL = CFURLCreateWithString(kCFAllocatorDefault, extPath, NULL);
+    if (!extURL) {
+        result = kOSKextReturnInvalidArgument;
+        OSKextLogStringError(/* aKext */ NULL);
+        goto finish;
+    }
+
+    absoluteURL = createAbsOrRealURLForURL(extURL,
+                    remote_euid, remote_pid, &result);
+    if (!absoluteURL || result != kOSReturnSuccess) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Couldn't create absolute url for extension");
+        goto finish;
+    }
+
+    theExt = OSKextCreate(kCFAllocatorDefault, absoluteURL);
+    if (!theExt) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Couldn't create extension object for staging");
+        goto finish;
+    }
+
+    if (!OSKextDeclaresUserExecutable(theExt)) {
+        result = kOSKextReturnInvalidArgument;
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            "Extension URL sent to kextd is not a driver extension");
+        goto finish;
+    }
+
+    // Relax approval checking to avoid deadlocks with
+    // sysextd, which calls this function
+    KextdAuthenticationOptions.checkDextApproval = false;
+    if (!OSKextIsValid(theExt)) {
+        result = kOSKextReturnValidation;
+        OSKextLog(theExt,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Extension is not valid");
+        goto finish;
+    }
+
+    if (!OSKextIsAuthentic(theExt)) {
+        result = kOSKextReturnAuthentication;
+        OSKextLog(theExt,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Extension is not authentic");
+        goto finish;
+    }
+
+    result = kOSReturnSuccess;
+
+finish:
+    KextdAuthenticationOptions.checkDextApproval = true;
+    os_signpost_event_emit(get_signpost_log(), spid, SIGNPOST_EVENT_RESULT, "%d", result);
+    os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXTD_EXTMAN_VALIDATE);
+
+    SAFE_RELEASE(theExt);
+    SAFE_RELEASE(absoluteURL);
     return result;
 }
 
@@ -1213,7 +1811,7 @@ kextdProcessUserLoadRequest(
             result = kOSKextReturnInvalidArgument;
             goto finish;
         }
-        
+
         count = CFArrayGetCount(dependencyPaths);
 
         dependencyURLs = CFArrayCreateMutable(kCFAllocatorDefault,
@@ -1223,7 +1821,7 @@ kextdProcessUserLoadRequest(
             result = kOSKextReturnNoMemory;
             goto finish;
         }
-        
+
         for (index = 0; index < count; index++) {
             CFStringRef thisPath = (CFStringRef)CFArrayGetValueAtIndex(
                 dependencyPaths, index);
@@ -1325,7 +1923,7 @@ kextdProcessUserLoadRequest(
             goto finish;
         }
     }
-  
+
     /* consult sandboxing system to make sure this is OK
      * <rdar://problem/11015459
      */
@@ -1453,11 +2051,14 @@ kextdProcessUserLoadRequest(
         /* personalityNames */ NULL,
         /* delayAutounloadFlag */ pgo);
 
-    if (pgo && result == kOSReturnSuccess)
-    {
+    if (result != kOSReturnSuccess) {
+        goto finish;
+    }
+
+    if (pgo) {
         pgo_start_thread(theKext);
     }
-    
+
 finish:
 #if HAVE_DANGERZONE
     if (theKext) {

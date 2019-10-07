@@ -29,10 +29,14 @@
 #include "config.h"
 #include "FetchRequest.h"
 
+#include "Document.h"
 #include "HTTPParsers.h"
 #include "JSAbortSignal.h"
+#include "Logging.h"
+#include "Quirks.h"
 #include "ScriptExecutionContext.h"
 #include "SecurityOrigin.h"
+#include "Settings.h"
 
 namespace WebCore {
 
@@ -141,6 +145,18 @@ ExceptionOr<void> FetchRequest::initializeOptions(const Init& init)
     return { };
 }
 
+static inline Optional<Exception> processInvalidSignal(ScriptExecutionContext& context)
+{
+    ASCIILiteral message { "FetchRequestInit.signal should be undefined, null or an AbortSignal object. This will throw in a future release."_s };
+    context.addConsoleMessage(MessageSource::JS, MessageLevel::Warning, message);
+
+    if (is<Document>(context) && downcast<Document>(context).quirks().shouldIgnoreInvalidSignal())
+        return { };
+
+    RELEASE_LOG_ERROR(ResourceLoading, "FetchRequestInit.signal should be undefined, null or an AbortSignal object.");
+    return Exception { TypeError, message };
+}
+
 ExceptionOr<void> FetchRequest::initializeWith(const String& url, Init&& init)
 {
     ASSERT(scriptExecutionContext());
@@ -164,8 +180,8 @@ ExceptionOr<void> FetchRequest::initializeWith(const String& url, Init&& init)
         if (auto* signal = JSAbortSignal::toWrapped(scriptExecutionContext()->vm(), init.signal))
             m_signal->follow(*signal);
         else if (!init.signal.isUndefinedOrNull())  {
-            ASCIILiteral consoleMessage { "FetchRequestInit.signal should be undefined, null or an AbortSignal object."_s };
-            scriptExecutionContext()->addConsoleMessage(MessageSource::JS, MessageLevel::Warning, consoleMessage);
+            if (auto exception = processInvalidSignal(*scriptExecutionContext()))
+                return WTFMove(*exception);
         }
     }
 
@@ -187,9 +203,6 @@ ExceptionOr<void> FetchRequest::initializeWith(const String& url, Init&& init)
 
 ExceptionOr<void> FetchRequest::initializeWith(FetchRequest& input, Init&& init)
 {
-    if (input.isDisturbedOrLocked())
-        return Exception {TypeError, "Request input is disturbed or locked."_s };
-
     m_request = input.m_request;
     m_options = input.m_options;
     m_referrer = input.m_referrer;
@@ -202,8 +215,8 @@ ExceptionOr<void> FetchRequest::initializeWith(FetchRequest& input, Init&& init)
         if (auto* signal = JSAbortSignal::toWrapped(scriptExecutionContext()->vm(), init.signal))
             m_signal->follow(*signal);
         else if (!init.signal.isNull()) {
-            ASCIILiteral consoleMessage { "FetchRequestInit.signal should be undefined, null or an AbortSignal object."_s };
-            scriptExecutionContext()->addConsoleMessage(MessageSource::JS, MessageLevel::Warning, consoleMessage);
+            if (auto exception = processInvalidSignal(*scriptExecutionContext()))
+                return WTFMove(*exception);
         }
 
     } else
@@ -224,6 +237,9 @@ ExceptionOr<void> FetchRequest::initializeWith(FetchRequest& input, Init&& init)
         if (setBodyResult.hasException())
             return setBodyResult.releaseException();
     } else {
+        if (input.isDisturbedOrLocked())
+            return Exception { TypeError, "Request input is disturbed or locked."_s };
+
         auto setBodyResult = setBody(input);
         if (setBodyResult.hasException())
             return setBodyResult.releaseException();
@@ -275,7 +291,7 @@ ExceptionOr<Ref<FetchRequest>> FetchRequest::create(ScriptExecutionContext& cont
             return result.releaseException();
     }
 
-    return WTFMove(request);
+    return request;
 }
 
 String FetchRequest::referrer() const
@@ -315,7 +331,7 @@ ExceptionOr<Ref<FetchRequest>> FetchRequest::clone(ScriptExecutionContext& conte
     auto clone = adoptRef(*new FetchRequest(context, WTF::nullopt, FetchHeaders::create(m_headers.get()), ResourceRequest { m_request }, FetchOptions { m_options}, String { m_referrer }));
     clone->cloneBody(*this);
     clone->m_signal->follow(m_signal);
-    return WTFMove(clone);
+    return clone;
 }
 
 const char* FetchRequest::activeDOMObjectName() const

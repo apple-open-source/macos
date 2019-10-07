@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008-2017 Apple Inc. All Rights Reserved.
+# Copyright (c) 2008-2017, 2019 Apple Inc. All Rights Reserved.
 #
 
 # General project info
@@ -38,8 +38,8 @@ Install_Info	= $(Install_Prefix)/info
 
 # Automatic Extract & Patch
 AEP			= YES
-AEP_Version		= 2.5.5
-AEP_Binaries		= $(shell $(DSTROOT)$(USRBINDIR)/php-config --extension-dir)/$(Project).so
+AEP_Version		= 2.7.0
+AEP_Binaries		= $(shell $(SYMROOT)/php-config --extension-dir)/$(Project).so
 # License file must be empty as this is a subproject.
 AEP_LicenseFile		=
 AEP_Patches		=

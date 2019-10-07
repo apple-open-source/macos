@@ -2,17 +2,17 @@
         <key>OpenSourceProject</key>
         <string>freetype</string>
         <key>OpenSourceVersion</key>
-        <string>2.4.12</string>
+        <string>2.10.0</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://freetype.sourceforge.net/index2.html</string>
         <key>OpenSourceURL</key>
-        <string>http://download.savannah.gnu.org/releases/freetype/freetype-2.4.12.tar.bz2</string>
+        <string>https://download.savannah.gnu.org/releases/freetype/freetype-2.10.0.tar.bz2</string>
         <key>OpenSourceImportDate</key>
-        <string>2013-06-14</string>
+        <string>2019-04-05</string>
         <key>OpenSourceLicense</key>
         <string>freetype</string>
         <key>OpenSourceLicenseFile</key>
         <string>python_modules.txt</string>
-        <key>OpenSourceMD5</key>
-        <string>3463102764315eb86c0d3c2e1f3ffb7d</string>
+        <key>OpenSourceSHA256</key>
+        <string>fccc62928c65192fff6c98847233b28eb7ce05f12d2fea3f6cc90e8b4e5fbe06</string>
 </dict>

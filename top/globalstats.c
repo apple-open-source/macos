@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2009 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2008, 2009, 2019 Apple Computer, Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +25,7 @@
 #include <string.h>
 #include <assert.h>
 #include <libutil.h>
+#include <mach/clock_types.h>
 #include <inttypes.h>
 #include <panel.h>
 #include <sys/time.h>
@@ -193,39 +194,34 @@ static void reset_globalstat(struct globalstat *gs) {
 }
 
 
-static void update_time(struct globalstat *gs,
-			const libtop_tsamp_t *tsamp) {
+static void update_time(struct globalstat *gs, const libtop_tsamp_t *tsamp) {
     struct timeval tval;
     struct tm tm;
-    
     gettimeofday(&tval, NULL);
     localtime_r(&(tval.tv_sec), &tm);
 
     if(STATMODE_ACCUM == top_prefs_get_mode()) {
-	unsigned int sec, min, hour;
+        unsigned int sec = (unsigned int)((tsamp->timens - tsamp->b_timens) /
+                NSEC_PER_SEC);
+        unsigned int min = sec / 60;
+        unsigned int hour = min / 60;
 
-	timersub(&tsamp->time, &tsamp->b_time, &tval);
+        gs->length = snprintf(gs->data, sizeof(gs->data), "%u:%02u:%02u",
+                hour, min % 60, sec % 60);
 
-	sec = tval.tv_sec;
-	min = sec / 60;
-	hour = min / 60;
-
-	gs->length = snprintf(gs->data, sizeof(gs->data), "%u:%02u:%02u",
-			      hour, min % 60, sec % 60);
-
-	if(gs->length < 0) {
-	    reset_globalstat(gs);
-	    return;
-	}
+        if(gs->length < 0) {
+            reset_globalstat(gs);
+            return;
+        }
     } else if(top_prefs_get_logging_mode()) {
-	gs->length = strftime(gs->data, sizeof(gs->data), "%Y/%m/%d %T", &tm);
+        gs->length = strftime(gs->data, sizeof(gs->data), "%Y/%m/%d %T", &tm);
     } else {
-	gs->length = strftime(gs->data, sizeof(gs->data), "%T", &tm);
+        gs->length = strftime(gs->data, sizeof(gs->data), "%T", &tm);
     }
 
     if(0 == gs->length) {
-	reset_globalstat(gs);
-	return;
+        reset_globalstat(gs);
+        return;
     }
 
     update_max(gs);

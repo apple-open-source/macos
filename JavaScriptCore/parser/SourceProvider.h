@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,8 @@
 
 #pragma once
 
+#include "CachedBytecode.h"
+#include "CodeSpecializationKind.h"
 #include "SourceOrigin.h"
 #include <wtf/RefCounted.h>
 #include <wtf/URL.h>
@@ -36,11 +38,17 @@
 
 namespace JSC {
 
+class SourceCode;
+class UnlinkedFunctionExecutable;
+class UnlinkedFunctionCodeBlock;
+
     enum class SourceProviderSourceType : uint8_t {
         Program,
         Module,
         WebAssembly,
     };
+
+    using BytecodeCacheGenerator = Function<RefPtr<CachedBytecode>()>;
 
     class SourceProvider : public RefCounted<SourceProvider> {
     public:
@@ -52,6 +60,11 @@ namespace JSC {
 
         virtual unsigned hash() const = 0;
         virtual StringView source() const = 0;
+        virtual RefPtr<CachedBytecode> cachedBytecode() const { return nullptr; }
+        virtual void cacheBytecode(const BytecodeCacheGenerator&) const { }
+        virtual void updateCache(const UnlinkedFunctionExecutable*, const SourceCode&, CodeSpecializationKind, const UnlinkedFunctionCodeBlock*) const { }
+        virtual void commitCachedBytecode() const { }
+
         StringView getRange(int start, int end) const
         {
             return source().substring(start, end - start);
@@ -59,8 +72,8 @@ namespace JSC {
 
         const SourceOrigin& sourceOrigin() const { return m_sourceOrigin; }
         const URL& url() const { return m_url; }
-        const String& sourceURL() const { return m_sourceURLDirective; }
-        const String& sourceMappingURL() const { return m_sourceMappingURLDirective; }
+        const String& sourceURLDirective() const { return m_sourceURLDirective; }
+        const String& sourceMappingURLDirective() const { return m_sourceMappingURLDirective; }
 
         TextPosition startPosition() const { return m_startPosition; }
         SourceProviderSourceType sourceType() const { return m_sourceType; }
@@ -72,18 +85,14 @@ namespace JSC {
             return m_id;
         }
 
-        bool isValid() const { return m_validated; }
-        void setValid() { m_validated = true; }
-
-        void setSourceURLDirective(const String& sourceURL) { m_sourceURLDirective = sourceURL; }
-        void setSourceMappingURLDirective(const String& sourceMappingURL) { m_sourceMappingURLDirective = sourceMappingURL; }
+        void setSourceURLDirective(const String& sourceURLDirective) { m_sourceURLDirective = sourceURLDirective; }
+        void setSourceMappingURLDirective(const String& sourceMappingURLDirective) { m_sourceMappingURLDirective = sourceMappingURLDirective; }
 
     private:
         JS_EXPORT_PRIVATE void getID();
 
-        URL m_url;
         SourceProviderSourceType m_sourceType;
-        bool m_validated : 1;
+        URL m_url;
         SourceOrigin m_sourceOrigin;
         String m_sourceURLDirective;
         String m_sourceMappingURLDirective;
@@ -108,16 +117,17 @@ namespace JSC {
             return m_source.get();
         }
 
-    private:
+    protected:
         StringSourceProvider(const String& source, const SourceOrigin& sourceOrigin, URL&& url, const TextPosition& startPosition, SourceProviderSourceType sourceType)
             : SourceProvider(sourceOrigin, WTFMove(url), startPosition, sourceType)
             , m_source(source.isNull() ? *StringImpl::empty() : *source.impl())
         {
         }
 
+    private:
         Ref<StringImpl> m_source;
     };
-    
+
 #if ENABLE(WEBASSEMBLY)
     class WebAssemblySourceProvider : public SourceProvider {
     public:

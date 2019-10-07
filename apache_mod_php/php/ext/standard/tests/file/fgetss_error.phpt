@@ -2,6 +2,8 @@
 Test fgetss() function : error conditions
 --FILE--
 <?php
+error_reporting(E_ALL & ~E_DEPRECATED);
+
 /*
  Prototype: string fgetss ( resource $handle [, int $length [, string $allowable_tags]] );
  Description: Gets line from file pointer and strip HTML tags
@@ -17,14 +19,14 @@ echo "-- Testing fgetss() with more than expected number of arguments --\n";
 $fp = fopen(__FILE__, "r");
 var_dump( fgetss($fp, 100, '<p><a>', $fp) );
 
-// invalid length argument 
+// invalid length argument
 echo "-- Testing fgetss() with invalid length arguments --\n";
-$len = 0; 
+$len = 0;
 $allowable_tags = '<p><a>';
 var_dump( fgetss($fp, $len, $allowable_tags) );
 $len = -10;
 var_dump( fgetss($fp, $len, $allowable_tags) );
-$len = 1; 
+$len = 1;
 var_dump( fgetss($fp, $len, $allowable_tags) ); // return length - 1 always, expect false
 
 // test invalid arguments : non-resources
@@ -79,7 +81,7 @@ Warning: fgetss() expects parameter 1 to be resource, string given in %s on line
 bool(false)
 -- Iteration 2 --
 
-Warning: fgetss() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: fgetss() expects parameter 1 to be resource, int given in %s on line %d
 bool(false)
 -- Iteration 3 --
 
@@ -87,7 +89,7 @@ Warning: fgetss() expects parameter 1 to be resource, float given in %s on line 
 bool(false)
 -- Iteration 4 --
 
-Warning: fgetss() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: fgetss() expects parameter 1 to be resource, bool given in %s on line %d
 bool(false)
 -- Iteration 5 --
 

@@ -7,11 +7,11 @@ setopt [ {+|-}options | {+|-}o option_name ] [ -m ] [ name ... ]
        ferences from the default options for the current emulation (the
        default  emulation  being  native  zsh,  shown  as <Z> in zshop-
        tions(1)).  Options that are on by default for the emulation are
-       shown  with  the  prefix  no  only  if they are off, while other
-       options are shown without the prefix no and only if they are on.
+       shown  with  the prefix no only if they are off, while other op-
+       tions are shown without the prefix no and only if they  are  on.
        In  addition  to  options  changed from the default state by the
-       user, any options activated  automatically  by  the  shell  (for
-       example,  SHIN_STDIN  or INTERACTIVE) will be shown in the list.
+       user, any options activated automatically by the shell (for  ex-
+       ample,  SHIN_STDIN  or  INTERACTIVE)  will be shown in the list.
        The format is further modified by the  option  KSH_OPTION_PRINT,
        however  the  rationale for choosing options with or without the
        no prefix remains the same in this case.

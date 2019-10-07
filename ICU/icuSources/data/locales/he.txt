@@ -19,28 +19,16 @@ he{
     ExemplarCharactersPunctuation{"[\\- ‐ – — , ; \\: ! ? . ׳ ' \u0022 ( ) \\[ \\] / ״ ־]"}
     MoreInformation{"?"}
     NumberElements{
-        cakm{
-            symbols{
-                infinity{"∞"}
-            }
-        }
-        cham{
-            symbols{
-                infinity{"∞"}
-                perMille{"‰"}
-                percentSign{"%"}
-            }
-        }
-        default{"latn"}
         latn{
             miscPatterns{
-                atLeast{"⩾{0}+"}
+                approximately{"~{0}"}
+                atLeast{"≥{0}+"}
+                atMost{"≤{0}"}
                 range{"{0}–{1}"}
             }
             patterns{
                 accountingFormat{"#,##0.00 ¤"}
                 currencyFormat{"‏#,##0.00 ¤;‏-#,##0.00 ¤"}
-                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0%"}
                 scientificFormat{"#E0"}
             }
@@ -271,11 +259,8 @@ he{
                 }
             }
             symbols{
-                decimal{"."}
                 exponential{"E"}
-                group{","}
                 infinity{"∞"}
-                list{";"}
                 minusSign{"‎-"}
                 nan{"NaN"}
                 perMille{"‰"}
@@ -297,19 +282,12 @@ he{
             }
         }
         minimumGroupingDigits{"1"}
-        native{"latn"}
         traditional{"hebr"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.42"}
     calendar{
         buddhist{
             eras{
-                abbreviated{
-                    "BE",
-                }
-                narrow{
-                    "BE",
-                }
                 wide{
                     "הספירה הבודהיסטית",
                 }
@@ -317,14 +295,6 @@ he{
         }
         coptic{
             eras{
-                abbreviated{
-                    "ERA0",
-                    "ERA1",
-                }
-                narrow{
-                    "ERA0",
-                    "ERA1",
-                }
                 wide{
                     "עידן 0",
                     "עידן 1",
@@ -346,21 +316,6 @@ he{
                         "אפיפ",
                         "מסרה",
                         "נאסי",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                        "13",
                     }
                     wide{
                         "טאוט",
@@ -393,21 +348,6 @@ he{
                         "אפיפ",
                         "מסרה",
                         "נאסי",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                        "13",
                     }
                     wide{
                         "טאוט",
@@ -429,14 +369,6 @@ he{
         }
         ethiopic{
             eras{
-                abbreviated{
-                    "ERA0",
-                    "ERA1",
-                }
-                narrow{
-                    "ERA0",
-                    "ERA1",
-                }
                 wide{
                     "עידן 0",
                     "עידן 1",
@@ -458,21 +390,6 @@ he{
                         "המלה",
                         "נהסה",
                         "פגומן",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                        "13",
                     }
                     wide{
                         "מסקרם",
@@ -505,21 +422,6 @@ he{
                         "המלה",
                         "נהסה",
                         "פגומן",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                        "13",
                     }
                     wide{
                         "מסקרם",
@@ -600,6 +502,53 @@ he{
                 yyyyQQQQ{"G y QQQQ"}
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h–h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm–h:mm B"}
+                    m{"h:mm–h:mm B"}
+                }
+                Gy{
+                    G{"G y – G y"}
+                    y{"G y–y"}
+                }
+                GyM{
+                    G{"GGGGG y-MM – GGGGG y-MM"}
+                    M{"GGGGG y-MM – y-MM"}
+                    y{"GGGGG y-MM – y-MM"}
+                }
+                GyMEd{
+                    G{"GGGGG y-MM-dd, E – GGGGG y-MM-dd, E"}
+                    M{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                    d{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                    y{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                }
+                GyMMM{
+                    G{"G y MMM – G y MMM"}
+                    M{"G y MMM–MMM"}
+                    y{"G y MMM – y MMM"}
+                }
+                GyMMMEd{
+                    G{"G y MMM d, E – G y MMM d, E"}
+                    M{"G y MMM d, E – MMM d, E"}
+                    d{"G y MMM d, E – MMM d, E"}
+                    y{"G y MMM d, E – y MMM d, E"}
+                }
+                GyMMMd{
+                    G{"G y MMM d – G y MMM d"}
+                    M{"G y MMM d – MMM d"}
+                    d{"G y MMM d–d"}
+                    y{"G y MMM d – y MMM d"}
+                }
+                GyMd{
+                    G{"GGGGG y-MM-dd – GGGGG y-MM-dd"}
+                    M{"GGGGG y-MM-dd – y-MM-dd"}
+                    d{"GGGGG y-MM-dd – y-MM-dd"}
+                    y{"GGGGG y-MM-dd – y-MM-dd"}
+                }
                 H{
                     H{"H–H"}
                 }
@@ -755,10 +704,10 @@ he{
                 MMM{"LLL"}
                 MMMEd{"E, d בMMM"}
                 MMMMW{
-                    many{"שבוע W בMMM"}
-                    one{"שבוע W בMMM"}
-                    other{"שבוע W בMMM"}
-                    two{"שבוע W בMMM"}
+                    many{"שבוע W בMMMM"}
+                    one{"שבוע W בMMMM"}
+                    other{"שבוע W בMMMM"}
+                    two{"שבוע W בMMMM"}
                 }
                 MMMMd{"d בMMMM"}
                 MMMd{"d בMMM"}
@@ -951,6 +900,53 @@ he{
                 }
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h–h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm–h:mm B"}
+                    m{"h:mm–h:mm B"}
+                }
+                Gy{
+                    G{"y G – y G"}
+                    y{"y – y G"}
+                }
+                GyM{
+                    G{"M.y GGGGG – M.y GGGGG"}
+                    M{"M.y – M.y GGGGG"}
+                    y{"M.y – M.y GGGGG"}
+                }
+                GyMEd{
+                    G{"E, d.M.y GGGGG – E, d.M.y GGGGG"}
+                    M{"E, d.M.y – E, d.M.y GGGGG"}
+                    d{"E, d.M.y – E, d.M.y GGGGG"}
+                    y{"E, d.M.y – E, d.M.y GGGGG"}
+                }
+                GyMMM{
+                    G{"MMM y G – MMM y G"}
+                    M{"MMM – MMM y G"}
+                    y{"MMM y – MMM y G"}
+                }
+                GyMMMEd{
+                    G{"E, d בMMM y G – E, d בMMM y G"}
+                    M{"E, d בMMM – E, d בMMM y G"}
+                    d{"E, d בMMM – E, d בMMM y G"}
+                    y{"E, d בMMM y – E, d בMMM y G"}
+                }
+                GyMMMd{
+                    G{"d בMMM y G – d בMMM y G"}
+                    M{"d בMMM – d בMMM y G"}
+                    d{"d – d בMMM y G"}
+                    y{"d בMMM y – d בMMM y G"}
+                }
+                GyMd{
+                    G{"d.M.y GGGGG – d.M.y GGGGG"}
+                    M{"d.M.y – d.M.y GGGGG"}
+                    d{"d.M.y – d.M.y GGGGG"}
+                    y{"d.M.y – d.M.y GGGGG"}
+                }
                 H{
                     H{"H–H"}
                 }
@@ -1063,20 +1059,6 @@ he{
                         "אוק׳",
                         "נוב׳",
                         "דצמ׳",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
                     }
                     wide{
                         "ינואר",
@@ -1235,9 +1217,6 @@ he{
                 abbreviated{
                     "לבה״ע",
                 }
-                narrow{
-                    "AM",
-                }
                 wide{
                     "לבריאת העולם",
                 }
@@ -1373,20 +1352,6 @@ he{
                         "מאגהה",
                         "פלגונה",
                     }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                    }
                     wide{
                         "צ׳ייטרה",
                         "וייסקהה",
@@ -1417,20 +1382,6 @@ he{
                         "מאגהה",
                         "פלגונה",
                     }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                    }
                     wide{
                         "צ׳ייטרה",
                         "וייסקהה",
@@ -1443,7 +1394,7 @@ he{
                         "אגרהיאנה",
                         "פאוסה",
                         "מאגהה",
-                        "Phalguna",
+                        "פאלגונה",
                     }
                 }
             }
@@ -1499,9 +1450,6 @@ he{
             eras{
                 abbreviated{
                     "שנת היג׳רה",
-                }
-                narrow{
-                    "AH",
                 }
                 wide{
                     "שנת היג׳רה",
@@ -1843,12 +1791,6 @@ he{
         }
         persian{
             eras{
-                abbreviated{
-                    "AP",
-                }
-                narrow{
-                    "AP",
-                }
                 wide{
                     "הספירה הפרסית",
                 }
@@ -1868,20 +1810,6 @@ he{
                         "די",
                         "בהמן",
                         "אספנד",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
                     }
                     wide{
                         "פרורדין",
@@ -1912,20 +1840,6 @@ he{
                         "די",
                         "בהמן",
                         "אספנד",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
                     }
                     wide{
                         "פרורדין",
@@ -1963,8 +1877,8 @@ he{
     }
     characterLabel{
         activities{"פעילויות"}
-        african_scripts{"סקריפטים של שפות אפריקאיות"}
-        american_scripts{"סקריפטים של שפות אמריקאיות"}
+        african_scripts{"כתב של שפות אפריקאיות"}
+        american_scripts{"כתב של שפות אמריקאיות"}
         animal{"חיות"}
         animals_nature{"בעלי חיים וטבע"}
         arrows{"חצים"}
@@ -1981,9 +1895,9 @@ he{
         divination_symbols{"סמלי חיזוי עתידות"}
         downwards_arrows{"חצים כלפי מטה"}
         downwards_upwards_arrows{"חצים כלפי מעלה ומטה"}
-        east_asian_scripts{"סקריפטים של מזרח אסיה"}
+        east_asian_scripts{"כתב של מזרח אסיה"}
         emoji{"אמוג׳י"}
-        european_scripts{"סקריפטים אירופאיים"}
+        european_scripts{"כתב של שפות אירופיות"}
         female{"אישה"}
         flag{"דגל"}
         flags{"דגלים"}
@@ -1999,7 +1913,7 @@ he{
         hanzi_simplified{"האנזי (פשוטה)"}
         hanzi_traditional{"האנזי (מסורתית)"}
         heart{"לב"}
-        historic_scripts{"סקריפטים היסטוריים"}
+        historic_scripts{"מערכות כתב היסטוריות"}
         ideographic_desc_characters{"תווי תיאור אידיאוגרפי"}
         japanese_kana{"קאנה יפנית"}
         kanbun{"קאנבון"}
@@ -2011,9 +1925,9 @@ he{
         limited_use{"לשימוש מוגבל"}
         male{"גבר"}
         math_symbols{"סמלים מתמטיים"}
-        middle_eastern_scripts{"סקריפטים של המזרח התיכון"}
+        middle_eastern_scripts{"מערכות כתב של המזרח התיכון"}
         miscellaneous{"שונות"}
-        modern_scripts{"סקריפטים מודרניים"}
+        modern_scripts{"מערכות כתב מודרניות"}
         modifier{"סימן מחליף"}
         musical_symbols{"סמלים מוזיקליים"}
         nature{"טבע"}
@@ -2046,7 +1960,7 @@ he{
         variant_forms{"חלופות"}
         vocalic_jamo{"ג׳אמו ווקאלי"}
         weather{"מזג אוויר"}
-        western_asian_scripts{"סקריפטים ממערב אסיה"}
+        western_asian_scripts{"מערכות כתב ממערב אסיה"}
         whitespace{"רווח לבן"}
     }
     delimiters{
@@ -2140,7 +2054,7 @@ he{
             dn{"לפנה״צ/אחה״צ"}
         }
         dayperiod-narrow{
-            dn{"לפנה״צ/אחה״צ"}
+            dn{"AM/PM"}
         }
         dayperiod-short{
             dn{"AM/PM"}
@@ -3077,6 +2991,12 @@ he{
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
+        standard-narrow{
+            2{"{0} ו{1}"}
+            end{"{0} ו{1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
+        }
         standard-short{
             2{"{0} ו{1}"}
             end{"{0} ו{1}"}
@@ -3117,8 +3037,13 @@ he{
         general{
             lenient{
                 "[.․。︒﹒．｡]",
+                "['ʼ՚᾽᾿’＇]",
+                "[%٪﹪％]",
+                "[؉‰]",
                 "[\$﹩＄$]",
                 "[£₤]",
+                "[¥￥]",
+                "[₩￦]",
                 "[₨₹{Rp}{Rs}]",
             }
         }

@@ -18,10 +18,10 @@
 
 #include <security_filedb/AtomicFile.h>
 
-#include <security_utilities/devrandom.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <security_cdsa_utilities/cssmerrors.h>
 #include <Security/cssm.h>
+#include <Security/SecRandom.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -962,7 +962,6 @@ std::string
 NetworkFileLocker::unique(mode_t mode)
 {
 	static const int randomPart = 16;
-	DevRandomGenerator randomGen;
 	std::string::size_type dirSize = mDir.size();
 	std::string fullname(dirSize + randomPart + 2, '\0');
 	fullname.replace(0, dirSize, mDir);
@@ -974,7 +973,7 @@ NetworkFileLocker::unique(mode_t mode)
 	for (int retries = 0; retries < 10; ++retries)
 	{
 		/* Make a random filename. */
-		randomGen.random(buf, randomPart);
+        MacOSError::check(SecRandomCopyBytes(kSecRandomDefault, randomPart, buf));
 		for (int ix = 0; ix < randomPart; ++ix)
 		{
 			char ch = buf[ix] & 0x3f;

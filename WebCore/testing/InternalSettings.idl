@@ -49,6 +49,7 @@ enum FontLoadTimingOverride { "Block", "Swap", "Failure" };
 
     [MayThrowException] void setTextAutosizingEnabled(boolean enabled);
     [MayThrowException] void setTextAutosizingWindowSizeOverride(long width, long height);
+    [MayThrowException] void setTextAutosizingUsesIdempotentMode(boolean enabled);
 
     // Media
     [MayThrowException] void setCanStartMedia(boolean enabled);
@@ -87,14 +88,15 @@ enum FontLoadTimingOverride { "Block", "Swap", "Failure" };
     [MayThrowException] void setInlineMediaPlaybackRequiresPlaysInlineAttribute(boolean requires);
     [MayThrowException] void setFrameFlattening(FrameFlatteningValue frameFlattening);
     [MayThrowException] void setIncompleteImageBorderEnabled(boolean enabled);
+    [MayThrowException] void setShouldDispatchSyntheticMouseEventsWhenModifyingSelection(boolean shouldDispatch);
+    [MayThrowException] void setShouldDispatchSyntheticMouseOutAfterSyntheticClick(boolean shouldDispatch);
 
     // RuntimeEnabledFeatures.
     void setIndexedDBWorkersEnabled(boolean enabled);
     void setWebGL2Enabled(boolean enabled);
-    void setWebMetalEnabled(boolean enabled);
+    void setWebGPUEnabled(boolean enabled);
     void setWebVREnabled(boolean enabled);
     void setScreenCaptureEnabled(boolean enabled);
-    void setStorageAccessPromptsEnabled(boolean enabled);
 
     [MayThrowException] DOMString userInterfaceDirectionPolicy();
     [MayThrowException] void setUserInterfaceDirectionPolicy(DOMString policy);
@@ -115,6 +117,6 @@ enum FontLoadTimingOverride { "Block", "Swap", "Failure" };
 
     [EnabledAtRuntime=WebAnimations] boolean webAnimationsCSSIntegrationEnabled();
 
-    [MayThrowException] void setAccessibilityEventsEnabled(boolean enabled);
+    void setShouldDeactivateAudioSession(boolean shouldDeactivate);
 };
 

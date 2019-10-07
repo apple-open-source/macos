@@ -95,11 +95,15 @@ void WebPopupMenuProxyGtk::treeViewRowActivatedCallback(GtkTreeView*, GtkTreePat
 
 gboolean WebPopupMenuProxyGtk::treeViewButtonReleaseEventCallback(GtkWidget* treeView, GdkEventButton* event, WebPopupMenuProxyGtk* popupMenu)
 {
-    if (event->button != GDK_BUTTON_PRIMARY)
+    guint button;
+    gdk_event_get_button(reinterpret_cast<GdkEvent*>(event), &button);
+    if (button != GDK_BUTTON_PRIMARY)
         return FALSE;
 
+    double x, y;
+    gdk_event_get_coords(reinterpret_cast<GdkEvent*>(event), &x, &y);
     GUniqueOutPtr<GtkTreePath> path;
-    if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(treeView), event->x, event->y, &path.outPtr(), nullptr, nullptr, nullptr))
+    if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(treeView), x, y, &path.outPtr(), nullptr, nullptr, nullptr))
         return FALSE;
 
     return popupMenu->activateItemAtPath(path.get());
@@ -119,7 +123,9 @@ gboolean WebPopupMenuProxyGtk::keyPressEventCallback(GtkWidget* widget, GdkEvent
     if (!popupMenu->m_device)
         return FALSE;
 
-    if (event->keyval == GDK_KEY_Escape) {
+    guint keyval;
+    gdk_event_get_keyval(reinterpret_cast<GdkEvent*>(event), &keyval);
+    if (keyval == GDK_KEY_Escape) {
         popupMenu->hidePopupMenu();
         return TRUE;
     }
@@ -247,16 +253,9 @@ void WebPopupMenuProxyGtk::showPopupMenu(const IntRect& rect, TextDirection, dou
         return;
 
     auto* display = gtk_widget_get_display(m_webView);
-#if GTK_CHECK_VERSION(3, 22, 0)
     auto* monitor = gdk_display_get_monitor_at_window(display, gtk_widget_get_window(m_webView));
     GdkRectangle area;
     gdk_monitor_get_workarea(monitor, &area);
-#else
-    auto* screen = gtk_widget_get_screen(m_webView);
-    gint monitor = gdk_screen_get_monitor_at_window(screen, gtk_widget_get_window(m_webView));
-    GdkRectangle area;
-    gdk_screen_get_monitor_workarea(screen, monitor, &area);
-#endif
     int width = std::min(rect.width(), area.width);
     size_t itemCount = std::min<size_t>(items.size(), (area.height / 3) / itemHeight);
 
@@ -299,28 +298,16 @@ void WebPopupMenuProxyGtk::showPopupMenu(const IntRect& rect, TextDirection, dou
         m_device = gtk_get_current_event_device();
     if (m_device && gdk_device_get_display(m_device) != display)
         m_device = nullptr;
-#if GTK_CHECK_VERSION(3, 20, 0)
     if (!m_device)
         m_device = gdk_seat_get_pointer(gdk_display_get_default_seat(display));
-#else
-    if (!m_device)
-        m_device = gdk_device_manager_get_client_pointer(gdk_display_get_device_manager(display));
-#endif
     ASSERT(m_device);
     if (gdk_device_get_source(m_device) == GDK_SOURCE_KEYBOARD)
         m_device = gdk_device_get_associated_device(m_device);
 
-#if GTK_CHECK_VERSION(3, 20, 0)
     gtk_grab_add(m_popup);
     auto grabResult = gdk_seat_grab(gdk_device_get_seat(m_device), gtk_widget_get_window(m_popup), GDK_SEAT_CAPABILITY_ALL, TRUE, nullptr, nullptr, [](GdkSeat*, GdkWindow*, gpointer userData) {
         static_cast<WebPopupMenuProxyGtk*>(userData)->show();
     }, this);
-#else
-    gtk_device_grab_add(m_popup, m_device, TRUE);
-    auto grabResult = gdk_device_grab(m_device, gtk_widget_get_window(m_popup), GDK_OWNERSHIP_WINDOW, TRUE,
-        static_cast<GdkEventMask>(GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK), nullptr, GDK_CURRENT_TIME);
-    show();
-#endif
 
     // PopupMenu can fail to open when there is no mouse grab.
     // Ensure WebCore does not go into some pesky state.
@@ -336,13 +323,8 @@ void WebPopupMenuProxyGtk::hidePopupMenu()
         return;
 
     if (m_device) {
-#if GTK_CHECK_VERSION(3, 20, 0)
         gdk_seat_ungrab(gdk_device_get_seat(m_device));
         gtk_grab_remove(m_popup);
-#else
-        gdk_device_ungrab(m_device, GDK_CURRENT_TIME);
-        gtk_device_grab_remove(m_popup, m_device);
-#endif
         gtk_window_set_transient_for(GTK_WINDOW(m_popup), nullptr);
         gtk_window_set_attached_to(GTK_WINDOW(m_popup), nullptr);
         m_device = nullptr;
@@ -370,19 +352,22 @@ void WebPopupMenuProxyGtk::cancelTracking()
 
 Optional<unsigned> WebPopupMenuProxyGtk::typeAheadFindIndex(GdkEventKey* event)
 {
-    gunichar keychar = gdk_keyval_to_unicode(event->keyval);
+    guint keyval;
+    gdk_event_get_keyval(reinterpret_cast<GdkEvent*>(event), &keyval);
+    gunichar keychar = gdk_keyval_to_unicode(keyval);
     if (!g_unichar_isprint(keychar))
         return WTF::nullopt;
 
-    if (event->time < m_previousKeyEventTime)
+    uint32_t time = gdk_event_get_time(reinterpret_cast<GdkEvent*>(event));
+    if (time < m_previousKeyEventTime)
         return WTF::nullopt;
 
     static const uint32_t typeaheadTimeoutMs = 1000;
-    if (event->time - m_previousKeyEventTime > typeaheadTimeoutMs) {
+    if (time - m_previousKeyEventTime > typeaheadTimeoutMs) {
         if (m_currentSearchString)
             g_string_truncate(m_currentSearchString, 0);
     }
-    m_previousKeyEventTime = event->time;
+    m_previousKeyEventTime = time;
 
     if (!m_currentSearchString)
         m_currentSearchString = g_string_new(nullptr);

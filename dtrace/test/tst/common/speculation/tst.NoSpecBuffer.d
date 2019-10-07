@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.NoSpecBuffer.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * The number of speculative buffers defaults to one. If no speculative buffer

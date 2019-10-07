@@ -21,6 +21,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		C165BF84226E311D00AE0BE4 /* loadlibrary.c in Sources */ = {isa = PBXBuildFile; fileRef = C165BF83226E311800AE0BE4 /* loadlibrary.c */; };
 		FD18B1D31485AD7300BBAEF9 /* xmlparse.c in Sources */ = {isa = PBXBuildFile; fileRef = FD18B1D01485AD7300BBAEF9 /* xmlparse.c */; settings = {COMPILER_FLAGS = "-Wno-unused-parameter"; }; };
 		FD18B1D41485AD7300BBAEF9 /* xmlrole.c in Sources */ = {isa = PBXBuildFile; fileRef = FD18B1D11485AD7300BBAEF9 /* xmlrole.c */; settings = {COMPILER_FLAGS = "-Wno-unused-parameter"; }; };
 		FD18B1D51485AD7300BBAEF9 /* xmltok.c in Sources */ = {isa = PBXBuildFile; fileRef = FD18B1D21485AD7300BBAEF9 /* xmltok.c */; settings = {COMPILER_FLAGS = "-Wno-missing-field-initializers -Wno-unused-parameter"; }; };
@@ -76,6 +77,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C165BF83226E311800AE0BE4 /* loadlibrary.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = loadlibrary.c; path = expat/lib/loadlibrary.c; sourceTree = "<group>"; };
 		FD18B1C61485AC7200BBAEF9 /* libexpat.1.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libexpat.1.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD18B1D01485AD7300BBAEF9 /* xmlparse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmlparse.c; path = expat/lib/xmlparse.c; sourceTree = "<group>"; };
 		FD18B1D11485AD7300BBAEF9 /* xmlrole.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmlrole.c; path = expat/lib/xmlrole.c; sourceTree = "<group>"; };
@@ -140,6 +142,7 @@
 		FD18B1D91485ADA500BBAEF9 /* lib */ = {
 			isa = PBXGroup;
 			children = (
+				C165BF83226E311800AE0BE4 /* loadlibrary.c */,
 				FD18B1DA1485B02B00BBAEF9 /* ascii.h */,
 				FD18B1EC1485B0C700BBAEF9 /* asciitab.h */,
 				FD18B1DB1485B02B00BBAEF9 /* expat.h */,
@@ -219,6 +222,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = FD18B1B11485AC2600BBAEF9;
@@ -257,6 +261,7 @@
 				FD18B1D31485AD7300BBAEF9 /* xmlparse.c in Sources */,
 				FD18B1D41485AD7300BBAEF9 /* xmlrole.c in Sources */,
 				FD18B1D51485AD7300BBAEF9 /* xmltok.c in Sources */,
+				C165BF84226E311D00AE0BE4 /* loadlibrary.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -277,8 +282,12 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_IDENTITY = "-";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				PROVISIONING_PROFILE = "";
 				RUN_CLANG_STATIC_ANALYZER = YES;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 			};
 			name = Release;
 		};
@@ -298,6 +307,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = HAVE_EXPAT_CONFIG_H;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)";
 				INSTALL_PATH = /usr/lib;
+				IS_ZIPPERED = YES;
 				PRODUCT_NAME = "$(TARGET_NAME).1";
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
 				WARNING_CFLAGS = (

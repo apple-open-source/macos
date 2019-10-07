@@ -44,10 +44,10 @@ namespace JSC {
 
 ExecutableBase* AssemblyHelpers::executableFor(const CodeOrigin& codeOrigin)
 {
-    if (!codeOrigin.inlineCallFrame)
+    auto* inlineCallFrame = codeOrigin.inlineCallFrame();
+    if (!inlineCallFrame)
         return m_codeBlock->ownerExecutable();
-    
-    return codeOrigin.inlineCallFrame->baselineCodeBlock->ownerExecutable();
+    return inlineCallFrame->baselineCodeBlock->ownerExecutable();
 }
 
 AssemblyHelpers::Jump AssemblyHelpers::branchIfFastTypedArray(GPRReg baseGPR)
@@ -389,7 +389,6 @@ void AssemblyHelpers::emitLoadStructure(VM& vm, RegisterID source, RegisterID de
     xorPtr(scratch2, dest);
 #else // not USE(JSVALUE64)
     UNUSED_PARAM(scratch);
-    UNUSED_PARAM(scratch2);
     UNUSED_PARAM(vm);
     loadPtr(MacroAssembler::Address(source, JSCell::structureIDOffset()), dest);
 #endif // not USE(JSVALUE64)
@@ -547,7 +546,7 @@ void AssemblyHelpers::emitAllocateWithNonNullAllocator(GPRReg resultGPR, const J
         
     // The object is half-allocated: we have what we know is a fresh object, but
     // it's still on the GC's free list.
-    loadPtr(Address(resultGPR), scratchGPR);
+    loadPtr(Address(resultGPR, FreeCell::offsetOfScrambledNext()), scratchGPR);
     storePtr(scratchGPR, Address(allocatorGPR, LocalAllocator::offsetOfFreeList() + FreeList::offsetOfScrambledHead()));
         
     done.link(this);
@@ -728,8 +727,11 @@ void AssemblyHelpers::emitConvertValueToBoolean(VM& vm, JSValueRegs value, GPRRe
     done.append(jump());
 
     isString.link(this);
+    move(TrustedImmPtr(jsEmptyString(&vm)), result);
+    comparePtr(invert ? Equal : NotEqual, value.payloadGPR(), result, result);
+    done.append(jump());
+
     isBigInt.link(this);
-    RELEASE_ASSERT(JSString::offsetOfLength() == JSBigInt::offsetOfLength());
     load32(Address(value.payloadGPR(), JSBigInt::offsetOfLength()), result);
     compare32(invert ? Equal : NotEqual, result, TrustedImm32(0), result);
     done.append(jump());
@@ -815,8 +817,10 @@ AssemblyHelpers::JumpList AssemblyHelpers::branchIfValue(VM& vm, JSValueRegs val
     }
 
     isString.link(this);
+    truthy.append(branchPtr(invert ? Equal : NotEqual, value.payloadGPR(), TrustedImmPtr(jsEmptyString(&vm))));
+    done.append(jump());
+
     isBigInt.link(this);
-    RELEASE_ASSERT(JSString::offsetOfLength() == JSBigInt::offsetOfLength());
     truthy.append(branchTest32(invert ? Zero : NonZero, Address(value.payloadGPR(), JSBigInt::offsetOfLength())));
     done.append(jump());
 
@@ -1001,41 +1005,6 @@ void AssemblyHelpers::emitPreparePreciseIndexMask32(GPRReg index, GPRReg length,
         subPtr(length, result);
     }
     rshiftPtr(TrustedImm32(preciseIndexMaskShift<void*>()), result);
-}
-
-void AssemblyHelpers::emitDynamicPoison(GPRReg base, GPRReg poisonValue)
-{
-#if CPU(X86_64) || (CPU(ARM64) && !defined(__ILP32__))
-    lshiftPtr(TrustedImm32(40), poisonValue);
-    addPtr(poisonValue, base);
-#else
-    UNUSED_PARAM(base);
-    UNUSED_PARAM(poisonValue);
-#endif
-}
-
-void AssemblyHelpers::emitDynamicPoisonOnLoadedType(GPRReg base, GPRReg actualType, JSType expectedType)
-{
-#if CPU(X86_64) || (CPU(ARM64) && !defined(__ILP32__))
-    xor32(TrustedImm32(expectedType), actualType);
-    emitDynamicPoison(base, actualType);
-#else
-    UNUSED_PARAM(base);
-    UNUSED_PARAM(actualType);
-    UNUSED_PARAM(expectedType);
-#endif
-}
-
-void AssemblyHelpers::emitDynamicPoisonOnType(GPRReg base, GPRReg scratch, JSType expectedType)
-{
-#if CPU(X86_64) || (CPU(ARM64) && !defined(__ILP32__))
-    load8(Address(base, JSCell::typeInfoTypeOffset()), scratch);
-    emitDynamicPoisonOnLoadedType(base, scratch, expectedType);
-#else
-    UNUSED_PARAM(base);
-    UNUSED_PARAM(scratch);
-    UNUSED_PARAM(expectedType);
-#endif
 }
 
 } // namespace JSC

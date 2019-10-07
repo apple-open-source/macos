@@ -76,10 +76,12 @@ typedef enum {
 
 /*! @constant   kIOPSLowBatteryWarningEarly
  *
- *  @abstract   The system is in an early low battery situation.
+ *  @abstract   The battery can provide no more than 20 minutes of runtime.
  *
- *  @discussion Per Apple's definition, the battery has dropped below 22% remaining power.
- *              OS X alerts the user by changing the color of BatteryMonitor to red. 
+ *  @discussion OS X makes no guarantees that the system shall remain in Early Warning for 20 minutes.
+ *              Batteries are frequently calibrated differently and may provide runtime
+ *              for more, or less, than the estimated 20 minutes.
+ *              OS X alerts the user by changing the color of BatteryMonitor to red.
  *              Warning the user is optional for full screen apps.
  */
     kIOPSLowBatteryWarningEarly = 2,

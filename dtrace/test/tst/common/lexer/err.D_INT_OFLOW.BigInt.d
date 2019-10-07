@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_INT_OFLOW.BigInt.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Using an integer constant that cannot be represented in any of the
  * builtin integral types throws a D_INT_OFLOW error.

@@ -56,6 +56,14 @@ typedef UInt32 StickyKeyState;
 
 typedef std::map<Key,Key> KeyMap;
 
+class IOHIDKeyboardFilter;
+
+@interface StickyKeyHandler : NSObject
+- (id)initWithFilter:(IOHIDKeyboardFilter *)filter
+             service:(IOHIDServiceRef)service;
+- (void)removeObserver;
+@end
+
 class IOHIDKeyboardFilter
 {
 public:
@@ -76,6 +84,7 @@ public:
     CFTypeRef copyPropertyForClient(CFStringRef key, CFTypeRef client);
     void setPropertyForClient(CFStringRef key, CFTypeRef property, CFTypeRef client);
     void setEventCallback(IOHIDServiceEventCallback callback, void * target, void * refcon);
+    void resetStickyKeys();
     
 private:
     static IOHIDServiceFilterPlugInInterface sIOHIDEventSystemStatisticsFtbl;
@@ -143,7 +152,7 @@ private:
 
     uint32_t        _numLockOn;
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     IOHIDEventRef   _delayedEjectKeyEvent;
     UInt32          _ejectKeyDelayMS;
 
@@ -162,6 +171,8 @@ private:
     
     NSNumber        *_restoreState;
     NSNumber        *_locationID;
+    
+    StickyKeyHandler *_stickyKeyHandler;
   
     IOHIDEventRef processStickyKeys(IOHIDEventRef event);
     void setStickyKeyState(UInt32 usagePage, UInt32 usage, StickyKeyState state);
@@ -203,7 +214,7 @@ private:
     KeyMap createMapFromStringMap(CFStringRef mappings);
     IOHIDEventRef processKeyMappings(IOHIDEventRef event);
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     IOHIDEventRef   processEjectKeyDelay(IOHIDEventRef event);
     void dispatchEjectKey(void);
     void resetEjectKeyDelay(void);
@@ -214,6 +225,7 @@ private:
     bool isModifiersPressed ();
 #endif
     
+    void setEjectKeyProperty(uint32_t keyboardID);
     bool isDelayedEvent(IOHIDEventRef event);
     bool isKeyPressed (Key key);
     void serialize (CFMutableDictionaryRef  dict) const;
@@ -221,6 +233,7 @@ private:
 
     void processKeyState (IOHIDEventRef event);
     void processFnKeyState (IOHIDEventRef event);
+    void dispatchEventCopy(IOHIDEventRef event);
 private:
 
     IOHIDKeyboardFilter();

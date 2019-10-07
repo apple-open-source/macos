@@ -10,7 +10,7 @@
 #include "testbyteBuffer.h"
 #include "testmore.h"
 #include "capabilities.h"
-#include <CommonCryptoError.h>
+#include <CommonCrypto/CommonCryptoError.h>
 
 #if (CCSYMWRAP == 0)
 entryPoint(CommonSymmetricWrap,"Symmetric Wrap")
@@ -99,7 +99,7 @@ static int wrapTest(char *kekstr, char *keystr, char *wrapped_keystr, const uint
 
 
 
-static int kSymmetricWrapTestCount = 62;
+static int kSymmetricWrapTestCount = 149;
 
 int
 CommonSymmetricWrap(int __unused argc, char *const * __unused argv)

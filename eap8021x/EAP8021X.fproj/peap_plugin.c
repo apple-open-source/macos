@@ -661,6 +661,21 @@ is_supported_type(EAPType type)
     return (FALSE);
 }
 
+/*
+ * This function tells whether the key data can be used
+ */
+static bool
+is_key_data_ready(PEAPPluginDataRef context)
+{
+    if (context->eap.last_type == kEAPTypeGenericTokenCard &&
+	context->peap_version == kPEAPVersion0 &&
+	context->plugin_state == kEAPClientStateSuccess) {
+	return (true);
+    }
+    return (context->key_data_valid &&
+	    context->inner_auth_state == kPEAPInnerAuthStateSuccess);
+}
+
 static EAPType
 next_eap_type(PEAPPluginDataRef context)
 {
@@ -752,8 +767,6 @@ peap_eap_process(EAPClientPluginDataRef plugin, EAPRequestPacketRef in_pkt_p,
 	*call_module_free_packet = TRUE;
 	*out_buf_size = EAPPacketGetLength((EAPPacketRef)out_pkt_p);
     }
-    context->inner_auth_state = state;
-    context->eap.publish_props = eap_client_publish_properties(context);
 
     switch (state) {
     case kEAPClientStateAuthenticating:
@@ -768,8 +781,13 @@ peap_eap_process(EAPClientPluginDataRef plugin, EAPRequestPacketRef in_pkt_p,
     case kEAPClientStateFailure:
 	/* authentication method failed */
 	*client_status = context->eap.last_status;
+	context->inner_auth_state = kPEAPInnerAuthStateFailure;
+	break;
+    case kEAPClientStateSuccess:
+	context->inner_auth_state = kPEAPInnerAuthStateSuccess;
 	break;
     }
+    context->eap.publish_props = eap_client_publish_properties(context);
 
  done:
     return (out_pkt_p);
@@ -1435,7 +1453,7 @@ peap_session_key(EAPClientPluginDataRef plugin, int * key_length)
     PEAPPluginDataRef	context = (PEAPPluginDataRef)plugin->private;
 
     *key_length = 0;
-    if (context->key_data_valid == FALSE) {
+    if (is_key_data_ready(context) == FALSE) {
 	return (NULL);
     }
 
@@ -1450,7 +1468,7 @@ peap_server_key(EAPClientPluginDataRef plugin, int * key_length)
     PEAPPluginDataRef	context = (PEAPPluginDataRef)plugin->private;
 
     *key_length = 0;
-    if (context->key_data_valid == FALSE) {
+    if (is_key_data_ready(context) == FALSE) {
 	return (NULL);
     }
 
@@ -1467,7 +1485,7 @@ peap_msk_copy_bytes(EAPClientPluginDataRef plugin,
     int			ret_msk_size;
 
     if (msk_size < kEAPMasterSessionKeyMinimumSize
-	|| context->key_data_valid == FALSE) {
+	|| is_key_data_ready(context) == FALSE) {
 	ret_msk_size = 0;
     }
     else {

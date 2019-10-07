@@ -27,15 +27,6 @@
  * inline C functions */
 #include "giantPort_Generic.h"
 
-#elif	defined(__ppc__) && defined(__MACH__)
-/* Mac OS X, PPC, Gnu compiler */
-#include "giantPort_PPC_Gnu.h"
-
-#elif defined(__ppc__ ) && defined(macintosh)
-
-/* Mac OS 9, PPC, Metrowerks */
-#include "giantPort_PPC.h"
-
 #else
 
 /* Others */

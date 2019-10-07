@@ -51,6 +51,7 @@ class Blob;
 class ThreadableWebSocketChannel;
 
 class WebSocket final : public RefCounted<WebSocket>, public EventTargetWithInlineData, public ActiveDOMObject, private WebSocketChannelClient {
+    WTF_MAKE_ISO_ALLOCATED(WebSocket);
 public:
     static const char* subprotocolSeparator();
 
@@ -127,6 +128,8 @@ private:
 
     size_t getFramingOverhead(size_t payloadSize);
 
+    void failAsynchronously();
+
     enum class BinaryType { Blob, ArrayBuffer };
 
     RefPtr<ThreadableWebSocketChannel> m_channel;
@@ -143,6 +146,7 @@ private:
     bool m_shouldDelayEventFiring { false };
     Deque<Ref<Event>> m_pendingEvents;
     bool m_dispatchedErrorEvent { false };
+    RefPtr<PendingActivity<WebSocket>> m_pendingActivity;
 };
 
 } // namespace WebCore

@@ -96,6 +96,7 @@ __BEGIN_DECLS
 #define os_crash(...) \
 	__os_crash_invoke(__has_more_than_one_argument(__VA_ARGS__), __VA_ARGS__)
 
+OS_COLD
 extern void
 _os_crash_fmt(os_log_pack_t, size_t);
 
@@ -118,22 +119,15 @@ _os_crash_fmt(os_log_pack_t, size_t);
  * statically-sized buffer.
  */
 API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
-OS_ALWAYS_INLINE
+OS_ALWAYS_INLINE OS_COLD
 static inline void
 os_assert_sprintf(int ret, size_t buff_size)
 {
-	union {
-		size_t size;
-		int ret;
-	} myret = {
-		.ret = ret,
-	};
-
 	if (ret < 0) {
 		os_crash("error printing buffer: %s", strerror(errno));
 	}
 
-	if (myret.size > buff_size) {
+	if ((size_t)ret > buff_size) {
 		os_crash("buffer too small: needed = %d, actual = %lu",
 				ret, buff_size);
 	}
@@ -184,9 +178,14 @@ os_assert_malloc(const char *desc, const void *const p, size_t alloc_size)
  * section of the resulting crash log.
  */
 API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
-OS_EXPORT OS_NONNULL1
+OS_EXPORT OS_NONNULL1 OS_COLD
 void
 os_assert_mach(const char *op, kern_return_t kr);
+
+#define os_assert_mach(op, kr) ({ \
+		kern_return_t __kr = (kr); \
+		if (os_unlikely(__kr != KERN_SUCCESS)) os_assert_mach(op, kr); \
+})
 
 /*!
  * @function os_assert_mach_port_status
@@ -371,7 +370,6 @@ os_set_crash_callback(os_crash_callback_t callback) {
 			__OS_COMPILETIME_ASSERT__(e); \
 		} \
 		_os_assumes_log((uint64_t)(uintptr_t)_e); \
-		_os_avoid_tail_call(); \
 	} \
 	_e; \
 })
@@ -383,7 +381,6 @@ os_set_crash_callback(os_crash_callback_t callback) {
 			__OS_COMPILETIME_ASSERT__(!(e)); \
 		} \
 		_os_assumes_log((uint64_t)(uintptr_t)_e); \
-		_os_avoid_tail_call(); \
 	} \
 	_e; \
 })
@@ -392,7 +389,6 @@ os_set_crash_callback(os_crash_callback_t callback) {
 	__typeof__(e) _e = os_slowpath(e); \
 	if (_e == (__typeof__(e))-1) { \
 		_os_assumes_log((uint64_t)(uintptr_t)errno); \
-		_os_avoid_tail_call(); \
 	} \
 	_e; \
 })
@@ -443,7 +439,6 @@ typedef bool (*os_log_callout_t)(_SIMPLE_STRING asl_message, void *ctx, const ch
 			__OS_COMPILETIME_ASSERT__(e); \
 		} \
 		_os_assumes_log_ctx(f, ctx, (uintptr_t)_e); \
-		_os_avoid_tail_call(); \
 	} \
 	_e; \
 })
@@ -455,7 +450,6 @@ typedef bool (*os_log_callout_t)(_SIMPLE_STRING asl_message, void *ctx, const ch
 			__OS_COMPILETIME_ASSERT__(!(e)); \
 		} \
 		_os_assumes_log_ctx((f), (ctx), (uintptr_t)_e); \
-		_os_avoid_tail_call(); \
 	} \
 	_e; \
 })
@@ -464,7 +458,6 @@ typedef bool (*os_log_callout_t)(_SIMPLE_STRING asl_message, void *ctx, const ch
 	__typeof__(e) _e = os_slowpath(e); \
 	if (_e == (__typeof__(e))-1) { \
 		_os_assumes_log_ctx((f), (ctx), (uintptr_t)errno); \
-		_os_avoid_tail_call(); \
 	} \
 	_e; \
 })
@@ -507,22 +500,27 @@ typedef bool (*os_log_callout_t)(_SIMPLE_STRING asl_message, void *ctx, const ch
 #pragma mark internal symbols
 
 __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0)
+OS_COLD OS_NOT_TAIL_CALLED
 extern void
 _os_crash(const char *);
 
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)
+OS_COLD OS_NOT_TAIL_CALLED
 extern void
 _os_assumes_log(uint64_t code);
 
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)
+OS_COLD OS_NOT_TAIL_CALLED
 extern char *
 _os_assert_log(uint64_t code);
 
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)
+OS_COLD OS_NOT_TAIL_CALLED
 extern void
 _os_assumes_log_ctx(os_log_callout_t callout, void *ctx, uint64_t code);
 
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)
+OS_COLD OS_NOT_TAIL_CALLED
 extern char *
 _os_assert_log_ctx(os_log_callout_t callout, void *ctx, uint64_t code);
 

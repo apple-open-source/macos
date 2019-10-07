@@ -293,8 +293,8 @@ _dns_configuration_buffer_create(const void *dataRef, size_t dataLen)
 	// allocate a buffer large enough to hold both the configuration
 	// data and the padding.
 	buf = malloc(bufLen);
-	bcopy((void *)dataRef, buf, dataLen);
-	bzero(&buf[dataLen], n_padding);
+	memcpy(buf, (void *)dataRef, dataLen);
+	memset(&buf[dataLen], 0, n_padding);
 
 	return (_dns_config_buf_t *)(void *)buf;
 }

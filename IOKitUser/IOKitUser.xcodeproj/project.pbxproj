@@ -89,8 +89,78 @@
 		052114FF09D20A4F00E51ACA /* fat_util.h in Copy Kext Files */ = {isa = PBXBuildFile; fileRef = 052114F409D2094D00E51ACA /* fat_util.h */; };
 		0521152A09D20B4A00E51ACA /* macho_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 0521152909D20B4A00E51ACA /* macho_util.c */; };
 		0531B8CC09F4403800094163 /* bootfiles.h in Copy Files M */ = {isa = PBXBuildFile; fileRef = 0531B8CB09F4403800094163 /* bootfiles.h */; };
-		05AB2CE621234F810024942C /* libDiagnosticMessagesClient.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 05AB2CE521234F810024942C /* libDiagnosticMessagesClient.tbd */; };
 		0CCB80F00C717EF200F51424 /* AppleRAIDUserLib.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0CCB80EF0C717DE300F51424 /* AppleRAIDUserLib.h */; };
+		0F10646C229460B200795FA1 /* IOHIDUserDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F10646B229460B200795FA1 /* IOHIDUserDevice.h */; };
+		0F37C03C22A81F530057C599 /* IOHIDUserDevice.h in Copy hidsystem Headers */ = {isa = PBXBuildFile; fileRef = 0F10646B229460B200795FA1 /* IOHIDUserDevice.h */; };
+		0F37C03D22A81F660057C599 /* IOHIDUserDevice.h in Copy HIDSystem Headers */ = {isa = PBXBuildFile; fileRef = 0F10646B229460B200795FA1 /* IOHIDUserDevice.h */; };
+		0F47017321668694003E2B9C /* HIDElementIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F40FBC721667B8700EAEBCA /* HIDElementIvar.h */; };
+		0F4701742166869A003E2B9C /* HIDElementBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F40FBC921667B9900EAEBCA /* HIDElementBase.h */; };
+		0F470175216686A9003E2B9C /* HIDElementIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F40FBC721667B8700EAEBCA /* HIDElementIvar.h */; };
+		0F470176216686B0003E2B9C /* HIDElementBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F40FBC921667B9900EAEBCA /* HIDElementBase.h */; };
+		0F470177216686B8003E2B9C /* HIDElementBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F40FBC921667B9900EAEBCA /* HIDElementBase.h */; };
+		0F470178216686BF003E2B9C /* HIDElementIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F40FBC721667B8700EAEBCA /* HIDElementIvar.h */; };
+		0F470179216686C8003E2B9C /* HIDElementBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F40FBC921667B9900EAEBCA /* HIDElementBase.h */; };
+		0F47017A216686CE003E2B9C /* HIDElementIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F40FBC721667B8700EAEBCA /* HIDElementIvar.h */; };
+		0F8A4D8F2167E4B400A077F2 /* HIDServiceClientBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F8DFBBF2167C9D1009D1ACC /* HIDServiceClientBase.h */; };
+		0F8A4D902167E4B900A077F2 /* HIDServiceClientIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F8DFBC32167C9EF009D1ACC /* HIDServiceClientIvar.h */; };
+		0F8A4D912167E4C200A077F2 /* HIDServiceClientBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F8DFBBF2167C9D1009D1ACC /* HIDServiceClientBase.h */; };
+		0F8A4D922167E4C800A077F2 /* HIDServiceClientIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F8DFBC32167C9EF009D1ACC /* HIDServiceClientIvar.h */; };
+		0F8A4D932167E4D500A077F2 /* HIDServiceClientBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F8DFBBF2167C9D1009D1ACC /* HIDServiceClientBase.h */; };
+		0F8A4D942167E4DC00A077F2 /* HIDServiceClientIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F8DFBC32167C9EF009D1ACC /* HIDServiceClientIvar.h */; };
+		0F8A4D952167E4E700A077F2 /* HIDServiceClientBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F8DFBBF2167C9D1009D1ACC /* HIDServiceClientBase.h */; };
+		0F8A4D962167E4ED00A077F2 /* HIDServiceClientIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F8DFBC32167C9EF009D1ACC /* HIDServiceClientIvar.h */; };
+		0F8C514F2139BC9A00B5E85B /* IOHIDServiceClientPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F8C514E2139BC2A00B5E85B /* IOHIDServiceClientPrivate.h */; };
+		0F8C51502139BC9A00B5E85B /* IOHIDServiceClientPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F8C514E2139BC2A00B5E85B /* IOHIDServiceClientPrivate.h */; };
+		0F8C51512139BC9B00B5E85B /* IOHIDServiceClientPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F8C514E2139BC2A00B5E85B /* IOHIDServiceClientPrivate.h */; };
+		0F8C51522139BC9F00B5E85B /* IOHIDDevicePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F8C514C2139BBE600B5E85B /* IOHIDDevicePrivate.h */; };
+		0F8C51532139BC9F00B5E85B /* IOHIDDevicePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F8C514C2139BBE600B5E85B /* IOHIDDevicePrivate.h */; };
+		0F8C51542139BCA000B5E85B /* IOHIDDevicePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F8C514C2139BBE600B5E85B /* IOHIDDevicePrivate.h */; };
+		0F8C51562139BCA300B5E85B /* IOHIDElementPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F8C514D2139BBFC00B5E85B /* IOHIDElementPrivate.h */; };
+		0F8C51572139BCA400B5E85B /* IOHIDElementPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F8C514D2139BBFC00B5E85B /* IOHIDElementPrivate.h */; };
+		0F8C51582139BCA500B5E85B /* IOHIDElementPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F8C514D2139BBFC00B5E85B /* IOHIDElementPrivate.h */; };
+		0F971AE221486475000E2B5D /* HIDEventIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971AD921486074000E2B5D /* HIDEventIvar.h */; };
+		0F971AE32148647E000E2B5D /* HIDEventBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971AD721486074000E2B5D /* HIDEventBase.h */; };
+		0F971AE521486B1B000E2B5D /* HIDEventIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971AD921486074000E2B5D /* HIDEventIvar.h */; };
+		0F971AE621486B24000E2B5D /* HIDEventBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971AD721486074000E2B5D /* HIDEventBase.h */; };
+		0F971AE721486B28000E2B5D /* hidobjcbase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971ADA21486074000E2B5D /* hidobjcbase.h */; };
+		0F971AE821486B30000E2B5D /* hidobjcbase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971ADA21486074000E2B5D /* hidobjcbase.h */; };
+		0F971AEA21486B46000E2B5D /* hidobjcbase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971ADA21486074000E2B5D /* hidobjcbase.h */; };
+		0F971AEB21486B4D000E2B5D /* HIDEventBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971AD721486074000E2B5D /* HIDEventBase.h */; };
+		0F971AEC21486B53000E2B5D /* HIDEventIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971AD921486074000E2B5D /* HIDEventIvar.h */; };
+		0F971AEE21486B63000E2B5D /* hidobjcbase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971ADA21486074000E2B5D /* hidobjcbase.h */; };
+		0F971AEF21486B67000E2B5D /* HIDEventBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971AD721486074000E2B5D /* HIDEventBase.h */; };
+		0F971AF021486B6B000E2B5D /* HIDEventIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F971AD921486074000E2B5D /* HIDEventIvar.h */; };
+		0F995A162177F52400045795 /* HIDDeviceIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F995A0E2177EB7400045795 /* HIDDeviceIvar.h */; };
+		0F995A172177F52B00045795 /* HIDDeviceBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F995A102177EB8200045795 /* HIDDeviceBase.h */; };
+		0F995A182177F53500045795 /* HIDDeviceIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F995A0E2177EB7400045795 /* HIDDeviceIvar.h */; };
+		0F995A192177F53B00045795 /* HIDDeviceBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F995A102177EB8200045795 /* HIDDeviceBase.h */; };
+		0F995A1A2177F54300045795 /* HIDDeviceIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F995A0E2177EB7400045795 /* HIDDeviceIvar.h */; };
+		0F995A1B2177F54A00045795 /* HIDDeviceBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F995A102177EB8200045795 /* HIDDeviceBase.h */; };
+		0F995A1C2177F55100045795 /* HIDDeviceIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F995A0E2177EB7400045795 /* HIDDeviceIvar.h */; };
+		0F995A1D2177F55600045795 /* HIDDeviceBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F995A102177EB8200045795 /* HIDDeviceBase.h */; };
+		0FC7842C214F22E000AD8611 /* HIDConnectionIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FC78425214F1B7000AD8611 /* HIDConnectionIvar.h */; };
+		0FC7842D214F22E700AD8611 /* HIDConnectionBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FC78424214F1B6100AD8611 /* HIDConnectionBase.h */; };
+		0FC7842E214F22F100AD8611 /* HIDConnectionIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FC78425214F1B7000AD8611 /* HIDConnectionIvar.h */; };
+		0FC7842F214F22F800AD8611 /* HIDConnectionBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FC78424214F1B6100AD8611 /* HIDConnectionBase.h */; };
+		0FC78430214F230300AD8611 /* HIDConnectionIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FC78425214F1B7000AD8611 /* HIDConnectionIvar.h */; };
+		0FC78431214F230900AD8611 /* HIDConnectionBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FC78424214F1B6100AD8611 /* HIDConnectionBase.h */; };
+		0FC78432214F231200AD8611 /* HIDConnectionIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FC78425214F1B7000AD8611 /* HIDConnectionIvar.h */; };
+		0FC78433214F231800AD8611 /* HIDConnectionBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FC78424214F1B6100AD8611 /* HIDConnectionBase.h */; };
+		0FEF2BEE225D269500C4081D /* IOHIDEventServiceKeys_Private.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BE1225D260400C4081D /* IOHIDEventServiceKeys_Private.h */; };
+		0FEF2BEF225D269500C4081D /* IOHIDDeviceKeys.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BE0225D260400C4081D /* IOHIDDeviceKeys.h */; };
+		0FEF2BF0225D269500C4081D /* IOHIDDeviceTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BDF225D260400C4081D /* IOHIDDeviceTypes.h */; };
+		0FEF2BF1225D269500C4081D /* IOHIDEventServiceKeys.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BE2225D260400C4081D /* IOHIDEventServiceKeys.h */; };
+		0FEF2BF2225D269500C4081D /* IOHIDEventServiceTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BE3225D260400C4081D /* IOHIDEventServiceTypes.h */; };
+		0FEF2BF3225D26B100C4081D /* IOHIDDeviceKeys.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BEB225D267400C4081D /* IOHIDDeviceKeys.h */; };
+		0FEF2BF4225D26B100C4081D /* IOHIDDeviceTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BEC225D267400C4081D /* IOHIDDeviceTypes.h */; };
+		0FEF2BF5225D26B100C4081D /* IOHIDEventServiceKeys.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BED225D267400C4081D /* IOHIDEventServiceKeys.h */; };
+		0FEF2BF6225D26B100C4081D /* IOHIDEventServiceKeys_Private.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BE9225D267400C4081D /* IOHIDEventServiceKeys_Private.h */; };
+		0FEF2BF7225D26B100C4081D /* IOHIDEventServiceTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BEA225D267400C4081D /* IOHIDEventServiceTypes.h */; };
+		0FEF2BF8225D26D100C4081D /* IOHIDDeviceKeys.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BEB225D267400C4081D /* IOHIDDeviceKeys.h */; };
+		0FEF2BF9225D26D100C4081D /* IOHIDDeviceTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BEC225D267400C4081D /* IOHIDDeviceTypes.h */; };
+		0FEF2BFA225D26D100C4081D /* IOHIDEventServiceKeys.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BED225D267400C4081D /* IOHIDEventServiceKeys.h */; };
+		0FEF2BFB225D26D100C4081D /* IOHIDEventServiceKeys_Private.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BE9225D267400C4081D /* IOHIDEventServiceKeys_Private.h */; };
+		0FEF2BFC225D26D100C4081D /* IOHIDEventServiceTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0FEF2BEA225D267400C4081D /* IOHIDEventServiceTypes.h */; };
 		1025C8330F5DF5280055FAEA /* macho_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 0521152909D20B4A00E51ACA /* macho_util.c */; };
 		1025C8470F5DF79F0055FAEA /* fat_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 052114F809D2095A00E51ACA /* fat_util.c */; };
 		1025C8570F5E0B610055FAEA /* OSKext.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24F5FE570DD1256800AE3585 /* OSKext.h */; };
@@ -110,7 +180,7 @@
 		201A04C520744EA1008318D8 /* IOHIDConnectionFilterPlugin.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 201A04BD20744DCF008318D8 /* IOHIDConnectionFilterPlugin.h */; };
 		201A04C620744EAF008318D8 /* IOHIDConnectionFilter.h in Headers */ = {isa = PBXBuildFile; fileRef = 201A04BC20744DB0008318D8 /* IOHIDConnectionFilter.h */; };
 		201A04C720744EAF008318D8 /* IOHIDConnectionFilterPlugin.h in Headers */ = {isa = PBXBuildFile; fileRef = 201A04BD20744DCF008318D8 /* IOHIDConnectionFilterPlugin.h */; };
-		201A04C820744EC2008318D8 /* IOHIDConnectionFilterPlugin.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 201A04BD20744DCF008318D8 /* IOHIDConnectionFilterPlugin.h */; };
+		201A04C820744EC2008318D8 /* IOHIDConnectionFilterPlugin.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 201A04BD20744DCF008318D8 /* IOHIDConnectionFilterPlugin.h */; };
 		201A04C920744ED3008318D8 /* IOHIDConnectionFilter.h in Headers */ = {isa = PBXBuildFile; fileRef = 201A04BC20744DB0008318D8 /* IOHIDConnectionFilter.h */; };
 		201A04CA20744ED3008318D8 /* IOHIDConnectionFilterPlugin.h in Headers */ = {isa = PBXBuildFile; fileRef = 201A04BD20744DCF008318D8 /* IOHIDConnectionFilterPlugin.h */; };
 		24B796C910CF3B35007A9F39 /* OSKext.c in Sources */ = {isa = PBXBuildFile; fileRef = 24B796C810CF3B35007A9F39 /* OSKext.c */; };
@@ -337,6 +407,22 @@
 		3FF08625165AC62000BD1467 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FF08610165AC58000BD1467 /* main.c */; };
 		4254C71212806ECF000EB18F /* IOUserEthernetController.c in Sources */ = {isa = PBXBuildFile; fileRef = 84EC17950EF71A0700885282 /* IOUserEthernetController.c */; };
 		4254C753128070BF000EB18F /* IOUserEthernetController.h in Copy Files N */ = {isa = PBXBuildFile; fileRef = 84EC17930EF719FF00885282 /* IOUserEthernetController.h */; };
+		4838A120214AFCE200C2E1D8 /* HIDServiceIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48CCDDD4214AF543006EF5BB /* HIDServiceIvar.h */; };
+		4838A121214AFCE900C2E1D8 /* HIDServiceBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48CCDDD3214AF51E006EF5BB /* HIDServiceBase.h */; };
+		4838A122214AFCF300C2E1D8 /* HIDServiceBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48CCDDD3214AF51E006EF5BB /* HIDServiceBase.h */; };
+		4838A123214AFCF800C2E1D8 /* HIDServiceIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48CCDDD4214AF543006EF5BB /* HIDServiceIvar.h */; };
+		4838A124214AFD0200C2E1D8 /* HIDServiceBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48CCDDD3214AF51E006EF5BB /* HIDServiceBase.h */; };
+		4838A125214AFD0B00C2E1D8 /* HIDServiceIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48CCDDD4214AF543006EF5BB /* HIDServiceIvar.h */; };
+		4838A126214AFD1400C2E1D8 /* HIDServiceBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48CCDDD3214AF51E006EF5BB /* HIDServiceBase.h */; };
+		4838A127214AFD1C00C2E1D8 /* HIDServiceIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48CCDDD4214AF543006EF5BB /* HIDServiceIvar.h */; };
+		4838A13A214B22DA00C2E1D8 /* HIDSessionBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4838A130214B1F1100C2E1D8 /* HIDSessionBase.h */; };
+		4838A13B214B22DE00C2E1D8 /* HIDSessionIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4838A132214B1F2000C2E1D8 /* HIDSessionIvar.h */; };
+		4838A13C214B22E800C2E1D8 /* HIDSessionBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4838A130214B1F1100C2E1D8 /* HIDSessionBase.h */; };
+		4838A13D214B22F100C2E1D8 /* HIDSessionIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4838A132214B1F2000C2E1D8 /* HIDSessionIvar.h */; };
+		4838A13E214B22FC00C2E1D8 /* HIDSessionBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4838A130214B1F1100C2E1D8 /* HIDSessionBase.h */; };
+		4838A13F214B230400C2E1D8 /* HIDSessionIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4838A132214B1F2000C2E1D8 /* HIDSessionIvar.h */; };
+		4838A140214B230D00C2E1D8 /* HIDSessionBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4838A130214B1F1100C2E1D8 /* HIDSessionBase.h */; };
+		4838A141214B231400C2E1D8 /* HIDSessionIvar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4838A132214B1F2000C2E1D8 /* HIDSessionIvar.h */; };
 		48438B9A1CEBB0F20067C8C2 /* IOHIDProperties.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48438B991CEBB0940067C8C2 /* IOHIDProperties.h */; };
 		48438B9B1CEBB1020067C8C2 /* IOHIDProperties.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48438B981CEBB08C0067C8C2 /* IOHIDProperties.h */; };
 		48438B9C1CEBB1050067C8C2 /* IOHIDProperties.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48438B981CEBB08C0067C8C2 /* IOHIDProperties.h */; };
@@ -346,8 +432,8 @@
 		48684E091D25C77700CC1067 /* IOHIDServiceClient.h in Copy HIDSystem Headers */ = {isa = PBXBuildFile; fileRef = 48684E041D25BF0100CC1067 /* IOHIDServiceClient.h */; };
 		48684E0A1D25C78B00CC1067 /* IOHIDEventSystemClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48684E031D25BF0100CC1067 /* IOHIDEventSystemClient.h */; };
 		48684E0B1D25C79500CC1067 /* IOHIDServiceClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48684E041D25BF0100CC1067 /* IOHIDServiceClient.h */; };
-		48684E0C1D25C7A300CC1067 /* IOHIDEventSystemClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48684E031D25BF0100CC1067 /* IOHIDEventSystemClient.h */; };
-		48684E0D1D25C7A900CC1067 /* IOHIDServiceClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48684E041D25BF0100CC1067 /* IOHIDServiceClient.h */; };
+		48684E0C1D25C7A300CC1067 /* IOHIDEventSystemClient.h in Copy hidsystem Headers */ = {isa = PBXBuildFile; fileRef = 48684E031D25BF0100CC1067 /* IOHIDEventSystemClient.h */; };
+		48684E0D1D25C7A900CC1067 /* IOHIDServiceClient.h in Copy hidsystem Headers */ = {isa = PBXBuildFile; fileRef = 48684E041D25BF0100CC1067 /* IOHIDServiceClient.h */; };
 		48684E0F1D25C7FF00CC1067 /* IOHIDEventSystemClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48684E031D25BF0100CC1067 /* IOHIDEventSystemClient.h */; };
 		48684E101D25C80500CC1067 /* IOHIDServiceClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48684E041D25BF0100CC1067 /* IOHIDServiceClient.h */; };
 		4893D2261B55D0E900CF3CA0 /* IOUPSPlugIn.h in Headers */ = {isa = PBXBuildFile; fileRef = 4893D2251B55D0DB00CF3CA0 /* IOUPSPlugIn.h */; };
@@ -358,6 +444,56 @@
 		4893D22B1B55D1EB00CF3CA0 /* IOUPSPlugIn.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4893D2251B55D0DB00CF3CA0 /* IOUPSPlugIn.h */; };
 		4893D22C1B55D1F800CF3CA0 /* IOUPSPlugIn.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4893D2251B55D0DB00CF3CA0 /* IOUPSPlugIn.h */; };
 		4893D22D1B55D20000CF3CA0 /* IOUPSPlugIn.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4893D2251B55D0DB00CF3CA0 /* IOUPSPlugIn.h */; };
+		48BBAD63212B7F80001E27B0 /* IOHIDEventPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BBAD62212B7F80001E27B0 /* IOHIDEventPrivate.h */; };
+		48BBAD64212B7F80001E27B0 /* IOHIDEventPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BBAD62212B7F80001E27B0 /* IOHIDEventPrivate.h */; };
+		48BBAD65212B7F80001E27B0 /* IOHIDEventPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BBAD62212B7F80001E27B0 /* IOHIDEventPrivate.h */; };
+		48BBAD66212B80A8001E27B0 /* IOHIDEventPrivate.h in Copy HID Private Headers A */ = {isa = PBXBuildFile; fileRef = 48BBAD62212B7F80001E27B0 /* IOHIDEventPrivate.h */; };
+		48BBAD67212B80B4001E27B0 /* IOHIDEventPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48BBAD62212B7F80001E27B0 /* IOHIDEventPrivate.h */; };
+		48BBAD68212B80BC001E27B0 /* IOHIDEventPrivate.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 48BBAD62212B7F80001E27B0 /* IOHIDEventPrivate.h */; };
+		48BBAD69212B80C5001E27B0 /* IOHIDEventPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48BBAD62212B7F80001E27B0 /* IOHIDEventPrivate.h */; };
+		48D4D6DE22A86B2E00958946 /* IOHIDUserDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0F10646B229460B200795FA1 /* IOHIDUserDevice.h */; };
+		48E26A3222CBD13500F2306B /* HIDEventBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F971ADB21486074000E2B5D /* HIDEventBase.m */; };
+		48E26A3322CBD13500F2306B /* HIDServiceBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 48CCDDD2214AF513006EF5BB /* HIDServiceBase.m */; };
+		48E26A3422CBD13500F2306B /* HIDSessionBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 4838A12C214B1EDD00C2E1D8 /* HIDSessionBase.m */; };
+		48E26A3522CBD13500F2306B /* HIDConnectionBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 0FC78423214F1B5700AD8611 /* HIDConnectionBase.m */; };
+		48E26A3622CBD13500F2306B /* HIDElementBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F40FBCB21667BAE00EAEBCA /* HIDElementBase.m */; };
+		48E26A3722CBD13500F2306B /* HIDServiceClientBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F8DFBC12167C9DF009D1ACC /* HIDServiceClientBase.m */; };
+		48E26A3822CBD13500F2306B /* HIDDeviceBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F995A122177EB9300045795 /* HIDDeviceBase.m */; };
+		48E26A3922CBD13E00F2306B /* IOHIDEventObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F049D05210F939200F8E2BC /* IOHIDEventObjc.m */; };
+		48E26A3A22CBD13E00F2306B /* IOHIDServiceObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 48CCDDD8214AF5D9006EF5BB /* IOHIDServiceObjc.m */; };
+		48E26A3B22CBD13E00F2306B /* IOHIDSessionObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 4838A134214B1F2F00C2E1D8 /* IOHIDSessionObjc.m */; };
+		48E26A3C22CBD13E00F2306B /* IOHIDConnectionObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 0FC78426214F1B7F00AD8611 /* IOHIDConnectionObjc.m */; };
+		48E26A3D22CBD13E00F2306B /* IOHIDElementObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F40FBCD21667BBD00EAEBCA /* IOHIDElementObjc.m */; };
+		48E26A3E22CBD13E00F2306B /* IOHIDServiceClientObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F8DFBC52167CA00009D1ACC /* IOHIDServiceClientObjc.m */; };
+		48E26A3F22CBD13E00F2306B /* IOHIDDeviceObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F995A142177EBA300045795 /* IOHIDDeviceObjc.m */; };
+		48E26A4022CBD14A00F2306B /* HIDEventBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F971ADB21486074000E2B5D /* HIDEventBase.m */; };
+		48E26A4122CBD14A00F2306B /* HIDServiceBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 48CCDDD2214AF513006EF5BB /* HIDServiceBase.m */; };
+		48E26A4222CBD14A00F2306B /* HIDSessionBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 4838A12C214B1EDD00C2E1D8 /* HIDSessionBase.m */; };
+		48E26A4322CBD14A00F2306B /* HIDConnectionBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 0FC78423214F1B5700AD8611 /* HIDConnectionBase.m */; };
+		48E26A4422CBD14A00F2306B /* HIDElementBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F40FBCB21667BAE00EAEBCA /* HIDElementBase.m */; };
+		48E26A4522CBD14A00F2306B /* HIDServiceClientBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F8DFBC12167C9DF009D1ACC /* HIDServiceClientBase.m */; };
+		48E26A4622CBD14A00F2306B /* HIDDeviceBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F995A122177EB9300045795 /* HIDDeviceBase.m */; };
+		48E26A4722CBD15100F2306B /* IOHIDEventObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F049D05210F939200F8E2BC /* IOHIDEventObjc.m */; };
+		48E26A4822CBD15100F2306B /* IOHIDServiceObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 48CCDDD8214AF5D9006EF5BB /* IOHIDServiceObjc.m */; };
+		48E26A4922CBD15100F2306B /* IOHIDSessionObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 4838A134214B1F2F00C2E1D8 /* IOHIDSessionObjc.m */; };
+		48E26A4A22CBD15100F2306B /* IOHIDConnectionObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 0FC78426214F1B7F00AD8611 /* IOHIDConnectionObjc.m */; };
+		48E26A4B22CBD15100F2306B /* IOHIDElementObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F40FBCD21667BBD00EAEBCA /* IOHIDElementObjc.m */; };
+		48E26A4C22CBD15100F2306B /* IOHIDServiceClientObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F8DFBC52167CA00009D1ACC /* IOHIDServiceClientObjc.m */; };
+		48E26A4D22CBD15100F2306B /* IOHIDDeviceObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F995A142177EBA300045795 /* IOHIDDeviceObjc.m */; };
+		48E26A4E22CBD15C00F2306B /* HIDEventBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F971ADB21486074000E2B5D /* HIDEventBase.m */; };
+		48E26A4F22CBD15C00F2306B /* HIDServiceBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 48CCDDD2214AF513006EF5BB /* HIDServiceBase.m */; };
+		48E26A5022CBD15C00F2306B /* HIDSessionBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 4838A12C214B1EDD00C2E1D8 /* HIDSessionBase.m */; };
+		48E26A5122CBD15C00F2306B /* HIDConnectionBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 0FC78423214F1B5700AD8611 /* HIDConnectionBase.m */; };
+		48E26A5222CBD15C00F2306B /* HIDElementBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F40FBCB21667BAE00EAEBCA /* HIDElementBase.m */; };
+		48E26A5322CBD15C00F2306B /* HIDServiceClientBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F8DFBC12167C9DF009D1ACC /* HIDServiceClientBase.m */; };
+		48E26A5422CBD15C00F2306B /* HIDDeviceBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F995A122177EB9300045795 /* HIDDeviceBase.m */; };
+		48E26A5522CBD16400F2306B /* IOHIDEventObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F049D05210F939200F8E2BC /* IOHIDEventObjc.m */; };
+		48E26A5622CBD16400F2306B /* IOHIDServiceObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 48CCDDD8214AF5D9006EF5BB /* IOHIDServiceObjc.m */; };
+		48E26A5722CBD16400F2306B /* IOHIDSessionObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 4838A134214B1F2F00C2E1D8 /* IOHIDSessionObjc.m */; };
+		48E26A5822CBD16400F2306B /* IOHIDConnectionObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 0FC78426214F1B7F00AD8611 /* IOHIDConnectionObjc.m */; };
+		48E26A5922CBD16400F2306B /* IOHIDElementObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F40FBCD21667BBD00EAEBCA /* IOHIDElementObjc.m */; };
+		48E26A5A22CBD16400F2306B /* IOHIDServiceClientObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F8DFBC52167CA00009D1ACC /* IOHIDServiceClientObjc.m */; };
+		48E26A5B22CBD16400F2306B /* IOHIDDeviceObjc.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F995A142177EBA300045795 /* IOHIDDeviceObjc.m */; };
 		5070D9C2126506CF002B3D69 /* OSKextPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24B98E040DDD4DD800E04D36 /* OSKextPrivate.h */; };
 		5070D9C3126506CF002B3D69 /* misc_util.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24F5FE5F0DD1257400AE3585 /* misc_util.h */; };
 		5070D9C5126506CF002B3D69 /* fat_util.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 052114F409D2094D00E51ACA /* fat_util.h */; };
@@ -399,6 +535,8 @@
 		7211A9C6164B413700A8F7C5 /* IOPlatformSupport.c in Sources */ = {isa = PBXBuildFile; fileRef = 7211A9C4164B413700A8F7C5 /* IOPlatformSupport.c */; };
 		7211A9C7164B413700A8F7C5 /* IOPlatformSupportPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 7211A9C5164B413700A8F7C5 /* IOPlatformSupportPrivate.h */; };
 		7211A9C9164B417A00A8F7C5 /* IOPlatformSupportPrivate.h in Copy Files O */ = {isa = PBXBuildFile; fileRef = 7211A9C5164B413700A8F7C5 /* IOPlatformSupportPrivate.h */; };
+		7227668E21669AEB0019278D /* com.apple.iohid.service.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7227668C216699BF0019278D /* com.apple.iohid.service.plist */; };
+		7234DFB921C18A6400F1651A /* libDiagnosticMessagesClient.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 7234DFB821C18A6400F1651A /* libDiagnosticMessagesClient.tbd */; };
 		72385351087F1F8C00B36ABB /* IOAudioLib.h in Copy Files A */ = {isa = PBXBuildFile; fileRef = E1AF604007B40A71007EADEA /* IOAudioLib.h */; };
 		72385369087F20E900B36ABB /* IOGraphicsLib.h in Copy Files B */ = {isa = PBXBuildFile; fileRef = E1AF607B07B40A71007EADEA /* IOGraphicsLib.h */; };
 		7238536A087F210C00B36ABB /* IOGraphicsLibPrivate.h in Copy Files C */ = {isa = PBXBuildFile; fileRef = E1AF607907B40A71007EADEA /* IOGraphicsLibPrivate.h */; };
@@ -459,6 +597,12 @@
 		7238545C087F308000B36ABB /* IOLLEvent.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7238541A087F2D9000B36ABB /* IOLLEvent.h */; };
 		72385465087F324800B36ABB /* IOHIDParameter.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72385464087F323E00B36ABB /* IOHIDParameter.h */; };
 		7255A7B2086CD13100A3554B /* IOKitLib.h in Headers */ = {isa = PBXBuildFile; fileRef = 7255A7B1086CD13100A3554B /* IOKitLib.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		727DE43A21B05CF800BC8AD8 /* IOHIDAnalytics.c in Sources */ = {isa = PBXBuildFile; fileRef = 727DE43921B05CF800BC8AD8 /* IOHIDAnalytics.c */; };
+		727DE43B21B05CFB00BC8AD8 /* IOHIDAnalytics.c in Sources */ = {isa = PBXBuildFile; fileRef = 727DE43921B05CF800BC8AD8 /* IOHIDAnalytics.c */; };
+		727DE43C21B05CFB00BC8AD8 /* IOHIDAnalytics.c in Sources */ = {isa = PBXBuildFile; fileRef = 727DE43921B05CF800BC8AD8 /* IOHIDAnalytics.c */; };
+		727DE43D21B05D7200BC8AD8 /* IOHIDAnalytics.h in Copy HID Private Headers A */ = {isa = PBXBuildFile; fileRef = 727DE43821B05CDA00BC8AD8 /* IOHIDAnalytics.h */; };
+		727DE43E21B05D8600BC8AD8 /* IOHIDAnalytics.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 727DE43821B05CDA00BC8AD8 /* IOHIDAnalytics.h */; };
+		727DE43F21B05D9300BC8AD8 /* IOHIDAnalytics.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 727DE43821B05CDA00BC8AD8 /* IOHIDAnalytics.h */; };
 		727ECE0E113F016F009A8AA6 /* IOPMAssertions.c in Sources */ = {isa = PBXBuildFile; fileRef = 727ECE0D113F016F009A8AA6 /* IOPMAssertions.c */; };
 		727ECE0F113F016F009A8AA6 /* IOPMAssertions.c in Sources */ = {isa = PBXBuildFile; fileRef = 727ECE0D113F016F009A8AA6 /* IOPMAssertions.c */; };
 		729061E50CDFC6490046821C /* IOPMPowerNotifications.c in Sources */ = {isa = PBXBuildFile; fileRef = 729061E40CDFC6490046821C /* IOPMPowerNotifications.c */; };
@@ -488,7 +632,7 @@
 		80B849831AAE1ACE00DF24D0 /* libenergytrace.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 80515E131AAA5E620067A770 /* libenergytrace.dylib */; };
 		84061D4A1602D240003855D6 /* IOHIDEventSystemConnection.h in Copy HID Private Headers A */ = {isa = PBXBuildFile; fileRef = 8456682E114C30AE006A9B74 /* IOHIDEventSystemConnection.h */; };
 		84061D4C1602D261003855D6 /* IOHIDEventSystemPrivate.h in Copy HID Private Headers A */ = {isa = PBXBuildFile; fileRef = 847A12500C07C3A400F3CCDB /* IOHIDEventSystemPrivate.h */; };
-		840933DF15FC0E4600F0AA90 /* IOHIDEventSystemConnection.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8456682E114C30AE006A9B74 /* IOHIDEventSystemConnection.h */; };
+		840933DF15FC0E4600F0AA90 /* IOHIDEventSystemConnection.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 8456682E114C30AE006A9B74 /* IOHIDEventSystemConnection.h */; };
 		840933E115FC25AD00F0AA90 /* IOHIDEventSystemConnection.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8456682E114C30AE006A9B74 /* IOHIDEventSystemConnection.h */; };
 		840A571909B69B4F00CEFF84 /* IOHIDElement.h in Copy HID Headers */ = {isa = PBXBuildFile; fileRef = 84DE65B409B6952900AD798E /* IOHIDElement.h */; };
 		840A571A09B69B4F00CEFF84 /* IOHIDValue.h in Copy HID Headers */ = {isa = PBXBuildFile; fileRef = 84DE65B209B6952200AD798E /* IOHIDValue.h */; };
@@ -537,7 +681,7 @@
 		842DF47F16A850FF005BD008 /* IOHIDServicePrivate.h in Copy HID Private Headers A */ = {isa = PBXBuildFile; fileRef = 842DF47E16A850E5005BD008 /* IOHIDServicePrivate.h */; };
 		842DF48016A85114005BD008 /* IOHIDServicePrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 842DF47E16A850E5005BD008 /* IOHIDServicePrivate.h */; };
 		842DF48116A8511A005BD008 /* IOHIDServicePrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 842DF47E16A850E5005BD008 /* IOHIDServicePrivate.h */; };
-		842DF48216A85120005BD008 /* IOHIDServicePrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 842DF47E16A850E5005BD008 /* IOHIDServicePrivate.h */; };
+		842DF48216A85120005BD008 /* IOHIDServicePrivate.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 842DF47E16A850E5005BD008 /* IOHIDServicePrivate.h */; };
 		842DF67C15423D2D00B98735 /* IOUSBDeviceController.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84E22FB91542367E009448C3 /* IOUSBDeviceController.h */; };
 		842DF67D15423D2D00B98735 /* IOUSBDeviceDescription.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 845A820715423189004DE713 /* IOUSBDeviceDescription.h */; };
 		843C1FEF0C0790410009057F /* IOHIDEvent.c in Sources */ = {isa = PBXBuildFile; fileRef = 843C1FED0C0790410009057F /* IOHIDEvent.c */; };
@@ -557,7 +701,7 @@
 		84460D9915505C2B002AFD8C /* IOUSBDeviceControllerTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84460D9715505B1F002AFD8C /* IOUSBDeviceControllerTypes.h */; };
 		84468508156B034B00930E5F /* IOUSBDeviceControllerTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84460D9715505B1F002AFD8C /* IOUSBDeviceControllerTypes.h */; };
 		844A36AA172A05270086BEDF /* IOHIDEventSystemClientPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 845666AF114950E5006A9B74 /* IOHIDEventSystemClientPrivate.h */; };
-		844A36AB172A05340086BEDF /* IOHIDEventSystemClientPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 845666AF114950E5006A9B74 /* IOHIDEventSystemClientPrivate.h */; };
+		844A36AB172A05340086BEDF /* IOHIDEventSystemClientPrivate.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 845666AF114950E5006A9B74 /* IOHIDEventSystemClientPrivate.h */; };
 		844A36AC172A05450086BEDF /* IOHIDEventSystemClientPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 845666AF114950E5006A9B74 /* IOHIDEventSystemClientPrivate.h */; };
 		844A55CE0A54A8CD00FAE0BC /* IOHIDBase.h in Headers */ = {isa = PBXBuildFile; fileRef = 844A55CB0A54A8CD00FAE0BC /* IOHIDBase.h */; };
 		844A55CF0A54A8CD00FAE0BC /* IOHIDDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 844A55CC0A54A8CD00FAE0BC /* IOHIDDevice.h */; };
@@ -589,7 +733,7 @@
 		84566830114C30AE006A9B74 /* IOHIDEventSystemConnection.h in Headers */ = {isa = PBXBuildFile; fileRef = 8456682E114C30AE006A9B74 /* IOHIDEventSystemConnection.h */; };
 		84566832114C30BA006A9B74 /* IOHIDEventSystemConnection.c in Sources */ = {isa = PBXBuildFile; fileRef = 84566831114C30BA006A9B74 /* IOHIDEventSystemConnection.c */; };
 		84566833114C30BA006A9B74 /* IOHIDEventSystemConnection.c in Sources */ = {isa = PBXBuildFile; fileRef = 84566831114C30BA006A9B74 /* IOHIDEventSystemConnection.c */; };
-		8456686D114C79A9006A9B74 /* IOHIDServiceClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 845666841149483E006A9B74 /* IOHIDServiceClient.h */; };
+		8456686D114C79A9006A9B74 /* IOHIDServiceClient.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 845666841149483E006A9B74 /* IOHIDServiceClient.h */; };
 		845A820815423189004DE713 /* IOUSBDeviceDescription.h in Headers */ = {isa = PBXBuildFile; fileRef = 845A820715423189004DE713 /* IOUSBDeviceDescription.h */; };
 		845A820915423189004DE713 /* IOUSBDeviceDescription.h in Headers */ = {isa = PBXBuildFile; fileRef = 845A820715423189004DE713 /* IOUSBDeviceDescription.h */; };
 		845A820D154231A6004DE713 /* IOUSBDeviceDescription.c in Sources */ = {isa = PBXBuildFile; fileRef = 845A820B154231A2004DE713 /* IOUSBDeviceDescription.c */; };
@@ -601,28 +745,28 @@
 		846FADB911407E3200F49F0A /* IOHIDEventSystemPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = 846FADB811407E3200F49F0A /* IOHIDEventSystemPrivate.c */; };
 		846FADBA11407E3200F49F0A /* IOHIDEventSystemPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = 846FADB811407E3200F49F0A /* IOHIDEventSystemPrivate.c */; };
 		8472D47D0CFA100A003111DE /* IOAudioLib.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = E1AF604007B40A71007EADEA /* IOAudioLib.h */; };
-		8472D4840CFA100A003111DE /* event_status_driver.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = E1AF608E07B40A71007EADEA /* event_status_driver.h */; };
-		8472D4850CFA100A003111DE /* IOHIDLib.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = E1AF609007B40A71007EADEA /* IOHIDLib.h */; };
-		8472D4870CFA100A003111DE /* IOHIDEvent.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 843C1FEE0C0790410009057F /* IOHIDEvent.h */; };
-		8472D4880CFA100A003111DE /* IOHIDServiceKeys.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 843C1FFB0C0792FA0009057F /* IOHIDServiceKeys.h */; };
-		8472D4890CFA100A003111DE /* IOHIDServicePlugIn.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 843C1FF80C0792DB0009057F /* IOHIDServicePlugIn.h */; };
-		8472D48A0CFA100A003111DE /* IOHIDEventQueue.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 847A12490C07C3A400F3CCDB /* IOHIDEventQueue.h */; };
-		8472D48B0CFA100A003111DE /* IOHIDEventSystem.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 847A124C0C07C3A400F3CCDB /* IOHIDEventSystem.h */; };
-		8472D48C0CFA100A003111DE /* IOHIDEventSystemClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 847A124E0C07C3A400F3CCDB /* IOHIDEventSystemClient.h */; };
-		8472D48D0CFA100A003111DE /* IOHIDEventSystemKeys.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 847A124F0C07C3A400F3CCDB /* IOHIDEventSystemKeys.h */; };
-		8472D48E0CFA100A003111DE /* IOHIDNotification.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 847A12520C07C3A400F3CCDB /* IOHIDNotification.h */; };
-		8472D48F0CFA100A003111DE /* IOHIDService.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 847A12540C07C3A400F3CCDB /* IOHIDService.h */; };
-		8472D4900CFA100A003111DE /* IOHIDSession.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 847A12560C07C3A400F3CCDB /* IOHIDSession.h */; };
-		8472D4910CFA100A003111DE /* IOHIDTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 847A12570C07C3A400F3CCDB /* IOHIDTypes.h */; };
-		8472D4930CFA100A003111DE /* IOHIDBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 844A55CB0A54A8CD00FAE0BC /* IOHIDBase.h */; };
-		8472D4940CFA100A003111DE /* IOHIDDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 844A55CC0A54A8CD00FAE0BC /* IOHIDDevice.h */; };
-		8472D4950CFA100A003111DE /* IOHIDDevicePlugIn.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 844A55CD0A54A8CD00FAE0BC /* IOHIDDevicePlugIn.h */; };
-		8472D4960CFA100A003111DE /* IOHIDElement.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84DE65B409B6952900AD798E /* IOHIDElement.h */; };
-		8472D4970CFA100A003111DE /* IOHIDLib.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 844A55D10A54A8E800FAE0BC /* IOHIDLib.h */; };
-		8472D4980CFA100A003111DE /* IOHIDManager.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 844A55D20A54A8E800FAE0BC /* IOHIDManager.h */; };
-		8472D4990CFA100A003111DE /* IOHIDQueue.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 844A55D30A54A8E800FAE0BC /* IOHIDQueue.h */; };
-		8472D49A0CFA100A003111DE /* IOHIDTransaction.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 844A55D40A54A8E800FAE0BC /* IOHIDTransaction.h */; };
-		8472D49B0CFA100A003111DE /* IOHIDValue.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84DE65B209B6952200AD798E /* IOHIDValue.h */; };
+		8472D4840CFA100A003111DE /* event_status_driver.h in Copy hidsystem Headers */ = {isa = PBXBuildFile; fileRef = E1AF608E07B40A71007EADEA /* event_status_driver.h */; };
+		8472D4850CFA100A003111DE /* IOHIDLib.h in Copy hidsystem Headers */ = {isa = PBXBuildFile; fileRef = E1AF609007B40A71007EADEA /* IOHIDLib.h */; };
+		8472D4870CFA100A003111DE /* IOHIDEvent.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 843C1FEE0C0790410009057F /* IOHIDEvent.h */; };
+		8472D4880CFA100A003111DE /* IOHIDServiceKeys.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 843C1FFB0C0792FA0009057F /* IOHIDServiceKeys.h */; };
+		8472D4890CFA100A003111DE /* IOHIDServicePlugIn.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 843C1FF80C0792DB0009057F /* IOHIDServicePlugIn.h */; };
+		8472D48A0CFA100A003111DE /* IOHIDEventQueue.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 847A12490C07C3A400F3CCDB /* IOHIDEventQueue.h */; };
+		8472D48B0CFA100A003111DE /* IOHIDEventSystem.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 847A124C0C07C3A400F3CCDB /* IOHIDEventSystem.h */; };
+		8472D48C0CFA100A003111DE /* IOHIDEventSystemClient.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 847A124E0C07C3A400F3CCDB /* IOHIDEventSystemClient.h */; };
+		8472D48D0CFA100A003111DE /* IOHIDEventSystemKeys.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 847A124F0C07C3A400F3CCDB /* IOHIDEventSystemKeys.h */; };
+		8472D48E0CFA100A003111DE /* IOHIDNotification.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 847A12520C07C3A400F3CCDB /* IOHIDNotification.h */; };
+		8472D48F0CFA100A003111DE /* IOHIDService.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 847A12540C07C3A400F3CCDB /* IOHIDService.h */; };
+		8472D4900CFA100A003111DE /* IOHIDSession.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 847A12560C07C3A400F3CCDB /* IOHIDSession.h */; };
+		8472D4910CFA100A003111DE /* IOHIDTypes.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 847A12570C07C3A400F3CCDB /* IOHIDTypes.h */; };
+		8472D4930CFA100A003111DE /* IOHIDBase.h in Copy HID Headers */ = {isa = PBXBuildFile; fileRef = 844A55CB0A54A8CD00FAE0BC /* IOHIDBase.h */; };
+		8472D4940CFA100A003111DE /* IOHIDDevice.h in Copy HID Headers */ = {isa = PBXBuildFile; fileRef = 844A55CC0A54A8CD00FAE0BC /* IOHIDDevice.h */; };
+		8472D4950CFA100A003111DE /* IOHIDDevicePlugIn.h in Copy HID Headers */ = {isa = PBXBuildFile; fileRef = 844A55CD0A54A8CD00FAE0BC /* IOHIDDevicePlugIn.h */; };
+		8472D4960CFA100A003111DE /* IOHIDElement.h in Copy HID Headers */ = {isa = PBXBuildFile; fileRef = 84DE65B409B6952900AD798E /* IOHIDElement.h */; };
+		8472D4970CFA100A003111DE /* IOHIDLib.h in Copy HID Headers */ = {isa = PBXBuildFile; fileRef = 844A55D10A54A8E800FAE0BC /* IOHIDLib.h */; };
+		8472D4980CFA100A003111DE /* IOHIDManager.h in Copy HID Headers */ = {isa = PBXBuildFile; fileRef = 844A55D20A54A8E800FAE0BC /* IOHIDManager.h */; };
+		8472D4990CFA100A003111DE /* IOHIDQueue.h in Copy HID Headers */ = {isa = PBXBuildFile; fileRef = 844A55D30A54A8E800FAE0BC /* IOHIDQueue.h */; };
+		8472D49A0CFA100A003111DE /* IOHIDTransaction.h in Copy HID Headers */ = {isa = PBXBuildFile; fileRef = 844A55D40A54A8E800FAE0BC /* IOHIDTransaction.h */; };
+		8472D49B0CFA100A003111DE /* IOHIDValue.h in Copy HID Headers */ = {isa = PBXBuildFile; fileRef = 84DE65B209B6952200AD798E /* IOHIDValue.h */; };
 		8472D49D0CFA100A003111DE /* IOHIDLibPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 844A55DB0A54A8FA00FAE0BC /* IOHIDLibPrivate.h */; };
 		8472D49F0CFA100A003111DE /* KextManager.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = E1AF60B507B40A71007EADEA /* KextManager.h */; };
 		8472D4A20CFA100A003111DE /* fat_util.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 052114F409D2094D00E51ACA /* fat_util.h */; };
@@ -719,7 +863,7 @@
 		8472D5290CFA100A003111DE /* libDeviceMIG.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2DCEADB208DB8CEF00B0CBEA /* libDeviceMIG.a */; };
 		8472D5770CFA183F003111DE /* IOUSBDevicePrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8472D46E0CFA0E38003111DE /* IOUSBDevicePrivate.h */; };
 		8472D57B0CFA1888003111DE /* IOUSBDeviceData.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8472D46D0CFA0E38003111DE /* IOUSBDeviceData.h */; };
-		8473A6B60D06351300DD8515 /* IOHIDEventSystemPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 847A12500C07C3A400F3CCDB /* IOHIDEventSystemPrivate.h */; };
+		8473A6B60D06351300DD8515 /* IOHIDEventSystemPrivate.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 847A12500C07C3A400F3CCDB /* IOHIDEventSystemPrivate.h */; };
 		847A125C0C07C3A400F3CCDB /* IOHIDEventSystem.c in Sources */ = {isa = PBXBuildFile; fileRef = 847A124A0C07C3A400F3CCDB /* IOHIDEventSystem.c */; };
 		847A125E0C07C3A400F3CCDB /* IOHIDEventSystem.h in Headers */ = {isa = PBXBuildFile; fileRef = 847A124C0C07C3A400F3CCDB /* IOHIDEventSystem.h */; };
 		847A125F0C07C3A400F3CCDB /* IOHIDEventSystemClient.c in Sources */ = {isa = PBXBuildFile; fileRef = 847A124D0C07C3A400F3CCDB /* IOHIDEventSystemClient.c */; };
@@ -958,7 +1102,7 @@
 		84A6101513E646880034FE11 /* IODPTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84A6100913E646230034FE11 /* IODPTypes.h */; };
 		84B286E414F3287500A9FD4D /* IOUSBDeviceCommandKeys.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84B286DD14F3276700A9FD4D /* IOUSBDeviceCommandKeys.h */; };
 		84B286E514F3287500A9FD4D /* IOUSBDevicePropertyKeys.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84B286DE14F3276700A9FD4D /* IOUSBDevicePropertyKeys.h */; };
-		84B28F5F174EF228007B8D25 /* IOHIDEventSystemKeysPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84B28F5E174EF208007B8D25 /* IOHIDEventSystemKeysPrivate.h */; };
+		84B28F5F174EF228007B8D25 /* IOHIDEventSystemKeysPrivate.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 84B28F5E174EF208007B8D25 /* IOHIDEventSystemKeysPrivate.h */; };
 		84B28F60174EF237007B8D25 /* IOHIDEventSystemKeysPrivate.h in Copy HID Private Headers A */ = {isa = PBXBuildFile; fileRef = 84B28F5E174EF208007B8D25 /* IOHIDEventSystemKeysPrivate.h */; };
 		84B3B1FE13E7C7E600C7ACDD /* IODPLib.h in Headers */ = {isa = PBXBuildFile; fileRef = 84B3B1FD13E7C7E600C7ACDD /* IODPLib.h */; };
 		84B3B20013E7C81300C7ACDD /* IODPLib.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84B3B1FD13E7C7E600C7ACDD /* IODPLib.h */; };
@@ -998,7 +1142,7 @@
 		84DE65BF09B6958400AD798E /* IOHIDLibUserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84DE65BC09B6956B00AD798E /* IOHIDLibUserClient.h */; };
 		84E02A180E8784A400850EED /* IOHIDUserDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = 84E02A160E8784A400850EED /* IOHIDUserDevice.c */; };
 		84E02A190E8784A400850EED /* IOHIDUserDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 84E02A170E8784A400850EED /* IOHIDUserDevice.h */; };
-		84E02A470E87876F00850EED /* IOHIDUserDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84E02A170E8784A400850EED /* IOHIDUserDevice.h */; };
+		84E02A470E87876F00850EED /* IOHIDUserDevice.h in Copy HID Headers */ = {isa = PBXBuildFile; fileRef = 84E02A170E8784A400850EED /* IOHIDUserDevice.h */; };
 		84E127D8175EB3A100310A79 /* IOHIDEventSystemKeysPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84B28F5E174EF208007B8D25 /* IOHIDEventSystemKeysPrivate.h */; };
 		84E127D9175EB3AE00310A79 /* IOHIDEventSystemKeysPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84B28F5E174EF208007B8D25 /* IOHIDEventSystemKeysPrivate.h */; };
 		84E22FBA1542367E009448C3 /* IOUSBDeviceController.h in Headers */ = {isa = PBXBuildFile; fileRef = 84E22FB91542367E009448C3 /* IOUSBDeviceController.h */; };
@@ -1055,8 +1199,8 @@
 		B332FDF214D747FB0092AA1E /* IOAVVideoInterface.c in Sources */ = {isa = PBXBuildFile; fileRef = 84959087145B2580005F7106 /* IOAVVideoInterface.c */; };
 		B332FDF814D747FB0092AA1E /* libDeviceMIG.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2DCEADB208DB8CEF00B0CBEA /* libDeviceMIG.a */; };
 		B332FDF914D747FB0092AA1E /* libioav.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8491B48A145B4B4B00DD2767 /* libioav.a */; };
-		B3982736134F7B0D00B1D668 /* IOHIDServiceFilterPlugIn.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B32727B5134F772D009C9B4B /* IOHIDServiceFilterPlugIn.h */; };
-		B3982737134F7B0D00B1D668 /* IOHIDSessionFilterPlugIn.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B32727B6134F772D009C9B4B /* IOHIDSessionFilterPlugIn.h */; };
+		B3982736134F7B0D00B1D668 /* IOHIDServiceFilterPlugIn.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = B32727B5134F772D009C9B4B /* IOHIDServiceFilterPlugIn.h */; };
+		B3982737134F7B0D00B1D668 /* IOHIDSessionFilterPlugIn.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = B32727B6134F772D009C9B4B /* IOHIDSessionFilterPlugIn.h */; };
 		B39CC4C114CF56350015DA1A /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = B3CA01D914CA40DD00A67868 /* libbsm.dylib */; };
 		B3CA01DA14CA40DD00A67868 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = B3CA01D914CA40DD00A67868 /* libbsm.dylib */; };
 		B908942C1464496A00309232 /* IOHIDLibSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = B908942B1464496A00309232 /* IOHIDLibSPI.h */; };
@@ -1083,11 +1227,11 @@
 		CEFD2A0E1C160CF800CE9BA2 /* IOAVLibUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = CEFD2A041C160A9F00CE9BA2 /* IOAVLibUtil.c */; };
 		D855FFC91CA5BF06008AFE9B /* IOHIDEventPrivateKeys.h in Copy HID Private Headers A */ = {isa = PBXBuildFile; fileRef = D8B967A51CA5B7A70099B4B8 /* IOHIDEventPrivateKeys.h */; };
 		D855FFCA1CA5BF26008AFE9B /* IOHIDEventPrivateKeys.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D8B967A51CA5B7A70099B4B8 /* IOHIDEventPrivateKeys.h */; };
-		D855FFCB1CA5BF34008AFE9B /* IOHIDEventPrivateKeys.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D8B967A51CA5B7A70099B4B8 /* IOHIDEventPrivateKeys.h */; };
+		D855FFCB1CA5BF34008AFE9B /* IOHIDEventPrivateKeys.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = D8B967A51CA5B7A70099B4B8 /* IOHIDEventPrivateKeys.h */; };
 		D855FFCC1CA5BF42008AFE9B /* IOHIDEventPrivateKeys.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = D8B967A51CA5B7A70099B4B8 /* IOHIDEventPrivateKeys.h */; };
 		D86C89991E037FEA00BF54D5 /* IOHIDServiceConnectionCache.h in Copy HID Private Headers A */ = {isa = PBXBuildFile; fileRef = 84D1C5D117B194B1006BC88F /* IOHIDServiceConnectionCache.h */; };
 		D86C899A1E0382A200BF54D5 /* IOHIDServiceConnectionCache.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84D1C5D117B194B1006BC88F /* IOHIDServiceConnectionCache.h */; };
-		D86C899B1E0382B900BF54D5 /* IOHIDServiceConnectionCache.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84D1C5D117B194B1006BC88F /* IOHIDServiceConnectionCache.h */; };
+		D86C899B1E0382B900BF54D5 /* IOHIDServiceConnectionCache.h in Copy Private HID Headers */ = {isa = PBXBuildFile; fileRef = 84D1C5D117B194B1006BC88F /* IOHIDServiceConnectionCache.h */; };
 		D86C899C1E0382CF00BF54D5 /* IOHIDServiceConnectionCache.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84D1C5D117B194B1006BC88F /* IOHIDServiceConnectionCache.h */; };
 		D86F30D91D3880600078EB6E /* IOHIDServiceKeys.c in Sources */ = {isa = PBXBuildFile; fileRef = D86F30D81D3880600078EB6E /* IOHIDServiceKeys.c */; };
 		D86F30DA1D3880740078EB6E /* IOHIDServiceKeys.c in Sources */ = {isa = PBXBuildFile; fileRef = D86F30D81D3880600078EB6E /* IOHIDServiceKeys.c */; };
@@ -1234,6 +1378,102 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0F971AE121486458000E2B5D /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/hidobjc";
+			dstSubfolderSpec = 1;
+			files = (
+				0F995A1D2177F55600045795 /* HIDDeviceBase.h in CopyFiles */,
+				0F995A1C2177F55100045795 /* HIDDeviceIvar.h in CopyFiles */,
+				0F8A4D962167E4ED00A077F2 /* HIDServiceClientIvar.h in CopyFiles */,
+				0F8A4D952167E4E700A077F2 /* HIDServiceClientBase.h in CopyFiles */,
+				0F47017A216686CE003E2B9C /* HIDElementIvar.h in CopyFiles */,
+				0F470179216686C8003E2B9C /* HIDElementBase.h in CopyFiles */,
+				0FC78433214F231800AD8611 /* HIDConnectionBase.h in CopyFiles */,
+				0FC78432214F231200AD8611 /* HIDConnectionIvar.h in CopyFiles */,
+				4838A141214B231400C2E1D8 /* HIDSessionIvar.h in CopyFiles */,
+				4838A140214B230D00C2E1D8 /* HIDSessionBase.h in CopyFiles */,
+				4838A127214AFD1C00C2E1D8 /* HIDServiceIvar.h in CopyFiles */,
+				4838A126214AFD1400C2E1D8 /* HIDServiceBase.h in CopyFiles */,
+				0F971AE821486B30000E2B5D /* hidobjcbase.h in CopyFiles */,
+				0F971AE32148647E000E2B5D /* HIDEventBase.h in CopyFiles */,
+				0F971AE221486475000E2B5D /* HIDEventIvar.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0F971AE421486B0E000E2B5D /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/hidobjc";
+			dstSubfolderSpec = 1;
+			files = (
+				0F995A1B2177F54A00045795 /* HIDDeviceBase.h in CopyFiles */,
+				0F995A1A2177F54300045795 /* HIDDeviceIvar.h in CopyFiles */,
+				0F8A4D942167E4DC00A077F2 /* HIDServiceClientIvar.h in CopyFiles */,
+				0F8A4D932167E4D500A077F2 /* HIDServiceClientBase.h in CopyFiles */,
+				0F470178216686BF003E2B9C /* HIDElementIvar.h in CopyFiles */,
+				0F470177216686B8003E2B9C /* HIDElementBase.h in CopyFiles */,
+				0FC78431214F230900AD8611 /* HIDConnectionBase.h in CopyFiles */,
+				0FC78430214F230300AD8611 /* HIDConnectionIvar.h in CopyFiles */,
+				4838A13F214B230400C2E1D8 /* HIDSessionIvar.h in CopyFiles */,
+				4838A13E214B22FC00C2E1D8 /* HIDSessionBase.h in CopyFiles */,
+				4838A125214AFD0B00C2E1D8 /* HIDServiceIvar.h in CopyFiles */,
+				4838A124214AFD0200C2E1D8 /* HIDServiceBase.h in CopyFiles */,
+				0F971AE721486B28000E2B5D /* hidobjcbase.h in CopyFiles */,
+				0F971AE621486B24000E2B5D /* HIDEventBase.h in CopyFiles */,
+				0F971AE521486B1B000E2B5D /* HIDEventIvar.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0F971AE921486B39000E2B5D /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/hidobjc";
+			dstSubfolderSpec = 1;
+			files = (
+				0F995A192177F53B00045795 /* HIDDeviceBase.h in CopyFiles */,
+				0F995A182177F53500045795 /* HIDDeviceIvar.h in CopyFiles */,
+				0F8A4D922167E4C800A077F2 /* HIDServiceClientIvar.h in CopyFiles */,
+				0F8A4D912167E4C200A077F2 /* HIDServiceClientBase.h in CopyFiles */,
+				0F470176216686B0003E2B9C /* HIDElementBase.h in CopyFiles */,
+				0F470175216686A9003E2B9C /* HIDElementIvar.h in CopyFiles */,
+				0FC7842F214F22F800AD8611 /* HIDConnectionBase.h in CopyFiles */,
+				0FC7842E214F22F100AD8611 /* HIDConnectionIvar.h in CopyFiles */,
+				4838A13D214B22F100C2E1D8 /* HIDSessionIvar.h in CopyFiles */,
+				4838A13C214B22E800C2E1D8 /* HIDSessionBase.h in CopyFiles */,
+				4838A123214AFCF800C2E1D8 /* HIDServiceIvar.h in CopyFiles */,
+				4838A122214AFCF300C2E1D8 /* HIDServiceBase.h in CopyFiles */,
+				0F971AEC21486B53000E2B5D /* HIDEventIvar.h in CopyFiles */,
+				0F971AEB21486B4D000E2B5D /* HIDEventBase.h in CopyFiles */,
+				0F971AEA21486B46000E2B5D /* hidobjcbase.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0F971AED21486B58000E2B5D /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/hidobjc";
+			dstSubfolderSpec = 1;
+			files = (
+				0F995A172177F52B00045795 /* HIDDeviceBase.h in CopyFiles */,
+				0F995A162177F52400045795 /* HIDDeviceIvar.h in CopyFiles */,
+				0F8A4D902167E4B900A077F2 /* HIDServiceClientIvar.h in CopyFiles */,
+				0F8A4D8F2167E4B400A077F2 /* HIDServiceClientBase.h in CopyFiles */,
+				0F4701742166869A003E2B9C /* HIDElementBase.h in CopyFiles */,
+				0F47017321668694003E2B9C /* HIDElementIvar.h in CopyFiles */,
+				0FC7842D214F22E700AD8611 /* HIDConnectionBase.h in CopyFiles */,
+				0FC7842C214F22E000AD8611 /* HIDConnectionIvar.h in CopyFiles */,
+				4838A13B214B22DE00C2E1D8 /* HIDSessionIvar.h in CopyFiles */,
+				4838A13A214B22DA00C2E1D8 /* HIDSessionBase.h in CopyFiles */,
+				4838A121214AFCE900C2E1D8 /* HIDServiceBase.h in CopyFiles */,
+				4838A120214AFCE200C2E1D8 /* HIDServiceIvar.h in CopyFiles */,
+				0F971AF021486B6B000E2B5D /* HIDEventIvar.h in CopyFiles */,
+				0F971AEF21486B67000E2B5D /* HIDEventBase.h in CopyFiles */,
+				0F971AEE21486B63000E2B5D /* hidobjcbase.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		10830CE00F5DDF8200937E9E /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -1265,6 +1505,7 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/Headers/hidsystem";
 			dstSubfolderSpec = 1;
 			files = (
+				48D4D6DE22A86B2E00958946 /* IOHIDUserDevice.h in CopyFiles */,
 				48684E0B1D25C79500CC1067 /* IOHIDServiceClient.h in CopyFiles */,
 				48684E0A1D25C78B00CC1067 /* IOHIDEventSystemClient.h in CopyFiles */,
 				3F116D0F1638DFAD001C6A14 /* event_status_driver.h in CopyFiles */,
@@ -1278,6 +1519,8 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/hid";
 			dstSubfolderSpec = 1;
 			files = (
+				727DE43E21B05D8600BC8AD8 /* IOHIDAnalytics.h in CopyFiles */,
+				48BBAD67212B80B4001E27B0 /* IOHIDEventPrivate.h in CopyFiles */,
 				201A04C520744EA1008318D8 /* IOHIDConnectionFilterPlugin.h in CopyFiles */,
 				D86C899A1E0382A200BF54D5 /* IOHIDServiceConnectionCache.h in CopyFiles */,
 				D855FFCA1CA5BF26008AFE9B /* IOHIDEventPrivateKeys.h in CopyFiles */,
@@ -1504,6 +1747,11 @@
 			dstPath = include/IOKit/hid;
 			dstSubfolderSpec = 16;
 			files = (
+				0FEF2BF3225D26B100C4081D /* IOHIDDeviceKeys.h in CopyFiles */,
+				0FEF2BF4225D26B100C4081D /* IOHIDDeviceTypes.h in CopyFiles */,
+				0FEF2BF5225D26B100C4081D /* IOHIDEventServiceKeys.h in CopyFiles */,
+				0FEF2BF6225D26B100C4081D /* IOHIDEventServiceKeys_Private.h in CopyFiles */,
+				0FEF2BF7225D26B100C4081D /* IOHIDEventServiceTypes.h in CopyFiles */,
 				48438B9B1CEBB1020067C8C2 /* IOHIDProperties.h in CopyFiles */,
 				D87B3EF11E610F6700B77E93 /* IOHIDEventFieldDefs.h in CopyFiles */,
 				D87B3EF21E610F6700B77E93 /* IOHIDEventMacroDefs.h in CopyFiles */,
@@ -1597,6 +1845,16 @@
 			name = "Copy Files O";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7227668D21669AC50019278D /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Library/Preferences/Logging/Subsystems;
+			dstSubfolderSpec = 0;
+			files = (
+				7227668E21669AEB0019278D /* com.apple.iohid.service.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		7238534F087F1F7000B36ABB /* Copy Files A */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1637,6 +1895,7 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/Headers/hidsystem";
 			dstSubfolderSpec = 1;
 			files = (
+				0F37C03D22A81F660057C599 /* IOHIDUserDevice.h in Copy HIDSystem Headers */,
 				48684E091D25C77700CC1067 /* IOHIDServiceClient.h in Copy HIDSystem Headers */,
 				48684E081D25C77000CC1067 /* IOHIDEventSystemClient.h in Copy HIDSystem Headers */,
 				7238536E087F213400B36ABB /* event_status_driver.h in Copy HIDSystem Headers */,
@@ -1825,6 +2084,11 @@
 			dstPath = include/IOKit/hid;
 			dstSubfolderSpec = 16;
 			files = (
+				0FEF2BEE225D269500C4081D /* IOHIDEventServiceKeys_Private.h in CopyFiles */,
+				0FEF2BEF225D269500C4081D /* IOHIDDeviceKeys.h in CopyFiles */,
+				0FEF2BF0225D269500C4081D /* IOHIDDeviceTypes.h in CopyFiles */,
+				0FEF2BF1225D269500C4081D /* IOHIDEventServiceKeys.h in CopyFiles */,
+				0FEF2BF2225D269500C4081D /* IOHIDEventServiceTypes.h in CopyFiles */,
 				48438B9A1CEBB0F20067C8C2 /* IOHIDProperties.h in CopyFiles */,
 				F70101600C07CA24007591A4 /* AppleHIDUsageTables.h in CopyFiles */,
 				D87B3EEB1E610F5800B77E93 /* IOHIDEventFieldDefs.h in CopyFiles */,
@@ -1960,6 +2224,11 @@
 			dstPath = include/IOKit/hid;
 			dstSubfolderSpec = 16;
 			files = (
+				0FEF2BF8225D26D100C4081D /* IOHIDDeviceKeys.h in CopyFiles */,
+				0FEF2BF9225D26D100C4081D /* IOHIDDeviceTypes.h in CopyFiles */,
+				0FEF2BFA225D26D100C4081D /* IOHIDEventServiceKeys.h in CopyFiles */,
+				0FEF2BFB225D26D100C4081D /* IOHIDEventServiceKeys_Private.h in CopyFiles */,
+				0FEF2BFC225D26D100C4081D /* IOHIDEventServiceTypes.h in CopyFiles */,
 				48438B9C1CEBB1050067C8C2 /* IOHIDProperties.h in CopyFiles */,
 				D87B3EF71E610F8400B77E93 /* IOHIDEventFieldDefs.h in CopyFiles */,
 				D87B3EF81E610F8400B77E93 /* IOHIDEventMacroDefs.h in CopyFiles */,
@@ -2008,6 +2277,8 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/hid";
 			dstSubfolderSpec = 1;
 			files = (
+				727DE43D21B05D7200BC8AD8 /* IOHIDAnalytics.h in Copy HID Private Headers A */,
+				48BBAD66212B80A8001E27B0 /* IOHIDEventPrivate.h in Copy HID Private Headers A */,
 				201A04C220744E57008318D8 /* IOHIDConnectionFilterPlugin.h in Copy HID Private Headers A */,
 				D86C89991E037FEA00BF54D5 /* IOHIDServiceConnectionCache.h in Copy HID Private Headers A */,
 				D855FFC91CA5BF06008AFE9B /* IOHIDEventPrivateKeys.h in Copy HID Private Headers A */,
@@ -2046,67 +2317,73 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		8472D4830CFA100A003111DE /* CopyFiles */ = {
+		8472D4830CFA100A003111DE /* Copy hidsystem Headers */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/Headers/hidsystem";
 			dstSubfolderSpec = 1;
 			files = (
-				48684E0D1D25C7A900CC1067 /* IOHIDServiceClient.h in CopyFiles */,
-				48684E0C1D25C7A300CC1067 /* IOHIDEventSystemClient.h in CopyFiles */,
-				8472D4840CFA100A003111DE /* event_status_driver.h in CopyFiles */,
-				8472D4850CFA100A003111DE /* IOHIDLib.h in CopyFiles */,
+				0F37C03C22A81F530057C599 /* IOHIDUserDevice.h in Copy hidsystem Headers */,
+				48684E0D1D25C7A900CC1067 /* IOHIDServiceClient.h in Copy hidsystem Headers */,
+				48684E0C1D25C7A300CC1067 /* IOHIDEventSystemClient.h in Copy hidsystem Headers */,
+				8472D4840CFA100A003111DE /* event_status_driver.h in Copy hidsystem Headers */,
+				8472D4850CFA100A003111DE /* IOHIDLib.h in Copy hidsystem Headers */,
 			);
+			name = "Copy hidsystem Headers";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		8472D4860CFA100A003111DE /* CopyFiles */ = {
+		8472D4860CFA100A003111DE /* Copy Private HID Headers */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/hid";
 			dstSubfolderSpec = 1;
 			files = (
-				201A04C820744EC2008318D8 /* IOHIDConnectionFilterPlugin.h in CopyFiles */,
-				D86C899B1E0382B900BF54D5 /* IOHIDServiceConnectionCache.h in CopyFiles */,
-				D855FFCB1CA5BF34008AFE9B /* IOHIDEventPrivateKeys.h in CopyFiles */,
-				84B28F5F174EF228007B8D25 /* IOHIDEventSystemKeysPrivate.h in CopyFiles */,
-				844A36AB172A05340086BEDF /* IOHIDEventSystemClientPrivate.h in CopyFiles */,
-				840933DF15FC0E4600F0AA90 /* IOHIDEventSystemConnection.h in CopyFiles */,
-				8456686D114C79A9006A9B74 /* IOHIDServiceClient.h in CopyFiles */,
-				8473A6B60D06351300DD8515 /* IOHIDEventSystemPrivate.h in CopyFiles */,
-				8472D4870CFA100A003111DE /* IOHIDEvent.h in CopyFiles */,
-				8472D4880CFA100A003111DE /* IOHIDServiceKeys.h in CopyFiles */,
-				8472D4890CFA100A003111DE /* IOHIDServicePlugIn.h in CopyFiles */,
-				8472D48A0CFA100A003111DE /* IOHIDEventQueue.h in CopyFiles */,
-				8472D48B0CFA100A003111DE /* IOHIDEventSystem.h in CopyFiles */,
-				8472D48C0CFA100A003111DE /* IOHIDEventSystemClient.h in CopyFiles */,
-				8472D48D0CFA100A003111DE /* IOHIDEventSystemKeys.h in CopyFiles */,
-				8472D48E0CFA100A003111DE /* IOHIDNotification.h in CopyFiles */,
-				8472D48F0CFA100A003111DE /* IOHIDService.h in CopyFiles */,
-				8472D4900CFA100A003111DE /* IOHIDSession.h in CopyFiles */,
-				8472D4910CFA100A003111DE /* IOHIDTypes.h in CopyFiles */,
-				842DF48216A85120005BD008 /* IOHIDServicePrivate.h in CopyFiles */,
-				B3982736134F7B0D00B1D668 /* IOHIDServiceFilterPlugIn.h in CopyFiles */,
-				B3982737134F7B0D00B1D668 /* IOHIDSessionFilterPlugIn.h in CopyFiles */,
+				727DE43F21B05D9300BC8AD8 /* IOHIDAnalytics.h in Copy Private HID Headers */,
+				48BBAD68212B80BC001E27B0 /* IOHIDEventPrivate.h in Copy Private HID Headers */,
+				201A04C820744EC2008318D8 /* IOHIDConnectionFilterPlugin.h in Copy Private HID Headers */,
+				D86C899B1E0382B900BF54D5 /* IOHIDServiceConnectionCache.h in Copy Private HID Headers */,
+				D855FFCB1CA5BF34008AFE9B /* IOHIDEventPrivateKeys.h in Copy Private HID Headers */,
+				84B28F5F174EF228007B8D25 /* IOHIDEventSystemKeysPrivate.h in Copy Private HID Headers */,
+				844A36AB172A05340086BEDF /* IOHIDEventSystemClientPrivate.h in Copy Private HID Headers */,
+				840933DF15FC0E4600F0AA90 /* IOHIDEventSystemConnection.h in Copy Private HID Headers */,
+				8456686D114C79A9006A9B74 /* IOHIDServiceClient.h in Copy Private HID Headers */,
+				8473A6B60D06351300DD8515 /* IOHIDEventSystemPrivate.h in Copy Private HID Headers */,
+				8472D4870CFA100A003111DE /* IOHIDEvent.h in Copy Private HID Headers */,
+				8472D4880CFA100A003111DE /* IOHIDServiceKeys.h in Copy Private HID Headers */,
+				8472D4890CFA100A003111DE /* IOHIDServicePlugIn.h in Copy Private HID Headers */,
+				8472D48A0CFA100A003111DE /* IOHIDEventQueue.h in Copy Private HID Headers */,
+				8472D48B0CFA100A003111DE /* IOHIDEventSystem.h in Copy Private HID Headers */,
+				8472D48C0CFA100A003111DE /* IOHIDEventSystemClient.h in Copy Private HID Headers */,
+				8472D48D0CFA100A003111DE /* IOHIDEventSystemKeys.h in Copy Private HID Headers */,
+				8472D48E0CFA100A003111DE /* IOHIDNotification.h in Copy Private HID Headers */,
+				8472D48F0CFA100A003111DE /* IOHIDService.h in Copy Private HID Headers */,
+				8472D4900CFA100A003111DE /* IOHIDSession.h in Copy Private HID Headers */,
+				8472D4910CFA100A003111DE /* IOHIDTypes.h in Copy Private HID Headers */,
+				842DF48216A85120005BD008 /* IOHIDServicePrivate.h in Copy Private HID Headers */,
+				B3982736134F7B0D00B1D668 /* IOHIDServiceFilterPlugIn.h in Copy Private HID Headers */,
+				B3982737134F7B0D00B1D668 /* IOHIDSessionFilterPlugIn.h in Copy Private HID Headers */,
 			);
+			name = "Copy Private HID Headers";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		8472D4920CFA100A003111DE /* CopyFiles */ = {
+		8472D4920CFA100A003111DE /* Copy HID Headers */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/Headers/hid";
 			dstSubfolderSpec = 1;
 			files = (
-				84E02A470E87876F00850EED /* IOHIDUserDevice.h in CopyFiles */,
-				8472D4930CFA100A003111DE /* IOHIDBase.h in CopyFiles */,
-				8472D4940CFA100A003111DE /* IOHIDDevice.h in CopyFiles */,
-				8472D4950CFA100A003111DE /* IOHIDDevicePlugIn.h in CopyFiles */,
-				8472D4960CFA100A003111DE /* IOHIDElement.h in CopyFiles */,
-				8472D4970CFA100A003111DE /* IOHIDLib.h in CopyFiles */,
-				8472D4980CFA100A003111DE /* IOHIDManager.h in CopyFiles */,
-				8472D4990CFA100A003111DE /* IOHIDQueue.h in CopyFiles */,
-				8472D49A0CFA100A003111DE /* IOHIDTransaction.h in CopyFiles */,
-				8472D49B0CFA100A003111DE /* IOHIDValue.h in CopyFiles */,
+				84E02A470E87876F00850EED /* IOHIDUserDevice.h in Copy HID Headers */,
+				8472D4930CFA100A003111DE /* IOHIDBase.h in Copy HID Headers */,
+				8472D4940CFA100A003111DE /* IOHIDDevice.h in Copy HID Headers */,
+				8472D4950CFA100A003111DE /* IOHIDDevicePlugIn.h in Copy HID Headers */,
+				8472D4960CFA100A003111DE /* IOHIDElement.h in Copy HID Headers */,
+				8472D4970CFA100A003111DE /* IOHIDLib.h in Copy HID Headers */,
+				8472D4980CFA100A003111DE /* IOHIDManager.h in Copy HID Headers */,
+				8472D4990CFA100A003111DE /* IOHIDQueue.h in Copy HID Headers */,
+				8472D49A0CFA100A003111DE /* IOHIDTransaction.h in Copy HID Headers */,
+				8472D49B0CFA100A003111DE /* IOHIDValue.h in Copy HID Headers */,
 			);
+			name = "Copy HID Headers";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		8472D49C0CFA100A003111DE /* CopyFiles */ = {
@@ -2236,6 +2513,7 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/hid";
 			dstSubfolderSpec = 1;
 			files = (
+				48BBAD69212B80C5001E27B0 /* IOHIDEventPrivate.h in CopyFiles */,
 				D86C899C1E0382CF00BF54D5 /* IOHIDServiceConnectionCache.h in CopyFiles */,
 				D855FFCC1CA5BF42008AFE9B /* IOHIDEventPrivateKeys.h in CopyFiles */,
 				844A36AC172A05450086BEDF /* IOHIDEventSystemClientPrivate.h in CopyFiles */,
@@ -2623,9 +2901,45 @@
 		052114F809D2095A00E51ACA /* fat_util.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = fat_util.c; sourceTree = "<group>"; };
 		0521152909D20B4A00E51ACA /* macho_util.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = macho_util.c; sourceTree = "<group>"; };
 		0531B8CB09F4403800094163 /* bootfiles.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = bootfiles.h; sourceTree = "<group>"; };
-		05AB2CE521234F810024942C /* libDiagnosticMessagesClient.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libDiagnosticMessagesClient.tbd; path = usr/lib/libDiagnosticMessagesClient.tbd; sourceTree = SDKROOT; };
-		05EFAE970ABF698800EA1880 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/IODescription.strings; sourceTree = "<group>"; };
+		05EFAE970ABF698800EA1880 /* en */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/IODescription.strings; sourceTree = "<group>"; };
 		0CCB80EF0C717DE300F51424 /* AppleRAIDUserLib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AppleRAIDUserLib.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/storage/RAID/AppleRAIDUserLib.h; sourceTree = SDKROOT; };
+		0F049CF5210F932700F8E2BC /* hidobjc.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = hidobjc.framework; path = System/Library/Frameworks/hidobjc.framework; sourceTree = SDKROOT; };
+		0F049D05210F939200F8E2BC /* IOHIDEventObjc.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IOHIDEventObjc.m; sourceTree = "<group>"; };
+		0F10646B229460B200795FA1 /* IOHIDUserDevice.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOHIDUserDevice.h; path = hidsystem.subproj/IOHIDUserDevice.h; sourceTree = SOURCE_ROOT; };
+		0F40FBC721667B8700EAEBCA /* HIDElementIvar.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDElementIvar.h; sourceTree = "<group>"; };
+		0F40FBC921667B9900EAEBCA /* HIDElementBase.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDElementBase.h; sourceTree = "<group>"; };
+		0F40FBCB21667BAE00EAEBCA /* HIDElementBase.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDElementBase.m; sourceTree = "<group>"; };
+		0F40FBCD21667BBD00EAEBCA /* IOHIDElementObjc.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IOHIDElementObjc.m; sourceTree = "<group>"; };
+		0F8C514C2139BBE600B5E85B /* IOHIDDevicePrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDDevicePrivate.h; sourceTree = "<group>"; };
+		0F8C514D2139BBFC00B5E85B /* IOHIDElementPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDElementPrivate.h; sourceTree = "<group>"; };
+		0F8C514E2139BC2A00B5E85B /* IOHIDServiceClientPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDServiceClientPrivate.h; sourceTree = "<group>"; };
+		0F8DFBBF2167C9D1009D1ACC /* HIDServiceClientBase.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDServiceClientBase.h; sourceTree = "<group>"; };
+		0F8DFBC12167C9DF009D1ACC /* HIDServiceClientBase.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDServiceClientBase.m; sourceTree = "<group>"; };
+		0F8DFBC32167C9EF009D1ACC /* HIDServiceClientIvar.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDServiceClientIvar.h; sourceTree = "<group>"; };
+		0F8DFBC52167CA00009D1ACC /* IOHIDServiceClientObjc.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IOHIDServiceClientObjc.m; sourceTree = "<group>"; };
+		0F971AD721486074000E2B5D /* HIDEventBase.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDEventBase.h; sourceTree = "<group>"; };
+		0F971AD821486074000E2B5D /* HIDEventBasePrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDEventBasePrivate.h; sourceTree = "<group>"; };
+		0F971AD921486074000E2B5D /* HIDEventIvar.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDEventIvar.h; sourceTree = "<group>"; };
+		0F971ADA21486074000E2B5D /* hidobjcbase.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = hidobjcbase.h; sourceTree = "<group>"; };
+		0F971ADB21486074000E2B5D /* HIDEventBase.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDEventBase.m; sourceTree = "<group>"; };
+		0F995A0E2177EB7400045795 /* HIDDeviceIvar.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDeviceIvar.h; sourceTree = "<group>"; };
+		0F995A102177EB8200045795 /* HIDDeviceBase.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDeviceBase.h; sourceTree = "<group>"; };
+		0F995A122177EB9300045795 /* HIDDeviceBase.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDDeviceBase.m; sourceTree = "<group>"; };
+		0F995A142177EBA300045795 /* IOHIDDeviceObjc.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IOHIDDeviceObjc.m; sourceTree = "<group>"; };
+		0FC78423214F1B5700AD8611 /* HIDConnectionBase.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDConnectionBase.m; sourceTree = "<group>"; };
+		0FC78424214F1B6100AD8611 /* HIDConnectionBase.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDConnectionBase.h; sourceTree = "<group>"; };
+		0FC78425214F1B7000AD8611 /* HIDConnectionIvar.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDConnectionIvar.h; sourceTree = "<group>"; };
+		0FC78426214F1B7F00AD8611 /* IOHIDConnectionObjc.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IOHIDConnectionObjc.m; sourceTree = "<group>"; };
+		0FEF2BDF225D260400C4081D /* IOHIDDeviceTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDDeviceTypes.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/Headers/hid/IOHIDDeviceTypes.h; sourceTree = SDKROOT; };
+		0FEF2BE0225D260400C4081D /* IOHIDDeviceKeys.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDDeviceKeys.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/Headers/hid/IOHIDDeviceKeys.h; sourceTree = SDKROOT; };
+		0FEF2BE1225D260400C4081D /* IOHIDEventServiceKeys_Private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDEventServiceKeys_Private.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/hid/IOHIDEventServiceKeys_Private.h; sourceTree = SDKROOT; };
+		0FEF2BE2225D260400C4081D /* IOHIDEventServiceKeys.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDEventServiceKeys.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/Headers/hid/IOHIDEventServiceKeys.h; sourceTree = SDKROOT; };
+		0FEF2BE3225D260400C4081D /* IOHIDEventServiceTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDEventServiceTypes.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/Headers/hid/IOHIDEventServiceTypes.h; sourceTree = SDKROOT; };
+		0FEF2BE9225D267400C4081D /* IOHIDEventServiceKeys_Private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDEventServiceKeys_Private.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/hid/IOHIDEventServiceKeys_Private.h; sourceTree = SDKROOT; };
+		0FEF2BEA225D267400C4081D /* IOHIDEventServiceTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDEventServiceTypes.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/Headers/hid/IOHIDEventServiceTypes.h; sourceTree = SDKROOT; };
+		0FEF2BEB225D267400C4081D /* IOHIDDeviceKeys.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDDeviceKeys.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/Headers/hid/IOHIDDeviceKeys.h; sourceTree = SDKROOT; };
+		0FEF2BEC225D267400C4081D /* IOHIDDeviceTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDDeviceTypes.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/Headers/hid/IOHIDDeviceTypes.h; sourceTree = SDKROOT; };
+		0FEF2BED225D267400C4081D /* IOHIDEventServiceKeys.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOHIDEventServiceKeys.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/Headers/hid/IOHIDEventServiceKeys.h; sourceTree = SDKROOT; };
 		10830CCA0F5DDD9A00937E9E /* libkext.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libkext.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		108A34980F5CD25700E76DC4 /* IOPMPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOPMPrivate.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/pwr_mgt/IOPMPrivate.h; sourceTree = SDKROOT; };
 		201A04BC20744DB0008318D8 /* IOHIDConnectionFilter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDConnectionFilter.h; sourceTree = "<group>"; };
@@ -2657,11 +2971,20 @@
 		3FF08619165AC5F400BD1467 /* iokitsimd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = iokitsimd; sourceTree = BUILT_PRODUCTS_DIR; };
 		3FF08626165AC64500BD1467 /* com.apple.iokitsimd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.iokitsimd.plist; sourceTree = "<group>"; };
 		4254C71112806E72000EB18F /* IOUserEthernetResourceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOUserEthernetResourceUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/network/IOUserEthernetResourceUserClient.h; sourceTree = SDKROOT; };
+		4838A12C214B1EDD00C2E1D8 /* HIDSessionBase.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDSessionBase.m; sourceTree = "<group>"; };
+		4838A130214B1F1100C2E1D8 /* HIDSessionBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HIDSessionBase.h; sourceTree = "<group>"; };
+		4838A132214B1F2000C2E1D8 /* HIDSessionIvar.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDSessionIvar.h; sourceTree = "<group>"; };
+		4838A134214B1F2F00C2E1D8 /* IOHIDSessionObjc.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IOHIDSessionObjc.m; sourceTree = "<group>"; };
 		48438B981CEBB08C0067C8C2 /* IOHIDProperties.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOHIDProperties.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/Headers/hid/IOHIDProperties.h; sourceTree = SDKROOT; };
 		48438B991CEBB0940067C8C2 /* IOHIDProperties.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOHIDProperties.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/Headers/hid/IOHIDProperties.h; sourceTree = SDKROOT; };
 		48684E031D25BF0100CC1067 /* IOHIDEventSystemClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOHIDEventSystemClient.h; path = hidsystem.subproj/IOHIDEventSystemClient.h; sourceTree = SOURCE_ROOT; };
 		48684E041D25BF0100CC1067 /* IOHIDServiceClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOHIDServiceClient.h; path = hidsystem.subproj/IOHIDServiceClient.h; sourceTree = SOURCE_ROOT; };
 		4893D2251B55D0DB00CF3CA0 /* IOUPSPlugIn.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOUPSPlugIn.h; sourceTree = "<group>"; };
+		48BBAD62212B7F80001E27B0 /* IOHIDEventPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDEventPrivate.h; sourceTree = "<group>"; };
+		48CCDDD2214AF513006EF5BB /* HIDServiceBase.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDServiceBase.m; sourceTree = "<group>"; };
+		48CCDDD3214AF51E006EF5BB /* HIDServiceBase.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDServiceBase.h; sourceTree = "<group>"; };
+		48CCDDD4214AF543006EF5BB /* HIDServiceIvar.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDServiceIvar.h; sourceTree = "<group>"; };
+		48CCDDD8214AF5D9006EF5BB /* IOHIDServiceObjc.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IOHIDServiceObjc.m; sourceTree = "<group>"; };
 		603248F218D22ED3000454BC /* en */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		603D2FAA18D9FFEA00A15FF1 /* ioserviceauthorized.xpc */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ioserviceauthorized.xpc; sourceTree = BUILT_PRODUCTS_DIR; };
 		603D2FAD18D9FFEA00A15FF1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -2690,6 +3013,9 @@
 		60AB175F18BD415B00349726 /* application.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = application.h; sourceTree = "<group>"; };
 		60EBEE7A18C5A53B0090C922 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = System/Library/Frameworks/DiskArbitration.framework; sourceTree = SDKROOT; };
 		60EBEE7B18C5A53B0090C922 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		6C912D841FA7841200CDF986 /* IOKitUser.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = IOKitUser.xcconfig; sourceTree = "<group>"; };
+		6C912D8B1FA8148000CDF986 /* IOKitUser-Embedded.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "IOKitUser-Embedded.xcconfig"; sourceTree = "<group>"; };
+		6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "IOKitUser-Sim.xcconfig"; sourceTree = "<group>"; };
 		6F089838198BF33400E03561 /* cross_link.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cross_link.c; sourceTree = "<group>"; };
 		6F089839198BF33400E03561 /* cross_link.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cross_link.h; sourceTree = "<group>"; };
 		6F51E41D0DAC16B800EDDC3D /* libkxld.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libkxld.dylib; path = usr/lib/system/libkxld.dylib; sourceTree = SDKROOT; };
@@ -2701,6 +3027,8 @@
 		720CE2651CAB43C9005127CC /* Trie.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = Trie.hpp; sourceTree = "<group>"; };
 		7211A9C4164B413700A8F7C5 /* IOPlatformSupport.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = IOPlatformSupport.c; path = platform.subproj/IOPlatformSupport.c; sourceTree = SOURCE_ROOT; };
 		7211A9C5164B413700A8F7C5 /* IOPlatformSupportPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOPlatformSupportPrivate.h; path = platform.subproj/IOPlatformSupportPrivate.h; sourceTree = SOURCE_ROOT; };
+		7227668C216699BF0019278D /* com.apple.iohid.service.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.iohid.service.plist; sourceTree = "<group>"; };
+		7234DFB821C18A6400F1651A /* libDiagnosticMessagesClient.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libDiagnosticMessagesClient.tbd; path = usr/lib/libDiagnosticMessagesClient.tbd; sourceTree = SDKROOT; };
 		723853E9087F2CC800B36ABB /* IOBSD.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOBSD.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/Headers/IOBSD.h; sourceTree = SDKROOT; };
 		723853EA087F2CC800B36ABB /* IODataQueueShared.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IODataQueueShared.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/Headers/IODataQueueShared.h; sourceTree = SDKROOT; };
 		723853EB087F2CC800B36ABB /* IOKitKeys.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOKitKeys.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/Headers/IOKitKeys.h; sourceTree = SDKROOT; };
@@ -2743,6 +3071,8 @@
 		72385464087F323E00B36ABB /* IOHIDParameter.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOHIDParameter.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/Headers/hidsystem/IOHIDParameter.h; sourceTree = SDKROOT; };
 		724B4F3C0EF720E2008787DE /* IOPMPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOPMPrivate.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/pwr_mgt/IOPMPrivate.h; sourceTree = SDKROOT; };
 		7255A7B1086CD13100A3554B /* IOKitLib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOKitLib.h; sourceTree = "<group>"; wrapsLines = 1; };
+		727DE43821B05CDA00BC8AD8 /* IOHIDAnalytics.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDAnalytics.h; sourceTree = "<group>"; };
+		727DE43921B05CF800BC8AD8 /* IOHIDAnalytics.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = IOHIDAnalytics.c; sourceTree = "<group>"; };
 		727ECE0D113F016F009A8AA6 /* IOPMAssertions.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOPMAssertions.c; sourceTree = "<group>"; };
 		729061E40CDFC6490046821C /* IOPMPowerNotifications.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOPMPowerNotifications.c; sourceTree = "<group>"; };
 		72C9226E142B9AD800E268F0 /* SMCUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SMCUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/smc/SMCUserClient.h; sourceTree = SDKROOT; };
@@ -2978,7 +3308,7 @@
 		E1AF602507B40A70007EADEA /* IODataQueueClient.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = IODataQueueClient.c; sourceTree = "<group>"; };
 		E1AF602707B40A70007EADEA /* IOCFPlugIn.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = IOCFPlugIn.c; sourceTree = "<group>"; };
 		E1AF602907B40A70007EADEA /* IOTrap.s */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.asm; path = IOTrap.s; sourceTree = "<group>"; };
-		E1AF602E07B40A70007EADEA /* English */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
+		E1AF602E07B40A70007EADEA /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		E1AF603407B40A70007EADEA /* CustomInfo.plist */ = {isa = PBXFileReference; explicitFileType = text.plist; path = CustomInfo.plist; sourceTree = "<group>"; };
 		E1AF604007B40A71007EADEA /* IOAudioLib.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOAudioLib.h; sourceTree = "<group>"; };
 		E1AF604A07B40A71007EADEA /* IOPMLib.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOPMLib.h; sourceTree = "<group>"; };
@@ -3109,7 +3439,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				05AB2CE621234F810024942C /* libDiagnosticMessagesClient.tbd in Frameworks */,
+				7234DFB921C18A6400F1651A /* libDiagnosticMessagesClient.tbd in Frameworks */,
 				80B849831AAE1ACE00DF24D0 /* libenergytrace.dylib in Frameworks */,
 				B3CA01DA14CA40DD00A67868 /* libbsm.dylib in Frameworks */,
 				E1AF60F007B40A71007EADEA /* CoreFoundation.framework in Frameworks */,
@@ -3122,12 +3452,50 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		05AB2CE421234F800024942C /* Frameworks */ = {
+		0F049CF4210F932700F8E2BC /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				05AB2CE521234F810024942C /* libDiagnosticMessagesClient.tbd */,
+				7234DFB821C18A6400F1651A /* libDiagnosticMessagesClient.tbd */,
+				0F049CF5210F932700F8E2BC /* hidobjc.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		0F049D04210F937900F8E2BC /* iohidobjc */ = {
+			isa = PBXGroup;
+			children = (
+				0F971ADA21486074000E2B5D /* hidobjcbase.h */,
+				0F971AD921486074000E2B5D /* HIDEventIvar.h */,
+				0F971AD721486074000E2B5D /* HIDEventBase.h */,
+				0F971ADB21486074000E2B5D /* HIDEventBase.m */,
+				0F971AD821486074000E2B5D /* HIDEventBasePrivate.h */,
+				0F049D05210F939200F8E2BC /* IOHIDEventObjc.m */,
+				48CCDDD4214AF543006EF5BB /* HIDServiceIvar.h */,
+				48CCDDD3214AF51E006EF5BB /* HIDServiceBase.h */,
+				48CCDDD2214AF513006EF5BB /* HIDServiceBase.m */,
+				48CCDDD8214AF5D9006EF5BB /* IOHIDServiceObjc.m */,
+				4838A132214B1F2000C2E1D8 /* HIDSessionIvar.h */,
+				4838A130214B1F1100C2E1D8 /* HIDSessionBase.h */,
+				4838A12C214B1EDD00C2E1D8 /* HIDSessionBase.m */,
+				4838A134214B1F2F00C2E1D8 /* IOHIDSessionObjc.m */,
+				0FC78425214F1B7000AD8611 /* HIDConnectionIvar.h */,
+				0FC78424214F1B6100AD8611 /* HIDConnectionBase.h */,
+				0FC78423214F1B5700AD8611 /* HIDConnectionBase.m */,
+				0FC78426214F1B7F00AD8611 /* IOHIDConnectionObjc.m */,
+				0F40FBC721667B8700EAEBCA /* HIDElementIvar.h */,
+				0F40FBC921667B9900EAEBCA /* HIDElementBase.h */,
+				0F40FBCB21667BAE00EAEBCA /* HIDElementBase.m */,
+				0F40FBCD21667BBD00EAEBCA /* IOHIDElementObjc.m */,
+				0F8DFBC32167C9EF009D1ACC /* HIDServiceClientIvar.h */,
+				0F8DFBBF2167C9D1009D1ACC /* HIDServiceClientBase.h */,
+				0F8DFBC12167C9DF009D1ACC /* HIDServiceClientBase.m */,
+				0F8DFBC52167CA00009D1ACC /* IOHIDServiceClientObjc.m */,
+				0F995A0E2177EB7400045795 /* HIDDeviceIvar.h */,
+				0F995A102177EB8200045795 /* HIDDeviceBase.h */,
+				0F995A122177EB9300045795 /* HIDDeviceBase.m */,
+				0F995A142177EBA300045795 /* IOHIDDeviceObjc.m */,
+			);
+			name = iohidobjc;
 			sourceTree = "<group>";
 		};
 		3E4B57BB07B4564600F76970 /* Mig .def files */ = {
@@ -3155,6 +3523,7 @@
 			children = (
 				48684E031D25BF0100CC1067 /* IOHIDEventSystemClient.h */,
 				48684E041D25BF0100CC1067 /* IOHIDServiceClient.h */,
+				0F8C514E2139BC2A00B5E85B /* IOHIDServiceClientPrivate.h */,
 			);
 			name = IOHIDEventSystem;
 			sourceTree = "<group>";
@@ -3274,6 +3643,14 @@
 			path = graphics.subproj;
 			sourceTree = "<group>";
 		};
+		7227668B216699980019278D /* Logging */ = {
+			isa = PBXGroup;
+			children = (
+				7227668C216699BF0019278D /* com.apple.iohid.service.plist */,
+			);
+			path = Logging;
+			sourceTree = "<group>";
+		};
 		723853DD087F2C2600B36ABB /* External Headers */ = {
 			isa = PBXGroup;
 			children = (
@@ -3290,6 +3667,11 @@
 		723853DE087F2C3700B36ABB /* IOHIDFamily IOKit Headers */ = {
 			isa = PBXGroup;
 			children = (
+				0FEF2BE1225D260400C4081D /* IOHIDEventServiceKeys_Private.h */,
+				0FEF2BE0225D260400C4081D /* IOHIDDeviceKeys.h */,
+				0FEF2BDF225D260400C4081D /* IOHIDDeviceTypes.h */,
+				0FEF2BE2225D260400C4081D /* IOHIDEventServiceKeys.h */,
+				0FEF2BE3225D260400C4081D /* IOHIDEventServiceTypes.h */,
 				D87B3EE81E610F5800B77E93 /* IOHIDEventFieldDefs.h */,
 				D87B3EE91E610F5800B77E93 /* IOHIDEventMacroDefs.h */,
 				D87B3EEA1E610F5800B77E93 /* IOHIDEventStructDefs.h */,
@@ -3464,6 +3846,11 @@
 		842053090CFE52AA00C2EF0D /* IOHIDFamily IOKit Headers */ = {
 			isa = PBXGroup;
 			children = (
+				0FEF2BEB225D267400C4081D /* IOHIDDeviceKeys.h */,
+				0FEF2BEC225D267400C4081D /* IOHIDDeviceTypes.h */,
+				0FEF2BED225D267400C4081D /* IOHIDEventServiceKeys.h */,
+				0FEF2BE9225D267400C4081D /* IOHIDEventServiceKeys_Private.h */,
+				0FEF2BEA225D267400C4081D /* IOHIDEventServiceTypes.h */,
 				48438B981CEBB08C0067C8C2 /* IOHIDProperties.h */,
 				849648FA0E885E3900B26A1C /* IOHIDResourceUserClient.h */,
 				842053710CFE55E700C2EF0D /* AppleHIDUsageTables.h */,
@@ -3508,6 +3895,7 @@
 			isa = PBXGroup;
 			children = (
 				843C1FEE0C0790410009057F /* IOHIDEvent.h */,
+				48BBAD62212B7F80001E27B0 /* IOHIDEventPrivate.h */,
 				D8B967A51CA5B7A70099B4B8 /* IOHIDEventPrivateKeys.h */,
 				847A12490C07C3A400F3CCDB /* IOHIDEventQueue.h */,
 				84A1B76411863F9C0099A3AD /* IOHIDEventServer.h */,
@@ -3533,6 +3921,7 @@
 				847A12570C07C3A400F3CCDB /* IOHIDTypes.h */,
 				201A04BC20744DB0008318D8 /* IOHIDConnectionFilter.h */,
 				201A04BD20744DCF008318D8 /* IOHIDConnectionFilterPlugin.h */,
+				727DE43821B05CDA00BC8AD8 /* IOHIDAnalytics.h */,
 				840933DE15FC054000F0AA90 /* Client */,
 			);
 			name = IOHIDEventSystem;
@@ -3553,8 +3942,11 @@
 			children = (
 				844A55CB0A54A8CD00FAE0BC /* IOHIDBase.h */,
 				844A55CC0A54A8CD00FAE0BC /* IOHIDDevice.h */,
+				0F8C514C2139BBE600B5E85B /* IOHIDDevicePrivate.h */,
 				844A55CD0A54A8CD00FAE0BC /* IOHIDDevicePlugIn.h */,
+				0F10646B229460B200795FA1 /* IOHIDUserDevice.h */,
 				84DE65B409B6952900AD798E /* IOHIDElement.h */,
+				0F8C514D2139BBFC00B5E85B /* IOHIDElementPrivate.h */,
 				844A55D10A54A8E800FAE0BC /* IOHIDLib.h */,
 				844A55D20A54A8E800FAE0BC /* IOHIDManager.h */,
 				844A55D30A54A8E800FAE0BC /* IOHIDQueue.h */,
@@ -3583,6 +3975,7 @@
 				84D247BA177BD874008F663C /* IOHIDSessionFilter.c */,
 				B32727B3134F772D009C9B4B /* IOHIDPlugins.c */,
 				201A04BE20744E16008318D8 /* IOHIDConnectionFilter.c */,
+				727DE43921B05CF800BC8AD8 /* IOHIDAnalytics.c */,
 				844634141607DC15003FF639 /* Client */,
 			);
 			name = IOHIDEventSystem;
@@ -3837,6 +4230,9 @@
 		E1AF5FF707B40A70007EADEA /* IOKit */ = {
 			isa = PBXGroup;
 			children = (
+				6C912D841FA7841200CDF986 /* IOKitUser.xcconfig */,
+				6C912D8B1FA8148000CDF986 /* IOKitUser-Embedded.xcconfig */,
+				6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */,
 				80515E131AAA5E620067A770 /* libenergytrace.dylib */,
 				A949EDE20E15DFAC004079DB /* AspenSDK.xcconfig */,
 				810B1FE718610CC4005A29C9 /* SimulatorSupport.xcconfig */,
@@ -3861,7 +4257,7 @@
 				603D2FAB18D9FFEA00A15FF1 /* ioserviceauthorized */,
 				E1AF600207B40A70007EADEA /* Products */,
 				A6280EDC1FDF56F900F18432 /* Recovered References */,
-				05AB2CE421234F800024942C /* Frameworks */,
+				0F049CF4210F932700F8E2BC /* Frameworks */,
 			);
 			name = IOKit;
 			sourceTree = "<group>";
@@ -4195,6 +4591,7 @@
 		E1AF60DA07B40A71007EADEA /* hid */ = {
 			isa = PBXGroup;
 			children = (
+				7227668B216699980019278D /* Logging */,
 				844A55DA0A54A8F100FAE0BC /* PrivateHeaders */,
 				84DE65AE09B6950D00AD798E /* Headers */,
 				E1AF60DB07B40A71007EADEA /* Other Sources */,
@@ -4206,6 +4603,7 @@
 		E1AF60DB07B40A71007EADEA /* Other Sources */ = {
 			isa = PBXGroup;
 			children = (
+				0F049D04210F937900F8E2BC /* iohidobjc */,
 				8456686B114C78F6006A9B74 /* IOHIDEventSystem */,
 				8456686C114C7909006A9B74 /* IOHIDManager */,
 			);
@@ -4269,6 +4667,7 @@
 				3F116D681638DFAD001C6A14 /* IODataQueueClient.h in Headers */,
 				3F116D691638DFAD001C6A14 /* IOKitLib.h in Headers */,
 				201A04C620744EAF008318D8 /* IOHIDConnectionFilter.h in Headers */,
+				0F8C51532139BC9F00B5E85B /* IOHIDDevicePrivate.h in Headers */,
 				201A04C720744EAF008318D8 /* IOHIDConnectionFilterPlugin.h in Headers */,
 				8987CF941E5791BC00A7E870 /* IOAVDisplayMemory.h in Headers */,
 				3F116D6A1638DFAD001C6A14 /* IOSystemConfiguration.h in Headers */,
@@ -4276,6 +4675,7 @@
 				3F116D6C1638DFAD001C6A14 /* IOHIDElement.h in Headers */,
 				3F116D6D1638DFAD001C6A14 /* IOHIDBase.h in Headers */,
 				3F116D6E1638DFAD001C6A14 /* IOHIDDevice.h in Headers */,
+				0F8C51502139BC9A00B5E85B /* IOHIDServiceClientPrivate.h in Headers */,
 				3F116D6F1638DFAD001C6A14 /* IOHIDDevicePlugIn.h in Headers */,
 				84D1C5D317B194B1006BC88F /* IOHIDServiceConnectionCache.h in Headers */,
 				3F116D701638DFAD001C6A14 /* IOHIDLib.h in Headers */,
@@ -4284,6 +4684,7 @@
 				3F116D731638DFAD001C6A14 /* IOHIDTransaction.h in Headers */,
 				3F116D741638DFAD001C6A14 /* IOHIDLibPrivate.h in Headers */,
 				8CF6001E1A42479E0085E4DC /* IOPSKeysPrivate.h in Headers */,
+				48BBAD64212B7F80001E27B0 /* IOHIDEventPrivate.h in Headers */,
 				3F116D751638DFAD001C6A14 /* IOHIDEvent.h in Headers */,
 				84D247D017825C39008F663C /* IOHIDSessionPrivate.h in Headers */,
 				3F116D761638DFAD001C6A14 /* IOHIDServicePlugIn.h in Headers */,
@@ -4305,6 +4706,7 @@
 				3F116D891638DFAD001C6A14 /* IOHIDManagerPersistentProperties.h in Headers */,
 				3F116D8A1638DFAD001C6A14 /* IOHIDServiceClient.h in Headers */,
 				84D247C0177BD88D008F663C /* IOHIDSessionFilter.h in Headers */,
+				0F8C51572139BCA400B5E85B /* IOHIDElementPrivate.h in Headers */,
 				3F116D8B1638DFAD001C6A14 /* IOHIDEventSystemClientPrivate.h in Headers */,
 				3F116D8C1638DFAD001C6A14 /* IOHIDEventSystemConnection.h in Headers */,
 				84D247C5177FEB8D008F663C /* IOHIDServiceFilter.h in Headers */,
@@ -4350,9 +4752,11 @@
 				84DE65B509B6952900AD798E /* IOHIDElement.h in Headers */,
 				844A55CE0A54A8CD00FAE0BC /* IOHIDBase.h in Headers */,
 				844A55CF0A54A8CD00FAE0BC /* IOHIDDevice.h in Headers */,
+				48BBAD63212B7F80001E27B0 /* IOHIDEventPrivate.h in Headers */,
 				844A55D00A54A8CD00FAE0BC /* IOHIDDevicePlugIn.h in Headers */,
 				84D247BF177BD88C008F663C /* IOHIDSessionFilter.h in Headers */,
 				844A55D50A54A8E800FAE0BC /* IOHIDLib.h in Headers */,
+				0F10646C229460B200795FA1 /* IOHIDUserDevice.h in Headers */,
 				844A55D60A54A8E800FAE0BC /* IOHIDManager.h in Headers */,
 				844A55D70A54A8E800FAE0BC /* IOHIDQueue.h in Headers */,
 				844A55D80A54A8E800FAE0BC /* IOHIDTransaction.h in Headers */,
@@ -4364,6 +4768,7 @@
 				8CF6001D1A42479D0085E4DC /* IOPSKeysPrivate.h in Headers */,
 				847A12600C07C3A400F3CCDB /* IOHIDEventSystemClient.h in Headers */,
 				84D1C5D217B194B1006BC88F /* IOHIDServiceConnectionCache.h in Headers */,
+				0F8C51522139BC9F00B5E85B /* IOHIDDevicePrivate.h in Headers */,
 				847A12610C07C3A400F3CCDB /* IOHIDEventSystemKeys.h in Headers */,
 				847A12620C07C3A400F3CCDB /* IOHIDEventSystemPrivate.h in Headers */,
 				847A12640C07C3A400F3CCDB /* IOHIDNotification.h in Headers */,
@@ -4372,6 +4777,7 @@
 				847A12680C07C3A400F3CCDB /* IOHIDSession.h in Headers */,
 				847A12690C07C3A400F3CCDB /* IOHIDTypes.h in Headers */,
 				8445AAC50C31A941007BF6A8 /* IOHIDEventQueue.h in Headers */,
+				0F8C51562139BCA300B5E85B /* IOHIDElementPrivate.h in Headers */,
 				8494352F104F76D100C3497B /* IOMIGMachPort.h in Headers */,
 				B950E6B1110F6B1900DDCF6D /* IOHIDManagerPersistentProperties.h in Headers */,
 				845666B1114950E5006A9B74 /* IOHIDEventSystemClientPrivate.h in Headers */,
@@ -4381,6 +4787,7 @@
 				B32727B9134F772D009C9B4B /* IOHIDPlugins.h in Headers */,
 				B32727BB134F772D009C9B4B /* IOHIDServiceFilterPlugIn.h in Headers */,
 				B32727BD134F772D009C9B4B /* IOHIDSessionFilterPlugIn.h in Headers */,
+				0F8C514F2139BC9A00B5E85B /* IOHIDServiceClientPrivate.h in Headers */,
 				B908942C1464496A00309232 /* IOHIDLibSPI.h in Headers */,
 				48684E051D25BF0100CC1067 /* IOHIDEventSystemClient.h in Headers */,
 				7211A9C7164B413700A8F7C5 /* IOPlatformSupportPrivate.h in Headers */,
@@ -4391,6 +4798,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0F8C51542139BCA000B5E85B /* IOHIDDevicePrivate.h in Headers */,
 				84D1C5D417B194B1006BC88F /* IOHIDServiceConnectionCache.h in Headers */,
 				8472D4BC0CFA100A003111DE /* IOCFSerialize.h in Headers */,
 				8472D4BD0CFA100A003111DE /* IOCFUnserialize.h in Headers */,
@@ -4403,6 +4811,7 @@
 				201A04C920744ED3008318D8 /* IOHIDConnectionFilter.h in Headers */,
 				201A04CA20744ED3008318D8 /* IOHIDConnectionFilterPlugin.h in Headers */,
 				8987CF961E5791FD00A7E870 /* IOAVDisplayMemory.h in Headers */,
+				0F8C51512139BC9B00B5E85B /* IOHIDServiceClientPrivate.h in Headers */,
 				84D247C6177FEB8D008F663C /* IOHIDServiceFilter.h in Headers */,
 				8472D4C40CFA100A003111DE /* IOKitLib.h in Headers */,
 				8472D4C50CFA100A003111DE /* IOSystemConfiguration.h in Headers */,
@@ -4410,6 +4819,7 @@
 				8472D4C80CFA100A003111DE /* IOHIDElement.h in Headers */,
 				8472D4C90CFA100A003111DE /* IOHIDBase.h in Headers */,
 				8472D4CA0CFA100A003111DE /* IOHIDDevice.h in Headers */,
+				48BBAD65212B7F80001E27B0 /* IOHIDEventPrivate.h in Headers */,
 				4893D2281B55D0EA00CF3CA0 /* IOUPSPlugIn.h in Headers */,
 				8472D4CB0CFA100A003111DE /* IOHIDDevicePlugIn.h in Headers */,
 				8472D4CC0CFA100A003111DE /* IOHIDLib.h in Headers */,
@@ -4449,6 +4859,7 @@
 				B32727BE134F772D009C9B4B /* IOHIDSessionFilterPlugIn.h in Headers */,
 				84FF284D1363799000A37B4B /* IODPController.h in Headers */,
 				8494480613E4D0CD00049B13 /* IODPDevice.h in Headers */,
+				0F8C51582139BCA500B5E85B /* IOHIDElementPrivate.h in Headers */,
 				84A60FEC13E5A4480034FE11 /* IODPService.h in Headers */,
 				84B3B1FE13E7C7E600C7ACDD /* IODPLib.h in Headers */,
 				84959074145B2044005F7106 /* IOAVAudioInterface.h in Headers */,
@@ -4568,6 +4979,7 @@
 				3F116D9E1638DFAD001C6A14 /* Sources */,
 				3F116DE51638DFAD001C6A14 /* Frameworks */,
 				3F116DED1638DFAD001C6A14 /* ShellScript */,
+				0F971AE921486B39000E2B5D /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -4641,9 +5053,9 @@
 			buildPhases = (
 				10BB67E30F5CC10700D026A8 /* Create Symlinks for Embedded Product */,
 				8472D47C0CFA100A003111DE /* CopyFiles */,
-				8472D4830CFA100A003111DE /* CopyFiles */,
-				8472D4860CFA100A003111DE /* CopyFiles */,
-				8472D4920CFA100A003111DE /* CopyFiles */,
+				8472D4830CFA100A003111DE /* Copy hidsystem Headers */,
+				8472D4860CFA100A003111DE /* Copy Private HID Headers */,
+				8472D4920CFA100A003111DE /* Copy HID Headers */,
 				8472D49C0CFA100A003111DE /* CopyFiles */,
 				8472D49E0CFA100A003111DE /* CopyFiles */,
 				8472D4A00CFA100A003111DE /* CopyFiles */,
@@ -4660,6 +5072,7 @@
 				8472D4E10CFA100A003111DE /* Sources */,
 				8472D5250CFA100A003111DE /* Frameworks */,
 				8472D52B0CFA100A003111DE /* ShellScript */,
+				0F971AE421486B0E000E2B5D /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -4697,6 +5110,7 @@
 				848E72E615068444006AE483 /* Sources */,
 				848E732B15068444006AE483 /* Frameworks */,
 				848E733315068444006AE483 /* ShellScript */,
+				0F971AE121486458000E2B5D /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -4758,6 +5172,8 @@
 				E1AF5FFF07B40A70007EADEA /* Rez */,
 				2D76BD2308DD0F83009A41B5 /* ShellScript */,
 				603D2FBC18D9FFEA00A15FF1 /* Embed XPC Services */,
+				0F971AED21486B58000E2B5D /* CopyFiles */,
+				7227668D21669AC50019278D /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -4782,13 +5198,9 @@
 			};
 			buildConfigurationList = 2DF1E08908DB6A940096BDB6 /* Build configuration list for PBXProject "IOKitUser" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				English,
-				Japanese,
-				French,
-				German,
 				en,
 			);
 			mainGroup = E1AF5FF707B40A70007EADEA /* IOKit */;
@@ -4895,7 +5307,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = "/bin/bash DeviceMIG.sh install";
-			shellScript = "";
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n";
 		};
 		2DCEADC108DB8EA700B0CBEA /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5055,6 +5467,20 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				48E26A4722CBD15100F2306B /* IOHIDEventObjc.m in Sources */,
+				48E26A4822CBD15100F2306B /* IOHIDServiceObjc.m in Sources */,
+				48E26A4922CBD15100F2306B /* IOHIDSessionObjc.m in Sources */,
+				48E26A4A22CBD15100F2306B /* IOHIDConnectionObjc.m in Sources */,
+				48E26A4B22CBD15100F2306B /* IOHIDElementObjc.m in Sources */,
+				48E26A4C22CBD15100F2306B /* IOHIDServiceClientObjc.m in Sources */,
+				48E26A4D22CBD15100F2306B /* IOHIDDeviceObjc.m in Sources */,
+				48E26A4022CBD14A00F2306B /* HIDEventBase.m in Sources */,
+				48E26A4122CBD14A00F2306B /* HIDServiceBase.m in Sources */,
+				48E26A4222CBD14A00F2306B /* HIDSessionBase.m in Sources */,
+				48E26A4322CBD14A00F2306B /* HIDConnectionBase.m in Sources */,
+				48E26A4422CBD14A00F2306B /* HIDElementBase.m in Sources */,
+				48E26A4522CBD14A00F2306B /* HIDServiceClientBase.m in Sources */,
+				48E26A4622CBD14A00F2306B /* HIDDeviceBase.m in Sources */,
 				D86F30DA1D3880740078EB6E /* IOHIDServiceKeys.c in Sources */,
 				6F66CAED1992A24900843FD5 /* cross_link.c in Sources */,
 				3F116D9F1638DFAD001C6A14 /* IOCFSerialize.c in Sources */,
@@ -5113,6 +5539,7 @@
 				3F116DD41638DFAD001C6A14 /* IOHIDEventServer.c in Sources */,
 				3F116DD51638DFAD001C6A14 /* IOPMAssertions.c in Sources */,
 				3F116DD61638DFAD001C6A14 /* IOHIDPlugins.c in Sources */,
+				727DE43C21B05CFB00BC8AD8 /* IOHIDAnalytics.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5153,6 +5580,20 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				48E26A5522CBD16400F2306B /* IOHIDEventObjc.m in Sources */,
+				48E26A5622CBD16400F2306B /* IOHIDServiceObjc.m in Sources */,
+				48E26A5722CBD16400F2306B /* IOHIDSessionObjc.m in Sources */,
+				48E26A5822CBD16400F2306B /* IOHIDConnectionObjc.m in Sources */,
+				48E26A5922CBD16400F2306B /* IOHIDElementObjc.m in Sources */,
+				48E26A5A22CBD16400F2306B /* IOHIDServiceClientObjc.m in Sources */,
+				48E26A5B22CBD16400F2306B /* IOHIDDeviceObjc.m in Sources */,
+				48E26A4E22CBD15C00F2306B /* HIDEventBase.m in Sources */,
+				48E26A4F22CBD15C00F2306B /* HIDServiceBase.m in Sources */,
+				48E26A5022CBD15C00F2306B /* HIDSessionBase.m in Sources */,
+				48E26A5122CBD15C00F2306B /* HIDConnectionBase.m in Sources */,
+				48E26A5222CBD15C00F2306B /* HIDElementBase.m in Sources */,
+				48E26A5322CBD15C00F2306B /* HIDServiceClientBase.m in Sources */,
+				48E26A5422CBD15C00F2306B /* HIDDeviceBase.m in Sources */,
 				D86F30DB1D3880830078EB6E /* IOHIDServiceKeys.c in Sources */,
 				6F66CAEE1992A27100843FD5 /* cross_link.c in Sources */,
 				8472D4E20CFA100A003111DE /* IOCFSerialize.c in Sources */,
@@ -5229,6 +5670,7 @@
 				8495908D145B2580005F7106 /* IOAVVideoInterface.c in Sources */,
 				845A820D154231A6004DE713 /* IOUSBDeviceDescription.c in Sources */,
 				84E22FBD1542384A009448C3 /* IOUSBDeviceController.c in Sources */,
+				727DE43B21B05CFB00BC8AD8 /* IOHIDAnalytics.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5312,12 +5754,27 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				48E26A3922CBD13E00F2306B /* IOHIDEventObjc.m in Sources */,
+				48E26A3A22CBD13E00F2306B /* IOHIDServiceObjc.m in Sources */,
+				48E26A3B22CBD13E00F2306B /* IOHIDSessionObjc.m in Sources */,
+				48E26A3C22CBD13E00F2306B /* IOHIDConnectionObjc.m in Sources */,
+				48E26A3D22CBD13E00F2306B /* IOHIDElementObjc.m in Sources */,
+				48E26A3E22CBD13E00F2306B /* IOHIDServiceClientObjc.m in Sources */,
+				48E26A3F22CBD13E00F2306B /* IOHIDDeviceObjc.m in Sources */,
+				48E26A3222CBD13500F2306B /* HIDEventBase.m in Sources */,
+				48E26A3322CBD13500F2306B /* HIDServiceBase.m in Sources */,
+				48E26A3422CBD13500F2306B /* HIDSessionBase.m in Sources */,
+				48E26A3522CBD13500F2306B /* HIDConnectionBase.m in Sources */,
+				48E26A3622CBD13500F2306B /* HIDElementBase.m in Sources */,
+				48E26A3722CBD13500F2306B /* HIDServiceClientBase.m in Sources */,
+				48E26A3822CBD13500F2306B /* HIDDeviceBase.m in Sources */,
 				6F66CAEC1992A23900843FD5 /* cross_link.c in Sources */,
 				E1AF601A07B40A70007EADEA /* IOCFSerialize.c in Sources */,
 				E1AF601C07B40A70007EADEA /* IOCFUnserialize.tab.c in Sources */,
 				E1AF601E07B40A70007EADEA /* IOKitLib.c in Sources */,
 				720CE25D1CAB4347005127CC /* FileAbstraction.hpp in Sources */,
 				E1AF602207B40A70007EADEA /* IOCFURLAccess.c in Sources */,
+				727DE43A21B05CF800BC8AD8 /* IOHIDAnalytics.c in Sources */,
 				E1AF602607B40A70007EADEA /* IODataQueueClient.c in Sources */,
 				E1AF602807B40A70007EADEA /* IOCFPlugIn.c in Sources */,
 				E1AF602A07B40A70007EADEA /* IOTrap.s in Sources */,
@@ -5450,7 +5907,7 @@
 		05EFAE960ABF698800EA1880 /* IODescription.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
-				05EFAE970ABF698800EA1880 /* English */,
+				05EFAE970ABF698800EA1880 /* en */,
 			);
 			name = IODescription.strings;
 			sourceTree = "<group>";
@@ -5466,7 +5923,7 @@
 		E1AF602C07B40A70007EADEA /* Localizable.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
-				E1AF602E07B40A70007EADEA /* English */,
+				E1AF602E07B40A70007EADEA /* en */,
 			);
 			name = Localizable.strings;
 			sourceTree = "<group>";
@@ -5480,6 +5937,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = (
@@ -5492,6 +5950,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				PRODUCT_NAME = kext;
 				SDKROOT = macosx.internal;
+				STRIP_INSTALLED_PRODUCT = NO;
 			};
 			name = Deployment;
 		};
@@ -5501,6 +5960,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = (
@@ -5511,6 +5971,7 @@
 				INSTALL_PATH = /usr/local/lib;
 				IS_ZIPPERED = YES;
 				PRODUCT_NAME = kext;
+				STRIP_INSTALLED_PRODUCT = NO;
 			};
 			name = "Deployment-Embedded";
 		};
@@ -5520,6 +5981,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -5531,6 +5993,7 @@
 				INSTALL_PATH = /usr/local/lib;
 				IS_ZIPPERED = YES;
 				PRODUCT_NAME = kext;
+				STRIP_INSTALLED_PRODUCT = NO;
 			};
 			name = "Development-Embedded";
 		};
@@ -5569,6 +6032,7 @@
 		2D2A541408EB47E900A41F15 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_LINK_OBJC_RUNTIME = NO;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
@@ -5595,6 +6059,7 @@
 				OTHER_LDFLAGS = (
 					"-seg_addr_table",
 					"$(NEXT_ROOT)$(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table",
+					"-ObjC",
 				);
 				OTHER_MIGFLAGS = "-DIOKIT ";
 				OTHER_REZFLAGS = "";
@@ -5606,6 +6071,7 @@
 		};
 		2D2A541508EB47E900A41F15 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 6C912D841FA7841200CDF986 /* IOKitUser.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = (
 					normal,
@@ -5642,8 +6108,9 @@
 		};
 		3F116DEF1638DFAD001C6A14 /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 810B1FE718610CC4005A29C9 /* SimulatorSupport.xcconfig */;
+			baseConfigurationReference = 6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */;
 			buildSettings = {
+				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				CONTENTS_FOLDER_PATH = IOKit.framework/Versions/A;
@@ -5677,6 +6144,7 @@
 				OTHER_LDFLAGS = (
 					"-seg_addr_table",
 					"$(NEXT_ROOT)$(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table",
+					"-ObjC",
 				);
 				OTHER_MIGFLAGS = "-DIOKIT ";
 				OTHER_REZFLAGS = "";
@@ -5688,8 +6156,9 @@
 		};
 		3F116DF01638DFAD001C6A14 /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 810B1FE718610CC4005A29C9 /* SimulatorSupport.xcconfig */;
+			baseConfigurationReference = 6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */;
 			buildSettings = {
+				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				CONTENTS_FOLDER_PATH = IOKit.framework/Versions/A;
@@ -5723,6 +6192,7 @@
 				OTHER_LDFLAGS = (
 					"-seg_addr_table",
 					"$(NEXT_ROOT)$(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table",
+					"-ObjC",
 				);
 				OTHER_MIGFLAGS = "-DIOKIT ";
 				OTHER_REZFLAGS = "";
@@ -5734,8 +6204,9 @@
 		};
 		3F116DF11638DFAD001C6A14 /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 810B1FE718610CC4005A29C9 /* SimulatorSupport.xcconfig */;
+			baseConfigurationReference = 6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */;
 			buildSettings = {
+				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				CONTENTS_FOLDER_PATH = IOKit.framework/Versions/A;
@@ -5767,7 +6238,7 @@
 					"-DNO_SECURITY_FRAMEWORK",
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "-ObjC";
 				OTHER_MIGFLAGS = "-DIOKIT -DNO_SECURITY_FRAMEWORK";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
@@ -5777,8 +6248,9 @@
 		};
 		3F116DF21638DFAD001C6A14 /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 810B1FE718610CC4005A29C9 /* SimulatorSupport.xcconfig */;
+			baseConfigurationReference = 6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */;
 			buildSettings = {
+				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				CONTENTS_FOLDER_PATH = IOKit.framework/Versions/A;
@@ -5810,7 +6282,7 @@
 					"-DNO_SECURITY_FRAMEWORK",
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "-ObjC";
 				OTHER_MIGFLAGS = "-DIOKIT -DNO_SECURITY_FRAMEWORK";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
@@ -5887,7 +6359,7 @@
 		};
 		3FF08620165AC5F400BD1467 /* Deployment */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 810B1FE718610CC4005A29C9 /* SimulatorSupport.xcconfig */;
+			baseConfigurationReference = 6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -5907,7 +6379,7 @@
 		};
 		3FF08621165AC5F400BD1467 /* Development */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 810B1FE718610CC4005A29C9 /* SimulatorSupport.xcconfig */;
+			baseConfigurationReference = 6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -5927,7 +6399,7 @@
 		};
 		3FF08622165AC5F400BD1467 /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 810B1FE718610CC4005A29C9 /* SimulatorSupport.xcconfig */;
+			baseConfigurationReference = 6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -5947,7 +6419,7 @@
 		};
 		3FF08623165AC5F400BD1467 /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 810B1FE718610CC4005A29C9 /* SimulatorSupport.xcconfig */;
+			baseConfigurationReference = 6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -6087,6 +6559,7 @@
 		};
 		6F737A4810B3466C00502FA9 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 6C912D841FA7841200CDF986 /* IOKitUser.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = (
 					normal,
@@ -6124,6 +6597,7 @@
 		6F737A4910B3466C00502FA9 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_LINK_OBJC_RUNTIME = NO;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
@@ -6147,7 +6621,7 @@
 					"-DHAVE_CFPLUGIN",
 					"-DHAVE_CFURLACCESS",
 				);
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "-ObjC";
 				OTHER_MIGFLAGS = "-DIOKIT ";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
@@ -6159,6 +6633,7 @@
 		6F737A4A10B3466C00502FA9 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
@@ -6188,6 +6663,7 @@
 				OTHER_LDFLAGS = (
 					"-seg_addr_table",
 					"$(NEXT_ROOT)$(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table",
+					"-ObjC",
 				);
 				OTHER_MIGFLAGS = "-DIOKIT ";
 				OTHER_REZFLAGS = "";
@@ -6203,6 +6679,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = (
@@ -6215,6 +6692,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				PRODUCT_NAME = kext;
 				SDKROOT = macosx.internal;
+				STRIP_INSTALLED_PRODUCT = NO;
 			};
 			name = Development;
 		};
@@ -6324,6 +6802,7 @@
 		8472D5310CFA100A003111DE /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
@@ -6353,6 +6832,7 @@
 				OTHER_LDFLAGS = (
 					"-seg_addr_table",
 					"$(NEXT_ROOT)$(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table",
+					"-ObjC",
 				);
 				OTHER_MIGFLAGS = "-DIOKIT ";
 				OTHER_REZFLAGS = "";
@@ -6365,6 +6845,7 @@
 		8472D5320CFA100A003111DE /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				CONTENTS_FOLDER_PATH = IOKit.framework/Versions/A;
@@ -6396,7 +6877,7 @@
 					"-DNO_SECURITY_FRAMEWORK",
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "-ObjC";
 				OTHER_MIGFLAGS = "-DIOKIT -DNO_SECURITY_FRAMEWORK";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
@@ -6407,6 +6888,7 @@
 		8472D5330CFA100A003111DE /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_LINK_OBJC_RUNTIME = NO;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				CONTENTS_FOLDER_PATH = IOKit.framework/Versions/A;
@@ -6438,7 +6920,7 @@
 					"-DNO_SECURITY_FRAMEWORK",
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "-ObjC";
 				OTHER_MIGFLAGS = "-DIOKIT -DNO_SECURITY_FRAMEWORK";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
@@ -6684,7 +7166,7 @@
 		};
 		84E4E5650CECC34E00EBA99F /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = A949EDE20E15DFAC004079DB /* AspenSDK.xcconfig */;
+			baseConfigurationReference = 6C912D8B1FA8148000CDF986 /* IOKitUser-Embedded.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = (
 					normal,
@@ -6721,6 +7203,7 @@
 		84E4E5660CECC34E00EBA99F /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_LINK_OBJC_RUNTIME = NO;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
@@ -6746,7 +7229,7 @@
 					"-DNO_SECURITY_FRAMEWORK",
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "-ObjC";
 				OTHER_MIGFLAGS = "-DIOKIT -DNO_SECURITY_FRAMEWORK";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKit;
@@ -6789,7 +7272,7 @@
 		};
 		84E4E5690CECC38700EBA99F /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = A949EDE20E15DFAC004079DB /* AspenSDK.xcconfig */;
+			baseConfigurationReference = 6C912D8B1FA8148000CDF986 /* IOKitUser-Embedded.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = (
 					normal,
@@ -6827,6 +7310,7 @@
 		84E4E56A0CECC38700EBA99F /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_LINK_OBJC_RUNTIME = NO;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
@@ -6855,6 +7339,7 @@
 				OTHER_LDFLAGS = (
 					"-seg_addr_table",
 					"$(NEXT_ROOT)$(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table",
+					"-ObjC",
 				);
 				OTHER_MIGFLAGS = "-DIOKIT -DNO_SECURITY_FRAMEWORK";
 				OTHER_REZFLAGS = "";

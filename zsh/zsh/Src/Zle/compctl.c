@@ -99,7 +99,7 @@ freecompctlp(HashNode hn)
 }
 
 /**/
-void
+static void
 freecompctl(Compctl cc)
 {
     if (cc == &cc_default ||
@@ -142,7 +142,7 @@ freecompctl(Compctl cc)
 }
 
 /**/
-void
+static void
 freecompcond(void *a)
 {
     Compcond cc = (Compcond) a;
@@ -186,7 +186,7 @@ freecompcond(void *a)
 }
 
 /**/
-int
+static int
 compctlread(char *name, char **args, Options ops, char *reply)
 {
     char *buf, *bptr;
@@ -383,7 +383,7 @@ get_compctl(char *name, char ***av, Compctl cc, int first, int isdef, int cl)
      * cct is a temporary just to hold flags; it never needs freeing.
      */
     struct compctl cct;
-    char **argv = *av;
+    char **argv = *av, argv_end[2] = "x";
     int ready = 0, hx = 0;
 
     /* Handle `compctl + foo ...' specially:  turn it into
@@ -516,14 +516,14 @@ get_compctl(char *name, char ***av, Compctl cc, int first, int isdef, int cl)
 		    }
 		    if ((*argv)[1]) {
 			p = (*argv) + 1;
-			*argv = "" - 1;
+			*argv = argv_end;
 		    } else if (!argv[1]) {
 			zwarnnam(name, "retry specification expected after -%c",
 				 **argv);
 			return 1;
 		    } else {
 			p = *++argv;
-			*argv = "" - 1;
+			*argv = argv_end;
 		    }
 		    switch (*p) {
 		    case '+':
@@ -553,25 +553,25 @@ get_compctl(char *name, char ***av, Compctl cc, int first, int isdef, int cl)
 	    case 'k':
 		if ((*argv)[1]) {
 		    cct.keyvar = (*argv) + 1;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		} else if (!argv[1]) {
 		    zwarnnam(name, "variable name expected after -%c", **argv);
 		    return 1;
 		} else {
 		    cct.keyvar = *++argv;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		}
 		break;
 	    case 'K':
 		if ((*argv)[1]) {
 		    cct.func = (*argv) + 1;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		} else if (!argv[1]) {
 		    zwarnnam(name, "function name expected after -%c", **argv);
 		    return 1;
 		} else {
 		    cct.func = *++argv;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		}
 		break;
 	    case 'Y':
@@ -582,74 +582,74 @@ get_compctl(char *name, char ***av, Compctl cc, int first, int isdef, int cl)
 	    expl:
 		if ((*argv)[1]) {
 		    cct.explain = (*argv) + 1;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		} else if (!argv[1]) {
 		    zwarnnam(name, "string expected after -%c", **argv);
 		    return 1;
 		} else {
 		    cct.explain = *++argv;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		}
 		break;
 	    case 'y':
 		if ((*argv)[1]) {
 		    cct.ylist = (*argv) + 1;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		} else if (!argv[1]) {
 		    zwarnnam(name, "function/variable expected after -%c",
 			     **argv);
 		} else {
 		    cct.ylist = *++argv;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		}
 		break;
 	    case 'P':
 		if ((*argv)[1]) {
 		    cct.prefix = (*argv) + 1;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		} else if (!argv[1]) {
 		    zwarnnam(name, "string expected after -%c", **argv);
 		    return 1;
 		} else {
 		    cct.prefix = *++argv;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		}
 		break;
 	    case 'S':
 		if ((*argv)[1]) {
 		    cct.suffix = (*argv) + 1;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		} else if (!argv[1]) {
 		    zwarnnam(name, "string expected after -%c", **argv);
 		    return 1;
 		} else {
 		    cct.suffix = *++argv;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		}
 		break;
 	    case 'g':
 		if ((*argv)[1]) {
 		    cct.glob = (*argv) + 1;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		} else if (!argv[1]) {
 		    zwarnnam(name, "glob pattern expected after -%c", **argv);
 		    return 1;
 		} else {
 		    cct.glob = *++argv;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		}
 		break;
 	    case 's':
 		if ((*argv)[1]) {
 		    cct.str = (*argv) + 1;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		} else if (!argv[1]) {
 		    zwarnnam(name, "command string expected after -%c",
 			     **argv);
 		    return 1;
 		} else {
 		    cct.str = *++argv;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		}
 		break;
 	    case 'l':
@@ -658,13 +658,13 @@ get_compctl(char *name, char ***av, Compctl cc, int first, int isdef, int cl)
 		    return 1;
 		} else if ((*argv)[1]) {
 		    cct.subcmd = (*argv) + 1;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		} else if (!argv[1]) {
 		    zwarnnam(name, "command name expected after -%c", **argv);
 		    return 1;
 		} else {
 		    cct.subcmd = *++argv;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		}
 		break;
 	    case 'h':
@@ -673,49 +673,49 @@ get_compctl(char *name, char ***av, Compctl cc, int first, int isdef, int cl)
 		    return 1;
 		} else if ((*argv)[1]) {
 		    cct.substr = (*argv) + 1;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		} else if (!argv[1]) {
 		    zwarnnam(name, "command name expected after -%c", **argv);
 		    return 1;
 		} else {
 		    cct.substr = *++argv;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		}
 		break;
 	    case 'W':
 		if ((*argv)[1]) {
 		    cct.withd = (*argv) + 1;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		} else if (!argv[1]) {
 		    zwarnnam(name, "path expected after -%c", **argv);
 		    return 1;
 		} else {
 		    cct.withd = *++argv;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		}
 		break;
 	    case 'J':
 		if ((*argv)[1]) {
 		    cct.gname = (*argv) + 1;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		} else if (!argv[1]) {
 		    zwarnnam(name, "group name expected after -%c", **argv);
 		    return 1;
 		} else {
 		    cct.gname = *++argv;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		}
 		break;
 	    case 'V':
 		if ((*argv)[1]) {
 		    cct.gname = (*argv) + 1;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		} else if (!argv[1]) {
 		    zwarnnam(name, "group name expected after -%c", **argv);
 		    return 1;
 		} else {
 		    cct.gname = *++argv;
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		}
 		cct.mask2 |= CC_NOSORT;
 		break;
@@ -738,7 +738,7 @@ get_compctl(char *name, char ***av, Compctl cc, int first, int isdef, int cl)
 			cct.mstr = NULL;
 			return 1;
 		    }
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		} else if (!argv[1]) {
 		    zwarnnam(name, "matching specification expected after -%c",
 			     **argv);
@@ -751,7 +751,7 @@ get_compctl(char *name, char ***av, Compctl cc, int first, int isdef, int cl)
 			cct.mstr = NULL;
 			return 1;
 		    }
-		    *argv = "" - 1;
+		    *argv = argv_end;
 		}
 		break;
 	    case 'H':
@@ -772,7 +772,7 @@ get_compctl(char *name, char ***av, Compctl cc, int first, int isdef, int cl)
 		    cct.hnum = 0;
 		if (*cct.hpat == '*' && !cct.hpat[1])
 		    cct.hpat = "";
-		*argv = "" - 1;
+		*argv = argv_end;
 		break;
 	    case 'C':
 		if (cl) {
@@ -1564,6 +1564,8 @@ bin_compctl(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
     Compctl cc = NULL;
     int ret = 0;
 
+    queue_signals();
+
     /* clear static flags */
     cclist = 0;
     showmask = 0;
@@ -1571,12 +1573,15 @@ bin_compctl(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
     /* Parse all the arguments */
     if (*argv) {
 	/* Let's see if this is a global matcher definition. */
-	if ((ret = get_gmatcher(name, argv)))
+	if ((ret = get_gmatcher(name, argv))) {
+	    unqueue_signals();
 	    return ret - 1;
+	}
 
 	cc = (Compctl) zshcalloc(sizeof(*cc));
 	if (get_compctl(name, &argv, cc, 1, 0, 0)) {
 	    freecompctl(cc);
+	    unqueue_signals();
 	    return 1;
 	}
 
@@ -1604,6 +1609,7 @@ bin_compctl(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 	printcompctl((cclist & COMP_LIST) ? "" : "DEFAULT", &cc_default, 0, 0);
  	printcompctl((cclist & COMP_LIST) ? "" : "FIRST", &cc_first, 0, 0);
 	print_gmatcher((cclist & COMP_LIST));
+	unqueue_signals();
 	return ret;
     }
 
@@ -1642,6 +1648,7 @@ bin_compctl(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 	    printcompctl("", &cc_first, 0, 0);
 	if (cclist & COMP_LISTMATCH)
 	    print_gmatcher(COMP_LIST);
+	unqueue_signals();
 	return ret;
     }
 
@@ -1656,6 +1663,7 @@ bin_compctl(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 	    compctl_process_cc(argv, cc);
     }
 
+    unqueue_signals();
     return ret;
 }
 
@@ -1667,12 +1675,18 @@ bin_compctl(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 static int
 bin_compcall(char *name, UNUSED(char **argv), Options ops, UNUSED(int func))
 {
+    int ret;
+
     if (incompfunc != 1) {
 	zwarnnam(name, "can only be called from completion function");
 	return 1;
     }
-    return makecomplistctl((OPT_ISSET(ops,'T') ? 0 : CFN_FIRST) |
-			   (OPT_ISSET(ops,'D') ? 0 : CFN_DEFAULT));
+
+    queue_signals();
+    ret = makecomplistctl((OPT_ISSET(ops,'T') ? 0 : CFN_FIRST) |
+			  (OPT_ISSET(ops,'D') ? 0 : CFN_DEFAULT));
+    unqueue_signals();
+    return ret;
 }
 
 /*
@@ -1755,6 +1769,8 @@ ccmakehookfn(UNUSED(Hookdef dummy), struct ccmakedat *dat)
     char *os = s;
     int onm = nmatches, odm = diffmatches, osi = movefd(0);
     LinkNode n;
+
+    queue_signals();
 
     /* We build a copy of the list of matchers to use to make sure that this
      * works even if a shell function called from the completion code changes
@@ -1851,6 +1867,7 @@ ccmakehookfn(UNUSED(Hookdef dummy), struct ccmakedat *dat)
 	    redup(osi, 0);
 
 	    dat->lst = 0;
+	    unqueue_signals();
 	    return 0;
 	}
 	if (lastmatches) {
@@ -1874,6 +1891,7 @@ ccmakehookfn(UNUSED(Hookdef dummy), struct ccmakedat *dat)
 	    redup(osi, 0);
 
 	    dat->lst = 0;
+	    unqueue_signals();
 	    return 0;
 	}
 	if (!m || !(m = m->next))
@@ -1883,6 +1901,8 @@ ccmakehookfn(UNUSED(Hookdef dummy), struct ccmakedat *dat)
     }
     redup(osi, 0);
     dat->lst = 1;
+
+    unqueue_signals();
     return 0;
 }
 
@@ -2044,7 +2064,7 @@ maketildelist(void)
 /* This does the check for compctl -x `n' and `N' patterns. */
 
 /**/
-int
+static int
 getcpat(char *str, int cpatindex, char *cpat, int class)
 {
     char *s, *t, *p;
@@ -2156,6 +2176,8 @@ gen_matches_files(int dirs, int execs, int all)
     if (prpre && *prpre) {
 	pathpref = dupstring(prpre);
 	unmetafy(pathpref, &pathpreflen);
+	if (pathpreflen > PATH_MAX)
+	    return;
 	/* system needs NULL termination, not provided by unmetafy */
 	pathpref[pathpreflen] = '\0';
     } else {
@@ -2198,6 +2220,8 @@ gen_matches_files(int dirs, int execs, int all)
 		     * the path buffer by appending the filename.       */
 		    ums = dupstring(n);
 		    unmetafy(ums, &umlen);
+		    if (umlen + pathpreflen + 1 > PATH_MAX)
+			continue;
 		    memcpy(q, ums, umlen);
 		    q[umlen] = '\0';
 		    /* And do the stat. */
@@ -2212,6 +2236,8 @@ gen_matches_files(int dirs, int execs, int all)
 			/* We have to test for a path suffix. */
 			int o = strlen(p), tt;
 
+			if (o + strlen(psuf) > PATH_MAX)
+			    continue;
 			/* Append it to the path buffer. */
 			strcpy(p + o, psuf);
 
@@ -3229,6 +3255,15 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
 
 	rpl = strlen(rpre);
 	rsl = strlen(rsuf);
+    }
+    else
+    {
+	for (p = rpre; *p; ++p)
+	    if (*p == Dash)
+		*p = '-';
+	for (p = rsuf; *p; ++p)
+	    if (*p == Dash)
+		*p = '-';
     }
     untokenize(lpre);
     untokenize(lsuf);

@@ -36,7 +36,7 @@
 #include "SecdTestKeychainUtilities.h"
 
 #if USE_KEYSTORE
-#include <libaks.h>
+#include "OSX/utilities/SecAKSWrappers.h"
 
 int secd_01_items(int argc, char *const *argv)
 {
@@ -52,14 +52,14 @@ int secd_01_items(int argc, char *const *argv)
     char *passcode="password";
     int passcode_len=(int)strlen(passcode);
 
-    ok(kIOReturnSuccess==aks_create_bag(passcode, passcode_len, kAppleKeyStoreDeviceBag, &keybag), "create keybag");
-    ok(kIOReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
+    ok(kAKSReturnSuccess==aks_create_bag(passcode, passcode_len, kAppleKeyStoreDeviceBag, &keybag), "create keybag");
+    ok(kAKSReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
     ok(!(state&keybag_state_locked), "keybag unlocked");
     SecItemServerSetKeychainKeybag(keybag);
 
     /* lock */
-    ok(kIOReturnSuccess==aks_lock_bag(keybag), "lock keybag");
-    ok(kIOReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
+    ok(kAKSReturnSuccess==aks_lock_bag(keybag), "lock keybag");
+    ok(kAKSReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
     ok(state&keybag_state_locked, "keybag locked");
 
     
@@ -98,24 +98,24 @@ int secd_01_items(int argc, char *const *argv)
     is_status(SecItemAdd(item, NULL), errSecInteractionNotAllowed, "add internet password while locked");
 
     /* unlock */
-    ok(kIOReturnSuccess==aks_unlock_bag(keybag, passcode, passcode_len), "unlock keybag");
-    ok(kIOReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
+    ok(kAKSReturnSuccess==aks_unlock_bag(keybag, passcode, passcode_len), "unlock keybag");
+    ok(kAKSReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
     ok(!(state&keybag_state_locked), "keybag unlocked");
 
     ok_status(SecItemAdd(item, NULL), "add internet password, while unlocked");
 
     
     /* lock */
-    ok(kIOReturnSuccess==aks_lock_bag(keybag), "lock keybag");
-    ok(kIOReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
+    ok(kAKSReturnSuccess==aks_lock_bag(keybag), "lock keybag");
+    ok(kAKSReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
     ok(state&keybag_state_locked, "keybag locked");
 
     is_status(SecItemAdd(item, NULL), errSecInteractionNotAllowed,
               "add internet password again, while locked");
 
     /* unlock */
-    ok(kIOReturnSuccess==aks_unlock_bag(keybag, passcode, passcode_len), "unlock keybag");
-    ok(kIOReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
+    ok(kAKSReturnSuccess==aks_unlock_bag(keybag, passcode, passcode_len), "unlock keybag");
+    ok(kAKSReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
     ok(!(state&keybag_state_locked), "keybag unlocked");
 
     is_status(SecItemAdd(item, NULL), errSecDuplicateItem,
@@ -132,8 +132,8 @@ int secd_01_items(int argc, char *const *argv)
     }
 
     /* lock */
-    ok(kIOReturnSuccess==aks_lock_bag(keybag), "lock keybag");
-    ok(kIOReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
+    ok(kAKSReturnSuccess==aks_lock_bag(keybag), "lock keybag");
+    ok(kAKSReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
     ok(state&keybag_state_locked, "keybag locked");
 
     is_status(SecItemCopyMatching(query, &results), errSecInteractionNotAllowed, "find internet password, while locked ");

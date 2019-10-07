@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -177,6 +177,36 @@ private:
                 break;
             }
 
+            case CheckMul: {
+                if (isARM64() && m_value->child(0)->type() == Int32) {
+                    CheckValue* checkMul = m_value->as<CheckValue>();
+
+                    Value* left = m_insertionSet.insert<Value>(m_index, SExt32, m_origin, m_value->child(0));
+                    Value* right = m_insertionSet.insert<Value>(m_index, SExt32, m_origin, m_value->child(1));
+                    Value* mulResult = m_insertionSet.insert<Value>(m_index, Mul, m_origin, left, right);
+                    Value* mulResult32 = m_insertionSet.insert<Value>(m_index, Trunc, m_origin, mulResult);
+                    Value* upperResult = m_insertionSet.insert<Value>(m_index, Trunc, m_origin,
+                        m_insertionSet.insert<Value>(m_index, SShr, m_origin, mulResult, m_insertionSet.insert<Const32Value>(m_index, m_origin, 32)));
+                    Value* signBit = m_insertionSet.insert<Value>(m_index, SShr, m_origin,
+                        mulResult32,
+                        m_insertionSet.insert<Const32Value>(m_index, m_origin, 31));
+                    Value* hasOverflowed = m_insertionSet.insert<Value>(m_index, NotEqual, m_origin, upperResult, signBit);
+
+                    CheckValue* check = m_insertionSet.insert<CheckValue>(m_index, Check, m_origin, hasOverflowed);
+                    check->setGenerator(checkMul->generator());
+                    check->clobberEarly(checkMul->earlyClobbered());
+                    check->clobberLate(checkMul->lateClobbered());
+                    auto children = checkMul->constrainedChildren();
+                    auto it = children.begin();
+                    for (std::advance(it, 2); it != children.end(); ++it)
+                        check->append(*it);
+
+                    m_value->replaceWithIdentity(mulResult32);
+                    m_changed = true;
+                }
+                break;
+            }
+
             case Switch: {
                 SwitchValue* switchValue = m_value->as<SwitchValue>();
                 Vector<SwitchCase> cases;
@@ -230,6 +260,7 @@ private:
                         m_insertionSet.insertIntConstant(m_index, expectedValue, mask(width)));
                     
                     atomic->child(0) = maskedExpectedValue;
+                    m_changed = true;
                 }
                 
                 if (atomic->opcode() == AtomicStrongCAS) {
@@ -238,9 +269,9 @@ private:
                         m_insertionSet.insertClone(m_index, atomic));
                     
                     atomic->replaceWithIdentity(newValue);
+                    m_changed = true;
                 }
-                
-                m_changed = true;
+
                 break;
             }
                 
@@ -506,12 +537,9 @@ private:
 
                         GPRReg index = params[0].gpr();
                         GPRReg scratch = params.gpScratch(0);
-                        GPRReg poisonScratch = params.gpScratch(1);
 
-                        jit.move(CCallHelpers::TrustedImm64(JITCodePoison::key()), poisonScratch);
                         jit.move(CCallHelpers::TrustedImmPtr(jumpTable), scratch);
                         jit.load64(CCallHelpers::BaseIndex(scratch, index, CCallHelpers::timesPtr()), scratch);
-                        jit.xor64(poisonScratch, scratch);
                         jit.jump(scratch, JSSwitchPtrTag);
 
                         // These labels are guaranteed to be populated before either late paths or

@@ -375,6 +375,36 @@ static void tests(void)
 	ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
 	is_status(trustResult, kSecTrustResultRecoverableTrustFailure, "trust is kSecTrustResultRecoverableTrustFailure");
 
+#if TARGET_OS_IPHONE
+    /* Test the extenions epoch feature. */
+    CFReleaseNull(exceptions);
+    CFReleaseNull(trust);
+    CFReleaseNull(policy);
+    policy = SecPolicyCreateSSL(false, CFSTR("self-signed.ssltest.apple.com"));
+    ok_status(SecTrustCreateWithCertificates(sscert0, policy, &trust), "create trust");
+    ok(exceptions = SecTrustCopyExceptions(trust), "create exceptions");
+    if (!exceptions) { goto errOut; }
+
+    /* Test the uninitialized extensions epoch. */
+    CFErrorRef exceptionResetCountError = NULL;
+    uint64_t exceptionResetCount = SecTrustGetExceptionResetCount(&exceptionResetCountError);
+    ok(exceptionResetCount == 0, "exception reset count is not set yet");
+    ok(SecTrustSetExceptions(trust, exceptions), "set exceptions");
+    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
+    is_status(trustResult, kSecTrustResultProceed, "trust is kSecTrustResultProceed");
+
+    /* Test increasing the extensions epoch. */
+    exceptionResetCountError = NULL;
+    ok_status(SecTrustIncrementExceptionResetCount(&exceptionResetCountError), "increase exception reset count");
+    exceptionResetCountError = NULL;
+    is(SecTrustGetExceptionResetCount(&exceptionResetCountError), 1 + exceptionResetCount, "exception reset count is 1 + previous count");
+
+    /* Test trust evaluation under a future extensions epoch. */
+    ok(!SecTrustSetExceptions(trust, exceptions), "set exceptions");
+    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
+    is_status(trustResult, kSecTrustResultRecoverableTrustFailure, "trust is kSecTrustResultRecoverableTrustFailure");
+#endif
+
 errOut:
 	CFReleaseSafe(anchors);
 	CFReleaseSafe(exceptions);
@@ -389,8 +419,11 @@ errOut:
 
 int si_27_sectrust_exceptions(int argc, char *const *argv)
 {
+#if TARGET_OS_IPHONE
+	plan_tests(62);
+#else
 	plan_tests(51);
-
+#endif
 
 	tests();
 

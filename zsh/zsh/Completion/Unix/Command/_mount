@@ -619,7 +619,7 @@ if (( ! $+_fs_any )); then
       'longnames[force Windows 95 long filenames to be visible]'
       'nowin95[completely ignore Windows 95 extended file information]'
     )
-    if [[ "${OSTYPE}" =~ freebsd.* ]]; then
+    if [[ "${OSTYPE}" = freebsd* ]]; then
 	    _fs_msdosfs=( "$_fs_msdos[@]" )
     fi
     ;;
@@ -931,42 +931,7 @@ devordir)
   esac
   ;;
 udevordir)
-  local dev_tmp dpath_tmp mp_tmp mline
-
-  case "$OSTYPE" in
-  linux*|irix*)
-    tmp=( "${(@f)$(< /etc/mtab)}" )
-    dev_tmp=( "${(@)${(@)tmp%% *}:#none}" )
-    mp_tmp=( "${(@)${(@)tmp#* }%% *}" )
-    ;;
-  freebsd*|dragonfly*)
-    /sbin/mount | while read mline; do
-      dev_tmp+=( $mline[(w)1] )
-      mp_tmp+=( $mline[(w)3] )
-    done
-  ;;
-  darwin*)
-    tmp=( "${(@f)$(/sbin/mount)}" )
-    dev_tmp=( "${(@)${(@)tmp%% *}:#map}" )
-    mp_tmp=( "${(@)${(@)tmp#* on }%% \(*}" )
-    ;;
-  *)
-    /sbin/mount | while read mline; do
-      mp_tmp+=( $mline[(w)1] )
-      dev_tmp+=( $mline[(w)3] )
-    done
-    ;;
-  esac
-
-  local MATCH MBEGIN MEND
-  mp_tmp=("${(@g::)mp_tmp}")
-  dpath_tmp=( "${(@Mg::)dev_tmp:#/*}" )
-  dev_tmp=( "${(@g::)dev_tmp:#/*}" )
-
-  _alternative \
-    'device-labels:device label:compadd -a dev_tmp' \
-    'device-paths: device path:_canonical_paths -A dpath_tmp -N -M "r:|/=* r:|=*" device-paths device\ path' \
-    'directories:mount point:_canonical_paths -A mp_tmp -N -M "r:|/=* r:|=*" directories mount\ point' && ret=0
+  _umountable && ret=0
   ;;
 labels)
   _wanted labels expl 'disk label' compadd /dev/disk/by-label/*(:t) && ret=0

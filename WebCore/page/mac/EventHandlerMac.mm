@@ -752,11 +752,6 @@ bool EventHandler::tabsToAllFormControls(KeyboardEvent* event) const
 
 bool EventHandler::needsKeyboardEventDisambiguationQuirks() const
 {
-#if ENABLE(DASHBOARD_SUPPORT)
-    if (m_frame.settings().usesDashboardBackwardCompatibilityMode())
-        return true;
-#endif
-        
     if (m_frame.settings().needsKeyboardEventDisambiguationQuirks())
         return true;
 
@@ -769,9 +764,9 @@ OptionSet<PlatformEvent::Modifier> EventHandler::accessKeyModifiers()
     // So, we use Control in this case, even though it conflicts with Emacs-style key bindings.
     // See <https://bugs.webkit.org/show_bug.cgi?id=21107> for more detail.
     if (AXObjectCache::accessibilityEnhancedUserInterfaceEnabled())
-        return PlatformEvent::Modifier::CtrlKey;
+        return PlatformEvent::Modifier::ControlKey;
 
-    return { PlatformEvent::Modifier::CtrlKey, PlatformEvent::Modifier::AltKey };
+    return { PlatformEvent::Modifier::ControlKey, PlatformEvent::Modifier::AltKey };
 }
 
 static ScrollableArea* scrollableAreaForBox(RenderBox& box)
@@ -787,10 +782,10 @@ static ContainerNode* findEnclosingScrollableContainer(ContainerNode* node, floa
     // Find the first node with a valid scrollable area starting with the current
     // node and traversing its parents (or shadow hosts).
     for (ContainerNode* candidate = node; candidate; candidate = candidate->parentOrShadowHostNode()) {
-        if (is<HTMLIFrameElement>(candidate))
+        if (is<HTMLIFrameElement>(*candidate))
             continue;
 
-        if (is<HTMLHtmlElement>(candidate) || is<HTMLDocument>(candidate))
+        if (is<HTMLHtmlElement>(*candidate) || is<HTMLDocument>(*candidate))
             return nullptr;
 
         RenderBox* box = candidate->renderBox();

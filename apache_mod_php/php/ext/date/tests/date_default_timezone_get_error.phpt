@@ -6,7 +6,7 @@ Test date_default_timezone_get() function : error conditions
  * Description:  Gets the default timezone used by all date/time functions in a script.
  * Source code: ext/standard/data/php_date.c
  */
- 
+
 date_default_timezone_set("UTC");
 
 echo "*** Testing date_default_timezone_get() : error conditions ***\n";
@@ -22,6 +22,8 @@ var_dump( date_default_timezone_get($extra_arg));
 *** Testing date_default_timezone_get() : error conditions ***
 
 -- Testing date_create() function with more than expected no. of arguments --
-string(3) "UTC"
+
+Warning: date_default_timezone_get() expects exactly 0 parameters, 1 given in %sdate_default_timezone_get_error.php on line %d
+NULL
 
 ===Done===

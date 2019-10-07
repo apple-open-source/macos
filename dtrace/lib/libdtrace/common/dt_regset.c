@@ -80,7 +80,7 @@ dt_regset_assert_free(dt_regset_t *drp)
 	boolean_t fail = B_FALSE;
 	for (reg = 0; reg < drp->dr_size; reg++) {
 		if (BT_TEST(drp->dr_bitmap, reg) != 0)  {
-			dt_dprintf("%%r%d was left allocated\n", reg);
+			dt_dprintf("%%r%d was left allocated", reg);
 			fail = B_TRUE;
 		}
 	}
@@ -127,7 +127,7 @@ dt_regset_alloc(dt_regset_t *drp)
 void
 dt_regset_free(dt_regset_t *drp, int reg)
 {
-	assert(reg > 0 && reg < drp->dr_size);
+	assert(reg >= 0 && reg < drp->dr_size);
 	assert(BT_TEST(drp->dr_bitmap, reg) != 0);
 	BT_CLEAR(drp->dr_bitmap, reg);
 }

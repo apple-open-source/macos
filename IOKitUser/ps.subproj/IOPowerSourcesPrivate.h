@@ -47,6 +47,9 @@ enum {
     kIOPSReadUserVisible    = 4
 };
 
+
+
+
 /*!
  * @function    IOPSRequestBatteryUpdate
  * @abstract    Tell the battery driver to read the battery's state.
@@ -245,6 +248,7 @@ IOReturn IOPSGetSupportedPowerSources(IOPSPowerSourceIndex *active,
 #define kPSRestrictedLevelBit                   (1 << 25)
 #define kPSTimeRemainingNotifyRawExternalBit    (1 << 26)
 #define kPSTimeRemainingNotifyShowChargingUIBit (1 << 27)
+#define kPSTimeRemainingNotifyPlayChargingChimeBit (1 << 28)
 #define kPSTimeRemainingNotifyActivePS8BitsStarts   56
 
 /*

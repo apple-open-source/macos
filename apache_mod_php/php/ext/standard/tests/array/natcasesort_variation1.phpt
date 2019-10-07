@@ -58,7 +58,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
@@ -68,7 +68,7 @@ $inputs = array(
 /*19*/ "string",
        'string',
        $heredoc,
-       
+
        // object data
 /*22*/ new classA(),
 
@@ -99,22 +99,22 @@ echo "Done";
 
 -- Iteration 1 --
 
-Warning: natcasesort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: natcasesort() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 2 --
 
-Warning: natcasesort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: natcasesort() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 3 --
 
-Warning: natcasesort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: natcasesort() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 4 --
 
-Warning: natcasesort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: natcasesort() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 5 --
@@ -154,22 +154,22 @@ NULL
 
 -- Iteration 12 --
 
-Warning: natcasesort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: natcasesort() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 13 --
 
-Warning: natcasesort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: natcasesort() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 14 --
 
-Warning: natcasesort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: natcasesort() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 15 --
 
-Warning: natcasesort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: natcasesort() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 16 --
@@ -220,4 +220,3 @@ NULL
 Warning: natcasesort() expects parameter 1 to be array, resource given in %s on line %d
 NULL
 Done
-

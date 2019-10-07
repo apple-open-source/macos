@@ -169,6 +169,8 @@ CFStringRef kSecRequirementKeyEntitlements = CFSTR("requirement:eval:entitlement
 CFStringRef kSecRequirementKeyIdentifier = CFSTR("requirement:eval:identifier");
 CFStringRef kSecRequirementKeyPackageChecksum = CFSTR("requirement:eval:package_checksum");
 CFStringRef kSecRequirementKeyChecksumAlgorithm = CFSTR("requirement:eval:package_checksum_algorithm");
+CFStringRef kSecRequirementKeySecureTimestamp = CFSTR("requirement:eval:secure_timestamp");
+CFStringRef kSecRequirementKeyTeamIdentifier = CFSTR("requirement:eval:team_identifier");
 
 OSStatus SecRequirementEvaluate(SecRequirementRef requirementRef,
 	CFArrayRef certificateChain, CFDictionaryRef context,
@@ -188,6 +190,12 @@ OSStatus SecRequirementEvaluate(SecRequirementRef requirementRef,
 		}
 	}
 
+	const char *teamID = NULL;
+	if (context && CFDictionaryGetValue(context, kSecRequirementKeyTeamIdentifier)) {
+		CFStringRef str = (CFStringRef)CFDictionaryGetValue(context, kSecRequirementKeyTeamIdentifier);
+		teamID = CFStringGetCStringPtr(str, kCFStringEncodingUTF8);
+	}
+
 	Requirement::Context ctx(certificateChain,		// mandatory
 		context ? CFDictionaryRef(CFDictionaryGetValue(context, kSecRequirementKeyInfoPlist)) : NULL,
 		context ? CFDictionaryRef(CFDictionaryGetValue(context, kSecRequirementKeyEntitlements)) : NULL,
@@ -196,7 +204,9 @@ OSStatus SecRequirementEvaluate(SecRequirementRef requirementRef,
 		NULL,	// can't specify a CodeDirectory here
 		context ? CFDataRef(CFDictionaryGetValue(context, kSecRequirementKeyPackageChecksum)) : NULL,
         checksumAlgorithm,
-		false // can't get forced platform this way
+		false, // can't get forced platform this way
+		context ? CFDateRef(CFDictionaryGetValue(context, kSecRequirementKeySecureTimestamp)) : NULL,
+		teamID
 	);
 	req->validate(ctx);
 	

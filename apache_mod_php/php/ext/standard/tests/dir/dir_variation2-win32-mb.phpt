@@ -8,7 +8,7 @@ if (substr(PHP_OS, 0, 3) != 'WIN') {
 ?>
 --FILE--
 <?php
-/* 
+/*
  * Prototype  : object dir(string $directory[, resource $context])
  * Description: Directory class with properties, handle and class and methods read, rewind and close
  * Source code: ext/standard/dir.c
@@ -116,19 +116,19 @@ rmdir($directory);
 *** Testing dir() : unexpected values for $context argument ***
 
 -- Iteration 1 --
-Warning: dir() expects parameter 2 to be resource, integer given in %s on line %d
+Warning: dir() expects parameter 2 to be resource, int given in %s on line %d
 NULL
 
 -- Iteration 2 --
-Warning: dir() expects parameter 2 to be resource, integer given in %s on line %d
+Warning: dir() expects parameter 2 to be resource, int given in %s on line %d
 NULL
 
 -- Iteration 3 --
-Warning: dir() expects parameter 2 to be resource, integer given in %s on line %d
+Warning: dir() expects parameter 2 to be resource, int given in %s on line %d
 NULL
 
 -- Iteration 4 --
-Warning: dir() expects parameter 2 to be resource, integer given in %s on line %d
+Warning: dir() expects parameter 2 to be resource, int given in %s on line %d
 NULL
 
 -- Iteration 5 --
@@ -180,19 +180,19 @@ Warning: dir() expects parameter 2 to be resource, null given in %s on line %d
 NULL
 
 -- Iteration 17 --
-Warning: dir() expects parameter 2 to be resource, boolean given in %s on line %d
+Warning: dir() expects parameter 2 to be resource, bool given in %s on line %d
 NULL
 
 -- Iteration 18 --
-Warning: dir() expects parameter 2 to be resource, boolean given in %s on line %d
+Warning: dir() expects parameter 2 to be resource, bool given in %s on line %d
 NULL
 
 -- Iteration 19 --
-Warning: dir() expects parameter 2 to be resource, boolean given in %s on line %d
+Warning: dir() expects parameter 2 to be resource, bool given in %s on line %d
 NULL
 
 -- Iteration 20 --
-Warning: dir() expects parameter 2 to be resource, boolean given in %s on line %d
+Warning: dir() expects parameter 2 to be resource, bool given in %s on line %d
 NULL
 
 -- Iteration 21 --

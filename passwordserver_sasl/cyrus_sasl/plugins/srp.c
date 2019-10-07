@@ -62,8 +62,8 @@
 
 //#define SRPDEBUG 1
 
-#include <sasl.h>
-#include <saslplug.h>
+#include "sasl.h"
+#include "saslplug.h"
 
 #define CORECRYPTO_DONOT_USE_TRANSPARENT_UNION 1
 
@@ -76,8 +76,9 @@
 #include <corecrypto/ccsrp.h>
 #include <corecrypto/ccsrp_gp.h>
 #include <corecrypto/ccrng.h>
+#include <corecrypto/ccrng_system.h>
 #include <CoreUtils/ChaCha20Poly1305.h> // until <rdar://problem/15224018&15224082>
-#include <config.h>
+#include "config.h"
 #include <assert.h>
 #include <ctype.h>
 #include <stdio.h>

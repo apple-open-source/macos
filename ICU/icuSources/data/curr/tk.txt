@@ -24,7 +24,7 @@ tk{
         }
         AOA{
             "AOA",
-            "Angol kwanzasy",
+            "Angola kwanzasy",
         }
         ARS{
             "ARS",
@@ -44,7 +44,7 @@ tk{
         }
         BAM{
             "BAM",
-            "Konwertirlenýän Bosniýa we Gersogowina markasy",
+            "Konwertirlenýän Bosniýa we Gersegowina markasy",
         }
         BBD{
             "BBD",
@@ -124,7 +124,7 @@ tk{
         }
         CNH{
             "CNH",
-            "CNH",
+            "Hytaý ýuany (ofşor)",
         }
         CNY{
             "CN¥",
@@ -368,6 +368,10 @@ tk{
         }
         MRO{
             "MRO",
+            "Mawritan ugiýasy (1973–2017)",
+        }
+        MRU{
+            "MRU",
             "Mawritan ugiýasy",
         }
         MUR{
@@ -516,6 +520,10 @@ tk{
         }
         STD{
             "STD",
+            "San-Tome we Prinsipi dobrasy (1977–2017)",
+        }
+        STN{
+            "STN",
             "San-Tome we Prinsipi dobrasy",
         }
         SYP{
@@ -532,7 +540,7 @@ tk{
         }
         TJS{
             "TJS",
-            "Täjik somonisy",
+            "Täjik somonisi",
         }
         TMT{
             "TMT",
@@ -584,6 +592,10 @@ tk{
         }
         VEF{
             "VEF",
+            "Wenesuela boliwary (2008–2018)",
+        }
+        VES{
+            "VES",
             "Wenesuela boliwary",
         }
         VND{
@@ -615,7 +627,7 @@ tk{
             "Fransuz ýuwaş umman franky",
         }
         XXX{
-            "XXX",
+            "¤",
             "Näbelli pul birligi",
         }
         YER{
@@ -711,7 +723,6 @@ tk{
         SHP{"£"}
         SRD{"$"}
         SSP{"£"}
-        STD{"Db"}
         SYP{"£"}
         THB{"฿"}
         TOP{"T$"}
@@ -753,8 +764,8 @@ tk{
             other{"niderland antil guldeni"}
         }
         AOA{
-            one{"angol kwanzasy"}
-            other{"angol kwanzasy"}
+            one{"angola kwanzasy"}
+            other{"angola kwanzasy"}
         }
         ARS{
             one{"argentin pesosy"}
@@ -773,8 +784,8 @@ tk{
             other{"azerbaýjan manady"}
         }
         BAM{
-            one{"konwertirlenýän bosniýa we gersogowina markasy"}
-            other{"konwertirlenýän bosniýa we gersogowina markasy"}
+            one{"konwertirlenýän bosniýa we gersegowina markasy"}
+            other{"konwertirlenýän bosniýa we gersegowina markasy"}
         }
         BBD{
             one{"barbados dollary"}
@@ -853,8 +864,8 @@ tk{
             other{"çili pesosy"}
         }
         CNH{
-            one{"CNH"}
-            other{"CNH"}
+            one{"hytaý ýuany (ofşor)"}
+            other{"hytaý ýuany (ofşor)"}
         }
         CNY{
             one{"hytaý ýuany"}
@@ -1097,6 +1108,10 @@ tk{
             other{"makao patakasy"}
         }
         MRO{
+            one{"mawritan ugiýasy (1973–2017)"}
+            other{"mawritan ugiýasy (1973–2017)"}
+        }
+        MRU{
             one{"mawritan ugiýasy"}
             other{"mawritan ugiýasy"}
         }
@@ -1245,6 +1260,10 @@ tk{
             other{"günorta sudan funty"}
         }
         STD{
+            one{"san-tome we prinsipi dobrasy (1977–2017)"}
+            other{"san-tome we prinsipi dobrasy (1977–2017)"}
+        }
+        STN{
             one{"san-tome we prinsipi dobrasy"}
             other{"san-tome we prinsipi dobrasy"}
         }
@@ -1261,8 +1280,8 @@ tk{
             other{"taýland baty"}
         }
         TJS{
-            one{"täjik somonisy"}
-            other{"täjik somonisy"}
+            one{"täjik somonisi"}
+            other{"täjik somonisi"}
         }
         TMT{
             one{"türkmen manady"}
@@ -1313,6 +1332,10 @@ tk{
             other{"özbek somy"}
         }
         VEF{
+            one{"wenesuela boliwary (2008–2018)"}
+            other{"wenesuela boliwary (2008–2018)"}
+        }
+        VES{
             one{"wenesuela boliwary"}
             other{"wenesuela boliwary"}
         }
@@ -1365,5 +1388,5 @@ tk{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.1.37.1"}
+    Version{"2.1.49.82"}
 }

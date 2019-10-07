@@ -5,14 +5,16 @@ if [ $# -ne 5 ]; then
     exit 1
 fi
 
+shopt -s nullglob
+
 ARCHS="$1"
 VARIANTS="$2"
 OUTPUTDIR="$3"
 SDKROOT="$4"
 SRCROOT="$5"
 
-LIBSYS="${SDKROOT}/usr/local/lib/system"
-LSYS="${SDKROOT}/usr/lib/system"
+LIBSYS="${SDKROOT}/${SDK_INSTALL_ROOT}/usr/local/lib/system"
+LSYS="${SDKROOT}/${SDK_INSTALL_ROOT}/usr/lib/system"
 
 mkdir -p "${OUTPUTDIR}"
 
@@ -21,6 +23,8 @@ for arch in ${ARCHS}; do
 	OUTPUTFILE="${OUTPUTDIR}/linker_arguments.${arch}.${variant}.txt"
 	OUTPUTCONFIG="${OUTPUTDIR}/config.${arch}.${variant}.h"
 	TEMPDIR="${OUTPUTDIR}/linker_arguments_tmp"
+
+	SDK_INSTALL_VARIANT="${DRIVERKIT:+_driverkit}"
 
 	mkdir -p "${TEMPDIR}"
 
@@ -32,8 +36,8 @@ for arch in ${ARCHS}; do
 	INUSRLOCALLIBSYSTEM="${TEMPDIR}/${arch}.${variant}.inusrlocallibsystem"
 	MISSINGLIBS="${TEMPDIR}/${arch}.${variant}.missinglibs"
 	POSSIBLEUSRLOCALLIBSYSTEM="${TEMPDIR}/${arch}.${variant}.possibleusrlocallibsystem"
-	OPTIONALLIBS="${SRCROOT}/optionallibs"
-	REQUIREDLIBS="${SRCROOT}/requiredlibs"
+	OPTIONALLIBS="${SRCROOT}/optionallibs${SDK_INSTALL_VARIANT}"
+	REQUIREDLIBS="${SRCROOT}/requiredlibs${SDK_INSTALL_VARIANT}"
 
 	if [ ${variant} = "normal" ]; then
 	    SUFFIX=""
@@ -57,7 +61,7 @@ for arch in ${ARCHS}; do
 			  echo "${l}"
 		fi
 	done | sed -E -e 's/^lib//' -e 's/\..*$$//'  | sort -u > ${INUSRLIBSYSTEM}
-	cd ${LIBSYS} && ls lib*.a | sed -E -e 's/_(debug|profile|static)\././' | while read l; do
+	[ -d ${LIBSYS} ] && cd ${LIBSYS} && ls lib*.a | sed -E -e 's/_(debug|profile|static)\././' | while read l; do
 	    xcrun -sdk "${SDKROOT}" lipo "${LIBSYS}/${l}" -verify_arch "${arch}" 2>/dev/null
 	    if [ $? -eq 0 ]; then
 		echo "${l}"

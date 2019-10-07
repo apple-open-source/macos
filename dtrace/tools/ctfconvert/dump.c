@@ -754,6 +754,19 @@ read_types(const ctf_header_t *hp, const ctf_data_t *cd)
 			}
 			break;
 
+		case CTF_K_PTRAUTH:
+			if (flags != F_STATS) {
+				uint_t data = *((const uint_t *)u.ptr);
+
+				(void) printf("PTRAUTH %s refers to %u key %d discriminated %llu discriminator %llu",
+				    ref_to_str(tp->ctt_name, hp, cd),
+				    tp->ctt_type, CTF_PTRAUTH_KEY(data),
+				    CTF_PTRAUTH_DISCRIMINATED(data),
+				    CTF_PTRAUTH_DISCRIMINATOR(data));
+			}
+			vlen = sizeof (uint_t);
+			break;
+
 		case CTF_K_UNKNOWN:
 			break; /* hole in type id space */
 
@@ -832,7 +845,7 @@ clean_strtab(ctf_header_t *hp, ctf_data_t *cd, strtab_t *strtab,
 				strncpy(s, buf, strlen(s));
 		}
 		/* add all strings to fresh strtab */
-		strtab_insert(strtab, s);
+		strtab_insert(strtab, atom_get(s));
 		n = strlen(s) + 1;
 		len -= n;
 		s += n;
@@ -948,6 +961,7 @@ print_stats(void)
 	long_stat("total number of const types", stats.s_types[CTF_K_CONST]);
 	long_stat("total number of restrict types",
 	    stats.s_types[CTF_K_RESTRICT]);
+	long_stat("total number of encoded pointers", stats.s_types[CTF_K_PTRAUTH]);
 	long_stat("total number of unknowns (holes)",
 	    stats.s_types[CTF_K_UNKNOWN]);
 
@@ -1231,7 +1245,8 @@ skiploop:
 	if (pp->ctp_magic != CTF_MAGIC)
 		die("%s does not appear to contain CTF data\n", filename);
 
-	if (pp->ctp_version == CTF_VERSION) {
+	if (pp->ctp_version == CTF_VERSION_2 ||
+	    pp->ctp_version == CTF_VERSION_3) {
 		/* LINTED - pointer alignment */
 		hp = (ctf_header_t *)cd.cd_ctfdata;
 		cd.cd_ctfdata = (caddr_t)cd.cd_ctfdata + sizeof (ctf_header_t);
@@ -1240,6 +1255,8 @@ skiploop:
 			die("%s does not contain a v%d CTF header\n", filename,
 			    CTF_VERSION);
 		}
+		/* Offset the start, so decrease the size by the same amount */
+		cd.cd_ctflen -= sizeof(ctf_header_t);
 
 	} else {
 		die("%s contains unsupported CTF version %d\n", filename,

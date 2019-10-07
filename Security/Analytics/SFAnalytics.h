@@ -30,54 +30,118 @@
 #import "SFAnalyticsMultiSampler.h"
 #import "SFAnalyticsActivityTracker.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 // this sampling interval will cause the sampler to run only at data reporting time
 extern const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport;
 
-@interface SFAnalytics : NSObject
+typedef NS_ENUM(uint32_t, SFAnalyticsTimestampBucket) {
+    SFAnalyticsTimestampBucketSecond = 0,
+    SFAnalyticsTimestampBucketMinute = 1,
+    SFAnalyticsTimestampBucketHour = 2,
+};
 
-+ (instancetype)logger;
+@protocol SFAnalyticsProtocol <NSObject>
++ (id<SFAnalyticsProtocol> _Nullable)logger;
+
+- (void)logResultForEvent:(NSString*)eventName
+              hardFailure:(bool)hardFailure
+                   result:(NSError* _Nullable)eventResultError;
+- (void)logResultForEvent:(NSString*)eventName
+              hardFailure:(bool)hardFailure
+                   result:(NSError* _Nullable)eventResultError
+           withAttributes:(NSDictionary* _Nullable)attributes;
+
+- (SFAnalyticsMultiSampler* _Nullable)AddMultiSamplerForName:(NSString *)samplerName
+                                            withTimeInterval:(NSTimeInterval)timeInterval
+                                                       block:(NSDictionary<NSString *,NSNumber *> *(^)(void))block;
+
+- (SFAnalyticsActivityTracker* _Nullable)logSystemMetricsForActivityNamed:(NSString*)eventName
+                                                               withAction:(void (^ _Nullable)(void))action;
+- (SFAnalyticsActivityTracker* _Nullable)startLogSystemMetricsForActivityNamed:(NSString *)eventName;
+@end
+
+@interface SFAnalytics : NSObject <SFAnalyticsProtocol>
+
++ (instancetype _Nullable)logger;
 
 + (NSInteger)fuzzyDaysSinceDate:(NSDate*)date;
 + (void)addOSVersionToEvent:(NSMutableDictionary*)event;
 // Help for the subclass to pick a prefered location
 + (NSString *)defaultAnalyticsDatabasePath:(NSString *)basename;
 
+- (void)dailyCoreAnalyticsMetrics:(NSString *)eventName;
+
 // Log event-based metrics: create an event corresponding to some event in your feature
 // and call the appropriate method based on the successfulness of that event
 - (void)logSuccessForEventNamed:(NSString*)eventName;
-- (void)logHardFailureForEventNamed:(NSString*)eventName withAttributes:(NSDictionary*)attributes;
-- (void)logSoftFailureForEventNamed:(NSString*)eventName withAttributes:(NSDictionary*)attributes;
+- (void)logSuccessForEventNamed:(NSString*)eventName timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket;
+
+- (void)logHardFailureForEventNamed:(NSString*)eventName withAttributes:(NSDictionary* _Nullable)attributes;
+- (void)logHardFailureForEventNamed:(NSString*)eventName withAttributes:(NSDictionary* _Nullable)attributes timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket;
+
+- (void)logSoftFailureForEventNamed:(NSString*)eventName withAttributes:(NSDictionary* _Nullable)attributes;
+- (void)logSoftFailureForEventNamed:(NSString*)eventName withAttributes:(NSDictionary* _Nullable)attributes timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket;
+
 // or just log an event if it is not failable
 - (void)noteEventNamed:(NSString*)eventName;
+- (void)noteEventNamed:(NSString*)eventName timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket;
 
-- (void)logResultForEvent:(NSString*)eventName hardFailure:(bool)hardFailure result:(NSError*)eventResultError;
-- (void)logResultForEvent:(NSString*)eventName hardFailure:(bool)hardFailure result:(NSError*)eventResultError withAttributes:(NSDictionary*)attributes;
+- (void)logResultForEvent:(NSString*)eventName
+              hardFailure:(bool)hardFailure
+                   result:(NSError* _Nullable)eventResultError;
+- (void)logResultForEvent:(NSString*)eventName
+              hardFailure:(bool)hardFailure
+                   result:(NSError* _Nullable)eventResultError
+          timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket;
+- (void)logResultForEvent:(NSString*)eventName
+              hardFailure:(bool)hardFailure
+                   result:(NSError* _Nullable)eventResultError
+           withAttributes:(NSDictionary* _Nullable)attributes;
+- (void)logResultForEvent:(NSString*)eventName
+              hardFailure:(bool)hardFailure
+                   result:(NSError* _Nullable)eventResultError
+           withAttributes:(NSDictionary* _Nullable)attributes
+          timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket;
 
 // Track the state of a named value over time
-- (SFAnalyticsSampler*)addMetricSamplerForName:(NSString*)samplerName withTimeInterval:(NSTimeInterval)timeInterval block:(NSNumber* (^)(void))block;
-- (SFAnalyticsSampler*)existingMetricSamplerForName:(NSString*)samplerName;
+- (SFAnalyticsSampler* _Nullable)addMetricSamplerForName:(NSString*)samplerName
+                                        withTimeInterval:(NSTimeInterval)timeInterval
+                                                   block:(NSNumber* (^)(void))block;
+- (SFAnalyticsSampler* _Nullable)existingMetricSamplerForName:(NSString*)samplerName;
 - (void)removeMetricSamplerForName:(NSString*)samplerName;
 // Same idea, but log multiple named values in a single block
-- (SFAnalyticsMultiSampler*)AddMultiSamplerForName:(NSString*)samplerName withTimeInterval:(NSTimeInterval)timeInterval block:(NSDictionary<NSString*, NSNumber*>* (^)(void))block;
+- (SFAnalyticsMultiSampler* _Nullable)AddMultiSamplerForName:(NSString*)samplerName
+                                            withTimeInterval:(NSTimeInterval)timeInterval
+                                                       block:(NSDictionary<NSString*, NSNumber*>* (^)(void))block;
 - (SFAnalyticsMultiSampler*)existingMultiSamplerForName:(NSString*)samplerName;
 - (void)removeMultiSamplerForName:(NSString*)samplerName;
 
 // Log measurements of arbitrary things
 // System metrics measures how much time it takes to complete the action - possibly more in the future. The return value can be ignored if you only need to execute 1 block for your activity
-- (SFAnalyticsActivityTracker*)logSystemMetricsForActivityNamed:(NSString*)eventName withAction:(void (^)(void))action;
-- (void)logMetric:(NSNumber*)metric withName:(NSString*)metricName;
+- (SFAnalyticsActivityTracker* _Nullable)logSystemMetricsForActivityNamed:(NSString*)eventName
+                                                               withAction:(void (^ _Nullable)(void))action;
 
+// Same as above, but automatically starts the tracker, since you haven't given it any action to perform
+- (SFAnalyticsActivityTracker* _Nullable)startLogSystemMetricsForActivityNamed:(NSString *)eventName;
+
+- (void)logMetric:(NSNumber*)metric withName:(NSString*)metricName;
 
 
 // --------------------------------
 // Things below are for subclasses
 
 // Override to create a concrete logger instance
-@property (readonly, class) NSString* databasePath;
+@property (readonly, class, nullable) NSString* databasePath;
 
 // Storing dates
-- (void)setDateProperty:(NSDate*)date forKey:(NSString*)key;
-- (NSDate*)datePropertyForKey:(NSString*)key;
+- (void)setDateProperty:(NSDate* _Nullable)date forKey:(NSString*)key;
+- (NSDate* _Nullable)datePropertyForKey:(NSString*)key;
+
+- (void)incrementIntegerPropertyForKey:(NSString*)key;
+- (void)setNumberProperty:(NSNumber* _Nullable)number forKey:(NSString*)key;
+- (NSNumber * _Nullable)numberPropertyForKey:(NSString*)key;
+
 
 // --------------------------------
 // Things below are for unit testing
@@ -86,5 +150,6 @@ extern const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport;
 
 @end
 
+NS_ASSUME_NONNULL_END
 #endif
 #endif

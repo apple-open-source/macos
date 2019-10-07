@@ -16,8 +16,6 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id$ */
-
 /* This is the spprintf implementation.
  * It has emerged from apache snprintf. See original header:
  */
@@ -117,7 +115,7 @@
 #define EXPONENT_LENGTH 10
 
 #include "zend_smart_str.h"
-#include "ext/standard/php_smart_string.h"
+#include "zend_smart_string.h"
 
 /* {{{ macros */
 
@@ -138,7 +136,6 @@
 } while (0);
 
 #define PAD_CHAR(xbuf, ch, count, is_char) do { \
-	size_t newlen; \
 	if ((is_char)) { \
 		smart_string_alloc(((smart_string *)(xbuf)), (count), 0); \
 		memset(((smart_string *)(xbuf))->c + ((smart_string *)(xbuf))->len, (ch), (count)); \
@@ -818,7 +815,7 @@ fmt_error:
 			}
 
 			if (free_zcopy) {
-				zval_dtor(&zcopy);
+				zval_ptr_dtor_str(&zcopy);
 			}
 		}
 skip_output:
@@ -828,76 +825,15 @@ skip_output:
 }
 /* }}} */
 
-/*
- * This is the general purpose conversion function.
- */
-PHPAPI size_t vspprintf(char **pbuf, size_t max_len, const char *format, va_list ap) /* {{{ */
+PHPAPI void php_printf_to_smart_string(smart_string *buf, const char *format, va_list ap) /* {{{ */
 {
-	smart_string buf = {0};
-
-	/* since there are places where (v)spprintf called without checking for null,
-	   a bit of defensive coding here */
-	if(!pbuf) {
-		return 0;
-	}
-	xbuf_format_converter(&buf, 1, format, ap);
-
-	if (max_len && buf.len > max_len) {
-		buf.len = max_len;
-	}
-
-	smart_string_0(&buf);
-
-	if (buf.c) {
-		*pbuf = buf.c;
-		return buf.len;
-	} else {
-		*pbuf = estrndup("", 0);
-		return 0;
-	}
+	xbuf_format_converter(buf, 1, format, ap);
 }
 /* }}} */
 
-PHPAPI size_t spprintf(char **pbuf, size_t max_len, const char *format, ...) /* {{{ */
+PHPAPI void php_printf_to_smart_str(smart_str *buf, const char *format, va_list ap) /* {{{ */
 {
-	size_t cc;
-	va_list ap;
-
-	va_start(ap, format);
-	cc = vspprintf(pbuf, max_len, format, ap);
-	va_end(ap);
-	return (cc);
-}
-/* }}} */
-
-PHPAPI zend_string *vstrpprintf(size_t max_len, const char *format, va_list ap) /* {{{ */
-{
-	smart_str buf = {0};
-
-	xbuf_format_converter(&buf, 0, format, ap);
-
-	if (!buf.s) {
-		return ZSTR_EMPTY_ALLOC();
-	}
-
-	if (max_len && ZSTR_LEN(buf.s) > max_len) {
-		ZSTR_LEN(buf.s) = max_len;
-	}
-
-	smart_str_0(&buf);
-	return buf.s;
-}
-/* }}} */
-
-PHPAPI zend_string *strpprintf(size_t max_len, const char *format, ...) /* {{{ */
-{
-	va_list ap;
-	zend_string *str;
-
-	va_start(ap, format);
-	str = vstrpprintf(max_len, format, ap);
-	va_end(ap);
-	return str;
+	xbuf_format_converter(buf, 0, format, ap);
 }
 /* }}} */
 

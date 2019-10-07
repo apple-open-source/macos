@@ -27,13 +27,11 @@ int(0)
 int(0)
 bool(true)
 bool(true)
-
-Warning: substr_compare(): The start position cannot exceed initial string length in %s on line %d
-bool(false)
+int(-1)
 bool(true)
 int(0)
 
-Warning: substr_compare() expects parameter 5 to be boolean, object given in %s on line %d
+Warning: substr_compare() expects parameter 5 to be bool, object given in %s on line %d
 bool(false)
 Test
 
@@ -41,6 +39,6 @@ Warning: substr_compare(): The length must be greater than or equal to zero in %
 bool(false)
 bool(true)
 
-Warning: substr_compare() expects parameter 4 to be integer, string given in %s on line %d
+Warning: substr_compare() expects parameter 4 to be int, string given in %s on line %d
 bool(false)
 Done

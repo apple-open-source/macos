@@ -146,6 +146,45 @@ static const uint8_t symmetricKey_384[] = {
     XCTAssertNil(newSet, @"escrow keys should not be initialized");
 }
 
+-(void) testEscrowKeyLoadingAndStoringInKeychain
+{
+    NSError* error = nil;
+    NSString* secretString = @"secret";
+    NSData* secret = [[NSData alloc]initWithBytes:[secretString UTF8String] length:[secretString length]];
+
+    OTEscrowKeys* keys = [[OTEscrowKeys alloc] initWithSecret:secret dsid:@"dsid-123456789" error:&error];
+    XCTAssertNotNil(keys, @"keys should not be nil");
+    XCTAssertNil(error, "error should be nil");
+
+    NSString* label = [OTEscrowKeys hashEscrowedSigningPublicKey:[[keys.signingKey publicKey] encodeSubjectPublicKeyInfo]];
+    NSMutableDictionary* query = [@{
+                                    (id)kSecClass : (id)kSecClassKey,
+                                    (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+                                    (id)kSecAttrLabel: label,
+                                    (id)kSecReturnAttributes: @YES,
+                                    (id)kSecReturnData : @YES,
+                                    (id)kSecAttrSynchronizable : (id)kCFBooleanFalse,
+                                    (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+                                    } mutableCopy];
+
+    CFTypeRef result = NULL;
+    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
+    XCTAssertNotNil((__bridge NSDictionary*)result, @"result not be nil");
+    XCTAssertEqual(CFDictionaryGetCount(result), 3, @"should be 3 entries");
+
+    XCTAssertEqual(status, 0, @"status should be 0");
+
+    query = [@{
+               (id)kSecClass : (id)kSecClassKey,
+               (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+               (id)kSecReturnAttributes: @YES,
+               (id)kSecAttrSynchronizable : (id)kCFBooleanFalse,
+               } mutableCopy];
+
+    status = SecItemDelete((__bridge CFDictionaryRef)query);
+    XCTAssertEqual(status, 0, @"status should be 0");
+}
+
 
 @end
 

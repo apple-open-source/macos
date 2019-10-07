@@ -41,6 +41,7 @@
 =============================================================================*/
 
 #include "IOAudioBlitterLibDispatch.h"
+
 #include "IOAudioBlitterLib.h"
 #include <xmmintrin.h>
 #include <smmintrin.h>
@@ -64,6 +65,7 @@
 	
 	On Intel, the haveVector argument is ignored and some implementations assume SSE2.
 */
+
 
 
 void IOAF_NativeInt16ToFloat32( const SInt16 *src, Float32 *dest, unsigned int count )

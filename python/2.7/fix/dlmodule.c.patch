@@ -1,0 +1,24 @@
+--- Python-2.7.16/Modules/dlmodule.c	2019-03-02 10:17:42.000000000 -0800
++++ Python-2.7.16-new/Modules/dlmodule.c	2019-04-23 14:32:15.000000000 -0700
+@@ -112,6 +112,8 @@
+             if (alist[i-1] == -1 && PyErr_Occurred())
+                 return NULL;
+         }
++        else if (PyLong_Check(v))
++            alist[i-1] = PyLong_AsLong(v);
+         else if (PyString_Check(v))
+             alist[i-1] = (long)PyString_AsString(v);
+         else if (v == Py_None)
+@@ -167,12 +169,6 @@
+     char *name;
+     int mode;
+     PyUnivPtr *handle;
+-    if (sizeof(int) != sizeof(long) ||
+-        sizeof(long) != sizeof(char *)) {
+-        PyErr_SetString(PyExc_SystemError,
+- "module dl requires sizeof(int) == sizeof(long) == sizeof(char*)");
+-                return NULL;
+-    }
+ 
+     if (PyArg_ParseTuple(args, "z:open", &name))
+         mode = RTLD_LAZY;

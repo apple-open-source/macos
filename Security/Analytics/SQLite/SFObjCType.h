@@ -21,6 +21,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifndef SECURITY_SFSQL_OBJCTYPE_H
+#define SECURITY_SFSQL_OBJCTYPE_H 1
+
 #if __OBJC2__
 
 #import <Foundation/Foundation.h>
@@ -90,3 +93,4 @@ typedef NS_ENUM(NSInteger, SFObjCTypeFlag) {
 @end
 
 #endif
+#endif /* SECURITY_SFSQL_OBJCTYPE_H */

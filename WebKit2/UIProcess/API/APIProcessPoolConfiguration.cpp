@@ -41,7 +41,6 @@ Ref<ProcessPoolConfiguration> ProcessPoolConfiguration::createWithLegacyOptions(
     auto configuration = ProcessPoolConfiguration::createWithWebsiteDataStoreConfiguration(WebsiteDataStore::legacyDefaultDataStoreConfiguration());
 
     configuration->m_shouldHaveLegacyDataStore = true;
-    configuration->m_maximumProcessCount = 1;
     configuration->m_cacheModel = WebKit::CacheModel::DocumentViewer;
 
     return configuration;
@@ -55,7 +54,7 @@ Ref<ProcessPoolConfiguration> ProcessPoolConfiguration::createWithWebsiteDataSto
     configuration->m_applicationCacheFlatFileSubdirectoryName = legacyConfiguration.applicationCacheFlatFileSubdirectoryName();
     configuration->m_diskCacheDirectory = legacyConfiguration.networkCacheDirectory();
     configuration->m_mediaCacheDirectory = legacyConfiguration.mediaCacheDirectory();
-    configuration->m_indexedDBDatabaseDirectory = WebsiteDataStore::legacyDefaultIndexedDBDatabaseDirectory();
+    configuration->m_indexedDBDatabaseDirectory = legacyConfiguration.indexedDBDatabaseDirectory();
     configuration->m_localStorageDirectory = legacyConfiguration.localStorageDirectory();
     configuration->m_deviceIdHashSaltsStorageDirectory = legacyConfiguration.deviceIdHashSaltsStorageDirectory();
     configuration->m_mediaKeysStorageDirectory = legacyConfiguration.mediaKeysStorageDirectory();
@@ -90,7 +89,6 @@ Ref<ProcessPoolConfiguration> ProcessPoolConfiguration::copy()
     auto copy = this->create();
 
     copy->m_shouldHaveLegacyDataStore = this->m_shouldHaveLegacyDataStore;
-    copy->m_maximumProcessCount = this->m_maximumProcessCount;
     copy->m_cacheModel = this->m_cacheModel;
     copy->m_diskCacheDirectory = this->m_diskCacheDirectory;
     copy->m_diskCacheSpeculativeValidationEnabled = this->m_diskCacheSpeculativeValidationEnabled;
@@ -117,6 +115,7 @@ Ref<ProcessPoolConfiguration> ProcessPoolConfiguration::copy()
     copy->m_shouldCaptureAudioInUIProcess = this->m_shouldCaptureAudioInUIProcess;
     copy->m_shouldCaptureDisplayInUIProcess = this->m_shouldCaptureDisplayInUIProcess;
     copy->m_isJITEnabled = this->m_isJITEnabled;
+    copy->m_downloadMonitorSpeedMultiplier = this->m_downloadMonitorSpeedMultiplier;
 #if PLATFORM(IOS_FAMILY)
     copy->m_ctDataConnectionServiceType = this->m_ctDataConnectionServiceType;
 #endif
@@ -127,13 +126,12 @@ Ref<ProcessPoolConfiguration> ProcessPoolConfiguration::copy()
     copy->m_processSwapsOnWindowOpenWithOpener = this->m_processSwapsOnWindowOpenWithOpener;
     copy->m_isAutomaticProcessWarmingEnabledByClient = this->m_isAutomaticProcessWarmingEnabledByClient;
     copy->m_usesWebProcessCache = this->m_usesWebProcessCache;
-#if ENABLE(PROXIMITY_NETWORKING)
-    copy->m_wirelessContextIdentifier = this->m_wirelessContextIdentifier;
-#endif
 #if PLATFORM(COCOA)
     copy->m_suppressesConnectionTerminationOnSystemChange = this->m_suppressesConnectionTerminationOnSystemChange;
 #endif
     copy->m_customWebContentServiceBundleIdentifier = this->m_customWebContentServiceBundleIdentifier;
+    copy->m_usesSingleWebProcess = m_usesSingleWebProcess;
+    copy->m_hstsStorageDirectory = m_hstsStorageDirectory;
 
     return copy;
 }

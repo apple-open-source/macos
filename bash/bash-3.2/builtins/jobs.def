@@ -96,7 +96,7 @@ jobs_builtin (list)
 	case 'x':
 	  if (form != JLIST_STANDARD)
 	    {
-	      builtin_error (_("no other options allowed with `-x'"));
+	      builtin_error ("%s", _("no other options allowed with `-x'"));
 	      return (EXECUTION_FAILURE);
 	    }
 	  execute++;

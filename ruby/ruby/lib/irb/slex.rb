@@ -2,7 +2,7 @@
 #
 #   irb/slex.rb - simple lex analyzer
 #   	$Release Version: 0.9.6$
-#   	$Revision: 53141 $
+#   	$Revision: 65505 $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
@@ -11,7 +11,7 @@
 #
 
 require "e2mmap"
-require "irb/notifier"
+require_relative "notifier"
 
 # :stopdoc:
 module IRB
@@ -53,7 +53,7 @@ module IRB
       node.preproc=proc
     end
 
-    #要チェック?
+    # need a check?
     def postproc(token)
       node = search(token, proc)
       node.postproc=proc

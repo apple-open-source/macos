@@ -27,10 +27,10 @@
 
 #include <TargetConditionals.h>
 #include <AssertMacros.h>
-#include "SecAccessControl.h"
-#include "SecAccessControlPriv.h"
-#include "SecItem.h"
-#include "SecItemPriv.h"
+#include <Security/SecAccessControl.h>
+#include <Security/SecAccessControlPriv.h>
+#include <Security/SecItem.h>
+#include <Security/SecItemPriv.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCFError.h>
 #include <utilities/der_plist.h>
@@ -186,6 +186,14 @@ SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CF
             CFReleaseNull(constraint);
         }
 
+#if TARGET_OS_OSX
+        if (flags & kSecAccessControlWatch) {
+            require_quiet(constraint = SecAccessConstraintCreateWatch(allocator), errOut);
+            CFArrayAppendValue(constraints, constraint);
+            CFReleaseNull(constraint);
+        }
+#endif
+        
 #pragma clang diagnostic pop
 
         if (flags & kSecAccessControlApplicationPassword) {
@@ -316,6 +324,10 @@ SecAccessConstraintRef SecAccessConstraintCreateTouchIDCurrentSet(CFAllocatorRef
     return SecAccessConstraintCreateBiometryCurrentSet(allocator, catacombUUID, bioDbHash);
 }
 
+SecAccessConstraintRef SecAccessConstraintCreateWatch(CFAllocatorRef allocator) {
+    return CFDictionaryCreateMutableForCFTypesWith(allocator, CFSTR(kACMKeyAclConstraintWatch), kCFBooleanTrue, NULL);
+}
+
 static SecAccessConstraintRef SecAccessConstraintCreateValueOfKofN(CFAllocatorRef allocator, size_t numRequired, CFArrayRef constraints, CFErrorRef *error) {
     CFNumberRef k = CFNumberCreateWithCFIndex(allocator, numRequired);
     CFMutableDictionaryRef kofn = CFDictionaryCreateMutableForCFTypesWith(allocator, CFSTR(kACMKeyAclParamKofN), k, NULL);
@@ -325,7 +337,7 @@ static SecAccessConstraintRef SecAccessConstraintCreateValueOfKofN(CFAllocatorRe
        constraint parameters, but we might err-out if some parameter is found, since we cannot propagate parameteres
        into k-of-n dictionary. */
     const CFTypeRef keysToCopy[] = { CFSTR(kACMKeyAclConstraintBio), CFSTR(kACMKeyAclConstraintPolicy),
-        CFSTR(kACMKeyAclConstraintUserPasscode) };
+        CFSTR(kACMKeyAclConstraintUserPasscode), CFSTR(kACMKeyAclConstraintWatch) };
     SecAccessConstraintRef constraint;
     CFArrayForEachC(constraints, constraint) {
         require_quiet(isDictionary(constraint), errOut);

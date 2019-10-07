@@ -9,10 +9,12 @@ _setxkbmap() {
     setopt extendedglob
 
     # xkb files may be in different places depending on system
-    local dir sourcedir
-    for dir in /usr/lib/X11/xkb /usr/share/X11/xkb; do
-        if [ -d $dir ] ; then
-           sourcedir=$dir
+    local dir sourcedir fullname
+    local -a searchdirs=(${XDG_DATA_HOME:-~/.local/share} ${(s.:.)XDG_DATA_DIRS:-/usr/lib:/usr/share:/usr/local/lib:/usr/local/share})
+    for dir in $searchdirs; do
+        fullname="$dir/X11/xkb"
+        if [ -d $fullname ] ; then
+           sourcedir=$fullname
            break
         fi
     done
@@ -55,7 +57,7 @@ _setxkbmap_files () {
     local dir="$1"
     local label="$2"
 
-    local -a fullpath shortpath
+    local -a fullpath shortpath expl
 
     fullpath=($sourcedir/$dir/**/*~*README(.))
     shortpath=(${fullpath#$sourcedir\/$dir\/})
@@ -82,7 +84,7 @@ _setxkbmap_geometry () {
 (( $+functions[_setxkbmap_variant] )) ||
 _setxkbmap_variant () {
     local file=$sourcedir/symbols/${1}
-    local -a variants lines
+    local -a variants lines expl
 
     if [ ! -f $file ]; then
         _message "no such layout: ${1}"

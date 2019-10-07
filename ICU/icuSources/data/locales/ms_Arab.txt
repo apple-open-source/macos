@@ -75,8 +75,10 @@ ms_Arab{
                 plusSign{"+"}
             }
         }
+        native{"arab"}
+        traditional{"arab"}
     }
-    Version{"2.1.35.71"}
+    Version{"2.1.48.13"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -486,6 +488,10 @@ ms_Arab{
             }
             availableFormats{
                 Ed{"E، d"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hmm{"H:mm"}
+                Hms{"HH:mm:ss"}
                 MEd{"E، d/M"}
                 MMMEd{"E، d MMM"}
                 MMMMd{"d MMMM"}

@@ -183,7 +183,7 @@ nb{
         MF{"Saint-Martin"}
         MG{"Madagaskar"}
         MH{"Marshalløyene"}
-        MK{"Makedonia"}
+        MK{"Nord-Makedonia"}
         ML{"Mali"}
         MM{"Myanmar (Burma)"}
         MN{"Mongolia"}
@@ -220,7 +220,7 @@ nb{
         PK{"Pakistan"}
         PL{"Polen"}
         PM{"Saint-Pierre-et-Miquelon"}
-        PN{"Pitcairn"}
+        PN{"Pitcairnøyene"}
         PR{"Puerto Rico"}
         PS{"Det palestinske området"}
         PT{"Portugal"}
@@ -253,7 +253,7 @@ nb{
         SV{"El Salvador"}
         SX{"Sint Maarten"}
         SY{"Syria"}
-        SZ{"Swaziland"}
+        SZ{"Eswatini"}
         TA{"Tristan da Cunha"}
         TC{"Turks- og Caicosøyene"}
         TD{"Tsjad"}
@@ -304,8 +304,9 @@ nb{
     Countries%variant{
         CD{"Den demokratiske republikken Kongo"}
         CG{"Republikken Kongo"}
+        CZ{"Den tsjekkiske republikk"}
         FK{"Falklandsøyene (Islas Malvinas)"}
-        MK{"Den tidligere jugoslaviske republikk Makedonia"}
+        SZ{"Swaziland"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.42"}
 }

@@ -29,6 +29,7 @@
 #include "CounterDirectives.h"
 #include "DataRef.h"
 #include "FillLayer.h"
+#include "GapLength.h"
 #include "LengthPoint.h"
 #include "LineClampValue.h"
 #include "NinePieceImage.h"
@@ -44,6 +45,7 @@ namespace WebCore {
 class AnimationList;
 class ContentData;
 class ShadowData;
+class StyleCustomPropertyData;
 class StyleDeprecatedFlexibleBoxData;
 class StyleFilterData;
 class StyleFlexibleBoxData;
@@ -58,7 +60,6 @@ class StyleScrollSnapPort;
 class StyleTransformData;
 
 struct LengthSize;
-struct StyleDashboardRegion;
 
 // Page size type.
 // StyleRareNonInheritedData::pageSize is meaningful only when
@@ -104,10 +105,6 @@ public:
     LineClampValue lineClamp; // An Apple extension.
     
     IntSize initialLetter;
-
-#if ENABLE(DASHBOARD_SUPPORT)
-    Vector<StyleDashboardRegion> dashboardRegions;
-#endif
 
     DataRef<StyleDeprecatedFlexibleBoxData> deprecatedFlexibleBox; // Flexible box properties
     DataRef<StyleFlexibleBoxData> flexibleBox;
@@ -174,8 +171,8 @@ public:
     DataRef<StyleCustomPropertyData> customProperties;
     std::unique_ptr<HashSet<String>> customPaintWatchedProperties;
 
-#if ENABLE(TOUCH_EVENTS)
-    unsigned touchAction : 1; // TouchAction
+#if ENABLE(POINTER_EVENTS)
+    unsigned touchActions : 6; // TouchAction
 #endif
 
     unsigned pageSizeType : 2; // PageSizeType

@@ -85,7 +85,7 @@ prefs_changed(__unused void * arg)
     return;
 }
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 /*
  * kEAPOLControlManangedPrefsID
  * - identifies the location of the managed preferences file
@@ -133,7 +133,7 @@ enable_prefs_observer(CFRunLoopRef runloop)
     return;
 }
 
-#else /* TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_IPHONE */
 
 STATIC void
 enable_prefs_observer(CFRunLoopRef runloop)
@@ -141,7 +141,7 @@ enable_prefs_observer(CFRunLoopRef runloop)
     return;
 }
 
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 
 EXTERN void
 EAPOLControlPrefsSynchronize(void)
@@ -149,11 +149,11 @@ EAPOLControlPrefsSynchronize(void)
     if (S_prefs != NULL) {
 	SCPreferencesSynchronize(S_prefs);
     }
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     if (S_managed_prefs != NULL) {
 	SCPreferencesSynchronize(S_managed_prefs);
     }
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
     return;
 }
 
@@ -197,10 +197,10 @@ prefs_get_number(CFStringRef key)
 {
     CFNumberRef		num = NULL;
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     num = SCPreferencesGetValue(EAPOLControlManagedPrefsGet(), key);
     num = isA_CFNumber(num);
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
     if (num == NULL) {
 	num = SCPreferencesGetValue(EAPOLControlPrefsGet(), key);
 	num = isA_CFNumber(num);

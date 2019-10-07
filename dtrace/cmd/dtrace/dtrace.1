@@ -20,7 +20,7 @@
 .\" Portions Copyright (c) 2006-2010, 2013-2017, Apple, Inc.
 .\" All Rights Reserved.
 .\"
-.Dd June 12, 2017
+.Dd August 17, 2017
 .Dt DTRACE 1
 .Os Darwin
 .Sh NAME
@@ -758,6 +758,16 @@ Default value is 8.
 Preallocate memory in dtrace before running the script.
 .It pspec
 Interpret ambiguous specifiers as probe names.
+.It setenv Ns = Ns Ar name Ns = Ns value
+Adds the variable
+.Sy name
+to the environment of launched processes, if
+.Sy name
+does not already exists. If
+.Sy name
+does exist in the environment, then its value is set to
+.Sy value
+.
 .It strip
 Strip non-loadable sections from the D program.
 .It tree Ns = Ns Ar value
@@ -772,6 +782,10 @@ Default value is 8.
 Adds an implicit
 .Li #undef Ar value
 into the predefines buffer of the preprocessor.
+.It unsetenv Ns = Ns Ar name
+Delete the variable
+.Sy name
+from the environment of launched processes if it exists.
 .It verbose
 Show D compiler intermediate code (DIFO).
 The D compiler will produce a report of the intermediate code generated
@@ -1014,7 +1028,7 @@ See also
 Time in nanoseconds that the current thread has spent running on any CPU.
 .It Vt uint64_t Va walltimestamp
 Current number of nanoseconds since the Unix Epoch (00:00 UTC January
-1st, 1070).
+1st, 1970).
 .El
 .Sh SUPPORTED SUBROUTINES
 D subroutines can only effect internal D program state.  Many D subroutines
@@ -1138,6 +1152,23 @@ are
 .Dv AF_INET
 and
 .Dv AF_INET6 .
+.It Ft string Fn json "string payload, string selector"
+Extract a single value represented by
+.Fa selector
+from a JSON object stored in
+.Fa payload .
+Element selectors support:
+.Bl -bullet -offset indent
+.It
+Simple strings for keys, for example
+.Fa key
+.It
+dot-separated keys for nested objects, for example
+.Fa object.key
+.It
+Array indexing, for example
+.Fa object.key[2].anotherkey
+.El
 .It Ft string Fn lltostr "int64_t val, [int baseN]"
 Create a scratch string representing
 .Fa val
@@ -1181,6 +1212,14 @@ into a new scratch string.
 If
 .Fa c
 is not present, return NULL.
+.It Ft void* Fn strip "void *ptr, uint8_t key"
+On platforms that support encoded pointers, strips the pointer
+authentification bits from
+.Fa ptr
+to produce a valid pointer. Valid values for
+.Fa key
+can be found in
+.Ar ptrauth.h .
 .It Ft string Fn strrchr "const char* str, char c"
 Like
 .Fn strchr ,
@@ -1196,6 +1235,12 @@ Concatenate
 and
 .Fa str2
 into a new scratch string.
+.It Ft int64_t Fn strtoll "const char *str, [int base]"
+Converts
+.Fa str
+into a signed integer, interpreted as base
+.Fa base
+if provided, at base 10 otherwise.
 .It Ft string Fn strstr "const char* str, const char* prefix"
 If
 .Fa str

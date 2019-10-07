@@ -1,5 +1,5 @@
 .\"Ruby is copyrighted by Yukihiro Matsumoto <matz@netlab.jp>.
-.Dd November 15, 2012
+.Dd April 20, 2017
 .Dt IRB \&1 "Ruby Programmer's Reference Guide"
 .Os UNIX
 .Sh NAME
@@ -68,9 +68,6 @@ Suppresses read of
 .It Fl h
 .It Fl -help
 Prints a summary of the options.
-.Pp
-.It Fl m
-Bc mode (load mathn, fraction or matrix are available)
 .Pp
 .It Fl r Ar library
 Same as `ruby -r'.
@@ -143,7 +140,7 @@ Personal irb initialization.
 .Dl irb(main):002:0> Ic def t(x)
 .Dl irb(main):003:1> Ic   x+1
 .Dl irb(main):004:1> Ic end
-.Dl => nil
+.Dl => :t
 .Dl irb(main):005:0> Ic t(3)
 .Dl => 4
 .Dl irb(main):006:0> Ic if t(3) == 4
@@ -166,7 +163,8 @@ Reported problems will be published after being fixed.
 .Pp
 .It
 Other bugs and feature requests can be reported via the
-Ruby Issue Tracking System (http://bugs.ruby-lang.org).
+Ruby Issue Tracking System
+.Pq Lk https://bugs.ruby-lang.org/ .
 Do not report security vulnerabilities
 via this system because it publishes the vulnerabilities immediately.
 .El

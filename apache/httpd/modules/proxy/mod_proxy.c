@@ -1049,9 +1049,10 @@ static int proxy_handler(request_rec *r)
         char *end;
         maxfwd = apr_strtoi64(str, &end, 10);
         if (maxfwd < 0 || maxfwd == APR_INT64_MAX || *end) {
-            return ap_proxyerror(r, HTTP_BAD_REQUEST,
-                    apr_psprintf(r->pool,
-                            "Max-Forwards value '%s' could not be parsed", str));
+            ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, APLOGNO(10188) 
+                          "Max-Forwards value '%s' could not be parsed", str);
+            return ap_proxyerror(r, HTTP_BAD_REQUEST, 
+                          "Max-Forwards request header could not be parsed");
         }
         else if (maxfwd == 0) {
             switch (r->method_number) {
@@ -1567,6 +1568,8 @@ static void *create_proxy_dir_config(apr_pool_t *p, char *dummy)
     new->error_override_set = 0;
     new->add_forwarded_headers = 1;
     new->add_forwarded_headers_set = 0;
+    new->forward_100_continue = 1;
+    new->forward_100_continue_set = 0;
 
     return (void *) new;
 }
@@ -1603,6 +1606,11 @@ static void *merge_proxy_dir_config(apr_pool_t *p, void *basev, void *addv)
         : add->add_forwarded_headers;
     new->add_forwarded_headers_set = add->add_forwarded_headers_set
         || base->add_forwarded_headers_set;
+    new->forward_100_continue =
+        (add->forward_100_continue_set == 0) ? base->forward_100_continue
+                                             : add->forward_100_continue;
+    new->forward_100_continue_set = add->forward_100_continue_set
+                                    || base->forward_100_continue_set;
     
     return new;
 }
@@ -2102,6 +2110,14 @@ static const char *
     conf->preserve_host = flag;
     conf->preserve_host_set = 1;
     return NULL;
+}
+static const char *
+   forward_100_continue(cmd_parms *parms, void *dconf, int flag)
+{
+   proxy_dir_conf *conf = dconf;
+   conf->forward_100_continue = flag;
+   conf->forward_100_continue_set = 1;
+   return NULL;
 }
 
 static const char *
@@ -2676,6 +2692,9 @@ static const command_rec proxy_cmds[] =
      "Configure local source IP used for request forward"),
     AP_INIT_FLAG("ProxyAddHeaders", add_proxy_http_headers, NULL, RSRC_CONF|ACCESS_CONF,
      "on if X-Forwarded-* headers should be added or completed"),
+    AP_INIT_FLAG("Proxy100Continue", forward_100_continue, NULL, RSRC_CONF|ACCESS_CONF,
+     "on if 100-Continue should be forwarded to the origin server, off if the "
+     "proxy should handle it by itself"),
     {NULL}
 };
 
@@ -2835,7 +2854,7 @@ static int proxy_status_hook(request_rec *r, int flags)
             ap_rputs("\n\n<table border=\"0\"><tr>"
                      "<th>Sch</th><th>Host</th><th>Stat</th>"
                      "<th>Route</th><th>Redir</th>"
-                     "<th>F</th><th>Set</th><th>Acc</th><th>Wr</th><th>Rd</th>"
+                     "<th>F</th><th>Set</th><th>Acc</th><th>Busy</th><th>Wr</th><th>Rd</th>"
                      "</tr>\n", r);
         }
         else {
@@ -2853,8 +2872,10 @@ static int proxy_status_hook(request_rec *r, int flags)
                 ap_rvputs(r, "</td><td>", (*worker)->s->redirect, NULL);
                 ap_rprintf(r, "</td><td>%.2f</td>", (float)((*worker)->s->lbfactor)/100.0);
                 ap_rprintf(r, "<td>%d</td>", (*worker)->s->lbset);
-                ap_rprintf(r, "<td>%" APR_SIZE_T_FMT "</td><td>",
+                ap_rprintf(r, "<td>%" APR_SIZE_T_FMT "</td>",
                            (*worker)->s->elected);
+                ap_rprintf(r, "<td>%" APR_SIZE_T_FMT "</td><td>",
+                           (*worker)->s->busy);
                 ap_rputs(apr_strfsize((*worker)->s->transferred, fbuf), r);
                 ap_rputs("</td><td>", r);
                 ap_rputs(apr_strfsize((*worker)->s->read, fbuf), r);
@@ -2871,10 +2892,16 @@ static int proxy_status_hook(request_rec *r, int flags)
                 ap_rprintf(r, "ProxyBalancer[%d]Worker[%d]Elected: %"
                               APR_SIZE_T_FMT "\n",
                            i, n, (*worker)->s->elected);
-                ap_rprintf(r, "ProxyBalancer[%d]Worker[%d]Sent: %s\n",
-                           i, n, apr_strfsize((*worker)->s->transferred, fbuf));
-                ap_rprintf(r, "ProxyBalancer[%d]Worker[%d]Rcvd: %s\n",
-                           i, n, apr_strfsize((*worker)->s->read, fbuf));
+                ap_rprintf(r, "ProxyBalancer[%d]Worker[%d]Busy: %"
+                              APR_SIZE_T_FMT "\n",
+                           i, n, (*worker)->s->busy);
+                ap_rprintf(r, "ProxyBalancer[%d]Worker[%d]Sent: %"
+                              APR_OFF_T_FMT "K\n",
+                           i, n, (*worker)->s->transferred >> 10);
+                ap_rprintf(r, "ProxyBalancer[%d]Worker[%d]Rcvd: %"
+                              APR_OFF_T_FMT "K\n",
+                           i, n, (*worker)->s->read >> 10);
+
                 /* TODO: Add the rest of dynamic worker data */
             }
 

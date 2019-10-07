@@ -74,6 +74,14 @@ do
 # But it is better to give all
 #               break
             fi
+        else
+            if [ -d $d ] && /usr/libexec/makewhatis.local "-o /dev/stdout" $d | grep -"$grepopt1" "$grepopt2""$1"
+            then
+                found=1
+# Some people are satisfied with a single occurrence
+# But it is better to give all
+#               break
+            fi
         fi
     done
 

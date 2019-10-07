@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011, 2013-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011, 2013-2017, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -2206,14 +2206,20 @@ static options pppOptions[] = {
 	{ "IdleReminder"              , NULL          , isBoolean        , &kSCPropNetPPPIdleReminder              , NULL                , NULL                           },
 	{ "IdleReminderTimer"         , "time"        , isNumber         , &kSCPropNetPPPIdleReminderTimer         , NULL                , NULL                           },
 	{ "Logfile"                   , "path"        , isString         , &kSCPropNetPPPLogfile                   , NULL                , NULL                           },
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 	{ "Plugins"                   , "plugin"      , isStringArray    , &kSCPropNetPPPPlugins                   , NULL                , NULL                           },
+#pragma GCC diagnostic pop
 	{ "RetryConnectTime"          , "time"        , isNumber         , &kSCPropNetPPPRetryConnectTime          , NULL                , NULL                           },
 	{ "SessionTimer"              , "time"        , isNumber         , &kSCPropNetPPPSessionTimer              , NULL                , NULL                           },
 	{ "UseSessionTimer"           , NULL          , isBoolean        , &kSCPropNetPPPUseSessionTimer           , NULL                , NULL                           },
 	{ "VerboseLogging"            , NULL          , isBoolean        , &kSCPropNetPPPVerboseLogging            , NULL                , NULL                           },
 
 	// --- Auth: ---
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 	{ "AuthEAPPlugins"            , "plugin"      , isStringArray    , &kSCPropNetPPPAuthEAPPlugins            , NULL                , NULL                           },
+#pragma GCC diagnostic pop
 	{ "AuthName"                  , "account"     , isString         , &kSCPropNetPPPAuthName                  , NULL                , NULL                           },
 	{   "Account"                 , "account"     , isString         , &kSCPropNetPPPAuthName                  , NULL                , NULL                           },
 	{ "AuthPassword"              , "password"    , isOther          , &kSCPropNetPPPAuthPassword              , __doPPPAuthPW       , NULL                           },

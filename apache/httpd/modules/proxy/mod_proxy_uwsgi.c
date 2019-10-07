@@ -212,11 +212,11 @@ static int uwsgi_send_body(request_rec *r, proxy_conn_rec * conn)
     if (ap_should_client_block(r)) {
         char *buf = apr_palloc(r->pool, AP_IOBUFSIZE);
         int status;
-        apr_size_t readlen;
+        long readlen;
 
         readlen = ap_get_client_block(r, buf, AP_IOBUFSIZE);
         while (readlen > 0) {
-            status = uwsgi_send(conn, buf, readlen, r);
+            status = uwsgi_send(conn, buf, (apr_size_t)readlen, r);
             if (status != OK) {
                 return HTTP_SERVICE_UNAVAILABLE;
             }
@@ -509,12 +509,10 @@ static int uwsgi_handler(request_rec *r, proxy_worker * worker,
     }
 
     /* Step Three: Create conn_rec */
-    if (!backend->connection) {
-        if ((status = ap_proxy_connection_create(UWSGI_SCHEME, backend,
-                                                 r->connection,
-                                                 r->server)) != OK)
-            goto cleanup;
-    }
+    if ((status = ap_proxy_connection_create(UWSGI_SCHEME, backend,
+                                             r->connection,
+                                             r->server)) != OK)
+        goto cleanup;
 
     /* Step Four: Process the Request */
     if (((status = ap_setup_client_block(r, REQUEST_CHUNKED_ERROR)) != OK)

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.NegativeNspec.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Using a negative value for nspec throws a compiler error.

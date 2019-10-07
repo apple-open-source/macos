@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,7 +31,7 @@
  * - initial revision
  */
 
-#define SC_LOG_HANDLE	_SC_LOG_DEFAULT()
+#define SC_LOG_HANDLE	_SC_LOG_DEFAULT
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
@@ -54,12 +54,10 @@
 
 #include <execinfo.h>
 #include <unistd.h>
-#include <dlfcn.h>
 
-
-#if	TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !defined(DO_NOT_INFORM)
+#if	TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 #include <CoreFoundation/CFUserNotification.h>
-#endif	// TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !defined(DO_NOT_INFORM)
+#endif	// TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 
 /* CrashReporter "Application Specific Information" */
 #include <CrashReporterClient.h>
@@ -153,7 +151,7 @@ _SC_sockaddr_to_string(const struct sockaddr *address, char *buf, size_t bufLen)
 
 	addr.sa = address;
 
-	bzero(buf, bufLen);
+	memset(buf, 0, bufLen);
 	switch (address->sa_family) {
 		case AF_INET :
 			(void)inet_ntop(addr.sin->sin_family,
@@ -203,7 +201,7 @@ _SC_string_to_sockaddr(const char *str, sa_family_t af, void *buf, size_t bufLen
 		addr.buf = buf;
 	}
 
-	bzero(addr.buf, bufLen);
+	memset(addr.buf, 0, bufLen);
 	if (((af == AF_UNSPEC) || (af == AF_INET)) &&
 	    (bufLen >= sizeof(struct sockaddr_in)) &&
 	    inet_aton(str, &addr.sin->sin_addr) == 1) {
@@ -253,6 +251,7 @@ _SC_sendMachMessage(mach_port_t port, mach_msg_id_t msg_id)
 	mach_msg_option_t	options;
 	kern_return_t		status;
 
+	memset(&msg, 0, sizeof(msg));
 	msg.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
 	msg.header.msgh_size = sizeof(msg);
 	msg.header.msgh_remote_port = port;
@@ -266,7 +265,7 @@ _SC_sendMachMessage(mach_port_t port, mach_msg_id_t msg_id)
 			  MACH_PORT_NULL,		/* rcv_name */
 			  0,				/* timeout */
 			  MACH_PORT_NULL);		/* notify */
-	if (status != MACH_MSG_SUCCESS) {
+	if ((status == MACH_SEND_INVALID_DEST) || (status == MACH_SEND_TIMED_OUT)) {
 		mach_msg_destroy(&msg.header);
 	}
 
@@ -331,7 +330,7 @@ _SC_hw_model(Boolean trim)
 		int	ret;
 
 		// get HW model name
-		bzero(&hwModel, sizeof(hwModel));
+		memset(&hwModel, 0, sizeof(hwModel));
 		ret = sysctl(mib, sizeof(mib) / sizeof(mib[0]), &hwModel, &n, NULL, 0);
 		if (ret != 0) {
 			SC_log(LOG_NOTICE, "sysctl() CTL_HW/HW_MODEL failed: %s", strerror(errno));
@@ -382,7 +381,7 @@ __CFDataCopyVMData(CFDataRef data, void **dataRef, CFIndex *dataLen)
 		return kr;
 	}
 
-	bcopy((char *)CFDataGetBytePtr(data), (void *)vm_address, vm_size);
+	memcpy((void *)vm_address, (char *)CFDataGetBytePtr(data), vm_size);
 	*dataRef = (void *)vm_address;
 	*dataLen = vm_size;
 
@@ -606,7 +605,7 @@ _SCSerializeMultiple(CFDictionaryRef dict)
 			values = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
 			pLists = CFAllocatorAllocate(NULL, nElements * sizeof(CFDataRef), 0);
 		}
-		bzero(pLists, nElements * sizeof(CFDataRef));
+		memset(pLists, 0, nElements * sizeof(CFDataRef));
 
 		CFDictionaryGetKeysAndValues(dict, keys, values);
 		for (i = 0; i < nElements; i++) {
@@ -664,7 +663,7 @@ _SCUnserializeMultiple(CFDictionaryRef dict)
 			values = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
 			pLists = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
 		}
-		bzero(pLists, nElements * sizeof(CFTypeRef));
+		memset(pLists, 0, nElements * sizeof(CFTypeRef));
 
 		CFDictionaryGetKeysAndValues(dict, keys, values);
 		for (i = 0; i < nElements; i++) {
@@ -1103,7 +1102,7 @@ _SC_CFBundleCopyNonLocalizedString(CFBundleRef bundle, CFStringRef key, CFString
 							     tableName,
 							     CFSTR("strings"),
 							     NULL,
-							     CFSTR("English"));
+							     CFSTR("en"));
 		if (url != NULL) {
 			table = _SCCreatePropertyListFromResource(url);
 			CFRelease(url);
@@ -1145,12 +1144,12 @@ _SC_CFMachPortCreateWithPort(const char		*portDescription,
 			     CFMachPortContext	*context)
 {
 	CFMachPortRef	port;
-	Boolean	shouldFree	= FALSE;
+	Boolean		shouldFree	= FALSE;
 
 	port = CFMachPortCreateWithPort(NULL, portNum, callout, context, &shouldFree);
 	if ((port == NULL) || shouldFree) {
+		char		*crash_info;
 		CFStringRef	err;
-		char		*crash_info	= NULL;
 
 		SC_log(LOG_NOTICE, "%s: CFMachPortCreateWithPort() failed , port = %p",
 		       portDescription,
@@ -1165,8 +1164,7 @@ _SC_CFMachPortCreateWithPort(const char		*portDescription,
 						       portDescription);
 		}
 		crash_info = _SC_cfstring_to_cstring(err, NULL, 0, kCFStringEncodingASCII);
-		if (err != NULL) CFRelease(err);
-
+		CFRelease(err);
 
 		err = CFStringCreateWithFormat(NULL,
 					       NULL,
@@ -1174,7 +1172,7 @@ _SC_CFMachPortCreateWithPort(const char		*portDescription,
 					       getprogname());
 		_SC_crash(crash_info, CFSTR("CFMachPort error"), err);
 		CFAllocatorDeallocate(NULL, crash_info);
-		if (err != NULL) CFRelease(err);
+		CFRelease(err);
 	}
 
 	return port;
@@ -1522,90 +1520,62 @@ _SC_copyBacktrace()
 }
 
 
-static Boolean
-_SC_SimulateCrash(const char *crash_info, CFStringRef notifyHeader, CFStringRef notifyMessage)
+static void
+_SC_ReportCrash(CFStringRef notifyHeader, CFStringRef notifyMessage)
 {
-#if	!defined(DO_NOT_INFORM)
+#if	!TARGET_OS_IPHONE || TARGET_OS_SIMULATOR
 #pragma unused(notifyHeader)
 #pragma unused(notifyMessage)
-#endif	// !defined(DO_NOT_INFORM)
-#if	TARGET_OS_SIMULATOR
-#pragma unused(crash_info)
-#endif	// TARGET_OS_SIMULATOR
-	Boolean	ok	= FALSE;
+#endif	// !TARGET_OS_IPHONE || TARGET_OS_SIMULATOR
+	static Boolean	warned	= FALSE;
 
-#if	!TARGET_OS_SIMULATOR
-	static bool		(*dyfunc_SimulateCrash)(pid_t, mach_exception_data_type_t, CFStringRef)	= NULL;
-	static void		*image	= NULL;
-	static dispatch_once_t	once;
+	if (!warned) {
+#if	TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+		CFStringRef	displayMessage;
 
-	dispatch_once(&once, ^{
-		image = _SC_dlopen("/System/Library/PrivateFrameworks/CrashReporterSupport.framework/CrashReporterSupport");
-		if (image != NULL) {
-			dyfunc_SimulateCrash = dlsym(image, "SimulateCrash");
-		}
-	});
-
-	if (dyfunc_SimulateCrash != NULL) {
-		CFStringRef	str;
-
-		str = CFStringCreateWithCString(NULL, crash_info, kCFStringEncodingUTF8);
-		ok = dyfunc_SimulateCrash(getpid(), 0xbad0005cull, str);
-		CFRelease(str);
+		displayMessage = CFStringCreateWithFormat(NULL,
+							  NULL,
+							  CFSTR("%@\n\nPlease collect the crash report and file a Radar."),
+							  notifyMessage);
+		CFUserNotificationDisplayNotice(0,
+						kCFUserNotificationStopAlertLevel,
+						NULL,
+						NULL,
+						NULL,
+						notifyHeader,
+						displayMessage,
+						NULL);
+		CFRelease(displayMessage);
+#endif	// TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+		warned = TRUE;
 	}
 
-#if	!defined(DO_NOT_INFORM)
-	if (ok && (notifyHeader != NULL) && (notifyMessage != NULL)) {
-		static Boolean	warned	= FALSE;
-
-		if (!warned) {
-			CFStringRef	displayMessage;
-
-			displayMessage = CFStringCreateWithFormat(NULL,
-								  NULL,
-								  CFSTR("%@\n\nPlease collect the crash report and file a Radar."),
-								  notifyMessage);
-			CFUserNotificationDisplayNotice(0,
-							kCFUserNotificationStopAlertLevel,
-							NULL,
-							NULL,
-							NULL,
-							notifyHeader,
-							displayMessage,
-							NULL);
-			CFRelease(displayMessage);
-			warned = TRUE;
-		}
-	}
-#endif	// !defined(DO_NOT_INFORM)
-#endif	// !TARGET_OS_SIMULATOR
-
-	return ok;
+	return;
 }
 
 
 void
 _SC_crash(const char *crash_info, CFStringRef notifyHeader, CFStringRef notifyMessage)
 {
-	Boolean	ok	= FALSE;
-
-	if (crash_info != NULL) {
-		CRSetCrashLogMessage(crash_info);
-		SC_log(LOG_NOTICE, "%s", crash_info);
-	}
-
 	if (_SC_isAppleInternal()) {
-		// simulate a crash report
-		ok = _SC_SimulateCrash(crash_info, notifyHeader, notifyMessage);
-#ifndef DO_NOT_CRASH
-		if (!ok) {
-			// if we could not simulate a crash report, crash for real
-			__builtin_trap();
+		if (crash_info != NULL) {
+			CRSetCrashLogMessage(crash_info);
+			SC_log(LOG_NOTICE, "%s", crash_info);
 		}
-#endif	// DO_NOT_CRASH
+
+		// simulate a crash report
+		os_log_with_type(SC_LOG_HANDLE(), OS_LOG_TYPE_FAULT, "%s", crash_info);
+
+		// report the crash to the user
+		if ((notifyHeader != NULL) && (notifyMessage != NULL)) {
+			_SC_ReportCrash(notifyHeader, notifyMessage);
+		}
+
+		if (crash_info != NULL) {
+			CRSetCrashLogMessage(NULL);
+		}
 	}
 
-	CRSetCrashLogMessage(NULL);
 	return;
 }
 

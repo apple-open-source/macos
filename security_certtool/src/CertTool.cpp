@@ -1,24 +1,24 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2002-2003,2019 Apple Inc. All Rights Reserved.
+ *
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
- * You may not use this file except in compliance with the License. Please 
- * obtain a copy of the License at http://www.apple.com/publicsource and 
+ * You may not use this file except in compliance with the License. Please
+ * obtain a copy of the License at http://www.apple.com/publicsource and
  * read it before using this file.
- * 
+ *
  * This Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
- * Please see the License for the specific language governing rights and 
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  */
 
 /*
 	File:		 CertTool.cpp
-	
+
 	Description: certificate manipulation tool
 
 	Author:		 dmitch
@@ -31,6 +31,7 @@
 #include <Security/oidscert.h>
 #include <Security/oidsalg.h>
 #include <Security/SecIdentityPriv.h>
+#include <Security/SecFramework.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
@@ -44,7 +45,6 @@
 #include <security_cdsa_utils/cuPem.h>
 #include <security_utilities/alloc.h>
 #include <security_cdsa_client/aclclient.h>
-#include <security_utilities/devrandom.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include "CertUI.h"
 #include <CoreFoundation/CoreFoundation.h>
@@ -52,8 +52,8 @@
 #define KC_DB_PATH			"Library/Keychains"		/* relative to home */
 #define SYSTEM_KDC			"com.apple.kerberos.kdc"
 
-/* 
- * defaults for undocumented 'Z' option 
+/*
+ * defaults for undocumented 'Z' option
  */
 #define ZDEF_KEY_LABEL		"testCert"
 #define ZDEF_KEY_ALG		CSSM_ALGID_RSA
@@ -67,7 +67,7 @@
 #define ZDEF_STATE		"California"
 #define ZDEF_CHALLENGE		"someChallenge"
 
-/* 
+/*
  * Key and cert parameters for creating system identity
  */
 #define SI_DEF_KEY_LABEL	"System Identity"
@@ -98,7 +98,7 @@ static void usage(char **argv)
 {
 	printf("usage:\n");
 	printf("   Create a keypair and cert: %s c [options]\n", argv[0]);
-	printf("   Create a CSR:              %s r outFileName [options]\n", 
+	printf("   Create a CSR:              %s r outFileName [options]\n",
 			argv[0]);
 	printf("   Verify a CSR:              %s V infileName [options]\n", argv[0]);
 	printf("   Create a system Identity:  %s C domainName [options]\n", argv[0]);
@@ -129,7 +129,7 @@ static void usage(char **argv)
 static void printError(const char *errDescription,const char *errLocation,OSStatus crtn)
 {
 	// Show error in text form. If verbose, show location and decimal and hex error values
-	int len=64+(errLocation?strlen(errLocation):0);
+	unsigned long len=64+(errLocation?strlen(errLocation):0);
 	if (verbose)
 	{
 		char *buf=(char *)malloc(len);
@@ -152,7 +152,7 @@ static void printError(const char *errDescription,const char *errLocation,OSStat
 	}
 }
 
-void check_obsolete_keychain(const char *kcName)
+static void check_obsolete_keychain(const char *kcName)
 {
 	if(!strcmp(kcName, "/System/Library/Keychains/X509Anchors")) {
 		fprintf(stderr, "***************************************************************\n");
@@ -241,12 +241,12 @@ static OSStatus setKeyPrintName(
 	attrInfo.tag = &tag;
 	attrInfo.format = NULL;
 	SecKeychainAttributeList *copiedAttrs = NULL;
-	
+
 	OSStatus ortn = SecKeychainItemCopyAttributesAndData(
-		(SecKeychainItemRef)keyRef, 
+		(SecKeychainItemRef)keyRef,
 		&attrInfo,
 		NULL,			// itemClass
-		&copiedAttrs, 
+		&copiedAttrs,
 		NULL,			// length - don't need the data
 		NULL);			// outData
 	if(ortn) {
@@ -254,15 +254,15 @@ static OSStatus setKeyPrintName(
 			"SecKeychainItemCopyAttributesAndData", ortn);
 		return ortn;
 	}
-	
+
 	SecKeychainAttributeList newAttrList;
 	newAttrList.count = 1;
 	SecKeychainAttribute newAttr;
 	newAttrList.attr = &newAttr;
 	newAttr.tag = copiedAttrs->attr->tag;
-	newAttr.length = strlen(keyName);
+	newAttr.length = (UInt32)(strlen(keyName) & 0xFFFFFFFF);
 	newAttr.data = (void*)keyName;
-	ortn = SecKeychainItemModifyAttributesAndData((SecKeychainItemRef)keyRef, 
+	ortn = SecKeychainItemModifyAttributesAndData((SecKeychainItemRef)keyRef,
 		&newAttrList, 0, NULL);
 	if(ortn) {
 		printError("***Error creating key pair",
@@ -279,10 +279,10 @@ static OSStatus generateSecKeyPair(
 	SecKeychainRef		kcRef,
 	CSSM_ALGORITHMS 	keyAlg,				// e.g., CSSM_ALGID_RSA
 	uint32				keySizeInBits,
-	CU_KeyUsage			keyUsage,			// CUK_Signing, etc. 
+	CU_KeyUsage			keyUsage,			// CUK_Signing, etc.
 	CSSM_BOOL 			aclForUid,			// ACL for current UID
 	CSSM_BOOL 			verbose,
-	const char			*keyLabel,			// optional 
+	const char			*keyLabel,			// optional
 	CSSM_KEY_PTR 		*pubKeyPtr,			// RETURNED, owned by Sec layer
 	CSSM_KEY_PTR 		*privKeyPtr,		// RETURNED, owned by Sec layer
 	SecKeyRef			*pubSecKey,			// caller must release
@@ -292,7 +292,7 @@ static OSStatus generateSecKeyPair(
 	CSSM_KEYUSE pubKeyUse = 0;
 	CSSM_KEYUSE privKeyUse = 0;
 	SecAccessRef secAccess = NULL;
-	
+
 	if(aclForUid) {
 		ortn = makeUidAccess(geteuid(), &secAccess);
 		if(ortn) {
@@ -317,12 +317,12 @@ static OSStatus generateSecKeyPair(
 		keyAlg, keySizeInBits,
 		0,					// contextHandle
 		pubKeyUse,
-		CSSM_KEYATTR_PERMANENT | CSSM_KEYATTR_EXTRACTABLE | 
+		CSSM_KEYATTR_PERMANENT | CSSM_KEYATTR_EXTRACTABLE |
 			CSSM_KEYATTR_RETURN_REF,
 		privKeyUse,
 		CSSM_KEYATTR_SENSITIVE | CSSM_KEYATTR_RETURN_REF |
 			CSSM_KEYATTR_PERMANENT |CSSM_KEYATTR_EXTRACTABLE,
-		secAccess,	
+		secAccess,
 		pubSecKey,
 		privSecKey);
 	if(secAccess) {
@@ -344,7 +344,7 @@ static OSStatus generateSecKeyPair(
 			return ortn;
 		}
 	}
-	
+
 	/* extract CSSM keys for caller */
 	ortn = SecKeyGetCSSMKey(*pubSecKey, const_cast<const CSSM_KEY **>(pubKeyPtr));
 	if(ortn) {
@@ -369,7 +369,7 @@ static OSStatus generateSecKeyPair(
 
 /*
  * Find private key by label, modify its Label attr to be the
- * hash of the associated public key. 
+ * hash of the associated public key.
  */
 static CSSM_RETURN setPubKeyHash(
 	CSSM_CSP_HANDLE 	cspHand,
@@ -382,22 +382,22 @@ static CSSM_RETURN setPubKeyHash(
 	CSSM_RETURN						crtn;
 	CSSM_DATA						labelData;
 	CSSM_HANDLE						resultHand;
-	
+
 	labelData.Data = (uint8 *)keyLabel;
 	labelData.Length = strlen(keyLabel) + 1;	// incl. NULL
 	query.RecordType = CSSM_DL_DB_RECORD_PRIVATE_KEY;
 	query.Conjunctive = CSSM_DB_NONE;
 	query.NumSelectionPredicates = 1;
 	predicate.DbOperator = CSSM_DB_EQUAL;
-	
-	predicate.Attribute.Info.AttributeNameFormat = 
+
+	predicate.Attribute.Info.AttributeNameFormat =
 		CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
 	predicate.Attribute.Info.Label.AttributeName = (char*) "Label";
 	predicate.Attribute.Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	/* hope this cast is OK */
 	predicate.Attribute.Value = &labelData;
 	query.SelectionPredicate = &predicate;
-	
+
 	query.QueryLimits.TimeLimit = 0;	// FIXME - meaningful?
 	query.QueryLimits.SizeLimit = 1;	// FIXME - meaningful?
 	query.QueryFlags = 0; // CSSM_QUERY_RETURN_DATA;	// FIXME - used?
@@ -412,20 +412,20 @@ static CSSM_RETURN setPubKeyHash(
 	recordAttrs.DataRecordType = CSSM_DL_DB_RECORD_PRIVATE_KEY;
 	recordAttrs.NumberOfAttributes = 1;
 	recordAttrs.AttributeData = &attr;
-	
+
 	CSSM_DATA recordData = {0, NULL};
 	crtn = CSSM_DL_DataGetFirst(dlDbHand,
 		&query,
 		&resultHand,
 		&recordAttrs,
-		&recordData,	
+		&recordData,
 		&record);
 	/* abort only on success */
 	if(crtn != CSSM_OK) {
 		printError("***setPubKeyHash: can't find private key","CSSM_DL_DataGetFirst",crtn);
 		return crtn;
 	}
-	
+
 	CSSM_KEY_PTR keyToDigest = (CSSM_KEY_PTR)recordData.Data;
 	CSSM_DATA_PTR keyDigest = NULL;
 	CSSM_CC_HANDLE ccHand;
@@ -448,12 +448,12 @@ static CSSM_RETURN setPubKeyHash(
 	}
 	CSSM_FreeKey(cspHand, NULL, keyToDigest, CSSM_FALSE);
 	CSSM_DeleteContext(ccHand);
-	
-	/* 
+
+	/*
 	 * Replace Label attr data with hash.
 	 * NOTE: the module which allocated this attribute data - a DL -
-	 * was loaded and attached by the Sec layer, not by us. Thus 
-	 * we can't use the memory allocator functions *we* used when 
+	 * was loaded and attached by the Sec layer, not by us. Thus
+	 * we can't use the memory allocator functions *we* used when
 	 * attaching to the CSPDL - we have to use the ones
 	 * which the Sec layer registered with the DL.
 	 */
@@ -468,7 +468,7 @@ static CSSM_RETURN setPubKeyHash(
 		memFuncs.free_func(attr.Value, memFuncs.AllocRef);
 	}
 	attr.Value = keyDigest;
-	
+
 	/* modify key attributes */
 	crtn = CSSM_DL_DataModify(dlDbHand,
 			CSSM_DL_DB_RECORD_PRIVATE_KEY,
@@ -494,7 +494,7 @@ static CSSM_RETURN setPubKeyHash(
 		/* let's keep going in this case */
 		crtn = CSSM_OK;
 	}
-	
+
 	/* free resources */
 	cuAppFree(keyDigest->Data, NULL);
 	return CSSM_OK;
@@ -509,7 +509,7 @@ static OSStatus generateKeyPair(
 	CSSM_ALGORITHMS 	keyAlg,				// e.g., CSSM_ALGID_RSA
 	uint32				keySizeInBits,
 	const char 			*keyLabel,			// C string
-	CU_KeyUsage			keyUsage,			// CUK_Signing, etc. 
+	CU_KeyUsage			keyUsage,			// CUK_Signing, etc.
 	CSSM_BOOL 			verbose,
 	CSSM_KEY_PTR 		*pubKeyPtr,			// mallocd, created, RETURNED
 	CSSM_KEY_PTR 		*privKeyPtr)		// mallocd, created, RETURNED
@@ -521,11 +521,11 @@ static OSStatus generateKeyPair(
 	if((pubKey == NULL) || (privKey == NULL)) {
 		return memFullErr;
 	}
-	
+
 	CSSM_RETURN crtn;
 	CSSM_KEYUSE pubKeyUse = 0;
 	CSSM_KEYUSE privKeyUse = 0;
-	
+
 	if(keyUsage & kKeyUseSigning) {
 		pubKeyUse  |= CSSM_KEYUSE_VERIFY;
 		privKeyUse |= CSSM_KEYUSE_SIGN;
@@ -543,7 +543,7 @@ static OSStatus generateKeyPair(
 		&dlDbHand,
 		keyAlg,
 		keyLabel,
-		strlen(keyLabel) + 1,
+		(unsigned int) strlen(keyLabel) + 1,
 		keySizeInBits,
 		pubKey,
 		pubKeyUse,
@@ -558,10 +558,10 @@ static OSStatus generateKeyPair(
 		return paramErr;
 	}
 	if(verbose) {
-		printf("...%u bit key pair generated.\n", 
+		printf("...%u bit key pair generated.\n",
 			(unsigned)keySizeInBits);
 	}
-	
+
 	/* bind private key to cert by public key hash */
 	crtn = setPubKeyHash(cspHand,
 		dlDbHand,
@@ -570,7 +570,7 @@ static OSStatus generateKeyPair(
 		printError("***Error setting public key hash. Continuing at peril.",
 			"setPubKeyHash", crtn);
 	}
-	
+
 	*pubKeyPtr = pubKey;
 	*privKeyPtr = privKey;
 	return noErr;
@@ -586,7 +586,7 @@ static OSStatus verifyCsr(
 	CSSM_DATA csrData;
 	unsigned char *der = NULL;
 	unsigned derLen = 0;
-	
+
 	if(readFile(fileName, &csr, &csrLen)) {
 		printf("***Error reading CSR from file %s. Aborting.\n",
 			fileName);
@@ -605,7 +605,7 @@ static OSStatus verifyCsr(
 		csrData.Data = csr;
 		csrData.Length = csrLen;
 	}
-	
+
 	CSSM_RETURN crtn = CSSM_CL_PassThrough(clHand,
 		0,			// CCHandle
 		CSSM_APPLEX509CL_VERIFY_CSR,
@@ -650,7 +650,7 @@ static OSStatus displayCertCRL(
 	}
 	if(pemFormat && isPem(rawData, rawDataSize)) {
 		/*
-		 * Here we cut the user some slack. See if the thing is actually 
+		 * Here we cut the user some slack. See if the thing is actually
 		 * PEM encoded and assume DER-encoded if it's not.
 		 */
 		rtn = pemDecode(rawData, rawDataSize, &derData, &derDataSize);
@@ -674,12 +674,12 @@ static OSStatus displayCertCRL(
 }
 
 static CSSM_RETURN importPrivateKey(
-	CSSM_DL_DB_HANDLE	dlDbHand,		
+	CSSM_DL_DB_HANDLE	dlDbHand,
 	CSSM_CSP_HANDLE		cspHand,
 	const char			*privKeyFileName,
 	CSSM_ALGORITHMS		keyAlg,
 	CSSM_BOOL			pemFormat,			// of the file
-	CSSM_KEYBLOB_FORMAT	keyFormat)			// of the key blob itself, NONE means use 
+	CSSM_KEYBLOB_FORMAT	keyFormat)			// of the key blob itself, NONE means use
 											//   default
 {
 	unsigned char 			*derKey = NULL;
@@ -696,9 +696,9 @@ static CSSM_RETURN importPrivateKey(
 	CSSM_DATA 				descData = {0, NULL};
 	CSSM_CSP_HANDLE			rawCspHand = 0;
 	const char				*privKeyLabel = NULL;
-	
+
 	/*
-	 * Validate specified format for clarity 
+	 * Validate specified format for clarity
 	 */
 	switch(keyAlg) {
 		case CSSM_ALGID_RSA:
@@ -777,11 +777,11 @@ static CSSM_RETURN importPrivateKey(
 		derKey = pemKey;
 		derKeyLen = pemKeyLen;
 	}
-	
+
 	/* importing a raw key into the CSPDL involves a NULL unwrap */
 	memset(&unwrappedKey, 0, sizeof(CSSM_KEY));
 	memset(&wrappedKey, 0, sizeof(CSSM_KEY));
-	
+
 	/* set up the imported key to look like a CSSM_KEY */
 	hdr->HeaderVersion 			= CSSM_KEYHEADER_VERSION;
 	hdr->BlobType 				= CSSM_KEYBLOB_RAW;
@@ -789,10 +789,10 @@ static CSSM_RETURN importPrivateKey(
 	hdr->KeyClass 				= CSSM_KEYCLASS_PRIVATE_KEY;
 	hdr->KeyAttr 				= CSSM_KEYATTR_EXTRACTABLE;
 	hdr->KeyUsage 				= CSSM_KEYUSE_ANY;
-	hdr->Format 				= keyFormat;	
+	hdr->Format 				= keyFormat;
 	wrappedKey.KeyData.Data 	= derKey;
 	wrappedKey.KeyData.Length 	= derKeyLen;
-	
+
 	/* get key size in bits from raw CSP */
 	rawCspHand = cuCspStartup(CSSM_TRUE);
 	if(rawCspHand == 0) {
@@ -807,7 +807,7 @@ static CSSM_RETURN importPrivateKey(
 		goto done;
 	}
 	hdr->LogicalKeySizeInBits = keySize.LogicalKeySizeInBits;
-	
+
 	memset(&creds, 0, sizeof(CSSM_ACCESS_CREDENTIALS));
 	crtn = CSSM_CSP_CreateSymmetricContext(cspHand,
 		CSSM_ALGID_NONE,			// unwrapAlg
@@ -822,7 +822,7 @@ static CSSM_RETURN importPrivateKey(
 		printError("***Error creating context","CSSM_CSP_CreateSymmetricContext",crtn);
 		goto done;
 	}
-	
+
 	/* add DL/DB to context */
 	CSSM_CONTEXT_ATTRIBUTE newAttr;
 	newAttr.AttributeType     = CSSM_ATTRIBUTE_DL_DB_HANDLE;
@@ -833,7 +833,7 @@ static CSSM_RETURN importPrivateKey(
 		printError("***Error updating context attributes","CSSM_UpdateContextAttributes",crtn);
 		goto done;
 	}
-	
+
 	/* do the NULL unwrap */
 	labelData.Data = (uint8 *)privKeyLabel;
 	labelData.Length = strlen(privKeyLabel) + 1;
@@ -851,15 +851,15 @@ static CSSM_RETURN importPrivateKey(
 		cuPrintError("CSSM_UnwrapKey", crtn);
 		goto done;
 	}
-	
+
 	/* one more thing: bind this private key to its public key */
 	crtn = setPubKeyHash(cspHand, dlDbHand, privKeyLabel);
-	
+
 	/* We don't need the unwrapped key any more */
-	CSSM_FreeKey(cspHand, 
+	CSSM_FreeKey(cspHand,
 		NULL,			// access cred
 		&unwrappedKey,
-		CSSM_FALSE);	// delete 
+		CSSM_FALSE);	// delete
 
 done:
 	if(ccHand) {
@@ -879,20 +879,20 @@ done:
 
 static OSStatus importCert(
 	SecKeychainRef		kcRef,
-	CSSM_DL_DB_HANDLE	dlDbHand,		
+	CSSM_DL_DB_HANDLE	dlDbHand,
 	CSSM_CSP_HANDLE		cspHand,
 	CSSM_CL_HANDLE		clHand,
 	const char			*fileName,
 	const char			*privKeyFileName,	// optional for importing priv key
 	CSSM_BOOL			pemFormat,			// format of files
-	CSSM_KEYBLOB_FORMAT	privKeyFormat)		// optional format of priv key 
+	CSSM_KEYBLOB_FORMAT	privKeyFormat)		// optional format of priv key
 {
 	unsigned char *cert = NULL;
 	unsigned certLen;
 	CSSM_DATA certData;
 	unsigned char *der = NULL;
 	unsigned derLen = 0;
-	
+
 	if(readFile(fileName, &cert, &certLen)) {
 		printf("***Error reading certificate from file %s. Aborting.\n",
 			fileName);
@@ -911,7 +911,7 @@ static OSStatus importCert(
 		certData.Data = cert;
 		certData.Length = certLen;
 	}
-	
+
 	SecCertificateRef certRef;
 	OSStatus ortn = SecCertificateCreateFromData(
 		&certData,
@@ -938,7 +938,7 @@ static OSStatus importCert(
 			printError("***Error obtaining public key from cert. Aborting","CSSM_CL_CertGetKeyInfo",crtn);
 			return crtn;
 		}
-		crtn = importPrivateKey(dlDbHand, cspHand, privKeyFileName, 
+		crtn = importPrivateKey(dlDbHand, cspHand, privKeyFileName,
 			pubKey->KeyHeader.AlgorithmId, pemFormat, privKeyFormat);
 		if(crtn) {
 			printError("***Error importing private key. Aborting","importPrivateKey",crtn);
@@ -970,7 +970,7 @@ static OSStatus importCRL(
 	unsigned char *der = NULL;
 	unsigned derLen = 0;
 	CSSM_DATA uriData;
-	
+
 	if(readFile(fileName, &crl, &crlLen)) {
 		printf("***Error reading CRL from file %s. Aborting.\n",
 			fileName);
@@ -1019,12 +1019,12 @@ static OSStatus importCRL(
 }
 
 /* Get validity period */
-uint32 notValidAfter(int isSystemDomain)
+static uint32 notValidAfter(int isSystemDomain)
 {
   char *validityEnv = NULL;
   uint32 validAfter = 0;
   int result = 0;
-  
+
   if (isSystemDomain) return SI_DEF_VALIDITY;
 
   validityEnv = getenv(VALIDITY_DAYS_ENVIRONMENT_VARIABLE);
@@ -1037,17 +1037,54 @@ uint32 notValidAfter(int isSystemDomain)
       /* check that it is between 30 days and 20 years */
       if (validAfter < 30) validAfter = 30;
       if (validAfter > (365 * 20)) validAfter = (365 * 20);
-      
+
       /* convert to seconds, which is what we need to use */
       validAfter *= (60 * 60 * 24);
 
       return validAfter;
     }
   }
-  
+
   return DEFAULT_CERT_VALIDITY;
 }
 
+/* Determine name type */
+static CE_GeneralNameType getNameType(const char *name)
+{
+	CE_GeneralNameType result = GNT_OtherName;
+	CFStringRef nameStr = (name) ? CFStringCreateWithCString(NULL, name,
+		kCFStringEncodingUTF8) : NULL;
+	if (NULL == nameStr) {
+		return result; /* undetermined type */
+	} else if (SecFrameworkIsDNSName(nameStr)) {
+		result = GNT_DNSName;
+	} else if (SecFrameworkIsIPAddress(nameStr)) {
+		result = GNT_IPAddress;
+	}
+	CFRelease(nameStr);
+	return result;
+}
+
+/* Return true if name is a valid DNS name after removing
+   trailing dot. Input string is shortened if true.
+*/
+static bool removeTrailingDot(char *name)
+{
+    CFIndex idx, len = (name) ? strlen(name) : 0;
+    if (len < 2) { return false; }
+    idx = len - 1;
+    if (name[idx] == '.') {
+        name[idx] = '\0';
+        CFStringRef nameStr = CFStringCreateWithCString(NULL, name, kCFStringEncodingUTF8);
+        if (nameStr) {
+            bool ok = (SecFrameworkIsDNSName(nameStr));
+            CFRelease(nameStr);
+            if (ok) { return true; }
+        }
+        name[idx] = '.';
+    }
+    return false;
+}
 
 /* serial number is generated randomly */
 #define SERIAL_NUM_LENGTH	4
@@ -1061,22 +1098,22 @@ static OSStatus createCertCsr(
 	CSSM_KEY_PTR		signerPrivKey,
 	CSSM_ALGORITHMS 	sigAlg,
 	const CSSM_OID		*sigOid,
-	CU_KeyUsage			keyUsage,			// kKeyUseSigning, etc. 
+	CU_KeyUsage			keyUsage,			// kKeyUseSigning, etc.
 	/*
 	 * Issuer's RDN is obtained from the issuer cert, if present, or is
-	 * assumed to be the same as the subject name (i.e., we're creating 
+	 * assumed to be the same as the subject name (i.e., we're creating
 	 * a self-signed root cert).
-	 */ 
+	 */
 	const CSSM_DATA		*issuerCert,
-	const CSSM_OID		*extendedKeyUse,	// optional 
+	const CSSM_OID		*extendedKeyUse,	// optional
 	CSSM_BOOL			useAllDefaults,		// secret 'Z' option
 	const char			*systemDomain,		// domain name for system identities
 	CSSM_DATA_PTR		certData)			// cert or CSR: mallocd and RETURNED
 {
-	CE_DataAndType 				exts[4];
+	CE_DataAndType 				exts[5];
 	CE_DataAndType 				*extp = exts;
 	unsigned					numExts;
-	
+
 	CSSM_DATA					refId;		// mallocd by CSSM_TP_SubmitCredRequest
 	CSSM_APPLE_TP_CERT_REQUEST	certReq;
 	CSSM_TP_REQUEST_SET			reqSet;
@@ -1090,10 +1127,14 @@ static OSStatus createCertCsr(
 	CSSM_FIELD					policyId;
 	unsigned char				serialNum[SERIAL_NUM_LENGTH];
 	CSSM_BOOL                   isSystemKDC = CSSM_FALSE;
-    CSSM_OID                    ekuOIDS[2];
+	CSSM_BOOL                   isHostOrIP = CSSM_FALSE;
+	CSSM_OID                    ekuOIDS[2];
+	CE_GeneralName              altName;
+	CE_GeneralNameType          altNameType;
+	CFDataRef                   altNameData = NULL;
 
-    /* KDC extKeyUsage */
-    uint8_t	    KDCoidData[] = {0x2B, 0x6, 0x1, 0x5, 0x2, 0x3, 0x5};
+	/* KDC extKeyUsage */
+	uint8_t	    KDCoidData[] = {0x2B, 0x6, 0x1, 0x5, 0x2, 0x3, 0x5};
 
 	/* Note a lot of the CSSM_APPLE_TP_CERT_REQUEST fields are not
 	 * used for the createCsr option, but we'll fill in as much as is practical
@@ -1103,13 +1144,13 @@ static OSStatus createCertCsr(
 		printf("createCertCsr: issuerCert not implemented\n");
 		return unimpErr;
 	}
-	
+
 	numExts = 0;
 
 	if (systemDomain != NULL && strncmp(SYSTEM_KDC, systemDomain, strlen(SYSTEM_KDC)) == 0) {
 		isSystemKDC = CSSM_TRUE;
 	}
-	
+
 	char challengeBuf[400];
 	if(createCsr) {
 		if(useAllDefaults) {
@@ -1117,7 +1158,7 @@ static OSStatus createCertCsr(
 		}
 		else {
 			while(1) {
-				getStringWithPrompt("Enter challenge string: ", 
+				getStringWithPrompt("Enter challenge string: ",
 					challengeBuf, sizeof(challengeBuf));
 				if(challengeBuf[0] != '\0') {
 					break;
@@ -1129,79 +1170,10 @@ static OSStatus createCertCsr(
 	else {
 		/* creating cert */
 		certReq.challengeString = NULL;
-		
-		/* KeyUsage extension */
-		if(systemDomain) {
-			extp->type = DT_KeyUsage;
-			extp->critical = CSSM_FALSE;
-			extp->extension.keyUsage = 0;
-			if(keyUsage & kKeyUseSigning) {
-				extp->extension.keyUsage |= 
-					(CE_KU_DigitalSignature);
-			}
-			if (isSystemKDC) {
-			    if(keyUsage & kKeyUseEncrypting) {
-				extp->extension.keyUsage |= 
-					(CE_KU_KeyEncipherment);
-			    }			    
-			}
-			else {
-			    if(keyUsage & kKeyUseEncrypting) {
-				extp->extension.keyUsage |= 
-					(CE_KU_KeyEncipherment | CE_KU_DataEncipherment);
-			    }
-			    if(keyUsage & kKeyUseDerive) {
-				extp->extension.keyUsage |= CE_KU_KeyAgreement;
-			    }
-			}
-			extp++;
-			numExts++;
-		}
-		
-		/* BasicConstraints */
-		if(!systemDomain) {
-			extp->type = DT_BasicConstraints;
-			extp->critical = CSSM_TRUE;
-			extp->extension.basicConstraints.cA = CSSM_TRUE;
-			extp->extension.basicConstraints.pathLenConstraintPresent = CSSM_FALSE;
-			extp++;
-			numExts++;
-		}
-		
-		/* Extended Key Usage, optional */
-		if (extendedKeyUse != NULL || isSystemKDC) {
-            extp->type = DT_ExtendedKeyUsage;
-            extp->critical = CSSM_FALSE;
-            extp->extension.extendedKeyUsage.purposes = ekuOIDS;
-
-            if (extendedKeyUse != NULL && isSystemKDC) {
-                extp->extension.extendedKeyUsage.numPurposes = 2;
-                ekuOIDS[0].Data = extendedKeyUse->Data;
-                ekuOIDS[0].Length = extendedKeyUse->Length;
-                ekuOIDS[1].Data = KDCoidData;
-                ekuOIDS[1].Length = sizeof(KDCoidData);
-            } else {
-                /* only one purpose */
-                extp->extension.extendedKeyUsage.numPurposes = 1;
-                if (isSystemKDC) {
-                    ekuOIDS[0].Data = KDCoidData;
-                    ekuOIDS[0].Length = sizeof(KDCoidData);
-                } else {
-                    ekuOIDS[0].Data = extendedKeyUse->Data;
-                    ekuOIDS[0].Length = extendedKeyUse->Length;
-                }
-                ekuOIDS[1].Length = 0;
-            }
-
-			extp++;
-			numExts++;
-		}
-
-		
 	}
-	
+
 	/* name array */
-	if(systemDomain) {
+	if (systemDomain) {
 		subjectNames[0].string 	= systemDomain;
 		subjectNames[0].oid 	= &CSSMOID_CommonName;
 		subjectNames[1].string 	= SI_DEF_ORG_NAME;
@@ -1222,17 +1194,127 @@ static OSStatus createCertCsr(
 	else {
 		getNameOids(subjectNames, &numNames);
 	}
-	
+	/* remove trailing dot from provided string before checking type, as
+	   SecFrameworkIsDNSName assumes this has been done by the caller. */
+	(void)removeTrailingDot((char*)subjectNames[0].string);
+
+	altNameType = getNameType(subjectNames[0].string);
+	if (altNameType != GNT_OtherName) {
+		isHostOrIP = CSSM_TRUE;
+	}
+
+	/* Basic Constraints (CA, unless common name is a DNS host or IP address) */
+	if (!systemDomain) {
+		extp->type = DT_BasicConstraints;
+		extp->critical = CSSM_TRUE;
+		extp->extension.basicConstraints.cA = (!isHostOrIP);
+		extp->extension.basicConstraints.pathLenConstraintPresent = CSSM_FALSE;
+		extp++;
+		numExts++;
+	}
+
+	/* Key Usage extension */
+	if (systemDomain) {
+		extp->type = DT_KeyUsage;
+		extp->critical = CSSM_FALSE;
+		extp->extension.keyUsage = 0;
+		if(keyUsage & kKeyUseSigning) {
+			extp->extension.keyUsage |=
+				(CE_KU_DigitalSignature);
+		}
+		if (isSystemKDC) {
+			if(keyUsage & kKeyUseEncrypting) {
+			extp->extension.keyUsage |=
+				(CE_KU_KeyEncipherment);
+			}
+		}
+		else {
+			if(keyUsage & kKeyUseEncrypting) {
+			extp->extension.keyUsage |=
+				(CE_KU_KeyEncipherment | CE_KU_DataEncipherment);
+			}
+			if(keyUsage & kKeyUseDerive) {
+			extp->extension.keyUsage |= CE_KU_KeyAgreement;
+			}
+		}
+		extp++;
+		numExts++;
+	}
+
+	/* Subject Alternative Name, if common name is a DNS name or IP address */
+	if (isHostOrIP) {
+		extp->type = DT_SubjectAltName;
+		extp->critical = CSSM_FALSE;
+		extp->extension.subjectAltName.numNames = 1;
+		extp->extension.subjectAltName.generalName = &altName;
+
+		altName.nameType = altNameType;
+		altName.berEncoded = CSSM_FALSE;
+		altName.name.Length = (CSSM_SIZE)strlen(subjectNames[0].string);
+		altName.name.Data = (uint8_t *)subjectNames[0].string;
+		if (altNameType == GNT_IPAddress) {
+			CFStringRef altNameStr = CFStringCreateWithCString(NULL, subjectNames[0].string,
+				kCFStringEncodingUTF8);
+			if (altNameStr) {
+				altNameData = SecFrameworkCopyIPAddressData(altNameStr);
+				if (altNameData) {
+					altName.name.Length = (CSSM_SIZE)CFDataGetLength(altNameData);
+					altName.name.Data = (uint8_t *)CFDataGetBytePtr(altNameData);
+					/* altNameData is released after creating the certificate */
+				}
+				CFRelease(altNameStr);
+			}
+		}
+		extp++;
+		numExts++;
+	}
+
+	/* Extended Key Usage, if provided or other parameters require it */
+	if (extendedKeyUse != NULL || isSystemKDC || isHostOrIP) {
+		extp->type = DT_ExtendedKeyUsage;
+		extp->critical = CSSM_FALSE;
+		extp->extension.extendedKeyUsage.purposes = ekuOIDS;
+		extp->extension.extendedKeyUsage.numPurposes = 2;
+
+		if (extendedKeyUse != NULL && isSystemKDC) {
+			/* need server authentication and KDC purposes */
+			ekuOIDS[0].Data = extendedKeyUse->Data;
+			ekuOIDS[0].Length = extendedKeyUse->Length;
+			ekuOIDS[1].Data = KDCoidData;
+			ekuOIDS[1].Length = sizeof(KDCoidData);
+		} else if (extendedKeyUse == NULL && altNameType != GNT_OtherName) {
+			/* default: server and client authentication purposes */
+			ekuOIDS[0].Data = CSSMOID_ServerAuth.Data;
+			ekuOIDS[0].Length = CSSMOID_ServerAuth.Length;
+			ekuOIDS[1].Data = CSSMOID_ClientAuth.Data;
+			ekuOIDS[1].Length = CSSMOID_ClientAuth.Length;
+		} else {
+			/* only one purpose */
+			extp->extension.extendedKeyUsage.numPurposes = 1;
+			if (isSystemKDC) {
+				ekuOIDS[0].Data = KDCoidData;
+				ekuOIDS[0].Length = sizeof(KDCoidData);
+			} else {
+				ekuOIDS[0].Data = extendedKeyUse->Data;
+				ekuOIDS[0].Length = extendedKeyUse->Length;
+			}
+			ekuOIDS[1].Length = 0;
+		}
+		extp++;
+		numExts++;
+	}
+
 	/* certReq */
 	certReq.cspHand = cspHand;
 	certReq.clHand = clHand;
 	certReq.numSubjectNames = numNames;
 	certReq.subjectNames = subjectNames;
-	
+
 	/* random serial number */
 	try {
-		DevRandomGenerator drg;
-		drg.random(serialNum, SERIAL_NUM_LENGTH);
+
+		MacOSError::check(SecRandomCopyBytes(kSecRandomDefault, SERIAL_NUM_LENGTH, serialNum));
+
 		/* MS bit must be zero */
 		serialNum[0] &= 0x7f;
 		certReq.serialNumber = ((uint32)(serialNum[0])) << 24 |
@@ -1241,10 +1323,10 @@ static OSStatus createCertCsr(
 							   ((uint32)(serialNum[3]));
 	}
 	catch(...) {
-		certReq.serialNumber = 0x12345678;	
+		certReq.serialNumber = 0x12345678;
 	}
-	
-	/* TBD - if we're passed in a signing cert, certReq.issuerNameX509 will 
+
+	/* TBD - if we're passed in a signing cert, certReq.issuerNameX509 will
 	 * be obtained from that cert. For now we specify "self-signed" cert
 	 * by not providing an issuer name at all. */
 	certReq.numIssuerNames = 0;				// root for now
@@ -1259,10 +1341,10 @@ static OSStatus createCertCsr(
 
 	certReq.numExtensions = numExts;
 	certReq.extensions = exts;
-	
+
 	reqSet.NumberOfRequests = 1;
 	reqSet.Requests = &certReq;
-	
+
 	/* a CSSM_TP_CALLERAUTH_CONTEXT to specify an OID */
 	memset(&CallerAuthContext, 0, sizeof(CSSM_TP_CALLERAUTH_CONTEXT));
 	memset(&policyId, 0, sizeof(CSSM_FIELD));
@@ -1276,9 +1358,9 @@ static OSStatus createCertCsr(
 	CallerAuthContext.Policy.PolicyIds = &policyId;
 
 	CssmClient::AclFactory factory;
-	CallerAuthContext.CallerCredentials = 
+	CallerAuthContext.CallerCredentials =
 		const_cast<Security::AccessCredentials *>(factory.promptCred());
-	
+
 	CSSM_RETURN crtn = CSSM_TP_SubmitCredRequest(tpHand,
 		NULL,				// PreferredAuthority
 		CSSM_TP_AUTHORITY_REQUEST_CERTISSUE,
@@ -1286,12 +1368,15 @@ static OSStatus createCertCsr(
 		&CallerAuthContext,
 		&estTime,
 		&refId);
-		
+
 	/* before proceeding, free resources allocated thus far */
 	if(!useAllDefaults && (systemDomain == NULL)) {
 		freeNameOids(subjectNames, numNames);
 	}
-	
+	if (altNameData) {
+		CFRelease(altNameData);
+	}
+
 	if(crtn) {
 		printError("***Error submitting credential request","CSSM_TP_SubmitCredRequest",crtn);
 		return crtn;
@@ -1312,7 +1397,7 @@ static OSStatus createCertCsr(
 	}
 	encCert = (CSSM_ENCODED_CERT *)resultSet->Results;
 	*certData = encCert->CertBlob;
-	
+
 	/* free resources allocated by TP */
 	APP_FREE(refId.Data);
 	APP_FREE(encCert);
@@ -1328,7 +1413,7 @@ static OSStatus dumpCrlsCerts(
 {
 	CSSM_RETURN crtn;
 	unsigned numItems;
-	
+
 	crtn = cuDumpCrlsCerts(dlDbHand, clHand, CSSM_TRUE, numItems, verbose);
 	if(crtn && (crtn != CSSMERR_DL_INVALID_RECORDTYPE)) {
 		/* invalid record type just means "this hasn't been set up
@@ -1360,7 +1445,7 @@ typedef enum {
 	CO_SystemIdentity
 } CertOp;
 
-int realmain (int argc, char **argv)
+static int realmain (int argc, char **argv)
 {
 	SecKeychainRef 		kcRef = nil;
 	char 				kcPath[MAXPATHLEN + 1];
@@ -1388,7 +1473,7 @@ int realmain (int argc, char **argv)
 	Boolean 			promptUser = true;
 	char				*allocdPassPhrase = NULL;
 	OSStatus			ourRtn = noErr;
-	
+
 	/* command line arguments */
 	char				*fileName = NULL;
 	CSSM_BOOL			pemFormat = CSSM_TRUE;
@@ -1407,7 +1492,7 @@ int realmain (int argc, char **argv)
 	CSSM_BOOL			avoidDupIdentity = CSSM_FALSE;
 	const char			*domainName = NULL;
 	CFStringRef			cfDomain = NULL;
-	
+
 	if(argc < 2) {
 		usage(argv);
 	}
@@ -1425,14 +1510,14 @@ int realmain (int argc, char **argv)
 			fileName = argv[2];
 			optArgs = 3;
 			break;
-			
+
 		case 'C':
 			if(argc < 3) {
 				usage(argv);
 			}
 			op = CO_SystemIdentity;
 			domainName = argv[2];
-			cfDomain = CFStringCreateWithCString(NULL, 
+			cfDomain = CFStringCreateWithCString(NULL,
 					domainName, kCFStringEncodingASCII);
 			optArgs = 3;
 			/* custom ExtendedKeyUse for this type of cert */
@@ -1440,7 +1525,7 @@ int realmain (int argc, char **argv)
 			/* *some* ACL - default, or per-uid (specified later) */
 			useSecKey = CSSM_TRUE;
 			break;
-		
+
 		case 'i':
 			if(argc < 3) {
 				usage(argv);
@@ -1585,7 +1670,7 @@ int realmain (int argc, char **argv)
 	if((passPhrase != NULL) && !createKc) {
 		printf("***passphrase specification only allowed on keychain create. Aborting.\n");
 		exit(1);
-	}	
+	}
 
 	switch(op) {
 		case CO_DisplayCert:
@@ -1597,14 +1682,14 @@ int realmain (int argc, char **argv)
 			return 0;
 		case CO_SystemIdentity:
 			if(avoidDupIdentity) {
-				/* 
-				 * We're done if there already exists an identity for 
-				 * the specified domain. 
+				/*
+				 * We're done if there already exists an identity for
+				 * the specified domain.
 				 */
 				CFStringRef actualDomain = NULL;
 				SecIdentityRef idRef = NULL;
 				bool done = false;
-				
+
 				OSStatus ortn = SecIdentityCopySystemIdentity(cfDomain,
 					&idRef, &actualDomain);
 				if(ortn == noErr) {
@@ -1628,21 +1713,21 @@ int realmain (int argc, char **argv)
 			break;
 		default:
 			/* proceed */
-			break;	
+			break;
 	}
-	
+
 	clHand = cuClStartup();
 	if(clHand == 0) {
 		printf("Error connecting to CL. Aborting.\n");
 		exit(1);
 	}
-	
+
 	/* that's all we need for verifying a CSR */
 	if(op == CO_VerifyCSR) {
 		ourRtn = verifyCsr(clHand, fileName, pemFormat);
 		goto abort;
 	}
-	
+
 	/* Cook up a keychain path */
 	if(op == CO_SystemIdentity) {
 		/* this one's implied and hard coded */
@@ -1653,11 +1738,11 @@ int realmain (int argc, char **argv)
 		if(kcName[0] == '/') {
 			/* specific keychain not in Library/Keychains */
 			check_obsolete_keychain(kcName);
-			strncpy(kcPath, kcName, MAXPATHLEN); 
+			strncpy(kcPath, kcName, MAXPATHLEN);
 		}
 		else {
 			const char *userHome = getenv("HOME");
-		
+
 			if(userHome == NULL) {
 				/* well, this is probably not going to work */
 				userHome = "";
@@ -1677,16 +1762,16 @@ int realmain (int argc, char **argv)
 			printError("***Error retreiving default keychain path","SecKeychainGetPath",ortn);
 			exit(1);
 		}
-		
-		/* 
-		 * OK, we have a path, we have to release the first KC ref, 
-		 * then get another one by opening it 
+
+		/*
+		 * OK, we have a path, we have to release the first KC ref,
+		 * then get another one by opening it
 		 */
 		CFRelease(kcRef);
 	}
 
 	if(passPhrase != NULL) {
-		pwdLen = strlen(passPhrase);
+		pwdLen = (UInt32) (strlen(passPhrase) & 0XFFFFFFFF);
 		/* work around bug - incoming passphrase gets freed */
 		Security::Allocator &alloc = Security::Allocator::standard();
 		allocdPassPhrase = (char *)alloc.malloc(pwdLen);
@@ -1697,7 +1782,7 @@ int realmain (int argc, char **argv)
 		ortn = SecKeychainCreate(kcPath,
 			pwdLen,
 			allocdPassPhrase,
-			promptUser,	
+			promptUser,
 			nil,	// initialAccess
 			&kcRef);
 		/* fixme - do we have to open it? */
@@ -1715,7 +1800,7 @@ int realmain (int argc, char **argv)
 			exit(1);
 		}
 	}
-	
+
 	/* get associated DL/DB handle */
 	ortn = SecKeychainGetDLDBHandle(kcRef, &dlDbHand);
 	if(ortn) {
@@ -1728,10 +1813,10 @@ int realmain (int argc, char **argv)
 		printError("***Error getting keychain CSP handle","SecKeychainGetCSPHandle",ortn);
 		exit(1);
 	}
-	
+
 	switch(op) {
 		case CO_ImportCert:
-			ourRtn = importCert(kcRef, dlDbHand, cspHand, clHand, fileName, privKeyFileName, 
+			ourRtn = importCert(kcRef, dlDbHand, cspHand, clHand, fileName, privKeyFileName,
 				pemFormat, privKeyFormat);
 			goto abort;
 		case CO_ImportCRL:
@@ -1743,24 +1828,24 @@ int realmain (int argc, char **argv)
 		default:
 			break;
 	}
-	
+
 	/* remaining ops need TP as well */
 	tpHand = cuTpStartup();
 	if(tpHand == 0) {
 		printf("Error connecting to TP. Aborting.\n");
 		exit(1);
 	}
-	
+
 	/*** op = CO_CreateCert, CO_CreateCSR, CO_SystemIdentity ***/
-	
+
 	/*
-	 * TBD: eventually we want to present the option of using an existing 
-	 * SecIdentityRef from the keychain as the signing cert/key. 
+	 * TBD: eventually we want to present the option of using an existing
+	 * SecIdentityRef from the keychain as the signing cert/key.
 	 */
 	isRoot = true;
-	
+
 	/*
-	 * Generate a key pair - via CDSA if no ACL is requested, else 
+	 * Generate a key pair - via CDSA if no ACL is requested, else
 	 * SecKeyCreatePair().
 	 */
 	char labelBuf[200];
@@ -1782,7 +1867,7 @@ int realmain (int argc, char **argv)
 	}
 	keyLabel.Data = (uint8 *)labelBuf;
 	keyLabel.Length = strlen(labelBuf);
-	
+
 	/* get key algorithm and size */
 	if(op == CO_SystemIdentity) {
 		keyAlg = SI_DEF_KEY_ALG;
@@ -1806,9 +1891,9 @@ int realmain (int argc, char **argv)
 	else {
 		keyUsage = getKeyUsage(isRoot);
 	}
-	
+
 	printf("...Generating key pair...\n");
-	
+
 	if(useSecKey) {
 		/* generate keys using SecKeyCreatePair */
 		ourRtn = generateSecKeyPair(kcRef,
@@ -1839,7 +1924,7 @@ int realmain (int argc, char **argv)
 		printError("Error generating keys; aborting","generateKeyPair",ourRtn);
 		goto abort;
 	}
-	
+
 	/* get signing algorithm per the signing key */
 	if(op == CO_SystemIdentity) {
 		sigAlg = SI_DEF_SIG_ALG;
@@ -1856,7 +1941,7 @@ int realmain (int argc, char **argv)
 			goto abort;
 		}
 	}
-	
+
 	if(createCsr) {
 		printf("...creating CSR...\n");
 	}
@@ -1882,19 +1967,19 @@ int realmain (int argc, char **argv)
 		goto abort;
 	}
 	if(verbose) {
-		printCert(certData.Data, certData.Length, CSSM_FALSE); 
+		printCert(certData.Data, (unsigned int)certData.Length, CSSM_FALSE);
 		printCertShutdown();
 	}
-	
+
 	if(fileName) {
-		/* 
+		/*
 		 * Create CSR, or create cert with outFileName option.
-		 * Write results to a file 
+		 * Write results to a file
 		 */
 		unsigned char *pem = NULL;
 		unsigned pemLen;
 		int rtn;
-		
+
 		if(pemFormat) {
 			const char *headerStr;
 			switch(op) {
@@ -1908,23 +1993,23 @@ int realmain (int argc, char **argv)
 					printf("***INTERNAL ERROR; aborting.\n");
 					exit(1);
 			}
-			rtn = pemEncode(certData.Data, certData.Length, &pem, &pemLen, headerStr);
+			rtn = pemEncode(certData.Data, (unsigned int)certData.Length, &pem, &pemLen, headerStr);
 			if(rtn) {
 				/* very unlikely, I think malloc is the only failure */
 				printf("***Error PEM-encoding output. Aborting.\n");
 				goto abort;
 			}
-			rtn = writeFile(fileName, pem, pemLen); 
+			rtn = writeFile(fileName, pem, pemLen);
 		}
 		else {
-			rtn = writeFile(fileName, certData.Data, certData.Length);
+			rtn = writeFile(fileName, certData.Data, (unsigned int)certData.Length);
 		}
 		if(rtn) {
 			printf("***Error writing CSR to %s\n", fileName);
 			ourRtn = ioErr;
 		}
 		else {
-			printf("Wrote %u bytes of CSR to %s\n", (unsigned)certData.Length, 
+			printf("Wrote %u bytes of CSR to %s\n", (unsigned int)certData.Length,
 				fileName);
 		}
 		if(pem) {
@@ -1934,7 +2019,7 @@ int realmain (int argc, char **argv)
 	if((op == CO_CreateCert) || (op == CO_SystemIdentity)) {
 		/* store the cert in the same DL/DB as the key pair */
 		SecCertificateRef certRef = NULL;
-		
+
 		OSStatus ortn = SecCertificateCreateFromData(
 			&certData,
 			CSSM_CERT_X_509v3,
@@ -1958,8 +2043,8 @@ int realmain (int argc, char **argv)
 			printf("..cert stored in Keychain.\n");
 			if(op == CO_SystemIdentity) {
 				/*
-				 * Get the SecIdentityRef assocaited with this cert and 
-				 * register it 
+				 * Get the SecIdentityRef assocaited with this cert and
+				 * register it
 				 */
 				SecIdentityRef idRef;
 				ortn = SecIdentityCreateWithCertificate(kcRef, certRef, &idRef);
@@ -1976,7 +2061,7 @@ int realmain (int argc, char **argv)
 					}
 					else {
 						printf("..identity registered for domain %s.\n", domainName);
-					
+
 					}
 				}
 				CFRelease(cfDomain);

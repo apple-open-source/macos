@@ -21,7 +21,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if __has_include(<CrashReporterClient.h>)
 #include <CrashReporterClient.h>
+#else
+#define CRSetCrashLogMessage(...)
+#endif
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>

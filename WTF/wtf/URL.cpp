@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2007-2008, 2011-2013, 2015-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2019 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Research In Motion Limited. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,7 +31,6 @@
 #include <stdio.h>
 #include <unicode/uidna.h>
 #include <wtf/HashMap.h>
-#include <wtf/HexNumber.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/UUID.h>
@@ -40,11 +39,6 @@
 #include <wtf/text/StringConcatenateNumbers.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/TextStream.h>
-
-// FIXME: This file makes too much use of the + operator on String.
-// We either have to optimize that operator so it doesn't involve
-// so many allocations, or change this to use StringBuffer instead.
-
 
 namespace WTF {
 
@@ -470,7 +464,7 @@ void URL::setPort(unsigned short i)
     bool colonNeeded = !m_portLength;
     unsigned portStart = (colonNeeded ? m_hostEnd : m_hostEnd + 1);
 
-    URLParser parser(makeString(StringView(m_string).left(portStart), (colonNeeded ? ":" : ""), String::number(i), StringView(m_string).substring(m_hostEnd + m_portLength)));
+    URLParser parser(makeString(StringView(m_string).left(portStart), (colonNeeded ? ":" : ""), static_cast<unsigned>(i), StringView(m_string).substring(m_hostEnd + m_portLength)));
     *this = parser.result();
 }
 

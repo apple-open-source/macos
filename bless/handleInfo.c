@@ -61,7 +61,7 @@
 #include <APFS/APFS.h>
 
 
-#define kPrebootIndicator	"<Preboot>"
+#define kPrebootIndicator	"{Preboot}"
 
 static int interpretEFIString(BLContextPtr context, CFStringRef efiString, char *bootdevice, int deviceLen,
                               char *relPath, char *relPathLen);
@@ -118,7 +118,6 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
 	CFArrayRef				prebootBSDs;
 	CFStringRef				prebootDev;
 	char					prebootNode[MNAMELEN];
-	CFMutableDictionaryRef	matching;
 	bool					explicitPreboot = false;
     bool                    explicitRecovery = false;
 	bool					noAccessToPreboot = false;
@@ -130,6 +129,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
 	char            		realMountPoint[MAXPATHLEN];
 	char					prebootMountPoint[MAXPATHLEN];
     UInt16                  role;
+    uuid_string_t           snap_uuid = {0};
 
     if(!actargs[kinfo].hasArg || actargs[kgetboot].present) {
         char currentDev[1024]; // may contain URLs like bsdp://foo
@@ -223,8 +223,8 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
                     prebootBSDs = CFDictionaryGetValue(booterDict, kBLAPFSPrebootVolumesKey);
                     if (prebootBSDs && CFGetTypeID(prebootBSDs) == CFArrayGetTypeID()) {
                         CFIndex count, i;
-                        CFStringRef uuidStr;
                         char *slash = NULL;
+                        uuid_string_t uuid;
 						
                         count = CFArrayGetCount(prebootBSDs);
                         for (i = 0; i < count; i++) {
@@ -283,33 +283,25 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
                                     return 4;
                                 }
                                 realpath(prebootMountPoint, realMountPoint);
-                                memmove(currentPath, currentPath + strlen(realMountPoint), strlen(currentPath) - strlen(realMountPoint) + 1);
-                                slash = strchr(currentPath + 1, '/');
-                                if (!slash || slash - (currentPath+1) != 36) slash = NULL;
                             }
-                            if (!slash) {
+
+                            newBSDName = BLGetAPFSBlessedVolumeBSDName(context, slash ? "" : realMountPoint, currentPath, uuid);
+
+                            if (!uuid[0]) {
                                 // Can't find a valid UUID in blessed path.
                                 blesscontextprintf(context, kBLLogLevelError, "Couldn't find a valid volume UUID in the boot path\n");
                                 CFRelease(booterDict);
                                 return 4;
                             }
-                            *slash = '\0';
-                            uuidStr = CFStringCreateWithCString(kCFAllocatorDefault, currentPath + 1, kCFStringEncodingUTF8);
-                            *slash = '/';
-                            matching = IOServiceMatching("AppleAPFSVolume");
-                            CFDictionarySetValue(matching, CFSTR(kIOMediaUUIDKey), uuidStr);
-                            CFRelease(uuidStr);
-                            service = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
-                            if (service) {
-                                newBSDName = IORegistryEntryCreateCFProperty(service, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
-                                if (newBSDName) {
-                                    blesscontextprintf(context, kBLLogLevelVerbose, "%s is a preboot volume\n", currentDev);
-                                    CFStringGetCString(newBSDName,
-                                                       currentDev + strlen("/dev/"),
-                                                       sizeof currentDev - strlen("/dev/"),
-                                                       kCFStringEncodingUTF8);
-                                    blesscontextprintf(context, kBLLogLevelVerbose, "Substituting found system volume %s\n", currentDev);
-                                }
+
+                            if (newBSDName) {
+                                blesscontextprintf(context, kBLLogLevelVerbose, "%s is a preboot volume\n", currentDev);
+                                CFStringGetCString(newBSDName,
+                                                    currentDev + strlen(_PATH_DEV),
+                                                    sizeof currentDev - strlen(_PATH_DEV),
+                                                    kCFStringEncodingUTF8);
+                                blesscontextprintf(context, kBLLogLevelVerbose, "Substituting found system volume %s\n", currentDev);
+                                CFRelease(newBSDName);
                             }
                         }
                     }
@@ -466,7 +458,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
 	if (isAPFS) {
         // Are we being asked specifically about the recovery volume?
         APFSVolumeRole(sb.f_mntfromname + 5, &role, NULL);
-        if (role & APFS_VOL_ROLE_RECOVERY) {
+        if (role == APFS_VOL_ROLE_RECOVERY) {
             ret = BLCreateAPFSVolumeInformationDictionary(context, actargs[kmount].argument, (void *)&allInfo);
             if (ret) {
                 blesscontextprintf(context, kBLLogLevelError, "Couldn't get bless data from recovery volume.\n");
@@ -635,63 +627,64 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
 								   messages[1-j][dirint > 0], cpath);
 				
 				if (CFStringGetLength(path) > 0 && j == 1) {
-					char cpath[MAXPATHLEN];
-					char *slash;
-					CFStringRef uuidStr;
 					char		bsd[64] = _PATH_DEV;
 					int			i;
-					bool		gotIt = false;
+                    uuid_string_t uuid;
 					
-					CFStringGetCString(path, cpath, sizeof cpath, kCFStringEncodingUTF8);
 					if (strcmp(volToCheck, kPrebootIndicator) != 0) {
 						realpath(volToCheck, realMountPoint);
 					} else {
 						strlcpy(realMountPoint, kPrebootIndicator, sizeof realMountPoint);
-					}
-					memmove(cpath, cpath + strlen(realMountPoint), strlen(cpath) - strlen(realMountPoint) + 1);
-					slash = strchr(cpath + 1, '/');
-					if ((!slash && strlen(cpath+1) != 36) || (slash && slash - (cpath+1) != 36)) {
+                    }
+
+                    newBSDName = BLGetAPFSBlessedVolumeBSDName(context, realMountPoint, cpath, uuid);
+
+					if (!uuid[0]) {
 						// Can't find a valid UUID in blessed path.
 						blesscontextprintf(context, kBLLogLevelError, "Couldn't find a valid volume UUID in the boot path\n");
                         CFRelease(dict);
 						return 4;
 					}
-					if (slash) *slash = '\0';
-					uuidStr = CFStringCreateWithCString(kCFAllocatorDefault, cpath + 1, kCFStringEncodingUTF8);
-					matching = IOServiceMatching("AppleAPFSVolume");
-					CFDictionarySetValue(matching, CFSTR(kIOMediaUUIDKey), uuidStr);
-					CFRelease(uuidStr);
-					service = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
-					if (service) {
-						newBSDName = IORegistryEntryCreateCFProperty(service, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
-						if (newBSDName) {
-							CFStringGetCString(newBSDName, bsd + strlen(_PATH_DEV), sizeof bsd - strlen(_PATH_DEV),
-											   kCFStringEncodingUTF8);
-							gotIt = true;
-							mntsize = getmntinfo(&mnts, MNT_NOWAIT);
-							for (i = 0; i < mntsize; i++) {
-								if (strcmp(mnts[i].f_mntfromname, bsd) == 0) break;
-							}
-							if (i < mntsize) {
-                                if (explicitPreboot || explicitRecovery) {
-                                    blesscontextprintf(context, kBLLogLevelNormal, "These paths are associated with the volume \"%s\".\n",
-                                                       mnts[i].f_mntonname);
-                                } else {
-                                    blesscontextprintf(context, kBLLogLevelNormal, "The blessed volume in this APFS container is \"%s\".\n",
-                                                       mnts[i].f_mntonname);
-                                }
-							} else {
-                                if (explicitPreboot || explicitRecovery) {
-                                    blesscontextprintf(context, kBLLogLevelNormal, "These paths are associated with the device %s, "
-                                                       "which is not mounted.\n", bsd);
-                                } else {
-                                    blesscontextprintf(context, kBLLogLevelNormal, "The blessed volume in this APFS container is %s, which is not mounted.\n", bsd);
-                                }
-							}
-						}
-					}
-					if (!gotIt) {
-						blesscontextprintf(context, kBLLogLevelError, "Could not find an APFS volume with UUID %s\n", cpath + 1);
+
+                    if (newBSDName) {
+                        CFStringGetCString(newBSDName, bsd + strlen(_PATH_DEV), sizeof bsd - strlen(_PATH_DEV),
+                                           kCFStringEncodingUTF8);
+                        mntsize = getmntinfo(&mnts, MNT_NOWAIT);
+                        for (i = 0; i < mntsize; i++) {
+                            if (strcmp(mnts[i].f_mntfromname, bsd) == 0) break;
+                        }
+                        if (i < mntsize) {
+                            if (explicitPreboot || explicitRecovery) {
+                                blesscontextprintf(context, kBLLogLevelNormal, "These paths are associated with the volume \"%s\".\n",
+                                                    mnts[i].f_mntonname);
+                            } else {
+                                blesscontextprintf(context, kBLLogLevelNormal, "The blessed volume in this APFS container is \"%s\".\n",
+                                                    mnts[i].f_mntonname);
+                            }
+
+                            // check for a blessed APFS snapshot
+                            if (BLGetAPFSSnapshotBlessData(context, mnts[i].f_mntonname, snap_uuid)) {
+                                blesscontextprintf(context, kBLLogLevelError, "Could not lookup blessed APFS snapshot for %s - %s\n",
+                                                   mnts[i].f_mntonname, strerror(errno));
+                            } else if (snap_uuid[0]) {
+                                blesscontextprintf(context, kBLLogLevelNormal, "The blessed APFS snapshot for this volume is \"%s\".\n",
+                                                   snap_uuid);
+                            } else {
+                                blesscontextprintf(context, kBLLogLevelNormal, "No blessed APFS snapshot for this volume.\n");
+                            }
+                        } else {
+                            if (explicitPreboot || explicitRecovery) {
+                                blesscontextprintf(context, kBLLogLevelNormal, "These paths are associated with the device %s, "
+                                                    "which is not mounted.\n", bsd);
+                            } else {
+                                blesscontextprintf(context, kBLLogLevelNormal, "The blessed volume in this APFS container is %s, which is not mounted.\n", bsd);
+                            }
+
+                            blesscontextprintf(context, kBLLogLevelNormal, "Lookup of blessed APFS snapshot for this volume requires it be mounted.\n");
+                        }
+                    }
+					else {
+						blesscontextprintf(context, kBLLogLevelError, "Could not find an APFS volume with UUID %s\n", uuid);
                         CFRelease(dict);
 						return 6;
 					}

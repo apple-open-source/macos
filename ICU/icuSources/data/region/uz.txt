@@ -133,7 +133,7 @@ uz{
         GU{"Guam"}
         GW{"Gvineya-Bisau"}
         GY{"Gayana"}
-        HK{"Gonkong (Xitoy MMH)"}
+        HK{"Gonkong"}
         HM{"Xerd va Makdonald orollari"}
         HN{"Gonduras"}
         HR{"Xorvatiya"}
@@ -183,11 +183,11 @@ uz{
         MF{"Sent-Martin"}
         MG{"Madagaskar"}
         MH{"Marshall orollari"}
-        MK{"Makedoniya"}
+        MK{"Shimoliy Makedoniya"}
         ML{"Mali"}
         MM{"Myanma (Birma)"}
         MN{"Mongoliya"}
-        MO{"Makao (Xitoy MMH)"}
+        MO{"Makao"}
         MP{"Shimoliy Mariana orollari"}
         MQ{"Martinika"}
         MR{"Mavritaniya"}
@@ -297,8 +297,6 @@ uz{
     }
     Countries%short{
         GB{"Britaniya"}
-        HK{"Gonkong"}
-        MO{"Makao"}
         PS{"Falastin"}
         UN{"BMT"}
         US{"AQSH"}
@@ -309,8 +307,7 @@ uz{
         CI{"Fil suyagi qirg‘og‘i"}
         CZ{"Chexiya Respublikasi"}
         FK{"Folklend (Malvin) orollari"}
-        MK{"Makedoniya (SYRM)"}
         TL{"Sharqiy Timor"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
 }

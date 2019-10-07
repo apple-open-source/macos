@@ -36,11 +36,24 @@
 namespace WebCore {
 
 DOMWindowExtension::DOMWindowExtension(DOMWindow* window, DOMWrapperWorld& world)
-    : DOMWindowProperty(window)
+    : m_window(makeWeakPtr(window))
     , m_world(world)
     , m_wasDetached(false)
 {
     ASSERT(this->frame());
+    if (m_window)
+        m_window->registerObserver(*this);
+}
+
+DOMWindowExtension::~DOMWindowExtension()
+{
+    if (m_window)
+        m_window->unregisterObserver(*this);
+}
+
+Frame* DOMWindowExtension::frame() const
+{
+    return m_window ? m_window->frame() : nullptr;
 }
 
 void DOMWindowExtension::suspendForPageCache()
@@ -53,15 +66,14 @@ void DOMWindowExtension::suspendForPageCache()
     frame->loader().client().dispatchWillDisconnectDOMWindowExtensionFromGlobalObject(this);
 
     m_disconnectedFrame = WTFMove(frame);
-
-    DOMWindowProperty::suspendForPageCache();
 }
 
 void DOMWindowExtension::resumeFromPageCache()
 {
+    ASSERT(frame());
     ASSERT(m_disconnectedFrame == frame());
-    
-    DOMWindowProperty::resumeFromPageCache();
+    ASSERT(frame()->document()->domWindow() == m_window);
+
     m_disconnectedFrame = nullptr;
 
     frame()->loader().client().dispatchDidReconnectDOMWindowExtensionToGlobalObject(this);
@@ -69,16 +81,22 @@ void DOMWindowExtension::resumeFromPageCache()
 
 void DOMWindowExtension::willDestroyGlobalObjectInCachedFrame()
 {
-    ASSERT(m_disconnectedFrame);
+    ASSERT(m_disconnectedFrame); // Somehow m_disconnectedFrame can be null here. See <rdar://problem/49613448>.
 
     // Calling out to the client might result in this DOMWindowExtension being destroyed
     // while there is still work to do.
     Ref<DOMWindowExtension> protectedThis(*this);
 
-    m_disconnectedFrame->loader().client().dispatchWillDestroyGlobalObjectForDOMWindowExtension(this);
+    if (m_disconnectedFrame)
+        m_disconnectedFrame->loader().client().dispatchWillDestroyGlobalObjectForDOMWindowExtension(this);
     m_disconnectedFrame = nullptr;
 
-    DOMWindowProperty::willDestroyGlobalObjectInCachedFrame();
+    // DOMWindowExtension lifetime isn't tied directly to the DOMWindow itself so it is important that it unregister
+    // itself from any DOMWindow it is associated with if that DOMWindow is going away.
+    ASSERT(m_window);
+    if (m_window)
+        m_window->unregisterObserver(*this);
+    m_window = nullptr;
 }
 
 void DOMWindowExtension::willDestroyGlobalObjectInFrame()
@@ -95,7 +113,12 @@ void DOMWindowExtension::willDestroyGlobalObjectInFrame()
         frame->loader().client().dispatchWillDestroyGlobalObjectForDOMWindowExtension(this);
     }
 
-    DOMWindowProperty::willDestroyGlobalObjectInFrame();
+    // DOMWindowExtension lifetime isn't tied directly to the DOMWindow itself so it is important that it unregister
+    // itself from any DOMWindow it is associated with if that DOMWindow is going away.
+    ASSERT(m_window);
+    if (m_window)
+        m_window->unregisterObserver(*this);
+    m_window = nullptr;
 }
 
 void DOMWindowExtension::willDetachGlobalObjectFromFrame()
@@ -112,7 +135,6 @@ void DOMWindowExtension::willDetachGlobalObjectFromFrame()
     frame->loader().client().dispatchWillDestroyGlobalObjectForDOMWindowExtension(this);
 
     m_wasDetached = true;
-    DOMWindowProperty::willDetachGlobalObjectFromFrame();
 }
 
 } // namespace WebCore

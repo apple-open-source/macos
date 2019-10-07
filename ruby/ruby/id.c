@@ -66,6 +66,8 @@ Init_id(void)
 #define rb_intern(str) rb_intern_const(str)
     rb_encoding *enc = rb_usascii_encoding();
 
+    REGISTER_SYMID(idMax, "max");
+    REGISTER_SYMID(idMin, "min");
     REGISTER_SYMID(idFreeze, "freeze");
     REGISTER_SYMID(idInspect, "inspect");
     REGISTER_SYMID(idIntern, "intern");
@@ -102,11 +104,16 @@ Init_id(void)
     REGISTER_SYMID(idTo_a, "to_a");
     REGISTER_SYMID(idTo_s, "to_s");
     REGISTER_SYMID(idTo_i, "to_i");
+    REGISTER_SYMID(idTo_f, "to_f");
+    REGISTER_SYMID(idTo_r, "to_r");
     REGISTER_SYMID(idBt, "bt");
     REGISTER_SYMID(idBt_locations, "bt_locations");
     REGISTER_SYMID(idCall, "call");
     REGISTER_SYMID(idMesg, "mesg");
     REGISTER_SYMID(idException, "exception");
+    REGISTER_SYMID(idNOT, "not");
+    REGISTER_SYMID(idAND, "and");
+    REGISTER_SYMID(idOR, "or");
     REGISTER_SYMID(idUScore, "_");
     REGISTER_SYMID(idNULL, ""/*NULL*/"");
     REGISTER_SYMID(idEmptyP, "empty?");
@@ -121,8 +128,8 @@ Init_id(void)
     REGISTER_SYMID(id_core_define_method, "core#define_method");
     REGISTER_SYMID(id_core_define_singleton_method, "core#define_singleton_method");
     REGISTER_SYMID(id_core_set_postexe, "core#set_postexe");
-    REGISTER_SYMID(id_core_hash_from_ary, "core#hash_from_ary");
-    REGISTER_SYMID(id_core_hash_merge_ary, "core#hash_merge_ary");
     REGISTER_SYMID(id_core_hash_merge_ptr, "core#hash_merge_ptr");
     REGISTER_SYMID(id_core_hash_merge_kwd, "core#hash_merge_kwd");
+    REGISTER_SYMID(idLASTLINE, "$_");
+    REGISTER_SYMID(idBACKREF, "$~");
 }

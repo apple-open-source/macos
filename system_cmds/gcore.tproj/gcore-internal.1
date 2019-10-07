@@ -17,6 +17,7 @@
 .Sy conv
 .Op Fl L Ar searchpath
 .Op Fl z
+.Op Fl s
 .Op Fl v
 .Op Fl d
 .Ar incore outcore
@@ -112,7 +113,7 @@ references it contains by copying the content
 and decompressing any compressed data into the output core file.
 This conversion usually makes the core file substantially larger.
 .Pp
-Files to be dereferenced must be accessible on the
+By default, files to be dereferenced must be accessible on the
 local filesystem by the same relative paths as they were originally recorded
 when the dump was taken.
 Files that are Mach-O objects containing UUIDs are required to match
@@ -135,6 +136,11 @@ for each file reference.
 During conversion, if any mapped file
 identified by modification time
 cannot be located, substitute zeroed memory.
+.It Fl s
+When processing file references,
+try looking for the pathname through
+.Xr dsymForUUID 1
+before searching locally.
 .It Fl v
 Report progress on the conversion as it proceeds.
 .It Fl d
@@ -165,7 +171,7 @@ and since it resides on a read-only root filesystem it should
 generally be easy to retrieve.
 However on the desktop, the lifecycle of this cache is managed locally
 e.g. with
-.Xr update_dyld_shared_cache 1.
+.Xr update_dyld_shared_cache 1 .
 When this cache is recreated it is given a new UUID, the directory
 entry for the old cache is removed, and the same filename
 is used for the new cache.
@@ -191,4 +197,5 @@ could examine extended core files directly i.e. without the conversion step.
 .Pp
 .Sh SEE ALSO 
 .Xr dyld 1 ,
-.Xr update_dyld_shared_cache 1
+.Xr update_dyld_shared_cache 1 ,
+.Xr dsymForUUID 1

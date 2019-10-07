@@ -319,9 +319,9 @@ make_arith_for_command (exprs, action, lineno)
   if (nsemi != 3)
     {
       if (nsemi < 3)
-	parser_error (lineno, _("syntax error: arithmetic expression required"));
+	parser_error (lineno, "%s", _("syntax error: arithmetic expression required"));
       else
-	parser_error (lineno, _("syntax error: `;' unexpected"));
+	parser_error (lineno,"%s", _("syntax error: `;' unexpected"));
       parser_error (lineno, _("syntax error: `((%s))'"), exprs->word->word);
       last_command_exit_value = 2;
       return ((COMMAND *)NULL);

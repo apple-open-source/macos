@@ -25,14 +25,14 @@ shm_remove($s);
 
 echo "Done\n";
 ?>
---EXPECTF--	
+--EXPECTF--
 Warning: shm_put_var() expects exactly 3 parameters, 0 given in %s004.php on line %d
 NULL
 
-Warning: shm_put_var() expects parameter 1 to be resource, integer given in %s004.php on line %d
+Warning: shm_put_var() expects parameter 1 to be resource, int given in %s004.php on line %d
 NULL
 
-Warning: shm_put_var() expects parameter 1 to be resource, integer given in %s004.php on line %d
+Warning: shm_put_var() expects parameter 1 to be resource, int given in %s004.php on line %d
 NULL
 bool(true)
 bool(true)

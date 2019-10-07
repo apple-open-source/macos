@@ -6,7 +6,7 @@
 Project        = patch
 UserType       = Developer
 ToolType       = Commands
-Extra_CC_Flags = -mdynamic-no-pic
+Extra_CC_Flags = -mdynamic-no-pic -Wformat-security
 GnuAfterInstall	= install-plist
 
 # It's a GNU Source project

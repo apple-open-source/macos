@@ -1,11 +1,11 @@
 --TEST--
-SPL: Test class_implements() function : variation 
+SPL: Test class_implements() function : variation
 --FILE--
 <?php
 /* Prototype  : array class_implements(mixed what [, bool autoload ])
- * Description: Return all classes and interfaces implemented by SPL 
+ * Description: Return all classes and interfaces implemented by SPL
  * Source code: ext/spl/php_spl.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing class_implements() : variation ***\n";
@@ -96,7 +96,7 @@ $inputs = array(
 
       // unset data
       'unset var' => @$unset_var,
-      
+
       //resource
       'resource' => $res,
 );
@@ -170,19 +170,19 @@ array(1) {
 }
 
 --empty array--
-Error: 2 - class_implements() expects parameter 2 to be boolean, array given, %s(%d)
+Error: 2 - class_implements() expects parameter 2 to be bool, array given, %s(%d)
 bool(false)
 
 --int indexed array--
-Error: 2 - class_implements() expects parameter 2 to be boolean, array given, %s(%d)
+Error: 2 - class_implements() expects parameter 2 to be bool, array given, %s(%d)
 bool(false)
 
 --associative array--
-Error: 2 - class_implements() expects parameter 2 to be boolean, array given, %s(%d)
+Error: 2 - class_implements() expects parameter 2 to be bool, array given, %s(%d)
 bool(false)
 
 --nested arrays--
-Error: 2 - class_implements() expects parameter 2 to be boolean, array given, %s(%d)
+Error: 2 - class_implements() expects parameter 2 to be bool, array given, %s(%d)
 bool(false)
 
 --uppercase NULL--
@@ -234,11 +234,11 @@ array(1) {
 }
 
 --instance of classWithToString--
-Error: 2 - class_implements() expects parameter 2 to be boolean, object given, %s(%d)
+Error: 2 - class_implements() expects parameter 2 to be bool, object given, %s(%d)
 bool(false)
 
 --instance of classWithoutToString--
-Error: 2 - class_implements() expects parameter 2 to be boolean, object given, %s(%d)
+Error: 2 - class_implements() expects parameter 2 to be bool, object given, %s(%d)
 bool(false)
 
 --undefined var--
@@ -254,6 +254,6 @@ array(1) {
 }
 
 --resource--
-Error: 2 - class_implements() expects parameter 2 to be boolean, resource given, %s(%d)
+Error: 2 - class_implements() expects parameter 2 to be bool, resource given, %s(%d)
 bool(false)
 ===DONE===

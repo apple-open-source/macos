@@ -33,20 +33,26 @@
 #include <wtf/CompletionHandler.h>
 #include <wtf/text/WTFString.h>
 
+namespace WebCore {
+class BlobRegistryImpl;
+}
+
 namespace WebKit {
+
+class NetworkProcess;
 
 class NetworkLoad final : private NetworkDataTaskClient {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    NetworkLoad(NetworkLoadClient&, NetworkLoadParameters&&, NetworkSession&);
+    NetworkLoad(NetworkLoadClient&, WebCore::BlobRegistryImpl*, NetworkLoadParameters&&, NetworkSession&);
     ~NetworkLoad();
 
-    void setDefersLoading(bool);
     void cancel();
 
     bool isAllowedToAskUserForCredentials() const;
 
     const WebCore::ResourceRequest& currentRequest() const { return m_currentRequest; }
+    void updateRequestAfterRedirection(WebCore::ResourceRequest&) const;
 
     const NetworkLoadParameters& parameters() const { return m_parameters; }
 
@@ -63,7 +69,7 @@ public:
     String description() const;
 
 private:
-    void initialize(NetworkSession&);
+    void initialize(NetworkSession&, WebCore::BlobRegistryImpl*);
 
     // NetworkDataTaskClient
     void willPerformHTTPRedirection(WebCore::ResourceResponse&&, WebCore::ResourceRequest&&, RedirectCompletionHandler&&) final;
@@ -74,11 +80,13 @@ private:
     void didSendData(uint64_t totalBytesSent, uint64_t totalBytesExpectedToSend) final;
     void wasBlocked() final;
     void cannotShowURL() final;
+    void wasBlockedByRestrictions() final;
 
     void notifyDidReceiveResponse(WebCore::ResourceResponse&&, ResponseCompletionHandler&&);
     void throttleDelayCompleted();
 
     std::reference_wrapper<NetworkLoadClient> m_client;
+    Ref<NetworkProcess> m_networkProcess;
     const NetworkLoadParameters m_parameters;
     CompletionHandler<void(WebCore::ResourceRequest&&)> m_redirectCompletionHandler;
     RefPtr<NetworkDataTask> m_task;

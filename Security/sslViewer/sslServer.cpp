@@ -45,7 +45,7 @@
 #include <Security/SecCertificatePriv.h>
 
 #include <CoreFoundation/CoreFoundation.h>
-#include "SecurityTool/print_cert.h"
+#include "SecurityTool/sharedTool/print_cert.h"
 
 #if NO_SERVER
 #include <securityd/spi.h>
@@ -259,7 +259,9 @@ static OSStatus sslServe(
     size_t              length;
     uint8_t             rcvBuf[RCV_BUF_SIZE];
 	const char *outMsg = SERVER_MESSAGE;
-	
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     *negVersion = kSSLProtocolUnknown;
     *negCipher = SSL_NULL_WITH_NULL_NULL;
     *peerCerts = NULL;
@@ -287,7 +289,7 @@ static OSStatus sslServe(
 	if(ortn) {
 		printSslErrStr("SSLNewContext", ortn);
 		goto cleanup;
-	} 
+	}
 	ortn = SSLSetIOFuncs(ctx, SocketRead, SocketWrite);
 	if(ortn) {
 		printSslErrStr("SSLSetIOFuncs", ortn);
@@ -549,7 +551,10 @@ cleanup:
 	}
 	if(ctx) {
 	    SSLDisposeContext(ctx);  
-	}    
+	}
+
+#pragma clang diagnostic pop
+
 	/* FIXME - dispose of serverCerts */
 	return ortn;
 }
@@ -625,10 +630,15 @@ static void showSSLResult(
 		sslGetProtocolVersionString(negVersion));
 	printf("   Negotiated CipherSuite : %s\n",
 		sslGetCipherSuiteString(negCipher));
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	if(certState != kSSLClientCertNone) {
 		printf("   Client Cert State      : %s\n",
 			sslGetClientCertStateString(certState));
 	}
+#pragma clang diagnostic pop
+
 	printf("   Resumed Session        : ");
 	if(sessionWasResumed) {
 		for(unsigned dex=0; dex<sessionIDLength; dex++) {
@@ -696,6 +706,9 @@ int main(int argc, char **argv)
 	int					errCount = 0;
 	SSLClientCertificateState certState;		// obtained from sslServe
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 	/* user-spec'd parameters */
 	unsigned short		portNum = DEFAULT_PORT;
 	bool			allowExpired = false;
@@ -721,10 +734,8 @@ int main(int argc, char **argv)
 	bool			vfyCertState = false;
 	SSLClientCertificateState expectCertState = kSSLClientCertNone;
 	char				*password = NULL;
-	char				*dhParamsFile = NULL;
 	unsigned char		*dhParams = NULL;
 	unsigned			dhParamsLen = 0;
-	bool			doIdSearch = false;
 	bool			completeCertChain = false;
 	uint32_t				sessionCacheTimeout = 0;
 	bool			disableAnonCiphers = false;
@@ -839,13 +850,11 @@ int main(int argc, char **argv)
 					/* requires another arg */
 					usage(argv);
 				}
-				dhParamsFile = argv[arg];
 				break;
 			case 'z':
 				password = &argp[2];
 				break;
 			case 'H':
-				doIdSearch = true;
 				break;
 			case 'M':
 				completeCertChain = true;
@@ -862,33 +871,6 @@ int main(int argc, char **argv)
 			case 'q':
 				quiet = true;
 				break;
-#if 0
-			case 'U':
-				if(++arg == argc)  {
-					/* requires another arg */
-					usage(argv);
-				}
-				if(cspReadFile(argv[arg], &caCert, &caCertLen)) {
-					printf("***Error reading file %s. Aborting.\n", argv[arg]);
-					exit(1);
-				}
-				if(acceptableDNList == NULL) {
-					acceptableDNList = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-				}
-				certData.Data = caCert;
-				certData.Length = caCertLen;
-				ortn = SecCertificateCreateFromData(&certData,
-													CSSM_CERT_X_509v3,
-													CSSM_CERT_ENCODING_DER,
-													&secCert);
-				if(ortn) {
-					cssmPerror("SecCertificateCreateFromData", ortn);
-					exit(1);
-				}
-				CFArrayAppendValue(acceptableDNList, secCert);
-				CFRelease(secCert);
-				break;
-#endif
 			case 'l':
 				if(argp[1] == '\0') {
 					/* no loop count --> loop forever */
@@ -918,27 +900,7 @@ int main(int argc, char **argv)
 		if(serverCerts == nil) {
 			exit(1);
 		}
-	}
-	else 
-#if 0
-    if(doIdSearch) {
-		OSStatus ortn = sslIdentityPicker(NULL, anchorFile, true, NULL, &serverCerts);
-		if(ortn) {
-			printf("***IdentitySearch failure; aborting.\n");
-			exit(1);
-		}
-	}
-	if(password) {
-		OSStatus ortn = SecKeychainUnlock(serverKc, strlen(password), password, true);
-		if(ortn) {
-			printf("SecKeychainUnlock returned %d\n", (int)ortn);
-			/* oh well */
-		}
-	}
-#else
-    (void) doIdSearch;
-#endif
-	if(protXOnly) {
+	} else if(protXOnly) {
 		switch(attemptProt) {
 			case kTLSProtocol1:
 				attemptProt = kTLSProtocol1Only;
@@ -950,17 +912,8 @@ int main(int argc, char **argv)
 				break;
 		}
 	}
-#if 0
-	if(dhParamsFile) {
-		int r = cspReadFile(dhParamsFile, &dhParams, &dhParamsLen);
-		if(r) {
-			printf("***Error reading diffie-hellman params from %s; aborting\n",
-				dhParamsFile);
-		}
-	}
-#else
-    (void) dhParamsFile;
-#endif
+
+#pragma clang diagnostic pop
 
 	/* one-time only server port setup */
 	err = ListenForClients(portNum, nonBlocking, &listenSock);

@@ -4,3 +4,10 @@ cscope.out
 xcuserdata
 ._*
 build
+
+# Swift Package Manager noise
+.build
+Package.resolved
+
+# Not adding the SPM-generated .xcodeproj to the repo
+keychain/Trieste/OctagonTriesteTests/OctagonTrieste.xcodeproj

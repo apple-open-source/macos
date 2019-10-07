@@ -14,8 +14,6 @@
   +----------------------------------------------------------------------+
   | Author: Georg Richter <georg@php.net>                                |
   +----------------------------------------------------------------------+
-
-  $Id: php_mysqli_structs.h 302179 2010-08-13 09:57:04Z andrey $
 */
 
 #ifndef MYSQLI_PRIV_H
@@ -33,7 +31,7 @@
 #define HAVE_MYSQLI_GET_CHARSET
 #endif
 
-#if defined(MYSQLND_VERSION_ID) || (MYSQL_VERSION_ID > 40112 && MYSQL_VERSION_ID < 50000) || MYSQL_VERSION_ID > 50005
+#if defined(MYSQLND_VERSION_ID) || MYSQL_VERSION_ID > 50005
 #define HAVE_MYSQLI_SET_CHARSET
 #endif
 
@@ -92,6 +90,7 @@ PHP_MYSQLI_EXPORT(zend_object *) mysqli_objects_new(zend_class_entry *);
 	mysql->multi_query = 1; \
 }
 
+/* Numbers that cannot be represented as a signed int are converted to a string instead (affects 32-bit builds). */
 #define MYSQLI_RETURN_LONG_INT(__val) \
 { \
 	if ((__val) < ZEND_LONG_MAX) {		\

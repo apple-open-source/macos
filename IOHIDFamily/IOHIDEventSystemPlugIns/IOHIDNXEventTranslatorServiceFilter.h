@@ -75,6 +75,7 @@ private:
     dispatch_queue_t                _queue;
     IOHIDServiceRef                 _service;
     IOHIDKeyboardEventTranslatorRef _translator;
+    bool                            _isTranslationEnabled;
   
     void serialize (CFMutableDictionaryRef dict) const;
 

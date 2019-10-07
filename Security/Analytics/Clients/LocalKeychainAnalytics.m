@@ -1,7 +1,5 @@
 #include "LocalKeychainAnalytics.h"
 
-#if __OBJC2__
-
 #import "Security/SFAnalyticsDefines.h"
 
 #include <sys/stat.h>
@@ -26,20 +24,27 @@
 }
 @end
 
-// Public consts
+// Approved event types
 // rdar://problem/41745059 SFAnalytics: collect keychain upgrade outcome information
 LKAnalyticsFailableEvent const LKAEventUpgrade = (LKAnalyticsFailableEvent)@"LKAEventUpgrade";
+
+// <rdar://problem/52038208> SFAnalytics: collect keychain backup success rates and duration
+LKAnalyticsFailableEvent const LKAEventBackup = (LKAnalyticsFailableEvent)@"LKAEventBackup";
+LKAnalyticsMetric const LKAMetricBackupDuration = (LKAnalyticsMetric)@"LKAMetricBackupDuration";
 
 // Internal consts
 NSString* const LKAOldSchemaKey = @"oldschema";
 NSString* const LKANewSchemaKey = @"newschema";
 NSString* const LKAUpgradeOutcomeKey = @"upgradeoutcome";
+NSString* const LKABackupLastSuccessDate = @"backupLastSuccess";
 
 @implementation LocalKeychainAnalytics {
     BOOL _probablyInClassD;
     NSMutableArray<LKAUpgradeOutcomeReport*>* _pendingReports;
     dispatch_queue_t _queue;
     int _notificationToken;
+    NSDate* _backupStartTime;
+    LKAKeychainBackupType _backupType;
 }
 
 - (instancetype __nullable)init {
@@ -126,26 +131,75 @@ NSString* const LKAUpgradeOutcomeKey = @"upgradeoutcome";
     }
 }
 
+- (void)reportKeychainBackupStartWithType:(LKAKeychainBackupType)type {
+    _backupStartTime = [NSDate date];
+    _backupType = type;
+}
+
+// Don't attempt to add to pending reports, this should not happen in Class D
+- (void)reportKeychainBackupEnd:(bool)hasBackup error:(NSError*)error {
+    NSDate* backupEndTime = [NSDate date];
+
+    // Get duration in milliseconds rounded to 100ms.
+    NSInteger backupDuration = (int)(([backupEndTime timeIntervalSinceDate:_backupStartTime] + 0.05) * 10) * 100;
+
+    // Generate statistics on backup duration separately so we know what the situation is in the field even when succeeding
+    [self logMetric:@(backupDuration) withName:LKAMetricBackupDuration];
+
+    if (hasBackup) {
+        [self setDateProperty:backupEndTime forKey:LKABackupLastSuccessDate];
+        [self logSuccessForEventNamed:LKAEventBackup timestampBucket:SFAnalyticsTimestampBucketHour];
+    } else {
+        NSInteger daysSinceSuccess = [SFAnalytics fuzzyDaysSinceDate:[self datePropertyForKey:LKABackupLastSuccessDate]];
+        [self logResultForEvent:LKAEventBackup
+                    hardFailure:YES
+                         result:error
+                 withAttributes:@{@"daysSinceSuccess" : @(daysSinceSuccess),
+                                  @"duration" : @(backupDuration),
+                                  @"type" : @(_backupType),
+                                  }
+                timestampBucket:SFAnalyticsTimestampBucketHour];
+    }
+}
+
 @end
 
 // MARK: C Bridging
 
 void LKAReportKeychainUpgradeOutcome(int fromversion, int toversion, LKAKeychainUpgradeOutcome outcome) {
-    [[LocalKeychainAnalytics logger] reportKeychainUpgradeFrom:fromversion to:toversion outcome:outcome error:NULL];
+    @autoreleasepool {
+        [[LocalKeychainAnalytics logger] reportKeychainUpgradeFrom:fromversion to:toversion outcome:outcome error:NULL];
+    }
 }
 
 void LKAReportKeychainUpgradeOutcomeWithError(int fromversion, int toversion, LKAKeychainUpgradeOutcome outcome, CFErrorRef error) {
-    [[LocalKeychainAnalytics logger] reportKeychainUpgradeFrom:fromversion to:toversion outcome:outcome error:(__bridge NSError*)error];
+    @autoreleasepool {
+        [[LocalKeychainAnalytics logger] reportKeychainUpgradeFrom:fromversion to:toversion outcome:outcome error:(__bridge NSError*)error];
+    }
 }
 
-#else   // not __OBJC2__
+void LKABackupReportStart(bool hasKeybag, bool hasPasscode, bool isEMCS) {
+    LKAKeychainBackupType type;
+    if (isEMCS) {
+        type = LKAKeychainBackupTypeEMCS;
+    } else if (hasKeybag && hasPasscode) {
+        type = LKAKeychainBackupTypeBagAndCode;
+    } else if (hasKeybag) {
+        type = LKAKeychainBackupTypeBag;
+    } else if (hasPasscode) {
+        type = LKAKeychainBackupTypeCode;
+    } else {
+        type = LKAKeychainBackupTypeNeither;
+    }
 
-void LKAReportKeychainUpgradeOutcome(int fromversion, int toversion, LKAKeychainUpgradeOutcome outcome) {
-    // nothing to do on 32 bit
+    // Keep track of backup type and start time
+    @autoreleasepool {
+        [[LocalKeychainAnalytics logger] reportKeychainBackupStartWithType:type];
+    }
 }
 
-void LKAReportKeychainUpgradeOutcomeWithError(int fromversion, int toversion, LKAKeychainUpgradeOutcome outcome, CFErrorRef error) {
-    // nothing to do on 32 bit
+void LKABackupReportEnd(bool hasBackup, CFErrorRef error) {
+    @autoreleasepool {
+        [[LocalKeychainAnalytics logger] reportKeychainBackupEnd:hasBackup error:(__bridge NSError*)error];
+    }
 }
-
-#endif  // __OBJC2__

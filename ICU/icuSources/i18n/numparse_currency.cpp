@@ -98,6 +98,8 @@ bool CombinedCurrencyMatcher::matchCurrency(StringSegment& segment, ParsedNumber
     int32_t overlap1;
     if (!fCurrency1.isEmpty()) {
         overlap1 = segment.getCaseSensitivePrefixLength(fCurrency1);
+    } else if (!fUseFullCurrencyData) { // Apple fix for <rdar://problem/46915356>
+        overlap1 = 0;
     } else {
         overlap1 = -1;
     }
@@ -111,7 +113,9 @@ bool CombinedCurrencyMatcher::matchCurrency(StringSegment& segment, ParsedNumber
 
     int32_t overlap2;
     if (!fCurrency2.isEmpty()) {
-        overlap2 = segment.getCaseSensitivePrefixLength(fCurrency2);
+        // ISO codes should be accepted case-insensitive.
+        // https://unicode-org.atlassian.net/browse/ICU-13696
+        overlap2 = segment.getCommonPrefixLength(fCurrency2);
     } else {
         overlap2 = -1;
     }

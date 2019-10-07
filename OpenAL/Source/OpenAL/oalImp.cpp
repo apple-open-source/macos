@@ -176,18 +176,26 @@ UInt32 Get3DMixerVersion ()
 	
 	if (mixerVersion == kUnknown3DMixerVersion)
 	{
-		ComponentDescription	mixerCD;
-		mixerCD.componentFlags = 0;        
-		mixerCD.componentFlagsMask = 0;     
-		mixerCD.componentType = kAudioUnitType_Mixer;          
-		mixerCD.componentSubType = kAudioUnitSubType_3DMixer;       
-		mixerCD.componentManufacturer = kAudioUnitManufacturer_Apple;  
 
-		ComponentInstance   mixerInstance = OpenComponent(FindNextComponent(0, &mixerCD));
-		long  version = CallComponentVersion(mixerInstance);
-		CloseComponent(mixerInstance);
-		
-		if (version < kMinimumMixerVersion)
+        AudioComponentDescription mixerDesc;
+        UInt32 version = 0;
+        
+        mixerDesc.componentType = kAudioUnitType_Mixer;
+        mixerDesc.componentSubType = kAudioUnitSubType_3DMixer;
+        mixerDesc.componentManufacturer = kAudioUnitManufacturer_Apple;
+        mixerDesc.componentFlags = 0;
+        mixerDesc.componentFlagsMask = 0;
+        
+        AudioComponent auComp = AudioComponentFindNext(NULL, &mixerDesc);
+        
+        if ( auComp )
+        {
+            if ( AudioComponentGetVersion(auComp, &version) != noErr )
+                version = 0;
+            
+        }
+        
+        if (version < kMinimumMixerVersion)
 		{
 			mixerVersion = kUnsupported3DMixer;                           // we do not have a current enough 3DMixer to use
 		}

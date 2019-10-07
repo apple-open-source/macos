@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,8 +72,8 @@ static struct in_addr peer_address;
 static char remoteaddress[255];
 static int 	resolverfds[2];
 
-static int plugin_listen();
-static void plugin_close();
+static int plugin_listen(void);
+static void plugin_close(void);
 static int plugin_get_args(struct vpn_params *params, int reload);
 
 //-----------------------------------------------------------------------------

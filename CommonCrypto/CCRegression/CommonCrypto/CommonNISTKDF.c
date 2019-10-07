@@ -33,7 +33,10 @@ typedef struct test_vector_t {
 static char *
 CCDigestName(CCDigestAlgorithm alg) {
     switch(alg) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     case kCCDigestSHA1: return "SHA-1";
+#pragma clang diagnostic pop
     case kCCDigestSHA224: return "SHA-224";
     case kCCDigestSHA256: return "SHA-256";
     case kCCDigestSHA384: return "SHA-384";
@@ -45,7 +48,10 @@ CCDigestName(CCDigestAlgorithm alg) {
 static int test_answer(CCDigestAlgorithm alg, test_vector *vector, size_t answer_len, void*answer) {
     char *correct_answer = NULL;
     switch(alg) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     case kCCDigestSHA1: correct_answer = vector->sha1_answer; break;
+#pragma clang diagnostic pop
     case kCCDigestSHA224: correct_answer = vector->sha224_answer; break;
     case kCCDigestSHA256: correct_answer = vector->sha256_answer; break;
     case kCCDigestSHA384: correct_answer = vector->sha384_answer; break;
@@ -76,10 +82,13 @@ static int test_ctr_hmac_fixed_oneshot(CCDigestAlgorithm alg, test_vector *vecto
     byteBuffer k1 = hexStringToBytes(vector->k1Str);
     byteBuffer label = hexStringToBytes(vector->labelStr);
     byteBuffer context = hexStringToBytes(vector->contextStr);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     CCKeyDerivationHMac(kCCKDFAlgorithmCTR_HMAC_FIXED, alg, 0, k1->bytes, k1->len, NULL, 0,
                        label->bytes, label->len,
                        NULL, 0, NULL, 0,
                        answer, vector->result_len);
+#pragma clang diagnostic pop
     ok(test_answer(alg, vector, vector->result_len, answer), "check answer");
     free(k1);
     free(label);
@@ -246,7 +255,10 @@ int CommonNISTKDF(int __unused argc, char *const * __unused argv)
 {
 	plan_tests(155);
     if(verbose) diag("Starting nistkdf_hmac tests\n");
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     ok(test_nistkdf_hmac(kCCDigestSHA1), "ccsha1_ltc_di");
+#pragma clang diagnostic pop
     ok(test_nistkdf_hmac(kCCDigestSHA224), "ccsha224_ltc_di");
     ok(test_nistkdf_hmac(kCCDigestSHA256), "ccsha256_ltc_di");
     ok(test_nistkdf_hmac(kCCDigestSHA384), "ccsha384_ltc_di");

@@ -358,6 +358,9 @@ void SecStaticCode::resetValidity()
 	mGotResourceBase = false;
 	mTrust = NULL;
 	mCertChain = NULL;
+	mNotarizationChecked = false;
+	mStaplingChecked = false;
+	mNotarizationDate = NAN;
 #if TARGET_OS_OSX
 	mEvalDetails = NULL;
 #endif
@@ -1897,6 +1900,10 @@ const Requirement *SecStaticCode::defaultDesignatedRequirement()
 #if TARGET_OS_OSX
 		// full signature: Gin up full context and let DRMaker do its thing
 		validateDirectory();		// need the cert chain
+		CFRef<CFDateRef> secureTimestamp;
+		if (CFAbsoluteTime time = this->signingTimestamp()) {
+			secureTimestamp.take(CFDateCreate(NULL, time));
+		}
 		Requirement::Context context(this->certificates(),
 			this->infoDictionary(),
 			this->entitlements(),
@@ -1904,7 +1911,9 @@ const Requirement *SecStaticCode::defaultDesignatedRequirement()
 			this->codeDirectory(),
 			NULL,
 			kSecCodeSignatureNoHash,
-			false
+			false,
+			secureTimestamp,
+			this->teamID()
 		);
 		return DRMaker(context).make();
 #else
@@ -1937,7 +1946,15 @@ bool SecStaticCode::satisfiesRequirement(const Requirement *req, OSStatus failur
 	bool result = false;
 	assert(req);
 	validateDirectory();
-	result = req->validates(Requirement::Context(mCertChain, infoDictionary(), entitlements(), codeDirectory()->identifier(), codeDirectory(), NULL, kSecCodeSignatureNoHash, mRep->appleInternalForcePlatform()), failure);
+	CFRef<CFDateRef> secureTimestamp;
+	if (CFAbsoluteTime time = this->signingTimestamp()) {
+		secureTimestamp.take(CFDateCreate(NULL, time));
+	}
+	result = req->validates(Requirement::Context(mCertChain, infoDictionary(), entitlements(),
+												 codeDirectory()->identifier(), codeDirectory(),
+												 NULL, kSecCodeSignatureNoHash, mRep->appleInternalForcePlatform(),
+												 secureTimestamp, teamID()),
+							failure);
 	return result;
 }
 
@@ -2235,9 +2252,12 @@ void SecStaticCode::staticValidate(SecCSFlags flags, const SecRequirement *req)
 		this->validateResources(flags);
 
 	// perform strict validation if desired
-	if (flags & kSecCSStrictValidate)
+	if (flags & kSecCSStrictValidate) {
 		mRep->strictValidate(codeDirectory(), mTolerateErrors, mValidationFlags);
 	reportProgress();
+	} else if (flags & kSecCSStrictValidateStructure) {
+		mRep->strictValidateStructure(codeDirectory(), mTolerateErrors, mValidationFlags);
+	}
 
 	// allow monitor intervention
 	if (CFRef<CFTypeRef> veto = reportEvent(CFSTR("validated"), NULL)) {
@@ -2323,7 +2343,7 @@ bool SecStaticCode::isAppleDeveloperCert(CFArrayRef certs)
 {
 	static const std::string appleDeveloperRequirement = "(" + std::string(WWDRRequirement) + ") or (" + MACWWDRRequirement + ") or (" + developerID + ") or (" + distributionCertificate + ") or (" + iPhoneDistributionCert + ")";
 	SecPointer<SecRequirement> req = new SecRequirement(parseRequirement(appleDeveloperRequirement), true);
-	Requirement::Context ctx(certs, NULL, NULL, "", NULL, NULL, kSecCodeSignatureNoHash, false);
+	Requirement::Context ctx(certs, NULL, NULL, "", NULL, NULL, kSecCodeSignatureNoHash, false, NULL, "");
 
 	return req->requirement()->validates(ctx);
 }

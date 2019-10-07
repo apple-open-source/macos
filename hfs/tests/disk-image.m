@@ -23,7 +23,7 @@
 #include "test-utils.h"
 #include "systemx.h"
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 #include "dmg.dat"
 
@@ -179,6 +179,9 @@ disk_image_t *disk_image_create(const char *path, disk_image_opts_t *opts)
 	free(line);
 	fclose(fp);
 	
+	// Ensure we have a mount point 
+	assert(opts->mount_point);
+
 	// Mount it
 	char *mkdir_args[4] = { "mkdir", "-p", (char *)opts->mount_point, NULL };
 	assert_no_err(posix_spawn(&pid, "/bin/mkdir", NULL, NULL, mkdir_args, NULL));
@@ -243,7 +246,7 @@ disk_image_t *disk_image_get(void)
 	return di;
 }
 
-#else // !TARGET_OS_EMBEDDED
+#else // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 bool disk_image_cleanup(disk_image_t *di)
 {
@@ -492,4 +495,4 @@ disk_image_t *disk_image_get(void)
 	return di;
 }
 
-#endif // TARGET_OS_EMBEDDED
+#endif // (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)

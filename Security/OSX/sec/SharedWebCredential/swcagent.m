@@ -270,7 +270,7 @@ static CFStringRef SWCAGetOperationDescription(enum SWCAXPCOperation op)
     }
 }
 
-#if !TARGET_IPHONE_SIMULATOR && TARGET_OS_IPHONE && !TARGET_OS_WATCH
+#if !TARGET_OS_SIMULATOR && TARGET_OS_IPHONE && !TARGET_OS_WATCH
 static dispatch_once_t                      sWBUInitializeOnce	= 0;
 static void *                               sWBULibrary			= NULL;
 static WBUAutoFillGetEnabledDataClasses_f	sWBUAutoFillGetEnabledDataClasses_f	= NULL;
@@ -298,7 +298,7 @@ static OSStatus _SecWBUEnsuredInitialized(void)
 
 static bool SWCAIsAutofillEnabled(void)
 {
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
     // Assume the setting's on in the simulator: <rdar://problem/17057358> WBUAutoFillGetEnabledDataClasses call failing in the Simulator
     return true;
 #elif TARGET_OS_IPHONE && !TARGET_OS_WATCH
@@ -318,7 +318,7 @@ static NSBundle* swca_get_security_bundle()
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         NSString *security_path = @"/System/Library/Frameworks/Security.framework";
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
         security_path = [NSString stringWithFormat:@"%s%@", getenv("IPHONE_SIMULATOR_ROOT"), security_path];
 #endif
         security_bundle = [NSBundle bundleWithPath:security_path];

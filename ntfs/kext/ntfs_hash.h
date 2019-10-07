@@ -49,7 +49,7 @@
 #include "ntfs_inode.h"
 #include "ntfs_volume.h"
 
-__private_extern__ lck_mtx_t ntfs_inode_hash_lock;
+__attribute__((visibility("hidden"))) extern lck_mtx_t ntfs_inode_hash_lock;
 
 __private_extern__ errno_t ntfs_inode_hash_init(void);
 __private_extern__ void ntfs_inode_hash_deinit(void);

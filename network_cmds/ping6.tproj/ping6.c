@@ -230,7 +230,6 @@ static const struct option longopts[] = {
 	{ NULL, 0, NULL, 0 }
 };
 
-
 #define IN6LEN		sizeof(struct in6_addr)
 #define SA6LEN		sizeof(struct sockaddr_in6)
 #define DUMMY_PORT	10101
@@ -575,7 +574,7 @@ main(int argc, char *argv[])
 			t = strtod(optarg, &e);
 			if (*optarg == '\0' || *e != '\0')
 				errx(1, "illegal timing interval %s", optarg);
-			if (t < 1 && getuid()) {
+			if (t < 0.1 && getuid()) {
 				errx(1, "%s: only root may use interval < 1s",
 				    strerror(EPERM));
 			}
@@ -2673,7 +2672,6 @@ static const char *nircode[] = {
 	"Success", "Refused", "Unknown",
 };
 
-
 /*
  * pr_icmph --
  *	Print a descriptive string about an ICMP header.
@@ -3108,7 +3106,7 @@ nigroup(char *name, int nig_oldmcprefix)
 	l = p - name;
 	if (l > 63 || l > sizeof(hbuf) - 1)
 		return NULL;	/*label too long*/
-	strncpy(hbuf, name, l);
+	strlcpy(hbuf, name, l);
 	hbuf[(int)l] = '\0';
 
 	for (q = name; *q; q++) {

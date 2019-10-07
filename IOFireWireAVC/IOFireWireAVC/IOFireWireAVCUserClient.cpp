@@ -68,8 +68,11 @@ IOReturn IOFireWireAVCUserClient::externalMethod( uint32_t selector,
 			break;
 
 		case kIOFWAVCUserClientGetSessionRef:
-			result = getSessionRef( arguments->scalarOutput,NULL,NULL,NULL,NULL,NULL);
-			break;
+            if( arguments->scalarOutputCount >= 1 )
+            {
+                result = getSessionRef( arguments->scalarOutput,NULL,NULL,NULL,NULL,NULL);
+            }
+            break;
 
 		case kIOFWAVCUserClientAVCCommand:
 			result = AVCCommand((UInt8*)arguments->structureInput, 
@@ -79,8 +82,11 @@ IOReturn IOFireWireAVCUserClient::externalMethod( uint32_t selector,
 			break;
 		
 		case kIOFWAVCUserClientOpenWithSessionRef:
-			result = openWithSessionRef((IOFireWireLib::UserObjectHandle) arguments->scalarInput[0],NULL,NULL,NULL,NULL,NULL);
-			break;
+            if( arguments->scalarInputCount >= 1 )
+            {
+                result = openWithSessionRef((IOFireWireLib::UserObjectHandle) arguments->scalarInput[0],NULL,NULL,NULL,NULL,NULL);
+            }
+            break;
 		
 		case kIOFWAVCUserClientAVCCommandInGen:
 			result = AVCCommandInGen((UInt8*) arguments->structureInput,
@@ -94,20 +100,32 @@ IOReturn IOFireWireAVCUserClient::externalMethod( uint32_t selector,
 			break;
 		
 		case kIOFWAVCUserClientMakeP2PInputConnection:
-			result = makeP2PInputConnection(arguments->scalarInput[0],arguments->scalarInput[1],NULL,NULL,NULL,NULL);
-			break;
+            if( arguments->scalarInputCount >= 2 )
+            {
+                result = makeP2PInputConnection(arguments->scalarInput[0],arguments->scalarInput[1],NULL,NULL,NULL,NULL);
+            }
+            break;
 		
 		case kIOFWAVCUserClientBreakP2PInputConnection:
-			result = breakP2PInputConnection(arguments->scalarInput[0],NULL,NULL,NULL,NULL,NULL);
-			break;
+            if( arguments->scalarInputCount >= 1 )
+            {
+                result = breakP2PInputConnection(arguments->scalarInput[0],NULL,NULL,NULL,NULL,NULL);
+            }
+            break;
 		
 		case kIOFWAVCUserClientMakeP2POutputConnection:
-			result = makeP2POutputConnection(arguments->scalarInput[0],arguments->scalarInput[1],(IOFWSpeed)arguments->scalarInput[2],NULL,NULL,NULL);
-			break;
+            if( arguments->scalarInputCount >= 3 )
+            {
+                result = makeP2POutputConnection(arguments->scalarInput[0],arguments->scalarInput[1],(IOFWSpeed)arguments->scalarInput[2],NULL,NULL,NULL);
+            }
+            break;
 		
 		case kIOFWAVCUserClientBreakP2POutputConnection:
-			result = breakP2POutputConnection(arguments->scalarInput[0],NULL,NULL,NULL,NULL,NULL);
-			break;
+            if( arguments->scalarInputCount >= 1 )
+            {
+                result = breakP2POutputConnection(arguments->scalarInput[0],NULL,NULL,NULL,NULL,NULL);
+            }
+            break;
 		
 		case kIOFWAVCUserClientCreateAsyncAVCCommand:
 			result = CreateAVCAsyncCommand((UInt8*)arguments->structureInput, 
@@ -117,24 +135,39 @@ IOReturn IOFireWireAVCUserClient::externalMethod( uint32_t selector,
 			break; 
 		
 		case kIOFWAVCUserClientSubmitAsyncAVCCommand:
-			result = SubmitAVCAsyncCommand(arguments->scalarInput[0]);
-			break;
+            if( arguments->scalarInputCount >= 1 )
+            {
+                result = SubmitAVCAsyncCommand(arguments->scalarInput[0]);
+            }
+            break;
 		
 		case kIOFWAVCUserClientCancelAsyncAVCCommand:
-			result = CancelAVCAsyncCommand(arguments->scalarInput[0]);
-			break;
+            if( arguments->scalarInputCount >= 1 )
+            {
+                result = CancelAVCAsyncCommand(arguments->scalarInput[0]);
+            }
+            break;
 		
 		case kIOFWAVCUserClientReleaseAsyncAVCCommand:
-			result = ReleaseAVCAsyncCommand(arguments->scalarInput[0]);
-			break;
+            if( arguments->scalarInputCount >= 1 )
+            {
+                result = ReleaseAVCAsyncCommand(arguments->scalarInput[0]);
+            }
+            break;
 		
 		case kIOFWAVCUserClientReinitAsyncAVCCommand:
-			result = ReinitAVCAsyncCommand(arguments->scalarInput[0], (const UInt8*) arguments->structureInput, arguments->structureInputSize); 
-			break;
+            if( arguments->scalarInputCount >= 1 )
+            {
+                result = ReinitAVCAsyncCommand(arguments->scalarInput[0], (const UInt8*) arguments->structureInput, arguments->structureInputSize);
+            }
+            break;
 		
 		case kIOFWAVCUserClientInstallAsyncAVCCommandCallback:
-			result = installUserLibAsyncAVCCommandCallback(arguments->asyncReference,arguments->scalarInput[0], arguments->scalarOutput);
-			break;
+            if( arguments->scalarOutputCount >= 1 )
+            {
+                result = installUserLibAsyncAVCCommandCallback(arguments->asyncReference,0, arguments->scalarOutput);
+            }
+            break;
 		
 		default:
 			// None of the above!
@@ -558,6 +591,11 @@ IOReturn IOFireWireAVCUserClient::AVCCommandInGen(UInt8 * cmd, UInt8 * response,
 {
 	FIRELOG_MSG(("IOFireWireAVCUserClient::AVCCommandInGen (this=0x%08X)\n",this));
 
+    if( len < sizeof(UInt32) )
+    {
+        return kIOReturnBadArgument;
+    }
+    
     IOReturn res;
     UInt32 generation;
     generation = *(UInt32 *)cmd;
@@ -836,7 +874,8 @@ IOReturn IOFireWireAVCUserClient::CreateAVCAsyncCommand(UInt8 * cmd, UInt8 * asy
     
     if( (cmd == NULL) ||
         (len < (1 + sizeof(mach_vm_address_t))) ||
-        (len > (512 + sizeof(mach_vm_address_t))) )
+        (len > (512 + sizeof(mach_vm_address_t))) ||
+        (*refSize < sizeof(UInt32)))
     {
         return kIOReturnBadArgument;
     }

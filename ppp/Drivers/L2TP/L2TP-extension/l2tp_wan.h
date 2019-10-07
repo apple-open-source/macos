@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,8 +25,8 @@
 #ifndef __l2tp_WAN_H__
 #define __l2tp_WAN_H__
 
-int l2tp_wan_init();
-int l2tp_wan_dispose();
+int l2tp_wan_init(void);
+int l2tp_wan_dispose(void);
 int l2tp_wan_attach(void *rfc, struct ppp_link **link);
 void l2tp_wan_detach(struct ppp_link *link);
 int l2tp_wan_input(struct ppp_link *link, mbuf_t m);

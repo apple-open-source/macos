@@ -17,6 +17,18 @@
 
 OSDefineMetaClassAndStructors(IrDAUserClient, IOUserClient)
 
+const IOExternalMethod
+IrDAUserClient::sMethods[] =
+{
+    {
+        .object = (IOService*)NULL,
+        .func = (IOMethod) &IrDAUserClient::userPostCommand,
+        .flags = kIOUCStructIStructO,
+        .count0 = 0xFFFFFFFF,                /* One input as big as I need */
+        .count1 = 0xFFFFFFFF,                /* One output as big as I need */
+    },
+};
+
 /*static*/
 IrDAUserClient*
 IrDAUserClient::withTask(task_t owningTask)
@@ -51,27 +63,9 @@ IrDAUserClient::start(IOService *provider)
     else
 	result = false;
 
-    if (result == false) {
-	IOLog("IrDAUserClient: provider start failed\n");
-    }
-    else {
-	// Initialize the call structure. The method with index
-	// kSerialDoOneTrial calls the doOneTrial method
-	// with two parameters, a scalar and a buffer pointer
-	// that doOneTrial will write to. A pointer to this
-	// method structure is returned to the kernel when the
-	// user executes io_connect_method_scalarI_structureO.
-	// Thie kernel uses it to dispatch the command to the
-	// driver (running in kernel space)
-
-	fMethods[0].object = this;
-	fMethods[0].func   = (IOMethod) &IrDAUserClient::userPostCommand;
-	fMethods[0].count0 = 0xFFFFFFFF;                /* One input as big as I need */
-	fMethods[0].count1 = 0xFFFFFFFF;                /* One output as big as I need */
-	fMethods[0].flags  = kIOUCStructIStructO;
-    }
     return (result);
 }
+
 IOReturn
 IrDAUserClient::clientClose(void)
 {
@@ -102,15 +96,23 @@ IrDAUserClient::registerNotificationPort(mach_port_t port, UInt32 type)
 }
 
 IOExternalMethod *
-IrDAUserClient::getExternalMethodForIndex(UInt32 index)
+IrDAUserClient::getTargetAndMethodForIndex(IOService **target, UInt32 index)
 {
-    IOExternalMethod *result    = NULL;
-    ELG(0, index, 'irda', "IrDAUser: get external method");
+    IOExternalMethod *method;
+    
+    ELG(target, index, 'irda', "IrDAUser: get external method");
 
-    if (index == 0) {
-	result = &fMethods[0];
-    }
-    return (result);
+    method = NULL;
+    require(target, exit);
+
+    *target = NULL;
+    require(index < 1, exit);
+    
+    method = (IOExternalMethod *)&sMethods[index];
+    *target = this;
+
+exit:
+    return (method);
 }
 
 IOReturn

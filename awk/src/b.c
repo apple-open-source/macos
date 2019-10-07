@@ -1045,28 +1045,29 @@ rescan:
 				}
 			} else if (Unix2003_compat && c == '['
 						   && *prestr == '=') {
-				char equiv_char;
+				char s1[2] = { '\0', '\0' };
+				char s2[2] = { '\0', '\0' };
 				prestr++;
-				equiv_char = *prestr++;
+				s1[0] = *prestr++;
 				if (*prestr == '=' && prestr[1] == ']') {
 					prestr += 2;
-					/* Found it: map via locale TBD: for now
-					   simply return this char. This is 
-					   sufficient to pass conformance test
-					   awk.ex 156
-					 */
-					if (*prestr == ']') {
-						prestr++;
-						rlxval = equiv_char;
-						if (replogfile) {
-							fprintf(replogfile,
-								"[==] equiv char=%c\n",
-								equiv_char);
-							fflush(replogfile);
+					/* Found it: map via locale */
+					for (i = 0; i < NCHARS; i++) {
+						if (!adjbuf((char **) &buf, &bufsz, bp-buf+1, 100, (char **) &bp, "relex2"))
+							FATAL("out of space for reg expr %.10s...", lastre);
+						s2[0] = (char)i;
+						if (i && strcoll(s1, s2) == 0) {
+							*bp++ = i;
+							n++;
+							if (i == '\\') {
+								*bp++ = i;
+								n++;
+							}
 						}
-						return CHAR;
 					}
-				}
+				} else
+					*bp++ = c;
+
 			} else if (c == '\0') {
 				FATAL("nonterminated character class %.20s", lastre);
 			} else if (bp == buf) {	/* 1st char is special */

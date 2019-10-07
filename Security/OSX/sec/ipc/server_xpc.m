@@ -28,6 +28,12 @@
 #include <ipc/server_endpoint.h>
 #include <os/transaction_private.h>
 
+#if TARGET_DARWINOS
+#undef OCTAGON
+#undef SECUREOBJECTSYNC
+#undef SHAREDWEBCREDENTIALS
+#endif
+
 #if OCTAGON
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #include <CloudKit/CloudKit_Private.h>
@@ -46,6 +52,8 @@
 #include <securityd/SecItemDb.h>
 
 #include "keychain/ckks/CKKSViewManager.h"
+
+#import "securityd/SecDbBackupManager.h"
 
 @interface SecOSTransactionHolder : NSObject
 @property os_transaction_t transaction;
@@ -350,10 +358,10 @@
     }
 
     NSDictionary *attributes  = @{
-       (__bridge NSString *)kSecClass : itemClass,
-       (__bridge NSString *)kSecAttrAccessGroup : accessGroup,
-       (__bridge NSString *)kSecAttrSynchronizable : (__bridge NSString *)kSecAttrSynchronizableAny,
-    };
+                                  (__bridge NSString *)kSecClass : itemClass,
+                                  (__bridge NSString *)kSecAttrAccessGroup : accessGroup,
+                                  (__bridge NSString *)kSecAttrSynchronizable : (__bridge NSString *)kSecAttrSynchronizableAny,
+                                  };
 
     Query *q = query_create_with_limit((__bridge CFDictionaryRef)attributes, _client.musr, 0, &cferror);
     if (q == NULL) {
@@ -377,5 +385,44 @@
     CFReleaseNull(cferror);
 }
 
+
+- (void) secKeychainDeleteMultiuser:(NSData *)uuid
+                           complete:(void(^)(bool status, NSError* error))complete
+{
+    __block CFErrorRef cferror = NULL;
+
+#define SKDMUEntitlement @"com.apple.keychain.multiuser-admin"
+
+    if([self clientHasBooleanEntitlement: SKDMUEntitlement]) {
+        SecError(errSecNotAvailable, &cferror, CFSTR("secKeychainDeleteMultiuser: %@ need entitlement %@"), _client.task, SKDMUEntitlement);
+        complete(false, (__bridge NSError *)cferror);
+        CFReleaseNull(cferror);
+        return;
+    }
+    if ([uuid length] != 16) {
+        SecError(errSecNotAvailable, &cferror, CFSTR("secKeychainDeleteMultiuser: %@ uuid have wrong length: %d"), _client.task, (int)[uuid length]);
+        complete(false, (__bridge NSError *)cferror);
+        CFReleaseNull(cferror);
+        return;
+
+    }
+
+#if TARGET_OS_IPHONE
+    bool status = kc_with_dbt(true, &cferror, ^(SecDbConnectionRef dbt) {
+        return SecServerDeleteAllForUser(dbt, (__bridge CFDataRef)uuid, false, &cferror);
+    });
+#else
+    bool status = false;
+#endif
+
+    complete(status, (__bridge NSError *)cferror);
+    CFReleaseNull(cferror);
+}
+
+- (void)secItemVerifyBackupIntegrity:(BOOL)lightweight
+                          completion:(void (^)(NSDictionary<NSString*, NSString*>* results, NSError* error))completion
+{
+    [[SecDbBackupManager manager] verifyBackupIntegrity:lightweight completion:completion];
+}
 
 @end

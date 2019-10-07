@@ -752,7 +752,7 @@ dt_node_type_size(const dt_node_t *dnp)
 	 * then we need to make sure that we actually return the kernel's size
 	 * of a pointer, 8 bytes.
 	 */
-	if (ctf_type_kind(dnp->dn_ctfp, base) == CTF_K_POINTER &&
+	if (dt_type_is_pointer(ctf_type_kind(dnp->dn_ctfp, base)) &&
 	    ctf_getmodel(dnp->dn_ctfp) == CTF_MODEL_ILP32 &&
 	    !(dnp->dn_flags & DT_NF_USERLAND) &&
 	    dtp->dt_conf.dtc_ctfmodel == CTF_MODEL_LP64)
@@ -875,7 +875,7 @@ dt_node_is_scalar(const dt_node_t *dnp)
 		return (0); /* void cannot be used as a scalar */
 
 	return (kind == CTF_K_INTEGER || kind == CTF_K_ENUM ||
-	    kind == CTF_K_POINTER);
+	    dt_type_is_pointer(kind));
 }
 
 int
@@ -908,11 +908,19 @@ dt_node_is_vfptr(const dt_node_t *dnp)
 	assert(dnp->dn_flags & DT_NF_COOKED);
 
 	type = ctf_type_resolve(fp, dnp->dn_type);
-	if (ctf_type_kind(fp, type) != CTF_K_POINTER)
-		return (0); /* type is not a pointer */
 
-	type = ctf_type_resolve(fp, ctf_type_reference(fp, type));
-	kind = ctf_type_kind(fp, type);
+	switch (ctf_type_kind(fp, type)) {
+	case CTF_K_PTRAUTH:
+		type = ctf_type_resolve(fp, ctf_type_reference(fp, type));
+		assert(ctf_type_kind(fp, type) == CTF_K_POINTER);
+		/*FALLTHRU*/
+	case CTF_K_POINTER:
+		type = ctf_type_resolve(fp, ctf_type_reference(fp, type));
+		kind = ctf_type_kind(fp, type);
+		break;
+	default:
+		return (0); /* type is not a pointer */
+	}
 
 	return (kind == CTF_K_FUNCTION || (kind == CTF_K_INTEGER &&
 	    ctf_type_encoding(fp, type, &e) == 0 && IS_VOID(e)));
@@ -973,7 +981,7 @@ dt_node_is_strcompat(const dt_node_t *dnp)
 	base = ctf_type_resolve(fp, dnp->dn_type);
 	kind = ctf_type_kind(fp, base);
 
-	if (kind == CTF_K_POINTER &&
+	if (dt_type_is_pointer(kind) &&
 	    (base = ctf_type_reference(fp, base)) != CTF_ERR &&
 	    (base = ctf_type_resolve(fp, base)) != CTF_ERR &&
 	    ctf_type_encoding(fp, base, &e) == 0 && IS_CHAR(e))
@@ -999,7 +1007,7 @@ dt_node_is_pointer(const dt_node_t *dnp)
 		return (0); /* string are pass-by-ref but act like structs */
 
 	kind = ctf_type_kind(fp, ctf_type_resolve(fp, dnp->dn_type));
-	return (kind == CTF_K_POINTER || kind == CTF_K_ARRAY);
+	return (dt_type_is_pointer(kind) || kind == CTF_K_ARRAY);
 }
 
 int
@@ -1064,13 +1072,21 @@ dt_node_is_ptrcompat(const dt_node_t *lp, const dt_node_t *rp,
 	/*
 	 * Resolve the left-hand and right-hand types to their base type, and
 	 * then resolve the referenced type as well (assuming the base type
-	 * is CTF_K_POINTER or CTF_K_ARRAY).  Otherwise [lr]ref = CTF_ERR.
+	 * is CTF_K_POINTER, CTF_K_PTRAUTH or CTF_K_ARRAY).
+	 * Otherwise [lr]ref = CTF_ERR.
 	 */
 	if (!lp_is_int) {
 		lbase = ctf_type_resolve(lfp, lp->dn_type);
 		lkind = ctf_type_kind(lfp, lbase);
 
-		if (lkind == CTF_K_POINTER) {
+		if (lkind == CTF_K_PTRAUTH) {
+			lref = ctf_type_resolve(lfp,
+			    ctf_type_reference(lfp, lbase));
+			assert(ctf_type_kind(lfp, lref) == CTF_K_POINTER);
+			lref = ctf_type_resolve(lfp,
+			    ctf_type_reference(lfp, lref));
+		}
+		else if (lkind == CTF_K_POINTER) {
 			lref = ctf_type_resolve(lfp,
 			    ctf_type_reference(lfp, lbase));
 		} else if (lkind == CTF_K_ARRAY &&
@@ -1083,7 +1099,14 @@ dt_node_is_ptrcompat(const dt_node_t *lp, const dt_node_t *rp,
 		rbase = ctf_type_resolve(rfp, rp->dn_type);
 		rkind = ctf_type_kind(rfp, rbase);
 
-		if (rkind == CTF_K_POINTER) {
+		if (rkind == CTF_K_PTRAUTH) {
+			rref = ctf_type_resolve(rfp,
+			    ctf_type_reference(rfp, rbase));
+			assert(ctf_type_kind(rfp, rref) == CTF_K_POINTER);
+			rref = ctf_type_resolve(rfp,
+			    ctf_type_reference(rfp, rref));
+		}
+		else if (rkind == CTF_K_POINTER) {
 			rref = ctf_type_resolve(rfp,
 			    ctf_type_reference(rfp, rbase));
 		} else if (rkind == CTF_K_ARRAY &&
@@ -1117,8 +1140,8 @@ dt_node_is_ptrcompat(const dt_node_t *lp, const dt_node_t *rp,
 	 * if either pointer is a void pointer.  If they are compatible, set
 	 * tp to point to the more specific pointer type and return it.
 	 */
-	compat = (lkind == CTF_K_POINTER || lkind == CTF_K_ARRAY) &&
-	    (rkind == CTF_K_POINTER || rkind == CTF_K_ARRAY) &&
+	compat = (dt_type_is_pointer(lkind) || lkind == CTF_K_ARRAY) &&
+	    (dt_type_is_pointer(rkind)|| rkind == CTF_K_ARRAY) &&
 	    (lp_is_void || rp_is_void || ctf_type_compat(lfp, lref, rfp, rref));
 
 	if (compat) {
@@ -1419,7 +1442,7 @@ dt_node_decl(void)
 		    ddp->dd_kind != CTF_K_UNION && ddp->dd_kind != CTF_K_ENUM)
 			xyerror(D_DECL_USELESS, "useless declaration\n");
 
-		dt_dprintf("type %s added as id %ld\n", dt_type_name(
+		dt_dprintf("type %s added as id %ld", dt_type_name(
 		    ddp->dd_ctfp, ddp->dd_type, n1, sizeof (n1)), ddp->dd_type);
 
 		return (NULL);
@@ -1479,7 +1502,7 @@ dt_node_decl(void)
 			    "failed to extern %s: %s\n", dsp->ds_ident,
 			    dtrace_errmsg(dtp, dtrace_errno(dtp)));
 		} else {
-			dt_dprintf("extern %s`%s type=<%s>\n",
+			dt_dprintf("extern %s`%s type=<%s>",
 			    dmp->dm_name, dsp->ds_ident,
 			    dt_type_name(dtt.dtt_ctfp, dtt.dtt_type,
 				n1, sizeof (n1)));
@@ -1527,7 +1550,7 @@ dt_node_decl(void)
 			    dsp->ds_ident, ctf_errmsg(ctf_errno(dmp->dm_ctfp)));
 		}
 
-		dt_dprintf("typedef %s added as id %ld\n", dsp->ds_ident, type);
+		dt_dprintf("typedef %s added as id %ld", dsp->ds_ident, type);
 		break;
 
 	default: {
@@ -1697,7 +1720,7 @@ dt_node_decl(void)
 				    dsp->ds_ident, dt_idhash_name(dhp));
 			}
 
-			dt_dprintf("declare %s %s variable %s, id=%u\n",
+			dt_dprintf("declare %s %s variable %s, id=%u",
 			    dt_idhash_name(dhp), dt_idkind_name(idkind),
 			    dsp->ds_ident, id);
 
@@ -2800,7 +2823,7 @@ dt_xcook_ident(dt_node_t *dnp, dt_idhash_t *dhp, uint_t idkind, int create)
 		else if (dhp == dtp->dt_tls)
 			flags |= DT_IDFLG_TLS;
 
-		dt_dprintf("create %s %s variable %s, id=%u\n",
+		dt_dprintf("create %s %s variable %s, id=%u",
 		    sname, dt_idkind_name(idkind), name, id);
 
 		if (idkind == DT_IDENT_ARRAY || idkind == DT_IDENT_AGG) {
@@ -2888,6 +2911,7 @@ dt_cook_var(dt_node_t *dnp, uint_t idflags)
 static dt_node_t *
 dt_cook_func(dt_node_t *dnp, uint_t idflags)
 {
+#pragma unused(idflags)
 	dt_node_attr_assign(dnp,
 	    dt_ident_cook(dnp, dnp->dn_ident, &dnp->dn_args));
 
@@ -2961,6 +2985,10 @@ dt_cook_op1(dt_node_t *dnp, uint_t idflags)
 				longjmp(yypcb->pcb_jmpbuf, EDT_CTF);
 			} else
 				type = r.ctr_contents;
+		} else if (kind == CTF_K_PTRAUTH) {
+			type = ctf_type_reference(cp->dn_ctfp, type);
+			assert(ctf_type_kind(cp->dn_ctfp, type) == CTF_K_POINTER);
+			type = ctf_type_reference(cp->dn_ctfp, type);
 		} else if (kind == CTF_K_POINTER) {
 			type = ctf_type_reference(cp->dn_ctfp, type);
 		} else {
@@ -3000,7 +3028,8 @@ dt_cook_op1(dt_node_t *dnp, uint_t idflags)
 			dnp->dn_flags |= DT_NF_WRITABLE;
 
 		if ((cp->dn_flags & DT_NF_USERLAND) &&
-		    (kind == CTF_K_POINTER || (dnp->dn_flags & DT_NF_REF)))
+		    (dt_type_is_pointer(kind) ||
+		    (dnp->dn_flags & DT_NF_REF)))
 			dnp->dn_flags |= DT_NF_USERLAND;
 		break;
 
@@ -3700,9 +3729,13 @@ asgn_common:
 		}
 
 		kind = ctf_type_kind(ctfp, type);
+		if (kind == CTF_K_PTRAUTH) {
+			type = ctf_type_reference(ctfp, type);
+			kind = ctf_type_kind(ctfp, type);
+		}
 
 		if (op == DT_TOK_PTR) {
-			if (kind != CTF_K_POINTER) {
+			if (!dt_type_is_pointer(kind)) {
 				xyerror(D_OP_PTR, "operator %s must be "
 				    "applied to a pointer\n", opstr(op));
 			}
@@ -3769,7 +3802,7 @@ asgn_common:
 		if (lp->dn_flags & DT_NF_WRITABLE)
 			dnp->dn_flags |= DT_NF_WRITABLE;
 
-		if (uref && (kind == CTF_K_POINTER ||
+		if (uref && (dt_type_is_pointer(kind) ||
 		    (dnp->dn_flags & DT_NF_REF)))
 			dnp->dn_flags |= DT_NF_USERLAND;
 		break;
@@ -3822,7 +3855,7 @@ asgn_common:
 			}
 
 			dt_dprintf("morph variable %s (id %u) from scalar to "
-			    "array\n", idp->di_name, idp->di_id);
+			    "array", idp->di_name, idp->di_id);
 
 			dt_ident_morph(idp, DT_IDENT_ARRAY,
 			    &dt_idops_assc, NULL);
@@ -3916,7 +3949,7 @@ asgn_common:
 			/*EMPTY*/;
 		else if (dt_node_is_void(lp))
 			/*EMPTY*/;
-		else if (lkind == CTF_K_POINTER && dt_node_is_pointer(rp))
+		else if (dt_type_is_pointer(lkind) && dt_node_is_pointer(rp))
 			/*EMPTY*/;
 		else if (dt_node_is_string(lp) && (dt_node_is_scalar(rp) ||
 		    dt_node_is_pointer(rp) || dt_node_is_strcompat(rp)))
@@ -3939,7 +3972,7 @@ asgn_common:
 		 * If it's a pointer then should be able to (attempt to)
 		 * assign to it.
 		 */
-		if (lkind == CTF_K_POINTER)
+		if (dt_type_is_pointer(lkind))
 			dnp->dn_flags |= DT_NF_WRITABLE;
 
 		break;
@@ -4008,6 +4041,7 @@ asgn_common:
 static dt_node_t *
 dt_cook_op3(dt_node_t *dnp, uint_t idflags)
 {
+#pragma unused(idflags)
 	dt_node_t *lp, *rp;
 	ctf_file_t *ctfp;
 	ctf_id_t type;
@@ -4077,6 +4111,7 @@ dt_cook_statement(dt_node_t *dnp, uint_t idflags)
 static dt_node_t *
 dt_cook_aggregation(dt_node_t *dnp, uint_t idflags)
 {
+#pragma unused(idflags)
 	dtrace_hdl_t *dtp = yypcb->pcb_hdl;
 
 	if (dnp->dn_aggfun != NULL) {
@@ -4200,6 +4235,7 @@ dt_cook_clause(dt_node_t *dnp, uint_t idflags)
 static dt_node_t *
 dt_cook_inline(dt_node_t *dnp, uint_t idflags)
 {
+#pragma unused(idflags)
 	dt_idnode_t *inp = dnp->dn_ident->di_iarg;
 	dt_ident_t *rdp;
 
@@ -4224,9 +4260,15 @@ dt_cook_inline(dt_node_t *dnp, uint_t idflags)
 		ctf_file_t *rctfp = dxp->dx_dst_ctfp;
 		ctf_id_t rtype = dxp->dx_dst_base;
 
-		if (ctf_type_kind(lctfp, ltype) == CTF_K_POINTER) {
+		switch (ctf_type_kind(lctfp, ltype)) {
+		case CTF_K_PTRAUTH:
+			ltype = ctf_type_reference(lctfp, ltype);
+			assert(ctf_type_kind(lctfp, ltype) == CTF_K_POINTER);
+			/*FALLTHRU*/
+		case CTF_K_POINTER:
 			ltype = ctf_type_reference(lctfp, ltype);
 			ltype = ctf_type_resolve(lctfp, ltype);
+			break;
 		}
 
 		if (ctf_type_compat(lctfp, ltype, rctfp, rtype) == 0) {
@@ -4260,6 +4302,7 @@ dt_cook_member(dt_node_t *dnp, uint_t idflags)
 static dt_node_t *
 dt_cook_xlator(dt_node_t *dnp, uint_t idflags)
 {
+#pragma unused(idflags)
 	dtrace_hdl_t *dtp = yypcb->pcb_hdl;
 	dt_xlator_t *dxp = dnp->dn_xlator;
 	dt_node_t *mnp;
@@ -4425,6 +4468,7 @@ dt_cook_probe(dt_node_t *dnp, dt_provider_t *pvp)
 static dt_node_t *
 dt_cook_provider(dt_node_t *dnp, uint_t idflags)
 {
+#pragma unused(idflags)
 	dt_provider_t *pvp = dnp->dn_provider;
 	dt_node_t *pnp;
 
@@ -4465,6 +4509,7 @@ dt_cook_provider(dt_node_t *dnp, uint_t idflags)
 static dt_node_t *
 dt_cook_none(dt_node_t *dnp, uint_t idflags)
 {
+#pragma unused(idflags)
 	return (dnp);
 }
 
@@ -5080,6 +5125,7 @@ dnwarn(const dt_node_t *dnp, dt_errtag_t tag, const char *format, ...)
 
 /*PRINTFLIKE2*/
 void
+__attribute__((noreturn))
 xyerror(dt_errtag_t tag, const char *format, ...)
 {
 	va_list ap;
@@ -5166,7 +5212,7 @@ yyvwarn(const char *format, va_list ap)
 void
 yylabel(const char *label)
 {
-	dt_dprintf("set label to <%s>\n", label ? label : "NULL");
+	dt_dprintf("set label to <%s>", label ? label : "NULL");
 	yypcb->pcb_region = label;
 }
 

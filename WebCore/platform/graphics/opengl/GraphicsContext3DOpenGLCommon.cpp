@@ -28,7 +28,7 @@
 
 #include "config.h"
 
-#if ENABLE(GRAPHICS_CONTEXT_3D)
+#if ENABLE(GRAPHICS_CONTEXT_3D) && (USE(OPENGL) || USE(OPENGL_ES))
 
 #include "GraphicsContext3D.h"
 #if PLATFORM(IOS_FAMILY)
@@ -55,6 +55,7 @@
 #include <wtf/MainThread.h>
 #include <wtf/ThreadSpecific.h>
 #include <wtf/UniqueArray.h>
+#include <wtf/Vector.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -88,7 +89,6 @@
 
 
 namespace WebCore {
-using namespace WTF;
 
 static ThreadSpecific<ShaderNameHash*>& getCurrentNameHashMapForShader()
 {
@@ -227,7 +227,7 @@ void GraphicsContext3D::prepareTexture()
 
     makeContextCurrent();
 
-#if !USE(COORDINATED_GRAPHICS_THREADED)
+#if !USE(COORDINATED_GRAPHICS)
     TemporaryOpenGLSetting scopedScissor(GL_SCISSOR_TEST, GL_FALSE);
     TemporaryOpenGLSetting scopedDither(GL_DITHER, GL_FALSE);
 #endif
@@ -235,7 +235,7 @@ void GraphicsContext3D::prepareTexture()
     if (m_attrs.antialias)
         resolveMultisamplingIfNecessary();
 
-#if USE(COORDINATED_GRAPHICS_THREADED)
+#if USE(COORDINATED_GRAPHICS)
     std::swap(m_texture, m_compositorTexture);
     std::swap(m_texture, m_intermediateTexture);
     ::glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
@@ -976,7 +976,7 @@ static String generateHashedName(const String& name)
     uint64_t number = nameHashForShader(name.utf8().data(), name.length());
     StringBuilder builder;
     builder.appendLiteral("webgl_");
-    appendUnsigned64AsHex(number, builder, Lowercase);
+    appendUnsignedAsHex(number, builder, Lowercase);
     return builder.toString();
 }
 
@@ -2017,6 +2017,9 @@ void GraphicsContext3D::markContextChanged()
 void GraphicsContext3D::markLayerComposited()
 {
     m_layerComposited = true;
+
+    for (auto* client : copyToVector(m_clients))
+        client->didComposite();
 }
 
 bool GraphicsContext3D::layerComposited() const
@@ -2026,26 +2029,20 @@ bool GraphicsContext3D::layerComposited() const
 
 void GraphicsContext3D::forceContextLost()
 {
-#if ENABLE(WEBGL)
-    if (m_webglContext)
-        m_webglContext->forceLostContext(WebGLRenderingContextBase::RealLostContext);
-#endif
+    for (auto* client : copyToVector(m_clients))
+        client->forceContextLost();
 }
 
 void GraphicsContext3D::recycleContext()
 {
-#if ENABLE(WEBGL)
-    if (m_webglContext)
-        m_webglContext->recycleContext();
-#endif
+    for (auto* client : copyToVector(m_clients))
+        client->recycleContext();
 }
 
 void GraphicsContext3D::dispatchContextChangedNotification()
 {
-#if ENABLE(WEBGL)
-    if (m_webglContext)
-        m_webglContext->dispatchContextChangedEvent();
-#endif
+    for (auto* client : copyToVector(m_clients))
+        client->dispatchContextChangedNotification();
 }
 
 void GraphicsContext3D::texImage2DDirect(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height, GC3Dint border, GC3Denum format, GC3Denum type, const void* pixels)
@@ -2082,4 +2079,4 @@ void GraphicsContext3D::primitiveRestartIndex(GC3Duint index)
 
 }
 
-#endif // ENABLE(GRAPHICS_CONTEXT_3D)
+#endif // ENABLE(GRAPHICS_CONTEXT_3D) && (USE(OPENGL) || USE(OPENGL_ES))

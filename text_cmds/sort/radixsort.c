@@ -26,7 +26,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/usr.bin/sort/radixsort.c 281133 2015-04-06 03:02:20Z pfg $");
+__FBSDID("$FreeBSD$");
 
 #include <errno.h>
 #include <err.h>
@@ -34,7 +34,14 @@ __FBSDID("$FreeBSD: head/usr.bin/sort/radixsort.c 281133 2015-04-06 03:02:20Z pf
 #include <math.h>
 #if defined(SORT_THREADS)
 #include <pthread.h>
+#ifndef __APPLE__
 #include <semaphore.h>
+#else
+#include <mach/mach_init.h>
+#include <mach/mach_error.h>
+#include <mach/semaphore.h>
+#include <mach/task.h>
+#endif
 #endif
 #include <stdlib.h>
 #include <string.h>
@@ -83,15 +90,19 @@ static struct level_stack *g_ls;
 
 #if defined(SORT_THREADS)
 /* stack guarding mutex */
+static pthread_cond_t g_ls_cond;
 static pthread_mutex_t g_ls_mutex;
 
 /* counter: how many items are left */
 static size_t sort_left;
 /* guarding mutex */
-static pthread_mutex_t sort_left_mutex;
 
 /* semaphore to count threads */
+#ifndef __APPLE__
 static sem_t mtsem;
+#else
+semaphore_t rmtsem;
+#endif
 
 /*
  * Decrement items counter
@@ -99,23 +110,25 @@ static sem_t mtsem;
 static inline void
 sort_left_dec(size_t n)
 {
-
-	pthread_mutex_lock(&sort_left_mutex);
+	pthread_mutex_lock(&g_ls_mutex);
 	sort_left -= n;
-	pthread_mutex_unlock(&sort_left_mutex);
+	if (sort_left == 0 && nthreads > 1)
+		pthread_cond_broadcast(&g_ls_cond);
+	pthread_mutex_unlock(&g_ls_mutex);
 }
 
 /*
  * Do we have something to sort ?
+ *
+ * This routine does not need to be locked.
  */
 static inline bool
 have_sort_left(void)
 {
 	bool ret;
 
-	pthread_mutex_lock(&sort_left_mutex);
 	ret = (sort_left > 0);
-	pthread_mutex_unlock(&sort_left_mutex);
+
 	return (ret);
 }
 
@@ -143,6 +156,11 @@ push_ls(struct sort_level *sl)
 
 	new_ls->next = g_ls;
 	g_ls = new_ls;
+
+#if defined(SORT_THREADS)
+	if (nthreads > 1)
+		pthread_cond_signal(&g_ls_cond);
+#endif
 
 #if defined(SORT_THREADS)
 	if (nthreads > 1)
@@ -184,13 +202,19 @@ pop_ls_mt(void)
 
 	pthread_mutex_lock(&g_ls_mutex);
 
-	if (g_ls) {
-		sl = g_ls->sl;
-		saved_ls = g_ls;
-		g_ls = g_ls->next;
-	} else {
+	for (;;) {
+		if (g_ls) {
+			sl = g_ls->sl;
+			saved_ls = g_ls;
+			g_ls = g_ls->next;
+			break;
+		}
 		sl = NULL;
 		saved_ls = NULL;
+
+		if (have_sort_left() == 0)
+			break;
+		pthread_cond_wait(&g_ls_cond, &g_ls_mutex);
 	}
 
 	pthread_mutex_unlock(&g_ls_mutex);
@@ -243,9 +267,11 @@ add_leaf(struct sort_level *sl, struct sort_list_item *item)
 static inline int
 get_wc_index(struct sort_list_item *sli, size_t level)
 {
+	const struct key_value *kv;
 	const struct bwstring *bws;
 
-	bws = sli->ka.key[0].k;
+	kv = get_key_from_keys_array(&sli->ka, 0);
+	bws = kv->k;
 
 	if ((BWSLEN(bws) > level))
 		return (unsigned char) BWS_GET(bws,level);
@@ -493,13 +519,8 @@ run_sort_cycle_mt(void)
 
 	for (;;) {
 		slc = pop_ls_mt();
-		if (slc == NULL) {
-			if (have_sort_left()) {
-				pthread_yield();
-				continue;
-			}
+		if (slc == NULL)
 			break;
-		}
 		run_sort_level_next(slc);
 	}
 }
@@ -513,7 +534,11 @@ sort_thread(void* arg)
 
 	run_sort_cycle_mt();
 
+#ifndef __APPLE__
 	sem_post(&mtsem);
+#else
+	semaphore_signal(rmtsem);
+#endif
 
 	return (arg);
 }
@@ -608,8 +633,12 @@ run_top_sort_level(struct sort_level *sl)
 			pthread_t pth;
 
 			pthread_attr_init(&attr);
+#ifndef __APPLE__
 			pthread_attr_setdetachstate(&attr,
 			    PTHREAD_DETACHED);
+#else
+			pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+#endif
 
 			for (;;) {
 				int res = pthread_create(&pth, &attr,
@@ -617,7 +646,11 @@ run_top_sort_level(struct sort_level *sl)
 				if (res >= 0)
 					break;
 				if (errno == EAGAIN) {
+#ifndef __APPLE__
 					pthread_yield();
+#else
+					sched_yield();
+#endif
 					continue;
 				}
 				err(2, NULL);
@@ -627,7 +660,11 @@ run_top_sort_level(struct sort_level *sl)
 		}
 
 		for(i = 0; i < nthreads; ++i)
+#ifndef __APPLE__
 			sem_wait(&mtsem);
+#else
+		  semaphore_wait(rmtsem);
+#endif
 	}
 #endif /* defined(SORT_THREADS) */
 }
@@ -646,14 +683,26 @@ run_sort(struct sort_list_item **base, size_t nmemb)
 		pthread_mutexattr_t mattr;
 
 		pthread_mutexattr_init(&mattr);
+#ifndef __APPLE__
 		pthread_mutexattr_settype(&mattr, PTHREAD_MUTEX_ADAPTIVE_NP);
+#endif
 
 		pthread_mutex_init(&g_ls_mutex, &mattr);
-		pthread_mutex_init(&sort_left_mutex, &mattr);
+		pthread_cond_init(&g_ls_cond, NULL);
 
 		pthread_mutexattr_destroy(&mattr);
 
+#ifndef __APPLE__
 		sem_init(&mtsem, 0, 0);
+#else
+		{
+		  mach_port_t self = mach_task_self();
+		  kern_return_t ret = semaphore_create(self, &rmtsem, SYNC_POLICY_FIFO, 0);
+		  if (ret != KERN_SUCCESS) {
+		    err(2,NULL);
+		  }
+		}
+#endif
 
 	}
 #endif
@@ -675,9 +724,15 @@ run_sort(struct sort_list_item **base, size_t nmemb)
 
 #if defined(SORT_THREADS)
 	if (nthreads > 1) {
+#ifndef __APPLE__
 		sem_destroy(&mtsem);
-		pthread_mutex_destroy(&g_ls_mutex);
-		pthread_mutex_destroy(&sort_left_mutex);
+#else
+	  {
+	    mach_port_t self = mach_task_self();
+	    semaphore_destroy(self,rmtsem);
+	  }
+#endif
+	  pthread_mutex_destroy(&g_ls_mutex);
 	}
 	nthreads = nthreads_save;
 #endif

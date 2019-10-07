@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,8 +26,8 @@
 #define _PPP_LINK_H_
 
 
-int ppp_link_init();
-int ppp_link_dispose();
+int ppp_link_init(void);
+int ppp_link_dispose(void);
 int ppp_link_control(struct ppp_link *link, u_long cmd, void *data);
 int ppp_link_attachclient(u_short index, void *host, struct ppp_link **link);
 int ppp_link_detachclient(struct ppp_link *link, void *host);

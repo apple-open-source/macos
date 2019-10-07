@@ -169,8 +169,9 @@ int		SCError			(void)				API_AVAILABLE(macos(10.1), ios(2.0));
 /*!
 	@function SCErrorString
 	@discussion Returns a pointer to the message string
-		associated with the specified status or error.
-	@param status The SCDynamicStoreStatus to be returned.
+		associated with the specified status or error
+		number.
+	@param status The status or error number.
 	@result Returns a pointer to the error message string.
  */
 const char *	SCErrorString		(int	status)			API_AVAILABLE(macos(10.1), ios(2.0));

@@ -1,5 +1,5 @@
 --TEST--
-Test hash_file() function : basic functionality 
+Test hash_file() function : basic functionality
 --SKIPIF--
 <?php extension_loaded('hash') or die('skip: hash extension not loaded.'); ?>
 --CREDITS--
@@ -9,7 +9,7 @@ Felix De Vliegher <felix.devliegher@gmail.com>
 /* Prototype  : string hash_file(string algo, string filename[, bool raw_output = false])
  * Description: Generate a hash of a given file
  * Source code: ext/hash/hash.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing hash_file() : basic functionality ***\n";
@@ -34,7 +34,7 @@ $filename = 'hash_file_basic_example.txt';
 unlink( $filename );
 
 ?>
---EXPECTF--
+--EXPECT--
 *** Testing hash_file() : basic functionality ***
 string(32) "5c6ffbdd40d9556b73a21e63c3e0e904"
 string(40) "c0854fb9fb03c41cce3802cb0d220529e6eef94e"

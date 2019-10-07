@@ -76,11 +76,27 @@ static int rangecmp (c1, c2)
 #endif /* !HAVE_STRCOLL */
 
 #if defined (HAVE_STRCOLL)
+
+/* Helper function for collating symbol equivalence. */
+/* See also: rangecmp. */
 static int
 collequiv (c1, c2)
      int c1, c2;
 {
-  return (rangecmp (c1, c2) == 0);
+  static char s1[2] = {' ', '\0'};
+  static char s2[2] = {' ', '\0'};
+
+  /* Eight bits only.  Period. */
+  c1 &= 0xFF;
+  c2 &= 0xFF;
+
+  if (c1 == c2)
+    return 1;
+
+  s1[0] = c1;
+  s2[0] = c2;
+
+  return (strcoll(s1, s2) == 0);
 }
 #else
 #  define collequiv(c1, c2)	((c1) == (c2))

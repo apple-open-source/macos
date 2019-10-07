@@ -22,6 +22,8 @@
  */
 
 
+#include <stdlib.h>
+
 #include <CommonCrypto/CommonRSACryptor.h>
 #include <CommonCrypto/CommonRSACryptorSPI.h>
 #include <CommonCrypto/CommonDigest.h>
@@ -32,9 +34,9 @@
 #include <corecrypto/ccrsa.h>
 #include <corecrypto/ccrsa_priv.h>
 #include <corecrypto/ccasn1.h>
+#include <corecrypto/ccn.h>
 
 #include "ccErrors.h"
-#include "ccMemory.h"
 #include "ccdebug.h"
 #include "cc_macros_priv.h"
 
@@ -60,7 +62,7 @@ ccMallocRSACryptor(size_t nbits)
 {
     CCRSACryptor *retval;
     cc_size n = ccn_nof(nbits);
-    if((retval = CC_XMALLOC(sizeof(CCRSACryptor))) == NULL) return NULL;
+    if((retval = malloc(sizeof(CCRSACryptor))) == NULL) return NULL;
     retval->key_nbits = nbits;
     ccrsa_ctx_n(retval->fk) = n;
     return retval;
@@ -71,8 +73,8 @@ ccRSACryptorClear(CCRSACryptorRef theKey)
 {
     CCRSACryptor *key = (CCRSACryptor *) theKey;
     if(key==NULL) return;
-    CC_XZEROMEM(key, sizeof(CCRSACryptor));
-    CC_XFREE(key, sizeof(CCRSACryptor));
+    cc_clear(sizeof(CCRSACryptor), key);
+    free(key);
 }
 
 static inline size_t
@@ -114,7 +116,7 @@ CCRSACryptorGeneratePair(size_t keysize, uint32_t e, CCRSACryptorRef *publicKey,
     __Require_Action((ccrsa_generate_fips186_key(keysize, privateCryptor->fk, eSize, eBytes, rng, rng) == 0), errOut, retval = kCCDecodeError);
     
     privateCryptor->keyType = ccRSAKeyPrivate;
-    __Require_Action((publicCryptor = CCRSACryptorGetPublicKeyFromPrivateKey(privateCryptor)) != NULL, errOut, retval = kCCMemoryFailure);
+    __Require_Action((publicCryptor = CCRSACryptorCreatePublicKeyFromPrivateKey(privateCryptor)) != NULL, errOut, retval = kCCMemoryFailure);
     
     *publicKey = publicCryptor;
     *privateKey = privateCryptor;
@@ -130,15 +132,25 @@ errOut:
     return retval;
 }
 
-CCRSACryptorRef CCRSACryptorGetPublicKeyFromPrivateKey(CCRSACryptorRef privateCryptorRef)
+CCRSACryptorRef CCRSACryptorCreatePublicKeyFromPrivateKey(CCRSACryptorRef privateCryptorRef)
 {
     CCRSACryptor *publicCryptor = NULL, *privateCryptor = privateCryptorRef;
     
     CC_DEBUG_LOG("Entering\n");
     if((publicCryptor = ccMallocRSACryptor(privateCryptor->key_nbits)) == NULL)  return NULL;
-    ccrsa_init_pub(ccrsa_ctx_public(publicCryptor->fk), ccrsa_ctx_m(privateCryptor->fk), ccrsa_ctx_e(privateCryptor->fk));
+    int ccrc = ccrsa_init_pub(ccrsa_ctx_public(publicCryptor->fk), ccrsa_ctx_m(privateCryptor->fk), ccrsa_ctx_e(privateCryptor->fk));
     publicCryptor->keyType = ccRSAKeyPublic;
+    if (ccrc != CCERR_OK) {
+        CCRSACryptorRelease(publicCryptor);
+        return NULL;
+    }
     return publicCryptor;
+}
+
+// Deprecated. Use CCRSACryptorCreatePublicKeyFromPrivateKey()
+CCRSACryptorRef CCRSACryptorGetPublicKeyFromPrivateKey(CCRSACryptorRef privateCryptorRef)
+{
+    return CCRSACryptorCreatePublicKeyFromPrivateKey(privateCryptorRef);
 }
 
 CCRSAKeyType CCRSAGetKeyType(CCRSACryptorRef key)
@@ -224,7 +236,7 @@ CCCryptorStatus CCRSACryptorExport(CCRSACryptorRef cryptor, void *out, size_t *o
     switch(cryptor->keyType) {
         case ccRSAKeyPublic:
             bufsiz = ccrsa_export_pub_size(ccrsa_ctx_public(cryptor->fk));
-            if(*outLen <= bufsiz) {
+            if(*outLen < bufsiz) {
                 *outLen = bufsiz;
                 return kCCBufferTooSmall;
             }
@@ -408,7 +420,7 @@ CCRSACryptorCreatePairFromData(uint32_t e,
     
     privateCryptor->keyType = ccRSAKeyPrivate;
     
-    __Require_Action((publicCryptor = CCRSACryptorGetPublicKeyFromPrivateKey(privateCryptor)) != NULL, errOut, retval = kCCMemoryFailure);
+    __Require_Action((publicCryptor = CCRSACryptorCreatePublicKeyFromPrivateKey(privateCryptor)) != NULL, errOut, retval = kCCMemoryFailure);
 
     *publicKey = publicCryptor;
     *privateKey = privateCryptor;
@@ -478,41 +490,25 @@ create_priv(const uint8_t *publicExponent, size_t publicExponentLength, const ui
     CC_DEBUG_LOG("Entering\n");
     CCCryptorStatus retval;
     CCRSACryptor *rsaKey = NULL;
-    
-    expect(publicExponent!=NULL && publicExponentLength!=0 && p!=NULL && pLength!=0 && q!=NULL && qLength!=0 && ref!=NULL && pLength==qLength);
-    
+    int rc = CCERR_OK;
+
+    expect(publicExponent!=NULL && publicExponentLength!=0 && p!=NULL && pLength!=0 && q!=NULL && qLength!=0 && ref!=NULL);
+
     size_t modulusLength = pLength+qLength;
     size_t n = ccn_nof_size(modulusLength);
     expect(n!=0);
 
     rsaKey = malloc_rsa_cryptor(modulusLength); expect(rsaKey!=NULL);
     ccrsa_full_ctx_t fk = rsaKey->fk;
-  
 
-    size_t np = ccn_nof_size(pLength); expect(np!=0);
-    size_t nq = ccn_nof_size(qLength); expect(nq!=0);
-        
-    CCZP_N(ccrsa_ctx_private_zp(fk)) = np;
-    int rc = ccn_read_uint(np, CCZP_PRIME(ccrsa_ctx_private_zp(fk)), pLength, p); expect(rc==0);
-            
-    CCZP_N(ccrsa_ctx_private_zq(fk)) = nq;
-    rc = ccn_read_uint(nq, CCZP_PRIME(ccrsa_ctx_private_zq(fk)), qLength, q); expect(rc==0);
-            
-    rc = ccn_cmpn(np, cczp_prime(ccrsa_ctx_private_zp(fk)), nq, cczp_prime(ccrsa_ctx_private_zq(fk))); expect(rc>0);
-    
     CCZP_N(ccrsa_ctx_zm(fk)) = n;
-    rc = ccn_read_uint(n, ccrsa_ctx_e(fk), publicExponentLength, publicExponent);expect(rc==0); //zeroizes e if needed
 
-        //n of zm, p, q, e are inputs. m, d, dp, dq, qinv are outputs.
-        //int ccrsa_crt_makekey(cczp_t zm, const cc_unit *e, cc_unit *d, cczp_t zp, cc_unit *dp, cc_unit *qinv, cczp_t zq, cc_unit *dq);
-    rc = ccrsa_crt_makekey(ccrsa_ctx_zm(fk), ccrsa_ctx_e(fk), ccrsa_ctx_d(fk),
-                           ccrsa_ctx_private_zp(fk), ccrsa_ctx_private_dp(fk), ccrsa_ctx_private_qinv(fk),
-                           ccrsa_ctx_private_zq(fk), ccrsa_ctx_private_dq(fk));
+    rc = ccrsa_make_priv(fk, publicExponentLength, publicExponent, pLength, p, qLength, q);
     expect(rc==0);
 
     rsaKey->key_nbits = ccn_bitlen(n, ccrsa_ctx_m(rsaKey->fk));
     rsaKey->keyType = ccRSAKeyPrivate;
-    
+
 	*ref = rsaKey;
 	return kCCSuccess;
 	
@@ -624,10 +620,13 @@ out:
 static const struct ccdigest_info *validate_sign_verify_params(CCRSACryptorRef privateKey, CCAsymmetricPadding padding, const void *hash,
                            CCDigestAlgorithm digestType, const void *data, size_t *DataLen)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     
     if(digestType!=kCCDigestSHA1 && digestType!=kCCDigestSHA224 && digestType!=kCCDigestSHA256 && digestType!= kCCDigestSHA384 && digestType!=kCCDigestSHA512)
         return NULL;
-   
+ #pragma clang diagnostic pop
+    
     const struct ccdigest_info *di = CCDigestGetDigestInfo(digestType);
 
     if(privateKey==NULL || hash==NULL || data==NULL || DataLen==NULL || di==NULL)

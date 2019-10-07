@@ -29,6 +29,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <sys/types.h>
 #include <stdio.h>
+#include <dispatch/dispatch.h>
 
 __BEGIN_DECLS
 
@@ -38,9 +39,16 @@ typedef struct _OpaqueSecOTAPKI *SecOTAPKIRef;
 // Returns a boolean for whether the current instance is the system trustd
 bool SecOTAPKIIsSystemTrustd(void);
 
+// Returns the trust server workloop
+dispatch_queue_t SecTrustServerGetWorkloop(void);
+
+// Convert a trusted CT log array to a trusted CT log dictionary, indexed by the LogID
+CF_RETURNS_RETAINED
+CFDictionaryRef SecOTAPKICreateTrustedCTLogsDictionaryFromArray(CFArrayRef trustedCTLogsArray);
+
 // Get a reference to the current OTA PKI asset data
 // Caller is responsible for releasing the returned SecOTAPKIRef
-CF_EXPORT
+CF_EXPORT CF_RETURNS_RETAINED
 SecOTAPKIRef SecOTAPKICopyCurrentOTAPKIRef(void);
 
 // Accessor to retrieve a copy of the current black listed key.
@@ -66,7 +74,7 @@ CFArrayRef SecOTAPKICopyAllowListForAuthKeyID(SecOTAPKIRef otapkiRef, CFStringRe
 // Accessor to retrieve a copy of the current trusted certificate transparency logs.
 // Caller is responsible for releasing the returned CFArrayRef
 CF_EXPORT
-CFArrayRef SecOTAPKICopyTrustedCTLogs(SecOTAPKIRef otapkiRef);
+CFDictionaryRef SecOTAPKICopyTrustedCTLogs(SecOTAPKIRef otapkiRef);
 
 // Accessor to retrieve the path of the current pinning list.
 // Caller is responsible for releasing the returned CFURLRef
@@ -152,6 +160,14 @@ bool SecOTAPKIKillSwitchEnabled(SecOTAPKIRef otapkiRef, CFStringRef switchKey);
 CF_EXPORT
 CFArrayRef SecOTAPKICopyCurrentEscrowCertificates(uint32_t escrowRootType, CFErrorRef* error);
 
+// SPI to return the array of currently trusted CT logs
+CF_EXPORT
+CFDictionaryRef SecOTAPKICopyCurrentTrustedCTLogs(CFErrorRef* error);
+
+// SPI to return dictionary of CT log matching specified key id */
+CF_EXPORT
+CFDictionaryRef SecOTAPKICopyCTLogForKeyID(CFDataRef keyID, CFErrorRef* error);
+
 // SPI to return the current OTA PKI trust store version
 // Note: Trust store is not mutable by assets
 CF_EXPORT
@@ -160,6 +176,10 @@ uint64_t SecOTAPKIGetCurrentTrustStoreVersion(CFErrorRef* CF_RETURNS_RETAINED  e
 // SPI to return the current OTA PKI asset version
 CF_EXPORT
 uint64_t SecOTAPKIGetCurrentAssetVersion(CFErrorRef* error);
+
+// SPI to return the current OTA SecExperiment asset version
+CF_EXPORT
+uint64_t SecOTASecExperimentGetCurrentAssetVersion(CFErrorRef* error);
 
 // SPI to reset the current OTA PKI asset version to the version shipped
 // with the system
@@ -171,6 +191,22 @@ uint64_t SecOTAPKIResetCurrentAssetVersion(CFErrorRef* CF_RETURNS_RETAINED  erro
 // a reason if the update was not successful.
 CF_EXPORT
 uint64_t SecOTAPKISignalNewAsset(CFErrorRef* CF_RETURNS_RETAINED error);
+
+// SPI to signal trustd to get a new set of SecExperiment data
+// Always returns the current asset version. Returns an error with
+// a reason if the update was not successful.
+CF_EXPORT
+uint64_t SecOTASecExperimentGetNewAsset(CFErrorRef* error);
+
+// SPI to copy current SecExperiment asset data
+CF_EXPORT
+CFDictionaryRef SecOTASecExperimentCopyAsset(CFErrorRef* error);
+
+/* "Internal" interfaces for tests */
+#if !TARGET_OS_BRIDGE && __OBJC__
+BOOL UpdateOTACheckInDate(void);
+void UpdateKillSwitch(NSString *key, bool value);
+#endif
 
 __END_DECLS
 

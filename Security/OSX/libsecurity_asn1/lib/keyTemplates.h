@@ -71,12 +71,12 @@ extern const SecAsn1Template kSecAsn1SetOfAttributeTemplate[];
  * ASN class : PrivateKeyInfo
  * C struct  : NSS_PrivateKeyInfo
  */
-typedef struct {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER {
     SecAsn1Item 						version;
     SecAsn1AlgId 	algorithm;
     SecAsn1Item 						privateKey;
     NSS_Attribute 					**attributes;
-} NSS_PrivateKeyInfo;
+} NSS_PrivateKeyInfo DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 extern const SecAsn1Template kSecAsn1PrivateKeyInfoTemplate[];
 
@@ -88,10 +88,10 @@ extern const SecAsn1Template kSecAsn1PrivateKeyInfoTemplate[];
  * The decrypted encryptedData field is a DER-encoded
  * NSS_PrivateKeyInfo.
  */
-typedef struct {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER {
 	SecAsn1AlgId	algorithm;
 	SecAsn1Item						encryptedData;
-} NSS_EncryptedPrivateKeyInfo;
+} NSS_EncryptedPrivateKeyInfo DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 extern const SecAsn1Template kSecAsn1EncryptedPrivateKeyInfoTemplate[];
 
@@ -99,10 +99,10 @@ extern const SecAsn1Template kSecAsn1EncryptedPrivateKeyInfoTemplate[];
  * ASN class : DigestInfo
  * C struct  : NSS_DigestInfo
  */
-typedef struct {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER {
 	SecAsn1AlgId	digestAlgorithm;
 	SecAsn1Item						digest;
-} NSS_DigestInfo;
+} NSS_DigestInfo DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 extern const SecAsn1Template kSecAsn1DigestInfoTemplate[];
 

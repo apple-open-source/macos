@@ -73,9 +73,9 @@ extern const CFStringRef kSecPolicyAppleiChat
     __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_7, __MAC_10_9, __IPHONE_NA, __IPHONE_NA);
 #endif
 extern const CFStringRef kSecPolicyApplePKINITClient
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 extern const CFStringRef kSecPolicyApplePKINITServer
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+    API_AVAILABLE(macos(10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 extern const CFStringRef kSecPolicyAppleCodeSigning
     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_7_0);
 extern const CFStringRef kSecPolicyMacAppStoreReceipt
@@ -197,6 +197,8 @@ SecPolicyRef SecPolicyCreateSSL(Boolean server, CFStringRef __nullable hostname)
      where failure to reach the server is not considered fatal.
      @constant kSecRevocationNetworkAccessDisabled If this flag is set, then
      no network access is performed; only locally cached replies are consulted.
+     This constant disallows network access for both revocation checks and
+     intermediate CA issuer fetching.
      @constant kSecRevocationUseAnyAvailableMethod Specifies that either
      OCSP or CRL may be used, depending on the method(s) specified in the
      certificate and the value of kSecRevocationPreferCRL.
@@ -250,7 +252,7 @@ CF_ASSUME_NONNULL_END
 /*
  *  Legacy functions (OS X only)
  */
-#if TARGET_OS_MAC && !TARGET_OS_IPHONE
+#if TARGET_OS_OSX
 #include <Security/cssmtype.h>
 
 CF_ASSUME_NONNULL_BEGIN

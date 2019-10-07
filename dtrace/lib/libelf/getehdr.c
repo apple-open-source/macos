@@ -27,8 +27,6 @@
 /*	Copyright (c) 1988 AT&T	*/
 /*	  All Rights Reserved  	*/
 
-#pragma ident	"@(#)getehdr.c	1.12	08/05/31 SMI"
-
 #include "libelf.h"
 #include "decl.h"
 #include "msg.h"

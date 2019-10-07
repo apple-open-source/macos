@@ -16,8 +16,6 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id$ */
-
 /*
  * Functions to parse & compse IPTC data.
  * PhotoShop >= 3.0 can read and write textual data to JPEG files.
@@ -197,9 +195,12 @@ PHP_FUNCTION(iptcembed)
 	zend_stat_t sb;
 	zend_bool written = 0;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "sp|l", &iptcdata, &iptcdata_len, &jpeg_file, &jpeg_file_len, &spool) != SUCCESS) {
-		return;
-	}
+	ZEND_PARSE_PARAMETERS_START(2, 3)
+		Z_PARAM_STRING(iptcdata, iptcdata_len)
+		Z_PARAM_PATH(jpeg_file, jpeg_file_len)
+		Z_PARAM_OPTIONAL
+		Z_PARAM_LONG(spool)
+	ZEND_PARSE_PARAMETERS_END();
 
 	if (php_check_open_basedir(jpeg_file)) {
 		RETURN_FALSE;
@@ -226,7 +227,7 @@ PHP_FUNCTION(iptcembed)
 	if (php_iptc_get1(fp, spool, poi?&poi:0) != 0xFF) {
 		fclose(fp);
 		if (spoolbuf) {
-			zend_string_free(spoolbuf);
+			zend_string_efree(spoolbuf);
 		}
 		RETURN_FALSE;
 	}
@@ -234,7 +235,7 @@ PHP_FUNCTION(iptcembed)
 	if (php_iptc_get1(fp, spool, poi?&poi:0) != 0xD8) {
 		fclose(fp);
 		if (spoolbuf) {
-			zend_string_free(spoolbuf);
+			zend_string_efree(spoolbuf);
 		}
 		RETURN_FALSE;
 	}
@@ -272,7 +273,7 @@ PHP_FUNCTION(iptcembed)
 					iptcdata_len++; /* make the length even */
 				}
 
-				psheader[ 2 ] = (iptcdata_len+28)>>8;
+				psheader[ 2 ] = (char) ((iptcdata_len+28)>>8);
 				psheader[ 3 ] = (iptcdata_len+28)&0xff;
 
 				for (inx = 0; inx < 28; inx++) {
@@ -321,9 +322,9 @@ PHP_FUNCTION(iptcparse)
 	size_t str_len;
 	zval values, *element;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s", &str, &str_len) != SUCCESS) {
-		return;
-	}
+	ZEND_PARSE_PARAMETERS_START(1, 1)
+		Z_PARAM_STRING(str, str_len)
+	ZEND_PARSE_PARAMETERS_END();
 
 	buffer = (unsigned char *)str;
 

@@ -1,4 +1,1296 @@
-commit a7dcbf296492f5056e1ba7abb8388531bb0a6708 (HEAD -> master, tag: ccid-1.4.27, origin/master, origin/HEAD, github/master)
+commit 743e9a9daf4dd27128eb6be8b13562f0ea695fd5 (HEAD -> master, tag: ccid-1.4.31)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 10 11:49:32 2019 +0200
+
+    Distribute README.md
+    
+    Autotools does not know about README.md file so we must add it explicitly.
+
+ Makefile.am | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit 680d7479c6b9eb02fabc657a727888c35e6fd31d (origin/master, origin/HEAD)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 10 11:43:21 2019 +0200
+
+    Release 1.4.31
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ README.md    | 27 +++++++++++++++++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 28 insertions(+), 1 deletion(-)
+
+commit 6768d39c987a2fcca2d34516e7d042ebca63e009
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 10 11:41:26 2019 +0200
+
+    Reformat README.md for a better MarkDown
+
+ README.md | 1412 ++++++++++++++++++++++++++++++-------------------------------
+ 1 file changed, 706 insertions(+), 706 deletions(-)
+
+commit 71d442ed5ef02a4115e6a2406db020fc3a7c417e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 10 11:37:36 2019 +0200
+
+    Rename README in README.md
+    
+    We can now have a nice MarkDown rendering.
+
+ README => README.md | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+commit d66f0fad276cf1210536c7534a2edd56e4f8350c (zotac/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jul 31 17:08:12 2019 +0200
+
+    Add SPECINFOSYSTEMS DIAMOND token
+
+ readers/SPECINFOSYSTEMS_DIAMOND_token.txt | 52 +++++++++++++++++++++++++++++++
+ readers/supported_readers.txt             |  5 ++-
+ 2 files changed, 56 insertions(+), 1 deletion(-)
+
+commit c53375f8e8b1d41c729fac149b1c41218b94ae64
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jul 29 23:08:05 2019 +0200
+
+    Add AvestUA AvestKey
+
+ readers/AvestUA_AvestKey.txt  | 49 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  5 ++++-
+ 2 files changed, 53 insertions(+), 1 deletion(-)
+
+commit 25fee850dd3de47d518f14e0fe84d9c98a4345b6
+Author: Godfrey Chung <godfrey.chung@acs.com.hk>
+Date:   Fri Jun 28 15:46:03 2019 +0800
+
+    MacOSX/configure: fix checking error for dynamic library libusb
+    
+    The directory may contain other dynamic libraries and therefore libusb
+    is incorrectly found.
+
+ MacOSX/configure | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit ebf5010b64bc5e69346bff4617fa6eebed4fc40b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jun 20 17:47:29 2019 +0200
+
+    Update PCSC-contib submodule
+
+ PCSC-contrib | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit fd83c6f797be6091e432a259c2ad65782fbaaa43
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jun 20 17:46:30 2019 +0200
+
+    Update PCSC submodule
+    
+    Update PCSC/src/misc.h to get the fix for warning: 'PCSC_API' macro redefined
+
+ PCSC | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 0b88e9c82c9d1c795f7c6adfca83aa47a1bbaa76
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jun 17 21:52:09 2019 +0200
+
+    Add HID Global Crescendo Key 0x002D
+
+ readers/HID_Global_Crescendo_Key_0x002D.txt | 51 +++++++++++++++++++++++++++++
+ readers/supported_readers.txt               |  1 +
+ 2 files changed, 52 insertions(+)
+
+commit 3139b814bec05a5ea22ed063134d6611eca58110
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jun 17 18:07:53 2019 +0200
+
+    Add HID Global Crescendo Key 0x002B
+
+ readers/HID_Global_Crescendo_Key_0x002B.txt | 51 +++++++++++++++++++++++++++++
+ readers/supported_readers.txt               |  1 +
+ 2 files changed, 52 insertions(+)
+
+commit 0e1923bd3b0872a39b0ec25c24c84f9a768aad9d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jun 17 18:06:39 2019 +0200
+
+    Add HID Global Crescendo Key 0x0029
+
+ readers/HID_Global_Crescendo_Key_0x0029.txt | 51 +++++++++++++++++++++++++++++
+ readers/supported_readers.txt               |  1 +
+ 2 files changed, 52 insertions(+)
+
+commit 4475166e07382b5b9a6cc88d0984308b72a2edc7
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jun 17 18:05:22 2019 +0200
+
+    Add HID Global Crescendo Key 0x0028
+
+ readers/HID_Global_Crescendo_Key_0x0028.txt | 51 +++++++++++++++++++++++++++++
+ readers/supported_readers.txt               |  3 +-
+ 2 files changed, 53 insertions(+), 1 deletion(-)
+
+commit dd0b2865d970ef7b69dbcf14f2bcaef13329d71d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Jun 15 15:37:24 2019 +0200
+
+    Add Route1 MobiKEY Fusion3
+
+ readers/Route1_MobiKEY_Fusion3.txt | 55 ++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt      |  5 +++-
+ 2 files changed, 59 insertions(+), 1 deletion(-)
+
+commit 903ffe6f61dc1b3e2bd870ab8153114ced394277
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jun 14 08:46:51 2019 +0200
+
+    Add extra_features for Gemalto IDBridge CT710
+
+ readers/extra_features/Gemalto_IDBridge_CT710.txt | 39 +++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
+
+commit 006e405ecd534d9bfce93ebdcd40e3e687d4dbd4
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Jun 11 11:14:41 2019 +0200
+
+    parse: use libusb_strerror() instead of strerror(errno)
+    
+    We now display the error message from libusb when a libusb call fails.
+    
+    Fixes https://salsa.debian.org/rousseau/CCID/issues/2
+
+ src/parse.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+commit 0d98000b414e6c489eeae71c83bc76bceb564f49
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Apr 2 19:00:19 2019 +0200
+
+    Add Avtor SecureToken (idProduct: 0x0020)
+
+ readers/Avtor_SecureToken_0x0020.txt | 57 ++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt        |  3 +-
+ 2 files changed, 59 insertions(+), 1 deletion(-)
+
+commit 2a6c7245b19640eb3c71598cfe5f44abd1d75a23
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Mar 13 19:47:23 2019 +0100
+
+    Update Aladdin R.D. JaCartaReader reader name
+    
+    Is was "JaCarta3"
+
+ readers/supported_readers.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit f37941d448e0fca17ffb20282ce27311e02687e7
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Mar 12 18:29:58 2019 +0100
+
+    Add Aladdin R.D. JaCarta3
+
+ readers/Aladdin_R.D._JaCarta3.txt | 51 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |  3 ++-
+ 2 files changed, 53 insertions(+), 1 deletion(-)
+
+commit 266d092cfab467d05fbd48b56436340adfd4e17a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jan 17 20:15:28 2019 +0100
+
+    Add Bit4id miniLector Blue
+
+ readers/bit4id_minilector-BLUE.txt | 54 ++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt      |  1 +
+ 2 files changed, 55 insertions(+)
+
+commit 51df9ec8c7d701df9ff78aa32ea19f0a561a29aa
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jan 17 20:11:56 2019 +0100
+
+    Add Bit4id TokenME EVO v2
+
+ readers/bit4id_TokenME-EVO.txt | 50 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  1 +
+ 2 files changed, 51 insertions(+)
+
+commit bd6bd148ccd077073ecf8bd2a25eee94f485b935
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jan 17 20:08:38 2019 +0100
+
+    Add Bit4id miniLector AIR EVO
+
+ readers/bit4id_minilector-AIR.txt | 48 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |  3 ++-
+ 2 files changed, 50 insertions(+), 1 deletion(-)
+
+commit 476f5a7b5eb4747ee22e5affec68e28cb4750597
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 16 09:33:57 2019 +0100
+
+    Add Certgate GmbH ONEKEY ID 2 USB
+
+ readers/Certgate_ONEKEY_ID_2_USB.txt | 49 ++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt        |  3 ++-
+ 2 files changed, 51 insertions(+), 1 deletion(-)
+
+commit 2795ef5ab70a0de91071e1be84e29dcd727911d8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Dec 30 17:35:40 2018 +0100
+
+    Add Alcor Link AK9563
+
+ readers/Alcor_Link_AK9563.txt | 156 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   5 +-
+ 2 files changed, 160 insertions(+), 1 deletion(-)
+
+commit 54831a762e888c8ad12b7e8d17a1be0dacd7404e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Dec 19 13:56:32 2018 +0100
+
+    Add Identiv SCR3500 C Contact Reader
+
+ readers/Identiv_SCR3500_C_Contact_Reader.txt | 55 ++++++++++++++++++++++++++++
+ readers/supported_readers.txt                |  3 +-
+ 2 files changed, 57 insertions(+), 1 deletion(-)
+
+commit a691e5cbc53bf693c27c846f08612a08c4a1c331
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 30 16:49:25 2018 +0100
+
+    Add Broadcom Corp 58200 (idProduct: 0x5845)
+
+ readers/Broadcom_58200_0x5845.txt | 52 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |  1 +
+ 2 files changed, 53 insertions(+)
+
+commit d882261ebc3f43f1ca3f984ea8d8a7d99701f72d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 30 16:47:52 2018 +0100
+
+    Add Broadcom Corp 58200 (idProduct: 0x5844)
+
+ readers/Broadcom_58200_0x5844.txt | 52 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |  1 +
+ 2 files changed, 53 insertions(+)
+
+commit 869544330fe96810eb7f3f8ab39cad7fa7686539
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 30 16:45:10 2018 +0100
+
+    Add Broadcom Corp 58200 (idProduct: 0x5843)
+
+ readers/Broadcom_58200_0x5843.txt | 106 ++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |   3 +-
+ 2 files changed, 108 insertions(+), 1 deletion(-)
+
+commit 25ab9d6e4fad9ac1f70ef4c76e3be3ce175f79fb
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Oct 24 18:48:26 2018 +0200
+
+    Add InfoCert WirelessKey
+
+ readers/InfoCert_WirelessKey.txt | 53 ++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |  5 +++-
+ 2 files changed, 57 insertions(+), 1 deletion(-)
+
+commit 5adffb317bcae37144e6fad7840d8c0970851c25
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Oct 12 16:19:00 2018 +0200
+
+    Add ACS ACR1252 Reader
+
+ readers/ACS_ACR1252_Reader.txt | 53 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  3 ++-
+ 2 files changed, 55 insertions(+), 1 deletion(-)
+
+commit f262442ca2b48ac6cf47a556721dabb6c3a9d0a9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Oct 4 14:31:54 2018 +0200
+
+    InterruptRead(): log the timeout used
+    
+    This change allows to differentiate between a short
+    (PCSCLITE_POWER_OFF_GRACE_PERIOD, 5 seconds by default) and a long
+    (PCSCLITE_STATUS_EVENT_TIMEOUT, 10 minutes by default) timeout.
+
+ src/ccid_usb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 4529d6d723009a62dab31dc8c9fda03b2204e05f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Sep 24 21:00:04 2018 +0200
+
+    Add NXP PN7462AU CCID
+
+ readers/NXP_PN7462AU_CCID.txt | 310 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   3 +-
+ 2 files changed, 312 insertions(+), 1 deletion(-)
+
+commit db45750ebb2ce8d841f8e555e79f09108527aaa8 (tag: ccid-1.4.30)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Sep 19 09:33:32 2018 +0200
+
+    Release 1.4.30
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ README       | 26 ++++++++++++++++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 27 insertions(+), 1 deletion(-)
+
+commit 8e25aca1e115546dc3d01f866ae1236d3f98275b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Sep 7 16:25:10 2018 +0200
+
+    SafeNet eToken 5300 new firmware
+    
+    firmware changed from 0.12 to 0.15. No other visible changes.
+
+ readers/SafeNet_eToken_5300.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 62f66e488d0742fc4b6f71bc0f4465406dd55a59
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Sep 14 14:39:34 2018 +0200
+
+    InterruptRead(): revert change 68ece95c8e
+    
+    The value in transfer->status is not a libusb_error but a
+    libusb_transfer_status.
+    
+    We can't use libusb_error_name() on this value unless we only want to
+    see LIBUSB_ERROR_UNKNOWN values
+
+ src/ccid_usb.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 36fa4611f9fa4d8bafb3e888f13d97f90a3a7b6e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Sep 4 18:06:31 2018 +0200
+
+    Disable the REINER SCT cyberJack RFID standard
+    
+    Move from the "should work" to "disabled" list on Reiner SCT request.
+
+ readers/supported_readers.txt | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+commit 68ece95c8e4fd05a37b10944dce2f1a819fbd3c8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Aug 31 14:52:03 2018 +0200
+
+    InterruptStop(): Log the libusb text instead of number
+    
+    If libusb_cancel_transfer() fails we now use libusb_error_name() to get the
+    error message in text instead of just the error number.
+    
+    The log message is now
+    00000008 ccid_usb.c:1399:InterruptStop() libusb_cancel_transfer failed: LIBUSB_ERROR_NOT_FOUND
+    instead of:
+    00000007 ccid_usb.c:1399:InterruptStop() libusb_cancel_transfer failed: -5
+
+ src/ccid_usb.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+commit 6d2bebccdae215eb6cc63560ab573dd6aad589c3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Aug 27 21:58:43 2018 +0200
+
+    Use new Yubico YubiKey names
+
+ readers/supported_readers.txt | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit 96c6cf1286f75f2624ba4d58db4c342c3cd6371d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Aug 27 21:55:15 2018 +0200
+
+    Yubikey 4 OTP+U2F+CCID firmware upgrade
+    
+    bcdDevice updated from 4.37 to 5.03
+    - new iProduct "YubiKey OTP+FIDO+CCID"
+    - new dwMaxIFSD: 3062
+
+ readers/Yubico_Yubikey_4_OTP+U2F+CCID.txt | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+commit 78e939ffb565c014de3ce931f49d179b4e6801aa
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Aug 27 21:53:56 2018 +0200
+
+    Yubikey 4 U2F+CCID firmware upgrade
+    
+    bcdDevice updated from 4.20 to 5.03
+    - new iProduct "YubiKey FIDO+CCID"
+    - new dwMaxIFSD: 3062
+    - new dwMaxCCIDMessageLength: 3072 bytes
+
+ readers/Yubico_Yubikey_4_U2F+CCID.txt | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit b940e3e9400d20917cdd90f0b56ac90f48994394
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Aug 27 21:51:01 2018 +0200
+
+    Yubikey 4 OTP+CCID firmware update
+    
+    bcdDevice updated from 4.20 to 5.03
+    - new iProduct "YubiKey OTP+CCID"
+    - new dwMaxIFSD: 3062
+    - new dwMaxCCIDMessageLength: 3072 bytes
+
+ readers/Yubico_Yubikey_4_OTP+CCID.txt | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit 9938ed502655228fa11f1ed961840051a07dbc14
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Aug 27 21:48:33 2018 +0200
+
+    Yubikey 4 CCID firmware update
+    
+    bcdDevice updated from 4.20 to 5.03
+    - new iProduct "YubiKey CCID"
+    - new dwMaxIFSD: 3062
+    - new dwMaxCCIDMessageLength: 3072 bytes
+
+ readers/Yubico_Yubikey_4_CCID.txt | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit 1859b3d23668e68065e6cf0a1965b266f65e3fa5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Aug 27 19:05:10 2018 +0200
+
+    Add ACS ACR33 ICC Reader
+
+ readers/acs_acr33u.txt        | 52 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  3 ++-
+ 2 files changed, 54 insertions(+), 1 deletion(-)
+
+commit 452fb5a64dc5424baa6932ba1dec3eb28572e3a4
+Author: Nicolas Schneider <nioncode+git@gmail.com>
+Date:   Sun Aug 26 15:41:20 2018 +0200
+
+    Fix leaking an allocated bundle in case no matching reader was found
+
+ src/ccid_usb.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+commit 06ae9756e9fe80216a432a2a5c1dabb128ea8b28
+Author: Nicolas Schneider <nioncode+git@gmail.com>
+Date:   Sat Aug 25 13:02:05 2018 +0200
+
+    Fix libusb config descriptor leak
+    
+    The descriptor received from libusb_get_active_config_descriptor was
+    never freed. Thus, when opening a channel repeatedly, more and more
+    memory was leaked (tested with valgrind).
+
+ src/ccid_usb.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+commit 33748489fda8497e91bf9fef16257f9a840d8f6e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jul 27 19:40:20 2018 +0200
+
+    Add Certgate GmbH AirID 2 USB
+
+ readers/Certgate_AirID_2_USB.txt | 49 ++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |  5 +++-
+ 2 files changed, 53 insertions(+), 1 deletion(-)
+
+commit ce2acdb9fe5e8f4381b3ff8a7ec81f6ef9afcbfd
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jul 16 20:52:09 2018 +0200
+
+    Update Cherry_KC_1000_SC_Z
+    
+    New firmware with extended APDU support
+
+ readers/Cherry_KC_1000_SC_Z.txt | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+commit 75c92f7365432b0cac2b4e3be82d44070c72fe34
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jul 16 20:45:00 2018 +0200
+
+    Update Cherry_KC_1000_SC
+    
+    New firmware with extended APDU support
+
+ readers/Cherry_KC_1000_SC.txt | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+commit bd81ab573ff91febee83c699e178c5e0f146c0f1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jul 16 20:30:54 2018 +0200
+
+    Fix FujitsuTechnologySolutions GmbH Keyboard KB SCR2 name
+
+ readers/supported_readers.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 3cd2999f79ff47a72c4f3651e98da13af5c169a1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jul 16 20:24:20 2018 +0200
+
+    Update FujitsuTechnologySolutions_Keyboard_KB100_SCR_eSIG
+    
+    New firmware with extended APDU support.
+
+ readers/FujitsuTechnologySolutions_Keyboard_KB100_SCR_eSIG.txt | 9 +++++----
+ readers/supported_readers.txt                                  | 2 +-
+ 2 files changed, 6 insertions(+), 5 deletions(-)
+
+commit 6b37041bb958031fa213b0c51a1d004f9d566876
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jul 16 20:20:43 2018 +0200
+
+    Update FujitsuTechnologySolutions_Keyboard_KB100_SCR
+    
+    New firmware with extended APDU support.
+
+ readers/FujitsuTechnologySolutions_Keyboard_KB100_SCR.txt | 9 +++++----
+ readers/supported_readers.txt                             | 4 ++--
+ 2 files changed, 7 insertions(+), 6 deletions(-)
+
+commit 39c7ed6b83bf75fc3eb7fbd3a31e96526c8146ba
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jul 16 20:06:00 2018 +0200
+
+    Update Fujitsu_Smartcard_Reader_D323 descriptor
+    
+    The reader now has extended APDU support.
+
+ readers/Fujitsu_Smartcard_Reader_D323.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 6021465a8330021bf4399ee2bd65e4d0bcd6f476 (github/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jul 9 15:53:41 2018 +0200
+
+    macOS: exit configure with an error when needed
+    
+    If the script is not launched from the correct place then exit with an
+    error code.
+
+ MacOSX/configure | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit cb9b92e7284286e518f29e798442ba0bde0a4f99
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jul 9 15:51:49 2018 +0200
+
+    macOS: exit configure with an error when needed
+    
+    If an incorrect configuration for libusb is found then exit with an
+    error code instead of 0.
+
+ MacOSX/configure | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 1b8b0e6ba0109fdc54e086ee78c35b5316cd5c91
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 25 12:20:25 2018 +0200
+
+    Add Broadcom Corp 58200
+
+ readers/Broadcom_58200.txt    | 106 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   3 +-
+ 2 files changed, 108 insertions(+), 1 deletion(-)
+
+commit 696fa6b1e6bf5ff7783af7be688fffc4e7dc4fda
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 18 17:57:44 2018 +0200
+
+    PCSC submodule: resync to PCSC/master
+
+ PCSC | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 6e26122ef8155ad4ebe28551497fbcf4dfe7927a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 18 17:24:19 2018 +0200
+
+    supported_readers: fix CCID URL
+    
+    Move from pcsclite.alioth.debian.org to ccid.apdu.fr
+
+ readers/supported_readers.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit e3d71e025d479f7a2082c61a2302014cd65e3783
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 18 17:23:05 2018 +0200
+
+    INSTALL: fix CCID URL
+    
+    Move from pcsclite.alioth.debian.org to ccid.apdu.fr
+
+ INSTALL | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+commit a912fcc33febadef1db0afb003141b27478bdd54
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 18 17:19:02 2018 +0200
+
+    README: fix reader list URLs
+    
+    Move from pcsclite.alioth.debian.org to ccid.apdu.fr
+
+ README | 13 ++++++-------
+ 1 file changed, 6 insertions(+), 7 deletions(-)
+
+commit 85d33a8ff31d42ed3651659499f54602106bd8fc
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue May 1 18:40:16 2018 +0200
+
+    Add Genesys Logic Combo Card Reader
+
+ readers/Genesys_Logic_Combo_Card_Reader.txt | 112 ++++++++++++++++++++++++++++
+ readers/supported_readers.txt               |   1 +
+ 2 files changed, 113 insertions(+)
+
+commit ffaee8fe1456e9c2197d1c9ba61d0bf041492edd
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue May 1 18:38:55 2018 +0200
+
+    Add Genesys Logic CCID Card Reader
+
+ readers/Genesys_Logic_CCID_Card_Reader.txt | 112 +++++++++++++++++++++++++++++
+ readers/supported_readers.txt              |   5 +-
+ 2 files changed, 116 insertions(+), 1 deletion(-)
+
+commit 0bfd7b0f3463096c9beff78e2c50c04d908219a2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Apr 21 09:51:18 2018 +0200
+
+    Yubico_Yubikey_4_OTP+U2F+CCID: update firmware to 4.37
+    
+    dwMaxCCIDMessageLength moved from 2048 to 3072 bytes
+
+ readers/Yubico_Yubikey_4_OTP+U2F+CCID.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit bae63c43c7eb66f391d8c713fbc4fb3baf38d9e3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Mar 18 17:36:56 2018 +0100
+
+    Remove submodule contrib_libPCSCv2part10
+
+ contrib_libPCSCv2part10 | 1 -
+ 1 file changed, 1 deletion(-)
+
+commit c60b86a94fb336cb72d770af48b30fa73e17179f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Mar 18 17:24:06 2018 +0100
+
+    Update links for PCSCv2part10.{c,h}
+    
+    The submodule has been renamed PCSC-contrib.
+
+ examples/PCSCv2part10.c | 2 +-
+ examples/PCSCv2part10.h | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+commit c5fd7d7eba45d9355ea780ede8585ec791d3537a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Mar 18 17:21:39 2018 +0100
+
+    .gitmodules: Use a relative path for PCSC-contrib
+    
+    Do not hardcode the git repository in the URL but use a relative path so
+    that "git clone --recursive" will work for
+    https://salsa.debian.org/rousseau/CCID.git,
+    https://github.com/LudovicRousseau/CCID.git and also for git@ URLs.
+
+ .gitmodules | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 2e1bb2a24c68af26d75bef7e3dc117641272aade
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Mar 18 17:20:45 2018 +0100
+
+    ylwrap: update to version 2018-03-07
+
+ ylwrap | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+commit 5346af31baa739355f48750cc51889aa34b7d10f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Mar 18 17:15:56 2018 +0100
+
+    Add PCSC-contrib submodule
+
+ .gitmodules  | 2 +-
+ PCSC-contrib | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+commit c07b89ed40cced3410c218e19ec39f9f491fe9ee
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Mar 18 16:44:17 2018 +0100
+
+    submodule contrib is renamed PCSC-contrib
+    
+    The upsteam repository is https://salsa.debian.org/rousseau/PCSC-contrib
+
+ .gitmodules | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+commit 85bd9cb85743f52fc4038d139a3032b510738337
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Mar 15 16:48:50 2018 +0100
+
+    Add BIFIT ANGARA
+
+ readers/BIFIT_ANGARA.txt      | 51 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  3 ++-
+ 2 files changed, 53 insertions(+), 1 deletion(-)
+
+commit 239336aee5d0c0b7a0ffbed8ed7d080d421f8b13
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Mar 2 14:11:33 2018 +0100
+
+    Add DC.Ltd DC4 5CCID READER
+
+ readers/DC_DC4_5CCID_READER.txt | 211 ++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt   |   5 +-
+ 2 files changed, 215 insertions(+), 1 deletion(-)
+
+commit 733d60d0a1b40959c11b5210093e326ce220dfdd
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Feb 23 23:46:32 2018 +0100
+
+    Add Spyrus Inc WorkSafe Pro (ProductID 0x3117)
+
+ readers/Spyrus_WorkSafe_Pro_0x3117.txt | 49 ++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt          |  1 +
+ 2 files changed, 50 insertions(+)
+
+commit ad3b30c4f70a1facbe06cd057fd4e77da6458872
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Feb 23 23:23:30 2018 +0100
+
+    Add InfoThink IT-500U Reader
+
+ readers/InfoThink_IT-500U_Reader.txt | 64 ++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt        |  3 +-
+ 2 files changed, 66 insertions(+), 1 deletion(-)
+
+commit 7ab9a8b3d2c91a9588388c489252628afc0469d0 (tag: ccid-1.4.29)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Feb 21 09:43:01 2018 +0100
+
+    Release 1.4.29
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ README       | 17 +++++++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 18 insertions(+), 1 deletion(-)
+
+commit 7db748a330b1387d496ced77a9182dbb9b4492dc
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Feb 20 22:35:48 2018 +0100
+
+    Add Spyrus Inc WorkSafe Pro
+
+ readers/Spyrus_WorkSafe_Pro.txt | 49 +++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt   |  3 ++-
+ 2 files changed, 51 insertions(+), 1 deletion(-)
+
+commit 4f7760eb4fb23ea867a542d2d3abb4e24b312145
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Feb 19 21:55:41 2018 +0100
+
+    Add Spyrus Inc Rosetta USB
+
+ readers/Spyrus_Rosetta_USB.txt | 49 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  3 ++-
+ 2 files changed, 51 insertions(+), 1 deletion(-)
+
+commit 11040a13bddc7ebb1ce10f854e21930942a76731
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 1 18:18:38 2018 +0100
+
+    Add KeyXentic Inc. KX906 Smart Card Reader
+
+ readers/KeyXentic_KX906_Smart_Card_Reader.txt | 65 +++++++++++++++++++++++++++
+ readers/supported_readers.txt                 |  5 ++-
+ 2 files changed, 69 insertions(+), 1 deletion(-)
+
+commit 146d4d9848e0ef2c2be9a197596e88af11b9b767
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 31 13:50:46 2018 +0100
+
+    Add Watchdata USB Key (idProduct: 0x0418)
+
+ readers/Watchdata_USB_Key3.txt | 47 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  3 ++-
+ 2 files changed, 49 insertions(+), 1 deletion(-)
+
+commit b9d0f0fa72d5f39a994885ec4a7cc3833a1a9f6e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jan 25 19:07:06 2018 +0100
+
+    Add HID Global OMNIKEY 5027CK CCID CONFIG IF
+
+ .../HID_Global_OMNIKEY_5027CK_CCID_CONFIG_IF.txt   | 154 +++++++++++++++++++++
+ readers/supported_readers.txt                      |   1 +
+ 2 files changed, 155 insertions(+)
+
+commit 9ea5c611b37a8aeb916fcdf9d6f09549049231ae
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jan 25 19:05:26 2018 +0100
+
+    Add HID Global OMNIKEY 5023 Smart Card Reader
+
+ .../HID_Global_OMNIKEY_5023_Smart_Card_Reader.txt  | 162 +++++++++++++++++++++
+ readers/supported_readers.txt                      |   3 +-
+ 2 files changed, 164 insertions(+), 1 deletion(-)
+
+commit a27a11711a9861acea3a9b43bba56ba157c670af
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jan 21 13:15:19 2018 +0100
+
+    The C3PO LTC31 v2 wrongly declares PIN support
+    
+    The new firmware is bogus and declares PIN support but the reader has no
+    pinpad.
+    
+    Thanks to Jose Ramon Alvarez-Sanchez for the bug report.
+
+ src/ccid.c | 2 ++
+ src/ccid.h | 1 +
+ 2 files changed, 3 insertions(+)
+
+commit 6ddc11399c4865eec15412d10b868667d94e5ff9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jan 21 13:13:37 2018 +0100
+
+    LTC31v2: firmware upgrade from 0.50 to 2.50
+    
+    The new firmware is bogus and declares PIN support but the reader has no
+    pinpad.
+    
+    Thanks to Jose Ramon Alvarez-Sanchez
+
+ readers/LTC31v2.txt | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
+
+commit e637b6f1e3cc097d985dd1d49ac6e9b3831ca2c0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Nov 29 13:28:14 2017 +0100
+
+    Add Bit4id Digital-DNA Key
+
+ readers/Bit4id_Digital-DNA_Key_NO_BT.txt | 47 ++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt            |  1 +
+ 2 files changed, 48 insertions(+)
+
+commit 0bc1104293c6a61f3e6fdfbd337a515020d7d4d2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Nov 29 13:23:12 2017 +0100
+
+    Add Bit4id Digital-DNA Key BT
+
+ readers/Bit4id_Digital-DNA_Key_BT.txt | 47 +++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt         |  3 ++-
+ 2 files changed, 49 insertions(+), 1 deletion(-)
+
+commit ba726e894641c11df8054428da4256112a392417
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 10 18:05:14 2017 +0100
+
+    Add Chicony HP Skylab USB Smartcard Keyboard
+
+ .../Chicony_HP_Skylab_USB_Smartcard_Keyboard.txt   | 58 ++++++++++++++++++++++
+ readers/supported_readers.txt                      |  3 +-
+ 2 files changed, 60 insertions(+), 1 deletion(-)
+
+commit 373a0af0f91fde530ddd782e991a78bf42e7124d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Oct 27 15:09:36 2017 +0200
+
+    IFDHControl: fix comment
+
+ src/ifdhandler.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit a9bab4d43756f3a4ecca490667897b8a7cc1e444
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 24 17:31:33 2017 +0200
+
+    Firmware upgrade for HID_Global_OMNIKEY_6121_Smart_Card_Reader
+
+ .../HID_Global_OMNIKEY_6121_Smart_Card_Reader.txt  | 26 +++++++++++++---------
+ 1 file changed, 15 insertions(+), 11 deletions(-)
+
+commit 76cc52bc4a1de391d87b840f8927e16aa2eec513
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 24 17:30:41 2017 +0200
+
+    Firmware upgrade for HID_Global_OMNIKEY_3x21_Smart_Card_Reader
+
+ .../HID_Global_OMNIKEY_3x21_Smart_Card_Reader.txt  | 26 +++++++++++++---------
+ 1 file changed, 15 insertions(+), 11 deletions(-)
+
+commit 20f2b6804f0b43b7e077993c317cb72e18f2debf
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Oct 20 18:18:42 2017 +0200
+
+    Add Bluink Ltd. Bluink CCID
+
+ readers/Bluink_CCID.txt       | 61 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  3 +++
+ 2 files changed, 64 insertions(+)
+
+commit 49b6709a7969a0d6a61f50eb65a142888ff156d1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Oct 20 18:13:02 2017 +0200
+
+    Add Access IS NFC Smart Module
+    
+    With idProduct 0x0164
+
+ readers/Access_IS_NFC_Smart_Module_0x0164.txt | 277 ++++++++++++++++++++++++++
+ readers/supported_readers.txt                 |   3 +-
+ 2 files changed, 279 insertions(+), 1 deletion(-)
+
+commit 63f13f83b2bac864460eba0a04bcca40750ed879
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Oct 20 17:46:08 2017 +0200
+
+    Remove extra_egt() causing problems
+    
+    Problem with ATR 3B DF 18 FF 81 F1 FE 43 00 3F 03 83 4D 49 46 41 52 45
+    20 50 6C 75 73 20 53 41 4D 3B and reader "Elatec
+    TWN4/B1.06/CPF3.05/S1SC1.32/P (Beta 3)".
+    
+    The card declares TC1=0xFF
+    The extra_egt() function replaces the value with 0x02 and the driver
+    uses this value in the PC_to_RDR_ResetParameters.
+    
+    From ISO 7816-3 2006 chapter "11.2 Character frame"
+    " If N = 255, CGT = 11 etu in **both directions** of transmission."
+    
+    So the card uses a CGT = 11 etu but the reader expects a CGT of a bit
+    more than 12 etu. The card communicates faster than the reader expect.
+    
+    This patch was introduced to use non-ISO/bogus cards more than 10 years
+    ago. Now the patch is problematic so I remove it.
+    
+    Thanks to Thomas Vetter for the bug report.
+
+ src/ifdhandler.c | 81 --------------------------------------------------------
+ 1 file changed, 81 deletions(-)
+
+commit 70379da0cf79444d7035e0f42bea6f759f0a0886 (tag: ccid-1.4.28)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Oct 11 14:00:57 2017 +0200
+
+    Release 1.4.28
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ README       | 26 ++++++++++++++++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 27 insertions(+), 1 deletion(-)
+
+commit 7fd10bfab0c9c9fd4903d7b8e4d33a9dc3347273
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Oct 4 14:02:48 2017 +0200
+
+    Add Unicept GmbH AirID USB Dongle
+
+ readers/Unicept_AirID_USB_Dongle.txt | 51 ++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt        |  3 ++-
+ 2 files changed, 53 insertions(+), 1 deletion(-)
+
+commit ebe042a757dc85e2ecc9609edc3b4ced588c6eba
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Oct 2 15:35:02 2017 +0200
+
+    Makefile: add support of spaces in DESTDIR
+    
+    It is now possible to use space characters in the destination directory
+    name (DESTDIR).
+    
+    This is inspired by Apple patch destDirFix.patch
+    https://opensource.apple.com/source/SmartcardCCID/SmartcardCCID-55017/ccid/files/destDirFix.patch.auto.html
+
+ src/Makefile.am | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+commit 94f90761bbedd0325fe321303b1871825927267d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Sep 27 17:54:45 2017 +0200
+
+    Add HID Global OMNIKEY 5122 Dual
+
+ readers/HID_Global_OMNIKEY_5122_Dual.txt | 329 +++++++++++++++++++++++++++++++
+ readers/supported_readers.txt            |   1 +
+ 2 files changed, 330 insertions(+)
+
+commit 9a1b284329f88ef8eda2b7361096c05eda84f57a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Sep 27 17:53:32 2017 +0200
+
+    Add HID Global OMNIKEY 5122 Smartcard Reader
+
+ .../HID_Global_OMNIKEY_5122_Smartcard_Reader.txt   | 329 +++++++++++++++++++++
+ readers/supported_readers.txt                      |   3 +-
+ 2 files changed, 331 insertions(+), 1 deletion(-)
+
+commit 7077b050b699e72471348877ca221a8641e858dc
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Sep 25 18:40:48 2017 +0200
+
+    Add KRONEGGER Micro Core Platform
+
+ readers/KRONEGGER_Micro_Core_Platform.txt | 310 ++++++++++++++++++++++++++++++
+ readers/supported_readers.txt             |   1 +
+ 2 files changed, 311 insertions(+)
+
+commit e95a7204b24346297ca64c11b63078bb25e8556d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Sep 25 18:36:17 2017 +0200
+
+    Add KRONEGGER NFC blue Reader Platform
+
+ readers/KRONEGGER_NFC_blue_Reader_Platform.txt | 310 +++++++++++++++++++++++++
+ readers/supported_readers.txt                  |   5 +-
+ 2 files changed, 314 insertions(+), 1 deletion(-)
+
+commit 502dd6c9bb285d92e6aee2578eb36c19eba87a40
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Sep 20 10:45:46 2017 +0200
+
+    Move Athena IDProtect Flash in Unsupported list
+    
+    The reader does not work with a GnuPG card V2 card. All APDUs are
+    rejected with "Card absent or mute".
+
+ readers/supported_readers.txt | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+commit a06440b70d2b7898ac813d5e87d5349f18fcd166
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Sep 18 21:33:25 2017 +0200
+
+    Add Athena IDProtect Flash
+
+ readers/Athena_IDProtect_Flash.txt | 53 ++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt      |  3 ++-
+ 2 files changed, 55 insertions(+), 1 deletion(-)
+
+commit 7f3a5207e30e83af3d95dcd9ba3576e603cf6fb8
+Author: Rodrigo <rodarima@gmail.com>
+Date:   Sat Sep 9 01:13:06 2017 +0200
+
+    udev rules: Disable USB autosuspend on C3PO LTC31 v1 reader
+    
+    The device doesn't seem to work fine when resuming from suspension mode.
+    By preventing autosuspension the device doesn't fail anymore.
+    
+    See Github issue #36
+    "USB autosuspend problem: libusb_open returns LIBUSB_ERROR_IO"
+    https://github.com/LudovicRousseau/CCID/issues/36
+
+ src/92_pcscd_ccid.rules | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit 12cd7a1a0a7761ee4c98c9647473b1e754ea8d75
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Sep 8 23:23:31 2017 +0200
+
+    Add REINER SCT cyberJack RFID standard
+
+ readers/ReinerSCT_cyberJack_RFID_standard.txt | 59 +++++++++++++++++++++++++++
+ readers/supported_readers.txt                 |  3 +-
+ 2 files changed, 61 insertions(+), 1 deletion(-)
+
+commit abed9dff59d7d049e3323a66b0ab710f31fb546e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 31 10:07:33 2017 +0200
+
+    udev rule: allow rule overwrite
+    
+    Use:
+    ATTR{power/control}="auto"
+    instead of:
+    RUN+="/bin/sh -c 'echo auto > /sys/$devpath/power/control'"
+    
+    It looks like this allows to add udev rules after that to change again
+    the power/control behavior.
+    
+    Closes github issue #36
+    "USB autosuspend problem: libusb_open returns LIBUSB_ERROR_IO"
+    https://github.com/LudovicRousseau/CCID/issues/36
+
+ src/92_pcscd_ccid.rules | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 00aed9f2a147e24df2050617f6560c2b76e1f051
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 30 13:26:02 2017 +0200
+
+    Add Watchdata USB Key
+    
+    ProductID: 0x0417
+
+ readers/Watchdata_USB_Key2.txt | 47 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  3 ++-
+ 2 files changed, 49 insertions(+), 1 deletion(-)
+
+commit 3b29cc5afbbe27bb5421d334623bbd07c574bbf8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 19 23:20:09 2017 +0200
+
+    Fix non-pinpad HID global devices
+    
+    The HID Aviator is not the only reader that declares pinpad support in
+    the USB descriptor but that has no physical keyboard to enter a PIN.
+    The USB descriptor is bogus.
+    
+    The readers also support Extended APDU even if they declare Short APDU.
+    
+    Bogus readers are:
+    - OMNIKEY Generic
+    - OMNIKEY 3121 or 3021 or 1021
+    - OMNIKEY 6121
+    - Cherry Smart Terminal xx44
+    - Fujitsu Smartcard Reader D323
+    
+    Thanks to hidglobal.com for the patch.
+
+ src/ccid.c | 7 ++++++-
+ src/ccid.h | 4 ++++
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+commit 10fd29a365f1f664063bee320c06e37253a86b60
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 19 23:39:15 2017 +0200
+
+    Add Ledger Nano S
+
+ readers/Ledger_Nano_S.txt     | 51 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  5 ++++-
+ 2 files changed, 55 insertions(+), 1 deletion(-)
+
+commit 44aab2ddbc6dea6125e9d8f407296957511039c1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 5 16:02:31 2017 +0200
+
+    Add SAFETRUST SABRE SCR
+
+ readers/SAFETRUST_SABRE_SCR.txt | 81 +++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt   |  5 ++-
+ 2 files changed, 85 insertions(+), 1 deletion(-)
+
+commit dd1ea045cacafe1d5d2b063be66a23ee858ffc14
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Jul 29 12:01:40 2017 +0200
+
+    Add IIT E.Key Crystal-1
+
+ readers/IIT_E.Key_Crystal-1.txt | 50 +++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt   |  3 ++-
+ 2 files changed, 52 insertions(+), 1 deletion(-)
+
+commit 32deeb888d324c7d4056c23f60749efa17c1856c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jul 28 18:54:32 2017 +0200
+
+    Firmware upgrade for 0x0BDA:0x0169
+    
+    "Generic" device.
+
+ readers/iMONO.txt | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit 8d2bcc81fdd38abceb9a3b4a2c4b5b054a70c14c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jul 28 18:49:55 2017 +0200
+
+    Add REINER SCT cyberJack one
+
+ readers/ReinerSCT_cyberJack_one.txt | 56 +++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt       |  3 +-
+ 2 files changed, 58 insertions(+), 1 deletion(-)
+
+commit 643869e86d770222c0d48140e0fabef5ef4e4785
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jul 5 10:40:07 2017 +0200
+
+    Enable Elatec TWN4/B1.06/CPF3.05/S1SC1.32/P (Beta 3)
+    
+    The reader has moved from the "disabled" to the "should work" list after
+    patch in d5f2f893a0f513cdda0821c6dca7cdc337d54ba8
+
+ readers/supported_readers.txt | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+commit d5f2f893a0f513cdda0821c6dca7cdc337d54ba8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jul 5 10:34:47 2017 +0200
+
+    Improve support of ElatecTWN4_CCID reader
+    
+    The reader answers after up to 1 second when no card is present in the
+    field. So a 100ms timeoutx was too short.
+    
+    Thanks to Elatec for the patch.
+
+ src/ccid.c | 15 ++++++++++-----
+ src/ccid.h |  3 ++-
+ 2 files changed, 12 insertions(+), 6 deletions(-)
+
+commit 3c0cacc5935282c35fe206b5ac91fd628605c3e5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jul 3 18:38:33 2017 +0200
+
+    Add mCore SCard-Reader
+
+ readers/mCore_SCard-Reader.txt | 64 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  5 +++-
+ 2 files changed, 68 insertions(+), 1 deletion(-)
+
+commit 44f79e83bb26fe7b7fc38a36c2c02609b01b1581
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jun 28 20:09:53 2017 +0200
+
+    Add Elatec TWN4/B1.06/CPF3.05/S1SC1.32/P (Beta 3)
+    
+    in the disabled list
+
+ readers/Elatec_TWN4_MULTITECH.txt | 56 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |  5 +++-
+ 2 files changed, 60 insertions(+), 1 deletion(-)
+
+commit 5763d30af330767f266b4897fe1b55152b4d3fa6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jun 22 18:23:24 2017 +0200
+
+    Add SafeNet eToken 5300
+
+ readers/SafeNet_eToken_5300.txt | 97 +++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt   |  3 +-
+ 2 files changed, 99 insertions(+), 1 deletion(-)
+
+commit e3cc4f94624db4d7b197ce1106280baedb6b3cf3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jun 12 18:40:37 2017 +0200
+
+    Disable Jinmuyu Electronics Co., Ltd. MR800
+
+ readers/Jinmuyu_Electronics_MR800.txt | 53 +++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt         |  5 +++-
+ 2 files changed, 57 insertions(+), 1 deletion(-)
+
+commit a7dcbf296492f5056e1ba7abb8388531bb0a6708 (tag: ccid-1.4.27)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun May 21 14:41:20 2017 +0200
 

@@ -46,7 +46,8 @@
 /* memccpy, memcpy, mempcpy, memmove, memset, strcpy, strlcpy, stpcpy,
    strncpy, stpncpy, strcat, strlcat, and strncat */
 
-#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 70000 || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 70000 || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090 || \
+		defined(__DRIVERKIT_VERSION_MIN_REQUIRED)
 #if __has_builtin(__builtin___memccpy_chk) && __HAS_FIXED_CHK_PROTOTYPES
 #undef memccpy
 /* void *memccpy(void *dst, const void *src, int c, size_t n) */
@@ -76,6 +77,7 @@
 		__builtin___memset_chk (dest, __VA_ARGS__, __darwin_obsz0 (dest))
 #endif
 
+#ifndef UNIFDEF_DRIVERKIT
 #if __has_builtin(__builtin___strcpy_chk) || defined(__GNUC__)
 #undef strcpy
 /* char *strcpy(char *dst, const char *src) */
@@ -90,7 +92,10 @@
 #define stpcpy(dest, ...) \
 		__builtin___stpcpy_chk (dest, __VA_ARGS__, __darwin_obsz (dest))
 #endif
+#endif /* __DARWIN_C_LEVEL >= 200809L */
+#endif /* UNIFDEF_DRIVERKIT */
 
+#if __DARWIN_C_LEVEL >= 200809L
 #if __has_builtin(__builtin___stpncpy_chk) || __APPLE_CC__ >= 5666 || __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7)
 #undef stpncpy
 /* char *stpncpy(char *dst, const char *src, size_t n) */
@@ -100,7 +105,8 @@
 #endif /* _DARWIN_C_LEVEL >= 200809L */
 
 #if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
-#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 70000 || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 70000 || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090 || \
+		defined(__DRIVERKIT_VERSION_MIN_REQUIRED)
 #if __has_builtin(__builtin___strlcpy_chk) && __HAS_FIXED_CHK_PROTOTYPES
 #undef strlcpy
 /* size_t strlcpy(char *dst, const char *source, size_t size) */
@@ -124,12 +130,14 @@
 		__builtin___strncpy_chk (dest, __VA_ARGS__, __darwin_obsz (dest))
 #endif
 
+#ifndef UNIFDEF_DRIVERKIT
 #if __has_builtin(__builtin___strcat_chk) || defined(__GNUC__)
 #undef strcat
 /* char *strcat(char *s1, const char *s2) */
 #define strcat(dest, ...) \
 		__builtin___strcat_chk (dest, __VA_ARGS__, __darwin_obsz (dest))
 #endif
+#endif /* UNIFDEF_DRIVERKIT */
 
 #if ! (defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED < 32000)
 #if __has_builtin(__builtin___strncat_chk) || defined(__GNUC__)

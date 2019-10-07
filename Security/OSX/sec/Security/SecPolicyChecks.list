@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018 Apple Inc. All Rights Reserved.
+// Copyright (c) 2017-2019 Apple Inc. All Rights Reserved.
 // This is the list of Policy Checks. To add a new policy check put it in this file with the POLICYCHECKMACRO defined.
 // Then define a new SEC_TRUST_ERROR string in SecFrameworkStrings.h
 // Arguments for the POLICYCHECKMACRO in arg order are:
@@ -40,15 +40,16 @@ POLICYCHECKMACRO(GrayListedLeaf,                 R, T, L,  ,  , 0x8001212A, errS
 /********************************************************
 *********** Unverified Intermediate Checks *************
 ********************************************************/
-POLICYCHECKMACRO(IssuerCommonName,               R, P,  , A,  , 0x8001243B, errSecInvalidSubjectName) //CSSMERR_APPLETP_IDENTIFIER_MISSING
-POLICYCHECKMACRO(BasicConstraints,               R, C,  , A,  , 0x80012402, errSecNoBasicConstraints) //CSSMERR_APPLETP_NO_BASIC_CONSTRAINTS
-POLICYCHECKMACRO(BasicConstraintsCA,             R, C,  ,  ,  , 0x80012403, errSecNoBasicConstraintsCA) //CSSMERR_APPLETP_INVALID_CA
-POLICYCHECKMACRO(BasicConstraintsPathLen,        R, C,  ,  ,  , 0x80012409, errSecPathLengthConstraintExceeded) //CSSMERR_APPLETP_PATH_LEN_CONSTRAINT
-POLICYCHECKMACRO(IntermediateSPKISHA256,         R, P,  , A,  , 0x8001243B, errSecPublicKeyInconsistent) //CSSMERR_APPLETP_IDENTIFIER_MISSING
-POLICYCHECKMACRO(IntermediateEKU,                R, P,  , A,  , 0x80012407, errSecInvalidExtendedKeyUsage) //CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE
-POLICYCHECKMACRO(IntermediateMarkerOid,          R, P,  , A,  , 0x80012439, errSecMissingRequiredExtension) //CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION
-POLICYCHECKMACRO(IntermediateOrganization,       R, P,  , A,  , 0x8001243B, errSecInvalidSubjectName) //CSSMERR_APPLETP_IDENTIFIER_MISSING
-POLICYCHECKMACRO(IntermediateCountry,            R, P,  , A,  , 0x8001243B, errSecInvalidSubjectName) //CSSMERR_APPLETP_IDENTIFIER_MISSING
+POLICYCHECKMACRO(IssuerCommonName,                       R, P,  , A,  , 0x8001243B, errSecInvalidSubjectName) //CSSMERR_APPLETP_IDENTIFIER_MISSING
+POLICYCHECKMACRO(BasicConstraints,                       R, C,  , A,  , 0x80012402, errSecNoBasicConstraints) //CSSMERR_APPLETP_NO_BASIC_CONSTRAINTS
+POLICYCHECKMACRO(BasicConstraintsCA,                     R, C,  ,  ,  , 0x80012403, errSecNoBasicConstraintsCA) //CSSMERR_APPLETP_INVALID_CA
+POLICYCHECKMACRO(BasicConstraintsPathLen,                R, C,  ,  ,  , 0x80012409, errSecPathLengthConstraintExceeded) //CSSMERR_APPLETP_PATH_LEN_CONSTRAINT
+POLICYCHECKMACRO(IntermediateSPKISHA256,                 R, P,  , A,  , 0x8001243B, errSecPublicKeyInconsistent) //CSSMERR_APPLETP_IDENTIFIER_MISSING
+POLICYCHECKMACRO(IntermediateEKU,                        R, P,  , A,  , 0x80012407, errSecInvalidExtendedKeyUsage) //CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE
+POLICYCHECKMACRO(IntermediateMarkerOid,                  R, P,  , A,  , 0x80012439, errSecMissingRequiredExtension) //CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION
+POLICYCHECKMACRO(IntermediateMarkerOidWithoutValueCheck, R, P,  , A,  , 0x80012439, errSecMissingRequiredExtension) //CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION
+POLICYCHECKMACRO(IntermediateOrganization,               R, P,  , A,  , 0x8001243B, errSecInvalidSubjectName) //CSSMERR_APPLETP_IDENTIFIER_MISSING
+POLICYCHECKMACRO(IntermediateCountry,                    R, P,  , A,  , 0x8001243B, errSecInvalidSubjectName) //CSSMERR_APPLETP_IDENTIFIER_MISSING
 
 /********************************************************
 ************** Unverified Anchor Checks ****************
@@ -87,6 +88,11 @@ POLICYCHECKMACRO(Revocation,                     F, V, L,  ,  , 0x8001210C, errS
 POLICYCHECKMACRO(RevocationResponseRequired,     R, P, L,  ,  , 0x80012423, errSecIncompleteCertRevocationCheck) //CSSMERR_APPLETP_INCOMPLETE_REVOCATION_CHECK
 POLICYCHECKMACRO(CTRequired,                     R, T,  ,  ,  , 0x8001212A, errSecNotTrusted) //CSSMERR_TP_NOT_TRUSTED
 POLICYCHECKMACRO(SystemTrustedCTRequired,        R, C,  , A,  , 0x80012114, errSecVerifyActionFailed) //CSSMERR_TP_VERIFY_ACTION_FAILED
+POLICYCHECKMACRO(IssuerPolicyConstraints,        F, B,  ,  ,  , 0x80012120, errSecCertificatePolicyNotAllowed) //CSSMERR_TP_INVALID_POLICY_IDENTIFIERS
+POLICYCHECKMACRO(IssuerNameConstraints,          F, B,  ,  ,  , 0x8001211F, errSecCertificateNameNotAllowed) //CSSMERR_TP_INVALID_NAME
+POLICYCHECKMACRO(ValidityPeriodMaximums,         R, C,  , A,  , 0x8001210D, errSecCertificateValidityPeriodTooLong) //CSSMERR_TP_CERT_SUSPENDED
+POLICYCHECKMACRO(ServerAuthEKU,                  R, U,  , A,  , 0x80012407, errSecInvalidExtendedKeyUsage) //CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE
+POLICYCHECKMACRO(UnparseableExtension,           R, C,  ,  , O, 0x80012410, errSecUnknownCertExtension) //CSSMERR_APPLETP_UNKNOWN_CERT_EXTEN
 
 /********************************************************
 ******************* Feature Toggles *********************

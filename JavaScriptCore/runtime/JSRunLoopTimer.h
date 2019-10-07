@@ -48,11 +48,14 @@ public:
     using TimerNotificationCallback = RefPtr<WTF::SharedTask<TimerNotificationType>>;
 
     class Manager {
+        WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_NONCOPYABLE(Manager);
 #if USE(CF)
         static void timerDidFireCallback(CFRunLoopTimerRef, void*);
 #else
         void timerDidFireCallback();
 #endif
+        Manager() = default;
 
         void timerDidFire();
 
@@ -75,15 +78,11 @@ public:
         Lock m_lock;
 
         struct PerVMData {
-            PerVMData() = default;
 #if USE(CF)
             PerVMData(Manager&) { }
 #else
             PerVMData(Manager&);
 #endif
-            PerVMData(PerVMData&&) = default;
-            PerVMData& operator=(PerVMData&&) = default;
-
             ~PerVMData();
 
 #if USE(CF)
@@ -98,7 +97,7 @@ public:
             Vector<std::pair<Ref<JSRunLoopTimer>, EpochTime>> timers;
         };
 
-        HashMap<Ref<JSLock>, PerVMData> m_mapping;
+        HashMap<Ref<JSLock>, std::unique_ptr<PerVMData>> m_mapping;
     };
 
     JSRunLoopTimer(VM*);

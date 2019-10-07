@@ -28,6 +28,8 @@
 #import <OCMock/OCMock.h>
 
 #include <Security/SecItemPriv.h>
+#include "OSX/sec/Security/SecItemShim.h"
+
 #include <Security/SecEntitlements.h>
 #include <ipc/server_security_helpers.h>
 #import <Foundation/NSXPCConnection_Private.h>
@@ -62,7 +64,6 @@
               (id)kSecClass : (id)kSecClassGenericPassword,
               (id)kSecReturnPersistentRef: @YES,
               (id)kSecReturnAttributes: @YES,
-              (id)kSecAttrSyncViewHint: @"keychain",
               (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
               (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
               (id)kSecAttrAccount : account,
@@ -190,6 +191,65 @@
 
         [blockExpectation fulfill];
     }), @"_SecItemAddAndNotifyOnSync succeeded");
+
+    [self waitForExpectationsWithTimeout:5.0 handler:nil];
+}
+
+- (void)testAddAndNotifyOnSyncSkipsQueue {
+    // Use the PCS plaintext fields to determine which object is which
+    SecResetLocalSecuritydXPCFakeEntitlements();
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSPlaintextFields, kCFBooleanTrue);
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSWriteCurrentItemPointers, kCFBooleanTrue);
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateCKKSReadCurrentItemPointers, kCFBooleanTrue);
+
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
+
+    [self startCKKSSubsystem];
+    [self.keychainView waitForKeyHierarchyReadiness];
+    [self waitForCKModifications];
+    OCMVerifyAllWithDelay(self.mockDatabase, 40);
+
+    self.keychainView.holdOutgoingQueueOperation = [CKKSGroupOperation named:@"outgoing-hold" withBlock: ^{
+        secnotice("ckks", "releasing outgoing-queue hold");
+    }];
+
+    for(size_t count = 0; count < 150; count++) {
+        [self addGenericPassword:@"data" account:[NSString stringWithFormat:@"account-delete-me-%03lu", count]];
+    }
+
+    NSMutableDictionary* query = [@{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
+        (id)kSecAttrAccount : @"testaccount",
+        (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+        (id)kSecAttrPCSPlaintextPublicKey : [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecValueData : (id) [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    } mutableCopy];
+
+    XCTestExpectation* blockExpectation = [self expectationWithDescription: @"callback occurs"];
+
+    XCTAssertEqual(errSecSuccess, _SecItemAddAndNotifyOnSync((__bridge CFDictionaryRef) query, NULL, ^(bool didSync, CFErrorRef error) {
+        XCTAssertTrue(didSync, "Item synced properly");
+        XCTAssertNil((__bridge NSError*)error, "No error syncing item");
+
+        [blockExpectation fulfill];
+    }), @"_SecItemAddAndNotifyOnSync succeeded");
+
+    // Release the hounds
+    [self.operationQueue addOperation:self.keychainView.holdOutgoingQueueOperation];
+
+    XCTestExpectation* firstQueueOperation = [self expectationWithDescription: @"found the item in the first queue iteration"];
+    [self expectCKModifyItemRecords:SecCKKSOutgoingQueueItemsAtOnce
+           currentKeyPointerRecords:1
+                             zoneID:self.keychainZoneID
+                          checkItem:^BOOL(CKRecord * _Nonnull record) {
+        if(record[SecCKRecordPCSPublicKey]) {
+            [firstQueueOperation fulfill];
+        }
+        return YES;
+    }];
+    [self expectCKModifyItemRecords:51 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
 
     [self waitForExpectationsWithTimeout:5.0 handler:nil];
 }
@@ -729,9 +789,9 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
--(void)testResetLocalWhileLoggedOut {
+-(void)testResetLocalWhileUntrusted {
     // We're "logged in to" cloudkit but not in circle.
-    self.circleStatus = [[SOSAccountStatus alloc] init:kSOSCCNotInCircle error:nil];
+    self.mockSOSAdapter.circleStatus = kSOSCCNotInCircle;
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
     self.silentFetchesAllowed = false;
 
@@ -742,7 +802,7 @@
     // Spin up CKKS subsystem.
     [self startCKKSSubsystem];
 
-    XCTAssertEqual(0, [self.keychainView.loggedOut wait:500*NSEC_PER_MSEC], "Should have been told of a 'logout' event on startup");
+    XCTAssertEqual(0, [self.keychainView.loggedIn wait:500*NSEC_PER_MSEC], "Should have been told of a 'login' event on startup");
 
     NSData* changeTokenData = [[[NSUUID UUID] UUIDString] dataUsingEncoding:NSUTF8StringEncoding];
     CKServerChangeToken* changeToken = [[CKServerChangeToken alloc] initWithData:changeTokenData];
@@ -756,26 +816,33 @@
         return true;
     }];
 
+    // after the reset, CKKS should refetch what's available
+    [self expectCKFetch];
+
     XCTestExpectation* resetExpectation = [self expectationWithDescription: @"local reset callback occurs"];
     [self.injectedManager rpcResetLocal:nil reply:^(NSError* result) {
         XCTAssertNil(result, "no error resetting local");
         secnotice("ckks", "Received a rpcResetLocal callback");
+
+        [self.keychainView dispatchSync: ^bool{
+            CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:self.keychainView.zoneName];
+            XCTAssertNotEqualObjects(changeToken, ckse.changeToken, "Change token is reset");
+            return true;
+        }];
+
         [resetExpectation fulfill];
     }];
 
     [self waitForExpectations:@[resetExpectation] timeout:20];
 
-    [self.keychainView dispatchSync: ^bool{
-        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:self.keychainView.zoneName];
-        XCTAssertNotEqualObjects(changeToken, ckse.changeToken, "Change token is reset");
-        return true;
-    }];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], @"Key state should arrive at 'waitfortrust''");
 
-    // Now log in, and see what happens! It should re-fetch, pick up the old key hierarchy, and use it
+    // Now regain trust, and see what happens! It should use the existing fetch, pick up the old key hierarchy, and use it
     [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
-    self.silentFetchesAllowed = true;
-    self.circleStatus = [[SOSAccountStatus alloc] init:kSOSCCInCircle error:nil];;
+
+    self.mockSOSAdapter.circleStatus = kSOSCCInCircle;
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
+    [self beginSOSTrustedViewOperation:self.keychainView];
 
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem:[self checkClassABlock:self.keychainZoneID message:@"Object was encrypted under class A key in hierarchy"]];
     [self addGenericPassword:@"asdf"
@@ -845,6 +912,9 @@
 }
 
 -(void)testResetCloudKitZone {
+    self.suggestTLKUpload = OCMClassMock([CKKSNearFutureScheduler class]);
+    OCMExpect([self.suggestTLKUpload trigger]);
+
     self.silentZoneDeletesAllowed = true;
 
     // Test starts with nothing in database, but one in our fake CloudKit.
@@ -861,9 +931,8 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
 
-    // After the reset, we expect a key hierarchy upload, and then the class C item upload
-    [self expectCKModifyKeyRecords: 3 currentKeyPointerRecords: 3 tlkShareRecords: 1 zoneID:self.keychainZoneID];
-        [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
+    // During the reset, Octagon will upload the key hierarchy, and then CKKS will upload the class C item
+    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
 
     XCTestExpectation* resetExpectation = [self expectationWithDescription: @"reset callback occurs"];
     [self.injectedManager rpcResetCloudKit:nil reason:@"reset-test" reply:^(NSError* result) {
@@ -871,6 +940,11 @@
         secnotice("ckks", "Received a resetCloudKit callback");
         [resetExpectation fulfill];
     }];
+
+    // Sneak in and perform Octagon's duties
+    OCMVerifyAllWithDelay(self.suggestTLKUpload, 10);
+    [self performOctagonTLKUpload:self.ckksViews];
+
     [self waitForExpectations:@[resetExpectation] timeout:20];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
@@ -885,7 +959,68 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
+- (void)testResetCloudKitZoneCloudKitRejects {
+    self.suggestTLKUpload = OCMClassMock([CKKSNearFutureScheduler class]);
+    OCMExpect([self.suggestTLKUpload trigger]);
+
+    self.nextModifyRecordZonesError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+                                                                       code:CKErrorZoneBusy
+                                                                   userInfo:@{
+                                                                              CKErrorRetryAfterKey: @(0.2),
+                                                                              NSUnderlyingErrorKey: [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+                                                                                                                                     code:2029
+                                                                                                                                 userInfo:nil],
+                                                                              }];
+    self.silentZoneDeletesAllowed = true;
+
+    // Test starts with nothing in database, but one in our fake CloudKit.
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
+    [self saveTLKMaterialToKeychainSimulatingSOS:self.keychainZoneID];
+
+    // Spin up CKKS subsystem.
+    [self startCKKSSubsystem];
+
+    // We expect a single record to be uploaded
+    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
+    [self addGenericPassword: @"data" account: @"account-delete-me"];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    // During the reset, Octagon will upload the key hierarchy, and then CKKS will upload the class C item
+    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
+
+    XCTestExpectation* resetExpectation = [self expectationWithDescription: @"reset callback occurs"];
+    [self.injectedManager rpcResetCloudKit:nil reason:@"reset-test" reply:^(NSError* result) {
+        XCTAssertNil(result, "no error resetting cloudkit");
+        secnotice("ckks", "Received a resetCloudKit callback");
+        [resetExpectation fulfill];
+    }];
+
+    // Sneak in and perform Octagon's duties
+    OCMVerifyAllWithDelay(self.suggestTLKUpload, 10);
+    [self performOctagonTLKUpload:self.ckksViews];
+
+    [self waitForExpectations:@[resetExpectation] timeout:20];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem: [self checkClassABlock:self.keychainZoneID message:@"Object was encrypted under class A key in hierarchy"]];
+    [self addGenericPassword:@"asdf"
+                     account:@"account-class-A"
+                    viewHint:nil
+                      access:(id)kSecAttrAccessibleWhenUnlocked
+                   expecting:errSecSuccess
+                     message:@"Adding class A item"];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    XCTAssertNil(self.nextModifyRecordZonesError, "Record zone modification error should have been cleared");
+}
+
 - (void)testResetCloudKitZoneDuringWaitForTLK {
+    self.suggestTLKUpload = OCMClassMock([CKKSNearFutureScheduler class]);
+    OCMExpect([self.suggestTLKUpload trigger]);
+
     self.silentZoneDeletesAllowed = true;
 
     // Test starts with nothing in database, but one in our fake CloudKit.
@@ -903,6 +1038,9 @@
 
     // Restart CKKS to really get in the spirit of waitfortlk (and get a pending processOutgoingQueue operation going)
     self.keychainView = [[CKKSViewManager manager] restartZone: self.keychainZoneID.zoneName];
+    self.ckksViews = [NSMutableSet setWithObject:self.keychainView];
+
+    [self beginSOSTrustedViewOperation:self.keychainView];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "CKKS entered waitfortlk");
 
     CKKSOutgoingQueueOperation* outgoingOp = [self.keychainView processOutgoingQueue:nil];
@@ -910,7 +1048,6 @@
 
     // Now, reset everything. The outgoingOp should get cancelled.
     // We expect a key hierarchy upload, and then the class C item upload
-    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
                           checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
 
@@ -919,6 +1056,11 @@
         XCTAssertNil(result, "no error resetting cloudkit");
         [resetExpectation fulfill];
     }];
+
+    // Sneak in and perform Octagon's duties
+    OCMVerifyAllWithDelay(self.suggestTLKUpload, 10);
+    [self performOctagonTLKUpload:self.ckksViews];
+
     [self waitForExpectations:@[resetExpectation] timeout:20];
 
     XCTAssertTrue([outgoingOp isCancelled], "old stuck ProcessOutgoingQueue should be cancelled");
@@ -954,6 +1096,7 @@
 
     // Restart CKKS to really get in the spirit of waitfortlk (and get a pending processOutgoingQueue operation going)
     self.keychainView = [[CKKSViewManager manager] restartZone: self.keychainZoneID.zoneName];
+    [self beginSOSTrustedViewOperation:self.keychainView];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "CKKS entered waitfortlk");
 
     CKKSOutgoingQueueOperation* outgoingOp = [self.keychainView processOutgoingQueue:nil];
@@ -986,19 +1129,21 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }*/
 
--(void)testResetCloudKitZoneWhileLoggedOut {
+-(void)testResetCloudKitZoneWhileUntrusted {
     self.silentZoneDeletesAllowed = true;
 
     // We're "logged in to" cloudkit but not in circle.
-    self.circleStatus = [[SOSAccountStatus alloc] init:kSOSCCNotInCircle error:nil];;
+    self.mockSOSAdapter.circleStatus = kSOSCCNotInCircle;
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
-    self.silentFetchesAllowed = false;
 
     // Test starts with nothing in database, but one in our fake CloudKit.
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
 
     // Spin up CKKS subsystem.
     [self startCKKSSubsystem];
+
+    // Since CKKS is untrusted, it'll fetch the zone but then get stuck
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "CKKS entered 'waitfortrust'");
 
     CKRecord* ckr = [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85"];
     [self.keychainZone addToZone: ckr];
@@ -1012,6 +1157,7 @@
         secnotice("ckks", "Received a resetCloudKit callback");
         [resetExpectation fulfill];
     }];
+
     [self waitForExpectations:@[resetExpectation] timeout:20];
 
     XCTAssertNil(self.keychainZone.currentDatabase, "No zone anymore!");
@@ -1019,10 +1165,12 @@
 
     // Now log in, and see what happens! It should create the zone again and upload a whole new key hierarchy
     self.silentFetchesAllowed = true;
-    self.circleStatus = [[SOSAccountStatus alloc] init:kSOSCCInCircle error:nil];;
+    self.mockSOSAdapter.circleStatus = kSOSCCInCircle;
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
+    [self beginSOSTrustedViewOperation:self.keychainView];
 
-    [self expectCKModifyKeyRecords: 3 currentKeyPointerRecords: 3 tlkShareRecords: 1 zoneID:self.keychainZoneID];
+    [self performOctagonTLKUpload:self.ckksViews];
+
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID checkItem:[self checkClassABlock:self.keychainZoneID message:@"Object was encrypted under class A key in hierarchy"]];
@@ -1036,6 +1184,9 @@
 }
 
 - (void)testResetCloudKitZoneMultipleTimes {
+    self.suggestTLKUpload = OCMClassMock([CKKSNearFutureScheduler class]);
+    OCMExpect([self.suggestTLKUpload trigger]);
+
     self.silentZoneDeletesAllowed = true;
 
     // Test starts with nothing in database, but one in our fake CloudKit.
@@ -1077,12 +1228,15 @@
     }];
 
     // After the reset(s), we expect a key hierarchy upload, and then the class C item upload
-    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID
                           checkItem:[self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
 
     // And let the resets flow
     [self releaseCloudKitFetchHold];
+
+    OCMVerifyAllWithDelay(self.suggestTLKUpload, 10);
+    [self performOctagonTLKUpload:self.ckksViews];
+    
     [self waitForExpectations:@[resetExpectation0, resetExpectation1, resetExpectation2] timeout:20];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "CKKS entered 'ready'");
 
@@ -1237,7 +1391,11 @@
 }
 
 - (void)testRPCKnownBadStateWhenInWaitForUnlock {
-    // Bring CKKS up in 'waitfortunlok'
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
+
+    // Bring CKKS up in 'waitforunlock'
     self.aksLockState = true;
     [self.lockStateTracker recheck];
     [self startCKKSSubsystem];
@@ -1257,6 +1415,26 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
+- (void)testRPCKnownBadStateWhenInWaitForUpload {
+    // Bring CKKS up in 'waitfortupload'
+    self.aksLockState = true;
+    [self.lockStateTracker recheck];
+    [self startCKKSSubsystem];
+
+    // Wait for the key hierarchy state machine to get stuck waiting for Octagon. No uploads should occur.
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLKCreation] wait:20*NSEC_PER_SEC], @"Key state should get stuck in waitfortlkcreation");
+
+    XCTestExpectation* callbackOccurs = [self expectationWithDescription:@"callback-occurs"];
+
+    [self.ckksControl rpcKnownBadState:@"keychain" reply:^(CKKSKnownBadState result) {
+        XCTAssertEqual(result, CKKSKnownStateWaitForOctagon, "known state should be wait for Octagon");
+        [callbackOccurs fulfill];
+    }];
+
+    [self waitForExpectations:@[callbackOccurs] timeout:20];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
 
 - (void)testRPCKnownBadStateWhenInGoodState {
     // Bring CKKS up in 'ready'

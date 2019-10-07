@@ -1906,7 +1906,7 @@ PRIVATE void rpc__cn_assoc_send_frag
                  */
                 rpc_dce_svc_printf (
                     __FILE__, __LINE__,
-                    "%s %x",
+                    "%s %s",
                     rpc_svc_auth,
                     svc_c_sev_error,
                     rpc_m_call_failed_s,
@@ -2135,10 +2135,10 @@ PRIVATE void rpc__cn_assoc_send_frag
         /*
          * Keep some stats on the packets sent.
          */
-        RPC_CN_STATS_INCR (pstats[RPC_CN_PKT_PTYPE (((rpc_cn_packet_p_t) iovector->elt[0].data_addr))].sent);
+        RPC_CN_STATS_INCR (pstats[RPC_CN_PKT_PTYPE (((rpc_cn_packet_p_t) (void *) iovector->elt[0].data_addr))].sent);
         RPC_CN_STATS_INCR (pkts_sent);
         *st = rpc_s_ok;
-        RPC_CN_PKT_TRC (((rpc_cn_packet_p_t) iovector->elt[0].data_addr));
+        RPC_CN_PKT_TRC (((rpc_cn_packet_p_t) (void *) iovector->elt[0].data_addr));
         RPC_CN_IOV_DUMP (iovector);
 
         /*
@@ -2961,7 +2961,7 @@ PRIVATE unsigned32 rpc__cn_assoc_sm_protocol_error
     {
         rpc_dce_svc_printf (
             __FILE__, __LINE__,
-            "%s %s %x",
+            "%s %s %p",
             rpc_svc_cn_state,
             svc_c_sev_fatal | svc_c_action_abort,
             rpc_m_cn_ill_state_trans_sa,
@@ -2973,7 +2973,7 @@ PRIVATE unsigned32 rpc__cn_assoc_sm_protocol_error
     {
         rpc_dce_svc_printf (
             __FILE__, __LINE__,
-	        "%s %s %x",
+	        "%s %s %p",
             rpc_svc_cn_state,
             svc_c_sev_fatal | svc_c_action_abort,
             rpc_m_cn_ill_state_trans_ca,
@@ -3834,7 +3834,7 @@ PRIVATE rpc_cn_sec_context_t *rpc__cn_assoc_sec_alloc
              */
             rpc_dce_svc_printf (
                 __FILE__, __LINE__,
-                "%s %x",
+                "%s %s",
                 rpc_svc_auth,
                 svc_c_sev_error,
                 rpc_m_call_failed_s,
@@ -3988,7 +3988,7 @@ INTERNAL rpc_cn_syntax_t *rpc__cn_assoc_syntax_alloc
     pres_context->syntax_valid = false;
     pres_context->syntax_status = rpc_s_ok;
     pres_context->syntax_abstract_id.id = if_r->id;
-    pres_context->syntax_abstract_id.version = if_r->vers;
+    pres_context->syntax_abstract_id.version = (unsigned32) if_r->vers;
     pres_context->syntax_vector = &if_r->syntax_vector;
     pres_context->syntax_epv = NULL;
     *st = rpc_s_ok;
@@ -5885,7 +5885,7 @@ PRIVATE unsigned32     rpc__cn_grp_sm_protocol_error
      */
     rpc_dce_svc_printf (
         __FILE__, __LINE__,
-        "%d %d %x",
+        "%d %d %p",
         rpc_svc_cn_state,
         svc_c_sev_fatal | svc_c_action_abort,
         (assoc_grp->grp_flags & RPC_C_CN_ASSOC_GRP_SERVER) ?

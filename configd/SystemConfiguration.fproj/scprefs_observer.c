@@ -30,9 +30,9 @@
 #include <sys/stat.h>
 
 #ifndef	SC_LOG_HANDLE
-#define SC_LOG_HANDLE	__log_SCPreferences()
+#define SC_LOG_HANDLE	__log_SCPreferences
 #endif	//SC_LOG_HANDLE
-os_log_t	SC_LOG_HANDLE;
+os_log_t	SC_LOG_HANDLE(void);
 
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/scprefs_observer.h>
@@ -53,7 +53,7 @@ os_log_t	SC_LOG_HANDLE;
 
 static void
 iterate_dir(const char *d_name, const char *f_name,
-	    CC_SHA1_CTX *ctxP, Boolean *found)
+	    CC_SHA256_CTX *ctxP, Boolean *found)
 {
 	DIR *dir;
 	struct dirent * dp;
@@ -86,8 +86,8 @@ iterate_dir(const char *d_name, const char *f_name,
 				 * the path and last modification time in
 				 * the digest
 				*/
-				CC_SHA1_Update(ctxP, full_path, (CC_LONG)strlen(full_path));
-				CC_SHA1_Update(ctxP,
+				CC_SHA256_Update(ctxP, full_path, (CC_LONG)strlen(full_path));
+				CC_SHA256_Update(ctxP,
 					       (void *)&s.st_mtimespec.tv_sec,
 					       sizeof(s.st_mtimespec.tv_sec));
 				*found = TRUE;
@@ -101,14 +101,14 @@ iterate_dir(const char *d_name, const char *f_name,
 static CF_RETURNS_RETAINED CFDataRef
 build_digest(const char *top_dir, const char *file)
 {
-	unsigned char	bytes[CC_SHA1_DIGEST_LENGTH];
-	CC_SHA1_CTX	ctx;
+	unsigned char	bytes[CC_SHA256_DIGEST_LENGTH];
+	CC_SHA256_CTX	ctx;
 	CFDataRef	digest = NULL;
 	Boolean		found = FALSE;
 
-	CC_SHA1_Init(&ctx);
+	CC_SHA256_Init(&ctx);
 	iterate_dir(top_dir, file, &ctx, &found);
-	CC_SHA1_Final(bytes, &ctx);
+	CC_SHA256_Final(bytes, &ctx);
 	if (found) {
 		digest = CFDataCreate(NULL, bytes, sizeof(bytes));
 	}
@@ -170,9 +170,10 @@ has_changed(scprefs_observer_t  observer) {
 
 	observer->digest = digest;
 
-	SC_log(LOG_INFO, "preferences file: \"%s\", %s",
+	SC_log(changed ? LOG_INFO : LOG_DEBUG,
+	       "preferences file: \"%s\" %s",
 	       observer->file,
-	       changed ? "has changed" : "has not changed");
+	       changed ? "changed" : "did not change");
 	return changed;
 }
 
@@ -200,11 +201,10 @@ prefs_observer_handle_notifications()
 {
 	scprefs_observer_t observer;
 
-	SC_log(LOG_INFO, "PrefsObserver notification received");
+	SC_log(LOG_DEBUG, "PrefsObserver notification received");
 
 	SLIST_FOREACH(observer, &head, next) {
-		/* if the preferences plist has changed,
-		 * called the block */
+		/* if the preferences plist changed, call the block */
 		if (has_changed(observer)) {
 			dispatch_async(observer->queue, observer->block);
 		}
@@ -245,7 +245,7 @@ prefs_observer_priv_create(_scprefs_observer_type type,
 	path_buflen = strlen(plist_name) + 1;
 
 	observer = (scprefs_observer_t)malloc(sizeof(struct _scprefs_observer_t) + path_buflen);
-	bzero((void *)observer, sizeof(struct _scprefs_observer_t));
+	memset((void *)observer, 0, sizeof(struct _scprefs_observer_t));
 
 	/* Create the observer */
 	observer->type = type;

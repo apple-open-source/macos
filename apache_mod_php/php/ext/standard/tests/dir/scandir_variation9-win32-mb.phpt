@@ -9,7 +9,7 @@ if (substr(PHP_OS, 0, 3) != 'WIN') {
 --FILE--
 <?php
 /* Prototype  : array scandir(string $dir [, int $sorting_order [, resource $context]])
- * Description: List files & directories inside the specified path 
+ * Description: List files & directories inside the specified path
  * Source code: ext/standard/dir.c
  */
 
@@ -43,7 +43,7 @@ delete_files($dir, 2, "私はガラスを食べられますfile");
 $dir = dirname(__FILE__) . '/私はガラスを食べられますscandir_variation9';
 rmdir($dir);
 ?>
---EXPECTF--
+--EXPECT--
 *** Testing scandir() : usage variations ***
 array(4) {
   [0]=>

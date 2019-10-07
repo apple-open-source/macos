@@ -3,7 +3,7 @@ Test array_values() function : usage variations - Pass different data types as $
 --FILE--
 <?php
 /* Prototype  : array array_values(array $input)
- * Description: Return just the values from the input array 
+ * Description: Return just the values from the input array
  * Source code: ext/standard/array.c
  */
 
@@ -58,7 +58,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
@@ -68,7 +68,7 @@ $inputs = array(
 /*19*/ "string",
        'string',
        $heredoc,
-       
+
        // object data
 /*22*/ new classA(),
 
@@ -94,28 +94,27 @@ fclose($fp);
 
 echo "Done";
 ?>
-
 --EXPECTF--
 *** Testing array_values() : usage variations ***
 
 -- Iteration 1 --
 
-Warning: array_values() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_values() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 2 --
 
-Warning: array_values() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_values() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 3 --
 
-Warning: array_values() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_values() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 4 --
 
-Warning: array_values() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_values() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 5 --
@@ -155,22 +154,22 @@ NULL
 
 -- Iteration 12 --
 
-Warning: array_values() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_values() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 13 --
 
-Warning: array_values() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_values() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 14 --
 
-Warning: array_values() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_values() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 15 --
 
-Warning: array_values() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_values() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 16 --

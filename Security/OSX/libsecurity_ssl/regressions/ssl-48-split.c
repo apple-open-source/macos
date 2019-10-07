@@ -25,6 +25,7 @@
 #include <Security/SecItem.h>
 #include <Security/SecRandom.h>
 
+#include <utilities/SecCFRelease.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>

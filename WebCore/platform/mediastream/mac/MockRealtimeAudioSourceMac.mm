@@ -106,10 +106,12 @@ CaptureSourceOrError MockRealtimeAudioSource::create(String&& deviceID, String&&
 MockRealtimeAudioSourceMac::MockRealtimeAudioSourceMac(String&& deviceID, String&& name, String&& hashSalt)
     : MockRealtimeAudioSource(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalt))
 {
+    ASSERT(isMainThread());
 }
 
 void MockRealtimeAudioSourceMac::emitSampleBuffers(uint32_t frameCount)
 {
+    ASSERT(!isMainThread());
     ASSERT(m_formatDescription);
 
     CMTime startTime = CMTimeMake(m_samplesEmitted, sampleRate());
@@ -120,12 +122,13 @@ void MockRealtimeAudioSourceMac::emitSampleBuffers(uint32_t frameCount)
 
 void MockRealtimeAudioSourceMac::reconfigure()
 {
+    ASSERT(!isMainThread());
     m_maximiumFrameCount = WTF::roundUpToPowerOfTwo(renderInterval().seconds() * sampleRate() * 2);
     ASSERT(m_maximiumFrameCount);
 
     const int bytesPerFloat = sizeof(Float32);
     const int bitsPerByte = 8;
-    const int channelCount = 2;
+    const int channelCount = m_channelCount;
     const bool isFloat = true;
     const bool isBigEndian = false;
     const bool isNonInterleaved = true;
@@ -140,6 +143,7 @@ void MockRealtimeAudioSourceMac::reconfigure()
 
 void MockRealtimeAudioSourceMac::render(Seconds delta)
 {
+    ASSERT(!isMainThread());
     if (!m_audioBufferList)
         reconfigure();
 
@@ -168,21 +172,23 @@ void MockRealtimeAudioSourceMac::render(Seconds delta)
 void MockRealtimeAudioSourceMac::settingsDidChange(OptionSet<RealtimeMediaSourceSettings::Flag> settings)
 {
     if (settings.contains(RealtimeMediaSourceSettings::Flag::SampleRate)) {
-        m_formatDescription = nullptr;
-        m_audioBufferList = nullptr;
+        m_workQueue->dispatch([this, protectedThis = makeRef(*this)] {
+            m_formatDescription = nullptr;
+            m_audioBufferList = nullptr;
 
-        auto rate = sampleRate();
-        size_t sampleCount = 2 * rate;
+            auto rate = sampleRate();
+            size_t sampleCount = 2 * rate;
 
-        m_bipBopBuffer.grow(sampleCount);
-        m_bipBopBuffer.fill(0);
+            m_bipBopBuffer.grow(sampleCount);
+            m_bipBopBuffer.fill(0);
 
-        size_t bipBopSampleCount = ceil(BipBopDuration * rate);
-        size_t bipStart = 0;
-        size_t bopStart = rate;
+            size_t bipBopSampleCount = ceil(BipBopDuration * rate);
+            size_t bipStart = 0;
+            size_t bopStart = rate;
 
-        addHum(BipBopVolume, BipFrequency, rate, 0, m_bipBopBuffer.data() + bipStart, bipBopSampleCount);
-        addHum(BipBopVolume, BopFrequency, rate, 0, m_bipBopBuffer.data() + bopStart, bipBopSampleCount);
+            addHum(BipBopVolume, BipFrequency, rate, 0, m_bipBopBuffer.data() + bipStart, bipBopSampleCount);
+            addHum(BipBopVolume, BopFrequency, rate, 0, m_bipBopBuffer.data() + bopStart, bipBopSampleCount);
+        });
     }
 
     MockRealtimeAudioSource::settingsDidChange(settings);

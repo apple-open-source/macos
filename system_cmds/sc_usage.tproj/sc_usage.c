@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -291,6 +291,12 @@ print_time(char *p, unsigned int useconds, unsigned int seconds)
 	}
 }
 
+static void
+resetscr(void)
+{
+	(void)endwin();
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -414,6 +420,7 @@ main(int argc, char *argv[])
 		    printf("Unrecognized TERM type, try vt100\n");
 		    exit(1);
 		  }
+		atexit(resetscr);
 		cbreak();
 		timeout(100);
 		noecho();

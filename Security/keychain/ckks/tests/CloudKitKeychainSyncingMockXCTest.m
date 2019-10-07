@@ -43,12 +43,15 @@
 #import "keychain/ckks/CKKSZoneStateEntry.h"
 #import "keychain/ckks/CKKSManifest.h"
 #import "keychain/ckks/CKKSPeer.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
 
 #import "keychain/ot/OTDefines.h"
 
+#import "tests/secdmockaks/mockaks.h"
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#import "Security/SecureObjectSync/SOSAccount.h"
+#import "keychain/SecureObjectSync/SOSAccount.h"
 #pragma clang diagnostic pop
 
 @implementation ZoneKeys
@@ -96,57 +99,54 @@
     XCTAssertFalse([CKKSManifest shouldSyncManifests], "Manifests syncing is disabled");
     XCTAssertFalse([CKKSManifest shouldEnforceManifests], "Manifests enforcement is disabled");
 
+    // Use our superclass to create a fake keychain
     [super setUp];
+
+    self.automaticallyBeginCKKSViewCloudKitOperation = true;
+    self.suggestTLKUpload = OCMClassMock([CKKSNearFutureScheduler class]);
+    OCMStub([self.suggestTLKUpload trigger]);
+
     self.ckksZones = [NSMutableSet set];
     self.ckksViews = [NSMutableSet set];
     self.keys = [[NSMutableDictionary alloc] init];
 
+    [SecMockAKS reset];
+
+    // Set up a remote peer with no keys
+    self.remoteSOSOnlyPeer = [[CKKSSOSPeer alloc] initWithSOSPeerID:@"remote-peer-with-no-keys"
+                                                encryptionPublicKey:nil
+                                                   signingPublicKey:nil
+                                                           viewList:self.managedViewList];
+    NSMutableSet<id<CKKSSOSPeerProtocol>>* currentPeers = [NSMutableSet setWithObject:self.remoteSOSOnlyPeer];
+    self.mockSOSAdapter.trustedPeers = currentPeers;
+
     // Fake out whether class A keys can be loaded from the keychain.
-    self.mockCKKSKey = OCMClassMock([CKKSKey class]);
+    self.mockCKKSKeychainBackedKey = OCMClassMock([CKKSKeychainBackedKey class]);
     __weak __typeof(self) weakSelf = self;
     BOOL (^shouldFailKeychainQuery)(NSDictionary* query) = ^BOOL(NSDictionary* query) {
         __strong __typeof(self) strongSelf = weakSelf;
-        NSString* description = query[(id)kSecAttrDescription];
-        bool isTLK = [description isEqualToString: SecCKKSKeyClassTLK] ||
-                    [description isEqualToString: [SecCKKSKeyClassTLK stringByAppendingString: @"-nonsync"]] ||
-                    [description isEqualToString: [SecCKKSKeyClassTLK stringByAppendingString: @"-piggy"]];
-        bool isClassA = [description isEqualToString: SecCKKSKeyClassA];
-
-        return ((isTLK || isClassA) && strongSelf.aksLockState) || self.keychainFetchError;
+        return !!strongSelf.keychainFetchError;
     };
 
-    OCMStub([self.mockCKKSKey setKeyMaterialInKeychain:[OCMArg checkWithBlock:shouldFailKeychainQuery] error:[OCMArg anyObjectRef]]
-            ).andCall(self, @selector(handleLockSetKeyMaterialInKeychain:error:));
+    OCMStub([self.mockCKKSKeychainBackedKey setKeyMaterialInKeychain:[OCMArg checkWithBlock:shouldFailKeychainQuery] error:[OCMArg anyObjectRef]]
+            ).andCall(self, @selector(handleFailedSetKeyMaterialInKeychain:error:));
 
-    OCMStub([self.mockCKKSKey queryKeyMaterialInKeychain:[OCMArg checkWithBlock:shouldFailKeychainQuery] error:[OCMArg anyObjectRef]]
-            ).andCall(self, @selector(handleLockLoadKeyMaterialFromKeychain:error:));
-
-    // Fake out SOS peers
-    self.currentSelfPeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"local-peer"
-                                                        encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
-                                                           signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]];
-
-    // One trusted non-self peer, but it doesn't have any Octagon keys. Your test can change this if it wants.
-    // However, note that [self putFakeDeviceStatusInCloudKit:] will likely not do what you want.
-    self.remoteSOSOnlyPeer = [[CKKSSOSPeer alloc] initWithSOSPeerID:@"remote-peer-with-no-keys"
-                                                encryptionPublicKey:nil
-                                                   signingPublicKey:nil];
-    self.currentPeers = [NSMutableSet set];
-    [self.currentPeers addObject:self.remoteSOSOnlyPeer];
-
-    OCMStub([self.mockCKKSViewManager currentSOSSelf:[OCMArg anyObjectRef]]).andCall(self, @selector(currentSOSSelf:));
-    OCMStub([self.mockCKKSViewManager fetchTrustedPeers:[OCMArg anyObjectRef]]).andCall(self, @selector(fetchTrustedPeers:));
+    OCMStub([self.mockCKKSKeychainBackedKey queryKeyMaterialInKeychain:[OCMArg checkWithBlock:shouldFailKeychainQuery] error:[OCMArg anyObjectRef]]
+            ).andCall(self, @selector(handleFailedLoadKeyMaterialFromKeychain:error:));
 
     // Bring up a fake CKKSControl object
     id mockConnection = OCMPartialMock([[NSXPCConnection alloc] init]);
     OCMStub([mockConnection remoteObjectProxyWithErrorHandler:[OCMArg any]]).andCall(self, @selector(injectedManager));
     self.ckksControl = [[CKKSControl alloc] initWithConnection:mockConnection];
     XCTAssertNotNil(self.ckksControl, "Should have received control object");
+
+    self.accountMetaDataStore = OCMPartialMock([[OTCuttlefishAccountStateHolder alloc]init]);
+    OCMStub([self.accountMetaDataStore loadOrCreateAccountMetadata:[OCMArg anyObjectRef]]).andCall(self, @selector(loadOrCreateAccountMetadata:));
 }
 
 - (void)tearDown {
-    [self.mockCKKSKey stopMocking];
-    self.mockCKKSKey = nil;
+    [self.mockCKKSKeychainBackedKey stopMocking];
+    self.mockCKKSKeychainBackedKey = nil;
 
     // Make sure the key state machine won't be poked after teardown
     for(CKKSKeychainView* view in self.ckksViews) {
@@ -155,41 +155,49 @@
 
     [super tearDown];
     self.keys = nil;
-
-    self.currentSelfPeer = nil;
-    self.currentPeers = nil;
 }
 
-- (id<CKKSSelfPeer> _Nullable)currentSOSSelf:(NSError**)error {
-    if(self.currentSelfPeerError) {
-        if(error) {
-            *error = self.currentSelfPeerError;
-        }
-        return nil;
-    } else if(self.aksLockState) {
-        if(error) {
-            *error = [NSError errorWithDomain:(__bridge NSString*)kSecErrorDomain code:errSecInteractionNotAllowed userInfo:nil];
-        }
-        return nil;
+- (void)startCKKSSubsystem
+{
+    [super startCKKSSubsystem];
+    if(self.mockSOSAdapter.circleStatus == kSOSCCInCircle) {
+        [self beginSOSTrustedOperationForAllViews];
     } else {
-        return self.currentSelfPeer;
+        [self endSOSTrustedOperationForAllViews];
     }
 }
 
-- (NSSet<id<CKKSPeer>>*)fetchTrustedPeers:(NSError* __autoreleasing *)error {
-    if(self.currentPeersError) {
-        if(error) {
-            *error = self.currentPeersError;
-        }
-        return nil;
+- (void)beginSOSTrustedOperationForAllViews {
+    for(CKKSKeychainView* view in self.ckksViews) {
+        [self beginSOSTrustedViewOperation:view];
+    }
+}
+
+- (void)beginSOSTrustedViewOperation:(CKKSKeychainView*)view
+{
+    if(self.automaticallyBeginCKKSViewCloudKitOperation) {
+        [view beginCloudKitOperation];
     }
 
-    // Trusted Peers include ourselves, but as a CKKSSOSPeer object instead of a self peer
-    CKKSSOSPeer* s = [[CKKSSOSPeer alloc] initWithSOSPeerID:self.currentSelfPeer.peerID
-                                        encryptionPublicKey:self.currentSelfPeer.publicEncryptionKey
-                                           signingPublicKey:self.currentSelfPeer.publicSigningKey];
+    [view beginTrustedOperation:@[self.mockSOSAdapter] suggestTLKUpload:self.suggestTLKUpload];
+}
 
-    return [self.currentPeers setByAddingObject: s];
+- (void)endSOSTrustedOperationForAllViews {
+    for(CKKSKeychainView* view in self.ckksViews) {
+        [self endSOSTrustedViewOperation:view];
+    }
+}
+
+- (void)endSOSTrustedViewOperation:(CKKSKeychainView*)view
+{
+    if(self.automaticallyBeginCKKSViewCloudKitOperation) {
+        [view beginCloudKitOperation];
+    }
+    [view endTrustedOperation];
+}
+
+- (void)verifyDatabaseMocks {
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 - (void)createClassCItemAndWaitForUpload:(CKRecordZoneID*)zoneID account:(NSString*)account {
@@ -215,42 +223,21 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
-// Helpers to handle 'locked' keychain loading and saving
--(bool)handleLockLoadKeyMaterialFromKeychain:(NSDictionary*)query error:(NSError * __autoreleasing *) error {
-    if(self.keychainFetchError) {
-        if(error) {
-            *error = self.keychainFetchError;
-        }
-        return false;
-    }
+// Helpers to handle 'failed' keychain loading and saving
+- (bool)handleFailedLoadKeyMaterialFromKeychain:(NSDictionary*)query error:(NSError * __autoreleasing *) error {
+    NSAssert(self.keychainFetchError != nil, @"must have a keychain error to error with");
 
-    // I think the behavior is: errSecItemNotFound if the item doesn't exist, otherwise errSecInteractionNotAllowed.
-    XCTAssertTrue(self.aksLockState, "Failing a read when keychain is locked");
-
-    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL);
-    if(status == errSecItemNotFound) {
-        if(error) {
-            *error = [NSError errorWithDomain:@"securityd" code:status userInfo:nil];
-        }
-    } else {
-        if(error) {
-            *error = [NSError errorWithDomain:@"securityd" code:errSecInteractionNotAllowed userInfo:nil];
-        }
+    if(error) {
+        *error = self.keychainFetchError;
     }
     return false;
 }
 
--(bool)handleLockSetKeyMaterialInKeychain:(NSDictionary*)query error:(NSError * __autoreleasing *) error {
-    if(self.keychainFetchError) {
-        if(error) {
-            *error = self.keychainFetchError;
-        }
-        return false;
-    }
+- (bool)handleFailedSetKeyMaterialInKeychain:(NSDictionary*)query error:(NSError * __autoreleasing *) error {
+    NSAssert(self.keychainFetchError != nil, @"must have a keychain error to error with");
 
-    XCTAssertTrue(self.aksLockState, "Failing a write only when keychain is locked");
     if(error) {
-        *error = [NSError errorWithDomain:@"securityd" code:errSecInteractionNotAllowed userInfo:nil];
+        *error = self.keychainFetchError;
     }
     return false;
 }
@@ -320,12 +307,18 @@
 }
 
 - (void)putFakeDeviceStatusInCloudKit:(CKRecordZoneID*)zoneID zonekeys:(ZoneKeys*)zonekeys {
+    // SOS peer IDs are written bare, missing the CKKSSOSPeerPrefix. Strip it here.
+    NSString* peerID = self.remoteSOSOnlyPeer.peerID;
+    if([peerID hasPrefix:CKKSSOSPeerPrefix]) {
+        peerID = [peerID substringFromIndex:CKKSSOSPeerPrefix.length];
+    }
+
     CKKSDeviceStateEntry* dse = [[CKKSDeviceStateEntry alloc] initForDevice:self.remoteSOSOnlyPeer.peerID
                                                                   osVersion:@"faux-version"
                                                              lastUnlockTime:nil
                                                               octagonPeerID:nil
                                                               octagonStatus:nil
-                                                               circlePeerID:self.remoteSOSOnlyPeer.peerID
+                                                               circlePeerID:peerID
                                                                circleStatus:kSOSCCInCircle
                                                                    keyState:SecCKKSZoneKeyStateReady
                                                              currentTLKUUID:zonekeys.tlk.uuid
@@ -361,11 +354,12 @@
     [self putFakeOctagonOnlyDeviceStatusInCloudKit:zoneID zonekeys:self.keys[zoneID]];
 }
 
-
 - (void)putFakeKeyHierarchyInCloudKit: (CKRecordZoneID*)zoneID {
     ZoneKeys* zonekeys = [self createFakeKeyHierarchy: zoneID oldTLK:nil];
+    XCTAssertNotNil(zonekeys, "failed to create fake key hierarchy for zoneID=%@", zoneID);
 
     FakeCKZone* zone = self.zones[zoneID];
+    XCTAssertNotNil(zone, "failed to find zone %@", zoneID);
 
     dispatch_sync(zone.queue, ^{
         [zone _onqueueAddToZone:zonekeys.tlk    zoneID:zoneID];
@@ -393,6 +387,96 @@
 
     [self createFakeKeyHierarchy: zoneID oldTLK:oldTLK];
     [self putFakeKeyHierarchyInCloudKit: zoneID];
+}
+
+- (void)ensureZoneDeletionAllowed:(FakeCKZone*)zone {
+    [super ensureZoneDeletionAllowed:zone];
+
+    // Here's a hack: if we're deleting this zone, also drop the keys that used to be in it
+    self.keys[zone.zoneID] = nil;
+}
+
+- (NSArray<CKRecord*>*)putKeySetInCloudKit:(CKKSCurrentKeySet*)keyset
+{
+    XCTAssertNotNil(keyset.tlk, "Should have a TLK to put a key set in CloudKit");
+    CKRecordZoneID* zoneID = keyset.tlk.zoneID;
+    XCTAssertNotNil(zoneID, "Should have a zoneID to put a key set in CloudKit");
+
+    ZoneKeys* zonekeys = self.keys[zoneID];
+    XCTAssertNil(zonekeys, "Should not already have zone keys when putting keyset in cloudkit");
+    zonekeys = [[ZoneKeys alloc] initForZoneName:zoneID.zoneName];
+
+    FakeCKZone* zone = self.zones[zoneID];
+    // Cuttlefish makes this for you, but for now assert if there's an issue
+    XCTAssertNotNil(zone, "Should already have a fakeckzone before putting a keyset in it");
+
+    __block NSMutableArray<CKRecord*>* newRecords = [NSMutableArray array];
+    dispatch_sync(zone.queue, ^{
+        [newRecords addObject:[zone _onqueueAddToZone:keyset.tlk    zoneID:zoneID]];
+        [newRecords addObject:[zone _onqueueAddToZone:keyset.classA zoneID:zoneID]];
+        [newRecords addObject:[zone _onqueueAddToZone:keyset.classC zoneID:zoneID]];
+
+        [newRecords addObject:[zone _onqueueAddToZone:keyset.currentTLKPointer    zoneID:zoneID]];
+        [newRecords addObject:[zone _onqueueAddToZone:keyset.currentClassAPointer zoneID:zoneID]];
+        [newRecords addObject:[zone _onqueueAddToZone:keyset.currentClassCPointer zoneID:zoneID]];
+
+        // TODO handle a rolled TLK
+        //if(zonekeys.rolledTLK) {
+        //    [zone _onqueueAddToZone:zonekeys.rolledTLK zoneID:zoneID];
+        //}
+
+        zonekeys.tlk = keyset.tlk;
+        zonekeys.classA = keyset.classA;
+        zonekeys.classC = keyset.classC;
+        self.keys[zoneID] = zonekeys;
+
+        // Octagon uploads the pending TLKshares, not all of them
+        for(CKKSTLKShareRecord* tlkshare in keyset.pendingTLKShares) {
+            [newRecords addObject:[zone _onqueueAddToZone:tlkshare zoneID:zoneID]];
+        }
+    });
+
+    return newRecords;
+}
+
+- (void)performOctagonTLKUpload:(NSSet<CKKSKeychainView*>*)views
+{
+    [self performOctagonTLKUpload:views afterUpload:nil];
+}
+
+- (void)performOctagonTLKUpload:(NSSet<CKKSKeychainView*>*)views afterUpload:(void (^_Nullable)(void))afterUpload
+{
+    NSMutableArray<CKKSResultOperation<CKKSKeySetProviderOperationProtocol>*>* keysetOps = [NSMutableArray array];
+
+    for(CKKSKeychainView* view in views) {
+        XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLKCreation] wait:40*NSEC_PER_SEC], @"key state should enter 'waitfortlkcreation' (view %@)", view);
+        [keysetOps addObject: [view findKeySet]];
+    }
+
+    // Now that we've kicked them all off, wait for them to resolve
+    for(CKKSKeychainView* view in views) {
+        XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLKUpload] wait:40*NSEC_PER_SEC], @"key state should enter 'waitfortlkupload'");
+    }
+
+    NSMutableArray<CKRecord*>* keyHierarchyRecords = [NSMutableArray array];
+
+    for(CKKSResultOperation<CKKSKeySetProviderOperationProtocol>* keysetOp in keysetOps) {
+        // Wait until finished is usually a bad idea. We could rip this out into an operation if we'd like.
+        [keysetOp waitUntilFinished];
+        XCTAssertNil(keysetOp.error, "Should be no error fetching keyset from CKKS");
+
+        NSArray<CKRecord*>* records = [self putKeySetInCloudKit:keysetOp.keyset];
+        [keyHierarchyRecords addObjectsFromArray:records];
+    }
+
+    if(afterUpload) {
+        afterUpload();
+    }
+
+    // Tell our views about our shiny new records!
+    for(CKKSKeychainView* view in views) {
+        [view receiveTLKUploadRecords: keyHierarchyRecords];
+    }
 }
 
 - (void)saveTLKMaterialToKeychainSimulatingSOS: (CKRecordZoneID*)zoneID {
@@ -532,12 +616,12 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
 
 
 - (void)putTLKShareInCloudKit:(CKKSKey*)key
-                         from:(CKKSSOSSelfPeer*)sharingPeer
+                         from:(id<CKKSSelfPeer>)sharingPeer
                            to:(id<CKKSPeer>)receivingPeer
                        zoneID:(CKRecordZoneID*)zoneID
 {
     NSError* error = nil;
-    CKKSTLKShare* share = [CKKSTLKShare share:key
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:key
                                            as:sharingPeer
                                            to:receivingPeer
                                         epoch:-1
@@ -559,10 +643,10 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
 }
 
 - (void)putTLKSharesInCloudKit:(CKKSKey*)key
-                          from:(CKKSSOSSelfPeer*)sharingPeer
+                          from:(id<CKKSSelfPeer>)sharingPeer
                         zoneID:(CKRecordZoneID*)zoneID
 {
-    NSSet* peers = [self.currentPeers setByAddingObject:self.currentSelfPeer];
+    NSSet* peers = [self.mockSOSAdapter.trustedPeers setByAddingObject:self.mockSOSAdapter.selfPeer];
 
     for(id<CKKSPeer> peer in peers) {
         // Can only send to peers with encryption keys
@@ -575,14 +659,14 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
 - (void)putSelfTLKSharesInCloudKit:(CKRecordZoneID*)zoneID {
     CKKSKey* tlk = self.keys[zoneID].tlk;
     XCTAssertNotNil(tlk, "Should have a TLK for zone %@", zoneID);
-    [self putTLKSharesInCloudKit:tlk from:self.currentSelfPeer zoneID:zoneID];
+    [self putTLKSharesInCloudKit:tlk from:self.mockSOSAdapter.selfPeer zoneID:zoneID];
 }
 
 - (void)saveTLKSharesInLocalDatabase:(CKRecordZoneID*)zoneID {
     ZoneKeys* keys = self.keys[zoneID];
     XCTAssertNotNil(keys, "Have a zonekeys object for this zone");
 
-    for(CKKSTLKShare* share in keys.tlkShares) {
+    for(CKKSTLKShareRecord* share in keys.tlkShares) {
         NSError* error = nil;
         [share saveToDatabase:&error];
         XCTAssertNil(error, "Shouldn't have been an error saving a TLKShare to the database");
@@ -657,10 +741,10 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
             XCTAssertNotNil(zonekeys.classA, "Have the current Class A key");
             XCTAssertNotNil(zonekeys.classC, "Have the current Class C key");
 
-            NSMutableArray<CKKSTLKShare*>* shares = [NSMutableArray array];
+            NSMutableArray<CKKSTLKShareRecord*>* shares = [NSMutableArray array];
             for(CKRecordID* recordID in strongSelf.zones[zoneID].currentDatabase.allKeys) {
-                if([recordID.recordName hasPrefix: [CKKSTLKShare ckrecordPrefix]]) {
-                    CKKSTLKShare* share = [[CKKSTLKShare alloc] initWithCKRecord:strongSelf.zones[zoneID].currentDatabase[recordID]];
+                if([recordID.recordName hasPrefix: [CKKSTLKShareRecord ckrecordPrefix]]) {
+                    CKKSTLKShareRecord* share = [[CKKSTLKShareRecord alloc] initWithCKRecord:strongSelf.zones[zoneID].currentDatabase[recordID]];
                     XCTAssertNotNil(share, "Should be able to parse a CKKSTLKShare CKRecord into a CKKSTLKShare");
                     [shares addObject:share];
                 }
@@ -897,7 +981,12 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
 }
 
 - (CKRecord*)createFakeRecord: (CKRecordZoneID*)zoneID recordName:(NSString*)recordName withAccount: (NSString*) account key:(CKKSKey*)key {
-    NSDictionary* item = [self fakeRecordDictionary: account zoneID:zoneID];
+    NSMutableDictionary* item = [[self fakeRecordDictionary: account zoneID:zoneID] mutableCopy];
+
+    // class c items should be class c
+    if([key.keyclass isEqualToString:SecCKKSKeyClassC]) {
+        item[(__bridge NSString*)kSecAttrAccessible] = @"ck";
+    }
 
     CKRecordID* ckrid = [[CKRecordID alloc] initWithRecordName:recordName zoneID:zoneID];
     if(key) {
@@ -1021,6 +1110,17 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     XCTAssertEqual(errSecSuccess, SecItemDelete((__bridge CFDictionaryRef) query), @"Deleting item %@", account);
 }
 
+- (void)deleteGenericPasswordWithoutTombstones:(NSString*)account {
+    NSDictionary* query = @{
+                            (id)kSecClass : (id)kSecClassGenericPassword,
+                            (id)kSecAttrAccount : account,
+                            (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                            (id)kSecUseTombstones: @NO,
+                            };
+
+    XCTAssertEqual(errSecSuccess, SecItemDelete((__bridge CFDictionaryRef) query), @"Deleting item %@", account);
+}
+
 - (void)findGenericPassword: (NSString*) account expecting: (OSStatus) status {
     NSDictionary *query = @{(id)kSecClass : (id)kSecClassGenericPassword,
                             (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
@@ -1080,6 +1180,14 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
 
         XCTAssertEqual(items.count, n, "Should have received %lu items", (unsigned long)n);
     }
+}
+
+- (OTAccountMetadataClassC*)loadOrCreateAccountMetadata:(NSError**)error
+{
+    if(error) {
+        *error = [NSError errorWithDomain:@"securityd" code:errSecInteractionNotAllowed userInfo:nil];
+    }
+    return nil;
 }
 
 @end

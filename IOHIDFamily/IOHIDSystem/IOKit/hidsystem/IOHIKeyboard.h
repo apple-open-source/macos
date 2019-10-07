@@ -109,7 +109,11 @@ typedef void (*UpdateEventFlagsCallback)(
 #define EV_DEFAULTKEYREPEAT     83333333ULL     // 1/12 sec in nanoseconds
 #define EV_MINKEYREPEAT         16700000ULL     // 1/60 sec
 
+#if defined(KERNEL) && !defined(KERNEL_PRIVATE)
+class __deprecated_msg("Use DriverKit") IOHIKeyboard : public IOHIDevice
+#else
 class IOHIKeyboard : public IOHIDevice
+#endif
 {
     OSDeclareDefaultStructors(IOHIKeyboard);
 
@@ -163,10 +167,10 @@ protected:
     void    clearLastPageAndUsage();
 
 public:
-  virtual bool init(OSDictionary * properties = 0);
-  virtual bool start(IOService * provider);
-  virtual void stop(IOService * provider);
-  virtual void free();
+  virtual bool init(OSDictionary * properties = 0) APPLE_KEXT_OVERRIDE;
+  virtual bool start(IOService * provider) APPLE_KEXT_OVERRIDE;
+  virtual void stop(IOService * provider) APPLE_KEXT_OVERRIDE;
+  virtual void free(void) APPLE_KEXT_OVERRIDE;
 
   virtual bool open(IOService *                client,
 		    IOOptionBits	       options,
@@ -181,15 +185,15 @@ public:
                     KeyboardSpecialEventCallback kseCallback,
                     UpdateEventFlagsCallback     uefCallback);
 
-  virtual void close(IOService * client, IOOptionBits );
+  virtual void close(IOService * client, IOOptionBits ) APPLE_KEXT_OVERRIDE;
 
   virtual IOReturn message( UInt32 type, IOService * provider,
-                    void * argument = 0 );
+                    void * argument = 0 ) APPLE_KEXT_OVERRIDE;
 
-  virtual IOHIDKind hidKind();
-  virtual bool 	    updateProperties( void );
-  virtual IOReturn  setParamProperties(OSDictionary * dict);
-  virtual IOReturn  setProperties( OSObject * properties );
+  virtual IOHIDKind hidKind( void ) APPLE_KEXT_OVERRIDE;
+  virtual bool 	    updateProperties( void ) APPLE_KEXT_OVERRIDE;
+  virtual IOReturn  setParamProperties(OSDictionary * dict) APPLE_KEXT_OVERRIDE;
+  virtual IOReturn  setProperties( OSObject * properties ) APPLE_KEXT_OVERRIDE;
   
   inline  bool	    isRepeat() {return _isRepeat;}
 

@@ -2,14 +2,6 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 hi{
     AuxExemplarCharacters{"[\u200C\u200D]"}
-    Ellipsis{
-        final{"{0}…"}
-        initial{"…{0}"}
-        medial{"{0}…{1}"}
-        word-final{"{0} …"}
-        word-initial{"… {0}"}
-        word-medial{"{0} … {1}"}
-    }
     ExemplarCharacters{
         "[\u093C ॐ \u0902 \u0901 ः अ आ इ ई उ ऊ ऋ ऌ ऍ ए ऐ ऑ ओ औ क ख ग घ ङ च छ ज झ ञ ट "
         "ठ ड ढ ण त थ द ध न प फ ब भ म य र ल ळ व श ष स ह ऽ ा ि ी \u0941 \u0942 \u0943 "
@@ -21,9 +13,7 @@ hi{
     }
     ExemplarCharactersNumbers{"[\\- , . % ‰ + 0० 1१ 2२ 3३ 4४ 5५ 6६ 7७ 8८ 9९]"}
     ExemplarCharactersPunctuation{"[\\- , ; \\: ! ? . ‘ ’ “ ” ( ) \\[ \\] \\{ \\} ॰]"}
-    MoreInformation{"?"}
     NumberElements{
-        default{"deva"}
         deva{
             patterns{
                 currencyFormat{"¤#,##,##0.00"}
@@ -32,16 +22,14 @@ hi{
                 scientificFormat{"[#E0]"}
             }
             symbols{
-                decimal{"."}
-                group{","}
-                minusSign{"-"}
                 percentSign{"%"}
-                plusSign{"+"}
             }
         }
         latn{
             miscPatterns{
+                approximately{"~{0}"}
                 atLeast{"{0}+"}
+                atMost{"≤{0}"}
                 range{"{0}–{1}"}
             }
             patterns{
@@ -206,27 +194,23 @@ hi{
                 }
             }
             symbols{
-                decimal{"."}
                 exponential{"E"}
-                group{","}
                 infinity{"∞"}
                 list{";"}
-                minusSign{"-"}
                 nan{"NaN"}
                 perMille{"‰"}
                 percentSign{"%"}
-                plusSign{"+"}
                 superscriptingExponent{"×"}
                 timeSeparator{":"}
             }
         }
         minimalPairs{
             ordinal{
-                few{"{0}था दाहिना मोड़ लें॰"}
-                many{"{0}ठा दाहिना मोड़ लें॰"}
-                one{"{0}ला दाहिना मोड़ लें॰"}
-                other{"{0}वां दाहिना मोड़ लें॰"}
-                two{"{0}रा दाहिना मोड़ लें॰"}
+                few{"{0}था दाहिना मोड़ लें."}
+                many{"{0}ठा दाहिना मोड़ लें."}
+                one{"{0}ला दाहिना मोड़ लें."}
+                other{"{0}वां दाहिना मोड़ लें."}
+                two{"{0}रा दाहिना मोड़ लें."}
             }
             plural{
                 one{"{0} घंटा"}
@@ -236,7 +220,7 @@ hi{
         minimumGroupingDigits{"1"}
         native{"deva"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
     calendar{
         ethiopic{
             monthNames{
@@ -276,12 +260,12 @@ hi{
                 "{1}, {0}",
             }
             availableFormats{
-                Bh{"h B"}
-                Bhm{"h:mm B"}
-                Bhms{"h:mm:ss B"}
+                Bh{"B h"}
+                Bhm{"B h:mm"}
+                Bhms{"B h:mm:ss"}
                 E{"ccc"}
-                EBhm{"E h:mm B"}
-                EBhms{"E h:mm:ss B"}
+                EBhm{"E B h:mm"}
+                EBhms{"E B h:mm:ss"}
                 EHm{"E HH:mm"}
                 EHms{"E HH:mm:ss"}
                 Ed{"d E"}
@@ -321,6 +305,53 @@ hi{
                 yyyyQQQQ{"QQQQ G y"}
             }
             intervalFormats{
+                Bh{
+                    B{"B h – B h"}
+                    h{"B h–h"}
+                }
+                Bhm{
+                    B{"B h:mm – B h:mm"}
+                    h{"B h:mm–h:mm"}
+                    m{"B h:mm–h:mm"}
+                }
+                Gy{
+                    G{"G y – G y"}
+                    y{"G y–y"}
+                }
+                GyM{
+                    G{"GGGGG y-MM – GGGGG y-MM"}
+                    M{"GGGGG y-MM – y-MM"}
+                    y{"GGGGG y-MM – y-MM"}
+                }
+                GyMEd{
+                    G{"GGGGG y-MM-dd, E – GGGGG y-MM-dd, E"}
+                    M{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                    d{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                    y{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                }
+                GyMMM{
+                    G{"G y MMM – G y MMM"}
+                    M{"G y MMM–MMM"}
+                    y{"G y MMM – y MMM"}
+                }
+                GyMMMEd{
+                    G{"G y MMM d, E – G y MMM d, E"}
+                    M{"G y MMM d, E – MMM d, E"}
+                    d{"G y MMM d, E – MMM d, E"}
+                    y{"G y MMM d, E – y MMM d, E"}
+                }
+                GyMMMd{
+                    G{"G y MMM d – G y MMM d"}
+                    M{"G y MMM d – MMM d"}
+                    d{"G y MMM d–d"}
+                    y{"G y MMM d – y MMM d"}
+                }
+                GyMd{
+                    G{"GGGGG y-MM-dd – GGGGG y-MM-dd"}
+                    M{"GGGGG y-MM-dd – y-MM-dd"}
+                    d{"GGGGG y-MM-dd – y-MM-dd"}
+                    y{"GGGGG y-MM-dd – y-MM-dd"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -474,8 +505,8 @@ hi{
                 MMMEd{"E, d MMM"}
                 MMMMEd{"E, d MMMM"}
                 MMMMW{
-                    one{"MMM का सप्ताह W"}
-                    other{"MMM का सप्ताह W"}
+                    one{"MMMM का सप्ताह W"}
+                    other{"MMMM का सप्ताह W"}
                 }
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
@@ -586,21 +617,21 @@ hi{
             dayPeriod{
                 format{
                     abbreviated{
-                        afternoon1{"अपराह्न"}
+                        afternoon1{"दोपहर"}
                         evening1{"शाम"}
                         midnight{"मध्यरात्रि"}
                         morning1{"सुबह"}
                         night1{"रात"}
                     }
                     narrow{
-                        afternoon1{"अपराह्न"}
+                        afternoon1{"दोपहर"}
                         evening1{"शाम"}
                         midnight{"मध्यरात्रि"}
                         morning1{"सुबह"}
                         night1{"रात"}
                     }
                     wide{
-                        afternoon1{"अपराह्न"}
+                        afternoon1{"दोपहर"}
                         evening1{"शाम"}
                         midnight{"मध्यरात्रि"}
                         morning1{"सुबह"}
@@ -610,15 +641,15 @@ hi{
                 stand-alone{
                     abbreviated{
                         afternoon1{"दोपहर"}
-                        am{"पूर्वाह्न"}
+                        am{"प"}
                         evening1{"शाम"}
                         midnight{"मध्यरात्रि"}
                         morning1{"सुबह"}
                         night1{"रात"}
-                        pm{"अपराह्न"}
+                        pm{"अ"}
                     }
                     narrow{
-                        afternoon1{"अपराह्न"}
+                        afternoon1{"दोपहर"}
                         am{"पू"}
                         evening1{"शाम"}
                         midnight{"आधी रात"}
@@ -656,6 +687,53 @@ hi{
                 }
             }
             intervalFormats{
+                Bh{
+                    B{"B h – B h"}
+                    h{"B h–h"}
+                }
+                Bhm{
+                    B{"B h:mm – B h:mm"}
+                    h{"B h:mm–h:mm"}
+                    m{"B h:mm–h:mm"}
+                }
+                Gy{
+                    G{"G y – G y"}
+                    y{"G y–y"}
+                }
+                GyM{
+                    G{"GGGGG y-MM – GGGGG y-MM"}
+                    M{"GGGGG y-MM – y-MM"}
+                    y{"GGGGG y-MM – y-MM"}
+                }
+                GyMEd{
+                    G{"GGGGG y-MM-dd, E – GGGGG y-MM-dd, E"}
+                    M{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                    d{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                    y{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                }
+                GyMMM{
+                    G{"G y MMM – G y MMM"}
+                    M{"G y MMM–MMM"}
+                    y{"G y MMM – y MMM"}
+                }
+                GyMMMEd{
+                    G{"G y MMM d, E – G y MMM d, E"}
+                    M{"G y MMM d, E – MMM d, E"}
+                    d{"G y MMM d, E – MMM d, E"}
+                    y{"G y MMM d, E – y MMM d, E"}
+                }
+                GyMMMd{
+                    G{"G y MMM d – G y MMM d"}
+                    M{"G y MMM d – MMM d"}
+                    d{"G y MMM d–d"}
+                    y{"G y MMM d – y MMM d"}
+                }
+                GyMd{
+                    G{"GGGGG y-MM-dd – GGGGG y-MM-dd"}
+                    M{"GGGGG y-MM-dd – y-MM-dd"}
+                    d{"GGGGG y-MM-dd – y-MM-dd"}
+                    y{"GGGGG y-MM-dd – y-MM-dd"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -1290,7 +1368,7 @@ hi{
         activities{"गतिविधि"}
         african_scripts{"अफ़्रीकी लिपि"}
         american_scripts{"अमेरिकी लिपि"}
-        animal{"जानवर"}
+        animal{"पशु"}
         animals_nature{"पशु और प्रकृति"}
         arrows{"तीर"}
         body{"शरीर"}
@@ -1303,7 +1381,7 @@ hi{
         dash_connector{"डैश या कनेक्टर"}
         digits{"अंक"}
         dingbats{"dingbat"}
-        divination_symbols{"अनुमान चिह्न"}
+        divination_symbols{"पूर्वानुमान चिह्न"}
         downwards_arrows{"नीचे की ओर वाला तीर"}
         downwards_upwards_arrows{"नीचे की ओर ऊपर की ओर तीर"}
         east_asian_scripts{"पूर्वी एशियाई लिपि"}
@@ -1315,24 +1393,24 @@ hi{
         food_drink{"खान-पान"}
         format{"प्रारूप"}
         format_whitespace{"प्रारूप और श्वेतरिक्ति"}
-        full_width_form_variant{"पूरी चौड़ाई वाला फार्म वेरिएंट"}
+        full_width_form_variant{"पूरी चौड़ाई वाला फ़ॉर्म वेरिएंट"}
         geometric_shapes{"ज्यामितीय आकार"}
-        half_width_form_variant{"half-width variant"}
-        han_characters{"Han character"}
-        han_radicals{"Han radical"}
-        hanja{"hanja"}
-        hanzi_simplified{"Hanzi (simplified)"}
-        hanzi_traditional{"Hanzi (traditional)"}
+        half_width_form_variant{"आधी चौड़ाई वेरिएंट"}
+        han_characters{"हान वर्ण"}
+        han_radicals{"हान मूलशब्द"}
+        hanja{"हांजा"}
+        hanzi_simplified{"चीनी हान वर्ण (सरलीकृत)"}
+        hanzi_traditional{"चीनी हान वर्ण (पारंपरिक)"}
         heart{"दिल"}
         historic_scripts{"ऐतिहासिक लिपि"}
-        ideographic_desc_characters{"ideographic desc. character"}
+        ideographic_desc_characters{"आइडियोग्राफ़िक विवरणात्मक वर्ण"}
         japanese_kana{"जापानी काना"}
-        kanbun{"kanbun"}
+        kanbun{"कानबुन"}
         kanji{"कांजी"}
         keycap{"कीकैप"}
         leftwards_arrows{"बाईं ओर तीर"}
         leftwards_rightwards_arrows{"दाईं व बाईं ओर वाला तीर"}
-        letterlike_symbols{"पत्र-जैसे प्रतीक"}
+        letterlike_symbols{"अक्षर सदृश चिह्न"}
         limited_use{"सीमित उपयोग"}
         male{"पुरुष"}
         math_symbols{"गणितीय प्रतीक"}
@@ -1344,7 +1422,7 @@ hi{
         nature{"प्रकृति"}
         nonspacing{"गैर रिक्ति"}
         numbers{"संख्या"}
-        objects{"वस्तुएं"}
+        objects{"वस्तु"}
         other{"अन्य"}
         paired{"युग्मित"}
         person{"व्यक्ति"}
@@ -1355,7 +1433,7 @@ hi{
         punctuation{"विराम चिह्न"}
         rightwards_arrows{"बाईं ओर तीर"}
         sign_standard_symbols{"चिह्न या प्रतीक"}
-        small_form_variant{"छोटे फार्म वेरिएंट"}
+        small_form_variant{"छोटे फ़ॉर्म वेरिएंट"}
         smiley{"स्माइली"}
         smileys_people{"स्माइली या लोग"}
         south_asian_scripts{"दक्षिण एशियाई लिपि"}
@@ -1369,16 +1447,10 @@ hi{
         travel_places{"यात्रा या स्थान"}
         upwards_arrows{"ऊपर की ओर तीर"}
         variant_forms{"विविध रूप"}
-        vocalic_jamo{"vocalic jamo"}
+        vocalic_jamo{"वोकेलिक जामो"}
         weather{"मौसम"}
         western_asian_scripts{"पश्चिमी एशियाई लिपि"}
         whitespace{"श्वेतरिक्ति"}
-    }
-    delimiters{
-        alternateQuotationEnd{"’"}
-        alternateQuotationStart{"‘"}
-        quotationEnd{"”"}
-        quotationStart{"“"}
     }
     fields{
         day{
@@ -2176,6 +2248,12 @@ hi{
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
+        standard-narrow{
+            2{"{0} और {1}"}
+            end{"{0} और {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
+        }
         standard-short{
             2{"{0} और {1}"}
             end{"{0} और {1}"}
@@ -2216,8 +2294,13 @@ hi{
         general{
             lenient{
                 "[.․。︒﹒．｡]",
+                "['ʼ՚᾽᾿’＇]",
+                "[%٪﹪％]",
+                "[؉‰]",
                 "[\$﹩＄$]",
                 "[£₤]",
+                "[¥￥]",
+                "[₩￦]",
                 "[₨₹{Rp}{Rs}]",
             }
         }
@@ -2226,10 +2309,6 @@ hi{
                 "[\\-‒⁻₋−➖﹣－]",
                 "[,،٫、︐︑﹐﹑，､]",
                 "[+⁺₊➕﬩﹢＋]",
-            }
-            stricter{
-                "[,٫︐﹐，]",
-                "[.․﹒．｡]",
             }
         }
     }

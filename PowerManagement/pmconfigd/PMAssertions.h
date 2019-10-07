@@ -55,6 +55,12 @@ do {    \
 #define _kIOPMAssertionTypeExternalMediaCStr    "ExternalMedia"
 #define _kIOPMAssertionTypeExternalMedia        CFSTR(_kIOPMAssertionTypeExternalMediaCStr)
 
+/* PreventStandby assertion
+ * This assertion is only defined here in PM configd.
+ */
+
+#define _kIOPMAssertionTypePreventStandbyCStr   "PreventStandby"
+#define _kIOPMAssertionTypePreventStandby       CFSTR(_kIOPMAssertionTypePreventStandbyCStr)
 
 #ifndef     kIOPMRootDomainWakeTypeNetwork
 #define     kIOPMRootDomainWakeTypeNetwork          CFSTR("Network")
@@ -229,6 +235,7 @@ typedef struct {
     uint32_t            enableAS_pend:1;    // Enable AppSleep notification need to be sent
     uint32_t            proc_exited:1;      // True if PROC_EXIT notification is received
     uint32_t            aggactivity:1;      // Contributed to gActivityAggCnt. Subscribed to AssertionActivityAggregate
+    uint32_t            isSuspended:1;      // Process assertions are suspended
 } ProcessInfo;
 
 typedef struct assertion {
@@ -247,7 +254,7 @@ typedef struct assertion {
 
     int             enTrIntensity;      // Intensity parameter for energy tracing of the assertion
 
-    ProcessInfo     *pinfo;             // Pointer to ProcessInfo structure
+    ProcessInfo     *pinfo;             // ProcessInfo structure for process that created assertion
 
     pid_t           causingPid;         // PID for process on whose behalf this assertion is raised
     ProcessInfo     *causingPinfo;      // Corresponding ProcessInfo struct 
@@ -276,6 +283,8 @@ typedef struct assertion {
 #define kAssertionStateAddsToProcStats      0x080
 #define kAssertionProcTimerActive           0x100
 #define kAssertionExitSilentRunningMode     0x200
+#define kAssertionStateSuspended            0x400
+
 
 /* Mods bits for assertion_t structure */
 #define kAssertionModTimer              0x1
@@ -286,6 +295,7 @@ typedef struct assertion {
 #define kAssertionModName               0x20
 #define kAssertionModResources          0x40
 #define kAssertionModSilentRunning      0x80
+#define kAssertionModCausingPid         0x100
 
 typedef enum {
     kAssertionOpRaise,
@@ -310,6 +320,7 @@ struct assertionType {
     LIST_HEAD(, assertion) activeTimed;  /* Active assertions with timeout */
     LIST_HEAD(, assertion) active;       /* Active assertions without timeout */
     LIST_HEAD(, assertion) inactive;     /* timed out assertions/Level 0 assertions etc */
+    LIST_HEAD(, assertion) suspended;    /* Assertions that are suspended */
 
     kerAssertionType    kassert;
     XCT_UNSAFE_UNRETAINED dispatch_source_t   timer;          /* dispatch source for Per assertion timer */
@@ -336,6 +347,25 @@ struct assertionType {
     uint32_t   enTrQuality;             /* Quality or intensity for energy tracing */
 } ;
 
+typedef enum {
+    kIndexActiveTimed = 0,
+    kIndexActive = 1,
+    kIndexInactive = 2,
+    kIndexSuspended = 3,
+    kIndexMaxCount
+} listIndexType_t;
+
+#define SELECT_MASK(idx) (0x1 << idx)
+
+typedef enum {
+    /* Only Active or ActiveTimed Assertions */
+    kSelectActive = (SELECT_MASK(kIndexActiveTimed) | SELECT_MASK(kIndexActive)),
+    /* Suspended Assertions as considered Inactive */
+    kSelectInactive = (SELECT_MASK(kIndexInactive) | SELECT_MASK(kIndexSuspended)),
+    kSelectSuspended = (SELECT_MASK(kIndexSuspended)),
+    kSelectAllButSuspended = (SELECT_MASK(kIndexActiveTimed) | SELECT_MASK(kIndexActive) | SELECT_MASK(kIndexInactive)),
+    kSelectAll = (SELECT_MASK(kIndexActiveTimed) | SELECT_MASK(kIndexActive) | SELECT_MASK(kIndexInactive) | SELECT_MASK(kIndexSuspended))
+} listSelectType_t;
 
 // Selectors for AppleSmartBatteryManagerUserClient
 enum {
@@ -377,7 +407,9 @@ typedef enum {
     kASummaryLog,
     kATurnOffLog,
     kATurnOnLog,
-    kANameChangeLog
+    kANameChangeLog,
+    kAStateSuspend,
+    kAStateResume
 } assertLogAction;
 
 typedef struct {
@@ -396,7 +428,9 @@ typedef struct {
     int64_t     limit;      // Min threshold value for this bucket
     uint64_t    count;      // Number of occurrences
 } exceptionStatsBucket_t;
- 
+
+__private_extern__ void logKernelAssertions(CFNumberRef, CFArrayRef);
+__private_extern__ void logChangedSleepPreventers(int preventerType);
 __private_extern__ void PMAssertions_prime(void);
 __private_extern__ void createOnBootAssertions(void);
 __private_extern__ void PMAssertions_SettingsHaveChanged(void);
@@ -431,7 +465,7 @@ __private_extern__ IOReturn InternalSetAssertionTimeout(IOPMAssertionID id, CFTi
 __private_extern__ void InternalEvaluateAssertions(void);
 
 __private_extern__ void evalAllUserActivityAssertions(unsigned int dispSlpTimer);
-__private_extern__ void evalAllNetworkAccessAssertions();
+__private_extern__ void evalAllNetworkAccessAssertions(void);
 
 __private_extern__ CFMutableDictionaryRef	_IOPMAssertionDescriptionCreate(
                             CFStringRef AssertionType, 
@@ -445,27 +479,28 @@ __private_extern__ CFMutableDictionaryRef	_IOPMAssertionDescriptionCreate(
 
 __private_extern__ CFStringRef processInfoGetName(pid_t p);
 __private_extern__ void setSleepServicesTimeCap(uint32_t  timeoutInMS);
-__private_extern__ bool systemBlockedInS0Dark( );
+__private_extern__ bool systemBlockedInS0Dark(void);
 __private_extern__ bool checkForActivesByType(kerAssertionType type);
 __private_extern__ bool checkForEntriesByType(kerAssertionType type);
 __private_extern__ bool checkForActivesByEffect(kerAssertionEffect effectIdx);
-__private_extern__ bool checkForAudioType( );
+__private_extern__ bool checkForAudioType(void);
 __private_extern__ void disableAssertionType(kerAssertionType type);
 __private_extern__ void enableAssertionType(kerAssertionType type);
-__private_extern__ void applyToAllAssertionsSync(assertionType_t *assertType, 
-      bool applyToInactives,  void (^performOnAssertion)(assertion_t *));
+__private_extern__ void applyToAssertionsSync(assertionType_t *assertType,
+                                              listSelectType_t assertionListSelect,
+                                              void (^performOnAssertion)(assertion_t *));
 __private_extern__ void configAssertionType(kerAssertionType idx, bool initialConfig);
 __private_extern__ void logAssertionEvent(assertLogAction assertionAction, assertion_t *assertion);
 __private_extern__ uint8_t getAssertionLevel(kerAssertionType idx);
 __private_extern__ void setAggregateLevel(kerAssertionType idx, uint8_t val);
-__private_extern__ uint32_t getKerAssertionBits( );
+__private_extern__ uint32_t getKerAssertionBits(void);
 __private_extern__ void setAssertionActivityLog(int value);
 __private_extern__ void setAssertionActivityAggregate(pid_t pid, int value);
 __private_extern__ kern_return_t setReservePwrMode(int enable);
-__private_extern__ void releaseStatsBufForDeadProcs( );
-__private_extern__ void sendActivityTickle ();
+__private_extern__ void releaseStatsBufForDeadProcs(void);
+__private_extern__ void sendActivityTickle (void);
 
-__private_extern__ void logASLAllAssertions( );
+__private_extern__ void logASLAllAssertions(void);
 __private_extern__ IOReturn  copyAssertionActivityAggregate(CFDictionaryRef *data);
 
 void asyncAssertionCreate(xpc_object_t remoteConnection, xpc_object_t msg);
@@ -473,6 +508,10 @@ void asyncAssertionRelease(xpc_object_t remoteConnection, xpc_object_t msg);
 void asyncAssertionProperties(xpc_object_t remoteConnection, xpc_object_t msg);
 void releaseConnectionAssertions(xpc_object_t remoteConnection);
 void checkForAsyncAssertions(void *acknowledgementToken);
+void handleAssertionSuspend(pid_t pid);
+void handleAssertionResume(pid_t pid);
+void processSetAssertionState(xpc_connection_t peer, xpc_object_t msg);
+
 
 __private_extern__ void logASLAssertionTypeSummary( kerAssertionType type);
 

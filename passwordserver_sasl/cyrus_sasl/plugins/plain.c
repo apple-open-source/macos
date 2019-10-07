@@ -43,11 +43,11 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <config.h>
+#include "config.h"
 #include <stdio.h>
 #include <string.h> 
-#include <sasl.h>
-#include <saslplug.h>
+#include "sasl.h"
+#include "saslplug.h"
 
 #include "plugin_common.h"
 

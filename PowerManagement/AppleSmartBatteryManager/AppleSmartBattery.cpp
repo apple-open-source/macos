@@ -30,6 +30,7 @@
 #include <kern/clock.h>
 #include "AppleSmartBatteryManager.h"
 #include "AppleSmartBattery.h"
+#include "AppleSmartBatteryKeys.h"
 
 
 enum {
@@ -39,6 +40,7 @@ enum {
 };
 
 #define abs(x) (((x)<0)?(-1*(x)):(x))
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 #define VOIDPTR(arg)  ((void *)(uintptr_t)(arg))
 
@@ -62,15 +64,6 @@ static const uint32_t kBatteryReadAllTimeout = 10000;       // 10 seconds
 
 #define kErrorPermanentFailure              "Permanent Battery Failure"
 
-#define SET_INTEGER_IN_PROPERTIES(key, value, length) \
-do { \
-    OSNumber *_num = OSNumber::withNumber((value), 8*(unsigned int)(length)); \
-    if (_num) { \
-        setPSProperty((key), _num); \
-        _num->release();  \
-    } \
-} while (0)
-
 
 
 #define kIOReportNumberOfReporters  2
@@ -92,6 +85,7 @@ static const OSSymbol *_DeviceNameSym           = OSSymbol::withCString(kIOPMDev
 static const OSSymbol *_FullyChargedSym         = OSSymbol::withCString(kIOPMFullyChargedKey);
 static const OSSymbol *_AvgTimeToEmptySym       = OSSymbol::withCString("AvgTimeToEmpty");
 static const OSSymbol *_InstantTimeToEmptySym   = OSSymbol::withCString("InstantTimeToEmpty");
+static const OSSymbol *_AmperageSym             = OSSymbol::withCStringNoCopy(kIOPMPSAmperageKey);
 static const OSSymbol *_InstantAmperageSym      = OSSymbol::withCString("InstantAmperage");
 static const OSSymbol *_AvgTimeToFullSym        = OSSymbol::withCString("AvgTimeToFull");
 static const OSSymbol *_ManfDateSym             = OSSymbol::withCString(kIOPMPSManufactureDateKey);
@@ -105,13 +99,13 @@ static const OSSymbol *_DesignCycleCount9CSym   = OSSymbol::withCString("DesignC
 static const OSSymbol *_PackReserveSym          = OSSymbol::withCString("PackReserve");
 static const OSSymbol *_OpStatusSym             = OSSymbol::withCString("OperationStatus");
 static const OSSymbol *_PermanentFailureSym     = OSSymbol::withCString(kErrorPermanentFailure);
-static const OSSymbol *_FullyCharged            = OSSymbol::withCString(kIOPMFullyChargedKey);
 static const OSSymbol *_SerialNumberSym         = OSSymbol::withCString("FirmwareSerialNumber");
 static const OSSymbol *_HardwareSerialSym       = OSSymbol::withCString("BatterySerialNumber");
 static const OSSymbol *_kChargingCurrent        = OSSymbol::withCString("ChargingCurrent");
 static const OSSymbol *_kChargingVoltage        = OSSymbol::withCString("ChargingVoltage");
 static const OSSymbol *_kChargerData            = OSSymbol::withCString("ChargerData");
 static const OSSymbol *_kNotChargingReason      = OSSymbol::withCString("NotChargingReason");
+static const OSSymbol *_kChargerId              = OSSymbol::withCString("ChargerID");
 static const OSSymbol *_RawCurrentCapacity      = OSSymbol::withCString("AppleRawCurrentCapacity");
 static const OSSymbol *_RawMaxCapacity          = OSSymbol::withCString("AppleRawMaxCapacity");
 static const OSSymbol *_kPassedCharge           = OSSymbol::withCString("PassedCharge");
@@ -123,7 +117,10 @@ static const OSSymbol *_kDOD2                   = OSSymbol::withCString("DOD2");
 static const OSSymbol *_QmaxCell                = OSSymbol::withCString("QmaxCell0");
 static const OSSymbol *_QmaxCell1               = OSSymbol::withCString("QmaxCell1");
 static const OSSymbol *_QmaxCell2               = OSSymbol::withCString("QmaxCell2");
+static const OSSymbol *_AdapterPower            = OSSymbol::withCString("AdapterPower");
+static const OSSymbol *_SystemPower             = OSSymbol::withCString("SystemPower");
 static const OSSymbol *_stateOfCharge           = OSSymbol::withCString("StateOfCharge");
+static const OSSymbol *_PMUConfigured           = OSSymbol::withCString("PMUConfigured");
 static const OSSymbol *_BatteryData             = OSSymbol::withCString("BatteryData");
 
 
@@ -199,7 +196,6 @@ bool AppleSmartBattery::start(IOService *provider)
     fFullyCharged           = false;
     fBatteryPresent         = -1;
     fACConnected            = -1;
-    fAvgCurrent             = 0;
     fInflowDisabled         = false;
     fRebootPolling          = false;
     fCellVoltages           = NULL;
@@ -210,11 +206,16 @@ bool AppleSmartBattery::start(IOService *provider)
     fIncompleteReadRetries = kIncompleteReadRetryMax;
 
     initializeCommands();
-    
+
+#if TARGET_OS_OSX
     // Make sure that we read battery state at least 5 times at 30 second intervals
     // after system boot.
     fInitialPollCountdown = kInitialPollCountdown;
     fDisplayKeys  = false;
+#else
+    fInitialPollCountdown = 0;
+    fDisplayKeys = PE_i_can_has_debugger(NULL);
+#endif
 
     fWorkLoop = getWorkLoop();
 
@@ -264,8 +265,13 @@ void AppleSmartBattery::initializeCommands(void)
         // cmd,                    address, opType, smcKey, symbol
         {kTransactionRestart,       0,     kASBMInvalidOp,     0, 0, NULL,                      kUserVis},
         {kChargerDataCmd,           kBatt, kASBMSMCReadDictionary,   0, 0, NULL,                kUserVis},
-        {kBatteryFCCDataCmd,        kBatt, kASBMSMCReadDictionary,   0, 0, NULL,                kFull},
-        {kBatteryDataCmd,           kBatt, kASBMSMCReadDictionary,   0, 0, NULL,                kFull},
+        {kBatteryFCCDataCmd,        kBatt, kASBMSMCReadDictionary,   0, 0, NULL,                kUserVis},
+        {kBatteryDataCmd,           kBatt, kASBMSMCReadDictionary,   0, 0, NULL,                kUserVis},
+        {kBVoltageCmd,              kBatt, kASBMSMBUSReadWord, 0, 0, voltageKey,                kUserVis},
+        {kBCurrentCmd,              kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
+        {kBAverageCurrentCmd,       kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
+        {kAdapterStatus,            kBatt, kASBMSMCReadDictionary,   0, 0, NULL,                kFull},
+#if TARGET_OS_OSX
         {kMStateContCmd,            kMgr,  kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
         {kMStateCmd,                kMgr,  kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
         {kBBatteryStatusCmd,        kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
@@ -280,8 +286,6 @@ void AppleSmartBattery::initializeCommands(void)
         {kBDesignCycleCount9CCmd,   kBatt, kASBMSMBUSReadWord, 0, 0, _DesignCycleCount9CSym,    kBoot},
         {kBManufactureDateCmd,      kBatt, kASBMSMBUSReadWord, 0, 0, _ManfDateSym,              kBoot},
         {kBSerialNumberCmd,         kBatt, kASBMSMBUSReadWord, 0, 0, _SerialNumberSym,          kBoot},
-        {kBCurrentCmd,              kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
-        {kBAverageCurrentCmd,       kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
         {kBMaxErrorCmd,             kBatt, kASBMSMBUSReadWord, 0, 0, _MaxErrSym,                kFull},
         {kBRunTimeToEmptyCmd,       kBatt, kASBMSMBUSReadWord, 0, 0, _InstantTimeToEmptySym,    kFull},
         {kBReadCellVoltage1Cmd,     kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kFull},
@@ -289,24 +293,51 @@ void AppleSmartBattery::initializeCommands(void)
         {kBReadCellVoltage3Cmd,     kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kFull},
         {kBReadCellVoltage4Cmd,     kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kFull},
         {kBAverageTimeToEmptyCmd,   kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
-        {kBVoltageCmd,              kBatt, kASBMSMBUSReadWord, 0, 0, voltageKey,                kFull},
         {kBTemperatureCmd,          kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kFull},
         {kBDesignCapacityCmd,       kBatt, kASBMSMBUSReadWord, 0, 0, _DesignCapacitySym,        kBoot},
+#else
+        // Order of these entries is important.
+        // kMStateCmd relies on data from ExternalChargeCmd and ExternalConnectedCmd
+        {kAtCriticalLevelCmd,       kBatt, kASBMSMCReadBool,   0, 0, NULL,                      kUserVis},
+        {kExternalChargeCapableCmd, kBatt, kASBMSMCReadBool,   0, 0, NULL,                      kUserVis},
+        {kExternalConnectedCmd,     kBatt, kASBMSMCReadBool,   0, 0, NULL,                      kUserVis},
+        {kRawExternalConnectedCmd,  kBatt, kASBMSMCReadBool,   0, 0, _rawExternalConnected,     kUserVis},
+        {kMStateCmd,                kMgr,  kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
+        {kBManufactureDataCmd,      kBatt, kASBMSMBUSReadBlock, 0, 0, _ManufacturerDataSym,     kFull},
+        {kBManufactureDateCmd,      kBatt, kASBMSMBUSReadBlock, 0, 0, _ManfDateSym,             kFull},
+        {kBSerialNumberCmd,         kBatt, kASBMSMBUSReadBlock, 0, 0, serialKey,                kFull},
+        {kRawCurrentCapacityCmd,    kBatt, kASBMSMBUSReadWord, 0, 0, _RawCurrentCapacity,       kUserVis},
+        {kRawMaxCapacityCmd,        kBatt, kASBMSMBUSReadWord, 0, 0, _RawMaxCapacity,           kUserVis},
+        {kNominalChargeCapacityCmd, kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
+        {kPresentDODCmd,            kBatt, kASBMSMBUSReadWord, 0, 0, _PresentDOD,               kUserVis},
+        {kAbsoluteCapacityCmd,      kBatt, kASBMSMBUSReadWord, 0, 0, _AbsoluteCapacity,         kUserVis},
+        {kITMiscStatus,             kBatt, kASBMSMBUSReadWord, 0, 0, _ITMiscStatus,             kUserVis},
+        {kRawBatteryVoltageCmd,     kBatt, kASBMSMBUSReadWord, 0, 0, _rawBatteryVoltage,        kUserVis},
+        {kFullyChargedCmd,          kMgr,  kASBMSMCReadBool,   0, 0, _FullyChargedSym,          kUserVis},
+        {kErrorConditionCmd,        kMgr,  kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
+        {kShutdownDataCmd,          kBatt, kASBMSMCReadDictionary,   0, 0, NULL,                kBoot},
+        {kChargerConfigurationCmd,  kBatt, kASBMSMBUSReadWord,   0, 0, _kChargerConfiguration,  kUserVis},
+        {kGaugeFlagRawCmd,          kBatt, kASBMSMBUSReadWord,   0, 0, _kGaugeFlagRaw,          kUserVis},
+        {kBootVoltageCmd,           kBatt, kASBMSMBUSReadWord,   0, 0, _kBootVoltage,           kFull},
+        {kBTemperatureCmd,          kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
+        {kBVirtualTemperatureCmd,   kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
+        {kBDesignCapacityCmd,       kBatt, kASBMSMBUSReadWord, 0, 0, _DesignCapacitySym,        kBoot},
+        {kBCellDisconnectCmd,       kBatt, kASBMSMBUSReadWord,   0, 0, _kBCellDisconnectCount,  kFull},
+        {kCarrierModeCmd,           kBatt, kASBMSMBUSReadWord,   0, 0, NULL,                    kUserVis},
+        {kKioskModeCmd,             kBatt, kASBMSMBUSReadWord,   0, 0, NULL,                    kUserVis},
+#endif
         {kBCycleCountCmd,           kBatt, kASBMSMBUSReadWord, 0, 0, cycleCountKey,             kFull},
         {kBAverageTimeToFullCmd,    kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
         {kBRemainingCapacityCmd,    kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
         {kBFullChargeCapacityCmd,   kBatt, kASBMSMBUSReadWord, 0, 0, NULL,                      kUserVis},
-#if TARGET_OS_WATCH
-        {kSkinTemperatureCmd,       kBatt, kASBMSMCReadDictionary,   0, 0, NULL,                kUserVis},
-#endif
         {kFinishPolling,            0,     kASBMInvalidOp,     0, 0, NULL,                      kUserVis}
     };
-    
+
     cmdTable.table = NULL;
     cmdTable.count = 0;
-    
+
     if ((cmdTable.table = (CommandStruct *)IOMalloc(sizeof(local_cmd)))) {
-        cmdTable.count = sizeof(local_cmd) / sizeof(CommandStruct);
+        cmdTable.count = ARRAY_SIZE(local_cmd);
         bcopy(&local_cmd, cmdTable.table, sizeof(local_cmd));
     }
 }
@@ -331,6 +362,7 @@ CommandStruct *AppleSmartBattery::commandForState(uint32_t state)
  * AppleSmartBattery::initiateTransaction
  *
  ******************************************************************************/
+#if TARGET_OS_OSX
 bool AppleSmartBattery::doInitiateTransaction(const CommandStruct *cs)
 {
     ASBMgrRequest req;
@@ -345,23 +377,31 @@ bool AppleSmartBattery::doInitiateTransaction(const CommandStruct *cs)
 
     return fProvider->performTransaction(&req, (OSObject *)this, (void *)cs);
 }
-
-#if TARGET_OS_WATCH
-void AppleSmartBattery::updateSKTMData(void)
-{
-    smcToRegistry sktmKeys[] = {
-        { _skinTemperature,                     'TSBH', -2 },
-        { _skinTemperatureVirtual,              'TV0s', -8 },
-        { NULL,                                 '0',     0 }
-    };
-
-    OSDictionary *sktmData = smcKeysToDictionary(sktmKeys);
-    if (sktmData) {
-        setPSProperty(_SKTMData, sktmData);
-        OSSafeReleaseNULL(sktmData);
-    }
-}
 #endif
+
+
+void AppleSmartBattery::updateDictionaryInIOReg(const OSSymbol *sym, smcToRegistry *keys)
+{
+    OSDictionary *dict = smcKeysToDictionary(keys);
+    if (!dict) {
+        return;
+    }
+
+    OSDictionary *prevDict = OSDynamicCast(OSDictionary, getProperty(sym));
+    if (prevDict) {
+        prevDict = OSDynamicCast(OSDictionary, prevDict->copyCollection());
+    }
+
+    if (prevDict) {
+        prevDict->merge(dict);
+        OSSafeReleaseNULL(dict);
+    } else {
+        prevDict = dict;
+    }
+
+    setProperty(sym, prevDict);
+    OSSafeReleaseNULL(prevDict);
+}
 
 bool AppleSmartBattery::initiateTransaction(const CommandStruct *cs)
 {
@@ -392,7 +432,7 @@ bool AppleSmartBattery::initiateNextTransaction(uint32_t state)
     if (!cmdTable.table) {
         return false;
     }
-    
+
     // Find index for "state" in cmd_machine
     for (found_current_index = 0; found_current_index < cmdTable.count; found_current_index++) {
         if (cmdTable.table[found_current_index].cmd == state) {
@@ -539,6 +579,7 @@ bool AppleSmartBattery::pollBatteryState(int type)
         return true;
     }
 }
+
 
 
 void AppleSmartBattery::handleBatteryInserted(void)
@@ -740,30 +781,26 @@ void AppleSmartBattery::handlePollingFinished(bool visitedEntirePath)
 
 
     fPollingNow = false;
-    
+
     acknowledgeSystemSleepWake();
 }
-
 
 bool AppleSmartBattery::handleSetItAndForgetIt(int state, int val, const uint8_t *str32, IOByteCount len)
 {
     CommandStruct   *this_command = NULL;
     const OSData    *publishData;
     const OSSymbol  *publishSym;
-    
+
     /* Set it and forget it
      *
      * These commands specify an OSSymbol in their CommandStruct.
      * We directly publish the data into these registry keys.
      */
-    if ((this_command = commandForState(state)) && this_command->setItAndForgetItSym)
-    {
+    if ((this_command = commandForState(state)) && this_command->setItAndForgetItSym) {
         if ((this_command->opType == kASBMSMBUSReadWord) || (this_command->opType == kASBMSMBUSExtendedReadWord)) {
             SET_INTEGER_IN_PROPERTIES(this_command->setItAndForgetItSym, val, (unsigned int)len);
             return true;
-        }
-        
-        else if (this_command->opType == kASBMSMBUSReadBlock) {
+        } else if (this_command->opType == kASBMSMBUSReadBlock) {
             if (state == kBManufactureDataCmd) {
                 publishData = OSData::withBytes((const void *)str32, (unsigned int)len);
                 if (publishData) {
@@ -790,7 +827,7 @@ bool AppleSmartBattery::handleSetItAndForgetIt(int state, int val, const uint8_t
             return true;
         }
     }
-    
+
     return false;
 }
 
@@ -805,12 +842,12 @@ void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByte
     bool            transaction_success = (status == kIOReturnSuccess);
     uint32_t        next_state = kTransactionRestart;
     uint32_t        val = 0;
+    uint64_t        val64 = 0;
     OSNumber        *num = NULL;
     CommandStruct * cs = (CommandStruct *)ref;
     uint32_t        cmd = kTransactionRestart;
     uint32_t        smcKey = 0;
     static unsigned int txnFailures;
-    
 
     if (!fWorkLoop->inGate()) {
         fWorkLoop->runAction(
@@ -819,11 +856,10 @@ void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByte
         return;
     }
 
-
-
     if (fCancelPolling) {
         goto abort;
     }
+
     if (fSystemSleeping) {
         BM_ERRLOG("Aborting transactions as system is sleeping\n");
         fPollRequestedInSleep = true;
@@ -837,34 +873,49 @@ void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByte
 
     if (cmd) {
         if (transaction_success) {
-            switch (inCount) {
-            case 2:
-                val = (inData[1] << 8) | inData[0];
-                break;
-            default:
-                break;
+            txnFailures = 0;
+
+            if (inData) {
+                if (inCount == 1) {
+                    val = inData[0];
+                    BM_LOG2("smcReadKeyHostEndian for cmd 0x%x (key %c%c%c%c) %d\n", cmd, SMCKEY2CHARS(smcKey), val);
+                }
+                else if (inCount == 2) {
+                    val = (inData[1] << 8) | inData[0];
+                    BM_LOG2("smcReadKeyHostEndian for cmd 0x%x (key %c%c%c%c) %d\n", cmd, SMCKEY2CHARS(smcKey), val);
+                }
+                else if (inCount == 4) {
+                    val = (inData[3] << 24) | (inData[2] << 16) | (inData[1] << 8) | inData[0];
+                    BM_LOG2("smcReadKeyHostEndian for cmd 0x%x (key %c%c%c%c) %d\n", cmd, SMCKEY2CHARS(smcKey), val);
+                }
+                else if (inCount == 8) {
+                    val = (inData[7] << 24) | (inData[6] << 16) | (inData[5] << 8) | inData[4];
+                    val64 = (uint64_t)val << 32;
+                    val = (inData[3] << 24) | (inData[2] << 16) | (inData[1] << 8) | inData[0];
+                    val64 |= val;
+                    BM_LOG2("smcReadKeyHostEndian for cmd 0x%x (key %c%c%c%c) 0x%llx\n", cmd, SMCKEY2CHARS(smcKey), val64);
+                }
             }
 
-            BM_LOG1("Command 0x%x completed. inCount: %llu data:0x%x", cmd, inCount, val);
             if (handleSetItAndForgetIt(cmd, val, inData, inCount)) {
                 goto exit;
             }
+        } else {
+            txnFailures++;
+            goto exit;
         }
     }
 
-
     // Restart?
-    if (!cmd || fRebootPolling)
-    {
+    if (!cmd || fRebootPolling) {
         // NULL cmd means we should start the state machine from scratch.
         cmd = next_state = kTransactionRestart;
         fRebootPolling = false;
         BM_LOG1("Restarting poll type %d\n", fMachinePath);
     }
-    
-    switch(cmd) {
-    case kTransactionRestart:
 
+    switch (cmd) {
+    case kTransactionRestart:
         fCancelPolling = false;
         fPollingNow = true;
 
@@ -876,7 +927,6 @@ void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByte
         break;
 
     case kMStateContCmd:
-            
         // Determines if AC is plugged or unplugged
         // Determines if AC is "charge capable"
         if (transaction_success)
@@ -918,13 +968,16 @@ void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByte
         break;
 
     case kMStateCmd:
-            
         // Determines if battery is present
         // Determines if battery is charging
         if (transaction_success)
         {
+#if TARGET_OS_OSX
             fBatteryPresent = (val & kMPresentBatt_A_Bit) ? true : false;
             setBatteryInstalled(fBatteryPresent);
+#else
+            fBatteryPresent = ((val & (1 << 6)) >> 6) ? false : true;
+#endif
 
 
             // If fChargeInhibit is currently set, then we acknowledge
@@ -939,7 +992,14 @@ void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByte
             if (fChargeInhibited) {
                 setIsCharging(false);
              } else {
+#if TARGET_OS_OSX
                 setIsCharging((val & kMChargingBatt_A_Bit) ? true:false);
+#else
+                // 'val' represents the ChargerStatus
+                // IsCharging = ExternalConnected && ChargeCapable && !ChargeInhibted
+                setIsCharging((val && fACConnected && fACChargeCapable) ? true : false);
+                BM_LOG2("ChargerState:%d ExtConnected:%d ChargeCapable:%d\n", val, fACConnected, fACChargeCapable);
+#endif
              }
 
         } else {
@@ -951,9 +1011,7 @@ void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByte
         break;
 
     case kBBatteryStatusCmd:
-            
-        if (!transaction_success)
-        {
+        if (!transaction_success) {
             fFullyCharged = false;
             fFullyDischarged = false;
         } else {
@@ -964,8 +1022,7 @@ void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByte
                 fFullyCharged = false;
             }
 
-            if (val & kBFullyDischargedStatusBit)
-            {
+            if (val & kBFullyDischargedStatusBit) {
                 if (!fFullyDischarged) {
                     fFullyDischarged = true;
 
@@ -982,8 +1039,7 @@ void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByte
              */
             if ((val
                 & (kBTerminateDischargeAlarmBit | kBTerminateChargeAlarmBit))
-                == (kBTerminateDischargeAlarmBit | kBTerminateChargeAlarmBit))
-            {
+                == (kBTerminateDischargeAlarmBit | kBTerminateChargeAlarmBit)) {
                 BM_ERRLOG("Failed with permanent failure for cmd 0x%x\n", next_state);
                 setErrorCondition((OSSymbol *)_PermanentFailureSym);
 
@@ -1063,12 +1119,11 @@ void AppleSmartBattery::transactionCompletion(void *ref, IOReturn status, IOByte
         SET_INTEGER_IN_PROPERTIES(_InstantAmperageSym, (int32_t)((int16_t)(val & 0xffff)), 4);
         fInstantCurrent = (int)(int16_t)val;
         break;
-            
+
     /* Average current */
     case kBAverageCurrentCmd:
         setAmperage((int16_t)val);
-        fAvgCurrent = (int16_t)val;
-        if (0 == fAvgCurrent) {
+        if (!val) {
             // Battery not present, or fully charged, or general error
             setTimeRemaining(0);
         }
@@ -1179,7 +1234,6 @@ void AppleSmartBattery::clearBatteryState(bool do_update)
     fFullyCharged           = false;
     fBatteryPresent         = false;
     fACConnected            = -1;
-    fAvgCurrent             = 0;
 
     setBatteryInstalled(false);
     setIsCharging(false);
@@ -1227,6 +1281,7 @@ void AppleSmartBattery::clearBatteryState(bool do_update)
 
  void AppleSmartBattery::rebuildLegacyIOBatteryInfo(void)
  {
+#if TARGET_OS_OSX
     if (!fWorkLoop->inGate()) {
         fWorkLoop->runAction(
                 OSMemberFunctionCast(IOWorkLoop::Action, this, &AppleSmartBattery::rebuildLegacyIOBatteryInfo),
@@ -1255,6 +1310,7 @@ void AppleSmartBattery::clearBatteryState(bool do_update)
     setLegacyIOBatteryInfo(legacyDict);
 
     legacyDict->release();
+#endif
 }
 
 

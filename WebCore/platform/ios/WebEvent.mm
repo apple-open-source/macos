@@ -35,15 +35,10 @@
 
 #import "KeyEventCodesIOS.h"
 #import "WAKAppKitStubs.h"
+#import <pal/ios/UIKitSoftLink.h>
 #import <pal/spi/cocoa/IOKitSPI.h>
 #import <pal/spi/ios/GraphicsServicesSPI.h>
 #import <pal/spi/ios/UIKitSPI.h>
-#import <wtf/SoftLinking.h>
-
-SOFT_LINK_FRAMEWORK(UIKit)
-SOFT_LINK_CLASS(UIKit, UIApplication);
-
-#define UIApplication getUIApplicationClass()
 
 using WebCore::windowsKeyCodeForKeyCode;
 using WebCore::windowsKeyCodeForCharCode;
@@ -54,19 +49,20 @@ using WebCore::windowsKeyCodeForCharCode;
 @synthesize timestamp = _timestamp;
 @synthesize wasHandled = _wasHandled;
 
-- (WebEvent *)initWithMouseEventType:(WebEventType)type
-                           timeStamp:(CFTimeInterval)timeStamp
-                            location:(CGPoint)point
+- (WebEvent *)initWithMouseEventType:(WebEventType)type timeStamp:(CFTimeInterval)timeStamp location:(CGPoint)point
+{
+    return [self initWithMouseEventType:type timeStamp:timeStamp location:point modifiers:0];
+}
+
+- (WebEvent *)initWithMouseEventType:(WebEventType)type timeStamp:(CFTimeInterval)timeStamp location:(CGPoint)point modifiers:(WebEventFlags)modifiers
 {
     self = [super init];
     if (!self)
         return nil;
-    
     _type = type;
     _timestamp = timeStamp;
-
     _locationInWindow = point;
-    
+    _modifierFlags = modifiers;
     return self;
 }
 
@@ -153,7 +149,19 @@ static NSString *normalizedStringWithAppKitCompatibilityMapping(NSString *charac
         return @"\x1B";
     case kHIDUsage_KeypadNumLock: // Num Lock / Clear
         return makeNSStringWithCharacter(NSClearLineFunctionKey);
+    case kHIDUsage_KeyboardDeleteForward:
+        return makeNSStringWithCharacter(NSDeleteFunctionKey);
+    case kHIDUsage_KeyboardEnd:
+        return makeNSStringWithCharacter(NSEndFunctionKey);
+    case kHIDUsage_KeyboardInsert:
+        return makeNSStringWithCharacter(NSInsertFunctionKey);
+    case kHIDUsage_KeyboardHome:
+        return makeNSStringWithCharacter(NSHomeFunctionKey);
     }
+    if (keyCode >= kHIDUsage_KeyboardF1 && keyCode <= kHIDUsage_KeyboardF12)
+        return makeNSStringWithCharacter(NSF1FunctionKey + (keyCode - kHIDUsage_KeyboardF1));
+    if (keyCode >= kHIDUsage_KeyboardF13 && keyCode <= kHIDUsage_KeyboardF24)
+        return makeNSStringWithCharacter(NSF13FunctionKey + (keyCode - kHIDUsage_KeyboardF13));
     return characters;
 }
 
@@ -177,6 +185,17 @@ static NSString *normalizedStringWithAppKitCompatibilityMapping(NSString *charac
     _modifierFlags = modifiers;
     _keyboardFlags = flags;
     _inputManagerHint = [hint retain];
+
+    BOOL flagsChanged = _keyboardFlags & WebEventKeyboardInputModifierFlagsChanged;
+    if (!flagsChanged) {
+        // Map Command + . to Escape since Apple Smart Keyboards lack an Escape key.
+        // FIXME: This doesn't work for some keyboard layouts, like French. See <rdar://problem/51047011>.
+        if ([charactersIgnoringModifiers isEqualToString:@"."] && (modifiers & WebEventFlagMaskCommandKey)) {
+            keyCode = kHIDUsage_KeyboardEscape;
+            _modifierFlags &= ~WebEventFlagMaskCommandKey;
+        }
+    }
+
     if (keyCode)
         _keyCode = windowsKeyCodeForKeyCode(keyCode);
     else if ([charactersIgnoringModifiers length] == 1) {
@@ -184,7 +203,7 @@ static NSString *normalizedStringWithAppKitCompatibilityMapping(NSString *charac
         _keyCode = windowsKeyCodeForCharCodeIOS([charactersIgnoringModifiers characterAtIndex:0]);
     }
 
-    if (!(_keyboardFlags & WebEventKeyboardInputModifierFlagsChanged)) {
+    if (!flagsChanged) {
         _characters = [normalizedStringWithAppKitCompatibilityMapping(characters, keyCode) retain];
         _charactersIgnoringModifiers = [normalizedStringWithAppKitCompatibilityMapping(charactersIgnoringModifiers, keyCode) retain];
         _tabKey = tabKey;
@@ -463,7 +482,7 @@ static NSString *normalizedStringWithAppKitCompatibilityMapping(NSString *charac
 
 + (WebEventFlags)modifierFlags
 {
-    return GSEventIsHardwareKeyboardAttached() ? GSKeyboardGetModifierState([UIApplication sharedApplication]._hardwareKeyboard) : 0;
+    return GSEventIsHardwareKeyboardAttached() ? GSKeyboardGetModifierState([PAL::getUIApplicationClass() sharedApplication]._hardwareKeyboard) : 0;
 }
 
 @end

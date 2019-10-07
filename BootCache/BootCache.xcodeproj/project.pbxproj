@@ -25,7 +25,6 @@
 /* Begin PBXBuildFile section */
 		720C345D13441CDA00304FF8 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72565F281331B3C8008CA43A /* CoreFoundation.framework */; };
 		7220D94B126FF071009A4724 /* libBootCache.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B84538126FE81E009E3486 /* libBootCache.a */; };
-		7220D9C31270B271009A4724 /* BootCache_private.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 9F30F63B01B745E90ECA2C3D /* BootCache_private.h */; };
 		7223F8DC13AA82C3006C4DB0 /* RootExtra.logical_playlist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7223F8DA13AA82A8006C4DB0 /* RootExtra.logical_playlist */; };
 		7246077413A9820F00DDF965 /* Root.logical_playlist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7246077213A9818100DDF965 /* Root.logical_playlist */; };
 		7246077513A9821200DDF965 /* Login.logical_playlist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7246076F13A9812600DDF965 /* Login.logical_playlist */; };
@@ -39,6 +38,7 @@
 		89F255950DAABEAD00CA7984 /* control.c in Sources */ = {isa = PBXBuildFile; fileRef = 9F67ED4101B842340ECA2C3D /* control.c */; };
 		D30AF03620F5382C00C099E9 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D30AF03520F5382C00C099E9 /* IOKit.framework */; };
 		D3C0387F1E899E4F007533A8 /* bc_utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D3C0387E1E899E4F007533A8 /* bc_utils.cpp */; };
+		D3D50D9D22A1D875002DE532 /* APFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D50D9B22A1D7BF002DE532 /* APFS.framework */; };
 		D3F66DDE1F9132590024CC3E /* BootCache_debug.h in Headers */ = {isa = PBXBuildFile; fileRef = D3F66DDD1F9132590024CC3E /* BootCache_debug.h */; };
 /* End PBXBuildFile section */
 
@@ -67,16 +67,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		7220D9C51270B291009A4724 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/local/include/;
-			dstSubfolderSpec = 0;
-			files = (
-				7220D9C31270B271009A4724 /* BootCache_private.h in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		7246077313A981E800DDF965 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -126,6 +116,7 @@
 		D30AF03520F5382C00C099E9 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		D3C0387E1E899E4F007533A8 /* bc_utils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = bc_utils.cpp; sourceTree = "<group>"; };
 		D3C038801E89A0D1007533A8 /* bc_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bc_utils.h; sourceTree = "<group>"; };
+		D3D50D9B22A1D7BF002DE532 /* APFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = APFS.framework; path = System/Library/PrivateFrameworks/APFS.framework; sourceTree = SDKROOT; };
 		D3F66DDD1F9132590024CC3E /* BootCache_debug.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BootCache_debug.h; sourceTree = "<group>"; };
 		D3F66E541F9FE76D0024CC3E /* kext.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -149,6 +140,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D3D50D9D22A1D875002DE532 /* APFS.framework in Frameworks */,
 				D30AF03620F5382C00C099E9 /* IOKit.framework in Frameworks */,
 				7220D94B126FF071009A4724 /* libBootCache.a in Frameworks */,
 				720C345D13441CDA00304FF8 /* CoreFoundation.framework in Frameworks */,
@@ -235,6 +227,7 @@
 		D30AF03420F5382B00C099E9 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				D3D50D9B22A1D7BF002DE532 /* APFS.framework */,
 				D30AF03520F5382C00C099E9 /* IOKit.framework */,
 			);
 			name = Frameworks;
@@ -278,8 +271,6 @@
 				72B84534126FE81E009E3486 /* Headers */,
 				72B84535126FE81E009E3486 /* Sources */,
 				72B84536126FE81E009E3486 /* Frameworks */,
-				7220D9C51270B291009A4724 /* CopyFiles */,
-				7220D980126FF612009A4724 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -340,17 +331,19 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0910;
+				DefaultBuildSystemTypeForWorkspace = Latest;
+				LastUpgradeCheck = 1100;
 			};
 			buildConfigurationList = 42F550340A77D4BD00672F71 /* Build configuration list for PBXProject "BootCache" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 1;
 			knownRegions = (
-				English,
-				Japanese,
-				French,
-				German,
+				Base,
+				ja,
+				en,
+				fr,
+				de,
 			);
 			mainGroup = 089C166AFE841209C02AAC07 /* SmartReadahead */;
 			projectDirPath = "";
@@ -392,20 +385,6 @@
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		7220D980126FF612009A4724 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "ln -s BootCache_private.h ${DSTROOT}/usr/local/include/libBootCache_priv.h";
-			showEnvVarsInLog = 0;
-		};
 		89F2557B0DAABEAD00CA7984 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -490,16 +469,19 @@
 		42F550350A77D4BD00672F71 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
@@ -507,7 +489,8 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 143;
+				CURRENT_PROJECT_VERSION = 151;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_MODEL_TUNING = "";
@@ -542,16 +525,19 @@
 		42F5503A0A77D4BD00672F71 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
@@ -559,7 +545,8 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 143;
+				CURRENT_PROJECT_VERSION = 151;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_MODEL_TUNING = "";
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -588,6 +575,7 @@
 		72B84539126FE81F009E3486 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				INSTALL_PATH = /usr/local/lib;
 				OTHER_REZFLAGS = "";
@@ -598,17 +586,20 @@
 		72B8453A126FE81F009E3486 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/local/lib;
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCache;
+				STRIP_INSTALLED_PRODUCT = NO;
 			};
 			name = Default;
 		};
 		89F255720DAABEAD00CA7984 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				OTHER_LDFLAGS = "";
@@ -621,6 +612,7 @@
 		89F255770DAABEAD00CA7984 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = BootCache;
@@ -632,12 +624,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = D3F66E541F9FE76D0024CC3E /* kext.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = "Info-BootCache_kext.plist";
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
-				MODULE_VERSION = 143;
+				MODULE_VERSION = 151;
 				OTHER_REZFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.BootCache;
 				PRODUCT_NAME = BootCache;
@@ -649,12 +642,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = D3F66E541F9FE76D0024CC3E /* kext.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = "Info-BootCache_kext.plist";
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
-				MODULE_VERSION = 143;
+				MODULE_VERSION = 151;
 				OTHER_REZFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.BootCache;
 				PRODUCT_NAME = BootCache;
@@ -665,6 +659,8 @@
 		89F2559A0DAABEAD00CA7984 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/sbin;
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCacheControl;
@@ -675,6 +671,8 @@
 		89F2559F0DAABEAD00CA7984 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/sbin;
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCacheControl;

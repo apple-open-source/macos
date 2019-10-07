@@ -328,7 +328,7 @@ rarp_open(device)
 		err(FATAL, "BIOCIMMEDIATE: %s", strerror(errno));
 		/* NOTREACHED */
 	}
-	(void) strncpy(ifr.ifr_name, device, sizeof ifr.ifr_name);
+	(void) strlcpy(ifr.ifr_name, device, sizeof ifr.ifr_name);
 	if (ioctl(fd, BIOCSETIF, (caddr_t) & ifr) < 0) {
 		err(FATAL, "BIOCSETIF: %s", strerror(errno));
 		/* NOTREACHED */
@@ -632,7 +632,7 @@ lookup_ipaddr(ifname, addrp, netmaskp)
 		err(FATAL, "socket: %s", strerror(errno));
 		/* NOTREACHED */
 	}
-	(void) strncpy(ifr.ifr_name, ifname, sizeof ifr.ifr_name);
+	(void) strlcpy(ifr.ifr_name, ifname, sizeof ifr.ifr_name);
 	if (ioctl(fd, SIOCGIFADDR, (char *) &ifr) < 0) {
 		err(FATAL, "SIOCGIFADDR: %s", strerror(errno));
 		/* NOTREACHED */

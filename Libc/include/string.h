@@ -72,11 +72,15 @@ int	 memcmp(const void *__s1, const void *__s2, size_t __n);
 void	*memcpy(void *__dst, const void *__src, size_t __n);
 void	*memmove(void *__dst, const void *__src, size_t __len);
 void	*memset(void *__b, int __c, size_t __len);
+#ifndef UNIFDEF_DRIVERKIT
 char	*strcat(char *__s1, const char *__s2);
+#endif /* UNIFDEF_DRIVERKIT */
 char	*strchr(const char *__s, int __c);
 int	 strcmp(const char *__s1, const char *__s2);
 int	 strcoll(const char *__s1, const char *__s2);
+#ifndef UNIFDEF_DRIVERKIT
 char	*strcpy(char *__dst, const char *__src);
+#endif /* UNIFDEF_DRIVERKIT */
 size_t	 strcspn(const char *__s, const char *__charset);
 //Begin-Libc
 #ifndef LIBC_ALIAS_STRERROR
@@ -135,7 +139,9 @@ __END_DECLS
 
 #if __DARWIN_C_LEVEL >= 200809L
 __BEGIN_DECLS
+#ifndef UNIFDEF_DRIVERKIT
 char	*stpcpy(char *__dst, const char *__src);
+#endif /* UNIFDEF_DRIVERKIT */
 char    *stpncpy(char *__dst, const char *__src, size_t __n) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 char	*strndup(const char *__s1, size_t __n) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 size_t   strnlen(const char *__s1, size_t __n) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);

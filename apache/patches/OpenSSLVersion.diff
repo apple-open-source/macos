@@ -1,0 +1,17 @@
+--- modules/ssl/ssl_engine_init.c.orig	2018-10-24 10:39:54.000000000 -0700
++++ modules/ssl/ssl_engine_init.c	2018-10-24 10:40:58.000000000 -0700
+@@ -1491,12 +1491,12 @@
+     STACK_OF(X509) *chain;
+     X509_STORE_CTX *sctx;
+     X509_STORE *store = SSL_CTX_get_cert_store(mctx->ssl_ctx);
+-
++#warning "No SSL_CTX_set_post_handshake_auth"
+ #if OPENSSL_VERSION_NUMBER >= 0x1010100fL
+     /* For OpenSSL >=1.1.1, turn on client cert support which is
+      * otherwise turned off by default (by design).
+      * https://github.com/openssl/openssl/issues/6933 */
+-    SSL_CTX_set_post_handshake_auth(mctx->ssl_ctx, 1);
++//    SSL_CTX_set_post_handshake_auth(mctx->ssl_ctx, 1);
+ #endif
+     
+     SSL_CTX_set_client_cert_cb(mctx->ssl_ctx,

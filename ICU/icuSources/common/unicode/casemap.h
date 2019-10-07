@@ -195,7 +195,6 @@ public:
             char16_t *dest, int32_t destCapacity, Edits *edits,
             UErrorCode &errorCode);
 
-#ifndef U_HIDE_DRAFT_API
     /**
      * Lowercases a UTF-8 string and optionally records edits.
      * Casing is locale-dependent and context-sensitive.
@@ -215,7 +214,7 @@ public:
      *                  which must not indicate a failure before the function call.
      *
      * @see ucasemap_utf8ToLower
-     * @draft ICU 60
+     * @stable ICU 60
      */
     static void utf8ToLower(
             const char *locale, uint32_t options,
@@ -241,7 +240,7 @@ public:
      *                  which must not indicate a failure before the function call.
      *
      * @see ucasemap_utf8ToUpper
-     * @draft ICU 60
+     * @stable ICU 60
      */
     static void utf8ToUpper(
             const char *locale, uint32_t options,
@@ -281,7 +280,7 @@ public:
      *                  which must not indicate a failure before the function call.
      *
      * @see ucasemap_utf8ToTitle
-     * @draft ICU 60
+     * @stable ICU 60
      */
     static void utf8ToTitle(
             const char *locale, uint32_t options, BreakIterator *iter,
@@ -312,13 +311,12 @@ public:
      *                  which must not indicate a failure before the function call.
      *
      * @see ucasemap_utf8FoldCase
-     * @draft ICU 60
+     * @stable ICU 60
      */
     static void utf8Fold(
             uint32_t options,
             StringPiece src, ByteSink &sink, Edits *edits,
             UErrorCode &errorCode);
-#endif  // U_HIDE_DRAFT_API
 
     /**
      * Lowercases a UTF-8 string and optionally records edits.

@@ -33,17 +33,8 @@
 #include <security_utilities/unix++.h>
 #include <security_utilities/cfmunge.h>
 #include <notify.h>
-#include <esp.h>
 
 using namespace CodeSigning;
-
-
-static void esp_do_check(const char *op, CFDictionaryRef dict)
-{
-	OSStatus result = __esp_check_ns(op, (void *)(CFDictionaryRef)dict);
-	if (result != noErr)
-		MacOSError::throwMe(result);
-}
 
 //
 // CF Objects
@@ -168,11 +159,6 @@ SecAssessmentRef SecAssessmentCreate(CFURLRef path,
 	SYSPOLICY_ASSESS_API(cfString(path).c_str(), int(type), flags);
 
 	try {
-		if (__esp_enabled() && (flags & kSecAssessmentFlagDirect)) {
-			CFTemp<CFDictionaryRef> dict("{path=%O, flags=%d, context=%O, override=%d}", path, flags, context, overrideAssessment());
-			esp_do_check("cs-assessment-evaluate", dict);
-		}
-
 		if (flags & kSecAssessmentFlagDirect) {
 			// ask the engine right here to do its thing
 			SYSPOLICY_ASSESS_LOCAL();
@@ -198,11 +184,6 @@ SecAssessmentRef SecAssessmentCreate(CFURLRef path,
 		if (!overrideAssessment(flags))
 			throw;		// let it go as an error
 		cfadd(result, "{%O=#F}", kSecAssessmentAssessmentVerdict);
-	}
-
-	if (__esp_enabled() && (flags & kSecAssessmentFlagDirect)) {
-		CFTemp<CFDictionaryRef> dict("{path=%O, flags=%d, context=%O, override=%d, result=%O}", path, flags, context, overrideAssessment(), (CFDictionaryRef)result);
-		__esp_notify_ns("cs-assessment-evaluate", (void *)(CFDictionaryRef)dict);
 	}
 
 	return new SecAssessment(path, type, result.yield());
@@ -443,23 +424,11 @@ CFDictionaryRef SecAssessmentCopyUpdate(CFTypeRef target,
 	}
 
 	if (flags & kSecAssessmentFlagDirect) {
-		if (__esp_enabled()) {
-			CFTemp<CFDictionaryRef> dict("{target=%O, flags=%d, context=%O}", target, flags, context);
-			OSStatus esp_result = __esp_check_ns("cs-assessment-update", (void *)(CFDictionaryRef)dict);
-			if (esp_result != noErr)
-				return NULL;
-		}
-
 		// ask the engine right here to do its thing
 		result = gEngine().update(target, flags, ctx);
 	} else {
 		// relay the question to our daemon for consideration
 		result = xpcEngineUpdate(target, flags, ctx);
-	}
-
-	if (__esp_enabled() && (flags & kSecAssessmentFlagDirect)) {
-		CFTemp<CFDictionaryRef> dict("{target=%O, flags=%d, context=%O, outcome=%O}", target, flags, context, (CFDictionaryRef)result);
-		__esp_notify_ns("cs-assessment-update", (void *)(CFDictionaryRef)dict);
 	}
 
 	traceUpdate(target, context, result);
@@ -468,12 +437,12 @@ CFDictionaryRef SecAssessmentCopyUpdate(CFTypeRef target,
 	END_CSAPI_ERRORS1(NULL)
 }
 
-static void
+static Boolean
 updateAuthority(const char *authority, bool enable, CFErrorRef *errors)
 {
 	CFStringRef updateValue = enable ? kSecAssessmentUpdateOperationEnable : kSecAssessmentUpdateOperationDisable;
 	CFTemp<CFDictionaryRef> ctx("{%O=%s, %O=%O}", kSecAssessmentUpdateKeyLabel, authority, kSecAssessmentContextKeyUpdate, updateValue);
-	SecAssessmentUpdate(NULL, kSecCSDefaultFlags, ctx, errors);
+	return SecAssessmentUpdate(NULL, kSecCSDefaultFlags, ctx, errors);
 }
 
 
@@ -485,9 +454,6 @@ Boolean SecAssessmentControl(CFStringRef control, void *arguments, CFErrorRef *e
 {
 	BEGIN_CSAPI
 	
-	CFTemp<CFDictionaryRef> dict("{control=%O}", control);
-	esp_do_check("cs-assessment-control", dict);
-
 	if (CFEqual(control, CFSTR("ui-enable"))) {
 		setAssessment(true);
 		MessageTrace trace("com.apple.security.assessment.state", "enable");
@@ -528,11 +494,13 @@ Boolean SecAssessmentControl(CFStringRef control, void *arguments, CFErrorRef *e
 		return true;
 	} else if (CFEqual(control, CFSTR("ui-enable-notarized"))) {
 		updateAuthority("Notarized Developer ID", true, errors);
+		updateAuthority("Unnotarized Developer ID", true, errors);
 		MessageTrace trace("com.apple.security.assessment.state", "enable-notarized");
 		trace.send("enable Notarized Developer ID approval");
 		return true;
 	} else if (CFEqual(control, CFSTR("ui-disable-notarized"))) {
 		updateAuthority("Notarized Developer ID", false, errors);
+		updateAuthority("Unnotarized Developer ID", false, errors);
 		MessageTrace trace("com.apple.security.assessment.state", "disable-notarized");
 		trace.send("disable Notarized Developer ID approval");
 		return true;
@@ -606,6 +574,16 @@ Boolean SecAssessmentTicketLookup(CFDataRef hash, SecCSDigestAlgorithm hashType,
 	BEGIN_CSAPI
 
 	xpcEngineTicketLookup(hash, hashType, flags, date);
+	return true;
+
+	END_CSAPI_ERRORS1(false)
+}
+
+Boolean SecAssessmentLegacyCheck(CFDataRef hash, SecCSDigestAlgorithm hashType, CFStringRef teamID, CFErrorRef *errors)
+{
+	BEGIN_CSAPI
+
+	xpcEngineLegacyCheck(hash, hashType, teamID);
 	return true;
 
 	END_CSAPI_ERRORS1(false)

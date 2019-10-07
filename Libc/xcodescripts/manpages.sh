@@ -3,6 +3,7 @@
 if [ "$ACTION" = installhdrs ]; then exit 0; fi
 if [ "${PLATFORM_NAME}" != "macosx" ]; then exit 0; fi
 if [ "${SKIP_MANPAGES}" = "YES" ]; then exit 0; fi
+if [ "${DRIVERKIT}" = 1 ]; then exit 0; fi
 
 UNIFDEF_FLAGS=`${SRCROOT}/xcodescripts/generate_features.pl --unifdef`
 MANPAGES_LIST="${SRCROOT}/man/manpages.lst"

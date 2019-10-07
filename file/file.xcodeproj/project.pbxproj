@@ -50,6 +50,8 @@
 		3E4D7E231DB5630B006010F2 /* der.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EFE51051DB562C00065DB79 /* der.c */; };
 		3EF8DE3F208E62DC00D4AAD5 /* buffer.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EF8DE3E208E62CC00D4AAD5 /* buffer.c */; };
 		3EF8DE40208E62F600D4AAD5 /* buffer.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EF8DE3E208E62CC00D4AAD5 /* buffer.c */; };
+		C1CF2E20220781A30024FFDA /* is_json.c in Sources */ = {isa = PBXBuildFile; fileRef = C1CF2E1F220781960024FFDA /* is_json.c */; };
+		C1CF2E21220781A40024FFDA /* is_json.c in Sources */ = {isa = PBXBuildFile; fileRef = C1CF2E1F220781960024FFDA /* is_json.c */; };
 		FD52DB9519F09E8600ECE87F /* softmagic.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083E10A91079007DD96A /* softmagic.c */; };
 		FD52DB9619F09E8800ECE87F /* readmacho.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083D10A91079007DD96A /* readmacho.c */; };
 		FD52DB9719F09E8B00ECE87F /* readelf.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083C10A91079007DD96A /* readelf.c */; };
@@ -128,6 +130,7 @@
 /* Begin PBXFileReference section */
 		3EF8DE3E208E62CC00D4AAD5 /* buffer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = buffer.c; sourceTree = "<group>"; };
 		3EFE51051DB562C00065DB79 /* der.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = der.c; sourceTree = "<group>"; };
+		C1CF2E1F220781960024FFDA /* is_json.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = is_json.c; sourceTree = "<group>"; };
 		FD52DB8C19F09C8F00ECE87F /* file.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = file.xcconfig; sourceTree = "<group>"; };
 		FD52DB8D19F09C8F00ECE87F /* libmagic.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libmagic.xcconfig; sourceTree = "<group>"; };
 		FD9307FD10A8FDBC007DD96A /* libmagic.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libmagic.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -223,6 +226,7 @@
 				FD93083510A91079007DD96A /* encoding.c */,
 				FD93083610A91079007DD96A /* fsmagic.c */,
 				FD93083710A91079007DD96A /* funcs.c */,
+				C1CF2E1F220781960024FFDA /* is_json.c */,
 				FD93083810A91079007DD96A /* is_tar.c */,
 				FD93083910A91079007DD96A /* magic.c */,
 				FD93083A10A91079007DD96A /* print.c */,
@@ -291,6 +295,7 @@
 		FD9307F010A8FD99007DD96A /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastUpgradeCheck = 1100;
 				TargetAttributes = {
 					FD52DB8E19F09D0A00ECE87F = {
 						CreatedOnToolsVersion = 6.3;
@@ -302,7 +307,9 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
+				Base,
 			);
 			mainGroup = FD9307EE10A8FD99007DD96A;
 			productRefGroup = FD9307FE10A8FDBC007DD96A /* Products */;
@@ -331,7 +338,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/man-pages.sh";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/man-pages.sh\n";
 			showEnvVarsInLog = 0;
 		};
 		FD52DBA619F0A1DA00ECE87F /* Install Man Pages and Open Source Info */ = {
@@ -361,7 +368,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/magic.sh";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/magic.sh\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -384,6 +391,7 @@
 				FD93084810A91079007DD96A /* is_tar.c in Sources */,
 				FD93084910A91079007DD96A /* magic.c in Sources */,
 				FD93084A10A91079007DD96A /* print.c in Sources */,
+				C1CF2E20220781A30024FFDA /* is_json.c in Sources */,
 				3EF8DE40208E62F600D4AAD5 /* buffer.c in Sources */,
 				FD93084B10A91079007DD96A /* readcdf.c in Sources */,
 				FD93084C10A91079007DD96A /* readelf.c in Sources */,
@@ -407,6 +415,7 @@
 				FD52DB9D19F09E9800ECE87F /* fsmagic.c in Sources */,
 				FD52DB9C19F09E9600ECE87F /* funcs.c in Sources */,
 				FD52DB9B19F09E9300ECE87F /* is_tar.c in Sources */,
+				C1CF2E21220781A40024FFDA /* is_json.c in Sources */,
 				FD52DB9A19F09E9100ECE87F /* magic.c in Sources */,
 				FD52DB9919F09E8F00ECE87F /* print.c in Sources */,
 				FD52DB9819F09E8D00ECE87F /* readcdf.c in Sources */,
@@ -452,6 +461,7 @@
 		FD52DB9019F09D0A00ECE87F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -459,6 +469,31 @@
 		FD9307F210A8FD99007DD96A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 			};
 			name = Release;
 		};
@@ -466,6 +501,8 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FD52DB8D19F09C8F00ECE87F /* libmagic.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Release;
 		};
@@ -473,12 +510,15 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FD52DB8C19F09C8F00ECE87F /* file.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Release;
 		};
 		FD93081510A8FEDF007DD96A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = Root;
 			};
 			name = Release;
@@ -486,6 +526,7 @@
 		FD93088610A913E2007DD96A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

@@ -14,8 +14,8 @@ cd [ -qsLP ] {+|-}n
        first attempt to change to the directory arg under  the  current
        directory,  and  if that fails but cdpath is set and contains at
        least one element attempt to change to the directory  arg  under
-       each  component  of  cdpath  in  turn  until successful.  If `.'
-       occurs in cdpath, then cdpath is searched strictly in  order  so
+       each  component  of cdpath in turn until successful.  If `.' oc-
+       curs in cdpath, then cdpath is searched  strictly  in  order  so
        that `.' is only tried at the appropriate point.
 
        The  order  of testing cdpath is modified if the option POSIX_CD

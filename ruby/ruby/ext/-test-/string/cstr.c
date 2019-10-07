@@ -1,3 +1,4 @@
+#include "ruby/encoding.h"
 #include "internal.h"
 
 static VALUE
@@ -47,6 +48,28 @@ bug_str_cstr_term_char(VALUE str)
 	if (!c) return Qnil;
     }
     return rb_enc_uint_chr((unsigned int)c, enc);
+}
+
+static VALUE
+bug_str_unterminated_substring(VALUE str, VALUE vbeg, VALUE vlen)
+{
+    long beg = NUM2LONG(vbeg);
+    long len = NUM2LONG(vlen);
+    rb_str_modify(str);
+    if (len < 0) rb_raise(rb_eArgError, "negative length: %ld", len);
+    if (RSTRING_LEN(str) < beg) rb_raise(rb_eIndexError, "beg: %ld", beg);
+    if (RSTRING_LEN(str) < beg + len) rb_raise(rb_eIndexError, "end: %ld", beg + len);
+    str = rb_str_new_shared(str);
+    if (STR_EMBED_P(str)) {
+	RSTRING(str)->basic.flags &= ~RSTRING_EMBED_LEN_MASK;
+	RSTRING(str)->basic.flags |= len << RSTRING_EMBED_LEN_SHIFT;
+	memmove(RSTRING(str)->as.ary, RSTRING(str)->as.ary + beg, len);
+    }
+    else {
+	RSTRING(str)->as.heap.ptr += beg;
+	RSTRING(str)->as.heap.len = len;
+    }
+    return str;
 }
 
 static VALUE
@@ -109,11 +132,12 @@ bug_str_s_rb_str_new_frozen(VALUE self, VALUE str)
 }
 
 void
-Init_cstr(VALUE klass)
+Init_string_cstr(VALUE klass)
 {
     rb_define_method(klass, "cstr_term", bug_str_cstr_term, 0);
     rb_define_method(klass, "cstr_unterm", bug_str_cstr_unterm, 1);
     rb_define_method(klass, "cstr_term_char", bug_str_cstr_term_char, 0);
+    rb_define_method(klass, "unterminated_substring", bug_str_unterminated_substring, 2);
     rb_define_singleton_method(klass, "cstr_term", bug_str_s_cstr_term, 1);
     rb_define_singleton_method(klass, "cstr_unterm", bug_str_s_cstr_unterm, 2);
     rb_define_singleton_method(klass, "cstr_term_char", bug_str_s_cstr_term_char, 1);

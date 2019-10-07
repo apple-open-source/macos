@@ -16,8 +16,6 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id$ */
-
 #include "php.h"
 #include <errno.h>
 #include "ext/standard/flock_compat.h"
@@ -31,10 +29,6 @@
 #ifdef PHP_WIN32
 #include <io.h>
 #include "config.w32.h"
-#endif
-
-#ifdef NETWARE
-#include <netinet/in.h>
 #endif
 
 #ifndef HAVE_FLOCK

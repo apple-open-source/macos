@@ -40,7 +40,7 @@ foreach ($files as $file) {
 }
 rmdir($dir);
 ?>
---EXPECTF--
+--EXPECT--
 bool(true)
 array(5) {
   [0]=>
@@ -54,4 +54,3 @@ array(5) {
   [4]=>
   string(3) "txt"
 }
-

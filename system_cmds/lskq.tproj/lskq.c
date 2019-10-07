@@ -132,13 +132,15 @@ fflags_build(struct kevent_extinfo *info, char *str, int len)
 
 	case EVFILT_TIMER: {
 		snprintf(str, len, "%c%c%c%c%c  ",
-			(ff & NOTE_SECONDS)    ? 's' :
-			(ff & NOTE_USECONDS)   ? 'u' :
-			(ff & NOTE_NSECONDS)   ? 'n' : '?',
-			(ff & NOTE_ABSOLUTE)   ? 'a' : '-',
-			(ff & NOTE_CRITICAL)   ? 'c' : '-',
-			(ff & NOTE_BACKGROUND) ? 'b' : '-',
-			(ff & NOTE_LEEWAY)     ? 'l' : '-'
+			(ff & NOTE_SECONDS)              ? 's' :
+			(ff & NOTE_USECONDS)             ? 'u' :
+			(ff & NOTE_NSECONDS)             ? 'n' :
+			(ff & NOTE_MACHTIME)             ? 'm' : '?',
+			(ff & NOTE_ABSOLUTE)             ? 'a' :
+			(ff & NOTE_MACH_CONTINUOUS_TIME) ? 'A' : '-',
+			(ff & NOTE_CRITICAL)             ? 'c' : '-',
+			(ff & NOTE_BACKGROUND)           ? 'b' : '-',
+			(ff & NOTE_LEEWAY)               ? 'l' : '-'
 		);
 		break;
 	}
@@ -152,13 +154,14 @@ fflags_build(struct kevent_extinfo *info, char *str, int len)
 		break;
 
 	case EVFILT_WORKLOOP:
-		snprintf(str, len, "%c%c%c%c   ",
+		snprintf(str, len, "%c%c%c%c%c  ",
 			(ff & NOTE_WL_THREAD_REQUEST) ? 't' :
-			(ff & NOTE_WL_SYNC_WAIT)      ? 'w' : '-',
-			(ff & NOTE_WL_SYNC_WAKE)      ? '!' : '-',
+			(ff & NOTE_WL_SYNC_WAIT)      ? 'w' :
+			(ff & NOTE_WL_SYNC_IPC)       ? 'i' : '-',
+			(ff & NOTE_WL_SYNC_WAKE)      ? 'W' : '-',
 			(ff & NOTE_WL_UPDATE_QOS)     ? 'q' : '-',
-			(ff & NOTE_WL_UPDATE_OWNER)   ? 'O' :
-			(ff & NOTE_WL_DISCOVER_OWNER) ? 'o' : '-'
+			(ff & NOTE_WL_DISCOVER_OWNER) ? 'o' : '-',
+			(ff & NOTE_WL_IGNORE_ESTALE)  ? 'e' : '-'
 		);
 		break;
 
@@ -391,8 +394,16 @@ process_kqueue(int pid, const char *procname, enum kqtype type, uint64_t kqid,
 		if (verbose && ret >= sizeof(struct kqueue_dyninfo)) {
 			print_kq_info(pid, procname, kqid, kqinfo.kqdi_info.kq_state);
 
-			printf("%18s ", " "); // ident
-			printf("%-9s ", " "); // filter
+			if (kqinfo.kqdi_owner) {
+				printf("%#18llx ", kqinfo.kqdi_owner);    // ident
+				printf("%-9s ", "WL owned"); // filter
+			} else if (kqinfo.kqdi_servicer) {
+				printf("%#18llx ", kqinfo.kqdi_servicer); // ident
+				printf("%-9s ", "WL"); // filter
+			} else {
+				printf("%18s ", "-"); // ident
+				printf("%-9s ", "WL"); // filter
+			}
 			dynkq_printed = true;
 
 			if (raw) {
@@ -400,24 +411,47 @@ process_kqueue(int pid, const char *procname, enum kqtype type, uint64_t kqid,
 				printf("%-10s ", " "); // flags
 				printf("%-10s ", " "); // evst
 			} else {
-				printf("%-8s ", " "); // fdtype
+				const char *reqstate = "???";
+
+				switch (kqinfo.kqdi_request_state) {
+				case WORKQ_TR_STATE_IDLE:
+					reqstate = "";
+					break;
+				case WORKQ_TR_STATE_NEW:
+					reqstate = "new";
+					break;
+				case WORKQ_TR_STATE_QUEUED:
+					reqstate = "queued";
+					break;
+				case WORKQ_TR_STATE_CANCELED:
+					reqstate = "canceled";
+					break;
+				case WORKQ_TR_STATE_BINDING:
+					reqstate = "binding";
+					break;
+				case WORKQ_TR_STATE_BOUND:
+					reqstate = "bound";
+					break;
+				}
+
+				printf("%-8s ", reqstate); // fdtype
 				char policy_type;
 				switch (kqinfo.kqdi_pol) {
-					case POLICY_RR:
-						policy_type = 'R';
-						break;
-					case POLICY_FIFO:
-						policy_type = 'F';
-					case POLICY_TIMESHARE:
-					case 0:
-					default:
-						policy_type = '-';
-						break;
+				case POLICY_RR:
+					policy_type = 'R';
+					break;
+				case POLICY_FIFO:
+					policy_type = 'F';
+				case POLICY_TIMESHARE:
+				case 0:
+				default:
+					policy_type = '-';
+					break;
 				}
 				snprintf(tmpstr, 4, "%c%c%c", (kqinfo.kqdi_pri == 0)?'-':'P', policy_type, (kqinfo.kqdi_cpupercent == 0)?'-':'%');
 				printf("%-7s ", tmpstr); // fflags
 				printf("%-15s ", " "); // flags
-				printf("%-17s ", " "); // evst
+				printf("%-15s ", " "); // evst
 			}
 
 			if (!raw && kqinfo.kqdi_pri != 0) {
@@ -427,10 +461,6 @@ process_kqueue(int pid, const char *procname, enum kqtype type, uint64_t kqid,
 					kqinfo.kqdi_sync_waiter_qos);
 				printf("%3s ", thread_qos_name(qos)); //qos
 			}
-			printf("%-18s ", " "); // data
-			printf("%-18s ", " "); // udata
-			printf("%#18llx ", kqinfo.kqdi_servicer); // ext0
-			printf("%#18llx ", kqinfo.kqdi_owner);    // ext1
 			printf("\n");
 		}
 	}
@@ -549,24 +579,21 @@ process_kqueue(int pid, const char *procname, enum kqtype type, uint64_t kqid,
 			);
 
 			unsigned st = info->kqext_status;
-			printf("%c%c%c%c %c%c%c%c %c%c%c%c %c%c ",
-					(st & KN_ACTIVE)     ? 'a' : '-',
-					(st & KN_QUEUED)     ? 'q' : '-',
-					(st & KN_DISABLED)   ? 'd' : '-',
-					(st & KN_STAYACTIVE) ? 's' : '-',
+			printf("%c%c%c%c%c %c%c%c%c %c%c%c ",
+					(st & KN_ACTIVE)      ? 'a' : '-',
+					(st & KN_QUEUED)      ? 'q' : '-',
+					(st & KN_DISABLED)    ? 'd' : '-',
+					(st & KN_SUPPRESSED)  ? 'p' : '-',
+					(st & KN_STAYACTIVE)  ? 's' : '-',
 
-					(st & KN_DROPPING)  ? 'd' : '-',
-					(st & KN_USEWAIT)   ? 'w' : '-',
-					(st & KN_ATTACHING) ? 'c' : '-',
-					(st & KN_ATTACHED)  ? 'a' : '-',
+					(st & KN_DROPPING)    ? 'd' : '-',
+					(st & KN_LOCKED)      ? 'l' : '-',
+					(st & KN_POSTING)     ? 'P' : '-',
+					(st & KN_MERGE_QOS)   ? 'm' : '-',
 
-					(st & KN_DISPATCH)       ? 's' : '-',
-					(st & KN_UDATA_SPECIFIC) ? 'u' : '-',
-					(st & KN_SUPPRESSED)     ? 'p' : '-',
-					(st & KN_STOLENDROP)     ? 't' : '-',
-
-					(st & KN_REQVANISH)  ? 'v' : '-',
-					(st & KN_VANISHED)   ? 'n' : '-'
+					(st & KN_DEFERDELETE) ? 'D' : '-',
+					(st & KN_REQVANISH)   ? 'v' : '-',
+					(st & KN_VANISHED)    ? 'n' : '-'
 			);
 		}
 
@@ -796,28 +823,33 @@ out:
 static void
 cheatsheet(void)
 {
+	const char *bold = "\033[1m";
+	const char *reset = "\033[0m";
+	if (!isatty(STDERR_FILENO)) {
+		bold = reset = "";
+	}
+
 	fprintf(stderr, "\nFilter-independent flags:\n\n\
-\033[1m\
-command                pid                 kq kqst               knid filter    fdtype   fflags       flags             evst       qos\033[0m\n\033[1m\
--------------------- ----- ------------------ ---- ------------------ --------- -------- ------- --------------- ----------------- ---\033[0m\n\
+%s\
+command                pid                 kq kqst               knid filter    fdtype   fflags       flags           evst      qos%s\n%s\
+-------------------- ----- ------------------ ---- ------------------ --------- -------- ------- --------------- -------------- ---%s\n\
                                                                                                            ┌ EV_UDATA_SPECIFIC\n\
                                                                                              EV_DISPATCH ┐ │┌ EV_FLAG0 (EV_POLL)\n\
                                                                                                EV_CLEAR ┐│ ││┌ EV_FLAG1 (EV_OOBAND)\n\
                                                                                             EV_ONESHOT ┐││ │││┌ EV_EOF\n\
                                                                                            EV_RECEIPT ┐│││ ││││┌ EV_ERROR\n\
-                                                                                                      ││││ │││││\n\033[1m\
-launchd                  1                  4  ks- netbiosd       250 PROC               ------- andx r1cs upboe aqds dwca supt vn  IN\033[0m \n\
-                                            │  │││                                               ││││            ││││ ││││ ││││ ││\n\
-          kqueue file descriptor/dynamic ID ┘  │││                                        EV_ADD ┘│││  KN_ACTIVE ┘│││ ││││ ││││ ││\n\
-                                      KQ_SLEEP ┘││                                      EV_ENABLE ┘││   KN_QUEUED ┘││ ││││ ││││ ││\n\
-                                         KQ_SEL ┘│                                      EV_DISABLE ┘│  KN_DISABLED ┘│ ││││ ││││ │└ KN_VANISHED\n\
-                                    KQ_WORKQ (q) ┤                                        EV_DELETE ┘ KN_STAYACTIVE ┘ ││││ ││││ └ KN_REQVANISH\n\
-                                 KQ_WORKLOOP (l) ┘                                                                    ││││ ││││\n\
-                                                                                                          KN_DROPPING ┘│││ │││└ KN_STOLENDROP\n\
-                                                                                                            KN_USEWAIT ┘││ ││└ KN_SUPPRESSED\n\
-                                                                                                           KN_ATTACHING ┘│ │└ KN_UDATA_SPECIFIC\n\
-                                                                                                             KN_ATTACHED ┘ └ KN_DISPATCH\n\
-	\n");
+                                                                                                      ││││ │││││\n%s\
+launchd                  1                  4  ks- netbiosd       250 PROC               ------- andx r1cs upboe aqdps dlPm Dvn  IN%s\n\
+                                            │  │││                                               ││││            │││││ ││││ │││\n\
+          kqueue file descriptor/dynamic ID ┘  │││                                        EV_ADD ┘│││  KN_ACTIVE ┘││││ ││││ ││└ KN_VANISHED\n\
+                                      KQ_SLEEP ┘││                                      EV_ENABLE ┘││   KN_QUEUED ┘│││ ││││ │└ KN_REQVANISH\n\
+                                         KQ_SEL ┘│                                      EV_DISABLE ┘│  KN_DISABLED ┘││ ││││ └ KN_DEFERDELETE\n\
+                                    KQ_WORKQ (q) ┤                                        EV_DELETE ┘ KN_SUPPRESSED ┘│ ││││\n\
+                                 KQ_WORKLOOP (l) ┘                                                     KN_STAYACTIVE ┘ ││││\n\
+                                                                                                                       ││││\n\
+                                                                                                           KN_DROPPING ┘││└ KN_MERGE_QOS\n\
+                                                                                                              KN_LOCKED ┘└ KN_POSTING\n\
+	\n", bold, reset, bold, reset, bold, reset);
 }
 
 static void
@@ -830,13 +862,13 @@ static void
 print_header(void)
 {
 	if (raw) {
-		printf("  pid                 kq       kqst               knid filter        fflags      flags    evst    qos               data");
+		printf("  pid                 kq       kqst               knid filter        fflags      flags       evst qos               data");
 	} else {
-		printf("command                pid                 kq kqst               knid filter    fdtype   fflags       flags             evst       qos               data");
+		printf("command                pid                 kq kqst               knid filter    fdtype   fflags       flags           evst      qos               data");
 	}
 
 	if (verbose) {
-		printf("              udata    servicer / ext0       owner / ext1               ext2               ext3     xflags");
+		printf("              udata               ext0               ext1               ext2               ext3     xflags");
 	}
 
 	printf("\n");
@@ -844,7 +876,7 @@ print_header(void)
 	if (raw) {
 		printf("----- ------------------ ---------- ------------------ --------- ---------- ---------- ---------- --- ------------------");
 	} else {
-		printf("-------------------- ----- ------------------ ---- ------------------ --------- -------- ------- --------------- ----------------- --- ------------------");
+		printf("-------------------- ----- ------------------ ---- ------------------ --------- -------- ------- --------------- -------------- --- ------------------");
 	}
 
 	if (verbose) {

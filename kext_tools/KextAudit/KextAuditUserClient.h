@@ -43,6 +43,12 @@ enum KextAuditBridgeDeviceType {
 class KextAuditUserClient : public IOUserClient
 {
 	OSDeclareDefaultStructors(KextAuditUserClient);
+
+protected:
+	static const IOExternalMethodDispatch sMethods[kKextAuditMethodCount];
+	static IOReturn notifyLoad(KextAuditUserClient *target, void *, IOExternalMethodArguments *args);
+	static IOReturn test(KextAuditUserClient *target, void *, IOExternalMethodArguments *args);
+
 private:
 	task_t fTask;
 	KextAudit *fProvider;

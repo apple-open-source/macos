@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,8 +41,9 @@
 #include <strings.h>
 
 #include "dynarray.h"
+#include "symbol_scope.h"
 
-void
+PRIVATE_EXTERN void
 dynarray_init(dynarray_t * list, dynarray_free_func_t * free_func,
 	      dynarray_copy_func_t * copy_func)
 {
@@ -52,7 +53,7 @@ dynarray_init(dynarray_t * list, dynarray_free_func_t * free_func,
     return;
 }
 
-void
+PRIVATE_EXTERN void
 dynarray_free(dynarray_t * list)
 {
     void *	element;
@@ -66,25 +67,25 @@ dynarray_free(dynarray_t * list)
     return;
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 dynarray_add(dynarray_t * list, void * element)
 {
     return (ptrlist_add(&list->list, element));
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 dynarray_insert(dynarray_t * list, void * element, int i)
 {
     return (ptrlist_insert(&list->list, element, i));
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 dynarray_remove(dynarray_t * list, int i, void * * element_p)
 {
     return (ptrlist_remove(&list->list, i , element_p));
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 dynarray_free_element(dynarray_t * list, int i)
 {
     void * p;
@@ -98,7 +99,7 @@ dynarray_free_element(dynarray_t * list, int i)
     return (FALSE);
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 dynarray_dup(dynarray_t * dest, dynarray_t * source)
 {
     int i;
@@ -145,19 +146,19 @@ dynarray_concat(dynarray_t * list, dynarray_t * extra)
 }
 #endif /* 0 */
 
-int
+PRIVATE_EXTERN int
 dynarray_count(dynarray_t * list)
 {
     return (ptrlist_count(&list->list));
 }
 
-void *
+PRIVATE_EXTERN void *
 dynarray_element(dynarray_t * list, int i)
 {
     return (ptrlist_element(&list->list, i));
 }
 
-int
+PRIVATE_EXTERN int
 dynarray_index(dynarray_t * list, void * element)
 {
     return (ptrlist_index(&list->list, element));

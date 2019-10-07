@@ -33,7 +33,6 @@
 #include <Security/SecKeyPriv.h>
 #include <security_asn1/SecNssCoder.h>
 #include <security_cdsa_utils/cuCdsaUtils.h>
-#include <security_utilities/devrandom.h>
 
 #include <assert.h>
 
@@ -377,7 +376,6 @@ OSStatus impExpWrappedKeyOpenSslExport(
 	const char							**pemHeader,	// RETURNED
 	CFArrayRef							*pemParamLines) // RETURNED
 {
-	DevRandomGenerator		rng;
 	SecNssCoder				coder;
 	CSSM_CSP_HANDLE			cspHand = 0;
 	OSStatus				ortn;
@@ -405,8 +403,8 @@ OSStatus impExpWrappedKeyOpenSslExport(
 	/* 8 bytes of random IV/salt */
 	uint8 saltIv[8];
 	CSSM_DATA saltIvData = { 8, saltIv} ;
-	rng.random(saltIv, 8);
-	
+    MacOSError::check(SecRandomCopyBytes(kSecRandomDefault, sizeof(saltIv), saltIv));
+    
 	/* derive wrapping key */
 	CSSM_KEY	wrappingKey;
 	wrappingKey.KeyData.Data = NULL;

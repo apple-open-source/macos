@@ -43,7 +43,7 @@
 .Nd change group
 .Sh SYNOPSIS
 .Nm chgrp
-.Op Fl fhv
+.Op Fl fhnv
 .Oo
 .Fl R
 .Op Fl H | Fl L | Fl P
@@ -86,6 +86,8 @@ to change the group ID of a symbolic link.
 .It Fl R
 Change the group ID for the file hierarchies rooted
 in the files instead of just the files themselves.
+.It Fl n
+Interpret the group ID as numeric, avoiding the name lookup.
 .It Fl v
 Cause
 .Nm chgrp

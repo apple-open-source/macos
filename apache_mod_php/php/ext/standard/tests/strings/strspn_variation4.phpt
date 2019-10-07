@@ -4,7 +4,7 @@ Test strspn() function : usage variations - unexpected values of len argument
 <?php
 /* Prototype  : proto int strspn(string str, string mask [, int start [, int len]])
  * Description: Finds length of initial segment consisting entirely of characters found in mask.
-                If start or/and length is provided works like strspn(substr($s,$start,$len),$good_chars) 
+                If start or/and length is provided works like strspn(substr($s,$start,$len),$good_chars)
  * Source code: ext/standard/string.c
  * Alias to functions: none
 */
@@ -117,27 +117,27 @@ int(0)
 
 -- Iteration with len value as "Array" --
 
-Warning: strspn() expects parameter 4 to be integer, array given in %s on line %d
+Warning: strspn() expects parameter 4 to be int, array given in %s on line %d
 NULL
 
 -- Iteration with len value as "Array" --
 
-Warning: strspn() expects parameter 4 to be integer, array given in %s on line %d
+Warning: strspn() expects parameter 4 to be int, array given in %s on line %d
 NULL
 
 -- Iteration with len value as "Array" --
 
-Warning: strspn() expects parameter 4 to be integer, array given in %s on line %d
+Warning: strspn() expects parameter 4 to be int, array given in %s on line %d
 NULL
 
 -- Iteration with len value as "Array" --
 
-Warning: strspn() expects parameter 4 to be integer, array given in %s on line %d
+Warning: strspn() expects parameter 4 to be int, array given in %s on line %d
 NULL
 
 -- Iteration with len value as "Array" --
 
-Warning: strspn() expects parameter 4 to be integer, array given in %s on line %d
+Warning: strspn() expects parameter 4 to be int, array given in %s on line %d
 NULL
 
 -- Iteration with len value as "" --
@@ -160,27 +160,27 @@ int(0)
 
 -- Iteration with len value as "" --
 
-Warning: strspn() expects parameter 4 to be integer, string given in %s on line %d
+Warning: strspn() expects parameter 4 to be int, string given in %s on line %d
 NULL
 
 -- Iteration with len value as "" --
 
-Warning: strspn() expects parameter 4 to be integer, string given in %s on line %d
+Warning: strspn() expects parameter 4 to be int, string given in %s on line %d
 NULL
 
 -- Iteration with len value as "string" --
 
-Warning: strspn() expects parameter 4 to be integer, string given in %s on line %d
+Warning: strspn() expects parameter 4 to be int, string given in %s on line %d
 NULL
 
 -- Iteration with len value as "string" --
 
-Warning: strspn() expects parameter 4 to be integer, string given in %s on line %d
+Warning: strspn() expects parameter 4 to be int, string given in %s on line %d
 NULL
 
 -- Iteration with len value as "object" --
 
-Warning: strspn() expects parameter 4 to be integer, object given in %s on line %d
+Warning: strspn() expects parameter 4 to be int, object given in %s on line %d
 NULL
 
 -- Iteration with len value as "" --
@@ -191,6 +191,6 @@ int(0)
 
 -- Iteration with len value as "Resource id #%d" --
 
-Warning: strspn() expects parameter 4 to be integer, resource given in %s on line %d
+Warning: strspn() expects parameter 4 to be int, resource given in %s on line %d
 NULL
 Done

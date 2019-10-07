@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 fil{
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -53,6 +53,11 @@ fil{
                 one{"{0} acre"}
                 other{"{0} acres"}
             }
+            dunam{
+                dnam{"dunam"}
+                one{"{0} dunam"}
+                other{"{0} dunam"}
+            }
             hectare{
                 dnam{"hektarya"}
                 one{"{0} hektarya"}
@@ -79,7 +84,6 @@ fil{
                 dnam{"kilometro kwadrado"}
                 one{"{0} kilometro kwadrado"}
                 other{"{0} na kilometro kwadrado"}
-                per{"{0}/km²"}
             }
             square-meter{
                 dnam{"metro kwadrado"}
@@ -91,7 +95,6 @@ fil{
                 dnam{"milya kwadrado"}
                 one{"{0} milya kwadrado"}
                 other{"{0} na milya kwadrado"}
-                per{"{0}/mi²"}
             }
             square-yard{
                 dnam{"yardang parisukat"}
@@ -109,19 +112,37 @@ fil{
                 other{"{0} na karat"}
             }
             milligram-per-deciliter{
-                dnam{"mg/dL"}
                 one{"{0} milligram per deciliter"}
                 other{"{0} milligrams per deciliter"}
             }
             millimole-per-liter{
-                dnam{"mmol/L"}
                 one{"{0} millimole per liter"}
                 other{"{0} millimoles per liter"}
+            }
+            mole{
+                dnam{"mole"}
+                one{"{0} mole"}
+                other{"{0} mole"}
             }
             part-per-million{
                 dnam{"parts per million"}
                 one{"{0} part per million"}
                 other{"{0} parts per million"}
+            }
+            percent{
+                dnam{"porsyento"}
+                one{"{0} porsyento"}
+                other{"{0} na porsyento"}
+            }
+            permille{
+                dnam{"permille"}
+                one{"{0} permille"}
+                other{"{0} na permille"}
+            }
+            permyriad{
+                dnam{"permyriad"}
+                one{"{0} permyriad"}
+                other{"{0} permyriad"}
             }
         }
         consumption{
@@ -147,6 +168,7 @@ fil{
             }
         }
         coordinate{
+            dnam{"cardinal direction"}
             east{"{0}S"}
             north{"{0}H"}
             south{"{0}T"}
@@ -192,6 +214,11 @@ fil{
                 dnam{"megabytes"}
                 one{"{0} megabyte"}
                 other{"{0} na megabyte"}
+            }
+            petabyte{
+                dnam{"petabytes"}
+                one{"{0} petabyte"}
+                other{"{0} petabytes"}
             }
             terabit{
                 dnam{"terabits"}
@@ -291,10 +318,20 @@ fil{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"British thermal unit"}
+                one{"{0} British thermal unit"}
+                other{"{0} British thermal unit"}
+            }
             calorie{
                 dnam{"calories"}
                 one{"{0} calorie"}
                 other{"{0} na calories"}
+            }
+            electronvolt{
+                dnam{"electronvolt"}
+                one{"{0} electronvolt"}
+                other{"{0} electronvolt"}
             }
             foodcalorie{
                 dnam{"Calories"}
@@ -320,6 +357,18 @@ fil{
                 dnam{"kilowatt-hours"}
                 one{"{0} kilowatt hour"}
                 other{"{0} na kilowatt-hour"}
+            }
+        }
+        force{
+            newton{
+                dnam{"newton"}
+                one{"{0} newton"}
+                other{"{0} newton"}
+            }
+            pound-force{
+                dnam{"pound of force"}
+                one{"{0} pound of force"}
+                other{"{0} pound of force"}
             }
         }
         frequency{
@@ -445,6 +494,11 @@ fil{
                 one{"{0} puntos"}
                 other{"{0} puntos"}
             }
+            solar-radius{
+                dnam{"solar radii"}
+                one{"{0} solar radius"}
+                other{"{0} solar radii"}
+            }
             yard{
                 dnam{"yarda"}
                 one{"{0} yarda"}
@@ -457,12 +511,27 @@ fil{
                 one{"{0} lux"}
                 other{"{0} na lux"}
             }
+            solar-luminosity{
+                dnam{"solar luminosity"}
+                one{"{0} solar luminosity"}
+                other{"{0} solar luminosity"}
+            }
         }
         mass{
             carat{
                 dnam{"karat"}
                 one{"{0} karat"}
                 other{"{0} karat"}
+            }
+            dalton{
+                dnam{"dalton"}
+                one{"{0} dalton"}
+                other{"{0} dalton"}
+            }
+            earth-mass{
+                dnam{"Earth mass"}
+                one{"{0} Earth mass"}
+                other{"{0} Earth mass"}
             }
             gram{
                 dnam{"gramo"}
@@ -508,6 +577,11 @@ fil{
                 other{"{0} na libra"}
                 per{"{0} kada libra"}
             }
+            solar-mass{
+                dnam{"solar mass"}
+                one{"{0} solar mass"}
+                other{"{0} solar mass"}
+            }
             stone{
                 dnam{"stones"}
                 one{"{0} stone"}
@@ -552,6 +626,11 @@ fil{
             }
         }
         pressure{
+            atmosphere{
+                dnam{"atmospheres"}
+                one{"{0} atmosphere"}
+                other{"{0} atmospheres"}
+            }
             hectopascal{
                 dnam{"hectopascals"}
                 one{"{0} hectopascal"}
@@ -561,6 +640,16 @@ fil{
                 dnam{"pulgada ng asoge"}
                 one{"{0} pulgada ng asoge"}
                 other{"{0} na pulgada ng asoge"}
+            }
+            kilopascal{
+                dnam{"kilopascal"}
+                one{"{0} kilopascal"}
+                other{"{0} kilopascal"}
+            }
+            megapascal{
+                dnam{"megapascal"}
+                one{"{0} megapascal"}
+                other{"{0} megapascal"}
             }
             millibar{
                 dnam{"millibar"}
@@ -622,11 +711,28 @@ fil{
                 other{"{0} degrees kelvin"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"newton-meter"}
+                one{"{0} newton-meter"}
+                other{"{0} newton-meter"}
+            }
+            pound-foot{
+                dnam{"pound-feet"}
+                one{"{0} pound-foot"}
+                other{"{0} pound-feet"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"acre-feet"}
                 one{"{0} acre-foot"}
                 other{"{0} acre-feet"}
+            }
+            barrel{
+                dnam{"bariles"}
+                one{"{0} bariles"}
+                other{"{0} bariles"}
             }
             centiliter{
                 dnam{"sentilitro"}
@@ -690,17 +796,16 @@ fil{
                 one{"{0} fluid ounce"}
                 other{"{0} na fluid ounce"}
             }
+            fluid-ounce-imperial{
+                dnam{"Imp. fluid ounce"}
+                one{"{0} Imp. fluid ounce"}
+                other{"{0} Imp. fluid ounce"}
+            }
             gallon{
                 dnam{"galon"}
                 one{"{0} galon"}
                 other{"{0} na galon"}
                 per{"{0} kada galon"}
-            }
-            gallon-imperial{
-                dnam{"Imp. gal"}
-                one{"{0} gal Imp."}
-                other{"{0} gal Imp."}
-                per{"{0}/gal Imp."}
             }
             hectoliter{
                 dnam{"hektolitro"}
@@ -753,14 +858,12 @@ fil{
     unitsNarrow{
         acceleration{
             g-force{
-                dnam{"g-force"}
                 one{"{0}G"}
                 other{"{0}G"}
             }
             meter-per-second-squared{
-                dnam{"m/s²"}
                 one{"{0}m/s²"}
-                other{"{0} m/s²"}
+                other{"{0}m/s²"}
             }
         }
         angle{
@@ -771,10 +874,6 @@ fil{
             arc-second{
                 one{"{0}″"}
                 other{"{0}″"}
-            }
-            degree{
-                one{"{0}°"}
-                other{"{0}°"}
             }
         }
         area{
@@ -794,10 +893,6 @@ fil{
                 one{"{0}km²"}
                 other{"{0}km²"}
             }
-            square-meter{
-                one{"{0} m²"}
-                other{"{0} m²"}
-            }
             square-mile{
                 one{"{0}mi²"}
                 other{"{0}mi²"}
@@ -805,6 +900,13 @@ fil{
         }
         compound{
             per{"{0}/{1}"}
+        }
+        concentr{
+            percent{
+                dnam{"%"}
+                one{"{0}%"}
+                other{"{0}%"}
+            }
         }
         consumption{
             liter-per-100kilometers{
@@ -814,33 +916,25 @@ fil{
             }
         }
         coordinate{
+            dnam{"direction"}
             east{"{0}S"}
             north{"{0}H"}
             south{"{0}T"}
             west{"{0}K"}
         }
         duration{
-            century{
-                dnam{"c"}
-                one{"{0} c"}
-                other{"{0} c"}
-            }
             day{
                 dnam{"araw"}
                 one{"{0} araw"}
                 other{"{0} na araw"}
-                per{"{0}/d"}
             }
             hour{
                 dnam{"oras"}
                 one{"{0} oras"}
                 other{"{0} oras"}
-                per{"{0}/h"}
             }
             microsecond{
                 dnam{"μseg"}
-                one{"{0} μs"}
-                other{"{0} μs"}
             }
             millisecond{
                 dnam{"mseg"}
@@ -851,24 +945,19 @@ fil{
                 dnam{"min."}
                 one{"{0}m"}
                 other{"{0}m"}
-                per{"{0}/min"}
             }
             month{
                 dnam{"buwan"}
                 one{"{0}buwan"}
                 other{"{0} buwan"}
-                per{"{0}/m"}
             }
             nanosecond{
                 dnam{"nanoseg"}
-                one{"{0} ns"}
-                other{"{0} ns"}
             }
             second{
                 dnam{"seg."}
                 one{"{0}s"}
                 other{"{0}s"}
-                per{"{0}/s"}
             }
             week{
                 dnam{"linggo"}
@@ -885,7 +974,6 @@ fil{
         }
         length{
             astronomical-unit{
-                dnam{"au"}
                 one{"{0}au"}
                 other{"{0}au"}
             }
@@ -893,43 +981,31 @@ fil{
                 dnam{"cm"}
                 one{"{0}cm"}
                 other{"{0}cm"}
-                per{"{0}/cm"}
-            }
-            decimeter{
-                dnam{"dm"}
-                one{"{0} dm"}
-                other{"{0} dm"}
             }
             fathom{
                 dnam{"fathom"}
-                one{"{0}fm"}
-                other{"{0}fm"}
+                one{"{0}fth"}
+                other{"{0}fth"}
             }
             foot{
-                dnam{"ft"}
                 one{"{0}′"}
                 other{"{0}′"}
-                per{"{0}/ft"}
             }
             furlong{
                 dnam{"furlong"}
                 one{"{0}fur"}
-                other{"{0} fur"}
+                other{"{0}fur"}
             }
             inch{
-                dnam{"in"}
                 one{"{0}″"}
                 other{"{0}″"}
-                per{"{0}/in"}
             }
             kilometer{
                 dnam{"km"}
                 one{"{0}km"}
                 other{"{0}km"}
-                per{"{0}/km"}
             }
             light-year{
-                dnam{"ly"}
                 one{"{0}ly"}
                 other{"{0}ly"}
             }
@@ -937,20 +1013,15 @@ fil{
                 dnam{"metro"}
                 one{"{0}m"}
                 other{"{0}m"}
-                per{"{0}/m"}
             }
             micrometer{
                 dnam{"µmetro"}
-                one{"{0} µm"}
-                other{"{0} µm"}
             }
             mile{
-                dnam{"mi"}
                 one{"{0}mi"}
                 other{"{0}mi"}
             }
             mile-scandinavian{
-                dnam{"smi"}
                 one{"{0}smi"}
                 other{"{0}smi"}
             }
@@ -959,23 +1030,16 @@ fil{
                 one{"{0}mm"}
                 other{"{0}mm"}
             }
-            nanometer{
-                dnam{"nm"}
-                one{"{0} nm"}
-                other{"{0} nm"}
-            }
             nautical-mile{
-                dnam{"nmi"}
                 one{"{0}nmi"}
                 other{"{0}nmi"}
             }
             parsec{
                 dnam{"parsecs"}
-                one{"{0} pc"}
+                one{"{0}pc"}
                 other{"{0}pc"}
             }
             picometer{
-                dnam{"pm"}
                 one{"{0}pm"}
                 other{"{0}pm"}
             }
@@ -985,7 +1049,6 @@ fil{
                 other{"{0}pt"}
             }
             yard{
-                dnam{"yd"}
                 one{"{0}yd"}
                 other{"{0}yd"}
             }
@@ -1000,45 +1063,35 @@ fil{
                 dnam{"gramo"}
                 one{"{0}g"}
                 other{"{0}g"}
-                per{"{0}/g"}
             }
             kilogram{
                 dnam{"kg"}
                 one{"{0}kg"}
                 other{"{0}kg"}
-                per{"{0}/kg"}
             }
             metric-ton{
-                dnam{"t"}
                 one{"{0}t"}
                 other{"{0}t"}
             }
             microgram{
-                dnam{"µg"}
                 one{"{0}µg"}
                 other{"{0}µg"}
             }
             milligram{
-                dnam{"mg"}
                 one{"{0}mg"}
                 other{"{0}mg"}
             }
             ounce{
-                dnam{"oz"}
                 one{"{0}oz"}
                 other{"{0}oz"}
-                per{"{0}/oz"}
             }
             ounce-troy{
-                dnam{"oz t"}
-                one{"{0} oz t"}
+                one{"{0}oz t"}
                 other{"{0}oz t"}
             }
             pound{
-                dnam{"lb"}
                 one{"{0}#"}
                 other{"{0}#"}
-                per{"{0}/lb"}
             }
             stone{
                 dnam{"stone"}
@@ -1067,7 +1120,6 @@ fil{
         }
         pressure{
             hectopascal{
-                dnam{"hPa"}
                 one{"{0}hPa"}
                 other{"{0}hPa"}
             }
@@ -1077,7 +1129,6 @@ fil{
                 other{"{0}\u0022 Hg"}
             }
             millibar{
-                dnam{"mbar"}
                 one{"{0}mb"}
                 other{"{0}mb"}
             }
@@ -1087,7 +1138,6 @@ fil{
                 other{"{0}mmHg"}
             }
             pound-per-square-inch{
-                dnam{"psi"}
                 one{"{0}psi"}
                 other{"{0}psi"}
             }
@@ -1099,7 +1149,6 @@ fil{
                 other{"{0}kph"}
             }
             knot{
-                dnam{"kn"}
                 one{"{0}kn"}
                 other{"{0}kn"}
             }
@@ -1120,18 +1169,7 @@ fil{
                 one{"{0}°C"}
                 other{"{0}°C"}
             }
-            fahrenheit{
-                dnam{"°F"}
-                one{"{0}°F"}
-                other{"{0}°F"}
-            }
-            generic{
-                dnam{"°"}
-                one{"{0}°"}
-                other{"{0}°"}
-            }
             kelvin{
-                dnam{"K"}
                 one{"{0}K"}
                 other{"{0}K"}
             }
@@ -1198,15 +1236,17 @@ fil{
                 one{"{0} ac"}
                 other{"{0} ac"}
             }
+            dunam{
+                dnam{"dunam"}
+                one{"{0} dunam"}
+                other{"{0} dunam"}
+            }
             hectare{
                 dnam{"hektarya"}
                 one{"{0} ha"}
                 other{"{0} ha"}
             }
             square-centimeter{
-                dnam{"cm²"}
-                one{"{0} cm²"}
-                other{"{0} cm²"}
                 per{"{0} kada cm²"}
             }
             square-foot{
@@ -1216,15 +1256,11 @@ fil{
             }
             square-inch{
                 dnam{"pulgada²"}
-                one{"{0} in²"}
-                other{"{0} in²"}
                 per{"{0} kada in²"}
             }
             square-kilometer{
-                dnam{"km²"}
                 one{"{0} km²"}
                 other{"{0} km²"}
-                per{"{0}/km²"}
             }
             square-meter{
                 dnam{"metro²"}
@@ -1236,12 +1272,9 @@ fil{
                 dnam{"sq mile"}
                 one{"{0} sq mi"}
                 other{"{0} sq mi"}
-                per{"{0}/mi²"}
             }
             square-yard{
                 dnam{"yarda²"}
-                one{"{0} yd²"}
-                other{"{0} yd²"}
             }
         }
         compound{
@@ -1250,23 +1283,29 @@ fil{
         concentr{
             karat{
                 dnam{"karat"}
-                one{"{0} kt"}
-                other{"{0} kt"}
             }
-            milligram-per-deciliter{
-                dnam{"mg/dL"}
-                one{"{0} mg/dL"}
-                other{"{0} mg/dL"}
-            }
-            millimole-per-liter{
-                dnam{"mmol/L"}
-                one{"{0} mmol/L"}
-                other{"{0} mmol/L"}
+            mole{
+                dnam{"mole"}
+                one{"{0} mol"}
+                other{"{0} mol"}
             }
             part-per-million{
                 dnam{"parts/million"}
-                one{"{0} ppm"}
-                other{"{0} ppm"}
+            }
+            percent{
+                dnam{"%"}
+                one{"{0}%"}
+                other{"{0}%"}
+            }
+            permille{
+                dnam{"‰"}
+                one{"{0}‰"}
+                other{"{0}‰"}
+            }
+            permyriad{
+                dnam{"permyriad"}
+                one{"{0}‱"}
+                other{"{0}‱"}
             }
         }
         consumption{
@@ -1285,13 +1324,9 @@ fil{
                 one{"{0} mpg"}
                 other{"{0} na mpg"}
             }
-            mile-per-gallon-imperial{
-                dnam{"mpg Imp."}
-                one{"{0} mpg Imp."}
-                other{"{0} mpg Imp."}
-            }
         }
         coordinate{
+            dnam{"direction"}
             east{"{0}S"}
             north{"{0}H"}
             south{"{0}T"}
@@ -1337,6 +1372,11 @@ fil{
                 dnam{"MByte"}
                 one{"{0} MB"}
                 other{"{0} MB"}
+            }
+            petabyte{
+                dnam{"PByte"}
+                one{"{0} PB"}
+                other{"{0} PB"}
             }
             terabit{
                 dnam{"Tbit"}
@@ -1436,10 +1476,20 @@ fil{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"BTU"}
+                one{"{0} Btu"}
+                other{"{0} Btu"}
+            }
             calorie{
                 dnam{"cal"}
                 one{"{0} cal"}
                 other{"{0} cal"}
+            }
+            electronvolt{
+                dnam{"electronvolt"}
+                one{"{0} eV"}
+                other{"{0} eV"}
             }
             foodcalorie{
                 dnam{"Cal"}
@@ -1465,6 +1515,18 @@ fil{
                 dnam{"kW-hour"}
                 one{"{0} kWh"}
                 other{"{0} kWh"}
+            }
+        }
+        force{
+            newton{
+                dnam{"newton"}
+                one{"{0} N"}
+                other{"{0} N"}
+            }
+            pound-force{
+                dnam{"pound-force"}
+                one{"{0} lbf"}
+                other{"{0} lbf"}
             }
         }
         frequency{
@@ -1508,8 +1570,8 @@ fil{
             }
             fathom{
                 dnam{"fathoms"}
-                one{"{0} ftm"}
-                other{"{0} ftm"}
+                one{"{0} fth"}
+                other{"{0} fth"}
             }
             foot{
                 dnam{"talampakan"}
@@ -1519,8 +1581,6 @@ fil{
             }
             furlong{
                 dnam{"furlongs"}
-                one{"{0} fur"}
-                other{"{0} fur"}
             }
             inch{
                 dnam{"pulgada"}
@@ -1587,8 +1647,11 @@ fil{
             }
             point{
                 dnam{"puntos"}
-                one{"{0} pt"}
-                other{"{0} pt"}
+            }
+            solar-radius{
+                dnam{"solar radii"}
+                one{"{0} R☉"}
+                other{"{0} R☉"}
             }
             yard{
                 dnam{"yarda"}
@@ -1602,12 +1665,27 @@ fil{
                 one{"{0} lx"}
                 other{"{0} lx"}
             }
+            solar-luminosity{
+                dnam{"solar luminosity"}
+                one{"{0} L☉"}
+                other{"{0} L☉"}
+            }
         }
         mass{
             carat{
                 dnam{"karat"}
                 one{"{0} KD"}
                 other{"{0} KD"}
+            }
+            dalton{
+                dnam{"dalton"}
+                one{"{0} Da"}
+                other{"{0} Da"}
+            }
+            earth-mass{
+                dnam{"Earth mass"}
+                one{"{0} M⊕"}
+                other{"{0} M⊕"}
             }
             gram{
                 dnam{"gramo"}
@@ -1653,10 +1731,13 @@ fil{
                 other{"{0} lbs"}
                 per{"{0}/lb"}
             }
+            solar-mass{
+                dnam{"solar mass"}
+                one{"{0} M☉"}
+                other{"{0} M☉"}
+            }
             stone{
                 dnam{"stones"}
-                one{"{0} st"}
-                other{"{0} st"}
             }
             ton{
                 dnam{"tonelada"}
@@ -1697,6 +1778,11 @@ fil{
             }
         }
         pressure{
+            atmosphere{
+                dnam{"atm"}
+                one{"{0} atm"}
+                other{"{0} atm"}
+            }
             hectopascal{
                 dnam{"hPa"}
                 one{"{0} hPa"}
@@ -1706,6 +1792,16 @@ fil{
                 dnam{"in Hg"}
                 one{"{0} inHg"}
                 other{"{0} inHg"}
+            }
+            kilopascal{
+                dnam{"kPa"}
+                one{"{0} kPa"}
+                other{"{0} kPa"}
+            }
+            megapascal{
+                dnam{"MPa"}
+                one{"{0} MPa"}
+                other{"{0} MPa"}
             }
             millibar{
                 dnam{"mbar"}
@@ -1767,11 +1863,28 @@ fil{
                 other{"{0}°K"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"N⋅m"}
+                one{"{0} N⋅m"}
+                other{"{0} N⋅m"}
+            }
+            pound-foot{
+                dnam{"lbf⋅ft"}
+                one{"{0} lbf⋅ft"}
+                other{"{0} lbf⋅ft"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"acre ft"}
                 one{"{0} ac ft"}
                 other{"{0} ac ft"}
+            }
+            barrel{
+                dnam{"bariles"}
+                one{"{0} bbl"}
+                other{"{0} bbl"}
             }
             centiliter{
                 dnam{"cL"}
@@ -1835,17 +1948,16 @@ fil{
                 one{"{0} fl oz"}
                 other{"{0} fl oz"}
             }
+            fluid-ounce-imperial{
+                dnam{"Imp. fl oz"}
+                one{"{0} fl oz Imp."}
+                other{"{0} fl oz Imp."}
+            }
             gallon{
                 dnam{"gal"}
                 one{"{0} gal"}
                 other{"{0} na gal"}
                 per{"{0}/gal"}
-            }
-            gallon-imperial{
-                dnam{"Imp. gal"}
-                one{"{0} gal Imp."}
-                other{"{0} gal Imp."}
-                per{"{0}/gal Imp."}
             }
             hectoliter{
                 dnam{"hL"}

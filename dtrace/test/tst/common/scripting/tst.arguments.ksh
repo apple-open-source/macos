@@ -71,12 +71,8 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-outarray=($output)
-
-if [[ ${outarray[0]} != 1 || ${outarray[1]} != 2 || ${outarray[2]} != 3 || \
-	${outarray[3]} != 4 || ${outarray[4]} != 5 || ${outarray[5]} != 6 || \
-	${outarray[6]} != 7 || ${outarray[7]} != 8 || ${outarray[8]} != 9 || \
-	${outarray[9]} != 10 ]]; then
+echo "$output" | awk '{ if ($1 == 1 && $2 == 2 && $3 == 3 && $4 == 4 && $5 == 5 && $6 == 6 && $7 == 7 && $8 == 8 && $9 == 9 && $10 == 10) { exit 0 } else { exit 1 } }'
+if [ $? -ne 0 ]; then
 	echo "Error in output by $dfilename"
 	exit 1
 fi

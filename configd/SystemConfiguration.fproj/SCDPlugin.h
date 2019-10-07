@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2017, 2018 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2017 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 

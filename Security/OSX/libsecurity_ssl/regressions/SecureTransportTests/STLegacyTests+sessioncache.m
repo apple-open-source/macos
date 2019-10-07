@@ -20,6 +20,7 @@
 #include <Security/SecRandom.h>
 
 #include <utilities/array_size.h>
+#include <utilities/SecCFRelease.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -33,6 +34,9 @@
 
 #include "ssl-utils.h"
 #import "STLegacyTests.h"
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 @implementation STLegacyTests (sessioncache)
 
@@ -121,6 +125,8 @@ ssl_client_handle_create(int comm, bool anyRoot, CFArrayRef trustedCA, bool trus
     require_noerr(SSLSetTrustedRoots(ctx, trustedCA, trustedCAOnly), out);
 #if !TARGET_OS_IPHONE
     require_noerr(SSLSetTrustedLeafCertificates(ctx, trustedLeafs), out);
+    CFArrayRef recvTrustedLeafs = NULL;
+    require_noerr(SSLCopyTrustedLeafCertificates(ctx, &recvTrustedLeafs), out);
 #endif
 
     require_noerr(SSLSetSessionCacheTimeout(ctx, cache_ttl), out);
@@ -144,7 +150,7 @@ out:
 static void
 ssl_client_handle_destroy(ssl_client_handle *handle)
 {
-    if(handle) {
+    if (handle) {
         SSLClose(handle->st);
         CFRelease(handle->st);
         free(handle);
@@ -160,15 +166,15 @@ static void *securetransport_ssl_client_thread(void *arg)
 
     pthread_setname_np("client thread");
 
-    require_noerr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
-    require_action(ssl_state==kSSLIdle, out, ortn = -1);
+    require_noerr(ortn = SSLGetSessionState(ctx, &ssl_state), out);
+    require_action(ssl_state == kSSLIdle, out, ortn = -1);
 
     do {
         ortn = SSLHandshake(ctx);
-        require_noerr(SSLGetSessionState(ctx,&ssl_state), out);
+        require_noerr(SSLGetSessionState(ctx, &ssl_state), out);
 
         if (ortn == errSSLWouldBlock) {
-            require_string(ssl_state==kSSLHandshake, out, "Wrong client handshake state after errSSLWouldBlock");
+            require_string(ssl_state == kSSLHandshake, out, "Wrong client handshake state after errSSLWouldBlock");
         }
     } while (ortn == errSSLWouldBlock);
 
@@ -228,7 +234,7 @@ out:
 static void
 ssl_server_handle_destroy(ssl_server_handle *handle)
 {
-    if(handle) {
+    if (handle) {
         SSLClose(handle->st);
         CFRelease(handle->st);
         free(handle);
@@ -244,21 +250,21 @@ static void *securetransport_ssl_server_thread(void *arg)
 
     pthread_setname_np("server thread");
 
-    require_noerr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
-    require_action(ssl_state==kSSLIdle, out, ortn = -1);
+    require_noerr(ortn = SSLGetSessionState(ctx, &ssl_state), out);
+    require_action(ssl_state == kSSLIdle, out, ortn = -1);
 
     do {
         ortn = SSLHandshake(ctx);
-        require_noerr(SSLGetSessionState(ctx,&ssl_state), out);
+        require_noerr(SSLGetSessionState(ctx, &ssl_state), out);
 
         if (ortn == errSSLWouldBlock) {
-            require_action(ssl_state==kSSLHandshake, out, ortn = -1);
+            require_action(ssl_state == kSSLHandshake, out, ortn = -1);
         }
     } while (ortn == errSSLWouldBlock);
 
     require_noerr_quiet(ortn, out);
 
-    require_action(ssl_state==kSSLConnected, out, ortn = -1);
+    require_action(ssl_state == kSSLConnected, out, ortn = -1);
 
 out:
     SSLClose(ssl->st);
@@ -279,9 +285,9 @@ out:
 
     int i, j, k;
 
-    for (i=0; i<2; i++) {  // client cache TTL
-        for (j=0; j<2; j++) { // Server cache TTL
-            for (k=0; k<2; k++) {
+    for (i = 0; i < 2; i++) {  // client cache TTL
+        for (j = 0; j < 2; j++) { // Server cache TTL
+            for (k = 0; k < 2; k++) {
                 ssl_client_handle *client = NULL;
                 ssl_server_handle *server = NULL;
 
@@ -291,11 +297,11 @@ out:
                 fcntl(sp[1], F_SETNOSIGPIPE, 1);
 
                 client = ssl_client_handle_create(sp[0], false, trusted_ca, true, NULL, i, (i<<8)|(j+1));
-                XCTAssert(client!=NULL, "ttl: could not create client handle (%d:%d:%d)", i, j, k);
+                XCTAssert(client != NULL, "ttl: could not create client handle (%d:%d:%d)", i, j, k);
                 require(client, errOut);
 
                 server = ssl_server_handle_create(sp[1], server_certs, j);
-                XCTAssert(server!=NULL, "ttl: could not create server handle (%d:%d:%d)", i, j, k);
+                XCTAssert(server != NULL, "ttl: could not create server handle (%d:%d:%d)", i, j, k);
                 require(server, errOut);
                 pthread_create(&client_thread, NULL, securetransport_ssl_client_thread, client);
                 pthread_create(&server_thread, NULL, securetransport_ssl_server_thread, server);
@@ -371,7 +377,7 @@ out:
             require(client, errOut);
 
             server = ssl_server_handle_create(sp[1], server_certs, 300);
-            XCTAssert(server!=NULL, "trust: could not create server handle (%d:%d:%d:%d:%d)", any, ca, caonly, leaf, k);
+            XCTAssert(server != NULL, "trust: could not create server handle (%d:%d:%d:%d:%d)", any, ca, caonly, leaf, k);
             require(server, errOut);
 
             pthread_create(&client_thread, NULL, securetransport_ssl_client_thread, client);
@@ -413,3 +419,4 @@ out:
 }
 @end
 
+#pragma clang diagnostic pop

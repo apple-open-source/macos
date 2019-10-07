@@ -25,8 +25,6 @@
 
 #import <WebKit/WKFoundation.h>
 
-#if WK_API_ENABLED
-
 #import <Foundation/NSProgress.h>
 #import <wtf/RefPtr.h>
 
@@ -41,10 +39,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface WKDownloadProgress : NSProgress
 
-- (instancetype)initWithDownloadTask:(NSURLSessionDownloadTask *)task download:(WebKit::Download*)download URL:(NSURL *)fileURL sandboxExtension:(RefPtr<WebKit::SandboxExtension>)sandboxExtension;
+- (instancetype)initWithDownloadTask:(NSURLSessionDownloadTask *)task download:(WebKit::Download&)download URL:(NSURL *)fileURL sandboxExtension:(RefPtr<WebKit::SandboxExtension>)sandboxExtension;
 
 @end
 
 NS_ASSUME_NONNULL_END
-
-#endif // WK_API_ENABLED

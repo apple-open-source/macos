@@ -49,7 +49,7 @@
 #include <security_asn1/seccomon.h>
 
 /* These tests are essentially the same as cms_01_basic in the OS X
- * libsecurity_smime_regressions. They are not unified into a single
+ * libsecurity_cms_regressions. They are not unified into a single
  * test because libsecurity_smime diverges so much between the platforms
  * that unifying the tests makes every third line a TARGET macro.
  */

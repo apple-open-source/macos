@@ -13,6 +13,7 @@
 #include "unicode/upluralrules.h"
 #include "unicode/ustring.h"
 #include "unicode/uenum.h"
+#include "unicode/unumberformatter.h"
 #include "cintltst.h"
 #include "cmemory.h"
 #include "cstring.h"
@@ -20,6 +21,7 @@
 static void TestPluralRules(void);
 static void TestOrdinalRules(void);
 static void TestGetKeywords(void);
+static void TestFormatted(void);
 
 void addPluralRulesTest(TestNode** root);
 
@@ -30,6 +32,7 @@ void addPluralRulesTest(TestNode** root)
     TESTCASE(TestPluralRules);
     TESTCASE(TestOrdinalRules);
     TESTCASE(TestGetKeywords);
+    TESTCASE(TestFormatted);
 }
 
 typedef struct {
@@ -73,6 +76,35 @@ static const PluralRulesTestItem testItems[] = {
     { "ru",   5, "many",  "other" },
     { "ru",  10, "many",  "other" },
     { "ru",  11, "many",  "other" },
+
+    // ru rules should not be affected by script/lang/keywords <rdar://problem/49268649>
+    { "ru_Cyrl_RU",   0, "many",  "other" },
+    { "ru_Cyrl_RU", 0.5, "other", "other" },
+    { "ru_Cyrl_RU",   1, "one",   "other" },
+    { "ru_Cyrl_RU", 1.5, "other", "other" },
+    { "ru_Cyrl_RU",   2, "few",   "other" },
+    { "ru_Cyrl_RU",   5, "many",  "other" },
+    { "ru_Cyrl_RU",  10, "many",  "other" },
+    { "ru_Cyrl_RU",  11, "many",  "other" },
+
+    { "ru@numbers=latn",   0, "many",  "other" },
+    { "ru@numbers=latn", 0.5, "other", "other" },
+    { "ru@numbers=latn",   1, "one",   "other" },
+    { "ru@numbers=latn", 1.5, "other", "other" },
+    { "ru@numbers=latn",   2, "few",   "other" },
+    { "ru@numbers=latn",   5, "many",  "other" },
+    { "ru@numbers=latn",  10, "many",  "other" },
+    { "ru@numbers=latn",  11, "many",  "other" },
+
+    { "ru_Cyrl_RU@numbers=latn",   0, "many",  "other" },
+    { "ru_Cyrl_RU@numbers=latn", 0.5, "other", "other" },
+    { "ru_Cyrl_RU@numbers=latn",   1, "one",   "other" },
+    { "ru_Cyrl_RU@numbers=latn", 1.5, "other", "other" },
+    { "ru_Cyrl_RU@numbers=latn",   2, "few",   "other" },
+    { "ru_Cyrl_RU@numbers=latn",   5, "many",  "other" },
+    { "ru_Cyrl_RU@numbers=latn",  10, "many",  "other" },
+    { "ru_Cyrl_RU@numbers=latn",  11, "many",  "other" },
+
     { NULL,   0, NULL,    NULL }
 };
 
@@ -264,6 +296,46 @@ static void TestGetKeywords() {
         
         uplrules_close(uplrules);
     }
+}
+
+static void TestFormatted() {
+    UErrorCode ec = U_ZERO_ERROR;
+    UNumberFormatter* unumf = NULL;
+    UFormattedNumber* uresult = NULL;
+    UPluralRules* uplrules = NULL;
+
+    uplrules = uplrules_open("hr", &ec);
+    if (!assertSuccess("open plural rules", &ec)) {
+        goto cleanup;
+    }
+
+    unumf = unumf_openForSkeletonAndLocale(u".00", -1, "hr", &ec);
+    if (!assertSuccess("open unumf", &ec)) {
+        goto cleanup;
+    }
+
+    uresult = unumf_openResult(&ec);
+    if (!assertSuccess("open result", &ec)) {
+        goto cleanup;
+    }
+
+    unumf_formatDouble(unumf, 100.2, uresult, &ec);
+    if (!assertSuccess("format", &ec)) {
+        goto cleanup;
+    }
+
+    UChar buffer[40];
+    uplrules_selectFormatted(uplrules, uresult, buffer, 40, &ec);
+    if (!assertSuccess("select", &ec)) {
+        goto cleanup;
+    }
+
+    assertUEquals("0.20 is plural category 'other' in hr", u"other", buffer);
+
+cleanup:
+    uplrules_close(uplrules);
+    unumf_close(unumf);
+    unumf_closeResult(uresult);
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

@@ -1,11 +1,10 @@
 %prep
 
-  if ! zmodload -F zsh/pcre C:pcre-match 2>/dev/null
+  if grep '^name=zsh/pcre .* link=no ' $ZTST_testdir/../config.modules >/dev/null
   then
-    ZTST_unimplemented="the zsh/pcre module is not available"
+    ZTST_unimplemented="the zsh/pcre module was disabled by configure (see config.modules)"
     return 0
   fi
-# Load the rest of the builtins
   zmodload zsh/pcre
   setopt rematch_pcre
 # Find a UTF-8 locale.
@@ -130,6 +129,45 @@
 0:pcre_match -b and pcre_match -n
 >78884; ZPCRE_OP: 25 30
 >90210; ZPCRE_OP: 31 36
+
+# Embedded NULs allowed in plaintext, but not in RE (although \0 as two-chars allowed)
+  [[ $'a\0bc\0d' =~ '^(a\0.)(.+)$' ]]
+  print "${#MATCH}; ${#match[1]}; ${#match[2]}"
+0:ensure ASCII NUL passes in and out of matched plaintext
+>6; 3; 3
+
+# Ensure the long-form infix operator works
+  [[ foo -pcre-match ^f..$ ]]
+  print $?
+  [[ foo -pcre-match ^g..$ ]]
+  print $?
+  [[ ! foo -pcre-match ^g..$ ]]
+  print $?
+0:infix -pcre-match works
+>0
+>1
+>0
+
+# Bash mode; note zsh documents that variables not updated on match failure,
+# which remains different from bash
+  setopt bash_rematch
+  [[ "goo" -pcre-match ^f.+$ ]] ; print $?
+  [[ "foo" -pcre-match ^f.+$ ]] ; print -l $? _${^BASH_REMATCH[@]}
+  [[ "foot" -pcre-match ^f([aeiou]+)(.)$ ]]; print -l $? _${^BASH_REMATCH[@]}
+  [[ "foo" -pcre-match ^f.+$ ]] ; print -l $? _${^BASH_REMATCH[@]}
+  [[ ! "goo" -pcre-match ^f.+$ ]] ; print $?
+  unsetopt bash_rematch
+0:bash-compatibility works
+>1
+>0
+>_foo
+>0
+>_foot
+>_oo
+>_t
+>0
+>_foo
+>0
 
 # Subshell because crash on failure
   ( setopt re_match_pcre

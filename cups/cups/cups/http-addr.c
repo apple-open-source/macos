@@ -1,16 +1,11 @@
 /*
  * HTTP address routines for CUPS.
  *
- * Copyright 2007-2014 by Apple Inc.
+ * Copyright 2007-2019 by Apple Inc.
  * Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 /*
@@ -18,13 +13,16 @@
  */
 
 #include "cups-private.h"
+#include "debug-internal.h"
 #include <sys/stat.h>
 #ifdef HAVE_RESOLV_H
 #  include <resolv.h>
 #endif /* HAVE_RESOLV_H */
 #ifdef __APPLE__
 #  include <CoreFoundation/CoreFoundation.h>
-#  include <SystemConfiguration/SystemConfiguration.h>
+#  ifdef HAVE_SCDYNAMICSTORECOPYCOMPUTERNAME
+#    include <SystemConfiguration/SystemConfiguration.h>
+#  endif /* HAVE_SCDYNAMICSTORECOPYCOMPUTERNAME */
 #endif /* __APPLE__ */
 
 
@@ -69,11 +67,11 @@ int						/* O - 0 on success, -1 on failure */
 httpAddrClose(http_addr_t *addr,		/* I - Listen address or @code NULL@ */
               int         fd)			/* I - Socket file descriptor */
 {
-#ifdef WIN32
+#ifdef _WIN32
   if (closesocket(fd))
 #else
   if (close(fd))
-#endif /* WIN32 */
+#endif /* _WIN32 */
     return (-1);
 
 #ifdef AF_LOCAL
@@ -258,9 +256,9 @@ httpAddrListen(http_addr_t *addr,	/* I - Address to bind to */
   * Close on exec...
   */
 
-#ifndef WIN32
+#ifndef _WIN32
   fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC);
-#endif /* !WIN32 */
+#endif /* !_WIN32 */
 
 #ifdef SO_NOSIGPIPE
  /*

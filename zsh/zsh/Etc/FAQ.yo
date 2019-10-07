@@ -127,6 +127,7 @@ Chapter 3:  How to get various things to work
 3.26. Why is my output duplicated with `tt(foo 2>&1 >foo.out | bar)'?
 3.27. What are these `^' and `~' pattern characters, anyway?
 3.28. How do I edit the input buffer in $EDITOR?
+3.29. Why does `which' output for missing commands go to stdout?
 
 Chapter 4:  The mysteries of completion
 4.1. What is completion?
@@ -242,9 +243,9 @@ sect(What is it good at?)
   in any other freely-available shell which zsh does not also have
   (except smallness).
 
-  itemize(
+  itemization(
   it() Command line editing:
-  itemize(
+  itemization(
     it() programmable completion: incorporates the ability to use the
        full power of zsh's globbing and shell programming features,
     it() multi-line commands editable as a single buffer (even files!),
@@ -257,7 +258,7 @@ sect(What is it good at?)
     it() inline expansion of variables and history commands.  
   )
   it() Globbing --- extremely powerful, including:
-  itemize(
+  itemization(
     it() recursive globbing (cf. find),
     it() file attribute qualifiers (size, type, etc. also cf. find),
     it() full alternation and negation of patterns.
@@ -306,7 +307,7 @@ sect(On what machines will it run?)
 
 sect(What's the latest version?)
 
-  Zsh 5.3 is the latest production version.  For details of all the
+  Zsh 5.7.1 is the latest production version.  For details of all the
   changes, see the NEWS file in the source distribution.
 
   A beta of the next version is sometimes available.  Development of zsh is
@@ -331,15 +332,11 @@ label(16)
 
   The coordinator of development is currently me; the alias
   email(coordinator@zsh.org) can be used to contact whoever is in the hot
-  seat.  The following are known mirrors (kept frequently up to date); the
-  first is the official archive site, currently in Australia.  All are
-  available by anonymous FTP.  The major sites keep test versions in the
+  seat.  url(https://www.zsh.org/)(https://www.zsh.org/) is the official
+  archive site, currently in Australia.  Test versions are kept in the
   `testing' subdirectory: such up-to-the-minute development versions should
   only be retrieved if you actually plan to help test the latest version of
-  the shell.  The following list also appears on the WWW at
-  url(http://www.zsh.org/)(http://www.zsh.org/) .
-
-includefile(../Doc/Zsh/ftp_sites.yo)
+  the shell.
 
   A Windows port was created by Amol Deshpandem based on 3.0.5 (which
   is now rather old).  This has now been restored and can be found at
@@ -447,7 +444,7 @@ label(21)
   substantial.
 
   As a summary of the status:
-  enumerate(
+  enumeration(
   myeit() because of all the options it is not safe to assume a general
      zsh run by a user will behave as if sh or ksh compatible;
   myeit() invoking zsh as sh or ksh (or if either is a symbolic link to
@@ -500,9 +497,9 @@ tt(RM_STAR_SILENT),
   if `emulate ksh' is in effect.  Capitalised words with underlines
   refer to shell options. 
 
-  itemize(
+  itemization(
   it() Syntax:
-  itemize(
+  itemization(
     it()* Shell word splitting: see question link(3.1)(31).
     it()* Arrays are (by default) more csh-like than ksh-like:
         subscripts start at 1, not 0; tt(array[0]) refers to tt(array[1]);
@@ -522,7 +519,7 @@ tt(RM_STAR_SILENT),
         this is a bug.  Use mytt({ cmd1 && cmd2 } &) as a workaround.
   )
   it() Command line substitutions, globbing etc.:
-  itemize(
+  itemization(
     it()* Failure to match a globbing pattern causes an error (use
         tt(NO_NOMATCH)).
     it()* The results of parameter substitutions are treated as plain text:
@@ -565,14 +562,14 @@ tt(EXTENDED_GLOB).
         assignment specially as a single word.
   )
   it() Command execution:
-  itemize(
+  itemization(
     it()* There is no tt($ENV) variable (use tt(/etc/zshrc), tt(~/.zshrc); 
         note also tt($ZDOTDIR)).
     it()* tt($PATH) is not searched for commands specified
         at invocation without -c.
   )
   it() Aliases and functions:
-  itemize(
+  itemization(
     it()  The order in which aliases and functions are defined is significant:
         function definitions with () expand aliases -- see question \
 link(2.3)(23).
@@ -588,14 +585,14 @@ link(2.3)(23).
         and only the latter behave as true functions.
   )
     it() Traps and signals:
-  itemize(
+  itemization(
     it()* Traps are not local to functions.  The option LOCAL_TRAPS is
           available from 3.1.6.
     it()  TRAPERR has become TRAPZERR (this was forced by UNICOS which
         has SIGERR).
   )
   it() Editing:
-  itemize(
+  itemization(
     it()  The options tt(gmacs), tt(viraw) are not supported.
         Use bindkey to change the editing behaviour: mytt(set -o {emacs,vi})
         becomes `bindkey -{e,v}', although `set -o emacs' and `set -o vi'
@@ -620,7 +617,7 @@ link(2.3)(23).
   )
   )
   it() Built-in commands:
-  itemize(
+  itemization(
     it()  Some built-ins (tt(r), tt(autoload), tt(history), tt(integer) ...)
         were aliases in ksh. 
     it()  There is no built-in command newgrp: use e.g. mytt(alias
@@ -628,7 +625,7 @@ link(2.3)(23).
     it()  mytt(jobs) has no mytt(-n) flag.
   )
   it() Other idiosyncrasies:
-  itemize(
+  itemization(
     it()  mytt(select) always redisplays the list of selections on each loop.
   )
   )
@@ -644,7 +641,7 @@ sect(Similarities with csh)
   particularly those with arguments.
 
   Csh-compatibility additions include:
-  itemize(
+  itemization(
   it()  tt(logout), tt(rehash), tt(source), tt((un)limit) built-in commands.
   it()  tt(*rc) file for interactive shells.
   it()  Directory stacks.
@@ -706,7 +703,7 @@ label(23)
 
   Here is Bart Schaefer's guide to converting csh aliases for zsh.
 
-  enumerate(
+  enumeration(
   myeit() If the csh alias references "parameters" (tt(\!:1), tt(\!*) etc.),
      then in zsh you need a function (referencing tt($1), tt($*) etc.).
      Otherwise, you can use a zsh alias.
@@ -722,7 +719,7 @@ label(23)
 
   myeit() If you have aliases that refer to each other (tt(alias ls "ls -C";
      alias lf "ls -F" ==> lf == ls -C -F)) then you must either:
-  itemize(
+  itemization(
         it() convert all of them to zsh functions; or
         it() after converting, be sure your .zshrc defines all of your
            aliases before it defines any of your functions.
@@ -1097,7 +1094,7 @@ sect(What is the difference between `export' and the tt(ALL_EXPORT) option?)
 
   This may seem a useful shorthand, but in practice it can have
   unhelpful side effects:
-  enumerate(
+  enumeration(
   myeit() Since every variable is in the environment as well as remembered
      by the shell, the memory for it needs to be allocated twice.
      This is bigger as well as slower.
@@ -1365,7 +1362,7 @@ sect(Why do my autoloaded functions not autoload [the first time]?)
   The problem is that there are two possible ways of autoloading a
   function (see the AUTOLOADING FUNCTIONS section of the zsh manual
   page zshmisc for more detailed information):
-  enumerate(
+  enumeration(
   myeit() The file contains just the body of the function, i.e.
      there should be no line at the beginning saying mytt(function foo {)
      or mytt(foo () {), and consequently no matching mytt(}) at the end.
@@ -1709,7 +1706,7 @@ sect(What's wrong with cut and paste on my xterm?)
   `non-canonical input mode'.  On the systems in question, input can be
   lost or re-ordered when the mode changes.  There are actually two
   slightly different problems:
-  enumerate(
+  enumeration(
   myeit() When you paste something in while a programme is running, so that
      the shell only retrieves it later.  Traditionally, there was a test
      which was used only on systems where the problem was known to exist,
@@ -1931,7 +1928,7 @@ label(327)
   assume the option tt(EXTENDED_GLOB) is set and none of the pattern
   characters is disabled.
 
-  enumerate(
+  enumeration(
   myeit() mytt(**/foo~*bar*) matches any file called mytt(foo) in any
      subdirectory, except where mytt(bar) occurred somewhere in the path.
      For example, mytt(users/barstaff/foo) will be excluded by the mytt(~)
@@ -1966,6 +1963,36 @@ label(328)
   in your tt(~/.zshrc), typing mytt(^F c) will open the entered-so-far
   command-line for editing.  The command will not be automatically executed;
   quitting the editor will only return to zsh's command-line editing mode.
+
+
+sect(Why does `which' output for missing commands go to stdout?)
+
+  The issue is that if you run:
+  verb(
+    which non-existent-command
+  )
+  the error message goes, unusually, to standard output rather than
+  to standard error.  Other shells send this message to standard error,
+  as they would if the command was about to be executed but could not be
+  found.
+
+  The original reason for this is that this behaviour is inherited from
+  previous versions of `tt(which)', a builtin in later versions of csh,
+  the C shell, as well as tcsh, an adaptation of the C Shell with better
+  editing, and is also available as a separate script sometimes still
+  found in certain distributions.  Other shells had equivalent commands,
+  `tt(whence)' and `tt(type), that zsh has also adopted.  So in fact
+  this has always been a feature of `tt(which)'.  (It would be possible
+  to change this in emulation modes; however, so far this possibility
+  has been seen as more of an additional confusion than a help.)
+
+  If you want some further rationalisation, you might note that
+  `tt(which)' is designed as a way of outputting information about a
+  command.  So `this command can be found in ...' and `this command
+  can't be found' are both bits of information here, unlike the case
+  where the command is to be executed.  So although it differs from
+  other Bourne-style shells it is in fact self-consistent.  Note that
+  the exit status does reflect the fact the command can't be found.
 
 
 chapter(The mysteries of completion)
@@ -2035,7 +2062,7 @@ sect(How does zsh deal with ambiguous completions?)
   (That's assuming you're at the end of the line, otherwise tt(\C-D) will
   delete the next character and you have to use tt(ESC-\C-D).)  This can be
   changed by the following options, among others:
-  itemize(
+  itemization(
    it() with tt(NO_BEEP) set, that annoying beep goes away
    it() with tt(NO_LIST_BEEP), beeping is only turned off for ambiguous
       completions
@@ -2243,7 +2270,7 @@ sect(How do I ensure multibyte input and output work on my system?)
 
   There are basically three components.
 
-  itemize(
+  itemization(
    it() The locale.  This describes a whole series of features specific
       to countries or regions of which the character set is one.  Usually
       it is controlled by the environment variable tt(LANG) (there are
@@ -2436,7 +2463,7 @@ sect(What's on the wish-list?)
   particularly welcome for these tasks.
 
   Some future possibilities which have been suggested:
-  itemize(
+  itemization(
   it() The shell, in particular the line editor, should support Unicode
      characters.  Initial support for this appeared in version 4.3;
      it is reasonably complete in the line editor but patchy elsewhere

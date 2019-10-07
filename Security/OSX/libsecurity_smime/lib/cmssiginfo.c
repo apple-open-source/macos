@@ -401,7 +401,7 @@ SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR digest, CSSM_
         algID = &freeAlgID;
 #else
 
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR))
+#if TARGET_OS_OSX
 	if (SecKeyGetAlgorithmID(signerinfo->pubKey,&algID)) {
 #else
 	/* TBD: Unify this code. Currently, iOS has an incompatible
@@ -1230,7 +1230,7 @@ SecCmsSignerInfoGetSignerEmailAddress(SecCmsSignerInfoRef sinfo)
 
     SecCertificateGetEmailAddress(signercert, &emailAddress);
 
-    return emailAddress;
+    return CFRetainSafe(emailAddress);
 }
 
 
@@ -1844,32 +1844,36 @@ SecCmsSignerInfoSaveSMIMEProfile(SecCmsSignerInfoRef signerinfo)
 OSStatus
 SecCmsSignerInfoIncludeCerts(SecCmsSignerInfoRef signerinfo, SecCmsCertChainMode cm, SECCertUsage usage)
 {
-    if (signerinfo->cert == NULL)
-	return SECFailure;
+    if (signerinfo->cert == NULL) {
+        return SECFailure;
+    }
 
     /* don't leak if we get called twice */
     if (signerinfo->certList != NULL) {
-	CFRelease(signerinfo->certList);
-	signerinfo->certList = NULL;
+        CFRelease(signerinfo->certList);
+        signerinfo->certList = NULL;
     }
 
     switch (cm) {
     case SecCmsCMNone:
-	signerinfo->certList = NULL;
-	break;
+        signerinfo->certList = NULL;
+        break;
     case SecCmsCMCertOnly:
-	signerinfo->certList = CERT_CertListFromCert(signerinfo->cert);
-	break;
+        signerinfo->certList = CERT_CertListFromCert(signerinfo->cert);
+        break;
     case SecCmsCMCertChain:
-	signerinfo->certList = CERT_CertChainFromCert(signerinfo->cert, usage, PR_FALSE);
-	break;
+        signerinfo->certList = CERT_CertChainFromCert(signerinfo->cert, usage, PR_FALSE, PR_FALSE);
+        break;
     case SecCmsCMCertChainWithRoot:
-	signerinfo->certList = CERT_CertChainFromCert(signerinfo->cert, usage, PR_TRUE);
-	break;
+        signerinfo->certList = CERT_CertChainFromCert(signerinfo->cert, usage, PR_TRUE, PR_FALSE);
+        break;
+    case SecCmsCMCertChainWithRootOrFail:
+        signerinfo->certList = CERT_CertChainFromCert(signerinfo->cert, usage, PR_TRUE, PR_TRUE);
     }
 
-    if (cm != SecCmsCMNone && signerinfo->certList == NULL)
-	return SECFailure;
-    
+    if (cm != SecCmsCMNone && signerinfo->certList == NULL) {
+        return SECFailure;
+    }
+
     return SECSuccess;
 }

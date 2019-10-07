@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2016, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2018, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -46,11 +46,9 @@ static char *my_get_line(FILE *fp);
 /* return 0 on everything-is-fine, and non-zero otherwise */
 int parseconfig(const char *filename, struct GlobalConfig *global)
 {
-  int res;
   FILE *file;
   char filebuffer[512];
-  bool usedarg;
-  char *home;
+  bool usedarg = FALSE;
   int rc = 0;
   struct OperationConfig *operation = global->first;
 
@@ -58,12 +56,12 @@ int parseconfig(const char *filename, struct GlobalConfig *global)
     /* NULL or no file name attempts to load .curlrc from the homedir! */
 
 #ifndef __AMIGA__
+    char *home = homedir();    /* portable homedir finder */
     filename = CURLRC;   /* sensible default */
-    home = homedir();    /* portable homedir finder */
     if(home) {
       if(strlen(home) < (sizeof(filebuffer) - strlen(CURLRC))) {
-        snprintf(filebuffer, sizeof(filebuffer),
-                 "%s%s%s", home, DIR_CHAR, CURLRC);
+        msnprintf(filebuffer, sizeof(filebuffer),
+                  "%s%s%s", home, DIR_CHAR, CURLRC);
 
 #ifdef WIN32
         /* Check if the file exists - if not, try CURLRC in the same
@@ -89,11 +87,9 @@ int parseconfig(const char *filename, struct GlobalConfig *global)
               /* If we have enough space, build the RC filename */
               remaining = sizeof(filebuffer) - strlen(filebuffer);
               if(strlen(CURLRC) < remaining - 1) {
-                snprintf(lastdirchar, remaining,
-                         "%s%s", DIR_CHAR, CURLRC);
-                /* Don't bother checking if it exists - we do
-                 * that later
-                 */
+                msnprintf(lastdirchar, remaining,
+                          "%s%s", DIR_CHAR, CURLRC);
+                /* Don't bother checking if it exists - we do that later */
                 filename = filebuffer;
               }
             }
@@ -125,13 +121,13 @@ int parseconfig(const char *filename, struct GlobalConfig *global)
     char *option;
     char *param;
     int lineno = 0;
-    bool alloced_param;
     bool dashed_option;
 
     while(NULL != (aline = my_get_line(file))) {
+      int res;
+      bool alloced_param = FALSE;
       lineno++;
       line = aline;
-      alloced_param=FALSE;
 
       /* line with # in the first non-blank column is a comment! */
       while(*line && ISSPACE(*line))
@@ -220,7 +216,7 @@ int parseconfig(const char *filename, struct GlobalConfig *global)
 #endif
       res = getparameter(option, param, &usedarg, global, operation);
 
-      if(param && *param && !usedarg)
+      if(!res && param && *param && !usedarg)
         /* we passed in a parameter that wasn't used! */
         res = PARAM_GOT_EXTRA_PARAMETER;
 
@@ -253,7 +249,7 @@ int parseconfig(const char *filename, struct GlobalConfig *global)
       if(res != PARAM_OK && res != PARAM_NEXT_OPERATION) {
         /* the help request isn't really an error */
         if(!strcmp(filename, "-")) {
-          filename = (char *)"<stdin>";
+          filename = "<stdin>";
         }
         if(res != PARAM_HELP_REQUESTED &&
            res != PARAM_MANUAL_REQUESTED &&
@@ -358,4 +354,3 @@ static char *my_get_line(FILE *fp)
 
   return line;
 }
-

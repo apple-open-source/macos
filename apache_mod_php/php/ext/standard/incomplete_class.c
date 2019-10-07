@@ -16,8 +16,6 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id$ */
-
 #include "php.h"
 #include "basic_functions.h"
 #include "php_incomplete_class.h"
@@ -27,8 +25,8 @@
 		"access a property of an incomplete object. " \
 		"Please ensure that the class definition \"%s\" of the object " \
 		"you are trying to operate on was loaded _before_ " \
-		"unserialize() gets called or provide a __autoload() function " \
-		"to load the class definition "
+		"unserialize() gets called or provide an autoloader " \
+		"to load the class definition"
 
 static zend_object_handlers php_incomplete_object_handlers;
 
@@ -42,7 +40,7 @@ static void incomplete_class_message(zval *object, int error_type)
 
 	if (class_name) {
 		php_error_docref(NULL, error_type, INCOMPLETE_CLASS_MSG, ZSTR_VAL(class_name));
-		zend_string_release(class_name);
+		zend_string_release_ex(class_name, 0);
 	} else {
 		php_error_docref(NULL, error_type, INCOMPLETE_CLASS_MSG, "unknown");
 	}

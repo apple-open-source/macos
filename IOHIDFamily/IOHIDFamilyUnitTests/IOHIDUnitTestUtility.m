@@ -5,11 +5,10 @@
 //  Created by YG on 10/24/16.
 //
 //
-
+#include <AssertMacros.h>
 #include "IOHIDUnitTestUtility.h"
 #include <dispatch/private.h>
 #include <mach/mach_time.h>
-#include <AssertMacros.h>
 #import <spawn.h>
 #include <sys/time.h>
 #include <IOKit/hid/IOHIDLibPrivate.h>
@@ -149,7 +148,6 @@ void IOHIDUnitTestDestroyRunLoop (CFRunLoopRef runloop)  {
 
 char * const  hidutil[]  = { "/usr/local/bin/hidutil", "dump", NULL };
 const char * spindump[]  = { "/usr/sbin/spindump", "-notarget", "5", "10", "-o", NULL, NULL};
-char *const logcollect[] = { "/usr/bin/log", "show", "--debug", "--predicate", "senderImagePath contains \"IOHIDFamily\" or subsystem == \"com.apple.iohid\"", NULL };
 char *const ioreg[]      = { "/usr/sbin/ioreg", "-lw0", NULL };
 const char * tailspin[]  = { "/usr/bin/tailspin", "save", "-r", "hidxctest", "-o" , "-n" , NULL, NULL};
 
@@ -232,6 +230,17 @@ void IOHIDUnitTestCollectLogs (uint32_t logTypes, char * fileName, int line)
         IOHIDUnitTestRunPosixCommand(ioreg, [NSString stringWithFormat:@"%@_ioreg.txt", base]);
     }
     if (logTypes & COLLECT_LOGARCHIVE) {
+        NSString * archive  = [NSString stringWithFormat:@"%@_logarchive.tgz", base];
+        char *const logarchive[] = { "/usr/bin/log", "collect", "--output", "/tmp", NULL};
+        IOHIDUnitTestRunPosixCommand(logarchive, NULL);
+        
+        char *const tar[] = { "/usr/bin/tar", "-cvzf", "/tmp/logarchive.tgz", "-C", "/tmp", "system_logs.logarchive", NULL };
+        IOHIDUnitTestRunPosixCommand(tar, NULL);
+        
+        char *const cp[] = { "/bin/cp", "/tmp/logarchive.tgz", (char * const)archive.UTF8String, NULL };
+        IOHIDUnitTestRunPosixCommand(cp, NULL);
+        
+        char *const logcollect[] = { "/usr/bin/log", "show", "--debug", "--predicate", "processImagePath contains \"hidxctest\" or sender contains \"IOHIDFamily\" or subsystem == \"com.apple.iohid\"", NULL};
         IOHIDUnitTestRunPosixCommand(logcollect, [NSString stringWithFormat:@"%@_logdump.txt", base]);
     }
 }

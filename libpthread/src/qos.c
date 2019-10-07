@@ -201,7 +201,7 @@ _pthread_qos_class_encode_workqueue(int queue_priority, unsigned long flags)
 	case WORKQ_LOW_PRIOQUEUE:       qos = THREAD_QOS_UTILITY; break;
 	case WORKQ_BG_PRIOQUEUE:        qos = THREAD_QOS_BACKGROUND; break;
 	default:
-		__pthread_abort();
+		PTHREAD_CLIENT_CRASH(queue_priority, "Invalid priority");
 	}
 	return _pthread_priority_make_from_thread_qos(qos, 0, flags);
 }
@@ -218,7 +218,7 @@ _pthread_set_properties_self(_pthread_set_flags_t flags,
 	_pthread_set_flags_t kflags = flags;
 	int rv = 0;
 
-	if (self->wqoutsideqos && (flags & _PTHREAD_SET_SELF_OUTSIDE_QOS_SKIP)) {
+	if (self->wq_outsideqos && (flags & _PTHREAD_SET_SELF_OUTSIDE_QOS_SKIP)) {
 		// A number of properties cannot be altered if we are a workloop
 		// thread that has outside of QoS properties applied to it.
 		kflags &= ~_PTHREAD_SET_SELF_OUTSIDE_QOS_SKIP;

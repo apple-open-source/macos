@@ -29,7 +29,7 @@
 #ifndef _SECURITY_SECTRUSTSTORESERVER_H_
 #define _SECURITY_SECTRUSTSTORESERVER_H_
 
-#include <Security/SecTrustStore.h>
+#include "Security/SecTrustStore.h"
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFError.h>
 

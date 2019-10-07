@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2006-2007,2009-2010,2012-2013 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2006-2007,2009-2010,2012-2013,2019 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -46,9 +46,6 @@ CFStringRef SecFrameworkCopyLocalizedString(CFStringRef key,
 CFURLRef SecFrameworkCopyResourceURL(CFStringRef resourceName,
 	CFStringRef resourceType, CFStringRef subDirName);
 
-CFDataRef SecFrameworkCopyResourceContents(CFStringRef resourceName,
-	CFStringRef resourceType, CFStringRef subDirName);
-
 /* Return the SHA1 digest of a chunk of data as newly allocated CFDataRef. */
 CFDataRef SecSHA1DigestCreate(CFAllocatorRef allocator,
 	const UInt8 *data, CFIndex length);
@@ -69,6 +66,16 @@ CFDataRef SecDigestCreate(CFAllocatorRef allocator,
 OSStatus SecOSStatusWith(bool (^perform)(CFErrorRef *error));
 
 extern CFStringRef kSecFrameworkBundleID;
+
+/* Returns true if 'string' is a DNS host name as defined in RFC 1035, etc. */
+bool SecFrameworkIsDNSName(CFStringRef string);
+
+/* Returns true if 'string' is an IPv4/IPv6 address per RFC 2373, 4632, etc. */
+bool SecFrameworkIsIPAddress(CFStringRef string);
+
+/* Returns the canonical data representation of the IPv4 or IPv6 address
+   provided as input. NULL is returned if string is not a valid IP address. */
+CFDataRef SecFrameworkCopyIPAddressData(CFStringRef string);
 
 __END_DECLS
 

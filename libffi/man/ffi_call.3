@@ -1,11 +1,10 @@
-.Dd July 20, 2007
+.Dd February 15, 2008
 .Dt ffi_call 3
-.Os Darwin
 .Sh NAME
 .Nm ffi_call
 .Nd Invoke a foreign function.
 .Sh SYNOPSIS
-.In ffi/ffi.h
+.In ffi.h
 .Ft void
 .Fo ffi_call
 .Fa "ffi_cif *cif"
@@ -35,8 +34,8 @@ before it is used with
 .Nm ffi_call .
 .Pp
 .Fa rvalue
-must point to storage that is sizeof(long) or larger. For smaller
-return value sizes, the
+must point to storage that is sizeof(ffi_arg) or larger for non-floating point
+types. For smaller-sized return value types, the
 .Nm ffi_arg
 or
 .Nm ffi_sarg
@@ -44,9 +43,7 @@ integral type must be used to hold
 the return value.
 .Sh EXAMPLES
 .Bd -literal
-#define MACOSX  // for fficonfig.h on Darwin
-
-#include <ffi/ffi.h>
+#include <ffi.h>
 #include <stdio.h>
 
 unsigned char

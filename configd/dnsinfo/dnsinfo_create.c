@@ -108,7 +108,7 @@ config_add_attribute(dns_create_config_t	*_config,
 
 	// add attribute [data]
 
-	bcopy(attribute, &header->attribute[0], attribute_length);
+	memcpy(&header->attribute[0], attribute, attribute_length);
 	for (uint32_t i = attribute_length; i < rounded_length; i++) {
 		header->attribute[i] = 0;
 	}
@@ -185,28 +185,28 @@ _dns_configuration_signature(dns_create_config_t	*_config,
 			     unsigned char		*signature,
 			     size_t			signature_len)
 {
-	bzero(signature, signature_len);
+	memset(signature, 0, signature_len);
 
 	if (_config != NULL) {
 		_dns_config_buf_t	*config	= (_dns_config_buf_t *)*_config;
 
 		if (config != NULL) {
-			CC_SHA1_CTX	ctx;
+			CC_SHA256_CTX	ctx;
 			uint64_t	generation_save;
-			unsigned char	*sha1;
-			unsigned char	sha1_buf[CC_SHA1_DIGEST_LENGTH];
+			unsigned char	*sha256;
+			unsigned char	sha256_buf[CC_SHA256_DIGEST_LENGTH];
 
 			generation_save = config->config.generation;
 			config->config.generation = 0;
 
-			sha1 = (signature_len >= CC_SHA1_DIGEST_LENGTH) ? signature : sha1_buf;
-			CC_SHA1_Init(&ctx);
-			CC_SHA1_Update(&ctx,
+			sha256 = (signature_len >= CC_SHA256_DIGEST_LENGTH) ? signature : sha256_buf;
+			CC_SHA256_Init(&ctx);
+			CC_SHA256_Update(&ctx,
 				       config,
 				       sizeof(_dns_config_buf_t) + ntohl(config->n_attribute));
-			CC_SHA1_Final(sha1, &ctx);
-			if (sha1 != signature) {
-				bcopy(sha1, signature, signature_len);
+			CC_SHA256_Final(sha256, &ctx);
+			if (sha256 != signature) {
+				memcpy(signature, sha256, signature_len);
 			}
 
 			config->config.generation = generation_save;
@@ -278,7 +278,7 @@ _dns_resolver_add_attribute(dns_create_resolver_t	*_resolver,
 
 	// add attribute [data]
 
-	bcopy(attribute, &header->attribute[0], attribute_length);
+	memcpy(&header->attribute[0], attribute, attribute_length);
 	for (uint32_t i = attribute_length; i < rounded_length; i++) {
 		header->attribute[i] = 0;
 	}

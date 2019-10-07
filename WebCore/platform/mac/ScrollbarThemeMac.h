@@ -29,6 +29,8 @@
 
 #if PLATFORM(MAC)
 
+OBJC_CLASS CALayer;
+
 namespace WebCore {
 
 class ScrollbarThemeMac : public ScrollbarThemeComposite {
@@ -50,8 +52,8 @@ public:
     void usesOverlayScrollbarsChanged() override;
     void updateScrollbarOverlayStyle(Scrollbar&)  override;
 
-    Seconds initialAutoscrollTimerDelay() override;
-    Seconds autoscrollTimerDelay() override;
+    Seconds initialAutoscrollTimerDelay() override { return 500_ms; }
+    Seconds autoscrollTimerDelay() override { return 50_ms; }
 
     ScrollbarButtonsPlacement buttonsPlacement() const override;
 

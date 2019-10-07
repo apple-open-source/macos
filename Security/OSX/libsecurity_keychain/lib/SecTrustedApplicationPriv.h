@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2003-2004,2011,2014 Apple Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -42,7 +42,7 @@ extern "C" {
  * Determine whether the application at path satisfies the trust expressed in appRef.
  */
 OSStatus
-SecTrustedApplicationValidateWithPath(SecTrustedApplicationRef appRef, const char *path) API_UNAVAILABLE(ios);
+SecTrustedApplicationValidateWithPath(SecTrustedApplicationRef appRef, const char *path) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
 	@function SecTrustedApplicationCreateFromRequirement
@@ -60,7 +60,7 @@ SecTrustedApplicationValidateWithPath(SecTrustedApplicationRef appRef, const cha
 	@result A result code. See SecBase.h and CSCommon.h.
 */
 OSStatus SecTrustedApplicationCreateFromRequirement(const char *description,
-	SecRequirementRef requirement, SecTrustedApplicationRef *app) API_UNAVAILABLE(ios);
+	SecRequirementRef requirement, SecTrustedApplicationRef *app) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
 	@function SecTrustedApplicationCopyRequirement
@@ -78,7 +78,7 @@ OSStatus SecTrustedApplicationCreateFromRequirement(const char *description,
 		no SecRequirementRef could be obtained.
  */
 OSStatus SecTrustedApplicationCopyRequirement(SecTrustedApplicationRef appRef,
-	SecRequirementRef *requirement) API_UNAVAILABLE(ios);
+	SecRequirementRef *requirement) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 
 /*!
@@ -101,7 +101,7 @@ OSStatus SecTrustedApplicationCopyRequirement(SecTrustedApplicationRef appRef,
 	@result A result code. See SecBase.h and CSCommon.h.
  */
 OSStatus SecTrustedApplicationCreateApplicationGroup(const char *groupName,
-	SecCertificateRef anchor, SecTrustedApplicationRef *app) API_UNAVAILABLE(ios);
+	SecCertificateRef anchor, SecTrustedApplicationRef *app) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 
 /*!
@@ -117,9 +117,9 @@ OSStatus SecTrustedApplicationCreateApplicationGroup(const char *groupName,
 	@result A result code. See SecBase.h and CSCommon.h.
  */
 OSStatus SecTrustedApplicationCopyExternalRepresentation(
-	SecTrustedApplicationRef appRef, 
-	CFDataRef *externalRef) API_UNAVAILABLE(ios);
-	
+	SecTrustedApplicationRef appRef,
+	CFDataRef *externalRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+
 /*!
 	@function SecTrustedApplicationCreateWithExternalRepresentation
 	@abstract Create a SecTrustedApplicationRef from an external data representation
@@ -133,7 +133,7 @@ OSStatus SecTrustedApplicationCopyExternalRepresentation(
  */
 OSStatus SecTrustedApplicationCreateWithExternalRepresentation(
 	CFDataRef externalRef,
-	SecTrustedApplicationRef *appRef) API_UNAVAILABLE(ios);
+	SecTrustedApplicationRef *appRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 
 /*
@@ -146,10 +146,10 @@ enum {
 
 OSStatus
 SecTrustedApplicationMakeEquivalent(SecTrustedApplicationRef oldRef,
-	SecTrustedApplicationRef newRef, UInt32 flags) API_UNAVAILABLE(ios);
+	SecTrustedApplicationRef newRef, UInt32 flags) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 OSStatus
-SecTrustedApplicationRemoveEquivalence(SecTrustedApplicationRef appRef, UInt32 flags) API_UNAVAILABLE(ios);
+SecTrustedApplicationRemoveEquivalence(SecTrustedApplicationRef appRef, UInt32 flags) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 
 /*
@@ -157,7 +157,7 @@ SecTrustedApplicationRemoveEquivalence(SecTrustedApplicationRef appRef, UInt32 f
  * pre-emptive code equivalency establishment
  */
 OSStatus
-SecTrustedApplicationIsUpdateCandidate(const char *installroot, const char *path) API_UNAVAILABLE(ios);
+SecTrustedApplicationIsUpdateCandidate(const char *installroot, const char *path) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 
 /*
@@ -165,7 +165,7 @@ SecTrustedApplicationIsUpdateCandidate(const char *installroot, const char *path
  * This is for system update installers (only)!
  */
 OSStatus
-SecTrustedApplicationUseAlternateSystem(const char *systemRoot) API_UNAVAILABLE(ios);
+SecTrustedApplicationUseAlternateSystem(const char *systemRoot) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 
 #if defined(__cplusplus)

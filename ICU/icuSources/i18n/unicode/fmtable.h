@@ -34,22 +34,11 @@
 U_NAMESPACE_BEGIN
 
 class CharString;
-class DigitList;
 namespace number {
 namespace impl {
 class DecimalQuantity;
 }
 }
-
-/**
- * \def UNUM_INTERNAL_STACKARRAY_SIZE
- * @internal
- */
-#if U_PLATFORM == U_PF_OS400
-#define UNUM_INTERNAL_STACKARRAY_SIZE 144
-#else
-#define UNUM_INTERNAL_STACKARRAY_SIZE 128
-#endif
 
 /**
  * Formattable objects can be passed to the Format class or
@@ -655,21 +644,6 @@ public:
      * Internal function, do not use.
      * TODO:  figure out how to make this be non-public.
      *        NumberFormat::format(Formattable, ...
-     *        needs to get at the DigitList, if it exists, for
-     *        big decimal formatting.
-     *  @internal
-     */
-    DigitList *getDigitList() const { return fDecimalNum;}
-
-    /**
-     *  @internal
-     */
-    DigitList *getInternalDigitList();
-
-    /**
-     * Internal function, do not use.
-     * TODO:  figure out how to make this be non-public.
-     *        NumberFormat::format(Formattable, ...
      *        needs to get at the DecimalQuantity, if it exists, for
      *        big decimal formatting.
      *  @internal
@@ -683,17 +657,9 @@ public:
     void populateDecimalQuantity(number::impl::DecimalQuantity& output, UErrorCode& status) const;
 
     /**
-     *  Adopt, and set value from, a DigitList
-     *     Internal Function, do not use.
-     *  @param dl the Digit List to be adopted
-     *  @internal
-     */
-    void adoptDigitList(DigitList *dl);
-
-    /**
      *  Adopt, and set value from, a DecimalQuantity
      *     Internal Function, do not use.
-     *  @param dl the DecimalQuantity to be adopted
+     *  @param dq the DecimalQuantity to be adopted
      *  @internal
      */
     void adoptDecimalQuantity(number::impl::DecimalQuantity *dq);
@@ -735,10 +701,6 @@ private:
     } fValue;
 
     CharString           *fDecimalStr;
-
-    DigitList            *fDecimalNum;
-
-    char                fStackData[UNUM_INTERNAL_STACKARRAY_SIZE]; // must be big enough for DigitList
 
     number::impl::DecimalQuantity *fDecimalQuantity;
 

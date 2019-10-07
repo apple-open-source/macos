@@ -31,12 +31,16 @@
 #import "PlatformCALayerRemote.h"
 #import "WebCoreArgumentCoders.h"
 #import <QuartzCore/QuartzCore.h>
+#import <WebCore/EventRegion.h>
 #import <WebCore/LengthFunctions.h>
 #import <WebCore/TimingFunction.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/TextStream.h>
 
 namespace WebKit {
+
+RemoteLayerTreeTransaction::RemoteLayerTreeTransaction(RemoteLayerTreeTransaction&&) = default;
+RemoteLayerTreeTransaction& RemoteLayerTreeTransaction::operator=(RemoteLayerTreeTransaction&&) = default;
 
 RemoteLayerTreeTransaction::LayerCreationProperties::LayerCreationProperties()
     : layerID(0)
@@ -142,6 +146,7 @@ RemoteLayerTreeTransaction::LayerProperties::LayerProperties(const LayerProperti
     , opaque(other.opaque)
     , contentsHidden(other.contentsHidden)
     , userInteractionEnabled(other.userInteractionEnabled)
+    , eventRegion(other.eventRegion)
 {
     // FIXME: LayerProperties should reference backing store by ID, so that two layers can have the same backing store (for clones).
     // FIXME: LayerProperties shouldn't be copyable; PlatformCALayerRemote::clone should copy the relevant properties.
@@ -276,6 +281,9 @@ void RemoteLayerTreeTransaction::LayerProperties::encode(IPC::Encoder& encoder) 
 
     if (changedProperties & UserInteractionEnabledChanged)
         encoder << userInteractionEnabled;
+
+    if (changedProperties & EventRegionChanged)
+        encoder << eventRegion;
 }
 
 bool RemoteLayerTreeTransaction::LayerProperties::decode(IPC::Decoder& decoder, LayerProperties& result)
@@ -499,6 +507,14 @@ bool RemoteLayerTreeTransaction::LayerProperties::decode(IPC::Decoder& decoder, 
             return false;
     }
 
+    if (result.changedProperties & EventRegionChanged) {
+        Optional<WebCore::EventRegion> eventRegion;
+        decoder >> eventRegion;
+        if (!eventRegion)
+            return false;
+        result.eventRegion = WTFMove(*eventRegion);
+    }
+
     return true;
 }
 
@@ -546,7 +562,7 @@ void RemoteLayerTreeTransaction::encode(IPC::Encoder& encoder) const
     encoder << m_transactionID;
     encoder << m_activityStateChangeID;
 
-    encoder << m_newlyReachedLayoutMilestones;
+    encoder << m_newlyReachedPaintingMilestones;
 
     encoder << m_scaleWasSetByUIProcess;
     encoder << m_allowsUserScaling;
@@ -657,7 +673,7 @@ bool RemoteLayerTreeTransaction::decode(IPC::Decoder& decoder, RemoteLayerTreeTr
     if (!decoder.decode(result.m_activityStateChangeID))
         return false;
 
-    if (!decoder.decode(result.m_newlyReachedLayoutMilestones))
+    if (!decoder.decode(result.m_newlyReachedPaintingMilestones))
         return false;
 
     if (!decoder.decode(result.m_scaleWasSetByUIProcess))

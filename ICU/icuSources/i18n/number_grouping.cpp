@@ -34,7 +34,7 @@ int16_t getMinGroupingForLocale(const Locale& locale) {
 
 }
 
-Grouper Grouper::forStrategy(UGroupingStrategy grouping) {
+Grouper Grouper::forStrategy(UNumberGroupingStrategy grouping) {
     switch (grouping) {
     case UNUM_GROUPING_OFF:
         return {-1, -1, -2, grouping};
@@ -47,8 +47,7 @@ Grouper Grouper::forStrategy(UGroupingStrategy grouping) {
     case UNUM_GROUPING_THOUSANDS:
         return {3, 3, 1, grouping};
     default:
-        U_ASSERT(FALSE);
-        return {}; // return a value: silence compiler warning
+        UPRV_UNREACHABLE;
     }
 }
 
@@ -61,11 +60,15 @@ Grouper Grouper::forProperties(const DecimalFormatProperties& properties) {
     auto minGrouping = static_cast<int16_t>(properties.minimumGroupingDigits);
     grouping1 = grouping1 > 0 ? grouping1 : grouping2 > 0 ? grouping2 : grouping1;
     grouping2 = grouping2 > 0 ? grouping2 : grouping1;
+    minGrouping = minGrouping > 0 ? minGrouping : -2; // use locale data if not set <rdar://problem/49808819>
     return {grouping1, grouping2, minGrouping, UNUM_GROUPING_COUNT};
 }
 
 void Grouper::setLocaleData(const impl::ParsedPatternInfo &patternInfo, const Locale& locale) {
     if (fGrouping1 != -2 && fGrouping2 != -4) {
+        if (fMinGrouping == -2) { // add test <rdar://problem/49808819>
+            fMinGrouping = getMinGroupingForLocale(locale);
+        }
         return;
     }
     auto grouping1 = static_cast<int16_t> (patternInfo.positive.groupingSizes & 0xffff);
@@ -80,7 +83,7 @@ void Grouper::setLocaleData(const impl::ParsedPatternInfo &patternInfo, const Lo
     if (fMinGrouping == -2) {
         fMinGrouping = getMinGroupingForLocale(locale);
     } else if (fMinGrouping == -3) {
-        fMinGrouping = uprv_max(2, getMinGroupingForLocale(locale));
+        fMinGrouping = static_cast<int16_t>(uprv_max(2, getMinGroupingForLocale(locale)));
     } else {
         // leave fMinGrouping alone
     }

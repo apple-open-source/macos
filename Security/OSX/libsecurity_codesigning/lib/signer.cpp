@@ -787,7 +787,7 @@ CFDataRef SecCodeSigner::Signer::signCodeDirectory(const CodeDirectory *cd,
 	// generate CMS signature
 	CFRef<CMSEncoderRef> cms;
 	MacOSError::check(CMSEncoderCreate(&cms.aref()));
-	MacOSError::check(CMSEncoderSetCertificateChainMode(cms, kCMSCertificateChainWithRoot));
+	MacOSError::check(CMSEncoderSetCertificateChainMode(cms, kCMSCertificateChainWithRootOrFail));
 	CMSEncoderAddSigners(cms, state.mSigner);
 	CMSEncoderSetSignerAlgorithm(cms, kCMSEncoderDigestAlgorithmSHA256);
 	MacOSError::check(CMSEncoderSetHasDetachedContent(cms, true));

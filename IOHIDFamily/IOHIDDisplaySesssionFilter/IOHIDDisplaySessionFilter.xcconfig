@@ -1,0 +1,20 @@
+//
+//  IOHIDDisplaySessionFilter.xcconfig
+//  IOHIDFamily
+//
+//  Created by Abhishek Nayyar on 3/13/19.
+//
+
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+
+_HID_FRAMEWORKS_PATH_1 = /AppleInternal/Library/HIDPlugins/SessionFilters
+_HID_FRAMEWORKS_PATH_0 = /System/Library/HIDPlugins/SessionFilters
+_HID_FRAMEWORKS_PATH_ = /System/Library/HIDPlugins/SessionFilters
+INSTALL_PATH = $(_HID_FRAMEWORKS_PATH_$(RC_HIDE_J290))
+FRAMEWORK_SEARCH_PATHS = $(inherited) /AppleInternal/Library/Frameworks
+SYSTEM_FRAMEWORK_SEARCH_PATHS = $(inherited) /AppleInternal/Library/Frameworks
+LD_FLAG_DISPLAY_FRAMEWORK = -framework HIDDisplay
+OTHER_LDFLAGS = $(inherited)
+OTHER_LDFLAGS[sdk=iphone*][arch=*] = $(inherited) $(LD_FLAG_DISPLAY_FRAMEWORK)
+OTHER_CFLAGS =  $(inherited) -ftrivial-auto-var-init=pattern

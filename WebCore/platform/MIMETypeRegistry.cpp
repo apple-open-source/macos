@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2019 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,6 +51,16 @@
 #if HAVE(AVASSETREADER)
 #include "ContentType.h"
 #include "ImageDecoderAVFObjC.h"
+#endif
+
+#if USE(QUICK_LOOK)
+#include "PreviewConverter.h"
+#endif
+
+#if USE(APPLE_INTERNAL_SDK)
+#include <WebKitAdditions/AdditionalSystemPreviewTypes.h>
+#else
+#define ADDITIONAL_SYSTEM_PREVIEW_TYPES
 #endif
 
 namespace WebCore {
@@ -125,6 +135,10 @@ const HashSet<String, ASCIICaseInsensitiveHash>& MIMETypeRegistry::supportedImag
         "image/vnd.microsoft.icon"_s, // ico
         "image/x-icon"_s, // ico
         "image/x-xbitmap"_s, // xbm
+#if USE(OPENJPEG)
+        "image/jp2"_s,
+        "image/jpeg2000"_s,
+#endif
 #if USE(WEBP)
         "image/webp"_s,
 #endif
@@ -639,6 +653,11 @@ bool MIMETypeRegistry::canShowMIMEType(const String& mimeType)
     if (isSupportedJavaScriptMIMEType(mimeType) || isSupportedJSONMIMEType(mimeType))
         return true;
 
+#if USE(QUICK_LOOK)
+    if (PreviewConverter::supportsMIMEType(mimeType))
+        return true;
+#endif
+
     if (startsWithLettersIgnoringASCIICase(mimeType, "text/"))
         return !isUnsupportedTextMIMEType(mimeType);
 
@@ -658,7 +677,8 @@ const HashSet<String, ASCIICaseInsensitiveHash>& MIMETypeRegistry::systemPreview
         "model/vnd.usdz+zip",
         // Unofficial, but supported because we documented them.
         "model/usd",
-        "model/vnd.pixar.usd"
+        "model/vnd.pixar.usd",
+        ADDITIONAL_SYSTEM_PREVIEW_TYPES
     };
     return systemPreviewMIMETypes;
 }

@@ -1,11 +1,11 @@
 --TEST--
-Test is_subclass_of() function : wrong number of args 
+Test is_subclass_of() function : wrong number of args
 --FILE--
 <?php
 /* Prototype  : proto bool is_subclass_of(object object, string class_name)
- * Description: Returns true if the object has this class as one of its parents 
+ * Description: Returns true if the object has this class as one of its parents
  * Source code: Zend/zend_builtin_functions.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing is_subclass_of() : error conditions ***\n";
@@ -48,7 +48,7 @@ bool(false)
 
 -- Testing is_subclass_of() function with more than invalid 3rd argument --
 
-Warning: is_subclass_of() expects parameter 3 to be boolean, object given in %s on line 26
+Warning: is_subclass_of() expects parameter 3 to be bool, object given in %s on line 26
 NULL
 
 -- Testing is_subclass_of() function with less than expected no. of arguments --

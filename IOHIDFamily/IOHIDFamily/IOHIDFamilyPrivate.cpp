@@ -23,7 +23,7 @@
 
 #include "IOHIDFamilyPrivate.h"
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 #include "IOHIDSystem.h"
 #endif
 #include "OSStackRetain.h"
@@ -73,6 +73,13 @@ bool CompareProperty( IOService * owner, OSDictionary * matching, const char * k
 
     return matches;
 }
+
+__attribute__((optnone)) void hid_trace(HIDTraceFunctionType functionType, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3, uintptr_t arg4, uintptr_t arg5)
+{
+#pragma unused(functionType, arg1,arg2,arg3,arg4,arg5)
+}
+
+
 
 bool CompareDeviceUsage( IOService * owner, OSDictionary * matching, SInt32 * score, SInt32 increment)
 {
@@ -394,7 +401,7 @@ bool MatchPropertyTable(IOService * owner, OSDictionary * table, SInt32 * score)
 
 void IOHIDSystemActivityTickle(SInt32 nxEventType, IOService *sender)
 {
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     HIDLogInfo("HID Activity Tickle (type:%d sender:%llx)", nxEventType, sender ? sender->getRegistryEntryID() : 0);
     IOHIDSystem *ioSys = IOHIDSystem::instance();
     if (ioSys) {
@@ -417,3 +424,16 @@ void handle_stackshot_keychord(uint32_t keycode)
     HIDLog("IOHIDSystem posted stackshot event 0x%08x", keycode);
 }
 
+bool  isSingleUser ()
+{
+    char namep[16];
+    static int singleUser;
+    
+    if (!singleUser) {
+        if (PE_parse_boot_argn("-s", namep, sizeof (namep))) {
+            singleUser |= 0x1;
+        }
+        singleUser |= 0x2;
+    }
+    return singleUser & 0x1;
+}

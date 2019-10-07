@@ -3,8 +3,8 @@ Test checkdate() function : usage variation - Passing unexpected values to secon
 --FILE--
 <?php
 /* Prototype  : bool checkdate  ( int $month  , int $day  , int $year  )
- * Description: Checks the validity of the date formed by the arguments. 
- *              A date is considered valid if each parameter is properly defined. 
+ * Description: Checks the validity of the date formed by the arguments.
+ *              A date is considered valid if each parameter is properly defined.
  * Source code: ext/date/php_date.c
  */
 
@@ -80,8 +80,8 @@ $inputs = array(
 
       // unset data
       'unset var' => @$unset_var,
-      
-      // resource 
+
+      // resource
       'resource' => $file_handle
 );
 
@@ -112,22 +112,22 @@ bool(false)
 
 -- empty array --
 
-Warning: checkdate() expects parameter 2 to be integer, array given in %s on line %d
+Warning: checkdate() expects parameter 2 to be int, array given in %s on line %d
 bool(false)
 
 -- int indexed array --
 
-Warning: checkdate() expects parameter 2 to be integer, array given in %s on line %d
+Warning: checkdate() expects parameter 2 to be int, array given in %s on line %d
 bool(false)
 
 -- associative array --
 
-Warning: checkdate() expects parameter 2 to be integer, array given in %s on line %d
+Warning: checkdate() expects parameter 2 to be int, array given in %s on line %d
 bool(false)
 
 -- nested arrays --
 
-Warning: checkdate() expects parameter 2 to be integer, array given in %s on line %d
+Warning: checkdate() expects parameter 2 to be int, array given in %s on line %d
 bool(false)
 
 -- uppercase NULL --
@@ -150,42 +150,42 @@ bool(false)
 
 -- empty string DQ --
 
-Warning: checkdate() expects parameter 2 to be integer, string given in %s on line %d
+Warning: checkdate() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 
 -- empty string SQ --
 
-Warning: checkdate() expects parameter 2 to be integer, string given in %s on line %d
+Warning: checkdate() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 
 -- string DQ --
 
-Warning: checkdate() expects parameter 2 to be integer, string given in %s on line %d
+Warning: checkdate() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 
 -- string SQ --
 
-Warning: checkdate() expects parameter 2 to be integer, string given in %s on line %d
+Warning: checkdate() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 
 -- mixed case string --
 
-Warning: checkdate() expects parameter 2 to be integer, string given in %s on line %d
+Warning: checkdate() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 
 -- heredoc --
 
-Warning: checkdate() expects parameter 2 to be integer, string given in %s on line %d
+Warning: checkdate() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 
 -- instance of classWithToString --
 
-Warning: checkdate() expects parameter 2 to be integer, object given in %s on line %d
+Warning: checkdate() expects parameter 2 to be int, object given in %s on line %d
 bool(false)
 
 -- instance of classWithoutToString --
 
-Warning: checkdate() expects parameter 2 to be integer, object given in %s on line %d
+Warning: checkdate() expects parameter 2 to be int, object given in %s on line %d
 bool(false)
 
 -- undefined var --
@@ -196,7 +196,6 @@ bool(false)
 
 -- resource --
 
-Warning: checkdate() expects parameter 2 to be integer, resource given in %s on line %d
+Warning: checkdate() expects parameter 2 to be int, resource given in %s on line %d
 bool(false)
 ===DONE===
-

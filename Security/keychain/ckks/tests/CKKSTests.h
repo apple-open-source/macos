@@ -28,6 +28,7 @@
 #import <XCTest/XCTest.h>
 
 #include <Security/SecItemPriv.h>
+#include "OSX/sec/Security/SecItemShim.h"
 
 #import "keychain/ckks/tests/CloudKitKeychainSyncingTestsBase.h"
 

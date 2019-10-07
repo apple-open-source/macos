@@ -52,6 +52,20 @@ __BEGIN_DECLS
 CF_ASSUME_NONNULL_BEGIN
 CF_IMPLICIT_BRIDGING_ENABLED
 
+/*!
+ @enum      IOHIDTransactionOptions
+ @abstract  Various options that can be supplied to IOHIDTransaction functions.
+ @const     kIOHIDTransactionOptionsNone For those times when supplying 0 just isn't
+            explicit enough.
+ @const     kIOHIDTransactionOptionsWeakDevice specifies the transaction to not retain the
+            IOHIDDeviceRef being passed in. The expectation is that transaction will only exist during
+            the lifetime of the IOHIDDeviceRef object.
+ */
+typedef CF_OPTIONS(uint32_t, IOHIDTransactionOptions) {
+    kIOHIDTransactionOptionsNone = 0x0,
+    kIOHIDTransactionOptionsWeakDevice = 0x1,
+};
+
 /*! @typedef IOHIDTransactionRef
 	This is the type of a reference to the IOHIDTransaction.
 */

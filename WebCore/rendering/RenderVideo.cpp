@@ -101,6 +101,10 @@ bool RenderVideo::updateIntrinsicSize()
     if (size.isEmpty() && document().isMediaDocument())
         return false;
 
+    // Treat the media player's natural size as visually non-empty.
+    if (videoElement().readyState() >= HTMLMediaElementEnums::HAVE_METADATA)
+        incrementVisuallyNonEmptyPixelCountIfNeeded(roundedIntSize(size));
+
     if (size == intrinsicSize())
         return false;
 
@@ -109,7 +113,7 @@ bool RenderVideo::updateIntrinsicSize()
     setNeedsLayout();
     return true;
 }
-    
+
 LayoutSize RenderVideo::calculateIntrinsicSize()
 {
     // Spec text from 4.8.6
@@ -158,6 +162,10 @@ void RenderVideo::imageChanged(WrappedImagePtr newImage, const IntRect* rect)
 
 IntRect RenderVideo::videoBox() const
 {
+    auto mediaPlayer = videoElement().player();
+    if (mediaPlayer && mediaPlayer->shouldIgnoreIntrinsicSize())
+        return snappedIntRect(contentBoxRect());
+
     LayoutSize intrinsicSize = this->intrinsicSize();
 
     if (videoElement().shouldDisplayPosterImage())

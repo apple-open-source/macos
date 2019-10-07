@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,8 +26,8 @@
 #define __L2TP_UDP_H__
 
 
-int l2tp_udp_init();
-int l2tp_udp_dispose();
+int l2tp_udp_init(void);
+int l2tp_udp_dispose(void);
 int l2tp_udp_attach(socket_t *so, struct sockaddr *addr, int *thread, int nocksum, int delegated_process);
 int l2tp_udp_detach(socket_t so, int thread);
 int l2tp_udp_setpeer(socket_t so, struct sockaddr *addr);

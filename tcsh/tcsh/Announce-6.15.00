@@ -1,0 +1,43 @@
+Hello,
+
+I am pleased to announce that tcsh-6.15 is now available; this version
+fixes a number of bugs and adds the following enhancements:
+
+Changes:
+    * Addition of a test suite
+    * More configuration moved to autoconf from static constants
+    * Fixed buffer sizes removed, memory allocation redone, with unwind code
+    * Use only posix signal code.
+    * Implement newline-and-hold and newline-and-down-history
+
+Bug Fixes:
+    * too many to enumerate here, consult the Fixes file
+
+Some of the changes may have broken support for older operating systems.
+
+Tcsh is an enhanced version of the Berkeley C-shell that offers command
+line editing and completion plus many other little things that preserve
+the length of your fingers.
+
+Tcsh runs on most UNIX machines, VMS_POSIX, OS/2 EMX, WIN32, Amiga...
+
+You can get tcsh from ftp://ftp.astron.com/pub/tcsh/tcsh-6.15.00.tar.gz
+or from the mirrors:
+
+    ftp://ftp.gw.com/pub/unix/tcsh/tcsh-6.15.00.tar.gz [US]
+    ftp://ftp.funet.fi/pub/unix/shells/tcsh/tcsh-6.15.00.tar.gz [Finland]
+
+    SHA1 (tcsh-6.15.00.tar.gz) = d24f7bf27e80222a6293b6629c14db547f0b7387
+    RMD160 (tcsh-6.15.00.tar.gz) = 8065279e93bd3fddb2a95a3f74a680858d36508c
+
+This is a gzip (GNU zip) tar archive. If you don't have GNU zip you can
+get it from ftp.gnu.org or other GNU mirrors.
+
+I would like to thank:
+
+    * Miloslav Trmac (test suite, posix signal code, memory allocation,
+      autoconf changes)
+    * everyone who sent bug reports
+    * the beta team for all their help, bug fixes, and suggestions
+
++ christos

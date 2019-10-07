@@ -42,7 +42,6 @@ struct h2_bucket_beam;
 struct h2_conn;
 struct h2_mplx;
 struct h2_task;
-struct h2_req_engine;
 struct h2_request;
 struct h2_response_parser;
 struct h2_stream;
@@ -80,17 +79,15 @@ struct h2_task {
     struct h2_mplx *mplx;
     
     unsigned int filters_set    : 1;
-    unsigned int frozen         : 1;
-    unsigned int thawed         : 1;
     unsigned int worker_started : 1; /* h2_worker started processing */
-    unsigned int worker_done    : 1; /* h2_worker finished */
+    unsigned int redo : 1;           /* was throttled, should be restarted later */
+    
+    int worker_done;                 /* h2_worker finished */
+    int done_done;                   /* task_done has been handled */
     
     apr_time_t started_at;           /* when processing started */
     apr_time_t done_at;              /* when processing was done */
     apr_bucket *eor;
-    
-    struct h2_req_engine *engine;   /* engine hosted by this task */
-    struct h2_req_engine *assigned; /* engine that task has been assigned to */
 };
 
 h2_task *h2_task_create(conn_rec *slave, int stream_id,
@@ -105,6 +102,7 @@ apr_status_t h2_task_do(h2_task *task, apr_thread_t *thread, int worker_id);
 
 void h2_task_redo(h2_task *task);
 int h2_task_can_redo(h2_task *task);
+int h2_task_has_started(h2_task *task);
 
 /**
  * Reset the task with the given error code, resets all input/output.
@@ -119,9 +117,5 @@ apr_status_t h2_task_init(apr_pool_t *pool, server_rec *s);
 
 extern APR_OPTIONAL_FN_TYPE(ap_logio_add_bytes_in) *h2_task_logio_add_bytes_in;
 extern APR_OPTIONAL_FN_TYPE(ap_logio_add_bytes_out) *h2_task_logio_add_bytes_out;
-
-apr_status_t h2_task_freeze(h2_task *task);
-apr_status_t h2_task_thaw(h2_task *task);
-int h2_task_has_thawed(h2_task *task);
 
 #endif /* defined(__mod_h2__h2_task__) */

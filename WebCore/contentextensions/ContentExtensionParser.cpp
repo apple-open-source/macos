@@ -78,7 +78,7 @@ static Expected<Vector<String>, std::error_code> getStringList(ExecState& exec, 
             return makeUnexpected(error);
         strings.append(string);
     }
-    return WTFMove(strings);
+    return strings;
 }
 
 static Expected<Vector<String>, std::error_code> getDomainList(ExecState& exec, const JSObject* arrayObject)
@@ -225,13 +225,13 @@ static Expected<Trigger, std::error_code> loadTrigger(ExecState& exec, const JSO
     } else if (!unlessTopURLValue.isUndefined())
         return makeUnexpected(ContentExtensionError::JSONInvalidConditionList);
 
-    return WTFMove(trigger);
+    return trigger;
 }
 
 bool isValidCSSSelector(const String& selector)
 {
     ASSERT(isMainThread());
-    AtomicString::init();
+    AtomString::init();
     QualifiedName::init();
     CSSParserContext context(HTMLQuirksMode);
     CSSParser parser(context);
@@ -256,11 +256,11 @@ static Expected<Optional<Action>, std::error_code> loadAction(ExecState& exec, c
     String actionType = asString(typeObject)->value(&exec);
 
     if (actionType == "block")
-        return {{ ActionType::BlockLoad }};
+        return { Action(ActionType::BlockLoad) };
     if (actionType == "ignore-previous-rules")
-        return {{ ActionType::IgnorePreviousRules }};
+        return { Action(ActionType::IgnorePreviousRules) };
     if (actionType == "block-cookies")
-        return {{ ActionType::BlockCookies }};
+        return { Action(ActionType::BlockCookies) };
     if (actionType == "css-display-none") {
         JSValue selector = actionObject.get(&exec, Identifier::fromString(&exec, "selector"));
         if (scope.exception() || !selector.isString())
@@ -274,7 +274,7 @@ static Expected<Optional<Action>, std::error_code> loadAction(ExecState& exec, c
         return { Action(ActionType::CSSDisplayNoneSelector, selectorString) };
     }
     if (actionType == "make-https")
-        return {{ ActionType::MakeHTTPS }};
+        return { Action(ActionType::MakeHTTPS) };
     if (actionType == "notify") {
         JSValue notification = actionObject.get(&exec, Identifier::fromString(&exec, "notification"));
         if (scope.exception() || !notification.isString())
@@ -342,10 +342,10 @@ static Expected<Vector<ContentExtensionRule>, std::error_code> loadEncodedRules(
         if (!rule.has_value())
             return makeUnexpected(rule.error());
         if (rule.value())
-            ruleList.append(*rule.value());
+            ruleList.append(WTFMove(*rule.value()));
     }
 
-    return WTFMove(ruleList);
+    return ruleList;
 }
 
 Expected<Vector<ContentExtensionRule>, std::error_code> parseRuleList(const String& ruleJSON)
@@ -374,7 +374,7 @@ Expected<Vector<ContentExtensionRule>, std::error_code> parseRuleList(const Stri
     dataLogF("Time spent loading extension %f\n", (loadExtensionEndTime - loadExtensionStartTime).seconds());
 #endif
 
-    return WTFMove(*ruleList);
+    return ruleList;
 }
 
 } // namespace ContentExtensions

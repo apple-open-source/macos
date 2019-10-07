@@ -5,9 +5,9 @@ Dave Kelsey <d_kelsey@uk.ibm.com>
 --FILE--
 <?php
 /* Prototype  : bool rename(string old_name, string new_name[, resource context])
- * Description: Rename a file 
+ * Description: Rename a file
  * Source code: ext/standard/file.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing rename() : usage variation ***\n";
@@ -104,7 +104,7 @@ $inputs = array(
 
       // unset data
       'unset var' => @$unset_var,
-      
+
       // file resource
       'file resource' => $fileRes,
 );
@@ -132,19 +132,19 @@ fclose($fileRes);
 *** Testing rename() : usage variation ***
 
 --int 0--
-Error: 2 - rename() expects parameter 3 to be resource, integer given, %s(%d)
+Error: 2 - rename() expects parameter 3 to be resource, int given, %s(%d)
 bool(false)
 
 --int 1--
-Error: 2 - rename() expects parameter 3 to be resource, integer given, %s(%d)
+Error: 2 - rename() expects parameter 3 to be resource, int given, %s(%d)
 bool(false)
 
 --int 12345--
-Error: 2 - rename() expects parameter 3 to be resource, integer given, %s(%d)
+Error: 2 - rename() expects parameter 3 to be resource, int given, %s(%d)
 bool(false)
 
 --int -12345--
-Error: 2 - rename() expects parameter 3 to be resource, integer given, %s(%d)
+Error: 2 - rename() expects parameter 3 to be resource, int given, %s(%d)
 bool(false)
 
 --float 10.5--
@@ -184,27 +184,25 @@ Error: 2 - rename() expects parameter 3 to be resource, array given, %s(%d)
 bool(false)
 
 --uppercase NULL--
-Error: 2 - rename() expects parameter 3 to be resource, null given, %s(%d)
-bool(false)
+bool(true)
 
 --lowercase null--
-Error: 2 - rename() expects parameter 3 to be resource, null given, %s(%d)
-bool(false)
+bool(true)
 
 --lowercase true--
-Error: 2 - rename() expects parameter 3 to be resource, boolean given, %s(%d)
+Error: 2 - rename() expects parameter 3 to be resource, bool given, %s(%d)
 bool(false)
 
 --lowercase false--
-Error: 2 - rename() expects parameter 3 to be resource, boolean given, %s(%d)
+Error: 2 - rename() expects parameter 3 to be resource, bool given, %s(%d)
 bool(false)
 
 --uppercase TRUE--
-Error: 2 - rename() expects parameter 3 to be resource, boolean given, %s(%d)
+Error: 2 - rename() expects parameter 3 to be resource, bool given, %s(%d)
 bool(false)
 
 --uppercase FALSE--
-Error: 2 - rename() expects parameter 3 to be resource, boolean given, %s(%d)
+Error: 2 - rename() expects parameter 3 to be resource, bool given, %s(%d)
 bool(false)
 
 --empty string DQ--
@@ -240,12 +238,10 @@ Error: 2 - rename() expects parameter 3 to be resource, object given, %s(%d)
 bool(false)
 
 --undefined var--
-Error: 2 - rename() expects parameter 3 to be resource, null given, %s(%d)
-bool(false)
+bool(true)
 
 --unset var--
-Error: 2 - rename() expects parameter 3 to be resource, null given, %s(%d)
-bool(false)
+bool(true)
 
 --file resource--
 Error: 2 - rename(): supplied resource is not a valid Stream-Context resource, %s(%d)

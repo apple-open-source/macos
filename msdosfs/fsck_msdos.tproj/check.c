@@ -76,69 +76,67 @@ int checkfilesys(const char *fname)
 	int tryFatalAgain = 1;
 	int tryErrorAgain = 3;
 	int tryOthersAgain = 3;
-    char raw_path[64];
-    
-    /*
-     * We accept device paths of the form "/dev/disk6s1" or "disk6s1"
-     * and convert them to the raw path "/dev/rdisk6s1".
-     *
-     * On iOS, we want to be able to run fsck_msdos as user "mobile"
-     * so that it can be spawned from userfsd, which also runs as "mobile".
-     * But since /dev/disk entries are owned by root, we can't open them
-     * directly.  userfsd has already used an SPI to open the disk device,
-     * so it will spawn fsck_msdos with that open file descriptor, and use
-     * a path of the form "/dev/fd/NUMBER".
-     *
-     * Unfortunately, iOS doesn't support /dev/fd/ (and if it did, sandboxing
-     * might not allow us to access it).  If we can search in /dev/fd, then
-     * we'll just try to open the path as-is.  Otherwise, we'll parse the file
-     * descriptor number from the path and use that descriptor directly
-     * (without going through open).
-     */
+	char raw_path[64];
+
+	/*
+	 * We accept device paths of the form "/dev/disk6s1" or "disk6s1"
+	 * and convert them to the raw path "/dev/rdisk6s1".
+	 *
+	 * On iOS, we want to be able to run fsck_msdos as user "mobile"
+	 * so that it can be spawned from userfsd, which also runs as "mobile".
+	 * But since /dev/disk entries are owned by root, we can't open them
+	 * directly.  userfsd has already used an SPI to open the disk device,
+	 * so it will spawn fsck_msdos with that open file descriptor, and use
+	 * a path of the form "/dev/fd/NUMBER". Just parse NUMBER from the
+	 * fname and use it as FD for the device to check.
+	 */
 	if (!strncmp(fname, "/dev/disk", 9))
 	{
-	    if (snprintf(raw_path, sizeof(raw_path), "/dev/r%s", &fname[5]) < sizeof(raw_path))
-            fname = raw_path;
-	    /* Else we just use the non-raw disk */
+		if (snprintf(raw_path, sizeof(raw_path), "/dev/r%s", &fname[5]) < sizeof(raw_path))
+			fname = raw_path;
+		/* Else we just use the non-raw disk */
 	}
 	else if (!strncmp(fname, "disk", 4))
 	{
-	    if (snprintf(raw_path, sizeof(raw_path), "/dev/r%s", fname) < sizeof(raw_path))
-            fname = raw_path;
-	    /* Else the open below is likely to fail */
+		if (snprintf(raw_path, sizeof(raw_path), "/dev/r%s", fname) < sizeof(raw_path))
+			fname = raw_path;
+		/* Else the open below is likely to fail */
 	}
 	else if (!strncmp(fname, "/dev/fd/", 8))
-    {
-        /*
-         * If /dev/fd/ doesn't exist, or we can't access it,
-         * then parse the file descriptor ourselves.
-         */
-        if (access("/dev/fd", X_OK))
-        {
-            char *end_ptr;
-            dosfs = (int)strtol(&fname[8], &end_ptr, 10);
-            if (*end_ptr)
-            {
-                // TODO: is errx or err the right way to report the errors here?
-                pfatal("Invalid file descriptor path: %s", fname);
-                return 8;
-            }
-            
-            struct stat info;
-            if (fstat(dosfs, &info))
-            {
-                perr("Cannot stat");
-                return 8;
-            }
-        }
-    }
+	{
+		char *end_ptr;
+		dosfs = (int)strtol(&fname[8], &end_ptr, 10);
+		if (*end_ptr)
+		{
+			// TODO: is errx or err the right way to report the errors here?
+			pfatal("Invalid file descriptor path: %s", fname);
+			return 8;
+		}
+
+		struct stat info;
+		if (fstat(dosfs, &info))
+		{
+			perr("Cannot stat");
+			return 8;
+		}
+
+		/* Note: Passed in fd can be seeked to arbitrary location, bellow code
+		 *       assumes that fd is seeked to 0, and uses read instead of pread.
+		 *       To make everything work, just reset fd to 0.
+		 */
+		if (lseek(dosfs, 0, SEEK_SET) == -1)
+		{
+			perr("Cannot seek");
+			return 8;
+		}
+	}
 
 	rdonly = alwaysno || quick;
 	if (!preen)
 		printf("** %s", fname);
 
-    if (dosfs < 0)
-        dosfs = open(fname, rdonly ? O_RDONLY : O_RDWR | O_EXLOCK, 0);
+	if (dosfs < 0)
+		dosfs = open(fname, rdonly ? O_RDONLY : O_RDWR | O_EXLOCK, 0);
 	if (dosfs < 0 && !rdonly) {
 		dosfs = open(fname, O_RDONLY, 0);
 		if (dosfs >= 0)
@@ -204,7 +202,7 @@ Again:
 	 */
 	if (!preen && !quiet) {
 		printf("** Phase 1 - Preparing FAT\n");
-        }
+	}
 
 	mod |= fat_init(dosfs, &boot);
 	
@@ -294,7 +292,7 @@ Again:
 	if ((mod & (FSFATAL | FSERROR)) == 0)
 		ret = 0;
 
-    out:
+out:
 	if (finish_dosdirsection)
 		finishDosDirSection();
 	fat_uninit();

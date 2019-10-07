@@ -162,6 +162,11 @@ Do not update the file access time when reading from a file.
 This option is useful on file systems where there are large numbers of files
 and performance is more critical than updating the file access time (which
 is rarely ever important).
+.It strictatime
+Always update the file access time when reading from a file. Without this option the
+filesystem may default to a less strict update mode, where some access time updates
+are skipped for performance reasons. This option could be ignored if it is not supported
+by the filesystem.
 .It nobrowse
 This option indicates that the mount point should not be visible
 via the GUI (i.e., appear on the Desktop as a separate volume).

@@ -105,6 +105,7 @@ static void EventSystemPropertyChangedCallback (void * _Nullable target, void * 
 -(void) EventSystemServiceRemoved: (IOHIDServiceClientRef) service {
     TestLog("EventSystemServiceRemoved: %@\n", service);
     if (self.eventService == service) {
+        CFRelease(self.eventService);
         self.eventService = nil;
     }
 }

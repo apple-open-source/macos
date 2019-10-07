@@ -27,6 +27,7 @@
 #include "WebKitDLL.h"
 #include "WebPreferences.h"
 
+#include "NetworkStorageSessionMap.h"
 #include "WebNotificationCenter.h"
 #include "WebPreferenceKeysPrivate.h"
 
@@ -37,13 +38,13 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <WebCore/COMPtr.h>
-#include <WebCore/FileSystem.h>
 #include <WebCore/FontCascade.h>
 #include <WebCore/LocalizedStrings.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <limits>
 #include <shlobj.h>
 #include <wchar.h>
+#include <wtf/FileSystem.h>
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
@@ -306,7 +307,7 @@ void WebPreferences::initializeDefaultSettings()
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitCustomElementsEnabledPreferenceKey), kCFBooleanFalse);
 
-    CFDictionaryAddValue(defaults, CFSTR(WebKitWebAnimationsEnabledPreferenceKey), kCFBooleanTrue);
+    CFDictionaryAddValue(defaults, CFSTR(WebKitWebAnimationsEnabledPreferenceKey), kCFBooleanFalse);
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitWebAnimationsCSSIntegrationEnabledPreferenceKey), kCFBooleanFalse);
 
@@ -327,6 +328,10 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebKitVisualViewportAPIEnabledPreferenceKey), kCFBooleanFalse);
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitCSSOMViewScrollingAPIEnabledPreferenceKey), kCFBooleanFalse);
+
+    CFDictionaryAddValue(defaults, CFSTR(WebKitResizeObserverEnabledPreferenceKey), kCFBooleanFalse);
+
+    CFDictionaryAddValue(defaults, CFSTR(WebKitCoreMathMLEnabledPreferenceKey), kCFBooleanFalse);
 
     defaultSettings = defaults;
 }
@@ -2118,13 +2123,13 @@ HRESULT WebPreferences::mediaPreloadingEnabled(_Out_ BOOL* enabled)
 
 HRESULT WebPreferences::clearNetworkLoaderSession()
 {
-    NetworkStorageSession::defaultStorageSession().deleteAllCookies();
+    NetworkStorageSessionMap::defaultStorageSession().deleteAllCookies();
     return S_OK;
 }
 
 HRESULT WebPreferences::switchNetworkLoaderToNewTestingSession()
 {
-    NetworkStorageSession::switchToNewTestingSession();
+    NetworkStorageSessionMap::switchToNewTestingSession();
     return S_OK;
 }
 
@@ -2198,6 +2203,20 @@ HRESULT WebPreferences::setCSSOMViewScrollingAPIEnabled(BOOL enabled)
     return S_OK;
 }
 
+HRESULT WebPreferences::coreMathMLEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitCoreMathMLEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setCoreMathMLEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitCoreMathMLEnabledPreferenceKey, enabled);
+    return S_OK;
+}
+
 HRESULT WebPreferences::setApplicationId(BSTR applicationId)
 {
     m_applicationId = String(applicationId).createCFString();
@@ -2257,5 +2276,19 @@ HRESULT WebPreferences::serverTimingEnabled(_Out_ BOOL* enabled)
 HRESULT WebPreferences::setServerTimingEnabled(BOOL enabled)
 {
     setBoolValue(WebKitServerTimingEnabledPreferenceKey, enabled);
+    return S_OK;
+}
+
+HRESULT WebPreferences::resizeObserverEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitResizeObserverEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setResizeObserverEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitResizeObserverEnabledPreferenceKey, enabled);
     return S_OK;
 }

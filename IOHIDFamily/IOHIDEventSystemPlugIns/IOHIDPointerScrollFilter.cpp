@@ -24,6 +24,7 @@
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/hid/IOHIDKeys.h>
 #include <IOKit/hid/IOHIDServiceKeys.h>
+#include <IOKit/hid/IOHIDEventServiceTypes.h>
 #include  "IOHIDParameter.h"
 #include  "IOHIDEventData.h"
 
@@ -425,7 +426,9 @@ void IOHIDPointerScrollFilter::accelerateEvent(IOHIDEventRef event) {
   bool accelerated;
   IOHIDEventRef accelEvent;
 
-  if (_pointerAccelerator && IOHIDEventGetType(event) == kIOHIDEventTypePointer) {
+  if (_pointerAccelerator &&
+      IOHIDEventGetType(event) == kIOHIDEventTypePointer &&
+      !(IOHIDEventGetEventFlags(event) & kIOHIDPointerEventOptionsNoAcceleration)) {
     double xy[2];
     if ((IOHIDEventGetEventFlags(event) & kIOHIDAccelerated) == 0) {
       
@@ -448,7 +451,8 @@ void IOHIDPointerScrollFilter::accelerateEvent(IOHIDEventRef event) {
       }
     }
   }
-  if (IOHIDEventGetType(event) == kIOHIDEventTypeScroll) {
+  if (IOHIDEventGetType(event) == kIOHIDEventTypeScroll &&
+      !(IOHIDEventGetEventFlags(event) & kIOHIDScrollEventOptionsNoAcceleration)) {
     if ((IOHIDEventGetEventFlags(event) & kIOHIDAccelerated) == 0) {
       static int axis [3] = {kIOHIDEventFieldScrollX, kIOHIDEventFieldScrollY, kIOHIDEventFieldScrollZ};
       double value [3];

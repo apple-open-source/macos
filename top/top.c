@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2008, 2019 Apple Computer, Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -32,6 +32,7 @@
 #include "log.h"
 #include "userinput.h"
 #include "preferences.h"
+#include "uinteger.h"
 
 const libtop_tsamp_t *tsamp;
 
@@ -97,7 +98,6 @@ static int top_sort(void *a_data, const libtop_psamp_t *a, const libtop_psamp_t 
 
 static int sort_subcomp(int a_key, const libtop_psamp_t *a_a,
                         const libtop_psamp_t *a_b) {
-    struct timeval  tv_a, tv_b;
     unsigned long long used_ns_a, used_ns_b;
     const char      *user_a, *user_b;
     
@@ -106,16 +106,11 @@ static int sort_subcomp(int a_key, const libtop_psamp_t *a_a,
             
         case STATISTIC_COMMAND: return COMP(strcmp(a_a->command, a_b->command),0);
             
-        case STATISTIC_CPU:
-            timersub(&a_a->total_time, &a_a->p_total_time, &tv_a);
-            timersub(&a_b->total_time, &a_b->p_total_time, &tv_b);
-            
-            if(tv_a.tv_sec == tv_b.tv_sec) {
-                return COMP(tv_a.tv_usec, tv_b.tv_usec);
-            } else {
-                return COMP(tv_a.tv_sec, tv_b.tv_sec);
-            }
-            
+        case STATISTIC_CPU:;
+            uint64_t time_ns_a = a_a->total_timens - a_a->p_total_timens;
+            uint64_t time_ns_b = a_b->total_timens - a_b->p_total_timens;
+            return COMP(time_ns_a, time_ns_b);
+
         case STATISTIC_CPU_ME:
             used_ns_a = a_a->cpu_billed_to_me - a_a->p_cpu_billed_to_me;
             used_ns_b = a_b->cpu_billed_to_me - a_b->p_cpu_billed_to_me;
@@ -138,14 +133,7 @@ static int sort_subcomp(int a_key, const libtop_psamp_t *a_a,
             
             
         case STATISTIC_TIME:
-            tv_a = a_a->total_time;
-            tv_b = a_b->total_time;
-            
-            if(tv_a.tv_sec == tv_b.tv_sec) {
-                return COMP(tv_a.tv_usec, tv_b.tv_usec);
-            } else {
-                return COMP(tv_a.tv_sec, tv_b.tv_sec);
-            }
+            return COMP(a_a->total_timens, a_b->total_timens);
             
         case STATISTIC_THREADS: return COMP(a_a->th, a_b->th);
             
@@ -223,18 +211,19 @@ static int sort_subcomp(int a_key, const libtop_psamp_t *a_a,
         case STATISTIC_POWERSCORE: {
             uint64_t a_idlew = a_a->power.task_platform_idle_wakeups - a_a->p_power.task_platform_idle_wakeups;
             uint64_t b_idlew = a_b->power.task_platform_idle_wakeups - a_b->p_power.task_platform_idle_wakeups;
-            timersub(&a_a->total_time, &a_a->p_total_time, &tv_a);
-            timersub(&a_b->total_time, &a_b->p_total_time, &tv_b);
-            uint64_t a_usec = tv_a.tv_usec + (UINT64_C(1000000) * tv_a.tv_sec) + (UINT64_C(500) * a_idlew);
-            uint64_t b_usec = tv_b.tv_usec + (UINT64_C(1000000) * tv_b.tv_sec) + (UINT64_C(500) * b_idlew);
+            uint64_t timens_a = a_a->total_timens - a_a->p_total_timens;
+            uint64_t timens_b = a_b->total_timens - a_b->p_total_timens;
+
+            uint64_t cmp_a = timens_a + (UINT64_C(500) * a_idlew);
+            uint64_t cmp_b = timens_b + (UINT64_C(500) * b_idlew);
             
             // kernel gets a free ride
             if (a_a->pid == 0) {
-                a_usec = UINT64_C(0);
+                cmp_a = UINT64_C(0);
             } else if (a_b->pid == 0) {
-                b_usec = UINT64_C(0);
+                cmp_b = UINT64_C(0);
             }
-            return COMP(a_usec, b_usec);
+            return COMP(cmp_a, cmp_b);
         }
             
         case STATISTIC_INSTRS:
@@ -327,6 +316,7 @@ void top_insert(void *ptr) {
             break;
         }
     }
+    first_sample = false;
 }
 
 

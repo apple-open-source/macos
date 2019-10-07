@@ -1,0 +1,5 @@
+*~
+*.rej
+*.orig
+.DS_Store
+*.swp

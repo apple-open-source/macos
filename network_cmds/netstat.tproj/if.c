@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -92,6 +92,8 @@
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+
+#include <assert.h>
 
 #include "netstat.h"
 
@@ -307,8 +309,13 @@ intpr(void (*pfunc)(char *))
 	}
 
 	if (!pfunc) {
-		printf("%-5.5s %-5.5s %-13.13s %-15.15s %8.8s %5.5s",
-		       "Name", "Mtu", "Network", "Address", "Ipkts", "Ierrs");
+		if (lflag) {
+			printf("%-10.10s %-5.5s %-39.39s %-39.39s %8.8s %5.5s",
+				   "Name", "Mtu", "Network", "Address", "Ipkts", "Ierrs");
+		} else {
+			printf("%-10.10s %-5.5s %-13.13s %-15.15s %8.8s %5.5s",
+				   "Name", "Mtu", "Network", "Address", "Ipkts", "Ierrs");
+		}
 		if (prioflag >= 0)
 			printf(" %8.8s %8.8s", "Itcpkts", "Ipvpkts");
 		if (bflag) {
@@ -364,17 +371,19 @@ intpr(void (*pfunc)(char *))
 			int mibname[6];
 			size_t miblen = sizeof(struct ifmibdata_supplemental);
 
-			strncpy(name, sdl->sdl_data, sdl->sdl_nlen);
-			name[sdl->sdl_nlen] = 0;
 			if (interface != 0 && if2m->ifm_index != ifindex)
 				continue;
-			cp = index(name, '\0');
+
+			/* The interface name is not a zero-ended string */
+			memcpy(name, sdl->sdl_data, MIN(sizeof(name) - 1, sdl->sdl_nlen));
+			name[MIN(sizeof(name) - 1, sdl->sdl_nlen)] = 0;
 
 			if (pfunc) {
 				(*pfunc)(name);
 				continue;
 			}
 
+			cp = index(name, '\0');
 			if ((if2m->ifm_flags & IFF_UP) == 0)
 				*cp++ = '*';
 			*cp = '\0';
@@ -464,16 +473,20 @@ intpr(void (*pfunc)(char *))
 		} else {
 			continue;
 		}
-		printf("%-5.5s %-5u ", name, mtu);
+		if (lflag) {
+			printf("%-10.10s %-5u ", name, mtu);
+		} else {
+			printf("%-5.5s %-5u ", name, mtu);
+		}
 
 		if (sa == 0) {
-			printf("%-13.13s ", "none");
-			printf("%-15.15s ", "none");
+			printf(lflag ? "%-39.39s " : "%-13.13s ", "none");
+			printf(lflag ? "%-39.39s " : "%-15.15s ", "none");
 		} else {
 			switch (sa->sa_family) {
 			case AF_UNSPEC:
-				printf("%-13.13s ", "none");
-				printf("%-15.15s ", "none");
+				printf(lflag ? "%-39.39s " : "%-13.13s ", "none");
+				printf(lflag ? "%-39.39s " : "%-15.15s ", "none");
 				break;
 
 			case AF_INET: {
@@ -486,12 +499,12 @@ intpr(void (*pfunc)(char *))
 				    ((struct sockaddr_in *)
 				    rti_info[RTAX_NETMASK])->sin_len);
 
-				printf("%-13.13s ",
+				printf(lflag ? "%-39.39s " : "%-13.13s ",
 				    netname(sin->sin_addr.s_addr &
 				    mask.sin_addr.s_addr,
 				    ntohl(mask.sin_addr.s_addr)));
 
-				printf("%-15.15s ",
+				printf(lflag ? "%-39.39s " : "%-15.15s ",
 				    routename(sin->sin_addr.s_addr));
 
 				network_layer = 1;
@@ -504,8 +517,8 @@ intpr(void (*pfunc)(char *))
 				struct sockaddr *mask =
 				    (struct sockaddr *)rti_info[RTAX_NETMASK];
 
-				printf("%-11.11s ", netname6(sin6, mask));
-				printf("%-17.17s ", (char *)inet_ntop(AF_INET6,
+				printf(lflag ? "%-39.39s " : "%-11.11s ", netname6(sin6, mask));
+				printf(lflag ? "%-39.39s " : "%-17.17s ", (char *)inet_ntop(AF_INET6,
 				    &sin6->sin6_addr, ntop_buf,
 				    sizeof(ntop_buf)));
 
@@ -521,7 +534,7 @@ intpr(void (*pfunc)(char *))
 				n = sdl->sdl_alen;
 				snprintf(linknum, sizeof(linknum),
 				    "<Link#%d>", sdl->sdl_index);
-				m = printf("%-11.11s ", linknum);
+				m = printf(lflag ? "%-39.39s " : "%-11.11s ", linknum);
 				goto hexprint;
 			}
 
@@ -535,7 +548,7 @@ intpr(void (*pfunc)(char *))
 				while (--n >= 0)
 					m += printf("%02x%c", *cp++ & 0xff,
 						    n > 0 ? ':' : ' ');
-				m = 30 - m;
+				m = (lflag ? 80 : 30) - m;
 				while (m-- > 0)
 					putchar(' ');
 
@@ -1998,6 +2011,7 @@ rxpollstatpr(void)
 	size_t miblen = sizeof (ifmsupp);
 	struct itimerval timer_interval;
 	struct if_rxpoll_stats *sp;
+	struct if_netif_stats *np;
 	sigset_t sigset, oldsigset;
 	unsigned int ifindex;
 	int name[6];
@@ -2038,8 +2052,11 @@ loop:
 	    interface, sp->ifi_poll_on_req, sp->ifi_poll_on_err);
 	printf("     [ poll off requests: %15u  errors: %27u ]\n",
 	    sp->ifi_poll_off_req, sp->ifi_poll_off_err);
-	printf("     [ polled packets: %18llu  polled bytes: %21llu ]\n",
-	    sp->ifi_poll_packets, sp->ifi_poll_bytes);
+	printf("     [ polled packets: %18llu  per poll limit: %19lu ]\n",
+	    sp->ifi_poll_packets, sp->ifi_poll_packets_limit);
+	printf("     [ polled bytes: %20llu ]\n", sp->ifi_poll_bytes);
+	printf("     [ poll interval: %14llu nsec ]\n",
+	    sp->ifi_poll_interval_time);
 	printf("     [ sampled packets avg/min/max: %12u / %12u / %12u ]\n",
 	    sp->ifi_poll_packets_avg, sp->ifi_poll_packets_min,
 	    sp->ifi_poll_packets_max);
@@ -2054,6 +2071,24 @@ loop:
 	    sp->ifi_poll_bytes_lowat, sp->ifi_poll_bytes_hiwat);
 	printf("     [ wakeups lowat/hiwat threshold: %10u / %10u ]\n",
 	    sp->ifi_poll_wakeups_lowat, sp->ifi_poll_wakeups_hiwat);
+
+	np = &ifmsupp.ifmd_netif_stats;
+	printf("     [ mit mode: %24U  cfg idx: %26u ]\n",
+	    np->ifn_rx_mit_mode, np->ifn_rx_mit_cfg_idx);
+	printf("     [ cfg packets lo/hi threshold: %12u / %12u ]\n",
+	    np->ifn_rx_mit_cfg_packets_lowat, np->ifn_rx_mit_cfg_packets_hiwat);
+	printf("     [ cfg bytes lo/hi threshold:   %12u / %12u ]\n",
+	    np->ifn_rx_mit_cfg_bytes_lowat, np->ifn_rx_mit_cfg_bytes_hiwat);
+	printf("     [ cfg interval: %15llu nsec ]\n",
+	    np->ifn_rx_mit_cfg_interval);
+	printf("     [ mit interval: %15llu nsec ]\n",
+	    np->ifn_rx_mit_interval);
+	printf("     [ mit packets avg/min/max:    %12u / %12u / %12u ]\n",
+	    np->ifn_rx_mit_packets_avg, np->ifn_rx_mit_packets_min,
+	    np->ifn_rx_mit_packets_max);
+	printf("     [ mit bytes avg/min/max:      %12u / %12u / %12u ]\n",
+	    np->ifn_rx_mit_bytes_avg, np->ifn_rx_mit_bytes_min,
+	    np->ifn_rx_mit_bytes_max);
 
 	fflush(stdout);
 

@@ -100,9 +100,13 @@ static void encodePrivateKeyHeader(const CssmData &inBlob, CFDataRef certificate
 	passThrough(CSSM_APPLECSP_KEYDIGEST, NULL, &outData);
 	CssmData *cssmData = reinterpret_cast<CssmData *>(outData);
 	
-	assert(cssmData->Length <= sizeof(outHeader.publicKeyHash));
 	outHeader.publicKeyHashSize = (uint32_t)cssmData->Length;
-	memcpy(outHeader.publicKeyHash, cssmData->Data, cssmData->Length);
+	if (outHeader.publicKeyHashSize > sizeof(outHeader.publicKeyHash)) {
+		secinfo("FDERecovery", "encodePrivateKeyHeader: publicKeyHash too big: %d", outHeader.publicKeyHashSize);
+		outHeader.publicKeyHashSize = 0; /* failed to copy hash value */
+	} else {
+		memcpy(outHeader.publicKeyHash, cssmData->Data, outHeader.publicKeyHashSize);
+	}
 	fCSP.allocator().free(cssmData->Data);
 	fCSP.allocator().free(cssmData);
 	

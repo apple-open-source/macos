@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------
-# $File: c-lang,v 1.24 2016/07/01 23:31:13 christos Exp $
+# $File: c-lang,v 1.27 2019/02/27 16:46:23 christos Exp $
 # c-lang:  file(1) magic for C and related languages programs
 #
 
@@ -10,47 +10,90 @@
 !:mime	text/x-bcpl
 
 # C
-0	regex	\^#include	c program text
+# Check for class if include is found, otherwise class is beaten by include becouse of lowered strength
+0	search/8192	#include
+>0	regex	\^#include			c
+>>0	regex	\^class[[:space:]]+
+>>>&0	regex 	\\{[\.\*]\\}(;)?$			\b++
+>>&0	clear	x				program text
 !:mime	text/x-c
-0	regex	\^char[\ \t\n]+	c program text
+0	search/8192	pragma
+>0	regex	\^#[[:space:]]*pragma	c program text
 !:mime	text/x-c
-0	regex	\^double[\ \t\n]+		c program text
+0	search/8192	endif
+>0	regex	\^#[[:space:]]*(if\|ifn)def
+>>&0	regex	\^#[[:space:]]*endif$	c program text
 !:mime	text/x-c
-0	regex	\^extern[\ \t\n]+		c program text
+0	search/8192	define
+>0	regex	\^#[[:space:]]*(if\|ifn)def
+>>&0	regex	\^#[[:space:]]*define	c program text
 !:mime	text/x-c
-0	regex	\^float[\ \t\n]+		c program text
+0	search/8192	char
+>0	regex	\^[[:space:]]*char(\ \\*|\\*)(.+)(=.*)?;[[:space:]]*$			c program text
 !:mime	text/x-c
-0	regex	\^struct[\ \t\n]+		c program text
+0	search/8192	double
+>0	regex	\^[[:space:]]*double(\ \\*|\\*)(.+)(=.*)?;[[:space:]]*$			c program text
 !:mime	text/x-c
-0	regex	\^union[\ \t\n]+		c program text
+0	search/8192	extern
+>0	regex	\^[[:space:]]*extern[[:space:]]+		c program text
 !:mime	text/x-c
-0	search/8192	main(		c program text
+0	search/8192	float
+>0	regex	\^[[:space:]]*float(\ \\*|\\*)(.+)(=.*)?;[[:space:]]*$			c program text
+!:mime	text/x-c
+0	search/8192	struct
+>0	regex	\^struct[[:space:]]+		c program text
+!:mime	text/x-c
+0	search/8192	union
+>0	regex	\^union[[:space:]]+		c program text
+!:mime	text/x-c
+0	search/8192	main(
+>&0 regex	\\)[[:space:]]*\\{		c program text
 !:mime	text/x-c
 
 # C++
 # The strength of these rules is increased so they beat the C rules above
-0	regex	\^template[\ \t]+<.*>[\ \t\n]+	C++ source text
+0	search/8192	namespace
+>0	regex	\^namespace[[:space:]]+[_[:alpha:]]{1,30}[[:space:]]*\\{	C++ source text
 !:strength + 5
 !:mime	text/x-c++
-0	regex	\^virtual[\ \t\n]+		C++ source text
+# using namespace [namespace] or using std::[lib]
+0	search/8192	using
+>0	regex	\^using[[:space:]]+(namespace\ )?std(::)?[[:alpha:]]*[[:space:]]*;		C++ source text
 !:strength + 5
 !:mime	text/x-c++
-0	regex	\^class[\ \t\n]+		C++ source text
+0	search/8192	template
+>0	regex	\^[[:space:]]*template[[:space:]]*<.*>[[:space:]]*$	C++ source text
 !:strength + 5
 !:mime	text/x-c++
-0	regex	\^public:		C++ source text
+0	search/8192	virtual
+>0	regex	\^[[:space:]]*virtual[[:space:]]+.*[};][[:space:]]*$		C++ source text
 !:strength + 5
 !:mime	text/x-c++
-0	regex	\^private:		C++ source text
+# But class alone is reduced to avoid beating php (Jens Schleusener)
+0	search/8192	class
+>0	regex	\^[[:space:]]*class[[:space:]]+[[:digit:][:alpha:]:_]+[[:space:]]*\\{(.*[\n]*)*\\}(;)?$		C++ source text
+!:strength + 5
+!:mime	text/x-c++
+0	search/8192	public
+>0	regex	\^[[:space:]]*public:		C++ source text
+!:strength + 5
+!:mime	text/x-c++
+0	search/8192	private
+>0	regex	\^[[:space:]]*private:		C++ source text
+!:strength + 5
+!:mime	text/x-c++
+0	search/8192	protected
+>0	regex	\^[[:space:]]*protected:		C++ source text
 !:strength + 5
 !:mime	text/x-c++
 
 # Objective-C
-0	regex	\^#import	Objective-C source text
-!:strength +25
+0	search/8192	#import
+>0	regex	\^#import			Objective-C source text
+!:strength + 25
 !:mime	text/x-objective-c
 
-# From: Mikhail Teterin <mi@aldan.algebra.com> 
+# From: Mikhail Teterin <mi@aldan.algebra.com>
 0	string		cscope		cscope reference data
 >7	string		x		version %.2s
 # We skip the path here, because it is often long (so file will

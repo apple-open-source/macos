@@ -19,10 +19,12 @@
 #import "RemoteHIDPrivate.h"
 #import <IOKit/hid/IOHIDKeys.h>
 #import <mach/mach_time.h>
+#import <TimeSync/TimeSync.h>
 
 static void HIDAccesorySessionEventCallback (BTSession session, BTSessionEvent event, BTResult result, void* userData);
 static void HIDAccesoryCustomMessageCallback (BTAccessoryManager manager, BTDevice device, BTAccessoryCustomMessageType type, BTData data, size_t dataSize, void* userData);
 static void HIDAccesoryServiceEventCallback (BTDevice device, BTServiceMask services, BTServiceEventType eventType, BTServiceSpecificEvent event, BTResult result, void* userData);
+static void HIDAccessoryEventCallback(BTAccessoryManager manager, BTAccessoryEvent event, BTDevice device, BTAccessoryState state, void* userData);
 
 static uint16_t generation;
 
@@ -31,6 +33,9 @@ static uint16_t generation;
     BTSession               _session;
     BTAccessoryManager      _manager;
     dispatch_queue_t        _queue;
+    TSClockManager          *_coreTimeSyncManager;
+
+    NSMutableDictionary<NSValue *, TSUserFilteredClock *>   *_deviceAudioTSClock;
 }
 
 @end
@@ -45,6 +50,7 @@ static uint16_t generation;
     }
     
     _queue = dispatch_queue_create("com.apple.hidrc.bluetooth", DISPATCH_QUEUE_SERIAL);
+    _deviceAudioTSClock = [NSMutableDictionary new];
     
     return self;
 }
@@ -92,6 +98,13 @@ static uint16_t generation;
         os_log_error (RemoteHIDLog (), "BTAccessoryManagerGetDefault:%d", status);
         return;
     }
+
+    const static BTAccessoryCallbacks accessoryCallbacks = {HIDAccessoryEventCallback};
+    status = BTAccessoryManagerAddCallbacks(_manager, &accessoryCallbacks, (__bridge void *)self);
+    if (status != BT_SUCCESS) {
+        os_log_error (RemoteHIDLog (), "BTAccessoryManagerAddCallbacks:%d", status);
+        return;
+    }
     
     status = BTServiceAddCallbacks(_session, HIDAccesoryServiceEventCallback,  (__bridge void *)self);
     if (status != BT_SUCCESS) {
@@ -119,7 +132,6 @@ static uint16_t generation;
         BTDeviceGetConnectedServices (btDevices[index], &service);
         [self btServiceEventHandler:btDevices[index] services:service eventType:BT_SERVICE_CONNECT event:BT_SERVICE_CONNECTION_RESULT result:BT_SUCCESS];
     }
-    
 }
 
 
@@ -164,6 +176,13 @@ static uint16_t generation;
     if (status != BT_SUCCESS) {
         os_log_error (RemoteHIDLog (), "BTAccessoryManagerRegisterCustomMessageClient:%d", status);
         return;
+    }
+
+    // TimeSync Setup
+    // Will fail if BT TimeSync is not enabled, so ignore errors
+    status = BTAccessoryManagerRemoteTimeSyncEnable(_manager, device, BT_TRUE);
+    if (status != BT_SUCCESS) {
+        os_log_info(RemoteHIDLog(), "Couldn't enable timesync for device:%p status:%d", device, status);
     }
  
     endpoint =  [NSValue valueWithPointer:device];
@@ -245,27 +264,54 @@ exit:
     }
 }
 
+-(void) btAccessoryEventHandler:(BTDevice)device event:(BTAccessoryEvent)event state:(BTAccessoryState)state
+{
+    os_log_info (RemoteHIDLog (), "btAccessoryEventHandler device:%p event:%d state:%d" , device, event, state);
+
+    if (BT_ACCESSORY_TIMESYNC_AVAILABLE == event) {
+        TSClockIdentifier tsID = 0;
+        BTResult result;
+
+        if (!_coreTimeSyncManager) {
+            _coreTimeSyncManager = [TSClockManager sharedClockManager];
+        }
+        require_action(_coreTimeSyncManager, exit, os_log_error(RemoteHIDLog(), "Couldn't create TSClockManager!"));
+
+        result = BTAccessoryManagerGetTimeSyncId(_manager, device, &tsID);
+        os_log(RemoteHIDLog(), "BTAccessoryManagerGetTimeSyncId device:%p tsID:0x%llx", device, (unsigned long long)tsID);
+        require_action(BT_SUCCESS == result, exit, os_log_error(RemoteHIDLog(), "BTAccessoryManagerGetTimeSyncId failed result:%d", (int)result));
+
+        _deviceAudioTSClock[[NSValue valueWithPointer:device]] = (TSUserFilteredClock *)[_coreTimeSyncManager clockWithClockIdentifier:tsID];
+        require_action(_deviceAudioTSClock[[NSValue valueWithPointer:device]], exit, os_log_error(RemoteHIDLog(), "Couldn't create TSUserFilteredClock!"));
+    }
+    else if (BT_ACCESSORY_TIMESYNC_NOT_AVAILABLE == event) {
+        [_deviceAudioTSClock removeObjectForKey:[NSValue valueWithPointer:device]];
+    }
+
+exit:
+    return;
+}
+
 -(IOReturn) remoteDeviceSetReport:(HIDRemoteDevice *) device
-                             type:(IOHIDReportType) type
+                             type:(HIDReportType) type
                          reportID:(__unused uint8_t)reportID
-                           report:(uint8_t *) report
-                     reportLength:(NSUInteger) reportLength
+                           report:(NSData *) report
 {
     IOReturn status = kIOReturnSuccess;
     HIDDeviceReport * devicePacket;
     HIDTransportHeader * header;
-    NSMutableData * data = [[NSMutableData alloc] initWithLength:reportLength + sizeof(HIDDeviceReport) + sizeof(HIDTransportHeader)];
+    NSMutableData * data = [[NSMutableData alloc] initWithLength:report.length + sizeof(HIDDeviceReport) + sizeof(HIDTransportHeader)];
     
-    os_log_debug (RemoteHIDLog (), "remoteDeviceSetReport deviceID:0x%llx type:%d reportLength:%d", device.deviceID, type, (int)reportLength);
+    os_log_debug (RemoteHIDLog (), "remoteDeviceSetReport deviceID:0x%llx type:%ld report:%@", device.deviceID, (long)type, report);
  
     devicePacket = (HIDDeviceReport *) ((uint8_t *)data.bytes + sizeof(HIDTransportHeader));
     header =  (HIDTransportHeader *) ((uint8_t *)data.bytes);
     
-    memcpy(devicePacket->data, report, reportLength);
+    memcpy(devicePacket->data, report.bytes, report.length);
     devicePacket->header.deviceID    = (uint32_t) device.deviceID;
     devicePacket->header.packetType  = HIDPacketTypeSetReport;
     devicePacket->reportType         = type;
-    devicePacket->header.length      = (uint32_t)reportLength + sizeof(HIDDeviceReport);
+    devicePacket->header.length      = (uint32_t)report.length + sizeof(HIDDeviceReport);
     header->generation               = ++generation;
     
     BTDevice btDevice =  (BTDevice) ((NSValue *)device.endpoint).pointerValue;
@@ -295,10 +341,9 @@ exit:
 }
 
 -(IOReturn) remoteDeviceGetReport:(HIDRemoteDevice *) device
-                             type:(IOHIDReportType) type
+                             type:(HIDReportType) type
                          reportID:(uint8_t) reportID
-                           report:(__unused uint8_t *) report
-                     reportLength:(__unused NSUInteger *) reportLength
+                           report:(NSMutableData * __unused) report
 {
     NSMutableData * data = [[NSMutableData alloc] initWithLength:sizeof(HIDDeviceReport) + sizeof(HIDTransportHeader) + 1];
     IOReturn status = kIOReturnSuccess;
@@ -323,6 +368,32 @@ exit:
 exit:
 
     return status;
+}
+
+-(uint64_t) syncRemoteTimestamp:(uint64_t)inTimestamp forEndpoint:(__nonnull id)endpoint
+{
+    mach_timebase_info_data_t timeBase;
+    TSUserFilteredClock *audioTSClock;
+    uint64_t localAbs = mach_absolute_time();
+    uint64_t syncedAbs = 0;
+    uint32_t tsFlags = 0;
+
+    mach_timebase_info(&timeBase);
+
+    require_action([endpoint isKindOfClass:[NSValue class]], exit, os_log_error(RemoteHIDLog (), "Timesync: endpoint is not value!"));
+
+    // Check if TimeSync is enabled for this device
+    audioTSClock = _deviceAudioTSClock[endpoint];
+    require_action_quiet(audioTSClock && audioTSClock.lockState == TSClockLocked, exit, os_log_error(RemoteHIDLog (), "Timesync: not locked, clockID: 0x%llx state: %d", (unsigned long long)audioTSClock.clockIdentifier, (int)audioTSClock.lockState));
+
+    syncedAbs = [audioTSClock convertFromDomainToMachAbsoluteTime:inTimestamp withFlags:&tsFlags];
+    uint64_t syncDeltaAbs = (localAbs > syncedAbs) ? (localAbs - syncedAbs) : (syncedAbs - localAbs);
+    uint64_t syncDeltaNs = (uint64_t)((syncDeltaAbs * timeBase.numer) / (timeBase.denom));
+    os_log_debug (RemoteHIDLog (), "W2 btclk(ns):%llu local abs:%llu Synced ts:%llu remote->local latency(ns):%s%llu",
+            inTimestamp, localAbs, syncedAbs, (localAbs > syncedAbs) ? "+" : "-", syncDeltaNs);
+
+exit:
+    return syncedAbs;
 }
 
 @end
@@ -367,5 +438,14 @@ void HIDAccesoryServiceEventCallback (BTDevice device, BTServiceMask services, B
 
     @autoreleasepool {
         [self btServiceEventHandler:device services:services eventType:eventType event:event result:result];
+    }
+}
+
+// BTAccessoryEventCallback
+void HIDAccessoryEventCallback(__unused BTAccessoryManager manager, BTAccessoryEvent event, BTDevice device, BTAccessoryState state, void* userData)
+{
+    HIDRemoteDeviceAACPServer * self = (__bridge HIDRemoteDeviceAACPServer *) userData;
+    @autoreleasepool {
+        [self btAccessoryEventHandler:device event:event state:state];
     }
 }

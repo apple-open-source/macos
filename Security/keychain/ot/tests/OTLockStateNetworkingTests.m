@@ -107,9 +107,7 @@ static NSString* OTCKRecordPeerID = @"peerID";
 
     self.spiBlockExpectation = [self expectationWithDescription:@"launch bottled peer fired"];
 
-    NSMutableDictionary* recordDictionary = [NSMutableDictionary dictionaryWithObjectsAndKeys:[[NSNumber alloc] initWithInt:1], OTCKRecordBottledPeerType, nil];
-
-    [self expectAddedCKModifyRecords:recordDictionary holdFetch:NO];
+    [self expectAddedCKModifyRecords:@{OTCKRecordBottledPeerType: @1} holdFetch:NO];
 
     [self.otControl launchBottledPeer:testContextID bottleID:localBottleID reply:^(NSError * _Nullable error) {
         [self.spiBlockExpectation fulfill];
@@ -156,7 +154,7 @@ static NSString* OTCKRecordPeerID = @"peerID";
     XCTAssertTrue([self.context doesThisDeviceHaveABottle:&error] == UNCLEAR, @"bottle check should return unclear");
 
     XCTAssertNotNil(error, "error should not be nil");
-    XCTAssertTrue(error.code == -25308, @"error should be interaction not allowed");
+    XCTAssertEqual(error.code, -25308, @"error should be interaction not allowed");
 }
 
 -(void) testBottleCheckWithNoNetwork
@@ -165,12 +163,9 @@ static NSString* OTCKRecordPeerID = @"peerID";
     self.accountStatus = CKAccountStatusAvailable;
     [self startCKKSSubsystem];
 
-    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
-
-    self.reachabilityFlags = 0;
-    [self.reachabilityTracker recheck];
+    [self.reachabilityTracker setNetworkReachability:false];
     XCTAssertTrue([self.context doesThisDeviceHaveABottle:&error] == UNCLEAR, @"bottle check should return unclear");
-    XCTAssertTrue(error.code == OTErrorNoNetwork, @"should have returned no network error");
+    XCTAssertEqual(error.code, OTErrorNoNetwork, @"should have returned no network error");
 }
 
 -(void) testBottleCheckWhenNotSignedIn
@@ -180,12 +175,74 @@ static NSString* OTCKRecordPeerID = @"peerID";
     self.accountStatus = CKAccountStatusNoAccount;
     [self startCKKSSubsystem];
 
-    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
-
     XCTAssertTrue([self.context doesThisDeviceHaveABottle:&error] == UNCLEAR, @"bottle check should return unclear");
-    XCTAssertTrue(error.code == OTErrorNotSignedIn, @"should have returned not signed in error");
+    XCTAssertEqual(error.code, OTErrorNotSignedIn, @"should have returned not signed in error");
 }
 
+//Bottle Update tests
+-(void)testBottleUpdateNotSignedIn
+{
+    self.spiBlockExpectation = [self expectationWithDescription:@"handle identity change spis fired"];
+
+    [self setUpRampRecordsInCloudKitWithFeatureOn];
+
+    self.accountStatus = CKAccountStatusNoAccount;
+
+    [self startCKKSSubsystem];
+
+    SFECKeyPair* newSigningKey = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
+
+    SFECKeyPair* newEncryptionKey = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
+
+    //update bottle
+    [self.otControl handleIdentityChangeForSigningKey:newSigningKey
+                                     ForEncryptionKey:newEncryptionKey
+                                            ForPeerID:self.sosPeerID
+                                                reply:^(BOOL result, NSError* _Nullable error){
+                                                    [self.spiBlockExpectation fulfill];
+                                                    XCTAssertTrue(result == NO, @"should return NO");
+                                                    XCTAssertEqual(error.code, OTErrorNotSignedIn, @"should have returned not signed in error");
+                                                }];
+    [self waitForExpectationsWithTimeout:1.0 handler:nil];
+}
+
+-(void) testBottleUpdateWithNoNetwork
+{
+    self.accountStatus = CKAccountStatusAvailable;
+    [self startCKKSSubsystem];
+
+    [self.reachabilityTracker setNetworkReachability:false];
+
+    SFECKeyPair* newSigningKey = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
+
+    SFECKeyPair* newEncryptionKey = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
+
+    //update bottle
+    [self.otControl handleIdentityChangeForSigningKey:newSigningKey
+                                     ForEncryptionKey:newEncryptionKey
+                                            ForPeerID:self.sosPeerID
+                                                reply:^(BOOL result, NSError* _Nullable error){
+                                                    XCTAssertEqual(error.code, OTErrorNoNetwork, @"should have returned OTErrorNoNetwork in error");
+                                                }];
+}
+
+-(void) testBottleUpdateWhenLocked
+{
+    self.aksLockState = true;
+    [self.lockStateTracker recheck];
+
+    SFECKeyPair* newSigningKey = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
+
+    SFECKeyPair* newEncryptionKey = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
+
+    //update bottle
+    [self.otControl handleIdentityChangeForSigningKey:newSigningKey
+                                     ForEncryptionKey:newEncryptionKey
+                                            ForPeerID:self.sosPeerID
+                                                reply:^(BOOL result, NSError* _Nullable error){
+                                                    XCTAssertEqual(error.code, errSecInteractionNotAllowed, @"should have returned errSecInteractionNotAllowed in error");
+                                                }];
+}
 
 //Preflight tests
 -(void)testPreflightNotSignedIn
@@ -198,8 +255,6 @@ static NSString* OTCKRecordPeerID = @"peerID";
 
     [self startCKKSSubsystem];
 
-    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
-
     [self.otControl preflightBottledPeer:testContextID
                                     dsid:testDSID
                                    reply:^(NSData * _Nullable entropy, NSString * _Nullable bottleID, NSData * _Nullable signingPublicKey, NSError * _Nullable error) {
@@ -207,7 +262,7 @@ static NSString* OTCKRecordPeerID = @"peerID";
                                        XCTAssertNil(entropy, "entropy should not be nil");
                                        XCTAssertNil(bottleID, "bottle id should not be nil");
                                        XCTAssertNil(signingPublicKey, "signing pub key should not be nil");
-                                       XCTAssertTrue(error.code == OTErrorNotSignedIn, @"should have returned not signed in error");
+                                       XCTAssertEqual(error.code, OTErrorNotSignedIn, @"should have returned not signed in error");
                                    }];
 
     [self waitForExpectationsWithTimeout:1.0 handler:nil];
@@ -219,10 +274,7 @@ static NSString* OTCKRecordPeerID = @"peerID";
     self.accountStatus = CKAccountStatusAvailable;
     [self startCKKSSubsystem];
 
-    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
-
-    self.reachabilityFlags = 0;
-    [self.reachabilityTracker recheck];
+    [self.reachabilityTracker setNetworkReachability:false];
 
     [self.otControl preflightBottledPeer:testContextID
                                     dsid:testDSID
@@ -231,7 +283,7 @@ static NSString* OTCKRecordPeerID = @"peerID";
                                        XCTAssertNil(entropy, "entropy should not be nil");
                                        XCTAssertNil(bottleID, "bottle id should not be nil");
                                        XCTAssertNil(signingPublicKey, "signing pub key should not be nil");
-                                       XCTAssertTrue(error.code == OTErrorNoNetwork, @"should have returned OTErrorNoNetwork in error");
+                                       XCTAssertEqual(error.code, OTErrorNoNetwork, @"should have returned OTErrorNoNetwork in error");
                                    }];
 
 }
@@ -248,7 +300,7 @@ static NSString* OTCKRecordPeerID = @"peerID";
                                        XCTAssertNil(entropy, "entropy should not be nil");
                                        XCTAssertNil(bottleID, "bottle id should not be nil");
                                        XCTAssertNil(signingPublicKey, "signing pub key should not be nil");
-                                       XCTAssertTrue(error.code == errSecInteractionNotAllowed, @"should have returned errSecInteractionNotAllowed in error");
+                                       XCTAssertEqual(error.code, errSecInteractionNotAllowed, @"should have returned errSecInteractionNotAllowed in error");
                                    }];
 }
 
@@ -261,9 +313,6 @@ static NSString* OTCKRecordPeerID = @"peerID";
 
     [self startCKKSSubsystem];
 
-    [self.enroll.accountTracker notifyCKAccountStatusChangeAndWaitForSignal];
-    [self.context.accountTracker notifyCKAccountStatusChangeAndWaitForSignal];
-
     self.spiBlockExpectation = [self expectationWithDescription:@"preflight bottled peer fired"];
 
     [self.otControl preflightBottledPeer:OTDefaultContext
@@ -273,22 +322,19 @@ static NSString* OTCKRecordPeerID = @"peerID";
                                        XCTAssertNil(entropy, "shouldn't return any entropy");
                                        XCTAssertNil(bottleID, "shouldn't return a bottle ID");
                                        XCTAssertNil(signingPublicKey, "shouldn't return a signingPublicKey");
-                                       XCTAssertTrue(error.code == OTErrorNotSignedIn, "should return a OTErrorNotSignedIn error");
+                                       XCTAssertEqual(error.code, OTErrorNotSignedIn, "should return a OTErrorNotSignedIn error");
                                    }];
-    [self waitForCKModifications];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
     [self waitForExpectationsWithTimeout:1.0 handler:nil];
 
     self.spiBlockExpectation = [self expectationWithDescription:@"launch SPI fired"];
-    self.expectation = [self expectationWithDescription:@"ramp scheduler fired"];
 
     NSString* localBottleID = @"random bottle id";
     [self.otControl launchBottledPeer:testContextID bottleID:localBottleID reply:^(NSError * _Nullable error) {
         [self.spiBlockExpectation fulfill];
-        XCTAssertTrue(error.code == OTErrorNotSignedIn, "should return a OTErrorNotSignedIn error");
+        XCTAssertEqual(error.code, OTErrorNotSignedIn, "should return a OTErrorNotSignedIn error");
     }];
 
-    [self waitForCKModifications];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
     [self waitForExpectationsWithTimeout:1.0 handler:nil];
 }
@@ -300,10 +346,7 @@ static NSString* OTCKRecordPeerID = @"peerID";
     self.accountStatus = CKAccountStatusAvailable;
     [self startCKKSSubsystem];
 
-    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
-
-    self.reachabilityFlags = 0;
-    [self.reachabilityTracker recheck];
+    [self.reachabilityTracker setNetworkReachability:false];
 
     [self startCKKSSubsystem];
 
@@ -316,23 +359,20 @@ static NSString* OTCKRecordPeerID = @"peerID";
                                        XCTAssertNil(entropy, "shouldn't return any entropy");
                                        XCTAssertNil(bottleID, "shouldn't return a bottle ID");
                                        XCTAssertNil(signingPublicKey, "shouldn't return a signingPublicKey");
-                                       XCTAssertTrue(error.code == OTErrorNoNetwork, "should return a OTErrorNoNetwork error");
+                                       XCTAssertEqual(error.code, OTErrorNoNetwork, "should return a OTErrorNoNetwork error");
                                    }];
-    [self waitForCKModifications];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
     [self waitForExpectationsWithTimeout:1.0 handler:nil];
 
 
     self.spiBlockExpectation = [self expectationWithDescription:@"launch SPI fired"];
-    self.expectation = [self expectationWithDescription:@"ramp scheduler fired"];
 
     NSString* localBottleID = @"random bottle id";
     [self.otControl launchBottledPeer:testContextID bottleID:localBottleID reply:^(NSError * _Nullable error) {
         [self.spiBlockExpectation fulfill];
-        XCTAssertTrue(error.code == OTErrorNoNetwork, "should return a OTErrorNoNetwork error");
+        XCTAssertEqual(error.code, OTErrorNoNetwork, "should return a OTErrorNoNetwork error");
     }];
 
-    [self waitForCKModifications];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
     [self waitForExpectationsWithTimeout:1.0 handler:nil];
 }
@@ -355,23 +395,20 @@ static NSString* OTCKRecordPeerID = @"peerID";
                                        XCTAssertNil(entropy, "shouldn't return any entropy");
                                        XCTAssertNil(bottleID, "shouldn't return a bottle ID");
                                        XCTAssertNil(signingPublicKey, "shouldn't return a signingPublicKey");
-                                       XCTAssertTrue(error.code == errSecInteractionNotAllowed, "should return a errSecInteractionNotAllowed error");
+                                       XCTAssertEqual(error.code, errSecInteractionNotAllowed, "should return a errSecInteractionNotAllowed error");
                                    }];
-    [self waitForCKModifications];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
     [self waitForExpectationsWithTimeout:1.0 handler:nil];
 
 
     self.spiBlockExpectation = [self expectationWithDescription:@"launch SPI fired"];
-    self.expectation = [self expectationWithDescription:@"ramp scheduler fired"];
 
     NSString* localBottleID = @"random bottle id";
     [self.otControl launchBottledPeer:testContextID bottleID:localBottleID reply:^(NSError * _Nullable error) {
         [self.spiBlockExpectation fulfill];
-        XCTAssertTrue(error.code == errSecInteractionNotAllowed, "should return a errSecInteractionNotAllowed error");
+        XCTAssertEqual(error.code, errSecInteractionNotAllowed, "should return a errSecInteractionNotAllowed error");
     }];
 
-    [self waitForCKModifications];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
     [self waitForExpectationsWithTimeout:1.0 handler:nil];
 }
@@ -384,10 +421,7 @@ static NSString* OTCKRecordPeerID = @"peerID";
     self.accountStatus = CKAccountStatusNoAccount;
     [self startCKKSSubsystem];
 
-    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
-
     self.spiBlockExpectation = [self expectationWithDescription:@"preflight bottled peer SPI fired"];
-    self.expectation = [self expectationWithDescription:@"ramp scheduler fired"];
 
     [self.otControl preflightBottledPeer:testContextID
                                     dsid:testDSID
@@ -396,21 +430,19 @@ static NSString* OTCKRecordPeerID = @"peerID";
                                        XCTAssertNil(entropy, "entropy should be nil");
                                        XCTAssertNil(bottleID, "bottle id should be nil");
                                        XCTAssertNil(signingPublicKey, "signing pub key should be nil");
-                                       XCTAssertTrue(error.code == OTErrorNotSignedIn, "should return a OTErrorNotSignedIn error");
+                                       XCTAssertEqual(error.code, OTErrorNotSignedIn, "should return a OTErrorNotSignedIn error");
                                    }];
 
     [self waitForExpectationsWithTimeout:1.0 handler:nil];
 
     __block NSString* localBottleID = @"random bottle id";
     self.spiBlockExpectation = [self expectationWithDescription:@"scrub bottled peer SPI fired"];
-    self.expectation = [self expectationWithDescription:@"ramp scheduler fired"];
 
     [self.otControl scrubBottledPeer:testContextID bottleID:localBottleID reply:^(NSError * _Nullable error) {
         [self.spiBlockExpectation fulfill];
-        XCTAssertTrue(error.code == OTErrorNotSignedIn, "should return a OTErrorNotSignedIn error");
+        XCTAssertEqual(error.code, OTErrorNotSignedIn, "should return a OTErrorNotSignedIn error");
     }];
 
-    [self waitForCKModifications];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
     [self waitForExpectationsWithTimeout:1.0 handler:nil];
 
@@ -421,15 +453,12 @@ static NSString* OTCKRecordPeerID = @"peerID";
     [self setUpRampRecordsInCloudKitWithFeatureOn];
 
     self.accountStatus = CKAccountStatusAvailable;
+
+    [self.reachabilityTracker setNetworkReachability:false];
+
     [self startCKKSSubsystem];
 
-    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
-
-    self.reachabilityFlags = 0;
-    [self.reachabilityTracker recheck];
-
     self.spiBlockExpectation = [self expectationWithDescription:@"preflight bottled peer SPI fired"];
-    self.expectation = [self expectationWithDescription:@"ramp scheduler fired"];
 
     [self.otControl preflightBottledPeer:testContextID
                                     dsid:testDSID
@@ -438,21 +467,19 @@ static NSString* OTCKRecordPeerID = @"peerID";
                                        XCTAssertNil(entropy, "entropy should be nil");
                                        XCTAssertNil(bottleID, "bottle id should be nil");
                                        XCTAssertNil(signingPublicKey, "signing pub key should be nil");
-                                       XCTAssertTrue(error.code == OTErrorNoNetwork, "should return a OTErrorNoNetwork error");
+                                       XCTAssertEqual(error.code, OTErrorNoNetwork, "should return a OTErrorNoNetwork error");
                                    }];
 
     [self waitForExpectationsWithTimeout:1.0 handler:nil];
 
     __block NSString* localBottleID = @"random bottle id";
     self.spiBlockExpectation = [self expectationWithDescription:@"scrub bottled peer SPI fired"];
-    self.expectation = [self expectationWithDescription:@"ramp scheduler fired"];
 
     [self.otControl scrubBottledPeer:testContextID bottleID:localBottleID reply:^(NSError * _Nullable error) {
         [self.spiBlockExpectation fulfill];
-        XCTAssertTrue(error.code == OTErrorNoNetwork, "should return a OTErrorNoNetwork error");
+        XCTAssertEqual(error.code, OTErrorNoNetwork, "should return a OTErrorNoNetwork error");
     }];
 
-    [self waitForCKModifications];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
     [self waitForExpectationsWithTimeout:1.0 handler:nil];
 }
@@ -464,8 +491,9 @@ static NSString* OTCKRecordPeerID = @"peerID";
     self.aksLockState = true;
     [self.lockStateTracker recheck];
 
+    [self startCKKSSubsystem];
+
     self.spiBlockExpectation = [self expectationWithDescription:@"preflight bottled peer SPI fired"];
-    self.expectation = [self expectationWithDescription:@"ramp scheduler fired"];
 
     [self.otControl preflightBottledPeer:testContextID
                                     dsid:testDSID
@@ -474,21 +502,19 @@ static NSString* OTCKRecordPeerID = @"peerID";
                                        XCTAssertNil(entropy, "entropy should be nil");
                                        XCTAssertNil(bottleID, "bottle id should be nil");
                                        XCTAssertNil(signingPublicKey, "signing pub key should be nil");
-                                       XCTAssertTrue(error.code == errSecInteractionNotAllowed, "should return a errSecInteractionNotAllowed error");
+                                       XCTAssertEqual(error.code, errSecInteractionNotAllowed, "should return a errSecInteractionNotAllowed error");
                                    }];
 
     [self waitForExpectationsWithTimeout:1.0 handler:nil];
 
     __block NSString* localBottleID = @"random bottle id";
     self.spiBlockExpectation = [self expectationWithDescription:@"scrub bottled peer SPI fired"];
-    self.expectation = [self expectationWithDescription:@"ramp scheduler fired"];
 
     [self.otControl scrubBottledPeer:testContextID bottleID:localBottleID reply:^(NSError * _Nullable error) {
         [self.spiBlockExpectation fulfill];
-        XCTAssertTrue(error.code == errSecInteractionNotAllowed, "should return a errSecInteractionNotAllowed error");
+        XCTAssertEqual(error.code, errSecInteractionNotAllowed, "should return a errSecInteractionNotAllowed error");
     }];
 
-    [self waitForCKModifications];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
     [self waitForExpectationsWithTimeout:1.0 handler:nil];
 }
@@ -499,12 +525,10 @@ static NSString* OTCKRecordPeerID = @"peerID";
     [self setUpRampRecordsInCloudKitWithFeatureOn];
 
     self.accountStatus = CKAccountStatusNoAccount;
+
     [self startCKKSSubsystem];
 
-    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
-
     self.spiBlockExpectation = [self expectationWithDescription:@"restore SPI fired"];
-    self.expectation = [self expectationWithDescription:@"ramp scheduler fired"];
 
     [self.otControl restore:testContextID
                        dsid:testDSID
@@ -514,9 +538,8 @@ static NSString* OTCKRecordPeerID = @"peerID";
                           [self.spiBlockExpectation fulfill];
                           XCTAssertNil(signingKeyData, "Signing key data should be nil");
                           XCTAssertNil(encryptionKeyData, "encryption key data should be nil");
-                          XCTAssertTrue(error.code == OTErrorNotSignedIn, "should return a OTErrorNotSignedIn error");
+                          XCTAssertEqual(error.code, OTErrorNotSignedIn, "should return a OTErrorNotSignedIn error");
                       }];
-    [self waitForCKModifications];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
     [self waitForExpectationsWithTimeout:1.0 handler:nil];
 
@@ -527,15 +550,12 @@ static NSString* OTCKRecordPeerID = @"peerID";
     [self setUpRampRecordsInCloudKitWithFeatureOn];
 
     self.accountStatus = CKAccountStatusAvailable;
+
+    [self.reachabilityTracker setNetworkReachability:false];
+
     [self startCKKSSubsystem];
 
-    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
-
-    self.reachabilityFlags = 0;
-    [self.reachabilityTracker recheck];
-
     self.spiBlockExpectation = [self expectationWithDescription:@"restore SPI fired"];
-    self.expectation = [self expectationWithDescription:@"ramp scheduler fired"];
 
     [self.otControl restore:testContextID
                        dsid:testDSID
@@ -545,9 +565,8 @@ static NSString* OTCKRecordPeerID = @"peerID";
                           [self.spiBlockExpectation fulfill];
                           XCTAssertNil(signingKeyData, "Signing key data should be nil");
                           XCTAssertNil(encryptionKeyData, "encryption key data should be nil");
-                          XCTAssertTrue(error.code == OTErrorNoNetwork, "should return a OTErrorNoNetwork error");
+                          XCTAssertEqual(error.code, OTErrorNoNetwork, "should return a OTErrorNoNetwork error");
                       }];
-    [self waitForCKModifications];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
     [self waitForExpectationsWithTimeout:1.0 handler:nil];
 }
@@ -559,8 +578,9 @@ static NSString* OTCKRecordPeerID = @"peerID";
     self.aksLockState = true;
     [self.lockStateTracker recheck];
 
+    [self startCKKSSubsystem];
+
     self.spiBlockExpectation = [self expectationWithDescription:@"restore SPI fired"];
-    self.expectation = [self expectationWithDescription:@"ramp scheduler fired"];
 
     [self.otControl restore:testContextID
                        dsid:testDSID
@@ -570,9 +590,8 @@ static NSString* OTCKRecordPeerID = @"peerID";
                           [self.spiBlockExpectation fulfill];
                           XCTAssertNil(signingKeyData, "Signing key data should be nil");
                           XCTAssertNil(encryptionKeyData, "encryption key data should be nil");
-                          XCTAssertTrue(error.code == errSecInteractionNotAllowed, "should return a errSecInteractionNotAllowed error");
+                          XCTAssertEqual(error.code, errSecInteractionNotAllowed, "should return a errSecInteractionNotAllowed error");
                       }];
-    [self waitForCKModifications];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
     [self waitForExpectationsWithTimeout:1.0 handler:nil];
 }
@@ -588,11 +607,9 @@ static NSString* OTCKRecordPeerID = @"peerID";
     self.accountStatus = CKAccountStatusNoAccount;
     [self startCKKSSubsystem];
 
-    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
-
     [self.enroll checkRampState:&retryAfter networkBehavior:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary error:&error];
 
-    XCTAssertTrue(error.code == OTErrorNotSignedIn, "should return a OTErrorNotSignedIn error");
+    XCTAssertEqual(error.code, OTErrorNotSignedIn, "should return a OTErrorNotSignedIn error");
 
 }
 
@@ -606,14 +623,11 @@ static NSString* OTCKRecordPeerID = @"peerID";
     self.accountStatus = CKAccountStatusAvailable;
     [self startCKKSSubsystem];
 
-    [self.accountStateTracker notifyCKAccountStatusChangeAndWaitForSignal];
-
-    self.reachabilityFlags = 0;
-    [self.reachabilityTracker recheck];
+    [self.reachabilityTracker setNetworkReachability:false];
 
     [self.enroll checkRampState:&retryAfter networkBehavior:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary error:&error];
 
-    XCTAssertTrue(error.code == OTErrorNoNetwork, "should return a OTErrorNoNetwork error");
+    XCTAssertEqual(error.code, OTErrorNoNetwork, "should return a OTErrorNoNetwork error");
 }
 
 -(void) testEnrollRampWhenLocked
@@ -628,7 +642,7 @@ static NSString* OTCKRecordPeerID = @"peerID";
 
     [self.enroll checkRampState:&retryAfter networkBehavior:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary error:&error];
 
-    XCTAssertTrue(error.code == errSecInteractionNotAllowed, "should return a errSecInteractionNotAllowed error");
+    XCTAssertEqual(error.code, errSecInteractionNotAllowed, "should return a errSecInteractionNotAllowed error");
 }
 
 -(void) testTimeBetweenCFUAttempts
@@ -637,13 +651,20 @@ static NSString* OTCKRecordPeerID = @"peerID";
 
     NSError* error = nil;
 
+    [self startCKKSSubsystem];
+
     [self.manager scheduledCloudKitRampCheck:&error];
+    XCTAssertNotNil(error, "Should have had an error scheduling a ramp check");
+    XCTAssertEqual(error.code, OTErrorNoBottlePeerRecords, "Error should be 'no bottled peer records'");
     XCTAssertNotNil(self.manager.lastPostedCoreFollowUp, "core followup should have been posted");
     NSDate* firstTime = self.manager.lastPostedCoreFollowUp;
 
     sleep(2);
+    error = nil;
 
     [self.manager scheduledCloudKitRampCheck:&error];
+    XCTAssertNotNil(error, "Should have had an error scheduling a ramp check");
+    XCTAssertEqual(error.code, OTErrorNoBottlePeerRecords, "Error should be 'no bottled peer records'");
     XCTAssertNotNil(self.manager.lastPostedCoreFollowUp, "core followup should have been posted");
     NSDate* secondTime = self.manager.lastPostedCoreFollowUp;
 

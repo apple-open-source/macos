@@ -25,6 +25,8 @@
 
 #import <Foundation/Foundation.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 // For AES-SIV 512.
 
 #define CKKSKeySize (512 / 8)
@@ -39,33 +41,38 @@
 - (instancetype)init;
 - (instancetype)initWithBytes:(uint8_t*)bytes len:(size_t)len;
 - (void)zeroKey;
-- (instancetype)copyWithZone:(NSZone*)zone;
+- (instancetype)copyWithZone:(NSZone* _Nullable)zone;
 
 // Mostly for testing.
 - (instancetype)initWithBase64:(NSString*)base64bytes;
-- (BOOL)isEqual:(id)object;
+- (BOOL)isEqual:(id _Nullable)object;
 @end
 
-@interface CKKSWrappedAESSIVKey : CKKSBaseAESSIVKey
+@interface CKKSWrappedAESSIVKey : CKKSBaseAESSIVKey <NSSecureCoding>
 - (instancetype)initWithData:(NSData*)data;
 - (NSData*)wrappedData;
 - (NSString*)base64WrappedKey;
 @end
 
 @interface CKKSAESSIVKey : CKKSBaseAESSIVKey
-+ (instancetype)randomKey;
++ (instancetype _Nullable)randomKey:(NSError*__autoreleasing*)error;
 
-- (CKKSWrappedAESSIVKey*)wrapAESKey:(CKKSAESSIVKey*)keyToWrap error:(NSError* __autoreleasing*)error;
-- (CKKSAESSIVKey*)unwrapAESKey:(CKKSWrappedAESSIVKey*)keyToUnwrap error:(NSError* __autoreleasing*)error;
+- (CKKSWrappedAESSIVKey* _Nullable)wrapAESKey:(CKKSAESSIVKey*)keyToWrap
+                                        error:(NSError* __autoreleasing*)error;
+
+- (CKKSAESSIVKey* _Nullable)unwrapAESKey:(CKKSWrappedAESSIVKey*)keyToUnwrap
+                                   error:(NSError* __autoreleasing*)error;
 
 // Encrypt and decrypt data into buffers. Adds a nonce for ciphertext protection.
-- (NSData*)encryptData:(NSData*)plaintext
-     authenticatedData:(NSDictionary<NSString*, NSData*>*)ad
-                 error:(NSError* __autoreleasing*)error;
-- (NSData*)decryptData:(NSData*)ciphertext
-     authenticatedData:(NSDictionary<NSString*, NSData*>*)ad
-                 error:(NSError* __autoreleasing*)error;
+- (NSData* _Nullable)encryptData:(NSData*)plaintext
+               authenticatedData:(NSDictionary<NSString*, NSData*>* _Nullable)ad
+                           error:(NSError* __autoreleasing*)error;
+- (NSData* _Nullable)decryptData:(NSData*)ciphertext
+               authenticatedData:(NSDictionary<NSString*, NSData*>* _Nullable)ad
+                           error:(NSError* __autoreleasing*)error;
 
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif  // OCTAGON

@@ -12,10 +12,10 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Andi Gutmans <andi@zend.com>                                |
-   |          Zeev Suraski <zeev@zend.com>                                |
+   | Authors: Andi Gutmans <andi@php.net>                                 |
+   |          Zeev Suraski <zeev@php.net>                                 |
    |          Stanislav Malyshev <stas@zend.com>                          |
-   |          Dmitry Stogov <dmitry@zend.com>                             |
+   |          Dmitry Stogov <dmitry@php.net>                              |
    +----------------------------------------------------------------------+
 */
 
@@ -37,7 +37,7 @@ zend_op_array* zend_accel_load_script(zend_persistent_script *persistent_script,
 
 #define ADLER32_INIT 1     /* initial Adler-32 value */
 
-unsigned int zend_adler32(unsigned int checksum, signed char *buf, uint len);
+unsigned int zend_adler32(unsigned int checksum, signed char *buf, uint32_t len);
 
 unsigned int zend_accel_script_checksum(zend_persistent_script *persistent_script);
 

@@ -515,6 +515,20 @@
  * 20120211.77 (2.4.34-dev) Add ap_exists_directive()
  * 20120211.78 (2.4.34-dev) Add response_field_size to proxy_worker_shared 
  * 20120211.79 (2.4.34-dev) Add AP_GETLINE_NOSPC_EOL flag to http_protocol.h
+ * 20120211.80 (2.4.35-dev) Add new ap_update_global_status() method and
+ *                          times field in the global_score structure in
+ *                          scoreboard.h.
+ * 20120211.81 (2.4.35-dev) Add new duration field to worker_score struct in
+ *                          scoreboard.h
+ * 20120211.82 (2.4.35-dev) Add optional function declaration for
+ *                          ap_proxy_balancer_get_best_worker to mod_proxy.h.
+ * 20120211.83 (2.4.35-dev) Add client64 field to worker_score struct
+ * 20120211.84 (2.4.35-dev) Add ap_no2slash_ex() and merge_slashes to 
+ *                          core_server_conf.
+ * 20120211.85 (2.4.40-dev) add ap_set_conn_count().
+ * 20120211.86 (2.4.40-dev) Add forward_100_continue{,_set} to proxy_dir_conf
+ * 20120211.87 (2.4.40-dev) Add dav_popen_propdb
+ * 20120211.88 (2.4.40-dev) Add ap_dir_nofnmatch() and ap_dir_fnmatch().
  */
 
 #define MODULE_MAGIC_COOKIE 0x41503234UL /* "AP24" */
@@ -522,7 +536,7 @@
 #ifndef MODULE_MAGIC_NUMBER_MAJOR
 #define MODULE_MAGIC_NUMBER_MAJOR 20120211
 #endif
-#define MODULE_MAGIC_NUMBER_MINOR 79                  /* 0...n */
+#define MODULE_MAGIC_NUMBER_MINOR 88                  /* 0...n */
 
 /**
  * Determine if the server's current MODULE_MAGIC_NUMBER is at least a

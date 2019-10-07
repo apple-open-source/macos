@@ -46,9 +46,7 @@
 #include <utilities/der_plist.h>
 
 #include <security_utilities/CSPDLTransaction.h>
-#include <SecBasePriv.h>
-
-#define SENDACCESSNOTIFICATIONS 1
+#include <Security/SecBasePriv.h>
 
 //%%% schema indexes should be defined in Schema.h
 #define _kSecAppleSharePasswordItemClass		'ashp'
@@ -1415,23 +1413,12 @@ ItemImpl::getContent(SecItemClass *itemClass, SecKeychainAttributeList *attrList
     {
 		getLocalContent(attrList, length, outData);
 	}
-
-	// Inform anyone interested that we are doing this
-#if SENDACCESSNOTIFICATIONS
-    if (outData)
-    {
-		secinfo("kcnotify", "ItemImpl::getContent(%p, %p, %p, %p) retrieved content",
-			itemClass, attrList, length, outData);
-
-        KCEventNotifier::PostKeychainEvent(kSecDataAccessEvent, mKeychain, this);
-    }
-#endif
 }
 
 void
 ItemImpl::freeContent(SecKeychainAttributeList *attrList, void *data)
 {
-    Allocator &allocator = Allocator::standard(); // @@@ This might not match the one used originally
+    Allocator &allocator = Allocator::standard(Allocator::sensitive); // @@@ This might not match the one used originally
     if (data)
 		allocator.free(data);
 
@@ -1573,13 +1560,6 @@ ItemImpl::getAttributesAndData(SecKeychainAttributeInfo *info, SecItemClass *ite
 
 		if (length) *length=(UInt32)itemData.length();
 		itemData.Length=0;
-
-#if SENDACCESSNOTIFICATIONS
-		secinfo("kcnotify", "ItemImpl::getAttributesAndData(%p, %p, %p, %p, %p) retrieved data",
-			info, itemClass, attrList, length, outData);
-
-		KCEventNotifier::PostKeychainEvent(kSecDataAccessEvent, mKeychain, this);
-#endif
 	}
 
 }
@@ -1587,7 +1567,7 @@ ItemImpl::getAttributesAndData(SecKeychainAttributeInfo *info, SecItemClass *ite
 void
 ItemImpl::freeAttributesAndData(SecKeychainAttributeList *attrList, void *data)
 {
-	Allocator &allocator = Allocator::standard(); // @@@ This might not match the one used originally
+	Allocator &allocator = Allocator::standard(Allocator::sensitive); // @@@ This might not match the one used originally
 
 	if (data)
 		allocator.free(data);
@@ -1740,13 +1720,6 @@ ItemImpl::getData(CssmDataContainer& outData)
 	}
 
     getContent(NULL, &outData);
-
-#if SENDACCESSNOTIFICATIONS
-    secinfo("kcnotify", "ItemImpl::getData retrieved data");
-
-	//%%%<might> be done elsewhere, but here is good for now
-	KCEventNotifier::PostKeychainEvent(kSecDataAccessEvent, mKeychain, this);
-#endif
 }
 
 SSGroup

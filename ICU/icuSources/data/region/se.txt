@@ -289,10 +289,8 @@ se{
     }
     Countries%short{
         GB{"Stuorra-Británnia"}
-        HK{"Hongkong"}
-        MO{"Makáo"}
         PS{"Palestina"}
         US{"USA"}
     }
-    Version{"2.1.38.69"}
+    Version{"2.1.48.4"}
 }

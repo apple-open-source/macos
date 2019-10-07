@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -34,7 +34,6 @@
  * - add advanced reachability APIs
  */
 
-#include <os/availability.h>
 #include <TargetConditionals.h>
 #include <sys/cdefs.h>
 #include <dispatch/dispatch.h>
@@ -58,7 +57,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
 
-#define	SC_LOG_HANDLE		__log_SCNetworkReachability()
+#define	SC_LOG_HANDLE		__log_SCNetworkReachability
 #define SC_LOG_HANDLE_TYPE	static
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
@@ -68,12 +67,7 @@
 
 
 
-
-#if __has_include(<nw/private.h>)
 #include <nw/private.h>
-#else // __has_include(<nw/private.h>)
-#include <network/private.h>
-#endif // __has_include(<nw/private.h>)
 
 #define	DEBUG_REACHABILITY_TYPE_NAME			"create w/name"
 #define	DEBUG_REACHABILITY_TYPE_NAME_OPTIONS		"    + options"
@@ -344,31 +338,31 @@ __SCNetworkReachabilityDeallocate(CFTypeRef cf)
 	targetPrivate->scheduled = FALSE;
 
 	if (targetPrivate->hostnameEndpoint) {
-		network_release(targetPrivate->hostnameEndpoint);
+		nw_release(targetPrivate->hostnameEndpoint);
 		targetPrivate->hostnameEndpoint = NULL;
 	}
 	if (targetPrivate->localAddressEndpoint) {
-		network_release(targetPrivate->localAddressEndpoint);
+		nw_release(targetPrivate->localAddressEndpoint);
 		targetPrivate->localAddressEndpoint = NULL;
 	}
 	if (targetPrivate->remoteAddressEndpoint) {
-		network_release(targetPrivate->remoteAddressEndpoint);
+		nw_release(targetPrivate->remoteAddressEndpoint);
 		targetPrivate->remoteAddressEndpoint = NULL;
 	}
 	if (targetPrivate->parameters) {
-		network_release(targetPrivate->parameters);
+		nw_release(targetPrivate->parameters);
 		targetPrivate->parameters = NULL;
 	}
 	if (targetPrivate->lastPath) {
-		network_release(targetPrivate->lastPath);
+		nw_release(targetPrivate->lastPath);
 		targetPrivate->lastPath = NULL;
 	}
 	if (targetPrivate->lastPathParameters) {
-		network_release(targetPrivate->lastPathParameters);
+		nw_release(targetPrivate->lastPathParameters);
 		targetPrivate->lastPathParameters = NULL;
 	}
 	if (targetPrivate->lastResolvedEndpoints) {
-		network_release(targetPrivate->lastResolvedEndpoints);
+		nw_release(targetPrivate->lastResolvedEndpoints);
 		targetPrivate->lastResolvedEndpoints = NULL;
 	}
 
@@ -426,7 +420,6 @@ __SCNetworkReachabilityCreatePrivate(CFAllocatorRef	allocator)
 	return targetPrivate;
 }
 
-
 static const struct sockaddr *
 is_valid_address(const struct sockaddr *address)
 {
@@ -439,13 +432,11 @@ is_valid_address(const struct sockaddr *address)
 			case AF_INET :
 				if (address->sa_len >= sizeof(struct sockaddr_in)) {
 					valid = address;
-				} else {
-					if (!warned) {
-						SC_log(LOG_WARNING, "SCNetworkReachabilityCreateWithAddress[Pair] called with \"struct sockaddr *\" len %d < %zu",
-						      address->sa_len,
-						      sizeof(struct sockaddr_in));
-						warned = TRUE;
-					}
+				} else if (!warned) {
+					SC_log(LOG_WARNING, "SCNetworkReachabilityCreateWithAddress[Pair] called with \"struct sockaddr *\" len %d < %zu",
+					      address->sa_len,
+					      sizeof(struct sockaddr_in));
+					warned = TRUE;
 				}
 				break;
 			case AF_INET6 :
@@ -648,7 +639,7 @@ SCNetworkReachabilityCreateWithAddressPair(CFAllocatorRef		allocator,
 
 	if (remoteAddress != NULL) {
 		if (is_same_address(localAddress, remoteAddress)) {
-			targetPrivate->remoteAddressEndpoint = network_retain(targetPrivate->localAddressEndpoint);
+			targetPrivate->remoteAddressEndpoint = nw_retain(targetPrivate->localAddressEndpoint);
 		} else {
 			targetPrivate->remoteAddressEndpoint = nw_endpoint_create_address(remoteAddress);
 		}
@@ -826,7 +817,6 @@ SCNetworkReachabilityCreateWithOptions(CFAllocatorRef	allocator,
 		return NULL;
 	}
 
-
 	if (nodename != NULL) {
 		const char	*name;
 
@@ -884,7 +874,7 @@ SCNetworkReachabilityCreateWithOptions(CFAllocatorRef	allocator,
 	if (if_index != 0) {
 		nw_interface_t interfaceObject = nw_interface_create_with_index(if_index);
 		nw_parameters_require_interface(targetPrivate->parameters, interfaceObject);
-		network_release(interfaceObject);
+		nw_release(interfaceObject);
 		haveOpt = TRUE;
 	}
 
@@ -1079,12 +1069,12 @@ nw_path_is_linklocal_direct(nw_path_t path)
 					is_linklocal_direct = true;
 				}
 
-				network_release(interface);
+				nw_release(interface);
 			}
 		}
 	}
 
-	network_release(endpoint);
+	nw_release(endpoint);
 	return is_linklocal_direct;
 }
 
@@ -1274,11 +1264,7 @@ __SCNetworkReachabilityCreateCrazyIvan46Path(nw_path_t path, nw_endpoint_t endpo
 			struct sockaddr_in6 synthesizedAddress = {
 				.sin6_len = sizeof(struct sockaddr_in6),
 				.sin6_family = AF_INET6,
-#if defined(NW_PORT_HOST_BYTE_ORDER) && NW_PORT_HOST_BYTE_ORDER
-                .sin6_port = htons(nw_endpoint_get_port(endpoint)),
-#else
-				.sin6_port = nw_endpoint_get_port(endpoint),
-#endif
+				.sin6_port = htons(nw_endpoint_get_port(endpoint)),
 				.sin6_flowinfo = 0,
 				.sin6_scope_id = 0
 			};
@@ -1294,10 +1280,10 @@ __SCNetworkReachabilityCreateCrazyIvan46Path(nw_path_t path, nw_endpoint_t endpo
 				retPath = synthesizedPath;
 				SC_log(LOG_INFO, "Using CrazyIvan46 synthesized reachability result");
 			} else {
-				network_release(synthesizedPath);
+				nw_release(synthesizedPath);
 			}
-			network_release(synthesizedEvaluator);
-			network_release(synthesizedEndpoint);
+			nw_release(synthesizedEvaluator);
+			nw_release(synthesizedEndpoint);
 		}
 	} else {
 		// Don't synthesize in non-scheduled mode to avoid generating DNS traffic
@@ -1317,10 +1303,10 @@ __SCNetworkReachabilityCreateCrazyIvan46Path(nw_path_t path, nw_endpoint_t endpo
 			retPath = v6Path;
 			SC_log(LOG_INFO, "Using CrazyIvan46 simple reachability result");
 		} else {
-			network_release(v6Path);
+			nw_release(v6Path);
 		}
-		network_release(v6PathEvaluator);
-		network_release(v6Parameters);
+		nw_release(v6PathEvaluator);
+		nw_release(v6Parameters);
 	}
 	return retPath;
 }
@@ -1368,14 +1354,14 @@ SCNetworkReachabilityGetFlags(SCNetworkReachabilityRef		target,
 		crazyIvanPath = __SCNetworkReachabilityCreateCrazyIvan46Path(path, endpoint,
 									     targetPrivate->parameters, FALSE);
 		if (NULL != crazyIvanPath) {
-			network_release(path);
+			nw_release(path);
 			path = crazyIvanPath;
 		}
 	}
 
 	*flags = __SCNetworkReachabilityGetFlagsFromPath(path, 0, nw_resolver_status_invalid, NULL, FALSE, 0);
-	network_release(path);
-	network_release(pathEvaluator);
+	nw_release(path);
+	nw_release(pathEvaluator);
 
     done :
 
@@ -1390,23 +1376,17 @@ SCNetworkReachabilityGetFlags(SCNetworkReachabilityRef		target,
 static void
 reachPerformAndUnlock(SCNetworkReachabilityPrivateRef targetPrivate)
 {
-	os_activity_t			activity;
 	void				*context_info;
 	void				(*context_release)(const void *);
 	SCNetworkReachabilityCallBack	rlsFunction;
 	SCNetworkReachabilityFlags	flags		= 0;
-
-	activity = os_activity_create("processing SCNetworkReachability notification",
-				      OS_ACTIVITY_CURRENT,
-				      OS_ACTIVITY_FLAG_DEFAULT);
-	os_activity_scope(activity);
 
 	if (!targetPrivate->scheduled) {
 		// if no longer scheduled
 		SC_log(LOG_INFO, "%sskipping SCNetworkReachability callback, no longer scheduled",
 		       targetPrivate->log_prefix);
 		MUTEX_UNLOCK(&targetPrivate->lock);
-		goto done;
+		return;
 	}
 
 	// callout
@@ -1440,10 +1420,6 @@ reachPerformAndUnlock(SCNetworkReachabilityPrivateRef targetPrivate)
 	if (context_release != NULL) {
 		(*context_release)(context_info);
 	}
-
-    done :
-
-	os_release(activity);
 
 	return;
 }
@@ -1493,7 +1469,7 @@ SCNetworkReachabilitySetCallback(SCNetworkReachabilityRef	target,
 	targetPrivate->rlsContext.release		= NULL;
 	targetPrivate->rlsContext.copyDescription	= NULL;
 	if (context) {
-		bcopy(context, &targetPrivate->rlsContext, sizeof(SCNetworkReachabilityContext));
+		memcpy(&targetPrivate->rlsContext, context, sizeof(SCNetworkReachabilityContext));
 		if (context->retain != NULL) {
 			targetPrivate->rlsContext.info = (void *)(*context->retain)(context->info);
 		}
@@ -1709,7 +1685,7 @@ __SCNetworkReachabilityRestartResolver(SCNetworkReachabilityPrivateRef targetPri
 			if (resolver == targetPrivate->resolver) {
 				targetPrivate->resolver = NULL;
 			}
-			network_release(resolver);
+			nw_release(resolver);
 			MUTEX_UNLOCK(&targetPrivate->lock);
 			CFRelease(targetPrivate);
 		});
@@ -1722,8 +1698,8 @@ __SCNetworkReachabilityRestartResolver(SCNetworkReachabilityPrivateRef targetPri
 				__SCNetworkReachabilityCopyPathStatus(targetPrivate, &oldFlags, &oldIFIndex, &oldEndpointCount);
 
 				targetPrivate->lastResolverStatus = status;
-				network_release(targetPrivate->lastResolvedEndpoints);
-				targetPrivate->lastResolvedEndpoints = network_retain(resolved_endpoints);
+				nw_release(targetPrivate->lastResolvedEndpoints);
+				targetPrivate->lastResolvedEndpoints = nw_retain(resolved_endpoints);
 
 				// Run path evaluation on the resolved endpoints
 				__block Boolean hasFlags = FALSE;
@@ -1743,8 +1719,8 @@ __SCNetworkReachabilityRestartResolver(SCNetworkReachabilityPrivateRef targetPri
 						hasFlags = TRUE;
 					}
 					interfaceIndex = nw_path_get_interface_index(path);
-					network_release(path);
-					network_release(pathEvaluator);
+					nw_release(path);
+					nw_release(pathEvaluator);
 
 					rank = __SCNetworkReachabilityRank(flags);
 					if (rank > __SCNetworkReachabilityRank(targetPrivate->lastResolvedEndpointFlags)) {
@@ -1769,7 +1745,7 @@ __SCNetworkReachabilityRestartResolver(SCNetworkReachabilityPrivateRef targetPri
 				MUTEX_UNLOCK(&targetPrivate->lock);
 			}
 		})) {
-			network_release(resolver);
+			nw_release(resolver);
 			targetPrivate->resolver = NULL;
 			CFRelease(targetPrivate);
 		}
@@ -1810,23 +1786,23 @@ __SCNetworkReachabilitySetDispatchQueue(SCNetworkReachabilityPrivateRef	targetPr
 			targetPrivate->sentFirstUpdate = TRUE;
 		}
 
-		network_release(targetPrivate->lastPath);
+		nw_release(targetPrivate->lastPath);
 		targetPrivate->lastPath = nw_path_evaluator_copy_path(pathEvaluator);
 
 		if (isReachabilityTypeAddress(targetPrivate->type)) {
 			crazyIvanPath = __SCNetworkReachabilityCreateCrazyIvan46Path(targetPrivate->lastPath, endpoint,
 										     targetPrivate->parameters, FALSE);
 			if (NULL != crazyIvanPath) {
-				network_release(targetPrivate->lastPath);
+				nw_release(targetPrivate->lastPath);
 				targetPrivate->lastPath = crazyIvanPath;
 			}
 		}
 
-		network_release(targetPrivate->lastPathParameters);
+		nw_release(targetPrivate->lastPathParameters);
 		targetPrivate->lastPathParameters = nw_path_copy_derived_parameters(targetPrivate->lastPath);
 
 		targetPrivate->lastResolverStatus = nw_resolver_status_invalid;
-		network_release(targetPrivate->lastResolvedEndpoints);
+		nw_release(targetPrivate->lastResolvedEndpoints);
 		targetPrivate->lastResolvedEndpoints = NULL;
 		__SCNetworkReachabilityRestartResolver(targetPrivate);
 
@@ -1836,7 +1812,7 @@ __SCNetworkReachabilitySetDispatchQueue(SCNetworkReachabilityPrivateRef	targetPr
 			if (pathEvaluator == targetPrivate->pathEvaluator) {
 				targetPrivate->pathEvaluator = NULL;
 			}
-			network_release(pathEvaluator);
+			nw_release(pathEvaluator);
 			MUTEX_UNLOCK(&targetPrivate->lock);
 			CFRelease(targetPrivate);
 		});
@@ -1850,8 +1826,8 @@ __SCNetworkReachabilitySetDispatchQueue(SCNetworkReachabilityPrivateRef	targetPr
 				size_t oldEndpointCount = 0;
 				__SCNetworkReachabilityCopyPathStatus(targetPrivate, &oldFlags, &oldIFIndex, &oldEndpointCount);
 
-				network_release(targetPrivate->lastPath);
-				targetPrivate->lastPath = network_retain(path);
+				nw_release(targetPrivate->lastPath);
+				targetPrivate->lastPath = nw_retain(path);
 
 				if (isReachabilityTypeAddress(targetPrivate->type)) {
 					crazyIvanPath =
@@ -1860,7 +1836,7 @@ __SCNetworkReachabilitySetDispatchQueue(SCNetworkReachabilityPrivateRef	targetPr
 											     targetPrivate->parameters,
 											     TRUE);
 					if (NULL != crazyIvanPath) {
-						network_release(targetPrivate->lastPath);
+						nw_release(targetPrivate->lastPath);
 						targetPrivate->lastPath = crazyIvanPath;
 					}
 				}
@@ -1880,7 +1856,7 @@ __SCNetworkReachabilitySetDispatchQueue(SCNetworkReachabilityPrivateRef	targetPr
 			}
 		})) {
 			targetPrivate->pathEvaluator = NULL;
-			network_release(pathEvaluator);
+			nw_release(pathEvaluator);
 			CFRelease(targetPrivate);
 		}
 	} else {
@@ -1899,11 +1875,11 @@ __SCNetworkReachabilitySetDispatchQueue(SCNetworkReachabilityPrivateRef	targetPr
 		targetPrivate->sentFirstUpdate = FALSE;
 		nw_path_evaluator_cancel(targetPrivate->pathEvaluator);
 		targetPrivate->pathEvaluator = NULL;
-		network_release(targetPrivate->lastPath);
+		nw_release(targetPrivate->lastPath);
 		targetPrivate->lastPath = NULL;
-		network_release(targetPrivate->lastPathParameters);
+		nw_release(targetPrivate->lastPathParameters);
 		targetPrivate->lastPathParameters = NULL;
-		network_release(targetPrivate->lastResolvedEndpoints);
+		nw_release(targetPrivate->lastResolvedEndpoints);
 		targetPrivate->lastResolvedEndpoints = NULL;
 		if (NULL != targetPrivate->resolver) {
 			nw_resolver_cancel(targetPrivate->resolver);
@@ -1968,8 +1944,8 @@ _SC_checkResolverReachabilityByAddress(SCDynamicStoreRef		*storeP,
 			*haveDNS = TRUE;
 		}
 	}
-	network_release(evaluator);
-	network_release(path);
+	nw_release(evaluator);
+	nw_release(path);
 
 	return TRUE;
 }

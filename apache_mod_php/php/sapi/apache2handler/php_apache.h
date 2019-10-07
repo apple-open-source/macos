@@ -16,8 +16,6 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id$ */
-
 #ifndef PHP_APACHE_H
 #define PHP_APACHE_H
 
@@ -46,11 +44,7 @@ typedef struct php_struct {
 	request_rec *r;
 	apr_bucket_brigade *brigade;
 	/* stat structure of the current file */
-#if defined(NETWARE) && defined(CLIB_STAT_PATCH)
-	struct stat_libc finfo;
-#else
 	zend_stat_t finfo;
-#endif
 	/* Whether or not we've processed PHP in the output filters yet. */
 	int request_processed;
 	/* final content type */

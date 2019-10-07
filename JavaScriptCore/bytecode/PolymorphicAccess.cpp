@@ -187,7 +187,11 @@ CallSiteIndex AccessGenerationState::originalCallSiteIndex() const { return stub
 void AccessGenerationState::emitExplicitExceptionHandler()
 {
     restoreScratch();
-    jit->copyCalleeSavesToEntryFrameCalleeSavesBuffer(m_vm.topEntryFrame);
+    jit->pushToSave(GPRInfo::regT0);
+    jit->loadPtr(&m_vm.topEntryFrame, GPRInfo::regT0);
+    jit->copyCalleeSavesToEntryFrameCalleeSavesBuffer(GPRInfo::regT0);
+    jit->popToRestore(GPRInfo::regT0);
+
     if (needsToRestoreRegistersIfException()) {
         // To the JIT that produces the original exception handling
         // call site, they will expect the OSR exit to be arrived
@@ -332,7 +336,7 @@ bool PolymorphicAccess::visitWeak(VM& vm) const
     }
     if (Vector<WriteBarrier<JSCell>>* weakReferences = m_weakReferences.get()) {
         for (WriteBarrier<JSCell>& weakReference : *weakReferences) {
-            if (!Heap::isMarked(weakReference.get()))
+            if (!vm.heap.isMarked(weakReference.get()))
                 return false;
         }
     }

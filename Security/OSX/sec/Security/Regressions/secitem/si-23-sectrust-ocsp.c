@@ -45,11 +45,11 @@ static void tests(void)
     CFRelease(ocspPolicy);
     ok_status(SecTrustCreateWithCertificates(certs, policies, &trust),
         "create trust");
-    /* August 14, 2018 at 9:26:40 PM PDT */
-    CFDateRef date = CFDateCreate(NULL, 556000000.0);
+    /* April 14, 2019 at 10:46:40 PM PDT */
+    CFDateRef date = CFDateCreate(NULL, 577000000.0);
     ok_status(SecTrustSetVerifyDate(trust, date), "set date");
 
-    is(SecTrustGetVerifyTime(trust), 556000000.0, "get date");
+    is(SecTrustGetVerifyTime(trust), 577000000.0, "get date");
 
     SecTrustResultType trustResult;
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
@@ -83,9 +83,9 @@ static void test_ocsp_responder_policy() {
     CFDateRef date = CFDateCreate(NULL, 556000000.0);
 
     isnt(leaf = SecCertificateCreateWithBytes(NULL, valid_ist_certificate,
-                                              sizeof(valid_ist_certificate)), NULL, "create ist leaf");
+                                                       sizeof(valid_ist_certificate)), NULL, "create ist leaf");
     isnt(subCA = SecCertificateCreateWithBytes(NULL, ist_intermediate_certificate,
-                                               sizeof(ist_intermediate_certificate)), NULL, "create ist subCA");
+                                                       sizeof(ist_intermediate_certificate)), NULL, "create ist subCA");
     CFArrayAppendValue(certs, leaf);
     CFArrayAppendValue(certs, subCA);
 
@@ -766,6 +766,136 @@ errOut:
     CFReleaseNull(ocspResponse);
 }
 
+static void test_results_dictionary_revocation_reason(void) {
+    SecCertificateRef leaf = NULL, subCA = NULL, root = NULL;
+    SecPolicyRef policy = NULL;
+    SecTrustRef trust = NULL;
+    CFArrayRef certs = NULL, anchors = NULL;
+    CFDateRef verifyDate = NULL;
+    CFErrorRef error = NULL;
+    CFDataRef ocspResponse = NULL;
+
+    leaf = SecCertificateCreateWithBytes(NULL, _probablyRevokedLeaf, sizeof(_probablyRevokedLeaf));
+    subCA = SecCertificateCreateWithBytes(NULL, _digiCertSha2SubCA, sizeof(_digiCertSha2SubCA));
+    root = SecCertificateCreateWithBytes(NULL, _digiCertGlobalRoot, sizeof(_digiCertGlobalRoot));
+
+    const void *v_certs[] = { leaf, subCA };
+    const void *v_anchors[] = { root };
+
+    certs = CFArrayCreate(NULL, v_certs, 2, &kCFTypeArrayCallBacks);
+    policy = SecPolicyCreateSSL(true, CFSTR("revoked.badssl.com"));
+    require_noerr_action(SecTrustCreateWithCertificates(certs, policy, &trust), errOut, fail("failed to create trust object"));
+
+    anchors = CFArrayCreate(NULL, v_anchors, 1, &kCFTypeArrayCallBacks);
+    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
+
+    verifyDate = CFDateCreate(NULL, 543000000.0); // March 17, 2018 at 10:20:00 AM PDT
+    require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
+
+    /* Set the stapled response */
+    ocspResponse = CFDataCreate(NULL, _digicertOCSPResponse, sizeof(_digicertOCSPResponse));
+    ok_status(SecTrustSetOCSPResponse(trust, ocspResponse), "failed to set OCSP response");
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+    /* Evaluate trust. This cert is revoked, but is only listed as "probably revoked" by valid.apple.com.
+     * This cert should come back as revoked. */
+    is(SecTrustEvaluateWithError(trust, &error), false, "revoked cert succeeded");
+    if (error) {
+        is(CFErrorGetCode(error), errSecCertificateRevoked, "got wrong error code for revoked cert, got %ld, expected %d",
+           (long)CFErrorGetCode(error), errSecCertificateRevoked);
+
+        /* Verify that the results dictionary contains all the right keys for a revoked cert */
+        CFDictionaryRef result = SecTrustCopyResult(trust);
+        isnt(result, NULL, "failed to copy result dictionary");
+        if (result) {
+            int64_t reason = -1;
+            CFNumberRef cfreason = CFNumberCreate(NULL, kCFNumberSInt64Type, &reason);
+            is(CFNumberCompare(cfreason, CFDictionaryGetValue(result, kSecTrustRevocationReason), NULL), kCFCompareEqualTo, "expected revocation reason -1");
+            CFReleaseNull(cfreason);
+        }
+        CFReleaseNull(result);
+    } else {
+        fail("expected trust evaluation to fail and it did not.");
+    }
+#pragma clang diagnostic pop
+
+errOut:
+    CFReleaseNull(leaf);
+    CFReleaseNull(subCA);
+    CFReleaseNull(root);
+    CFReleaseNull(policy);
+    CFReleaseNull(trust);
+    CFReleaseNull(certs);
+    CFReleaseNull(anchors);
+    CFReleaseNull(verifyDate);
+    CFReleaseNull(error);
+    CFReleaseNull(ocspResponse);
+}
+
+static void test_results_dictionary_revocation_checked(void) {
+    SecCertificateRef leaf = NULL, subCA = NULL, root = NULL;
+    SecPolicyRef sslPolicy = NULL, ocspPolicy = NULL;
+    SecTrustRef trust = NULL;
+    CFArrayRef certs = NULL, anchors = NULL, policies = NULL;
+    CFDateRef verifyDate = NULL;
+    CFErrorRef error = NULL;
+
+    leaf = SecCertificateCreateWithBytes(NULL, _ocsp_c0, sizeof(_ocsp_c0));
+    subCA = SecCertificateCreateWithBytes(NULL, _ocsp_c1, sizeof(_ocsp_c1));
+    root = SecCertificateCreateWithBytes(NULL, _ocsp_c2, sizeof(_ocsp_c2));
+
+    sslPolicy = SecPolicyCreateSSL(true, CFSTR("www.apple.com"));
+    ocspPolicy = SecPolicyCreateRevocation(kSecRevocationOCSPMethod);
+
+    const void *v_certs[] = { leaf, subCA };
+    const void *v_anchors[] = { root };
+    const void *v_policies[] = { sslPolicy, ocspPolicy };
+
+    certs = CFArrayCreate(NULL, v_certs, 2, &kCFTypeArrayCallBacks);
+    policies = CFArrayCreate(NULL, v_policies, 2, &kCFTypeArrayCallBacks);
+    require_noerr_action(SecTrustCreateWithCertificates(certs, policies, &trust), errOut, fail("failed to create trust object"));
+
+    anchors = CFArrayCreate(NULL, v_anchors, 1, &kCFTypeArrayCallBacks);
+    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
+
+    verifyDate = CFDateCreate(NULL, 577000000.0); // April 14, 2019 at 10:46:40 PM PDT
+    require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+    is(SecTrustEvaluateWithError(trust, &error), true, "valid cert failed");
+
+    /* Verify that the results dictionary contains all the right keys for a valid cert where revocation checked */
+    CFDictionaryRef result = SecTrustCopyResult(trust);
+    isnt(result, NULL, "failed to copy result dictionary");
+    if (result) {
+        is(CFDictionaryGetValue(result, kSecTrustRevocationChecked), kCFBooleanTrue, "expected revocation checked flag");
+        CFDateRef validUntil = CFDictionaryGetValue(result, kSecTrustRevocationValidUntilDate);
+        isnt(validUntil, NULL, "expected revocation valid until date");
+        if (validUntil) {
+            ok(CFDateGetAbsoluteTime(validUntil) > CFAbsoluteTimeGetCurrent(), "expected valid until date in the future");
+        } else {
+            fail("did not get valid until date");
+        }
+    }
+    CFReleaseNull(result);
+#pragma clang diagnostic pop
+
+errOut:
+    CFReleaseNull(leaf);
+    CFReleaseNull(subCA);
+    CFReleaseNull(root);
+    CFReleaseNull(ocspPolicy);
+    CFReleaseNull(sslPolicy);
+    CFReleaseNull(trust);
+    CFReleaseNull(certs);
+    CFReleaseNull(anchors);
+    CFReleaseNull(policies);
+    CFReleaseNull(verifyDate);
+    CFReleaseNull(error);
+}
+
 static int ping_host(char *host_name){
 
     struct sockaddr_in pin;
@@ -818,7 +948,7 @@ int si_23_sectrust_ocsp(int argc, char *const *argv)
 
     unsigned host_cnt = 0;
 
-    plan_tests(95);
+    plan_tests(105);
 
     for (host_cnt = 0; host_cnt < sizeof(hosts)/sizeof(hosts[0]); host_cnt ++) {
         if(!ping_host(hosts[host_cnt])) {
@@ -837,6 +967,8 @@ int si_23_sectrust_ocsp(int argc, char *const *argv)
     test_check_if_trusted();
     test_cache();
     test_stapled_revoked_response();
+    test_results_dictionary_revocation_reason();
+    test_results_dictionary_revocation_checked();
 
     return 0;
 }

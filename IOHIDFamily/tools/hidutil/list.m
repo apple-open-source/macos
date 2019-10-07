@@ -47,31 +47,33 @@ struct fields {
     {@kIOHIDTransportKey,            0, 0, @kIOHIDTransportKey},
     {@kIOClassKey,                   0, 0, @"Class"},
     {@kIOHIDProductKey,              0, 0, @"Product"},
+    {@"IOUserClass",                 0, 0, @"UserClass"},
+    {@kIOHIDBuiltInKey,              0, 0, @kIOHIDBuiltInKey},
 };
 
 
 static void listPrint(NSArray * infoArray) {
     NSDictionary * info;
 
-    for (NSInteger index = 0; index < sizeof(serviceFields) / sizeof(serviceFields[0]); index++) {
+    for (NSUInteger index = 0; index < sizeof(serviceFields) / sizeof(serviceFields[0]); index++) {
         serviceFields[index].width = serviceFields[index].name.length;
     }
     
     for (info in infoArray) {
-        for (NSInteger index = 0; index < sizeof(serviceFields) / sizeof(serviceFields[0]); index++) {
+        for (NSUInteger index = 0; index < sizeof(serviceFields) / sizeof(serviceFields[0]); index++) {
             NSUInteger width = formatPropertyValue (info[serviceFields[index].key], serviceFields[index].integerBase).length;
             if (width > serviceFields[index].width) {
                 serviceFields[index].width = width;
             }
         }
     }
-    for (NSInteger index = 0; index < sizeof(serviceFields) / sizeof(serviceFields[0]); index++) {
+    for (NSUInteger index = 0; index < sizeof(serviceFields) / sizeof(serviceFields[0]); index++) {
         printf("%-*s", (int)serviceFields[index].width + 1, [serviceFields[index].name cStringUsingEncoding: NSASCIIStringEncoding]);
     }
     printf ("\n");
     
     for (info in infoArray) {
-        for (NSInteger index = 0; index < sizeof(serviceFields) / sizeof(serviceFields[0]); index++) {
+        for (NSUInteger index = 0; index < sizeof(serviceFields) / sizeof(serviceFields[0]); index++) {
             printf("%-*s", (int)serviceFields[index].width + 1, [formatPropertyValue (info[serviceFields[index].key], serviceFields[index].integerBase) cStringUsingEncoding: NSASCIIStringEncoding]);
         }
         printf ("\n");
@@ -141,8 +143,11 @@ int list (int argc, const char * argv[]) {
                 goto exit;
         }
     }
-    
+#ifdef INTERNAL
     client = IOHIDEventSystemClientCreateWithType(kCFAllocatorDefault, kIOHIDEventSystemClientTypeMonitor, NULL);
+#else
+    client = IOHIDEventSystemClientCreateWithType(kCFAllocatorDefault, kIOHIDEventSystemClientTypeSimple, NULL);
+#endif
     if (!client) {
         status = kUnknownErr;
         goto exit;

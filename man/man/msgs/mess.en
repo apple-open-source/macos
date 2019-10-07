@@ -171,7 +171,7 @@ NO_CAT_FOR_NONSTD_LL
 BROWSER_IS
 	"\nusing %s as browser\n"
 HTMLPAGER_IS
-	"\nusing %s to dump HTML pages as text"
+	"\nusing %s to dump HTML pages as text\n"
 FOUND_FILE
 	"manfile_from_sec_and_dir() found %s\n"
 CALLTRACE1

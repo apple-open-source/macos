@@ -4,5 +4,11 @@
 <dict>
 	<key>com.apple.private.IASInstallerAuthAgent</key>
 	<true/>
+	<key>com.apple.private.vfs.snapshot</key>
+	<true/>
+	<key>com.apple.private.tcc.allow</key>
+	<array>
+		<string>kTCCServiceSystemPolicyRemovableVolumes</string>
+	</array>
 </dict>
 </plist>

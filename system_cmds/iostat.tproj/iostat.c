@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -21,7 +21,9 @@
  *
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1997, 1998, 2000, 2001  Kenneth D. Merry
  * All rights reserved.
  *
@@ -48,7 +50,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/usr.sbin/iostat/iostat.c,v 1.22 2001/09/01 07:40:19 kris Exp $
+ * $FreeBSD$
  */
 /*
  * Parts of this program are derived from the original FreeBSD iostat
@@ -66,10 +68,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -176,7 +174,7 @@ static IONotificationPortRef notifyPort;
 /* local function declarations */
 static void usage(void);
 static void phdr(int signo);
-static void do_phdr();
+static void do_phdr(void);
 static void devstats(int perf_select, long double etime, int havelast);
 static void cpustats(void);
 static void loadstats(void);

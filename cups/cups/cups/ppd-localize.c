@@ -4,22 +4,10 @@
  * Copyright 2007-2018 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  *
  * PostScript is a trademark of Adobe Systems, Inc.
- *
- * This code and any derivative of it may be used and distributed
- * freely under the terms of the GNU General Public License when
- * used with GNU Ghostscript or its derivatives.  Use of the code
- * (or any derivative of it) with software other than GNU
- * GhostScript (or its derivatives) is governed by the CUPS license
- * agreement.
- *
- * This file is subject to the Apple OS-Developed Software exception.
  */
 
 /*
@@ -28,6 +16,7 @@
 
 #include "cups-private.h"
 #include "ppd-private.h"
+#include "debug-internal.h"
 
 
 /*
@@ -283,59 +272,17 @@ ppdLocalizeIPPReason(
       * Try to localize a standard printer-state-reason keyword...
       */
 
+      char	msgid[1024],		/* State message identifier */
+		*ptr;			/* Pointer to state suffix */
       const char *message = NULL;	/* Localized message */
 
-      if (!strncmp(reason, "media-needed", 12))
-	message = _("Load paper.");
-      else if (!strncmp(reason, "media-jam", 9))
-	message = _("Paper jam.");
-      else if (!strncmp(reason, "offline", 7) ||
-		       !strncmp(reason, "shutdown", 8))
-	message = _("The printer is not connected.");
-      else if (!strncmp(reason, "toner-low", 9))
-	message = _("The printer is low on toner.");
-      else if (!strncmp(reason, "toner-empty", 11))
-	message = _("The printer may be out of toner.");
-      else if (!strncmp(reason, "cover-open", 10))
-	message = _("The printer's cover is open.");
-      else if (!strncmp(reason, "interlock-open", 14))
-	message = _("The printer's interlock is open.");
-      else if (!strncmp(reason, "door-open", 9))
-	message = _("The printer's door is open.");
-      else if (!strncmp(reason, "input-tray-missing", 18))
-	message = _("Paper tray is missing.");
-      else if (!strncmp(reason, "media-low", 9))
-	message = _("Paper tray is almost empty.");
-      else if (!strncmp(reason, "media-empty", 11))
-	message = _("Paper tray is empty.");
-      else if (!strncmp(reason, "output-tray-missing", 19))
-	message = _("Output bin is missing.");
-      else if (!strncmp(reason, "output-area-almost-full", 23))
-	message = _("Output bin is almost full.");
-      else if (!strncmp(reason, "output-area-full", 16))
-	message = _("Output bin is full.");
-      else if (!strncmp(reason, "marker-supply-low", 17))
-	message = _("The printer is low on ink.");
-      else if (!strncmp(reason, "marker-supply-empty", 19))
-	message = _("The printer may be out of ink.");
-      else if (!strncmp(reason, "marker-waste-almost-full", 24))
-	message = _("The printer's waste bin is almost full.");
-      else if (!strncmp(reason, "marker-waste-full", 17))
-	message = _("The printer's waste bin is full.");
-      else if (!strncmp(reason, "fuser-over-temp", 15))
-	message = _("The fuser's temperature is high.");
-      else if (!strncmp(reason, "fuser-under-temp", 16))
-	message = _("The fuser's temperature is low.");
-      else if (!strncmp(reason, "opc-near-eol", 12))
-	message = _("The optical photoconductor will need to be replaced soon.");
-      else if (!strncmp(reason, "opc-life-over", 13))
-	message = _("The optical photoconductor needs to be replaced.");
-      else if (!strncmp(reason, "developer-low", 13))
-	message = _("The developer unit will need to be replaced soon.");
-      else if (!strncmp(reason, "developer-empty", 15))
-	message = _("The developer unit needs to be replaced.");
+      snprintf(msgid, sizeof(msgid), "printer-state-reasons.%s", reason);
+      if ((ptr = strrchr(msgid, '-')) != NULL && (!strcmp(ptr, "-error") || !strcmp(ptr, "-report") || !strcmp(ptr, "-warning")))
+        *ptr = '\0';
 
-      if (message)
+      message = _cupsLangString(lang, msgid);
+
+      if (message && strcmp(message, msgid))
       {
         strlcpy(buffer, _cupsLangString(lang, message), bufsize);
 	return (buffer);

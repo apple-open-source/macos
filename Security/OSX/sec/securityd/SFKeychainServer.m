@@ -257,12 +257,12 @@ static NSString* const SFCredentialSecretPassword = @"password";
     SecCDKeychainAccessControlEntity* owner = [SecCDKeychainAccessControlEntity accessControlEntityWithType:SecCDKeychainAccessControlEntityTypeAccessGroup stringRepresentation:accessGroup];
     keyclass_t keyclass = [self keyclassForAccessPolicy:accessPolicy];
     SecCDKeychainItem* item = [[SecCDKeychainItem alloc] initItemType:[SecCDKeychainItemTypeCredential itemType] withPersistentID:persistentID attributes:attributes lookupAttributes:lookupAttributes secrets:secrets owner:owner keyclass:keyclass];
-    [_keychain insertItems:@[item] withConnection:self completionHandler:^(bool success, NSError* error) {
-        if (success && !error) {
+    [_keychain insertItems:@[item] withConnection:self completionHandler:^(bool success, NSError* insertError) {
+        if (success && !insertError) {
             reply(persistentID.UUIDString, nil);
         }
         else {
-            reply(nil, error);
+            reply(nil, insertError);
         }
     }];
 }

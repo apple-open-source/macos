@@ -50,9 +50,12 @@
 #include "WorkerThread.h"
 #include <JavaScriptCore/ScriptArguments.h>
 #include <JavaScriptCore/ScriptCallStack.h>
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
 using namespace Inspector;
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(WorkerGlobalScope);
 
 WorkerGlobalScope::WorkerGlobalScope(const URL& url, Ref<SecurityOrigin>&& origin, const String& identifier, const String& userAgent, bool isOnline, WorkerThread& thread, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, IDBClient::IDBConnectionProxy* connectionProxy, SocketProvider* socketProvider, PAL::SessionID sessionID)
     : m_url(url)
@@ -61,7 +64,7 @@ WorkerGlobalScope::WorkerGlobalScope(const URL& url, Ref<SecurityOrigin>&& origi
     , m_thread(thread)
     , m_script(std::make_unique<WorkerScriptController>(this))
     , m_inspectorController(std::make_unique<WorkerInspectorController>(*this))
-    , m_microtaskQueue(std::make_unique<MicrotaskQueue>())
+    , m_microtaskQueue(std::make_unique<MicrotaskQueue>(m_script->vm()))
     , m_isOnline(isOnline)
     , m_shouldBypassMainWorldContentSecurityPolicy(shouldBypassMainWorldContentSecurityPolicy)
     , m_eventQueue(*this)
@@ -112,6 +115,9 @@ void WorkerGlobalScope::prepareForTermination()
 #endif
 
     stopActiveDOMObjects();
+
+    if (m_cacheStorageConnection)
+        m_cacheStorageConnection->clearPendingRequests();
 
     m_inspectorController->workerTerminating();
 
@@ -379,12 +385,22 @@ WorkerEventQueue& WorkerGlobalScope::eventQueue() const
 
 #if ENABLE(WEB_CRYPTO)
 
+class CryptoBufferContainer : public ThreadSafeRefCounted<CryptoBufferContainer> {
+public:
+    static Ref<CryptoBufferContainer> create() { return adoptRef(*new CryptoBufferContainer); }
+    Vector<uint8_t>& buffer() { return m_buffer; }
+
+private:
+    Vector<uint8_t> m_buffer;
+};
+
 bool WorkerGlobalScope::wrapCryptoKey(const Vector<uint8_t>& key, Vector<uint8_t>& wrappedKey)
 {
     bool result = false;
-    bool done = false;
-    m_thread.workerLoaderProxy().postTaskToLoader([&result, &key, &wrappedKey, &done, workerGlobalScope = this](ScriptExecutionContext& context) {
-        result = context.wrapCryptoKey(key, wrappedKey);
+    std::atomic<bool> done = false;
+    auto container = CryptoBufferContainer::create();
+    m_thread.workerLoaderProxy().postTaskToLoader([&result, key, containerRef = container.copyRef(), &done, workerGlobalScope = this](ScriptExecutionContext& context) {
+        result = context.wrapCryptoKey(key, containerRef->buffer());
         done = true;
         workerGlobalScope->postTask([](ScriptExecutionContext& context) {
             ASSERT_UNUSED(context, context.isWorkerGlobalScope());
@@ -395,14 +411,18 @@ bool WorkerGlobalScope::wrapCryptoKey(const Vector<uint8_t>& key, Vector<uint8_t
     while (!done && waitResult != MessageQueueTerminated)
         waitResult = m_thread.runLoop().runInMode(this, WorkerRunLoop::defaultMode());
 
+    if (done)
+        wrappedKey.swap(container->buffer());
     return result;
 }
 
 bool WorkerGlobalScope::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Vector<uint8_t>& key)
 {
-    bool result = false, done = false;
-    m_thread.workerLoaderProxy().postTaskToLoader([&result, &wrappedKey, &key, &done, workerGlobalScope = this](ScriptExecutionContext& context) {
-        result = context.unwrapCryptoKey(wrappedKey, key);
+    bool result = false;
+    std::atomic<bool> done = false;
+    auto container = CryptoBufferContainer::create();
+    m_thread.workerLoaderProxy().postTaskToLoader([&result, wrappedKey, containerRef = container.copyRef(), &done, workerGlobalScope = this](ScriptExecutionContext& context) {
+        result = context.unwrapCryptoKey(wrappedKey, containerRef->buffer());
         done = true;
         workerGlobalScope->postTask([](ScriptExecutionContext& context) {
             ASSERT_UNUSED(context, context.isWorkerGlobalScope());
@@ -413,6 +433,8 @@ bool WorkerGlobalScope::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Vecto
     while (!done && waitResult != MessageQueueTerminated)
         waitResult = m_thread.runLoop().runInMode(this, WorkerRunLoop::defaultMode());
 
+    if (done)
+        key.swap(container->buffer());
     return result;
 }
 

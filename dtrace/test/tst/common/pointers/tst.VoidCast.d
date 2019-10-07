@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.VoidCast.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Can dereference a void * pointer only by casting it to another type.

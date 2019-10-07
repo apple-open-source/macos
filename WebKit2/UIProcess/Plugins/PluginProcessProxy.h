@@ -23,12 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PluginProcessProxy_h
-#define PluginProcessProxy_h
+#pragma once
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
 
-#include "ChildProcessProxy.h"
+#include "AuxiliaryProcessProxy.h"
 #include "Connection.h"
 #include "PluginModuleInfo.h"
 #include "PluginProcess.h"
@@ -54,10 +53,6 @@ struct RawPluginMetaData {
     String name;
     String description;
     String mimeDescription;
-
-#if PLATFORM(GTK)
-    bool requiresGtk2;
-#endif
 };
 #endif
 
@@ -66,7 +61,7 @@ int pluginProcessLatencyQOS();
 int pluginProcessThroughputQOS();
 #endif
 
-class PluginProcessProxy final : public ChildProcessProxy, public ThreadSafeRefCounted<PluginProcessProxy> {
+class PluginProcessProxy final : public AuxiliaryProcessProxy, public ThreadSafeRefCounted<PluginProcessProxy> {
 public:
     static Ref<PluginProcessProxy> create(PluginProcessManager*, const PluginProcessAttributes&, uint64_t pluginProcessToken);
     ~PluginProcessProxy();
@@ -131,10 +126,10 @@ private:
     void endModal();
 
     void applicationDidBecomeActive();
-    void launchProcess(const String& launchPath, const Vector<String>& arguments, bool& result);
-    void launchApplicationAtURL(const String& urlString, const Vector<String>& arguments, bool& result);
-    void openURL(const String& url, bool& result, int32_t& status, String& launchedURLString);
-    void openFile(const String& fullPath, bool& result);
+    void launchProcess(const String& launchPath, const Vector<String>& arguments, CompletionHandler<void(bool)>&&);
+    void launchApplicationAtURL(const String& urlString, const Vector<String>& arguments, CompletionHandler<void(bool)>&&);
+    void openURL(const String& url, CompletionHandler<void(bool result, int32_t status, String launchedURLString)>&&);
+    void openFile(const String& fullPath, CompletionHandler<void(bool)>&&);
 #endif
 
     void platformInitializePluginProcess(PluginProcessCreationParameters& parameters);
@@ -173,7 +168,7 @@ private:
 
 #if PLATFORM(COCOA)
     RetainPtr<NSObject> m_activationObserver;
-    RetainPtr<WKPlaceholderModalWindow *> m_placeholderWindow;
+    RetainPtr<WKPlaceholderModalWindow> m_placeholderWindow;
     bool m_modalWindowIsShowing;
     bool m_fullscreenWindowIsShowing;
     unsigned m_preFullscreenAppPresentationOptions;
@@ -183,5 +178,3 @@ private:
 } // namespace WebKit
 
 #endif // ENABLE(NETSCAPE_PLUGIN_API)
-
-#endif // PluginProcessProxy_h

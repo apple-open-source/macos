@@ -21,42 +21,54 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if TARGET_DARWINOS
+#undef OCTAGON
+#undef SECUREOBJECTSYNC
+#undef SHAREDWEBCREDENTIALS
+#endif
 
-#include <securityd/spi.h>
-#include <ipc/SecdWatchdog.h>
-#include <ipc/server_security_helpers.h>
-#include <ipc/securityd_client.h>
-#include <securityd/SecPolicyServer.h>
-#include <securityd/SecItemBackupServer.h>
-#include <securityd/SecItemServer.h>
-#include <securityd/SecTrustStoreServer.h>
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wfour-char-constants"
+
+#include "securityd/spi.h"
+#include "ipc/SecdWatchdog.h"
+#include "ipc/server_security_helpers.h"
+#include "ipc/securityd_client.h"
+#include "securityd/SecItemBackupServer.h"
+#include "securityd/SecItemServer.h"
 #include <Security/SecureObjectSync/SOSPeerInfo.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFError.h>
-#include <securityd/SOSCloudCircleServer.h>
-#include <securityd/SecOCSPCache.h>
-#include <securityd/SecOTRRemote.h>
-#include <securityd/SecLogSettingsServer.h>
-#include <securityd/personalization.h>
-#include <securityd/SecTrustLoggingServer.h>
+#include "securityd/SOSCloudCircleServer.h"
+#include "securityd/SecOTRRemote.h"
+#include "securityd/SecLogSettingsServer.h"
 
 #include <CoreFoundation/CFXPCBridge.h>
 #include "utilities/iOSforOSX.h"
 #include "utilities/SecFileLocations.h"
 #include "OTATrustUtilities.h"
+#include "../../trustd/trustd_spi.h"
+
+#pragma clang diagnostic pop
 
 static struct securityd securityd_spi = {
     .sec_item_add                           = _SecItemAdd,
     .sec_item_copy_matching                 = _SecItemCopyMatching,
     .sec_item_update                        = _SecItemUpdate,
     .sec_item_delete                        = _SecItemDelete,
-#if TARGET_OS_IOS && !TARGET_OS_BRIDGE
-    .sec_add_shared_web_credential          = _SecAddSharedWebCredential,
-    .sec_copy_shared_web_credential         = _SecCopySharedWebCredential,
-#endif
     .sec_item_delete_all                    = _SecItemDeleteAll,
     .sec_keychain_backup                    = _SecServerKeychainCreateBackup,
     .sec_keychain_restore                   = _SecServerKeychainRestore,
+    .sec_item_copy_parent_certificates      = _SecItemCopyParentCertificates,
+    .sec_item_certificate_exists            = _SecItemCertificateExists,
+    .sec_roll_keys                          = _SecServerRollKeysGlue,
+    .sec_item_update_token_items            = _SecItemUpdateTokenItems,
+    .sec_delete_items_with_access_groups    = _SecItemServerDeleteAllWithAccessGroups,
+#if SHAREDWEBCREDENTIALS
+    .sec_add_shared_web_credential          = _SecAddSharedWebCredential,
+    .sec_copy_shared_web_credential         = _SecCopySharedWebCredential,
+#endif
+#if SECUREOBJECTSYNC
     .sec_keychain_backup_syncable           = _SecServerBackupSyncable,
     .sec_keychain_restore_syncable          = _SecServerRestoreSyncable,
     .sec_item_backup_copy_names             = SecServerItemBackupCopyNames,
@@ -109,7 +121,6 @@ static struct securityd securityd_spi = {
     .soscc_ProcessSyncWithPeers             = SOSCCProcessSyncWithPeers_Server,
     .soscc_ProcessSyncWithAllPeers          = SOSCCProcessSyncWithAllPeers_Server,
     .soscc_EnsurePeerRegistration           = SOSCCProcessEnsurePeerRegistration_Server,
-    .sec_roll_keys                          = _SecServerRollKeysGlue,
     .sec_keychain_sync_update_message       = _SecServerKeychainSyncUpdateMessage,
     .sec_get_log_settings                   = SecCopyLogSettings_Server,
     .sec_set_xpc_log_settings               = SecSetXPCLogSettings_Server,
@@ -130,8 +141,6 @@ static struct securityd securityd_spi = {
     .soscc_DeleteEngineState                = SOSCCDeleteEngineState_Server,
     .soscc_AccountHasPublicKey              = SOSCCAccountHasPublicKey_Server,
     .soscc_AccountIsNew                     = SOSCCAccountIsNew_Server,
-    .sec_item_update_token_items            = _SecItemUpdateTokenItems,
-    .sec_delete_items_with_access_groups    = _SecItemServerDeleteAllWithAccessGroups,
     .soscc_IsThisDeviceLastBackup           = SOSCCkSecXPCOpIsThisDeviceLastBackup_Server,
     .soscc_SOSCCPeersHaveViewsEnabled       = SOSCCPeersHaveViewsEnabled_Server,
     .soscc_RegisterRecoveryPublicKey        = SOSCCRegisterRecoveryPublicKey_Server,
@@ -139,47 +148,20 @@ static struct securityd securityd_spi = {
     .soscc_CopyBackupInformation            = SOSCCCopyBackupInformation_Server,
     .soscc_SOSCCMessageFromPeerIsPending    = SOSCCMessageFromPeerIsPending_Server,
     .soscc_SOSCCSendToPeerIsPending         = SOSCCSendToPeerIsPending_Server,
-    .sec_item_copy_parent_certificates      = _SecItemCopyParentCertificates,
-    .sec_item_certificate_exists            = _SecItemCertificateExists,
+#endif /* SECUREOBJECTSYNC */
 };
 
-#ifdef LIBTRUSTD
-static struct trustd trustd_spi = {
-    .sec_trust_store_for_domain             = SecTrustStoreForDomainName,
-    .sec_trust_store_contains               = SecTrustStoreContainsCertificateWithDigest,
-    .sec_trust_store_set_trust_settings     = _SecTrustStoreSetTrustSettings,
-    .sec_trust_store_remove_certificate     = SecTrustStoreRemoveCertificateWithDigest,
-    .sec_truststore_remove_all              = _SecTrustStoreRemoveAll,
-    .sec_trust_evaluate                     = SecTrustServerEvaluate,
-    .sec_ota_pki_trust_store_version        = SecOTAPKIGetCurrentTrustStoreVersion,
-    .sec_ota_pki_asset_version              = SecOTAPKIGetCurrentAssetVersion,
-    .ota_CopyEscrowCertificates             = SecOTAPKICopyCurrentEscrowCertificates,
-    .sec_ota_pki_get_new_asset              = SecOTAPKISignalNewAsset,
-    .sec_trust_store_copy_all               = _SecTrustStoreCopyAll,
-    .sec_trust_store_copy_usage_constraints = _SecTrustStoreCopyUsageConstraints,
-    .sec_ocsp_cache_flush                   = SecOCSPCacheFlush,
-    .sec_networking_analytics_report        = SecNetworkingAnalyticsReport,
-    .sec_trust_store_set_ct_exceptions      = _SecTrustStoreSetCTExceptions,
-    .sec_trust_store_copy_ct_exceptions     = _SecTrustStoreCopyCTExceptions,
-};
-#endif
-
-#if SECD_SERVER
+#if SECD_SERVER && SECUREOBJECTSYNC
 static CFTypeRef
 delayedSOSSharedObject(void)
 {
-    static CFTypeRef soscc_status;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        soscc_status = SOSKeychainAccountGetSharedAccount();
-    });
-    return soscc_status;
+    return SOSKeychainAccountGetSharedAccount();
 }
 #endif
 
 void securityd_init_local_spi(void) {
     gSecurityd = &securityd_spi;
-#if SECD_SERVER
+#if SECD_SERVER && SECUREOBJECTSYNC
     // We're the server: we need to handle this locally. Bring them up and set them in the global object.
     securityd_spi.soscc_status = delayedSOSSharedObject;
 #endif
@@ -205,17 +187,13 @@ void securityd_init_server(void) {
     SecdLoadWatchDog();
 }
 
-static void trustd_init_server(void) {
-#ifdef LIBTRUSTD
-    gTrustd = &trustd_spi;
-    SecPolicyServerInitialize();
-#endif
-}
-
 void securityd_init(CFURLRef home_path) {
-    if (home_path)
+    if (home_path) {
         SetCustomHomeURL(home_path);
+    }
 
     securityd_init_server();
+#ifdef LIBTRUSTD
     trustd_init_server();
+#endif
 }

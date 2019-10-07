@@ -37,7 +37,29 @@
 #include <wtf/RunLoop.h>
 #include <wtf/WeakPtr.h>
 
+#if USE(GSTREAMER_GL)
+#if USE(LIBEPOXY)
+// Include the <epoxy/gl.h> header before <gst/gl/gl.h>.
+#include <epoxy/gl.h>
+
+// Workaround build issue with RPi userland GLESv2 headers and libepoxy <https://webkit.org/b/185639>
+#if !GST_CHECK_VERSION(1, 14, 0)
+#include <gst/gl/gstglconfig.h>
+#if defined(GST_GL_HAVE_WINDOW_DISPMANX) && GST_GL_HAVE_WINDOW_DISPMANX
+#define __gl2_h_
+#undef GST_GL_HAVE_GLSYNC
+#define GST_GL_HAVE_GLSYNC 1
+#endif
+#endif // !GST_CHECK_VERSION(1, 14, 0)
+#endif // USE(LIBEPOXY)
+
+#define GST_USE_UNSTABLE_API
+#include <gst/gl/gl.h>
+#undef GST_USE_UNSTABLE_API
+#endif
+
 #if USE(TEXTURE_MAPPER_GL)
+#include "TextureMapperGL.h"
 #if USE(NICOSIA)
 #include "NicosiaContentLayerTextureMapperImpl.h"
 #else
@@ -148,7 +170,6 @@ public:
 #if ENABLE(ENCRYPTED_MEDIA)
     void cdmInstanceAttached(CDMInstance&) override;
     void cdmInstanceDetached(CDMInstance&) override;
-    void dispatchDecryptionKey(GstBuffer*);
     void handleProtectionEvent(GstEvent*);
     virtual void attemptToDecryptWithLocalInstance();
     void attemptToDecryptWithInstance(CDMInstance&) final;
@@ -173,6 +194,12 @@ public:
 protected:
     MediaPlayerPrivateGStreamerBase(MediaPlayer*);
     virtual GstElement* createVideoSink();
+
+#if USE(GSTREAMER_HOLEPUNCH)
+    GstElement* createHolePunchVideoSink();
+    void pushNextHolePunchBuffer();
+    bool shouldIgnoreIntrinsicSize() final { return true; }
+#endif
 
 #if USE(GSTREAMER_GL)
     static GstFlowReturn newSampleCallback(GstElement*, MediaPlayerPrivateGStreamerBase*);
@@ -216,6 +243,11 @@ protected:
     static void volumeChangedCallback(MediaPlayerPrivateGStreamerBase*);
     static void muteChangedCallback(MediaPlayerPrivateGStreamerBase*);
 
+#if USE(TEXTURE_MAPPER_GL)
+    void updateTextureMapperFlags();
+    TextureMapperGL::Flags m_textureMapperFlags;
+#endif
+
     enum MainThreadNotification {
         VideoChanged = 1 << 0,
         VideoCapsChanged = 1 << 1,
@@ -226,9 +258,7 @@ protected:
         TextChanged = 1 << 5,
 #endif
         SizeChanged = 1 << 6,
-#if GST_CHECK_VERSION(1, 10, 0)
         StreamCollectionChanged = 1 << 7
-#endif
     };
 
     Ref<MainThreadNotifier<MainThreadNotification>> m_notifier;
@@ -277,6 +307,9 @@ protected:
     HashSet<uint32_t> m_handledProtectionEvents;
     bool m_waitingForKey { false };
 #endif
+
+    enum class WebKitGstVideoDecoderPlatform { ImxVPU, Video4Linux };
+    Optional<WebKitGstVideoDecoderPlatform> m_videoDecoderPlatform;
 };
 
 }

@@ -9,8 +9,7 @@ entryPoint(CommonRSA,"RSA Cryptography")
 
 #include <CommonCrypto/CommonBigNum.h>
 #include <CommonCrypto/CommonRSACryptor.h>
-#include "../../lib/ccMemory.h"
-#include <CommonRSACryptorSPI.h>
+#include <CommonCrypto/CommonRSACryptorSPI.h>
 #include <corecrypto/cczp.h>
 #include <corecrypto/ccrsa.h>
 
@@ -26,7 +25,7 @@ static int saneKeySize(CCRSACryptorRef key) {
 static int roundTripCrypt(CCRSACryptorRef pubKey, CCRSACryptorRef privKey) {
     size_t keySizeBytes = (CCRSAGetKeySize(pubKey)+7)/8;
     char clear[keySizeBytes], cipher[keySizeBytes], decrypted[keySizeBytes];
-    CC_XZEROMEM(clear, keySizeBytes);
+    cc_clear(keySizeBytes, clear);
     size_t moved = keySizeBytes;
     
     ok(CCRSACryptorCrypt(pubKey, clear, keySizeBytes, cipher, &moved) == 0, "RSA Raw Crypt");
@@ -47,16 +46,18 @@ static int wrapUnwrap(CCRSACryptorRef publicKey, CCRSACryptorRef privateKey, CCA
 
 	CCCryptorStatus retval;
     int status = 1;
-    
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     ok((retval = CCRSACryptorEncrypt(publicKey, padding, keydata->bytes, keydata->len,
                                      encryptedKey->bytes, &encryptedKey->len,
                                      "abcd", 4, kCCDigestSHA1)) == kCCSuccess, "Wrap Key Data with RSA Encryption - ccPKCS1Padding");
     if(retval) goto errout;
-    
+
     ok((retval = CCRSACryptorDecrypt(privateKey, padding, encryptedKey->bytes, encryptedKey->len,
                                      decryptedKey->bytes, &decryptedKey->len,
                                      "abcd", 4, kCCDigestSHA1)) == kCCSuccess,
        "Unwrap Key Data with RSA Encryption - ccPKCS1Padding");
+#pragma clang diagnostic pop
     if(retval) goto errout;
     
     ok(bytesAreEqual(decryptedKey, keydata), "Round Trip ccPKCS1Padding");
@@ -250,11 +251,14 @@ RSAStdGenTest(size_t keysize, uint32_t exponent)
     ok((status = saneKeySize(publicKey)) == 0, "Keysize is realistic");
     ok((status = saneKeySize(privateKey)) == 0, "Keysize is realistic");
     ok((status = roundTripCrypt(publicKey, privateKey)) == 0, "Can perform round-trip encryption");
-    ok((publicKeyClone = CCRSACryptorGetPublicKeyFromPrivateKey(privateKey)) != NULL, "Can make public key from private key");
+    ok((publicKeyClone = CCRSACryptorCreatePublicKeyFromPrivateKey(privateKey)) != NULL, "Can make public key from private key");
     ok((status = roundTripCrypt(publicKeyClone, privateKey)) == 0, "Can perform round-trip encryption with cloned public key");
     ok((status = wrapUnwrap(publicKey, privateKey, ccPKCS1Padding)) == 0, "Can perform round-trip PKCS1 wrap/unwrap");
     ok((status = wrapUnwrap(publicKey, privateKey, ccOAEPPadding)) == 0, "Can perform round-trip OAEP wrap/unwrap");
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     ok((status = sign_verify(publicKey, privateKey, ccPKCS1Padding, kCCDigestSHA1)) == 0, "Can perform round-trip ccPKCS1Padding sign/verify");
+#pragma clang diagnostic pop
     ok((status = sign_verify(publicKey, privateKey, ccRSAPSSPadding, kCCDigestSHA256)) == 0, "Can perform round-trip ccRSAPSSPadding sign/verify");
     ok((status = export_import(publicKey, privateKey)) == 0, "Can perform round-trip import/export");
     CCRSAGetCRTComponentsTest(privateKey);
@@ -326,7 +330,10 @@ RSAX931BuildTest(rsa_components_t *rsa)
     ok((status = roundTripCrypt(publicKey, privateKey)) == 0, "Can perform round-trip encryption");
     ok((status = wrapUnwrap(publicKey, privateKey, ccPKCS1Padding)) == 0, "Can perform round-trip PKCS1 wrap/unwrap");
     ok((status = wrapUnwrap(publicKey, privateKey, ccOAEPPadding)) == 0, "Can perform round-trip OAEP wrap/unwrap");
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     ok((status = sign_verify(publicKey, privateKey, ccPKCS1Padding, kCCDigestSHA1)) == 0, "Can perform round-trip ccPKCS1Padding sign/verify");
+#pragma clang diagnostic pop
     ok((status = export_import(publicKey, privateKey)) == 0, "Can perform round-trip import/export");
     CCRSAGetCRTComponentsTest(privateKey);
     
@@ -383,8 +390,11 @@ static CCCryptorStatus CCRSACryptorCreateFromData_and_test_keys(CCRSAKeyType key
     
     if(keyType==ccRSAKeyPrivate){
         CCRSACryptorRef priv = *ref;
-        CCRSACryptorRef pub  = CCRSACryptorGetPublicKeyFromPrivateKey(priv);
+        CCRSACryptorRef pub  = CCRSACryptorCreatePublicKeyFromPrivateKey(priv);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         rv = sign_verify(pub, priv, ccPKCS1Padding, kCCDigestSHA1);
+#pragma clang diagnostic pop
         ok(rv==kCCSuccess, "sign/verify of created key");
         
         size_t dp_size, dq_size, qinv_size;
@@ -402,8 +412,10 @@ static CCCryptorStatus CCRSACryptorCreateFromData_and_test_keys(CCRSAKeyType key
         ok_or_goto(rv==kCCSuccess, "reading public exponent components", errOut);
         is(modulusLength2, modulusLength, " modulus length mismatch");
         is(exponentLength2, publicExponentLength, " exponent length mismatch");
-        ok_memcmp(modulus2, modulus, modulusLength, "modulus read mismatch");
-        ok_memcmp(exponent2, publicExponent, exponentLength2, "public exponent read mismatch");
+        if (modulus != NULL)
+            ok_memcmp(modulus2, modulus, CC_MIN(modulusLength2,modulusLength), "modulus read mismatch");
+        if (publicExponent != NULL)
+            ok_memcmp(exponent2, publicExponent, CC_MIN(exponentLength2,publicExponentLength), "public exponent read mismatch");
     }
 errOut:
     //this type case is not the best practice, but at this point we don't have access to the internls of
@@ -450,11 +462,11 @@ static int  CCRSACryptorCreateFromData_tests()
     rc=CCRSACryptorCreateFromData_and_test_keys(ccRSAKeyPrivate, mod, mod_sz, pub_exp, pub_exp_sz, nul, p1_sz, p2,  p2_sz, &cryptor); ok_and_release(rc!=kCCSuccess, "p1 NULL");
     rc=CCRSACryptorCreateFromData_and_test_keys(ccRSAKeyPrivate, mod, mod_sz, pub_exp, pub_exp_sz, p1,  p1_sz, nul, p2_sz, &cryptor); ok_and_release(rc!=kCCSuccess, "p2 NULL");
     
-    rc=CCRSACryptorCreateFromData_and_test_keys(ccRSAKeyPrivate, mod, mod_sz/2, pub_exp, pub_exp_sz, p1, p1_sz, p2, p2_sz,   &cryptor); ok_and_release(rc==kCCSuccess, "priv mod size"); //ccRSAKeyPrivate doesn't use modulus
-    rc=CCRSACryptorCreateFromData_and_test_keys(ccRSAKeyPrivate, nul, mod_sz  , pub_exp, pub_exp_sz, p1, p1_sz, p2, p2_sz,   &cryptor); ok_and_release(rc==kCCSuccess, "priv mod NULL"); //ccRSAKeyPrivate doesn't use modulus
-    rc=CCRSACryptorCreateFromData_and_test_keys(ccRSAKeyPrivate, mod, mod_sz  , pub_exp, pub_exp_sz, p2, p2_sz, p1, p1_sz,   &cryptor); ok_and_release(rc!=kCCSuccess, "incorrect prime order");
+    rc=CCRSACryptorCreateFromData_and_test_keys(ccRSAKeyPrivate, mod, mod_sz/2, pub_exp, pub_exp_sz, p1, p1_sz, p2, p2_sz,   &cryptor); ok_and_release(rc==kCCSuccess, "priv mod size"); //ccRSAKeyPrivate doesn't use modulus so no assert error
+    rc=CCRSACryptorCreateFromData_and_test_keys(ccRSAKeyPrivate, nul, mod_sz  , pub_exp, pub_exp_sz, p1, p1_sz, p2, p2_sz,   &cryptor); ok_and_release(rc==kCCSuccess, "priv mod NULL"); //ccRSAKeyPrivate doesn't use modulus so no assert error
+    rc=CCRSACryptorCreateFromData_and_test_keys(ccRSAKeyPrivate, mod, mod_sz  , pub_exp, pub_exp_sz, p1, p1_sz, p1, p1_sz,   &cryptor); ok_and_release(rc!=kCCSuccess, "Duplicate prime not allowed");
     rc=CCRSACryptorCreateFromData_and_test_keys(ccRSAKeyPrivate, mod, mod_sz  , pub_exp, pub_exp_sz, p1, p1_sz, p1, p1_sz-1, &cryptor); ok_and_release(rc!=kCCSuccess, "bad prime");
-    
+
     
     //doesn't generate assert
     rc=CCRSACryptorCreateFromData_and_test_keys(ccRSAKeyPublic, mod, 0       , pub_exp, 1, p1, p1_sz, p2, p2_sz, &cryptor); ok_and_release(rc!=kCCSuccess, "public mod size");
@@ -462,7 +474,9 @@ static int  CCRSACryptorCreateFromData_tests()
     rc=CCRSACryptorCreateFromData_and_test_keys(ccRSAKeyPublic, mod, mod_sz  , nul    , 1, p1, p1_sz, p2, p2_sz, &cryptor); ok_and_release(rc!=kCCSuccess, "public exp NULL");
     rc=CCRSACryptorCreateFromData_and_test_keys(ccRSAKeyPublic, mod, mod_sz  , pub_exp, 0, p1, p1_sz, p2, p2_sz, &cryptor); ok_and_release(rc!=kCCSuccess, "public exp size");
 
-    
+    // Test to ensure that first prime passed in < second prime passed in works.
+    rc=CCRSACryptorCreateFromData_and_test_keys(ccRSAKeyPrivate, mod, mod_sz  , pub_exp, pub_exp_sz, p2, p2_sz, p1, p1_sz, &cryptor); ok_and_release(rc==kCCSuccess, "Accept q<p, assuming same length");
+
     CCRSACryptorRelease(pub);
     CCRSACryptorRelease(priv);
     return 1; //ok in test
@@ -485,24 +499,37 @@ static int  CCRSACryptorCreateFromData_KATtests()
     CCRSACryptorRef cryptor=NULL;
     struct rsa_key_data *v;
     
+    byteBuffer p1 = NULL;
+    byteBuffer p2 = NULL;
+    byteBuffer pub_exp = NULL;
+    byteBuffer m = NULL;
+    
     for (v =rsa_key_data; v->sm!=NULL; v++){
-        byteBuffer p1 = hexStringToBytes(v->sp1);
-        byteBuffer p2 = hexStringToBytes(v->sp2);
-        byteBuffer pub_exp = hexStringToBytes(v->se);
-        byteBuffer m = hexStringToBytes(v->sm);
+        p1 = hexStringToBytes(v->sp1);
+        p2 = hexStringToBytes(v->sp2);
+        pub_exp = hexStringToBytes(v->se);
+        m = hexStringToBytes(v->sm);
         
         rc=CCRSACryptorCreateFromData_and_test_keys(ccRSAKeyPrivate, NULL, 0, pub_exp->bytes, pub_exp->len, p1->bytes , p1->len, p2->bytes, p2->len, &cryptor);
-        CCRSACryptorRelease(cryptor);
-        ok_or_goto(rc==kCCSuccess, "create priv key from data", out);
+        if (cryptor != NULL) {
+            CCRSACryptorRelease(cryptor);
+            cryptor = NULL;
+        }
+        ok(rc==kCCSuccess, "create priv key from data");
         
         rc=CCRSACryptorCreateFromData_and_test_keys(ccRSAKeyPublic, m->bytes, m->len, pub_exp->bytes, pub_exp->len, NULL , 0, NULL, 0, &cryptor);
-        CCRSACryptorRelease(cryptor);
-        ok_or_goto(rc==kCCSuccess, "create pub key from data", out);
+        if (cryptor != NULL) {
+            CCRSACryptorRelease(cryptor);
+            cryptor = NULL;
+        }
+        ok(rc==kCCSuccess, "create pub key from data");
         
-        free(p1); free(p2); free(pub_exp); free(m);
+        free(p1);
+        free(p2);
+        free(pub_exp);
+        free(m);
     }
-    
-out:
+
     return 1;
 }
 
@@ -515,7 +542,7 @@ int CommonRSA (int __unused argc, char *const * __unused argv) {
     size_t keystep = 512;
     
     
-	plan_tests(844);
+	plan_tests(894);
     CCRSACryptorCreateFromData_tests();
     CCRSACryptorCreateFromData_KATtests();
     

@@ -12,8 +12,8 @@ unhash [ -adfms ] name ...
        matching names will be removed.
 
 unalias [ -ams ] name ...
-       Removes  aliases.   This  command  works  the same as unhash -a,
-       except that the -a option removes all regular or global aliases,
+       Removes  aliases.  This command works the same as unhash -a, ex-
+       cept that the -a option removes all regular or  global  aliases,
        or  with  -s  all suffix aliases: in this case no name arguments
        may appear.  The options -m (remove by pattern) and  -s  without
        -a (remove listed suffix aliases) behave as for unhash -a.  Note

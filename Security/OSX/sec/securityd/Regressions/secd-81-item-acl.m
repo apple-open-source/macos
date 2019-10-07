@@ -29,9 +29,8 @@
 #include <ACMLib.h>
 #include <coreauthd_spi.h>
 #include "SecdTestKeychainUtilities.h"
-#if TARGET_OS_IPHONE
-#include <MobileKeyBag/MobileKeyBag.h>
-#endif
+
+#include "OSX/utilities/SecAKSWrappers.h"
 
 #if LA_CONTEXT_IMPLEMENTED
 static keybag_handle_t test_keybag;
@@ -474,8 +473,8 @@ int secd_81_item_acl(int argc, char *const *argv)
         keybag_state_t state;
         int passcode_len=(int)strlen(passcode1);
 
-        ok(kIOReturnSuccess==aks_create_bag(passcode1, passcode_len, kAppleKeyStoreDeviceBag, &test_keybag), "create keybag");
-        ok(kIOReturnSuccess==aks_get_lock_state(test_keybag, &state), "get keybag state");
+        ok(kAKSReturnSuccess==aks_create_bag(passcode1, passcode_len, kAppleKeyStoreDeviceBag, &test_keybag), "create keybag");
+        ok(kAKSReturnSuccess==aks_get_lock_state(test_keybag, &state), "get keybag state");
         ok(!(state&keybag_state_locked), "keybag unlocked");
         SecItemServerSetKeychainKeybag(test_keybag);
     });

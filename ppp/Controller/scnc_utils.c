@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2017 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2018 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,7 +69,6 @@ includes
 #include "PPPControllerPriv.h"
 #include "../Family/ppp_domain.h"
 #include "../Helpers/pppd/pppd.h"
-#include "../Drivers/PPTP/PPTP-plugin/pptp.h"
 #include "../Drivers/L2TP/L2TP-plugin/l2tp.h"
 #include "../Drivers/PPPoE/PPPoE-extension/PPPoE.h"
 #include "ne_sm_bridge_private.h"
@@ -234,7 +233,7 @@ CFDictionaryRef copyService(SCDynamicStoreRef store, CFStringRef domain, CFStrin
         kSCEntNetInterface,
     	kSCEntNetIPv4,
     	kSCEntNetIPv6,
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     	kSCEntNetSMB,
 #endif
         kSCEntNetDNS,
@@ -327,7 +326,7 @@ int getString(CFDictionaryRef service, CFStringRef property, u_char *str, u_int1
     CFStringRef		string;
     CFDataRef		ref;
     const UInt8    *dataptr;
-    int            len;
+    CFIndex         len;
 
     str[0] = 0;
     ref  = CFDictionaryGetValue(service, property);
@@ -604,7 +603,7 @@ CFDataRef Serialize(CFPropertyListRef obj, void **data, u_int32_t *dataLen)
     xml = CFPropertyListCreateXMLData(NULL, obj);
     if (xml) {
         *data = (void*)CFDataGetBytePtr(xml);
-        *dataLen = CFDataGetLength(xml);
+        *dataLen = (u_int32_t)CFDataGetLength(xml);
     }
     return xml;
 }
@@ -685,7 +684,7 @@ int GetStrFromDict (CFDictionaryRef dict, CFStringRef property, char *outstr, in
 		|| !CFStringGetCString(ref, outstr, maxlen, kCFStringEncodingUTF8))
 		strncpy(outstr, defaultval, maxlen);
 	
-	return strlen(outstr);
+	return (int)strlen(outstr);
 }
 
 // ----------------------------------------------------------------------------
@@ -694,7 +693,6 @@ int GetStrFromDict (CFDictionaryRef dict, CFStringRef property, char *outstr, in
 Boolean GetStrAddrFromDict (CFDictionaryRef dict, CFStringRef property, char *outstr, int maxlen)
 {
     CFStringRef		ref;
-	in_addr_t               addr;
 	
 	ref  = CFDictionaryGetValue(dict, property);
 	if (isString(ref)
@@ -820,7 +818,7 @@ int publish_multiple_dicts(SCDynamicStoreRef store, CFStringRef serviceID, CFArr
     int                 i;
     CFStringRef         key;
     CFMutableDictionaryRef   keys_to_add;
-    int                 numDicts;
+    CFIndex             numDicts;
     int                 ret = ENOMEM;
     
 	if (!store)
@@ -889,7 +887,7 @@ int unpublish_multiple_dicts(SCDynamicStoreRef store, CFStringRef serviceID, CFA
     int                 i;
     CFStringRef         key;
     CFMutableArrayRef   keys_to_remove;
-    int                 numDictNames;
+    CFIndex             numDictNames;
     int                 ret = ENOMEM;
     
 	if (!store)
@@ -958,7 +956,8 @@ cfstring_is_ip(CFStringRef str)
 	char *buf;
 	struct in_addr ip = { 0 };
 	CFIndex l;
-	int n, result;
+	int result;
+	CFIndex n;
 	CFRange range;
 
 	if (!isString(str) || (l = CFStringGetLength(str)) == 0)
@@ -2048,7 +2047,7 @@ int set_tun_delegate(int tunsock, char *delegate_ifname)
 {
     int result = 0;
     
-    if ((result = setsockopt(tunsock, SYSPROTO_CONTROL, UTUN_OPT_SET_DELEGATE_INTERFACE, delegate_ifname, strlen(delegate_ifname))))
+    if ((result = setsockopt(tunsock, SYSPROTO_CONTROL, UTUN_OPT_SET_DELEGATE_INTERFACE, delegate_ifname, (socklen_t)strlen(delegate_ifname))))
         SCLog(TRUE, LOG_ERR, CFSTR("set_tun_delegate: setsockopt delegate interface failed on kernel control socket (errno = %s)"), strerror(errno));
 
     return result;
@@ -2382,7 +2381,7 @@ extractEnvironmentVariables (CFDictionaryRef envVarDict, struct service *serv)
 		return;
 	} else if (isA_CFDictionary(envVarDict) &&
 			   CFDictionaryGetCount(envVarDict) > 0) {
-		int count = CFDictionaryGetCount(envVarDict);
+		CFIndex count = CFDictionaryGetCount(envVarDict);
 
 		if (serv->envKeys) {
 			free(serv->envKeys);
@@ -2394,8 +2393,8 @@ extractEnvironmentVariables (CFDictionaryRef envVarDict, struct service *serv)
 		}
 
 		serv->envCount = 0;
-		serv->envKeys = (char *)malloc(count * sizeof(envKeyValue_t));
-		serv->envValues = (char *)malloc(count * sizeof(envKeyValue_t));
+		serv->envKeys = (envKeyValue_t *)malloc(count * sizeof(envKeyValue_t));
+		serv->envValues = (envKeyValue_t *)malloc(count * sizeof(envKeyValue_t));
 		if (!serv->envKeys || !serv->envValues) {
 			SCLog(TRUE, LOG_ERR, CFSTR("Failed to allocate for environment variables"));
 			return;
@@ -2542,19 +2541,6 @@ ppp_dev_error_to_string (u_int16_t subtype, u_int32_t native_dev_error)
                         return ppp_dev_psk;
                     case EXIT_L2TP_NOCERTIFICATE:
                         return ppp_dev_cert;
-                }
-                break;
-				
-            case PPP_TYPE_PPTP:
-                switch (native_dev_error) {
-                    case EXIT_PPTP_NOSERVER:
-                        return ppp_dev_no_srvr;
-                    case EXIT_PPTP_NOANSWER:
-                        return ppp_dev_no_ans;
-                    case EXIT_PPTP_PROTOCOLERROR:
-                        return ppp_dev_prot_err;
-                    case EXIT_PPTP_NETWORKCHANGED:
-                        return ppp_dev_net_chg;
                 }
                 break;
 				
@@ -2790,7 +2776,7 @@ CFStringRef copy_primary_interface_name(CFStringRef exceptionServiceID)
         nwi_state_t nwi_state = nwi_state_copy();
         if (exceptionInterfaceName && nwi_state) {
             for (nwi_ifstate_t interface = nwi_state_get_first_ifstate(nwi_state, AF_INET); interface != NULL; interface = nwi_ifstate_get_next(interface, AF_INET)) {
-                char *nwi_interface_name = nwi_ifstate_get_ifname(interface);
+                const char *nwi_interface_name = nwi_ifstate_get_ifname(interface);
                 CFStringRef nwiInterfaceName = CFStringCreateWithCString(kCFAllocatorDefault, nwi_interface_name, kCFStringEncodingASCII);
                 if (nwiInterfaceName && !my_CFEqual(nwiInterfaceName, exceptionInterfaceName)) {
                     nwi_ifstate_flags flags = nwi_ifstate_get_flags(interface);
@@ -2935,7 +2921,7 @@ CFStringRef copy_interface_type(CFStringRef serviceID)
         } else if (my_CFEqual(hardware, kSCEntNetEthernet)) {
             interface_type = CFRetain(kSCValNetVPNOnDemandRuleInterfaceTypeMatchEthernet);
         }
-#if TARGET_OS_IPHONE
+#if !TARGET_OS_OSX
         else if (my_CFEqual(hardware, kSCEntNetCommCenter)) {
             interface_type = CFRetain(kSCValNetVPNOnDemandRuleInterfaceTypeMatchCellular);
         }
@@ -2952,7 +2938,7 @@ done:
 Boolean primary_interface_is_cellular(Boolean *hasPrimaryInterface)
 {
     Boolean isCellular = FALSE;
-#if TARGET_OS_IPHONE
+#if !TARGET_OS_OSX
 	Boolean foundPrimaryInterface = FALSE;
 	nwi_state_t state = nwi_state_copy();
 	if (state != NULL) {
@@ -2990,7 +2976,7 @@ Boolean interface_is_cellular(const char *interface_name)
 		return isCellular;
 	}
 
-#if TARGET_OS_IPHONE
+#if !TARGET_OS_OSX
 	nwi_state_t state = nwi_state_copy();
 
 	if (state != NULL) {

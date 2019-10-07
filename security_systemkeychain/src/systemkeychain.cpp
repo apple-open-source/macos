@@ -21,8 +21,6 @@
 //
 #include <security_cdsa_client/securestorage.h>
 #include <security_cdsa_client/cryptoclient.h>
-#include <security_cdsa_utilities/uniformrandom.h>
-#include <security_utilities/devrandom.h>
 #include <security_utilities/errors.h>
 #include <security_cdsa_client/wrapkey.h>
 #include <security_cdsa_client/genkey.h>
@@ -31,6 +29,7 @@
 #include <securityd_client/ssblob.h>
 #include <securityd_client/ssclient.h>
 #include <Security/cssmapple.h>
+#include <Security/SecRandom.h>
 #include <cstdarg>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <launch.h>
@@ -578,28 +577,10 @@ void systemKeychainCheck()
 {
     xpc_transaction_begin();
 
-    launch_data_t checkinRequest = launch_data_new_string(LAUNCH_KEY_CHECKIN);
-    launch_data_t checkinResponse = launch_msg(checkinRequest);
-	
-	if (!checkinResponse) {
-		syslog(LOG_ERR, "unable to check in with launchd %m");
-		exit(EX_UNAVAILABLE);
-	}
-	
-	launch_data_type_t replyType = launch_data_get_type(checkinResponse);
-	
-	if (LAUNCH_DATA_DICTIONARY == replyType) {
-		launch_data_t sockets = launch_data_dict_lookup(checkinResponse, LAUNCH_JOBKEY_SOCKETS);
-		if (NULL == sockets) {
-			syslog(LOG_ERR, "Unable to find sockets to listen to");
-			exit(EX_DATAERR);
-		}
-		launch_data_t listening_fd_array = launch_data_dict_lookup(sockets, "Listener");
-		if (NULL == listening_fd_array || launch_data_array_get_count(listening_fd_array) <= 0) {
-			syslog(LOG_ERR, "No sockets to listen to");
-			exit(EX_DATAERR);
-		}
-
+	int *socket_fds = NULL;
+	size_t socket_count = 0;
+	int launch_err = launch_activate_socket("Listener", &socket_fds, &socket_count);
+	if (launch_err == 0) {
 		__block uint32 requestsProcessedSinceLastTimeoutCheck = 0;
 		dispatch_queue_t makeDoneFile = dispatch_queue_create("com.apple.security.make-done-file", NULL);
 		// Use low priority I/O for making the done files -- keeping this process running a little longer
@@ -610,8 +591,8 @@ void systemKeychainCheck()
 		
 		// In theory there can be multiple sockets to listen to, and for the sake of not letting you set something
 		// up in launchd that doesn't get handled we have a little loop.
-		for(unsigned int i = 0; i < launch_data_array_get_count(listening_fd_array); i++) {
-			int serverSocket = launch_data_get_fd(launch_data_array_get_index(listening_fd_array, i));
+		for(unsigned int i = 0; i < socket_count; i++) {
+			int serverSocket = socket_fds[i];
 			// Note the target queue is the main queue so the handler will not run until after we check the system keychain
 			dispatch_source_t connectRequest = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, serverSocket, 0, dispatch_get_main_queue());
 			dispatch_source_set_event_handler(connectRequest, ^{
@@ -675,7 +656,7 @@ void systemKeychainCheck()
 			dispatch_resume(connectRequest);
 		}
 		
-		launch_data_free(checkinResponse);
+		free(socket_fds);
 		
 		int64_t timeoutInterval = 30 * NSEC_PER_SEC;
 		dispatch_source_t timeoutCheck = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
@@ -715,12 +696,8 @@ void systemKeychainCheck()
 
 		dispatch_main();
 		// NOTE: dispatch_main does not return.
-	} else if (LAUNCH_DATA_ERRNO == replyType) {
-		errno = launch_data_get_errno(checkinResponse);
-		syslog(LOG_ERR, "launchd checkin error %m");
-		exit(EX_OSERR);		
 	} else {
-		syslog(LOG_ERR, "launchd unexpected message type: %d", launch_data_get_type(checkinResponse));
+		syslog(LOG_ERR, "launch_activate_socket: %s", strerror(launch_err));
 		exit(EX_OSERR);
 	}
 }
@@ -755,7 +732,7 @@ void labelForMasterKey(Db &db, CssmOwnedData &label)
 {
 	// create a random signature
 	char signature[8];
-	UniformRandomBlobs<DevRandomGenerator>().random(signature);
+    MacOSError::check(SecRandomCopyBytes(kSecRandomDefault, sizeof(signature), signature));
 	
 	// concatenate prefix string with random signature
 	label = StringData("*UNLOCK*");	// 8 bytes exactly

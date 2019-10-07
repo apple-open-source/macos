@@ -493,6 +493,15 @@ Boolean
 _SCNetworkInterfaceIsBuiltin				(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.5), ios(2.0));
 
 /*!
+	@function _SCNetworkInterfaceIsCarPlay
+	@discussion Identifies if a network interface is a CarPlay device.
+	@param interface The network interface.
+	@result TRUE if the interface is a CarPlay device.
+ */
+Boolean
+_SCNetworkInterfaceIsCarPlay				(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.15), ios(13.0));
+
+/*!
 	@function _SCNetworkInterfaceIsHiddenConfiguration
 	@discussion Identifies if the configuration of a network interface should be
 		hidden from any user interface (e.g. the "Network" pref pane).
@@ -523,7 +532,7 @@ _SCNetworkInterfaceIsThunderbolt			(SCNetworkInterfaceRef		interface)	API_AVAILA
 /*!
 	@function _SCNetworkInterfaceIsTrustRequired
 	@discussion Identifies if a network interface requires that the
- 		associated host be trusted.
+		associated host be trusted.
 	@param interface The network interface.
 	@result TRUE if the interface requires trust.
  */

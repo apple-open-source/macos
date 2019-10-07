@@ -130,7 +130,7 @@ file_trymacho(struct magic_set *ms, const struct buffer *b, const char *inname)
 			return -1;
 		}
 
-		file_buffer(ms, -1, inname, tmpbuf, (size_t)tbytes);
+		file_buffer(ms, -1, NULL, inname, tmpbuf, (size_t)tbytes);
 		free(tmpbuf);
 	}
 

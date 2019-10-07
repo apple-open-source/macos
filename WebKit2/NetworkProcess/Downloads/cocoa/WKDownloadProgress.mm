@@ -26,8 +26,6 @@
 #import "config.h"
 #import "WKDownloadProgress.h"
 
-#if WK_API_ENABLED
-
 #import "Download.h"
 #import <pal/spi/cocoa/NSProgressSPI.h>
 #import <wtf/BlockPtr.h>
@@ -41,17 +39,24 @@ static NSString * const countOfBytesReceivedKeyPath = @"countOfBytesReceived";
 
 @implementation WKDownloadProgress {
     RetainPtr<NSURLSessionDownloadTask> m_task;
-    WebKit::Download* m_download;
+    WeakPtr<WebKit::Download> m_download;
     RefPtr<WebKit::SandboxExtension> m_sandboxExtension;
 }
 
-- (instancetype)initWithDownloadTask:(NSURLSessionDownloadTask *)task download:(WebKit::Download*)download URL:(NSURL *)fileURL sandboxExtension:(RefPtr<WebKit::SandboxExtension>)sandboxExtension
+- (void)performCancel
+{
+    if (m_download)
+        m_download->cancel();
+    m_download = nullptr;
+}
+
+- (instancetype)initWithDownloadTask:(NSURLSessionDownloadTask *)task download:(WebKit::Download&)download URL:(NSURL *)fileURL sandboxExtension:(RefPtr<WebKit::SandboxExtension>)sandboxExtension
 {
     if (!(self = [self initWithParent:nil userInfo:nil]))
         return nil;
 
     m_task = task;
-    m_download = download;
+    m_download = makeWeakPtr(download);
 
     [task addObserver:self forKeyPath:countOfBytesExpectedToReceiveKeyPath options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionInitial context:WKDownloadProgressBytesExpectedToReceiveCountContext];
     [task addObserver:self forKeyPath:countOfBytesReceivedKeyPath options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionInitial context:WKDownloadProgressBytesReceivedContext];
@@ -67,13 +72,14 @@ static NSString * const countOfBytesReceivedKeyPath = @"countOfBytesReceived";
     m_sandboxExtension = sandboxExtension;
 
     self.cancellable = YES;
-    self.cancellationHandler = makeBlockPtr([weakSelf = WeakObjCPtr<WKDownloadProgress> { self }] {
-        auto strongSelf = weakSelf.get();
-        if (!strongSelf)
+    self.cancellationHandler = makeBlockPtr([weakSelf = WeakObjCPtr<WKDownloadProgress> { self }] () mutable {
+        if (!RunLoop::isMain()) {
+            RunLoop::main().dispatch([weakSelf = WTFMove(weakSelf)] {
+                [weakSelf performCancel];
+            });
             return;
-
-        if (auto* download = strongSelf.get()->m_download)
-            download->cancel();
+        }
+        [weakSelf performCancel];
     }).get();
 
     return self;
@@ -137,5 +143,3 @@ static NSString * const countOfBytesReceivedKeyPath = @"countOfBytesReceived";
 }
 
 @end
-
-#endif // WK_API_ENABLED

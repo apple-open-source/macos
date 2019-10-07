@@ -23,8 +23,6 @@
 # Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-#pragma ident	"@(#)tst.ucaller.ksh	1.1	06/08/28 SMI"
-
 #
 # This test is a bit naughty; it's assuming that ld.so.1 has an implementation
 # of calloc(3C), and that it's implemented in terms of the ld.so.1

@@ -33,11 +33,11 @@
 
 #include <CoreFoundation/CFDictionary.h>
 
-#include <Security/SecureObjectSync/SOSAccount.h>
+#include "keychain/SecureObjectSync/SOSAccount.h"
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
-#include <Security/SecureObjectSync/SOSInternal.h>
-#include <Security/SecureObjectSync/SOSUserKeygen.h>
-#include <Security/SecureObjectSync/SOSTransport.h>
+#include "keychain/SecureObjectSync/SOSInternal.h"
+#include "keychain/SecureObjectSync/SOSUserKeygen.h"
+#include "keychain/SecureObjectSync/SOSTransport.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -52,15 +52,36 @@
 
 #include "SecdTestKeychainUtilities.h"
 
-static int kTestTestCount = 43;
-
 static void tests(void)
 {
 
     CFErrorRef error = NULL;
     CFDataRef cfpassword = CFDataCreate(NULL, (uint8_t *) "FooFooFoo", 10);
     CFStringRef cfaccount = CFSTR("test@test.org");
-    
+    CFSetRef initialSyncViews = SOSViewCopyViewSet(kViewSetInitial);
+    CFMutableSetRef alwaysOnViews = SOSViewCopyViewSet(kViewSetAlwaysOn);
+    CFSetRef defaultViews = SOSViewCopyViewSet(kViewSetDefault);
+    int initialSyncViewCount = (int) CFSetGetCount(initialSyncViews);
+    CFReleaseNull(initialSyncViews);
+    CFSetRef backupSyncViews = SOSViewCopyViewSet(kViewSetRequiredForBackup);
+    int backupSyncViewCount = (int) CFSetGetCount(backupSyncViews);
+    CFReleaseNull(backupSyncViews);
+    int expectedStartupViewCount;
+
+    if(initialSyncViewCount == 0) {
+        CFSetUnion(alwaysOnViews, defaultViews);
+        expectedStartupViewCount = (int) CFSetGetCount(alwaysOnViews);
+    } else {
+        CFMutableSetRef isViews = CFSetCreateMutableCopy(kCFAllocatorDefault, 0, initialSyncViews);
+        CFSetUnion(isViews, backupSyncViews);
+        expectedStartupViewCount = (int) CFSetGetCount(isViews);
+        CFReleaseNull(isViews);
+    }
+    CFReleaseNull(alwaysOnViews);
+    CFReleaseNull(defaultViews);
+
+
+
     CFMutableDictionaryRef changes = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
 
     SOSDataSourceFactoryRef test_factory = SOSTestDataSourceFactoryCreate();
@@ -99,18 +120,27 @@ static void tests(void)
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 3, "updates");
     
     accounts_agree("bob&alice pair", bob_account, alice_account);
-    
-    ok(!SOSAccountCheckHasBeenInSync_wTxn(bob_account), "Bob should not be initially synced");
+
+    if(initialSyncViewCount > 0) {
+        ok(!SOSAccountCheckHasBeenInSync_wTxn(bob_account), "Bob should not be initially synced");
+    }
     CFSetRef bob_viewSet = SOSPeerInfoCopyEnabledViews(bob_account.peerInfo);
-    is(CFSetGetCount(bob_viewSet), 14, "bob's initial view set should be just the 14 views");
+    is(CFSetGetCount(bob_viewSet), expectedStartupViewCount, "bob's initial view set should be just the initial sync and backup views");
     CFReleaseNull(bob_viewSet);
-    
-    ok(!SOSAccountCheckHasBeenInSync_wTxn(bob_account), "Bob should not be initially synced");
+
+    if(initialSyncViewCount > 0) {
+        ok(!SOSAccountCheckHasBeenInSync_wTxn(bob_account), "Bob should not be initially synced");
+    }
+
     SOSAccountPeerGotInSync_wTxn(bob_account, alice_account.peerInfo);
-    
-    bob_viewSet = SOSPeerInfoCopyEnabledViews(bob_account.peerInfo);
-    is(CFSetGetCount(bob_viewSet), 20, "bob's initial view set should be just the back up");
-    CFReleaseNull(bob_viewSet);
+
+    if(initialSyncViewCount > 0) {
+        bob_viewSet = SOSPeerInfoCopyEnabledViews(bob_account.peerInfo);
+        is(CFSetGetCount(bob_viewSet), backupSyncViewCount, "bob's initial view set should be just the back up");
+        CFReleaseNull(bob_viewSet);
+    } else {
+        ok(true, "don't mess with the total test count");
+    }
     bob_account = nil;
     alice_account = nil;
     
@@ -121,7 +151,7 @@ static void tests(void)
 
 int secd_100_initialsync(int argc, char *const *argv)
 {
-    plan_tests(kTestTestCount);
+    plan_tests(33);
     
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     

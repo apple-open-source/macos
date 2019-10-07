@@ -19,6 +19,39 @@ static char gKextLoadPath[] = "/System/Library/Extensions/autofs.kext";
 
 static int LoadAutoFS(void);
 
+static char *
+automount_realpath(const char *file_name, char *resolved_name)
+{
+	char *result = NULL;
+	struct attrlist al = {
+		.bitmapcount = ATTR_BIT_MAP_COUNT,
+		.commonattr  = ATTR_CMN_RETURNED_ATTRS,
+		.forkattr = ATTR_CMNEXT_NOFIRMLINKPATH,
+	};
+	struct {
+		uint32_t len;
+		attribute_set_t returned;
+		struct attrreference path_attr;
+		uint8_t extra[PATH_MAX];
+	} __attribute__((aligned(4), packed)) ab;
+	int rv;
+
+	rv = getattrlist(file_name, &al, &ab, sizeof(ab),
+			 FSOPT_ATTR_CMN_EXTENDED);
+	if (rv == -1)
+		return NULL;
+
+	result = (char *)&ab.path_attr + ab.path_attr.attr_dataoffset;
+	if (resolved_name != NULL) {
+		strlcpy(resolved_name, result, PATH_MAX);
+		result = resolved_name;
+	} else {
+		result = strdup(result);
+	}
+
+	return result;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -49,7 +82,7 @@ main(int argc, char **argv)
 	if (argc < 5)
 		errx(1, usage, getprogname());
 	
-	path = realpath(argv[0], mount_path);
+	path = automount_realpath(argv[0], mount_path);
 	if (path == NULL) {
 		err(1, "couldn't resolve mount path: %s", strerror(errno));
 		/* NOT REACHED */

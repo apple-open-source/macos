@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_PROC_LIB.libdash.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Test that the '-' function doesn't work with random modules
  *

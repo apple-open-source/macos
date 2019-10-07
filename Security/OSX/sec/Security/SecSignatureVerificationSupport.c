@@ -41,10 +41,13 @@ SecCreateSignatureVerificationError(OSStatus errorCode, CFStringRef descriptionS
         kCFErrorDomainOSStatus, errorCode, keys, values, 1);
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 static void
 SecRecreateSignatureWithAlgId(SecKeyRef publicKey, const SecAsn1AlgId *publicKeyAlgId,
     const uint8_t *oldSignature, size_t oldSignatureSize,
     uint8_t **newSignature, size_t *newSignatureSize)
+#pragma clang diagnostic pop
 {
     if (!publicKey || !publicKeyAlgId ||
         kSecECDSAAlgorithmID != SecKeyGetAlgorithmId(publicKey)) {
@@ -76,10 +79,13 @@ SecRecreateSignatureWithAlgId(SecKeyRef publicKey, const SecAsn1AlgId *publicKey
     *newSignatureSize = (newSigSize >= 0) ? (size_t)newSigSize : 0;
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 bool SecVerifySignatureWithPublicKey(SecKeyRef publicKey, const SecAsn1AlgId *publicKeyAlgId,
                                      const uint8_t *dataToHash, size_t amountToHash,
                                      const uint8_t *signatureStart, size_t signatureSize,
                                      CFErrorRef *error)
+#pragma clang diagnostic pop
 {
     OSStatus errorCode = errSecParam;
     require(signatureSize > 0, fail);
@@ -87,7 +93,7 @@ bool SecVerifySignatureWithPublicKey(SecKeyRef publicKey, const SecAsn1AlgId *pu
     errorCode = SecKeyDigestAndVerify(publicKey, publicKeyAlgId,
                                       dataToHash, amountToHash,
                                       (uint8_t*)signatureStart, signatureSize);
-    require_noerr(errorCode, fail);
+    require_noerr_quiet(errorCode, fail);
     return true;
 
 fail:

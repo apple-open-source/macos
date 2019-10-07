@@ -733,7 +733,7 @@ tescape (estart, cp, sawc)
 	  evalue = (evalue * 16) + HEXVALUE (*p);
 	if (p == estart + 1)
 	  {
-	    builtin_error (_("missing hex digit for \\x"));
+	    builtin_error ("%s", _("missing hex digit for \\x"));
 	    *cp = '\\';
 	    return 0;
 	  }

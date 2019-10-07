@@ -152,7 +152,7 @@ void LocalAuthenticator::makeCredential()
         weakThis->continueMakeCredentialAfterUserConsented(consent);
     };
     m_connection->getUserConsent(
-        String::format("Allow %s to create a public key credential for %s", requestData().creationOptions.rp.id.utf8().data(), requestData().creationOptions.user.name.utf8().data()),
+        "Allow " + requestData().creationOptions.rp.id + " to create a public key credential for " + requestData().creationOptions.user.name,
         WTFMove(callback));
 #endif // !PLATFORM(IOS_FAMILY)
 }
@@ -324,9 +324,9 @@ void LocalAuthenticator::continueMakeCredentialAfterAttested(SecKeyRef privateKe
             cborArray.append(cbor::CBORValue(toVector((NSData *)adoptCF(SecCertificateCopyData((__bridge SecCertificateRef)certificates[i])).get())));
         attestationStatementMap[cbor::CBORValue("x5c")] = cbor::CBORValue(WTFMove(cborArray));
     }
-    auto attestationObject = buildAttestationObject(WTFMove(authData), "Apple", WTFMove(attestationStatementMap));
+    auto attestationObject = buildAttestationObject(WTFMove(authData), "Apple", WTFMove(attestationStatementMap), requestData().creationOptions.attestation);
 
-    receiveRespond(PublicKeyCredentialData { ArrayBuffer::create(credentialId.data(), credentialId.size()), true, nullptr, ArrayBuffer::create(attestationObject.data(), attestationObject.size()), nullptr, nullptr, nullptr });
+    receiveRespond(PublicKeyCredentialData { ArrayBuffer::create(credentialId.data(), credentialId.size()), true, nullptr, ArrayBuffer::create(attestationObject.data(), attestationObject.size()), nullptr, nullptr, nullptr, WTF::nullopt });
 #endif // !PLATFORM(IOS_FAMILY)
 }
 
@@ -400,11 +400,13 @@ void LocalAuthenticator::getAssertion()
 
         weakThis->continueGetAssertionAfterUserConsented(consent, context, credentialId, userhandle);
     };
+    NSData *idData = selectedCredentialAttributes[(id)kSecAttrApplicationTag];
+    StringView idStringView { static_cast<const LChar*>([idData bytes]), static_cast<unsigned>([idData length]) };
     m_connection->getUserConsent(
-        String::format("Log into %s with %s.", requestData().requestOptions.rpId.utf8().data(), selectedCredentialAttributes[(id)kSecAttrApplicationTag]),
+        makeString("Log into ", requestData().requestOptions.rpId, " with ", idStringView, '.'),
         (__bridge SecAccessControlRef)selectedCredentialAttributes[(id)kSecAttrAccessControl],
         WTFMove(callback));
-#endif // !PLATFORM(IOS_FAMILY)
+#endif // PLATFORM(IOS_FAMILY)
 }
 
 void LocalAuthenticator::continueGetAssertionAfterUserConsented(LocalConnection::UserConsent consent, LAContext *context, const Vector<uint8_t>& credentialId, const Vector<uint8_t>& userhandle)
@@ -461,7 +463,7 @@ void LocalAuthenticator::continueGetAssertionAfterUserConsented(LocalConnection:
     }
 
     // Step 13.
-    receiveRespond(PublicKeyCredentialData { ArrayBuffer::create(credentialId.data(), credentialId.size()), false, nullptr, nullptr, ArrayBuffer::create(authData.data(), authData.size()), ArrayBuffer::create(signature.data(), signature.size()), ArrayBuffer::create(userhandle.data(), userhandle.size()) });
+    receiveRespond(PublicKeyCredentialData { ArrayBuffer::create(credentialId.data(), credentialId.size()), false, nullptr, nullptr, ArrayBuffer::create(authData.data(), authData.size()), ArrayBuffer::create(signature.data(), signature.size()), ArrayBuffer::create(userhandle.data(), userhandle.size()), WTF::nullopt });
 #endif // !PLATFORM(IOS_FAMILY)
 }
 

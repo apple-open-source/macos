@@ -1726,6 +1726,7 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/lib;
+				IS_ZIPPERED = YES;
 				LEXFLAGS = "$(LEXFLAGS) -P__libipsec";
 				PRODUCT_NAME = ipsec.A;
 				SKIP_INSTALL = YES;
@@ -1757,6 +1758,7 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/lib;
+				IS_ZIPPERED = YES;
 				LEXFLAGS = "$(LEXFLAGS) -P__libipsec";
 				PRODUCT_NAME = ipsec.A;
 				YACCFLAGS = "$(YACCFLAGS) -d -p__libipsec";
@@ -1786,6 +1788,7 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/lib;
+				IS_ZIPPERED = YES;
 				LEXFLAGS = "$(LEXFLAGS) -P__libipsec";
 				PRODUCT_NAME = ipsec.A;
 				YACCFLAGS = "$(YACCFLAGS) -d -p__libipsec";
@@ -2792,6 +2795,7 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/lib;
+				IS_ZIPPERED = YES;
 				LEXFLAGS = "$(LEXFLAGS) -P__libipsec";
 				PRODUCT_NAME = ipsec.A;
 				SKIP_INSTALL = YES;
@@ -2826,6 +2830,7 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/lib;
+				IS_ZIPPERED = YES;
 				LEXFLAGS = "$(LEXFLAGS) -P__libipsec";
 				PRODUCT_NAME = ipsec.A;
 				WARNING_CFLAGS = "-Wcast-align";
@@ -2858,6 +2863,7 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
 				INSTALL_PATH = /usr/lib;
+				IS_ZIPPERED = YES;
 				LEXFLAGS = "$(LEXFLAGS) -P__libipsec";
 				PRODUCT_NAME = ipsec.A;
 				WARNING_CFLAGS = "-Wcast-align";

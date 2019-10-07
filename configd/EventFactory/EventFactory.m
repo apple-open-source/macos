@@ -1,18 +1,47 @@
-//
-//  EventFactory.m
-//  SystemConfigurationNetworkEventFactory
-//
-//  Created by Allan Nathanson on 11/15/17.
-//
-//
+/*
+ * Copyright (c) 2017-2018 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
-#import "EventFactory.h"
+/*
+ * Modification History
+ *
+ * November 15, 2017	Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
 #import <os/log.h>
+#import "EventFactory.h"
+#import "SCLogParser.h"
+#import "InterfaceNamerParser.h"
+#import "IPMonitorParser.h"
+#import "KernelEventMonitorParser.h"
+#import "PreferencesMonitorParser.h"
+#import "StateDumpParser.h"
+#import "IPConfigurationParser.h"
 
 #pragma mark -
 #pragma mark Logging
 
-static os_log_t
+os_log_t
 __log_Spectacles(void)
 {
 	static os_log_t	log	= NULL;
@@ -24,201 +53,75 @@ __log_Spectacles(void)
 	return log;
 }
 
-#define specs_log_err(format, ...)	os_log_error(__log_Spectacles(), format, ##__VA_ARGS__)
-#define specs_log_notice(format, ...)	os_log      (__log_Spectacles(), format, ##__VA_ARGS__)
-#define specs_log_info(format, ...)	os_log_info (__log_Spectacles(), format, ##__VA_ARGS__)
-#define specs_log_debug(format, ...)	os_log_debug(__log_Spectacles(), format, ##__VA_ARGS__)
-
-#pragma mark -
-#pragma mark Matching
-
-#define REMatched(re_matches, args)		\
-	((re_matches != nil) && (re_matches.count == 1) && (re_matches[0].numberOfRanges == (args + 1)))
-
-#define REMatchRange(re_matches, arg)	\
-	[re_matches[0] rangeAtIndex:arg]
-
 #pragma mark -
 #pragma mark SystemConfiguratioin Network Event Factory
 
 @interface EventFactory ()
-
-@property (readonly, nonatomic) NSRegularExpression *kevExpressionInterfaceAttach;
-@property (readonly, nonatomic) NSRegularExpression *kevExpressionLink;
-@property (readonly, nonatomic) NSRegularExpression *kevExpressionLinkQuality;
-
+@property NSDictionary<NSString *, SCLogParser *> *parserMap;
 @end
 
 @implementation EventFactory
 
-- (instancetype)init
+- (void)startWithLogSourceAttributes:(__unused NSDictionary<NSString *, NSObject *> *)attributes
 {
-	self = [super init];
-	if (self) {
-		NSError	*expressionError;
+	NSMutableDictionary<NSString *, SCLogParser *> *newParserMap = [[NSMutableDictionary alloc] init];
+	SCLogParser *parser;
 
-		expressionError = nil;
-		_kevExpressionInterfaceAttach = [[NSRegularExpression alloc] initWithPattern:@"Process interface (attach|detach): (\\w+)" options:0 error:&expressionError];
-		if (expressionError != nil) {
-			specs_log_info("Failed to create a regular expression: %@", expressionError);
-		}
+	parser = [[InterfaceNamerParser alloc] init];
+	newParserMap[parser.category] = parser;
 
-		expressionError = nil;
-		_kevExpressionLink = [[NSRegularExpression alloc] initWithPattern:@"Process interface link (down|up): (\\w+)" options:0 error:&expressionError];
-		if (expressionError != nil) {
-			specs_log_info("Failed to create a regular expression: %@", expressionError);
-		}
+	parser = [[IPConfigurationParser alloc] init];
+	newParserMap[parser.category] = parser;
 
-		expressionError = nil;
-		_kevExpressionLinkQuality = [[NSRegularExpression alloc] initWithPattern:@"Process interface quality: (\\w+) \\(q=([-\\d]+)\\)" options:0 error:&expressionError];
-		if (expressionError != nil) {
-			specs_log_info("Failed to create a regular expression: %@", expressionError);
-		}
-	}
+	parser = [[IPMonitorParser alloc] init];
+	newParserMap[parser.category] = parser;
 
-	return self;
-}
+	parser = [[KernelEventMonitorParser alloc] init];
+	newParserMap[parser.category] = parser;
 
-- (void)startWithLogSourceAttributes:(NSDictionary<NSString *, NSObject *> *)attributes
-{
-	//
-	// Prepare for parsing logs
-	//
-	specs_log_info("Event factory is starting with attributes: %@", attributes);
+	parser = [[PreferencesMonitorParser alloc] init];
+	newParserMap[parser.category] = parser;
+
+	parser = [[StateDumpParser alloc] init];
+	newParserMap[parser.category] = parser;
+
+	_parserMap = [[NSDictionary alloc] initWithDictionary:newParserMap];
 }
 
 - (void)handleLogEvent:(EFLogEvent *)logEvent completionHandler:(void (^)(NSArray<EFEvent *> * _Nullable))completionHandler
 {
-	NSString					*category;
-	NSString					*message;
-	EFNetworkControlPathEvent	*newNetworkEvent	= nil;
+	NSString *category = nil;
+	if ([logEvent.eventType isEqualToString:@"stateEvent"]) {
+		category = @"StateDump";
+		logEvent.subsystem = @"com.apple.SystemConfiguration";
+		logEvent.category = category;
+	} else if ([logEvent.subsystem isEqualToString:@"com.apple.IPConfiguration"]) {
+		logEvent.category = @"IPConfiguration";
+	}
 
-	message = logEvent.eventMessage;
-	if (message == nil) {
+	if (logEvent.category.length == 0) {
+		specs_log_debug("Skipped message without a category: %@", logEvent.eventMessage);
+		completionHandler(nil);
 		return;
 	}
 
-	//
-	// Parse logEvent and continue constructing SpectaclesNetworkEvent objects
-	//
-	// Note: if one or more NetworkEvent objects are complete, send them to the
-	// app in the completion handler block.
-	//
-
-
-	category = logEvent.category;
-	if ([category isEqualToString:@"InterfaceNamer"]) {
-
-		do {
-		} while (false);
-
-		specs_log_debug("Skipped [%@] message: %@", category, message);
-
-	} else if ([category isEqualToString:@"IPMonitor"]) {
-
-		do {
-		} while (false);
-
-		specs_log_debug("Skipped [%@] message: %@", category, message);
-
-	} else if ([category isEqualToString:@"KernelEventMonitor"]) {
-
-		do {
-			NSArray<NSTextCheckingResult *>	*matches;
-			NSRange							range	= NSMakeRange(0, message.length);
-
-			//
-			// interface attach/detach
-			//
-			matches = [_kevExpressionInterfaceAttach matchesInString:message
-															 options:NSMatchingReportProgress
-															   range:range];
-			if (REMatched(matches, 2)) {
-				NSString	*event;
-				NSString	*interface;
-
-				interface = [message substringWithRange:REMatchRange(matches, 2)];
-				event     = [message substringWithRange:REMatchRange(matches, 1)];
-				specs_log_debug("interface attach/detach: %@ --> %@", interface, event);
-
-				newNetworkEvent = [[EFNetworkControlPathEvent alloc] initWithLogEvent:logEvent subsystemIdentifier:[[NSData alloc] init]];
-				newNetworkEvent.interfaceBSDName = interface;
-				newNetworkEvent.interfaceStatus = [event isEqualToString:@"attach"] ? @"interface attached" : @"interface detached";
-				break;
-			}
-
-			//
-			// interface link up/down
-			//
-			matches = [_kevExpressionLink matchesInString:message
-												  options:NSMatchingReportProgress
-													range:range];
-			if (REMatched(matches, 2)) {
-				NSString	*event;
-				NSString	*interface;
-
-				interface = [message substringWithRange:REMatchRange(matches, 2)];
-				event     = [message substringWithRange:REMatchRange(matches, 1)];
-				specs_log_debug("link change: %@ --> %@", interface, event);
-
-				newNetworkEvent = [[EFNetworkControlPathEvent alloc] initWithLogEvent:logEvent subsystemIdentifier:[[NSData alloc] init]];
-				newNetworkEvent.interfaceBSDName = interface;
-				newNetworkEvent.interfaceStatus = [event isEqualToString:@"up"] ? @"link up" : @"link down";
-				break;
-			}
-
-			//
-			// interface link quality
-			//
-			matches = [_kevExpressionLinkQuality matchesInString:message
-														 options:NSMatchingReportProgress
-														   range:range];
-			if (REMatched(matches, 2)) {
-				NSString	*interface;
-				NSString	*quality;
-
-				interface = [message substringWithRange:REMatchRange(matches, 1)];
-				quality   = [message substringWithRange:REMatchRange(matches, 2)];
-				specs_log_debug("link quality: %@ --> %@", interface, quality);
-
-				newNetworkEvent = [[EFNetworkControlPathEvent alloc] initWithLogEvent:logEvent subsystemIdentifier:[[NSData alloc] init]];
-				newNetworkEvent.interfaceBSDName = interface;
-				newNetworkEvent.interfaceStatus = [NSString stringWithFormat:@"link quality = %@", quality];
-				break;
-			}
-
-			specs_log_debug("Skipped [%@] message: %@", category, message);
-		} while (false);
-
-	} else if ([category isEqualToString:@"PreferencesMonitor"]) {
-
-			do {
-			} while (false);
-
-			specs_log_debug("Skipped [%@] message: %@", category, message);
-
-	} else {
-		// if we have no handler for this category
-		specs_log_debug("Skipped [%@] message: %@", category, message);
-	}
-
-	if (newNetworkEvent != nil) {
-		completionHandler(@[ newNetworkEvent ]);
-	} else {
+	SCLogParser *parser = _parserMap[logEvent.category];
+	if (parser == nil) {
+		specs_log_debug("Skipped message with an unknown category (%@): %@", logEvent.category, logEvent.eventMessage);
 		completionHandler(nil);
+		return;
 	}
+
+	NSArray<EFEvent *> *completeEvents = [parser.eventParser parseLogEventIntoMultipleEvents:logEvent];
+	completionHandler(completeEvents);
 }
 
 - (void)finishWithCompletionHandler:(void (^)(NSArray<EFEvent *> * _Nullable))completionHandler
 {
-	//
-	// Clean up
-	//
-	// Note: if one or more SpectaclesNetworkEvent objects are in the process of
-	// being built, return them in the completion handler block.
-	//
 	specs_log_notice("Event factory is finishing");
 	completionHandler(nil);
 }
 
 @end
+
+

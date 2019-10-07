@@ -1,19 +1,19 @@
 <!--
   PPD API introduction for CUPS.
 
-  Copyright 2007-2018 by Apple Inc.
-  Copyright 1997-2006 by Easy Software Products, all rights reserved.
+  Copyright © 2007-2019 by Apple Inc.
+  Copyright © 1997-2006 by Easy Software Products, all rights reserved.
 
-  These coded instructions, statements, and computer programs are the
-  property of Apple Inc. and are protected by Federal copyright
-  law.  Distribution and use rights are outlined in the file "LICENSE.txt"
-  which should have been included with this file.  If this file is
-  file is missing or damaged, see the license at "http://www.cups.org/".
+  Licensed under Apache License v2.0.  See the file "LICENSE" for more
+  information.
 -->
 
 <h2 class='title'><a name='OVERVIEW'>Overview</a></h2>
 
-<blockquote>The PPD API is deprecated starting in CUPS 1.6/macOS 10.8. Please use the new Job Ticket APIs in the <a href="cupspm.html">CUPS API</a> documentation. These functions will be removed in a future release of CUPS.</blockquote>
+<blockquote><b>Note:</b>
+
+<p>The PPD API was deprecated in CUPS 1.6/macOS 10.8. Please use the new Job Ticket APIs in the <a href="cupspm.html">CUPS Programming Manual</a> documentation. These functions will be removed in a future release of CUPS.</p>
+</blockquote>
 
 <p>The CUPS PPD API provides read-only access the data in PostScript Printer
 Description ("PPD") files which are used for all printers with a driver. With
@@ -30,6 +30,7 @@ features. CUPS also treats option ("MainKeyword") and choice ("OptionKeyword")
 values as case-insensitive strings, so option "InputSlot" and choice "Upper"
 are equivalent to "inputslot" and "upper", respectively.</p>
 </blockquote>
+
 
 <h3><a name="LOADING">Loading a PPD File</a></h3>
 
@@ -118,6 +119,7 @@ int num_options = cupsParseOptions(argv[5], 0, &amp;options);
 cupsFreeOptions(num_options, options);
 </pre>
 
+
 <h3><a name="CONSTRAINTS">Constraints</a></h3>
 
 <p>PPD files support specification of conflict conditions, called
@@ -127,6 +129,7 @@ the options and choices that conflict with each other. The
 <a href="#ppdConflicts"><code>ppdConflicts</code></a> function tells you
 how many of the selected options are incompatible. Since constraints are
 normally specified in pairs, the returned value is typically an even number.</p>
+
 
 <h3><a name="PAGE_SIZES">Page Sizes</a></h3>
 
@@ -181,6 +184,7 @@ in points. Custom page size names can also be specified in inches
 <p>If the PPD does not support variable page sizes, the
 <a href="#ppdPageSize"><code>ppdPageSize</code></a> function will return
 <code>NULL</code>.</p>
+
 
 <h3><a name="ATTRIBUTES">Attributes</a></h3>
 

@@ -47,6 +47,11 @@ public:
 
     void externalOutputDeviceAvailableDidChange();
     bool hasWirelessTargetsAvailable() override;
+#if HAVE(CELESTIAL)
+    void carPlayServerDied();
+    void updateCarPlayIsConnected(Optional<bool>&&);
+    void activeAudioRouteDidChange(Optional<bool>&&);
+#endif
 
 private:
     friend class PlatformMediaSessionManager;
@@ -56,8 +61,16 @@ private:
     void resetRestrictions() override;
 
     void configureWireLessTargetMonitoring() override;
+    void providePresentingApplicationPIDIfNecessary() final;
+
+#if !RELEASE_LOG_DISABLED
+    const char* logClassName() const final { return "MediaSessionManageriOS"; }
+#endif
 
     RetainPtr<WebMediaSessionHelper> m_objcObserver;
+#if HAVE(CELESTIAL)
+    bool m_havePresentedApplicationPID { false };
+#endif
 };
 
 } // namespace WebCore

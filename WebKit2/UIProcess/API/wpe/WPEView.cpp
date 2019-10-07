@@ -45,10 +45,7 @@ View::View(struct wpe_view_backend* backend, const API::PageConfiguration& baseC
     : m_client(std::make_unique<API::ViewClient>())
     , m_pageClient(std::make_unique<PageClientImpl>(*this))
     , m_size { 800, 600 }
-#if !defined(WPE_BACKEND_CHECK_VERSION) || !WPE_BACKEND_CHECK_VERSION(1, 1, 0)
     , m_viewStateFlags { WebCore::ActivityState::WindowIsActive, WebCore::ActivityState::IsFocused, WebCore::ActivityState::IsVisible, WebCore::ActivityState::IsInWindow }
-#endif
-    , m_compositingManagerProxy(*this)
     , m_backend(backend)
 {
     ASSERT(m_backend);
@@ -75,8 +72,6 @@ View::View(struct wpe_view_backend* backend, const API::PageConfiguration& baseC
         pool->startMemorySampler(0);
 #endif
 
-    m_compositingManagerProxy.initialize();
-
     static struct wpe_view_backend_client s_backendClient = {
         // set_size
         [](void* data, uint32_t width, uint32_t height)
@@ -90,7 +85,6 @@ View::View(struct wpe_view_backend* backend, const API::PageConfiguration& baseC
             auto& view = *reinterpret_cast<View*>(data);
             view.frameDisplayed();
         },
-#if defined(WPE_BACKEND_CHECK_VERSION) && WPE_BACKEND_CHECK_VERSION(1, 1, 0)
         // activity_state_changed
         [](void* data, uint32_t state)
         {
@@ -106,12 +100,29 @@ View::View(struct wpe_view_backend* backend, const API::PageConfiguration& baseC
                 flags.add(WebCore::ActivityState::IsInWindow);
             view.setViewState(flags);
         },
+#if WPE_CHECK_VERSION(1, 3, 0)
+        // get_accessible
+        [](void* data) -> void*
+        {
+#if ENABLE(ACCESSIBILITY)
+            auto& view = *reinterpret_cast<View*>(data);
+            return view.accessible();
 #else
-        nullptr,
+            return nullptr;
 #endif
+        },
+        // set_device_scale_factor
+        [](void* data, float scale)
+        {
+            auto& view = *reinterpret_cast<View*>(data);
+            view.page().setIntrinsicDeviceScaleFactor(scale);
+        },
+#else
         // padding
         nullptr,
         nullptr,
+#endif // WPE_CHECK_VERSION(1, 3, 0)
+        // padding
         nullptr
     };
     wpe_view_backend_set_backend_client(m_backend, &s_backendClient, this);
@@ -164,7 +175,10 @@ View::View(struct wpe_view_backend* backend, const API::PageConfiguration& baseC
 
 View::~View()
 {
-    m_compositingManagerProxy.finalize();
+#if ENABLE(ACCESSIBILITY)
+    if (m_accessible)
+        webkitWebViewAccessibleSetWebView(m_accessible.get(), nullptr);
+#endif
 }
 
 void View::setClient(std::unique_ptr<API::ViewClient>&& client)
@@ -183,6 +197,11 @@ void View::frameDisplayed()
 void View::handleDownloadRequest(DownloadProxy& download)
 {
     m_client->handleDownloadRequest(*this, download);
+}
+
+void View::willStartLoad()
+{
+    m_client->willStartLoad(*this);
 }
 
 void View::setSize(const WebCore::IntSize& size)
@@ -205,5 +224,14 @@ void View::close()
 {
     m_pageProxy->close();
 }
+
+#if ENABLE(ACCESSIBILITY)
+WebKitWebViewAccessible* View::accessible() const
+{
+    if (!m_accessible)
+        m_accessible = webkitWebViewAccessibleNew(const_cast<View*>(this));
+    return m_accessible.get();
+}
+#endif
 
 } // namespace WKWPE

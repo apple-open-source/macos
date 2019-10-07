@@ -30,7 +30,13 @@
 #include <string.h>
 #include <limits.h>
 #include <stdlib.h>
+
+#if defined(_MSC_VER)
+#include <availability.h>
+#else
 #include <os/availability.h>
+#endif
+
 
 #ifdef __cplusplus
 extern "C" {

@@ -18,8 +18,6 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id$ */
-
 #define ZEND_INCLUDE_FULL_WINDOWS_HEADERS
 
 #include "php.h"
@@ -31,11 +29,7 @@
 #include <fcntl.h>
 
 #include "zend_smart_str.h"
-#ifndef NETWARE
 #include "ext/standard/php_standard.h"
-#else
-#include "ext/standard/basic_functions.h"
-#endif
 
 #include "apr_strings.h"
 #include "ap_config.h"
@@ -53,9 +47,9 @@
 
 #include "php_apache.h"
 
-/* UnixWare and Netware define shutdown to _shutdown, which causes problems later
+/* UnixWare define shutdown to _shutdown, which causes problems later
  * on when using a structure member named shutdown. Since this source
- * file does not use the system call shutdown, it is safe to #undef it.K
+ * file does not use the system call shutdown, it is safe to #undef it.
  */
 #undef shutdown
 
@@ -223,16 +217,9 @@ php_apache_sapi_get_stat(void)
 #endif
 	ctx->finfo.st_dev = ctx->r->finfo.device;
 	ctx->finfo.st_ino = ctx->r->finfo.inode;
-#if defined(NETWARE) && defined(CLIB_STAT_PATCH)
-	ctx->finfo.st_atime.tv_sec = apr_time_sec(ctx->r->finfo.atime);
-	ctx->finfo.st_mtime.tv_sec = apr_time_sec(ctx->r->finfo.mtime);
-	ctx->finfo.st_ctime.tv_sec = apr_time_sec(ctx->r->finfo.ctime);
-#else
 	ctx->finfo.st_atime = apr_time_sec(ctx->r->finfo.atime);
 	ctx->finfo.st_mtime = apr_time_sec(ctx->r->finfo.mtime);
 	ctx->finfo.st_ctime = apr_time_sec(ctx->r->finfo.ctime);
-#endif
-
 	ctx->finfo.st_size = ctx->r->finfo.size;
 	ctx->finfo.st_nlink = ctx->r->finfo.nlink;
 
@@ -747,13 +734,20 @@ static void php_apache_child_init(apr_pool_t *pchild, server_rec *s)
 	apr_pool_cleanup_register(pchild, NULL, php_apache_child_shutdown, apr_pool_cleanup_null);
 }
 
+#ifdef ZEND_SIGNALS
+static void php_apache_signal_init(apr_pool_t *pchild, server_rec *s)
+{
+	zend_signal_init();
+}
+#endif
+
 void php_ap2_register_hook(apr_pool_t *p)
 {
 	ap_hook_pre_config(php_pre_config, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_hook_post_config(php_apache_server_startup, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_hook_handler(php_handler, NULL, NULL, APR_HOOK_MIDDLE);
 #ifdef ZEND_SIGNALS
-	ap_hook_child_init(zend_signal_init, NULL, NULL, APR_HOOK_MIDDLE);
+	ap_hook_child_init(php_apache_signal_init, NULL, NULL, APR_HOOK_MIDDLE);
 #endif
 	ap_hook_child_init(php_apache_child_init, NULL, NULL, APR_HOOK_MIDDLE);
 }

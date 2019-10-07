@@ -40,8 +40,8 @@ extern "C" {
     @enum       CCHmacAlgorithm
     @abstract   Algorithms implemented in this module.
 
-    @constant   kCCHmacAlgSHA1      HMAC with SHA1 digest
-    @constant   kCCHmacAlgMD5       HMAC with MD5 digest
+    @constant   kCCHmacAlgSHA1        HMAC with SHA1 digest
+    @constant   kCCHmacAlgMD5          HMAC with MD5 digest
     @constant   kCCHmacAlgSHA256    HMAC with SHA256 digest
     @constant   kCCHmacAlgSHA384    HMAC with SHA384 digest
     @constant   kCCHmacAlgSHA512    HMAC with SHA512 digest
@@ -112,21 +112,42 @@ void CCHmacUpdate(
                 the digest length associated with the HMAC algorithm:
 
                 kCCHmacAlgSHA1 : CC_SHA1_DIGEST_LENGTH
-
-                kCCHmacAlgMD5  : CC_MD5_DIGEST_LENGTH
+                kCCHmacAlgSHA256  : CC_SHA256_DIGEST_LENGTH
+ 
+                The MAC must be verified by comparing the computed and expected values
+                using timingsafe_bcmp. Other comparison functions (e.g. memcmp)
+                must not be used as they may be vulnerable to practical timing attacks,
+                leading to MAC forgery.
  */
 void CCHmacFinal(
     CCHmacContext *ctx,
     void *macOut)
     API_AVAILABLE(macos(10.4), ios(2.0));
 
-
-/*
- * Stateless, one-shot HMAC function.
- * Output is written to caller-supplied buffer, as in CCHmacFinal().
- */
+/*!
+     @function   CCHmac
+     @abstract   Stateless, one-shot HMAC function
+     
+     @param      algorithm   HMAC algorithm to perform.
+     @param      key         Raw key bytes.
+     @param      keyLength   Length of raw key bytes; can be any
+     length including zero.
+     @param      data        Data to process.
+     @param      dataLength  Length of data to process, in bytes.
+     @param      macOut      Destination of MAC; allocated by caller.
+     
+     @discussion The length of the MAC written to *macOut is the same as the digest length associated with the HMAC algorithm:
+                  kCCHmacAlgSHA1 : CC_SHA1_DIGEST_LENGTH
+                  kCCHmacAlgSHA256  : CC_SHA256_DIGEST_LENGTH
+     
+                 The MAC must be verified by comparing the computed and expected values
+                 using timingsafe_bcmp. Other comparison functions (e.g. memcmp)
+                 must not be used as they may be vulnerable to practical timing attacks,
+                 leading to MAC forgery.
+*/
+    
 void CCHmac(
-    CCHmacAlgorithm algorithm,  /* kCCHmacAlgSHA1, kCCHmacAlgMD5 */
+    CCHmacAlgorithm algorithm,  /* kCCHmacAlgSHA256, kCCHmacAlgSHA1 */
     const void *key,
     size_t keyLength,           /* length of key in bytes */
     const void *data,

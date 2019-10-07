@@ -61,7 +61,7 @@ static void tests() {
     CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1.0, false);
 
     UInt32 didGetNotification = 0;
-    ok_status(SecKeychainAddCallback(callbackFunction, kSecAddEventMask | kSecDeleteEventMask | kSecDataAccessEventMask, &didGetNotification), "add callback");
+    ok_status(SecKeychainAddCallback(callbackFunction, kSecAddEventMask | kSecDeleteEventMask, &didGetNotification), "add callback");
 
     // Run the CFRunLoop to mark this run loop as "pumped"
     CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1.0, false);

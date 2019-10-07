@@ -17,6 +17,8 @@ if ($msg = check_local_infile_support($link, $engine))
 
 mysqli_close($link);
 ?>
+--INI--
+mysqli.allow_local_infile=1
 --FILE--
 <?php
 	require_once("connect.inc");
@@ -32,7 +34,7 @@ mysqli_close($link);
 	/* create temporary file */
 	$filename = dirname(__FILE__) . "061.csv";
 	$fp = fopen($filename, "w");
-	fwrite($fp, b"foo;bar");
+	fwrite($fp, "foo;bar");
 	fclose($fp);
 
 	if (!mysqli_query($link,"DROP TABLE IF EXISTS t_061"))
@@ -70,9 +72,9 @@ if (!mysqli_query($link, "DROP TABLE IF EXISTS t_061"))
 
 mysqli_close($link);
 ?>
---EXPECTF--
+--EXPECT--
 foo-bar
-%unicode|string%-%unicode|string%
+string-string
 rab-oof
-%unicode|string%-%unicode|string%
+string-string
 done!

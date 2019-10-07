@@ -1082,7 +1082,7 @@ bool MBCPieces::NoPieces(MBCPieceCode color)
                 ++s;
 
             //check if "en passant" move
-            if (*s >= 'a' && *s <= 'h' && *(s+1) >= 1 && *(s+1) <= 8)
+            if (*s >= 'a' && *s <= 'h' && *(s+1) >= '1' && *(s+1) <= '8')
                 fCurPos.fBoard[Square(*s, s[1]-'0')] &= ~kPieceMoved;
 
             if (!*s || !*(s+1)) break;

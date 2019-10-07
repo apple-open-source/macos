@@ -89,7 +89,7 @@ typedef os_flag_t os_flagset_t[OS_FLAGSET_COUNT];
  * is given, this is equivalent to a call to strerror(3).
  */
 DARWIN_API_AVAILABLE_20170407
-OS_EXPORT OS_WARN_RESULT OS_PURE
+OS_EXPORT OS_COLD OS_WARN_RESULT OS_PURE
 const char *
 strerror_np(int code);
 
@@ -106,7 +106,7 @@ strerror_np(int code);
  * string "EPERM" is returned.
  */
 DARWIN_API_AVAILABLE_20170407
-OS_EXPORT OS_WARN_RESULT OS_PURE
+OS_EXPORT OS_COLD OS_WARN_RESULT OS_PURE
 const char *
 symerror_np(int code);
 
@@ -124,7 +124,7 @@ symerror_np(int code);
  * exit code.
  */
 DARWIN_API_AVAILABLE_20170407
-OS_EXPORT OS_WARN_RESULT OS_PURE
+OS_EXPORT OS_COLD OS_WARN_RESULT OS_PURE
 const char *
 symexit_np(int code);
 

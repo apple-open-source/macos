@@ -30,6 +30,8 @@ import <IOKit/pwr_mgt/powermanagement_mig.h>;
 subsystem powermanagement 73000; 
 serverprefix _;
 
+UseSpecialReplyPort 1;
+
 routine io_pm_get_value_int(
             server      : mach_port_t;
 ServerAuditToken token  : audit_token_t;
@@ -175,6 +177,7 @@ routine io_pm_connection_release(
 
 routine io_pm_connection_acknowledge_event(
            server       : mach_port_t;
+ServerAuditToken token  : audit_token_t;
         in connection_id : uint32_t;
         in messageToken : int;
         in options      : pointer_t;
@@ -201,6 +204,7 @@ ServerAuditToken token  : audit_token_t;
 
 routine io_ps_copy_powersources_info(
         server          : mach_port_t;
+ServerAuditToken token  : audit_token_t;
         in pstype       : int;
        out powersources : pointer_t, dealloc;
        out return_code  : int);

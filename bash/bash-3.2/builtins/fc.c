@@ -213,7 +213,7 @@ fc_builtin (list)
 
       if (command == NULL)
 	{
-	  builtin_error (_("no command found"));
+	  builtin_error ("%s", _("no command found"));
 	  if (rlist)
 	    FREE_RLIST ();
 

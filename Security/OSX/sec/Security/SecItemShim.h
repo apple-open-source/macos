@@ -30,8 +30,14 @@
 #ifndef _SECURITY_SECITEMSHIM_H_
 #define _SECURITY_SECITEMSHIM_H_
 
+#import <Availability.h>
+
+#if TARGET_OS_OSX
+
 #include <CoreFoundation/CFDictionary.h>
+#include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFData.h>
+#include <Security/SecKey.h>
 
 __BEGIN_DECLS
 
@@ -61,4 +67,5 @@ SecKeyRef SecKeyCreateRandomKey_ios(CFDictionaryRef parameters, CFErrorRef *erro
 
 __END_DECLS
 
+#endif // TARGET_OS_OSX
 #endif /* !_SECURITY_SECITEMSHIM_H_ */

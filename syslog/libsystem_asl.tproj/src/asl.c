@@ -109,6 +109,11 @@ uint32_t notify_register_plain(const char *name, int *out_token);
 /* fork handling in asl_fd.c */
 extern void _asl_redirect_fork_child(void);
 
+#if TARGET_OS_OSX
+extern void _asl_mt_shim_fork_child(void);
+extern void _asl_mt_shim_send_message(asl_msg_t *msg);
+#endif
+
 typedef struct
 {
 	int fd;
@@ -165,6 +170,9 @@ _asl_fork_child()
 	pthread_mutex_init(&(_asl_global.lock), NULL);
 
 	_asl_redirect_fork_child();
+#if TARGET_OS_OSX
+	_asl_mt_shim_fork_child();
+#endif
 }
 
 /*
@@ -564,7 +572,11 @@ _asl_evaluate_send(asl_object_t client, asl_object_t m, int slevel)
 
 	/* don't send MessageTracer messages to Activity Tracing */
 	val = NULL;
-	if ((asl_msg_lookup(msg, ASL_KEY_MESSAGETRACER, &val, NULL) == 0) && (val != NULL)) eval &= ~EVAL_SEND_TRACE;
+	if ((asl_msg_lookup(msg, ASL_KEY_MESSAGETRACER, &val, NULL) == 0) && (val != NULL))
+	{
+		eval &= ~EVAL_SEND_TRACE;
+		eval |= EVAL_MT_SHIM;
+	}
 
 	/* don't send PowerManagement messages to Activity Tracing */
 	val = NULL;
@@ -1460,6 +1472,13 @@ _asl_send_message(asl_object_t obj, uint32_t eval, asl_msg_t *msg, const char *m
 			OSAtomicCompareAndSwap32Barrier(qcurr, qnew - 1, (int32_t *)&_asl_global.quota);
 		}
 	}
+
+#if TARGET_OS_OSX
+	if (eval & EVAL_MT_SHIM)
+	{
+		_asl_mt_shim_send_message(sendmsg);
+	}
+#endif
 
 	if ((_asl_global.server_port != MACH_PORT_NULL) && (eval & EVAL_SEND_ASL))
 	{

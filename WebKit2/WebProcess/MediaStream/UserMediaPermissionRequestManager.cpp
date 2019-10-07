@@ -51,17 +51,6 @@ UserMediaPermissionRequestManager::UserMediaPermissionRequestManager(WebPage& pa
 {
 }
 
-UserMediaPermissionRequestManager::~UserMediaPermissionRequestManager()
-{
-    clear();
-}
-
-void UserMediaPermissionRequestManager::clear()
-{
-    for (auto& sandboxExtension : m_userMediaDeviceSandboxExtensions)
-        sandboxExtension.value->revoke();
-}
-
 void UserMediaPermissionRequestManager::startUserMediaRequest(UserMediaRequest& request)
 {
     Document* document = request.document();
@@ -79,7 +68,7 @@ void UserMediaPermissionRequestManager::startUserMediaRequest(UserMediaRequest& 
 
     auto& pendingRequests = m_blockedUserMediaRequests.add(document, Vector<RefPtr<UserMediaRequest>>()).iterator->value;
     if (pendingRequests.isEmpty())
-        document->addMediaCanStartListener(this);
+        document->addMediaCanStartListener(*this);
     pendingRequests.append(&request);
 }
 
@@ -119,7 +108,7 @@ void UserMediaPermissionRequestManager::mediaCanStart(Document& document)
     while (!pendingRequests.isEmpty()) {
         if (!document.page()->canStartMedia()) {
             m_blockedUserMediaRequests.add(&document, pendingRequests);
-            document.addMediaCanStartListener(this);
+            document.addMediaCanStartListener(*this);
             break;
         }
 
@@ -139,7 +128,7 @@ void UserMediaPermissionRequestManager::removeMediaRequestFromMaps(UserMediaRequ
             continue;
 
         if (pendingRequests.isEmpty())
-            request.document()->removeMediaCanStartListener(this);
+            request.document()->removeMediaCanStartListener(*this);
         else
             m_blockedUserMediaRequests.add(document, pendingRequests);
         break;
@@ -148,14 +137,16 @@ void UserMediaPermissionRequestManager::removeMediaRequestFromMaps(UserMediaRequ
     m_userMediaRequestToIDMap.remove(&request);
 }
 
-void UserMediaPermissionRequestManager::userMediaAccessWasGranted(uint64_t requestID, CaptureDevice&& audioDevice, CaptureDevice&& videoDevice, String&& deviceIdentifierHashSalt)
+void UserMediaPermissionRequestManager::userMediaAccessWasGranted(uint64_t requestID, CaptureDevice&& audioDevice, CaptureDevice&& videoDevice, String&& deviceIdentifierHashSalt, CompletionHandler<void()>&& completionHandler)
 {
     auto request = m_idToUserMediaRequestMap.take(requestID);
-    if (!request)
+    if (!request) {
+        completionHandler();
         return;
+    }
     removeMediaRequestFromMaps(*request);
 
-    request->allow(WTFMove(audioDevice), WTFMove(videoDevice), WTFMove(deviceIdentifierHashSalt));
+    request->allow(WTFMove(audioDevice), WTFMove(videoDevice), WTFMove(deviceIdentifierHashSalt), WTFMove(completionHandler));
 }
 
 void UserMediaPermissionRequestManager::userMediaAccessWasDenied(uint64_t requestID, WebCore::UserMediaRequest::MediaAccessDenialReason reason, String&& invalidConstraint)
@@ -209,30 +200,9 @@ void UserMediaPermissionRequestManager::didCompleteMediaDeviceEnumeration(uint64
     request->setDeviceInfo(deviceList, WTFMove(mediaDeviceIdentifierHashSalt), hasPersistentAccess);
 }
 
-void UserMediaPermissionRequestManager::grantUserMediaDeviceSandboxExtensions(MediaDeviceSandboxExtensions&& extensions)
-{
-    for (size_t i = 0; i < extensions.size(); i++) {
-        const auto& extension = extensions[i];
-        extension.second->consume();
-        RELEASE_LOG(WebRTC, "UserMediaPermissionRequestManager::grantUserMediaDeviceSandboxExtensions - granted extension %s", extension.first.utf8().data());
-        m_userMediaDeviceSandboxExtensions.add(extension.first, extension.second.copyRef());
-    }
-}
-
-void UserMediaPermissionRequestManager::revokeUserMediaDeviceSandboxExtensions(const Vector<String>& extensionIDs)
-{
-    for (const auto& extensionID : extensionIDs) {
-        auto extension = m_userMediaDeviceSandboxExtensions.take(extensionID);
-        if (extension) {
-            extension->revoke();
-            RELEASE_LOG(WebRTC, "UserMediaPermissionRequestManager::revokeUserMediaDeviceSandboxExtensions - revoked extension %s", extensionID.utf8().data());
-        }
-    }
-}
-
 UserMediaClient::DeviceChangeObserverToken UserMediaPermissionRequestManager::addDeviceChangeObserver(WTF::Function<void()>&& observer)
 {
-    auto identifier = generateObjectIdentifier<WebCore::UserMediaClient::DeviceChangeObserverTokenType>();
+    auto identifier = WebCore::UserMediaClient::DeviceChangeObserverToken::generate();
     m_deviceChangeObserverMap.add(identifier, WTFMove(observer));
 
     if (!m_monitoringDeviceChange) {

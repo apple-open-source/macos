@@ -28,10 +28,10 @@
 #import <SecurityFoundation/SFKey_Private.h>
 #import "keychain/ot/OTDefines.h"
 
-#import <Security/SecureObjectSync/SOSAccountTransaction.h>
+#import "keychain/SecureObjectSync/SOSAccountTransaction.h"
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#import <Security/SecureObjectSync/SOSAccount.h>
+#import "keychain/SecureObjectSync/SOSAccount.h"
 #pragma clang diagnostic pop
 
 @interface OTIdentity ()
@@ -170,7 +170,7 @@
     NSDictionary* query = @{
                             (id)kSecClass : (id)kSecClassInternetPassword,
                             (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
-                            (id)kSecAttrNoLegacy : @YES,
+                            (id)kSecUseDataProtectionKeychain : @YES,
                             (id)kSecAttrLabel : escrowSigningPubKeyHash,
                             (id)kSecAttrAccount : restoredPeerID,
                             (id)kSecAttrType : keyType,

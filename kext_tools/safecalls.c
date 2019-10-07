@@ -2,14 +2,14 @@
  * Copyright (c) 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -34,7 +34,7 @@
  * schdirparent()->sopen()->spolicy()
  * <operation>(child)
  * fchdir(savedir)
- * 
+ *
  */
 
 #include <errno.h>
@@ -56,6 +56,7 @@
 #include <IOKit/kext/kextmanager_types.h>
 
 #include <IOKit/kext/OSKextPrivate.h>
+#include "kext_tools_util.h"
 #ifndef kOSKextLogCacheFlag
 #define kOSKextLogCacheFlag kOSKextLogArchiveFlag
 #endif  // no kOSKextLogCacheFlag
@@ -70,38 +71,6 @@
                      "%s: ALERT: couldn't restore CWD", __func__); \
     } while(0)
 
-// given that we call this function twice on an error path, it is tempting
-// to use getmntinfo(3) but it's not threadsafe ... :P
-// called on error paths; shouldn't use PATH*()
-static int findmnt(dev_t devid, char mntpt[MNAMELEN])
-{
-    int rval = ELAST + 1;
-    int i, nmnts = getfsstat(NULL, 0, MNT_NOWAIT);
-    int bufsz;
-    struct statfs *mounts = NULL;
-
-    if (nmnts <= 0)     goto finish;
-
-    bufsz = nmnts * sizeof(struct statfs);
-    if (!(mounts = malloc(bufsz)))                  goto finish;
-    if (-1 == getfsstat(mounts, bufsz, MNT_NOWAIT)) goto finish;
-
-    // loop looking for dev_t in the statfs structs
-    for (i = 0; i < nmnts; i++) {
-        struct statfs *sfs = &mounts[i];
-        
-        if (sfs->f_fsid.val[0] == devid) {
-            strlcpy(mntpt, sfs->f_mntonname, PATH_MAX);   
-            rval = 0;
-            break;
-        }
-    }
-
-finish:
-    if (mounts)     free(mounts);
-    return rval;
-}
-
 // currently checks to make sure on same volume
 // other checks could include:
 // - "really owned by <foo> on root/<foo>-mounted volume"
@@ -110,26 +79,38 @@ static int spolicy(int scopefd, int candfd)
     int bsderr = -1;
     struct stat candsb, scopesb;
     char path[PATH_MAX] = "<unknown>";
+#ifdef ROSP_HACKS
+    char candDevPath[PATH_MAX];
+    char scopeDevPath[PATH_MAX];
+#endif /* !ROSP_HACKS */
 
     if ((bsderr = fstat(candfd, &candsb)))    goto finish;  // trusty fstat()
     if ((bsderr = fstat(scopefd, &scopesb)))  goto finish;  // still there?
 
     // make sure st_dev matches
-    if (candsb.st_dev != scopesb.st_dev ) {
+    // ROSP_HACKS will give a pass to cross-device scope when
+    // candfd is on userdata volume and scopefd is on root volume
+    if (candsb.st_dev != scopesb.st_dev
+#ifdef ROSP_HACKS
+    && (findmnt(candsb.st_dev, candDevPath, true)
+         || findmnt(scopesb.st_dev, scopeDevPath, true)
+         || !isUserDataVolume(scopeDevPath, candDevPath))
+#endif /* !ROSP_HACKS */
+    ) {
         bsderr = -1;
         errno = EPERM;
         char scopemnt[MNAMELEN];
 
-        if (findmnt(scopesb.st_dev, scopemnt) == 0) {
+        if (findmnt(scopesb.st_dev, scopemnt, false) == 0) {
             (void)fcntl(candfd, F_GETPATH, path);
 
             OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogCacheFlag | kOSKextLogFileAccessFlag,
             "ALERT: %s does not appear to be on %s.", path, scopemnt);
         } else {
-            OSKextLog(NULL, 
+            OSKextLog(NULL,
                       kOSKextLogErrorLevel,
-                      "%s - find mount failed: errno %d %s.", 
+                      "%s - find mount failed: errno %d %s.",
                       __FUNCTION__, errno, strerror(errno));
             OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogGeneralFlag | kOSKextLogFileAccessFlag,
@@ -165,8 +146,8 @@ int schdirparent(int fdvol, const char *path, int *olddir, char child[PATH_MAX])
     if (!path)      goto finish;
 
     // make a copy of path in case our dirname() ever modifies the buffer
-    PATHCPY(parent, path);      
-    PATHCPY(parent, dirname(parent));      
+    PATHCPY(parent, path);
+    PATHCPY(parent, dirname(parent));
 
     // make sure parent is on specified volume
     if (-1 == (dirfd = open(parent, O_RDONLY, 0)))  goto finish;
@@ -190,8 +171,8 @@ int schdirparent(int fdvol, const char *path, int *olddir, char child[PATH_MAX])
     // set output parameters
     if (olddir)             *olddir = savedir;
     if (child) {
-        PATHCPY(child, path);      
-        PATHCPY(child, basename(child));      
+        PATHCPY(child, path);
+        PATHCPY(child, basename(child));
     }
 
 finish:
@@ -204,8 +185,13 @@ finish:
     return bsderr;
 }
 
+int sopen(int fdvol, const char *path, int flags, mode_t mode)
+{
+    return sopen_ifExists(fdvol, path, flags, mode, true);
+}
+
 // have to rely on schdirparent so we don't accidentally O_CREAT
-int sopen(int fdvol, const char *path, int flags, mode_t mode /*'...' fancier*/)
+int sopen_ifExists(int fdvol, const char *path, int flags, mode_t mode, bool failIfExists)
 {
     int rfd = -1;
     int candfd = -1;
@@ -216,8 +202,13 @@ int sopen(int fdvol, const char *path, int flags, mode_t mode /*'...' fancier*/)
     // flags |= O_NOFOLLOW;
 
     // if creating, make sure it doesn't exist (O_NOFOLLOW for good measure)
-    if (flags & O_CREAT)
-        flags |= O_EXCL | O_NOFOLLOW;
+    if (flags & O_CREAT) {
+        flags |= O_NOFOLLOW;
+
+        if (failIfExists) {
+            flags |= O_EXCL;
+        }
+    }
 
     if (schdirparent(fdvol, path, &savedir, child))     goto finish;
     if (-1 == (candfd = open(child, flags, mode)))      goto finish;
@@ -241,8 +232,8 @@ int schdir(int fdvol, const char *path, int *savedir)
     char cpath[PATH_MAX];
 
     // X could switch to snprintf()
-    PATHCPY(cpath, path);      
-    PATHCAT(cpath, "/.");      
+    PATHCPY(cpath, path);
+    PATHCAT(cpath, "/.");
 
     return schdirparent(fdvol, cpath, savedir, NULL);
 
@@ -317,8 +308,8 @@ int srename(int fdvol, const char *oldpath, const char *newpath)
     char newname[PATH_MAX];
 
     // calculate netname first since schdirparent uses basename
-    PATHCPY(newname, newpath);      
-    PATHCPY(newname, basename(newname));      
+    PATHCPY(newname, newpath);
+    PATHCPY(newname, basename(newname));
     if (schdirparent(fdvol, oldpath, &savedir, oldname))        goto finish;
 
     bsderr = rename(oldname, newname);
@@ -465,14 +456,14 @@ int sdeepmkdir(int fdvol, const char *path, mode_t mode)
             bsderr = ENOTDIR;
             goto finish;
         } else {
-            bsderr = 0;             // base case (dir exists) 
+            bsderr = 0;             // base case (dir exists)
             goto finish;
         }
     } else if (errno != ENOENT) {
         goto finish;                // bsderr = -1 -> errno
     } else {
-        PATHCPY(parent, path);      
-        PATHCPY(parent, dirname(parent));      
+        PATHCPY(parent, path);
+        PATHCPY(parent, dirname(parent));
 
         // and recurse since it wasn't there
         if ((bsderr = sdeepmkdir(fdvol, parent, mode)))     goto finish;
@@ -546,12 +537,12 @@ _copysubitems(int srcfdvol, const char *srcdir, int dstfdvol,const char *dstdir)
                 continue;
 
         // set up source path for child file
-        PATHCPY(srcpath, srcdir);      
+        PATHCPY(srcpath, srcdir);
         PATHCAT(srcpath, "/");
         PATHCAT(srcpath, fname);
 
         // and corresponding destination path
-        PATHCPY(dstpath, dstdir);      
+        PATHCPY(dstpath, dstdir);
         PATHCAT(dstpath, "/");
         PATHCAT(dstpath, fname);
 
@@ -583,8 +574,8 @@ scopyitem(int srcfdvol, const char *srcpath, int dstfdvol, const char *dstpath)
     if (dirmode & S_IROTH)      dirmode |= S_IXOTH;
 
     // and recursively create the parent directory
-    PATHCPY(dstparent, dstpath);      
-    PATHCPY(dstparent, dirname(dstparent));      
+    PATHCPY(dstparent, dstpath);
+    PATHCPY(dstparent, dirname(dstparent));
 
     if ((bsderr = sdeepmkdir(dstfdvol, dstparent, dirmode)))        goto finish;
 

@@ -27,7 +27,7 @@ int run_set_protection_class(__unused test_ctx_t *ctx)
 {
 	const char *tstdir;
 	
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	// The root file system needs to be HFS
 	struct statfs sfs;
 	
@@ -38,7 +38,7 @@ int run_set_protection_class(__unused test_ctx_t *ctx)
 	}
 	
 	tstdir = "/tmp";
-#else // !TARGET_OS_EMBEDDED
+#else // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	disk_image_t *di = disk_image_get();
 	tstdir = di->mount_point;
 #endif
@@ -139,7 +139,7 @@ int run_set_protection_class(__unused test_ctx_t *ctx)
 
 		assert_with_errno((fd = open(path, O_RDWR)) >= 0);
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 		assert_no_err(fcntl(fd, F_SETPROTECTIONCLASS, 2));
 #endif
 

@@ -137,24 +137,6 @@ notifyutil_dump()
 
 }
 
-static const char *
-notify_status_strerror(int status)
-{
-	switch (status)
-	{
-		case NOTIFY_STATUS_OK: return("OK");
-		case NOTIFY_STATUS_INVALID_NAME: return "Invalid Name";
-		case NOTIFY_STATUS_INVALID_TOKEN: return "Invalid Token";
-		case NOTIFY_STATUS_INVALID_PORT: return "Invalid Port";
-		case NOTIFY_STATUS_INVALID_FILE: return "Invalid File";
-		case NOTIFY_STATUS_INVALID_SIGNAL: return "Invalid Signal";
-		case NOTIFY_STATUS_INVALID_REQUEST: return "Invalid Request";
-		case NOTIFY_STATUS_NOT_AUTHORIZED: return "Not Authorized";
-		case NOTIFY_STATUS_FAILED:
-		default: return "Failed";
-	}
-}
-
 static void
 reg_add(uint32_t tid, uint32_t type, uint32_t signum, uint32_t count, const char *name)
 {
@@ -265,7 +247,7 @@ process_event(int tid)
 		state = 0;
 		status = notify_get_state(tid, &state);
 		if (status == NOTIFY_STATUS_OK) printf("%llu",(unsigned long long)state);
-		else printf(": %s", notify_status_strerror(status));
+		else printf(": Failed with code %d", status);
 		needspace = 1;
 	}
 
@@ -702,7 +684,7 @@ main(int argc, const char *argv[])
 			i++;
 
 			status = notify_post(argv[i]);
-			if (status != NOTIFY_STATUS_OK) printf("%s: %s\n", argv[i], notify_status_strerror(status));
+			if (status != NOTIFY_STATUS_OK) printf("%s: Failed with code %d\n", argv[i], status);
 			else if (nap > 0) usleep(nap);
 		}
 		else if ((argv[i][0] == '-') && ((argv[i][1] == 'w') || ((argv[i][1] >= '0') && (argv[i][1] <= '9'))))
@@ -720,7 +702,7 @@ main(int argc, const char *argv[])
 			tid = IndexNull;
 
 			status = do_register(argv[i], ntype, signum, n);
-			if (status != NOTIFY_STATUS_OK) printf("%s: %s\n", argv[i], notify_status_strerror(status));
+			if (status != NOTIFY_STATUS_OK) printf("%s: Failed with code %d\n", argv[i], status);
 		}
 		else if (!strcmp(argv[i], "-g"))
 		{
@@ -742,7 +724,7 @@ main(int argc, const char *argv[])
 			}
 
 			if (status == NOTIFY_STATUS_OK) printf("%s %llu\n", argv[i], (unsigned long long)state);
-			else printf("%s: %s\n", argv[i], notify_status_strerror(status));
+			else printf("%s: Failed with code %d\n", argv[i], status);
 		}
 		else if (!strcmp(argv[i], "-s"))
 		{
@@ -762,7 +744,7 @@ main(int argc, const char *argv[])
 				notify_cancel(tid);
 			}
 
-			if (status != NOTIFY_STATUS_OK)  printf("%s: %s\n", argv[i], notify_status_strerror(status));
+			if (status != NOTIFY_STATUS_OK)  printf("%s: Failed with code %d\n", argv[i], status);
 			i++;
 		}
 	}

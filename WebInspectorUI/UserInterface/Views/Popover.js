@@ -156,6 +156,8 @@ WI.Popover = class Popover extends WI.Object
         window.removeEventListener("resize", this, true);
         window.removeEventListener("keypress", this, true);
 
+        this._prefersDarkColorSchemeMediaQueryList.removeListener(this._boundUpdate);
+
         WI.quickConsole.keyboardShortcutDisabled = false;
 
         this._element.classList.add(WI.Popover.FadeOutClassName);
@@ -169,7 +171,7 @@ WI.Popover = class Popover extends WI.Object
         switch (event.type) {
         case "mousedown":
         case "scroll":
-            if (!this._element.contains(event.target) && !event.target.enclosingNodeOrSelfWithClass(WI.Popover.IgnoreAutoDismissClassName)
+            if (!this._element.contains(event.target) && !event.target.closest("." + WI.Popover.IgnoreAutoDismissClassName)
                 && !event[WI.Popover.EventPreventDismissSymbol]) {
                 this.dismiss();
             }
@@ -255,7 +257,7 @@ WI.Popover = class Popover extends WI.Object
 
         function area(size)
         {
-            return size.width * size.height;
+            return Math.max(0, size.width) * Math.max(0, size.height);
         }
 
         // Find if any of those fit better than the frame for the preferred edge.
@@ -268,6 +270,8 @@ WI.Popover = class Popover extends WI.Object
                 bestMetrics = itemMetrics;
             }
         }
+
+        console.assert(area(bestMetrics.contentSize) > 0);
 
         var anchorPoint;
         var bestFrame = bestMetrics.frame.round();
@@ -400,19 +404,18 @@ WI.Popover = class Popover extends WI.Object
         // Bounds of the path don't take into account the arrow, but really only the tight bounding box
         // of the content contained within the frame.
         let bounds;
-        let arrowHeight = WI.Popover.AnchorSize.height;
         switch (this._edge) {
         case WI.RectEdge.MIN_X: // Displayed on the left of the target, arrow points right.
-            bounds = new WI.Rect(0, 0, width - arrowHeight, height);
+            bounds = new WI.Rect(0, 0, width - WI.Popover.AnchorSize, height);
             break;
         case WI.RectEdge.MAX_X: // Displayed on the right of the target, arrow points left.
-            bounds = new WI.Rect(arrowHeight, 0, width - arrowHeight, height);
+            bounds = new WI.Rect(WI.Popover.AnchorSize, 0, width - WI.Popover.AnchorSize, height);
             break;
         case WI.RectEdge.MIN_Y: // Displayed above the target, arrow points down.
-            bounds = new WI.Rect(0, 0, width, height - arrowHeight);
+            bounds = new WI.Rect(0, 0, width, height - WI.Popover.AnchorSize);
             break;
         case WI.RectEdge.MAX_Y: // Displayed below the target, arrow points up.
-            bounds = new WI.Rect(0, arrowHeight, width, height - arrowHeight);
+            bounds = new WI.Rect(0, WI.Popover.AnchorSize, width, height - WI.Popover.AnchorSize);
             break;
         }
 
@@ -420,30 +423,32 @@ WI.Popover = class Popover extends WI.Object
         let computedStyle = window.getComputedStyle(this._element, null);
 
         let context = document.getCSSCanvasContext("2d", "popover", scaledWidth, scaledHeight);
-        context.save();
         context.clearRect(0, 0, scaledWidth, scaledHeight);
-        context.shadowOffsetX = 1;
-        context.shadowOffsetY = 1;
-        context.shadowBlur = 5;
-        context.shadowColor = computedStyle.getPropertyValue("--popover-shadow-color").trim();
-        context.scale(scaleFactor, scaleFactor);
 
-        // Clip the frame.
-        context.fillStyle = computedStyle.getPropertyValue("--popover-text-color").trim();
-        this._drawFrame(context, bounds, this._edge, this._anchorPoint);
-        context.clip();
+        function isolate(callback) {
+            context.save();
+            callback();
+            context.restore();
+        }
 
-        // Panel background color fill.
-        context.fillStyle = computedStyle.getPropertyValue("--popover-background-color").trim();
+        isolate(() => {
+            context.scale(scaleFactor, scaleFactor);
+            this._drawFrame(context, bounds, this._edge, this._anchorPoint);
 
-        context.fillRect(0, 0, width, height);
+            isolate(() => {
+                context.shadowBlur = 4;
+                context.shadowColor = computedStyle.getPropertyValue("--popover-shadow-color").trim();
 
-        // Stroke.
-        context.strokeStyle = computedStyle.getPropertyValue("--popover-border-color").trim();
-        context.lineWidth = 2;
-        this._drawFrame(context, bounds, this._edge, this._anchorPoint);
-        context.stroke();
-        context.restore();
+                context.strokeStyle = computedStyle.getPropertyValue("--popover-border-color").trim();
+                context.lineWidth = 2;
+                context.stroke();
+            });
+
+            isolate(() => {
+                context.fillStyle = computedStyle.getPropertyValue("--popover-background-color").trim();
+                context.fill();
+            });
+        });
     }
 
     _bestMetricsForEdge(preferredSize, targetFrame, containerFrame, edge)
@@ -451,42 +456,38 @@ WI.Popover = class Popover extends WI.Object
         var x, y;
         var width = preferredSize.width + (WI.Popover.ShadowPadding * 2) + (WI.Popover.ContentPadding * 2);
         var height = preferredSize.height + (WI.Popover.ShadowPadding * 2) + (WI.Popover.ContentPadding * 2);
-        var arrowLength = WI.Popover.AnchorSize.height;
 
         switch (edge) {
         case WI.RectEdge.MIN_X: // Displayed on the left of the target, arrow points right.
-            width += arrowLength;
+            width += WI.Popover.AnchorSize;
             x = targetFrame.origin.x - width + WI.Popover.ShadowPadding;
             y = targetFrame.origin.y - (height - targetFrame.size.height) / 2;
             break;
         case WI.RectEdge.MAX_X: // Displayed on the right of the target, arrow points left.
-            width += arrowLength;
+            width += WI.Popover.AnchorSize;
             x = targetFrame.origin.x + targetFrame.size.width - WI.Popover.ShadowPadding;
             y = targetFrame.origin.y - (height - targetFrame.size.height) / 2;
             break;
         case WI.RectEdge.MIN_Y: // Displayed above the target, arrow points down.
-            height += arrowLength;
+            height += WI.Popover.AnchorSize;
             x = targetFrame.origin.x - (width - targetFrame.size.width) / 2;
             y = targetFrame.origin.y - height + WI.Popover.ShadowPadding;
             break;
         case WI.RectEdge.MAX_Y: // Displayed below the target, arrow points up.
-            height += arrowLength;
+            height += WI.Popover.AnchorSize;
             x = targetFrame.origin.x - (width - targetFrame.size.width) / 2;
             y = targetFrame.origin.y + targetFrame.size.height - WI.Popover.ShadowPadding;
             break;
         }
 
-        if (edge === WI.RectEdge.MIN_X || edge === WI.RectEdge.MAX_X) {
-            if (y < containerFrame.minY())
-                y = containerFrame.minY();
-            if (y + height > containerFrame.maxY())
-                y = containerFrame.maxY() - height;
-        } else {
-            if (x < containerFrame.minX())
-                x = containerFrame.minX();
-            if (x + width > containerFrame.maxX())
-                x = containerFrame.maxX() - width;
-        }
+        if (edge !== WI.RectEdge.MIN_X && x < containerFrame.minX())
+            x = containerFrame.minX();
+        if (edge !== WI.RectEdge.MAX_X && x + width > containerFrame.maxX())
+            x = containerFrame.maxX() - width;
+        if (edge !== WI.RectEdge.MIN_Y && y < containerFrame.minY())
+            y = containerFrame.minY();
+        if (edge !== WI.RectEdge.MAX_Y && y + height > containerFrame.maxY())
+            y = containerFrame.maxY() - height;
 
         var preferredFrame = new WI.Rect(x, y, width, height);
         var bestFrame = preferredFrame.intersectionWithRect(containerFrame);
@@ -497,11 +498,11 @@ WI.Popover = class Popover extends WI.Object
         switch (edge) {
         case WI.RectEdge.MIN_X: // Displayed on the left of the target, arrow points right.
         case WI.RectEdge.MAX_X: // Displayed on the right of the target, arrow points left.
-            width -= arrowLength;
+            width -= WI.Popover.AnchorSize;
             break;
         case WI.RectEdge.MIN_Y: // Displayed above the target, arrow points down.
         case WI.RectEdge.MAX_Y: // Displayed below the target, arrow points up.
-            height -= arrowLength;
+            height -= WI.Popover.AnchorSize;
             break;
         }
 
@@ -514,11 +515,10 @@ WI.Popover = class Popover extends WI.Object
     _drawFrame(ctx, bounds, anchorEdge)
     {
         let cornerRadius = WI.Popover.CornerRadius;
-        let arrowHalfLength = WI.Popover.AnchorSize.width * 0.5;
         let anchorPoint = this._anchorPoint;
 
         // Prevent the arrow from being positioned against one of the popover's rounded corners.
-        let arrowPadding = cornerRadius + arrowHalfLength;
+        let arrowPadding = cornerRadius + WI.Popover.AnchorSize;
         if (anchorEdge === WI.RectEdge.MIN_Y || anchorEdge === WI.RectEdge.MAX_Y)
             anchorPoint.x = Number.constrain(anchorPoint.x, bounds.minX() + arrowPadding, bounds.maxX() - arrowPadding);
         else
@@ -528,9 +528,9 @@ WI.Popover = class Popover extends WI.Object
         switch (anchorEdge) {
         case WI.RectEdge.MIN_X: // Displayed on the left of the target, arrow points right.
             ctx.moveTo(bounds.maxX(), bounds.minY() + cornerRadius);
-            ctx.lineTo(bounds.maxX(), anchorPoint.y - arrowHalfLength);
+            ctx.lineTo(bounds.maxX(), anchorPoint.y - WI.Popover.AnchorSize);
             ctx.lineTo(anchorPoint.x, anchorPoint.y);
-            ctx.lineTo(bounds.maxX(), anchorPoint.y + arrowHalfLength);
+            ctx.lineTo(bounds.maxX(), anchorPoint.y + WI.Popover.AnchorSize);
             ctx.arcTo(bounds.maxX(), bounds.maxY(), bounds.minX(), bounds.maxY(), cornerRadius);
             ctx.arcTo(bounds.minX(), bounds.maxY(), bounds.minX(), bounds.minY(), cornerRadius);
             ctx.arcTo(bounds.minX(), bounds.minY(), bounds.maxX(), bounds.minY(), cornerRadius);
@@ -538,9 +538,9 @@ WI.Popover = class Popover extends WI.Object
             break;
         case WI.RectEdge.MAX_X: // Displayed on the right of the target, arrow points left.
             ctx.moveTo(bounds.minX(), bounds.maxY() - cornerRadius);
-            ctx.lineTo(bounds.minX(), anchorPoint.y + arrowHalfLength);
+            ctx.lineTo(bounds.minX(), anchorPoint.y + WI.Popover.AnchorSize);
             ctx.lineTo(anchorPoint.x, anchorPoint.y);
-            ctx.lineTo(bounds.minX(), anchorPoint.y - arrowHalfLength);
+            ctx.lineTo(bounds.minX(), anchorPoint.y - WI.Popover.AnchorSize);
             ctx.arcTo(bounds.minX(), bounds.minY(), bounds.maxX(), bounds.minY(), cornerRadius);
             ctx.arcTo(bounds.maxX(), bounds.minY(), bounds.maxX(), bounds.maxY(), cornerRadius);
             ctx.arcTo(bounds.maxX(), bounds.maxY(), bounds.minX(), bounds.maxY(), cornerRadius);
@@ -548,9 +548,9 @@ WI.Popover = class Popover extends WI.Object
             break;
         case WI.RectEdge.MIN_Y: // Displayed above the target, arrow points down.
             ctx.moveTo(bounds.maxX() - cornerRadius, bounds.maxY());
-            ctx.lineTo(anchorPoint.x + arrowHalfLength, bounds.maxY());
+            ctx.lineTo(anchorPoint.x + WI.Popover.AnchorSize, bounds.maxY());
             ctx.lineTo(anchorPoint.x, anchorPoint.y);
-            ctx.lineTo(anchorPoint.x - arrowHalfLength, bounds.maxY());
+            ctx.lineTo(anchorPoint.x - WI.Popover.AnchorSize, bounds.maxY());
             ctx.arcTo(bounds.minX(), bounds.maxY(), bounds.minX(), bounds.minY(), cornerRadius);
             ctx.arcTo(bounds.minX(), bounds.minY(), bounds.maxX(), bounds.minY(), cornerRadius);
             ctx.arcTo(bounds.maxX(), bounds.minY(), bounds.maxX(), bounds.maxY(), cornerRadius);
@@ -558,9 +558,9 @@ WI.Popover = class Popover extends WI.Object
             break;
         case WI.RectEdge.MAX_Y: // Displayed below the target, arrow points up.
             ctx.moveTo(bounds.minX() + cornerRadius, bounds.minY());
-            ctx.lineTo(anchorPoint.x - arrowHalfLength, bounds.minY());
+            ctx.lineTo(anchorPoint.x - WI.Popover.AnchorSize, bounds.minY());
             ctx.lineTo(anchorPoint.x, anchorPoint.y);
-            ctx.lineTo(anchorPoint.x + arrowHalfLength, bounds.minY());
+            ctx.lineTo(anchorPoint.x + WI.Popover.AnchorSize, bounds.minY());
             ctx.arcTo(bounds.maxX(), bounds.minY(), bounds.maxX(), bounds.maxY(), cornerRadius);
             ctx.arcTo(bounds.maxX(), bounds.maxY(), bounds.minX(), bounds.maxY(), cornerRadius);
             ctx.arcTo(bounds.minX(), bounds.maxY(), bounds.minX(), bounds.minY(), cornerRadius);
@@ -580,6 +580,13 @@ WI.Popover = class Popover extends WI.Object
             window.addEventListener("resize", this, true);
             window.addEventListener("keypress", this, true);
 
+            if (!this._boundUpdate)
+                this._boundUpdate = this._update.bind(this);
+
+            if (!this._prefersDarkColorSchemeMediaQueryList)
+                this._prefersDarkColorSchemeMediaQueryList = window.matchMedia("(prefers-color-scheme: dark)");
+            this._prefersDarkColorSchemeMediaQueryList.addListener(this._boundUpdate);
+
             WI.quickConsole.keyboardShortcutDisabled = true;
         }
     }
@@ -591,7 +598,7 @@ WI.Popover.MinWidth = 40;
 WI.Popover.MinHeight = 40;
 WI.Popover.ShadowPadding = 5;
 WI.Popover.ContentPadding = 5;
-WI.Popover.AnchorSize = new WI.Size(22, 11);
+WI.Popover.AnchorSize = 11;
 WI.Popover.ShadowEdgeInsets = new WI.EdgeInsets(WI.Popover.ShadowPadding);
 WI.Popover.IgnoreAutoDismissClassName = "popover-ignore-auto-dismiss";
 WI.Popover.EventPreventDismissSymbol = Symbol("popover-event-prevent-dismiss");

@@ -1,7 +1,7 @@
 .\"
 .\" Copyright (c) 2013 Apple Computer, Inc.  All rights reserved.
 .\"
-.Dd December 21, 2016
+.Dd October 9, 2018
 .Dt XATTR_NAME_WITH_FLAGS 3
 .Os
 .Sh NAME
@@ -80,7 +80,7 @@ Indicates that the intent is to share, or export, the object.  For example,
 saving as an attachment in an email message, or placing in a public folder.
 Sensitive information should probably not be preserved in this case.
 .It Dv XATTR_OPERATION_INTENT_SYNC
-Indicates that the intent is to sync the object to a service like iCloud.
+Indicates that the intent is to sync the object to a service like iCloud Drive.
 .El
 .Sh FLAGS
 Various flags are defined by the type
@@ -101,9 +101,8 @@ This indicates that the extended attribute should never be copied from a
 source object to a destination, no matter what the given intent is.
 .It Dv XATTR_FLAG_SYNCABLE
 This indicates that the extended attribute should be copied when the file
-is synced on services like iCloud. Sync services tends to want the metadata
-synced to be kept to a bare minimum, and may enforce additional restrictions
-on the acceptable size and number of extended attributes.
+is synced on services like iCloud Drive. Sync services may enforce additional
+restrictions on the acceptable size and number of extended attributes.
 .El
 .Sh EXAMPLE
 The following example is a simple function that, given an extended attribute

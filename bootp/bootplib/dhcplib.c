@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,8 +36,9 @@
 #include <string.h>
 #include "dhcplib.h"
 #include "cfutil.h"
+#include "symbol_scope.h"
 
-void
+PRIVATE_EXTERN void
 dhcp_packet_print_cfstr(CFMutableStringRef str, struct dhcp * dp, int pkt_len)
 {
     dhcpol_t 		options;
@@ -54,7 +55,7 @@ dhcp_packet_print_cfstr(CFMutableStringRef str, struct dhcp * dp, int pkt_len)
     return;
 }
 
-void
+PRIVATE_EXTERN void
 dhcp_packet_with_options_print_cfstr(CFMutableStringRef str,
 				     struct dhcp * dp, int pkt_len,
 				     dhcpol_t * options)
@@ -112,7 +113,7 @@ dhcp_packet_with_options_print_cfstr(CFMutableStringRef str,
     return;
 }
 
-void
+PRIVATE_EXTERN void
 dhcp_packet_fprint(FILE * f, struct dhcp * dp, int pkt_len)
 {
     CFMutableStringRef	str;
@@ -125,14 +126,14 @@ dhcp_packet_fprint(FILE * f, struct dhcp * dp, int pkt_len)
     return;
 }
 
-void
+PRIVATE_EXTERN void
 dhcp_packet_print(struct dhcp *dp, int pkt_len)
 {
     dhcp_packet_fprint(stdout, dp, pkt_len);
     return;
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 dhcp_packet_match(struct bootp * packet, u_int32_t xid, 
 		  u_char hwtype, void * hwaddr, int hwlen)
 {

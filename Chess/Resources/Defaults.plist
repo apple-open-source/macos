@@ -5,7 +5,7 @@
 	<key>AppleFullScreenEnabled</key>
 	<true/>
 	<key>MBCAlternateVoice</key>
-	<string>com.apple.speech.synthesis.voice.Vicki</string>
+	<string>com.apple.speech.synthesis.voice.Victoria</string>
 	<key>MBCBoardAngle</key>
 	<integer>60</integer>
 	<key>MBCBoardSpin</key>

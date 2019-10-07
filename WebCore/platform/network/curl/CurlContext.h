@@ -253,6 +253,7 @@ public:
 
     void setHttpAuthUserPass(const String&, const String&, long authType = CURLAUTH_ANY);
 
+    void disableServerTrustEvaluation();
     void setCACertPath(const char*);
     void setSslVerifyPeer(VerifyPeer);
     void setSslVerifyHost(VerifyHost);
@@ -272,6 +273,7 @@ public:
     void setWriteCallbackFunction(curl_write_callback, void*);
     void setReadCallbackFunction(curl_read_callback, void*);
     void setSslCtxCallbackFunction(curl_ssl_ctx_callback, void*);
+    void setDebugCallbackFunction(curl_debug_callback, void*);
 
     // Status
     Optional<String> getProxyUrl();

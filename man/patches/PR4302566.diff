@@ -1,6 +1,6 @@
---- src/man.c.orig	2006-06-02 12:52:27.000000000 -0700
-+++ src/man.c	2006-06-02 15:11:32.000000000 -0700
-@@ -335,7 +335,7 @@
+--- src/man.c	2019-04-22 16:40:00.000000000 -0700
++++ src/man.c	2019-04-22 16:41:51.000000000 -0700
+@@ -342,7 +342,7 @@
       if (expander && *expander) {
  	  char *command;
  
@@ -9,7 +9,7 @@
  	  fp = my_popen (command, "r");
  	  if (fp == NULL) {
  	       perror("popen");
-@@ -604,10 +604,10 @@
+@@ -639,10 +639,10 @@
  
       if (expander && *expander) {
  	  if (converter && *converter)
@@ -22,7 +22,7 @@
  				   bufh, expander, file, buft);
       } else if (ll || pl) {
  	  const char *cat = getval("CAT");
-@@ -615,10 +615,10 @@
+@@ -650,10 +650,10 @@
  		  cat = "cat";
  
  	  if (converter && *converter)
@@ -35,7 +35,7 @@
  				    bufh, cat, file, buft);
       }
  
-@@ -641,7 +641,7 @@
+@@ -676,7 +676,7 @@
       }
  
       if (expander && *expander) {
@@ -44,15 +44,15 @@
  	  fp = my_popen (cmd, "r");
  	  if (fp == NULL) {
  	       perror("popen");
-@@ -826,9 +826,9 @@
+@@ -861,9 +861,9 @@
       if (roff_command == NULL)
  	  return 0;
       if (do_troff)
--	  command = my_xsprintf ("(cd %S && %s)", path, roff_command);
-+	  command = my_xsprintf ("(cd '%Q' && %s)", path, roff_command);
+-	  command = my_xsprintf ("(cd \"%S\" && %s)", path, roff_command);
++	  command = my_xsprintf ("(cd \"%Q\" && %s)", path, roff_command);
       else
--	  command = my_xsprintf ("(cd %S && %s | (%s || true))", path,
-+	  command = my_xsprintf ("(cd '%Q' && %s | (%s || true))", path,
+-	  command = my_xsprintf ("(cd \"%S\" && %s | (%s || true))", path,
++	  command = my_xsprintf ("(cd \"%Q\" && %s | (%s || true))", path,
  		   roff_command, pager);
  
       return !do_system_command (command, 0);

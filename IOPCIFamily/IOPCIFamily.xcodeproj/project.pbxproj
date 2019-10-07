@@ -37,6 +37,7 @@
 		A613B29B0D46AA65007BA726 /* IOPCIDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 03DB1086033AA50A03CA2A5F /* IOPCIDevice.h */; };
 		A613B29D0D46AA65007BA726 /* IOPCIConfigurator.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEE0937A0EC000A918D /* IOPCIConfigurator.h */; };
 		A613B29E0D46AA65007BA726 /* IOPCIPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
+		A6287C1A2166E94F0091A0F5 /* IOPCIDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6287C192166E94F0091A0F5 /* IOPCIDevice.h */; };
 		A637FAF40F2FE2B80008E04C /* IOPCIPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
 		A655D6E50E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A655D6E40E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp */; };
 		A6849D13126539090033F95C /* IOPCIRange.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A6849D12126539090033F95C /* IOPCIRange.cpp */; };
@@ -85,6 +86,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A6287C182166E83F0091A0F5 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKitUser";
+			dstSubfolderSpec = 0;
+			files = (
+				A6287C1A2166E94F0091A0F5 /* IOPCIDevice.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		A637FAF30F2FE2630008E04C /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -109,6 +120,8 @@
 		A613B28C0D46AA65007BA726 /* Info-IOPCIFamily.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOPCIFamily.plist"; sourceTree = "<group>"; };
 		A613B28D0D46AA65007BA726 /* IOPCIFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOPCIFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		A613B2A30D46AA65007BA726 /* IOPCIFamily Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "IOPCIFamily Headers"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A6287C172166E8230091A0F5 /* Gravity */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Gravity; path = /Volumes/Disk/sandbox/IOPCIFamily/Gravity; sourceTree = "<absolute>"; };
+		A6287C192166E94F0091A0F5 /* IOPCIDevice.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOPCIDevice.h; path = Gravity/Headers/IOKitUser/IOPCIDevice.h; sourceTree = "<group>"; };
 		A655D6E40E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIDeviceMappedIO.cpp; sourceTree = "<group>"; };
 		A6849D12126539090033F95C /* IOPCIRange.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIRange.cpp; sourceTree = "<group>"; };
 		A6C9653C2058A50E00C7FBBE /* kext.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
@@ -157,6 +170,7 @@
 		089C166AFE841209C02AAC07 /* IOPCIFamily */ = {
 			isa = PBXGroup;
 			children = (
+				A6287C192166E94F0091A0F5 /* IOPCIDevice.h */,
 				A6C9653C2058A50E00C7FBBE /* kext.xcconfig */,
 				A6F210C00A78022400875EC6 /* AppleSamplePCI */,
 				247142CAFF3F8F9811CA285C /* Source */,
@@ -185,6 +199,7 @@
 				4094C51A00CEE7A80ACA2928 /* IOPCIDevice.cpp */,
 				4094C51B00CEE7A80ACA2928 /* IOPCIDeviceI386.cpp */,
 				A655D6E40E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp */,
+				A6287C172166E8230091A0F5 /* Gravity */,
 				03DB1082033AA50A03CA2A5F /* IOKit */,
 			);
 			name = Source;
@@ -269,6 +284,7 @@
 				A613B2980D46AA65007BA726 /* CopyFiles */,
 				A613B29C0D46AA65007BA726 /* CopyFiles */,
 				A637FAF30F2FE2630008E04C /* CopyFiles */,
+				A6287C182166E83F0091A0F5 /* CopyFiles */,
 			);
 			buildRules = (
 			);

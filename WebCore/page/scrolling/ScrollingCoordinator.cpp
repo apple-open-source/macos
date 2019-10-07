@@ -38,6 +38,7 @@
 #include "Region.h"
 #include "RenderLayerCompositor.h"
 #include "RenderView.h"
+#include "RuntimeEnabledFeatures.h"
 #include "ScrollAnimator.h"
 #include "Settings.h"
 #include <wtf/MainThread.h>
@@ -46,7 +47,7 @@
 
 namespace WebCore {
 
-#if !PLATFORM(COCOA) && !USE(COORDINATED_GRAPHICS)
+#if PLATFORM(IOS_FAMILY) || !ENABLE(ASYNC_SCROLLING)
 Ref<ScrollingCoordinator> ScrollingCoordinator::create(Page* page)
 {
     return adoptRef(*new ScrollingCoordinator(page));
@@ -85,6 +86,19 @@ bool ScrollingCoordinator::coordinatesScrollingForFrameView(const FrameView& fra
     if (!renderView)
         return false;
     return renderView->usesCompositing();
+}
+
+bool ScrollingCoordinator::coordinatesScrollingForOverflowLayer(const RenderLayer& layer) const
+{
+    ASSERT(isMainThread());
+    ASSERT(m_page);
+
+    return layer.hasCompositedScrollableOverflow();
+}
+
+ScrollingNodeID ScrollingCoordinator::scrollableContainerNodeID(const RenderObject&) const
+{
+    return 0;
 }
 
 EventTrackingRegions ScrollingCoordinator::absoluteEventTrackingRegionsForFrame(const Frame& frame) const
@@ -197,15 +211,17 @@ void ScrollingCoordinator::frameViewFixedObjectsDidChange(FrameView& frameView)
     updateSynchronousScrollingReasons(frameView);
 }
 
-GraphicsLayer* ScrollingCoordinator::scrollLayerForScrollableArea(ScrollableArea& scrollableArea)
-{
-    return scrollableArea.layerForScrolling();
-}
-
-GraphicsLayer* ScrollingCoordinator::scrollLayerForFrameView(FrameView& frameView)
+GraphicsLayer* ScrollingCoordinator::scrollContainerLayerForFrameView(FrameView& frameView)
 {
     if (auto* renderView = frameView.frame().contentRenderer())
-        return renderView->compositor().scrollLayer();
+        return renderView->compositor().scrollContainerLayer();
+    return nullptr;
+}
+
+GraphicsLayer* ScrollingCoordinator::scrolledContentsLayerForFrameView(FrameView& frameView)
+{
+    if (auto* renderView = frameView.frame().contentRenderer())
+        return renderView->compositor().scrolledContentsLayer();
     return nullptr;
 }
 
@@ -260,10 +276,10 @@ GraphicsLayer* ScrollingCoordinator::contentShadowLayerForFrameView(FrameView& f
 #endif
 }
 
-GraphicsLayer* ScrollingCoordinator::rootContentLayerForFrameView(FrameView& frameView)
+GraphicsLayer* ScrollingCoordinator::rootContentsLayerForFrameView(FrameView& frameView)
 {
     if (auto* renderView = frameView.frame().contentRenderer())
-        return renderView->compositor().rootContentLayer();
+        return renderView->compositor().rootContentsLayer();
     return nullptr;
 }
 
@@ -406,10 +422,16 @@ TextStream& operator<<(TextStream& ts, ScrollableAreaParameters scrollableAreaPa
     ts.dumpProperty("vertical scroll elasticity", scrollableAreaParameters.verticalScrollElasticity);
     ts.dumpProperty("horizontal scrollbar mode", scrollableAreaParameters.horizontalScrollbarMode);
     ts.dumpProperty("vertical scrollbar mode", scrollableAreaParameters.verticalScrollbarMode);
+
     if (scrollableAreaParameters.hasEnabledHorizontalScrollbar)
         ts.dumpProperty("has enabled horizontal scrollbar", scrollableAreaParameters.hasEnabledHorizontalScrollbar);
     if (scrollableAreaParameters.hasEnabledVerticalScrollbar)
         ts.dumpProperty("has enabled vertical scrollbar", scrollableAreaParameters.hasEnabledVerticalScrollbar);
+
+    if (scrollableAreaParameters.horizontalScrollbarHiddenByStyle)
+        ts.dumpProperty("horizontal scrollbar hidden by style", scrollableAreaParameters.horizontalScrollbarHiddenByStyle);
+    if (scrollableAreaParameters.verticalScrollbarHiddenByStyle)
+        ts.dumpProperty("vertical scrollbar hidden by style", scrollableAreaParameters.verticalScrollbarHiddenByStyle);
 
     return ts;
 }
@@ -423,14 +445,23 @@ TextStream& operator<<(TextStream& ts, ScrollingNodeType nodeType)
     case ScrollingNodeType::Subframe:
         ts << "subframe-scrolling";
         break;
+    case ScrollingNodeType::FrameHosting:
+        ts << "frame-hosting";
+        break;
     case ScrollingNodeType::Overflow:
         ts << "overflow-scrolling";
+        break;
+    case ScrollingNodeType::OverflowProxy:
+        ts << "overflow-scroll-proxy";
         break;
     case ScrollingNodeType::Fixed:
         ts << "fixed";
         break;
     case ScrollingNodeType::Sticky:
         ts << "sticky";
+        break;
+    case ScrollingNodeType::Positioned:
+        ts << "positioned";
         break;
     }
     return ts;
@@ -464,6 +495,15 @@ TextStream& operator<<(TextStream& ts, ViewportRectStability stability)
     case ViewportRectStability::ChangingObscuredInsetsInteractively:
         ts << "changing obscured insets interactively";
         break;
+    }
+    return ts;
+}
+
+TextStream& operator<<(TextStream& ts, ScrollType scrollType)
+{
+    switch (scrollType) {
+    case ScrollType::User: ts << "user"; break;
+    case ScrollType::Programmatic: ts << "programmatic"; break;
     }
     return ts;
 }

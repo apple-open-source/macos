@@ -13,7 +13,7 @@ if test "$PHP_GMP" != "no"; then
   if test -z "$GMP_DIR"; then
     AC_MSG_ERROR(Unable to locate gmp.h)
   fi
- 
+
   PHP_CHECK_LIBRARY(gmp, __gmpz_rootrem,
   [],[
     AC_MSG_ERROR([GNU MP Library version 4.2 or greater required.])
@@ -23,6 +23,7 @@ if test "$PHP_GMP" != "no"; then
 
   PHP_ADD_LIBRARY_WITH_PATH(gmp, $GMP_DIR/$PHP_LIBDIR, GMP_SHARED_LIBADD)
   PHP_ADD_INCLUDE($GMP_DIR/include)
+  PHP_INSTALL_HEADERS([ext/gmp/php_gmp_int.h])
 
   PHP_NEW_EXTENSION(gmp, gmp.c, $ext_shared,, -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1)
   PHP_SUBST(GMP_SHARED_LIBADD)

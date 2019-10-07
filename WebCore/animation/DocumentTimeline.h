@@ -29,6 +29,7 @@
 #include "DocumentTimelineOptions.h"
 #include "GenericTaskQueue.h"
 #include "Timer.h"
+#include <wtf/Markable.h>
 #include <wtf/Ref.h>
 
 namespace WebCore {
@@ -42,6 +43,8 @@ public:
     static Ref<DocumentTimeline> create(Document&);
     static Ref<DocumentTimeline> create(Document&, DocumentTimelineOptions&&);
     ~DocumentTimeline();
+
+    bool isDocumentTimeline() const final { return true; }
 
     Vector<RefPtr<WebAnimation>> getAnimations() const;
 
@@ -68,10 +71,8 @@ public:
     void detachFromDocument();
 
     void enqueueAnimationPlaybackEvent(AnimationPlaybackEvent&);
-
-#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
-    void documentAnimationSchedulerDidFire();
-#endif
+    
+    void updateAnimationsAndSendEvents(DOMHighResTimeStamp timestamp);
 
     void updateThrottlingState();
     WEBCORE_EXPORT Seconds animationInterval() const;
@@ -85,38 +86,31 @@ public:
 private:
     DocumentTimeline(Document&, Seconds);
 
-    Seconds liveCurrentTime() const;
-    void cacheCurrentTime(Seconds);
-    void scheduleAnimationResolutionIfNeeded();
+    DOMHighResTimeStamp liveCurrentTime() const;
+    void cacheCurrentTime(DOMHighResTimeStamp);
+    void maybeClearCachedCurrentTime();
     void scheduleInvalidationTaskIfNeeded();
     void performInvalidationTask();
-    void animationScheduleTimerFired();
     void scheduleAnimationResolution();
     void unscheduleAnimationResolution();
-    void updateAnimationsAndSendEvents();
+    void internalUpdateAnimationsAndSendEvents();
     void performEventDispatchTask();
-    void maybeClearCachedCurrentTime();
     void updateListOfElementsWithRunningAcceleratedAnimationsForElement(Element&);
     void transitionDidComplete(RefPtr<CSSTransition>);
     void scheduleNextTick();
 
-    RefPtr<Document> m_document;
-    Seconds m_originTime;
-    bool m_isSuspended { false };
-    bool m_waitingOnVMIdle { false };
-    bool m_isUpdatingAnimations { false };
-    Optional<Seconds> m_cachedCurrentTime;
+    Timer m_tickScheduleTimer;
     GenericTaskQueue<Timer> m_currentTimeClearingTaskQueue;
     HashSet<RefPtr<WebAnimation>> m_acceleratedAnimationsPendingRunningStateChange;
-    Vector<Ref<AnimationPlaybackEvent>> m_pendingAnimationEvents;
-    unsigned m_numberOfAnimationTimelineInvalidationsForTesting { 0 };
     HashSet<Element*> m_elementsWithRunningAcceleratedAnimations;
-    Timer m_tickScheduleTimer;
-
-#if !USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
-    void animationResolutionTimerFired();
-    Timer m_animationResolutionTimer;
-#endif
+    Vector<Ref<AnimationPlaybackEvent>> m_pendingAnimationEvents;
+    RefPtr<Document> m_document;
+    Markable<Seconds, Seconds::MarkableTraits> m_cachedCurrentTime;
+    Seconds m_originTime;
+    unsigned m_numberOfAnimationTimelineInvalidationsForTesting { 0 };
+    bool m_isSuspended { false };
+    bool m_waitingOnVMIdle { false };
+    bool m_animationResolutionScheduled { false };
 };
 
 } // namespace WebCore

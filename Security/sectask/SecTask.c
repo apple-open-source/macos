@@ -35,14 +35,15 @@
 #include <inttypes.h>
 #include <syslog.h>
 #include <utilities/SecCFWrappers.h>
+#include <xpc/private.h>
 
 #include <sys/sysctl.h>
 
 #if TARGET_OS_OSX
 /* These won't exist until we unify codesigning */
-#include "SecCode.h"
-#include "SecCodePriv.h"
-#include "SecRequirement.h"
+#include <Security/SecCode.h>
+#include <Security/SecCodePriv.h>
+#include <Security/SecRequirement.h>
 #endif /* TARGET_OS_OSX */
 
 struct __SecTask {
@@ -131,6 +132,21 @@ SecTaskRef SecTaskCreateWithAuditToken(CFAllocatorRef allocator, audit_token_t t
     
     return task;
 }
+
+_Nullable SecTaskRef
+SecTaskCreateWithXPCMessage(xpc_object_t _Nonnull message)
+{
+    audit_token_t token;
+
+    if (message == NULL || xpc_get_type(message) != XPC_TYPE_DICTIONARY) {
+        return NULL;
+    }
+    xpc_dictionary_get_audit_token(message, &token);
+
+    return SecTaskCreateWithAuditToken(NULL, token);
+}
+
+
 
 struct csheader {
         uint32_t magic;
@@ -354,7 +370,7 @@ out:
     return values;
 }
 
-#if TARGET_OS_OSX
+#if SEC_OS_OSX
 /*
  * Determine if the given task meets a specified requirement.
  */
@@ -385,7 +401,7 @@ SecTaskValidateForRequirement(SecTaskRef task, CFStringRef requirement)
 
     return status;
 }
-#endif /* TARGET_OS_OSX */
+#endif /* SEC_OS_OSX */
 
 Boolean SecTaskEntitlementsValidated(SecTaskRef task) {
     // TODO: Cache the result

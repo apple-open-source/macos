@@ -381,49 +381,6 @@ static void update_match(bool permit, match_t *input_match, match_t *output_matc
     }
 }
 
-static void nc_compare_DNSName_to_subtrees(const void *value, void *context) {
-    CFStringRef dnsName = (CFStringRef)value;
-    char *dnsNameString = NULL;
-    nc_san_match_context_t *san_context = context;
-    CFArrayRef subtrees = NULL;
-    if (san_context) {
-        subtrees = san_context->subtrees;
-    }
-    if (subtrees) {
-        CFIndex num_trees = CFArrayGetCount(subtrees);
-        CFRange range = { 0, num_trees };
-        match_t match = { false, false };
-        dnsNameString = CFStringToCString(dnsName);
-        if (!dnsNameString) { return; }
-        const DERItem name = { (unsigned char *)dnsNameString,
-                                CFStringGetLength(dnsName) };
-        nc_match_context_t match_context = {GNT_DNSName, &name, &match};
-        CFArrayApplyFunction(subtrees, range, nc_decode_and_compare_subtree, &match_context);
-        free(dnsNameString);
-
-        update_match(san_context->permit, &match, san_context->match);
-    }
-}
-
-static void nc_compare_IPAddress_to_subtrees(const void *value, void *context) {
-    CFDataRef ipAddr = (CFDataRef)value;
-    nc_san_match_context_t *san_context = context;
-    CFArrayRef subtrees = NULL;
-    if (san_context) {
-        subtrees = san_context->subtrees;
-    }
-    if (subtrees) {
-        CFIndex num_trees = CFArrayGetCount(subtrees);
-        CFRange range = { 0, num_trees };
-        match_t match = { false, false };
-        const DERItem addr = { (unsigned char *)CFDataGetBytePtr(ipAddr), CFDataGetLength(ipAddr) };
-        nc_match_context_t match_context = {GNT_IPAddress, &addr, &match};
-        CFArrayApplyFunction(subtrees, range, nc_decode_and_compare_subtree, &match_context);
-
-        update_match(san_context->permit, &match, san_context->match);
-    }
-}
-
 static void nc_compare_RFC822Name_to_subtrees(const void *value, void *context) {
     CFStringRef rfc822Name = (CFStringRef)value;
     char *rfc822NameString = NULL;
@@ -449,33 +406,6 @@ static void nc_compare_RFC822Name_to_subtrees(const void *value, void *context) 
     }
 }
 
-static bool certAllowsSSL(SecCertificateRef certificate) {
-    CFArrayRef ekus = SecCertificateCopyExtendedKeyUsage(certificate);
-    if (!ekus) {
-        return true; // No EKU -> any purpose
-    }
-
-    const DERItem *serverEkus[] = {
-        &oidAnyExtendedKeyUsage, &oidExtendedKeyUsageServerAuth,
-        &oidExtendedKeyUsageMicrosoftSGC, &oidExtendedKeyUsageNetscapeSGC,
-    };
-
-    bool result = false;
-    for (uint8_t ix = 0; ix < sizeof(serverEkus)/sizeof(const DERItem *); ix++) {
-        CFDataRef ekuOid = CFDataCreate(NULL, serverEkus[ix]->data, serverEkus[ix]->length);
-        if (CFArrayContainsValue(ekus, CFRangeMake(0, CFArrayGetCount(ekus)), ekuOid)) {
-            result = true;
-        }
-        CFReleaseNull(ekuOid);
-        if (result) {
-            break;
-        }
-    }
-
-    CFReleaseNull(ekus);
-    return result;
-}
-
 static void nc_compare_subject_to_subtrees(SecCertificateRef certificate, CFArrayRef subtrees,
                                            bool permit, match_t *match) {
     CFDataRef subject = SecCertificateCopySubjectSequence(certificate);
@@ -494,34 +424,6 @@ static void nc_compare_subject_to_subtrees(SecCertificateRef certificate, CFArra
     CFArrayApplyFunction(subtrees, range, nc_decode_and_compare_subtree, &context);
     CFReleaseNull(subject);
     update_match(permit, &x500_match, match);
-
-    /* These checks are unnecessary if Common Names aren't used to match SSLHostnames. (<rdar://31562470>)
-     * In the meantime, this hack makes non-SSL certs with DNS-like CNs work. (<rdar://41173883>) */
-    /* Compare DNSName constraints -- if there's no DNS names in the SAN and this cert can be used for SSL Server Auth*/
-    CFArrayRef sanDnsNames = SecCertificateCopyDNSNamesFromSAN(certificate);
-    if (certAllowsSSL(certificate) && (!sanDnsNames || CFArrayGetCount(sanDnsNames) == 0)) {
-        match_t dns_match = { false, permit };
-        CFArrayRef dnsNames = SecCertificateCopyDNSNamesFromSubject(certificate);
-        if (dnsNames) {
-            CFRange dnsRange = { 0, CFArrayGetCount(dnsNames) };
-            nc_san_match_context_t dnsContext = { subtrees, &dns_match, permit };
-            CFArrayApplyFunction(dnsNames, dnsRange, nc_compare_DNSName_to_subtrees, &dnsContext);
-        }
-        CFReleaseNull(dnsNames);
-        update_match(permit, &dns_match, match);
-    }
-    CFReleaseNull(sanDnsNames);
-
-    /* Compare IPAddresss constraints */
-    match_t ip_match = { false, permit };
-    CFArrayRef ipAddresses = SecCertificateCopyIPAddressesFromSubject(certificate);
-    if (ipAddresses) {
-        CFRange ipRange = { 0, CFArrayGetCount(ipAddresses) };
-        nc_san_match_context_t ipContext = { subtrees, &ip_match, permit };
-        CFArrayApplyFunction(ipAddresses, ipRange, nc_compare_IPAddress_to_subtrees, &ipContext);
-    }
-    CFReleaseNull(ipAddresses);
-    update_match(permit, &ip_match, match);
 
     /* Compare RFC822 constraints to subject email address */
     match_t email_match = { false, permit };

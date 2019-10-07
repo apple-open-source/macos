@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_PDESC_ZERO.badlib.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: can't specify a bogus library name
  *

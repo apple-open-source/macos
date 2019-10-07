@@ -188,6 +188,7 @@ bool IOEthernetController::init(OSDictionary * properties)
 	_reserved->fHasTimeSyncTransmitCallbackIDAvailable = true;
 	
 	_reserved->fAVBControllerState = kIOEthernetControllerAVBStateActivated;
+    setProperty("AVBControllerState", _reserved->fAVBControllerState, 32);
 	
 	if(KERN_SUCCESS != semaphore_create(kernel_task, &_reserved->fTimeSyncCallbackStartSemaphore, SYNC_POLICY_FIFO, 0))
 	{
@@ -1092,7 +1093,8 @@ IOReturn IOEthernetController::setAVBControllerState(IOEthernetControllerAVBStat
 	{
 		IOEthernetControllerAVBState oldState = _reserved->fAVBControllerState;
 		_reserved->fAVBControllerState = newState;
-		
+        setProperty("AVBControllerState", _reserved->fAVBControllerState, 32);
+
 		IOLockLock(_reserved->fStateChangeNotifiersLock);
 		
 		unsigned int count = _reserved->fStateChangeNotifiers->getCount();
@@ -1212,6 +1214,7 @@ void IOEthernetController::setNumberOfRealtimeTransmitQueues(uint32_t numberOfTr
 			_reserved->fTransmitQueuePrefetchDelay = NULL;
 		}
 		_reserved->fNumberOfRealtimeTransmitQueues = numberOfTransmitQueues;
+        setProperty("NumberOfRealtimeTranmitQueues", numberOfTransmitQueues, 32);
 		if(_reserved->fNumberOfRealtimeTransmitQueues)
 		{
 			_reserved->fTransmitQueuePacketLatency = (uint64_t *)IOMalloc(sizeof(uint64_t) * _reserved->fNumberOfRealtimeTransmitQueues);
@@ -1317,6 +1320,7 @@ void IOEthernetController::setNumberOfRealtimeReceiveQueues(uint32_t numberOfRec
 	if(_reserved)
 	{
 		_reserved->fNumberOfRealtimeReceiveQueues = numberOfReceiveQueues;
+        setProperty("NumberOfRealtimeReceiveQueues", numberOfReceiveQueues, 32);
 	}
 }
 
@@ -1618,7 +1622,13 @@ void IOEthernetController::receivedTimeSyncPacket(IOEthernetAVBPacket *packet)
 {
 	if(_reserved && packet)
 	{
-		IOECTSCallbackEntry *callback = (IOECTSCallbackEntry *)IOMalloc(sizeof(IOECTSCallbackEntry));
+		IOECTSCallbackEntry *callback = NULL;
+		
+		//Only create the callback structure if we are going to put the packet in the queue because the thread is running.
+		if(_reserved->fTimeSyncCallbackThreadIsRunning)
+		{
+			callback = (IOECTSCallbackEntry *)IOMalloc(sizeof(IOECTSCallbackEntry));
+		}
 		
 		if(callback)
 		{
@@ -1705,6 +1715,7 @@ void IOEthernetController::setTimeSyncPacketSupport(IOEthernetControllerAVBTimeS
 	if(_reserved)
 	{
 		_reserved->fTimeSyncSupport = timeSyncPacketSupport;
+        setProperty("TimeSyncSupport", timeSyncPacketSupport, 32);
 	}
 }
 
@@ -1735,17 +1746,21 @@ IOEthernetController::IOEthernetAVBPacket * IOEthernetController::allocateAVBPac
 		else
 		{
 			bool failed = true;
-			bool prepared = false;
+			bool bufferPrepared = false;
+			bool dmaPrepared = false;
 			IOReturn status;
 			IOBufferMemoryDescriptor *buffer;
-			
+			IODMACommand *dma;
 			
 			vm_size_t maxPacketSize = 2000;
 			vm_size_t allocationSize = maxPacketSize;
 			vm_offset_t alignment = 1;
 			IOOptionBits options = kIODirectionOutIn | kIOMemoryPhysicallyContiguous |
 			kIOMapWriteThruCache;
-			
+			IODMACommand::Segment64 dmaSegment;
+			UInt32 segmentCount = 1;
+			UInt64 dmaOffset = 0;
+
 			result = (IOEthernetAVBPacket *)IOMalloc(sizeof(IOEthernetAVBPacket));
 			require(result, FailedAllocate);
 			
@@ -1773,24 +1788,51 @@ IOEthernetController::IOEthernetAVBPacket * IOEthernetController::allocateAVBPac
 			require(buffer, FailedAllocate);
 			result->desc_buffer = buffer;
 			
+			dma = IODMACommand::withSpecification(kIODMACommandOutputHost64, 0, allocationSize, IODMACommand::kMapped, allocationSize, (uint32_t)alignment, _reserved->fAVBPacketMapper, NULL);
+			require(dma, FailedAllocate);
+			result->desc_dma = dma;
+			
+			status = dma->setMemoryDescriptor(buffer);
+			require(kIOReturnSuccess == status, FailedAllocate);
+
 			status = ((IOBufferMemoryDescriptor *)(result->desc_buffer))->prepare();
 			require(kIOReturnSuccess == status, FailedAllocate);
-			prepared = true;
+			bufferPrepared = true;
+			
+			status = dma->prepare();
+			require(kIOReturnSuccess == status, FailedAllocate);
+			dmaPrepared = true;
+
+			status = dma->gen64IOVMSegments(&dmaOffset, &dmaSegment, &segmentCount);
+			require(kIOReturnSuccess == status, FailedAllocate);
 			
 			result->numberOfEntries = 1;
 			result->virtualRanges[0].address = (IOVirtualAddress)buffer->getBytesNoCopy();
 			result->virtualRanges[0].length = maxPacketSize;
-			result->physicalRanges[0].address = buffer->getPhysicalAddress();
-			result->physicalRanges[0].length = maxPacketSize;
+			result->physicalRanges[0].address = dmaSegment.fIOVMAddr;
+			result->physicalRanges[0].length = dmaSegment.fLength;
+			
+			dma->synchronize(kIODirectionInOut);
 			
 			failed = false;
 			
 		FailedAllocate:
 			if(failed && result)
 			{
+				if(result->desc_dma)
+				{
+					dma = (IODMACommand *)result->desc_dma;
+					if(dmaPrepared)
+					{
+						dma->complete();
+					}
+					dma->clearMemoryDescriptor();
+					dma->release();
+				}
+				
 				if(result->desc_buffer)
 				{
-					if(prepared)
+					if(bufferPrepared)
 					{
 						((IOBufferMemoryDescriptor *)(result->desc_buffer))->complete();
 					}
@@ -1812,6 +1854,14 @@ void IOEthernetController::allocatedAVBPacketCompletion(void *context, IOEtherne
 {
 	if(packet)
 	{
+		if(packet->desc_dma)
+		{
+			IODMACommand *dma = (IODMACommand *)packet->desc_dma;
+			dma->complete();
+			dma->clearMemoryDescriptor();
+			dma->release();
+		}
+		
 		if(packet->desc_buffer)
 		{
 			((IOBufferMemoryDescriptor *)(packet->desc_buffer))->complete();

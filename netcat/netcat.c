@@ -127,7 +127,6 @@ int	tcp_conn_keepintvl;			/* Value of TCP keep interval in seconds */
 int	Jflag;					/* TCP keep count option */
 int	tcp_conn_keepcnt;			/* Value of TCP keep count */
 int	Lflag;					/* TCP adaptive read timeout */
-int	Mflag;					/* MULTIPATH domain */
 int	Nflag;					/* TCP adaptive write timeout */
 int	oflag;					/* set options after connect/bind */
 int	tcp_conn_adaptive_rtimo;		/* Value of TCP adaptive timeout */
@@ -190,7 +189,6 @@ int	unix_listen(char *);
 void    set_common_sockopts(int, int);
 void	usage(int);
 int	showconninfo(int, sae_connid_t);
-void	showmpinfo(int);
 
 extern int sourceroute(struct addrinfo *, char *, char **, int *, int *, int *);
 
@@ -224,7 +222,7 @@ const struct option long_options[] =
 	{ "apple-resvd-8",	no_argument,		NULL,	'l' },
 #ifdef __APPLE__
 	{ "apple-tcp-adp-rtimo",required_argument,	NULL,	'L' },
-	{ "apple-multipath",	no_argument,		NULL,	'M' },
+	{ "apple-initcoproc-allow",	no_argument,	NULL,	'm' },
 	{ "apple-tcp-adp-wtimo",required_argument,	NULL,	'N' },
 #endif /* __APPLE__ */
 	{ "apple-resvd-9",	no_argument,		NULL,	'n' },
@@ -283,7 +281,7 @@ main(int argc, char *argv[])
 	sv = NULL;
 
 	while ((ch = getopt_long(argc, argv,
-	    "46AacDCb:dEhi:jFG:H:I:J:K:L:klMnN:Oop:rSs:T:tUuvw:X:x:z",
+	    "46AacDCb:dEhi:jFG:H:I:J:K:L:klnN:Oop:rSs:T:tUuvw:X:x:z",
 	    long_options, NULL)) != -1) {
 		switch (ch) {
 		case '4':
@@ -303,9 +301,6 @@ main(int argc, char *argv[])
 			break;
 		case 'm':
 			mflag = 1;
-			break;
-		case 'M':
-			Mflag = 1;
 			break;
 		case 'X':
 			if (strcasecmp(optarg, "connect") == 0)
@@ -538,8 +533,6 @@ main(int argc, char *argv[])
 	if (argv[0] && !argv[1] && family == AF_UNIX) {
 		if (uflag)
 			errx(1, "cannot use -u and -U");
-		if (Mflag)
-			errx(1, "cannot use -M and -U");
 		host = argv[0];
 		uport = NULL;
 	} else if (argv[0] && !argv[1]) {
@@ -576,10 +569,6 @@ main(int argc, char *argv[])
 		}
 	}
 
-	if (Mflag && Oflag)
-		errx(1, "cannot use -M and -O");
-	if (srcroute && Mflag)
-		errx(1, "source routing isn't compatible with -M");
 	if (srcroute && !Oflag)
 		errx(1, "must use -O for source routing");
 	if (lflag && sflag)
@@ -913,11 +902,9 @@ remote_connectx(const char *host, const char *port, struct addrinfo hints)
 
 	res0 = res;
 	do {
-		if ((s = socket(Mflag ? PF_MULTIPATH : res0->ai_family,
-		     res0->ai_socktype, res0->ai_protocol)) < 0) {
+		if ((s = socket(res0->ai_family, res0->ai_socktype, res0->ai_protocol)) < 0) {
 			warn("socket(%d,%d,%d) failed",
-			    (Mflag ? PF_MULTIPATH : res0->ai_family),
-			    res0->ai_socktype, res0->ai_protocol);
+			    res0->ai_family, res0->ai_socktype, res0->ai_protocol);
 			continue;
 		}
 
@@ -970,12 +957,10 @@ remote_connectx(const char *host, const char *port, struct addrinfo hints)
 		if (error == 0) {
 			if (oflag)
 				set_common_sockopts(s, res0->ai_family);
-			if (vflag)
-				showmpinfo(s);
 			break;
 		} else if (vflag) {
 			warn("connectx to %s port %s (%s) failed", host, port,
-			    (uflag ? "udp" : (Mflag ? "mptcp" : "tcp")));
+			    (uflag ? "udp" : "tcp"));
 		}
 
 		close(s);
@@ -1485,87 +1470,129 @@ set_common_sockopts(int s, int af)
 void
 help(void)
 {
-	usage(0);
-	fprintf(stderr, "\tCommand Summary:\n\
-	\t-4		Use IPv4\n\
-	\t-6		Use IPv6\n\
-%s\
-%s\
-%s\
-	\t-c		Send CRLF as line-ending\n\
-%s\
-	\t-D		Enable the debug socket option\n\
-	\t-d		Detach from stdin\n\
-%s\
-%s\
-%s\
-	\t-h		This help text\n\
-%s\
-%s\
-	\t-i secs\t	Delay interval for lines sent, ports scanned\n\
-%s\
-	\t-k		Keep inbound sockets open for multiple connects\n\
-%s\
-	\t-l		Listen mode, for inbound connects\n\
-%s\
-%s\
-	\t-n		Suppress name/port resolutions\n\
-%s\
-%s\
-%s\
-	\t-p port\t	Specify local port for remote connects (cannot use with -l)\n\
-	\t-r		Randomize remote ports\n\
-	\t-s addr\t	Local source address\n\
-	\t-t		Answer TELNET negotiation\n\
-	\t-U		Use UNIX domain socket\n\
-	\t-u		UDP mode\n\
-	\t-v		Verbose\n\
-	\t-w secs\t	Timeout for connects and final net reads\n\
-	\t-X proto	Proxy protocol: \"4\", \"5\" (SOCKS) or \"connect\"\n\
-	\t-x addr[:port]\tSpecify proxy address and port\n\
-	\t-z		Zero-I/O mode [used for scanning]\n\
-%s\
-%s\
-	Port numbers can be individual or ranges: lo-hi [inclusive]\n",
+        usage(0);
+        fprintf(stderr, "\tCommand Summary:\n"
+                "\t-4                            Use IPv4\n"
+                "\t-6                            Use IPv6\n"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "\t-c                            Send CRLF as line-ending\n"
+                "%s"
+                "\t-D                            Enable the debug socket option\n"
+                "\t-d                            Detach from stdin\n"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "\t-h                            This help text\n"
+                "%s"
+                "%s"
+                "\t-i secs                       Delay interval for lines sent, ports scanned\n"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "\t-k                            Keep inbound sockets open for multiple connects\n"
+                "%s"
+                "%s"
+                "\t-l                            Listen mode, for inbound connects\n"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "\t-n                            Suppress name/port resolutions\n"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "\t-p port                       Specify local port for remote connects (cannot use with -l)\n"
+                "\t-r                            Randomize remote ports\n"
+                "\t-s addr                       Local source address\n"
+                "\t-t                            Answer TELNET negotiation\n"
+                "\t-U                            Use UNIX domain socket\n"
+                "\t-u                            UDP mode\n"
+                "\t-v                            Verbose\n"
+                "\t-w secs                       Timeout for connects and final net reads\n"
+                "\t-X proto                      Proxy protocol: \"4\", \"5\" (SOCKS) or \"connect\"\n"
+                "\t-x addr[:port]                Specify proxy address and port\n"
+                "\t-z                            Zero-I/O mode [used for scanning]\n"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "%s"
+                "Port numbers can be individual or ranges: lo-hi [inclusive]\n",
 #ifndef __APPLE__
-	"",
-	"",
-	"",
-	"	\t-S		Enable the TCP MD5 signature option\n",
-	"",
-	"",
-	"",
-	"",
-	""
+                "",
+                "",
+                "",
+                "\t-S                            Enable the TCP MD5 signature option\n",
+                "",
+                "",
+                "",
+                "",
+                ""
 #else /* __APPLE__ */
-	"	\t-A		Set SO_RECV_ANYIF on socket\n",
-	"	\t-a		Set SO_AWDL_UNRESTRICTED on socket\n",
-	"	\t-b ifbound	Bind socket to interface\n",
-	"	\t-C		Don't use cellular connection\n",
-	"	\t-E		Don't use expensive interfaces\n",
-	"	\t-F		Do not use flow advisory (flow adv enabled by default)\n",
-	"	\t-G conntimo	Connection timeout in seconds\n",
-	"	\t-H keepidle	Initial idle timeout in seconds\n",
-	"	\t-I keepintvl	Interval for repeating idle timeouts in seconds\n",
-	"	\t-J keepcnt	Number of times to repeat idle timeout\n",
-	"	\t-K tclass	Specify traffic class\n",
-	"	\t-L num_probes Number of probes to send before generating a read timeout event\n",
-	"	\t-m		Set SO_INTCOPROC_ALLOW on socket\n",
-	"	\t-M		Use MULTIPATH domain socket\n",
-	"	\t-N num_probes Number of probes to send before generating a write timeout event\n",
-	"	\t-O		Use old-style connect instead of connectx\n",
-	"	\t-o		Issue socket options after connect/bind\n",
-	"	\t--apple-delegate-pid pid\tSet socket as delegate using pid\n",
-	"	\t--apple-delegate-uuid uuid\tSet socket as delegate using uuid\n"
-	"	\t--apple-ext-bk-idle\tExtended background idle time\n"
-	"	\t--apple-ecn\tSet the ECN mode\n"
-	"	\t--apple-sockev\tReceive and print socket events\n"
-	"	\t--apple-notify-ack\tReceive events when data gets acknowledged\n"
-	"	\t--apple-tos\tSet the IP_TOS or IPV6_TCLASS option\n"
-	"	\t--apple-netsvctype\tSet the network service type\n"
+                "\t-A                            Set SO_RECV_ANYIF on socket\n",
+                "\t--apple-recv-anyif\n",
+                "\t-a                            Set SO_AWDL_UNRESTRICTED on socket\n",
+                "\t--apple-awdl-unres\n",
+                "\t-b ifbound                    Bind socket to interface\n",
+                "\t--apple-boundif ifbound\n",
+                "\t-C                            Don't use cellular connection\n",
+                "\t--apple-no-cellular\n",
+                "\t-E                            Don't use expensive interfaces\n",
+                "\t--apple-no-expensive\n",
+                "\t-F                            Do not use flow advisory (flow adv enabled by default)\n",
+                "\t--apple-no-flowadv\n",
+                "\t-G conntimo                   Connection timeout in seconds\n",
+                "\t--apple-tcp-timeout conntimo\n",
+                "\t-H keepidle                   Initial idle timeout in seconds\n",
+                "\t--apple-tcp-keepalive keepidle\n",
+                "\t-I keepintvl                  Interval for repeating idle timeouts in seconds\n",
+                "\t--apple-tcp-keepintvl keepintvl\n",
+                "\t-J keepcnt                    Number of times to repeat idle timeout\n",
+                "\t--apple-tcp-keepcnt keepcnt\n",
+                "\t-K tclass                     Specify traffic class\n",
+                "\t--apple-tclass tclass\n",
+                "\t-L num_probes                 Number of probes to send before generating a read timeout event\n",
+                "\t--tcp-adp-rtimo num_probes\n",
+                "\t-m                            Set SO_INTCOPROC_ALLOW on socket\n",
+                "\t--apple-initcoproc-allow\n",
+                "\t-N num_probes                 Number of probes to send before generating a write timeout event\n",
+                "\t--apple-tcp-adp-wtimo num_probes\n",
+                "\t-o                            Issue socket options after connect/bind\n",
+                "\t--setsockopt-later\n",
+                "\t-O                            Use old-style connect instead of connectx\n",
+                "\t--apple-no-connectx\n",
+                "\t--apple-delegate-pid pid      Set socket as delegate using pid\n",
+                "\t--apple-delegate-uuid uuid    Set socket as delegate using uuid\n",
+                "\t--apple-ecn mode              Set the ECN mode\n",
+                "\t--apple-ext-bk-idle           Extended background idle time\n",
+                "\t--apple-kao                   Set keep alive offload\n",
+                "\t--apple-netsvctype            Set the network service type\n"
+                "\t--apple-nowakefromsleep       No wake from sleep\n",
+                "\t--apple-notify-ack            Receive events when data gets acknowledged\n",
+                "\t--apple-sockev                Receive and print socket events\n",
+                "\t--apple-tos tos               Set the IP_TOS or IPV6_TCLASS option\n"
 #endif /* !__APPLE__ */
-	);
-	exit(1);
+                );
+        exit(1);
 }
 
 void
@@ -1574,7 +1601,21 @@ usage(int ret)
 #ifndef __APPLE__
 	fprintf(stderr, "usage: nc [-46cDdhklnrStUuvz] [-i interval] [-p source_port]\n");
 #else /* __APPLE__ */
-	fprintf(stderr, "usage: nc [-46AacCDdEFhklMnOortUuvz] [-K tc] [-b boundif] [-i interval] [-p source_port] [--apple-delegate-pid pid] [--apple-delegate-uuid uuid]\n");
+	fprintf(stderr, "usage: nc [-46AacCDdEFhklMnOortUuvz] [-K tc] [-b boundif] [-i interval] [-p source_port]\n"
+                "\t  [--apple-recv-anyif] [--apple-awdl-unres]\n"
+                "\t  [--apple-boundif ifbound]\n"
+                "\t  [--apple-no-cellular] [--apple-no-expensive]\n"
+                "\t  [--apple-no-flowadv] [--apple-tcp-timeout conntimo]\n"
+                "\t  [--apple-tcp-keepalive keepidle] [--apple-tcp-keepintvl keepintvl]\n"
+                "\t  [--apple-tcp-keepcnt keepcnt] [--apple-tclass tclass]\n"
+                "\t  [--tcp-adp-rtimo num_probes] [--apple-initcoproc-allow]\n"
+                "\t  [--apple-tcp-adp-wtimo num_probes]\n"
+                "\t  [--setsockopt-later] [--apple-no-connectx]\n"
+                "\t  [--apple-delegate-pid pid] [--apple-delegate-uuid uuid]\n"
+                "\t  [--apple-kao] [--apple-ext-bk-idle]\n"
+                "\t  [--apple-netsvctype svc] [---apple-nowakefromsleep]\n"
+                "\t  [--apple-notify-ack] [--apple-sockev]\n"
+                "\t  [--apple-tos tos]\n");
 #endif /* !__APPLE__ */
 	fprintf(stderr, "\t  [-s source_ip_address] [-w timeout] [-X proxy_version]\n");
 	fprintf(stderr, "\t  [-x proxy_address[:port]] [hostname] [port[s]]\n");
@@ -1815,52 +1856,6 @@ out:
 		freeconninfo(cfo);
 
 	return (err);
-}
-
-void
-showmpinfo(int s)
-{
-	uint32_t aid_cnt, cid_cnt;
-	sae_associd_t *aid = NULL;
-	sae_connid_t *cid = NULL;
-	int i, err;
-
-	err = copyassocids(s, &aid, &aid_cnt);
-	if (err != 0) {
-		warn("copyassocids failed\n");
-		goto done;
-	} else {
-		fprintf(stderr, "found %d associations", aid_cnt);
-		if (aid_cnt > 0) {
-			fprintf(stderr, " with IDs:");
-			for (i = 0; i < aid_cnt; i++)
-				fprintf(stderr, " %d\n", aid[i]);
-		}
-		fprintf(stderr, "\n");
-	}
-
-	/* just do an association for now */
-	err = copyconnids(s, SAE_ASSOCID_ANY, &cid, &cid_cnt);
-	if (err != 0) {
-		warn("copyconnids failed\n");
-		goto done;
-	} else {
-		fprintf(stderr, "found %d connections", cid_cnt);
-		if (cid_cnt > 0) {
-			fprintf(stderr, ":\n");
-			for (i = 0; i < cid_cnt; i++) {
-				if (showconninfo(s, cid[i]) != 0)
-					break;
-			}
-		}
-		fprintf(stderr, "\n");
-	}
-
-done:
-	if (aid != NULL)
-		freeassocids(aid);
-	if (cid != NULL)
-		freeconnids(cid);
 }
 
 int

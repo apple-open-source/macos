@@ -50,6 +50,8 @@ enum {
 
 #define MIN_SCHEDULE_TIME   (0.0)
 
+#define MIN_EVENT_LEEWAY    (5.0)
+
 extern uint32_t gDebugFlags;
 
 
@@ -308,31 +310,30 @@ __private_extern__ void AutoWakeCalendarChange(void)
  *   - ask loginwindow to put up UI warning user of impending shutdown
  */
 
-static void
-handleTimerExpiration(CFRunLoopTimerRef blah, void *info)
+static void handleTimerExpiration(void *info)
 {
     PowerEventBehavior  *behave = (PowerEventBehavior *)info;
-
     if(!behave) return;
-    
+
     if (behave->timer) {
-        CFRelease(behave->timer);
-        behave->timer = 0;
+        dispatch_release(behave->timer);
+        behave->timer = NULL;
     }
-        
+    
+
     if( behave->timerExpirationCallout ) {
         (*behave->timerExpirationCallout)(behave->currentEvent);
     }
-    
+
     if (behave->currentEvent)
        CFRelease(behave->currentEvent);
     behave->currentEvent = NULL;
 
     // Schedule the next event
     schedulePowerEvent(behave);
-    
+
     return;
-}    
+}
 
 /*
  * Required behaviors at event scheduling time:
@@ -346,16 +347,14 @@ handleTimerExpiration(CFRunLoopTimerRef blah, void *info)
 static void
 schedulePowerEvent(PowerEventBehavior *behave)
 {
-    static CFRunLoopTimerContext    tmr_context = {0,0,0,0,0};
     CFAbsoluteTime                  fire_time = 0.0;
     CFDictionaryRef                 upcoming = NULL;
     CFDateRef                       temp_date = NULL;
 
     if(behave->timer) 
     {
-       CFRunLoopTimerInvalidate(behave->timer);
-       CFRelease(behave->timer);
-       behave->timer = 0;
+        dispatch_release(behave->timer);
+        behave->timer = NULL;
     }
     
     // find upcoming time
@@ -381,21 +380,23 @@ schedulePowerEvent(PowerEventBehavior *behave)
     }
 
     behave->currentEvent = (CFDictionaryRef)upcoming;
-    tmr_context.info = (void *)behave;    
     
     temp_date = _getScheduledEventDate(upcoming);
     if(!temp_date) goto exit;
 
     fire_time = CFDateGetAbsoluteTime(temp_date);
 
-    behave->timer = CFRunLoopTimerCreate(0, fire_time, 0.0, 0, 
-                    0, handleTimerExpiration, &tmr_context);
+    int delta = (int)(fire_time - CFAbsoluteTimeGetCurrent());
+    if (delta) {
+        behave->timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _getPMMainQueue());
+        dispatch_source_set_event_handler(behave->timer, ^{
+            handleTimerExpiration(behave);
+        });
 
-    if(behave->timer)
-    {
-        CFRunLoopAddTimer( CFRunLoopGetCurrent(), 
-                            behave->timer, 
-                            kCFRunLoopDefaultMode);
+        if(behave->timer) {
+            dispatch_resume(behave->timer);
+            dispatch_source_set_timer(behave->timer, dispatch_walltime(DISPATCH_TIME_NOW, delta*NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
+        }
     }
 
 exit:
@@ -630,9 +631,20 @@ void wakeTimerExpiredCallout(CFDictionaryRef event __unused)
 #pragma mark -
 #pragma mark Sleep
 
-void sleepTimerExpiredCallout(CFDictionaryRef event __unused)
+void sleepTimerExpiredCallout(CFDictionaryRef event)
 {
-    _askNicelyThenSleepSystem();
+    CFDateRef now = CFDateCreate(0, CFAbsoluteTimeGetCurrent());
+    CFDateRef event_date = CFDateCreate(0, (CFDateGetAbsoluteTime(_getScheduledEventDate(event)) + MIN_EVENT_LEEWAY));
+    bool expired = false;
+    if (CFDateCompare(event_date, now, 0) == kCFCompareLessThan) {
+        INFO_LOG("timer fired for an event which is on %@. Time now is %@.", event_date, now);
+        expired = true;
+    }
+    CFRelease(now);
+    CFRelease(event_date);
+    if (!expired) {
+        _askNicelyThenSleepSystem();
+    }
 }
 
 /*

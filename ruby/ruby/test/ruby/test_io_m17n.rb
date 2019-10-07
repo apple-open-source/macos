@@ -1608,6 +1608,44 @@ EOT
     }
   end
 
+
+  def test_binmode_decode_universal_newline
+    with_tmpdir {
+      generate_file("t.txt", "a\n")
+      assert_raise(ArgumentError) {
+        open("t.txt", "rb", newline: :universal) {}
+      }
+    }
+  end
+
+  def test_default_mode_decode_universal_newline_gets
+    with_tmpdir {
+      generate_file("t.crlf", "a\r\nb\r\nc\r\n")
+      open("t.crlf", "r", newline: :universal) {|f|
+        assert_equal("a\n", f.gets)
+        assert_equal("b\n", f.gets)
+        assert_equal("c\n", f.gets)
+        assert_equal(nil, f.gets)
+      }
+
+      generate_file("t.cr", "a\rb\rc\r")
+      open("t.cr", "r", newline: :universal) {|f|
+        assert_equal("a\n", f.gets)
+        assert_equal("b\n", f.gets)
+        assert_equal("c\n", f.gets)
+        assert_equal(nil, f.gets)
+      }
+
+      generate_file("t.lf", "a\nb\nc\n")
+      open("t.lf", "r", newline: :universal) {|f|
+        assert_equal("a\n", f.gets)
+        assert_equal("b\n", f.gets)
+        assert_equal("c\n", f.gets)
+        assert_equal(nil, f.gets)
+      }
+    }
+  end
+
   def test_read_newline_conversion_with_encoding_conversion
     with_tmpdir {
       generate_file("t.utf8.crlf", "a\r\nb\r\n")
@@ -2083,12 +2121,14 @@ EOT
   end
 
   def test_bom_too_long_utfname
-    assert_separately([], <<-'end;') # do
+    assert_separately([], "#{<<~"begin;"}\n#{<<~'end;'}")
+    begin;
       assert_warn(/Unsupported encoding/) {
         open(IO::NULL, "r:bom|utf-" + "x" * 10000) {}
       }
     end;
-    assert_separately([], <<-'end;') # do
+    assert_separately([], "#{<<~"begin;"}\n#{<<~'end;'}")
+    begin;
       assert_warn(/Unsupported encoding/) {
         open(IO::NULL, encoding: "bom|utf-" + "x" * 10000) {}
       }
@@ -2103,18 +2143,45 @@ EOT
     }
     assert_equal(Encoding::US_ASCII, enc)
 
+    enc = nil
+    assert_warn(/BOM/) {
+      open(__FILE__, "r", encoding: "bom|us-ascii") {|f| enc = f.external_encoding}
+    }
+    assert_equal(Encoding::US_ASCII, enc)
+
+    enc = nil
     assert_warn(/BOM/) {
       open(IO::NULL, "w:bom|us-ascii") {|f| enc = f.external_encoding}
     }
     assert_equal(Encoding::US_ASCII, enc)
 
+    enc = nil
+    assert_warn(/BOM/) {
+      open(IO::NULL, "w", encoding: "bom|us-ascii") {|f| enc = f.external_encoding}
+    }
+    assert_equal(Encoding::US_ASCII, enc)
+
     tlhInganHol = "\u{f8e4 f8d9 f8d7 f8dc f8d0 f8db} \u{f8d6 f8dd f8d9}"
-    EnvUtil.with_default_external(Encoding::UTF_8) {
-      assert_warn(/#{tlhInganHol}/) {
+    assert_warn(/#{tlhInganHol}/) {
+      EnvUtil.with_default_internal(nil) {
         open(IO::NULL, "w:bom|#{tlhInganHol}") {|f| enc = f.external_encoding}
       }
     }
     assert_nil(enc)
+  end
+
+  def test_bom_non_reading
+    with_tmpdir {
+      enc = nil
+      assert_nothing_raised(IOError) {
+        open("test", "w:bom|utf-8") {|f|
+          enc = f.external_encoding
+          f.print("abc")
+        }
+      }
+      assert_equal(Encoding::UTF_8, enc)
+      assert_equal("abc", File.binread("test"))
+    }
   end
 
   def test_cbuf
@@ -2626,7 +2693,7 @@ EOT
         begin
           assert_in_out_err(args, "", out, err,
                             "#{bug11444}: #{test} in #{mode} mode",
-                            timeout: 1)
+                            timeout: 10)
         rescue Exception => e
           failure << e
         end

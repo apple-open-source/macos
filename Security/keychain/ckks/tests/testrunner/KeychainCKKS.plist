@@ -13,6 +13,10 @@
 			<string>CKKSTests</string>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/XCTests/com.apple.security/</string>
+			<key>ShowSubtestResults</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>1200</integer>
 			<key>Command</key>
 			<array>
 				<string>BATS_XCTEST_CMD CKKSTests.xctest</string>

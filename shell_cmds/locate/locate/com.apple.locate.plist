@@ -10,10 +10,8 @@
 	<array>
 		<string>/usr/libexec/locate.updatedb</string>
 	</array>
-	<key>LowPriorityIO</key>
-	<true/>
-	<key>Nice</key>
-	<integer>5</integer>
+	<key>ProcessType</key>
+	<string>Background</string>
 	<key>KeepAlive</key>
 	<dict>
 		<key>PathState</key>

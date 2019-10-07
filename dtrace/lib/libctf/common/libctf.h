@@ -42,8 +42,7 @@
 
 #pragma ident	"@(#)libctf.h	1.6	05/06/08 SMI"
 
-#include "darwin_shim.h"
-#include "ctf_api.h" /* In lieu of Solaris <sys/ctf_api.h> */
+#include <ctf_api.h>
 
 #ifdef	__cplusplus
 extern "C" {

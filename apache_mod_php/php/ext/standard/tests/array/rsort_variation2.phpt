@@ -5,7 +5,7 @@ Test rsort() function : usage variations - Pass different data types as $sort_fl
 --FILE--
 <?php
 /* Prototype  : bool rsort(array &$array_arg [, int $sort_flags])
- * Description: Sort an array in reverse order 
+ * Description: Sort an array in reverse order
  * Source code: ext/standard/array.c
  */
 
@@ -64,7 +64,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
@@ -73,7 +73,7 @@ $inputs = array(
 /*18*/ "SORT_NUMERIC",
        'SORT_NUMERIC',
        $heredoc,
-       
+
        // object data
 /*21*/ new classA(),
 
@@ -91,14 +91,14 @@ $inputs = array(
 $iterator = 1;
 foreach($inputs as $input) {
   echo "\n-- Iteration $iterator --\n";
-  
+
   //create temporary array in case rsort() works
   $temp = $array_arg;
-  
+
   var_dump( rsort($temp, $input) );
   var_dump($temp);
   $iterator++;
-  
+
   $temp = null;
 };
 
@@ -106,7 +106,6 @@ fclose($fp);
 
 echo "Done";
 ?>
-
 --EXPECTF--
 *** Testing rsort() : variation ***
 
@@ -337,7 +336,7 @@ array(5) {
 
 -- Iteration 16 --
 
-Warning: rsort() expects parameter 2 to be integer, string given in %s on line %d
+Warning: rsort() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 array(5) {
   [0]=>
@@ -354,7 +353,7 @@ array(5) {
 
 -- Iteration 17 --
 
-Warning: rsort() expects parameter 2 to be integer, string given in %s on line %d
+Warning: rsort() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 array(5) {
   [0]=>
@@ -371,7 +370,7 @@ array(5) {
 
 -- Iteration 18 --
 
-Warning: rsort() expects parameter 2 to be integer, string given in %s on line %d
+Warning: rsort() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 array(5) {
   [0]=>
@@ -388,7 +387,7 @@ array(5) {
 
 -- Iteration 19 --
 
-Warning: rsort() expects parameter 2 to be integer, string given in %s on line %d
+Warning: rsort() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 array(5) {
   [0]=>
@@ -405,7 +404,7 @@ array(5) {
 
 -- Iteration 20 --
 
-Warning: rsort() expects parameter 2 to be integer, string given in %s on line %d
+Warning: rsort() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 array(5) {
   [0]=>
@@ -422,7 +421,7 @@ array(5) {
 
 -- Iteration 21 --
 
-Warning: rsort() expects parameter 2 to be integer, object given in %s on line %d
+Warning: rsort() expects parameter 2 to be int, object given in %s on line %d
 bool(false)
 array(5) {
   [0]=>
@@ -469,7 +468,7 @@ array(5) {
 
 -- Iteration 24 --
 
-Warning: rsort() expects parameter 2 to be integer, resource given in %s on line %d
+Warning: rsort() expects parameter 2 to be int, resource given in %s on line %d
 bool(false)
 array(5) {
   [0]=>

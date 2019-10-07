@@ -103,7 +103,7 @@ static void rmslashes(char *rrpin, char *rrpout)
 	char *rrpoutstart;
 
 	*rrpout = *rrpin;
-	for (rrpoutstart = rrpout; *rrpin != '\0'; *rrpout++ = *rrpin++) {
+    for (rrpoutstart = rrpout; (*rrpin != '\0') && (rrpout - rrpoutstart < MAXPATHLEN-1); *rrpout++ = *rrpin++) {
 		/* Skip all double slashes. */
 		while (*rrpin == '/' && *(rrpin + 1) == '/')
 			 rrpin++;

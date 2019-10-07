@@ -31,7 +31,7 @@
 #include <mach/mach.h>
 #include <mach/mach_port.h>
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 #include <servers/bootstrap.h>
 #endif
 
@@ -115,7 +115,7 @@ __IOGetDefaultMasterPort()
 }
 
 kern_return_t
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 IOMasterPort( mach_port_t bootstrapPort, mach_port_t * masterPort )
 #else
 IOMasterPort( mach_port_t bootstrapPort __unused, mach_port_t * masterPort )
@@ -124,7 +124,7 @@ IOMasterPort( mach_port_t bootstrapPort __unused, mach_port_t * masterPort )
     kern_return_t result = KERN_SUCCESS;
     mach_port_t host_port = 0;
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
     /* Defaulting to bypass until <rdar://problem/13141176> is addressed */
     static boolean_t use_iokitsimd = 0;
     static dispatch_once_t once;
@@ -205,10 +205,21 @@ kern_return_t
 IOObjectRetain(
 	io_object_t	object )
 {
-    return( mach_port_mod_refs(mach_task_self(),
+	kern_return_t ret;
+
+    ret = mach_port_mod_refs(mach_task_self(),
                               object,
                               MACH_PORT_RIGHT_SEND,
-                              1 ));
+                              1);
+
+	if (KERN_INVALID_RIGHT == ret) {
+		ret = mach_port_mod_refs(mach_task_self(),
+								  object,
+								  MACH_PORT_RIGHT_DEAD_NAME,
+								  1);
+	}
+
+	return ret;
 }
 
 kern_return_t
@@ -228,7 +239,7 @@ _IOObjectGetClass(
     CFTypeRef overrideType  = NULL;
     boolean_t override      = false;
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
     if ( (options & kIOClassNameOverrideNone) == 0 ) {
         overrideType = IORegistryEntryCreateCFProperty(object, CFSTR(kIOClassNameOverrideKey), kCFAllocatorDefault, 0);
         
@@ -239,7 +250,7 @@ _IOObjectGetClass(
             CFRelease(overrideType);
         }
     }
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 
     return( override ? kIOReturnSuccess : io_object_get_class( object, className ));
 }
@@ -357,7 +368,7 @@ _IOObjectConformsTo(
 		object, (char *) className, &conforms ))
 	conforms = 0;
     
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
     if ( !conforms && ((options & kIOClassNameOverrideNone) == 0) ) {
         CFTypeRef overrideType = IORegistryEntryCreateCFProperty(object, CFSTR(kIOClassNameOverrideKey), kCFAllocatorDefault, 0);
         
@@ -372,7 +383,7 @@ _IOObjectConformsTo(
             CFRelease(overrideType);
         }
     }
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
     
     return( conforms );
 }

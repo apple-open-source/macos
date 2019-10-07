@@ -14,5 +14,7 @@
 	<true/>
 	<key>com.apple.private.ckks</key>
 	<true/>
+	<key>com.apple.CloudKeychainProxy.client</key>
+	<true/>
 </dict>
 </plist>

@@ -24,8 +24,10 @@
 #import <Foundation/Foundation.h>
 #import "keychain/ckks/CKKSGroupOperation.h"
 #if OCTAGON
+NS_ASSUME_NONNULL_BEGIN
 
 @class CKKSKeychainView;
+@class CKKSItem;
 
 @interface CKKSIncomingQueueOperation : CKKSResultOperation
 @property (weak) CKKSKeychainView* ckks;
@@ -40,6 +42,10 @@
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks errorOnClassAFailure:(bool)errorOnClassAFailure;
 
+// Use this to turn a CKKS item into a keychain dictionary suitable for keychain insertion
++ (NSDictionary* _Nullable)decryptCKKSItemToAttributes:(CKKSItem*)item error:(NSError**)error;
+
 @end
 
+NS_ASSUME_NONNULL_END
 #endif  // OCTAGON

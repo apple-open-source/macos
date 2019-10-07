@@ -62,8 +62,8 @@ Looks in the
 .I sections
 of
 .IR manpath " or " catpath .
-If the option is absent, its value is assumed to be
-.I  \'1 2 3 4 5 6 7 8 9 n l\'
+If the option is absent, the MANSECT env var will be used.  If it too
+is absent, the MANSECT setting in man.conf will be used.
 .TP 
 .BI -c " catpath"
 The preformatted manual pages located in

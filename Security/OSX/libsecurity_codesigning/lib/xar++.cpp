@@ -122,7 +122,9 @@ CFDataRef Xar::createPackageChecksum()
 		return NULL;
 	}
 
-	return makeCFData(data, length);
+	// xar_signature_copy_signed_data returns malloc'd data that can be used without copying
+	// but must be free'd properly later.
+	return makeCFDataMalloc(data, length);
 }
 
 SecCSDigestAlgorithm Xar::checksumDigestAlgorithm()

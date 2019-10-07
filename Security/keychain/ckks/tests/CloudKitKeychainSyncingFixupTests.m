@@ -51,8 +51,8 @@
     id mockFixups = OCMClassMock([CKKSFixups class]);
     OCMReject([[[mockFixups stub] ignoringNonObjectArgs] fixup:0 for:[OCMArg any]]);
 
-    [self expectCKModifyKeyRecords: 3 currentKeyPointerRecords: 3 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
+    [self performOctagonTLKUpload:self.ckksViews];
 
     [self.keychainView waitForKeyHierarchyReadiness];
     [self waitForCKModifications];
@@ -66,9 +66,8 @@
     id mockFixups = OCMClassMock([CKKSFixups class]);
     OCMExpect([mockFixups fixup:CKKSCurrentFixupNumber for:[OCMArg any]]);
 
-    // Test starts with nothing in database. We expect some sort of TLK/key hierarchy upload.
-    [self expectCKModifyKeyRecords: 3 currentKeyPointerRecords: 3 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
+    [self performOctagonTLKUpload:self.ckksViews];
 
     [self.keychainView waitForKeyHierarchyReadiness];
     [self waitForCKModifications];
@@ -78,6 +77,7 @@
     [self.keychainView halt];
 
     self.keychainView = [[CKKSViewManager manager] restartZone:self.keychainZoneID.zoneName];
+    [self beginSOSTrustedViewOperation:self.keychainView];
     [self.keychainView waitForKeyHierarchyReadiness];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
@@ -89,9 +89,8 @@
     // Due to <rdar://problem/34916549> CKKS: current item pointer CKRecord resurrection,
     // CKKS needs to refetch all current item pointers if it restarts and hasn't yet.
 
-    // Test starts with no keys in database. We expect some sort of TLK/key hierarchy upload.
-    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
+    [self performOctagonTLKUpload:self.ckksViews];
 
     [self.keychainView waitForKeyHierarchyReadiness];
     [self waitForCKModifications];
@@ -160,6 +159,7 @@
 
     // Bring CKKS back up
     self.keychainView = [[CKKSViewManager manager] restartZone:self.keychainZoneID.zoneName];
+    [self beginSOSTrustedViewOperation:self.keychainView];
     [self.keychainView waitForKeyHierarchyReadiness];
 
     [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
@@ -211,12 +211,10 @@
     // In <rdar://problem/34901306> CKKSTLK: TLKShare CloudKit upload/download on TLK change, trust set addition,
     // we added the TLKShare CKRecord type. Upgrading devices must fetch all such records when they come online for the first time.
 
-    // Test starts with nothing in database. We expect some sort of TLK/key hierarchy upload.
     // Note that this already does TLK sharing, and so technically doesn't need to do the fixup, but we'll fix that later.
-    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
+    [self performOctagonTLKUpload:self.ckksViews];
 
-    [self.keychainView waitForKeyHierarchyReadiness];
     [self waitForCKModifications];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
@@ -230,11 +228,12 @@
 
     CKKSSOSSelfPeer* remotePeer1 = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"remote-peer1"
                                                                 encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
-                                                                   signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]];
+                                                                   signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
+                                                                     viewList:self.managedViewList];
 
-    CKKSTLKShare* share = [CKKSTLKShare share:self.keychainZoneKeys.tlk
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.keychainZoneKeys.tlk
                                            as:remotePeer1
-                                           to:self.currentSelfPeer
+                                           to:self.mockSOSAdapter.selfPeer
                                         epoch:-1
                                      poisoned:0
                                         error:&error];
@@ -253,8 +252,11 @@
     [self holdCloudKitFetches];
 
     self.keychainView = [[CKKSViewManager manager] restartZone:self.keychainZoneID.zoneName];
+    [self beginSOSTrustedViewOperation:self.keychainView];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForFixupOperation] wait:20*NSEC_PER_SEC], "Key state should become waitforfixup");
+
+    self.silentFetchesAllowed = true;
     [self releaseCloudKitFetchHold];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
 
@@ -266,7 +268,7 @@
     // and check that the share made it
     [self.keychainView dispatchSync:^bool {
         NSError* blockerror = nil;
-        CKKSTLKShare* localshare = [CKKSTLKShare tryFromDatabaseFromCKRecordID:shareCKRecord.recordID error:&blockerror];
+        CKKSTLKShareRecord* localshare = [CKKSTLKShareRecord tryFromDatabaseFromCKRecordID:shareCKRecord.recordID error:&blockerror];
         XCTAssertNil(blockerror, "Shouldn't error finding new TLKShare record in database");
         XCTAssertNotNil(localshare, "Should be able to find a new TLKShare record in database");
         return true;
@@ -277,8 +279,8 @@
     // In <rdar://problem/35540228> Server Generated CloudKit "Manatee Identity Lost"
     // items could be deleted from the local keychain after CKKS believed they were already synced, and therefore wouldn't resync
 
-    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
+    [self performOctagonTLKUpload:self.ckksViews];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should become 'ready'");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
@@ -331,6 +333,7 @@
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
 
     self.keychainView = [[CKKSViewManager manager] restartZone:self.keychainZoneID.zoneName];
+    [self beginSOSTrustedViewOperation:self.keychainView];
     self.keychainView.holdFixupOperation = [CKKSResultOperation named:@"hold-fixup" withBlock:^{}];
 
     self.accountStatus = CKAccountStatusAvailable;
@@ -347,6 +350,67 @@
 
     // And the item should be back!
     [self checkGenericPassword: @"data" account: @"first"];
+}
+
+- (void)testFixupResaveDeviceStateEntries {
+    // In <rdar://problem/50612776>, we introduced a new field to DeviceStateEntries. But, Peace couldn't change the DB schema to match newer Yukons
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putFakeOctagonOnlyDeviceStatusInCloudKit:self.keychainZoneID];
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
+
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should become 'ready'");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+
+    // Modify the sqlite DB to simulate how earlier verions would save these records
+    [self.keychainView dispatchSync:^bool {
+        NSError* error = nil;
+        CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry fromDatabase:self.remoteSOSOnlyPeer.peerID zoneID:self.keychainZoneID error:&error];
+        XCTAssertNil(error, "Should have no error pulling CKKSDeviceStateEntry from database");
+
+        XCTAssertNotNil(cdse.octagonPeerID, "CDSE should have an octagon peer ID");
+        XCTAssertNotNil(cdse.octagonStatus, "CDSE should have an octagon status");
+        cdse.octagonPeerID = nil;
+        cdse.octagonStatus = nil;
+
+        [cdse saveToDatabase:&error];
+        XCTAssertNil(error, "No error saving modified CDSE back to database");
+        return true;
+    }];
+
+    // Tear down the CKKS object
+    [self.keychainView halt];
+    [self setFixupNumber:CKKSFixupFetchTLKShares ckks:self.keychainView];
+
+    // Now, restart CKKS
+    self.silentFetchesAllowed = false;
+    self.accountStatus = CKAccountStatusCouldNotDetermine;
+    [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
+
+    self.keychainView = [[CKKSViewManager manager] restartZone:self.keychainZoneID.zoneName];
+    [self beginSOSTrustedViewOperation:self.keychainView];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+
+    [self.keychainView.lastFixupOperation waitUntilFinished];
+    XCTAssertNil(self.keychainView.lastFixupOperation.error, "Shouldn't have been any error performing fixup");
+
+    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+
+    // And all CDSEs should have an octagon peer ID again!
+    [self.keychainView dispatchSync:^bool {
+        NSError* error = nil;
+        CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry fromDatabase:self.remoteSOSOnlyPeer.peerID zoneID:self.keychainZoneID error:&error];
+        XCTAssertNil(error, "Should have no error pulling CKKSDeviceStateEntry from database");
+
+        XCTAssertNotNil(cdse.octagonPeerID, "CDSE should have an octagon peer ID");
+        XCTAssertNotNil(cdse.octagonStatus, "CDSE should have an octagon status");
+        return false;
+    }];
 }
 
 @end

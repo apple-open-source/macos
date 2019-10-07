@@ -33,7 +33,7 @@ $s = shm_attach($key);
 shm_remove($s);
 
 ?>
---EXPECTF--	
+--EXPECTF--
 Warning: shm_detach() expects exactly 1 parameter, 0 given in %s003.php on line %d
 NULL
 
@@ -46,12 +46,12 @@ bool(false)
 
 Warning: shm_remove(): supplied resource is not a valid sysvshm resource in %s003.php on line %d
 
-Warning: shm_detach() expects parameter 1 to be resource, integer given in %s003.php on line %d
+Warning: shm_detach() expects parameter 1 to be resource, int given in %s003.php on line %d
 NULL
 
-Warning: shm_detach() expects parameter 1 to be resource, integer given in %s003.php on line %d
+Warning: shm_detach() expects parameter 1 to be resource, int given in %s003.php on line %d
 NULL
 
-Warning: shm_detach() expects parameter 1 to be resource, integer given in %s003.php on line %d
+Warning: shm_detach() expects parameter 1 to be resource, int given in %s003.php on line %d
 NULL
 Done

@@ -219,8 +219,7 @@ kern_return_t ocsp_server_trustSettingsRead(
 	/* take read lock (blocks writers but not other readers) */
 	StReadWriteLock _(gTrustSettingsLock, StReadWriteLock::Read);
 	char path[MAXPATHLEN + 1];
-
-	trustSettingsPath(auditToken, domain, path);
+	trustSettingsPath(auditToken, (SecTrustSettingsDomain)domain, path);
 	unsigned char *fileData = NULL;
 	unsigned fileDataLen;
 	if(readFile(path, &fileData, &fileDataLen)) {
@@ -355,7 +354,7 @@ kern_return_t ocsp_server_trustSettingsWrite(
 
 	char path[MAXPATHLEN + 1];
 
-	trustSettingsPath(auditToken, domain, path);
+	trustSettingsPath(auditToken, (SecTrustSettingsDomain)domain, path);
 
 	/*
 	 * Looks like we're good to go.

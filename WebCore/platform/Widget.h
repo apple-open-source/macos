@@ -50,10 +50,6 @@ typedef NSView *PlatformWidget;
 #elif PLATFORM(WIN)
 typedef struct HWND__* HWND;
 typedef HWND PlatformWidget;
-#elif PLATFORM(GTK)
-typedef struct _GtkWidget GtkWidget;
-typedef struct _GtkContainer GtkContainer;
-typedef GtkWidget* PlatformWidget;
 #else
 typedef void* PlatformWidget;
 #endif
@@ -140,7 +136,7 @@ public:
 
     WEBCORE_EXPORT void removeFromParent();
     WEBCORE_EXPORT virtual void setParent(ScrollView* view);
-    ScrollView* parent() const { return m_parent.get(); }
+    WEBCORE_EXPORT ScrollView* parent() const;
     FrameView* root() const;
 
     virtual void handleEvent(Event&) { }
@@ -150,10 +146,14 @@ public:
     WEBCORE_EXPORT IntRect convertToRootView(const IntRect&) const;
     IntRect convertFromRootView(const IntRect&) const;
 
+    FloatRect convertToRootView(const FloatRect&) const;
     FloatRect convertFromRootView(const FloatRect&) const;
 
     IntPoint convertToRootView(const IntPoint&) const;
     IntPoint convertFromRootView(const IntPoint&) const;
+
+    FloatPoint convertToRootView(const FloatPoint&) const;
+    FloatPoint convertFromRootView(const FloatPoint&) const;
 
     // It is important for cross-platform code to realize that Mac has flipped coordinates.  Therefore any code
     // that tries to convert the location of a rect using the point-based convertFromContainingWindow will end
@@ -186,15 +186,15 @@ public:
     // Virtual methods to convert points to/from the containing ScrollView
     WEBCORE_EXPORT virtual IntRect convertToContainingView(const IntRect&) const;
     WEBCORE_EXPORT virtual IntRect convertFromContainingView(const IntRect&) const;
+    WEBCORE_EXPORT virtual FloatRect convertToContainingView(const FloatRect&) const;
     WEBCORE_EXPORT virtual FloatRect convertFromContainingView(const FloatRect&) const;
     WEBCORE_EXPORT virtual IntPoint convertToContainingView(const IntPoint&) const;
     WEBCORE_EXPORT virtual IntPoint convertFromContainingView(const IntPoint&) const;
+    WEBCORE_EXPORT virtual FloatPoint convertToContainingView(const FloatPoint&) const;
+    WEBCORE_EXPORT virtual FloatPoint convertFromContainingView(const FloatPoint&) const;
 
 private:
     void init(PlatformWidget); // Must be called by all Widget constructors to initialize cross-platform data.
-
-    void releasePlatformWidget();
-    void retainPlatformWidget();
 
     // These methods are used to convert from the root widget to the containing window,
     // which has behavior that may differ between platforms (e.g. Mac uses flipped window coordinates).
@@ -205,14 +205,15 @@ private:
     static IntPoint convertFromContainingWindowToRoot(const Widget* rootWidget, const IntPoint&);
 
 private:
+    bool m_selfVisible { false };
+    bool m_parentVisible { false };
+
     WeakPtr<ScrollView> m_parent;
 #if !PLATFORM(COCOA)
     PlatformWidget m_widget;
 #else
     RetainPtr<NSView> m_widget;
 #endif
-    bool m_selfVisible;
-    bool m_parentVisible;
 
     IntRect m_frame; // Not used when a native widget exists.
 };
@@ -226,23 +227,7 @@ inline PlatformWidget Widget::platformWidget() const
 
 inline void Widget::setPlatformWidget(PlatformWidget widget)
 {
-    if (widget != m_widget) {
-        releasePlatformWidget();
-        m_widget = widget;
-        retainPlatformWidget();
-    }
-}
-
-#endif
-
-#if !PLATFORM(GTK)
-
-inline void Widget::releasePlatformWidget()
-{
-}
-
-inline void Widget::retainPlatformWidget()
-{
+    m_widget = widget;
 }
 
 #endif

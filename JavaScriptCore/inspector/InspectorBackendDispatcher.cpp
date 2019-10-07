@@ -270,14 +270,6 @@ void BackendDispatcher::reportProtocolError(Optional<long> relatedRequestId, Com
     m_protocolErrors.append(std::tuple<CommonErrorCode, String>(errorCode, errorMessage));
 }
 
-void BackendDispatcher::reportProtocolError(WTF::DeprecatedOptional<long> relatedRequestId, CommonErrorCode errorCode, const String& errorMessage)
-{
-    if (relatedRequestId)
-        reportProtocolError(relatedRequestId.value(), errorCode, errorMessage);
-    else
-        reportProtocolError(WTF::nullopt, errorCode, errorMessage);
-}
-
 template<typename T>
 T BackendDispatcher::getPropertyValue(JSON::Object* object, const String& name, bool* out_optionalValueFound, T defaultValue, std::function<bool(JSON::Value&, T&)> asMethod, const char* typeName)
 {
@@ -289,19 +281,19 @@ T BackendDispatcher::getPropertyValue(JSON::Object* object, const String& name, 
 
     if (!object) {
         if (!out_optionalValueFound)
-            reportProtocolError(BackendDispatcher::InvalidParams, String::format("'params' object must contain required parameter '%s' with type '%s'.", name.utf8().data(), typeName));
+            reportProtocolError(BackendDispatcher::InvalidParams, makeString("'params' object must contain required parameter '", name, "' with type '", typeName, "'."));
         return result;
     }
 
     auto findResult = object->find(name);
     if (findResult == object->end()) {
         if (!out_optionalValueFound)
-            reportProtocolError(BackendDispatcher::InvalidParams, String::format("Parameter '%s' with type '%s' was not found.", name.utf8().data(), typeName));
+            reportProtocolError(BackendDispatcher::InvalidParams, makeString("Parameter '", name, "' with type '", typeName, "' was not found."));
         return result;
     }
 
     if (!asMethod(*findResult->value, result)) {
-        reportProtocolError(BackendDispatcher::InvalidParams, String::format("Parameter '%s' has wrong type. It must be '%s'.", name.utf8().data(), typeName));
+        reportProtocolError(BackendDispatcher::InvalidParams, makeString("Parameter '", name, "' has wrong type. It must be '", typeName, "'."));
         return result;
     }
 

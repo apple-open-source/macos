@@ -275,7 +275,7 @@ IdentityCursor::~IdentityCursor() throw()
 {
 }
 
-CFDataRef
+CFDataRef CF_RETURNS_RETAINED
 IdentityCursor::pubKeyHashForSystemIdentity(CFStringRef domain)
 {
 	StLock<Mutex>_(mMutex);

@@ -49,6 +49,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Ask AKS if the user's keybag is locked
 + (bool)queryAKSLocked;
+
+// Call this to get a CKKSLockStateTracker to use. This tracker will likely be tracking real AKS.
++ (CKKSLockStateTracker*)globalTracker;
 @end
 
 NS_ASSUME_NONNULL_END

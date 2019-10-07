@@ -30,6 +30,7 @@
 #include <Security/Authorization.h>
 #include <Security/SecBase.h>
 #include <dispatch/dispatch.h>
+#include <security_utilities/debugging.h>
 
 //
 // In a tool launched via AuthorizationCopyPrivilegedReference, retrieve a copy
@@ -38,6 +39,7 @@
 OSStatus AuthorizationCopyPrivilegedReference(AuthorizationRef *authorization,
 	AuthorizationFlags flags)
 {
+	secalert("AuthorizationCopyPrivilegedReference is deprecated and functionality will be removed in macOS 10.14 - please update your application");
 	// flags are currently reserved
 	if (flags != 0)
 		return errAuthorizationInvalidFlags;

@@ -1,0 +1,7 @@
+//
+//  Chess.xcconfig
+//  MBChess
+//
+//  Created by Udayan Kale on 5/11/18.
+//
+#include "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/PlatformSupport.xcconfig"

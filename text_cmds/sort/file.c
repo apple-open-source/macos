@@ -26,7 +26,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/usr.bin/sort/file.c 298089 2016-04-15 22:31:22Z pfg $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -38,7 +38,14 @@ __FBSDID("$FreeBSD: head/usr.bin/sort/file.c 298089 2016-04-15 22:31:22Z pfg $")
 #if defined(SORT_THREADS)
 #include <pthread.h>
 #endif
+#ifndef __APPLE__
 #include <semaphore.h>
+#else
+#include <mach/mach_init.h>
+#include <mach/mach_error.h>
+#include <mach/semaphore.h>
+#include <mach/task.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -113,7 +120,11 @@ static LIST_HEAD(CLEANABLE_FILES,CLEANABLE_FILE) tmp_files;
  * We use semaphore here because it is signal-safe, according to POSIX.
  * And semaphore does not require pthread library.
  */
+#ifndef __APPLE__
 static sem_t tmp_files_sem;
+#else
+static semaphore_t tmp_files_sem;
+#endif
 
 static void mt_sort(struct sort_list *list,
     int (*sort_func)(void *, size_t, size_t,
@@ -127,7 +138,17 @@ init_tmp_files(void)
 {
 
 	LIST_INIT(&tmp_files);
+#ifndef __APPLE__
 	sem_init(&tmp_files_sem, 0, 1);
+#else
+	{
+		mach_port_t self = mach_task_self();
+		kern_return_t ret = semaphore_create(self, &tmp_files_sem, SYNC_POLICY_FIFO, 1);
+		if (ret != KERN_SUCCESS) {
+	  		err(2,NULL);
+		}
+	}
+#endif
 }
 
 /*
@@ -138,12 +159,20 @@ tmp_file_atexit(const char *tmp_file)
 {
 
 	if (tmp_file) {
+#ifndef __APPLE__
 		sem_wait(&tmp_files_sem);
+#else
+		semaphore_wait(tmp_files_sem);
+#endif
 		struct CLEANABLE_FILE *item =
 		    sort_malloc(sizeof(struct CLEANABLE_FILE));
 		item->fn = sort_strdup(tmp_file);
 		LIST_INSERT_HEAD(&tmp_files, item, files);
+#ifndef __APPLE__
 		sem_post(&tmp_files_sem);
+#else
+		semaphore_signal(tmp_files_sem);
+#endif
 	}
 }
 
@@ -155,12 +184,20 @@ clear_tmp_files(void)
 {
 	struct CLEANABLE_FILE *item;
 
+#ifndef __APPLE__
 	sem_wait(&tmp_files_sem);
+#else
+	semaphore_wait(tmp_files_sem);
+#endif
 	LIST_FOREACH(item,&tmp_files,files) {
 		if ((item) && (item->fn))
 			unlink(item->fn);
 	}
+#ifndef __APPLE__
 	sem_post(&tmp_files_sem);
+#else
+	semaphore_signal(tmp_files_sem);
+#endif
 }
 
 /*
@@ -173,7 +210,11 @@ file_is_tmp(const char* fn)
 	bool ret = false;
 
 	if (fn) {
+#ifndef __APPLE__
 		sem_wait(&tmp_files_sem);
+#else
+		semaphore_wait(tmp_files_sem);
+#endif
 		LIST_FOREACH(item,&tmp_files,files) {
 			if ((item) && (item->fn))
 				if (strcmp(item->fn, fn) == 0) {
@@ -181,7 +222,11 @@ file_is_tmp(const char* fn)
 					break;
 				}
 		}
+#ifndef __APPLE__
 		sem_post(&tmp_files_sem);
+#else
+		semaphore_signal(tmp_files_sem);
+#endif
 	}
 
 	return (ret);
@@ -637,7 +682,6 @@ file_reader_init(const char *fsrc)
 #else
 			flags = MAP_NOCORE | MAP_NOSYNC;
 #endif
-			addr = MAP_FAILED;
 
 			fd = open(fsrc, O_RDONLY);
 			if (fd < 0)
@@ -1298,7 +1342,11 @@ sort_list_to_file(struct sort_list *list, const char *outfile)
 
 #if defined(SORT_THREADS)
 /* semaphore to count threads */
+#ifndef __APPLE__
 static sem_t mtsem;
+#else
+static semaphore_t mtsem;
+#endif
 
 /* current system sort function */
 static int (*g_sort_func)(void *, size_t, size_t,
@@ -1315,7 +1363,11 @@ mt_sort_thread(void* arg)
 	g_sort_func(list->list, list->count, sizeof(struct sort_list_item *),
 	    (int(*)(const void *, const void *)) list_coll);
 
+#ifndef __APPLE__
 	sem_post(&mtsem);
+#else
+	semaphore_signal(mtsem);
+#endif
 
 	return (arg);
 }
@@ -1557,7 +1609,17 @@ mt_sort(struct sort_list *list,
 		}
 
 		/* init threads counting semaphore */
+#ifndef __APPLE__
 		sem_init(&mtsem, 0, 0);
+#else
+		{
+		  mach_port_t self = mach_task_self();
+		  kern_return_t ret = semaphore_create(self, &mtsem, SYNC_POLICY_FIFO, 0);
+		  if (ret != KERN_SUCCESS) {
+		    err(2,NULL);
+		  }
+		}
+#endif
 
 		/* start threads */
 		for (i = 0; i < nthreads; ++i) {
@@ -1565,7 +1627,11 @@ mt_sort(struct sort_list *list,
 			pthread_attr_t attr;
 
 			pthread_attr_init(&attr);
+#ifndef __APPLE__
 			pthread_attr_setdetachstate(&attr, PTHREAD_DETACHED);
+#else
+			pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+#endif
 
 			for (;;) {
 				int res = pthread_create(&pth, &attr,
@@ -1574,7 +1640,11 @@ mt_sort(struct sort_list *list,
 				if (res >= 0)
 					break;
 				if (errno == EAGAIN) {
+#ifndef __APPLE__
 					pthread_yield();
+#else
+					sched_yield();
+#endif
 					continue;
 				}
 				err(2, NULL);
@@ -1585,10 +1655,21 @@ mt_sort(struct sort_list *list,
 
 		/* wait for threads completion */
 		for (i = 0; i < nthreads; ++i) {
+#ifndef __APPLE__
 			sem_wait(&mtsem);
+#else
+		  semaphore_wait(mtsem);
+#endif
 		}
 		/* destroy the semaphore - we do not need it anymore */
+#ifndef __APPLE__
 		sem_destroy(&mtsem);
+#else
+		{
+		  mach_port_t self = mach_task_self();
+		  semaphore_destroy(self,mtsem);
+		}
+#endif
 
 		/* merge sorted sub-lists to the file */
 		merge_list_parts(parts, nthreads, fn);

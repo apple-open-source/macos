@@ -1,0 +1,12 @@
+--- php/configure.orig	2019-03-06 11:27:36.000000000 -0800
++++ php/configure	2019-03-06 09:24:16.000000000 -0800
+@@ -6536,7 +6536,7 @@
+     if test -x "$APU_CONFIG"; then
+         MH_BUNDLE_FLAGS="`$APU_CONFIG --ldflags --link-ld --libs` $MH_BUNDLE_FLAGS"
+     fi
+-    MH_BUNDLE_FLAGS="-bundle -bundle_loader $APXS_HTTPD $MH_BUNDLE_FLAGS"
++    MH_BUNDLE_FLAGS="-bundle -bundle_loader $APXS_HTTPD -L$SDKROOT/usr/local/libressl/lib $MH_BUNDLE_FLAGS"
+ 
+   PHP_VAR_SUBST="$PHP_VAR_SUBST MH_BUNDLE_FLAGS"
+ 
+

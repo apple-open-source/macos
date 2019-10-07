@@ -110,7 +110,8 @@ int BLMountContainerVolume(BLContextPtr context, const char *bsdName, char *mntP
     if (access(vartmpLoc, W_OK) < 0) {
         contextprintf(context, kBLLogLevelError, "Temporary directory \"%s\" is not writable.\n", vartmpLoc);
     }
-    snprintf(mntPoint, mntPtStrSize, "%sbless.XXXX", vartmpLoc);
+	realpath(vartmpLoc, fulldevpath);
+    snprintf(mntPoint, mntPtStrSize, "%sbless.XXXX", fulldevpath);
     if (!mkdtemp(mntPoint)) {
         contextprintf(context, kBLLogLevelError,  "Can't create mountpoint %s\n", mntPoint);
     }

@@ -86,7 +86,7 @@ const DecodedExten *DecodedItem::findDecodedExt(
 		}
 	}
 	if(rtnExt != NULL) {
-		/* sucessful return  */
+		/* successful return  */
 		if(index == 0) {
 			numFields = found;
 		}

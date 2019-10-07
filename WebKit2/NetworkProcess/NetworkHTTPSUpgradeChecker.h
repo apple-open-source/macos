@@ -25,11 +25,10 @@
 
 #pragma once
 
+#include <atomic>
+#include <wtf/Forward.h>
 #include <wtf/UniqueRef.h>
-
-namespace WTF {
-class WorkQueue;
-}
+#include <wtf/WorkQueue.h>
 
 namespace WebCore {
 class SQLiteDatabase;
@@ -45,7 +44,7 @@ namespace WebKit {
 class NetworkHTTPSUpgradeChecker {
 public:
     NetworkHTTPSUpgradeChecker();
-    NO_RETURN_DUE_TO_ASSERT ~NetworkHTTPSUpgradeChecker();
+    ~NetworkHTTPSUpgradeChecker();
 
     // Returns `true` after internal setup is successfully completed. If there is an error with setup, or if setup is in-progress, it will return `false`.
     bool didSetupCompleteSuccessfully() const { return m_didSetupCompleteSuccessfully; };
@@ -54,9 +53,9 @@ public:
     void query(String&&, PAL::SessionID, CompletionHandler<void(bool)>&&);
 
 private:
-    Ref<WTF::WorkQueue> m_workQueue;
-    WTF::UniqueRef<WebCore::SQLiteDatabase> m_database;
-    WTF::UniqueRef<WebCore::SQLiteStatement> m_statement;
+    Ref<WorkQueue> m_workQueue;
+    std::unique_ptr<WebCore::SQLiteDatabase> m_database;
+    std::unique_ptr<WebCore::SQLiteStatement> m_statement;
     std::atomic<bool> m_didSetupCompleteSuccessfully { false };
 };
 

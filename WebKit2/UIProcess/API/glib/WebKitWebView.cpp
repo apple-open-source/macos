@@ -100,17 +100,17 @@ using namespace WebCore;
 
 /**
  * SECTION: WebKitWebView
- * @Short_description: The central class of the WebKit2GTK+ API
+ * @Short_description: The central class of the WPE WebKit and WebKitGTK APIs
  * @Title: WebKitWebView
  *
- * #WebKitWebView is the central class of the WebKit2GTK+ API. It is
- * responsible for managing the drawing of the content and forwarding
- * of events. You can load any URI into the #WebKitWebView or a data
- * string. With #WebKitSettings you can control various aspects of the
- * rendering and loading of the content.
+ * #WebKitWebView is the central class of the WPE WebKit and WebKitGTK
+ * APIs. It is responsible for managing the drawing of the content and
+ * forwarding of events. You can load any URI into the #WebKitWebView or
+ * a data string. With #WebKitSettings you can control various aspects
+ * of the rendering and loading of the content.
  *
- * Note that #WebKitWebView is scrollable by itself, so you don't need
- * to embed it in a #GtkScrolledWindow.
+ * Note that in WebKitGTK, #WebKitWebView is scrollable by itself, so
+ * you don't need to embed it in a #GtkScrolledWindow.
  */
 
 enum {
@@ -246,6 +246,7 @@ struct _WebKitWebViewPrivate {
     CString title;
     CString customTextEncoding;
     CString activeURI;
+    bool isActiveURIChangeBlocked;
     bool isLoading;
     bool isEphemeral;
     bool isControlledByAutomation;
@@ -262,7 +263,7 @@ struct _WebKitWebViewPrivate {
     GRefPtr<GMainLoop> modalLoop;
 
     GRefPtr<WebKitHitTestResult> mouseTargetHitTestResult;
-    WebEvent::Modifiers mouseTargetModifiers;
+    OptionSet<WebEvent::Modifier> mouseTargetModifiers;
 
     GRefPtr<WebKitFindController> findController;
 
@@ -355,10 +356,14 @@ private:
 
     void willChangeActiveURL() override
     {
+        if (m_webView->priv->isActiveURIChangeBlocked)
+            return;
         g_object_freeze_notify(G_OBJECT(m_webView));
     }
     void didChangeActiveURL() override
     {
+        if (m_webView->priv->isActiveURIChangeBlocked)
+            return;
         m_webView->priv->activeURI = getPage(m_webView).pageLoadState().activeURL().utf8();
         g_object_notify(G_OBJECT(m_webView), "uri");
         g_object_thaw_notify(G_OBJECT(m_webView));
@@ -422,6 +427,11 @@ private:
                 return item.id == id;
             });
         }
+    }
+
+    void willStartLoad(WKWPE::View&) override
+    {
+        webkitWebViewWillStartLoad(m_webView);
     }
 
     WebKitWebView* m_webView;
@@ -501,6 +511,12 @@ static void userAgentChanged(WebKitSettings* settings, GParamSpec*, WebKitWebVie
 }
 
 #if PLATFORM(GTK)
+static void enableBackForwardNavigationGesturesChanged(WebKitSettings* settings, GParamSpec*, WebKitWebView* webView)
+{
+    gboolean enable = webkit_settings_get_enable_back_forward_navigation_gestures(settings);
+    webkitWebViewBaseSetEnableBackForwardNavigationGesture(WEBKIT_WEB_VIEW_BASE(webView), enable);
+}
+
 static void webkitWebViewUpdateFavicon(WebKitWebView* webView, cairo_surface_t* favicon)
 {
     WebKitWebViewPrivate* priv = webView->priv;
@@ -581,10 +597,16 @@ static void webkitWebViewUpdateSettings(WebKitWebView* webView)
     page.setPreferences(*webkitSettingsGetPreferences(settings));
     page.setCanRunModal(webkit_settings_get_allow_modal_dialogs(settings));
     page.setCustomUserAgent(String::fromUTF8(webkit_settings_get_user_agent(settings)));
+#if PLATFORM(GTK)
+    enableBackForwardNavigationGesturesChanged(settings, nullptr, webView);
+#endif
 
     g_signal_connect(settings, "notify::allow-modal-dialogs", G_CALLBACK(allowModalDialogsChanged), webView);
     g_signal_connect(settings, "notify::zoom-text-only", G_CALLBACK(zoomTextOnlyChanged), webView);
     g_signal_connect(settings, "notify::user-agent", G_CALLBACK(userAgentChanged), webView);
+#if PLATFORM(GTK)
+    g_signal_connect(settings, "notify::enable-back-forward-navigation-gestures", G_CALLBACK(enableBackForwardNavigationGesturesChanged), webView);
+#endif
 }
 
 static void webkitWebViewDisconnectSettingsSignalHandlers(WebKitWebView* webView)
@@ -596,6 +618,9 @@ static void webkitWebViewDisconnectSettingsSignalHandlers(WebKitWebView* webView
     g_signal_handlers_disconnect_by_func(settings, reinterpret_cast<gpointer>(allowModalDialogsChanged), webView);
     g_signal_handlers_disconnect_by_func(settings, reinterpret_cast<gpointer>(zoomTextOnlyChanged), webView);
     g_signal_handlers_disconnect_by_func(settings, reinterpret_cast<gpointer>(userAgentChanged), webView);
+#if PLATFORM(GTK)
+    g_signal_handlers_disconnect_by_func(settings, reinterpret_cast<gpointer>(enableBackForwardNavigationGesturesChanged), webView);
+#endif
 }
 
 #if PLATFORM(GTK)
@@ -2051,6 +2076,27 @@ WebPageProxy& webkitWebViewGetPage(WebKitWebView* webView)
     return getPage(webView);
 }
 
+void webkitWebViewWillStartLoad(WebKitWebView* webView)
+{
+    // Ignore the active URI changes happening before WEBKIT_LOAD_STARTED. If they are not user-initiated,
+    // they could be a malicious attempt to trick users by loading an invalid URI on a trusted host, with the load
+    // intended to stall, or perhaps be repeated. If we trust the URI here and display it to the user, then the user's
+    // only indication that something is wrong would be a page loading indicator. If the load request is not
+    // user-initiated, we must not trust it until WEBKIT_LOAD_COMMITTED. If the load is triggered by API
+    // request, then the active URI is already the pending API request URL, so the blocking is harmless and the
+    // client application will still see the URI update immediately. Otherwise, the URI update will be delayed a bit.
+    webView->priv->isActiveURIChangeBlocked = true;
+
+    // This is called before NavigationClient::didStartProvisionalNavigation(), the page load state hasn't been committed yet.
+    auto& pageLoadState = getPage(webView).pageLoadState();
+    if (pageLoadState.isFinished())
+        return;
+
+    GUniquePtr<GError> error(g_error_new_literal(WEBKIT_NETWORK_ERROR, WEBKIT_NETWORK_ERROR_CANCELLED, _("Load request cancelled")));
+    webkitWebViewLoadFailed(webView, pageLoadState.isProvisional() ? WEBKIT_LOAD_STARTED : WEBKIT_LOAD_COMMITTED,
+        webView->priv->activeURI.data(), error.get());
+}
+
 void webkitWebViewLoadChanged(WebKitWebView* webView, WebKitLoadEvent loadEvent)
 {
     WebKitWebViewPrivate* priv = webView->priv;
@@ -2063,15 +2109,24 @@ void webkitWebViewLoadChanged(WebKitWebView* webView, WebKitLoadEvent loadEvent)
         webkitWebViewCancelAuthenticationRequest(webView);
         priv->loadingResourcesMap.clear();
         priv->mainResource = nullptr;
+        webView->priv->isActiveURIChangeBlocked = false;
         break;
-#if PLATFORM(GTK)
     case WEBKIT_LOAD_COMMITTED: {
+        auto activeURL = getPage(webView).pageLoadState().activeURL().utf8();
+        // Active URL is trusted now. If it's different to our active URI, due to the
+        // update block before WEBKIT_LOAD_STARTED, we update it here to be in sync
+        // again with the page load state.
+        if (activeURL != priv->activeURI) {
+            priv->activeURI = activeURL;
+            g_object_notify(G_OBJECT(webView), "uri");
+        }
+#if PLATFORM(GTK)
         WebKitFaviconDatabase* database = webkit_web_context_get_favicon_database(priv->context.get());
         GUniquePtr<char> faviconURI(webkit_favicon_database_get_favicon_uri(database, priv->activeURI.data()));
         webkitWebViewUpdateFaviconURI(webView, faviconURI.get());
+#endif
         break;
     }
-#endif
     case WEBKIT_LOAD_FINISHED:
         webkitWebViewCancelAuthenticationRequest(webView);
         break;
@@ -2278,7 +2333,7 @@ void webkitWebViewMakePermissionRequest(WebKitWebView* webView, WebKitPermission
     g_signal_emit(webView, signals[PERMISSION_REQUEST], 0, request, &returnValue);
 }
 
-void webkitWebViewMouseTargetChanged(WebKitWebView* webView, const WebHitTestResultData& hitTestResult, WebEvent::Modifiers modifiers)
+void webkitWebViewMouseTargetChanged(WebKitWebView* webView, const WebHitTestResultData& hitTestResult, OptionSet<WebEvent::Modifier> modifiers)
 {
 #if PLATFORM(GTK)
     webkitWebViewBaseSetTooltipArea(WEBKIT_WEB_VIEW_BASE(webView), hitTestResult.elementBoundingBox);
@@ -2763,7 +2818,7 @@ guint64 webkit_web_view_get_page_id(WebKitWebView* webView)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
 
-    return getPage(webView).pageID();
+    return getPage(webView).pageID().toUInt64();
 }
 
 /**
@@ -3968,74 +4023,6 @@ void webkitWebViewWebProcessTerminated(WebKitWebView* webView, WebKitWebProcessT
 #endif
     g_signal_emit(webView, signals[WEB_PROCESS_TERMINATED], 0, reason);
 }
-
-#if PLATFORM(GTK)
-/**
- * webkit_web_view_set_background_color:
- * @web_view: a #WebKitWebView
- * @rgba: a #GdkRGBA
- *
- * Sets the color that will be used to draw the @web_view background before
- * the actual contents are rendered. Note that if the web page loaded in @web_view
- * specifies a background color, it will take precedence over the @rgba color.
- * By default the @web_view background color is opaque white.
- * Note that the parent window must have a RGBA visual and
- * #GtkWidget:app-paintable property set to %TRUE for backgrounds colors to work.
- *
- * <informalexample><programlisting>
- * static void browser_window_set_background_color (BrowserWindow *window,
- *                                                  const GdkRGBA *rgba)
- * {
- *     WebKitWebView *web_view;
- *     GdkScreen *screen = gtk_window_get_screen (GTK_WINDOW (window));
- *     GdkVisual *rgba_visual = gdk_screen_get_rgba_visual (screen);
- *
- *     if (!rgba_visual)
- *          return;
- *
- *     gtk_widget_set_visual (GTK_WIDGET (window), rgba_visual);
- *     gtk_widget_set_app_paintable (GTK_WIDGET (window), TRUE);
- *
- *     web_view = browser_window_get_web_view (window);
- *     webkit_web_view_set_background_color (web_view, rgba);
- * }
- * </programlisting></informalexample>
- *
- * Since: 2.8
- */
-void webkit_web_view_set_background_color(WebKitWebView* webView, const GdkRGBA* rgba)
-{
-    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
-    g_return_if_fail(rgba);
-
-    Color color(*rgba);
-    auto& page = getPage(webView);
-    if (page.backgroundColor() == color)
-        return;
-
-    page.setBackgroundColor(color);
-    page.setDrawsBackground(color == Color::white);
-}
-
-/**
- * webkit_web_view_get_background_color:
- * @web_view: a #WebKitWebView
- * @rgba: (out): a #GdkRGBA to fill in with the background color
- *
- * Gets the color that is used to draw the @web_view background before
- * the actual contents are rendered.
- * For more information see also webkit_web_view_set_background_color()
- *
- * Since: 2.8
- */
-void webkit_web_view_get_background_color(WebKitWebView* webView, GdkRGBA* rgba)
-{
-    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
-    g_return_if_fail(rgba);
-
-    *rgba = getPage(webView).backgroundColor();
-}
-#endif // PLATFORM(GTK)
 
 /*
  * webkit_web_view_is_editable:

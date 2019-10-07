@@ -353,7 +353,6 @@ SecCmsCipherContextStart(PRArenaPool *poolp, SecSymmetricKeyRef key, SECAlgorith
 	default:
 	    // @@@ Implement rc5 params stuff.
 	    goto loser;
-	    break;
 	}
     }
     else
@@ -420,7 +419,6 @@ SecCmsCipherContextStart(PRArenaPool *poolp, SecSymmetricKeyRef key, SECAlgorith
 	default:
 	    // @@@ Implement rc5 params stuff.
 	    goto loser;
-	    break;
 	}
     }
 

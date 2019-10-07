@@ -24,8 +24,9 @@
 #if __OBJC2__
 
 #import "SFAnalyticsSQLiteStore.h"
-#import "SFAnalyticsDefines.h"
-#import "debugging.h"
+#import "NSDate+SFAnalytics.h"
+#import "Analytics/SFAnalyticsDefines.h"
+#import "utilities/debugging.h"
 
 NSString* const SFAnalyticsColumnEventType = @"event_type";
 NSString* const SFAnalyticsColumnDate = @"timestamp";
@@ -196,7 +197,31 @@ NSString* const SFAnalyticsUploadDate = @"upload_date";
     if (![self tryToOpenDatabase]) {
         return [NSArray new];
     }
-    return [self deserializedRecords:[self select:@[SFAnalyticsColumnData] from:SFAnalyticsTableAllEvents]];
+
+    [self begin];
+
+    NSMutableArray<NSDictionary *> *all = [NSMutableArray new];
+
+    NSArray<NSDictionary *> *hard = [self select:@[SFAnalyticsColumnDate, SFAnalyticsColumnData] from:SFAnalyticsTableHardFailures];
+    [all addObjectsFromArray:hard];
+    hard = nil;
+
+    NSArray<NSDictionary *> *soft = [self select:@[SFAnalyticsColumnDate, SFAnalyticsColumnData] from:SFAnalyticsTableSoftFailures];
+    [all addObjectsFromArray:soft];
+    soft = nil;
+
+    NSArray<NSDictionary *> *notes = [self select:@[SFAnalyticsColumnDate, SFAnalyticsColumnData] from:SFAnalyticsTableNotes];
+    [all addObjectsFromArray:notes];
+    notes = nil;
+
+    [self end];
+
+    [all sortUsingComparator:^NSComparisonResult(NSDictionary  *_Nonnull obj1, NSDictionary *_Nonnull obj2) {
+        NSDate *date1 = obj1[SFAnalyticsColumnDate];
+        NSDate *date2 = obj2[SFAnalyticsColumnDate];
+        return [date1 compare:date2];
+    }];
+    return [self deserializedRecords:all];
 }
 
 - (NSArray*)samples
@@ -207,19 +232,26 @@ NSString* const SFAnalyticsUploadDate = @"upload_date";
     return [self select:@[SFAnalyticsColumnSampleName, SFAnalyticsColumnSampleValue] from:SFAnalyticsTableSamples];
 }
 
-- (void)addEventDict:(NSDictionary*)eventDict toTable:(NSString*)table
+- (void)addEventDict:(NSDictionary*)eventDict toTable:(NSString*)table timestampBucket:(SFAnalyticsTimestampBucket)bucket
 {
     if (![self tryToOpenDatabase]) {
         return;
     }
+
+    NSTimeInterval timestamp = [[NSDate date] timeIntervalSince1970WithBucket:bucket];
     NSError* error = nil;
     NSData* serializedRecord = [NSPropertyListSerialization dataWithPropertyList:eventDict format:NSPropertyListBinaryFormat_v1_0 options:0 error:&error];
     if(!error && serializedRecord) {
-        [self insertOrReplaceInto:table values:@{SFAnalyticsColumnDate : @([[NSDate date] timeIntervalSince1970]), SFAnalyticsColumnData : serializedRecord}];
+        [self insertOrReplaceInto:table values:@{SFAnalyticsColumnDate : @(timestamp), SFAnalyticsColumnData : serializedRecord}];
     }
     if(error && !serializedRecord) {
         secerror("Couldn't serialize failure record: %@", error);
     }
+}
+
+- (void)addEventDict:(NSDictionary*)eventDict toTable:(NSString*)table
+{
+    [self addEventDict:eventDict toTable:table timestampBucket:SFAnalyticsTimestampBucketSecond];
 }
 
 - (void)addSample:(NSNumber*)value forName:(NSString*)name
@@ -263,7 +295,6 @@ NSString* const SFAnalyticsUploadDate = @"upload_date";
     [self deleteFrom:SFAnalyticsTableHardFailures where:@"id >= 0" bindings:nil];
     [self deleteFrom:SFAnalyticsTableSoftFailures where:@"id >= 0" bindings:nil];
     [self deleteFrom:SFAnalyticsTableSamples where:@"id >= 0" bindings:nil];
-    [self deleteFrom:SFAnalyticsTableAllEvents where:@"id >= 0" bindings:nil];
 }
 
 @end

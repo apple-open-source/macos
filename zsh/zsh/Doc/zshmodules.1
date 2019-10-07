@@ -1,4 +1,4 @@
-.TH "ZSHMODULES" "1" "December 11, 2016" "zsh 5\&.3"
+.TH "ZSHMODULES" "1" "February 3, 2019" "zsh 5\&.7\&.1"
 .SH "NAME"
 zshmodules \- zsh loadable modules
 .\" Yodl file: Zsh/modules.yo
@@ -65,6 +65,9 @@ Access to external files via a special associative array\&.
 .TP
 \fBzsh/mathfunc\fP
 Standard scientific functions for use in mathematical evaluations\&.
+.TP
+\fBzsh/nearcolor\fP
+Map colours to the nearest colour in the available palette\&.
 .TP
 \fBzsh/newuser\fP
 Arrange for files for new users to be installed\&.
@@ -381,7 +384,10 @@ matches beginning with `\fBm\fP\&' in groups whose names  begin with
 .PP
 Note also that all patterns are tried in the order in which they
 appear in the parameter value until the first one matches which is
-then used\&.
+then used\&.  Patterns may be matched against completions, descriptions
+(possibly with spaces appended for padding), or lines consisting of a
+completion followed by a description\&.  For consistent coloring it may be
+necessary to use more than one pattern or a pattern with backreferences\&.
 .PP
 When printing a match, the code prints the value of \fBlc\fP, the value
 for the file\-type or the last matching specification with a `\fB*\fP\&',
@@ -826,8 +832,11 @@ various parameters\&.
 .PD 0
 \fBzcurses\fP \fBtimeout\fP \fItargetwin\fP \fIintval\fP
 .TP
-.PD
+.PD 0
 \fBzcurses\fP \fBquerychar\fP \fItargetwin\fP [ \fIparam\fP ]
+.TP
+.PD
+\fBzcurses\fP \fBresize\fP \fIheight\fP \fIwidth\fP [ \fBendwin\fP | \fBnosave\fP | \fBendwin_nosave\fP ]
 Manipulate curses windows\&.  All uses of this command should be
 bracketed by `\fBzcurses init\fP\&' to initialise use of curses, and
 `\fBzcurses end\fP\&' to end it; omitting `\fBzcurses end\fP' can cause
@@ -1030,6 +1039,21 @@ second is the color pair in the usual \fIfg_col\fP\fB/\fP\fIbg_col\fP
 notation, or \fB0\fP if color is not supported\&.  Any attributes other than
 color that apply to the character, as set with the subcommand \fBattr\fP,
 appear as additional elements\&.
+.PP
+The subcommand \fBresize\fP resizes \fBstdscr\fP and all windows to given
+dimensions (windows that stick out from the new dimensions are resized
+down)\&. The underlying curses extension (\fBresize_term call\fP) can be
+unavailable\&. To verify, zeroes can be used for \fIheight\fP and
+\fIwidth\fP\&. If the result of the subcommand is \fB0\fP, resize_term is
+available (\fB2\fP otherwise)\&. Tests show that resizing can be normally
+accomplished by calling \fBzcurses end\fP and \fBzcurses refresh\fP\&. The
+\fBresize\fP subcommand is provided for versatility\&. Multiple system
+configurations have been checked and \fBzcurses end\fP and \fBzcurses
+refresh\fP are still needed for correct terminal state after resize\&. To
+invoke them with \fBresize\fP, use \fIendwin\fP argument\&.  Using
+\fInosave\fP argument will cause new terminal state to not be saved
+internally by \fBzcurses\fP\&. This is also provided for versatility and
+should normally be not needed\&.
 .RE
 .PP
 .SS "Parameters"
@@ -1076,11 +1100,15 @@ The \fBzsh/datetime\fP module makes available one builtin command:
 .PD 0
 .TP
 .PD 0
-\fBstrftime\fP [ \fB\-s\fP \fIscalar\fP ] \fIformat\fP \fIepochtime\fP 
+\fBstrftime\fP [ \fB\-s\fP \fIscalar\fP ] \fIformat\fP [ \fIepochtime\fP [ \fInanoseconds\fP ] ] 
 .TP
 .PD
 \fBstrftime\fP \fB\-r\fP [ \fB\-q\fP ] [ \fB\-s\fP \fIscalar\fP ] \fIformat\fP \fItimestring\fP 
-Output the date denoted by \fIepochtime\fP in the \fIformat\fP specified\&.
+Output the date in the \fIformat\fP specified\&.  With no \fIepochtime\fP, the
+current system date/time is used; optionally, \fIepochtime\fP may be used to
+specify the number of seconds since the epoch, and \fInanoseconds\fP may
+additionally be used to specify the number of nanoseconds past the second
+(otherwise that number is assumed to be 0)\&.
 See \fIstrftime\fP(3) for details\&.  The zsh extensions described in
 the section EXPANSION OF PROMPT SEQUENCES in \fIzshmisc\fP(1) are also available\&.
 .RS
@@ -1209,6 +1237,13 @@ local scope (function) ends\&.  Note that a readonly parameter may not be
 explicitly unset, so the only way to unset a global parameter created with
 `\fBztie \-r\fP\&' is to use `\fBzuntie \-u\fP'\&.
 .RE
+.TP
+\fBzgdbmpath\fP \fIparametername\fP
+Put path to database file assigned to \fIparametername\fP into \fBREPLY\fP
+scalar\&.
+.TP
+\fBzgdbm_tied\fP
+Array holding names of all tied parameters\&.
 .PP
 The fields of an associative array tied to GDBM are neither cached nor
 otherwise stored in memory, they are read from or written to the database
@@ -1556,9 +1591,9 @@ The following functions take a single floating point argument: \fBacos\fP,
 \fBacosh\fP, \fBasin\fP, \fBasinh\fP, \fBatan\fP, \fBatanh\fP, \fBcbrt\fP, \fBceil\fP,
 \fBcos\fP, \fBcosh\fP, \fBerf\fP, \fBerfc\fP, \fBexp\fP, \fBexpm1\fP, \fBfabs\fP,
 \fBfloor\fP, \fBgamma\fP, \fBj0\fP, \fBj1\fP, \fBlgamma\fP, \fBlog\fP, \fBlog10\fP,
-\fBlog1p\fP, \fBlogb\fP, \fBsin\fP, \fBsinh\fP, \fBsqrt\fP, \fBtan\fP, \fBtanh\fP,
-\fBy0\fP, \fBy1\fP\&.  The \fBatan\fP function can optionally take a second
-argument, in which case it behaves like the C function \fBatan2\fP\&.
+\fBlog1p\fP, \fBlog2\fP, \fBlogb\fP, \fBsin\fP, \fBsinh\fP, \fBsqrt\fP, \fBtan\fP,
+\fBtanh\fP, \fBy0\fP, \fBy1\fP\&.  The \fBatan\fP function can optionally take a
+second argument, in which case it behaves like the C function \fBatan2\fP\&.
 The \fBilogb\fP function takes a single floating point argument, but
 returns an integer\&.
 .PP
@@ -1627,6 +1662,45 @@ the seeds used for the two initialisations, so for more secure uses, you
 should generate your own 12\-byte seed\&.  The third call returns to the same
 sequence of random numbers used in the first call, unaffected by the
 intervening \fBrand48()\fP\&.
+.SH "THE ZSH/NEARCOLOR MODULE"
+.\" Yodl file: Zsh/mod_nearcolor.yo
+
+The \fBzsh/nearcolor\fP module replaces colours specified as hex triplets
+with the nearest colour in the 88 or 256 colour palettes that are widely
+used by terminal emulators\&.  By default, 24\-bit true colour escape codes
+are generated when colours are specified using hex triplets\&.  These are
+not supported by all terminals\&.  The purpose of this module is to make
+it easier to define colour preferences in a form that can work across a
+range of terminal emulators\&.
+.PP
+Aside from the default colour, the ANSI standard for terminal escape
+codes provides for eight colours\&. The bright attribute brings this to
+sixteen\&. These basic colours are commonly used in terminal applications
+due to being widely supported\&. Expanded 88 and 256 colour palettes are
+also common and, while the first sixteen colours vary somewhat between
+terminals and configurations, these add a generally consistent and
+predictable set of colours\&.
+.PP
+In order to use the \fBzsh/nearcolor\fP module, it only needs to be
+loaded\&. Thereafter, whenever a colour is specified using a hex triplet,
+it will be compared against each of the available colours and the
+closest will be selected\&. The first sixteen colours are never matched in
+this process due to being unpredictable\&.
+.PP
+It isn\&'t possible to reliably detect support for true colour in the
+terminal emulator\&. It is therefore recommended to be selective in
+loading the \fBzsh/nearcolor\fP module\&. For example, the following
+checks the \fBCOLORTERM\fP environment variable:
+.PP
+.RS
+.nf
+\fB[[ $COLORTERM = *(24bit|truecolor)* ]] || zmodload zsh/nearcolor\fP
+.fi
+.RE
+.PP
+Note that some terminals accept the true color escape codes but map
+them internally to a more limited palette in a similar manner to the
+\fBzsh/nearcolor\fP module\&.
 .SH "THE ZSH/NEWUSER MODULE"
 .\" Yodl file: Zsh/mod_newuser.yo
 
@@ -1708,6 +1782,30 @@ removes the definition for the function named by the key\&.
 .TP
 \fBdis_functions\fP
 Like \fBfunctions\fP but for disabled functions\&.
+.TP
+\fBfunctions_source\fP
+This readonly associative array maps names of enabled functions to the
+name of the file containing the source of the function\&.
+.RS
+.PP
+For an autoloaded function that has already been loaded, or marked for
+autoload with an absolute path, or that has had its path resolved with
+`\fBfunctions \-r\fP\&', this is the file found for autoloading, resolved
+to an absolute path\&.
+.PP
+For a function defined within the body of a script or sourced file,
+this is the name of that file\&.  In this case, this is the exact path
+originally used to that file, which may be a relative path\&.
+.PP
+For any other function, including any defined at an interactive prompt or
+an autoload function whose path has not yet been resolved, this is
+the empty string\&.  However, the hash element is reported as defined
+just so long as the function is present:  the keys to this hash are
+the same as those to \fB$funcions\fP\&.
+.RE
+.TP
+\fBdis_functions_source\fP
+Like \fBfunctions_source\fP but for disabled functions\&.
 .TP
 \fBbuiltins\fP
 This associative array gives information about the builtin commands
@@ -1852,11 +1950,14 @@ defined\&.  The line number is the line where the `\fBfunction\fP \fIname\fP\&'
 or `\fIname\fP \fB()\fP\&' started\&.  In the case of an autoloaded
 function  the line number is reported as zero\&.
 The format of each element is \fIfilename\fP\fB:\fP\fIlineno\fP\&.
+.RS
+.PP
 For functions autoloaded from a file in native zsh format, where only the
 body of the function occurs in the file, or for files that have been
 executed by the \fBsource\fP or `\fB\&.\fP\&' builtins, the trace information is
-shown as \fIfilename\fP\fB:\fP\fI0\fP, since the entire file is the definition\&.
-.RS
+shown as \fIfilename\fP\fB:\fP\fI0\fP, since the entire file is the
+definition\&.  The source file name is resolved to an absolute path when
+the function is loaded or the path to it otherwise resolved\&.
 .PP
 Most users will be interested in the information in the
 \fBfuncfiletrace\fP array instead\&.
@@ -2393,7 +2494,10 @@ named files; no list of file names is allowed in this case\&.
 .TP
 \fB\-F\fP \fIfmt\fP
 Supplies a \fBstrftime\fP (see \fIstrftime\fP(3)) string for the
-formatting of the time elements\&.  The \fB\-s\fP option is implied\&.
+formatting of the time elements\&.  The format string supports all of the
+zsh extensions described in
+the section EXPANSION OF PROMPT SEQUENCES in \fIzshmisc\fP(1)\&.
+The \fB\-s\fP option is implied\&.
 .TP
 \fB\-g\fP
 Show the time elements in the GMT time zone\&.  The
@@ -2402,7 +2506,7 @@ Show the time elements in the GMT time zone\&.  The
 \fB\-l\fP
 List the names of the type elements (to standard
 output or an array as appropriate) and return immediately;
-options other than \fB\-A\fP and arguments are ignored\&.
+arguments, and options other than \fB\-A\fP, are ignored\&.
 .TP
 \fB\-L\fP
 Perform an \fBlstat\fP (see \fIlstat\fP(2)) rather than a \fBstat\fP
@@ -2730,6 +2834,11 @@ Returns the process ID of the current process, even in subshells\&.  Compare
 Returns the process ID of the parent of the current process, even in
 subshells\&.  Compare \fB$PPID\fP, which returns the process ID of the parent
 of the main shell process\&.
+.TP
+\fBprocsubstpid\fP
+Returns the process ID of the last process started for process
+substitution, i\&.e\&. the \fB<(\fP\fI\&.\&.\&.\fP\fB)\fP and
+\fB>(\fP\fI\&.\&.\&.\fP\fB)\fP expansions\&.
 .RE
 .SH "THE ZSH/NET/TCP MODULE"
 .\" Yodl file: Zsh/mod_tcp.yo
@@ -3626,7 +3735,8 @@ The \fB\-w\fP option can be used to send the to command \fIname\fP the given
 .PP
 If no \fIstring\fP is provided, the standard input is copied to the
 pseudo\-terminal; this may stop before copying the full input if the
-pseudo\-terminal is non\-blocking\&.
+pseudo\-terminal is non\-blocking\&.  The exact input is always copied:
+the \fB\-n\fP option is not applied\&.
 .PP
 Note that the command under the pseudo\-terminal sees this input as if it
 were typed, so beware when sending special tty driver characters such as
@@ -3944,13 +4054,14 @@ printed below each other\&.  All strings without a colon are left
 unchanged and all strings with an empty \fIright\fP string have the
 trailing colon removed\&.  In both cases the lengths of the strings
 are not used to determine how the other strings are to be aligned\&.
+A colon in the \fIleft\fP string can be escaped with a backslash\&.
 The resulting strings are stored in the \fIarray\fP\&.
 .RE
 .TP
 \fBzregexparse\fP
 This implements some internals of the \fB_regex_arguments\fP function\&.
 .TP
-\fBzparseopts\fP [ \fB\-D\fP \fB\-K\fP \fB\-M\fP \fB\-E\fP ] [ \fB\-a\fP \fIarray\fP ] [ \fB\-A\fP \fIassoc\fP ] \fIspec\fP \&.\&.\&.
+\fBzparseopts\fP [ \fB\-D\fP \fB\-K\fP \fB\-M\fP \fB\-E\fP ] [ \fB\-a\fP \fIarray\fP ] [ \fB\-A\fP \fIassoc\fP ] [ \fB\-\fP ] \fIspec\fP \&.\&.\&.
 This builtin simplifies the parsing of options in positional parameters,
 i\&.e\&. the set of arguments given by \fB$*\fP\&.  Each \fIspec\fP describes one
 option and must be of the form `\fIopt\fP[\fB=\fP\fIarray\fP]\&'\&.  If an option

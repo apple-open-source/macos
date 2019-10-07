@@ -158,7 +158,8 @@ setpmmapfiles(Param pm, HashTable ht)
 
 		setpmmapfile(v.pm, ztrdup(getstrvalue(&v)));
 	    }
-    deleteparamtable(ht);
+    if (ht != pm->u.hash)
+	deleteparamtable(ht);
 }
 
 /**/
@@ -198,7 +199,7 @@ get_contents(char *fname)
     if ((fd = open(fname, O_RDONLY | O_NOCTTY)) >= 0) {
 	LinkList ll;
 
-	if ((ll = readoutput(fd, 1)))
+	if ((ll = readoutput(fd, 1, 0)))
 	    val = peekfirst(ll);
     }
 #endif /* USE_MMAP */

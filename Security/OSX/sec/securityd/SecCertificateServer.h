@@ -34,7 +34,7 @@
 
 #include <Security/SecCertificate.h>
 
-#include <securityd/policytree.h>
+#include "securityd/policytree.h"
 
 
 typedef struct SecCertificateVC *SecCertificateVCRef;
@@ -133,6 +133,9 @@ bool SecCertificatePathVCIsRevocationRequiredForCertificateAtIndex(SecCertificat
                                                                    CFIndex ix);
 void SecCertificatePathVCSetRevocationRequiredForCertificateAtIndex(SecCertificatePathVCRef certificatePath,
                                                                     CFIndex ix);
+void SecCertificatePathVCSetRevocationReasonForCertificateAtIndex(SecCertificatePathVCRef certificatePath,
+                                                                  CFIndex ix, CFNumberRef revocationReason);
+CFNumberRef SecCertificatePathVCGetRevocationReason(SecCertificatePathVCRef certificatePath); // returns first revocation reason found
 
 bool SecCertificatePathVCCheckedIssuers(SecCertificatePathVCRef certificatePath);
 void SecCertificatePathVCSetCheckedIssuers(SecCertificatePathVCRef certificatePath, bool checked);

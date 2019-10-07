@@ -39,7 +39,9 @@
 // system
 #import <assert.h>
 #import <IOKit/IOKitLib.h>
+#if !defined(__LP64__)
 #import <IOKit/iokitmig.h>
+#endif
 #import <System/libkern/OSCrossEndian.h>
 
 #define IOFIREWIRELIBCOMMANDIMP_INTERFACE \

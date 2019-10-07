@@ -25,7 +25,7 @@
  */
 
 #include <TargetConditionals.h>
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
+#if TARGET_OS_OSX
 
 #include "SecNssCoder.h"
 #include <Security/cssmerr.h>

@@ -126,6 +126,24 @@ mergebegin:
 
 # 13896386: temporarily use "ditto" instead of "ln -f"
 MERGEBIN = /usr/bin
+
+# This causes us to replace the versioner stub with the default version of perl
+# in the case where we only ship one version of perl.
+ifeq ($(OTHERVERSIONS),)
+mergebin:
+	cd $(OBJROOT)/$(DEFAULT)/DSTROOT$(MERGEBIN) && \
+	for f in *; do \
+	    if echo $$f | grep -q "[^0-9]$(DEFAULT)"; then \
+                true; \
+	    else \
+	        fv=`echo $$f | sed -E 's/(\.[^.]*)?$$/'"$(DEFAULT)&/"` && \
+	        ditto $$f $(DSTROOT)$(MERGEBIN)/$$f && \
+	        ln -f $(DSTROOT)$(MERGEBIN)/$$f $(DSTROOT)$(MERGEBIN)/$$fv; \
+	    fi || exit 1; \
+	done
+$(OBJROOT)/wrappers:
+	touch $(OBJROOT)/wrappers
+else
 TEMPWRAPPER = $(MERGEBIN)/.versioner
 mergebin: $(OBJROOT)/wrappers
 	$(MY_CC) $(MY_CFLAGS) $(VERSIONERFLAGS) $(VERSIONER_C) -o $(DSTROOT)$(TEMPWRAPPER)
@@ -165,6 +183,7 @@ $(OBJROOT)/wrappers:
 	    done || exit 1; \
 	done
 	rm -f $(DSTROOT)$(MERGEBIN)/$(DUMMY)
+endif
 
 versionerdir:
 	install -d $(DSTROOT)$(VERSIONERDIR)

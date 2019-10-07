@@ -1,5 +1,8 @@
 #!/usr/bin/env ruby
 
+# Gets the most recent revision of a file in a VCS-agnostic way.
+# Used by Doxygen, Makefiles and merger.rb.
+
 require 'optparse'
 
 # this file run with BASERUBY, which may be older than 1.9, so no
@@ -86,7 +89,8 @@ else
     begin
       puts @output[*vcs.get_revisions(arg)]
     rescue => e
-      warn "#{File.basename(Program)}: #{e.message}" unless @suppress_not_found
+      next if @suppress_not_found and VCS::NotFoundError === e
+      warn "#{File.basename(Program)}: #{e.message}"
       ok = false
     end
   end

@@ -1,11 +1,11 @@
 ##
 # Makefile for Apple Release Control (Archive Extraction & Patch)
 #
-# Copyright (c) 2005-2008 Apple Inc.
+# Copyright (c) 2005-2010 Apple Inc.
 #
 # @APPLE_LICENSE_HEADER_START@
 # 
-# Portions Copyright (c) 2005-2008 Apple Inc.  All Rights Reserved.
+# Portions Copyright (c) 2005-2009 Apple Inc.  All Rights Reserved.
 # This file contains Original Code and/or Modifications of Original Code
 # as defined in and that are subject to the Apple Public Source License
 # Version 2.0 (the 'License'). You may not use this file except in
@@ -25,6 +25,8 @@
 # This header must be included after GNUsource.make or Common.make
 #
 # Set these variables as needed before including this file:
+#  GnuAfterInstall - project-specific post-install targets. This MUST be defined
+#                    for the AEP post-install helper targets to be invoked.
 #  AEP_Version - open source project version, used in archive name and
 #                extracted directory
 #  AEP_Patches - list of file names (from patches subdirectory) to
@@ -34,19 +36,24 @@
 #                       this would be necessary if the project should be built
 #                       in the extracted source directory because the real
 #                       sources (with configure) are located there.
+#  Extra_Configure_Environment - additional environment variables only needed for
+#                                the invocation of configure; this would be
+#                                necessary if the project requires extra build flags
+#                                but doesn't want to override everything defined by
+#                                configure.
 #
 # The following variables will be defined if empty:
 #  AEP_Project           [ $(Project)                                ]
-#  AEP_Version           [ <no default>                              ]
 #  AEP_ProjVers          [ $(AEP_Project)-$(AEP_Version)             ]
 #  AEP_Filename          [ $(AEP_ProjVers).tar.[bg]z*                ]
 #  AEP_ExtractDir        [ $(AEP_ProjVers)                           ]
-#  AEP_Patches           [ <list of patch file to apply>             ]
 #  AEP_LicenseFile       [ $(SRCROOT)/$(ProjectName).txt             ]
 #  AEP_ConfigDir         [ $(ETCDIR)                                 ]
+#  AEP_Binaries          [ all files in DSTROOT of type "application/octet-stream" ]
 #
 # Additionally, the following variables may also be defined before
 # including this file:
+#  AEP_Binaries - list of binaries to archive to SYMROOT and strip in DSTROOT
 #  AEP_LaunchdConfigs - launchd config files in SRCROOT to be installed
 #                       into LAUNCHDDIR
 #  AEP_StartupItem - startup items name to be installed into
@@ -55,8 +62,14 @@
 #  AEP_ManPages - man pages provided outside the extracted project
 #  AEP_ConfigFiles - standard set of configuration files; ".default" versions
 #                    will be created as well
+#  Dependencies - list of subprojects which should be built before main project.
+#
+# Finally, a new target, archive-strip-binaries, is made available to copy
+# AEP_Binaries to SYMROOT and strip the versions in DSTROOT. To leverage this
+# target, it should be defined as the first item in GnuAfterInstall.
 ##
 
+#GnuAfterInstall += archive-strip-binaries
 GnuAfterInstall += install-startup-files install-open-source-files
 GnuAfterInstall += install-top-level-man-pages install-configuration-files
 
@@ -88,9 +101,6 @@ endif
 ifndef AEP_ExtractDir
     AEP_ExtractDir	= $(AEP_ProjVers)
 endif
-ifndef AEP_Patches
-    AEP_Patches		=
-endif
 
 ifndef AEP_LicenseFile
     AEP_LicenseFile	= $(SRCROOT)/$(ProjectName).txt
@@ -104,6 +114,10 @@ ifndef AEP_ConfigDir
     AEP_ConfigDir	= $(ETCDIR)
 endif
 
+ifndef AEP_Binaries
+    AEP_Binaries	= $(subst ./,/,$(shell cd $(DSTROOT) && $(FIND) . -type f -perm +0111 -exec $(SHELL) -c 'test \"`file -b --mime-type {}`\" = \"application/octet-stream\"' \; -print))
+endif
+
 #AEP_ExtractRoot		= $(SRCROOT)
 AEP_ExtractRoot		= $(OBJROOT)
 
@@ -113,8 +127,13 @@ AEP_ExtractRoot		= $(OBJROOT)
 GNUConfigStamp		:= $(ConfigStamp)
 Sources			= $(AEP_ExtractRoot)/$(AEP_Project)
 
-ifeq ($(AEP_BuildInSources),YES)
-    BuildDirectory	= $(Sources)
+# Redefine Configure to allow extra "helper" environment variables.
+# This logic was moved to GNUSource.make in 10A251, so only override the setting
+# if building on an earlier system. (Make_Flags is only defined with that patch.)
+ifndef Make_Flags
+ifdef Extra_Configure_Environment
+      Configure		:= $(Extra_Configure_Environment) $(Configure)
+endif
 endif
 
 
@@ -130,10 +149,18 @@ SYSTEM_STARTUP_DIR	= $(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/StartupItems
 #
 # AEP targets
 #
-.PHONY: extract-source install-open-source-files install-startup-files install-top-level-man-pages
+.PHONY: extract-source build-dependencies archive-strip-binaries
+.PHONY: install-open-source-files install-startup-files
+.PHONY: install-top-level-man-pages install-configuration-files
 
-$(GNUConfigStamp): extract-source
+ifdef ConfigStamp
+$(GNUConfigStamp): extract-source build-dependencies
+else
+build:: extract-source build-dependencies
+endif
 
+# Because GNUSource's ConfigStamp's rules are processed before this file is included,
+# it's easier to copy the sources to the build directory and work from there.
 extract-source::
 ifeq ($(AEP),YES)
 	@echo "Extracting source for $(Project)..."
@@ -142,9 +169,53 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(Sources)
 	$(_v) $(RM) $(GNUConfigStamp)
 	$(MV) $(AEP_ExtractRoot)/$(AEP_ExtractDir) $(Sources)
+ifdef AEP_Patches
 	for patchfile in $(AEP_Patches); do \
 	   echo "Applying $$patchfile..."; \
-	   cd $(Sources) && patch -lp1 < $(SRCROOT)/patches/$$patchfile; \
+	   cd $(Sources) && $(PATCH) -lp1 < $(SRCROOT)/patches/$$patchfile; \
+	done
+endif
+ifeq ($(AEP_BuildInSources),YES)
+ifneq ($(Sources),$(BuildDirectory))
+	@echo "Copying sources to build directory..."
+	$(_v) $(CP) $(Sources) $(BuildDirectory)
+endif
+endif
+else
+	@echo "Source extraction for $(Project) skipped!"
+endif
+
+# Common.make's recurse doesn't reset SRCROOT and misdefines Sources
+build-dependencies:
+ifdef Dependencies
+	$(_v) for Dependency in $(Dependencies); do			\
+		$(MKDIR) $(SYMROOT)/$${Dependency};			\
+		$(MAKE) -C $${Dependency} $(TARGET)			\
+			SRCROOT=$(SRCROOT)/$${Dependency}		\
+			OBJROOT=$(OBJROOT)				\
+			SYMROOT=$(SYMROOT)/$${Dependency}		\
+			DSTROOT=$(DSTROOT)				\
+			BuildDirectory=$(OBJROOT)/Build/$${Dependency}	\
+			Sources=$(OBJROOT)/$${Dependency}		\
+			CoreOSMakefiles=$(CoreOSMakefiles)		\
+			$(Extra_Dependency_Flags);			\
+		done
+endif
+
+archive-strip-binaries:: $(SYMROOT)
+ifdef AEP_Binaries
+	@echo "Archiving and stripping binaries..."
+	$(_v) for file in $(addprefix $(DSTROOT),$(AEP_Binaries));	\
+	do \
+		_type=`file -b --mime-type $${file}`;			\
+		if [ "$${_type}" = "application/octet-stream" ]; then	\
+			echo "\tProcessing $${file}...";			\
+			$(CP) $${file} $(SYMROOT);				\
+			$(DSYMUTIL) --out=$(SYMROOT)/$${file##*/}.dSYM $${file};\
+			$(STRIP) -S $${file};					\
+		else	\
+			echo "\tSkipped non-binary $${file}; type is $${_type}";\
+		fi	\
 	done
 endif
 
@@ -165,12 +236,18 @@ endif
 
 install-open-source-files::
 	@echo "Installing Apple-internal open-source documentation..."
-	$(MKDIR) $(DSTROOT)/$(OSVDIR)
-	$(INSTALL_FILE) $(SRCROOT)/$(ProjectName).plist $(DSTROOT)/$(OSVDIR)/$(ProjectName).plist
-ifneq ($(AEP_LicenseFile),)
-	$(MKDIR) $(DSTROOT)/$(OSLDIR)
-	$(INSTALL_FILE) $(AEP_LicenseFile) $(DSTROOT)/$(OSLDIR)/$(ProjectName).txt
-endif
+	if [ -e $(SRCROOT)/$(ProjectName).plist ]; then	\
+		$(MKDIR) $(DSTROOT)/$(OSVDIR);	   	\
+		$(INSTALL_FILE) $(SRCROOT)/$(ProjectName).plist $(DSTROOT)/$(OSVDIR)/$(ProjectName).plist;	\
+	else	\
+		echo "WARNING: No open-source file for this project!";	\
+	fi
+	if [ -e $(AEP_LicenseFile) ]; then	\
+		$(MKDIR) $(DSTROOT)/$(OSLDIR);	\
+		$(INSTALL_FILE) $(AEP_LicenseFile) $(DSTROOT)/$(OSLDIR)/$(ProjectName).txt;	\
+	else	\
+		echo "WARNING: No open-source file for this project!";	\
+	fi
 
 
 #
@@ -210,3 +287,6 @@ clean::
 	$(_v) if [ -d $(Sources) ]; then \
 	    cd $(Sources) && make clean; \
 	fi
+
+$(DSTROOT) $(DSTROOT)$(AEP_ConfigDir) $(SYMROOT) $(TMPDIR):
+	$(MKDIR) $@

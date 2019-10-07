@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)ctf_subr.c	1.2	05/06/08 SMI"
-
 #include <ctf_impl.h>
 #include <libctf.h>
 #include <sys/mman.h>
@@ -60,6 +58,7 @@ ctf_alloc(size_t size)
 void
 ctf_free(void *buf, size_t size)
 {
+#pragma unused(size)
 	free(buf);
 }
 

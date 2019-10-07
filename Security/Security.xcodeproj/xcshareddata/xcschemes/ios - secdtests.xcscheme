@@ -3,7 +3,7 @@
    LastUpgradeVersion = "1000"
    version = "2.0">
    <BuildAction
-      parallelizeBuildables = "YES"
+      parallelizeBuildables = "NO"
       buildImplicitDependencies = "NO">
       <BuildActionEntries>
          <BuildActionEntry
@@ -143,6 +143,10 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "secd_33_keychain_ctk"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_33_keychain_backup"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument

@@ -1,5 +1,5 @@
 #	@(#)Makefile	8.4 (Berkeley) 5/5/95
-# $FreeBSD: head/bin/sh/Makefile 301285 2016-06-03 19:25:41Z bdrewery $
+# $FreeBSD: head/bin/sh/Makefile 322515 2017-08-14 19:21:37Z ngie $
 
 .include <src.opts.mk>
 
@@ -28,9 +28,9 @@ WARNS?=	2
 WFORMAT=0
 
 .PATH:	${.CURDIR}/bltin \
-	${.CURDIR}/../kill \
-	${.CURDIR}/../test \
-	${.CURDIR}/../../usr.bin/printf
+	${.CURDIR:H}/kill \
+	${.CURDIR:H}/test \
+	${SRCTOP}/usr.bin/printf
 
 CLEANFILES+= mknodes mknodes.o \
 	mksyntax mksyntax.o
@@ -64,8 +64,7 @@ syntax.c syntax.h: mksyntax
 token.h: mktokens
 	sh ${.CURDIR}/mktokens
 
-.if ${MK_TESTS} != "no"
-SUBDIR+=    tests
-.endif
+HAS_TESTS=
+SUBDIR.${MK_TESTS}+= tests
 
 .include <bsd.prog.mk>

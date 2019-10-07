@@ -118,7 +118,7 @@ static void getFontPropertiesFromPattern(FcPattern* pattern, const FontDescripti
     }
 }
 
-RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& description, const Font*, bool, const UChar* characters, unsigned length)
+RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& description, const Font*, IsForPlatformFont, PreferColoredFont preferColoredFont, const UChar* characters, unsigned length)
 {
     FcUniquePtr<FcCharSet> fontConfigCharSet(FcCharSetCreate());
     UTF16UChar32Iterator iterator(characters, length);
@@ -132,6 +132,10 @@ RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& descr
     FcPatternAddCharSet(pattern.get(), FC_CHARSET, fontConfigCharSet.get());
 
     FcPatternAddBool(pattern.get(), FC_SCALABLE, FcTrue);
+#ifdef FC_COLOR
+    if (preferColoredFont == PreferColoredFont::Yes)
+        FcPatternAddBool(pattern.get(), FC_COLOR, FcTrue);
+#endif
 
     if (!configurePatternForFontDescription(pattern.get(), description))
         return nullptr;
@@ -182,11 +186,16 @@ Vector<String> FontCache::systemFontFamilies()
     return fontFamilies;
 }
 
+bool FontCache::isSystemFontForbiddenForEditing(const String&)
+{
+    return false;
+}
+
 Ref<Font> FontCache::lastResortFallbackFont(const FontDescription& fontDescription)
 {
     // We want to return a fallback font here, otherwise the logic preventing FontConfig
     // matches for non-fallback fonts might return 0. See isFallbackFontAllowed.
-    static AtomicString timesStr("serif");
+    static AtomString timesStr("serif");
     if (RefPtr<Font> font = fontForFamily(fontDescription, timesStr))
         return *font;
 
@@ -194,12 +203,12 @@ Ref<Font> FontCache::lastResortFallbackFont(const FontDescription& fontDescripti
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-Vector<FontSelectionCapabilities> FontCache::getFontSelectionCapabilitiesInFamily(const AtomicString&, AllowUserInstalledFonts)
+Vector<FontSelectionCapabilities> FontCache::getFontSelectionCapabilitiesInFamily(const AtomString&, AllowUserInstalledFonts)
 {
     return { };
 }
 
-static String getFamilyNameStringFromFamily(const AtomicString& family)
+static String getFamilyNameStringFromFamily(const AtomString& family)
 {
     // If we're creating a fallback font (e.g. "-webkit-monospace"), convert the name into
     // the fallback name (like "monospace") that fontconfig understands.
@@ -367,7 +376,7 @@ static inline bool isCommonlyUsedGenericFamily(const String& familyNameString)
         || equalLettersIgnoringASCIICase(familyNameString, "cursive");
 }
 
-std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomicString& family, const FontFeatureSettings*, const FontVariantSettings*, FontSelectionSpecifiedCapabilities)
+std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomString& family, const FontFeatureSettings*, const FontVariantSettings*, FontSelectionSpecifiedCapabilities)
 {
     // The CSS font matching algorithm (http://www.w3.org/TR/css3-fonts/#font-matching-algorithm)
     // says that we must find an exact match for font family, slant (italic or oblique can be used)
@@ -429,7 +438,7 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
         return nullptr;
 
     bool fixedWidth, syntheticBold, syntheticOblique;
-    getFontPropertiesFromPattern(pattern.get(), fontDescription, fixedWidth, syntheticBold, syntheticOblique);
+    getFontPropertiesFromPattern(resultPattern.get(), fontDescription, fixedWidth, syntheticBold, syntheticOblique);
 
     RefPtr<cairo_font_face_t> fontFace = adoptRef(cairo_ft_font_face_create_for_pattern(resultPattern.get()));
 #if ENABLE(VARIATION_FONTS)
@@ -456,7 +465,7 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
     return platformData;
 }
 
-const AtomicString& FontCache::platformAlternateFamilyName(const AtomicString&)
+const AtomString& FontCache::platformAlternateFamilyName(const AtomString&)
 {
     return nullAtom();
 }
@@ -518,7 +527,7 @@ String buildVariationSettings(FT_Face face, const FontDescription& fontDescripti
         builder.append(variation.key[2]);
         builder.append(variation.key[3]);
         builder.append('=');
-        builder.appendNumber(variation.value);
+        builder.appendFixedPrecisionNumber(variation.value);
     }
     return builder.toString();
 }

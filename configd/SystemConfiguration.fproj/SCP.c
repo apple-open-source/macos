@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2009, 2011, 2014-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2009, 2011, 2014-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -129,6 +129,24 @@ __SCPreferencesGetLimitSCNetworkConfiguration(SCPreferencesRef prefs)
 		return FALSE;
 	}
 	return prefsPrivate->limit_SCNetworkConfiguration;
+}
+
+
+__private_extern__
+off_t
+__SCPreferencesPrefsSize(SCPreferencesRef prefs)
+{
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+	SCPSignatureDataRef	sig;
+	CFDataRef		signature;
+
+	signature = prefsPrivate->signature;
+	if (signature == NULL) {
+		return 0;
+	}
+
+	sig = (SCPSignatureDataRef)(void *)CFDataGetBytePtr(signature);
+	return sig->st_size;
 }
 
 

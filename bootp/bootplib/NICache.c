@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,6 +56,7 @@
 #include "NICachePrivate.h"
 #include "util.h"
 #include "netinfo.h"
+#include "symbol_scope.h"
 
 #ifdef NICACHE_TEST
 #define TIMESTAMPS
@@ -65,10 +66,10 @@
 #endif /* READ_TEST */
 
 #ifdef TIMESTAMPS
-static void
+STATIC void
 timestamp_printf(char * msg)
 {
-    static struct timeval	tvp = {0,0};
+    STATIC struct timeval	tvp = {0,0};
     struct timeval		tv;
 
     gettimeofday(&tv, 0);
@@ -85,7 +86,7 @@ timestamp_printf(char * msg)
 	       (int)tv.tv_sec, (int)tv.tv_usec, 0, 0, msg);
     tvp = tv;
 }
-static __inline__ void
+STATIC __inline__ void
 S_timestamp(char * msg)
 {
     timestamp_printf(msg);
@@ -96,7 +97,7 @@ S_timestamp(char * msg)
  ** Module: PLCacheEntry
  **/
 
-PLCacheEntry_t *
+PRIVATE_EXTERN PLCacheEntry_t *
 PLCacheEntry_create(ni_proplist pl)
 {
     PLCacheEntry_t * entry = malloc(sizeof(*entry));
@@ -108,7 +109,7 @@ PLCacheEntry_create(ni_proplist pl)
     return (entry);
 }
 
-void
+PRIVATE_EXTERN void
 PLCacheEntry_free(PLCacheEntry_t * ent)
 {
     ni_proplist_free(&ent->pl);
@@ -121,7 +122,7 @@ PLCacheEntry_free(PLCacheEntry_t * ent)
  ** Module: PLCache
  **/
 
-void
+PRIVATE_EXTERN void
 PLCache_print(PLCache_t * cache)
 {
     int			i;
@@ -134,7 +135,7 @@ PLCache_print(PLCache_t * cache)
     }
 }
 
-void
+PRIVATE_EXTERN void
 PLCache_init(PLCache_t * cache)
 {
     bzero(cache, sizeof(*cache));
@@ -142,13 +143,13 @@ PLCache_init(PLCache_t * cache)
     return;
 }
 
-int
+PRIVATE_EXTERN int
 PLCache_count(PLCache_t * c)
 {
     return (c->count);
 }
 
-void
+PRIVATE_EXTERN void
 PLCache_set_max(PLCache_t * c, int m)
 {
     if (m < CACHE_MIN)
@@ -184,7 +185,7 @@ PLCache_set_max(PLCache_t * c, int m)
     return;
 }
 
-void
+PRIVATE_EXTERN void
 PLCache_free(PLCache_t * cache)
 {
     PLCacheEntry_t * scan;
@@ -201,7 +202,7 @@ PLCache_free(PLCache_t * cache)
     return;
 }
 
-void
+PRIVATE_EXTERN void
 PLCache_add(PLCache_t * cache, PLCacheEntry_t * entry)
 {
     if (entry == NULL)
@@ -220,7 +221,7 @@ PLCache_add(PLCache_t * cache, PLCacheEntry_t * entry)
     return;
 }
 
-void
+PRIVATE_EXTERN void
 PLCache_append(PLCache_t * cache, PLCacheEntry_t * entry)
 {
     if (entry == NULL)
@@ -245,7 +246,7 @@ PLCache_append(PLCache_t * cache, PLCacheEntry_t * entry)
  *   like fgets() but consumes/discards characters until the next newline 
  *   once the line buffer is full.
  */
-static char *
+STATIC char *
 my_fgets(char * buf, int buf_size, FILE * f)
 {
     boolean_t	done = FALSE;
@@ -281,7 +282,7 @@ my_fgets(char * buf, int buf_size, FILE * f)
     return (buf);
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 PLCache_read(PLCache_t * cache, const char * filename)
 {
     FILE *	file = NULL;
@@ -389,7 +390,7 @@ PLCache_read(PLCache_t * cache, const char * filename)
     return (TRUE);
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 PLCache_write(PLCache_t * cache, const char * filename)
 {
     FILE *		file = NULL;
@@ -425,7 +426,7 @@ PLCache_write(PLCache_t * cache, const char * filename)
     return (TRUE);
 }
 
-void
+PRIVATE_EXTERN void
 PLCache_remove(PLCache_t * cache, PLCacheEntry_t * entry)
 {
     if (entry == NULL)
@@ -446,7 +447,7 @@ PLCache_remove(PLCache_t * cache, PLCacheEntry_t * entry)
     return;
 }
 
-void
+PRIVATE_EXTERN void
 PLCache_make_head(PLCache_t * cache, PLCacheEntry_t * entry)
 {
     if (entry == cache->head)
@@ -456,7 +457,7 @@ PLCache_make_head(PLCache_t * cache, PLCacheEntry_t * entry)
     PLCache_add(cache, entry);
 }
 
-PLCacheEntry_t *
+PRIVATE_EXTERN PLCacheEntry_t *
 PLCache_lookup_prop(PLCache_t * PLCache, char * prop, char * value, boolean_t make_head)
 {
     PLCacheEntry_t * scan;
@@ -475,7 +476,7 @@ PLCache_lookup_prop(PLCache_t * PLCache, char * prop, char * value, boolean_t ma
     return (NULL);
 }
 
-PLCacheEntry_t *
+PRIVATE_EXTERN PLCacheEntry_t *
 PLCache_lookup_hw(PLCache_t * PLCache, 
 		  uint8_t hwtype, void * hwaddr, int hwlen,
 		  NICacheFunc_t * func, void * arg,
@@ -528,7 +529,7 @@ PLCache_lookup_hw(PLCache_t * PLCache,
 }
 
 
-PLCacheEntry_t *
+PRIVATE_EXTERN PLCacheEntry_t *
 PLCache_lookup_identifier(PLCache_t * PLCache, 
 			 char * idstr, NICacheFunc_t * func, void * arg,
 			 struct in_addr * client_ip,
@@ -589,7 +590,7 @@ PLCache_lookup_identifier(PLCache_t * PLCache,
 }
 
 
-PLCacheEntry_t *
+PRIVATE_EXTERN PLCacheEntry_t *
 PLCache_lookup_ip(PLCache_t * PLCache, struct in_addr iaddr)
 {
     PLCacheEntry_t *	scan;

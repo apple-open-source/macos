@@ -143,7 +143,11 @@ enum {
 	kHIDQueueStateClear
 };
 
-class IOHIDLibUserClient : public IOUserClient 
+#if defined(KERNEL) && !defined(KERNEL_PRIVATE)
+class __deprecated_msg("Use DriverKit") IOHIDLibUserClient : public IOUserClient
+#else
+class IOHIDLibUserClient : public IOUserClient
+#endif
 {
 	OSDeclareDefaultStructors(IOHIDLibUserClient)
 	
@@ -158,7 +162,7 @@ class IOHIDLibUserClient : public IOUserClient
 	bool serializeDebugState(void *ref, OSSerialize *serializer);
 
 public:
-	bool attach(IOService * provider);
+	bool attach(IOService * provider) APPLE_KEXT_OVERRIDE;
 	
 protected:
 	static const IOExternalMethodDispatch
@@ -175,6 +179,7 @@ protected:
 	task_t fClient;
 	mach_port_t fWakePort;
 	mach_port_t fValidPort;
+    OSSet       *_pending;
 	
 	void * fValidMessage;
 	
@@ -184,6 +189,7 @@ protected:
     // entitlements
     bool _customQueueSizeEntitlement;
     bool _privilegedClient;
+    bool _protectedAccessClient;
 	
 	IOOptionBits fCachedOptionBits;
 		
@@ -195,30 +201,30 @@ protected:
 	uint64_t fGeneration;
     
 	// Methods
-	virtual bool initWithTask(task_t owningTask, void *security_id, UInt32 type);
+	virtual bool initWithTask(task_t owningTask, void *security_id, UInt32 type) APPLE_KEXT_OVERRIDE;
 	
-	virtual IOReturn clientClose(void);
+	virtual IOReturn clientClose(void) APPLE_KEXT_OVERRIDE;
 
-	virtual bool start(IOService *provider);
-	virtual void stop(IOService *provider);
+	virtual bool start(IOService *provider) APPLE_KEXT_OVERRIDE;
+	virtual void stop(IOService *provider) APPLE_KEXT_OVERRIDE;
 
-	virtual bool didTerminate(IOService *provider, IOOptionBits options, bool *defer);
+	virtual bool didTerminate(IOService *provider, IOOptionBits options, bool *defer) APPLE_KEXT_OVERRIDE;
 		
-	virtual void free();
+	virtual void free(void) APPLE_KEXT_OVERRIDE;
 
-	virtual IOReturn message(UInt32 type, IOService * provider, void * argument = 0 );
+	virtual IOReturn message(UInt32 type, IOService * provider, void * argument = 0 ) APPLE_KEXT_OVERRIDE;
 	virtual IOReturn messageGated(UInt32 type, IOService * provider, void * argument = 0 );
 	
 	virtual IOReturn setProperties(OSObject *properties) APPLE_KEXT_OVERRIDE;
 
-	virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, UInt32 refCon );
+	virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, UInt32 refCon ) APPLE_KEXT_OVERRIDE;
 	virtual IOReturn registerNotificationPortGated(mach_port_t port, UInt32 type, UInt32 refCon );
 
 	// return the shared memory for type (called indirectly)
 	virtual IOReturn clientMemoryForType(
 						UInt32				type,
 						IOOptionBits *		options,
-						IOMemoryDescriptor ** memory );
+						IOMemoryDescriptor ** memory ) APPLE_KEXT_OVERRIDE;
 	IOReturn clientMemoryForTypeGated(
 						UInt32				type,
 						IOOptionBits *		options,
@@ -228,7 +234,7 @@ protected:
 								IOExternalMethodArguments * arguments,
 								IOExternalMethodDispatch *  dispatch, 
 								OSObject *				target, 
-								void *					reference);
+								void *					reference) APPLE_KEXT_OVERRIDE;
 
 	IOReturn externalMethodGated(void * args);
 

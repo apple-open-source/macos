@@ -3,8 +3,7 @@ include(platform/Curl.cmake)
 include(platform/ImageDecoders.cmake)
 include(platform/TextureMapper.cmake)
 
-list(APPEND WebCore_INCLUDE_DIRECTORIES
-    "${DirectX_INCLUDE_DIRS}"
+list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBKIT_LIBRARIES_DIR}/include"
     "${WEBCORE_DIR}/loader/archive/cf"
     "${WEBCORE_DIR}/platform/cf"
@@ -12,6 +11,8 @@ list(APPEND WebCore_INCLUDE_DIRECTORIES
 
 list(APPEND WebCore_SOURCES
     page/win/FrameCairoWin.cpp
+    page/win/ResourceUsageOverlayWin.cpp
+    page/win/ResourceUsageThreadWin.cpp
 
     platform/graphics/GLContext.cpp
     platform/graphics/PlatformDisplay.cpp
@@ -36,11 +37,13 @@ list(APPEND WebCore_SOURCES
 )
 
 list(APPEND WebCore_LIBRARIES
-    ${CURL_LIBRARY}
-    ${DirectX_LIBRARIES}
-    CFLite
+    D3d9
+    Mf
+    Mfplat
     comctl32
     crypt32
+    dxva2
+    evr
     iphlpapi
     rpcrt4
     shlwapi
@@ -52,12 +55,5 @@ list(APPEND WebCore_LIBRARIES
 
 list(APPEND WebCoreTestSupport_LIBRARIES
     ${CAIRO_LIBRARIES}
-    CFLite
     shlwapi
-)
-
-list(APPEND WebCore_FORWARDING_HEADERS_DIRECTORIES
-    platform/mediacapabilities
-    platform/graphics/cairo
-    platform/network/curl
 )

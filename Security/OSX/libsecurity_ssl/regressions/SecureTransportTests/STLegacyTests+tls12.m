@@ -45,6 +45,7 @@
 #include <Security/SecKeyPriv.h>
 #include <Security/SecItem.h>
 #include <Security/SecRandom.h>
+#include <utilities/SecCFRelease.h>
 
 #include <string.h>
 #include <sys/types.h>
@@ -74,9 +75,10 @@ typedef struct {
     CFArrayRef certs;
 } ssl_test_handle;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
-
-#if 0
+#if SECTRANS_VERBOSE_DEBUG
 static void hexdump(const uint8_t *bytes, size_t len) {
 	size_t ix;
     printf("socket write(%p, %lu)\n", bytes, len);
@@ -117,8 +119,7 @@ static int SocketConnect(const char *hostName, int port)
     addr.sin_family = AF_INET;
     err = connect(sock, (struct sockaddr *) &addr, sizeof(struct sockaddr_in));
 
-    if(err!=0)
-    {
+    if (err!=0) {
         perror("connect failed");
         return -1;
     }
@@ -137,15 +138,17 @@ static OSStatus SocketWrite(SSLConnectionRef conn, const void *data, size_t *len
         do {
             hexdump(ptr, len);
             ret = write((int)conn, ptr, len);
-            if (ret < 0)
+            if (ret < 0) {
                 perror("send");
+            }
         } while ((ret < 0) && (errno == EAGAIN || errno == EINTR));
         if (ret > 0) {
             len -= ret;
             ptr += ret;
         }
-        else
+        else {
             return -36;
+        }
     } while (len > 0);
 
     *length = *length - len;
@@ -168,8 +171,9 @@ static OSStatus SocketRead(SSLConnectionRef conn, void *data, size_t *length)
             len -= ret;
             ptr += ret;
         }
-        else
+        else {
             return -36;
+        }
     } while (len > 0);
 
     *length = *length - len;
@@ -179,8 +183,7 @@ static OSStatus SocketRead(SSLConnectionRef conn, void *data, size_t *length)
 static SSLContextRef make_ssl_ref(int sock, SSLProtocol maxprot, const char *peerName)
 {
     SSLContextRef ctx = NULL;
-
-    require_noerr(SSLNewContext(false, &ctx), out);
+    require((ctx = SSLCreateContext(kCFAllocatorDefault, kSSLClientSide, kSSLStreamType)), out);
     require_noerr(SSLSetIOFuncs(ctx,
                                 (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
     require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)sock), out);
@@ -197,8 +200,7 @@ static SSLContextRef make_ssl_ref(int sock, SSLProtocol maxprot, const char *pee
 
     return ctx;
 out:
-    if (ctx)
-        SSLDisposeContext(ctx);
+    CFReleaseNull(ctx);
     return NULL;
 }
 
@@ -209,12 +211,10 @@ static OSStatus securetransport(ssl_test_handle * ssl)
     SecTrustRef trust = NULL;
     bool got_server_auth = false, got_client_cert_req = false;
 
-    //uint64_t start = mach_absolute_time();
     do {
         ortn = SSLHandshake(ctx);
 
-        if (ortn == errSSLServerAuthCompleted)
-        {
+        if (ortn == errSSLServerAuthCompleted) {
             require_string(!got_server_auth, out, "second server auth");
             require_string(!got_client_cert_req, out, "got client cert req before server auth");
             got_server_auth = true;
@@ -234,22 +234,17 @@ static OSStatus securetransport(ssl_test_handle * ssl)
 
     require_string(got_server_auth, out, "never got server auth");
 
-    //uint64_t elapsed = mach_absolute_time() - start;
-    //fprintf(stderr, "setr elapsed: %lld\n", elapsed);
-
-    /*
-     SSLProtocol proto = kSSLProtocolUnknown;
-     require_noerr_quiet(SSLGetNegotiatedProtocolVersion(ctx, &proto), out); */
+    SSLProtocol proto = kSSLProtocolUnknown;
+    require_noerr_quiet(SSLGetNegotiatedProtocolVersion(ctx, &proto), out);
 
     SSLCipherSuite cipherSuite;
     require_noerr_quiet(ortn = SSLGetNegotiatedCipher(ctx, &cipherSuite), out);
-    //fprintf(stderr, "st negotiated %02x\n", cipherSuite);
 
 
 out:
     SSLClose(ctx);
-    SSLDisposeContext(ctx);
-    if (trust) CFRelease(trust);
+    CFReleaseNull(ctx);
+    CFReleaseNull(trust);
 
     return ortn;
 }
@@ -258,16 +253,15 @@ out:
 
 #define CONNECT_TRIES 3
 
--(ssl_test_handle*)ssl_test_handle_create:(struct s_server *)server
+-(ssl_test_handle *)ssl_test_handle_create:(struct s_server *)server
 {
     int comm = -1;
 
-    for(int try = 0; comm<0 && try<CONNECT_TRIES; try++) {
-        comm=SocketConnect(server->host, server->port);
+    for (int try = 0; comm < 0 && try < CONNECT_TRIES; try++) {
+        comm = SocketConnect(server->host, server->port);
     }
 
-    if(comm<0) {
-        XCTFail("connect failed with err=%d - %s:%d", comm, server->host, server->port);
+    if (comm < 0) {
         return NULL;
     }
 
@@ -313,15 +307,15 @@ struct s_server servers[] = {
     int p;
     OSStatus r;
 
-    for(p=0; p<NSERVERS;p++) {
-        for(int loops=0; loops<NLOOPS; loops++) {
+    for (p = 0; p < NSERVERS; p++) {
+        for (int loops = 0; loops < NLOOPS; loops++) {
             ssl_test_handle *client;
 
         SKIP: {
-			if(!(client = [self ssl_test_handle_create:&servers[p]]))
+			if (!(client = [self ssl_test_handle_create:&servers[p]]))
 				continue;
-            r=securetransport(client);
-            XCTAssert(r==errSecSuccess, "handshake failed with err=%ld - %s:%d (try %d)", (long)r, servers[p].host, servers[p].port, loops);
+            r = securetransport(client);
+            XCTAssert(r == errSecSuccess, "handshake failed with err=%ld - %s:%d (try %d)", (long)r, servers[p].host, servers[p].port, loops);
 
             ssl_test_handle_destroy(client);
         }
@@ -331,3 +325,4 @@ struct s_server servers[] = {
 
 @end
 
+#pragma clang diagnostic pop

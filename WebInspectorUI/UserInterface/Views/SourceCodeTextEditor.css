@@ -120,7 +120,7 @@
 .popover .expandable {
     min-width: 300px;
     min-height: 250px;
- 
+
     max-width: 350px;
     max-height: 450px;
 }
@@ -183,7 +183,7 @@
     }
 }
 
-@media (prefers-dark-interface) {
+@media (prefers-color-scheme: dark) {
     .source-code.text-editor > .CodeMirror .issue-widget {
         color: hsl(0, 0%, var(--foreground-lightness));
     }

@@ -196,7 +196,7 @@ bool DataDetection::shouldCancelDefaultAction(Element& element)
     if (softLink_DataDetectorsCore_DDShouldImmediatelyShowActionSheetForURL(downcast<HTMLAnchorElement>(element).href()))
         return true;
     
-    const AtomicString& resultAttribute = element.attributeWithoutSynchronization(x_apple_data_detectors_resultAttr);
+    const AtomString& resultAttribute = element.attributeWithoutSynchronization(x_apple_data_detectors_resultAttr);
     if (resultAttribute.isEmpty())
         return false;
     NSArray *results = element.document().frame()->dataDetectionResults();
@@ -323,20 +323,20 @@ static String dataDetectorStringForPath(NSIndexPath *path)
     case 0:
         return { };
     case 1:
-        return String::number((unsigned long)[path indexAtPosition:0]);
+        return String::number([path indexAtPosition:0]);
     case 2: {
         StringBuilder stringBuilder;
-        stringBuilder.appendNumber((unsigned long)[path indexAtPosition:0]);
+        stringBuilder.appendNumber([path indexAtPosition:0]);
         stringBuilder.append('/');
-        stringBuilder.appendNumber((unsigned long)[path indexAtPosition:1]);
+        stringBuilder.appendNumber([path indexAtPosition:1]);
         return stringBuilder.toString();
     }
     default: {
         StringBuilder stringBuilder;
-        stringBuilder.appendNumber((unsigned long)[path indexAtPosition:0]);
+        stringBuilder.appendNumber([path indexAtPosition:0]);
         for (NSUInteger i = 1 ; i < length ; i++) {
             stringBuilder.append('/');
-            stringBuilder.appendNumber((unsigned long)[path indexAtPosition:i]);
+            stringBuilder.appendNumber([path indexAtPosition:i]);
         }
 
         return stringBuilder.toString();
@@ -580,12 +580,14 @@ NSArray *DataDetection::detectContentInRange(RefPtr<Range>& contextRange, DataDe
             auto* parentNode = range->startContainer().parentNode();
             if (!parentNode)
                 continue;
+
             if (!is<Text>(range->startContainer()))
                 continue;
+
             auto& currentTextNode = downcast<Text>(range->startContainer());
             Document& document = currentTextNode.document();
             String textNodeData;
-            
+
             if (lastTextNodeToUpdate != &currentTextNode) {
                 if (lastTextNodeToUpdate)
                     lastTextNodeToUpdate->setData(lastNodeContent);
@@ -594,12 +596,12 @@ NSArray *DataDetection::detectContentInRange(RefPtr<Range>& contextRange, DataDe
                     textNodeData = currentTextNode.data().substring(0, range->startOffset());
             } else
                 textNodeData = currentTextNode.data().substring(contentOffset, range->startOffset() - contentOffset);
-            
+
             if (!textNodeData.isEmpty()) {
                 parentNode->insertBefore(Text::create(document, textNodeData), &currentTextNode);
                 contentOffset = range->startOffset();
             }
-            
+
             // Create the actual anchor node and insert it before the current node.
             textNodeData = currentTextNode.data().substring(range->startOffset(), range->endOffset() - range->startOffset());
             Ref<Text> newTextNode = Text::create(document, textNodeData);
@@ -608,48 +610,45 @@ NSArray *DataDetection::detectContentInRange(RefPtr<Range>& contextRange, DataDe
             Ref<HTMLAnchorElement> anchorElement = HTMLAnchorElement::create(document);
             anchorElement->setHref(correspondingURL);
             anchorElement->setDir("ltr");
+            anchorElement->setInlineStyleProperty(CSSPropertyColor, CSSValueCurrentcolor);
+
             if (shouldUseLightLinks) {
                 document.updateStyleIfNeeded();
+
                 auto* renderStyle = parentNode->computedStyle();
                 if (renderStyle) {
                     auto textColor = renderStyle->visitedDependentColor(CSSPropertyColor);
                     if (textColor.isValid()) {
-                        double h = 0;
-                        double s = 0;
-                        double v = 0;
-                        textColor.getHSV(h, s, v);
+                        double hue, saturation, lightness;
+                        textColor.getHSL(hue, saturation, lightness);
 
-                        // Set the alpha of the underline to 46% if the text color is white-ish (defined
-                        // as having a saturation of less than 2% and a value/brightness or greater than
-                        // 98%). Otherwise, set the alpha of the underline to 26%.
-                        double overrideAlpha = (s < 0.02 && v > 0.98) ? 0.46 : 0.26;
-                        auto underlineColor = Color(colorWithOverrideAlpha(textColor.rgb(), overrideAlpha));
+                        // Force the lightness of the underline color to the middle, and multiply the alpha by 38%,
+                        // so the color will appear on light and dark backgrounds, since only one color can be specified.
+                        double overrideLightness = 0.5;
+                        double overrideAlphaMultiplier = 0.38;
+                        auto underlineColor = Color(makeRGBAFromHSLA(hue, saturation, overrideLightness, overrideAlphaMultiplier * textColor.alphaAsFloat()));
 
-                        anchorElement->setInlineStyleProperty(CSSPropertyColor, textColor.cssText());
                         anchorElement->setInlineStyleProperty(CSSPropertyTextDecorationColor, underlineColor.cssText());
                     }
                 }
-            } else if (is<StyledElement>(*parentNode)) {
-                if (auto* style = downcast<StyledElement>(*parentNode).presentationAttributeStyle()) {
-                    String color = style->getPropertyValue(CSSPropertyColor);
-                    if (!color.isEmpty())
-                        anchorElement->setInlineStyleProperty(CSSPropertyColor, color);
-                }
             }
+
             anchorElement->appendChild(WTFMove(newTextNode));
+
             // Add a special attribute to mark this URLification as the result of data detectors.
-            anchorElement->setAttributeWithoutSynchronization(x_apple_data_detectorsAttr, AtomicString("true", AtomicString::ConstructFromLiteral));
+            anchorElement->setAttributeWithoutSynchronization(x_apple_data_detectorsAttr, AtomString("true", AtomString::ConstructFromLiteral));
             anchorElement->setAttributeWithoutSynchronization(x_apple_data_detectors_typeAttr, dataDetectorTypeForCategory(softLink_DataDetectorsCore_DDResultGetCategory(coreResult)));
             anchorElement->setAttributeWithoutSynchronization(x_apple_data_detectors_resultAttr, identifier);
 
             parentNode->insertBefore(WTFMove(anchorElement), &currentTextNode);
 
             contentOffset = range->endOffset();
-            
+
             lastNodeContent = currentTextNode.data().substring(range->endOffset(), currentTextNode.length() - range->endOffset());
             lastTextNodeToUpdate = &currentTextNode;
         }        
     }
+
     if (lastTextNodeToUpdate)
         lastTextNodeToUpdate->setData(lastNodeContent);
     

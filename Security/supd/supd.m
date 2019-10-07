@@ -22,6 +22,9 @@
  */
 
 #import "supd.h"
+
+#if !TARGET_OS_SIMULATOR
+
 #import "SFAnalyticsDefines.h"
 #import "SFAnalyticsSQLiteStore.h"
 #import <Security/SFAnalytics.h>
@@ -40,24 +43,22 @@
 
 #if TARGET_OS_OSX
 #include "dirhelper_priv.h"
+#endif
+
+#if TARGET_OS_OSX
+#import <CrashReporterSupport/CrashReporterSupportPrivate.h>
+#else
+#import <CrashReporterSupport/CrashReporterSupport.h>
+#endif
+
 #import <Accounts/Accounts.h>
 #import <Accounts/ACAccountStore_Private.h>
 #import <Accounts/ACAccountType_Private.h>
 #import <Accounts/ACAccountStore.h>
-#import <AOSAccounts/ACAccountStore+iCloudAccount.h>
-#import <AOSAccounts/ACAccount+iCloudAccount.h>
-#import <AOSAccountsLite/AOSAccountsLite.h>
-#import <CrashReporterSupport/CrashReporterSupportPrivate.h>
-#else // TARGET_OS_OSX
-#import <Accounts/Accounts.h>
 #import <AppleAccount/AppleAccount.h>
 #import <AppleAccount/ACAccount+AppleAccount.h>
 #import <AppleAccount/ACAccountStore+AppleAccount.h>
-#if TARGET_OS_EMBEDDED
-#import <CrashReporterSupport/CrashReporterSupport.h>
-#import <CrashReporterSupport/PreferenceManager.h>
-#endif // TARGET_OS_EMBEDDED
-#endif // TARGET_OS_OSX
+
 
 NSString* const SFAnalyticsSplunkTopic = @"topic";
 NSString* const SFAnalyticsSplunkPostTime = @"postTime";
@@ -66,12 +67,17 @@ NSString* const SFAnalyticsInternal = @"internal";
 
 NSString* const SFAnalyticsMetricsBase = @"metricsBase";
 NSString* const SFAnalyticsDeviceID = @"ckdeviceID";
+NSString* const SFAnalyticsAltDSID = @"altDSID";
 
 NSString* const SFAnalyticsSecondsCustomerKey = @"SecondsBetweenUploadsCustomer";
 NSString* const SFAnalyticsSecondsInternalKey = @"SecondsBetweenUploadsInternal";
+NSString* const SFAnalyticsSecondsSeedKey = @"SecondsBetweenUploadsSeed";
 NSString* const SFAnalyticsMaxEventsKey = @"NumberOfEvents";
 NSString* const SFAnalyticsDevicePercentageCustomerKey = @"DevicePercentageCustomer";
 NSString* const SFAnalyticsDevicePercentageInternalKey = @"DevicePercentageInternal";
+NSString* const SFAnalyticsDevicePercentageSeedKey = @"DevicePercentageSeed";
+
+NSString* const SupdErrorDomain = @"com.apple.security.supd";
 
 #define SFANALYTICS_SPLUNK_DEV 0
 #define OS_CRASH_TRACER_LOG_BUG_TYPE "226"
@@ -79,29 +85,30 @@ NSString* const SFAnalyticsDevicePercentageInternalKey = @"DevicePercentageInter
 #if SFANALYTICS_SPLUNK_DEV
 NSUInteger const secondsBetweenUploadsCustomer = 10;
 NSUInteger const secondsBetweenUploadsInternal = 10;
+NSUInteger const secondsBetweenUploadsSeed = 10;
 #else // SFANALYTICS_SPLUNK_DEV
 NSUInteger const secondsBetweenUploadsCustomer = (3 * (60 * 60 * 24));
 NSUInteger const secondsBetweenUploadsInternal = (60 * 60 * 24);
+NSUInteger const secondsBetweenUploadsSeed = (60 * 60 * 24);
 #endif // SFANALYTICS_SPLUNK_DEV
 
 @implementation SFAnalyticsReporter
 - (BOOL)saveReport:(NSData *)reportData fileName:(NSString *)fileName
 {
+    BOOL writtenToLog = NO;
 #if TARGET_OS_OSX
     NSDictionary *optionsDictionary = @{ (__bridge NSString *)kCRProblemReportSubmissionPolicyKey: (__bridge NSString *)kCRSubmissionPolicyAlternate };
 #else // !TARGET_OS_OSX
     NSDictionary *optionsDictionary = nil; // The keys above are not defined or required on iOS.
 #endif // !TARGET_OS_OSX
 
-    BOOL writtenToLog = NO;
-#if !TARGET_OS_SIMULATOR
+
     secdebug("saveReport", "calling out to `OSAWriteLogForSubmission`");
     writtenToLog = OSAWriteLogForSubmission(@OS_CRASH_TRACER_LOG_BUG_TYPE, fileName,
                                             nil, optionsDictionary, ^(NSFileHandle *fileHandle) {
                                                 secnotice("OSAWriteLogForSubmission", "Writing log data to report: %@", fileName);
                                                 [fileHandle writeData:reportData];
                                             });
-#endif // !TARGET_OS_SIMULATOR
     return writtenToLog;
 }
 @end
@@ -128,7 +135,7 @@ _isDeviceAnalyticsEnabled(void)
     static BOOL dataCollectionEnabled = NO;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
         dataCollectionEnabled = DiagnosticLogSubmissionEnabled();
 #elif TARGET_OS_OSX
         dataCollectionEnabled = CRIsAutoSubmitEnabled();
@@ -137,19 +144,27 @@ _isDeviceAnalyticsEnabled(void)
     return dataCollectionEnabled;
 }
 
+static NSString *
+accountAltDSID(void)
+{
+    ACAccountStore *accountStore = [[ACAccountStore alloc] init];
+    ACAccount *primaryAccount = [accountStore aa_primaryAppleAccount];
+    if (primaryAccount == nil) {
+        return nil;
+    }
+    return [primaryAccount aa_altDSID];
+}
+
 static NSString *const kAnalyticsiCloudIdMSKey = @"com.apple.idms.config.privacy.icloud.data";
 
-#if TARGET_OS_IPHONE
 static NSDictionary *
 _getiCloudConfigurationInfoWithError(NSError **outError)
 {
     __block NSDictionary *outConfigurationInfo = nil;
     __block NSError *localError = nil;
 
-    ACAccountStore *accountStore = [[ACAccountStore alloc] init];
-    ACAccount *primaryAccount = [accountStore aa_primaryAppleAccount];
-    if (primaryAccount != nil) {
-        NSString *altDSID = [primaryAccount aa_altDSID];
+    NSString *altDSID = accountAltDSID();
+    if (altDSID != nil) {
         secnotice("_getiCloudConfigurationInfoWithError", "Fetching configuration info");
 
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);
@@ -180,27 +195,6 @@ _getiCloudConfigurationInfoWithError(NSError **outError)
     }
     return outConfigurationInfo;
 }
-#endif // TARGET_OS_IPHONE
-
-#if TARGET_OS_OSX
-static NSString *
-_iCloudAccount(void)
-{
-    return CFBridgingRelease(MMLCopyLoggedInAccount());
-}
-
-static NSString *
-_altDSIDFromAccount(void)
-{
-    static CFStringRef kMMPropertyAccountAlternateDSID = CFSTR("AccountAlternateDSID");
-    NSString *account = _iCloudAccount();
-    if (account != nil) {
-        return CFBridgingRelease(MMLAccountCopyProperty((__bridge CFStringRef)account, kMMPropertyAccountAlternateDSID));
-    }
-    secerror("_altDSIDFromAccount: failed to fetch iCloud account");
-    return nil;
-}
-#endif // TARGET_OS_OSX
 
 static BOOL
 _isiCloudAnalyticsEnabled()
@@ -212,46 +206,6 @@ _isiCloudAnalyticsEnabled()
 
     static bool cachedAllowsICloudAnalytics = false;
 
-#if TARGET_OS_OSX
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        /* AOSAccounts is not mastered into the BaseSystem. Check that those classes are linked at runtime and abort if not. */
-        if (![AKAppleIDAuthenticationController class]) {
-            secnotice("OTATrust", "Weak-linked AOSAccounts framework missing. Are we running in the base system?");
-            return;
-        }
-
-        NSString *currentAltDSID = _altDSIDFromAccount();
-        if (currentAltDSID != nil) {
-            AKAppleIDAuthenticationController *authController = [AKAppleIDAuthenticationController new];
-            __block bool allowsICloudAnalytics = false;
-            dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-            secnotice("isiCloudAnalyticsEnabled", "fetching iCloud Analytics value from idms");
-            [authController configurationInfoWithIdentifiers:@[kAnalyticsiCloudIdMSKey]
-                                                  forAltDSID:currentAltDSID
-                                                  completion:^(NSDictionary<NSString *, id> *configurationInfo, NSError *error) {
-                                                      if (!error && configurationInfo) {
-                                                          NSNumber *value = configurationInfo[kAnalyticsiCloudIdMSKey];
-                                                          if (value != nil) {
-                                                              secnotice("_isiCloudAnalyticsEnabled", "authController:configurationInfoWithIdentifiers completed with no error and configuration information");
-                                                              allowsICloudAnalytics = [value boolValue];
-                                                          } else {
-                                                              secerror("%s: no iCloud Analytics value found in IDMS", __FUNCTION__);
-                                                          }
-                                                      } else {
-                                                          secerror("%s: Unable to fetch iCloud Analytics value from IDMS.", __FUNCTION__);
-                                                      }
-                                                      secnotice("_isiCloudAnalyticsEnabled", "authController:configurationInfoWithIdentifiers completed and returning");
-                                                      dispatch_semaphore_signal(sem);
-                                                  }];
-            // Wait 5 seconds before giving up and returning from the block.
-            dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (uint64_t)(5 * NSEC_PER_SEC)));
-            cachedAllowsICloudAnalytics = allowsICloudAnalytics;
-        } else {
-            secerror("_isiCloudAnalyticsEnabled: Failed to fetch alternate DSID");
-        }
-    });
-#else // TARGET_OS_OSX
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         NSError *error = nil;
@@ -269,7 +223,6 @@ _isiCloudAnalyticsEnabled()
             secerror("_isiCloudAnalyticsEnabled: %@", error);
         }
     });
-#endif // TARGET_OS_OSX
 
     return cachedAllowsICloudAnalytics;
 }
@@ -381,7 +334,12 @@ _isiCloudAnalyticsEnabled()
                                                                    name:@"signins" deviceAnalytics:NO iCloudAnalytics:YES]];
         [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForLocal]
                                                                    name:@"local" deviceAnalytics:YES iCloudAnalytics:NO]];
-    } else if ([topicName isEqualToString:SFAnaltyicsTopicTrust]) {
+    } else if ([topicName isEqualToString:SFAnalyticsTopicCloudServices]) {
+        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForCloudServices]
+                                                                   name:@"CloudServices"
+                                                        deviceAnalytics:YES
+                                                        iCloudAnalytics:NO]];
+    } else if ([topicName isEqualToString:SFAnalyticsTopicTrust]) {
 #if TARGET_OS_OSX
         _set_user_dir_suffix("com.apple.trustd"); // supd needs to read trustd's cache dir for these
 #endif
@@ -395,6 +353,9 @@ _isiCloudAnalyticsEnabled()
 #if TARGET_OS_OSX
         _set_user_dir_suffix(NULL); // set back to the default cache dir
 #endif
+    } else if ([topicName isEqualToString:SFAnalyticsTopicTransparency]) {
+        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForTransparency]
+                                                                   name:@"transparency" deviceAnalytics:NO iCloudAnalytics:YES]];
     }
 
     _topicClients = clients;
@@ -444,13 +405,22 @@ _isiCloudAnalyticsEnabled()
 #else
         bool internal = os_variant_has_internal_diagnostics("com.apple.security");
         if (rates) {
+#if RC_SEED_BUILD
+            NSNumber *secondsNum = internal ? rates[SFAnalyticsSecondsInternalKey] : rates[SFAnalyticsSecondsSeedKey];
+            NSNumber *percentageNum = internal ? rates[SFAnalyticsDevicePercentageInternalKey] : rates[SFAnalyticsDevicePercentageSeedKey];
+#else
             NSNumber *secondsNum = internal ? rates[SFAnalyticsSecondsInternalKey] : rates[SFAnalyticsSecondsCustomerKey];
+            NSNumber *percentageNum = internal ? rates[SFAnalyticsDevicePercentageInternalKey] : rates[SFAnalyticsDevicePercentageCustomerKey];
+#endif
             _secondsBetweenUploads = [secondsNum integerValue];
             _maxEventsToReport = [rates[SFAnalyticsMaxEventsKey] unsignedIntegerValue];
-            NSNumber *percentageNum = internal ? rates[SFAnalyticsDevicePercentageInternalKey] : rates[SFAnalyticsDevicePercentageCustomerKey];
             _devicePercentage = [percentageNum floatValue];
         } else {
+#if RC_SEED_BUILD
+            _secondsBetweenUploads = internal ? secondsBetweenUploadsInternal : secondsBetweenUploadsSeed;
+#else
             _secondsBetweenUploads = internal ? secondsBetweenUploadsInternal : secondsBetweenUploadsCustomer;
+#endif
             _maxEventsToReport = SFAnalyticsMaxEventsToReport;
             _devicePercentage = DEFAULT_SPLUNK_DEVICE_PERCENTAGE;
         }
@@ -586,12 +556,21 @@ _isiCloudAnalyticsEnabled()
 
     for (NSArray* client in failures) {
         [client enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+            NSMutableDictionary* event = (NSMutableDictionary*)obj;
             if (idx >= threshold) {
                 *stop = YES;
                 return;
             }
-            if ([self prepareEventForUpload:obj]) {
-                [records addObject:obj];
+            if ([self prepareEventForUpload:event]) {
+                if ([NSJSONSerialization isValidJSONObject:event]) {
+                    [records addObject:event];
+                } else {
+                    secerror("supd: Replacing event with errorEvent because invalid JSON: %@", event);
+                    NSString* originalType = event[SFAnalyticsEventType];
+                    NSDictionary* errorEvent = @{ SFAnalyticsEventType : SFAnalyticsEventTypeErrorEvent,
+                                                  SFAnalyticsEventErrorDestription : [NSString stringWithFormat:@"JSON:%@", originalType]};
+                    [records addObject:errorEvent];
+                }
             }
         }];
     }
@@ -683,6 +662,11 @@ _isiCloudAnalyticsEnabled()
     }
     summary[SFAnalyticsEventTime] = @([[NSDate date] timeIntervalSince1970] * 1000);    // Splunk wants milliseconds
     [SFAnalytics addOSVersionToEvent:summary];
+    if (store.uploadDate) {
+        summary[SFAnalyticsAttributeLastUploadTime] = @([store.uploadDate timeIntervalSince1970] * 1000);
+    } else {
+        summary[SFAnalyticsAttributeLastUploadTime] = @(0);
+    }
 
     // Process counters
     NSDictionary* successCounts = store.summaryCounts;
@@ -718,19 +702,28 @@ _isiCloudAnalyticsEnabled()
         [summary addEntriesFromDictionary:event];
     }];
 
-    // Should always return yes because we already checked for event blacklisting specifically
+    // Should always return yes because we already checked for event blacklisting specifically (unless summary itself is blacklisted)
     if (![self prepareEventForUpload:summary]) {
+        secwarning("supd: health summary for %@ blacklisted", name);
         return nil;
     }
+
+    // Seems unlikely because we only insert strings, samplers only take NSNumbers and frankly, sampleStatisticsForSamples probably would have crashed
+    if (![NSJSONSerialization isValidJSONObject:summary]) {
+        secerror("json: health summary for client %@ is invalid JSON: %@", name, summary);
+        return [@{ SFAnalyticsEventType : SFAnalyticsEventTypeErrorEvent,
+                   SFAnalyticsEventErrorDestription : [NSString stringWithFormat:@"JSON:%@HealthSummary", name]} mutableCopy];
+    }
+
     return summary;
 }
 
-- (void)updateUploadDateForClients:(NSArray<SFAnalyticsClient*>*)clients clearData:(BOOL)clearData
+- (void)updateUploadDateForClients:(NSArray<SFAnalyticsClient*>*)clients date:(NSDate *)date clearData:(BOOL)clearData
 {
     for (SFAnalyticsClient* client in clients) {
         SFAnalyticsSQLiteStore* store = [SFAnalyticsSQLiteStore storeWithPath:client.storePath schema:SFAnalyticsTableSchema];
-        secnotice("postprocess", "Setting upload date for client: %@", client.name);
-        store.uploadDate = [NSDate date];
+        secnotice("postprocess", "Setting upload date (%@) for client: %@", date, client.name);
+        store.uploadDate = date;
         if (clearData) {
             secnotice("postprocess", "Clearing collected data for client: %@", client.name);
             [store clearAllData];
@@ -750,8 +743,11 @@ _isiCloudAnalyticsEnabled()
     __block NSMutableArray<NSArray*>* hardFailures = [NSMutableArray new];
     __block NSMutableArray<NSArray*>* softFailures = [NSMutableArray new];
     NSString* ckdeviceID = nil;
-    if ([_internalTopicName isEqualToString:SFAnalyticsTopicKeySync]) {
-        ckdeviceID = os_variant_has_internal_diagnostics("com.apple.security") ? [self askSecurityForCKDeviceID] : nil;
+    NSString* accountID = nil;
+
+    if (os_variant_has_internal_diagnostics("com.apple.security") && [_internalTopicName isEqualToString:SFAnalyticsTopicKeySync]) {
+        ckdeviceID = [self askSecurityForCKDeviceID];
+        accountID = accountAltDSID();
     }
     for (SFAnalyticsClient* client in self->_topicClients) {
         if (!force && [client requireDeviceAnalytics] && !_isDeviceAnalyticsEnabled()) {
@@ -775,13 +771,6 @@ _isiCloudAnalyticsEnabled()
                 continue;
             }
 
-            if (!force && !uploadDate) {
-                secnotice("json", "ignoring client '%@' because doesn't have an upload date; giving it a baseline date",
-                          client.name);
-                [self updateUploadDateForClients:@[client] clearData:NO];
-                continue;
-            }
-
             if (force) {
                 secnotice("json", "client '%@' for topic '%@' force-included", client.name, _internalTopicName);
             } else {
@@ -794,6 +783,9 @@ _isiCloudAnalyticsEnabled()
         if (healthSummary) {
             if (ckdeviceID) {
                 healthSummary[SFAnalyticsDeviceID] = ckdeviceID;
+            }
+            if (accountID) {
+                healthSummary[SFAnalyticsAltDSID] = accountID;
             }
             [uploadRecords addObject:healthSummary];
         }
@@ -823,6 +815,16 @@ _isiCloudAnalyticsEnabled()
                                SFAnalyticsSplunkPostTime : @([[NSDate date] timeIntervalSince1970] * 1000),
                                @"events" : uploadRecords
                                };
+
+    // This check is "belt and suspenders" because we already checked each event separately
+    if (![NSJSONSerialization isValidJSONObject:jsonDict]) {
+        secemergency("json: final dictionary invalid JSON. This is terrible!");
+        if (error) {
+            *error = [NSError errorWithDomain:SupdErrorDomain code:SupdInvalidJSONError
+                                     userInfo:@{NSLocalizedDescriptionKey : [NSString localizedStringWithFormat:@"Final dictionary for upload is invalid JSON: %@", jsonDict]}];
+        }
+        return nil;
+    }
 
     NSData *json = [NSJSONSerialization dataWithJSONObject:jsonDict
                                                    options:(pretty ? NSJSONWritingPrettyPrinted : 0)
@@ -973,7 +975,6 @@ _isiCloudAnalyticsEnabled()
     (void)session;
     secnotice("upload", "Splunk upload challenge for %@", _internalTopicName);
     NSURLCredential *cred = nil;
-    SecTrustResultType result = kSecTrustResultInvalid;
 
     if ([challenge previousFailureCount] > 0) {
         // Previous failures occurred, bail
@@ -986,8 +987,8 @@ _isiCloudAnalyticsEnabled()
 
         SecTrustRef serverTrust = challenge.protectionSpace.serverTrust;
         // Coverity gets upset if we don't check status even though result is all we need.
-        OSStatus status = SecTrustEvaluate(serverTrust, &result);
-        if (_allowInsecureSplunkCert || (status == errSecSuccess && ((result == kSecTrustResultProceed) || (result == kSecTrustResultUnspecified)))) {
+        bool trustResult = SecTrustEvaluateWithError(serverTrust, NULL);
+        if (_allowInsecureSplunkCert || trustResult) {
             /*
              * All is well, accept the credentials
              */
@@ -1034,7 +1035,7 @@ _isiCloudAnalyticsEnabled()
 
 + (NSString*)AppSupportPath
 {
-#if TARGET_OS_IOS
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
     return @"/var/mobile/Library/Application Support";
 #else
     NSArray<NSString *>*paths = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, true);
@@ -1042,7 +1043,7 @@ _isiCloudAnalyticsEnabled()
         return nil;
     }
     return [NSString stringWithString: paths[0]];
-#endif /* TARGET_OS_IOS */
+#endif /* TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR  */
 }
 
 + (NSString*)databasePathForPCS
@@ -1093,6 +1094,16 @@ _isiCloudAnalyticsEnabled()
     return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory(CFSTR("Analytics/signin_metrics.db")) path];
 }
 
++ (NSString*)databasePathForCloudServices
+{
+    return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory(CFSTR("Analytics/CloudServicesAnalytics.db")) path];
+}
+
++ (NSString*)databasePathForTransparency
+{
+    return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory((__bridge CFStringRef)@"Analytics/TransparencyAnalytics.db") path];
+}
+
 @end
 
 @interface supd ()
@@ -1117,14 +1128,10 @@ _isiCloudAnalyticsEnabled()
 }
 
 + (instancetype)instance {
-#if TARGET_OS_SIMULATOR
-    return nil;
-#else
     if (!_supdInstance) {
         _supdInstance = [self new];
     }
     return _supdInstance;
-#endif
 }
 
 // Use this for testing to get rid of any state
@@ -1177,17 +1184,9 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
 }
 
 - (void)setupSamplingRates {
-#if TARGET_OS_SIMULATOR
-    NSBundle *trustStoreBundle = [NSBundle bundleWithPath:[NSString stringWithFormat:@"%s%@", getenv("SIMULATOR_ROOT"), SystemTrustStorePath]];
-#else
     NSBundle *trustStoreBundle = [NSBundle bundleWithPath:SystemTrustStorePath];
-#endif
 
-#if TARGET_OS_IPHONE
-    NSURL *keychainsDirectory = CFBridgingRelease(SecCopyURLForFileInKeychainDirectory(nil));
-#else
-    NSURL *keychainsDirectory = [NSURL fileURLWithFileSystemRepresentation:"/Library/Keychains/" isDirectory:YES relativeToURL:nil];
-#endif
+    NSURL *keychainsDirectory = CFBridgingRelease(SecCopyURLForFileInSystemKeychainDirectory(nil));
     NSURL *directory = [keychainsDirectory URLByAppendingPathComponent:@"SupplementalsAssets/" isDirectory:YES];
 
     NSDictionary *analyticsSamplingRates = nil;
@@ -1282,18 +1281,24 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
                     if ([topic postJSON:json toEndpoint:endpoint error:&localError]) {
                         secnotice("upload", "Successfully posted JSON for %@", [topic internalTopicName]);
                         result = YES;
-                        [topic updateUploadDateForClients:clients clearData:YES];
+                        [topic updateUploadDateForClients:clients date:[NSDate date] clearData:YES];
                     } else {
-                        secerror("upload: Failed to post JSON for %@", [topic internalTopicName]);
+                        secerror("upload: Failed to post JSON for %@: %@", [topic internalTopicName], localError);
                     }
                 } else {
                     /* If we didn't sample this report, update date to prevent trying to upload again sooner
                      * than we should. Clear data so that per-day calculations remain consistent. */
                     secnotice("upload", "skipping unsampled upload for %@ and clearing data", [topic internalTopicName]);
-                    [topic updateUploadDateForClients:clients clearData:YES];
+                    [topic updateUploadDateForClients:clients date:[NSDate date] clearData:YES];
                 }
             } else {
-                secerror("upload: failed to get logging JSON");
+                if ([[localError domain] isEqualToString:SupdErrorDomain] && [localError code] == SupdInvalidJSONError) {
+                    // Pretend this was a success because at least we'll get rid of bad data.
+                    // If someone keeps logging bad data and we only catch it here then
+                    // this causes sustained data loss for the entire topic.
+                    [topic updateUploadDateForClients:clients date:[NSDate date] clearData:YES];
+                }
+                secerror("upload: failed to get logging JSON for topic %@: %@", [topic internalTopicName], localError);
             }
         }
         if (error && localError) {
@@ -1353,6 +1358,32 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
     return sysdiagnose;
 }
 
+- (void)setUploadDateWith:(NSDate *)date reply:(void (^)(BOOL, NSError*))reply
+{
+    for (SFAnalyticsTopic* topic in _analyticsTopics) {
+        [topic updateUploadDateForClients:topic.topicClients date:date clearData:NO];
+    }
+    reply(YES, nil);
+}
+
+- (void)clientStatus:(void (^)(NSDictionary<NSString *, id> *, NSError *))reply
+{
+    NSMutableDictionary *info = [NSMutableDictionary dictionary];
+    for (SFAnalyticsTopic* topic in _analyticsTopics) {
+        for (SFAnalyticsClient *client in topic.topicClients) {
+            SFAnalyticsSQLiteStore* store = [SFAnalyticsSQLiteStore storeWithPath:client.storePath schema:SFAnalyticsTableSchema];
+
+            NSMutableDictionary *clientInfo = [NSMutableDictionary dictionary];
+            clientInfo[@"uploadDate"] = store.uploadDate;
+            info[client.name] = clientInfo;
+        }
+    }
+
+    reply(info, nil);
+}
+
+
+
 - (NSString*)stringForEventClass:(SFAnalyticsEventClass)eventClass
 {
     if (eventClass == SFAnalyticsEventClassNote) {
@@ -1403,3 +1434,5 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
 }
 
 @end
+
+#endif // !TARGET_OS_SIMULATOR

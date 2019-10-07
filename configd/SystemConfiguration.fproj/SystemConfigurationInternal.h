@@ -30,9 +30,6 @@
 
 #include "SCDynamicStoreInternal.h"
 
-extern const unsigned char *	SystemConfigurationVersionString;
-extern const double		SystemConfigurationVersionNumber;
-
 #if	!TARGET_OS_IPHONE
 extern const CFStringRef	kSCEntNetAppleTalk;
 extern const CFStringRef	kSCEntNetNetInfo;

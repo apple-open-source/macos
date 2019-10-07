@@ -28,7 +28,7 @@
 #include "BPlatform.h"
 #include "DeferredDecommit.h"
 #include "Mutex.h"
-#include "PerProcess.h"
+#include "StaticPerProcess.h"
 #include "Vector.h"
 #include <chrono>
 #include <condition_variable>
@@ -40,7 +40,7 @@
 
 namespace bmalloc {
 
-class Scavenger {
+class Scavenger : public StaticPerProcess<Scavenger> {
 public:
     BEXPORT Scavenger(std::lock_guard<Mutex>&);
     
@@ -89,30 +89,34 @@ private:
     void setThreadName(const char*);
 
     std::chrono::milliseconds timeSinceLastFullScavenge();
+#if BPLATFORM(MAC)
     std::chrono::milliseconds timeSinceLastPartialScavenge();
     void partialScavenge();
+#endif
 
     std::atomic<State> m_state { State::Sleep };
     size_t m_scavengerBytes { 0 };
+    std::chrono::milliseconds m_waitTime;
     bool m_isProbablyGrowing { false };
+    bool m_isInMiniMode { false };
     
-    Mutex m_mutex;
     Mutex m_scavengingMutex;
     std::condition_variable_any m_condition;
 
     std::thread m_thread;
     std::chrono::steady_clock::time_point m_lastFullScavengeTime { std::chrono::steady_clock::now() };
+#if BPLATFORM(MAC)
     std::chrono::steady_clock::time_point m_lastPartialScavengeTime { std::chrono::steady_clock::now() };
-    
+#endif
+
 #if BOS(DARWIN)
     dispatch_source_t m_pressureHandlerDispatchSource;
     qos_class_t m_requestedScavengerThreadQOSClass { QOS_CLASS_USER_INITIATED };
 #endif
     
     Vector<DeferredDecommit> m_deferredDecommits;
-
-    bool m_isInMiniMode { false };
 };
+DECLARE_STATIC_PER_PROCESS_STORAGE(Scavenger);
 
 } // namespace bmalloc
 

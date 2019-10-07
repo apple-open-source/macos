@@ -1,0 +1,78 @@
+/*
+ * Copyright (c) 2018-2019 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+
+#ifndef _HIDDRIVERKIT_IOHIDEVENT_H
+#define _HIDDRIVERKIT_IOHIDEVENT_H
+
+#include <DriverKit/OSContainer.iig>
+#include <HIDDriverKit/IOHIDEventTypes.h>
+
+class LOCALONLY IOHIDEvent : public OSContainer
+{
+private:
+    bool initWithType(IOHIDEventType type,
+                      uint64_t timestamp,
+                      uint32_t addCapacity,
+                      IOOptionBits options = 0);
+    
+    uint32_t appendBytes(uint8_t *bytes, uint32_t length);
+    uint32_t getLength(uint32_t *eventCount);
+public:
+    virtual void free(void) override;
+    
+    static IOHIDEvent *withType(IOHIDEventType type,
+                                uint64_t timestamp,
+                                uint32_t addCapacity,
+                                IOOptionBits options);
+    
+    static IOHIDEvent *vendorDefinedEvent(uint64_t timestamp,
+                                          uint32_t usagePage,
+                                          uint32_t usage,
+                                          uint32_t version,
+                                          uint8_t *data,
+                                          uint32_t length,
+                                          IOOptionBits options = 0);
+    
+    uint32_t readBytes(void *bytes, uint32_t length);
+    
+    void appendChild(IOHIDEvent *child);
+    
+    uint64_t getIntegerValue(IOHIDEventField key);
+    void setIntegerValue(IOHIDEventField key, uint64_t value);
+    
+    IOFixed getFixedValue(IOHIDEventField key);
+    void setFixedValue(IOHIDEventField key, IOFixed value);
+    
+    uint8_t *getDataValue(IOHIDEventField key);
+    
+    IOHIDEventType getType();
+    uint32_t getLength();
+    uint64_t getTimestamp();
+};
+
+#endif /* _HIDDRIVERKIT_IOHIDEVENT_H */

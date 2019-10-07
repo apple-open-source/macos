@@ -40,7 +40,7 @@
 #import <AVKit/AVPlayerViewController_WebKitOnly.h>
 #endif
 
-#if !PLATFORM(IOS_FAMILY)
+#if ENABLE(MEDIA_SOURCE)
 #import <AVFoundation/AVStreamDataParser.h>
 #endif
 
@@ -69,6 +69,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @class AVOutputContext;
 @class AVOutputDevice;
+
 @interface AVOutputContext : NSObject <NSSecureCoding>
 @property (nonatomic, readonly) NSString *deviceName;
 + (instancetype)outputContext;
@@ -77,9 +78,13 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) NSArray<AVOutputDevice *> *outputDevices;
 @end
 
+@interface AVOutputDevice : NSObject
+@property (nonatomic, readonly) NSString *name;
+@end
+
 #if !PLATFORM(IOS_FAMILY)
 @interface AVPlayer (AVPlayerExternalPlaybackSupportPrivate)
-@property (nonatomic, retain) AVOutputContext *outputContext;
+@property (nonatomic, retain, nullable) AVOutputContext *outputContext;
 @end
 #else
 typedef NS_ENUM(NSInteger, AVPlayerExternalPlaybackType) {
@@ -312,7 +317,13 @@ NS_ASSUME_NONNULL_END
 @end
 #endif
 
-#if !USE(APPLE_INTERNAL_SDK) && PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR) && !PLATFORM(IOSMAC)
+#if !USE(APPLE_INTERNAL_SDK) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED < 101500) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MAX_ALLOWED < 130000)
+@interface AVSampleBufferDisplayLayer (WebCorePrivate)
+@property (assign, nonatomic) BOOL preventsDisplaySleepDuringVideoPlayback;
+@end
+#endif
+
+#if !USE(APPLE_INTERNAL_SDK) && PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR) && !PLATFORM(MACCATALYST)
 #import <AVFoundation/AVAudioSession.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -324,3 +335,17 @@ NS_ASSUME_NONNULL_BEGIN
 NS_ASSUME_NONNULL_END
 #endif
 
+#if !USE(APPLE_INTERNAL_SDK) && HAVE(AVPLAYER_RESOURCE_CONSERVATION_LEVEL)
+@interface AVPlayer (AVPlayerPrivate)
+
+typedef NS_ENUM(NSInteger, AVPlayerResourceConservationLevel) {
+    AVPlayerResourceConservationLevelNone                                 = 0,
+    AVPlayerResourceConservationLevelReduceReadAhead                      = 1,
+    AVPlayerResourceConservationLevelReuseActivePlayerResources           = 2,
+    AVPlayerResourceConservationLevelRecycleBuffer                        = 3,
+};
+
+@property (nonatomic) AVPlayerResourceConservationLevel resourceConservationLevelWhilePaused;
+
+@end
+#endif

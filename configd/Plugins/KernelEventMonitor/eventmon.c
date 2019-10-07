@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -54,18 +54,13 @@
  */
 
 #include "eventmon.h"
-#include "cache.h"
 #include "ev_dlil.h"
 #include "ev_ipv4.h"
 #include "ev_ipv6.h"
 #include <notify.h>
 #include <sys/sysctl.h>
 #include <sys/kern_event.h>
-#if __has_include(<nw/private.h>)
 #include <nw/private.h>
-#else // __has_include(<nw/private.h>)
-#include <network/config.h>
-#endif // __has_include(<nw/private.h>)
 #include <netinet6/nd6.h>
 
 static dispatch_queue_t			S_kev_queue;
@@ -452,6 +447,20 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 				}
 #endif	// KEV_DL_IF_IDLE_ROUTE_REFCNT
 
+				case KEV_DL_IFDELEGATE_CHANGED: {
+					/*
+					 * interface delegation changed
+					 */
+					if (dataLen < sizeof(*ev)) {
+						handled = FALSE;
+						break;
+					}
+					copy_if_name(ev, ifr_name, sizeof(ifr_name));
+					SC_log(LOG_INFO, "Process interface delegation change: %s", (char *)ifr_name);
+					interface_update_delegation(ifr_name);
+					break;
+				}
+
 				case KEV_DL_LINK_OFF :
 				case KEV_DL_LINK_ON :
 					/*
@@ -485,7 +494,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 								   lqm_data->link_quality_metric);
 					break;
 				}
-#endif  // KEV_DL_LINK_QUALITY_METRIC_CHANGED
+#endif	// KEV_DL_LINK_QUALITY_METRIC_CHANGED
 
 #ifdef	KEV_DL_ISSUES
 				case KEV_DL_ISSUES: {
@@ -613,7 +622,7 @@ eventCallback(int so)
 		return FALSE;
 	}
 
-	cache_open();
+	_SCDynamicStoreCacheOpen(store);
 
 	while (offset < status) {
 		if ((offset + (ssize_t)ev_msg->total_size) > status) {
@@ -639,8 +648,8 @@ eventCallback(int so)
 		ev_msg = (struct kern_event_msg *)(void *)&buf.bytes[offset];
 	}
 
-	cache_write(store);
-	cache_close();
+	_SCDynamicStoreCacheCommitChanges(store);
+	_SCDynamicStoreCacheClose(store);
 	post_network_changed();
 	messages_post();
 
@@ -744,10 +753,10 @@ check_for_new_interfaces(void * context)
 
 	/* update KEV driven content in case a message got dropped */
 	snprintf(msg, sizeof(msg), "update %d (of %d)", count, MAX_TIMER_COUNT);
-	cache_open();
+	_SCDynamicStoreCacheOpen(store);
 	update_interfaces(msg, FALSE);
-	cache_write(store);
-	cache_close();
+	_SCDynamicStoreCacheCommitChanges(store);
+	_SCDynamicStoreCacheClose(store);
 	messages_post();
 
 	/* schedule the next timer, if needed */
@@ -766,11 +775,11 @@ prime(void)
 {
 	SC_log(LOG_DEBUG, "prime() called");
 
-	cache_open();
+	_SCDynamicStoreCacheOpen(store);
 	messages_init();
 	update_interfaces("prime", TRUE);
-	cache_write(store);
-	cache_close();
+	_SCDynamicStoreCacheCommitChanges(store);
+	_SCDynamicStoreCacheClose(store);
 
 	network_changed = TRUE;
 	post_network_changed();
@@ -870,21 +879,13 @@ load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 		close(so);
 	});
 	dispatch_source_set_event_handler(S_kev_source, ^{
-		os_activity_t	activity;
 		Boolean		ok;
-
-		activity = os_activity_create("processing network kernel events",
-					      OS_ACTIVITY_CURRENT,
-					      OS_ACTIVITY_FLAG_DEFAULT);
-		os_activity_scope(activity);
 
 		ok = eventCallback(so);
 		if (!ok) {
 			SC_log(LOG_ERR, "kernel event monitor disabled");
 			dispatch_source_cancel(S_kev_source);
 		}
-
-		os_release(activity);
 	});
 	// NOTE: dispatch_resume() will be called in prime()
 

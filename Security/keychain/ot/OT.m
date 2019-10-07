@@ -21,27 +21,38 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import "OT.h"
-#import <utilities/debugging.h>
-#import <utilities/SecCFWrappers.h>
+#import "keychain/ot/OT.h"
+#import "keychain/ot/OTConstants.h"
+#import "keychain/ot/OTManager.h"
 
-bool SecOTIsEnabled(void) {
+#import "utilities/debugging.h"
 
-    bool userDefaultsShouldBottledPeer = true;
-    CFBooleanRef enabled = (CFBooleanRef)CFPreferencesCopyValue(CFSTR("EnableOTRestore"),
-                                                                CFSTR("com.apple.security"),
-                                                                kCFPreferencesAnyUser, kCFPreferencesAnyHost);
-    if(enabled && CFGetTypeID(enabled) == CFBooleanGetTypeID()){
-        if(enabled == kCFBooleanFalse){
-            secnotice("octagon", "Octagon Restore Disabled");
-            userDefaultsShouldBottledPeer = false;
-        }
-        if(enabled == kCFBooleanTrue){
-            secnotice("octagon", "Octagon Restore Enabled");
-            userDefaultsShouldBottledPeer = true;
-        }
+void OctagonInitialize(void)
+{
+    OTManager* manager = [OTManager manager];
+    [manager initializeOctagon];
+}
+
+// If you want octagon to be initialized in your daemon/tests, you must set this to be true
+static bool OctagonPerformInitialization = false;
+bool OctagonShouldPerformInitialization(void)
+{
+    return OctagonPerformInitialization;
+}
+
+void OctagonSetShouldPerformInitialization(bool value)
+{
+    OctagonPerformInitialization = value;
+}
+
+void SecOctagon24hrNotification(void) {
+#if OCTAGON
+    @autoreleasepool {
+        [[OTManager manager] xpc24HrNotification:OTCKContainerName context:OTDefaultContext skipRateLimitingCheck:NO reply: ^(NSError * error) {
+            if(error){
+                secerror("error attempting to check octagon health: %@", error);
+            }
+        }];
     }
-
-    CFReleaseNull(enabled);
-    return userDefaultsShouldBottledPeer;
+#endif
 }

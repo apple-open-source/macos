@@ -12,10 +12,10 @@ session.save_handler=files
 
 ob_start();
 
-/* 
+/*
  * Prototype : string session_save_path([string $path])
  * Description : Get and/or set the current session save path
- * Source code : ext/session/session.c 
+ * Source code : ext/session/session.c
  */
 
 echo "*** Testing session_save_path() : error functionality ***\n";
@@ -62,7 +62,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // Empty strings
 /*16*/ "",
        '',
@@ -71,7 +71,7 @@ $inputs = array(
 /*18*/ "Nothing",
        'Nothing',
        $heredoc,
-       
+
        // Object data
 /*21*/ new classA(),
 
@@ -85,7 +85,6 @@ $inputs = array(
 /*24*/ $fp
 );
 
-session_start();
 
 $iterator = 1;
 foreach($inputs as $input) {
@@ -94,7 +93,6 @@ foreach($inputs as $input) {
     $iterator++;
 };
 
-session_destroy();
 fclose($fp);
 echo "Done";
 ob_end_flush();
@@ -176,4 +174,3 @@ string(0) ""
 Warning: session_save_path() expects parameter 1 to be string, resource given in %s on line %d
 NULL
 Done
-

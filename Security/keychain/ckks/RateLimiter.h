@@ -40,8 +40,6 @@ typedef NS_ENUM(NSInteger, RateLimiterBadness) {
 };
 
 - (instancetype _Nullable)initWithConfig:(NSDictionary*)config;
-- (instancetype _Nullable)initWithPlistFromURL:(NSURL*)url;
-- (instancetype _Nullable)initWithAssetType:(NSString*)type;  // Not implemented yet
 - (instancetype _Nullable)initWithCoder:(NSCoder*)coder;
 - (instancetype _Nullable)init NS_UNAVAILABLE;
 
@@ -56,7 +54,7 @@ typedef NS_ENUM(NSInteger, RateLimiterBadness) {
  * At badness 5 judge:at: has determined there is too much activity so the caller should hold off altogether. The limitTime object will indicate when
  * this overloaded state will end.
  */
-- (NSInteger)judge:(id)obj at:(NSDate*)time limitTime:(NSDate* _Nonnull __autoreleasing* _Nonnull)limitTime;
+- (RateLimiterBadness)judge:(id)obj at:(NSDate*)time limitTime:(NSDate* _Nonnull __autoreleasing* _Nonnull)limitTime;
 
 - (void)reset;
 - (NSString*)diagnostics;

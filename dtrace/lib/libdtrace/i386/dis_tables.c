@@ -43,10 +43,6 @@
 
 #define LIT_STRNEQL(s1, lit_s2) (0 == strncmp( (s1), (lit_s2), sizeof((lit_s2)) ))
 
-/*
- * #pragma ident       "@(#)dis_tables.c       1.18    08/05/24 SMI"
- */
-
 /* BEGIN CSTYLED */
 
 /*

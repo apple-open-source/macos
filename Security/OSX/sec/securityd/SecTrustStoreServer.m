@@ -114,23 +114,31 @@ static bool checkInputExceptionsAndSetAppExceptions(NSDictionary *inExceptions, 
 static _Atomic bool gHasCTExceptions = false;
 #define kSecCTExceptionsChanged "com.apple.trustd.ct.exceptions-changed"
 
+static NSURL *CTExceptionsFileURL() {
+    return CFBridgingRelease(SecCopyURLForFileInSystemKeychainDirectory(CFSTR("CTExceptions.plist")));
+}
+
+static NSDictionary <NSString*,NSDictionary*> *readExceptionsFromDisk(NSError **error) {
+    secdebug("ct", "reading CT exceptions from disk");
+    NSDictionary <NSString*,NSDictionary*> *allExceptions = [NSDictionary dictionaryWithContentsOfURL:CTExceptionsFileURL()
+                                                                                                error:error];
+    return allExceptions;
+}
+
 bool _SecTrustStoreSetCTExceptions(CFStringRef appID, CFDictionaryRef exceptions, CFErrorRef *error)  {
     if (!SecOTAPKIIsSystemTrustd()) {
+        secerror("Unable to write CT exceptions from user agent");
         return SecError(errSecWrPerm, error, CFSTR("Unable to write CT exceptions from user agent"));
     }
 
     if (!appID) {
+        secerror("application-identifier required to set exceptions");
         return SecError(errSecParam, error, CFSTR("application-identifier required to set exceptions"));
     }
 
     @autoreleasepool {
-#if TARGET_OS_IPHONE
-        NSURL *keychainsDirectory = CFBridgingRelease(SecCopyURLForFileInKeychainDirectory(nil));
-#else
-        NSURL *keychainsDirectory = [NSURL fileURLWithFileSystemRepresentation:"/Library/Keychains/" isDirectory:YES relativeToURL:nil];
-#endif
-        NSURL *ctExceptionsFile = [keychainsDirectory URLByAppendingPathComponent:@"CTExceptions.plist"];
-        NSMutableDictionary *allExceptions = [NSMutableDictionary dictionaryWithContentsOfURL:ctExceptionsFile];
+        NSError *nserror = nil;
+        NSMutableDictionary *allExceptions = [readExceptionsFromDisk(&nserror) mutableCopy];
         NSMutableDictionary *appExceptions = NULL;
         if (allExceptions && allExceptions[(__bridge NSString*)appID]) {
             appExceptions = [allExceptions[(__bridge NSString*)appID] mutableCopy];
@@ -144,6 +152,7 @@ bool _SecTrustStoreSetCTExceptions(CFStringRef appID, CFDictionaryRef exceptions
         if (exceptions && (CFDictionaryGetCount(exceptions) > 0)) {
             NSDictionary *inExceptions = (__bridge NSDictionary*)exceptions;
             if (!checkInputExceptionsAndSetAppExceptions(inExceptions, appExceptions, error)) {
+                secerror("input exceptions have error: %@", error ? *error : nil);
                 return false;
             }
         }
@@ -154,11 +163,14 @@ bool _SecTrustStoreSetCTExceptions(CFStringRef appID, CFDictionaryRef exceptions
             allExceptions[(__bridge NSString*)appID] = appExceptions;
         }
 
-        NSError *nserror = nil;
-        if (![allExceptions writeToURL:ctExceptionsFile error:&nserror] && error) {
-            *error = CFRetainSafe((__bridge CFErrorRef)nserror);
+        if (![allExceptions writeToURL:CTExceptionsFileURL() error:&nserror]) {
+            secerror("failed to write CT exceptions: %@", nserror);
+            if (error) {
+                *error = CFRetainSafe((__bridge CFErrorRef)nserror);
+            }
             return false;
         }
+        secnotice("ct", "wrote %lu CT exceptions", (unsigned long)[allExceptions count]);
         atomic_store(&gHasCTExceptions, [allExceptions count] != 0);
         notify_post(kSecCTExceptionsChanged);
         return true;
@@ -167,33 +179,23 @@ bool _SecTrustStoreSetCTExceptions(CFStringRef appID, CFDictionaryRef exceptions
 
 CFDictionaryRef _SecTrustStoreCopyCTExceptions(CFStringRef appID, CFErrorRef *error) {
     @autoreleasepool {
+        /* Set us up for not reading the disk when there are never exceptions */
         static int notify_token = 0;
         int check = 0;
-        if (!SecOTAPKIIsSystemTrustd()) {
-            /* Check whether we got a notification. If we didn't, and there are no exceptions set, return NULL.
-             * Otherwise, we need to read from disk */
-            uint32_t check_status = notify_check(notify_token, &check);
-            if (check_status == NOTIFY_STATUS_OK && check == 0 && !atomic_load(&gHasCTExceptions)) {
-                return NULL;
-            }
-        } else {
-            if (!atomic_load(&gHasCTExceptions)) {
-                return NULL;
-            }
-        }
-
-#if TARGET_OS_IPHONE
-        NSURL *keychainsDirectory = CFBridgingRelease(SecCopyURLForFileInKeychainDirectory(nil));
-#else
-        NSURL *keychainsDirectory = [NSURL fileURLWithFileSystemRepresentation:"/Library/Keychains/" isDirectory:YES relativeToURL:nil];
-#endif
-        NSURL *ctExceptionsFile = [keychainsDirectory URLByAppendingPathComponent:@"CTExceptions.plist"];
-        NSDictionary <NSString*,NSDictionary*> *allExceptions = [NSDictionary dictionaryWithContentsOfURL:ctExceptionsFile];
-
-        /* Set us up for not reading the disk when there are never exceptions */
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
-            atomic_init(&gHasCTExceptions, allExceptions && [allExceptions count] == 0);
+            /* initialize gHashCTExceptions cache */
+            NSError *read_error = nil;
+            NSDictionary <NSString*,NSDictionary*> *allExceptions = readExceptionsFromDisk(&read_error);
+            if (!allExceptions || [allExceptions count] == 0) {
+                secnotice("ct", "skipping further reads. no CT exceptions found: %@", read_error);
+                atomic_store(&gHasCTExceptions, false);
+            } else {
+                secnotice("ct", "have CT exceptions. will need to read.");
+                atomic_store(&gHasCTExceptions, true);
+            }
+
+            /* read-only trustds register for notfications from the read-write trustd */
             if (!SecOTAPKIIsSystemTrustd()) {
                 uint32_t status = notify_register_check(kSecCTExceptionsChanged, &notify_token);
                 if (status == NOTIFY_STATUS_OK) {
@@ -207,7 +209,23 @@ CFDictionaryRef _SecTrustStoreCopyCTExceptions(CFStringRef appID, CFErrorRef *er
             }
         });
 
+        /* Read the negative cached value as to whether there are any exceptions to read */
+        if (!SecOTAPKIIsSystemTrustd()) {
+            /* Check whether we got a notification. If we didn't, and there are no exceptions set, return NULL.
+             * Otherwise, we need to read from disk */
+            uint32_t check_status = notify_check(notify_token, &check);
+            if (check_status == NOTIFY_STATUS_OK && check == 0 && !atomic_load(&gHasCTExceptions)) {
+                return NULL;
+            }
+        } else if (!atomic_load(&gHasCTExceptions)) {
+            return NULL;
+        }
+
+        /* We need to read the exceptions from disk */
+        NSError *read_error = nil;
+        NSDictionary <NSString*,NSDictionary*> *allExceptions = readExceptionsFromDisk(&read_error);
         if (!allExceptions || [allExceptions count] == 0) {
+            secnotice("ct", "skipping further reads. no CT exceptions found: %@", read_error);
             atomic_store(&gHasCTExceptions, false);
             return NULL;
         }
@@ -241,6 +259,7 @@ CFDictionaryRef _SecTrustStoreCopyCTExceptions(CFStringRef appID, CFErrorRef *er
             exceptions[(__bridge NSString*)kSecCTExceptionsCAsKey] = caExceptions;
         }
         if ([exceptions count] > 0) {
+            secdebug("ct", "found %lu CT exceptions on disk", (unsigned long)[exceptions count]);
             atomic_store(&gHasCTExceptions, true);
             return CFBridgingRetain(exceptions);
         }

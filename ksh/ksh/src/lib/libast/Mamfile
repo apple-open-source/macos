@@ -42,25 +42,25 @@ make FEATURE/standards
 meta FEATURE/standards features/%>FEATURE/% features/standards standards
 make features/standards
 done features/standards
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/standards
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/standards
 done FEATURE/standards generated
 make FEATURE/lib
 meta FEATURE/lib features/%>FEATURE/% features/lib lib
 make features/lib
 done features/lib
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/lib
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/lib
 done FEATURE/lib generated
 make FEATURE/common
 meta FEATURE/common features/%>FEATURE/% features/common common
 make features/common
 done features/common
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/common
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/common
 done FEATURE/common generated
 make FEATURE/param
 meta FEATURE/param features/%.sh>FEATURE/% features/param.sh param
 make features/param.sh
 done features/param.sh
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/param.sh
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/param.sh
 make std/endian.h implicit
 make std/bytesex.h implicit
 make ast_common.h implicit
@@ -78,36 +78,36 @@ make FEATURE/api implicit
 meta FEATURE/api features/%>FEATURE/% features/api api
 make features/api
 done features/api
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/api
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/api
 done FEATURE/api generated
 make FEATURE/eaccess implicit
 meta FEATURE/eaccess features/%>FEATURE/% features/eaccess eaccess
 make features/eaccess
 done features/eaccess
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/eaccess
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/eaccess
 done FEATURE/eaccess generated
 make FEATURE/vmalloc implicit
 meta FEATURE/vmalloc features/%>FEATURE/% features/vmalloc vmalloc
 make features/vmalloc
 done features/vmalloc
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/vmalloc
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/vmalloc
 make FEATURE/mmap implicit
 meta FEATURE/mmap features/%>FEATURE/% features/mmap mmap
 make features/mmap
 done features/mmap
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/mmap
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/mmap
 done FEATURE/mmap dontcare generated
 done FEATURE/vmalloc generated
 make FEATURE/options implicit
 meta FEATURE/options features/%>FEATURE/% features/options options
 make features/options
 done features/options
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/options
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/options
 done FEATURE/options generated
 prev FEATURE/mmap implicit
 prev FEATURE/lib implicit
 done features/map.c
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS} -I.  ${LDFLAGS} ' run features/map.c
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS} -I.  ${LDFLAGS} ' run features/map.c
 done FEATURE/map generated
 exec - cmp 2>/dev/null -s FEATURE/map ast_map.h || { rm -f ast_map.h; silent test -d . || mkdir .; ${STDCP} FEATURE/map ast_map.h; }
 done ast_map.h dontcare generated
@@ -119,7 +119,7 @@ make FEATURE/aso
 meta FEATURE/aso features/%>FEATURE/% features/aso aso
 make features/aso
 done features/aso
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/aso
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/aso
 done FEATURE/aso generated
 prev ast_map.h
 make ast_limits.h
@@ -187,7 +187,7 @@ prev FEATURE/common implicit
 prev FEATURE/lib implicit
 prev FEATURE/standards implicit
 done features/limits.c
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS} -I. -Icomp -Iinclude -Istd  ${LDFLAGS} ' run features/limits.c
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS} -I. -Icomp -Iinclude -Istd  ${LDFLAGS} ' run features/limits.c
 done FEATURE/limits generated
 exec - cmp 2>/dev/null -s FEATURE/limits ast_limits.h || { rm -f ast_limits.h; silent test -d . || mkdir .; ${STDCP} FEATURE/limits ast_limits.h; }
 done ast_limits.h generated
@@ -196,7 +196,7 @@ make FEATURE/stdio
 meta FEATURE/stdio features/%>FEATURE/% features/stdio stdio
 make features/stdio
 done features/stdio
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/stdio
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/stdio
 make include/sfio_s.h implicit
 done include/sfio_s.h dontcare
 make include/ast_std.h implicit
@@ -211,14 +211,14 @@ meta FEATURE/wchar features/%>FEATURE/% features/wchar wchar
 make features/wchar
 prev ast_common.h implicit
 done features/wchar
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/wchar
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/wchar
 make std/wctype.h implicit
 make ast_wctype.h implicit
 make FEATURE/wctype
 meta FEATURE/wctype features/%>FEATURE/% features/wctype wctype
 make features/wctype
 done features/wctype
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/wctype
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/wctype
 prev std/endian.h implicit
 make std/wchar.h implicit
 prev ast_wchar.h implicit
@@ -249,13 +249,13 @@ make FEATURE/sys implicit
 meta FEATURE/sys features/%>FEATURE/% features/sys sys
 make features/sys
 done features/sys
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/sys
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/sys
 prev std/endian.h implicit
 prev std/endian.h implicit
 done FEATURE/sys generated
 prev FEATURE/lib implicit
 done features/botch.c
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS} -I. -Icomp -Iinclude -Istd  ${LDFLAGS} ' run features/botch.c
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS} -I. -Icomp -Iinclude -Istd  ${LDFLAGS} ' run features/botch.c
 done FEATURE/botch generated
 exec - cmp 2>/dev/null -s FEATURE/botch ast_botch.h || { rm -f ast_botch.h; silent test -d . || mkdir .; ${STDCP} FEATURE/botch ast_botch.h; }
 done ast_botch.h dontcare generated
@@ -268,17 +268,17 @@ make FEATURE/tty implicit
 meta FEATURE/tty features/%>FEATURE/% features/tty tty
 make features/tty
 done features/tty
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/tty
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/tty
 done FEATURE/tty generated
 make FEATURE/fs implicit
 meta FEATURE/fs features/%>FEATURE/% features/fs fs
 make features/fs
 done features/fs
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/fs
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/fs
 done FEATURE/fs generated
 prev FEATURE/lib implicit
 done features/fcntl.c
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS} -I. -Icomp -Iinclude -Istd  ${LDFLAGS} ' run features/fcntl.c
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS} -I. -Icomp -Iinclude -Istd  ${LDFLAGS} ' run features/fcntl.c
 make ast_fs.h implicit
 prev FEATURE/fs
 exec - cmp 2>/dev/null -s FEATURE/fs ast_fs.h || { rm -f ast_fs.h; silent test -d . || mkdir .; ${STDCP} FEATURE/fs ast_fs.h; }
@@ -308,7 +308,7 @@ make FEATURE/nl_types
 meta FEATURE/nl_types features/%>FEATURE/% features/nl_types nl_types
 make features/nl_types
 done features/nl_types
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/nl_types
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/nl_types
 done FEATURE/nl_types generated
 exec - cmp 2>/dev/null -s FEATURE/nl_types ast_nl_types.h || { rm -f ast_nl_types.h; silent test -d . || mkdir .; ${STDCP} FEATURE/nl_types ast_nl_types.h; }
 done ast_nl_types.h generated
@@ -423,7 +423,7 @@ make FEATURE/dirent
 meta FEATURE/dirent features/%>FEATURE/% features/dirent dirent
 make features/dirent
 done features/dirent
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/dirent
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/dirent
 prev include/ast_std.h implicit
 done FEATURE/dirent generated
 exec - cmp 2>/dev/null -s FEATURE/dirent ast_dirent.h || { rm -f ast_dirent.h; silent test -d . || mkdir .; ${STDCP} FEATURE/dirent ast_dirent.h; }
@@ -442,7 +442,7 @@ make include/modecanon.h implicit
 done include/modecanon.h
 prev FEATURE/param implicit
 done features/mode.c
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS} -I. -Iinclude -Istd  ${LDFLAGS} ' run features/mode.c
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS} -I. -Iinclude -Istd  ${LDFLAGS} ' run features/mode.c
 done FEATURE/mode generated
 exec - cmp 2>/dev/null -s FEATURE/mode ast_mode.h || { rm -f ast_mode.h; silent test -d . || mkdir .; ${STDCP} FEATURE/mode ast_mode.h; }
 done ast_mode.h dontcare generated
@@ -508,7 +508,7 @@ make FEATURE/syscall implicit
 meta FEATURE/syscall features/%>FEATURE/% features/syscall syscall
 make features/syscall
 done features/syscall
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/syscall
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/syscall
 done FEATURE/syscall dontcare generated
 prev include/ast.h implicit
 done misc/getcwd.c
@@ -665,7 +665,7 @@ make FEATURE/ccode
 meta FEATURE/ccode features/%>FEATURE/% features/ccode ccode
 make features/ccode
 done features/ccode
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/ccode
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/ccode
 done FEATURE/ccode generated
 exec - cmp 2>/dev/null -s FEATURE/ccode ast_ccode.h || { rm -f ast_ccode.h; silent test -d . || mkdir .; ${STDCP} FEATURE/ccode ast_ccode.h; }
 done ast_ccode.h dontcare generated
@@ -970,7 +970,7 @@ make FEATURE/time
 meta FEATURE/time features/%>FEATURE/% features/time time
 make features/time
 done features/time
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/time
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/time
 done FEATURE/time generated
 exec - cmp 2>/dev/null -s FEATURE/time ast_time.h || { rm -f ast_time.h; silent test -d . || mkdir .; ${STDCP} FEATURE/time ast_time.h; }
 done ast_time.h dontcare generated
@@ -1054,7 +1054,7 @@ make FEATURE/preroot
 meta FEATURE/preroot features/%.sh>FEATURE/% features/preroot.sh preroot
 make features/preroot.sh
 done features/preroot.sh
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/preroot.sh
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/preroot.sh
 done FEATURE/preroot generated
 exec - cmp 2>/dev/null -s FEATURE/preroot preroot.h || { rm -f preroot.h; silent test -d . || mkdir .; ${STDCP} FEATURE/preroot preroot.h; }
 done preroot.h generated
@@ -1117,7 +1117,7 @@ make FEATURE/tv
 meta FEATURE/tv features/%>FEATURE/% features/tv tv
 make features/tv
 done features/tv
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/tv
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/tv
 prev include/ast.h implicit
 done FEATURE/tv generated
 exec - cmp 2>/dev/null -s FEATURE/tv tv.h || { rm -f tv.h; silent test -d . || mkdir .; ${STDCP} FEATURE/tv tv.h; }
@@ -1202,7 +1202,7 @@ make FEATURE/prog implicit
 meta FEATURE/prog features/%>FEATURE/% features/prog prog
 make features/prog
 done features/prog
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/prog
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/prog
 done FEATURE/prog generated
 make include/ast_windows.h implicit
 make windows.h implicit
@@ -1411,7 +1411,7 @@ make FEATURE/sig
 meta FEATURE/sig features/%.sh>FEATURE/% features/sig.sh sig
 make features/sig.sh
 done features/sig.sh
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/sig.sh
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/sig.sh
 done FEATURE/sig generated
 exec - cmp 2>/dev/null -s FEATURE/sig sig.h || { rm -f sig.h; silent test -d . || mkdir .; ${STDCP} FEATURE/sig sig.h; }
 done sig.h generated
@@ -1529,7 +1529,7 @@ make FEATURE/iconv
 meta FEATURE/iconv features/%>FEATURE/% features/iconv iconv
 make features/iconv
 done features/iconv
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/iconv
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/iconv
 prev include/ccode.h implicit
 prev ast_common.h implicit
 done FEATURE/iconv generated
@@ -1565,7 +1565,7 @@ make FEATURE/locale implicit
 meta FEATURE/locale features/%>FEATURE/% features/locale locale
 make features/locale
 done features/locale
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/locale
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/locale
 done FEATURE/locale generated
 make port/lclang.h implicit
 prev include/ast_windows.h implicit
@@ -1605,7 +1605,7 @@ meta FEATURE/float features/%>FEATURE/% features/float float
 make features/float
 prev FEATURE/standards implicit
 done features/float
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/float
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/float
 prev ast_common.h implicit
 done FEATURE/float dontcare generated
 make mman.h implicit
@@ -1635,7 +1635,7 @@ make FEATURE/sfio implicit
 meta FEATURE/sfio features/%>FEATURE/% features/sfio sfio
 make features/sfio
 done features/sfio
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/sfio
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/sfio
 done FEATURE/sfio dontcare generated
 done sfio/sfhdr.h
 done port/mc.c
@@ -1907,7 +1907,7 @@ meta FEATURE/tmx features/%>FEATURE/% features/tmx tmx
 make features/tmx
 prev FEATURE/common implicit
 done features/tmx
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/tmx
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/tmx
 prev tv.h implicit
 prev include/tm.h implicit
 done FEATURE/tmx generated
@@ -2009,7 +2009,7 @@ meta FEATURE/align features/%.c>FEATURE/% features/align.c align
 make features/align.c
 prev FEATURE/common implicit
 done features/align.c
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS} -I.  ${LDFLAGS} ' run features/align.c
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS} -I.  ${LDFLAGS} ' run features/align.c
 done FEATURE/align generated
 exec - cmp 2>/dev/null -s FEATURE/align align.h || { rm -f align.h; silent test -d . || mkdir .; ${STDCP} FEATURE/align align.h; }
 done align.h generated
@@ -2065,11 +2065,11 @@ make FEATURE/siglist implicit
 meta FEATURE/siglist features/%>FEATURE/% features/siglist siglist
 make features/siglist
 done features/siglist
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/siglist
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/siglist
 done FEATURE/siglist generated
 prev FEATURE/standards implicit
 done features/signal.c
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS} -I.  ${LDFLAGS} ' run features/signal.c
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS} -I.  ${LDFLAGS} ' run features/signal.c
 done FEATURE/signal generated
 prev sig.h implicit
 prev include/ast.h implicit
@@ -2109,7 +2109,7 @@ make FEATURE/wait
 meta FEATURE/wait features/%>FEATURE/% features/wait wait
 make features/wait
 done features/wait
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/wait
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/wait
 done FEATURE/wait generated
 exec - cmp 2>/dev/null -s FEATURE/wait ast_wait.h || { rm -f ast_wait.h; silent test -d . || mkdir .; ${STDCP} FEATURE/wait ast_wait.h; }
 done ast_wait.h dontcare generated
@@ -2205,7 +2205,7 @@ make FEATURE/tmlib implicit
 meta FEATURE/tmlib features/%>FEATURE/% features/tmlib tmlib
 make features/tmlib
 done features/tmlib
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/tmlib
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/tmlib
 done FEATURE/tmlib generated
 prev include/namval.h implicit
 prev include/tm.h implicit
@@ -2435,7 +2435,7 @@ make FEATURE/tvlib implicit
 meta FEATURE/tvlib features/%>FEATURE/% features/tvlib tvlib
 make features/tvlib
 done features/tvlib
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/tvlib
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/tvlib
 done FEATURE/tvlib generated
 prev include/tm.h implicit
 prev tv.h implicit
@@ -2915,7 +2915,7 @@ make FEATURE/errno implicit
 meta FEATURE/errno features/%>FEATURE/% features/errno errno
 make features/errno
 done features/errno
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/errno
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/errno
 done FEATURE/errno generated
 prev port/lclib.h implicit
 done string/strerror.c
@@ -2997,7 +2997,7 @@ make FEATURE/vfork
 meta FEATURE/vfork features/%>FEATURE/% features/vfork vfork
 make features/vfork
 done features/vfork
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/vfork
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/vfork
 done FEATURE/vfork generated
 exec - cmp 2>/dev/null -s FEATURE/vfork ast_vfork.h || { rm -f ast_vfork.h; silent test -d . || mkdir .; ${STDCP} FEATURE/vfork ast_vfork.h; }
 done ast_vfork.h dontcare generated
@@ -3134,7 +3134,7 @@ make FEATURE/hack implicit
 meta FEATURE/hack features/%>FEATURE/% features/hack hack
 make features/hack
 done features/hack
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/hack
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/hack
 done FEATURE/hack generated
 prev include/ls.h implicit
 prev include/ast.h implicit
@@ -3152,7 +3152,7 @@ make FEATURE/omitted implicit
 meta FEATURE/omitted features/%>FEATURE/% features/omitted omitted
 make features/omitted
 done features/omitted
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/omitted
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/omitted
 done FEATURE/omitted generated
 prev include/tm.h implicit
 prev include/error.h implicit
@@ -4405,7 +4405,7 @@ make features/sfinit.c
 prev FEATURE/float implicit
 prev FEATURE/common implicit
 done features/sfinit.c
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS} -I. -Istd  ${LDFLAGS} ' run features/sfinit.c
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS} -I. -Istd  ${LDFLAGS} ' run features/sfinit.c
 done FEATURE/sfinit generated
 prev FEATURE/float implicit
 prev sfio/sfhdr.h implicit
@@ -5194,7 +5194,7 @@ make FEATURE/uwin implicit
 meta FEATURE/uwin features/%>FEATURE/% features/uwin uwin
 make features/uwin
 done features/uwin
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/uwin
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/uwin
 done FEATURE/uwin dontcare generated
 prev uwin.h implicit
 prev include/ast_windows.h implicit
@@ -5525,7 +5525,7 @@ make FEATURE/libpath implicit
 meta FEATURE/libpath features/%.sh>FEATURE/% features/libpath.sh libpath
 make features/libpath.sh
 done features/libpath.sh
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/libpath.sh
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/libpath.sh
 done FEATURE/libpath generated
 make conftab.h implicit
 done conftab.h
@@ -5631,7 +5631,7 @@ make FEATURE/asometh implicit
 meta FEATURE/asometh features/%>FEATURE/% features/asometh asometh
 make features/asometh
 done features/asometh
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/asometh
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/asometh
 done FEATURE/asometh dontcare generated
 make include/fnv.h implicit
 prev ast_common.h implicit
@@ -7139,7 +7139,7 @@ make FEATURE/ndbm
 meta FEATURE/ndbm features/%>FEATURE/% features/ndbm ndbm
 make features/ndbm
 done features/ndbm
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/ndbm
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/ndbm
 prev std/stdio.h implicit
 done FEATURE/ndbm generated
 exec - cmp 2>/dev/null -s FEATURE/ndbm ast_ndbm.h || { rm -f ast_ndbm.h; silent test -d . || mkdir .; ${STDCP} FEATURE/ndbm ast_ndbm.h; }
@@ -7220,7 +7220,7 @@ make FEATURE/sizeof
 meta FEATURE/sizeof features/%>FEATURE/% features/sizeof sizeof
 make features/sizeof
 done features/sizeof
-exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${ARCH_CCFLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/sizeof
+exec - iffe -v -X ast -X std -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}   ${LDFLAGS} ' run features/sizeof
 done FEATURE/sizeof generated
 exec - cmp 2>/dev/null -s FEATURE/sizeof ast_sizeof.h || { rm -f ast_sizeof.h; silent test -d . || mkdir .; ${STDCP} FEATURE/sizeof ast_sizeof.h; }
 done ast_sizeof.h generated

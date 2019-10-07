@@ -19,7 +19,7 @@ unset($unset_var);
 class sample  {
   public function __toString() {
     return "object";
-  } 
+  }
 }
 
 //getting the resource
@@ -61,7 +61,7 @@ $haystacks =  array (
   "",
   '',
 
-  // null vlaues
+  // null values
   NULL,
   null,
 

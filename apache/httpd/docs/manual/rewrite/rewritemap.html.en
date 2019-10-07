@@ -323,7 +323,7 @@ $ httxt2dbm -i mapfile.txt -o mapfile.map
 <div class="note">
 <p>Note that with some dbm types, more than one file is generated, with
 a common base name. For example, you may have two files named
-<code>mapfile.map.dir</code> and <code>mapfiile.map.pag</code>. This is
+<code>mapfile.map.dir</code> and <code>mapfile.map.pag</code>. This is
 normal, and you need only use the base name <code>mapfile.map</code> in
 your <code class="directive"><a href="../mod/mod_rewrite.html#rewritemap">RewriteMap</a></code> directive.</p>
 </div>
@@ -472,7 +472,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/rewrite/rewritemap.h
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2018 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2019 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

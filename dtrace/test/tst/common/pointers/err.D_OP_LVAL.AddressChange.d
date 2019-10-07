@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_OP_LVAL.AddressChange.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: D pointers do not allow invalid address changes.
  *

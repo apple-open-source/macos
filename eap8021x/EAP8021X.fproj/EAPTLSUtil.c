@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,9 +40,9 @@
 #include <ctype.h>
 
 #include <Security/SecureTransport.h>
-#if !TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
-#endif
+#endif /* ! TARGET_OS_IPHONE */
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFBase.h>
 #include <CoreFoundation/CFData.h>
@@ -50,11 +50,11 @@
 #include <TargetConditionals.h>
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecPolicyPriv.h>
-#if !TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 #include <Security/oidsalg.h>
 #include <Security/SecKeychain.h>
 #include <Security/SecPolicySearch.h>
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 #include <Security/SecTrustPriv.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <Security/SecPolicy.h>
@@ -962,7 +962,7 @@ get_trusted_server_names(CFDictionaryRef properties)
     return (list);
 }
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 #include <CoreFoundation/CFPreferences.h>
 #include <notify.h>
 
@@ -1467,7 +1467,7 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 	goto done;
     }
     client_status = kEAPClientStatusSecurityError;
-    status = SecTrustEvaluate(trust, &trust_result);
+    status = EAPTLSSecTrustEvaluate(trust, &trust_result);
     if (status != noErr) {
 	EAPLOG_FL(LOG_NOTICE, 
 		  "SecTrustEvaluate failed, %s (%d)",
@@ -1539,7 +1539,7 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
     return (client_status);
 }
 
-#else /* TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_IPHONE */
 
 EAPClientStatus
 EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties, 
@@ -1624,7 +1624,7 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 	    goto done;
 	}
     }
-    status = SecTrustEvaluate(trust, &trust_result);
+    status = EAPTLSSecTrustEvaluate(trust, &trust_result);
     switch (status) {
     case noErr:
 	break;
@@ -1636,7 +1636,7 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 		      EAPSecurityErrorString(status), (int)status);
 	    goto done;
 	}
-	status = SecTrustEvaluate(trust, &trust_result);
+	status = EAPTLSSecTrustEvaluate(trust, &trust_result);
 	if (status == noErr) {
 	    break;
 	}
@@ -1686,7 +1686,7 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
     return (client_status);
 }
 
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 
 OSStatus
 EAPTLSCopyIdentityTrustChain(SecIdentityRef sec_identity,
@@ -1694,7 +1694,7 @@ EAPTLSCopyIdentityTrustChain(SecIdentityRef sec_identity,
 			     CFArrayRef * ret_array)
 {
     if (sec_identity != NULL) {
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 	if (properties != NULL) {
 	    CFDictionaryRef identityHandle = CFDictionaryGetValue(properties, kEAPClientPropTLSIdentityHandle);
 	    if (isA_CFDictionary(identityHandle) != NULL) {
@@ -1705,7 +1705,7 @@ EAPTLSCopyIdentityTrustChain(SecIdentityRef sec_identity,
 		goto done;
 	    }
 	}
-#endif
+#endif /* TARGET_OS_IPHONE */
 	return (EAPSecIdentityCreateTrustChain(sec_identity, ret_array));
     }
     if (properties != NULL) {
@@ -1719,13 +1719,31 @@ EAPTLSCopyIdentityTrustChain(SecIdentityRef sec_identity,
 	}
     }
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
  done:
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
     *ret_array = NULL;
     return (errSecParam);
 }
 
+OSStatus
+EAPTLSSecTrustEvaluate(SecTrustRef trust, SecTrustResultType *result)
+{
+    CFErrorRef      error = NULL;
+    bool            trusted;
+    OSStatus        status;
+
+    trusted = SecTrustEvaluateWithError(trust, &error);
+    status = SecTrustGetTrustResult(trust, result);
+    if (!trusted && error) {
+	EAPLOG_FL(LOG_ERR, "SecTrustEvaluateWithError failed, %@\n", error);
+	CFRelease(error);
+    }
+    if (status != errSecSuccess) {
+	EAPLOG_FL(LOG_ERR, "SecTrustGetTrustResult failed, %d\n", (int)status);
+    }
+    return status;
+}
 
 #if defined(TEST_TRUST_EXCEPTIONS) || defined(TEST_EAPTLSVerifyServerCertificateChain) \
     || defined(TEST_VerifyServerName)
@@ -1789,7 +1807,7 @@ file_create_certificate(const char  * filename)
         */
 
 #ifdef TEST_TRUST_EXCEPTIONS
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 #include <SystemConfiguration/SCPrivate.h>
 
 static void
@@ -1919,15 +1937,18 @@ main(int argc, char * argv[])
     return (0);
 }
 
-#else /* TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_IPHONE */
 
-#error "TrustExceptions are only available with TARGET_OS_EMBEDDED"
-#endif /* TARGET_OS_EMBEDDED */
+#error "TrustExceptions are only available with TARGET_OS_IPHONE"
+
+#endif /* TARGET_OS_IPHONE */
+
 #endif /* TEST_TRUST_EXCEPTIONS */
 
 #ifdef TEST_SEC_TRUST
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
+
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
@@ -2028,7 +2049,7 @@ main(int argc, char * argv[])
 	fprintf(stderr, "EAPTLSCreateSecTrustFailed failed\n");
 	exit(1);
     }
-    status = SecTrustEvaluate(trust, &trust_result);
+    status = EAPTLSSecTrustEvaluate(trust, &trust_result);
     if (status != noErr) {
 	fprintf(stderr, "SecTrustEvaluate failed, %s (%d)",
 		EAPSecurityErrorString(status), (int)status);
@@ -2061,16 +2082,21 @@ main(int argc, char * argv[])
     return (0);
 }
 
-#else /* TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_IPHONE */
 
-#error "SecTrust test is only available with TARGET_OS_EMBEDDED"
-#endif /* TARGET_OS_EMBEDDED */
+#error "SecTrust test is only available with TARGET_OS_IPHONE"
+
+#endif /* TARGET_OS_IPHONE */
+
 #endif /* TEST_SEC_TRUST */
 
 #ifdef TEST_SERVER_NAMES
-#if TARGET_OS_EMBEDDED
-#error "Can't test server names with TARGET_OS_EMBEDDED"
-#else /* TARGET_OS_EMBEDDED */
+
+#if TARGET_OS_IPHONE
+
+#error "Can't test server names with TARGET_OS_IPHONE"
+
+#else /* TARGET_OS_IPHONE */
 
 #include <SystemConfiguration/SCPrivate.h>
 
@@ -2118,7 +2144,8 @@ main()
     return (0);
 }
 
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
+
 #endif /* TEST_SERVER_NAMES */
 
 #ifdef TEST_EAPTLSVerifyServerCertificateChain

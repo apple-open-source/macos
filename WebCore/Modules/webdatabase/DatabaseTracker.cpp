@@ -34,7 +34,6 @@
 #include "DatabaseManager.h"
 #include "DatabaseManagerClient.h"
 #include "DatabaseThread.h"
-#include "FileSystem.h"
 #include "Logging.h"
 #include "OriginLock.h"
 #include "SecurityOrigin.h"
@@ -43,6 +42,7 @@
 #include "SQLiteFileSystem.h"
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
+#include <wtf/FileSystem.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
@@ -78,6 +78,11 @@ void DatabaseTracker::initializeTracker(const String& databasePath)
     if (staticTracker)
         return;
     staticTracker = new DatabaseTracker(databasePath);
+}
+
+bool DatabaseTracker::isInitialized()
+{
+    return !!staticTracker;
 }
 
 DatabaseTracker& DatabaseTracker::singleton()
@@ -189,7 +194,7 @@ ExceptionOr<void> DatabaseTracker::canEstablishDatabase(DatabaseContext& context
     if (exception.code() != QuotaExceededError)
         doneCreatingDatabase(origin, name);
 
-    return WTFMove(exception);
+    return exception;
 }
 
 // Note: a thought about performance: hasAdequateQuotaForOrigin() was also
@@ -220,7 +225,7 @@ ExceptionOr<void> DatabaseTracker::retryCanEstablishDatabase(DatabaseContext& co
     ASSERT(exception.code() == QuotaExceededError);
     doneCreatingDatabase(origin, name);
 
-    return WTFMove(exception);
+    return exception;
 }
 
 bool DatabaseTracker::hasEntryForOriginNoLock(const SecurityOriginData& origin)
@@ -289,19 +294,7 @@ unsigned long long DatabaseTracker::maximumSize(Database& database)
 
 void DatabaseTracker::closeAllDatabases(CurrentQueryBehavior currentQueryBehavior)
 {
-    Vector<Ref<Database>> openDatabases;
-    {
-        LockHolder openDatabaseMapLock(m_openDatabaseMapGuard);
-        if (!m_openDatabaseMap)
-            return;
-        for (auto& nameMap : m_openDatabaseMap->values()) {
-            for (auto& set : nameMap->values()) {
-                for (auto& database : *set)
-                    openDatabases.append(*database);
-            }
-        }
-    }
-    for (auto& database : openDatabases) {
+    for (auto& database : openDatabases()) {
         if (currentQueryBehavior == CurrentQueryBehavior::Interrupt)
             database->interrupt();
         database->close();
@@ -533,6 +526,24 @@ void DatabaseTracker::doneCreatingDatabase(Database& database)
     doneCreatingDatabase(database.securityOrigin(), database.stringIdentifier());
 }
 
+Vector<Ref<Database>> DatabaseTracker::openDatabases()
+{
+    Vector<Ref<Database>> openDatabases;
+    {
+        LockHolder openDatabaseMapLock(m_openDatabaseMapGuard);
+
+        if (m_openDatabaseMap) {
+            for (auto& nameMap : m_openDatabaseMap->values()) {
+                for (auto& set : nameMap->values()) {
+                    for (auto& database : *set)
+                        openDatabases.append(*database);
+                }
+            }
+        }
+    }
+    return openDatabases;
+}
+
 void DatabaseTracker::addOpenDatabase(Database& database)
 {
     LockHolder openDatabaseMapLock(m_openDatabaseMapGuard);
@@ -649,11 +660,8 @@ unsigned long long DatabaseTracker::usage(const SecurityOriginData& origin)
 {
     String originPath = this->originPath(origin);
     unsigned long long diskUsage = 0;
-    for (auto& fileName : FileSystem::listDirectory(originPath, "*.db"_s)) {
-        long long size;
-        FileSystem::getFileSize(fileName, size);
-        diskUsage += size;
-    }
+    for (auto& fileName : FileSystem::listDirectory(originPath, "*.db"_s))
+        diskUsage += SQLiteFileSystem::getDatabaseFileSize(fileName);
     return diskUsage;
 }
 

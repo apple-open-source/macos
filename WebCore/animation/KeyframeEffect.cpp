@@ -115,8 +115,10 @@ static inline void computeMissingKeyframeOffsets(Vector<KeyframeEffect::ParsedKe
     // In our implementation, we only set non-null values to avoid making computedOffset Optional<double>. Instead, we'll know
     // that a keyframe hasn't had a computed offset by checking if it has a null offset and a 0 computedOffset, since the first
     // keyframe will already have a 0 computedOffset.
-    for (auto& keyframe : keyframes)
-        keyframe.computedOffset = keyframe.offset.valueOr(0);
+    for (auto& keyframe : keyframes) {
+        auto computedOffset = keyframe.offset;
+        keyframe.computedOffset = computedOffset ? *computedOffset : 0;
+    }
 
     // 2. If keyframes contains more than one keyframe and the computed keyframe offset of the first keyframe in keyframes is null,
     //    set the computed keyframe offset of the first keyframe to 0.
@@ -472,17 +474,16 @@ ExceptionOr<Ref<KeyframeEffect>> KeyframeEffect::create(ExecState& state, Elemen
         } else {
             auto keyframeEffectOptions = WTF::get<KeyframeEffectOptions>(optionsValue);
             timing = {
+                keyframeEffectOptions.duration,
+                keyframeEffectOptions.iterations,
                 keyframeEffectOptions.delay,
                 keyframeEffectOptions.endDelay,
-                keyframeEffectOptions.fill,
                 keyframeEffectOptions.iterationStart,
-                keyframeEffectOptions.iterations,
-                keyframeEffectOptions.duration,
-                keyframeEffectOptions.direction,
-                keyframeEffectOptions.easing
+                keyframeEffectOptions.easing,
+                keyframeEffectOptions.fill,
+                keyframeEffectOptions.direction
             };
         }
-
         auto updateTimingResult = keyframeEffect->updateTiming(timing);
         if (updateTimingResult.hasException())
             return updateTimingResult.releaseException();
@@ -492,14 +493,14 @@ ExceptionOr<Ref<KeyframeEffect>> KeyframeEffect::create(ExecState& state, Elemen
     if (processKeyframesResult.hasException())
         return processKeyframesResult.releaseException();
 
-    return WTFMove(keyframeEffect);
+    return keyframeEffect;
 }
 
 ExceptionOr<Ref<KeyframeEffect>> KeyframeEffect::create(JSC::ExecState&, Ref<KeyframeEffect>&& source)
 {
     auto keyframeEffect = adoptRef(*new KeyframeEffect(nullptr));
     keyframeEffect->copyPropertiesFromSource(WTFMove(source));
-    return WTFMove(keyframeEffect);
+    return keyframeEffect;
 }
 
 Ref<KeyframeEffect> KeyframeEffect::create(const Element& target)
@@ -509,7 +510,6 @@ Ref<KeyframeEffect> KeyframeEffect::create(const Element& target)
 
 KeyframeEffect::KeyframeEffect(Element* target)
     : m_target(target)
-    , m_blendingKeyframes(emptyString())
 {
 }
 
@@ -601,13 +601,13 @@ Vector<Strong<JSObject>> KeyframeEffect::getKeyframes(ExecState& state)
                 auto propertyName = CSSPropertyIDToIDLAttributeName(cssPropertyId);
                 // 2. Let IDL value be the result of serializing the property value of declaration by passing declaration to the algorithm to serialize a CSS value.
                 String idlValue = "";
-                if (auto cssValue = computedStyleExtractor.valueForPropertyinStyle(style, cssPropertyId))
+                if (auto cssValue = computedStyleExtractor.valueForPropertyInStyle(style, cssPropertyId))
                     idlValue = cssValue->cssText();
                 // 3. Let value be the result of converting IDL value to an ECMAScript String value.
                 auto value = toJS<IDLDOMString>(state, idlValue);
                 // 4. Call the [[DefineOwnProperty]] internal method on output keyframe with property name property name,
                 //    Property Descriptor { [[Writable]]: true, [[Enumerable]]: true, [[Configurable]]: true, [[Value]]: value } and Boolean flag false.
-                JSObject::defineOwnProperty(outputKeyframe, &state, AtomicString(propertyName).impl(), PropertyDescriptor(value, 0), false);
+                JSObject::defineOwnProperty(outputKeyframe, &state, AtomString(propertyName).impl(), PropertyDescriptor(value, 0), false);
             }
 
             // 5. Append output keyframe to result.
@@ -645,7 +645,7 @@ Vector<Strong<JSObject>> KeyframeEffect::getKeyframes(ExecState& state)
                 auto value = toJS<IDLDOMString>(state, it->value);
                 // 4. Call the [[DefineOwnProperty]] internal method on output keyframe with property name property name,
                 //    Property Descriptor { [[Writable]]: true, [[Enumerable]]: true, [[Configurable]]: true, [[Value]]: value } and Boolean flag false.
-                JSObject::defineOwnProperty(outputKeyframe, &state, AtomicString(propertyName).impl(), PropertyDescriptor(value, 0), false);
+                JSObject::defineOwnProperty(outputKeyframe, &state, AtomString(propertyName).impl(), PropertyDescriptor(value, 0), false);
             }
 
             // 4. Append output keyframe to result.
@@ -1008,7 +1008,7 @@ void KeyframeEffect::apply(RenderStyle& targetStyle)
 
     updateAcceleratedAnimationState();
 
-    auto progress = iterationProgress();
+    auto progress = getComputedTiming().progress;
     if (!progress)
         return;
 
@@ -1042,7 +1042,7 @@ void KeyframeEffect::getAnimatedStyle(std::unique_ptr<RenderStyle>& animatedStyl
     if (!m_target || !animation())
         return;
 
-    auto progress = iterationProgress();
+    auto progress = getComputedTiming().progress;
     if (!progress)
         return;
 
@@ -1319,7 +1319,7 @@ void KeyframeEffect::applyPendingAcceleratedActions()
     for (const auto& action : pendingAcceleratedActions) {
         switch (action) {
         case AcceleratedAction::Play:
-            if (!compositedRenderer->startAnimation(timeOffset, backingAnimationForCompositedRenderer().ptr(), m_blendingKeyframes)) {
+            if (!compositedRenderer->startAnimation(timeOffset, backingAnimationForCompositedRenderer(), m_blendingKeyframes)) {
                 m_shouldRunAccelerated = false;
                 m_lastRecordedAcceleratedAction = AcceleratedAction::Stop;
                 animation()->acceleratedStateDidChange();
@@ -1386,7 +1386,7 @@ Ref<const Animation> KeyframeEffect::backingAnimationForCompositedRenderer() con
         break;
     }
 
-    return WTFMove(animation);
+    return animation;
 }
 
 RenderElement* KeyframeEffect::renderer() const

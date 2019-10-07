@@ -1,15 +1,10 @@
 /*
  * Hashing function for CUPS.
  *
- * Copyright © 2015-2018 by Apple Inc.
+ * Copyright © 2015-2019 by Apple Inc.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 /*
@@ -22,7 +17,7 @@
 #elif defined(HAVE_GNUTLS)
 #  include <gnutls/crypto.h>
 #else
-#  include "md5-private.h"
+#  include "md5-internal.h"
 #endif /* __APPLE__ */
 
 
@@ -235,7 +230,7 @@ cupsHashData(const char    *algorithm,	/* I - Algorithm name */
 
     gnutls_hash_fast(alg, data, datalen, hash);
 
-    return (gnutls_hash_get_len(alg));
+    return ((ssize_t)gnutls_hash_get_len(alg));
   }
 
 #else

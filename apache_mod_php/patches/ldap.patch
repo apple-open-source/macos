@@ -1,0 +1,77 @@
+diff --git a/ext/ldap/config.m4 b/ext/ldap/config.m4
+index 69651a89cd..e25b60c79c 100644
+--- a/ext/ldap/config.m4
++++ b/ext/ldap/config.m4
+@@ -206,7 +206,7 @@ if test "$PHP_LDAP" != "no"; then
+ 
+   dnl Solaris 2.8 claims to be 2004 API, but doesn't have
+   dnl ldap_parse_reference() nor ldap_start_tls_s()
+-  AC_CHECK_FUNCS([ldap_parse_result ldap_parse_reference ldap_start_tls_s ldap_control_find ldap_parse_extended_result ldap_extended_operation ldap_extended_operation_s ldap_passwd ldap_whoami_s ldap_refresh_s])
++  AC_CHECK_FUNCS([ldap_parse_result ldap_parse_reference ldap_start_tls_s ldap_control_find ldap_parse_extended_result ldap_extended_operation ldap_extended_operation_s ldap_passwd ldap_whoami_s ldap_refresh_s ldap_create_passwordpolicy_control ldap_parse_passwordpolicy_control ldap_create_sort_control_value ldap_create_vlv_control_value])
+ 
+   dnl
+   dnl SASL check
+diff --git a/ext/ldap/ldap.c b/ext/ldap/ldap.c
+index 30923b3350..cb533a8521 100644
+--- a/ext/ldap/ldap.c
++++ b/ext/ldap/ldap.c
+@@ -148,6 +148,7 @@ static void _php_ldap_control_to_array(LDAP *ld, LDAPControl* ctrl, zval* array,
+ 
+ 	// If it is a known oid, parse to values
+ 	if (strcmp(ctrl->ldctl_oid, LDAP_CONTROL_PASSWORDPOLICYRESPONSE) == 0) {
++#ifdef HAVE_LDAP_PARSE_PASSWORDPOLICY_CONTROL
+ 		int expire = 0, grace = 0, rc;
+ 		LDAPPasswordPolicyError pperr;
+ 		zval value;
+@@ -165,6 +166,13 @@ static void _php_ldap_control_to_array(LDAP *ld, LDAPControl* ctrl, zval* array,
+ 		} else {
+ 			add_assoc_null(array, "value");
+ 		}
++#else
++		if (ctrl->ldctl_value.bv_len) {
++			add_assoc_stringl(array, "value", ctrl->ldctl_value.bv_val, ctrl->ldctl_value.bv_len);
++		} else {
++			add_assoc_null(array, "value");
++		}
++#endif
+ 	} else if (strcmp(ctrl->ldctl_oid, LDAP_CONTROL_PAGEDRESULTS) == 0) {
+ 		int lestimated, rc;
+ 		struct berval lcookie;
+@@ -464,7 +472,11 @@ static int _php_ldap_control_from_array(LDAP *ld, LDAPControl** ctrl, zval* arra
+ 				}
+ 			}
+ 			sort_keys[num_keys] = NULL;
++#ifdef HAVE_LDAP_CREATE_SORT_CONTROL_VALUE
+ 			control_value = ber_memalloc(sizeof * control_value);
++#else
++			control_value = NULL;
++#endif
+ 			if (control_value == NULL) {
+ 				rc = -1;
+ 				php_error_docref(NULL, E_WARNING, "Failed to allocate control value");
+@@ -526,7 +538,11 @@ static int _php_ldap_control_from_array(LDAP *ld, LDAPControl** ctrl, zval* arra
+ 				vlvInfo.ldvlv_context = NULL;
+ 			}
+ 
++#ifdef HAVE_LDAP_CREATE_VLV_CONTROL_VALUE
+ 			control_value = ber_memalloc(sizeof * control_value);
++#else
++			control_value = NULL;
++#endif
+ 			if (control_value == NULL) {
+ 				rc = -1;
+ 				php_error_docref(NULL, E_WARNING, "Failed to allocate control value");
+@@ -4239,10 +4255,12 @@ PHP_FUNCTION(ldap_exop_passwd)
+ 			*requestctrls = NULL;
+ 			ctrlp = requestctrls;
+ 
++#ifdef HAVE_LDAP_CREATE_PASSWORD_POLICY_CONTROL
+ 			if (ldap_create_passwordpolicy_control(ld->link, &ctrl) == LDAP_SUCCESS) {
+ 				*ctrlp = ctrl;
+ 				++ctrlp;
+ 			}
++#endif
+ 
+ 			*ctrlp = NULL;
+ 		case 4:
+

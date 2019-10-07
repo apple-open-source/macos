@@ -16,7 +16,9 @@ Patches = \
 	src__cmd__ksh93__parse.c.diff \
 	src__cmd__ksh93__sh__array.c.diff \
 	src__lib__libast__sfio__sfvprintf.c.diff \
-	ksh-20120801-subshell-leak.patch
+	ksh-20120801-subshell-leak.patch \
+	src__cmd__INIT__cc.darwin.i386.diff \
+	src__lib__libast__comp__omitted.c.diff
 
 #find ksh overrides before libSystem
 EXTRA_LDFLAGS = -Wl,-search_paths_first

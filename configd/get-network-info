@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #
-#  Copyright © 2015-2017 Apple Inc.
+#  Copyright © 2015-2019 Apple Inc.
 #
 #  get-network-info
 #
@@ -25,7 +25,7 @@ process_opts () {
 			   COLLECT_NDF_INFO="Y"
 			   shift
 			   ;;
-		   -P)
+		    -P)
 			   COLLECT_PCAP="N"
 			   shift
 			   ;;
@@ -70,13 +70,14 @@ setup () {
 
 # __COMMAND_ROUTINES_BEGIN__
 
-# note: the daemons dump to syslog so you need to wait a bit before
-# capturing the logs.
+#
+# mDNSResponder state dump
+# /usr/bin/dns-sd -O -stdout will print the state of mDNSResponder to STDOUT
+#
 collect_state_dump_sensitive () {
 
-	${PRIV} /usr/bin/killall -INFO mDNSResponder						2>/dev/null
-
-	sleep 1											&
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: collect_state_dump_sensitive"        >> get-network-info.txt
+	${PRIV} /usr/bin/dns-sd -O -stdout				> mDNSResponder_state_dump.txt		2>&1
 
 }
 
@@ -89,6 +90,7 @@ run_ifconfig () {
 		return
 	fi
 
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: run_ifconfig"		>> get-network-info.txt
 	/sbin/ifconfig -a -L -b -m -r -v -v				> ifconfig.txt		2>&1
 	if [ $? -ne 0 ]; then
 		/sbin/ifconfig -a					> ifconfig.txt		2>&1
@@ -105,15 +107,16 @@ run_netstat () {
 		return
 	fi
 
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: run_netstat"			>> get-network-info.txt
 	echo "#"							 > netstat.txt
 	echo "# netstat -n -r -a -l"					>> netstat.txt
 	echo "#"							>> netstat.txt
 	/usr/sbin/netstat -n -r -a -l					>> netstat.txt		2>&1
 
 	echo "#"							>> netstat.txt
-	echo "# netstat -A -a -l -n -v"					>> netstat.txt
+	echo "# netstat -A -a -l -n -v -W"				>> netstat.txt
 	echo "#"							>> netstat.txt
-	/usr/sbin/netstat -A -a -l -n -v				>> netstat.txt		2>&1
+	/usr/sbin/netstat -A -a -l -n -v -W				>> netstat.txt		2>&1
 
 	echo "#"							>> netstat.txt
 	echo "# netstat -s"						>> netstat.txt
@@ -158,6 +161,11 @@ run_netstat () {
 	if [ -x /sbin/ifconfig ]; then
 		for if in ${IF_LIST}
 		do
+			echo "#"					>> netstat.txt
+			echo "# netstat -s -I ${if}"			>> netstat.txt
+			echo "#"					>> netstat.txt
+			/usr/sbin/netstat -s -I ${if}			>> netstat.txt		2>&1
+
 			IF_INFO=`/sbin/ifconfig -v ${if}`
 			`echo $IF_INFO | grep -q TXSTART`
 			if [ $? -eq 0 ]; then
@@ -166,6 +174,7 @@ run_netstat () {
 				echo "#"				>> netstat.txt
 				/usr/sbin/netstat -qq -I ${if}		>> netstat.txt		2>&1
 			fi
+
 			`echo $IF_INFO | grep -q RXPOLL`
 			if [ $? -eq 0 ]; then
 				echo "#"				>> netstat.txt
@@ -187,6 +196,7 @@ run_ndp () {
 		return
 	fi
 
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: run_ndp"			>> get-network-info.txt
 	echo "#"							 > ndp-info.txt
 	echo "# ndp -n -a"						>> ndp-info.txt
 	echo "#"							>> ndp-info.txt
@@ -223,6 +233,7 @@ run_arp () {
 		return
 	fi
 
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: run_arp"			>> get-network-info.txt
 	echo "#"							 > arp-info.txt
 	echo "# arp -n -a"						>> arp-info.txt
 	echo "#"							>> arp-info.txt
@@ -239,6 +250,7 @@ run_ipconfig () {
 		return
 	fi
 
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: run_ipconfig"		>> get-network-info.txt
 	for if in ${IF_LIST}
 	do
 		case ${if} in
@@ -285,9 +297,10 @@ run_setkey () {
 		return
 	fi
 
-	echo "#"									>  ipsec.txt
-	echo "# setkey -D"								>> ipsec.txt
-	echo "#"									>> ipsec.txt
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: run_setkey"			>> get-network-info.txt
+	echo "#"							>  ipsec.txt
+	echo "# setkey -D"						>> ipsec.txt
+	echo "#"							>> ipsec.txt
 	${PRIV} /usr/sbin/setkey -D				\
 	| /usr/bin/perl -l -n -e '
 		if (/^(\s+[AE]:\s+\S+\s+)"?(.*)"?\s*$/) {
@@ -295,13 +308,13 @@ run_setkey () {
 		} else {
 			printf "%s\n", $_;
 		}
-	'										>> ipsec.txt
+	'								>> ipsec.txt
 
-	echo ""										>> ipsec.txt
-	echo "#"									>> ipsec.txt
-	echo "# setkey -Pp -D"								>> ipsec.txt
-	echo "#"									>> ipsec.txt
-	${PRIV} /usr/sbin/setkey -Pp -D							>> ipsec.txt
+	echo ""								>> ipsec.txt
+	echo "#"							>> ipsec.txt
+	echo "# setkey -Pp -D"						>> ipsec.txt
+	echo "#"							>> ipsec.txt
+	${PRIV} /usr/sbin/setkey -Pp -D					>> ipsec.txt
 
 	for CF in /var/run/racoon/*.conf
 	do
@@ -309,10 +322,10 @@ run_setkey () {
 			continue
 		fi
 
-		echo ""									>> ipsec.txt
-		echo "#"								>> ipsec.txt
-		echo "# ${CF}"								>> ipsec.txt
-		echo "#"								>> ipsec.txt
+		echo ""							>> ipsec.txt
+		echo "#"						>> ipsec.txt
+		echo "# ${CF}"						>> ipsec.txt
+		echo "#"						>> ipsec.txt
 		${PRIV} cat ${CF}				\
 		| /usr/bin/perl -l -n -e '
 			if (/^(\s+shared_secret\s+use\s+)"?([^\s;"]+)"?(.*)/) {
@@ -320,7 +333,7 @@ run_setkey () {
 			} else {
 				printf "%s\n", $_;
 			}
-		'									>> ipsec.txt
+		'							>> ipsec.txt
 	done
 
 }
@@ -334,6 +347,7 @@ run_skywalk () {
 		return
 	fi
 
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: run_skywalk"			>> get-network-info.txt
 	echo "#"							 > skywalk.txt
 	echo "# skywalkctl show"					>> skywalk.txt
 	echo "#"							>> skywalk.txt
@@ -410,10 +424,11 @@ run_nettop () {
 		return
 	fi
 
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: run_nettop"			>> get-network-info.txt
 	echo "#"							 > nettop.txt
-	echo "# nettop -U -l 1"						>> nettop.txt
+	echo "# nettop -n -l 1"						>> nettop.txt
 	echo "#"							>> nettop.txt
-	/usr/bin/nettop -U -l 1						>> nettop.txt		2>&1
+	/usr/bin/nettop -n -l 1						>> nettop.txt		2>&1
 
 }
 
@@ -422,6 +437,7 @@ run_nettop () {
 #
 collect_configuration_files () {
 
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: collect_configuration_files"	>> get-network-info.txt
 	for f in										\
 		/Library/Preferences/com.apple.networkextension.plist				\
 		/Library/Preferences/com.apple.networkextension.control.plist			\
@@ -438,18 +454,18 @@ collect_configuration_files () {
 	do
 		if [ -e "${f}" ]; then
 			b="`basename ${f}`"
-			cat "${f}"							> "${b}"			2>&1
+			cat "${f}"					> "${b}"			2>&1
 		fi
 	done
 
 	if [ -e /etc/resolv.conf ]; then
-		cat /etc/resolv.conf							> etc-resolv-conf.txt		2>&1
+		cat /etc/resolv.conf					> etc-resolv-conf.txt		2>&1
 	fi
 	if [ -e /var/run/resolv.conf ]; then
-		cat /var/run/resolv.conf						> var-run-resolv-conf.txt	2>&1
+		cat /var/run/resolv.conf				> var-run-resolv-conf.txt	2>&1
 	fi
 	if [ -e /etc/resolver ]; then
-		tar -c -H /etc/resolver							> etc-resolver.tar		2>/dev/null
+		tar -c -H /etc/resolver					> etc-resolver.tar		2>/dev/null
 	fi
 }
 
@@ -458,6 +474,7 @@ collect_configuration_files () {
 #
 collect_vpn_logs () {
 
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: collect_vpn_logs"		>> get-network-info.txt
 	for f in										\
 		/var/log/vpnd.log								\
 		/var/log/racoon.log								\
@@ -465,7 +482,7 @@ collect_vpn_logs () {
 	do
 		if [ -e "${f}" ]; then
 			b="`basename ${f}`"
-			${PRIV} cat "${f}"							> "${b}".txt	2>&1
+			${PRIV} cat "${f}"				> "${b}".txt	2>&1
 		fi
 	done
 }
@@ -479,16 +496,17 @@ run_neutil () {
 		return
 	fi
 
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: run_neutil"			>> get-network-info.txt
 	(
-		echo "#"								>  necp.txt
-		echo "# neutil policy dump"						>> necp.txt
-		echo "#"								>> necp.txt
-		/usr/local/bin/neutil policy dump					>> necp.txt		2>&1
+		echo "#"						>  necp.txt
+		echo "# neutil policy dump"				>> necp.txt
+		echo "#"						>> necp.txt
+		/usr/local/bin/neutil policy dump			>> necp.txt		2>&1
 
-		echo "#"								>  network-agents.txt
-		echo "# neutil agent dump"						>> network-agents.txt
-		echo "#"								>> network-agents.txt
-		/usr/local/bin/neutil agent dump					>> network-agents.txt	2>&1
+		echo "#"						>  network-agents.txt
+		echo "# neutil agent dump"				>> network-agents.txt
+		echo "#"						>> network-agents.txt
+		/usr/local/bin/neutil agent dump			>> network-agents.txt	2>&1
 
 		# Generates a default-level log message containing the current file handles that UserEventAgent has
 		/usr/local/bin/neutil session log-file-handles
@@ -505,7 +523,8 @@ run_network_test () {
 		return
 	fi
 
-	/usr/local/bin/network_test path_watcher				> nw_path.txt	2>&1
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: run_network_test"		>> get-network-info.txt
+	/usr/local/bin/network_test path_watcher -dump			> nw_path.txt	2>&1
 
 }
 
@@ -518,50 +537,51 @@ run_scutil () {
 		return
 	fi
 
-	echo "#"								>  network-information.txt
-	echo "# scutil -d -v --nwi"						>> network-information.txt
-	echo "#"								>> network-information.txt
-	/usr/sbin/scutil -d -v --nwi						>> network-information.txt	2>&1
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: run_scutil"			>> get-network-info.txt
+	echo "#"							>  network-information.txt
+	echo "# scutil -d -v --nwi"					>> network-information.txt
+	echo "#"							>> network-information.txt
+	/usr/sbin/scutil -d -v --nwi					>> network-information.txt	2>&1
 	for if in ${IF_LIST}
 	do
-		echo ""								>> network-information.txt
-		echo "#"							>> network-information.txt
-		echo "# scutil --nwi ${if}"					>> network-information.txt
-		echo "#"							>> network-information.txt
-		scutil --nwi ${if}						>> network-information.txt	2>&1
+		echo ""							>> network-information.txt
+		echo "#"						>> network-information.txt
+		echo "# scutil --nwi ${if}"				>> network-information.txt
+		echo "#"						>> network-information.txt
+		scutil --nwi ${if}					>> network-information.txt	2>&1
 	done
 
-	echo "#"								>  dns-configuration.txt
-	echo "# scutil -d -v --dns"						>> dns-configuration.txt
-	echo "#"								>> dns-configuration.txt
-	/usr/sbin/scutil -d -v --dns						>> dns-configuration.txt	2>&1
+	echo "#"							>  dns-configuration.txt
+	echo "# scutil -d -v --dns"					>> dns-configuration.txt
+	echo "#"							>> dns-configuration.txt
+	/usr/sbin/scutil -d -v --dns					>> dns-configuration.txt	2>&1
 
-	echo "#"								>  proxy-configuration.txt
-	echo "# scutil -d -v --proxy"						>> proxy-configuration.txt
-	echo "#"								>> proxy-configuration.txt
-	/usr/sbin/scutil -d -v --proxy						>> proxy-configuration.txt	2>&1
+	echo "#"							>  proxy-configuration.txt
+	echo "# scutil -d -v --proxy"					>> proxy-configuration.txt
+	echo "#"							>> proxy-configuration.txt
+	/usr/sbin/scutil -d -v --proxy					>> proxy-configuration.txt	2>&1
 
-	echo "#"								>  reachability-info.txt
-	echo '# scutil -d -v -r www.apple.com'					>> reachability-info.txt
-	echo "#"								>> reachability-info.txt
-	/usr/sbin/scutil -d -v -r www.apple.com					>> reachability-info.txt	2>&1
+	echo "#"							>  reachability-info.txt
+	echo '# scutil -d -v -r www.apple.com'				>> reachability-info.txt
+	echo "#"							>> reachability-info.txt
+	/usr/sbin/scutil -d -v -r www.apple.com				>> reachability-info.txt	2>&1
 
-	echo "#"								>> reachability-info.txt
-	echo '# scutil -d -v -r 0.0.0.0'					>> reachability-info.txt
-	echo "#"								>> reachability-info.txt
-	/usr/sbin/scutil -d -v -r 0.0.0.0					>> reachability-info.txt	2>&1
+	echo "#"							>> reachability-info.txt
+	echo '# scutil -d -v -r 0.0.0.0'				>> reachability-info.txt
+	echo "#"							>> reachability-info.txt
+	/usr/sbin/scutil -d -v -r 0.0.0.0				>> reachability-info.txt	2>&1
 
-	echo "#"								>> reachability-info.txt
-	echo '# scutil -d -v -r 169.254.0.0'					>> reachability-info.txt
-	echo "#"								>> reachability-info.txt
-	/usr/sbin/scutil -d -v -r 169.254.0.0					>> reachability-info.txt	2>&1
+	echo "#"							>> reachability-info.txt
+	echo '# scutil -d -v -r 169.254.0.0'				>> reachability-info.txt
+	echo "#"							>> reachability-info.txt
+	/usr/sbin/scutil -d -v -r 169.254.0.0				>> reachability-info.txt	2>&1
 
-	echo "#"								>  nc-info.txt
-	echo '# scutil --nc list'						>> nc-info.txt
-	echo "#"								>> nc-info.txt
-	/usr/sbin/scutil --nc list						>> nc-info.txt			2>&1
+	echo "#"							>  nc-info.txt
+	echo '# scutil --nc list'					>> nc-info.txt
+	echo "#"							>> nc-info.txt
+	/usr/sbin/scutil --nc list					>> nc-info.txt			2>&1
 
-	/usr/sbin/scutil -p --snapshot						SCDynamicStore.plist		2>&1
+	/usr/sbin/scutil -p --snapshot					SCDynamicStore.plist		2>&1
 
 }
 
@@ -574,15 +594,16 @@ run_route () {
 		return
 	fi
 
-	echo "#"								>  route-info.txt
-	echo '# route -n -v get www.apple.com'					>> route-info.txt
-	echo "#"								>> route-info.txt
-	/sbin/route -n -v get www.apple.com					>> route-info.txt	2>&1
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: run_route"			>> get-network-info.txt
+	echo "#"							>  route-info.txt
+	echo '# route -n -v get www.apple.com'				>> route-info.txt
+	echo "#"							>> route-info.txt
+	/sbin/route -n -v get www.apple.com				>> route-info.txt	2>&1
 
-	echo "#"								>> route-info.txt
-	echo '# route -n -v get 0.0.0.0'					>> route-info.txt
-	echo "#"								>> route-info.txt
-	/sbin/route -n -v get 0.0.0.0						>> route-info.txt	2>&1
+	echo "#"							>> route-info.txt
+	echo '# route -n -v get 0.0.0.0'				>> route-info.txt
+	echo "#"							>> route-info.txt
+	/sbin/route -n -v get 0.0.0.0					>> route-info.txt	2>&1
 
 }
 
@@ -595,10 +616,11 @@ run_dig () {
 		return
 	fi
 
-	echo "#"								>  dig-info.txt
-	echo '# dig -t any -c any www.apple.com'				>> dig-info.txt
-	echo "#"								>> dig-info.txt
-	/usr/bin/dig +time=2 -t any -c any www.apple.com			>> dig-info.txt		2>/dev/null
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: run_dig"			>> get-network-info.txt
+	echo "#"							>  dig-info.txt
+	echo '# dig -t any -c any www.apple.com'			>> dig-info.txt
+	echo "#"							>> dig-info.txt
+	/usr/bin/dig +time=2 -t any -c any www.apple.com		>> dig-info.txt		2>/dev/null
 
 }
 
@@ -611,7 +633,8 @@ run_hostname () {
 		return
 	fi
 
-	/bin/hostname								> hostname.txt		2>&1
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: run_hostname"		>> get-network-info.txt
+	/bin/hostname							> hostname.txt		2>&1
 
 }
 
@@ -624,14 +647,15 @@ run_lsof () {
 		return
 	fi
 
-	${PRIV} /usr/sbin/lsof -i -n -O -P -T q					> lsof.txt		2>&1	&
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: run_lsof"			>> get-network-info.txt
+	${PRIV} /usr/sbin/lsof +c 0 -X -n -O -P -T q		> lsof.txt		2>&1	&
 	LSOF_PID=$!
 	# start a watchdog for lsof
 	(
 		WAIT_TIME=5
 		while [ $WAIT_TIME -gt 0 ]
 		do
-			${PRIV} kill -0 ${LSOF_PID}							2>/dev/null
+			${PRIV} kill -0 ${LSOF_PID}						2>/dev/null
 			if [ $? -eq 0 ]; then
 				# lsof is [still] gathering data...
 				sleep 1
@@ -645,9 +669,23 @@ run_lsof () {
 
 		if [ $WAIT_TIME -eq 0 ]; then
 			# lsof timed out
-			${PRIV} kill ${LSOF_PID}							2>/dev/null
+			${PRIV} kill ${LSOF_PID}						2>/dev/null
 		fi
 	) &
+
+}
+
+#
+# sysctl
+#
+run_sysctl () {
+
+	if [ ! -x /usr/sbin/sysctl ]; then
+		return
+	fi
+
+	echo "`date +"%Y-%m-%d %H:%M:%S"`: run_sysctl"			>> get-network-info.txt
+	${PRIV} /usr/sbin/sysctl -a					> sysctl.txt	2>&1	&
 
 }
 
@@ -656,8 +694,9 @@ start_pcap() {
 	# collect a packet capture if netdiagnose is available
 	#
 	if [ -x /usr/local/bin/netdiagnose ]; then
+		echo "`date +"%Y-%m-%d %H:%M:%S"`: start_pcap"		>> get-network-info.txt
 		trap stop_pcap SIGINT
-		/usr/local/bin/netdiagnose -p "${REQUESTED_OUTDIR}" start sysdiagpcap			2>&1 	1>/dev/null
+		/usr/local/bin/netdiagnose -p "${REQUESTED_OUTDIR}" start sysdiagpcap		2>&1 	1>/dev/null
 		PCAP_STARTED=1
 	fi
 }
@@ -665,12 +704,14 @@ start_pcap() {
 stop_pcap () {
 	if [ ${PCAP_STARTED} -ne 0 ]; then
 		trap '' SIGINT
-		/usr/local/bin/netdiagnose stop sysdiagpcap						2>&1	1>/dev/null
+		/usr/local/bin/netdiagnose stop sysdiagpcap					2>&1	1>/dev/null
+		echo "`date +"%Y-%m-%d %H:%M:%S"`: stop_pcap done"	>> get-network-info.txt
 	fi
 }
 
 collect_ndf_info () {
 	run_lsof
+	run_sysctl
 }
 
 collect_sensitive_info () {

@@ -28,12 +28,15 @@
 #if ENABLE(WEBGPU)
 
 #include "GPURenderPipelineDescriptor.h"
-
+#include <wtf/Optional.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RetainPtr.h>
 
+#if USE(METAL)
+OBJC_PROTOCOL(MTLDepthStencilState);
 OBJC_PROTOCOL(MTLRenderPipelineState);
+#endif // USE(METAL)
 
 namespace WebCore {
 
@@ -41,21 +44,27 @@ class GPUDevice;
 
 using PlatformRenderPipeline = MTLRenderPipelineState;
 using PlatformRenderPipelineSmartPtr = RetainPtr<MTLRenderPipelineState>;
-using PrimitiveTopology = GPURenderPipelineDescriptor::PrimitiveTopology;
 
 class GPURenderPipeline : public RefCounted<GPURenderPipeline> {
 public:
-    static RefPtr<GPURenderPipeline> create(const GPUDevice&, GPURenderPipelineDescriptor&&);
+    static RefPtr<GPURenderPipeline> tryCreate(const GPUDevice&, const GPURenderPipelineDescriptor&);
 
+#if USE(METAL)
+    MTLDepthStencilState *depthStencilState() const { return m_depthStencilState.get(); }
+#endif
     PlatformRenderPipeline* platformRenderPipeline() const { return m_platformRenderPipeline.get(); }
-
-    PrimitiveTopology primitiveTopology() const { return m_descriptor.primitiveTopology; }
+    GPUPrimitiveTopology primitiveTopology() const { return m_primitiveTopology; }
+    Optional<GPUIndexFormat> indexFormat() const { return m_indexFormat; }
 
 private:
-    GPURenderPipeline(PlatformRenderPipelineSmartPtr&&, GPURenderPipelineDescriptor&&);
+#if USE(METAL)
+    GPURenderPipeline(RetainPtr<MTLDepthStencilState>&&, PlatformRenderPipelineSmartPtr&&, GPUPrimitiveTopology, Optional<GPUIndexFormat>);
 
+    RetainPtr<MTLDepthStencilState> m_depthStencilState;
+#endif // USE(METAL)
     PlatformRenderPipelineSmartPtr m_platformRenderPipeline;
-    GPURenderPipelineDescriptor m_descriptor;
+    GPUPrimitiveTopology m_primitiveTopology;
+    Optional<GPUIndexFormat> m_indexFormat;
 };
 
 } // namespace WebCore

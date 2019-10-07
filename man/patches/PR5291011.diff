@@ -1,5 +1,5 @@
---- src/gripes.c.orig	2008-07-01 18:33:05.000000000 -0700
-+++ src/gripes.c	2008-07-01 18:36:41.000000000 -0700
+--- src/gripes.c	2006-11-21 11:53:44.000000000 -0800
++++ src/gripes.c	2019-04-22 16:44:43.000000000 -0700
 @@ -47,19 +47,7 @@
  	     * (or when debugging). Also accept en_ZA etc.
  	     * No messages for C locale.
@@ -11,7 +11,7 @@
 -		    lg = getenv("LC_MESSAGES");
 -	    if (!lg)
 -		    lg = getenv("LC_ALL");
--	    if (lg && strncmp(lg, "en", 2) && strcmp(lg, "C")) {
+-	    if (lg && strncmp(lg, "en", 2) && strcmp(lg, "C") && strcmp(lg, "POSIX")) {
 -		fprintf(stderr,
 -		  "Cannot open the message catalog \"%s\" for locale \"%s\"\n"
 -		  "(NLSPATH=\"%s\")\n\n",

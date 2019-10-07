@@ -240,8 +240,9 @@ _do_server_match(asl_msg_list_t *qlist, size_t *last, size_t start, size_t count
 	count64 = count;
 
 	kstatus = _asl_server_match(asl_server_port, vmstr, len, start64, count64, duration, dir, (caddr_t *)&res, &reslen, &last64, (int *)&status);
-	*last = last64;
+	if (kstatus != KERN_SUCCESS) return NULL;
 
+	*last = last64;
 	out = asl_msg_list_from_string(res);
 	vm_deallocate(mach_task_self(), (vm_address_t)res, reslen);
 

@@ -2534,7 +2534,12 @@ static void IR_gen_type_rep
 */
 void IR_gen_param_rep
 (
- AST_parameter_n_t   *param_p    /* [io] AST parameter node */
+    AST_parameter_n_t   *param_p    /* [io] AST parameter node */
+);
+
+void IR_gen_param_rep
+(
+    AST_parameter_n_t   *param_p    /* [io] AST parameter node */
 )
 {
 	IR_scope_ctx_t      *ctx_p;     /* Scope context */

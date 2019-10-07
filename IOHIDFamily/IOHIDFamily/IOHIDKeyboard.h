@@ -41,7 +41,11 @@ enum {
 #define ADB_CONVERTER_LEN       0xff + 1   //length of array def_usb_2_adb_keymap[]
 #define APPLE_ADB_CONVERTER_LEN 0xff + 1   //length of array def_usb_apple_2_adb_keymap[]
 
+#if defined(KERNEL) && !defined(KERNEL_PRIVATE)
+class __deprecated_msg("Use DriverKit") IOHIDKeyboard : public IOHIKeyboard
+#else
 class IOHIDKeyboard : public IOHIKeyboard
+#endif
 {
     OSDeclareDefaultStructors(IOHIDKeyboard)
 
@@ -76,23 +80,23 @@ public:
     static IOHIDKeyboard * 	Keyboard(UInt32 supportedModifiers, bool isDispatcher = false);
     
     // IOService methods
-    virtual bool            init(OSDictionary * properties = 0);
-    virtual bool            start(IOService * provider);
-    virtual void            stop(IOService *  provider);
-    virtual void            free();
+    virtual bool            init(OSDictionary * properties = 0) APPLE_KEXT_OVERRIDE;
+    virtual bool            start(IOService * provider) APPLE_KEXT_OVERRIDE;
+    virtual void            stop(IOService *  provider) APPLE_KEXT_OVERRIDE;
+    virtual void            free(void) APPLE_KEXT_OVERRIDE;
 
     inline bool             isDispatcher() { return _isDispatcher;};
 
     // IOHIDevice methods
-    UInt32                  interfaceID();
-    UInt32                  deviceType();
+    UInt32                  interfaceID(void) APPLE_KEXT_OVERRIDE;
+    UInt32                  deviceType(void) APPLE_KEXT_OVERRIDE;
 
     // IOHIKeyboard methods
-    const unsigned char * 	defaultKeymapOfLength(UInt32 * length);
-    void                    setAlphaLockFeedback(bool LED_state);
-    void                    setNumLockFeedback(bool LED_state);
-    unsigned                getLEDStatus();
-    IOReturn                setParamProperties( OSDictionary * dict );
+    const unsigned char * 	defaultKeymapOfLength(UInt32 * length) APPLE_KEXT_OVERRIDE;
+    void                    setAlphaLockFeedback(bool LED_state) APPLE_KEXT_OVERRIDE;
+    void                    setNumLockFeedback(bool LED_state) APPLE_KEXT_OVERRIDE;
+    unsigned                getLEDStatus(void) APPLE_KEXT_OVERRIDE;
+    IOReturn                setParamProperties( OSDictionary * dict ) APPLE_KEXT_OVERRIDE;
 
 	void                    dispatchKeyboardEvent(
                                 AbsoluteTime                timeStamp,

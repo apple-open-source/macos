@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)ctf_decl.c	1.2	05/06/08 SMI"
-
 /*
  * CTF Declaration Stack
  *
@@ -88,7 +86,7 @@ ctf_decl_push(ctf_decl_t *cd, ctf_file_t *fp, ctf_id_t type)
 {
 	ctf_decl_node_t *cdp;
 	ctf_decl_prec_t prec;
-	uint_t kind, n = 1;
+	uint32_t kind, n = 1;
 	int is_qual = 0;
 
 	const ctf_type_t *tp;
@@ -120,6 +118,10 @@ ctf_decl_push(ctf_decl_t *cd, ctf_file_t *fp, ctf_id_t type)
 		prec = CTF_PREC_FUNCTION;
 		break;
 
+	case CTF_K_PTRAUTH:
+		ctf_decl_push(cd, fp, tp->ctt_type);
+		prec = cd->cd_qualp;
+		break;
 	case CTF_K_POINTER:
 		ctf_decl_push(cd, fp, tp->ctt_type);
 		prec = CTF_PREC_POINTER;

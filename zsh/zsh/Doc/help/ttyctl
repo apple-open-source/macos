@@ -6,8 +6,8 @@ ttyctl [ -fu ]
        shell will simply reset the settings to their previous values as
        soon as each command exits or is suspended.  Thus, stty and sim-
        ilar programs have no effect when the tty is  frozen.   Freezing
-       the  tty  does  not  cause  the  current state to be remembered:
-       instead, it causes future changes to the state to be blocked.
+       the  tty  does not cause the current state to be remembered: in-
+       stead, it causes future changes to the state to be blocked.
 
        Without options it reports whether the  terminal  is  frozen  or
        not.

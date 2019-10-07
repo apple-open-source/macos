@@ -32,40 +32,11 @@ import <sys/types.h>;
 type ooline_data = ^ array [] of MACH_MSG_TYPE_BYTE
 	ctype : caddr_t;
 
-routine _asl_server_query
-(
-	server : mach_port_t;
-	request : ooline_data, dealloc;
-	startid : uint64_t;
-	count : int;
-	flags : int;
-	out reply : ooline_data, dealloc;
-	out lastid : uint64_t;
-	out status : int;
-	SecToken token : security_token_t
-);
+skip; /* removed: _asl_server_query */
 
-routine _asl_server_query_timeout
-(
-	server : mach_port_t;
-	request : ooline_data, dealloc;
-	startid : uint64_t;
-	count : int;
-	WaitTime timeout: natural_t;
-	flags : int;
-	out reply : ooline_data, dealloc;
-	out lastid : uint64_t;
-	out status : int;
-	ServerAuditToken token : audit_token_t
-);
+skip; /* removed: _asl_server_query_timeout */
 
-routine _asl_server_prune
-(
-	server : mach_port_t;
-	request : ooline_data, dealloc;
-	out status : int;
-	SecToken token : security_token_t
-);
+skip; /* removed: _asl_server_prune */
 
 routine _asl_server_create_aux_link
 (

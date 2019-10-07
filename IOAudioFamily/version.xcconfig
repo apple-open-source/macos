@@ -3,10 +3,10 @@
 //  IOAudioFamily
 //
 //  Created by Mike Mckenna on 10/31/13.
-//  Copyright 2000-2016 Apple Inc. All rights reserved.
+//  Copyright 2000-2019 Apple Inc. All rights reserved.
 //
 
-AE_CONCISE_VERSION = 206.5
+AE_CONCISE_VERSION = 300.2
 
 MODULE_VERSION = ${AE_CONCISE_VERSION}
 
@@ -16,4 +16,4 @@ INFOPLIST_PREPROCESS = YES
 
 OTHER_CFLAGS = -DPROJECT_NAME=\"$(TARGET)\" -DPROJECT_VERSION=\"${AE_CONCISE_VERSION}\"
 
-AE_COPYRIGHT_END = 2017
+AE_COPYRIGHT_END = 2019

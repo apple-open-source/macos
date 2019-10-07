@@ -1,0 +1,7 @@
+/retval = (IMP)objc_msgSend(PyObjCClass_GetClass(self),/c
+	retval = ((IMP (*)(Class, SEL, SEL))objc_msgSend)(PyObjCClass_GetClass(self),
+.
+/retval = (IMP)objc_msgSendSuper(\&super,/c
+	retval = ((IMP (*)(struct objc_super *, SEL, SEL))objc_msgSendSuper)(&super,
+.
+w

@@ -76,9 +76,9 @@ help_builtin (list)
   if (glob_pattern_p (list->word->word))
     {
       if (list->next)
-	printf (_("Shell commands matching keywords `"));
+	printf ("%s", _("Shell commands matching keywords `"));
       else
-	printf (_("Shell commands matching keyword `"));
+	printf ("%s", _("Shell commands matching keyword `"));
       print_word_list (list, ", ");
       printf ("'\n\n");
     }
@@ -149,7 +149,7 @@ show_builtin_command_help ()
   int i, j;
   char blurb[36];
 
-  printf (
+  printf ("%s",
 _("These shell commands are defined internally.  Type `help' to see this list.\n\
 Type `help name' to find out more about the function `name'.\n\
 Use `info bash' to find out more about the shell in general.\n\

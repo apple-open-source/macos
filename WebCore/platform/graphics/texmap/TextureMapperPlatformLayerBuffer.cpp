@@ -26,8 +26,9 @@
 #include "config.h"
 #include "TextureMapperPlatformLayerBuffer.h"
 
-#if USE(COORDINATED_GRAPHICS_THREADED)
+#if USE(COORDINATED_GRAPHICS)
 
+#include "FloatRect.h"
 #include "NotImplemented.h"
 
 namespace WebCore {
@@ -77,10 +78,18 @@ void TextureMapperPlatformLayerBuffer::paintToTextureMapper(TextureMapper& textu
         return;
     }
 
+    if (m_extraFlags & TextureMapperGL::ShouldNotBlend) {
+        ASSERT(!m_texture);
+        if (m_holePunchClient)
+            m_holePunchClient->setVideoRectangle(enclosingIntRect(modelViewMatrix.mapRect(targetRect)));
+        texmapGL.drawSolidColor(targetRect, modelViewMatrix, Color(0, 0, 0, 0), false);
+        return;
+    }
+
     ASSERT(m_textureID);
     texmapGL.drawTexture(m_textureID, m_extraFlags, m_size, targetRect, modelViewMatrix, opacity);
 }
 
 } // namespace WebCore
 
-#endif // USE(COORDINATED_GRAPHICS_THREADED)
+#endif // USE(COORDINATED_GRAPHICS)

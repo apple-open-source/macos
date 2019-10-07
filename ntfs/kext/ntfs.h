@@ -47,20 +47,20 @@
 #include <kern/locks.h>
 
 /* The email address of the NTFS developers. */
-__private_extern__ const char ntfs_dev_email[];
-__private_extern__ const char ntfs_please_email[];
+__attribute__((visibility("hidden"))) extern const char ntfs_dev_email[];
+__attribute__((visibility("hidden"))) extern const char ntfs_please_email[];
 
 /*
  * Lock group and lock attribute for de-/initialization of locks (defined
  * in ntfs_vfsops.c).
  */
-__private_extern__ lck_grp_t *ntfs_lock_grp;
-__private_extern__ lck_attr_t *ntfs_lock_attr;
+__attribute__((visibility("hidden"))) extern lck_grp_t *ntfs_lock_grp;
+__attribute__((visibility("hidden"))) extern lck_attr_t *ntfs_lock_attr;
 
 /*
  * A tag for allocation and freeing of memory (defined in ntfs_vfsops.c).
  */
-__private_extern__ OSMallocTag ntfs_malloc_tag;
+__attribute__((visibility("hidden"))) extern OSMallocTag ntfs_malloc_tag;
 
 #include "ntfs_volume.h"
 
@@ -110,6 +110,8 @@ enum {
  * imposed limit rather than an inherent NTFS format limit.
  */
 #define NTFS_MAX_NR_MFT_RECORDS 0x100000000ULL
+
+#define NTFS_SUB_SECTOR_MFT_RECORD_SIZE_RW 1
 
 // TODO: Constants so ntfs_vfsops.c compiles for now...
 enum {

@@ -41,7 +41,10 @@ CCKeyDerivationPBKDF( CCPBKDFAlgorithm algorithm, const char *password, size_t p
     CC_DEBUG_LOG("PasswordLen %lu SaltLen %lU PRF %d Rounds %u DKLen %lu\n", passwordLen, saltLen, prf, rounds, derivedKeyLen);
     if(algorithm != kCCPBKDF2) return kCCParamError;
     switch(prf) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         case kCCPRFHmacAlgSHA1: di = CCDigestGetDigestInfo(kCCDigestSHA1); break;
+#pragma clang diagnostic pop
         case kCCPRFHmacAlgSHA224: di = CCDigestGetDigestInfo(kCCDigestSHA224); break;
         case kCCPRFHmacAlgSHA256: di = CCDigestGetDigestInfo(kCCDigestSHA256); break;
         case kCCPRFHmacAlgSHA384: di = CCDigestGetDigestInfo(kCCDigestSHA384); break;
@@ -70,7 +73,13 @@ static uint64_t to_msec(uint64_t at){
     double msec = (double)at / freq.QuadPart / 1000;
     return (uint64_t) msec;
 }
-
+#elif defined(__ANDROID__)
+#include <corecrypto/cc_absolute_time.h>
+#define absolute_time cc_absolute_time
+static uint64_t to_msec(uint64_t at){
+    double msec = at / (uint64_t)1000000;
+    return (uint64_t)msec;
+}
 #else
 #include <mach/mach_time.h>
 #define absolute_time() (mach_absolute_time())

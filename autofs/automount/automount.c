@@ -94,6 +94,115 @@ pthread_mutex_t cleanup_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cleanup_start_cv = PTHREAD_COND_INITIALIZER;
 pthread_cond_t cleanup_done_cv = PTHREAD_COND_INITIALIZER;
 
+
+static int
+make_ephemeral_link(struct autodir *dir)
+{
+	int rv;
+
+	if (dir->dir_linkname == NULL) {
+		/* Nothing to do. */
+		return 0;
+	}
+
+	bool_t hidden = FALSE;
+
+	if (dir->dir_linktarget == NULL) {
+		asprintf(&dir->dir_linktarget, "%s%s",
+			 rosv_data_volume_prefix(NULL), dir->dir_linkname);
+		if (dir->dir_linktarget == NULL) {
+			errno = ENOMEM;
+			return -1;
+		}
+	}
+
+	struct stat sb;
+	rv = lstat(dir->dir_linkname, &sb);
+	if (rv == 0) {
+		/*
+		 * Object exists.  We are not going to overwrite something
+		 * that might be already there.  If it's a symlink, check
+		 * that it points to our link target.  If so, we're all good!
+		 * If not, then report an error.  We also report an error if
+		 * it's any other kind of file system object.
+		 */
+		if (S_ISLNK(sb.st_mode)) {
+			char link_target[PATH_MAX];
+			memset(link_target, 0, sizeof(link_target));
+			if (readlink(dir->dir_linkname, link_target,
+				     sizeof(link_target)) == -1) {
+				pr_msg(LOG_ERR,
+				       "Unable to read symlink at '%s': %s",
+				       dir->dir_linkname, strerror(errno));
+				rv = -1;
+				goto out;
+			}
+			if (strcmp(dir->dir_linktarget, link_target) != 0) {
+				pr_msg(LOG_ERR, "Conflicting symlink at '%s'.",
+				       dir->dir_linkname);
+				rv = -1;
+				goto out;
+			}
+		} else {
+			pr_msg(LOG_ERR,
+			       "Conflicting file system object at '%s'.",
+			       dir->dir_linkname);
+			rv = -1;
+			goto out;
+		}
+		/*
+		 * Symlink exists that already points to the right place?
+		 * Sweet!  No work to do!
+		 */
+		goto out;
+	}
+
+	if ((rv = synthetic_symlink(dir->dir_linkname,
+				    dir->dir_linktarget, hidden)) != 0) {
+		const char *link_type = "ephemeral";
+
+		/*
+		 * We will get back ENOTSUP on apfs configurations that are
+		 * either mounted writeable or are not part of a volume group.
+		 * If we are booted from HFS+, we will get back ENOTTY since the
+		 * ioctl doesn't exist for that filesystem.
+		 *
+		 * While these are invalid configurations, they are in limited
+		 * use, and it's easy to add this fallback for them until they
+		 * switch to the supported configuration.
+		 */
+		if (errno == ENOTSUP || errno == ENOTTY) {
+			link_type = "normal";
+			pr_msg(LOG_INFO,
+			       "synthetic symlinks not supported, falling back "
+			       "to creating real symlink");
+
+			rv = symlink(dir->dir_linktarget, dir->dir_linkname);
+		}
+		if (rv != 0) {
+			pr_msg(LOG_WARNING, "making %s link: %s: %m", link_type,
+			       dir->dir_linkname);
+		}
+	}
+ out:
+	return rv;
+}
+
+static void
+announce(const struct autodir *dir, const char *what)
+{
+	if (dir->dir_linkname) {
+		pr_msg(LOG_INFO, "%s %s (%s -> %s)",
+		       dir->dir_realpath,
+		       what,
+		       dir->dir_linkname,
+		       dir->dir_linktarget);
+	} else {
+		pr_msg(LOG_INFO, "%s %s",
+		       dir->dir_realpath, what);
+	}
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -306,7 +415,7 @@ main(int argc, char *argv[])
 	 */
 	for (dir = dir_head; dir; dir = dir->dir_next) {
 
-		if (realpath(dir->dir_name, real_mntpnt) == NULL) {
+		if (automount_realpath(dir->dir_name, real_mntpnt) == NULL) {
 			/*
 			 * We couldn't get the real path for this,
 			 * perhaps because it doesn't exist.
@@ -436,6 +545,7 @@ main(int argc, char *argv[])
 				 */
 				make_symlink(static_ent->localpath,
 				    dir->dir_name);
+				make_ephemeral_link(dir);
 				release_staticmap_entry(static_ent);
 				continue;
 			}
@@ -480,8 +590,18 @@ main(int argc, char *argv[])
 				pr_msg(LOG_INFO, "update %s: %m", dir->dir_realpath);
 				continue;
 			}
+
+			/*
+			 * If we need to make an ephemeral symlink, then
+			 * do so now, even if the mount point already exists.
+			 * At boot time, the directory in the system data
+			 * volume might exist, but the ephmemeral symlink
+			 * will not.
+			 */
+			make_ephemeral_link(dir);
+
 			if (verbose)
-				pr_msg(LOG_INFO, "%s updated", dir->dir_realpath);
+				announce(dir, "updated");
 		} else {
 			struct autofs_args ai;
 			int st_flags = 0;
@@ -505,7 +625,7 @@ main(int argc, char *argv[])
 				st_flags = stbuf.st_flags;
 
 				/*
-				 * Either realpath() succeeded or it
+				 * Either automount_realpath() succeeded or it
 				 * failed with ENOENT; otherwise, we
 				 * would have quit before getting here.
 				 *
@@ -529,7 +649,7 @@ main(int argc, char *argv[])
 				 * At boot time it's possible the volume
 				 * containing the mountpoint hasn't mounted yet.
 				 */
-				if (strncmp(dir->dir_name, "/Volumes/", 9) == 0) {
+				if (is_reserved_mountpoint(dir->dir_name)) {
 					pr_msg(LOG_WARNING, "%s: mountpoint unavailable", dir->dir_name);
 					continue;
 				}
@@ -546,7 +666,8 @@ main(int argc, char *argv[])
 				 * corresponding to the newly-created
 				 * mount point.
 				 */
-				if (realpath(dir->dir_name, real_mntpnt) == NULL) {
+				if (automount_realpath(dir->dir_name,
+						       real_mntpnt) == NULL) {
 					/*
 					 * Failed.
 					 */
@@ -560,6 +681,12 @@ main(int argc, char *argv[])
 					    dir->dir_name);
 					continue;
 				}
+
+				/*
+				 * If we need to make an ephemeral symlink, then
+				 * do so now.
+				 */
+				make_ephemeral_link(dir);
 			}
 
 			/*
@@ -600,7 +727,7 @@ main(int argc, char *argv[])
 				continue;
 			}
 			if (verbose)
-				pr_msg(LOG_INFO, "%s mounted", dir->dir_realpath);
+				announce(dir, "mounted");
 		}
 
 		count++;
@@ -885,8 +1012,6 @@ do_unmounts(void)
 		 */
 		if (ioctl(autofs_control_fd, AUTOFS_UNMOUNT,
 		    &mnt->f_fsid) == 0) {
-			static const char slashnetwork[] = "/Network/";
-
 			if (verbose) {
 				pr_msg(LOG_INFO, "%s unmounted",
 					mnt->f_mntonname);
@@ -904,9 +1029,14 @@ do_unmounts(void)
 			 * mount point, so we don't know whether we should
 			 * remove it.)
 			 */
-			if (strncmp(mnt->f_mntonname, slashnetwork,
-			    sizeof slashnetwork - 1) == 0)
+			if (is_slash_network(mnt->f_mntonname)) {
 				rmdir_r(mnt->f_mntonname);
+				/*
+				 * XXX We'd like to remove the synthetic
+				 * symlink, but there isn't an API do do
+				 * that at the moment.
+				 */
+			}
 		}
 	}
 	if (verbose && count == 0)
@@ -943,6 +1073,13 @@ mkdir_r(dir)
 {
 	int err;
 	char *slash;
+
+	if (is_toplevel_dir(dir)) {
+		/*
+		 * We've reached the top!  Don't proceed any futher.
+		 */
+		return 0;
+	}
 
 	if (mkdir(dir, 0555) == 0) {
 		/*
@@ -1005,7 +1142,7 @@ rmdir_r(char *path)
 			 */
 			break;
 		}
-		if (p == path) {
+		if (is_toplevel_dir(p) || p == path) {
 			/*
 			 * Our parent is the root directory, so we
 			 * shouldn't be removed (we want /Network to

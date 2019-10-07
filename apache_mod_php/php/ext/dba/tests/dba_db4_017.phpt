@@ -1,7 +1,7 @@
 --TEST--
 DBA DB4 file creation dba_open("cd")
 --SKIPIF--
-<?php 
+<?php
 $handler = "db4";
 require_once(dirname(__FILE__) .'/skipif.inc');
 ?>
@@ -27,10 +27,10 @@ if (($db_file = dba_open($db_filename, "cd", $handler)) !== FALSE) {
 
 ?>
 --CLEAN--
-<?php 
-require(dirname(__FILE__) .'/clean.inc'); 
+<?php
+require(dirname(__FILE__) .'/clean.inc');
 ?>
---EXPECTF--
+--EXPECT--
 database handler: db4
 database file created
 bool(true)

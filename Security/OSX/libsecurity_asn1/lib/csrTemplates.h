@@ -37,12 +37,12 @@ extern "C" {
  * ASN class : CertificationRequestInfo
  * C struct  : NSSCertRequestInfo
  */
-typedef struct {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER {
 	SecAsn1Item							version;
     NSS_Name 							subject;
     SecAsn1PubKeyInfo 	subjectPublicKeyInfo;
 	NSS_Attribute						**attributes;
-} NSSCertRequestInfo;
+} NSSCertRequestInfo DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 extern const SecAsn1Template kSecAsn1CertRequestInfoTemplate[];
 
@@ -50,11 +50,11 @@ extern const SecAsn1Template kSecAsn1CertRequestInfoTemplate[];
  * ASN class : CertificationRequest
  * C struct  : NSSCertRequest
  */
-typedef struct {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER {
 	NSSCertRequestInfo				reqInfo;
     SecAsn1AlgId 	signatureAlgorithm;
     SecAsn1Item 						signature;// BIT STRING, length in bits	
-} NSSCertRequest;
+} NSSCertRequest DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 extern const SecAsn1Template kSecAsn1CertRequestTemplate[];
 
@@ -62,11 +62,11 @@ extern const SecAsn1Template kSecAsn1CertRequestTemplate[];
  * This is what we use use to avoid unnecessary setup and teardown of 
  * a full NSSCertRequest when signing and verifying.
  */
-typedef struct {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER {
 	SecAsn1Item						certRequestBlob;	// encoded, ASN_ANY
     SecAsn1AlgId 	signatureAlgorithm;
     SecAsn1Item 						signature;// BIT STRING, length in bits	
-} NSS_SignedCertRequest;
+} NSS_SignedCertRequest DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 extern const SecAsn1Template kSecAsn1SignedCertRequestTemplate[];
 

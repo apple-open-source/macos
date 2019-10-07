@@ -1,0 +1,127 @@
+/*
+ * Copyright (c) 2018-2019 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+
+#ifndef _HIDDRIVERKIT_IOHIDELEMENTCONTAINER_H
+#define _HIDDRIVERKIT_IOHIDELEMENTCONTAINER_H
+
+#include <DriverKit/OSContainer.iig>
+#include <HIDDriverKit/IOHIDDeviceTypes.h>
+#include <DriverKit/IOTypes.h>
+
+typedef void *HIDPreparsedDataRef;
+class IOHIDElementPrivate;
+class IOBufferMemoryDescriptor;
+class OSArray;
+
+// Number of slots in the report handler dispatch table.
+//
+#define kReportHandlerSlots    8
+
+// Describes the handler(s) at each report dispatch table slot.
+//
+struct IOHIDReportHandler
+{
+    IOHIDElementPrivate *head[kIOHIDReportTypeCount];
+};
+
+class LOCALONLY IOHIDElementContainer : public OSContainer
+{
+private:
+    IOReturn createElementHierarchy(HIDPreparsedDataRef parseData);
+    OSArray *createFlattenedElements(IOHIDElementPrivate *collection);
+    OSArray *createFlattenedCollections(IOHIDElementPrivate *root);
+    
+    bool createCollectionElements(HIDPreparsedDataRef parseData,
+                                  OSArray *array,
+                                  uint32_t maxCount);
+    
+    void createNULLElements(HIDPreparsedDataRef parseData,
+                            IOHIDElementPrivate *parent);
+    
+    bool createValueElements(HIDPreparsedDataRef parseData,
+                             OSArray *array,
+                             uint32_t hidReportType,
+                             IOHIDElementType elementType,
+                             uint32_t maxCount);
+    
+    bool createButtonElements(HIDPreparsedDataRef parseData,
+                              OSArray *array,
+                              uint32_t hidReportType,
+                              IOHIDElementType elementType,
+                              uint32_t maxCount);
+    
+    bool createReportHandlerElements(HIDPreparsedDataRef parseData);
+    
+    void createElementValuesMemory();
+    
+    void getReportCountAndSizes(HIDPreparsedDataRef parseData);
+    
+    void setReportSize(uint8_t reportID,
+                       IOHIDReportType reportType,
+                       uint32_t bits);
+    
+public:
+    virtual bool init(void *descriptor, IOByteCount length);
+    virtual void free();
+    
+    bool registerElement(IOHIDElementPrivate *element,
+                         IOHIDElementCookie *cookie);
+    
+    static IOHIDElementContainer *withDescriptor(void *descriptor,
+                                                 IOByteCount length);
+    
+    virtual IOReturn updateElementValues(IOHIDElementCookie *cookies,
+                                         uint32_t cookieCount = 1);
+    
+    virtual IOReturn postElementValues(IOHIDElementCookie *cookies,
+                                       uint32_t cookieCount = 1);
+    
+    void createReport(IOHIDReportType reportType,
+                      uint8_t reportID,
+                      IOBufferMemoryDescriptor *report);
+    
+    bool processReport(IOHIDReportType reportType,
+                       uint8_t reportID,
+                       void *reportData,
+                       uint32_t reportLength,
+                       uint64_t timestamp,
+                       bool *shouldTickle = 0,
+                       IOOptionBits options = 0);
+    
+    OSArray *getElements();
+    OSArray *getFlattenedElements();
+    OSArray *getFlattenedCollections();
+    OSArray *getInputReportElements();
+    uint32_t getMaxInputReportSize();
+    uint32_t getMaxOutputReportSize();
+    uint32_t getMaxFeatureReportSize();
+    uint32_t getDataElementIndex();
+    uint32_t getReportCount();
+};
+
+#endif /* _HIDDRIVERKIT_IOHIDELEMENTCONTAINER_H */

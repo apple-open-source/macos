@@ -26,8 +26,10 @@
 
 #include <IOKit/IOService.h>
 
+#if TARGET_OS_OSX
 #include <IOKit/smbus/IOSMBusController.h>
 #include "SmbusHandler.h"
+#endif
 #include <os/log.h>
 
 #include "AppleSmartBattery.h"
@@ -35,10 +37,10 @@
 
 class AppleSmartBattery;
 class AppleSmartBatteryManagerUserClient;
+#if TARGET_OS_OSX
 class SmbusHandler;
+#endif
 class AppleSMC;
-
-
 
 extern uint32_t gBMDebugFlags;
 extern bool gDebugAllowed;
@@ -74,15 +76,17 @@ enum {
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-class AppleSmartBatteryManager : public IOService {    
+class AppleSmartBatteryManager : public IOService {
     friend class AppleSmartBatteryManagerUserClient;
+#if TARGET_OS_OSX
     friend class SmbusHandler;
-    
+#endif
+
     OSDeclareDefaultStructors(AppleSmartBatteryManager)
-    
+
 public:
+    bool init(void) APPLE_KEXT_OVERRIDE;
     bool start(IOService *provider) APPLE_KEXT_OVERRIDE;
-    
 
     IOReturn setPowerState(unsigned long which, IOService *whom) APPLE_KEXT_OVERRIDE;
 
@@ -93,38 +97,40 @@ public:
     // Called by AppleSmartBattery
     // Re-enables AC inflow if appropriate
     void handleFullDischarge(void);
-    
+
     // bool argument true means "set", false means "clear" exclusive acces
     // return: false means "exclusive access already granted", "true" means success
     //
     // TODO: do we have clients on iOS that need exclusive access? Need a wrapper for this?
     bool requestExclusiveSMBusAccess(bool request);
-    
+
     // Returns true if an exclusive AppleSmartBatteryUserClient is attached. False otherwise.
     bool hasExclusiveClient(void);
-    
+
     bool requestPoll(int type);
     bool isSystemSleeping();
     bool exclusiveClientExists();
     bool isBatteryInaccessible();
-    
+
     IOReturn performTransaction(ASBMgrRequest *req, OSObject * target, void * reference);
 
     // transactionCompletion is the guts of the state machine
+#if TARGET_OS_OSX
     bool    transactionCompletion(void *ref, IOSMBusTransaction *transaction);
+#endif
     IOReturn inhibitChargingGated(uint64_t level);
     IOReturn disableInflowGated(uint64_t level);
-    
+
 private:
     // Called by AppleSmartBatteryManagerUserClient
-    IOReturn inhibitCharging(int level);        
+    IOReturn inhibitCharging(int level);
 
     // Called by AppleSmartBatteryManagerUserClient
     IOReturn disableInflow(int level);
 
     // Called by AppleSmartBatteryManagerUserClient
     // Called by Battery Updater application
-    IOReturn performExternalTransaction( 
+    IOReturn performExternalTransaction(
                         void            *in,    // struct EXSMBUSInputStruct
                         void            *out,   // struct EXSMBUSOutputStruct
                         IOByteCount     inSize,
@@ -132,8 +138,6 @@ private:
 
     void    gatedSendCommand(int cmd, int level, IOReturn *ret_code);
 
-
-    
     IOReturn setOverrideCapacity(uint16_t level);
     IOReturn switchToTrueCapacity(void);
     void    handleBatteryInserted(void);
@@ -143,13 +147,19 @@ private:
     IOReturn smbusCompletionHandler(void *ref, IOReturn status, size_t byteCount, uint8_t *data);
     IOReturn requestExclusiveSMBusAccessGated(bool request);
 
-    
 private:
+    bool                        _started;
+#if TARGET_OS_OSX
     IOSMBusController           * fProvider;
     SmbusHandler                * fSmbus;
     ASBMgrTransactionCompletion fAsbmCompletion;
     OSObject                    *fAsbmTarget;
     void                        *fAsbmReference;
+#else
+    IOTimerEventSource          * fBatteryPollSMC;
+    thread_call_t               fSMCCallout;
+    AppleSMCFamily              * fProvider;
+#endif
     IOCommandGate               * fManagerGate;
     AppleSmartBattery           * fBattery;
     bool                        fExclusiveUserClient;

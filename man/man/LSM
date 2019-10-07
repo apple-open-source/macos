@@ -1,23 +1,25 @@
-Begin3
-Title: man, man2html, hman, whatis, apropos
-Version: 1.6c
-Entered-date: 2006-01-23
-Description: * man is a man pager. It has support for compressed pages
-(both man pages and cat pages), and for locale ($LANG)
-and for message catalogs ($LC_MESSAGES). It will format
-files given explicitly (man ./foo.man.gz).
-It conforms to FSSTND or FHS, and handles stray cats.
-* man2html is a utility that converts man pages to html
-* hman is a man browser that uses your favourite browser.
-For use with lynx, no http daemon is required.
-Keywords: man manpath apropos whatis makewhatis man.conf man2html man2dvi
-hman manual pager browser keyword search
-Authors: John Eaton, Richard Verhoeven, Michael Hamilton,
-Andries Brouwer, Federico lucifredi
-Maintained-by: Federico Lucifredi (flucifredi@acm.org)
-Primary-site: http://primates.ximian.com/~flucifredi/man/
-240k man-1.6c.tar.gz
-1090 man-1.6c.lsm
+Begin4
+Title:          man
+Version:        1.6g
+Entered-date:   2010-12-31
+Description:    * man is a man pager. It has support for compressed
+                pages (both man pages and cat pages), and for locale
+                ($LANG) and for message catalogs ($LC_MESSAGES). It
+                will format files given explicitly (man ./foo.man.gz).
+                It conforms to FSSTND or FHS, and handles stray cats.
+                * man2html is a utility that converts man pages to html
+                * hman is a man browser that uses your favorite browser.
+                For use with lynx, no http daemon is required.
+                Keywords: man manpath apropos whatis makewhatis
+                man.conf man2html man2dvi hman manual pager browser
+                keyword search
+Keywords:       man, man2html, hman, whatis, apropos, man2dvi
+Author:         John Eaton, Richard Verhoeven, Michael Hamilton,
+                Andries Brouwer, Federico lucifredi (flucifredi@acm.org)
+Maintained-by:  Federico Lucifredi (flucifredi@acm.org)
+Primary-site:   http://primates.ximian.com/~flucifredi/man/
+                251k man-1.6g.tar.gz
+                1378 man-1.6g.lsm
 Alternate-site: http://www.people.fas.harvard.edu/~lucifred/man/
 Alternate-site: ftp://metalab.unc.edu/pub/Linux/apps/doctools/man/
 Copying-policy: Copyright by authors. Distributable under GPL.

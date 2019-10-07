@@ -30,7 +30,8 @@ include $(SrcDir)/Platforms/$(RC_TARGET_CONFIG)/GNUmakefile.inc
 
 MYFIX = $(SRCROOT)/fix
 VERSIONS = $(sort $(KNOWNVERSIONS) $(BOOTSTRAPPERL))
-ORDEREDVERS := $(DEFAULT) $(filter-out $(DEFAULT),$(VERSIONS))
+OTHERVERSIONS = $(filter-out $(DEFAULT),$(VERSIONS))
+ORDEREDVERS := $(DEFAULT) $(OTHERVERSIONS)
 VERSIONERFLAGS = -std=gnu99 -Wall -mdynamic-no-pic -I$(VERSIONERDIR)/$(PERLPROJECT) -I$(MYFIX) -framework CoreFoundation $(EXTRAVERSIONERFLAGS)
 
 RSYNC = rsync -rlpt
@@ -81,7 +82,6 @@ build:: $(foreach v,$(VERSIONS),$(SRCROOT)/$(v).inc)
 	    mkdir -p "$(OBJROOT)/$$vers/DSTROOT" || exit 1; \
 	    (echo "######## Building $$vers:" `date` '########' > "$(SYMROOT)/$$vers/LOG" 2>&1 && \
 		VERSIONER_PERL_VERSION=$$vers \
-		VERSIONER_PERL_PREFER_32_BIT=$(MY_PREFER_32_BIT) \
 		CC=$(PERL_CC) \
 		$(MYEXTRAENV) \
 		$(MAKE) -f Makefile install \
@@ -120,6 +120,25 @@ endif
 mergebegin:
 	@echo '####### Merging #######'
 
+# This causes us to replace the versioner stub with the default version of perl.
+# Since we are now only shipping one version (5.18) and one slice (x86_64), there
+# is no need for the re-exec stub.  We are leaving the infrastructure in place
+# in case we ever ship a new version or a new architecture in the future.
+ifeq ($(OTHERVERSIONS),)
+mergebin:
+	cd $(OBJROOT)/$(DEFAULT)/DSTROOT$(MERGEBIN) && \
+	for f in *; do \
+	    if echo $$f | grep -q "[^0-9]$(DEFAULT)"; then \
+                true; \
+	    else \
+	        fv=`echo $$f | sed -E 's/(\.[^.]*)?$$/'"$(DEFAULT)&/"` && \
+	        ditto $$f $(DSTROOT)$(MERGEBIN)/$$f && \
+	        ln -f $(DSTROOT)$(MERGEBIN)/$$f $(DSTROOT)$(MERGEBIN)/$$fv; \
+	    fi || exit 1; \
+	done
+$(OBJROOT)/wrappers:
+	touch $(OBJROOT)/wrappers
+else
 TEMPWRAPPER = $(MERGEBIN)/.versioner
 mergebin: $(OBJROOT)/wrappers
 	@[ ! -s $(OBJROOT)/wrappers ] || { set -x && \
@@ -161,6 +180,7 @@ $(OBJROOT)/wrappers:
 	cd $(DSTROOT)$(MERGEBIN) && \
 	ls | sort > $(MYVERSIONBINLIST) && \
 	rm -fv `comm -12 $(VERSIONBINLIST) $(MYVERSIONBINLIST)`
+endif
 
 MERGEDEFAULT = \
     Developer

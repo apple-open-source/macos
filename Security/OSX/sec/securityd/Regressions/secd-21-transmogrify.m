@@ -43,9 +43,7 @@
 
 #include "secd_regressions.h"
 #include "SecdTestKeychainUtilities.h"
-
-void SecAccessGroupsSetCurrent(CFArrayRef accessGroups);
-CFArrayRef SecAccessGroupsGetCurrent(void);
+#include "server_security_helpers.h"
 
 int
 secd_21_transmogrify(int argc, char *const *argv)
@@ -57,7 +55,7 @@ secd_21_transmogrify(int argc, char *const *argv)
     CFDictionaryRef result = NULL;
     OSStatus res;
 
-    CFArrayRef currentACL = SecAccessGroupsGetCurrent();
+    CFArrayRef currentACL = CFRetainSafe(SecAccessGroupsGetCurrent());
 
     NSMutableArray *newACL = [NSMutableArray arrayWithArray:(__bridge NSArray *)currentACL];
     [newACL addObjectsFromArray:@[
@@ -194,6 +192,7 @@ secd_21_transmogrify(int argc, char *const *argv)
     SecSecuritySetMusrMode(false, 501, -1);
 
     SecAccessGroupsSetCurrent(currentACL);
+    CFReleaseNull(currentACL);
 
     CFRelease(musr);
 #else

@@ -8,6 +8,7 @@ local -i querystaged queryunstaged
 local -a git_patches_applied git_patches_unapplied
 local -A hook_com
 
+(( ${+functions[VCS_INFO_git_getaction]} )) ||
 VCS_INFO_git_getaction () {
     local gitdir=$1
     local tmp
@@ -70,6 +71,7 @@ VCS_INFO_git_getaction () {
     return 1
 }
 
+(( ${+functions[VCS_INFO_git_getbranch]} )) ||
 VCS_INFO_git_getbranch () {
     local gitdir=$1 tmp actiondir
     local gitsymref="${vcs_comm[cmd]} symbolic-ref HEAD"
@@ -87,8 +89,8 @@ VCS_INFO_git_getbranch () {
         gitbranch="$(${(z)gitsymref} 2> /dev/null)"
         [[ -z ${gitbranch} ]] && [[ -r ${actiondir}/head-name ]] \
             && gitbranch="$(< ${actiondir}/head-name)"
-        [[ -z ${gitbranch} || ${gitbranch} == 'detached HEAD' ]] \
-            && gitbranch="$(< ${gitdir}/ORIG_HEAD)"
+        [[ -z ${gitbranch} || ${gitbranch} == 'detached HEAD' ]] && [[ -r ${actiondir}/onto ]] \
+            && gitbranch="$(< ${actiondir}/onto)"
 
     elif [[ -f "${gitdir}/MERGE_HEAD" ]] ; then
         gitbranch="$(${(z)gitsymref} 2> /dev/null)"
@@ -104,57 +106,34 @@ VCS_INFO_git_getbranch () {
     elif [[ -d "${gitdir}/.dotest-merge" ]] ; then
         gitbranch="$(< ${gitdir}/.dotest-merge/head-name)"
 
-    else
-        gitbranch="$(${(z)gitsymref} 2> /dev/null)"
+    elif gitbranch="$(${(z)gitsymref} 2> /dev/null)" ; then
+    elif gitbranch="refs/tags/$(${vcs_comm[cmd]} describe --all --exact-match HEAD 2>/dev/null)" ; then
+    elif gitbranch="$(${vcs_comm[cmd]} describe --contains HEAD 2>/dev/null)" ; then
+    ## Commented out because we don't know of a case in which 'describe --contains' fails and 'name-rev --tags' succeeds.
+    #elif gitbranch="$(${vcs_comm[cmd]} name-rev --name-only --no-undefined --tags HEAD 2>/dev/null)" ; then
+    elif gitbranch="$(${vcs_comm[cmd]} name-rev --name-only --no-undefined --always HEAD 2>/dev/null)" ; then
+    fi
 
-        if [[ $? -ne 0 ]] ; then
-            gitbranch="refs/tags/$(${vcs_comm[cmd]} describe --all --exact-match HEAD 2>/dev/null)"
-
-            if [[ $? -ne 0 ]] ; then
-                gitbranch="${${"$(< $gitdir/HEAD)"}[1,7]}..."
-            fi
-        fi
+    if [[ -z ${gitbranch} ]]
+    then
+	gitbranch="${${"$(< $gitdir/HEAD)"}[1,7]}..."
     fi
 
     return 0
 }
 
+(( ${+functions[VCS_INFO_git_handle_patches]} )) ||
 VCS_INFO_git_handle_patches () {
-    local git_applied_s git_unapplied_s gitmsg git_all
+    local git_applied_s git_unapplied_s gitmsg
+    # All callers populate $git_patches_applied and $git_patches_unapplied in
+    # order, but the hook requires us to reverse $git_patches_applied.
     git_patches_applied=(${(Oa)git_patches_applied})
-    git_patches_unapplied=(${(Oa)git_patches_unapplied})
-    (( git_all = ${#git_patches_applied} + ${#git_patches_unapplied} ))
 
-    if VCS_INFO_hook 'gen-applied-string' "${git_patches_applied[@]}"; then
-        if (( ${#git_patches_applied} )); then
-            git_applied_s=${git_patches_applied[1]}
-        else
-            git_applied_s=""
-        fi
-    else
-        git_applied_s=${hook_com[applied-string]}
-    fi
-    hook_com=()
-    if VCS_INFO_hook 'gen-unapplied-string' "${git_patches_unapplied[@]}"; then
-        git_patches_unapplied=${#git_patches_unapplied}
-    else
-        git_patches_unapplied=${hook_com[unapplied-string]}
-    fi
-
-    if (( ${#git_patches_applied} )); then
-        zstyle -s ":vcs_info:${vcs}:${usercontext}:${rrn}" patch-format gitmsg || gitmsg="%p (%n applied)"
-    else
-        zstyle -s ":vcs_info:${vcs}:${usercontext}:${rrn}" nopatch-format gitmsg || gitmsg="no patch applied"
-    fi
-    hook_com=( applied "${git_applied_s}"     unapplied "${git_patches_unapplied}"
-               applied-n ${#git_patches_applied} unapplied-n ${#git_patches_unapplied} all-n ${git_all} )
-    if VCS_INFO_hook 'set-patch-format' "${gitmsg}"; then
-        zformat -f gitmisc "${gitmsg}" "p:${hook_com[applied]}" "u:${hook_com[unapplied]}" \
-                                          "n:${#git_patches_applied}" "c:${#git_patches_unapplied}" "a:${git_all}"
-    else
-        gitmisc=${hook_com[patch-replace]}
-    fi
-    hook_com=()
+    VCS_INFO_set-patch-format 'git_patches_applied' 'git_applied_s' \
+                              'git_patches_unapplied' 'git_unapplied_s' \
+                              ":vcs_info:${vcs}:${usercontext}:${rrn}" gitmsg \
+                              '' ''
+    gitmisc=$REPLY
 }
 
 gitdir=${vcs_comm[gitdir]}
@@ -182,7 +161,7 @@ if (( querystaged || queryunstaged )) && \
    [[ "$(${vcs_comm[cmd]} rev-parse --is-inside-work-tree 2> /dev/null)" == 'true' ]] ; then
     # Default: off - these are potentially expensive on big repositories
     if (( queryunstaged )) ; then
-        ${vcs_comm[cmd]} diff --no-ext-diff --ignore-submodules=dirty --quiet --exit-code ||
+        ${vcs_comm[cmd]} diff --no-ext-diff --ignore-submodules=dirty --quiet --exit-code 2> /dev/null ||
             gitunstaged=1
     fi
     if (( querystaged )) ; then
@@ -205,10 +184,12 @@ local patchdir=${gitdir}/patches/${gitbranch}
 if [[ -d $patchdir ]] && [[ -f $patchdir/applied ]] \
    && [[ -f $patchdir/unapplied ]]
 then
+    # stgit
     git_patches_applied=(${(f)"$(< "${patchdir}/applied")"})
     git_patches_unapplied=(${(f)"$(< "${patchdir}/unapplied")"})
     VCS_INFO_git_handle_patches
 elif [[ -d "${gitdir}/rebase-merge" ]]; then
+    # 'git rebase -i'
     patchdir="${gitdir}/rebase-merge"
     local p
     [[ -f "${patchdir}/done" ]] &&
@@ -216,21 +197,57 @@ elif [[ -d "${gitdir}/rebase-merge" ]]; then
         # pick/edit/fixup/squash/reword: Add "$hash $subject" to $git_patches_applied.
         # exec: Add "exec ${command}" to $git_patches_applied.
         # (anything else): As 'exec'.
-        p=${p/(#s)(p|pick|e|edit|r|reword|f|fixup|s|squash) /}
-        p=${p/(#s)x /exec }
+        case $p in
+            ((p|pick|e|edit|r|reword|f|fixup|s|squash)' '*)
+                # The line is of the form "pick $hash $subject".
+                # Just strip the verb and we're good to go.
+                p=${p#* }
+                # Special case: in an interactive rebase, if the user wrote "p $shorthash\n"
+                # in the editor (without a description after the hash), then the .../done
+                # file will contain "p $longhash $shorthash\n" (git 2.11.0) or "pick $longhash\n"
+                # (git 2.19.0).
+                if [[ $p != *\ * ]]; then
+                        # The line is of the form "pick $longhash\n"
+                        #
+                        # Mark the log message subject as unknown.
+                        # TODO: Can we performantly obtain the subject?
+                        p+=" ?"
+                elif (( ${#${p//[^ ]}} == 1 )) && [[ ${p%% *} == ${p#* }* ]]; then
+                        # The line is of the form "p $longhash $shorthash\n"
+                        #
+                        # The shorthash is superfluous, so discard it, and mark
+                        # the log message subject as unknown.
+                        # TODO: Can we performantly obtain the subject?
+                        p="${p%% *} ?"
+                fi
+                ;;
+            (x *)
+                # The line is of the form 'exec foo bar baz' where 'foo bar
+                # baz' is a shell command.  There's no way to map _that_ to
+                # "$hash $subject", but I hope this counts as making an effort.
+                p=${p/x /exec }
+                ;;
+            (*)
+                # Forward compatibility with not-yet-existing 'git rebase -i' verbs.
+                if [[ $p != *\ * ]]; then
+                    p+=" ?"
+                fi
+        esac
         git_patches_applied+=("$p")
     done
     if [[ -f "${patchdir}/git-rebase-todo" ]] ; then
-        git_patches_unapplied=(${(f)"$(grep -v '^$' "${patchdir}/git-rebase-todo" | grep -v '^#')"})
+        # TODO: Process ${patchdir}/git-rebase-todo lines like ${patchdir}/done lines are
+        git_patches_unapplied=( ${${(f)${"$(<"${patchdir}/git-rebase-todo")"}}:#[#]*} )
     fi
     VCS_INFO_git_handle_patches
 elif [[ -d "${gitdir}/rebase-apply" ]]; then
-    # Fake patch names for all but current patch
+    # 'git rebase' without -i
     patchdir="${gitdir}/rebase-apply"
     local next="${patchdir}/next"
     if [[ -f $next ]]; then
         local cur=$(< $next)
         local p subject
+        # Fake patch names for all but current patch
         for ((p = 1; p < cur; p++)); do
             printf -v "git_patches_applied[$p]"  "%04d ?" "$p"
         done
@@ -246,18 +263,11 @@ elif [[ -d "${gitdir}/rebase-apply" ]]; then
               subject=$REPLY
             }
         fi
+        subject=${subject:-'?'}
         if [[ -f "${patchdir}/original-commit" ]]; then
-            if [[ -n $subject ]]; then
-                git_patches_applied+=("$(< ${patchdir}/original-commit) $subject")
-            else
-                git_patches_applied+=("$(< ${patchdir}/original-commit)")
-            fi
+            git_patches_applied+=("$(< ${patchdir}/original-commit) $subject")
         else
-            if [[ -n $subject ]]; then
-                git_patches_applied+=("? $subject")
-            else
-                git_patches_applied+=("?")
-            fi
+            git_patches_applied+=("? $subject")
         fi
         local last="$(< "${patchdir}/last")"
         if (( cur+1 <= last )); then

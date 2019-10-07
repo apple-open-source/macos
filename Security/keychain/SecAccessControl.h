@@ -70,7 +70,10 @@ __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
  
  @constant kSecAccessControlDevicePasscode
  Constraint: Device passcode
- 
+
+ @constant kSecAccessControlWatch
+ Constraint: Watch
+
  @constant kSecAccessControlOr
  Constraint logic operation: when using more than one constraint, at least one of them must be satisfied.
  
@@ -86,15 +89,16 @@ __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
 */
 typedef CF_OPTIONS(CFOptionFlags, SecAccessControlCreateFlags) {
     kSecAccessControlUserPresence           = 1u << 0,
-    kSecAccessControlBiometryAny            CF_ENUM_AVAILABLE(10_13_4, 11_3) = 1u << 1,
+    kSecAccessControlBiometryAny            API_AVAILABLE(macos(10.13.4), ios(11.3)) = 1u << 1,
     kSecAccessControlTouchIDAny             API_DEPRECATED_WITH_REPLACEMENT("kSecAccessControlBiometryAny", macos(10.12.1, 10.13.4), ios(9.0, 11.3)) = 1u << 1,
-    kSecAccessControlBiometryCurrentSet     CF_ENUM_AVAILABLE(10_13_4, 11_3) = 1u << 3,
+    kSecAccessControlBiometryCurrentSet     API_AVAILABLE(macos(10.13.4), ios(11.3)) = 1u << 3,
     kSecAccessControlTouchIDCurrentSet      API_DEPRECATED_WITH_REPLACEMENT("kSecAccessControlBiometryCurrentSet", macos(10.12.1, 10.13.4), ios(9.0, 11.3)) = 1u << 3,
-    kSecAccessControlDevicePasscode         CF_ENUM_AVAILABLE(10_11, 9_0) = 1u << 4,
-    kSecAccessControlOr                     CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 14,
-    kSecAccessControlAnd                    CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 15,
-    kSecAccessControlPrivateKeyUsage        CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 30,
-    kSecAccessControlApplicationPassword    CF_ENUM_AVAILABLE(10_12_1, 9_0) = 1u << 31,
+    kSecAccessControlDevicePasscode         API_AVAILABLE(macos(10.11), ios(9.0)) = 1u << 4,
+    kSecAccessControlWatch                  API_AVAILABLE(macos(10.15), ios(NA), iosmac(13.0)) = 1u << 5,
+    kSecAccessControlOr                     API_AVAILABLE(macos(10.12.1), ios(9.0)) = 1u << 14,
+    kSecAccessControlAnd                    API_AVAILABLE(macos(10.12.1), ios(9.0)) = 1u << 15,
+    kSecAccessControlPrivateKeyUsage        API_AVAILABLE(macos(10.12.1), ios(9.0)) = 1u << 30,
+    kSecAccessControlApplicationPassword    API_AVAILABLE(macos(10.12.1), ios(9.0)) = 1u << 31,
 } __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
 
 /*!
@@ -115,7 +119,7 @@ typedef CF_OPTIONS(CFOptionFlags, SecAccessControlCreateFlags) {
 __nullable
 SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef __nullable allocator, CFTypeRef protection,
                                                     SecAccessControlCreateFlags flags, CFErrorRef *error)
-__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
+API_AVAILABLE(macos(10.10), ios(8.0));
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

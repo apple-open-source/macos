@@ -37,6 +37,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sys/sysctl.h>
 
 #include <dirent.h>
 #include <errno.h>
@@ -48,6 +49,32 @@ __FBSDID("$FreeBSD$");
 #include "un-namespace.h"
 
 #include "telldir.h"
+
+static bool
+__kernel_supports_unionfs(void)
+{
+	static int8_t kernel_supports_unionfs = -1;
+	if (kernel_supports_unionfs == -1) {
+		int value = 0;
+		size_t len = sizeof(value);
+		sysctlbyname("kern.secure_kernel", &value, &len, NULL, 0);
+		kernel_supports_unionfs = !value;
+	}
+	return kernel_supports_unionfs;
+}
+
+static int
+__fd_is_on_union_mount(int fd)
+{
+	struct statfs stbuf;
+	int rc;
+
+	rc = fstatfs(fd, &stbuf);
+	if (rc < 0) {
+		return rc;
+	}
+	return (stbuf.f_flags & MNT_UNION) != 0;
+}
 
 static DIR * __opendir_common(int, int, bool);
 
@@ -294,7 +321,6 @@ static DIR *
 __opendir_common(int fd, int flags, bool use_current_pos)
 {
 	DIR *dirp;
-	int incr;
 	int saved_errno;
 	int unionstack;
 
@@ -311,24 +337,12 @@ __opendir_common(int fd, int flags, bool use_current_pos)
 	dirp->dd_td->td_loccnt = 0;
 
 	/*
-	 * Use the system page size if that is a multiple of DIRBLKSIZ.
-	 * Hopefully this can be a big win someday by allowing page
-	 * trades to user space to be done by _getdirentries().
-	 */
-	incr = getpagesize();
-	if ((incr % DIRBLKSIZ) != 0) 
-		incr = DIRBLKSIZ;
-
-	/*
 	 * Determine whether this directory is the top of a union stack.
 	 */
-	if (flags & DTF_NODUP) {
-		struct statfs sfb;
-
-		if (_fstatfs(fd, &sfb) < 0)
+	if ((flags & DTF_NODUP) && __kernel_supports_unionfs()) {
+		unionstack = __fd_is_on_union_mount(fd);
+		if (unionstack < 0)
 			goto fail;
-		unionstack = !strcmp(sfb.f_fstypename, "unionfs")
-		    || (sfb.f_flags & MNT_UNION);
 	} else {
 		unionstack = 0;
 	}
@@ -338,7 +352,14 @@ __opendir_common(int fd, int flags, bool use_current_pos)
 			goto fail;
 		dirp->dd_flags |= __DTF_READALL;
 	} else {
-		dirp->dd_len = incr;
+		/*
+		 * Start with a small-ish size to avoid allocating full pages.
+		 * readdir() will allocate a larger buffer if it didn't fit
+		 * to stay fast for large directories.
+		 */
+		_Static_assert(GETDIRENTRIES64_EXTENDED_BUFSIZE <= READDIR_INITIAL_SIZE,
+		    "Make sure we'll get extended metadata");
+		dirp->dd_len = READDIR_INITIAL_SIZE;
 		dirp->dd_buf = malloc(dirp->dd_len);
 		if (dirp->dd_buf == NULL)
 			goto fail;
@@ -349,8 +370,26 @@ __opendir_common(int fd, int flags, bool use_current_pos)
 			 * fd passed to fdopendir() is a directory.
 			 */
 #if __DARWIN_64_BIT_INO_T
+			/*
+			 * sufficiently recent kernels when the buffer is large enough,
+			 * will use the last bytes of the buffer to return status.
+			 *
+			 * To support older kernels:
+			 * - make sure it's 0 initialized
+			 * - make sure it's past `dd_size` before reading it
+			 */
+			getdirentries64_flags_t *gdeflags =
+			    (getdirentries64_flags_t *)(dirp->dd_buf + dirp->dd_len -
+			    sizeof(getdirentries64_flags_t));
+			*gdeflags = 0;
 			dirp->dd_size = (long)__getdirentries64(dirp->dd_fd,
 			    dirp->dd_buf, dirp->dd_len, &dirp->dd_td->seekoff);
+			if (dirp->dd_size >= 0 &&
+			    dirp->dd_size <= dirp->dd_len - sizeof(getdirentries64_flags_t)) {
+				if (*gdeflags & GETDIRENTRIES64_EOF) {
+					dirp->dd_flags |= __DTF_ATEND;
+				}
+			}
 #else /* !__DARWIN_64_BIT_INO_T */
 			dirp->dd_size = _getdirentries(dirp->dd_fd,
 			    dirp->dd_buf, dirp->dd_len, &dirp->dd_seek);

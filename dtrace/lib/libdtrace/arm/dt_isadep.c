@@ -54,7 +54,7 @@ dt_pid_create_entry_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	ftp->ftps_pc = symp->st_value; // Keep st_value as uint64_t
 
 	if (symp->st_arch_subinfo == 0) {
-		dt_dprintf("No arm/thumb information for %s:%s, not instrumenting\n",ftp->ftps_mod,ftp->ftps_func);
+		dt_dprintf("No arm/thumb information for %s:%s, not instrumenting",ftp->ftps_mod,ftp->ftps_func);
 		return (1);
 	} else {
 		ftp->ftps_arch_subinfo = symp->st_arch_subinfo;
@@ -65,7 +65,7 @@ dt_pid_create_entry_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	ftp->ftps_offs[0] = 0;
 
 	if (ioctl(dtp->dt_ftfd, FASTTRAPIOC_MAKEPROBE, ftp) != 0) {
-		dt_dprintf("fasttrap probe creation ioctl failed: %s\n",
+		dt_dprintf("fasttrap probe creation ioctl failed: %s",
 		    strerror(errno));
 		return (dt_set_errno(dtp, errno));
 	}
@@ -101,7 +101,7 @@ dt_pid_create_return_probe32(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	ftp->ftps_pc = symp->st_value;
 
 	if (symp->st_arch_subinfo == 0) {
-		dt_dprintf("No arm/thumb information for %s:%s, not instrumenting\n",ftp->ftps_mod,ftp->ftps_func);
+		dt_dprintf("No arm/thumb information for %s:%s, not instrumenting",ftp->ftps_mod,ftp->ftps_func);
 		return (1);
 	} else {
 		ftp->ftps_arch_subinfo = symp->st_arch_subinfo;
@@ -115,12 +115,12 @@ dt_pid_create_return_probe32(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	 * for overrunning the buffer.
 	 */
 	if ((text = allocated_text = calloc(1, symp->st_size + 4)) == NULL) {
-		dt_dprintf("mr sparkle: malloc() failed\n");
+		dt_dprintf("mr sparkle: malloc() failed");
 		return (DT_PROC_ERR);
 	}
 
 	if ((constants = calloc(1, symp->st_size + 4)) == NULL) {
-		dt_dprintf("mr sparkle: malloc() failed\n");
+		dt_dprintf("mr sparkle: malloc() failed");
 		free(allocated_text);
 		return (DT_PROC_ERR);
 	}
@@ -135,7 +135,7 @@ dt_pid_create_return_probe32(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 		text = text + 2;
 
 	if (Pread(P, text, symp->st_size, symp->st_value) != symp->st_size) {
-		dt_dprintf("mr sparkle: Pread() failed\n");
+		dt_dprintf("mr sparkle: Pread() failed");
 		free(allocated_text);
 		free(constants);
 		return (DT_PROC_ERR);
@@ -239,7 +239,7 @@ dt_pid_create_return_probe32(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 
 is_ret_arm:
 			offset = (ulong_t) inst - (ulong_t) text;
-			dt_dprintf("return at offset %lx Arm\n", offset);
+			dt_dprintf("return at offset %lx Arm", offset);
 			ftp->ftps_offs[ftp->ftps_noffs++] = offset;
 			inst++;
 		}
@@ -330,7 +330,7 @@ is_ret_arm:
 
 is_ret_thumb2:
 				offset = (ulong_t) inst - (ulong_t) text;
-				dt_dprintf("return at offset %lx Thumb32\n", offset);
+				dt_dprintf("return at offset %lx Thumb32", offset);
 				ftp->ftps_offs[ftp->ftps_noffs++] = offset;
 				inst += 2;
 			} else {
@@ -375,7 +375,7 @@ is_ret_thumb2:
 
 is_ret_thumb:
 				offset = (ulong_t) inst - (ulong_t) text;
-				dt_dprintf("return at offset %lx Thumb16\n", offset);
+				dt_dprintf("return at offset %lx Thumb16", offset);
 				ftp->ftps_offs[ftp->ftps_noffs++] = offset;
 				inst++;
 			}
@@ -386,7 +386,7 @@ is_ret_thumb:
 	free(constants);
 	if (ftp->ftps_noffs > 0) {
 		if (ioctl(dtp->dt_ftfd, FASTTRAPIOC_MAKEPROBE, ftp) != 0) {
-			dt_dprintf("fasttrap probe creation ioctl failed: %s\n",
+			dt_dprintf("fasttrap probe creation ioctl failed: %s",
 				strerror(errno));
 			return (dt_set_errno(dtp, errno));
 		}
@@ -415,12 +415,12 @@ dt_pid_create_return_probe64(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	 * for overrunning the buffer.
 	 */
 	if ((text = calloc(1, symp->st_size + 4)) == NULL) {
-		dt_dprintf("mr sparkle: malloc() failed\n");
+		dt_dprintf("mr sparkle: malloc() failed");
 		return (DT_PROC_ERR);
 	}
 
 	if (Pread(P, text, symp->st_size, symp->st_value) != symp->st_size) {
-		dt_dprintf("mr sparkle: Pread() failed\n");
+		dt_dprintf("mr sparkle: Pread() failed");
 		free(text);
 		return (DT_PROC_ERR);
 	}
@@ -450,7 +450,7 @@ dt_pid_create_return_probe64(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 		continue;
 
 is_ret:
-		dt_dprintf("return at offset %lx Arm64\n", (ulong_t) inst - (ulong_t) text);
+		dt_dprintf("return at offset %lx Arm64", (ulong_t) inst - (ulong_t) text);
 		ftp->ftps_offs[ftp->ftps_noffs++] = (ulong_t) inst - (ulong_t) text;
 		inst++;
 	}
@@ -458,7 +458,7 @@ is_ret:
 	free(text);
 	if (ftp->ftps_noffs > 0) {
 		if (ioctl(dtp->dt_ftfd, FASTTRAPIOC_MAKEPROBE, ftp) != 0) {
-			dt_dprintf("fasttrap probe creation ioctl failed: %s\n",
+			dt_dprintf("fasttrap probe creation ioctl failed: %s",
 				strerror(errno));
 			return (dt_set_errno(dtp, errno));
 		}
@@ -480,7 +480,7 @@ dt_pid_create_return_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 		return dt_pid_create_return_probe32(P, dtp, ftp, symp, stret);
 	}
 	else {
-		dt_dprintf("invalid architecture for %s:%s:return: %d\n", ftp->ftps_mod, ftp->ftps_mod, arch);
+		dt_dprintf("invalid architecture for %s:%s:return: %d", ftp->ftps_mod, ftp->ftps_mod, arch);
 		return (1);
 	}
 }

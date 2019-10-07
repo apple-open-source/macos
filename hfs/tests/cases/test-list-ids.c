@@ -1,6 +1,6 @@
 #include <TargetConditionals.h>
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -12,6 +12,8 @@
 #include <sys/sysctl.h>
 #include <System/sys/fsgetpath.h>
 #include <hfs/hfs_fsctl.h>
+#include <sys/mount.h>
+#include <sys/param.h>
 
 #include "hfs-tests.h"
 #include "test-utils.h"
@@ -180,4 +182,4 @@ exit:
 	return 0;
 }
 
-#endif // TARGET_OS_EMBEDDED
+#endif // (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)

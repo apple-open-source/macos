@@ -1,4 +1,4 @@
---TEST--                                 
+--TEST--
 OO API: SNMP object properties
 --CREDITS--
 Boris Lytochkin
@@ -71,7 +71,7 @@ object(SNMP)#%d (%d) {
   ["info"]=>
   array(4) {
     ["hostname"]=>
-    %string|unicode%(%d) "%s"
+    string(%d) "%s"
     ["port"]=>
     int(%d)
     ["timeout"]=>
@@ -98,7 +98,7 @@ object(SNMP)#%d (%d) {
   ["info"]=>
   array(4) {
     ["hostname"]=>
-    %string|unicode%(%d) "%s"
+    string(%d) "%s"
     ["port"]=>
     int(%d)
     ["timeout"]=>
@@ -125,7 +125,7 @@ object(SNMP)#%d (%d) {
   ["info"]=>
   array(4) {
     ["hostname"]=>
-    %string|unicode%(%d) "%s"
+    string(%d) "%s"
     ["port"]=>
     int(%d)
     ["timeout"]=>
@@ -155,7 +155,7 @@ object(SNMP)#%d (%d) {
   ["info"]=>
   array(4) {
     ["hostname"]=>
-    %string|unicode%(%d) "%s"
+    string(%d) "%s"
     ["port"]=>
     int(%d)
     ["timeout"]=>
@@ -197,7 +197,7 @@ int(3)
 Warning: main(): info property is read-only in %s on line %d
 array(4) {
   ["hostname"]=>
-  %string|unicode%(%d) "%s"
+  string(%d) "%s"
   ["port"]=>
   int(%d)
   ["timeout"]=>

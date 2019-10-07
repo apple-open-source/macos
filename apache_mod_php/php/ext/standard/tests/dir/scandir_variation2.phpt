@@ -5,7 +5,7 @@ Test scandir() function : usage variations - diff data types as $sorting_order a
 --FILE--
 <?php
 /* Prototype  : array scandir(string $dir [, int $sorting_order [, resource $context]])
- * Description: List files & directories inside the specified path 
+ * Description: List files & directories inside the specified path
  * Source code: ext/standard/dir.c
  */
 
@@ -64,7 +64,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
@@ -74,7 +74,7 @@ $inputs = array(
 /*19*/ "string",
        'string',
        $heredoc,
-       
+
        // object data
 /*22*/ new classA(),
 
@@ -229,37 +229,37 @@ array(2) {
 
 -- Iteration 16 --
 
-Warning: scandir() expects parameter 2 to be integer, string given in %s on line %d
+Warning: scandir() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 17 --
 
-Warning: scandir() expects parameter 2 to be integer, string given in %s on line %d
+Warning: scandir() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 18 --
 
-Warning: scandir() expects parameter 2 to be integer, array given in %s on line %d
+Warning: scandir() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
 -- Iteration 19 --
 
-Warning: scandir() expects parameter 2 to be integer, string given in %s on line %d
+Warning: scandir() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 20 --
 
-Warning: scandir() expects parameter 2 to be integer, string given in %s on line %d
+Warning: scandir() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 21 --
 
-Warning: scandir() expects parameter 2 to be integer, string given in %s on line %d
+Warning: scandir() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 22 --
 
-Warning: scandir() expects parameter 2 to be integer, object given in %s on line %d
+Warning: scandir() expects parameter 2 to be int, object given in %s on line %d
 NULL
 
 -- Iteration 23 --
@@ -280,6 +280,6 @@ array(2) {
 
 -- Iteration 25 --
 
-Warning: scandir() expects parameter 2 to be integer, resource given in %s on line %d
+Warning: scandir() expects parameter 2 to be int, resource given in %s on line %d
 NULL
 ===DONE===

@@ -103,9 +103,10 @@
 
 #ifdef __APPLE__
 #include <TargetConditionals.h>
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #include <vproc.h>
 #include <vproc_priv.h>
+#include <err.h>
 #endif
 #endif
 
@@ -1229,7 +1230,7 @@ char **av;
   freopen("/dev/null", "w", stderr);
   debug("-- screen.back debug started\n");
 
-#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
+#if defined(__APPLE__) && !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	if (_vprocmgr_detach_from_console(0) != NULL)
 		errx(1, "can't detach from console");
 #endif

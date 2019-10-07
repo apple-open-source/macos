@@ -96,7 +96,11 @@ static void tests(void)
     CFReleaseNull(acl);
 
     // ACL with protection and flags
+#if TARGET_OS_OSX
+    acl = SecAccessControlCreateWithFlags(allocator, protection, kSecAccessControlBiometryAny | kSecAccessControlDevicePasscode | kSecAccessControlWatch | kSecAccessControlAnd | kSecAccessControlApplicationPassword, &error);
+#else
     acl = SecAccessControlCreateWithFlags(allocator, protection, kSecAccessControlBiometryAny | kSecAccessControlDevicePasscode | kSecAccessControlAnd | kSecAccessControlApplicationPassword, &error);
+#endif
     ok(acl != NULL, "SecAccessControlCreateWithFlags: %@", error);
     CFReleaseNull(error);
     CFReleaseNull(acl);
@@ -160,6 +164,12 @@ static void tests(void)
     is(CFDictionaryGetValue(policy, CFSTR(kACMKeyAclConstraintPolicy)), CFSTR(kACMPolicyDeviceOwnerAuthentication), "SecAccessConstraintCreatePolicy");
     CFReleaseNull(error);
     CFReleaseNull(policy);
+
+    // Watch constraint
+    aclConstraint = SecAccessConstraintCreateWatch(allocator);
+    ok(aclConstraint != NULL && isDictionary(aclConstraint), "SecAccessConstraintCreateWatch");
+    is(CFDictionaryGetValue(aclConstraint, CFSTR(kACMKeyAclConstraintWatch)), kCFBooleanTrue, "SecAccessConstraintCreateWatch");
+    CFReleaseNull(aclConstraint);
 
     // Passcode constraint
     SecAccessConstraintRef passcode = SecAccessConstraintCreatePasscode(allocator);
@@ -509,9 +519,9 @@ static CFDataRef kc_copy_constraints_data(SecAccessControlRef access_control, CF
 int si_77_SecAccessControl(int argc, char *const *argv)
 {
 #if LA_CONTEXT_IMPLEMENTED && TARGET_HAS_KEYSTORE
-    plan_tests(71);
+    plan_tests(73);
 #else
-    plan_tests(63);
+    plan_tests(65);
 #endif
 
     tests();

@@ -25,14 +25,14 @@
 #import <Foundation/NSXPCConnection_Private.h>
 #import <Security/Security.h>
 
-#import <SOSCircle/CKBridge/SOSCloudKeychainClient.h>
+#import "keychain/SecureObjectSync/CKBridge/SOSCloudKeychainClient.h"
 
 #import <dispatch/dispatch.h>
 
 #import <utilities/debugging.h>
 #import <utilities/SecCFWrappers.h>
 
-#import <Security/SecureObjectSync/SOSInternal.h>
+#import "keychain/SecureObjectSync/SOSInternal.h"
 #import <Security/CKKSControlProtocol.h>
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 
@@ -145,7 +145,7 @@ homekit_sysdiagnose(void)
         (id)kSecMatchLimit : (id)kSecMatchLimitAll,
         (id)kSecReturnAttributes: @YES,
         (id)kSecReturnData: @NO,
-        (id)kSecAttrNoLegacy : @YES,
+        (id)kSecUseDataProtectionKeychain : @YES,
     } mutableCopy];
 
     CFTypeRef result = NULL;
@@ -201,7 +201,7 @@ unlock_sysdiagnose(void)
 static void
 analytics_sysdiagnose(void)
 {
-    NSXPCConnection* xpcConnection = [[NSXPCConnection alloc] initWithMachServiceName:@"com.apple.securityuploadd" options:NSXPCConnectionPrivileged];
+    NSXPCConnection* xpcConnection = [[NSXPCConnection alloc] initWithMachServiceName:@"com.apple.securityuploadd" options:0];
     if (!xpcConnection) {
         [@"failed to setup xpc connection for securityuploadd\n" writeToStdErr];
         return;

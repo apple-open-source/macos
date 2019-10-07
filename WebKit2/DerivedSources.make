@@ -30,11 +30,13 @@ VPATH = \
     $(WebKit2)/NetworkProcess/webrtc \
     $(WebKit2)/NetworkProcess/IndexedDB \
     $(WebKit2)/NetworkProcess/ServiceWorker \
+    $(WebKit2)/NetworkProcess/WebStorage \
     $(WebKit2)/PluginProcess \
     $(WebKit2)/PluginProcess/mac \
     $(WebKit2)/Shared/Plugins \
     $(WebKit2)/Shared \
     $(WebKit2)/Shared/API/Cocoa \
+    $(WebKit2)/Shared/ApplePay \
     $(WebKit2)/Shared/Authentication \
     $(WebKit2)/Shared/mac \
     $(WebKit2)/WebProcess/ApplePay \
@@ -58,13 +60,13 @@ VPATH = \
     $(WebKit2)/WebProcess/WebAuthentication \
     $(WebKit2)/WebProcess/WebCoreSupport \
     $(WebKit2)/WebProcess/WebPage \
+    $(WebKit2)/WebProcess/WebPage/Cocoa \
     $(WebKit2)/WebProcess/WebPage/RemoteLayerTree \
     $(WebKit2)/WebProcess/WebStorage \
     $(WebKit2)/WebProcess/cocoa \
     $(WebKit2)/WebProcess/ios \
     $(WebKit2)/WebProcess \
     $(WebKit2)/UIProcess \
-    $(WebKit2)/UIProcess/ApplePay \
     $(WebKit2)/UIProcess/Automation \
     $(WebKit2)/UIProcess/Cocoa \
     $(WebKit2)/UIProcess/Databases \
@@ -78,7 +80,6 @@ VPATH = \
     $(WebKit2)/UIProcess/Storage \
     $(WebKit2)/UIProcess/UserContent \
     $(WebKit2)/UIProcess/WebAuthentication \
-    $(WebKit2)/UIProcess/WebStorage \
     $(WebKit2)/UIProcess/mac \
     $(WebKit2)/UIProcess/ios \
     $(WEBKITADDITIONS_HEADER_SEARCH_PATHS) \
@@ -95,8 +96,8 @@ endif
 
 MESSAGE_RECEIVERS = \
     AuthenticationManager \
+    AuxiliaryProcess \
     CacheStorageEngineConnection \
-    ChildProcess \
     DownloadProxy \
     DrawingArea \
     DrawingAreaProxy \
@@ -115,6 +116,7 @@ MESSAGE_RECEIVERS = \
     NetworkRTCProvider \
     NetworkRTCSocket \
     NetworkResourceLoader \
+    NetworkSocketChannel \
     NetworkSocketStream \
     PlaybackSessionManager \
     PlaybackSessionManagerProxy \
@@ -131,9 +133,11 @@ MESSAGE_RECEIVERS = \
     RemoteWebInspectorUI \
     SecItemShimProxy \
     ServiceWorkerClientFetch \
+    ServiceWorkerFetchTask \
     SmartMagnificationController \
     StorageAreaMap \
     StorageManager \
+    TextCheckingControllerProxy \
     UserMediaCaptureManager \
     UserMediaCaptureManagerProxy \
     VideoFullscreenManager \
@@ -147,7 +151,6 @@ MESSAGE_RECEIVERS = \
     WebAuthenticatorCoordinatorProxy \
     WebAutomationSession \
     WebAutomationSessionProxy \
-    WebCacheStorageConnection \
     WebConnection \
     WebCookieManager \
     WebCookieManagerProxy \
@@ -175,12 +178,12 @@ MESSAGE_RECEIVERS = \
     WebRTCMonitor \
     WebRTCResolver \
     WebRTCSocket \
-    WebResourceLoadStatisticsStore \
     WebResourceLoader \
     WebSWClientConnection \
     WebSWContextManagerConnection \
     WebSWServerConnection \
     WebSWServerToContextConnection \
+    WebSocketChannel \
     WebSocketStream \
     WebUserContentController \
     WebUserContentControllerProxy \
@@ -267,7 +270,7 @@ AUTOMATION_PROTOCOL_OUTPUT_FILES = \
 AUTOMATION_PROTOCOL_OUTPUT_PATTERNS = $(subst .,%,$(AUTOMATION_PROTOCOL_OUTPUT_FILES))
 
 ifeq ($(OS),MACOS)
-ifeq ($(shell $(CC) -std=gnu++14 -x c++ -E -P -dM $(SDK_FLAGS) $(TARGET_TRIPLE_FLAGS) $(FRAMEWORK_FLAGS) $(HEADER_FLAGS) -include "wtf/Platform.h" /dev/null | grep ' WTF_PLATFORM_IOS_FAMILY ' | cut -d' ' -f3), 1)
+ifeq ($(shell $(CC) -std=gnu++1z -x c++ -E -P -dM $(SDK_FLAGS) $(TARGET_TRIPLE_FLAGS) $(FRAMEWORK_FLAGS) $(HEADER_FLAGS) -include "wtf/Platform.h" /dev/null | grep ' WTF_PLATFORM_IOS_FAMILY ' | cut -d' ' -f3), 1)
 	AUTOMATION_BACKEND_PLATFORM_ARGUMENTS = --platform iOS
 else
 	AUTOMATION_BACKEND_PLATFORM_ARGUMENTS = --platform macOS
@@ -316,3 +319,10 @@ $(WEB_PREFERENCES_COMBINED_INPUT_FILE) : $(WEB_PREFERENCES_INPUT_FILES)
 $(WEB_PREFERENCES_PATTERNS) : $(WebKit2)/Scripts/GeneratePreferences.rb $(WEB_PREFERENCES_TEMPLATES) $(WEB_PREFERENCES_COMBINED_INPUT_FILE)
 	$(RUBY) $< --input $(WEB_PREFERENCES_COMBINED_INPUT_FILE)
 
+# FIXME: We should switch to the internal HTTPSUpgradeList.txt once the feature is ready.
+# VPATH += $(WebKit2)/Shared/HTTPSUpgrade/
+VPATH := $(WebKit2)/Shared/HTTPSUpgrade/ $(VPATH)
+
+all : HTTPSUpgradeList.db
+HTTPSUpgradeList.db : HTTPSUpgradeList.txt $(WebKit2)/Scripts/generate-https-upgrade-database.sh
+	sh $(WebKit2)/Scripts/generate-https-upgrade-database.sh $< $@

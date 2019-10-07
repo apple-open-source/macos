@@ -380,13 +380,9 @@ static errno_t ntfs_index_get_entries(ntfs_index_context *ictx)
 	 */
 	for (;; ie = (INDEX_ENTRY*)((u8*)ie + le16_to_cpu(ie->length))) {
 		/* Bounds checks. */
-		if ((u8*)ie < (u8*)index || (u8*)ie +
-				sizeof(INDEX_ENTRY_HEADER) > index_end ||
-				(u8*)ie + le16_to_cpu(ie->length) > index_end ||
-				(u32)sizeof(INDEX_ENTRY_HEADER) +
-				le16_to_cpu(ie->key_length) >
-				le16_to_cpu(ie->length))
+        if (!ntfs_is_index_entry_valid(ie, index, index_end)) {
 			goto err;
+        }
 		/* Add this entry to the array of entry pointers. */
 		if (nr_entries >= max_entries)
 			panic("%s(): nr_entries >= max_entries\n",
@@ -6500,4 +6496,17 @@ put_err:
 	if (put_ictx)
 		ntfs_index_ctx_put(put_ictx);
 	return err;
+}
+
+boolean_t
+ntfs_is_index_entry_valid(const INDEX_ENTRY* ie, const void* indexStart, const void* indexEnd)
+{
+    const u8* ie8 = (const u8*)ie;
+    const u8* start = (const u8*)indexStart;
+    const u8* end = (const u8*)indexEnd;
+
+    return (ie8 >= start) &&
+           (le16_to_cpu(ie->length) >= sizeof(INDEX_ENTRY_HEADER)) &&
+           (ie8 + le16_to_cpu(ie->length) <= end) &&
+           ((u32)sizeof(INDEX_ENTRY_HEADER) + le16_to_cpu(ie->key_length) <= le16_to_cpu(ie->length));
 }

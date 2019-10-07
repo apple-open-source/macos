@@ -114,7 +114,11 @@ named files; no list of file names is allowed in this case.
 )
 item(tt(-F) var(fmt))(
 Supplies a tt(strftime) (see manref(strftime)(3)) string for the
-formatting of the time elements.  The tt(-s) option is implied.
+formatting of the time elements.  The format string supports all of the
+zsh extensions described in
+ifzman(the section EXPANSION OF PROMPT SEQUENCES in zmanref(zshmisc))\
+ifnzman(noderef(Prompt Expansion)).
+The tt(-s) option is implied.
 )
 item(tt(-g))(
 Show the time elements in the GMT time zone.  The
@@ -123,7 +127,7 @@ tt(-s) option is implied.
 item(tt(-l))(
 List the names of the type elements (to standard
 output or an array as appropriate) and return immediately;
-options other than tt(-A) and arguments are ignored.
+arguments, and options other than tt(-A), are ignored.
 )
 item(tt(-L))(
 Perform an tt(lstat) (see manref(lstat)(2)) rather than a tt(stat)

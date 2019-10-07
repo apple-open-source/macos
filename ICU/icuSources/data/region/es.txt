@@ -75,7 +75,7 @@ es{
         CC{"Islas Cocos"}
         CD{"República Democrática del Congo"}
         CF{"República Centroafricana"}
-        CG{"República del Congo"}
+        CG{"Congo"}
         CH{"Suiza"}
         CI{"Costa de Marfil"}
         CK{"Islas Cook"}
@@ -183,7 +183,7 @@ es{
         MF{"San Martín"}
         MG{"Madagascar"}
         MH{"Islas Marshall"}
-        MK{"Macedonia"}
+        MK{"Macedonia del Norte"}
         ML{"Mali"}
         MM{"Myanmar (Birmania)"}
         MN{"Mongolia"}
@@ -253,7 +253,7 @@ es{
         SV{"El Salvador"}
         SX{"Sint Maarten"}
         SY{"Siria"}
-        SZ{"Suazilandia"}
+        SZ{"Esuatini"}
         TA{"Tristán de Acuña"}
         TC{"Islas Turcas y Caicos"}
         TD{"Chad"}
@@ -301,13 +301,13 @@ es{
         US{"EE. UU."}
     }
     Countries%variant{
-        CD{"Congo (República Democrática del Congo)"}
+        CD{"Congo (RDC)"}
         CG{"Congo (República)"}
         CI{"Côte d’Ivoire"}
         CZ{"República Checa"}
         FK{"Islas Malvinas (Islas Falkland)"}
-        MK{"Macedonia (ERYM)"}
+        SZ{"Suazilandia"}
         TL{"Timor-Leste"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
 }

@@ -38,6 +38,9 @@
 #include <string.h>
 #include <assert.h>
 #include <Security/SecBase.h>
+#include <Security/SecureTransportPriv.h>
+
+#include "SecProtocolInternal.h"
 
 #include <TargetConditionals.h>
 
@@ -162,215 +165,94 @@ static const uint16_t STKnownCipherSuites[] = {
 
 static const unsigned STCipherSuiteCount = sizeof(STKnownCipherSuites)/sizeof(STKnownCipherSuites[0]);
 
-#define CiphersuitesTLS13 \
-    TLS_AES_128_GCM_SHA256, \
-    TLS_AES_256_GCM_SHA384, \
-    TLS_CHACHA20_POLY1305_SHA256
-
-#define CiphersuitesPFS \
-    TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384, \
-    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, \
-    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384, \
-    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256, \
-    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, \
-    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, \
-    TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256, \
-    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, \
-    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, \
-    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384, \
-    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256, \
-    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, \
-    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, \
-    TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
-
-#define CiphersuitesNonPFS \
-    TLS_RSA_WITH_AES_256_GCM_SHA384, \
-    TLS_RSA_WITH_AES_128_GCM_SHA256, \
-    TLS_RSA_WITH_AES_256_CBC_SHA256, \
-    TLS_RSA_WITH_AES_128_CBC_SHA256, \
-    TLS_RSA_WITH_AES_256_CBC_SHA, \
-    TLS_RSA_WITH_AES_128_CBC_SHA
-
-#define CiphersuitesTLS10 \
-    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, \
-    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, \
-    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, \
-    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, \
-    TLS_RSA_WITH_AES_256_CBC_SHA, \
-    TLS_RSA_WITH_AES_128_CBC_SHA
-
-#define CiphersuitesTLS10_3DES \
-    TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA, \
-    TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA, \
-    SSL_RSA_WITH_3DES_EDE_CBC_SHA
-
-#define CiphersuitesDHE \
-    TLS_DHE_RSA_WITH_AES_256_GCM_SHA384, \
-    TLS_DHE_RSA_WITH_AES_128_GCM_SHA256, \
-    TLS_DHE_RSA_WITH_AES_256_CBC_SHA256, \
-    TLS_DHE_RSA_WITH_AES_128_CBC_SHA256, \
-    TLS_DHE_RSA_WITH_AES_256_CBC_SHA, \
-    TLS_DHE_RSA_WITH_AES_128_CBC_SHA, \
-    SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA
-    
-
-#define DefineTLSCiphersuiteGroupList(XXX, ...) \
-static const SSLCipherSuite List##XXX[] = { \
-    __VA_ARGS__ \
-};
-
-DefineTLSCiphersuiteGroupList(kSSLCiphersuiteGroupDefault,
-                              CiphersuitesTLS13,
-                              CiphersuitesPFS);
-DefineTLSCiphersuiteGroupList(kSSLCiphersuiteGroupCompatibility,
-                              CiphersuitesNonPFS,
-                              CiphersuitesTLS10,
-                              CiphersuitesTLS10_3DES);
-DefineTLSCiphersuiteGroupList(kSSLCiphersuiteGroupLegacy,
-                              CiphersuitesDHE);
-DefineTLSCiphersuiteGroupList(kSSLCiphersuiteGroupATS,
-                              CiphersuitesTLS13,
-                              CiphersuitesPFS);
-DefineTLSCiphersuiteGroupList(kSSLCiphersuiteGroupATSCompatibility,
-                              CiphersuitesNonPFS);
-
-typedef struct tls_ciphersuite_definition {
-    SSLCipherSuite ciphersuite;
-    SSLProtocol min_version;
-    SSLProtocol max_version;
-    char ciphersuite_name[64];
-} *tls_ciphersuite_definition_t;
-
-#define DefineTLSCiphersuiteDefinition(XXX, MIN_VERSION, MAX_VERSION) \
-{ \
-    .ciphersuite = XXX, \
-    .ciphersuite_name = "##XXX", \
-    .min_version = MIN_VERSION, \
-    .max_version = MAX_VERSION, \
+static tls_ciphersuite_group_t
+_SSLCiphersuteGroupToTLSCiphersuiteGroup(SSLCiphersuiteGroup group)
+{
+    switch (group) {
+        case kSSLCiphersuiteGroupDefault:
+            return tls_ciphersuite_group_default;
+        case kSSLCiphersuiteGroupCompatibility:
+            return tls_ciphersuite_group_compatibility;
+        case kSSLCiphersuiteGroupLegacy:
+            return tls_ciphersuite_group_legacy;
+        case kSSLCiphersuiteGroupATS:
+            return tls_ciphersuite_group_ats;
+        case kSSLCiphersuiteGroupATSCompatibility:
+            return tls_ciphersuite_group_ats_compatibility;
+    }
+    return tls_ciphersuite_group_default;
 }
-
-static const struct tls_ciphersuite_definition tls_ciphersuite_definitions[] = {
-    // TLS 1.3 ciphersuites
-    DefineTLSCiphersuiteDefinition(TLS_AES_128_GCM_SHA256,                          kTLSProtocol13, kTLSProtocolMaxSupported),
-    DefineTLSCiphersuiteDefinition(TLS_AES_256_GCM_SHA384,                          kTLSProtocol13, kTLSProtocolMaxSupported),
-    DefineTLSCiphersuiteDefinition(TLS_CHACHA20_POLY1305_SHA256,                    kTLSProtocol13, kTLSProtocolMaxSupported),
-
-    // RFC 7905: ChaCha20-Poly1305 Cipher Suites for Transport Layer Security (TLS)
-    DefineTLSCiphersuiteDefinition(TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,   kTLSProtocol12, kTLSProtocol12),
-    DefineTLSCiphersuiteDefinition(TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,     kTLSProtocol12, kTLSProtocol12),
-
-    // RFC 5289: TLS Elliptic Curve Cipher Suites with SHA-256/384 and AES Galois Counter Mode (GCM)
-    DefineTLSCiphersuiteDefinition(TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,         kTLSProtocol12, kTLSProtocol12),
-    DefineTLSCiphersuiteDefinition(TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,         kTLSProtocol12, kTLSProtocol12),
-    DefineTLSCiphersuiteDefinition(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,         kTLSProtocol12, kTLSProtocol12),
-    DefineTLSCiphersuiteDefinition(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,         kTLSProtocol12, kTLSProtocol12),
-    DefineTLSCiphersuiteDefinition(TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,           kTLSProtocol12, kTLSProtocol12),
-    DefineTLSCiphersuiteDefinition(TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,           kTLSProtocol12, kTLSProtocol12),
-    DefineTLSCiphersuiteDefinition(TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,           kTLSProtocol12, kTLSProtocol12),
-    DefineTLSCiphersuiteDefinition(TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,           kTLSProtocol12, kTLSProtocol12),
-
-    // RFC 5288: AES Galois Counter Mode (GCM) Cipher Suites for TLS
-    DefineTLSCiphersuiteDefinition(TLS_RSA_WITH_AES_256_GCM_SHA384,                 kTLSProtocol12, kTLSProtocol12),
-    DefineTLSCiphersuiteDefinition(TLS_RSA_WITH_AES_128_GCM_SHA256,                 kTLSProtocol12, kTLSProtocol12),
-    DefineTLSCiphersuiteDefinition(TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,             kTLSProtocol12, kTLSProtocol12),
-    DefineTLSCiphersuiteDefinition(TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,             kTLSProtocol12, kTLSProtocol12),
-
-    // RFC 5246: The Transport Layer Security (TLS) Protocol Version 1.2
-    DefineTLSCiphersuiteDefinition(TLS_RSA_WITH_AES_256_CBC_SHA256,                 kTLSProtocol12, kTLSProtocol12),
-    DefineTLSCiphersuiteDefinition(TLS_RSA_WITH_AES_128_CBC_SHA256,                 kTLSProtocol12, kTLSProtocol12),
-    DefineTLSCiphersuiteDefinition(SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA,               kTLSProtocol12, kTLSProtocol12),
-    DefineTLSCiphersuiteDefinition(SSL_RSA_WITH_3DES_EDE_CBC_SHA,                   kTLSProtocol12, kTLSProtocol12),
-    DefineTLSCiphersuiteDefinition(TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,             kTLSProtocol12, kTLSProtocol12),
-    DefineTLSCiphersuiteDefinition(TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,             kTLSProtocol12, kTLSProtocol12),
-
-    // RFC 4492: Elliptic Curve Cryptography (ECC) Cipher Suites for Transport Layer Security (TLS)
-    DefineTLSCiphersuiteDefinition(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,            kTLSProtocol1,  kTLSProtocol11),
-    DefineTLSCiphersuiteDefinition(TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,            kTLSProtocol1,  kTLSProtocol11),
-    DefineTLSCiphersuiteDefinition(TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,              kTLSProtocol1,  kTLSProtocol11),
-    DefineTLSCiphersuiteDefinition(TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,              kTLSProtocol1,  kTLSProtocol11),
-    DefineTLSCiphersuiteDefinition(TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,           kTLSProtocol1,  kTLSProtocol11),
-    DefineTLSCiphersuiteDefinition(TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,             kTLSProtocol1,  kTLSProtocol11),
-
-    // RFC 3268: Advanced Encryption Standard (AES) Ciphersuites for Transport Layer Security (TLS)
-    DefineTLSCiphersuiteDefinition(TLS_RSA_WITH_AES_256_CBC_SHA,                    kTLSProtocol1,  kTLSProtocol11),
-    DefineTLSCiphersuiteDefinition(TLS_RSA_WITH_AES_128_CBC_SHA,                    kTLSProtocol1,  kTLSProtocol11),
-    DefineTLSCiphersuiteDefinition(TLS_RSA_WITH_AES_256_CBC_SHA,                    kTLSProtocol1,  kTLSProtocol11),
-    DefineTLSCiphersuiteDefinition(TLS_DHE_RSA_WITH_AES_256_CBC_SHA,                kTLSProtocol1,  kTLSProtocol11),
-    DefineTLSCiphersuiteDefinition(TLS_RSA_WITH_AES_128_CBC_SHA,                    kTLSProtocol1,  kTLSProtocol11),
-    DefineTLSCiphersuiteDefinition(TLS_DHE_RSA_WITH_AES_128_CBC_SHA,                kTLSProtocol1,  kTLSProtocol11),
-    DefineTLSCiphersuiteDefinition(TLS_DHE_RSA_WITH_AES_256_CBC_SHA,                kTLSProtocol1,  kTLSProtocol11),
-    DefineTLSCiphersuiteDefinition(TLS_DHE_RSA_WITH_AES_128_CBC_SHA,                kTLSProtocol1,  kTLSProtocol11),
-};
-
-// Size of the definition list
-static const size_t tls_ciphersuite_definitions_length = \
-    sizeof(tls_ciphersuite_definitions) / sizeof(struct tls_ciphersuite_definition);
-
-// Remove macro definitions
-#undef CiphersuitesTLS13
-#undef CiphersuitesPFS
-#undef CiphersuitesNonPFS
-#undef CiphersuitesTLS10_3DES
-#undef CiphersuitesTLS10
-#undef CiphersuitesDHE
-#undef DefineTLSCiphersuiteGroupList
-#undef DefineTLSCiphersuiteDefinition
 
 const SSLCipherSuite *
 SSLCiphersuiteGroupToCiphersuiteList(SSLCiphersuiteGroup group, size_t *listSize)
 {
-    if (listSize == NULL) {
-        return NULL;
+    tls_ciphersuite_group_t tls_group = _SSLCiphersuteGroupToTLSCiphersuiteGroup(group);
+    const tls_ciphersuite_t *list = sec_protocol_helper_ciphersuite_group_to_ciphersuite_list(tls_group, listSize);
+    return (const SSLCipherSuite *)list;
+}
+
+bool
+SSLCiphersuiteGroupContainsCiphersuite(SSLCiphersuiteGroup group, SSLCipherSuite suite)
+{
+    tls_ciphersuite_group_t tls_group = _SSLCiphersuteGroupToTLSCiphersuiteGroup(group);
+    return sec_protocol_helper_ciphersuite_group_contains_ciphersuite(tls_group, (tls_ciphersuite_t)suite);
+}
+
+static struct ssl_protocol_version_map_entry {
+    SSLProtocol protocol;
+    uint16_t codepoint;
+} ssl_protocol_version_map[] = {
+    { .protocol = kTLSProtocol13, .codepoint = tls_protocol_version_TLSv13 },
+    { .protocol = kTLSProtocol12, .codepoint = tls_protocol_version_TLSv12 },
+    { .protocol = kTLSProtocol11, .codepoint = tls_protocol_version_TLSv11 },
+    { .protocol = kTLSProtocol1, .codepoint = tls_protocol_version_TLSv10 },
+    { .protocol = kDTLSProtocol12, .codepoint = tls_protocol_version_DTLSv12 },
+    { .protocol = kDTLSProtocol1, .codepoint = tls_protocol_version_DTLSv10 },
+    { .protocol = kSSLProtocol3, .codepoint = 0x0300 },
+    { .protocol = kSSLProtocol2, .codepoint = 0x0000 },
+};
+static size_t ssl_protocol_version_map_len = sizeof(ssl_protocol_version_map) / sizeof(ssl_protocol_version_map[0]);
+
+uint16_t
+SSLProtocolGetVersionCodepoint(SSLProtocol protocol_version)
+{
+    for (size_t i = 0; i < ssl_protocol_version_map_len; i++) {
+        if (ssl_protocol_version_map[i].protocol == protocol_version) {
+            return ssl_protocol_version_map[i].codepoint;
+        }
     }
+    return 0;
+}
 
-    const SSLCipherSuite *ciphersuites = NULL;
-    size_t count = 0;
-
-#define CASE_CONFIG(GROUPNAME) \
-    case GROUPNAME: \
-        ciphersuites = List##GROUPNAME; \
-        count = sizeof(List##GROUPNAME) / sizeof(SSLCipherSuite); \
-        break;
-
-    switch (group) {
-        CASE_CONFIG(kSSLCiphersuiteGroupDefault);
-        CASE_CONFIG(kSSLCiphersuiteGroupCompatibility);
-        CASE_CONFIG(kSSLCiphersuiteGroupLegacy);
-        CASE_CONFIG(kSSLCiphersuiteGroupATS);
-        CASE_CONFIG(kSSLCiphersuiteGroupATSCompatibility);
+SSLProtocol
+SSLProtocolFromVersionCodepoint(uint16_t protocol_version)
+{
+    for (size_t i = 0; i < ssl_protocol_version_map_len; i++) {
+        if (ssl_protocol_version_map[i].codepoint == protocol_version) {
+            return ssl_protocol_version_map[i].protocol;
+        }
     }
-
-#undef CASE_CONFIG
-
-    if (ciphersuites != NULL) {
-        *listSize = count;
-        return ciphersuites;
-    }
-
-    *listSize = 0;
-    return NULL;
+    return kSSLProtocolUnknown;
 }
 
 SSLProtocol 
 SSLCiphersuiteMinimumTLSVersion(SSLCipherSuite ciphersuite)
 {
-    for (size_t i = 0; i < tls_ciphersuite_definitions_length; i++) {
-        if (tls_ciphersuite_definitions[i].ciphersuite == ciphersuite) {
-            return tls_ciphersuite_definitions[i].min_version;
-        }
-    }
-    return kSSLProtocolUnknown;
+    tls_protocol_version_t version = sec_protocol_helper_ciphersuite_minimum_TLS_version((tls_ciphersuite_t)ciphersuite);
+    return SSLProtocolFromVersionCodepoint((uint16_t)version);
 }
 
 SSLProtocol
 SSLCiphersuiteMaximumTLSVersion(SSLCipherSuite ciphersuite)
 {
-    for (size_t i = 0; i < tls_ciphersuite_definitions_length; i++) {
-        if (tls_ciphersuite_definitions[i].ciphersuite == ciphersuite) {
-            return tls_ciphersuite_definitions[i].max_version;
-        }
-    }
-    return kSSLProtocolUnknown;
+    tls_protocol_version_t version = sec_protocol_helper_ciphersuite_maximum_TLS_version((tls_ciphersuite_t)ciphersuite);
+    return SSLProtocolFromVersionCodepoint((uint16_t)version);
+}
+
+const char *
+SSLCiphersuiteGetName(SSLCipherSuite ciphersuite)
+{
+    return sec_protocol_helper_get_ciphersuite_name((tls_ciphersuite_t)ciphersuite);
 }
 
 /*

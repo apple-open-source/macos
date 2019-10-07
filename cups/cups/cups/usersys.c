@@ -1,16 +1,11 @@
 /*
  * User, system, and password routines for CUPS.
  *
- * Copyright 2007-2017 by Apple Inc.
+ * Copyright 2007-2019 by Apple Inc.
  * Copyright 1997-2006 by Easy Software Products.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 /*
@@ -18,15 +13,19 @@
  */
 
 #include "cups-private.h"
+#include "debug-internal.h"
 #include <stdlib.h>
 #include <sys/stat.h>
-#ifdef WIN32
+#ifdef _WIN32
 #  include <windows.h>
 #else
 #  include <pwd.h>
 #  include <termios.h>
 #  include <sys/utsname.h>
-#endif /* WIN32 */
+#endif /* _WIN32 */
+#ifdef __APPLE__
+#  include <sys/sysctl.h>
+#endif /* __APPLE__ */
 
 
 /*
@@ -34,14 +33,25 @@
  */
 
 #ifdef __APPLE__
-#  define kCUPSPrintingPrefs	CFSTR("org.cups.PrintingPrefs")
-#  define kAllowAnyRootKey	CFSTR("AllowAnyRoot")
-#  define kAllowExpiredCertsKey	CFSTR("AllowExpiredCerts")
-#  define kEncryptionKey	CFSTR("Encryption")
-#  define kGSSServiceNameKey	CFSTR("GSSServiceName")
-#  define kSSLOptionsKey	CFSTR("SSLOptions")
-#  define kTrustOnFirstUseKey	CFSTR("TrustOnFirstUse")
-#  define kValidateCertsKey	CFSTR("ValidateCerts")
+#  if TARGET_OS_OSX
+#    define kCUPSPrintingPrefs	CFSTR("org.cups.PrintingPrefs")
+#    define kPREFIX		""
+#  else
+#    define kCUPSPrintingPrefs	CFSTR(".GlobalPreferences")
+#    define kPREFIX		"AirPrint"
+#  endif /* TARGET_OS_OSX */
+#  define kUserAgentTokensKey	CFSTR(kPREFIX "UserAgentTokens")
+#  define kAllowAnyRootKey	CFSTR(kPREFIX "AllowAnyRoot")
+#  define kAllowExpiredCertsKey	CFSTR(kPREFIX "AllowExpiredCerts")
+#  define kEncryptionKey	CFSTR(kPREFIX "Encryption")
+#  define kGSSServiceNameKey	CFSTR(kPREFIX "GSSServiceName")
+#  define kSSLOptionsKey	CFSTR(kPREFIX "SSLOptions")
+#  define kTrustOnFirstUseKey	CFSTR(kPREFIX "TrustOnFirstUse")
+#  define kValidateCertsKey	CFSTR(kPREFIX "ValidateCerts")
+/* Deprecated */
+#  define kAllowRC4		CFSTR(kPREFIX "AllowRC4")
+#  define kAllowSSL3		CFSTR(kPREFIX "AllowSSL3")
+#  define kAllowDH		CFSTR(kPREFIX "AllowDH")
 #endif /* __APPLE__ */
 
 #define _CUPS_PASSCHAR	'*'		/* Character that is echoed for password */
@@ -53,6 +63,7 @@
 
 typedef struct _cups_client_conf_s	/**** client.conf config data ****/
 {
+  _cups_uatokens_t	uatokens;	/* UserAgentTokens values */
 #ifdef HAVE_SSL
   int			ssl_options,	/* SSLOptions values */
 			ssl_min_version,/* Minimum SSL/TLS version */
@@ -94,6 +105,7 @@ static void	cups_set_server_name(_cups_client_conf_t *cc, const char *value);
 #ifdef HAVE_SSL
 static void	cups_set_ssl_options(_cups_client_conf_t *cc, const char *value);
 #endif /* HAVE_SSL */
+static void	cups_set_uatokens(_cups_client_conf_t *cc, const char *value);
 static void	cups_set_user(_cups_client_conf_t *cc, const char *value);
 
 
@@ -490,12 +502,17 @@ cupsSetUserAgent(const char *user_agent)/* I - User-Agent string or @code NULL@ 
 {
   _cups_globals_t	*cg = _cupsGlobals();
 					/* Thread globals */
-#ifdef WIN32
+#ifdef _WIN32
   SYSTEM_INFO		sysinfo;	/* System information */
-  OSVERSIONINFO		version;	/* OS version info */
+  OSVERSIONINFOA	version;	/* OS version info */
+  const char		*machine;	/* Hardware/machine name */
+#elif defined(__APPLE__)
+  struct utsname	name;		/* uname info */
+  char			version[256];	/* macOS/iOS version */
+  size_t		len;		/* Length of value */
 #else
   struct utsname	name;		/* uname info */
-#endif /* WIN32 */
+#endif /* _WIN32 */
 
 
   if (user_agent)
@@ -504,31 +521,104 @@ cupsSetUserAgent(const char *user_agent)/* I - User-Agent string or @code NULL@ 
     return;
   }
 
-#ifdef WIN32
+  if (cg->uatokens < _CUPS_UATOKENS_OS)
+  {
+    switch (cg->uatokens)
+    {
+      default :
+      case _CUPS_UATOKENS_NONE :
+	  cg->user_agent[0] = '\0';
+	  break;
+      case _CUPS_UATOKENS_PRODUCT_ONLY :
+	  strlcpy(cg->user_agent, "CUPS IPP", sizeof(cg->user_agent));
+	  break;
+      case _CUPS_UATOKENS_MAJOR :
+	  snprintf(cg->user_agent, sizeof(cg->user_agent), "CUPS/%d IPP/2", CUPS_VERSION_MAJOR);
+	  break;
+      case _CUPS_UATOKENS_MINOR :
+	  snprintf(cg->user_agent, sizeof(cg->user_agent), "CUPS/%d.%d IPP/2.1", CUPS_VERSION_MAJOR, CUPS_VERSION_MINOR);
+	  break;
+      case _CUPS_UATOKENS_MINIMAL :
+	  strlcpy(cg->user_agent, CUPS_MINIMAL " IPP/2.1", sizeof(cg->user_agent));
+	  break;
+    }
+  }
+
+#ifdef _WIN32
+ /*
+  * Gather Windows version information for the User-Agent string...
+  */
+
   version.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-  GetVersionEx(&version);
+  GetVersionExA(&version);
   GetNativeSystemInfo(&sysinfo);
 
-  snprintf(cg->user_agent, sizeof(cg->user_agent),
-           CUPS_MINIMAL " (Windows %d.%d; %s) IPP/2.0",
-	   version.dwMajorVersion, version.dwMinorVersion,
-	   sysinfo.wProcessorArchitecture
-	       == PROCESSOR_ARCHITECTURE_AMD64 ? "amd64" :
-	       sysinfo.wProcessorArchitecture
-		   == PROCESSOR_ARCHITECTURE_ARM ? "arm" :
-	       sysinfo.wProcessorArchitecture
-		   == PROCESSOR_ARCHITECTURE_IA64 ? "ia64" :
-	       sysinfo.wProcessorArchitecture
-		   == PROCESSOR_ARCHITECTURE_INTEL ? "intel" :
-	       "unknown");
+  switch (sysinfo.wProcessorArchitecture)
+  {
+    case PROCESSOR_ARCHITECTURE_AMD64 :
+        machine = "amd64";
+        break;
 
-#else
+    case PROCESSOR_ARCHITECTURE_ARM :
+        machine = "arm";
+        break;
+
+    case PROCESSOR_ARCHITECTURE_IA64 :
+        machine = "ia64";
+        break;
+
+    case PROCESSOR_ARCHITECTURE_INTEL :
+        machine = "intel";
+        break;
+
+    default :
+        machine = "unknown";
+        break;
+  }
+
+  if (cg->uatokens == _CUPS_UATOKENS_OS)
+    snprintf(cg->user_agent, sizeof(cg->user_agent), CUPS_MINIMAL " (Windows %d.%d) IPP/2.0", version.dwMajorVersion, version.dwMinorVersion);
+  else
+    snprintf(cg->user_agent, sizeof(cg->user_agent), CUPS_MINIMAL " (Windows %d.%d; %s) IPP/2.0", version.dwMajorVersion, version.dwMinorVersion, machine);
+
+#elif defined(__APPLE__)
+ /*
+  * Gather macOS/iOS version information for the User-Agent string...
+  */
+
   uname(&name);
 
-  snprintf(cg->user_agent, sizeof(cg->user_agent),
-           CUPS_MINIMAL " (%s %s; %s) IPP/2.0",
-	   name.sysname, name.release, name.machine);
-#endif /* WIN32 */
+  len = sizeof(version) - 1;
+  if (!sysctlbyname("kern.osproductversion", version, &len, NULL, 0))
+    version[len] = '\0';
+  else
+    strlcpy(version, "unknown", sizeof(version));
+
+#  if TARGET_OS_OSX
+  if (cg->uatokens == _CUPS_UATOKENS_OS)
+    snprintf(cg->user_agent, sizeof(cg->user_agent), CUPS_MINIMAL " (macOS %s) IPP/2.0", version);
+  else
+    snprintf(cg->user_agent, sizeof(cg->user_agent), CUPS_MINIMAL " (macOS %s; %s) IPP/2.0", version, name.machine);
+
+#  else
+  if (cg->uatokens == _CUPS_UATOKENS_OS)
+    snprintf(cg->user_agent, sizeof(cg->user_agent), CUPS_MINIMAL " (iOS %s) IPP/2.0", version);
+  else
+    snprintf(cg->user_agent, sizeof(cg->user_agent), CUPS_MINIMAL " (iOS %s; %s) IPP/2.0", version, name.machine);
+#  endif /* TARGET_OS_OSX */
+
+#else
+ /*
+  * Gather generic UNIX version information for the User-Agent string...
+  */
+
+  uname(&name);
+
+  if (cg->uatokens == _CUPS_UATOKENS_OS)
+    snprintf(cg->user_agent, sizeof(cg->user_agent), CUPS_MINIMAL " (%s %s) IPP/2.0", name.sysname, name.release);
+  else
+    snprintf(cg->user_agent, sizeof(cg->user_agent), CUPS_MINIMAL " (%s %s; %s) IPP/2.0", name.sysname, name.release, name.machine);
+#endif /* _WIN32 */
 }
 
 
@@ -580,7 +670,7 @@ cupsUserAgent(void)
 const char *				/* O - Password or @code NULL@ if none */
 _cupsGetPassword(const char *prompt)	/* I - Prompt string */
 {
-#ifdef WIN32
+#ifdef _WIN32
   HANDLE		tty;		/* Console handle */
   DWORD			mode;		/* Console mode */
   char			passch,		/* Current key press */
@@ -846,7 +936,7 @@ _cupsGetPassword(const char *prompt)	/* I - Prompt string */
     memset(cg->password, 0, sizeof(cg->password));
     return (NULL);
   }
-#endif /* WIN32 */
+#endif /* _WIN32 */
 }
 
 
@@ -905,7 +995,7 @@ _cupsSetDefaults(void)
 
 #  ifdef HAVE_GETEUID
   if ((geteuid() == getuid() || !getuid()) && getegid() == getgid() && (home = getenv("HOME")) != NULL)
-#  elif !defined(WIN32)
+#  elif !defined(_WIN32)
   if (getuid() && (home = getenv("HOME")) != NULL)
 #  else
   if ((home = getenv("HOME")) != NULL)
@@ -928,6 +1018,8 @@ _cupsSetDefaults(void)
   */
 
   cups_finalize_client_conf(&cc);
+
+  cg->uatokens = cc.uatokens;
 
   if (cg->encryption == (http_encryption_t)-1)
     cg->encryption = cc.encryption;
@@ -1086,22 +1178,27 @@ cups_finalize_client_conf(
 
   if (!cc->server_name[0])
   {
-#ifdef CUPS_DEFAULT_DOMAINSOCKET
    /*
     * If we are compiled with domain socket support, only use the
     * domain socket if it exists and has the right permissions...
     */
 
+#if defined(__APPLE__) && !TARGET_OS_OSX
+    cups_set_server_name(cc, "/private/var/run/printd");
+
+#else
+#  ifdef CUPS_DEFAULT_DOMAINSOCKET
     if (!access(CUPS_DEFAULT_DOMAINSOCKET, R_OK))
       cups_set_server_name(cc, CUPS_DEFAULT_DOMAINSOCKET);
     else
-#endif /* CUPS_DEFAULT_DOMAINSOCKET */
-      cups_set_server_name(cc, "localhost");
+#  endif /* CUPS_DEFAULT_DOMAINSOCKET */
+    cups_set_server_name(cc, "localhost");
+#endif /* __APPLE__ && !TARGET_OS_OSX */
   }
 
   if (!cc->user[0])
   {
-#ifdef WIN32
+#ifdef _WIN32
    /*
     * Get the current user name from the OS...
     */
@@ -1109,7 +1206,7 @@ cups_finalize_client_conf(
     DWORD	size;			/* Size of string */
 
     size = sizeof(cc->user);
-    if (!GetUserName(cc->user, &size))
+    if (!GetUserNameA(cc->user, &size))
 #else
    /*
     * Try the USER environment variable as the default username...
@@ -1137,7 +1234,7 @@ cups_finalize_client_conf(
     if (pw)
       strlcpy(cc->user, pw->pw_name, sizeof(cc->user));
     else
-#endif /* WIN32 */
+#endif /* _WIN32 */
     {
      /*
       * Use the default "unknown" user name...
@@ -1166,6 +1263,12 @@ cups_init_client_conf(
 
   memset(cc, 0, sizeof(_cups_client_conf_t));
 
+  cc->uatokens = _CUPS_UATOKENS_MINIMAL;
+
+#if defined(__APPLE__) && !TARGET_OS_OSX
+  cups_set_user(cc, "mobile");
+#endif /* __APPLE__ && !TARGET_OS_OSX */
+
 #ifdef HAVE_SSL
   cc->ssl_min_version = _HTTP_TLS_1_0;
   cc->ssl_max_version = _HTTP_TLS_MAX;
@@ -1181,8 +1284,9 @@ cups_init_client_conf(
   * everything...)
   */
 
-#if defined(__APPLE__) && defined(HAVE_SSL)
+#if defined(__APPLE__)
   char	sval[1024];			/* String value */
+#  ifdef HAVE_SSL
   int	bval;				/* Boolean value */
 
   if (cups_apple_get_boolean(kAllowAnyRootKey, &bval))
@@ -1195,14 +1299,36 @@ cups_init_client_conf(
     cups_set_encryption(cc, sval);
 
   if (cups_apple_get_string(kSSLOptionsKey, sval, sizeof(sval)))
+  {
     cups_set_ssl_options(cc, sval);
+  }
+  else
+  {
+    sval[0] = '\0';
+
+    if (cups_apple_get_boolean(kAllowRC4, &bval) && bval)
+      strlcat(sval, " AllowRC4", sizeof(sval));
+    if (cups_apple_get_boolean(kAllowSSL3, &bval) && bval)
+      strlcat(sval, " AllowSSL3", sizeof(sval));
+    if (cups_apple_get_boolean(kAllowDH, &bval) && bval)
+      strlcat(sval, " AllowDH", sizeof(sval));
+
+    if (sval[0])
+      cups_set_ssl_options(cc, sval);
+  }
 
   if (cups_apple_get_boolean(kTrustOnFirstUseKey, &bval))
     cc->trust_first = bval;
 
   if (cups_apple_get_boolean(kValidateCertsKey, &bval))
     cc->validate_certs = bval;
-#endif /* __APPLE__ && HAVE_SSL */
+#  endif /* HAVE_SSL */
+
+  if (cups_apple_get_string(kUserAgentTokensKey, sval, sizeof(sval)))
+  {
+    cups_set_uatokens(cc, sval);
+  }
+#endif /* __APPLE__ */
 }
 
 
@@ -1239,6 +1365,8 @@ cups_read_client_conf(
 #endif /* !__APPLE__ */
     else if (!_cups_strcasecmp(line, "User") && value)
       cups_set_user(cc, value);
+    else if (!_cups_strcasecmp(line, "UserAgentTokens") && value)
+      cups_set_uatokens(cc, value);
     else if (!_cups_strcasecmp(line, "TrustOnFirstUse") && value)
       cc->trust_first = cups_boolean_value(value);
     else if (!_cups_strcasecmp(line, "AllowAnyRoot") && value)
@@ -1406,6 +1534,38 @@ cups_set_ssl_options(
   DEBUG_printf(("4cups_set_ssl_options(cc=%p, value=\"%s\") options=%x, min_version=%d, max_version=%d", (void *)cc, value, options, min_version, max_version));
 }
 #endif /* HAVE_SSL */
+
+
+/*
+ * 'cups_set_uatokens()' - Set the UserAgentTokens value.
+ */
+
+static void
+cups_set_uatokens(
+    _cups_client_conf_t *cc,		/* I - client.conf values */
+    const char          *value)		/* I - Value */
+{
+  int	i;				/* Looping var */
+  static const char * const uatokens[] =/* UserAgentTokens values */
+  {
+    "NONE",
+    "PRODUCTONLY",
+    "MAJOR",
+    "MINOR",
+    "MINIMAL",
+    "OS",
+    "FULL"
+  };
+
+  for (i = 0; i < (int)(sizeof(uatokens) / sizeof(uatokens[0])); i ++)
+  {
+    if (!_cups_strcasecmp(value, uatokens[i]))
+    {
+      cc->uatokens = (_cups_uatokens_t)i;
+      return;
+    }
+  }
+}
 
 
 /*

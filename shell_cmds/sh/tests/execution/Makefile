@@ -1,4 +1,4 @@
-# $FreeBSD: head/bin/sh/tests/execution/Makefile 299094 2016-05-04 23:20:53Z ngie $
+# $FreeBSD: head/bin/sh/tests/execution/Makefile 308229 2016-11-02 22:33:37Z jilles $
 
 PACKAGE=	tests
 
@@ -37,6 +37,7 @@ ${PACKAGE}FILES+=		redir4.0
 ${PACKAGE}FILES+=		redir5.0
 ${PACKAGE}FILES+=		redir6.0
 ${PACKAGE}FILES+=		redir7.0
+${PACKAGE}FILES+=		set-C1.0
 ${PACKAGE}FILES+=		set-n1.0
 ${PACKAGE}FILES+=		set-n2.0
 ${PACKAGE}FILES+=		set-n3.0

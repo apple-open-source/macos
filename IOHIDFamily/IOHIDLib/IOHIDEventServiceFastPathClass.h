@@ -63,7 +63,7 @@ protected:
     static void             _close(void *self, IOOptionBits options);
     static CFTypeRef        _copyProperty(void *self, CFStringRef key);
     static boolean_t        _setProperty(void *self, CFStringRef key, CFTypeRef property);
-    static IOHIDEventRef    _copyEvent(void *self, CFTypeRef copySpec, IOOptionBits options);
+    static IOReturn         _copyEvent(void *self, CFTypeRef copySpec, IOOptionBits options, IOHIDEventRef * pEvent);
 
 public:
     // IOCFPlugin stuff
@@ -78,7 +78,7 @@ public:
     void            close(IOOptionBits options);
     CFTypeRef       copyProperty(CFStringRef key);
     boolean_t       setProperty(CFStringRef key, CFTypeRef property);
-    IOHIDEventRef   copyEvent(CFTypeRef copySpec, IOOptionBits options);
+    IOReturn        copyEvent(CFTypeRef copySpec, IOOptionBits options, IOHIDEventRef * pEvent);
 };
 
 

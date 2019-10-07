@@ -64,14 +64,14 @@ private:
 	IOFireWireSBP2ManagementORB * 	fLUNResetORB;
 	
 	// /!\ WARNING! NOT USED left behind for legacy binary reasons
-	IOSimpleLock *					fQueueLock;
+	__unused IOSimpleLock *					fQueueLock;
 	
 	UInt32							fLoginRetryCount;
 	bool							fDeferRegisterService;
 	bool							fNeedLogin;
     
     // /!\ WARNING! NOT USED left behind for legacy binary reasons
-	bool							fPhysicallyConnected;
+	__unused bool							fPhysicallyConnected;
 	
 	static void
 	StatusNotifyStatic ( void * refCon, FWSBP2NotifyParamsPtr params );
@@ -205,7 +205,7 @@ protected:
 	IOFireWireSBP2Login * SBP2LoginAccessor ( void );
 
 	virtual IOReturn
-	message ( UInt32 type, IOService * provider, void * argument = 0 );
+	message ( UInt32 type, IOService * provider, void * argument = 0 ) APPLE_KEXT_OVERRIDE;
 
 	/*!
 		@function SendSCSICommand
@@ -225,7 +225,7 @@ protected:
 	virtual bool 
 	SendSCSICommand (	SCSITaskIdentifier 		request,
 						SCSIServiceResponse *	serviceResponse,
-						SCSITaskStatus *		taskStatus );
+						SCSITaskStatus *		taskStatus ) APPLE_KEXT_OVERRIDE;
 
 	/*!
 		@function SetCommandBuffers
@@ -258,7 +258,7 @@ protected:
 	*/
 	
 	virtual SCSIServiceResponse 
-	AbortSCSICommand ( SCSITaskIdentifier request );
+	AbortSCSICommand ( SCSITaskIdentifier request ) APPLE_KEXT_OVERRIDE;
 
 	/*!
 		@function StatusNotify
@@ -324,7 +324,7 @@ protected:
 	*/
 
 	virtual bool
-	IsProtocolServiceSupported ( SCSIProtocolFeature feature, void * serviceValue );
+	IsProtocolServiceSupported ( SCSIProtocolFeature feature, void * serviceValue ) APPLE_KEXT_OVERRIDE;
 
 	/*!
 		@function HandleProtocolServiceFeature
@@ -334,7 +334,7 @@ protected:
 	*/
 
 	virtual bool
-	HandleProtocolServiceFeature ( SCSIProtocolFeature feature, void * serviceValue );
+	HandleProtocolServiceFeature ( SCSIProtocolFeature feature, void * serviceValue ) APPLE_KEXT_OVERRIDE;
    
 	/*!
 		@function LunResetComplete
@@ -354,7 +354,7 @@ public:
 		@discussion	Setup and prime class into known state.
 	*/
 	
-	bool init ( OSDictionary * propTable );
+	bool init ( OSDictionary * propTable ) APPLE_KEXT_OVERRIDE;
 
 	/*! 
 		@function start
@@ -363,7 +363,7 @@ public:
 		cause the instance to be detached and usually freed ).
 	*/
 
-	virtual bool start ( IOService * provider );
+	virtual bool start ( IOService * provider ) APPLE_KEXT_OVERRIDE;
 	
 	/*!
 	 	@function cleanUp
@@ -380,7 +380,7 @@ public:
 		@result Returns true.
 	*/
 	
-	virtual bool finalize ( IOOptionBits options );
+	virtual bool finalize ( IOOptionBits options ) APPLE_KEXT_OVERRIDE;
 
 	/*! 
 		@function free
@@ -388,7 +388,7 @@ public:
 		@result none.
 	*/
 	
-	virtual void free ( void );
+	virtual void free ( void ) APPLE_KEXT_OVERRIDE;
 		
 protected:
 	

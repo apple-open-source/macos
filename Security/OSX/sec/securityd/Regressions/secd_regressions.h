@@ -23,6 +23,7 @@
 
 
 #include <regressions/test/testmore.h>
+#include "OSX/sec/Security/SecItemShim.h"
 
 ONE_TEST(secd_01_items)
 ONE_TEST(secd_02_upgrade_while_locked)
@@ -32,10 +33,10 @@ ONE_TEST(secd_05_corrupted_items)
 ONE_TEST(secd_20_keychain_upgrade)
 ONE_TEST(secd_21_transmogrify)
 DISABLED_ONE_TEST(secd_30_keychain_upgrade) //obsolete, needs updating
-ONE_TEST(secd_31_keychain_bad)
 DISABLED_ONE_TEST(secd_31_keychain_unreadable)
 OFF_ONE_TEST(secd_32_restore_bad_backup)
 ONE_TEST(secd_33_keychain_ctk)
+ONE_TEST(secd_33_keychain_backup)
 ONE_TEST(secd_35_keychain_migrate_inet)
 ONE_TEST(secd_36_ks_encrypt)
 ONE_TEST(secd_37_pairing_initial_sync)
@@ -46,7 +47,7 @@ ONE_TEST(secd_50_message)
 ONE_TEST(secd_51_account_inflate)
 ONE_TEST(secd_52_account_changed)
 ONE_TEST(secd_52_offering_gencount_reset)
-ONE_TEST(secd_55_account_circle)
+DISABLED_ONE_TEST(secd_55_account_circle)
 ONE_TEST(secd_55_account_incompatibility)
 ONE_TEST(secd_56_account_apply)
 ONE_TEST(secd_57_account_leave)
@@ -95,4 +96,7 @@ ONE_TEST(secd_201_coders)
 ONE_TEST(secd_202_recoverykey)
 ONE_TEST(secd_210_keyinterest)
 DISABLED_ONE_TEST(secd_230_keybagtable)
+#if TARGET_OS_OSX
+ONE_TEST(sc_25_soskeygen)
+#endif
 

@@ -61,7 +61,8 @@ static void cond_subst(char **strp, int glob_ok)
  * of functionality.
  *
  * Return status is the final shell status, i.e. 0 for true,
- * 1 for false and 2 for error.
+ * 1 for false, 2 for syntax error, 3 for "option in tested in
+ * -o does not exist".
  */
 
 /**/
@@ -86,10 +87,10 @@ evalcond(Estate state, char *fromtest)
 	if (tracingcond)
 	    fprintf(xtrerr, " %s", condstr[ctype]);
 	ret = evalcond(state, fromtest);
-	if (ret == 2)
-	    return ret;
-	else
+	if (ret == 0 || ret == 1)
 	    return !ret;
+	else
+	    return ret;
     case COND_AND:
 	if (!(ret = evalcond(state, fromtest))) {
 	    if (tracingcond)
@@ -100,7 +101,8 @@ evalcond(Estate state, char *fromtest)
 	    return ret;
 	}
     case COND_OR:
-	if ((ret = evalcond(state, fromtest)) == 1) {
+	ret = evalcond(state, fromtest);
+	if (ret == 1 || ret == 3) {
 	    if (tracingcond)
 		fprintf(xtrerr, " %s", condstr[ctype]);
 	    goto rec;
@@ -138,13 +140,13 @@ evalcond(Estate state, char *fromtest)
 		strs = arrdup(sbuf);
 		l = 2;
 	    }
-	    if (name && name[0] == '-')
-		errname = name;
-	    else if (strs[0] && *strs[0] == '-')
-		errname = strs[0];
+	    if (name && IS_DASH(name[0]))
+		untokenize(errname = dupstring(name));
+	    else if (strs[0] && IS_DASH(*strs[0]))
+		untokenize(errname = strs[0]);
 	    else
 		errname = "<null>";
-	    if (name && name[0] == '-' &&
+	    if (name && IS_DASH(name[0]) &&
 		(cd = getconddef((ctype == COND_MODI), name + 1, 1))) {
 		if (ctype == COND_MOD &&
 		    (l < cd->min || (cd->max >= 0 && l > cd->max))) {
@@ -171,7 +173,7 @@ evalcond(Estate state, char *fromtest)
 		strs[0] = dupstring(name);
 		name = s;
 
-		if (name && name[0] == '-' &&
+		if (name && IS_DASH(name[0]) &&
 		    (cd = getconddef(0, name + 1, 1))) {
 		    if (l < cd->min || (cd->max >= 0 && l > cd->max)) {
 			zwarnnam(fromtest, "unknown condition: %s",
@@ -295,6 +297,8 @@ evalcond(Estate state, char *fromtest)
 	    int test, npat = state->pc[1];
 	    Patprog pprog = state->prog->pats[npat];
 
+	    queue_signals();
+
 	    if (pprog == dummy_patprog1 || pprog == dummy_patprog2) {
 		char *opat;
 		int save;
@@ -308,6 +312,7 @@ evalcond(Estate state, char *fromtest)
 		if (!(pprog = patcompile(right, (save ? PAT_ZDUP : PAT_STATIC),
 					 NULL))) {
 		    zwarnnam(fromtest, "bad pattern: %s", right);
+		    unqueue_signals();
 		    return 2;
 		}
 		else if (save)
@@ -315,6 +320,8 @@ evalcond(Estate state, char *fromtest)
 	    }
 	    state->pc += 2;
 	    test = (pprog && pattry(pprog, left));
+
+	    unqueue_signals();
 
 	    return !(ctype == COND_STRNEQ ? !test : test);
 	}
@@ -501,8 +508,12 @@ optison(char *name, char *s)
     else
 	i = optlookup(s);
     if (!i) {
-	zwarnnam(name, "no such option: %s", s);
-	return 2;
+	if (isset(POSIXBUILTINS))
+	    return 1;
+	else {
+	    zwarnnam(name, "no such option: %s", s);
+	    return 3;
+	}
     } else if(i < 0)
 	return !unset(-i);
     else

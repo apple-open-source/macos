@@ -118,6 +118,8 @@
 		4.87, January 2, 2013
 		4.88, October 13, 2014
 		4.89, July 7, 2015
+		4.90, February 14, 2018
+		4.91, March 26, 2018
 
 
 Dialects Supported
@@ -129,9 +131,8 @@ version 3, itself a major revision of version 2.  Version 4 has
 been tested on:
 
 	Apple Darwin 9 and Mac OS X 10.[567]
-	FreeBSD 8.[234], 9.0, 10.0 and 11.0 for AMD64-based systems
-	Linux 2.1.72 and above for x86-based systems
-	Solaris 9, 10 and 11
+	FreeBSD 10.3, 11.0 and 12.0 for AMD64-based systems
+	Solaris 9
 
 (The pub/tools/unix/lsof/contrib directory on lsof.itap.purdue.edu
 contains information on other ports.)
@@ -3693,7 +3694,7 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		5.2-CURRENT.  Refined it for 5.2.1-RELEASE with testing
 		help from Scott Ellentuch <tuc@ttsg.com>.
 
-		Added support for FreeBSD 4.10.  Larry Rosenmann
+		Added support for FreeBSD 4.10.  Larry Rosenman
 		<ler@lerctr.org> kindly provided a test system.
 
 		Added support for NetBSD 2.0 with patches supplied by
@@ -4777,6 +4778,110 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		visible to lsof on FreeBSD 11 after a system header file change
 		hid them.
 
+4.90		February 14, 2018
+
+		!!!NOTE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		!                                                        !
+		!   It is likely that this is the last lsof revision I   !
+		!   will issue, unless serious bugs are detected,  Stay  !
+		!   tuned to lsof-l for information about future support !
+		!   of lsof.                                             !
+		!                                                        !
+		!   I thank all the many contributors to lsof over the   !
+		!   many years (20+?) I have been distributing lsof      !
+		!   versions 1, 2, 3 and 4.                              !
+		!                                                        !
+		!   Vic Abell <abe@purdue.edu>                           !
+		!                                                        !
+		!!!NOTE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+		Taught the Configure script to create a dummy opt_random.h
+		for FreeBSD systems whose <sys/random.h> includes it.
+
+		Added support for the FreeBSD ZFUSE file system.
+
+		Corrected the quoting in a Darwin putchar() statement in the
+		dfile.c source file.  Andrew Janke <floss@apjanke.net> reported
+		my error.
+
+		Added support for the FreeBSD DTYPE_PTS file descriptor and
+		for unknown descriptors that reference the kernel's badfileops
+		operation switch.  Enabled FreeBSD 12.0 support. Tested the
+		changes on systems provided by Larry Rosenman <ler@lerctr.org>.
+
+		Enhanced -K option with the form "-K i" to direct lsof to
+		(i)gnore tasks.  A query from Rachel Kroll <rkroll@fb.com>
+		suggested this option.  Linux task reports now include both
+		process and task command names, making lsof's "-c <name>"
+		option work correctly.
+
+		Added a patch to prevent NFS blocking in Linux supplied by
+		Kristna Streitov <kstreitova@suse.com>.
+
+		Installed a FreeBSD patch that prevents examining a TCP state
+		structure during a race condition.  The patch was supplied by
+		Bryan Drewery <bdrewery@FreeBSD.org>.
+
+		Updated FreeBSD for new UFS inode structure that lacks an i_dev
+		member in the most recent 12.0-CURRENT.  Larry Rosenman
+		<ler@lerctr.org> reported the problem and provided a test
+		system.
+
+		Added "#define KLD_MODULE" to dlsof.h and dnode2.c to prevent
+		<machine/cpuconf.h> from generating an "ARM_NARCH is 0" error.
+		This is needed so lsof can access kernel structures.  Larry
+		Rosenman supplied the addition.
+
+		Added recognition of the FreeBSD 11 file system name "nullfs".
+		Jamie Landeg-Jones <jamie@catflap.org> supplied the fix.
+
+		Added a patch from Larry Rosenman <ler@lerctr.org> that is
+		needed on FreeBSD 12 so the lsof compilation can obtain the
+		inpcb and tcpcb structures from their respective header files.
+
+		Updated FreeBSD dmnt.c for the ino64 changes.
+
+		Inserted a patch for Solaris 12.x to avoid compilation errors
+		from <sys/aio_req.h>, based on information provided by Jorn
+		Clausen <joern.clausen@uni-bielefeld.de>.  Jorn tested the
+		patch.
+
+		Added performance enhancement that uses the FreeBSD closefrom()
+		and dup2() C library functions when available.  The enhancement
+		was supplied by Conrad Meyer <cem@freebsd.org>.
+
+		Corrected FreeBSD lsof's gathering of ZFS file device numbers.
+
+		Updated lsof test library for FreeBSD.
+
+		Updated socket optons information collection from the socket
+		structure per changes supplied by Gleb Smirnoff
+		<glebius@FreeBSD.org>.
+
+		Added patch to dlsof.h that avoids a _KERNEL conflict with
+		bzero.  Mateusz Guzik <mjguzik@gmail.com> supplied the patch.
+
+		Corrected test library to handle 64 bit FreeBSD device numbers.
+
+		Added #defines for FreeBSD 12, src r324225, from Gleb Smirnoff
+		<glebius@FreeBSD.org>.
+
+		Incorporated Linux pseudoterminal endpoint processing (+|-E)
+		provided by Masatake YAMATO <yamato@redhat.com> with access to
+		test systems provided by Peter Schiffer <pschiffe@redhat.com>.
+
+		Corrected Linux command extraction for commands that include
+		parentheses -- e.g., "(sd-pam)".
+		
+4.91		March 26, 2018
+
+		A bug has been reported in the PTY endpoint processing of
+		Linux lsof 4.90 by Peter Wu <peter@lekensteyn.nl>, making it
+		necessary for me to release another revision of lsof.
+
+		This revision applies two fixes that correct the Linux PTY
+		endpoint processing bug. Masatake YAMATO <yamato@redhat.com>
+		supplied the fixes.
 
 Vic Abell <abe@purdue.edu>
-July 7, 2015
+March 26, 2018

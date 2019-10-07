@@ -52,9 +52,11 @@ void WorkletConsoleClient::messageWithTypeAndLevel(MessageType type, MessageLeve
     m_workletGlobalScope.addConsoleMessage(WTFMove(message));
 }
 
-void WorkletConsoleClient::count(JSC::ExecState*, Ref<ScriptArguments>&&) { }
+void WorkletConsoleClient::count(JSC::ExecState*, const String&) { }
+void WorkletConsoleClient::countReset(JSC::ExecState*, const String&) { }
 
 void WorkletConsoleClient::time(JSC::ExecState*, const String&) { }
+void WorkletConsoleClient::timeLog(JSC::ExecState*, const String&, Ref<ScriptArguments>&&) { }
 void WorkletConsoleClient::timeEnd(JSC::ExecState*, const String&) { }
 
 void WorkletConsoleClient::profile(JSC::ExecState*, const String&) { }
@@ -65,6 +67,8 @@ void WorkletConsoleClient::timeStamp(JSC::ExecState*, Ref<ScriptArguments>&&) { 
 
 void WorkletConsoleClient::record(JSC::ExecState*, Ref<ScriptArguments>&&) { }
 void WorkletConsoleClient::recordEnd(JSC::ExecState*, Ref<ScriptArguments>&&) { }
+
+void WorkletConsoleClient::screenshot(JSC::ExecState*, Ref<ScriptArguments>&&) { }
 
 } // namespace WebCore
 #endif

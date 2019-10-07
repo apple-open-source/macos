@@ -95,6 +95,9 @@ mach_port_t gssd_receive_right;
 #include <os/log.h>
 #include <os/log_private.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 union MaxMsgSize {
 	union __RequestUnion__gssd_mach_subsystem req;
 	union __ReplyUnion__gssd_mach_subsystem rep;
@@ -3083,3 +3086,5 @@ out:
 	vproc_transaction_end(NULL, gssd_vproc_handle);
 	return (kr);
 }
+
+#pragma clang diagnostic pop

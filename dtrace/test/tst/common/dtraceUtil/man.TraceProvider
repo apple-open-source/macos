@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)man.TraceProvider	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Using -P option to trace all the probes provided by the particular

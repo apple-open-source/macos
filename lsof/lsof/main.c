@@ -34,7 +34,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: main.c,v 1.57 2015/07/07 20:16:58 abe Exp $";
+static char *rcsid = "$Id: main.c,v 1.59 2018/03/26 21:50:45 abe Exp $";
 #endif
 
 
@@ -120,10 +120,17 @@ main(argc, argv)
  *
  * Make sure umask allows lsof to define its own file permissions.
  */
+
 	if ((MaxFd = (int) GET_MAX_FD()) < 53)
 	    MaxFd = 53;
+
+#if	defined(HAS_CLOSEFROM)
+	(void) closefrom(3);
+#else	/* !defined(HAS_CLOSEFROM) */
 	for (i = 3; i < MaxFd; i++)
 	    (void) close(i);
+#endif	/* !defined(HAS_CLOSEFROM) */
+
 	while (((i = open("/dev/null", O_RDWR, 0)) >= 0) && (i < 2))
 	    ;
 	if (i < 0)
@@ -190,7 +197,7 @@ main(argc, argv)
 #endif	/* defined(HASKOPT) */
 
 #if	defined(HASTASKS)
-	    "K",
+	    "K:",
 #else	/* !defined(HASTASKS) */
 	    "",
 #endif	/* defined(HASTASKS) */
@@ -279,7 +286,7 @@ main(argc, argv)
 			    GOx2 = GObk[1];
 			}
 		    } else {
-			CmdLim = atoi(GOv);
+			CmdLim = TaskCmdLim = atoi(GOv);
 
 #if	defined(MAXSYSCMDL)
 			if (CmdLim > MAXSYSCMDL) {
@@ -458,6 +465,11 @@ main(argc, argv)
 			    continue;
 #endif	/* !defined(HASPPID) */
 
+#if	!defined(HASTASKS)
+			if (FieldSel[i].id == LSOF_FID_TCMD)
+			    continue;
+#endif	/* !defined(HASTASKS) */
+
 #if	!defined(HASFSTRUCT)
 			if (FieldSel[i].id == LSOF_FID_CT
 			||  FieldSel[i].id == LSOF_FID_FA
@@ -511,6 +523,11 @@ main(argc, argv)
 			if (FieldSel[i].id == LSOF_FID_PPID)
 			    continue;
 #endif	/* !defined(HASPPID) */
+
+#if	!defined(HASTASKS)
+			if (FieldSel[i].id == LSOF_FID_TCMD)
+			    continue;
+#endif	/* !defined(HASTASKS) */
 
 #if	!defined(HASFSTRUCT)
 			if (FieldSel[i].id == LSOF_FID_CT
@@ -591,10 +608,27 @@ main(argc, argv)
 #endif	/* defined(HASKOPT) */
 
 #if	defined(HASTASKS)
-		case 'K':
+	    case 'K':
+		if (!GOv || *GOv == '-' || *GOv == '+') {
 		    Ftask = 1;
+		    IgnTasks = 0;
 		    Selflags |= SELTASK;
-		    break;
+		    if (GOv) {
+			GOx1 = GObk[0];
+			GOx2 = GObk[1];
+		    }
+		} else {
+		    if (!strcasecmp(GOv, "i")) {
+			Ftask = 0;
+			IgnTasks = 1;
+			Selflags &= ~SELTASK;
+		   } else {
+			(void) fprintf(stderr,
+			    "%s: -K not followed by i (but by %s)\n", Pn, GOv);
+			err = 1;
+		   }
+		}
+		break;
 #endif	/* defined(HASTASKS) */
 
 	    case 'l':
@@ -982,6 +1016,11 @@ main(argc, argv)
 	    }
 	}
 /*
+ * If IgnTasks is set, remove SELTASK from SelAll and SelProc.
+ */
+	SelAll = IgnTasks ? (SELALL & ~SELTASK) : SELALL;
+	SelProc = IgnTasks ? (SELPROC & ~SELTASK) : SELPROC;
+/*
  * Check for argument consistency.
  */
 	if (Cmdnx && Cmdni) {
@@ -1159,12 +1198,12 @@ main(argc, argv)
 		    "%s: no select options to AND via -a\n", Pn);
 		usage(1, 0, 0);
 	    }
-	    Selflags = SELALL;
+	    Selflags = SelAll;
 	} else {
 	    if (GOx1 >= argc && (Selflags & (SELNA|SELNET)) != 0
 	    &&  (Selflags & ~(SELNA|SELNET)) == 0)
 		Selinet = 1;
-	    Selall = 0;
+	    AllProc = 0;
 	}
 /*
  * Get the device for DEVDEV_PATH.
@@ -1297,47 +1336,76 @@ main(argc, argv)
 	     * printing.
 	     *
 	     * Lf contents must be preserved, since they may point to a
-	     * malloc()'d area, and since Lf is used throughout the print
+	     * malloc()'d area, and since Lf is used throughout the printing
+	     * of the selected processes.
 	     */
 		if (FeptE) {
 		    lf = Lf;
-
 		/*
-		 * Check the files that have been selected for printing by
-		 * by some selection criterion other than being a pipe.
+		 * Scan all selected processes.
 		 */
 		    for (i = 0; i < Nlproc; i++) {
 			Lp = (Nlproc > 1) ? slp[i] : &Lproc[i];
-			if (Lp->pss && (Lp->ept & EPT_PIPE))
-			    (void) process_pinfo(0);
+
+			/*
+			 * For processes that have been selected for printing
+			 * and have files that are the end point(s) of pipe(s),
+			 * process the file endpoints.
+			 */
+			    if (Lp->pss && (Lp->ept & EPT_PIPE))
+				(void) process_pinfo(0);
+
+# if	defined(HASUXSOCKEPT)
+			/*
+			 * For processes that have been selected for printing
+			 * and have files that are the end point(s) of UNIX
+			 * socket(s), process the file endpoints.
+			 */
+			    if (Lp->pss && (Lp->ept & EPT_UXS))
+				(void) process_uxsinfo(0);
+# endif	/* defined(HASUXSOCKEPT) */
+
+# if	defined(HASPTYEPT)
+			/*
+			 * For processes that have been selected for printing
+			 * and have files that are the end point(s) of pseudo-
+			 * terminal files(s), process the file endpoints.
+			 */
+			    if (Lp->pss && (Lp->ept & EPT_PTY))
+				(void) process_ptyinfo(0);
+# endif	/* defined(HASPTYEPT) */
+
 		    }
 		/*
-		 * In a second pass, process unselected endpoint files,
+		 * In a second pass, look for unselected endpoint files,
 		 * possibly selecting them for printing.
 		 */
 		    for (i = 0; i < Nlproc; i++) {
 			Lp = (Nlproc > 1) ? slp[i] : &Lproc[i];
-			if (Lp->ept & EPT_PIPE_END)
-			    (void) process_pinfo(1);
-		    }
+
+			/*
+			 * Process pipe endpoints.
+			 */
+			    if (Lp->ept & EPT_PIPE_END)
+				(void) process_pinfo(1);
 
 # if	defined(HASUXSOCKEPT)
-		/*
-		 * Process UNIX socket endpoint files in a similar fashion.
-		 */
-		    for (i = 0; i < Nlproc; i++) {
-			Lp = (Nlproc > 1) ? slp[i] : &Lproc[i];
-			if (Lp->pss && (Lp->ept & EPT_UXS))
-			    (void) process_uxsinfo(0);
-		    }
-		    for (i = 0; i < Nlproc; i++) {
-			Lp = (Nlproc > 1) ? slp[i] : &Lproc[i];
-			if (Lp->ept & EPT_UXS_END) {
-			    (void) process_uxsinfo(1);
-			}
-		    }
+			/*
+			 * Process UNIX socket endpoints.
+			 */
+			    if (Lp->ept & EPT_UXS_END)
+				(void) process_uxsinfo(1);
 # endif	/* defined(HASUXSOCKEPT) */
 
+# if	defined(HASPTYEPT)
+			/*
+			 * Process pseudo-terminal endpoints.
+			 */
+			    if (Lp->ept & EPT_PTY_END)
+				(void) process_ptyinfo(1);
+# endif	/* defined(HASPTYEPT) */
+
+		    }
 		    Lf = lf;
 		}
 #endif	/* defined(HASEPTOPTS) */
@@ -1371,6 +1439,14 @@ main(argc, argv)
 
 #if	defined(HASEPTOPTS)
 		(void) clear_pinfo();
+
+# if	defined(HASUXSOCKEPT)
+		(void) clear_uxsinfo();
+# endif	/* defined(HASUXSOCKEPT) */
+
+# if	defined(HASPTYEPT)
+		(void) clear_ptyinfo();
+# endif	/* defined(HASPTYEPT) */
 #endif	/* defined(HASEPTOPTS) */
 
 		if (rc) {

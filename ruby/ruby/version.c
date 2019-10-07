@@ -2,7 +2,7 @@
 
   version.c -
 
-  $Author: nobu $
+  $Author: ko1 $
   created at: Thu Sep 30 20:08:01 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -11,6 +11,8 @@
 
 #include "ruby/ruby.h"
 #include "version.h"
+#include "vm_core.h"
+#include "mjit.h"
 #include <stdio.h>
 
 #ifndef EXIT_SUCCESS
@@ -30,7 +32,8 @@ const char ruby_version[] = RUBY_VERSION;
 const char ruby_release_date[] = RUBY_RELEASE_DATE;
 const char ruby_platform[] = RUBY_PLATFORM;
 const int ruby_patchlevel = RUBY_PATCHLEVEL;
-const char ruby_description[] = RUBY_DESCRIPTION;
+const char ruby_description[] = RUBY_DESCRIPTION_WITH("");
+static const char ruby_description_with_jit[] = RUBY_DESCRIPTION_WITH(" +JIT");
 const char ruby_copyright[] = RUBY_COPYRIGHT;
 const char ruby_engine[] = "ruby";
 
@@ -64,10 +67,6 @@ Init_version(void)
      */
     rb_define_global_const("RUBY_REVISION", MKINT(revision));
     /*
-     * The full ruby version string, like <tt>ruby -v</tt> prints'
-     */
-    rb_define_global_const("RUBY_DESCRIPTION", MKSTR(description));
-    /*
      * The copyright string for ruby
      */
     rb_define_global_const("RUBY_COPYRIGHT", MKSTR(copyright));
@@ -82,11 +81,40 @@ Init_version(void)
     rb_define_global_const("RUBY_ENGINE_VERSION", (1 ? version : MKSTR(version)));
 }
 
+#if USE_MJIT
+#define MJIT_OPTS_ON mjit_opts.on
+#else
+#define MJIT_OPTS_ON 0
+#endif
+
+void
+Init_ruby_description(void)
+{
+    VALUE description;
+
+    if (MJIT_OPTS_ON) {
+        description = MKSTR(description_with_jit);
+    }
+    else {
+        description = MKSTR(description);
+    }
+
+    /*
+     * The full ruby version string, like <tt>ruby -v</tt> prints
+     */
+    rb_define_global_const("RUBY_DESCRIPTION", /* MKSTR(description) */ description);
+}
+
 /*! Prints the version information of the CRuby interpreter to stdout. */
 void
 ruby_show_version(void)
 {
-    PRINT(description);
+    if (MJIT_OPTS_ON) {
+        PRINT(description_with_jit);
+    }
+    else {
+        PRINT(description);
+    }
 #ifdef RUBY_LAST_COMMIT_TITLE
     fputs("last_commit=" RUBY_LAST_COMMIT_TITLE, stdout);
 #endif
@@ -96,12 +124,10 @@ ruby_show_version(void)
     fflush(stdout);
 }
 
-/*! Prints the copyright notice of the CRuby interpreter to stdout and \em exits
- *  this process successfully.
- */
+/*! Prints the copyright notice of the CRuby interpreter to stdout. */
 void
 ruby_show_copyright(void)
 {
     PRINT(copyright);
-    exit(EXIT_SUCCESS);
+    fflush(stdout);
 }

@@ -1,4 +1,4 @@
---TEST--                                 
+--TEST--
 Bug #60749: SNMP module should not strip non-standard SNMP port from hostname
 --CREDITS--
 Boris Lytochkin
@@ -24,5 +24,5 @@ if (strcmp($info["hostname"], "$ip:$port") !== 0) {
 }
 var_dump($session->close());
 ?>
---EXPECTF--
+--EXPECT--
 bool(true)

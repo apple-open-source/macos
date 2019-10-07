@@ -40,7 +40,7 @@
 #include "NativeStdFunctionCell.h"
 #include "ScriptFunctionCall.h"
 #include <wtf/JSONValues.h>
-#include <wtf/text/WTFString.h>
+#include <wtf/text/StringConcatenateNumbers.h>
 
 namespace Inspector {
 
@@ -91,7 +91,7 @@ Ref<JSON::Value> InjectedScriptBase::makeCall(Deprecated::ScriptFunctionCall& fu
 
     RefPtr<JSON::Value> resultJSONValue = toInspectorValue(*m_injectedScriptObject.scriptState(), resultJSValue);
     if (!resultJSONValue)
-        return JSON::Value::create(String::format("Object has too long reference chain (must not be longer than %d)", JSON::Value::maxDepth));
+        return JSON::Value::create(makeString("Object has too long reference chain (must not be longer than ", JSON::Value::maxDepth, ')'));
 
     return resultJSONValue.releaseNonNull();
 }
@@ -119,10 +119,10 @@ void InjectedScriptBase::makeAsyncCall(Deprecated::ScriptFunctionCall& function,
         jsFunction = JSC::JSNativeStdFunction::create(vm, scriptState->lexicalGlobalObject(), 1, String(), [&, callback = WTFMove(callback)] (JSC::ExecState* exec) {
             if (!exec)
                 checkAsyncCallResult(JSON::Value::create("Exception while making a call."), callback);
-            if (auto resultJSONValue = toInspectorValue(*exec, exec->argument(0)))
+            else if (auto resultJSONValue = toInspectorValue(*exec, exec->argument(0)))
                 checkAsyncCallResult(resultJSONValue, callback);
             else
-                checkAsyncCallResult(JSON::Value::create(String::format("Object has too long reference chain (must not be longer than %d)", JSON::Value::maxDepth)), callback);
+                checkAsyncCallResult(JSON::Value::create(makeString("Object has too long reference chain (must not be longer than ", JSON::Value::maxDepth, ')')), callback);
             return JSC::JSValue::encode(JSC::jsUndefined());
         });
     }

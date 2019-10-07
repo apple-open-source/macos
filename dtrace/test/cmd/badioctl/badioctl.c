@@ -20,11 +20,9 @@
  */
 
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
-
-#pragma ident	"@(#)badioctl.c	1.1	06/08/28 SMI"
 
 #include <sys/stat.h>
 #include <stdio.h>
@@ -88,7 +86,7 @@ badioctl(pid_t parent)
 			if (fd != -1)
 				close(fd);
 
-			fd = open("/devices/pseudo/dtrace@0:dtrace", O_RDONLY);
+			fd = open("/dev/dtrace", O_RDONLY);
 
 			if (fd == -1)
 				fatal("couldn't open DTrace pseudo device");
@@ -111,7 +109,7 @@ badioctl(pid_t parent)
 	}
 }
 
-void
+int
 main()
 {
 	pid_t child, parent = getpid();
@@ -139,4 +137,7 @@ main()
 		    WTERMSIG(status));
 		fflush(stdout);
 	}
+
+	/* NOTREACHED */
+	return (0);
 }

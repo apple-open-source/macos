@@ -15,8 +15,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "E74584661BF68EBA001B54A4"
-               BuildableName = "osx"
-               BlueprintName = "osx"
+               BuildableName = "Security_all_osx"
+               BlueprintName = "Security_all_osx"
                ReferencedContainer = "container:Security.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -91,91 +91,23 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "secd_01_items"
+            argument = "su_07_debugging"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "secd_36_ks_encrypt"
+            argument = "si_33_keychain_backup"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "secd_20_keychain_upgrade"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "secd_201_coders"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "secd_202_recoverykey"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "secd_130_other_peer_views"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "secd_100_initialsync"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "secd_77_ids_messaging"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "secd_68_ghosts"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "secd_76_idstransport"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "secd_62_account_backup"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "secd_66_account_recovery"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "secd_200_logstate"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "secd_60_account_cloud_identity"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "secd_64_circlereset"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "sc_42_circlegencount"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "secd_58_password_change"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "secd_64_circlereset"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "secd_82_secproperties_basic"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "secd_62_account_hsa_join"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "secd_80_views_basic"
+            argument = "sc_20_keynames"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "sc_30_peerinfo"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "sc_42_circlegencount"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -191,15 +123,11 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "secd_210_keyinterest"
+            argument = "secd_01_items"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "su_07_debugging"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_33_keychain_backup"
+            argument = "secd_20_keychain_upgrade"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -207,7 +135,7 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "sc_20_keynames"
+            argument = "secd_36_ks_encrypt"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -227,11 +155,11 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "secd_55_account_circle"
+            argument = "secd-52-account-changed"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "secd_56_account_apply"
+            argument = "secd_55_account_circle"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -239,11 +167,19 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "secd_56_account_apply"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_58_password_change"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "secd_59_account_cleanup"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "secd_61_account_leave_not_in_kansas_anymore"
+            argument = "secd_60_account_cloud_identity"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -251,7 +187,31 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "secd_62_account_hsa_join"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "secd_63_account_resurrection"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_64_circlereset"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_66_account_recovery"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_68_ghosts"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_60_account_cloud_exposure"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_61_account_leave_not_in_kansas_anymore"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -264,6 +224,26 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "secd_71_engine_save"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_76_idstransport"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_77_ids_messaging"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_80_views_basic"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_80_views_alwayson"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_82_secproperties_basic"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -280,6 +260,30 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "secd_90_hsa2"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_100_initialsync"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_130_other_peer_views"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_201_coders"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_202_recoverykey"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_200_logstate"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "secd_210_keyinterest"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -304,8 +308,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "E74584661BF68EBA001B54A4"
-            BuildableName = "osx"
-            BlueprintName = "osx"
+            BuildableName = "Security_all_osx"
+            BlueprintName = "Security_all_osx"
             ReferencedContainer = "container:Security.xcodeproj">
          </BuildableReference>
       </MacroExpansion>

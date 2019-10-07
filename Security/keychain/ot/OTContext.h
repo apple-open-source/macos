@@ -48,7 +48,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) OTCloudStore* cloudStore;
 
 @property (nonatomic, readonly) CKKSLockStateTracker* lockStateTracker;
-@property (nonatomic, readonly) CKKSCKAccountStateTracker* accountTracker;
+@property (nonatomic, readonly) CKKSAccountStateTracker* accountTracker;
 @property (nonatomic, readonly) CKKSReachabilityTracker *reachabilityTracker;
 
 - (nullable instancetype) initWithContextID:(NSString*)contextID
@@ -69,6 +69,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)scrubBottledPeer:(NSString*)contextID
                 bottleID:(NSString*)bottleID
                    error:(NSError**)error;
+
+-(BOOL)updateAllBottlesForPeerID:(NSString*)peerID
+                   newSigningKey:(SFECKeyPair*)newSigningKey
+                newEncryptionKey:(SFECKeyPair*)newEncryptionKey
+                           error:(NSError**)error;
 
 -(OctagonBottleCheckState)doesThisDeviceHaveABottle:(NSError**)error;
 

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.RepeatDeclaration.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Reassign the members of the output struct using another translator

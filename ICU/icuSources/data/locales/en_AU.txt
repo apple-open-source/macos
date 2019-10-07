@@ -2,17 +2,82 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 en_AU{
     %%Parent{"en_001"}
+    ExemplarCharactersNumbers{"[↑]"}
     NumberElements{
         latn{
             symbols{
                 exponential{"e"}
-                timeSeparator{"."}
             }
         }
     }
-    Version{"2.1.38.73"}
+    Version{"2.1.48.43"}
     calendar{
+        chinese{
+            monthNames{
+                format{
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "Mo1",
+                        "Mo2",
+                        "Mo3",
+                        "Mo4",
+                        "Mo5",
+                        "Mo6",
+                        "Mo7",
+                        "Mo8",
+                        "Mo9",
+                        "Mo10",
+                        "Mo11",
+                        "Mo12",
+                    }
+                    wide{
+                        "First Month",
+                        "Second Month",
+                        "Third Month",
+                        "Fourth Month",
+                        "Fifth Month",
+                        "Sixth Month",
+                        "Seventh Month",
+                        "Eighth Month",
+                        "Ninth Month",
+                        "Tenth Month",
+                        "Eleventh Month",
+                        "Twelfth Month",
+                    }
+                }
+            }
+        }
         generic{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, d MMMM y G",
+                "d MMMM y G",
+                "d MMM y G",
+                "d/M/y GGGGG",
+                "{1}, {0}",
+                "{1} 'at' {0}",
+                "{1} 'at' {0}",
+                "{1} 'at' {0}",
+                "{1}, {0}",
+            }
             availableFormats{
                 H{"HH"}
                 Hm{"HH:mm"}
@@ -84,15 +149,6 @@ en_AU{
                     }
                 }
                 stand-alone{
-                    abbreviated{
-                        "Sun.",
-                        "Mon.",
-                        "Tue.",
-                        "Wed.",
-                        "Thu.",
-                        "Fri.",
-                        "Sat.",
-                    }
                     narrow{
                         "Su",
                         "M",
@@ -103,13 +159,13 @@ en_AU{
                         "Sa",
                     }
                     short{
-                        "Su.",
-                        "Mon.",
-                        "Tu.",
-                        "Wed.",
-                        "Th.",
-                        "Fri.",
-                        "Sat.",
+                        "Su",
+                        "Mon",
+                        "Tu",
+                        "Wed",
+                        "Th",
+                        "Fri",
+                        "Sat",
                     }
                 }
             }
@@ -142,19 +198,31 @@ en_AU{
                 }
                 stand-alone{
                     abbreviated{
-                        am{"am"}
                         noon{"midday"}
-                        pm{"pm"}
                     }
                     narrow{
-                        am{"am"}
                         noon{"midday"}
-                        pm{"pm"}
                     }
                     wide{
-                        am{"am"}
                         noon{"midday"}
-                        pm{"pm"}
+                    }
+                }
+            }
+            monthNames{
+                stand-alone{
+                    abbreviated{
+                        "Jan",
+                        "Feb",
+                        "Mar",
+                        "Apr",
+                        "May",
+                        "Jun",
+                        "Jul",
+                        "Aug",
+                        "Sep",
+                        "Oct",
+                        "Nov",
+                        "Dec",
                     }
                 }
             }
@@ -172,37 +240,19 @@ en_AU{
         upwards_arrows{"upward arrows"}
     }
     fields{
+        day{
+            relative{
+                "-1"{"yesterday"}
+                "0"{"today"}
+                "1"{"tomorrow"}
+            }
+        }
         day-narrow{
             relativeTime{
                 future{
                     other{"in {0} days"}
                 }
-                past{
-                    other{"{0} days ago"}
-                }
             }
-        }
-        day-short{
-            relativeTime{
-                future{
-                    other{"in {0} days"}
-                }
-                past{
-                    other{"{0} days ago"}
-                }
-            }
-        }
-        dayOfYear-narrow{
-            dn{"day of yr"}
-        }
-        dayOfYear-short{
-            dn{"day of yr"}
-        }
-        dayperiod-narrow{
-            dn{"am/pm"}
-        }
-        dayperiod-short{
-            dn{"am/pm"}
         }
         fri-narrow{
             relativeTime{
@@ -453,9 +503,6 @@ en_AU{
             }
         }
         tue-narrow{
-            relative{
-                "-1"{"last Tu"}
-            }
             relativeTime{
                 future{
                     one{"in {0} Tu"}
@@ -530,12 +577,6 @@ en_AU{
         weekOfMonth-short{
             dn{"wk of mo."}
         }
-        weekday-narrow{
-            dn{"day of wk"}
-        }
-        weekday-short{
-            dn{"day of wk"}
-        }
         weekdayOfMonth-short{
             dn{"wkday of mo."}
         }
@@ -565,6 +606,9 @@ en_AU{
         }
     }
     listPattern{
+        or{
+            end{"{0} or {1}"}
+        }
         standard{
             2{"{0} and {1}"}
             end{"{0} and {1}"}

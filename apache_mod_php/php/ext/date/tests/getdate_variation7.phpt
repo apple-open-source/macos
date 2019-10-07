@@ -5,9 +5,9 @@ Test getdate() function : usage variation - Passing high positive and negative f
 --FILE--
 <?php
 /* Prototype  : array getdate([int timestamp])
- * Description: Get date/time information 
+ * Description: Get date/time information
  * Source code: ext/date/php_date.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing getdate() : usage variation ***\n";
@@ -27,11 +27,11 @@ var_dump( getdate($timestamp) );
 
 -- Testing getdate() function by passing float 12.3456789000e10 value to timestamp --
 
-Warning: getdate() expects parameter 1 to be integer, float given in %s on line %d
+Warning: getdate() expects parameter 1 to be int, float given in %s on line %d
 bool(false)
 
 -- Testing getdate() function by passing float -12.3456789000e10 value to timestamp --
 
-Warning: getdate() expects parameter 1 to be integer, float given in %s on line %d
+Warning: getdate() expects parameter 1 to be int, float given in %s on line %d
 bool(false)
 ===DONE===

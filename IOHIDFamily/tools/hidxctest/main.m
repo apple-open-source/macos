@@ -83,6 +83,10 @@ int main(int argc, const char * argv[]) {
                 [testSuite runTest];
                 
                 failureCount += [testSuite.testRun failureCount];
+                
+                if (![testSuite.testRun hasSucceeded]) {
+                    NSLog(@"ERROR: test did not succeed, check name of test %@", testCaseString);
+                }
             }
         } else {
             

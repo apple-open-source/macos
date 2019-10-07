@@ -3,7 +3,7 @@
 ga{
     Countries{
         001{"an Domhan"}
-        002{"An Afraic"}
+        002{"an Afraic"}
         003{"Meiriceá Thuaidh"}
         005{"Meiriceá Theas"}
         009{"an Aigéine"}
@@ -11,7 +11,7 @@ ga{
         013{"Meiriceá Láir"}
         014{"Oirthear na hAfraice"}
         015{"Tuaisceart na hAfraice"}
-        017{"An Afraic Láir"}
+        017{"an Afraic Láir"}
         018{"Deisceart na hAfraice"}
         019{"Críocha Mheiriceá"}
         021{"Tuaisceart Mheiriceá"}
@@ -90,7 +90,7 @@ ga{
         CW{"Curaçao"}
         CX{"Oileán na Nollag"}
         CY{"an Chipir"}
-        CZ{"An tSeicia"}
+        CZ{"an tSeicia"}
         DE{"an Ghearmáin"}
         DG{"Diego Garcia"}
         DJ{"Djibouti"}
@@ -133,7 +133,7 @@ ga{
         GU{"Guam"}
         GW{"Guine Bissau"}
         GY{"an Ghuáin"}
-        HK{"S.R.R. na Síne Hong Cong"}
+        HK{"Hong Cong"}
         HM{"Oileán Heard agus Oileáin McDonald"}
         HN{"Hondúras"}
         HR{"an Chróit"}
@@ -183,11 +183,11 @@ ga{
         MF{"Saint-Martin"}
         MG{"Madagascar"}
         MH{"Oileáin Marshall"}
-        MK{"an Mhacadóin"}
+        MK{"an Mhacadóin Thuaidh"}
         ML{"Mailí"}
         MM{"Maenmar (Burma)"}
         MN{"an Mhongóil"}
-        MO{"S.R.R. na Síne Macao"}
+        MO{"Macao"}
         MP{"na hOileáin Mháirianacha Thuaidh"}
         MQ{"Martinique"}
         MR{"an Mháratáin"}
@@ -287,6 +287,8 @@ ga{
         VU{"Vanuatú"}
         WF{"Vailís agus Futúna"}
         WS{"Samó"}
+        XA{"XA"}
+        XB{"XB"}
         XK{"an Chosaiv"}
         YE{"Éimin"}
         YT{"Mayotte"}
@@ -297,8 +299,6 @@ ga{
     }
     Countries%short{
         GB{"RA"}
-        HK{"Hong Cong"}
-        MO{"Macao"}
         PS{"an Phalaistín"}
         UN{"NA"}
         US{"SAM"}
@@ -309,7 +309,8 @@ ga{
         CI{"Côte d’Ivoire"}
         CZ{"Poblacht na Seice"}
         FK{"Oileáin Fháclainne (Islas Malvinas)"}
-        MK{"an Mhacadóin (PIIM)"}
+        SZ{"Ríocht na Suasalainne"}
+        TL{"TL"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
 }

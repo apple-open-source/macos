@@ -24,17 +24,51 @@
 #ifndef mockaks_h
 #define mockaks_h
 
-#import "SecKeybagSupport.h"
-
-#if USE_KEYSTORE
 #import <libaks.h>
 
+#if __has_include(<MobileKeyBag/MobileKeyBag.h>)
+#include <MobileKeyBag/MobileKeyBag.h>
+#else
+
+typedef struct  __MKBKeyBagHandle* MKBKeyBagHandleRef;
+int MKBKeyBagCreateWithData(CFDataRef keybagBlob, MKBKeyBagHandleRef* newHandle);
+
+#define kMobileKeyBagDeviceIsLocked 1
+#define kMobileKeyBagDeviceIsUnlocked 0
+
+int MKBKeyBagUnlock(MKBKeyBagHandleRef keybag, CFDataRef passcode);
+int MKBKeyBagGetAKSHandle(MKBKeyBagHandleRef keybag, int32_t *handle);
+int MKBGetDeviceLockState(CFDictionaryRef options);
+CF_RETURNS_RETAINED CFDictionaryRef MKBUserTypeDeviceMode(CFDictionaryRef options, CFErrorRef * error);
+int MKBForegroundUserSessionID( CFErrorRef * error);
+
+#define kMobileKeyBagSuccess (0)
+#define kMobileKeyBagError (-1)
+#define kMobileKeyBagDeviceLockedError (-2)
+#define kMobileKeyBagInvalidSecretError (-3)
+#define kMobileKeyBagExistsError                (-4)
+#define kMobileKeyBagNoMemoryError    (-5)
+
+#endif // <MobileKeyBag/MobileKeyBag.h>
+
+
+#if __OBJC2__
+
 @interface SecMockAKS : NSObject
+@property (class) keybag_state_t keybag_state;
+
 + (bool)isLocked:(keyclass_t)key_class;
 + (bool)isSEPDown;
 + (bool)useGenerationCount;
+
++ (void)lockClassA_C;
++ (void)lockClassA;
+
++ (void)unlockAllClasses;
+
++ (void)reset;
 @end
 
-#endif /* USE_KEYSTORE */
+#endif // OBJC2
 
 #endif /* mockaks_h */

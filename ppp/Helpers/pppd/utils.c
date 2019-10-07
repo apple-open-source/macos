@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -214,7 +214,7 @@ vslprintf(buf, buflen, fmt, args)
 	for (f = fmt; *f != '%' && *f != 0; ++f)
 	    ;
 	if (f > fmt) {
-	    len = f - fmt;
+	    len = (int)(f - fmt);
 	    if (len > buflen)
 		len = buflen;
 	    memcpy(buf, fmt, len);
@@ -352,7 +352,7 @@ vslprintf(buf, buflen, fmt, args)
 	    if (fillch == '0' && prec >= 0) {
 		n = prec;
 	    } else {
-		n = strlen((char *)p);
+		n = (int)strlen((char *)p);
 		if (prec >= 0 && n > prec)
 		    n = prec;
 	    }
@@ -435,9 +435,9 @@ vslprintf(buf, buflen, fmt, args)
 		*--str = '0';
 		break;
 	    }
-	    len = num + sizeof(num) - 1 - str;
+	    len = (int)(num + sizeof(num) - 1 - str);
 	} else {
-	    len = strlen(str);
+	    len = (int)strlen(str);
 	    if (prec >= 0 && len > prec)
 		len = prec;
 	}
@@ -457,7 +457,7 @@ vslprintf(buf, buflen, fmt, args)
 	buflen -= len;
     }
     *buf = 0;
-    return buf - buf0;
+    return (int)(buf - buf0);
 }
 
 /*
@@ -645,7 +645,7 @@ pr_log __V((void *arg, char *fmt, ...))
 	p = buf;
 	eol = strchr(buf, '\n');
 	if (linep != line) {
-		l = (eol == NULL)? n: eol - buf;
+		l = (eol == NULL)? n: (int)(eol - buf);
 		if (linep + l < line + sizeof(line)) {
 			if (l > 0) {
 				memcpy(linep, buf, l);
@@ -669,7 +669,7 @@ pr_log __V((void *arg, char *fmt, ...))
 	}
 
 	/* assumes sizeof(buf) <= sizeof(line) */
-	l = buf + n - p;
+	l = (int)(buf + n - p);
 	if (l > 0) {
 		memcpy(line, p, n);
 		linep = line + l;
@@ -741,28 +741,28 @@ log_write(level, buf)
     char *buf;
 {
 #ifdef __APPLE__
-    time_t t;
-    int ns;
-    char s[64];
+	time_t t;
+	int ns;
+	char s[64];
 #endif
 
-    sys_log(level, "%s", buf);
-    if (log_to_fd >= 0 && (level != LOG_DEBUG || debug)) {
-	int n = strlen(buf);
+	sys_log(level, "%s", buf);
+	if (log_to_fd >= 0 && (level != LOG_DEBUG || debug)) {
+		int n = (int)strlen(buf);
 
 #ifdef __APPLE__
-	time(&t);
-	ns = strftime(s, sizeof(s), "%c : ", localtime(&t));
-        if (write(log_to_fd, s, ns) != ns)
-            log_to_fd = -1;
+		time(&t);
+		ns = (int)strftime(s, sizeof(s), "%c : ", localtime(&t));
+		if (write(log_to_fd, s, ns) != ns)
+			log_to_fd = -1;
 #endif
 
-	if (n > 0 && buf[n-1] == '\n')
-	    --n;
-	if (write(log_to_fd, buf, n) != n
-	    || write(log_to_fd, "\n", 1) != 1)
-	    log_to_fd = -1;
-    }
+		if (n > 0 && buf[n-1] == '\n')
+			--n;
+		if (write(log_to_fd, buf, n) != n
+			|| write(log_to_fd, "\n", 1) != 1)
+			log_to_fd = -1;
+	}
 }
 
 /*
@@ -1042,9 +1042,9 @@ lock(dev)
 	    break;
 	}
 #ifndef LOCK_BINARY
-	n = read(fd, lock_buffer, 11);
+	n = (int)read(fd, lock_buffer, 11);
 #else
-	n = read(fd, &pid, sizeof(pid));
+	n = (int)read(fd, &pid, sizeof(pid));
 #endif /* LOCK_BINARY */
 	close(fd);
 	fd = -1;

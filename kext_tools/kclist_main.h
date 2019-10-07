@@ -48,7 +48,13 @@ enum {
 #define kOptJSON         'j'
 #define kOptNameJSON     "json"
 
-#define kOptChars  "a:hjMvulx:"
+#define kOptPrelinkInfoDict     'i'
+#define kOptNamePrelinkInfoDict "info"
+
+#define kOptOutput       'o'
+#define kOptNameOutput   "output"
+
+#define kOptChars  "a:hijlMo:uvx:"
 
 int longopt = 0;
 
@@ -61,6 +67,8 @@ struct option sOptInfo[] = {
     { kOptNameVerbose,               no_argument,        NULL,     kOptVerbose },
     { kOptNameLayoutMap,             no_argument,        NULL,     kOptLayoutMap },
     { kOptNameJSON,                  no_argument,        NULL,     kOptJSON },
+    { kOptNamePrelinkInfoDict,       no_argument,        NULL,     kOptPrelinkInfoDict },
+    { kOptNameOutput,                required_argument,  NULL,     kOptOutput },
 
     { NULL, 0, NULL, 0 }  // sentinel to terminate list
 };
@@ -75,6 +83,8 @@ typedef struct {
     Boolean            printUUIDs;
     Boolean            printMap;
     Boolean            printJSON;
+    Boolean            printPrelinkInfoDict;
+    const char       * outputPath;
 } KclistArgs;
 
 /*

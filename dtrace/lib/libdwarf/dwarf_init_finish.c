@@ -38,17 +38,13 @@
 #include "config.h"
 #include "dwarf_incl.h"
 #ifdef HAVE_ELF_H
-#include <elf.h>
+#include <sys/elf.h>
 #endif
 #ifdef __SGI_FAST_LIBELF
 #include <libelf_sgi.h>
 #else
 #ifdef HAVE_LIBELF_H
 #include <libelf.h>
-#else
-#ifdef HAVE_LIBELF_LIBELF_H
-#include <libelf/libelf.h>
-#endif
 #endif
 #endif /* !defined(__SGI_FAST_LIBELF) */
 
@@ -244,7 +240,7 @@ _dwarf_setup(Dwarf_Debug dbg, dwarf_elf_handle elf, Dwarf_Error * error)
     }
 #endif /* !defined(__SGI_FAST_LIBELF) */
 
-    if (is_64bit && machine != EM_MIPS) {
+    if (is_64bit) {
 	/* MIPS/IRIX makes pointer size and length size 8 for -64.
 	   Other platforms make length 4 always. */
 	/* 4 here supports 32bit-offset dwarf2, as emitted by cygnus

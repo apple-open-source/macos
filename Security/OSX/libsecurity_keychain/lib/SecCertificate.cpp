@@ -407,7 +407,7 @@ SecCertificateFindByIssuerAndSN(CFTypeRef keychainOrArray,const CSSM_DATA *issue
         CFRef<CFMutableDictionaryRef> query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
         CFDictionarySetValue(query, kSecClass, kSecClassCertificate);
         CFDictionarySetValue(query, kSecReturnRef, kCFBooleanTrue);
-        CFDictionarySetValue(query, kSecAttrNoLegacy, kCFBooleanTrue);
+        CFDictionarySetValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
 
         CFRef<CFDataRef> issuerData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)issuer->Data, issuer->Length, kCFAllocatorNull);
         CFDictionarySetValue(query, kSecAttrIssuer, issuerData);
@@ -446,7 +446,7 @@ SecCertificateFindBySubjectKeyID(CFTypeRef keychainOrArray, const CSSM_DATA *sub
         CFRef<CFMutableDictionaryRef> query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
         CFDictionarySetValue(query, kSecClass, kSecClassCertificate);
         CFDictionarySetValue(query, kSecReturnRef, kCFBooleanTrue);
-        CFDictionarySetValue(query, kSecAttrNoLegacy, kCFBooleanTrue);
+        CFDictionarySetValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
 
         CFRef<CFDataRef> subjectKeyIDData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)subjectKeyID->Data, subjectKeyID->Length, kCFAllocatorNull);
         CFDictionarySetValue(query, kSecAttrSubjectKeyID, subjectKeyIDData);
@@ -481,7 +481,7 @@ SecCertificateFindByEmail(CFTypeRef keychainOrArray, const char *emailAddress, S
         CFRef<CFMutableDictionaryRef> query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
         CFDictionarySetValue(query, kSecClass, kSecClassCertificate);
         CFDictionarySetValue(query, kSecReturnRef, kCFBooleanTrue);
-        CFDictionarySetValue(query, kSecAttrNoLegacy, kCFBooleanTrue);
+        CFDictionarySetValue(query, kSecUseDataProtectionKeychain, kCFBooleanTrue);
 
         CFRef<CFStringRef> emailAddressString = CFStringCreateWithCString(kCFAllocatorDefault, emailAddress, kCFStringEncodingUTF8);
         CFTypeRef keys[] = { kSecPolicyName };

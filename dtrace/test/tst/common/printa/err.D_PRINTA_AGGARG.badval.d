@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_PRINTA_AGGARG.badval.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *  Invokes printa() with an argument that does not match the aggregation

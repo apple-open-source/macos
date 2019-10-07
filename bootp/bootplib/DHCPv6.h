@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -78,7 +78,7 @@ enum {
  */
 #define DHCPv6_SOL_MAX_DELAY     1 /* Max delay of first Solicit */
 #define DHCPv6_SOL_TIMEOUT       1 /* Initial Solicit timeout */
-#define DHCPv6_SOL_MAX_RT      120 /* Max Solicit timeout value */
+#define DHCPv6_SOL_MAX_RT     3600 /* Max Solicit timeout value */
 #define DHCPv6_REQ_TIMEOUT       1 /* Initial Request timeout */
 #define DHCPv6_REQ_MAX_RT       30 /* Max Request timeout value */
 #define DHCPv6_REQ_MAX_RC       10 /* Max Request retry attempts */
@@ -92,7 +92,7 @@ enum {
 #define DHCPv6_REB_MAX_RT      600 /* Max Rebind timeout value */
 #define DHCPv6_INF_MAX_DELAY     1 /* Max delay of first Information-request */
 #define DHCPv6_INF_TIMEOUT       1 /* Initial Information-request timeout */
-#define DHCPv6_INF_MAX_RT      120 /* Max Information-request timeout value */
+#define DHCPv6_INF_MAX_RT     3600 /* Max Information-request timeout value */
 #define DHCPv6_REL_TIMEOUT       1 /* Initial Release timeout */
 #define DHCPv6_REL_MAX_RC        5 /* MAX Release attempts */
 #define DHCPv6_DEC_TIMEOUT       1 /* Initial Decline timeout */

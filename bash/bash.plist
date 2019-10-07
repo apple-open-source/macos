@@ -19,6 +19,7 @@
 		<string>Update to patchlevel 57 for CVE-2014-6271 and friends</string>
 		<string>CVE-2016-0634</string>
 		<string>Unblock all signals before running exit trap</string>
+		<string>Add deprecation notice when started as an interactive shell</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>bash</string>

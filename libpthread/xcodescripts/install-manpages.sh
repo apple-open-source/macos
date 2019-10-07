@@ -23,6 +23,7 @@
 
 if [ "$ACTION" = installhdrs ]; then exit 0; fi
 if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ]; then exit 0; fi
+if [ "${DRIVERKIT}" = 1 ]; then exit 0; fi
 
 set -x
 set -e

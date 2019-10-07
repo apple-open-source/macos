@@ -152,13 +152,15 @@ IOReturn IOAccelCreateSurface( io_service_t accelerator, UInt32 wID, eIOAccelSur
 {
         IOReturn        kr;
         io_connect_t    window = MACH_PORT_NULL;
+        uint32_t        type = (kIOAccelSurfaceModeSurface2 & modebits)
+                             ? kIOAccelSurface2ClientType : kIOAccelSurfaceClientType;
 
         *connect = NULL;
 
         /* Create a context */
         kr = IOServiceOpen( accelerator,
                     mach_task_self(),
-                    kIOAccelSurfaceClientType,
+                    type,
                     &window );
 
         if( kr != kIOReturnSuccess)

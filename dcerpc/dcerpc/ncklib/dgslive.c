@@ -196,7 +196,7 @@ PRIVATE void rpc__dg_network_mon
     unsigned32 *st
 )
 {
-    rpc_dg_client_rep_p_t ptr, client = (rpc_dg_client_rep_p_t) client_h;
+    rpc_dg_client_rep_p_t ptr, client = (rpc_dg_client_rep_p_t)(void *) client_h;
     unsigned16 probe;
     uuid_p_t cas_uuid = (uuid_p_t) &client->cas_uuid;
 
@@ -272,7 +272,7 @@ PRIVATE void rpc__dg_network_stop_mon
     unsigned32 *st
 )
 {
-    rpc_dg_client_rep_p_t client = (rpc_dg_client_rep_p_t) client_h;
+    rpc_dg_client_rep_p_t client = (rpc_dg_client_rep_p_t)(void *) client_h;
     rpc_dg_client_rep_p_t ptr;
     uuid_p_t cas_uuid = &client->cas_uuid;
     unsigned16 probe;
@@ -610,7 +610,7 @@ PRIVATE void rpc__dg_monitor_fork_handler
 )
 {
     unsigned32 i;
-    unsigned32 st;
+    long st;
 
     switch ((int)stage)
     {
@@ -687,7 +687,7 @@ PRIVATE void rpc__dg_client_free
 )
 {
     unsigned16 probe;
-    rpc_dg_client_rep_p_t client = (rpc_dg_client_rep_p_t) client_h;
+    rpc_dg_client_rep_p_t client = (rpc_dg_client_rep_p_t)(void *) client_h;
     rpc_dg_client_rep_p_t ptr, prev = NULL;
 
     RPC_MUTEX_LOCK(monitor_mutex);

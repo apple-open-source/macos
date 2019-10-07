@@ -569,6 +569,11 @@ public:
         m_assembler.msub<64>(dest, mulLeft, mulRight, ARM64Registers::zr);
     }
 
+    void multiplySignExtend32(RegisterID left, RegisterID right, RegisterID dest)
+    {
+        m_assembler.smull(dest, left, right);
+    }
+
     void div32(RegisterID dividend, RegisterID divisor, RegisterID dest)
     {
         m_assembler.sdiv<32>(dest, dividend, divisor);
@@ -1540,6 +1545,16 @@ public:
         m_assembler.strh(src, address.base, memoryTempRegister);
     }
 
+    void storeZero16(ImplicitAddress address)
+    {
+        store16(ARM64Registers::zr, address);
+    }
+
+    void storeZero16(BaseIndex address)
+    {
+        store16(ARM64Registers::zr, address);
+    }
+
     void store8(RegisterID src, BaseIndex address)
     {
         if (!address.offset && !address.scale) {
@@ -2449,7 +2464,7 @@ public:
     void moveDoubleConditionally32(RelationalCondition cond, RegisterID left, RegisterID right, FPRegisterID thenCase, FPRegisterID elseCase, FPRegisterID dest)
     {
         m_assembler.cmp<32>(left, right);
-        m_assembler.fcsel<32>(dest, thenCase, elseCase, ARM64Condition(cond));
+        m_assembler.fcsel<64>(dest, thenCase, elseCase, ARM64Condition(cond));
     }
 
     void moveDoubleConditionally32(RelationalCondition cond, RegisterID left, TrustedImm32 right, FPRegisterID thenCase, FPRegisterID elseCase, FPRegisterID dest)
@@ -2514,6 +2529,15 @@ public:
     {
         m_assembler.tst<64>(left, right);
         m_assembler.fcsel<64>(dest, thenCase, elseCase, ARM64Condition(cond));
+    }
+
+    // Bit field operations:
+
+    // destBitOffset is the top bit of the destination where the bits should be copied to. Zero is the lowest order bit.
+    void bitFieldInsert64(RegisterID source, unsigned destBitOffset, unsigned width, RegisterID dest)
+    {
+        ASSERT(width <= 64 - destBitOffset && destBitOffset < 64);
+        m_assembler.bfi<64>(dest, source, destBitOffset, width);
     }
 
     // Forwards / external control flow operations:

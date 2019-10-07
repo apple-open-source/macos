@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -93,14 +93,13 @@ struct client {
 
 
 
-u_long client_init_all ();
+u_long client_init_all (void);
 struct client *client_new_socket (CFSocketRef ref, int priviledged, uid_t uid, gid_t gid);
 struct client *client_new_mach (CFMachPortRef port, CFRunLoopSourceRef rls, CFStringRef serviceID, uid_t uid, gid_t gid, pid_t pid, mach_port_t bootstrap, mach_port_t notify_port, mach_port_t au_session, Boolean has_machport_priv);
 void client_dispose (struct client *client);
 CFMutableDictionaryRef client_newoptset (struct client *client, CFStringRef serviceid);
 CFMutableDictionaryRef client_findoptset (struct client *client, CFStringRef serviceid);
 u_long client_notify (CFStringRef serviceID, u_char* sid, u_int32_t link, u_long state, u_long error, int notification, SCNetworkConnectionStatus status);
-
 
 struct client *client_findbysocketref(CFSocketRef ref);
 struct client *client_findbymachport(mach_port_t port);

@@ -23,137 +23,76 @@
 #include "internal.h"
 
 #pragma mark Utilities
-static int
-_sysctl_12809455(int mib[4], size_t mib_cnt, void *old, size_t *old_len,
-		void *new, size_t new_len)
+
+/*
+ * Factored out from _get_parse_boot_arg_value for unit testing purposes
+ */
+static bool
+_parse_boot_arg_value(char *argsbuff, const char *which, char *where, size_t max)
 {
-	int error = -1;
-	int ret = -1;
-	size_t mylen = 0;
-	size_t *mylenp = NULL;
-#if RDAR_12809455
-	bool workaround_12809455 = false;
-#endif
+	bool found = false;
 
-	if (old_len) {
-		mylen = *old_len;
-		mylenp = &mylen;
+	char *token = NULL;
+	char *argsstr = argsbuff;
+	static const char seps[] = { ' ', '\t', };
+	while ((token = strsep(&argsstr, seps)) != NULL) {
+		bool is_boolean = false;
+
+		char *value = NULL;
+		char *equals = strchr(token, '=');
+		if (token[0] == '-') {
+			/*
+			 * Arguments whose names begins with "-" are booleans, so don't get
+			 * key=value splitting.  Though I'd still discourage you from
+			 * naming your option "-edge=case".
+			 */
+			is_boolean = true;
+		} else if (equals) {
+			equals[0] = '\0';
+			value = &equals[1];
+		} else {
+			is_boolean = true;
+		}
+
+		if (strcmp(which, token) == 0) {
+			/*
+			 * Found it! Copy out the value as required.
+			 */
+			found = true;
+
+			if (!where) {
+				// Caller just wants to know whether the boot-arg exists.
+			} else if (is_boolean || value == NULL) {
+				strlcpy(where, "", max);
+			} else {
+				strlcpy(where, value, max);
+			}
+
+			break;
+		}
 	}
 
-	// sysctl(3) doesn't behave anything like its documentation leads you to
-	// believe. If the given buffer is too small to hold the requested data,
-	// what's supposed to happen is:
-	//
-	//   - as much data as possible is copied into the buffer
-	//   - the number of bytes copied is written to the len parameter
-	//   - errno is set to ENOMEM
-	//   - -1 is returned (to indicate that you should check errno)
-	//
-	// What actually happens:
-	//
-	//   - no data is copied
-	//   - len is set to zero
-	//   - errno is undefined
-	//   - zero is returned
-	//
-	// So... swing and a miss.
-	//
-	// Since it returns success in this case our only indication that something
-	// went wrong is if mylen is set to zero.
-	//
-	// So we do our best to sniff out the misbehavior and emulate sysctl(3)'s
-	// API contract until it's fixed.
-	//
-	// <rdar://problem/12809455>
-#if RDAR_12809455
-	if (old_len && *old_len > 0) {
-		// We can only work around the bug if the passed-in length was non-zero.
-		workaround_12809455 = true;
-	}
-#endif
-
-	ret = sysctl(mib, (u_int)mib_cnt, old, mylenp, new, new_len);
-#if RDAR_12809455
-	if (workaround_12809455 && old && ret == 0 && mylen == 0) {
-		ret = -1;
-		errno = ENOMEM;
-	}
-#endif // RDAR_12809455
-
-	if (ret == 0) {
-		error = 0;
-	} else {
-		error = errno;
-	}
-
-	if (old_len) {
-		*old_len = mylen;
-	}
-
-	return error;
+	return found;
 }
 
-static char *
-_strblk(const char *str)
-{
-	const char *cur = str;
-
-	while (*cur && !isblank(*cur)) {
-		cur++;
-	}
-
-	return (char *)cur;
-}
-
+/*
+ * This is (very) loosely based on the implementation of
+ * PE_parse_boot_argn() (or at least the parts where I was able to easily
+ * decipher the policy).
+ */
 static bool
 _get_boot_arg_value(const char *which, char *where, size_t max)
 {
-	// This is (very) loosely based on the implementation of
-	// PE_parse_boot_argn() (or at least the parts where I was able to easily
-	// decipher the policy).
 	bool found = false;
-	errno_t error = -1;
-	char *buff = NULL;
-	size_t buff_len = 0;
-	char *theone = NULL;
-	char *equals = NULL;
+	__os_free char *argsbuff = NULL;
+	size_t argsbuff_len = 0;
+	errno_t error = sysctlbyname_get_data_np("kern.bootargs",
+			(void **)&argsbuff, &argsbuff_len);
 
-	error = sysctlbyname_get_data_np("kern.bootargs", (void **)&buff,
-			&buff_len);
-	if (error) {
-		goto __out;
+	if (!error) {
+		found = _parse_boot_arg_value(argsbuff, which, where, max);
 	}
 
-	theone = strstr(buff, which);
-	if (!theone) {
-		goto __out;
-	}
-
-	found = true;
-	if (!where) {
-		// Caller just wants to know whether the boot-arg exists.
-		goto __out;
-	}
-
-	equals = strchr(theone, '=');
-	if (!equals || isblank(equals[1])) {
-		strlcpy(where, "", max);
-	} else {
-		char *nextsep = NULL;
-		char nextsep_old = 0;
-
-		// Find the next separator and nerf it temporarily for the benefit of
-		// the underlying strcpy(3).
-		nextsep = _strblk(theone);
-		nextsep_old = *nextsep;
-		*nextsep = 0;
-		strlcpy(where, &equals[1], max);
-
-		*nextsep = nextsep_old;
-	}
-
-__out:
-	free(buff);
 	return found;
 }
 
@@ -161,14 +100,16 @@ __out:
 errno_t
 sysctl_get_data_np(int mib[4], size_t mib_cnt, void **buff, size_t *buff_len)
 {
-	errno_t error = -1;
+	errno_t error = 0;
+	int ret = 0;
 	size_t needed = 0;
 	void *mybuff = NULL;
 
 	// We need to get the length of the parameter so we can allocate a buffer
 	// that's large enough.
-	error = _sysctl_12809455(mib, mib_cnt, NULL, &needed, NULL, 0);
-	if (error) {
+	ret = sysctl(mib, (unsigned int)mib_cnt, NULL, &needed, NULL, 0);
+	if (ret) {
+		error = errno;
 		goto __out;
 	}
 
@@ -178,11 +119,12 @@ sysctl_get_data_np(int mib[4], size_t mib_cnt, void **buff, size_t *buff_len)
 		goto __out;
 	}
 
-	error = _sysctl_12809455(mib, mib_cnt, mybuff, &needed, NULL, 0);
-	if (error) {
+	ret = sysctl(mib, (unsigned int)mib_cnt, mybuff, &needed, NULL, 0);
+	if (ret) {
 		// It's conceivable that some other process came along within this
 		// window and modified the variable to be even larger than we'd
 		// previously been told, but if that's the case, just give up.
+		error = errno;
 		goto __out;
 	}
 

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_DECL_INCOMPLETE.order.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * When two unions are defined such that one of them contains the other, the

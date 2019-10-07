@@ -330,7 +330,7 @@ call_NSCoder_decodeValueOfObjCType_at_(
 				PyObjCSelector_GetClass(method),
 				PyObjCObject_GetObject(self));
 
-			(void)objc_msgSendSuper(&super,
+			((void (*)(struct objc_super *, SEL, char *, void *))objc_msgSendSuper)(&super,
 					PyObjCSelector_GetSelector(method),
 					typestr, buf);
 		}

@@ -242,7 +242,7 @@ dt_probe_discover(dt_provider_t *pvp, const dtrace_probedesc_t *pdp)
 	assert(strcmp(pvp->pv_desc.dtvd_name, pdp->dtpd_provider) == 0);
 	assert(pdp->dtpd_id != DTRACE_IDNONE);
 
-	dt_dprintf("discovering probe %s:%s id=%d\n",
+	dt_dprintf("discovering probe %s:%s id=%d",
 	    pvp->pv_desc.dtvd_name, name, pdp->dtpd_id);
 
 	for (nc = -1, i = 0; i < adc; i++, adp++) {
@@ -314,7 +314,7 @@ dt_probe_discover(dt_provider_t *pvp, const dtrace_probedesc_t *pdp)
 		if (dtrace_type_strcompile(dtp,
 		    adp->dtargd_native, &dtt) != 0) {
 			dt_dprintf("failed to resolve input type %s "
-			    "for %s:%s arg #%d: %s\n", adp->dtargd_native,
+			    "for %s:%s arg #%d: %s", adp->dtargd_native,
 			    pvp->pv_desc.dtvd_name, name, i + 1,
 			    dtrace_errmsg(dtp, dtrace_errno(dtp)));
 
@@ -334,7 +334,7 @@ dt_probe_discover(dt_provider_t *pvp, const dtrace_probedesc_t *pdp)
 		} else if (dtrace_type_strcompile(dtp,
 		    adp->dtargd_xlate, &dtt) != 0) {
 			dt_dprintf("failed to resolve output type %s "
-			    "for %s:%s arg #%d: %s\n", adp->dtargd_xlate,
+			    "for %s:%s arg #%d: %s", adp->dtargd_xlate,
 			    pvp->pv_desc.dtvd_name, name, i + 1,
 			    dtrace_errmsg(dtp, dtrace_errno(dtp)));
 
@@ -596,7 +596,7 @@ dt_probe_define(dt_provider_t *pvp, dt_probe_t *prp,
 		*offs = new_offs;
 	}
 
-	dt_dprintf("defined probe %s %s:%s %s() +0x%x (%s)\n",
+	dt_dprintf("defined probe %s %s:%s %s() +0x%x (%s)",
 	    isenabled ? "(is-enabled)" : "",
 	    pvp->pv_desc.dtvd_name, prp->pr_ident->di_name, fname, offset,
 	    rname != NULL ? rname : fname);
@@ -654,6 +654,7 @@ dt_probe_tag(dt_probe_t *prp, uint_t argn, dt_node_t *dnp)
 static int
 dt_probe_desc(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp, void *arg)
 {
+#pragma unused(dtp)
 	if (((dtrace_probedesc_t *)arg)->dtpd_id == DTRACE_IDNONE) {
 		bcopy(pdp, arg, sizeof (dtrace_probedesc_t));
 		return (0);
@@ -811,6 +812,7 @@ dtrace_probe_info(dtrace_hdl_t *dtp,
 static int
 dt_probe_iter(dt_idhash_t *ihp, dt_ident_t *idp, dt_probe_iter_t *pit)
 {
+#pragma unused(ihp)
 	const dt_probe_t *prp = idp->di_data;
 
 	if (!dt_gmatch(prp->pr_name, pit->pit_pat))

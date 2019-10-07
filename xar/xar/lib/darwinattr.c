@@ -257,7 +257,11 @@ TRYAGAIN:
 		}
 
 		e = xar_ea_new(f, i);
-		XAR(x)->attrcopy_to_heap(x, f, xar_ea_root(e), xar_ea_read, context);
+		
+		if (XAR(x)->attrcopy_to_heap(x, f, xar_ea_root(e), xar_ea_read, context) < 0) {
+			retval = -1;
+			goto BAIL;
+		}
 	}
 BAIL:
 	free(buf);
@@ -292,7 +296,8 @@ static int32_t ea_extract(xar_t x, xar_file_t f, const char* file, void *context
 			return -1;
 		DARWINATTR_CONTEXT(context)->len = len;
 
-		XAR(x)->attrcopy_from_heap(x, f, p, xar_ea_write, context);
+		if (XAR(x)->attrcopy_from_heap(x, f, p, xar_ea_write, context) < 0)
+			return -1;
 
 		name = NULL;
 		tmpp = xar_prop_pget(p, "name");
@@ -339,7 +344,8 @@ static int32_t nonea_archive(xar_t x, xar_file_t f, const char* file, void *cont
 	if( memcmp(finfo.finderinfo, z, sizeof(finfo.finderinfo)) != 0 ) {
 		e = xar_ea_new(f, "com.apple.FinderInfo");
 		DARWINATTR_CONTEXT(context)->finfo = finfo.finderinfo;
-		XAR(x)->attrcopy_to_heap(x, f, xar_ea_root(e), finfo_read, context);
+		if (XAR(x)->attrcopy_to_heap(x, f, xar_ea_root(e), finfo_read, context) < 0)
+			return -1;
 	}
 
 		
@@ -359,7 +365,11 @@ static int32_t nonea_archive(xar_t x, xar_file_t f, const char* file, void *cont
 		return -1;
 
 	e = xar_ea_new(f, "com.apple.ResourceFork");
-	XAR(x)->attrcopy_to_heap(x, f, xar_ea_root(e), xar_rsrc_read, context);
+	if (XAR(x)->attrcopy_to_heap(x, f, xar_ea_root(e), xar_rsrc_read, context) < 0) {
+		close(DARWINATTR_CONTEXT(context)->fd);
+		return -1;
+	}
+	
 	close(DARWINATTR_CONTEXT(context)->fd);
 	return 0;
 }
@@ -388,8 +398,11 @@ static int32_t nonea_extract(xar_t x, xar_file_t f, const char* file, void *cont
 	DARWINATTR_CONTEXT(context)->finfo = (char *)file;
 
 	p = xar_ea_find(f, "com.apple.ResourceFork");
-	if( p )
-		XAR(x)->attrcopy_from_heap(x, f, p, finfo_write, context);
+	if( p ) {
+		if (XAR(x)->attrcopy_from_heap(x, f, p, finfo_write, context) < 0) {
+			return -1;
+		}
+	}
 #endif /* HAVE_SETATTRLIST */
 	
 	memset(rsrcname, 0, sizeof(rsrcname));
@@ -399,8 +412,13 @@ static int32_t nonea_extract(xar_t x, xar_file_t f, const char* file, void *cont
 		return 0;
 
 	p = xar_ea_find(f, "com.apple.ResourceFork");
-	if( p )
-		XAR(x)->attrcopy_from_heap(x, f, p, xar_rsrc_write, context);
+	if( p ) {
+		if (XAR(x)->attrcopy_from_heap(x, f, p, xar_rsrc_write, context) < 0) {
+			close(DARWINATTR_CONTEXT(context)->fd);
+			return -1;
+		}
+	}
+	
 	close(DARWINATTR_CONTEXT(context)->fd);
 	return 0;
 }
@@ -545,7 +563,12 @@ static int32_t underbar_archive(xar_t x, xar_file_t f, const char* file, void *c
 			
 			DARWINATTR_CONTEXT(context)->finfo = z;
 			e = xar_ea_new(f, "com.apple.FinderInfo");
-			XAR(x)->attrcopy_to_heap(x, f, xar_ea_root(e), finfo_read, context);
+			
+			if (XAR(x)->attrcopy_to_heap(x, f, xar_ea_root(e), finfo_read, context) < 0) {
+				close(DARWINATTR_CONTEXT(context)->fd);
+				return -1;
+			}
+			
 			if( lseek(DARWINATTR_CONTEXT(context)->fd, (off_t)off, SEEK_SET) == -1 ) {
 				close(DARWINATTR_CONTEXT(context)->fd);
 				return -1;
@@ -560,7 +583,10 @@ static int32_t underbar_archive(xar_t x, xar_file_t f, const char* file, void *c
 			}
 
 			e = xar_ea_new(f, "com.apple.ResourceFork");
-			XAR(x)->attrcopy_to_heap(x, f, xar_ea_root(e), xar_rsrc_read, context);
+			if (XAR(x)->attrcopy_to_heap(x, f, xar_ea_root(e), xar_rsrc_read, context) < 0) {
+				close(DARWINATTR_CONTEXT(context)->fd);
+				return -1;
+			}
 
 			if( lseek(DARWINATTR_CONTEXT(context)->fd, (off_t)off, SEEK_SET) == -1 ) {
 				close(DARWINATTR_CONTEXT(context)->fd);
@@ -650,12 +676,23 @@ static int32_t underbar_extract(xar_t x, xar_file_t f, const char* file, void *c
 		write(DARWINATTR_CONTEXT(context)->fd, &ase, 12);
 	}
 	
-	if( have_fi )
-		XAR(x)->attrcopy_from_heap(x, f, fiprop, xar_rsrc_write, context);
-	if( have_rsrc )
-		XAR(x)->attrcopy_from_heap(x, f, rfprop, xar_rsrc_write, context);
+	if( have_fi ) {
+		if (XAR(x)->attrcopy_from_heap(x, f, fiprop, xar_rsrc_write, context) < 0) {
+			close(DARWINATTR_CONTEXT(context)->fd);
+			DARWINATTR_CONTEXT(context)->fd = 0;
+			return -1;
+		}
+	}
+			
+	if( have_rsrc ) {
+		if (XAR(x)->attrcopy_from_heap(x, f, rfprop, xar_rsrc_write, context) < 0) {
+			close(DARWINATTR_CONTEXT(context)->fd);
+			DARWINATTR_CONTEXT(context)->fd = 0;
+			return -1;
+		}
+	}
+	
 	close(DARWINATTR_CONTEXT(context)->fd);
-
 	DARWINATTR_CONTEXT(context)->fd = 0;
 
 	xar_set_perm(x, f, underbarname, NULL, 0 );

@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <mach/mach_time.h>
+#include <utilities/SecCFWrappers.h>
 
 #if TARGET_OS_IPHONE
 #include <Security/SecRSAKey.h>
@@ -33,6 +34,9 @@
 
 #include "ssl-utils.h"
 #import "STLegacyTests.h"
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 @implementation STLegacyTests (dhe)
 
@@ -101,8 +105,7 @@ typedef struct {
     unsigned dhe_size;
 } ssl_client_handle;
 
-static ssl_client_handle *
-ssl_client_handle_create(int comm, CFArrayRef trustedCA, unsigned dhe_size)
+-(ssl_client_handle *)ssl_client_handle_create:(int) comm trustedCA:(CFArrayRef) trustedCA dhe_size:(unsigned) dhe_size
 {
     ssl_client_handle *handle = calloc(1, sizeof(ssl_client_handle));
     SSLContextRef ctx = SSLCreateContext(kCFAllocatorDefault, kSSLClientSide, kSSLStreamType);
@@ -110,20 +113,27 @@ ssl_client_handle_create(int comm, CFArrayRef trustedCA, unsigned dhe_size)
     require(handle, out);
     require(ctx, out);
 
-    require_noerr(SSLSetIOFuncs(ctx,
-        (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
-    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), out);
+    XCTAssertEqual(errSecSuccess, SSLSetIOFuncs(ctx,
+        (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite));
+    XCTAssertEqual(errSecSuccess, SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm));
+    SSLConnectionRef getConn;
+    XCTAssertEqual(errSecSuccess, SSLGetConnection(ctx, &getConn));
     static const char *peer_domain_name = "localhost";
-    require_noerr(SSLSetPeerDomainName(ctx, peer_domain_name,
-        strlen(peer_domain_name)), out);
+    XCTAssertEqual(errSecSuccess, SSLSetPeerDomainName(ctx, peer_domain_name,
+        strlen(peer_domain_name)));
 
-    require_noerr(SSLSetTrustedRoots(ctx, trustedCA, true), out);
+    XCTAssertEqual(errSecSuccess, SSLSetTrustedRoots(ctx, trustedCA, true));
 
-    require_noerr(SSLSetDHEEnabled(ctx, true), out);
+    XCTAssertEqual(errSecSuccess, SSLSetDHEEnabled(ctx, true));
+    bool enabled;
+    XCTAssertEqual(errSecSuccess, SSLGetDHEEnabled(ctx, &enabled));
+    XCTAssertEqual(enabled, true);
 
-    if(dhe_size)
-        require_noerr(SSLSetMinimumDHGroupSize(ctx, dhe_size), out);
-
+    if(dhe_size) {
+        XCTAssertEqual(errSecSuccess, SSLSetMinimumDHGroupSize(ctx, dhe_size));
+        unsigned int nbits = 0;
+        XCTAssertEqual(errSecSuccess, SSLGetMinimumDHGroupSize(ctx, &nbits));
+    }
     handle->comm = comm;
     handle->st = ctx;
     handle->dhe_size = dhe_size;
@@ -142,7 +152,7 @@ out:
 static void
 ssl_client_handle_destroy(ssl_client_handle *handle)
 {
-    if(handle) {
+    if (handle) {
         SSLClose(handle->st);
         CFRelease(handle->st);
         free(handle);
@@ -158,15 +168,15 @@ static void *securetransport_ssl_client_thread(void *arg)
 
     pthread_setname_np("client thread");
 
-    require_noerr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
-    require_action(ssl_state==kSSLIdle, out, ortn = -1);
+    require_noerr(ortn = SSLGetSessionState(ctx,&ssl_state), out);
+    require_action(ssl_state == kSSLIdle, out, ortn = -1);
 
     do {
         ortn = SSLHandshake(ctx);
         require_noerr(SSLGetSessionState(ctx,&ssl_state), out);
 
         if (ortn == errSSLWouldBlock) {
-            require_string(ssl_state==kSSLHandshake, out, "Wrong client handshake state after errSSLWouldBlock");
+            require_string(ssl_state == kSSLHandshake, out, "Wrong client handshake state after errSSLWouldBlock");
         }
     } while (ortn == errSSLWouldBlock);
 
@@ -185,40 +195,40 @@ typedef struct {
 
 } ssl_server_handle;
 
-static ssl_server_handle *
-ssl_server_handle_create(int comm, CFArrayRef certs, const void *dhParams, size_t dhParamsLen)
+-(ssl_server_handle *)ssl_server_handle_create:(int) comm certs: (CFArrayRef) certs dhParams: (const void *)dhParams dhParamsLen: (size_t) dhParamsLen
 {
     ssl_server_handle *handle = calloc(1, sizeof(ssl_server_handle));
+    XCTAssert(handle, "handle allocation failed");
+
     SSLContextRef ctx = SSLCreateContext(kCFAllocatorDefault, kSSLServerSide, kSSLStreamType);
+    XCTAssert(ctx, "SSLCreateContext failed");
+
     SSLCipherSuite cipher = TLS_DHE_RSA_WITH_AES_256_CBC_SHA256;
 
-    require(handle, out);
-    require(ctx, out);
+    XCTAssertEqual(errSecSuccess, SSLSetIOFuncs(ctx,
+                                (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), "Failed to Set IO");
+    XCTAssertEqual(errSecSuccess, SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), "Failed to set SSL connection");
 
-    require_noerr(SSLSetIOFuncs(ctx,
-                                (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
-    require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)(intptr_t)comm), out);
+    XCTAssertEqual(errSecSuccess, SSLSetCertificate(ctx, certs), "Failed to set certificate");
+    CFArrayRef inputCerts = NULL;
+    XCTAssertEqual(errSecSuccess, SSLGetCertificate(ctx, &inputCerts), "Failed to get certificates");
 
-    require_noerr(SSLSetCertificate(ctx, certs), out);
+    XCTAssertEqual(errSecSuccess, SSLSetEnabledCiphers(ctx, &cipher, 1), "SSLSetEnabledCiphers failed");
 
-    require_noerr(SSLSetEnabledCiphers(ctx, &cipher, 1), out);
-
-    if(dhParams)
-        require_noerr(SSLSetDiffieHellmanParams(ctx, dhParams, dhParamsLen), out);
+    if (dhParams) {
+        XCTAssertEqual(errSecSuccess, SSLSetDiffieHellmanParams(ctx, dhParams, dhParamsLen),
+                       "Failed to set DH parameters");
+        const void *inputDH = NULL;
+        size_t inputDHLen;
+        XCTAssertEqual(errSecSuccess, SSLGetDiffieHellmanParams(ctx, &inputDH, &inputDHLen),
+                       "Failed to get DH parameters");
+    }
 
     handle->comm = comm;
     handle->certs = certs;
     handle->st = ctx;
 
     return handle;
-
-out:
-    if (ctx)
-        CFRelease(ctx);
-    if (handle)
-        free(handle);
-
-    return NULL;
 }
 
 static void
@@ -240,21 +250,21 @@ static void *securetransport_ssl_server_thread(void *arg)
 
     pthread_setname_np("server thread");
 
-    require_noerr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
-    require_action(ssl_state==kSSLIdle, out, ortn = -1);
+    require_noerr(ortn = SSLGetSessionState(ctx,&ssl_state), out);
+    require_action(ssl_state == kSSLIdle, out, ortn = -1);
 
     do {
         ortn = SSLHandshake(ctx);
-        require_noerr(SSLGetSessionState(ctx,&ssl_state), out);
+        require_noerr(SSLGetSessionState(ctx, &ssl_state), out);
 
         if (ortn == errSSLWouldBlock) {
-            require_action(ssl_state==kSSLHandshake, out, ortn = -1);
+            require_action(ssl_state == kSSLHandshake, out, ortn = -1);
         }
     } while (ortn == errSSLWouldBlock);
 
     require_noerr_quiet(ortn, out);
 
-    require_action(ssl_state==kSSLConnected, out, ortn = -1);
+    require_action(ssl_state == kSSLConnected, out, ortn = -1);
 
 out:
     SSLClose(ssl->st);
@@ -360,8 +370,8 @@ int expected_client_error[n_server_dhe_params][n_client_dhe_sizes] = {
 
     int i, j;
 
-    for (i=0; i<n_server_dhe_params; i++) {
-        for (j=0; j<n_client_dhe_sizes; j++) {
+    for (i = 0; i < (int)n_server_dhe_params; i++) {
+        for (j = 0; j < (int)n_client_dhe_sizes; j++) {
 
             int sp[2];
             if (socketpair(AF_UNIX, SOCK_STREAM, 0, sp)) exit(errno);
@@ -369,13 +379,13 @@ int expected_client_error[n_server_dhe_params][n_client_dhe_sizes] = {
             fcntl(sp[1], F_SETNOSIGPIPE, 1);
 
             ssl_client_handle *client;
-            client = ssl_client_handle_create(sp[0], trusted_ca, client_dhe_sizes[j]);
-            XCTAssert(client!=NULL, "could not create client handle (%d:%d)", i, j);
+            client = [self ssl_client_handle_create:sp[0] trustedCA:trusted_ca dhe_size:client_dhe_sizes[j]];
+            XCTAssert(client != NULL, "could not create client handle (%d:%d)", i, j);
 
 
             ssl_server_handle *server;
-            server = ssl_server_handle_create(sp[1], server_certs, server_dhe_params[i].dhParams, server_dhe_params[i].dhParamsLen);
-            XCTAssert(server!=NULL, "could not create server handle (%d:%d)", i, j);
+            server = [self ssl_server_handle_create:sp[1] certs:server_certs dhParams:server_dhe_params[i].dhParams dhParamsLen:server_dhe_params[i].dhParamsLen];
+            XCTAssert(server != NULL, "could not create server handle (%d:%d)", i, j);
 
             pthread_create(&client_thread, NULL, securetransport_ssl_client_thread, client);
             pthread_create(&server_thread, NULL, securetransport_ssl_server_thread, server);
@@ -398,3 +408,5 @@ int expected_client_error[n_server_dhe_params][n_client_dhe_sizes] = {
 }
 
 @end
+
+#pragma clang diagnostic pop

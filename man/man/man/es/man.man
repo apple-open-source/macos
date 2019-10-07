@@ -1,3 +1,7 @@
+.\"
+.\" Generated automatically from man.1.in by the
+.\" configure script.
+.\"
 .\" Man page for man (and the former manpath)
 .\"
 .\" Copyright (c) 1990, 1991, John W. Eaton.
@@ -5,9 +9,11 @@
 .\" La sección "páginas formatadas" ha sido tomada de la version francesa de
 .\" esta página de manual, traducida por René Cougnenc.
 .\"
+.\" Traducción actualizada por Benjamín Albiñana <benalb@escomposlinux.org>
+.\"
 .\" You may distribute under the terms of the GNU General Public
 .\" License as specified in the README file that comes with the man 1.0
-.\" distribution.  
+.\" distribution.
 .\"
 .\" John W. Eaton
 .\" jwe@che.utexas.edu
@@ -17,59 +23,59 @@
 .\"
 .\" Many changes - aeb
 .\"
-.TH man 1 "15/3/1994"
+.TH man 1 "Septiembre 19 2005"
 .LO 1
 .SH NOMBRE
-man \- formatar y mostrar las páginas de manual en-linea
+man \- da formato y muestra las páginas del manual en línea
 .br
-manpath \- determinar el camino de búsqueda inicial para el utilizador
-.SH SINOPSIS
-man [\-acdfhktw] [\-m sistema] [\-p string] [\-C fich_config] [\-M path]
+manpath \- determina la ruta de búsqueda inicial 
+.SH SINÓPSIS
+man [\-acdfhktw] [\-m sistema] [\-p cadena] [\-C fich_config] [\-M ruta]
 [\-P paginador] [\-S lista_sec] [sección] nombre ...
 .SH DESCRIPCIÓN
 .B man
-formata y muestra las páginas del manual `en-linea'. Esta versión reconoce
-las variables de ambiente (environment)
-.B MANPATH
+da formato y muestra las páginas del manual en línea. Esta versión reconoce
+las variables de entorno (environment)
+.B. MANPATH
 y
 .B (MAN)PAGER
-(vea más lejos).
-Si la
+(ver más adelante).
+Si se indica la
 .I sección
-es indicada,
+, 
 .B man
-busca solamente en ella.
-Es posible también indicar el ordem de búsqueda en las secciones 
-y que preprocessamiento efectuar con los manuales, por medio de opciones en la
-linea de comando o variables de ambiente.
-Si
+buscará únicamente en ella.
+Es también posible indicar el orden de búsqueda en la secciones
+y que preprocesamiento efectuar con los manuales, por medio de opciones en la
+línea de comando o con variables de entorno.
+Si el
 .I nombre
 contiene el carácter `/' tratará primero un fichero con ese nombre, permitiendo
-hacer
+hacer 
 .B "man ./foo.5"
-o mismo
+o también 
 .B "man /cd/foo/bar.1.gz"
-para formatar y ver un fichero en particular.
+para dar formato y ver un fichero en particular.
 .SH OPCIONES
 .TP
 .B \-\^C " fich_config"
-Indica el fichero de configuración a usar; por omissión será usado
-@man_config_file@. (Vea man.conf(5).)
+Indica el fichero de configuración a usar; por defecto se usará
+/etc/man.conf. (Ver man.conf(5).)
 .TP
-.B \-\^M " path"
-Indica la lista de directórios donde buscar los manuales.
-Sin esta opción será consultada la variable
+.B \-\^M " ruta"
+Indica la lista de directorios donde buscar los manuales.
+Sin esta opción se utilizará la variable
 .B MANPATH.
-Si tampoco esta variable estuviera definida, una lista será obtenida
-por consulta de @man_config_file@. Un directório vacio en MANPATH
+Si esta variable tampoco estuviera definida, se obtendrá una lista
+consultando /etc/man.conf. Un directorio vacío en MANPATH
 representa la lista anterior.
 .TP
 .B \-\^P " paginador"
-Indica cual paginador/visualisador usar. Sin esta opción tratará
+Indica que paginador/visualisador usar. Sin esta opción tratará
 de consultar la variable
 .B PAGER.
 Normalmente, man usará
-.B @pager@.
+.B /usr/bin/less -is.
 .TP
 .B \-\^S " lista_sec"
 Da la lista de secciones (separadas por `:') donde buscar y en que
@@ -78,30 +84,30 @@ orden. Esta opción tiene prioridad sobre la variable
 .TP
 .B \-\^a
 Normalmente man muestra el primer manual que encuentra. Esta opción
-le permite afichar todas las páginas de manual encontradas para la entrada
-.B nombre. 
+le permite mostrar todas las páginas de manual encontradas para la entrada
+.B nombre.
 .TP
 .B \-\^d
-No muestra el manual, afichando varia información para debugging.
+No muestra el manual, sino información para la depuración de errores.
 .TP
 .B \-\^f
 Equivalente a
 .B whatis.
 .TP
 .B \-\^h
-Aficha un breve mensaje de ayuda.
+Muestra un breve mensaje de ayuda.
 .TP
 .B \-\^k
 Equivalente a
 .B apropos.
 .TP
 .B \-\^m " sistema"
-Indica um conjunto de manuales diferentes aplicables al sistema indicado.
+Indica un conjunto de manuales diferentes aplicables al sistema indicado.
 .TP
-.B \-\^p " string"
-Especifica uma sequencia de preprocesadores a usar antes de nroff o
-troff (los formatadores). Algumas instalaciones Linux pueden no tener todos los
-preprocesadores. Algunos preprocesadores y las letras a usar para 
+.B \-\^p " cadena"
+Especifica una secuencia de preprocesadores a usar antes de nroff o
+troff (los formateadores). Algunas instalaciones de Linux pueden no tener todos los
+preprocesadores. Algunos preprocesadores y las letras a usar para
 indicarlos son:
 eqn (e), grap (g), pic (p), tbl (t), vgrind (v), refer (r).
 Esta opción tiene proridad sobre la variable
@@ -109,121 +115,126 @@ Esta opción tiene proridad sobre la variable
 .TP
 .B \-\^t
 Usar
-.B @troff@
-para formatar las páginas de manual, la salida efectuándose por
+.B /usr/bin/groff -Tps -mandoc
+para dar formato a las páginas de manual, efectuándose la salida por
 .B stdout
-La salida de este comando
-puede necesitar ser processada por otros filtros antes de poder
-ser visualisada o imprimida.
+Puede ser necesario procesar la salida de este comando con otros filtros
+para poder visualizarla o imprimirla.
 .TP
 .B \-\^w \fRo\fP \-\-path
-No aficha las páginas de manual, pero muestra la(s) localización(es) de los
-ficheros que se hubieran formatado y mostrado, para la entrada de
+No muestra las páginas de manual, sino la(s) localización(es) de los
+ficheros que se hubieran formateado y mostrado, para la entrada de
 .B nombre
 indicado. Si no se da ninguna otra opción muestra la lista de
-directórios que serian recorridos por
-.B man
+directorios que serían recorrido por .B man
 durante la búsqueda. Si
 .B manpath
-es un lazo haci man, entonces "manpath" es equivalente a "man --path".
+es un enlace a man, entonces "manpath" equivale a "man --path".
 .B \-\^W
-Como \-\^w, pero aficha los nombres de ficheros, uno por linea, sin ninguna
+Como \-\^w, pero muestra los nombres de ficheros, uno por linea, sin ninguna
 otra información. Muy útil en comandos shell del estilo:
 .ft CW
 man -aW man | xargs ls -l
 .ft
-.SH "PÁGINAS FORMATADAS"
-Afin de ganar tiempo,
+.SH "PÁGINAS FORMATEADAS"
+Con el fin de ganar tiempo,
 .B man
-trata de guardar les páginas formatadas
+trata de guardar la páginas formateadas
 en vez de interpretarlas cada vez que se las pide.
-Tradicionalmente, las versiones formatadas de las páginas de REP/manX son
-guardadas en REP/catX, pero otras correspondencias entre los
-directórios man y los directórios cat pueden ser indicadas en
-el fichero  @man_config_file@. Si el directório «\%cat\%» correspondiente
-no existe, les páginas formatadas no serán guardadas.
-.LP
-Es posible de hacer
+Tradicionalmente, las versiones formateadas de las páginas de REP/manX son
+guardadas en REP/catX, pero se pueden indicar otras correspondencias
+entre los directorios man y cat en el fichero /etc/man.conf. Si el 
+directorio  «\%cat\%» correspondiente no existe, no se guardarán las
+páginas formateadas.
+Es posible hacer a 
 .B man
-suid utilisador man. En ese caso, si un directório cat pertenece
-a man y tiene el modo 0755 (solo man puede escribir), y que los ficheros
-cat pertenecen también a man y tienen el modo 0644 o 0444 (solo
-man puede escrir en ellos, o nadie), ningún utilisador normal podrá
-cambiar las páginas formatadas o poner otros ficheros en el directório
+suid para un usuario man. En este caso, si un directorio cat pertenece
+a man, y tiene el modo 0755 (únicamente man tiene permisos de escritura), 
+y los ficheros cat pertenecen también a man y tiene el modo 0644 ó 0444 (sólo
+mana tiene permisos de escritura, o nadie los tiene), ningún usuario normal
+podrá cambiar las páginas formateadas o añadir ficheros al directorio 
 correspondiente. Si
 .B man
-no es suid, los directórios cat debrán tener el modo 0777 afin
-que todo utilisador pueda dejar el resultado de los formatajes efectuados durante
-las consultaciones del manual.
+no es suid, los directorios cat deberán tener el modo 0777 para que todo 
+usuario pueda dejar el resultado de los formateos efectuados durante las
+consutlas del manual.
 .LP
-La opción -c fuerza el reformataje de una página, mismo si un fichero cat
-más reciente que el fichero fuente existe.
+La opción -c fuerza el reformateo de una página, aunque ya exista un fichero
+cat más reciente que el fichero fuente.
 
-.SH AMBIENTE
+.SH ENTORNO
 .TP
 .B MANPATH
-Si
+Si se ha definido 
 .B MANPATH
-está definido, su valor será usado como lista de directórios
-(manpath) donde pueden estar las entradas del manual.
+se usará su valor como lista de directorios (manpath) donde pueden estar
+las entradas del manual.
 .TP
 .B MANROFFSEQ
-Si
+Si se ha definido
 .B MANROFFSEQ
-está definido, su valor determina los preprocesamientos a aplicar
+su valor determinará los preprocesadores a aplicar 
 antes de nroff o troff. Normalmente, las páginas de manual, son
 preprocesadas por tbl antes de nroff.
 .TP
 .B MANSECT
-Si
+Si se ha definido
 .B MANSECT
-existe, su valor indica las secciones a recorrer.
+su valor indicará las secciones a recorrer.
 .TP
 .B PAGER
-Si
+Si se ha definido
 .B PAGER
-está definido, indicará el programa a usar para mostrar el manual.
+su valor indicará el programa a usar para mostrar el manual.
 Normalmente usará
-.B @pager@.
+.B /usr/bin/less -is.
 .TP
 .B LANG
-Si
+Si se ha definido
 .B LANG
-está definido, su valor indica el nombre del sub-directório donde
+su valor indicará el nombre del subdirectorio donde
 .B man
 comenzará la búsqueda de las páginas de manual. Por ejemplo, el comando
 «\%LANG=es man 1 pepe\%» tendrá como efecto de hacer una búsqueda de la página
 pepe en .../es/man1/pepe.1, y si ese fichero no existe,
-en .../man1/pepe.1, ( ... indica un directório del camino de búsqueda).
+en .../man1/pepe.1, ( ... indica un directorio en la ruta de búsqueda).
 .TP
 .B "NLSPATH, LC_MESSAGES, LANG"
-Las variables de ambiente
+Las variables de entorno
 .B NLSPATH
 y
 .B LC_MESSAGES
 (o
 .B LANG
 cuando LC_MESSAGES no existe)
-juegan un papel en la localisación del catálogo de mensajes.
-Notese que los programas como col(1) que son llamados por
+juegan un papel en la localización del catálogo de mensajes.
+Nótese que los programas como col(1) que son llamados por
 .B man,
 también utilizan LC_CTYPE.
 .TP
 .B PATH
 .B PATH
-es utilizado para la construcción del camino de búsqueda por omisión.
+se utiliza para la construcción de la ruta de búsqueda por omisión.
 .TP
 .B SYSTEM
 .B SYSTEM
-empleado para obtener los sistemas alternativos por omisión (en vista de
-la utilisación de la opción
+se emplea para obtener los sistemas alternativos por omisión (en vista del
+uso de la opción
 .B \-m
 ).
-.SH "VEA TAMBIÉN"
+.SH AUTOR
+John W. Eaton fue el autor original de
+.BR "man" .
+Zeyd M. Ben-Halim lanzó man 1.2, y Andries Brouwer continuó con
+las versiones 1.3 a 1.5p.
+Federico Lucifredi <flucifredi@acm.org> es el encargado actual.
+.SH "VÉASE TAMBIÉN"
 apropos(1), whatis(1), less(1), groff(1).
 .SH BUGS
 .B \-t
 solo funciona si existe un programa troff o equivalente.
 .SH TRADUCCIÓN
-Pablo Saratxaga, 1996. A partir de la página en portugués de 
+Pablo Saratxaga, 1996. A partir de la página en portugués de
 Vitor Duarte y la página en francés de René Cougnenc.
+
+Actualización de Benjamín Albiñana, 2006.

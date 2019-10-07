@@ -55,6 +55,8 @@ extern const CFStringRef kSecPropertyTypeData;
 extern const CFStringRef kSecPropertyTypeString;
 extern const CFStringRef kSecPropertyTypeURL;
 extern const CFStringRef kSecPropertyTypeDate;
+extern const CFStringRef kSecPropertyTypeArray;
+extern const CFStringRef kSecPropertyTypeNumber;
 
 /* Constants used as keys in the dictionary returned by SecTrustCopyInfo. */
 extern const CFStringRef kSecTrustInfoExtendedValidationKey;
@@ -273,6 +275,27 @@ uint64_t SecTrustGetAssetVersionNumber(CFErrorRef _Nullable * _Nullable CF_RETUR
  */
 uint64_t SecTrustOTAPKIGetUpdatedAsset(CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error);
 
+/*
+ @function SecTrustOTASecExperimentGetUpdatedAsset
+ @abstract Trigger trustd to fetch a new SecExperiment asset right now.
+ @param error A returned error if trustd failed to update the asset.
+ @result The current version of the update, regardless of the success of the update.
+ @discussion This function blocks up to 1 minute until trustd has finished with the
+ asset download and update. You should use the error parameter to determine whether
+ the update was was successful. The current asset version is always returned.
+ */
+uint64_t SecTrustOTASecExperimentGetUpdatedAsset(CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error);
+
+/*
+ @function SecTrustOTASecExperimentCopyAsset
+ @abstract Get current asset from trustd
+ @param error A returned error if trustd fails to return asset
+ @result Dictionary of asset
+ @discussion If the error parameter is supplied, and the function returns false,
+ the caller is subsequently responsible for releasing the returned CFErrorRef.
+ */
+CFDictionaryRef SecTrustOTASecExperimentCopyAsset(CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error);
+
 /*!
  @function SecTrustFlushResponseCache
  @abstract Removes all OCSP responses from the per-user response cache.
@@ -410,6 +433,28 @@ OSStatus SecTrustSetPinningPolicyName(SecTrustRef trust, CFStringRef policyName)
 OSStatus SecTrustSetPinningException(SecTrustRef trust)
     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 
+#if TARGET_OS_IPHONE
+/*!
+  @function SecTrustGetExceptionResetCount
+  @abstract Returns the current epoch of trusted exceptions.
+  @param error A pointer to an error.
+  @result An unsigned 64-bit integer representing the current epoch.
+  @discussion Exceptions tagged with an older epoch are not trusted.
+  */
+uint64_t SecTrustGetExceptionResetCount(CFErrorRef *error)
+    API_UNAVAILABLE(macos, iosmac) API_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0));
+
+/*!
+  @function SecTrustIncrementExceptionResetCount
+  @abstract Increases the current epoch of trusted exceptions by 1.
+  @param error A pointer to an error.
+  @result A result code. See "Security Error Codes" (SecBase.h)
+  @discussion By increasing the current epoch any existing exceptions, tagged with the old epoch, become distrusted.
+  */
+OSStatus SecTrustIncrementExceptionResetCount(CFErrorRef *error)
+    __API_UNAVAILABLE(macos, iosmac) __API_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0));
+#endif
+
 #ifdef __BLOCKS__
 /*!
  @function SecTrustEvaluateFastAsync
@@ -437,9 +482,9 @@ bool SecTrustReportTLSAnalytics(CFStringRef eventName, xpc_object_t eventAttribu
 /*!
  @function SecTrustReportNetworkingAnalytics
  @discussion This function MUST NOT be called outside of the networking stack.
- */
+*/
 bool SecTrustReportNetworkingAnalytics(const char *eventName, xpc_object_t eventAttributes)
-__API_AVAILABLE(macos(10.14.1), ios(12.1), tvos(12.1), watchos(5.1));
+    __API_AVAILABLE(macos(10.15), ios(13), tvos(13), watchos(5));
 
 /*!
  @function SecTrustSetNeedsEvaluation
@@ -458,7 +503,7 @@ CF_ASSUME_NONNULL_END
 /*
  *  Legacy functions (OS X only)
  */
-#if TARGET_OS_MAC && !TARGET_OS_IPHONE
+#if TARGET_OS_OSX
 
 CF_ASSUME_NONNULL_BEGIN
 CF_IMPLICIT_BRIDGING_ENABLED

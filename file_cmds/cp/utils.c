@@ -52,6 +52,7 @@ __FBSDID("$FreeBSD: src/bin/cp/utils.c,v 1.46 2005/09/05 04:36:08 csjp Exp $");
 #include <stdlib.h>
 #include <sysexits.h>
 #include <unistd.h>
+#include <locale.h>
 
 #ifdef __APPLE__
 #include <sys/time.h>
@@ -79,6 +80,7 @@ copy_file(const FTSENT *entp, int dne)
 	size_t wresid;
 	off_t wtotal;
 	char *bufp;
+	char resp[] = {'\0', '\0'};
 #ifdef VM_AND_BUFFER_CACHE_SYNCHRONIZED
 	char *p;
 #endif
@@ -110,10 +112,18 @@ copy_file(const FTSENT *entp, int dne)
 		} else if (iflag) {
 			(void)fprintf(stderr, "overwrite %s? %s", 
 					to.p_path, YESNO);
+
+			/* Load user specified locale */
+			setlocale(LC_MESSAGES, "");
+
 			checkch = ch = getchar();
 			while (ch != '\n' && ch != EOF)
 				ch = getchar();
-			if (checkch != 'y' && checkch != 'Y') {
+
+			/* only care about the first character */
+			resp[0] = checkch;
+
+			if (rpmatch(resp) != 1) {
 				(void)close(from_fd);
 				(void)fprintf(stderr, "not overwritten\n");
 				return (1);

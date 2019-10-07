@@ -27,14 +27,12 @@
 #include <sys/stat.h>
 
 #include "darwin_shim.h"
-#include "elf.h" /* In lieu of Solaris <sys/elf.h> */
-#include "decl.h"
+#include <sys/elf.h>
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
 #include <mach-o/stab.h>
 
 #include <fcntl.h>
-#define stat64 stat
 #define OBJFS_ROOT "/system/object"
 	
 #include <unistd.h>
@@ -950,6 +948,7 @@ dt_module_lookup_by_name(dtrace_hdl_t *dtp, const char *name)
 dt_module_t *
 dt_module_lookup_by_ctf(dtrace_hdl_t *dtp, ctf_file_t *ctfp)
 {
+#pragma unused(dtp)
 	return (ctfp ? ctf_getspecific(ctfp) : NULL);
 }
 
@@ -986,7 +985,7 @@ dt_module_load_sect(dtrace_hdl_t *dtp, dt_module_t *dmp, ctf_sect_t *ctsp)
 	ctsp->cts_data = dp->d_buf;
 	ctsp->cts_size = dp->d_size;
 
-	dt_dprintf("loaded %s [%s] (%lu bytes)\n",
+	dt_dprintf("loaded %s [%s] (%lu bytes)",
 	    dmp->dm_name, ctsp->cts_name, (ulong_t)ctsp->cts_size);
 
 	return (0);
@@ -1068,7 +1067,7 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 	 */
 	dmp->dm_asrsv = dmp->dm_ops->do_syminit(dmp);
 
-	dt_dprintf("hashed %s [%s] (%u symbols)\n",
+	dt_dprintf("hashed %s [%s] (%u symbols)",
 	    dmp->dm_name, dmp->dm_symtab.cts_name, dmp->dm_symfree - 1);
 
 	if ((dmp->dm_asmap = malloc(sizeof (void *) * dmp->dm_asrsv)) == NULL) {
@@ -1078,7 +1077,7 @@ dt_module_load(dtrace_hdl_t *dtp, dt_module_t *dmp)
 
 	dmp->dm_ops->do_symsort(dmp);
 
-	dt_dprintf("sorted %s [%s] (%u symbols)\n",
+	dt_dprintf("sorted %s [%s] (%u symbols)",
 	    dmp->dm_name, dmp->dm_symtab.cts_name, dmp->dm_aslen);
 
 	dmp->dm_flags |= DT_DM_LOADED;
@@ -1137,7 +1136,7 @@ dt_module_getctf(dtrace_hdl_t *dtp, dt_module_t *dmp)
 		}
 	}
 
-	dt_dprintf("loaded CTF container for %s (%p)\n",
+	dt_dprintf("loaded CTF container for %s (%p)",
 	    dmp->dm_name, (void *)dmp->dm_ctfp);
 
 	return (dmp->dm_ctfp);
@@ -1152,6 +1151,7 @@ err:
 void
 dt_module_unload(dtrace_hdl_t *dtp, dt_module_t *dmp)
 {
+#pragma unused(dtp)
 	ctf_close(dmp->dm_ctfp);
 	dmp->dm_ctfp = NULL;
 
@@ -1280,7 +1280,7 @@ static void
 dt_module_update(dtrace_hdl_t *dtp, const char *name)
 {
 	char fname[MAXPATHLEN];
-	struct stat64 st;
+	struct stat st;
 	int fd, err, bits;
 
 	dt_module_t *dmp;
@@ -1301,9 +1301,9 @@ dt_module_update(dtrace_hdl_t *dtp, const char *name)
 		read_cmd = ELF_C_RDKERNTYPE;
 	}
 
-	if ((fd = open(fname, O_RDONLY)) == -1 || fstat64(fd, &st) == -1 ||
+	if ((fd = open(fname, O_RDONLY)) == -1 || fstat(fd, &st) == -1 ||
 	    (dmp = dt_module_create(dtp, name)) == NULL) {
-		dt_dprintf("failed to open %s: %s\n", fname, strerror(errno));
+		dt_dprintf("failed to open %s: %s", fname, strerror(errno));
 		(void) close(fd);
 		return;
 	}
@@ -1320,7 +1320,7 @@ dt_module_update(dtrace_hdl_t *dtp, const char *name)
 
 	if (dmp->dm_elf == NULL || err == -1 ||
 	    elf_getshstrndx(dmp->dm_elf, &shstrs) == 0) {
-		dt_dprintf("failed to load %s: %s\n",
+		dt_dprintf("failed to load %s: %s",
 		    fname, elf_errmsg(elf_errno()));
 		dt_module_destroy(dtp, dmp);
 		return;
@@ -1328,15 +1328,15 @@ dt_module_update(dtrace_hdl_t *dtp, const char *name)
 
 	switch (gelf_getclass(dmp->dm_elf)) {
 	case ELFCLASS32:
-		dmp->dm_ops = (dmp->dm_elf->ed_kind == ELF_K_MACHO ? &dt_modops_macho_32 : &dt_modops_32);
+		dmp->dm_ops = (elf_kind(dmp->dm_elf) == ELF_K_MACHO ? &dt_modops_macho_32 : &dt_modops_32);
 		bits = 32;
 		break;
 	case ELFCLASS64:
-		dmp->dm_ops = (dmp->dm_elf->ed_kind == ELF_K_MACHO ? &dt_modops_macho_64 : &dt_modops_64);
+		dmp->dm_ops = (elf_kind(dmp->dm_elf) == ELF_K_MACHO ? &dt_modops_macho_64 : &dt_modops_64);
 		bits = 64;
 		break;
 	default:
-		dt_dprintf("failed to load %s: unknown ELF class\n", fname);
+		dt_dprintf("failed to load %s: unknown ELF class", fname);
 		dt_module_destroy(dtp, dmp);
 		return;
 	}
@@ -1376,7 +1376,7 @@ dt_module_update(dtrace_hdl_t *dtp, const char *name)
 	if (dmp->dm_info.objfs_info_primary)
 		dmp->dm_flags |= DT_DM_PRIMARY;
 
-	dt_dprintf("opened %d-bit module %s (%s) [%d]\n",
+	dt_dprintf("opened %d-bit module %s (%s) [%d]",
 	    bits, dmp->dm_name, dmp->dm_file, dmp->dm_modid);
 }
 
@@ -1388,7 +1388,6 @@ void
 dtrace_update(dtrace_hdl_t *dtp)
 {
 	dt_module_t *dmp;
-	DIR *dirp;
 
 	for (dmp = dt_list_next(&dtp->dt_modlist);
 	    dmp != NULL; dmp = dt_list_next(dmp))

@@ -51,6 +51,7 @@
     [ -<strong>C</strong> <var>cookie-name</var>=<var>value</var> ]
     [ -<strong>d</strong> ]
     [ -<strong>e</strong> <var>csv-file</var> ]
+    [ -<strong>E</strong> <var>client-certificate file</var> ]
     [ -<strong>f</strong> <var>protocol</var> ]
     [ -<strong>g</strong> <var>gnuplot-file</var> ]
     [ -<strong>h</strong> ]
@@ -112,6 +113,12 @@
     percentage (from 1% to 100%) the time (in milliseconds) it took to serve
     that percentage of the requests. This is usually more useful than the
     'gnuplot' file; as the results are already 'binned'.</dd>
+
+    <dt><code>-E <var>client-certificate-file</var></code></dt>
+    <dd>When connecting to an SSL website, use the provided client certificate
+    in PEM format to authenticate with the server. The file is expected to
+    contain the client certificate, followed by intermediate certificates,
+    followed by the private key. Available in 2.4.36 and later.</dd>
 
     <dt><code>-f <var>protocol</var></code></dt>
     <dd>Specify SSL/TLS protocol (SSL2, SSL3, TLS1, TLS1.1, TLS1.2, or ALL).
@@ -344,7 +351,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/programs/ab.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2018 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2019 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

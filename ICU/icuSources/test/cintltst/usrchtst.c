@@ -2775,6 +2775,25 @@ static const PatternAndOffsets scJaSrchPatternsOffsets[] = {
     { NULL,      NULL,           0,                           NULL }
 };
 
+static const UChar scFaText[] = { // Apple <rdar://problem/34998959>
+/*00*/ 0x064A,0x0627,0x0649,0x0627,0x06CC,0x0627,
+/*06*/ 0
+};
+
+// Any of the following should match any of the others for fa search, primary strength
+static const UChar scFaPat1[] = { 0x064A,0 };
+static const UChar scFaPat2[] = { 0x0649,0 };
+static const UChar scFaPat3[] = { 0x06CC,0 };
+
+static const int32_t scFaSrchOff[]  = { 0, 2, 4 };
+
+static const PatternAndOffsets scFaSrchPatternsOffsets[] = {
+    { scFaPat1, scFaSrchOff,   UPRV_LENGTHOF(scFaSrchOff), NULL },
+    { scFaPat2, scFaSrchOff,   UPRV_LENGTHOF(scFaSrchOff), NULL },
+    { scFaPat3, scFaSrchOff,   UPRV_LENGTHOF(scFaSrchOff), NULL },
+    { NULL,     NULL,          0,                          NULL }
+};
+
 static const UChar scModsText[] = {
 /*00*/ 0x0020,0xD83D,0xDC4D,
 /*03*/ 0x0020,0xD83D,0xDC4D,0xD83C,0xDFFC,
@@ -2832,6 +2851,7 @@ static const TUSCItem tuscItems[] = {
     { "root@collation=search;colStrength=primary", scJaText, scJaSrchPatternsOffsets },
     { "ja@colStrength=primary",                    scJaText, scJaStndPatternsOffsets },
     { "ja@collation=search;colStrength=primary",   scJaText, scJaSrchPatternsOffsets },
+    { "fa@collation=search;colStrength=primary",   scFaText, scFaSrchPatternsOffsets }, // Apple <rdar://problem/34998959>
     { "root@collation=search;colStrength=primary", scModsText, scModsPatternsOffsets },
     { "root@collation=search;colStrength=primary", scFlagText, scFlagPatternsOffsets },
     { NULL,                    NULL,     NULL                    }

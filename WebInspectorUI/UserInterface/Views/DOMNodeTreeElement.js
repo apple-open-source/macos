@@ -46,11 +46,7 @@ WI.DOMNodeTreeElement = class DOMNodeTreeElement extends WI.GeneralTreeElement
         this.__deletedViaDeleteKeyboardShortcut = true;
 
         WI.domDebuggerManager.removeDOMBreakpointsForNode(this.representedObject);
-
-        for (let treeElement of this.children) {
-            if (treeElement instanceof WI.EventBreakpointTreeElement)
-                treeElement.ondelete();
-        }
+        WI.domManager.removeEventListenerBreakpointsForNode(this.representedObject);
 
         return true;
     }
@@ -59,13 +55,11 @@ WI.DOMNodeTreeElement = class DOMNodeTreeElement extends WI.GeneralTreeElement
     {
         contextMenu.appendSeparator();
 
-        WI.appendContextMenuItemsForDOMNodeBreakpoints(contextMenu, this.representedObject, {
-            allowEditing: true,
-        });
+        WI.appendContextMenuItemsForDOMNodeBreakpoints(contextMenu, this.representedObject);
 
         contextMenu.appendSeparator();
 
-        contextMenu.appendItem(WI.UIString("Reveal in DOM Tree"), () => {
+        contextMenu.appendItem(WI.repeatedUIString.revealInDOMTree(), () => {
             WI.domManager.inspectElement(this.representedObject.id);
         });
     }

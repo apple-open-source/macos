@@ -1,4 +1,4 @@
-#compdef ftp rwho rup xping traceroute host aaaa zone mx ns soa txt
+#compdef ftp rwho rup xping traceroute aaaa zone mx ns soa txt
 
 # avoid calling variable "hosts", it's an obvious candidate for use in
 #  zstyle -e '*' hosts 'reply=($hosts)'
@@ -50,12 +50,13 @@ if ! zstyle -a ":completion:${curcontext}:hosts" hosts _hosts; then
         # entries.
         () {
           local host
+          local -a match mbegin mend
           khosts=()
           for host; do
             if [[ $host == *[*?]* ]]; then
               continue
-            elif [[ $host =~ "\[(.*)\]:\d*" ]]; then
-              khosts+=$match
+            elif [[ $host = (#b)*\[(*)\]:[[:digit:]]#* ]]; then
+              khosts+=${match[1]}
             else
               khosts+=$host
             fi

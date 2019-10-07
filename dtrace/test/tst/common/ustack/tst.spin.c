@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.spin.c	1.1	06/08/28 SMI"
-
 #include <unistd.h>
 #include <stdint.h>
 

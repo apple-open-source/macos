@@ -4,5 +4,9 @@
 <dict>
 	<key>com.apple.private.powersource-read</key>
 	<true/>
+	<key>com.apple.private.tcc.allow</key>
+	<array>
+		<string>kTCCServiceListenEvent</string>
+	</array>
 </dict>
 </plist>

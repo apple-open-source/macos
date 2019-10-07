@@ -32,11 +32,11 @@ int fork_program(const char * argv0, char * const argv[], Boolean wait)
                                                     IOPOL_SCOPE_PROCESS);
     char ** environ = *(_NSGetEnviron());
 
-#if 0 // spew program and arguments we are forking... 
+#if 0 // spew program and arguments we are forking...
     if (argv0) {
         int i;
         int commandLen = 0;
-        
+
         OSKextLog(NULL,
                   kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
                   "Forking: %s",
@@ -113,6 +113,6 @@ int fork_program(const char * argv0, char * const argv[], Boolean wait)
 
 finish:
     setiopolicy_np(IOPOL_TYPE_DISK, IOPOL_SCOPE_PROCESS, normal_iopolicy);
-    
+
     return result;
 }

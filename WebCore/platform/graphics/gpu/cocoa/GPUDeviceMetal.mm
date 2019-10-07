@@ -28,33 +28,70 @@
 
 #if ENABLE(WEBGPU)
 
+#import "GPURequestAdapterOptions.h"
 #import "Logging.h"
 
 #import <Metal/Metal.h>
+#import <pal/spi/cocoa/MetalSPI.h>
 #import <wtf/BlockObjCExceptions.h>
 
 namespace WebCore {
 
-RefPtr<GPUDevice> GPUDevice::create()
+static bool isAcceptableDevice(id <MTLDevice> device)
 {
-    PlatformDeviceSmartPtr device;
+#if USE(INTEL_METAL_WORKAROUND)
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    if ([[static_cast<id <MTLDeviceSPI>>(device) vendorName] isEqualToString:@"Intel(R)"] && [[static_cast<id <MTLDeviceSPI>>(device) familyName] isEqualToString:@"Iris(TM) Graphics"])
+        return false;
+    return true;
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return false;
+#else
+    UNUSED_PARAM(device);
+    return true;
+#endif
+}
+
+RefPtr<GPUDevice> GPUDevice::tryCreate(const Optional<GPURequestAdapterOptions>& options)
+{
+    RetainPtr<MTLDevice> devicePtr;
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    
+#if PLATFORM(MAC)
+    if (options && options->powerPreference == GPUPowerPreference::LowPower) {
+        auto devices = adoptNS(MTLCopyAllDevices());
+        
+        for (id <MTLDevice> device : devices.get()) {
+            if (!isAcceptableDevice(device))
+                continue;
+            if (device.lowPower) {
+                devicePtr = device;
+                break;
+            }
+        }
+    }
+#else
+    UNUSED_PARAM(options);
+#endif // PLATFORM(MAC)
+    if (!devicePtr)
+        devicePtr = adoptNS(MTLCreateSystemDefaultDevice());
 
-    device = adoptNS(MTLCreateSystemDefaultDevice()); // FIXME: Take WebGPUPowerPreference into account.
+    if (!isAcceptableDevice(devicePtr.get()))
+        devicePtr.clear();
 
     END_BLOCK_OBJC_EXCEPTIONS;
 
-    if (!device) {
+    if (!devicePtr) {
         LOG(WebGPU, "GPUDevice::GPUDevice(): Unable to create GPUDevice!");
         return nullptr;
     }
 
-    LOG(WebGPU, "GPUDevice::GPUDevice(): MTLDevice is %p", device.get());
-    return adoptRef(new GPUDevice(WTFMove(device)));
+    LOG(WebGPU, "GPUDevice::GPUDevice(): MTLDevice is %p", devicePtr.get());
+    return adoptRef(new GPUDevice(WTFMove(devicePtr)));
 }
 
-GPUDevice::GPUDevice(PlatformDeviceSmartPtr&& device)
+GPUDevice::GPUDevice(RetainPtr<MTLDevice>&& device)
     : m_platformDevice(WTFMove(device))
 {
 }

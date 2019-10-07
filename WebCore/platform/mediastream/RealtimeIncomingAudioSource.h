@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,7 +45,10 @@ ALLOW_UNUSED_PARAMETERS_END
 
 namespace WebCore {
 
-class RealtimeIncomingAudioSource : public RealtimeMediaSource, private webrtc::AudioTrackSinkInterface {
+class RealtimeIncomingAudioSource
+    : public RealtimeMediaSource
+    , private webrtc::AudioTrackSinkInterface
+{
 public:
     static Ref<RealtimeIncomingAudioSource> create(rtc::scoped_refptr<webrtc::AudioTrackInterface>&&, String&&);
 
@@ -54,6 +57,10 @@ public:
 protected:
     RealtimeIncomingAudioSource(rtc::scoped_refptr<webrtc::AudioTrackInterface>&&, String&&);
     ~RealtimeIncomingAudioSource();
+
+#if !RELEASE_LOG_DISABLED
+    const char* logClassName() const final { return "RealtimeIncomingAudioSource"; }
+#endif
 
 private:
     // webrtc::AudioTrackSinkInterface API
@@ -70,6 +77,11 @@ private:
 
     RealtimeMediaSourceSettings m_currentSettings;
     rtc::scoped_refptr<webrtc::AudioTrackInterface> m_audioTrack;
+
+#if !RELEASE_LOG_DISABLED
+    mutable RefPtr<const Logger> m_logger;
+    const void* m_logIdentifier;
+#endif
 };
 
 } // namespace WebCore

@@ -40,8 +40,6 @@
 
 __BEGIN_DECLS
 
-void	cache_close		(void);
-
 void	do_block		(int argc, char **argv);
 
 void	do_list			(int argc, char **argv);

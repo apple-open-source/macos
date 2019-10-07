@@ -11,7 +11,7 @@ endif
 
 DSTROOT ?= /tmp
 
-SUBPROJECTS = mount_nfs nfs_fs nfsiod nfsstat showmount files
+SUBPROJECTS = mount_nfs nfs_fs nfsiod nfsstat showmount fpnfsd files
 
 ifneq "$(RC_TARGET_CONFIG)" "iPhone"
 SUBPROJECTS += nfsd rpc.lockd rpc.statd rpc.rquotad ncctl nfs4mapid nfs_acl

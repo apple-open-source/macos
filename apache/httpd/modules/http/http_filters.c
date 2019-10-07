@@ -1290,6 +1290,7 @@ AP_CORE_DECLARE_NONSTD(apr_status_t) ap_http_header_filter(ap_filter_t *f,
     request_rec *r = f->r;
     conn_rec *c = r->connection;
     const char *clheader;
+    int header_only = (r->header_only || AP_STATUS_IS_HEADER_ONLY(r->status));
     const char *protocol = NULL;
     apr_bucket *e;
     apr_bucket_brigade *b2;
@@ -1307,9 +1308,20 @@ AP_CORE_DECLARE_NONSTD(apr_status_t) ap_http_header_filter(ap_filter_t *f,
     }
     else if (ctx->headers_sent) {
         /* Eat body if response must not have one. */
-        if (r->header_only || r->status == HTTP_NO_CONTENT) {
+        if (header_only) {
+            /* Still next filters may be waiting for EOS, so pass it (alone)
+             * when encountered and be done with this filter.
+             */
+            e = APR_BRIGADE_LAST(b);
+            if (e != APR_BRIGADE_SENTINEL(b) && APR_BUCKET_IS_EOS(e)) {
+                APR_BUCKET_REMOVE(e);
+                apr_brigade_cleanup(b);
+                APR_BRIGADE_INSERT_HEAD(b, e);
+                ap_remove_output_filter(f);
+                rv = ap_pass_brigade(f->next, b);
+            }
             apr_brigade_cleanup(b);
-            return APR_SUCCESS;
+            return rv;
         }
     }
 
@@ -1412,12 +1424,15 @@ AP_CORE_DECLARE_NONSTD(apr_status_t) ap_http_header_filter(ap_filter_t *f,
     basic_http_header_check(r, &protocol);
     ap_set_keepalive(r);
 
-    if (r->chunked) {
-        apr_table_mergen(r->headers_out, "Transfer-Encoding", "chunked");
+    if (AP_STATUS_IS_HEADER_ONLY(r->status)) {
+        apr_table_unset(r->headers_out, "Transfer-Encoding");
         apr_table_unset(r->headers_out, "Content-Length");
+        r->content_type = r->content_encoding = NULL;
+        r->content_languages = NULL;
+        r->clength = r->chunked = 0;
     }
-
-    if (r->status == HTTP_NO_CONTENT) {
+    else if (r->chunked) {
+        apr_table_mergen(r->headers_out, "Transfer-Encoding", "chunked");
         apr_table_unset(r->headers_out, "Content-Length");
     }
 
@@ -1508,14 +1523,21 @@ AP_CORE_DECLARE_NONSTD(apr_status_t) ap_http_header_filter(ap_filter_t *f,
 
     terminate_header(b2);
 
-    rv = ap_pass_brigade(f->next, b2);
-    if (rv != APR_SUCCESS) {
-        goto out;
+    if (header_only) {
+        e = APR_BRIGADE_LAST(b);
+        if (e != APR_BRIGADE_SENTINEL(b) && APR_BUCKET_IS_EOS(e)) {
+            APR_BUCKET_REMOVE(e);
+            APR_BRIGADE_INSERT_TAIL(b2, e);
+            ap_remove_output_filter(f);
+        }
+        apr_brigade_cleanup(b);
     }
+
+    rv = ap_pass_brigade(f->next, b2);
+    apr_brigade_cleanup(b2);
     ctx->headers_sent = 1;
 
-    if (r->header_only || r->status == HTTP_NO_CONTENT) {
-        apr_brigade_cleanup(b);
+    if (rv != APR_SUCCESS || header_only) {
         goto out;
     }
 

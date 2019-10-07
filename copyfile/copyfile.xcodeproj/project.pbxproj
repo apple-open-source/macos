@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		098AF3B622692BF300F9BA42 /* stat_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 098AF3B522692BF300F9BA42 /* stat_test.c */; };
 		721D4F071EA95283000F0555 /* copyfile.c in Sources */ = {isa = PBXBuildFile; fileRef = FCCE17C1135A658F002CEE6D /* copyfile.c */; };
 		721D4F081EA95290000F0555 /* xattr_flags.c in Sources */ = {isa = PBXBuildFile; fileRef = 72406E621676C3C80099568B /* xattr_flags.c */; };
 		72406E631676C3C80099568B /* xattr_flags.c in Sources */ = {isa = PBXBuildFile; fileRef = 72406E621676C3C80099568B /* xattr_flags.c */; };
@@ -34,6 +35,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		098AF3B422692BF300F9BA42 /* stat_test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = stat_test.h; sourceTree = "<group>"; };
+		098AF3B522692BF300F9BA42 /* stat_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = stat_test.c; sourceTree = "<group>"; };
+		098AF3B7226A510E00F9BA42 /* copyfile_test.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = copyfile_test.entitlements; sourceTree = "<group>"; };
 		3F1EFD4C185C4EB400D1C970 /* copyfile.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = copyfile.xcconfig; path = xcodescripts/copyfile.xcconfig; sourceTree = "<group>"; };
 		721D4F051EA95008000F0555 /* libcopyfile.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libcopyfile.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/usr/lib/system/libcopyfile.tbd; sourceTree = DEVELOPER_DIR; };
 		72406E621676C3C80099568B /* xattr_flags.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xattr_flags.c; sourceTree = "<group>"; };
@@ -87,10 +91,13 @@
 				726EE9DA1E9423E50017A5B9 /* main.c */,
 				726EE9DE1E9425160017A5B9 /* sparse_test.c */,
 				726EE9DF1E9425160017A5B9 /* sparse_test.h */,
+				098AF3B522692BF300F9BA42 /* stat_test.c */,
+				098AF3B422692BF300F9BA42 /* stat_test.h */,
 				726EE9E51E946D590017A5B9 /* test_utils.c */,
 				726EE9E11E9427B40017A5B9 /* test_utils.h */,
 				726EE9E21E946B320017A5B9 /* systemx.c */,
 				726EE9E31E946B320017A5B9 /* systemx.h */,
+				098AF3B7226A510E00F9BA42 /* copyfile_test.entitlements */,
 			);
 			path = copyfile_test;
 			sourceTree = "<group>";
@@ -229,6 +236,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				098AF3B622692BF300F9BA42 /* stat_test.c in Sources */,
 				721D4F081EA95290000F0555 /* xattr_flags.c in Sources */,
 				721D4F071EA95283000F0555 /* copyfile.c in Sources */,
 				726EE9DB1E9423E50017A5B9 /* main.c in Sources */,
@@ -272,6 +280,7 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = copyfile_test/copyfile_test.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";

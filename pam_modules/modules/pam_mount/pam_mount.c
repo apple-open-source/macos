@@ -2,14 +2,14 @@
  * Copyright (c) 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,9 +17,10 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
+
 
 #include <security/pam_appl.h>
 #include <security/pam_modules.h>
@@ -38,8 +39,6 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <OpenDirectory/OpenDirectory.h>
 #include <NetFS/URLMount.h>
-#include <DiskImages/DIHLFileVaultInterface.h>
-#include <DiskImages/DIFrameworkUtilities.h>
 
 #include "Common.h"
 
@@ -113,7 +112,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	}
 
 	/* get the server_URL, path and homedir from OD */
-	if (PAM_SUCCESS != (retval = od_extract_home(pamh, username, &server_URL, &path, &homedir))) {		
+	if (PAM_SUCCESS != (retval = od_extract_home(pamh, username, &server_URL, &path, &homedir))) {
 		openpam_log(PAM_LOG_ERROR, "Error retrieve data from OpenDirectory: %s", pam_strerror(pamh, retval));
 		goto fin;
 	}
@@ -124,6 +123,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	openpam_log(PAM_LOG_DEBUG, "       homedir: %s", homedir);
 	openpam_log(PAM_LOG_DEBUG, "      username: %s", username);
 	//openpam_log(PAM_LOG_DEBUG, " authenticator: %s", authenticator);  // We don't want to log user's passwords.
+
 
 	/* determine if we need to mount the home folder */
 	// this triggers the automounting for nfs
@@ -168,28 +168,6 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 				path = NULL;
 			}
 		}
-		// for a FileVault home folder
-		if (NULL == path && NULL != homedir) {
-			CFStringRef password = CFStringCreateWithCString(NULL, authenticator, kCFStringEncodingUTF8);
-			CFStringRef url = CFStringCreateWithCString(NULL, server_URL, kCFStringEncodingUTF8);
-			CFURLRef dmgin = CFURLCreateWithString(NULL, url, NULL);
-			CFStringRef mountpoint = CFStringCreateWithCString(NULL, homedir, kCFStringEncodingUTF8);
-			CFStringRef devicepath = NULL;
-			CFStringRef mountpath = NULL;
-
-			if (0 != DIHLFVMount(dmgin, kDIHLFVCredUserPasswordType, password, mountpoint, NULL, NULL, NULL, &mountpath, &devicepath)) {
-				openpam_log(PAM_LOG_ERROR, "Unable to mount the FileVault home folder.");
-				retval = PAM_SESSION_ERR;
-			}
-			else {
-				openpam_log(PAM_LOG_DEBUG, "Mounted FileVault home folder.");
-				pam_set_data(pamh, "devicepath", (void *)devicepath, pam_cf_cleanup);
-			}
-			CFRelease(url);			
-			CFRelease(password);
-			CFRelease(dmgin);
-			CFRelease(mountpoint);
-		}
 	}
 	else {
 		// skip unmount for local homes
@@ -216,16 +194,12 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	char *server_URL = NULL;
 	char *path = NULL;
 	char *homedir = NULL;
-	CFStringRef devicepath = NULL;
 	struct passwd *pwd = NULL;
 	struct passwd pwdbuf;
 	char pwbuffer[2 * PATH_MAX];
 	CFStringRef cfhomedir = NULL;
 	CFURLRef home_url = NULL;
-	DASessionRef dasession = NULL;
-	DADiskRef da = NULL;
-	const char *devnode = NULL;
-	
+
 	/* get the username */
 	retval = pam_get_user(pamh, &username, NULL);
 	if (retval != PAM_SUCCESS) {
@@ -247,18 +221,6 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		}
 	}
 	endutxent();
-
-	/* try to retrieve the cached devicepath */
-	if (PAM_SUCCESS != pam_get_data(pamh, "devicepath", (void *)&devicepath)) {
-		openpam_log(PAM_LOG_DEBUG, "No cached devicepath in the PAM context.");
-	}
-	if (NULL != devicepath) {
-		if (NULL == (devicepath = CFStringCreateCopy(kCFAllocatorDefault, devicepath))) {
-			openpam_log(PAM_LOG_ERROR, "Failed to duplicate the devicepath.");
-			retval = PAM_BUF_ERR;
-			goto fin;
-		}
-	}
 
 	/* try to retrieve the cached homedir */
 	if (PAM_SUCCESS != pam_get_data(pamh, "homedir", (void *)&homedir)) {
@@ -291,28 +253,15 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	}
 
 	/* get the homedir and path or devicepath if needed */
-	if ((NULL == homedir || NULL == path) && NULL == devicepath) {
+	if (NULL == homedir || NULL == path) {
 		if (PAM_SUCCESS != (retval = od_extract_home(pamh, username, &server_URL, &path, &homedir))) {
 			openpam_log(PAM_LOG_ERROR, "Error retrieve data from OpenDirectory: %s", pam_strerror(pamh, retval));
 			goto fin;
 		}
-		if (NULL != server_URL && NULL == path && NULL != homedir) {
-			openpam_log(PAM_LOG_DEBUG, "Constructing the FileVault home path.");
-			if ((NULL == (cfhomedir = CFStringCreateWithCString(kCFAllocatorDefault, homedir, kCFStringEncodingUTF8))) ||
-				(NULL == (home_url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, cfhomedir, kCFURLPOSIXPathStyle, true))) ||
-				(NULL == (dasession = DASessionCreate(kCFAllocatorDefault))) ||
-				(NULL == (da = DADiskCreateFromVolumePath(kCFAllocatorDefault, dasession, home_url))) ||
-				(NULL == (devnode = DADiskGetBSDName(da))) ||
-				(NULL == (devicepath = CFStringCreateWithCString(kCFAllocatorDefault, devnode, kCFStringEncodingUTF8)))) {
-				openpam_log(PAM_LOG_ERROR, "Unable to to construct the FileVault home path.");
-				retval = PAM_SYSTEM_ERR;
-				goto fin;
-			}
-		}
 	}
 
 	/* attempt to unmount the home folder */
-	if (NULL == devicepath && NULL != homedir && NULL != path) {
+	if (NULL != homedir && NULL != path) {
 		// not FileVault
 		if (0 != getpwnam_r(username, &pwdbuf, pwbuffer, sizeof(pwbuffer), &pwd) || NULL == pwd) {
 			openpam_log(PAM_LOG_ERROR, "Unknown user \"%s\".", username);
@@ -325,16 +274,6 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 		}
 		else {
 			openpam_log(PAM_LOG_DEBUG, "Unmounted home folder.");
-		}
-	}
-	else if (NULL != devicepath && NULL != homedir && NULL == path) {
-		// FileVault
-		if (0 != (retval = DIHLFVUnmount(devicepath, kDIHLFVUnmountNormally, kDIHLFVUnmountNoTimeout))) {
-			openpam_log(PAM_LOG_DEBUG, "Unable to unmount the FileVault home folder: %s.", DIStrError(retval));
-			retval = PAM_IGNORE;
-		}
-		else {
-			openpam_log(PAM_LOG_DEBUG, "Unmounted FileVault home folder.");
 		}
 	}
 	else {
@@ -352,12 +291,6 @@ fin:
 		CFRelease(home_url);
 	if (cfhomedir)
 		CFRelease(cfhomedir);
-	if (dasession)
-		CFRelease(dasession);
-	if (da)
-		CFRelease(da);
-	if (devicepath)
-		CFRelease(devicepath);
 
 	return retval;
 }

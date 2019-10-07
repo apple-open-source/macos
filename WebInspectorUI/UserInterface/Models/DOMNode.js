@@ -56,6 +56,17 @@ WI.DOMNode = class DOMNode extends WI.Object
         else
             this.ownerDocument = doc;
 
+        this._frame = null;
+
+        // COMPATIBILITY (iOS 12.2): DOM.Node.frameId was changed to represent the owner frame, not the content frame.
+        if (InspectorBackend.domains.Timeline && !InspectorBackend.domains.Timeline.hasEvent("programmaticCaptureStarted")) {
+            if (payload.frameId)
+                this._frame = WI.networkManager.frameForIdentifier(payload.frameId);
+        }
+
+        if (!this._frame && this.ownerDocument)
+            this._frame = WI.networkManager.frameForIdentifier(this.ownerDocument.frameIdentifier);
+
         this._attributes = [];
         this._attributesMap = new Map;
         if (payload.attributes)
@@ -116,9 +127,6 @@ WI.DOMNode = class DOMNode extends WI.Object
             this._renumber();
         }
 
-        if (payload.frameId)
-            this._frameIdentifier = payload.frameId;
-
         if (this._nodeType === Node.ELEMENT_NODE) {
             // HTML and BODY from internal iframes should not overwrite top-level ones.
             if (this.ownerDocument && !this.ownerDocument.documentElement && this._nodeName === "HTML")
@@ -139,7 +147,7 @@ WI.DOMNode = class DOMNode extends WI.Object
         }
 
         this._domEvents = [];
-        this._lowPowerRanges = [];
+        this._powerEfficientPlaybackRanges = [];
 
         if (this._shouldListenForEventListeners())
             WI.DOMNode.addEventListener(WI.DOMNode.Event.DidFireEvent, this._handleDOMNodeDidFireEvent, this);
@@ -156,21 +164,39 @@ WI.DOMNode = class DOMNode extends WI.Object
         }, []);
     }
 
-    // Public
-
-    get domEvents() { return this._domEvents; }
-    get lowPowerRanges() { return this._lowPowerRanges; }
-
-    get frameIdentifier()
+    static isPlayEvent(eventName)
     {
-        return this._frameIdentifier || this.ownerDocument.frameIdentifier;
+        return eventName === "play"
+            || eventName === "playing";
     }
 
-    get frame()
+    static isPauseEvent(eventName)
     {
-        if (!this._frame)
-            this._frame = WI.networkManager.frameForIdentifier(this.frameIdentifier);
-        return this._frame;
+        return eventName === "pause"
+            || eventName === "stall";
+    }
+
+    static isStopEvent(eventName)
+    {
+        return eventName === "emptied"
+            || eventName === "ended"
+            || eventName === "suspend";
+    }
+
+
+    // Public
+
+    get frame() { return this._frame; }
+    get domEvents() { return this._domEvents; }
+    get powerEfficientPlaybackRanges() { return this._powerEfficientPlaybackRanges; }
+
+    get attached()
+    {
+        for (let node = this; node; node = node.parentNode) {
+            if (node.ownerDocument === node)
+                return true;
+        }
+        return false;
     }
 
     get children()
@@ -558,6 +584,7 @@ WI.DOMNode = class DOMNode extends WI.Object
 
     getEventListeners(callback)
     {
+        console.assert(WI.domManager.inspectedNode === this);
         DOMAgent.getEventListenersForNode(this.id, callback);
     }
 
@@ -730,30 +757,30 @@ WI.DOMNode = class DOMNode extends WI.Object
         });
     }
 
-    videoLowPowerChanged(timestamp, isLowPower)
+    powerEfficientPlaybackStateChanged(timestamp, isPowerEfficient)
     {
         // Called from WI.DOMManager.
 
-        console.assert(this.canEnterLowPowerMode());
+        console.assert(this.canEnterPowerEfficientPlaybackState());
 
-        let lastValue = this._lowPowerRanges.lastValue;
+        let lastValue = this._powerEfficientPlaybackRanges.lastValue;
 
-        if (isLowPower) {
+        if (isPowerEfficient) {
             console.assert(!lastValue || lastValue.endTimestamp);
             if (!lastValue || lastValue.endTimestamp)
-                this._lowPowerRanges.push({startTimestamp: timestamp});
+                this._powerEfficientPlaybackRanges.push({startTimestamp: timestamp});
         } else {
             console.assert(!lastValue || lastValue.startTimestamp);
             if (!lastValue)
-                this._lowPowerRanges.push({endTimestamp: timestamp});
+                this._powerEfficientPlaybackRanges.push({endTimestamp: timestamp});
             else if (lastValue.startTimestamp)
                 lastValue.endTimestamp = timestamp;
         }
 
-        this.dispatchEventToListeners(WI.DOMNode.Event.LowPowerChanged, {isLowPower, timestamp});
+        this.dispatchEventToListeners(DOMNode.Event.PowerEfficientPlaybackStateChanged, {isPowerEfficient, timestamp});
     }
 
-    canEnterLowPowerMode()
+    canEnterPowerEfficientPlaybackState()
     {
         return this.localName() === "video" || this.nodeName().toLowerCase() === "video";
     }
@@ -930,7 +957,7 @@ WI.DOMNode.Event = {
     AttributeRemoved: "dom-node-attribute-removed",
     EventListenersChanged: "dom-node-event-listeners-changed",
     DidFireEvent: "dom-node-did-fire-event",
-    LowPowerChanged: "dom-node-video-low-power-changed",
+    PowerEfficientPlaybackStateChanged: "dom-node-power-efficient-playback-state-changed",
 };
 
 WI.DOMNode.PseudoElementType = {

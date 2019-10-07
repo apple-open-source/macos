@@ -51,7 +51,10 @@ static void debug_chnsecal_msg(const char *pat, ...)
 
 
 // --- The cache --
-static UMutex astroLock = U_MUTEX_INITIALIZER;  // Protects access to gChineseCalendarAstro.
+static icu::UMutex *astroLock() {  // Protects access to gChineseCalendarAstro.
+    static icu::UMutex *m = STATIC_NEW(icu::UMutex);
+    return m;
+}
 static icu::CalendarAstronomer *gChineseCalendarAstro = NULL;
 
 // Lazy Creation & Access synchronized by class CalendarCache with a mutex.
@@ -565,14 +568,14 @@ int32_t ChineseCalendar::winterSolstice(int32_t gyear) const {
         // PST 1298 with a final result of Dec 14 10:31:59 PST 1299.
         double ms = daysToMillis(Grego::fieldsToDay(gyear, UCAL_DECEMBER, 1));
 
-        umtx_lock(&astroLock);
+        umtx_lock(astroLock());
         if(gChineseCalendarAstro == NULL) {
             gChineseCalendarAstro = new CalendarAstronomer();
             ucln_i18n_registerCleanup(UCLN_I18N_CHINESE_CALENDAR, calendar_chinese_cleanup);
         }
         gChineseCalendarAstro->setTime(ms);
         UDate solarLong = gChineseCalendarAstro->getSunTime(CalendarAstronomer::WINTER_SOLSTICE(), TRUE);
-        umtx_unlock(&astroLock);
+        umtx_unlock(astroLock());
 
         // Winter solstice is 270 degrees solar longitude aka Dongzhi
         cacheValue = (int32_t)millisToDays(solarLong);
@@ -602,16 +605,16 @@ int32_t ChineseCalendar::newMoonNear(double days, UBool after) const {
     // we are out of its range and need to use the full machinery.
     UDate newMoon = CalendarAstronomer::getNewMoonTimeInRange(ms, after);
     if (newMoon == 0.0) {
-        umtx_lock(&astroLock);
+        umtx_lock(astroLock());
         if(gChineseCalendarAstro == NULL) {
             gChineseCalendarAstro = new CalendarAstronomer();
             ucln_i18n_registerCleanup(UCLN_I18N_CHINESE_CALENDAR, calendar_chinese_cleanup);
         }
         gChineseCalendarAstro->setTime(ms);
         newMoon = gChineseCalendarAstro->getMoonTime(CalendarAstronomer::NEW_MOON(), after);
-        umtx_unlock(&astroLock);
+        umtx_unlock(astroLock());
     }
-    
+
     return (int32_t) millisToDays(newMoon);
 }
 

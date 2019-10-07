@@ -28,6 +28,7 @@
 
 #import <AssertMacros.h>
 #import <Foundation/Foundation.h>
+#import <Foundation/NSData_Private.h>
 
 #import "CKKSSIV.h"
 
@@ -145,6 +146,27 @@
     return [[self wrappedData] base64EncodedStringWithOptions:0];
 }
 
++ (BOOL)supportsSecureCoding {
+    return YES;
+}
+
+- (void)encodeWithCoder:(nonnull NSCoder *)coder {
+    [coder encodeBytes:self->key length:self->size forKey:@"wrappedkey"];
+}
+
+- (nullable instancetype)initWithCoder:(nonnull NSCoder *)decoder {
+    self = [super init];
+    if (self) {
+        NSUInteger len = 0;
+        const uint8_t * bytes = [decoder decodeBytesForKey:@"wrappedkey" returnedLength:&len];
+
+        if(bytes) {
+            memcpy(self->key, bytes, (size_t) len <= CKKSWrappedKeySize ? len : CKKSWrappedKeySize);
+        }
+    }
+    return self;
+}
+
 @end
 
 @implementation CKKSAESSIVKey
@@ -177,15 +199,18 @@
     return self;
 }
 
-+ (instancetype)randomKey {
++ (instancetype _Nullable)randomKey:(NSError* __autoreleasing *)error
+{
     CKKSAESSIVKey* key = [[CKKSAESSIVKey alloc] init];
 
     CCRNGStatus status = CCRandomGenerateBytes(key->key, key->size);
     if(status != kCCSuccess) {
-        @throw [NSException
-                exceptionWithName:@"randomnessException"
-                reason:[NSString stringWithFormat: @"CCRandomGenerateBytes failed with %d", status]
-                userInfo:nil];
+        if(error) {
+            *error = [NSError errorWithDomain:@"corecrypto"
+                                         code:status
+                                  description:[NSString stringWithFormat: @"CCRandomGenerateBytes failed with %d", status]];
+        }
+        return nil;
     }
 
     return key;
@@ -196,7 +221,7 @@
     bool success = false;
 
     if(!keyToWrap) {
-        localerror = [NSError errorWithDomain:@"securityd"
+        localerror = [NSError errorWithDomain:NSOSStatusErrorDomain
                                          code:errSecParam
                                   description:@"No key given"];
         if(error) {
@@ -209,14 +234,15 @@
     uint8_t buffer[CKKSWrappedKeySize] = {};
 
     size_t ciphertextLength = ccsiv_ciphertext_size(ccaes_siv_encrypt_mode(), CKKSKeySize);
-    require_action_quiet(ciphertextLength == CKKSWrappedKeySize, out, localerror = [NSError errorWithDomain:@"securityd"
+    require_action_quiet(ciphertextLength == CKKSWrappedKeySize, out, localerror = [NSError errorWithDomain:NSOSStatusErrorDomain
                                                                                                        code:errSecParam
                                                                                                    userInfo:@{NSLocalizedDescriptionKey: @"wrapped key size does not match key size"}]);
 
     success = [self doSIV: ccaes_siv_encrypt_mode()
                     nonce: nil
-                     text: [[NSData alloc] initWithBytesNoCopy: (void*) (keyToWrap->key) length: keyToWrap->size freeWhenDone: NO]
-                   buffer: buffer bufferLength: sizeof(buffer)
+                     text: [NSData _newZeroingDataWithBytes:(void*) (keyToWrap->key) length:keyToWrap->size]
+                   buffer: buffer
+             bufferLength: sizeof(buffer)
         authenticatedData: nil
                     error: error];
     require_quiet(success, out);
@@ -238,7 +264,7 @@ out:
     uint8_t buffer[CKKSKeySize] = {};
 
     size_t plaintextLength = ccsiv_plaintext_size(ccaes_siv_decrypt_mode(), CKKSWrappedKeySize);
-    require_action_quiet(plaintextLength == CKKSKeySize, out, localerror = [NSError errorWithDomain:@"securityd"
+    require_action_quiet(plaintextLength == CKKSKeySize, out, localerror = [NSError errorWithDomain:NSOSStatusErrorDomain
                                                                                                code:errSecParam
                                                                                            userInfo:@{NSLocalizedDescriptionKey: @"unwrapped key size does not match key size"}]);
 
@@ -321,7 +347,7 @@ out:
     nonceLength = (128/8);
     if(ciphertext.length <= nonceLength) {
         if(error) {
-            *error = [NSError errorWithDomain:@"securityd"
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
                                          code:4
                                      userInfo:@{NSLocalizedDescriptionKey: @"ciphertext too short"}];
         }
@@ -361,7 +387,7 @@ out:
 
     ccsiv_ctx_decl(mode->size, ctx);
 
-    require_action_quiet(mode, out, localerror = [NSError errorWithDomain:@"securityd"
+    require_action_quiet(mode, out, localerror = [NSError errorWithDomain:NSOSStatusErrorDomain
                                                                      code:1
                                                                  userInfo:@{NSLocalizedDescriptionKey: @"no mode given"}]);
 

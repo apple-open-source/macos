@@ -56,7 +56,7 @@
                 NSInputStream *     inStream;
                 NSOutputStream *    outStream;
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
                 [NSStream getStreamsToHostWithName:remoteIP port:self.port inputStream:&inStream outputStream:&outStream];
 #else
                 [NSStream getStreamsToHost:[NSHost hostWithAddress:remoteIP] port:self.port inputStream:&inStream outputStream:&outStream];

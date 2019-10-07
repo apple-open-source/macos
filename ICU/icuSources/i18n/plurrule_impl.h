@@ -40,6 +40,10 @@ class DigitInterval;
 class PluralRules;
 class VisibleDigits;
 
+namespace pluralimpl {
+
+// TODO: Remove this and replace with u"" literals. Was for EBCDIC compatibility.
+
 static const UChar DOT = ((UChar) 0x002E);
 static const UChar SINGLE_QUOTE = ((UChar) 0x0027);
 static const UChar SLASH = ((UChar) 0x002F);
@@ -102,6 +106,7 @@ static const UChar LOW_W = ((UChar) 0x0077);
 static const UChar LOW_Y = ((UChar) 0x0079);
 static const UChar LOW_Z = ((UChar) 0x007A);
 
+}
 
 
 static const int32_t PLURAL_RANGE_HIGH = 0x7fffffff;
@@ -176,7 +181,6 @@ private:
        kRangeList,
        kSamples
     };
-
 };
 
 enum PluralOperand {
@@ -267,7 +271,6 @@ class U_I18N_API FixedDecimal: public IFixedDecimal, public UObject {
     FixedDecimal(double  n, int32_t v, int64_t f);
     FixedDecimal(double n, int32_t);
     explicit FixedDecimal(double n);
-    explicit FixedDecimal(const VisibleDigits &n);
     FixedDecimal();
     ~FixedDecimal() U_OVERRIDE;
     FixedDecimal(const UnicodeString &s, UErrorCode &ec);
@@ -307,32 +310,36 @@ public:
         NONE,
         MOD
     } RuleOp;
-    RuleOp  op;
-    int32_t opNum;           // for mod expressions, the right operand of the mod.
-    int32_t     value;       // valid for 'is' rules only.
-    UVector32   *rangeList;  // for 'in', 'within' rules. Null otherwise.
-    UBool   negated;           // TRUE for negated rules.
-    UBool   integerOnly;     // TRUE for 'within' rules.
-    tokenType digitsType;    // n | i | v | f constraint.
-    AndConstraint *next;
+    RuleOp op = AndConstraint::NONE;
+    int32_t opNum = -1;             // for mod expressions, the right operand of the mod.
+    int32_t value = -1;             // valid for 'is' rules only.
+    UVector32 *rangeList = nullptr; // for 'in', 'within' rules. Null otherwise.
+    UBool negated = FALSE;          // TRUE for negated rules.
+    UBool integerOnly = FALSE;      // TRUE for 'within' rules.
+    tokenType digitsType = none;    // n | i | v | f constraint.
+    AndConstraint *next = nullptr;
+    // Internal error status, used for errors that occur during the copy constructor.
+    UErrorCode fInternalStatus = U_ZERO_ERROR;    
 
-    AndConstraint();
+    AndConstraint() = default;
     AndConstraint(const AndConstraint& other);
     virtual ~AndConstraint();
-    AndConstraint* add();
+    AndConstraint* add(UErrorCode& status);
     // UBool isFulfilled(double number);
     UBool isFulfilled(const IFixedDecimal &number);
 };
 
 class OrConstraint : public UMemory  {
 public:
-    AndConstraint *childNode;
-    OrConstraint *next;
-    OrConstraint();
+    AndConstraint *childNode = nullptr;
+    OrConstraint *next = nullptr;
+    // Internal error status, used for errors that occur during the copy constructor.
+    UErrorCode fInternalStatus = U_ZERO_ERROR;
 
+    OrConstraint() = default;
     OrConstraint(const OrConstraint& other);
     virtual ~OrConstraint();
-    AndConstraint* add();
+    AndConstraint* add(UErrorCode& status);
     // UBool isFulfilled(double number);
     UBool isFulfilled(const IFixedDecimal &number);
 };
@@ -340,15 +347,16 @@ public:
 class RuleChain : public UMemory  {
 public:
     UnicodeString   fKeyword;
-    RuleChain      *fNext;
-    OrConstraint   *ruleHeader;
+    RuleChain      *fNext = nullptr;
+    OrConstraint   *ruleHeader = nullptr;
     UnicodeString   fDecimalSamples;  // Samples strings from rule source
     UnicodeString   fIntegerSamples;  //   without @decimal or @integer, otherwise unprocessed.
-    UBool           fDecimalSamplesUnbounded;
-    UBool           fIntegerSamplesUnbounded;
+    UBool           fDecimalSamplesUnbounded = FALSE;
+    UBool           fIntegerSamplesUnbounded = FALSE;
+    // Internal error status, used for errors that occur during the copy constructor.
+    UErrorCode      fInternalStatus = U_ZERO_ERROR;
 
-
-    RuleChain();
+    RuleChain() = default;
     RuleChain(const RuleChain& other);
     virtual ~RuleChain();
 
@@ -382,8 +390,8 @@ class U_I18N_API PluralAvailableLocalesEnumeration: public StringEnumeration {
     virtual int32_t count(UErrorCode& status) const;
   private:
     UErrorCode      fOpenStatus;
-    UResourceBundle *fLocales;
-    UResourceBundle *fRes;
+    UResourceBundle *fLocales = nullptr;
+    UResourceBundle *fRes = nullptr;
 };
 
 U_NAMESPACE_END

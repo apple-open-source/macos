@@ -53,9 +53,6 @@
  *
  */
 
-#ifndef lint
-static const char rcsid[] = "$FreeBSD$";
-#endif				/* not lint */
 
 #include <errno.h>
 #include <stdio.h>
@@ -71,8 +68,13 @@ static const char rcsid[] = "$FreeBSD$";
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/cdefs.h>
 
 #include "statd.h"
+
+#ifndef lint
+__unused static const char rcsid[] = "$FreeBSD$";
+#endif                /* not lint */
 
 #define AOK	(void *)	// assert alignment is OK
 
@@ -100,7 +102,8 @@ addrstr(struct sockaddr *saddr)
 int 
 sm_check_hostname(struct svc_req * req, char *arg)
 {
-	int len, dstlen, ret;
+    size_t len, dstlen;
+    int ret;
 	struct sockaddr *claddr;
 	char *dst;
 
@@ -170,7 +173,7 @@ sm_mon_1_svc(mon * arg, struct svc_req * req)
 	MonitoredHost *mhp;
 	Notify *np;
 	struct addrinfo *ai;
-	int namelen;
+	size_t namelen;
 
 	res.res_stat = stat_fail;	/* Assume fail until set otherwise      */
 
@@ -426,7 +429,7 @@ sm_notify_1_svc(stat_chge * arg, struct svc_req * req)
 {
 	struct timeval timeout = {20, 0};	/* 20 secs timeout		 */
 	struct timeval try = {4, 0};		/* 4 secs per try		 */
-	CLIENT *cli;
+	CLIENT *cli = NULL;
 	static char dummy;
 	char empty[] = "", *spcerr;
 	sm_status tx_arg;	/* arg sent to callback procedure	 */

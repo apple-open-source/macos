@@ -45,13 +45,11 @@ Subspace::Subspace(CString name, Heap& heap)
 
 void Subspace::initialize(HeapCellType* heapCellType, AlignedMemoryAllocator* alignedMemoryAllocator)
 {
-    m_attributes = heapCellType->attributes();
     m_heapCellType = heapCellType;
     m_alignedMemoryAllocator = alignedMemoryAllocator;
     m_directoryForEmptyAllocation = m_alignedMemoryAllocator->firstDirectory();
 
     Heap& heap = *m_space.heap();
-    PreventCollectionScope preventCollectionScope(heap);
     heap.objectSpace().m_subspaces.append(this);
     m_alignedMemoryAllocator->registerSubspace(this);
 }

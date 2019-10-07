@@ -181,6 +181,12 @@ extern const CFStringRef kSecPolicyAppleAssetReceipt
     API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0));
 extern const CFStringRef kSecPolicyAppleDeveloperIDPlusTicket
     API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0));
+extern const CFStringRef kSecPolicyAppleComponentCertificate
+    API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
+extern const CFStringRef kSecPolicyAppleKeyTransparency
+    API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
+extern const CFStringRef kSecPolicyAppleLegacySSL
+    API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
 
 /*!
 	@enum Policy Name Constants (Private)
@@ -200,6 +206,8 @@ extern const CFStringRef kSecPolicyAppleDeveloperIDPlusTicket
     @constant kSecPolicyNameAppleMapsService
     @constant kSecPolicyNameAppleHealthProviderService
     @constant kSecPolicyNameAppleParsecService
+    @constant kSecPolicyNameAppleAMPService
+    @constant kSecPolicyNameAppleSiriService
  */
 extern const CFStringRef kSecPolicyNameAppleAST2Service
     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
@@ -229,6 +237,10 @@ extern const CFStringRef kSecPolicyNameAppleHealthProviderService
     __OSX_AVAILABLE(10.13.4) __IOS_AVAILABLE(11.3) __TVOS_AVAILABLE(11.3) __WATCHOS_AVAILABLE(4.3);
 extern const CFStringRef kSecPolicyNameAppleParsecService
     __OSX_AVAILABLE(10.13.4) __IOS_AVAILABLE(11.3) __TVOS_AVAILABLE(11.3) __WATCHOS_AVAILABLE(4.3);
+extern const CFStringRef kSecPolicyNameAppleAMPService
+    API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
+extern const CFStringRef kSecPolicyNameAppleSiriService
+    API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
 
 /*!
  @enum Policy Value Constants
@@ -1751,10 +1763,65 @@ __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateAppleFDRProvisioning(void)
     API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0));
 
+/*!
+ @function SecPolicyCreateAppleComponentCertificate
+ @abstract Returns a policy object for verifying Component certs
+ @param testRootHash Optional; The SHA-256 fingerprint of a test root for pinning.
+ @discussion The resulting policy uses the Basic X.509 policy with validity check and
+ pinning options:
+    * The chain is anchored to the Component Root CA.
+    * There are exactly 3 certs in the chain.
+    * The leaf and intermediate each have a marker extension with OID matching 1.2.840.113635.100.11.1
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAppleComponentCertificate(CFDataRef __nullable testRootHash)
+    API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
+
+/*!
+ @function SecPolicyCreateAppleKeyTransparency
+ @abstract Returns a policy object for verifying Apple certificates.
+ @param applicationId A string that identifies the applicationId.
+ @discussion The resulting policy uses the Basic X.509 policy with no validity check and
+ pinning options:
+     * The chain is anchored to any of the production Apple Root CAs.
+     * There are exactly 3 certs in the chain.
+     * The intermediate has a marker extension with OID TBD.
+     * The leaf has a marker extension with OID 1.2.840.113635.100.6.69.1 and value
+        matching the applicationId.
+     * Revocation is checked via any available method.
+     * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAppleKeyTransparency(CFStringRef applicationId)
+    API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
+
+/*!
+ @function SecPolicyCreateLegacySSL
+ @abstract Returns a policy object for evaluating legacy SSL certificate chains that don't meet
+ SecPolicyCreateSSL.
+ @param server Passing true for this parameter creates a policy for SSL
+ server certificates.
+ @param hostname (Optional) If present, the policy will require the specified
+ hostname to match the hostname in the leaf certificate.
+ @result A policy object. The caller is responsible for calling CFRelease
+ on this when it is no longer needed.
+ @discussion Use of this policy will be audited. Passing false for the server parameter will
+ result in a SecPolicy object with the same requirements as SecPolicyCreateSSL with a false
+ server parameter (i.e. the client authentication verification performed by this policy is
+ identical to the client authentication verification performed by SecPolicyCreateSSL).
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateLegacySSL(Boolean server, CFStringRef __nullable hostname)
+    SPI_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
+
 /*
  *  Legacy functions (OS X only)
  */
-#if TARGET_OS_MAC && !TARGET_OS_IPHONE
+#if TARGET_OS_OSX
 
 /*!
      @function SecPolicyCopy
@@ -1842,9 +1909,12 @@ extern const CFStringRef kSecPolicyCheckIdLinkage;
 extern const CFStringRef kSecPolicyCheckIntermediateCountry;
 extern const CFStringRef kSecPolicyCheckIntermediateEKU;
 extern const CFStringRef kSecPolicyCheckIntermediateMarkerOid;
+extern const CFStringRef kSecPolicyCheckIntermediateMarkerOidWithoutValueCheck;
 extern const CFStringRef kSecPolicyCheckIntermediateOrganization;
 extern const CFStringRef kSecPolicyCheckIntermediateSPKISHA256;
 extern const CFStringRef kSecPolicyCheckIssuerCommonName;
+extern const CFStringRef kSecPolicyCheckIssuerPolicyConstraints;
+extern const CFStringRef kSecPolicyCheckIssuerNameConstraints;
 extern const CFStringRef kSecPolicyCheckKeySize;
 extern const CFStringRef kSecPolicyCheckKeyUsage;
 extern const CFStringRef kSecPolicyCheckLeafMarkerOid;
@@ -1862,6 +1932,7 @@ extern const CFStringRef kSecPolicyCheckRevocationIfTrusted;
 extern const CFStringRef kSecPolicyCheckRevocationOnline;
 extern const CFStringRef kSecPolicyCheckRevocationResponseRequired;
 extern const CFStringRef kSecPolicyCheckSSLHostname;
+extern const CFStringRef kSecPolicyCheckServerAuthEKU;
 extern const CFStringRef kSecPolicyCheckSignatureHashAlgorithms;
 extern const CFStringRef kSecPolicyCheckSubjectCommonName;
 extern const CFStringRef kSecPolicyCheckSubjectCommonNamePrefix;
@@ -1872,7 +1943,9 @@ extern const CFStringRef kSecPolicyCheckSystemTrustedCTRequired;
 extern const CFStringRef kSecPolicyCheckSystemTrustedWeakHash;
 extern const CFStringRef kSecPolicyCheckSystemTrustedWeakKey;
 extern const CFStringRef kSecPolicyCheckTemporalValidity;
+extern const CFStringRef kSecPolicyCheckUnparseableExtension;
 extern const CFStringRef kSecPolicyCheckUsageConstraints;
+extern const CFStringRef kSecPolicyCheckValidityPeriodMaximums;
 extern const CFStringRef kSecPolicyCheckValidRoot;
 extern const CFStringRef kSecPolicyCheckWeakKeySize;
 extern const CFStringRef kSecPolicyCheckWeakSignature;
@@ -1928,6 +2001,7 @@ bool SecPolicyCheckCertSignatureHashAlgorithms(SecCertificateRef cert, CFTypeRef
 bool SecPolicyCheckCertCertificatePolicy(SecCertificateRef cert, CFTypeRef pvcValue);
 bool SecPolicyCheckCertCriticalExtensions(SecCertificateRef cert, CFTypeRef __nullable pvcValue);
 bool SecPolicyCheckCertSubjectCountry(SecCertificateRef cert, CFTypeRef pvcValue);
+bool SecPolicyCheckCertUnparseableExtension(SecCertificateRef cert, CFTypeRef pvcValue);
 
 void SecPolicySetName(SecPolicyRef policy, CFStringRef policyName);
 __nullable CFArrayRef SecPolicyXPCArrayCopyArray(xpc_object_t xpc_policies, CFErrorRef *error);

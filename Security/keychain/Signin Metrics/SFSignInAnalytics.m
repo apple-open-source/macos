@@ -27,14 +27,14 @@
 #import "SFSignInAnalytics+Internal.h"
 
 #import <Analytics/SFAnalytics+Signin.h>
-#import "SFAnalyticsDefines.h"
-#import "SFAnalyticsSQLiteStore.h"
-#import "SFAnalytics.h"
+#import "Analytics/SFAnalyticsDefines.h"
+#import "Analytics/SFAnalyticsSQLiteStore.h"
+#import "Analytics/SFAnalytics.h"
 
 #import <os/log_private.h>
 #import <mach/mach_time.h>
 #import <utilities/SecFileLocations.h>
-#import <utilities/debugging.h>
+#import "utilities/debugging.h"
 #import <utilities/SecCFWrappers.h>
 
 //metrics database location
@@ -55,6 +55,7 @@ static NSString* const SFSignInAnalyticsAttributeSignInUUID = @"signinUUID";
 static NSString* const SFSignInAnalyticsAttributeEventName = @"eventName";
 static NSString* const SFSignInAnalyticsAttributeSubsystemName = @"subsystemName";
 static NSString* const SFSignInAnalyticsAttributeBuiltDependencyChains = @"dependencyChains";
+static NSString* const SFSignInAnalyticsAttributeTrackerTime = @"trackerTime";
 
 @implementation SFSIALoggerObject
 + (NSString*)databasePath {
@@ -157,9 +158,11 @@ static const NSString* signInLogSpace = @"com.apple.security.wiiss";
         _stopped = NO;
         _builtDependencyChains = [NSMutableArray array];
 
-        //make plist file containing uuid parent/child
-        _persistencePath = [NSString stringWithFormat:@"%@-%@.plist", SFSignInAnalyticsPersistedEventList, eventName];
-        _persistedEventPlist = [NSURL fileURLWithPath:_persistencePath isDirectory:NO];
+        if ([self writeResultsToTmp]) {
+            //make plist file containing uuid parent/child
+            _persistencePath = [NSString stringWithFormat:@"%@-%@.plist", SFSignInAnalyticsPersistedEventList, eventName];
+            _persistedEventPlist = [NSURL fileURLWithPath:_persistencePath isDirectory:NO];
+        }
 
         _eventDependencyList = [NSMutableDictionary dictionary];
         [_eventDependencyList setObject:[NSMutableArray array] forKey:_signin_uuid];
@@ -168,7 +171,8 @@ static const NSString* signInLogSpace = @"com.apple.security.wiiss";
         [_tracker start];
 
         NSError* error = nil;
-        if(![self writeDependencyList:&error]){
+
+        if(self.root.persistedEventPlist && ![self writeDependencyList:&error] ){
             os_log(self.logObject, "attempting to write dependency list: %@", error);
         }
 
@@ -266,7 +270,7 @@ static const NSString* signInLogSpace = @"com.apple.security.wiiss";
             //create new array list for this new subtask incase it has subtasks
             [newSubTask.root.eventDependencyList setObject:[NSMutableArray array] forKey:newSubTask.my_uuid];
             NSError* error = nil;
-            if(![newSubTask writeDependencyList:&error]){
+            if(self.root.persistedEventPlist && ![newSubTask writeDependencyList:&error] ){
                 os_log(self.logObject, "attempting to write dependency list: %@", error);
             }
         }
@@ -361,6 +365,7 @@ static const NSString* signInLogSpace = @"com.apple.security.wiiss";
         mutableAttributes[SFSignInAnalyticsAttributeSignInUUID] = self.signin_uuid;
         mutableAttributes[SFSignInAnalyticsAttributeEventName] = self.eventName;
         mutableAttributes[SFSignInAnalyticsAttributeSubsystemName] = self.category;
+        mutableAttributes[SFSignInAnalyticsAttributeTrackerTime] = self.tracker.measurement;
 
         [mutableAttributes enumerateKeysAndObjectsUsingBlock:^(NSString* key, id obj, BOOL * stop) {
             os_log(self.logObject, "event: %@, %@  :  %@", self.eventName, key, obj);
@@ -421,8 +426,7 @@ static const NSString* signInLogSpace = @"com.apple.security.wiiss";
         [[SFSIALoggerObject logger] logSoftFailureForEventNamed:SFSignInAnalyticsAttributeBuiltDependencyChains withAttributes:eventAttributes];
     }
 
-    BOOL writingToTmp = [self writeResultsToTmp];
-    if(writingToTmp){ //writing sign in analytics to /tmp
+    if([self writeResultsToTmp]){ //writing sign in analytics to /tmp
         os_log(self.logObject, "logging to /tmp");
 
         NSData* eventData = [NSKeyedArchiver archivedDataWithRootObject:[[SFSIALoggerObject logger].database allEvents] requiringSecureCoding:YES error:&error];
@@ -437,17 +441,18 @@ static const NSString* signInLogSpace = @"com.apple.security.wiiss";
         }else{
             os_log_error(self.logObject, "collected no data");
         }
+
     }else{ //writing to splunk
         os_log(self.logObject, "logging to splunk");
     }
-    
-    //remove dependency list
-    BOOL removedPersistedDependencyList = [[NSFileManager defaultManager] removeItemAtPath:self.persistencePath error:&error];
 
-    if(!removedPersistedDependencyList || error){
-        os_log(self.logObject, "encountered error when attempting to remove persisted event list: %@", error);
+    if (self.persistencePath) {
+        //remove dependency list
+        BOOL removedPersistedDependencyList = [[NSFileManager defaultManager] removeItemAtPath:self.persistencePath error:&error];
+        if(!removedPersistedDependencyList || error){
+            os_log(self.logObject, "encountered error when attempting to remove persisted event list: %@", error);
+        }
     }
-
 }
 
 @end

@@ -31,6 +31,7 @@
 #import <WebCore/GraphicsLayer.h>
 
 namespace WebKit {
+class RemoteLayerTreeHost;
 class WebPageProxy;
 }
 
@@ -71,5 +72,14 @@ class WebPageProxy;
 @property (nonatomic, readonly, assign) WebCore::GraphicsLayer::EmbeddedViewID embeddedViewID;
 
 @end
+
+namespace WebKit {
+
+#if ENABLE(POINTER_EVENTS)
+OptionSet<WebCore::TouchAction> touchActionsForPoint(UIView *rootView, const WebCore::IntPoint&);
+#endif
+UIScrollView *findActingScrollParent(UIScrollView *, const RemoteLayerTreeHost&);
+
+}
 
 #endif // PLATFORM(IOS_FAMILY)

@@ -20,6 +20,7 @@
 #include <Security/SecRandom.h>
 
 #include <utilities/array_size.h>
+#include <utilities/SecCFRelease.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>

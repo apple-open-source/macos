@@ -10,10 +10,11 @@
 # $IPR: httpresponse.rb,v 1.45 2003/07/11 11:02:25 gotoyuzo Exp $
 
 require 'time'
-require 'webrick/httpversion'
-require 'webrick/htmlutils'
-require 'webrick/httputils'
-require 'webrick/httpstatus'
+require 'uri'
+require_relative 'httpversion'
+require_relative 'htmlutils'
+require_relative 'httputils'
+require_relative 'httpstatus'
 
 module WEBrick
   ##
@@ -253,7 +254,7 @@ module WEBrick
         @header.delete('content-length')
       elsif @header['content-length'].nil?
         unless @body.is_a?(IO)
-          @header['content-length'] = @body ? @body.bytesize : 0
+          @header['content-length'] = (@body ? @body.bytesize : 0).to_s
         end
       end
 
@@ -276,7 +277,7 @@ module WEBrick
       # Location is a single absoluteURI.
       if location = @header['location']
         if @request_uri
-          @header['location'] = @request_uri.merge(location)
+          @header['location'] = @request_uri.merge(location).to_s
         end
       end
     end
@@ -295,7 +296,7 @@ module WEBrick
           data << "Set-Cookie: " << check_header(cookie.to_s) << CRLF
         }
         data << CRLF
-        _write_data(socket, data)
+        socket.write(data)
       end
     rescue InvalidHeader => e
       @header.clear
@@ -331,8 +332,9 @@ module WEBrick
     #   res.set_redirect WEBrick::HTTPStatus::TemporaryRedirect
 
     def set_redirect(status, url)
+      url = URI(url).to_s
       @body = "<HTML><A HREF=\"#{url}\">#{url}</A>.</HTML>\n"
-      @header['location'] = url.to_s
+      @header['location'] = url
       raise status
     end
 
@@ -406,29 +408,24 @@ module WEBrick
       _end_of_html_
     end
 
-    private
-
-    # :stopdoc:
-
     def send_body_io(socket)
       begin
         if @request_method == "HEAD"
           # do nothing
         elsif chunked?
+          buf  = ''
           begin
-            buf  = ''
-            data = ''
-            while true
-              @body.readpartial( @buffer_size, buf ) # there is no need to clear buf?
-              data << format("%x", buf.bytesize) << CRLF
-              data << buf << CRLF
-              _write_data(socket, data)
-              data.clear
-              @sent_size += buf.bytesize
-            end
-          rescue EOFError # do nothing
-          end
-          _write_data(socket, "0#{CRLF}#{CRLF}")
+            @body.readpartial(@buffer_size, buf)
+            size = buf.bytesize
+            data = "#{size.to_s(16)}#{CRLF}#{buf}#{CRLF}"
+            socket.write(data)
+            data.clear
+            @sent_size += size
+          rescue EOFError
+            break
+          end while true
+          buf.clear
+          socket.write("0#{CRLF}#{CRLF}")
         else
           if %r{\Abytes (\d+)-(\d+)/\d+\z} =~ @header['content-range']
             offset = $1.to_i
@@ -457,16 +454,16 @@ module WEBrick
         body ? @body.bytesize : 0
         while buf = @body[@sent_size, @buffer_size]
           break if buf.empty?
-          data = ""
-          data << format("%x", buf.bytesize) << CRLF
-          data << buf << CRLF
-          _write_data(socket, data)
-          @sent_size += buf.bytesize
+          size = buf.bytesize
+          data = "#{size.to_s(16)}#{CRLF}#{buf}#{CRLF}"
+          buf.clear
+          socket.write(data)
+          @sent_size += size
         end
-        _write_data(socket, "0#{CRLF}#{CRLF}")
+        socket.write("0#{CRLF}#{CRLF}")
       else
         if @body && @body.bytesize > 0
-          _write_data(socket, @body)
+          socket.write(@body)
           @sent_size = @body.bytesize
         end
       end
@@ -477,7 +474,7 @@ module WEBrick
         # do nothing
       elsif chunked?
         @body.call(ChunkedWrapper.new(socket, self))
-        _write_data(socket, "0#{CRLF}#{CRLF}")
+        socket.write("0#{CRLF}#{CRLF}")
       else
         size = @header['content-length'].to_i
         @body.call(socket)
@@ -497,7 +494,7 @@ module WEBrick
         @resp.instance_eval {
           size = buf.bytesize
           data = "#{size.to_s(16)}#{CRLF}#{buf}#{CRLF}"
-          _write_data(socket, data)
+          socket.write(data)
           data.clear
           @sent_size += size
           size
@@ -510,6 +507,7 @@ module WEBrick
       end
     end
 
+    # preserved for compatibility with some 3rd-party handlers
     def _write_data(socket, data)
       socket << data
     end

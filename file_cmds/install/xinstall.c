@@ -529,11 +529,7 @@ install(from_name, to_name, fset, flags)
 	if (!devnull)
 		(void)close(from_fd);
 }
-#if TARGET_OS_EMBEDDED
-#define BUFFER_SIZE 128*1024
-#else  /* !TARGET_OS_EMBEDDED */
-#define BUFFER_SIZE MAXBSIZE
-#endif	/* TARGET_OS_EMBEDDED */
+
 /*
  * compare --
  *	compare two files; non-zero means files differ
@@ -569,8 +565,8 @@ compare(int from_fd, const char *from_name, size_t from_len,
 		}
 	out:
 		if (!done_compare) {
-			char buf1[BUFFER_SIZE];
-			char buf2[BUFFER_SIZE];
+			char buf1[MAXBSIZE];
+			char buf2[MAXBSIZE];
 			int n1, n2;
 
 			rv = 0;
@@ -673,7 +669,8 @@ copy(from_fd, from_name, to_fd, to_name, size)
 {
 	register int nr, nw;
 	int serrno;
-	char *p, buf[BUFFER_SIZE];
+	char *p;
+	char buf[MAXBSIZE];
 	int done_copy;
 
 	/* Rewind file descriptors. */

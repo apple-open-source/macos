@@ -1006,7 +1006,7 @@ extern OSErr 	GetVolumeObjectPrimaryMDB( BlockDescriptor * theBlockDescPtr );
 extern OSErr 	GetVolumeObjectVHBorMDB( BlockDescriptor * theBlockDescPtr );
 extern void 	PrintName( int theCount, const UInt8 *theNamePtr, Boolean isUnicodeString );
 extern void 	PrintVolumeObject( void );
-extern Boolean 	VolumeObjectIsValid( void );
+extern Boolean 	VolumeObjectIsValid( SGlobPtr gptr );
 extern Boolean 	VolumeObjectIsHFSPlus( void );
 extern Boolean 	VolumeObjectIsHFS( void );
 extern Boolean 	VolumeObjectIsEmbeddedHFSPlus( void );

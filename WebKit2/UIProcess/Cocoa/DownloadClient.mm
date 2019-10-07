@@ -26,8 +26,6 @@
 #import "config.h"
 #import "DownloadClient.h"
 
-#if WK_API_ENABLED
-
 #import "AuthenticationChallengeDisposition.h"
 #import "AuthenticationChallengeProxy.h"
 #import "AuthenticationDecisionListener.h"
@@ -42,10 +40,10 @@
 #import "WebProcessProxy.h"
 #import "_WKDownloadDelegate.h"
 #import "_WKDownloadInternal.h"
-#import <WebCore/FileSystem.h>
 #import <WebCore/ResourceError.h>
 #import <WebCore/ResourceResponse.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/FileSystem.h>
 
 namespace WebKit {
 
@@ -73,7 +71,7 @@ void DownloadClient::didStart(WebProcessPool&, DownloadProxy& downloadProxy)
     if (downloadProxy.isSystemPreviewDownload()) {
         if (auto* webPage = downloadProxy.originatingPage()) {
             // FIXME: Update the MIME-type once it is known in the ResourceResponse.
-            webPage->systemPreviewController()->start("application/octet-stream"_s, downloadProxy.systemPreviewDownloadRect());
+            webPage->systemPreviewController()->start(URL(URL(), webPage->currentURL()), "application/octet-stream"_s, downloadProxy.systemPreviewDownloadRect());
         }
         takeActivityToken(downloadProxy);
         return;
@@ -181,7 +179,7 @@ void DownloadClient::decideDestinationWithSuggestedFilename(WebProcessPool&, Dow
 {
 #if USE(SYSTEM_PREVIEW)
     if (downloadProxy.isSystemPreviewDownload()) {
-        NSString *temporaryDirectory = WebCore::FileSystem::createTemporaryDirectory(@"SystemPreviews");
+        NSString *temporaryDirectory = FileSystem::createTemporaryDirectory(@"SystemPreviews");
         NSString *destination = [temporaryDirectory stringByAppendingPathComponent:filename];
         completionHandler(AllowOverwrite::Yes, destination);
         return;
@@ -292,5 +290,3 @@ void DownloadClient::releaseActivityTokenIfNecessary(DownloadProxy& downloadProx
 #endif
 
 } // namespace WebKit
-
-#endif // WK_API_ENABLED

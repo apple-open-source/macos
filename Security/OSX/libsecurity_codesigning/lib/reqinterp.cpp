@@ -36,6 +36,7 @@
 #include <IOKit/IOCFUnserialize.h>
 #include "csutilities.h"
 #include "notarization.h"
+#include "legacydevid.h"
 
 namespace Security {
 namespace CodeSigning {
@@ -190,6 +191,10 @@ bool Requirement::Interpreter::eval(int depth)
 	case opNotarized:
 		{
 			return isNotarized(mContext);
+		}
+	case opLegacyDevID:
+		{
+			return meetsDeveloperIDLegacyAllowedPolicy(mContext);
 		}
 	default:
 		// opcode not recognized - handle generically if possible, fail otherwise

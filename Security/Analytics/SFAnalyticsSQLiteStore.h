@@ -23,7 +23,8 @@
 
 #if __OBJC2__
 
-#import "SFSQLite.h"
+#import "Analytics/SQLite/SFSQLite.h"
+#import "SFAnalytics.h"
 
 @interface SFAnalyticsSQLiteStore : SFSQLite
 
@@ -43,6 +44,7 @@
 - (NSInteger)hardFailureCountForEventType:(NSString*)eventType;
 - (NSInteger)softFailureCountForEventType:(NSString*)eventType;
 - (void)addEventDict:(NSDictionary*)eventDict toTable:(NSString*)table;
+- (void)addEventDict:(NSDictionary*)eventDict toTable:(NSString*)table timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket;
 - (void)addSample:(NSNumber*)value forName:(NSString*)name;
 - (void)removeAllSamplesForName:(NSString*)name;
 - (void)clearAllData;

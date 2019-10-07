@@ -34,9 +34,6 @@
 #include <security_utilities/ccaudit.h>
 #include <security_cdsa_client/cssmclient.h>
 #include <security_cdsa_client/cspclient.h>
-#include <security_utilities/devrandom.h>
-#include <security_cdsa_utilities/uniformrandom.h>
-#include <security_utilities/vproc++.h>
 #include "codesigdb.h"
 #include "connection.h"
 #include "key.h"
@@ -57,8 +54,7 @@
 // findFirst/allReferences feature of Node<>.
 //
 class Server : public PerGlobal,
-			   public MachPlusPlus::MachServer,
-               public UniformRandomBlobs<DevRandomGenerator> {
+			   public MachPlusPlus::MachServer {
 public:
 	Server(CodeSignatures &signatures, const char *bootstrapName);
 	~Server();
@@ -176,7 +172,8 @@ public:
 	void waitForClients(bool waiting);				// set waiting behavior
 	void beginShutdown();							// start delayed shutdown if configured
 	bool shuttingDown() const { return mShuttingDown; }
-	void shutdownSnitch();							// report lingering clients
+	void shutdownReport();							// report lingering clients to the log
+    void shutdownReport_file();                     // report lingering clients to file
 	bool inDarkWake();
     void associateThread() { perThread().server = this; }
 

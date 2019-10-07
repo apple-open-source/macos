@@ -1,16 +1,10 @@
 /*
  * IPP test program for CUPS.
  *
- * Copyright 2007-2017 by Apple Inc.
- * Copyright 1997-2005 by Easy Software Products.
+ * Copyright © 2007-2018 by Apple Inc.
+ * Copyright © 1997-2005 by Easy Software Products.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
  */
 
 /*
@@ -20,12 +14,12 @@
 #include "file.h"
 #include "string-private.h"
 #include "ipp-private.h"
-#ifdef WIN32
+#ifdef _WIN32
 #  include <io.h>
 #else
 #  include <unistd.h>
 #  include <fcntl.h>
-#endif /* WIN32 */
+#endif /* _WIN32 */
 
 
 /*
@@ -229,6 +223,7 @@ static ipp_uchar_t mixed[] =		/* Mixed value buffer */
 void	hex_dump(const char *title, ipp_uchar_t *buffer, size_t bytes);
 void	print_attributes(ipp_t *ipp, int indent);
 ssize_t	read_cb(_ippdata_t *data, ipp_uchar_t *buffer, size_t bytes);
+int	token_cb(_ipp_file_t *f, _ipp_vars_t *v, void *user_data, const char *token);
 ssize_t	write_cb(_ippdata_t *data, ipp_uchar_t *buffer, size_t bytes);
 
 
@@ -712,30 +707,53 @@ main(int  argc,			/* I - Number of command-line arguments */
 
     for (i = 1; i < (size_t)argc; i ++)
     {
-      if ((fp = cupsFileOpen(argv[i], "r")) == NULL)
+      if (strlen(argv[i]) > 5 && !strcmp(argv[i] + strlen(argv[i]) - 5, ".test"))
       {
-	printf("Unable to open \"%s\" - %s\n", argv[i], strerror(errno));
-	status = 1;
-	continue;
-      }
+       /*
+        * Read an ASCII IPP message...
+        */
 
-      request = ippNew();
-      while ((state = ippReadIO(fp, (ipp_iocb_t)cupsFileRead, 1, NULL,
-                                request)) == IPP_STATE_ATTRIBUTE);
+        _ipp_vars_t v;			/* IPP variables */
 
-      if (state != IPP_STATE_DATA)
-      {
-	printf("Error reading IPP message from \"%s\"!\n", argv[i]);
-	status = 1;
+        _ippVarsInit(&v, NULL, NULL, token_cb);
+        request = _ippFileParse(&v, argv[i], NULL);
+        _ippVarsDeinit(&v);
       }
       else
       {
-	printf("\n%s:\n", argv[i]);
-	print_attributes(request, 4);
+       /*
+        * Read a raw (binary) IPP message...
+        */
+
+	if ((fp = cupsFileOpen(argv[i], "r")) == NULL)
+	{
+	  printf("Unable to open \"%s\" - %s\n", argv[i], strerror(errno));
+	  status = 1;
+	  continue;
+	}
+
+	request = ippNew();
+	while ((state = ippReadIO(fp, (ipp_iocb_t)cupsFileRead, 1, NULL,
+				  request)) == IPP_STATE_ATTRIBUTE);
+
+	if (state != IPP_STATE_DATA)
+	{
+	  printf("Error reading IPP message from \"%s\": %s\n", argv[i], cupsLastErrorString());
+	  status = 1;
+
+	  ippDelete(request);
+	  request = NULL;
+	}
+
+        cupsFileClose(fp);
       }
 
-      ippDelete(request);
-      cupsFileClose(fp);
+      if (request)
+      {
+	printf("\n%s:\n", argv[i]);
+	print_attributes(request, 4);
+	ippDelete(request);
+      }
     }
   }
 
@@ -865,6 +883,34 @@ read_cb(_ippdata_t   *data,		/* I - Data */
   */
 
   return ((ssize_t)count);
+}
+
+
+/*
+ * 'token_cb()' - Token callback for ASCII IPP data file parser.
+ */
+
+int					/* O - 1 on success, 0 on failure */
+token_cb(_ipp_file_t *f,		/* I - IPP file data */
+         _ipp_vars_t *v,		/* I - IPP variables */
+         void        *user_data,	/* I - User data pointer */
+         const char  *token)		/* I - Token string */
+{
+  (void)v;
+  (void)user_data;
+
+  if (!token)
+  {
+    f->attrs     = ippNew();
+    f->group_tag = IPP_TAG_PRINTER;
+  }
+  else
+  {
+    fprintf(stderr, "Unknown directive \"%s\" on line %d of \"%s\".\n", token, f->linenum, f->filename);
+    return (0);
+  }
+
+  return (1);
 }
 
 

@@ -32,6 +32,8 @@
 #include <pthread.h>
 #include <dt_list.h>
 
+#include <sys/link.h>
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
@@ -103,8 +105,22 @@ extern void dt_proc_lock(dtrace_hdl_t *, struct ps_prochandle *);
 extern void dt_proc_unlock(dtrace_hdl_t *, struct ps_prochandle *);
 extern dt_proc_t *dt_proc_lookup(dtrace_hdl_t *, struct ps_prochandle *, int);
 
-extern void dt_proc_hash_create(dtrace_hdl_t *);
-extern void dt_proc_hash_destroy(dtrace_hdl_t *);
+extern void dt_proc_init(dtrace_hdl_t *);
+extern void dt_proc_fini(dtrace_hdl_t *);
+extern void dt_proc_stop(dt_proc_t *, uint8_t);
+
+extern dt_bkpt_t * dt_proc_bpcreate(dt_proc_t *, uintptr_t, dt_bkpt_f *,
+    void *);
+extern void dt_proc_bpdisable(dt_proc_t *);
+extern void dt_proc_bpenable(dt_proc_t *);
+extern void dt_proc_bpmain(dtrace_hdl_t *, dt_proc_t *, const char *);
+extern void dt_proc_bpdestroy(dt_proc_t *, int);
+
+extern void dt_proc_notify(dtrace_hdl_t *, dt_proc_hash_t *, dt_proc_t *,
+    const char *);
+
+extern void* dt_proc_control(void *);
+extern void dt_proc_rdwatch(dt_proc_t *, rd_event_e, const char *);
 
 #ifdef	__cplusplus
 }

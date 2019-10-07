@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,11 +26,13 @@
 #import "config.h"
 #import "WebPage.h"
 
-
+#import "AttributedString.h"
 #import "LoadParameters.h"
 #import "PluginView.h"
 #import "RemoteObjectRegistry.h"
+#import "WKAccessibilityWebPageObjectBase.h"
 #import "WebPageProxyMessages.h"
+#import "WebPaymentCoordinator.h"
 #import <WebCore/DictionaryLookup.h>
 #import <WebCore/Editor.h>
 #import <WebCore/EventHandler.h>
@@ -38,9 +40,11 @@
 #import <WebCore/HTMLConverter.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/NodeRenderStyle.h>
+#import <WebCore/PaymentCoordinator.h>
 #import <WebCore/PlatformMediaSessionManager.h>
 #import <WebCore/RenderElement.h>
 #import <WebCore/RenderObject.h>
+#import <WebCore/TextIterator.h>
 
 #if PLATFORM(COCOA)
 
@@ -80,10 +84,8 @@ void WebPage::performDictionaryLookupAtLocation(const FloatPoint& floatPoint)
     }
     
     // Find the frame the point is over.
-    HitTestResult result = m_page->mainFrame().eventHandler().hitTestResultAtPoint(m_page->mainFrame().view()->windowToContents(roundedIntPoint(floatPoint)));
-    RefPtr<Range> range;
-    NSDictionary *options;
-    std::tie(range, options) = DictionaryLookup::rangeAtHitTestResult(result);
+    HitTestResult result = m_page->mainFrame().eventHandler().hitTestResultAtPoint(m_page->mainFrame().view()->windowToContents(roundedIntPoint(floatPoint)), HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::DisallowUserAgentShadowContent | HitTestRequest::AllowChildFrameContent);
+    auto [range, options] = DictionaryLookup::rangeAtHitTestResult(result);
     if (!range)
         return;
     
@@ -96,9 +98,7 @@ void WebPage::performDictionaryLookupAtLocation(const FloatPoint& floatPoint)
 
 void WebPage::performDictionaryLookupForSelection(Frame& frame, const VisibleSelection& selection, TextIndicatorPresentationTransition presentationTransition)
 {
-    RefPtr<Range> selectedRange;
-    NSDictionary *options;
-    std::tie(selectedRange, options) = DictionaryLookup::rangeForSelection(selection);
+    auto [selectedRange, options] = DictionaryLookup::rangeForSelection(selection);
     if (selectedRange)
         performDictionaryLookupForRange(frame, *selectedRange, options, presentationTransition);
 }
@@ -176,6 +176,10 @@ DictionaryPopupInfo WebPage::dictionaryPopupInfoForRange(Frame& frame, Range& ra
     dictionaryPopupInfo.attributedString = scaledNSAttributedString;
 #endif // PLATFORM(MAC)
     
+#if PLATFORM(MACCATALYST)
+    dictionaryPopupInfo.attributedString = adoptNS([[NSMutableAttributedString alloc] initWithString:range.text()]);
+#endif // PLATFORM(MACCATALYST)
+    
     editor.setIsGettingDictionaryPopupInfo(false);
     return dictionaryPopupInfo;
 }
@@ -186,11 +190,44 @@ void WebPage::accessibilityTransferRemoteToken(RetainPtr<NSData> remoteToken)
     send(Messages::WebPageProxy::RegisterWebProcessAccessibilityToken(dataToken));
 }
 
+#if ENABLE(APPLE_PAY)
+WebPaymentCoordinator* WebPage::paymentCoordinator()
+{
+    if (!m_page)
+        return nullptr;
+    auto& client = m_page->paymentCoordinator().client();
+    return is<WebPaymentCoordinator>(client) ? downcast<WebPaymentCoordinator>(&client) : nullptr;
+}
+#endif
+
+void WebPage::getContentsAsAttributedString(CompletionHandler<void(const AttributedString&)>&& completionHandler)
+{
+    auto* documentElement = m_page->mainFrame().document()->documentElement();
+    if (!documentElement) {
+        completionHandler({ });
+        return;
+    }
+
+    NSDictionary* documentAttributes = nil;
+
+    AttributedString result;
+    result.string = attributedStringFromRange(rangeOfContents(*documentElement), &documentAttributes);
+    result.documentAttributes = documentAttributes;
+
+    completionHandler({ result });
+}
+
 void WebPage::setRemoteObjectRegistry(RemoteObjectRegistry& registry)
 {
     m_remoteObjectRegistry = makeWeakPtr(registry);
 }
 
+void WebPage::updateMockAccessibilityElementAfterCommittingLoad()
+{
+    auto* document = mainFrame()->document();
+    [m_mockAccessibilityElement setHasMainFramePlugin:document ? document->isPluginDocument() : false];
+}
+    
 } // namespace WebKit
 
 #endif // PLATFORM(COCOA)

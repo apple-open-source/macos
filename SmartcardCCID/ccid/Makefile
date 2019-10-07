@@ -28,7 +28,7 @@ post-install:
 
 # Automatic Extract & Patch
 AEP_Project    = ccid
-AEP_Version    = 1.4.27
+AEP_Version    = 1.4.31
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)

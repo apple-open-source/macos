@@ -57,7 +57,7 @@ typedef struct ULocaleDisplayNames ULocaleDisplayNames;
  * Returns an instance of LocaleDisplayNames that returns names
  * formatted for the provided locale, using the provided
  * dialectHandling.  The usual value for dialectHandling is
- * ULOC_STANDARD_NAMES.
+ * ULDN_STANDARD_NAMES.
  *
  * @param locale the display locale 
  * @param dialectHandling how to select names for locales 

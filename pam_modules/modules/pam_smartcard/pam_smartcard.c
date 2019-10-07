@@ -44,7 +44,7 @@
 #include <Security/Security.h>
 #include <Security/SecKeychainPriv.h>
 #include <ctkloginhelper.h>
-#include <ctkclient.h>
+#include <ctkclient/ctkclient.h>
 #include <pwd.h>
 #include <sys/param.h>
 #include "Common.h"

@@ -36,12 +36,12 @@
  * Defined as enum for debugging, but in the protocol
  * it is actually exactly two bytes
  */
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
-/* 32-bit value on OS X */
-typedef uint32_t SSLCipherSuite;
-#else
+#if TARGET_OS_IPHONE && !TARGET_OS_IOSMAC
 /* 16-bit value on iOS */
 typedef uint16_t SSLCipherSuite;
+#else
+/* 32-bit value elsewhere */
+typedef uint32_t SSLCipherSuite;
 #endif
 
 CF_ENUM(SSLCipherSuite)
@@ -116,6 +116,13 @@ CF_ENUM(SSLCipherSuite)
 	TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA    =	0xC017,
 	TLS_ECDH_anon_WITH_AES_128_CBC_SHA     =	0xC018,
 	TLS_ECDH_anon_WITH_AES_256_CBC_SHA     =	0xC019,
+
+    /* ECDHE_PSK Cipher Suites for Transport Layer Security (TLS), RFC 5489 */
+    TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA     =    0xC035,
+    TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA     =    0xC036,
+
+    /* ChaCha20-Poly1305 Cipher Suites for Transport Layer Security (TLS), RFC 7905 */
+    TLS_PSK_WITH_CHACHA20_POLY1305_SHA256  =    0xCCAB,
 
     /* TLS 1.2 addenda, RFC 5246 */
 
@@ -254,6 +261,18 @@ CF_ENUM(SSLCipherSuite)
     SSL_RSA_WITH_DES_CBC_MD5 =                  0xFF82,
     SSL_RSA_WITH_3DES_EDE_CBC_MD5 =             0xFF83,
     SSL_NO_SUCH_CIPHERSUITE =                   0xFFFF
+};
+
+/*
+ * Convenience ciphersuite groups that collate ciphersuites of comparable security
+ * properties into a single alias.
+ */
+typedef CF_ENUM(int, SSLCiphersuiteGroup) {
+    kSSLCiphersuiteGroupDefault,
+    kSSLCiphersuiteGroupCompatibility,
+    kSSLCiphersuiteGroupLegacy,
+    kSSLCiphersuiteGroupATS,
+    kSSLCiphersuiteGroupATSCompatibility,
 };
 
 #endif	/* !_SECURITY_CIPHERSUITE_H_ */

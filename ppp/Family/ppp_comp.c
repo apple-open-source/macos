@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -435,14 +435,14 @@ void ppp_comp_logmbuf(char *msg, mbuf_t m)
 
     IOLog("%s: \n", msg);
 
-    for (count = mbuf_len(m), data = mbuf_data(m); m != NULL; ) {
+    for (count = (int)mbuf_len(m), data = mbuf_data(m); m != NULL; ) {
         /* build a line of output */
         for(lcount = 0; lcount < sizeof(lbuf); lcount += copycount) {
             if (!count) {
                 m = mbuf_next(m);
                 if (m == NULL)
                     break;
-                count = mbuf_len(m);
+                count = (int)mbuf_len(m);
                 data  = mbuf_data(m);
             }
             copycount = (count > sizeof(lbuf) - lcount) ? sizeof(lbuf) - lcount : count;

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.NegativeSpecSize.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Setting the specsize to a negative number should throw a compiler error.

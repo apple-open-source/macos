@@ -117,7 +117,7 @@ DecimalFormatSymbols::DecimalFormatSymbols(const Locale& loc, const NumberingSys
 
 DecimalFormatSymbols::DecimalFormatSymbols()
         : UObject(), locale(Locale::getRoot()), currPattern(NULL) {
-    *validLocale = *actualLocale = 0;
+    *validLocale = *actualLocale = *fNSName = 0;
     initialize();
 }
 
@@ -167,6 +167,7 @@ DecimalFormatSymbols::operator=(const DecimalFormatSymbols& rhs)
         fIsCustomCurrencySymbol = rhs.fIsCustomCurrencySymbol; 
         fIsCustomIntlCurrencySymbol = rhs.fIsCustomIntlCurrencySymbol; 
         fCodePointZero = rhs.fCodePointZero;
+        uprv_strcpy(fNSName, rhs.fNSName);
     }
     return *this;
 }
@@ -201,7 +202,8 @@ DecimalFormatSymbols::operator==(const DecimalFormatSymbols& that) const
     // No need to check fCodePointZero since it is based on fSymbols
     return locale == that.locale &&
         uprv_strcmp(validLocale, that.validLocale) == 0 &&
-        uprv_strcmp(actualLocale, that.actualLocale) == 0;
+        uprv_strcmp(actualLocale, that.actualLocale) == 0 &&
+        uprv_strcmp(fNSName, that.fNSName) == 0;
 }
 
 // -------------------------------------
@@ -348,7 +350,7 @@ DecimalFormatSymbols::initialize(const Locale& loc, UErrorCode& status,
     UBool useLastResortData, const NumberingSystem* ns)
 {
     if (U_FAILURE(status)) { return; }
-    *validLocale = *actualLocale = 0;
+    *validLocale = *actualLocale = *fNSName = 0;
 
     // First initialize all the symbols to the fallbacks for anything we can't find
     initialize();
@@ -364,9 +366,14 @@ DecimalFormatSymbols::initialize(const Locale& loc, UErrorCode& status,
         nsLocal.adoptInstead(NumberingSystem::createInstance(loc, status));
         ns = nsLocal.getAlias();
     }
-    const char *nsName;
-    if (U_SUCCESS(status) && ns->getRadix() == 10 && !ns->isAlgorithmic()) {
+    const char *nsName = gLatn;
+    if (U_SUCCESS(status) && nsName != nullptr) {
         nsName = ns->getName();
+    }
+    // Apple rdar://51672521 Save original name
+    uprv_strncpy(fNSName, nsName, 8);
+    fNSName[8] = 0; // guarantee NUL-terminated
+    if (U_SUCCESS(status) && ns->getRadix() == 10 && !ns->isAlgorithmic()) {
         UnicodeString digitString(ns->getDescription());
         int32_t digitIndex = 0;
         UChar32 digit = digitString.char32At(0);
@@ -436,7 +443,7 @@ DecimalFormatSymbols::initialize(const Locale& loc, UErrorCode& status,
     sink.resolveMissingMonetarySeparators(fSymbols);
 
     // Resolve codePointZero
-    UChar32 tempCodePointZero;
+    UChar32 tempCodePointZero = -1;
     for (int32_t i=0; i<=9; i++) {
         const UnicodeString& stringDigit = getConstDigitSymbol(i);
         if (stringDigit.countChar32() != 1) {

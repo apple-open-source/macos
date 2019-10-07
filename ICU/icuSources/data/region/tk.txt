@@ -2,7 +2,7 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 tk{
     Countries{
-        001{"Dunýä"}
+        001{"Dünýä"}
         002{"Afrika"}
         003{"Demirgazyk Amerika"}
         005{"Günorta Amerika"}
@@ -25,12 +25,13 @@ tk{
         057{"Mikroneziýa sebti"}
         061{"Polineziýa"}
         142{"Aziýa"}
-        143{"Orta Aziýa"}
+        143{"Merkezi Aziýa"}
         145{"Günbatar Aziýa"}
         150{"Ýewropa"}
         151{"Gündogar Ýewropa"}
         154{"Demirgazyk Ýewropa"}
         155{"Günbatar Ýewropa"}
+        202{"Saharadan aşakdaky Afrika"}
         419{"Latyn Amerikasy"}
         AC{"Beýgeliş adasy"}
         AD{"Andorra"}
@@ -50,7 +51,7 @@ tk{
         AX{"Aland adalary"}
         AZ{"Azerbaýjan"}
         BA{"Bosniýa we Gersegowina"}
-        BB{"Barbadow"}
+        BB{"Barbados"}
         BD{"Bangladeş"}
         BE{"Belgiýa"}
         BF{"Burkina-Faso"}
@@ -62,7 +63,7 @@ tk{
         BM{"Bermuda"}
         BN{"Bruneý"}
         BO{"Boliwiýa"}
-        BQ{"Karib Niderlandy"}
+        BQ{"Karib Niderlandlary"}
         BR{"Braziliýa"}
         BS{"Bagama adalary"}
         BT{"Butan"}
@@ -73,7 +74,7 @@ tk{
         CA{"Kanada"}
         CC{"Kokos (Kiling) adalary"}
         CD{"Kongo - Kinşasa"}
-        CF{"Orta Afrika Respublikasy"}
+        CF{"Merkezi Afrika Respublikasy"}
         CG{"Kongo - Brazzawil"}
         CH{"Şweýsariýa"}
         CI{"Kot-d’Iwuar"}
@@ -106,8 +107,8 @@ tk{
         ES{"Ispaniýa"}
         ET{"Efiopiýa"}
         EU{"Ýewropa Bileleşigi"}
-        EZ{"Ýewro sebti"}
-        FI{"Finlandiýa"}
+        EZ{"Ýewro sebiti"}
+        FI{"Finlýandiýa"}
         FJ{"Fiji"}
         FK{"Folklend adalary"}
         FM{"Mikroneziýa"}
@@ -132,7 +133,7 @@ tk{
         GU{"Guam"}
         GW{"Gwineýa-Bisau"}
         GY{"Gaýana"}
-        HK{"Gonkong AAS Hytaý"}
+        HK{"Gonkong"}
         HM{"Herd we Makdonald adalary"}
         HN{"Gonduras"}
         HR{"Horwatiýa"}
@@ -144,7 +145,7 @@ tk{
         IL{"Ysraýyl"}
         IM{"Men adasy"}
         IN{"Hindistan"}
-        IO{"Britaniýanyň Hint okeanyndaky territoriýalary"}
+        IO{"Britaniýanyň Hindi okeanyndaky territoriýalary"}
         IQ{"Yrak"}
         IR{"Eýran"}
         IS{"Islandiýa"}
@@ -157,7 +158,7 @@ tk{
         KG{"Gyrgyzystan"}
         KH{"Kamboja"}
         KI{"Kiribati"}
-        KM{"Komor Adalary"}
+        KM{"Komor adalary"}
         KN{"Sent-Kits we Newis"}
         KP{"Demirgazyk Koreýa"}
         KR{"Günorta Koreýa"}
@@ -182,11 +183,11 @@ tk{
         MF{"Sen-Marten"}
         MG{"Madagaskar"}
         MH{"Marşall adalary"}
-        MK{"Makedoniýa"}
+        MK{"Demirgazyk Makedoniýa"}
         ML{"Mali"}
         MM{"Mýanma (Burma)"}
         MN{"Mongoliýa"}
-        MO{"Makau AAS Hytaý"}
+        MO{"Makau"}
         MP{"Demirgazyk Mariana adalary"}
         MQ{"Martinika"}
         MR{"Mawritaniýa"}
@@ -204,7 +205,7 @@ tk{
         NF{"Norfolk adasy"}
         NG{"Nigeriýa"}
         NI{"Nikaragua"}
-        NL{"Niderlandiýa"}
+        NL{"Niderlandlar"}
         NO{"Norwegiýa"}
         NP{"Nepal"}
         NR{"Nauru"}
@@ -234,7 +235,7 @@ tk{
         RW{"Ruanda"}
         SA{"Saud Arabystany"}
         SB{"Solomon adalary"}
-        SC{"Seýşel Adalary"}
+        SC{"Seýşel adalary"}
         SD{"Sudan"}
         SE{"Şwesiýa"}
         SG{"Singapur"}
@@ -286,6 +287,8 @@ tk{
         VU{"Wanuatu"}
         WF{"Uollis we Futuna"}
         WS{"Samoa"}
+        XA{"psewdo-şiweler"}
+        XB{"psewdo-bidi"}
         XK{"Kosowo"}
         YE{"Ýemen"}
         YT{"Maýotta"}
@@ -296,8 +299,6 @@ tk{
     }
     Countries%short{
         GB{"Birleşen Patyşalyk"}
-        HK{"Gonkong"}
-        MO{"Makau"}
         PS{"Palestina"}
         US{"ABŞ"}
     }
@@ -307,8 +308,7 @@ tk{
         CI{"Şirmaýy kenar"}
         CZ{"Çeh Respublikasy"}
         FK{"Folklend (Malwina) adalary"}
-        MK{"Makedoniýa (ÖÝR)"}
         TL{"Gündogar Timor"}
     }
-    Version{"2.1.37.1"}
+    Version{"2.1.49.82"}
 }

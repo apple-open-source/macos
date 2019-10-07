@@ -1,9 +1,9 @@
 --TEST--
-Test array_pad() function : usage variations - unexpected values for 'input' argument 
+Test array_pad() function : usage variations - unexpected values for 'input' argument
 --FILE--
 <?php
 /* Prototype  : array array_pad(array $input, int $pad_size, mixed $pad_value)
- * Description: Returns a copy of input array padded with pad_value to size pad_size 
+ * Description: Returns a copy of input array padded with pad_value to size pad_size
  * Source code: ext/standard/array.c
 */
 
@@ -101,31 +101,31 @@ echo "Done";
 *** Testing array_pad() : passing non array values to $input argument ***
 
 -- Iteration 1 --
-Warning: array_pad() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_pad() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
-Warning: array_pad() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_pad() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 2 --
-Warning: array_pad() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_pad() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
-Warning: array_pad() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_pad() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 3 --
-Warning: array_pad() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_pad() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
-Warning: array_pad() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_pad() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 4 --
-Warning: array_pad() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_pad() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
-Warning: array_pad() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_pad() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 5 --
@@ -178,31 +178,31 @@ Warning: array_pad() expects parameter 1 to be array, null given in %s on line %
 NULL
 
 -- Iteration 12 --
-Warning: array_pad() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_pad() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
-Warning: array_pad() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_pad() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 13 --
-Warning: array_pad() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_pad() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
-Warning: array_pad() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_pad() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 14 --
-Warning: array_pad() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_pad() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
-Warning: array_pad() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_pad() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 15 --
-Warning: array_pad() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_pad() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
-Warning: array_pad() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_pad() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 16 --

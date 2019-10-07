@@ -83,13 +83,19 @@ os_log_t _IOHIDLogCategory(IOHIDLogCategory category)
     static os_log_t log[kIOHIDLogCategoryCount];
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        log[kIOHIDLogCategoryDefault]       = os_log_create(kIOHIDLogSubsytem, "default");
-        log[kIOHIDLogCategoryTrace]         = os_log_create(kIOHIDLogSubsytem, "trace");
-        log[kIOHIDLogCategoryProperty]      = os_log_create(kIOHIDLogSubsytem, "property");
-        log[kIOHIDLogCategoryActivity]      = os_log_create(kIOHIDLogSubsytem, "activity");
-        log[kIOHIDLogCategoryFastPath]      = os_log_create(kIOHIDLogSubsytem, "fastpath");
-        log[kIOHIDLogCategoryService]       = os_log_create(kIOHIDLogSubsytem, "service");
-        log[kIOHIDLogCategoryConnection]    = os_log_create(kIOHIDLogSubsytem, "connection");
+
+        log[kIOHIDLogCategoryDefault]           = os_log_create(kIOHIDLogSubsytem, "default");
+        log[kIOHIDLogCategoryTrace]             = os_log_create(kIOHIDLogSubsytem, "trace");
+        log[kIOHIDLogCategoryProperty]          = os_log_create(kIOHIDLogSubsytem, "property");
+        log[kIOHIDLogCategoryActivity]          = os_log_create(kIOHIDLogSubsytem, "activity");
+        log[kIOHIDLogCategoryFastPath]          = os_log_create(kIOHIDLogSubsytem, "fastpath");
+        log[kIOHIDLogCategoryUserDevice]        = os_log_create(kIOHIDLogSubsytem, "userdevice");
+        log[kIOHIDLogCategoryService]           = os_log_create(kIOHIDLogSubsytem, "service");
+        log[kIOHIDServiceLogCategoryCarplay]    = os_log_create(kIOHIDLogSubsytem, "service.carplay");
+        log[kIOHIDLogCategoryConnection]        = os_log_create(kIOHIDLogSubsytem, "connection");
+        log[kIOHIDLogCategoryCursor]            = os_log_create(kIOHIDLogSubsytem, "cursor");	
+        log[kIOHIDLogCategorySignpost]          = os_log_create(kIOHIDLogSubsytem, "hidsignpost");
+
     });
     return log[category];
 }
@@ -120,7 +126,7 @@ CFStringRef _IOHIDCreateTimeString(CFAllocatorRef allocator, struct timeval *tv)
 //------------------------------------------------------------------------------
 // _IOHIDGetMonotonicTime (in ns)
 //------------------------------------------------------------------------------
-uint64_t  _IOHIDGetMonotonicTime () {
+uint64_t  _IOHIDGetMonotonicTime (void) {
     static mach_timebase_info_data_t    timebaseInfo;
 
     if (timebaseInfo.denom == 0)
@@ -292,6 +298,7 @@ IOReturn  _IOHIDSimpleQueueEnqueue (IOHIDSimpleQueueRef buffer, void *entry, boo
             header->head = (header->head + 1) % (header->count);
         } else {
             status = kIOReturnNoSpace;
+            return status;
         }
     }
     
@@ -339,6 +346,17 @@ void _IOHIDDictionaryAddSInt64 (CFMutableDictionaryRef dict, CFStringRef key, SI
         CFRelease(num);
     }
 }
+
+
+void _IOHIDDictionaryAddCStr (CFMutableDictionaryRef dict, CFStringRef key, const char * cStr)
+{
+    CFStringRef str = CFStringCreateWithCString(CFGetAllocator(dict), cStr, kCFStringEncodingMacRoman);
+    if (str) {
+        CFDictionaryAddValue(dict, key, str);
+        CFRelease(str);
+    }
+}
+
 
 void _IOHIDArrayAppendSInt64 (CFMutableArrayRef array, SInt64 value)
 {
@@ -469,4 +487,18 @@ static void __IOHIDCFDictionaryFunctionApplier (const void *key, const void *val
 void _IOHIDCFDictionaryApplyBlock (CFDictionaryRef set, IOHIDCFDictionaryBlock block)
 {
     CFDictionaryApplyFunction(set, __IOHIDCFDictionaryFunctionApplier, block);
+}
+
+static void __IOHIDCFArrayFunctionApplier(const void *value, void *context)
+{
+    IOHIDCFArrayBlock block = (IOHIDCFArrayBlock)context;
+    block(value);
+}
+
+void _IOHIDCFArrayApplyBlock(CFArrayRef array, IOHIDCFArrayBlock block)
+{
+    CFArrayApplyFunction(array,
+                         CFRangeMake(0, CFArrayGetCount(array)),
+                         __IOHIDCFArrayFunctionApplier,
+                         block);
 }

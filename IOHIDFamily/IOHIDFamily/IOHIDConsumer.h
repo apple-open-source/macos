@@ -43,7 +43,11 @@
 //	Generic driver for usb devices that contain special keys.
 //====================================================================================================
 
+#if defined(KERNEL) && !defined(KERNEL_PRIVATE)
+class __deprecated_msg("Use DriverKit") IOHIDConsumer : public IOHIKeyboard
+#else
 class IOHIDConsumer : public IOHIKeyboard
+#endif
 {
     OSDeclareDefaultStructors(IOHIDConsumer)
     
@@ -65,9 +69,9 @@ public:
     static IOHIDConsumer * 		Consumer(bool isDispatcher = false);
     
     // IOService methods
-    virtual bool			init(OSDictionary *properties=0);
-    virtual bool			start(IOService * provider);    
-    virtual void			stop(IOService * provider);
+    virtual bool			init(OSDictionary *properties=0) APPLE_KEXT_OVERRIDE;
+    virtual bool			start(IOService * provider) APPLE_KEXT_OVERRIDE;
+    virtual void			stop(IOService * provider) APPLE_KEXT_OVERRIDE;
     
     virtual void            dispatchConsumerEvent(
                                 IOHIDKeyboard *             sendingkeyboardNub,
@@ -80,13 +84,13 @@ public:
     inline bool             isDispatcher() { return _isDispatcher;};
    
     // IOHIKeyboard methods
-    virtual const unsigned char*	defaultKeymapOfLength( UInt32 * length );
-    virtual bool                    doesKeyLock(unsigned key);
-    virtual unsigned                eventFlags();
-    virtual unsigned                deviceFlags();
-    virtual void                    setDeviceFlags(unsigned flags);
-    virtual void                    setNumLock(bool val);
-    virtual bool                    numLock();
-    virtual bool                    alphaLock();
+    virtual const unsigned char*	defaultKeymapOfLength( UInt32 * length ) APPLE_KEXT_OVERRIDE;
+    virtual bool                    doesKeyLock(unsigned key) APPLE_KEXT_OVERRIDE;
+    virtual unsigned                eventFlags(void) APPLE_KEXT_OVERRIDE;
+    virtual unsigned                deviceFlags(void) APPLE_KEXT_OVERRIDE;
+    virtual void                    setDeviceFlags(unsigned flags) APPLE_KEXT_OVERRIDE;
+    virtual void                    setNumLock(bool val) APPLE_KEXT_OVERRIDE;
+    virtual bool                    numLock(void) APPLE_KEXT_OVERRIDE;
+    virtual bool                    alphaLock(void) APPLE_KEXT_OVERRIDE;
 };
 #endif /* !_IOKIT_HID_IOHIDCONSUMER_H */

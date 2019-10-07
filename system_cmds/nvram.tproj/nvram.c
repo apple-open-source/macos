@@ -174,7 +174,7 @@ int main(int argc, char **argv)
 	  break;
 #if TARGET_OS_BRIDGE
 	case 'm':
-	  // -m option is unadvertised -- used to set nvram variables on the Intel side
+	  // used to set nvram variables on the Intel side
 	  // from the ARM side (Bridge -> Mac)
       fprintf(stdout, "Using Mac NVRAM store.\n");
 
@@ -221,6 +221,9 @@ static void UsageMessage(char *message)
   printf("\t-f         set firmware variables from a text file\n");
   printf("\t-d         delete the named variable\n");
   printf("\t-c         delete all variables\n");
+#if TARGET_OS_BRIDGE
+  printf("\t-m         set nvram variables on macOS from bridgeOS\n");
+#endif
   printf("\tname=value set named variable\n");
   printf("\tname       print variable\n");
   printf("Note that arguments and options are executed in order.\n");
@@ -762,7 +765,8 @@ static void PrintOFVariable(const void *key, const void *value, void *context)
   }
 
   // Get the OF variable's name.
-  nameLen = CFStringGetLength(key) + 1;
+  nameLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(key),
+      kCFStringEncodingUTF8) + 1;
   nameBuffer = malloc(nameLen);
   if( nameBuffer && CFStringGetCString(key, nameBuffer, nameLen, kCFStringEncodingUTF8) )
     nameString = nameBuffer;
@@ -784,7 +788,8 @@ static void PrintOFVariable(const void *key, const void *value, void *context)
     else sprintf(numberBuffer, "0x%x", number);
     valueString = numberBuffer;
   } else if (typeID == CFStringGetTypeID()) {
-    valueLen = CFStringGetLength(value) + 1;
+    valueLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(value),
+        kCFStringEncodingUTF8) + 1;
     valueBuffer = malloc(valueLen + 1);
     if ( valueBuffer && CFStringGetCString(value, valueBuffer, valueLen, kCFStringEncodingUTF8) )
       valueString = valueBuffer;
@@ -904,7 +909,8 @@ static void SetOFVariableFromFile(const void *key, const void *value, void *cont
           char *nameString;
 
           // Get the variable's name.
-          nameLen = CFStringGetLength(key) + 1;
+          nameLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(key),
+              kCFStringEncodingUTF8) + 1;
           nameBuffer = malloc(nameLen);
           if( nameBuffer && CFStringGetCString(key, nameBuffer, nameLen, kCFStringEncodingUTF8) )
                   nameString = nameBuffer;

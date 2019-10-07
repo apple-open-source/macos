@@ -28,16 +28,17 @@
     clear: both;
     font-family: Menlo, monospace;
     font-size: 11px;
-    color: hsl(0, 0%, 70%);
+    color: var(--text-color-tertiary);
     -webkit-user-select: text;
 
-    --background-color-selected: hsl(210, 98%, 93%);
-    --border-color-selected: hsl(225, 91%, 70%);
+    --background-color-selected: var(--selected-text-background-color);
+    --border-color-selected: var(--selected-background-color);
 }
 
 .spreadsheet-style-declaration-editor .property {
     padding-right: var(--css-declaration-horizontal-padding);
     padding-left: calc(var(--css-declaration-horizontal-padding) + 17px);
+    border-right: 2px solid transparent;
     border-left: 1px solid transparent;
     outline: none;
 }
@@ -129,6 +130,14 @@
     -webkit-clip-path: polygon(0% 50%, 6px 0%, 100% 0%, 100% 100%, 6px 100%);
 }
 
+.spreadsheet-style-declaration-editor .property.modified {
+    border-right-color: var(--diff-addition-border-color);
+}
+
+.spreadsheet-style-declaration-editor .property.modified:not(.selected) {
+    background-color: var(--diff-addition-background-color);
+}
+
 .spreadsheet-style-declaration-editor .property.selected {
     background-color: var(--background-color-selected);
 }
@@ -157,6 +166,29 @@ body:matches(.window-docked-inactive, .window-inactive) .spreadsheet-style-decla
     color: var(--syntax-highlight-string-color);
 }
 
+.spreadsheet-style-declaration-editor .property .select-effective-property {
+    display: none;
+    height: 10px;
+    line-height: 10px;
+    vertical-align: middle;
+    color: var(--text-color-secondary);
+    cursor: pointer;
+}
+
+.spreadsheet-style-declaration-editor .property.overridden:hover .select-effective-property,
+.spreadsheet-style-declaration-editor .property.overridden:focus-within .select-effective-property {
+    display: inline-block;
+}
+
+.spreadsheet-style-declaration-editor .property.overridden:hover .select-effective-property::after,
+.spreadsheet-style-declaration-editor .property.overridden:focus-within .select-effective-property::after {
+    content: attr(data-value);
+    display: inline-block;
+    position: relative;
+    left: 16px;
+    white-space: nowrap;
+}
+
 .meta-key-pressed .spreadsheet-css-declaration:not(.locked) :matches(.name, .value):not(.editing):hover {
     color: var(--syntax-highlight-link-color) !important;
     text-decoration: underline !important;
@@ -179,13 +211,14 @@ body:matches(.window-docked-inactive, .window-inactive) .spreadsheet-style-decla
     pointer-events: none;
 }
 
-@media (prefers-dark-interface) {
-    .spreadsheet-style-declaration-editor {
-        --background-color-selected: hsl(230, 51%, 36%);
-        --border-color-selected: hsl(216, 98%, 67%);
-    }
-
+@media (prefers-color-scheme: dark) {
     .spreadsheet-style-declaration-editor :matches(.name, .value).editing {
         outline-color: var(--background-color-secondary) !important;
+    }
+
+    .spreadsheet-style-declaration-editor .property.overridden:hover .select-effective-property::after,
+    .spreadsheet-style-declaration-editor .property.overridden:focus-within .select-effective-property::after {
+        /* .select-effective-property has inverted colors. Invert the pseudo-element again to restore the original text color. */
+        filter: invert();
     }
 }

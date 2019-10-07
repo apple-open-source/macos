@@ -32,6 +32,7 @@
 #import "AutoscrollController.h"
 #import "Chrome.h"
 #import "ChromeClient.h"
+#import "ContentChangeObserver.h"
 #import "DataTransfer.h"
 #import "DragState.h"
 #import "FocusController.h"
@@ -486,22 +487,24 @@ void EventHandler::mouseMoved(WebEvent *event)
 {
     // Reject a mouse moved if the button is down - screws up tracking during autoscroll
     // These happen because WebKit sometimes has to fake up moved events.
-    if (!m_frame.view() || m_mousePressed || m_sendingEventToSubview)
+    if (!m_frame.document() || !m_frame.view() || m_mousePressed || m_sendingEventToSubview)
         return;
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
-
-    m_frame.document()->updateStyleIfNeeded();
-
-    WKStartObservingContentChanges();
-    WKStartObservingDOMTimerScheduling();
+    auto& document = *m_frame.document();
+    // Ensure we start mouse move event dispatching on a clear tree.
+    document.updateStyleIfNeeded();
     CurrentEventScope scope(event);
-    event.wasHandled = mouseMoved(currentPlatformMouseEvent());
-    
-    // FIXME: Why is this here?
-    m_frame.document()->updateStyleIfNeeded();
-    WKStopObservingDOMTimerScheduling();
-    WKStopObservingContentChanges();
+    {
+        ContentChangeObserver::MouseMovedScope observingScope(document);
+        event.wasHandled = mouseMoved(currentPlatformMouseEvent());
+        // Run style recalc to be able to capture content changes as the result of the mouse move event.
+        document.updateStyleIfNeeded();
+        callOnMainThread([protectedFrame = makeRef(m_frame)] {
+            if (auto* document = protectedFrame->document())
+                document->page()->chrome().client().observedContentChange(*document->frame());
+        });
+    }
 
     END_BLOCK_OBJC_EXCEPTIONS;
 }
@@ -514,6 +517,16 @@ static bool frameHasPlatformWidget(const Frame& frame)
     }
 
     return false;
+}
+
+void EventHandler::dispatchSyntheticMouseOut(const PlatformMouseEvent& platformMouseEvent)
+{
+    updateMouseEventTargetNode(nullptr, platformMouseEvent, FireMouseOverOut::Yes);
+}
+
+void EventHandler::dispatchSyntheticMouseMove(const PlatformMouseEvent& platformMouseEvent)
+{
+    mouseMoved(platformMouseEvent);
 }
 
 bool EventHandler::passMousePressEventToSubframe(MouseEventWithHitTestResults& mev, Frame* subframe)
@@ -554,9 +567,9 @@ OptionSet<PlatformEvent::Modifier> EventHandler::accessKeyModifiers()
     // So, we use Control in this case, even though it conflicts with Emacs-style key bindings.
     // See <https://bugs.webkit.org/show_bug.cgi?id=21107> for more detail.
     if (AXObjectCache::accessibilityEnhancedUserInterfaceEnabled())
-        return PlatformEvent::Modifier::CtrlKey;
+        return PlatformEvent::Modifier::ControlKey;
 
-    return { PlatformEvent::Modifier::CtrlKey, PlatformEvent::Modifier::AltKey };
+    return { PlatformEvent::Modifier::ControlKey, PlatformEvent::Modifier::AltKey };
 }
 
 PlatformMouseEvent EventHandler::currentPlatformMouseEvent() const
@@ -650,16 +663,15 @@ bool EventHandler::eventLoopHandleMouseDragged(const MouseEventWithHitTestResult
     return false;
 }
 
-#endif
-
-#if ENABLE(DATA_INTERACTION)
-bool EventHandler::tryToBeginDataInteractionAtPoint(const IntPoint& clientPosition, const IntPoint&)
+bool EventHandler::tryToBeginDragAtPoint(const IntPoint& clientPosition, const IntPoint&)
 {
     Ref<Frame> protectedFrame(m_frame);
 
     auto* document = m_frame.document();
     if (!document)
         return false;
+
+    SetForScope<bool> shouldAllowMouseDownToStartDrag { m_shouldAllowMouseDownToStartDrag, true };
 
     document->updateLayoutIgnorePendingStylesheets();
 
@@ -676,23 +688,33 @@ bool EventHandler::tryToBeginDataInteractionAtPoint(const IntPoint& clientPositi
     auto hitTestedMouseEvent = document->prepareMouseEvent(request, documentPoint, syntheticMouseMoveEvent);
 
     RefPtr<Frame> subframe = subframeForHitTestResult(hitTestedMouseEvent);
-    if (subframe && subframe->eventHandler().tryToBeginDataInteractionAtPoint(adjustedClientPosition, adjustedGlobalPosition))
+    if (subframe && subframe->eventHandler().tryToBeginDragAtPoint(adjustedClientPosition, adjustedGlobalPosition))
         return true;
 
-    // FIXME: This needs to be refactored, along with handleMousePressEvent and handleMouseMoveEvent, so that state associated only with dragging
-    // lives solely in the DragController, and so that we don't need to pretend that a mouse press and mouse move have already occurred here.
-    m_mouseDownMayStartDrag = eventMayStartDrag(syntheticMousePressEvent);
-    if (!m_mouseDownMayStartDrag)
+    if (!eventMayStartDrag(syntheticMousePressEvent))
         return false;
 
-    SetForScope<bool> mousePressed(m_mousePressed, true);
-    dragState().source = nullptr;
-    m_mouseDownPos = protectedFrame->view()->windowToContents(syntheticMouseMoveEvent.position());
-
-    return handleMouseDraggedEvent(hitTestedMouseEvent, DontCheckDragHysteresis);
+    handleMousePressEvent(syntheticMousePressEvent);
+    bool handledDrag = m_mouseDownMayStartDrag && handleMouseDraggedEvent(hitTestedMouseEvent, DontCheckDragHysteresis);
+    // Reset this bit to prevent autoscrolling from updating the selection with the last mouse location.
+    m_mouseDownMayStartSelect = false;
+    // Reset this bit to ensure that WebChromeClientIOS::observedContentChange() is called by EventHandler::mousePressed()
+    // when we would process the next tap after a drag interaction.
+    m_mousePressed = false;
+    return handledDrag;
 }
 
-#endif
+bool EventHandler::supportsSelectionUpdatesOnMouseDrag() const
+{
+    return false;
+}
+
+bool EventHandler::shouldAllowMouseDownToStartDrag() const
+{
+    return m_shouldAllowMouseDownToStartDrag;
+}
+
+#endif // ENABLE(DRAG_SUPPORT)
 
 }
 

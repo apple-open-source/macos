@@ -1,13 +1,13 @@
 --TEST--
-Test parse_ini_file() function : usage variation 
+Test parse_ini_file() function : usage variation
 --CREDITS--
 Dave Kelsey <d_kelsey@uk.ibm.com>
 --FILE--
 <?php
 /* Prototype  : array parse_ini_file(string filename [, bool process_sections])
- * Description: Parse configuration file 
+ * Description: Parse configuration file
  * Source code: ext/standard/basic_functions.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing parse_ini_file() : usage variation ***\n";
@@ -168,19 +168,19 @@ array(1) {
 }
 
 --empty array--
-Error: 2 - parse_ini_file() expects parameter 2 to be boolean, array given, %s(%d)
+Error: 2 - parse_ini_file() expects parameter 2 to be bool, array given, %s(%d)
 bool(false)
 
 --int indexed array--
-Error: 2 - parse_ini_file() expects parameter 2 to be boolean, array given, %s(%d)
+Error: 2 - parse_ini_file() expects parameter 2 to be bool, array given, %s(%d)
 bool(false)
 
 --associative array--
-Error: 2 - parse_ini_file() expects parameter 2 to be boolean, array given, %s(%d)
+Error: 2 - parse_ini_file() expects parameter 2 to be bool, array given, %s(%d)
 bool(false)
 
 --nested arrays--
-Error: 2 - parse_ini_file() expects parameter 2 to be boolean, array given, %s(%d)
+Error: 2 - parse_ini_file() expects parameter 2 to be bool, array given, %s(%d)
 bool(false)
 
 --uppercase NULL--
@@ -232,11 +232,11 @@ array(1) {
 }
 
 --instance of classWithToString--
-Error: 2 - parse_ini_file() expects parameter 2 to be boolean, object given, %s(%d)
+Error: 2 - parse_ini_file() expects parameter 2 to be bool, object given, %s(%d)
 bool(false)
 
 --instance of classWithoutToString--
-Error: 2 - parse_ini_file() expects parameter 2 to be boolean, object given, %s(%d)
+Error: 2 - parse_ini_file() expects parameter 2 to be bool, object given, %s(%d)
 bool(false)
 
 --undefined var--
@@ -251,4 +251,3 @@ array(1) {
   string(4) "test"
 }
 ===DONE===
-

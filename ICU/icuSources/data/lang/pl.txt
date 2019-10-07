@@ -81,7 +81,7 @@ pl{
         bfq{"badaga"}
         bg{"bułgarski"}
         bgn{"beludżi północny"}
-        bho{"bhodźpuri"}
+        bho{"bhodżpuri"}
         bi{"bislama"}
         bik{"bikol"}
         bin{"bini"}
@@ -109,6 +109,7 @@ pl{
         car{"karaibski"}
         cay{"kajuga"}
         cch{"atsam"}
+        ccp{"czakma"}
         ce{"czeczeński"}
         ceb{"cebuano"}
         cgg{"chiga"}
@@ -314,6 +315,7 @@ pl{
         krl{"karelski"}
         kru{"kurukh"}
         ks{"kaszmirski"}
+        ks_Arab{"kaszmirski (naskh)"}
         ksb{"sambala"}
         ksf{"bafia"}
         ksh{"gwara kolońska"}
@@ -355,7 +357,7 @@ pl{
         lv{"łotewski"}
         lzh{"chiński klasyczny"}
         lzz{"lazyjski"}
-        mad{"madurajski"}
+        mad{"madurski"}
         maf{"mafa"}
         mag{"magahi"}
         mai{"maithili"}
@@ -397,7 +399,7 @@ pl{
         mye{"myene"}
         myv{"erzja"}
         mzn{"mazanderański"}
-        na{"nauru"}
+        na{"nauruański"}
         nan{"minnański"}
         nap{"neapolitański"}
         naq{"nama"}
@@ -439,7 +441,8 @@ pl{
         osa{"osage"}
         ota{"osmańsko-turecki"}
         pa{"pendżabski"}
-        pag{"pangasino"}
+        pa_Arab{"pendżabski (naskh)"}
+        pag{"pangasinan"}
         pal{"pahlavi"}
         pam{"pampango"}
         pap{"papiamento"}
@@ -593,6 +596,7 @@ pl{
         umb{"umbundu"}
         und{"nieznany język"}
         ur{"urdu"}
+        ur_Arab{"urdu (naskh)"}
         uz{"uzbecki"}
         vai{"wai"}
         ve{"venda"}
@@ -649,6 +653,7 @@ pl{
     }
     Scripts{
         Arab{"arabskie"}
+        Aran{"nastaliq"}
         Armi{"armi"}
         Armn{"ormiańskie"}
         Avst{"awestyjskie"}
@@ -742,6 +747,7 @@ pl{
         Phnx{"fenicki"}
         Plrd{"fonetyczny Pollard’a"}
         Prti{"partyjski inskrypcyjny"}
+        Qaag{"zawgyi"}
         Rjng{"rejang"}
         Roro{"rongorongo"}
         Runr{"runiczne"}
@@ -966,7 +972,7 @@ pl{
         VALENCIA{"walencki"}
         WADEGILE{"latynizacja Wade’a i Gilesa"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.42"}
     characterLabelPattern{
         all{"{0} — wszystko"}
         category-list{"{0}: {1}"}
@@ -988,10 +994,5 @@ pl{
         language{"Język: {0}"}
         script{"Pismo: {0}"}
         territory{"Region: {0}"}
-    }
-    localeDisplayPattern{
-        keyTypePattern{"{0}: {1}"}
-        pattern{"{0} ({1})"}
-        separator{"{0}, {1}"}
     }
 }

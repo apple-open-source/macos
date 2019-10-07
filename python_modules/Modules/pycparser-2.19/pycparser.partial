@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>pycparser</string>
+        <key>OpenSourceVersion</key>
+        <string>2.19</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>https://github.com/eliben/pycparser</string>
+        <key>OpenSourceURL</key>
+        <string>https://files.pythonhosted.org/packages/68/9e/49196946aee219aead1290e00d1e7fdeab8567783e83e1b9ab5585e6206a/pycparser-2.19.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2019-04-04</string>
+        <key>OpenSourceLicense</key>
+        <string>BSD</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+        <key>OpenSourceSHA256</key>
+        <string>a988718abfad80b6b157acce7bf130a30876d27603738ac39f140993246b25b3</string>
+</dict>

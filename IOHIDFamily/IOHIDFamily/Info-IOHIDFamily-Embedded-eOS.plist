@@ -51,8 +51,6 @@
 				<true/>
 				<key>IOCFPlugInTypes</key>
 				<dict>
-					<key>0516B563-B15B-11DA-96EB-0014519758EF</key>
-					<string>IOHIDFamily.kext/PlugIns/IOHIDLib.plugin</string>
 					<key>7DDEECA8-A7B4-11DA-8A0E-0014519758EF</key>
 					<string>IOHIDFamily.kext/PlugIns/IOHIDLib.plugin</string>
 					<key>FA12FA38-6F1A-11D4-BA0C-0005028F18D5</key>

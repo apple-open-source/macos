@@ -40,7 +40,7 @@
 .Nd change file owner and group
 .Sh SYNOPSIS
 .Nm chown
-.Op Fl fhv
+.Op Fl fhnv
 .Oo
 .Fl R
 .Op Fl H | Fl L | Fl P
@@ -48,7 +48,7 @@
 .Ar owner Ns Op : Ns Ar group
 .Ar
 .Nm chown
-.Op Fl fhv
+.Op Fl fhnv
 .Oo
 .Fl R
 .Op Fl H | Fl L | Fl P
@@ -91,6 +91,8 @@ to change the user ID and/or the group of symbolic links.
 .It Fl R
 Change the user ID and/or the group ID for the file hierarchies rooted
 in the files instead of just the files themselves.
+.It Fl n
+Interpret user ID and group ID as numeric, avoiding name lookups.
 .It Fl v
 Cause
 .Nm chown

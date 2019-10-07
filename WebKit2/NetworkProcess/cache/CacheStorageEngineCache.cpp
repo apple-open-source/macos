@@ -418,20 +418,16 @@ void Cache::put(Vector<Record>&& records, RecordIdentifiersCallback&& callback)
             spaceRequired -= sameURLRecords->at(position).size;
     }
 
-    if (m_caches.hasEnoughSpace(spaceRequired)) {
-        storeRecords(WTFMove(records), WTFMove(callback));
-        return;
-    }
-
     m_caches.requestSpace(spaceRequired, [caches = makeRef(m_caches), identifier = m_identifier, records = WTFMove(records), callback = WTFMove(callback)](Optional<DOMCacheEngine::Error>&& error) mutable {
         if (error) {
             callback(makeUnexpected(error.value()));
             return;
         }
         auto* cache = caches->find(identifier);
-        if (!cache)
+        if (!cache) {
+            callback(makeUnexpected(DOMCacheEngine::Error::Internal));
             return;
-
+        }
         cache->storeRecords(WTFMove(records), WTFMove(callback));
     });
 }
@@ -606,7 +602,7 @@ Optional<Record> Cache::decode(const Storage::Record& storage)
     auto record = WTFMove(result->record);
     record.responseBody = WebCore::SharedBuffer::create(storage.body.data(), storage.body.size());
 
-    return WTFMove(record);
+    return record;
 }
 
 Vector<Key> Cache::keys() const

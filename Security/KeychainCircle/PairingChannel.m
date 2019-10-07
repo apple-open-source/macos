@@ -12,31 +12,114 @@
 #import <utilities/debugging.h>
 #import <utilities/SecCFWrappers.h>
 #import <ipc/securityd_client.h>
+#import "keychain/ot/OTManager.h"
+#import "keychain/ot/OctagonControlServer.h"
+#import "keychain/ot/OTControl.h"
+#import "keychain/ot/OctagonControlServer.h"
+#import "keychain/ot/OTJoiningConfiguration.h"
+#import "keychain/ot/proto/generated_source/OTPairingMessage.h"
+#import "keychain/ot/proto/generated_source/OTSOSMessage.h"
+#import "keychain/ot/proto/generated_source/OTApplicantToSponsorRound2M1.h"
+#import "keychain/ot/proto/generated_source/OTSponsorToApplicantRound2M2.h"
+#import "keychain/ot/proto/generated_source/OTSponsorToApplicantRound1M2.h"
+#import "keychain/ot/proto/generated_source/OTPairingMessage.h"
+#include <notify.h>
 
 #import <compression.h>
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 #import <MobileGestalt.h>
 #endif
 
-#import "SecADWrapper.h"
+#import "utilities/SecADWrapper.h"
+
+KCPairingIntent_Type KCPairingIntent_Type_None = @"none";
+KCPairingIntent_Type KCPairingIntent_Type_SilentRepair = @"repair";
+KCPairingIntent_Type KCPairingIntent_Type_UserDriven = @"userdriven";
 
 typedef void(^KCPairingInternalCompletion)(BOOL complete, NSDictionary *outdict, NSError *error);
 typedef void(^KCNextState)(NSDictionary *indict, KCPairingInternalCompletion complete);
 
 NSString *kKCPairingChannelErrorDomain = @"com.apple.security.kcparingchannel";
 
+const char* pairingScope = "ot-pairing";
+
+typedef void(^OTPairingInternalCompletion)(BOOL complete, NSData * _Nullable outData, NSError * _Nullable error);
+typedef void(^OTNextState)(NSData *inData, OTPairingInternalCompletion complete);
+
 @implementation KCPairingChannelContext
+
++ (BOOL)supportsSecureCoding {
+    return YES;
+}
+
+- (BOOL)isEqual:(id)object
+{
+    KCPairingChannelContext *other = (KCPairingChannelContext *)object;
+
+    return [other isMemberOfClass:[self class]]
+        && ((!self->_model && !other->_model) || [self->_model isEqual:other->_model])
+        && ((!self->_modelVersion && !other->_modelVersion) || [self->_modelVersion isEqual:other->_modelVersion])
+        && ((!self->_modelClass && !other->_modelClass) || [self->_modelClass isEqual:other->_modelClass])
+        && ((!self->_osVersion && !other->_osVersion) || [self->_osVersion isEqual:other->_osVersion])
+        && ((!self->_uniqueDeviceID && !other->_uniqueDeviceID) || [self->_uniqueDeviceID isEqual:other->_uniqueDeviceID])
+        && ((!self->_uniqueClientID && !other->_uniqueClientID) || [self->_uniqueClientID isEqual:other->_uniqueClientID])
+        && ((!self->_intent && !other->_intent) || [self->_intent isEqual:other->_intent])
+    ;
+}
+
+- (void)encodeWithCoder:(NSCoder *)coder {
+    [coder encodeObject:_model forKey:@"model"];
+    [coder encodeObject:_modelVersion forKey:@"modelVersion"];
+    [coder encodeObject:_modelClass forKey:@"modelClass"];
+    [coder encodeObject:_osVersion forKey:@"osVersion"];
+    [coder encodeObject:_uniqueDeviceID forKey:@"uniqueDeviceID"];
+    [coder encodeObject:_uniqueClientID forKey:@"uniqueClientID"];
+    [coder encodeObject:_intent forKey:@"intent"];
+}
+
+- (nullable instancetype)initWithCoder:(NSCoder *)decoder
+{
+    self = [super init];
+    if (self) {
+        _model = [decoder decodeObjectOfClass:[NSString class] forKey:@"model"];
+        _modelVersion = [decoder decodeObjectOfClass:[NSString class] forKey:@"modelVersion"];
+        _modelClass = [decoder decodeObjectOfClass:[NSString class] forKey:@"modelClass"];
+        _osVersion = [decoder decodeObjectOfClass:[NSString class] forKey:@"osVersion"];
+        _uniqueDeviceID = [decoder decodeObjectOfClass:[NSString class] forKey:@"uniqueDeviceID"];
+        _uniqueClientID = [decoder decodeObjectOfClass:[NSString class] forKey:@"uniqueClientID"];
+        _intent = [decoder decodeObjectOfClass:[NSString class] forKey:@"intent"];
+
+        /* validate intent if we have one */
+        if (_intent != NULL &&
+            !([_intent isEqualToString:KCPairingIntent_Type_None] ||
+              [_intent isEqualToString:KCPairingIntent_Type_SilentRepair] ||
+              [_intent isEqualToString:KCPairingIntent_Type_UserDriven]))
+        {
+            return nil;
+        }
+    }
+    return self;
+}
+
 @end
 
 
 @interface KCPairingChannel ()
 @property (assign) KCPairingChannelContext *peerVersionContext;
-@property (assign) bool initator;
+@property (assign) bool initiator;
 @property (assign) unsigned counter;
 @property (assign) bool acceptorWillSendInitialSyncCredentials;
 @property (strong) NSXPCConnection *connection;
-
+@property (strong) OTControl *otControl;
+@property (strong) NSString* contextID;
+@property (strong) OTNextState nextOctagonState;
 @property (strong) KCNextState nextState;
+@property (nonatomic, strong) OTJoiningConfiguration* joiningConfiguration;
+@property (nonatomic) bool testFailSOS;
+@property (nonatomic) bool testFailOctagon;
+
+@property (assign) bool sessionSupportsSOS;
+@property (assign) bool sessionSupportsOctagon;
 @end
 
 
@@ -52,18 +135,20 @@ NSString *kKCPairingChannelErrorDomain = @"com.apple.security.kcparingchannel";
     return [[KCPairingChannel alloc] initAsInitiator:false version:peerVersionContext];
 }
 
-- (instancetype)initAsInitiator:(bool)initator version:(KCPairingChannelContext *)peerVersionContext
+- (instancetype)initAsInitiator:(bool)initiator version:(KCPairingChannelContext *)peerVersionContext
 {
-    if (![KCPairingChannel isSupportedPlatform])
+    if (![KCPairingChannel isSupportedPlatform]) {
+        secerror("platform not supported for pairing");
         return NULL;
+    }
 
     if (self = [super init]) {
         __weak typeof(self) weakSelf = self;
-        _initator = initator;
+        _initiator = initiator;
         _peerVersionContext = peerVersionContext;
-        if (_initator) {
+        if (_initiator) {
             _nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
-                [weakSelf initatorFirstPacket:nsdata complete:kscomplete];
+                [weakSelf initiatorFirstPacket:nsdata complete:kscomplete];
             };
         } else {
             _nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
@@ -71,21 +156,30 @@ NSString *kKCPairingChannelErrorDomain = @"com.apple.security.kcparingchannel";
             };
         }
         _needInitialSync = true;
+        _testFailSOS = false;
+        _contextID = OTDefaultContext;
+
+        /* only apply to acceptor right now */
+        _sessionSupportsSOS = OctagonPlatformSupportsSOS();
+        _sessionSupportsOctagon = OctagonIsEnabled();
+        NSError *localError = nil;
+        _otControl = [OTControl controlObject:true error:&localError];
+        if(localError){
+            secerror("could not stand up otcontrol connection");
+        }
+        _joiningConfiguration = [[OTJoiningConfiguration alloc]initWithProtocolType:OTProtocolPairing
+                                                                     uniqueDeviceID:peerVersionContext.uniqueDeviceID
+                                                                     uniqueClientID:peerVersionContext.uniqueClientID
+                                                                      containerName:nil
+                                                                          contextID:OTDefaultContext
+                                                                              epoch:0
+                                                                        isInitiator:initiator];
     }
     return self;
 }
 
 + (bool)isSupportedPlatform
 {
-    CFStringRef deviceClass = NULL;
-#if TARGET_OS_EMBEDDED && !RC_HIDE_HARDWARE_WINTER_2017_IOS
-    deviceClass = MGCopyAnswer(kMGQDeviceClass, NULL);
-    if (deviceClass && CFEqual(deviceClass, kMGDeviceClassAudioAccessory)){
-        CFReleaseNull(deviceClass);
-        return false;
-    }
-#endif
-    CFReleaseNull(deviceClass);
     return true;
 }
 
@@ -161,117 +255,273 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
 
 //MARK: - Initiator
 
-- (void)initatorFirstPacket:(NSDictionary * __unused)indata complete:(KCPairingInternalCompletion)complete
+- (void) attemptSosUpgrade
 {
-    secnotice("pairing", "initator packet 1");
+    [self.otControl attemptSosUpgrade:nil context:self.contextID reply:^(NSError *error) {
+        if(error){
+            secerror("pairing: failed to upgrade initiator into Octagon: %@", error);
+        }
+    }];
+}
 
-    if (![self ensureControlChannel]) {
+- (void)initiatorFirstPacket:(NSDictionary * __unused)indata complete:(KCPairingInternalCompletion)complete
+{
+    secnotice("pairing", "initiator packet 1");
+
+    if (OctagonPlatformSupportsSOS() && ![self ensureControlChannel]) {
         [self setNextStateError:[NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorNoControlChannel userInfo:NULL] complete:complete];
         return;
     }
 
-    __weak typeof(self) weakSelf = self;
-    self.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
-        [weakSelf initatorSecondPacket:nsdata complete:kscomplete];
-    };
-    complete(false, @{ @"d" : @YES }, NULL);
+    if(OctagonIsEnabled() && self.sessionSupportsOctagon && !self.testFailOctagon) {
+        __weak typeof(self) weakSelf = self;
+        self.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
+            [weakSelf initiatorSecondPacket:nsdata complete:kscomplete];
+        };
+        complete(false, @{ @"d" : @YES, @"o" : @{@"v" : @"O"} }, NULL);
+    } else if (OctagonIsEnabled() && self.testFailOctagon) {
+        complete(true, nil, NULL);
+        return;
+    } else {
+        __weak typeof(self) weakSelf = self;
+        self.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
+            [weakSelf initiatorSecondPacket:nsdata complete:kscomplete];
+        };
+        complete(false, @{ @"d" : @YES }, NULL);
+    }
 }
 
-- (void)initatorSecondPacket:(NSDictionary *)indata complete:(KCPairingInternalCompletion)complete
+- (void)initiatorSecondPacket:(NSDictionary *)indata complete:(KCPairingInternalCompletion)complete
 {
-    secnotice("pairing", "initator packet 2");
+    secnotice("pairing", "initiator packet 2");
 
-    NSData *credential = indata[@"c"];
-    if (credential == NULL) {
-        secnotice("pairing", "no credential");
-        [self setNextStateError:[NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorAccountCredentialMissing userInfo:NULL] complete:complete];
-        return;
+    NSData *octagonData = indata[@"o"];
+
+    if(octagonData == nil) {
+        secnotice("pairing", "acceptor didn't send a octagon packet, so skipping all octagon flows");
+        self.sessionSupportsOctagon = false;
     }
 
-    if (indata[@"d"]) {
+    NSData *credential = indata[@"c"];
+    if (![credential isKindOfClass:[NSData class]]) {
+        if(!OctagonIsEnabled() && OctagonPlatformSupportsSOS()) {
+            secnotice("pairing", "no credential");
+            [self setNextStateError:[NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorAccountCredentialMissing userInfo:NULL] complete:complete];
+            return;
+        }
+    }
+
+    if (OctagonPlatformSupportsSOS() && indata[@"d"]) {
         secnotice("pairing", "acceptor will send send initial credentials");
         self.acceptorWillSendInitialSyncCredentials = true;
     }
-
-    [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        complete(true, NULL, error);
-    }] stashAccountCredential:credential complete:^(bool success, NSError *error) {
-        [self setNextStateError:NULL complete:NULL];
-        if (!success) {
-            secnotice("pairing", "failed stash credentials: %@", error);
+    if(OctagonPlatformSupportsSOS()) {
+        [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
             complete(true, NULL, error);
-            return;
-        }
-        [self initatorCompleteSecondPacket:complete];
-    }];
+        }] stashAccountCredential:credential complete:^(bool success, NSError *error) {
+            [self setNextStateError:NULL complete:NULL];
+            if (!success || self.testFailSOS) {
+                secnotice("pairing", "failed stash credentials: %@", error);
+                if(!OctagonIsEnabled() || !self.sessionSupportsOctagon){
+                    complete(true, NULL, error);
+                    return;
+                } else {
+                    [self initiatorCompleteSecondPacketOctagon:indata application:nil complete:complete];
+                }
+            } else{
+                [self initiatorCompleteSecondPacketWithSOS:indata complete:complete];
+            }
+        }];
+    } else if(OctagonIsEnabled() && self.sessionSupportsOctagon) {
+        [self initiatorCompleteSecondPacketOctagon:indata application:nil complete:complete];
+        return;
+    }
 }
 
-- (void)initatorCompleteSecondPacket:(KCPairingInternalCompletion)complete
+
+- (void)initiatorCompleteSecondPacketWithSOS:(NSDictionary *)indata complete:(KCPairingInternalCompletion)complete
 {
+    secnotice("pairing", "initiator complete second packet 2");
+
     __weak typeof(self) weakSelf = self;
-    secnotice("pairing", "initator complete second packet 2");
 
     [self setNextStateError:NULL complete:NULL];
 
     [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
         complete(true, NULL, error);
     }] myPeerInfo:^(NSData *application, NSError *error) {
-        if (application) {
-            complete(false, @{ @"p" : application }, error);
-
-            weakSelf.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
-                [weakSelf initatorThirdPacket:nsdata complete:kscomplete];
-            };
-
+        if (application && !self.testFailSOS) {
+            if(OctagonIsEnabled() && self.sessionSupportsOctagon) {
+                [self initiatorCompleteSecondPacketOctagon:indata application:application complete:complete];
+            } else{
+                complete(false, @{ @"p" : application }, error);
+                weakSelf.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
+                    [weakSelf initiatorThirdPacket:nsdata complete:kscomplete];
+                };
+            }
         } else {
-            secnotice("pairing", "failed getting application: %@", error);
-            complete(true, @{}, error);
+            if(OctagonIsEnabled() && self.sessionSupportsOctagon){
+                [self initiatorCompleteSecondPacketOctagon:indata application:application complete:complete];
+            } else {
+                secnotice("pairing", "failed getting application: %@", error);
+                complete(true, @{}, error);
+            }
         }
     }];
 }
 
-- (void)initatorThirdPacket:(NSDictionary *)indata complete:(KCPairingInternalCompletion)complete
+- (void)initiatorCompleteSecondPacketOctagon:(NSDictionary*)indata application:(NSData*)application complete:(KCPairingInternalCompletion)complete
+{
+    secnotice("pairing", "initiator complete second packet 2 with octagon");
+
+    __weak typeof(self) weakSelf = self;
+    NSData *octagonData = indata[@"o"];
+
+    if(![octagonData isKindOfClass:[NSData class]]) {
+        secnotice(pairingScope, "initiatorCompleteSecondPacketOctagon octagonData missing or wrong class");
+        [self setNextStateError:[NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorOctagonMessageMissing userInfo:NULL] complete:complete];
+        return;
+    }
+
+    //handle epoch and create identity message
+    [self.otControl rpcPrepareIdentityAsApplicantWithConfiguration:self.joiningConfiguration
+                                                             reply:^(NSString *peerID,
+                                                                     NSData *permanentInfo,
+                                                                     NSData *permanentInfoSig,
+                                                                     NSData *stableInfo,
+                                                                     NSData *stableInfoSig,
+                                                                     NSError *error) {
+        if (error || self.testFailOctagon) {
+            secerror("ot-pairing: failed to create %d message: %@", self.counter, error);
+            complete(true, nil, error);
+            return;
+        } else {
+            OTPairingMessage *octagonMessage = [[OTPairingMessage alloc]init];
+            OTApplicantToSponsorRound2M1 *prepare = [[OTApplicantToSponsorRound2M1 alloc] init];
+            prepare.peerID = peerID;
+            prepare.permanentInfo = permanentInfo;
+            prepare.permanentInfoSig = permanentInfoSig;
+            prepare.stableInfo = stableInfo;
+            prepare.stableInfoSig = stableInfoSig;
+            octagonMessage.prepare = prepare;
+            if(application){
+                secnotice(pairingScope, "initiatorCompleteSecondPacketOctagon returning octagon and sos data");
+                complete(false, @{ @"p" : application, @"o" : octagonMessage.data }, nil);
+            } else {
+                secnotice(pairingScope, "initiatorCompleteSecondPacketOctagon returning octagon data");
+                complete(false, @{ @"o" : octagonMessage.data }, nil);
+            }
+            weakSelf.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
+                [weakSelf initiatorThirdPacket:nsdata complete:kscomplete];
+            };
+        }
+    }];
+}
+
+- (void)initiatorThirdPacket:(NSDictionary *)indata complete:(KCPairingInternalCompletion)complete
 {
     __weak typeof(self) weakSelf = self;
-    secnotice("pairing", "initator packet 3");
+    secnotice("pairing", "initiator packet 3");
 
     [self setNextStateError:NULL complete:NULL];
 
     NSData *circleBlob = indata[@"b"];
 
     if (circleBlob == NULL) {
-        complete(true, NULL, NULL);
-        return;
-    }
-
-    [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        complete(true, NULL, error);
-    }] joinCircleWithBlob:circleBlob version:kPiggyV1 complete:^(bool success, NSError *error){
-        typeof(self) strongSelf = weakSelf;
-        secnotice("pairing", "initator cirle join complete, more data: %s: %@",
-                  strongSelf->_acceptorWillSendInitialSyncCredentials ? "yes" : "no", error);
-        
-        if (strongSelf->_acceptorWillSendInitialSyncCredentials) {
-            strongSelf.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
-                [weakSelf initatorFourthPacket:nsdata complete:kscomplete];
-            };
-            
-            complete(false, @{}, NULL);
-        } else {
+        if(!OctagonIsEnabled() && OctagonPlatformSupportsSOS()) {
+            secnotice("pairing", "no sos circle");
             complete(true, NULL, NULL);
+            return;
         }
-    }];
+    } else if(OctagonPlatformSupportsSOS()) {
+        if(![circleBlob isKindOfClass:[NSData class]]) {
+            complete(true, NULL, [NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorTypeConfusion userInfo:NULL]);
+            return;
+        }
+
+        [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
+            complete(true, NULL, error);
+        }] joinCircleWithBlob:circleBlob version:kPiggyV1 complete:^(bool success, NSError *error){
+            if(error || self.testFailSOS) {
+                if(OctagonIsEnabled() && self.sessionSupportsOctagon) {
+                    secnotice("pairing", "failed to join circle with blob, continuing to handle octagon protocol");
+                } else {
+                    secnotice("pairing", "failed to join circle with blob");
+                    complete(true, NULL, NULL);
+                }
+            } else{
+                if(OctagonIsEnabled() && self.sessionSupportsOctagon) {
+                    secnotice("pairing","initiator circle join complete");
+                } else {
+                    //kick off SOS ugprade
+                    if(OctagonIsEnabled() && !self.sessionSupportsOctagon) {
+                        [self attemptSosUpgrade];
+                    }
+                    typeof(self) strongSelf = weakSelf;
+                    secnotice("pairing", "initiator circle join complete, more data: %s: %@",
+                              strongSelf->_acceptorWillSendInitialSyncCredentials ? "yes" : "no", error);
+
+                    if (strongSelf->_acceptorWillSendInitialSyncCredentials) {
+                        strongSelf.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
+                            [weakSelf initiatorFourthPacket:nsdata complete:kscomplete];
+                        };
+
+                        complete(false, @{}, NULL);
+                    } else {
+                        complete(true, NULL, NULL);
+                    }
+                }
+            }
+        }];
+    }
+    if(OctagonIsEnabled() && self.sessionSupportsOctagon){
+        NSData *octagonData = indata[@"o"];
+        if(![octagonData isKindOfClass:[NSData class]]) {
+            secnotice(pairingScope, "initiatorThirdPacket octagonData missing or wrong class");
+            [self setNextStateError:[NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorOctagonMessageMissing userInfo:NULL] complete:complete];
+            return;
+        }
+        OTPairingMessage *pairingMessage = [[OTPairingMessage alloc] initWithData:octagonData];
+        if(!pairingMessage.hasVoucher){
+            secnotice(pairingScope, "initiatorThirdPacket pairingMessage has no voucher");
+           [self setNextStateError:[NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorOctagonMessageMissing userInfo:NULL] complete:complete];
+            return;
+        }
+        OTSponsorToApplicantRound2M2 *voucher = pairingMessage.voucher;
+
+        //handle voucher and join octagon
+        [self.otControl rpcJoinWithConfiguration:self.joiningConfiguration vouchData:voucher.voucher vouchSig:voucher.voucherSignature preapprovedKeys:voucher.preapprovedKeys reply:^(NSError *error) {
+            if (error || self.testFailOctagon) {
+                secerror("ot-pairing: failed to create %d message: %@", self.counter, error);
+                complete(true, NULL, error);
+                return;
+            }else{
+                secnotice(pairingScope, "initiatorThirdPacket successfully joined Octagon");
+                typeof(self) strongSelf = weakSelf;
+                if(OctagonPlatformSupportsSOS() && strongSelf->_acceptorWillSendInitialSyncCredentials == true) {
+                    strongSelf.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
+                        [weakSelf initiatorFourthPacket:nsdata complete:kscomplete];
+                    };
+                    complete(false, @{}, nil);
+
+                } else {
+                    complete(true, nil, nil);
+
+                }
+            }
+        }];
+    }
 }
 
-- (void)initatorFourthPacket:(NSDictionary *)indata complete:(KCPairingInternalCompletion)complete
+- (void)initiatorFourthPacket:(NSDictionary *)indata complete:(KCPairingInternalCompletion)complete
 {
-    secnotice("pairing", "initator packet 4");
+    secnotice("pairing", "initiator packet 4");
 
     [self setNextStateError:NULL complete:NULL];
 
     NSArray *items = indata[@"d"];
     if (![items isKindOfClass:[NSArray class]]) {
-        secnotice("pairing", "initator no items to import");
+        secnotice("pairing", "initiator no items to import");
         complete(true, NULL, NULL);
         return;
     }
@@ -281,10 +531,10 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
     [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
         complete(true, NULL, error);
     }] importInitialSyncCredentials:items complete:^(bool success, NSError *error) {
-        secnotice("pairing", "initator importInitialSyncCredentials: %s: %@", success ? "yes" : "no", error);
+        secnotice("pairing", "initiator importInitialSyncCredentials: %s: %@", success ? "yes" : "no", error);
         if (success)
             self->_needInitialSync = false;
-        complete(true, NULL, NULL);
+        complete(true, nil, nil);
     }];
 }
 
@@ -297,42 +547,104 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
     __weak typeof(self) weakSelf = self;
 
     secnotice("pairing", "acceptor packet 1");
-
     [self setNextStateError:NULL complete:NULL];
 
-    if (![self ensureControlChannel]) {
+    if (self.sessionSupportsSOS && ![self ensureControlChannel]) {
+        secnotice("pairing", "unable to establish a channel to sos control");
         [self setNextStateError:[NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorNoControlChannel userInfo:NULL] complete:complete];
         return;
     }
 
-    if (indata[@"d"]) {
+    if (self.sessionSupportsSOS && indata[@"d"]) {
         secnotice("pairing", "acceptor initialSyncCredentials requested");
         self.acceptorWillSendInitialSyncCredentials = true;
     }
 
-    [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        complete(true, NULL, error);
-    }] validatedStashedAccountCredential:^(NSData *credential, NSError *error) {
-        if (!credential) {
-            secnotice("pairing", "acceptor doesn't have a stashed credential: %@", error);
-            [self setNextStateError:error complete:complete];
-            return;
+    if (indata[@"o"] == nil) {
+        secnotice("pairing", "initiator didn't send a octagon packet, so skipping all octagon flows");
+        self.sessionSupportsOctagon = false;
+    }
+    // XXX Before we go here we should check if we are trusted or not, if we are not, there is no point proposing octagon
+
+    NSMutableDictionary *reply = [NSMutableDictionary dictionary];
+
+    if(self.sessionSupportsSOS) {
+        [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
+            complete(true, NULL, error);
+        }] validatedStashedAccountCredential:^(NSData *credential, NSError *error) {
+            secnotice("pairing", "acceptor validatedStashedAccountCredential: %@ (%@)", credential != NULL ? @"yes" : @"no", error);
+            if(credential){
+                reply[@"c"] = credential;
+
+                if (self.acceptorWillSendInitialSyncCredentials) {
+                    reply[@"d"] = @YES;
+                };
+                if(self.sessionSupportsOctagon) {
+                    [self acceptorFirstOctagonPacket:indata reply:reply complete:complete];
+                } else {
+                    self.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
+                        [weakSelf acceptorSecondPacket:nsdata complete:kscomplete];
+                    };
+                    secnotice("pairing", "acceptor reply to packet 1");
+                    complete(false, reply, NULL);
+                }
+            }
+            else if ((!credential && !self.sessionSupportsOctagon) || self.testFailSOS) {
+                secnotice("pairing", "acceptor doesn't have a stashed credential: %@", error);
+                NSError *noStashCredentail = [NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorNoStashedCredential userInfo:NULL];
+                [self setNextStateError:noStashCredentail complete:complete];
+                return;
+            }
+            else if(self.sessionSupportsOctagon) {
+                [self acceptorFirstOctagonPacket:indata reply:reply complete:complete];
+            } 
+        }];
+    } else if(self.sessionSupportsOctagon){
+        [self acceptorFirstOctagonPacket:indata reply:reply complete:complete];
+    } else {
+        secnotice("pairing", "acceptor neither of octagon nor SOS");
+        NSError *notSupported = [NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorNoTrustAvailable userInfo:NULL];
+        [self setNextStateError:notSupported complete:complete];
+    }
+}
+- (void)acceptorFirstOctagonPacket:(NSDictionary *)indata reply:(NSMutableDictionary*)reply complete:(KCPairingInternalCompletion)complete
+{
+    __weak typeof(self) weakSelf = self;
+    NSDictionary *octagonData = indata[@"o"];
+
+    if(![octagonData isKindOfClass:[NSDictionary class]]) {
+        secnotice(pairingScope, "acceptorFirstOctagonPacket octagon data missing");
+        [self setNextStateError:[NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorOctagonMessageMissing userInfo:NULL] complete:complete];
+        return;
+    }
+
+    NSDictionary *unpackedMessage = octagonData;
+
+    if(![unpackedMessage[@"v"] isEqualToString:@"O"]){
+        secnotice(pairingScope, "acceptorFirstOctagonPacket 'v' contents wrong");
+        [self setNextStateError:[NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorOctagonMessageMissing userInfo:NULL] complete:complete];
+        return;
+    }
+
+    //handle epoch request and fetch epoch
+    [self.otControl rpcEpochWithConfiguration:self.joiningConfiguration reply:^(uint64_t epoch, NSError * _Nullable error) {
+        secnotice("pairing", "acceptor rpcEpochWithConfiguration: %ld (%@)", (long)epoch, error);
+        if(error || self.testFailOctagon){
+            secerror("error acceptor handling packet %d", self.counter);
+            complete(true, nil, error);
+        }else{
+            secnotice(pairingScope, "acceptor handled packet %d", self.counter);
+            self.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
+                [weakSelf acceptorSecondPacket:nsdata complete:kscomplete];
+            };
+            OTPairingMessage *response = [[OTPairingMessage alloc] init];
+            response.epoch = [[OTSponsorToApplicantRound1M2 alloc] init];
+            response.epoch.epoch = epoch;
+            reply[@"o"] = response.data;
+
+            secnotice("pairing", "acceptor reply to packet 1");
+            complete(false, reply, error);
         }
-
-        self.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
-            [weakSelf acceptorSecondPacket:nsdata complete:kscomplete];
-        };
-
-        NSMutableDictionary *reply = [@{
-            @"c" : credential,
-        } mutableCopy];
-
-        if (self.acceptorWillSendInitialSyncCredentials) {
-            reply[@"d"] = @YES;
-        };
-
-        secnotice("pairing", "acceptor reply to packet 1");
-        complete(false, reply, NULL);
     }];
 }
 
@@ -343,32 +655,96 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
     [self setNextStateError:NULL complete:NULL];
 
     secnotice("pairing", "acceptor packet 2");
+    __block NSMutableDictionary *reply = [NSMutableDictionary dictionary];
 
-    [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        complete(true, NULL, error);
-    }] circleJoiningBlob:indata[@"p"] complete:^(NSData *blob, NSError *error){
-        NSMutableDictionary *reply = [NSMutableDictionary dictionary];
+    NSData *peerJoinBlob = indata[@"p"];
 
-        if (blob) {
-            secnotice("pairing", "acceptor pairing complete (will send: %s): %@",
-                      self.acceptorWillSendInitialSyncCredentials ? "YES" : "NO",
-                      error);
+    if(self.sessionSupportsSOS && [peerJoinBlob isKindOfClass:[NSData class]]) {
+        [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
+            complete(true, NULL, error);
+        }] circleJoiningBlob:peerJoinBlob complete:^(NSData *blob, NSError *error){
 
-            reply[@"b"] = blob;
+            if (blob) {
+                secnotice("pairing", "acceptor pairing complete (will send: %s): %@",
+                          self.acceptorWillSendInitialSyncCredentials ? "YES" : "NO",
+                          error);
 
-            if (self.acceptorWillSendInitialSyncCredentials) {
+                reply[@"b"] = blob;
+            }
+            if(self.sessionSupportsOctagon) {
+                [self acceptorSecondOctagonPacket:indata reply:reply complete:complete];
+            } else {
+                secnotice("pairing", "posting kSOSCCCircleOctagonKeysChangedNotification");
+                notify_post(kSOSCCCircleOctagonKeysChangedNotification);
+                if (self.acceptorWillSendInitialSyncCredentials) {
+                    self.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
+                        [weakSelf acceptorThirdPacket:nsdata complete:kscomplete];
+                    };
+
+                    complete(false, reply, NULL);
+                } else {
+                    complete(true, reply, NULL);
+                }
+                secnotice("pairing", "acceptor reply to packet 2");
+            }
+        }];
+    } else if(self.sessionSupportsOctagon){
+        [self acceptorSecondOctagonPacket:indata reply:reply complete:complete];
+    }
+}
+
+- (void)acceptorSecondOctagonPacket:(NSDictionary*)indata reply:(NSMutableDictionary*)reply complete:(KCPairingInternalCompletion)complete
+{
+    __weak typeof(self) weakSelf = self;
+    NSData *octagonData = indata[@"o"];
+
+    if(![octagonData isKindOfClass:[NSData class]]) {
+        secnotice(pairingScope, "acceptorSecondOctagonPacket octagon data missing");
+        [self setNextStateError:[NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorOctagonMessageMissing userInfo:NULL] complete:complete];
+        return;
+    }
+
+    OTPairingMessage *pairingMessage = [[OTPairingMessage alloc] initWithData:octagonData];
+    if(!pairingMessage.hasPrepare){
+        secerror("ot-pairing: acceptorSecondOctagonPacket: no octagon message");
+        [self setNextStateError:[NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorOctagonMessageMissing userInfo:NULL] complete:complete];
+        return;
+    }
+    OTApplicantToSponsorRound2M1 *prepare = pairingMessage.prepare;
+
+    //handle identity and fetch voucher
+    [self.otControl rpcVoucherWithConfiguration:self.joiningConfiguration
+                                         peerID:prepare.peerID
+                                  permanentInfo:prepare.permanentInfo
+                               permanentInfoSig:prepare.permanentInfoSig
+                                     stableInfo:prepare.stableInfo
+                                  stableInfoSig:prepare.stableInfoSig
+                                          reply:^(NSData *voucher,
+                                                  NSData *voucherSig,
+                                                  NSError *error) {
+        if(error || self.testFailOctagon){
+            secerror("error acceptor handling octagon packet %d", self.counter);
+            complete(true, nil, error);
+            return;
+        } else {
+            bool finished = true;
+
+            secnotice(pairingScope, "acceptor handled octagon packet %d", self.counter);
+            if (OctagonPlatformSupportsSOS() && self.acceptorWillSendInitialSyncCredentials) {
                 self.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
                     [weakSelf acceptorThirdPacket:nsdata complete:kscomplete];
                 };
-
-                complete(false, reply, NULL);
-            } else {
-                complete(true, reply, NULL);
+                finished = false;
             }
-        } else {
-            complete(true, reply, error);
+            OTPairingMessage *response = [[OTPairingMessage alloc] init];
+            response.voucher = [[OTSponsorToApplicantRound2M2 alloc] init];
+            response.voucher.voucher = voucher;
+            response.voucher.voucherSignature = voucherSig;
+            reply[@"o"] = response.data;
+
+            secnotice("pairing", "acceptor reply to packet 2");
+            complete(finished ? true : false, reply, error);
         }
-        secnotice("pairing", "acceptor reply to packet 2");
     }];
 }
 
@@ -406,9 +782,9 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
     NSXPCInterface *interface = [NSXPCInterface interfaceWithProtocol:@protocol(SOSControlProtocol)];
 
     self.connection = [[NSXPCConnection alloc] initWithMachServiceName:@(kSecuritydSOSServiceName) options:0];
-    if (self.connection == NULL)
+    if (self.connection == NULL){
         return false;
-
+    }
     self.connection.remoteObjectInterface = interface;
 
     [self.connection resume];
@@ -418,7 +794,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
 
 - (void)validateStart:(void(^)(bool result, NSError *error))complete
 {
-    if (!self.initator) {
+    if (!self.initiator) {
         [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
             complete(false, error);
         }] stashedCredentialPublicKey:^(NSData *publicKey, NSError *error) {
@@ -434,6 +810,8 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
 - (void)exchangePacket:(NSData *)inputCompressedData complete:(KCPairingChannelCompletion)complete
 {
     NSDictionary *indict = NULL;
+    secnotice("pairing", "Exchange packet: %u", self.counter);
+    self.counter++;
 
     if (inputCompressedData) {
 
@@ -466,11 +844,12 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
 
             if (compressedData) {
                 NSString *key = [NSString stringWithFormat:@"com.apple.ckks.pairing.packet-size.%s.%u",
-                                 self->_initator ? "initator" : "acceptor", self->_counter];
+                                 self->_initiator ? "initiator" : "acceptor", self->_counter];
                 SecADClientPushValueForDistributionKey((__bridge CFStringRef)key, [compressedData length]);
                 secnotice("pairing", "pairing packet size %lu", (unsigned long)[compressedData length]);
             }
         }
+        secnotice("pairing", "Exchange packet complete data: %@: %@", outdata ? @"YES" : @"NO", error);
         complete(completed, compressedData, error);
     });
 }
@@ -481,7 +860,6 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
     __block NSData *rData = NULL;
     __block NSError* processingError;
     [self exchangePacket:data complete:^(BOOL cComplete, NSData *cData, NSError *cError) {
-        self.counter++;
         *complete = cComplete;
         rData = cData;
         processingError = cError;
@@ -498,5 +876,28 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
     self.connection = connection;
 }
 
+- (void)setControlObject:(OTControl *)control
+{
+    self.otControl = control;
+}
+
+- (void)setConfiguration:(OTJoiningConfiguration *)config
+{
+    self.joiningConfiguration = config;
+}
+
+- (void)setSOSMessageFailForTesting:(BOOL)value
+{
+    self.testFailSOS = value;
+}
+- (void)setOctagonMessageFailForTesting:(BOOL)value
+{
+    self.testFailOctagon = value;
+}
+
+- (void)setSessionSupportsOctagonForTesting:(bool)value
+{
+    self.sessionSupportsOctagon = value;
+}
 
 @end

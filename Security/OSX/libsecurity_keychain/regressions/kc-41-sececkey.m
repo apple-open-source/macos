@@ -517,7 +517,7 @@ static void testkeyexchange(unsigned long keySizeInBits)
         (id)kSecAttrKeySizeInBits: @(keySizeInBits),
         (id)kSecAttrIsPermanent: @NO,
         (id)kSecAttrLabel: @"sectests:kc-41-sececkey:testkeyexchange",
-        (id)kSecAttrNoLegacy: @YES,
+        (id)kSecUseDataProtectionKeychain: @YES,
     };
     ok_status(status = SecKeyGeneratePair((CFDictionaryRef)kgp1, &pubKey1, &privKey1),
               "Generate %ld bit (%ld byte) EC keypair (status = %d)",
@@ -540,7 +540,7 @@ static void testkeyexchange(unsigned long keySizeInBits)
         (id)kSecAttrKeySizeInBits: @(keySizeInBits),
         (id)kSecAttrIsPermanent: @NO,
         (id)kSecAttrLabel: @"sectests:kc-41-sececkey:testkeyexchange",
-        (id)kSecAttrNoLegacy: @NO,
+        (id)kSecUseDataProtectionKeychain: @NO,
     };
     ok_status(status = SecKeyGeneratePair((CFDictionaryRef)kgp2, &pubKey2, &privKey2),
               "Generate %ld bit (%ld byte) EC keypair (status = %d)",
@@ -585,6 +585,16 @@ static void testkeyexchange(unsigned long keySizeInBits)
         }
     }
 
+    // Test proper failure modes.
+    NSError *error;
+    NSData *res;
+    res = CFBridgingRelease(SecKeyCopyKeyExchangeResult(privKey1, kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA1, pubKey2, (CFDictionaryRef)@{}, (void *)&error));
+    is(res, nil, "keyExchange with missing required attributes did not fail");
+    res = CFBridgingRelease(SecKeyCopyKeyExchangeResult(privKey1, kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA1, pubKey2, (CFDictionaryRef)@{(id)kSecKeyKeyExchangeParameterRequestedSize: @"16"}, (void *)&error));
+    is(res, nil, "keyExchange with improper typed attributes did not fail");
+    res = CFBridgingRelease(SecKeyCopyKeyExchangeResult(privKey1, kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA1, pubKey2, (CFDictionaryRef)@{(id)kSecKeyKeyExchangeParameterRequestedSize: @16, (id)kSecKeyKeyExchangeParameterSharedInfo: @"sharedInfo"}, (void *)&error));
+    is(res, nil, "keyExchange with improper typed attributes did not fail");
+
     CFReleaseNull(privKey1);
     CFReleaseNull(pubKey1);
     CFReleaseNull(privKey2);
@@ -628,7 +638,7 @@ static void tests(void)
 
 int kc_41_sececkey(int argc, char *const *argv)
 {
-	plan_tests(272);
+	plan_tests(281);
 
 	tests();
 

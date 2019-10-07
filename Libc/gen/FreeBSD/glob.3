@@ -43,7 +43,7 @@
 .Ft int
 .Fn glob "const char * restrict pattern" "int flags" "int (*errfunc)(const char *epath, int errno)" "glob_t * restrict pglob"
 .Ft int
-.Fn glob "const char * restrict pattern" "int flags" "int (^errblk)(const char *epath, int errno)" "glob_t * restrict pglob"
+.Fn glob_b "const char * restrict pattern" "int flags" "int (^errblk)(const char *epath, int errno)" "glob_t * restrict pglob"
 .Ft void
 .Fn globfree "glob_t *pglob"
 .Sh DESCRIPTION

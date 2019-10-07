@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 zh{
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -44,6 +44,10 @@ zh{
             acre{
                 dnam{"英亩"}
                 other{"{0}英亩"}
+            }
+            dunam{
+                dnam{"杜纳亩"}
+                other{"{0}杜纳亩"}
             }
             hectare{
                 dnam{"公顷"}
@@ -99,9 +103,17 @@ zh{
                 dnam{"毫摩尔/升"}
                 other{"每升{0}毫摩尔"}
             }
+            mole{
+                dnam{"摩尔"}
+                other{"{0}摩尔"}
+            }
             part-per-million{
                 dnam{"ppm"}
                 other{"百万分之{0}"}
+            }
+            permyriad{
+                dnam{"‱"}
+                other{"{0}‱"}
             }
         }
         consumption{
@@ -123,6 +135,7 @@ zh{
             }
         }
         coordinate{
+            dnam{"主方向"}
             east{"东经{0}"}
             north{"北纬{0}"}
             south{"南纬{0}"}
@@ -160,6 +173,10 @@ zh{
             megabyte{
                 dnam{"兆字节"}
                 other{"{0}兆字节"}
+            }
+            petabyte{
+                dnam{"拍字节"}
+                other{"{0}拍字节"}
             }
             terabit{
                 dnam{"太比特"}
@@ -242,9 +259,17 @@ zh{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"英热单位"}
+                other{"{0}英热单位"}
+            }
             calorie{
                 dnam{"卡路里"}
                 other{"{0}卡路里"}
+            }
+            electronvolt{
+                dnam{"电子伏特"}
+                other{"{0}电子伏特"}
             }
             foodcalorie{
                 dnam{"卡路里"}
@@ -265,6 +290,16 @@ zh{
             kilowatt-hour{
                 dnam{"千瓦时"}
                 other{"{0}千瓦时"}
+            }
+        }
+        force{
+            newton{
+                dnam{"牛顿"}
+                other{"{0}牛顿"}
+            }
+            pound-force{
+                dnam{"磅力"}
+                other{"{0}磅力"}
             }
         }
         frequency{
@@ -367,6 +402,10 @@ zh{
                 dnam{"磅"}
                 other{"{0} 磅"}
             }
+            solar-radius{
+                dnam{"太阳半径"}
+                other{"{0}太阳半径"}
+            }
             yard{
                 dnam{"码"}
                 other{"{0}码"}
@@ -377,11 +416,23 @@ zh{
                 dnam{"勒克斯"}
                 other{"{0}勒克斯"}
             }
+            solar-luminosity{
+                dnam{"太阳光度"}
+                other{"{0}太阳光度"}
+            }
         }
         mass{
             carat{
                 dnam{"克拉"}
                 other{"{0}克拉"}
+            }
+            dalton{
+                dnam{"道尔顿"}
+                other{"{0}道尔顿"}
+            }
+            earth-mass{
+                dnam{"地球质量"}
+                other{"{0}地球质量"}
             }
             gram{
                 dnam{"克"}
@@ -419,6 +470,10 @@ zh{
                 other{"{0}磅"}
                 per{"每磅{0}"}
             }
+            solar-mass{
+                dnam{"太阳质量"}
+                other{"{0}太阳质量"}
+            }
             stone{
                 dnam{"英石"}
                 other{"{0}英石"}
@@ -455,6 +510,10 @@ zh{
             }
         }
         pressure{
+            atmosphere{
+                dnam{"标准大气压"}
+                other{"{0}个标准大气压"}
+            }
             hectopascal{
                 dnam{"百帕斯卡"}
                 other{"{0}百帕斯卡"}
@@ -462,6 +521,14 @@ zh{
             inch-hg{
                 dnam{"英寸汞柱"}
                 other{"{0}英寸汞柱"}
+            }
+            kilopascal{
+                dnam{"千帕斯卡"}
+                other{"{0}千帕斯卡"}
+            }
+            megapascal{
+                dnam{"兆帕斯卡"}
+                other{"{0}兆帕斯卡"}
             }
             millibar{
                 dnam{"毫巴"}
@@ -479,7 +546,7 @@ zh{
         speed{
             kilometer-per-hour{
                 dnam{"公里/小时"}
-                other{"每小时{0}公里"}
+                other{"{0}公里/小时"}
             }
             knot{
                 dnam{"节"}
@@ -512,10 +579,24 @@ zh{
                 other{"{0}开尔文"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"牛顿米"}
+                other{"{0}牛顿米"}
+            }
+            pound-foot{
+                dnam{"磅英尺"}
+                other{"{0}磅英尺"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"英亩英尺"}
                 other{"{0}英亩英尺"}
+            }
+            barrel{
+                dnam{"桶"}
+                other{"{0}桶"}
             }
             bushel{
                 dnam{"蒲式耳"}
@@ -570,6 +651,10 @@ zh{
             fluid-ounce{
                 dnam{"液盎司"}
                 other{"{0}液盎司"}
+            }
+            fluid-ounce-imperial{
+                dnam{"英制液盎司"}
+                other{"{0}英制液盎司"}
             }
             gallon{
                 dnam{"加仑"}
@@ -647,6 +732,10 @@ zh{
                 dnam{"英亩"}
                 other{"{0}ac"}
             }
+            dunam{
+                dnam{"杜纳亩"}
+                other{"{0}杜纳亩"}
+            }
             hectare{
                 dnam{"公顷"}
                 other{"{0}ha"}
@@ -688,6 +777,16 @@ zh{
         compound{
             per{"{0}/{1}"}
         }
+        concentr{
+            mole{
+                dnam{"摩尔"}
+                other{"{0}摩尔"}
+            }
+            permyriad{
+                dnam{"‱"}
+                other{"{0}‱"}
+            }
+        }
         consumption{
             liter-per-100kilometers{
                 dnam{"升/100千米"}
@@ -695,6 +794,7 @@ zh{
             }
         }
         coordinate{
+            dnam{"方向"}
             east{"{0}E"}
             north{"{0}N"}
             south{"{0}S"}
@@ -754,6 +854,14 @@ zh{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"英热单位"}
+                other{"{0}英热单位"}
+            }
+            electronvolt{
+                dnam{"电子伏"}
+                other{"{0}电子伏"}
+            }
             foodcalorie{
                 dnam{"卡"}
                 other{"{0}卡"}
@@ -765,6 +873,16 @@ zh{
             kilojoule{
                 dnam{"千焦"}
                 other{"{0}千焦"}
+            }
+        }
+        force{
+            newton{
+                dnam{"牛"}
+                other{"{0}牛"}
+            }
+            pound-force{
+                dnam{"磅力"}
+                other{"{0}磅力"}
             }
         }
         length{
@@ -847,12 +965,30 @@ zh{
             point{
                 other{"{0}磅"}
             }
+            solar-radius{
+                dnam{"太阳半径"}
+                other{"{0}太阳半径"}
+            }
             yard{
                 dnam{"码"}
-                other{"{0}yd"}
+                other{"{0}码"}
+            }
+        }
+        light{
+            solar-luminosity{
+                dnam{"太阳光度"}
+                other{"{0}太阳光度"}
             }
         }
         mass{
+            dalton{
+                dnam{"道尔顿"}
+                other{"{0}道尔顿"}
+            }
+            earth-mass{
+                dnam{"地球质量"}
+                other{"{0}地球质量"}
+            }
             gram{
                 dnam{"克"}
                 other{"{0}克"}
@@ -866,6 +1002,10 @@ zh{
             }
             pound{
                 other{"{0}磅"}
+            }
+            solar-mass{
+                dnam{"太阳质量"}
+                other{"{0}太阳质量"}
             }
             stone{
                 dnam{"英石"}
@@ -890,6 +1030,14 @@ zh{
             inch-hg{
                 other{"{0}\u0022 Hg"}
             }
+            kilopascal{
+                dnam{"千帕"}
+                other{"{0}千帕"}
+            }
+            megapascal{
+                dnam{"兆帕"}
+                other{"{0}兆帕"}
+            }
             millibar{
                 other{"{0}mb"}
             }
@@ -897,7 +1045,7 @@ zh{
         speed{
             kilometer-per-hour{
                 dnam{"公里/小时"}
-                other{"{0}公里/小时"}
+                other{"{0}公里/时"}
             }
             knot{
                 dnam{"节"}
@@ -921,10 +1069,24 @@ zh{
                 other{"{0}°F"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"牛米"}
+                other{"{0}牛米"}
+            }
+            pound-foot{
+                dnam{"磅英尺"}
+                other{"{0}磅英尺"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"英亩英尺"}
                 other{"{0}英亩英尺"}
+            }
+            barrel{
+                dnam{"桶"}
+                other{"{0}桶"}
             }
             bushel{
                 dnam{"蒲式耳"}
@@ -979,6 +1141,9 @@ zh{
             fluid-ounce{
                 dnam{"液盎司"}
                 other{"{0}液盎司"}
+            }
+            fluid-ounce-imperial{
+                dnam{"英制液盎司"}
             }
             gallon{
                 dnam{"加仑"}
@@ -1067,6 +1232,10 @@ zh{
                 dnam{"英亩"}
                 other{"{0}英亩"}
             }
+            dunam{
+                dnam{"杜纳亩"}
+                other{"{0}杜纳亩"}
+            }
             hectare{
                 dnam{"公顷"}
                 other{"{0}公顷"}
@@ -1121,9 +1290,17 @@ zh{
                 dnam{"毫摩尔/升"}
                 other{"{0}毫摩尔/升"}
             }
+            mole{
+                dnam{"摩尔"}
+                other{"{0}摩尔"}
+            }
             part-per-million{
                 dnam{"ppm"}
                 other{"{0}ppm"}
+            }
+            permyriad{
+                dnam{"‱"}
+                other{"{0}‱"}
             }
         }
         consumption{
@@ -1145,6 +1322,7 @@ zh{
             }
         }
         coordinate{
+            dnam{"方向"}
             east{"东经{0}"}
             north{"北纬{0}"}
             south{"南纬{0}"}
@@ -1264,9 +1442,17 @@ zh{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"英热单位"}
+                other{"{0}英热单位"}
+            }
             calorie{
                 dnam{"卡"}
                 other{"{0}卡"}
+            }
+            electronvolt{
+                dnam{"电子伏"}
+                other{"{0}电子伏"}
             }
             foodcalorie{
                 dnam{"卡"}
@@ -1287,6 +1473,16 @@ zh{
             kilowatt-hour{
                 dnam{"千瓦时"}
                 other{"{0}千瓦时"}
+            }
+        }
+        force{
+            newton{
+                dnam{"牛"}
+                other{"{0}牛"}
+            }
+            pound-force{
+                dnam{"磅力"}
+                other{"{0}磅力"}
             }
         }
         frequency{
@@ -1389,6 +1585,10 @@ zh{
                 dnam{"磅"}
                 other{"{0} 磅"}
             }
+            solar-radius{
+                dnam{"太阳半径"}
+                other{"{0}太阳半径"}
+            }
             yard{
                 dnam{"码"}
                 other{"{0}码"}
@@ -1399,11 +1599,23 @@ zh{
                 dnam{"勒克斯"}
                 other{"{0}勒克斯"}
             }
+            solar-luminosity{
+                dnam{"太阳光度"}
+                other{"{0}太阳光度"}
+            }
         }
         mass{
             carat{
                 dnam{"克拉"}
                 other{"{0}克拉"}
+            }
+            dalton{
+                dnam{"道尔顿"}
+                other{"{0}道尔顿"}
+            }
+            earth-mass{
+                dnam{"地球质量"}
+                other{"{0}地球质量"}
             }
             gram{
                 dnam{"克"}
@@ -1441,6 +1653,10 @@ zh{
                 other{"{0}磅"}
                 per{"{0}/磅"}
             }
+            solar-mass{
+                dnam{"太阳质量"}
+                other{"{0}太阳质量"}
+            }
             stone{
                 dnam{"英石"}
                 other{"{0}英石"}
@@ -1477,6 +1693,10 @@ zh{
             }
         }
         pressure{
+            atmosphere{
+                dnam{"大气压"}
+                other{"{0}个大气压"}
+            }
             hectopascal{
                 dnam{"百帕"}
                 other{"{0}百帕"}
@@ -1484,6 +1704,14 @@ zh{
             inch-hg{
                 dnam{"英寸汞柱"}
                 other{"{0}英寸汞柱"}
+            }
+            kilopascal{
+                dnam{"千帕"}
+                other{"{0}千帕"}
+            }
+            megapascal{
+                dnam{"兆帕"}
+                other{"{0}兆帕"}
             }
             millibar{
                 dnam{"毫巴"}
@@ -1501,7 +1729,7 @@ zh{
         speed{
             kilometer-per-hour{
                 dnam{"公里/小时"}
-                other{"每小时{0}公里"}
+                other{"{0}公里/时"}
             }
             knot{
                 dnam{"节"}
@@ -1534,10 +1762,24 @@ zh{
                 other{"{0}K"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"牛米"}
+                other{"{0}牛米"}
+            }
+            pound-foot{
+                dnam{"磅英尺"}
+                other{"{0}磅英尺"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"英亩英尺"}
                 other{"{0}英亩英尺"}
+            }
+            barrel{
+                dnam{"桶"}
+                other{"{0}桶"}
             }
             bushel{
                 dnam{"蒲式耳"}
@@ -1592,6 +1834,10 @@ zh{
             fluid-ounce{
                 dnam{"液盎司"}
                 other{"{0}液盎司"}
+            }
+            fluid-ounce-imperial{
+                dnam{"英制液盎司"}
+                other{"{0}英制液盎司"}
             }
             gallon{
                 dnam{"加仑"}

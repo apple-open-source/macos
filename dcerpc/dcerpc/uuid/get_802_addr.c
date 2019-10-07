@@ -120,11 +120,11 @@ void dce_get_802_addr(dce_802_addr_t *addr, error_status_t *st)
 {
 	char buf[sizeof(struct ifreq) * 128];
 	struct ifconf ifc;
-	struct ifreq *ifr;
+	struct ifreq ifr;
 	int s, i;
 	struct sockaddr *sa;
 #ifdef AF_LINK
-	struct sockaddr_dl *sdl;
+	struct sockaddr_dl sdl;
 #endif
 #if defined(SIOCGARP)
 	struct arpreq arpreq;
@@ -149,20 +149,21 @@ void dce_get_802_addr(dce_802_addr_t *addr, error_status_t *st)
 	}
 
 	for (i = 0; i < ifc.ifc_len; ) {
-		ifr = (struct ifreq *)&ifc.ifc_buf[i];
+        /* Copy into ifr due to alignment issues */
+        memcpy(&ifr, &ifc.ifc_buf[i], sizeof(struct ifreq));
 		/* Initialize sa here because it is used under the next
 		 * label, and the loopback check could jump directly
 		 * to the next label.
 		 */
 #ifdef AF_LINK
-		sa = &ifr->ifr_addr;
+		sa = &ifr.ifr_addr;
 #else
 		sa = NULL;
 #endif
 
 #ifdef SIOCGIFFLAGS
 		/* Skip over loopback and point-to-point interfaces. */
-		memcpy(&ifreq, ifr, sizeof(ifreq));
+		memcpy(&ifreq, &ifr, sizeof(ifreq));
 		if (ioctl(s, SIOCGIFFLAGS, &ifreq) == 0) {
 			if (ifreq.ifr_flags & (IFF_POINTOPOINT|IFF_LOOPBACK)) {
 			  goto next;
@@ -172,9 +173,10 @@ void dce_get_802_addr(dce_802_addr_t *addr, error_status_t *st)
 
 #ifdef AF_LINK
 		if (sa->sa_family == AF_LINK) {
-			sdl = (struct sockaddr_dl *)sa;
-			if (sdl->sdl_alen == 6) {
-				memcpy(addr->eaddr, (unsigned char *)sdl->sdl_data + sdl->sdl_nlen, 6);
+            /* Copy into sdl due to alignment issues */
+            memcpy(&sdl, sa, sizeof(struct sockaddr_dl));
+			if (sdl.sdl_alen == 6) {
+				memcpy(addr->eaddr, (unsigned char *)sdl.sdl_data + sdl.sdl_nlen, 6);
 				*st = error_status_ok;
 				close(s);
 				return;
@@ -219,11 +221,11 @@ void dce_get_802_addr(dce_802_addr_t *addr, error_status_t *st)
 
 	next:
 #if !defined(__svr4__) && !defined(linux) && !defined(_HPUX) /* XXX FixMe to be portable */
-		if (sa && sa->sa_len > sizeof(ifr->ifr_addr)) {
-			i += sizeof(ifr->ifr_name) + sa->sa_len;
+		if (sa && sa->sa_len > sizeof(ifr.ifr_addr)) {
+			i += sizeof(ifr.ifr_name) + sa->sa_len;
 		} else
 #endif
-			i += sizeof(*ifr);
+			i += sizeof(ifr);
 
 	}
 

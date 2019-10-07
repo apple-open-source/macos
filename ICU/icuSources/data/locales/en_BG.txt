@@ -7,6 +7,7 @@ en_BG{
     NumberElements{
         latn{
             symbols{
+                decimal{","}
                 group{" "}
             }
         }
@@ -32,6 +33,11 @@ en_BG{
             availableFormats{
                 MEd{"E, d.MM"}
                 Md{"d.MM"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                hmsv{"h:mm:ss a v"}
+                hmv{"h:mm a v"}
                 yyyyM{"M.y G"}
                 yyyyMEd{"E, d.MM.y  G"}
                 yyyyMd{"d.MM.y G"}

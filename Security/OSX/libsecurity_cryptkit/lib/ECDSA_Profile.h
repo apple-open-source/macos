@@ -29,8 +29,6 @@
 
 #include "ckconfig.h"
 
-#if CRYPTKIT_ECDSA_ENABLE
-
 #include "feeDebug.h"
 
 #ifdef	FEE_DEBUG
@@ -86,5 +84,4 @@ extern unsigned vfyStep7;
 
 #endif	/* ECDSA_PROFILE */
 
-#endif	/* CRYPTKIT_ECDSA_ENABLE */
 #endif	/* _CK_ECDSA_PROFILE_H_ */

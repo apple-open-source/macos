@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_STACK_SIZE.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *   Test stack() with an invalid argument.

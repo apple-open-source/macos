@@ -66,10 +66,11 @@ typedef enum {
     H2_SESSION_EV_PROTO_ERROR,      /* protocol error */
     H2_SESSION_EV_CONN_TIMEOUT,     /* connection timeout */
     H2_SESSION_EV_NO_IO,            /* nothing has been read or written */
-    H2_SESSION_EV_DATA_READ,        /* connection data has been read */
+    H2_SESSION_EV_FRAME_RCVD,       /* a frame has been received */
     H2_SESSION_EV_NGH2_DONE,        /* nghttp2 wants neither read nor write anything */
     H2_SESSION_EV_MPM_STOPPING,     /* the process is stopping */
     H2_SESSION_EV_PRE_CLOSE,        /* connection will close after this */
+    H2_SESSION_EV_STREAM_CHANGE,    /* a stream (state/input/output) changed */
 } h2_session_event_t;
 
 typedef struct h2_session {
@@ -79,12 +80,13 @@ typedef struct h2_session {
     request_rec *r;                 /* the request that started this in case
                                      * of 'h2c', NULL otherwise */
     server_rec *s;                  /* server/vhost we're starting on */
-    const struct h2_config *config; /* Relevant config for this session */
     apr_pool_t *pool;               /* pool to use in session */
     struct h2_mplx *mplx;           /* multiplexer for stream data */
     struct h2_workers *workers;     /* for executing stream tasks */
     struct h2_filter_cin *cin;      /* connection input filter context */
     h2_conn_io io;                  /* io on httpd conn filters */
+    int padding_max;                /* max number of padding bytes */
+    int padding_always;             /* padding has precedence over I/O optimizations */
     struct nghttp2_session *ngh2;   /* the nghttp2 session (internal use) */
 
     h2_session_state state;         /* state session is in */
@@ -118,7 +120,9 @@ typedef struct h2_session {
     apr_size_t max_stream_mem;      /* max buffer memory for a single stream */
     
     apr_time_t idle_until;          /* Time we shut down due to sheer boredom */
-    apr_time_t keep_sync_until;     /* Time we sync wait until passing to async mpm */
+    apr_time_t idle_sync_until;     /* Time we sync wait until keepalive handling kicks in */
+    apr_size_t idle_frames;         /* number of rcvd frames that kept session in idle state */
+    apr_interval_time_t idle_delay; /* Time we delay processing rcvd frames in idle state */
     
     apr_bucket_brigade *bbtmp;      /* brigade for keeping temporary data */
     struct apr_thread_cond_t *iowait; /* our cond when trywaiting for data */
@@ -139,26 +143,14 @@ const char *h2_session_state_str(h2_session_state state);
  * The session will apply the configured parameter.
  * @param psession pointer receiving the created session on success or NULL
  * @param c       the connection to work on
+ * @param r       optional request when protocol was upgraded
  * @param cfg     the module config to apply
  * @param workers the worker pool to use
  * @return the created session
  */
 apr_status_t h2_session_create(h2_session **psession,
-                               conn_rec *c, struct h2_ctx *ctx, 
+                               conn_rec *c, request_rec *r, server_rec *, 
                                struct h2_workers *workers);
-
-/**
- * Create a new h2_session for the given request.
- * The session will apply the configured parameter.
- * @param psession pointer receiving the created session on success or NULL
- * @param r       the request that was upgraded
- * @param cfg     the module config to apply
- * @param workers the worker pool to use
- * @return the created session
- */
-apr_status_t h2_session_rcreate(h2_session **psession,
-                                request_rec *r, struct h2_ctx *ctx,
-                                struct h2_workers *workers);
 
 void h2_session_event(h2_session *session, h2_session_event_t ev, 
                              int err, const char *msg);

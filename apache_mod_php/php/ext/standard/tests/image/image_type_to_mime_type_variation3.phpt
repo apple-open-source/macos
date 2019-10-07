@@ -5,7 +5,7 @@ Sanjay Mantoor <sanjay.mantoor@gmail.com>
 --FILE--
 <?php
 /* Prototype  : string image_type_to_mime_type(int imagetype)
- * Description: Get Mime-Type for image-type returned by getimagesize, exif_read_data, exif_thumbnail, exif_imagetype 
+ * Description: Get Mime-Type for image-type returned by getimagesize, exif_read_data, exif_thumbnail, exif_imagetype
  * Source code: ext/standard/image.c
  */
 
@@ -39,7 +39,7 @@ string\(29\) "application\/x-shockwave-flash"
 string\(9\) "image\/psd"
 
 -- Iteration 6 --
-string\(14\) "image\/x-ms-bmp"
+string\(9\) "image\/bmp"
 
 -- Iteration 7 --
 string\(10\) "image\/tiff"

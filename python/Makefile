@@ -10,8 +10,9 @@ DEFAULT = 2.7
 KNOWNVERSIONS = 2.7
 BOOTSTRAPPYTHON =
 VERSIONS = $(sort $(KNOWNVERSIONS) $(BOOTSTRAPPYTHON))
-ORDEREDVERS := $(DEFAULT) $(filter-out $(DEFAULT),$(VERSIONS))
-REVERSEVERS := $(filter-out $(DEFAULT),$(VERSIONS)) $(DEFAULT)
+OTHERVERSIONS = $(filter-out $(DEFAULT),$(VERSIONS))
+ORDEREDVERS := $(DEFAULT) $(OTHERVERSIONS)
+REVERSEVERS := $(OTHERVERSIONS) $(DEFAULT)
 
 PYFRAMEWORK = /System/Library/Frameworks/Python.framework
 PYFRAMEWORKVERSIONS = $(PYFRAMEWORK)/Versions
@@ -140,6 +141,33 @@ mergebegin:
 	@echo ####### Merging #######
 
 MERGEBIN = /usr/bin
+
+# This causes us to replace the versioner stub with the default version of perl.
+# Since we are now only shipping one version (2.7) and one slice (x86_64), there
+# is no need for the re-exec stub.  We are leaving the infrastructure in place
+# in case we ever ship a new version or a new architecture in the future.
+ifeq ($(OTHERVERSIONS),)
+mergebin:
+	install -d $(DSTROOT)$(MERGEBIN)
+	pbin=$(PYFRAMEWORKVERSIONS)/$(DEFAULT)/bin && \
+	cd $(DSTROOT)$$pbin && \
+	if [ -e 2to3 ]; then \
+	    mv 2to3 2to3$(DEFAULT) && \
+	    ln -s 2to3$(DEFAULT) 2to3 && \
+	    sed -e 's/@SEP@//g' -e "s/@VERSION@/$(DEFAULT)/g" $(FIX)/scriptvers.ed | ed - 2to3$(DEFAULT); \
+	fi && \
+	for f in `find . -type f | sed 's,^\./,,'`; do \
+	    f0=`echo $$f | sed "s/$(DEFAULT)//"` && \
+	    ln -sf ../..$$pbin/$$f $(DSTROOT)$(MERGEBIN)/$$f && \
+	    ln -sf ../..$$pbin/$$f $(DSTROOT)$(MERGEBIN)/$$f0 && \
+	    if file $$f | head -1 | fgrep -q script; then \
+	        sed -e 's/@SEP@//g' -e "s/@VERSION@/$(DEFAULT)/g" $(FIX)/scriptvers.ed | ed - $$f; \
+            fi || exit 1; \
+    done; \
+    ln -sf ../..$$pbin/python2.7 $(DSTROOT)$(MERGEBIN)/python2
+$(OBJROOT)/wrappers:
+	touch $(OBJROOT)/wrappers
+else
 TEMPWRAPPER = $(MERGEBIN)/.versioner
 mergebin: $(DSTROOT)$(VERSIONHEADER) $(OBJROOT)/wrappers
 	cc $(RC_CFLAGS) $(VERSIONERFLAGS) $(SDKVERSIONERDIR)/versioner.c -o $(DSTROOT)$(TEMPWRAPPER)
@@ -178,6 +206,7 @@ $(OBJROOT)/wrappers:
 	    done || exit 1; \
 	done
 	rm -f $(DSTROOT)$(MERGEBIN)/$(DUMMY)
+endif
 
 $(DSTROOT)$(VERSIONHEADER):
 	@set -x && ( \

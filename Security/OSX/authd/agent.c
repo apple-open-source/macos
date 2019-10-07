@@ -139,7 +139,8 @@ agent_create(engine_t engine, mechanism_t mech, auth_token_t auth, process_t pro
 			os_log_debug(AUTHD_LOG, "agent: creating a standard security agent");
 		} else {
 			// Root session => loginwindow SecurityAgent
-			agent->agentConnection = xpc_connection_create_mach_service(SECURITYAGENT_LOGINWINDOW_BOOTSTRAP_NAME_BASE, NULL, 0);
+			agent->agentConnection = xpc_connection_create_mach_service(SECURITYAGENT_LOGINWINDOW_BOOTSTRAP_NAME_BASE, NULL,
+                                                                        XPC_CONNECTION_MACH_SERVICE_PRIVILEGED);
 			xpc_connection_set_instance(agent->agentConnection, sessionUUID);
 			os_log_debug(AUTHD_LOG, "agent: creating a loginwindow security agent");
 			doSwitchAudit     = true;

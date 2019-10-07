@@ -188,6 +188,35 @@ dec(BUF *b, _esc_func esc, long long in, int width, int zero)
 }
 
 /*
+ * Output the octal string representing the number in "n".  "width" is
+ * the minimum field width, and "zero" is a boolean value, true for zero padding
+ * (otherwise blank padding).
+ */
+static void
+oct(BUF *b, _esc_func esc, unsigned long long n, int width, int zero)
+{
+	char buf[32];
+	char *cp = buf + sizeof(buf);
+	ssize_t pad;
+
+	*--cp = 0;
+	if (n) {
+		while (n) {
+			*--cp = (n % 8) + '0';
+			n /= 8;
+		}
+	} else {
+		*--cp = '0';
+	}
+	pad = width - strlen(cp);
+	zero = zero ? '0' : ' ';
+	while (pad-- > 0) {
+		put_c(b, esc, zero);
+	}
+	put_s(b, esc, cp);
+}
+
+/*
  * Output the hex string representing the number in "n".  "width" is the
  * minimum field width, and "zero" is a boolean value, true for zero padding
  * (otherwise blank padding).  "upper" is a boolean value, true for upper
@@ -334,6 +363,19 @@ __simple_bprintf(BUF *b, _esc_func esc, const char *fmt, va_list ap)
 				lflag++;
 				fmt++;
 				continue;
+			case 'o':
+				switch (lflag) {
+				case 0:
+					oct(b, esc, va_arg(ap, int), width, zero);
+					break;
+				case 1:
+					oct(b, esc, va_arg(ap, long), width, zero);
+					break;
+				default:
+					oct(b, esc, va_arg(ap, long long), width, zero);
+					break;
+				}
+				break;
 			case 'p':
 				hex(b, esc, (unsigned long)va_arg(ap, void *), width, zero, 0, 1);
 				break;

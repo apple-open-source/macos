@@ -89,47 +89,6 @@ typedef enum {
 	FCT_General				/* Other */
 } feeCurveType;
 
-/*
- * Some commonly used feeDepth values. In these definitions, q and k are
- * from the expression (2^q - k), the base modulus of the curve. The case
- * k=1 implies a Mersenne prime as the modulus.
- */
-#define FEE_PROTOTYPE_CURVES	0
-
-#if 	FEE_PROTOTYPE_CURVES
-
-									/*   q      k     a     b     c  */
-									/* ----   ----  ----  ----  ---- */
-#define FEE_DEPTH_31_1_W		0   /*   31      1     7     1     0 */
-#define FEE_DEPTH_31_1_M		1   /*   31      1     1     0   666 */
-#define FEE_DEPTH_31_1_P		2   /*   31      1 5824692 2067311435 0 */
-#define FEE_DEPTH_40_213		3   /*   40    213 1627500953 523907505 0 */
-#define FEE_DEPTH_127_1			4   /*  127      1     1     0   666 */
-#define FEE_DEPTH_127_1W		5   /*  127      1   666     1     0 */
-#define FEE_DEPTH_160_57		6   /*  160     57     0     3     0 */
-#define FEE_DEPTH_192_1425		7	/*  192   1425     0   -11     0 */
-#define FEE_DEPTH_192_M529891	8   /*  192 -529891 -152   722     0 */
-
-/*
- * The remaining curves are implemented as PT_GENERAL curves; modulo
- * arithmetic does not utilize any FEE or Mersenne optimizations. These
- * are here for performance measurements and DVT.
- */
-#define FEE_DEPTH_127_GEN		9   /*  127      1     1     0   666 */
-#define FEE_DEPTH_160_GEN      10   /*  160     57     0     3     0 */
-#define FEE_DEPTH_161_GEN      11   /*  161     ..  -152   722     0 */
-
-/*
- * The default depth.
- */
-#define FEE_DEPTH_DEFAULT	FEE_DEPTH_160_57
-
-/*
- * Last enumerated depth.
- */
-#define FEE_DEPTH_MAX		FEE_DEPTH_161_GEN
-
-#else	/* FEE_PROTOTYPE_CURVES */
 
 /*
  * The real curves as of 4/9/2001.
@@ -161,7 +120,6 @@ typedef enum {
  */
 #define FEE_DEPTH_MAX		FEE_DEPTH_secp521r1
 
-#endif	/* FEE_PROTOTYPE_CURVES */
 
 /*
  * Random number generator callback function.

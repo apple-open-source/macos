@@ -37,6 +37,14 @@ algorithms. The following algorithms are available:
 - HMAC with SHA512 digest
 .El
 .Pp
+The MAC must be verified by comparing the computed and expected values
+using
+.Fn timingsafe_bcmp
+Other comparison functions (e.g.
+.Fn memcmp
+) must not be used as they may be vulnerable to practical timing attacks,
+leading to MAC forgery.
+.Pp
 The object declared in this interface, CCHmacContext, provides
 a handle for use with the
 .Fn CCHmacInit

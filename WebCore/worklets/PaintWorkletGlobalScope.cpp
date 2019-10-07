@@ -34,10 +34,13 @@
 #include "JSDOMConvertCallbacks.h"
 #include "JSDOMConvertSequences.h"
 #include "RenderView.h"
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/SetForScope.h>
 
 namespace WebCore {
 using namespace JSC;
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(PaintWorkletGlobalScope);
 
 Ref<PaintWorkletGlobalScope> PaintWorkletGlobalScope::create(Document& document, ScriptSourceCode&& code)
 {
@@ -56,7 +59,7 @@ double PaintWorkletGlobalScope::devicePixelRatio() const
     return responsibleDocument()->domWindow()->devicePixelRatio();
 }
 
-PaintWorkletGlobalScope::PaintDefinition::PaintDefinition(const AtomicString& name, JSC::JSObject* paintConstructor, Ref<CSSPaintCallback>&& paintCallback, Vector<String>&& inputProperties, Vector<String>&& inputArguments)
+PaintWorkletGlobalScope::PaintDefinition::PaintDefinition(const AtomString& name, JSC::JSObject* paintConstructor, Ref<CSSPaintCallback>&& paintCallback, Vector<String>&& inputProperties, Vector<String>&& inputArguments)
     : name(name)
     , paintConstructor(paintConstructor)
     , paintCallback(WTFMove(paintCallback))

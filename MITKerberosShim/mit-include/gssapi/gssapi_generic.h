@@ -44,12 +44,12 @@ GSSAPIGENERIC_BEGIN_DECLS
  * The correct oids (GSS_C_NT_USER_NAME, etc) from rfc 2744
  * are defined in gssapi.h. */
 
-GSS_DLLIMP extern gss_OID gss_nt_user_name;
-GSS_DLLIMP extern gss_OID gss_nt_machine_uid_name;
-GSS_DLLIMP extern gss_OID gss_nt_string_uid_name;
-extern gss_OID gss_nt_service_name_v2;
-GSS_DLLIMP extern gss_OID gss_nt_service_name;
-extern gss_OID gss_nt_exported_name;
+GSS_DLLIMP extern gss_OID gss_nt_user_name __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac);
+GSS_DLLIMP extern gss_OID gss_nt_machine_uid_name __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac);
+GSS_DLLIMP extern gss_OID gss_nt_string_uid_name __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac);
+extern gss_OID gss_nt_service_name_v2 __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac);
+GSS_DLLIMP extern gss_OID gss_nt_service_name __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac);
+extern gss_OID gss_nt_exported_name __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac);
 
 GSSAPIGENERIC_END_DECLS
 

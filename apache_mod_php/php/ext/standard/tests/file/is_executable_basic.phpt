@@ -32,7 +32,7 @@ $filename = dirname(__FILE__)."/is_executable.tmp";
 create_file($filename);
 
 $counter = 1;
-/* loop to check if the file with new mode is executable 
+/* loop to check if the file with new mode is executable
    using is_executable() */
 for($mode = 0000; $mode <= 0777; $mode++) {
   echo "-- Changing mode of file to $mode --\n";
@@ -47,7 +47,7 @@ delete_file($filename);
 
 echo "Done\n";
 ?>
---EXPECTF--
+--EXPECT--
 *** Testing is_executable(): basic functionality ***
 -- Changing mode of file to 0 --
 bool(false)

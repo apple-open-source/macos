@@ -5,12 +5,10 @@
 //  Created by Abhishek Nayyar on 3/30/18.
 //
 
-#ifndef IOHIDTestConnectionFilter_h
-#define IOHIDTestConnectionFilter_h
-
-
 #include <Foundation/Foundation.h>
 #include <IOKit/hid/IOHIDEvent.h>
+
+NS_ASSUME_NONNULL_BEGIN
 
 @interface HIDTestConnectionFilter : NSObject
 -(nullable instancetype) init;
@@ -19,4 +17,5 @@
 -(IOHIDEventRef) filter:(IOHIDEventRef) event;
 @end
 
-#endif /* IOHIDTestConnectionFilter_h */
+NS_ASSUME_NONNULL_END
+

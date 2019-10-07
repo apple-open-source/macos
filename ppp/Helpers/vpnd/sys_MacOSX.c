@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -126,7 +126,7 @@ int ppp_available()
     // if that works, the kernel extension is loaded.
     if ((s = socket(PF_PPP, SOCK_RAW, PPPPROTO_CTL)) < 0) {
     
-#if !TARGET_OS_EMBEDDED // This file is not built for Embedded
+#if TARGET_OS_OSX // This file is not built for Embedded
         if (!noload && !load_kext(PPP_NKE_PATH, 0))
 #else
         if (!noload && !load_kext(PPP_NKE_ID, 1))
@@ -307,7 +307,7 @@ int get_route_interface(struct sockaddr *src, const struct sockaddr *dst, char *
 // ----------------------------------------------------------------------------
 int readn(int ref, void *data, int len)
 {
-    int 	n, left = len;
+    ssize_t n, left = len;
     void 	*p = data;
     
     while (left > 0) {
@@ -322,7 +322,7 @@ int readn(int ref, void *data, int len)
         left -= n;
         p += n;
     }
-    return (len - left);
+    return (int)(len - left);
 }        
 
 // ----------------------------------------------------------------------------
@@ -330,7 +330,7 @@ int readn(int ref, void *data, int len)
 // ----------------------------------------------------------------------------
 int writen(int ref, void *data, int len)
 {	
-    int 	n, left = len;
+    ssize_t n, left = len;
     void 	*p = data;
     
     while (left > 0) {

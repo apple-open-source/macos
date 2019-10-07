@@ -171,7 +171,7 @@ fr{
             "cruzeiro",
         }
         BSD{
-            "$BS",
+            "BSD",
             "dollar bahaméen",
         }
         BTN{
@@ -1067,7 +1067,7 @@ fr{
             "(devise de test)",
         }
         XXX{
-            "XXX",
+            "¤",
             "devise inconnue ou non valide",
         }
         YDD{
@@ -2353,5 +2353,5 @@ fr{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
 }

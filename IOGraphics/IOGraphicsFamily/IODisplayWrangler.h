@@ -100,6 +100,8 @@ public:
 
     void forceIdleImpl();
     static void forceIdle();
+
+    static void builtinPanelPowerNotify(bool state);
 };
 
 void IODisplayUpdateNVRAM( IOService * entry, OSData * property );

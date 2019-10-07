@@ -7,6 +7,9 @@
 #include <Security/SecureTransport.h>
 #import "STLegacyTests.h"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 @implementation STLegacyTests (dhe)
 
 static
@@ -33,6 +36,6 @@ OSStatus w(SSLConnectionRef connection, const void *data, size_t *dataLength) {
     CFRelease(ctx);
 }
 
-
 @end
 
+#pragma clang diagnostic pop

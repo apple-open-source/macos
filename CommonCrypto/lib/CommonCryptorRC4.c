@@ -22,7 +22,6 @@
  */
 
 #include "ccGlobals.h"
-#include "ccMemory.h"
 #include "ccdebug.h"
 #include <CommonCrypto/CommonCryptor.h>
 #include <CommonCrypto/CommonCryptorSPI.h>

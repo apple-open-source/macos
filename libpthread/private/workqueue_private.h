@@ -74,6 +74,23 @@ typedef void (*pthread_workqueue_function_kevent_t)(void **events, int *nevents)
 
 typedef void (*pthread_workqueue_function_workloop_t)(uint64_t *workloop_id, void **events, int *nevents);
 
+#define PTHREAD_WORKQUEUE_CONFIG_VERSION               2
+#define PTHREAD_WORKQUEUE_CONFIG_MIN_SUPPORTED_VERSION 1
+#define PTHREAD_WORKQUEUE_CONFIG_SUPPORTED_FLAGS       0
+struct pthread_workqueue_config {
+	uint32_t flags;
+	uint32_t version;
+	pthread_workqueue_function_kevent_t kevent_cb;
+	pthread_workqueue_function_workloop_t workloop_cb;
+	pthread_workqueue_function2_t workq_cb;
+	uint64_t queue_serialno_offs;
+	uint64_t queue_label_offs;
+};
+
+__API_AVAILABLE(macos(10.15), ios(13.0))
+int
+pthread_workqueue_setup(struct pthread_workqueue_config *cfg, size_t cfg_size);
+
 // Initialises the pthread workqueue subsystem, passing the new-style callback prototype,
 // the dispatchoffset and an unused flags field.
 __API_AVAILABLE(macos(10.10), ios(8.0))

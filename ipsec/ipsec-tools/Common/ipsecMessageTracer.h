@@ -44,7 +44,7 @@
 #define IPSECASLDOMAIN                                                          CONSTSTR("com.apple.Networking.ipsec.asl")
 #define IPSECASLKEY                                                             CONSTSTR("IPSEC")
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 #define IPSECCONFIGTRACEREVENT(config, eventCode, message, failure_reason)		
 
@@ -55,7 +55,7 @@
 #define IPSECSESSIONTRACERSTOP(session, is_failure, reason)						
 #define IPSECSESSIONTRACERESTABLISHED(session)                                  
 
-#else
+#else // (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 #define IPSECCONFIGTRACEREVENT(config, eventCode, message, failure_reason)		ipsecConfigTracerEvent(config, eventCode, message, failure_reason)
 
@@ -66,9 +66,9 @@
 #define IPSECSESSIONTRACERSTOP(session, is_failure, reason)						ipsecSessionTracerStop(session, is_failure, reason)
 #define IPSECSESSIONTRACERESTABLISHED(session)                                  ipsecSessionTracerLogEstablished(session)
 
-#endif
+#endif // (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
-#if 1 //TARGET_OS_EMBEDDED
+#if 1
 #define IPSECLOGASLMSG(format, args...) plog(ASL_LEVEL_NOTICE, format, ##args);
 #else
 #define IPSECLOGASLMSG(format, args...) do {								\

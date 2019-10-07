@@ -41,6 +41,8 @@
 
 namespace WebKit {
 
+static const Seconds unexpectedActivityDuration = 10_s;
+
 const HashSet<String>& WebProcessProxy::platformPathsWithAssumedReadAccess()
 {
     static NeverDestroyed<HashSet<String>> platformPathsWithAssumedReadAccess(std::initializer_list<String> {
@@ -61,7 +63,6 @@ RefPtr<ObjCObjectGraph> WebProcessProxy::transformHandlesToObjects(ObjCObjectGra
 
         bool shouldTransformObject(id object) const override
         {
-#if WK_API_ENABLED
             if (dynamic_objc_cast<WKBrowsingContextHandle>(object))
                 return true;
 
@@ -69,13 +70,11 @@ RefPtr<ObjCObjectGraph> WebProcessProxy::transformHandlesToObjects(ObjCObjectGra
             if (dynamic_objc_cast<WKTypeRefWrapper>(object))
                 return true;
             ALLOW_DEPRECATED_DECLARATIONS_END
-#endif
             return false;
         }
 
         RetainPtr<id> transformObject(id object) const override
         {
-#if WK_API_ENABLED
             if (auto* handle = dynamic_objc_cast<WKBrowsingContextHandle>(object)) {
                 if (auto* webPageProxy = m_webProcessProxy.webPage(handle.pageID)) {
                     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
@@ -90,7 +89,6 @@ RefPtr<ObjCObjectGraph> WebProcessProxy::transformHandlesToObjects(ObjCObjectGra
             if (auto* wrapper = dynamic_objc_cast<WKTypeRefWrapper>(object))
                 return adoptNS([[WKTypeRefWrapper alloc] initWithObject:toAPI(m_webProcessProxy.transformHandlesToObjects(toImpl(wrapper.object)).get())]);
             ALLOW_DEPRECATED_DECLARATIONS_END
-#endif
             return object;
         }
 
@@ -105,28 +103,23 @@ RefPtr<ObjCObjectGraph> WebProcessProxy::transformObjectsToHandles(ObjCObjectGra
     struct Transformer final : ObjCObjectGraph::Transformer {
         bool shouldTransformObject(id object) const override
         {
-#if WK_API_ENABLED
             ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             if (dynamic_objc_cast<WKBrowsingContextController>(object))
                 return true;
             if (dynamic_objc_cast<WKTypeRefWrapper>(object))
                 return true;
             ALLOW_DEPRECATED_DECLARATIONS_END
-#endif
             return false;
         }
 
         RetainPtr<id> transformObject(id object) const override
         {
-#if WK_API_ENABLED
             ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             if (auto* controller = dynamic_objc_cast<WKBrowsingContextController>(object))
                 return controller.handle;
             if (auto* wrapper = dynamic_objc_cast<WKTypeRefWrapper>(object))
                 return adoptNS([[WKTypeRefWrapper alloc] initWithObject:toAPI(transformObjectsToHandles(toImpl(wrapper.object)).get())]);
             ALLOW_DEPRECATED_DECLARATIONS_END
-#endif
-
             return object;
         }
     };
@@ -177,7 +170,7 @@ void WebProcessProxy::cacheMediaMIMETypesInternal(const Vector<String>& types)
     send(Messages::WebProcess::SetMediaMIMETypes(types), 0);
 }
 
-Vector<String> WebProcessProxy::mediaMIMETypes()
+Vector<String> WebProcessProxy::mediaMIMETypes() const
 {
     return mediaTypeCache();
 }
@@ -193,6 +186,27 @@ void WebProcessProxy::releaseHighPerformanceGPU()
 {
     LOG(WebGL, "WebProcessProxy::releaseHighPerformanceGPU()");
     HighPerformanceGPUManager::singleton().removeProcessRequiringHighPerformance(this);
+}
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+void WebProcessProxy::processWasUnexpectedlyUnsuspended(CompletionHandler<void()>&& completion)
+{
+    if (m_throttler.shouldBeRunnable()) {
+        // The process becoming unsuspended was not unexpected; it likely was notified of its running state
+        // before receiving a procsessDidResume() message from the UIProcess.
+        completion();
+        return;
+    }
+
+    // The WebProcess was awakened by something other than the UIProcess. Take out an assertion for a
+    // limited duration to allow whatever task needs to be accomplished time to complete.
+    RELEASE_LOG(ProcessSuspension, "%p - WebProcessProxy::processWasUnexpectedlyUnsuspended()", this);
+    auto backgroundActivityTimeoutHandler = [activityToken = m_throttler.backgroundActivityToken(), weakThis = makeWeakPtr(this)] {
+        RELEASE_LOG(ProcessSuspension, "%p - WebProcessProxy::processWasUnexpectedlyUnsuspended() - lambda, background activity timed out", weakThis.get());
+    };
+    m_unexpectedActivityTimer = std::make_unique<WebCore::DeferrableOneShotTimer>(WTFMove(backgroundActivityTimeoutHandler), unexpectedActivityDuration);
+    completion();
 }
 #endif
 

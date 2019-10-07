@@ -160,7 +160,7 @@
     IDL_UNMAR_ALIGN_MP( IDL_msp, size ); \
     rpc_ss_ndr_unmar_check_buffer( IDL_msp, size ); \
     marshalling_macro( IDL_msp->IDL_drep, ndr_g_local_drep, \
-                        IDL_msp->IDL_mp, *(type *)(param_addr)); \
+                        IDL_msp->IDL_mp, (param_addr)); \
     IDL_msp->IDL_mp += size; \
     IDL_msp->IDL_left_in_buff -= size; \
 }
@@ -224,7 +224,7 @@
     IDL_UNMAR_ALIGN_MP( IDL_msp, 4 ); \
     rpc_ss_ndr_unmar_check_buffer( IDL_msp, 4 ); \
     rpc_convert_ulong_int( IDL_msp->IDL_drep, ndr_g_local_drep, \
-                        IDL_msp->IDL_mp, *(idl_ulong_int *)(param_addr)); \
+                        IDL_msp->IDL_mp, (param_addr)); \
     IDL_msp->IDL_mp += 4; \
     IDL_msp->IDL_left_in_buff -= 4; \
 }
@@ -265,7 +265,7 @@ void rpc_ss_alloc_out_cs_conf_array
 void rpc_ss_alloc_pointer_target
 (
     idl_byte *defn_vec_ptr,
-    rpc_void_p_t *p_pointer,
+    idl_byte *p_pointer,
     IDL_msp_t IDL_msp
 );
 
@@ -300,7 +300,7 @@ void rpc_ss_ndr_alloc_storage
     idl_ulong_int dimensionality,
     idl_ulong_int *Z_values,
     idl_byte *array_defn_ptr,
-    rpc_void_p_t *p_storage_addr,
+    idl_byte *p_storage_addr,
     IDL_msp_t IDL_msp
 );
 
@@ -528,7 +528,7 @@ void rpc_ss_ndr_unmar_pointee
     idl_byte pointer_type,
     idl_byte *defn_vec_ptr,
     IDL_pointee_desc_t *p_pointee_desc,
-    rpc_void_p_t *p_pointer,
+    idl_byte *p_pointer,
     IDL_msp_t IDL_msp
 );
 
@@ -537,7 +537,7 @@ void rpc_ss_ndr_unmar_pointee_desc
     idl_byte pointer_type,
     idl_byte *defn_vec_ptr,
     IDL_pointee_desc_t *p_pointee_desc,
-    rpc_void_p_t *p_pointer,
+    idl_byte *p_pointer,
     IDL_msp_t IDL_msp
 );
 

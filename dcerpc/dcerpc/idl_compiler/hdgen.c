@@ -111,6 +111,12 @@ extern int yylineno;
 extern AST_cpp_quote_n_t * global_cppquotes;
 extern AST_cpp_quote_n_t * global_cppquotes_post;
 
+void BE_spell_extern_user_excs
+(
+    FILE *fid,              /* Handle for emitted C text */
+    AST_interface_n_t *ifp /* Ptr to AST interface node */
+);
+
 /*
  * mapchar
  *
@@ -159,11 +165,8 @@ static void CSPELL_constant_def
      * independent of the architecture of the IDL compiler. We should always
      * generate the same value.
      */
-#if __LP64__
-#define LONG_MODIFIER
-#else
+
 #define LONG_MODIFIER "l"
-#endif
 
     fprintf (fid, "#define ");
     spell_name (fid, cp->name);
@@ -252,7 +255,7 @@ static const char*
 unescape_string(const char* str)
 {
     char* res;
-    int src, dst, len;
+    size_t src, dst, len;
 
     len = strlen(str);
     res = malloc(len+1);
@@ -281,7 +284,7 @@ static void CPPQUOTES_exports
 )
 {
     const char* str;
-    for (; cpps; cpps = cpps->next) {
+    for (; cpps; cpps = (AST_cpp_quote_n_t *) cpps->next) {
                 STRTAB_str_to_string(cpps->text, &str);
                 str = unescape_string(str);
                 fprintf(fid, "\n%s\n", str);

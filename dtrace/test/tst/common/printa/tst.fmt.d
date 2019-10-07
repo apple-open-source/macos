@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.fmt.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *  Test the printa() format string in its simplest form.

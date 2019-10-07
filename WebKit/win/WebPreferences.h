@@ -283,6 +283,10 @@ public:
     // IWebPreferencesPrivate7
     virtual HRESULT STDMETHODCALLTYPE crossOriginWindowPolicySupportEnabled(_Out_ BOOL*);
     virtual HRESULT STDMETHODCALLTYPE setCrossOriginWindowPolicySupportEnabled(BOOL);
+    virtual HRESULT STDMETHODCALLTYPE resizeObserverEnabled(_Out_ BOOL*);
+    virtual HRESULT STDMETHODCALLTYPE setResizeObserverEnabled(BOOL);
+    virtual HRESULT STDMETHODCALLTYPE coreMathMLEnabled(_Out_ BOOL*);
+    virtual HRESULT STDMETHODCALLTYPE setCoreMathMLEnabled(BOOL);
 
     // WebPreferences
 

@@ -33,9 +33,12 @@ typedef NS_ENUM(NSUInteger, CKKSKnownBadState) {
     CKKSKnownStatePossiblyGood = 0,  // State might be good: give your operation a shot!
     CKKSKnownStateTLKsMissing = 1,   // CKKS doesn't have the TLKs: your operation will likely not succeed
     CKKSKnownStateWaitForUnlock = 2, // CKKS has some important things to do, but the device is locked. Your operation will likely not succeed
+    CKKSKnownStateWaitForOctagon = 3, // CKKS has important things to do, but Octagon hasn't done them yet. Your operation will likely not succeed
 };
 
 @interface CKKSControl : NSObject
+
+@property (readonly,assign) BOOL synchronous;
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithConnection:(NSXPCConnection*)connection;
@@ -45,21 +48,22 @@ typedef NS_ENUM(NSUInteger, CKKSKnownBadState) {
 - (void)rpcFastStatus:(NSString* _Nullable)viewName
                 reply:(void (^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error))reply;
 - (void)rpcResetLocal:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
-- (void)rpcResetCloudKit:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply __deprecated_msg("use rpcResetCloudKit:reason:reply:");
 - (void)rpcResetCloudKit:(NSString* _Nullable)viewName reason:(NSString *)reason reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcResync:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcFetchAndProcessChanges:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcFetchAndProcessClassAChanges:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcPushOutgoingChanges:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
+- (void)rpcCKMetric:(NSString *)eventName attributes:(NSDictionary *)attributes reply:(void(^)(NSError* error))reply;
 
-- (void)rpcPerformanceCounters:(void(^)(NSDictionary <NSString *,NSNumber *> *,NSError*))reply;
-- (void)rpcGetCKDeviceIDWithReply:(void (^)(NSString* ckdeviceID))reply;
+- (void)rpcPerformanceCounters:             (void(^)(NSDictionary <NSString *,NSNumber *> *,NSError*))reply;
+- (void)rpcGetCKDeviceIDWithReply:          (void (^)(NSString* ckdeviceID))reply;
 
 // convenience wrapper for rpcStatus:reply:
 - (void)rpcTLKMissing:(NSString* _Nullable)viewName reply:(void (^)(bool missing))reply;
 - (void)rpcKnownBadState:(NSString* _Nullable)viewName reply:(void (^)(CKKSKnownBadState))reply;
 
 + (CKKSControl* _Nullable)controlObject:(NSError* _Nullable __autoreleasing* _Nullable)error;
++ (CKKSControl* _Nullable)CKKSControlObject:(BOOL)sync error:(NSError* _Nullable __autoreleasing* _Nullable)error;
 
 @end
 

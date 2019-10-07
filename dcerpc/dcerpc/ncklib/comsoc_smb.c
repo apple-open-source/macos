@@ -321,7 +321,7 @@ rpc_smb_transport_info_free(
 
     if (info)
     {
-        rpc__smb_transport_info_destroy((rpc_smb_transport_info_p_t) info);
+        rpc__smb_transport_info_destroy((rpc_smb_transport_info_p_t)(void *) info);
         free(info);
     }
 }
@@ -333,7 +333,7 @@ rpc_smb_transport_info_inq_session_key(
     unsigned16* sess_key_len
     )
 {
-    rpc_smb_transport_info_p_t smb_info = (rpc_smb_transport_info_p_t) info;
+    rpc_smb_transport_info_p_t smb_info = (rpc_smb_transport_info_p_t)(void *) info;
 
     if (sess_key)
     {
@@ -352,7 +352,7 @@ rpc_smb_transport_info_inq_peer_principal_name(
     unsigned char** principal
     )
 {
-    rpc_smb_transport_info_p_t smb_info = (rpc_smb_transport_info_p_t) info;
+    rpc_smb_transport_info_p_t smb_info = (rpc_smb_transport_info_p_t)(void *) info;
 
     if (principal)
     {
@@ -367,8 +367,8 @@ rpc__smb_transport_info_equal(
     rpc_transport_info_handle_t info2
     )
 {
-    rpc_smb_transport_info_p_t smb_info1 = (rpc_smb_transport_info_p_t) info1;
-    rpc_smb_transport_info_p_t smb_info2 = (rpc_smb_transport_info_p_t) info2;
+    rpc_smb_transport_info_p_t smb_info1 = (rpc_smb_transport_info_p_t)(void *) info1;
+    rpc_smb_transport_info_p_t smb_info2 = (rpc_smb_transport_info_p_t)(void *) info2;
 
     RPC_DBG_PRINTF(rpc_e_dbg_general, 7, ("rpc__smb_transport_info_equal called\n"));
 
@@ -477,7 +477,7 @@ rpc__smb_fragment_size(
     int native_order;
 
 #if __LITTLE_ENDIAN__
-    native_order = (NDR_LOCAL_INT_REP == ndr_c_int_big_endian) ? 0 : 1;
+    native_order = 1;
 #else
     native_order = (NDR_LOCAL_INT_REP == ndr_c_int_little_endian) ? 0 : 1;
 #endif
@@ -501,7 +501,7 @@ rpc__smb_buffer_packet_size(
     rpc_smb_buffer_p_t buffer
     )
 {
-    rpc_cn_common_hdr_p_t packet = (rpc_cn_common_hdr_p_t) buffer->start_cursor;
+    rpc_cn_common_hdr_p_t packet = (rpc_cn_common_hdr_p_t)(void *) buffer->start_cursor;
 
     if (rpc__smb_buffer_pending(buffer) < sizeof(*packet))
     {
@@ -520,7 +520,7 @@ rpc__smb_buffer_packet_is_last(
     rpc_smb_buffer_p_t buffer
     )
 {
-    rpc_cn_common_hdr_p_t packet = (rpc_cn_common_hdr_p_t) buffer->start_cursor;
+    rpc_cn_common_hdr_p_t packet = (rpc_cn_common_hdr_p_t)(void *) buffer->start_cursor;
 
     return (packet->flags & RPC_C_CN_FLAGS_LAST_FRAG) == RPC_C_CN_FLAGS_LAST_FRAG;
 }
@@ -1552,7 +1552,10 @@ smb_data_send(
     rpc_socket_error_t serr = RPC_C_SOCKET_OK;
     rpc_smb_socket_p_t smb;
     unsigned char* cursor;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-variable"
     size_t bytes_written = 0;
+#pragma clang diagnostic pop
 #if SMB_NP_NO_TRANSACTIONS
     NTSTATUS status;
 
@@ -1584,14 +1587,12 @@ smb_data_send(
         goto error;
 #endif
 
-        if (serr)
-        {
-            goto error;
-        }
-
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunreachable-code"
         cursor += bytes_written;
     } while (cursor < smb->sendbuffer.start_cursor);
-
+#pragma clang diagnostic pop
+    
     /* Settle the remaining data (which hopefully should be zero if
      the runtime calls us with complete packets) to the start of
      the send buffer */
@@ -1654,7 +1655,7 @@ smb_data_do_recv(
         if ((smb->sendbuffer.start_cursor - cursor) != 0)
         {
             /* Check to see if this is a last fragment or not */
-            packet = (rpc_cn_common_hdr_p_t) cursor;
+            packet = (rpc_cn_common_hdr_p_t)(void *) cursor;
             while (!(packet->flags & RPC_C_CN_FLAGS_LAST_FRAG))
             {
                 /* its not a last fragment, so send with SMBWriteFile */
@@ -1692,7 +1693,7 @@ smb_data_do_recv(
                     goto error;
                 }
                 cursor += bytes_written;
-                packet = (rpc_cn_common_hdr_p_t) cursor;
+                packet = (rpc_cn_common_hdr_p_t)(void *) cursor;
             }
         }
 
@@ -2110,6 +2111,7 @@ rpc__smb_socket_set_broadcast(
 
 #if HAVE_SMBCLIENT_FRAMEWORK && HAVE_SMBCLIENT_SMBGETSERVERPROPERTIES
 INTERNAL
+int
 rpc__smbclient_set_bufs(
     rpc_socket_t sock,
     unsigned32 *ntxsize,
@@ -2227,7 +2229,7 @@ rpc__smb_socket_getpeername(
 
     memcpy(addr, &smb->peeraddr, sizeof(smb->peeraddr));
 
-error:
+/*error:*/
 
     SMB_SOCKET_UNLOCK(smb);
 

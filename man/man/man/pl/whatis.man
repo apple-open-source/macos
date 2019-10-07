@@ -14,17 +14,24 @@
 .\"
 .\" T³umaczenie - 950322 Rafa³ Maszkowski <rzm@pdi.net>
 .\"
-.TH whatis 1 "5 stycznia 1991"
+.TH whatis 1 "19 wrze¶nia 2005"
 .LO 1
 .SH NAZWA
-whatis \- szukaj s³ów w bazie whatis.
+whatis \- wyszukuje s³owa w bazie whatis.
 .SH SK£ADNIA
 .BI whatis
 s³owo_kluczowe ...
 .SH OPIS
-whatis szuka s³ów kluczowych w zestawie plików zawieraj±cych krótkie 
-opisy komend systemowych i wy¶wietla rezultat przez standardowe
-wyj¶cie. Wy¶wietlane s± tylko komendy, których nazwy pasuj± dok³adnie.
-Baza whatis jest tworzona przy u¿yciu komendy @makewhatis@.
+whatis wyszukuje s³owa kluczowe w zestawie plików zawieraj±cych krótkie 
+opisy poleceñ systemowych i wy¶wietla rezultat na standardowe wyj¶cie.
+Wy¶wietlane s± tylko polecenia, których nazwy pasuj± dok³adnie.
+
+Baza whatis jest tworzona przy u¿yciu polecenia @makewhatis@.
+.SH AUTOR
+Pierwotnym autorem programu
+.BR "man"
+jest John W. Eaton.
+Zeyd M. Ben-Halim opublikowa³ man w wersji 1.2, a Andries Brouwer wersje od 1.3 do 1.5p.
+Aktualnym opiekunem jest Federico Lucifredi <flucifredi@acm.org>.
 .SH "ZOBACZ TAK¯E"
 apropos(1), man(1).

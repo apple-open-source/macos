@@ -29,8 +29,6 @@
 #include <security_cryptkit/feePublicKey.h>
 #endif
 
-#if	CRYPTKIT_ASYMMETRIC_ENABLE
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -134,7 +132,5 @@ feeReturn feeFEEDDecrypt(feeFEED feed,
 #ifdef __cplusplus
 }
 #endif
-
-#endif	/* CRYPTKIT_ASYMMETRIC_ENABLE */
 
 #endif	/*_CK_FEEFEED_H_*/

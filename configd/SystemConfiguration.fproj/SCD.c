@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -104,10 +104,6 @@ __SCGetThreadSpecificData()
 #pragma mark -
 #pragma mark Logging
 
-
-#define kASLModule		"ASLModule"
-#define kASLOption		"ASLOption"
-#define kLoggerID		"LoggerID"
 
 #define	ENABLE_SC_FORMATTING
 #ifdef	ENABLE_SC_FORMATTING

@@ -30,7 +30,7 @@
 #include <CoreFoundation/CFRuntime.h>
 
 #ifndef SC_LOG_HANDLE
-#define	SC_LOG_HANDLE	__log_SCNetworkConnection()
+#define	SC_LOG_HANDLE	__log_SCNetworkConnection
 #endif	// SC_LOG_HANDLE
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
@@ -42,7 +42,6 @@ __BEGIN_DECLS
 os_log_t	__log_SCNetworkConnection(void);
 void		__SCNetworkConnectionForceOnDemandConfigurationRefresh(void);
 char *		__SCNetworkConnectionGetControllerPortName(void);
-CFDictionaryRef	__SCNetworkConnectionCopyTokenParameters(SCNetworkConnectionRef connection);
 
 __END_DECLS
 

@@ -380,6 +380,12 @@ int IR_in_scope                         /* Returns data kind nesting level */
     return ctx_p->scope - level;
 }
 
+int IR_in_scope_parent                  /* Returns data kind nesting level */
+(
+ IR_scope_ctx_t      *ctx_p,         /* [in] Scope context */
+ IR_scope_k_t        scope           /* [in] Scope data kind */
+);
+
 /*
 **  I R _ i n _ s c o p e _ p a r e n t
 **

@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2014-09-03</string>
+	<string>2019-05-31</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
@@ -16,13 +16,13 @@
 	</array>
 	<key>OpenSourceProject</key>
 	<string>tcsh</string>
-	<key>OpenSourceSHA1</key>
-	<string>eee2035645737197ff8059c84933a75d23cd76f9</string>
+	<key>OpenSourceSHA512256</key>
+	<string>c0e0b00bcffa1241b2d50813fcd4d8051dee4c889c5cadb58b85e318b17f2132</string>
 	<key>OpenSourceURL</key>
-	<string>ftp://ftp.astron.com/pub/tcsh/tcsh-6.18.01.tar.gz</string>
+	<string>ftp://ftp.astron.com/pub/tcsh/tcsh-6.21.00.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>6.18.01</string>
+	<string>6.21.00</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>http://www.tcsh.org</string>
+	<string>https://www.tcsh.org</string>
 </dict>
 </plist>

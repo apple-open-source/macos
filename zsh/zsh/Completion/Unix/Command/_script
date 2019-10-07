@@ -24,6 +24,7 @@ case $OSTYPE in
       "(-e --return $hlp)"{-e,--return}'[return exit status of the child process]'
       "(-f --flush $hlp)"{-f,--flush}'[flush output after each write]'
       "($hlp)--force[use output file even when it is a link]"
+      '(-o --output-limit)'{-o+,--output-limit=}'[terminate if output files exceed specified size]:size (bytes)'
       "(-q --quiet $hlp)"{-q,--quiet}'[be quiet]'
       "(-t --timing $hlp)"{-t-,--timing=-}'[output timing data]::timing file:_files'
       '(- 1)'{-h,--help}'[display help information]'
@@ -35,18 +36,20 @@ case $OSTYPE in
       '-q[be quiet: suppress display of starting and ending lines]'
     )
   ;|
-  netbsd*|freebsd*)
+  darwin*|netbsd*|freebsd*)
     args+=(
       '(-a -r -k)-d[suppress sleeps when playing back a session]'
       '(-a -r -k -t)-p[play back a recorded session]'
       '(-d -p)-r[record a session with input, output and timing data]'
     )
   ;|
-  netbsd*)
+  netbsd*|openbsd*)
     args+=(
-      '-f[flush output after each write]'
       '-c[run specified command instead of a shell]:command:_cmdstring'
     )
+  ;|
+  netbsd*)
+    args+=( '-f[flush output after each write]' )
   ;|
   freebsd*)
     args+=(
@@ -59,6 +62,9 @@ case $OSTYPE in
       '-k[log keys sent to the program as well as output]'
       '*:::arguments: _normal'
     )
+  ;|
+  darwin*|freebsd*)
+    args+=( '-F[send output to specified named pipe]:fifo:_files -g "*(p)"' )
   ;|
   *)
     args+=(

@@ -8,28 +8,17 @@
 # avoid warnings with -d.
 $install_name ||= nil
 $so_name ||= nil
+$unicode_version ||= nil
+$unicode_emoji_version ||= nil
 arch = $arch or raise "missing -arch"
 version = $version or raise "missing -version"
 
 srcdir = File.expand_path('../..', __FILE__)
-$:.replace [srcdir+"/lib"] unless defined?(CROSS_COMPILING)
 $:.unshift(".")
 
-require "fileutils"
 mkconfig = File.basename($0)
 
-rbconfig_rb = ARGV[0] || 'rbconfig.rb'
-unless File.directory?(dir = File.dirname(rbconfig_rb))
-  FileUtils.makedirs(dir, :verbose => true)
-end
-
-config = ""
-def config.write(arg)
-  concat(arg.to_s)
-end
-$stdout = config
-
-fast = {'prefix'=>TRUE, 'ruby_install_name'=>TRUE, 'INSTALL'=>TRUE, 'EXEEXT'=>TRUE}
+fast = {'prefix'=>true, 'ruby_install_name'=>true, 'INSTALL'=>true, 'EXEEXT'=>true}
 
 win32 = /mswin/ =~ arch
 universal = /universal.*darwin/ =~ arch
@@ -73,6 +62,8 @@ File.foreach "config.status" do |line|
     when /^(?:X|(?:MINI|RUN|(?:HAVE_)?BASE|BOOTSTRAP|BTEST)RUBY(?:_COMMAND)?$)/; next
     when /^INSTALLDOC|TARGET$/; next
     when /^DTRACE/; next
+    when /^MJIT_SUPPORT/; # pass
+    when /^MJIT_/; next
     when /^(?:MAJOR|MINOR|TEENY)$/; vars[name] = val; next
     when /^LIBRUBY_D?LD/; next
     when /^RUBY_INSTALL_NAME$/; next vars[name] = (install_name = val).dup if $install_name
@@ -80,6 +71,7 @@ File.foreach "config.status" do |line|
     when /^arch$/; if val.empty? then val = arch else arch = val end
     when /^sitearch$/; val = '$(arch)' if val.empty?
     when /^DESTDIR$/; next
+    when /RUBYGEMS/; next
     end
     case val
     when /^\$\(ac_\w+\)$/; next
@@ -124,12 +116,12 @@ File.foreach "config.status" do |line|
     when /^prefix$/
       val = "(TOPDIR || DESTDIR + #{val})"
     when /^ARCH_FLAG$/
-      val = "arch_flag" if universal
+      val = "arch_flag || #{val}" if universal
     when /^UNIVERSAL_ARCHNAMES$/
       universal, val = val, 'universal' if universal
     when /^includedir$/
       val = "(ENV['SDKROOT'] || (File.exist?(File.join(CONFIG['prefix'],'include')) ? '' : %x(xcode-select --print-path >/dev/null 2>&1 && xcrun --sdk macosx --show-sdk-path 2>/dev/null).chomp)) + #{val}"
-    when /^(CXXFLAGS|CFLAGS|LDSHARED|LIBRUBY_LDSHARED)$/
+    when /^(CXXFLAGS|LDFLAGS|CFLAGS|LDSHARED|LIBRUBY_LDSHARED)$/
       if universal
         # configure didn't strip -arch nor -m32/64 from CXXFLAGS
         # replace the first with ARCH_FLAG and delete the rest
@@ -137,8 +129,6 @@ File.foreach "config.status" do |line|
           val.gsub!(/\s*-(arch\s*\w+|m(32|64))/, '')
         end
       end
-    when /^LDFLAGS$/
-      val = '"-L."'
     when /^CC$/
       val = '"xcrun clang"'
     when /^CXX$/
@@ -182,7 +172,11 @@ prefix = vars.expand(vars["prefix"] ||= "")
 rubyarchdir = vars.expand(vars["rubyarchdir"] ||= "")
 relative_archdir = rubyarchdir.rindex(prefix, 0) ? rubyarchdir[prefix.size..-1] : rubyarchdir
 puts %[\
+# encoding: ascii-8bit
 # frozen-string-literal: false
+#
+# The module storing Ruby interpreter configurations on building.
+#
 # This file was created by #{mkconfig} when ruby was built.  It contains
 # build information for ruby which is used e.g. by mkmf to build
 # compatible native extensions.  Any changes made to this file will be
@@ -193,12 +187,15 @@ module RbConfig
     raise "ruby lib version (#{version}) doesn't match executable version (\#{RUBY_VERSION})"
 
 ]
+print "  # Ruby installed directory.\n"
 print "  TOPDIR = File.dirname(__FILE__).chomp!(#{relative_archdir.dump})\n"
+print "  # DESTDIR on make install.\n"
 print "  DESTDIR = ", (drive ? "TOPDIR && TOPDIR[/\\A[a-z]:/i] || " : ""), "'' unless defined? DESTDIR\n"
 print <<'ARCH' if universal
-  arch_flag = ENV['ARCHFLAGS'] || ""
+  arch_flag = ENV['ARCHFLAGS'] || ((e = ENV['RC_ARCHS']) && e.split.uniq.map {|a| "-arch #{a}"}.join(' '))
 ARCH
 print "  universal = #{universal}\n" if universal
+print "  # The hash configurations stored.\n"
 print "  CONFIG = {}\n"
 print "  CONFIG[\"DESTDIR\"] = DESTDIR\n"
 
@@ -207,14 +204,14 @@ IO.foreach(File.join(srcdir, "version.h")) do |l|
   m = /^\s*#\s*define\s+RUBY_(PATCHLEVEL)\s+(-?\d+)/.match(l)
   if m
     versions[m[1]] = m[2]
-    break
-  end
-end
-IO.foreach(File.join(srcdir, "include/ruby/version.h")) do |l|
-  m = /^\s*#\s*define\s+RUBY_API_VERSION_(MAJOR|MINOR|TEENY)\s+(-?\d+)/.match(l)
-  if m
-    versions[m[1]] = m[2]
     break if versions.size == 4
+    next
+  end
+  m = /^\s*#\s*define\s+RUBY_VERSION\s+\W?([.\d]+)/.match(l)
+  if m
+    versions['MAJOR'], versions['MINOR'], versions['TEENY'] = m[1].split('.')
+    break if versions.size == 4
+    next
   end
 end
 %w[MAJOR MINOR TEENY PATCHLEVEL].each do |v|
@@ -254,14 +251,53 @@ end
 
 print(*v_fast)
 print(*v_others)
+print <<EOS if $unicode_version
+  CONFIG["UNICODE_VERSION"] = #{$unicode_version.dump}
+EOS
+print <<EOS if $unicode_emoji_version
+  CONFIG["UNICODE_EMOJI_VERSION"] = #{$unicode_emoji_version.dump}
+EOS
 print <<EOS if /darwin/ =~ arch
   CONFIG["SDKROOT"] = ENV["SDKROOT"] || "" # don't run xcrun everytime, usually useless.
 EOS
 print <<EOS
   CONFIG["archdir"] = "$(rubyarchdir)"
   CONFIG["topdir"] = File.dirname(__FILE__)
+  # Almost same with CONFIG. MAKEFILE_CONFIG has other variable
+  # reference like below.
+  #
+  #   MAKEFILE_CONFIG["bindir"] = "$(exec_prefix)/bin"
+  #
+  # The values of this constant is used for creating Makefile.
+  #
+  #   require 'rbconfig'
+  #
+  #   print <<-END_OF_MAKEFILE
+  #   prefix = \#{Config::MAKEFILE_CONFIG['prefix']}
+  #   exec_prefix = \#{Config::MAKEFILE_CONFIG['exec_prefix']}
+  #   bindir = \#{Config::MAKEFILE_CONFIG['bindir']}
+  #   END_OF_MAKEFILE
+  #
+  #   => prefix = /usr/local
+  #      exec_prefix = $(prefix)
+  #      bindir = $(exec_prefix)/bin  MAKEFILE_CONFIG = {}
+  #
+  # RbConfig.expand is used for resolving references like above in rbconfig.
+  #
+  #   require 'rbconfig'
+  #   p Config.expand(Config::MAKEFILE_CONFIG["bindir"])
+  #   # => "/usr/local/bin"
   MAKEFILE_CONFIG = {}
   CONFIG.each{|k,v| MAKEFILE_CONFIG[k] = v.dup}
+
+  # call-seq:
+  #
+  #   RbConfig.expand(val)         -> string
+  #   RbConfig.expand(val, config) -> string
+  #
+  # expands variable with given +val+ value.
+  #
+  #   RbConfig.expand("$(bindir)") # => /home/foobar/all-ruby/ruby19x/bin
   def RbConfig::expand(val, config = CONFIG)
     newval = val.gsub(/\\$\\$|\\$\\(([^()]+)\\)|\\$\\{([^{}]+)\\}/) {
       var = $&
@@ -284,6 +320,42 @@ print <<EOS
     RbConfig::expand(val)
   end
 
+  # :nodoc:
+  # call-seq:
+  #
+  #   RbConfig.fire_update!(key, val)               -> string
+  #   RbConfig.fire_update!(key, val, mkconf, conf) -> string
+  #
+  # updates +key+ in +mkconf+ with +val+, and all values depending on
+  # the +key+ in +mkconf+.
+  #
+  #   RbConfig::MAKEFILE_CONFIG.values_at("CC", "LDSHARED") # => ["gcc", "$(CC) -shared"]
+  #   RbConfig::CONFIG.values_at("CC", "LDSHARED")          # => ["gcc", "gcc -shared"]
+  #   RbConfig.fire_update!("CC", "gcc-8")                  # => ["CC", "LDSHARED"]
+  #   RbConfig::MAKEFILE_CONFIG.values_at("CC", "LDSHARED") # => ["gcc-8", "$(CC) -shared"]
+  #   RbConfig::CONFIG.values_at("CC", "LDSHARED")          # => ["gcc-8", "gcc-8 -shared"]
+  #
+  # returns updated keys list, or +nil+ if nothing changed.
+  def RbConfig.fire_update!(key, val, mkconf = MAKEFILE_CONFIG, conf = CONFIG)
+    return if (old = mkconf[key]) == val
+    mkconf[key] = val
+    keys = [key]
+    deps = []
+    begin
+      re = Regexp.new("\\\\$\\\\((?:%1$s)\\\\)|\\\\$\\\\{(?:%1$s)\\\\}" % keys.join('|'))
+      deps |= keys
+      keys.clear
+      mkconf.each {|k,v| keys << k if re =~ v}
+    end until keys.empty?
+    deps.each {|k| conf[k] = mkconf[k].dup}
+    deps.each {|k| expand(conf[k])}
+    deps
+  end
+
+  # call-seq:
+  #
+  #   RbConfig.ruby -> path
+  #
   # returns the absolute pathname of the ruby command.
   def RbConfig.ruby
     File.join(
@@ -297,22 +369,5 @@ RUBY_FRAMEWORK = true
 RUBY_FRAMEWORK_VERSION = RbConfig::CONFIG['ruby_version']
 APPLE_GEM_HOME = File.join(RbConfig::CONFIG['libdir'], 'ruby/gems', RbConfig::CONFIG['ruby_version'])
 EOS
-
-$stdout = STDOUT
-mode = IO::RDWR|IO::CREAT
-mode |= IO::BINARY if defined?(IO::BINARY)
-open(rbconfig_rb, mode) do |f|
-  if $timestamp and f.stat.size == config.size and f.read == config
-    puts "#{rbconfig_rb} unchanged"
-  else
-    puts "#{rbconfig_rb} updated"
-    f.rewind
-    f.truncate(0)
-    f.print(config)
-  end
-end
-if String === $timestamp
-  FileUtils.touch($timestamp)
-end
 
 # vi:set sw=2:

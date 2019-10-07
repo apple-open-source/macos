@@ -18,7 +18,8 @@
 				A68335FC0D450E6600307FE3 /* PBXTargetDependency */,
 				A68335FE0D450E6600307FE3 /* PBXTargetDependency */,
 				72FDA2CA1E047F350061B235 /* PBXTargetDependency */,
-				2D28979E2195FDFD00AEBEC2 /* PBXTargetDependency */,
+				2D65904721C43E2900FF8DC6 /* PBXTargetDependency */,
+				2D39A49221E7FC9B005D88DF /* PBXTargetDependency */,
 				2D457736203CD32200068B4B /* PBXTargetDependency */,
 			);
 			name = IOGraphics;
@@ -27,28 +28,47 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		2D20F58921BED8F9007E60D3 /* agdcdecoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2D20F58821BED8F9007E60D3 /* agdcdecoder.cpp */; };
-		2D289781218A3B3D00AEBEC2 /* iolocks in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2D289780218A3B0B00AEBEC2 /* iolocks */; };
-		2D289782218A3B8E00AEBEC2 /* GTrace.hpp in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72E5E8071EA01B1B000FEB21 /* GTrace.hpp */; };
-		2D289783218A3B8E00AEBEC2 /* GTraceTypes.hpp in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3F8F971D1F3A876F00C236A6 /* GTraceTypes.hpp */; };
-		2D289784218A3BB600AEBEC2 /* GMetricTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3F8612A51F44DDB2005C0C7F /* GMetricTypes.h */; };
-		2D289785218A3C9000AEBEC2 /* GTraceTypes.hpp in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3F8F971D1F3A876F00C236A6 /* GTraceTypes.hpp */; };
-		2D28979B2195FA3B00AEBEC2 /* ContinuousTimeFormatter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2D2897872195E39E00AEBEC2 /* ContinuousTimeFormatter.cpp */; };
-		2D28979C2195FA3B00AEBEC2 /* IOGDiagnoseDecode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2D28978B2195E39E00AEBEC2 /* IOGDiagnoseDecode.cpp */; };
-		2D2897A0219A11C100AEBEC2 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2D28979F219A11C100AEBEC2 /* CoreFoundation.framework */; };
-		2D2897A2219A122D00AEBEC2 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2D2897A1219A122D00AEBEC2 /* IOKit.framework */; };
+		2D122AA622FC6B4C00F61CCF /* IOBacklightDisplayTrace.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D122AA522FC6B4C00F61CCF /* IOBacklightDisplayTrace.h */; };
+		2D122AA722FC6B4C00F61CCF /* IOBacklightDisplayTrace.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D122AA522FC6B4C00F61CCF /* IOBacklightDisplayTrace.h */; };
+		2D122AA822FC6DB500F61CCF /* IOBacklightDisplayTrace.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2D122AA522FC6B4C00F61CCF /* IOBacklightDisplayTrace.h */; };
+		2D39A48F21E7FC86005D88DF /* IOGTrace.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D39A48421E7FC52005D88DF /* IOGTrace.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		2D39A49021E7FC86005D88DF /* IOGTrace.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2D39A48521E7FC52005D88DF /* IOGTrace.cpp */; };
+		2D39A49721EE5BC4005D88DF /* iogdiagnose.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C026C47E1E044E440061BD4A /* iogdiagnose.cpp */; };
+		2D39A49921EE60BC005D88DF /* iokit in Headers */ = {isa = PBXBuildFile; fileRef = 2D596CF6215D7D1B00AA9C67 /* iokit */; };
+		2D39A49B21EE9F7D005D88DF /* GTraceTypes.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 2D39A49A21EE9F7D005D88DF /* GTraceTypes.hpp */; };
+		2D39A49C21EE9F96005D88DF /* GTraceTypes.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 2D39A49A21EE9F7D005D88DF /* GTraceTypes.hpp */; };
+		2D39A49D21EFFA53005D88DF /* IOGDiagnoseUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3F8F97201F3A98B700C236A6 /* IOGDiagnoseUtils.cpp */; };
+		2D39A49E21EFFA55005D88DF /* IOGDiagnoseUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3F8F97201F3A98B700C236A6 /* IOGDiagnoseUtils.cpp */; };
+		2D39A49F21F2756C005D88DF /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C026C47C1E044D1E0061BD4A /* IOKit.framework */; };
+		2D39A4A121F2757B005D88DF /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2D39A4A021F2757B005D88DF /* CoreFoundation.framework */; };
 		2D457733203B7E6000068B4B /* IODisplayWranglerUserClients.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 2D457731203B7E6000068B4B /* IODisplayWranglerUserClients.hpp */; };
 		2D457734203B7E6000068B4B /* IODisplayWranglerUserClients.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2D457732203B7E6000068B4B /* IODisplayWranglerUserClients.cpp */; };
-		2D68EAE421B5E1F100BE0FF8 /* iogdecoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2D68EAE321B5E1F100BE0FF8 /* iogdecoder.cpp */; };
+		2D4A93B821C4219C00647538 /* agdcdecoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2D4A93B321C4219C00647538 /* agdcdecoder.cpp */; };
+		2D4A93B921C4219C00647538 /* ContinuousTimeFormatter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2D4A93B421C4219C00647538 /* ContinuousTimeFormatter.cpp */; };
+		2D4A93BA21C4219C00647538 /* IOGDiagnoseDecode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2D4A93B521C4219C00647538 /* IOGDiagnoseDecode.cpp */; };
+		2D4A93BB21C4219C00647538 /* iogdecoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2D4A93B721C4219C00647538 /* iogdecoder.cpp */; };
+		2D4A93BE21C4295900647538 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2D4A93BC21C4295900647538 /* CoreFoundation.framework */; };
+		2D4A93BF21C4295900647538 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2D4A93BD21C4295900647538 /* IOKit.framework */; };
+		2D65904821C43EAC00FF8DC6 /* GTrace.hpp in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72E5E8071EA01B1B000FEB21 /* GTrace.hpp */; };
+		2D65904921C43EAC00FF8DC6 /* IOGraphicsTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3F8F971D1F3A876F00C236A6 /* IOGraphicsTypes.h */; };
+		2D65904A21C43EC900FF8DC6 /* iolocks in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2D4A93A121C4207700647538 /* iolocks */; };
+		2D65904B21C43F9400FF8DC6 /* IOGraphicsTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3F8F971D1F3A876F00C236A6 /* IOGraphicsTypes.h */; };
+		2D65904C21C43FC500FF8DC6 /* GMetricTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3F8612A51F44DDB2005C0C7F /* GMetricTypes.h */; };
+		2DC0DCA122E7993D00E7DBFB /* abldecoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2DC0DCA022E7993D00E7DBFB /* abldecoder.cpp */; };
 		2DC2D2B120F801D100EB407D /* osmemory.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2DC2D2AD20F801D100EB407D /* osmemory.cpp */; };
 		2DC2D2B420F801FA00EB407D /* _config in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2DC2D2AC20F801D100EB407D /* _config */; };
 		2DC2D2B520F801FA00EB407D /* osmemory in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2DC2D2AE20F801D100EB407D /* osmemory */; };
 		2DC2D2B620F801FA00EB407D /* osutility in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2DC2D2AF20F801D100EB407D /* osutility */; };
+		2DC354D821137C090089A839 /* GMetric.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 3F8612A71F44E594005C0C7F /* GMetric.hpp */; };
+		2DCE04B121F7D2C4007FFC9A /* iogttest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2DCE04A321F7D1F0007FFC9A /* iogttest.cpp */; };
+		2DCE04B821F8E6E9007FFC9A /* args.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2DCE04B321F7D616007FFC9A /* args.cpp */; };
+		2DCE04BB21F92B27007FFC9A /* libIOGTrace.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2D39A48A21E7FC79005D88DF /* libIOGTrace.dylib */; };
+		2DD3F34F2201FC9D00CE27C1 /* GTraceTypes.hpp in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2D39A49A21EE9F7D005D88DF /* GTraceTypes.hpp */; };
+		2DD3F3522201FDFF00CE27C1 /* GTraceTypes.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 2D39A49A21EE9F7D005D88DF /* GTraceTypes.hpp */; settings = {ATTRIBUTES = (Private, ); }; };
 		3F710870207D631B006A694E /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C026C47C1E044D1E0061BD4A /* IOKit.framework */; };
 		3F8612A81F44E594005C0C7F /* GMetric.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3F8612A61F44E594005C0C7F /* GMetric.cpp */; };
 		3F8612B51F4CD852005C0C7F /* iogctl.m in Sources */ = {isa = PBXBuildFile; fileRef = 3F8612B41F4CD852005C0C7F /* iogctl.m */; };
-		3F8F971E1F3A876F00C236A6 /* GTraceTypes.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 3F8F971D1F3A876F00C236A6 /* GTraceTypes.hpp */; };
-		3F8F97211F3A98B700C236A6 /* IOGDiagnoseUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3F8F97201F3A98B700C236A6 /* IOGDiagnoseUtils.cpp */; };
+		3F8F971E1F3A876F00C236A6 /* IOGraphicsTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 3F8F971D1F3A876F00C236A6 /* IOGraphicsTypes.h */; };
 		72E5E80C1EA01BCA000FEB21 /* GTrace.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72E5E8081EA01B28000FEB21 /* GTrace.cpp */; };
 		A68335760D450E6600307FE3 /* IOBootFramebuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = 015488E600BB00FE11CA2A5F /* IOBootFramebuffer.h */; };
 		A68335770D450E6600307FE3 /* IOCursorBlits.h in Headers */ = {isa = PBXBuildFile; fileRef = 015488E700BB00FE11CA2A5F /* IOCursorBlits.h */; };
@@ -120,16 +140,15 @@
 		A68335F00D450E6600307FE3 /* IOMacOSVideo.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 221BC4E800BB072011CA2A5F /* IOMacOSVideo.h */; };
 		A69F8E8B0E67873A00581528 /* IONDRVLibraries.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A69F8E8A0E67871700581528 /* IONDRVLibraries.h */; };
 		C026C47D1E044D1E0061BD4A /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C026C47C1E044D1E0061BD4A /* IOKit.framework */; };
-		C026C47F1E044E440061BD4A /* iogdiagnose.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C026C47E1E044E440061BD4A /* iogdiagnose.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		2D28979D2195FDFD00AEBEC2 /* PBXContainerItemProxy */ = {
+		2D39A49121E7FC9B005D88DF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 015488CC00BAFF6C11CA2A5F /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 2D2897902195E44600AEBEC2;
-			remoteInfo = IOGDiagnoseDecode;
+			remoteGlobalIDString = 2D39A48921E7FC79005D88DF;
+			remoteInfo = gtraceUser;
 		};
 		2D457735203CD32200068B4B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -137,6 +156,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = 3F8612B11F4CD852005C0C7F;
 			remoteInfo = iogctl;
+		};
+		2D65904621C43E2900FF8DC6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 015488CC00BAFF6C11CA2A5F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2D4A93A721C4218600647538;
+			remoteInfo = IOGDiagnoseDecode;
+		};
+		2DCE04B921F92B1E007FFC9A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 015488CC00BAFF6C11CA2A5F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2D39A48921E7FC79005D88DF;
+			remoteInfo = IOGTrace;
 		};
 		72FDA2C91E047F350061B235 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -176,7 +209,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		2D28978F2195E44600AEBEC2 /* CopyFiles */ = {
+		2D4A93A621C4218600647538 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = /usr/share/man/man1/;
@@ -191,10 +224,19 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/graphics/tl";
 			dstSubfolderSpec = 0;
 			files = (
-				2D289781218A3B3D00AEBEC2 /* iolocks in CopyFiles */,
+				2D65904A21C43EC900FF8DC6 /* iolocks in CopyFiles */,
 				2DC2D2B420F801FA00EB407D /* _config in CopyFiles */,
 				2DC2D2B520F801FA00EB407D /* osmemory in CopyFiles */,
 				2DC2D2B620F801FA00EB407D /* osutility in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		2DCE04A721F7D2B6007FFC9A /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -213,8 +255,8 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/graphics";
 			dstSubfolderSpec = 0;
 			files = (
-				2D289782218A3B8E00AEBEC2 /* GTrace.hpp in CopyFiles */,
-				2D289783218A3B8E00AEBEC2 /* GTraceTypes.hpp in CopyFiles */,
+				2D65904821C43EAC00FF8DC6 /* GTrace.hpp in CopyFiles */,
+				2D65904921C43EAC00FF8DC6 /* IOGraphicsTypes.h in CopyFiles */,
 				A68335BE0D450E6600307FE3 /* IOAccelClientConnect.h in CopyFiles */,
 				A68335BF0D450E6600307FE3 /* IOAccelerator.h in CopyFiles */,
 				A68335C00D450E6600307FE3 /* IOAccelSurfaceConnect.h in CopyFiles */,
@@ -272,7 +314,9 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/IOKit/graphics";
 			dstSubfolderSpec = 0;
 			files = (
-				2D289784218A3BB600AEBEC2 /* GMetricTypes.h in CopyFiles */,
+				2D122AA822FC6DB500F61CCF /* IOBacklightDisplayTrace.h in CopyFiles */,
+				2DD3F34F2201FC9D00CE27C1 /* GTraceTypes.hpp in CopyFiles */,
+				2D65904C21C43FC500FF8DC6 /* GMetricTypes.h in CopyFiles */,
 				A68335D70D450E6600307FE3 /* IOGraphicsTypesPrivate.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
@@ -283,7 +327,7 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/graphics";
 			dstSubfolderSpec = 0;
 			files = (
-				2D289785218A3C9000AEBEC2 /* GTraceTypes.hpp in CopyFiles */,
+				2D65904B21C43F9400FF8DC6 /* IOGraphicsTypes.h in CopyFiles */,
 				A68335D90D450E6600307FE3 /* IOGraphicsTypesPrivate.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
@@ -382,38 +426,49 @@
 		221BC4ED00BB072011CA2A5F /* IONDRV.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IONDRV.h; sourceTree = "<group>"; };
 		221BC4EE00BB072011CA2A5F /* IONDRVFramebuffer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IONDRVFramebuffer.cpp; sourceTree = "<group>"; };
 		221BC4EF00BB072011CA2A5F /* IONDRVLibraries.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IONDRVLibraries.cpp; sourceTree = "<group>"; };
-		24BED4E821E954DC00702AAD /* IOGraphicsFamily.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = IOGraphicsFamily.py; path = lldbmacros/IOGraphicsFamily.py; sourceTree = SOURCE_ROOT; };
-		24BED4EA21E9577800702AAD /* syntax_checker.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = syntax_checker.py; sourceTree = "<group>"; };
-		2D20F58821BED8F9007E60D3 /* agdcdecoder.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = agdcdecoder.cpp; sourceTree = "<group>"; };
-		2D289780218A3B0B00AEBEC2 /* iolocks */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; name = iolocks; path = IOKit/graphics/tl/iolocks; sourceTree = "<group>"; };
-		2D2897872195E39E00AEBEC2 /* ContinuousTimeFormatter.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ContinuousTimeFormatter.cpp; sourceTree = "<group>"; };
-		2D2897882195E39E00AEBEC2 /* ContinuousTimeFormatter.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = ContinuousTimeFormatter.hpp; sourceTree = "<group>"; };
-		2D2897892195E39E00AEBEC2 /* DebugTokens.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = DebugTokens.hpp; sourceTree = "<group>"; };
-		2D28978A2195E39E00AEBEC2 /* TraceTokens.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = TraceTokens.hpp; sourceTree = "<group>"; };
-		2D28978B2195E39E00AEBEC2 /* IOGDiagnoseDecode.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOGDiagnoseDecode.cpp; sourceTree = "<group>"; };
-		2D28978C2195E39E00AEBEC2 /* IOGDiagnoseDecode.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = IOGDiagnoseDecode.hpp; sourceTree = "<group>"; };
-		2D2897912195E44600AEBEC2 /* IOGDiagnoseDecode */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = IOGDiagnoseDecode; sourceTree = BUILT_PRODUCTS_DIR; };
-		2D28979F219A11C100AEBEC2 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
-		2D2897A1219A122D00AEBEC2 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
+		24BED4EC21ED198000702AAD /* syntax_checker.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = syntax_checker.py; sourceTree = "<group>"; };
+		24BED4ED21ED198000702AAD /* IOGraphicsFamily.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = IOGraphicsFamily.py; sourceTree = "<group>"; };
+		2D122AA522FC6B4C00F61CCF /* IOBacklightDisplayTrace.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOBacklightDisplayTrace.h; sourceTree = "<group>"; };
+		2D39A48421E7FC52005D88DF /* IOGTrace.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOGTrace.h; path = GTrace/User/IOGTrace.h; sourceTree = "<group>"; };
+		2D39A48521E7FC52005D88DF /* IOGTrace.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = IOGTrace.cpp; path = GTrace/User/IOGTrace.cpp; sourceTree = "<group>"; };
+		2D39A48A21E7FC79005D88DF /* libIOGTrace.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libIOGTrace.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		2D39A49A21EE9F7D005D88DF /* GTraceTypes.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = GTraceTypes.hpp; sourceTree = "<group>"; };
+		2D39A4A021F2757B005D88DF /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		2D457731203B7E6000068B4B /* IODisplayWranglerUserClients.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = IODisplayWranglerUserClients.hpp; sourceTree = "<group>"; };
 		2D457732203B7E6000068B4B /* IODisplayWranglerUserClients.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IODisplayWranglerUserClients.cpp; sourceTree = "<group>"; };
-		2D596CF6215D7D1B00AA9C67 /* iokit */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; path = iokit; sourceTree = "<group>"; };
-		2D68EAE321B5E1F100BE0FF8 /* iogdecoder.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = iogdecoder.cpp; sourceTree = "<group>"; };
+		2D4A93A121C4207700647538 /* iolocks */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; name = iolocks; path = IOKit/graphics/tl/iolocks; sourceTree = "<group>"; };
+		2D4A93A821C4218600647538 /* IOGDiagnoseDecode */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = IOGDiagnoseDecode; sourceTree = BUILT_PRODUCTS_DIR; };
+		2D4A93B021C4219C00647538 /* TraceTokens.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = TraceTokens.hpp; sourceTree = "<group>"; };
+		2D4A93B121C4219C00647538 /* ContinuousTimeFormatter.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ContinuousTimeFormatter.hpp; sourceTree = "<group>"; };
+		2D4A93B221C4219C00647538 /* DebugTokens.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = DebugTokens.hpp; sourceTree = "<group>"; };
+		2D4A93B321C4219C00647538 /* agdcdecoder.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = agdcdecoder.cpp; sourceTree = "<group>"; };
+		2D4A93B421C4219C00647538 /* ContinuousTimeFormatter.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ContinuousTimeFormatter.cpp; sourceTree = "<group>"; };
+		2D4A93B521C4219C00647538 /* IOGDiagnoseDecode.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOGDiagnoseDecode.cpp; sourceTree = "<group>"; };
+		2D4A93B621C4219C00647538 /* IOGDiagnoseDecode.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = IOGDiagnoseDecode.hpp; sourceTree = "<group>"; };
+		2D4A93B721C4219C00647538 /* iogdecoder.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = iogdecoder.cpp; sourceTree = "<group>"; };
+		2D4A93BC21C4295900647538 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
+		2D4A93BD21C4295900647538 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
+		2D596CF6215D7D1B00AA9C67 /* iokit */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; name = iokit; path = tools/Utilities/iokit; sourceTree = SOURCE_ROOT; };
+		2DC0DCA022E7993D00E7DBFB /* abldecoder.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = abldecoder.cpp; sourceTree = "<group>"; };
 		2DC2D2AC20F801D100EB407D /* _config */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; name = _config; path = IOKit/graphics/tl/_config; sourceTree = "<group>"; };
 		2DC2D2AD20F801D100EB407D /* osmemory.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = osmemory.cpp; path = IOKit/graphics/tl/osmemory.cpp; sourceTree = "<group>"; };
 		2DC2D2AE20F801D100EB407D /* osmemory */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; name = osmemory; path = IOKit/graphics/tl/osmemory; sourceTree = "<group>"; };
 		2DC2D2AF20F801D100EB407D /* osutility */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; name = osutility; path = IOKit/graphics/tl/osutility; sourceTree = "<group>"; };
+		2DCE04A321F7D1F0007FFC9A /* iogttest.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = iogttest.cpp; path = tools/iogttest/iogttest.cpp; sourceTree = SOURCE_ROOT; };
+		2DCE04A921F7D2B6007FFC9A /* iogttest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = iogttest; sourceTree = BUILT_PRODUCTS_DIR; };
+		2DCE04B221F7D616007FFC9A /* args.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = args.hpp; path = tools/Utilities/args.hpp; sourceTree = SOURCE_ROOT; };
+		2DCE04B321F7D616007FFC9A /* args.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = args.cpp; path = tools/Utilities/args.cpp; sourceTree = SOURCE_ROOT; };
 		3F8612A51F44DDB2005C0C7F /* GMetricTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = GMetricTypes.h; path = GMetric/GMetricTypes.h; sourceTree = SOURCE_ROOT; };
 		3F8612A61F44E594005C0C7F /* GMetric.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = GMetric.cpp; path = GMetric/GMetric.cpp; sourceTree = SOURCE_ROOT; };
 		3F8612A71F44E594005C0C7F /* GMetric.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = GMetric.hpp; path = GMetric/GMetric.hpp; sourceTree = SOURCE_ROOT; };
 		3F8612B21F4CD852005C0C7F /* iogctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = iogctl; sourceTree = BUILT_PRODUCTS_DIR; };
 		3F8612B41F4CD852005C0C7F /* iogctl.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = iogctl.m; path = tools/iogctl.m; sourceTree = "<group>"; };
-		3F8F971D1F3A876F00C236A6 /* GTraceTypes.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = GTraceTypes.hpp; path = GTrace/GTraceTypes.hpp; sourceTree = SOURCE_ROOT; };
-		3F8F971F1F3A96BE00C236A6 /* IOGDiagnoseUtils.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = IOGDiagnoseUtils.hpp; sourceTree = "<group>"; };
-		3F8F97201F3A98B700C236A6 /* IOGDiagnoseUtils.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOGDiagnoseUtils.cpp; sourceTree = "<group>"; };
+		3F8F971D1F3A876F00C236A6 /* IOGraphicsTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOGraphicsTypes.h; path = IOGraphicsFamily/IOKit/graphics/IOGraphicsTypes.h; sourceTree = SOURCE_ROOT; };
+		3F8F971F1F3A96BE00C236A6 /* IOGDiagnoseUtils.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = IOGDiagnoseUtils.hpp; path = tools/Utilities/IOGDiagnoseUtils.hpp; sourceTree = SOURCE_ROOT; };
+		3F8F97201F3A98B700C236A6 /* IOGDiagnoseUtils.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = IOGDiagnoseUtils.cpp; path = tools/Utilities/IOGDiagnoseUtils.cpp; sourceTree = SOURCE_ROOT; };
 		72037F051E4D0641008F9C6C /* IOGraphicsKTrace.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOGraphicsKTrace.h; sourceTree = "<group>"; };
-		72E5E8071EA01B1B000FEB21 /* GTrace.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = GTrace.hpp; path = GTrace/GTrace.hpp; sourceTree = SOURCE_ROOT; };
-		72E5E8081EA01B28000FEB21 /* GTrace.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = GTrace.cpp; path = GTrace/GTrace.cpp; sourceTree = SOURCE_ROOT; };
+		72E5E8071EA01B1B000FEB21 /* GTrace.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = GTrace.hpp; path = GTrace/Kernel/GTrace.hpp; sourceTree = SOURCE_ROOT; };
+		72E5E8081EA01B28000FEB21 /* GTrace.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = GTrace.cpp; path = GTrace/Kernel/GTrace.cpp; sourceTree = SOURCE_ROOT; };
 		72E5E8101EA01C0A000FEB21 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = System/Library/Frameworks/Kernel.framework; sourceTree = SDKROOT; };
 		72E5E8131EA01CCB000FEB21 /* libsystem_kernel.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libsystem_kernel.dylib; path = usr/lib/system/libsystem_kernel.dylib; sourceTree = SDKROOT; };
 		A68335990D450E6600307FE3 /* Info-IOGraphicsFamily.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOGraphicsFamily.plist"; sourceTree = "<group>"; };
@@ -434,12 +489,29 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		2D28978E2195E44600AEBEC2 /* Frameworks */ = {
+		2D39A48821E7FC79005D88DF /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2D2897A2219A122D00AEBEC2 /* IOKit.framework in Frameworks */,
-				2D2897A0219A11C100AEBEC2 /* CoreFoundation.framework in Frameworks */,
+				2D39A4A121F2757B005D88DF /* CoreFoundation.framework in Frameworks */,
+				2D39A49F21F2756C005D88DF /* IOKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2D4A93A521C4218600647538 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2D4A93BF21C4295900647538 /* IOKit.framework in Frameworks */,
+				2D4A93BE21C4295900647538 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2DCE04A621F7D2B6007FFC9A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2DCE04BB21F92B27007FFC9A /* libIOGTrace.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -479,14 +551,15 @@
 		015488CD00BAFF6C11CA2A5F = {
 			isa = PBXGroup;
 			children = (
-				24BED4E721E9546C00702AAD /* lldbmacros */,
-				3F8612B31F4CD852005C0C7F /* tools */,
-				015488CF00BB000A11CA2A5F /* Products */,
-				015488E200BB00FE11CA2A5F /* IOGraphicsFamily */,
-				221BC4E400BB072011CA2A5F /* IONDRVSupport */,
 				A68335990D450E6600307FE3 /* Info-IOGraphicsFamily.plist */,
 				A68335B30D450E6600307FE3 /* Info-IONDRVSupport.plist */,
+				015488E200BB00FE11CA2A5F /* IOGraphicsFamily */,
+				221BC4E400BB072011CA2A5F /* IONDRVSupport */,
+				3F8612B31F4CD852005C0C7F /* tools */,
+				2D39A48221E7FB3A005D88DF /* GTrace */,
+				24BED4EB21ED198000702AAD /* lldbmacros */,
 				72E5E80F1EA01C0A000FEB21 /* Frameworks */,
+				015488CF00BB000A11CA2A5F /* Products */,
 			);
 			sourceTree = "<group>";
 		};
@@ -499,7 +572,9 @@
 				A68335F50D450E6600307FE3 /* IONDRVSupport Headers */,
 				C026C4741E044B550061BD4A /* iogdiagnose */,
 				3F8612B21F4CD852005C0C7F /* iogctl */,
-				2D2897912195E44600AEBEC2 /* IOGDiagnoseDecode */,
+				2D4A93A821C4218600647538 /* IOGDiagnoseDecode */,
+				2D39A48A21E7FC79005D88DF /* libIOGTrace.dylib */,
+				2DCE04A921F7D2B6007FFC9A /* iogttest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -552,6 +627,8 @@
 				16E5BDFD00BEE42611CA2A5F /* IOGraphicsInterfaceTypes.h */,
 				0154892200BB054811CA2A5F /* IOGraphicsTypes.h */,
 				0347EDA701BC52A103CA2A5F /* IOGraphicsTypesPrivate.h */,
+				2D39A49A21EE9F7D005D88DF /* GTraceTypes.hpp */,
+				2D122AA522FC6B4C00F61CCF /* IOBacklightDisplayTrace.h */,
 			);
 			path = graphics;
 			sourceTree = "<group>";
@@ -597,26 +674,58 @@
 			path = ndrvsupport;
 			sourceTree = "<group>";
 		};
-		24BED4E721E9546C00702AAD /* lldbmacros */ = {
+		24BED4EB21ED198000702AAD /* lldbmacros */ = {
 			isa = PBXGroup;
 			children = (
-				24BED4E821E954DC00702AAD /* IOGraphicsFamily.py */,
-				24BED4EA21E9577800702AAD /* syntax_checker.py */,
+				24BED4EC21ED198000702AAD /* syntax_checker.py */,
+				24BED4ED21ED198000702AAD /* IOGraphicsFamily.py */,
 			);
 			path = lldbmacros;
-			sourceTree = SOURCE_ROOT;
+			sourceTree = "<group>";
 		};
-		2D2897862195E39E00AEBEC2 /* IOGDiagnoseDecode */ = {
+		2D39A48221E7FB3A005D88DF /* GTrace */ = {
 			isa = PBXGroup;
 			children = (
-				2D28978B2195E39E00AEBEC2 /* IOGDiagnoseDecode.cpp */,
-				2D28978C2195E39E00AEBEC2 /* IOGDiagnoseDecode.hpp */,
-				2D68EAE321B5E1F100BE0FF8 /* iogdecoder.cpp */,
-				2D20F58821BED8F9007E60D3 /* agdcdecoder.cpp */,
-				2D2897892195E39E00AEBEC2 /* DebugTokens.hpp */,
-				2D28978A2195E39E00AEBEC2 /* TraceTokens.hpp */,
-				2D2897872195E39E00AEBEC2 /* ContinuousTimeFormatter.cpp */,
-				2D2897882195E39E00AEBEC2 /* ContinuousTimeFormatter.hpp */,
+				2D39A49321E7FCDE005D88DF /* IOGTraceUser */,
+				2D4A93A921C4218600647538 /* IOGDiagnoseDecode */,
+			);
+			name = GTrace;
+			sourceTree = "<group>";
+		};
+		2D39A49321E7FCDE005D88DF /* IOGTraceUser */ = {
+			isa = PBXGroup;
+			children = (
+				2D39A48421E7FC52005D88DF /* IOGTrace.h */,
+				2D39A48521E7FC52005D88DF /* IOGTrace.cpp */,
+			);
+			name = IOGTraceUser;
+			sourceTree = "<group>";
+		};
+		2D39A49521EE5B96005D88DF /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				2D596CF6215D7D1B00AA9C67 /* iokit */,
+				3F8F97201F3A98B700C236A6 /* IOGDiagnoseUtils.cpp */,
+				3F8F971F1F3A96BE00C236A6 /* IOGDiagnoseUtils.hpp */,
+				2DCE04B321F7D616007FFC9A /* args.cpp */,
+				2DCE04B221F7D616007FFC9A /* args.hpp */,
+			);
+			name = Utilities;
+			path = tools/Utilities;
+			sourceTree = SOURCE_ROOT;
+		};
+		2D4A93A921C4218600647538 /* IOGDiagnoseDecode */ = {
+			isa = PBXGroup;
+			children = (
+				2DC0DCA022E7993D00E7DBFB /* abldecoder.cpp */,
+				2D4A93B321C4219C00647538 /* agdcdecoder.cpp */,
+				2D4A93B421C4219C00647538 /* ContinuousTimeFormatter.cpp */,
+				2D4A93B121C4219C00647538 /* ContinuousTimeFormatter.hpp */,
+				2D4A93B221C4219C00647538 /* DebugTokens.hpp */,
+				2D4A93B721C4219C00647538 /* iogdecoder.cpp */,
+				2D4A93B521C4219C00647538 /* IOGDiagnoseDecode.cpp */,
+				2D4A93B621C4219C00647538 /* IOGDiagnoseDecode.hpp */,
+				2D4A93B021C4219C00647538 /* TraceTokens.hpp */,
 			);
 			path = IOGDiagnoseDecode;
 			sourceTree = "<group>";
@@ -624,7 +733,7 @@
 		2DC2D2AB20F8018B00EB407D /* tl */ = {
 			isa = PBXGroup;
 			children = (
-				2D289780218A3B0B00AEBEC2 /* iolocks */,
+				2D4A93A121C4207700647538 /* iolocks */,
 				2DC2D2AC20F801D100EB407D /* _config */,
 				2DC2D2AE20F801D100EB407D /* osmemory */,
 				2DC2D2AD20F801D100EB407D /* osmemory.cpp */,
@@ -634,31 +743,32 @@
 			path = ../..;
 			sourceTree = "<group>";
 		};
+		2DCE04AA21F7D2B6007FFC9A /* iogttest */ = {
+			isa = PBXGroup;
+			children = (
+				2DCE04A321F7D1F0007FFC9A /* iogttest.cpp */,
+			);
+			name = iogttest;
+			path = tools/iogttest;
+			sourceTree = "<group>";
+		};
 		3F8612B31F4CD852005C0C7F /* tools */ = {
 			isa = PBXGroup;
 			children = (
+				2D39A49521EE5B96005D88DF /* Utilities */,
 				C026C4751E044B550061BD4A /* iogdiagnose */,
-				2D2897862195E39E00AEBEC2 /* IOGDiagnoseDecode */,
+				2DCE04AA21F7D2B6007FFC9A /* iogttest */,
 				3F8612B41F4CD852005C0C7F /* iogctl.m */,
 			);
 			name = tools;
 			sourceTree = "<group>";
 		};
-		3F8F97231F3AA31300C236A6 /* IOGDiagnoseUtils */ = {
-			isa = PBXGroup;
-			children = (
-				2D596CF6215D7D1B00AA9C67 /* iokit */,
-				3F8F97201F3A98B700C236A6 /* IOGDiagnoseUtils.cpp */,
-				3F8F971F1F3A96BE00C236A6 /* IOGDiagnoseUtils.hpp */,
-			);
-			path = IOGDiagnoseUtils;
-			sourceTree = "<group>";
-		};
 		72E5E80F1EA01C0A000FEB21 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				2D2897A1219A122D00AEBEC2 /* IOKit.framework */,
-				2D28979F219A11C100AEBEC2 /* CoreFoundation.framework */,
+				2D4A93BC21C4295900647538 /* CoreFoundation.framework */,
+				2D39A4A021F2757B005D88DF /* CoreFoundation.framework */,
+				2D4A93BD21C4295900647538 /* IOKit.framework */,
 				72E5E8131EA01CCB000FEB21 /* libsystem_kernel.dylib */,
 				72E5E8101EA01C0A000FEB21 /* Kernel.framework */,
 			);
@@ -677,7 +787,7 @@
 				C026C46F1E044B360061BD4A /* IOGraphicsPrivate.h */,
 				72037F051E4D0641008F9C6C /* IOGraphicsKTrace.h */,
 				72E5E8071EA01B1B000FEB21 /* GTrace.hpp */,
-				3F8F971D1F3A876F00C236A6 /* GTraceTypes.hpp */,
+				3F8F971D1F3A876F00C236A6 /* IOGraphicsTypes.h */,
 				3F8612A71F44E594005C0C7F /* GMetric.hpp */,
 				3F8612A51F44DDB2005C0C7F /* GMetricTypes.h */,
 			);
@@ -698,7 +808,6 @@
 		C026C4751E044B550061BD4A /* iogdiagnose */ = {
 			isa = PBXGroup;
 			children = (
-				3F8F97231F3AA31300C236A6 /* IOGDiagnoseUtils */,
 				C026C47E1E044E440061BD4A /* iogdiagnose.cpp */,
 				C026C47C1E044D1E0061BD4A /* IOKit.framework */,
 			);
@@ -708,15 +817,27 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
+		2D39A48621E7FC79005D88DF /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2D39A48F21E7FC86005D88DF /* IOGTrace.h in Headers */,
+				2DD3F3522201FDFF00CE27C1 /* GTraceTypes.hpp in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A68335750D450E6600307FE3 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3F8F971E1F3A876F00C236A6 /* GTraceTypes.hpp in Headers */,
+				3F8F971E1F3A876F00C236A6 /* IOGraphicsTypes.h in Headers */,
+				2DC354D821137C090089A839 /* GMetric.hpp in Headers */,
+				2D39A49B21EE9F7D005D88DF /* GTraceTypes.hpp in Headers */,
 				A68335760D450E6600307FE3 /* IOBootFramebuffer.h in Headers */,
 				A68335770D450E6600307FE3 /* IOCursorBlits.h in Headers */,
 				A68335780D450E6600307FE3 /* IODisplayWrangler.h in Headers */,
 				2D457733203B7E6000068B4B /* IODisplayWranglerUserClients.hpp in Headers */,
+				2D122AA622FC6B4C00F61CCF /* IOBacklightDisplayTrace.h in Headers */,
 				A68335790D450E6600307FE3 /* IOFramebufferReallyPrivate.h in Headers */,
 				A683357A0D450E6600307FE3 /* IOFramebufferUserClient.h in Headers */,
 				A683357B0D450E6600307FE3 /* IOAccelClientConnect.h in Headers */,
@@ -752,8 +873,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				A68335B70D450E6600307FE3 /* IOGraphicsTypesPrivate.h in Headers */,
+				2D122AA722FC6B4C00F61CCF /* IOBacklightDisplayTrace.h in Headers */,
 				A68335B80D450E6600307FE3 /* IOI2CInterface.h in Headers */,
 				A68335B90D450E6600307FE3 /* IOI2CInterfacePrivate.h in Headers */,
+				2D39A49C21EE9F96005D88DF /* GTraceTypes.hpp in Headers */,
+				2D39A49921EE60BC005D88DF /* iokit in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -767,13 +891,30 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
-		2D2897902195E44600AEBEC2 /* IOGDiagnoseDecode */ = {
+		2D39A48921E7FC79005D88DF /* IOGTrace */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 2D2897952195E44600AEBEC2 /* Build configuration list for PBXNativeTarget "IOGDiagnoseDecode" */;
+			buildConfigurationList = 2D39A48B21E7FC79005D88DF /* Build configuration list for PBXNativeTarget "IOGTrace" */;
 			buildPhases = (
-				2D28978D2195E44600AEBEC2 /* Sources */,
-				2D28978E2195E44600AEBEC2 /* Frameworks */,
-				2D28978F2195E44600AEBEC2 /* CopyFiles */,
+				2D39A48621E7FC79005D88DF /* Headers */,
+				2D39A48721E7FC79005D88DF /* Sources */,
+				2D39A48821E7FC79005D88DF /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOGTrace;
+			productName = gtraceUser;
+			productReference = 2D39A48A21E7FC79005D88DF /* libIOGTrace.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		2D4A93A721C4218600647538 /* IOGDiagnoseDecode */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2D4A93AC21C4218600647538 /* Build configuration list for PBXNativeTarget "IOGDiagnoseDecode" */;
+			buildPhases = (
+				2D4A93A421C4218600647538 /* Sources */,
+				2D4A93A521C4218600647538 /* Frameworks */,
+				2D4A93A621C4218600647538 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -781,7 +922,25 @@
 			);
 			name = IOGDiagnoseDecode;
 			productName = IOGDiagnoseDecode;
-			productReference = 2D2897912195E44600AEBEC2 /* IOGDiagnoseDecode */;
+			productReference = 2D4A93A821C4218600647538 /* IOGDiagnoseDecode */;
+			productType = "com.apple.product-type.tool";
+		};
+		2DCE04A821F7D2B6007FFC9A /* iogttest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2DCE04AD21F7D2B6007FFC9A /* Build configuration list for PBXNativeTarget "iogttest" */;
+			buildPhases = (
+				2DCE04A521F7D2B6007FFC9A /* Sources */,
+				2DCE04A621F7D2B6007FFC9A /* Frameworks */,
+				2DCE04A721F7D2B6007FFC9A /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2DCE04BA21F92B1E007FFC9A /* PBXTargetDependency */,
+			);
+			name = iogttest;
+			productName = iogttest;
+			productReference = 2DCE04A921F7D2B6007FFC9A /* iogttest */;
 			productType = "com.apple.product-type.tool";
 		};
 		3F8612B11F4CD852005C0C7F /* iogctl */ = {
@@ -805,7 +964,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = A68335950D450E6600307FE3 /* Build configuration list for PBXNativeTarget "IOGraphicsFamily" */;
 			buildPhases = (
-				24BED4E921E9566A00702AAD /* ShellScript */,
+				24BED4EE21ED199C00702AAD /* ShellScript */,
 				A68335750D450E6600307FE3 /* Headers */,
 				A68335880D450E6600307FE3 /* Sources */,
 				A68335930D450E6600307FE3 /* Frameworks */,
@@ -905,9 +1064,18 @@
 		015488CC00BAFF6C11CA2A5F /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				DefaultBuildSystemTypeForWorkspace = Original;
 				LastUpgradeCheck = 1100;
 				TargetAttributes = {
-					2D2897902195E44600AEBEC2 = {
+					2D39A48921E7FC79005D88DF = {
+						CreatedOnToolsVersion = 10.1;
+						ProvisioningStyle = Automatic;
+					};
+					2D4A93A721C4218600647538 = {
+						CreatedOnToolsVersion = 10.1;
+						ProvisioningStyle = Automatic;
+					};
+					2DCE04A821F7D2B6007FFC9A = {
 						CreatedOnToolsVersion = 10.1;
 						ProvisioningStyle = Automatic;
 					};
@@ -924,7 +1092,9 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
+				English,
 				en,
+				Base,
 			);
 			mainGroup = 015488CD00BAFF6C11CA2A5F;
 			productRefGroup = 015488CF00BB000A11CA2A5F /* Products */;
@@ -938,7 +1108,9 @@
 				A68335E40D450E6600307FE3 /* IONDRVSupport Headers */,
 				C026C4731E044B550061BD4A /* iogdiagnose */,
 				3F8612B11F4CD852005C0C7F /* iogctl */,
-				2D2897902195E44600AEBEC2 /* IOGDiagnoseDecode */,
+				2D4A93A721C4218600647538 /* IOGDiagnoseDecode */,
+				2D39A48921E7FC79005D88DF /* IOGTrace */,
+				2DCE04A821F7D2B6007FFC9A /* iogttest */,
 			);
 		};
 /* End PBXProject section */
@@ -954,7 +1126,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		24BED4E921E9566A00702AAD /* ShellScript */ = {
+		24BED4EE21ED199C00702AAD /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -969,19 +1141,38 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "PYTHON_TARGET=\"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/Python/\"\n\npython \"${SRCROOT}/lldbmacros/syntax_checker.py\" \"${SRCROOT}/lldbmacros/IOGraphicsFamily.py\"\n\nmkdir -p \"$PYTHON_TARGET\"\n\ninstall \"${SRCROOT}/lldbmacros/IOGraphicsFamily.py\" \"$PYTHON_TARGET\"\n";
+			shellScript = "PYTHON_TARGET=\"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/Python/\"\nSCRIPT_SRC=\"${SRCROOT}/lldbmacros/IOGraphicsFamily.py\"\n\npython \"${SRCROOT}/lldbmacros/syntax_checker.py\" \"${SCRIPT_SRC}\"\nmkdir -p \"$PYTHON_TARGET\"\ninstall \"${SCRIPT_SRC}\" \"$PYTHON_TARGET\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		2D28978D2195E44600AEBEC2 /* Sources */ = {
+		2D39A48721E7FC79005D88DF /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2D68EAE421B5E1F100BE0FF8 /* iogdecoder.cpp in Sources */,
-				2D20F58921BED8F9007E60D3 /* agdcdecoder.cpp in Sources */,
-				2D28979B2195FA3B00AEBEC2 /* ContinuousTimeFormatter.cpp in Sources */,
-				2D28979C2195FA3B00AEBEC2 /* IOGDiagnoseDecode.cpp in Sources */,
+				2D39A49021E7FC86005D88DF /* IOGTrace.cpp in Sources */,
+				2D39A49D21EFFA53005D88DF /* IOGDiagnoseUtils.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2D4A93A421C4218600647538 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2D4A93BB21C4219C00647538 /* iogdecoder.cpp in Sources */,
+				2DC0DCA122E7993D00E7DBFB /* abldecoder.cpp in Sources */,
+				2D4A93BA21C4219C00647538 /* IOGDiagnoseDecode.cpp in Sources */,
+				2D4A93B921C4219C00647538 /* ContinuousTimeFormatter.cpp in Sources */,
+				2D4A93B821C4219C00647538 /* agdcdecoder.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2DCE04A521F7D2B6007FFC9A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2DCE04B121F7D2C4007FFC9A /* iogttest.cpp in Sources */,
+				2DCE04B821F8E6E9007FFC9A /* args.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1026,23 +1217,33 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C026C47F1E044E440061BD4A /* iogdiagnose.cpp in Sources */,
-				3F8F97211F3A98B700C236A6 /* IOGDiagnoseUtils.cpp in Sources */,
+				2D39A49721EE5BC4005D88DF /* iogdiagnose.cpp in Sources */,
+				2D39A49E21EFFA55005D88DF /* IOGDiagnoseUtils.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		2D28979E2195FDFD00AEBEC2 /* PBXTargetDependency */ = {
+		2D39A49221E7FC9B005D88DF /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 2D2897902195E44600AEBEC2 /* IOGDiagnoseDecode */;
-			targetProxy = 2D28979D2195FDFD00AEBEC2 /* PBXContainerItemProxy */;
+			target = 2D39A48921E7FC79005D88DF /* IOGTrace */;
+			targetProxy = 2D39A49121E7FC9B005D88DF /* PBXContainerItemProxy */;
 		};
 		2D457736203CD32200068B4B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3F8612B11F4CD852005C0C7F /* iogctl */;
 			targetProxy = 2D457735203CD32200068B4B /* PBXContainerItemProxy */;
+		};
+		2D65904721C43E2900FF8DC6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2D4A93A721C4218600647538 /* IOGDiagnoseDecode */;
+			targetProxy = 2D65904621C43E2900FF8DC6 /* PBXContainerItemProxy */;
+		};
+		2DCE04BA21F92B1E007FFC9A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2D39A48921E7FC79005D88DF /* IOGTrace */;
+			targetProxy = 2DCE04B921F92B1E007FFC9A /* PBXContainerItemProxy */;
 		};
 		72FDA2CA1E047F350061B235 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1072,7 +1273,210 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		2D2897962195E44600AEBEC2 /* Development */ = {
+		2D39A48C21E7FC79005D88DF /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/IOGraphicsFamily",
+					"$(SRCROOT)/tools/Utilities",
+				);
+				INSTALL_PATH = /usr/lib;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRIVATE_HEADERS_FOLDER_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/graphics";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PUBLIC_HEADERS_FOLDER_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/graphics";
+				SDKROOT = macosx.internal;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
+			};
+			name = Development;
+		};
+		2D39A48D21E7FC79005D88DF /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/IOGraphicsFamily",
+					"$(SRCROOT)/tools/Utilities",
+				);
+				INSTALL_PATH = /usr/lib;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRIVATE_HEADERS_FOLDER_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/graphics";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PUBLIC_HEADERS_FOLDER_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/graphics";
+				SDKROOT = macosx.internal;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
+			};
+			name = Deployment;
+		};
+		2D39A48E21E7FC79005D88DF /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/IOGraphicsFamily",
+					"$(SRCROOT)/tools/Utilities",
+				);
+				INSTALL_PATH = /usr/lib;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRIVATE_HEADERS_FOLDER_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/graphics";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PUBLIC_HEADERS_FOLDER_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/graphics";
+				SDKROOT = macosx.internal;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
+			};
+			name = Default;
+		};
+		2D4A93AD21C4218600647538 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -1120,17 +1524,21 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/IOGraphicsFamily",
+					"$(SRCROOT)/tools/Utilities",
+				);
 				INSTALL_PATH = /AppleInternal/AppleGraphicsControl;
 				MACOSX_DEPLOYMENT_TARGET = 10.14;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
+				SDKROOT = macosx.internal;
 			};
 			name = Development;
 		};
-		2D2897972195E44600AEBEC2 /* Deployment */ = {
+		2D4A93AE21C4218600647538 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -1176,16 +1584,20 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/IOGraphicsFamily",
+					"$(SRCROOT)/tools/Utilities",
+				);
 				INSTALL_PATH = /AppleInternal/AppleGraphicsControl;
 				MACOSX_DEPLOYMENT_TARGET = 10.14;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
+				SDKROOT = macosx.internal;
 			};
 			name = Deployment;
 		};
-		2D2897982195E44600AEBEC2 /* Default */ = {
+		2D4A93AF21C4218600647538 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -1231,12 +1643,197 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/IOGraphicsFamily",
+					"$(SRCROOT)/tools/Utilities",
+				);
 				INSTALL_PATH = /AppleInternal/AppleGraphicsControl;
 				MACOSX_DEPLOYMENT_TARGET = 10.14;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Default;
+		};
+		2DCE04AE21F7D2B6007FFC9A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/IOGraphicsFamily",
+					"$(SRCROOT)/tools/Utilities",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+			};
+			name = Development;
+		};
+		2DCE04AF21F7D2B6007FFC9A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/IOGraphicsFamily",
+					"$(SRCROOT)/tools/Utilities",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+			};
+			name = Deployment;
+		};
+		2DCE04B021F7D2B6007FFC9A /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/IOGraphicsFamily",
+					"$(SRCROOT)/tools/Utilities",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
 			};
 			name = Default;
 		};
@@ -1246,7 +1843,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -1284,7 +1881,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(SRCROOT)";
 				INSTALL_PATH = /AppleInternal/AppleGraphicsControl;
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -1300,7 +1896,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -1336,7 +1932,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(SRCROOT)";
 				INSTALL_PATH = /AppleInternal/AppleGraphicsControl;
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -1351,7 +1946,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -1387,7 +1982,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(SRCROOT)";
 				INSTALL_PATH = /AppleInternal/AppleGraphicsControl;
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -1551,11 +2145,12 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
-					ENABLE_TELEMETRY,
-					IOG_GMETRIC,
-					"DEBG_CATEGORIES_BUILD=$(DEBG_CATEGORIES_BUILD)",
 					APPLE_KEXT_ASSERTIONS,
 					GTRACE_IMPL,
+					IOG_GMETRIC,
+					_KERNEL_,
+					KERNEL,
+					"DEBG_CATEGORIES_BUILD=$(DEBG_CATEGORIES_BUILD)",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
@@ -1568,7 +2163,7 @@
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
 				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)",
+					"$(inherited)",
 					"$(SRCROOT)/IOGraphicsFamily/IOKit/graphics/tl",
 					"$(SRCROOT)/IOGraphicsFamily",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/PrivateHeaders",
@@ -1581,14 +2176,9 @@
 				MODULE_NAME = com.apple.iokit.IOGraphicsFamily;
 				MODULE_START = IOGraphicsFamilyModuleStart;
 				MODULE_VERSION = 1.5.1;
-				OTHER_CFLAGS = (
-					"-D",
-					_KERNEL_,
-					"-D",
-					KERNEL,
-				);
 				OTHER_LDFLAGS = "-lFastCompression-Kernel";
 				OTHER_REZFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.iokit.IOGraphicsFamily;
 				PRODUCT_NAME = IOGraphicsFamily;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
@@ -1612,12 +2202,14 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
-					"DEBG_CATEGORIES_BUILD=$(DEBG_CATEGORIES_BUILD)",
 					GTRACE_IMPL,
+					"DEBG_CATEGORIES_BUILD=$(DEBG_CATEGORIES_BUILD)",
+					_KERNEL_,
+					KERNEL,
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)",
+					"$(inherited)",
 					"$(SRCROOT)/IOGraphicsFamily/IOKit/graphics/tl",
 					"$(SRCROOT)/IOGraphicsFamily",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/PrivateHeaders",
@@ -1630,15 +2222,10 @@
 				MODULE_NAME = com.apple.iokit.IOGraphicsFamily;
 				MODULE_START = IOGraphicsFamilyModuleStart;
 				MODULE_VERSION = 1.5.1;
-				OTHER_CFLAGS = (
-					"-D",
-					_KERNEL_,
-					"-D",
-					KERNEL,
-				);
 				OTHER_LDFLAGS = "-lFastCompression-Kernel";
 				OTHER_REZFLAGS = "";
 				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Contents/PrivateHeaders/graphics";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.iokit.IOGraphicsFamily;
 				PRODUCT_NAME = IOGraphicsFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Contents/Headers/graphics";
 				SECTORDER_FLAGS = "";
@@ -1661,12 +2248,14 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
-					"DEBG_CATEGORIES_BUILD=$(DEBG_CATEGORIES_BUILD)",
 					GTRACE_IMPL,
+					"DEBG_CATEGORIES_BUILD=$(DEBG_CATEGORIES_BUILD)",
+					_KERNEL_,
+					KERNEL,
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)",
+					"$(inherited)",
 					"$(SRCROOT)/IOGraphicsFamily/IOKit/graphics/tl",
 					"$(SRCROOT)/IOGraphicsFamily",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/PrivateHeaders",
@@ -1679,14 +2268,9 @@
 				MODULE_NAME = com.apple.iokit.IOGraphicsFamily;
 				MODULE_START = IOGraphicsFamilyModuleStart;
 				MODULE_VERSION = 1.5.1;
-				OTHER_CFLAGS = (
-					"-D",
-					_KERNEL_,
-					"-D",
-					KERNEL,
-				);
 				OTHER_LDFLAGS = "-lFastCompression-Kernel";
 				OTHER_REZFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.iokit.IOGraphicsFamily;
 				PRODUCT_NAME = IOGraphicsFamily;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
@@ -1704,7 +2288,6 @@
 				BUNDLE_STYLE = SHALLOW;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -1733,9 +2316,11 @@
 				GCC_WARN_UNKNOWN_PRAGMAS = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/IOGraphicsFamily/IOKit/graphics/tl",
 					"$(SRCROOT)/IOGraphicsFamily",
 					"$(SRCROOT)/IONDRVSupport",
-					"$(inherited)",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/PrivateHeaders",
 				);
 				INFOPLIST_FILE = "Info-IONDRVSupport.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -1746,6 +2331,7 @@
 				MODULE_VERSION = 1.5.1;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.iokit.IONDRVSupport;
 				PRODUCT_NAME = IONDRVSupport;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
@@ -1764,7 +2350,6 @@
 				BUNDLE_STYLE = SHALLOW;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					_KERNEL_,
@@ -1774,9 +2359,11 @@
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/IOGraphicsFamily/IOKit/graphics/tl",
 					"$(SRCROOT)/IOGraphicsFamily",
 					"$(SRCROOT)/IONDRVSupport",
-					"$(inherited)",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/PrivateHeaders",
 				);
 				INFOPLIST_FILE = "Info-IONDRVSupport.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -1787,6 +2374,7 @@
 				MODULE_VERSION = 1.5.1;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.iokit.IONDRVSupport;
 				PRODUCT_NAME = IONDRVSupport;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
@@ -1804,7 +2392,6 @@
 			buildSettings = {
 				BUNDLE_STYLE = SHALLOW;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					_KERNEL_,
 					KERNEL,
@@ -1813,9 +2400,11 @@
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/IOGraphicsFamily/IOKit/graphics/tl",
 					"$(SRCROOT)/IOGraphicsFamily",
 					"$(SRCROOT)/IONDRVSupport",
-					"$(inherited)",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/PrivateHeaders",
 				);
 				INFOPLIST_FILE = "Info-IONDRVSupport.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -1826,6 +2415,7 @@
 				MODULE_VERSION = 1.5.1;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.iokit.IONDRVSupport;
 				PRODUCT_NAME = IONDRVSupport;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
@@ -1840,7 +2430,6 @@
 		A68335DF0D450E6600307FE3 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -1866,7 +2455,6 @@
 		A68335E00D450E6600307FE3 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -1889,7 +2477,6 @@
 		A68335E10D450E6600307FE3 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				OTHER_CFLAGS = "";
@@ -1909,7 +2496,6 @@
 		A68335F20D450E6600307FE3 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -1935,7 +2521,6 @@
 		A68335F30D450E6600307FE3 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -1958,7 +2543,6 @@
 		A68335F40D450E6600307FE3 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				OTHER_CFLAGS = "";
@@ -2114,12 +2698,32 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		2D2897952195E44600AEBEC2 /* Build configuration list for PBXNativeTarget "IOGDiagnoseDecode" */ = {
+		2D39A48B21E7FC79005D88DF /* Build configuration list for PBXNativeTarget "IOGTrace" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				2D2897962195E44600AEBEC2 /* Development */,
-				2D2897972195E44600AEBEC2 /* Deployment */,
-				2D2897982195E44600AEBEC2 /* Default */,
+				2D39A48C21E7FC79005D88DF /* Development */,
+				2D39A48D21E7FC79005D88DF /* Deployment */,
+				2D39A48E21E7FC79005D88DF /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		2D4A93AC21C4218600647538 /* Build configuration list for PBXNativeTarget "IOGDiagnoseDecode" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2D4A93AD21C4218600647538 /* Development */,
+				2D4A93AE21C4218600647538 /* Deployment */,
+				2D4A93AF21C4218600647538 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		2DCE04AD21F7D2B6007FFC9A /* Build configuration list for PBXNativeTarget "iogttest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2DCE04AE21F7D2B6007FFC9A /* Development */,
+				2DCE04AF21F7D2B6007FFC9A /* Deployment */,
+				2DCE04B021F7D2B6007FFC9A /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

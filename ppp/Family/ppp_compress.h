@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,8 +26,8 @@
 #define __PPP_COMP_H__
 
 
-int ppp_comp_init();
-int ppp_comp_dispose();
+int ppp_comp_init(void);
+int ppp_comp_dispose(void);
 void ppp_comp_alloc(struct ppp_if *wan);
 void ppp_comp_dealloc(struct ppp_if *wan);
 int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp);

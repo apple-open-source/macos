@@ -63,7 +63,6 @@
 ***********************************************************/
 
 #include "ckconfig.h"
-#if CRYPTKIT_ELL_PROJ_ENABLE
 
 #include "ellipticProj.h"
 #include "falloc.h"
@@ -561,5 +560,3 @@ void findPointProj(pointProj pt, giant seed, curveParams *cp)
     	gtog(seed,x);
 	int_to_giant(1, z);
 }
-
-#endif	/* CRYPTKIT_ELL_PROJ_ENABLE */

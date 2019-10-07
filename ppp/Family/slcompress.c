@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -399,7 +399,7 @@ sl_compress_tcp(m, ip, comp, compress_cid)
 	 * many bytes of the original packet to toss so subtract the two to
 	 * get the new packet size.
 	 */
-	deltaS = cp - new_seq;
+	deltaS = (u_int)(cp - new_seq);
 	cp = (u_char *)ip;
 	if (compress_cid == 0 || comp->last_xmit != cs->cs_id) {
 		comp->last_xmit = cs->cs_id;
@@ -606,7 +606,7 @@ sl_uncompress_tcp_core(buf, buflen, total_len, type, comp, hdrp, hlenp)
 	 * packet.  Fill in the IP total length and update the IP
 	 * header checksum.
 	 */
-	vjlen = cp - buf;
+	vjlen = (u_int)(cp - buf);
 	buflen -= vjlen;
 	if (buflen < 0)
 		/* we must have dropped some characters (crc should detect

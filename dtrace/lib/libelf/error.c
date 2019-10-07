@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)error.c	1.22	08/06/03 SMI"
-
 #include	<pthread.h> /* In lieu of Solaris <thread.h> */
 #define thr_keycreate pthread_key_create /* In lieu of Solaris <thread.h> */
 #define thr_getspecific(key, pval) (*pval = pthread_getspecific( key )) /* In lieu of Solaris <thread.h> */
@@ -47,14 +45,9 @@ int	__libc_threaded = 1; /* In lieu of Solaris <thread.h> */
 #define EINF_NULLERROR 0
 #define EBUG_THRDKEY 0
 
-#define MSG_SUNW_OST_SGS -2
 #define MSG_FMT_ERR -1
 #define MSG_INTL(x) "libelf internal error"
 #define MSG_ORIG(x) (x == MSG_FMT_ERR ? "%s %s" : NULL)
-
-char *_dgettext(const char *x, const char *y) { return "libelf internal error"; }
-#define dgettext(x,y) _dgettext(x,y)
-#define NATIVE_BUILD 1
 
 #include	"decl.h"
 
@@ -69,12 +62,6 @@ char *_dgettext(const char *x, const char *y) { return "libelf internal error"; 
  */
 static int		_elf_err = 0;
 
-#if !defined(NATIVE_BUILD)
-
-static thread_key_t	errkey = THR_ONCE_KEY;
-static thread_key_t	bufkey = THR_ONCE_KEY;
-
-#else	/* NATIVE_BUILD */
 
 /*
  * This code is here to enable the building of a native version
@@ -87,7 +74,7 @@ static thread_key_t	bufkey = THR_ONCE_KEY;
 static thread_key_t	errkey = 0;
 static thread_key_t	bufkey = 0;
 
-int
+static int
 thr_keycreate_once(thread_key_t *keyp, void (*destructor)(void *))
 {
 	static mutex_t key_lock = DEFAULTMUTEX;
@@ -110,16 +97,6 @@ thr_keycreate_once(thread_key_t *keyp, void (*destructor)(void *))
 	return (0);
 }
 
-#endif	/* NATIVE_BUILD */
-
-
-const char *
-_libelf_msg(Msg mid)
-{
-	return (dgettext(MSG_ORIG(MSG_SUNW_OST_SGS), MSG_ORIG(mid)));
-}
-
-
 void
 _elf_seterr(Msg lib_err, int sys_err)
 {
@@ -137,7 +114,7 @@ _elf_seterr(Msg lib_err, int sys_err)
 	(void) thr_setspecific(errkey, (void *)encerr);
 }
 
-int
+static int
 _elf_geterr() {
 #ifndef	__lock_lint
 	if (thr_main())

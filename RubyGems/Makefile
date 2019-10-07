@@ -11,13 +11,13 @@ OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
 SDKROOTUSR=$(SDKROOT)/usr
 unexport GEM_HOME
-MKMFFLAGS=--ignore-dependencies \
+MKMFFLAGS=--use-system-libraries --ignore-dependencies \
 	--with-xml2-include=$(SDKROOTUSR)/include/libxml2 \
 	--with-xml2-lib=$(SDKROOTUSR)/lib \
 	--with-xslt-include=$(SDKROOTUSR)/include \
 	--with-xslt-lib=$(SDKROOTUSR)/lib
 
-GEMDIR=$(shell ruby -rubygems -e "puts Gem.path.last")
+GEMDIR=$(shell ruby -rrubygems -e "puts Gem.path.last")
 GEMS= gems/*.gem
 
 build::
@@ -27,7 +27,8 @@ build::
 	done
 	$(INSTALL_FILE) $(SRCROOT)/RubyGems.plist $(OSV)
 	for g in $(GEMS); do \
-		GEM_HOME="$(DSTROOT)$(GEMDIR)" gem install -V --local $$g -- $(MKMFFLAGS) || exit 1; \
+		echo "Installing gem $$g"; \
+		GEM_HOME="$(DSTROOT)$(GEMDIR)" gem install --no-document -V --local $$g -- $(MKMFFLAGS) || exit 1; \
 	done
 	$(FIND) $(DSTROOT) \( -name script -or -name test \) -print | xargs -t rm -rf
 	$(FIND) $(DSTROOT) -type f \( -name '*.[ch]' -o -name '*.txt' \) -perm -a+x | xargs -t chmod a-x

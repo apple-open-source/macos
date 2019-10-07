@@ -6,37 +6,45 @@
 //
 
 #import "HIDDisplayInterface.h"
-#import "HIDDisplayPresetData.h"
 #import "HIDElement.h"
-#import "HIDElementPrivate.h"
-#import "HIDDisplayCAPI.h"
-#import "HIDDisplayPresetDataPrivate.h"
-#import "HIDDisplayPrivate.h"
 #import "HIDDisplayInterfacePrivate.h"
+#import "HIDDisplayPrivate.h"
+#import "HIDDisplayCAPI.h"
 
 #import <IOKit/hid/IOHIDKeys.h>
-#import <IOKit/hid/IOHIDManager.h>
-#import <IOKit/hid/IOHIDDevice.h>
-#import <IOKit/hid/AppleHIDUsageTables.h>
-#import <IOKit/hid/IOHIDLibPrivate.h>
-#import <IOKit/usb/USBSpec.h>
-#import <AssertMacros.h>
-#import <IOKit/hid/IOHIDLib.h>
-#import <TargetConditionals.h>
 #import <IOKit/IOKitKeys.h>
+#import <IOKit/hid/AppleHIDUsageTables.h>
+#if !TARGET_OS_SIMULATOR
+#import <IOKit/usb/USBSpec.h>
+#endif
+#import <AssertMacros.h>
+
+#import <HID/HIDManager.h>
+#import <HID/HIDTransaction.h>
+#import <HID/HIDDevice.h>
+#import <HID/HIDElement.h>
+#import <TargetConditionals.h>
+#import <IOKit/IOKitLib.h>
 
 @implementation HIDDisplayInterface
 {
-    IOHIDManagerRef _manager;
-    IOHIDDeviceRef _deviceRef;
+    HIDManager *_manager;
+    HIDDevice *_deviceRef;
+}
+
+-(NSString*) description
+{
+    return [NSString stringWithFormat:@"[regID:0x%llx][containerID:%@][instance:%p]",_registryID, _containerID, self];
 }
 -(nullable instancetype) initWithContainerID:(NSString*) containerID
 {
+    
     self = [super init];
     if (!self) {
         return nil;
     }
     
+#if !TARGET_OS_SIMULATOR
     NSArray *hidDevices = [self getHIDDevices];
     
     if (!hidDevices || hidDevices.count == 0) {
@@ -44,11 +52,13 @@
         return nil;
     }
     
+    
+    
     BOOL matchingDevice = NO;
     for (NSUInteger i = 0; i < hidDevices.count; i++) {
-        matchingDevice = [self hasMatchingContainerID:(__bridge IOHIDDeviceRef)[hidDevices objectAtIndex:i] containerID:containerID];
+        matchingDevice = [self hasMatchingContainerID:[hidDevices objectAtIndex:i] containerID:containerID];
         if (matchingDevice == YES) {
-            self.device = (__bridge_retained IOHIDDeviceRef)[hidDevices objectAtIndex:i];
+            self.device = [hidDevices objectAtIndex:i];
             break;
         }
     }
@@ -57,105 +67,51 @@
         return nil;
     }
     
-    IOReturn kr = IOHIDDeviceOpen(self.device, 0);
+    [self.device open];
     
-    if (kr) {
-        os_log(OS_LOG_DEFAULT, "Device open status 0x%x",kr);
+    _containerID = containerID;
+    
+    IORegistryEntryGetRegistryEntryID(self.device.service, &_registryID);
+    
+    os_log(HIDDisplayLog(), "%@ Init",self);
+    
+    return self;
+#else
+    (void)containerID;
+    return nil;
+#endif
+    
+}
+
+-(nullable instancetype) initWithService:(io_service_t) service
+{
+    self = [super init];
+    if (!self) {
         return nil;
     }
     
-    _containerID = containerID;
+    HIDDevice *device = [[HIDDevice alloc] initWithService:service];
+    if (!device) {
+        return nil;
+    }
+    
+    self.device = device;
+    
+    [self.device open];
+    
+    IORegistryEntryGetRegistryEntryID(service, &_registryID);
+    
+    _containerID = [self extractContainerIDFromService:service];
+    
+    os_log(HIDDisplayLog(), "%@ Init",self);
     
     return self;
 }
 
--(void) dealloc
-{
-    if (_manager) {
-        
-        CFRelease(_manager);
-        _manager = nil;
-    }
-    
-    if (self.device) {
-        IOHIDDeviceClose(self.device, 0);
-        CFRelease(self.device);
-        self.device = nil;
-    }
-}
-
--(BOOL) hasMatchingContainerID:(IOHIDDeviceRef) device containerID:(NSString*) containerID
-{
-    io_service_t service = IOHIDDeviceGetService(device);
-    
-    uint64_t registryID =0;
-    
-    BOOL ret = NO;
-    id containerIdValue  = nil;
-    NSString *containerIDKey = nil;
-    require(service != IO_OBJECT_NULL, exit);
-    
-    IORegistryEntryGetRegistryEntryID(service, &registryID);
-    
-    os_log(HIDDisplayLog(), "Registry ID 0x%llx containerID %@",registryID, containerID);
-    
-#if !TARGET_OS_IPHONE || TARGET_OS_IOSMAC
-    containerIDKey = @kUSBDeviceContainerID;
-#else
-    containerIDKey = @kUSBContainerID;
-#endif
-    
-    containerIdValue =  (__bridge_transfer id)IORegistryEntrySearchCFProperty(service, kIOServicePlane, (__bridge CFStringRef)containerIDKey, kCFAllocatorDefault, kIORegistryIterateParents | kIORegistryIterateRecursively);
-    
-    require(containerIdValue, exit);
-    
-    if ([containerIdValue isKindOfClass:[NSString class]]) {
-         
-        os_log(HIDDisplayLog(), "IORegistryEntrySearchCFProperty (NSString) result %@ length %ld",containerIdValue, containerIdValue ? ((NSString*)containerIdValue).length : 0);
-        
-        //convert both to lower case to avoid any confusion
-        NSString *ctrIDOne = containerID.lowercaseString;
-        NSString *ctrIDTwo = ((NSString*)containerIdValue).lowercaseString;
-        
-        if ([ctrIDOne containsString:ctrIDTwo] || [ctrIDTwo containsString:ctrIDOne]) {
-            ret = YES;
-            os_log(HIDDisplayLog(), "Container ID Match for %@",containerID);
-        }
-    }
-    
-exit:
-    return ret;
-}
-
--(NSArray*) getHIDDevicesForMatching:(NSDictionary*) matching
-{
-    NSSet *devices = nil;
-    NSArray *tmp = nil;
-    
-    if (!_manager) {
-        _manager = IOHIDManagerCreate (kCFAllocatorDefault, kIOHIDOptionsTypeNone);
-    }
-    
-    require(_manager, exit);
-    
-    IOHIDManagerSetDeviceMatching(_manager, (__bridge CFDictionaryRef)matching);
-    
-    devices =  (__bridge_transfer NSSet*)IOHIDManagerCopyDevices(_manager);
-    
-    require(devices, exit);
-    
-    tmp = [devices allObjects];
-exit:
-    return tmp;
-}
-
--(NSArray*) getHIDDevices
-{
-    return nil;
-}
-
 -(nullable instancetype) initWithMatching:(NSDictionary*) matching
 {
+    os_log_info(HIDDisplayLog(), "%s", __FUNCTION__);
+    
     self = [super init];
     if (!self) {
         return nil;
@@ -167,83 +123,145 @@ exit:
         return nil;
     }
     
-    self.device = (__bridge_retained IOHIDDeviceRef)[hidDevices objectAtIndex:0];
+    self.device = [hidDevices objectAtIndex:0];
     
-    IOReturn kr = IOHIDDeviceOpen(self.device, 0);
+    [self.device open];
     
-    if (kr) {
-        os_log(HIDDisplayLog(), "Device open status 0x%x",kr);
-        return nil;
-    }
+    IORegistryEntryGetRegistryEntryID(self.device.service, &_registryID);
+    
+    _containerID = [self extractContainerIDFromService:self.device.service];
+    
+    os_log(HIDDisplayLog(), "%@ Init", self);
     
     return self;
 }
 
+-(void) dealloc
+{
+    
+    os_log(HIDDisplayLog(), "%@ Dealloc",self);
+    
+    if (self.device){
+        [self.device close];
+    }
+}
+
+// not using containerID property as multiple call's by caller can be made
+// so we may want to cache containerID on init
+-(NSString*) extractContainerIDFromService:(io_service_t) service
+{
+    NSString *containerIDKey = nil;
+    id containerIdValue  = nil;
+    require(service != IO_OBJECT_NULL, exit);
+    
+#if !TARGET_OS_IPHONE || TARGET_OS_IOSMAC
+    containerIDKey = @kUSBDeviceContainerID;
+#elif !TARGET_OS_SIMULATOR
+    containerIDKey = @kUSBContainerID;
+#endif
+    
+    containerIdValue =  (__bridge_transfer id)IORegistryEntrySearchCFProperty(service, kIOServicePlane, (__bridge CFStringRef)containerIDKey, kCFAllocatorDefault, kIORegistryIterateParents | kIORegistryIterateRecursively);
+    
+    if (!containerIdValue || ![containerIdValue isKindOfClass:[NSString class]]) return nil;
+    
+    return (NSString*)containerIdValue;
+exit:
+    return nil;
+}
+
+
+-(BOOL) hasMatchingContainerID:(HIDDevice*) device containerID:(NSString*) containerID
+{
+    io_service_t service = device.service;
+    BOOL ret = NO;
+    NSString* containerIdValue  = nil;
+    uint64_t registryID = 0;
+    NSString *ctrIDOne  = nil;
+    NSString *ctrIDTwo = nil;
+    
+    IORegistryEntryGetRegistryEntryID(service, &registryID);
+    
+    containerIdValue = [self extractContainerIDFromService:service];
+    
+    require(containerIdValue, exit);
+    
+    
+    //convert both to lower case to avoid any confusion
+    ctrIDOne = containerID.lowercaseString;
+    ctrIDTwo = containerIdValue.lowercaseString;
+    
+    if ([ctrIDOne containsString:ctrIDTwo] || [ctrIDTwo containsString:ctrIDOne]) {
+        ret = YES;
+    }
+    
+    os_log(HIDDisplayLog(), "%@ Container ID Match for %@ returned %s",self, containerIdValue, ret ? "Success" : "Failure");
+    
+    
+exit:
+    return ret;
+}
+
+
 -(NSDictionary<NSNumber*,HIDElement*>*) getDeviceElements:(NSDictionary*) matching
 {
-    NSArray *elements = (__bridge_transfer NSArray*)IOHIDDeviceCopyMatchingElements(self.device, (__bridge CFDictionaryRef)matching, 0);
-    BOOL ret = NO;
     NSMutableDictionary<NSNumber*,HIDElement*> *usageElementMap = [[NSMutableDictionary alloc] init];
     
+    NSArray<HIDElement*> *elements =  [self.device elementsMatching:matching];
+    BOOL ret = NO;
     require(elements, exit);
     
-    usageElementMap = [[NSMutableDictionary alloc] init];
-    
-    for (NSUInteger i = 0; i < elements.count; i++ ) {
+    for (HIDElement *element in elements) {
         
-        IOHIDElementRef element = (__bridge IOHIDElementRef)[elements objectAtIndex:i];
-        uint32_t usage = IOHIDElementGetUsage(element);
-        HIDElement *displayElement = [[HIDElement alloc] initWithObject:element];
-        
-        if (displayElement) {
-            usageElementMap[@(usage)] = displayElement;
-            ret = YES;
-        }
+        NSInteger usage = element.usage;
+        NSInteger usagePage = element.usagePage;
+        os_log_info(HIDDisplayLog(), "%@ Display Device Element UP: 0x%lx , U: 0x%lx ",self, usagePage, usage);
+        usageElementMap[@(usage)] = element;
+        ret = YES;
     }
+    
 exit:
     return ret == YES ? usageElementMap : nil;
 }
--(IOHIDDeviceRef) device
+
+-(NSArray*) getHIDDevicesForMatching:(NSDictionary*) matching
+{
+    if (!_manager) {
+        _manager = [[HIDManager alloc] init];
+    }
+    
+    require(_manager, exit);
+    
+    [_manager setDeviceMatching:matching];
+    
+    return _manager.devices;
+    
+exit:
+    return nil;
+}
+
+-(NSArray*) getHIDDevices
+{
+    return nil;
+}
+
+-(HIDDevice*) device
 {
     return _deviceRef;
 }
 
--(void) setDevice:(IOHIDDeviceRef) device
+-(void) setDevice:(HIDDevice*) device
 {
     _deviceRef = device;
 }
 
 -(BOOL) commit:(NSArray<HIDElement*>*) elements error:(NSError**) error
 {
-    BOOL ret = NO;
-    IOReturn kr = kIOReturnSuccess;
-    IOHIDTransactionRef transaction = NULL;
+    BOOL ret = YES;
     
-    transaction = IOHIDTransactionCreate(kCFAllocatorDefault, self.device, kIOHIDTransactionDirectionTypeOutput, kIOHIDOptionsTypeNone);
+    ret = [self.device commitElements:elements direction:HIDDeviceCommitDirectionOut error:error];
     
-    require_action(transaction, exit, kr = kIOReturnError; os_log_error(HIDDisplayLog(),"[containerID:%@] Unable to create transaction",self.containerID));
-    
-    for (HIDElement *element in elements) {
-        
-        IOHIDTransactionAddElement(transaction,element.element);
-        IOHIDTransactionSetValue(transaction,element.element, element.valueRef, kIOHIDOptionsTypeNone);
-        
-    }
-    
-    kr = IOHIDTransactionCommit(transaction);
-    
-    require_action(kr == kIOReturnSuccess, exit, os_log_error(HIDDisplayLog(),"[containerID:%@] HIDTransactionCommit error : 0x%x",self.containerID, kr));
-    
-    ret = YES;
-    
-exit:
-    
-    if (ret == NO && error) {
-        *error = [[NSError alloc] initWithDomain:NSOSStatusErrorDomain code:kr userInfo:nil];
-    }
-    
-    if (transaction) {
-        CFRelease(transaction);
+    if (!ret) {
+        os_log_error(HIDDisplayLog(), "%@ Failed Set HID Elements values with error %@",self, error ? *error : @"Undefined");
     }
     
     return ret;
@@ -251,35 +269,12 @@ exit:
 
 -(BOOL) extract:(NSArray<HIDElement*>*) elements error:(NSError**) error
 {
-    IOReturn kr = kIOReturnSuccess;
-    BOOL ret = NO;
-    IOHIDTransactionRef transaction = NULL;
+    BOOL ret = YES;
     
-    transaction = IOHIDTransactionCreate(kCFAllocatorDefault, self.device, kIOHIDTransactionDirectionTypeInput, kIOHIDOptionsTypeNone);
+    ret = [self.device commitElements:elements direction:HIDDeviceCommitDirectionIn error:error];
     
-    require_action(transaction, exit, kr = kIOReturnError; os_log_error(HIDDisplayLog(),"[containerID:%@] Unable to create transaction",self.containerID));
-    
-    for (HIDElement *element in elements) {
-        IOHIDTransactionAddElement(transaction,element.element);
-    }
-    
-    kr = IOHIDTransactionCommit(transaction);
-    require_action(kr == kIOReturnSuccess, exit, os_log_error(HIDDisplayLog(),"[containerID:%@] HIDTransactionExtract error : 0x%x",self.containerID, kr));
-    
-    
-    for (HIDElement *element in elements) {
-        element.valueRef = IOHIDTransactionGetValue(transaction,element.element,kIOHIDOptionsTypeNone);
-    }
-    
-    ret = YES;
-exit:
-    
-    if (ret == NO && error) {
-        *error = [[NSError alloc] initWithDomain:NSOSStatusErrorDomain code:kr userInfo:nil];
-    }
-    
-    if (transaction) {
-        CFRelease(transaction);
+    if (!ret) {
+        os_log_error(HIDDisplayLog(), "%@ Failed Get HID Elements values with error %@", self, error ? *error : @"Undefined");
     }
     
     return ret;

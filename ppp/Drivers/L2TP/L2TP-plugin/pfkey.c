@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -528,7 +528,7 @@ pfkey_send_update(so, satype, mode, src, dst, spi, reqid, wsize,
 	if ((len = pfkey_send_x1(so, SADB_UPDATE, satype, mode, src, dst, spi,
 			reqid, wsize,
 			keymat, e_type, e_keylen, a_type, a_keylen, flags,
-			l_alloc, l_bytes, l_addtime, l_usetime, seq)) < 0)
+			l_alloc, (u_int32_t)l_bytes, (u_int32_t)l_addtime, (u_int32_t)l_usetime, seq)) < 0)
 		return -1;
 
 	return len;
@@ -559,7 +559,7 @@ pfkey_send_add(so, satype, mode, src, dst, spi, reqid, wsize,
 	if ((len = pfkey_send_x1(so, SADB_ADD, satype, mode, src, dst, spi,
 			reqid, wsize,
 			keymat, e_type, e_keylen, a_type, a_keylen, flags,
-			l_alloc, l_bytes, l_addtime, l_usetime, seq)) < 0)
+			l_alloc, (u_int32_t)l_bytes, (u_int32_t)l_addtime, (u_int32_t)l_usetime, seq)) < 0)
 		return -1;
 
 	return len;
@@ -1582,7 +1582,7 @@ pfkey_send_x4(so, type, src, prefs, dst, prefd, proto,
 		return -1;
 	}
 	p = pfkey_setsadblifetime(p, ep, SADB_EXT_LIFETIME_HARD,
-			0, 0, ltime, vtime);
+			0, 0, (u_int32_t)ltime, (u_int32_t)vtime);
 	if (!p || p + policylen != ep) {
 		free(newmsg);
 		pfkey_log_err("pfkey_setsadblifetime() failed");
@@ -1717,7 +1717,7 @@ pfkey_recv(so)
 	int so;
 {
 	struct sadb_msg buf, *newmsg;
-	int len, reallen;
+	ssize_t len, reallen;
 
 	while ((len = recv(so, (caddr_t)&buf, sizeof(buf), MSG_PEEK)) < 0) {
 		if (errno == EINTR)
@@ -1776,7 +1776,7 @@ pfkey_send(so, msg, len)
 	struct sadb_msg *msg;
 	int len;
 {
-	if ((len = send(so, (caddr_t)msg, len, 0)) < 0) {
+	if ((len = (int)send(so, (caddr_t)msg, len, 0)) < 0) {
 		__ipsec_set_strerror(strerror(errno));
 		return -1;
 	}

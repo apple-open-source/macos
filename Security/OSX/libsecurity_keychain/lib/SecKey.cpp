@@ -21,10 +21,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include "SecKey.h"
-#include "SecKeyPriv.h"
-#include "SecItem.h"
-#include "SecItemPriv.h"
+#include <Security/SecKey.h>
+#include <Security/SecKeyPriv.h>
+#include <Security/SecKeyInternal.h>
+#include <Security/SecItem.h>
+#include <Security/SecItemPriv.h>
 #include <libDER/asn1Types.h>
 #include <libDER/DER_Encode.h>
 #include <libDER/DER_Decode.h>
@@ -57,10 +58,11 @@
 
 static OSStatus
 SecCDSAKeyInit(SecKeyRef key, const uint8_t *keyData, CFIndex keyDataLength, SecKeyEncoding encoding) {
-    key->key = const_cast<KeyItem *>(reinterpret_cast<const KeyItem *>(keyData));
-    key->key->initializeWithSecKeyRef(key);
-    key->credentialType = kSecCredentialTypeDefault;
-    key->cdsaKeyMutex = new Mutex();
+    CDSASecKey *cdsaKey = (CDSASecKey *)key;
+    cdsaKey->key = const_cast<KeyItem *>(reinterpret_cast<const KeyItem *>(keyData));
+    CDSASecKey::keyItem(key)->initializeWithSecKeyRef(key);
+    cdsaKey->credentialType = kSecCredentialTypeDefault;
+    cdsaKey->cdsaKeyMutex = new Mutex();
     return errSecSuccess;
 }
 
@@ -70,14 +72,15 @@ SecCDSAKeyDestroy(SecKeyRef keyRef) {
     // If we hold the keychain's mutex (the key's 'mutexForObject') during this destruction, pthread gets upset.
     // Hold a reference to the keychain (if it exists) until after we release the keychain's mutex.
 
-    StMaybeLock<Mutex> cdsaMutex(keyRef->cdsaKeyMutex);
+    CDSASecKey *cdsaKey = static_cast<CDSASecKey *>(keyRef);
+    StMaybeLock<Mutex> cdsaMutex(cdsaKey->cdsaKeyMutex);
 
-    KeyItem *keyItem = keyRef->key;
+    KeyItem *keyItem = static_cast<KeyItem *>(keyRef->key);
 
     if (keyItem == NULL) {
         // KeyImpl::attachSecKeyRef disconnected us from KeyItem instance, there is nothing to do for us.
         cdsaMutex.unlock();
-        delete keyRef->cdsaKeyMutex;
+        delete cdsaKey->cdsaKeyMutex;
         return;
     }
 
@@ -88,7 +91,7 @@ SecCDSAKeyDestroy(SecKeyRef keyRef) {
 
     {
         StMaybeLock<Mutex> _(keyItem->getMutexForObject());
-        keyItem = keyRef->key;
+        keyItem = static_cast<KeyItem *>(keyRef->key);
         if (keyItem == NULL) {
             // Second version of the check above, the definitive one because this one is performed with locked object's mutex, therefore we can be sure that KeyImpl is still connected to this keyRef instance.
             return;
@@ -98,7 +101,7 @@ SecCDSAKeyDestroy(SecKeyRef keyRef) {
         delete keyItem;
     }
 
-    delete keyRef->cdsaKeyMutex;
+    delete cdsaKey->cdsaKeyMutex;
 
     (void) kc; // Tell the compiler we're actually using this variable. At destruction time, it'll release the keychain.
 }
@@ -109,7 +112,7 @@ SecCDSAKeyGetBlockSize(SecKeyRef key) {
     CFErrorRef *error = NULL;
     BEGIN_SECKEYAPI(size_t,0)
 
-    const CssmKey::Header keyHeader = key->key->unverifiedKeyHeader();
+    const CssmKey::Header keyHeader = CDSASecKey::keyItem(key)->unverifiedKeyHeader();
     switch(keyHeader.algorithm())
     {
         case CSSM_ALGID_RSA:
@@ -158,7 +161,7 @@ SecCDSAKeyGetAlgorithmId(SecKeyRef key) {
     BEGIN_SECKEYAPI(CFIndex, 0)
 
     result = kSecNullAlgorithmID;
-    switch (key->key->unverifiedKeyHeader().AlgorithmId) {
+    switch (CDSASecKey::keyItem(key)->unverifiedKeyHeader().AlgorithmId) {
         case CSSM_ALGID_RSA:
             result = kSecRSAAlgorithmID;
             break;
@@ -257,7 +260,7 @@ static OSStatus SecCDSAKeyCopyPublicBytes(SecKeyRef key, CFDataRef *serializatio
     CFErrorRef *error = NULL;
     BEGIN_SECKEYAPI(OSStatus, errSecSuccess)
 
-    const CssmKey::Header &header = key->key->key().header();
+    const CssmKey::Header &header = CDSASecKey::keyItem(key)->key().header();
     switch (header.algorithm()) {
         case CSSM_ALGID_RSA: {
             switch (header.keyClass()) {
@@ -353,7 +356,7 @@ SecCDSAKeyCopyExternalRepresentation(SecKeyRef key, CFErrorRef *error) {
     BEGIN_SECKEYAPI(CFDataRef, NULL)
 
     result = NULL;
-    const CssmKey::Header header = key->key->unverifiedKeyHeader();
+    const CssmKey::Header header = CDSASecKey::keyItem(key)->unverifiedKeyHeader();
     CFRef<CFDataRef> keyData;
     switch (header.algorithm()) {
         case CSSM_ALGID_RSA:
@@ -400,16 +403,16 @@ SecCDSAKeyCopyExternalRepresentation(SecKeyRef key, CFErrorRef *error) {
 
 static CFDataRef SecCDSAKeyCopyLabel(SecKeyRef key) {
     CFDataRef label = NULL;
-    if (key->key->isPersistent()) {
+    if (CDSASecKey::keyItem(key)->isPersistent()) {
         UInt32 tags[] = { kSecKeyLabel }, formats[] = { CSSM_DB_ATTRIBUTE_FORMAT_BLOB };
         SecKeychainAttributeInfo info = { 1, tags, formats };
         SecKeychainAttributeList *list = NULL;
-        key->key->getAttributesAndData(&info, NULL, &list, NULL, NULL);
+        CDSASecKey::keyItem(key)->getAttributesAndData(&info, NULL, &list, NULL, NULL);
         if (list->count == 1) {
             SecKeychainAttribute *attr = list->attr;
             label = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)attr->data, (CFIndex)attr->length);
         }
-        key->key->freeAttributesAndData(list, NULL);
+        CDSASecKey::keyItem(key)->freeAttributesAndData(list, NULL);
     }
     return label;
 }
@@ -425,7 +428,7 @@ SecCDSAKeyCopyAttributeDictionary(SecKeyRef key) {
 
     CFDictionarySetValue(dict, kSecClass, kSecClassKey);
 
-    const CssmKey::Header header = key->key->unverifiedKeyHeader();
+    const CssmKey::Header header = CDSASecKey::keyItem(key)->unverifiedKeyHeader();
     CFIndex sizeValue = header.LogicalKeySizeInBits;
     CFRef<CFNumberRef> sizeInBits = CFNumberCreate(NULL, kCFNumberCFIndexType, &sizeValue);
     CFDictionarySetValue(dict, kSecAttrKeySizeInBits, sizeInBits);
@@ -490,7 +493,7 @@ SecCDSAKeyCopyAttributeDictionary(SecKeyRef key) {
 
     if (header.algorithm() == CSSM_ALGID_RSA && header.keyClass() == CSSM_KEYCLASS_PUBLIC_KEY &&
         header.blobType() == CSSM_KEYBLOB_RAW) {
-        const CssmData &keyData = key->key->key()->keyData();
+        const CssmData &keyData = CDSASecKey::keyItem(key)->key()->keyData();
         DERItem keyItem = { static_cast<DERByte *>(keyData.data()), keyData.length() };
         DERRSAPubKeyPKCS1 decodedKey;
         if (DERParseSequence(&keyItem, DERNumRSAPubKeyPKCS1ItemSpecs,
@@ -520,7 +523,7 @@ static SecKeyRef SecCDSAKeyCopyPublicKey(SecKeyRef privateKey) {
     BEGIN_SECKEYAPI(SecKeyRef, NULL)
 
     result = NULL;
-    KeyItem *key = privateKey->key;
+    KeyItem *key = CDSASecKey::keyItem(privateKey);
     CFRef<CFDataRef> label = SecCDSAKeyCopyLabel(privateKey);
     if (label) {
         // Lookup public key in the database.
@@ -546,7 +549,7 @@ static SecKeyRef SecCDSAKeyCopyPublicKey(SecKeyRef privateKey) {
 static KeyItem *SecCDSAKeyPrepareParameters(SecKeyRef key, SecKeyOperationType &operation, SecKeyAlgorithm algorithm,
                                             CSSM_ALGORITHMS &baseAlgorithm, CSSM_ALGORITHMS &secondaryAlgorithm,
                                             CSSM_ALGORITHMS &paddingAlgorithm, CFIndex &inputSizeLimit) {
-    KeyItem *keyItem = key->key;
+    KeyItem *keyItem = CDSASecKey::keyItem(key);
     CSSM_KEYCLASS keyClass = keyItem->key()->header().keyClass();
     baseAlgorithm = keyItem->key()->header().algorithm();
     switch (baseAlgorithm) {
@@ -647,7 +650,7 @@ static KeyItem *SecCDSAKeyPrepareParameters(SecKeyRef key, SecKeyOperationType &
 
 static CFDataRef
 SecCDSAKeyCopyPaddedPlaintext(SecKeyRef key, CFDataRef plaintext, SecKeyAlgorithm algorithm) {
-    CFIndex blockSize = key->key->key().header().LogicalKeySizeInBits / 8;
+    CFIndex blockSize = CDSASecKey::keyItem(key)->key().header().LogicalKeySizeInBits / 8;
     CFIndex plaintextLength = CFDataGetLength(plaintext);
     if ((algorithm == kSecKeyAlgorithmRSAEncryptionRaw || algorithm == kSecKeyAlgorithmRSASignatureRaw)
         && plaintextLength < blockSize) {
@@ -684,11 +687,12 @@ static CFTypeRef SecCDSAKeyCopyOperationResult(SecKeyRef key, SecKeyOperationTyp
         }
     }
 
+    CDSASecKey *cdsaKey = static_cast<CDSASecKey *>(key);
     switch (operation) {
         case kSecKeyOperationTypeSign: {
             CssmClient::Sign signContext(keyItem->csp(), baseAlgorithm, secondaryAlgorithm);
             signContext.key(keyItem->key());
-            signContext.cred(keyItem->getCredentials(CSSM_ACL_AUTHORIZATION_SIGN, key->credentialType));
+            signContext.cred(keyItem->getCredentials(CSSM_ACL_AUTHORIZATION_SIGN, cdsaKey->credentialType));
             signContext.add(CSSM_ATTRIBUTE_PADDING, paddingAlgorithm);
             CFRef<CFDataRef> input = SecCDSAKeyCopyPaddedPlaintext(key, CFRef<CFDataRef>::check(in1, errSecParam), algorithm);
             CssmAutoData signature(signContext.allocator());
@@ -699,7 +703,7 @@ static CFTypeRef SecCDSAKeyCopyOperationResult(SecKeyRef key, SecKeyOperationTyp
         case kSecKeyOperationTypeVerify: {
             CssmClient::Verify verifyContext(keyItem->csp(), baseAlgorithm, secondaryAlgorithm);
             verifyContext.key(keyItem->key());
-            verifyContext.cred(keyItem->getCredentials(CSSM_ACL_AUTHORIZATION_ANY, key->credentialType));
+            verifyContext.cred(keyItem->getCredentials(CSSM_ACL_AUTHORIZATION_ANY, cdsaKey->credentialType));
             verifyContext.add(CSSM_ATTRIBUTE_PADDING, paddingAlgorithm);
             CFRef<CFDataRef> input = SecCDSAKeyCopyPaddedPlaintext(key, CFRef<CFDataRef>::check(in1, errSecParam), algorithm);
             verifyContext.verify(CssmData(CFDataRef(input)), CssmData(CFRef<CFDataRef>::check(in2, errSecParam)));
@@ -710,7 +714,7 @@ static CFTypeRef SecCDSAKeyCopyOperationResult(SecKeyRef key, SecKeyOperationTyp
             CssmClient::Encrypt encryptContext(keyItem->csp(), baseAlgorithm);
             encryptContext.key(keyItem->key());
             encryptContext.padding(paddingAlgorithm);
-            encryptContext.cred(keyItem->getCredentials(CSSM_ACL_AUTHORIZATION_ENCRYPT, key->credentialType));
+            encryptContext.cred(keyItem->getCredentials(CSSM_ACL_AUTHORIZATION_ENCRYPT, cdsaKey->credentialType));
             CFRef<CFDataRef> input = SecCDSAKeyCopyPaddedPlaintext(key, CFRef<CFDataRef>::check(in1, errSecParam), algorithm);
             CssmAutoData output(encryptContext.allocator()), remainingData(encryptContext.allocator());
             size_t length = encryptContext.encrypt(CssmData(CFDataRef(input)), output.get(), remainingData.get());
@@ -724,7 +728,7 @@ static CFTypeRef SecCDSAKeyCopyOperationResult(SecKeyRef key, SecKeyOperationTyp
             CssmClient::Decrypt decryptContext(keyItem->csp(), baseAlgorithm);
             decryptContext.key(keyItem->key());
             decryptContext.padding(paddingAlgorithm);
-            decryptContext.cred(keyItem->getCredentials(CSSM_ACL_AUTHORIZATION_DECRYPT, key->credentialType));
+            decryptContext.cred(keyItem->getCredentials(CSSM_ACL_AUTHORIZATION_DECRYPT, cdsaKey->credentialType));
             CssmAutoData output(decryptContext.allocator()), remainingData(decryptContext.allocator());
             size_t length = decryptContext.decrypt(CssmData(CFRef<CFDataRef>::check(in1, errSecParam)),
                                                    output.get(), remainingData.get());
@@ -779,7 +783,7 @@ static Boolean SecCDSAKeyIsEqual(SecKeyRef key1, SecKeyRef key2) {
     CFErrorRef *error = NULL;
     BEGIN_SECKEYAPI(Boolean, false)
 
-    result = key1->key->equal(*key2->key);
+    result = CDSASecKey::keyItem(key1)->equal(*CDSASecKey::keyItem(key2));
 
     END_SECKEYAPI
 }
@@ -788,7 +792,7 @@ static Boolean SecCDSAKeySetParameter(SecKeyRef key, CFStringRef name, CFPropert
     BEGIN_SECKEYAPI(Boolean, false)
 
     if (CFEqual(name, kSecUseAuthenticationUI)) {
-        key->credentialType = CFEqual(value, kSecUseAuthenticationUIAllow) ? kSecCredentialTypeDefault : kSecCredentialTypeNoUI;
+        static_cast<CDSASecKey *>(key)->credentialType = CFEqual(value, kSecUseAuthenticationUIAllow) ? kSecCredentialTypeDefault : kSecCredentialTypeNoUI;
         result = true;
     } else {
         result = SecError(errSecUnimplemented, error, CFSTR("Unsupported parameter '%@' for SecKeyCDSASetParameter"), name);
@@ -813,7 +817,7 @@ const SecKeyDescriptor kSecCDSAKeyDescriptor = {
     .isEqual = SecCDSAKeyIsEqual,
     .setParameter = SecCDSAKeySetParameter,
 
-    .extraBytes = (sizeof(struct OpaqueSecKeyRef) > sizeof(struct __SecKey) ? (sizeof(struct OpaqueSecKeyRef) - sizeof(struct __SecKey)) : 0),
+    .extraBytes = (sizeof(class CDSASecKey) > sizeof(struct __SecKey) ? (sizeof(class CDSASecKey) - sizeof(struct __SecKey)) : 0),
 };
 
 namespace Security {
@@ -828,14 +832,15 @@ namespace Security {
                 return static_cast<SecCFObject *>(key->key);
             }
 
-            if (key->cdsaKey == NULL) {
+            CFRef<SecKeyRef> cdsaKey = SecKeyCopyAuxilliaryCDSAKeyForKey(key);
+            if (!cdsaKey) {
                 // Create CDSA key from exported data of existing key.
                 CFRef<CFDictionaryRef> keyAttributes = SecKeyCopyAttributes(key);
                 if (keyAttributes) {
                     CFRef<CFDataRef> keyData = SecKeyCopyExternalRepresentation(key, NULL);
                     if (!keyData) {
                         CFTypeRef pubKeyHash = CFDictionaryGetValue(keyAttributes, kSecAttrApplicationLabel);
-                        const void *keys[] = { kSecClass, kSecAttrNoLegacy, kSecReturnRef, kSecMatchLimit };
+                        const void *keys[] = { kSecClass, kSecUseDataProtectionKeychain, kSecReturnRef, kSecMatchLimit };
                         const void *values[] = { kSecClassIdentity, kCFBooleanFalse, kCFBooleanTrue, kSecMatchLimitAll };
                         CFRef<CFDictionaryRef> query = CFDictionaryCreate(kCFAllocatorDefault, keys, values,
                                                                           sizeof(keys) / sizeof(*keys),
@@ -851,24 +856,28 @@ namespace Security {
                                 }
                                 CFRef<CFDictionaryRef> attrs = SecKeyCopyAttributes(privateKey);
                                 if (CFEqual(CFDictionaryGetValue(attrs, kSecAttrApplicationLabel), pubKeyHash)) {
-                                    key->cdsaKey = privateKey.retain();
+                                    cdsaKey = privateKey;
+                                    SecKeySetAuxilliaryCDSAKeyForKey(key, cdsaKey.get());
                                     break;
                                 }
                             }
                         }
                     } else {
-                        key->cdsaKey = SecKeyCreateFromData(keyAttributes, keyData, NULL);
+                        cdsaKey = SecKeyCreateFromData(keyAttributes, keyData, NULL);
+                        if (cdsaKey) {
+                            SecKeySetAuxilliaryCDSAKeyForKey(key, cdsaKey.retain());
+                        }
                     }
                 }
             }
 
-            return (key->cdsaKey != NULL) ? key->cdsaKey->key : NULL;
+            return cdsaKey ? CDSASecKey::keyItem(cdsaKey.get()) : NULL;
         }
 
         // You need to hold this key's MutexForObject when you run this
         void KeyItem::attachSecKeyRef() const {
             SecKeyRef key = SecKeyCreate(NULL, &kSecCDSAKeyDescriptor, reinterpret_cast<const uint8_t *>(this), 0, 0);
-            key->key->mWeakSecKeyRef = key;
+            CDSASecKey::keyItem(key)->mWeakSecKeyRef = key;
         }
 
     }
@@ -1592,7 +1601,13 @@ SecKeyGeneratePairInternal(
         forceIOSKey = true;
     } else {
         CFTypeRef tokenID = GetAttributeFromParams(parameters, kSecAttrTokenID, NULL);
-        CFTypeRef noLegacy = GetAttributeFromParams(parameters, kSecAttrNoLegacy, NULL);
+        CFTypeRef noLegacy = GetAttributeFromParams(parameters, kSecUseDataProtectionKeychain, NULL);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        if (!noLegacy) {    // Also lookup via deprecated symbol because we do CFDictionaryGetValue and your CFDict might be an idiot
+            noLegacy = GetAttributeFromParams(parameters, kSecAttrNoLegacy, NULL);
+        }
+#pragma clang diagnostic pop
         CFTypeRef sync = GetAttributeFromParams(parameters, kSecAttrSynchronizable, kSecPrivateKeyAttrs);
         CFTypeRef accessControl = GetAttributeFromParams(parameters, kSecAttrAccessControl, kSecPrivateKeyAttrs) ?:
         GetAttributeFromParams(parameters, kSecAttrAccessControl, kSecPublicKeyAttrs);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -95,6 +95,7 @@
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFDictionary.h>
+#include <TargetConditionals.h>
 #include "cfutil.h"
 
 #include "arp.h"
@@ -136,16 +137,19 @@
 #define CFGPROP_USE_SERVER_CONFIG_FOR_DHCP_OPTIONS "use_server_config_for_dhcp_options"
 #define CFGPROP_IGNORE_ALLOW_DENY	"ignore_allow_deny"
 #define CFGPROP_VERBOSE			"verbose"
+#define CFGPROP_DEBUG			"debug"
 
 /*
- * On some platforms the root filesystem is mounted read-only;
- * make sure that the plist points to a user-writeable location.
+ * /etc is read-only on non-macOS platforms.
+ * Look for the configuration plist in an alternate location
+ * that is writable on those platforms.
  */
-#if TARGET_OS_EMBEDDED
-#define	BOOTPD_PLIST_ROOT	"/Library/Preferences/SystemConfiguration"
-#else
+#if TARGET_OS_OSX
 #define	BOOTPD_PLIST_ROOT	"/etc"
-#endif /* TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_OSX */
+#define	BOOTPD_PLIST_ROOT	"/Library/Preferences/SystemConfiguration"
+#endif /* TARGET_OS_OSX */
+
 #define	BOOTPD_PLIST_PATH		BOOTPD_PLIST_ROOT "/bootpd.plist"
 
 /* local defines */
@@ -193,6 +197,7 @@ bool		use_open_directory = TRUE;
 
 /* local variables */
 static boolean_t		S_bootfile_noexist_reply = TRUE;
+static bool			S_debug;
 static u_int32_t		S_do_services = 0;
 static struct in_addr *		S_dns_servers = NULL;
 static int			S_dns_servers_count = 0;
@@ -220,34 +225,10 @@ static int			S_max_hops = 4;
 static boolean_t		S_use_server_config_for_dhcp_options = TRUE;
 static boolean_t		S_verbose;
 
-void
-my_log(int priority, const char *message, ...)
-{
-    va_list 		ap;
-
-    if (priority == LOG_DEBUG) {
-	if (verbose == FALSE)
-	    return;
-	priority = LOG_NOTICE;
-    }
-    else if (priority == LOG_INFO) {
-	priority = LOG_NOTICE;
-    }
-    if (quiet && (priority > LOG_ERR)) { 
-	return;
-    }
-    va_start(ap, message);
-    vsyslog(priority, message, ap);
-    va_end(ap);
-    return;
-}
-
 /* forward function declarations */
 static int 		issock(int fd);
-static void		on_alarm(int sigraised);
-static void		on_sighup(int sigraised);
 static void		bootp_request(request_t * request);
-static void		S_server_loop();
+static void		S_receive_packet(void);
 static void		S_publish_disabled_interfaces(boolean_t publish);
 static void		S_add_ip_change_notifications();
 
@@ -314,7 +295,13 @@ S_get_dns()
 
     /* create the DNS server address list */
     if (_res.nscount != 0) {
-	S_dns_servers = (struct in_addr *)malloc(sizeof(*S_dns_servers) * _res.nscount);
+	CFMutableStringRef	str = NULL;
+
+	if (debug) {
+	    str = CFStringCreateMutable(NULL, 0);
+	}
+	S_dns_servers = (struct in_addr *)
+	    malloc(sizeof(*S_dns_servers) * _res.nscount);
 	for (i = 0; i < _res.nscount; i++) {
 	    in_addr_t	s_addr = _res.nsaddr_list[i].sin_addr.s_addr;
 
@@ -325,28 +312,34 @@ S_get_dns()
 		    == IN_LOOPBACKNET)) {
 		continue;
 	    }
-	    S_dns_servers[S_dns_servers_count++].s_addr = s_addr;
-	    if (debug) {
-		if (S_dns_servers_count == 1) {
-		    printf("DNS servers:");
-		}
-		printf(" %s",
-		       inet_ntoa(S_dns_servers[S_dns_servers_count - 1]));
+	    S_dns_servers[S_dns_servers_count].s_addr = s_addr;
+	    if (str != NULL) {
+		STRING_APPEND(str, " %s",
+			      inet_ntoa(S_dns_servers[S_dns_servers_count]));
 	    }
+	    S_dns_servers_count++;
 	}
 	if (S_dns_servers_count == 0) {
 	    free(S_dns_servers);
 	    S_dns_servers = NULL;
+	    my_CFRelease(&str);
 	}
-	else if (debug) {
-	    printf("\n");
+	if (str != NULL) {
+	    my_log(LOG_DEBUG, "DNS servers: %@", str);
+	    CFRelease(str);
 	}
     }
     if (S_dns_servers_count != 0) {    
+	CFMutableStringRef	str = NULL;
+
+	if (debug) {
+	    str = CFStringCreateMutable(NULL, 0);
+	}
 	if (_res.defdname[0] && strcmp(_res.defdname, "local") != 0) {
 	    S_domain_name = _res.defdname;
-	    if (debug)
-		printf("DNS domain: %s\n", S_domain_name);
+	    if (debug) {
+		my_log(LOG_DEBUG, "DNS domain: %s", S_domain_name);
+	    }
 	}
 	/* create the DNS search list */
 	for (i = 0; i < MAXDNSRCH; i++) {
@@ -354,21 +347,23 @@ S_get_dns()
 		break;
 	    }
 	    domain_search_count++;
-	    if (debug) {
-		if (i == 0) {
-		    printf("DNS search:");
-		}
-		printf(" %s", _res.dnsrch[i]);
+	    if (str != NULL) {
+		STRING_APPEND(str, " %s", _res.dnsrch[i]);
 	    }
 	}
 	if (domain_search_count != 0) {
-	    if (debug) {
-		printf("\n");
-	    }
 	    S_domain_search 
 		= DNSNameListBufferCreate((const char * *)_res.dnsrch,
 					  domain_search_count,
-					  NULL, &S_domain_search_size);
+					  NULL, &S_domain_search_size,
+					  TRUE);
+	}
+	else {
+	    my_CFRelease(&str);
+	}
+	if (str != NULL) {
+	    my_log(LOG_DEBUG, "DNS search: %@", str);
+	    CFRelease(str);
 	}
     }
     return;
@@ -471,11 +466,16 @@ S_get_network_routes()
 	my_log(LOG_INFO, "can't get inetroutes list");
 	exit(1);
     }
-    
     inetroute_list_free(&S_inetroutes);
     S_inetroutes = new_list;
-    if (debug)
-	inetroute_list_print(S_inetroutes);
+    if (debug) {
+	CFMutableStringRef	str;
+
+	str = CFStringCreateMutable(NULL, 0);
+	inetroute_list_print_cfstr(str, S_inetroutes);
+	my_log(~LOG_DEBUG, "Routes:\n%@", str);
+	CFRelease(str);
+    }
 }
 
 static void
@@ -750,6 +750,10 @@ S_relay_ip_list_add(struct in_addr relay_ip)
 	S_relay_ip_list = (struct in_addr *)
 	    realloc(S_relay_ip_list,
 		    sizeof(struct in_addr) * S_relay_ip_list_count);
+	if (S_relay_ip_list == NULL) {
+	    my_log(LOG_NOTICE, "realloc failed, exiting");
+	    exit(1);
+	}
 	S_relay_ip_list[S_relay_ip_list_count - 1] = relay_ip;
     }
     return;
@@ -803,7 +807,7 @@ set_number_from_plist(CFDictionaryRef plist, CFStringRef prop_name_cf,
     prop = CFDictionaryGetValue(plist, prop_name_cf);
     if (prop != NULL
 	&& my_CFTypeToNumber(prop, val_p) == FALSE) {
-	my_log(LOG_INFO, "Invalid '%s' property", prop_name);
+	my_log(LOG_NOTICE, "Invalid '%s' property", prop_name);
     }
     return;
 }
@@ -849,12 +853,19 @@ S_update_services()
     /* start with the set specified via command-line flags */
     S_which_services = S_do_services;
     verbose = S_verbose;
+    debug = S_debug;
 
     if (plist != NULL) {
-	/* Verbose */
+	/* verbose */
 	if (S_get_plist_boolean(plist, CFSTR(CFGPROP_VERBOSE),
 				CFGPROP_VERBOSE, FALSE)) {
 	    verbose = TRUE;
+	}
+
+	/* debug */
+	if (S_get_plist_boolean(plist, CFSTR(CFGPROP_DEBUG),
+				CFGPROP_DEBUG, FALSE)) {
+	    debug = TRUE;
 	}
 
 	/* BOOTP */
@@ -939,8 +950,13 @@ S_update_services()
 	if (isA_CFArray(prop) != NULL) {
 	    subnets = SubnetListCreateWithArray(prop);
 	    if (subnets != NULL) {
-		if (debug) {
-		    SubnetListPrint(subnets);
+		if (verbose) {
+		    CFMutableStringRef	str;
+
+		    str = CFStringCreateMutable(NULL, 0);
+		    SubnetListPrintCFString(str, subnets);
+		    my_log(~LOG_DEBUG, "%@", str);
+		    CFRelease(str);
 		}
 	    }
 	}
@@ -1015,7 +1031,7 @@ usage()
 	    "[ -D ]	be a DHCP server\n"
 	    "[ -B ]	don't service BOOTP requests\n"
 	    "[ -b ] 	bootfile must exist or we don't respond\n"
-	    "[ -d ]	debug mode, stay in foreground, extra printf's\n"
+	    "[ -d ]	debug mode, stay in foreground\n"
 	    "[ -I ]	disable re-initialization on IP address changes\n"
 	    "[ -i <interface> [ -i <interface> ... ] ]\n"
 #if NETBOOT_SERVER_SUPPORT
@@ -1033,15 +1049,72 @@ usage()
     exit(1);
 }
 
+static void
+install_sighup_handler(void)
+{
+    dispatch_block_t	signal_block;
+    dispatch_source_t	signal_source;
+
+    signal_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL,
+					   SIGHUP,
+					   0,
+					   dispatch_get_main_queue());
+    signal_block = ^{
+	S_sighup = 1;
+    };
+    dispatch_source_set_event_handler(signal_source, signal_block);
+    dispatch_resume(signal_source);
+    signal(SIGHUP, SIG_IGN);
+    return;
+}
+
+static void
+idle_exit(void)
+{
+    struct timeval tv;
+
+    gettimeofday(&tv, 0);
+    if ((tv.tv_sec - S_lastmsgtime.tv_sec) >= MAXIDLE) {
+	my_log(LOG_NOTICE, "idle, exiting");
+	exit(0);
+    }
+}
+
+static void
+install_idle_check(void)
+{
+    dispatch_block_t	handler;
+    dispatch_source_t	timer;
+
+    timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER,
+				   0,
+				   0,
+				   dispatch_get_main_queue());
+    handler = ^{
+	idle_exit();
+    };
+    dispatch_source_set_event_handler(timer, handler);
+#define IDLE_INTERVAL_SECS	15
+#define IDLE_INTERVAL_NSECS 	(IDLE_INTERVAL_SECS * NSEC_PER_SEC)
+    dispatch_source_set_timer(timer,
+			      dispatch_time(DISPATCH_TIME_NOW,
+					    IDLE_INTERVAL_NSECS),
+			      IDLE_INTERVAL_NSECS,
+			      0);
+    dispatch_resume(timer);
+    return;
+}
+
 int
 main(int argc, char * argv[])
 {
     int			ch;
+    bool		d_flag = FALSE;
     boolean_t		ip_change_notifications = TRUE;
-    int			logopt = LOG_CONS;
     struct in_addr	relay_ip = { 0 };
+    dispatch_source_t	sock_source;
 
-    debug = FALSE;		/* no debugging ie. go into the background */
+    debug = FALSE;		/* no debugging */
     verbose = FALSE;		/* don't print extra information */
 
     ptrlist_init(&S_if_list);
@@ -1071,8 +1144,8 @@ main(int argc, char * argv[])
 	case 'D':		/* answer DHCP requests as a DHCP server */
 	    S_do_services |= SERVICE_DHCP;
 	    break;
-	case 'd':		/* stay in the foreground, extra printf's */
-	    debug = TRUE;
+	case 'd':		/* stay in the foreground */
+	    d_flag = TRUE;
 	    break;
 	case 'h':
 	case 'H':
@@ -1146,8 +1219,9 @@ main(int argc, char * argv[])
 	struct sockaddr_in Sin = { sizeof(Sin), AF_INET };
 	int i;
 	
-	if (!debug)
+	if (!d_flag) {
 	    background();
+	}
 	
 	if ((bootp_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 	    my_log(LOG_INFO, "socket call failed");
@@ -1172,17 +1246,15 @@ main(int argc, char * argv[])
 	bootp_socket = 0;
 	gettimeofday(&S_lastmsgtime, 0);
 	if (S_persist == 0) {
-	    signal(SIGALRM, on_alarm);
-	    alarm(15);
+	    install_idle_check();
 	}
     }
 
     writepid();
 
-    if (debug)
-	logopt = LOG_PERROR;
-
-    (void) openlog("bootpd", logopt | LOG_PID, LOG_DAEMON);
+    if (d_flag) {
+	S_debug = TRUE;
+    }
 
     my_log(LOG_DEBUG, "server starting");
 
@@ -1225,24 +1297,38 @@ main(int argc, char * argv[])
 #endif /* SO_TRAFFIC_CLASS */
 
 #if defined(SO_DEFUNCTOK)
-    opt = 0;
-    /* ensure that our socket can't be defunct'd */
-    if (setsockopt(bootp_socket, SOL_SOCKET, SO_DEFUNCTOK, &opt,
-		   sizeof(opt)) < 0) {
-	my_log(LOG_NOTICE, "setsockopt(SO_DEFUNCTOK) failed, %s",
-	       strerror(errno));
-    }
+	opt = 0;
+	/* ensure that our socket can't be defunct'd */
+	if (setsockopt(bootp_socket, SOL_SOCKET, SO_DEFUNCTOK, &opt,
+		       sizeof(opt)) < 0) {
+		my_log(LOG_NOTICE, "setsockopt(SO_DEFUNCTOK) failed, %s",
+		       strerror(errno));
+	}
 #endif /* SO_DEFUNCTOK */
+	/* set non-blocking I/O */
+	opt = 1;
+	if (ioctl(bootp_socket, FIONBIO, &opt) < 0) {
+		my_log(LOG_ERR, "ioctl FIONBIO failed, %s",
+		       strerror(errno));
+	}
     }
-    
+
+    sock_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ,
+					 bootp_socket,
+					 0UL,
+					 dispatch_get_main_queue());
+    dispatch_source_set_event_handler(sock_source,
+				      ^{ S_receive_packet(); });
+    dispatch_resume(sock_source);
+
     /* install our sighup handler */
-    signal(SIGHUP, on_sighup);
+    install_sighup_handler();
 
     if (ip_change_notifications) {
 	S_add_ip_change_notifications();
     }
-    S_server_loop();
-    exit (0);
+    dispatch_main();
+    return (0);
 }
 
 /*
@@ -1313,41 +1399,6 @@ issock(fd)
       default:	
 	return (1);
     }
-}
-
-
-/*
- * Function: on_sighup
- *
- * Purpose:
- *   If we get a sighup, re-read the subnet descriptions.
- */
-static void
-on_sighup(int sigraised)
-{
-    if (sigraised == SIGHUP)
-	S_sighup = TRUE;
-    return;
-}
-
-/*
- * Function: on_alarm
- *
- * Purpose:
- *   If we were started by inetd, we kill ourselves during periods of
- *   inactivity.  If we've been idle for MAXIDLE, exit.
- */
-static void
-on_alarm(int sigraised)
-{
-    struct timeval tv;
-    
-    gettimeofday(&tv, 0);
-    
-    if ((tv.tv_sec - S_lastmsgtime.tv_sec) >= MAXIDLE)
-	exit(0);
-    alarm(15);
-    return;
 }
 
 /*
@@ -1438,6 +1489,7 @@ ip_address_reachable(struct in_addr ip, struct in_addr giaddr,
 		    interface_t * if_p)
 {
     int i;
+    int if_index;
 
     if (giaddr.s_addr) { /* gateway'd */
 	/* find a subnet entry on the same subnet as the gateway */
@@ -1446,18 +1498,35 @@ ip_address_reachable(struct in_addr ip, struct in_addr giaddr,
 	}
 	return (SubnetListAreAddressesOnSameSupernet(subnets, ip, giaddr));
     }
-
+    /* check whether client IP is on one of our interface's subnets */
+    if (if_inet_match_subnet(if_p, ip) != INDEX_BAD) {
+	if (verbose) {
+	    my_log(LOG_DEBUG,
+		   "%s: " IP_FORMAT " on subnet",
+		   if_name(if_p), IP_LIST(&ip));
+	}
+	return (TRUE);
+    }
+    /* check whether client IP is on one of our interface's subnet routes */
+    if_index = if_link_index(if_p);
     for (i = 0; i < S_inetroutes->count; i++) {
 	inetroute_t * inr_p = S_inetroutes->list + i;
 
-	if (inr_p->mask.s_addr != 0
-	    && inr_p->gateway.link.sdl_family == AF_LINK
-	    && (ifl_find_link(S_interfaces, inr_p->gateway.link.sdl_index) 
-		== if_p)) {
-	    /* reachable? */
-	    if (in_subnet(inr_p->dest, inr_p->mask, ip))
-		return (TRUE);
+	if (inr_p->gateway.link.sdl_family == AF_LINK
+	    && inr_p->gateway.link.sdl_index == if_index
+	    && inr_p->mask.s_addr != 0
+	    && in_subnet(inr_p->dest, inr_p->mask, ip)) {
+	    if (verbose) {
+		my_log(LOG_DEBUG,
+		       "%s: " IP_FORMAT " on subnet route " IP_FORMAT,
+		       if_name(if_p), IP_LIST(&ip), IP_LIST(&inr_p->dest));
+	    }
+	    return (TRUE);
 	}
+    }
+    if (verbose) {
+	my_log(LOG_DEBUG, "%s: ip %s not reachable",
+	       if_name(if_p), inet_ntoa(ip));
     }
     return (FALSE);
 }
@@ -1503,7 +1572,7 @@ bootp_request(request_t * request)
     secs = (u_int16_t)ntohs(rq->bp_secs);
     if (secs < reply_threshold_seconds) {
 	if (debug) {
-	    printf("rq->bp_secs %d < threshold %d\n",
+	    my_log(LOG_DEBUG, "rq->bp_secs %d < threshold %d",
 		   secs, reply_threshold_seconds);
 	}
 	return;
@@ -1648,10 +1717,13 @@ sendreply(interface_t * if_p, struct bootp * bp, int n,
 	my_log(LOG_INFO, "transmit failed, %m");
 	return (FALSE);
     }
-    if (debug && verbose) {
-	printf("\n=================== Server Reply ===="
-	       "=================\n");
-	dhcp_packet_print((struct dhcp *)bp, n);
+    if (verbose) {
+	CFMutableStringRef	str;
+
+	str = CFStringCreateMutable(NULL, 0);
+	dhcp_packet_print_cfstr(str, (struct dhcp *)bp, n);
+	my_log(~LOG_DEBUG, "==== Server Reply ====\n%@", str);
+	CFRelease(str);
     }
     return (TRUE);
 }
@@ -1668,7 +1740,7 @@ add_subnet_options(char * hostname,
 		   struct in_addr iaddr, interface_t * if_p,
 		   dhcpoa_t * options, const uint8_t * tags, int n)
 {
-    inet_addrinfo_t *	info = if_inet_addr_at(if_p, 0);
+    struct in_addr * 	def_route = NULL;
     static const uint8_t default_tags[] = { 
 	dhcptag_subnet_mask_e, 
 	dhcptag_router_e, 
@@ -1677,8 +1749,10 @@ add_subnet_options(char * hostname,
 	dhcptag_host_name_e,
     };
 #define N_DEFAULT_TAGS	(sizeof(default_tags) / sizeof(default_tags[0]))
-    int			number_before = dhcpoa_count(options);
     int			i;
+    inet_addrinfo_t *	info = NULL;
+    boolean_t		info_set = FALSE;
+    int			number_before = dhcpoa_count(options);
     SubnetRef		subnet = NULL;
 
     if (subnets != NULL) {
@@ -1693,7 +1767,6 @@ add_subnet_options(char * hostname,
 	tags = default_tags;
 	n = N_DEFAULT_TAGS;
     }
-			
     for (i = 0; i < n; i++ ) {
 	bool		handled = FALSE;
 
@@ -1742,12 +1815,21 @@ add_subnet_options(char * hostname,
 	}
 	if (handled == FALSE && S_use_server_config_for_dhcp_options) {
 	    /* try to use defaults if no explicit configuration */
-	    struct in_addr * def_route;
+	    if (!info_set) {
+		int			which_addr;
 
+		info_set = TRUE;
+		which_addr = if_inet_match_subnet(if_p, iaddr);
+		if (which_addr != INDEX_BAD) {
+		    info = if_inet_addr_at(if_p, which_addr);
+		}
+		def_route = inetroute_default(S_inetroutes);
+	    }
 	    switch (tags[i]) {
 	      case dhcptag_subnet_mask_e: {
-		if (ifl_find_subnet(S_interfaces, iaddr) != if_p)
+		if (info == NULL) {
 		    continue;
+		}
 		if (dhcpoa_add(options, dhcptag_subnet_mask_e, 
 			       sizeof(info->mask), &info->mask) 
 		    != dhcpoa_success_e) {
@@ -1760,14 +1842,15 @@ add_subnet_options(char * hostname,
 		break;
 	      }
 	      case dhcptag_router_e:
-		def_route = inetroute_default(S_inetroutes);
 		if (def_route == NULL
+		    || info == NULL
 		    || in_subnet(info->netaddr, info->mask,
 				 *def_route) == FALSE
 		    || in_subnet(info->netaddr, info->mask,
-				 iaddr) == FALSE)
+				 iaddr) == FALSE) {
 		    /* don't respond if default route not on same subnet */
 		    continue;
+		}
 		if (dhcpoa_add(options, dhcptag_router_e, sizeof(*def_route),
 			       def_route) != dhcpoa_success_e) {
 		    my_log(LOG_INFO, "couldn't add router: %s",
@@ -1777,8 +1860,9 @@ add_subnet_options(char * hostname,
 		my_log(LOG_DEBUG, "default route added as router");
 		break;
 	      case dhcptag_domain_name_server_e:
-		if (S_dns_servers_count == 0)
+		if (S_dns_servers_count == 0) {
 		    continue;
+		}
 		if (dhcpoa_add(options, dhcptag_domain_name_server_e,
 			       S_dns_servers_count * sizeof(*S_dns_servers),
 			       S_dns_servers) != dhcpoa_success_e) {
@@ -1876,11 +1960,14 @@ S_relay_packet(struct bootp * bp, int n, interface_t * if_p)
 	    if (relay.s_addr == if_inet_broadcast(if_p).s_addr) {
 		continue; /* don't rebroadcast */
 	    }
-	    if (debug && verbose && printed == FALSE) {
+	    if (verbose && printed == FALSE) {
+		CFMutableStringRef	str;
+
+		str = CFStringCreateMutable(NULL, 0);
 		printed = TRUE;
-		printf("\n=================== Relayed Request ===="
-		       "=================\n");
-		dhcp_packet_print((struct dhcp *)bp, n);
+		dhcp_packet_print_cfstr(str, (struct dhcp *)bp, n);
+		my_log(~LOG_DEBUG, "==== Relayed Request ====\n%@", str);
+		CFRelease(str);
 	    }
 
 	    if (bootp_transmit(bootp_socket, transmit_buffer, if_name(if_p),
@@ -1920,12 +2007,13 @@ S_relay_packet(struct bootp * bp, int n, interface_t * if_p)
 	else {
 	    dst = bp->bp_yiaddr;
 	}
-	if (debug && verbose) {
-	    if (debug) {
-		printf("\n=================== Relayed Reply ===="
-		       "=================\n");
-		dhcp_packet_print((struct dhcp *)bp, n);
-	    }
+	if (verbose) {
+	    CFMutableStringRef	str;
+
+	    str = CFStringCreateMutable(NULL, 0);
+	    dhcp_packet_print_cfstr(str, (struct dhcp *)bp, n);
+	    my_log(~LOG_DEBUG, "==== Relayed Reply ====\n%@", str);
+	    CFRelease(str);
 	}
 	if (bootp_transmit(bootp_socket, transmit_buffer, if_name(if_p),
 			   bp->bp_htype, bp->bp_chaddr,
@@ -1948,9 +2036,14 @@ S_relay_packet(struct bootp * bp, int n, interface_t * if_p)
     return;
 }
 
+/*
+ * Function: S_dispatch_request
+ * Purpose:
+ *   Dispatches a request according to whether it is BOOTP, DHCP, or NetBoot.
+ */
 static void
-S_dispatch_packet(struct bootp * bp, int n, interface_t * if_p,
-		  struct in_addr * dstaddr_p)
+S_dispatch_request(struct bootp * bp, int n, interface_t * if_p,
+		   struct in_addr * dstaddr_p)
 {
 #if NETBOOT_SERVER_SUPPORT
     boolean_t		bsdp_pkt = FALSE;
@@ -1979,9 +2072,13 @@ S_dispatch_packet(struct bootp * bp, int n, interface_t * if_p,
 	    dhcp_pkt = is_dhcp_packet(&options, &dhcp_msgtype);
 	}
 	
-	if (debug && verbose) {
-	    printf("\n---------------- Client Request --------------------\n");
-	    dhcp_packet_print((struct dhcp *)bp, n);
+	if (verbose) {
+	    CFMutableStringRef	str;
+
+	    str = CFStringCreateMutable(NULL, 0);
+	    dhcp_packet_print_cfstr(str, (struct dhcp *)bp, n);
+	    my_log(~LOG_DEBUG, "---- Client Request ----\n%@", str);
+	    CFRelease(str);
 	}
 
 	if (bp->bp_sname[0] != '\0' 
@@ -1989,9 +2086,9 @@ S_dispatch_packet(struct bootp * bp, int n, interface_t * if_p,
 	    goto request_done;
 
 	if (bp->bp_siaddr.s_addr != 0
-	    && ntohl(bp->bp_siaddr.s_addr) != ntohl(if_inet_addr(if_p).s_addr))
+	    && bp->bp_siaddr.s_addr != if_inet_addr(if_p).s_addr) {
 	    goto request_done;
-
+	}
 	if (dhcp_pkt) { /* this is a DHCP packet */
 #if NETBOOT_SERVER_SUPPORT
 	    if (netboot_enabled(if_p) || old_netboot_enabled(if_p)) {
@@ -2143,83 +2240,80 @@ S_which_dstaddr()
 }
 
 /*
- * Function: S_server_loop
- *
+ * Function: S_receive_packet
  * Purpose:
- *   This is the main loop that dispatches a request according to
- *   whether it is BOOTP, DHCP, or NetBoot.
+ *   Receive event handler for BOOTP/DHCP server port.
  */
 static void
-S_server_loop()
+S_receive_packet()
 {
     struct in_addr * 	dstaddr_p = NULL;
     struct sockaddr_in 	from = { sizeof(from), AF_INET };
     interface_t *	if_p = NULL;
-    int 		mask;
     ssize_t		n;
     /* ALIGN: S_rxpkt is aligned to uint32, hence cast safe */
     struct dhcp *	request = (struct dhcp *)(void *)S_rxpkt;
 
-    for (;;) {
-	S_init_msg();
-	msg.msg_name = (caddr_t)&from;
-	msg.msg_namelen = sizeof(from);
-	n = recvmsg(bootp_socket, &msg, 0);
-	if (n < 0) {
-	    my_log(LOG_DEBUG, "recvmsg failed, %m");
-	    errno = 0;
-	    continue;
-	}
-	if (S_sighup) {
-	    bootp_readtab(NULL);
-
-	    if (gethostname(server_name, sizeof(server_name) - 1)) {
-		server_name[0] = '\0';
-		my_log(LOG_INFO, "gethostname() failed, %m");
-	    }
-	    else {
-		my_log(LOG_INFO, "server name %s", server_name);
-	    }
-
-	    S_get_interfaces();
-	    S_log_interfaces();
-	    S_get_network_routes();
-	    S_publish_disabled_interfaces(FALSE);
-	    S_update_services();
-	    S_get_dns();
-	    S_sighup = FALSE;
-	}
-
-	if (n < sizeof(struct dhcp)) {
-	    continue;
-	}
-	if (request->dp_hlen > sizeof(request->dp_chaddr)) {
-	    continue;
-	}
-	dstaddr_p = S_which_dstaddr();
-	if (debug) {
-	    if (dstaddr_p == NULL)
-		printf("no destination address\n");
-	    else
-		printf("destination address %s\n", inet_ntoa(*dstaddr_p));
-	}
-
-	if_p = S_which_interface();
-	if (if_p == NULL) {
-	    continue;
-	}
-	if (S_ok_to_respond(if_p, request->dp_htype, request->dp_chaddr, 
-			    request->dp_hlen) == FALSE) {
-	    continue;
-	}
-
-	gettimeofday(&S_lastmsgtime, 0);
-        mask = sigblock(sigmask(SIGALRM));
-	/* ALIGN: S_rxpkt is aligned, cast ok. */
-	S_dispatch_packet((struct bootp *)(void *)S_rxpkt, (int)n,
-			  if_p, dstaddr_p);
-	sigsetmask(mask);
+    S_init_msg();
+    msg.msg_name = (caddr_t)&from;
+    msg.msg_namelen = sizeof(from);
+    n = recvmsg(bootp_socket, &msg, 0);
+    if (n < 0) {
+	my_log(LOG_DEBUG, "recvmsg failed, %m");
+	goto no_reply;
     }
+    if (S_sighup) {
+	bootp_readtab(NULL);
+
+	if (gethostname(server_name, sizeof(server_name) - 1)) {
+	    server_name[0] = '\0';
+	    my_log(LOG_INFO, "gethostname() failed, %m");
+	}
+	else {
+	    my_log(LOG_INFO, "server name %s", server_name);
+	}
+
+	S_get_interfaces();
+	S_log_interfaces();
+	S_get_network_routes();
+	S_publish_disabled_interfaces(FALSE);
+	S_update_services();
+	S_get_dns();
+	S_sighup = FALSE;
+    }
+
+    if (n < sizeof(struct dhcp)) {
+	goto no_reply;
+    }
+    if (request->dp_hlen > sizeof(request->dp_chaddr)) {
+	goto no_reply;
+    }
+    dstaddr_p = S_which_dstaddr();
+    if (debug) {
+	if (dstaddr_p == NULL) {
+	    my_log(LOG_DEBUG, "no destination address");
+	}
+	else {
+	    my_log(LOG_DEBUG, "destination address %s",
+		   inet_ntoa(*dstaddr_p));
+	}
+    }
+
+    if_p = S_which_interface();
+    if (if_p == NULL) {
+	goto no_reply;
+    }
+    if (S_ok_to_respond(if_p, request->dp_htype, request->dp_chaddr,
+			request->dp_hlen) == FALSE) {
+	goto no_reply;
+    }
+
+    gettimeofday(&S_lastmsgtime, 0);
+    /* ALIGN: S_rxpkt is aligned, cast ok. */
+    S_dispatch_request((struct bootp *)(void *)S_rxpkt, (int)n,
+		       if_p, dstaddr_p);
+ no_reply:
+    return;
 }
 
 #if NO_SYSTEMCONFIGURATION
@@ -2241,6 +2335,13 @@ S_add_ip_change_notifications()
 static SCDynamicStoreRef	store;
 
 static void
+S_ipv4_address_changed(SCDynamicStoreRef session, CFArrayRef changes,
+		       void * info)
+{
+    S_sighup = TRUE;
+}
+
+static void
 S_add_ip_change_notifications()
 {
     CFStringRef			key;
@@ -2255,8 +2356,8 @@ S_add_ip_change_notifications()
 				 &kCFTypeDictionaryValueCallBacks);
     store = SCDynamicStoreCreateWithOptions(NULL,
 					    CFSTR("com.apple.network.bootpd"),
-					    options, 
-					    NULL,
+					    options,
+					    S_ipv4_address_changed,
 					    NULL);
     CFRelease(options);
     if (store == NULL) {
@@ -2273,7 +2374,7 @@ S_add_ip_change_notifications()
     CFRelease(key);
     SCDynamicStoreSetNotificationKeys(store, NULL, patterns);
     CFRelease(patterns);
-    SCDynamicStoreNotifySignal(store, getpid(), SIGHUP);
+    SCDynamicStoreSetDispatchQueue(store, dispatch_get_main_queue());
     return;
 }
 

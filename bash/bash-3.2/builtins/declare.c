@@ -46,7 +46,7 @@ local_builtin (list)
     return (declare_internal (list, 1));
   else
     {
-      builtin_error (_("can only be used in a function"));
+      builtin_error ("%s", _("can only be used in a function"));
       return (EXECUTION_FAILURE);
     }
 }
@@ -246,7 +246,7 @@ declare_internal (list, local_var)
 	{
 	  if (offset)	/* declare -f [-rix] foo=bar */
 	    {
-	      builtin_error (_("cannot use `-f' to make functions"));
+	      builtin_error ("%s", _("cannot use `-f' to make functions"));
 	      free (name);
 	      return (EXECUTION_FAILURE);
 	    }

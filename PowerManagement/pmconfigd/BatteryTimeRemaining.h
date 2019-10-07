@@ -34,6 +34,48 @@
 #include "PrivateLib.h"
 #include "XCTest_FunctionDefinitions.h"
 
+#if TARGET_OS_IPHONE || POWERD_IOS_XCTEST
+
+#define kBHSvcFlagsVerison0     0
+#define kBHSvcFlagsVersion1     1
+#define kBHSvcFlagsVersion2     2
+#define kBHSvcFlagsVersion3     3
+#define kBatteryHealthCurrentVersion        kBHSvcFlagsVersion3
+
+#define kMinNominalCapacityPercentage       1
+#define kMaxNominalCapacityPercentage       150
+#define kNominalCapacityPercetageThreshold  80
+#define kInitialNominalCapacityPercentage   104
+
+// kTrueNCCCycleCountThreshold - If previously calculated NCCP is not available, NCCP is set to h/w specified value only if
+// battery cycle count is above kTrueNCCCycleCountThreshold. Otherwise, NCCP is set to kInitialNominalCapacityPercentage
+#define kTrueNCCCycleCountThreshold         20  // CycleCount above which NCCP is set to true value(in case past data is not available)
+
+// kNCCMinCycleCountChange - Change in battery cycle count required before triggering change in NCCP.
+#define kNCCMinCycleCountChange             5
+
+// kNCCChangeLimit - Percentage by which NCCP is reduced after kNCCMinCycleCountChange change in cycle count
+#define kNCCChangeLimit                     1
+
+// kMinTimeDeltaForBattRead - Minimum time(in seconds) between reading battery data for battery health evaluation
+#define kMinTimeDeltaForBattRead           (24*60*60)  // 24hrs
+
+#define kBatteryHealthUsesUPO        0x594553 // YES
+#define kBatteryHealthWithoutUPO     0x4e4f   // NO
+
+#define kMitigatedUPOCountThreshold         0
+#define kBatteryCellDisconnectThreshold     10
+
+#define kCFPrefsUPOMetricsDomain            "com.apple.thermalmonitor.upostepper.metrics"
+#define kCFPrefsMitigatedUPOCountKey        "mitigatedUPOCount"
+
+#define kSmcKeyBatteryFeatureSet                'BFS0'
+#define BATTERY_FEATURE_HEATMAP_VOLTAGE_TEMP    (1 << 0)
+#define BATTERY_FEATURE_HEATMAP_SOC_TEMP        (1 << 1)
+#define BATTERY_FEATURE_NCC_FILTERING           (1 << 2)
+
+#endif
+
 __private_extern__ void BatteryTimeRemaining_prime(void);
 __private_extern__ void BatteryTimeRemaining_finish(void);
 __private_extern__ void BatteryTimeRemainingSleepWakeNotification(natural_t messageType);

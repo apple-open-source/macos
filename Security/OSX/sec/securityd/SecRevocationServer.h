@@ -36,9 +36,6 @@
 #include <securityd/SecOCSPResponse.h>
 
 typedef struct OpaqueSecORVC *SecORVCRef;
-#if ENABLE_CRLS
-typedef struct OpaqueSecCRVC *SecCRVCRef;
-#endif
 
 /* Revocation verification context. */
 struct OpaqueSecRVC {
@@ -50,10 +47,6 @@ struct OpaqueSecRVC {
 
     /* The OCSP Revocation verification context */
     SecORVCRef          orvc;
-
-#if ENABLE_CRLS
-    SecCRVCRef          crvc;
-#endif
 
     /* Valid database info for this revocation check */
     SecValidInfoRef     valid_info;

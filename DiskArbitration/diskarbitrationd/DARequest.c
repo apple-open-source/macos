@@ -1318,6 +1318,35 @@ static void __DARequestUnmountCallback( int status, void * context )
         /*
          * We were unable to unmount the volume.
          */
+        struct statfs * mountList;
+        int mountListCount;
+        int mountListIndex;
+
+        /*
+         * getmntinfo returns 0 in case of failure. In that case, the following loop will not be executed.
+         */
+        mountListCount = getmntinfo( &mountList, MNT_NOWAIT );
+
+        for ( mountListIndex = 0; mountListIndex < mountListCount; mountListIndex++ )
+        {
+            if ( strncmp( _DAVolumeGetID( mountList + mountListIndex ), DADiskGetID( disk ), strlen( DADiskGetID( disk ) ) + 1 ) == 0 )
+            {
+                break;
+            }
+        }
+
+        /*
+         * It is possible for the disk to be already unmounted by the filesystem
+         * due to unmounting system or data volume.
+         * If the mountpoint for the disk does not exist, ignore the error.
+         * In the case of getmntinfo returning 0 as mountListCount, then also the error is ignored.
+         */
+        if ( mountListIndex == mountListCount )
+        {
+            DALogDebug( " %@ is not mounted. Ignore the umount error", disk);
+            status = 0;
+            goto handleumount;
+        }
 
         DADissenterRef dissenter;
 
@@ -1345,7 +1374,10 @@ static void __DARequestUnmountCallback( int status, void * context )
 
         __DARequestDispatchCallback( request, dissenter );
     }
-    else
+
+handleumount:
+
+    if (0 == status)
     {
         /*
          * We were able to unmount the volume.

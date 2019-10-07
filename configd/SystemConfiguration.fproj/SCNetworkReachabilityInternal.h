@@ -38,11 +38,7 @@
 #include <net/if.h>
 #include <xpc/xpc.h>
 
-#if __has_include(<nw/private.h>)
 #include <nw/private.h>
-#else // __has_include(<nw/private.h>)
-#include <network/private.h>
-#endif // __has_include(<nw/private.h>)
 
 #pragma mark -
 #pragma mark SCNetworkReachability

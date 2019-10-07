@@ -97,14 +97,21 @@
 // used by saveToDatabaseWithConnection to write to db
 - (NSDictionary<NSString*,id>*) sqlValues {
     return @{
-        @"publickey":       self.publickey,
-        @"publickeyHash":   self.publickeyHash,
-        @"musr":            self.musr
+        @"publickey":       [self.publickey base64EncodedStringWithOptions:0],
+        @"publickeyHash":   [self.publickeyHash base64EncodedStringWithOptions:0],
+        @"musr":            [self.musr base64EncodedStringWithOptions:0],
     };
 }
 
-+ (instancetype) fromDatabaseRow: (NSDictionary*) row {
-    return [[SecBackupKeybagEntry alloc] initWithPublicKey: row[@"publickey"] publickeyHash: row[@"publickeyHash"] user: row[@"musr"]];
++ (instancetype)fromDatabaseRow:(NSDictionary<NSString*, CKKSSQLResult*>*)row {
+    NSData *publicKey = row[@"publickey"].asBase64DecodedData;
+    NSData *publickeyHash = row[@"publickeyHash"].asBase64DecodedData;
+    NSData *musr = row[@"musr"].asBase64DecodedData;
+    if (publicKey == NULL || publickeyHash == NULL || musr == NULL) {
+        return nil;
+    }
+
+    return [[SecBackupKeybagEntry alloc] initWithPublicKey:publicKey publickeyHash:publickeyHash user:musr];
 }
 
 @end

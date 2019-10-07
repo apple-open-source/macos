@@ -16,8 +16,8 @@
 	<true/>
 	<key>com.apple.private.assets.accessible-asset-types</key>
 	<array>
-		<string>com.apple.MobileAsset.CertificatePinning</string>
 		<string>com.apple.MobileAsset.PKITrustSupplementals</string>
+		<string>com.apple.MobileAsset.SecExperimentAssets</string>
 	</array>
 </dict>
 </plist>

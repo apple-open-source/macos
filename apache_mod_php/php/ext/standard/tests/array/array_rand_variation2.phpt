@@ -5,7 +5,7 @@ Test array_rand() function : usage variations - unexpected values for 'num_req' 
 --FILE--
 <?php
 /* Prototype  : mixed array_rand(array input [, int num_req])
- * Description: Return key/keys for random entry/entries in the array 
+ * Description: Return key/keys for random entry/entries in the array
  * Source code: ext/standard/array.c
 */
 
@@ -82,7 +82,7 @@ $values = array(
 $count = 1;
 foreach($values as $value) {
   echo "\n-- Iteration $count --\n";
-  var_dump( array_rand($input,$value) );  
+  var_dump( array_rand($input,$value) );
   $count++;
 };
 
@@ -181,27 +181,27 @@ NULL
 
 -- Iteration 16 --
 
-Warning: array_rand() expects parameter 2 to be integer, string given in %s on line %d
+Warning: array_rand() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 17 --
 
-Warning: array_rand() expects parameter 2 to be integer, string given in %s on line %d
+Warning: array_rand() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 18 --
 
-Warning: array_rand() expects parameter 2 to be integer, string given in %s on line %d
+Warning: array_rand() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 19 --
 
-Warning: array_rand() expects parameter 2 to be integer, string given in %s on line %d
+Warning: array_rand() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 20 --
 
-Warning: array_rand() expects parameter 2 to be integer, object given in %s on line %d
+Warning: array_rand() expects parameter 2 to be int, object given in %s on line %d
 NULL
 
 -- Iteration 21 --
@@ -214,4 +214,3 @@ NULL
 Warning: array_rand(): Second argument has to be between 1 and the number of elements in the array in %s on line %d
 NULL
 Done
-

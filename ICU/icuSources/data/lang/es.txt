@@ -275,6 +275,7 @@ es{
         krl{"carelio"}
         kru{"kurukh"}
         ks{"cachemiro"}
+        ks_Arab{"cachemiro (naskh)"}
         ksb{"shambala"}
         ksf{"bafia"}
         ksh{"kölsch"}
@@ -372,7 +373,7 @@ es{
         non{"nórdico antiguo"}
         nqo{"n’ko"}
         nr{"ndebele meridional"}
-        nso{"sesotho septentrional"}
+        nso{"sotho septentrional"}
         nus{"nuer"}
         nv{"navajo"}
         nwc{"newari clásico"}
@@ -389,6 +390,7 @@ es{
         osa{"osage"}
         ota{"turco otomano"}
         pa{"panyabí"}
+        pa_Arab{"panyabí (naskh)"}
         pag{"pangasinán"}
         pal{"pahlavi"}
         pam{"pampanga"}
@@ -466,7 +468,7 @@ es{
         srr{"serer"}
         ss{"suazi"}
         ssy{"saho"}
-        st{"sesotho meridional"}
+        st{"sotho meridional"}
         su{"sundanés"}
         suk{"sukuma"}
         sus{"susu"}
@@ -517,6 +519,7 @@ es{
         umb{"umbundu"}
         und{"lengua desconocida"}
         ur{"urdu"}
+        ur_Arab{"urdu (naskh)"}
         uz{"uzbeko"}
         vai{"vai"}
         ve{"venda"}
@@ -566,6 +569,7 @@ es{
     }
     Scripts{
         Arab{"árabe"}
+        Aran{"nastaliq"}
         Armn{"armenio"}
         Avst{"avéstico"}
         Bali{"balinés"}
@@ -650,6 +654,7 @@ es{
         Phag{"phags-pa"}
         Phnx{"fenicio"}
         Plrd{"Pollard Miao"}
+        Qaag{"zawgyi"}
         Rjng{"rejang"}
         Roro{"rongo-rongo"}
         Runr{"rúnico"}
@@ -851,7 +856,7 @@ es{
         VALENCIA{"Valenciano"}
         WADEGILE{"Romanización Wade-Giles"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
     characterLabelPattern{
         all{"{0} — Todo"}
         category-list{"{0}: {1}"}

@@ -31,6 +31,7 @@ undefine([expat_version])
 
 AC_CONFIG_SRCDIR(Makefile.in)
 AC_CONFIG_AUX_DIR(conftools)
+AM_INIT_AUTOMAKE
 AC_CONFIG_MACRO_DIR([m4])
 
 
@@ -46,9 +47,10 @@ dnl If the API changes incompatibly set LIBAGE back to 0
 dnl
 
 LIBCURRENT=7   # sync
-LIBREVISION=3  # with
+LIBREVISION=8  # with
 LIBAGE=6       # CMakeLists.txt!
 
+CPPFLAGS="${CPPFLAGS} -DHAVE_EXPAT_CONFIG_H"
 AC_CONFIG_HEADER(expat_config.h)
 
 sinclude(conftools/ac_c_bigendian_cross.m4)
@@ -61,7 +63,7 @@ AC_SUBST(LIBREVISION)
 AC_SUBST(LIBAGE)
 
 dnl Checks for programs.
-AC_PROG_CC
+AC_PROG_CC_C99
 AC_PROG_CXX
 AC_PROG_INSTALL
 
@@ -100,6 +102,14 @@ AC_TYPE_SIZE_T
 AC_CHECK_FUNCS(memmove bcopy)
 
 
+AC_ARG_WITH([xmlwf], [
+AS_HELP_STRING([--without-xmlwf], [do not build xmlwf])], [], [with_xmlwf=yes])
+AM_CONDITIONAL([WITH_XMLWF], [test x${with_xmlwf} = xyes])
+
+AM_CONDITIONAL([MINGW], [echo -- "${host}" | ${FGREP} mingw >/dev/null])
+AM_CONDITIONAL([UNICODE], [echo -- "${CPPFLAGS}${CFLAGS}" | ${FGREP} XML_UNICODE >/dev/null])
+
+
 AC_ARG_WITH([libbsd], [
 AS_HELP_STRING([--with-libbsd], [utilize libbsd (for arc4random_buf)])
 ], [], [with_libbsd=no])
@@ -126,11 +136,30 @@ AC_LINK_IFELSE([AC_LANG_SOURCE([
     AC_MSG_RESULT([yes])
 ], [
     AC_MSG_RESULT([no])
+
+    AC_MSG_CHECKING([for arc4random (BSD, macOS or libbsd)])
+    AC_LINK_IFELSE([AC_LANG_SOURCE([
+      #if defined(HAVE_LIBBSD)
+      # include <bsd/stdlib.h>
+      #else
+      # include <stdlib.h>
+      #endif
+      int main() {
+          arc4random();
+          return 0;
+      }
+    ])], [
+        AC_DEFINE([HAVE_ARC4RANDOM], [1],
+            [Define to 1 if you have the `arc4random' function.])
+        AC_MSG_RESULT([yes])
+    ], [
+        AC_MSG_RESULT([no])
+    ])
 ])
 
 
 AC_MSG_CHECKING([for getrandom (Linux 3.17+, glibc 2.25+)])
-AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+AC_LINK_IFELSE([AC_LANG_SOURCE([
   #include <stdlib.h>  /* for NULL */
   #include <sys/random.h>
   int main() {
@@ -174,43 +203,14 @@ else
 fi
 AC_SUBST(FILEMAP)
 
-dnl Needed for the test support code; this was found at
-dnl http://lists.gnu.org/archive/html/bug-autoconf/2002-07/msg00028.html
-
-# AC_CPP_FUNC
-# ------------------ #
-# Checks to see if ANSI C99 CPP variable __func__ works.
-# If not, perhaps __FUNCTION__ works instead. 
-# If not, we'll just define __func__ to "". 
-AC_DEFUN([AC_CPP_FUNC],
-[AC_REQUIRE([AC_PROG_CC_STDC])dnl
-AC_CACHE_CHECK([for an ANSI C99-conforming __func__], ac_cv_cpp_func,
-[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],
-[[const char *foo = __func__;]])],
-  [ac_cv_cpp_func=yes], 
-  [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],
-[[const char *foo = __FUNCTION__;]])],
-  [ac_cv_cpp_func=__FUNCTION__], 
-  [ac_cv_cpp_func=no])])])
-if test $ac_cv_cpp_func = __FUNCTION__; then
-  AC_DEFINE(__func__,__FUNCTION__,
-            [Define to __FUNCTION__ or "" if `__func__' does not conform to 
-ANSI C.])
-elif test $ac_cv_cpp_func = no; then
-  AC_DEFINE(__func__,"",
-            [Define to __FUNCTION__ or "" if `__func__' does not conform to 
-ANSI C.])
-fi
-])# AC_CPP_FUNC
-
-AC_CPP_FUNC
-
 
 dnl Some basic configuration:
 AC_DEFINE([XML_NS], 1,
           [Define to make XML Namespaces functionality available.])
 AC_DEFINE([XML_DTD], 1,
           [Define to make parameter entity parsing functionality available.])
+AC_DEFINE([XML_DEV_URANDOM], 1,
+          [Define to include code reading entropy from `/dev/urandom'.])
 
 AC_ARG_ENABLE([xml-context],
   AS_HELP_STRING([--enable-xml-context @<:@COUNT@:>@],
@@ -220,20 +220,45 @@ AS_HELP_STRING([--disable-xml-context],
     [Do not retain context around the current parse point]),
   [enable_xml_context=${enableval}])
 AS_IF([test "x${enable_xml_context}" != "xno"], [
-  AS_IF([test "x${enable_xml_context}" == "xyes" \
-      -o "x${enable_xml_context}" == "x"], [
+  AS_IF([test "x${enable_xml_context}" = "xyes" \
+      -o "x${enable_xml_context}" = "x"], [
     enable_xml_context=1024
   ])
   AC_DEFINE_UNQUOTED([XML_CONTEXT_BYTES], [${enable_xml_context}],
     [Define to specify how much context to retain around the current parse point.])
 ])
 
+AC_ARG_WITH([docbook], [AS_HELP_STRING([--with-docbook],
+    [enforce XML to man page compilation @<:@default=check@:>@])
+AS_HELP_STRING([--without-docbook],
+    [skip XML to man page compilation @<:@default=check@:>@])],
+  [],
+  [with_docbook=check])
+
+AC_ARG_VAR([DOCBOOK_TO_MAN], [docbook2x-man command])
+AS_IF([test "x$with_docbook" != xno],
+  [AC_CHECK_PROGS([DOCBOOK_TO_MAN], [docbook2x-man db2x_docbook2man docbook2man docbook-to-man])])
+AS_IF([test "x${DOCBOOK_TO_MAN}" = x -a "x$with_docbook" = xyes],
+  [AC_MSG_ERROR([Required program 'docbook2x-man' not found.])])
+AS_IF([test "x${DOCBOOK_TO_MAN}" != x -a "x$with_docbook" != xno],
+  [AS_IF([${DOCBOOK_TO_MAN} --help | grep -i -q -F sgmlbase],
+    [AC_MSG_ERROR([Your local ${DOCBOOK_TO_MAN} was found to work with SGML rather
+  than XML. Please install docbook2X and use variable DOCBOOK_TO_MAN to point
+  configure to command docbook2x-man of docbook2X.
+  Or use DOCBOOK_TO_MAN="xmlto man --skip-validation" if you have xmlto around.
+  You can also configure using --without-docbook if you can do without a man
+  page for xmlwf.])])])
+
+AM_CONDITIONAL(WITH_DOCBOOK, [test "x${DOCBOOK_TO_MAN}" != x])
+
 AC_CONFIG_FILES([Makefile expat.pc])
+AC_CONFIG_FILES([
+  doc/Makefile
+  examples/Makefile
+  lib/Makefile
+  tests/Makefile
+  tests/benchmark/Makefile
+  xmlwf/Makefile
+])
 AC_CONFIG_FILES([run.sh], [chmod +x run.sh])
 AC_OUTPUT
-
-abs_srcdir="`cd $srcdir && pwd`"
-abs_builddir="`pwd`"
-if test "$abs_srcdir" != "$abs_builddir"; then
-  make mkdir-init
-fi

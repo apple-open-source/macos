@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2009, 2011, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2009, 2011, 2015, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -40,9 +40,8 @@ __SCDynamicStoreNotifyMachPort(SCDynamicStoreRef	store,
 			       mach_msg_id_t		identifier,
 			       mach_port_t		port)
 {
+	serverSessionRef		mySession;
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
-	CFStringRef			sessionKey;
-	CFDictionaryRef			info;
 
 	if (storePrivate->notifyStatus != NotifierNotRegistered) {
 		/* sorry, you can only have one notification registered at once */
@@ -60,10 +59,8 @@ __SCDynamicStoreNotifyMachPort(SCDynamicStoreRef	store,
 	}
 
 	/* push out a notification if any changes are pending */
-	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), storePrivate->server);
-	info = CFDictionaryGetValue(sessionData, sessionKey);
-	CFRelease(sessionKey);
-	if (info && CFDictionaryContainsKey(info, kSCDChangedKeys)) {
+	mySession = getSession(storePrivate->server);
+	if (mySession->changedKeys != NULL) {
 		CFNumberRef	sessionNum;
 
 		if (needsNotification == NULL)

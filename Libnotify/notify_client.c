@@ -42,7 +42,10 @@
 #include <bootstrap_priv.h>
 #include <errno.h>
 #include <stdatomic.h>
+#include <os/alloc_once_private.h>
 #include <os/lock_private.h>
+#include <os/reason_private.h>
+#include <os/variant_private.h>
 #include <TargetConditionals.h>
 #include <AvailabilityMacros.h>
 #include <Block.h>
@@ -59,6 +62,7 @@
 #include "notify_internal.h"
 #include "notify_ipc.h"
 #include "notify_private.h"
+#include "notify_probes.h"
 
 #ifdef DEBUG
 #define DEBUG_REGISTRATION		0x00000001
@@ -82,7 +86,7 @@ static uint32_t _libnotify_debug = DEBUG_ALL;
 
 #define COMMON_SELF_PORT_KEY "self.com.apple.system.notify.common"
 
-#define MULTIPLE_REGISTRATION_WARNING_TRIGGER 20
+#define MULTIPLE_REGISTRATION_WARNING_TRIGGER 500
 
 #define NID_UNSET 0xffffffffffffffffL
 #define NID_CALLED_ONCE 0xfffffffffffffffeL
@@ -145,14 +149,15 @@ static uint32_t _libnotify_debug = DEBUG_ALL;
 
 typedef struct
 {
-	os_unfair_lock lock;
-	atomic_uint_fast32_t refcount;
-	uint32_t coalesce_base_token;
-	char *name;
-	size_t name_len;
 	uint64_t name_id;
 	TAILQ_HEAD(, __registration_node_s) coalesced;
 	struct __registration_node_s *coalesce_base;
+	char *name;
+	os_unfair_lock lock;
+	atomic_uint_fast32_t refcount;
+	uint32_t coalesce_base_token;
+	bool has_been_warned;
+	bool needs_free;
 } name_node_t;
 
 /*
@@ -203,10 +208,9 @@ typedef struct __registration_node_s
 
 
 /* FORWARD */
-static void _notify_lib_regenerate(void *ctxt);
-static void notify_retain_mach_port(mach_port_t mp, int mine);
-static void _notify_dispatch_handle(mach_port_t port);
-static notify_state_t *_notify_lib_self_state(void);
+static void _notify_lib_server_restart_handler(void *ctxt);
+static void notify_retain_mach_port(notify_globals_t globals, mach_port_t mp, int flags);
+static void _notify_dispatch_handle(void *context);
 static void registration_node_release(registration_node_t *r);
 static void registration_node_release_locked(notify_globals_t globals, registration_node_t *r);
 static void notify_release_file_descriptor_locked(notify_globals_t globals, int fd);
@@ -272,6 +276,7 @@ registration_node_retain(registration_node_t *reg)
 	atomic_increment32(&reg->refcount);
 }
 
+__printflike(2, 3)
 static void
 _notify_client_log(int level, const char *fmt, ...)
 {
@@ -293,27 +298,96 @@ _notify_client_log(int level, const char *fmt, ...)
 	free(msg);
 }
 
+
+#if !TARGET_OS_SIMULATOR && !TARGET_OS_OSX
+
+static const uint32_t LAUNCHD_PID = 1;
+
+// do this so we don't have to link against libtrace
+__printflike(1, 2)
+static void
+simulate_crash(char *fmt, ...)
+{
+	char *desc = NULL;
+	va_list ap;
+	int len;
+
+	if (getpid() == LAUNCHD_PID) {
+		return;
+	}
+
+	va_start(ap, fmt);
+	len = vasprintf(&desc, fmt, ap);
+	va_end(ap);
+
+	if (desc == NULL) {
+		return;
+	}
+
+	os_fault_with_payload(OS_REASON_LIBSYSTEM, OS_REASON_LIBSYSTEM_CODE_FAULT,
+			desc, len + 1, desc, 0);
+	free(desc);
+}
+
+#define REPORT_BAD_BEHAVIOR(...)							\
+	if(os_variant_has_internal_diagnostics("libnotify.simulate_crash"))		\
+	{										\
+		simulate_crash(__VA_ARGS__);						\
+	} else {									\
+		_notify_client_log(ASL_LEVEL_ERR, __VA_ARGS__);				\
+	}
+
+#else /* !TARGET_OS_SIMULATOR && !TARGET_OS_OSX */
+
+#define REPORT_BAD_BEHAVIOR(...) _notify_client_log(ASL_LEVEL_ERR, __VA_ARGS__)
+
+#endif /* !TARGET_OS_SIMULATOR && !TARGET_OS_OSX */
+
 static char *
-_notify_strdup_if_mutable(const char *str)
+_notify_strdup_if_mutable(const char *str, bool *needs_free)
 {
 	size_t size = strlen(str) + 1;
 	if (!_dyld_is_memory_immutable(str, size)) {
 		char *clone = (char *)malloc(size);
 		if (clone) {
 			memcpy(clone, str, size);
+			if (needs_free) *needs_free = true;
 		}
 		return clone;
 	}
+	if (needs_free) *needs_free = false;
 	return (char *)str;
 }
 
+#pragma mark -
+#pragma mark globals
+
+#define INITIAL_TOKEN_ID 1
+
+/*
+ * Initialization of global variables. Called once per process.
+ */
 static void
-_notify_free_if_mutable(char *str)
+_notify_init_globals(void * /* notify_globals_t */ _globals)
 {
-	size_t size = strlen(str) + 1;
-	if (!_dyld_is_memory_immutable(str, size)) {
-		free(str);
-	}
+	notify_globals_t globals = _globals;
+
+	globals->notify_lock = OS_UNFAIR_LOCK_INIT;
+	globals->token_id = INITIAL_TOKEN_ID;
+	globals->notify_common_token = -1;
+	globals->check_lock = OS_UNFAIR_LOCK_INIT;
+	_nc_table_init(&globals->name_node_table, offsetof(name_node_t, name));
+	_nc_table_init_n(&globals->registration_table, offsetof(registration_node_t, token));
+
+	_notify_lib_notify_state_init(&globals->self_state, NOTIFY_STATE_USE_LOCKS);
+}
+
+__attribute__((__pure__))
+static inline notify_globals_t
+_notify_globals(void)
+{
+	return (notify_globals_t)os_alloc_once(OS_ALLOC_ONCE_KEY_LIBSYSTEM_NOTIFY,
+			sizeof(struct notify_globals_s), &_notify_init_globals);
 }
 
 #pragma mark -
@@ -341,7 +415,7 @@ name_node_for_name_locked(notify_globals_t globals, const char *name, uint64_t n
 
 	if (name == NULL) return NULL;
 
-	name_node_t *n = (name_node_t *)_nc_table_find(globals->name_table, name);
+	name_node_t *n = _nc_table_find(&globals->name_node_table, name);
 	if (n != NULL)
 	{
 		name_node_retain(n);
@@ -357,7 +431,7 @@ name_node_for_name_locked(notify_globals_t globals, const char *name, uint64_t n
 			goto done;
 		}
 
-		n->name = _notify_strdup_if_mutable(name);
+		n->name = _notify_strdup_if_mutable(name, &n->needs_free);
 		if (n->name == NULL)
 		{
 			free(n);
@@ -366,13 +440,13 @@ name_node_for_name_locked(notify_globals_t globals, const char *name, uint64_t n
 		}
 
 		n->refcount = 1;
-		n->name_len = strlen(name);
 		n->name_id = nid;
 		TAILQ_INIT(&n->coalesced);
 		n->coalesce_base_token = NOTIFY_TOKEN_INVALID;
 		n->lock = OS_UNFAIR_LOCK_INIT;
+		n->has_been_warned = false;
 
-		_nc_table_insert_no_copy(globals->name_table, n->name, n);
+		_nc_table_insert(&globals->name_node_table, &n->name);
 	}
 
 done:
@@ -409,9 +483,10 @@ name_node_delete_locked(notify_globals_t globals, name_node_t *n)
 	if (_libnotify_debug & DEBUG_NODES) _notify_client_log(ASL_LEVEL_NOTICE, "name_node_release name %s refcount %d %p FREE", n->name, n->refcount, n);
 #endif
 
-	_nc_table_delete(globals->name_table, n->name);
-
-	_notify_free_if_mutable(n->name);
+	_nc_table_delete(&globals->name_node_table, n->name);
+	if (n->needs_free) {
+		free(n->name);
+	}
 	n->name = NULL;
 	free(n);
 }
@@ -509,7 +584,7 @@ registration_node_find(uint32_t token)
 	notify_globals_t globals = _notify_globals();
 
 	mutex_lock("global", &globals->notify_lock, __func__, __LINE__);
-	registration_node_t *r = (registration_node_t *)_nc_table_find_n(globals->registration_table, token);
+	registration_node_t *r = _nc_table_find_n(&globals->registration_table, token);
 	if (r != NULL) registration_node_retain(r);
 	mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
 
@@ -535,7 +610,7 @@ notify_is_valid_token(int val)
 	notify_globals_t globals = _notify_globals();
 
 	mutex_lock("global", &globals->notify_lock, __func__, __LINE__);
-	registration_node_t *r = (registration_node_t *)_nc_table_find_n(globals->registration_table, val);
+	registration_node_t *r = _nc_table_find_n(&globals->registration_table, val);
 	if (r == NULL) valid = false;
 	else if (r->flags & NOTIFY_TYPE_COALESCE_BASE) valid = false;
 	mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
@@ -600,7 +675,7 @@ registration_node_delete_locked(notify_globals_t globals, registration_node_t *r
 	if (_libnotify_debug & DEBUG_NODES) _notify_client_log(ASL_LEVEL_NOTICE, "%s token %u refcount %d flags 0x%08x %p FREE", __func__, r->token, r->refcount, r->flags, r);
 #endif
 
-	_nc_table_delete_n(globals->registration_table, r->token);
+	_nc_table_delete_n(&globals->registration_table, r->token);
 
 	uint32_t reg_token = r->token;
 	uint32_t reg_flags = r->flags;
@@ -609,10 +684,10 @@ registration_node_delete_locked(notify_globals_t globals, registration_node_t *r
 	if (reg_flags & NOTIFY_FLAG_SELF)
 	{
 		/*
-		 * _notify_lib_cancel returns NOTIFY_STATUS_FAILED if self_state is NULL
+		 * _notify_lib_cancel fails quietly if self_state is NULL
 		 * We let it fail quietly.
 		 */
-		_notify_lib_cancel(globals->self_state, NOTIFY_CLIENT_SELF, reg_token);
+		_notify_lib_cancel(&globals->self_state, NOTIFY_CLIENT_SELF, reg_token);
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
@@ -688,25 +763,36 @@ registration_node_release_locked(notify_globals_t globals, registration_node_t *
 	registration_node_delete_locked(globals, r);
 }
 
-#if !TARGET_IPHONE_SIMULATOR
-static int
+#if !TARGET_OS_SIMULATOR
+static bool
 shm_attach(uint32_t size)
 {
 	int32_t shmfd;
 	notify_globals_t globals = _notify_globals();
+	void *shm_base = NULL;
+	bool result = true;
 
 	shmfd = shm_open(SHM_ID, O_RDONLY, 0);
-	if (shmfd == -1) return -1;
+	if (shmfd == -1)
+	{
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed on line %d with errno %d", __func__, __LINE__, errno);
+		return false;
+	}
 
-	globals->shm_base = mmap(NULL, size, PROT_READ, MAP_SHARED, shmfd, 0);
+	shm_base = mmap(NULL, size, PROT_READ, MAP_SHARED, shmfd, 0);
+	if (shm_base == MAP_FAILED) {
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed on line %d with errno %d", __func__, __LINE__, errno);
+		result = false;
+	} else {
+		globals->shm_base = shm_base;
+		result = true;
+	}
+
 	close(shmfd);
 
-	if (globals->shm_base == (uint32_t *)-1) globals->shm_base = NULL;
-	if (globals->shm_base == NULL) return -1;
-
-	return 0;
+	return result;
 }
-#endif /* TARGET_IPHONE_SIMULATOR */
+#endif /* TARGET_OS_SIMULATOR */
 
 #ifdef NOTDEF
 static void
@@ -732,7 +818,7 @@ _notify_lib_init_locked(notify_globals_t globals, uint32_t event)
 	int status;
 
 	/* notifyd sets NOTIFY_OPT_DISABLE to avoid re-entrancy issues */
-	if (globals->client_opts & NOTIFY_OPT_DISABLE) return NOTIFY_STATUS_FAILED;
+	if (globals->client_opts & NOTIFY_OPT_DISABLE) return NOTIFY_STATUS_OPT_DISABLE;
 
 	/* We need to hold the global lock here otherwise "first" is racy */
 	/* But then we don't need dispatch_once -- clean this up in 39829810 */
@@ -744,8 +830,9 @@ _notify_lib_init_locked(notify_globals_t globals, uint32_t event)
 		kstatus = bootstrap_look_up2(bootstrap_port, NOTIFY_SERVICE_NAME, &globals->notify_server_port, 0, BOOTSTRAP_PRIVILEGED_SERVER);
 	});
 
-	if (kstatus != KERN_SUCCESS) {
-		return NOTIFY_STATUS_FAILED;
+	if ((kstatus != KERN_SUCCESS) || !(MACH_PORT_VALID(globals->notify_server_port)))
+	{
+		return NOTIFY_STATUS_SERVER_NOT_FOUND;
 	}
 
 	/*
@@ -769,20 +856,26 @@ _notify_lib_init_locked(notify_globals_t globals, uint32_t event)
 		globals->notify_server_pid = 0;
 
 		kstatus = _notify_server_checkin(globals->notify_server_port, &version, &new_pid, &status);
-		if (kstatus != KERN_SUCCESS) status = NOTIFY_STATUS_FAILED;
-		if (status != NOTIFY_STATUS_OK) {
+		if (kstatus != KERN_SUCCESS)
+		{
+			status = NOTIFY_STATUS_SERVER_CHECKIN_FAILED;
+		}
+		if (status != NOTIFY_STATUS_OK)
+		{
 			return status;
 		}
 
 		/*
 		 * protocol versions below 3 aren't supported anymore
 		 */
-		assert(version >= NOTIFY_IPC_VERSION_MIN_SUPPORTED);
+		if (version < NOTIFY_IPC_VERSION_MIN_SUPPORTED) {
+			NOTIFY_INTERNAL_CRASH(version, "Unsupported protocol version");
+		}
 		globals->notify_server_pid = new_pid;
 
 		if ((new_pid == last_pid) && (event == EVENT_REGEN))
 		{
-			return NOTIFY_STATUS_INVALID_REQUEST;
+			return NOTIFY_STATUS_NO_REGEN_NEEDED;
 		}
 
 		if (globals->server_proc_source != NULL)
@@ -801,41 +894,34 @@ _notify_lib_init_locked(notify_globals_t globals, uint32_t event)
 	if ((globals->server_proc_source == NULL) && (globals->client_opts & NOTIFY_OPT_REGEN) && (globals->notify_server_pid != 0))
 	{
 		globals->server_proc_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, (uintptr_t)globals->notify_server_pid, DISPATCH_PROC_EXIT, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0));
-		dispatch_source_set_event_handler_f(globals->server_proc_source, _notify_lib_regenerate);
+		dispatch_source_set_event_handler_f(globals->server_proc_source, _notify_lib_server_restart_handler);
 		dispatch_resume(globals->server_proc_source);
 	}
 
 	/*
 	 * Create the shared multiplex port if NOTIFY_OPT_DISPATCH is set.
 	 */
-	if ((globals->client_opts & NOTIFY_OPT_DISPATCH) && (globals->notify_common_port == MACH_PORT_NULL))
+	if (((globals->client_opts & NOTIFY_OPT_DISPATCH) && (globals->notify_common_port == MACH_PORT_NULL)) ||
+	    ((globals->client_opts & NOTIFY_OPT_DISPATCH) && (globals->notify_common_port == MACH_PORT_DEAD)))
 	{
+		mach_port_options_t opts = {
+			.flags = MPO_CONTEXT_AS_GUARD | MPO_STRICT | MPO_QLIMIT,
+			.mpl.mpl_qlimit = 16,
+		};
+		mach_port_context_t guard = (uintptr_t)globals;
 		kern_return_t kr;
-		task_t task = mach_task_self();
+		mach_port_t mp;
 
-		kr = mach_port_allocate(task, MACH_PORT_RIGHT_RECEIVE, &globals->notify_common_port);
-		if (kr == KERN_SUCCESS)
-		{
-			globals->notify_dispatch_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, globals->notify_common_port, 0, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0));
-			dispatch_source_set_event_handler(globals->notify_dispatch_source, ^{
-				notify_globals_t globals = _notify_globals();
-				_notify_dispatch_handle(globals->notify_common_port);
-			});
-			dispatch_source_set_cancel_handler(globals->notify_dispatch_source, ^{
-				task_t task = mach_task_self();
-				notify_globals_t globals = _notify_globals();
-				mach_port_mod_refs(task, globals->notify_common_port, MACH_PORT_RIGHT_RECEIVE, -1);
-			});
-			dispatch_resume(globals->notify_dispatch_source);
+		kr = mach_port_construct(mach_task_self(), &opts, guard, &mp);
+		if (kr != KERN_SUCCESS) {
+			NOTIFY_CLIENT_CRASH(kr, "mach_port_construct() failed: possible port leak");
 		}
-	}
+		globals->notify_common_port = mp;
 
-	if (globals->notify_common_port != MACH_PORT_NULL && (last_pid == 0 || event == EVENT_REGEN))
-	{
-		mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
-		/* register the common port with notifyd */
-		status = notify_register_mach_port(COMMON_PORT_KEY, &globals->notify_common_port, NOTIFY_REUSE | NOTIFY_NO_DISPATCH, &globals->notify_common_token);
-		mutex_lock("global", &globals->notify_lock, __func__, __LINE__);
+		globals->notify_dispatch_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, mp, 0, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0));
+		dispatch_set_context(globals->notify_dispatch_source, globals);
+		dispatch_source_set_event_handler_f(globals->notify_dispatch_source, _notify_dispatch_handle);
+		dispatch_resume(globals->notify_dispatch_source);
 	}
 
 	return NOTIFY_STATUS_OK;
@@ -869,7 +955,7 @@ _notify_fork_child(void)
 	if (globals->notify_server_port != MACH_PORT_NULL) globals->client_opts = NOTIFY_OPT_DISABLE;
 	if (_dispatch_is_fork_of_multithreaded_parent()) globals->client_opts = NOTIFY_OPT_DISABLE;
 
-	globals->self_state = NULL;
+	_notify_lib_notify_state_init(&globals->self_state, NOTIFY_STATE_USE_LOCKS);
 	globals->notify_server_port = MACH_PORT_NULL;
 	globals->notify_server_pid = 0;
 
@@ -878,10 +964,9 @@ _notify_fork_child(void)
 	globals->fd_srv = NULL;
 	globals->fd_refcount = NULL;
 
+	globals->mp_size = 0;
 	globals->mp_count = 0;
 	globals->mp_list = NULL;
-	globals->mp_refcount = NULL;
-	globals->mp_mine = NULL;
 
 	globals->shm_base = NULL;
 }
@@ -892,27 +977,23 @@ _notify_fork_child(void)
  * Note that this routine is NOT used to create the "base" for non-polled
  * coalesced registrations.  That's done by base_registration_create().
  */
-static int
-client_registration_create_base(const char *name, uint64_t nid, uint32_t token, uint32_t cid, uint32_t slot, uint32_t flags, int sig, int fd, mach_port_t mp, bool create_base)
+static uint32_t
+client_registration_create_base( __attribute__((nonnull)) const char * name, uint64_t nid, uint32_t token, uint32_t cid, uint32_t slot, uint32_t flags, int sig, int fd, mach_port_t mp, bool create_base)
 {
 	name_node_t *name_node = NULL;
 	registration_node_t *reg_node;
 	uint32_t warn_count = 0;
 	notify_globals_t globals = _notify_globals();
 
-	if (globals->name_table == NULL) return -1;
-	if (globals->registration_table == NULL) return -1;
-	if (name == NULL) return -1;
-
 	mutex_lock("global", &globals->notify_lock, __func__, __LINE__);
 
 	/* should never happen, but check if the registration exists */
-	reg_node = (registration_node_t *)_nc_table_find_n(globals->registration_table, token);
+	reg_node = _nc_table_find_n(&globals->registration_table, token);
 	if (reg_node != NULL) goto client_registration_create_fail;
 
 	name_node = name_node_for_name_locked(globals, name, nid, true);
 	if (name_node == NULL) goto client_registration_create_fail;
-    mutex_lock(name_node->name, &name_node->lock, __func__, __LINE__);
+	mutex_lock(name_node->name, &name_node->lock, __func__, __LINE__);
 
 	reg_node = (registration_node_t *)calloc(1, sizeof(registration_node_t));
 	if (reg_node == NULL)
@@ -926,7 +1007,7 @@ client_registration_create_base(const char *name, uint64_t nid, uint32_t token, 
 
 	reg_node->refcount = 1;
 	reg_node->token = token;
-	_nc_table_insert_n(globals->registration_table, token, reg_node);
+	_nc_table_insert_n(&globals->registration_table, &reg_node->token);
 
 #ifdef DEBUG
 	if (_libnotify_debug & DEBUG_NODES) _notify_client_log(ASL_LEVEL_NOTICE, "client_registration_create token %u refcount %d -> %p", token, reg_node->refcount, reg_node);
@@ -963,13 +1044,8 @@ client_registration_create_base(const char *name, uint64_t nid, uint32_t token, 
 	/*
 	 * If dispatch is available, add this registration to the name node's dispatch list.
 	 * Doesn't apply to polled types (memory and plain).
-	 *
-	 * Note that if NOTIFY_OPT_DISPATCH is called and this is a delivered (non-polled)
-	 * notificaton type, then the NOTIFY_TYPE_COALESCED flag will be true.  The if
-	 * statement below could include "&& (flags & NOTIFY_TYPE_COALESCED)", but it's
-	 * not required.
 	 */
-	if ((globals->client_opts & NOTIFY_OPT_DISPATCH) && (flags & NOTIFY_TYPE_DELIVERED))
+	if ((globals->client_opts & NOTIFY_OPT_DISPATCH) && (flags & NOTIFY_TYPE_DELIVERED) && (flags & NOTIFY_TYPE_COALESCED))
 	{
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_REGISTRATION) _notify_client_log(ASL_LEVEL_NOTICE, "Add coalesced registration %p to name %s name node %p base %p", reg_node, name, name_node, name_node->coalesce_base);
@@ -977,26 +1053,24 @@ client_registration_create_base(const char *name, uint64_t nid, uint32_t token, 
 		name_node_add_coalesced_registration_locked(name_node, reg_node, create_base);
 	}
 
-	if ((name_node->refcount % MULTIPLE_REGISTRATION_WARNING_TRIGGER) == 0)
+	warn_count = name_node->refcount;
+    
+	if ((!name_node->has_been_warned) && (warn_count == MULTIPLE_REGISTRATION_WARNING_TRIGGER))
 	{
-		warn_count = name_node->refcount;
+		name_node->has_been_warned = true;
+		REPORT_BAD_BEHAVIOR("notify name \"%s\" has been registered %d times - this may be a leak", name, warn_count);
 	}
 
-	if (warn_count > 0)
-	{
-		_notify_client_log(ASL_LEVEL_WARNING, "notify name \"%s\" has been registered %d times - this may be a leak", name, warn_count);
-	}
-
-    mutex_unlock(name_node->name, &name_node->lock, __func__, __LINE__);
+	mutex_unlock(name_node->name, &name_node->lock, __func__, __LINE__);
 	mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
-	return 0;
+	return NOTIFY_STATUS_OK;
 
 client_registration_create_fail:
 	mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
-	return -1;
+	return NOTIFY_STATUS_CLIENT_REG_FAILED;
 }
 
-static int
+static uint32_t
 client_registration_create(const char *name, uint64_t nid, uint32_t token, uint32_t cid, uint32_t slot, uint32_t flags, int sig, int fd, mach_port_t mp)
 {
 	return client_registration_create_base(name, nid, token, cid, slot, flags, sig, fd, mp, false);
@@ -1005,21 +1079,17 @@ client_registration_create(const char *name, uint64_t nid, uint32_t token, uint3
 /*
  * N.B. base_registration_create is called from notify_register_mach_port(), which holds the global lock
  */
-static int
-base_registration_create_locked(notify_globals_t globals, const char *name, uint64_t nid, uint32_t token, uint32_t flags, mach_port_t mp)
+static uint32_t
+base_registration_create_locked(notify_globals_t globals, __attribute__((nonnull))  const char *name, uint64_t nid, uint32_t token, uint32_t flags, mach_port_t mp)
 {
 	os_unfair_lock_assert_owner(&globals->notify_lock);
 
 	name_node_t *name_node = NULL;
 	registration_node_t *reg_node;
 
-	if (globals->name_table == NULL) return -1;
-	if (globals->registration_table == NULL) return -1;
-	if (name == NULL) return -1;
-
 	/* should never happen, but check if the registration exists */
-	reg_node = (registration_node_t *)_nc_table_find_n(globals->registration_table, token);
-	if (reg_node != NULL) return -1;
+	reg_node = _nc_table_find_n(&globals->registration_table, token);
+	if (reg_node != NULL) return NOTIFY_STATUS_DOUBLE_REG;
 
 	reg_node = (registration_node_t *)calloc(1, sizeof(registration_node_t));
 	if (reg_node == NULL)
@@ -1027,14 +1097,14 @@ base_registration_create_locked(notify_globals_t globals, const char *name, uint
 #ifdef DEBUG
 		_notify_client_log(ASL_LEVEL_ERR, "base_registration_create name %s calloc failed errno %d [%s]\n", name, errno, strerror(errno));
 #endif
-		return -1;
+		return NOTIFY_STATUS_ALLOC_FAILED;
 	}
 
 	name_node = name_node_for_name_locked(globals, name, nid, true);
 	if (name_node == NULL)
 	{
 		free(reg_node);
-		return -1;
+		return NOTIFY_STATUS_NEW_NAME_FAILED;
 	}
 
 #ifdef DEBUG
@@ -1066,8 +1136,31 @@ base_registration_create_locked(notify_globals_t globals, const char *name, uint
 	name_node->coalesce_base = reg_node;
 	name_node->coalesce_base_token = token;
 
-	_nc_table_insert_n(globals->registration_table, token, reg_node);
-	return 0;
+	_nc_table_insert_n(&globals->registration_table, &reg_node->token);
+	return NOTIFY_STATUS_OK;
+}
+
+static bool
+check_name_access(char *name, uid_t uid)
+{
+	char str[64];
+	size_t len;
+
+	/* root may do anything */
+	if (uid == 0) return true;
+
+	/* if name does not have "user.uid." as a prefix, it is not a user-protected namespace */
+	if (strncmp(name, USER_PROTECTED_UID_PREFIX, USER_PROTECTED_UID_PREFIX_LEN))
+	{
+		return true;
+	}
+
+	snprintf(str, sizeof(str) - 1, "%s%d", USER_PROTECTED_UID_PREFIX, uid);
+	len = strlen(str);
+
+	/* user <uid> may access user.uid.<uid> or a subtree name */
+	return ((!strncmp(name, str, len)) && ((name[len] == '\0') || (name[len] == '.')));
+
 }
 
 static void
@@ -1075,33 +1168,53 @@ _notify_lib_regenerate_registration(registration_node_t *r)
 {
 	uint32_t type;
 	int status;
-	int new_slot;
+	int new_slot = SLOT_NONE;
 	kern_return_t kstatus;
 	mach_port_t port;
-	uint64_t new_nid;
+	uint64_t new_nid = NID_UNSET;
 	size_t pathlen;
+	char *name = r->name_node->name;
 
 	notify_globals_t globals = _notify_globals();
 
-	if (r == NULL) return;
 	if (r->flags & NOTIFY_FLAG_SELF) return;
 	if ((r->flags & NOTIFY_FLAG_REGEN) == 0) return;
-	if (!strcmp(r->name_node->name, COMMON_PORT_KEY)) return;
 
 	port = MACH_PORT_NULL;
 	if (r->flags & NOTIFY_TYPE_PORT)
 	{
-		port = globals->notify_common_port;
+		if(r->flags & NOTIFY_TYPE_COALESCED || r->flags & NOTIFY_TYPE_COALESCE_BASE)
+		{
+			port = globals->notify_common_port;
+		}
+		else
+		{
+			port = r->mp;
+		}
+	}
+
+	if(!check_name_access(name, geteuid()))
+	{
+		REPORT_BAD_BEHAVIOR("BUG IN LIBNOTIFY CLIENT: registration held for restricted name %s with process uid %d",
+				    name, geteuid());
 	}
 
 	pathlen = 0;
 	if (r->path != NULL) pathlen = strlen(r->path) + 1;
 	type = r->flags & 0x000000ff;
 
-	kstatus = _notify_server_regenerate(globals->notify_server_port, (caddr_t)r->name_node->name, r->token, type, port, r->signal, r->slot, r->set_state_val, r->set_state_time, r->path, (mach_msg_type_number_t)pathlen, r->path_flags, &new_slot, &new_nid, &status);
+	kstatus = _notify_server_regenerate(globals->notify_server_port, (caddr_t)name, r->token, type, port, r->signal,
+			r->slot, r->set_state_val, r->set_state_time, r->path, (mach_msg_type_number_t)pathlen,
+			r->path_flags, &new_slot, &new_nid, &status);
 
-	if (kstatus != KERN_SUCCESS) status = NOTIFY_STATUS_FAILED;
-	if (status != NOTIFY_STATUS_OK) return;
+	assert(kstatus == KERN_SUCCESS);
+
+	if(status != NOTIFY_STATUS_OK && status != NOTIFY_STATUS_DUP_CLIENT &&
+	   status != NOTIFY_STATUS_NO_REGEN_NEEDED)
+	{
+		REPORT_BAD_BEHAVIOR("Libnotify: _notify_server_regnerate failed for name %s", name);
+	}
+
 
 	r->slot = new_slot;
 	r->name_node->name_id = new_nid;
@@ -1111,27 +1224,28 @@ _notify_lib_regenerate_registration(registration_node_t *r)
  * Invoked when server has died.
  * Regenerates all registrations and state.
  */
-static void
+static uint32_t
 _notify_lib_regenerate_locked(notify_globals_t globals)
 {
-	void *tt;
-	registration_node_t *reg;
+	uint32_t result;
 
-	if ((globals->client_opts & NOTIFY_OPT_REGEN) == 0) return;
+	if ((globals->client_opts & NOTIFY_OPT_REGEN) == 0) return NOTIFY_STATUS_OK;
 
-	/* _notify_lib_init returns an error if regeneration is unnecessary */
-	if (_notify_lib_init_locked(globals, EVENT_REGEN) == NOTIFY_STATUS_OK)
-	{
-		tt = _nc_table_traverse_start(globals->registration_table);
-		while (tt != NULL)
-		{
-			reg = _nc_table_traverse(globals->registration_table, tt);
-			if (reg == NULL) break;
-			_notify_lib_regenerate_registration(reg);
-		}
+	/* if _notify_lib_init_lockec returns an error, regeneration is unnecessary */
+	result = _notify_lib_init_locked(globals, EVENT_REGEN);
 
-		_nc_table_traverse_end(globals->name_table, tt);
+	if (result == NOTIFY_STATUS_NO_REGEN_NEEDED) {
+		return NOTIFY_STATUS_OK;
 	}
+
+	if (result == NOTIFY_STATUS_OK) {
+		_nc_table_foreach_n(&globals->registration_table, ^bool(void *reg) {
+			_notify_lib_regenerate_registration(reg);
+			return true;
+		});
+	}
+
+	return result;
 }
 
 /*
@@ -1139,27 +1253,36 @@ _notify_lib_regenerate_locked(notify_globals_t globals)
  * Regenerates all registrations and state.
  */
 static void
-_notify_lib_regenerate(void *ctxt __unused)
+_notify_lib_server_restart_handler(void *ctxt __unused)
 {
 	notify_globals_t globals = _notify_globals();
 	
 	mutex_lock("global", &globals->notify_lock, __func__, __LINE__);
-	_notify_lib_regenerate_locked(globals);
+	(void)_notify_lib_regenerate_locked(globals);
 	mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
+
+	return;
 }
 
 /*
  * Get the up to date shm_base if the server PID (shared memory slot 0)
  * has changed.
  */
-static inline void
+static inline uint32_t
 regenerate_check(notify_globals_t globals)
 {
-	if ((globals->client_opts & NOTIFY_OPT_REGEN) == 0) return;
+	uint32_t result = NOTIFY_STATUS_OK;
+
+	if ((globals->client_opts & NOTIFY_OPT_REGEN) == 0) return NOTIFY_STATUS_OK;
 
 	mutex_lock("global", &globals->notify_lock, __func__, __LINE__);
-	if ((globals->shm_base != NULL) && (globals->shm_base[0] != globals->notify_server_pid)) _notify_lib_regenerate_locked(globals);
+	if ((globals->shm_base != NULL) && (globals->shm_base[0] != globals->notify_server_pid))
+	{
+		result = _notify_lib_regenerate_locked(globals);
+	}
 	mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
+
+	return result;
 }
 
 /* notify_lock is required in notify_retain_file_descriptor */
@@ -1290,54 +1413,44 @@ notify_release_file_descriptor_locked(notify_globals_t globals, int fd)
 
 /* notify_lock is required in notify_retain_mach_port */
 static void
-notify_retain_mach_port(mach_port_t mp, int mine)
+notify_retain_mach_port(notify_globals_t globals, mach_port_t mp, int flags)
 {
-	int x, i;
-	notify_globals_t globals = _notify_globals();
-
 	if (mp == MACH_PORT_NULL) return;
+	if (flags & _NOTIFY_COMMON_PORT) return;
 
 	mutex_lock("global", &globals->notify_lock, __func__, __LINE__);
 
-	x = -1;
-	for (i = 0; (i < globals->mp_count) && (x < 0); i++)
+	struct mp_entry *entries = globals->mp_list;
+
+	for (int i = 0; i < globals->mp_count; i++)
 	{
-		if (globals->mp_list[i] == mp) x = i;
+		if (entries[i].mpl_port_name == mp) {
+			entries[i].mpl_refs++;
+			mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
+			return;
+		}
 	}
 
-	if (x >= 0)
-	{
-		globals->mp_refcount[x]++;
-		mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
-		return;
-	}
-
-	x = globals->mp_count;
+	int x = globals->mp_count;
 	globals->mp_count++;
 
-	globals->mp_list = (mach_port_t *)reallocf(globals->mp_list, globals->mp_count * sizeof(mach_port_t));
-	globals->mp_refcount = (int *)reallocf(globals->mp_refcount, globals->mp_count * sizeof(int));
-	globals->mp_mine = (int *)reallocf(globals->mp_mine, globals->mp_count * sizeof(int));
+	if (x >= globals->mp_size) {
+		if (globals->mp_size < 4) {
+			globals->mp_size = 4;
+		} else {
+			globals->mp_size *= 2;
+		}
+		entries = reallocf(entries, globals->mp_size * sizeof(struct mp_entry));
+		globals->mp_list = entries;
+		if (os_unlikely(entries == NULL)) {
+			NOTIFY_CLIENT_CRASH(0, "Unable to allocate port array: "
+					"possible notification registration leak");
+		}
+	}
 
-	if ((globals->mp_list == NULL) || (globals->mp_refcount == NULL) || (globals->mp_mine == NULL))
-	{
-#ifdef DEBUG
-		_notify_client_log(ASL_LEVEL_ERR, "%s reallocf failed errno %d [%s]\n", __func__, errno, strerror(errno));
-#endif
-		free(globals->mp_list);
-		globals->mp_list = NULL;
-		free(globals->mp_refcount);
-		globals->mp_refcount = NULL;
-		free(globals->mp_mine);
-		globals->mp_mine = NULL;
-		globals->mp_count = 0;
-	}
-	else
-	{
-		globals->mp_list[x] = mp;
-		globals->mp_refcount[x] = 1;
-		globals->mp_mine[x] = mine;
-	}
+	entries[x].mpl_port_name = mp;
+	entries[x].mpl_refs = 1;
+	entries[x].mpl_mine = ((flags & NOTIFY_REUSE) == 0);
 
 	mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
 }
@@ -1346,16 +1459,20 @@ notify_retain_mach_port(mach_port_t mp, int mine)
 static void
 notify_release_mach_port_locked(notify_globals_t globals, mach_port_t mp, uint32_t flags)
 {
+	struct mp_entry *entries = globals->mp_list;
+	int x = -1;
+
 	os_unfair_lock_assert_owner(&globals->notify_lock);
 
-	int x, i;
-
 	if (mp == MACH_PORT_NULL) return;
+	if (mp == globals->notify_common_port) return;
 
-	x = -1;
-	for (i = 0; (i < globals->mp_count) && (x < 0); i++)
+	for (int i = 0; i < globals->mp_count; i++)
 	{
-		if (globals->mp_list[i] == mp) x = i;
+		if (entries[i].mpl_port_name == mp) {
+			x = i;
+			break;
+		}
 	}
 
 	if (x < 0)
@@ -1363,74 +1480,43 @@ notify_release_mach_port_locked(notify_globals_t globals, mach_port_t mp, uint32
 		return;
 	}
 
-	if (globals->mp_refcount[x] > 0) globals->mp_refcount[x]--;
-	if (globals->mp_refcount[x] > 0)
-	{
+	if (entries[x].mpl_refs > 1) {
+		entries[x].mpl_refs--;
 		return;
 	}
 
-	if (globals->mp_mine[x] == 1)
+	if (entries[x].mpl_mine)
 	{
-		mach_port_mod_refs(mach_task_self(), mp, MACH_PORT_RIGHT_RECEIVE, -1);
-
-		/* release send right if this is a self notification */
-		if (flags & NOTIFY_FLAG_SELF) mach_port_deallocate(mach_task_self(), mp);
+		int uref_mod = 0;
+		if (flags & NOTIFY_FLAG_RELEASE_SEND) uref_mod = -1;
+		mach_port_destruct(mach_task_self(), mp, uref_mod, 0);
 	}
-
-	if (flags & NOTIFY_FLAG_RELEASE_SEND)
+	else if (flags & NOTIFY_FLAG_RELEASE_SEND)
 	{
 		/* multiplexed registration holds a send right in Libnotify */
 		mach_port_deallocate(mach_task_self(), mp);
 	}
 
-	if (globals->mp_count == 1)
-	{
-		free(globals->mp_list);
-		globals->mp_list = NULL;
-		free(globals->mp_refcount);
-		globals->mp_refcount = NULL;
-		free(globals->mp_mine);
-		globals->mp_mine = NULL;
-		globals->mp_count = 0;
-		return;
-	}
-
-	for (i = x + 1; i < globals->mp_count; i++)
-	{
-		globals->mp_list[i - 1] = globals->mp_list[i];
-		globals->mp_refcount[i - 1] = globals->mp_refcount[i];
-		globals->mp_mine[i - 1] = globals->mp_mine[i];
-	}
-
+	// swap removed element with the last one in the array
 	globals->mp_count--;
-
-	globals->mp_list = (mach_port_t *)reallocf(globals->mp_list, globals->mp_count * sizeof(mach_port_t));
-	globals->mp_refcount = (int *)reallocf(globals->mp_refcount, globals->mp_count * sizeof(int));
-	globals->mp_mine = (int *)reallocf(globals->mp_mine, globals->mp_count * sizeof(int));
-
-	if ((globals->mp_list == NULL) || (globals->mp_refcount == NULL) || (globals->mp_mine == NULL))
-	{
-#ifdef DEBUG
-		_notify_client_log(ASL_LEVEL_ERR, "%s reallocf failed errno %d [%s]\n", __func__, errno, strerror(errno));
-#endif
-		if (globals->mp_list != NULL) free(globals->mp_list);
-		if (globals->mp_refcount != NULL) free(globals->mp_refcount);
-		if (globals->mp_mine != NULL) free(globals->mp_mine);
-		globals->mp_count = 0;
+	if (x != globals->mp_count) {
+		entries[x] = entries[globals->mp_count];
 	}
 
-}
-
-static notify_state_t *
-_notify_lib_self_state()
-{
-	notify_globals_t globals = _notify_globals();
-
-	dispatch_once(&globals->self_state_once, ^{
-		globals->self_state = _notify_lib_notify_state_new(NOTIFY_STATE_USE_LOCKS, 0);
-	});
-
-	return globals->self_state;
+	if (globals->mp_count == 0)
+	{
+		free(entries);
+		globals->mp_count = globals->mp_size = 0;
+		globals->mp_list = NULL;
+	}
+	else if (globals->mp_size > 4 && globals->mp_count <= globals->mp_size / 4)
+	{
+		entries = realloc(entries, sizeof(struct mp_entry) * globals->mp_size / 2);
+		if (entries) {
+			globals->mp_list = entries;
+			globals->mp_size /= 2;
+		}
+	}
 }
 
 /* SPI */
@@ -1499,6 +1585,8 @@ should_claim_root_access(void)
  * PUBLIC API
  */
 
+
+
 /*
  * notify_post is a very simple API, but the implementation is
  * more complex to try to optimize the time it takes.
@@ -1539,18 +1627,31 @@ should_claim_root_access(void)
 uint32_t
 notify_post(const char *name)
 {
+	NOTIFY_POST(name);
 #ifdef DEBUG
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "-> %s\n", __func__);
 #endif
 
-	notify_state_t *ns_self;
 	kern_return_t kstatus;
 	uint32_t status;
 	name_node_t *n;
 	uint64_t nid = UINT64_MAX;
 	notify_globals_t globals = _notify_globals();
 
-	regenerate_check(globals);
+	status = regenerate_check(globals);
+	if (status != NOTIFY_STATUS_OK)
+	{
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
+	}
+
 
 	if (name == NULL)
 	{
@@ -1562,9 +1663,7 @@ notify_post(const char *name)
 
 	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
 	{
-		ns_self = _notify_lib_self_state();
-		if (ns_self == NULL) return NOTIFY_STATUS_FAILED;
-		_notify_lib_post(ns_self, name, 0, 0);
+		_notify_lib_post(&globals->self_state, name, 0, 0);
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
@@ -1574,12 +1673,17 @@ notify_post(const char *name)
 	if (globals->notify_server_port == MACH_PORT_NULL)
 	{
 		status = _notify_lib_init(globals, EVENT_INIT);
-		if (status != 0)
+		if (status != NOTIFY_STATUS_OK)
 		{
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-			return NOTIFY_STATUS_FAILED;
+			return status;
 		}
 	}
 
@@ -1598,6 +1702,9 @@ notify_post(const char *name)
 #ifdef DEBUG
 				if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
+
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__,
+						NOTIFY_STATUS_SERVER_POST_4_FAILED, __LINE__);
 				return NOTIFY_STATUS_FAILED;
 			}
 
@@ -1613,6 +1720,8 @@ notify_post(const char *name)
 #ifdef DEBUG
 				if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__,
+						    NOTIFY_STATUS_SERVER_POST_2_FAILED, __LINE__);
 				return NOTIFY_STATUS_FAILED;
 			}
 
@@ -1628,6 +1737,8 @@ notify_post(const char *name)
 #ifdef DEBUG
 				if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__,
+						    NOTIFY_STATUS_SERVER_POST_3_FAILED, __LINE__);
 				return NOTIFY_STATUS_FAILED;
 			}
 		}
@@ -1646,6 +1757,8 @@ notify_post(const char *name)
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__,
+				NOTIFY_STATUS_SERVER_POST_4_FAILED, __LINE__);
 		return NOTIFY_STATUS_FAILED;
 	}
 
@@ -1683,6 +1796,17 @@ _notify_dispatch_local_notification(registration_node_t *r)
 	dispatch_queue_t thequeue = r->queue;
 	dispatch_retain(thequeue);
 
+	/*
+	 * If DTrace probes are currently active that deal with the delivery of a
+	 * notification, then the name needs to live until the end of the delivery.
+	 * It is freed after delivery.
+	 */
+	char *name = NULL;
+	if ((NOTIFY_DELIVER_START_ENABLED() || NOTIFY_DELIVER_END_ENABLED()) && r && r->name_node && r->name_node->name)
+	{
+		name = strdup(r->name_node->name);
+	}
+
 	// notify_dispatch_source runs on a DISPATCH_QUEUE_PRIORITY_HIGH queue (IN
 	// QoS). Dispatching directly from that queue to the client queue taints the
 	// block with IN qos. Instead we create a detached wrapper and let the block
@@ -1695,9 +1819,13 @@ _notify_dispatch_local_notification(registration_node_t *r)
 		if (_libnotify_debug & DEBUG_NOTIFICATION) _notify_client_log(ASL_LEVEL_NOTICE, "-> dispatch_async token %d (%svalid) registration node %p", token, valid ? "" : "in", r);
 #endif
 		/* check if the token is still valid: it may have been cancelled */
+		if (name) NOTIFY_DELIVER_START(name);
 		if (valid) theblock(token);
+		if (name) NOTIFY_DELIVER_END(name);
 		_Block_release(theblock);
 		dispatch_release(thequeue);
+
+		if (name) free(name);
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_NOTIFICATION) _notify_client_log(ASL_LEVEL_NOTICE, "<- dispatch_async token %d", token);
 #endif
@@ -1708,8 +1836,10 @@ _notify_dispatch_local_notification(registration_node_t *r)
 }
 
 static void
-_notify_dispatch_handle(mach_port_t port)
+_notify_dispatch_handle(void *context)
 {
+	notify_globals_t globals = context;
+	mach_port_t port = globals->notify_common_port;
 	name_node_t *n;
 	registration_node_t *r;
 	int token;
@@ -1718,50 +1848,52 @@ _notify_dispatch_handle(mach_port_t port)
 
 	if (port == MACH_PORT_NULL) return;
 
-	memset(&msg, 0, sizeof(msg));
+	for (int retries = 5; retries-- > 0; ) {
+		memset(&msg, 0, sizeof(msg));
 
-	/*
-	 * The dispatch source watching our multiplexed mach port has fired.
-	 * Read the message that is waiting and get the token ID from the mach header.
-	 */
-	status = mach_msg(&msg.header, MACH_RCV_MSG, 0, sizeof(msg), port, 0, MACH_PORT_NULL);
-	if (status != KERN_SUCCESS) return;
+		/*
+		 * The dispatch source watching our multiplexed mach port has fired.
+		 * Read the message that is waiting and get the token ID from the mach header.
+		 */
+		status = mach_msg(&msg.header, MACH_RCV_MSG | MACH_RCV_TIMEOUT, 0, sizeof(msg), port, 0, MACH_PORT_NULL);
+		if (status != KERN_SUCCESS) return;
 
-	token = msg.header.msgh_id;
+		token = msg.header.msgh_id;
 
 #ifdef DEBUG
-	if (_libnotify_debug & DEBUG_NOTIFICATION) _notify_client_log(ASL_LEVEL_NOTICE, "_notify_dispatch_handle token %d", token);
+		if (_libnotify_debug & DEBUG_NOTIFICATION) _notify_client_log(ASL_LEVEL_NOTICE, "_notify_dispatch_handle token %d", token);
 #endif
 
-	r = registration_node_find(token);
-	if (r == NULL) return;
+		r = registration_node_find(token);
+		if (r == NULL) continue;
 
-	n = r->name_node;
-	if (n == NULL)
-	{
-		/* should not happen */
-		registration_node_release(r);
-		return;
-	}
-
-	mutex_lock(n->name, &n->lock, __func__, __LINE__);
-
-	if (r->flags & NOTIFY_TYPE_COALESCE_BASE)
-	{
-		registration_node_t *x;
-		TAILQ_FOREACH(x, &n->coalesced, registration_coalesced_entry)
+		n = r->name_node;
+		if (n == NULL)
 		{
-			if ((x != NULL) && (x != r)) _notify_dispatch_local_notification(x);
+			/* should not happen */
+			registration_node_release(r);
+			continue;
 		}
-	}
-	else
-	{
-		_notify_dispatch_local_notification(r);
-	}
 
-	mutex_unlock(n->name, &n->lock, __func__, __LINE__);
+		mutex_lock(n->name, &n->lock, __func__, __LINE__);
 
-	registration_node_release(r);
+		if (r->flags & NOTIFY_TYPE_COALESCE_BASE)
+		{
+			registration_node_t *x;
+			TAILQ_FOREACH(x, &n->coalesced, registration_coalesced_entry)
+			{
+				if (x != r) _notify_dispatch_local_notification(x);
+			}
+		}
+		else
+		{
+			_notify_dispatch_local_notification(r);
+		}
+
+		mutex_unlock(n->name, &n->lock, __func__, __LINE__);
+
+		registration_node_release(r);
+	}
 }
 
 #pragma mark -
@@ -1778,14 +1910,26 @@ notify_register_dispatch(const char *name, int *out_token, dispatch_queue_t queu
 	registration_node_t *r;
 	notify_globals_t globals = _notify_globals();
 
-	regenerate_check(globals);
+	status = regenerate_check(globals);
+	if (status != NOTIFY_STATUS_OK)
+	{
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
+	}
 
 	if (queue == NULL)
 	{
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-		return NOTIFY_STATUS_FAILED;
+		return NOTIFY_STATUS_NULL_INPUT;
 	}
 
 	if (handler == NULL)
@@ -1793,13 +1937,13 @@ notify_register_dispatch(const char *name, int *out_token, dispatch_queue_t queu
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-		return NOTIFY_STATUS_FAILED;
+		return NOTIFY_STATUS_NULL_INPUT;
 	}
 
 	/* client is using dispatch: enable local demux / dispatch and regeneration */
 	notify_set_options(NOTIFY_OPT_DISPATCH | NOTIFY_OPT_REGEN);
 
-	status = notify_register_mach_port(name, &globals->notify_common_port, NOTIFY_REUSE, out_token);
+	status = notify_register_mach_port(name, &globals->notify_common_port, NOTIFY_REUSE | _NOTIFY_COMMON_PORT, out_token);
 	if (status != NOTIFY_STATUS_OK)
 	{
 #ifdef DEBUG
@@ -1814,6 +1958,7 @@ notify_register_dispatch(const char *name, int *out_token, dispatch_queue_t queu
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, NOTIFY_STATUS_TOKEN_NOT_FOUND, __LINE__);
 		return NOTIFY_STATUS_FAILED;
 	}
 
@@ -1840,12 +1985,12 @@ notify_register_mux_fd(const char *name, int *out_token, int rfd, int wfd)
 
 	status = NOTIFY_STATUS_OK;
 
-	if (globals->notify_common_port == MACH_PORT_NULL) return NOTIFY_STATUS_FAILED;
+	if (globals->notify_common_port == MACH_PORT_NULL) return NOTIFY_STATUS_COMMON_PORT_NULL;
 
-	status = notify_register_mach_port(name, &globals->notify_common_port, NOTIFY_REUSE, out_token);
+	status = notify_register_mach_port(name, &globals->notify_common_port, NOTIFY_REUSE | _NOTIFY_COMMON_PORT, out_token);
 
 	r = registration_node_find(*out_token);
-	if (r == NULL) return NOTIFY_STATUS_FAILED;
+	if (r == NULL) return NOTIFY_STATUS_TOKEN_NOT_FOUND;
 
 	r->token = *out_token;
 	r->fd = rfd;
@@ -1862,14 +2007,13 @@ notify_register_mux_fd(const char *name, int *out_token, int rfd, int wfd)
 uint32_t
 notify_register_check(const char *name, int *out_token)
 {
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 	return notify_register_plain(name, out_token);
 #else
 #ifdef DEBUG
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "-> %s\n", __func__);
 #endif
 
-	notify_state_t *ns_self;
 	kern_return_t kstatus;
 	uint32_t status, token;
 	uint64_t nid;
@@ -1878,7 +2022,19 @@ notify_register_check(const char *name, int *out_token)
 	uint32_t cid;
 	notify_globals_t globals = _notify_globals();
 
-	regenerate_check(globals);
+	status = regenerate_check(globals);
+	if (status != NOTIFY_STATUS_OK)
+	{
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
+	}
 
 	if (name == NULL)
 	{
@@ -1893,26 +2049,22 @@ notify_register_check(const char *name, int *out_token)
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-		return NOTIFY_STATUS_FAILED;
+		return NOTIFY_STATUS_NULL_INPUT;
 	}
 
 	*out_token = -1;
 
 	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
 	{
-		ns_self = _notify_lib_self_state();
-		if (ns_self == NULL)
-		{
-#ifdef DEBUG
-			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-			return NOTIFY_STATUS_FAILED;
-		}
-
 		token = atomic_increment32(&globals->token_id);
-		status = _notify_lib_register_plain(ns_self, name, NOTIFY_CLIENT_SELF, token, SLOT_NONE, 0, 0, &nid);
+		status = _notify_lib_register_plain(&globals->self_state, name, NOTIFY_CLIENT_SELF, token, SLOT_NONE, 0, 0, &nid);
 		if (status != NOTIFY_STATUS_OK)
 		{
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
@@ -1920,7 +2072,22 @@ notify_register_check(const char *name, int *out_token)
 		}
 
 		cid = token;
-		client_registration_create(name, nid, token, cid, SLOT_NONE, NOTIFY_FLAG_SELF | NOTIFY_TYPE_PLAIN, SIGNAL_NONE, FD_NONE, MACH_PORT_NULL);
+
+		status = client_registration_create(name, nid, token, cid, SLOT_NONE,
+					NOTIFY_FLAG_SELF | NOTIFY_TYPE_PLAIN, SIGNAL_NONE, FD_NONE, MACH_PORT_NULL);
+
+		if (status != NOTIFY_STATUS_OK)
+		{
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
+#ifdef DEBUG
+			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+			return status;
+		}
 
 		*out_token = token;
 #ifdef DEBUG
@@ -1932,12 +2099,17 @@ notify_register_check(const char *name, int *out_token)
 	if (globals->notify_server_port == MACH_PORT_NULL)
 	{
 		status = _notify_lib_init(globals, EVENT_INIT);
-		if (status != 0)
+		if (status != NOTIFY_STATUS_OK)
 		{
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-			return NOTIFY_STATUS_FAILED;
+			return status;
 		}
 	}
 
@@ -1951,11 +2123,19 @@ notify_register_check(const char *name, int *out_token)
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
+
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d (kstatus: %d)", __func__,
+				NOTIFY_STATUS_REG_CHECK_2_FAILED, __LINE__, kstatus);
 		return NOTIFY_STATUS_FAILED;
 	}
 
 	if (status != NOTIFY_STATUS_OK)
 	{
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
@@ -1967,7 +2147,7 @@ notify_register_check(const char *name, int *out_token)
 		mutex_lock("global", &globals->notify_lock, __func__, __LINE__);
 		if (globals->shm_base == NULL)
 		{
-			if (shm_attach(shmsize) != 0)
+			if (!shm_attach(shmsize))
 			{
 #ifdef DEBUG
 				if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
@@ -1981,25 +2161,42 @@ notify_register_check(const char *name, int *out_token)
 #ifdef DEBUG
 				if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-				mutex_lock("global", &globals->notify_lock, __func__, __LINE__);
+				mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__,
+							NOTIFY_STATUS_SHM_BASE_REMAINS_NULL, __LINE__);
 				return NOTIFY_STATUS_FAILED;
 			}
 		}
 		mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
 
-		client_registration_create(name, nid, token, cid, slot, NOTIFY_TYPE_MEMORY | NOTIFY_FLAG_REGEN, SIGNAL_NONE, FD_NONE, MACH_PORT_NULL);
+		status = client_registration_create(name, nid, token, cid, slot,
+				NOTIFY_TYPE_MEMORY | NOTIFY_FLAG_REGEN, SIGNAL_NONE, FD_NONE, MACH_PORT_NULL);
 	}
 	else
 	{
-		client_registration_create(name, nid, token, cid, SLOT_NONE, NOTIFY_TYPE_PLAIN | NOTIFY_FLAG_REGEN, SIGNAL_NONE, FD_NONE, MACH_PORT_NULL);
+		status = client_registration_create(name, nid, token, cid, SLOT_NONE,
+				NOTIFY_TYPE_PLAIN | NOTIFY_FLAG_REGEN, SIGNAL_NONE, FD_NONE, MACH_PORT_NULL);
+	}
+
+	if (status != NOTIFY_STATUS_OK)
+	{
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
 	}
 
 	*out_token = token;
 #ifdef DEBUG
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-	return status;
-#endif /* TARGET_IPHONE_SIMULATOR */
+	return NOTIFY_STATUS_OK;
+#endif /* TARGET_OS_SIMULATOR */
 }
 
 uint32_t
@@ -2009,7 +2206,6 @@ notify_register_plain(const char *name, int *out_token)
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "-> %s\n", __func__);
 #endif
 
-	notify_state_t *ns_self;
 	kern_return_t kstatus;
 	uint32_t status;
 	uint64_t nid;
@@ -2017,7 +2213,19 @@ notify_register_plain(const char *name, int *out_token)
 	uint32_t cid;
 	notify_globals_t globals = _notify_globals();
 
-	regenerate_check(globals);
+	status = regenerate_check(globals);
+	if (status != NOTIFY_STATUS_OK)
+	{
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
+	}
 
 	if (name == NULL)
 	{
@@ -2029,19 +2237,15 @@ notify_register_plain(const char *name, int *out_token)
 
 	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
 	{
-		ns_self = _notify_lib_self_state();
-		if (ns_self == NULL)
-		{
-#ifdef DEBUG
-			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-			return NOTIFY_STATUS_FAILED;
-		}
-
 		token = atomic_increment32(&globals->token_id);
-		status = _notify_lib_register_plain(ns_self, name, NOTIFY_CLIENT_SELF, token, SLOT_NONE, 0, 0, &nid);
+		status = _notify_lib_register_plain(&globals->self_state, name, NOTIFY_CLIENT_SELF, token, SLOT_NONE, 0, 0, &nid);
 		if (status != NOTIFY_STATUS_OK)
 		{
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
@@ -2049,7 +2253,23 @@ notify_register_plain(const char *name, int *out_token)
 		}
 
 		cid = token;
-		client_registration_create(name, nid, token, cid, SLOT_NONE, NOTIFY_FLAG_SELF | NOTIFY_TYPE_PLAIN, SIGNAL_NONE, FD_NONE, MACH_PORT_NULL);
+
+		status = client_registration_create(name, nid, token, cid, SLOT_NONE,
+				NOTIFY_FLAG_SELF | NOTIFY_TYPE_PLAIN, SIGNAL_NONE, FD_NONE, MACH_PORT_NULL);
+
+		if (status != NOTIFY_STATUS_OK)
+		{
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
+#ifdef DEBUG
+			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE,
+					"<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+			return status;
+		}
 
 		*out_token = token;
 #ifdef DEBUG
@@ -2061,12 +2281,17 @@ notify_register_plain(const char *name, int *out_token)
 	if (globals->notify_server_port == MACH_PORT_NULL)
 	{
 		status = _notify_lib_init(globals, EVENT_INIT);
-		if (status != 0)
+		if (status != NOTIFY_STATUS_OK)
 		{
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-			return NOTIFY_STATUS_FAILED;
+			return status;
 		}
 	}
 
@@ -2078,10 +2303,27 @@ notify_register_plain(const char *name, int *out_token)
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, NOTIFY_STATUS_REG_PLAIN_2_FAILED, __LINE__);
 		return NOTIFY_STATUS_FAILED;
 	}
 
-	client_registration_create(name, NID_UNSET, token, cid, SLOT_NONE, NOTIFY_TYPE_PLAIN | NOTIFY_FLAG_REGEN, SIGNAL_NONE, FD_NONE, MACH_PORT_NULL);
+
+	status = client_registration_create(name, NID_UNSET, token, cid, SLOT_NONE,
+			NOTIFY_TYPE_PLAIN | NOTIFY_FLAG_REGEN, SIGNAL_NONE, FD_NONE, MACH_PORT_NULL);
+
+	if (status != NOTIFY_STATUS_OK)
+	{
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE,
+				"<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
+	}
 
 	*out_token = token;
 #ifdef DEBUG
@@ -2097,7 +2339,6 @@ notify_register_signal(const char *name, int sig, int *out_token)
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "-> %s\n", __func__);
 #endif
 
-	notify_state_t *ns_self;
 	kern_return_t kstatus;
 	uint32_t status;
 	uint64_t nid;
@@ -2105,7 +2346,19 @@ notify_register_signal(const char *name, int sig, int *out_token)
 	uint32_t cid;
 	notify_globals_t globals = _notify_globals();
 
-	regenerate_check(globals);
+	status = regenerate_check(globals);
+	if (status != NOTIFY_STATUS_OK)
+	{
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
+	}
 
 	if (name == NULL)
 	{
@@ -2117,19 +2370,15 @@ notify_register_signal(const char *name, int sig, int *out_token)
 
 	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
 	{
-		ns_self = _notify_lib_self_state();
-		if (ns_self == NULL)
-		{
-#ifdef DEBUG
-			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-			return NOTIFY_STATUS_FAILED;
-		}
-
 		token = atomic_increment32(&globals->token_id);
-		status = _notify_lib_register_signal(ns_self, name, NOTIFY_CLIENT_SELF, token, sig, 0, 0, &nid);
+		status = _notify_lib_register_signal(&globals->self_state, name, NOTIFY_CLIENT_SELF, token, sig, 0, 0, &nid);
 		if (status != NOTIFY_STATUS_OK)
 		{
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
@@ -2137,7 +2386,22 @@ notify_register_signal(const char *name, int sig, int *out_token)
 		}
 
 		cid = token;
-		client_registration_create(name, nid, token, cid, SLOT_NONE, NOTIFY_FLAG_SELF | NOTIFY_TYPE_SIGNAL, sig, FD_NONE, MACH_PORT_NULL);
+		status = client_registration_create(name, nid, token, cid, SLOT_NONE,
+						    NOTIFY_FLAG_SELF | NOTIFY_TYPE_SIGNAL, sig, FD_NONE, MACH_PORT_NULL);
+
+		if (status != NOTIFY_STATUS_OK)
+		{
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
+#ifdef DEBUG
+			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE,
+					"<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+			return status;
+		}
 
 		*out_token = token;
 #ifdef DEBUG
@@ -2149,6 +2413,11 @@ notify_register_signal(const char *name, int sig, int *out_token)
 	if (globals->client_opts & NOTIFY_OPT_DISPATCH)
 	{
 		status = notify_register_dispatch(name, out_token, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^(int unused){ kill(getpid(), sig); });
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
@@ -2158,12 +2427,17 @@ notify_register_signal(const char *name, int sig, int *out_token)
 	if (globals->notify_server_port == MACH_PORT_NULL)
 	{
 		status = _notify_lib_init(globals, EVENT_INIT);
-		if (status != 0)
+		if (status != NOTIFY_STATUS_OK)
 		{
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-			return NOTIFY_STATUS_FAILED;
+			return status;
 		}
 	}
 
@@ -2175,10 +2449,25 @@ notify_register_signal(const char *name, int sig, int *out_token)
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d (kstatus: %d)", __func__, NOTIFY_STATUS_REG_SIGNAL_2_FAILED, __LINE__, kstatus);
 		return NOTIFY_STATUS_FAILED;
 	}
 
-	client_registration_create(name, NID_UNSET, token, cid, SLOT_NONE, NOTIFY_TYPE_SIGNAL | NOTIFY_FLAG_REGEN, sig, FD_NONE, MACH_PORT_NULL);
+	status = client_registration_create(name, NID_UNSET, token, cid, SLOT_NONE,
+			NOTIFY_TYPE_SIGNAL | NOTIFY_FLAG_REGEN, sig, FD_NONE, MACH_PORT_NULL);
+
+	if (status != NOTIFY_STATUS_OK)
+	{
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
+	}
 
 	*out_token = token;
 #ifdef DEBUG
@@ -2187,6 +2476,19 @@ notify_register_signal(const char *name, int sig, int *out_token)
 	return NOTIFY_STATUS_OK;
 }
 
+
+/*
+ * Port ownership rules:
+ * - notify common port is a pure receive right, with no send rights in our space
+ *
+ * - if the client doesn't pass NOTIFY_REUSE then we make a receive right that
+ *   we track in the mach port references (notify_retain_mach_port, mpl_mine).
+ *
+ * - if we forward notifications to a local port, the library owns a send right
+ *   tracked in the the registration with NOTIFY_FLAG_RELEASE_SEND
+ *
+ * - self notifications own a send right, tracked by the client_t structure
+ */
 uint32_t
 notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int flags, int *out_token)
 {
@@ -2194,7 +2496,6 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "-> %s\n", __func__);
 #endif
 
-	notify_state_t *ns_self;
 	kern_return_t kstatus;
 	uint32_t status;
 	uint64_t nid;
@@ -2207,7 +2508,19 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 	notify_globals_t globals = _notify_globals();
 	bool create_base = false;
 
-	regenerate_check(globals);
+	status = regenerate_check(globals);
+	if (status != NOTIFY_STATUS_OK)
+	{
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
+	}
 
 	if (name == NULL)
 	{
@@ -2238,63 +2551,68 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__,
+					    NOTIFY_STATUS_MACH_PORT_ALLOC_FAILED, __LINE__);
 			return NOTIFY_STATUS_FAILED;
 		}
 	}
-
-	/*
-	 * Add a send right to the port.
-	 * If we register directly with notifyd, then notifyd will need the send right.
-	 * If we use dispatch to forward notifications to this port, the the library needs the send right.
-	 */
-	kstatus = mach_port_insert_right(task, *notify_port, *notify_port, MACH_MSG_TYPE_MAKE_SEND);
-	if (kstatus != KERN_SUCCESS)
+	else if (!MACH_PORT_VALID(*notify_port))
 	{
-		if (mine == 1) mach_port_mod_refs(task, *notify_port, MACH_PORT_RIGHT_RECEIVE, -1);
-#ifdef DEBUG
-		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-		return NOTIFY_STATUS_FAILED;
+		return NOTIFY_STATUS_INVALID_PORT;
 	}
 
 	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
 	{
-		ns_self = _notify_lib_self_state();
-		if (ns_self == NULL)
+		/* we need to donate a Send right to the client */
+		kstatus = mach_port_insert_right(mach_task_self(), *notify_port, *notify_port, MACH_MSG_TYPE_MAKE_SEND);
+		if (kstatus != KERN_SUCCESS)
 		{
-			if (mine == 1)
-			{
-				mach_port_mod_refs(task, *notify_port, MACH_PORT_RIGHT_RECEIVE, -1);
-			}
-
-			mach_port_deallocate(task, *notify_port);
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-			return NOTIFY_STATUS_FAILED;
+			return NOTIFY_STATUS_INVALID_PORT;
 		}
 
 		token = atomic_increment32(&globals->token_id);
-		status = _notify_lib_register_mach_port(ns_self, name, NOTIFY_CLIENT_SELF, token, *notify_port, 0, 0, &nid);
+		status = _notify_lib_register_mach_port(&globals->self_state, name, NOTIFY_CLIENT_SELF, token, *notify_port, 0, 0, &nid);
 		if (status != NOTIFY_STATUS_OK)
 		{
-			if (mine == 1)
+			if (mine == 1) mach_port_destruct(mach_task_self(), *notify_port, -1, 0);
+			if (IS_INTERNAL_ERROR(status))
 			{
-				mach_port_mod_refs(task, *notify_port, MACH_PORT_RIGHT_RECEIVE, -1);
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
 			}
-
-			mach_port_deallocate(task, *notify_port);
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
+			
 			return status;
 		}
 
 		cid = token;
-		client_registration_create(name, nid, token, cid, SLOT_NONE, NOTIFY_FLAG_SELF | NOTIFY_TYPE_PORT, SIGNAL_NONE, FD_NONE, *notify_port);
+		status = client_registration_create(name, nid, token, cid, SLOT_NONE,
+				NOTIFY_FLAG_SELF | NOTIFY_TYPE_PORT, SIGNAL_NONE, FD_NONE, *notify_port);
+
+		if (status != NOTIFY_STATUS_OK)
+		{
+			if (mine == 1) mach_port_destruct(mach_task_self(), *notify_port, 0, 0);
+			_notify_lib_cancel(&globals->self_state, NOTIFY_CLIENT_SELF, token);
+			if (IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
+#ifdef DEBUG
+			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE,
+					"<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+			return status;
+		}
 
 		*out_token = token;
-		notify_retain_mach_port(*notify_port, mine);
+		notify_retain_mach_port(globals, *notify_port, flags);
+		NOTIFY_REGISTER_MACH_PORT(name, *notify_port, flags, token);
 
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
@@ -2303,39 +2621,34 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 	}
 
 	/* initialize if necessary */
-	if (globals->notify_server_port == MACH_PORT_NULL ||
-	    ((globals->client_opts & NOTIFY_OPT_DISPATCH) && globals->notify_common_port == MACH_PORT_NULL))
+	if ((globals->notify_server_port == MACH_PORT_NULL) ||
+	    ((globals->client_opts & NOTIFY_OPT_DISPATCH) && !MACH_PORT_VALID(globals->notify_common_port)))
 	{
 		status = _notify_lib_init(globals, EVENT_INIT);
-		if (status != 0)
+		if (status != NOTIFY_STATUS_OK)
 		{
 			/* error occurred: release receive right (if a new one was allocated) and the send right we added */
-			if (mine == 1) mach_port_mod_refs(task, *notify_port, MACH_PORT_RIGHT_RECEIVE, -1);
-			mach_port_deallocate(task, *notify_port);
+			if (mine == 1) mach_port_destruct(mach_task_self(), *notify_port, 0, 0);
+			if (IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-			return NOTIFY_STATUS_FAILED;
+			return status;
 		}
 	}
 
-	if ((globals->client_opts & NOTIFY_OPT_DISPATCH) && (*notify_port != globals->notify_common_port))
+	if (globals->client_opts & NOTIFY_OPT_DISPATCH)
 	{
 		/*
-		 * We'll receive the notification on notify_common_port and forward it
-		 * to the caller's port, so we add a send right to the common port.
+		 * If it is a notify_register_mach_port(), we'll receive the
+		 * notification on notify_common_port anyway,
+		 * and forward it to the caller's port.
 		 */
 		port = globals->notify_common_port;
-		kstatus = mach_port_insert_right(task, globals->notify_common_port, globals->notify_common_port, MACH_MSG_TYPE_MAKE_SEND);
-		if (kstatus != KERN_SUCCESS)
-		{
-			if (mine == 1) mach_port_mod_refs(task, *notify_port, MACH_PORT_RIGHT_RECEIVE, -1);
-			mach_port_deallocate(task, *notify_port);
-#ifdef DEBUG
-			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-			return NOTIFY_STATUS_FAILED;
-		}
 	}
 	else
 	{
@@ -2343,8 +2656,7 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 		port = *notify_port;
 	}
 
-	tflags = NOTIFY_TYPE_PORT;
-	if (port == globals->notify_common_port) tflags |= NOTIFY_FLAG_REGEN;
+	tflags = NOTIFY_TYPE_PORT | NOTIFY_FLAG_REGEN;
 
 	token = -1;
 	cid = -1;
@@ -2363,7 +2675,7 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 		 */
 		mutex_lock("global", &globals->notify_lock, __func__, __LINE__);
 
-		n = (name_node_t *)_nc_table_find(globals->name_table, name);
+		n = _nc_table_find(&globals->name_node_table, name);
 		if (n == NULL)
 		{
 #ifdef DEBUG
@@ -2394,20 +2706,38 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 			kstatus = _notify_server_register_mach_port_2(globals->notify_server_port, (caddr_t)name, token, globals->notify_common_port);
 			if (kstatus != KERN_SUCCESS)
 			{
-				if (mine == 1) mach_port_mod_refs(task, *notify_port, MACH_PORT_RIGHT_RECEIVE, -1);
 				mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
-				mach_port_deallocate(task, *notify_port);
+				if (mine == 1) mach_port_destruct(mach_task_self(), *notify_port, 0, 0);
 #ifdef DEBUG
 				if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d (kstatus: %d)", __func__,
+						    NOTIFY_STATUS_REG_MACH_PORT_2_FAILED, __LINE__, kstatus);
 				return NOTIFY_STATUS_FAILED;
 			}
 
-			base_registration_create_locked(globals, name, NID_UNSET, token, tflags, globals->notify_common_port);
+			status = base_registration_create_locked(globals, name, NID_UNSET, token, tflags,
+					globals->notify_common_port);
+			if (status != NOTIFY_STATUS_OK)
+			{
+				mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
+				if (mine == 1) mach_port_destruct(mach_task_self(), *notify_port, 0, 0);
+				if (IS_INTERNAL_ERROR(status))
+				{
+					REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+					status = NOTIFY_STATUS_FAILED;
+				}
+#ifdef DEBUG
+				if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+				
+				return status;
+			}
+
 		}
 
 		/* we will need a pointer to the name node below - look it up while we still have the global lock */
-		n = (name_node_t *)_nc_table_find(globals->name_table, name);
+		n = _nc_table_find(&globals->name_node_table, name);
 
 		if(!create_base){
 			registration_node_retain(n->coalesce_base);
@@ -2429,11 +2759,26 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 		 * We pass create_base down to client_registration_create_base to indicate that it should avoid
 		 * the extra retain -- see name_node_add_coalesced_registration()
 		 */
-		client_registration_create_base(name, NID_UNSET, token, cid, SLOT_NONE, tflags, SIGNAL_NONE, FD_NONE, *notify_port, create_base);
+		status = client_registration_create_base(name, NID_UNSET, token, cid, SLOT_NONE,
+				tflags, SIGNAL_NONE, FD_NONE, *notify_port, create_base);
 
 		if(!create_base){
 			registration_node_release(n->coalesce_base);
 		}
+
+		if(status != NOTIFY_STATUS_OK){
+			if (mine == 1) mach_port_destruct(mach_task_self(), *notify_port, 0, 0);
+			if (IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
+#ifdef DEBUG
+			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+			return status;
+		}
+
 	}
 	else
 	{
@@ -2443,25 +2788,58 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 		kstatus = _notify_server_register_mach_port_2(globals->notify_server_port, (caddr_t)name, token, port);
 		if (kstatus != KERN_SUCCESS)
 		{
-			if (mine == 1) mach_port_mod_refs(task, *notify_port, MACH_PORT_RIGHT_RECEIVE, -1);
+			if (mine == 1) mach_port_destruct(mach_task_self(), *notify_port, 0, 0);
 			mach_port_deallocate(task, *notify_port);
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
+
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d (kstatus: %d)", __func__,
+					NOTIFY_STATUS_REG_MACH_PORT_2_FAILED, __LINE__, kstatus);
 			return NOTIFY_STATUS_FAILED;
 		}
 
-		client_registration_create_base(name, NID_UNSET, token, cid, SLOT_NONE, tflags, SIGNAL_NONE, FD_NONE, *notify_port, false);
+		status = client_registration_create_base(name, NID_UNSET, token, cid, SLOT_NONE,
+				tflags, SIGNAL_NONE, FD_NONE, *notify_port, false);
+
+		if(status != NOTIFY_STATUS_OK)
+		{
+			if (mine == 1) mach_port_destruct(mach_task_self(), *notify_port, 0, 0);
+			if (IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
+#ifdef DEBUG
+			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+			return status;
+		}
 	}
 
-	if ((globals->client_opts & NOTIFY_OPT_DISPATCH) && (*notify_port != globals->notify_common_port))
+	if ((globals->client_opts & NOTIFY_OPT_DISPATCH) && (flags & _NOTIFY_COMMON_PORT) == 0)
 	{
+		/*
+		 * If we use dispatch to forward notifications to this port, the the library needs the send right.
+		 */
+		kstatus = mach_port_insert_right(task, *notify_port, *notify_port, MACH_MSG_TYPE_MAKE_SEND);
+		if (kstatus != KERN_SUCCESS)
+		{
+			if (mine == 1) mach_port_destruct(mach_task_self(), *notify_port, 0, 0);
+#ifdef DEBUG
+			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+			return NOTIFY_STATUS_INVALID_PORT;
+		}
+
 		r = registration_node_find(token);
 		if (r == NULL)
 		{
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__,
+					    NOTIFY_STATUS_TOKEN_NOT_FOUND, __LINE__);
 			return NOTIFY_STATUS_FAILED;
 		}
 
@@ -2474,7 +2852,6 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 		r->block = (notify_handler_t)Block_copy(^(int unused){
 			mach_msg_empty_send_t msg;
 			kern_return_t kstatus;
-
 
 			/* send empty message to the port with msgh_id = token; */
 			memset(&msg, 0, sizeof(msg));
@@ -2512,7 +2889,8 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 	}
 
 	*out_token = token;
-	notify_retain_mach_port(*notify_port, mine);
+	notify_retain_mach_port(globals, *notify_port, flags);
+	NOTIFY_REGISTER_MACH_PORT(name, *notify_port, flags, token);
 
 #ifdef DEBUG
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
@@ -2527,7 +2905,6 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "-> %s\n", __func__);
 #endif
 
-	notify_state_t *ns_self;
 	uint32_t i, status;
 	uint64_t nid;
 	int token, mine, fdpair[2];
@@ -2536,7 +2913,20 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 	uint32_t cid = -1;
 	notify_globals_t globals = _notify_globals();
 
-	regenerate_check(globals);
+	status = regenerate_check(globals);
+	if (status != NOTIFY_STATUS_OK)
+	{
+
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
+	}
 
 	mine = 0;
 
@@ -2566,6 +2956,8 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 			if (_libnotify_debug & DEBUG_USER) _notify_client_log(ASL_LEVEL_ERR, "notify_register_file_descriptor %s [non-reused[ pipe failed errno=%d [%s]\n, name, errno, strerror(errno)");
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__,
+					NOTIFY_STATUS_PIPE_FAILED, __LINE__);
 			return NOTIFY_STATUS_FAILED;
 		}
 
@@ -2595,24 +2987,8 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 
 	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
 	{
-		ns_self = _notify_lib_self_state();
-		if (ns_self == NULL)
-		{
-			if (mine == 1)
-			{
-				close(fdpair[0]);
-				close(fdpair[1]);
-			}
-
-#ifdef DEBUG
-			if (_libnotify_debug & DEBUG_USER) _notify_client_log(ASL_LEVEL_ERR, "notify_register_file_descriptor %s [self] _notify_lib_self_state failed\n", name);
-			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-			return NOTIFY_STATUS_FAILED;
-		}
-
 		token = atomic_increment32(&globals->token_id);
-		status = _notify_lib_register_file_descriptor(ns_self, name, NOTIFY_CLIENT_SELF, token, fdpair[1], 0, 0, &nid);
+		status = _notify_lib_register_file_descriptor(&globals->self_state, name, NOTIFY_CLIENT_SELF, token, fdpair[1], 0, 0, &nid);
 		if (status != NOTIFY_STATUS_OK)
 		{
 			if (mine == 1)
@@ -2621,6 +2997,11 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 				close(fdpair[1]);
 			}
 
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_USER) _notify_client_log(ASL_LEVEL_ERR, "notify_register_file_descriptor %s [self] _notify_lib_register_file_descriptor failed status=%u\n", name, status);
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
@@ -2629,7 +3010,22 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 		}
 
 		cid = token;
-		client_registration_create(name, nid, token, cid, SLOT_NONE, NOTIFY_FLAG_SELF | NOTIFY_TYPE_FILE, SIGNAL_NONE, *notify_fd, MACH_PORT_NULL);
+		status = client_registration_create(name, nid, token, cid, SLOT_NONE,
+				NOTIFY_FLAG_SELF | NOTIFY_TYPE_FILE, SIGNAL_NONE, *notify_fd, MACH_PORT_NULL);
+
+		if (status != NOTIFY_STATUS_OK)
+		{
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
+#ifdef DEBUG
+			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE,
+					"<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+			return status;
+		}
 
 		*out_token = token;
 		notify_retain_file_descriptor(fdpair[0], fdpair[1]);
@@ -2654,6 +3050,11 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 				close(fdpair[1]);
 			}
 
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_USER) _notify_client_log(ASL_LEVEL_ERR, "notify_register_file_descriptor %s notify_register_mux_fd failed status=%u\n", name, status);
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
@@ -2671,7 +3072,7 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 	if (globals->notify_server_port == MACH_PORT_NULL)
 	{
 		status = _notify_lib_init(globals, EVENT_INIT);
-		if (status != 0)
+		if (status != NOTIFY_STATUS_OK)
 		{
 			if (mine == 1)
 			{
@@ -2679,11 +3080,16 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 				close(fdpair[1]);
 			}
 
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_USER) _notify_client_log(ASL_LEVEL_ERR, "notify_register_file_descriptor %s _notify_lib_init failed status=%u\n", name, status);
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-			return NOTIFY_STATUS_FAILED;
+			return status;
 		}
 	}
 
@@ -2701,6 +3107,8 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 		if (_libnotify_debug & DEBUG_USER) _notify_client_log(ASL_LEVEL_ERR, "notify_register_file_descriptor %s fileport_makeport failed errno=%d [%s]\n", name, errno, strerror(errno));
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__,
+				NOTIFY_STATUS_FILEPORT_MAKEPORT_FAILED, __LINE__);
 		return NOTIFY_STATUS_FAILED;
 	}
 
@@ -2718,10 +3126,22 @@ notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int
 		if (_libnotify_debug & DEBUG_USER) _notify_client_log(ASL_LEVEL_ERR, "notify_register_file_descriptor %s  _notify_server_register_file_descriptor[_2] failed status=0x%08xu\n", name, kstatus);
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d (kstatus: %d)", __func__,
+				    NOTIFY_STATUS_REG_FD_2_FAILED, __LINE__, kstatus);
 		return NOTIFY_STATUS_FAILED;
 	}
 
-	client_registration_create(name, NID_UNSET, token, cid, SLOT_NONE, NOTIFY_TYPE_FILE, SIGNAL_NONE, *notify_fd, MACH_PORT_NULL);
+	status = client_registration_create(name, NID_UNSET, token, cid, SLOT_NONE, NOTIFY_TYPE_FILE,
+			SIGNAL_NONE, *notify_fd, MACH_PORT_NULL);
+
+	if (status != NOTIFY_STATUS_OK)
+	{
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE,
+				"<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
+	}
 
 	*out_token = token;
 	notify_retain_file_descriptor(fdpair[0], fdpair[1]);
@@ -2745,7 +3165,19 @@ notify_check(int token, int *check)
 	uint32_t tid;
 	notify_globals_t globals = _notify_globals();
 
-	regenerate_check(globals);
+	status = regenerate_check(globals);
+	if (status != NOTIFY_STATUS_OK)
+	{
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
+	}
 
 	if (check == NULL)
 	{
@@ -2753,7 +3185,7 @@ notify_check(int token, int *check)
 		if (_libnotify_debug & DEBUG_USER) _notify_client_log(ASL_LEVEL_ERR, "notify_check check=NULL\n", token);
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-		return NOTIFY_STATUS_FAILED;
+		return NOTIFY_STATUS_NULL_INPUT;
 	}
 
 	r = registration_node_find(token);
@@ -2768,11 +3200,11 @@ notify_check(int token, int *check)
 
 	if (r->flags & NOTIFY_FLAG_SELF)
 	{
-		/* _notify_lib_check returns NOTIFY_STATUS_FAILED if self_state is NULL */
-		status = _notify_lib_check(globals->self_state, NOTIFY_CLIENT_SELF, token, check);
+		/* _notify_lib_check returns NOTIFY_STATUS_NULL_INPUT if self_state is NULL */
+		status = _notify_lib_check(&globals->self_state, NOTIFY_CLIENT_SELF, token, check);
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_USER) _notify_client_log(ASL_LEVEL_ERR, "notify_check token %d self registration _notify_lib_check status %u check %d\n", token, status, *check);
-		if ((_libnotify_debug & DEBUG_USER) && (status != NOTIFY_STATUS_FAILED)) _notify_client_log(ASL_LEVEL_ERR, "notify_check token %d [self] _notify_lib_check failed status=%u\n", token, status);
+		if ((_libnotify_debug & DEBUG_USER) && (status != NOTIFY_STATUS_NULL_INPUT)) _notify_client_log(ASL_LEVEL_ERR, "notify_check token %d [self] _notify_lib_check failed status=%u\n", token, status);
 #endif
 		goto release_and_return;
 	}
@@ -2781,7 +3213,7 @@ notify_check(int token, int *check)
 	{
 		if (globals->shm_base == NULL)
 		{
-			status = NOTIFY_STATUS_FAILED;
+			status = NOTIFY_STATUS_SHM_BASE_NULL;
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_USER) _notify_client_log(ASL_LEVEL_ERR, "notify_check token %d [memory] globals->shm_base is NULL\n", token);
 #endif
@@ -2831,7 +3263,7 @@ notify_check(int token, int *check)
 #endif
 	if (kstatus != KERN_SUCCESS)
 	{
-		status = NOTIFY_STATUS_FAILED;
+		status = NOTIFY_STATUS_SERVER_CHECK_FAILED;
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_USER) _notify_client_log(ASL_LEVEL_ERR, "notify_check token %d [non-memory] _notify_server_check failed kstatus=0x%08x status=%u\n", token, kstatus, status);
 #endif
@@ -2839,7 +3271,15 @@ notify_check(int token, int *check)
 
 release_and_return:
 
+	NOTIFY_CHECK(token, *check);
+
 	registration_node_release(r);
+
+	if(IS_INTERNAL_ERROR(status))
+	{
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+		status = NOTIFY_STATUS_FAILED;
+	}
 
 #ifdef DEBUG
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d] status %u check %d\n", __func__, __LINE__ + 2, status, *check);
@@ -2859,7 +3299,19 @@ notify_peek(int token, uint32_t *val)
 	uint32_t status;
 	notify_globals_t globals = _notify_globals();
 
-	regenerate_check(globals);
+	status = regenerate_check(globals);
+	if (status != NOTIFY_STATUS_OK)
+	{
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
+	}
 
 	r = registration_node_find(token);
 	if (r == NULL)
@@ -2872,8 +3324,8 @@ notify_peek(int token, uint32_t *val)
 
 	if (r->flags & NOTIFY_FLAG_SELF)
 	{
-		/* _notify_lib_peek returns NOTIFY_STATUS_FAILED if self_state is NULL */
-		status = _notify_lib_peek(globals->self_state, NOTIFY_CLIENT_SELF, token, (int *)val);
+		/* _notify_lib_peek returns NOTIFY_STATUS_NULL_INPUT if self_state is NULL */
+		status = _notify_lib_peek(&globals->self_state, NOTIFY_CLIENT_SELF, token, (int *)val);
 		goto release_and_return;
 	}
 
@@ -2883,7 +3335,7 @@ notify_peek(int token, uint32_t *val)
 	{
 		if (globals->shm_base == NULL)
 		{
-			status = NOTIFY_STATUS_FAILED;
+			status = NOTIFY_STATUS_SHM_BASE_NULL;
 			goto release_and_return;
 		}
 
@@ -2895,6 +3347,11 @@ release_and_return:
 
 	registration_node_release(r);
 
+	if(IS_INTERNAL_ERROR(status))
+	{
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+		status = NOTIFY_STATUS_FAILED;
+	}
 #ifdef DEBUG
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
@@ -2915,7 +3372,19 @@ notify_monitor_file(int token, char *path, int flags)
 	char *dup;
 	notify_globals_t globals = _notify_globals();
 
-	regenerate_check(globals);
+	status = regenerate_check(globals);
+	if (status != NOTIFY_STATUS_OK)
+	{
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
+	}
 
 	if (path == NULL)
 	{
@@ -2956,13 +3425,19 @@ notify_monitor_file(int token, char *path, int flags)
 	if (globals->notify_server_port == MACH_PORT_NULL)
 	{
 		status = _notify_lib_init(globals, EVENT_INIT);
-		if (status != 0)
+		if (status != NOTIFY_STATUS_OK)
 		{
 			registration_node_release(r);
+
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-			return NOTIFY_STATUS_FAILED;
+			return status;
 		}
 	}
 
@@ -2972,6 +3447,8 @@ notify_monitor_file(int token, char *path, int flags)
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__,
+				NOTIFY_STATUS_STRDUP_FAILED, __LINE__);
 		return NOTIFY_STATUS_FAILED;
 	}
 
@@ -2993,7 +3470,9 @@ notify_monitor_file(int token, char *path, int flags)
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-		return NOTIFY_STATUS_FAILED;
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d (kstatus: %d)", __func__,
+				    NOTIFY_STATUS_STRDUP_FAILED, __LINE__, kstatus);
+		return NOTIFY_STATUS_SERVER_MONITOR_FILE_2_FAILED;
 	}
 
 #ifdef DEBUG
@@ -3009,6 +3488,14 @@ notify_get_event(int token, int *ev, char *buf, int *len)
 #ifdef DEBUG
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "-> %s\n", __func__);
 #endif
+
+	static bool report_deprecated_once = true;
+
+	if(report_deprecated_once)
+	{
+		REPORT_BAD_BEHAVIOR("Libnotify client using deprecated function notify_get_event; this function does nothing");
+		report_deprecated_once = false;
+	}
 
 	if (ev != NULL) *ev = 0;
 	if (len != NULL) *len = 0;
@@ -3032,7 +3519,20 @@ notify_get_state(int token, uint64_t *state)
 	uint64_t nid;
 	notify_globals_t globals = _notify_globals();
 
-	regenerate_check(globals);
+	status = regenerate_check(globals);
+	if (status != NOTIFY_STATUS_OK)
+	{
+
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
+	}
 
 	r = registration_node_find(token);
 	if (r == NULL)
@@ -3054,9 +3554,15 @@ notify_get_state(int token, uint64_t *state)
 
 	if (r->flags & NOTIFY_FLAG_SELF)
 	{
-		/* _notify_lib_get_state returns NOTIFY_STATUS_FAILED if self_state is NULL */
-		status = _notify_lib_get_state(globals->self_state, r->name_node->name_id, state, 0, 0);
+		/* _notify_lib_get_state returns NOTIFY_STATUS_NULL_INPUT if self_state is NULL */
+		status = _notify_lib_get_state(&globals->self_state, r->name_node->name_id, state, 0, 0);
 		registration_node_release(r);
+
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
@@ -3066,41 +3572,56 @@ notify_get_state(int token, uint64_t *state)
 	if (globals->notify_server_port == MACH_PORT_NULL)
 	{
 		status = _notify_lib_init(globals, EVENT_INIT);
-		if (status != 0)
+		if (status != NOTIFY_STATUS_OK)
 		{
 			registration_node_release(r);
+
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-			return NOTIFY_STATUS_FAILED;
+			return status;
 		}
 	}
 
 	{
+		name_node_t *name_node = r->name_node;
 		int xtoken = token;
-		if (r->flags & NOTIFY_TYPE_COALESCED) xtoken = r->name_node->coalesce_base_token;
+		if (r->flags & NOTIFY_TYPE_COALESCED) xtoken = name_node->coalesce_base_token;
 
-		nid = r->name_node->name_id;
+		// This is a race, but it is safe. The worst case is that nid is looked-up and set twice.
+		mutex_lock(name_node->name, &name_node->lock, __func__, __LINE__);
+		nid = name_node->name_id;
+		mutex_unlock(name_node->name, &name_node->lock, __func__, __LINE__);
+
 		if ((nid == NID_UNSET) || (nid == NID_CALLED_ONCE))
 		{
 			kstatus = _notify_server_get_state_3(globals->notify_server_port, xtoken, state, (uint64_t *)&nid, (int32_t *)&status);
-			if ((kstatus == KERN_SUCCESS) && (status == NOTIFY_STATUS_OK)) name_node_set_nid(r->name_node, nid);
+			if ((kstatus == KERN_SUCCESS) && (status == NOTIFY_STATUS_OK)) name_node_set_nid(name_node, nid);
 		}
 		else
 		{
-			kstatus = _notify_server_get_state_2(globals->notify_server_port, r->name_node->name_id, state, (int32_t *)&status);
+			kstatus = _notify_server_get_state_2(globals->notify_server_port, nid, state, (int32_t *)&status);
 		}
 	}
 
 	registration_node_release(r);
+
 	if (kstatus != KERN_SUCCESS)
 	{
-#ifdef DEBUG
-		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-		return NOTIFY_STATUS_FAILED;
+		status = NOTIFY_STATUS_SERVER_GET_STATE_2_FAILED;
 	}
 
+
+	if(IS_INTERNAL_ERROR(status))
+	{
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+		status = NOTIFY_STATUS_FAILED;
+	}
 #ifdef DEBUG
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
@@ -3120,7 +3641,19 @@ notify_set_state(int token, uint64_t state)
 	uint64_t nid;
 	notify_globals_t globals = _notify_globals();
 
-	regenerate_check(globals);
+	status = regenerate_check(globals);
+	if (status != NOTIFY_STATUS_OK)
+	{
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
+	}
 
 	r = registration_node_find(token);
 	if (r == NULL)
@@ -3142,9 +3675,15 @@ notify_set_state(int token, uint64_t state)
 
 	if (r->flags & NOTIFY_FLAG_SELF)
 	{
-		/* _notify_lib_set_state returns NOTIFY_STATUS_FAILED if self_state is NULL */
-		status = _notify_lib_set_state(globals->self_state, r->name_node->name_id, state, 0, 0);
+		/* _notify_lib_set_state returns NOTIFY_STATUS_NULL_INPUT if self_state is NULL */
+		status = _notify_lib_set_state(&globals->self_state, r->name_node->name_id, state, 0, 0);
 		registration_node_release(r);
+
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
@@ -3154,32 +3693,43 @@ notify_set_state(int token, uint64_t state)
 	if (globals->notify_server_port == MACH_PORT_NULL)
 	{
 		status = _notify_lib_init(globals, EVENT_INIT);
-		if (status != 0)
+		if (status != NOTIFY_STATUS_OK)
 		{
 			registration_node_release(r);
+
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-			return NOTIFY_STATUS_FAILED;
+			return status;
 		}
 	}
 
 	status = NOTIFY_STATUS_OK;
 
 	{
+		name_node_t *name_node = r->name_node;
 		int xtoken = token;
-		if (r->flags & NOTIFY_TYPE_COALESCED) xtoken = r->name_node->coalesce_base_token;
+		if (r->flags & NOTIFY_TYPE_COALESCED) xtoken = name_node->coalesce_base_token;
 
-		nid = r->name_node->name_id;
+		// This is a race, but it is safe. The worst case is that nid is looked-up and set twice.
+		mutex_lock(name_node->name, &name_node->lock, __func__, __LINE__);
+		nid = name_node->name_id;
+		mutex_unlock(name_node->name, &name_node->lock, __func__, __LINE__);
+
 		if ((nid == NID_UNSET) || (nid == NID_CALLED_ONCE))
 		{
 			kstatus = _notify_server_set_state_3(globals->notify_server_port, xtoken, state, (uint64_t *)&nid, (int32_t *)&status, should_claim_root_access());
-			if ((kstatus == KERN_SUCCESS) && (status == NOTIFY_STATUS_OK)) name_node_set_nid(r->name_node, nid);
+			if ((kstatus == KERN_SUCCESS) && (status == NOTIFY_STATUS_OK)) name_node_set_nid(name_node, nid);
 		}
 		else
 		{
 			status = NOTIFY_STATUS_OK;
-			kstatus = _notify_server_set_state_2(globals->notify_server_port, r->name_node->name_id, state, should_claim_root_access());
+			kstatus = _notify_server_set_state_2(globals->notify_server_port, nid, state, should_claim_root_access());
 		}
 	}
 
@@ -3195,6 +3745,8 @@ notify_set_state(int token, uint64_t state)
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__,
+				NOTIFY_STATUS_SERVER_SET_STATE_2_FAILED, __LINE__);
 		return NOTIFY_STATUS_FAILED;
 	}
 
@@ -3213,12 +3765,25 @@ notify_cancel(int token)
 
 	registration_node_t *r;
 	notify_globals_t globals = _notify_globals();
+	uint32_t status;
 
-	regenerate_check(globals);
+	status = regenerate_check(globals);
+	if (status != NOTIFY_STATUS_OK)
+	{
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
+	}
 
 	mutex_lock("global", &globals->notify_lock, __func__, __LINE__);
 
-	r = (registration_node_t *)_nc_table_find_n(globals->registration_table, token);
+	r = _nc_table_find_n(&globals->registration_table, token);
 	if (r == NULL)
 	{
 		mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
@@ -3228,7 +3793,10 @@ notify_cancel(int token)
 		return NOTIFY_STATUS_INVALID_TOKEN;
 	}
 
-	registration_node_release_locked(globals, r);
+	if (!(r->flags & NOTIFY_FLAG_CANCELED)) {
+		r->flags |= NOTIFY_FLAG_CANCELED;
+		registration_node_release_locked(globals, r);
+	}
 	mutex_unlock("global", &globals->notify_lock, __func__, __LINE__);
 	// Always return OK here as there's nothing a client can do if the server call failed
 	return NOTIFY_STATUS_OK;
@@ -3246,7 +3814,19 @@ notify_suspend(int token)
 	kern_return_t kstatus;
 	notify_globals_t globals = _notify_globals();
 
-	regenerate_check(globals);
+	status = regenerate_check(globals);
+	if (status != NOTIFY_STATUS_OK)
+	{
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
+	}
 
 	r = registration_node_find(token);
 	if (r == NULL)
@@ -3259,7 +3839,7 @@ notify_suspend(int token)
 
 	if (r->flags & NOTIFY_FLAG_SELF)
 	{
-		_notify_lib_suspend(globals->self_state, NOTIFY_CLIENT_SELF, r->token);
+		_notify_lib_suspend(&globals->self_state, NOTIFY_CLIENT_SELF, r->token);
 		registration_node_release(r);
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
@@ -3270,13 +3850,19 @@ notify_suspend(int token)
 	if (globals->notify_server_port == MACH_PORT_NULL)
 	{
 		status = _notify_lib_init(globals, EVENT_INIT);
-		if (status != 0)
+		if (status != NOTIFY_STATUS_OK)
 		{
 			registration_node_release(r);
+
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-			return NOTIFY_STATUS_FAILED;
+			return status;
 		}
 	}
 
@@ -3289,7 +3875,15 @@ notify_suspend(int token)
 	kstatus = _notify_server_suspend(globals->notify_server_port, tid, (int32_t *)&status);
 
 	registration_node_release(r);
-	if (kstatus != KERN_SUCCESS) status = NOTIFY_STATUS_FAILED;
+
+	if (kstatus != KERN_SUCCESS) status = NOTIFY_STATUS_SERVER_SUSPEND_FAILED;
+
+	if(IS_INTERNAL_ERROR(status))
+	{
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+		status = NOTIFY_STATUS_FAILED;
+	}
+
 #ifdef DEBUG
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
@@ -3308,7 +3902,19 @@ notify_resume(int token)
 	kern_return_t kstatus;
 	notify_globals_t globals = _notify_globals();
 
-	regenerate_check(globals);
+	status = regenerate_check(globals);
+	if (status != NOTIFY_STATUS_OK)
+	{
+		if(IS_INTERNAL_ERROR(status))
+		{
+			REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+			status = NOTIFY_STATUS_FAILED;
+		}
+#ifdef DEBUG
+		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
+#endif
+		return status;
+	}
 
 	r = registration_node_find(token);
 	if (r == NULL)
@@ -3321,7 +3927,7 @@ notify_resume(int token)
 
 	if (r->flags & NOTIFY_FLAG_SELF)
 	{
-		_notify_lib_resume(globals->self_state, NOTIFY_CLIENT_SELF, r->token);
+		_notify_lib_resume(&globals->self_state, NOTIFY_CLIENT_SELF, r->token);
 		registration_node_release(r);
 #ifdef DEBUG
 		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
@@ -3332,13 +3938,19 @@ notify_resume(int token)
 	if (globals->notify_server_port == MACH_PORT_NULL)
 	{
 		status = _notify_lib_init(globals, EVENT_INIT);
-		if (status != 0)
+		if (status != NOTIFY_STATUS_OK)
 		{
 			registration_node_release(r);
+
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-			return NOTIFY_STATUS_FAILED;
+			return status;
 		}
 	}
 
@@ -3351,7 +3963,15 @@ notify_resume(int token)
 	kstatus = _notify_server_resume(globals->notify_server_port, tid, (int32_t *)&status);
 
 	registration_node_release(r);
-	if (kstatus != KERN_SUCCESS) status = NOTIFY_STATUS_FAILED;
+
+	if (kstatus != KERN_SUCCESS) status = NOTIFY_STATUS_SERVER_RESUME_FAILED;
+
+	if(IS_INTERNAL_ERROR(status))
+	{
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+		status = NOTIFY_STATUS_FAILED;
+	}
+
 #ifdef DEBUG
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
@@ -3365,25 +3985,35 @@ notify_suspend_pid(pid_t pid)
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "-> %s\n", __func__);
 #endif
 
-	uint32_t status;
+	uint32_t status = NOTIFY_STATUS_OK;
 	kern_return_t kstatus;
 	notify_globals_t globals = _notify_globals();
 
 	if (globals->notify_server_port == MACH_PORT_NULL)
 	{
 		status = _notify_lib_init(globals, EVENT_INIT);
-		if (status != 0)
+		if (status != NOTIFY_STATUS_OK)
 		{
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-			return NOTIFY_STATUS_FAILED;
+			return status;
 		}
 	}
 
-	kstatus = _notify_server_suspend_pid(globals->notify_server_port, pid, (int32_t *)&status);
+	kstatus = _notify_server_suspend_pid(globals->notify_server_port, pid);
 
-	if (kstatus != KERN_SUCCESS) status = NOTIFY_STATUS_FAILED;
+	if(kstatus != KERN_SUCCESS)
+	{
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, kstatus, __LINE__);
+		status = NOTIFY_STATUS_FAILED;
+	}
+
 #ifdef DEBUG
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
@@ -3397,25 +4027,36 @@ notify_resume_pid(pid_t pid)
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "-> %s\n", __func__);
 #endif
 
-	uint32_t status;
+	uint32_t status = NOTIFY_STATUS_OK;
 	kern_return_t kstatus;
 	notify_globals_t globals = _notify_globals();
 
 	if (globals->notify_server_port == MACH_PORT_NULL)
 	{
 		status = _notify_lib_init(globals, EVENT_INIT);
-		if (status != 0)
+		if (status != NOTIFY_STATUS_OK)
 		{
+
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
 #ifdef DEBUG
 			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
-			return NOTIFY_STATUS_FAILED;
+			return status;
 		}
 	}
 
-	kstatus = _notify_server_resume_pid(globals->notify_server_port, pid, (int32_t *)&status);
+	kstatus = _notify_server_resume_pid(globals->notify_server_port, pid);
 
-	if (kstatus != KERN_SUCCESS) status = NOTIFY_STATUS_FAILED;
+	if(kstatus != KERN_SUCCESS)
+	{
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, kstatus, __LINE__);
+		status = NOTIFY_STATUS_FAILED;
+	}
+
 #ifdef DEBUG
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
 #endif
@@ -3429,6 +4070,14 @@ notify_simple_post(const char *name)
 #ifdef DEBUG
 	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "-> %s\n", __func__);
 #endif
+
+	static bool report_deprecated_once = true;
+
+	if(report_deprecated_once)
+	{
+		REPORT_BAD_BEHAVIOR("Libnotify client using deprecated function notify_simple_post, use notify_post instead");
+		report_deprecated_once = false;
+	}
 
 	uint32_t status = notify_post(name);
 #ifdef DEBUG
@@ -3455,7 +4104,13 @@ notify_dump_status(const char *filepath)
 		status = _notify_lib_init(globals, EVENT_INIT);
 		if (status != NOTIFY_STATUS_OK)
 		{
-			return NOTIFY_STATUS_FAILED;
+			if(IS_INTERNAL_ERROR(status))
+			{
+				REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d", __func__, status, __LINE__);
+				status = NOTIFY_STATUS_FAILED;
+			}
+
+			return status;
 		}
 	}
 
@@ -3463,6 +4118,7 @@ notify_dump_status(const char *filepath)
 	file_descriptor = creat(filepath,  S_IWUSR);
 	if(file_descriptor < 0)
 	{
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d (errno: %d)", __func__, NOTIFY_STATUS_FAILED, __LINE__, errno);
 		return NOTIFY_STATUS_FAILED;
 	}
 
@@ -3472,6 +4128,7 @@ notify_dump_status(const char *filepath)
 	if(fileport_status < 0)
 	{
 		close(file_descriptor);
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d (fileport_status: %d)", __func__, NOTIFY_STATUS_FAILED, __LINE__, fileport_status);
 		return NOTIFY_STATUS_FAILED;
 	}
 
@@ -3480,6 +4137,7 @@ notify_dump_status(const char *filepath)
 	close(file_descriptor);
 	if(kstatus != KERN_SUCCESS)
 	{
+		REPORT_BAD_BEHAVIOR("Libnotify: %s failed with code %d on line %d (kstatus: %d)", __func__, NOTIFY_STATUS_FAILED, __LINE__, kstatus);
 		return NOTIFY_STATUS_FAILED;
 	}
 

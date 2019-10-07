@@ -29,8 +29,6 @@
  *	All Rights Reserved
  */
 
-#pragma ident	"@(#)begin.c	1.18	08/05/31 SMI"
-
 #include <ar.h>
 #include <stdlib.h>
 #include <memory.h>
@@ -38,7 +36,6 @@
 #include <libelf.h>
 #include <sys/mman.h>
 #include "decl.h"
-#include "member.h"
 #include "msg.h"
 
 static const char	armag[] = ARMAG;
@@ -49,98 +46,6 @@ static const char	armag[] = ARMAG;
 #include <mach-o/dyld.h>
 #include <mach-o/fat.h>
 #include <sys/sysctl.h>
-
-void
-__swap_mach_header(struct mach_header* header)
-{
-	SWAP32(header->magic);
-	SWAP32(header->cputype);
-	SWAP32(header->cpusubtype);
-	SWAP32(header->filetype);
-	SWAP32(header->ncmds);
-	SWAP32(header->sizeofcmds);
-	SWAP32(header->flags);
-}
-
-void
-__swap_mach_header_64(struct mach_header_64* header)
-{
-	SWAP32(header->magic);
-	SWAP32(header->cputype);
-	SWAP32(header->cpusubtype);
-	SWAP32(header->filetype);
-	SWAP32(header->ncmds);
-	SWAP32(header->sizeofcmds);
-	SWAP32(header->flags);
-}
-
-void
-__swap_segment_command(struct segment_command* segment)
-{
-	SWAP32(segment->cmd);
-	SWAP32(segment->cmdsize);
-	SWAP32(segment->vmaddr);
-	SWAP32(segment->vmsize);
-	SWAP32(segment->fileoff);
-	SWAP32(segment->filesize);
-	SWAP32(segment->maxprot);
-	SWAP32(segment->initprot);
-	SWAP32(segment->nsects);
-	SWAP32(segment->flags);
-}
-
-void
-__swap_segment_command_64(struct segment_command_64* segment)
-{
-	SWAP32(segment->cmd);
-	SWAP32(segment->cmdsize);
-	SWAP64(segment->vmaddr);
-	SWAP64(segment->vmsize);
-	SWAP64(segment->fileoff);
-	SWAP64(segment->filesize);
-	SWAP32(segment->maxprot);
-	SWAP32(segment->initprot);
-	SWAP32(segment->nsects);
-	SWAP32(segment->flags);
-}
-
-void 
-__swap_section(struct section* section_ptr)
-{
-	SWAP32(section_ptr->addr);
-	SWAP32(section_ptr->size);
-	SWAP32(section_ptr->offset);
-	SWAP32(section_ptr->align);
-	SWAP32(section_ptr->reloff);
-	SWAP32(section_ptr->nreloc);
-	SWAP32(section_ptr->flags);
-	SWAP32(section_ptr->reserved1);
-	SWAP32(section_ptr->reserved2);
-}
-
-void 
-__swap_section_64(struct section_64* section_ptr)
-{
-	SWAP64(section_ptr->addr);
-	SWAP64(section_ptr->size);
-	SWAP32(section_ptr->offset);
-	SWAP32(section_ptr->align);
-	SWAP32(section_ptr->reloff);
-	SWAP32(section_ptr->nreloc);
-	SWAP32(section_ptr->flags);
-	SWAP32(section_ptr->reserved1);
-	SWAP32(section_ptr->reserved2);
-}
-
-void __swap_symtab_command(struct symtab_command *symtab)
-{
-	SWAP32(symtab->cmd);
-	SWAP32(symtab->cmdsize);
-	SWAP32(symtab->symoff);
-	SWAP32(symtab->nsyms);
-	SWAP32(symtab->stroff);
-	SWAP32(symtab->strsize);
-}
 
 static cpu_type_t current_program_arch(void)
 {
@@ -157,7 +62,7 @@ static cpu_type_t current_kernel_arch(void)
         int                                                ret, mib[4];
         size_t                                        len;
         struct kinfo_proc                kp;
-        
+
         size = sizeof(hi)/sizeof(int);
         kret = host_info(mach_host_self(), HOST_BASIC_INFO, (host_info_t)&hi, &size);
         if (kret != KERN_SUCCESS) {
@@ -180,70 +85,7 @@ static cpu_type_t current_kernel_arch(void)
         return current_arch;
 }
 
-/*
- * Initialize archive member
- */
-Elf *
-_elf_member(int fd, Elf * ref, unsigned flags)
-{
-	register Elf	*elf;
-	Member		*mh;
-	size_t		base;
-
-	if (ref->ed_nextoff >= ref->ed_fsz)
-		return (0);
-	if (ref->ed_fd == -1)		/* disabled */
-		fd = -1;
-	if (flags & EDF_WRITE) {
-		_elf_seterr(EREQ_ARRDWR, 0);
-		return (0);
-	}
-	if (ref->ed_fd != fd) {
-		_elf_seterr(EREQ_ARMEMFD, 0);
-		return (0);
-	}
-	if ((_elf_vm(ref, ref->ed_nextoff, sizeof (struct ar_hdr)) !=
-	    OK_YES) || ((mh = _elf_armem(ref,
-	    ref->ed_ident + ref->ed_nextoff, ref->ed_fsz)) == 0))
-		return (0);
-
-	base = ref->ed_nextoff + sizeof (struct ar_hdr);
-	if (ref->ed_fsz - base < mh->m_hdr.ar_size) {
-		_elf_seterr(EFMT_ARMEMSZ, 0);
-		return (0);
-	}
-	if ((elf = (Elf *)calloc(1, sizeof (Elf))) == 0) {
-		_elf_seterr(EMEM_ELF, errno);
-		return (0);
-	}
-	++ref->ed_activ;
-	elf->ed_parent = ref;
-	elf->ed_fd = fd;
-	elf->ed_myflags |= flags;
-	elf->ed_armem = mh;
-	elf->ed_fsz = mh->m_hdr.ar_size;
-	elf->ed_baseoff = ref->ed_baseoff + base;
-	elf->ed_memoff = base - mh->m_slide;
-	elf->ed_siboff = base + elf->ed_fsz + (elf->ed_fsz & 1);
-	ref->ed_nextoff = elf->ed_siboff;
-	elf->ed_image = ref->ed_image;
-	elf->ed_imagesz = ref->ed_imagesz;
-	elf->ed_vm = ref->ed_vm;
-	elf->ed_vmsz = ref->ed_vmsz;
-	elf->ed_ident = ref->ed_ident + base - mh->m_slide;
-
-	/*
-	 * If this member is the archive string table,
-	 * we've already altered the bytes.
-	 */
-
-	if (ref->ed_arstroff == ref->ed_nextoff)
-		elf->ed_status = ES_COOKED;
-	return (elf);
-}
-
-
-Elf *
+static Elf *
 _elf_regular(int fd, unsigned flags)		/* initialize regular file */
 {
 	Elf		*elf;
@@ -264,8 +106,7 @@ _elf_regular(int fd, unsigned flags)		/* initialize regular file */
 	return (elf);
 }
 
-
-Elf *
+static Elf *
 _elf_config(Elf * elf)
 {
 	char *		base;
@@ -283,28 +124,8 @@ _elf_config(Elf * elf)
 	    (base[EI_MAG1] == ELFMAG1) &&
 	    (base[EI_MAG2] == ELFMAG2) &&
 	    (base[EI_MAG3] == ELFMAG3)) {
-		elf->ed_kind = ELF_K_ELF;
-		elf->ed_class = base[EI_CLASS];
-		elf->ed_encode = base[EI_DATA];
-		if ((elf->ed_version = base[EI_VERSION]) == 0)
-			elf->ed_version = 1;
-		elf->ed_identsz = EI_NIDENT;
-
-		/*
-		 * Allow writing only if originally specified read only.
-		 * This is only necessary if the file must be translating
-		 * from one encoding to another.
-		 */
-		ELFACCESSDATA(encode, _elf_encode)
-		if ((elf->ed_vm == 0) && ((elf->ed_myflags & EDF_WRITE) == 0) &&
-		    (elf->ed_encode != encode)) {
-			if (mprotect((char *)elf->ed_image, elf->ed_imagesz,
-			    PROT_READ|PROT_WRITE) == -1) {
-				_elf_seterr(EIO_VM, errno);
-				return (0);
-			}
-		}
-		return (elf);
+		_elf_seterr(EREQ_NOTSUP, 0);
+		return (0);
 	}
 
 	/*
@@ -344,35 +165,18 @@ _elf_config(Elf * elf)
 	    (MH_MAGIC == *(unsigned int *)(elf->ed_image) || 
 		 MH_CIGAM == *(unsigned int *)(elf->ed_image))) {
 		 
-		struct mach_header hdr, *mh = (struct mach_header *)elf->ed_image;
+		struct mach_header *mh = (struct mach_header *)elf->ed_image;
 		struct load_command *thisLC = (struct load_command *)(&(mh[1]));
 		int i, n = 0;
-		int needSwap = (MH_CIGAM == mh->magic);
-		
-		if (needSwap) {
-			hdr = *mh;
-			mh = &hdr;
-			__swap_mach_header(mh);
-		}
 			
 		for (i = 0; i < mh->ncmds; i++) {
 			int cmd = thisLC->cmd, cmdsize = thisLC->cmdsize;
-			
-			if (needSwap) {
-				SWAP32(cmd);
-				SWAP32(cmdsize);
-			}
-				
+
 			switch(cmd) {
 				case LC_SEGMENT:
 				{
-					struct segment_command seg, *thisSG = (struct segment_command *)thisLC;
-					
-					if (needSwap) {
-						seg = *thisSG;
-						thisSG = &seg;
-						__swap_segment_command(thisSG);
-					}
+					struct segment_command *thisSG = (struct segment_command *)thisLC;
+
 					
 					n += thisSG->nsects;
 					break;
@@ -399,9 +203,9 @@ _elf_config(Elf * elf)
 		((Elf32_Ehdr *)(elf->ed_ident))->e_ident[EI_MAG3] = 'h';
 		((Elf32_Ehdr *)(elf->ed_ident))->e_ident[EI_CLASS] = ELFCLASS32;
 #if defined(__BIG_ENDIAN__)
-		((Elf32_Ehdr *)(elf->ed_ident))->e_ident[EI_DATA] = (needSwap ? ELFDATA2LSB : ELFDATA2MSB);
+		((Elf32_Ehdr *)(elf->ed_ident))->e_ident[EI_DATA] = ELFDATA2MSB;
 #else
-		((Elf32_Ehdr *)(elf->ed_ident))->e_ident[EI_DATA] = (needSwap ? ELFDATA2MSB : ELFDATA2LSB);
+		((Elf32_Ehdr *)(elf->ed_ident))->e_ident[EI_DATA] = ELFDATA2LSB;
 #endif
 		((Elf32_Ehdr *)(elf->ed_ident))->e_ident[EI_VERSION] = EV_CURRENT;
 		((Elf32_Ehdr *)(elf->ed_ident))->e_ident[EI_OSABI] = ELFOSABI_NONE;
@@ -450,36 +254,17 @@ _elf_config(Elf * elf)
 	    (MH_MAGIC_64 == *(unsigned int *)(elf->ed_image) || 
 		 MH_CIGAM_64 == *(unsigned int *)(elf->ed_image))) {
 		 
-		struct mach_header_64 hdr, *mh64 = (struct mach_header_64 *)elf->ed_image;
+		struct mach_header_64 *mh64 = (struct mach_header_64 *)elf->ed_image;
 		struct load_command *thisLC = (struct load_command *)(&(mh64[1]));
 		int i, n = 0;
-		int needSwap = (MH_CIGAM_64 == mh64->magic);
-		
-		if (needSwap) {
-			hdr = *mh64;
-			mh64 = &hdr;
-			__swap_mach_header_64(mh64);
-		}
-			
+
 		for (i = 0; i < mh64->ncmds; i++) {
 			int cmd = thisLC->cmd, cmdsize = thisLC->cmdsize;
-			
-			if (needSwap) {
-				SWAP32(cmd);
-				SWAP32(cmdsize);
-			}
-				
+
 			switch(cmd) {
 				case LC_SEGMENT_64:
 				{
-					struct segment_command_64 seg, *thisSG64 = (struct segment_command_64 *)thisLC;
-
-					if (needSwap) {
-						seg = *thisSG64;
-						thisSG64 = &seg;
-						__swap_segment_command_64(thisSG64);
-					}
-
+					struct segment_command_64 *thisSG64 = (struct segment_command_64 *)thisLC;
 					n += thisSG64->nsects;
 					break;
 				}
@@ -505,9 +290,9 @@ _elf_config(Elf * elf)
 		((Elf64_Ehdr *)(elf->ed_ident))->e_ident[EI_MAG3] = 'h';
 		((Elf64_Ehdr *)(elf->ed_ident))->e_ident[EI_CLASS] = ELFCLASS64;
 #if defined(__BIG_ENDIAN__)
-		((Elf64_Ehdr *)(elf->ed_ident))->e_ident[EI_DATA] = (needSwap ? ELFDATA2LSB : ELFDATA2MSB);
+		((Elf64_Ehdr *)(elf->ed_ident))->e_ident[EI_DATA] = ELFDATA2MSB;
 #else
-		((Elf64_Ehdr *)(elf->ed_ident))->e_ident[EI_DATA] = (needSwap ? ELFDATA2MSB : ELFDATA2LSB);
+		((Elf64_Ehdr *)(elf->ed_ident))->e_ident[EI_DATA] = ELFDATA2LSB;
 #endif
 		((Elf64_Ehdr *)(elf->ed_ident))->e_ident[EI_VERSION] = EV_CURRENT;
 		((Elf64_Ehdr *)(elf->ed_ident))->e_ident[EI_OSABI] = ELFOSABI_NONE;
@@ -551,16 +336,14 @@ _elf_config(Elf * elf)
 		return (elf);
 	}
 
-	/*
+    /*
 	 * Determine if this is an Archive
 	 */
 	if ((elf->ed_fsz >= SARMAG) &&
 	    (_elf_vm(elf, (size_t)0, (size_t)SARMAG) == OK_YES) &&
 	    (memcmp(base, armag, SARMAG) == 0)) {
-		_elf_arinit(elf);
-		elf->ed_kind = ELF_K_AR;
-		elf->ed_identsz = SARMAG;
-		return (elf);
+		_elf_seterr(EREQ_NOTSUP, 0);
+		return (0);
 	}
 
 	/*
@@ -574,107 +357,6 @@ _elf_config(Elf * elf)
 
 	return (elf);
 }
-
-Elf *
-elf_memory(char * image, size_t sz)
-{
-	Elf		*elf;
-	unsigned	work;
-
-	/*
-	 * version() no called yet?
-	 */
-	ELFACCESSDATA(work, _elf_work)
-	if (work == EV_NONE) {
-		_elf_seterr(ESEQ_VER, 0);
-		return (0);
-	}
-
-	if ((elf = (Elf *)calloc(1, sizeof (Elf))) == 0) {
-		_elf_seterr(EMEM_ELF, errno);
-		return (0);
-	}
-	NOTE(NOW_INVISIBLE_TO_OTHER_THREADS(*elf))
-	elf->ed_fd = -1;
-	elf->ed_myflags |= EDF_READ | EDF_MEMORY;
-	elf->ed_image = elf->ed_ident = image;
-	elf->ed_imagesz = elf->ed_fsz = elf->ed_identsz = sz;
-	elf->ed_kind = ELF_K_ELF;
-	elf->ed_class = image[EI_CLASS];
-	elf->ed_encode = image[EI_DATA];
-	if ((elf->ed_version = image[EI_VERSION]) == 0)
-		elf->ed_version = 1;
-	elf->ed_identsz = EI_NIDENT;
-	elf->ed_activ = 1;
-	elf = _elf_config(elf);
-	NOTE(NOW_VISIBLE_TO_OTHER_THREADS(*elf))
-	return (elf);
-}
-
-/*
- * The following is a private interface between the linkers (ld & ld.so.1)
- * and libelf.
- *
- * elf_begin(0, ELF_C_IMAGE, ref)
- *	Return a new elf_descriptor which uses the memory image from
- *	ref as the base image of the elf file.  Before this elf_begin()
- *	is called an elf_update(ref, ELF_C_WRIMAGE) must have been
- *	done to the ref elf descriptor.
- *	The ELF_C_IMAGE is unique in that modificatino of the Elf structure
- *	is illegal (no elf_new*()) but you can modify the actual
- *	data image of the file in question.
- *
- *	When you are done processing this file you can then perform a
- *	elf_end() on it.
- *
- *	NOTE: if an elf_update(ref, ELF_C_WRITE) is done on the ref Elf
- *		descriptor then the memory image that the ELF_C_IMAGE
- *		is using has been discarded.  The proper calling convention
- *		for this is as follows:
- *
- *	elf1 = elf_begin(fd, ELF_C_WRITE, 0);
- *	...
- *	elf_update(elf1, ELF_C_WRIMAGE);	 build memory image
- *	elf2 = elf_begin(0, ELF_C_IMAGE, elf1);
- *	...
- *	elf_end(elf2);
- *	elf_updage(elf1, ELF_C_WRITE);		flush memory image to disk
- *	elf_end(elf1);
- *
- *
- * elf_begin(0, ELF_C_IMAGE, 0);
- *	returns a pointer to an elf descriptor as if it were opened
- *	with ELF_C_WRITE except that it has no file descriptor and it
- *	will not create a file.  It's to be used with the command:
- *
- *		elf_update(elf, ELF_C_WRIMAGE)
- *
- *	which will build a memory image instead of a file image.
- *	The memory image is allocated via dynamic memory (malloc) and
- *	can be free with a subsequent call to
- *
- *		elf_update(elf, ELF_C_WRITE)
- *
- *	NOTE: that if elf_end(elf) is called it will not free the
- *		memory image if it is still allocated.  It is then
- *		the callers responsiblity to free it via a call
- *		to free().
- *
- *	Here is a potential calling sequence for this interface:
- *
- *	elf1 = elf_begin(0, ELF_C_IMAGE, 0);
- *	...
- *	elf_update(elf1, ELF_C_WRIMAGE);	build memory image
- *	elf2 = elf_begin(0, ELF_C_IMAGE, elf1);
- *	...
- *	image_ptr = elf32_getehdr(elf2);	get pointer to image
- *	elf_end(elf2);
- *	elf_end(elf1);
- *	...
- *	use image
- *	...
- *	free(image_ptr);
- */
 
 Elf *
 elf_begin(int fd, Elf_Cmd cmd, Elf *ref)
@@ -697,21 +379,6 @@ elf_begin(int fd, Elf_Cmd cmd, Elf *ref)
 	case ELF_C_NULL:
 		return (0);
 
-	case ELF_C_IMAGE:
-		if (ref) {
-			char *	image;
-			size_t	imagesz;
-			ELFRLOCK(ref);
-			if ((image = ref->ed_wrimage) == 0) {
-				_elf_seterr(EREQ_NOWRIMAGE, 0);
-				ELFUNLOCK(ref);
-				return (0);
-			}
-			imagesz = ref->ed_wrimagesz;
-			ELFUNLOCK(ref);
-			return (elf_memory(image, imagesz));
-		}
-		/* FALLTHROUGH */
 	case ELF_C_WRITE:
 		if ((elf = (Elf *)calloc(1, sizeof (Elf))) == 0) {
 			_elf_seterr(EMEM_ELF, errno);
@@ -722,8 +389,6 @@ elf_begin(int fd, Elf_Cmd cmd, Elf *ref)
 		elf->ed_fd = fd;
 		elf->ed_activ = 1;
 		elf->ed_myflags |= EDF_WRITE;
-		if (cmd == ELF_C_IMAGE)
-			elf->ed_myflags |= EDF_WRALLOC;
 		NOTE(NOW_VISIBLE_TO_OTHER_THREADS(*elf))
 		return (elf);
 	case ELF_C_RDWR:
@@ -763,11 +428,9 @@ elf_begin(int fd, Elf_Cmd cmd, Elf *ref)
 			ELFUNLOCK(ref);
 			return (ref);
 		}
-		if ((elf = _elf_member(fd, ref, flags)) == 0) {
-			ELFUNLOCK(ref);
-			return (0);
-		}
+		_elf_seterr(EREQ_NOTSUP, 0);
 		ELFUNLOCK(ref);
+		return (0);
 	}
 
 	NOTE(NOW_INVISIBLE_TO_OTHER_THREADS(*elf))

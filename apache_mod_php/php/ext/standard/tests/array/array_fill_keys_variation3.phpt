@@ -1,11 +1,11 @@
 --TEST--
-Test array_fill_keys() function : variation of parameter 
+Test array_fill_keys() function : variation of parameter
 --FILE--
 <?php
 /* Prototype  : proto array array_fill_keys(array keys, mixed val)
- * Description: Create an array using the elements of the first parameter as keys each initialized to val 
+ * Description: Create an array using the elements of the first parameter as keys each initialized to val
  * Source code: ext/standard/array.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 /* Testing with unexpected argument types */
@@ -36,7 +36,7 @@ echo "Done";
 
 -- Testing array_fill_keys() function with both wrong arguments --
 
-Warning: array_fill_keys() expects parameter 1 to be array, boolean given in %sarray_fill_keys_variation3.php on line %d
+Warning: array_fill_keys() expects parameter 1 to be array, bool given in %sarray_fill_keys_variation3.php on line %d
 NULL
 
 -- Testing array_fill_keys() function with unusual second arguments --

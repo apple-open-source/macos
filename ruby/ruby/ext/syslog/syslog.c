@@ -5,7 +5,7 @@
  * Documented by mathew <meta@pobox.com>
  *
  * $RoughId: syslog.c,v 1.21 2002/02/25 12:21:17 knu Exp $
- * $Id: syslog.c 62140 2018-01-31 13:38:59Z usa $
+ * $Id: syslog.c 62429 2018-02-16 08:39:48Z nobu $
  */
 
 #include "ruby/ruby.h"
@@ -420,6 +420,7 @@ static VALUE mSyslogMacros_included(VALUE mod, VALUE target)
  */
 void Init_syslog(void)
 {
+#undef rb_intern
     mSyslog = rb_define_module("Syslog");
 
     mSyslogConstants    = rb_define_module_under(mSyslog, "Constants");
@@ -506,7 +507,7 @@ void Init_syslog(void)
     rb_define_syslog_facility(LOG_NEWS);
 #endif
 #ifdef LOG_NTP
-   rb_define_syslog_facility(LOG_NTP);
+    rb_define_syslog_facility(LOG_NTP);
 #endif
 #ifdef LOG_SECURITY
     rb_define_syslog_facility(LOG_SECURITY);

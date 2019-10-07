@@ -36,11 +36,7 @@
 
 WTF_EXTERN_C_BEGIN
 
-#ifdef __LP64__
 typedef double IOHIDFloat;
-#else
-typedef float IOHIDFloat;
-#endif
 
 enum {
     kIOHIDEventOptionNone = 0,
@@ -185,6 +181,7 @@ enum {
     kHIDUsage_KeyboardSlash = 0x38,
     kHIDUsage_KeyboardCapsLock = 0x39,
     kHIDUsage_KeyboardF1 = 0x3A,
+    kHIDUsage_KeyboardF12 = 0x45,
     kHIDUsage_KeyboardPrintScreen = 0x46,
     kHIDUsage_KeyboardInsert = 0x49,
     kHIDUsage_KeyboardHome = 0x4A,
@@ -198,7 +195,9 @@ enum {
     kHIDUsage_KeyboardUpArrow = 0x52,
     kHIDUsage_KeypadNumLock = 0x53,
     kHIDUsage_KeyboardF13 = 0x68,
+    kHIDUsage_KeyboardF24 = 0x73,
     kHIDUsage_KeyboardMenu = 0x76,
+    kHIDUsage_KeypadComma = 0x85,
     kHIDUsage_KeyboardLeftControl = 0xE0,
     kHIDUsage_KeyboardLeftShift = 0xE1,
     kHIDUsage_KeyboardLeftAlt = 0xE2,

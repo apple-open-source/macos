@@ -59,7 +59,8 @@ static uint8_t descriptor[] = {
 
     self.testNullEventExpectation = [[IOHIDXCTestExpectation alloc] initWithDescription:@"expectation: Null event"];
     
-    IOHIDServiceClientBlock handler = ^(void * _Nullable target __unused, void * _Nullable refcon __unused, IOHIDServiceClientRef  _Nonnull service __unused) {
+    IOHIDServiceClientBlock handler = ^(void * _Nullable target __unused, void * _Nullable refcon __unused, IOHIDServiceClientRef  _Nonnull service) {
+        NSLog(@"Service: %@", service);
         [self.testServiceExpectation fulfill];
     };
     

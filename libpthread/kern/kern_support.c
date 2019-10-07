@@ -122,12 +122,18 @@ lck_attr_t   *pthread_lck_attr;
 
 #define C_32_STK_ALIGN          16
 #define C_64_STK_ALIGN          16
-#define C_64_REDZONE_LEN        128
 
 // WORKQ use the largest alignment any platform needs
 #define C_WORKQ_STK_ALIGN       16
 
+#if defined(__arm64__)
+/* Pull the pthread_t into the same page as the top of the stack so we dirty one less page.
+ * <rdar://problem/19941744> The _pthread struct at the top of the stack shouldn't be page-aligned
+ */
+#define PTHREAD_T_OFFSET (12*1024)
+#else
 #define PTHREAD_T_OFFSET 0
+#endif
 
 /*
  * Flags filed passed to bsdthread_create and back in pthread_start
@@ -169,11 +175,13 @@ stack_addr_hint(proc_t p, vm_map_t vmap)
 	mach_vm_offset_t stackaddr;
 	mach_vm_offset_t aslr_offset;
 	bool proc64bit = proc_is64bit(p);
+	bool proc64bit_data = proc_is64bit_data(p);
 
 	// We can't safely take random values % something unless its a power-of-two
 	_Static_assert(powerof2(PTH_DEFAULT_STACKSIZE), "PTH_DEFAULT_STACKSIZE is a power-of-two");
 
 #if defined(__i386__) || defined(__x86_64__)
+	(void)proc64bit_data;
 	if (proc64bit) {
 		// Matches vm_map_get_max_aslr_slide_pages's image shift in xnu
 		aslr_offset = random() % (1 << 28); // about 512 stacks
@@ -211,7 +219,13 @@ stack_addr_hint(proc_t p, vm_map_t vmap)
 			stackaddr = SHARED_REGION_BASE_ARM64 - 64 * PTH_DEFAULT_STACKSIZE - aslr_offset;
 		} else {
 			// If you try to slide down from this point, you risk ending up in memory consumed by malloc
-			stackaddr = SHARED_REGION_BASE_ARM - 32 * PTH_DEFAULT_STACKSIZE + aslr_offset;
+			if (proc64bit_data) {
+				stackaddr = SHARED_REGION_BASE_ARM64_32;
+			} else {
+				stackaddr = SHARED_REGION_BASE_ARM;
+			}
+
+			stackaddr -= 32 * PTH_DEFAULT_STACKSIZE + aslr_offset;
 		}
 	}
 #else
@@ -308,7 +322,7 @@ _bsdthread_create(struct proc *p,
 			.r8  = (uint64_t)user_stack,   /* golang wants this */
 			.r9  = (uint64_t)flags,
 
-			.rsp = (uint64_t)(user_stack - C_64_REDZONE_LEN)
+			.rsp = (uint64_t)user_stack,
 		};
 
 		(void)pthread_kern->thread_set_wq_state64(th, (thread_state_t)&state);
@@ -322,7 +336,41 @@ _bsdthread_create(struct proc *p,
 			.edi = (uint32_t)user_stack,   /* golang wants this */
 			.esi = (uint32_t)flags,
 
-			.esp = (int)((vm_offset_t)(user_stack - C_32_STK_ALIGN))
+			.esp = (uint32_t)user_stack,
+		};
+
+		(void)pthread_kern->thread_set_wq_state32(th, (thread_state_t)&state);
+	}
+#elif defined(__arm__) || defined(__arm64__)
+	if (proc_is64bit_data(p)) {
+#ifdef __arm64__
+		arm_thread_state64_t state = {
+			.pc   = (uint64_t)pthread_kern->proc_get_threadstart(p),
+			.x[0] = (uint64_t)user_pthread,
+			.x[1] = (uint64_t)th_thport,
+			.x[2] = (uint64_t)user_func,    /* golang wants this */
+			.x[3] = (uint64_t)user_funcarg, /* golang wants this */
+			.x[4] = (uint64_t)user_stack,   /* golang wants this */
+			.x[5] = (uint64_t)flags,
+
+			.sp   = (uint64_t)user_stack,
+		};
+
+		(void)pthread_kern->thread_set_wq_state64(th, (thread_state_t)&state);
+#else
+		panic("Shouldn't have a 64-bit thread on a 32-bit kernel...");
+#endif // defined(__arm64__)
+	} else {
+		arm_thread_state_t state = {
+			.pc   = (uint32_t)pthread_kern->proc_get_threadstart(p),
+			.r[0] = (uint32_t)user_pthread,
+			.r[1] = (uint32_t)th_thport,
+			.r[2] = (uint32_t)user_func,    /* golang wants this */
+			.r[3] = (uint32_t)user_funcarg, /* golang wants this */
+			.r[4] = (uint32_t)user_stack,   /* golang wants this */
+			.r[5] = (uint32_t)flags,
+
+			.sp   = (uint32_t)user_stack,
 		};
 
 		(void)pthread_kern->thread_set_wq_state32(th, (thread_state_t)&state);
@@ -755,63 +803,77 @@ workq_set_register_state(proc_t p, thread_t th,
 			panic(__func__ ": thread_set_wq_state failed: %d", error);
 		}
 	}
+#elif defined(__arm__) || defined(__arm64__)
+	if (!proc_is64bit_data(p)) {
+		arm_thread_state_t state = {
+			.pc = (int)wqstart_fnptr,
+			.r[0] = (unsigned int)addrs->self,
+			.r[1] = (unsigned int)kport,
+			.r[2] = (unsigned int)addrs->stack_bottom,
+			.r[3] = (unsigned int)kevent_list,
+			// will be pushed onto the stack as arg4/5
+			.r[4] = (unsigned int)upcall_flags,
+			.r[5] = (unsigned int)kevent_count,
+
+			.sp = (int)(addrs->stack_top)
+		};
+
+		int error = pthread_kern->thread_set_wq_state32(th, (thread_state_t)&state);
+		if (error != KERN_SUCCESS) {
+			panic(__func__ ": thread_set_wq_state failed: %d", error);
+		}
+	} else {
+#if defined(__arm64__)
+		arm_thread_state64_t state = {
+			.pc = (uint64_t)wqstart_fnptr,
+			.x[0] = (uint64_t)addrs->self,
+			.x[1] = (uint64_t)kport,
+			.x[2] = (uint64_t)addrs->stack_bottom,
+			.x[3] = (uint64_t)kevent_list,
+			.x[4] = (uint64_t)upcall_flags,
+			.x[5] = (uint64_t)kevent_count,
+
+			.sp = (uint64_t)((vm_offset_t)addrs->stack_top),
+		};
+
+		int error = pthread_kern->thread_set_wq_state64(th, (thread_state_t)&state);
+		if (error != KERN_SUCCESS) {
+			panic(__func__ ": thread_set_wq_state failed: %d", error);
+		}
+#else /* defined(__arm64__) */
+		panic("Shouldn't have a 64-bit thread on a 32-bit kernel...");
+#endif /* defined(__arm64__) */
+	}
 #else
 #error setup_wqthread  not defined for this architecture
 #endif
 }
 
-static int
-workq_kevent(proc_t p, struct workq_thread_addrs *th_addrs, int upcall_flags,
+static inline int
+workq_kevent(proc_t p, struct workq_thread_addrs *th_addrs,
 		user_addr_t eventlist, int nevents, int kevent_flags,
 		user_addr_t *kevent_list_out, int *kevent_count_out)
 {
-	bool workloop = upcall_flags & WQ_FLAG_THREAD_WORKLOOP;
-	int kevent_count = WQ_KEVENT_LIST_LEN;
-	user_addr_t kevent_list = th_addrs->self - WQ_KEVENT_LIST_LEN * sizeof(struct kevent_qos_s);
-	user_addr_t kevent_id_addr = kevent_list;
-	kqueue_id_t kevent_id = -1;
 	int ret;
 
-	if (workloop) {
-		/*
-		 * The kevent ID goes just below the kevent list.  Sufficiently new
-		 * userspace will know to look there.  Old userspace will just
-		 * ignore it.
-		 */
-		kevent_id_addr -= sizeof(kqueue_id_t);
-	}
+	user_addr_t kevent_list = th_addrs->self -
+			WQ_KEVENT_LIST_LEN * sizeof(struct kevent_qos_s);
+	user_addr_t data_buf = kevent_list - WQ_KEVENT_DATA_SIZE;
+	user_size_t data_available = WQ_KEVENT_DATA_SIZE;
 
-	user_addr_t kevent_data_buf = kevent_id_addr - WQ_KEVENT_DATA_SIZE;
-	user_size_t kevent_data_available = WQ_KEVENT_DATA_SIZE;
-
-	if (workloop) {
-		kevent_flags |= KEVENT_FLAG_WORKLOOP;
-		ret = kevent_id_internal(p, &kevent_id,
-				eventlist, nevents, kevent_list, kevent_count,
-				kevent_data_buf, &kevent_data_available,
-				kevent_flags, &kevent_count);
-		copyout(&kevent_id, kevent_id_addr, sizeof(kevent_id));
-	} else {
-		kevent_flags |= KEVENT_FLAG_WORKQ;
-		ret = kevent_qos_internal(p, -1, eventlist, nevents, kevent_list,
-				kevent_count, kevent_data_buf, &kevent_data_available,
-				kevent_flags, &kevent_count);
-	}
+	ret = pthread_kern->kevent_workq_internal(p, eventlist, nevents,
+			kevent_list, WQ_KEVENT_LIST_LEN,
+			data_buf, &data_available,
+			kevent_flags, kevent_count_out);
 
 	// squash any errors into just empty output
-	if (ret != 0 || kevent_count == -1) {
+	if (ret != 0 || *kevent_count_out == -1) {
 		*kevent_list_out = NULL;
 		*kevent_count_out = 0;
 		return ret;
 	}
 
-	if (kevent_data_available == WQ_KEVENT_DATA_SIZE) {
-		workq_thread_set_top_addr(th_addrs, kevent_id_addr);
-	} else {
-		workq_thread_set_top_addr(th_addrs,
-				kevent_data_buf + kevent_data_available);
-	}
-	*kevent_count_out = kevent_count;
+	workq_thread_set_top_addr(th_addrs, data_buf + data_available);
 	*kevent_list_out = kevent_list;
 	return ret;
 }
@@ -833,7 +895,7 @@ workq_kevent(proc_t p, struct workq_thread_addrs *th_addrs, int upcall_flags,
  * |pthread_t  | th_stackaddr + DEFAULT_STACKSIZE + guardsize + PTHREAD_STACK_OFFSET
  * |kevent list| optionally - at most WQ_KEVENT_LIST_LEN events
  * |kevent data| optionally - at most WQ_KEVENT_DATA_SIZE bytes
- * |stack gap  | bottom aligned to 16 bytes, and at least as big as stack_gap_min
+ * |stack gap  | bottom aligned to 16 bytes
  * |   STACK   |
  * |     ⇓     |
  * |           |
@@ -880,8 +942,7 @@ workq_setup_thread(proc_t p, thread_t th, vm_map_t map, user_addr_t stackaddr,
 		kevent_count = WORKQ_EXIT_THREAD_NKEVENT;
 	} else if (upcall_flags & WQ_FLAG_THREAD_KEVENT) {
 		unsigned int flags = KEVENT_FLAG_STACK_DATA | KEVENT_FLAG_IMMEDIATE;
-		workq_kevent(p, &th_addrs, upcall_flags, NULL, 0, flags,
-				&kevent_list, &kevent_count);
+		workq_kevent(p, &th_addrs, NULL, 0, flags, &kevent_list, &kevent_count);
 	}
 
 	workq_set_register_state(p, th, &th_addrs, kport,
@@ -909,7 +970,7 @@ workq_handle_stack_events(proc_t p, thread_t th, vm_map_t map,
 
 	unsigned int flags = KEVENT_FLAG_STACK_DATA | KEVENT_FLAG_IMMEDIATE |
 			KEVENT_FLAG_PARKING;
-	error = workq_kevent(p, &th_addrs, upcall_flags, events, nevents, flags,
+	error = workq_kevent(p, &th_addrs, events, nevents, flags,
 			&kevent_list, &kevent_count);
 
 	if (error || kevent_count == 0) {

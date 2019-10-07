@@ -25,10 +25,12 @@
 #import <Security/SFAnalytics.h>
 #import "SFAnalyticsDefines.h"
 #import "SFAnalyticsSQLiteStore.h"
+#import "NSDate+SFAnalytics.h"
 #import "SFSQLite.h"
 #import <Prequelite/Prequelite.h>
 #import <CoreFoundation/CFPriv.h>
 #import <notify.h>
+#import "keychain/analytics/TestResourceUsage.h"
 
 @interface UnitTestAnalytics : SFAnalytics
 + (NSString*)databasePath;
@@ -84,9 +86,9 @@ static NSString* product = NULL;
     XCTAssertFalse([[_db fetch:@"select * from soft_failures"] next]);
 }
 
-- (void)assertNoAllEvents
+- (void)assertNoNotes
 {
-    XCTAssertFalse([[_db fetch:@"select * from all_events"] next]);
+    XCTAssertFalse([[_db fetch:@"select * from notes"] next]);
 }
 
 - (void)assertNoSamples
@@ -96,18 +98,17 @@ static NSString* product = NULL;
 
 - (void)assertNoEventsAnywhere
 {
-    [self assertNoAllEvents];
+    [self assertNoNotes];
     [self assertNoSuccessEvents];
     [self assertNoHardFailures];
     [self assertNoSoftFailures];
     [self assertNoSamples];
 }
 
-- (void)recentTimeStamp:(NSNumber*)timestamp
+- (void)recentTimeStamp:(NSTimeInterval)timestamp timestampBucket:(SFAnalyticsTimestampBucket)bucket
 {
-    XCTAssert([timestamp isKindOfClass:[NSNumber class]], @"Timestamp is an NSNumber");
-    NSDate* eventTime = [NSDate dateWithTimeIntervalSince1970:[timestamp doubleValue]];
-    XCTAssertLessThanOrEqual([[NSDate date] timeIntervalSinceDate:eventTime], 5, @"Timestamp (%@) is pretty recent", timestamp);
+    NSTimeInterval roundedTimestamp = [[NSDate date] timeIntervalSince1970WithBucket:bucket];
+    XCTAssertEqualWithAccuracy(roundedTimestamp, timestamp, 5, @"Timestamp is pretty recent (%f ~? %f)", timestamp, roundedTimestamp);
 }
 
 - (void)properEventLogged:(PQLResultSet*)result eventType:(NSString*)eventType class:(SFAnalyticsEventClass)class attributes:(NSDictionary*)attrs
@@ -127,18 +128,32 @@ static NSString* product = NULL;
     XCTAssertFalse([result next], @"only one row returned");
 }
 
+- (void)properEventLogged:(PQLResultSet*)result eventType:(NSString*)eventType class:(SFAnalyticsEventClass)class timestampBucket:(SFAnalyticsTimestampBucket)bucket
+{
+    [self _properEventLogged:result eventType:eventType class:class timestampBucket:bucket];
+    XCTAssertFalse([result next], @"only one row returned");
+}
+
 - (void)_properEventLogged:(PQLResultSet*)result eventType:(NSString*)eventType class:(SFAnalyticsEventClass)class
+{
+    [self _properEventLogged:result eventType:eventType class:class timestampBucket:SFAnalyticsTimestampBucketSecond];
+}
+
+- (void)_properEventLogged:(PQLResultSet*)result eventType:(NSString*)eventType class:(SFAnalyticsEventClass)class timestampBucket:(SFAnalyticsTimestampBucket)bucket
 {
     XCTAssert([result next], @"result found after adding an event");
     NSError* error = nil;
     [result doubleAtIndex:1];
     NSDictionary* rowdata = [NSPropertyListSerialization propertyListWithData:[result dataAtIndex:2] options:NSPropertyListImmutable format:nil error:&error];
     XCTAssertNotNil(rowdata, @"able to deserialize db data, %@", error);
-    [self recentTimeStamp:rowdata[SFAnalyticsEventTime]];
+    NSNumber *timestamp = rowdata[SFAnalyticsEventTime];
+    XCTAssert([timestamp isKindOfClass:[NSNumber class]], @"Timestamp is an NSNumber");
+    [self recentTimeStamp:([timestamp doubleValue] / 1000) timestampBucket:bucket]; // We need to convert to seconds, as its stored in milliseconds
     XCTAssertTrue([rowdata[SFAnalyticsEventType] isKindOfClass:[NSString class]] && [rowdata[SFAnalyticsEventType] isEqualToString:eventType], @"found eventType \"%@\" in db", eventType);
-    XCTAssertTrue([rowdata[SFAnalyticsEventClassKey] isKindOfClass:[NSNumber class]] && [rowdata[SFAnalyticsEventClassKey] intValue] == class, @"eventClass is %ld", class);
+    XCTAssertTrue([rowdata[SFAnalyticsEventClassKey] isKindOfClass:[NSNumber class]] && [rowdata[SFAnalyticsEventClassKey] intValue] == class, @"eventClass is %ld", (long)class);
     XCTAssertTrue([rowdata[@"build"] isEqualToString:build], @"event row includes build");
     XCTAssertTrue([rowdata[@"product"] isEqualToString:product], @"event row includes product");
+    XCTAssertTrue(rowdata[@"internal"], @"event row includes internal");
 }
 
 - (void)checkSuccessCountsForEvent:(NSString*)eventType success:(int)success hard:(int)hard soft:(int)soft
@@ -159,7 +174,7 @@ static NSString* product = NULL;
     PQLResultSet* result = [_db fetch:@"select * from samples"];
     while ([result next]) {
         ++samplescount;
-        [self recentTimeStamp:[result numberAtIndex:1]];
+        [self recentTimeStamp:[[result numberAtIndex:1] doubleValue] timestampBucket:SFAnalyticsTimestampBucketSecond];
         if ([[result stringAtIndex:2] isEqual:samplerName]) {
             ++targetcount;
             [samplesfound addObject:[result numberAtIndex:3]];
@@ -206,6 +221,8 @@ static NSString* product = NULL;
     } else {
         NSLog(@"could not get build version/product, tests should fail");
     }
+
+    [TestResourceUsage monitorTestResourceUsage];
 }
 
 - (void)setUp
@@ -263,6 +280,8 @@ static NSString* product = NULL;
 
 - (void)testAddingEventsWithNilName
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
     [_analytics logSuccessForEventNamed:nil];
     [self assertNoEventsAnywhere];
 
@@ -274,6 +293,7 @@ static NSString* product = NULL;
 
     [_analytics noteEventNamed:nil];
     [self assertNoEventsAnywhere];
+#pragma clang diagnostic pop
 }
 
 - (void)testLogSuccess
@@ -286,8 +306,26 @@ static NSString* product = NULL;
     XCTAssert([result next], @"a row was found after adding an event");
     XCTAssertEqual([result intAtIndex:0], 1, @"success count is 1 after adding an event");
     XCTAssertFalse([result next], @"only one row found in success_count after inserting a single event");
-    result = [_db fetch:@"select * from all_events"];
-    [self properEventLogged:result eventType:@"unittestevent" class:SFAnalyticsEventClassSuccess];
+    [self assertNoNotes];
+    [self assertNoHardFailures];
+    [self assertNoSoftFailures];
+}
+
+- (void)testLogWithRoundedTimestamp
+{
+    SFAnalyticsTimestampBucket bucket = SFAnalyticsTimestampBucketMinute;
+
+    [_analytics logSoftFailureForEventNamed:@"unittestevent" withAttributes:nil timestampBucket:bucket];
+    [self assertNoHardFailures];
+
+    // First check success_count has logged a soft failure
+    [self checkSuccessCountsForEvent:@"unittestevent" success:0 hard:0 soft:1];
+
+    // then check soft_failures itself
+    PQLResultSet* result = [_db fetch:@"select * from soft_failures"];
+    [self properEventLogged:result eventType:@"unittestevent" class:SFAnalyticsEventClassSoftFailure timestampBucket:bucket];
+    [self assertNoNotes];
+    [self assertNoHardFailures];
 }
 
 - (void)testLogRecoverableFailure
@@ -301,10 +339,8 @@ static NSString* product = NULL;
     // then check soft_failures itself
     PQLResultSet* result = [_db fetch:@"select * from soft_failures"];
     [self properEventLogged:result eventType:@"unittestevent" class:SFAnalyticsEventClassSoftFailure];
-
-    // finally check all_events
-    result = [_db fetch:@"select * from all_events"];
-    [self properEventLogged:result eventType:@"unittestevent" class:SFAnalyticsEventClassSoftFailure];
+    [self assertNoNotes];
+    [self assertNoHardFailures];
 }
 
 - (void)testLogRecoverablyFailureWithAttributes
@@ -318,10 +354,8 @@ static NSString* product = NULL;
     // then check soft_failures itself
     PQLResultSet* result = [_db fetch:@"select * from soft_failures"];
     [self properEventLogged:result eventType:@"unittestevent" class:SFAnalyticsEventClassSoftFailure attributes:attrs];
-
-    // finally check all_events
-    result = [_db fetch:@"select * from all_events"];
-    [self properEventLogged:result eventType:@"unittestevent" class:SFAnalyticsEventClassSoftFailure attributes:attrs];
+    [self assertNoNotes];
+    [self assertNoHardFailures];
 }
 
 - (void)testLogUnrecoverableFailure
@@ -335,10 +369,8 @@ static NSString* product = NULL;
     // then check hard_failures itself
     PQLResultSet* result = [_db fetch:@"select * from hard_failures"];
     [self properEventLogged:result eventType:@"unittestevent" class:SFAnalyticsEventClassHardFailure];
-
-    // finally check all_events
-    result = [_db fetch:@"select * from all_events"];
-    [self properEventLogged:result eventType:@"unittestevent" class:SFAnalyticsEventClassHardFailure];
+    [self assertNoNotes];
+    [self assertNoSoftFailures];
 }
 
 - (void)testLogUnrecoverableFailureWithAttributes
@@ -353,10 +385,8 @@ static NSString* product = NULL;
     // then check hard_failures itself
     PQLResultSet* result = [_db fetch:@"select * from hard_failures"];
     [self properEventLogged:result eventType:@"unittestevent" class:SFAnalyticsEventClassHardFailure attributes:attrs];
-
-    // finally check all_events
-    result = [_db fetch:@"select * from all_events"];
-    [self properEventLogged:result eventType:@"unittestevent" class:SFAnalyticsEventClassHardFailure attributes:attrs];
+    [self assertNoNotes];
+    [self assertNoSoftFailures];
 }
 
 - (void)testLogSeveralEvents
@@ -387,7 +417,7 @@ static NSString* product = NULL;
     // First check success_count has logged a success
     [self checkSuccessCountsForEvent:@"unittestevent" success:1 hard:0 soft:0];
 
-    PQLResultSet* result = [_db fetch:@"select * from all_events"];
+    PQLResultSet* result = [_db fetch:@"select * from notes"];
     [self properEventLogged:result eventType:@"unittestevent" class:SFAnalyticsEventClassNote];
 }
 
@@ -493,6 +523,8 @@ static NSString* product = NULL;
 
 - (void)testSamplerWithBadData
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
     NSString* samplerName = [NSString stringWithFormat:@"UnitTestSamplerWithBadData_%li", (long)_testnum];
 
     // bad name
@@ -506,6 +538,7 @@ static NSString* product = NULL;
     }]);
 
     XCTAssertNil([_analytics addMetricSamplerForName:samplerName withTimeInterval:2.0f block:nil]);
+#pragma clang diagnostic pop
 }
 
 - (void)testSamplerOncePerReport
@@ -552,8 +585,11 @@ static NSString* product = NULL;
 
 - (void)testSamplerLogBadSample
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
     [_analytics logMetric:nil withName:@"testsampler"];
     [self checkSamples:@[] name:@"testsampler" totalSamples:0 accuracy:0.01f];
+#pragma clang diagnostic pop
 
     id badobj = [NSString stringWithUTF8String:"yolo!"];
     [_analytics logMetric:badobj withName:@"testSampler"];
@@ -705,6 +741,8 @@ static NSString* product = NULL;
 
 - (void)testTrackerBadData
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
     // Inspect database to find out it's empty
     [_analytics logMetric:nil withName:@"fake"];
     [_analytics logMetric:@3.0 withName:nil];
@@ -713,6 +751,7 @@ static NSString* product = NULL;
     XCTAssertNil([_analytics logSystemMetricsForActivityNamed:nil withAction:^{return;}]);
 
     [self assertNoEventsAnywhere];
+#pragma clang diagnostic pop
 }
 
 // MARK: Miscellaneous
@@ -731,7 +770,10 @@ static NSString* product = NULL;
     XCTAssertEqual([SFAnalytics fuzzyDaysSinceDate:[NSDate dateWithTimeIntervalSinceNow:secondsPerDay * -77]], 30);
     XCTAssertEqual([SFAnalytics fuzzyDaysSinceDate:[NSDate dateWithTimeIntervalSinceNow:secondsPerDay * -370]], 365);
     XCTAssertEqual([SFAnalytics fuzzyDaysSinceDate:[NSDate distantPast]], 1000);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
     XCTAssertEqual([SFAnalytics fuzzyDaysSinceDate:nil], -1);
+#pragma clang diagnostic pop
 }
 
 - (void)testRingBuffer {
@@ -743,11 +785,6 @@ static NSString* product = NULL;
     PQLResultSet* result = [_db fetch:@"select count(*) from hard_failures"];
     XCTAssertTrue([result next], @"Got a count from hard_failures");
     XCTAssertLessThanOrEqual([result unsignedIntAtIndex:0], SFAnalyticsMaxEventsToReport, @"Ring buffer contains a sane number of events");
-
-    // all_events has a much larger buffer so it should handle the extra events okay
-    result = [_db fetch:@"select count(*) from all_events"];
-    XCTAssertTrue([result next], @"Got a count from all_events");
-    XCTAssertLessThanOrEqual([result unsignedIntAtIndex:0], SFAnalyticsMaxEventsToReport + 50);
 }
 
 - (void)testRaceToCreateLoggers
@@ -773,9 +810,10 @@ static NSString* product = NULL;
     NSDate* test = [NSDate date];
     [_analytics setDateProperty:test forKey:propertyKey];
     NSDate* retrieved = [_analytics datePropertyForKey:propertyKey];
-    XCTAssert(retrieved);
+    XCTAssertNotNil(retrieved);
     // Storing in SQLite as string loses subsecond resolution, so we need some slack
     XCTAssertEqualWithAccuracy([test timeIntervalSinceDate:retrieved], 0, 1);
+
     [_analytics setDateProperty:nil forKey:propertyKey];
     XCTAssertNil([_analytics datePropertyForKey:propertyKey]);
 }

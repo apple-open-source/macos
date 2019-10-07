@@ -320,14 +320,14 @@ CFDataRef SecCopyDecryptedForServer(SecKeyRef serverFullKey, CFDataRef blob, CFE
     return result;
 }
 
-#if TARGET_OS_MAC && !(TARGET_OS_IPHONE || TARGET_OS_EMBEDDED)
+#if TARGET_OS_OSX
 #include <Security/SecTrustInternal.h>
 #endif
 
 CFDataRef SecCopyEncryptedToServer(SecTrustRef trustedEvaluation, CFDataRef dataToEncrypt, CFErrorRef *error)
 {
     CFDataRef result = NULL;
-#if TARGET_OS_MAC && !(TARGET_OS_IPHONE || TARGET_OS_EMBEDDED)
+#if TARGET_OS_OSX
     SecKeyRef trustKey = SecTrustCopyPublicKey_ios(trustedEvaluation);
 #else
     SecKeyRef trustKey = SecTrustCopyPublicKey(trustedEvaluation);

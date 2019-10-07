@@ -1790,10 +1790,10 @@ _mdns_search_ex(const char *name, int class, int type, uint32_t ifindex, DNSServ
 
 	if (name == NULL) return -1;
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	/* log a warning for queries from the main thread */
 	if (pthread_is_threaded_np() && pthread_main_np()) os_log(OS_LOG_DEFAULT, "Warning: Libinfo call to mDNSResponder on main thread");
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) */
 
 	/*
 	 * Timeout Logic
@@ -1881,7 +1881,7 @@ _mdns_search_ex(const char *name, int class, int type, uint32_t ifindex, DNSServ
 			if (err != 0) _mdns_debug_message(";; initialization error %d\n", err);
 
 			/* try to reinitialize */
-			if ((err == kDNSServiceErr_Unknown) || (err == kDNSServiceErr_ServiceNotRunning) || (err == kDNSServiceErr_BadReference))
+			if ((err == kDNSServiceErr_Unknown) || (err == kDNSServiceErr_ServiceNotRunning) || (err == kDNSServiceErr_BadReference) || (err == kDNSServiceErr_DefunctConnection))
 			{
 				if (_mdns_sdref != NULL)
 				{
@@ -1938,7 +1938,7 @@ _mdns_search_ex(const char *name, int class, int type, uint32_t ifindex, DNSServ
 			_mdns_debug_message(";; _mdns_search calling DNSServiceProcessResult\n", err);
 			err = DNSServiceProcessResult(_mdns_sdref);
 			_mdns_debug_message(";; DNSServiceProcessResult -> %s\n", err);
-			if ((err == kDNSServiceErr_ServiceNotRunning) || (err == kDNSServiceErr_BadReference))
+			if ((err == kDNSServiceErr_ServiceNotRunning) || (err == kDNSServiceErr_BadReference) || (err == kDNSServiceErr_DefunctConnection))
 			{
 				_mdns_debug_message(";; DNSServiceProcessResult status %d [ctx %p %p]\n", err, (n_ctx > 0) ? &(ctx[0]) : NULL, (n_ctx > 1) ? &(ctx[1]) : NULL);
 				err = 0;

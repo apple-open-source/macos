@@ -344,7 +344,7 @@ ifconfig(char *ifname)
 	memset(ifinfo, 0, sizeof(*ifinfo));
 	ifinfo->sdl = sdl;
 
-	strncpy(ifinfo->ifname, ifname, sizeof(ifinfo->ifname));
+	strlcpy(ifinfo->ifname, ifname, sizeof(ifinfo->ifname));
 
 	/* construct a router solicitation message */
 	if (make_packet(ifinfo))
@@ -775,8 +775,7 @@ autoifprobe()
 	}
 
 	if (target) {
-		strncpy(ifname, target->ifa_name, sizeof(ifname) - 1);
-		ifname[sizeof(ifname) - 1] = '\0';
+		strlcpy(ifname, target->ifa_name, sizeof(ifname));
 		argv[0] = ifname;
 		argv[1] = NULL;
 

@@ -88,6 +88,7 @@ public:
 	size_t pageSize(const SigningContext &ctx);
 
 	void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags);
+	void strictValidateStructure(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags);
 	CFArrayRef allowedResourceOmissions();
 
 	void registerStapledTicket();

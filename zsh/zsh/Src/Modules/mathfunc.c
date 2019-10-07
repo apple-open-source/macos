@@ -65,6 +65,7 @@ MF_LGAMMA,
 MF_LOG,
 MF_LOG10,
 MF_LOG1P,
+MF_LOG2,
 MF_LOGB,
 MF_NEXTAFTER,
 MF_RINT,
@@ -93,22 +94,6 @@ MS_RAND48
  * conversion), atan2.
  */
 
-/* Flags for bounds.  Note these must start at 1, not 0. */
-
-enum {
-  BF_POS    = 1,		/* must be positive */
-  BF_NONNEG = 2,		/* must be non-negative */
-  BF_FRAC   = 3,		/* must be -1 <= x <= 1 */
-  BF_GE1    = 4,		/* must be >= 1 */
-  BF_FRACO  = 5,		/* must be in open range -1 < x < 1 */
-  BF_INTPOS = 6,		/* must be non-integer or positive */
-  BF_GTRM1  = 7,		/* must be > -1 */
-  BF_NONZ   = 8,		/* must be nonzero */
-  BF_POS2   = 9			/* second argument must be positive */
-};
-
-#define BFLAG(x) ((x) << 8)
-
 /*
  * Flags for type of function: unlike the above, these must
  * be individually bit-testable.
@@ -121,18 +106,18 @@ enum {
     TF_NOASS  = 8		/* don't assign result as double */
 };
 
-#define TFLAG(x) ((x) << 16)
+#define TFLAG(x) ((x) << 8)
 
 
 static struct mathfunc mftab[] = {
-  NUMMATHFUNC("abs", math_func, 1, 1, MF_ABS | BFLAG(BF_FRAC) |
+  NUMMATHFUNC("abs", math_func, 1, 1, MF_ABS |
 	      TFLAG(TF_NOCONV|TF_NOASS)),
-  NUMMATHFUNC("acos", math_func, 1, 1, MF_ACOS | BFLAG(BF_FRAC)),
-  NUMMATHFUNC("acosh", math_func, 1, 1, MF_ACOSH | BFLAG(BF_GE1)),
-  NUMMATHFUNC("asin", math_func, 1, 1, MF_ASIN | BFLAG(BF_FRAC)),
+  NUMMATHFUNC("acos", math_func, 1, 1, MF_ACOS),
+  NUMMATHFUNC("acosh", math_func, 1, 1, MF_ACOSH),
+  NUMMATHFUNC("asin", math_func, 1, 1, MF_ASIN),
   NUMMATHFUNC("asinh", math_func, 1, 1, MF_ASINH),
   NUMMATHFUNC("atan", math_func, 1, 2, MF_ATAN),
-  NUMMATHFUNC("atanh", math_func, 1, 1, MF_ATANH | BFLAG(BF_FRACO)),
+  NUMMATHFUNC("atanh", math_func, 1, 1, MF_ATANH),
   NUMMATHFUNC("cbrt", math_func, 1, 1, MF_CBRT),
   NUMMATHFUNC("ceil", math_func, 1, 1, MF_CEIL),
   NUMMATHFUNC("copysign", math_func, 2, 2, MF_COPYSIGN),
@@ -146,20 +131,20 @@ static struct mathfunc mftab[] = {
   NUMMATHFUNC("float", math_func, 1, 1, MF_FLOAT),
   NUMMATHFUNC("floor", math_func, 1, 1, MF_FLOOR),
   NUMMATHFUNC("fmod", math_func, 2, 2, MF_FMOD),
-  NUMMATHFUNC("gamma", math_func, 1, 1, MF_GAMMA | BFLAG(BF_INTPOS)),
+  NUMMATHFUNC("gamma", math_func, 1, 1, MF_GAMMA),
   NUMMATHFUNC("hypot", math_func, 2, 2, MF_HYPOT),
-  NUMMATHFUNC("ilogb", math_func, 1, 1, MF_ILOGB | BFLAG(BF_NONZ) |
-	      TFLAG(TF_NOASS)),
+  NUMMATHFUNC("ilogb", math_func, 1, 1, MF_ILOGB | TFLAG(TF_NOASS)),
   NUMMATHFUNC("int", math_func, 1, 1, MF_INT | TFLAG(TF_NOASS)),
   NUMMATHFUNC("j0", math_func, 1, 1, MF_J0),
   NUMMATHFUNC("j1", math_func, 1, 1, MF_J1),
   NUMMATHFUNC("jn", math_func, 2, 2, MF_JN | TFLAG(TF_INT1)),
   NUMMATHFUNC("ldexp", math_func, 2, 2, MF_LDEXP | TFLAG(TF_INT2)),
-  NUMMATHFUNC("lgamma", math_func, 1, 1, MF_LGAMMA | BFLAG(BF_INTPOS)),
-  NUMMATHFUNC("log", math_func, 1, 1, MF_LOG | BFLAG(BF_POS)),
-  NUMMATHFUNC("log10", math_func, 1, 1, MF_LOG10 | BFLAG(BF_POS)),
-  NUMMATHFUNC("log1p", math_func, 1, 1, MF_LOG1P | BFLAG(BF_GTRM1)),
-  NUMMATHFUNC("logb", math_func, 1, 1, MF_LOGB | BFLAG(BF_NONZ)),
+  NUMMATHFUNC("lgamma", math_func, 1, 1, MF_LGAMMA),
+  NUMMATHFUNC("log", math_func, 1, 1, MF_LOG),
+  NUMMATHFUNC("log10", math_func, 1, 1, MF_LOG10),
+  NUMMATHFUNC("log1p", math_func, 1, 1, MF_LOG1P),
+  NUMMATHFUNC("log2", math_func, 1, 1, MF_LOG2),
+  NUMMATHFUNC("logb", math_func, 1, 1, MF_LOGB),
   NUMMATHFUNC("nextafter", math_func, 2, 2, MF_NEXTAFTER),
 #ifdef HAVE_ERAND48
   STRMATHFUNC("rand48", math_string, MS_RAND48),
@@ -171,17 +156,17 @@ static struct mathfunc mftab[] = {
 #endif
   NUMMATHFUNC("sin", math_func, 1, 1, MF_SIN),
   NUMMATHFUNC("sinh", math_func, 1, 1, MF_SINH),
-  NUMMATHFUNC("sqrt", math_func, 1, 1, MF_SQRT | BFLAG(BF_NONNEG)),
+  NUMMATHFUNC("sqrt", math_func, 1, 1, MF_SQRT),
   NUMMATHFUNC("tan", math_func, 1, 1, MF_TAN),
   NUMMATHFUNC("tanh", math_func, 1, 1, MF_TANH),
-  NUMMATHFUNC("y0", math_func, 1, 1, MF_Y0 | BFLAG(BF_POS)),
-  NUMMATHFUNC("y1", math_func, 1, 1, MF_Y1 | BFLAG(BF_POS)),
-  NUMMATHFUNC("yn", math_func, 2, 2, MF_YN | BFLAG(BF_POS2) | TFLAG(TF_INT1))
+  NUMMATHFUNC("y0", math_func, 1, 1, MF_Y0),
+  NUMMATHFUNC("y1", math_func, 1, 1, MF_Y1),
+  NUMMATHFUNC("yn", math_func, 2, 2, MF_YN | TFLAG(TF_INT1))
 };
 
 /**/
 static mnumber
-math_func(char *name, int argc, mnumber *argv, int id)
+math_func(UNUSED(char *name), int argc, mnumber *argv, int id)
 {
   mnumber ret;
   double argd = 0, argd2 = 0, retd = 0;
@@ -207,49 +192,6 @@ math_func(char *name, int argc, mnumber *argv, int id)
 
   if (errflag)
     return ret;
-
-  if (id & 0xff00) {
-      int rtst = 0;
-
-      switch ((id >> 8) & 0xff) {
-      case BF_POS:
-	  rtst = (argd <= 0.0);
-	  break;
-	  
-      case BF_NONNEG:
-	  rtst = (argd < 0.0);
-	  break;
-
-      case BF_FRAC:
-	  rtst = (fabs(argd) > 1.0);
-	  break;
-
-      case BF_GE1:
-	  rtst = (argd < 1.0);
-	  break;
-
-      case BF_FRACO:
-	  rtst = (fabs(argd) >= 1.0);
-	  break;
-
-      case BF_INTPOS:
-	  rtst = (argd <= 0 && (double)(zlong)argd == argd);
-	  break;
-
-      case BF_GTRM1:
-	  rtst = (argd <= -1);
-	  break;
-
-      case BF_POS2:
-	  rtst = (argd2 <= 0.0);
-	  break;
-      }
-
-      if (rtst) {
-	  zerr("math: argument to %s out of range", name);
-	  return ret;
-      }
-  }
 
   switch (id & 0xff) {
   case MF_ABS:
@@ -396,6 +338,14 @@ math_func(char *name, int argc, mnumber *argv, int id)
 
   case MF_LOG1P:
       retd = log1p(argd);
+      break;
+
+  case MF_LOG2:
+#ifdef HAVE_LOG2
+      retd = log2(argd);
+#else
+      retd = log(argd) / log(2);
+#endif
       break;
 
   case MF_LOGB:

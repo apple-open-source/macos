@@ -81,6 +81,7 @@ dt_aggregate_countcmp(int64_t *lhs, int64_t *rhs)
 static void
 dt_aggregate_min(int64_t *existing, int64_t *new, size_t size)
 {
+#pragma unused(size)
 	if (*new < *existing)
 		*existing = *new;
 }
@@ -89,6 +90,7 @@ dt_aggregate_min(int64_t *existing, int64_t *new, size_t size)
 static void
 dt_aggregate_max(int64_t *existing, int64_t *new, size_t size)
 {
+#pragma unused(size)
 	if (*new > *existing)
 		*existing = *new;
 }
@@ -127,6 +129,7 @@ dt_aggregate_stddevcmp(int64_t *lhs, int64_t *rhs)
 static void
 dt_aggregate_lquantize(int64_t *existing, int64_t *new, size_t size)
 {
+#pragma unused(size)
 	int64_t arg = *existing++;
 	uint16_t levels = DTRACE_LQUANTIZE_LEVELS(arg);
 	int i;
@@ -206,7 +209,6 @@ dt_aggregate_lquantizedcmp(int64_t *lhs, int64_t *rhs)
 	return (0);
 }
 
-/*ARGSUSED*/
 static void
 dt_aggregate_llquantize(int64_t *existing, int64_t *new, size_t size)
 {
@@ -325,6 +327,23 @@ dt_aggregate_quantizedcmp(int64_t *lhs, int64_t *rhs)
 }
 
 static void
+dt_aggregate_ustack(dtrace_hdl_t *dtp, uint64_t *data)
+{
+	uint64_t pid = data[0];
+	struct ps_prochandle *P;
+
+	/*
+	 * If stack symbols are enabled, grab the process associated
+	 * with that stack
+	 */
+	if ((dtp->dt_options[DTRACEOPT_STACKSYMBOLS] != DTRACEOPT_UNSET) && dtp->dt_vector == NULL) {
+		if ((P = dt_proc_grab(dtp, pid, PGRAB_RDONLY | PGRAB_FORCE, 0)) == NULL)
+			return;
+		dt_proc_release(dtp, P);
+	}
+}
+
+static void
 dt_aggregate_usym(dtrace_hdl_t *dtp, uint64_t *data)
 {
 	uint64_t pid = data[0];
@@ -429,371 +448,6 @@ dt_aggregate_aggvarid(dt_ahashent_t *ent)
 	return (agg->dtagd_varid);
 }
 
-#pragma mark vvv modified functions. separate collect/analyze phases vvv
-
-static int
-dt_aggregate_collect_cpu(dtrace_hdl_t *dtp, dtrace_bufdesc_t **bufr, processorid_t cpu)
-{
-	//dtrace_epid_t id;
-	//uint64_t hashval;
-	//size_t offs, roffs, size, ndx;
-	//int i, j, rval;
-	//caddr_t addr, data;
-	//dtrace_recdesc_t *rec;
-	//dt_aggregate_t *agp = &dtp->dt_aggregate;
-	//dtrace_aggdesc_t *agg;
-	//dt_ahash_t *hash = &agp->dtat_hash;
-	//dt_ahashent_t *h;
-////	dtrace_bufdesc_t b = agp->dtat_buf, *buf = &b;
-	dtrace_bufdesc_t *buf = *bufr;
-	//dtrace_aggdata_t *aggdata;
-	//int flags = agp->dtat_flags;
-
-	buf->dtbd_cpu = cpu;
-
-	if (dt_ioctl(dtp, DTRACEIOC_AGGSNAP, buf) == -1) {
-		if (errno == ENOENT) {
-			/*
-			 * If that failed with ENOENT, it may be because the
-			 * CPU was unconfigured.  This is okay; we'll just
-			 * do nothing but return success.
-			 */
-			return (0);
-		}
-
-		return (dt_set_errno(dtp, errno));
-	}
-////printf(">>> buf size AFTER agg collect cpu(%d)=%d\n",cpu,buf->dtbd_size);
-	if (buf->dtbd_drops != 0) {
-		if (dt_handle_cpudrop(dtp, cpu,
-		    DTRACEDROP_AGGREGATION, buf->dtbd_drops) == -1)
-			return (-1);
-	}
-
-	return ((int)(buf->dtbd_size == 0));
-}
-
-static int
-dt_aggregate_hash_cpu(dtrace_hdl_t *dtp, processorid_t cpu, dtrace_bufdesc_t *cpubuf)
-{
-	dtrace_epid_t id;
-	uint64_t hashval;
-	size_t offs, roffs, size, ndx;
-	int i, j, rval;
-	caddr_t addr, data;
-	dtrace_recdesc_t *rec;
-	dt_aggregate_t *agp = &dtp->dt_aggregate;
-	dtrace_aggdesc_t *agg;
-	dt_ahash_t *hash = &agp->dtat_hash;
-	dt_ahashent_t *h;
-////	dtrace_bufdesc_t b = agp->dtat_buf, *buf = &b; /**/
-	dtrace_bufdesc_t *buf = cpubuf;
-	dtrace_aggdata_t *aggdata;
-	int flags = agp->dtat_flags;
-
-	buf->dtbd_cpu = cpu;
-
-	if (hash->dtah_hash == NULL) {
-		size_t size;
-
-		hash->dtah_size = DTRACE_AHASHSIZE;
-		size = hash->dtah_size * sizeof (dt_ahashent_t *);
-
-		if ((hash->dtah_hash = malloc(size)) == NULL)
-			return (dt_set_errno(dtp, EDT_NOMEM));
-		bzero(hash->dtah_hash, size);
-	}
-////printf(">>>> hash->dtah_hash = %u\n",hash->dtah_hash);
-
-	for (offs = 0; offs < buf->dtbd_size; ) {
-		/*
-		 * We're guaranteed to have an ID.
-		 */
-		id = *((dtrace_epid_t *)((uintptr_t)buf->dtbd_data +
-		    (uintptr_t)offs));
-
-		if (id == DTRACE_AGGIDNONE) {
-			/*
-			 * This is filler to assure proper alignment of the
-			 * next record; we simply ignore it.
-			 */
-			offs += sizeof (id);
-			continue;
-		}
-
-		if ((rval = dt_aggid_lookup(dtp, id, &agg)) != 0)
-			return (rval);
-
-		addr = buf->dtbd_data + offs;
-		size = agg->dtagd_size;
-		hashval = 0;
-
-		for (j = 0; j < agg->dtagd_nrecs - 1; j++) {
-			rec = &agg->dtagd_rec[j];
-			roffs = rec->dtrd_offset;
-
-			switch (rec->dtrd_action) {
-			case DTRACEACT_USYM:
-				dt_aggregate_usym(dtp,
-				    /* LINTED - alignment */
-				    (uint64_t *)&addr[roffs]);
-				break;
-
-			case DTRACEACT_UMOD:
-				dt_aggregate_umod(dtp,
-				    /* LINTED - alignment */
-				    (uint64_t *)&addr[roffs]);
-				break;
-
-			case DTRACEACT_SYM:
-				/* LINTED - alignment */
-				dt_aggregate_sym(dtp, (uint64_t *)&addr[roffs]);
-				break;
-
-			case DTRACEACT_MOD:
-				/* LINTED - alignment */
-				dt_aggregate_mod(dtp, (uint64_t *)&addr[roffs]);
-				break;
-
-			default:
-				break;
-			}
-
-			for (i = 0; i < rec->dtrd_size; i++)
-				hashval += addr[roffs + i];
-		}
-
-		ndx = hashval % hash->dtah_size;
-
-		for (h = hash->dtah_hash[ndx]; h != NULL; h = h->dtahe_next) {
-			if (h->dtahe_hashval != hashval)
-				continue;
-
-			if (h->dtahe_size != size)
-				continue;
-
-			aggdata = &h->dtahe_data;
-			data = aggdata->dtada_data;
-
-			for (j = 0; j < agg->dtagd_nrecs - 1; j++) {
-				rec = &agg->dtagd_rec[j];
-				roffs = rec->dtrd_offset;
-
-				for (i = 0; i < rec->dtrd_size; i++)
-					if (addr[roffs + i] != data[roffs + i])
-						goto hashnext;
-			}
-
-			/*
-			 * We found it.  Now we need to apply the aggregating
-			 * action on the data here.
-			 */
-			rec = &agg->dtagd_rec[agg->dtagd_nrecs - 1];
-			roffs = rec->dtrd_offset;
-			/* LINTED - alignment */
-			h->dtahe_aggregate((int64_t *)&data[roffs],
-			    /* LINTED - alignment */
-			    (int64_t *)&addr[roffs], rec->dtrd_size);
-
-			/*
-			 * If we're keeping per CPU data, apply the aggregating
-			 * action there as well.
-			 */
-			if (aggdata->dtada_percpu != NULL) {
-				data = aggdata->dtada_percpu[cpu];
-
-				/* LINTED - alignment */
-				h->dtahe_aggregate((int64_t *)data,
-				    /* LINTED - alignment */
-				    (int64_t *)&addr[roffs], rec->dtrd_size);
-			}
-
-			goto bufnext;
-hashnext:
-			continue;
-		}
-
-		/*
-		 * If we're here, we couldn't find an entry for this record.
-		 */
-		if ((h = malloc(sizeof (dt_ahashent_t))) == NULL)
-			return (dt_set_errno(dtp, EDT_NOMEM));
-		bzero(h, sizeof (dt_ahashent_t));
-		aggdata = &h->dtahe_data;
-
-		if ((aggdata->dtada_data = malloc(size)) == NULL) {
-			free(h);
-			return (dt_set_errno(dtp, EDT_NOMEM));
-		}
-
-		bcopy(addr, aggdata->dtada_data, size);
-		aggdata->dtada_size = size;
-		aggdata->dtada_desc = agg;
-		aggdata->dtada_handle = dtp;
-		(void) dt_epid_lookup(dtp, agg->dtagd_epid,
-		    &aggdata->dtada_edesc, &aggdata->dtada_pdesc);
-		aggdata->dtada_normal = 1;
-
-		h->dtahe_hashval = hashval;
-		h->dtahe_size = size;
-		(void) dt_aggregate_aggvarid(h);
-
-		rec = &agg->dtagd_rec[agg->dtagd_nrecs - 1];
-
-		if (flags & DTRACE_A_PERCPU) {
-			int max_cpus = agp->dtat_maxcpu;
-			caddr_t *percpu = malloc(max_cpus * sizeof (caddr_t));
-
-			if (percpu == NULL) {
-				free(aggdata->dtada_data);
-				free(h);
-				return (dt_set_errno(dtp, EDT_NOMEM));
-			}
-
-			for (j = 0; j < max_cpus; j++) {
-				percpu[j] = malloc(rec->dtrd_size);
-
-				if (percpu[j] == NULL) {
-					while (--j >= 0)
-						free(percpu[j]);
-
-					free(aggdata->dtada_data);
-					free(h);
-					return (dt_set_errno(dtp, EDT_NOMEM));
-				}
-
-				if (j == cpu) {
-					bcopy(&addr[rec->dtrd_offset],
-					    percpu[j], rec->dtrd_size);
-				} else {
-					bzero(percpu[j], rec->dtrd_size);
-				}
-			}
-
-			aggdata->dtada_percpu = percpu;
-		}
-
-		switch (rec->dtrd_action) {
-		case DTRACEAGG_MIN:
-			h->dtahe_aggregate = dt_aggregate_min;
-			break;
-
-		case DTRACEAGG_MAX:
-			h->dtahe_aggregate = dt_aggregate_max;
-			break;
-
-		case DTRACEAGG_LQUANTIZE:
-			h->dtahe_aggregate = dt_aggregate_lquantize;
-			break;
-
-		case DTRACEAGG_LLQUANTIZE:
-		  h->dtahe_aggregate = dt_aggregate_llquantize;
-		  break;
-
-		case DTRACEAGG_COUNT:
-		case DTRACEAGG_SUM:
-		case DTRACEAGG_AVG:
-		case DTRACEAGG_QUANTIZE:
-			h->dtahe_aggregate = dt_aggregate_count;
-			break;
-
-		default:
-			return (dt_set_errno(dtp, EDT_BADAGG));
-		}
-
-		if (hash->dtah_hash[ndx] != NULL)
-			hash->dtah_hash[ndx]->dtahe_prev = h;
-
-		h->dtahe_next = hash->dtah_hash[ndx];
-		hash->dtah_hash[ndx] = h;
-
-		if (hash->dtah_all != NULL)
-			hash->dtah_all->dtahe_prevall = h;
-
-		h->dtahe_nextall = hash->dtah_all;
-		hash->dtah_all = h;
-bufnext:
-		offs += agg->dtagd_size;
-	}
-////printf(">>>2> hash->dtah_hash = %u\n",hash->dtah_hash);
-
-	return (0);
-}
-
-int
-dtrace_aggregate_collect(dtrace_hdl_t *dtp, dtrace_bufdesc_t ***agg_bufs)
-{
-	int i, rval=0, cpuct=0;
-	dt_aggregate_t *agp = &dtp->dt_aggregate;
-	hrtime_t now = gethrtime();
-	dtrace_optval_t interval = dtp->dt_options[DTRACEOPT_AGGRATE];
-//	dtrace_bufdesc_t b = agp->dtat_buf, *buf = &b;	
-	dtrace_bufdesc_t *buf;	
-	
-	if (dtp->dt_lastagg != 0) {
-		if (now - dtp->dt_lastagg < interval)
-			return (0);
-
-		dtp->dt_lastagg += interval;
-	} else {
-		dtp->dt_lastagg = now;
-	}
-
-	if (!dtp->dt_active)
-		return (dt_set_errno(dtp, EINVAL));
-
-
-	for (i = 0; i < agp->dtat_ncpus; i++) {
-		buf = (*agg_bufs)[i]; /// using the same buffer all the time
-////		if (buf->dtbd_size == 0)
-////			return (0);
-////printf(">>> %d: buf size BEFORE agg collect cpu(%d)=%d\n",i,agp->dtat_cpus[i],buf->dtbd_size);
-		rval = dt_aggregate_collect_cpu(dtp, &buf, agp->dtat_cpus[i]);
-		if(rval > 0)	
-			cpuct++;
-	}
-	if(cpuct) 
-		return (cpuct);
-	return (rval);
-}
-
-int
-dtrace_aggregate_hash(dtrace_hdl_t *dtp, dtrace_bufdesc_t **agg_bufs)
-{
-	int i, rval=0;
-	dt_aggregate_t *agp = &dtp->dt_aggregate;
-/*** 
- *** again, analysis is no longer time dependent...
-	hrtime_t now = gethrtime();
-	dtrace_optval_t interval = dtp->dt_options[DTRACEOPT_AGGRATE];
-
-	if (dtp->dt_lastagg != 0) {
-		if (now - dtp->dt_lastagg < interval)
-			return (0);
-
-		dtp->dt_lastagg += interval;
-	} else {
-		dtp->dt_lastagg = now;
-	}
- *** this is performed in the collection phase to maintain the timing
- ***
- *** ...and whether the facility is active doesn't matter
- ***
- 	if (!dtp->dt_active)
-		return (dt_set_errno(dtp, EINVAL));
-
- ***/
-
-////printf(">>>2> agp->dtat_ncpus=%d\n",agp->dtat_ncpus);
-	for (i = 0; i < agp->dtat_ncpus; i++) { //using the same buffer all the time
-		if (rval = dt_aggregate_hash_cpu(dtp, agp->dtat_cpus[i], agg_bufs[i]))
-			return (rval);
-	}
-
-	return (0);
-}
-
-#pragma mark ^^^ modified functions. separate collect/analyze phases ^^^
 
 static int
 dt_aggregate_snap_cpu(dtrace_hdl_t *dtp, processorid_t cpu)
@@ -876,6 +530,11 @@ dt_aggregate_snap_cpu(dtrace_hdl_t *dtp, processorid_t cpu)
 			roffs = rec->dtrd_offset;
 
 			switch (rec->dtrd_action) {
+			case DTRACEACT_USTACK:
+				dt_aggregate_ustack(dtp,
+				    (uint64_t *)&addr[roffs]);
+				break;
+
 			case DTRACEACT_USYM:
 				dt_aggregate_usym(dtp,
 				    /* LINTED - alignment */
@@ -1300,7 +959,7 @@ dt_aggregate_valcmp(const void *lhs, const void *rhs)
 		rval = dt_aggregate_lquantizedcmp(laddr, raddr);
 		break;
 
-  case DTRACEAGG_LLQUANTIZE:
+	case DTRACEAGG_LLQUANTIZE:
 		rval = dt_aggregate_llquantizedcmp(laddr, raddr);
 		break;
 
@@ -1449,82 +1108,6 @@ dt_aggregate_bundlecmp(const void *lhs, const void *rhs)
 		}
 	}
 }
-
-#pragma mark vvv modified functions. separate collect/analyze phases vvv
-
-int
-dt_aggregate_setup(dtrace_hdl_t *dtp, dtrace_bufdesc_t ***agg_bufs)
-{
-	dt_aggregate_t *agp = &dtp->dt_aggregate;
-	dtrace_optval_t size, cpu;
-	dtrace_bufdesc_t *buf; //= &agp->dtat_buf;
-	int rval, i;
-
-	assert(agp->dtat_maxcpu == 0);
-	assert(agp->dtat_ncpu == 0);
-	assert(agp->dtat_cpus == NULL);
-
-	agp->dtat_maxcpu = dt_sysconf(dtp, _SC_CPUID_MAX) + 1;
-	agp->dtat_ncpu = dt_sysconf(dtp, _SC_NPROCESSORS_MAX);
-	agp->dtat_cpus = malloc(agp->dtat_ncpu * sizeof (processorid_t));
-
-	if (agp->dtat_cpus == NULL)
-		return (dt_set_errno(dtp, EDT_NOMEM));
-
-	/*
-	 * Use the aggregation buffer size as reloaded from the kernel.
-	 */
-	size = dtp->dt_options[DTRACEOPT_AGGSIZE];
-
-	rval = dtrace_getopt(dtp, "aggsize", &size);
-	assert(rval == 0);
-
-	if (size == 0 || size == DTRACEOPT_UNSET)
-		return (0);
-
-/*** original allocation of single buffer ***
-	buf = &agp->dtat_buf;
-	buf->dtbd_size = size;
-
-	if ((buf->dtbd_data = malloc(buf->dtbd_size)) == NULL)
-		return (dt_set_errno(dtp, EDT_NOMEM));
-***/
-	/*
-	 * Now query for the CPUs enabled.
-	 */
-	rval = dtrace_getopt(dtp, "cpu", &cpu);
-	assert(rval == 0 && cpu != DTRACEOPT_UNSET);
-
-	if (cpu != DTRACE_CPUALL) {
-		assert(cpu < agp->dtat_ncpu);
-		agp->dtat_cpus[agp->dtat_ncpus++] = (processorid_t)cpu;
-
-		return (0);
-	}
-
-	agp->dtat_ncpus = 0;
-	for (i = 0; i < agp->dtat_maxcpu; i++) {
-		if (dt_status(dtp, i) == -1)
-			continue;
-
-		agp->dtat_cpus[agp->dtat_ncpus++] = i;
-	}
-////printf(">>> agp->dtat_ncpus=%d\n",agp->dtat_ncpus);
-
-/*** make an array of buffers instead ***/
-	*agg_bufs = calloc(agp->dtat_maxcpu,sizeof(dtrace_bufdesc_t *));
-	for (i = 0; i < agp->dtat_maxcpu; i++) {
-		buf = calloc(1,sizeof(dtrace_bufdesc_t));
-		buf->dtbd_cpu = i;
-		buf->dtbd_size = size;
-		if ((buf->dtbd_data = malloc(buf->dtbd_size)) == NULL)
-			return (dt_set_errno(dtp, EDT_NOMEM));
-		(*agg_bufs)[i] = buf;
-	}
-/***/
-	return (0);
-}
-#pragma mark ^^^ modified functions. separate collect/analyze phases ^^^
 
 int
 dt_aggregate_go(dtrace_hdl_t *dtp)
@@ -1706,7 +1289,7 @@ dt_aggwalk_rval(dtrace_hdl_t *dtp, dt_ahashent_t *h, int rval)
 	return (0);
 }
 
-void
+static void
 dt_aggregate_qsort(dtrace_hdl_t *dtp, void *base, size_t nel, size_t width,
     int (*compar)(const void *, const void *))
 {
@@ -2651,7 +2234,7 @@ dt_aggregate_destroy(dtrace_hdl_t *dtp)
 		hash->dtah_all = NULL;
 		hash->dtah_size = 0;
 	}
-        
+
 	free(agp->dtat_buf.dtbd_data);
 	free(agp->dtat_cpus);
 }

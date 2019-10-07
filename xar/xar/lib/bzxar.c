@@ -119,7 +119,12 @@ int xar_bzip_fromheap_in(xar_t x, xar_file_t f, xar_prop_t p, void **in, size_t 
 	BZIP2_CONTEXT(context)->bz.avail_out = 0;
 
 	while( BZIP2_CONTEXT(context)->bz.avail_in != 0 ) {
-		outlen = outlen * 2;
+		size_t newlen = outlen * 2;
+		if (newlen > outlen)
+			outlen = newlen;
+		else
+			abort();	/* Someone has somehow malloced over 2^64 bits of ram. */
+		
 		out = realloc(out, outlen);
 		if( out == NULL ) abort();
 
@@ -227,7 +232,12 @@ int32_t xar_bzip_toheap_in(xar_t x, xar_file_t f, xar_prop_t p, void **in, size_
 
 	if( *inlen != 0 ) {
 		do {
-			outlen *= 2;
+			size_t newlen = outlen * 2;
+			if (newlen > outlen)
+				outlen = newlen;
+			else
+				abort();	/* Someone has somehow malloced over 2^64 bits of ram. */
+			
 			out = realloc(out, outlen);
 			if( out == NULL ) abort();
 
@@ -239,7 +249,12 @@ int32_t xar_bzip_toheap_in(xar_t x, xar_file_t f, xar_prop_t p, void **in, size_
 		} while( r == BZ_RUN_OK && BZIP2_CONTEXT(context)->bz.avail_in != 0 );
 	} else {
 		do {
-			outlen *= 2;
+			size_t newlen = outlen * 2;
+			if (newlen > outlen)
+				outlen = newlen;
+			else
+				abort();	/* Someone has somehow malloced over 2^64 bits of ram. */
+			
 			out = realloc(out, outlen);
 			if( out == NULL ) abort();
 

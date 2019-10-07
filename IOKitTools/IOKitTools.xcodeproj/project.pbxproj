@@ -332,6 +332,7 @@
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx.internal;
 				WARNING_CFLAGS = (
 					"-Wshorten-64-to-32",
 					"-Wall",
@@ -346,6 +347,7 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
+				SDKROOT = macosx.internal;
 				WARNING_CFLAGS = (
 					"-Wshorten-64-to-32",
 					"-Wall",

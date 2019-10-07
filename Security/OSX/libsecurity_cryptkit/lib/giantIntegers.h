@@ -64,39 +64,12 @@ typedef unsigned short giantDigit;
 #define MAX_DIGITS ((1<<18)+(1<<17))
 			/* 2^(16*MAX_DIGITS)-1 will fit into a giant. */
 
-/*
- * The giant stack package is a local cache which allows us to avoid calls
- * to malloc() for borrowGiant(). On a 90 Mhz Pentium, enabling the
- * giant stack package shows about a 1.35 speedup factor over an identical
- * CryptKit without the giant stacks enabled.
- */
-#define GIANTS_VIA_STACK	CRYPTKIT_GIANT_STACK_ENABLE
-
 typedef struct {
 	 int sign;              /* number of giantDigits = abs(sign) */
      unsigned capacity;		/* largest possible number of giantDigits */
 	 giantDigit n[1];		/* n[0] is l.s. digit */
 } giantstruct;
 typedef giantstruct *giant;
-
-#if		GIANTS_VIA_STACK
-/*
- * For giant stack debug only
- * Set default giant size (i.e., for newGiant(0) and borrowGiant(0))
- */
-void setGiantSize(unsigned numDigits);
-
-/*
- * Initialize giant stacks, with up to specified max giant size.
- */
-void initGiantStacks(unsigned maxDigits);
-
-/* 
- * Free giant stacks on shutdown.
- */
-void freeGiantStacks(void);
-
-#endif	/* GIANTS_VIA_STACK */
 
 giant newGiant(unsigned numDigits);
 giant copyGiant(giant x);

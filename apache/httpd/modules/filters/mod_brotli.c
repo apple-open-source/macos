@@ -349,6 +349,9 @@ static apr_status_t compress_filter(ap_filter_t *f, apr_bucket_brigade *bb)
          * a 204 response with no content, and are not tagged with the
          * no-brotli env variable, and are not a partial response to
          * a Range request.
+         *
+         * Note that responding to 304 is handled separately to set
+         * the required headers (such as ETag) per RFC7232, 4.1.
          */
         if (r->main || r->status == HTTP_NO_CONTENT
             || apr_table_get(r->subprocess_env, "no-brotli")

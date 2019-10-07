@@ -1,0 +1,18 @@
+#include "xcconfig/PlatformFeatures.xcconfig"
+
+CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES
+
+// Less header/module foolishness
+LIBRARY_SEARCH_PATHS = $(SDKROOT)/usr/local/lib/security_libDER
+HEADER_SEARCH_PATHS = $(PROJECT_DIR) $(PROJECT_DIR)/OSX/ $(PROJECT_DIR)/OSX/sec/ $(PROJECT_DIR)/keychain/trust/TrustedPeers/proto/generated_source
+SYSTEM_HEADER_SEARCH_PATHS =
+ALWAYS_SEARCH_USER_PATHS = NO
+USE_HEADERMAP = NO
+
+CLANG_ENABLE_MODULES = NO
+
+// No per-platform conditional compilation, so fake it.
+OCTAGON_FLAG_1 = -D OCTAGON
+OTHER_SWIFT_FLAGS = $(OCTAGON_FLAG_$(OCTAGON_ON))
+
+SWIFT_VERSION=4.2

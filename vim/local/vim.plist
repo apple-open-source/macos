@@ -1,27 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2017-11-09</string>
+		<string>2019-05-09</string>
 		<key>OpenSourceLicense</key>
 		<string>Uganda</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>vim.txt</string>
 		<key>OpenSourceProject</key>
 		<string>vim</string>
-		<key>OpenSourceSCM</key>
-		<string>git clone https://github.com/vim/vim; git checkout 9ed7d34af303190bb222624157e0c6cd78b7d120</string>
+		<key>OpenSourceURL</key>
+		<string>https://github.com/vim/vim/archive/v8.1.1312.tar.gz</string>
 		<key>OpenSourceVersion</key>
-		<string>8.0.1283</string>
+		<string>8.1.1312</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.vim.org/</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>33440987 - revert patch 504</string>
 			<string>Revert patch v8.0.0681 for conformance</string>
-			<string>51642355 - CVE-2019-12735 upstream patch 1365</string>
+			<string>patch 8.1.0646: cannot build with Ruby 2.6.0</string>
+			<string>patch 8.1.0704: building with Ruby 2.6 gives compiler warnings</string>
+			<string>50678437 - Remove xdiff</string>
 		</array>
 	</dict>
 </array>

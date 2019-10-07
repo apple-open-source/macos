@@ -43,26 +43,26 @@ private:
 
 protected:
 
-    virtual void free();
-    virtual bool handleStart( IOService * provider );
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
+    virtual bool handleStart( IOService * provider ) APPLE_KEXT_OVERRIDE;
     
 public:
     static IOHIDKeyboardDevice	* newKeyboardDeviceAndStart(IOService * owner, UInt32 location = 0);
     
-    virtual bool initWithLocation( UInt32 location = 0 );
+    virtual bool initWithLocation( UInt32 location = 0 ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn newReportDescriptor(
-                        IOMemoryDescriptor ** descriptor ) const;
+                        IOMemoryDescriptor ** descriptor ) const APPLE_KEXT_OVERRIDE;
                         
-    virtual OSString * newProductString() const;
+    virtual OSString * newProductString() const APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn getReport( IOMemoryDescriptor * report,
                                  IOHIDReportType      reportType,
-                                 IOOptionBits         options );
+                                 IOOptionBits         options ) APPLE_KEXT_OVERRIDE;
                                  
     virtual IOReturn setReport( IOMemoryDescriptor * report,
                                 IOHIDReportType      reportType,
-                                IOOptionBits         options );
+                                IOOptionBits         options ) APPLE_KEXT_OVERRIDE;
                                                                 
     virtual void postKeyboardEvent(UInt8 key, bool keyDown);
     virtual void postFlagKeyboardEvent(UInt32 flags);
@@ -72,7 +72,7 @@ public:
   
     virtual bool matchPropertyTable(
                                     OSDictionary *              table,
-                                    SInt32 *                    score);
+                                    SInt32 *                    score) APPLE_KEXT_OVERRIDE;
   
 };
 

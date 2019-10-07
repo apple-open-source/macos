@@ -124,6 +124,7 @@ public:
     template<typename Functor> void forEachLiveCell(HeapIterationScope&, const Functor&);
     template<typename Functor> void forEachDeadCell(HeapIterationScope&, const Functor&);
     template<typename Functor> void forEachBlock(const Functor&);
+    template<typename Functor> void forEachSubspace(const Functor&);
 
     void shrink();
     void freeBlock(MarkedBlock::Handle*);
@@ -201,22 +202,22 @@ private:
     unsigned m_largeAllocationsNurseryOffset { 0 };
     unsigned m_largeAllocationsOffsetForThisCollection { 0 };
     unsigned m_largeAllocationsNurseryOffsetForSweep { 0 };
+    unsigned m_largeAllocationsForThisCollectionSize { 0 };
     LargeAllocation** m_largeAllocationsForThisCollectionBegin { nullptr };
     LargeAllocation** m_largeAllocationsForThisCollectionEnd { nullptr };
-    unsigned m_largeAllocationsForThisCollectionSize { 0 };
 
     Heap* m_heap;
+    size_t m_capacity { 0 };
     HeapVersion m_markingVersion { initialVersion };
     HeapVersion m_newlyAllocatedVersion { initialVersion };
-    size_t m_capacity;
-    bool m_isIterating;
+    bool m_isIterating { false };
     bool m_isMarking { false };
+    Lock m_directoryLock;
     MarkedBlockSet m_blocks;
     
     SentinelLinkedList<WeakSet, BasicRawSentinelNode<WeakSet>> m_activeWeakSets;
     SentinelLinkedList<WeakSet, BasicRawSentinelNode<WeakSet>> m_newActiveWeakSets;
 
-    Lock m_directoryLock;
     SinglyLinkedListWithTail<BlockDirectory> m_directories;
 
     friend class HeapVerifier;
@@ -239,6 +240,16 @@ void MarkedSpace::forEachDirectory(const Functor& functor)
             return;
     }
 }
+
+template<typename Functor>
+void MarkedSpace::forEachSubspace(const Functor& functor)
+{
+    for (auto subspace : m_subspaces) {
+        if (functor(*subspace) == IterationStatus::Done)
+            return;
+    }
+}
+
 
 ALWAYS_INLINE size_t MarkedSpace::optimalSizeFor(size_t bytes)
 {

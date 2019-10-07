@@ -49,6 +49,7 @@
 extern const char *_pam_func_name[PAM_NUM_PRIMITIVES];
 extern const char *_pam_sm_func_name[PAM_NUM_PRIMITIVES];
 extern const char *_pam_err_name[PAM_NUM_ERRORS];
+extern const char *_pam_apple_err_name[PAM_APPLE_NUM_ERRORS];
 extern const char *_pam_item_name[PAM_NUM_ITEMS];
 
 extern int _openpam_debug;
@@ -163,6 +164,8 @@ pam_module_t	*openpam_dynamic(const char *);
 	int _c = (c); \
 	if (_c >= 0 && _c < PAM_NUM_ERRORS) \
 		openpam_log(PAM_LOG_LIBDEBUG, "returning %s", _pam_err_name[_c]); \
+	else if (_c >= PAM_APPLE_MIN_ERROR && _c < PAM_APPLE_MAX_ERROR) \
+		openpam_log(PAM_LOG_LIBDEBUG, "returning %s", _pam_apple_err_name[_c-PAM_APPLE_MIN_ERROR]); \
 	else \
 		openpam_log(PAM_LOG_LIBDEBUG, "returning %d!", _c); \
 	return (_c); \

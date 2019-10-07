@@ -126,7 +126,10 @@ static void rpc_ss_ndr_m_array_shadow (
     idl_ulong_int cs_type_defn_index;
     idl_byte *cs_type_defn_ptr;
     idl_ulong_int routine_index;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
     void (**routine_ptr)();
+#pragma clang diagnostic pop
     idl_byte ln_type = 0;           /* Data type of [length_is] item */
     idl_ulong_int ln_index;     /* Index in shadow of [length_is] item */
     idl_byte sz_type = 0;           /* Data type of [size_is] item */
@@ -183,9 +186,10 @@ static void rpc_ss_ndr_m_array_shadow (
         rpc_ss_fixed_bounds_from_vector(1, array_defn_ptr, &bounds_list,
                                         IDL_msp);
       else
-        bounds_list = (IDL_bound_pair_t *)array_defn_ptr;
-        array_defn_ptr += IDL_FIXED_BOUND_PAIR_WIDTH;
-        l_storage_len = bounds_list[0].upper - bounds_list[0].lower + 1;
+          bounds_list = (IDL_bound_pair_t *) (void *) array_defn_ptr;
+        
+      array_defn_ptr += IDL_FIXED_BOUND_PAIR_WIDTH;
+      l_storage_len = bounds_list[0].upper - bounds_list[0].lower + 1;
     }
     else    /* Conformant or open */
     {
@@ -463,7 +467,10 @@ static void rpc_ss_ndr_m_cs_farr_or_single
 {
     idl_byte *cs_type_defn_ptr;
     idl_ulong_int routine_index;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
     void (**routine_ptr)();
+#pragma clang diagnostic pop
     /* Parameters for ..._net_size */
     idl_cs_convert_t convert_type;
     /* Parameters for ..._to_netcs */
@@ -539,10 +546,11 @@ void rpc_ss_ndr_m_fixed_cs_array
     array_defn_ptr = IDL_msp->IDL_type_vec + array_defn_index;
     array_defn_ptr++;       /* dimensionality */
     if (IDL_msp->IDL_type_vec[TVEC_INT_REP_OFFSET] != NDR_LOCAL_INT_REP)
-      rpc_ss_fixed_bounds_from_vector(1, array_defn_ptr, &bounds_list,
+        rpc_ss_fixed_bounds_from_vector(1, array_defn_ptr, &bounds_list,
                                         IDL_msp);
     else
-      bounds_list = (IDL_bound_pair_t *)array_defn_ptr;
+        bounds_list = (IDL_bound_pair_t *) (void *) array_defn_ptr;
+    
     array_defn_ptr += IDL_FIXED_BOUND_PAIR_WIDTH;
     /* array_defn_ptr is now pointing to the base type, which has [cs_char] */
     array_defn_ptr++;       /* IDL_DT_CS_TYPE */
@@ -646,7 +654,8 @@ void rpc_ss_ndr_marsh_cs_array (
             rpc_ss_fixed_bounds_from_vector(1, array_defn_ptr, &bounds_list,
                                             IDL_msp);
         else
-            bounds_list = (IDL_bound_pair_t *)array_defn_ptr;
+            bounds_list = (IDL_bound_pair_t *) (void *) array_defn_ptr;
+
         array_defn_ptr += IDL_FIXED_BOUND_PAIR_WIDTH;
     }
     else    /* Conformant or varying */

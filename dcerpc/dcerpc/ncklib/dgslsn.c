@@ -258,7 +258,7 @@ INTERNAL void do_quit_body
 
 #ifndef MISPACKED_HDR
 
-    rpc_dg_quitpkt_body_p_t bodyp = (rpc_dg_quitpkt_body_p_t) &rqe->pkt->body;
+    rpc_dg_quitpkt_body_p_t bodyp = (rpc_dg_quitpkt_body_p_t) (void *) &rqe->pkt->body;
 
     /*
      * Make sure we understand the quit packet body version.
@@ -1229,7 +1229,7 @@ PRIVATE boolean rpc__dg_do_request
          * for more details on INDY processing.
          */
 
-        if (UUID_EQ(hdrp->if_id, ((rpc_if_rep_p_t) convc_v1_0_c_ifspec)->id, &st))
+        if (UUID_EQ(hdrp->if_id, ((rpc_if_rep_p_t) (void *) convc_v1_0_c_ifspec)->id, &st))
         {
             rpc__dg_handle_convc(rqe);
             return (RPC_C_DG_RDF_FREE_RQE);
@@ -1352,7 +1352,7 @@ PRIVATE boolean rpc__dg_do_request
         && rqe->hdrp->seq == scall->fwd2_rqe->hdrp->seq
         && rqe->hdrp->fragnum == scall->fwd2_rqe->hdrp->fragnum)
     {
-        rpc_dg_fpkt_p_t fpkt = (rpc_dg_fpkt_p_t) scall->fwd2_rqe->pkt;
+        rpc_dg_fpkt_p_t fpkt = (rpc_dg_fpkt_p_t) (void *) scall->fwd2_rqe->pkt;
         struct sockaddr *sp = (struct sockaddr *) &rqe->from.sa;
 
         rqe->from.len = fpkt->fhdr.len;

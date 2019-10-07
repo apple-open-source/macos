@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009,2012-2014,2018 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2009,2012-2014,2018-2019 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -39,11 +39,11 @@ __BEGIN_DECLS
 
 /* SecCertificate Strings */
 #define SEC_NULL_KEY                SecStringWithDefaultValue("<NULL>", "Certificate", 0, "<NULL>", "Value of a field if its length is 0")
-#define SEC_OID_TOO_LONG_KEY		SecStringWithDefaultValue("OID too long", "Certificate", 0, "OID too long", "value of an OID field if it's length is more than what we allow for oids")
-#define SEC_UNPARSED_KEY			SecStringWithDefaultValue("Unparsed %@", "Certificate", 0, "Unparsed %@", "Label of a value is printed into this string if the data can not been parsed according to it's type")
+#define SEC_OID_TOO_LONG_KEY		SecStringWithDefaultValue("OID too long", "Certificate", 0, "OID too long", "value of an OID field if its length is more than what we allow for OIDs")
+#define SEC_UNPARSED_KEY			SecStringWithDefaultValue("Unparsed %@", "Certificate", 0, "Unparsed %@", "Label of a value is printed into this string if the data can not been parsed according to its type")
 #define SEC_INVALID_KEY             SecStringWithDefaultValue("Invalid %@", "Certificate", 0, "Invalid %@", "Label of a value is printed into this string if the data is not valid")
-#define SEC_ALGORITHM_KEY			SecStringWithDefaultValue("Algorithm", "Certificate", 0, "Algorithm", "Label of the algorithm sub-field of an AlgorithmIdentifer")
-#define SEC_PARAMETERS_KEY			SecStringWithDefaultValue("Parameters", "Certificate", 0, "Parameters", "Label of the parameters sub-field of an AlgorithmIdentifer")
+#define SEC_ALGORITHM_KEY			SecStringWithDefaultValue("Algorithm", "Certificate", 0, "Algorithm", "Label of the algorithm sub-field of an AlgorithmIdentifier")
+#define SEC_PARAMETERS_KEY			SecStringWithDefaultValue("Parameters", "Certificate", 0, "Parameters", "Label of the parameters sub-field of an AlgorithmIdentifier")
 #define SEC_NONE_KEY                SecStringWithDefaultValue("none", "Certificate", 0, "none", "field value of parameters field when no parameters are present")
 #define SEC_BLOB_KEY                SecStringWithDefaultValue("%@; %d %@; data = %@", "Certificate", 0, "%@; %d %@; data = %@", "Format string for encoded field data (e.g. Sequence; 128 bytes; data = 00 00 ...)")
 #define SEC_BYTE_STRING_KEY         SecStringWithDefaultValue("Byte string", "Certificate", 0, "Byte string", "First argument to SEC_BLOB_KEY format string for a Byte string")
@@ -207,7 +207,7 @@ __BEGIN_DECLS
 #define SEC_CK_TID_DAYS             SecStringWithDefaultValue("days", "CloudKeychain", 0, "days", "More than one day")
 
 #define SEC_CK_PWD_REQUIRED_TITLE		SecStringWithDefaultValue("Apple ID Password Required", "CloudKeychain", 0, "Apple ID Password Required", "Title for alert when iCloud keychain was disabled or reset")
-#define SEC_CK_PWD_REQUIRED_BODY_OSX	SecStringWithDefaultValue("Enter your password in iCloud Preferences.", "CloudKeychain", 0, "Enter your password in iCloud Preferences.", "macOS alert text when iCloud keychain was disabled or reset")
+#define SEC_CK_PWD_REQUIRED_BODY_OSX	SecStringWithDefaultValue("Enter your password in Apple ID Preferences.", "CloudKeychain", 0, "Enter your password in Apple ID Preferences.", "macOS alert text when iCloud keychain was disabled or reset")
 #define SEC_CK_PWD_REQUIRED_BODY_IOS	SecStringWithDefaultValue("Enter your password in iCloud Settings.", "CloudKeychain", 0, "Enter your password in iCloud Settings.", "iOS alert text when iCloud keychain was disabled or reset")
 #define SEC_CK_CR_REASON_INTERNAL		SecStringWithDefaultValue(" (AppleInternal: departure reason %s)", "CloudKeychain", 0, " (AppleInternal: departure reason %s)", "Display departure reason code on internal devices")
 #define SEC_CK_CONTINUE					SecStringWithDefaultValue("Continue", "CloudKeychain", 0, "Continue", "Button text to continue to iCloud settings (iOS)")
@@ -261,6 +261,7 @@ __BEGIN_DECLS
 #define SEC_TRUST_ERROR_SUBTYPE_NAME        SecStringWithDefaultValue("“%@” certificate name does not match input", "Trust", 0, "“%@” certificate name does not match input", "Error for certificates whose names do not match the policy")
 #define SEC_TRUST_ERROR_SUBTYPE_USAGE       SecStringWithDefaultValue("“%@” certificate is not permitted for this usage", "Trust", 0, "“%@” certificate is not permitted for this usage", "Error for certificates whose usages do not match the policy")
 #define SEC_TRUST_ERROR_SUBTYPE_PINNING     SecStringWithDefaultValue("%@ certificates do not meet pinning requirements", "Trust", 0, "%@ certificates do not meet pinning requirements", "Error for certificates that do not meet pinning requirements")
+#define SEC_TRUST_ERROR_SUBTYPE_ISSUER      SecStringWithDefaultValue("“%@” certificate does not meet issuer constraints", "Trust", 0, "“%@” certificate does not meet issuer constraints", "Error for certificates which violate constraints set on their issuer")
 #define SEC_TRUST_ERROR_SUBTYPE_INVALID     SecStringWithDefaultValue("Unknown trust error for “%@” certificate", "Trust", 0, "Unknown trust error for “%@” certificate", "Error for unknown error")
 
 //Note the the following errors do not follow the casing conventions of the above so that they can be used with POLICYCHECKMACRO
@@ -290,6 +291,7 @@ __BEGIN_DECLS
 #define SEC_TRUST_ERROR_IntermediateSPKISHA256      SecStringWithDefaultValue("Public key does not match pinned value", "Trust", 0, "Public key does not match pinned value", "Error for intermediate public key pin")
 #define SEC_TRUST_ERROR_IntermediateEKU             SecStringWithDefaultValue("Extended key usage does not match pinned value", "Trust", 0, "Extended key usage does not match pinned value", "Error for intermediate extended key usage pin")
 #define SEC_TRUST_ERROR_IntermediateMarkerOid       SecStringWithDefaultValue("Missing issuer-specific extension OID", "Trust", 0, "Missing issuer-specific extension OID", "Error for intermediate marker OID")
+#define SEC_TRUST_ERROR_IntermediateMarkerOidWithoutValueCheck SecStringWithDefaultValue("Missing issuer-specific extension OID", "Trust", 0, "Missing issuer-specific extension OID", "Error for intermediate marker OID")
 #define SEC_TRUST_ERROR_IntermediateOrganization    SecStringWithDefaultValue("Organization does not match expected name", "Trust", 0, "Organization does not match expected name", "Error for issuer organization mismatch")
 #define SEC_TRUST_ERROR_IntermediateCountry         SecStringWithDefaultValue("Country or Region does not match expected name", "Trust", 0, "Country or Region does not match expected name", "Error for issuer country mismatch")
 #define SEC_TRUST_ERROR_AnchorSHA1                  SecStringWithDefaultValue("Anchor does not match pinned fingerprint", "Trust", 0, "Anchor does not match pinned fingerprint", "Error for anchor SHA-1 fingerprint pin")
@@ -322,6 +324,11 @@ __BEGIN_DECLS
 #define SEC_TRUST_ERROR_ExtendedValidation          SecStringWithDefaultValue("Unexpected error detail", "Trust", 0, "Unexpected error detail", "Error for unexpected error details")
 #define SEC_TRUST_ERROR_RevocationOnline            SecStringWithDefaultValue("Unexpected error detail", "Trust", 0, "Unexpected error detail", "Error for unexpected error details")
 #define SEC_TRUST_ERROR_RevocationIfTrusted         SecStringWithDefaultValue("Unexpected error detail", "Trust", 0, "Unexpected error detail", "Error for unexpected error details")
+#define SEC_TRUST_ERROR_IssuerPolicyConstraints     SecStringWithDefaultValue("Certificate violates issuer policy constraints", "Trust", 0, "Certificate violates issuer policy constraints", "Error for certificates which violate policy constraints set on their issuer")
+#define SEC_TRUST_ERROR_IssuerNameConstraints       SecStringWithDefaultValue("Certificate violates issuer name constraints", "Trust", 0, "Certificate violates issuer name constraints", "Error for certificates which violate name constraints set on their issuer")
+#define SEC_TRUST_ERROR_ValidityPeriodMaximums      SecStringWithDefaultValue("Certificate exceeds maximum temporal validity period", "Trust", 0, "Certificate exceeds maximum temporal validity period", "Error for certificates that exceed the system's maximum temporal validity")
+#define SEC_TRUST_ERROR_ServerAuthEKU               SecStringWithDefaultValue("Extended key usage does not match certificate usage", "Trust", 0, "Extended key usage does not match certificate usage", "Error for extended key usage mismatch")
+#define SEC_TRUST_ERROR_UnparseableExtension        SecStringWithDefaultValue("Unable to parse known extension", "Trust", 0, "Unable to parse known extension", "Error for unparseable known extensions")
 
 __END_DECLS
 

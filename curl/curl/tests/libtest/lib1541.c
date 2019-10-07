@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 2019, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -25,105 +25,127 @@
 #include "warnless.h"
 #include "memdebug.h"
 
-#define XSTR(x) #x
-#define STRING(y) XSTR(y)
+#ifdef HAVE_PTHREAD_H
+#include <pthread.h>
+#include <time.h>
+
+/* number of threads to fire up in parallel */
+#define NUM_THREADS 67
+
+/* for how many seconds each thread will loop */
+#define RUN_FOR_SECONDS 7
+
+static pthread_mutex_t connlock;
+
+static size_t write_db(void *ptr, size_t size, size_t nmemb, void *data)
+{
+  /* not interested in the downloaded bytes, return the size */
+  (void)ptr;  /* unused */
+  (void)data; /* unused */
+  return (size_t)(size * nmemb);
+}
+
+static void lock_cb(CURL *handle, curl_lock_data data,
+                    curl_lock_access access, void *userptr)
+{
+  (void)access; /* unused */
+  (void)userptr; /* unused */
+  (void)handle; /* unused */
+  (void)data; /* unused */
+  pthread_mutex_lock(&connlock);
+}
+
+static void unlock_cb(CURL *handle, curl_lock_data data,
+                      void *userptr)
+{
+  (void)userptr; /* unused */
+  (void)handle;  /* unused */
+  (void)data;    /* unused */
+  pthread_mutex_unlock(&connlock);
+}
+
+static void init_locks(void)
+{
+  pthread_mutex_init(&connlock, NULL);
+}
+
+static void kill_locks(void)
+{
+  pthread_mutex_destroy(&connlock);
+}
+
+struct initurl {
+  const char *url;
+  CURLSH *share;
+  int threadno;
+};
+
+static void *run_thread(void *ptr)
+{
+  struct initurl *u = (struct initurl *)ptr;
+  int i;
+  time_t end = time(NULL) + RUN_FOR_SECONDS;
+
+  for(i = 0; time(NULL) < end; i++) {
+    CURL *curl = curl_easy_init();
+    curl_easy_setopt(curl, CURLOPT_URL, u->url);
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
+    curl_easy_setopt(curl, CURLOPT_SHARE, u->share);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_db);
+    curl_easy_perform(curl); /* ignores error */
+    curl_easy_cleanup(curl);
+    fprintf(stderr, "Thread %d transfer %d\n", u->threadno, i);
+  }
+
+  return NULL;
+}
 
 int test(char *URL)
 {
-  char detect[512];
-  char syst[512];
+  pthread_t tid[NUM_THREADS];
+  int i;
+  int error;
+  CURLSH *share;
+  struct initurl url[NUM_THREADS];
 
-  const char *types_h = "No";
-  const char *socket_h = "No";
-  const char *ws2tcpip_h = "No";
-  const char *stypes_h = "No";
-  const char *ssocket_h = "No";
-  const char *sws2tcpip_h = "No";
+  /* Must initialize libcurl before any threads are started */
+  curl_global_init(CURL_GLOBAL_ALL);
 
-  (void)(URL);
+  share = curl_share_init();
+  curl_share_setopt(share, CURLSHOPT_LOCKFUNC, lock_cb);
+  curl_share_setopt(share, CURLSHOPT_UNLOCKFUNC, unlock_cb);
+  curl_share_setopt(share, CURLSHOPT_SHARE, CURL_LOCK_DATA_CONNECT);
 
-#ifdef CURL_PULL_SYS_TYPES_H
-  types_h = "Yes";
-#endif
-#ifdef CURL_PULL_SYS_SOCKET_H
-  socket_h = "Yes";
-#endif
-#ifdef CURL_PULL_WS2TCPIP_H
-  ws2tcpip_h = "Yes";
-#endif
-  snprintf(detect, sizeof(detect),
-#ifdef CHECK_CURL_OFF_T
-           "CURL_TYPEOF_CURL_OFF_T:     %s\n"
-#endif
-           "CURL_FORMAT_CURL_OFF_T:     %s\n"
-           "CURL_FORMAT_CURL_OFF_TU:    %s\n"
-           "CURL_SUFFIX_CURL_OFF_T:     %s\n"
-           "CURL_SUFFIX_CURL_OFF_TU:    %s\n"
-           "CURL_SIZEOF_CURL_OFF_T:     %d\n"
-           "CURL_SIZEOF_LONG:           %d\n"
-           "CURL_TYPEOF_CURL_SOCKLEN_T: %s\n"
-           "CURL_PULL_SYS_TYPES_H:      %s\n"
-           "CURL_PULL_SYS_SOCKET_H:     %s\n"
-           "CURL_PULL_WS2TCPIP_H:       %s\n"
+  init_locks();
 
-#ifdef CHECK_CURL_OFF_T
-           , STRING(CURL_TYPEOF_CURL_OFF_T)
-#endif
-           , CURL_FORMAT_CURL_OFF_T
-           , CURL_FORMAT_CURL_OFF_TU
-           , STRING(CURL_SUFFIX_CURL_OFF_T)
-           , STRING(CURL_SUFFIX_CURL_OFF_TU)
-           , CURL_SIZEOF_CURL_OFF_T
-           , CURL_SIZEOF_LONG
-           , STRING(CURL_TYPEOF_CURL_SOCKLEN_T)
-           , types_h
-           , socket_h
-           , ws2tcpip_h);
-
-#ifdef CURLSYS_PULL_SYS_TYPES_H
-  stypes_h = "Yes";
-#endif
-#ifdef CURLSYS_PULL_SYS_SOCKET_H
-  ssocket_h = "Yes";
-#endif
-#ifdef CURLSYS_PULL_WS2TCPIP_H
-  sws2tcpip_h = "Yes";
-#endif
-  snprintf(syst, sizeof(syst),
-#ifdef CHECK_CURL_OFF_T
-           "CURL_TYPEOF_CURL_OFF_T:     %s\n"
-#endif
-           "CURL_FORMAT_CURL_OFF_T:     %s\n"
-           "CURL_FORMAT_CURL_OFF_TU:    %s\n"
-           "CURL_SUFFIX_CURL_OFF_T:     %s\n"
-           "CURL_SUFFIX_CURL_OFF_TU:    %s\n"
-           "CURL_SIZEOF_CURL_OFF_T:     %d\n"
-           "CURL_SIZEOF_LONG:           %d\n"
-           "CURL_TYPEOF_CURL_SOCKLEN_T: %s\n"
-           "CURL_PULL_SYS_TYPES_H:      %s\n"
-           "CURL_PULL_SYS_SOCKET_H:     %s\n"
-           "CURL_PULL_WS2TCPIP_H:       %s\n"
-
-#ifdef CHECK_CURL_OFF_T
-           , STRING(CURLSYS_TYPEOF_CURL_OFF_T)
-#endif
-           , CURLSYS_FORMAT_CURL_OFF_T
-           , CURLSYS_FORMAT_CURL_OFF_TU
-           , STRING(CURLSYS_SUFFIX_CURL_OFF_T)
-           , STRING(CURLSYS_SUFFIX_CURL_OFF_TU)
-           , CURLSYS_SIZEOF_CURL_OFF_T
-           , CURLSYS_SIZEOF_LONG
-           , STRING(CURLSYS_TYPEOF_CURL_SOCKLEN_T)
-           , stypes_h
-           , ssocket_h
-           , sws2tcpip_h);
-
-  if(strcmp(detect, syst)) {
-    printf("===> Type detection failed <====\n");
-    printf("[Detected]\n%s", detect);
-    printf("[System]\n%s", syst);
-    return 1; /* FAIL! */
+  for(i = 0; i< NUM_THREADS; i++) {
+    url[i].url = URL;
+    url[i].share = share;
+    url[i].threadno = i;
+    error = pthread_create(&tid[i], NULL, run_thread, &url[i]);
+    if(0 != error)
+      fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, error);
+    else
+      fprintf(stderr, "Thread %d, gets %s\n", i, URL);
   }
 
+  /* now wait for all threads to terminate */
+  for(i = 0; i< NUM_THREADS; i++) {
+    error = pthread_join(tid[i], NULL);
+    fprintf(stderr, "Thread %d terminated\n", i);
+  }
+
+  kill_locks();
+
+  curl_share_cleanup(share);
+  curl_global_cleanup();
   return 0;
 }
+
+#else /* without pthread, this test doesn't work */
+int test(char *URL)
+{
+  (void)URL;
+  return 0;
+}
+#endif

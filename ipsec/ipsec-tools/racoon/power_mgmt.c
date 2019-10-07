@@ -16,9 +16,9 @@
 #include <IOKit/IOKitLib.h>
 #include <IOKit/pwr_mgt/IOPM.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) */
 #include <IOKit/IOMessage.h>
 
 #include "var.h"

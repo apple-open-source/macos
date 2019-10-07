@@ -2,15 +2,15 @@
 #
 #   irb/input-method.rb - input methods used irb
 #   	$Release Version: 0.9.6$
-#   	$Revision: 53141 $
+#   	$Revision: 65506 $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
 #
 #
-require 'irb/src_encoding'
-require 'irb/magic-file'
+require_relative 'src_encoding'
+require_relative 'magic-file'
 
 module IRB
   STDIN_FILE_NAME = "(line)" # :nodoc:

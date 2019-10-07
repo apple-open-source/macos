@@ -28,9 +28,9 @@
 #ifndef	_TRUST_SETTINGS_H_
 #define _TRUST_SETTINGS_H_
 
-#include "SecTrust.h"
-#include <security_keychain/StorageManager.h>
+#include <Security/SecTrust.h>
 #include <Security/SecTrustSettings.h>
+#include <security_keychain/StorageManager.h>
 
 /*
  * Clarification of the bool arguments to our main constructor.

@@ -7,7 +7,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>Control de Acceso - Servidor Apache HTTP Versión 2.4</title>
+<title>Control de Acceso - Servidor HTTP Apache Versión 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -27,14 +27,10 @@
 <a href="../es/howto/access.html" title="Español">&nbsp;es&nbsp;</a> |
 <a href="../fr/howto/access.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a></p>
 </div>
-<div class="outofdate">Esta traducción podría estar
-            obsoleta. Consulte la versión en inglés de la
-            documentación para comprobar si se han producido cambios
-            recientemente.</div>
 
     <p>El control de acceso, hace referencia a todos los medios que proporcionan
-    	una forma de controlar el acceso a cualquier recurso. Esta parte está
-    	separada de <a href="auth.html">autenticación y autorización</a>.</p>
+        una forma de controlar el acceso a cualquier recurso. Esta parte está
+        separada de <a href="auth.html">autenticación y autorización</a>.</p>
 </div>
 <div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="../images/down.gif" /> <a href="#related">Módulos y Directivas relacionados</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#host">Control de Acceso por host</a></li>
@@ -120,7 +116,7 @@ Require ip <var>ip.address</var>
 
 
     <p>Y, Si lo que se quiere es bloquear el acceso desde dominio especifico, 
-    	podrás especificar parte de una dirección o nombre de dominio:</p>
+        podrás especificar parte de una dirección o nombre de dominio:</p>
 
     <pre class="prettyprint lang-config">Require not ip 192.168.205
 Require not host phishers.example.com moreidiots.example
@@ -173,7 +169,7 @@ Require not host gov</pre>
     en criterio arbitrario.</p>
 
     <p>Por ejemplo, si lo que desea es bloquear un recurso entre las 8pm y las 
-    	7am, podrá hacerlo usando <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code>:</p>
+        7am, podrá hacerlo usando <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code>:</p>
 
     <pre class="prettyprint lang-config">RewriteEngine On
 RewriteCond "%{TIME_HOUR}" "&gt;=20" [OR]
@@ -231,7 +227,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/howto/access.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2018 The Apache Software Foundation.<br />Licencia bajo los términos de <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2019 The Apache Software Foundation.<br />Licencia bajo los términos de la <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Módulos</a> | <a href="../mod/directives.html">Directivas</a> | <a href="http://wiki.apache.org/httpd/FAQ">Preguntas Frecuentes</a> | <a href="../glossary.html">Glosario</a> | <a href="../sitemap.html">Mapa del sitio web</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -243,7 +243,7 @@ idl_ulong_int rpc_ss_strsiz
         for (j = 1; j < octets_per_char && octet[j] == '\0'; j++)
             ;
         if (j == octets_per_char)
-            return ((octet + j - s) / octets_per_char);
+            return (idl_ulong_int) ((octet + j - s) / octets_per_char);
 
         /*
          * Not a full null char, update to next char and continue.

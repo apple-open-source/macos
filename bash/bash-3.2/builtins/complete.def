@@ -568,9 +568,9 @@ compgen_builtin (list)
   word = (list && list->word) ? list->word->word : "";
 
   if (Farg)
-    builtin_error (_("warning: -F option may not work as you expect"));
+    builtin_error ("%s", _("warning: -F option may not work as you expect"));
   if (Carg)
-    builtin_error (_("warning: -C option may not work as you expect"));
+    builtin_error ("%s", _("warning: -C option may not work as you expect"));
 
   /* If we get here, we need to build a compspec and evaluate it. */
   cs = compspec_create ();

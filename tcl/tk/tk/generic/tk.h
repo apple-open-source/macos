@@ -18,6 +18,14 @@
 #ifndef _TK
 #define _TK
 
+#include <os/availability.h>
+
+/*
+ * The system version of Tk is deprecated.
+ * Please include your own version of the library in your project.
+ */
+API_DEPRECATED_BEGIN("Tk API deprecated.", macos(10.0, 10.15))
+
 #include <tcl.h>
 #if (TCL_MAJOR_VERSION != 8) || (TCL_MINOR_VERSION != 5)
 #	error Tk 8.5 must be compiled with tcl.h from Tcl 8.5
@@ -1593,6 +1601,8 @@ typedef int (Tk_SelectionProc) _ANSI_ARGS_((ClientData clientData,
 #ifdef __cplusplus
 }
 #endif
+
+API_DEPRECATED_END
 
 #endif /* _TK */
 

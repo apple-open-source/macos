@@ -34,7 +34,7 @@ public:
             self->_propertyCache = OSDictionary::withCapacity(1);
             self->_eventCache = OSArray::withCapacity(KEventCacheSize);
             if (self->_eventCache) {
-                for (int index = 0 ; index < KEventCacheSize ; index++) {
+                for (unsigned long index = 0 ; index < KEventCacheSize ; index++) {
                     IOHIDEvent * event = IOHIDEvent::keyboardEvent(mach_absolute_time(), 1, 1, 0);
                     if (event) {
                         (self->_eventCache)->setObject (event);

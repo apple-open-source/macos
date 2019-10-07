@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.StructInside.d	1.2	06/09/26 SMI"
-
 /*
  * ASSERTION:
  * Verify the nested behavior of structs.

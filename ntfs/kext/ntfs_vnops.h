@@ -44,9 +44,9 @@
 
 typedef int vnop_t(void *);
 
-__private_extern__ vnop_t **ntfs_vnodeop_p;
+__attribute__((visibility("hidden"))) extern vnop_t **ntfs_vnodeop_p;
 
-__private_extern__ struct vnodeopv_desc ntfs_vnodeopv_desc;
+__attribute__((visibility("hidden"))) extern struct vnodeopv_desc ntfs_vnodeopv_desc;
 
 __private_extern__ int ntfs_cluster_iodone(buf_t cbp, void *arg __unused);
 

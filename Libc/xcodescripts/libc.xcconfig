@@ -2,14 +2,27 @@
 
 // Standard settings
 SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator iphoneosnano iphonesimulatornano bridgeos
+
+SDK_INSTALL_VARIANT = $(SDK_INSTALL_VARIANT_$(DRIVERKIT))
+SDK_INSTALL_VARIANT_1 = driverkit
+SDK_INSTALL_VARIANT_ = default
+SDK_INSTALL_ROOT = $(SDK_INSTALL_ROOT_$(SDK_INSTALL_VARIANT))
+SDK_INSTALL_ROOT_driverkit = $(DRIVERKITROOT)
+SDK_INSTALL_HEADERS_ROOT = $(SDK_INSTALL_HEADERS_ROOT_$(SDK_INSTALL_VARIANT))
+SDK_INSTALL_HEADERS_ROOT_driverkit = $(SDK_INSTALL_ROOT)/$(SDK_RUNTIME_HEADERS_PREFIX)
+SDK_RUNTIME_HEADERS_PREFIX = Runtime
+
 SRCROOT_SEARCH_PATHS = $(SRCROOT) $(SRCROOT)/include $(SRCROOT)/gen $(SRCROOT)/locale $(SRCROOT)/locale/FreeBSD $(SRCROOT)/stdtime/FreeBSD $(SRCROOT)/darwin
-SYSTEM_FRAMEWORK_HEADERS = $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
-HEADER_SEARCH_PATHS = $($(TARGET_NAME)_SEARCH_PATHS) $(DERIVED_FILES_DIR)/dtrace $(SRCROOT_SEARCH_PATHS) $(SYSTEM_FRAMEWORK_HEADERS) $(SDKROOT)/usr/local/include $(inherited)
+SYSTEM_FRAMEWORK_HEADERS = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
+SDK_SYSTEM_FRAMEWORK_HEADERS = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders
+HEADER_SEARCH_PATHS = $($(TARGET_NAME)_SEARCH_PATHS) $(DERIVED_FILES_DIR)/dtrace $(SRCROOT_SEARCH_PATHS) $(inherited)
+SYSTEM_HEADER_SEARCH_PATHS = $(SYSTEM_FRAMEWORK_HEADERS) $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/local/include $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/include
+SYSTEM_FRAMEWORK_SEARCH_PATHS = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks
 ALWAYS_SEARCH_USER_PATHS = YES
 USE_HEADERMAP = NO
 BUILD_VARIANTS = normal
 GCC_OPTIMIZATION_LEVEL = s
-GCC_C_LANGUAGE_STANDARD = gnu99
+GCC_C_LANGUAGE_STANDARD = gnu11
 GCC_ENABLE_OBJC_EXCEPTIONS = YES
 GCC_SYMBOLS_PRIVATE_EXTERN = NO
 GCC_DYNAMIC_NO_PIC = NO
@@ -34,7 +47,7 @@ VERSIONING_SYSTEM =
 VERSION_INFO_PREFIX = __attribute__((visibility("hidden")))
 COPY_PHASE_STRIP = NO
 STRIP_INSTALLED_PRODUCT = NO
-LD_DYLIB_INSTALL_NAME = /usr/lib/system/$(EXECUTABLE_NAME)
+LD_DYLIB_INSTALL_NAME = $(SDK_INSTALL_ROOT)/usr/lib/system/$(EXECUTABLE_NAME)
 IS_ZIPPERED = YES
 
 BUILD_VARIANTS = normal debug
@@ -45,12 +58,12 @@ GCC_VERSION = com.apple.compilers.llvm.clang.1_0
 GCC_VERSION[arch=armv6] = com.apple.compilers.llvmgcc42
 
 EXECUTABLE_PREFIX = libsystem_
-INSTALL_PATH = /usr/lib/system
-PUBLIC_HEADERS_FOLDER_PATH = /usr/include
-PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include
+INSTALL_PATH = $(SDK_INSTALL_ROOT)/usr/lib/system
+PUBLIC_HEADERS_FOLDER_PATH = $(SDK_INSTALL_HEADERS_ROOT)/usr/include
+PRIVATE_HEADERS_FOLDER_PATH = $(SDK_INSTALL_HEADERS_ROOT)/usr/local/include
 
-DARWIN_PUBLIC_HEADERS_FOLDER_PATH = /usr/include/os
-DARWIN_PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/os
+DARWIN_PUBLIC_HEADERS_FOLDER_PATH = $(SDK_INSTALL_HEADERS_ROOT)/usr/include/os
+DARWIN_PRIVATE_HEADERS_FOLDER_PATH = $(SDK_INSTALL_HEADERS_ROOT)/usr/local/include/os
 
 // Simulator
 BASE_PREPROCESSOR_MACROS = __LIBC__ __DARWIN_UNIX03=1 __DARWIN_64_BIT_INO_T=1 __DARWIN_NON_CANCELABLE=1 __DARWIN_VERS_1050=1 _FORTIFY_SOURCE=0
@@ -62,6 +75,7 @@ GCC_PREPROCESSOR_DEFINITIONS = $(BASE_PREPROCESSOR_MACROS)
 
 // libsystem_c.dylib linking
 CR_LDFLAGS = -lCrashReporterClient
+CR_LDFLAGS[sdk=driverkit*] =
 LIBCOMPILER_RT_LDFLAGS = -lcompiler_rt
 LIBMALLOC_LDFLAGS = -lsystem_malloc
 LIBC_LDFLAGS = -lsystem_c
@@ -72,13 +86,14 @@ LIBPTHREAD_LDFLAGS = -lsystem$(SIM_SUFFIX)_pthread
 LIBSYSCALL_LDFLAGS = -lsystem$(SIM_SUFFIX)_kernel
 LIBM_LDFLAGS = -lsystem_m
 LIBDYLD_LDFLAGS = -ldyld
-LIBSYSTEM_C_LDFLAGS = -all_load -nostdlib -L/usr/lib/system -umbrella System $(CR_LDFLAGS) $(LIBCOMPILER_RT_LDFLAGS) $(LIBDYLD_LDFLAGS) $(LIBSYSCALL_LDFLAGS) $(LIBM_LDFLAGS) $(LIBMALLOC_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBPTHREAD_LDFLAGS) $(UPWARD_LDFLAGS) $(LIBSYSTEM_C_EXTRA_LDFLAGS_$(CURRENT_ARCH)) -Wl,-interposable_list,$(DERIVED_FILES_DIR)/interposable.list -Wl,-unexported_symbols_list,$(DERIVED_FILES_DIR)/unexport.list -Wl,-alias_list,$(SRCROOT)/xcodescripts/alias.list -Wl,-order_file,$(SRCROOT)/xcodescripts/Libc.order -Wl,-sectalign,__DATA,__data,1000 @$(BUILT_PRODUCTS_DIR)/$(CURRENT_VARIANT).linklist
+LIBSYSTEM_C_LDFLAGS = -all_load -nostdlib -L$(SDK_INSTALL_ROOT)/usr/lib/system -umbrella System $(CR_LDFLAGS) $(LIBCOMPILER_RT_LDFLAGS) $(LIBDYLD_LDFLAGS) $(LIBSYSCALL_LDFLAGS) $(LIBM_LDFLAGS) $(LIBMALLOC_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBPTHREAD_LDFLAGS) $(UPWARD_LDFLAGS) $(LIBSYSTEM_C_EXTRA_LDFLAGS_$(CURRENT_ARCH)) -Wl,-interposable_list,$(DERIVED_FILES_DIR)/interposable.list -Wl,-unexported_symbols_list,$(DERIVED_FILES_DIR)/unexport.list -Wl,-alias_list,$(SRCROOT)/xcodescripts/alias.list -Wl,-order_file,$(SRCROOT)/xcodescripts/Libc.order @$(BUILT_PRODUCTS_DIR)/$(CURRENT_VARIANT).linklist
 LIBSYSTEM_C_EXTRA_LDFLAGS_i386 = -Wl,-alias_list,$(SRCROOT)/xcodescripts/legacy_alias.list
 
 // TODO: Remove upward links - mostly <rdar://problem/13183469>, macho is for assumes.c
 UPWARD_LDFLAGS = -Wl,-upward-ldispatch -Wl,-upward-lmacho -Wl,-upward-lsystem_asl -Wl,-upward-lsystem_blocks -Wl,-upward-lsystem_info -Wl,-upward-lsystem_notify -Wl,-upward-lxpc -Wl,-upward-lcorecrypto -Wl,-upward-lsystem_trace
+UPWARD_LDFLAGS[sdk=driverkit*] = -Wl,-upward-lmacho -Wl,-upward-lsystem_blocks -Wl,-upward-lcorecrypto
 
-LIBSYSTEM_DARWIN_LDFLAGS = -all_load -nostdlib -L/usr/lib/system -umbrella System $(LIBCOMPILER_RT_LDFLAGS) $(LIBDYLD_LDFLAGS) $(LIBSYSCALL_LDFLAGS) $(LIBM_LDFLAGS) $(LIBMALLOC_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBPTHREAD_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBC_LDFLAGS) $(LIBDISPATCH_LDFLAGS) $(LIBXPC_LDFLAGS)
+LIBSYSTEM_DARWIN_LDFLAGS = -all_load -nostdlib -L$(SDK_INSTALL_ROOT)/usr/lib/system -umbrella System $(LIBCOMPILER_RT_LDFLAGS) $(LIBDYLD_LDFLAGS) $(LIBSYSCALL_LDFLAGS) $(LIBM_LDFLAGS) $(LIBMALLOC_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBPTHREAD_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBC_LDFLAGS) $(LIBDISPATCH_LDFLAGS) $(LIBXPC_LDFLAGS)
 
 // libPlatform.a architectures
 ARCH_FAMILY = $(ARCH_FAMILY_$(CURRENT_ARCH))
@@ -129,6 +144,7 @@ BASE_EXCLUDED_SOURCE_FILE_NAMES_appletvsimulator = $(BASE_EXCLUDED_SOURCE_FILE_N
 BASE_EXCLUDED_SOURCE_FILE_NAMES_watchos = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_iphoneos)
 BASE_EXCLUDED_SOURCE_FILE_NAMES_watchsimulator = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_iphonesimulator)
 BASE_EXCLUDED_SOURCE_FILE_NAMES_bridgeos = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_iphoneos)
+BASE_EXCLUDED_SOURCE_FILE_NAMES_driverkit = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_macosx) $(BASE_EXCLUDED_SOURCE_FILE_NAMES_iphoneos) getlogin.c setlogin.c logwtmp.c utmpx.c utmpx-darwin.c daemon.c authentication.c pty.c opendev.c fparseln.c psort*.c crypt.c glob.c readpassphrase.c atexit_receipt.c debug_private.c sourcefilter.c inet*.c nsap_addr.c ascii2addr.c addr2ascii.c acl*.c filesec.c chmodx_np.c openx_np.c umaskx_np.c statx_np.c
 
 // TODO: Remove these legacy platform names:
 BASE_EXCLUDED_SOURCE_FILE_NAMES_iphoneosnano = $(BASE_EXCLUDED_SOURCE_FILE_NAMES_watchos)
@@ -148,5 +164,7 @@ TAPI_HEADER_SEARCH_PATHS =
 
 // TODO: Remove this hack once Marzipan bringup is done
 VARIANT_PLATFORM_NAME = $(VARIANT_PLATFORM_NAME_$(RC_MARZIPAN))
-VARIANT_PLATFORM_NAME_ = $(PLATFORM_NAME)
 VARIANT_PLATFORM_NAME_YES = macosx
+VARIANT_PLATFORM_NAME_ = $(VARIANT_PLATFORM_NAME_$(SDK_INSTALL_VARIANT))
+VARIANT_PLATFORM_NAME_default = $(PLATFORM_NAME)
+VARIANT_PLATFORM_NAME_driverkit = driverkit

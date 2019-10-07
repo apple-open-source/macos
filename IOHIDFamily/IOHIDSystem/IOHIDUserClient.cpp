@@ -62,11 +62,14 @@ OSDefineMetaClassAndStructors(IOHIDEventSystemUserClient, IOUserClient)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-bool IOHIDUserClient::initWithTask(task_t owningTask, void * /* security_id */, UInt32 /* type */)
+bool IOHIDUserClient::initWithTask(task_t owningTask, void *security_id, UInt32 type)
 {
     bool result = false;
+    OSObject* entitlement = NULL;
     
-    OSObject* entitlement = copyClientEntitlement(owningTask, kIOHIDSystemServerAccessEntitlement);
+    require_action(super::initWithTask(owningTask, security_id, type), exit, HIDLogError("failed"));
+    
+    entitlement = copyClientEntitlement(owningTask, kIOHIDSystemServerAccessEntitlement);
     if (entitlement) {
         result = (entitlement == kOSBooleanTrue);
         entitlement->release();
@@ -77,14 +80,11 @@ bool IOHIDUserClient::initWithTask(task_t owningTask, void * /* security_id */, 
         char name[255];
         bzero(name, sizeof(name));
         proc_name(proc_pid(process), name, sizeof(name));
-        HIDLogError("%s is not entitled for IOHIDUserClient", name);
+        HIDServiceLogError("%s is not entitled for IOHIDUserClient", name);
         goto exit;
     }
     
-    result = super::init();
-    
 exit:
-
     return result;
 }
 
@@ -354,11 +354,14 @@ IOReturn IOHIDParamUserClient::extGetUserHidActivityState(void* value,void*,void
 enum { kIOHIDEventSystemKernelQueueID = 100 };
 
 bool IOHIDEventSystemUserClient::
-initWithTask(task_t owningTask, void * /* security_id */, UInt32 /* type */)
+initWithTask(task_t owningTask, void *security_id, UInt32 type)
 {
     bool result = false;
+    OSObject* entitlement = NULL;
     
-    OSObject* entitlement = copyClientEntitlement(owningTask, kIOHIDSystemUserAccessServiceEntitlement);
+    require_action(super::initWithTask(owningTask, security_id, type), exit, HIDLogError("failed"));
+    
+    entitlement = copyClientEntitlement(owningTask, kIOHIDSystemUserAccessServiceEntitlement);
     if (entitlement) {
         result = (entitlement == kOSBooleanTrue);
         entitlement->release();
@@ -369,12 +372,9 @@ initWithTask(task_t owningTask, void * /* security_id */, UInt32 /* type */)
         char name[255];
         bzero(name, sizeof(name));
         proc_name(proc_pid(process), name, sizeof(name));
-        HIDLogError("%s is not entitled", name);
+        HIDServiceLogError("%s is not entitled", name);
         goto exit;
     }
-    
-    result = super::init();
-    require_action(result, exit, HIDLogError("failed"));
     
 exit:
     return result;

@@ -1,0 +1,165 @@
+'\" t
+.\" Man page for man2html
+.\" aeb, 980101
+.\"
+.TH man2html 1 "1er janvier 1998" "Manuel Linux" "Commandes utilisateur"
+.LO 1
+.SH NOM
+man2html \- formate une page de manuel en html
+.SH SYNOPSIS
+man2html [options] [fichier]
+.SH DESCRIPTION
+.B man2html
+convertit une page de manuel telle que trouvée dans
+.I fichier
+(ou l'entrée standard stdin si aucun argument fichier n'est donné
+ou si l'argument «\ -\ » est donné) à partir du format nroff
+(celui des pages de manuels) vers un format html et affiche le résultat
+sur la sortie standard (stdout).
+.B man2html
+supporte
+.BR tbl (1)
+mais ne connaît rien à propos de
+.BR eqn (1).
+Le code de sortie est 0. Si quelque chose va mal, une page d'erreur
+est affichée sur la sortie standard stdout.
+
+Cette commande peut être utilisée seule mais a été principalement conçue pour
+être un auxiliaire afin que les utilisateurs puissent naviguer dans les pages
+de manuel avec un navigateur html comme
+.BR lynx (1),
+.BR xmosaic (1)
+ou
+.BR netscape (1).
+./" (See
+./" .BR man (1)
+./" for info on how to browse man pages via
+./" .BR man2html .
+./" Usually it would suffice to put "MANHTMLPAGER=/usr/bin/lynx"
+./" in the environment.)
+
+La plus grande partie de
+.B man2html
+est l'engin «\ troff-vers-html\ » écrit par Richard Verhoeven (rcb5@win.tue.nl).
+Il ajoute des hyperliens aux constructions suivantes\ :
+.LP
+.TS
+l l.
+foo(3x)	"http://localhost/cgi-bin/man/man2html?3x+foo"
+method://string	"method://string"
+www.host.name	"http://www.host.name"
+ftp.host.name	"ftp://ftp.host.name"
+name@host	"mailto:name@host"
+<string.h>	"file:/usr/include/string.h"
+.TE
+.LP
+(La première de celles\-ci peut être ajustée par des options - voir plus loin.)
+Aucune consultation n'est effectuée - les liens générés n'ont pas besoin
+d'exister. Un index avec des hyperliens internes vers les diverses
+sections est également créé rendant plus facile la navigation dans les grandes
+pages comme
+.BR bash (1).
+
+.SH OPTIONS
+Lorsqu'on lit à partir de stdin, il n'est pas toujours évident de savoir
+comment se fait l'expansion .so. L'option \-D permet à un script de définir
+le répertoire de travail.
+.LP
+.TP
+.B \-\^D chemin
+Retire les deux derniers éléments du chemin et effectue un changement
+de répertoire courant \fIchdir\fP(\fIdir\fP) avant de débuter la conversion.
+.LP
+L'option \-E option facilite la production de messages d'erreurs à partir
+de scripts cgi.
+.LP
+.TP
+.B \-\^E chaîne
+Produire en sortie une page d'erreur contenant le message d'erreur donné.
+.LP
+La forme générale d'un hyperlien généré pour référencer une page de manuel est
+.IP
+<method:cgipath><man2htmlpath><separator><manpage>
+.LP
+qui est d'ailleurs la forme par défaut. Les éléments de cet hyperlien sont
+positionnés en utilisant diverses options.
+.TP
+.B \-\^h
+Positionner method:cgipath à http://localhost.
+C'est le comportement par défaut.
+.TP
+.BI \-\^H " hôte[.domaine][:port]"
+Positionner method:cgipath à
+.RI http:// hôte.domaine:port .
+.TP
+.B \-\^l
+Positionner method:cgipath à
+.RI lynxcgi: /home/httpd .
+.TP
+.BI \-\^L " dir"
+Positionner method:cgipath à
+.RI lynxcgi: dir .
+.TP
+.BI \-\^M " man2htmlpath"
+Positionner le chemin vers man2html à utiliser. La valeur par défaut est
+.IR /cgi-bin/man/man2html .
+.TP
+.B \-\^p
+Positionner le séparateur à «\ /\ ».
+.TP
+.B \-\^q
+Positionner le séparateur à «\ ?\ ». C'est la valeur par défaut.
+.TP
+.B \-\^r
+Utiliser des chemins html relatifs plutôt que les chemins cgi-bin.
+.LP
+Sur une machine sur laquelle
+.BR httpd
+ne tourne pas, vous pouvez utiliser
+.B lynx
+pour naviguer dans les pages de manuel en utilisant la méthode lynxcgi.
+Lorsqu'un démon http est en service, vous pouvez utiliser lynx ou n'importe
+quel autre navigateur pour parcourir les pages de manuel en utilisant
+la méthode http.
+L'option \-l (pour «\ lynxcgi\ ») sélectionne ce fonctionnement.
+Avec elle, le chemin cgi par défaut est \fI/home/httpd\fP.
+
+En général, un script cgi peut être appelé de la façon suivante
+.IP
+<path_to_script>/<more_path>?<query>
+.LP
+et les variables d'environnement PATH_INFO et QUERY_STRING seront positionnées
+respectivement à <more_path> et <query>.
+Puisque lynxcgi ne gère pas l'élément PATH_INFO, nous allons générer des
+hyperliens avec «\ ?\ » comme séparateur par défaut.
+L'option \-p (pour «\ path\ ») sélectionne «\ /\ » comme séparateur, alors que
+l'option \-q (for «\ query\ ») sélectionne «\ ?\ ».
+
+L'option \-H \fIhost\fP spécifiera l'hôte à utiliser
+(à la place \fIlocalhost\fP). Un script cgi pourra utiliser
+.IP
+man2html -H $SERVER_NAME
+.LP
+si la variable SERVER_NAME est positionnée. Cela permettra à votre machine
+de fonctionner en tant que serveur et d'exporter les pages manuel.
+
+.SH BOGUES
+Il y a beaucoup d'heuristiques. La sortie produite ne sera pas toujours
+parfaite. La méthode lynxcgi ne fonctionnera pas si lynx a été compilé sans
+le support de celle-ci. Il peut y avoir des problèmes de sécurité.
+
+.SH "VOIR AUSSI"
+.BR lynx (1),
+.BR man (1)
+
+.SH TRADUCTION
+.PP
+Ce document est une traduction réalisée par Alain Portal
+<aportal AT univ-montp2 DOT fr> le 1er juin 2005 et mise à jour
+le 7 novembre 2005.
+.PP
+L'équipe de traduction a fait le maximum pour réaliser une adaptation
+française de qualité. La version anglaise la plus à jour de ce document est
+toujours consultable via la commande\ : «\ \fBLANG=en\ man\ 1\ man2html\fR\ ».
+N'hésitez pas à signaler à l'auteur ou au traducteur, selon le cas, toute
+erreur dans cette page de manuel.

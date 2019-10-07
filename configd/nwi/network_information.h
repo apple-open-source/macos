@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -132,6 +132,7 @@ nwi_ifstate_get_ifname(nwi_ifstate_t ifstate);
 #define NWI_IFSTATE_FLAGS_HAS_IPV4	0x1	/* has IPv4 connectivity */
 #define NWI_IFSTATE_FLAGS_HAS_IPV6	0x2	/* has IPv6 connectivity */
 #define NWI_IFSTATE_FLAGS_HAS_DNS	0x4	/* has DNS configured */
+#define NWI_IFSTATE_FLAGS_HAS_CLAT46	0x0040	/* has CLAT46 configured */
 
 typedef uint64_t nwi_ifstate_flags;
 /*

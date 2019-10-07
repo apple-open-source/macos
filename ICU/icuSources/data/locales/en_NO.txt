@@ -15,6 +15,7 @@ en_NO{
                 percentFormat{"#,##0 %"}
             }
             symbols{
+                decimal{","}
                 group{" "}
             }
         }

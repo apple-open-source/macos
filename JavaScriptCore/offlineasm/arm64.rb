@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+# Copyright (C) 2011-2019 Apple Inc. All rights reserved.
 # Copyright (C) 2014 University of Szeged. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -123,7 +123,11 @@ class RegisterID
         when 't4'
             arm64GPRName('x4', kind)
         when 't5'
-            arm64GPRName('x5', kind)
+          arm64GPRName('x5', kind)
+        when 't6'
+          arm64GPRName('x6', kind)
+        when 't7'
+          arm64GPRName('x7', kind)
         when 'cfr'
             arm64GPRName('x29', kind)
         when 'csr0'
@@ -276,7 +280,7 @@ def arm64LowerLabelReferences(list)
         | node |
         if node.is_a? Instruction
             case node.opcode
-            when "loadi", "loadis", "loadp", "loadq", "loadb", "loadbs", "loadh", "loadhs", "leap"
+            when "loadi", "loadis", "loadp", "loadq", "loadb", "loadbsi", "loadbsq", "loadh", "loadhsi", "loadhsq", "leap"
                 labelRef = node.operands[0]
                 if labelRef.is_a? LabelReference
                     tmp = Tmp.new(node.codeOrigin, :gpr)
@@ -361,8 +365,7 @@ def arm64CortexA53Fix835769(list)
 end
 
 class Sequence
-    def getModifiedListARM64
-        result = @list
+    def getModifiedListARM64(result = @list)
         result = riscLowerNot(result)
         result = riscLowerSimpleBranchOps(result)
 
@@ -373,9 +376,9 @@ class Sequence
         result = riscLowerMalformedAddresses(result) {
             | node, address |
             case node.opcode
-            when "loadb", "loadbs", "loadbsp", "storeb", /^bb/, /^btb/, /^cb/, /^tb/
+            when "loadb", "loadbsi", "loadbsq", "storeb", /^bb/, /^btb/, /^cb/, /^tb/
                 size = 1
-            when "loadh", "loadhs"
+            when "loadh", "loadhsi", "loadhsq"
                 size = 2
             when "loadi", "loadis", "storei", "addi", "andi", "lshifti", "muli", "negi",
                 "noti", "ori", "rshifti", "urshifti", "subi", "xori", /^bi/, /^bti/,
@@ -387,7 +390,7 @@ class Sequence
                 "jmp", "call", "leap", "leaq"
                 size = $currentSettings["ADDRESS64"] ? 8 : 4
             else
-                raise "Bad instruction #{node.opcode} for heap access at #{node.codeOriginString}"
+                raise "Bad instruction #{node.opcode} for heap access at #{node.codeOriginString}: #{node.dump}"
             end
             
             if address.is_a? BaseIndex
@@ -460,8 +463,8 @@ def emitARM64Add(opcode, operands, kind)
         raise unless operands[2].register?
         
         if operands[0].immediate?
-            if operands[0].value == 0 and flag !~ /s$/
-                unless operands[1] == operands[2]
+            if operands[0].value == 0 and opcode !~ /s$/
+                if operands[1] != operands[2]
                     $asm.puts "mov #{arm64FlippedOperands(operands[1..2], kind)}"
                 end
             else
@@ -494,6 +497,30 @@ def emitARM64Mul(opcode, operands, kind)
     end
 
     $asm.puts "madd #{arm64TACOperands(operands, kind)}, #{arm64GPRName('xzr', kind)}"
+end
+
+def emitARM64Sub(opcode, operands, kind)
+    if operands.size == 3
+        raise unless operands[0].register?
+        raise unless operands[2].register?
+
+        if operands[1].immediate?
+            if operands[1].value == 0 and opcode !~ /s$/
+                if operands[0] != operands[2]
+                    $asm.puts "mov #{arm64FlippedOperands([operands[0], operands[2]], kind)}"
+                end
+                return
+            end
+        end
+    end
+
+    if operands.size == 2
+        if operands[0].immediate? and operands[0].value == 0 and opcode !~ /s$/
+            return
+        end
+    end
+
+    emitARM64TAC(opcode, operands, kind)
 end
 
 def emitARM64Unflipped(opcode, operands, kind)
@@ -655,13 +682,13 @@ class Instruction
         when "mulq"
             emitARM64Mul('mul', operands, :quad)
         when "subi"
-            emitARM64TAC("sub", operands, :word)
+            emitARM64Sub("sub", operands, :word)
         when "subp"
-            emitARM64TAC("sub", operands, :ptr)
+            emitARM64Sub("sub", operands, :ptr)
         when "subq"
-            emitARM64TAC("sub", operands, :quad)
+            emitARM64Sub("sub", operands, :quad)
         when "subis"
-            emitARM64TAC("subs", operands, :word)
+            emitARM64Sub("subs", operands, :word)
         when "negi"
             $asm.puts "sub #{operands[0].arm64Operand(:word)}, wzr, #{operands[0].arm64Operand(:word)}"
         when "negp"
@@ -684,16 +711,18 @@ class Instruction
             emitARM64Unflipped("str", operands, :quad)
         when "loadb"
             emitARM64Access("ldrb", "ldurb", operands[1], operands[0], :word)
-        when "loadbs"
+        when "loadbsi"
             emitARM64Access("ldrsb", "ldursb", operands[1], operands[0], :word)
-        when "loadbsp"
-            emitARM64Access("ldrsb", "ldursb", operands[1], operands[0], :ptr)
+        when "loadbsq"
+            emitARM64Access("ldrsb", "ldursb", operands[1], operands[0], :quad)
         when "storeb"
             emitARM64Unflipped("strb", operands, :word)
         when "loadh"
             emitARM64Access("ldrh", "ldurh", operands[1], operands[0], :word)
-        when "loadhs"
+        when "loadhsi"
             emitARM64Access("ldrsh", "ldursh", operands[1], operands[0], :word)
+        when "loadhsq"
+            emitARM64Access("ldrsh", "ldursh", operands[1], operands[0], :quad)
         when "storeh"
             emitARM64Unflipped("strh", operands, :word)
         when "loadd"
@@ -992,6 +1021,8 @@ class Instruction
             $asm.puts "smaddl #{operands[2].arm64Operand(:quad)}, #{operands[0].arm64Operand(:word)}, #{operands[1].arm64Operand(:word)}, xzr"
         when "memfence"
             $asm.puts "dmb sy"
+        when "bfiq"
+            $asm.puts "bfi #{operands[3].arm64Operand(:quad)}, #{operands[0].arm64Operand(:quad)}, #{operands[1].value}, #{operands[2].value}"
         when "pcrtoaddr"
             $asm.puts "adr #{operands[1].arm64Operand(:quad)}, #{operands[0].value}"
         when "nopCortexA53Fix835769"

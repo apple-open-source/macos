@@ -5,7 +5,7 @@ Dave Kelsey <d_kelsey@uk.ibm.com>
 --FILE--
 <?php
 /* Prototype  : proto int fseek(resource fp, int offset [, int whence])
- * Description: Seek on a file pointer 
+ * Description: Seek on a file pointer
  * Source code: ext/standard/file.c
  * Alias to functions: gzseek
  */
@@ -62,9 +62,9 @@ $values = array(
       // string data
       "string",
       'string',
-      
+
       // object data
-      new testClass(),      
+      new testClass(),
 
       // undefined data
       $undefined_var,
@@ -105,31 +105,31 @@ int(0)
 
 Arg value Array 
 
-Warning: fseek() expects parameter 2 to be integer, array given in %s on line %d
+Warning: fseek() expects parameter 2 to be int, array given in %s on line %d
 bool(false)
 int(0)
 
 Arg value Array 
 
-Warning: fseek() expects parameter 2 to be integer, array given in %s on line %d
+Warning: fseek() expects parameter 2 to be int, array given in %s on line %d
 bool(false)
 int(0)
 
 Arg value Array 
 
-Warning: fseek() expects parameter 2 to be integer, array given in %s on line %d
+Warning: fseek() expects parameter 2 to be int, array given in %s on line %d
 bool(false)
 int(0)
 
 Arg value Array 
 
-Warning: fseek() expects parameter 2 to be integer, array given in %s on line %d
+Warning: fseek() expects parameter 2 to be int, array given in %s on line %d
 bool(false)
 int(0)
 
 Arg value Array 
 
-Warning: fseek() expects parameter 2 to be integer, array given in %s on line %d
+Warning: fseek() expects parameter 2 to be int, array given in %s on line %d
 bool(false)
 int(0)
 
@@ -159,31 +159,31 @@ int(0)
 
 Arg value  
 
-Warning: fseek() expects parameter 2 to be integer, string given in %s on line %d
+Warning: fseek() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 int(0)
 
 Arg value  
 
-Warning: fseek() expects parameter 2 to be integer, string given in %s on line %d
+Warning: fseek() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 int(0)
 
 Arg value string 
 
-Warning: fseek() expects parameter 2 to be integer, string given in %s on line %d
+Warning: fseek() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 int(0)
 
 Arg value string 
 
-Warning: fseek() expects parameter 2 to be integer, string given in %s on line %d
+Warning: fseek() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 int(0)
 
 Arg value testClass 
 
-Warning: fseek() expects parameter 2 to be integer, object given in %s on line %d
+Warning: fseek() expects parameter 2 to be int, object given in %s on line %d
 bool(false)
 int(0)
 
@@ -195,4 +195,3 @@ Arg value
 int(0)
 int(0)
 Done
-

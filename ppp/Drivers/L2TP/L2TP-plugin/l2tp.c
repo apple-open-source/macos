@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -270,7 +270,7 @@ int l2tp_outgoing_call(int fd, struct sockaddr *peer_address,
     struct sockaddr_storage	from;
 
     /* ------------- send SCCRQ  -------------*/	 
-	size = prepare_SCCRQ(control_buf, MAX_CNTL_BUFFER_SIZE, our_params);
+	size = (int)prepare_SCCRQ(control_buf, MAX_CNTL_BUFFER_SIZE, our_params);
 	SEND_PACKET(fd, control_buf, size, 0, peer_address, "SCCRQ");
 
     /* ------------- read SCCRP  -------------*/	 
@@ -302,7 +302,7 @@ int l2tp_outgoing_call(int fd, struct sockaddr *peer_address,
     (void)l2tp_set_peerparams(fd, peer_params);
     
     /* ------------- send SCCCN  -------------*/	 
-    size = prepare_SCCCN(control_buf, MAX_CNTL_BUFFER_SIZE);
+    size = (int)prepare_SCCCN(control_buf, MAX_CNTL_BUFFER_SIZE);
     SEND_PACKET(fd, control_buf, size, 0, 0, "SCCCN");
     
     /* ------------- send ICRQ  -------------*/	 
@@ -326,7 +326,7 @@ int l2tp_outgoing_call(int fd, struct sockaddr *peer_address,
     } 
         
     /* ------------- send ICCN  -------------*/	 
-    size = prepare_ICCN(control_buf, MAX_CNTL_BUFFER_SIZE, our_params);
+    size = (int)prepare_ICCN(control_buf, MAX_CNTL_BUFFER_SIZE, our_params);
     SEND_PACKET(fd, control_buf, size, peer_params->session_id, 0, "ICCN");
         
     /* call succedeed ! */
@@ -363,7 +363,7 @@ int l2tp_incoming_call(int fd, struct l2tp_parameters *our_params, struct l2tp_p
     l2tp_set_peerparams(fd, peer_params);
 
     /* ------------- send SCCRP  -------------*/	 
-    size = prepare_SCCRP(control_buf, MAX_CNTL_BUFFER_SIZE, our_params);
+    size = (int)prepare_SCCRP(control_buf, MAX_CNTL_BUFFER_SIZE, our_params);
     SEND_PACKET(fd, control_buf, size, 0, 0, "SCCRP");
         
     /* ------------- read SCCCN  -------------*/	 
@@ -446,7 +446,7 @@ int l2tp_send_SCCRQ(int fd, struct sockaddr *peer_address,
 {		
     int 	size;
 
-	size = prepare_SCCRQ(control_buf, MAX_CNTL_BUFFER_SIZE, our_params);
+	size = (int)prepare_SCCRQ(control_buf, MAX_CNTL_BUFFER_SIZE, our_params);
     return l2tp_send(fd, control_buf, size, 0, peer_address, "SCCRQ");
 }
 
@@ -457,7 +457,7 @@ int l2tp_send_CDN(int fd, struct l2tp_parameters *our_params, struct l2tp_parame
 {   
     int	size;
 
-    size = prepare_CDN(control_buf, MAX_CNTL_BUFFER_SIZE, our_params);
+    size = (int)prepare_CDN(control_buf, MAX_CNTL_BUFFER_SIZE, our_params);
     return l2tp_send(fd, control_buf, size, peer_params->session_id, 0, "CDN"); 
 }
 
@@ -1145,7 +1145,7 @@ int prepare_StopCCN(u_int8_t* buf, size_t len, struct l2tp_parameters* params)
             buf += str_size;
     }
     
-    return len - free_space;	
+    return (int)(len - free_space);
 }
 
 /* -----------------------------------------------------------------------------
@@ -1163,7 +1163,7 @@ int prepare_Hello(u_int8_t* buf, size_t len)
     if (make_avp_short(&buf, &free_space, L2TP_AVP_MSG_TYPE, L2TP_HELLO, L2TP_AVP_FLAGS_M))
             return 0;
     
-    return len - free_space;
+    return (int)(len - free_space);
 }
 
 /* -----------------------------------------------------------------------------
@@ -1189,7 +1189,7 @@ int prepare_ICRQ(u_int8_t* buf, size_t len, struct l2tp_parameters* params)
     if (make_avp_long(&buf, &free_space, L2TP_AVP_CALL_SERIAL_NUM, params->call_serial_num, L2TP_AVP_FLAGS_M))
             return 0;
     
-    return len - free_space;	
+    return (int)(len - free_space);
 }
 
 /* -----------------------------------------------------------------------------
@@ -1211,7 +1211,7 @@ int prepare_ICRP(u_int8_t* buf, size_t len, struct l2tp_parameters* params)
     if (make_avp_short(&buf, &free_space, L2TP_AVP_SESSION_ID, params->session_id, L2TP_AVP_FLAGS_M))
             return 0;
             
-    return len - free_space;	
+    return (int)(len - free_space);
 }
 
 /* -----------------------------------------------------------------------------
@@ -1484,7 +1484,7 @@ int l2tp_recv(int fd, u_int8_t* buf, int len, int *outlen, struct sockaddr *from
             goto fail;
     }
     
-    *outlen = result;
+    *outlen = (int)result;
     return 0;
     
 fail:

@@ -3,7 +3,7 @@ Test array_unshift() function : usage variations - unexpected values for 'array'
 --FILE--
 <?php
 /* Prototype  : int array_unshift(array $array, mixed $var [, mixed ...])
- * Description: Pushes elements onto the beginning of the array 
+ * Description: Pushes elements onto the beginning of the array
  * Source code: ext/standard/array.c
 */
 
@@ -91,7 +91,7 @@ foreach($arrays as $array) {
   echo "\n-- Iteration $iterator --";
 
   /* with default arguments */
-  // returns element count in the resulting array after arguments are pushed to 
+  // returns element count in the resulting array after arguments are pushed to
   // beginning of the given array
   $temp_array = $array;
   var_dump( array_unshift($temp_array, $var) );
@@ -119,38 +119,38 @@ echo "Done";
 *** Testing array_unshift() : unexpected values for $array argument ***
 
 -- Iteration 1 --
-Warning: array_unshift() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_unshift() expects parameter 1 to be array, int given in %s on line %d
 NULL
 int(0)
 
-Warning: array_unshift() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_unshift() expects parameter 1 to be array, int given in %s on line %d
 NULL
 int(0)
 
 -- Iteration 2 --
-Warning: array_unshift() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_unshift() expects parameter 1 to be array, int given in %s on line %d
 NULL
 int(1)
 
-Warning: array_unshift() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_unshift() expects parameter 1 to be array, int given in %s on line %d
 NULL
 int(1)
 
 -- Iteration 3 --
-Warning: array_unshift() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_unshift() expects parameter 1 to be array, int given in %s on line %d
 NULL
 int(12345)
 
-Warning: array_unshift() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_unshift() expects parameter 1 to be array, int given in %s on line %d
 NULL
 int(12345)
 
 -- Iteration 4 --
-Warning: array_unshift() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_unshift() expects parameter 1 to be array, int given in %s on line %d
 NULL
 int(-2345)
 
-Warning: array_unshift() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_unshift() expects parameter 1 to be array, int given in %s on line %d
 NULL
 int(-2345)
 
@@ -218,38 +218,38 @@ NULL
 NULL
 
 -- Iteration 12 --
-Warning: array_unshift() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_unshift() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 bool(true)
 
-Warning: array_unshift() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_unshift() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 bool(true)
 
 -- Iteration 13 --
-Warning: array_unshift() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_unshift() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 bool(false)
 
-Warning: array_unshift() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_unshift() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 bool(false)
 
 -- Iteration 14 --
-Warning: array_unshift() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_unshift() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 bool(true)
 
-Warning: array_unshift() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_unshift() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 bool(true)
 
 -- Iteration 15 --
-Warning: array_unshift() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_unshift() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 bool(false)
 
-Warning: array_unshift() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_unshift() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 bool(false)
 

@@ -28,8 +28,9 @@
 
 #include <securityd/SecDbItem.h>
 #import "keychain/ckks/CKKS.h"
-#import "keychain/ckks/CKKSAPSReceiver.h"
-#import "keychain/ckks/CKKSCKAccountStateTracker.h"
+#import "keychain/ckks/OctagonAPSReceiver.h"
+#import "keychain/ckks/CKKSAccountStateTracker.h"
+#import "keychain/ckks/CKKSCloudKitClassDependencies.h"
 #import "keychain/ckks/CKKSCondition.h"
 #import "keychain/ckks/CKKSControlProtocol.h"
 #import "keychain/ckks/CKKSLockStateTracker.h"
@@ -39,47 +40,50 @@
 #import "keychain/ckks/CKKSRateLimiter.h"
 #import "keychain/ckks/CloudKitDependencies.h"
 #import "keychain/ckks/CKKSZoneChangeFetcher.h"
+#import "keychain/ckks/CKKSZoneModifier.h"
+
+#import "keychain/ot/OTSOSAdapter.h"
 #import "keychain/ot/OTDefines.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@class CKKSKeychainView, CKKSRateLimiter;
+@class CKKSKeychainView, CKKSRateLimiter, TPPolicy;
 
-@interface CKKSViewManager : NSObject <CKKSControlProtocol, CKKSPeerProvider>
+@interface CKKSViewManager : NSObject <CKKSControlProtocol>
 
 @property CKContainer* container;
-@property CKKSCKAccountStateTracker* accountTracker;
+@property CKKSAccountStateTracker* accountTracker;
 @property CKKSLockStateTracker* lockStateTracker;
 @property CKKSReachabilityTracker *reachabilityTracker;
 @property CKKSZoneChangeFetcher* zoneChangeFetcher;
-@property bool initializeNewZones;
+@property CKKSZoneModifier* zoneModifier;
 
 // Signaled when SecCKKSInitialize is complete, as it's async and likes to fire after tests are complete
 @property CKKSCondition* completedSecCKKSInitialize;
 
 @property CKKSRateLimiter* globalRateLimiter;
 
-- (instancetype)initCloudKitWithContainerName:(NSString*)containerName usePCS:(bool)usePCS;
+@property id<OTSOSAdapter> sosPeerAdapter;
+
+@property (nullable) TPPolicy* policy;
+
+@property NSMutableDictionary<NSString*, CKKSKeychainView*>* views;
+
 - (instancetype)initWithContainerName:(NSString*)containerName
-                                  usePCS:(bool)usePCS
-    fetchRecordZoneChangesOperationClass:(Class<CKKSFetchRecordZoneChangesOperation>)fetchRecordZoneChangesOperationClass
-              fetchRecordsOperationClass:(Class<CKKSFetchRecordsOperation>)fetchRecordsOperationClass
-                     queryOperationClass:(Class<CKKSQueryOperation>)queryOperationClass
-       modifySubscriptionsOperationClass:(Class<CKKSModifySubscriptionsOperation>)modifySubscriptionsOperationClass
-         modifyRecordZonesOperationClass:(Class<CKKSModifyRecordZonesOperation>)modifyRecordZonesOperationClass
-                      apsConnectionClass:(Class<CKKSAPSConnection>)apsConnectionClass
-               nsnotificationCenterClass:(Class<CKKSNSNotificationCenter>)nsnotificationCenterClass
-                           notifierClass:(Class<CKKSNotifier>)notifierClass;
+                               usePCS:(bool)usePCS
+                           sosAdapter:(id<OTSOSAdapter> _Nullable)sosAdapter
+            cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies;
 
 - (CKKSKeychainView*)findView:(NSString*)viewName;
 - (CKKSKeychainView*)findOrCreateView:(NSString*)viewName;
 - (void)setView:(CKKSKeychainView*)obj;
 - (void)clearView:(NSString*)viewName;
 
+- (NSSet<CKKSKeychainView*>*)currentViews;
+
 - (NSDictionary<NSString*, NSString*>*)activeTLKs;
 
-// Call this to bring zones up (and to do so automatically in the future)
-- (void)initializeZones;
+- (void)setupAnalytics;
 
 - (NSString*)viewNameForItem:(SecDbItemRef)item;
 
@@ -103,8 +107,6 @@ NS_ASSUME_NONNULL_BEGIN
                      fetchCloudValue:(bool)fetchCloudValue
                             complete:(void (^)(NSString* uuid, NSError* operror))complete;
 
-- (NSString*)viewNameForAttributes:(NSDictionary*)item;
-
 - (void)registerSyncStatusCallback:(NSString*)uuid callback:(SecBoolNSErrorCallback)callback;
 
 // Cancels pending operations owned by this view manager
@@ -121,23 +123,28 @@ NS_ASSUME_NONNULL_BEGIN
 - (CKKSKeychainView*)restartZone:(NSString*)viewName;
 
 // Returns the viewList for a CKKSViewManager
-- (NSSet*)viewList;
+- (NSSet<NSString*>*)viewList;
+
+- (NSSet<NSString*>*)defaultViewList;
+
+- (void)setViewList:(NSSet<NSString*>* _Nullable)newViewList;
+
+- (void)clearAllViews;
+
+// Create all views, but don't begin CK/network operations
+- (void)createViews;
+
+// Call this to begin CK operation of all views
+- (void)beginCloudKitOperationOfAllViews;
 
 // Notify sbd to re-backup.
 - (void)notifyNewTLKsInKeychain;
 - (void)syncBackupAndNotifyAboutSync;
 
-// Fetch peers from SOS
-- (CKKSSelves* _Nullable)fetchSelfPeers:(NSError* __autoreleasing*)error;
-- (NSSet<id<CKKSPeer>>* _Nullable)fetchTrustedPeers:(NSError* __autoreleasing*)error;
-
-// For mocking purposes
-- (id<CKKSSelfPeer> _Nullable)currentSOSSelf:(NSError**)error;
-- (NSSet<id<CKKSSelfPeer>>*)pastSelves:(NSError**)error;
-- (NSArray<NSDictionary*>* _Nullable)loadRestoredBottledKeysOfType:(OctagonKeyType)keyType error:(NSError**)error;
-
-- (void)sendSelfPeerChangedUpdate;
-- (void)sendTrustedPeerSetChangedUpdate;
+// For testing
+- (void)setOverrideCKKSViewsFromPolicy:(BOOL)value;
+- (BOOL)useCKKSViewsFromPolicy;
+- (void)haltAll;
 
 @end
 NS_ASSUME_NONNULL_END

@@ -81,6 +81,11 @@
 #include <nidlmsg.h>
 #include <nidl_y.h>
 
+AST_exp_n_t * AST_exp_new
+(
+    unsigned long exp_type
+);
+
 static void ASTP_free_exp(
     AST_exp_n_t * exp
 );
@@ -104,7 +109,7 @@ AST_exp_n_t * AST_exp_integer_constant
 {
 	AST_exp_n_t * exp = AST_exp_new(AST_EXP_CONSTANT);
 	exp->exp.constant.type = AST_int_const_k;
-	exp->exp.constant.val.integer = value;
+	exp->exp.constant.val.integer = (int) value;
 	exp->exp.constant.int_signed = int_signed;
 	return exp;
 }
@@ -421,15 +426,15 @@ boolean ASTP_evaluate_expr
 			break;
 		case AST_EXP_UNARY_TILDE:
 			exp->exp.constant.val.integer =
-			    ~ASTP_expr_integer_value(location, op1);
+			    (int) ~ASTP_expr_integer_value(location, op1);
 			break;
 		case AST_EXP_UNARY_PLUS: /* why this? I can't remember what I was thinking */
 			exp->exp.constant.val.integer =
-			    +ASTP_expr_integer_value(location, op1);
+			    (int) +ASTP_expr_integer_value(location, op1);
 			break;
 		case AST_EXP_UNARY_MINUS:
 			exp->exp.constant.val.integer =
-			    -ASTP_expr_integer_value(location, op1);
+			    (int) -ASTP_expr_integer_value(location, op1);
 			break;
 		case AST_EXP_UNARY_STAR:
 			return false;
@@ -439,7 +444,7 @@ boolean ASTP_evaluate_expr
 				log_error(location->lineno, NIDL_INTDIVBY0, NULL);
 			else
 				val = ASTP_expr_integer_value(location, op1) % val;
-			exp->exp.constant.val.integer = val;
+			exp->exp.constant.val.integer = (int) val;
 			break;
 		case AST_EXP_BINARY_SLASH:
 			val = ASTP_expr_integer_value(location, op2);
@@ -447,7 +452,7 @@ boolean ASTP_evaluate_expr
 				log_error(location->lineno, NIDL_INTDIVBY0, NULL);
 			else
 				val = ASTP_expr_integer_value(location, op1) / val;
-			exp->exp.constant.val.integer = val;
+			exp->exp.constant.val.integer = (int) val;
 			break;
 		case AST_EXP_BINARY_STAR:
 			val1 = ASTP_expr_integer_value(location, op1);
@@ -455,27 +460,27 @@ boolean ASTP_evaluate_expr
 			val = val1 * val2;
 			if (val < val1 && val > val2)
 				log_error(location->lineno, NIDL_INTOVERFLOW, KEYWORDS_lookup_text(LONG_KW), NULL);
-			exp->exp.constant.val.integer = val;
+			exp->exp.constant.val.integer = (int) val;
 			break;
 		case AST_EXP_BINARY_MINUS:
 			exp->exp.constant.val.integer =
-			    ASTP_expr_integer_value(location, op1) -
-			    ASTP_expr_integer_value(location, op2);
+			    (int) (ASTP_expr_integer_value(location, op1) -
+			    ASTP_expr_integer_value(location, op2));
 			break;
 		case AST_EXP_BINARY_PLUS:
 			exp->exp.constant.val.integer =
-			    ASTP_expr_integer_value(location, op1) +
-			    ASTP_expr_integer_value(location, op2);
+			    (int) (ASTP_expr_integer_value(location, op1) +
+			    ASTP_expr_integer_value(location, op2));
 			break;
 		case AST_EXP_BINARY_RSHIFT:
 			exp->exp.constant.val.integer =
-			    ASTP_expr_integer_value(location, op1) >>
-			    ASTP_expr_integer_value(location, op2);
+			    (int) (ASTP_expr_integer_value(location, op1) >>
+			    ASTP_expr_integer_value(location, op2));
 			break;
 		case AST_EXP_BINARY_LSHIFT:
 			exp->exp.constant.val.integer =
-			    ASTP_expr_integer_value(location, op1) <<
-			    ASTP_expr_integer_value(location, op2);
+			    (int) (ASTP_expr_integer_value(location, op1) <<
+			    ASTP_expr_integer_value(location, op2));
 			break;
 		case AST_EXP_BINARY_GE:
 			exp->exp.constant.val.integer =
@@ -509,18 +514,18 @@ boolean ASTP_evaluate_expr
 			break;
 		case AST_EXP_BINARY_AND:
 			exp->exp.constant.val.integer =
-			    ASTP_expr_integer_value(location, op1) &
-			    ASTP_expr_integer_value(location, op2);
+			    (int) (ASTP_expr_integer_value(location, op1) &
+			    ASTP_expr_integer_value(location, op2));
 			break;
 		case AST_EXP_BINARY_OR:
 			exp->exp.constant.val.integer =
-			    ASTP_expr_integer_value(location, op1) |
-			    ASTP_expr_integer_value(location, op2);
+			    (int) (ASTP_expr_integer_value(location, op1) |
+			    ASTP_expr_integer_value(location, op2));
 			break;
 		case AST_EXP_BINARY_XOR:
 			exp->exp.constant.val.integer =
-			    ASTP_expr_integer_value(location, op1) ^
-			    ASTP_expr_integer_value(location, op2);
+			    (int) (ASTP_expr_integer_value(location, op1) ^
+			    ASTP_expr_integer_value(location, op2));
 			break;
 		case AST_EXP_BINARY_LOG_AND:
 			exp->exp.constant.val.integer =

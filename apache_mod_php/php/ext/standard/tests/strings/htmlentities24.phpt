@@ -9,7 +9,7 @@ Test htmlentities() function
 /* retrieving htmlentities from the ANSI character table */
 echo "*** Retrieving htmlentities for 256 characters ***\n";
 for($i=0; $i<256; $i++)
-  var_dump( bin2hex( htmlentities(b"chr($i)")) );
+  var_dump( bin2hex( htmlentities("chr($i)")) );
 
 /* giving arguments as NULL */
 echo "\n*** Testing htmlentities() with NULL as first,second and third argument ***\n";
@@ -43,7 +43,6 @@ var_dump( htmlentities("\x84\x91",ENT_QUOTES, 'cp1252', "test1") );
 
 echo "Done\n";
 ?>
-
 --EXPECTF--
 *** Retrieving htmlentities for 256 characters ***
 string(12) "636872283029"
@@ -328,4 +327,3 @@ Warning: htmlentities() expects at least 1 parameter, 0 given in %s on line %d
 NULL
 string(14) "&bdquo;&lsquo;"
 Done
-

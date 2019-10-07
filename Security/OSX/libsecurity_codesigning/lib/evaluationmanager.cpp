@@ -196,7 +196,8 @@ void EvaluationTask::performEvaluation(SecAssessmentFlags flags, CFDictionaryRef
         dispatch_semaphore_t startLock = dispatch_semaphore_create(0);
 
         // create the assessment block
-        dispatch_async(mWorkQueue, dispatch_block_create_with_qos_class(DISPATCH_BLOCK_ENFORCE_QOS_CLASS, QOS_CLASS_UTILITY, 0, ^{
+        dispatch_block_t assessmentBlock =
+        dispatch_block_create_with_qos_class(DISPATCH_BLOCK_ENFORCE_QOS_CLASS, QOS_CLASS_UTILITY, 0, ^{
             // signal that the assessment is ready to start
             dispatch_semaphore_signal(startLock);
 
@@ -236,8 +237,12 @@ void EvaluationTask::performEvaluation(SecAssessmentFlags flags, CFDictionaryRef
             } catch(...) {
                 mExceptionToRethrow = std::current_exception();
             }
-
-        }));
+            
+        });
+        assert(assessmentBlock != NULL);
+        
+        dispatch_async(mWorkQueue, assessmentBlock);
+        Block_release(assessmentBlock);
 
         // wait for the assessment to start
         dispatch_semaphore_wait(startLock, DISPATCH_TIME_FOREVER);
@@ -300,12 +305,19 @@ void EvaluationTask::waitForCompletion(SecAssessmentFlags flags, CFMutableDictio
 
     // wait for the assessment to complete; our wait block will queue up behind
     // the assessment and the copy its results
-    dispatch_sync(mWorkQueue, dispatch_block_create_with_qos_class  (DISPATCH_BLOCK_ENFORCE_QOS_CLASS, qos_class, 0, ^{
-        // copy the class result back to the caller
-        cfDictionaryApplyBlock(mResult.get(), ^(const void *key, const void *value){
-            CFDictionaryAddValue(result, key, value);
-        });
-    }));
+    dispatch_block_t wait_block = dispatch_block_create_with_qos_class
+    (DISPATCH_BLOCK_ENFORCE_QOS_CLASS,
+     qos_class, 0,
+     ^{
+         // copy the class result back to the caller
+         cfDictionaryApplyBlock(mResult.get(),
+                                ^(const void *key, const void *value){
+                                    CFDictionaryAddValue(result, key, value);
+                                });
+     });
+    assert(wait_block != NULL);
+    dispatch_sync(mWorkQueue, wait_block);
+    Block_release(wait_block);
 }
 
 

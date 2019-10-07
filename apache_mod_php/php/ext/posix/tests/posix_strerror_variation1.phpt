@@ -3,14 +3,14 @@ Test posix_strerror() function : usage variations
 --SKIPIF--
 <?php
     PHP_INT_SIZE == 4 or die("skip - 32-bit only");
-	if(!extension_loaded("posix")) print "skip - POSIX extension not loaded"; 
+	if(!extension_loaded("posix")) print "skip - POSIX extension not loaded";
 ?>
 --FILE--
 <?php
 /* Prototype  : proto string posix_strerror(int errno)
- * Description: Retrieve the system error message associated with the given errno. 
+ * Description: Retrieve the system error message associated with the given errno.
  * Source code: ext/posix/posix.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing posix_strerror() : usage variations ***\n";
@@ -61,7 +61,7 @@ $values = array(
 
       // unset data
       $unset_var,
-      
+
       // object data
       new stdclass(),
 );
@@ -90,7 +90,7 @@ string
 
 Arg value 101234567000 
 
-Warning: posix_strerror() expects parameter 1 to be integer, float given in %s on line %d
+Warning: posix_strerror() expects parameter 1 to be int, float given in %s on line %d
 boolean
 
 Arg value 1.07654321E-9 
@@ -103,35 +103,35 @@ Notice: Array to string conversion in %sposix_strerror_variation1.php on line %d
 
 Arg value Array 
 
-Warning: posix_strerror() expects parameter 1 to be integer, array given in %s on line %d
+Warning: posix_strerror() expects parameter 1 to be int, array given in %s on line %d
 boolean
 
 Notice: Array to string conversion in %sposix_strerror_variation1.php on line %d
 
 Arg value Array 
 
-Warning: posix_strerror() expects parameter 1 to be integer, array given in %s on line %d
+Warning: posix_strerror() expects parameter 1 to be int, array given in %s on line %d
 boolean
 
 Notice: Array to string conversion in %sposix_strerror_variation1.php on line %d
 
 Arg value Array 
 
-Warning: posix_strerror() expects parameter 1 to be integer, array given in %s on line %d
+Warning: posix_strerror() expects parameter 1 to be int, array given in %s on line %d
 boolean
 
 Notice: Array to string conversion in %sposix_strerror_variation1.php on line %d
 
 Arg value Array 
 
-Warning: posix_strerror() expects parameter 1 to be integer, array given in %s on line %d
+Warning: posix_strerror() expects parameter 1 to be int, array given in %s on line %d
 boolean
 
 Notice: Array to string conversion in %sposix_strerror_variation1.php on line %d
 
 Arg value Array 
 
-Warning: posix_strerror() expects parameter 1 to be integer, array given in %s on line %d
+Warning: posix_strerror() expects parameter 1 to be int, array given in %s on line %d
 boolean
 
 Arg value  
@@ -154,22 +154,22 @@ string
 
 Arg value  
 
-Warning: posix_strerror() expects parameter 1 to be integer, string given in %s on line %d
+Warning: posix_strerror() expects parameter 1 to be int, string given in %s on line %d
 boolean
 
 Arg value  
 
-Warning: posix_strerror() expects parameter 1 to be integer, string given in %s on line %d
+Warning: posix_strerror() expects parameter 1 to be int, string given in %s on line %d
 boolean
 
 Arg value string 
 
-Warning: posix_strerror() expects parameter 1 to be integer, string given in %s on line %d
+Warning: posix_strerror() expects parameter 1 to be int, string given in %s on line %d
 boolean
 
 Arg value string 
 
-Warning: posix_strerror() expects parameter 1 to be integer, string given in %s on line %d
+Warning: posix_strerror() expects parameter 1 to be int, string given in %s on line %d
 boolean
 
 Arg value  

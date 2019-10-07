@@ -25,11 +25,11 @@
 #include <Security/SecBase.h>
 #include <Security/SecItem.h>
 
-#include <Security/SecureObjectSync/SOSAccount.h>
+#include "keychain/SecureObjectSync/SOSAccount.h"
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
-#include <Security/SecureObjectSync/SOSInternal.h>
-#include <Security/SecureObjectSync/SOSUserKeygen.h>
-#include <Security/SecureObjectSync/SOSAccountTrustClassic+Circle.h>
+#include "keychain/SecureObjectSync/SOSInternal.h"
+#include "keychain/SecureObjectSync/SOSUserKeygen.h"
+#include "keychain/SecureObjectSync/SOSAccountTrustClassic+Circle.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -243,7 +243,7 @@ static void tests(void)
     
     ok(SOSAccountResetToOffering_wTxn(account, &error), "Reset to offering (%@)", error);
     CFReleaseNull(error);
-
+    
     ok(testAccountPersistence(account), "Test Account->DER->Account Equivalence");
 
     SOSTestCleanup();
@@ -257,6 +257,7 @@ int secd_51_account_inflate(int argc, char *const *argv)
     plan_tests(kTestTestCount + kCompatibilityTestCount);
 
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
+    secd_test_clear_testviews();
     tests();
 
     /* we can't re-inflate the v6 DER since we don't have a viable private key for it. */

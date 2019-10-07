@@ -91,7 +91,6 @@ void FocusedElementInformation::encode(IPC::Encoder& encoder) const
     encoder << title;
     encoder << acceptsAutofilledLoginCredentials;
     encoder << isAutofillableUsernameField;
-    encoder << elementIsTransparent;
     encoder << representingPageURL;
     encoder.encodeEnum(autofillFieldName);
     encoder << placeholder;
@@ -105,6 +104,10 @@ void FocusedElementInformation::encode(IPC::Encoder& encoder) const
     encoder << suggestedColors;
 #endif
 #endif
+    encoder << shouldSynthesizeKeyEventsForEditing;
+    encoder << isSpellCheckingEnabled;
+    encoder << shouldAvoidResizingWhenInputViewBoundsChange;
+    encoder << shouldAvoidScrollingWhenFocusedContentIsVisible;
 }
 
 bool FocusedElementInformation::decode(IPC::Decoder& decoder, FocusedElementInformation& result)
@@ -193,9 +196,6 @@ bool FocusedElementInformation::decode(IPC::Decoder& decoder, FocusedElementInfo
     if (!decoder.decode(result.isAutofillableUsernameField))
         return false;
 
-    if (!decoder.decode(result.elementIsTransparent))
-        return false;
-
     if (!decoder.decode(result.representingPageURL))
         return false;
 
@@ -226,6 +226,17 @@ bool FocusedElementInformation::decode(IPC::Decoder& decoder, FocusedElementInfo
         return false;
 #endif
 #endif
+    if (!decoder.decode(result.shouldSynthesizeKeyEventsForEditing))
+        return false;
+
+    if (!decoder.decode(result.isSpellCheckingEnabled))
+        return false;
+
+    if (!decoder.decode(result.shouldAvoidResizingWhenInputViewBoundsChange))
+        return false;
+
+    if (!decoder.decode(result.shouldAvoidScrollingWhenFocusedContentIsVisible))
+        return false;
 
     return true;
 }

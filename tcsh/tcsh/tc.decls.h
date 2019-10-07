@@ -1,4 +1,3 @@
-/* $Header: /p/tcsh/cvsroot/tcsh/tc.decls.h,v 3.65 2010/02/09 20:26:13 christos Exp $ */
 /*
  * tc.decls.h: Function declarations from all the tcsh modules
  */
@@ -226,15 +225,15 @@ extern	int		  getv		(Char *);
 #ifndef __GNUC__
 #define __attribute__(a)
 #endif
-extern	pret_t		  xprintf	(const char *, ...)
+extern	int		  xprintf	(const char *, ...)
     __attribute__((__format__(__printf__, 1, 2)));
-extern	pret_t		  xsnprintf	(char *, size_t, const char *, ...)
+extern	int		  xsnprintf	(char *, size_t, const char *, ...)
     __attribute__((__format__(__printf__, 3, 4)));
 extern	char		 *xasprintf	(const char *, ...)
     __attribute__((__format__(__printf__, 1, 2)));
-extern	pret_t		  xvprintf	(const char *, va_list)
+extern	int		  xvprintf	(const char *, va_list)
     __attribute__((__format__(__printf__, 1, 0)));
-extern	pret_t		  xvsnprintf	(char *, size_t, const char *, va_list)
+extern	int		  xvsnprintf	(char *, size_t, const char *, va_list)
     __attribute__((__format__(__printf__, 3, 0)));
 extern	char		 *xvasprintf	(const char *, va_list)
     __attribute__((__format__(__printf__, 1, 0)));
@@ -265,7 +264,7 @@ extern  int		  rt_mbtowc	(Char *, const char *, size_t);
 #else
 #define one_mbtowc(PWC, S, N) \
 	((void)(N), *(PWC) = (unsigned char)*(S), (size_t)1)
-#define one_wctomb(S, WCHAR) (*(S) = (WCHAR), (size_t)1)
+#define one_wctomb(S, WCHAR) (*(S) = (char)(WCHAR), (size_t)1)
 #endif
 #ifdef SHORT_STRINGS
 extern	Char		 *s_strchr	(const Char *, int);

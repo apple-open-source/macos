@@ -302,7 +302,7 @@ OSStatus SecKeyCreatePair(
         SecAccessRef _Nullable initialAccess,
         SecKeyRef* _Nullable CF_RETURNS_RETAINED publicKey,
         SecKeyRef* _Nullable CF_RETURNS_RETAINED privateKey)
-		DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+		CSSM_DEPRECATED;
 
 /*!
 	@function SecKeyGenerate
@@ -327,7 +327,7 @@ OSStatus SecKeyGenerate(
         uint32 keyAttr,
         SecAccessRef _Nullable initialAccess,
         SecKeyRef* _Nullable CF_RETURNS_RETAINED keyRef)
-		DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+		CSSM_DEPRECATED;
 
 /*!
     @function SecKeyGetCSSMKey

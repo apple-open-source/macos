@@ -119,8 +119,9 @@ void dtrace_update_kernel_symbols(dtrace_hdl_t* dtp);
 #define	DT_VERS_1_12_1	DT_VERSION_NUMBER(1, 12, 1)
 #define	DT_VERS_1_13	DT_VERSION_NUMBER(1, 13, 0)
 #define	DT_VERS_1_14	DT_VERSION_NUMBER(1, 14, 0)
+#define	DT_VERS_1_15	DT_VERSION_NUMBER(1, 15, 0)
 #define	DT_VERS_LATEST	DT_VERS_1_14
-#define	DT_VERS_STRING	"Sun D 1.14"
+#define	DT_VERS_STRING	"Sun D 1.15"
 
 const dt_version_t _dtrace_versions[] = {
 	DT_VERS_1_0,	/* D API 1.0.0 (PSARC 2001/466) Solaris 10 FCS */
@@ -143,6 +144,8 @@ const dt_version_t _dtrace_versions[] = {
 	DT_VERS_1_12,	/* D API 1.12 */
 	DT_VERS_1_12_1,	/* D API 1.12.1 */
 	DT_VERS_1_13,	/* D API 1.13 */
+	DT_VERS_1_14,	/* D API 1.14 */
+	DT_VERS_1_15,	/* D API 1.15 */
 	0
 };
 
@@ -271,6 +274,10 @@ static const dt_ident_t _dtrace_globals[] = {
 	DT_VERS_1_5, &dt_idops_func, "string(int, void *)" },
 { "ipl", DT_IDENT_SCALAR, 0, DIF_VAR_IPL, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "uint_t" },
+#if defined(DIF_SUBR_JSON)
+{ "json", DT_IDENT_FUNC, 0, DIF_SUBR_JSON, DT_ATTR_STABCMN, DT_VERS_1_11,
+	&dt_idops_func, "string(const char *, const char *)" },
+#endif /* defined(DIF_SUBR_JSON) */
 { "jstack", DT_IDENT_ACTFUNC, 0, DT_ACT_JSTACK, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "stack(...)" },
 { "lltostr", DT_IDENT_FUNC, 0, DIF_SUBR_LLTOSTR, DT_ATTR_STABCMN, DT_VERS_1_0,
@@ -359,6 +366,10 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_func, "void()" },
 { "strchr", DT_IDENT_FUNC, 0, DIF_SUBR_STRCHR, DT_ATTR_STABCMN, DT_VERS_1_1,
 	&dt_idops_func, "string(const char *, char)" },
+#if defined(DIF_SUBR_STRIP)
+{ "strip", DT_IDENT_FUNC, 0, DIF_SUBR_STRIP, DT_ATTR_STABCMN, DT_VERS_1_15,
+	&dt_idops_func, "void*(void*, uint64_t)" },
+#endif /* defined(DIF_SUBR_STRIP) */
 { "strlen", DT_IDENT_FUNC, 0, DIF_SUBR_STRLEN, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "size_t(const char *)" },
 { "strjoin", DT_IDENT_FUNC, 0, DIF_SUBR_STRJOIN, DT_ATTR_STABCMN, DT_VERS_1_0,
@@ -369,6 +380,10 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_func, "string(const char *, const char *)" },
 { "strtok", DT_IDENT_FUNC, 0, DIF_SUBR_STRTOK, DT_ATTR_STABCMN, DT_VERS_1_1,
 	&dt_idops_func, "string(const char *, const char *)" },
+#if defined(DIF_SUBR_STRTOLL)
+{ "strtoll", DT_IDENT_FUNC, 0, DIF_SUBR_STRTOLL, DT_ATTR_STABCMN, DT_VERS_1_11,
+	&dt_idops_func, "int64_t(const char *, [int])" },
+#endif /* defined(DIF_SUBR_STRTOLL) */
 { "substr", DT_IDENT_FUNC, 0, DIF_SUBR_SUBSTR, DT_ATTR_STABCMN, DT_VERS_1_1,
 	&dt_idops_func, "string(const char *, int, [int])" },
 { "sum", DT_IDENT_AGGFUNC, 0, DTRACEAGG_SUM, DT_ATTR_STABCMN, DT_VERS_1_0,
@@ -714,8 +729,8 @@ int _dtrace_strbuckets = 211;	/* default number of hash buckets (prime) */
 int _dtrace_intbuckets = 256;	/* default number of integer buckets (Pof2) */
 uint_t _dtrace_strsize = 256;	/* default size of string intrinsic type */
 uint_t _dtrace_stkindent = 14;	/* default whitespace indent for stack/ustack */
-uint_t _dtrace_pidbuckets = 64; /* default number of pid hash buckets */
-uint_t _dtrace_pidlrulim = 8;	/* default number of pid handles to cache */
+uint_t _dtrace_pidbuckets = 512; /* default number of pid hash buckets */
+uint_t _dtrace_pidlrulim = 128;	/* default number of pid handles to cache */
 size_t _dtrace_bufsize = 512;	/* default dt_buf_create() size */
 int _dtrace_argmax = 32;	/* default maximum number of probe arguments */
 
@@ -724,8 +739,11 @@ int _dtrace_mangled = 0;	/* enabled mangled names for C++ fns (off) */
 int _dtrace_error = 1;		/* error messages enabled (on */
 int _dtrace_disallow_dsym = 0;		/* dsym disabled */
 
+#if OS_LOG_SUPPORTED
+os_log_t dtrace_log;
+#endif /* OS_LOG_SUPPORTED */
+
 const char *const _dtrace_version = DT_VERS_STRING; /* API version string */
-int _dtrace_rdvers = RD_VERSION; /* rtld_db feature version */
 
 typedef struct dt_fdlist {
 	int *df_fds;		/* array of provider driver file descriptors */
@@ -743,6 +761,7 @@ set_open_errno(dtrace_hdl_t *dtp, int *errp, int err)
 	return (NULL);
 }
 
+#if !defined(__APPLE__)
 static void
 dt_provmod_open(dt_provmod_t **provmod, dt_fdlist_t *dfp)
 {
@@ -790,12 +809,13 @@ dt_provmod_open(dt_provmod_t **provmod, dt_fdlist_t *dfp)
 		prov->dp_next = *provmod;
 		*provmod = prov;
 
-		dt_dprintf("opened provider %s\n", dp->d_name);
+		dt_dprintf("opened provider %s", dp->d_name);
 		dfp->df_fds[dfp->df_ents++] = fd;
 	}
 
 	(void) closedir(dirp);
 }
+#endif /* defined(__APPLE__) */
 
 static void
 dt_provmod_destroy(dt_provmod_t **provmod)
@@ -850,6 +870,14 @@ dt_vopen(int version, int flags, int *errp,
 
 	char isadef[32], utsdef[32];
 	char s1[64], s2[64];
+
+#if OS_LOG_SUPPORTED
+	static dispatch_once_t once;
+
+	dispatch_once(&once, ^{
+		dtrace_log = os_log_create("com.apple.dtrace", "DTrace");
+	});
+#endif /* OS_LOG_SUPPORTED */
 
 	if (version <= 0)
 		return (set_open_errno(dtp, errp, EINVAL));
@@ -958,7 +986,7 @@ alloc:
 	dtp->dt_mods = calloc(dtp->dt_modbuckets, sizeof (dt_module_t *));
 	dtp->dt_provbuckets = _dtrace_strbuckets;
 	dtp->dt_provs = calloc(dtp->dt_provbuckets, sizeof (dt_provider_t *));
-	dt_proc_hash_create(dtp);
+	dt_proc_init(dtp);
 	dtp->dt_vmax = DT_VERS_LATEST;
 	dtp->dt_cpp_path = strdup(_dtrace_defcpp);
 	dtp->dt_cpp_argv = malloc(sizeof (char *));
@@ -974,8 +1002,9 @@ alloc:
 	dtp->dt_apple_ids = dt_strtab_create(100);
 
 	if (dtp->dt_mods == NULL || dtp->dt_provs == NULL ||
-	    dtp->dt_procs == NULL || dtp->dt_ld_path == NULL ||
-	    dtp->dt_cpp_path == NULL || dtp->dt_cpp_argv == NULL)
+	    dtp->dt_procs == NULL || dtp->dt_proc_env == NULL ||
+	    dtp->dt_ld_path == NULL || dtp->dt_cpp_path == NULL ||
+	    dtp->dt_cpp_argv == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
 
 	for (i = 0; i < DTRACEOPT_MAX; i++)
@@ -1006,21 +1035,29 @@ alloc:
 	    dt_cpp_add_arg(dtp, utsdef) == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
 
-#if TARGET_OS_MAC && !TARGET_OS_EMBEDDED
+#if DTRACE_TARGET_APPLE_MAC
 	if (dt_cpp_add_arg(dtp, "-include") == NULL ||
 	    dt_cpp_add_arg(dtp, "/usr/lib/dtrace/dt_cpp.h") == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
-#endif
+#endif /* DTRACE_TARGET_APPLE_MAC */
 
 	if (flags & DTRACE_O_NODEV)
 		bcopy(&_dtrace_conf, &dtp->dt_conf, sizeof (_dtrace_conf));
 	else if (dt_ioctl(dtp, DTRACEIOC_CONF, &dtp->dt_conf) != 0)
 		return (set_open_errno(dtp, errp, errno));
 
+	dtp->dt_arch = CPU_TYPE_ANY;
+
 	if (flags & DTRACE_O_LP64)
 		dtp->dt_conf.dtc_ctfmodel = CTF_MODEL_LP64;
 	else if (flags & DTRACE_O_ILP32)
 		dtp->dt_conf.dtc_ctfmodel = CTF_MODEL_ILP32;
+	else {
+		if (dt_kernel_lp64())
+			dtp->dt_conf.dtc_ctfmodel = CTF_MODEL_LP64;
+		else
+			dtp->dt_conf.dtc_ctfmodel = CTF_MODEL_ILP32;
+	}
 
 #if defined(__i386__)
 	if (dt_cpp_add_arg(dtp, "-D__i386__") == NULL)
@@ -1107,7 +1144,7 @@ alloc:
 	if ((dmp->dm_ctfp = ctf_create(&dtp->dt_ctferr)) == NULL)
 		return (set_open_errno(dtp, errp, EDT_CTF));
 
-	dt_dprintf("created CTF container for %s (%p)\n",
+	dt_dprintf("created CTF container for %s (%p)",
 	    dmp->dm_name, (void *)dmp->dm_ctfp);
 
 	(void) ctf_setmodel(dmp->dm_ctfp, dtp->dt_conf.dtc_ctfmodel);
@@ -1130,7 +1167,7 @@ alloc:
 		}
 
 		if (err == CTF_ERR) {
-			dt_dprintf("failed to add %s to C container: %s\n",
+			dt_dprintf("failed to add %s to C container: %s",
 			    dinp->din_name, ctf_errmsg(
 			    ctf_errno(dmp->dm_ctfp)));
 			return (set_open_errno(dtp, errp, EDT_CTF));
@@ -1138,7 +1175,7 @@ alloc:
 	}
 
 	if (ctf_update(dmp->dm_ctfp) != 0) {
-		dt_dprintf("failed to update C container: %s\n",
+		dt_dprintf("failed to update C container: %s",
 		    ctf_errmsg(ctf_errno(dmp->dm_ctfp)));
 		return (set_open_errno(dtp, errp, EDT_CTF));
 	}
@@ -1157,7 +1194,7 @@ alloc:
 	    ctf_lookup_by_name(dmp->dm_ctfp, "int"));
 
 	if (ctf_update(dmp->dm_ctfp) != 0) {
-		dt_dprintf("failed to update C container: %s\n",
+		dt_dprintf("failed to update C container: %s",
 		    ctf_errmsg(ctf_errno(dmp->dm_ctfp)));
 		return (set_open_errno(dtp, errp, EDT_CTF));
 	}
@@ -1173,7 +1210,7 @@ alloc:
 	if ((dmp->dm_ctfp = ctf_create(&dtp->dt_ctferr)) == NULL)
 		return (set_open_errno(dtp, errp, EDT_CTF));
 
-	dt_dprintf("created CTF container for %s (%p)\n",
+	dt_dprintf("created CTF container for %s (%p)",
 	    dmp->dm_name, (void *)dmp->dm_ctfp);
 
 	(void) ctf_setmodel(dmp->dm_ctfp, dtp->dt_conf.dtc_ctfmodel);
@@ -1183,7 +1220,7 @@ alloc:
 	dmp->dm_modid = -1; /* no module ID */
 
 	if (ctf_import(dmp->dm_ctfp, dtp->dt_cdefs->dm_ctfp) == CTF_ERR) {
-		dt_dprintf("failed to import D parent container: %s\n",
+		dt_dprintf("failed to import D parent container: %s",
 		    ctf_errmsg(ctf_errno(dmp->dm_ctfp)));
 		return (set_open_errno(dtp, errp, EDT_CTF));
 	}
@@ -1248,13 +1285,13 @@ alloc:
 	    dtp->dt_type_str == CTF_ERR || dtp->dt_type_dyn == CTF_ERR ||
 	    dtp->dt_type_stack == CTF_ERR || dtp->dt_type_symaddr == CTF_ERR ||
 	    dtp->dt_type_usymaddr == CTF_ERR) {
-		dt_dprintf("failed to add intrinsic to D container: %s\n",
+		dt_dprintf("failed to add intrinsic to D container: %s",
 		    ctf_errmsg(ctf_errno(dmp->dm_ctfp)));
 		return (set_open_errno(dtp, errp, EDT_CTF));
 	}
 
 	if (ctf_update(dmp->dm_ctfp) != 0) {
-		dt_dprintf("failed update D container: %s\n",
+		dt_dprintf("failed update D container: %s",
 		    ctf_errmsg(ctf_errno(dmp->dm_ctfp)));
 		return (set_open_errno(dtp, errp, EDT_CTF));
 	}
@@ -1267,7 +1304,7 @@ alloc:
 	for (i = 0; i < sizeof (dtp->dt_ints) / sizeof (dtp->dt_ints[0]); i++) {
 		if (dtrace_lookup_by_type(dtp, DTRACE_OBJ_EVERY,
 		    dtp->dt_ints[i].did_name, &dtt) != 0) {
-			dt_dprintf("failed to lookup integer type %s: %s\n",
+			dt_dprintf("failed to lookup integer type %s: %s",
 			    dtp->dt_ints[i].did_name,
 			    dtrace_errmsg(dtp, dtrace_errno(dtp)));
 			return (set_open_errno(dtp, errp, dtp->dt_errno));
@@ -1304,7 +1341,7 @@ alloc:
 	 */
 	if ((pgp = dtrace_program_strcompile(dtp, _dtrace_hardwire,
 	    DTRACE_PROBESPEC_NONE, DTRACE_C_EMPTY, 0, NULL)) == NULL) {
-		dt_dprintf("failed to load hard-wired definitions: %s\n",
+		dt_dprintf("failed to load hard-wired definitions: %s",
 		    dtrace_errmsg(dtp, dtrace_errno(dtp)));
 		return (set_open_errno(dtp, errp, EDT_HARDWIRE));
 	}
@@ -1356,7 +1393,7 @@ dtrace_close(dtrace_hdl_t *dtp)
 	int i;
 
 	if (dtp->dt_procs != NULL)
-		dt_proc_hash_destroy(dtp);
+		dt_proc_fini(dtp);
 
 	while ((pgp = dt_list_next(&dtp->dt_programs)) != NULL)
 		dt_program_destroy(dtp, pgp);

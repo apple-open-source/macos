@@ -51,7 +51,7 @@ de{
         aro{"Araona"}
         arp{"Arapaho"}
         arq{"Algerisches Arabisch"}
-        ars{"Nadschd-Arabisch"}
+        ars{"Arabisch (Nadschd)"}
         arw{"Arawak"}
         ary{"Marokkanisches Arabisch"}
         arz{"Ägyptisches Arabisch"}
@@ -165,16 +165,9 @@ de{
         el{"Griechisch"}
         elx{"Elamisch"}
         en{"Englisch"}
-        en_AU{"Australisches Englisch"}
-        en_CA{"Kanadisches Englisch"}
-        en_GB{"Britisches Englisch"}
-        en_US{"Amerikanisches Englisch"}
         enm{"Mittelenglisch"}
         eo{"Esperanto"}
         es{"Spanisch"}
-        es_419{"Lateinamerikanisches Spanisch"}
-        es_ES{"Europäisches Spanisch"}
-        es_MX{"Mexikanisches Spanisch"}
         esu{"Zentral-Alaska-Yupik"}
         et{"Estnisch"}
         eu{"Baskisch"}
@@ -191,8 +184,6 @@ de{
         fo{"Färöisch"}
         fon{"Fon"}
         fr{"Französisch"}
-        fr_CA{"Kanadisches Französisch"}
-        fr_CH{"Schweizer Französisch"}
         frc{"Cajun"}
         frm{"Mittelfranzösisch"}
         fro{"Altfranzösisch"}
@@ -214,7 +205,7 @@ de{
         gl{"Galicisch"}
         glk{"Gilaki"}
         gmh{"Mittelhochdeutsch"}
-        gn{"Guarani"}
+        gn{"Guaraní"}
         goh{"Althochdeutsch"}
         gom{"Goa-Konkani"}
         gon{"Gondi"}
@@ -314,6 +305,7 @@ de{
         krl{"Karelisch"}
         kru{"Oraon"}
         ks{"Kaschmiri"}
+        ks_Arab{"Kaschmiri (Naschī)"}
         ksb{"Shambala"}
         ksf{"Bafia"}
         ksh{"Kölsch"}
@@ -439,6 +431,7 @@ de{
         osa{"Osage"}
         ota{"Osmanisch"}
         pa{"Punjabi"}
+        pa_Arab{"Punjabi (Naschī)"}
         pag{"Pangasinan"}
         pal{"Mittelpersisch"}
         pam{"Pampanggan"}
@@ -460,8 +453,6 @@ de{
         pro{"Altprovenzalisch"}
         ps{"Paschtu"}
         pt{"Portugiesisch"}
-        pt_BR{"Brasilianisches Portugiesisch"}
-        pt_PT{"Europäisches Portugiesisch"}
         qu{"Quechua"}
         quc{"K’iche’"}
         qug{"Chimborazo Hochland-Quechua"}
@@ -593,6 +584,7 @@ de{
         umb{"Umbundu"}
         und{"Unbekannte Sprache"}
         ur{"Urdu"}
+        ur_Arab{"Urdu (Naschī)"}
         uz{"Usbekisch"}
         vai{"Vai"}
         ve{"Venda"}
@@ -641,13 +633,14 @@ de{
     }
     Languages%short{
         az{"Aserbaidschanisch"}
-        en_GB{"UK-Englisch"}
-        en_US{"US-Englisch"}
+        en_GB{"Englisch (GB)"}
+        en_US{"Englisch (USA)"}
     }
     Scripts{
         Afak{"Afaka"}
         Aghb{"Kaukasisch-Albanisch"}
         Arab{"Arabisch"}
+        Aran{"Nastaliq"}
         Armi{"Armi"}
         Armn{"Armenisch"}
         Avst{"Avestisch"}
@@ -659,13 +652,12 @@ de{
         Blis{"Bliss-Symbole"}
         Bopo{"Bopomofo"}
         Brah{"Brahmi"}
-        Brai{"Blindenschrift"}
+        Brai{"Braille"}
         Bugi{"Buginesisch"}
         Buhd{"Buhid"}
         Cakm{"Chakma"}
         Cans{"UCAS"}
         Cari{"Karisch"}
-        Cham{"Cham"}
         Cher{"Cherokee"}
         Cirt{"Cirth"}
         Copt{"Koptisch"}
@@ -736,7 +728,6 @@ de{
         Merc{"Meroitisch kursiv"}
         Mero{"Meroitisch"}
         Mlym{"Malayalam"}
-        Modi{"Modi"}
         Mong{"Mongolisch"}
         Moon{"Moon"}
         Mroo{"Mro"}
@@ -762,6 +753,7 @@ de{
         Phnx{"Phönizisch"}
         Plrd{"Pollard Phonetisch"}
         Prti{"Parthisch"}
+        Qaag{"Zawgyi"}
         Rjng{"Rejang"}
         Roro{"Rongorongo"}
         Runr{"Runenschrift"}
@@ -1019,7 +1011,7 @@ de{
         VALENCIA{"Valencianisch"}
         WADEGILE{"Wade-Giles"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.42"}
     characterLabelPattern{
         all{"{0} — Alle"}
         category-list{"{0}: {1}"}

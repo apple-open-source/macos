@@ -41,7 +41,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <config.h>
+#include "config.h"
 #include <stdio.h>
 #include <assert.h>
 
@@ -57,7 +57,7 @@
 #include <stdio.h>
 #include <io.h>
 
-#include <saslutil.h>
+#include "saslutil.h"
 __declspec(dllimport) char *optarg;
 __declspec(dllimport) int optind;
 
@@ -65,8 +65,8 @@ __declspec(dllimport) int optind;
 void p_oserror (const char *string);
 #endif /*WIN32*/
 
-#include <sasl.h>
-#include <saslplug.h>
+#include "sasl.h"
+#include "saslplug.h"
 
 char myhostname[1025];
 

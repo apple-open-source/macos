@@ -91,13 +91,66 @@ cindex(array assignment)
 ifzman()
 indent(tt(set -A) var(name) var(value) ...)
 indent(var(name)tt(=LPAR())var(value) ...tt(RPAR()))
+indent(var(name)tt(=LPAR())tt([)var(key)tt(]=)var(value) ...tt(RPAR()))
 
 If no parameter var(name) exists, an ordinary array parameter is created.
 If the parameter var(name) exists and is a scalar, it is replaced by a new
-array.  To append to an array without changing the existing values, use
-the syntax:
+array.
+
+In the third form, var(key) is an expression that will be evaluated in
+arithmetic context (in its simplest form, an integer) that gives the
+index of the element to be assigned with var(value).  In this form any
+elements not explicitly mentioned that come before the largest index to
+which a value is assigned are assigned an empty string.  The indices
+may be in any order.  Note that this syntax is strict: tt([) and tt(]=) must
+not be quoted, and var(key) may not consist of the unquoted string
+tt(]=), but is otherwise treated as a simple string.  The enhanced forms
+of subscript expression that may be used when directly subscripting a
+variable name, described in the section Array Subscripts below, are not
+available.
+
+The syntaxes with and without the explicit key may be mixed.  An implicit
+var(key) is deduced by incrementing the index from the previously
+assigned element.  Note that it is not treated as an error
+if latter assignments in this form overwrite earlier assignments.
+
+For example, assuming the option tt(KSH_ARRAYS) is not set, the following:
+
+example(array=LPAR()one [3]=three four+RPAR())
+
+causes the array variable tt(array) to contain four elements tt(one),
+an empty string, tt(three) and tt(four), in that order.
+
+In the forms where only var(value) is specified, full command
+line expansion is performed.
+
+In the tt([)var(key)tt(]=)var(value) form,
+both var(key) and var(value) undergo all forms of expansion
+allowed for single word shell expansions (this does not include filename
+generation); these are as performed by the parameter expansion flag
+tt(LPAR()e+RPAR()) as described in
+ifzman(zmanref(zshparam))\
+ifnzman(noderef(Parameter Expansion)).
+Nested parentheses may surround var(value) and are included as part of the
+value, which is joined into a plain string; this differs from ksh which
+allows the values themselves to be arrays.  A future version of zsh may
+support that.  To cause the brackets to be interpreted as a character
+class for filename generation, and therefore to treat the resulting list
+of files as a set of values, quote the equal sign using any form of quoting.
+Example:
+ifzman()
+indent(var(name)tt(=LPAR())tt([a-z]'='*RPAR()))
+
+To append to an array without changing the existing values, use
+one of the following:
 ifzman()
 indent(var(name)tt(+=LPAR())var(value) ...tt(RPAR()))
+indent(var(name)tt(+=LPAR())tt([)var(key)tt(]=)var(value) ...tt(RPAR()))
+
+In the second form var(key) may specify an existing index as well as an
+index off the end of the old array; any existing value is overwritten by
+var(value).  Also, it is possible to use tt([)var(key)tt(]+=)var(value)
+to append to the existing value at that index.
 
 Within the parentheses on the right hand side of either form of the
 assignment, newlines and semicolons are treated the same as white space,
@@ -118,15 +171,25 @@ is interpreted as alternating keys and values:
 ifzman()
 indent(tt(set -A) var(name) var(key) var(value) ...)
 indent(var(name)tt(=LPAR())var(key) var(value) ...tt(RPAR()))
+indent(var(name)tt(=LPAR())tt([)var(key)tt(]=)var(value) ...tt(RPAR()))
+
+Note that only one of the two syntaxes above may be used in any
+given assignment; the forms may not be mixed.  This is unlike the case
+of numerically indexed arrays.
 
 Every var(key) must have a var(value) in this case.  Note that this
 assigns to the entire array, deleting any elements that do not appear in
 the list.  The append syntax may also be used with an associative array:
 ifzman()
 indent(var(name)tt(+=LPAR())var(key) var(value) ...tt(RPAR()))
+indent(var(name)tt(+=LPAR())tt([)var(key)tt(]=)var(value) ...tt(RPAR()))
 
 This adds a new key/value pair if the key is not already present, and
-replaces the value for the existing key if it is.
+replaces the value for the existing key if it is.  In the second
+form it is also possible to use tt([)var(key)tt(]+=)var(value) to
+append to the existing value at that key.  Expansion is performed
+identically to the corresponding forms for normal arrays, as
+described above.
 
 To create an empty array (including associative arrays), use one of:
 ifzman()
@@ -265,8 +328,10 @@ startitem()
 item(tt(w))(
 If the parameter subscripted is a scalar then this flag makes
 subscripting work on words instead of characters.  The default word
-separator is whitespace.  This flag may not be used with the tt(i) or
-tt(I) flag.
+separator is whitespace.  When combined with the tt(i) or tt(I) flag,
+the effect is to produce the index of the first character of the
+first/last word which matches the given pattern; note that a failed
+match in this case always yields 0.
 )
 item(tt(s:)var(string)tt(:))(
 This gives the var(string) that separates words (for use with the
@@ -668,6 +733,16 @@ This value is system dependent and is intended for debugging
 purposes.  It is also useful with the tt(zsh/system) module which
 allows the number to be turned into a name or message.
 )
+vindex(FUNCNEST)
+item(tt(FUNCNEST) <S>)(
+Integer.  If greater than or equal to zero, the maximum nesting depth of
+shell functions.  When it is exceeded, an error is raised at the point
+where a function is called.  The default value is determined when
+the shell is configured, but is typically 500.  Increasing
+the value increases the danger of a runaway function recursion
+causing the shell to crash.  Setting a negative value turns off
+the check.
+)
 vindex(GID)
 item(tt(GID) <S>)(
 The real group ID of the shell process.  If you have sufficient privileges,
@@ -952,8 +1027,8 @@ of zsh.
 )
 vindex(ZSH_PATCHLEVEL)
 item(tt(ZSH_PATCHLEVEL))(
-The revision string for the version number of the ChangeLog file
-in the zsh distribution.  This is most useful in order to keep
+The output of `tt(git describe --tags --long)' for the zsh repository
+used to build the shell.  This is most useful in order to keep
 track of versions of the shell during development between releases;
 hence most users should not use it and should instead rely on
 tt($ZSH_VERSION).
@@ -1394,7 +1469,7 @@ is specified with no command.  Defaults to tt(more).
 vindex(REPORTMEMORY)
 item(tt(REPORTMEMORY))(
 If nonnegative, commands whose maximum resident set size (roughly
-speaking, main memory usage) in megabytes is greater than this
+speaking, main memory usage) in kilobytes is greater than this
 value have timing statistics reported.  The format used to output
 statistics is the value of the tt(TIMEFMT) parameter, which is the same
 as for the tt(REPORTTIME) variable and the tt(time) builtin; note that
@@ -1529,7 +1604,7 @@ sitem(tt(%D))(The average amount in (unshared) data/stack space used in
 kilobytes.)
 sitem(tt(%K))(The total space used (tt(%X)PLUS()tt(%D)) in kilobytes.)
 sitem(tt(%M))(The  maximum memory the process had in use at any time in
-megabytes.)
+kilobytes.)
 sitem(tt(%F))(The number of major page faults (page needed to be brought
 from disk).)
 sitem(tt(%R))(The number of minor page faults.)
@@ -1543,10 +1618,12 @@ sitem(tt(%c))(Number of involuntary context switches.)
 sitem(tt(%J))(The name of this job.)
 endsitem()
 
-A star may be inserted between the percent sign and flags printing time.
-This cause the time to be printed in
+A star may be inserted between the percent sign and flags printing time
+(e.g., `tt(%*E)'); this causes the time to be printed in
 `var(hh)tt(:)var(mm)tt(:)var(ss)tt(.)var(ttt)'
 format (hours and minutes are only printed if they are not zero).
+Alternatively, `tt(m)' or `tt(u)' may be used (e.g., `tt(%mE)') to produce
+time output in milliseconds or microseconds, respectively.
 )
 vindex(TMOUT)
 item(tt(TMOUT))(

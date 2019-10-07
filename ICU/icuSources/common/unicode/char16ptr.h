@@ -29,6 +29,8 @@ U_NAMESPACE_BEGIN
     // Use the predefined value.
 #elif (defined(__clang__) || defined(__GNUC__)) && U_PLATFORM != U_PF_BROWSER_NATIVE_CLIENT
 #   define U_ALIASING_BARRIER(ptr) asm volatile("" : : "rm"(ptr) : "memory")
+#elif defined(U_IN_DOXYGEN)
+#   define U_ALIASING_BARRIER(ptr)
 #endif
 
 /**
@@ -104,6 +106,7 @@ private:
 #endif
 };
 
+/// \cond
 #ifdef U_ALIASING_BARRIER
 
 Char16Ptr::Char16Ptr(char16_t *p) : p_(p) {}
@@ -135,6 +138,7 @@ Char16Ptr::~Char16Ptr() {}
 char16_t *Char16Ptr::get() const { return u_.cp; }
 
 #endif
+/// \endcond
 
 /**
  * const char16_t * wrapper with implicit conversion from distinct but bit-compatible pointer types.
@@ -210,6 +214,7 @@ private:
 #endif
 };
 
+/// \cond
 #ifdef U_ALIASING_BARRIER
 
 ConstChar16Ptr::ConstChar16Ptr(const char16_t *p) : p_(p) {}
@@ -241,6 +246,7 @@ ConstChar16Ptr::~ConstChar16Ptr() {}
 const char16_t *ConstChar16Ptr::get() const { return u_.cp; }
 
 #endif
+/// \endcond
 
 /**
  * Converts from const char16_t * to const UChar *.

@@ -3,14 +3,14 @@ Test date_isodate_set() function : usage variation - Passing unexpected values t
 --FILE--
 <?php
 /* Prototype  : DateTime date_isodate_set  ( DateTime $object  , int $year  , int $week  [, int $day  ] )
- * Description: Set a date according to the ISO 8601 standard - using weeks and day offsets rather than specific dates. 
+ * Description: Set a date according to the ISO 8601 standard - using weeks and day offsets rather than specific dates.
  * Source code: ext/date/php_date.c
  * Alias to functions: DateTime::setISODate
  */
 
 echo "*** Testing date_isodate_set() : usage variation -  unexpected values to first argument \$object***\n";
 
-//Set the default time zone 
+//Set the default time zone
 date_default_timezone_set("Europe/London");
 
 //get an unset variable
@@ -90,8 +90,8 @@ $inputs = array(
 
       // unset data
       'unset var' => @$unset_var,
-      
-      // resource 
+
+      // resource
       'resource' => $file_handle
 );
 
@@ -114,22 +114,22 @@ fclose( $file_handle );
 
 -- int 0 --
 
-Warning: date_isodate_set() expects parameter 1 to be DateTime, integer given in %s on line %d
+Warning: date_isodate_set() expects parameter 1 to be DateTime, int given in %s on line %d
 bool(false)
 
 -- int 1 --
 
-Warning: date_isodate_set() expects parameter 1 to be DateTime, integer given in %s on line %d
+Warning: date_isodate_set() expects parameter 1 to be DateTime, int given in %s on line %d
 bool(false)
 
 -- int 12345 --
 
-Warning: date_isodate_set() expects parameter 1 to be DateTime, integer given in %s on line %d
+Warning: date_isodate_set() expects parameter 1 to be DateTime, int given in %s on line %d
 bool(false)
 
 -- int -12345 --
 
-Warning: date_isodate_set() expects parameter 1 to be DateTime, integer given in %s on line %d
+Warning: date_isodate_set() expects parameter 1 to be DateTime, int given in %s on line %d
 bool(false)
 
 -- float 10.5 --
@@ -179,22 +179,22 @@ bool(false)
 
 -- lowercase true --
 
-Warning: date_isodate_set() expects parameter 1 to be DateTime, boolean given in %s on line %d
+Warning: date_isodate_set() expects parameter 1 to be DateTime, bool given in %s on line %d
 bool(false)
 
 -- lowercase false --
 
-Warning: date_isodate_set() expects parameter 1 to be DateTime, boolean given in %s on line %d
+Warning: date_isodate_set() expects parameter 1 to be DateTime, bool given in %s on line %d
 bool(false)
 
 -- uppercase TRUE --
 
-Warning: date_isodate_set() expects parameter 1 to be DateTime, boolean given in %s on line %d
+Warning: date_isodate_set() expects parameter 1 to be DateTime, bool given in %s on line %d
 bool(false)
 
 -- uppercase FALSE --
 
-Warning: date_isodate_set() expects parameter 1 to be DateTime, boolean given in %s on line %d
+Warning: date_isodate_set() expects parameter 1 to be DateTime, bool given in %s on line %d
 bool(false)
 
 -- empty string DQ --

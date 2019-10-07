@@ -9,9 +9,9 @@ if (PHP_INT_SIZE != 8) die('skip 64-bit only');
 --FILE--
 <?php
 /* Prototype  : proto array mb_split(string pattern, string string [, int limit])
- * Description: split multibyte string into array by regular expression 
+ * Description: split multibyte string into array by regular expression
  * Source code: ext/mbstring/php_mbregex.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing mb_split() : usage variations ***\n";
@@ -65,7 +65,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
@@ -74,7 +74,7 @@ $inputs = array(
 /*18*/ "UTF-8",
        'UTF-8',
        $heredoc,
-       
+
        // object data
 /*21*/ new classA(),
 
@@ -285,32 +285,32 @@ array(1) {
 
 -- Iteration 16 --
 
-Warning: mb_split() expects parameter 3 to be integer, string given in %s on line %d
+Warning: mb_split() expects parameter 3 to be int, string given in %s on line %d
 bool(false)
 
 -- Iteration 17 --
 
-Warning: mb_split() expects parameter 3 to be integer, string given in %s on line %d
+Warning: mb_split() expects parameter 3 to be int, string given in %s on line %d
 bool(false)
 
 -- Iteration 18 --
 
-Warning: mb_split() expects parameter 3 to be integer, string given in %s on line %d
+Warning: mb_split() expects parameter 3 to be int, string given in %s on line %d
 bool(false)
 
 -- Iteration 19 --
 
-Warning: mb_split() expects parameter 3 to be integer, string given in %s on line %d
+Warning: mb_split() expects parameter 3 to be int, string given in %s on line %d
 bool(false)
 
 -- Iteration 20 --
 
-Warning: mb_split() expects parameter 3 to be integer, string given in %s on line %d
+Warning: mb_split() expects parameter 3 to be int, string given in %s on line %d
 bool(false)
 
 -- Iteration 21 --
 
-Warning: mb_split() expects parameter 3 to be integer, object given in %s on line %d
+Warning: mb_split() expects parameter 3 to be int, object given in %s on line %d
 bool(false)
 
 -- Iteration 22 --
@@ -327,6 +327,6 @@ array(1) {
 
 -- Iteration 24 --
 
-Warning: mb_split() expects parameter 3 to be integer, resource given in %s on line %d
+Warning: mb_split() expects parameter 3 to be int, resource given in %s on line %d
 bool(false)
 Done

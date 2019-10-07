@@ -22,23 +22,23 @@
  */
 
 #include "corecryptoSymmetricBridge.h"
-#include "ccMemory.h"
 #include <corecrypto/ccrc4.h>
 #include "ccdebug.h"
+
 
 static void *noMode(void) { return NULL; }
 
 // RC4 as a mode trick ...
 
 static int rc4ModeInit(const struct ccmode_ofb * __unused ofb, ccofb_ctx *ctx,
-                       unsigned long key_len, const void *key,
+                       size_t key_len, const void *key,
                        const void * __unused iv)
 {
     ccrc4_eay.init((ccrc4_ctx *)ctx, key_len, key);
     return 0;
 }
 
-static int rc4crypt(ccofb_ctx *ctx, unsigned long nbytes, const void *in, void *out)
+static int rc4crypt(ccofb_ctx *ctx, size_t nbytes, const void *in, void *out)
 {
     ccrc4_eay.crypt((ccrc4_ctx *) ctx, nbytes, in, out);
     return 0;
@@ -112,16 +112,16 @@ const modeList ccmodeList[CC_SUPPORTED_CIPHERS][CC_DIRECTIONS] = {
 
 static size_t ccecb_mode_get_ctx_size(corecryptoMode modeObject) { return modeObject.ecb->size; }
 static size_t ccecb_mode_get_block_size(corecryptoMode modeObject) { return modeObject.ecb->block_size; }
-static void ccecb_mode_setup(corecryptoMode modeObj, const void * __unused IV,
+static int ccecb_mode_setup(corecryptoMode modeObj, const void * __unused IV,
                              const void *key, size_t keylen, const void * __unused tweak,
                              size_t __unused tweaklen, int __unused options, modeCtx ctx)
 {
-    modeObj.ecb->init(modeObj.ecb, ctx.ecb, keylen, key);
+    return modeObj.ecb->init(modeObj.ecb, ctx.ecb, keylen, key);
 }
 
-static void ccecb_mode_crypt(corecryptoMode modeObj, const void *in, void *out, size_t len, modeCtx ctx)
+static int ccecb_mode_crypt(corecryptoMode modeObj, const void *in, void *out, size_t len, modeCtx ctx)
 {
-    modeObj.ecb->ecb(ctx.ecb, len / ccecb_mode_get_block_size(modeObj), in, out);
+    return modeObj.ecb->ecb(ctx.ecb, len / ccecb_mode_get_block_size(modeObj), in, out);
 }
 
 const cc2CCModeDescriptor ccecb_mode = {
@@ -141,17 +141,17 @@ const cc2CCModeDescriptor ccecb_mode = {
 
 static size_t cccbc_mode_get_ctx_size(const corecryptoMode modeObject) { return modeObject.cbc->size + 16; }
 static size_t cccbc_mode_get_block_size(const corecryptoMode modeObject) { return modeObject.cbc->block_size; }
-static void cccbc_mode_setup(const corecryptoMode modeObj, const void *iv,
+static int cccbc_mode_setup(const corecryptoMode modeObj, const void *iv,
                              const void *key, size_t keylen, const void * __unused tweak,
                              size_t __unused tweaklen, int __unused options, modeCtx ctx)
 {
-    CC_XMEMCPY(ctx.cbc->iv, iv, modeObj.cbc->block_size);
-    modeObj.cbc->init(modeObj.cbc, &ctx.cbc->cbc, keylen, key);
+    memcpy(ctx.cbc->iv, iv, modeObj.cbc->block_size);
+    return modeObj.cbc->init(modeObj.cbc, &ctx.cbc->cbc, keylen, key);
 }
 
-static void cccbc_mode_crypt(const corecryptoMode modeObj, const void *in, void *out, size_t len, modeCtx ctx)
+static int cccbc_mode_crypt(const corecryptoMode modeObj, const void *in, void *out, size_t len, modeCtx ctx)
 {
-    modeObj.cbc->cbc(&ctx.cbc->cbc, (cccbc_iv *) ctx.cbc->iv, len / cccbc_mode_get_block_size(modeObj), in, out);
+    return modeObj.cbc->cbc(&ctx.cbc->cbc, (cccbc_iv *) ctx.cbc->iv, len / cccbc_mode_get_block_size(modeObj), in, out);
 }
 
 static int cccbc_getiv(const corecryptoMode modeObj, void *iv, uint32_t *len, modeCtx ctx)
@@ -160,14 +160,14 @@ static int cccbc_getiv(const corecryptoMode modeObj, void *iv, uint32_t *len, mo
         *len = (uint32_t) cccbc_mode_get_block_size(modeObj);
         return -1;
     }
-    CC_XMEMCPY(iv, ctx.cbc->iv, *len = (uint32_t) cccbc_mode_get_block_size(modeObj));
+    memcpy(iv, ctx.cbc->iv, *len = (uint32_t) cccbc_mode_get_block_size(modeObj));
     return 0;
 }
 
 static int cccbc_setiv(const corecryptoMode modeObj, const void *iv, uint32_t len, modeCtx ctx)
 {
     if(len != cccbc_mode_get_block_size(modeObj)) return -1;
-    CC_XMEMCPY(ctx.cbc->iv, iv, cccbc_mode_get_block_size(modeObj));
+    memcpy(ctx.cbc->iv, iv, cccbc_mode_get_block_size(modeObj));
     return 0;
 }
 
@@ -188,16 +188,16 @@ const cc2CCModeDescriptor cccbc_mode = {
 
 static size_t cccfb_mode_get_ctx_size(const corecryptoMode modeObject) { return modeObject.cfb->size; }
 static size_t cccfb_mode_get_block_size(const corecryptoMode modeObject) { return modeObject.cfb->block_size; }
-static void cccfb_mode_setup(const corecryptoMode modeObj, const void *iv,
+static int cccfb_mode_setup(const corecryptoMode modeObj, const void *iv,
                              const void *key, size_t keylen, const void * __unused tweak,
                              size_t __unused tweaklen, int __unused options, modeCtx ctx)
 {
-    modeObj.cfb->init(modeObj.cfb, ctx.cfb, keylen, key, iv);
+    return modeObj.cfb->init(modeObj.cfb, ctx.cfb, keylen, key, iv);
 }
 
-static void cccfb_mode_crypt(const corecryptoMode modeObj, const void *in, void *out, size_t len, modeCtx ctx)
+static int cccfb_mode_crypt(const corecryptoMode modeObj, const void *in, void *out, size_t len, modeCtx ctx)
 {
-    modeObj.cfb->cfb(ctx.cfb, len / cccfb_mode_get_block_size(modeObj), in, out);
+    return modeObj.cfb->cfb(ctx.cfb, len / cccfb_mode_get_block_size(modeObj), in, out);
 }
 
 const cc2CCModeDescriptor cccfb_mode = {
@@ -218,16 +218,16 @@ const cc2CCModeDescriptor cccfb_mode = {
 
 static size_t cccfb8_mode_get_ctx_size(const corecryptoMode modeObject) { return modeObject.cfb8->size; }
 static size_t cccfb8_mode_get_block_size(const corecryptoMode modeObject) { return modeObject.cfb8->block_size; }
-static void cccfb8_mode_setup(const corecryptoMode modeObj, const void *iv,
+static int cccfb8_mode_setup(const corecryptoMode modeObj, const void *iv,
                               const void *key, size_t keylen, const void * __unused tweak,
                               size_t __unused tweaklen, int __unused options, modeCtx ctx)
 {
-    modeObj.cfb8->init(modeObj.cfb8, ctx.cfb8, keylen, key, iv);
+    return modeObj.cfb8->init(modeObj.cfb8, ctx.cfb8, keylen, key, iv);
 }
 
-static void cccfb8_mode_crypt(const corecryptoMode modeObj, const void *in, void *out, size_t len, modeCtx ctx)
+static int cccfb8_mode_crypt(const corecryptoMode modeObj, const void *in, void *out, size_t len, modeCtx ctx)
 {
-    modeObj.cfb8->cfb8(ctx.cfb8, len / cccfb8_mode_get_block_size(modeObj), in, out);
+    return modeObj.cfb8->cfb8(ctx.cfb8, len / cccfb8_mode_get_block_size(modeObj), in, out);
 }
 
 const cc2CCModeDescriptor cccfb8_mode = {
@@ -247,16 +247,23 @@ const cc2CCModeDescriptor cccfb8_mode = {
 
 static size_t ccctr_mode_get_ctx_size(const corecryptoMode modeObject) { return modeObject.ctr->size; }
 static size_t ccctr_mode_get_block_size(const corecryptoMode modeObject) { return modeObject.ctr->block_size; }
-static void ccctr_mode_setup(const corecryptoMode modeObj, const void *iv,
+static int ccctr_mode_setup(const corecryptoMode modeObj, const void *iv,
                              const void *key, size_t keylen, const void * __unused tweak,
                              size_t __unused tweaklen, int __unused options, modeCtx ctx)
 {
-    modeObj.ctr->init(modeObj.ctr, ctx.ctr, keylen, key, iv);
+    return modeObj.ctr->init(modeObj.ctr, ctx.ctr, keylen, key, iv);
 }
 
-static void ccctr_mode_crypt(const corecryptoMode modeObj, const void *in, void *out, size_t len, modeCtx ctx)
+static int ccctr_mode_crypt(const corecryptoMode modeObj, const void *in, void *out, size_t len, modeCtx ctx)
 {
-    modeObj.ctr->ctr(ctx.ctr, len / ccctr_mode_get_block_size(modeObj), in, out);
+    return modeObj.ctr->ctr(ctx.ctr, len / ccctr_mode_get_block_size(modeObj), in, out);
+}
+
+static int ccctr_setiv(const corecryptoMode modeObj, const void *iv, uint32_t len, modeCtx ctx)
+{
+    if(len != modeObj.ctr->ecb_block_size) return -1;
+    modeObj.ctr->setctr(modeObj.ctr, ctx.ctr, iv);
+    return 0;
 }
 
 const cc2CCModeDescriptor ccctr_mode = {
@@ -268,7 +275,7 @@ const cc2CCModeDescriptor ccctr_mode = {
     .mode_encrypt_tweaked = NULL,
     .mode_decrypt_tweaked = NULL,
     .mode_done = NULL,
-    .mode_setiv = NULL,
+    .mode_setiv = ccctr_setiv,
     .mode_getiv = NULL
 };
 
@@ -276,16 +283,16 @@ const cc2CCModeDescriptor ccctr_mode = {
 
 static size_t ccofb_mode_get_ctx_size(const corecryptoMode modeObject) { return modeObject.ofb->size; }
 static size_t ccofb_mode_get_block_size(const corecryptoMode modeObject) { return modeObject.ofb->block_size; }
-static void ccofb_mode_setup(const corecryptoMode modeObj, const void *iv,
+static int ccofb_mode_setup(const corecryptoMode modeObj, const void *iv,
                              const void *key, size_t keylen, const void * __unused tweak,
                              size_t __unused tweaklen, int __unused options, modeCtx ctx)
 {
-    modeObj.ofb->init(modeObj.ofb, ctx.ofb, keylen, key, iv);
+    return modeObj.ofb->init(modeObj.ofb, ctx.ofb, keylen, key, iv);
 }
 
-static void ccofb_mode_crypt(const corecryptoMode modeObj, const void *in, void *out, size_t len, modeCtx ctx)
+static int ccofb_mode_crypt(const corecryptoMode modeObj, const void *in, void *out, size_t len, modeCtx ctx)
 {
-    modeObj.ofb->ofb(ctx.ofb, len / ccofb_mode_get_block_size(modeObj), in, out);
+    return modeObj.ofb->ofb(ctx.ofb, len / ccofb_mode_get_block_size(modeObj), in, out);
 }
 
 const cc2CCModeDescriptor ccofb_mode = {
@@ -310,11 +317,11 @@ const cc2CCModeDescriptor ccofb_mode = {
 
 static size_t ccxts_mode_get_ctx_size(const corecryptoMode modeObject) { return modeObject.xts->size; }
 static size_t ccxts_mode_get_block_size(const corecryptoMode modeObject) { return modeObject.xts->block_size; }
-static void ccxts_mode_setup(const corecryptoMode modeObj, const void * __unused iv,
+static int ccxts_mode_setup(const corecryptoMode modeObj, const void * __unused iv,
                              const void *key, size_t keylen, const void *tweak,
                              size_t __unused tweaklen, int __unused options, modeCtx ctx)
 {
-    modeObj.xts->init(modeObj.xts, ctx.xts, keylen, key, tweak);
+    return modeObj.xts->init(modeObj.xts, ctx.xts, keylen, key, tweak);
 }
 
 #ifdef UNUSED_INTERFACE
@@ -336,7 +343,7 @@ static int ccxts_getiv(const corecryptoMode modeObj, void *iv, uint32_t *len, mo
         *len = modeObj.xts->block_size;
         return -1;
     }
-    CC_XMEMCPY(iv, modeObj.xts->xts(ctx.xts, 0, NULL, NULL), *len = modeObj.xts->block_size);
+    memcpy(iv, modeObj.xts->xts(ctx.xts, 0, NULL, NULL), *len = modeObj.xts->block_size);
     return 0;
 }
 #endif
@@ -346,18 +353,22 @@ static int ccxts_getiv(const corecryptoMode modeObj, void *iv, uint32_t *len, mo
  * to handle partial blocks - so we use corecrypto's xts pad routines in every case.
  */
 
-static void ccxts_mode_encrypt_tweak(const corecryptoMode modeObj, const void *in, size_t len, void *out, const void *iv, modeCtx ctx)
+static int ccxts_mode_encrypt_tweak(const corecryptoMode modeObj, const void *in, size_t len, void *out, const void *iv, modeCtx ctx)
 {
+    int rc = CCERR_OK;
     ccxts_tweak_decl(ccxts_context_size(modeObj.xts), tweak);
-    modeObj.xts->set_tweak(ctx.xts, tweak, iv);
+    rc = modeObj.xts->set_tweak(ctx.xts, tweak, iv);
     ccpad_xts_encrypt(modeObj.xts, ctx.xts, tweak, len, in, out);
+    return rc;
 }
 
-static void ccxts_mode_decrypt_tweak(const corecryptoMode modeObj, const void *in, size_t len, void *out, const void *iv, modeCtx ctx)
+static int ccxts_mode_decrypt_tweak(const corecryptoMode modeObj, const void *in, size_t len, void *out, const void *iv, modeCtx ctx)
 {
+    int rc = CCERR_OK;
     ccxts_tweak_decl(ccxts_context_size(modeObj.xts), tweak);
-    modeObj.xts->set_tweak(ctx.xts, tweak, iv);
+    rc = modeObj.xts->set_tweak(ctx.xts, tweak, iv);
     ccpad_xts_decrypt(modeObj.xts, ctx.xts, tweak, len, in, out);
+    return rc;
 }
 
 
@@ -378,16 +389,16 @@ const cc2CCModeDescriptor ccxts_mode = {
 
 static size_t ccgcm_mode_get_ctx_size(const corecryptoMode modeObject) { return modeObject.gcm->size; }
 static size_t ccgcm_mode_get_block_size(const corecryptoMode modeObject) { return modeObject.gcm->block_size; }
-static void ccgcm_mode_setup(const corecryptoMode modeObj, const void * __unused iv,
+static int ccgcm_mode_setup(const corecryptoMode modeObj, const void * __unused iv,
                              const void *key, size_t keylen, const void * __unused tweak,
                              size_t __unused tweaklen, int __unused  options, modeCtx ctx)
 {
-    modeObj.gcm->init(modeObj.gcm, ctx.gcm, keylen, key);
+    return modeObj.gcm->init(modeObj.gcm, ctx.gcm, keylen, key);
 }
 
-static void ccgcm_mode_crypt(const corecryptoMode modeObj, const void *in, void *out, size_t len, modeCtx ctx)
+static int ccgcm_mode_crypt(const corecryptoMode modeObj, const void *in, void *out, size_t len, modeCtx ctx)
 {
-    modeObj.gcm->gcm(ctx.gcm, len, in, out);
+    return modeObj.gcm->gcm(ctx.gcm, len, in, out);
 }
 
 static int ccgcm_setiv(const corecryptoMode modeObj, const void *iv, uint32_t len, modeCtx ctx)
@@ -413,20 +424,21 @@ const cc2CCModeDescriptor ccgcm_mode = {
 
 static size_t ccccm_mode_get_ctx_size(const corecryptoMode modeObject) { return modeObject.ccm->size + sizeof(ccm_nonce_ctx); }
 static size_t ccccm_mode_get_block_size(const corecryptoMode modeObject) { return modeObject.ccm->block_size; }
-static void ccccm_mode_setup(const corecryptoMode modeObj, const void * __unused iv,
+static int ccccm_mode_setup(const corecryptoMode modeObj, const void * __unused iv,
                              const void *key, size_t keylen, const void * __unused tweak,
                              size_t __unused tweaklen, int __unused options, modeCtx ctx)
 {
-    modeObj.ccm->init(modeObj.ccm, &ctx.ccm->ccm, keylen, key);
+    int rc = modeObj.ccm->init(modeObj.ccm, &ctx.ccm->ccm, keylen, key);
     ctx.ccm->nonce_size = (size_t) 0xffffffffffffffff;
     ctx.ccm->mac_size = (size_t) 0xffffffffffffffff;
     ctx.ccm->ad_len = (size_t) 0xffffffffffffffff;
     ctx.ccm->total_len = (size_t) 0xffffffffffffffff;
+    return rc;
 }
 
-static void ccccm_mode_crypt(const corecryptoMode modeObj, const void *in, void *out, size_t len, modeCtx ctx)
+static int ccccm_mode_crypt(const corecryptoMode modeObj, const void *in, void *out, size_t len, modeCtx ctx)
 {
-    modeObj.ccm->ccm(&ctx.ccm->ccm, (ccccm_nonce *) &ctx.ccm->nonce, len, in, out);
+    return modeObj.ccm->ccm(&ctx.ccm->ccm, (ccccm_nonce *) &ctx.ccm->nonce, len, in, out);
 }
 
 static int ccccm_mode_done(const corecryptoMode modeObj, modeCtx ctx)
@@ -540,33 +552,6 @@ const cc2CCPaddingDescriptor ccpkcs7_ecb_pad = {
 };
 
 
-static int cccts1_encrypt_pad(modeCtx ctx, const cc2CCModeDescriptor * __unused modeptr, const corecryptoMode modeObj, void *buff, size_t len, void *cipherText, size_t *moved)
-{
-    ccpad_cts1_encrypt(modeObj.cbc, &ctx.cbc->cbc, (cccbc_iv*) ctx.cbc->iv, len, buff, cipherText);
-    *moved = len;
-    return 0;
-}
-static int cccts1_decrypt_pad(modeCtx ctx, const cc2CCModeDescriptor * __unused modeptr, const corecryptoMode modeObj, void *buff, size_t len, void *plainText, size_t *moved)
-{
-    ccpad_cts1_decrypt(modeObj.cbc, &ctx.cbc->cbc, (cccbc_iv*) ctx.cbc->iv, len, buff, plainText);
-    *moved = len;
-    return 0;
-}
-
-static int cccts2_encrypt_pad(modeCtx ctx, const cc2CCModeDescriptor * __unused modeptr, const corecryptoMode modeObj, void *buff, size_t len, void *cipherText, size_t *moved)
-{
-    ccpad_cts2_encrypt(modeObj.cbc, &ctx.cbc->cbc, (cccbc_iv*) ctx.cbc->iv, len, buff, cipherText);
-    *moved = len;
-    return 0;
-}
-static int cccts2_decrypt_pad(modeCtx ctx, const cc2CCModeDescriptor * __unused modeptr, const corecryptoMode modeObj, void *buff, size_t len, void *plainText, size_t *moved)
-{
-    ccpad_cts2_decrypt(modeObj.cbc, &ctx.cbc->cbc, (cccbc_iv*) ctx.cbc->iv, len, buff, plainText);
-    *moved = len;
-    return 0;
-}
-
-
 static int cccts3_encrypt_pad(modeCtx ctx, const cc2CCModeDescriptor * __unused modeptr, const corecryptoMode modeObj, void *buff, size_t len, void *cipherText, size_t *moved)
 {
     ccpad_cts3_encrypt(modeObj.cbc, &ctx.cbc->cbc, (cccbc_iv*) ctx.cbc->iv, len, buff, cipherText);
@@ -588,7 +573,7 @@ static int cccts3_decrypt_pad(modeCtx ctx, const cc2CCModeDescriptor * __unused 
 
 #define MAXBLOCKSIZE_PKCS7 128
 
-static size_t ccctsX_padlen(int encrypting, const cc2CCModeDescriptor *modeptr, const corecryptoMode modeObj, size_t inputLength, bool final)
+static size_t cccts3_padlen(int encrypting, const cc2CCModeDescriptor *modeptr, const corecryptoMode modeObj, size_t inputLength, bool final)
 {
     size_t retval;
     size_t blocksize = modeptr->mode_get_block_size(modeObj);
@@ -610,31 +595,16 @@ static size_t ccctsX_padlen(int encrypting, const cc2CCModeDescriptor *modeptr, 
  * How many bytes to reserve to enable padding - this is pre-encrypt/decrypt bytes.
  */
 
-static size_t ccctsX_reserve(int __unused encrypt, const cc2CCModeDescriptor *modeptr, const corecryptoMode modeObj)
+static size_t cccts3_reserve(int __unused encrypt, const cc2CCModeDescriptor *modeptr, const corecryptoMode modeObj)
 {
     return modeptr->mode_get_block_size(modeObj) * 2;
 }
 
-const cc2CCPaddingDescriptor cccts1_pad = {
-    .encrypt_pad = cccts1_encrypt_pad,
-    .decrypt_pad = cccts1_decrypt_pad,
-    .padlen = ccctsX_padlen,
-    .padreserve = ccctsX_reserve,
-};
-
-const cc2CCPaddingDescriptor cccts2_pad = {
-    .encrypt_pad = cccts2_encrypt_pad,
-    .decrypt_pad = cccts2_decrypt_pad,
-    .padlen = ccctsX_padlen,
-    .padreserve = ccctsX_reserve,
-};
-
-
 const cc2CCPaddingDescriptor cccts3_pad = {
     .encrypt_pad = cccts3_encrypt_pad,
     .decrypt_pad = cccts3_decrypt_pad,
-    .padlen = ccctsX_padlen,
-    .padreserve = ccctsX_reserve,
+    .padlen = cccts3_padlen,
+    .padreserve = cccts3_reserve,
 };
 
 

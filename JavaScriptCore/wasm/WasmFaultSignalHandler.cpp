@@ -30,6 +30,7 @@
 
 #include "ExecutableAllocator.h"
 #include "MachineContext.h"
+#include "WasmCapabilities.h"
 #include "WasmExceptionType.h"
 #include "WasmMemory.h"
 #include "WasmThunks.h"
@@ -76,10 +77,7 @@ static SignalAction trapHandler(Signal, SigInfo& sigInfo, PlatformRegisters& con
         if (faultedInActiveFastMemory) {
             dataLogLnIf(WasmFaultSignalHandlerInternal::verbose, "found active fast memory for faulting address");
             LockHolder locker(codeLocationsLock);
-            for (auto range : codeLocations.get()) {
-                void* start;
-                void* end;
-                std::tie(start, end) = range;
+            for (auto [start, end] : codeLocations.get()) {
                 dataLogLnIf(WasmFaultSignalHandlerInternal::verbose, "function start: ", RawPointer(start), " end: ", RawPointer(end));
                 if (start <= faultingInstruction && faultingInstruction < end) {
                     dataLogLnIf(WasmFaultSignalHandlerInternal::verbose, "found match");
@@ -126,6 +124,9 @@ void enableFastMemory()
 #if ENABLE(WEBASSEMBLY_FAST_MEMORY)
     static std::once_flag once;
     std::call_once(once, [] {
+        if (!Wasm::isSupported())
+            return;
+
         if (!Options::useWebAssemblyFastMemory())
             return;
 

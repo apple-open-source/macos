@@ -81,7 +81,7 @@
 #define MODULE_FLAG_TYPE_ASL     0x00001000 /* asl format file */
 #define MODULE_FLAG_TYPE_ASL_DIR 0x00002000 /* asl format directory */
 #define MODULE_FLAG_STD_BSD_MSG  0x00004000 /* print format is std, bsd, or msg */
-#define MODULE_FLAG_ACTIVITY     0x00008000
+#define MODULE_FLAG_SIZE_ONLY    0x00008000 /* checkpoint on file size only */
 
 #define MODULE_NAME_STYLE_FORMAT_MASK    0xf0000000
 #define MODULE_NAME_STYLE_FORMAT_BS      0x10000000 /* base.stamp */
@@ -103,7 +103,6 @@
 
 #define CHECKPOINT_TEST   0x00000000
 #define CHECKPOINT_FORCE  0x00000001
-#define CHECKPOINT_CRASH  0x00000002
 
 #define LEVEL_ALL 8
 
@@ -123,7 +122,7 @@ typedef struct
 	uint32_t fails;
 	uint32_t ttl[9];
 	mode_t mode;
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	uid_t *uid;
 	uint32_t nuid;
 	gid_t *gid;

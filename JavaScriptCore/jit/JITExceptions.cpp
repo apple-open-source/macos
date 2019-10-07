@@ -53,7 +53,8 @@ void genericUnwind(VM* vm, ExecState* callFrame)
         CRASH();
     }
     
-    vm->shadowChicken().log(*vm, topJSCallFrame, ShadowChicken::Packet::throwPacket());
+    if (auto* shadowChicken = vm->shadowChicken())
+        shadowChicken->log(*vm, topJSCallFrame, ShadowChicken::Packet::throwPacket());
 
     Exception* exception = scope.exception();
     RELEASE_ASSERT(exception);
@@ -73,9 +74,12 @@ void genericUnwind(VM* vm, ExecState* callFrame)
 #if ENABLE(JIT)
         catchRoutine = handler->nativeCode.executableAddress();
 #else
-        catchRoutine = catchPCForInterpreter->isWide()
-            ? LLInt::getWideCodePtr(catchPCForInterpreter->opcodeID())
-            : LLInt::getCodePtr(catchPCForInterpreter->opcodeID());
+        if (catchPCForInterpreter->isWide32())
+            catchRoutine = LLInt::getWide32CodePtr(catchPCForInterpreter->opcodeID());
+        else if (catchPCForInterpreter->isWide16())
+            catchRoutine = LLInt::getWide16CodePtr(catchPCForInterpreter->opcodeID());
+        else
+            catchRoutine = LLInt::getCodePtr(catchPCForInterpreter->opcodeID());
 #endif
     } else
         catchRoutine = LLInt::getCodePtr<ExceptionHandlerPtrTag>(handleUncaughtException).executableAddress();

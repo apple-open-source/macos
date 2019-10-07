@@ -1,4 +1,3 @@
-/* $Header: /p/tcsh/cvsroot/tcsh/sh.file.c,v 3.37 2010/02/09 20:21:49 christos Exp $ */
 /*
  * sh.file.c: File completion for csh. This file is not used in tcsh.
  */
@@ -32,8 +31,6 @@
  */
 #include "sh.h"
 #include "ed.h"
-
-RCSID("$tcsh: sh.file.c,v 3.37 2010/02/09 20:21:49 christos Exp $")
 
 #if defined(FILEC) && defined(TIOCSTI)
 
@@ -231,7 +228,7 @@ pushback(const Char *string)
 # ifdef POSIX
     (void) tcgetattr(SHOUT, &tty);
 # else
-    (void) ioctl(SHOUT, TCSETAW, (ioctl_t) &tty);
+    (void) ioctl(SHOUT, TCGETA, (ioctl_t) &tty);
 # endif /* POSIX */
     tty_normal = tty;
     tty.c_lflag &= ~(ECHOKE | ECHO | ECHOE | ECHOK | ECHONL |
@@ -249,7 +246,7 @@ pushback(const Char *string)
 	char buf[MB_LEN_MAX];
 	size_t i, len;
 
-	len = one_wctomb(buf, *p & CHAR);
+	len = one_wctomb(buf, *p);
 	for (i = 0; i < len; i++)
 	    (void) ioctl(SHOUT, TIOCSTI, (ioctl_t) &buf[i]);
     }
@@ -564,7 +561,7 @@ again:				/* search for matches */
     }
 
     if (looking_for_lognames) {
-#ifndef HAVE_GETPWENT
+#ifdef HAVE_GETPWENT
 	(void) endpwent();
 #endif
     } else

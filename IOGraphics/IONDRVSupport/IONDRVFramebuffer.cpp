@@ -1546,24 +1546,18 @@ IOIndex IONDRVFramebuffer::mapDepthIndex(
             __private->indexToDepthMode[index] = lastDepth;
     
         __private->depthMapModeID = modeID;
-//      DEBG(thisName, " cache miss for %08lx\n", modeID);
     }
 
     if (fromDepthMode)
     {
-        if (depth > kDepthMode6)
-            depth = kDepthMode6;
+        depth = iog::gclamp(static_cast<IOIndex>(kDepthMode1), depth,
+            static_cast<IOIndex>(kDepthMode6));
         mapped = __private->depthModeToIndex[depth - kDepthMode1];
-
-//      DEBG(thisName, " mode %x -> index %x\n", depth, mapped);
     }
     else
     {
-        if (depth > (kDepthMode6 - kDepthMode1))
-            depth = (kDepthMode6 - kDepthMode1);
+        depth = iog::gclamp(0, depth, kDepthMode6 - kDepthMode1);
         mapped = __private->indexToDepthMode[depth];
-
-//      DEBG(thisName, " index %x -> mode %x\n", depth, mapped);
     }
 
     IONDRVFB_END(mapDepthIndex,mapped,0,0);

@@ -64,7 +64,7 @@ IOReturn IOI2CInterface::newUserClient( task_t          owningTask,
                                         IOUserClient ** handler )
 
 {
-    IOI2C_START(registerI2C,type,0,0);
+    IOI2C_START(newUserClient,type,0,0);
 
     IOReturn            err = kIOReturnSuccess;
     IOUserClient *      newConnect = 0;
@@ -77,15 +77,14 @@ IOReturn IOI2CInterface::newUserClient( task_t          owningTask,
     }
 
     newConnect = IOI2CInterfaceUserClient::withTask(owningTask);
-
     if (newConnect)
     {
         if (!newConnect->attach(this)
-                || !newConnect->start(this))
+            || !newConnect->start(this))
         {
             newConnect->detach( this );
             newConnect->release();
-            newConnect = 0;
+            newConnect = NULL;
 
             err = kIOReturnNotAttached;
         }
@@ -95,9 +94,10 @@ IOReturn IOI2CInterface::newUserClient( task_t          owningTask,
 
     *handler = newConnect;
 
-    IOI2C_END(registerI2C,err,0,0);
+    IOI2C_END(newUserClient,err,0,0);
     if (err)
         IOLog("IOI2CInterface::newUserClient failed 0x%08x\n", err);
+
     return (err);
 }
 
@@ -169,7 +169,7 @@ IOExternalMethod * IOI2CInterfaceUserClient::getTargetAndMethodForIndex(
                 /* 1 */  { NULL, (IOMethod) &IOI2CInterfaceUserClient::extReleaseBus,
                            kIOUCScalarIScalarO, 0, 0 },
                 /* 2 */  { NULL, (IOMethod) &IOI2CInterfaceUserClient::extIO,
-                           kIOUCStructIStructO, 0xffffffff, 0xffffffff },
+                           kIOUCStructIStructO, sizeof(IOI2CBuffer), sizeof(IOI2CBuffer) },
             };
 
     if (index >= (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
@@ -292,6 +292,9 @@ IOReturn IOI2CInterfaceUserClient::extIO(
 
             if (request->sendBytes)
             {
+                request->sendBytes  = MIN(request->sendBytes,
+                                          sizeof(buffer->inlineBuffer));
+
                 if (!request->sendBuffer)
                     request->sendBuffer = (vm_address_t)  &buffer->inlineBuffer[0];
                 else
@@ -302,6 +305,9 @@ IOReturn IOI2CInterfaceUserClient::extIO(
             }
             if (request->replyBytes)
             {
+                request->replyBytes  = MIN(request->replyBytes,
+                                           sizeof(buffer->inlineBuffer));
+
                 if (!request->replyBuffer)
                     request->replyBuffer = (vm_address_t) &buffer->inlineBuffer[0];
                 else
@@ -312,6 +318,9 @@ IOReturn IOI2CInterfaceUserClient::extIO(
             }
 
             err = provider->startIO( request );
+
+            // don't leak kernel pointers to user space
+            request->sendBuffer = request->replyBuffer = 0;
 
             if (requestV1)
                 requestV1->result = request->result;

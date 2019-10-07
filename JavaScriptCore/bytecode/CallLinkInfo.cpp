@@ -62,8 +62,6 @@ CallLinkInfo::CallLinkInfo()
     , m_allowStubs(true)
     , m_clearedByJettison(false)
     , m_callType(None)
-    , m_maxNumArguments(0)
-    , m_slowPathCount(0)
 {
 }
 
@@ -99,7 +97,7 @@ void CallLinkInfo::unlink(VM& vm)
 CodeLocationNearCall<JSInternalPtrTag> CallLinkInfo::callReturnLocation()
 {
     RELEASE_ASSERT(!isDirect());
-    return CodeLocationNearCall<JSInternalPtrTag>(m_callReturnLocationOrPatchableJump, Regular);
+    return CodeLocationNearCall<JSInternalPtrTag>(m_callReturnLocationOrPatchableJump, NearCallMode::Regular);
 }
 
 CodeLocationJump<JSInternalPtrTag> CallLinkInfo::patchableJump()
@@ -202,7 +200,7 @@ void CallLinkInfo::setMaxNumArguments(unsigned value)
 void CallLinkInfo::visitWeak(VM& vm)
 {
     auto handleSpecificCallee = [&] (JSFunction* callee) {
-        if (Heap::isMarked(callee->executable()))
+        if (vm.heap.isMarked(callee->executable()))
             m_hasSeenClosure = true;
         else
             m_clearedByGC = true;
@@ -220,7 +218,7 @@ void CallLinkInfo::visitWeak(VM& vm)
                 unlink(vm);
                 m_clearedByGC = true;
             }
-        } else if (!Heap::isMarked(m_calleeOrCodeBlock.get())) {
+        } else if (!vm.heap.isMarked(m_calleeOrCodeBlock.get())) {
             if (isDirect()) {
                 if (Options::verboseOSR()) {
                     dataLog(
@@ -244,7 +242,7 @@ void CallLinkInfo::visitWeak(VM& vm)
                 }
             }
             unlink(vm);
-        } else if (isDirect() && !Heap::isMarked(m_lastSeenCalleeOrExecutable.get())) {
+        } else if (isDirect() && !vm.heap.isMarked(m_lastSeenCalleeOrExecutable.get())) {
             if (Options::verboseOSR()) {
                 dataLog(
                     "Clearing call to ", RawPointer(executable()),
@@ -256,7 +254,7 @@ void CallLinkInfo::visitWeak(VM& vm)
             m_lastSeenCalleeOrExecutable.clear();
         }
     }
-    if (!isDirect() && haveLastSeenCallee() && !Heap::isMarked(lastSeenCallee())) {
+    if (!isDirect() && haveLastSeenCallee() && !vm.heap.isMarked(lastSeenCallee())) {
         if (lastSeenCallee()->type() == JSFunctionType)
             handleSpecificCallee(jsCast<JSFunction*>(lastSeenCallee()));
         else

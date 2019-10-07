@@ -75,6 +75,7 @@ dt_irlist_label(dt_irlist_t *dlp)
 static int
 dt_countvar(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 {
+#pragma unused(dhp)
 	size_t *np = data;
 
 	if (idp->di_flags & (DT_IDFLG_DIFR | DT_IDFLG_DIFW))
@@ -87,6 +88,7 @@ dt_countvar(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 static int
 dt_copyvar(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 {
+#pragma unused(dhp)
 	dt_pcb_t *pcb = data;
 	dtrace_difv_t *dvp;
 	ssize_t stroff;

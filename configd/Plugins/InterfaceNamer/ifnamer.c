@@ -607,16 +607,9 @@ updateVirtualNetworkInterfaceConfiguration(SCPreferencesRef		prefs,
 					   void				*info)
 {
 #pragma unused(info)
-    os_activity_t   activity;
-
     if ((notificationType & kSCPreferencesNotificationApply) != kSCPreferencesNotificationApply) {
 	return;
     }
-
-    activity = os_activity_create("check/update virtual network interface configuration",
-				  OS_ACTIVITY_CURRENT,
-				  OS_ACTIVITY_FLAG_DEFAULT);
-    os_activity_scope(activity);
 
     if (prefs == NULL) {
 	// if a new interface has been "named"
@@ -643,8 +636,6 @@ updateVirtualNetworkInterfaceConfiguration(SCPreferencesRef		prefs,
 
     // we are finished with current prefs, wait for changes
     SCPreferencesSynchronize(prefs);
-
-    os_release(activity);
 
     return;
 }
@@ -1668,7 +1659,7 @@ watcherCreate(SCNetworkInterfaceRef interface, InterfaceUpdateCallBack callback)
     watched = CFDataCreateMutable(NULL, sizeof(WatchedInfo));
     CFDataSetLength(watched, sizeof(WatchedInfo));
     watchedInfo = (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
-    bzero(watchedInfo, sizeof(*watchedInfo));
+    memset(watchedInfo, 0, sizeof(*watchedInfo));
 
     // retain interface
     watchedInfo->interface = CFRetain(interface);
@@ -1894,13 +1885,7 @@ lockedNotification_reply(CFUserNotificationRef userNotification, CFOptionFlags r
 {
 #pragma unused(userNotification)
 
-    os_activity_t	activity;
     CFIndex		n;
-
-    activity = os_activity_create("process locked interface notification",
-				  OS_ACTIVITY_CURRENT,
-				  OS_ACTIVITY_FLAG_DEFAULT);
-    os_activity_scope(activity);
 
     n = (S_locked != NULL) ? CFArrayGetCount(S_locked) : 0;
     for (CFIndex i = 0; i < n; i++) {
@@ -1945,8 +1930,6 @@ lockedNotification_reply(CFUserNotificationRef userNotification, CFOptionFlags r
     if (S_iflist != NULL) {
 	updateInterfaces();
     }
-
-    os_release(activity);
 
     return;
 }
@@ -2159,6 +2142,16 @@ watchLockedInterface(SCNetworkInterfaceRef interface)
 
 
 #if	TARGET_OS_IPHONE
+static Boolean
+haveLockdown()
+{
+    void * volatile	fn_WeakFunction = (void *)&(lockdown_is_host_trusted);
+    Boolean		haveLibrary;
+
+    haveLibrary = (fn_WeakFunction != NULL) ? TRUE : FALSE;
+    return haveLibrary;
+}
+
 static void
 shareExcluded()
 {
@@ -2410,6 +2403,118 @@ updateTrustRequiredInterfaces(CFArrayRef interfaces)
     return;
 }
 #endif	// TARGET_OS_IPHONE
+
+
+#pragma mark -
+#pragma mark Pre-configured interface support
+
+
+static void
+sharePreconfigured()
+{
+    CFIndex	n;
+
+    n = (S_preconfigured != NULL) ? CFArrayGetCount(S_preconfigured) : 0;
+    if (n > 0) {
+	CFMutableArrayRef	preconfigured;
+
+	preconfigured = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+	for (CFIndex i = 0; i < n; i++) {
+	    CFStringRef	bsdName;
+	    CFDataRef	watched		= CFArrayGetValueAtIndex(S_preconfigured, i);
+	    WatchedInfo	*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
+
+	    bsdName = SCNetworkInterfaceGetBSDName(watchedInfo->interface);
+	    CFArrayAppendValue(preconfigured, bsdName);
+	}
+
+	CFDictionarySetValue(S_state, kInterfaceNamerKey_PreConfiguredInterfaces, preconfigured);
+	CFRelease(preconfigured);
+    } else {
+	CFDictionaryRemoveValue(S_state, kInterfaceNamerKey_PreConfiguredInterfaces);
+    }
+
+    updateStore();
+
+    return;
+}
+
+static void
+preconfiguredInterfaceUpdated(CFDataRef watched, natural_t messageType, void *messageArgument)
+{
+    Boolean	updated		= FALSE;
+    WatchedInfo	*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
+
+#pragma unused(messageArgument)
+    switch (messageType) {
+	case kIOMessageServiceIsTerminated : {		// if [locked] interface yanked
+	    SC_log(LOG_INFO, "[pre-configured] interface removed: %@",
+		   SCNetworkInterfaceGetBSDName(watchedInfo->interface));
+
+	    if (S_preconfigured != NULL) {
+		CFIndex	i;
+		CFIndex	n	= CFArrayGetCount(S_preconfigured);
+
+		i = CFArrayGetFirstIndexOfValue(S_preconfigured, CFRangeMake(0, n), watched);
+		if (i != kCFNotFound) {
+		    CFArrayRemoveValueAtIndex(S_preconfigured, i);
+		    if (CFArrayGetCount(S_preconfigured) == 0) {
+			CFRelease(S_preconfigured);
+			S_preconfigured = NULL;
+		    }
+		    updated = TRUE;
+		}
+	    }
+
+	    break;
+	}
+
+	default :
+	    return;
+    }
+
+    if (updated) {
+	sharePreconfigured();
+    }
+
+    return;
+}
+
+static void
+updatePreConfiguredInterfaces(CFArrayRef interfaces)
+{
+    CFIndex	n;
+    Boolean	updated	= FALSE;
+
+    n = (interfaces != NULL) ? CFArrayGetCount(interfaces) : 0;
+    for (CFIndex i = 0; i < n; i++) {
+	SCNetworkInterfaceRef	interface;
+
+	interface = CFArrayGetValueAtIndex(interfaces, i);
+	if (_SCNetworkInterfaceIsApplePreconfigured(interface)) {
+	    CFDataRef	watched;
+
+	    watched = watcherCreate(interface, preconfiguredInterfaceUpdated);
+	    if (watched != NULL) {
+		SC_log(LOG_INFO, "watching [pre-configured] interface: %@",
+		       SCNetworkInterfaceGetBSDName(interface));
+
+		if (S_preconfigured == NULL) {
+		    S_preconfigured = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		}
+		CFArrayAppendValue(S_preconfigured, watched);
+		updated = TRUE;
+	    }
+	}
+    }
+
+    if (updated) {
+	sharePreconfigured();
+    }
+
+    return;
+}
 
 
 #pragma mark -
@@ -2725,6 +2830,9 @@ nameInterfaces(CFMutableArrayRef if_list)
 }
 
 #if	!TARGET_OS_IPHONE
+
+#define INSTALL_ENVIRONMENT	"__OSINSTALL_ENVIRONMENT"
+
 static Boolean
 isRecoveryOS()
 {
@@ -2732,12 +2840,12 @@ isRecoveryOS()
     static dispatch_once_t  once;
 
     /*
-     * We check to see if the UserEventAgent daemon is present.  If not, then
-     * we are most likely booted into the Recovery OS with no "SCMonitor"
-     * [UserEventAgent] plugin.
+     * We check to see if the __OSINSTALL_ENVIRONMENT env var is present.  If
+     * so, then we are most likely booted into the Recovery OS with no [Aqua]
+     * "SCMonitor" [UserEventAgent] plugin.
      */
     dispatch_once(&once, ^{
-	if ((access("/usr/libexec/UserEventAgent", X_OK) == -1) && (errno == ENOENT)) {
+	if (getenv(INSTALL_ENVIRONMENT) != NULL) {
 	    isRecovery = TRUE;
 	}
 
@@ -2816,113 +2924,6 @@ updateNetworkConfiguration(CFArrayRef if_list)
 #endif	// !TARGET_OS_IPHONE
 
 static void
-sharePreconfigured()
-{
-    CFIndex	n;
-
-    n = (S_preconfigured != NULL) ? CFArrayGetCount(S_preconfigured) : 0;
-    if (n > 0) {
-	CFMutableArrayRef	preconfigured;
-
-	preconfigured = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-
-	for (CFIndex i = 0; i < n; i++) {
-	    CFStringRef	bsdName;
-	    CFDataRef	watched		= CFArrayGetValueAtIndex(S_preconfigured, i);
-	    WatchedInfo	*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
-
-	    bsdName = SCNetworkInterfaceGetBSDName(watchedInfo->interface);
-	    CFArrayAppendValue(preconfigured, bsdName);
-	}
-
-	CFDictionarySetValue(S_state, kInterfaceNamerKey_PreConfiguredInterfaces, preconfigured);
-	CFRelease(preconfigured);
-    } else {
-	CFDictionaryRemoveValue(S_state, kInterfaceNamerKey_PreConfiguredInterfaces);
-    }
-
-    updateStore();
-
-    return;
-}
-
-static void
-preconfiguredInterfaceUpdated(CFDataRef watched, natural_t messageType, void *messageArgument)
-{
-    Boolean	updated		= FALSE;
-    WatchedInfo	*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
-
-#pragma unused(messageArgument)
-    switch (messageType) {
-	case kIOMessageServiceIsTerminated : {		// if [locked] interface yanked
-	    SC_log(LOG_INFO, "[pre-configured] interface removed: %@",
-		   SCNetworkInterfaceGetBSDName(watchedInfo->interface));
-
-	    if (S_preconfigured != NULL) {
-		CFIndex	i;
-		CFIndex	n	= CFArrayGetCount(S_preconfigured);
-
-		i = CFArrayGetFirstIndexOfValue(S_preconfigured, CFRangeMake(0, n), watched);
-		if (i != kCFNotFound) {
-		    CFArrayRemoveValueAtIndex(S_preconfigured, i);
-		    if (CFArrayGetCount(S_preconfigured) == 0) {
-			CFRelease(S_preconfigured);
-			S_preconfigured = NULL;
-		    }
-		    updated = TRUE;
-		}
-	    }
-
-	    break;
-	}
-
-	default :
-	    return;
-    }
-
-    if (updated) {
-	sharePreconfigured();
-    }
-
-    return;
-}
-
-static void
-updatePreConfiguredInterfaces(CFArrayRef interfaces)
-{
-    CFIndex	n;
-    Boolean	updated	= FALSE;
-
-    n = (interfaces != NULL) ? CFArrayGetCount(interfaces) : 0;
-    for (CFIndex i = 0; i < n; i++) {
-	SCNetworkInterfaceRef	interface;
-
-	interface = CFArrayGetValueAtIndex(interfaces, i);
-	if (_SCNetworkInterfaceIsApplePreconfigured(interface)) {
-	    CFDataRef	watched;
-
-	    watched = watcherCreate(interface, preconfiguredInterfaceUpdated);
-	    if (watched != NULL) {
-		SC_log(LOG_INFO, "watching [pre-configured] interface: %@",
-		       SCNetworkInterfaceGetBSDName(interface));
-
-		if (S_preconfigured == NULL) {
-		    S_preconfigured = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-		}
-		CFArrayAppendValue(S_preconfigured, watched);
-		updated = TRUE;
-	    }
-	}
-    }
-
-    if (updated) {
-	sharePreconfigured();
-    }
-
-    return;
-}
-
-static void
 updateInterfaces()
 {
     if (S_connect == MACH_PORT_NULL) {
@@ -2949,7 +2950,9 @@ updateInterfaces()
     /*
      * Update the list of "trust required" interfaces
      */
-    updateTrustRequiredInterfaces(S_iflist);
+    if (haveLockdown()) {
+	updateTrustRequiredInterfaces(S_iflist);
+    }
 #endif	// TARGET_OS_IPHONE
 
     if (isQuiet()) {
@@ -3033,13 +3036,7 @@ static void
 interfaceArrivalCallback(void *refcon, io_iterator_t iter)
 {
 #pragma unused(refcon)
-    os_activity_t	activity;
     io_object_t		obj;
-
-    activity = os_activity_create("process new network interface",
-				  OS_ACTIVITY_CURRENT,
-				  OS_ACTIVITY_FLAG_DEFAULT);
-    os_activity_scope(activity);
 
     while ((obj = IOIteratorNext(iter)) != MACH_PORT_NULL) {
 	SCNetworkInterfaceRef	interface;
@@ -3057,8 +3054,6 @@ interfaceArrivalCallback(void *refcon, io_iterator_t iter)
 
     updateInterfaces();
 
-    os_release(activity);
-
     return;
 }
 
@@ -3075,14 +3070,8 @@ static void
 stackCallback(void *refcon, io_iterator_t iter)
 {
 #pragma unused(refcon)
-    os_activity_t	activity;
     kern_return_t	kr;
     io_object_t		stack;
-
-    activity = os_activity_create("process IONetworkStack",
-				  OS_ACTIVITY_CURRENT,
-				  OS_ACTIVITY_FLAG_DEFAULT);
-    os_activity_scope(activity);
 
     stack = IOIteratorNext(iter);
     if (stack == MACH_PORT_NULL) {
@@ -3119,8 +3108,6 @@ stackCallback(void *refcon, io_iterator_t iter)
 	IOObjectRelease(stack);
     }
 
-    os_release(activity);
-
     return;
 }
 
@@ -3132,17 +3119,10 @@ quietCallback(void		*refcon,
 {
 #pragma unused(refcon)
 #pragma unused(service)
-    os_activity_t	activity;
-
     if (messageArgument != NULL) {
 	// if not yet quiet
 	return;
     }
-
-    activity = os_activity_create("process IOKit quiet",
-				  OS_ACTIVITY_CURRENT,
-				  OS_ACTIVITY_FLAG_DEFAULT);
-    os_activity_scope(activity);
 
     if (messageType == kIOMessageServiceBusyStateChange) {
 	addTimestamp(S_state, kInterfaceNamerKey_Quiet);
@@ -3151,7 +3131,7 @@ quietCallback(void		*refcon,
 
     if (S_connect == MACH_PORT_NULL) {
 	SC_log(LOG_ERR, "No network stack object");
-	goto done;
+	return;
     }
 
     if (S_quiet != MACH_PORT_NULL) {
@@ -3172,10 +3152,6 @@ quietCallback(void		*refcon,
 	addTimestamp(S_state, CFSTR("*QUIET&NAMED*"));
 	updateStore();
     }
-
-  done :
-
-    os_release(activity);
 
     return;
 }
@@ -3309,13 +3285,6 @@ timerCallback(CFRunLoopTimerRef	timer, void *info)
 {
 #pragma unused(timer)
 #pragma unused(info)
-    os_activity_t	activity;
-
-    activity = os_activity_create("process IOKit timer",
-				  OS_ACTIVITY_CURRENT,
-				  OS_ACTIVITY_FLAG_DEFAULT);
-    os_activity_scope(activity);
-
     // We've been waiting for IOKit to quiesce and it just
     // hasn't happenned.  Time to just move on!
     addTimestamp(S_state, kInterfaceNamerKey_Timeout);
@@ -3328,8 +3297,6 @@ timerCallback(CFRunLoopTimerRef	timer, void *info)
 
     addTimestamp(S_state, CFSTR("*TIMEOUT&NAMED*"));
     updateStore();
-
-    os_release(activity);
 
     return;
 }
@@ -3658,7 +3625,7 @@ main(int argc, char ** argv)
     exit(0);
     return 0;
 }
-#endif /* MAIN */
+#endif	/* MAIN */
 
 #ifdef	TEST_SNAPSHOT
 int

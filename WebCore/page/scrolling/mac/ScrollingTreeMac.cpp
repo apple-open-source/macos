@@ -27,7 +27,11 @@
 #include "ScrollingTreeMac.h"
 
 #include "ScrollingTreeFixedNode.h"
+#include "ScrollingTreeFrameHostingNode.h"
 #include "ScrollingTreeFrameScrollingNodeMac.h"
+#include "ScrollingTreeOverflowScrollProxyNode.h"
+#include "ScrollingTreeOverflowScrollingNodeMac.h"
+#include "ScrollingTreePositionedNode.h"
 #include "ScrollingTreeStickyNode.h"
 
 #if ENABLE(ASYNC_SCROLLING) && PLATFORM(MAC)
@@ -50,13 +54,18 @@ Ref<ScrollingTreeNode> ScrollingTreeMac::createScrollingTreeNode(ScrollingNodeTy
     case ScrollingNodeType::MainFrame:
     case ScrollingNodeType::Subframe:
         return ScrollingTreeFrameScrollingNodeMac::create(*this, nodeType, nodeID);
+    case ScrollingNodeType::FrameHosting:
+        return ScrollingTreeFrameHostingNode::create(*this, nodeID);
     case ScrollingNodeType::Overflow:
-        ASSERT_NOT_REACHED();
-        break;
+        return ScrollingTreeOverflowScrollingNodeMac::create(*this, nodeID);
+    case ScrollingNodeType::OverflowProxy:
+        return ScrollingTreeOverflowScrollProxyNode::create(*this, nodeID);
     case ScrollingNodeType::Fixed:
         return ScrollingTreeFixedNode::create(*this, nodeID);
     case ScrollingNodeType::Sticky:
         return ScrollingTreeStickyNode::create(*this, nodeID);
+    case ScrollingNodeType::Positioned:
+        return ScrollingTreePositionedNode::create(*this, nodeID);
     }
     ASSERT_NOT_REACHED();
     return ScrollingTreeFixedNode::create(*this, nodeID);

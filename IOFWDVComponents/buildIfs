@@ -1,7 +1,0 @@
-/AppleInternal/Developer/Tools/Interfacer -c -componentGlueC -components -framework DVComponentGlue -generated c=./ -generated components=./ -generated componentGlueC=./ -masterInterfaces /AppleInternal/Carbon/interfaces/ -cacheFolder /tmp/
-
-/AppleInternal/Developer/Tools/Interfacer ./DeviceControlPriv.i -i /AppleInternal/Carbon/interfaces/Interfaces/ -c -o DeviceControlPriv.h
-/AppleInternal/Developer/Tools/Interfacer ./DeviceControlPriv.i -i /AppleInternal/Carbon/interfaces/Interfaces/ -componentGlueC -o DeviceControlPriv.i.c
-/AppleInternal/Developer/Tools/Interfacer ./DeviceControlPriv.i -i /AppleInternal/Carbon/interfaces/Interfaces/ -components -o DeviceControlPriv.k.h
-
-/AppleInternal/Developer/Tools/MakePseudoLibrary DVComponentGlue.exp -fragname DVComponentGlue.vlib -bridge DVComponentGlue.bridge -vector DVComponentVectors.s -dylibpath /System/Library/Frameworks/DVComponentGlue.framework/Versions/Current/DVComponentGlue

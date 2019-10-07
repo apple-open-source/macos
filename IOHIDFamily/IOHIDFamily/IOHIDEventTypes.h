@@ -26,7 +26,12 @@
 #define _IOKIT_IOHIDEVENTTYPES_H /* { */
 
 #include <TargetConditionals.h>
+
+#if TARGET_OS_DRIVERKIT
+#include <DriverKit/IOTypes.h>
+#else
 #include <IOKit/IOTypes.h>
+#endif
 
 #define IOHIDEventTypeMask(type) (1LL<<type)
 #define IOHIDEventFieldBase(type) (type << 16)
@@ -136,7 +141,11 @@ typedef uint32_t IOHIDGenericGestureType;
 
 typedef uint8_t IOHIDDigitizerOrientationType;
 
+#if TARGET_OS_DRIVERKIT
+#include <HIDDriverKit/IOHIDEventFieldDefs.h>
+#else
 #include <IOKit/hid/IOHIDEventFieldDefs.h>
+#endif
 
 enum  {
     kIOHIDGenericGestureTypeTap        = 0,
@@ -188,8 +197,7 @@ enum  {
 
 /*!
  @typedef IOHIDMotionType
- @abstract Type of Motion event triggered.
- @discussion
+ @abstract  Type of Motion event triggered.
  @constant kIOHIDMotionTypeNormal
  @constant kIOHIDMotionTypeShake
  */
@@ -203,7 +211,6 @@ typedef uint32_t IOHIDMotionType;
 /*!
  @typedef IOHIDMotionPath
  @abstract Type of Motion Path event triggered.
- @discussion
  @constant IOHIDMotionPathStart
  @constant IOHIDMotionPathEnd
  */
@@ -267,7 +274,6 @@ enum {
 /*!
  @typedef IOHIDPowerType
  @abstract Type of Power event triggered.
- @discussion
  @constant kIOHIDPowerTypePower
  @constant kIOHIDPowerTypeCurrent
  @constant kIOHIDPowerTypeVoltage
@@ -282,7 +288,6 @@ typedef uint32_t IOHIDPowerType;
 /*!
  @typedef IOHIDPowerSubType
  @abstract Reserved
- @discussion
  @constant kIOHIDPowerSubTypeNormal
  @constant kIOHIDPowerSubTypeCumulative
  */
@@ -296,7 +301,6 @@ typedef uint32_t IOHIDPowerSubType;
 /*!
  @typedef IOHIDBiometricEventType
  @abstract Type of biometric event triggered.
- @discussion
  @constant kIOHIDBiometricEventTypeHumanProximity
  @constant kIOHIDBiometricEventTypeHumanTouch
  @constant kIOHIDBiometricEventTypeHumanForce
@@ -328,7 +332,6 @@ typedef uint32_t IOHIDUnicodeEncodingType;
 /*!
  @typedef IOHIDMotionActivityEventType
  @abstract Type of motion activity event triggered.
- @discussion
  @constant kIOHIDMotionActivityEventTypeUnknown
  @constant kIOHIDMotionActivityEventTypeStatic
  @constant kIOHIDMotionActivityEventTypeMoving
@@ -357,7 +360,6 @@ typedef uint32_t IOHIDMotionActivityEventType;
 /*!
  @typedef IOHIDMotionGestureEventType
  @abstract Type of motion gesture event triggered.
- @discussion
  @constant kIOHIDMotionGestureEventTypeUnknown
  @constant kIOHIDMotionGestureEventTypeRaiseToListen
  @constant kIOHIDMotionGestureEventTypeRaiseToLook
@@ -372,7 +374,6 @@ enum {
 /*!
     @typedef IOHIDSwipeMask
     @abstract Mask detailing the type of swipe detected.
-    @discussion
     @constant kIOHIDSwipeUp
     @constant kIOHIDSwipeDown
     @constant kIOHIDSwipeLeft
@@ -393,7 +394,7 @@ typedef uint32_t IOHIDSwipeMask;
 
 /*!
     @typedef IOHIDGestureMotion
-    @abstract 
+    @abstract Motion gestures
     @constant kIOHIDGestureMotionNone
     @constant kIOHIDGestureMotionHorizontalX
     @constant kIOHIDGestureMotionVerticalY
@@ -431,7 +432,7 @@ typedef uint16_t IOHIDGestureMotion;
 
 /*!
     @typedef IOHIDGestureFlavor
-    @abstract 
+    @abstract Gesture flavours
     @constant kIOHIDGestureFlavorNone
     @constant kIOHIDGestureFlavorNotificationCenterPrimary
     @constant kIOHIDGestureFlavorNotificationCenterSecondary
@@ -458,7 +459,6 @@ typedef uint16_t IOHIDGestureFlavor;
 /*!
     @typedef IOHIDProximityDetectionMask
     @abstract Proximity mask detailing the inputs that were detected.
-    @discussion
     @constant kIOHIDProximityDetectionLargeBodyContact
     @constant kIOHIDProximityDetectionLargeBodyFarField
     @constant kIOHIDProximityDetectionIrregularObjects
@@ -524,7 +524,6 @@ typedef uint32_t IOHIDDigitizerTransducerType;
     @constant kIOHIDDigitizerEventSwipePending Issued to indicate that an edge swipe is pending 
     @constant kIOHIDDigitizerEventFromEdgeForcePending Issued to indicate that edge press is pending
     @constant kIOHIDDigitizerEventFromEdgeForceActive Issued to indicate that edge press is active
-    @constant kIOHIDDigitizerEventForcePopped Issued to indicate that a force pop was detected
     @constant kIOHIDDigitizerEventUpSwipe Issued when an up swipe has been detected.
     @constant kIOHIDDigitizerEventDownSwipe Issued when an down swipe has been detected.
     @constant kIOHIDDigitizerEventLeftSwipe Issued when an left swipe has been detected.
@@ -548,7 +547,6 @@ enum {
     kIOHIDDigitizerEventSwipePending                        = 1<<13,
     kIOHIDDigitizerEventFromEdgeForcePending                = 1<<14,
     kIOHIDDigitizerEventFromEdgeForceActive                 = 1<<15,
-    kIOHIDDigitizerEventForcePopped                         = 1<<16,
     kIOHIDDigitizerEventTap                                 = 1<<17,
     kIOHIDDigitizerEventSwipeLocked                         = 1<<18,
     kIOHIDDigitizerEventSwipeUp                             = 1<<24,
@@ -655,7 +653,8 @@ typedef uint32_t IOHIDSymbolicHotKeyValue;
 enum {
     kIOHIDOrientationTypePolar             = 0,
     kIOHIDOrientationTypeCMUsage           = 1,  // see kHIDUsage_AppleVendorMotion_DeviceOrientation* for possible options
-    kIOHIDOrientationTypeTilt              = 2
+    kIOHIDOrientationTypeTilt              = 2,
+    kIOHIDOrientationTypeQuaternion        = 3,
 };
 
 

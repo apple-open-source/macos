@@ -35,6 +35,7 @@
 		<string>_networkd</string>
 		<string>_timed</string>
 		<string>_reportmemoryexception</string>
+		<string>_mbsetupuser</string>
 	</array>
 	<key>nestedgroups</key>
 	<array>

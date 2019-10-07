@@ -65,6 +65,7 @@ struct WidthIterator;
 
 enum FontVariant { AutoVariant, NormalVariant, SmallCapsVariant, EmphasisMarkVariant, BrokenIdeographVariant };
 enum Pitch { UnknownPitch, FixedPitch, VariablePitch };
+enum class IsForPlatformFont : uint8_t { No, Yes };
 
 class Font : public RefCounted<Font> {
 public:
@@ -174,9 +175,9 @@ public:
     GlyphData glyphDataForCharacter(UChar32) const;
     Glyph glyphForCharacter(UChar32) const;
     bool supportsCodePoint(UChar32) const;
-    bool platformSupportsCodePoint(UChar32) const;
+    bool platformSupportsCodePoint(UChar32, Optional<UChar32> variation = WTF::nullopt) const;
 
-    RefPtr<Font> systemFallbackFontForCharacter(UChar32, const FontDescription&, bool isForPlatformFont) const;
+    RefPtr<Font> systemFallbackFontForCharacter(UChar32, const FontDescription&, IsForPlatformFont) const;
 
     const GlyphPage* glyphPage(unsigned pageNumber) const;
 
@@ -201,6 +202,10 @@ public:
     const BitVector& glyphsSupportedByAllSmallCaps() const;
     const BitVector& glyphsSupportedByPetiteCaps() const;
     const BitVector& glyphsSupportedByAllPetiteCaps() const;
+#endif
+
+#if HAVE(DISALLOWABLE_USER_INSTALLED_FONTS)
+    bool isUserInstalledFont() const;
 #endif
 
     bool canRenderCombiningCharacterSequence(const UChar*, size_t) const;

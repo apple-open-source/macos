@@ -167,7 +167,7 @@ IOReturn IOFireWireAVCAsynchronousCommand::init(const UInt8 * command,
 	FIRELOG_MSG(("IOFireWireAVCAsynchronousCommand::init (this=0x%08X, opCode=0x%02X)\n",this,command[kAVCOpcode]));
 
 	// Validate the length of the command buffer
-    if(len == 0 || len > 512)
+    if(len < 3 || len > 512)
         return kIOReturnBadArgument;
 	
 	// Initialize async command object
@@ -339,7 +339,7 @@ IOReturn IOFireWireAVCAsynchronousCommand::reinit(const UInt8 * command, UInt32 
 		return kIOReturnNotPermitted;
 
 	// Validate the length of the command buffer
-    if(len == 0 || len > 512)
+    if(len < 3 || len > 512)
         return kIOReturnBadArgument;
 	
 	if (fWriteCmd)
@@ -1152,7 +1152,7 @@ IOReturn IOFireWireAVCUnit::AVCCommand(const UInt8 * in, UInt32 len, UInt8 * out
 
     IOReturn res;
     IOFireWireAVCCommand *cmd;
-    if(len == 0 || len > 512) {
+    if(len < 3 || len > 512) {
         IOLog("Loopy AVCCmd, len %d, respLen %d\n", (uint32_t)len, (uint32_t)*size);
         return kIOReturnBadArgument;
     }
@@ -1200,7 +1200,7 @@ IOReturn IOFireWireAVCUnit::AVCCommandInGeneration(UInt32 generation, const UInt
 
     IOReturn res;
     IOFireWireAVCCommand *cmd;
-    if(len == 0 || len > 512) {
+    if(len < 3 || len > 512) {
         IOLog("Loopy AVCCmd, len %d, respLen %d\n", (uint32_t)len, (uint32_t)*size);
         return kIOReturnBadArgument;
     }

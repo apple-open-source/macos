@@ -27,9 +27,10 @@
 #include <CommonCrypto/CommonDigest.h>
 #include "CommonDigestPriv.h"
 #include <CommonCrypto/CommonDigestSPI.h>
+#include <corecrypto/cc.h>
+#include <corecrypto/cc_priv.h>
 #include "ccErrors.h"
 #include "ccGlobals.h"
-#include "ccMemory.h"
 #include "ccdebug.h"
 #include <stdio.h>
 #include "ccDispatch.h"
@@ -180,12 +181,12 @@ CCDigestGetOutputSizeFromRef(CCDigestRef ctx)
 CCDigestRef
 CCDigestCreate(CCDigestAlgorithm alg)
 {
-	CCDigestRef retval = CC_XMALLOC(sizeof(CCDigestCtx));
-    
+	CCDigestRef retval = malloc(sizeof(CCDigestCtx));
+
     // CC_DEBUG_LOG("Entering\n");
     if(!retval) return NULL;
     if(CCDigestInit(alg, retval)) {
-    	CC_XFREE(retval, sizeof(CCDigestCtx_t));
+    	free(retval);
     	return NULL;
     }
     return retval;
@@ -212,9 +213,9 @@ CCDigestRef
 CCDigestCreateByOID(const uint8_t *OID, size_t OIDlen)
 {    
     CC_DEBUG_LOG("Entering\n");
-    for(unsigned int i=kCCDigestMD2; i<CC_MAX_N_DIGESTS; i++) {
+    for(unsigned int i=kCCDigestNone+1; i<CC_MAX_N_DIGESTS; i++) {
         const struct ccdigest_info *di = CCDigestGetDigestInfo(i);
-        if(di && (OIDlen == di->oid_size) && (CC_XMEMCMP(OID, di->oid, OIDlen) == 0))
+        if(di && (OIDlen == di->oid_size) && (memcmp(OID, di->oid, OIDlen) == 0))
             return CCDigestCreate(i);
     }
     return NULL;
@@ -234,8 +235,8 @@ CCDigestDestroy(CCDigestRef ctx)
 {
     // CC_DEBUG_LOG("Entering\n");
 	if(ctx) {
-		CC_XZEROMEM(ctx, sizeof(CCDigestCtx_t));
-		CC_XFREE(ctx, sizeof(CCDigestCtx_t));
+		cc_clear(sizeof(CCDigestCtx_t), ctx);
+		free(ctx);
     }
 }
 /*
@@ -246,16 +247,16 @@ CCDigestDestroy(CCDigestRef ctx)
 
 // corecrypto to CommonCrypto
 #define CC_ccToCC_DIGEST_CTX(di,cc_c,CC_c)                                \
-    CC_XMEMCPY((uint8_t*)CC_c, ccdigest_state_u8(di, cc_c), di->state_size); \
-    CC_XMEMCPY(&CC_c->data[0], ccdigest_data(di, cc_c), di->block_size);  \
-    CC_XMEMCPY(&CC_c->Nl, &ccdigest_nbits(di, cc_c), 2*sizeof(CC_c->Nl)); \
+    memcpy((uint8_t*)CC_c, ccdigest_state_u8(di, cc_c), di->state_size); \
+    memcpy(&CC_c->data[0], ccdigest_data(di, cc_c), di->block_size);  \
+    memcpy(&CC_c->Nl, &ccdigest_nbits(di, cc_c), 2*sizeof(CC_c->Nl)); \
     CC_c->num=ccdigest_num(di, cc_c);
 
 // CommonCrypto to corecrypto
 #define CC_CCTocc_DIGEST_CTX(di,CC_c,cc_c)                                \
-    CC_XMEMCPY(ccdigest_state_u8(di, cc_c), (uint8_t*)CC_c, di->state_size); \
-    CC_XMEMCPY(ccdigest_data(di, cc_c), &CC_c->data[0], di->block_size);  \
-    CC_XMEMCPY(&ccdigest_nbits(di, cc_c), &CC_c->Nl, 2*sizeof(CC_c->Nl)); \
+    memcpy(ccdigest_state_u8(di, cc_c), (uint8_t*)CC_c, di->state_size); \
+    memcpy(ccdigest_data(di, cc_c), &CC_c->data[0], di->block_size);  \
+    memcpy(&ccdigest_nbits(di, cc_c), &CC_c->Nl, 2*sizeof(CC_c->Nl)); \
     ccdigest_num(di, cc_c)=CC_c->num;
 
 
@@ -309,15 +310,21 @@ CC_##_name_ (const void *data, CC_LONG len, unsigned char *md) \
 }
 
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 DIGEST_FINAL_SHIMS(MD2, kCCDigestMD2)
 DIGEST_SHIMS(MD4, kCCDigestMD4)
 DIGEST_SHIMS(MD5, kCCDigestMD5)
 DIGEST_SHIMS(SHA1, kCCDigestSHA1)
+
+#pragma clang diagnostic pop
+
 DIGEST_FINAL_SHIMS(SHA224, kCCDigestSHA224)
 DIGEST_FINAL_SHIMS(SHA256, kCCDigestSHA256)
 DIGEST_FINAL_SHIMS(SHA384, kCCDigestSHA384)
 DIGEST_FINAL_SHIMS(SHA512, kCCDigestSHA512)
+
 
 
 #define MD5_CTX                     CC_MD5_CTX
@@ -329,7 +336,7 @@ void MD5Final(unsigned char md[16], MD5_CTX *c)
 
 static void
 ccdigest_process(const struct ccdigest_info *di, uint8_t *bufptr, ccdigest_state_t state,
-                 uint64_t curlen, size_t len, const uint8_t *data)
+                 size_t curlen, size_t len, const uint8_t *data)
 {
     while(len) { 
         if (curlen == 0 && len >= di->block_size) {
@@ -338,8 +345,8 @@ ccdigest_process(const struct ccdigest_info *di, uint8_t *bufptr, ccdigest_state
             uint64_t nbytes = fullblocks * di->block_size;
             len -= nbytes; data += nbytes;
         } else {
-            uint64_t n = CC_XMIN(len, (di->block_size - curlen)); 
-            CC_XMEMCPY(bufptr + curlen, data, n); 
+            size_t n = CC_MIN(len, (di->block_size - curlen));
+            memcpy(bufptr + curlen, data, n);
             curlen += n; len -= n; data += n;
             if (curlen == di->block_size) {
                 di->compress(state, 1, bufptr);
@@ -351,7 +358,7 @@ ccdigest_process(const struct ccdigest_info *di, uint8_t *bufptr, ccdigest_state
 
 static void
 ccdigest_finalize(const struct ccdigest_info *di, uint8_t *bufptr, ccdigest_state_t state,
-                  uint64_t curlen, uint64_t totalLen)
+                  size_t curlen, uint64_t totalLen)
 {
     bufptr[curlen++] = (unsigned char)0x80;
     int reserve = 8;
@@ -371,7 +378,7 @@ ccdigest_finalize(const struct ccdigest_info *di, uint8_t *bufptr, ccdigest_stat
     /* pad out with zeros, but store length in last 8 bytes (sizeof uint64_t) */
     while (curlen < (di->block_size - 8))  bufptr[curlen++] = (unsigned char)0;
     totalLen *= 8; // size in bits
-    CC_XSTORE64H(totalLen, bufptr+(di->block_size - 8));
+    CC_STORE64_BE(totalLen, bufptr+(di->block_size - 8));
     di->compress(state, 1, bufptr);
 }
 
@@ -392,18 +399,18 @@ ccdigest_finalize(const struct ccdigest_info *di, uint8_t *bufptr, ccdigest_stat
 
 static inline void md2in(const struct ccdigest_info *di, ccdigest_ctx_t ctx, CC_MD2_CTX *c)
 {
-    CC_XMEMCPY(ccdigest_state_u8(di, ctx)+48, c->cksm, CC_MD2_BLOCK_LONG);    
-    CC_XMEMCPY(ccdigest_state_u8(di, ctx), c->state, CC_MD2_BLOCK_LONG);    
-    CC_XMEMCPY(ccdigest_data(di, ctx), c->data, CC_MD2_DIGEST_LENGTH);
-    ccdigest_num(di, ctx) = c->num;    
+    memcpy(ccdigest_state_u8(di, ctx)+48, c->cksm, CC_MD2_BLOCK_LONG);
+    memcpy(ccdigest_state_u8(di, ctx), c->state, CC_MD2_BLOCK_LONG);
+    memcpy(ccdigest_data(di, ctx), c->data, CC_MD2_DIGEST_LENGTH);
+    ccdigest_num(di, ctx) = c->num;
 }
 
 static inline void md2out(const struct ccdigest_info *di, CC_MD2_CTX *c, ccdigest_ctx_t ctx)
 {
-    CC_XMEMCPY(c->cksm, ccdigest_state_u8(di, ctx)+48, CC_MD2_BLOCK_LONG);    
-    CC_XMEMCPY(c->state, ccdigest_state_u8(di, ctx), CC_MD2_BLOCK_LONG);    
-    CC_XMEMCPY(c->data, ccdigest_data(di, ctx), CC_MD2_DIGEST_LENGTH);
-    c->num = (int) ccdigest_num(di, ctx);    
+    memcpy(c->cksm, ccdigest_state_u8(di, ctx)+48, CC_MD2_BLOCK_LONG);
+    memcpy(c->state, ccdigest_state_u8(di, ctx), CC_MD2_BLOCK_LONG);
+    memcpy(c->data, ccdigest_data(di, ctx), CC_MD2_DIGEST_LENGTH);
+    c->num = (int) ccdigest_num(di, ctx);
 }
 
 int CC_MD2_Init(CC_MD2_CTX *c)
@@ -466,11 +473,11 @@ CC_SHA256_Init(CC_SHA256_CTX *x)
     ASSERT(sizeof(CC_SHA256_CTX) == sizeof(CC_SHA256_CTX_X));
     const struct ccdigest_info *di = CCDigestGetDigestInfo(kCCDigestSHA256);
     ASSERT(di->state_size == CC_SHA256_DIGEST_LENGTH);
-    CC_XZEROMEM(c->hash, CC_SHA256_DIGEST_LENGTH);
+    cc_clear(CC_SHA256_DIGEST_LENGTH, c->hash);
     ASSERT(di->block_size == CC_SHA256_BLOCK_BYTES);
-    CC_XZEROMEM(c->wbuf, CC_SHA256_BLOCK_BYTES);
+    cc_clear(CC_SHA256_BLOCK_BYTES, c->wbuf);
     c->count = 0;
-    CC_XMEMCPY(c->hash, di->initial_state, di->state_size);
+    memcpy(c->hash, di->initial_state, di->state_size);
 	return CC_COMPAT_DIGEST_RETURN;
 }
 
@@ -480,7 +487,7 @@ CC_SHA256_Update(CC_SHA256_CTX *x, const void *data, CC_LONG len)
     const struct ccdigest_info *di = CCDigestGetDigestInfo(kCCDigestSHA256);
     CC_SHA256_CTX_X *c = (CC_SHA256_CTX_X *) x;
     uint64_t totalLen = c->count;
-	uint64_t curlen = totalLen % di->block_size;
+	size_t curlen = totalLen % di->block_size;
 	uint8_t *bufptr = (uint8_t *) c->wbuf;
     struct ccdigest_state *state = (struct ccdigest_state *) c->hash;
     
@@ -499,7 +506,7 @@ CC_SHA256_Final(unsigned char *md, CC_SHA256_CTX *x)
     const struct ccdigest_info *di = CCDigestGetDigestInfo(kCCDigestSHA256);
     CC_SHA256_CTX_X *c = (CC_SHA256_CTX_X *) x;
     uint64_t totalLen = c->count;
-	uint64_t curlen = totalLen % di->block_size;
+	size_t curlen = totalLen % di->block_size;
 	uint8_t *bufptr = (uint8_t *) c->wbuf;
     struct ccdigest_state *state = (struct ccdigest_state *) c->hash;
     
@@ -509,7 +516,7 @@ CC_SHA256_Final(unsigned char *md, CC_SHA256_CTX *x)
     ccdigest_finalize(di, bufptr, state, curlen, totalLen);
     
     /* copy output */
-    for (int i = 0; i < 8; i++)  CC_XSTORE32H(c->hash[i], md+(4*i));
+    for (int i = 0; i < 8; i++)  CC_STORE32_BE(c->hash[i], md+(4*i));
 
 	return CC_COMPAT_DIGEST_RETURN;
 }
@@ -539,11 +546,11 @@ CC_SHA512_Init(CC_SHA512_CTX *x)
     const struct ccdigest_info *di = CCDigestGetDigestInfo(kCCDigestSHA512);
     CC_SHA512_CTX_X *c = (CC_SHA512_CTX_X *) x;
     ASSERT(di->state_size == CC_SHA512_DIGEST_LENGTH);
-    CC_XZEROMEM(c->hash, CC_SHA512_DIGEST_LENGTH);
+    cc_clear(CC_SHA512_DIGEST_LENGTH, c->hash);
     ASSERT(di->block_size == CC_SHA512_BLOCK_BYTES);
-    CC_XZEROMEM(c->wbuf, CC_SHA512_BLOCK_BYTES);
+    cc_clear(CC_SHA512_BLOCK_BYTES, c->wbuf);
     c->count = 0;
-    CC_XMEMCPY(c->hash, di->initial_state, di->state_size);
+    memcpy(c->hash, di->initial_state, di->state_size);
 	return CC_COMPAT_DIGEST_RETURN;
 }
 
@@ -553,7 +560,7 @@ CC_SHA512_Update(CC_SHA512_CTX *x, const void *data, CC_LONG len)
     const struct ccdigest_info *di = CCDigestGetDigestInfo(kCCDigestSHA512);
     CC_SHA512_CTX_X *c = (CC_SHA512_CTX_X *) x;
     uint64_t totalLen = c->count;
-	uint64_t curlen = totalLen % di->block_size;
+	size_t curlen = totalLen % di->block_size;
 	uint8_t *bufptr = (uint8_t *) c->wbuf;
     struct ccdigest_state *state = (struct ccdigest_state *) c->hash;
     
@@ -572,7 +579,7 @@ CC_SHA512_Final(unsigned char *md, CC_SHA512_CTX *x)
     const struct ccdigest_info *di = CCDigestGetDigestInfo(kCCDigestSHA512);
     CC_SHA512_CTX_X *c = (CC_SHA512_CTX_X *) x;
     uint64_t totalLen = c->count;
-	uint64_t curlen = totalLen % di->block_size;
+	size_t curlen = totalLen % di->block_size;
 	uint8_t *bufptr = (uint8_t *) c->wbuf;
     struct ccdigest_state *state = (struct ccdigest_state *) c->hash;
     
@@ -582,8 +589,8 @@ CC_SHA512_Final(unsigned char *md, CC_SHA512_CTX *x)
     ccdigest_finalize(di, bufptr, state, curlen, totalLen);
 
     /* copy output */
-    for (unsigned long i = 0; i < di->output_size/8; i++)  CC_XSTORE64H(c->hash[i], md+(8*i));
-    
+    for (unsigned long i = 0; i < di->output_size/8; i++)  CC_STORE64_BE(c->hash[i], md+(8*i));
+
 	return CC_COMPAT_DIGEST_RETURN;
 }
 
@@ -597,11 +604,11 @@ CC_SHA224_Init(CC_SHA256_CTX *c)
     CC_DEBUG_LOG("Entering\n");
     const struct ccdigest_info *di = CCDigestGetDigestInfo(kCCDigestSHA224);
     ASSERT(di->state_size == CC_SHA256_DIGEST_LENGTH);
-    CC_XZEROMEM(c->hash, CC_SHA256_DIGEST_LENGTH);
+    cc_clear(CC_SHA256_DIGEST_LENGTH, c->hash);
     ASSERT(di->block_size == CC_SHA256_BLOCK_BYTES);
-    CC_XZEROMEM(c->wbuf, CC_SHA256_BLOCK_BYTES);
+    cc_clear(CC_SHA256_BLOCK_BYTES, c->wbuf);
     c->count[0] = c->count[1] = 0;
-    CC_XMEMCPY(c->hash, di->initial_state, di->state_size);
+    memcpy(c->hash, di->initial_state, di->state_size);
 	return CC_COMPAT_DIGEST_RETURN;
 }
 
@@ -619,7 +626,7 @@ CC_SHA224_Final(unsigned char *md, CC_SHA256_CTX *c)
     CC_DEBUG_LOG("Entering\n");
     
     CC_SHA256_Final((unsigned char *) buf, c);
-    CC_XMEMCPY(md, buf, CC_SHA224_DIGEST_LENGTH);
+    memcpy(md, buf, CC_SHA224_DIGEST_LENGTH);
 	return CC_COMPAT_DIGEST_RETURN;
 }
 
@@ -630,11 +637,11 @@ CC_SHA384_Init(CC_SHA512_CTX *c)
     CC_DEBUG_LOG("Entering\n");
     const struct ccdigest_info *di = CCDigestGetDigestInfo(kCCDigestSHA384);
     ASSERT(di->state_size == CC_SHA512_DIGEST_LENGTH);
-    CC_XZEROMEM(c->hash, CC_SHA512_DIGEST_LENGTH);
+    cc_clear(CC_SHA512_DIGEST_LENGTH, c->hash);
     ASSERT(di->block_size == CC_SHA512_BLOCK_BYTES);
-    CC_XZEROMEM(c->wbuf, CC_SHA512_BLOCK_BYTES);
+    cc_clear(CC_SHA512_BLOCK_BYTES, c->wbuf);
     c->count[0] = c->count[1] = 0;
-    CC_XMEMCPY(c->hash, di->initial_state, di->state_size);
+    memcpy(c->hash, di->initial_state, di->state_size);
 	return CC_COMPAT_DIGEST_RETURN;
 }
 
@@ -653,7 +660,7 @@ CC_SHA384_Final(unsigned char *md, CC_SHA512_CTX *c)
     
     CC_DEBUG_LOG("Entering\n");
     CC_SHA512_Final((unsigned char *) buf, c);
-    CC_XMEMCPY(md, buf, CC_SHA384_DIGEST_LENGTH);
+    memcpy(md, buf, CC_SHA384_DIGEST_LENGTH);
 	return CC_COMPAT_DIGEST_RETURN;
 }
 

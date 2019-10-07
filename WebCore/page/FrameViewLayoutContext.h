@@ -27,7 +27,6 @@
 
 #include "LayoutUnit.h"
 #include "Timer.h"
-
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
@@ -50,9 +49,11 @@ public:
     ~FrameViewLayoutContext();
 
     void layout();
-
-    void setNeedsLayout();
     bool needsLayout() const;
+
+    // We rely on the side-effects of layout, like compositing updates, to update state in various subsystems
+    // whose dependencies are poorly defined. This call triggers such updates.
+    void setNeedsLayoutAfterViewConfigurationChange();
 
     void scheduleLayout();
     void scheduleSubtreeLayout(RenderElement& layoutRoot);
@@ -64,7 +65,7 @@ public:
     void disableSetNeedsLayout();
     void enableSetNeedsLayout();
 
-    enum class LayoutPhase {
+    enum class LayoutPhase : uint8_t {
         OutsideLayout,
         InPreLayout,
         InRenderTreeLayout,
@@ -80,7 +81,7 @@ public:
 
     unsigned layoutCount() const { return m_layoutCount; }
 
-    RenderElement* subtreeLayoutRoot() const { return m_subtreeLayoutRoot.get(); }
+    RenderElement* subtreeLayoutRoot() const;
     void clearSubtreeLayoutRoot() { m_subtreeLayoutRoot.clear(); }
     void convertSubtreeLayoutToFullLayout();
 
@@ -93,7 +94,7 @@ public:
 
     void flushAsynchronousTasks();
 
-    RenderLayoutState* layoutState() const;
+    RenderLayoutState* layoutState() const PURE_FUNCTION;
     // Returns true if layoutState should be used for its cached offset and clip.
     bool isPaintOffsetCacheEnabled() const { return !m_paintOffsetCacheDisableCount && layoutState(); }
 #ifndef NDEBUG
@@ -158,6 +159,7 @@ private:
     FrameView& m_frameView;
     Timer m_layoutTimer;
     Timer m_asynchronousTasksTimer;
+    WeakPtr<RenderElement> m_subtreeLayoutRoot;
 
     bool m_layoutSchedulingIsEnabled { true };
     bool m_delayedLayout { false };
@@ -166,14 +168,13 @@ private:
     bool m_inAsynchronousTasks { false };
     bool m_setNeedsLayoutWasDeferred { false };
     LayoutPhase m_layoutPhase { LayoutPhase::OutsideLayout };
-    enum class LayoutNestedState { NotInLayout, NotNested, Nested };
+    enum class LayoutNestedState : uint8_t  { NotInLayout, NotNested, Nested };
     LayoutNestedState m_layoutNestedState { LayoutNestedState::NotInLayout };
     unsigned m_layoutCount { 0 };
     unsigned m_disableSetNeedsLayoutCount { 0 };
     int m_layoutDisallowedCount { 0 };
-    WeakPtr<RenderElement> m_subtreeLayoutRoot;
-    LayoutStateStack m_layoutStateStack;
     unsigned m_paintOffsetCacheDisableCount { 0 };
+    LayoutStateStack m_layoutStateStack;
 };
 
 } // namespace WebCore

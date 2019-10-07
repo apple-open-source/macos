@@ -27,6 +27,7 @@
 #include "GStreamerCommon.h"
 #include "GStreamerEMEUtilities.h"
 #include "GStreamerMediaDescription.h"
+#include "GStreamerRegistryScannerMSE.h"
 #include "MediaSampleGStreamer.h"
 #include "InbandTextTrackPrivateGStreamer.h"
 #include "MediaDescription.h"
@@ -41,6 +42,7 @@
 #include <wtf/Condition.h>
 #include <wtf/glib/GLibUtilities.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
+#include <wtf/text/StringConcatenateNumbers.h>
 
 GST_DEBUG_CATEGORY_EXTERN(webkit_mse_debug);
 #define GST_CAT_DEFAULT webkit_mse_debug
@@ -113,8 +115,8 @@ AppendPipeline::AppendPipeline(Ref<MediaSourceClientGStreamerMSE> mediaSourceCli
     // FIXME: give a name to the pipeline, maybe related with the track it's managing.
     // The track name is still unknown at this time, though.
     static size_t appendPipelineCount = 0;
-    String pipelineName = String::format("append-pipeline-%s-%zu",
-        m_sourceBufferPrivate->type().containerType().replace("/", "-").utf8().data(), appendPipelineCount++);
+    String pipelineName = makeString("append-pipeline-",
+        m_sourceBufferPrivate->type().containerType().replace("/", "-"), '-', appendPipelineCount++);
     m_pipeline = gst_pipeline_new(pipelineName.utf8().data());
 
     m_bus = adoptGRef(gst_pipeline_get_bus(GST_PIPELINE(m_pipeline.get())));
@@ -141,7 +143,8 @@ AppendPipeline::AppendPipeline(Ref<MediaSourceClientGStreamerMSE> mediaSourceCli
     }, this, nullptr);
 
     const String& type = m_sourceBufferPrivate->type().containerType();
-    if (type.endsWith("mp4"))
+    GST_DEBUG("SourceBuffer containerType: %s", type.utf8().data());
+    if (type.endsWith("mp4") || type.endsWith("aac"))
         m_demux = gst_element_factory_make("qtdemux", nullptr);
     else if (type.endsWith("webm"))
         m_demux = gst_element_factory_make("matroskademux", nullptr);
@@ -169,8 +172,12 @@ AppendPipeline::AppendPipeline(Ref<MediaSourceClientGStreamerMSE> mediaSourceCli
             return;
         }
 
-        appendPipeline->m_taskQueue.enqueueTask([appendPipeline]() {
+        // The streaming thread has just received a new caps and is about to let samples using the
+        // new caps flow. Let's block it until the main thread has consumed the samples with the old
+        // caps and has processed the caps change.
+        appendPipeline->m_taskQueue.enqueueTaskAndWait<AbortableTaskQueue::Void>([appendPipeline]() {
             appendPipeline->appsinkCapsChanged();
+            return AbortableTaskQueue::Void();
         });
     }), this);
 
@@ -204,8 +211,9 @@ AppendPipeline::AppendPipeline(Ref<MediaSourceClientGStreamerMSE> mediaSourceCli
             appendPipeline->didReceiveInitializationSegment();
         });
     }), this);
-    g_signal_connect(m_appsink.get(), "new-sample", G_CALLBACK(+[](GstElement* appsink, AppendPipeline* appendPipeline) {
+    g_signal_connect(m_appsink.get(), "new-sample", G_CALLBACK(+[](GstElement* appsink, AppendPipeline* appendPipeline) -> GstFlowReturn {
         appendPipeline->handleAppsinkNewSampleFromStreamingThread(appsink);
+        return GST_FLOW_OK;
     }), this);
     g_signal_connect(m_appsink.get(), "eos", G_CALLBACK(+[](GstElement*, AppendPipeline* appendPipeline) {
         // basesrc will emit an EOS after it has received a GST_FLOW_ERROR. That's the only case we are expecting.
@@ -329,9 +337,9 @@ void AppendPipeline::handleStateChangeMessage(GstMessage* message)
         CString sourceBufferType = String(m_sourceBufferPrivate->type().raw())
             .replace("/", "_").replace(" ", "_")
             .replace("\"", "").replace("\'", "").utf8();
-        CString dotFileName = String::format("webkit-append-%s-%s_%s",
-            sourceBufferType.data(),
-            gst_element_state_get_name(currentState),
+        CString dotFileName = makeString("webkit-append-",
+            sourceBufferType.data(), '-',
+            gst_element_state_get_name(currentState), '_',
             gst_element_state_get_name(newState)).utf8();
         GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS(GST_BIN(m_pipeline.get()), GST_DEBUG_GRAPH_SHOW_ALL, dotFileName.data());
     }
@@ -378,7 +386,8 @@ void AppendPipeline::parseDemuxerSrcPadCaps(GstCaps* demuxerSrcPadCaps)
     m_streamType = WebCore::MediaSourceStreamTypeGStreamer::Unknown;
 
     const char* originalMediaType = capsMediaType(m_demuxerSrcPadCaps.get());
-    if (!MediaPlayerPrivateGStreamerMSE::supportsCodec(originalMediaType)) {
+    auto& gstRegistryScanner = GStreamerRegistryScannerMSE::singleton();
+    if (!gstRegistryScanner.isCodecSupported(originalMediaType)) {
             m_presentationSize = WebCore::FloatSize();
             m_streamType = WebCore::MediaSourceStreamTypeGStreamer::Invalid;
     } else if (doCapsHaveType(m_demuxerSrcPadCaps.get(), GST_VIDEO_CAPS_TYPE_PREFIX)) {
@@ -402,11 +411,20 @@ void AppendPipeline::appsinkCapsChanged()
 {
     ASSERT(isMainThread());
 
+    // Consume any pending samples with the previous caps.
+    consumeAppsinkAvailableSamples();
+
     GRefPtr<GstPad> pad = adoptGRef(gst_element_get_static_pad(m_appsink.get(), "sink"));
     GRefPtr<GstCaps> caps = adoptGRef(gst_pad_get_current_caps(pad.get()));
 
     if (!caps)
         return;
+
+    if (doCapsHaveType(caps.get(), GST_VIDEO_CAPS_TYPE_PREFIX)) {
+        Optional<FloatSize> size = getVideoResolutionFromCaps(caps.get());
+        if (size.hasValue())
+            m_presentationSize = size.value();
+    }
 
     // This means that we're right after a new track has appeared. Otherwise, it's a caps change inside the same track.
     bool previousCapsWereNull = !m_appsinkCaps;
@@ -491,12 +509,12 @@ void AppendPipeline::didReceiveInitializationSegment()
     m_sourceBufferPrivate->didReceiveInitializationSegment(initializationSegment);
 }
 
-AtomicString AppendPipeline::trackId()
+AtomString AppendPipeline::trackId()
 {
     ASSERT(isMainThread());
 
     if (!m_track)
-        return AtomicString();
+        return AtomString();
 
     return m_track->id();
 }
@@ -507,10 +525,15 @@ void AppendPipeline::consumeAppsinkAvailableSamples()
 
     GRefPtr<GstSample> sample;
     int batchedSampleCount = 0;
+    // In some cases each frame increases the duration of the movie.
+    // Batch duration changes so that if we pick 100 of such samples we don't have to run 100 times
+    // layout for the video controls, but only once.
+    m_playerPrivate->blockDurationChanges();
     while ((sample = adoptGRef(gst_app_sink_try_pull_sample(GST_APP_SINK(m_appsink.get()), 0)))) {
         appsinkNewSample(WTFMove(sample));
         batchedSampleCount++;
     }
+    m_playerPrivate->unblockDurationChanges();
 
     GST_TRACE_OBJECT(m_pipeline.get(), "batchedSampleCount = %d", batchedSampleCount);
 }
@@ -546,19 +569,22 @@ void AppendPipeline::resetParserState()
     {
         static unsigned i = 0;
         // This is here for debugging purposes. It does not make sense to have it as class member.
-        WTF::String dotFileName = String::format("reset-pipeline-%d", ++i);
+        WTF::String dotFileName = makeString("reset-pipeline-", ++i);
         gst_debug_bin_to_dot_file(GST_BIN(m_pipeline.get()), GST_DEBUG_GRAPH_SHOW_ALL, dotFileName.utf8().data());
     }
 #endif
 }
 
-GstFlowReturn AppendPipeline::pushNewBuffer(GstBuffer* buffer)
+void AppendPipeline::pushNewBuffer(GRefPtr<GstBuffer>&& buffer)
 {
-    GST_TRACE_OBJECT(m_pipeline.get(), "pushing data buffer %" GST_PTR_FORMAT, buffer);
-    GstFlowReturn pushDataBufferRet = gst_app_src_push_buffer(GST_APP_SRC(m_appsrc.get()), buffer);
+    GST_TRACE_OBJECT(m_pipeline.get(), "pushing data buffer %" GST_PTR_FORMAT, buffer.get());
+    GstFlowReturn pushDataBufferRet = gst_app_src_push_buffer(GST_APP_SRC(m_appsrc.get()), buffer.leakRef());
     // Pushing buffers to appsrc can only fail if the appsrc is flushing, in EOS or stopped. Neither of these should
     // be true at this point.
-    g_return_val_if_fail(pushDataBufferRet == GST_FLOW_OK, GST_FLOW_ERROR);
+    if (pushDataBufferRet != GST_FLOW_OK) {
+        GST_ERROR_OBJECT(m_pipeline.get(), "Failed to push data buffer into appsrc.");
+        ASSERT_NOT_REACHED();
+    }
 
     // Push an additional empty buffer that marks the end of the append.
     // This buffer is detected and consumed by appsrcEndOfAppendCheckerProbe(), which uses it to signal the successful
@@ -574,12 +600,13 @@ GstFlowReturn AppendPipeline::pushNewBuffer(GstBuffer* buffer)
 
     GST_TRACE_OBJECT(m_pipeline.get(), "pushing end-of-append buffer %" GST_PTR_FORMAT, endOfAppendBuffer);
     GstFlowReturn pushEndOfAppendBufferRet = gst_app_src_push_buffer(GST_APP_SRC(m_appsrc.get()), endOfAppendBuffer);
-    g_return_val_if_fail(pushEndOfAppendBufferRet == GST_FLOW_OK, GST_FLOW_ERROR);
-
-    return GST_FLOW_OK;
+    if (pushEndOfAppendBufferRet != GST_FLOW_OK) {
+        GST_ERROR_OBJECT(m_pipeline.get(), "Failed to push end-of-append buffer into appsrc.");
+        ASSERT_NOT_REACHED();
+    }
 }
 
-GstFlowReturn AppendPipeline::handleAppsinkNewSampleFromStreamingThread(GstElement*)
+void AppendPipeline::handleAppsinkNewSampleFromStreamingThread(GstElement*)
 {
     ASSERT(!isMainThread());
     if (&WTF::Thread::current() != m_streamingThread) {
@@ -600,8 +627,6 @@ GstFlowReturn AppendPipeline::handleAppsinkNewSampleFromStreamingThread(GstEleme
             consumeAppsinkAvailableSamples();
         });
     }
-
-    return GST_FLOW_OK;
 }
 
 static GRefPtr<GstElement>

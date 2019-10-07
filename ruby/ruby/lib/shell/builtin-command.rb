@@ -2,7 +2,7 @@
 #
 #   shell/builtin-command.rb -
 #       $Release Version: 0.7 $
-#       $Revision: 53141 $
+#       $Revision: 65505 $
 #       by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
@@ -10,10 +10,10 @@
 #
 #
 
-require "shell/filter"
+require_relative "filter"
 
 class Shell
-  class BuiltInCommand<Filter
+  class BuiltInCommand < Filter
     def wait?
       false
     end

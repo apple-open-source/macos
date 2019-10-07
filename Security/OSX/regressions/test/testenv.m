@@ -71,7 +71,7 @@ static char *home_var;
 static int
 rmdir_recursive(const char *path)
 {
-#if (!TARGET_IPHONE_SIMULATOR)
+#if (!TARGET_OS_SIMULATOR)
     char command_buf[256];
 	if (strlen(path) + 10 > sizeof(command_buf) || strchr(path, '\''))
 	{

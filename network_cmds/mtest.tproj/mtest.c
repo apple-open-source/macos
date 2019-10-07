@@ -744,7 +744,7 @@ process_cmd(char *cmd, int s, int s6 __unused, FILE *fp __unused)
 				warnc(EINVAL, "ether_aton");
 				break;
 			}
-			strlcpy(ifr.ifr_name, str1, IF_NAMESIZE);
+			strlcpy(ifr.ifr_name, str1, sizeof(ifr.ifr_name));
 			memcpy(LLADDR(dlp), ep, ETHER_ADDR_LEN);
 			if (ioctl(s, (*cmd == 'a') ? SIOCADDMULTI : SIOCDELMULTI,
 					  &ifr) == -1) {

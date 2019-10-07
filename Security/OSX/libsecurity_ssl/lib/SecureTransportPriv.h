@@ -37,6 +37,40 @@ extern "C" {
 
 #include <Security/sslTypes.h>
 
+/* Enum defining connection strength for TLS connections. */
+typedef CF_ENUM(int, SSLConnectionStrength) {
+    SSLConnectionStrengthStrong,
+    SSLConnectionStrengthWeak,
+    SSLConnectionStrengthNonsecure,
+};
+
+/* See: https://tools.ietf.org/html/rfc8446#section-4.2.7 */
+typedef CF_ENUM(uint16_t, SSLKeyExchangeGroup) {
+    SSLKeyExchangeGroupSecp256r1 = 0x0017,
+    SSLKeyExchangeGroupSecp384r1 = 0x0018,
+    SSLKeyExchangeGroupSecp521r1 = 0x0019,
+    SSLKeyExchangeGroupX25519 = 0x001D,
+    SSLKeyExchangeGroupX448 = 0x001E,
+    SSLKeyExchangeGroupFFDHE2048 = 0x0100,
+    SSLKeyExchangeGroupFFDHE3072 = 0x0101,
+    SSLKeyExchangeGroupFFDHE4096 = 0x0102,
+    SSLKeyExchangeGroupFFDHE6144 = 0x0103,
+    SSLKeyExchangeGroupFFDHE8192 = 0x0104,
+};
+
+/*
+ * Convenience key exchange groups that collate group identifiers of
+ * comparable security into a single alias.
+ */
+typedef CF_ENUM(int, SSLKeyExchangeGroupSet) {
+    kSSLKeyExchangeGroupSetDefault,
+    kSSLKeyExchangeGroupSetCompatibility,
+    kSSLKeyExchangeGroupSetLegacy,
+};
+
+/* Determine if a ciphersuite belongs to a specific ciphersuite group */
+bool SSLCiphersuiteGroupContainsCiphersuite(SSLCiphersuiteGroup group, SSLCipherSuite suite);
+
 /* Return the list of ciphersuites associated with a SSLCiphersuiteGroup */
 const SSLCipherSuite *SSLCiphersuiteGroupToCiphersuiteList(SSLCiphersuiteGroup group,
                                                            size_t *listSize);
@@ -46,6 +80,15 @@ SSLProtocol SSLCiphersuiteMinimumTLSVersion(SSLCipherSuite ciphersuite);
 
 /* Determine maximum allowed TLS version for the given ciphersuite */
 SSLProtocol SSLCiphersuiteMaximumTLSVersion(SSLCipherSuite ciphersuite);
+
+/* Get a human readable name for the given ciphersuite. */
+const char *SSLCiphersuiteGetName(SSLCipherSuite ciphersuite);
+
+/* Get the 2-byte IANA codepoint representation of the given TLS protocol version. */
+uint16_t SSLProtocolGetVersionCodepoint(SSLProtocol protocol_version);
+
+/* Get the internal SSLProtocol enumeration value from a 2-byte IANA TLS version codepoint. */
+SSLProtocol SSLProtocolFromVersionCodepoint(uint16_t protocol_version);
 
 /* Create an SSL Context with an external record layer - eg: kernel accelerated layer */
 SSLContextRef

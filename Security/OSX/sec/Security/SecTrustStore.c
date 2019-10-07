@@ -39,7 +39,7 @@
 #include <stdio.h>
 #include <os/activity.h>
 #include <dirent.h>
-#include "SecTrustPriv.h"
+#include <Security/SecTrustPriv.h>
 #include <Security/SecTrustSettingsPriv.h>
 #include <utilities/SecCFError.h>
 #include <utilities/SecCFWrappers.h>
@@ -65,9 +65,9 @@ SecTrustStoreRef SecTrustStoreForDomain(SecTrustStoreDomain domain) {
 
 static bool string_data_to_bool_error(enum SecXPCOperation op, SecTrustStoreRef ts, CFDataRef digest, CFErrorRef *error)
 {
-    return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
-        return SecXPCDictionarySetString(message, kSecXPCKeyDomain, (CFStringRef)ts, error) &&
-        SecXPCDictionarySetData(message, kSecXPCKeyDigest, digest, error);
+    return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *blockError) {
+        return SecXPCDictionarySetString(message, kSecXPCKeyDomain, (CFStringRef)ts, blockError) &&
+                SecXPCDictionarySetData(message, kSecXPCKeyDigest, digest, blockError);
     }, NULL);
 }
 
@@ -75,10 +75,10 @@ static bool string_data_to_bool_bool_error(enum SecXPCOperation op, SecTrustStor
 {
     os_activity_t activity = os_activity_create("SecTrustStoreContains", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
     os_activity_scope(activity);
-    bool status = securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
-        return SecXPCDictionarySetString(message, kSecXPCKeyDomain, (CFStringRef)ts, error) &&
-        SecXPCDictionarySetData(message, kSecXPCKeyDigest, digest, error);
-    }, ^bool(xpc_object_t response, CFErrorRef *error) {
+    bool status = securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *blockError) {
+        return SecXPCDictionarySetString(message, kSecXPCKeyDomain, (CFStringRef)ts, blockError) &&
+                SecXPCDictionarySetData(message, kSecXPCKeyDigest, digest, error);
+    }, ^bool(xpc_object_t response, CFErrorRef *blockError) {
         if (result)
             *result = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
         return true;
@@ -117,11 +117,11 @@ static bool SecXPCDictionarySetCertificate(xpc_object_t message, const char *key
 
 static bool string_cert_cftype_to_error(enum SecXPCOperation op, SecTrustStoreRef ts, SecCertificateRef certificate, CFTypeRef trustSettingsDictOrArray, CFErrorRef *error)
 {
-    return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
+    return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *blockError) {
         bool ok = false;
-        ok = SecXPCDictionarySetString(message, kSecXPCKeyDomain, (CFStringRef)ts, error) &&
-        SecXPCDictionarySetCertificate(message, kSecXPCKeyCertificate, certificate, error) &&
-        (!trustSettingsDictOrArray || SecXPCDictionarySetPList(message, kSecXPCKeySettings, trustSettingsDictOrArray, error));
+        ok = SecXPCDictionarySetString(message, kSecXPCKeyDomain, (CFStringRef)ts, blockError) &&
+            SecXPCDictionarySetCertificate(message, kSecXPCKeyCertificate, certificate, blockError) &&
+            (!trustSettingsDictOrArray || SecXPCDictionarySetPList(message, kSecXPCKeySettings, trustSettingsDictOrArray, blockError));
         return ok;
     }, NULL);
 }
@@ -262,12 +262,12 @@ OSStatus SecTrustStoreGetSettingsAssetVersionNumber(SecTrustSettingsAssetVersion
     if (NULL == p_settings_asset_version_number) {
         return errSecParam;
     }
-
+    
     OSStatus status = errSecSuccess;
     CFErrorRef error = nil;
     uint64_t versionNumber = SecTrustGetAssetVersionNumber(&error);
     *p_settings_asset_version_number = (SecTrustSettingsAssetVersionNumber)versionNumber;
-
+    
     if (error) {
         status = (OSStatus)CFErrorGetCode(error);
     }
@@ -277,11 +277,11 @@ OSStatus SecTrustStoreGetSettingsAssetVersionNumber(SecTrustSettingsAssetVersion
 
 static bool string_to_array_error(enum SecXPCOperation op, SecTrustStoreRef ts, CFArrayRef *trustStoreContents, CFErrorRef *error)
 {
-    return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
-        return SecXPCDictionarySetString(message, kSecXPCKeyDomain, (CFStringRef)ts, error);
-    }, ^bool(xpc_object_t response, CFErrorRef *error) {
+    return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *blockError) {
+        return SecXPCDictionarySetString(message, kSecXPCKeyDomain, (CFStringRef)ts, blockError);
+    }, ^bool(xpc_object_t response, CFErrorRef *blockError) {
         if (trustStoreContents) {
-            *trustStoreContents = SecXPCDictionaryCopyArray(response, kSecXPCKeyResult, error);
+            *trustStoreContents = SecXPCDictionaryCopyArray(response, kSecXPCKeyResult, blockError);
             if (!*trustStoreContents) return false;
         }
         return true;
@@ -310,11 +310,11 @@ errOut:
 
 static bool string_data_to_array_error(enum SecXPCOperation op, SecTrustStoreRef ts, CFDataRef digest, CFArrayRef *usageConstraints, CFErrorRef *error)
 {
-    return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
-        return SecXPCDictionarySetString(message, kSecXPCKeyDomain, (CFStringRef)ts, error) &&
-        SecXPCDictionarySetData(message, kSecXPCKeyDigest, digest, error);
-    }, ^bool(xpc_object_t response, CFErrorRef *error) {
-        return SecXPCDictionaryCopyArrayOptional(response, kSecXPCKeyResult, usageConstraints, error);
+    return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *blockError) {
+        return SecXPCDictionarySetString(message, kSecXPCKeyDomain, (CFStringRef)ts, blockError) &&
+                SecXPCDictionarySetData(message, kSecXPCKeyDigest, digest, blockError);
+    }, ^bool(xpc_object_t response, CFErrorRef *blockError) {
+        return SecXPCDictionaryCopyArrayOptional(response, kSecXPCKeyResult, usageConstraints, blockError);
     });
 }
 
@@ -352,7 +352,14 @@ const CFStringRef kSecCTExceptionsHashAlgorithmKey = CFSTR("HashAlgorithm");
 const CFStringRef kSecCTExceptionsSPKIHashKey = CFSTR("SubjectPublicKeyInfoHash");
 
 bool SecTrustStoreSetCTExceptions(CFStringRef applicationIdentifier, CFDictionaryRef exceptions, CFErrorRef *error) {
-    do_if_registered(sec_trust_store_set_ct_exceptions, applicationIdentifier, exceptions, error);
+#if !TARGET_OS_BRIDGE
+    if (applicationIdentifier && gTrustd && gTrustd->sec_trust_store_set_ct_exceptions) {
+        return gTrustd->sec_trust_store_set_ct_exceptions(applicationIdentifier, exceptions, error);
+    } else if (gTrustd && gTrustd->sec_trust_store_set_ct_exceptions) {
+        /* When calling from the TrustTests, we need to pass the appID for the tests. Ordinarily,
+         * this is done by trustd using the client's entitlements. */
+        return gTrustd->sec_trust_store_set_ct_exceptions(CFSTR("com.apple.trusttests"), exceptions, error);
+    }
 
     os_activity_t activity = os_activity_create("SecTrustStoreSetCTExceptions", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
     os_activity_scope(activity);
@@ -369,9 +376,13 @@ bool SecTrustStoreSetCTExceptions(CFStringRef applicationIdentifier, CFDictionar
 
     os_release(activity);
     return result;
+#else // TARGET_OS_BRIDGE
+    return SecError(errSecReadOnly, error, CFSTR("SecTrustStoreSetCTExceptions not supported on bridgeOS"));
+#endif // TARGET_OS_BRIDGE
 }
 
 CFDictionaryRef SecTrustStoreCopyCTExceptions(CFStringRef applicationIdentifier, CFErrorRef *error) {
+#if !TARGET_OS_BRIDGE
     do_if_registered(sec_trust_store_copy_ct_exceptions, applicationIdentifier, error);
 
     os_activity_t activity = os_activity_create("SecTrustStoreCopyCTExceptions", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
@@ -388,4 +399,8 @@ CFDictionaryRef SecTrustStoreCopyCTExceptions(CFStringRef applicationIdentifier,
 
     os_release(activity);
     return result;
+#else // TARGET_OS_BRIDGE
+    SecError(errSecReadOnly, error, CFSTR("SecTrustStoreCopyCTExceptions not supported on bridgeOS"));
+    return NULL;
+#endif // TARGET_OS_BRIDGE
 }

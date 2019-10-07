@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2017 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2019 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -22,7 +22,7 @@
  */
 
 #include "SecBridge.h"
-#include "SecInternal.h"
+#include <Security/SecInternal.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <security_utilities/cfutilities.h>
 #include <Security/SecBase.h>
@@ -31,11 +31,12 @@
 #include <Security/SecCertificatePriv.h>
 #include <sys/param.h>
 #include "cssmdatetime.h"
-#include "SecItem.h"
-#include "SecItemPriv.h"
-#include "SecIdentitySearchPriv.h"
-#include "SecKeychainPriv.h"
-#include "SecCertificatePriv.h"
+#include <Security/SecItem.h>
+#include <Security/SecItemPriv.h>
+#include <Security/SecIdentitySearchPriv.h>
+#include <Security/SecKeychainPriv.h>
+#include <Security/SecCertificatePriv.h>
+#include <Security/SecPolicyPriv.h>
 #include "TrustAdditions.h"
 #include "TrustSettingsSchema.h"
 #include <Security/SecTrustPriv.h>
@@ -587,22 +588,27 @@ _ConvertNewFormatToOldFormat(
 
 	// now we can make the result array
 	attrList->count = (UInt32)count;
-    attrList->attr = (count > 0) ? (SecKeychainAttribute*) malloc(sizeof(SecKeychainAttribute) * count) : NULL;
 
-	// fill out the array
-	int resultPointer = 0;
-	for (i = 0; i < itemsInDictionary; ++i)
-	{
-		if (values[i] != NULL)
-		{
-			attrList->attr[resultPointer].tag = tags[i];
+    if(count == 0) {
+        attrList->attr = NULL;
+    } else {
+        attrList->attr = (SecKeychainAttribute*) malloc(sizeof(SecKeychainAttribute) * count);
 
-			// we have to clone the data pointer.  The caller will need to make sure to throw these away
-			// with _FreeAttrList when it is done...
-			attrList->attr[resultPointer].data = CloneDataByType(types[i], values[i], attrList->attr[resultPointer].length);
-			resultPointer += 1;
-		}
-	}
+        // fill out the array
+        int resultPointer = 0;
+        for (i = 0; i < itemsInDictionary; ++i)
+        {
+            if (values[i] != NULL)
+            {
+                attrList->attr[resultPointer].tag = tags[i];
+
+                // we have to clone the data pointer.  The caller will need to make sure to throw these away
+                // with _FreeAttrList when it is done...
+                attrList->attr[resultPointer].data = CloneDataByType(types[i], values[i], attrList->attr[resultPointer].length);
+                resultPointer += 1;
+            }
+        }
+    }
 
 	return errSecSuccess;
 }
@@ -1576,7 +1582,7 @@ _CreateSecKeychainKeyAttributeListFromDictionary(
 
 	// [5] get the kSecKeyKeyType number
 	if (CFDictionaryGetValueIfPresent(attrDictionary, kSecAttrKeyType, (const void **)&value) && value) {
-		UInt32 keyAlgValue = _SecAlgorithmTypeFromSecAttrKeyType(kSecAttrKeyType);
+		UInt32 keyAlgValue = _SecAlgorithmTypeFromSecAttrKeyType(value);
 		if (keyAlgValue != 0) {
 			attrListPtr->attr[attrListPtr->count].data = malloc(sizeof(UInt32));
 			require_action(attrListPtr->attr[attrListPtr->count].data != NULL, malloc_number_failed, status = errSecBufferTooSmall);
@@ -3274,6 +3280,7 @@ _FilterWithPolicy(SecPolicyRef policy, CFDateRef date, SecCertificateRef cert)
 
 	SecTrustResultType	trustResult;
 	Boolean needChain = false;
+	Boolean needCSEKU = false;
 	OSStatus status;
 	if (!policy || !cert) return errSecParam;
 
@@ -3287,13 +3294,33 @@ _FilterWithPolicy(SecPolicyRef policy, CFDateRef date, SecCertificateRef cert)
 		if(status) goto cleanup;
 	}
 
-	/* Check whether this is the X509 Basic policy, which means chain building */
+	/* Check whether we can avoid full chain evaluation, based on policy */
 	props = SecPolicyCopyProperties(policy);
 	if (props) {
 		CFTypeRef oid = (CFTypeRef) CFDictionaryGetValue(props, kSecPolicyOid);
 		if (oid && (CFEqual(oid, kSecPolicyAppleX509Basic) ||
-                    CFEqual(oid, kSecPolicyAppleRevocation))) {
+		            CFEqual(oid, kSecPolicyAppleRevocation))) {
 			needChain = true;
+		} else if (oid && (CFEqual(oid, kSecPolicyAppleCodeSigning))) {
+			needCSEKU = true;
+		}
+	}
+
+	/* If a code signing EKU purpose is needed, filter out certs without it here
+	   to reduce log noise associated with evaluation failures. */
+	if (needCSEKU) {
+		CFDataRef eku = CFDataCreate(kCFAllocatorDefault,
+		                             oidExtendedKeyUsageCodeSigning.data,
+		                             oidExtendedKeyUsageCodeSigning.length);
+		if (eku) {
+			if (!SecPolicyCheckCertExtendedKeyUsage(cert, eku)) {
+				needCSEKU = false;
+			}
+			CFRelease(eku);
+		}
+		if (!needCSEKU) {
+			status = errSecCertificateCannotOperate;
+			goto cleanup;
 		}
 	}
 
@@ -4011,23 +4038,32 @@ extern "C" Boolean SecKeyIsCDSAKey(SecKeyRef ref);
 //
 // Function to find out which keychains are targetted by the query.
 //
-static OSStatus SecItemCategorizeQuery(CFDictionaryRef query, bool &can_target_ios, bool &can_target_osx)
+static OSStatus SecItemCategorizeQuery(CFDictionaryRef query, bool &can_target_ios, bool &can_target_osx, bool &useDataProtectionKeychainFlag)
 {
 	// By default, target both keychain.
 	can_target_osx = can_target_ios = true;
+    useDataProtectionKeychainFlag = false;
 
 	// Check no-legacy flag.
     // it's iOS or bust if we're on MZ!
-    CFTypeRef noLegacy = NULL;
+    CFTypeRef useDataProtection = NULL;
     if (_CFMZEnabled()) {
-        noLegacy = kCFBooleanTrue;
+        useDataProtection = kCFBooleanTrue;
     }
     else {
-        noLegacy = CFDictionaryGetValue(query, kSecAttrNoLegacy);
+        // In case your CFDict is dumb and compares by pointer equality we check both versions of the symbol
+        if (!CFDictionaryGetValueIfPresent(query, kSecUseDataProtectionKeychain, &useDataProtection)) {
+            // Ah the irony of ignoring deprecation while checking for a legacy-avoiding attribute
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+            useDataProtection = CFDictionaryGetValue(query, kSecAttrNoLegacy);
+#pragma clang diagnostic pop
+        }
     }
 
-	if (noLegacy != NULL) {
-		can_target_ios = readNumber(noLegacy) != 0;
+	if (useDataProtection != NULL) {
+        useDataProtectionKeychainFlag = readNumber(useDataProtection);
+		can_target_ios = useDataProtectionKeychainFlag;
 		can_target_osx = !can_target_ios;
 		return errSecSuccess;
 	}
@@ -4399,7 +4435,7 @@ SecItemCopyParentCertificates_osx(SecCertificateRef certificate, void *context)
 	}
 
 	/* Cache miss. Query for parents. */
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
+#if TARGET_OS_OSX
 	CFDataRef normalizedIssuer = SecCertificateCopyNormalizedIssuerContent(certificate, NULL);
 #else
 	CFDataRef normalizedIssuer = SecCertificateGetNormalizedIssuerContent(certificate);
@@ -4490,7 +4526,7 @@ SecCertificateRef SecItemCopyStoredCertificate(SecCertificateRef certificate, vo
 
 	/* Certificates are unique by issuer and serial number. */
 	CFDataRef serialNumber = SecCertificateCopySerialNumberData(certificate, NULL);
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
+#if TARGET_OS_OSX
 	CFDataRef normalizedIssuer = SecCertificateCopyNormalizedIssuerContent(certificate, NULL);
 #else
 	CFDataRef normalizedIssuer = SecCertificateGetNormalizedIssuerContent(certificate);
@@ -4691,7 +4727,12 @@ SecItemCopyTranslatedAttributes(CFDictionaryRef inOSXDict, CFTypeRef itemClass,
 	}
 
     /* This attribute is consumed by the bridge itself. */
+    CFDictionaryRemoveValue(result, kSecUseDataProtectionKeychain);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    // Also remove deprecated symbol in case your CFDict is derpy
     CFDictionaryRemoveValue(result, kSecAttrNoLegacy);
+#pragma clang diagnostic pop
 
 	return result;
 }
@@ -4820,8 +4861,8 @@ SecItemCopyMatching(CFDictionaryRef query, CFTypeRef *result)
 
 	OSStatus status_osx = errSecItemNotFound, status_ios = errSecItemNotFound;
 	CFTypeRef result_osx = NULL, result_ios = NULL;
-	bool can_target_ios, can_target_osx;
-	OSStatus status = SecItemCategorizeQuery(query, can_target_ios, can_target_osx);
+	bool can_target_ios, can_target_osx, useDataProtectionKeychainFlag;
+	OSStatus status = SecItemCategorizeQuery(query, can_target_ios, can_target_osx, useDataProtectionKeychainFlag);
 	if (status != errSecSuccess) {
 		return status;
 	}
@@ -4874,8 +4915,8 @@ SecItemAdd(CFDictionaryRef attributes, CFTypeRef *result)
 	secitemshow(attributes, "SecItemAdd attrs:");
 
 	CFTypeRef result_osx = NULL, result_ios = NULL;
-	bool can_target_ios, can_target_osx;
-	OSStatus status = SecItemCategorizeQuery(attributes, can_target_ios, can_target_osx);
+	bool can_target_ios, can_target_osx, useDataProtectionKeychainFlag;
+	OSStatus status = SecItemCategorizeQuery(attributes, can_target_ios, can_target_osx, useDataProtectionKeychainFlag);
 	if (status != errSecSuccess) {
 		return status;
 	}
@@ -4924,11 +4965,28 @@ SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate)
 	secitemshow(attributesToUpdate, "SecItemUpdate attrs:");
 
 	OSStatus status_osx = errSecItemNotFound, status_ios = errSecItemNotFound;
-	bool can_target_ios, can_target_osx;
-	OSStatus status = SecItemCategorizeQuery(query, can_target_ios, can_target_osx);
+	bool can_target_ios, can_target_osx, useDataProtectionKeychainFlag;
+	OSStatus status = SecItemCategorizeQuery(query, can_target_ios, can_target_osx, useDataProtectionKeychainFlag);
 	if (status != errSecSuccess) {
 		return status;
 	}
+
+    /*
+     * If the user have explicity opted in to UseDataProtectionKeychain, then don't touch the legacy keychain at all
+     * ie don't move the item back to legacy keychain if you remove sync=1 or the inverse.
+     */
+    if (useDataProtectionKeychainFlag) {
+        CFDictionaryRef attrs_ios = SecItemCopyTranslatedAttributes(query,
+            CFDictionaryGetValue(query, kSecClass), true, true, false, true, true, true);
+        if (!attrs_ios) {
+            status_ios = errSecParam;
+        } else {
+            status_ios = SecItemUpdate_ios(attrs_ios, attributesToUpdate);
+            CFRelease(attrs_ios);
+        }
+        secitemlog(LOG_NOTICE, "SecItemUpdate(ios only) result: %d", status_ios);
+        return status_ios;
+    }
 
 	if (can_target_ios) {
 		CFDictionaryRef attrs_ios = SecItemCopyTranslatedAttributes(query,
@@ -4983,8 +5041,8 @@ SecItemDelete(CFDictionaryRef query)
 	secitemshow(query, "SecItemDelete query:");
 
 	OSStatus status_osx = errSecItemNotFound, status_ios = errSecItemNotFound;
-	bool can_target_ios, can_target_osx;
-	OSStatus status = SecItemCategorizeQuery(query, can_target_ios, can_target_osx);
+	bool can_target_ios, can_target_osx, useDataProtectionKeychainFlag;
+	OSStatus status = SecItemCategorizeQuery(query, can_target_ios, can_target_osx, useDataProtectionKeychainFlag);
 	if (status != errSecSuccess) {
 		return status;
 	}

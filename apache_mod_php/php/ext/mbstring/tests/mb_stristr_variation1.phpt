@@ -8,9 +8,9 @@ function_exists('mb_stristr') or die("skip mb_stristr() is not available in this
 --FILE--
 <?php
 /* Prototype  : string mb_stristr(string haystack, string needle[, bool part[, string encoding]])
- * Description: Finds first occurrence of a string within another, case insensitive 
+ * Description: Finds first occurrence of a string within another, case insensitive
  * Source code: ext/mbstring/mbstring.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing mb_stristr() : usage variation ***\n";
@@ -25,7 +25,7 @@ function test_error_handler($err_no, $err_msg, $filename, $linenum, $vars) {
 set_error_handler('test_error_handler');
 
 // Initialise function arguments not being substituted (if any)
-$needle = b'string_val';
+$needle = 'string_val';
 $part = true;
 $encoding = 'utf-8';
 
@@ -37,7 +37,7 @@ unset ($unset_var);
 class classWithToString
 {
 	public function __toString() {
-		return b"Class A object";
+		return "Class A object";
 	}
 }
 
@@ -46,7 +46,7 @@ class classWithoutToString
 }
 
 // heredoc string
-$heredoc = b<<<EOT
+$heredoc = <<<EOT
 hello world
 EOT;
 
@@ -102,9 +102,9 @@ $inputs = array(
 
       // unset data
       'unset var' => @$unset_var,
-      
+
       // resource variable
-      'resource' => $fp      
+      'resource' => $fp
 );
 
 // loop through each element of the array for haystack
@@ -205,4 +205,3 @@ bool(false)
 Error: 2 - mb_stristr() expects parameter 1 to be string, resource given, %s(%d)
 NULL
 ===DONE===
-

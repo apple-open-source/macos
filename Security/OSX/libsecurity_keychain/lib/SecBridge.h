@@ -26,7 +26,7 @@
 
 #include <security_keychain/Globals.h>
 #include <security_keychain/SecCFTypes.h>
-#include "SecBasePriv.h"
+#include <Security/SecBasePriv.h>
 #include <Security/SecKeychainPriv.h>
 #include <security_keychain/KCUtilities.h>
 #include <security_cdsa_utilities/cssmbridge.h>

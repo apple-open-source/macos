@@ -1595,7 +1595,6 @@ OSStatus SecKeychainStoreUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash, CFStringR
 
 		AuthorizationItem myItems = {"com.apple.ctk.pair", 0, NULL, 0};
 		AuthorizationRights myRights = {1, &myItems};
-		AuthorizationRights *authorizedRights = NULL;
 
 		char pathName[PATH_MAX];
 		UInt32 pathLength = PATH_MAX;
@@ -1615,16 +1614,20 @@ OSStatus SecKeychainStoreUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash, CFStringR
 
 		AuthorizationEnvironment environment  = {3, envItems};
 		AuthorizationFlags flags = kAuthorizationFlagDefaults | kAuthorizationFlagInteractionAllowed | kAuthorizationFlagExtendRights;
-		result = AuthorizationCopyRights(authorizationRef, &myRights, &environment, flags, &authorizedRights);
-		if (authorizedRights)
-			AuthorizationFreeItemSet(authorizedRights);
+		result = AuthorizationCopyRights(authorizationRef, &myRights, &environment, flags, NULL);
+        secnotice("SecKeychain", "Authorization result: %d", (int)result);
 
 		if (result == errAuthorizationSuccess) {
 			AuthorizationItemSet *items;
 			result = AuthorizationCopyInfo(authorizationRef, kAuthorizationEnvironmentPassword, &items);
+            secnotice("SecKeychain", "Items copy result: %d", (int)result);
 			if (result == errAuthorizationSuccess) {
+                secnotice("SecKeychain", "Items count: %d", items->count);
 				if (items->count > 0) {
 					pwd = CFStringCreateWithCString(kCFAllocatorDefault, (const char *)items->items[0].value, kCFStringEncodingUTF8);
+                    if (pwd) {
+                        secnotice("SecKeychain", "Got kcpass");
+                    }
 				}
 				AuthorizationFreeItemSet(items);
 			}

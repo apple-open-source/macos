@@ -22,43 +22,56 @@
  */
 
 #include <TargetConditionals.h>
-#include <dispatch/dispatch.h>
 #include <uuid/uuid.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #include <mach-o/loader.h>
 #include <mach-o/fat.h>
-#include <mach-o/arch.h>
 #include <mach-o/getsect.h>
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/reason.h>
+#include <unistd.h>
 #include <execinfo.h>
 #include <stdio.h>
-#include <dlfcn.h>
 #include <_simple.h>
 #include <errno.h>
 #include <pthread.h>
 #include <string.h>
 #include "os/assumes.h"
+
+#if !TARGET_OS_DRIVERKIT
+#include <dlfcn.h>
 #include <os/debug_private.h>
 #include <os/log.h>
 #include <os/log_private.h>
 #include <os/reason_private.h>
-
+#else
+#define _os_debug_log_error_str(...)
+// placeholder to disable usage of dlfcn.h
+typedef struct dl_info {
+	void *dli_fbase;
+} Dl_info;
+#endif
+#if __has_include(<CrashReporterClient.h>)
 #include <CrashReporterClient.h>
 #define os_set_crash_message(arg) CRSetCrashLogMessage(arg)
+#else
+#define os_set_crash_message(arg)
+#endif
 
 #define OSX_ASSUMES_LOG_REDIRECT_SECT_NAME "__osx_log_func"
 #define os_atomic_cmpxchg(p, o, n) __sync_bool_compare_and_swap((p), (o), (n))
 
 static bool _os_should_abort_on_assumes = false;
 
+#if !TARGET_OS_DRIVERKIT
 static const char *
 _os_basename(const char *p)
 {
 	return ((strrchr(p, '/') ? : p - 1) + 1);
 }
+#endif
 
 static void
 _os_get_build(char *build, size_t sz)
@@ -84,6 +97,7 @@ _os_get_build(char *build, size_t sz)
 #endif
 }
 
+#if !TARGET_OS_DRIVERKIT
 static void
 _os_get_image_uuid(void *hdr, uuid_t uuid)
 {
@@ -111,6 +125,7 @@ _os_get_image_uuid(void *hdr, uuid_t uuid)
 		uuid_clear(uuid);
 	}
 }
+#endif
 
 static void
 _os_abort_on_assumes_once(void)
@@ -161,6 +176,7 @@ _os_find_log_redirect_func(os_mach_header *hdr)
 {
 	os_redirect_t result = NULL;
 
+#if !TARGET_OS_DRIVERKIT
 	char name[128];
 	unsigned long size = 0;
 	uint8_t *data = getsectiondata(hdr, OS_ASSUMES_REDIRECT_SEG, OS_ASSUMES_REDIRECT_SECT, &size);
@@ -175,6 +191,7 @@ _os_find_log_redirect_func(os_mach_header *hdr)
 		struct _os_redirect_assumes_s *redirect = (struct _os_redirect_assumes_s *)data;
 		result = redirect->redirect;
 	}
+#endif
 
 	return result;
 }
@@ -200,6 +217,7 @@ _os_construct_message(uint64_t code, _SIMPLE_STRING asl_message, Dl_info *info, 
 	uintptr_t offset = 0;
 	uuid_string_t uuid_str;
 
+#if !TARGET_OS_DRIVERKIT
 	void *ret = __builtin_return_address(0);
 	if (dladdr(ret, info)) {
 		uuid_t uuid;
@@ -210,6 +228,9 @@ _os_construct_message(uint64_t code, _SIMPLE_STRING asl_message, Dl_info *info, 
 		
 		offset = ret - info->dli_fbase;
 	}
+#else
+	info->dli_fbase = NULL;
+#endif
 
 	char sig[64];
 	(void)snprintf(sig, sizeof(sig), "%s:%lu", uuid_str, offset);
@@ -238,14 +259,17 @@ __attribute__((always_inline))
 static inline void
 _os_crash_impl(const char *message) {
 	os_set_crash_message(message);
+#if !TARGET_OS_DRIVERKIT
 	if (!_os_crash_callback) {
 		_os_crash_callback = dlsym(RTLD_MAIN_ONLY, "os_crash_function");
 	}
 	if (_os_crash_callback) {
 		_os_crash_callback(message);
 	}
+#endif
 }
 
+#if !TARGET_OS_DRIVERKIT
 __attribute__((always_inline))
 static inline bool
 _os_crash_fmt_impl(os_log_pack_t pack, size_t pack_size)
@@ -271,6 +295,7 @@ _os_crash_fmt_impl(os_log_pack_t pack, size_t pack_size)
 
 	abort_with_payload(OS_REASON_LIBSYSTEM, OS_REASON_LIBSYSTEM_CODE_FAULT, pack, pack_size, composed, 0);
 }
+#endif
 
 __attribute__((always_inline))
 static inline void
@@ -367,10 +392,12 @@ void _os_crash(const char *message)
 	_os_crash_impl(message);
 }
 
+#if !TARGET_OS_DRIVERKIT
 void _os_crash_fmt(os_log_pack_t pack, size_t pack_size)
 {
 	_os_crash_fmt_impl(pack, pack_size);
 }
+#endif
 
 void
 _os_assumes_log(uint64_t code)

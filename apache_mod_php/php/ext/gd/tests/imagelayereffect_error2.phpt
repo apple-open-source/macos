@@ -4,7 +4,7 @@ Testing imagelayereffect() wth invalid effect of GD library
 Rafael Dohms <rdohms [at] gmail [dot] com>
 #testfest PHPSP on 2009-06-20
 --SKIPIF--
-<?php 
+<?php
 	if (!extension_loaded("gd")) die("skip GD not present");
 	if (!GD_BUNDLED) die('skip function only available in bundled, external GD detected');
 ?>
@@ -15,4 +15,4 @@ $image = imagecreatetruecolor(180, 30);
 $layer = imagelayereffect($image, 'IMG_EFFECT_REPLACE');
 ?>
 --EXPECTF--
-Warning: imagelayereffect() expects parameter 2 to be integer, %s given in %s on line %d
+Warning: imagelayereffect() expects parameter 2 to be int, %s given in %s on line %d

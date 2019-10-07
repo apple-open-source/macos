@@ -43,7 +43,7 @@
 .Nd list directory contents
 .Sh SYNOPSIS
 .Nm ls
-.Op Fl ABCFGHLOPRSTUW@abcdefghiklmnopqrstuwx1
+.Op Fl ABCFGHLOPRSTUW@abcdefghiklmnopqrstuwx1%
 .Op Ar
 .Sh DESCRIPTION
 For each operand that names a
@@ -188,7 +188,7 @@ option.
 .Dq ell . )
 List in long format.
 (See below.)
-If the output is to a terminal, a total sum for all the file
+A total sum for all the file
 sizes is output on a line before the long listing.
 .It Fl m
 Stream output format; list files across the page, separated by commas.
@@ -278,6 +278,10 @@ The same as
 .Fl C ,
 except that the multi-column output is produced with entries sorted
 across, rather than down, the columns.
+.It Fl %
+Distinguish dataless files and directories with a '%' character in long
+.Pq Fl l
+output, and don't materialize dataless directories when listing them.
 .El
 .Pp
 The
@@ -349,6 +353,11 @@ Otherwise, if the file or directory has extended security information
 the permissions field printed by the 
 .Fl l
 option is followed by a '+' character.
+If the
+.Fl %
+option is given, a '%' character follows the permissions field
+for dataless files and directories,
+possibly replacing the '@' or '+' character.
 .Pp
 If the modification time of the file
 is more than 6 months in the past or future,

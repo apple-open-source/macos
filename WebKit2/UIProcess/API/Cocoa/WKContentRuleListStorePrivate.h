@@ -25,15 +25,12 @@
 
 #import <WebKit/WKContentRuleListStore.h>
 
-#if WK_API_ENABLED
-
 @interface WKContentRuleListStore (WKPrivate)
 
 // For testing only.
 - (void)_removeAllContentRuleLists;
 - (void)_invalidateContentRuleListVersionForIdentifier:(NSString *)identifier;
 - (void)_getContentRuleListSourceForIdentifier:(NSString *)identifier completionHandler:(void (^)(NSString*))completionHandler;
-+ (void)_registerPathAsUnsafeToMemoryMapForTesting:(NSString *)filename;
 
 // NS_RELEASES_ARGUMENT to keep peak memory usage low.
 - (void)_compileContentRuleListForIdentifier:(NSString *)identifier encodedContentRuleList:(NSString *) NS_RELEASES_ARGUMENT encodedContentRuleList completionHandler:(void (^)(WKContentRuleList *, NSError *))completionHandler;
@@ -45,5 +42,3 @@
 + (instancetype)storeWithURLAndLegacyFilename:(NSURL *)url;
 
 @end
-
-#endif

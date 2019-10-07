@@ -41,6 +41,7 @@ struct options {
     compression_algorithm calgorithm; // algorithm in use
 	size_t ncthresh;	// F_NOCACHE enabled *above* this value
     int allfilerefs;    // if set, every mapped file on the root fs is a fileref
+	int dsymforuuid;   // Try dsysForUUID to retrieve symbol-rich executable
 };
 
 extern const struct options *opt;

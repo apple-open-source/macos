@@ -21,7 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <os/availability.h>
 #include <TargetConditionals.h>
 #include <dispatch/dispatch.h>
 #include <dispatch/private.h>

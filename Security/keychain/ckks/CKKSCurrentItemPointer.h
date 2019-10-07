@@ -29,6 +29,8 @@
 
 #if OCTAGON
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface CKKSCurrentItemPointer : CKKSCKRecordHolder
 
 @property CKKSProcessedState* state;
@@ -39,7 +41,7 @@
                   currentItemUUID:(NSString*)currentItemUUID
                             state:(CKKSProcessedState*)state
                            zoneID:(CKRecordZoneID*)zoneID
-                  encodedCKRecord:(NSData*)encodedrecord;
+                  encodedCKRecord:(NSData* _Nullable)encodedrecord;
 
 + (instancetype)fromDatabase:(NSString*)identifier
                        state:(CKKSProcessedState*)state
@@ -55,5 +57,7 @@
 + (NSArray<CKKSCurrentItemPointer*>*)allInZone:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif

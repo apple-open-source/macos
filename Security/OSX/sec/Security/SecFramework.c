@@ -80,20 +80,3 @@ CFURLRef SecFrameworkCopyResourceURL(CFStringRef resourceName,
 
 	return url;
 }
-
-CFDataRef SecFrameworkCopyResourceContents(CFStringRef resourceName,
-	CFStringRef resourceType, CFStringRef subDirName) {
-    CFURLRef url = SecFrameworkCopyResourceURL(resourceName, resourceType,
-        subDirName);
-	CFDataRef data = NULL;
-    if (url) {
-        SInt32 error;
-        if (!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault,
-            url, &data, NULL, NULL, &error)) {
-            secwarning("read: %ld", (long) error);
-        }
-        CFRelease(url);
-    }
-
-	return data;
-}

@@ -26,8 +26,10 @@
 #include "ArrayPrototype.h"
 #include "BuiltinNames.h"
 #include "ButterflyInlines.h"
+#include "BytecodeCacheError.h"
 #include "CatchScope.h"
 #include "CodeBlock.h"
+#include "CodeCache.h"
 #include "Completion.h"
 #include "ConfigFile.h"
 #include "Disassembler.h"
@@ -68,6 +70,7 @@
 #include "SuperSampler.h"
 #include "TestRunnerUtils.h"
 #include "TypedArrayInlines.h"
+#include "WasmCapabilities.h"
 #include "WasmContext.h"
 #include "WasmFaultSignalHandler.h"
 #include "WasmMemory.h"
@@ -86,16 +89,17 @@
 #include <wtf/MemoryPressureHandler.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/Scope.h>
 #include <wtf/StringPrintStream.h>
 #include <wtf/URL.h>
 #include <wtf/WallTime.h>
 #include <wtf/text/StringBuilder.h>
+#include <wtf/text/StringConcatenateNumbers.h>
 
 #if OS(WINDOWS)
 #include <direct.h>
 #include <fcntl.h>
 #include <io.h>
-#include <wtf/text/win/WCharStringExtras.h>
 #else
 #include <unistd.h>
 #endif
@@ -155,7 +159,6 @@ struct MemoryFootprint {
 #endif
 
 using namespace JSC;
-using namespace WTF;
 
 namespace {
 
@@ -253,6 +256,8 @@ private:
 };
 
 class Workers {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_NONCOPYABLE(Workers);
 public:
     Workers();
     ~Workers();
@@ -324,10 +329,12 @@ static EncodedJSValue JSC_HOST_CALL functionMakeMasquerader(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionHasCustomProperties(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionDumpTypesForAllVariables(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionDrainMicrotasks(ExecState*);
+static EncodedJSValue JSC_HOST_CALL functionReleaseWeakRefs(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionIs32BitPlatform(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionCheckModuleSyntax(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionPlatformSupportsSamplingProfiler(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionGenerateHeapSnapshot(ExecState*);
+static EncodedJSValue JSC_HOST_CALL functionGenerateHeapSnapshotForGCDebugging(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionResetSuperSamplerState(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionEnsureArrayStorage(ExecState*);
 #if ENABLE(SAMPLING_PROFILER)
@@ -409,15 +416,16 @@ public:
         parseArguments(argc, argv);
     }
 
+    Vector<Script> m_scripts;
+    Vector<String> m_arguments;
+    String m_profilerOutput;
+    String m_uncaughtExceptionName;
     bool m_interactive { false };
     bool m_dump { false };
     bool m_module { false };
     bool m_exitCode { false };
-    Vector<Script> m_scripts;
-    Vector<String> m_arguments;
+    bool m_destroyVM { false };
     bool m_profile { false };
-    String m_profilerOutput;
-    String m_uncaughtExceptionName;
     bool m_treatWatchdogExceptionAsSuccess { false };
     bool m_alwaysDumpUncaughtException { false };
     bool m_dumpMemoryFootprint { false };
@@ -550,6 +558,7 @@ protected:
         addFunction(vm, "dumpTypesForAllVariables", functionDumpTypesForAllVariables , 0);
 
         addFunction(vm, "drainMicrotasks", functionDrainMicrotasks, 0);
+        addFunction(vm, "releaseWeakRefs", functionReleaseWeakRefs, 0);
 
         addFunction(vm, "getRandomSeed", functionGetRandomSeed, 0);
         addFunction(vm, "setRandomSeed", functionSetRandomSeed, 1);
@@ -562,6 +571,7 @@ protected:
 
         addFunction(vm, "platformSupportsSamplingProfiler", functionPlatformSupportsSamplingProfiler, 0);
         addFunction(vm, "generateHeapSnapshot", functionGenerateHeapSnapshot, 0);
+        addFunction(vm, "generateHeapSnapshotForGCDebugging", functionGenerateHeapSnapshotForGCDebugging, 0);
         addFunction(vm, "resetSuperSamplerState", functionResetSuperSamplerState, 0);
         addFunction(vm, "ensureArrayStorage", functionEnsureArrayStorage, 0);
 #if ENABLE(SAMPLING_PROFILER)
@@ -742,7 +752,7 @@ static Optional<DirectoryName> currentWorkingDirectory()
     // https://msdn.microsoft.com/en-us/library/windows/desktop/ff381407.aspx
     Vector<wchar_t> buffer(bufferLength);
     DWORD lengthNotIncludingNull = ::GetCurrentDirectoryW(bufferLength, buffer.data());
-    String directoryString = wcharToString(buffer.data(), lengthNotIncludingNull);
+    String directoryString(buffer.data(), lengthNotIncludingNull);
     // We don't support network path like \\host\share\<path name>.
     if (directoryString.startsWith("\\\\"))
         return WTF::nullopt;
@@ -951,12 +961,152 @@ static bool fetchScriptFromLocalFileSystem(const String& fileName, Vector<char>&
     return true;
 }
 
+class ShellSourceProvider : public StringSourceProvider {
+public:
+    static Ref<ShellSourceProvider> create(const String& source, const SourceOrigin& sourceOrigin, URL&& url, const TextPosition& startPosition, SourceProviderSourceType sourceType)
+    {
+        return adoptRef(*new ShellSourceProvider(source, sourceOrigin, WTFMove(url), startPosition, sourceType));
+    }
+
+    ~ShellSourceProvider()
+    {
+        commitCachedBytecode();
+    }
+
+    RefPtr<CachedBytecode> cachedBytecode() const override
+    {
+        if (!m_cachedBytecode)
+            loadBytecode();
+        return m_cachedBytecode.copyRef();
+    }
+
+    void updateCache(const UnlinkedFunctionExecutable* executable, const SourceCode&, CodeSpecializationKind kind, const UnlinkedFunctionCodeBlock* codeBlock) const override
+    {
+        if (!cacheEnabled() || !m_cachedBytecode)
+            return;
+        BytecodeCacheError error;
+        RefPtr<CachedBytecode> cachedBytecode = encodeFunctionCodeBlock(*executable->vm(), codeBlock, error);
+        if (cachedBytecode && !error.isValid())
+            m_cachedBytecode->addFunctionUpdate(executable, kind, *cachedBytecode);
+    }
+
+    void cacheBytecode(const BytecodeCacheGenerator& generator) const override
+    {
+        if (!cacheEnabled())
+            return;
+        if (!m_cachedBytecode)
+            m_cachedBytecode = CachedBytecode::create();
+        auto update = generator();
+        if (update)
+            m_cachedBytecode->addGlobalUpdate(*update);
+    }
+
+    void commitCachedBytecode() const override
+    {
+#if OS(DARWIN)
+        if (!cacheEnabled() || !m_cachedBytecode || !m_cachedBytecode->hasUpdates())
+            return;
+
+        auto clearBytecode = makeScopeExit([&] {
+            m_cachedBytecode = nullptr;
+        });
+
+        String filename = cachePath();
+        int fd = open(filename.utf8().data(), O_CREAT | O_WRONLY | O_TRUNC | O_EXLOCK | O_NONBLOCK, 0666);
+        if (fd == -1)
+            return;
+
+        auto closeFD = makeScopeExit([&] {
+            close(fd);
+        });
+
+        struct stat sb;
+        int res = fstat(fd, &sb);
+        size_t size = static_cast<size_t>(sb.st_size);
+        if (res || size != m_cachedBytecode->size()) {
+            // The bytecode cache has already been updated
+            return;
+        }
+
+        if (ftruncate(fd, m_cachedBytecode->sizeForUpdate()))
+            return;
+
+        m_cachedBytecode->commitUpdates([&] (off_t offset, const void* data, size_t size) {
+            off_t result = lseek(fd, offset, SEEK_SET);
+            ASSERT_UNUSED(result, result != -1);
+            size_t bytesWritten = static_cast<size_t>(write(fd, data, size));
+            ASSERT_UNUSED(bytesWritten, bytesWritten == size);
+        });
+#endif
+    }
+
+private:
+    String cachePath() const
+    {
+        if (!cacheEnabled())
+            return static_cast<const char*>(nullptr);
+        const char* cachePath = Options::diskCachePath();
+        String filename = sourceOrigin().string();
+        filename.replace('/', '_');
+        return makeString(cachePath, '/', source().toString().hash(), '-', filename, ".bytecode-cache");
+    }
+
+    void loadBytecode() const
+    {
+#if OS(DARWIN)
+        if (!cacheEnabled())
+            return;
+
+        String filename = cachePath();
+        if (filename.isNull())
+            return;
+
+        int fd = open(filename.utf8().data(), O_RDONLY | O_SHLOCK | O_NONBLOCK);
+        if (fd == -1)
+            return;
+
+        auto closeFD = makeScopeExit([&] {
+            close(fd);
+        });
+
+        struct stat sb;
+        int res = fstat(fd, &sb);
+        size_t size = static_cast<size_t>(sb.st_size);
+        if (res || !size)
+            return;
+
+        void* buffer = mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, 0);
+        if (buffer == MAP_FAILED)
+            return;
+        m_cachedBytecode = CachedBytecode::create(buffer, size);
+#endif
+    }
+
+    ShellSourceProvider(const String& source, const SourceOrigin& sourceOrigin, URL&& url, const TextPosition& startPosition, SourceProviderSourceType sourceType)
+        : StringSourceProvider(source, sourceOrigin, WTFMove(url), startPosition, sourceType)
+    {
+    }
+
+    static bool cacheEnabled()
+    {
+        static bool enabled = !!Options::diskCachePath();
+        return enabled;
+    }
+
+    mutable RefPtr<CachedBytecode> m_cachedBytecode;
+};
+
+static inline SourceCode jscSource(const String& source, const SourceOrigin& sourceOrigin, URL&& url = URL(), const TextPosition& startPosition = TextPosition(), SourceProviderSourceType sourceType = SourceProviderSourceType::Program)
+{
+    return SourceCode(ShellSourceProvider::create(source, sourceOrigin, WTFMove(url), startPosition, sourceType), startPosition.m_line.oneBasedInt(), startPosition.m_column.oneBasedInt());
+}
+
 template<typename Vector>
 static inline SourceCode jscSource(const Vector& utf8, const SourceOrigin& sourceOrigin, const String& filename)
 {
     // FIXME: This should use an absolute file URL https://bugs.webkit.org/show_bug.cgi?id=193077
     String str = stringFromUTF(utf8);
-    return makeSource(str, sourceOrigin, URL({ }, filename));
+    return jscSource(str, sourceOrigin, URL({ }, filename));
 }
 
 template<typename Vector>
@@ -966,8 +1116,7 @@ static bool fetchModuleFromLocalFileSystem(const String& fileName, Vector& buffe
 #if OS(WINDOWS)
     // https://msdn.microsoft.com/en-us/library/windows/desktop/aa365247.aspx#maxpath
     // Use long UNC to pass the long path name to the Windows APIs.
-    String longUNCPathName = WTF::makeString("\\\\?\\", fileName);
-    auto pathName = stringToNullTerminatedWChar(longUNCPathName);
+    auto pathName = makeString("\\\\?\\", fileName).wideCharacters();
     struct _stat status { };
     if (_wstat(pathName.data(), &status))
         return false;
@@ -1039,7 +1188,7 @@ JSInternalPromise* GlobalObject::moduleLoaderFetch(JSGlobalObject* globalObject,
     }
 #endif
 
-    auto sourceCode = JSSourceCode::create(vm, makeSource(stringFromUTF(buffer), SourceOrigin { moduleKey }, WTFMove(moduleURL), TextPosition(), SourceProviderSourceType::Module));
+    auto sourceCode = JSSourceCode::create(vm, jscSource(stringFromUTF(buffer), SourceOrigin { moduleKey }, WTFMove(moduleURL), TextPosition(), SourceProviderSourceType::Module));
     catchScope.releaseAssertNoException();
     auto result = deferred->resolve(exec, sourceCode);
     catchScope.clearException();
@@ -1169,7 +1318,7 @@ public:
 
     StackVisitor::Status operator()(StackVisitor& visitor) const
     {
-        m_trace.append(String::format("    %zu   %s\n", visitor->index(), visitor->toString().utf8().data()));
+        m_trace.append(makeString("    ", visitor->index(), "   ", visitor->toString(), '\n'));
         return StackVisitor::Continue;
     }
 
@@ -1363,7 +1512,7 @@ EncodedJSValue JSC_HOST_CALL functionRunString(ExecState* exec)
         vm, Identifier::fromString(globalObject->globalExec(), "arguments"), array);
 
     NakedPtr<Exception> exception;
-    evaluate(globalObject->globalExec(), makeSource(source, exec->callerSourceOrigin()), JSValue(), exception);
+    evaluate(globalObject->globalExec(), jscSource(source, exec->callerSourceOrigin()), JSValue(), exception);
 
     if (exception) {
         scope.throwException(globalObject->globalExec(), exception);
@@ -1403,7 +1552,7 @@ EncodedJSValue JSC_HOST_CALL functionLoadString(ExecState* exec)
     JSGlobalObject* globalObject = exec->lexicalGlobalObject();
 
     NakedPtr<Exception> evaluationException;
-    JSValue result = evaluate(globalObject->globalExec(), makeSource(sourceCode, exec->callerSourceOrigin()), JSValue(), evaluationException);
+    JSValue result = evaluate(globalObject->globalExec(), jscSource(sourceCode, exec->callerSourceOrigin()), JSValue(), evaluationException);
     if (evaluationException)
         throwException(exec, scope, evaluationException);
     return JSValue::encode(result);
@@ -1712,7 +1861,7 @@ EncodedJSValue JSC_HOST_CALL functionDollarEvalScript(ExecState* exec)
         return JSValue::encode(throwException(exec, scope, createError(exec, "Expected global to point to a global object"_s)));
     
     NakedPtr<Exception> evaluationException;
-    JSValue result = evaluate(globalObject->globalExec(), makeSource(sourceCode, exec->callerSourceOrigin()), JSValue(), evaluationException);
+    JSValue result = evaluate(globalObject->globalExec(), jscSource(sourceCode, exec->callerSourceOrigin()), JSValue(), evaluationException);
     if (evaluationException)
         throwException(exec, scope, evaluationException);
     return JSValue::encode(result);
@@ -1747,7 +1896,7 @@ EncodedJSValue JSC_HOST_CALL functionDollarAgentStart(ExecState* exec)
                     
                     NakedPtr<Exception> evaluationException;
                     JSValue result;
-                    result = evaluate(globalObject->globalExec(), makeSource(sourceCode, SourceOrigin("worker"_s)), JSValue(), evaluationException);
+                    result = evaluate(globalObject->globalExec(), jscSource(sourceCode, SourceOrigin("worker"_s)), JSValue(), evaluationException);
                     if (evaluationException)
                         result = evaluationException->value();
                     checkException(globalObject->globalExec(), globalObject, true, evaluationException, result, commandLine, success);
@@ -1986,8 +2135,11 @@ EncodedJSValue JSC_HOST_CALL functionFailNextNewCodeBlock(ExecState* exec)
     return JSValue::encode(jsUndefined());
 }
 
-EncodedJSValue JSC_HOST_CALL functionQuit(ExecState*)
+EncodedJSValue JSC_HOST_CALL functionQuit(ExecState* exec)
 {
+    VM& vm = exec->vm();
+    vm.codeCache()->write(vm);
+
     jscExit(EXIT_SUCCESS);
 
 #if COMPILER(MSVC)
@@ -2059,6 +2211,13 @@ EncodedJSValue JSC_HOST_CALL functionDrainMicrotasks(ExecState* exec)
     return JSValue::encode(jsUndefined());
 }
 
+EncodedJSValue JSC_HOST_CALL functionReleaseWeakRefs(ExecState* exec)
+{
+    VM& vm = exec->vm();
+    vm.finalizeSynchronousJSExecution();
+    return JSValue::encode(jsUndefined());
+}
+
 EncodedJSValue JSC_HOST_CALL functionIs32BitPlatform(ExecState*)
 {
 #if USE(JSVALUE64)
@@ -2086,7 +2245,7 @@ EncodedJSValue JSC_HOST_CALL functionCheckModuleSyntax(ExecState* exec)
     stopWatch.start();
 
     ParserError error;
-    bool validSyntax = checkModuleSyntax(exec, makeSource(source, { }, URL(), TextPosition(), SourceProviderSourceType::Module), error);
+    bool validSyntax = checkModuleSyntax(exec, jscSource(source, { }, URL(), TextPosition(), SourceProviderSourceType::Module), error);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
     stopWatch.stop();
 
@@ -2117,6 +2276,24 @@ EncodedJSValue JSC_HOST_CALL functionGenerateHeapSnapshot(ExecState* exec)
     EncodedJSValue result = JSValue::encode(JSONParse(exec, jsonString));
     scope.releaseAssertNoException();
     return result;
+}
+
+EncodedJSValue JSC_HOST_CALL functionGenerateHeapSnapshotForGCDebugging(ExecState* exec)
+{
+    VM& vm = exec->vm();
+    JSLockHolder lock(vm);
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    String jsonString;
+    {
+        DeferGCForAWhile deferGC(vm.heap); // Prevent concurrent GC from interfering with the full GC that the snapshot does.
+
+        HeapSnapshotBuilder snapshotBuilder(vm.ensureHeapProfiler(), HeapSnapshotBuilder::SnapshotType::GCDebuggingSnapshot);
+        snapshotBuilder.buildSnapshot();
+
+        jsonString = snapshotBuilder.json();
+    }
+    scope.releaseAssertNoException();
+    return JSValue::encode(jsString(&vm, jsonString));
 }
 
 EncodedJSValue JSC_HOST_CALL functionResetSuperSamplerState(ExecState*)
@@ -2191,7 +2368,7 @@ static EncodedJSValue JSC_HOST_CALL functionWebAssemblyMemoryMode(ExecState* exe
     VM& vm = exec->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
     
-    if (!Options::useWebAssembly())
+    if (!Wasm::isSupported())
         return throwVMTypeError(exec, scope, "WebAssemblyMemoryMode should only be called if the useWebAssembly option is set"_s);
 
     if (JSObject* object = exec->argument(0).getObject()) {
@@ -2447,7 +2624,7 @@ static void runWithOptions(GlobalObject* globalObject, CommandLine& options, boo
         if (isModule) {
             if (!promise) {
                 // FIXME: This should use an absolute file URL https://bugs.webkit.org/show_bug.cgi?id=193077
-                promise = loadAndEvaluateModule(globalObject->globalExec(), makeSource(stringFromUTF(scriptBuffer), SourceOrigin { absolutePath(fileName) }, URL({ }, fileName), TextPosition(), SourceProviderSourceType::Module), jsUndefined());
+                promise = loadAndEvaluateModule(globalObject->globalExec(), jscSource(stringFromUTF(scriptBuffer), SourceOrigin { absolutePath(fileName) }, URL({ }, fileName), TextPosition(), SourceProviderSourceType::Module), jsUndefined());
             }
             scope.clearException();
 
@@ -2507,7 +2684,7 @@ static void runInteractive(GlobalObject* globalObject)
                 break;
             source = source + String::fromUTF8(line);
             source = source + '\n';
-            checkSyntax(vm, makeSource(source, sourceOrigin), error);
+            checkSyntax(vm, jscSource(source, sourceOrigin), error);
             if (!line[0]) {
                 free(line);
                 break;
@@ -2523,7 +2700,7 @@ static void runInteractive(GlobalObject* globalObject)
         
         
         NakedPtr<Exception> evaluationException;
-        JSValue returnValue = evaluate(globalObject->globalExec(), makeSource(source, sourceOrigin), JSValue(), evaluationException);
+        JSValue returnValue = evaluate(globalObject->globalExec(), jscSource(source, sourceOrigin), JSValue(), evaluationException);
 #else
         printf("%s", interactivePrompt);
         Vector<char, 256> line;
@@ -2577,6 +2754,7 @@ static NO_RETURN void printUsageStatement(bool help = false)
     fprintf(stderr, "  --options                  Dumps all JSC VM options and exits\n");
     fprintf(stderr, "  --dumpOptions              Dumps all non-default JSC VM options before continuing\n");
     fprintf(stderr, "  --<jsc VM option>=<value>  Sets the specified JSC VM option\n");
+    fprintf(stderr, "  --destroy-vm               Destroy VM before exiting\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Files with a .mjs extension will always be evaluated as modules.\n");
     fprintf(stderr, "\n");
@@ -2683,6 +2861,10 @@ void CommandLine::parseArguments(int argc, char** argv)
             JSC::Options::useSamplingProfiler() = true;
             JSC::Options::collectSamplingProfilerDataForJSCShell() = true;
             m_dumpSamplingProfilerData = true;
+            continue;
+        }
+        if (!strcmp(arg, "--destroy-vm")) {
+            m_destroyVM = true;
             continue;
         }
 
@@ -2856,7 +3038,9 @@ int runJSC(const CommandLine& options, bool isWorker, const Func& func)
 #endif
     }
 
-    if (isWorker) {
+    vm.codeCache()->write(vm);
+
+    if (options.m_destroyVM || isWorker) {
         JSLockHolder locker(vm);
         // This is needed because we don't want the worker's main
         // thread to die before its compilation threads finish.
@@ -2938,7 +3122,7 @@ int jscmain(int argc, char** argv)
     if (options.m_dumpMemoryFootprint) {
         MemoryFootprint footprint = MemoryFootprint::now();
 
-        printf("Memory Footprint:\n    Current Footprint: %llu\n    Peak Footprint: %llu\n", footprint.current, footprint.peak);
+        printf("Memory Footprint:\n    Current Footprint: %" PRIu64 "\n    Peak Footprint: %" PRIu64 "\n", footprint.current, footprint.peak);
     }
 
     return result;

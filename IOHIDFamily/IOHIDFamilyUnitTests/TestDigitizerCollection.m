@@ -10,7 +10,7 @@
 #include "IOHIDUnitTestUtility.h"
 #import  "IOHIDEventSystemTestController.h"
 #import  "IOHIDUserDeviceTestController.h"
-
+#import  "IOHIDEventDriverTestCase.h"
 
 #define FINGER_COLLECTION \
     0x09, 0x22,                               /*   Usage (Finger)                                           */\
@@ -83,7 +83,6 @@ static uint8_t descriptor[] = {
 
 #define kDigitizerReportByteLength 48
 
-
 uint8_t reports [][kDigitizerReportByteLength] = {
 {0x32, 0xe1, 0x40, 0x3f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x90, 0xde, 0x34, 0x51, 0xc9, 0x01, 0x00, 0x00},
 {0x32, 0xe1, 0x40, 0x3f, 0x35, 0xbd, 0x37, 0x3f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfa, 0x5c, 0x47, 0x51, 0xc9, 0x01, 0x00, 0x00}, 
@@ -104,74 +103,66 @@ uint8_t reports [][kDigitizerReportByteLength] = {
 };
 
 
-@interface TestDigitizerCollection : XCTestCase
+@interface TestDigitizerCollection : IOHIDEventDriverTestCase
 
-@property IOHIDEventSystemTestController *  eventController;
-@property IOHIDUserDeviceTestController *   sourceController;
-@property dispatch_queue_t                  eventControllerQueue;
-@property dispatch_queue_t                  rootQueue;
+@property XCTestExpectation                 * testEventExpectation;
 
 @end
 
 @implementation TestDigitizerCollection
 
 - (void)setUp {
+
+    self.testEventExpectation = [[XCTestExpectation alloc] initWithDescription:@"Expectation: events"];
+    
+    self.testEventExpectation.expectedFulfillmentCount = sizeof(reports) / kDigitizerReportByteLength;
+    
+    self.hidDeviceDescriptor = [NSData dataWithBytes:descriptor length:sizeof(descriptor)];
+
     [super setUp];
-
-    self.rootQueue = IOHIDUnitTestCreateRootQueue(31, 2);
-  
-    self.eventControllerQueue = dispatch_queue_create_with_target ("IOHIDEventSystemTestController", DISPATCH_QUEUE_SERIAL, self.rootQueue);
-    HIDXCTAssertAndThrowTrue(self.eventControllerQueue != nil);
-  
-    NSData * descriptorData = [[NSData alloc] initWithBytes:descriptor length:sizeof(descriptor)];
-    NSString * uniqueID = [[[NSUUID alloc] init] UUIDString];
-  
-    self.sourceController = [[IOHIDUserDeviceTestController alloc] initWithDescriptor:descriptorData DeviceUniqueID:uniqueID andQueue:nil];
-    HIDXCTAssertAndThrowTrue(self.sourceController != nil);
-
-    self.eventController = [[IOHIDEventSystemTestController alloc] initWithDeviceUniqueID:uniqueID AndQueue:self.eventControllerQueue];
-    HIDXCTAssertAndThrowTrue(self.sourceController != nil);
-
 }
 
 - (void)tearDown {
   
-    [self.eventController  invalidate];
-    [self.sourceController invalidate];
-    
-    @autoreleasepool {
-        self.eventController  = nil;
-        self.sourceController = nil;
-    }
     [super tearDown];
 }
 
 - (void)testDigitizerCollection {
+
     IOReturn status;
+
+    XCTWaiterResult result;
+
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, self.eventSystem != NULL);
+    
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, self.userDevice != NULL, "User device description: %@", self.userDeviceDescription);
+    
+    result = [XCTWaiter waitForExpectations:@[self.testServiceExpectation] timeout:10];
+    HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_IOREG,
+                                result == XCTWaiterResultCompleted,
+                                "result:%d %@",
+                                (int)result,
+                                self.testServiceExpectation);
+
+    
     for (NSUInteger index = 0; index < sizeof(reports) / kDigitizerReportByteLength; index++) {
-        NSData * reportData =  [[NSData alloc] initWithBytes:&reports[index][0] length: kDigitizerReportByteLength];
-        status = [self.sourceController handleReport:reportData withInterval:2000];
-        XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
+        status = IOHIDUserDeviceHandleReport(self.userDevice, (uint8_t *)&(reports[index][0]), kDigitizerReportByteLength);
+        HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_HIDUTIL | COLLECT_IOREG | COLLECT_LOGARCHIVE,
+                                    status == kIOReturnSuccess,
+                                    "IOHIDUserDeviceHandleReport:0x%x",
+                                    status);
     }
-     // Allow event to be dispatched
-    usleep(kDefaultReportDispatchCompletionTime);
-  
-    // Check if event system reset occur
-    XCTAssert(self.eventController.eventSystemResetCount == 0, "IOHIDEventSystem resetCount:%d", (int)self.eventController.eventSystemResetCount);
- 
-    // Make copy
-    NSArray *events = nil;
-    @synchronized (self.eventController.events) {
-        events = [self.eventController.events copy];
-    }
-  
-    EVENTS_STATS stats =  [IOHIDEventSystemTestController getEventsStats:events];
 
-    XCTAssertTrue(stats.totalCount == (sizeof(reports) / kDigitizerReportByteLength),
-        "events count:%lu expected:%lu", (unsigned long)stats.totalCount, (sizeof(reports) / kDigitizerReportByteLength));
+    result = [XCTWaiter waitForExpectations:@[self.testEventExpectation] timeout:10];
+    HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_IOREG,
+                                result == XCTWaiterResultCompleted,
+                                "result:%d %@",
+                                (int)result,
+                                self.testEventExpectation);
 
-    HIDTestEventLatency(stats);
-  
+    
+    NSArray *events = self.events;
+    
     NSInteger touchState [11];
     memset (touchState, 0, sizeof(touchState));
     for (NSUInteger eventIndex = 0 ; eventIndex < events.count ; ++eventIndex) {
@@ -196,5 +187,26 @@ uint8_t reports [][kDigitizerReportByteLength] = {
     }
 }
 
+-(void) handleEvent: (IOHIDEventRef) event fromService:(IOHIDServiceClientRef __unused) service
+{
+    NSLog(@"Event:%@", event);
+    
+    [super handleEvent:event fromService:service];
+    
+    if (IOHIDEventGetType(event) == kIOHIDEventTypeDigitizer) {
+        [self.testEventExpectation fulfill];
+    }
+}
+
+-(NSDictionary *)  userDeviceDescription
+{
+    NSDictionary * description = [super userDeviceDescription];
+    
+    NSMutableDictionary * newDescription = [[NSMutableDictionary alloc] initWithDictionary:description];
+    
+    newDescription[@"Hidden"] = @(YES);
+    
+    return newDescription;
+}
 
 @end

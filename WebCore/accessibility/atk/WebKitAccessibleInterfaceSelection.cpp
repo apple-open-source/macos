@@ -31,14 +31,14 @@
 #include "config.h"
 #include "WebKitAccessibleInterfaceSelection.h"
 
-#if HAVE(ACCESSIBILITY)
+#if ENABLE(ACCESSIBILITY)
 
 #include "AccessibilityListBox.h"
 #include "AccessibilityObject.h"
 #include "HTMLSelectElement.h"
 #include "RenderObject.h"
+#include "WebKitAccessible.h"
 #include "WebKitAccessibleUtil.h"
-#include "WebKitAccessibleWrapperAtk.h"
 
 using namespace WebCore;
 
@@ -47,13 +47,11 @@ static AccessibilityObject* core(AtkSelection* selection)
     if (!WEBKIT_IS_ACCESSIBLE(selection))
         return nullptr;
 
-    return webkitAccessibleGetAccessibilityObject(WEBKIT_ACCESSIBLE(selection));
+    return &webkitAccessibleGetAccessibilityObject(WEBKIT_ACCESSIBLE(selection));
 }
 
-static AccessibilityObject* listObjectForSelection(AtkSelection* selection)
+static AccessibilityObject* listObjectForCoreSelection(AccessibilityObject* coreSelection)
 {
-    AccessibilityObject* coreSelection = core(selection);
-
     // Only list boxes and menu lists supported so far.
     if (!coreSelection->isListBox() && !coreSelection->isMenuList())
         return nullptr;
@@ -83,7 +81,7 @@ static AccessibilityObject* optionFromList(AtkSelection* selection, gint index)
         return nullptr;
 
     // Need to select the proper list object depending on the type.
-    AccessibilityObject* listObject = listObjectForSelection(selection);
+    AccessibilityObject* listObject = listObjectForCoreSelection(coreSelection);
     if (!listObject)
         return nullptr;
 
@@ -158,9 +156,9 @@ static AtkObject* webkitAccessibleSelectionRefSelection(AtkSelection* selection,
 
     AccessibilityObject* option = optionFromSelection(selection, index);
     if (option) {
-        AtkObject* child = option->wrapper();
+        auto* child = option->wrapper();
         g_object_ref(child);
-        return child;
+        return ATK_OBJECT(child);
     }
 
     return nullptr;

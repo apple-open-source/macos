@@ -23,10 +23,10 @@
 
 // #define COMMON_BIGNUM_FUNCTIONS
 
+#include <stdlib.h>
 #include <CommonCrypto/CommonBigNum.h>
 #include "CommonBigNumPriv.h"
 #include <CommonCrypto/CommonRandomSPI.h>
-#include "ccMemory.h"
 #include "ccdebug.h"
 #include <corecrypto/ccz.h>
 #include <corecrypto/ccn.h> /* For ccn_sizeof(). */

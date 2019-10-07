@@ -1,6 +1,8 @@
 PROJECT := Libc
 TEST_DIR := tests/
 
+CUSTOM_TARGETS += osvariantutil
+
 ifeq ($(DEVELOPER_DIR),)
     DEVELOPER_DIR := $(shell xcode-select -p)
 endif
@@ -11,14 +13,15 @@ ifeq ($(PLATFORM),BridgeOS)
 EXCLUDED_SOURCES += locale.c
 endif
 
+FRAMEWORK_CFLAGS := $(patsubst %,-iframework %,$(SYSTEM_FRAMEWORK_SEARCH_PATHS))
 WARNING_CFLAGS := -Weverything \
 	-Wno-vla -Wno-missing-field-initializers -Wno-padded \
 	-Wno-gnu-flexible-array-initializer -Wno-gnu-empty-initializer \
 	-Wno-partial-availability -Wno-used-but-marked-unused \
 	-Wno-reserved-id-macro -fmacro-backtrace-limit=0 \
-	-Wno-c++98-compat
-OTHER_CFLAGS := -DDARWINTEST --std=gnu11 $(WARNING_CFLAGS)
-OTHER_LDFLAGS := -ldarwintest_utils
+	-Wno-c++98-compat -Wno-extra-semi -Wno-language-extension-token
+OTHER_CFLAGS := -DDARWINTEST --std=gnu11 $(FRAMEWORK_CFLAGS) $(WARNING_CFLAGS)
+DT_LDFLAGS += -ldarwintest_utils
 ASAN_DYLIB_PATH := /usr/local/lib/sanitizers/
 
 nxheap: OTHER_CFLAGS += -Wno-cast-align
@@ -37,5 +40,15 @@ EXCLUDED_SOURCES += qsort_perf.c
 endif
 os_variant: OTHER_CFLAGS += -DOS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE
 
+osvariantutil: OTHER_CFLAGS += -Wno-gnu-statement-expression -Wno-covered-switch-default -DOS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE
+
 include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.targets
 
+OSVARIANTUTIL_INSTALLDIR = $(DSTROOT)/usr/local/bin
+
+install-osvariantutil: osvariantutil
+	mkdir -p $(OSVARIANTUTIL_INSTALLDIR)
+	cp $(SYMROOT)/osvariantutil $(OSVARIANTUTIL_INSTALLDIR)/
+ifeq ($(DWARF_DSYM_FILE_SHOULD_ACCOMPANY_PRODUCT),YES)
+	cp $(SYMROOT)/osvariantutil.dSYM $(OSVARIANTUTIL_INSTALLDIR)/
+endif

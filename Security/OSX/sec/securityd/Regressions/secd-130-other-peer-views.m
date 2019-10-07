@@ -19,7 +19,7 @@
 
 #include "SOSAccountTesting.h"
 
-#include <Security/SecureObjectSync/SOSAccount.h>
+#include "keychain/SecureObjectSync/SOSAccount.h"
 
 #define kAccountPasswordString ((uint8_t*) "FooFooFoo")
 #define kAccountPasswordStringLen 10
@@ -31,6 +31,9 @@ static void tests(void) {
     CFDataRef cfpassword = CFDataCreate(NULL, kAccountPasswordString, kAccountPasswordStringLen);
     CFStringRef cfaccount = CFSTR("test@test.org");
     CFMutableDictionaryRef cfchanges = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+    CFSetRef initialSyncViews = SOSViewCopyViewSet(kViewSetInitial);
+    int initialSyncViewCount = (int) CFSetGetCount(initialSyncViews);
+    CFReleaseNull(initialSyncViews);
 
     SOSAccount* alice_account = CreateAccountForLocalChanges(CFSTR("Alice"), CFSTR("TestSource"));
     SOSAccount* bob_account = CreateAccountForLocalChanges(CFSTR("Bob"), CFSTR("TestSource"));
@@ -111,7 +114,8 @@ static void tests(void) {
     SOSAccountPeerGotInSync_wTxn(carole_account, alice_account.peerInfo);
     SOSAccountPeerGotInSync_wTxn(david_account, alice_account.peerInfo);
 
-    is(ProcessChangesUntilNoChange(cfchanges, alice_account, bob_account, carole_account, david_account, NULL), 4, "updates");
+    int changeCount = (initialSyncViewCount) ? 4 : 1;
+    is(ProcessChangesUntilNoChange(cfchanges, alice_account, bob_account, carole_account, david_account, NULL), changeCount, "updates");
 
     is(SOSAccountPeersHaveViewsEnabled(alice_account, aView, &error), kCFBooleanTrue, "Peer views empty (%@)", error);
     CFReleaseNull(error);
@@ -164,10 +168,10 @@ static void tests(void) {
 
 int secd_130_other_peer_views(int argc, char *const *argv)
 {
-    plan_tests(107);
+    plan_tests(72);
 
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-
+    secd_test_clear_testviews();
     tests();
 
     return 0;

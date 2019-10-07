@@ -132,7 +132,7 @@ ast{
         GU{"Guam"}
         GW{"Guinea-Bisáu"}
         GY{"Guyana"}
-        HK{"ARE China de Ḥong Kong"}
+        HK{"Ḥong Kong"}
         HM{"Islles Heard y McDonald"}
         HN{"Hondures"}
         HR{"Croacia"}
@@ -186,7 +186,7 @@ ast{
         ML{"Malí"}
         MM{"Myanmar (Birmania)"}
         MN{"Mongolia"}
-        MO{"ARE China de Macáu"}
+        MO{"Macáu"}
         MP{"Islles Marianes del Norte"}
         MQ{"La Martinica"}
         MR{"Mauritania"}
@@ -296,8 +296,6 @@ ast{
     }
     Countries%short{
         GB{"RX"}
-        HK{"Ḥong Kong"}
-        MO{"Macáu"}
         PS{"Palestina"}
         US{"EE.XX."}
     }
@@ -310,5 +308,5 @@ ast{
         MK{"Macedonia (ARYDM)"}
         TL{"Timor Este"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.47.82"}
 }

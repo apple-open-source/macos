@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_DECL_INCOMPLETE.circular.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * A circular definition of unions (two unions defining each other as

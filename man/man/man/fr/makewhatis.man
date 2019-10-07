@@ -24,39 +24,39 @@
 .\" 
 .TH MAKEWHATIS 8 "19 septembre 2005"
 .SH NOM
-makewhatis \- CrÃ©e la base de donnÃ©es whatis
+makewhatis \- Crée la base de données whatis
 .SH SYNOPSIS
 .BI "makewhatis [-u] [-v] [-w] [-s " sections " ] [-c [" catpath "]] [" manpath "]"
 .SH DESCRIPTION
 .B makewhatis
 lit toutes les pages de manuels contenues dans les sections
 .I sections
-du rÃ©pertoire
+du répertoire
 . I manpath
-ou les pages prÃ©formatÃ©es contenues dans les sections
+ou les pages préformatées contenues dans les sections
 .I sections
-du rÃ©pertoire
+du répertoire
 .IR catpath .
 Pour chacune des pages,
 .B makewhatis
-Ã©crit une ligne dans la base de donnÃ©es whatis\ ; chaque ligne est constituÃ©e
-du nom de la page de manuel et d'une courte description de celle-ci, sÃ©parÃ©s
+écrit une ligne dans la base de données whatis\ ; chaque ligne est constituée
+du nom de la page de manuel et d'une courte description de celle-ci, séparés
 par un trait. La description est extraite du contenu de la section NAME de la
 page de manuel.
 .LP
-Du fait que d'autres langues utilisent un terme diffÃ©rent pour la section NAME,
+Du fait que d'autres langues utilisent un terme différent pour la section NAME,
 .B makewhatis
-reconnaÃ®t les termes Ã©quivalents en allemand, espagnol, finnois, franÃ§ais,
-italien et tchÃ¨que.
+reconnaît les termes équivalents en allemand, espagnol, finnois, français,
+italien et tchèque.
 .LP
 Si aucun argument
 .I manpath
-n'est fourni, la valeur par dÃ©faut est
+n'est fourni, la valeur par défaut est
 .IR /usr/man .
 .SH OPTIONS
 .TP
 .B -u
-Mettre Ã  jour la base de donnÃ©es avec de nouvelles pages.
+Mettre à jour la base de données avec de nouvelles pages.
 .TP
 .B -v
 Sortie bavarde.
@@ -64,7 +64,7 @@ Sortie bavarde.
 .B -w
 Utiliser le chemin de recherche
 .I manpath
-obtenu par la commande Â«\ man --path\ Â».
+obtenu par la commande «\ man --path\ ».
 .TP 
 .BI -s " sections"
 Chercher dans les sections
@@ -75,29 +75,29 @@ Si cette option est absente, sa valeur est
 .IR  " " \' "1 2 3 4 5 6 7 8 9 n l"\'
 .TP 
 .BI -c " catpath"
-Les pages prÃ©formatÃ©es de manuel situÃ©es dans
+Les pages préformatées de manuel situées dans
 .I catpath
-sont scrutÃ©es. Si l'argument n'est pas fourni, il est supposÃ© Ãªtre le premier
-des deux rÃ©pertoires existant entre
+sont scrutées. Si l'argument n'est pas fourni, il est supposé être le premier
+des deux répertoires existant entre
 .IR /usr/man/preformat " et " /usr/man .
 .SH EXEMPLES
 .PP
-Pour reconstruire seulement les bases de donnÃ©es
+Pour reconstruire seulement les bases de données
 .IR /usr/X11R6/man/whatis " et " /usr/local/man/whatis
 .IP 
 makewhatis /usr/X11R6/man /usr/local/man
 .PP
-Pour reconstruire toutes les bases de donnÃ©es en incluant les traductions
-finnoise, franÃ§aise et italienne
+Pour reconstruire toutes les bases de données en incluant les traductions
+finnoise, française et italienne
 .IP
 LANGUAGE=fi:fr:it makewhatis -w
 .SH BOGUES
 .B makewhatis
-peut ne pas trÃ¨s bien gÃ©rer les pages de manuels qui ont Ã©tÃ© Ã©crites avec
+peut ne pas très bien gérer les pages de manuels qui ont été écrites avec
 des macros troff non standard, comme les pages Tcl/Tk.
 .PP
 .B makewhatis
-ne fonctionne pas avec les traductions prÃ©formatÃ©es.
+ne fonctionne pas avec les traductions préformatées.
 
 .SH AUTEUR
 John W. Eaton est l'auteur historique de
@@ -111,13 +111,13 @@ Federico Lucifredi <flucifredi@acm.org> en assure aujourd'hui la maintenance.
 
 .SH TRADUCTION
 .PP
-Ce document est une traduction rÃ©alisÃ©e par Alain Portal
-<aportal AT univ-montp2 DOT fr> le 1er juin 2005 et mise Ã  jour
+Ce document est une traduction réalisée par Alain Portal
+<aportal AT univ-montp2 DOT fr> le 1er juin 2005 et mise à jour
 le 7 novembre 2005.
 .PP
-L'Ã©quipe de traduction a fait le maximum pour rÃ©aliser une adaptation
-franÃ§aise de qualitÃ©. La version anglaise la plus Ã  jour de ce document est
-toujours consultable via la commande\ : Â«\ \fBLANG=en\ man\ 8\ makewhatis\fR\ Â».
-N'hÃ©sitez pas Ã  signaler Ã  l'auteur ou au traducteur, selon le cas, toute
+L'équipe de traduction a fait le maximum pour réaliser une adaptation
+française de qualité. La version anglaise la plus à jour de ce document est
+toujours consultable via la commande\ : «\ \fBLANG=en\ man\ 8\ makewhatis\fR\ ».
+N'hésitez pas à signaler à l'auteur ou au traducteur, selon le cas, toute
 erreur dans cette page de manuel.
 

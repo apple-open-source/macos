@@ -13,6 +13,7 @@
         "cdhash",
         "platform",
         "notarized",
+        "legacy",
         "anchor",
         "apple",
         "generic",

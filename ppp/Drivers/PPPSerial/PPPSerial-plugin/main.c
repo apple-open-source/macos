@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -105,9 +105,9 @@
 /* -----------------------------------------------------------------------------
  Forward declarations
 ----------------------------------------------------------------------------- */
-void serial_check_options();
+void serial_check_options(void);
 int serial_connect(int *errorcode);
-void serial_process_extra_options();
+void serial_process_extra_options(void);
 void serial_connect_notifier(void *param, uintptr_t code);
 void serial_lcpdown_notifier(void *param, uintptr_t code);
 int serial_terminal_window(char *script, int infd, int outfd);
@@ -333,7 +333,7 @@ CFDataRef Serialize(CFPropertyListRef obj, void **data, u_int32_t *dataLen)
     xml = CFPropertyListCreateXMLData(NULL, obj);
     if (xml) {
         *data = (void*)CFDataGetBytePtr(xml);
-        *dataLen = CFDataGetLength(xml);
+        *dataLen = (u_int32_t)CFDataGetLength(xml);
     }
     return xml;
 }
@@ -713,7 +713,7 @@ static int start_listen (char *filestr)
     addr.sun_family = AF_LOCAL;
     strlcpy(addr.sun_path, filestr, sizeof(addr.sun_path));
     mask = umask(0);
-    err = bind(s, (struct sockaddr *)&addr, SUN_LEN(&addr));
+    err = bind(s, (struct sockaddr *)&addr, (socklen_t)SUN_LEN(&addr));
     umask(mask);
     if (err) 
         goto fail;
@@ -880,7 +880,7 @@ static int wait_accept(int fd)
 ----------------------------------------------------------------------------- */
 static int readn(int ref, void *data, int len)
 {
-    int 	n, left = len;
+    ssize_t n, left = len;
     void 	*p = data;
     
     while (left > 0) {
@@ -897,7 +897,7 @@ static int readn(int ref, void *data, int len)
         left -= n;
         p += n;
     }
-    return (len - left);
+    return (int)(len - left);
 }        
 
 /* -----------------------------------------------------------------------------
@@ -958,7 +958,7 @@ modemdict(argv)
 {
     CFDataRef          	xml;
     CFStringRef        	xmlError;
-	u_int32_t			len;
+	size_t				len;
     char *				ptr;
 
     len = strtoul(argv[0], &ptr, 0);

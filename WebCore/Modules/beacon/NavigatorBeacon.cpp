@@ -32,6 +32,7 @@
 #include "Frame.h"
 #include "HTTPParsers.h"
 #include "Navigator.h"
+#include "Page.h"
 #include <wtf/URL.h>
 
 namespace WebCore {
@@ -120,11 +121,14 @@ ExceptionOr<bool> NavigatorBeacon::sendBeacon(Document& document, const String& 
 
     ResourceRequest request(parsedUrl);
     request.setHTTPMethod("POST"_s);
+    request.setPriority(ResourceLoadPriority::VeryLow);
 
-    FetchOptions options;
+    ResourceLoaderOptions options;
     options.credentials = FetchOptions::Credentials::Include;
     options.cache = FetchOptions::Cache::NoCache;
     options.keepAlive = true;
+    options.sendLoadCallbacks = SendCallbackPolicy::SendCallbacks;
+
     if (body) {
         options.mode = FetchOptions::Mode::Cors;
         String mimeType;

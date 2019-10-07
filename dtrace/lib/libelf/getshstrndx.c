@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)getshstrndx.c	1.2	05/06/08 SMI"
-
 #include <string.h>
 #include <gelf.h>
 #include <decl.h>

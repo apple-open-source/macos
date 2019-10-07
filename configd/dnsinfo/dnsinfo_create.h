@@ -41,11 +41,13 @@
 typedef const struct __dns_create_config *      dns_create_config_t;
 typedef const struct __dns_create_resolver *    dns_create_resolver_t;
 
-#if	!TARGET_OS_IPHONE
 #ifndef _PATH_RESOLVER_DIR
+#if	TARGET_OS_OSX
 #define _PATH_RESOLVER_DIR "/etc/resolver"
+#else
+#define _PATH_RESOLVER_DIR "/Library/Preferences/SystemConfiguration/resolver"
 #endif
-#endif	/* !TARGET_OS_IPHONE */
+#endif
 
 __BEGIN_DECLS
 
@@ -62,7 +64,7 @@ _dns_configuration_add_resolver (dns_create_config_t	*_config,
 void
 _dns_configuration_signature	(dns_create_config_t	*_config,
 				 unsigned char		*signature,
-				 size_t			signature_len)		API_AVAILABLE(macos(10.7), ios(5.0));	// signature_len >= CC_SHA1_DIGEST_LENGTH
+				 size_t			signature_len)		API_AVAILABLE(macos(10.7), ios(5.0));	// signature_len >= CC_SHA256_DIGEST_LENGTH
 
 void
 _dns_configuration_free		(dns_create_config_t	*_config)		API_AVAILABLE(macos(10.4), ios(2.0));
@@ -127,16 +129,14 @@ _dns_resolver_set_service_identifier
 void
 _dns_resolver_free		(dns_create_resolver_t	*_resolver)		API_AVAILABLE(macos(10.4), ios(2.0));
 
-#if	!TARGET_OS_IPHONE
 /*
  * DNS [resolver] flat-file configuration creation APIs
  */
 void
-_dnsinfo_flatfile_add_resolvers	(dns_create_config_t	*config)		API_AVAILABLE(macos(10.6)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
+_dnsinfo_flatfile_add_resolvers	(dns_create_config_t	*config)		API_AVAILABLE(macos(10.6)) SPI_AVAILABLE(ios(10.15), tvos(13.0), watchos(6.0), bridgeos(6.0));
 
 void
-_dnsinfo_flatfile_set_flags	(uint32_t		flags)			API_AVAILABLE(macos(10.9)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
-#endif	// !TARGET_OS_IPHONE
+_dnsinfo_flatfile_set_flags	(uint32_t		flags)			API_AVAILABLE(macos(10.9)) SPI_AVAILABLE(ios(10.15), tvos(13.0), watchos(6.0), bridgeos(6.0));
 
 __END_DECLS
 

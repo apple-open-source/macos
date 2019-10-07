@@ -1,6 +1,7 @@
 CC = @CC@
 CFLAGS += -Wall -Wstrict-prototypes -Wmissing-prototypes
 OBJECTS = man2html.o cgibase.o abbrev.o strdefs.o
+EXEEXT = @EXEEXT@
 bindir = $(DESTDIR)$(PREFIX)/usr/bin
 mandir = $(DESTDIR)$(PREFIX)@mandir@
 vardir = $(DESTDIR)$(PREFIX)/var
@@ -8,16 +9,17 @@ httpdir = $(DESTDIR)$(PREFIX)/home/httpd
 cgiowner = nobody
 cgigroup = nobody
 
-all: man2html hman
+all: man2html$(EXEEXT) hman
 
-man2html:	$(OBJECTS)
-	$(CC) $(LDFLAGS) -o man2html $(OBJECTS)
+man2html$(EXEEXT):	$(OBJECTS)
+	$(CC) $(LDFLAGS) -o man2html$(EXEEXT) $(OBJECTS)
 
 # man2html:	../src/version.h
 
 # This installs the man2html utility
-install:	man2html
-	install -m 755 man2html $(bindir)
+install:	man2html$(EXEEXT)
+	mkdir -p $(bindir)
+	install -m 755 man2html$(EXEEXT) $(bindir)
 	mkdir -p $(mandir)/man1
 	install -m 644 man2html.1 $(mandir)/man1/man2html.@man1ext@
 
@@ -56,7 +58,7 @@ install-hman: hman
 	install -m 644 hman.1 $(mandir)/man1/hman.@man1ext@
 
 clean:
-	rm -f core hman man2html $(OBJECTS) *~
+	rm -f core hman man2html$(EXEEXT) $(OBJECTS) *~
 
 spotless:	clean
 	rm -f Makefile

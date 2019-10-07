@@ -2,6 +2,8 @@
 Bug #73631 (Memory leak due to invalid wddx stack processing)
 --SKIPIF--
 <?php if (!extension_loaded("wddx")) print "skip"; ?>
+---XFAIL--
+Still has memory leaks in debug build.
 --FILE--
 <?php
 $xml = <<<EOF
@@ -14,5 +16,5 @@ EOF;
 $wddx = wddx_deserialize($xml);
 var_dump($wddx);
 ?>
---EXPECTF--
+--EXPECT--
 int(1234)

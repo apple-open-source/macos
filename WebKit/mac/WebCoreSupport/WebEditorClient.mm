@@ -125,7 +125,7 @@ static WebViewInsertAction kit(EditorInsertAction action)
     RefPtr<UndoStep> m_step;   
 }
 
-+ (WebUndoStep *)stepWithUndoStep:(UndoStep&)step;
++ (WebUndoStep *)stepWithUndoStep:(Ref<UndoStep>&&)step;
 - (UndoStep&)step;
 
 @end
@@ -141,12 +141,12 @@ static WebViewInsertAction kit(EditorInsertAction action)
 #endif
 }
 
-- (id)initWithUndoStep:(UndoStep&)step
+- (id)initWithUndoStep:(Ref<UndoStep>&&)step
 {
     self = [super init];
     if (!self)
         return nil;
-    m_step = &step;
+    m_step = WTFMove(step);
     return self;
 }
 
@@ -158,9 +158,9 @@ static WebViewInsertAction kit(EditorInsertAction action)
     [super dealloc];
 }
 
-+ (WebUndoStep *)stepWithUndoStep:(UndoStep&)step
++ (WebUndoStep *)stepWithUndoStep:(Ref<UndoStep>&&)step
 {
-    return [[[WebUndoStep alloc] initWithUndoStep:step] autorelease];
+    return [[[WebUndoStep alloc] initWithUndoStep:WTFMove(step)] autorelease];
 }
 
 - (UndoStep&)step
@@ -419,12 +419,6 @@ void WebEditorClient::getClientPasteboardDataForRange(WebCore::Range*, Vector<St
     // Not implemented WebKit, only WebKit2.
 }
 
-String WebEditorClient::replacementURLForResource(Ref<SharedBuffer>&&, const String&)
-{
-    // Not implemented in WebKitLegacy.
-    return { };
-}
-
 #if (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300)
 
 // FIXME: Remove both this stub and the real version of this function below once we don't need the real version on any supported platform.
@@ -601,9 +595,8 @@ void WebEditorClient::registerUndoOrRedoStep(UndoStep& step, bool isRedo)
         return;
 #endif
 
-    NSString *actionName = WebCore::nameForUndoRedo(step.editingAction());
-    WebUndoStep *webEntry = [WebUndoStep stepWithUndoStep:step];
-    [undoManager registerUndoWithTarget:m_undoTarget.get() selector:(isRedo ? @selector(redoEditing:) : @selector(undoEditing:)) object:webEntry];
+    NSString *actionName = step.label();
+    [undoManager registerUndoWithTarget:m_undoTarget.get() selector:(isRedo ? @selector(redoEditing:) : @selector(undoEditing:)) object:[WebUndoStep stepWithUndoStep:step]];
     if (actionName)
         [undoManager setActionName:actionName];
     m_haveUndoRedoOperations = YES;
@@ -629,14 +622,14 @@ void WebEditorClient::updateEditorStateAfterLayoutIfEditabilityChanged()
         [m_webView updateTouchBar];
 }
 
-void WebEditorClient::registerUndoStep(UndoStep& cmd)
+void WebEditorClient::registerUndoStep(UndoStep& command)
 {
-    registerUndoOrRedoStep(cmd, false);
+    registerUndoOrRedoStep(command, false);
 }
 
-void WebEditorClient::registerRedoStep(UndoStep& cmd)
+void WebEditorClient::registerRedoStep(UndoStep& command)
 {
-    registerUndoOrRedoStep(cmd, true);
+    registerUndoOrRedoStep(command, true);
 }
 
 void WebEditorClient::clearUndoRedoOperations()
@@ -691,28 +684,28 @@ void WebEditorClient::redo()
         [[m_webView undoManager] redo];    
 }
 
-void WebEditorClient::handleKeyboardEvent(KeyboardEvent* event)
+void WebEditorClient::handleKeyboardEvent(KeyboardEvent& event)
 {
-    auto* frame = downcast<Node>(event->target())->document().frame();
+    auto* frame = downcast<Node>(event.target())->document().frame();
 #if !PLATFORM(IOS_FAMILY)
     WebHTMLView *webHTMLView = (WebHTMLView *)[[kit(frame) frameView] documentView];
-    if ([webHTMLView _interpretKeyEvent:event savingCommands:NO])
-        event->setDefaultHandled();
+    if ([webHTMLView _interpretKeyEvent:&event savingCommands:NO])
+        event.setDefaultHandled();
 #else
     WebHTMLView *webHTMLView = (WebHTMLView *)[[kit(frame) frameView] documentView];
-    if ([webHTMLView _handleEditingKeyEvent:event])
-        event->setDefaultHandled();
+    if ([webHTMLView _handleEditingKeyEvent:&event])
+        event.setDefaultHandled();
 #endif
 }
 
-void WebEditorClient::handleInputMethodKeydown(KeyboardEvent* event)
+void WebEditorClient::handleInputMethodKeydown(KeyboardEvent& event)
 {
 #if !PLATFORM(IOS_FAMILY)
     // FIXME: Switch to WebKit2 model, interpreting the event before it's sent down to WebCore.
-    auto* frame = downcast<Node>(event->target())->document().frame();
+    auto* frame = downcast<Node>(event.target())->document().frame();
     WebHTMLView *webHTMLView = (WebHTMLView *)[[kit(frame) frameView] documentView];
-    if ([webHTMLView _interpretKeyEvent:event savingCommands:YES])
-        event->setDefaultHandled();
+    if ([webHTMLView _interpretKeyEvent:&event savingCommands:YES])
+        event.setDefaultHandled();
 #else
     // iOS does not use input manager this way
 #endif
@@ -1032,21 +1025,16 @@ static Vector<TextCheckingResult> core(NSArray *incomingResults, OptionSet<TextC
     return results;
 }
 
-#if HAVE(ADVANCED_SPELL_CHECKING)
 static int insertionPointFromCurrentSelection(const VisibleSelection& currentSelection)
 {
     VisiblePosition selectionStart = currentSelection.visibleStart();
     VisiblePosition paragraphStart = startOfParagraph(selectionStart);
     return TextIterator::rangeLength(makeRange(paragraphStart, selectionStart).get());
 }
-#endif
 
 Vector<TextCheckingResult> WebEditorClient::checkTextOfParagraph(StringView string, OptionSet<TextCheckingType> coreCheckingTypes, const VisibleSelection& currentSelection)
 {
-    NSDictionary *options = nil;
-#if HAVE(ADVANCED_SPELL_CHECKING)
-    options = @{ NSTextCheckingInsertionPointKey :  [NSNumber numberWithUnsignedInteger:insertionPointFromCurrentSelection(currentSelection)] };
-#endif
+    NSDictionary *options = @{ NSTextCheckingInsertionPointKey :  [NSNumber numberWithUnsignedInteger:insertionPointFromCurrentSelection(currentSelection)] };
     return core([[NSSpellChecker sharedSpellChecker] checkString:string.createNSStringWithoutCopying().get() range:NSMakeRange(0, string.length()) types:(nsTextCheckingTypes(coreCheckingTypes) | NSTextCheckingTypeOrthography) options:options inSpellDocumentWithTag:spellCheckerDocumentTag() orthography:NULL wordCount:NULL], coreCheckingTypes);
 }
 
@@ -1089,10 +1077,7 @@ void WebEditorClient::getGuessesForWord(const String& word, const String& contex
     NSString* language = nil;
     NSOrthography* orthography = nil;
     NSSpellChecker *checker = [NSSpellChecker sharedSpellChecker];
-    NSDictionary *options = nil;
-#if HAVE(ADVANCED_SPELL_CHECKING)
-    options = @{ NSTextCheckingInsertionPointKey :  [NSNumber numberWithUnsignedInteger:insertionPointFromCurrentSelection(currentSelection)] };
-#endif
+    NSDictionary *options = @{ NSTextCheckingInsertionPointKey :  [NSNumber numberWithUnsignedInteger:insertionPointFromCurrentSelection(currentSelection)] };
     if (context.length()) {
         [checker checkString:context range:NSMakeRange(0, context.length()) types:NSTextCheckingTypeOrthography options:options inSpellDocumentWithTag:spellCheckerDocumentTag() orthography:&orthography wordCount:0];
         language = [checker languageForWordRange:NSMakeRange(0, context.length()) inString:context orthography:orthography];
@@ -1135,7 +1120,6 @@ void WebEditorClient::requestCandidatesForSelection(const VisibleSelection& sele
 
     m_lastSelectionForRequestedCandidates = selection;
 
-#if HAVE(ADVANCED_SPELL_CHECKING)
     VisiblePosition selectionStart = selection.visibleStart();
     VisiblePosition selectionEnd = selection.visibleEnd();
     VisiblePosition paragraphStart = startOfParagraph(selectionStart);
@@ -1155,7 +1139,6 @@ void WebEditorClient::requestCandidatesForSelection(const VisibleSelection& sele
             weakEditor->handleRequestedCandidates(sequenceNumber, candidates);
         });
     }];
-#endif // HAVE(ADVANCED_SPELL_CHECKING)
 }
 
 void WebEditorClient::handleRequestedCandidates(NSInteger sequenceNumber, NSArray<NSTextCheckingResult *> *candidates)
@@ -1267,10 +1250,7 @@ void WebEditorClient::requestCheckingOfString(WebCore::TextCheckingRequest& requ
     int sequence = m_textCheckingRequest->data().sequence();
     NSRange range = NSMakeRange(0, m_textCheckingRequest->data().text().length());
     NSRunLoop* currentLoop = [NSRunLoop currentRunLoop];
-    NSDictionary *options = nil;
-#if HAVE(ADVANCED_SPELL_CHECKING)
-    options = @{ NSTextCheckingInsertionPointKey :  [NSNumber numberWithUnsignedInteger:insertionPointFromCurrentSelection(currentSelection)] };
-#endif
+    NSDictionary *options = @{ NSTextCheckingInsertionPointKey :  [NSNumber numberWithUnsignedInteger:insertionPointFromCurrentSelection(currentSelection)] };
     [[NSSpellChecker sharedSpellChecker] requestCheckingOfString:m_textCheckingRequest->data().text() range:range types:NSTextCheckingAllSystemTypes options:options inSpellDocumentWithTag:0 completionHandler:^(NSInteger, NSArray* results, NSOrthography*, NSInteger) {
             [currentLoop performSelector:@selector(perform) 
                                   target:[[[WebEditorSpellCheckResponder alloc] initWithClient:this sequence:sequence results:results] autorelease]
@@ -1278,3 +1258,12 @@ void WebEditorClient::requestCheckingOfString(WebCore::TextCheckingRequest& requ
         }];
 #endif
 }
+
+#if PLATFORM(IOS_FAMILY)
+bool WebEditorClient::shouldAllowSingleClickToChangeSelection(WebCore::Node& targetNode, const WebCore::VisibleSelection& newSelection) const
+{
+    // The text selection assistant will handle selection in the case where we are already editing the node
+    auto* editableRoot = newSelection.rootEditableElement();
+    return !editableRoot || editableRoot != targetNode.rootEditableElement();
+}
+#endif

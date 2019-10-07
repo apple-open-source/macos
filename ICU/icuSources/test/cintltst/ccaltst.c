@@ -40,10 +40,10 @@ void TestGetTZTransition(void);
 
 void TestGetWindowsTimeZoneID(void);
 void TestGetTimeZoneIDByWindowsID(void);
+void TestJpnCalAddSetNextEra();
 void TestClear(void);
 void TestPersianCalOverflow(void);
 void TestGetDayPeriods(); /* Apple-specific */
-void TestJCalHeiseiNextEra(); /* Apple-specific */
 
 void addCalTest(TestNode** root);
 
@@ -66,10 +66,10 @@ void addCalTest(TestNode** root)
     addTest(root, &TestGetTZTransition, "tsformat/ccaltst/TestGetTZTransition");
     addTest(root, &TestGetWindowsTimeZoneID, "tsformat/ccaltst/TestGetWindowsTimeZoneID");
     addTest(root, &TestGetTimeZoneIDByWindowsID, "tsformat/ccaltst/TestGetTimeZoneIDByWindowsID");
+    addTest(root, &TestJpnCalAddSetNextEra, "tsformat/ccaltst/TestJpnCalAddSetNextEra");
     addTest(root, &TestClear, "tsformat/ccaltst/TestClear");
     addTest(root, &TestPersianCalOverflow, "tsformat/ccaltst/TestPersianCalOverflow");
     addTest(root, &TestGetDayPeriods, "tsformat/ccaltst/TestGetDayPeriods"); /* Apple-specific */
-    addTest(root, &TestJCalHeiseiNextEra, "tsformat/ccaltst/TestJCalHeiseiNextEra"); /* Apple-specific */
 }
 
 /* "GMT" */
@@ -1637,7 +1637,7 @@ static void TestGetKeywordValuesForLocale() {
                 ALLList = ulist_getListFromEnum(ALL);
                 for (j = 0; j < size; j++) {
                     if ((value = uenum_next(all, &valueLength, &status)) != NULL && U_SUCCESS(status)) {
-                        if (!ulist_containsString(ALLList, value, uprv_strlen(value))) {
+                        if (!ulist_containsString(ALLList, value, (int32_t)uprv_strlen(value))) {
                             log_err("Locale %s have %s not in ALL\n", loc, value);
                             matchAll = FALSE;
                             break;
@@ -1738,10 +1738,17 @@ static const TestDaysOfWeek daysOfWeek_hi_IN[] = { /* Sunday only */
     { UCAL_SATURDAY, UCAL_WEEKDAY,       0        },
     { UCAL_SUNDAY,   UCAL_WEEKEND,       0        },
 };
+static const TestDaysOfWeek daysOfWeek_en_UG[] = { /* Sunday only */
+    { UCAL_MONDAY,   UCAL_WEEKDAY,       0        },
+    { UCAL_FRIDAY,   UCAL_WEEKDAY,       0        },
+    { UCAL_SATURDAY, UCAL_WEEKDAY,       0        },
+    { UCAL_SUNDAY,   UCAL_WEEKEND,       0        },
+};
 static const TestDaysOfWeekList testDays[] = {
     { "en_US", daysOfWeek_en_US, UPRV_LENGTHOF(daysOfWeek_en_US) },
     { "ar_OM", daysOfWeek_ar_OM, UPRV_LENGTHOF(daysOfWeek_ar_OM) },
     { "hi_IN", daysOfWeek_hi_IN, UPRV_LENGTHOF(daysOfWeek_hi_IN) },
+    { "en_UG", daysOfWeek_en_UG, UPRV_LENGTHOF(daysOfWeek_en_UG) },
     { "en_US@rg=OMZZZZ", daysOfWeek_ar_OM, UPRV_LENGTHOF(daysOfWeek_ar_OM) },
     { "hi@rg=USZZZZ",    daysOfWeek_en_US, UPRV_LENGTHOF(daysOfWeek_en_US) },
 };
@@ -2463,6 +2470,64 @@ void TestGetTimeZoneIDByWindowsID() {
     }
 }
 
+// The following currently assumes that Reiwa is the last known/valid era.
+// Filed ICU-20551 to generalize this when we have more time...
+void TestJpnCalAddSetNextEra() {
+    UErrorCode status = U_ZERO_ERROR;
+    UCalendar *jCal = ucal_open(NULL, 0, "ja_JP@calendar=japanese", UCAL_DEFAULT, &status);
+    if ( U_FAILURE(status) ) {
+        log_data_err("FAIL: ucal_open for ja_JP@calendar=japanese, status %s\n", u_errorName(status));
+    } else {
+        ucal_clear(jCal); // This sets to 1970, in Showa
+        int32_t sEra = ucal_get(jCal, UCAL_ERA, &status); // Don't assume era number for Showa
+        if ( U_FAILURE(status) ) {
+            log_data_err("FAIL: ucal_get ERA for Showa, status %s\n", u_errorName(status));
+        } else {
+            int32_t iEra, eYear;
+            int32_t startYears[4] = { 1926, 1989, 2019, 0 }; // start years for Showa, Heisei, Reiwa; 0 marks invalid era
+            for (iEra = 1; iEra < 4; iEra++) {
+                status = U_ZERO_ERROR;
+                ucal_clear(jCal);
+                ucal_set(jCal, UCAL_ERA, sEra+iEra);
+                eYear = ucal_get(jCal, UCAL_EXTENDED_YEAR, &status);
+                if ( U_FAILURE(status) ) {
+                    log_err("FAIL: set %d, ucal_get EXTENDED_YEAR, status %s\n", iEra, u_errorName(status));
+                } else if (startYears[iEra] == 0) { // Apple-specific section, for iEra==3
+                    // invalid era, start should be in the far future with non-negative millis
+                    if (eYear < 10000) {
+                        log_err("ERROR: set %d, invalid era should have faraway start year, but get %d\n", iEra, eYear);
+                    }
+                    UDate date = ucal_getMillis(jCal, &status);
+                    if ( U_FAILURE(status) ) {
+                        log_err("FAIL: set %d, ucal_getMillis, status %s\n", iEra, u_errorName(status));
+                    } else if (date < 0) {
+                        log_err("ERROR: set %d, ucal_getMillis should be positive, but get %.1f\n", iEra, date);
+                    }
+                } else if (eYear != startYears[iEra]) {
+                    log_err("ERROR: set %d, expected start year %d but get %d\n", iEra, startYears[iEra], eYear);
+                } else {
+                    ucal_add(jCal, UCAL_ERA, 1, &status);
+                    if ( U_FAILURE(status) ) {
+                        log_err("FAIL: set %d, ucal_add ERA 1, status %s\n", iEra, u_errorName(status));
+                    } else {
+                        eYear = ucal_get(jCal, UCAL_EXTENDED_YEAR, &status);
+                        if ( U_FAILURE(status) ) {
+                            log_err("FAIL: set %d then add ERA 1, ucal_get EXTENDED_YEAR, status %s\n", iEra, u_errorName(status));
+                        } else {
+                            // If this is the last valid era, we expect adding an era to pin to the current era
+                            int32_t nextEraStart = (startYears[iEra+1] == 0)? startYears[iEra]: startYears[iEra+1];
+                            if (eYear != nextEraStart) {
+                                log_err("ERROR: set %d then add ERA 1, expected start year %d but get %d\n", iEra, nextEraStart, eYear);
+                            }
+                        }
+                    }
+                }
+             }
+        }
+        ucal_close(jCal);
+    }
+}
+
 typedef struct {
     const char * localeWithCal;
     UDate        clearDate;
@@ -2578,62 +2643,6 @@ void TestGetDayPeriods() {
                         dpItemPtr->locale, hourIndex*2, dpItemPtr->formatStyle, dpItemPtr->expected[hourIndex], dp); 
             }
         }
-    }
-}
-
-void TestJCalHeiseiNextEra() {
-    UErrorCode status = U_ZERO_ERROR;
-    UCalendar *jCal = ucal_open(NULL, 0, "ja_JP@calendar=japanese", UCAL_DEFAULT, &status);
-    if ( U_FAILURE(status) ) {
-        log_data_err("FAIL: ucal_open for ja_JP@calendar=japanese, status %s\n", u_errorName(status));
-    } else {
-        ucal_clear(jCal); // This sets to 1970, in Showa
-        int32_t sEra = ucal_get(jCal, UCAL_ERA, &status); // Don't assume Showa is 234
-        if ( U_FAILURE(status) ) {
-            log_data_err("FAIL: ucal_get ERA for Showa, status %s\n", u_errorName(status));
-        } else {
-            int32_t iEra, eYear;
-            int32_t startYears[] = { 1926, 1989, 2019, 0 };
-            for (iEra = 1; iEra < 4; iEra++) {
-                status = U_ZERO_ERROR;
-                ucal_clear(jCal);
-                ucal_set(jCal, UCAL_ERA, sEra+iEra);
-                eYear = ucal_get(jCal, UCAL_EXTENDED_YEAR, &status);
-                if ( U_FAILURE(status) ) {
-                    log_err("FAIL: set %d, ucal_get EXTENDED_YEAR, status %s\n", iEra, u_errorName(status));
-                } else if (startYears[iEra] == 0) {
-                    // invalid era, start should be in the far future with non-negative millis
-                    if (eYear < 10000) {
-                        log_err("ERROR: set %d, invalid era should have faraway start year, but get %d\n", iEra, eYear);
-                    }
-                    UDate date = ucal_getMillis(jCal, &status);
-                    if ( U_FAILURE(status) ) {
-                        log_err("FAIL: set %d, ucal_getMillis, status %s\n", iEra, u_errorName(status));
-                    } else if (date < 0) {
-                        log_err("ERROR: set %d, ucal_getMillis should be positive, but get %.1f\n", iEra, date);
-                    }
-                } else if (eYear != startYears[iEra]) {
-                    log_err("ERROR: set %d, expected start year %d but get %d\n", iEra, startYears[iEra], eYear);
-                } else {
-                    ucal_add(jCal, UCAL_ERA, 1, &status);
-                    if ( U_FAILURE(status) ) {
-                        log_err("FAIL: set %d, ucal_add ERA 1, status %s\n", iEra, u_errorName(status));
-                    } else {
-                        eYear = ucal_get(jCal, UCAL_EXTENDED_YEAR, &status);
-                        if ( U_FAILURE(status) ) {
-                            log_err("FAIL: set %d then add ERA 1, ucal_get EXTENDED_YEAR, status %s\n", iEra, u_errorName(status));
-                        } else {
-                            // If this is the last valid era, we expect adding an era to pin to the current era
-                            int32_t nextEraStart = (startYears[iEra+1] == 0)? startYears[iEra]: startYears[iEra+1];
-                            if (eYear != nextEraStart) {
-                                log_err("ERROR: set %d then add ERA 1, expected start year %d but get %d\n", iEra, nextEraStart, eYear);
-                            }
-                        }
-                    }
-                }
-             }
-        }
-        ucal_close(jCal);
     }
 }
 

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.stackdepth.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *    Test that the stackdepth variable is safe to use at every fbt probe

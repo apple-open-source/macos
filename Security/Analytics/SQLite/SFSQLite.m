@@ -27,7 +27,7 @@
 #import "SFSQLiteStatement.h"
 #include <sqlite3.h>
 #include <CommonCrypto/CommonDigest.h>
-#import "debugging.h"
+#import "utilities/debugging.h"
 #include <os/transaction_private.h>
 
 #define kSFSQLiteBusyTimeout       (5*60*1000)
@@ -64,6 +64,7 @@ NSArray *SFSQLiteJournalSuffixes() {
 @property (nonatomic, assign)            BOOL                    corrupt;
 @property (nonatomic, readonly, strong)  NSMutableDictionary    *statementsBySQL;
 @property (nonatomic, strong)            NSDateFormatter        *dateFormatter;
+@property (nonatomic, strong)            NSDateFormatter        *oldDateFormatter;
 
 @end
 
@@ -226,6 +227,7 @@ allDone:
 @synthesize corrupt = _corrupt;
 @synthesize statementsBySQL = _statementsBySQL;
 @synthesize dateFormatter = _dateFormatter;
+@synthesize oldDateFormatter = _oldDateFormatter;
 #if DEBUG
 @synthesize unitTestOverrides = _unitTestOverrides;
 #endif
@@ -628,16 +630,29 @@ done:
 - (NSDateFormatter *)dateFormatter {
     if (!_dateFormatter) {
         NSDateFormatter* dateFormatter = [NSDateFormatter new];
-        dateFormatter.dateFormat = @"yyyy-MM-dd'T'HH:mm:ssZZZZZ";
+        dateFormatter.dateFormat = @"yyyy-MM-dd'T'HH:mm:ss.SSSZZZZ";
         _dateFormatter = dateFormatter;
     }
     return _dateFormatter;
 }
 
+- (NSDateFormatter *)oldDateFormatter {
+    if (!_oldDateFormatter) {
+        NSDateFormatter* dateFormatter = [NSDateFormatter new];
+        dateFormatter.dateFormat = @"yyyy-MM-dd'T'HH:mm:ssZZZZZ";
+        _oldDateFormatter = dateFormatter;
+    }
+    return _oldDateFormatter;
+}
+
 - (NSDate *)datePropertyForKey:(NSString *)key {
     NSString *dateStr = [self propertyForKey:key];
     if (dateStr.length) {
-        return [self.dateFormatter dateFromString:dateStr];
+        NSDate  *date = [self.dateFormatter dateFromString:dateStr];
+        if (date == NULL) {
+            date = [self.oldDateFormatter dateFromString:dateStr];
+        }
+        return date;
     }
     return nil;
 }

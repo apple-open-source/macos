@@ -73,9 +73,10 @@ ALWAYS_INLINE bool RegExp::hasCodeFor(Yarr::YarrCharSize charSize)
 #if ENABLE(YARR_JIT)
         if (m_state != JITCode)
             return true;
-        if ((charSize == Yarr::Char8) && (m_regExpJITCode.has8BitCode()))
+        ASSERT(m_regExpJITCode);
+        if ((charSize == Yarr::Char8) && (m_regExpJITCode->has8BitCode()))
             return true;
-        if ((charSize == Yarr::Char16) && (m_regExpJITCode.has16BitCode()))
+        if ((charSize == Yarr::Char16) && (m_regExpJITCode->has16BitCode()))
             return true;
 #else
         UNUSED_PARAM(charSize);
@@ -138,14 +139,17 @@ ALWAYS_INLINE int RegExp::matchInline(VM& vm, const String& s, unsigned startOff
 
     compileIfNecessary(vm, s.is8Bit() ? Yarr::Char8 : Yarr::Char16);
 
-    if (m_state == ParseError) {
+    auto throwError = [&] {
         auto throwScope = DECLARE_THROW_SCOPE(vm);
         ExecState* exec = vm.topCallFrame;
         throwScope.throwException(exec, errorToThrow(exec));
         if (!hasHardError(m_constructionErrorCode))
             reset();
         return -1;
-    }
+    };
+
+    if (m_state == ParseError)
+        return throwError();
 
     int offsetVectorSize = (m_numSubpatterns + 1) * 2;
     ovector.resize(offsetVectorSize);
@@ -155,22 +159,30 @@ ALWAYS_INLINE int RegExp::matchInline(VM& vm, const String& s, unsigned startOff
 #if ENABLE(YARR_JIT)
     if (m_state == JITCode) {
         {
-            PatternContextBufferHolder patternContextBufferHolder(vm, m_regExpJITCode.usesPatternContextBuffer());
+            ASSERT(m_regExpJITCode);
+            PatternContextBufferHolder patternContextBufferHolder(vm, m_regExpJITCode->usesPatternContextBuffer());
 
             if (s.is8Bit())
-                result = m_regExpJITCode.execute(s.characters8(), startOffset, s.length(), offsetVector, patternContextBufferHolder.buffer(), patternContextBufferHolder.size()).start;
+                result = m_regExpJITCode->execute(s.characters8(), startOffset, s.length(), offsetVector, patternContextBufferHolder.buffer(), patternContextBufferHolder.size()).start;
             else
-                result = m_regExpJITCode.execute(s.characters16(), startOffset, s.length(), offsetVector, patternContextBufferHolder.buffer(), patternContextBufferHolder.size()).start;
+                result = m_regExpJITCode->execute(s.characters16(), startOffset, s.length(), offsetVector, patternContextBufferHolder.buffer(), patternContextBufferHolder.size()).start;
         }
 
         if (result == Yarr::JSRegExpJITCodeFailure) {
             // JIT'ed code couldn't handle expression, so punt back to the interpreter.
             byteCodeCompileIfNecessary(&vm);
+            if (m_state == ParseError)
+                return throwError();
             result = Yarr::interpret(m_regExpBytecode.get(), s, startOffset, reinterpret_cast<unsigned*>(offsetVector));
         }
 
 #if ENABLE(YARR_JIT_DEBUG)
-        matchCompareWithInterpreter(s, startOffset, offsetVector, result);
+        if (m_state == JITCode) {
+            byteCodeCompileIfNecessary(&vm);
+            if (m_state == ParseError)
+                return throwError();
+            matchCompareWithInterpreter(s, startOffset, offsetVector, result);
+        }
 #endif
     } else
 #endif
@@ -221,9 +233,10 @@ ALWAYS_INLINE bool RegExp::hasMatchOnlyCodeFor(Yarr::YarrCharSize charSize)
 #if ENABLE(YARR_JIT)
         if (m_state != JITCode)
             return true;
-        if ((charSize == Yarr::Char8) && (m_regExpJITCode.has8BitCodeMatchOnly()))
+        ASSERT(m_regExpJITCode);
+        if ((charSize == Yarr::Char8) && (m_regExpJITCode->has8BitCodeMatchOnly()))
             return true;
-        if ((charSize == Yarr::Char16) && (m_regExpJITCode.has16BitCodeMatchOnly()))
+        if ((charSize == Yarr::Char16) && (m_regExpJITCode->has16BitCodeMatchOnly()))
             return true;
 #else
         UNUSED_PARAM(charSize);
@@ -254,25 +267,29 @@ ALWAYS_INLINE MatchResult RegExp::matchInline(VM& vm, const String& s, unsigned 
 
     compileIfNecessaryMatchOnly(vm, s.is8Bit() ? Yarr::Char8 : Yarr::Char16);
 
-    if (m_state == ParseError) {
+    auto throwError = [&] {
         auto throwScope = DECLARE_THROW_SCOPE(vm);
         ExecState* exec = vm.topCallFrame;
         throwScope.throwException(exec, errorToThrow(exec));
         if (!hasHardError(m_constructionErrorCode))
             reset();
         return MatchResult::failed();
-    }
+    };
+
+    if (m_state == ParseError)
+        return throwError();
 
 #if ENABLE(YARR_JIT)
     MatchResult result;
 
     if (m_state == JITCode) {
         {
-            PatternContextBufferHolder patternContextBufferHolder(vm, m_regExpJITCode.usesPatternContextBuffer());
+            ASSERT(m_regExpJITCode);
+            PatternContextBufferHolder patternContextBufferHolder(vm, m_regExpJITCode->usesPatternContextBuffer());
             if (s.is8Bit())
-                result = m_regExpJITCode.execute(s.characters8(), startOffset, s.length(), patternContextBufferHolder.buffer(), patternContextBufferHolder.size());
+                result = m_regExpJITCode->execute(s.characters8(), startOffset, s.length(), patternContextBufferHolder.buffer(), patternContextBufferHolder.size());
             else
-                result = m_regExpJITCode.execute(s.characters16(), startOffset, s.length(), patternContextBufferHolder.buffer(), patternContextBufferHolder.size());
+                result = m_regExpJITCode->execute(s.characters16(), startOffset, s.length(), patternContextBufferHolder.buffer(), patternContextBufferHolder.size());
         }
 
 #if ENABLE(REGEXP_TRACING)
@@ -284,6 +301,8 @@ ALWAYS_INLINE MatchResult RegExp::matchInline(VM& vm, const String& s, unsigned 
 
         // JIT'ed code couldn't handle expression, so punt back to the interpreter.
         byteCodeCompileIfNecessary(&vm);
+        if (m_state == ParseError)
+            return throwError();
     }
 #endif
 

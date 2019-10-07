@@ -1094,8 +1094,8 @@ PRIVATE void rpc__cn_call_transceive
 
                 /* check to see if las_frag should have been set in this packet or not */
                 if ((RPC_CN_PKT_PTYPE(header_p) == RPC_C_CN_PKT_REQUEST) ||
-                    (RPC_CN_PKT_PTYPE(header_p) == RPC_C_CN_PKT_FAULT) &&
-                    (RPC_CN_PKT_ALLOC_HINT (header_p) != 0) )
+                    ((RPC_CN_PKT_PTYPE(header_p) == RPC_C_CN_PKT_FAULT) &&
+                    (RPC_CN_PKT_ALLOC_HINT (header_p) != 0)) )
                 {
                     /* Request, responses and fault pkts have the alloc_hint that
                      we can use to check the validity of last frag flag.
@@ -1416,8 +1416,8 @@ PRIVATE void rpc__cn_call_receive
 
     /* check to see if las_frag should have been set in this packet or not */
     if ((RPC_CN_PKT_PTYPE(header_p) == RPC_C_CN_PKT_REQUEST) ||
-        (RPC_CN_PKT_PTYPE(header_p) == RPC_C_CN_PKT_FAULT) &&
-        (RPC_CN_PKT_ALLOC_HINT (header_p) != 0) )
+        ((RPC_CN_PKT_PTYPE(header_p) == RPC_C_CN_PKT_FAULT) &&
+        (RPC_CN_PKT_ALLOC_HINT (header_p) != 0)) )
     {
         /* Request, responses and fault pkts have the alloc_hint that
          we can use to check the validity of last frag flag.

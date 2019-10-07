@@ -193,6 +193,73 @@ static void __DAMediaPropertyChangedCallback( void * context, io_service_t servi
 
             if ( properties )
             {
+                if ( DADiskGetState( disk, kDADiskStateCommandActive ) == FALSE )
+                {
+                    CFURLRef path;
+
+                    /*
+                     * volume name can be changed asynchronously depending on the underlying filesystem implementation.
+                     * if the name has changed, try to move the mountpoint
+                     */
+                    path = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
+                    struct statfs * mountList;
+                    int             mountListCount;
+                    int             mountListIndex;
+                    
+                    mountListCount = getmntinfo( &mountList, MNT_NOWAIT );
+
+                    for ( mountListIndex = 0; mountListIndex < mountListCount; mountListIndex++ )
+                    {
+                        if ( strcmp( _DAVolumeGetID( mountList + mountListIndex ), DADiskGetID( disk ) ) == 0 )
+                        {
+                            break;
+                        }
+                    }
+
+                    if ( path && (mountListIndex != mountListCount) )
+                    {
+                        CFStringRef name = _DAFileSystemCopyName( DADiskGetFileSystem( disk ), path );
+                        if ( name )
+                        {
+                            if ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeNameKey, name ) )
+                            {
+                                DALogDebug( " volume name changed for %@ ", disk);
+                                DADiskSetDescription( disk, kDADiskDescriptionVolumeNameKey, name );
+
+                                CFArrayAppendValue( keys, kDADiskDescriptionVolumeNameKey );
+                                CFURLRef mountpoint;
+                                if ( CFEqual( CFURLGetString( path ), CFSTR( "file:///" ) ) )
+                                {
+                                    mountpoint = DAMountCreateMountPointWithAction( disk, kDAMountPointActionMove );
+
+                                    if ( mountpoint )
+                                    {
+                                        DADiskSetBypath( disk, mountpoint );
+
+                                        CFRelease( mountpoint );
+                                    }
+                                }
+                                else
+                                {
+                                    mountpoint = DAMountCreateMountPointWithAction( disk, kDAMountPointActionMove );
+
+                                    if ( mountpoint )
+                                    {
+                                        DADiskSetBypath( disk, mountpoint );
+
+                                        DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, mountpoint );
+
+                                        CFArrayAppendValue( keys, kDADiskDescriptionVolumePathKey );
+
+                                        CFRelease( mountpoint );
+                                    }
+                                }
+                            }
+                            CFRelease( name );
+                        }
+                    }
+               }
+
                 CFTypeRef object;
 
                 object = CFDictionaryGetValue( properties, CFSTR( kIOMediaContentKey ) );
@@ -1828,7 +1895,7 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
 
                                         if ( status )
                                         {
-                                            status = kDAReturnNotPermitted;
+                                            status = kDAReturnNotPrivileged;
                                         }
 
                                         free( path );
@@ -1838,7 +1905,7 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                                     {
                                         if ( audit_token_to_euid( _token ) != DADiskGetUserUID( disk ) )
                                         {
-                                            status = kDAReturnNotPermitted;
+                                            status = kDAReturnNotPrivileged;
                                         }
                                     }
 

@@ -28,8 +28,7 @@
 #include "APIObject.h"
 #include "MessageReceiver.h"
 #include "SharedStringHashStore.h"
-#include "WebPageProxy.h"
-#include "WebProcessLifetimeObserver.h"
+#include <WebCore/PageIdentifier.h>
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
 #include <wtf/Identified.h>
@@ -37,14 +36,13 @@
 
 namespace WebKit {
 
-class WebPageProxy;
 class WebProcessProxy;
     
-class VisitedLinkStore final : public API::ObjectImpl<API::Object::Type::VisitedLinkStore>, private IPC::MessageReceiver, public WebProcessLifetimeObserver, public Identified<VisitedLinkStore>, private SharedStringHashStore::Client {
+class VisitedLinkStore final : public API::ObjectImpl<API::Object::Type::VisitedLinkStore>, private IPC::MessageReceiver, public Identified<VisitedLinkStore>, private SharedStringHashStore::Client {
 public:
     static Ref<VisitedLinkStore> create();
+    VisitedLinkStore();
 
-    explicit VisitedLinkStore();
     virtual ~VisitedLinkStore();
 
     void addProcess(WebProcessProxy&);
@@ -59,15 +57,11 @@ private:
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 
-    // WebProcessLifetimeObserver
-    void webProcessWillOpenConnection(WebProcessProxy&, IPC::Connection&) final;
-    void webProcessDidCloseConnection(WebProcessProxy&, IPC::Connection&) final;
-
     // SharedStringHashStore::Client
     void didInvalidateSharedMemory() final;
     void didUpdateSharedStringHashes(const Vector<WebCore::SharedStringHash>& addedHashes, const Vector<WebCore::SharedStringHash>& removedHashes) final;
 
-    void addVisitedLinkHashFromPage(uint64_t pageID, WebCore::SharedStringHash);
+    void addVisitedLinkHashFromPage(WebCore::PageIdentifier, WebCore::SharedStringHash);
 
     void sendStoreHandleToProcess(WebProcessProxy&);
 

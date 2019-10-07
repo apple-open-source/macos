@@ -28,6 +28,7 @@
 #include <security_utilities/logging.h>
 #include <security_utilities/cfmunge.h>
 
+#include <map>
 
 namespace Security {
 namespace CodeSigning {
@@ -42,20 +43,27 @@ static const char serviceName[] = "com.apple.security.syspolicy";
 static dispatch_once_t dispatchInit;		// one-time init marker
 static xpc_connection_t service;			// connection to spd
 static dispatch_queue_t queue;				// dispatch queue for service
-
+	
+static map<uint64_t, SecAssessmentFeedback> *feedbackBlocks;
+	
 static void init()
 {
 	dispatch_once(&dispatchInit, ^void(void) {
+		feedbackBlocks = new map<uint64_t, SecAssessmentFeedback>;
 		const char *name = serviceName;
 		if (const char *env = getenv("SYSPOLICYNAME"))
 			name = env;
-		queue = dispatch_queue_create("spd-client", 0);
+		queue = dispatch_queue_create("spd-client", DISPATCH_QUEUE_SERIAL);
 		service = xpc_connection_create_mach_service(name, queue, XPC_CONNECTION_MACH_SERVICE_PRIVILEGED);
 		xpc_connection_set_event_handler(service, ^(xpc_object_t msg) {
 			if (xpc_get_type(msg) == XPC_TYPE_DICTIONARY) {
 				const char *function = xpc_dictionary_get_string(msg, "function");
-				if (!strcmp(function, "progress")) {
-					doProgress(msg);
+				if (strcmp(function, "progress") == 0) {
+					try {
+						doProgress(msg);
+					} catch (...) {
+						Syslog::error("Discarding progress handler exception");
+					}
 				}
 			}
 		});
@@ -116,9 +124,7 @@ static void copyCFDictionary(const void *key, const void *value, void *ctx)
 	if (CFGetTypeID(value) == CFURLGetTypeID()) {
 		CFRef<CFStringRef> path = CFURLCopyFileSystemPath(CFURLRef(value), kCFURLPOSIXPathStyle);
 		CFDictionaryAddValue(target, key, path);
-	} else if (CFEqual(key, kSecAssessmentContextKeyFeedback)) {
-		CFDictionaryAddValue(target, key, CFTempNumber(uint64_t(value)));
-	} else {
+	} else if (!CFEqual(key, kSecAssessmentContextKeyFeedback)) {
 		CFDictionaryAddValue(target, key, value);
 	}
 }
@@ -149,12 +155,43 @@ void xpcEngineAssess(CFURLRef path, SecAssessmentFlags flags, CFDictionaryRef co
 	xpc_dictionary_set_string(msg, "path", cfString(path).c_str());
 	xpc_dictionary_set_uint64(msg, "flags", flags);
 	CFRef<CFMutableDictionaryRef> ctx = makeCFMutableDictionary();
-	if (context)
+	if (context) {
 		CFDictionaryApplyFunction(context, copyCFDictionary, ctx);
+	}
+
+	SecAssessmentFeedback feedback = (SecAssessmentFeedback)CFDictionaryGetValue(context, kSecAssessmentContextKeyFeedback);
+	
+	/* Map the feedback block to a random number for tracking, because we don't want
+	 * to send over a pointer. */
+	uint64_t __block feedbackId = 0;
+	if (feedback) {
+		dispatch_sync(queue, ^{
+			bool added = false;
+			while (!added) {
+				/* Simple sequence number would probably be sufficient,
+				 * but making the id unpredictable is also cheap enough here. */
+				arc4random_buf(&feedbackId, sizeof(uint64_t));
+				if ((*feedbackBlocks)[feedbackId] == NULL /* extremely certain */) {
+					(*feedbackBlocks)[feedbackId] = feedback;
+					added = true;
+				}
+			}
+		});
+		CFDictionaryAddValue(ctx, kSecAssessmentContextKeyFeedback, CFTempNumber(feedbackId));
+	}
+	
 	CFRef<CFDataRef> contextData = makeCFData(CFDictionaryRef(ctx));
 	xpc_dictionary_set_data(msg, "context", CFDataGetBytePtr(contextData), CFDataGetLength(contextData));
 	
 	msg.send();
+	
+	/* Done, feedback block won't be called anymore,
+	 * so remove the feedback mapping from the global map. */
+	if (feedback) {
+		dispatch_sync(queue, ^{
+			feedbackBlocks->erase(feedbackId);
+		});
+	}
 	
 	if (int64_t error = xpc_dictionary_get_int64(msg, "error"))
 		MacOSError::throwMe((int)error);
@@ -172,7 +209,18 @@ static void doProgress(xpc_object_t msg)
 	uint64_t total = xpc_dictionary_get_uint64(msg, "total");
 	uint64_t ref = xpc_dictionary_get_uint64(msg, "ref");
 	const char *token = xpc_dictionary_get_string(msg, "token");
-	SecAssessmentFeedback feedback = SecAssessmentFeedback(ref);
+	
+	SecAssessmentFeedback feedback = NULL;
+
+	// doProgress is called on the queue, so no dispatch_sync here.
+	try {
+		feedback = feedbackBlocks->at(ref);
+	} catch (std::out_of_range) {
+		// Indicates that syspolicyd gave us something it shouldn't have.
+		Syslog::error("no feedback block registered with ID %lld", ref);
+		MacOSError::throwMe(errSecCSInternalError);
+	}
+	
 	CFTemp<CFDictionaryRef> info("{current=%d,total=%d}", current, total);
 	Boolean proceed = feedback(kSecAssessmentFeedbackProgress, info);
 	if (!proceed) {
@@ -308,6 +356,24 @@ void xpcEngineTicketLookup(CFDataRef hashData, SecCSDigestAlgorithm hashType, Se
 	}
 }
 
+void xpcEngineLegacyCheck(CFDataRef hashData, SecCSDigestAlgorithm hashType, CFStringRef teamID)
+{
+	Message msg("legacy-check");
+	xpc_dictionary_set_data(msg, "hashData", CFDataGetBytePtr(hashData), CFDataGetLength(hashData));
+	xpc_dictionary_set_uint64(msg, "hashType", hashType);
+
+	// There may not be a team id, so just leave it off if there isn't since xpc_dictionary_set_string
+	// will return a NULL if the value isn't provided.
+	if (teamID) {
+		xpc_dictionary_set_string(msg, "teamID", CFStringGetCStringPtr(teamID, kCFStringEncodingUTF8));
+	}
+
+	msg.send();
+
+	if (int64_t error = xpc_dictionary_get_int64(msg, "error")) {
+		MacOSError::throwMe((int)error);
+	}
+}
 
 } // end namespace CodeSigning
 } // end namespace Security

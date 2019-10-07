@@ -968,6 +968,10 @@ sl{
         }
         VEF{
             "VEF",
+            "venezuelski bolivar (2008–2018)",
+        }
+        VES{
+            "VES",
             "venezuelski bolivar",
         }
         VND{
@@ -1051,7 +1055,7 @@ sl{
             "koda za potrebe testiranja",
         }
         XXX{
-            "XXX",
+            "¤",
             "neznana valuta",
         }
         YDD{
@@ -1133,7 +1137,6 @@ sl{
         DKK{"kr"}
         DOP{"$"}
         EGP{"E£"}
-        EUR{"€"}
         FJD{"$"}
         FKP{"£"}
         GBP{"£"}
@@ -1187,7 +1190,6 @@ sl{
         SHP{"£"}
         SRD{"$"}
         SSP{"£"}
-        STN{"Db"}
         SYP{"£"}
         THB{"฿"}
         TOP{"T$"}
@@ -2109,6 +2111,12 @@ sl{
             two{"uzbeška suma"}
         }
         VEF{
+            few{"venezuelski bolivarji (2008–2018)"}
+            one{"venezuelski bolivar (2008–2018)"}
+            other{"venezuelskih bolivarjev (2008–2018)"}
+            two{"venezuelska bolivarja (2008–2018)"}
+        }
+        VES{
             few{"venezuelski bolivarji"}
             one{"venezuelski bolivar"}
             other{"venezuelskih bolivarjev"}
@@ -2187,5 +2195,5 @@ sl{
         other{"{0} {1}"}
         two{"{0} {1}"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.42"}
 }

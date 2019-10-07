@@ -27,7 +27,7 @@
 
 #include "APIObject.h"
 #include <WebCore/MediaConstraints.h>
-#include <wtf/Function.h>
+#include <wtf/CompletionHandler.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -38,16 +38,17 @@ namespace WebKit {
 
 class UserMediaPermissionCheckProxy : public API::ObjectImpl<API::Object::Type::UserMediaPermissionCheck> {
 public:
-
-    using CompletionHandler = WTF::Function<void(bool allowed)>;
+    enum class PermissionInfo { Error, Unknown, Granted };
+    using CompletionHandler = WTF::CompletionHandler<void(PermissionInfo)>;
 
     static Ref<UserMediaPermissionCheckProxy> create(uint64_t frameID, CompletionHandler&& handler, Ref<WebCore::SecurityOrigin>&& userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin)
     {
         return adoptRef(*new UserMediaPermissionCheckProxy(frameID, WTFMove(handler), WTFMove(userMediaDocumentOrigin), WTFMove(topLevelDocumentOrigin)));
     }
 
+    void deny() { setUserMediaAccessInfo(false); }
     void setUserMediaAccessInfo(bool);
-    void invalidate();
+    void invalidate() { complete(PermissionInfo::Error); }
 
     uint64_t frameID() const { return m_frameID; }
     WebCore::SecurityOrigin& userMediaDocumentSecurityOrigin() { return m_userMediaDocumentSecurityOrigin.get(); }
@@ -55,7 +56,10 @@ public:
     
 private:
     UserMediaPermissionCheckProxy(uint64_t frameID, CompletionHandler&&, Ref<WebCore::SecurityOrigin>&& userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin);
+    ~UserMediaPermissionCheckProxy();
 
+    void complete(PermissionInfo);
+    
     uint64_t m_frameID;
     CompletionHandler m_completionHandler;
     Ref<WebCore::SecurityOrigin> m_userMediaDocumentSecurityOrigin;

@@ -56,6 +56,7 @@
 #include "ntfs_runlist.h"
 
 #ifdef DEBUG
+#include <kern/sched_prim.h>
 
 /* If 0, do not output debug messages.  If not zero, output debug messages. */
 int ntfs_debug_messages;
@@ -158,10 +159,12 @@ void __ntfs_warning(const char *function,
 	else
 		printf("NTFS-fs warning (pid %d): %s(): %s\n", proc_selfpid(),
 				flen ? function : "", ntfs_err_buf);
-#ifdef DEBUG
-	OSReportWithBacktrace("");
-#endif
 	lck_spin_unlock(&ntfs_err_buf_lock);
+#ifdef DEBUG
+	if (preemption_enabled()) {
+		OSReportWithBacktrace("");
+	}
+#endif
 }
 
 /**
@@ -202,10 +205,12 @@ void __ntfs_error(const char *function,
 	else
 		printf("NTFS-fs error (pid %d): %s(): %s\n", proc_selfpid(),
 				flen ? function : "", ntfs_err_buf);
-#ifdef DEBUG
-	OSReportWithBacktrace("");
-#endif
 	lck_spin_unlock(&ntfs_err_buf_lock);
+#ifdef DEBUG
+	if (preemption_enabled()) {
+		OSReportWithBacktrace("");
+	}
+#endif
 }
 
 #ifdef DEBUG
@@ -272,13 +277,13 @@ void ntfs_debug_runlist_dump(const ntfs_runlist *runlist)
 
 			if (index > -LCN_ENOENT - 1)
 				index = 3;
-			printf("%-16Lx %s %-16Lx%s\n",
+			printf("%-16llx %s %-16llx%s\n",
 					(unsigned long long)rl[u].vcn,
 					lcn_str[index],
 					(unsigned long long)rl[u].length,
 					rl[u].length ? "" : " (runlist end)");
 		} else
-			printf("%-16Lx %-16Lx  %-16Lx%s\n",
+			printf("%-16llx %-16llx  %-16llx%s\n",
 					(unsigned long long)rl[u].vcn,
 					(unsigned long long)rl[u].lcn,
 					(unsigned long long)rl[u].length,

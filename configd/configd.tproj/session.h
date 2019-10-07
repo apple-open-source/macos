@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2005-2007, 2009-2012, 2014, 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2005-2007, 2009-2012, 2014, 2016-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -38,6 +38,8 @@
 #include <os/availability.h>
 #include <TargetConditionals.h>
 
+#define DISPATCH_MACH_SPI 1
+#import <dispatch/private.h>
 
 /*
  * SCDynamicStore write access entitlement
@@ -64,18 +66,20 @@ typedef	enum { NO = 0, YES, UNKNOWN } lazyBoolean;
 /* Per client server state */
 typedef struct {
 
+	// base CFType information
+	CFRuntimeBase           cfBase;
+
 	/* mach port used as the key to this session */
 	mach_port_t		key;
 
-	/* mach port associated with this session */
-	CFMachPortRef		serverPort;
-	CFRunLoopSourceRef	serverRunLoopSource;
+	/* mach channel associated with this session */
+	dispatch_mach_t		serverChannel;
 
 	/* data associated with this "open" session */
+	CFMutableArrayRef	changedKeys;
+	CFStringRef		name;
+	CFMutableArrayRef	sessionKeys;
 	SCDynamicStoreRef	store;
-
-	/* caller's activity */
-	os_activity_t		activity;
 
 	/* credentials associated with this "open" session */
 	uid_t			callerEUID;
@@ -101,16 +105,24 @@ typedef struct {
 
 __BEGIN_DECLS
 
+serverSessionRef	addClient	(mach_port_t	server,
+					 audit_token_t	audit_token);
+
+serverSessionRef	addServer	(mach_port_t	server);
+
 serverSessionRef	getSession	(mach_port_t	server);
+
+serverSessionRef	getSessionNum	(CFNumberRef	serverKey);
+
+serverSessionRef	getSessionStr	(CFStringRef	serverKey);
 
 serverSessionRef	tempSession	(mach_port_t	server,
 					 CFStringRef	name,
 					 audit_token_t	auditToken);
 
-serverSessionRef	addSession	(mach_port_t	server,
-					 CFStringRef	(*copyDescription)(const void *info));
+void			cleanupSession	(serverSessionRef	session);
 
-void			cleanupSession	(mach_port_t	server);
+void			closeSession	(serverSessionRef	session);
 
 void			listSessions	(FILE		*f);
 

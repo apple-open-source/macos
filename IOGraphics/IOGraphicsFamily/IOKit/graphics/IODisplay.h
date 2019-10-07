@@ -23,6 +23,9 @@
 #ifndef _IOKIT_IODISPLAY_H
 #define _IOKIT_IODISPLAY_H
 
+#include <sys/kdebug.h>
+#include <sys/proc.h>
+
 #include <IOKit/IOService.h>
 
 #include <IOKit/graphics/IOFramebuffer.h>
@@ -101,12 +104,15 @@ enum {
     kIODisplayMaxPowerState  = kIODisplayNumPowerStates - 1
 };
 
+class IODisplayWrangler;
 class IODisplayConnect : public IOService
 {
     OSDeclareDefaultStructors(IODisplayConnect)
+    friend class IODisplayWrangler;
 
 private:
-    IOIndex     connection;
+    IOIndex  fConnectIndex;
+    uint64_t fFBRegID;
 
 protected:
 /*  Reserved for future use.  (Internal use only)  */
@@ -115,13 +121,18 @@ protected:
 /*  Reserved for future use.  (Internal use only)  */
     ExpansionData * reserved;
 
+    // Support for IODisplayWrangler
+    virtual bool initWithConnection(const uint64_t fbRegID,
+                                    const IOIndex connection);
+
 public:
-    virtual bool initWithConnection( IOIndex connection );
+    // IODisplayConnect interface
     virtual IOFramebuffer * getFramebuffer( void );
     virtual IOIndex getConnection( void );
     virtual IOReturn getAttributeForConnection( IOSelect selector, uintptr_t * value );
     virtual IOReturn setAttributeForConnection( IOSelect selector, uintptr_t value );
     virtual void joinPMtree ( IOService * driver ) APPLE_KEXT_OVERRIDE;
+
 };
 
 class IODisplay : public IOService
@@ -166,11 +177,18 @@ public:
 
     virtual IOReturn readFramebufferEDID( void );
 
-    // 
     virtual IOReturn framebufferEvent( IOFramebuffer * framebuffer, 
-                                        IOIndex event, void * info );
-
+                                        IOIndex event, void * info ); 
     // parameter setting
+    virtual bool setProperty(const OSSymbol* aKey, OSObject* anObject) APPLE_KEXT_OVERRIDE;
+    virtual bool setProperty(const OSString* aKey, OSObject* anObject) APPLE_KEXT_OVERRIDE;
+    virtual bool setProperty(const char* aKey, OSObject* anObject) APPLE_KEXT_OVERRIDE;
+    virtual bool setProperty(const char* aKey, const char* aString) APPLE_KEXT_OVERRIDE;
+    virtual bool setProperty(const char* aKey, bool aBoolean) APPLE_KEXT_OVERRIDE;
+    virtual bool setProperty(const char* aKey, unsigned long long aValue,
+            unsigned int aNumberOfBits) APPLE_KEXT_OVERRIDE;
+    virtual bool setProperty(const char* aKey, void *bytes, unsigned int length) APPLE_KEXT_OVERRIDE;
+
     virtual IOReturn setProperties( OSObject * properties ) APPLE_KEXT_OVERRIDE;
     virtual bool setForKey( OSDictionary * params, const OSSymbol * key,
                             SInt32 value, SInt32 min, SInt32 max );
@@ -198,6 +216,7 @@ public:
     virtual void makeDisplayUsable( void );
     void setDisplayPowerState(unsigned long state);
 
+
 private:
     OSMetaClassDeclareReservedUnused(IODisplay, 0);
     OSMetaClassDeclareReservedUnused(IODisplay, 1);
@@ -224,7 +243,7 @@ private:
     static IOReturn _framebufferEvent( OSObject * osobj, void * ref,
                     IOFramebuffer *framebuffer, IOIndex event, void * info );
 
-	void searchParameterHandlers(IORegistryEntry * entry);
+    void searchParameterHandlers(IORegistryEntry * entry);
     bool addParameterHandler( IODisplayParameterHandler * parameterHandler );
     bool removeParameterHandler( IODisplayParameterHandler * parameterHandler );
     static bool updateNumber( OSDictionary * params, const OSSymbol * key, SInt32 value );

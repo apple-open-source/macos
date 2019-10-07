@@ -92,6 +92,7 @@ hu{
         car{"karib"}
         cay{"kajuga"}
         cch{"atszam"}
+        ccp{"csakma"}
         ce{"csecsen"}
         ceb{"szebuano"}
         cgg{"kiga"}
@@ -275,6 +276,7 @@ hu{
         krl{"karelai"}
         kru{"kuruh"}
         ks{"kasmíri"}
+        ks_Arab{"kasmíri (Naszhi)"}
         ksb{"sambala"}
         ksf{"bafia"}
         ksh{"kölsch"}
@@ -389,6 +391,7 @@ hu{
         osa{"osage"}
         ota{"ottomán török"}
         pa{"pandzsábi"}
+        pa_Arab{"pandzsábi (Naszhi)"}
         pag{"pangaszinan"}
         pal{"pahlavi"}
         pam{"pampangan"}
@@ -517,6 +520,7 @@ hu{
         umb{"umbundu"}
         und{"ismeretlen nyelv"}
         ur{"urdu"}
+        ur_Arab{"urdu (Naszhi)"}
         uz{"üzbég"}
         vai{"vai"}
         ve{"venda"}
@@ -562,6 +566,7 @@ hu{
     }
     Scripts{
         Arab{"Arab"}
+        Aran{"Nasztalik"}
         Armi{"Birodalmi arámi"}
         Armn{"Örmény"}
         Avst{"Avesztán"}
@@ -653,6 +658,7 @@ hu{
         Phnx{"Főniciai"}
         Plrd{"Pollard fonetikus"}
         Prti{"Feliratos parthian"}
+        Qaag{"Zawgyi"}
         Rjng{"Redzsang"}
         Roro{"Rongorongo"}
         Runr{"Runikus"}
@@ -833,7 +839,7 @@ hu{
             orya{"Orija számjegyek"}
             roman{"Római számok"}
             romanlow{"Római kisbetűs számok"}
-            taml{"Tamil hagyományos számok"}
+            taml{"Hagyományos tamil számjegyek"}
             tamldec{"Tamil számjegyek"}
             telu{"Telugu számjegyek"}
             thai{"Thai számjegyek"}
@@ -900,7 +906,7 @@ hu{
         VALLADER{"Vallader"}
         WADEGILE{"Wade-Giles átírás"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.42"}
     characterLabelPattern{
         all{"{0} – összes"}
         category-list{"{0}: {1}"}

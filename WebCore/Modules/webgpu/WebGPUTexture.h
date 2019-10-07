@@ -28,24 +28,27 @@
 #if ENABLE(WEBGPU)
 
 #include "GPUTexture.h"
-
+#include "WebGPUTextureView.h"
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
-class WebGPUTextureView;
-
 class WebGPUTexture : public RefCounted<WebGPUTexture> {
 public:
-    static RefPtr<WebGPUTexture> create(RefPtr<GPUTexture>&&);
+    static Ref<WebGPUTexture> create(RefPtr<GPUTexture>&&);
 
-    RefPtr<WebGPUTextureView> createDefaultTextureView();
+    GPUTexture* texture() { return m_texture.get(); }
+
+    Ref<WebGPUTextureView> createDefaultView();
+    void destroy();
 
 private:
-    explicit WebGPUTexture(Ref<GPUTexture>&&);
+    explicit WebGPUTexture(RefPtr<GPUTexture>&&);
 
-    Ref<GPUTexture> m_texture;
+    RefPtr<GPUTexture> m_texture;
+    Vector<Ref<WebGPUTextureView>> m_textureViews;
 };
 
 } // namespace WebCore

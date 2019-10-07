@@ -1,1 +1,4 @@
-xcuserdata
+*~
+xcuserdata/
+build/
+project.xcworkspace/

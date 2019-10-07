@@ -1,15 +1,17 @@
-dnl
-dnl $Id$
-dnl
+dnl config.m4 for sapi phpdbg
 
 PHP_ARG_ENABLE(phpdbg, for phpdbg support,
-[  --enable-phpdbg            Build phpdbg], yes, yes)
+[  --enable-phpdbg         Build phpdbg], yes, yes)
 
 PHP_ARG_ENABLE(phpdbg-webhelper, for phpdbg web SAPI support,
-[  --enable-phpdbg-webhelper  Build phpdbg web SAPI support], no)
+[  --enable-phpdbg-webhelper
+                          Build phpdbg web SAPI support], no)
 
 PHP_ARG_ENABLE(phpdbg-debug, for phpdbg debug build,
-[  --enable-phpdbg-debug      Build phpdbg in debug mode], no, no)
+[  --enable-phpdbg-debug   Build phpdbg in debug mode], no, no)
+
+PHP_ARG_ENABLE(phpdbg-readline, for phpdbg readline support,
+[  --enable-phpdbg-readline   Enable readline support in phpdbg (depends on static ext/readline)], no, no)
 
 if test "$BUILD_PHPDBG" = "" && test "$PHP_PHPDBG" != "no"; then
   AC_HEADER_TIOCGWINSZ
@@ -24,8 +26,17 @@ if test "$BUILD_PHPDBG" = "" && test "$PHP_PHPDBG" != "no"; then
   PHP_PHPDBG_CFLAGS="-D_GNU_SOURCE -DZEND_ENABLE_STATIC_TSRMLS_CACHE=1"
   PHP_PHPDBG_FILES="phpdbg.c phpdbg_parser.c phpdbg_lexer.c phpdbg_prompt.c phpdbg_help.c phpdbg_break.c phpdbg_print.c phpdbg_bp.c phpdbg_opcode.c phpdbg_list.c phpdbg_utils.c phpdbg_info.c phpdbg_cmd.c phpdbg_set.c phpdbg_frame.c phpdbg_watch.c phpdbg_btree.c phpdbg_sigsafe.c phpdbg_wait.c phpdbg_io.c phpdbg_eol.c phpdbg_out.c"
 
-  if test "$PHP_READLINE" != "no" -o  "$PHP_LIBEDIT" != "no"; then
-  	PHPDBG_EXTRA_LIBS="$PHP_READLINE_LIBS"
+  AC_MSG_CHECKING([for phpdbg and readline integration])
+  if test "$PHP_PHPDBG_READLINE" = "yes"; then
+    if test "$PHP_READLINE" != "no" -o  "$PHP_LIBEDIT" != "no"; then
+  	  AC_DEFINE(HAVE_PHPDBG_READLINE, 1, [ ])
+  	  PHPDBG_EXTRA_LIBS="$PHP_READLINE_LIBS"
+  	  AC_MSG_RESULT([ok])
+  	else
+  	  AC_MSG_RESULT([readline is not available])
+    fi
+  else
+    AC_MSG_RESULT([disabled])
   fi
 
   PHP_SUBST(PHP_PHPDBG_CFLAGS)
@@ -46,6 +57,7 @@ if test "$BUILD_PHPDBG" = "" && test "$PHP_PHPDBG" != "no"; then
                 \$(EXTRA_LIBS) \
                 \$(PHPDBG_EXTRA_LIBS) \
                 \$(ZEND_EXTRA_LIBS) \
+                \$(PHP_FRAMEWORKS) \
          -o \$(BUILD_BINARY)"
 
   BUILD_PHPDBG_SHARED="\$(LIBTOOL) --mode=link \

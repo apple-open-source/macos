@@ -78,7 +78,6 @@ __FBSDID("$FreeBSD: src/sbin/shutdown/shutdown.c,v 1.28 2005/01/25 08:40:51 delp
 #include <bootstrap_priv.h>
 #include <reboot2.h>
 #include <utmpx.h>
-#include <sys/sysctl.h>
 
 #include "pathnames.h"
 #endif /* __APPLE__ */
@@ -484,9 +483,6 @@ die_you_gravy_sucking_pig_dog()
 			utx.ut_type = SHUTDOWN_TIME;
 			gettimeofday(&utx.ut_tv, NULL);
 			pututxline(&utx);
-
-			int newvalue = 1;
-			sysctlbyname("kern.willshutdown", NULL, NULL, &newvalue, sizeof(newvalue));
 		}
 #else
 		logwtmp("~", "shutdown", "");

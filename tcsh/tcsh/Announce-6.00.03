@@ -1,0 +1,20 @@
+Hello,
+
+Tcsh-6.00.03 is now available from tesla.ee.cornell.edu. 
+				   [128.84.253.11,128.84.224.11]
+
+Tcsh 6.00.03 now supports SVR4 machines (David Dawes),
+has a full vi editor (Jose Souza), 
+has emacs i-search functions (Per Hederland), 
+supports imake (Marc Horowitz),
+and can accept csh constructs in aliases.
+
+I wish to thank all the people who beta tested this version and their
+users who suffered through it...
+
+The whole distribution is in /pub/tcsh-6.00/tcsh-6.00.03.tar.Z
+A patch from 6.00.02 to 6.00.03 is also available in
+/pub/tcsh-6.00/tcsh-6.00.02-6.00.03.patch.Z, but it is 200K, so you might
+be better off getting the whole thing.
+
+christos

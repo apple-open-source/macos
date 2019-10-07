@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_DECL_PROTO_TYPE.Dyn.d	1.1	06/08/28 SMI"
-
 /*
  * Assert that a function parameter in a declaration may not use a dynamic
  * DTrace type such as an associative array type.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009-2011, 2013, 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009-2011, 2013, 2016-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -58,15 +58,27 @@ SCDynamicStoreNotifyValue(SCDynamicStoreRef	store,
 		return FALSE;
 	}
 
+	if (storePrivate->cache_active) {
+		if (storePrivate->cached_notifys == NULL)  {
+			storePrivate->cached_notifys = CFArrayCreateMutable(NULL,
+									    0,
+									    &kCFTypeArrayCallBacks);
+		}
+
+		if (!CFArrayContainsValue(storePrivate->cached_notifys,
+					  CFRangeMake(0, CFArrayGetCount(storePrivate->cached_notifys)),
+					  key)) {
+			CFArrayAppendValue(storePrivate->cached_notifys, key);
+		}
+
+		return TRUE;
+	}
+
 	/* serialize the key */
 	if (!_SCSerializeString(key, &utfKey, (void **)&myKeyRef, &myKeyLen)) {
 		_SCErrorSet(kSCStatusFailed);
 		return FALSE;
 	}
-
-#ifdef	VERBOSE_ACTIVITY_LOGGING
-	os_activity_scope(storePrivate->activity);
-#endif	// VERBOSE_ACTIVITY_LOGGING
 
     retry :
 

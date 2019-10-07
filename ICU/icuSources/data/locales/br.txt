@@ -13,6 +13,7 @@ br{
     ExemplarCharacters{"[a b {ch} {cʼh} d e ê f g h i j k l m n ñ o p r s t u ù v w x y z]"}
     ExemplarCharactersIndex{"[A B C D E F G H I J K L M N O P R S T U V W X Y Z]"}
     ExemplarCharactersNumbers{"[  \\- , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersPunctuation{"[\\- , ; \\: ! ? . ( ) \\[ \\] \\{ \\}]"}
     MoreInformation{"?"}
     NumberElements{
         arab{
@@ -33,7 +34,6 @@ br{
                 percentSign{"٪؜"}
                 plusSign{"؜+"}
                 superscriptingExponent{"×"}
-                timeSeparator{":"}
             }
         }
         arabext{
@@ -49,103 +49,11 @@ br{
                 percentSign{"٪"}
                 plusSign{"‎+‎"}
                 superscriptingExponent{"×"}
-                timeSeparator{"٫"}
-            }
-        }
-        bali{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        beng{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        brah{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        cakm{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        cham{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        default{"latn"}
-        deva{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        fullwide{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        gonm{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        gujr{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        guru{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        hanidec{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        java{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        kali{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        khmr{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        knda{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        lana{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        lanatham{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        laoo{
-            symbols{
-                timeSeparator{":"}
             }
         }
         latn{
             miscPatterns{
-                atLeast{"⩾{0}"}
+                atLeast{"≥{0}"}
                 range{"{0}–{1}"}
             }
             patterns{
@@ -429,17 +337,6 @@ br{
                 percentSign{"%"}
                 plusSign{"+"}
                 superscriptingExponent{"×"}
-                timeSeparator{":"}
-            }
-        }
-        lepc{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        limb{
-            symbols{
-                timeSeparator{":"}
             }
         }
         minimalPairs{
@@ -447,110 +344,8 @@ br{
                 other{"{0}vet"}
             }
         }
-        minimumGroupingDigits{"1"}
-        mlym{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        mong{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        mtei{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        mymr{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        mymrshan{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        native{"latn"}
-        nkoo{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        olck{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        orya{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        osma{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        saur{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        shrd{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        sora{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        sund{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        takr{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        talu{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        tamldec{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        telu{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        thai{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        tibt{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
-        vaii{
-            symbols{
-                timeSeparator{":"}
-            }
-        }
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.86"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -2992,11 +2787,11 @@ br{
                 MMM{"LLL"}
                 MMMEd{"E d MMM"}
                 MMMMW{
-                    few{"'sizhun' W MMM"}
-                    many{"'sizhun' W MMM"}
-                    one{"'sizhun' W MMM"}
-                    other{"'sizhun' W MMM"}
-                    two{"'sizhun' W MMM"}
+                    few{"'sizhun' W MMMM"}
+                    many{"'sizhun' W MMMM"}
+                    one{"'sizhun' W MMMM"}
+                    other{"'sizhun' W MMMM"}
+                    two{"'sizhun' W MMMM"}
                 }
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
@@ -5083,6 +4878,12 @@ br{
         dayperiod{
             dn{"AM/GM"}
         }
+        dayperiod-narrow{
+            dn{"AM/GM"}
+        }
+        dayperiod-short{
+            dn{"AM/GM"}
+        }
         era{
             dn{"amzervezh"}
         }
@@ -5953,8 +5754,13 @@ br{
         general{
             lenient{
                 "[.․。︒﹒．｡]",
+                "['ʼ՚᾽᾿’＇]",
+                "[%٪﹪％]",
+                "[؉‰]",
                 "[\$﹩＄$]",
                 "[£₤]",
+                "[¥￥]",
+                "[₩￦]",
                 "[₨₹{Rp}{Rs}]",
             }
         }
@@ -5963,10 +5769,6 @@ br{
                 "[\\-‒⁻₋−➖﹣－]",
                 "[,،٫、︐︑﹐﹑，､]",
                 "[+⁺₊➕﬩﹢＋]",
-            }
-            stricter{
-                "[,٫︐﹐，]",
-                "[.․﹒．｡]",
             }
         }
     }

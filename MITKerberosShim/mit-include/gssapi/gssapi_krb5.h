@@ -29,6 +29,7 @@
 
 #include <gssapi/gssapi.h>
 #include <krb5.h>
+#include <Availability.h>
 
 /* C++ friendlyness */
 #ifdef __cplusplus
@@ -165,21 +166,21 @@ void *		data;		/* actual key data */
 /* Alias for Heimdal compat. */
 #define gsskrb5_register_acceptor_identity krb5_gss_register_acceptor_identity
 
-OM_uint32 KRB5_CALLCONV krb5_gss_register_acceptor_identity(const char *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");
+OM_uint32 KRB5_CALLCONV krb5_gss_register_acceptor_identity(const char *) GSSKRB_APPLE_DEPRECATED("use GSS.framework") __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac);
 
 OM_uint32 KRB5_CALLCONV gss_krb5_get_tkt_flags(
     OM_uint32 *minor_status,
     gss_ctx_id_t context_handle,
-    krb5_flags *ticket_flags) GSSKRB_APPLE_DEPRECATED("use GSS.framework");
+    krb5_flags *ticket_flags) GSSKRB_APPLE_DEPRECATED("use GSS.framework") __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac);
 
 OM_uint32 KRB5_CALLCONV gss_krb5_copy_ccache(
     OM_uint32 *minor_status,
     gss_cred_id_t cred_handle,
-    krb5_ccache out_ccache) GSSKRB_APPLE_DEPRECATED("use GSS.framework");
+    krb5_ccache out_ccache) GSSKRB_APPLE_DEPRECATED("use GSS.framework") __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac);
 
 OM_uint32 KRB5_CALLCONV gss_krb5_ccache_name(
     OM_uint32 *minor_status, const char *name,
-    const char **out_name) GSSKRB_APPLE_DEPRECATED("use GSS.framework");
+    const char **out_name) GSSKRB_APPLE_DEPRECATED("use GSS.framework") __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac);
 
 /*
  * gss_krb5_set_allowable_enctypes
@@ -195,7 +196,7 @@ OM_uint32 KRB5_CALLCONV gss_krb5_ccache_name(
  * the default credential.
  *
  * The purpose of this function is to limit the keys that may
- * be exported via gss_krb5_export_lucid_sec_context() GSSKRB_APPLE_DEPRECATED("use GSS.framework"); thus it
+ * be exported via gss_krb5_export_lucid_sec_context(); thus it
  * should limit the enctypes of all keys that will be needed
  * after the security context has been established.
  * (i.e. context establishment may use a session key with a
@@ -208,7 +209,7 @@ OM_uint32 KRB5_CALLCONV
 gss_krb5_set_allowable_enctypes(OM_uint32 *minor_status,
                                 gss_cred_id_t cred,
                                 OM_uint32 num_ktypes,
-                                krb5_enctype *ktypes) GSSKRB_APPLE_DEPRECATED("use GSS.framework");
+                                krb5_enctype *ktypes) GSSKRB_APPLE_DEPRECATED("use GSS.framework") __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac);
 
 /*
  * Returns a non-opaque (lucid) version of the internal context
@@ -243,7 +244,7 @@ gss_krb5_set_allowable_enctypes(OM_uint32 *minor_status,
  *      gss_ctx_id_t *ctx_handle;
  *
  *      maj_stat = gss_krb5_export_lucid_sec_context(&min_stat,
- *                      ctx_handle, 1, &return_ctx) GSSKRB_APPLE_DEPRECATED("use GSS.framework");
+ *                      ctx_handle, 1, &return_ctx);
  *      // Verify success
  *
  *      vers = ((gss_krb5_lucid_context_version_t *)return_ctx)->version;
@@ -262,7 +263,7 @@ OM_uint32 KRB5_CALLCONV
 gss_krb5_export_lucid_sec_context(OM_uint32 *minor_status,
                                   gss_ctx_id_t *context_handle,
                                   OM_uint32 version,
-                                  void **kctx) GSSKRB_APPLE_DEPRECATED("use GSS.framework");
+                                  void **kctx) GSSKRB_APPLE_DEPRECATED("use GSS.framework") __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac);
 
 
 
@@ -298,7 +299,7 @@ OM_uint32 KRB5_CALLCONV
 apple_gss_krb5_export_authdata_if_relevant_context(OM_uint32 *minor_status,
                   gss_ctx_id_t *context_handle,
                   OM_uint32 version,
-                  void **kctx) GSSKRB_APPLE_DEPRECATED("use GSS.framework");
+                  void **kctx) GSSKRB_APPLE_DEPRECATED("use GSS.framework") __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac);
 
 /*
 * Frees the allocated storage associated with an
@@ -306,7 +307,7 @@ apple_gss_krb5_export_authdata_if_relevant_context(OM_uint32 *minor_status,
 */
 OM_uint32 KRB5_CALLCONV
 apple_gss_krb5_free_authdata_if_relevant(OM_uint32 *minor_status,
-void *kctx) GSSKRB_APPLE_DEPRECATED("use GSS.framework");
+void *kctx) GSSKRB_APPLE_DEPRECATED("use GSS.framework") __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac);
 
 
 
@@ -323,7 +324,7 @@ gss_krb5_free_lucid_sec_context(OM_uint32 *minor_status,
 #define GSS_KRB5_UI_PROBE	3
 
 OM_uint32 KRB5_CALLCONV
-gss_krb5_ui(OM_uint32 * /* minor_status */, OM_uint32 /* flag */) GSSKRB_APPLE_DEPRECATED("use GSS.framework");
+gss_krb5_ui(OM_uint32 * /* minor_status */, OM_uint32 /* flag */) GSSKRB_APPLE_DEPRECATED("use GSS.framework") __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac);
 
 #ifdef __cplusplus
 }

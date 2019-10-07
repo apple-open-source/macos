@@ -27,7 +27,7 @@
 #include <security_utilities/threading.h>
 #include <utilities/SecCFRelease.h>
 #include "SecBridge.h"
-#include "SecFramework.h"
+#include <Security/SecFramework.h>
 
 static CFStringRef copyErrorMessageFromBundle(OSStatus status,CFStringRef tableName);
 
@@ -300,7 +300,7 @@ OSStatus SecKeychainErrFromOSStatus(OSStatus osStatus)
 		case CSSMERR_DL_DATASTORE_ALREADY_EXISTS:
 			return errSecDuplicateKeychain;
 		case CSSMERR_APPLEDL_DISK_FULL:
-			return errSecDskFull;
+			return errSecDiskFull;
 		case CSSMERR_DL_INVALID_OPEN_PARAMETERS: 
 		case CSSMERR_APPLEDL_INVALID_OPEN_PARAMETERS:
 		case CSSMERR_APPLE_DOTMAC_REQ_SERVER_PARAM:

@@ -4,13 +4,7 @@
  * Copyright 2007-2014 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
  */
 
 /*
@@ -18,13 +12,14 @@
  */
 
 #include "cups.h"
+#include "sidechannel.h"
 #include <errno.h>
-#ifdef WIN32
+#ifdef _WIN32
 #  include <io.h>
 #  include <fcntl.h>
 #else
 #  include <sys/time.h>
-#endif /* WIN32 */
+#endif /* _WIN32 */
 
 
 /*
@@ -77,11 +72,11 @@ cupsBackChannelRead(char   *buffer,	/* I - Buffer to read into */
   * Read bytes from the pipe...
   */
 
-#ifdef WIN32
+#ifdef _WIN32
   return ((ssize_t)_read(3, buffer, (unsigned)bytes));
 #else
   return (read(3, buffer, bytes));
-#endif /* WIN32 */
+#endif /* _WIN32 */
 }
 
 
@@ -139,11 +134,11 @@ cupsBackChannelWrite(
     * Write bytes to the pipe...
     */
 
-#ifdef WIN32
+#ifdef _WIN32
     count = (ssize_t)_write(3, buffer, (unsigned)(bytes - total));
 #else
     count = write(3, buffer, bytes - total);
-#endif /* WIN32 */
+#endif /* _WIN32 */
 
     if (count < 0)
     {

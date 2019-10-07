@@ -27,16 +27,11 @@
 /*	Copyright (c) 1988 AT&T	*/
 /*	  All Rights Reserved  	*/
 
-#pragma ident	"@(#)data.c	1.15	08/05/31 SMI"
-
 #include <libelf.h>
 #include "decl.h"
 
 /*
  * Global data
- * _elf_byte		Fill byte for file padding.  See elf_fill().
- * _elf32_ehdr_init	Clean copy for to initialize new headers.
- * _elf64_ehdr_init	Clean copy for to initialize new class-64 headers.
  * _elf_encode		Host/internal data encoding.  If the host has
  *			an encoding that matches one known for the
  *			ELF format, this changes.  An machine with an
@@ -58,13 +53,9 @@
 // XXX_PRAGMA_WEAK #pragma weak		__libc_threaded
 extern int		__libc_threaded;
 
-int			_elf_byte = 0;
-const Elf32_Ehdr	_elf32_ehdr_init = { 0 };
-const Elf64_Ehdr	_elf64_ehdr_init = { 0 };
 unsigned		_elf_encode = ELFDATANONE;
-const Snode32		_elf32_snode_init = { 0 };
-const Snode64		_elf64_snode_init = { 0 };
-const Dnode		_elf_dnode_init = { 0 };
+const Snode32		_elf32_snode_init;
+const Snode64		_elf64_snode_init;
 unsigned		_elf_work = EV_NONE;
 mutex_t			_elf_globals_mutex = DEFAULTMUTEX;
 

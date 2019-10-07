@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_ADDROF_VAR.StructPointer.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Trying to access the members of a user defined struct by means of
  * a pointer to it should throw a D_ADDROF_VAR compiler error.

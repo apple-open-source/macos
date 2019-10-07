@@ -34,7 +34,7 @@
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFDate.h>
-#include <securityd/SecOCSPRequest.h>
+#include "securityd/SecOCSPRequest.h"
 #include <security_asn1/ocspTemplates.h>
 
 __BEGIN_DECLS

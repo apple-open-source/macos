@@ -91,7 +91,9 @@ T_DECL(getcwd_fts, "A basic test of getcwd(3)")
 
 		case FTS_DP:
 			(void)memset(buf, 0, sizeof(buf));
+			T_WITH_ERRNO;
 			T_ASSERT_NOTNULL(getcwd(buf, sizeof(buf)), NULL);
+			T_LOG("ftse->fts_path: %s", ftse->fts_path);
 			T_ASSERT_NOTNULL(strstr(ftse->fts_path, buf), NULL);
 			break;
 

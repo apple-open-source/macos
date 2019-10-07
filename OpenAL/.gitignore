@@ -1,0 +1,48 @@
+# Git ignore file
+# Last updated: 2015-12-06, dwyatt
+
+# Mac OS X Finder
+.DS_Store
+
+# Xcode (and ancestors) per-user config (very noisy, and not relevant)
+*.mode1
+*.mode1v3
+*.mode2v3
+*.perspective
+*.perspectivev3
+*.pbxuser
+
+# Xcode 4 and later
+xcuserdata/
+*.xcscmblueprint
+
+# Generated files
+*.o
+*.pyc
+*.hi
+
+# Build products
+build/
+*.[oa]
+
+# Other source repository archive directories (protects when importing)
+.hg
+.svn
+CVS
+.cvs
+.cvswrappers
+.cvs*
+
+# Automatic backup files
+*~.nib
+*.swp
+*~
+*(Autosaved).rtfd/
+Backup[ ]of[ ]*.pages/
+Backup[ ]of[ ]*.key/
+Backup[ ]of[ ]*.numbers/
+
+# Python modules
+MANIFEST
+dist/
+build/

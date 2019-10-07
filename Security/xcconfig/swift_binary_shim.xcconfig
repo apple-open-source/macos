@@ -1,0 +1,6 @@
+
+// Use this xcconfig if you have a target (likely a test) which should always use iOS SecItem APIs (so that they can always be swizzled correctly)
+
+#include "xcconfig/swift_binary.xcconfig"
+
+GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*] = $(inherited) SECITEM_SHIM_OSX=1

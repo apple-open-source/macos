@@ -5,7 +5,7 @@ Test count() function : usage variations - Pass different data types as $mode ar
 --FILE--
 <?php
 /* Prototype  : int count(mixed $var [, int $mode])
- * Description: Count the number of elements in a variable (usually an array) 
+ * Description: Count the number of elements in a variable (usually an array)
  * Source code: ext/standard/array.c
  */
 
@@ -63,7 +63,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
@@ -72,7 +72,7 @@ $inputs = array(
 /*18*/ "string",
        'string',
        $heredoc,
-       
+
        // object data
 /*21*/ new classA(),
 
@@ -148,32 +148,32 @@ int(3)
 
 -- Iteration 16 --
 
-Warning: count() expects parameter 2 to be integer, string given in %s on line %d
+Warning: count() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 17 --
 
-Warning: count() expects parameter 2 to be integer, string given in %s on line %d
+Warning: count() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 18 --
 
-Warning: count() expects parameter 2 to be integer, string given in %s on line %d
+Warning: count() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 19 --
 
-Warning: count() expects parameter 2 to be integer, string given in %s on line %d
+Warning: count() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 20 --
 
-Warning: count() expects parameter 2 to be integer, string given in %s on line %d
+Warning: count() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 21 --
 
-Warning: count() expects parameter 2 to be integer, object given in %s on line %d
+Warning: count() expects parameter 2 to be int, object given in %s on line %d
 NULL
 
 -- Iteration 22 --
@@ -184,6 +184,6 @@ int(3)
 
 -- Iteration 24 --
 
-Warning: count() expects parameter 2 to be integer, resource given in %s on line %d
+Warning: count() expects parameter 2 to be int, resource given in %s on line %d
 NULL
 Done

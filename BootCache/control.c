@@ -19,6 +19,7 @@
 #include <sys/xattr.h>
 #include <sys/mount.h>
 #include <libkern/OSAtomic.h>
+#include <os/assumes.h>
 
 #include <err.h>
 #include <errno.h>
@@ -32,6 +33,7 @@
 #include <mach-o/dyld_priv.h>
 #include <mach-o/dyld_cache_format.h>
 #include <mach/mach_time.h>
+#include <sys/kdebug_private.h>
 
 #include "BootCache_private.h"
 
@@ -52,6 +54,8 @@ static int	print_playlist_on_disk(const char *pfname);
 static int	unprint_playlist(const char *pfname);
 static int	generalize_playlist(const char *pfname);
 static int	truncate_playlist(const char *pfname, char *larg);
+static int  trim_playlist_to_max_size(struct BC_playlist* pc);
+static void max_playlist_size(uint64_t* max_high_priority_size_out, uint64_t* max_total_size_out);
 static int	add_file(struct BC_playlist *pc, const char *fname, const int batch, const bool low_priority);
 static int	add_directory(struct BC_playlist *pc, const char *fname, const int batch);
 static int	add_fseventsd_files(struct BC_playlist *pc, const int batch);
@@ -398,6 +402,13 @@ do_boot_cache()
 			DLOG("Adding shared cache");
 			add_native_shared_cache(pc, -1, false);
 		}
+		
+		error = trim_playlist_to_max_size(pc);
+		if (error != 0) {
+			errno = error;
+			LOG_ERRNO("cache trim failed");
+			PC_FREE_ZERO(pc);
+		}
 	}
 
 	userspace_timestamps.ssup_oid_timestamp = mach_absolute_time();
@@ -441,31 +452,11 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isFusion) {
 #define I386_SHARED_CACHE_NULL_BATCH_NUM		 (-2)
 #define I386_SHARED_CACHE_LOW_PRIORITY_BATCH_NUM (-1)
 
-	int error, i;
+	int error = 0, i;
 	size_t playlist_path_end_idx = 0;
 	char playlist_path[MAX_PLAYLIST_PATH_LENGTH] = DEFAULT_USER_DIR;
 	struct BC_playlist* user_playlist = NULL;
 	bool already_added_i386_shared_cache = false;
-
-	// Limit the playlist size
-	ssize_t playlist_size = 0;
-	ssize_t max_playlist_size = 0;
-	size_t len = sizeof(max_playlist_size);
-	error = sysctlbyname("hw.memsize", &max_playlist_size, &len, NULL, 0);
-	if(error != 0) {
-		max_playlist_size = (1024 * 1024 * 1024);
-		LOG_ERRNO("sysctlbyname(\"hw.memsize\") failed. Assuming 1GB");
-	}
-	max_playlist_size = (max_playlist_size / 2) - (512 * 1024 * 1024);
-	if (max_playlist_size < (512 * 1024 * 1024)) {
-		max_playlist_size = (512 * 1024 * 1024);
-	}
-
-	for (i = 0; i < pc->p_nentries; i++) {
-		playlist_size += pc->p_entries[i].pe_length;
-	}
-
-	if (playlist_size >= max_playlist_size) goto out;
 
 	//rdar://8830944&9209576 Detect FDE user
 	io_registry_entry_t service = IORegistryEntryFromPath(kIOMasterPortDefault, "IODeviceTree:/chosen");
@@ -565,17 +556,9 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isFusion) {
 									for (i = 0; i < app_playlist->p_nentries; i++) {
 										app_playlist->p_entries[i].pe_flags |= flags;
 										app_playlist->p_entries[i].pe_batch += batch_offset;
-										playlist_size += app_playlist->p_entries[i].pe_length;
 									}
 									for (i = 0; i < app_playlist->p_nomaps; i++) {
 										app_playlist->p_omaps[i].po_omap.otr_batch += batch_offset;
-									}
-
-									// Make sure we don't oversize the playlist
-									if (playlist_size > max_playlist_size) {
-										// DLOG("Login cache maximum size of %ldMB reached", max_playlist_size / (1024 * 0124));
-										PC_FREE_ZERO(app_playlist);
-										break;
 									}
 
 									if (0 != (error = BC_merge_playlists(user_playlist, app_playlist))) {
@@ -600,10 +583,6 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isFusion) {
 						playlist_path[playlist_path_end_idx] = '\0';
 						// DLOG("Unknown file in user playlist directory %s: %s", playlist_path, direntry->d_name);
 					}
-				}
-
-				if (playlist_size > max_playlist_size) {
-					break;
 				}
 
 				if (iteration == 0) {
@@ -651,6 +630,197 @@ add_playlist_for_preheated_user(struct BC_playlist *pc, bool isFusion) {
 out:
 	PC_FREE_ZERO(user_playlist);
 	return (error);
+}
+
+/*
+ * Upon return:
+ * *max_high_priority_size_out is the the maximum size of the high priority batches, in bytes
+ * *max_total_size_out is the maximum size of the cache when also including low priority
+ *     (to limit memory impact of the low priority batch).
+ *     I.E. if (high priority size) < (max_total_size), then the maximum amount of low priority
+ *     bytes is (max_total_size) - (high priority size). Otherwise, no low priority bytes are allowed
+ *
+ * (max_total_size may be larger or smaller than max_high_priority_size)
+ */
+static void
+max_playlist_size(uint64_t* max_high_priority_size_out, uint64_t* max_total_size_out)
+{
+	static dispatch_once_t onceToken;
+	static uint64_t max_high_priority_size = 0;
+	static uint64_t max_total_size = 0;
+	dispatch_once(&onceToken, ^{
+		uint64_t memsize = 0;
+		size_t len = sizeof(memsize);
+		int error = sysctlbyname("hw.memsize", &memsize, &len, NULL, 0);
+		if(error != 0) {
+			memsize = (4ull * 1024 * 1024 * 1024);
+			LOG_ERRNO("sysctlbyname(\"hw.memsize\") failed. Assuming 4GB");
+		} else {
+			
+			// Subtract any memory that is allocated by boot kernel tracing
+			char bootargs[PAGE_SIZE];
+			bootargs[0] = '\0';
+			size_t s = sizeof(bootargs);
+			if (0 != sysctlbyname("kern.bootargs", &(bootargs[0]), &s, NULL, 0)) {
+				LOG_ERRNO("Unable to get kern.bootargs");
+			} else {
+				char* trace_str = strnstr(bootargs, "trace=", sizeof(bootargs));
+				if (trace_str) {
+					uint64_t trace_count;
+					if (sscanf(trace_str, "trace=%lli", &trace_count) == 1) {
+						uint64_t trace_size = trace_count * sizeof(kd_buf);
+						if (memsize > trace_size) {
+							memsize -= trace_size;
+						}
+					}
+				}
+			}
+
+		}
+		
+#define BC_RESERVE_MEM_SIZE_FOR_HIGH_PRIORITY_PLAYLIST (1ull * 1024 * 1024 * 1024) // Make sure we leave 1GB free if the cache is completely wrong
+#define BC_MIN_MEM_SIZE_FOR_HIGH_PRIORITY_PLAYLIST (1ull * 1024 * 1024 * 1024) // But don't force the BootCache size to less than 1GB
+
+#define BC_RESERVE_MEM_SIZE_FOR_LOW_PRIORITY_PLAYLIST (3ull * 1024 * 1024 * 1024) // Maks sure we leave 3GB of memory free since the low priority playlist isn't expected to be used (and its mainly read in after boot has completed)
+#define BC_MIN_MEM_SIZE_FOR_LOW_PRIORITY_PLAYLIST (0) // If we're low on memory, don't do any low priority playback
+
+		// max high priority playlist size is memory size minus 1GB
+		// (pages will be pulled from the cache as boot progresses, so its never all resident at once)
+		if (memsize >= BC_RESERVE_MEM_SIZE_FOR_HIGH_PRIORITY_PLAYLIST + BC_MIN_MEM_SIZE_FOR_HIGH_PRIORITY_PLAYLIST) {
+			// machine has >=2GB of memory, use default sizing
+			max_high_priority_size = memsize - BC_RESERVE_MEM_SIZE_FOR_HIGH_PRIORITY_PLAYLIST;
+		} else if (memsize >= BC_MIN_MEM_SIZE_FOR_HIGH_PRIORITY_PLAYLIST) {
+			// 1-2GB in the machine, use 1GB
+			max_high_priority_size = BC_MIN_MEM_SIZE_FOR_HIGH_PRIORITY_PLAYLIST;
+		} else {
+			// <1GB of memory, use memsize
+			max_high_priority_size = memsize;
+		}
+		
+		// max size that low priority entires can make a playlist to be is memory size minus 3GB
+		// (low priority entries are not expected to be used, so will cause memory pressure if we pull in too much)
+		// rdar://53720350 (BootCache causing memory pressure after login for 4GB machines)
+		if (memsize >= BC_RESERVE_MEM_SIZE_FOR_LOW_PRIORITY_PLAYLIST + BC_MIN_MEM_SIZE_FOR_LOW_PRIORITY_PLAYLIST) {
+			// machine has >=3GB of memory, use default sizing
+			max_total_size = memsize - BC_RESERVE_MEM_SIZE_FOR_LOW_PRIORITY_PLAYLIST;
+		} else if (memsize >= BC_MIN_MEM_SIZE_FOR_LOW_PRIORITY_PLAYLIST) {
+			// <3GB in the machine, no low priority bytes allowed
+			max_total_size = BC_MIN_MEM_SIZE_FOR_LOW_PRIORITY_PLAYLIST;
+		} else {
+			// Unused (would be used if we have a min for low priority playlist)
+			max_total_size = memsize;
+		}
+	});
+	
+	*max_high_priority_size_out = max_high_priority_size;
+	*max_total_size_out = max_total_size;
+}
+
+/*
+ * Trim the lowest priority extents until the playlist
+ * is under the provided size
+ */
+static int
+trim_playlist_to_size(struct BC_playlist* pc, uint64_t max_high_priority_size, uint64_t max_total_size)
+{
+
+	struct BC_userspace_oversize oversize = {
+		.ssup_highpri_bytes_trimmed = 0,
+		.ssup_lowpri_bytes_trimmed = 0,
+	};
+
+	uint64_t playlist_low_priority_size = 0;
+	uint64_t playlist_high_priority_size = 0;
+	int max_batch = 0;
+	for (int entry_idx = 0; entry_idx < pc->p_nentries; entry_idx++) {
+		struct BC_playlist_entry* pe = pc->p_entries + entry_idx;
+		if (pe->pe_flags & BC_PE_LOWPRIORITY) {
+			playlist_low_priority_size += pe->pe_length;
+		} else {
+			playlist_high_priority_size += pe->pe_length;
+			if (max_batch < pe->pe_batch) {
+				max_batch = pe->pe_batch;
+			}
+		}
+	}
+
+	if (playlist_high_priority_size > max_high_priority_size) {
+		
+		// High priority part of the playlist is too large,
+		// trim off entries in last-to-first batch order
+		// Also, iterate in reverse block address order
+		// (because lower extents tend to be grouped tighter in my experience)
+		uint64_t playlist_high_priority_size_orig = playlist_high_priority_size;
+
+		for (int batch = max_batch; batch >= 0; batch--) {
+			for (int entry_idx = pc->p_nentries - 1; entry_idx >= 0; entry_idx--) {
+				struct BC_playlist_entry* pe = pc->p_entries + entry_idx;
+				if ((pe->pe_batch == batch) && !(pe->pe_flags & BC_PE_LOWPRIORITY)) {
+					if (pe->pe_length > playlist_high_priority_size - max_high_priority_size) {
+						pe->pe_length -= (playlist_high_priority_size - max_high_priority_size);
+						playlist_high_priority_size = max_high_priority_size;
+					} else {
+						playlist_high_priority_size -= pe->pe_length;
+						pe->pe_length = 0;
+					}
+				}
+				if (playlist_high_priority_size <= max_high_priority_size) {
+					break;
+				}
+			}
+			if (playlist_high_priority_size <= max_high_priority_size) {
+				break;
+			}
+		}
+		
+		LOG("Trimmed %llu high priority bytes due to oversize (%llu > %llu)", playlist_high_priority_size_orig - playlist_high_priority_size, playlist_high_priority_size_orig, max_high_priority_size);
+		oversize.ssup_highpri_bytes_trimmed = playlist_high_priority_size_orig - playlist_high_priority_size;
+	}
+	
+	if (playlist_high_priority_size + playlist_low_priority_size > max_total_size) {
+		
+		// Low priority part of the playlist is too large trim off entries
+		uint64_t playlist_low_priority_size_orig = playlist_low_priority_size;
+		
+		for (int entry_idx = pc->p_nentries - 1; entry_idx >= 0; entry_idx--) {
+			struct BC_playlist_entry* pe = pc->p_entries + entry_idx;
+			if (pe->pe_flags & BC_PE_LOWPRIORITY) {
+				if (pe->pe_length > playlist_high_priority_size + playlist_low_priority_size - max_total_size) {
+					pe->pe_length -= (playlist_high_priority_size + playlist_low_priority_size - max_total_size);
+					playlist_low_priority_size = max_total_size - playlist_high_priority_size;
+				} else {
+					playlist_low_priority_size -= pe->pe_length;
+					pe->pe_length = 0;
+				}
+			}
+			if (playlist_high_priority_size + playlist_low_priority_size <= max_total_size) {
+				break;
+			}
+		}
+		
+		LOG("Trimmed %llu low priority bytes due to oversize (%llu > %llu)", playlist_low_priority_size_orig - playlist_low_priority_size, playlist_high_priority_size + playlist_low_priority_size_orig, max_total_size);
+		oversize.ssup_lowpri_bytes_trimmed = playlist_low_priority_size_orig - playlist_low_priority_size;
+	}
+	
+	int err = BC_sort_and_coalesce_playlist(pc);
+	if (err == 0) {
+		BC_set_userspace_oversize(&oversize);
+	}
+	return err;
+}
+
+
+/*
+ * Trim the lowest priority extents until the playlist
+ * is under the maximum size
+ */
+static int
+trim_playlist_to_max_size(struct BC_playlist* pc)
+{
+	uint64_t max_high_priority_size = 0;
+	uint64_t max_total_size = 0;
+	max_playlist_size(&max_high_priority_size, &max_total_size);
+	return trim_playlist_to_size(pc, max_high_priority_size, max_total_size);
 }
 
 
@@ -1031,9 +1201,9 @@ add_32bit_shared_cache(struct BC_playlist *pc, int batch, bool low_priority)
 	// <rdar://problem/30244516> Limit amount of shared cache pulled in by the BootCache
 	
 	// We ended up not using these, so they're all very high so we include the entire shared cache
-#define BC_NONNATIVE_SHARED_CACHE_TEXT_HIGHPRIORITY_SIZE_BYTES     (10000 * 1024 * 1024)
-#define BC_NONNATIVE_SHARED_CACHE_DATA_HIGHPRIORITY_SIZE_BYTES     (10000 * 1024 * 1024)
-#define BC_NONNATIVE_SHARED_CACHE_LINKEDIT_HIGHPRIORITY_SIZE_BYTES (10000 * 1024 * 1024)
+#define BC_NONNATIVE_SHARED_CACHE_TEXT_HIGHPRIORITY_SIZE_BYTES     (10000ull * 1024 * 1024)
+#define BC_NONNATIVE_SHARED_CACHE_DATA_HIGHPRIORITY_SIZE_BYTES     (10000ull * 1024 * 1024)
+#define BC_NONNATIVE_SHARED_CACHE_LINKEDIT_HIGHPRIORITY_SIZE_BYTES (10000ull * 1024 * 1024)
 	
 	return add_shared_cache(pc, BC_DYLD_SHARED_CACHE_32, batch, low_priority, false, BC_NONNATIVE_SHARED_CACHE_TEXT_HIGHPRIORITY_SIZE_BYTES, BC_NONNATIVE_SHARED_CACHE_DATA_HIGHPRIORITY_SIZE_BYTES, BC_NONNATIVE_SHARED_CACHE_LINKEDIT_HIGHPRIORITY_SIZE_BYTES);
 }
@@ -1057,9 +1227,9 @@ add_native_shared_cache(struct BC_playlist *pc, int batch, bool low_priority)
 	// <rdar://problem/30244516> Limit amount of shared cache pulled in by the BootCache
 	
 	// We ended up not using these, so they're all very high so we include the entire shared cache
-#define BC_NATIVE_SHARED_CACHE_TEXT_HIGHPRIORITY_SIZE_BYTES     (10000 * 1024 * 1024)
-#define BC_NATIVE_SHARED_CACHE_DATA_HIGHPRIORITY_SIZE_BYTES     (10000 * 1024 * 1024)
-#define BC_NATIVE_SHARED_CACHE_LINKEDIT_HIGHPRIORITY_SIZE_BYTES (10000 * 1024 * 1024)
+#define BC_NATIVE_SHARED_CACHE_TEXT_HIGHPRIORITY_SIZE_BYTES     (10000ull * 1024 * 1024)
+#define BC_NATIVE_SHARED_CACHE_DATA_HIGHPRIORITY_SIZE_BYTES     (10000ull * 1024 * 1024)
+#define BC_NATIVE_SHARED_CACHE_LINKEDIT_HIGHPRIORITY_SIZE_BYTES (10000ull * 1024 * 1024)
 	
 	return add_shared_cache(pc, shared_cache_path, batch, low_priority, true, BC_NATIVE_SHARED_CACHE_TEXT_HIGHPRIORITY_SIZE_BYTES, BC_NATIVE_SHARED_CACHE_DATA_HIGHPRIORITY_SIZE_BYTES, BC_NATIVE_SHARED_CACHE_LINKEDIT_HIGHPRIORITY_SIZE_BYTES);
 }
@@ -1112,6 +1282,14 @@ start_cache(const char *pfname)
 		error = unlink(pfname);
 		if (error != 0 && errno != ENOENT) {
 			LOG_ERRNO("could not unlink playlist %s", pfname);
+		}
+		
+		error = trim_playlist_to_max_size(pc);
+		if (error != 0) {
+			errno = error;
+			LOG_ERRNO("cache trim failed");
+			PC_FREE_ZERO(pc);
+			return error;
 		}
 	}
 
@@ -1590,7 +1768,7 @@ truncate_playlist(const char *pfname, char *larg)
 		}
 		for (i = 0; i < pc->p_nmounts; i++) {
 			if (pc->p_mounts[i].pm_nentries == 0 && pc->p_mounts[i].pm_nomaps == 0) {
-				memcpy(pc->p_mounts + i, pc->p_mounts + i + 1, pc->p_nmounts - i - 1);
+				memmove(pc->p_mounts + i, pc->p_mounts + i + 1, pc->p_nmounts - i - 1);
 				pc->p_nmounts--;
 				i--;
 			}

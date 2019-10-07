@@ -525,7 +525,7 @@ INTERNAL void rpc__gssauth_cn_create_info
 	 * Initialize the common auth_info stuff.
 	 */
 	gssauth_info->auth_info.refcount = 1;
-	gssauth_info->auth_info.server_princ_name = '\0';
+	gssauth_info->auth_info.server_princ_name = NULL;
 	gssauth_info->auth_info.authn_level = authn_level;
 	gssauth_info->auth_info.authn_protocol = authn_protocol;
 	gssauth_info->auth_info.authz_protocol = rpc_c_authz_name;
@@ -1346,7 +1346,7 @@ INTERNAL void rpc__gssauth_cn_free_prot_info
 	}
 
 #ifdef DEBUG
-	memset (gssauth_cn_info, 0, sizeof (rpc_gssauth_cn_info_p_t));
+	memset (gssauth_cn_info, 0, sizeof (rpc_gssauth_cn_info_t));
 #endif
 
 	RPC_MEM_FREE (gssauth_cn_info, RPC_C_MEM_GSSAUTH_CN_INFO);
@@ -1656,7 +1656,7 @@ INTERNAL void rpc__gssauth_cn_wrap_packet
 		      RPC_C_MEM_WAITOK);
 	memset(pdu_buf, 0xAF, pdu_buflen);
 
-	pdu = (rpc_cn_common_hdr_p_t)pdu_buf;
+	pdu = (rpc_cn_common_hdr_p_t)(void *)pdu_buf;
 
 	for (i = 0, pdu_buflen = 0; i < iovlen - 1; i++) {
 		memcpy(&pdu_buf[pdu_buflen],
@@ -1837,7 +1837,7 @@ INTERNAL void rpc__gssauth_cn_create_large_frag
 		      RPC_C_MEM_WAITOK);
 
 	pdu_bufp = pdu_buf;
-	pdu = (rpc_cn_common_hdr_p_t)pdu_bufp;
+	pdu = (rpc_cn_common_hdr_p_t)(void *)pdu_bufp;
 	for (i = 0; i < iovlen; i++) {
 		memcpy(pdu_bufp, iov[i].iov_base, iov[i].iov_len);
 		pdu_bufp += iov[i].iov_len;
@@ -1934,7 +1934,7 @@ INTERNAL void rpc__gssauth_cn_pre_send
 		("(rpc__gssauth_cn_pre_send)\n"));
 
 	pdu = (rpc_cn_common_hdr_p_t)iov[0].iov_base;
-	pkt = (rpc_cn_packet_p_t)pdu;
+	pkt = (rpc_cn_packet_p_t)(void *)pdu;
 	ptype = pdu->ptype;
 	RPC_DBG_PRINTF(rpc_e_dbg_auth, RPC_C_CN_DBG_AUTH_GENERAL,
 		("(rpc__gssauth_cn_pre_send) authn level->%x packet type->%x\n",
@@ -2009,7 +2009,7 @@ INTERNAL void rpc__gssauth_cn_pre_send
 
 		assert(iovlen == 1);
 
-		auth_tlr = RPC_CN_PKT_AUTH_TLR(pkt, iov[0].iov_len);
+		auth_tlr = (void *)RPC_CN_PKT_AUTH_TLR(pkt, iov[0].iov_len);
 		input_token.value = auth_tlr->auth_value;
 		input_token.length = RPC_CN_PKT_AUTH_LEN(pkt);
 
@@ -2197,7 +2197,7 @@ INTERNAL void rpc__gssauth_cn_recv_check
 {
 	rpc_gssauth_cn_info_p_t gssauth_cn_info = (rpc_gssauth_cn_info_p_t)sec->sec_cn_info;
 	boolean conf_req_flag = false;
-	rpc_cn_packet_p_t pkt = (rpc_cn_packet_p_t)pdu;
+	rpc_cn_packet_p_t pkt = (rpc_cn_packet_p_t)(void *)pdu;
 
 	CODING_ERROR(st);
 	RPC_DBG_PRINTF(rpc_e_dbg_auth, RPC_C_CN_DBG_AUTH_ROUTINE_TRACE,

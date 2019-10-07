@@ -17,9 +17,9 @@ return false;
 if (($handle2 = fopen( "DataFile.txt", "w+")) == FALSE)
 return false;
 
-/* Writing into file */ 
+/* Writing into file */
 $filename = "DataFile.txt";
-$content = b"Add this to the file\n";
+$content = "Add this to the file\n";
 if (is_writable($filename)) {
   if (fwrite($handle2, $content) === FALSE) {
     echo "Cannot write to file ($filename)";
@@ -27,7 +27,7 @@ if (is_writable($filename)) {
   }
 }
 
-// close the files 
+// close the files
 fclose($handle);
 fclose($handle2);
 

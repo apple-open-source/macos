@@ -131,7 +131,6 @@ void
 _pthread_mutex_global_init(const char *envp[],
 		struct _pthread_registration_data *registration_data)
 {
-
 	int opt = _PTHREAD_MTX_OPT_POLICY_DEFAULT;
 	if (registration_data->mutex_default_policy) {
 		int policy = registration_data->mutex_default_policy;
@@ -461,8 +460,8 @@ PTHREAD_NOEXPORT PTHREAD_NOINLINE PTHREAD_NORETURN
 int
 _pthread_mutex_corruption_abort(_pthread_mutex *mutex)
 {
-	PTHREAD_ABORT("pthread_mutex corruption: mutex owner changed in the "
-			"middle of lock/unlock");
+	PTHREAD_CLIENT_CRASH(0, "pthread_mutex corruption: mutex owner changed "
+			"in the middle of lock/unlock");
 }
 
 
@@ -941,7 +940,7 @@ _pthread_mutex_fairshare_unlock_drop(_pthread_mutex *mutex, mutex_seq newseq,
 			res = 0;
 		}
 		if (res != 0) {
-			PTHREAD_ABORT("__psynch_mutexdrop failed with error %d", res);
+			PTHREAD_INTERNAL_CRASH(res, "__psynch_mutexdrop failed");
 		}
 		return res;
 	}
@@ -1122,7 +1121,7 @@ _pthread_mutex_firstfit_wake(_pthread_mutex *mutex, mutex_seq newseq,
 			res = 0;
 		}
 		if (res != 0) {
-			PTHREAD_ABORT("__psynch_mutexdrop failed with error %d", res);
+			PTHREAD_INTERNAL_CRASH(res, "__psynch_mutexdrop failed");
 		}
 		return res;
 	}

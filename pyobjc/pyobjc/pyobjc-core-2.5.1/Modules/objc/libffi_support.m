@@ -4031,7 +4031,7 @@ PyObjCFFI_MakeClosure(
 	void* userdata)
 {
 	ffi_cif *cif;
-	ffi_closure *cl;
+	ffi_closure_wrapper *cl;
 	ffi_status rv;
 
 	cif = PyObjCFFI_CIFForSignature(methinfo);
@@ -4052,7 +4052,7 @@ PyObjCFFI_MakeClosure(
 	describe_cif(cif);
 	printf("\n\n");*/
 
-	rv = ffi_prep_closure(cl, cif, func, userdata);
+	rv = ffi_prep_closure_loc(cl->closure, cif, func, userdata, cl->code_addr);
 	if (rv != FFI_OK) {
 		PyObjCFFI_FreeCIF(cif);
 		PyErr_Format(PyExc_RuntimeError,
@@ -4060,7 +4060,7 @@ PyObjCFFI_MakeClosure(
 		return NULL;
 	}
 
-	return (IMP)cl;
+	return (IMP)cl->code_addr;
 }
 
 /* 
@@ -4072,11 +4072,11 @@ void*
 PyObjCFFI_FreeClosure(IMP closure)
 {
 	void* retval;
-	ffi_closure* cl;
+	ffi_closure_wrapper* cl;
 
-	cl = (ffi_closure*)closure;
-	retval = cl->user_data;
-	PyObjCFFI_FreeCIF(cl->cif);
+	cl = PyObjC_closure_from_code(closure);
+	retval = cl->closure->user_data;
+	PyObjCFFI_FreeCIF(cl->closure->cif);
 	PyObjC_free_closure(cl); /* XXX: error handling */
 
 	return retval;

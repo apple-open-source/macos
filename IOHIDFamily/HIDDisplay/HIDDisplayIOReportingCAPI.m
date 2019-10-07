@@ -1,8 +1,8 @@
 //
-//  HIDDisplayIOReporting.m
+//  HIDDisplayIOReportingCAPI.m
 //  HIDDisplay
 //
-//  Created by AB on 4/15/19.
+//  Created by AB on 4/22/19.
 //
 
 #include "HIDDisplayIOReportingCAPI.h"
@@ -56,7 +56,7 @@ bool HIDDisplayIOReportingSetOutputData(HIDDisplayIOReportingInterfaceRef hidDis
 
 void HIDDisplayIOReportingActivate(HIDDisplayIOReportingInterfaceRef hidDisplayInterface)
 {
-     HIDDisplayIOReportingInterface *device = (__bridge HIDDisplayIOReportingInterface*)hidDisplayInterface;
+    HIDDisplayIOReportingInterface *device = (__bridge HIDDisplayIOReportingInterface*)hidDisplayInterface;
     
     [device activate];
 }
@@ -71,8 +71,9 @@ void HIDDisplayIOReportingCancel(HIDDisplayIOReportingInterfaceRef hidDisplayInt
 void HIDDisplayIOReportingSetCancelHandler(HIDDisplayIOReportingInterfaceRef hidDisplayInterface, dispatch_block_t handler)
 {
     
-     HIDDisplayIOReportingInterface *device = (__bridge HIDDisplayIOReportingInterface*)hidDisplayInterface;
+    HIDDisplayIOReportingInterface *device = (__bridge HIDDisplayIOReportingInterface*)hidDisplayInterface;
     
     [device setCancelHandler:handler];
     
 }
+

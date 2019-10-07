@@ -248,6 +248,9 @@ void Dumper::expr(SyntaxLevel level)
 	case opNotarized:
 		print("notarized");
 		break;
+	case opLegacyDevID:
+		print("legacy");
+		break;
 	default:
 		if (op & opGenericFalse) {
 			print(" false /* opcode %d */", op & ~opFlagMask);

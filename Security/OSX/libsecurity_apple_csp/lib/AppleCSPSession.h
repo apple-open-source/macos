@@ -33,9 +33,6 @@ class CSPKeyInfoProvider;
 
 /* avoid unnecessary includes.... */
 class AppleCSPPlugin;
-#ifdef	BSAFE_CSP_ENABLE
-class BSafeFactory;
-#endif
 #ifdef	CRYPTKIT_CSP_ENABLE
 class CryptKitFactory;
 #endif
@@ -129,9 +126,6 @@ public:
 	Allocator 			&normAlloc()  { return normAllocator; }	
     Allocator 			&privAlloc()  { return privAllocator; }
 		
-	#ifdef	BSAFE_CSP_ENABLE
-	BSafeFactory 			&bSafe4Factory;
-	#endif
 	#ifdef	CRYPTKIT_CSP_ENABLE
 	CryptKitFactory			&cryptKitFactory;
 	#endif

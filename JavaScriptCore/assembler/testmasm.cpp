@@ -39,7 +39,9 @@
 #include <wtf/Function.h>
 #include <wtf/Lock.h>
 #include <wtf/NumberOfCores.h>
+#include <wtf/PtrTag.h>
 #include <wtf/Threading.h>
+#include <wtf/text/StringCommon.h>
 
 // We don't have a NO_RETURN_DUE_TO_EXIT, nor should we. That's ridiculous.
 static bool hiddenTruthBecauseNoReturnIsStupid() { return true; }
@@ -105,6 +107,15 @@ template<typename T> T nextID(T id) { return static_cast<T>(id + 1); }
         crashLock.lock();                                               \
         dataLog("FAILED while testing " #_actual ": expected: ", _expected, ", actual: ", _actual, "\n"); \
         WTFReportAssertionFailure(__FILE__, __LINE__, WTF_PRETTY_FUNCTION, "CHECK_EQ("#_actual ", " #_expected ")"); \
+        CRASH();                                                        \
+    } while (false)
+
+#define CHECK_NOT_EQ(_actual, _expected) do {                               \
+        if ((_actual) != (_expected))                                   \
+            break;                                                      \
+        crashLock.lock();                                               \
+        dataLog("FAILED while testing " #_actual ": expected not: ", _expected, ", actual: ", _actual, "\n"); \
+        WTFReportAssertionFailure(__FILE__, __LINE__, WTF_PRETTY_FUNCTION, "CHECK_NOT_EQ("#_actual ", " #_expected ")"); \
         CRASH();                                                        \
     } while (false)
 
@@ -246,6 +257,7 @@ static Vector<double> doubleOperands()
 }
 
 
+#if CPU(X86) || CPU(X86_64) || CPU(ARM64)
 static Vector<float> floatOperands()
 {
     return Vector<float> {
@@ -263,7 +275,23 @@ static Vector<float> floatOperands()
         -std::numeric_limits<float>::infinity(),
     };
 }
+#endif
 
+static Vector<int32_t> int32Operands()
+{
+    return Vector<int32_t> {
+        0,
+        1,
+        -1,
+        2,
+        -2,
+        42,
+        -42,
+        64,
+        std::numeric_limits<int32_t>::max(),
+        std::numeric_limits<int32_t>::min(),
+    };
+}
 
 void testCompareDouble(MacroAssembler::DoubleCondition condition)
 {
@@ -305,6 +333,42 @@ void testCompareDouble(MacroAssembler::DoubleCondition condition)
         }
     }
 }
+
+void testMul32WithImmediates()
+{
+    for (auto immediate : int32Operands()) {
+        auto mul = compile([=] (CCallHelpers& jit) {
+            jit.emitFunctionPrologue();
+
+            jit.mul32(CCallHelpers::TrustedImm32(immediate), GPRInfo::argumentGPR0, GPRInfo::returnValueGPR);
+
+            jit.emitFunctionEpilogue();
+            jit.ret();
+        });
+
+        for (auto value : int32Operands())
+            CHECK_EQ(invoke<int>(mul, value), immediate * value);
+    }
+}
+
+#if CPU(ARM64)
+void testMul32SignExtend()
+{
+    for (auto value : int32Operands()) {
+        auto mul = compile([=] (CCallHelpers& jit) {
+            jit.emitFunctionPrologue();
+
+            jit.multiplySignExtend32(GPRInfo::argumentGPR0, GPRInfo::argumentGPR1, GPRInfo::returnValueGPR);
+
+            jit.emitFunctionEpilogue();
+            jit.ret();
+        });
+
+        for (auto value2 : int32Operands())
+            CHECK_EQ(invoke<long int>(mul, value, value2), ((long int) value) * ((long int) value2));
+    }
+}
+#endif
 
 #if CPU(X86) || CPU(X86_64) || CPU(ARM64)
 void testCompareFloat(MacroAssembler::DoubleCondition condition)
@@ -747,7 +811,9 @@ void testProbeModifiesStackValues()
     CPUState originalState;
     void* originalSP { nullptr };
     void* newSP { nullptr };
+#if !CPU(MIPS)
     uintptr_t modifiedFlags { 0 };
+#endif
     size_t numberOfExtraEntriesToWrite { 10 }; // ARM64 requires that this be 2 word aligned.
 
 #if CPU(X86) || CPU(X86_64)
@@ -898,6 +964,123 @@ void testByteSwap()
 #endif
 }
 
+void testMoveDoubleConditionally32()
+{
+#if CPU(X86_64) | CPU(ARM64)
+    double arg1 = 0;
+    double arg2 = 0;
+    const double zero = -0;
+
+    const double chosenDouble = 6.00000059604644775390625;
+    CHECK_EQ(static_cast<double>(static_cast<float>(chosenDouble)) == chosenDouble, false);
+
+    auto sel = compile([&] (CCallHelpers& jit) {
+        jit.emitFunctionPrologue();
+        jit.loadDouble(CCallHelpers::TrustedImmPtr(&zero), FPRInfo::returnValueFPR);
+        jit.loadDouble(CCallHelpers::TrustedImmPtr(&arg1), FPRInfo::fpRegT1);
+        jit.loadDouble(CCallHelpers::TrustedImmPtr(&arg2), FPRInfo::fpRegT2);
+
+        jit.move(MacroAssembler::TrustedImm32(-1), GPRInfo::regT0);
+        jit.moveDoubleConditionally32(MacroAssembler::Equal, GPRInfo::regT0, GPRInfo::regT0, FPRInfo::fpRegT1, FPRInfo::fpRegT2, FPRInfo::returnValueFPR);
+
+        jit.emitFunctionEpilogue();
+        jit.ret();
+    });
+
+    arg1 = chosenDouble;
+    arg2 = 43;
+    CHECK_EQ(invoke<double>(sel), chosenDouble);
+
+    arg1 = 43;
+    arg2 = chosenDouble;
+    CHECK_EQ(invoke<double>(sel), 43.0);
+
+#endif
+}
+
+void testMoveDoubleConditionally64()
+{
+#if CPU(X86_64) | CPU(ARM64)
+    double arg1 = 0;
+    double arg2 = 0;
+    const double zero = -0;
+
+    const double chosenDouble = 6.00000059604644775390625;
+    CHECK_EQ(static_cast<double>(static_cast<float>(chosenDouble)) == chosenDouble, false);
+
+    auto sel = compile([&] (CCallHelpers& jit) {
+        jit.emitFunctionPrologue();
+        jit.loadDouble(CCallHelpers::TrustedImmPtr(&zero), FPRInfo::returnValueFPR);
+        jit.loadDouble(CCallHelpers::TrustedImmPtr(&arg1), FPRInfo::fpRegT1);
+        jit.loadDouble(CCallHelpers::TrustedImmPtr(&arg2), FPRInfo::fpRegT2);
+
+        jit.move(MacroAssembler::TrustedImm64(-1), GPRInfo::regT0);
+        jit.moveDoubleConditionally64(MacroAssembler::Equal, GPRInfo::regT0, GPRInfo::regT0, FPRInfo::fpRegT1, FPRInfo::fpRegT2, FPRInfo::returnValueFPR);
+
+        jit.emitFunctionEpilogue();
+        jit.ret();
+    });
+
+    arg1 = chosenDouble;
+    arg2 = 43;
+    CHECK_EQ(invoke<double>(sel), chosenDouble);
+
+    arg1 = 43;
+    arg2 = chosenDouble;
+    CHECK_EQ(invoke<double>(sel), 43.0);
+
+#endif
+}
+
+static void testCagePreservesPACFailureBit()
+{
+#if GIGACAGE_ENABLED
+    ASSERT(!Gigacage::isDisablingPrimitiveGigacageDisabled());
+    auto cage = compile([] (CCallHelpers& jit) {
+        jit.emitFunctionPrologue();
+        jit.cageConditionally(Gigacage::Primitive, GPRInfo::argumentGPR0, GPRInfo::argumentGPR1, GPRInfo::argumentGPR2);
+        jit.move(GPRInfo::argumentGPR0, GPRInfo::returnValueGPR);
+        jit.emitFunctionEpilogue();
+        jit.ret();
+    });
+
+    void* ptr = Gigacage::tryMalloc(Gigacage::Primitive, 1);
+    void* taggedPtr = tagArrayPtr(ptr, 1);
+    ASSERT(hasOneBitSet(Gigacage::size(Gigacage::Primitive) << 2));
+    void* notCagedPtr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(ptr) + (Gigacage::size(Gigacage::Primitive) << 2));
+    CHECK_NOT_EQ(Gigacage::caged(Gigacage::Primitive, notCagedPtr), notCagedPtr);
+    void* taggedNotCagedPtr = tagArrayPtr(notCagedPtr, 1);
+
+    if (isARM64E()) {
+        // FIXME: This won't work if authentication failures trap but I don't know how to test for that right now.
+        CHECK_NOT_EQ(invoke<void*>(cage, taggedPtr, 2), ptr);
+        CHECK_EQ(invoke<void*>(cage, taggedNotCagedPtr, 1), untagArrayPtr(taggedPtr, 2));
+    } else
+        CHECK_EQ(invoke<void*>(cage, taggedPtr, 2), ptr);
+
+    CHECK_EQ(invoke<void*>(cage, taggedPtr, 1), ptr);
+
+    auto cageWithoutAuthentication = compile([] (CCallHelpers& jit) {
+        jit.emitFunctionPrologue();
+        jit.cageWithoutUntagging(Gigacage::Primitive, GPRInfo::argumentGPR0);
+        jit.move(GPRInfo::argumentGPR0, GPRInfo::returnValueGPR);
+        jit.emitFunctionEpilogue();
+        jit.ret();
+    });
+
+    CHECK_EQ(invoke<void*>(cageWithoutAuthentication, taggedPtr), taggedPtr);
+    if (isARM64E()) {
+        // FIXME: This won't work if authentication failures trap but I don't know how to test for that right now.
+        CHECK_NOT_EQ(invoke<void*>(cageWithoutAuthentication, taggedNotCagedPtr), taggedNotCagedPtr);
+        CHECK_NOT_EQ(untagArrayPtr(invoke<void*>(cageWithoutAuthentication, taggedNotCagedPtr), 1), notCagedPtr);
+        CHECK_NOT_EQ(invoke<void*>(cageWithoutAuthentication, taggedNotCagedPtr), taggedPtr);
+        CHECK_NOT_EQ(untagArrayPtr(invoke<void*>(cageWithoutAuthentication, taggedNotCagedPtr), 1), ptr);
+    }
+
+    Gigacage::free(Gigacage::Primitive, ptr);
+#endif
+}
+
 #define RUN(test) do {                          \
         if (!shouldRun(#test))                  \
             break;                              \
@@ -919,11 +1102,7 @@ void run(const char* filter)
     Deque<RefPtr<SharedTask<void()>>> tasks;
 
     auto shouldRun = [&] (const char* testName) -> bool {
-#if OS(UNIX)
-        return !filter || !!strcasestr(testName, filter);
-#else
-        return !filter || !!strstr(testName, filter);
-#endif
+        return !filter || WTF::findIgnoringASCIICaseWithoutLength(testName, filter) != WTF::notFound;
     };
 
     RUN(testSimple());
@@ -956,6 +1135,11 @@ void run(const char* filter)
     RUN(testCompareDouble(MacroAssembler::DoubleGreaterThanOrEqualOrUnordered));
     RUN(testCompareDouble(MacroAssembler::DoubleLessThanOrUnordered));
     RUN(testCompareDouble(MacroAssembler::DoubleLessThanOrEqualOrUnordered));
+    RUN(testMul32WithImmediates());
+
+#if CPU(ARM64)
+    RUN(testMul32SignExtend());
+#endif
 
 #if CPU(X86) || CPU(X86_64) || CPU(ARM64)
     RUN(testCompareFloat(MacroAssembler::DoubleEqual));
@@ -983,6 +1167,10 @@ void run(const char* filter)
 #endif // ENABLE(MASM_PROBE)
 
     RUN(testByteSwap());
+    RUN(testMoveDoubleConditionally32());
+    RUN(testMoveDoubleConditionally64());
+
+    RUN(testCagePreservesPACFailureBit());
 
     if (tasks.isEmpty())
         usage();

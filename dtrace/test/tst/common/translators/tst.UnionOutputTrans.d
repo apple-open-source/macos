@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.UnionOutputTrans.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * The output type in a translator definition can be a union.

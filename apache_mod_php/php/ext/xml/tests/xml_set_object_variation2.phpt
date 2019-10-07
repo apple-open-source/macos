@@ -1,17 +1,17 @@
 --TEST--
 Test xml_set_object() function : usage variations
 --SKIPIF--
-<?php 
+<?php
 if (!extension_loaded("xml")) {
-	print "skip - XML extension not loaded"; 
-}	 
+	print "skip - XML extension not loaded";
+}
 ?>
 --FILE--
 <?php
 /* Prototype  : proto int xml_set_object(resource parser, object &obj)
- * Description: Set up object which should be used for callbacks 
+ * Description: Set up object which should be used for callbacks
  * Source code: ext/xml/xml.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing xml_set_object() : usage variations ***\n";
@@ -66,9 +66,9 @@ $values = array(
       // string data
       "string",
       'string',
-      
+
       // resource data
-      $fp,       
+      $fp,
 
       // undefined data
       $undefined_var,
@@ -94,22 +94,22 @@ echo "Done";
 
 Arg value 0 
 
-Warning: xml_set_object() expects parameter 2 to be object, integer given in %s on line %d
+Warning: xml_set_object() expects parameter 2 to be object, int given in %s on line %d
 NULL
 
 Arg value 1 
 
-Warning: xml_set_object() expects parameter 2 to be object, integer given in %s on line %d
+Warning: xml_set_object() expects parameter 2 to be object, int given in %s on line %d
 NULL
 
 Arg value 12345 
 
-Warning: xml_set_object() expects parameter 2 to be object, integer given in %s on line %d
+Warning: xml_set_object() expects parameter 2 to be object, int given in %s on line %d
 NULL
 
 Arg value -2345 
 
-Warning: xml_set_object() expects parameter 2 to be object, integer given in %s on line %d
+Warning: xml_set_object() expects parameter 2 to be object, int given in %s on line %d
 NULL
 
 Arg value 10.5 
@@ -174,22 +174,22 @@ NULL
 
 Arg value 1 
 
-Warning: xml_set_object() expects parameter 2 to be object, boolean given in %s on line %d
+Warning: xml_set_object() expects parameter 2 to be object, bool given in %s on line %d
 NULL
 
 Arg value  
 
-Warning: xml_set_object() expects parameter 2 to be object, boolean given in %s on line %d
+Warning: xml_set_object() expects parameter 2 to be object, bool given in %s on line %d
 NULL
 
 Arg value 1 
 
-Warning: xml_set_object() expects parameter 2 to be object, boolean given in %s on line %d
+Warning: xml_set_object() expects parameter 2 to be object, bool given in %s on line %d
 NULL
 
 Arg value  
 
-Warning: xml_set_object() expects parameter 2 to be object, boolean given in %s on line %d
+Warning: xml_set_object() expects parameter 2 to be object, bool given in %s on line %d
 NULL
 
 Arg value  
@@ -227,4 +227,3 @@ Arg value
 Warning: xml_set_object() expects parameter 2 to be object, null given in %s on line %d
 NULL
 Done
-

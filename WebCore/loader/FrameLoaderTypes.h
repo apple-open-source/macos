@@ -29,7 +29,7 @@
 #pragma once
 
 #include "IntRect.h"
-#include "Process.h"
+#include "ProcessIdentifier.h"
 
 namespace WebCore {
 
@@ -66,6 +66,8 @@ enum class FrameLoadType : uint8_t {
     ReloadFromOrigin,
     ReloadExpiredOnly
 };
+
+enum class WillContinueLoading : bool { No, Yes };
 
 class PolicyCheckIdentifier {
 public:
@@ -214,6 +216,15 @@ template<> struct EnumTraits<WebCore::FrameLoadType> {
         WebCore::FrameLoadType::Replace,
         WebCore::FrameLoadType::ReloadFromOrigin,
         WebCore::FrameLoadType::ReloadExpiredOnly
+    >;
+};
+
+template<> struct EnumTraits<WebCore::ShouldOpenExternalURLsPolicy> {
+    using values = EnumValues<
+        WebCore::ShouldOpenExternalURLsPolicy,
+        WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow,
+        WebCore::ShouldOpenExternalURLsPolicy::ShouldAllowExternalSchemes,
+        WebCore::ShouldOpenExternalURLsPolicy::ShouldAllow
     >;
 };
 

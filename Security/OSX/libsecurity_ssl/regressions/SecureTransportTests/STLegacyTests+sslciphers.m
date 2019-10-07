@@ -26,12 +26,15 @@
 #include <stdlib.h>
 #include <Security/SecureTransportPriv.h>
 #include <AssertMacros.h>
+#include <utilities/SecCFRelease.h>
 
 #include "ssl-utils.h"
 
-
 #include "cipherSpecs.h"
 #import "STLegacyTests.h"
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 @implementation STLegacyTests (sslciphers)
 
@@ -366,9 +369,8 @@ out:
     SSLContextRef ssl = NULL;
     bool server = (side == kSSLServerSide);
 
-    ssl=SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType);
+    ssl = SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType);
     XCTAssert(ssl, "test_config: SSLCreateContext(1) failed (%s,%@)", server?"server":"client", config);
-    require(ssl, out);
 
     XCTAssertEqual(errSecSuccess, SSLSetSessionConfig(ssl, config), "test_config: SSLSetSessionConfig failed (%s,%@)", server?"server":"client", config);
 
@@ -393,8 +395,8 @@ out:
     SSLContextRef ssl = NULL;
     bool server = (side == kSSLServerSide);
 
-    ssl=SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType);
-    XCTAssert(ssl!=NULL, "test_config: SSLCreateContext(1) failed (%s)", server?"server":"client");
+    ssl = SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType);
+    XCTAssert(ssl != NULL, "test_config: SSLCreateContext(1) failed (%s)", server?"server":"client");
     require(ssl, out);
 
     /* The order of this tests does matter, be careful when adding tests */
@@ -403,18 +405,47 @@ out:
 
     CFRelease(ssl); ssl=NULL;
 
-    ssl=SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType);
+    ssl = SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType);
     XCTAssert(ssl, "test_default: SSLCreateContext(2) failed (%s)", server?"server":"client");
     require(ssl, out);
 
     XCTAssert(!test_SetEnabledCiphers(ssl), "test_config: SetEnabledCiphers test failed (%s)", server?"server":"client");
 
 out:
-    if(ssl) CFRelease(ssl);
+    if (ssl) {
+        CFRelease(ssl);
+    }
 }
 
+-(void) test_get_cipher_tls_version
+{
+    SSLContextRef ctx = NULL;
+    size_t num_ciphers;
+    SSLCipherSuite *ciphers = NULL;
+    SSLProtocol sslmin, sslmax;
 
+    ctx = SSLCreateContext(kCFAllocatorDefault, kSSLClientSide, kSSLStreamType);
+    XCTAssert(ctx, "Error creating SSL context");
+    XCTAssertEqual(errSecSuccess, SSLGetNumberEnabledCiphers(ctx, &num_ciphers));
+    ciphers = (SSLCipherSuite *) malloc(num_ciphers * sizeof (SSLCipherSuite));
+    
+    XCTAssertEqual(errSecSuccess, SSLGetEnabledCiphers(ctx, ciphers, &num_ciphers), "Error getting enabled ciphers");
+    for (size_t i = 0; i < num_ciphers; i++) {
+        sslmin = SSLCiphersuiteMinimumTLSVersion(ciphers[i]);
+        XCTAssertNotEqual(kSSLProtocolUnknown, sslmin);
+        sslmax = SSLCiphersuiteMaximumTLSVersion(ciphers[i]);        
+    }
+    free(ciphers);
+    CFReleaseNull(ctx);
+}
 
+-(void) test_cipher_group_to_list
+{
+    SSLCiphersuiteGroup group = kSSLCiphersuiteGroupDefault;
+    size_t cipher_count = 0;
+    const SSLCipherSuite *list = SSLCiphersuiteGroupToCiphersuiteList(group, &cipher_count);
+    XCTAssert(list, "Error getting cipher list for group");
+}
 
 -(void) testSSLCiphers
 {
@@ -448,3 +479,4 @@ out:
 
 @end
 
+#pragma clang diagnostic pop

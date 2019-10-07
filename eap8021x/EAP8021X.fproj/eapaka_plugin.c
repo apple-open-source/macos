@@ -121,7 +121,9 @@ typedef struct {
 /**
  ** Identity routines
  **/
-#if TARGET_OS_EMBEDDED
+
+#if TARGET_OS_IPHONE
+
 STATIC CFStringRef
 copy_imsi_identity(CFStringRef imsi, CFStringRef realm)
 {
@@ -150,7 +152,8 @@ copy_static_realm(CFDictionaryRef properties)
     }
     return (realm);
 }
-#endif /* TARGET_OS_EMBEDDED */
+
+#endif /* TARGET_OS_IPHONE */
 
 STATIC CFStringRef
 copy_static_imsi(CFDictionaryRef properties)
@@ -187,7 +190,8 @@ S_get_identity_type(CFDictionaryRef dict)
 	return (EAPSIMAKAIdentityTypeGetAttributeType(identity_type_str));
 }
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
+
 static int
 S_get_plist_int(CFDictionaryRef plist, CFStringRef key, int def)
 {
@@ -338,7 +342,7 @@ sim_identity_create(EAPSIMAKAPersistentStateRef persist,
     return (ret_identity);
 }
 
-#else /* TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_IPHONE */
 
 STATIC CFStringRef
 sim_identity_create(EAPSIMAKAPersistentStateRef persist,
@@ -353,7 +357,7 @@ sim_identity_create(EAPSIMAKAPersistentStateRef persist,
     return (NULL);
 }
 
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 
 STATIC void
 AKAStaticKeysClear(AKAStaticKeysRef keys)

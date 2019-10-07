@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2004-2009, 2011, 2014, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2009, 2011, 2014, 2017, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -856,6 +856,7 @@ static options ipv6Options[] = {
 					 , isChooseOne, &kSCPropNetIPv6ConfigMethod, __doIPv6ConfigMethod, (void *)ipv6ConfigMethods },
 	{ "Addresses"   , "address"      , isOther    , &kSCPropNetIPv6Addresses   , __doIPv6Addresses   , (void *)TRUE              },
 	{   "address"   , "address"      , isOther    , &kSCPropNetIPv6Addresses   , __doIPv6Addresses   , (void *)TRUE              },
+	{ "EnableCGA"   , NULL           , isBoolean  , &kSCPropNetIPv6EnableCGA   , NULL                , NULL                      },
 	{ "PrefixLength", "prefix length", isNumber   , &kSCPropNetIPv6PrefixLength, NULL                , NULL                      },
 	{ "Router"      , "address"      , isOther    , &kSCPropNetIPv6Router      , __doIPv6Addresses   , (void *)FALSE             },
 
@@ -1724,6 +1725,7 @@ _protocol_description(SCNetworkProtocolRef protocol, Boolean skipEmpty)
 						     CFArrayGetValueAtIndex(addresses, 0));
 			} else if (CFEqual(method, kSCValNetIPv4ConfigMethodManual) &&
 				   isA_CFArray(addresses)) {
+				CFArrayRef	masks;
 				CFStringRef	router;
 
 				CFStringAppendFormat(description,
@@ -1731,6 +1733,16 @@ _protocol_description(SCNetworkProtocolRef protocol, Boolean skipEmpty)
 						     CFSTR("%@, address=%@"),
 						     method,
 						     CFArrayGetValueAtIndex(addresses, 0));
+
+				if (CFDictionaryGetValueIfPresent(configuration,
+								  kSCPropNetIPv4SubnetMasks,
+								  (const void **)&masks) &&
+				    isA_CFArray(masks)) {
+					CFStringAppendFormat(description,
+							     NULL,
+							     CFSTR(", mask=%@"),
+							     CFArrayGetValueAtIndex(masks, 0));
+				}
 
 				if (CFDictionaryGetValueIfPresent(configuration,
 								  kSCPropNetIPv4Router,

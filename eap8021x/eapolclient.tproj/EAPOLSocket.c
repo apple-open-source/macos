@@ -75,9 +75,11 @@
 
 #define ALIGNED_BUF(name, size, type)	type 	name[(size) / (sizeof(type))]
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
+
 #include "my_darwin.h"
-#endif /* TARGET_OS_EMBEDDED */
+
+#endif /* TARGET_OS_IPHONE */
 
 #include "InterestNotification.h"
 
@@ -852,18 +854,19 @@ EAPOLSocketStopClient(EAPOLSocketRef sock)
     if (source->sock != sock) {
 	return;
     }
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     EAPOLControlStop(EAPOLSocketIfName(sock, NULL));
-#else /* TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_IPHONE */
     EAPOLClientUserCancelled(source->client);
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
     if (EAPOLSocketIsWireless(sock)) {
 	wireless_disassociate(source->wref);
     }
     return;
 }
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
+
 PRIVATE_EXTERN boolean_t
 EAPOLSocketReassociate(EAPOLSocketRef sock)
 {
@@ -885,7 +888,8 @@ EAPOLSocketReassociate(EAPOLSocketRef sock)
     return (ret);
 #endif /* NO_WIRELESS */
 }
-#endif /* ! TARGET_OS_EMBEDDED */
+
+#endif /* ! TARGET_OS_IPHONE */
 
 /**
  ** packet printing
@@ -1746,7 +1750,7 @@ EAPOLSocketSourceCreateSupplicant(EAPOLSocketSourceRef source,
 	    EAPLOG_FL(LOG_NOTICE, "%s: configuration empty", source->if_name);
 	    goto failed;
 	}
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 	{
 	    CFNumberRef			packet_id;
 
@@ -1759,7 +1763,7 @@ EAPOLSocketSourceCreateSupplicant(EAPOLSocketSourceRef source,
 		*packet_identifier = BAD_IDENTIFIER;
 	    }
 	}
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
     }
     source->mode = mode;
     sock = EAPOLSocketSourceCreateSocket(source, NULL);

@@ -700,7 +700,7 @@ da{
         }
         PEN{
             "PEN",
-            "peruviansk sol",
+            "peruansk sol",
         }
         PES{
             "PES",
@@ -1031,7 +1031,7 @@ da{
             "testvalutakode",
         }
         XXX{
-            "XXX",
+            "¤",
             "ukendt valuta",
         }
         YDD{
@@ -1171,7 +1171,6 @@ da{
         SHP{"£"}
         SRD{"$"}
         SSP{"£"}
-        STN{"Db"}
         SYP{"£"}
         THB{"฿"}
         TOP{"T$"}
@@ -1889,8 +1888,8 @@ da{
             other{"peruvianske inti"}
         }
         PEN{
-            one{"peruviansk sol"}
-            other{"peruvianske soles"}
+            one{"peruansk sol"}
+            other{"peruanske soles"}
         }
         PES{
             one{"peruviansk sol (1863–1965)"}
@@ -2249,5 +2248,5 @@ da{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
 }

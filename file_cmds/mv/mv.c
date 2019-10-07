@@ -67,6 +67,7 @@ __RCSID("$FreeBSD: src/bin/mv/mv.c,v 1.39 2002/07/09 17:45:13 johan Exp $");
 #include <string.h>
 #include <sysexits.h>
 #include <unistd.h>
+#include <locale.h>
 
 #ifdef __APPLE__
 #include <copyfile.h>
@@ -240,6 +241,7 @@ do_move(char *from, char *to)
 	struct stat sb;
 	int ask, ch, first;
 	char modep[15];
+	char resp[] = {'\0', '\0'};
 
 	/*
 	 * Check access.  If interactive and file exists, ask user if it
@@ -272,10 +274,17 @@ do_move(char *from, char *to)
 			ask = 1;
 		}
 		if (ask) {
+			/* Load user specified locale */
+			setlocale(LC_MESSAGES, "");
+
 			first = ch = getchar();
 			while (ch != '\n' && ch != EOF)
 				ch = getchar();
-			if (first != 'y' && first != 'Y') {
+
+			/* only care about the first character */
+			resp[0] = first;
+
+			if (rpmatch(resp) != 1) {
 				(void)fprintf(stderr, "not overwritten\n");
 				return (0);
 			}

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.SimultaneousTranslators.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Assign the different members of the output of the translator using

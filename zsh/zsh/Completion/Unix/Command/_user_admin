@@ -125,7 +125,7 @@ case ${service%???}:${(M)service%???}:$OSTYPE in
   ;|
   group:*)
     args+=(
-      '(-g,--gid)'{-g+,--gid=}'[specify gid]:gid'
+      '(-g --gid)'{-g+,--gid=}'[specify gid]:gid'
       '(-o --non-unique)'{-o,--non-unique}'[allow non unique gid]'
     )
   ;|
@@ -150,6 +150,7 @@ case ${service%???}:${(M)service%???}:$OSTYPE in
   *:*:linux*)
     args+=(
       '(-R --root)'{-R,--root=}'[specify directory to chroot into]:directory:_directories'
+      '(-P --prefix)'{-P,--prefix=}"[specify root directory to apply changes in but don't chroot]:directory:_directories"
       '(-D -U -L -p --password)'{-p+,--password=}'[specify encrypted password]:encrypted password'
       '(-)'{-h,--help}'[display help information]'
     )

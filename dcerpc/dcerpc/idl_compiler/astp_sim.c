@@ -504,7 +504,7 @@ AST_type_n_t *AST_enumerator_node
 {
     AST_enumeration_n_t *enum_node_ptr;
     AST_type_n_t *type_node_ptr;
-    unsigned int N = 0;
+    unsigned long N = 0;
     AST_constant_n_t *cp;
     int overflow = FALSE;
 

@@ -104,6 +104,7 @@ void RegexTest::runIndexedTest( int32_t index, UBool exec, const char* &name, ch
     TESTCASE_AUTO(TestBug12884);
     TESTCASE_AUTO(TestBug13631);
     TESTCASE_AUTO(TestBug13632);
+    TESTCASE_AUTO(TestBug20359);
     TESTCASE_AUTO_END;
 }
 
@@ -1821,8 +1822,8 @@ void RegexTest::API_Match_UTF8() {
         REGEX_VERBOSE_TEXT(&input2);
         utext_openUChars(&empty, NULL, 0, &status);
 
-        int32_t input1Len = strlen("abcdef this is a test"); /* TODO: why not nativelen (input1) ? */
-        int32_t input2Len = strlen("not abc");
+        int32_t input1Len = static_cast<int32_t>(strlen("abcdef this is a test")); /* TODO: why not nativelen (input1) ? */
+        int32_t input2Len = static_cast<int32_t>(strlen("not abc"));
 
 
         //
@@ -3861,7 +3862,7 @@ UChar *RegexTest::ReadAndConvertFile(const char *fileName, int32_t &ulen,
     fileSize = ftell(f);
     fileBuf = new char[fileSize];
     fseek(f, 0, SEEK_SET);
-    amt_read = fread(fileBuf, 1, fileSize, f);
+    amt_read = static_cast<int32_t>(fread(fileBuf, 1, fileSize, f));
     if (amt_read != fileSize || fileSize <= 0) {
         errln("Error reading test data file.");
         goto cleanUpAndReturn;
@@ -5667,7 +5668,7 @@ void RegexTest::TestCase11049(const char *pattern, const char *data, UBool expec
     //   Size of the original char * data (invariant charset) will be <= than the equivalent UTF-8
     //   because string.unescape() will only shrink it.
     char * utf8Buffer = new char[uprv_strlen(data)+1];
-    u_strToUTF8(utf8Buffer, uprv_strlen(data)+1, NULL, dataString.getBuffer(), dataString.length(), &status);
+    u_strToUTF8(utf8Buffer, static_cast<int32_t>(uprv_strlen(data)+1), NULL, dataString.getBuffer(), dataString.length(), &status);
     REGEX_CHECK_STATUS;
     ut = utext_openUTF8(ut, utf8Buffer, -1, &status);
     REGEX_CHECK_STATUS;
@@ -5849,6 +5850,32 @@ void RegexTest::TestBug13632() {
 
     assertEquals("", U_REGEX_INVALID_CAPTURE_GROUP_NAME, status);
     uregex_close(re);
+}
+
+void RegexTest::TestBug20359() {
+    // The bug was stack overflow while parsing a pattern with a huge number of adjacent \Q\E
+    // pairs. (Enter and exit pattern literal quote mode). Logic was correct.
+    // Changed implementation to loop instead of recursing.
+
+    UnicodeString pattern;
+    for (int i=0; i<50000; ++i) {
+        pattern += u"\\Q\\E";
+    }
+    pattern += u"x";
+
+    UErrorCode status = U_ZERO_ERROR;
+    LocalURegularExpressionPointer re(uregex_open(pattern.getBuffer(), pattern.length(),
+                                       0, nullptr, &status));
+    assertSuccess(WHERE, status);
+
+    // We have passed the point where the bug crashed. The following is a small sanity
+    // check that the pattern works, that all the \Q\E\Q\E... didn't cause other problems.
+
+    uregex_setText(re.getAlias(), u"abcxyz", -1, &status);
+    assertSuccess(WHERE, status);
+    assertTrue(WHERE, uregex_find(re.getAlias(), 0, &status));
+    assertEquals(WHERE, 3, uregex_start(re.getAlias(), 0, &status));
+    assertSuccess(WHERE, status);
 }
 
 #endif  /* !UCONFIG_NO_REGULAR_EXPRESSIONS  */

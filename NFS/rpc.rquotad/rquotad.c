@@ -131,7 +131,7 @@ sigmux(__unused int dummy)
 int
 main(__unused int argc, __unused char *argv[])
 {
-	SVCXPRT *transp;
+    SVCXPRT *transp = NULL;
 	struct sockaddr_storage saddr;
 	struct sockaddr_in *sin = (struct sockaddr_in*)&saddr;
 	struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)&saddr;
@@ -517,7 +517,7 @@ sendquota(struct svc_req *request, int vers, SVCXPRT *transp)
 		getq_rslt.status = Q_NOQUOTA;
 	} else {
 		uint32_t bsize = DEV_BSIZE;
-#define CLAMP_MAX_32(V)	(((V) > UINT32_MAX) ? UINT32_MAX : (V))
+#define CLAMP_MAX_32(V)	(uint32_t) (((V) > UINT32_MAX) ? UINT32_MAX : (V))
 
 		/* scale the block size up to fit values into 32 bits */
 		while ((bsize < INT32_MAX) &&
@@ -531,11 +531,11 @@ sendquota(struct svc_req *request, int vers, SVCXPRT *transp)
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_active = TRUE;
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_bsize = bsize;
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_bhardlimit =
-			CLAMP_MAX_32(dqblk.dqb_bhardlimit / bsize);
+			CLAMP_MAX_32(dqblk.dqb_bhardlimit / (uint64_t) bsize);
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_bsoftlimit =
-			CLAMP_MAX_32(dqblk.dqb_bsoftlimit / bsize);
+			CLAMP_MAX_32(dqblk.dqb_bsoftlimit / (uint64_t) bsize);
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_curblocks =
-			CLAMP_MAX_32(dqblk.dqb_curbytes / bsize);
+			CLAMP_MAX_32(dqblk.dqb_curbytes / (uint64_t) bsize);
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_fhardlimit =
 			CLAMP_MAX_32(dqblk.dqb_ihardlimit);
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_fsoftlimit =
@@ -543,9 +543,9 @@ sendquota(struct svc_req *request, int vers, SVCXPRT *transp)
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_curfiles =
 			CLAMP_MAX_32(dqblk.dqb_curinodes);
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_btimeleft =
-		    dqblk.dqb_btime - timev.tv_sec;
+		    dqblk.dqb_btime - (uint32_t) timev.tv_sec;
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_ftimeleft =
-		    dqblk.dqb_itime - timev.tv_sec;
+		    dqblk.dqb_itime - (uint32_t) timev.tv_sec;
 	}
 	if (!svc_sendreply(transp, (xdrproc_t)xdr_getquota_rslt, &getq_rslt))
 		svcerr_systemerr(transp);
@@ -896,13 +896,13 @@ config_read(struct nfs_conf_server *conf)
 
 		if (!strcmp(key, "nfs.server.rquota.port")) {
 			if (value && val)
-				conf->rquota_port = val;
+				conf->rquota_port = (int) val;
 		} else if (!strcmp(key, "nfs.server.rquota.tcp")) {
-			conf->tcp = val;
+			conf->tcp = (int) val;
 		} else if (!strcmp(key, "nfs.server.rquota.udp")) {
-			conf->udp = val;
+			conf->udp = (int) val;
 		} else if (!strcmp(key, "nfs.server.verbose")) {
-			conf->verbose = val;
+			conf->verbose = (int) val;
 		} else {
 			DEBUG("ignoring unknown config value: %4ld %s=%s\n", linenum, key, value ? value : "");
 		}

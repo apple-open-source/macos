@@ -145,7 +145,7 @@ OSStatus SecCodeCopyInternalRequirement(SecStaticCodeRef code, SecRequirementTyp
 */
 OSStatus SecCodeCreateWithAuditToken(const audit_token_t *audit,
                                      SecCSFlags flags, SecCodeRef *process)
-    AVAILABLE_MAC_OS_X_VERSION_10_14_4_AND_LATER;
+    AVAILABLE_MAC_OS_X_VERSION_10_15_AND_LATER;
     
 /* Deprecated and unsafe, DO NOT USE. */
 OSStatus SecCodeCreateWithPID(pid_t pid, SecCSFlags flags, SecCodeRef *process)
@@ -219,6 +219,18 @@ CFDataRef SecCodeCopyComponent(SecCodeRef code, int slot, CFDataRef hash);
         it was not a plain file, or anything is irregular.
 */
 OSStatus SecCodeValidateFileResource(SecStaticCodeRef code, CFStringRef relativePath, CFDataRef fileData, SecCSFlags flags);
+
+
+/*
+ @constant kSecCSStrictValidateStructure
+ A subset of the work kSecCSStrictValidate performs, omitting work that
+ is unnecessary on some platforms. Since the definition of what can be
+ omitted is in flux, and since we would like to remove that notion
+ entirely eventually, we makes this a private flag.
+ */
+CF_ENUM(uint32_t) {
+	kSecCSStrictValidateStructure = 1 << 13,
+};
 
 #ifdef __cplusplus
 }

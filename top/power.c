@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2012, 2019 Apple Computer, Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -20,6 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <mach/clock_types.h>
 #include <stdlib.h>
 #include "libtop.h"
 #include "statistic.h"
@@ -46,62 +47,59 @@ static bool idlewake_insert_cell(struct statistic *s, const void *sample) {
 // cribbed from cpu_insert_cell
 static bool powerscore_insert_cell(struct statistic *s, const void *sample) {
     const libtop_psamp_t *psamp = sample;
-    struct timeval elapsed, used;
     char buf[10];
     unsigned long long elapsed_us = 0, used_us = 0, idlew = 0, taxed_us = 0;
     int whole = 0, part = 0;
 
     if(0 == psamp->p_seq || 0 == psamp->pid) { // kernel gets a free ride
-	whole = 0;
-	part = 0;
+        whole = 0;
+        part = 0;
 
-	if(-1 == snprintf(buf, sizeof(buf), "%d.%1d", whole, part))
-	    return true;
+        if(-1 == snprintf(buf, sizeof(buf), "%d.%1d", whole, part))
+            return true;
 
-	return generic_insert_cell(s, buf);
+        return generic_insert_cell(s, buf);
     }
 
-
+    uint64_t last_timens = 0;
+    uint64_t last_total_timens = 0;
     switch(top_prefs_get_mode()) {
     case STATMODE_ACCUM:
-	timersub(&tsamp->time, &tsamp->b_time, &elapsed);
-	timersub(&psamp->total_time, &psamp->b_total_time, &used);
-	idlew = psamp->power.task_platform_idle_wakeups - psamp->b_power.task_platform_idle_wakeups;
-	break;
-
+        last_timens = tsamp->b_timens;
+        last_total_timens = psamp->b_total_timens;
+        idlew = psamp->power.task_platform_idle_wakeups -
+                psamp->b_power.task_platform_idle_wakeups;
+        break;
 
     case STATMODE_EVENT:
     case STATMODE_DELTA:
     case STATMODE_NON_EVENT:
-	timersub(&tsamp->time, &tsamp->p_time, &elapsed);
-	timersub(&psamp->total_time, &psamp->p_total_time, &used);
-	idlew = psamp->power.task_platform_idle_wakeups - psamp->p_power.task_platform_idle_wakeups;
-	break;
+        last_timens = tsamp->p_timens;
+        last_total_timens = psamp->p_total_timens;
+        idlew = psamp->power.task_platform_idle_wakeups -
+                psamp->p_power.task_platform_idle_wakeups;
+        break;
 
     default:
-	fprintf(stderr, "unhandled STATMOMDE in %s\n", __func__);
-	abort();
+        fprintf(stderr, "unhandled STATMODE in %s\n", __func__);
+        abort();
     }
 
-    elapsed_us = (unsigned long long)elapsed.tv_sec * 1000000ULL
-	+ (unsigned long long)elapsed.tv_usec;
-
+    elapsed_us = (tsamp->timens - last_timens) / NSEC_PER_USEC;
     taxed_us = (unsigned long long)idlew * 500ULL;
-
-    used_us = (unsigned long long)used.tv_sec * 1000000ULL
-	+ (unsigned long long)used.tv_usec
-	+ taxed_us;
+    used_us = (psamp->total_timens - last_total_timens) / NSEC_PER_USEC +
+            taxed_us;
       
     /* Avoid a divide by 0 exception. */
     if(elapsed_us > 0) {
-	whole = (used_us * 100ULL) / elapsed_us;
-	part = (((used_us * 100ULL) - (whole * elapsed_us)) * 10ULL) / elapsed_us;
+        whole = (used_us * 100ULL) / elapsed_us;
+        part = (((used_us * 100ULL) - (whole * elapsed_us)) * 10ULL) / elapsed_us;
     }
 
     //top_log("command %s whole %d part %d\n", psamp->command, whole, part);
    
     if(-1 == snprintf(buf, sizeof(buf), "%d.%1d", whole, part))
-	return true;
+        return true;
 
     return generic_insert_cell(s, buf);
 }

@@ -318,7 +318,7 @@ fi
 # open files
 #
 if [ -x /usr/sbin/lsof ]; then
-	${PRIV} /usr/sbin/lsof -n -O -P -T q		> lsof			2>&1	&
+	${PRIV} /usr/sbin/lsof +c 0 -n -O -P -T q	> lsof			2>&1	&
 	LSOF_PID=$!
 	# Init a watchdog for lsof
 	(
@@ -445,7 +445,7 @@ if [ -x /usr/sbin/lsof -a -x /bin/ls ]; then
 		N=`expr ${N} + 1`
 
 		echo "#"						>> system-statistics
-		${PRIV} /usr/sbin/lsof -- ${lock}			>> system-statistics	2>&1
+		${PRIV} /usr/sbin/lsof +c 0 -- ${lock}			>> system-statistics	2>&1
 	done
 fi
 

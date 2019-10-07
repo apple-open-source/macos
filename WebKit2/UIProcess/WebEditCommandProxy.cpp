@@ -36,10 +36,10 @@
 namespace WebKit {
 using namespace WebCore;
 
-WebEditCommandProxy::WebEditCommandProxy(WebUndoStepID commandID, WebCore::EditAction editAction, WebPageProxy* page)
+WebEditCommandProxy::WebEditCommandProxy(WebUndoStepID commandID, const String& label, WebPageProxy& page)
     : m_commandID(commandID)
-    , m_editAction(editAction)
-    , m_page(page)
+    , m_label(label)
+    , m_page(makeWeakPtr(page))
 {
     m_page->addEditCommand(*this);
 }
@@ -52,7 +52,7 @@ WebEditCommandProxy::~WebEditCommandProxy()
 
 void WebEditCommandProxy::unapply()
 {
-    if (!m_page || !m_page->isValid())
+    if (!m_page || !m_page->hasRunningProcess())
         return;
 
     m_page->process().send(Messages::WebPage::UnapplyEditCommand(m_commandID), m_page->pageID(), IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
@@ -61,7 +61,7 @@ void WebEditCommandProxy::unapply()
 
 void WebEditCommandProxy::reapply()
 {
-    if (!m_page || !m_page->isValid())
+    if (!m_page || !m_page->hasRunningProcess())
         return;
 
     m_page->process().send(Messages::WebPage::ReapplyEditCommand(m_commandID), m_page->pageID(), IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);

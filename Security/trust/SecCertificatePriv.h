@@ -357,6 +357,17 @@ CFArrayRef SecCertificateCopySignedCertificateTimestamps(SecCertificateRef certi
 CFDataRef SecCertificateCopyPrecertTBS(SecCertificateRef certificate)
     __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_9_0);
 
+/* Returns a dictionary of dictionaries for system-trusted CT logs, indexed by the LogID */
+CFDictionaryRef SecCertificateCopyTrustedCTLogs(void)
+    __OSX_AVAILABLE_STARTING(__MAC_10_15, __IPHONE_13_0);
+
+/* Returns a dictionary for the CT log matching the provided
+ * key ID, or NULL if no matching log is found.
+ * And by keyID we mean LogID as specified in RFC 6962.
+ */
+CFDictionaryRef SecCertificateCopyCTLogForKeyID(CFDataRef keyID)
+    __OSX_AVAILABLE_STARTING(__MAC_10_15, __IPHONE_13_0);
+
 /* Return the auth capabilities bitmask from the iAP marker extension */
 CF_RETURNS_RETAINED CFDataRef SecCertificateCopyiAPAuthCapabilities(SecCertificateRef certificate)
     __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
@@ -419,6 +430,17 @@ CFDataRef SecCertificateCopyExtensionValue(SecCertificateRef certificate,
                                            CFTypeRef extensionOID, bool *isCritical)
     __OSX_AVAILABLE_STARTING(__MAC_10_13_4, __IPHONE_11_3);
 
+/* Return an array of CFURLRefs each of which is an ocspResponder for this
+ certificate. */
+CFArrayRef SecCertificateGetOCSPResponders(SecCertificateRef certificate)
+    API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
+
+
+/* Return the component type string in a component certificate. */
+CF_RETURNS_RETAINED
+CFStringRef SecCertificateCopyComponentType(SecCertificateRef certificate)
+    API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
+
 bool SecCertificateGetDeveloperIDDate(SecCertificateRef certificate, CFAbsoluteTime *time, CFErrorRef * CF_RETURNS_RETAINED error);
 
 /*
@@ -470,7 +492,8 @@ OSStatus SecCertificateInferLabel(SecCertificateRef certificate, CFStringRef *la
  * if no appropriate printable name found.
  */
 const CSSM_DATA *SecInferLabelFromX509Name(
-     const CSSM_X509_NAME *x509Name);
+     const CSSM_X509_NAME *x509Name)
+    DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /* Accessors for fields in the cached certificate */
 

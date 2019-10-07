@@ -221,6 +221,8 @@ public:
     virtual UInt32 findPCICapability( IOPCIAddressSpace space,
                                       UInt8 capabilityID, UInt8 * offset = 0 );
 
+    virtual IOReturn setPowerState(unsigned long powerStateOrdinal,
+                                    IOService * whatDevice) APPLE_KEXT_OVERRIDE;
     virtual IOReturn setDevicePowerState( IOPCIDevice * device,
                                           unsigned long whatToDo );
     virtual IOReturn saveDeviceState( IOPCIDevice * device,

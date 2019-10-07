@@ -42,13 +42,12 @@ var_dump( compare_stats($old_stat, $new_stat, $affected_members, "!=") );
 
 echo "\n--- Done ---";
 ?>
-
 --CLEAN--
 <?php
 $file_path = dirname(__FILE__);
 unlink("$file_path/lstat_stat_variation16.tmp");
 ?>
---EXPECTF--
+--EXPECT--
 *** Testing lstat() on a file after changing its access permission ***
 bool(true)
 bool(true)

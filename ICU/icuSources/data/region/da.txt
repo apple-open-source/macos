@@ -13,7 +13,7 @@ da{
         015{"Nordafrika"}
         017{"Centralafrika"}
         018{"Det sydlige Afrika"}
-        019{"Amerika"}
+        019{"Nord-, Mellem- og Sydamerika"}
         021{"Det nordlige Amerika"}
         029{"Caribien"}
         030{"Østasien"}
@@ -31,7 +31,7 @@ da{
         151{"Østeuropa"}
         154{"Nordeuropa"}
         155{"Vesteuropa"}
-        202{"Afrika syd for Sahara"}
+        202{"Subsaharisk Afrika"}
         419{"Latinamerika"}
         AC{"Ascensionøen"}
         AD{"Andorra"}
@@ -183,7 +183,7 @@ da{
         MF{"Saint Martin"}
         MG{"Madagaskar"}
         MH{"Marshalløerne"}
-        MK{"Makedonien"}
+        MK{"Nordmakedonien"}
         ML{"Mali"}
         MM{"Myanmar (Burma)"}
         MN{"Mongoliet"}
@@ -253,11 +253,11 @@ da{
         SV{"El Salvador"}
         SX{"Sint Maarten"}
         SY{"Syrien"}
-        SZ{"Swaziland"}
+        SZ{"Eswatini"}
         TA{"Tristan da Cunha"}
         TC{"Turks- og Caicosøerne"}
         TD{"Tchad"}
-        TF{"De franske besiddelser i Det Sydlige Indiske Ocean"}
+        TF{"De Franske Besiddelser i Det Sydlige Indiske Ocean"}
         TG{"Togo"}
         TH{"Thailand"}
         TJ{"Tadsjikistan"}
@@ -306,8 +306,8 @@ da{
         CG{"Republikken Congo"}
         CZ{"Den Tjekkiske Republik"}
         FK{"Falklandsøerne (Islas Malvinas)"}
-        MK{"Den tidligere jugoslaviske republik Makedonien"}
+        SZ{"Swaziland"}
         TL{"Østtimor"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
 }

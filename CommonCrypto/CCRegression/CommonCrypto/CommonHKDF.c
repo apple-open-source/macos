@@ -210,14 +210,18 @@ int CommonHKDF(int __unused argc, char *const * __unused argv)
 		byteBuffer						okmActual = mallocByteBuffer(tv->len);
 		byteBuffer						okmExpected = hexStringToBytes(tv->okm);
 		CCDigestAlgorithm				digestType;
-		
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 		if(     tv->type == type_sha1)   digestType = kCCDigestSHA1;
+#pragma clang diagnostic pop
 		else if(tv->type == type_sha256) digestType = kCCDigestSHA256;
 		else if(tv->type == type_sha512) digestType = kCCDigestSHA512;
 		else abort();
-		
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 		err = CCKeyDerivationHMac(kCCKDFAlgorithmHKDF, digestType, 0, ikm->bytes, ikm->len, NULL, 0, 
 			info->bytes, info->len, NULL, 0, salt->bytes, salt->len, okmActual->bytes, okmActual->len );
+#pragma clang diagnostic pop
 		ok(!err, "check return value");
         is(okmActual->len, okmExpected->len, "compare length");
 		ok_memcmp(okmActual->bytes, okmExpected->bytes, okmExpected->len, "compare memory of answer");

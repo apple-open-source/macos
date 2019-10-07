@@ -256,7 +256,7 @@ S_start(int argc, char * argv[])
     return (result);
 }
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 static int
 S_start_system(int argc, char * argv[])
 {
@@ -280,7 +280,7 @@ S_start_system(int argc, char * argv[])
     my_CFRelease(&dict);
     return (result);
 }
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
 static int
 S_stop(int argc, char * argv[])
@@ -374,7 +374,7 @@ S_set_verbose(int argc, char * argv[])
     return (result);
 }
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 static int
 S_loginwindow_config(int argc, char * argv[])
 {
@@ -431,7 +431,7 @@ S_get_user_autoconnect(int argc, char * argv[])
 static int
 S_did_user_cancel(int argc, char * argv[])
 {
-    boolean_t		did_cancel;
+    Boolean		did_cancel;
 
     did_cancel = EAPOLControlDidUserCancel(argv[0]);
     printf("%s\n", did_cancel ? "true" : "false");
@@ -452,7 +452,7 @@ S_show_autodetect_info(int argc, char * argv[])
     return (result);
 }
 
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
 static int
 S_wait_for_state(const char * ifname,
@@ -777,14 +777,14 @@ static commandInfo commands[] = {
     { "verify_server", S_verify_server, 2, "<cert-file> <properties>" },
     { "export_shareable", S_export_shareable, 1, "<properties>" },
     { "import_shareable", S_import_shareable, 1, "<properties>" },
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     { "start_system", S_start_system, 1, "<interface_name> [ <config_file> ]"},
     { "loginwindow_config", S_loginwindow_config, 1, "<interface_name>" },
     { "auto_detect_info", S_show_autodetect_info, 0, NULL },
     { "set_user_autoconnect", S_set_user_autoconnect, 1, "( on | off )" },
     { "get_user_autoconnect", S_get_user_autoconnect, 0, "" },
     { "did_user_cancel", S_did_user_cancel, 1, "<interface_name>" },
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
     { NULL, NULL, 0, NULL },
 };
 

@@ -65,7 +65,7 @@ static RetainPtr<NSLocale> determineLocale(const String& locale)
      return adoptNS([[NSLocale alloc] initWithLocaleIdentifier:locale]);
 }
 
-std::unique_ptr<Locale> Locale::create(const AtomicString& locale)
+std::unique_ptr<Locale> Locale::create(const AtomString& locale)
 {
     return std::make_unique<LocaleMac>(determineLocale(locale.string()).get());
 }
@@ -103,7 +103,7 @@ RetainPtr<NSDateFormatter> LocaleMac::shortDateFormatter()
     return createDateTimeFormatter(m_locale.get(), m_gregorianCalendar.get(), NSDateFormatterShortStyle, NSDateFormatterNoStyle);
 }
 
-#if PLATFORM(IOS_FAMILY)
+#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
 String LocaleMac::formatDateTime(const DateComponents& dateComponents, FormatType)
 {
     double msec = dateComponents.millisecondsSinceEpoch();
@@ -122,9 +122,6 @@ String LocaleMac::formatDateTime(const DateComponents& dateComponents, FormatTyp
     NSDateFormatter *dateFormatter = localizedDateCache().formatterForDateType(type);
     return [dateFormatter stringFromDate:date];
 }
-#endif
-
-#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
 
 const Vector<String>& LocaleMac::monthLabels()
 {

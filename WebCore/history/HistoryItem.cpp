@@ -66,7 +66,7 @@ HistoryItem::HistoryItem(const String& urlString, const String& title)
 }
 
 HistoryItem::HistoryItem(const String& urlString, const String& title, const String& alternateTitle)
-    : HistoryItem(urlString, title, alternateTitle, { Process::identifier(), generateObjectIdentifier<BackForwardItemIdentifier::ItemIdentifierType>() })
+    : HistoryItem(urlString, title, alternateTitle, { Process::identifier(), ObjectIdentifier<BackForwardItemIdentifier::ItemIdentifierType>::generate() })
 {
 }
 
@@ -372,6 +372,7 @@ void HistoryItem::clearChildren()
 // - The other item corresponds to the same set of documents, including frames (for history entries created via regular navigation)
 bool HistoryItem::shouldDoSameDocumentNavigationTo(HistoryItem& otherItem) const
 {
+    // The following logic must be kept in sync with WebKit::WebBackForwardListItem::itemIsInSameDocument().
     if (this == &otherItem)
         return false;
 

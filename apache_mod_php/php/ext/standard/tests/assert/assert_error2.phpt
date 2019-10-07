@@ -10,7 +10,7 @@ error_reporting = -1
 display_errors = 1
 --FILE--
 <?php
-function f1($script, $line, $message, $user_message) 
+function f1($script, $line, $message, $user_message)
 {
 	echo "f1 called\n";
 }
@@ -21,6 +21,8 @@ var_dump($r2 = assert("0 != 0"));
 echo "If this is printed BAIL hasn't worked";
 --EXPECTF--
 int(0)
+
+Deprecated: assert(): Calling assert() with a string argument is deprecated in %s on line %d
 
 Warning: assert(): Assertion "0 != 0" failed in %s on line 9
 

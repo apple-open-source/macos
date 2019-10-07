@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.DiscardAftDataRec.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Discard may not follow data recording actions.

@@ -1,0 +1,374 @@
+#!/usr/bin/python
+
+import sys, getopt, collections, subprocess, argparse
+from operator import itemgetter
+
+
+class color:
+   PURPLE = '\033[95m'
+   CYAN = '\033[96m'
+   DARKCYAN = '\033[36m'
+   BLUE = '\033[94m'
+   GREEN = '\033[92m'
+   YELLOW = '\033[93m'
+   RED = '\033[91m'
+   BOLD = '\033[1m'
+   UNDERLINE = '\033[4m'
+   END = '\033[0m'
+
+event_type_string = [
+    "kIOHIDEventTypeNULL",
+    "kIOHIDEventTypeVendorDefined",
+    "kIOHIDEventTypeButton",
+    "kIOHIDEventTypeKeyboard",
+    "kIOHIDEventTypeTranslation",
+    "kIOHIDEventTypeRotation",
+    "kIOHIDEventTypeScroll",
+    "kIOHIDEventTypeScale",
+    "kIOHIDEventTypeZoom",
+    "kIOHIDEventTypeVelocity",
+    "kIOHIDEventTypeOrientation",
+    "kIOHIDEventTypeDigitizer",
+    "kIOHIDEventTypeAmbientLightSensor",
+    "kIOHIDEventTypeAccelerometer",
+    "kIOHIDEventTypeProximity",
+    "kIOHIDEventTypeTemperature",
+    "kIOHIDEventTypeNavigationSwipe",
+    "kIOHIDEventTypePointer",
+    "kIOHIDEventTypeProgress",
+    "kIOHIDEventTypeMultiAxisPointer",
+    "kIOHIDEventTypeGyro",
+    "kIOHIDEventTypeCompass",
+    "kIOHIDEventTypeZoomToggle",
+    "kIOHIDEventTypeDockSwipe",
+    "kIOHIDEventTypeSymbolicHotKey",
+    "kIOHIDEventTypePower",
+    "kIOHIDEventTypeLED",
+    "kIOHIDEventTypeFluidTouchGesture",
+    "kIOHIDEventTypeBoundaryScroll",
+    "kIOHIDEventTypeBiometric",
+    "kIOHIDEventTypeUnicode",
+    "kIOHIDEventTypeAtmosphericPressure",
+    "kIOHIDEventTypeForce",
+    "kIOHIDEventTypeMotionActivity",
+    "kIOHIDEventTypeMotionGesture",
+    "kIOHIDEventTypeGameController",
+    "kIOHIDEventTypeHumidity",
+    "kIOHIDEventTypeCollection",
+    "kIOHIDEventTypeBrightness",
+    "kIOHIDEventTypeGenericGesture"]
+
+# Debug code
+
+kIOHIDDebugCode_DispatchHIDEvent    = 0x5230048
+kIOHIDDebugCode_HandleReport   	  	= 0x523003C
+kHIDDK_Dev_InputReport   			= 0x523C008
+
+kHID_ES_Service_Callback			= 0x5238100
+kHID_ES_Client_QueueCallback        = 0x5238080
+
+kHID_ES_ClientsEnqueue              = 0x523804c
+
+DBG_FUNC_END						= 0x2
+
+EventTypeToStr = [
+ 	'kIOHIDEventTypeNULL',
+    'kIOHIDEventTypeVendorDefined',
+    'kIOHIDEventTypeButton',                  
+    'kIOHIDEventTypeKeyboard',                     
+    'kIOHIDEventTypeTranslation',
+    'kIOHIDEventTypeRotation',
+    'kIOHIDEventTypeScroll',
+    'kIOHIDEventTypeScale',           
+    'kIOHIDEventTypeZoom',                       
+    'kIOHIDEventTypeVelocity',                     
+    'kIOHIDEventTypeOrientation',
+    'kIOHIDEventTypeDigitizer',
+    'kIOHIDEventTypeAmbientLightSensor',
+    'kIOHIDEventTypeAccelerometer',      
+    'kIOHIDEventTypeProximity',                    
+    'kIOHIDEventTypeTemperature',
+    'kIOHIDEventTypeNavigationSwipe',
+    'kIOHIDEventTypePointer',
+    'kIOHIDEventTypeProgress',   
+    'kIOHIDEventTypeMultiAxisPointer',      
+    'kIOHIDEventTypeGyro',
+    'kIOHIDEventTypeCompass',
+    'kIOHIDEventTypeZoomToggle',
+    'kIOHIDEventTypeDockSwipe',
+    'kIOHIDEventTypeSymbolicHotKey',   
+    'kIOHIDEventTypePower',                      
+    'kIOHIDEventTypeLED',                          
+    'kIOHIDEventTypeFluidTouchGesture',
+    'kIOHIDEventTypeBoundaryScroll',
+    'kIOHIDEventTypeBiometric',
+    'kIOHIDEventTypeUnicode',            
+    'kIOHIDEventTypeAtmosphericPressure',
+    'kIOHIDEventTypeForce',
+    'kIOHIDEventTypeMotionActivity',
+    'kIOHIDEventTypeMotionGesture',
+    'kIOHIDEventTypeGameController',        
+    'kIOHIDEventTypeHumidity',                     
+    'kIOHIDEventTypeCollection',
+    'kIOHIDEventTypeBrightness',
+    'kIOHIDEventTypeGenericGesture',
+]
+
+
+# event / report metadata
+event_tarce = collections.OrderedDict()
+dk_handle_report = collections.OrderedDict()
+kernel_handle_report  = collections.OrderedDict()
+kernel_dispatch_event = collections.OrderedDict()
+verboseLog = False
+
+filter_trace = []
+
+def print_bold (s):
+	print color.BOLD + s + color.END
+
+def process_event (filter, line, trace_line):
+	code = int (trace_line[2], 16)
+	if (code >> 16) != 0x0523:
+		return
+	arg0 = int (trace_line[3], 16)
+	if filter == arg0:
+		filter_trace.append(line)
+	if code == kHIDDK_Dev_InputReport and filter == int (trace_line[4], 16) :
+		filter_trace.append(line)
+		 
+
+
+def  process_all (trace_line, clients):
+	code = int (trace_line[2], 16)
+
+	if (code >> 16) != 0x0523:
+		return
+
+	arg0 = int (trace_line[3], 16)
+	ts   = float (trace_line[0])   
+
+	if code == kHIDDK_Dev_InputReport:
+		dk_report_timestamp = int (trace_line[4], 16)
+		dk_handle_report[dk_report_timestamp] =  ts
+		return 
+
+	if code == kIOHIDDebugCode_HandleReport:
+		kernel_report_timestamp = int (trace_line[4], 16)
+		kernel_handle_report[kernel_report_timestamp] =  ts
+		return
+
+	if code == kIOHIDDebugCode_DispatchHIDEvent:
+		kernel_dispatch_event[arg0] = ts
+		return
+	
+	if code == kHID_ES_Service_Callback and arg0 not in event_tarce:
+		service = int (trace_line[4], 16)
+		event_type = int (trace_line[5], 16)
+		event_tarce [arg0] = [event_type, service, ts, 0, 0, trace_line[0], 0]
+		return
+
+	if code == (kHID_ES_ClientsEnqueue | DBG_FUNC_END) and arg0 in event_tarce:
+		(event_tarce [arg0])[3] = ts
+		return
+
+	if code == kHID_ES_Client_QueueCallback and arg0 in event_tarce:
+		if len(clients) > 0:
+			client = trace_line[9]
+			if client not in clients:
+				return	
+		if (event_tarce[arg0])[4] < ts:
+			(event_tarce [arg0])[4] = ts
+
+def  print_summary ():
+	eventTypeSummary = {}
+	eventLatencies  = []
+	for  key in event_tarce.keys():
+		event = event_tarce[key]
+		if event[4] == 0 or event[3] == 0:
+			continue
+		eventType =  event[0]
+
+		if eventType in eventTypeSummary.keys():
+			eventTypeSummary[eventType] += 1
+		else:
+			eventTypeSummary[eventType] = 1	  
+
+		eventLatencies.append (event[3] - event[2])
+	
+	print "Summary"
+	print "Events:"
+	for  key in eventTypeSummary.keys():
+		print "  type:%d(%s) count:%d" % (key, EventTypeToStr[key], eventTypeSummary[key])
+
+	print "  total:%d" % (len(event_tarce))
+	print "Latency:"
+	eventLatencies.sort()
+	minLatecy="" 
+	for i in range (0,5):
+		minLatecy += "%.1f " % (eventLatencies[i])
+	print "  min:%s" % (minLatecy)
+	maxLatecy="" 
+	for i in range (len(eventLatencies) - 5, len(eventLatencies)):
+		maxLatecy += "%.1f " % (eventLatencies[i])
+	print "  max:%s" % (maxLatecy)
+	latecyAvg=0 
+	for i in range (0, (len(eventLatencies) * 95) / 100):
+		latecyAvg += eventLatencies[i]
+	latecyAvg = latecyAvg / ((len(eventLatencies) * 95) / 100)
+	print "  average:%.1f " % (latecyAvg)
+
+def  print_all ():
+	for  key in event_tarce.keys():
+		event = event_tarce[key]
+		if event[4] == 0 or event[3] == 0:
+			continue
+
+		event_log_str =  "event:0x%x(%d) type:0x%02x service:0x%x thidd-total:%.1f thidd-to-client:%.1f thidd-event:%s" % (key, key, event[0], event[1],  event[3] - event[2],  event[4] - event[2],  event[5])
+
+		treport = 0
+		tbegin = float(event[5])
+		tend = event[4]
+
+		if  key in kernel_dispatch_event:
+			event_time = kernel_dispatch_event[key]
+			event_log_str = "%s tkern-event:%.1f" % (event_log_str, event_time)
+			tbegin = event_time
+		
+		if  key in dk_handle_report:
+			treport = dk_handle_report[key]
+		elif key in kernel_handle_report:
+			treport = kernel_handle_report[key]
+
+		if  treport:
+			event_log_str = "%s treport:%.1f" % (event_log_str, treport)
+			tbegin = treport
+
+		event_log_str = "%s ttotal:%.1f" % (event_log_str, tend - tbegin)
+
+		print  event_log_str
+
+def  print_trace (trace):
+	for  line in trace:
+		print  line.rstrip("\r\n")
+
+def print_report ():
+	eventLatency = []
+	eventType = {}
+	for  key in event_tarce.keys():
+		event = event_tarce[key]
+		if event[4] == 0 or event[3] == 0:
+			continue
+		eventLatency.append (event[3] - event[2])
+		if event[0] in eventType.keys():
+			eventType[event[0]] += 1
+		else:
+			eventType[event[0]] = 1
+		
+	print_bold("Events:")
+	for key in eventType.keys():
+		print "  type: %2d count: %8d (%s)" % (key, eventType[key], event_type_string[key]) 
+	
+	print_bold("Latencies:")
+	
+	eventLatency.sort();
+
+	print_bold("  min:") 
+	for i in range (0, 5):
+		print  "    %0.1f" % (eventLatency[i])
+
+	print_bold("  max:") 
+	for i in range (len(eventLatency) - 5, len(eventLatency)):
+		print  "    %0.1f" % (eventLatency[i])
+
+	average = 0;
+
+	print_bold("  average:") 
+
+	for i in range (0,(len(eventLatency) * 95) / 100):
+		average += eventLatency[i]
+	print "    95%%: %0.1f" % (average / ((len(eventLatency) * 95) / 100))
+
+	average = 0;
+	for i in range (0,(len(eventLatency) * 50) / 100):
+		average += eventLatency[i]
+	print "    50%%: %0.1f" % (average / ((len(eventLatency) * 50) / 100))
+
+def  main (argv):
+	global verboseLog
+	oevent = 0
+	osummary = False
+	oclients = []
+	oreport = False
+	opts, args = getopt.getopt(argv, "c:e:hvr", ["clients=", "event=", "help", "verbose", "report"])
+	for opt, arg in opts:
+		if opt in ("-e", "--event"):
+			oevent = int (arg, 16) 
+		if opt in ("-c", "--clients"):
+			oclients = arg.split(",") 
+		if opt in ("-v", "--verbose"):
+			verboseLog = True
+		if opt in ("-r", "--report"):
+			oreport = True
+		if opt in ("-h", "--help"):
+			print "Extract HID events info from  artrace/tailspin/ktrace"
+			print "Usage:"
+			print "     hidartraceutil [-e event_timestamp] [-c client_process_name,...] [-h] [-r]\n"
+			print "Flags:"
+			print "  	-c,--clients  client process or string of comma separated client process names (-c  hidutil or -c  hidutil,hidEventSystemMonitor)"
+			print "  	-r,--report   print summary report for event types count latencies"
+			print "  	-e,--event    print print trace points for event with specific timestamp\n"
+			print "Examples:"
+			print "  	hidartraceutil /tmp/trace001.artrace"
+			print "  	hidartraceutil -r /tmp/trace001.artrace"
+			print "  	hidartraceutil -c hidutil /tmp/trace001.artrace"
+			print "  	hidartraceutil -e 0x71d1755621c24 /tmp/trace001.artrace\n"
+			print "Other:"
+			print "		artrace  --trace-ktrace-class 5 (collect HID trace point used by hidartraceutil)"
+
+			return
+
+	trace_data = sys.stdin
+
+	if args:
+		if verboseLog:
+			print "Loading trace: file:%s" % (args[0])
+
+		if "tailspin" in args[0]:
+			trace_data = subprocess.check_output("ktrace trace -A -N -R \"%s\"" % (args[0]), shell=True, universal_newlines=True).splitlines()		
+
+		if "artrace" in args[0]:
+			trace_data = subprocess.check_output("artrace_tool dumptrace --nocodefile \"%s\"" % (args[0]), shell=True, universal_newlines=True).splitlines()		
+
+
+	if verboseLog:
+		if trace_data == sys.stdin:
+			length = 0
+		else:
+			length = len(trace_data)
+		print "Process trace: length:%d event:%x clients:%s" % (length, oevent, oclients)
+
+	for line in trace_data:
+		trace_line = line.split()
+		if not (trace_line and trace_line[0].replace('.','1').isdigit()):
+			continue
+		if oevent != 0:
+			process_event (oevent, line, trace_line)
+		else:
+			process_all (trace_line, oclients)
+
+	if oevent != 0:
+		print "Filter trace for event 0x%x" % (oevent)
+		print_trace (filter_trace)
+	else:
+		print "Events:"
+		print_all ()
+
+	if oreport:
+		print_report ()
+
+
+if __name__ == "__main__":
+	main (sys.argv[1:])
+
+

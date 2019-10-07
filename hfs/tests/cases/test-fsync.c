@@ -34,7 +34,7 @@ int run_fsync(__unused test_ctx_t *ctx)
 	disk_image_t *di = NULL;
 	const char *tstdir;
 	
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	struct statfs sfs;
 	bool hfs_root;
 	
@@ -47,7 +47,7 @@ int run_fsync(__unused test_ctx_t *ctx)
 		hfs_root = true;
 		tstdir = "/tmp";
 	}
-#else // !TARGET_OS_EMBEDDED
+#else // !TARGET_OS_IPHONE & !SIM
 	di = disk_image_get();
 	tstdir = di->mount_point;
 #endif

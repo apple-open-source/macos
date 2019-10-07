@@ -25,17 +25,14 @@
 
 #pragma once
 
-#include "CertificateInfo.h"
 #include "CurlFormDataStream.h"
 #include "CurlMultipartHandle.h"
 #include "CurlMultipartHandleClient.h"
 #include "CurlRequestSchedulerClient.h"
 #include "CurlResponse.h"
-#include "CurlSSLVerifier.h"
-#include "FileSystem.h"
-#include "NetworkLoadMetrics.h"
 #include "ProtectionSpace.h"
 #include "ResourceRequest.h"
+#include <wtf/FileSystem.h>
 #include <wtf/MessageQueue.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/Noncopyable.h>
@@ -43,6 +40,7 @@
 namespace WebCore {
 
 class CurlRequestClient;
+class NetworkLoadMetrics;
 class ResourceError;
 class SharedBuffer;
 
@@ -75,7 +73,9 @@ public:
     void invalidateClient();
     WEBCORE_EXPORT void setAuthenticationScheme(ProtectionSpaceAuthenticationScheme);
     WEBCORE_EXPORT void setUserPass(const String&, const String&);
-    void setStartTime(const MonotonicTime& startTime) { m_requestStartTime = startTime; }
+    bool isServerTrustEvaluationDisabled() { return m_shouldDisableServerTrustEvaluation; }
+    void disableServerTrustEvaluation() { m_shouldDisableServerTrustEvaluation = true; }
+    void setStartTime(const MonotonicTime& startTime) { m_requestStartTime = startTime.isolatedCopy(); }
 
     void start();
     void cancel();
@@ -83,9 +83,8 @@ public:
     WEBCORE_EXPORT void resume();
 
     const ResourceRequest& resourceRequest() const { return m_request; }
-    bool isCompleted() const { return !m_curlHandle; }
-    bool isCancelled() const { return m_cancelled; }
-    bool isCompletedOrCancelled() const { return isCompleted() || isCancelled(); }
+    bool isCancelled();
+    bool isCompletedOrCancelled();
     Seconds timeoutInterval() const;
 
     const String& user() const { return m_user; }
@@ -97,9 +96,6 @@ public:
     // Download
     void enableDownloadToFile();
     const String& getDownloadedFilePath();
-
-    const CertificateInfo& certificateInfo() const { return m_certificateInfo; }
-    const NetworkLoadMetrics& networkLoadMetrics() const { return m_networkLoadMetrics; }
 
 private:
     enum class Action {
@@ -134,6 +130,8 @@ private:
     void finalizeTransfer();
     void invokeCancel();
 
+    int didReceiveDebugInfo(curl_infotype, char*, size_t);
+
     // For setup 
     void appendAcceptLanguageHeader(HTTPHeaderMap&);
     void setupPOST(ResourceRequest&);
@@ -141,7 +139,7 @@ private:
     void setupSendData(bool forPutMethod);
 
     // Processing for DidReceiveResponse
-    bool needToInvokeDidReceiveResponse() const { return m_didReceiveResponse && (!m_didNotifyResponse || !m_didReturnFromNotify); }
+    bool needToInvokeDidReceiveResponse() const { return m_didReceiveResponse && !m_didNotifyResponse; }
     bool needToInvokeDidCancelTransfer() const { return m_didNotifyResponse && !m_didReturnFromNotify && m_actionAfterInvoke == Action::FinishTransfer; }
     void invokeDidReceiveResponseForFile(URL&);
     void invokeDidReceiveResponse(const CurlResponse&, Action);
@@ -152,7 +150,7 @@ private:
     void updateHandlePauseState(bool);
     bool isHandlePaused() const;
 
-    void updateNetworkLoadMetrics();
+    NetworkLoadMetrics networkLoadMetrics();
 
     // Download
     void writeDataToDownloadFileIfEnabled(const SharedBuffer&);
@@ -163,16 +161,20 @@ private:
     static size_t willSendDataCallback(char*, size_t, size_t, void*);
     static size_t didReceiveHeaderCallback(char*, size_t, size_t, void*);
     static size_t didReceiveDataCallback(char*, size_t, size_t, void*);
+    static int didReceiveDebugInfoCallback(CURL*, curl_infotype, char*, size_t, void*);
 
 
     CurlRequestClient* m_client { };
+    Lock m_statusMutex;
     bool m_cancelled { false };
+    bool m_completed { false };
     MessageQueue<Function<void()>>* m_messageQueue { };
 
     ResourceRequest m_request;
     String m_user;
     String m_password;
     unsigned long m_authType { CURLAUTH_ANY };
+    bool m_shouldDisableServerTrustEvaluation { false };
     bool m_shouldSuspend { false };
     bool m_enableMultipart { false };
 
@@ -205,9 +207,8 @@ private:
     String m_downloadFilePath;
     FileSystem::PlatformFileHandle m_downloadFileHandle { FileSystem::invalidPlatformFileHandle };
 
-    CertificateInfo m_certificateInfo;
     bool m_captureExtraMetrics;
-    NetworkLoadMetrics m_networkLoadMetrics;
+    HTTPHeaderMap m_requestHeaders;
     MonotonicTime m_requestStartTime { MonotonicTime::nan() };
     MonotonicTime m_performStartTime;
     size_t m_totalReceivedSize { 0 };

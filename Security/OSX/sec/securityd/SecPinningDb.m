@@ -58,7 +58,6 @@
 #include <utilities/SecFileLocations.h>
 #include "utilities/sec_action.h"
 
-#define kSecPinningBasePath         "/Library/Keychains/"
 #define kSecPinningDbFileName       "pinningrules.sqlite3"
 
 const uint64_t PinningDbSchemaVersion = 2;
@@ -427,6 +426,8 @@ static inline bool isNSDictionary(id nsType) {
                  return true;
              }
 
+             dispatch_assert_queue_not(self->_queue);
+
              __block BOOL ok = true;
              dispatch_sync(self->_queue, ^{
                  bool updateSchema = false;
@@ -494,15 +495,11 @@ static void verify_create_path(const char *path)
 
 - (NSURL *)pinningDbPath {
     /* Make sure the /Library/Keychains directory is there */
-#if TARGET_OS_IPHONE
-    NSURL *directory = CFBridgingRelease(SecCopyURLForFileInKeychainDirectory(nil));
-#else
-    NSURL *directory = [NSURL fileURLWithFileSystemRepresentation:"/Library/Keychains/" isDirectory:YES relativeToURL:nil];
-#endif
+    NSURL *directory = CFBridgingRelease(SecCopyURLForFileInSystemKeychainDirectory(nil));
     verify_create_path([directory fileSystemRepresentation]);
 
     /* Get the full path of the pinning DB */
-    return [directory URLByAppendingPathComponent:@"pinningrules.sqlite3"];
+    return [directory URLByAppendingPathComponent:@kSecPinningDbFileName];
 }
 
 - (void) initializedDb {

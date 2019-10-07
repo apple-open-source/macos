@@ -339,7 +339,7 @@ AST_type_n_t *ASTP_chase_ptr_to_type
     short int    pointer_count;
 
     for (tp= type_node, pointer_count = 0;
-        (tp->kind == AST_pointer_k);
+        tp->kind == AST_pointer_k;
         tp = tp->type_structure.pointer->pointee_type, pointer_count++)
     {
         /* Chase pointer until we find the base type node */
@@ -2103,7 +2103,7 @@ AST_field_attr_n_t *AST_set_field_attrs
 						{
 							field_ref_vector->constant = true;
 							field_ref_vector->ref.integer =
-								ASTP_expr_integer_value(location, exp);
+								(int) ASTP_expr_integer_value(location, exp);
 						}
                   else
                   {
@@ -2927,7 +2927,7 @@ void ASTP_validate_integer
 		  {
 				case AST_int_const_k:
 					 exp_node->exp.constant.type = AST_int_const_k;
-					 exp_node->exp.constant.val.integer = exp_node->exp.constant.val.other->value.int_val;
+					 exp_node->exp.constant.val.integer = (int) exp_node->exp.constant.val.other->value.int_val;
 					 break;
 				case AST_char_const_k:
 					 exp_node->exp.constant.type = AST_int_const_k;

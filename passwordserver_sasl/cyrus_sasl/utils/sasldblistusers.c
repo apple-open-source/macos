@@ -43,7 +43,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <config.h>
+#include "config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,11 +52,11 @@
 #include <unistd.h>
 #endif
 
-#include <sasl.h>
+#include "sasl.h"
 #include "../sasldb/sasldb.h"
 
 #ifdef WIN32
-#include <saslutil.h>
+#include "saslutil.h"
 __declspec(dllimport) char *optarg;
 __declspec(dllimport) int optind;
 #endif

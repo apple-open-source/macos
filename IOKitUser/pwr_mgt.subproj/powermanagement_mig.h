@@ -83,6 +83,7 @@ enum {
 #define kAssertionPropertiesMsg     "assertionProperties"
 #define kAssertionCheckMsg          "assertionCheck"
 #define kAssertionTimeoutMsg        "assertionTimeout"
+#define kAssertionSetStateMsg       "assertionSetState"
 
 #define kAssertionDetailsKey        "assertionDictonary"
 #define kAssertionIdKey             "assertionId"
@@ -97,5 +98,6 @@ enum {
 #define kInactivityWindowStart      "inactivityWindowStart"
 #define kInactivityWindowDuration   "inactivityWindowDuration"
 #define kStandbyAccelerationDelay   "standbyAccelerationDelay"
+
 
 #endif

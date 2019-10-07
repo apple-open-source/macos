@@ -1,5 +1,4 @@
-# frozen_string_literal: false
-require 'rubygems'
+# frozen_string_literal: true
 begin
   gem 'rdoc'
 rescue Gem::LoadError

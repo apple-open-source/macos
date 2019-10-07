@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,25 +39,19 @@
  */
 
 #include <TargetConditionals.h>
+#include <os/availability.h>
 #include <CoreFoundation/CoreFoundation.h>
-#if TARGET_OS_OSX
-typedef SecKeychainRef EAPSecKeychainRef;
-typedef SecKeychainItemRef EAPSecKeychainItemRef;
-typedef SecAccessRef EAPSecAccessRef;
-#else
-typedef CFTypeRef EAPSecKeychainRef;
-typedef CFTypeRef EAPSecKeychainItemRef;
-typedef CFTypeRef EAPSecAccessRef;
-#include <Security/SecItem.h>
-#endif
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
+
+typedef CFTypeRef EAPSecAccessRef;
 
 /*
  * Keys relevant to the values dict.
  */
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
+
 /*
  * Note:
  *   These two properties are only consulted when doing a Create
@@ -73,10 +67,11 @@ const CFStringRef kEAPSecKeychainPropLabel;	/* CFData */
 const CFStringRef kEAPSecKeychainPropDescription; /* CFData */
 const CFStringRef kEAPSecKeychainPropAccount; 	/* CFData */
 const CFStringRef kEAPSecKeychainPropPassword; 	/* CFData */
-#endif /* ! TARGET_OS_EMBEDDED */
+
+#endif /* ! TARGET_OS_IPHONE */
 
 OSStatus
-EAPSecKeychainPasswordItemCreateWithAccess(EAPSecKeychainRef keychain,
+EAPSecKeychainPasswordItemCreateWithAccess(SecKeychainRef keychain,
 					   EAPSecAccessRef access,
 					   CFStringRef unique_id_str,
 					   CFDataRef label,
@@ -84,7 +79,7 @@ EAPSecKeychainPasswordItemCreateWithAccess(EAPSecKeychainRef keychain,
 					   CFDataRef user,
 					   CFDataRef password);
 OSStatus
-EAPSecKeychainPasswordItemCreateUniqueWithAccess(EAPSecKeychainRef keychain,
+EAPSecKeychainPasswordItemCreateUniqueWithAccess(SecKeychainRef keychain,
 						 EAPSecAccessRef access,
 						 CFDataRef label,
 						 CFDataRef description,
@@ -92,32 +87,32 @@ EAPSecKeychainPasswordItemCreateUniqueWithAccess(EAPSecKeychainRef keychain,
 						 CFDataRef password,
 						 CFStringRef * unique_id_str);
 OSStatus
-EAPSecKeychainPasswordItemCreate(EAPSecKeychainRef keychain,
+EAPSecKeychainPasswordItemCreate(SecKeychainRef keychain,
 				 CFStringRef unique_id_str,
-				 CFDictionaryRef values);
+				 CFDictionaryRef values) API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos);
 OSStatus
-EAPSecKeychainPasswordItemCreateUnique(EAPSecKeychainRef keychain,
+EAPSecKeychainPasswordItemCreateUnique(SecKeychainRef keychain,
 				       CFDictionaryRef values,
-				       CFStringRef * req_unique_id);
+				       CFStringRef * req_unique_id) API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos);
 OSStatus
-EAPSecKeychainPasswordItemSet(EAPSecKeychainRef keychain,
+EAPSecKeychainPasswordItemSet(SecKeychainRef keychain,
 			      CFStringRef unique_id_str,
 			      CFDataRef password);
 OSStatus
-EAPSecKeychainPasswordItemSet2(EAPSecKeychainRef keychain,
+EAPSecKeychainPasswordItemSet2(SecKeychainRef keychain,
 			       CFStringRef unique_id_str,
-			       CFDictionaryRef values);
+			       CFDictionaryRef values) API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos);
 OSStatus
-EAPSecKeychainPasswordItemCopy(EAPSecKeychainRef keychain,
+EAPSecKeychainPasswordItemCopy(SecKeychainRef keychain,
 			       CFStringRef unique_id_str,
 			       CFDataRef * ret_password);
 OSStatus
-EAPSecKeychainPasswordItemCopy2(EAPSecKeychainRef keychain,
+EAPSecKeychainPasswordItemCopy2(SecKeychainRef keychain,
 				CFStringRef unique_id_str,
 				CFArrayRef keys,
-				CFDictionaryRef * ret_values);
+				CFDictionaryRef * ret_values) API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos);
 OSStatus
-EAPSecKeychainPasswordItemRemove(EAPSecKeychainRef keychain,
+EAPSecKeychainPasswordItemRemove(SecKeychainRef keychain,
 				 CFStringRef unique_id_str);
 #endif /* _EAP8021X_EAPKEYCHAINUTIL_H */
 

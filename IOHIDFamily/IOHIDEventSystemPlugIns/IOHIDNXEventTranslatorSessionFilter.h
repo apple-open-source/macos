@@ -20,6 +20,7 @@
 #include <IOKit/hid/IOHIDLibPrivate.h>
 #include  <shared_mutex>
 #include "CF.h"
+#import <Foundation/Foundation.h>
 
 
 #define kIOHIDPowerOnThresholdMS                    (500)            // 1/2 second
@@ -79,6 +80,7 @@ private:
     uint32_t                        _displaySleepAbortThreshold;
     uint32_t                        _displayWakeAbortThreshold;
     static IOPMAssertionID          _AssertionID;
+    CFMutableDictionaryRefWrap      _assertionNames;
     uint64_t                        _previousEventTime;
     uint64_t                        _declareActivityThreshold;
   
@@ -88,6 +90,7 @@ private:
     CFMutableSetRefWrap             _reportModifiers;
     CFMutableSetRefWrap             _updateModifiers;
     IOHIDServiceRef                 _dfr;
+    bool                            _isTranslationEnabled;
     
     uint64_t    _powerStateChangeTime;
     uint64_t    _displayStateChangeTime;

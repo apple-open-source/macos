@@ -27,7 +27,7 @@
 		<key>Hostname</key>
 		<string>test.apple.com</string>
 		<key>Result</key>
-		<string>kSecTrustResultUnspecified</string>
+		<string>kSecTrustResultRecoverableTrustFailure</string>
 	</dict>
 	<key>Test4</key>
 	<dict>
@@ -261,7 +261,7 @@
 		<key>Hostname</key>
 		<string>TEST.apple.com</string>
 		<key>Result</key>
-		<string>kSecTrustResultUnspecified</string>
+		<string>kSecTrustResultRecoverableTrustFailure</string>
 	</dict>
 	<key>Test30</key>
 	<dict>

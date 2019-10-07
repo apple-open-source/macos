@@ -35,7 +35,7 @@
 #include <libaks_smartcard.h>
 
 extern "C" {
-#include <ctkclient.h>
+#include <ctkclient/ctkclient.h>
 #include <coreauthd_spi.h>
 }
 
@@ -297,30 +297,18 @@ OSStatus TokenLoginGetUnlockKey(CFDictionaryRef context, CFDataRef *unlockKey)
 
 OSStatus TokenLoginGetLoginData(CFDictionaryRef context, CFDictionaryRef *loginData)
 {
-    os_log(TL_LOG, "secinfo TokenLoginGetLoginData");
-    secinfo("TokenLogin", "secinfo TokenLoginGetLoginData");
-    
-    os_log(TL_LOG, "secerror");
-    secerror("secerror");
-
-    os_log(TL_LOG, "secwarning");
-    secwarning("secwarning");
-
     if (!loginData || !context) {
         os_log_error(TL_LOG, "Get login data - wrong params");
         return errSecParam;
     }
 
 	CFRef<CFStringRef> pubKeyHashHex = cfDataToHex(getPubKeyHash(context));
-    os_log(TL_LOG, "pubkeyhash %@", pubKeyHashHex.get());
 
 	CFPreferencesSynchronize(kSecTokenLoginDomain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
 	CFRef<CFDataRef> storedData = (CFDataRef)CFPreferencesCopyValue(pubKeyHashHex, kSecTokenLoginDomain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-    os_log(TL_LOG, "stored data %@", storedData.get());
-
     if (!storedData) {
+        // this is not an error, might be a normal situation if the value does not exist
 		os_log_debug(TL_LOG, "Failed to read token login plist");
-        os_log(TL_LOG, "Failed to read token login plist");
 		return errSecIO;
 	}
 

@@ -221,6 +221,7 @@ typedef struct {
 
     int main(argc, argv) { ...Create context... return SecTokendMain(argc, argv, &callbacks, &supportCalls); }
  */
+__attribute__((visibility("default")))
 int SecTokendMain(int argc, const char * argv[], const SecTokendCallbacks *callbacks, SecTokendSupport *support);
 
 #ifdef __cplusplus

@@ -545,6 +545,34 @@ Example:
 
 
 /*!
+@defined kIOPropertyInvalidStartupDiskKey
+@discussion This key is used to denote devices when cannot be used as a startup disk.
+
+Requirement: Optional.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Device Characteristics</key>
+	<dict>
+		<key>Vendor Name</key>
+		<string>APPLE</string>
+		<key>Product Name</key>
+		<string>Target Disk Mode</string>
+		<key>Product Revision Level</key>
+		<string>0000</string>
+		<key>Invalid Startup Disk</key>
+		<true/>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyInvalidStartupDiskKey        "Invalid Startup Disk"
+
+
+/*!
 @defined kIOPropertyMediumTypeKey
 @discussion This key is used to indicate the medium type of the device.
 

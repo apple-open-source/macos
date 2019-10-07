@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.progenyof.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * 	trace progenyof() at every fbt probe point.

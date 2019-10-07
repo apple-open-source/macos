@@ -34,6 +34,7 @@ public:
     void handlePendingStats();
     void scheduleWithDispatchQueue(dispatch_queue_t queue);
     void unscheduleFromDispatchQueue(dispatch_queue_t queue);
+    CFTypeRef getPropertyForClient (CFStringRef key, CFTypeRef client);
 
 private:
     IOHIDSessionFilterPlugInInterface *_sessionInterface;
@@ -111,6 +112,9 @@ private:
     
     static void scheduleWithDispatchQueue(void * self, dispatch_queue_t queue);
     static void unscheduleFromDispatchQueue(void * self, dispatch_queue_t queue);
+
+    static CFTypeRef getPropertyForClient (void * self, CFStringRef key, CFTypeRef client);
+
     static void handlePendingStats(void * self);
     
     bool collectMotionStats(IOHIDServiceRef sender, IOHIDEventRef event);

@@ -35,12 +35,12 @@
 namespace WebKit {
 using namespace WebCore;
 
-Ref<WebBackForwardListItem> WebBackForwardListItem::create(BackForwardListItemState&& backForwardListItemState, uint64_t pageID)
+Ref<WebBackForwardListItem> WebBackForwardListItem::create(BackForwardListItemState&& backForwardListItemState, PageIdentifier pageID)
 {
     return adoptRef(*new WebBackForwardListItem(WTFMove(backForwardListItemState), pageID));
 }
 
-WebBackForwardListItem::WebBackForwardListItem(BackForwardListItemState&& backForwardListItemState, uint64_t pageID)
+WebBackForwardListItem::WebBackForwardListItem(BackForwardListItemState&& backForwardListItemState, PageIdentifier pageID)
     : m_itemState(WTFMove(backForwardListItemState))
     , m_pageID(pageID)
     , m_lastProcessIdentifier(m_itemState.identifier.processIdentifier)
@@ -78,6 +78,16 @@ static const FrameState* childItemWithDocumentSequenceNumber(const FrameState& f
     return nullptr;
 }
 
+static const FrameState* childItemWithTarget(const FrameState& frameState, const String& target)
+{
+    for (const auto& child : frameState.children) {
+        if (child.target == target)
+            return &child;
+    }
+
+    return nullptr;
+}
+
 static bool documentTreesAreEqual(const FrameState& a, const FrameState& b)
 {
     if (a.documentSequenceNumber != b.documentSequenceNumber)
@@ -100,7 +110,7 @@ bool WebBackForwardListItem::itemIsInSameDocument(const WebBackForwardListItem& 
     if (m_pageID != other.m_pageID)
         return false;
 
-    // The following logic must be kept in sync with WebCore::HistoryItem::shouldDoSameDocumentNavigationTo.
+    // The following logic must be kept in sync with WebCore::HistoryItem::shouldDoSameDocumentNavigationTo().
 
     const FrameState& mainFrameState = m_itemState.pageState.mainFrameState;
     const FrameState& otherMainFrameState = other.m_itemState.pageState.mainFrameState;
@@ -117,6 +127,38 @@ bool WebBackForwardListItem::itemIsInSameDocument(const WebBackForwardListItem& 
     return documentTreesAreEqual(mainFrameState, otherMainFrameState);
 }
 
+static bool hasSameFrames(const FrameState& a, const FrameState& b)
+{
+    if (a.target != b.target)
+        return false;
+
+    if (a.children.size() != b.children.size())
+        return false;
+
+    for (const auto& child : a.children) {
+        if (!childItemWithTarget(b, child.target))
+            return false;
+    }
+
+    return true;
+}
+
+bool WebBackForwardListItem::itemIsClone(const WebBackForwardListItem& other)
+{
+    // The following logic must be kept in sync with WebCore::HistoryItem::itemsAreClones().
+
+    if (this == &other)
+        return false;
+
+    const FrameState& mainFrameState = m_itemState.pageState.mainFrameState;
+    const FrameState& otherMainFrameState = other.m_itemState.pageState.mainFrameState;
+
+    if (mainFrameState.itemSequenceNumber != otherMainFrameState.itemSequenceNumber)
+        return false;
+
+    return hasSameFrames(mainFrameState, otherMainFrameState);
+}
+
 void WebBackForwardListItem::setSuspendedPage(SuspendedPageProxy* page)
 {
     if (m_suspendedPage == page)
@@ -124,6 +166,11 @@ void WebBackForwardListItem::setSuspendedPage(SuspendedPageProxy* page)
 
     removeSuspendedPageFromProcessPool();
     m_suspendedPage = makeWeakPtr(page);
+}
+
+SuspendedPageProxy* WebBackForwardListItem::suspendedPage() const
+{
+    return m_suspendedPage.get();
 }
 
 void WebBackForwardListItem::removeSuspendedPageFromProcessPool()

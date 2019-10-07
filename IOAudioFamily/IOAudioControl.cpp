@@ -25,7 +25,10 @@
 #include "IOAudioControlUserClient.h"
 #include "IOAudioTypes.h"
 #include "IOAudioDefines.h"
-#include <IOKit/audio/AudioTracepoints.h>
+// Unused macros in open source
+#define AudioTrace_Start(a, b, c, d, e, f)
+#define AudioTrace_End(a, b, c, d, e, f)
+#define AudioTrace(a, b, c, d, e, f)
 
 #include <IOKit/IOLib.h>
 #include <IOKit/IOWorkLoop.h>

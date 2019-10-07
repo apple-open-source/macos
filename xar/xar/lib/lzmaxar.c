@@ -142,7 +142,12 @@ int xar_lzma_fromheap_in(xar_t x, xar_file_t f, xar_prop_t p, void **in, size_t 
 	LZMA_CONTEXT(context)->lzma.avail_out = 0;
 
 	while( LZMA_CONTEXT(context)->lzma.avail_in != 0 ) {
-		outlen = outlen * 2;
+		size_t newlen = outlen * 2;
+		if (newlen > outlen)
+			outlen = newlen;
+		else
+			abort();	/* Someone has somehow malloced over 2^64 bits of ram. */
+		
 		out = realloc(out, outlen);
 		if( out == NULL ) abort();
 
@@ -293,8 +298,12 @@ int32_t xar_lzma_toheap_in(xar_t x, xar_file_t f, xar_prop_t p, void **in, size_
 
 	if( *inlen != 0 ) {
 		do {
-			outlen *= 2;
-			out = realloc(out, outlen);
+			size_t newlen = outlen * 2;
+			if (newlen > outlen)
+				outlen = newlen;
+			else
+				abort();	/* Someone has somehow malloced over 2^64 bits of ram. */
+			
 			if( out == NULL ) abort();
 
 			LZMA_CONTEXT(context)->lzma.next_out = ((unsigned char *)out) + offset;
@@ -305,9 +314,11 @@ int32_t xar_lzma_toheap_in(xar_t x, xar_file_t f, xar_prop_t p, void **in, size_
 		} while( r == LZMA_OK && LZMA_CONTEXT(context)->lzma.avail_in != 0);
 	} else {
 		do {
-			outlen *= 2;
-			out = realloc(out, outlen);
-			if( out == NULL ) abort();
+			size_t newlen = outlen * 2;
+			if (newlen > outlen)
+				outlen = newlen;
+			else
+				abort();	/* Someone has somehow malloced over 2^64 bits of ram. */			if( out == NULL ) abort();
 
 			LZMA_CONTEXT(context)->lzma.next_out = ((unsigned char *)out) + offset;
 			LZMA_CONTEXT(context)->lzma.avail_out = outlen - offset;

@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -44,7 +42,7 @@ static char sccsid[] = "@(#)msgs.c	8.2 (Berkeley) 4/28/95";
 #endif /* not lint */
 #endif
 
-__RCSID("$FreeBSD: src/usr.bin/msgs/msgs.c,v 1.24 2002/09/04 23:29:04 dwmalone Exp $");
+__FBSDID("$FreeBSD$");
 
 /*
  * msgs - a user bulletin board program
@@ -112,58 +110,60 @@ __RCSID("$FreeBSD: src/usr.bin/msgs/msgs.c,v 1.24 2002/09/04 23:29:04 dwmalone E
 
 typedef	char	bool;
 
-FILE	*msgsrc;
-FILE	*newmsg;
-const char *sep = "-";
-char	inbuf[BUFSIZ];
-char	fname[MAXPATHLEN];
-char	cmdbuf[MAXPATHLEN + MAXPATHLEN];
-char	subj[128];
-char	from[128];
-char	date[128];
-char	*ptr;
-char	*in;
-bool	local;
-bool	ruptible;
-bool	totty;
-bool	seenfrom;
-bool	seensubj;
-bool	blankline;
-bool	printing = NO;
-bool	mailing = NO;
-bool	quitit = NO;
-bool	sending = NO;
-bool	intrpflg = NO;
-bool	restricted = NO;
-uid_t	uid;
-int	msg;
-int	prevmsg;
-int	lct;
-int	nlines;
-int	Lpp = 0;
-time_t	t;
-time_t	keep;
+static FILE	*msgsrc;
+static FILE	*newmsg;
+static const char *sep = "-";
+static char	inbuf[BUFSIZ];
+static char	fname[MAXPATHLEN];
+static char	cmdbuf[MAXPATHLEN + MAXPATHLEN];
+static char	subj[128];
+static char	from[128];
+static char	date[128];
+static char	*ptr;
+static char	*in;
+static bool	local;
+static bool	ruptible;
+static bool	totty;
+static bool	seenfrom;
+static bool	seensubj;
+static bool	blankline;
+static bool	printing = NO;
+static bool	mailing = NO;
+static bool	quitit = NO;
+static bool	sending = NO;
+static bool	intrpflg = NO;
+#ifdef __APPLE__
+static bool	restricted = NO;
+#endif /* __APPLE__ */
+static uid_t	uid;
+static int	msg;
+static int	prevmsg;
+static int	lct;
+static int	nlines;
+static int	Lpp = 0;
+static time_t	t;
+static time_t	keep;
 
 /* option initialization */
-bool	hdrs = NO;
-bool	qopt = NO;
-bool	hush = NO;
-bool	send_msg = NO;
-bool	locomode = NO;
-bool	use_pager = NO;
-bool	clean = NO;
-bool	lastcmd = NO;
-jmp_buf	tstpbuf;
+static bool	hdrs = NO;
+static bool	qopt = NO;
+static bool	hush = NO;
+static bool	send_msg = NO;
+static bool	locomode = NO;
+static bool	use_pager = NO;
+static bool	clean = NO;
+static bool	lastcmd = NO;
+static jmp_buf	tstpbuf;
 
-void	ask(const char *);
-void	gfrsub(FILE *);
-int	linecnt(FILE *);
-int	next(char *);
-char	*nxtfld(unsigned char *);
-void	onsusp(int);
-void	onintr(int);
-void	prmesg(int);
-static void usage(void);
+static void	ask(const char *);
+static void	gfrsub(FILE *);
+static int	linecnt(FILE *);
+static int	next(char *);
+static char	*nxtfld(char *);
+static void	onsusp(int);
+static void	onintr(int);
+static void	prmesg(int);
+static void	usage(void);
 
 int
 main(int argc, char *argv[])
@@ -175,6 +175,7 @@ main(int argc, char *argv[])
 	int blast = 0;
 	struct stat buf;		/* stat to check access of bounds */
 	FILE *bounds;
+	char *cp;
 
 #ifdef UNBUFFERED
 	setbuf(stdout, NULL);
@@ -182,7 +183,8 @@ main(int argc, char *argv[])
 	setlocale(LC_ALL, "");
 
 	time(&t);
-	setuid(uid = getuid());
+	if (setuid(uid = getuid()) != 0)
+		err(1, "setuid failed");
 	ruptible = (signal(SIGINT, SIG_IGN) == SIG_DFL);
 	if (ruptible)
 		signal(SIGINT, SIG_DFL);
@@ -238,7 +240,6 @@ main(int argc, char *argv[])
 				restricted = YES;
 				break;
 #endif /* __APPLE__ */
-
 
 			case 's':		/* sending TO msgs */
 				send_msg = YES;
@@ -297,7 +298,7 @@ main(int argc, char *argv[])
 		lastmsg = 0;
 
 		for (dp = readdir(dirp); dp != NULL; dp = readdir(dirp)){
-			char *cp = dp->d_name;
+			cp = dp->d_name;
 			int i = 0;
 
 			if (dp->d_ino == 0)
@@ -413,7 +414,11 @@ main(int argc, char *argv[])
 	totty = (isatty(fileno(stdout)) != 0);
 	use_pager = use_pager && totty;
 
-	snprintf(fname, sizeof(fname), "%s/%s", getenv("HOME"), MSGSRC);
+	if ((cp = getenv("HOME")) == NULL || *cp == '\0') {
+		fprintf(stderr, "Error, no home directory!\n");
+		exit(1);
+	}
+	snprintf(fname, sizeof(fname), "%s/%s", cp, MSGSRC);
 	msgsrc = fopen(fname, "r");
 	if (msgsrc) {
 		newrc = NO;
@@ -527,7 +532,8 @@ main(int argc, char *argv[])
 
 		lct = linecnt(newmsg);
 		if (lct)
-			printf("(%d%slines) ", lct, seensubj? " " : " more ");
+			printf("(%d%sline%s) ", lct, seensubj? " " : " more ",
+			    (lct == 1) ? "" : "s");
 
 		if (hdrs) {
 			printf("\n-----\n");
@@ -634,11 +640,11 @@ cmnd:
 static void
 usage(void)
 {
-	fprintf(stderr, "usage: msgs [fhlopqr] [[-]number]\n");
+	fprintf(stderr, "usage: msgs [fhlopq] [[-]number]\n");
 	exit(1);
 }
 
-void
+static void
 prmesg(int length)
 {
 	FILE *outf;
@@ -685,8 +691,8 @@ prmesg(int length)
 	tcdrain(fileno(stdout));
 }
 
-void
-onintr(int unused)
+static void
+onintr(int unused __unused)
 {
 	signal(SIGINT, onintr);
 	if (mailing)
@@ -710,8 +716,8 @@ onintr(int unused)
 /*
  * We have just gotten a susp.  Suspend and prepare to resume.
  */
-void
-onsusp(int unused)
+static void
+onsusp(int unused __unused)
 {
 	signal(SIGTSTP, SIG_DFL);
 	sigsetmask(0);
@@ -721,7 +727,7 @@ onsusp(int unused)
 		longjmp(tstpbuf, 0);
 }
 
-int
+static int
 linecnt(FILE *f)
 {
 	off_t oldpos = ftello(f);
@@ -735,7 +741,7 @@ linecnt(FILE *f)
 	return (l);
 }
 
-int
+static int
 next(char *buf)
 {
 	int i;
@@ -744,12 +750,16 @@ next(char *buf)
 	return(--i);
 }
 
-void
+static void
 ask(const char *prompt)
 {
 	char	inch;
+#ifdef __APPLE__
 	int	cmsg, fd;
 	size_t	n;
+#else
+	int	n, cmsg, fd;
+#endif
 	off_t	oldpos;
 	FILE	*cpfrom, *cpto;
 
@@ -788,12 +798,12 @@ ask(const char *prompt)
 		}
 
 		if (inch == 's') {
-			in = nxtfld((unsigned char *)inbuf);
+			in = nxtfld(inbuf);
 			if (*in) {
 				for (n=0; in[n] > ' '; n++) { /* sizeof fname? */
 					fname[n] = in[n];
 				}
-				fname[n] = 0;
+				fname[n] = '\0';
 			}
 			else
 				strcpy(fname, "Messages");
@@ -815,6 +825,7 @@ ask(const char *prompt)
 			mailing = NO;
 			fseeko(newmsg, oldpos, SEEK_SET);
 			ask(prompt);
+			fclose(cpfrom);
 			return;
 		}
 
@@ -835,7 +846,7 @@ ask(const char *prompt)
 	}
 }
 
-void
+static void
 gfrsub(FILE *infile)
 {
 	off_t frompos;
@@ -843,7 +854,7 @@ gfrsub(FILE *infile)
 
 	seensubj = seenfrom = NO;
 	local = YES;
-	subj[0] = from[0] = date[0] = 0;
+	subj[0] = from[0] = date[0] = '\0';
 
 	/*
 	 * Is this a normal message?
@@ -856,7 +867,7 @@ gfrsub(FILE *infile)
 			seenfrom = YES;
 			frompos = ftello(infile);
 			ptr = from;
-			in = nxtfld((unsigned char *)inbuf);
+			in = nxtfld(inbuf);
 			if (*in) {
 				count = sizeof(from) - 1;
 				while (*in && *in > ' ' && count-- > 0) {
@@ -866,12 +877,12 @@ gfrsub(FILE *infile)
 					*ptr++ = *in++;
 				}
 			}
-			*ptr = 0;
-			if (*(in = nxtfld((unsigned char *)in)))
-				strncpy(date, in, sizeof date);
+			*ptr = '\0';
+			if (*(in = nxtfld(in)))
+				strlcpy(date, in, sizeof date);
 			else {
 				date[0] = '\n';
-				date[1] = 0;
+				date[1] = '\0';
 			}
 		}
 		else {
@@ -899,7 +910,7 @@ gfrsub(FILE *infile)
 		if (!seensubj && strncmp(inbuf, "Subj", 4)==0) {
 			seensubj = YES;
 			frompos = ftello(infile);
-			strncpy(subj, nxtfld((unsigned char *)inbuf), sizeof subj);
+			strlcpy(subj, nxtfld(inbuf), sizeof subj);
 		}
 	}
 	if (!blankline)
@@ -912,13 +923,13 @@ gfrsub(FILE *infile)
 		/*
 		 * for possible use with Mail
 		 */
-		strncpy(subj, "(No Subject)\n", sizeof subj);
+		strlcpy(subj, "(No Subject)\n", sizeof subj);
 }
 
-char *
-nxtfld(unsigned char *s)
+static char *
+nxtfld(char *s)
 {
 	if (*s) while (*s && !isspace(*s)) s++;     /* skip over this field */
 	if (*s) while (*s && isspace(*s)) s++;    /* find start of next field */
-	return ((char *)s);
+	return (s);
 }

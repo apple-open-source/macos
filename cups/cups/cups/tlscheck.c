@@ -4,13 +4,7 @@
  * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2006 by Easy Software Products.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
  */
 
 /*
@@ -43,6 +37,8 @@ main(int  argc,				/* I - Number of command-line arguments */
   http_t	*http;			/* HTTP connection */
   const char	*server = NULL;		/* Hostname from command-line */
   int		port = 0;		/* Port number */
+  cups_array_t	*creds;			/* Server credentials */
+  char		creds_str[2048];	/* Credentials string */
   const char	*cipherName = "UNKNOWN";/* Cipher suite name */
   int		dhBits = 0;		/* Diffie-Hellman bits */
   int		tlsVersion = 0;		/* TLS version number */
@@ -173,6 +169,16 @@ main(int  argc,				/* I - Number of command-line arguments */
   {
     printf("%s: ERROR (%s)\n", server, cupsLastErrorString());
     return (1);
+  }
+
+  if (httpCopyCredentials(http, &creds))
+  {
+    strlcpy(creds_str, "Unable to get server X.509 credentials.", sizeof(creds_str));
+  }
+  else
+  {
+    httpCredentialsString(creds, creds_str, sizeof(creds_str));
+    httpFreeCredentials(creds);
   }
 
 #ifdef __APPLE__
@@ -712,6 +718,8 @@ main(int  argc,				/* I - Number of command-line arguments */
   else
     printf("%s: OK (TLS: %d.%d, %s)\n", server, tlsVersion / 10, tlsVersion % 10, cipherName);
 
+  printf("    %s\n", creds_str);
+
   if (verbose)
   {
     httpAssembleURI(HTTP_URI_CODING_ALL, uri, sizeof(uri), "ipps", NULL, host, port, resource);
@@ -735,6 +743,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     }
 
     ippDelete(response);
+    puts("");
   }
 
   httpClose(http);

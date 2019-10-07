@@ -1095,7 +1095,7 @@ static void rpc_ss_register_node_by_num
     RPC_SS_REGISTER_NODE_BY_NUM_N;
 #endif
 
-    str = (rpc_ss_pvt_node_table_t*) tab;
+    str = (rpc_ss_pvt_node_table_t *) (void *) tab;
 
     /*
     ** Keep track of the highest node number seen.
@@ -1180,7 +1180,7 @@ static idl_ulong_int rpc_ss_lookup_node_by_ptr
     RPC_SS_LOOKUP_NODE_BY_PTR_N;
 #endif
 
-    str = (rpc_ss_pvt_node_table_t *) tab;
+    str = (rpc_ss_pvt_node_table_t *) (void *) tab;
 
     hash_entry = rpc_ss_find_hash_entry (str, ptr);
 
@@ -1261,7 +1261,7 @@ void rpc_ss_enable_reflect_deletes
 {
     rpc_ss_pvt_node_table_t * str;
 
-    str = (rpc_ss_pvt_node_table_t *) tab;
+    str = (rpc_ss_pvt_node_table_t *) (void *) tab;
     str->deletes_reflected = idl_true;
 }
 
@@ -1280,8 +1280,7 @@ void rpc_ss_ndr_marsh_deletes
     idl_ulong_int delete_count = 0;
     rpc_ss_deleted_nodes_t *p_delete_block;
 
-    p_node_table = (rpc_ss_pvt_node_table_t *)
-                                            IDL_msp->IDL_mem_handle.node_table;
+    p_node_table = (rpc_ss_pvt_node_table_t *) (void *) IDL_msp->IDL_mem_handle.node_table;
 
     if (p_node_table != NULL)
     {
@@ -1405,7 +1404,7 @@ byte_p_t rpc_ss_lookup_node_by_num
         return (byte_p_t) NULL;
     }
 
-    str = (rpc_ss_pvt_node_table_t *) tab;
+    str = (rpc_ss_pvt_node_table_t *) (void *) tab;
     mapped = str->currently_mapped;
 
     /* Make sure the table is large enough to do a lookup */
@@ -1509,7 +1508,7 @@ idl_ulong_int rpc_ss_register_node
         return 0;
     }
 
-    str = (rpc_ss_pvt_node_table_t *) tab;
+    str = (rpc_ss_pvt_node_table_t *) (void *) tab;
 
     /*
     ** Find out if this node is already registered.  If so return its number.
@@ -1602,7 +1601,7 @@ void rpc_ss_unregister_node
         return;
     }
 
-    str = (rpc_ss_pvt_node_table_t *) tab;
+    str = (rpc_ss_pvt_node_table_t *) (void *) tab;
 
     /*
     ** Find the hash entry for the pointer, and delete it.
@@ -1780,7 +1779,7 @@ byte_p_t rpc_ss_return_pointer_to_node
     RPC_SS_RETURN_POINTER_TO_NODE_N;
 #endif
 
-    str = (rpc_ss_pvt_node_table_t *)tab;
+    str = (rpc_ss_pvt_node_table_t *) (void *) tab;
     p = rpc_ss_lookup_node_by_num (tab, num);
 
     if (p == NULL)
@@ -1794,7 +1793,7 @@ byte_p_t rpc_ss_return_pointer_to_node
         {
             if (size == 0) size = 1;
             p = (byte_p_t)(*p_allocator->p_allocate)(p_allocator->p_context,
-						    size);
+						    (idl_size_t) size);
         }
         if (p ==NULL)
             DCETHREAD_RAISE(rpc_x_no_memory);
@@ -1887,7 +1886,7 @@ byte_p_t rpc_ss_lookup_pointer_to_node
     }
 
     /* Return unmarshalled flag */
-    str = (rpc_ss_pvt_node_table_t *)tab;
+    str = (rpc_ss_pvt_node_table_t *) (void *) tab;
     hash_entry = rpc_ss_find_hash_entry (str, p);
     *has_been_unmarshalled = hash_entry->unmarshalled;
 
@@ -1952,7 +1951,7 @@ byte_p_t rpc_ss_inquire_pointer_to_node
     }
 
     /* Return unmarshalled flag */
-    str = (rpc_ss_pvt_node_table_t *)tab;
+    str = (rpc_ss_pvt_node_table_t *) (void *) tab;
     hash_entry = rpc_ss_find_hash_entry (str, p);
     *has_been_unmarshalled = hash_entry->unmarshalled;
 

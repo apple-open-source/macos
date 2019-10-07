@@ -606,12 +606,6 @@ void TimeZoneFormatTest::RunTimeRoundTripTests(int32_t threadNumber) {
                     && logKnownIssue("11052", "Ambiguous zone name - Samoa Time")) {
                 continue;
             }
-            // skip some zone/format combinations until we have a metazone for them and/or
-            // better fallback zone formatting...
-            if ((*tzid == "America/Punta_Arenas" || *tzid == "Antarctica/Palmer") &&
-                    uprv_strcmp(PATTERNS[patidx], "zzzz") == 0) {
-                continue;
-            }
 
             BasicTimeZone *tz = (BasicTimeZone*) TimeZone::createTimeZone(*tzid);
             sdf->setTimeZone(*tz);

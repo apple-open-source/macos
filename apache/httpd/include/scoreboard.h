@@ -112,10 +112,12 @@ struct worker_score {
 #ifdef HAVE_TIMES
     struct tms times;
 #endif
-    char client[32];            /* Keep 'em small... */
+    char client[32];            /* DEPRECATED: Keep 'em small... */
     char request[64];           /* We just want an idea... */
     char vhost[32];             /* What virtual host is being accessed? */
     char protocol[16];          /* What protocol is used on the connection? */
+    apr_time_t duration;
+    char client64[64];
 };
 
 typedef struct {
@@ -125,6 +127,9 @@ typedef struct {
                                          * should still be serving requests.
                                          */
     apr_time_t restart_time;
+#ifdef HAVE_TIMES
+    struct tms times;
+#endif
 } global_score;
 
 /* stuff which the parent generally writes and the children rarely read */
@@ -143,7 +148,9 @@ struct process_score {
     apr_uint32_t lingering_close;   /* async connections in lingering close */
     apr_uint32_t keep_alive;        /* async connections in keep alive */
     apr_uint32_t suspended;         /* connections suspended by some module */
-    int bucket;             /* Listener bucket used by this child */
+    int bucket;  /* Listener bucket used by this child; this field is DEPRECATED
+                  * and no longer updated by the MPMs (i.e. always zero).
+                  */
 };
 
 /* Scoreboard is now in 'local' memory, since it isn't updated once created,
@@ -169,6 +176,7 @@ apr_status_t ap_cleanup_scoreboard(void *d);
  */
 AP_DECLARE(int) ap_exists_scoreboard_image(void);
 AP_DECLARE(void) ap_increment_counts(ap_sb_handle_t *sbh, request_rec *r);
+AP_DECLARE(void) ap_set_conn_count(ap_sb_handle_t *sb, request_rec *r, unsigned short conn_count);
 
 AP_DECLARE(apr_status_t) ap_reopen_scoreboard(apr_pool_t *p, apr_shm_t **shm, int detached);
 AP_DECLARE(void) ap_init_scoreboard(void *shared_score);
@@ -189,6 +197,8 @@ AP_DECLARE(int) ap_update_child_status_from_server(ap_sb_handle_t *sbh, int stat
 AP_DECLARE(int) ap_update_child_status_descr(ap_sb_handle_t *sbh, int status, const char *descr);
 
 AP_DECLARE(void) ap_time_process_request(ap_sb_handle_t *sbh, int status);
+
+AP_DECLARE(int) ap_update_global_status(void);
 
 AP_DECLARE(worker_score *) ap_get_scoreboard_worker(ap_sb_handle_t *sbh);
 

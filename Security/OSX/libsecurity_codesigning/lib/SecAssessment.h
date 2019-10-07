@@ -321,10 +321,12 @@ typedef uint64_t SecAssessmentTicketFlags;
 enum {
 	kSecAssessmentTicketFlagDefault = 0,				// default behavior, offline check
 	kSecAssessmentTicketFlagForceOnlineCheck = 1 << 0,	// force an online check
+	kSecAssessmentTicketFlagLegacyListCheck = 1 << 1, // Check the DeveloperID Legacy list
 };
 Boolean SecAssessmentTicketRegister(CFDataRef ticketData, CFErrorRef *errors);
 Boolean SecAssessmentRegisterPackageTicket(CFURLRef packageURL, CFErrorRef* errors) API_AVAILABLE(macos(10.14.6));
 Boolean SecAssessmentTicketLookup(CFDataRef hash, SecCSDigestAlgorithm hashType, SecAssessmentTicketFlags flags, double *date, CFErrorRef *errors);
+Boolean SecAssessmentLegacyCheck(CFDataRef hash, SecCSDigestAlgorithm hashType, CFStringRef teamID, CFErrorRef *errors);
 
 #ifdef __cplusplus
 }

@@ -127,8 +127,6 @@ WI.TextResourceContentView = class TextResourceContentView extends WI.ResourceCo
         WI.debuggerManager.removeEventListener(null, null, this);
         WI.settings.showJavaScriptTypeInformation.removeEventListener(null, null, this);
         WI.settings.enableControlFlowProfiler.removeEventListener(null, null, this);
-
-        this._textEditor.close();
     }
 
     contentAvailable(content, base64Encoded)
@@ -143,8 +141,10 @@ WI.TextResourceContentView = class TextResourceContentView extends WI.ResourceCo
 
     get saveData()
     {
-        if (this.resource instanceof WI.CSSStyleSheet)
-            return {url: "web-inspector:///InspectorStyleSheet.css", content: this._textEditor.string, forceSaveAs: true};
+        if (this.resource instanceof WI.CSSStyleSheet) {
+            let url = WI.FileUtilities.inspectorURLForFilename("InspectorStyleSheet.css");
+            return {url, content: this._textEditor.string, forceSaveAs: true};
+        }
         return {url: this.resource.url, content: this._textEditor.string};
     }
 

@@ -73,10 +73,12 @@ T_DECL(strptime_lukemftp, "year parsing"){
 
 T_DECL(strptime_five_digit_year, "strptime(%Y) with a 5 digit year")
 {
+	// POSIX conformance requires that %Y only use 4 characters, so use the
+	// field width to change that for this test.
     char *timestr = "20080922T020000";
     struct tm tm;
     bzero(&tm, sizeof(tm));
-    T_ASSERT_NOTNULL(strptime("10001", "%Y", &tm), NULL);
+    T_ASSERT_NOTNULL(strptime("10001", "%5Y", &tm), NULL);
     T_EXPECT_EQ(tm.tm_year, 10001 - 1900, NULL);
     T_ASSERT_NOTNULL(strptime(timestr, "%Y%m%dT%H%M%S", &tm), NULL);
 }

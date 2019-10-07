@@ -37,7 +37,7 @@
 #include <sys/cdefs.h>
 #include <histedit.h>
 
-#define SC_LOG_HANDLE	_SC_LOG_DEFAULT()
+#define SC_LOG_HANDLE	_SC_LOG_DEFAULT
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>

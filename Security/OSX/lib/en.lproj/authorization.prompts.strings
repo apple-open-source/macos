@@ -167,3 +167,9 @@
 "com.apple.app-sandbox.set-attributes" = "__APPNAME__ wants to change permissions of a privileged file.";
 
 "com.apple.app-sandbox.replace-file" = "__APPNAME__ wants to save a file in a privileged location.";
+
+"com.apple.applepay.reset" = "__APPNAME__ is trying to reset Apple Pay and add card.";
+
+"com.apple.configurationprofiles.userenrollment.install" = "__APPNAME__ is trying to enroll you in a remote management (MDM) service.";
+
+"com.apple.system-extensions.admin" = "__APPNAME__ is trying to modify a System Extension.";

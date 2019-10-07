@@ -76,6 +76,7 @@
 #include <sys/_types/_size_t.h>
 #include <sys/_types/_null.h>
 
+#ifndef UNIFDEF_DRIVERKIT
 #include <sys/stdio.h>
 
 typedef __darwin_off_t		fpos_t;
@@ -155,5 +156,6 @@ typedef	struct __sFILE {
 	int	_blksize;	/* stat.st_blksize (may be != _bf._size) */
 	fpos_t	_offset;	/* current lseek offset (see WARNING) */
 } FILE;
+#endif /* UNIFDEF_DRIVERKIT */
 
 #endif /* __STDIO_H_ */

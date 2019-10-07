@@ -35,5 +35,6 @@ extern CFStringRef kTestView1;
 extern CFStringRef kTestView2;
 
 void secd_test_setup_testviews(void);
+void secd_test_clear_testviews(void);
 
 #endif

@@ -2,7 +2,6 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 ro{
     Keys{
-        calendar{"calendar"}
         cf{"Format monedă"}
         colAlternate{"Ordonare cu simbolurile ignorate"}
         colBackwards{"Ordonare inversă după accent"}
@@ -61,7 +60,7 @@ ro{
         bas{"basaa"}
         bax{"bamun"}
         bbj{"ghomala"}
-        be{"bielorusă"}
+        be{"belarusă"}
         bej{"beja"}
         bem{"bemba"}
         bez{"bena"}
@@ -92,6 +91,7 @@ ro{
         car{"carib"}
         cay{"cayuga"}
         cch{"atsam"}
+        ccp{"chakma"}
         ce{"cecenă"}
         ceb{"cebuană"}
         cgg{"chiga"}
@@ -147,6 +147,7 @@ ro{
         enm{"engleză medie"}
         eo{"esperanto"}
         es{"spaniolă"}
+        es_ES{"spaniolă (Europa)"}
         et{"estonă"}
         eu{"bască"}
         ewo{"ewondo"}
@@ -214,7 +215,7 @@ ro{
         id{"indoneziană"}
         ie{"interlingue"}
         ig{"igbo"}
-        ii{"sichuan yi"}
+        ii{"yi din Sichuan"}
         ik{"inupiak"}
         ilo{"iloko"}
         inh{"ingușă"}
@@ -265,6 +266,7 @@ ro{
         krl{"kareliană"}
         kru{"kurukh"}
         ks{"cașmiră"}
+        ks_Arab{"cașmiră (naskhi)"}
         ksb{"shambala"}
         ksf{"bafia"}
         ksh{"kölsch"}
@@ -287,7 +289,7 @@ ro{
         ln{"lingala"}
         lo{"laoțiană"}
         lol{"mongo"}
-        lou{"creolă louisianeză"}
+        lou{"creolă (Louisiana)"}
         loz{"lozi"}
         lrc{"luri de nord"}
         lt{"lituaniană"}
@@ -379,6 +381,7 @@ ro{
         osa{"osage"}
         ota{"turcă otomană"}
         pa{"punjabi"}
+        pa_Arab{"punjabi (naskhi)"}
         pag{"pangasinan"}
         pal{"pahlavi"}
         pam{"pampanga"}
@@ -394,6 +397,7 @@ ro{
         pro{"provensală veche"}
         ps{"paștună"}
         pt{"portugheză"}
+        pt_PT{"portugheză (Europa)"}
         qu{"quechua"}
         quc{"quiché"}
         raj{"rajasthani"}
@@ -440,9 +444,9 @@ ro{
         sl{"slovenă"}
         sm{"samoană"}
         sma{"sami de sud"}
-        smj{"lule sami"}
-        smn{"inari sami"}
-        sms{"skolt sami"}
+        smj{"sami lule"}
+        smn{"sami inari"}
+        sms{"sami skolt"}
         sn{"shona"}
         snk{"soninke"}
         so{"somaleză"}
@@ -496,7 +500,7 @@ ro{
         twq{"tasawaq"}
         ty{"tahitiană"}
         tyv{"tuvană"}
-        tzm{"tamazight central marocană"}
+        tzm{"tamazight din Altasul Central"}
         udm{"udmurt"}
         ug{"uigură"}
         uga{"ugaritică"}
@@ -504,6 +508,7 @@ ro{
         umb{"umbundu"}
         und{"limbă necunoscută"}
         ur{"urdu"}
+        ur_Arab{"urdu (naskhi)"}
         uz{"uzbecă"}
         vai{"vai"}
         ve{"venda"}
@@ -535,6 +540,7 @@ ro{
         zen{"zenaga"}
         zgh{"tamazight standard marocană"}
         zh{"chineză"}
+        zh_Hans{"chineză simplificată"}
         zh_Hant{"chineză tradițională"}
         zu{"zulu"}
         zun{"zuni"}
@@ -550,6 +556,7 @@ ro{
     }
     Scripts{
         Arab{"arabă"}
+        Aran{"nastaaliq"}
         Armn{"armeană"}
         Bali{"balineză"}
         Beng{"bengaleză"}
@@ -601,9 +608,12 @@ ro{
         Maya{"hieroglife maya"}
         Mlym{"malayalam"}
         Mong{"mongolă"}
+        Mtei{"meitei mayek"}
         Mymr{"birmană"}
+        Olck{"ol chiki"}
         Orya{"oriya"}
         Phnx{"feniciană"}
+        Qaag{"zawgyi"}
         Runr{"runică"}
         Sinh{"singaleză"}
         Syrc{"siriacă"}
@@ -778,7 +788,7 @@ ro{
         SCOTLAND{"engleză standard scoțiană"}
         WADEGILE{"Wade-Giles"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
     characterLabelPattern{
         all{"{0} – toate"}
         category-list{"{0}: {1}"}
@@ -799,10 +809,5 @@ ro{
         language{"Limbă: {0}"}
         script{"Scriere: {0}"}
         territory{"Regiune: {0}"}
-    }
-    localeDisplayPattern{
-        keyTypePattern{"{0}: {1}"}
-        pattern{"{0} ({1})"}
-        separator{"{0}, {1}"}
     }
 }

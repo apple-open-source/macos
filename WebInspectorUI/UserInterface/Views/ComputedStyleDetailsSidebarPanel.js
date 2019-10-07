@@ -28,8 +28,18 @@ WI.ComputedStyleDetailsSidebarPanel = class ComputedStyleDetailsSidebarPanel ext
     constructor()
     {
         super("style-computed", WI.UIString("Computed"), WI.ComputedStyleDetailsPanel);
+    }
 
-        if (WI.settings.experimentalEnableComputedStyleCascades.value)
-            this.element.classList.add("computed-with-traces");
+    // ComputedStyleDetailsPanel delegate
+
+    computedStyleDetailsPanelShowProperty(property)
+    {
+        let styleRulesPanel = this.parentSidebar.sidebarPanels.find((panel) => panel instanceof WI.RulesStyleDetailsSidebarPanel);
+        console.assert(styleRulesPanel, "Styles panel is missing.");
+        if (!styleRulesPanel)
+            return;
+
+        this.parentSidebar.selectedSidebarPanel = styleRulesPanel;
+        styleRulesPanel.panel.scrollToSectionAndHighlightProperty(property);
     }
 };

@@ -30,10 +30,12 @@ messages -> WebInspectorProxy {
     DidClose()
     BringToFront()
     Reopen()
+    ResetState()
 
     InspectedURLChanged(String urlString)
     ShowCertificate(WebCore::CertificateInfo certificateInfo)
     ElementSelectionChanged(bool active)
+    SetMockCaptureDevicesEnabledOverride(Optional<bool> enabled)
 
     Save(String filename, String content, bool base64Encoded, bool forceSaveAs)
     Append(String filename, String content)
@@ -47,6 +49,8 @@ messages -> WebInspectorProxy {
 
     SetAttachedWindowHeight(unsigned height)
     SetAttachedWindowWidth(unsigned width)
+
+    SetSheetRect(WebCore::FloatRect rect)
 
     StartWindowDrag()
 }

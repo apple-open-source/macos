@@ -854,6 +854,13 @@ vtd_space_set(vtd_space_t * bf, vtd_vaddr_t start, vtd_vaddr_t size,
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 class AppleVTDDeviceMapper;
+enum
+{
+	kDeviceMapperPause      = 0x00000000,
+	kDeviceMapperUnpause    = 0x00000001,
+	kDeviceMapperActivate   = 0x00000002,
+	kDeviceMapperDeactivate = 0x00000004,
+};
 
 class AppleVTD : public IOMapper
 {
@@ -894,6 +901,7 @@ public:
 
 	static void adjustDevice(IOService * device);
 	static void removeDevice(IOService * device);
+    static void relocateDevice(IOService * device, bool paused);
 
 	bool init(IOWorkLoop * wl, const OSData * data);
 
@@ -986,10 +994,11 @@ class AppleVTDDeviceMapper : public IOMapper
 
 public:
 
-	IOService   * fDevice;
+	IOPCIDevice * fDevice;
 	AppleVTD    * fVTD;
 	vtd_space_t * fSpace;
 	uint32_t      fSourceID;
+	uint8_t       fAllFunctions;
 
 	static AppleVTDDeviceMapper * forDevice(IOService * device, uint32_t flags);
 
@@ -1126,7 +1135,25 @@ AppleVTD::removeDevice(IOService * device)
 	if ((mapper = OSDynamicCast(AppleVTDDeviceMapper, obj)))
 	{
 		device->removeProperty("iommu-parent");
-        vtd->deviceMapperActivate(mapper, 0);
+        vtd->deviceMapperActivate(mapper, kDeviceMapperDeactivate);
+	}
+
+	if (obj) obj->release();
+}
+
+void
+AppleVTD::relocateDevice(IOService * device, bool paused)
+{
+	AppleVTDDeviceMapper * mapper;
+	AppleVTD             * vtd;
+	OSObject             * obj;
+
+	if (!(vtd = OSDynamicCast(AppleVTD, IOMapper::gSystem))) return;
+
+	obj = device->copyProperty("iommu-parent");
+	if ((mapper = OSDynamicCast(AppleVTDDeviceMapper, obj)))
+	{
+        vtd->deviceMapperActivate(mapper, paused ? kDeviceMapperPause : kDeviceMapperUnpause);
 	}
 
 	if (obj) obj->release();
@@ -1200,7 +1227,7 @@ AppleVTD::space_destroy(vtd_space_t * bf)
 
 	if (bf->table_map && bf->table_bitmap)
 	{
-		count = bf->vsize;
+		count = (bf->vsize >> 9);
 		start = 0;
 		while (count)
 		{
@@ -1290,7 +1317,7 @@ AppleVTD::space_create(ppnum_t vsize, uint32_t buddybits, ppnum_t rsize)
 		treebits -= 12;
 		vsize = (vsize + 511) & ~511;
 		bf->vsize = vsize;
-		bf->table_bitmap = vtd_bitmap_alloc(vsize);
+		bf->table_bitmap = vtd_bitmap_alloc(vsize >> 9);
 		if (!bf->table_bitmap) break;
 
 		alloc = 0;
@@ -2755,31 +2782,32 @@ AppleVTD::newContextPage(uint32_t idx)
 	return (kr);
 }
 
-enum
-{
-    kDeviceMapperActivate = 0x00000001,
-};
-
 IOReturn
 AppleVTD::deviceMapperActivate(AppleVTDDeviceMapper * mapper, uint32_t options)
 {
     context_entry_t * context;
     vtd_space_t     * space;
 	IOReturn          ret;
-	uint32_t          idx;
+	uint32_t          idx, count;
 
     ret = kIOReturnSuccess;
     if (!(kDeviceMapperActivate & options) && !mapper->fSpace) return (ret);
 
-	VTLOG("mapper activate(%s) 0x%x\n", mapper->fDevice->getName(), options);
+    if ((kDeviceMapperActivate | kDeviceMapperUnpause) & options)
+    {
+		mapper->fSourceID = ((mapper->fDevice->space.s.busNum      << 8)
+						   | (mapper->fDevice->space.s.deviceNum   << 3)
+						   | (mapper->fDevice->space.s.functionNum << 0));
+	}
+
+	VTLOG("mapper activate(%s, 0x%04x) 0x%x\n", mapper->fDevice->getName(), mapper->fSourceID, options);
 
 	idx = (mapper->fSourceID >> 8) & 0xFF;
 	if (fGlobalContextMap == fContextMaps[idx]) newContextPage(idx);
 	context = (typeof(context)) fContextMaps[idx]->getVirtualAddress();
 
-	idx = (mapper->fSourceID >> 0) & 0xFF;
 	space = 0;
-    if (kDeviceMapperActivate & options)
+    if ((kDeviceMapperActivate | kDeviceMapperUnpause) & options)
     {
 		if (!mapper->fSpace) mapper->fSpace = space_create(1<<(32-12), 0, 1);
 		space = mapper->fSpace;
@@ -2787,15 +2815,25 @@ AppleVTD::deviceMapperActivate(AppleVTDDeviceMapper * mapper, uint32_t options)
 	}
 	if (!space) space = fSpace;
 
-	context[idx].address_space_root = ptoa_64(space->root_page)
-									  | kEntryPresent
-									  | kTranslationType0;
-	context[idx].context_entry = fContextWidth
-									  | space->domain*kDomainIdentifier1;
+	idx = (mapper->fSourceID >> 0) & 0xFF;
+	count = 1;
+	if (mapper->fAllFunctions)
+	{
+		idx &= ~7U;
+		count = 8;
+	}
+	for (; count; idx++, count--)
+	{
+		context[idx].address_space_root = ptoa_64(space->root_page)
+										  | kEntryPresent
+										  | kTranslationType0;
+		context[idx].context_entry = fContextWidth
+										  | space->domain*kDomainIdentifier1;
+	}
+	if (!(kDeviceMapperActivate & options)) contextInvalidate(mapper->fSpace->domain);
 
-    if (!(kDeviceMapperActivate & options))
+    if (kDeviceMapperDeactivate & options)
     {
-		contextInvalidate(mapper->fSpace->domain);
 		space_destroy(mapper->fSpace);
 		mapper->fSpace = 0;
     }
@@ -2815,6 +2853,7 @@ AppleVTDDeviceMapper::forDevice(IOService * device, uint32_t flags)
 {
 	AppleVTDDeviceMapper * mapper;
 	IOPCIDevice          * pciDevice;
+	uint32_t               vendorProduct;
 
 	if (!(pciDevice = OSDynamicCast(IOPCIDevice, device))) return (NULL);
 
@@ -2822,10 +2861,24 @@ AppleVTDDeviceMapper::forDevice(IOService * device, uint32_t flags)
 	if (!mapper) return (0);
 
 	mapper->fVTD      = OSDynamicCast(AppleVTD, IOMapper::gSystem);
-	mapper->fDevice   = device;
-	mapper->fSourceID = ((pciDevice->space.s.busNum      << 8)
-					   | (pciDevice->space.s.deviceNum   << 3)
-					   | (pciDevice->space.s.functionNum << 0));
+	mapper->fDevice   = pciDevice;
+
+	vendorProduct = pciDevice->savedConfig[kIOPCIConfigVendorID >> 2];
+	mapper->fAllFunctions =    ((0x91201b4b == vendorProduct)
+							 || (0x91231b4b == vendorProduct)
+							 || (0x91281b4b == vendorProduct)
+							 || (0x91301b4b == vendorProduct)
+							 || (0x91721b4b == vendorProduct)
+							 || (0x917a1b4b == vendorProduct)
+							 || (0x91821b4b == vendorProduct)
+							 || (0x91831b4b == vendorProduct)
+							 || (0x91a01b4b == vendorProduct)
+							 || (0x92201b4b == vendorProduct)
+							 || (0x92301b4b == vendorProduct)
+							 || (0x06421103 == vendorProduct)
+							 || (0x06451103 == vendorProduct)
+							 || (0x2392197B == vendorProduct)
+							 || (0x01221c28 == vendorProduct));
 
     mapper->initHardware(NULL);
 
@@ -2880,6 +2933,7 @@ AppleVTDDeviceMapper::iovmUnmapMemory(IOMemoryDescriptor * memory,
 									  IODMACommand * dmaCommand,
 									  uint64_t mapAddress, uint64_t mapLength)
 {
+	if (!fSpace) return kIOReturnSuccess;
     return (fVTD->spaceUnmapMemory(fSpace, memory, dmaCommand, mapAddress, mapLength));
 }
 

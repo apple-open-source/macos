@@ -33,7 +33,7 @@ namespace WebCore {
 
 class WebGPUAdapter;
 
-struct WebGPUAdapterDescriptor;
+struct GPURequestAdapterOptions;
 
 class WebGPU : public RefCounted<WebGPU> {
 public:
@@ -41,7 +41,7 @@ public:
 
     using WebGPUAdapterPromise = DOMPromiseDeferred<IDLInterface<WebGPUAdapter>>;
 
-    void requestAdapter(const WebGPUAdapterDescriptor&, WebGPUAdapterPromise&&) const;
+    void requestAdapter(Optional<GPURequestAdapterOptions>&&, WebGPUAdapterPromise&&) const;
 
 private:
     WebGPU() = default;

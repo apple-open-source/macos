@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -62,7 +62,7 @@
 
 char copyright_string[] =
 "/*\n"
-" * Copyright (c) 2000-2018 Apple Inc. All rights reserved.\n"
+" * Copyright (c) 2000-2019 Apple Inc. All rights reserved.\n"
 " *\n"
 " * @APPLE_LICENSE_HEADER_START@\n"
 " *\n"
@@ -102,7 +102,9 @@ typedef enum {
 	SC_10_1_10_9,	// deprecated in 10.9
 	SC_10_2_10_9,	// deprecated in 10.9
 	SC_10_2_10_13,	// deprecated in 10.13
+	SC_10_2_10_15,  // deprecated in 10.15
 	SC_10_3_10_9,	// deprecated in 10.9
+	SC_10_3_10_15,  // deprecated in 10.15
 	SC_10_4_10_9,	// deprecated in 10.9
 	SC_10_6_IPHONE_2_0,
 	SC_10_6_IPHONE_3_0,
@@ -126,6 +128,7 @@ typedef enum {
 	SC_10_13_IPHONE_10_0_PRIVATE,
 	SC_10_13_IPHONE_11_0_PRIVATE,
 	SC_10_14_IPHONE_12_0_PRIVATE,
+	SC_10_15_IPHONE_13_0_PRIVATE,
 	SC_IPHONE_2_0_PRIVATE,
 	SC_IPHONE_7_0_PRIVATE,
 	SC_IPHONE_8_0_PRIVATE,
@@ -218,6 +221,7 @@ typedef enum {
 #define CGA			"CGA"
 #define CHAP			"CHAP"
 #define CLAT46			"CLAT46"
+#define COLLISION		"Collision"
 #define COMM			"Comm"
 #define COMPATIBLE		"Compatible"
 #define COMPRESSIONACFIELD	"CompressionACField"
@@ -226,6 +230,7 @@ typedef enum {
 #define COMPUTERNAME		"ComputerName"
 #define COMPLETIONTIME		"CompletionTime"
 #define CONFIGMETHOD		"ConfigMethod"
+#define CONFIGURATION		"Configuration"
 #define CONFIRMED		"Confirmed"
 #define CONNECT			"Connect"
 #define CONNECTDELAY		"ConnectDelay"
@@ -240,6 +245,7 @@ typedef enum {
 #define DATACOMPRESSION		"DataCompression"
 #define DEFAULT			"Default"
 #define DEFAULTZONE		"DefaultZone"
+#define DELEGATION		"Delegation"
 #define DESIGNATED		"Designated"
 #define DEST			"Dest"
 #define DESTINATION		"Destination"
@@ -308,8 +314,7 @@ typedef enum {
 #define HYBRID			"Hybrid"
 #define IDENTIFIER		"Identifier"
 #define IDENTIFIERS		"Identifiers"
-#define IDLEREMINDER		"IdleReminder"
-#define IDLEREMINDERTIMER	"IdleReminderTimer"
+#define IDLE			"Idle"
 #define IFNEEDED		"IfNeeded"
 #define IGNORE			"Ignore"
 #define IGNOREDIALTONE		"IgnoreDialTone"
@@ -392,6 +397,7 @@ typedef enum {
 #define PLUGINS			"Plugins"
 #define POLICY			"Policy"
 #define PORT			"Port"
+#define PORTINUSE		"PortInUse"
 #define POWER			"Power"
 #define PPP			"PPP"
 #define PPPOE			"PPPoE"
@@ -419,6 +425,7 @@ typedef enum {
 #define REDIAL			"Redial"
 #define REDIALCOUNT		"RedialCount"
 #define REDIALINTERVAL		"RedialInterval"
+#define REFRESH			"Refresh"
 #define REGION			"Region"
 #define RELAY			"Relay"
 #define REMINDER		"Reminder"
@@ -483,6 +490,7 @@ typedef enum {
 #define TAGS			"Tags"
 #define TERMINALSCRIPT		"TerminalScript"
 #define TIMEOUT			"Timeout"
+#define TIMER			"Timer"
 #define TIMESTAMP		"TimeStamp"
 #define TOKEN			"Token"
 #define TRANSMITACCM		"TransmitACCM"
@@ -606,20 +614,25 @@ static schemaDefinition names[] = {
 
   { GROUP_PRIVATE, NETENT, "Network Entity Keys", NULL, NULL },
 
-    { SC_10_10_IPHONE_7_0_PRIVATE, NETENT, ACTIVE DURINGSLEEP REQUESTED, NULL, CFDICTIONARY},
-    { SC_10_10_IPHONE_7_0_PRIVATE, NETENT, ACTIVE DURINGSLEEP SUPPORTED, NULL, CFDICTIONARY},
     { SC_10_9_IPHONE_7_0_PRIVATE, NETENT, APP LAYER, NULL, CFDICTIONARY},
     { SC_10_5_PRIVATE, NETENT, EAPOL, NULL, CFDICTIONARY },
-    { SC_10_10_IPHONE_8_0_PRIVATE, NETENT, IPV4 ROUTER ARP FAILURE, NULL, NULL},
-    { SC_10_10_IPHONE_8_0_PRIVATE, NETENT, IPV4 ROUTER ARP ALIVE, NULL, NULL},
-    { SC_10_13_IPHONE_11_0_PRIVATE, NETENT, IPV6 ROUTER EXPIRED, NULL, NULL},
+    { SC_10_7_IPHONE_5_0_PRIVATE, NETENT, IDLE ROUTE, NULL, NULL},			// notification
+    { SC_10_10_IPHONE_7_0_PRIVATE, NETENT, INTERFACE ACTIVE DURINGSLEEP REQUESTED, ACTIVE DURINGSLEEP REQUESTED, CFDICTIONARY},
+    { SC_10_10_IPHONE_7_0_PRIVATE, NETENT, INTERFACE ACTIVE DURINGSLEEP SUPPORTED, ACTIVE DURINGSLEEP SUPPORTED, CFDICTIONARY},
+    { SC_10_15_IPHONE_13_0_PRIVATE, NETENT, INTERFACE DELEGATION, NULL, NULL},		// notification
+    { SC_10_6_IPHONE_2_0_PRIVATE, NETENT, IPV4 ARP COLLISION, NULL, NULL},		// notification
+    { SC_10_6_IPHONE_2_0_PRIVATE, NETENT, IPV4 PORTINUSE, PORTINUSE, NULL},		// notification
+    { SC_10_10_IPHONE_8_0_PRIVATE, NETENT, IPV4 ROUTER ARP FAILURE, NULL, NULL},	// notification
+    { SC_10_10_IPHONE_8_0_PRIVATE, NETENT, IPV4 ROUTER ARP ALIVE, NULL, NULL},		// notification
+    { SC_10_13_IPHONE_11_0_PRIVATE, NETENT, IPV6 ROUTER EXPIRED, NULL, NULL},		// notification
     { SC_10_9_IPHONE_7_0_PRIVATE, NETENT, LINKISSUES, NULL, CFDICTIONARY},
     { SC_10_7_IPHONE_5_0_PRIVATE, NETENT, LINKQUALITY, NULL, CFDICTIONARY},
     { SC_10_7_IPHONE_4_0_PRIVATE, NETENT, LOOPBACK, NULL, CFDICTIONARY },
     { SC_10_14_IPHONE_12_0_PRIVATE, NETENT, NAT64, NULL, CFDICTIONARY },
-    { SC_10_13_IPHONE_11_0_PRIVATE, NETENT, NAT64 PREFIX REQUEST, NULL, NULL},
+    { SC_10_13_IPHONE_11_0_PRIVATE, NETENT, NAT64 PREFIX REQUEST, NULL, NULL},		// notification
     { SC_10_6_IPHONE_3_0_PRIVATE, NETENT, ONDEMAND, NULL, CFDICTIONARY },
     { SC_10_13_IPHONE_10_0_PRIVATE, NETENT, QOSMARKING POLICY, NULL, CFDICTIONARY },
+    { SC_10_5_PRIVATE, NETENT, REFRESH CONFIGURATION, NULL, NULL },			// notification
     { SC_10_6_IPHONE_2_0_PRIVATE, NETENT, SERVICE, "__SERVICE__", CFDICTIONARY },
     { SC_10_7_IPHONE_4_0_PRIVATE, NETENT, VPN, NULL, CFDICTIONARY },
     { COMMENT_PRIVATE, "", NULL, NULL, NULL },
@@ -870,6 +883,7 @@ static schemaDefinition names[] = {
     { SC_10_12_IPHONE_10_0_PRIVATE, NETPROP IPV6, ENABLE CGA, NULL, CFNUMBER_BOOL },
     { SC_10_7_IPHONE_4_0_PRIVATE, NETPROP IPV6, EXCLUDED ROUTES, NULL, CFARRAY_CFDICTIONARY },
     { SC_10_7_IPHONE_4_0_PRIVATE, NETPROP IPV6, INCLUDED ROUTES, NULL, CFARRAY_CFDICTIONARY },
+    { SC_10_12_IPHONE_10_0_PRIVATE, NETPROP IPV6, LINKLOCAL ADDRESS, NULL, CFSTRING },
     { SC_10_14_IPHONE_12_0_PRIVATE, NETPROP IPV6, PERFORM PLAT DISCOVERY, NULL, CFBOOLEAN },
     { COMMENT_PRIVATE, "", NULL, NULL, NULL },
     { COMMENT_PRIVATE,
@@ -971,11 +985,11 @@ static schemaDefinition names[] = {
     { SC_10_9_IPHONE_7_0_PRIVATE, NETPROP PPP, DISCONNECTONWAKE, NULL, CFNUMBER_BOOL },
     { SC_10_9_IPHONE_7_0_PRIVATE, NETPROP PPP, DISCONNECTONWAKETIMER, NULL, CFNUMBER },
     { SC_10_3, NETPROP PPP, DISCONNECTTIME, NULL, CFNUMBER },
-    { SC_10_1, NETPROP PPP, IDLEREMINDERTIMER, NULL, CFNUMBER },
-    { SC_10_1, NETPROP PPP, IDLEREMINDER, NULL, CFNUMBER_BOOL },
+    { SC_10_1, NETPROP PPP, IDLE REMINDER, NULL, CFNUMBER_BOOL },
+    { SC_10_1, NETPROP PPP, IDLE REMINDER TIMER, NULL, CFNUMBER },
     { SC_10_2, NETPROP PPP, LAST CAUSE, NULL, CFNUMBER },
     { SC_10_1, NETPROP PPP, LOGFILE, NULL, CFSTRING },
-    { SC_10_2, NETPROP PPP, PLUGINS, NULL, CFARRAY_CFSTRING },
+    { SC_10_2_10_15, NETPROP PPP, PLUGINS, NULL, CFARRAY_CFSTRING },
     { SC_10_3, NETPROP PPP, RETRYCONNECTTIME, NULL, CFNUMBER },
     { SC_10_1, NETPROP PPP, SESSIONTIMER, NULL, CFNUMBER },
     { SC_10_2, NETPROP PPP, STATUS, NULL, CFNUMBER },
@@ -984,7 +998,7 @@ static schemaDefinition names[] = {
     { COMMENT, "", NULL, NULL, NULL },
 
     { COMMENT, "--- " AUTH ": ---", NULL, NULL, NULL },
-    { SC_10_3, NETPROP PPP, AUTH EAP PLUGINS, NULL, CFARRAY_CFSTRING },
+    { SC_10_3_10_15, NETPROP PPP, AUTH EAP PLUGINS, NULL, CFARRAY_CFSTRING },
     { SC_10_1, NETPROP PPP, AUTH NAME, NULL, CFSTRING },
     { SC_10_1, NETPROP PPP, AUTH PASSWORD, NULL, CFSTRING },
     { SC_10_1, NETPROP PPP, AUTH PASSWORD ENCRYPTION, NULL, CFSTRING },
@@ -1435,8 +1449,14 @@ print_headerdoc(schemaDefinition *def)
 	    case SC_10_2_10_13:
 		printf("  API_DEPRECATED(\"No longer supported\", macos(10.2,10.13)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));\n");
 		break;
+	    case SC_10_2_10_15:
+		printf("  API_DEPRECATED(\"No longer supported\", macos(10.2,10.15)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));\n");
+		break;
 	    case SC_10_3_10_9:
 		printf("  API_DEPRECATED(\"No longer supported\", macos(10.3,10.9)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));\n");
+		break;
+	    case SC_10_3_10_15:
+		printf("  API_DEPRECATED(\"No longer supported\", macos(10.3,10.15)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));\n");
 		break;
 	    case SC_10_4_10_9:
 		printf("  API_DEPRECATED(\"No longer supported\", macos(10.4,10.9)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));\n");
@@ -1485,16 +1505,19 @@ print_headerdoc(schemaDefinition *def)
 		printf("  API_AVAILABLE(macos(10.11)) SPI_AVAILABLE(ios(9.0), tvos(9.0), watchos(2.0), bridgeos(2.0));\n");
 		break;
 	    case SC_10_12_IPHONE_10_0_PRIVATE:
-		printf("  API_AVAILABLE(macos(10.12)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(3.0));\n");
+		printf("  API_AVAILABLE(macos(10.12)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(2.0));\n");
 		break;
 	    case SC_10_13_IPHONE_10_0_PRIVATE:
-		printf("  API_AVAILABLE(macos(10.13)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(3.0));\n");
+		printf("  API_AVAILABLE(macos(10.13)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(2.0));\n");
 		break;
 	    case SC_10_13_IPHONE_11_0_PRIVATE:
-		printf("  API_AVAILABLE(macos(10.13)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), bridgeos(4.0));\n");
+		printf("  API_AVAILABLE(macos(10.13)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), bridgeos(2.0));\n");
 		break;
 	    case SC_10_14_IPHONE_12_0_PRIVATE:
-		printf("  API_AVAILABLE(macos(10.14)) SPI_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0), bridgeos(5.0));\n");
+		printf("  API_AVAILABLE(macos(10.14)) SPI_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0), bridgeos(3.0));\n");
+		break;
+	    case SC_10_15_IPHONE_13_0_PRIVATE:
+		printf("  API_AVAILABLE(macos(10.15)) SPI_AVAILABLE(ios(13.0), tvos(13.0), watchos(6.0), bridgeos(4.0));\n");
 		break;
 	    case SC_IPHONE_2_0_PRIVATE:
 		printf("  SPI_AVAILABLE(macos(10.6), ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));\n");
@@ -1662,7 +1685,9 @@ dump_names(int type)
 			    case SC_10_1_10_9:
 			    case SC_10_2_10_9:
 			    case SC_10_2_10_13:
+			    case SC_10_2_10_15:
 			    case SC_10_3_10_9:
+			    case SC_10_3_10_15:
 			    case SC_10_4_10_9:
 				// don't report deprecated keys
 				break;
@@ -1681,6 +1706,7 @@ dump_names(int type)
 			    case SC_10_13_IPHONE_10_0_PRIVATE:
 			    case SC_10_13_IPHONE_11_0_PRIVATE:
 			    case SC_10_14_IPHONE_12_0_PRIVATE:
+			    case SC_10_15_IPHONE_13_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 			    case SC_IPHONE_7_0_PRIVATE:
 			    case SC_IPHONE_8_0_PRIVATE:
@@ -1698,7 +1724,9 @@ dump_names(int type)
 			    case SC_10_1_10_9:
 			    case SC_10_2_10_9:
 			    case SC_10_2_10_13:
+			    case SC_10_2_10_15:
 			    case SC_10_3_10_9:
+			    case SC_10_3_10_15:
 			    case SC_10_4_10_9:
 				// don't report deprecated keys
 				break;
@@ -1717,6 +1745,7 @@ dump_names(int type)
 			    case SC_10_13_IPHONE_10_0_PRIVATE:
 			    case SC_10_13_IPHONE_11_0_PRIVATE:
 			    case SC_10_14_IPHONE_12_0_PRIVATE:
+			    case SC_10_15_IPHONE_13_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 			    case SC_IPHONE_7_0_PRIVATE:
 			    case SC_IPHONE_8_0_PRIVATE:
@@ -1746,6 +1775,7 @@ dump_names(int type)
 			    case SC_10_13_IPHONE_10_0_PRIVATE:
 			    case SC_10_13_IPHONE_11_0_PRIVATE:
 			    case SC_10_14_IPHONE_12_0_PRIVATE:
+			    case SC_10_15_IPHONE_13_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 			    case SC_IPHONE_7_0_PRIVATE:
 			    case SC_IPHONE_8_0_PRIVATE:
@@ -1773,6 +1803,7 @@ dump_names(int type)
 			    case SC_10_13_IPHONE_10_0_PRIVATE:
 			    case SC_10_13_IPHONE_11_0_PRIVATE:
 			    case SC_10_14_IPHONE_12_0_PRIVATE:
+			    case SC_10_15_IPHONE_13_0_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 			    case SC_IPHONE_7_0_PRIVATE:
 			    case SC_IPHONE_8_0_PRIVATE:
@@ -1873,7 +1904,6 @@ main(int argc, char * argv[])
 	printf(" * DO NOT EDIT!\n");
 	printf(" */\n");
 	printf("\n");
-	printf("#include <os/availability.h>\n");
 	printf("#include <TargetConditionals.h>\n");
 	printf("#include <CoreFoundation/CFString.h>\n");
 	printf("\n");

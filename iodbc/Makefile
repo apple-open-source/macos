@@ -60,11 +60,7 @@ fixup:
 	${STRIP2} -S $(RC_Install_Prefix)/lib/libiodbc.2.dylib; \
 	${STRIP2} -S $(RC_Install_Prefix)/lib/libiodbcinst.2.dylib; \
 	${STRIP2} -S $(RC_Install_Prefix)/bin/iodbctest; \
-	${LIPO} -thin x86_64 $(RC_Install_Prefix)/bin/iodbctest -output $(RC_Install_Prefix)/bin/tmp; \
-	${MV} $(RC_Install_Prefix)/bin/tmp $(RC_Install_Prefix)/bin/iodbctest; \
 	${STRIP2} -S $(RC_Install_Prefix)/bin/iodbctestw; \
-	${LIPO} -thin x86_64 $(RC_Install_Prefix)/bin/iodbctestw -output $(RC_Install_Prefix)/bin/tmp; \
-	${MV} $(RC_Install_Prefix)/bin/tmp $(RC_Install_Prefix)/bin/iodbctestw; \
 
 	${MKDIR} $(RC_Install_Prefix)/local/OpenSourceVersions; \
 	${CP} $(SRCROOT)/iodbc.plist $(RC_Install_Prefix)/local/OpenSourceVersions/; \

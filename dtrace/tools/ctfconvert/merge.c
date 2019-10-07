@@ -130,7 +130,6 @@
 #endif /* __APPLE__ */
 
 typedef struct equiv_data equiv_data_t;
-typedef struct merge_cb_data merge_cb_data_t;
 
 /*
  * There are two traversals in this file, for equivalency and for tdesc_t
@@ -143,21 +142,6 @@ typedef struct tdesc_ops {
 	tdesc_t *(*conjure)(tdesc_t *, int, merge_cb_data_t *);
 } tdesc_ops_t;
 extern tdesc_ops_t tdesc_ops[];
-
-/*
- * The workhorse structure of tdata_t merging.  Holds all lists of nodes to be
- * processed during various phases of the merge algorithm.
- */
-struct merge_cb_data {
-	tdata_t *md_parent;
-	tdata_t *md_tgt;
-	alist_t *md_ta;		/* Type Association */
-	alist_t *md_fdida;	/* Forward -> Definition ID Association */
-	list_t	**md_iitba;	/* iidesc_t nodes To Be Added to the parent */
-	hash_t	*md_tdtba;	/* tdesc_t nodes To Be Added to the parent */
-	list_t	**md_tdtbr;	/* tdesc_t nodes To Be Remapped */
-	int md_flags;
-}; /* merge_cb_data_t */
 
 /*
  * When we first create a tdata_t from stabs data, we will have duplicate nodes.
@@ -250,6 +234,20 @@ equiv_plain(tdesc_t *stdp, tdesc_t *ttdp, equiv_data_t *ed)
 }
 
 static int
+equiv_ptrauth(tdesc_t *stdp, tdesc_t *ttdp, equiv_data_t *ed)
+{
+	ptrauth_t *sp = stdp->t_ptrauth;
+	ptrauth_t *tp = ttdp->t_ptrauth;
+
+	if (sp->pta_key == tp->pta_key &&
+	    sp->pta_discriminator == tp->pta_discriminator &&
+	    sp->pta_discriminated == tp->pta_discriminated) {
+		return equiv_node(sp->pta_type, tp->pta_type, ed);
+	}
+	return 0;
+}
+
+static int
 equiv_function(tdesc_t *stdp, tdesc_t *ttdp, equiv_data_t *ed)
 {
 	fndef_t *fn1 = stdp->t_fndef, *fn2 = ttdp->t_fndef;
@@ -293,7 +291,7 @@ equiv_su(tdesc_t *stdp, tdesc_t *ttdp, equiv_data_t *ed)
 
 	while (ml1 && ml2) {
 		if (ml1->ml_offset != ml2->ml_offset ||
-		    strcmp(ml1->ml_name, ml2->ml_name) != 0)
+		    ml1->ml_name != ml2->ml_name)
 			return (0);
 
 		/*
@@ -326,7 +324,7 @@ equiv_enum(tdesc_t *stdp, tdesc_t *ttdp, equiv_data_t *ed)
 
 	while (el1 && el2) {
 		if (el1->el_number != el2->el_number ||
-		    strcmp(el1->el_name, el2->el_name) != 0)
+		    el1->el_name != el2->el_name)
 			return (0);
 
 		el1 = el1->el_next;
@@ -381,7 +379,7 @@ equiv_node(tdesc_t *ctdp, tdesc_t *mtdp, equiv_data_t *ed)
 	    mapping == mtdp->t_id && !ed->ed_selfuniquify)
 		return (1);
 
-	if (!streq(ctdp->t_name, mtdp->t_name))
+	if (ctdp->t_name != mtdp->t_name)
 		return (0);
 
 	if (ctdp->t_type != mtdp->t_type) {
@@ -553,7 +551,8 @@ static tdtrav_cb_f map_pre[] = {
 	tdtrav_assert,		/* typedef_unres */
 	map_td_tree_pre,	/* volatile */
 	map_td_tree_pre,	/* const */
-	map_td_tree_pre		/* restrict */
+	map_td_tree_pre,	/* restrict */
+	map_td_tree_pre,	/* ptrauth */
 };
 
 static tdtrav_cb_f map_post[] = {
@@ -570,7 +569,8 @@ static tdtrav_cb_f map_post[] = {
 	tdtrav_assert,		/* typedef_unres */
 	map_td_tree_post,	/* volatile */
 	map_td_tree_post,	/* const */
-	map_td_tree_post	/* restrict */
+	map_td_tree_post,	/* restrict */
+	map_td_tree_post	/* ptrauth */
 };
 
 static tdtrav_cb_f map_self_post[] = {
@@ -587,7 +587,8 @@ static tdtrav_cb_f map_self_post[] = {
 	tdtrav_assert,		/* typedef_unres */
 	map_td_tree_self_post,	/* volatile */
 	map_td_tree_self_post,	/* const */
-	map_td_tree_self_post	/* restrict */
+	map_td_tree_self_post,	/* restrict */
+	map_td_tree_self_post	/* ptrauth */
 };
 
 /*
@@ -614,12 +615,12 @@ iidesc_match(void *data, void *arg)
 	int i;
 
 	if (node->ii_type != iif->iif_template->ii_type ||
-	    !streq(node->ii_name, iif->iif_template->ii_name) ||
+	    node->ii_name != iif->iif_template->ii_name ||
 	    node->ii_dtype->t_id != iif->iif_newidx)
 		return (0);
 
 	if ((node->ii_type == II_SVAR || node->ii_type == II_SFUN) &&
-	    !streq(node->ii_owner, iif->iif_template->ii_owner))
+	    node->ii_owner != iif->iif_template->ii_owner)
 		return (0);
 
 	if (node->ii_nargs != iif->iif_template->ii_nargs)
@@ -640,9 +641,8 @@ iidesc_match(void *data, void *arg)
 		case II_SVAR:
 			debug(3, "suppressing duping of %d %s from %s\n",
 			    iif->iif_template->ii_type,
-			    iif->iif_template->ii_name,
-			    (iif->iif_template->ii_owner ?
-			    iif->iif_template->ii_owner : "NULL"));
+			    iif->iif_template->ii_name->value,
+			    atom_pretty(iif->iif_template->ii_owner, "NULL"));
 			return (0);
 		case II_NOT:
 		case II_PSYM:
@@ -680,10 +680,10 @@ merge_type_cb(void *data, void *arg)
 		/* successfully mapped */
 		return (1);
 
-	debug(3, "tba %s (%d)\n", (sii->ii_name ? sii->ii_name : "(anon)"),
+	debug(3, "tba %s (%d)\n", atom_pretty(sii->ii_name, "(anon)"),
 	    sii->ii_type);
 
-	list_add(mcd->md_iitba, sii);
+	array_add(&mcd->md_iitba, sii);
 
 	return (0);
 }
@@ -711,7 +711,7 @@ remap_node(tdesc_t **tgtp, tdesc_t *oldtgt, int selftid, tdesc_t *newself,
 		debug(3, "Remap couldn't find %d (from %d)\n", template.t_id,
 		    oldid);
 		*tgtp = oldtgt;
-		list_add(mcd->md_tdtbr, tgtp);
+		array_add(&mcd->md_tdtbr, tgtp);
 		return (0);
 	}
 
@@ -724,7 +724,7 @@ conjure_template(tdesc_t *old, int newselfid)
 {
 	tdesc_t *new = xcalloc(sizeof (tdesc_t));
 
-	new->t_name = old->t_name ? xstrdup(old->t_name) : NULL;
+	new->t_name = old->t_name;
 	new->t_type = old->t_type;
 	new->t_size = old->t_size;
 	new->t_id = newselfid;
@@ -756,20 +756,36 @@ conjure_plain(tdesc_t *old, int newselfid, merge_cb_data_t *mcd)
 }
 
 static tdesc_t *
+conjure_ptrauth(tdesc_t *old, int newselfid, merge_cb_data_t *mcd)
+{
+	tdesc_t *new = conjure_template(old, newselfid);
+	ptrauth_t *nptr = xmalloc(sizeof (ptrauth_t));
+	ptrauth_t *optr = old->t_ptrauth;
+
+	(void) remap_node(&nptr->pta_type, optr->pta_type, old->t_id, new,
+	    mcd);
+
+	nptr->pta_key = optr->pta_key;
+	nptr->pta_discriminator = optr->pta_discriminator;
+	nptr->pta_discriminated = optr->pta_discriminated;
+
+	new->t_ptrauth = nptr;
+
+	return (new);
+}
+
+static tdesc_t *
 conjure_function(tdesc_t *old, int newselfid, merge_cb_data_t *mcd)
 {
 	tdesc_t *new = conjure_template(old, newselfid);
-	fndef_t *nfn = xmalloc(sizeof (fndef_t));
 	fndef_t *ofn = old->t_fndef;
+	fndef_t *nfn = xmalloc(sizeof (fndef_t) + ofn->fn_nargs * sizeof(tdesc_t *));
 	int i;
 
 	(void) remap_node(&nfn->fn_ret, ofn->fn_ret, old->t_id, new, mcd);
 
 	nfn->fn_nargs = ofn->fn_nargs;
 	nfn->fn_vargs = ofn->fn_vargs;
-
-	if (nfn->fn_nargs > 0)
-		nfn->fn_args = xcalloc(sizeof (tdesc_t *) * ofn->fn_nargs);
 
 	for (i = 0; i < ofn->fn_nargs; i++) {
 		(void) remap_node(&nfn->fn_args[i], ofn->fn_args[i], old->t_id,
@@ -811,7 +827,7 @@ conjure_su(tdesc_t *old, int newselfid, merge_cb_data_t *mcd)
 		*nmemp = xmalloc(sizeof (mlist_t));
 		(*nmemp)->ml_offset = omem->ml_offset;
 		(*nmemp)->ml_size = omem->ml_size;
-		(*nmemp)->ml_name = xstrdup(omem->ml_name);
+		(*nmemp)->ml_name = omem->ml_name;
 		(void) remap_node(&((*nmemp)->ml_type), omem->ml_type,
 		    old->t_id, new, mcd);
 	}
@@ -830,7 +846,7 @@ conjure_enum(tdesc_t *old, int newselfid, merge_cb_data_t *mcd)
 	for (oel = old->t_emem, nelp = &new->t_emem;
 	    oel; oel = oel->el_next, nelp = &((*nelp)->el_next)) {
 		*nelp = xmalloc(sizeof (elist_t));
-		(*nelp)->el_name = xstrdup(oel->el_name);
+		(*nelp)->el_name = oel->el_name;
 		(*nelp)->el_number = oel->el_number;
 	}
 	*nelp = NULL;
@@ -842,11 +858,7 @@ conjure_enum(tdesc_t *old, int newselfid, merge_cb_data_t *mcd)
 static tdesc_t *
 conjure_forward(tdesc_t *old, int newselfid, merge_cb_data_t *mcd)
 {
-	tdesc_t *new = conjure_template(old, newselfid);
-
-	list_add(&mcd->md_tgt->td_fwdlist, new);
-
-	return (new);
+	return conjure_template(old, newselfid);
 }
 
 /*ARGSUSED*/
@@ -902,7 +914,8 @@ static tdtrav_cb_f fwd_redir_cbs[] = {
 	tdtrav_assert,		/* typedef_unres */
 	NULL,			/* volatile */
 	NULL,			/* const */
-	NULL			/* restrict */
+	NULL,			/* restrict */
+	NULL			/* ptrauth */
 };
 
 typedef struct redir_mstr_data {
@@ -938,7 +951,7 @@ static void
 redir_mstr_fwds(merge_cb_data_t *mcd)
 {
 	redir_mstr_data_t rmd;
-	alist_t *map = alist_new(NULL, NULL);
+	alist_t *map = alist_new(ALIST_HASH_SIZE);
 
 	rmd.rmd_tgt = mcd->md_tgt;
 	rmd.rmd_map = map;
@@ -963,8 +976,6 @@ add_iitba_cb(void *data, void *private)
 	newidx = get_mapping(mcd->md_ta, tba->ii_dtype->t_id);
 	assert(newidx != -1);
 
-	(void) list_remove(mcd->md_iitba, data, NULL, NULL);
-
 	iif.iif_template = tba;
 	iif.iif_ta = mcd->md_ta;
 	iif.iif_newidx = newidx;
@@ -973,7 +984,7 @@ add_iitba_cb(void *data, void *private)
 	if (hash_match(mcd->md_parent->td_iihash, tba, iidesc_match,
 	    &iif) == 1) {
 		debug(3, "iidesc_t %s already exists\n",
-		    (tba->ii_name ? tba->ii_name : "(anon)"));
+		    atom_pretty(tba->ii_name, "(anon)"));
 		return (1);
 	}
 
@@ -1035,39 +1046,30 @@ add_tdtbr_cb(void *data, void *arg)
 	debug(3, "Remapping %s (%d)\n", tdesc_name(*tdpp), (*tdpp)->t_id);
 
 	if (!remap_node(tdpp, *tdpp, -1, NULL, mcd))
-		return (0);
+		return ARRAY_KEEP;
 
-	(void) list_remove(mcd->md_tdtbr, (void *)tdpp, NULL, NULL);
-	return (1);
+	return ARRAY_REMOVE;
 }
 
 static void
 merge_types(hash_t *src, merge_cb_data_t *mcd)
 {
-	list_t *iitba = NULL;
-	list_t *tdtbr = NULL;
 	int iirc, tdrc;
-
-	mcd->md_iitba = &iitba;
-	mcd->md_tdtba = hash_new(TDATA_LAYOUT_HASH_SIZE, tdesc_layouthash,
-	    tdesc_layoutcmp);
-	mcd->md_tdtbr = &tdtbr;
 
 	(void) hash_iter(src, merge_type_cb, mcd);
 
 	tdrc = hash_iter(mcd->md_tdtba, add_tdtba_cb, (void *)mcd);
 	debug(3, "add_tdtba_cb added %d items\n", tdrc);
 
-	iirc = list_iter(*mcd->md_iitba, add_iitba_cb, (void *)mcd);
+	iirc = array_iter(mcd->md_iitba, add_iitba_cb, (void *)mcd);
 	debug(3, "add_iitba_cb added %d items\n", iirc);
 
-	assert(list_count(*mcd->md_iitba) == 0 &&
-	    hash_count(mcd->md_tdtba) == 0);
+	assert(hash_count(mcd->md_tdtba) == 0);
 
-	tdrc = list_iter(*mcd->md_tdtbr, add_tdtbr_cb, (void *)mcd);
+	tdrc = array_filter(mcd->md_tdtbr, add_tdtbr_cb, (void *)mcd);
 	debug(3, "add_tdtbr_cb added %d items\n", tdrc);
 
-	if (list_count(*mcd->md_tdtbr) != 0)
+	if (array_count(mcd->md_tdtbr) != 0)
 		aborterr("Couldn't remap all nodes\n");
 
 	/*
@@ -1084,9 +1086,20 @@ merge_types(hash_t *src, merge_cb_data_t *mcd)
 }
 
 void
-merge_into_master(tdata_t *cur, tdata_t *mstr, tdata_t *tgt, int selfuniquify)
+merge_cb_data_destroy(merge_cb_data_t *mcd)
 {
-	merge_cb_data_t mcd;
+	hash_free(mcd->md_tdtba, NULL, NULL);
+	alist_free(mcd->md_fdida);
+	alist_free(mcd->md_ta);
+	array_free(&mcd->md_iitba, NULL, NULL);
+	array_free(&mcd->md_tdtbr, NULL, NULL);
+}
+
+void
+merge_into_master(merge_cb_data_t *mcd, tdata_t *cur, tdata_t *mstr,
+    tdata_t *tgt, int selfuniquify)
+{
+	merge_cb_data_t mcd_buf = {0};
 
 	cur->td_ref++;
 	mstr->td_ref++;
@@ -1096,31 +1109,45 @@ merge_into_master(tdata_t *cur, tdata_t *mstr, tdata_t *tgt, int selfuniquify)
 	assert(cur->td_ref == 1 && mstr->td_ref == 1 &&
 	    (tgt == NULL || tgt->td_ref == 1));
 
-	mcd.md_parent = mstr;
-	mcd.md_tgt = (tgt ? tgt : mstr);
-	mcd.md_ta = alist_new(NULL, NULL);
-	mcd.md_fdida = alist_new(NULL, NULL);
-	mcd.md_flags = 0;
+	if (mcd == NULL) {
+		mcd = &mcd_buf;
+	}
+	mcd->md_parent = mstr;
+	mcd->md_tgt = (tgt ? tgt : mstr);
+	if (mcd->md_ta == NULL) { // this is an init
+		mcd->md_tdtba = hash_new(TDATA_LAYOUT_HASH_SIZE, tdesc_layouthash,
+		    tdesc_layoutcmp);
+		mcd->md_ta = alist_new(ALIST_HASH_SIZE);
+		mcd->md_fdida = alist_new(ALIST_HASH_SIZE);
+	} else {
+		if (hash_count(mcd->md_tdtba) != 0)
+			terminate("The tdtba hash wasn't properly emptied");
+		alist_clear(mcd->md_ta);
+		alist_clear(mcd->md_fdida);
+		array_clear(mcd->md_iitba, NULL, NULL);
+		array_clear(mcd->md_tdtbr, NULL, NULL);
+	}
 
 	if (selfuniquify)
-		mcd.md_flags |= MCD_F_SELFUNIQUIFY;
+		mcd->md_flags |= MCD_F_SELFUNIQUIFY;
 	if (tgt)
-		mcd.md_flags |= MCD_F_REFMERGE;
+		mcd->md_flags |= MCD_F_REFMERGE;
 
 	mstr->td_curvgen = MAX(mstr->td_curvgen, cur->td_curvgen);
 	mstr->td_curemark = MAX(mstr->td_curemark, cur->td_curemark);
 
-	merge_types(cur->td_iihash, &mcd);
+	merge_types(cur->td_iihash, mcd);
 
 	if (debug_level >= 3) {
 		debug(3, "Type association stats\n");
-		alist_stats(mcd.md_ta, 0);
+		alist_stats(mcd->md_ta, 0);
 		debug(3, "Layout hash stats\n");
-		hash_stats(mcd.md_tgt->td_layouthash, 1);
+		hash_stats(mcd->md_tgt->td_layouthash, 1);
 	}
 
-	alist_free(mcd.md_fdida);
-	alist_free(mcd.md_ta);
+	if (mcd == &mcd_buf) {
+		merge_cb_data_destroy(mcd);
+	}
 
 	cur->td_ref--;
 	mstr->td_ref--;
@@ -1142,7 +1169,8 @@ tdesc_ops_t tdesc_ops[] = {
 	{ "typedef_unres",	equiv_assert,		conjure_assert },
 	{ "volatile",		equiv_plain,		conjure_plain },
 	{ "const", 		equiv_plain,		conjure_plain },
-	{ "restrict",		equiv_plain,		conjure_plain }
+	{ "restrict",		equiv_plain,		conjure_plain },
+	{ "ptrauth",		equiv_ptrauth,		conjure_ptrauth }
 };
 
 
@@ -1301,7 +1329,6 @@ static size_t maxpgsize = 0x400000;
 #define	MERGE_PHASE1_MAX_SLOTS		5
 #define	MERGE_INPUT_THROTTLE_LEN	10
 
-
 #if !defined(__APPLE__)
 static void
 bigheap(void)
@@ -1457,7 +1484,7 @@ wip_save_work(workqueue_t *wq, wip_t *slot, int slotnum)
 }
 
 static void
-wip_add_work(wip_t *slot, tdata_t *pow)
+wip_add_work(merge_cb_data_t *mcd, wip_t *slot, tdata_t *pow)
 {
 	if (slot->wip_td == NULL) {
 		slot->wip_td = pow;
@@ -1466,7 +1493,7 @@ wip_add_work(wip_t *slot, tdata_t *pow)
 		debug(2, "%d: merging %p into %p\n", pthread_self(),
 		    (void *)pow, (void *)slot->wip_td);
 
-		merge_into_master(pow, slot->wip_td, NULL, 0);
+		merge_into_master(mcd, pow, slot->wip_td, NULL, 0);
 		tdata_free(pow);
 
 		slot->wip_nmerged++;
@@ -1474,7 +1501,7 @@ wip_add_work(wip_t *slot, tdata_t *pow)
 }
 
 static void
-worker_runphase1(workqueue_t *wq)
+worker_runphase1(workqueue_t *wq, merge_cb_data_t *mcd)
 {
 	wip_t *wipslot;
 	tdata_t *pow;
@@ -1485,7 +1512,7 @@ worker_runphase1(workqueue_t *wq)
 
 		while (fifo_empty(wq->wq_queue)) {
 			if (wq->wq_nomorefiles == 1) {
-				pthread_cond_broadcast(&wq->wq_work_avail);
+				pthread_cond_signal(&wq->wq_work_avail);
 				pthread_mutex_unlock(&wq->wq_queue_lock);
 
 				/* on to phase 2 ... */
@@ -1511,7 +1538,7 @@ worker_runphase1(workqueue_t *wq)
 
 		pthread_mutex_unlock(&wq->wq_queue_lock);
 
-		wip_add_work(wipslot, pow);
+		wip_add_work(mcd, wipslot, pow);
 
 		if (wipslot->wip_nmerged == wq->wq_maxbatchsz)
 			wip_save_work(wq, wipslot, wipslotnum);
@@ -1521,7 +1548,7 @@ worker_runphase1(workqueue_t *wq)
 }
 
 static void
-worker_runphase2(workqueue_t *wq)
+worker_runphase2(workqueue_t *wq, merge_cb_data_t *mcd)
 {
 	tdata_t *pow1, *pow2;
 	int batchid;
@@ -1530,7 +1557,7 @@ worker_runphase2(workqueue_t *wq)
 		pthread_mutex_lock(&wq->wq_queue_lock);
 
 		if (wq->wq_ninqueue == 1) {
-			pthread_cond_broadcast(&wq->wq_work_avail);
+			pthread_cond_signal(&wq->wq_work_avail);
 			pthread_mutex_unlock(&wq->wq_queue_lock);
 
 			debug(2, "%d: entering p2 completion barrier\n",
@@ -1563,7 +1590,7 @@ worker_runphase2(workqueue_t *wq)
 
 		debug(2, "%d: merging %p into %p\n", pthread_self(),
 		    (void *)pow1, (void *)pow2);
-		merge_into_master(pow1, pow2, NULL, 0);
+		merge_into_master(mcd, pow1, pow2, NULL, 0);
 		tdata_free(pow1);
 
 		/*
@@ -1594,7 +1621,9 @@ worker_runphase2(workqueue_t *wq)
 static void
 worker_thread(workqueue_t *wq)
 {
-	worker_runphase1(wq);
+	merge_cb_data_t mcd = {0};
+
+	worker_runphase1(wq, &mcd);
 
 	debug(2, "%d: entering first barrier\n", pthread_self());
 
@@ -1616,7 +1645,9 @@ worker_thread(workqueue_t *wq)
 
 	debug(2, "%d: phase 1 complete\n", pthread_self());
 
-	worker_runphase2(wq);
+	worker_runphase2(wq, &mcd);
+
+	merge_cb_data_destroy(&mcd);
 }
 
 /*
@@ -1624,7 +1655,7 @@ worker_thread(workqueue_t *wq)
  * consumption by worker threads.
  */
 static int
-worker_add_td(workqueue_t *wq, tdata_t *td, char *name)
+worker_add_td(workqueue_t *wq, tdata_t *td, const char *name)
 {
 	debug(3, "Adding tdata %p for processing\n", (void *)td);
 
@@ -1637,7 +1668,7 @@ worker_add_td(workqueue_t *wq, tdata_t *td, char *name)
 
 	fifo_add(wq->wq_queue, td);
 	debug(1, "Thread %d announcing %s\n", pthread_self(), name);
-	pthread_cond_broadcast(&wq->wq_work_avail);
+	pthread_cond_signal(&wq->wq_work_avail);
 	pthread_mutex_unlock(&wq->wq_queue_lock);
 
 	return (1);
@@ -1786,7 +1817,7 @@ ctfmerge_prepare(int nielems)
 }
 
 int
-ctfmerge_add_td(tdata_t *td, char *name)
+ctfmerge_add_td(tdata_t *td, const char *name)
 {
 	return (worker_add_td(&wq, td, name));
 }
@@ -1798,7 +1829,7 @@ ctfmerge_done(void)
 
 	pthread_mutex_lock(&wq.wq_queue_lock);
 	wq.wq_nomorefiles = 1;
-	pthread_cond_broadcast(&wq.wq_work_avail);
+	pthread_cond_signal(&wq.wq_work_avail);
 	pthread_mutex_unlock(&wq.wq_queue_lock);
 
 	pthread_mutex_lock(&wq.wq_queue_lock);

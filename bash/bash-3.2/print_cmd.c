@@ -1149,7 +1149,7 @@ indent (amount)
   for (i = 0; amount > 0; amount--)
     indentation_string[i++] = ' ';
   indentation_string[i] = '\0';
-  cprintf (indentation_string);
+  cprintf ("%s", indentation_string);
 }
 
 static void

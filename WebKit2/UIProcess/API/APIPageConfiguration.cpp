@@ -27,6 +27,7 @@
 #include "APIPageConfiguration.h"
 
 #include "APIProcessPoolConfiguration.h"
+#include "APIWebsitePolicies.h"
 #include "WebPageGroup.h"
 #include "WebPageProxy.h"
 #include "WebPreferences.h"
@@ -71,6 +72,8 @@ Ref<PageConfiguration> PageConfiguration::copy() const
     copy->m_treatsSHA1SignedCertificatesAsInsecure = this->m_treatsSHA1SignedCertificatesAsInsecure;
 #if PLATFORM(IOS_FAMILY)
     copy->m_alwaysRunsAtForegroundPriority = this->m_alwaysRunsAtForegroundPriority;
+    copy->m_canShowWhileLocked = this->m_canShowWhileLocked;
+    copy->m_clickInteractionDriverForTesting = this->m_clickInteractionDriverForTesting;
 #endif
     copy->m_initialCapitalizationEnabled = this->m_initialCapitalizationEnabled;
     copy->m_waitsForPaintAfterViewDidMoveToWindow = this->m_waitsForPaintAfterViewDidMoveToWindow;
@@ -162,6 +165,16 @@ void PageConfiguration::setWebsiteDataStore(API::WebsiteDataStore* websiteDataSt
         m_sessionID = m_websiteDataStore->websiteDataStore().sessionID();
     else
         m_sessionID = PAL::SessionID();
+}
+
+WebsitePolicies* PageConfiguration::defaultWebsitePolicies() const
+{
+    return m_defaultWebsitePolicies.get();
+}
+
+void PageConfiguration::setDefaultWebsitePolicies(WebsitePolicies* policies)
+{
+    m_defaultWebsitePolicies = policies;
 }
 
 PAL::SessionID PageConfiguration::sessionID()

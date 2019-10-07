@@ -39,9 +39,6 @@ AUTH_NONNULL_ALL
 const audit_info_s * process_get_audit_info(process_t);
     
 AUTH_NONNULL_ALL    
-SecCodeRef process_get_code(process_t);
-    
-AUTH_NONNULL_ALL    
 const char * process_get_code_url(process_t);
     
 AUTH_NONNULL_ALL
@@ -84,7 +81,7 @@ AUTH_NONNULL_ALL
 SecRequirementRef process_get_requirement(process_t);
     
 AUTH_NONNULL_ALL
-bool process_verify_requirement(process_t, SecRequirementRef);
+bool process_verify_requirement(process_t, SecCodeRef, SecRequirementRef);
 
 AUTH_NONNULL_ALL
 bool process_apple_signed(process_t proc);

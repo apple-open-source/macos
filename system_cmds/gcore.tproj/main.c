@@ -294,6 +294,7 @@ static struct options options = {
 	.chunksize = 0,
 	.calgorithm = COMPRESSION_LZFSE,
 	.ncthresh = DEFAULT_NC_THRESHOLD,
+	.dsymforuuid = 0,
 };
 
 static int
@@ -506,12 +507,15 @@ gcore_main(int argc, char *const *argv)
 
 	task_t task = TASK_NULL;
 	const struct proc_bsdinfo *pbi = NULL;
+	const int rc = kill(pid, 0);
 
-	if (-1 != kill(pid, 0)) {
-		/* process or corpse that responds to signals */
+	if (rc == 0) {
+		/* process or corpse that may respond to signals */
 		pbi = get_bsdinfo(pid);
-		if (NULL == pbi)
-			errx(EX_OSERR, "cannot get process info for %d", pid);
+	}
+
+	if (rc == 0 && pbi != NULL) {
+		/* process or corpse that responds to signals */
 
 		/* make our data model match the data model of the target */
 		if (-1 == reexec_to_match_lp64ness(pbi->pbi_flags & PROC_FLAG_LP64))
@@ -547,6 +551,9 @@ gcore_main(int argc, char *const *argv)
 		change_credentials(pbi->pbi_uid, pbi->pbi_gid);
 	} else {
 		if (MACH_PORT_NULL == corpse) {
+			if (rc == 0) {
+				errx(EX_OSERR, "cannot get process info for %d", pid);
+			}
 			switch (errno) {
 				case ESRCH:
 					errc(EX_DATAERR, errno, "no process with pid %d", pid);
@@ -762,7 +769,7 @@ gcore_conv_main(int argc, char *argv[])
 	err_set_exit_b(^(int eval) {
 		if (EX_USAGE == eval)
 			fprintf(stderr,
-				"usage:\t%s %s [-v] [-L searchpath] [-z] incore outcore\n", pgm, argv[1]);
+				"usage:\t%s %s [-v] [-L searchpath] [-z] [-s] incore outcore\n", pgm, argv[1]);
 	});
 
 	char *searchpath = NULL;
@@ -770,7 +777,7 @@ gcore_conv_main(int argc, char *argv[])
 
 	int c;
 	optind = 2;
-	while ((c = getopt(argc, argv, "dzvL:")) != -1) {
+	while ((c = getopt(argc, argv, "dzvL:s")) != -1) {
 		switch (c) {
 				/*
 				 * likely documented options
@@ -784,7 +791,9 @@ gcore_conv_main(int argc, char *argv[])
 			case 'v':
 				options.verbose++;
 				break;
-
+			case 's':
+				options.dsymforuuid++;
+				break;
 				/*
 				 * dev and debugging help
 				 */

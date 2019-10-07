@@ -151,11 +151,11 @@ typedef struct options
 #define VLONGARG(n) AFLTARG(n|VARARGFLAG)
 
 /* Macros for converting command line arguments */
-#define GETINT(s) {s = atoi(*++av); ac--;}
-#define GETSTR(s) {s = *++av;ac--;}
+#define GETINT(s) {int __temp__ = atoi(*++av); memcpy(s, &__temp__, sizeof(int)); ac--;}
+#define GETSTR(s) {memcpy(s, ++av, sizeof(char *)); ac--;}
 #define GETCH(s) {av++; s = av[0][0]; ac--;}
-#define GETFLT(s) {s = atof(*++av); ac--;}
-#define GETLONG(s) {s = atol(*++av); ac--;}
+#define GETFLT(s) {double __temp__ = atof(*++av); memcpy(s, &__temp__, sizeof(double)); ac--;}
+#define GETLONG(s) {long __temp__ = atol(*++av); memcpy(s, &__temp__, sizeof(long)); ac--;}
 
 void printflags (
     const OPTIONS table[]

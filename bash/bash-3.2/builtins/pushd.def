@@ -172,7 +172,7 @@ pushd_builtin (list)
     {
       if (directory_list_offset == 0)
 	{
-	  builtin_error (_("no other directory"));
+	  builtin_error ("%s", _("no other directory"));
 	  return (EXECUTION_FAILURE);
 	}
 
@@ -483,7 +483,7 @@ pushd_error (offset, arg)
      char *arg;
 {
   if (offset == 0)
-    builtin_error ("directory stack empty");
+    builtin_error ("%s", "directory stack empty");
   else
     sh_erange (arg, "directory stack index");
 }

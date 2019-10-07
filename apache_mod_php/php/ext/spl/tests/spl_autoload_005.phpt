@@ -11,7 +11,7 @@ class MyAutoLoader {
         {
         	echo __METHOD__ . "($className)\n";
         }
-        
+
         function autoThrow($className)
         {
         	echo __METHOD__ . "($className)\n";
@@ -47,7 +47,7 @@ catch(Exception $e)
 ?>
 ===DONE===
 <?php exit(0); ?>
---EXPECTF--
+--EXPECT--
 Exception: Passed array specifies a non static method but no object (non-static method MyAutoLoader::autoLoad() should not be called statically)
 MyAutoLoader::autoLoad(TestClass)
 MyAutoLoader::autoThrow(TestClass)

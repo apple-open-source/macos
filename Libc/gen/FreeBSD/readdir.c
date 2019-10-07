@@ -37,7 +37,9 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 #include <dirent.h>
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <pthread.h>
 #include "un-namespace.h"
 
@@ -56,18 +58,50 @@ _readdir_unlocked(DIR *dirp, int skip)
 
 	for (;;) {
 		if (dirp->dd_loc >= dirp->dd_size) {
-			if (dirp->dd_flags & __DTF_READALL)
+			if (dirp->dd_flags & (__DTF_READALL | __DTF_ATEND))
 				return (NULL);
 			initial_loc = dirp->dd_loc;
 			dirp->dd_flags &= ~__DTF_SKIPREAD;
 			dirp->dd_loc = 0;
 		}
 		if (dirp->dd_loc == 0 &&
-		    !(dirp->dd_flags & (__DTF_READALL | __DTF_SKIPREAD))) {
+		    !(dirp->dd_flags & (__DTF_READALL | __DTF_ATEND | __DTF_SKIPREAD))) {
+			if (dirp->dd_len == READDIR_INITIAL_SIZE) {
+				/*
+				 * If we need to read more, and we still have the original size,
+				 * then grow the internal buffer to a large size to amortize
+				 * the cost of __getdirentries64 calls.
+				 */
+				int len = READDIR_LARGE_SIZE;
+				char *buf = malloc(len);
+				if (buf) {
+					free(dirp->dd_buf);
+					dirp->dd_buf = buf;
+					dirp->dd_len = len;
+				}
+			}
 #if __DARWIN_64_BIT_INO_T
+			/*
+			 * sufficiently recent kernels when the buffer is large enough,
+			 * will use the last bytes of the buffer to return status.
+			 *
+			 * To support older kernels:
+			 * - make sure it's 0 initialized
+			 * - make sure it's past `dd_size` before reading it
+			 */
+			getdirentries64_flags_t *gdeflags =
+			    (getdirentries64_flags_t *)(dirp->dd_buf + dirp->dd_len -
+			    sizeof(getdirentries64_flags_t));
+			*gdeflags = 0;
 			initial_seek = dirp->dd_td->seekoff;
 			dirp->dd_size = (long)__getdirentries64(dirp->dd_fd,
 			    dirp->dd_buf, dirp->dd_len, &dirp->dd_td->seekoff);
+			if (dirp->dd_size >= 0 &&
+			    dirp->dd_size <= dirp->dd_len - sizeof(getdirentries64_flags_t)) {
+				if (*gdeflags & GETDIRENTRIES64_EOF) {
+					dirp->dd_flags |= __DTF_ATEND;
+				}
+			}
 #else /* !__DARWIN_64_BIT_INO_T */
 			initial_seek = dirp->dd_seek;
 			dirp->dd_size = _getdirentries(dirp->dd_fd,

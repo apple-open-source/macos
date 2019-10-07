@@ -1,5 +1,5 @@
 --TEST--
-Test hash_hmac_file() function : basic functionality 
+Test hash_hmac_file() function : basic functionality
 --SKIPIF--
 <?php extension_loaded('hash') or die('skip: hash extension not loaded.'); ?>
 --FILE--
@@ -8,7 +8,7 @@ Test hash_hmac_file() function : basic functionality
 /* Prototype  : string hash_hmac_file ( string algo, string filename, string key [, bool raw_output] )
  * Description: Generate a keyed hash value using the HMAC method and the contents of a given file
  * Source code: ext/hash/hash.c
- * Alias to functions: 
+ * Alias to functions:
 */
 
 echo "*** Testing hash() : error conditions ***\n";
@@ -22,14 +22,17 @@ var_dump(hash_hmac_file('crc32'));
 var_dump(hash_hmac_file('crc32', $file));
 
 echo "\n-- Testing hash_hmac_file() function with more than expected no. of arguments --\n";
-$extra_arg = 10; 
+$extra_arg = 10;
 hash_hmac_file('crc32', $file, $key, TRUE, $extra_arg);
 
 echo "\n-- Testing hash_hmac_file() function with invalid hash algorithm --\n";
 hash_hmac_file('foo', $file, $key, TRUE);
 
+echo "\n-- Testing hash_hmac_file() function with non-cryptographic hash algorithm --\n";
+hash_hmac_file('crc32', $file, $key, TRUE);
+
 echo "\n-- Testing hash_hmac_file() function with bad path --\n";
-hash_hmac_file('crc32', $file.chr(0).$file, $key, TRUE);
+hash_hmac_file('md5', $file.chr(0).$file, $key, TRUE);
 
 ?>
 ===Done===
@@ -54,6 +57,10 @@ Warning: hash_hmac_file() expects at most 4 parameters, 5 given in %s on line %d
 -- Testing hash_hmac_file() function with invalid hash algorithm --
 
 Warning: hash_hmac_file(): Unknown hashing algorithm: foo in %s on line %d
+
+-- Testing hash_hmac_file() function with non-cryptographic hash algorithm --
+
+Warning: hash_hmac_file(): Non-cryptographic hashing algorithm: crc32 in %s on line %d
 
 -- Testing hash_hmac_file() function with bad path --
 

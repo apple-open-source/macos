@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_OFFSETOF_TYPE.notsou.d	1.1	06/08/28 SMI"
-
 
 /*
  * ASSERTION:

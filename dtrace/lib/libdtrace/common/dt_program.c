@@ -93,6 +93,7 @@ void
 dtrace_program_info(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
     dtrace_proginfo_t *pip)
 {
+#pragma unused(dtp)
 	dt_stmt_t *stp;
 	dtrace_actdesc_t *ap;
 	dtrace_ecbdesc_t *last = NULL;
@@ -421,6 +422,7 @@ static bool dt_is_single_rank_pointer_type(ctf_file_t *file, ctf_id_t type) {
 static int
 dt_header_decl(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 {
+#pragma unused(dhp)
 	dt_header_info_t *infop = data;
 	dtrace_hdl_t *dtp = infop->dthi_dtp;
 	dt_probe_t *prp = idp->di_data;
@@ -452,7 +454,7 @@ dt_header_decl(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 					  buf, sizeof (buf))) < 0)
 			return (dt_set_errno(dtp, errno));
 		
-		if (i + 1 != prp->pr_nargc &&
+		if (dnp->dn_list != NULL &&
 		    fprintf(infop->dthi_out, ", ") < 0)
 			return (dt_set_errno(dtp, errno));
 	}
@@ -481,6 +483,7 @@ dt_header_decl(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 static int
 dt_header_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 {
+#pragma unused(dhp)
 	dt_header_info_t *infop = data;
 	dtrace_hdl_t *dtp = infop->dthi_dtp;
 	dt_probe_t *prp = idp->di_data;
@@ -673,11 +676,17 @@ dtrace_program_header(dtrace_hdl_t *dtp, FILE *out, const char *fname)
 			return (dt_set_errno(dtp, errno));
 	}
 
-	if (fprintf(out, "#include <unistd.h>\n\n") < 0)
-		return (-1);
+	if (fprintf(out, "#if !defined(DTRACE_PROBES_DISABLED) || !DTRACE_PROBES_DISABLED\n") < 0)
+		return (dt_set_errno(dtp, errno));
+
+	if (fprintf(out, "#include <unistd.h>\n") < 0)
+		return (dt_set_errno(dtp, errno));
+
+	if (fprintf(out, "\n#endif /* !defined(DTRACE_PROBES_DISABLED) || !DTRACE_PROBES_DISABLED */\n\n") < 0)
+		return (dt_set_errno(dtp, errno));
 
 	if (fprintf(out, "#ifdef\t__cplusplus\nextern \"C\" {\n#endif\n\n") < 0)
-		return (-1);
+		return (dt_set_errno(dtp, errno));
 
 	for (pvp = dt_list_next(&dtp->dt_provlist);
 	    pvp != NULL; pvp = dt_list_next(pvp)) {

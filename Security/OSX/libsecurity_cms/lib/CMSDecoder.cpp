@@ -25,8 +25,8 @@
  * CMSDecoder.cpp - Interface for decoding CMS messages.
  */
 
-#include "CMSDecoder.h"
-#include "CMSPrivate.h"
+#include <Security/CMSDecoder.h>
+#include <Security/CMSPrivate.h>
 #include "CMSUtils.h"
 #include <../libsecurity_codesigning/lib/csutilities.h>
 
@@ -42,6 +42,7 @@
 #include <Security/oidsattr.h>
 #include <Security/SecTrustPriv.h>
 #include <CoreFoundation/CFRuntime.h>
+#include <utilities/SecCFWrappers.h>
 #include <pthread.h>
 #include <syslog.h>
 #include <AssertMacros.h>
@@ -428,7 +429,7 @@ OSStatus CMSDecoderCopySignerStatus(
                                     SecTrustRef			*secTrust,				/* optional; RETURNED */
                                     OSStatus			*certVerifyResultCode)	/* optional; RETURNED */
 {
-	if((cmsDecoder == NULL) || (cmsDecoder->decState != DS_Final) || (!policyOrArray)) {
+	if((cmsDecoder == NULL) || (cmsDecoder->decState != DS_Final) || (!policyOrArray) || !signerStatus) {
 		return errSecParam;
 	}
 	
@@ -494,8 +495,7 @@ OSStatus CMSDecoderCopySignerStatus(
 	if(secTrust != NULL) {
 		*secTrust = theTrust;
 		/* we'll release our reference at the end */
-		if (theTrust)
-			CFRetain(theTrust);
+		CFRetainSafe(theTrust);
 	}
 	SecCmsSignerInfoRef signerInfo =
     SecCmsSignedDataGetSignerInfo(cmsDecoder->signedData, (int)signerIndex);

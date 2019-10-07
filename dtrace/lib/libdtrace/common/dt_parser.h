@@ -269,13 +269,14 @@ typedef enum {
 	YYS_DEFINE,	/* lex/yacc state for parsing persistent definitions */
 	YYS_EXPR,	/* lex/yacc state for parsing D expressions */
 	YYS_DONE,	/* lex/yacc state for indicating parse tree is done */
-	YYS_CONTROL	/* lex/yacc state for parsing control lines */
+	YYS_CONTROL,	/* lex/yacc state for parsing control lines */
+	YYS_INVALID = -1
 } yystate_t;
 
 extern void dnerror(const dt_node_t *, dt_errtag_t, const char *, ...);
 extern void dnwarn(const dt_node_t *, dt_errtag_t, const char *, ...);
 
-extern void xyerror(dt_errtag_t, const char *, ...);
+extern void __attribute__((noreturn)) xyerror(dt_errtag_t, const char *, ...);
 extern void xywarn(dt_errtag_t, const char *, ...);
 extern void xyvwarn(dt_errtag_t, const char *, va_list);
 
@@ -289,6 +290,7 @@ extern void yyinit(struct dt_pcb *);
 
 extern int yyparse(void);
 extern int yyinput(void);
+extern int yywrap(void);
 
 #ifdef	__cplusplus
 }

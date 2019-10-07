@@ -1,7 +1,6 @@
-perf/perf.launchtime.ksh
-perf/perf.fbt_probes.ksh
+perf/perf.launchtime.exe
 perf/perf.overhead.exe
-perf/perf.probes.ksh
+perf/perf.probes.exe
 perf/perf.usdt_overhead.exe
 aggs/err.D_AGG_FUNC.bad.d
 aggs/err.D_AGG_MDIM.bad.d
@@ -387,6 +386,12 @@ enum/err.D_UNKNOWN.RepeatIdentifiers.d
 enum/tst.EnumEquality.d
 enum/tst.EnumSameValue.d
 enum/tst.EnumValAssign.d
+env/err.D_PRAGMA_OPTSET.setfromscript.d
+env/err.D_PRAGMA_OPTSET.unsetfromscript.d
+env/tst.setenv1.ksh
+env/tst.setenv2.ksh
+env/tst.unsetenv1.ksh
+env/tst.unsetenv2.ksh
 error/tst.DTRACEFLT_BADADDR.d
 error/tst.DTRACEFLT_DIVZERO.d
 error/tst.DTRACEFLT_UNKNOWN.d
@@ -403,6 +408,7 @@ fbtprovider/tst.functionreturnvalue.d
 fbtprovider/tst.ioctlargs.d
 fbtprovider/tst.offset.d
 fbtprovider/tst.offsetzero.d
+fbtprovider/tst.predicates.d
 fbtprovider/tst.return.d
 fbtprovider/tst.return0.d
 fbtprovider/tst.tailcall.d
@@ -486,6 +492,9 @@ inline/tst.InlineKinds.d
 inline/tst.InlineTypedef.d
 inline/tst.InlineWritableAssign.d
 # io/tst.fds.d									/* RADAR 4487714: Awaits Darwin io provider. */
+json/tst.general.d
+json/tst.strsize.d
+json/tst.usdt.d
 lexer/err.D_CHR_NL.char.d
 lexer/err.D_CHR_NULL.char.d
 lexer/err.D_INT_DIGIT.InvalidDigit.d
@@ -952,6 +961,9 @@ stackdepth/tst.default.d
 stop/tst.stop1.d
 stop/tst.stop2.d
 strlen/tst.strlen1.d
+strtoll/err.BaseTooLarge.d
+strtoll/err.BaseTooSmall.d
+strtoll/tst.strtoll.d
 struct/err.D_ADDROF_VAR.StructPointer.d
 struct/err.D_DECL_COMBO.StructWithoutColon.d
 struct/err.D_DECL_COMBO.StructWithoutColon1.d
@@ -963,6 +975,7 @@ struct/err.D_DECL_INCOMPLETE.simple.d
 struct/err.D_DECL_VOIDOBJ.baddec.d
 struct/err.D_PROTO_ARG.DupStructAssoc.d
 struct/tst.clauselocal.d
+struct/tst.StructAnon.d
 struct/tst.StructAssoc.d
 struct/tst.StructDataTypes.d
 struct/tst.StructInside.d
@@ -1103,6 +1116,7 @@ union/err.D_DECL_INCOMPLETE.order.d
 union/err.D_DECL_INCOMPLETE.recursive.d
 union/err.D_DECL_INCOMPLETE.simple.d
 union/err.D_PROTO_ARG.DupUnionAssoc.d
+union/tst.UnionAnon.d
 union/tst.UnionAssoc.d
 union/tst.UnionDataTypes.d
 union/tst.UnionInside.d

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2017 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -78,7 +78,7 @@ __level_to_type(int level)
 #else /* NO_SYSTEMCONFIGURATION */
 
 #ifndef SC_LOG_HANDLE
-#define SC_LOG_HANDLE	IPConfigLogGetHandle()
+#define SC_LOG_HANDLE	IPConfigLogGetHandle
 #endif
 
 #include <SystemConfiguration/SCPrivate.h>
@@ -93,7 +93,7 @@ void
 IPConfigLogSetHandle(os_log_t handle);
 
 os_log_t
-IPConfigLogGetHandle();
+IPConfigLogGetHandle(void);
 
 #define IPConfigLog	SC_log
 #define IPConfigLogFL	SC_log

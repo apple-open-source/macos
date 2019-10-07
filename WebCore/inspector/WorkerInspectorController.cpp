@@ -32,6 +32,7 @@
 #include "WebHeapAgent.h"
 #include "WebInjectedScriptHost.h"
 #include "WebInjectedScriptManager.h"
+#include "WorkerAuditAgent.h"
 #include "WorkerConsoleAgent.h"
 #include "WorkerDebuggerAgent.h"
 #include "WorkerGlobalScope.h"
@@ -68,18 +69,9 @@ WorkerInspectorController::WorkerInspectorController(WorkerGlobalScope& workerGl
 
     auto workerContext = workerAgentContext();
 
-    auto heapAgent = std::make_unique<WebHeapAgent>(workerContext);
-    auto consoleAgent = std::make_unique<WorkerConsoleAgent>(workerContext, heapAgent.get());
-
+    auto consoleAgent = std::make_unique<WorkerConsoleAgent>(workerContext);
     m_instrumentingAgents->setWebConsoleAgent(consoleAgent.get());
-
-    m_agents.append(std::make_unique<WorkerRuntimeAgent>(workerContext));
-    m_agents.append(std::make_unique<WorkerDebuggerAgent>(workerContext));
     m_agents.append(WTFMove(consoleAgent));
-    m_agents.append(WTFMove(heapAgent));
-
-    if (CommandLineAPIHost* commandLineAPIHost = m_injectedScriptManager->commandLineAPIHost())
-        commandLineAPIHost->init(nullptr, m_instrumentingAgents->webConsoleAgent(), nullptr, nullptr, nullptr);
 }
 
 WorkerInspectorController::~WorkerInspectorController()
@@ -168,13 +160,25 @@ void WorkerInspectorController::createLazyAgents()
 
     m_didCreateLazyAgents = true;
 
-#if ENABLE(SERVICE_WORKER)
+    m_injectedScriptManager->connect();
+
     auto workerContext = workerAgentContext();
+
+    m_agents.append(std::make_unique<WorkerRuntimeAgent>(workerContext));
+
+#if ENABLE(SERVICE_WORKER)
     if (is<ServiceWorkerGlobalScope>(m_workerGlobalScope)) {
         m_agents.append(std::make_unique<ServiceWorkerAgent>(workerContext));
         m_agents.append(std::make_unique<WorkerNetworkAgent>(workerContext));
     }
 #endif
+
+    m_agents.append(std::make_unique<WebHeapAgent>(workerContext));
+    m_agents.append(std::make_unique<WorkerDebuggerAgent>(workerContext));
+    m_agents.append(std::make_unique<WorkerAuditAgent>(workerContext));
+
+    if (auto& commandLineAPIHost = m_injectedScriptManager->commandLineAPIHost())
+        commandLineAPIHost->init(m_instrumentingAgents.copyRef());
 }
 
 InspectorFunctionCallHandler WorkerInspectorController::functionCallHandler() const

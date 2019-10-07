@@ -29,19 +29,19 @@
 #import "VideoFullscreenModelVideoElement.h"
 
 #import "DOMWindow.h"
+#import "Event.h"
+#import "EventListener.h"
+#import "EventNames.h"
+#import "HTMLElement.h"
+#import "HTMLVideoElement.h"
 #import "History.h"
 #import "Logging.h"
 #import "MediaControlsHost.h"
+#import "Page.h"
 #import "PlaybackSessionModelMediaElement.h"
+#import "TextTrackList.h"
+#import "TimeRanges.h"
 #import <QuartzCore/CoreAnimation.h>
-#import <WebCore/Event.h>
-#import <WebCore/EventListener.h>
-#import <WebCore/EventNames.h>
-#import <WebCore/HTMLElement.h>
-#import <WebCore/HTMLVideoElement.h>
-#import <WebCore/Page.h>
-#import <WebCore/TextTrackList.h>
-#import <WebCore/TimeRanges.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/SoftLinking.h>
 
@@ -90,7 +90,7 @@ void VideoFullscreenModelVideoElement::handleEvent(WebCore::ScriptExecutionConte
     updateForEventName(event.type());
 }
 
-void VideoFullscreenModelVideoElement::updateForEventName(const WTF::AtomicString& eventName)
+void VideoFullscreenModelVideoElement::updateForEventName(const WTF::AtomString& eventName)
 {
     if (m_clients.isEmpty())
         return;
@@ -169,15 +169,15 @@ void VideoFullscreenModelVideoElement::setVideoLayerGravity(MediaPlayerEnums::Vi
     m_videoElement->setVideoFullscreenGravity(gravity);
 }
 
-const Vector<AtomicString>& VideoFullscreenModelVideoElement::observedEventNames()
+const Vector<AtomString>& VideoFullscreenModelVideoElement::observedEventNames()
 {
-    static const auto names = makeNeverDestroyed(Vector<AtomicString> { eventNames().resizeEvent });
+    static const auto names = makeNeverDestroyed(Vector<AtomString> { eventNames().resizeEvent });
     return names;
 }
 
-const AtomicString& VideoFullscreenModelVideoElement::eventNameAll()
+const AtomString& VideoFullscreenModelVideoElement::eventNameAll()
 {
-    static NeverDestroyed<AtomicString> sEventNameAll = "allEvents";
+    static NeverDestroyed<AtomString> sEventNameAll = "allEvents";
     return sEventNameAll;
 }
 

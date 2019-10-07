@@ -1,13 +1,10 @@
 //
 // Test program for message catalog class.
 //
-// Copyright 2008 by Apple Inc.
+// Copyright © 2008-2019 by Apple Inc.
 //
-// These coded instructions, statements, and computer programs are the
-// property of Apple Inc. and are protected by Federal copyright
-// law.  Distribution and use rights are outlined in the file "LICENSE.txt"
-// which should have been included with this file.  If this file is
-// missing or damaged, see the license at "http://www.cups.org/".
+// Licensed under Apache License v2.0.  See the file "LICENSE" for more
+// information.
 //
 
 //
@@ -38,7 +35,7 @@ main(int  argc,				// I - Number of command-line arguments
   // Scan the command-line...
   catalog = new ppdcCatalog(NULL, argv[1]);
 
-  printf("%s: %d messages\n", argv[1], catalog->messages->count);
+  printf("%s: %u messages\n", argv[1], (unsigned)catalog->messages->count);
 
   for (m = (ppdcMessage *)catalog->messages->first();
        m;

@@ -114,7 +114,7 @@
   heretest() {
     print First line
     cat <<'    HERE'
-    $foo$foo met celeste  'but with extra'  "stuff to test quoting"
+    $foo$foo met celeste  'but with extra'  "stuff to test quoting"\
     HERE
     print Last line
   }
@@ -125,18 +125,80 @@
   heretest
 0:Re-evaluation of function output with here document, quoted
 >First line
->    $foo$foo met celeste  'but with extra'  "stuff to test quoting"
+>    $foo$foo met celeste  'but with extra'  "stuff to test quoting"\
 >Last line
 >First line
->    $foo$foo met celeste  'but with extra'  "stuff to test quoting"
+>    $foo$foo met celeste  'but with extra'  "stuff to test quoting"\
 >Last line
 >First line
->    $foo$foo met celeste  'but with extra'  "stuff to test quoting"
+>    $foo$foo met celeste  'but with extra'  "stuff to test quoting"\
 >Last line
 
   read -r line <<'  HERE'
   HERE
 1:No input, not even newline, from empty here document.
+
+  heretest() {
+    print First line
+    cat <<-HERE
+	$foo\
+	$foo
+	some\
+	stuff
+	to\
+  test
+	tab\stripping
+	HERE
+    print Last line
+  }
+  heretest
+  eval "$(functions heretest)"
+  heretest
+  eval "$(functions heretest)"
+  heretest
+0:Line continuation in here-document with unquoted delimiter
+>First line
+>bar	bar
+>some	stuff
+>to  test
+>tab\stripping
+>Last line
+>First line
+>bar	bar
+>some	stuff
+>to  test
+>tab\stripping
+>Last line
+>First line
+>bar	bar
+>some	stuff
+>to  test
+>tab\stripping
+>Last line
+
+  heretest() {
+    print First line
+    cat <<-HERE
+	$foo\\
+	$foo
+	some\\ \
+	stuff
+	to\
+  test \\
+	more backslash craziness\\\\\\\\\
+	wild
+	HERE
+    print Last line
+  }
+  heretest
+0:No line continuation in here-document on escaped backslash
+>First line
+>bar\
+>bar
+>some\ 	stuff
+>to  test \
+>more backslash craziness\\\\	wild
+>Last line
 
   #
   # exec tests: perform these in subshells so if they fail the
@@ -164,6 +226,15 @@
 1:'<&-' redirection with fd in variable (error message on failure)
 ?About to close a second time
 *?\(eval\):*: failed to close file descriptor *
+
+  eval $'fn-varid() { print {\x18}<<0 }'
+  { which -x2 fn-varid; fn-varid } | tr $'\x18' '?'
+0:Regression test for off-by-one in varid check
+>fn-varid () {
+>  print {?} <<0
+>0
+>}
+>{?}
 
   print foo >&-
 0:'>&-' redirection
@@ -475,6 +546,18 @@
 >Nothing output yet
 >I just read any old rubbish
 
+  print you cannot be serious >input1
+  () {
+    local var
+    read var
+    print $1 $var $2
+  } <input1 Shirley >output1 dude
+  print Nothing output yet
+  cat output1
+0:anonymous function redirections mixed with argument
+>Nothing output yet
+>Shirley you cannot be serious dude
+
   redirfn() {
     local var
     read var
@@ -586,3 +669,34 @@
 >x
 >bar
 >y
+
+  fn-here-pipe() {
+    cat <<-HERE |& cat
+	FOO
+	HERE
+  }
+  fn-here-pipe
+  which fn-here-pipe
+0:Combination of HERE-document and |&
+>FOO
+>fn-here-pipe () {
+>	cat <<HERE 2>&1 | cat
+>FOO
+>HERE
+>}
+
+  a=b 2>/dev/null c=d
+  print $a
+  print $c
+0:Redirect in the middle of assignments
+>b
+>d
+
+  umask 0777
+  cat <<'  HERE'
+  look ma, no permissions
+  HERE
+  cat <<<"it's a miracle"
+0:Here-{string,document}s succeed with restrictive umask
+>  look ma, no permissions
+>it's a miracle

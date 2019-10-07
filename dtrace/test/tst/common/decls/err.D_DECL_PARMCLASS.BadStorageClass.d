@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_DECL_PARMCLASS.BadStorageClass.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * inappropriate storage class for function or associative array parameter

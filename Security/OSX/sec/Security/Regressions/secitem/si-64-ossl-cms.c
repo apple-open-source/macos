@@ -34,6 +34,7 @@
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecItem.h>
+#include <Security/SecPolicy.h>
 #include <utilities/SecCFWrappers.h>
 
 #include <unistd.h>

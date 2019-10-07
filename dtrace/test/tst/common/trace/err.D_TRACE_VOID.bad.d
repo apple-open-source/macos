@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_TRACE_VOID.bad.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *   Test an invalid specification of trace() with a void argument.

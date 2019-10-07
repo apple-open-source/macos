@@ -8,7 +8,7 @@ function_exists('mb_strrpos') or die("skip mb_strrpos() is not available in this
 --FILE--
 <?php
 /* Prototype  : int mb_strrpos(string $haystack, string $needle [, int $offset [, string $encoding]])
- * Description: Find position of last occurrence of a string within another 
+ * Description: Find position of last occurrence of a string within another
  * Source code: ext/mbstring/mbstring.c
  */
 
@@ -19,8 +19,8 @@ function_exists('mb_strrpos') or die("skip mb_strrpos() is not available in this
 echo "*** Testing mb_strrpos() : usage variations ***\n";
 
 // Initialise function arguments not being substituted
-$needle = b'a';
-$haystack = b'string_val';
+$needle = 'a';
+$haystack = 'string_val';
 $encoding = 'utf-8';
 
 //get an unset variable
@@ -31,12 +31,12 @@ unset ($unset_var);
 class classA
 {
   public function __toString() {
-    return b"7";
+    return "7";
   }
 }
 
 // heredoc string
-$heredoc = b<<<EOT
+$heredoc = <<<EOT
 hello world
 EOT;
 
@@ -65,7 +65,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // object data
 /*16*/ new classA(),
 

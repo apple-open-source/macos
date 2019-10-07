@@ -68,9 +68,11 @@ public:
 
     bool inspectorStartsAttached();
     void setInspectorStartsAttached(bool);
+    void deleteInspectorStartsAttached();
 
     bool inspectorAttachDisabled();
     void setInspectorAttachDisabled(bool);
+    void deleteInspectorAttachDisabled();
 
     void releaseFrontend();
 
@@ -104,9 +106,12 @@ public:
     void bringToFront() override;
     void closeWindow() override;
     void reopen() override;
+    void resetState() override;
 
     void setAttachedWindowHeight(unsigned) override;
     void setAttachedWindowWidth(unsigned) override;
+
+    void setSheetRect(const WebCore::FloatRect&) override;
 
     void inspectedURLChanged(const WTF::String& newURL) override;
     void showCertificate(const WebCore::CertificateInfo&) override;
@@ -128,7 +133,7 @@ private:
     LRESULT onClose(WPARAM, LPARAM);
     LRESULT onSetFocus();
 
-    virtual void windowReceivedMessage(HWND, UINT message, WPARAM, LPARAM);
+    void windowReceivedMessage(HWND, UINT message, WPARAM, LPARAM) override;
 
     void onWebViewWindowPosChanging(WPARAM, LPARAM);
 

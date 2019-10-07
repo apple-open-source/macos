@@ -92,6 +92,7 @@ public:
 	virtual size_t pageSize(const SigningContext &ctx);		// default main executable page size [infinite, i.e. no paging]
 
 	virtual void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags); // perform strict validation
+	virtual void strictValidateStructure(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags) { }; // perform structural strict validation
 	virtual CFArrayRef allowedResourceOmissions();			// allowed (default) resource omission rules
 
 	virtual bool appleInternalForcePlatform() const {return false;};
@@ -274,6 +275,7 @@ public:
 	size_t pageSize(const SigningContext &ctx) { return mOriginal->pageSize(ctx); }
 
 	void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags) { mOriginal->strictValidate(cd, tolerated, flags); }
+	void strictValidateStructure(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags) { mOriginal->strictValidateStructure(cd, tolerated, flags); }
 	CFArrayRef allowedResourceOmissions() { return mOriginal->allowedResourceOmissions(); }
 
 private:

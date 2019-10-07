@@ -1,0 +1,48 @@
+//
+//  AppleUserUSBHostHIDDevice.h
+//  IOHIDFamily
+//
+//  Created by yg on 12/23/18.
+//
+
+#ifndef AppleUserUSBHostHIDDevice_h
+#define AppleUserUSBHostHIDDevice_h
+
+#include <HIDDriverKit/IOUserUSBHostHIDDevice.iig>
+
+class AppleUserUSBHostHIDDevice : public IOUserUSBHostHIDDevice
+{
+    
+public:
+    
+    /*!
+     * @function    init
+     * @brief       init IOUserUSBHostHIDDevice object
+     * @discussion  method can be use to initlialize object data.
+     * @return      true if successful.
+     */
+    
+    virtual bool init() override;
+
+    /*!
+     * @function    Start
+     * @brief       Device start
+     * @discussion  method called from Start and can be use to initlialize device.
+     * @param       provider The IOService that is provider for this object.
+     * @return      KERN_SUCCESS is successful see IOReturn.h for error codes.
+     */
+    
+    virtual kern_return_t Start(IOService * provider) override;
+
+    /*!
+     * @function    Stop
+     * @brief       Device Stop
+     * @discussion  method called when device terminating.
+     * @param       provider The IOService that is provider for this object.
+     * @return      KERN_SUCCESS is successful see IOReturn.h for error codes.
+     */
+    virtual kern_return_t Stop (IOService * provider) override;
+
+};
+
+#endif /* AppleUserUSBHostHIDDevice_h */

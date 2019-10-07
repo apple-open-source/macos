@@ -385,7 +385,7 @@ main(int argc, char **argv)
 
 		savetd->td_nextid = withfile ? reftd->td_nextid :
 		    CTF_INDEX_TO_TYPE(1, TRUE);
-		merge_into_master(mstrtd, reftd, savetd, 0);
+		merge_into_master(NULL, mstrtd, reftd, savetd, 0);
 
 		tdata_label_add(savetd, label, CTF_LABEL_LASTIDX);
 
@@ -404,11 +404,11 @@ main(int argc, char **argv)
 
 			parle = tdata_label_top(reftd);
 
-			savetd->td_parlabel = xstrdup(parle->le_name);
+			savetd->td_parlabel = parle->le_name;
 
 			strncpy(uniqname, reffile, sizeof (uniqname));
 			uniqname[MAXPATHLEN - 1] = '\0';
-			savetd->td_parname = xstrdup(basename(uniqname));
+			savetd->td_parname = atom_get(basename(uniqname));
 		}
 
 	} else {

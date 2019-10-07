@@ -78,6 +78,18 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		2216B2FF219C45B000C3CF96 /* CommonCryptoErrorSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 2216B2FE219C445F00C3CF96 /* CommonCryptoErrorSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		2216B300219C45B100C3CF96 /* CommonCryptoErrorSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 2216B2FE219C445F00C3CF96 /* CommonCryptoErrorSPI.h */; };
+		2216B301219C45B100C3CF96 /* CommonCryptoErrorSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 2216B2FE219C445F00C3CF96 /* CommonCryptoErrorSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		228DB13022007274004E19A4 /* CommonCollabKeyGen.c in Sources */ = {isa = PBXBuildFile; fileRef = 228DB12F22007273004E19A4 /* CommonCollabKeyGen.c */; };
+		228DB15622007282004E19A4 /* CommonCollabKeyGen.c in Sources */ = {isa = PBXBuildFile; fileRef = 228DB12F22007273004E19A4 /* CommonCollabKeyGen.c */; };
+		22A2CC3121FF14EE00ABE773 /* CommonCollabKeyGen.h in Headers */ = {isa = PBXBuildFile; fileRef = 22A2CC3021FF14DE00ABE773 /* CommonCollabKeyGen.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		22A2CC3221FF14EF00ABE773 /* CommonCollabKeyGen.h in Headers */ = {isa = PBXBuildFile; fileRef = 22A2CC3021FF14DE00ABE773 /* CommonCollabKeyGen.h */; };
+		22A2CC3321FF14EF00ABE773 /* CommonCollabKeyGen.h in Headers */ = {isa = PBXBuildFile; fileRef = 22A2CC3021FF14DE00ABE773 /* CommonCollabKeyGen.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		22A2CC3521FF18CA00ABE773 /* CommonCollabKeyGen.c in Sources */ = {isa = PBXBuildFile; fileRef = 22A2CC3421FF18CA00ABE773 /* CommonCollabKeyGen.c */; };
+		22A2CC3621FF18D800ABE773 /* CommonCollabKeyGen.c in Sources */ = {isa = PBXBuildFile; fileRef = 22A2CC3421FF18CA00ABE773 /* CommonCollabKeyGen.c */; };
+		22B457AD21AEBEDE002DE5F3 /* CommonANSIKDF.c in Sources */ = {isa = PBXBuildFile; fileRef = 22B457AC21AEBEDE002DE5F3 /* CommonANSIKDF.c */; };
+		22B457AE21AEBEDE002DE5F3 /* CommonANSIKDF.c in Sources */ = {isa = PBXBuildFile; fileRef = 22B457AC21AEBEDE002DE5F3 /* CommonANSIKDF.c */; };
 		4825E1BC158FD5D50059CCF8 /* CommonCrypto.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4825E1BA158FD5AB0059CCF8 /* CommonCrypto.plist */; };
 		4825E1BE158FD5FD0059CCF8 /* CommonCrypto.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4825E1BB158FD5AB0059CCF8 /* CommonCrypto.txt */; };
 		4825E1C4158FD64D0059CCF8 /* CC_crypto.3cc in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4825E18A158FD5AB0059CCF8 /* CC_crypto.3cc */; };
@@ -129,7 +141,6 @@
 		4825E1F2158FD64D0059CCF8 /* CCryptorCreateFromData.3cc in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4825E1B8158FD5AB0059CCF8 /* CCryptorCreateFromData.3cc */; };
 		4825E1F3158FD64D0059CCF8 /* Common Crypto.3cc in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4825E1B9158FD5AB0059CCF8 /* Common Crypto.3cc */; };
 		482B9DB515869BF500F49463 /* ccGlobals.h in Headers */ = {isa = PBXBuildFile; fileRef = 482B9DB415869BF500F49463 /* ccGlobals.h */; };
-		482B9DB81586A8E700F49463 /* CommonRandomPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 482B9DB71586A8E700F49463 /* CommonRandomPriv.h */; };
 		4836297515893D0C0064232C /* CommonCryptorRC4.c in Sources */ = {isa = PBXBuildFile; fileRef = 4836297415893D0C0064232C /* CommonCryptorRC4.c */; };
 		4836297815893DE20064232C /* CommonCryptorDES.c in Sources */ = {isa = PBXBuildFile; fileRef = 4836297715893DE20064232C /* CommonCryptorDES.c */; };
 		485CB94215E8350E00EC6390 /* dummy.c in Sources */ = {isa = PBXBuildFile; fileRef = 485CB94115E8350E00EC6390 /* dummy.c */; };
@@ -180,7 +191,6 @@
 		48BEE6DF15800C1800A6A1E7 /* CommonSymmetricKeywrap.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6CD15800C1800A6A1E7 /* CommonSymmetricKeywrap.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		48BEE6FE15800C2600A6A1E7 /* ccdebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6E515800C2600A6A1E7 /* ccdebug.h */; };
 		48BEE6FF15800C2600A6A1E7 /* ccErrors.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6E615800C2600A6A1E7 /* ccErrors.h */; };
-		48BEE70015800C2600A6A1E7 /* ccMemory.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6E715800C2600A6A1E7 /* ccMemory.h */; };
 		48BEE70115800C2600A6A1E7 /* CommonBigNum.c in Sources */ = {isa = PBXBuildFile; fileRef = 48BEE6E815800C2600A6A1E7 /* CommonBigNum.c */; };
 		48BEE70215800C2600A6A1E7 /* CommonBigNumPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6E915800C2600A6A1E7 /* CommonBigNumPriv.h */; };
 		48BEE70315800C2600A6A1E7 /* CommonCMAC.c in Sources */ = {isa = PBXBuildFile; fileRef = 48BEE6EA15800C2600A6A1E7 /* CommonCMAC.c */; };
@@ -322,13 +332,11 @@
 		F4D67A6F1F300A1800856F4A /* CommonNumerics.h in Headers */ = {isa = PBXBuildFile; fileRef = 48C489D715DAF10400B301EC /* CommonNumerics.h */; settings = {ATTRIBUTES = (); }; };
 		F4D67A701F300A1800856F4A /* ccdebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6E515800C2600A6A1E7 /* ccdebug.h */; };
 		F4D67A721F300A1800856F4A /* ccErrors.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6E615800C2600A6A1E7 /* ccErrors.h */; };
-		F4D67A731F300A1800856F4A /* ccMemory.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6E715800C2600A6A1E7 /* ccMemory.h */; };
 		F4D67A741F300A1800856F4A /* CommonBigNumPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6E915800C2600A6A1E7 /* CommonBigNumPriv.h */; };
 		F4D67A751F300A1800856F4A /* CommonCryptorPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6EE15800C2600A6A1E7 /* CommonCryptorPriv.h */; };
 		F4D67A761F300A1800856F4A /* CommonDigestPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6F115800C2600A6A1E7 /* CommonDigestPriv.h */; };
 		F4D67A771F300A1800856F4A /* corecryptoSymmetricBridge.h in Headers */ = {isa = PBXBuildFile; fileRef = 48BEE6FA15800C2600A6A1E7 /* corecryptoSymmetricBridge.h */; };
 		F4D67A781F300A1800856F4A /* ccGlobals.h in Headers */ = {isa = PBXBuildFile; fileRef = 482B9DB415869BF500F49463 /* ccGlobals.h */; };
-		F4D67A791F300A1800856F4A /* CommonRandomPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 482B9DB71586A8E700F49463 /* CommonRandomPriv.h */; };
 		F4D67A7A1F300A1800856F4A /* cn_globals.h in Headers */ = {isa = PBXBuildFile; fileRef = 48C4899415DAF0E500B301EC /* cn_globals.h */; };
 		F4D67A7B1F300A1800856F4A /* crc.h in Headers */ = {isa = PBXBuildFile; fileRef = 48C4899615DAF0E500B301EC /* crc.h */; };
 		F4D67A7C1F300A1800856F4A /* basexx.h in Headers */ = {isa = PBXBuildFile; fileRef = 48E5034D15DDAC0900045A4B /* basexx.h */; };
@@ -430,6 +438,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.exp-in";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(BUILT_PRODUCTS_DIR)/commonCrypto_dylib.$(CURRENT_ARCH).exp",
@@ -588,6 +598,11 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2216B2FE219C445F00C3CF96 /* CommonCryptoErrorSPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CommonCryptoErrorSPI.h; sourceTree = "<group>"; };
+		228DB12F22007273004E19A4 /* CommonCollabKeyGen.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CommonCollabKeyGen.c; sourceTree = "<group>"; };
+		22A2CC3021FF14DE00ABE773 /* CommonCollabKeyGen.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CommonCollabKeyGen.h; sourceTree = "<group>"; };
+		22A2CC3421FF18CA00ABE773 /* CommonCollabKeyGen.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CommonCollabKeyGen.c; sourceTree = "<group>"; };
+		22B457AC21AEBEDE002DE5F3 /* CommonANSIKDF.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CommonANSIKDF.c; sourceTree = "<group>"; };
 		4825E18A158FD5AB0059CCF8 /* CC_crypto.3cc */ = {isa = PBXFileReference; lastKnownFileType = text; path = CC_crypto.3cc; sourceTree = "<group>"; };
 		4825E18B158FD5AB0059CCF8 /* CC_MD2.3cc */ = {isa = PBXFileReference; lastKnownFileType = text; path = CC_MD2.3cc; sourceTree = "<group>"; };
 		4825E18C158FD5AB0059CCF8 /* CC_MD2_Final.3cc */ = {isa = PBXFileReference; lastKnownFileType = text; path = CC_MD2_Final.3cc; sourceTree = "<group>"; };
@@ -639,7 +654,6 @@
 		4825E1BA158FD5AB0059CCF8 /* CommonCrypto.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = CommonCrypto.plist; sourceTree = "<group>"; };
 		4825E1BB158FD5AB0059CCF8 /* CommonCrypto.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = CommonCrypto.txt; sourceTree = "<group>"; };
 		482B9DB415869BF500F49463 /* ccGlobals.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccGlobals.h; sourceTree = "<group>"; };
-		482B9DB71586A8E700F49463 /* CommonRandomPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommonRandomPriv.h; sourceTree = "<group>"; };
 		4836297415893D0C0064232C /* CommonCryptorRC4.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CommonCryptorRC4.c; sourceTree = "<group>"; };
 		4836297715893DE20064232C /* CommonCryptorDES.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CommonCryptorDES.c; sourceTree = "<group>"; };
 		485CB93415E834B600EC6390 /* CommonCrypto.empty.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = CommonCrypto.empty.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -673,7 +687,6 @@
 		48BEE6CD15800C1800A6A1E7 /* CommonSymmetricKeywrap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommonSymmetricKeywrap.h; sourceTree = "<group>"; };
 		48BEE6E515800C2600A6A1E7 /* ccdebug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccdebug.h; sourceTree = "<group>"; };
 		48BEE6E615800C2600A6A1E7 /* ccErrors.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccErrors.h; sourceTree = "<group>"; };
-		48BEE6E715800C2600A6A1E7 /* ccMemory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccMemory.h; sourceTree = "<group>"; };
 		48BEE6E815800C2600A6A1E7 /* CommonBigNum.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CommonBigNum.c; sourceTree = "<group>"; };
 		48BEE6E915800C2600A6A1E7 /* CommonBigNumPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommonBigNumPriv.h; sourceTree = "<group>"; };
 		48BEE6EA15800C2600A6A1E7 /* CommonCMAC.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CommonCMAC.c; sourceTree = "<group>"; };
@@ -990,10 +1003,10 @@
 				F40146DB1D5BE2F00003AE85 /* ccDispatch.c */,
 				48BEE6E515800C2600A6A1E7 /* ccdebug.h */,
 				48BEE6E615800C2600A6A1E7 /* ccErrors.h */,
-				48BEE6E715800C2600A6A1E7 /* ccMemory.h */,
 				48BEE6E815800C2600A6A1E7 /* CommonBigNum.c */,
 				48BEE6E915800C2600A6A1E7 /* CommonBigNumPriv.h */,
 				48BEE6EA15800C2600A6A1E7 /* CommonCMAC.c */,
+				22A2CC3421FF18CA00ABE773 /* CommonCollabKeyGen.c */,
 				48BEE6ED15800C2600A6A1E7 /* CommonCryptor.c */,
 				F4607B8F1F0AC1BE00FC87B3 /* CCCryptorReset_internal.h */,
 				4836297715893DE20064232C /* CommonCryptorDES.c */,
@@ -1007,7 +1020,6 @@
 				48BEE6F415800C2600A6A1E7 /* CommonHMAC.c */,
 				48BEE6F515800C2600A6A1E7 /* CommonKeyDerivation.c */,
 				48BEE6F615800C2600A6A1E7 /* CommonRandom.c */,
-				482B9DB71586A8E700F49463 /* CommonRandomPriv.h */,
 				48BEE6F715800C2600A6A1E7 /* CommonRSACryptor.c */,
 				48BEE6F815800C2600A6A1E7 /* CommonSymmetricKeywrap.c */,
 				48BEE6F915800C2600A6A1E7 /* corecryptoSymmetricBridge.c */,
@@ -1071,6 +1083,8 @@
 				48C489D715DAF10400B301EC /* CommonNumerics.h */,
 				48BEE6BE15800C1800A6A1E7 /* CommonBigNum.h */,
 				48BEE6BF15800C1800A6A1E7 /* CommonCMACSPI.h */,
+				22A2CC3021FF14DE00ABE773 /* CommonCollabKeyGen.h */,
+				2216B2FE219C445F00C3CF96 /* CommonCryptoErrorSPI.h */,
 				48BEE6C115800C1800A6A1E7 /* CommonCryptoPriv.h */,
 				48BEE6C315800C1800A6A1E7 /* CommonCryptorSPI.h */,
 				48BEE6C415800C1800A6A1E7 /* CommonDH.h */,
@@ -1123,6 +1137,7 @@
 				F4F0C1321F327DC400B2CEE7 /* CommonBigDigest.c */,
 				F4F0C1331F327DC400B2CEE7 /* CommonBigNum.c */,
 				F4F0C1341F327DC400B2CEE7 /* CommonCMac.c */,
+				228DB12F22007273004E19A4 /* CommonCollabKeyGen.c */,
 				F4F0C1351F327DC400B2CEE7 /* CommonCPP.cpp */,
 				F4F0C1361F327DC400B2CEE7 /* CommonCryptoBlowfish.c */,
 				F4F0C1371F327DC400B2CEE7 /* CommonCryptoCTSPadding.c */,
@@ -1150,6 +1165,7 @@
 				F4F0C14D1F327DC400B2CEE7 /* CommonHMac.c */,
 				F4F0C14E1F327DC400B2CEE7 /* CommonHMacClone.c */,
 				F4F0C14F1F327DC400B2CEE7 /* CommonKeyDerivation.c */,
+				22B457AC21AEBEDE002DE5F3 /* CommonANSIKDF.c */,
 				F4F0C1501F327DC400B2CEE7 /* CommonNISTKDF.c */,
 				F4F0C1511F327DC400B2CEE7 /* CommonRandom.c */,
 				F4F0C1521F327DC400B2CEE7 /* CommonRSA.c */,
@@ -1193,6 +1209,7 @@
 				485CB95215E835B900EC6390 /* CommonHMAC.h in Headers */,
 				485CB94F15E835B900EC6390 /* CommonDigest.h in Headers */,
 				485CB94C15E835B900EC6390 /* CommonCryptor.h in Headers */,
+				22A2CC3121FF14EE00ABE773 /* CommonCollabKeyGen.h in Headers */,
 				485CB94A15E835B900EC6390 /* CommonCrypto.h in Headers */,
 				485CB94815E835B900EC6390 /* CommonBigNum.h in Headers */,
 				485CB94915E835B900EC6390 /* CommonCMACSPI.h in Headers */,
@@ -1203,6 +1220,7 @@
 				485CB95115E835B900EC6390 /* CommonECCryptor.h in Headers */,
 				485CB95315E835B900EC6390 /* CommonHMacSPI.h in Headers */,
 				485CB95515E835B900EC6390 /* CommonRandomSPI.h in Headers */,
+				2216B2FF219C45B000C3CF96 /* CommonCryptoErrorSPI.h in Headers */,
 				4872EA4D185EDED600639C0B /* CommonKeyDerivationSPI.h in Headers */,
 				489ED55A18FDAAC1001327C5 /* CommonRandom.h in Headers */,
 				F41149ED1E00EAD300DD9218 /* CommonRSACryptorSPI.h in Headers */,
@@ -1251,18 +1269,18 @@
 				48C489D915DAF10400B301EC /* CommonNumerics.h in Headers */,
 				48BEE6FE15800C2600A6A1E7 /* ccdebug.h in Headers */,
 				48BEE6FF15800C2600A6A1E7 /* ccErrors.h in Headers */,
-				48BEE70015800C2600A6A1E7 /* ccMemory.h in Headers */,
 				48BEE70215800C2600A6A1E7 /* CommonBigNumPriv.h in Headers */,
 				48BEE70715800C2600A6A1E7 /* CommonCryptorPriv.h in Headers */,
 				48BEE70A15800C2600A6A1E7 /* CommonDigestPriv.h in Headers */,
 				48BEE71315800C2600A6A1E7 /* corecryptoSymmetricBridge.h in Headers */,
 				482B9DB515869BF500F49463 /* ccGlobals.h in Headers */,
-				482B9DB81586A8E700F49463 /* CommonRandomPriv.h in Headers */,
 				48C489B615DAF0E500B301EC /* cn_globals.h in Headers */,
+				22A2CC3321FF14EF00ABE773 /* CommonCollabKeyGen.h in Headers */,
 				48C489B815DAF0E500B301EC /* crc.h in Headers */,
 				48E5035115DDAC0900045A4B /* basexx.h in Headers */,
 				48E5035415DDAC0900045A4B /* CommonBufferingPriv.h in Headers */,
 				4872EA4C185EDED600639C0B /* CommonKeyDerivationSPI.h in Headers */,
+				2216B301219C45B100C3CF96 /* CommonCryptoErrorSPI.h in Headers */,
 				48E5035615DDAC1D00045A4B /* CommonBaseXX.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1297,23 +1315,40 @@
 				F4D67A6F1F300A1800856F4A /* CommonNumerics.h in Headers */,
 				F4D67A701F300A1800856F4A /* ccdebug.h in Headers */,
 				F4D67A721F300A1800856F4A /* ccErrors.h in Headers */,
-				F4D67A731F300A1800856F4A /* ccMemory.h in Headers */,
 				F4D67A741F300A1800856F4A /* CommonBigNumPriv.h in Headers */,
 				F4D67A751F300A1800856F4A /* CommonCryptorPriv.h in Headers */,
 				F4D67A761F300A1800856F4A /* CommonDigestPriv.h in Headers */,
 				F4D67A771F300A1800856F4A /* corecryptoSymmetricBridge.h in Headers */,
 				F4D67A781F300A1800856F4A /* ccGlobals.h in Headers */,
-				F4D67A791F300A1800856F4A /* CommonRandomPriv.h in Headers */,
 				F4D67A7A1F300A1800856F4A /* cn_globals.h in Headers */,
+				22A2CC3221FF14EF00ABE773 /* CommonCollabKeyGen.h in Headers */,
 				F4D67A7B1F300A1800856F4A /* crc.h in Headers */,
 				F4D67A7C1F300A1800856F4A /* basexx.h in Headers */,
 				F4D67A7D1F300A1800856F4A /* CommonBufferingPriv.h in Headers */,
 				F4D67A7E1F300A1800856F4A /* CommonKeyDerivationSPI.h in Headers */,
+				2216B300219C45B100C3CF96 /* CommonCryptoErrorSPI.h in Headers */,
 				F4D67A7F1F300A1800856F4A /* CommonBaseXX.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
+
+/* Begin PBXLegacyTarget section */
+		AD8A208D22835C99004ECBB3 /* CommonCrypto_android */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "-f Makefile.android";
+			buildConfigurationList = AD8A209022835C99004ECBB3 /* Build configuration list for PBXLegacyTarget "CommonCrypto_android" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			buildWorkingDirectory = "$(PROJECT_DIR)";
+			dependencies = (
+			);
+			name = CommonCrypto_android;
+			passBuildSettingsInEnvironment = 1;
+			productName = CommonCrypto_android;
+		};
+/* End PBXLegacyTarget section */
 
 /* Begin PBXNativeTarget section */
 		485CB93315E834B600EC6390 /* CommonCrypto_Headers */ = {
@@ -1445,15 +1480,24 @@
 		48BEE6AC1580085A00A6A1E7 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0900;
+				DefaultBuildSystemTypeForWorkspace = Latest;
+				LastUpgradeCheck = 1100;
 				ORGANIZATIONNAME = "Platform Security";
+				TargetAttributes = {
+					AD8A208D22835C99004ECBB3 = {
+						CreatedOnToolsVersion = 11.0;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 48BEE6AF1580085A00A6A1E7 /* Build configuration list for PBXProject "CommonCrypto" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
+				Base,
 			);
 			mainGroup = 48BEE6AA1580085A00A6A1E7;
 			productRefGroup = 48BEE6B61580085A00A6A1E7 /* Products */;
@@ -1479,6 +1523,7 @@
 				4825E184158FD5280059CCF8 /* OpenSource Docs */,
 				4825E1BF158FD6100059CCF8 /* Man Pages */,
 				486C539815DDBD5700C8DE50 /* cn */,
+				AD8A208D22835C99004ECBB3 /* CommonCrypto_android */,
 			);
 		};
 /* End PBXProject section */
@@ -1560,6 +1605,7 @@
 				F4F0C16A1F327DFB00B2CEE7 /* CommonCryptoSymCBC.c in Sources */,
 				F4F0C1631F327DFB00B2CEE7 /* CommonCPP.cpp in Sources */,
 				F4F0C16F1F327DFB00B2CEE7 /* CommonCryptoSymGCM.c in Sources */,
+				22B457AD21AEBEDE002DE5F3 /* CommonANSIKDF.c in Sources */,
 				F4F0C1731F327DFB00B2CEE7 /* CommonCryptoSymRC2.c in Sources */,
 				F4F0C1651F327DFB00B2CEE7 /* CommonCryptoCTSPadding.c in Sources */,
 				F4F0C16B1F327DFB00B2CEE7 /* CommonCryptoSymCCM.c in Sources */,
@@ -1585,6 +1631,7 @@
 				F4F0C1791F327DFB00B2CEE7 /* CommonEC.c in Sources */,
 				F4F0C1601F327DFB00B2CEE7 /* CommonBigDigest.c in Sources */,
 				F4F0C1851F327E3700B2CEE7 /* testmore.c in Sources */,
+				228DB13022007274004E19A4 /* CommonCollabKeyGen.c in Sources */,
 				F4F0C1801F327DFB00B2CEE7 /* CommonRSA.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1627,6 +1674,7 @@
 				48EEF09015E2E65B00429FF7 /* reverse_poly.c in Sources */,
 				48BEE70115800C2600A6A1E7 /* CommonBigNum.c in Sources */,
 				48BEE70315800C2600A6A1E7 /* CommonCMAC.c in Sources */,
+				22A2CC3521FF18CA00ABE773 /* CommonCollabKeyGen.c in Sources */,
 				48BEE70615800C2600A6A1E7 /* CommonCryptor.c in Sources */,
 				48BEE70815800C2600A6A1E7 /* CommonDH.c in Sources */,
 				48BEE70915800C2600A6A1E7 /* CommonDigest.c in Sources */,
@@ -1668,6 +1716,7 @@
 				F4F0C19D1F3280B700B2CEE7 /* CommonCryptoSymOFB.c in Sources */,
 				F4F0C1941F3280B700B2CEE7 /* CommonCryptoReset.c in Sources */,
 				F4F0C1A91F3280B700B2CEE7 /* CommonKeyDerivation.c in Sources */,
+				22B457AE21AEBEDE002DE5F3 /* CommonANSIKDF.c in Sources */,
 				F4F0C18D1F3280B700B2CEE7 /* CommonBigNum.c in Sources */,
 				F4F0C1A41F3280B700B2CEE7 /* CommonDigest.c in Sources */,
 				F4F0C1931F3280B700B2CEE7 /* CommonCryptoOutputLength.c in Sources */,
@@ -1693,6 +1742,7 @@
 				F4F0C1A01F3280B700B2CEE7 /* CommonCryptoSymRegression.c in Sources */,
 				F4F0C1AE1F3280BF00B2CEE7 /* CommonBaseEncoding.c in Sources */,
 				F4F0C1921F3280B700B2CEE7 /* CommonCryptoNoPad.c in Sources */,
+				228DB15622007282004E19A4 /* CommonCollabKeyGen.c in Sources */,
 				F4F0C1901F3280B700B2CEE7 /* CommonCryptoBlowfish.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1735,6 +1785,7 @@
 				F4D67A421F300A1800856F4A /* reverse_poly.c in Sources */,
 				F4D67A431F300A1800856F4A /* CommonBigNum.c in Sources */,
 				F4D67A441F300A1800856F4A /* CommonCMAC.c in Sources */,
+				22A2CC3621FF18D800ABE773 /* CommonCollabKeyGen.c in Sources */,
 				F4D67A451F300A1800856F4A /* CommonCryptor.c in Sources */,
 				F4D67A461F300A1800856F4A /* CommonDH.c in Sources */,
 				F4D67A471F300A1800856F4A /* CommonDigest.c in Sources */,
@@ -1804,6 +1855,7 @@
 		4825E171158FA24A0059CCF8 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = commonCrypto;
 			};
 			name = Debug;
@@ -1811,6 +1863,7 @@
 		4825E172158FA24A0059CCF8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = commonCrypto;
 			};
 			name = Release;
@@ -1818,6 +1871,7 @@
 		4825E177158FA27C0059CCF8 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = commonCrypto;
 			};
 			name = Debug;
@@ -1825,6 +1879,7 @@
 		4825E178158FA27C0059CCF8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				"ORDER_FILE[sdk=iphoneos*]" = $SDK_ROOT/AppleInternal/OrderFiles/libcommonCrypto.order;
 				PRODUCT_NAME = commonCrypto;
 			};
@@ -1833,6 +1888,7 @@
 		4825E17B158FA35C0059CCF8 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = commonCrypto;
 			};
 			name = Debug;
@@ -1840,6 +1896,7 @@
 		4825E17C158FA35C0059CCF8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = commonCrypto;
 			};
 			name = Release;
@@ -1847,6 +1904,7 @@
 		4825E186158FD5280059CCF8 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -1855,6 +1913,7 @@
 		4825E187158FD5280059CCF8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -1863,6 +1922,7 @@
 		4825E1C1158FD6100059CCF8 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -1871,6 +1931,7 @@
 		4825E1C2158FD6100059CCF8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -1880,6 +1941,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				EXECUTABLE_EXTENSION = empty.a;
 				EXECUTABLE_PREFIX = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.8;
@@ -1894,6 +1956,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_EXTENSION = empty.a;
 				EXECUTABLE_PREFIX = "";
@@ -1909,6 +1972,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				EXECUTABLE_PREFIX = lib;
 				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/CommonNumerics;
@@ -1922,6 +1986,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_PREFIX = lib;
 				MACOSX_DEPLOYMENT_TARGET = 10.8;
@@ -1935,9 +2000,10 @@
 		486C53A115DDBD5700C8DE50 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
 				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
+				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/local/bin;
 				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1948,9 +2014,10 @@
 		486C53A215DDBD5700C8DE50 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
 				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
+				CODE_SIGN_IDENTITY = "-";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INSTALL_PATH = /usr/local/bin;
 				MACOSX_DEPLOYMENT_TARGET = 10.9;
@@ -1962,7 +2029,8 @@
 		48AC91FE1581554800BA9060 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				USER_HEADER_SEARCH_PATHS = "$BUILT_PRODUCTS_DIR/usr/local/include/** $BUILT_PRODUCTS_DIR/usr/include/**";
@@ -1972,7 +2040,8 @@
 		48AC91FF1581554800BA9060 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				USER_HEADER_SEARCH_PATHS = "$BUILT_PRODUCTS_DIR/usr/local/include/** $BUILT_PRODUCTS_DIR/usr/include/**";
@@ -1982,6 +2051,7 @@
 		48BA299119426EF9004DF472 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -1989,6 +2059,7 @@
 		48BA299219426EF9004DF472 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -2009,6 +2080,7 @@
 					armv7k,
 					arm64,
 				);
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
@@ -2018,12 +2090,14 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = NO;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
@@ -2101,6 +2175,7 @@
 					armv7k,
 					arm64,
 				);
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_STATIC_ANALYZER_MODE = deep;
 				CLANG_WARN_ASSIGN_ENUM = YES;
@@ -2108,11 +2183,13 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = NO;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
@@ -2167,7 +2244,7 @@
 		48BEE6BA1580085A00A6A1E7 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEFINES_MODULE = YES;
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
@@ -2213,7 +2290,7 @@
 		48BEE6BB1580085A00A6A1E7 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEFINES_MODULE = YES;
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
@@ -2256,12 +2333,81 @@
 			};
 			name = Release;
 		};
+		AD8A208E22835C99004ECBB3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				DEBUGGING_SYMBOLS = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		AD8A208F22835C99004ECBB3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		F4D679781F2C1E8500856F4A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F4D67A861F312B6D00856F4A /* ASAN.xcconfig */;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/local/bin;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				USER_HEADER_SEARCH_PATHS = "$BUILT_PRODUCTS_DIR/usr/local/include/** $BUILT_PRODUCTS_DIR/usr/include/**";
 			};
@@ -2271,8 +2417,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F4D67A861F312B6D00856F4A /* ASAN.xcconfig */;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/local/bin;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				USER_HEADER_SEARCH_PATHS = "$BUILT_PRODUCTS_DIR/usr/local/include/** $BUILT_PRODUCTS_DIR/usr/include/**";
 			};
@@ -2281,6 +2430,7 @@
 		F4D67A821F300A1800856F4A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
 				DYLIB_INSTALL_NAME_BASE = "";
@@ -2318,6 +2468,7 @@
 		F4D67A831F300A1800856F4A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
 				DYLIB_INSTALL_NAME_BASE = "";
@@ -2459,6 +2610,15 @@
 			buildConfigurations = (
 				48BEE6BA1580085A00A6A1E7 /* Debug */,
 				48BEE6BB1580085A00A6A1E7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AD8A209022835C99004ECBB3 /* Build configuration list for PBXLegacyTarget "CommonCrypto_android" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AD8A208E22835C99004ECBB3 /* Debug */,
+				AD8A208F22835C99004ECBB3 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

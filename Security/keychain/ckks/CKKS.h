@@ -25,9 +25,9 @@
 #define CKKS_h
 
 #include <dispatch/dispatch.h>
-#include <ipc/securityd_client.h>
-#include <utilities/SecCFWrappers.h>
-#include <utilities/SecDb.h>
+#include "ipc/securityd_client.h"
+#include "utilities/SecCFWrappers.h"
+#include "utilities/SecDb.h"
 #include <xpc/xpc.h>
 
 #ifdef __OBJC__
@@ -61,7 +61,6 @@ extern CKKSItemState* const SecCKKSStateUnauthenticated;
 extern CKKSItemState* const SecCKKSStateInFlight;
 extern CKKSItemState* const SecCKKSStateReencrypt;
 extern CKKSItemState* const SecCKKSStateError;
-extern CKKSItemState* const SecCKKSStateZoneMismatch; // an item has appeared that's in the wrong zone
 extern CKKSItemState* const SecCKKSStateDeleted;  // meta-state: please delete this item!
 
 /* Processed States */
@@ -184,8 +183,16 @@ extern CKKSZoneKeyState* const SecCKKSZoneKeyStateFetchComplete;
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateNeedFullRefetch;
 // We've received a wrapped TLK, but we don't have its contents yet. Wait until they arrive.
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForTLK;
+
+// No keys exist for this zone yet, and we're waiting to make some. Please call the "make TLKs" API.
+extern CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForTLKCreation;
+// No keys exist for this zone yet, but we've made some. Octagon should upload them.
+extern CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForTLKUpload;
+
 // We've received a wrapped TLK, but we can't process it until the keybag unlocks. Wait until then.
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForUnlock;
+// We've done some CK ops, but are waiting for the trust system to tell us to continue
+extern CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForTrust;
 // Things are unhealthy, but we're not sure entirely why.
 extern CKKSZoneKeyState* const SecCKKSZoneKeyStateUnhealthy;
 // Something has gone horribly wrong with the current key pointers.
@@ -323,6 +330,13 @@ typedef CF_ENUM(CFIndex, CKKSErrorCode) {
     CKKSiCloudGreyMode = 41,
 
     CKKSNoFetchesRequested = 50,
+
+    CKKSNoMetric = 51,
+
+    CKKSLackingTrust = 52,
+    CKKSKeysMissing = 53,
+
+    CKKSCircularKeyReference = 54,
 };
 
 typedef CF_ENUM(CFIndex, CKKSResultDescriptionErrorCode) {
@@ -336,9 +350,11 @@ typedef CF_ENUM(CFIndex, CKKSResultDescriptionErrorCode) {
 
     CKKSResultDescriptionPendingZoneChangeFetchScheduling = 1000,
     CKKSResultDescriptionPendingViewChangedScheduling = 1001,
-    CKKSResultDescriptionPendingZoneInitializeScheduling = 1002,
+    CKKSResultDescriptionPendingZoneInitializeScheduling = 1002,  // No longer used
     CKKSResultDescriptionPendingOutgoingQueueScheduling = 1003,
     CKKSResultDescriptionPendingKeyHierachyPokeScheduling = 1004,
+    CKKSResultDescriptionPendingCloudKitRetryAfter = 1005,
+    CKKSResultDescriptionPendingFlag = 1006,
 };
 
 // These errors are returned by the CKKS server extension.

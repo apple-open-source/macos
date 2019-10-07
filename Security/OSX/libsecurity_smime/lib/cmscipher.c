@@ -102,9 +102,11 @@ DER_GetInteger(SECItem *it)
     unsigned char *cp = it->Data;
     unsigned long overflow = 0x1ffUL << (((sizeof(ival) - 1) * 8) - 1);
     unsigned long ofloinit;
+    bool isNegative = false;
 
-    if (*cp & 0x80)
-        ival = -1L;
+    if (*cp & 0x80) {
+        isNegative = true;
+    }
     ofloinit = ival & overflow;
 
     while (len) {
@@ -118,6 +120,10 @@ DER_GetInteger(SECItem *it)
         ival = ival << 8;
         ival |= *cp++;
         --len;
+    }
+
+    if (isNegative) {
+        ival *= -1L;
     }
     return ival;
 }

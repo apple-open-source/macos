@@ -1,8 +1,8 @@
 .\" @(#)man.conf
 .\" T³umaczenie: 950322 Rafa³ Maszkowski <rzm@pdi.net>
-.TH MAN.CONF 5 "30 marca 1994"
+.TH MAN.CONF 5 "19 wrze¶nia 2005"
 .SH NAZWA
-man.conf \- zawiera konfiguracjê programu man
+man.conf \- dane konfiguracyjne dla programu man
 .SH OPIS
 .LP
 Ten plik jest czytany przez
@@ -17,9 +17,9 @@ Alternatywna wersja pliku man.conf mo¿e byæ podana przez
 man -C prywatny_man.conf ...
 .RE
 .LP
-Nazwy komend mog± byæ podane z opcjami.
+Nazwy poleceñ mog± byæ podane z opcjami.
 U¿yteczne opcje nroff mo¿na znale¼æ w grotty(1).
-Na przyklad zamiast domyslnej linii
+Na przyk³ad zamiast domy¶lnej linii
 .LP
 .RS
 .nf
@@ -35,7 +35,15 @@ NROFF /usr/bin/groff -mandoc -Tlatin1 -P-u -P-b
 .fi
 .RE
 .LP
-¿eby wy³±czyæ podkre¶lanie i wytluszczanie.
+¿eby wy³±czyæ podkre¶lanie i wyt³uszczanie.
+.SH PLIKI
+.I "@man_config_file@"
+.SH AUTOR
+Pierwotnym autorem programu
+.BR "man"
+jest John W. Eaton.
+Zeyd M. Ben-Halim opublikowa³ man w wersji 1.2, a Andries Brouwer wersje od 1.3 do 1.5p.
+Aktualnym opiekunem jest Federico Lucifredi <flucifredi@acm.org>.
 .SH "ZOBACZ TAK¯E"
 col(1), (g)eqn(1), (g)pic(1), groff(1), grotty(1), (g)refer(1), (g)tbl(1),
 less(1), man (1) i compress(1), gzip(1).

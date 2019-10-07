@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -66,14 +66,18 @@ __SCNetworkSetCopyDescription(CFTypeRef cf)
 {
 	CFAllocatorRef		allocator	= CFGetAllocator(cf);
 	CFMutableStringRef      result;
-	SCNetworkSetPrivateRef	setPrivate	= (SCNetworkSetPrivateRef)cf;
+	SCNetworkSetRef		set		= (SCNetworkSetRef)cf;
+	SCNetworkSetPrivateRef	setPrivate	= (SCNetworkSetPrivateRef)set;
 
 	result = CFStringCreateMutable(allocator, 0);
-	CFStringAppendFormat(result, NULL, CFSTR("<SCNetworkSet %p [%p]> {"), cf, allocator);
+	CFStringAppendFormat(result, NULL, CFSTR("<SCNetworkSet %p [%p]> {"), set, allocator);
 	CFStringAppendFormat(result, NULL, CFSTR("id = %@"), setPrivate->setID);
 	CFStringAppendFormat(result, NULL, CFSTR(", prefs = %p"), setPrivate->prefs);
 	if (setPrivate->name != NULL) {
 		CFStringAppendFormat(result, NULL, CFSTR(", name = %@"), setPrivate->name);
+	}
+	if (!__SCNetworkSetExists(set)) {
+		CFStringAppendFormat(result, NULL, CFSTR(", REMOVED"));
 	}
 	CFStringAppendFormat(result, NULL, CFSTR("}"));
 
@@ -179,15 +183,42 @@ _serviceOrder(SCNetworkServiceRef service)
 }
 
 
+static CFIndex
+_serviceOrder_clear(CFMutableArrayRef order, CFStringRef serviceID)
+{
+	CFIndex	f;	// # of serviceID's found
+	CFIndex	i;
+	CFIndex	n;
+
+	f = 0;
+	i = 0;
+	n = CFArrayGetCount(order);
+	while (i < n) {
+		CFStringRef	thisServiceID	= CFArrayGetValueAtIndex(order, i);
+
+		if (CFEqual(thisServiceID, serviceID)) {
+			// remove the serviceID
+			CFArrayRemoveValueAtIndex(order, i);
+			n--;
+			f++;
+			continue;
+		}
+
+		i++;	// move to the next serviceID
+	}
+
+	return f;
+}
+
+
 static void
 _serviceOrder_add(SCNetworkSetRef set, SCNetworkServiceRef service)
 {
-	CFIndex			i;
 	CFIndex			n;
 	CFMutableArrayRef	newOrder;
 	CFArrayRef		order;
-	CFStringRef		serviceID;
-	CFIndex			serviceOrder;
+	CFStringRef		serviceID	= SCNetworkServiceGetServiceID(service);
+	CFIndex			serviceOrder	= _serviceOrder(service);
 	SCNetworkSetPrivateRef	setPrivate	= (SCNetworkSetPrivateRef)set;
 	CFIndex			slot;
 
@@ -198,18 +229,18 @@ _serviceOrder_add(SCNetworkSetRef set, SCNetworkServiceRef service)
 		newOrder = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	}
 	assert(newOrder != NULL);
-	n = CFArrayGetCount(newOrder);
 
-	serviceID = SCNetworkServiceGetServiceID(service);
-	if (CFArrayContainsValue(newOrder, CFRangeMake(0, n), serviceID)) {
-		// if serviceID already present
-		goto done;
+	n = _serviceOrder_clear(newOrder, serviceID);
+	if (n > 0) {
+		SC_log(LOG_ERR, "SCNetworkSetAddService() w/service already in ServiceOrder\n  service = %@\n  matched = %ld",
+		       service,
+		       n);
+		_SC_crash_once("SCNetworkSetAddService() w/service already in ServiceOrder", NULL, NULL);
 	}
 
-	serviceOrder = _serviceOrder(service);
-
 	slot = 0;
-	for (i = 0; i < n; i++) {
+	n = CFArrayGetCount(newOrder);
+	for (CFIndex i = 0; i < n; i++) {
 		int			slotOrder;
 		SCNetworkServiceRef	slotService;
 		CFStringRef		slotServiceID;
@@ -237,9 +268,6 @@ _serviceOrder_add(SCNetworkSetRef set, SCNetworkServiceRef service)
 
 	CFArrayInsertValueAtIndex(newOrder, slot, serviceID);
 	(void) SCNetworkSetSetServiceOrder(set, newOrder);
-
-    done :
-
 	CFRelease(newOrder);
 
 	return;
@@ -249,6 +277,7 @@ _serviceOrder_add(SCNetworkSetRef set, SCNetworkServiceRef service)
 static void
 _serviceOrder_remove(SCNetworkSetRef set, SCNetworkServiceRef service)
 {
+	CFIndex			n;
 	CFMutableArrayRef	newOrder;
 	CFArrayRef		order;
 	CFStringRef		serviceID;
@@ -257,22 +286,17 @@ _serviceOrder_remove(SCNetworkSetRef set, SCNetworkServiceRef service)
 	if (order == NULL) {
 		return;
 	}
+	newOrder = CFArrayCreateMutableCopy(NULL, 0, order);
 
 	serviceID = SCNetworkServiceGetServiceID(service);
 
-	newOrder = CFArrayCreateMutableCopy(NULL, 0, order);
-	while (TRUE) {
-		CFIndex	i;
-
-		i = CFArrayGetFirstIndexOfValue(newOrder,
-						CFRangeMake(0, CFArrayGetCount(newOrder)),
-						serviceID);
-		if (i == kCFNotFound) {
-			break;
-		}
-
-		CFArrayRemoveValueAtIndex(newOrder, i);
+	n = _serviceOrder_clear(newOrder, serviceID);
+	if (n > 1) {
+		SC_log(LOG_ERR, "SCNetworkSetRemoveService() w/multiple instances of service in ServiceOrder\n  service = %@\n  count = %ld",
+		       service,
+		       n);
 	}
+
 	(void) SCNetworkSetSetServiceOrder(set, newOrder);
 	CFRelease(newOrder);
 
@@ -284,11 +308,61 @@ _serviceOrder_remove(SCNetworkSetRef set, SCNetworkServiceRef service)
 #pragma mark SCNetworkSet APIs
 
 
+#define DEFAULT_SET_NAME	CFSTR("Automatic")
 #define	N_QUICK	16
 
 
-#define PREVENT_DUPLICATE_SERVICE_NAMES
-#ifdef  PREVENT_DUPLICATE_SERVICE_NAMES
+static CFStringRef
+copy_default_set_name(Boolean loc)
+{
+	CFStringRef		name;
+	static CFStringRef	non_localized	= NULL;
+	static CFStringRef	localized	= NULL;
+
+	if (!loc) {
+		static dispatch_once_t	once;
+
+		dispatch_once(&once, ^{
+			CFBundleRef	bundle;
+
+			bundle = _SC_CFBundleGet();
+			if (bundle != NULL) {
+				non_localized = _SC_CFBundleCopyNonLocalizedString(bundle,
+										   CFSTR("DEFAULT_SET_NAME"),
+										   DEFAULT_SET_NAME,
+										   NULL);
+			}
+		});
+		name = non_localized;
+	} else {
+		static dispatch_once_t	once;
+
+		dispatch_once(&once, ^{
+			CFBundleRef	bundle;
+
+			bundle = _SC_CFBundleGet();
+			if (bundle != NULL) {
+				localized = CFBundleCopyLocalizedString(bundle,
+									CFSTR("DEFAULT_SET_NAME"),
+									DEFAULT_SET_NAME,
+									NULL);
+			}
+		});
+		name = localized;
+	}
+
+	if (name == NULL) {
+		// if bundle or localized names not available
+		name = DEFAULT_SET_NAME;
+	}
+
+	CFRetain(name);
+	return name;
+}
+
+
+#define	PREVENT_DUPLICATE_SERVICE_NAMES
+#ifdef	PREVENT_DUPLICATE_SERVICE_NAMES
 static CFStringRef
 copy_next_name(CFStringRef name)
 {
@@ -404,6 +478,23 @@ SCNetworkSetAddService(SCNetworkSetRef set, SCNetworkServiceRef service)
 	}
 
 	if (!isA_SCNetworkService(service) || (servicePrivate->prefs == NULL)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	if (!__SCNetworkSetExists(set)) {
+		SC_log(LOG_ERR, "SCNetworkSetAddService() w/removed set\n  set = %@\n  service = %@",
+		       set,
+		       service);
+		_SC_crash_once("SCNetworkSetAddService() w/removed set", NULL, NULL);
+		_SCErrorSet(kSCStatusInvalidArgument);
+	}
+
+	if (!__SCNetworkServiceExists(service)) {
+		SC_log(LOG_ERR, "SCNetworkSetAddService() w/removed service\n  set = %@\n  service =  %@",
+		       set,
+		       service);
+		_SC_crash_once("SCNetworkSetAddService() w/removed service", NULL, NULL);
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
@@ -873,7 +964,7 @@ SCNetworkSetCreate(SCPreferencesRef prefs)
 SCNetworkSetRef
 _SCNetworkSetCreateDefault(SCPreferencesRef prefs)
 {
-	CFBundleRef	bundle;
+	CFStringRef	model;
 	Boolean		ok		= TRUE;
 	SCNetworkSetRef	set;
 	CFStringRef	setName		= NULL;
@@ -894,15 +985,9 @@ _SCNetworkSetCreateDefault(SCPreferencesRef prefs)
 		goto done;
 	}
 
-	bundle = _SC_CFBundleGet();
-	if (bundle != NULL) {
-		setName = CFBundleCopyLocalizedString(bundle,
-						      CFSTR("DEFAULT_SET_NAME"),
-						      CFSTR("Automatic"),
-						      NULL);
-	}
-
-	ok = SCNetworkSetSetName(set, (setName != NULL) ? setName : CFSTR("Automatic"));
+	setName = copy_default_set_name(TRUE);
+	ok = SCNetworkSetSetName(set, setName);
+	CFRelease(setName);
 	if (!ok) {
 		// if we could not save the new set's "name"
 		SC_log(LOG_NOTICE, "could not save the new set's name: %s",
@@ -918,6 +1003,12 @@ _SCNetworkSetCreateDefault(SCPreferencesRef prefs)
 //		goto done;
 	}
 
+	model = SCPreferencesGetValue(prefs, MODEL);
+	if (model == NULL) {
+		model = _SC_hw_model(FALSE);
+		SCPreferencesSetValue(prefs, MODEL, model);
+	}
+
     done :
 
 	if (!ok && (set != NULL)) {
@@ -925,7 +1016,6 @@ _SCNetworkSetCreateDefault(SCPreferencesRef prefs)
 		CFRelease(set);
 		set = NULL;
 	}
-	if (setName != NULL) CFRelease(setName);
 	return set;
 }
 
@@ -947,7 +1037,6 @@ SCNetworkSetGetSetID(SCNetworkSetRef set)
 CFStringRef
 SCNetworkSetGetName(SCNetworkSetRef set)
 {
-	CFBundleRef		bundle;
 	CFDictionaryRef		entity;
 	CFStringRef		path;
 	SCNetworkSetPrivateRef	setPrivate	= (SCNetworkSetPrivateRef)set;
@@ -974,33 +1063,20 @@ SCNetworkSetGetName(SCNetworkSetRef set)
 		}
 	}
 
-	bundle = _SC_CFBundleGet();
-	if (bundle != NULL) {
-		if (setPrivate->name != NULL) {
-			CFStringRef	non_localized;
+	if (setPrivate->name != NULL) {
+		CFStringRef	non_localized;
 
-			non_localized = _SC_CFBundleCopyNonLocalizedString(bundle,
-									   CFSTR("DEFAULT_SET_NAME"),
-									   CFSTR("Automatic"),
-									   NULL);
-			if (non_localized != NULL) {
-				if (CFEqual(setPrivate->name, non_localized)) {
-					CFStringRef	localized;
+		non_localized = copy_default_set_name(FALSE);
+		if (CFEqual(setPrivate->name, non_localized)) {
+			CFStringRef	localized;
 
-					// if "Automatic", return localized name
-					localized = CFBundleCopyLocalizedString(bundle,
-										CFSTR("DEFAULT_SET_NAME"),
-										CFSTR("Automatic"),
-										NULL);
-					if (localized != NULL) {
-						CFRelease(setPrivate->name);
-						setPrivate->name = localized;
-					}
-				}
-
-				CFRelease(non_localized);
-			}
+			// if "Automatic", return localized name
+			localized = copy_default_set_name(TRUE);
+			CFRelease(setPrivate->name);
+			setPrivate->name = localized;
 		}
+
+		CFRelease(non_localized);
 	}
 
 	return setPrivate->name;
@@ -1046,6 +1122,24 @@ SCNetworkSetGetTypeID(void)
 }
 
 
+#if	TARGET_OS_IPHONE
+static Boolean
+isDefaultSet(SCNetworkSetRef set)
+{
+	CFStringRef	defaultName;
+	Boolean		isDefault	= FALSE;
+	CFStringRef	setName;
+
+	defaultName = copy_default_set_name(TRUE);
+	setName = SCNetworkSetGetName(set);
+	isDefault = _SC_CFEqual(setName, defaultName);
+	CFRelease(defaultName);
+
+	return isDefault;
+}
+#endif	// TARGET_OS_IPHONE
+
+
 Boolean
 SCNetworkSetRemove(SCNetworkSetRef set)
 {
@@ -1058,6 +1152,21 @@ SCNetworkSetRemove(SCNetworkSetRef set)
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
+
+	if (!__SCNetworkSetExists(set)) {
+		SC_log(LOG_ERR, "SCNetworkSetRemove() w/removed set\n  set = %@", set);
+		_SC_crash_once("SCNetworkSetRemove() w/removed set", NULL, NULL);
+		_SCErrorSet(kSCStatusInvalidArgument);
+	}
+
+#if	TARGET_OS_IPHONE
+	if (isDefaultSet(set) && (geteuid() != 0)) {
+		SC_log(LOG_ERR, "SCNetworkSetRemove() failed, cannot remove set : %@", set);
+		_SC_crash("The \"Automatic\" network set cannot be removed", NULL, NULL);
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+#endif	// TARGET_OS_IPHONE
 
 	currentPath = SCPreferencesGetValue(setPrivate->prefs, kSCPrefCurrentSet);
 	path = SCPreferencesPathKeyCreateSet(NULL, setPrivate->setID);
@@ -1094,6 +1203,23 @@ SCNetworkSetRemoveService(SCNetworkSetRef set, SCNetworkServiceRef service)
 	}
 
 	if (!isA_SCNetworkService(service) || (servicePrivate->prefs == NULL)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	if (!__SCNetworkSetExists(set)) {
+		SC_log(LOG_ERR, "SCNetworkSetRemoveService() w/removed set\n  set = %@\n  service = %@",
+		       set,
+		       service);
+		_SC_crash_once("SCNetworkSetRemoveService() w/removed set", NULL, NULL);
+		_SCErrorSet(kSCStatusInvalidArgument);
+	}
+
+	if (!__SCNetworkServiceExists(service)) {
+		SC_log(LOG_ERR, "SCNetworkSetRemoveService() w/removed service\n  set = %@\n  service = %@",
+		       set,
+		       service);
+		_SC_crash_once("SCNetworkSetRemoveService() w/removed service", NULL, NULL);
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
@@ -1150,6 +1276,13 @@ SCNetworkSetSetCurrent(SCNetworkSetRef set)
 		return FALSE;
 	}
 
+	if (!__SCNetworkSetExists(set)) {
+		SC_log(LOG_ERR, "SCNetworkSetSetCurrent() w/removed set\n  set = %@", set);
+		_SC_crash_once("SCNetworkSetSetCurrent() w/removed set", NULL, NULL);
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
 	path = SCPreferencesPathKeyCreateSet(NULL, setPrivate->setID);
 	ok = SCPreferencesSetValue(setPrivate->prefs, kSCPrefCurrentSet, path);
 	CFRelease(path);
@@ -1165,8 +1298,10 @@ SCNetworkSetSetCurrent(SCNetworkSetRef set)
 Boolean
 SCNetworkSetSetName(SCNetworkSetRef set, CFStringRef name)
 {
-	CFBundleRef		bundle		= NULL;
 	CFDictionaryRef		entity;
+#if	TARGET_OS_IPHONE
+	Boolean			isDefaultName	= FALSE;
+#endif	// TARGET_OS_IPHONE
 	CFStringRef		localized	= NULL;
 	CFStringRef		non_localized	= NULL;
 	Boolean			ok		= FALSE;
@@ -1174,6 +1309,15 @@ SCNetworkSetSetName(SCNetworkSetRef set, CFStringRef name)
 	SCNetworkSetPrivateRef	setPrivate	= (SCNetworkSetPrivateRef)set;
 
 	if (!isA_SCNetworkSet(set)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	if (!__SCNetworkSetExists(set)) {
+		SC_log(LOG_ERR, "SCNetworkSetSetName() w/removed set\n  set = %@\n  name = %@",
+		       set,
+		       name != NULL ? name : CFSTR("<NULL>"));
+		_SC_crash_once("SCNetworkSetSetName() w/removed set", NULL, NULL);
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
@@ -1186,28 +1330,42 @@ SCNetworkSetSetName(SCNetworkSetRef set, CFStringRef name)
 	// if known, compare against localized name
 
 	if (name != NULL) {
-		bundle = _SC_CFBundleGet();
-		if (bundle != NULL) {
-			non_localized = _SC_CFBundleCopyNonLocalizedString(bundle,
-									   CFSTR("DEFAULT_SET_NAME"),
-									   CFSTR("Automatic"),
-									   NULL);
-			if (non_localized != NULL) {
-				if (CFEqual(name, non_localized)) {
-					localized = CFBundleCopyLocalizedString(bundle,
-										CFSTR("DEFAULT_SET_NAME"),
-										CFSTR("Automatic"),
-										NULL);
-					if (localized != NULL) {
-						name = localized;
-					}
-				}
-			}
+		non_localized = copy_default_set_name(FALSE);
+		if (CFEqual(name, non_localized)) {
+			localized = copy_default_set_name(TRUE);
+			name = localized;
+#if	TARGET_OS_IPHONE
+			isDefaultName = TRUE;
+#endif	// TARGET_OS_IPHONE
 		}
+#if	TARGET_OS_IPHONE
+		else {
+			localized = copy_default_set_name(TRUE);
+			isDefaultName = CFEqual(name, non_localized);
+		}
+#endif	// TARGET_OS_IPHONE
 	}
 
-#define PREVENT_DUPLICATE_SET_NAMES
-#ifdef  PREVENT_DUPLICATE_SET_NAMES
+#if	TARGET_OS_IPHONE
+	if (!isDefaultName && isDefaultSet(set) && (geteuid() != 0)) {
+		// if we are trying to change the name of the "Automatic" set
+		SC_log(LOG_ERR, "SCNetworkSetSetName() failed, cannot rename : %@", set);
+		_SC_crash("The \"Automatic\" network set cannot be renamed", NULL, NULL);
+		_SCErrorSet(kSCStatusInvalidArgument);
+		goto done;
+	}
+#endif	// TARGET_OS_IPHONE
+
+#define	PREVENT_DUPLICATE_SET_NAMES
+#ifdef	PREVENT_DUPLICATE_SET_NAMES
+
+#if	TARGET_OS_IPHONE
+	if (!isDefaultName) {
+		// On iOS, only block naming multiple sets with the name
+		// "Automatic".  Others names are OK.
+	} else
+#endif	// TARGET_OS_IPHONE
+
 	if (name != NULL) {
 		CFArrayRef      sets;
 
@@ -1244,18 +1402,12 @@ SCNetworkSetSetName(SCNetworkSetRef set, CFStringRef name)
 
 	// if known, store non-localized name
 
-	if ((name != NULL) && (bundle != NULL) && (non_localized != NULL)) {
+	if ((name != NULL) && (non_localized != NULL)) {
 		if (localized == NULL) {
-			localized = CFBundleCopyLocalizedString(bundle,
-								CFSTR("DEFAULT_SET_NAME"),
-								CFSTR("Automatic"),
-								NULL);
+			localized = copy_default_set_name(TRUE);
 		}
-
-		if (localized != NULL) {
-			if (CFEqual(name, localized)) {
-				name = non_localized;
-			}
+		if (CFEqual(name, localized)) {
+			name = non_localized;
 		}
 	}
 
@@ -1300,7 +1452,10 @@ SCNetworkSetSetName(SCNetworkSetRef set, CFStringRef name)
 Boolean
 SCNetworkSetSetServiceOrder(SCNetworkSetRef set, CFArrayRef newOrder)
 {
+	CFMutableArrayRef	cleanOrder;
 	CFDictionaryRef		dict;
+	CFIndex			i;
+	CFIndex			n;
 	CFMutableDictionaryRef  newDict;
 	Boolean			ok;
 	CFStringRef		path;
@@ -1311,10 +1466,15 @@ SCNetworkSetSetServiceOrder(SCNetworkSetRef set, CFArrayRef newOrder)
 		return FALSE;
 	}
 
-	if (isA_CFArray(newOrder)) {
-		CFIndex	i;
-		CFIndex	n	= CFArrayGetCount(newOrder);
+	if (!__SCNetworkSetExists(set)) {
+		SC_log(LOG_ERR, "SCNetworkSetSetServiceOrder() w/removed set\n  set = %@", set);
+		_SC_crash_once("SCNetworkSetSetServiceOrder() w/removed set", NULL, NULL);
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
 
+	if (isA_CFArray(newOrder)) {
+		n = CFArrayGetCount(newOrder);
 		for (i = 0; i < n; i++) {
 			CFStringRef	serviceID;
 
@@ -1344,7 +1504,24 @@ SCNetworkSetSetServiceOrder(SCNetworkSetRef set, CFArrayRef newOrder)
 						    &kCFTypeDictionaryValueCallBacks);
 	}
 
-	CFDictionarySetValue(newDict, kSCPropNetServiceOrder, newOrder);
+	cleanOrder = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	n = CFArrayGetCount(newOrder);
+	for (i = 0; i < n; i++) {
+		CFIndex		nClean		= CFArrayGetCount(cleanOrder);
+		CFStringRef	serviceID	= CFArrayGetValueAtIndex(newOrder, i);
+
+		if ((nClean == 0) ||
+		    !CFArrayContainsValue(cleanOrder, CFRangeMake(0, nClean), serviceID)) {
+			// if first reference to this serviceID
+			CFArrayAppendValue(cleanOrder, serviceID);
+		} else {
+			// skip duplicate serviceID
+			SC_log(LOG_ERR, "SCNetworkSetSetServiceOrder() found duplicate serviceID: removed %@\n", serviceID);
+		}
+	}
+	CFDictionarySetValue(newDict, kSCPropNetServiceOrder, cleanOrder);
+	CFRelease(cleanOrder);
+
 	ok = SCPreferencesPathSetValue(setPrivate->prefs, path, newDict);
 	CFRelease(newDict);
 	CFRelease(path);
@@ -1355,6 +1532,31 @@ SCNetworkSetSetServiceOrder(SCNetworkSetRef set, CFArrayRef newOrder)
 
 #pragma mark -
 #pragma mark SCNetworkSet SPIs
+
+
+__private_extern__
+Boolean
+__SCNetworkSetExists(SCNetworkSetRef set)
+{
+	CFDictionaryRef			entity;
+	CFStringRef			path;
+	SCNetworkSetPrivateRef		setPrivate	= (SCNetworkSetPrivateRef)set;
+
+	if (setPrivate->prefs == NULL) {
+		return FALSE;
+	}
+
+	path = SCPreferencesPathKeyCreateSet(NULL, setPrivate->setID);
+	entity = SCPreferencesPathGetValue(setPrivate->prefs, path);
+	CFRelease(path);
+
+	if (!isA_CFDictionary(entity)) {
+		// if no "set"
+		return FALSE;
+	}
+
+	return TRUE;
+}
 
 
 static void
@@ -1492,7 +1694,7 @@ copyServices(SCNetworkSetRef set)
 
 
 #if	!TARGET_OS_IPHONE
-static CFArrayRef
+static CF_RETURNS_RETAINED CFArrayRef
 updateServices(CFArrayRef services, SCNetworkInterfaceRef interface)
 {
 	CFStringRef		bsdName;
@@ -1591,7 +1793,7 @@ _SCNetworkSetCompare(const void *val1, const void *val2, void *context)
 static Boolean
 __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CFArrayRef interfaces, Boolean excludeHidden)
 {
-	CFSetRef		excluded	= NULL;
+	CFSetRef		excluded;
 	CFIndex			i;
 	CFIndex			n		= 0;
 	Boolean			ok		= TRUE;
@@ -1635,7 +1837,7 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 #if	!TARGET_OS_IPHONE
 	// look for interfaces that should auto-magically be added
 	// to an Ethernet bridge
-	n = (interfaces != NULL) ? CFArrayGetCount(interfaces) : 0;
+	n = ((services != NULL) && (interfaces != NULL)) ? CFArrayGetCount(interfaces) : 0;
 	for (i = 0; i < n; i++) {
 		SCBridgeInterfaceRef	bridge		= NULL;
 		SCNetworkInterfaceRef	interface;
@@ -1647,8 +1849,7 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 			continue;
 		}
 
-		if ((excluded != NULL)
-		    && CFSetContainsValue(excluded, interface)) {
+		if (CFSetContainsValue(excluded, interface)) {
 			// if this interface is a member of a Bond or Bridge
 			continue;
 		}
@@ -1728,7 +1929,7 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 	}
 #endif	// !TARGET_OS_IPHONE
 
-	n = (interfaces != NULL) ? CFArrayGetCount(interfaces) : 0;
+	n = ((services != NULL) && (interfaces != NULL)) ? CFArrayGetCount(interfaces) : 0;
 	for (i = 0; i < n; i++) {
 		SCNetworkInterfaceRef	interface;
 		CFMutableArrayRef	interface_list;
@@ -1740,8 +1941,7 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 			continue;
 		}
 
-		if ((excluded != NULL)
-		    && CFSetContainsValue(excluded, interface)) {
+		if (CFSetContainsValue(excluded, interface)) {
 			// if this interface is a member of a Bond or Bridge
 			continue;
 		}
@@ -1805,10 +2005,12 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 		CFRelease(interface_list);
 	}
 #if	!TARGET_OS_IPHONE
-	if (updatedIFs)		CFRelease(interfaces);
+	if (updatedIFs && (interfaces != NULL)) {
+		CFRelease(interfaces);
+	}
 #endif	// !TARGET_OS_IPHONE
 	if (services != NULL)	CFRelease(services);
-	if (excluded != NULL)	CFRelease(excluded);
+	CFRelease(excluded);
 
 #if	TARGET_OS_IPHONE
 	if (orphans != NULL) {
@@ -1833,9 +2035,19 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 	}
 #endif	// TARGET_OS_IPHONE
 
-	if (ok && !updated) {
-		// if no changes were made
-		_SCErrorSet(kSCStatusOK);
+	if (ok) {
+		if (updated) {
+			CFStringRef	model;
+
+			model = SCPreferencesGetValue(setPrivate->prefs, MODEL);
+			if (model == NULL) {
+				model = _SC_hw_model(FALSE);
+				SCPreferencesSetValue(setPrivate->prefs, MODEL, model);
+			}
+		} else {
+			// if no changes were made
+			_SCErrorSet(kSCStatusOK);
+		}
 	}
 
 	return updated;
@@ -2054,6 +2266,15 @@ _SCNetworkSetSetSetID(SCNetworkSetRef set, CFStringRef newSetID)
 	}
 
 	if (!isA_CFString(newSetID)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	if (!__SCNetworkSetExists(set)) {
+		SC_log(LOG_ERR, "_SCNetworkSetSetSetID() w/removed set\n  set = %@\n  setID = %@",
+		       set,
+		       newSetID);
+		_SC_crash_once("_SCNetworkSetSetSetID() w/removed set", NULL, NULL);
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}

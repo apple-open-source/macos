@@ -167,7 +167,7 @@ cd_builtin (list)
 
       if (dirname == 0)
 	{
-	  builtin_error (_("HOME not set"));
+	  builtin_error ("%s", _("HOME not set"));
 	  return (EXECUTION_FAILURE);
 	}
       lflag = 0;
@@ -179,7 +179,7 @@ cd_builtin (list)
 
       if (dirname == 0)
 	{
-	  builtin_error (_("OLDPWD not set"));
+	  builtin_error ("%s", _("OLDPWD not set"));
 	  return (EXECUTION_FAILURE);
 	}
 #if 0

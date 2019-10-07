@@ -45,6 +45,7 @@ typedef struct __IOHIDValue
     CFRuntimeBase               cfBase;   // base CFType information
     
     IOHIDElementRef             element;
+    bool                        weakElementRef;
     uint64_t                    timeStamp;
     uint32_t                    length;
     uint8_t *                   bytePtr;
@@ -104,8 +105,8 @@ IOHIDValueRef __IOHIDValueCreatePrivate(CFAllocatorRef allocator, CFAllocatorCon
 void __IOHIDValueRelease( CFTypeRef object )
 {
     IOHIDValueRef event = ( IOHIDValueRef ) object;
-
-    if (event->element) CFRelease(event->element);
+    
+    if (event->element && !event->weakElementRef) CFRelease(event->element);
 }
 
 IOHIDValueRef _IOHIDValueCreateWithElementValuePtr(CFAllocatorRef allocator, IOHIDElementRef element, IOHIDElementValue * pElementValue)
@@ -228,6 +229,28 @@ IOHIDValueRef IOHIDValueCreateWithBytesNoCopy(CFAllocatorRef allocator, IOHIDEle
     event->bytePtr      = (uint8_t *)bytes;
     
     return event;
+}
+
+// creates a IOHIDValueRef that doesn't cause a retain cycle between element <-> value
+// the assumption here is that the value will only exist during the lifetime
+// of the element.
+IOHIDValueRef _IOHIDValueCreateWithValue(CFAllocatorRef allocator, IOHIDValueRef value, IOHIDElementRef element)
+{
+    IOHIDValueRef result = NULL;
+    
+    result = __IOHIDValueCreatePrivate(allocator, NULL, value->length);
+    
+    if (!result) {
+        return NULL;
+    }
+    
+    result->element         = element; // NO RETAIN!
+    result->weakElementRef  = true; // So we don't release later
+    result->timeStamp       = value->timeStamp;
+    result->length          = value->length;
+    bcopy(value->bytes, result->bytes, value->length);
+    
+    return result;
 }
 
 

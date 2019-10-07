@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -147,7 +147,7 @@ static int process_interface_prefs(struct vpn_params *params)
 		params->serverSubTypeRef = NULL;
 		return -1;
 	}
-	path_len = CFStringGetLength(params->serverSubTypeRef) + 5;
+	path_len = (int)(CFStringGetLength(params->serverSubTypeRef) + 5);
 	params->plugin_path = malloc(path_len); 
 	CFStringGetCString(params->serverSubTypeRef, params->plugin_path, 
 						path_len, kCFStringEncodingUTF8);
@@ -163,9 +163,7 @@ static int process_interface_prefs(struct vpn_params *params)
 	// add the vpn protocol plugin parameter to the exec args
 	addstrparam(params->exec_args, &params->next_arg_index, "plugin", params->plugin_path);
 
-	if (CFStringCompare(params->serverSubTypeRef, kRASValInterfaceSubTypePPTP, 0) == kCFCompareEqualTo)
-		params->server_subtype = PPP_TYPE_PPTP;
-	else if (CFStringCompare(params->serverSubTypeRef, kRASValInterfaceSubTypeL2TP, 0) == kCFCompareEqualTo)
+	if (CFStringCompare(params->serverSubTypeRef, kRASValInterfaceSubTypeL2TP, 0) == kCFCompareEqualTo)
 		params->server_subtype = PPP_TYPE_L2TP;
 	else if (CFStringCompare(params->serverSubTypeRef, kRASValInterfaceSubTypePPPoE, 0) == kCFCompareEqualTo)
 		params->server_subtype = PPP_TYPE_PPPoE;
@@ -188,7 +186,7 @@ static int process_ipv4_prefs(struct vpn_params *params)
     CFStringRef		ipstr = 0, ipstr2 = 0;
     CFDictionaryRef	dict;
     char 		str[MAXPATHLEN];
-    uint32_t 		i, nb, len;
+	uint32_t 		i, nb, len;
     char		ipcstr[100], ipcstr2[100], ip_addr[100], ip_addr2[100];
     char		*ip, *ip2;
 
@@ -218,7 +216,7 @@ static int process_ipv4_prefs(struct vpn_params *params)
             array  = CFDictionaryGetValue(dict, kRASPropIPv4DestAddresses);
             if (isArray(array)) {
             
-                nb = CFArrayGetCount(array);
+                nb = (int)CFArrayGetCount(array);
                 for (i = 0; i < nb; i++) {
                     ipstr = CFArrayGetValueAtIndex(array, i);
                     if (isString(ipstr)) {
@@ -240,7 +238,7 @@ static int process_ipv4_prefs(struct vpn_params *params)
                 if (CFArrayGetCount(array) % 2)
                     vpnlog(LOG_ERR, "Error - ip address ranges must be in pairs\n");
                 else {
-                    nb = CFArrayGetCount(array);
+                    nb = (int)CFArrayGetCount(array);
                     for (i = 0; i < nb; i += 2) {
                         ipstr = CFArrayGetValueAtIndex(array, i);
                         ipstr2 = CFArrayGetValueAtIndex(array, i+1);
@@ -310,7 +308,7 @@ static int process_dns_prefs(struct vpn_params *params)
         if (isDictionary(dict)) {
             array = CFDictionaryGetValue(dict, kRASPropDNSOfferedServerAddresses);
             if (isArray(array)) {
-                count = CFArrayGetCount(array);
+                count = (int)CFArrayGetCount(array);
                 if (count == 0) {		// array is present but empty - get addresses from dynamic store
                     key = SCDynamicStoreKeyCreateNetworkGlobalEntity(0, kSCDynamicStoreDomainState, kSCEntNetDNS);
                     if (key) {
@@ -318,7 +316,7 @@ static int process_dns_prefs(struct vpn_params *params)
                         if (isDictionary(ref)) {
                             array = CFDictionaryGetValue(ref, kSCPropNetDNSServerAddresses);
                             if (isArray(array))
-                                count = CFArrayGetCount(array);
+                                count = (int)CFArrayGetCount(array);
                         }
                         CFRelease(key);
                     }
@@ -424,9 +422,6 @@ static int process_ppp_prefs(struct vpn_params *params)
         case PPP_TYPE_PPPoE:
             lval = OPT_LCP_MRU_PPPoE_DEF;
             break;
-        case PPP_TYPE_PPTP:
-            lval = OPT_LCP_MRU_PPTP_DEF;
-            break;
         case PPP_TYPE_L2TP:
             lval = OPT_LCP_MRU_L2TP_DEF;
             break;
@@ -440,9 +435,6 @@ static int process_ppp_prefs(struct vpn_params *params)
     switch (params->server_subtype) {
         case PPP_TYPE_PPPoE:
             lval = OPT_LCP_MTU_PPPoE_DEF;
-            break;
-        case PPP_TYPE_PPTP:
-            lval = OPT_LCP_MTU_PPTP_DEF;
             break;
         case PPP_TYPE_L2TP:
             lval = OPT_LCP_MTU_L2TP_DEF;
@@ -694,7 +686,7 @@ int ppp_check_conflicts(struct vpn_params *params)
     CFStringRef			pattern, key;
     CFStringRef			type, subtype;
     CFPropertyListRef		ref;
-    int				count, i, ret = 0;
+	int				count, i, ret = 0;
     char			str[OPT_STR_LEN];
 
     pattern = CFStringCreateWithFormat(0, 0, CFSTR("%@/%@/%@/%s/%@"), kSCDynamicStoreDomainState, 
@@ -702,7 +694,7 @@ int ppp_check_conflicts(struct vpn_params *params)
 
     if (pattern) {
         if ((array = SCDynamicStoreCopyKeyList(params->storeRef, pattern))) {
-            count = CFArrayGetCount(array);
+            count = (int)CFArrayGetCount(array);
             for (i = 0; i < count; i++) {
                 key = CFArrayGetValueAtIndex(array, i);
                 if (key) {
@@ -743,7 +735,7 @@ int ppp_kill_orphans(struct vpn_params* params)
     CFStringRef			server_id;
     CFNumberRef			pidRef;
     CFPropertyListRef		interface_dict, ppp_dict;
-    int				count, i, pid;
+	int				count, i, pid;
     int				ret = 0;
     
     pattern = CFStringCreateWithFormat(0, 0, CFSTR("%@/%@/%@/%s/%@"), kSCDynamicStoreDomainState, 
@@ -751,7 +743,7 @@ int ppp_kill_orphans(struct vpn_params* params)
     
     if (pattern) {
         if ((array = SCDynamicStoreCopyKeyList(params->storeRef, pattern))) {
-            count = CFArrayGetCount(array);
+            count = (int)CFArrayGetCount(array);
             // for each pppd - check if server id is the same as ours
             for (i = 0; i < count; i++) {
                 key = CFArrayGetValueAtIndex(array, i);

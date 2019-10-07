@@ -33,7 +33,6 @@
 #include "pkcs12Debug.h"
 #include <security_asn1/nssUtils.h>
 #include <Security/secasn1t.h>
-#include <security_utilities/devrandom.h>
 #include <security_utilities/errors.h>
 #include <security_cdsa_utils/cuCdsaUtils.h>
 #include <Security/oidsattr.h>
@@ -483,9 +482,8 @@ void p12GenSalt(
 	CSSM_DATA &salt,
 	SecNssCoder &coder)
 {
-	DevRandomGenerator rng;
 	coder.allocItem(salt, P12_SALT_LEN);
-	rng.random(salt.Data, P12_SALT_LEN);
+    MacOSError::check(SecRandomCopyBytes(kSecRandomDefault, P12_SALT_LEN, salt.Data));
 }
 
 /* 
@@ -498,8 +496,7 @@ void p12GenLabel(
 {
 	/* first a random uint32 */
 	uint8 d[4];
-	DevRandomGenerator rng;
-	rng.random(d, 4);
+    MacOSError::check(SecRandomCopyBytes(kSecRandomDefault, 4, d));
 	CSSM_DATA cd = {4, d};
 	uint32 i;
 	p12DataToInt(cd, i);

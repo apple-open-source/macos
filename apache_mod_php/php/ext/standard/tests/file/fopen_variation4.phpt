@@ -5,9 +5,9 @@ Dave Kelsey <d_kelsey@uk.ibm.com>
 --FILE--
 <?php
 /* Prototype  : resource fopen(string filename, string mode [, bool use_include_path [, resource context]])
- * Description: Open a file or a URL and return a file pointer 
+ * Description: Open a file or a URL and return a file pointer
  * Source code: ext/standard/file.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing fopen() : usage variation ***\n";
@@ -103,7 +103,7 @@ $inputs = array(
 
       // unset data
       'unset var' => @$unset_var,
-      
+
       //file resource
       'file resource' => $fileresource
 );
@@ -130,19 +130,19 @@ fclose($fileresource);
 *** Testing fopen() : usage variation ***
 
 --int 0--
-Error: 2 - fopen() expects parameter 4 to be resource, integer given, %s(%d)
+Error: 2 - fopen() expects parameter 4 to be resource, int given, %s(%d)
 bool(false)
 
 --int 1--
-Error: 2 - fopen() expects parameter 4 to be resource, integer given, %s(%d)
+Error: 2 - fopen() expects parameter 4 to be resource, int given, %s(%d)
 bool(false)
 
 --int 12345--
-Error: 2 - fopen() expects parameter 4 to be resource, integer given, %s(%d)
+Error: 2 - fopen() expects parameter 4 to be resource, int given, %s(%d)
 bool(false)
 
 --int -12345--
-Error: 2 - fopen() expects parameter 4 to be resource, integer given, %s(%d)
+Error: 2 - fopen() expects parameter 4 to be resource, int given, %s(%d)
 bool(false)
 
 --float 10.5--
@@ -182,27 +182,25 @@ Error: 2 - fopen() expects parameter 4 to be resource, array given, %s(%d)
 bool(false)
 
 --uppercase NULL--
-Error: 2 - fopen() expects parameter 4 to be resource, null given, %s(%d)
-bool(false)
+ok
 
 --lowercase null--
-Error: 2 - fopen() expects parameter 4 to be resource, null given, %s(%d)
-bool(false)
+ok
 
 --lowercase true--
-Error: 2 - fopen() expects parameter 4 to be resource, boolean given, %s(%d)
+Error: 2 - fopen() expects parameter 4 to be resource, bool given, %s(%d)
 bool(false)
 
 --lowercase false--
-Error: 2 - fopen() expects parameter 4 to be resource, boolean given, %s(%d)
+Error: 2 - fopen() expects parameter 4 to be resource, bool given, %s(%d)
 bool(false)
 
 --uppercase TRUE--
-Error: 2 - fopen() expects parameter 4 to be resource, boolean given, %s(%d)
+Error: 2 - fopen() expects parameter 4 to be resource, bool given, %s(%d)
 bool(false)
 
 --uppercase FALSE--
-Error: 2 - fopen() expects parameter 4 to be resource, boolean given, %s(%d)
+Error: 2 - fopen() expects parameter 4 to be resource, bool given, %s(%d)
 bool(false)
 
 --empty string DQ--
@@ -238,12 +236,10 @@ Error: 2 - fopen() expects parameter 4 to be resource, object given, %s(%d)
 bool(false)
 
 --undefined var--
-Error: 2 - fopen() expects parameter 4 to be resource, null given, %s(%d)
-bool(false)
+ok
 
 --unset var--
-Error: 2 - fopen() expects parameter 4 to be resource, null given, %s(%d)
-bool(false)
+ok
 
 --file resource--
 Error: 2 - fopen(): supplied resource is not a valid Stream-Context resource, %s(%d)

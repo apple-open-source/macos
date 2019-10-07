@@ -29,6 +29,20 @@
 #define super IOUserClient
 OSDefineMetaClassAndStructors(KextAuditUserClient, IOUserClient);
 
+const IOExternalMethodDispatch KextAuditUserClient::sMethods[kKextAuditMethodCount] =
+{
+	{
+		reinterpret_cast<IOExternalMethodAction>(&KextAuditUserClient::notifyLoad),
+		0, sizeof(struct KextAuditLoadNotificationKext),
+		0, sizeof(struct KextAuditBridgeResponse)
+	},
+	{
+		reinterpret_cast<IOExternalMethodAction>(&KextAuditUserClient::test),
+		0, sizeof(struct KextAuditLoadNotificationKext),
+		0, sizeof(struct KextAuditBridgeResponse)
+	},
+};
+
 KextAuditBridgeDeviceType
 KextAuditUserClient::getBridgeDeviceType(void)
 {
@@ -62,76 +76,110 @@ KextAuditUserClient::externalMethod(uint32_t selector, IOExternalMethodArguments
                                     IOExternalMethodDispatch *dispatch, OSObject *target, void *reference)
 {
 	IOReturn err = kIOReturnSuccess;
-	struct KextAuditLoadNotificationKext *kaln = (struct KextAuditLoadNotificationKext *)args->structureInput;
-	struct KextAuditBridgeResponse   *kabr = (struct KextAuditBridgeResponse *)args->structureOutput;
 
 	if (!fUserClientHasEntitlement) {
 		DEBUG_LOG("User client does not have entitlement for KextAudit access");
 		err = kIOReturnNotPrivileged;
-	} else if (args->structureInputSize != kKALNStructSize) {
-		DEBUG_LOG("input structure is wrong size (was: %u expected: %d)",
-		          args->structureInputSize, kKALNStructSize);
-		err = kIOReturnBadArgument;
-	} else if (args->structureOutputSize != sizeof(struct KextAuditBridgeResponse)) {
-		DEBUG_LOG("output structure is wrong size (was: %u expected: %lu)",
-		          args->structureInputSize, sizeof(struct KextAuditBridgeResponse));
-		err = kIOReturnBadArgument;
-	}
-	if (err != kIOReturnSuccess) {
 		goto error;
 	}
 
+	if (selector >= kKextAuditMethodCount) {
+		DEBUG_LOG("Invalid selector: %u", selector);
+		err = kIOReturnBadArgument;
+		goto error;
+	}
+	dispatch = (IOExternalMethodDispatch *)&sMethods[selector];
+	target = this;
+	err = IOUserClient::externalMethod(selector, args, dispatch, target, reference);
+error:
+	return err;
+}
+
+IOReturn
+KextAuditUserClient::notifyLoad(KextAuditUserClient *target, void * /* reference */, IOExternalMethodArguments *args)
+{
+	struct KextAuditLoadNotificationKext *kaln = NULL;
+	struct KextAuditBridgeResponse       *kabr = NULL;
+
+	IOReturn err = kIOReturnSuccess;
+	if (!(target && args)) {
+		err = kIOReturnBadArgument;
+		goto error;
+	}
+
+	kaln = (struct KextAuditLoadNotificationKext *)args->structureInput;
+	kabr = (struct KextAuditBridgeResponse *)args->structureOutput;
+
 	/* Fake notification success on non-Gibraltar machines */
-	if (fDeviceType < kKextAuditBridgeDeviceTypeT290) {
+	if (target->fDeviceType < kKextAuditBridgeDeviceTypeT290) {
 		kabr->status = kKALNStatusNoBridge;
 		return kIOReturnSuccess;
 	}
 
-	switch (selector) {
-	case kKextAuditMethodNotifyLoad:
-		if (!VALID_KEXT_LOADTYPE(kaln->loadType)) {
-			err = kIOReturnBadArgument;
-			break;
-		}
-		if (!fProvider->notifyBridgeWithReplySync(kaln, kabr)) {
-			err = kIOReturnError;
-			break;
-		}
-		break;
-#ifdef DEBUG
-	case kKextAuditMethodTest:
-		if (kaln->loadType > kKALTMax) {
-			err = kIOReturnBadArgument;
-			break;
-		} else if (kaln->loadType == kKALTMax) {
-			/*
-			 * use the highest unused loadType value as a test /
-			 * ping with bridgeOS
-			 */
-			if (!fProvider->testBridgeConnection(kabr)) {
-				err = kIOReturnError;
-			}
-			break;
-		} else {
-			/*
-			 * provide a hook that can send other loadTypes to the bridge
-			 * we still use KextAuditLoadNotificationKext, anyway it has
-			 * the same size of the other loadTypes and it is treated as
-			 * raw bytes.
-			 */
-			if (!fProvider->notifyBridgeWithReplySync(kaln, kabr)) {
-				err = kIOReturnError;
-				break;
-			}
-		}
-		break;
-#endif /* DEBUG */
-	default:
-		DEBUG_LOG("Invalid selector");
+	if (!VALID_KEXT_LOADTYPE(kaln->loadType)) {
 		err = kIOReturnBadArgument;
-		break;
+		goto error;
+	}
+	if (!target->fProvider->notifyBridgeWithReplySync(kaln, kabr)) {
+		err = kIOReturnError;
+		goto error;
 	}
 error:
+	return err;
+}
+
+IOReturn
+KextAuditUserClient::test(KextAuditUserClient *target, void * /* reference */, IOExternalMethodArguments *args)
+{
+	IOReturn err = kIOReturnSuccess;
+	struct KextAuditLoadNotificationKext *kaln = NULL;
+	struct KextAuditBridgeResponse       *kabr = NULL;
+#ifdef DEBUG
+	if (!(target && args)) {
+		err = kIOReturnBadArgument;
+		goto error;
+	}
+
+	kaln = (struct KextAuditLoadNotificationKext *)args->structureInput;
+	kabr = (struct KextAuditBridgeResponse *)args->structureOutput;
+
+	/* Fake notification success on non-Gibraltar machines */
+	if (target->fDeviceType < kKextAuditBridgeDeviceTypeT290) {
+		kabr->status = kKALNStatusNoBridge;
+		return kIOReturnSuccess;
+	}
+
+	if (kaln->loadType > kKALTMax) {
+		err = kIOReturnBadArgument;
+		goto error;
+	} else if (kaln->loadType == kKALTMax) {
+		/*
+		 * use the highest unused loadType value as a test /
+		 * ping with bridgeOS
+		 */
+		if (!target->fProvider->testBridgeConnection(kabr)) {
+			err = kIOReturnError;
+		}
+		goto error;
+	} else {
+		/*
+		 * provide a hook that can send other loadTypes to the bridge
+		 * we still use KextAuditLoadNotificationKext, anyway it has
+		 * the same size of the other loadTypes and it is treated as
+		 * raw bytes.
+		 */
+		if (!target->fProvider->notifyBridgeWithReplySync(kaln, kabr)) {
+			err = kIOReturnError;
+			goto error;
+		}
+	}
+error:
+#else
+	(void)target;
+	(void)args;
+	(void)kaln;
+	(void)kabr;
+#endif /* DEBUG */
 	return err;
 }
 

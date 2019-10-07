@@ -24,8 +24,43 @@
 #ifndef OTConstants_h
 #define OTConstants_h
 
+#include <stdbool.h>
+
+bool OctagonIsEnabled(void);
+
+#if __OBJC__
+
 #import <Foundation/Foundation.h>
 
 extern NSString* OTDefaultContext;
+
+extern NSString* const OctagonErrorDomain;
+
+/* used for defaults writes */
+extern NSString* OTDefaultsDomain;
+extern NSString* OTDefaultsOctagonEnable;
+
+extern NSString* OTProtocolPairing;
+extern NSString* OTProtocolPiggybacking;
+
+extern const char * OTTrustStatusChangeNotification;
+
+
+BOOL OctagonPlatformSupportsSOS(void);
+
+// Used for testing.
+void OctagonSetIsEnabled(BOOL value);
+void OctagonSetPlatformSupportsSOS(BOOL value);
+
+BOOL OctagonPerformSOSUpgrade(void);
+void OctagonSetSOSUpgrade(BOOL value);
+
+BOOL OctagonRecoveryKeyIsEnabled(void);
+void OctagonRecoveryKeySetIsEnabled(BOOL value);
+
+BOOL OctagonAuthoritativeTrustIsEnabled(void);
+void OctagonAuthoritativeTrustSetIsEnabled(BOOL value);
+
+#endif // __OBJC__
 
 #endif /* OTConstants_h */

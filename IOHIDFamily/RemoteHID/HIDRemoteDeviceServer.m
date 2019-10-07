@@ -10,12 +10,16 @@
 #import "HIDRemoteSimpleProtocol.h"
 #import "RemoteHIDPrivate.h"
 #import <IOKit/IOKitLib.h>
+#import <IOKit/IOCFUnserialize.h>
+#include <os/state_private.h>
 
 @interface HIDRemoteDevice ()
 
 @property        dispatch_semaphore_t   semaphore;
 @property        NSData *               lastGetReport;
 @property        BOOL                   waitForReport;
+@property        uint32_t               handleReportCount;
+@property        uint32_t               handleReportError;
 
 @end
 
@@ -49,12 +53,20 @@
 - (NSString *)description {
     uint64_t serviceID = 0;
     IORegistryEntryGetRegistryEntryID(self.service, &serviceID);
-    return [NSString stringWithFormat:@"<HIDRemoteHIDUserDevice:%p id:%lld service:%llx device:%@>",(void *) self, self.deviceID, serviceID, [super description]];
+    return [NSString stringWithFormat:@"<HIDRemoteHIDUserDevice:%p id:%lld service:%llx handleReportCount:%u handleReportError:%u device:%@>",
+                                      (void *) self, self.deviceID, serviceID, self.handleReportCount, self.handleReportError, [super description]];
 }
 
 @end
 
+#define REMOTE_DEVICE_LOG_SIZE 50
+
 @interface HIDRemoteDeviceServer ()
+{
+
+    NSMutableArray<NSString *>* _prevDeviceLog;
+    os_state_handle_t           _stateHandler;
+}
 
 @end
 
@@ -69,14 +81,23 @@
     
     self->_queue   = queue;
     self->_devices = [[NSMutableDictionary alloc] init];
+    _prevDeviceLog = [NSMutableArray new];
     return self;
 }
 
 
 -(BOOL) connectEndpoint:(__nonnull id) endpoint
 {
-    NSMutableDictionary * endpointDevices = [[NSMutableDictionary alloc] init];
-    self.devices [endpoint] = endpointDevices;
+    NSMutableDictionary * endpointDevices = self.devices [endpoint];
+    if (endpointDevices) {
+        [endpointDevices enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key __unused, id  _Nonnull obj, BOOL * _Nonnull stop __unused) {
+            HIDUserDevice * device = (HIDUserDevice *)obj;
+            [device cancel];
+        }];
+        [endpointDevices removeAllObjects];
+    } else {
+        self.devices [endpoint] = [[NSMutableDictionary alloc] init];
+    }
     return TRUE;
 }
 
@@ -86,6 +107,12 @@
     
     [endpointDevices enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key __unused, id  _Nonnull obj, BOOL * _Nonnull stop __unused) {
         HIDUserDevice * device = (HIDUserDevice *)obj;
+
+        if (_prevDeviceLog.count >= REMOTE_DEVICE_LOG_SIZE) {
+            [_prevDeviceLog removeObjectAtIndex:0];
+        }
+        [_prevDeviceLog addObject:device.description];
+
         [device cancel];
     }];
     
@@ -104,45 +131,50 @@
         return NO;
     }
     
-    os_log (RemoteHIDLog (), "Create device:%@ for endpoint:%@ property:%@", device, endpoint, property);
-    
     __weak HIDRemoteDevice  *weakDevice = device;
 
-    [device setSetReportHandler:^IOReturn(IOHIDReportType type, uint32_t reportID, uint8_t * _Nullable report, NSUInteger reportLength) {
+    [device setSetReportHandler:^IOReturn(HIDReportType type, NSInteger reportID, const void *report, NSInteger reportLength) {
         __strong HIDRemoteDevice * strongDevice = weakDevice;
         if (!strongDevice) {
             return kIOReturnNoDevice;
         }
-        IOReturn status = [self remoteDeviceSetReport:strongDevice type:type reportID:reportID report:report reportLength:reportLength];
+        
+        NSData *reportData = [NSData dataWithBytesNoCopy:(void *)report length:reportLength freeWhenDone:false];
+
+        os_log_info (RemoteHIDLog (), "[device:%d] setReport type:%ld reportID:%ld report:%@", (int)strongDevice.deviceID, (long)type, (long)reportID, reportData);
+        
+        IOReturn status = [self remoteDeviceSetReport:strongDevice type:type reportID:reportID report:reportData];
         return status;
     }];
 
-    [device setGetReportHandler:^IOReturn(IOHIDReportType type, uint32_t reportID, uint8_t * _Nullable report, NSUInteger * reportLength) {
+    [device setGetReportHandler:^IOReturn(HIDReportType type, NSInteger reportID, void *report, NSInteger *reportLength) {
         __strong HIDRemoteDevice * strongDevice = weakDevice;
         if (!strongDevice) {
             return kIOReturnNoDevice;
         }
         
-        os_log_debug (RemoteHIDLog (), "[device:%d] getReport type:%d reportID:%d", (int)strongDevice.deviceID, type, reportID);
-        
-        NSData *    reportData;
-        long        semaStatus;
-        IOReturn    status;
+        os_log_info (RemoteHIDLog (), "[device:%d] getReport type:%ld reportID:%ld", (int)strongDevice.deviceID, (long)type, (long)reportID);
+        NSMutableData * reportCopy;
+        NSData *        reportData;
+        long            semaStatus;
+        IOReturn        status;
+
+        reportData = [NSData dataWithBytesNoCopy:report length:*reportLength freeWhenDone:false];
+        reportCopy = [reportData mutableCopy];
         
         strongDevice.lastGetReport = nil;
         strongDevice.waitForReport = YES;
         
-        status = [self remoteDeviceGetReport:strongDevice type:type reportID:reportID report:report reportLength:reportLength];
+        status = [self remoteDeviceGetReport:strongDevice type:type reportID:reportID report:reportCopy];
         require_action_quiet(status == kIOReturnSuccess, exit, os_log_error (RemoteHIDLog (), "[device:%d] remoteDeviceGetReport:0x%x", (int)strongDevice.deviceID, status));
 
         semaStatus = dispatch_semaphore_wait(strongDevice.semaphore, dispatch_time(DISPATCH_TIME_NOW, kRemoteHIDDeviceTimeout * NSEC_PER_SEC));
         require_action_quiet(semaStatus == 0, exit, status = kIOReturnTimeout; os_log_error (RemoteHIDLog (), "[device:%d] remoteDeviceGetReport timeout", (int)strongDevice.deviceID));
+
+        require_action_quiet(strongDevice.lastGetReport, exit, status = kIOReturnError; os_log_error (RemoteHIDLog (), "[device:%d] invalid report :%@", (int)strongDevice.deviceID, strongDevice.lastGetReport));
         
-        reportData = strongDevice.lastGetReport;
-        require_action_quiet(reportData, exit, status = kIOReturnError; os_log_error (RemoteHIDLog (), "[device:%d] invalid report :%@", (int)strongDevice.deviceID, reportData));
-        
-        memcpy(report, ((NSData *)reportData).bytes, ((NSData *)reportData).length);
-        *reportLength = ((NSData *)reportData).length;
+        memcpy((void *)reportData.bytes, ((NSData *)strongDevice.lastGetReport).bytes, ((NSData *)strongDevice.lastGetReport).length);
+        *reportLength = ((NSData *)strongDevice.lastGetReport).length;
     
     exit:
         
@@ -166,15 +198,23 @@
     }
     endpointDevices [@(deviceID)] = device;
 
+    os_log (RemoteHIDLog (), "Create device:%@ for endpoint:%@ property:%@", device, endpoint, property);
+
     return YES;
 }
 
--(IOReturn) remoteDeviceSetReport:(__unused HIDRemoteDevice *) device type:(__unused IOHIDReportType) type reportID:(__unused uint8_t) reportID report:(__unused uint8_t *) report reportLength:(__unused NSUInteger) reportLength
+-(uint64_t) syncRemoteTimestamp:(__unused uint64_t)inTimestamp forEndpoint:(__unused __nonnull id)endpoint
+{
+    // Implemented in subclasses
+    return 0;
+}
+
+-(IOReturn) remoteDeviceSetReport:(__unused HIDRemoteDevice *) device type:(__unused HIDReportType) type reportID:(__unused uint8_t) reportID report:(__unused NSData *) report
 {
     return kIOReturnUnsupported;
 }
 
--(IOReturn) remoteDeviceGetReport:(__unused HIDRemoteDevice *) device type:(__unused IOHIDReportType) type reportID:(__unused uint8_t) reportID report:(__unused uint8_t *) report reportLength:(__unused NSUInteger *) reportLength
+-(IOReturn) remoteDeviceGetReport:(__unused HIDRemoteDevice *) device type:(__unused HIDReportType) type reportID:(__unused uint8_t) reportID report:(__unused NSMutableData *) report
 {
     return kIOReturnUnsupported;
 }
@@ -195,26 +235,63 @@
     
 }
 
--(BOOL) remoteDeviceReportHandler:(__nonnull id) endpoint packet:(HIDDeviceReport *) packet
+-(BOOL) remoteDeviceReportHandler:(HIDUserDevice * __nonnull ) device packet:(HIDDeviceReport *) packet
 {
-    if (packet->header.length <= sizeof(HIDDeviceReport)) {
-        os_log_error (RemoteHIDLog (), "Invalid report size:%d", packet->header.length);
-        return NO;
+    NSData * report = [NSData dataWithBytes:&(packet->data[0]) length:(packet->header.length - sizeof(HIDDeviceReport))];
+    NSError * error = nil;
+    BOOL status = [device handleReport:report error:&error];
+    if (status == NO) {
+        os_log_error (RemoteHIDLog (), "handleReport:%@", error);
     }
-    
-    NSMutableDictionary * devices = self.devices[endpoint];
-    HIDUserDevice * device = devices[@(packet->header.deviceID)];
-    if (!device) {
-        os_log_error (RemoteHIDLog (), "HID Device for deviceID:%d does not exist", packet->header.deviceID);
+    return status;
+}
+
+-(BOOL) remoteDeviceTimestampedReportHandler:(__nonnull id) endpoint device:(HIDUserDevice * __nonnull ) device packet:(HIDDeviceTimestampedReport *) packet
+{
+    uint64_t localTimestamp = [self syncRemoteTimestamp:packet->timestamp forEndpoint:endpoint];
+    if (localTimestamp == 0) {
+        os_log_info(RemoteHIDLog (), "Error syncing time with BT, dropping report! W2 TS:%llu", packet->timestamp);
         return NO;
     }
 
-    IOReturn status = [device handleReport:&(packet->data[0]) reportLength:(packet->header.length - sizeof(HIDDeviceReport))];
-    if (status) {
-        os_log_error (RemoteHIDLog (), "handleReport:%x", status);
+    NSData * report = [NSData dataWithBytes:&(packet->data[0]) length:(packet->header.length - sizeof(HIDDeviceTimestampedReport))];
+    NSError * error = nil;
+    BOOL status = [device handleReport:report withTimestamp:localTimestamp error:&error];
+    if (status == NO) {
+        os_log_error (RemoteHIDLog (), "handleReport:%@", error);
+    }
+    return status;
+}
+
+-(BOOL) remoteDeviceReportHandler:(__nonnull id) endpoint header:(HIDDeviceHeader *) header
+{
+    BOOL status;
+
+    if (header->length <= sizeof(HIDDeviceReport)) {
+        os_log_error (RemoteHIDLog (), "Invalid report size:%d", header->length);
         return NO;
     }
-    return YES;
+
+    NSMutableDictionary * devices = self.devices[endpoint];
+    HIDRemoteDevice * device = devices[@(header->deviceID)];
+    if (!device) {
+        os_log_error (RemoteHIDLog (), "HID Device for deviceID:%d does not exist", header->deviceID);
+        return NO;
+    }
+
+    if (header->hasTS ) {
+        status = [self remoteDeviceTimestampedReportHandler:endpoint device:device packet:(HIDDeviceTimestampedReport *)header];
+    }
+    else {
+        status = [self remoteDeviceReportHandler:device packet:(HIDDeviceReport *)header];
+    }
+
+    device.handleReportCount++;
+    if (!status) {
+        device.handleReportError++;
+    }
+
+    return status;
 }
 
 -(BOOL) remoteDeviceGetReportHandler:(__nonnull id) endpoint packet:(HIDDeviceReport *) packet
@@ -236,11 +313,39 @@
 
 -(void) remoteDeviceConnectHandler:(__nonnull id) endpoint packet:(HIDDeviceControl *) packet
 {
+    static const uint8_t plistStart[] = "<?xml";
+    static const uint8_t binaryStart[] = "\323\0\0";
     NSData * deviceDescriptionData = [NSData dataWithBytes:&packet->data length:packet->header.length];
-    NSError * err = nil;
-    id deviceDescription = [NSPropertyListSerialization propertyListWithData:deviceDescriptionData options:NSPropertyListMutableContainersAndLeaves format:NULL error:&err];
-    if (err) {
-        os_log_error (RemoteHIDLog (), "HIDPacketDevice de-serialization error:%@", err);
+    NSString * errorString = nil;
+    NSMutableDictionary * deviceDescription = nil;
+    if (deviceDescriptionData.length >= sizeof(plistStart) &&
+        0 == memcmp((void *)plistStart, deviceDescriptionData.bytes, sizeof(plistStart)-1)) {
+        NSError * err = nil;
+        deviceDescription = [NSPropertyListSerialization propertyListWithData:deviceDescriptionData options:NSPropertyListMutableContainersAndLeaves format:NULL error:&err];
+        if (err) {
+            errorString = err.description;
+        }
+    } else if (deviceDescriptionData.length >= sizeof(binaryStart) &&
+               0 == memcmp((void *)binaryStart, deviceDescriptionData.bytes, sizeof(binaryStart)-1)) {
+        CFStringRef cfStrErr = NULL;
+        CFTypeRef unserialized = IOCFUnserializeBinary(deviceDescriptionData.bytes, deviceDescriptionData.length, kCFAllocatorDefault, 0, &cfStrErr);
+        if (unserialized) {
+            if (CFGetTypeID(unserialized) == CFDictionaryGetTypeID()) {
+                deviceDescription = (__bridge_transfer NSMutableDictionary *)unserialized;
+            }
+            else {
+                errorString = @"Unserialized data is not a dictionary";
+                CFRelease(unserialized);
+            }
+        }
+        if (cfStrErr) {
+            errorString = (__bridge_transfer NSString *)cfStrErr;
+        }
+    } else {
+        errorString = @"Unrecognized data format";
+    }
+    if (errorString || !deviceDescription) {
+        os_log_error (RemoteHIDLog (), "HIDPacketDevice de-serialization error:%@", errorString);
         os_log_debug (RemoteHIDLog (), "HIDPacketDevice config data:%@",  [[NSString alloc] initWithData:deviceDescriptionData encoding:NSASCIIStringEncoding]);
         return;
     }
@@ -291,7 +396,7 @@ error:
             [self removeRemoteDevice:endpoint deviceID:packet->deviceID];
             break;
         case HIDPacketTypeHandleReport:
-            [self remoteDeviceReportHandler:endpoint packet:(HIDDeviceReport *)packet];
+            [self remoteDeviceReportHandler:endpoint header:(HIDDeviceHeader *)packet];
             break;
         case HIDPacketTypeGetReport:
             [self remoteDeviceGetReportHandler:endpoint packet:(HIDDeviceReport *)packet];
@@ -304,15 +409,91 @@ error:
 
 -(void) activate
 {
+    _stateHandler = os_state_add_handler(self.queue,
+                                         ^os_state_data_t(os_state_hints_t hints) {
+                                             return [self stateHandler:hints];
+                                         });
 }
 
 -(void) cancel
 {
-    
+    if (_stateHandler) {
+        os_state_remove_handler(_stateHandler);
+    }
 }
 
 -(void) disconnectAll
 {
+    [self.devices enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key __unused, id  _Nonnull obj, BOOL * _Nonnull stop __unused) {
+        NSDictionary * endpointDevices = (NSDictionary *)obj;
+        [endpointDevices enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key2 __unused, id  _Nonnull obj2, BOOL * _Nonnull stop2 __unused) {
+            HIDUserDevice * device = (HIDUserDevice *)obj2;
+
+            if (_prevDeviceLog.count >= REMOTE_DEVICE_LOG_SIZE) {
+                [_prevDeviceLog removeObjectAtIndex:0];
+            }
+            [_prevDeviceLog addObject:device.description];
+
+            [device cancel];
+        }];
+    }];
     [self.devices removeAllObjects];
+
+    os_log_debug (RemoteHIDLog (), "DisconnectAll");
 }
+
+-(os_state_data_t) stateHandler:(os_state_hints_t)hints
+{
+    os_state_data_t stateData       = NULL;
+    NSDictionary *  stateDict       = nil;
+    NSData *        serializedState = nil;
+    NSError *       err             = nil;
+
+    require(hints->osh_api == OS_STATE_API_FAULT || hints->osh_api == OS_STATE_API_REQUEST, exit);
+
+    stateDict = [self copyState];
+    require(stateDict, exit);
+
+    serializedState = [NSPropertyListSerialization dataWithPropertyList:stateDict format:NSPropertyListBinaryFormat_v1_0 options:0 error:&err];
+    require(serializedState, exit);
+
+    stateData = calloc(1, OS_STATE_DATA_SIZE_NEEDED(serializedState.length));
+    require(stateData, exit);
+
+    strlcpy(stateData->osd_title, "RemoteHID State", sizeof(stateData->osd_title));
+    stateData->osd_type = OS_STATE_DATA_SERIALIZED_NSCF_OBJECT;
+    stateData->osd_data_size = (uint32_t)serializedState.length;
+    memcpy(stateData->osd_data, [serializedState bytes], serializedState.length);
+
+exit:
+
+    if (err) {
+        os_log_error(RemoteHIDLog (), "Plist Serialization error %@", err);
+    }
+
+    return stateData;
+}
+
+- (NSDictionary *) copyState
+{
+    NSMutableDictionary * stateDict = [NSMutableDictionary new];
+
+    NSMutableArray<NSString *>* devices = [NSMutableArray new];
+
+    [self.devices enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key __unused, id  _Nonnull obj, BOOL * _Nonnull stop __unused) {
+        NSDictionary * endpointDevices = (NSDictionary *)obj;
+        [endpointDevices enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key2 __unused, id  _Nonnull obj2, BOOL * _Nonnull stop2 __unused) {
+            HIDRemoteDevice * device = (HIDRemoteDevice *)obj2;
+
+            [devices addObject:device.description];
+        }];
+    }];
+
+    stateDict[@"RemoteDevices"] = devices;
+
+    stateDict[@"PreviousRemoteDevices"] = _prevDeviceLog;
+
+    return stateDict;
+}
+
 @end

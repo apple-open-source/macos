@@ -1,0 +1,153 @@
+'\" t
+.\" Man page for man2html
+.\" aeb, 980101
+.\"
+.\" Traduzione da man-1.6d di Giulio Daprelà <giulio@pluto.it>
+.\" Revisione a cura di Vieri Giugni <v.giugni@gmail.com>
+.\" giugno 2006
+.\"
+.TH man2html 1 "1 gennaio 1998"
+.LO 1
+.SH NOME
+man2html \- formatta una pagina di manuale in html
+.SH SINTASSI
+man2html [options] [file]
+.SH DESCRIZIONE
+.B man2html
+converte una pagina di manuale che si trova in
+.I file
+(o standard input (stdin); nel caso non venga fornito alcun file come 
+argomento, o sia indicato "-", come argomento)
+dallo stile man nroff in html, e stampa il risultato in standard output (stdout).
+Supporta tbl, ma non conosce eqn.
+Lo stato di uscita è 0. Se qualcosa va male
+viene stampata su stdout una pagina di errore.
+
+Può essere usato come utilità stand-alone, ma è pensato principalmente
+come ausilio per permettere agli utenti di navigare le proprie man page 
+usando un browser html come
+.BR lynx (1),
+.BR xmosaic (1)
+o
+.BR netscape (1).
+./" (See
+./" .BR man (1)
+./" for info on how to browse man pages via
+./" .BR man2html .
+./" Usually it would suffice to put "MANHTMLPAGER=/usr/bin/lynx"
+./" in the environment.)
+
+La parte principale di
+.B man2html
+è il motore da troff a html scritto da Richard Verhoeven (rcb5@win.tue.nl).
+Esso aggiunge dei collegamenti ipertestuali per i seguenti costrutti:
+.LP
+.TS
+l l.
+foo(3x)	"http://localhost/cgi-bin/man/man2html?3x+foo"
+method://string	"method://string"
+www.host.name	"http://www.host.name"
+ftp.host.name	"ftp://ftp.host.name"
+name@host	"mailto:name@host"
+<string.h>	"file:/usr/include/string.h"
+.TE
+.LP
+(Il primo di questi può essere controllato dalle opzioni - vedere sotto).
+Non viene fatto nessun controllo - i collegamenti generati non sono 
+necessari o indispensabili.
+Inoltre viene generato un indice con collegamenti interni alle varie sezioni,
+in modo che sia più facile effettuare ricerche personalizzate in pagine di 
+manuale grandi come
+.BR bash (1).
+
+.SH OPZIONI
+Quando si legge da stdin non è sempre chiaro come effettuare l'espansione
+.so . L'opzione \-D permette a uno script di definire la
+directory di lavoro.
+.LP
+.TP
+.B \-\^D pathname
+Estrae le ultime due parti dal percorso, ed esegue
+\fIchdir\fP(\fIdir\fP) prima di iniziare la conversione.
+.LP
+L'opzione \-E permette una facile generazione di messaggi di errore
+da uno script cgi.
+.LP
+.TP
+.B \-\^E string
+Genera una pagina di errore contenente il messaggio di errore che si è verificato.
+.LP
+La forma generale di un collegamento ipertestuale creato per una 
+man page di riferimento è
+.IP
+<method:cgipath><man2htmlpath><separator><manpage>
+.LP
+con un valore predefinito come mostrato sopra. Le parti di questo collegamento 
+ipertestuale sono impostate usando le varie opzioni.
+.TP
+.B \-\^h
+Set method:cgipath to http://localhost. Questo è il valore predefinito.
+.TP
+.BI \-\^H " host[.domain][:port]"
+Set method:cgipath to
+.RI http:// host.domain:port .
+.TP
+.B \-\^l
+Set method:cgipath to
+.RI lynxcgi: /home/httpd .
+.TP
+.BI \-\^L " dir"
+Set method:cgipath to
+.RI lynxcgi: dir .
+.TP
+.BI \-\^M " man2htmlpath"
+Imposta il man2htmlpath da usare. Il valore predefinito è
+.IR /cgi-bin/man/man2html .
+.TP
+.B \-\^p
+Imposta '/' come separatore.
+.TP
+.B \-\^q
+Imposta '?' come separatore. Questo è il valore predefinito.
+.TP
+.B \-\^r
+Usa percorsi html relativi, invece dei percorsi cgi-bin.
+.LP
+Su una macchina, senza eseguire
+.BR httpd ,
+si può usare
+.B lynx
+per navigare le man page, usando il metodo lynxcgi.
+Quando è attivo qualche demone http, lynx, o qualunque altro browser,
+può essere usato per navigare le man page, usando il metodo http.
+L'opzione \-l (per `lynxcgi') seleziona il comportamento precedente.
+Con esso, il valore predefinito di cgipath è \fI/home/httpd\fP.
+
+In generale, uno script cgi può essere chiamato da
+.IP
+<path_to_script>/<more_path>?<query>
+.LP
+e le variabili d'ambiente PATH_INFO e QUERY_STRING
+verranno impostate rispettivamente in <more_path> e <query>.
+Poiché lynxcgi non gestisce la parte PATH_INFO, vengono generati
+collegamenti ipertestualil con `?' come separatore predefinito.
+L'opzione \-p (per `path') seleziona '/' come separatore, mentre
+l'opzione \-q (per `query') seleziona '?' come separatore.
+
+L'opzione \-H \fIhost\fP specificherà l'host da usare
+(invece di \fIlocalhost\fP). Uno script cgi può usare
+.IP
+man2html -H $SERVER_NAME
+.LP
+se è impostata la variabile SERVER_NAME . Questo permetterà alla propria 
+macchina di comportarsi come un server ed esportare man page.
+
+.SH BUG
+Ci sono molti fattori difficilmente prevedibili. L'output potrebbe non 
+essere sempre perfetto. Il metodo lynxcgi non funzionerà se lynx è stato 
+compilato senza selezionare il supporto per quest'ultimo. Ci potrebbero 
+essere problemi di sicurezza.
+
+.SH "VEDERE ANCHE"
+.BR lynx (1),
+.BR man (1)

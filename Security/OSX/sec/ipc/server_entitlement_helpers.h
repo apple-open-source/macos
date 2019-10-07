@@ -25,7 +25,7 @@
 #define server_entitlement_helpers_h
 
 #include <Security/SecTask.h>
-#include <ipc/securityd_client.h>
+#include "ipc/securityd_client.h"
 
 CFStringRef SecTaskCopyApplicationIdentifier(SecTaskRef task);
 CFArrayRef SecTaskCopyAccessGroups(SecTaskRef task);

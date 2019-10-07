@@ -25,6 +25,7 @@
 
 #include "GstAllocatorFastMalloc.h"
 #include "IntSize.h"
+#include "SharedBuffer.h"
 #include <gst/audio/audio-info.h>
 #include <gst/gst.h>
 #include <mutex>
@@ -42,7 +43,7 @@
 #include "WebKitMediaSourceGStreamer.h"
 #endif
 
-#if ENABLE(MEDIA_STREAM) && GST_CHECK_VERSION(1, 10, 0)
+#if ENABLE(MEDIA_STREAM)
 #include "GStreamerMediaStreamSource.h"
 #endif
 
@@ -222,6 +223,13 @@ bool initializeGStreamer(Optional<Vector<String>>&& options)
     std::call_once(onceFlag, [options = WTFMove(options)] {
         isGStreamerInitialized = false;
 
+        // USE_PLAYBIN3 is dangerous for us because its potential sneaky effect
+        // is to register the playbin3 element under the playbin namespace. We
+        // can't allow this, when we create playbin, we want playbin2, not
+        // playbin3.
+        if (g_getenv("USE_PLAYBIN3"))
+            WTFLogAlways("The USE_PLAYBIN3 variable was detected in the environment. Expect playback issues or please unset it.");
+
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
         Vector<String> parameters = options.valueOr(extractGStreamerOptionsFromCommandLine());
         char** argv = g_new0(char*, parameters.size() + 2);
@@ -258,13 +266,11 @@ bool initializeGStreamerAndRegisterWebKitElements()
     static std::once_flag onceFlag;
     std::call_once(onceFlag, [] {
 #if ENABLE(ENCRYPTED_MEDIA)
-        if (webkitGstCheckVersion(1, 6, 1))
-            gst_element_register(nullptr, "webkitclearkey", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_MEDIA_CK_DECRYPT);
+        gst_element_register(nullptr, "webkitclearkey", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_MEDIA_CK_DECRYPT);
 #endif
 
-#if ENABLE(MEDIA_STREAM) && GST_CHECK_VERSION(1, 10, 0)
-        if (webkitGstCheckVersion(1, 10, 0))
-            gst_element_register(nullptr, "mediastreamsrc", GST_RANK_PRIMARY, WEBKIT_TYPE_MEDIA_STREAM_SRC);
+#if ENABLE(MEDIA_STREAM)
+        gst_element_register(nullptr, "mediastreamsrc", GST_RANK_PRIMARY, WEBKIT_TYPE_MEDIA_STREAM_SRC);
 #endif
 
 #if ENABLE(MEDIA_SOURCE)
@@ -301,23 +307,13 @@ uint64_t toGstUnsigned64Time(const MediaTime& mediaTime)
     return time.timeValue();
 }
 
-bool gstRegistryHasElementForMediaType(GList* elementFactories, const char* capsString)
-{
-    GRefPtr<GstCaps> caps = adoptGRef(gst_caps_from_string(capsString));
-    GList* candidates = gst_element_factory_list_filter(elementFactories, caps.get(), GST_PAD_SINK, false);
-    bool result = candidates;
-
-    gst_plugin_feature_list_free(candidates);
-    return result;
-}
-
 static void simpleBusMessageCallback(GstBus*, GstMessage* message, GstBin* pipeline)
 {
     switch (GST_MESSAGE_TYPE(message)) {
     case GST_MESSAGE_ERROR:
         GST_ERROR_OBJECT(pipeline, "Got message: %" GST_PTR_FORMAT, message);
         {
-            WTF::String dotFileName = String::format("%s_error", GST_OBJECT_NAME(pipeline));
+            WTF::String dotFileName = makeString(GST_OBJECT_NAME(pipeline), "_error");
             GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS(pipeline, GST_DEBUG_GRAPH_SHOW_ALL, dotFileName.utf8().data());
         }
         break;
@@ -331,9 +327,9 @@ static void simpleBusMessageCallback(GstBus*, GstMessage* message, GstBin* pipel
                 gst_element_state_get_name(newState),
                 gst_element_state_get_name(pending));
 
-            WTF::String dotFileName = String::format("%s_%s_%s",
-                GST_OBJECT_NAME(pipeline),
-                gst_element_state_get_name(oldState),
+            WTF::String dotFileName = makeString(
+                GST_OBJECT_NAME(pipeline), '_',
+                gst_element_state_get_name(oldState), '_',
                 gst_element_state_get_name(newState));
 
             GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS(GST_BIN(pipeline), GST_DEBUG_GRAPH_SHOW_ALL, dotFileName.utf8().data());
@@ -355,6 +351,15 @@ void connectSimpleBusMessageCallback(GstElement* pipeline)
     GRefPtr<GstBus> bus = adoptGRef(gst_pipeline_get_bus(GST_PIPELINE(pipeline)));
     gst_bus_add_signal_watch_full(bus.get(), RunLoopSourcePriority::RunLoopDispatcher);
     g_signal_connect(bus.get(), "message", G_CALLBACK(simpleBusMessageCallback), pipeline);
+}
+
+Ref<SharedBuffer> GstMappedBuffer::createSharedBuffer()
+{
+    // SharedBuffer provides a read-only view on what it expects are
+    // immutable data. Do not create one is writable and hence mutable.
+    RELEASE_ASSERT(isSharable());
+
+    return SharedBuffer::create(*this);
 }
 
 }

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Project xmlns="http://usefulinc.com/ns/doap#" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <name>man</name>
+  <created>2010-09-01</created>
+  <programming-language>C, Shell</programming-language>
+  <os>All Linux distributions, commercial *NIX derivatives (including OS-X), *BSD, Windows with Cygwin, Plan 9</os>
+  <shortdesc xml:lang="en">The man suite: man, man2html, hman, whatis, apropos, man2dvi</shortdesc>
+  <description xml:lang="en">
+        man is a man pager. It has support for compressed
+        pages (both man pages and cat pages), and for locale
+        ($LANG) and for message catalogs ($LC_MESSAGES). It
+        will format files given explicitly (man ./foo.man.gz).
+        It conforms to FSSTND or FHS, and handles stray cats.
+        * man2html is a utility that converts man pages to html
+        * hman is a man browser that uses your favorite browser.
+        For use with lynx, no http daemon is required.
+        Keywords: man manpath apropos whatis makewhatis
+        man.conf man2html man2dvi hman manual pager browser
+        keyword search.</description>
+  <download-page rdf:resource="http://primates.ximian.com/~flucifredi/man/" />
+  <homepage rdf:resource="http://primates.ximian.com/~flucifredi/man/" />
+  <license rdf:resource="http://usefulinc.com/doap/licenses/gpl" />
+  <maintainer>
+    <foaf:Person>
+      <foaf:name>Federico Lucifredi</foaf:name>
+      <foaf:mbox rdf:resource="mailto:flucifredi@acm.org" />
+    </foaf:Person>
+  </maintainer>
+	<release>
+		<Version>
+			<name>Latest Stable Release: 1.6g</name>
+			<created>2010-12-31</created>
+			<revision>1.6g</revision>
+		</Version>
+	</release>
+	<release>
+		<Version>
+			<name>1.6f</name>
+			<created>2007-12-31</created>
+			<revision>1.6f</revision>
+		</Version>
+	</release>
+	<release>
+		<Version>
+			<name>1.6e</name>
+			<created>2006-11-20</created>
+			<revision>1.6e</revision>
+		</Version>
+	</release>
+	<release>
+		<Version>
+			<name>1.6d</name>
+			<created>2006-6-16</created>
+			<revision>1.6d</revision>
+		</Version>
+	</release>
+	<release>
+		<Version>
+			<name>1.6c</name>
+			<created>2006-1-23</created>
+			<revision>1.6c</revision>
+		</Version>
+	</release>
+	<release>
+		<Version>
+			<name>1.6b</name>
+			<created>2005-9-19</created>
+			<revision>1.6b</revision>
+		</Version>
+	</release>
+	<release>
+		<Version>
+			<name>1.6a</name>
+			<created>2005-8-21</created>
+			<revision>1.6a</revision>
+		</Version>
+	</release>
+	<release>
+		<Version>
+			<name>1.6</name>
+			<created>2006-6-20</created>
+			<revision>1.6</revision>
+		</Version>
+	</release>
+</Project>

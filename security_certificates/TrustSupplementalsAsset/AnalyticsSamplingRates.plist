@@ -12,9 +12,13 @@
 			<integer>86400</integer>
 			<key>SecondsBetweenUploadsCustomer</key>
 			<integer>259200</integer>
+			<key>SecondsBetweenUploadsSeed</key>
+			<integer>86400</integer>
 			<key>DevicePercentageInternal</key>
 			<integer>100</integer>
 			<key>DevicePercentageCustomer</key>
+			<integer>100</integer>
+			<key>DevicePercentageSeed</key>
 			<integer>100</integer>
 		</dict>
 		<key>TrustTopic</key>
@@ -25,10 +29,14 @@
 			<integer>86400</integer>
 			<key>SecondsBetweenUploadsCustomer</key>
 			<integer>259200</integer>
+			<key>SecondsBetweenUploadsSeed</key>
+			<integer>86400</integer>
 			<key>DevicePercentageInternal</key>
 			<integer>100</integer>
 			<key>DevicePercentageCustomer</key>
 			<real>0.5</real>
+			<key>DevicePercentageSeed</key>
+			<integer>5</integer>
 		</dict>
 	</dict>
 	<key>Events</key>
@@ -46,6 +54,8 @@
 		<key>TLSConnectionEvent</key>
 		<integer>100</integer>
 		<key>HTTPConnectionEvent</key>
+		<integer>100</integer>
+		<key>ATSConnectionExceptionEvent</key>
 		<integer>100</integer>
 	</dict>
 </dict>

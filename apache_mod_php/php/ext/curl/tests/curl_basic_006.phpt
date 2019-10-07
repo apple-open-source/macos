@@ -28,14 +28,14 @@ TestFest 2009 - AFUP - Jean-Marc Fontaine <jmf@durcommefaire.net>
     $GLOBALS['alldata'] .= $data;
     return strlen ($data);
   });
-   
+
   curl_exec($ch);
   curl_close($ch);
   ob_end_flush();
   echo "Data: $alldata";
 ?>
 ===DONE===
---EXPECTF--
+--EXPECT--
 *** Testing curl_setopt($ch, CURLOPT_WRITEFUNCTION, <closure>); ***
 Data: Hello World!
 Hello World!===DONE===

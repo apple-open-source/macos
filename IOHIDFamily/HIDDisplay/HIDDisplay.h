@@ -13,5 +13,5 @@ FOUNDATION_EXPORT const unsigned char HIDDisplayVersionString[];
 
 
 #import <HIDDisplay/HIDDisplayCAPI.h>
-
+#import <HIDDisplay/HIDDisplayIOReportingCAPI.h>
 

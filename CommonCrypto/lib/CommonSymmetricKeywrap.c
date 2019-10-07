@@ -64,7 +64,8 @@ CCSymmetricKeyWrap(CCWrappingAlgorithm __unused algorithm,
         iv = CCrfc3394_iv;
     }
 
-    ccmode->init(ccmode, ctx, kekLen, kek);
+    int ccrc = ccmode->init(ccmode, ctx, kekLen, kek);
+    require_action(ccrc == CCERR_OK, out, err = kCCParamError);
 
     require_action(ccwrap_auth_encrypt_withiv(ccmode, ctx, rawKeyLen, rawKey, wrappedKeyLen, wrappedKey, iv) == CCERR_OK, out, err = kCCParamError);
 
@@ -106,7 +107,8 @@ CCSymmetricKeyUnwrap(CCWrappingAlgorithm __unused algorithm,
     /* if the IV is not null, it must be long enough to satisfy corecrypto */
     require_action((iv == NULL) || (ivLen >= CCWRAP_SEMIBLOCK), out, err = kCCParamError);
 
-    ccmode->init(ccmode, ctx, kekLen, kek);
+    int ccrc = ccmode->init(ccmode, ctx, kekLen, kek);
+    require_action(ccrc == CCERR_OK, out, err = kCCParamError);
 
     /* ccwrap_auth_decrypt_withiv clears the out buffer on failure */
     /* we need scratch space in case rawKey is an alias for wrappedKey */

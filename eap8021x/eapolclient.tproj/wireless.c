@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,9 +35,9 @@
 #include <TargetConditionals.h>
 
 #ifndef TEST_WIRELESS
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 #include "my_darwin.h"
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 #endif /* TEST_WIRELESS */
 
 #include <SystemConfiguration/SCValidation.h>

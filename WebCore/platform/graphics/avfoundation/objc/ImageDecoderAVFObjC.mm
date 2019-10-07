@@ -28,12 +28,13 @@
 
 #if HAVE(AVASSETREADER)
 
-#import "AVFoundationMIMETypeCache.h"
+#import "AVAssetMIMETypeCache.h"
 #import "AffineTransform.h"
 #import "ContentType.h"
 #import "FloatQuad.h"
 #import "FloatRect.h"
 #import "FloatSize.h"
+#import "ImageRotationSessionVT.h"
 #import "Logging.h"
 #import "MIMETypeRegistry.h"
 #import "MediaSampleAVFObjC.h"
@@ -52,25 +53,12 @@
 #import <wtf/MediaTime.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/Optional.h>
-#import <wtf/SoftLinking.h>
 #import <wtf/Vector.h>
 
-#import <pal/cf/CoreMediaSoftLink.h>
 #import "CoreVideoSoftLink.h"
 #import "VideoToolboxSoftLink.h"
-
-#pragma mark - Soft Linking
-
-SOFT_LINK_FRAMEWORK_OPTIONAL(AVFoundation)
-SOFT_LINK_CLASS_OPTIONAL(AVFoundation, AVURLAsset)
-SOFT_LINK_CLASS_OPTIONAL(AVFoundation, AVAssetReader)
-SOFT_LINK_CLASS_OPTIONAL(AVFoundation, AVAssetReaderSampleReferenceOutput)
-SOFT_LINK_CONSTANT_MAY_FAIL(AVFoundation, AVMediaCharacteristicVisual, NSString *)
-SOFT_LINK_CONSTANT_MAY_FAIL(AVFoundation, AVURLAssetReferenceRestrictionsKey, NSString *)
-SOFT_LINK_CONSTANT_MAY_FAIL(AVFoundation, AVURLAssetUsesNoPersistentCacheKey, NSString *)
-#define AVMediaCharacteristicVisual getAVMediaCharacteristicVisual()
-#define AVURLAssetReferenceRestrictionsKey getAVURLAssetReferenceRestrictionsKey()
-#define AVURLAssetUsesNoPersistentCacheKey getAVURLAssetUsesNoPersistentCacheKey()
+#import <pal/cf/CoreMediaSoftLink.h>
+#import <pal/cocoa/AVFoundationSoftLink.h>
 
 #pragma mark -
 
@@ -238,38 +226,12 @@ static NSURL *customSchemeURL()
 static NSDictionary *imageDecoderAssetOptions()
 {
     static NSDictionary *options = [] {
-        // FIXME: Are these keys really optional?
-        if (!canLoadAVURLAssetReferenceRestrictionsKey() || !canLoadAVURLAssetUsesNoPersistentCacheKey())
-            return [@{ } retain];
         return [@{
             AVURLAssetReferenceRestrictionsKey: @(AVAssetReferenceRestrictionForbidAll),
             AVURLAssetUsesNoPersistentCacheKey: @YES,
         } retain];
     }();
     return options;
-}
-
-static ImageDecoderAVFObjC::RotationProperties transformToRotationProperties(AffineTransform inTransform)
-{
-    ImageDecoderAVFObjC::RotationProperties rotation;
-    if (inTransform.isIdentity())
-        return rotation;
-
-    AffineTransform::DecomposedType decomposed { };
-    if (!inTransform.decompose(decomposed))
-        return rotation;
-
-    rotation.flipY = WTF::areEssentiallyEqual(decomposed.scaleX, -1.);
-    rotation.flipX = WTF::areEssentiallyEqual(decomposed.scaleY, -1.);
-    auto degrees = rad2deg(decomposed.angle);
-    while (degrees < 0)
-        degrees += 360;
-
-    // Only support rotation in multiples of 90º:
-    if (WTF::areEssentiallyEqual(fmod(degrees, 90.), 0.))
-        rotation.angle = clampToUnsigned(degrees);
-
-    return rotation;
 }
 
 class ImageDecoderAVFObjCSample : public MediaSampleAVFObjC {
@@ -353,7 +315,7 @@ ImageDecoderAVFObjCSample* toSample(Iterator iter)
 RefPtr<ImageDecoderAVFObjC> ImageDecoderAVFObjC::create(SharedBuffer& data, const String& mimeType, AlphaOption alphaOption, GammaAndColorProfileOption gammaAndColorProfileOption)
 {
     // AVFoundation may not be available at runtime.
-    if (!AVFoundationMIMETypeCache::singleton().isAvailable())
+    if (!AVAssetMIMETypeCache::singleton().isAvailable())
         return nullptr;
 
     if (!canLoad_VideoToolbox_VTCreateCGImageFromCVPixelBuffer())
@@ -366,7 +328,7 @@ ImageDecoderAVFObjC::ImageDecoderAVFObjC(SharedBuffer& data, const String& mimeT
     : ImageDecoder()
     , m_mimeType(mimeType)
     , m_uti(WebCore::UTIFromMIMEType(mimeType))
-    , m_asset(adoptNS([allocAVURLAssetInstance() initWithURL:customSchemeURL() options:imageDecoderAssetOptions()]))
+    , m_asset(adoptNS([PAL::allocAVURLAssetInstance() initWithURL:customSchemeURL() options:imageDecoderAssetOptions()]))
     , m_loader(adoptNS([[WebCoreSharedBufferResourceLoaderDelegate alloc] initWithParent:this]))
     , m_decompressionSession(WebCoreDecompressionSession::createRGB())
 {
@@ -384,27 +346,21 @@ ImageDecoderAVFObjC::~ImageDecoderAVFObjC() = default;
 
 bool ImageDecoderAVFObjC::supportsMediaType(MediaType type)
 {
-    return type == MediaType::Video && AVFoundationMIMETypeCache::singleton().isAvailable();
+    return type == MediaType::Video && AVAssetMIMETypeCache::singleton().isAvailable();
 }
 
 bool ImageDecoderAVFObjC::supportsContentType(const ContentType& type)
 {
-    return AVFoundationMIMETypeCache::singleton().supportsContentType(type);
+    return AVAssetMIMETypeCache::singleton().supportsContentType(type);
 }
 
 bool ImageDecoderAVFObjC::canDecodeType(const String& mimeType)
 {
-    return AVFoundationMIMETypeCache::singleton().canDecodeType(mimeType);
+    return AVAssetMIMETypeCache::singleton().canDecodeType(mimeType);
 }
 
 AVAssetTrack *ImageDecoderAVFObjC::firstEnabledTrack()
 {
-    // FIXME: Is AVMediaCharacteristicVisual truly optional?
-    if (!canLoadAVMediaCharacteristicVisual()) {
-        LOG(Images, "ImageDecoderAVFObjC::firstEnabledTrack(%p) - AVMediaCharacteristicVisual is not supported", this);
-        return nil;
-    }
-
     NSArray<AVAssetTrack *> *videoTracks = [m_asset tracksWithMediaCharacteristic:AVMediaCharacteristicVisual];
     NSUInteger firstEnabledIndex = [videoTracks indexOfObjectPassingTest:^(AVAssetTrack *track, NSUInteger, BOOL*) {
         return track.enabled;
@@ -423,8 +379,8 @@ void ImageDecoderAVFObjC::readSamples()
     if (!m_sampleData.empty())
         return;
 
-    auto assetReader = adoptNS([allocAVAssetReaderInstance() initWithAsset:m_asset.get() error:nil]);
-    auto referenceOutput = adoptNS([allocAVAssetReaderSampleReferenceOutputInstance() initWithTrack:m_track.get()]);
+    auto assetReader = adoptNS([PAL::allocAVAssetReaderInstance() initWithAsset:m_asset.get() error:nil]);
+    auto referenceOutput = adoptNS([PAL::allocAVAssetReaderSampleReferenceOutputInstance() initWithTrack:m_track.get()]);
 
     referenceOutput.get().alwaysCopiesSampleData = NO;
     [assetReader addOutput:referenceOutput.get()];
@@ -444,17 +400,21 @@ void ImageDecoderAVFObjC::readSamples()
 
 void ImageDecoderAVFObjC::readTrackMetadata()
 {
-    if (!m_rotation)
-        m_rotation = transformToRotationProperties(CGAffineTransformConcat(m_asset.get().preferredTransform, m_track.get().preferredTransform));
-
-    if (!m_size) {
-        auto size = FloatSize(m_track.get().naturalSize);
-        auto angle = m_rotation.value().angle;
-        if (angle == 90 || angle == 270)
-            size = size.transposedSize();
-
-        m_size = expandedIntSize(size);
+    AffineTransform finalTransform = CGAffineTransformConcat(m_asset.get().preferredTransform, m_track.get().preferredTransform);
+    auto size = expandedIntSize(FloatSize(m_track.get().naturalSize));
+    if (finalTransform.isIdentity()) {
+        m_size = size;
+        m_imageRotationSession = nullptr;
+        return;
     }
+
+    if (!m_imageRotationSession
+        || !m_imageRotationSession->transform()
+        || m_imageRotationSession->transform().value() != finalTransform
+        || m_imageRotationSession->size() != size)
+        m_imageRotationSession = std::make_unique<ImageRotationSessionVT>(WTFMove(finalTransform), size, kCVPixelFormatType_32BGRA, ImageRotationSessionVT::IsCGImageCompatible::Yes);
+
+    m_size = expandedIntSize(m_imageRotationSession->rotatedSize());
 }
 
 bool ImageDecoderAVFObjC::storeSampleBuffer(CMSampleBufferRef sampleBuffer)
@@ -468,38 +428,8 @@ bool ImageDecoderAVFObjC::storeSampleBuffer(CMSampleBufferRef sampleBuffer)
     auto presentationTime = PAL::toMediaTime(PAL::CMSampleBufferGetPresentationTimeStamp(sampleBuffer));
     auto iter = m_sampleData.presentationOrder().findSampleWithPresentationTime(presentationTime);
 
-    if (m_rotation && !m_rotation.value().isIdentity()) {
-        auto& rotation = m_rotation.value();
-        if (!m_rotationSession) {
-            VTImageRotationSessionRef rawRotationSession = nullptr;
-            VTImageRotationSessionCreate(kCFAllocatorDefault, rotation.angle, &rawRotationSession);
-            m_rotationSession = rawRotationSession;
-            VTImageRotationSessionSetProperty(m_rotationSession.get(), kVTImageRotationPropertyKey_EnableHighSpeedTransfer, kCFBooleanTrue);
-
-            if (rotation.flipY)
-                VTImageRotationSessionSetProperty(m_rotationSession.get(), kVTImageRotationPropertyKey_FlipVerticalOrientation, kCFBooleanTrue);
-            if (rotation.flipX)
-                VTImageRotationSessionSetProperty(m_rotationSession.get(), kVTImageRotationPropertyKey_FlipHorizontalOrientation, kCFBooleanTrue);
-        }
-
-        if (!m_rotationPool) {
-            auto pixelAttributes = @{
-                (__bridge NSString *)kCVPixelBufferWidthKey: @(m_size.value().width()),
-                (__bridge NSString *)kCVPixelBufferHeightKey: @(m_size.value().height()),
-                (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA),
-                (__bridge NSString *)kCVPixelBufferCGImageCompatibilityKey: @YES,
-            };
-            CVPixelBufferPoolRef rawPool = nullptr;
-            CVPixelBufferPoolCreate(kCFAllocatorDefault, nullptr, (__bridge CFDictionaryRef)pixelAttributes, &rawPool);
-            m_rotationPool = adoptCF(rawPool);
-        }
-
-        CVPixelBufferRef rawRotatedBuffer = nullptr;
-        CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, m_rotationPool.get(), &rawRotatedBuffer);
-        auto status = VTImageRotationSessionTransferImage(m_rotationSession.get(), pixelBuffer.get(), rawRotatedBuffer);
-        if (status == noErr)
-            pixelBuffer = adoptCF(rawRotatedBuffer);
-    }
+    if (m_imageRotationSession)
+        pixelBuffer = m_imageRotationSession->rotate(pixelBuffer.get());
 
     CGImageRef rawImage = nullptr;
     if (noErr != VTCreateCGImageFromCVPixelBuffer(pixelBuffer.get(), nullptr, &rawImage)) {
@@ -528,9 +458,8 @@ void ImageDecoderAVFObjC::setTrack(AVAssetTrack *track)
     LockHolder holder { m_sampleGeneratorLock };
     m_sampleData.clear();
     m_size.reset();
-    m_rotation.reset();
     m_cursor = m_sampleData.decodeOrder().end();
-    m_rotationSession = nullptr;
+    m_imageRotationSession = nullptr;
 
     [track loadValuesAsynchronouslyForKeys:@[@"naturalSize", @"preferredTransform"] completionHandler:[protectedThis = makeRefPtr(this)] () mutable {
         callOnMainThread([protectedThis = WTFMove(protectedThis)] {

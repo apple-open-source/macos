@@ -144,7 +144,7 @@ __senvbuf(FILE *fp, size_t *bufsize, int *couldbetty)
 		return flags; // No number found, this protects us from negative size values
 	}
 
-	size = strtol_l(evp, &end, 10, NULL); // No locale
+	size = strtol_l(evp, &end, 10, LC_C_LOCALE);
 	if (*end != '\0') {
 		return flags;
 	}

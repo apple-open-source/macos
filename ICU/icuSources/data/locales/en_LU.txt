@@ -13,6 +13,10 @@ en_LU{
                 accountingFormat{"#,##0.00 ¤"}
                 percentFormat{"#,##0 %"}
             }
+            symbols{
+                decimal{","}
+                group{"."}
+            }
         }
     }
     Version{"2.1.11.50"}

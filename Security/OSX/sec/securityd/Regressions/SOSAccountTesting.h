@@ -26,15 +26,15 @@
 #define SEC_SOSAccountTesting_h
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <Security/SecureObjectSync/SOSAccountPriv.h>
-#include <Security/SecureObjectSync/SOSTransport.h>
-#include <Security/SecureObjectSync/SOSPeerInfoCollections.h>
+#include "keychain/SecureObjectSync/SOSAccountPriv.h"
+#include "keychain/SecureObjectSync/SOSTransport.h"
+#include "keychain/SecureObjectSync/SOSPeerInfoCollections.h"
 #include <Security/SecureObjectSync/SOSPeerInfo.h>
-#include <Security/SecureObjectSync/SOSPeerInfoV2.h>
-#import "Security/SecureObjectSync/SOSAccountTrustClassic+Expansion.h"
-#import <Security/SecureObjectSync/SOSAccountTrustClassic+Circle.h>
-#import <Security/SecureObjectSync/SOSAccountTrustClassic+Identity.h>
-#import <Security/SecureObjectSync/SOSAccountTrustClassic.h>
+#include "keychain/SecureObjectSync/SOSPeerInfoV2.h"
+#import "keychain/SecureObjectSync/SOSAccountTrustClassic+Expansion.h"
+#import "keychain/SecureObjectSync/SOSAccountTrustClassic+Circle.h"
+#import "keychain/SecureObjectSync/SOSAccountTrustClassic+Identity.h"
+#import "keychain/SecureObjectSync/SOSAccountTrustClassic.h"
 
 #include "SOSTestDataSource.h"
 #include "SOSRegressionUtilities.h"
@@ -811,7 +811,7 @@ static inline bool testAccountPersistence(SOSAccount* account) {
     ok(CFEqualSafe((__bridge CFTypeRef)reinflatedAccount, (__bridge CFTypeRef)account), "Compares");
 
     // Repeat through SOSAccountCopyEncodedData() interface - this is the normally called combined interface
-    accountDER = [reinflatedAccount encodedData:&error];
+    accountDER = [account encodedData:&error];
     error = nil;
     reinflatedAccount = [SOSAccount accountFromData:accountDER factory:test_factory error:&error];
     ok(reinflatedAccount, "inflated2: %@", error);
@@ -877,9 +877,9 @@ static inline bool SOSTestJoinWithApproval(CFDataRef cfpassword, CFStringRef cfa
     // retval will return op failures, not count failures - we'll still report those from in here.
     bool retval = false;
     
-    ok(retval = SOSTestJoinWith(cfpassword, cfaccount, changes, joiner), "Applyication Made");
+    ok(retval = SOSTestJoinWith(cfpassword, cfaccount, changes, joiner), "Application Made");
     
-    is(ProcessChangesUntilNoChange(changes, approver, joiner, NULL), 2, "updates");
+    ProcessChangesUntilNoChange(changes, approver, joiner, NULL);
     
     int nrounds = 2;
     if(dropUserKey) SOSAccountPurgePrivateCredential(joiner);  // lose the userKey so we don't "fix" the ghost problem yet.
@@ -888,7 +888,7 @@ static inline bool SOSTestJoinWithApproval(CFDataRef cfpassword, CFStringRef cfa
     if(expectCleanup) nrounds++;
     
     ok(retval &= SOSTestApproveRequest(approver, 1), "Accepting Request to Join");
-    is(ProcessChangesUntilNoChange(changes, approver, joiner, NULL), nrounds, "updates");
+    ProcessChangesUntilNoChange(changes, approver, joiner, NULL);
     
     accounts_agree_internal("Successful join shows same circle view", joiner, approver, false);
     is(countPeers(joiner), expectedCount, "There should be %d valid peers", expectedCount);

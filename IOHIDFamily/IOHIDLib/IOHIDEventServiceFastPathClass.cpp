@@ -29,6 +29,7 @@
 #include "IOHIDEventData.h"
 #include "IOHIDPrivateKeys.h"
 #include "IOHIDDebug.h"
+#include <AssertMacros.h>
 
 //===========================================================================
 // CFPlugIn Static Assignments
@@ -151,9 +152,9 @@ boolean_t IOHIDEventServiceFastPathClass::_setProperty(void * self, CFStringRef 
     return getThis(self)->setProperty(key, property);
 }
 
-IOHIDEventRef IOHIDEventServiceFastPathClass::_copyEvent(void *self, CFTypeRef copySpec, IOOptionBits options)
+IOReturn IOHIDEventServiceFastPathClass::_copyEvent(void *self, CFTypeRef copySpec, IOOptionBits options, IOHIDEventRef * pEvent)
 {
-    return getThis(self)->copyEvent(copySpec, options);
+    return getThis(self)->copyEvent(copySpec, options, pEvent);
 }
 
 
@@ -215,8 +216,10 @@ IOReturn IOHIDEventServiceFastPathClass::start(CFDictionaryRef propertyTable __u
 {
     IOReturn   ret;
     
+    
+    ret = IOObjectRetain(service);
+    require_noerr_action(ret, exit, HIDLogError("IOHIDEventServiceFastPathClass failed to retain service object with err %x", ret));
     _service = service;
-    IOObjectRetain(service);
     
     ret = IOServiceOpen(_service, mach_task_self(), kIOHIDEventServiceFastPathUserClientType, &_connect);
     if (ret) {
@@ -226,6 +229,7 @@ IOReturn IOHIDEventServiceFastPathClass::start(CFDictionaryRef propertyTable __u
     if (ret) {
         HIDLogError("IOConnectGetService(kIOHIDEventServiceFastPathUserClientType): 0x%x", ret);
     }
+exit:
     return ret;
 }
 
@@ -327,13 +331,12 @@ boolean_t IOHIDEventServiceFastPathClass::setProperty(CFStringRef key, CFTypeRef
 //---------------------------------------------------------------------------
 // IOHIDEventServiceFastPathClass::copyEvent
 //---------------------------------------------------------------------------
-IOHIDEventRef IOHIDEventServiceFastPathClass::copyEvent(CFTypeRef copySpec, IOOptionBits options)
+IOReturn IOHIDEventServiceFastPathClass::copyEvent(CFTypeRef copySpec, IOOptionBits options, IOHIDEventRef * pEvent)
 {
     uint64_t            input[2]        = {options, kIOHIDEventServiceFastPathCopySpecSerializedType};
     const UInt8 *       inputData       = NULL;
     size_t              inputDataSize   = 0;
-    IOHIDEventRef       event           = NULL;
-    IOReturn            ret             = kIOReturnSuccess;
+    IOReturn            ret             = kIOReturnError;
     CFDataRef           data            = NULL;
     
     if (copySpec) {
@@ -354,7 +357,13 @@ IOHIDEventRef IOHIDEventServiceFastPathClass::copyEvent(CFTypeRef copySpec, IOOp
             HIDLogError("No shared memory");
             break;
         }
-        
+
+        if (!pEvent) {
+            ret = kIOReturnBadArgument;
+            HIDLogError("Invalid argument (pEvent = null)");
+            break;
+        }
+
         *(uint32_t *)_sharedMemory = 0;
         
         ret = IOConnectCallMethod(_connect, kIOHIDEventServiceFastPathUserClientCopyEvent, input, 2, inputData, inputDataSize, NULL, NULL, NULL, NULL);
@@ -364,15 +373,19 @@ IOHIDEventRef IOHIDEventServiceFastPathClass::copyEvent(CFTypeRef copySpec, IOOp
         }
 
         if (*(uint32_t *)_sharedMemory) {
-            event = IOHIDEventCreateWithBytes(kCFAllocatorDefault, (const UInt8*)_sharedMemory + sizeof(uint32_t), *(uint32_t *)_sharedMemory);
+            *pEvent = IOHIDEventCreateWithBytes(kCFAllocatorDefault, (const UInt8*)_sharedMemory + sizeof(uint32_t), *(uint32_t *)_sharedMemory);
         }
-    } while (0);
+        
+        if (*pEvent == NULL) {
+            ret = kIOReturnError;
+        }
+    } while (false);
    
     
     if (data) {
         CFRelease(data);
     }
-    return event;
+    return ret;
 }
 
 

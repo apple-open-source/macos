@@ -1,4 +1,5 @@
 #include "OSX/config/security_macos.xcconfig"
+#include "xcconfig/security_framework.xcconfig"
 
 PRODUCT_NAME = Security
 PRODUCT_BUNDLE_IDENTIFIER = com.apple.security
@@ -11,7 +12,7 @@ DYLIB_CURRENT_VERSION = $(CURRENT_PROJECT_VERSION)
 MODULEMAP_FILE = Modules/Security.macOS.modulemap
 DEFINES_MODULE = YES
 
-EXPORTED_SYMBOLS_FILE = $(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).$(CURRENT_ARCH).exp
+EXPORTED_SYMBOLS_FILE = $(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).exp
 ORDER_FILE = OSX/lib/Security.order
 INFOPLIST_FILE = OSX/lib/Info-Security.plist
 
@@ -23,14 +24,12 @@ OTHER_LDFLAGS = -laks -lCrashReporterClient -Wl,-upward_framework,Foundation -Wl
 SECTORDER_FLAGS = -order_file_statistics
 APPLY_RULES_IN_COPY_FILES = NO
 
-// Not entirely sure what this is for, but, okay.
-INSTALLHDRS_SCRIPT_PHASE = YES
-
 // Adding things here is against the spirit of TAPI. If something is in the framework, it should be in the framework headers.
 // Don't add things.
 OTHER_TAPI_FLAGS_TRUST = -extra-private-header $(PROJECT_DIR)/OSX/trustd/macOS/SecTrustOSXEntryPoints.h -extra-private-header $(PROJECT_DIR)/OSX/sec/Security/SecCertificateInternal.h
-OTHER_TAPI_FLAGS_USR_LIB_HEADERS = -extra-private-header $(PROJECT_DIR)/OSX/utilities/src/debugging.h
-OTHER_TAPI_FLAGS_HACKS = -exclude-public-header $(BUILT_PRODUCTS_DIR)/Security.framework/Versions/A/Headers/AuthorizationPlugin.h -extra-public-header $(PROJECT_DIR)/OSX/macos_tapi_hacks.h -D SECURITY_PROJECT_TAPI_HACKS=1
+
+OTHER_TAPI_FLAGS_USR_LIB_HEADERS = -extra-private-header $(PROJECT_DIR)/OSX/utilities/debugging.h
+OTHER_TAPI_FLAGS_HACKS = -exclude-public-header $(BUILT_PRODUCTS_DIR)/Security.framework/Versions/A/Headers/AuthorizationPlugin.h -extra-public-header $(PROJECT_DIR)/OSX/macos_tapi_hacks.h -extra-public-header $(PROJECT_DIR)/OSX/sec/Security/SecItemShim.h -D SECURITY_PROJECT_TAPI_HACKS=1
 
 OTHER_TAPI_FLAGS = $(inherited) $(OTHER_TAPI_FLAGS_SECURITY_FRAMEWORK) -I$(PROJECT_DIR)/header_symlinks/ $(OTHER_TAPI_FLAGS_TRUST) $(OTHER_TAPI_FLAGS_USR_LIB_HEADERS) $(OTHER_TAPI_FLAGS_HACKS)
 

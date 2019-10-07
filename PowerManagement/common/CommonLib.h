@@ -54,17 +54,17 @@
  * Signatures
  */
 #define kPMASLSigSuccess                    "success"
-#define kPMASLSigEarlyFailure               "Early Failure"
-#define kPMASLSigAppsFailure                "Apps Failure"
-#define kPMASLSigPriorityFailure            "Priority Failure"
-#define kPMASLSigInterestFailure            "Interest Failure"
-#define kPMASLSigCapabilityFailure          "Capability Failure"
-#define kPMASLSigNotificationFailure        "Notification Failure"
-#define kPMASLSigDriversFailure             "Drivers Failure"
+#define kPMASLSigEarlyFailure               "Sleep has been initiated"
+#define kPMASLSigAppsFailure                "Waiting for responses from notified applications"
+#define kPMASLSigPriorityFailure            "Informing clients about upcoming changes"
+#define kPMASLSigInterestFailure            "Informing rootDomain's clients about state changes"
+#define kPMASLSigCapabilityFailure          "Informing clients about completed changes to system caps"
+#define kPMASLSigNotificationFailure        "Sending kIOMessageSystemWillPowerOn to kernel and userspace"
+#define kPMASLSigDriversFailure             "Some drivers failed to handle setPowerState"
 #define kPMASLSigHibernateFailure           "Hibernate Failure"
-#define kPMASLSigPlatformActionFailure      "Platform Action Failure"
-#define kPMASLSigPlatformDriverFailure      "Platform Driver Failure"
-#define kPMASLSigCpusFailure                "Cpus Failure"
+#define kPMASLSigPlatformActionFailure      "Some drivers failed to handle Quiesce/Sleep action"
+#define kPMASLSigPlatformDriverFailure      "Failure while halting non-boot CPUs"
+#define kPMASLSigCpusFailure                "Failure while halting boot CPU"
 #define kPMASLSigEFIFailure                 "EFI/Bootrom Failure after last point of entry to sleep"
 #define kPMASLSigLoginwindowFailure         "Loginwindow Failure"
 #define kPMASLSigResponseTimedOut           "Timed Out"
@@ -119,6 +119,7 @@
 #define kPMASLDomainAppNotify               "Notification"
 #define kPMASLDomainSWFailure               "Failure"
 #define kPMASLDomainWakeTime                "WakeTime"
+#define kPMASLDomainSMCShutdownCause        "ShutdownCause"
 
 #define kPMASLDomainThermalEvent            "ThermalEvent"
 #define kPMASLDomainPerformanceEvent        "PerformanceEvent"
@@ -176,10 +177,22 @@
 #define kIOPMRootDomainWakeTypeKey              "Wake Type"
 #endif
 
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
 #define kPMASLStorePath                 "/var/log/powermanagement"
+
+// SMC shutdown causes
+typedef struct {
+    const char *shutdownCauseString;
+    const int shutdownCause;
+} SMCShutdownCause;
+
+__private_extern__ const char *smcShutdownCauseString(int shutdownCause);
+
 extern long     physicalBatteriesCount;
 
 __private_extern__ io_registry_entry_t getRootDomain(void);
+__private_extern__ io_registry_entry_t getIOPMPowerSource(void);
 __private_extern__ int                  _batteryCount(void);
 
 __private_extern__ const char           *stringForLWCode(uint8_t code);
@@ -213,4 +226,7 @@ __private_extern__ uint64_t intervalInNanoseconds(uint64_t start, uint64_t end);
 
 // This doesn't seem to be defined in the header file
 extern kern_return_t mach_get_times(uint64_t* absolute_time, uint64_t* continuous_time, struct timespec *tp);
+
+// Kernel assertions
+const char * descriptiveKernelAssertions(uint32_t val);
 #endif

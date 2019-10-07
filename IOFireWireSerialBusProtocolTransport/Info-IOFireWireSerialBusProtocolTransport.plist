@@ -11,7 +11,7 @@
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.iokit.IOFireWireSerialBusProtocolTransport</string>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -59,16 +59,14 @@
 		<string>1.0.0</string>
 		<key>com.apple.iokit.IOSCSIArchitectureModelFamily</key>
 		<string>1.0.0</string>
-		<key>com.apple.kpi.iokit</key>
-		<string>9.0.0</string>
 		<key>com.apple.kpi.bsd</key>
+		<string>9.0.0</string>
+		<key>com.apple.kpi.iokit</key>
 		<string>9.0.0</string>
 		<key>com.apple.kpi.libkern</key>
 		<string>9.0.0</string>
 		<key>com.apple.kpi.mach</key>
 		<string>9.0.0</string>
 	</dict>
-	<key>OSBundleRequired</key>
-	<string>Local-Root</string>
 </dict>
 </plist>

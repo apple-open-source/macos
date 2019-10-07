@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.SpeculateWithRandom.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * When speculate() is called with an inactive buffer number, it is

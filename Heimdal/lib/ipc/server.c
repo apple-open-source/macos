@@ -382,28 +382,7 @@ mach_checkin_or_register(const char *service)
     if (kr == KERN_SUCCESS)
 	return mp;
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED <= 1050 && __IPHONE_OS_VERSION_MIN_REQUIRED <= __IPHONE_5_0
-    /* Pre SnowLeopard version */
-    kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &mp);
-    if (kr != KERN_SUCCESS)
-	return MACH_PORT_NULL;
-
-    kr = mach_port_insert_right(mach_task_self(), mp, mp,
-				MACH_MSG_TYPE_MAKE_SEND);
-    if (kr != KERN_SUCCESS) {
-	mach_port_destroy(mach_task_self(), mp);
-	return MACH_PORT_NULL;
-    }
-
-    kr = bootstrap_register(bootstrap_port, rk_UNCONST(service), mp);
-    if (kr != KERN_SUCCESS) {
-	mach_port_destroy(mach_task_self(), mp);
-	return MACH_PORT_NULL;
-    }
-    return mp;
-#else
     return MACH_PORT_NULL;
-#endif
 }
 
 

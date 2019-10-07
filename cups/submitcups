@@ -1,0 +1,100 @@
+#!/bin/sh
+#
+# Script to tag and submit cups.
+#
+# Usage:
+#
+#     ./submitcups [-project name] [-tagonly] [-train train] version
+#
+# The default project is "cups".  The default train is the newest macOS/iOS
+# SDK known to Xcode.  The "-tagonly" option just tags the version in the
+# repository without submitting.
+#
+
+# Parse command-line...
+project="cups"
+train=""
+version=""
+
+while test $# -gt 0; do
+        opt="$1"
+        shift
+
+        case "$opt" in
+        	-project)
+        		project="$1"
+        		shift
+        		;;
+        	-tagonly)
+        		train="tag"
+        		;;
+        	-train)
+        		train="$1"
+        		shift
+        		;;
+        	-*)
+			echo "Usage: submitcups [-project project] [-tagonly] [-train train] version"
+			exit 1
+        		;;
+        	*)
+        		version="$opt"
+        		;;
+        esac
+done
+
+if test "x$version" = x; then
+	echo "Usage: submitcups [-project project] [-tagonly] [-train train] version"
+	exit 1
+fi
+
+if test "x$train" = x; then
+	if test "$project" = cups_ios; then
+		build=`xcodebuild -sdk iphoneos -version ProductBuildVersion`
+		train=`xbs getTrainForBuild --embedded $build --quiet`
+	else
+		build=`xcodebuild -sdk macosx -version ProductBuildVersion`
+		train=`xbs getTrainForBuild $build --quiet`
+	fi
+
+	echo "Auto-detected train for submission is $train."
+fi
+
+# Make sure we don't have any pending changes...
+git pull
+
+# Make sure we're on the master branch and no local commits
+if test "x`git checkout master | grep -e '^Your branch is ahead of' `" != x; then
+	echo Error: Local repository has checkins not pushed:
+	echo ""
+	git checkout master
+	echo ""
+	echo Push these changes before submitting.
+	exit 1
+fi
+
+if test "x`git status | grep -e '^	modified:' `" != x; then
+	echo Error: Local files have modifications:
+	echo ""
+	git status | grep -e '^	modified:'
+	echo ""
+	echo Commit these changes before submitting.
+	exit 1
+fi
+
+# See if we've tagged the release...
+tagname="cups-$version"
+
+if test "x`git tag | grep ^$tagname`" != x; then
+	echo "Tag for $tagname already exists..."
+else
+	# Tag it...
+	git tag -a $tagname -m "Tag $tagname"
+
+	# Submit change for project version.
+	git push origin $tagname
+fi
+
+if test "x$train" != xtag; then
+	# Submit the tag...
+	xbs submitproject -git -url ssh://stash.sd.apple.com/img/cups.git -tag $tagname -project $project -version $version $train
+fi

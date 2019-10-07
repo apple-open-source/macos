@@ -32,6 +32,10 @@ WI.AuditTestCaseContentView = class AuditTestCaseContentView extends WI.AuditTes
         super(representedObject);
 
         this.element.classList.add("audit-test-case");
+
+        this._resultDataGeneralContainer = null;
+        this._resultDataDOMNodesContainer = null;
+        this._resultDataErrorsContainer = null;
     }
 
     // Protected
@@ -133,14 +137,52 @@ WI.AuditTestCaseContentView = class AuditTestCaseContentView extends WI.AuditTes
 
         let resultData = result.data;
 
-        if (resultData.domNodes && resultData.domNodes.length) {
-            let domNodesContainer = this.contentView.element.appendChild(document.createElement("div"));
-            domNodesContainer.classList.add("dom-nodes");
+        if (!this._resultDataGeneralContainer) {
+            let nonSpecialData = Object.filter(resultData, (key) => key !== "domNodes" && key !== "errors");
+            if (!isEmptyObject(nonSpecialData)) {
+                this._resultDataGeneralContainer = document.createElement("div");
 
-            let domNodeText = domNodesContainer.appendChild(document.createElement("h1"));
+                let expression = "(" + JSON.stringify(nonSpecialData) + ")";
+                const options = {
+                    objectGroup: WI.AuditTestBase.ObjectGroup,
+                    doNotPauseOnExceptionsAndMuteConsole: true,
+                };
+                WI.runtimeManager.evaluateInInspectedWindow(expression, options, (nonSpecialDataRemoteObject, wasThrown) => {
+                    console.assert(!wasThrown);
+                    if (!nonSpecialDataRemoteObject)
+                        return;
+
+                    if (!this.representedObject.result || this.representedObject.result.data !== resultData)
+                        return;
+
+                    const propertyPath = null;
+                    const forceExpanding = true;
+                    let element = WI.FormattedValue.createObjectTreeOrFormattedValueForRemoteObject(nonSpecialDataRemoteObject, propertyPath, forceExpanding);
+
+                    let objectTree = element.__objectTree;
+                    if (objectTree) {
+                        objectTree.showOnlyJSON();
+                        objectTree.expand();
+                    }
+
+                    this._resultDataGeneralContainer.appendChild(element);
+
+                    this.hidePlaceholder();
+                });
+            }
+        }
+
+        if (this._resultDataGeneralContainer)
+            this.contentView.element.appendChild(this._resultDataGeneralContainer);
+
+        if (!this._resultDataDOMNodesContainer && resultData.domNodes && resultData.domNodes.length) {
+            this._resultDataDOMNodesContainer = document.createElement("div");
+            this._resultDataDOMNodesContainer.classList.add("dom-nodes");
+
+            let domNodeText = this._resultDataDOMNodesContainer.appendChild(document.createElement("h1"));
             domNodeText.textContent = WI.UIString("DOM Nodes:");
 
-            let tableContainer = domNodesContainer.appendChild(document.createElement("table"));
+            let tableContainer = this._resultDataDOMNodesContainer.appendChild(document.createElement("table"));
 
             resultData.domNodes.forEach((domNode, index) => {
                 domNode = result.resolvedDOMNodes[index] || domNode;
@@ -153,11 +195,12 @@ WI.AuditTestCaseContentView = class AuditTestCaseContentView extends WI.AuditTes
                 let dataElement = rowElement.appendChild(document.createElement("td"));
 
                 if (domNode instanceof WI.DOMNode) {
-                    let treeOutline = new WI.DOMTreeOutline;
+                    let treeOutline = new WI.DOMTreeOutline({selectable: false});
                     treeOutline.setVisible(true);
                     treeOutline.rootDOMNode = domNode;
 
                     let rootTreeElement = treeOutline.children[0];
+                    rootTreeElement.showGoToArrow = true;
                     if (!rootTreeElement.hasChildren)
                         treeOutline.element.classList.add("single-node");
 
@@ -174,7 +217,6 @@ WI.AuditTestCaseContentView = class AuditTestCaseContentView extends WI.AuditTes
                         mode: "css",
                         readOnly: true,
                         lineWrapping: true,
-                        showWhitespaceCharacters: WI.settings.showWhitespaceCharacters.value,
                         styleSelectedText: true,
                     });
                     codeMirror.setValue(domNode);
@@ -203,14 +245,17 @@ WI.AuditTestCaseContentView = class AuditTestCaseContentView extends WI.AuditTes
             });
         }
 
-        if (resultData.errors && resultData.errors.length) {
-            let errorContainer = this.contentView.element.appendChild(document.createElement("div"));
-            errorContainer.classList.add("errors");
+        if (this._resultDataDOMNodesContainer)
+            this.contentView.element.appendChild(this._resultDataDOMNodesContainer);
 
-            let errorText = errorContainer.appendChild(document.createElement("h1"));
+        if (!this._resultDataErrorsContainer && resultData.errors && resultData.errors.length) {
+            this._resultDataErrorsContainer = document.createElement("div");
+            this._resultDataErrorsContainer.classList.add("errors");
+
+            let errorText = this._resultDataErrorsContainer.appendChild(document.createElement("h1"));
             errorText.textContent = WI.UIString("Errors:");
 
-            let tableContainer = errorContainer.appendChild(document.createElement("table"));
+            let tableContainer = this._resultDataErrorsContainer.appendChild(document.createElement("table"));
 
             resultData.errors.forEach((error, index) => {
                 let rowElement = tableContainer.appendChild(document.createElement("tr"));
@@ -226,8 +271,20 @@ WI.AuditTestCaseContentView = class AuditTestCaseContentView extends WI.AuditTes
             });
         }
 
+        if (this._resultDataErrorsContainer)
+            this.contentView.element.appendChild(this._resultDataErrorsContainer);
+
         if (!this.contentView.element.children.length)
             this.showNoResultDataPlaceholder();
+    }
+
+    handleResultChanged(event)
+    {
+        super.handleResultChanged(event);
+
+        this._resultDataGeneralContainer = null;
+        this._resultDataDOMNodesContainer = null;
+        this._resultDataErrorsContainer = null;
     }
 
     showRunningPlaceholder()

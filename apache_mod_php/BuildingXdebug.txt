@@ -1,0 +1,15 @@
+Notes on building the xdebug extension. This will require the use of autoconf; see IMPORTANT.NOTICE.ON.USE.OF.AUTOCONF.txt.
+
+Install the latest autoconf, on a single machine with restricted access. This is only for use in the phpize step below. Do not use autoconf for any other purpose, and delete it when finished.
+
+Download the source distribution of xdebug from xdebug.org.
+
+Untar the repository; rename it to xdebug.
+
+Run phpize.
+
+Tar up the php-ized soruces; call it xdebug-phpized.tar.gz
+
+Update the Makefile with the xdebug version
+
+The xbs buildit utility should build xdebug as a subproject of apache_mod_php.

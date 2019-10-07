@@ -89,6 +89,10 @@ void RemoteWebInspectorProxy::platformCloseFrontendPageAndWindow()
         gtk_widget_destroy(m_window);
 }
 
+void RemoteWebInspectorProxy::platformResetState()
+{
+}
+
 void RemoteWebInspectorProxy::platformBringToFront()
 {
     if (m_window)
@@ -100,6 +104,10 @@ void RemoteWebInspectorProxy::platformSave(const String&, const String&, bool, b
 }
 
 void RemoteWebInspectorProxy::platformAppend(const String&, const String&)
+{
+}
+
+void RemoteWebInspectorProxy::platformSetSheetRect(const FloatRect&)
 {
 }
 

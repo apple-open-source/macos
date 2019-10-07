@@ -12,11 +12,9 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Dmitry Stogov <dmitry@zend.com>                             |
+   | Authors: Dmitry Stogov <dmitry@php.net>                              |
    +----------------------------------------------------------------------+
 */
-
-/* $Id:$ */
 
 #include "php.h"
 #include "zend_compile.h"
@@ -152,9 +150,11 @@ int zend_analyze_calls(zend_arena **arena, zend_script *script, uint32_t build_f
 			case ZEND_SEND_VAR:
 			case ZEND_SEND_VAL_EX:
 			case ZEND_SEND_VAR_EX:
+			case ZEND_SEND_FUNC_ARG:
 			case ZEND_SEND_REF:
 			case ZEND_SEND_VAR_NO_REF:
 			case ZEND_SEND_VAR_NO_REF_EX:
+			case ZEND_SEND_USER:
 				if (call_info) {
 					uint32_t num = opline->op2.num;
 
@@ -165,9 +165,11 @@ int zend_analyze_calls(zend_arena **arena, zend_script *script, uint32_t build_f
 				}
 				break;
 			case ZEND_SEND_ARRAY:
-			case ZEND_SEND_USER:
 			case ZEND_SEND_UNPACK:
 				/* TODO: set info about var_arg call ??? */
+				if (call_info) {
+					call_info->num_args = -1;
+				}
 				break;
 		}
 		opline++;

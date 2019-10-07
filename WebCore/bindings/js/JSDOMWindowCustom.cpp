@@ -22,6 +22,7 @@
 #include "JSDOMWindowCustom.h"
 
 #include "DOMWindowIndexedDatabase.h"
+#include "DOMWindowWebDatabase.h"
 #include "Frame.h"
 #include "HTMLCollection.h"
 #include "HTMLDocument.h"
@@ -31,6 +32,8 @@
 #include "JSDOMConvertNullable.h"
 #include "JSDOMConvertNumbers.h"
 #include "JSDOMConvertStrings.h"
+#include "JSDatabase.h"
+#include "JSDatabaseCallback.h"
 #include "JSEvent.h"
 #include "JSEventListener.h"
 #include "JSHTMLAudioElement.h"
@@ -45,10 +48,13 @@
 #include "ScheduledAction.h"
 #include "Settings.h"
 #include "WebCoreJSClientData.h"
+#include <JavaScriptCore/BuiltinNames.h>
 #include <JavaScriptCore/HeapSnapshotBuilder.h>
 #include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/JSFunction.h>
 #include <JavaScriptCore/JSMicrotask.h>
 #include <JavaScriptCore/Lookup.h>
+#include <JavaScriptCore/Structure.h>
 
 #if ENABLE(USER_MESSAGE_HANDLERS)
 #include "JSWebKitNamespace.h"
@@ -59,6 +65,7 @@ namespace WebCore {
 using namespace JSC;
 
 EncodedJSValue JSC_HOST_CALL jsDOMWindowInstanceFunctionShowModalDialog(ExecState*);
+EncodedJSValue JSC_HOST_CALL jsDOMWindowInstanceFunctionOpenDatabase(ExecState*);
 
 void JSDOMWindow::visitAdditionalChildren(SlotVisitor& visitor)
 {
@@ -147,7 +154,7 @@ bool jsDOMWindowGetOwnPropertySlotRestrictedAccess(JSDOMGlobalObject* thisObject
     // FIXME: Add support to named attributes on RemoteFrames.
     auto* frame = window.frame();
     if (frame && is<Frame>(*frame)) {
-        if (auto* scopedChild = downcast<Frame>(*frame).tree().scopedChild(propertyNameToAtomicString(propertyName))) {
+        if (auto* scopedChild = downcast<Frame>(*frame).tree().scopedChild(propertyNameToAtomString(propertyName))) {
             slot.setValue(thisObject, JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::DontEnum, toJS(&state, scopedChild->document()->domWindow()));
             return true;
         }
@@ -257,6 +264,25 @@ bool JSDOMWindow::getOwnPropertySlotByIndex(JSObject* object, ExecState* state, 
     return Base::getOwnPropertySlotByIndex(thisObject, state, index, slot);
 }
 
+void JSDOMWindow::doPutPropertySecurityCheck(JSObject* cell, ExecState* state, PropertyName propertyName, PutPropertySlot&)
+{
+    VM& vm = state->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    auto* thisObject = jsCast<JSDOMWindow*>(cell);
+    if (!thisObject->wrapped().frame())
+        return;
+
+    String errorMessage;
+    if (!BindingSecurity::shouldAllowAccessToDOMWindow(*state, thisObject->wrapped(), errorMessage)) {
+        // We only allow setting "location" attribute cross-origin.
+        if (propertyName == static_cast<JSVMClientData*>(vm.clientData)->builtinNames().locationPublicName())
+            return;
+        throwSecurityError(*state, scope, errorMessage);
+        return;
+    }
+}
+
 bool JSDOMWindow::put(JSCell* cell, ExecState* state, PropertyName propertyName, JSValue value, PutPropertySlot& slot)
 {
     VM& vm = state->vm();
@@ -322,15 +348,15 @@ void JSDOMWindow::heapSnapshot(JSCell* cell, HeapSnapshotBuilder& builder)
 template <CrossOriginObject objectType>
 static void addCrossOriginPropertyNames(VM& vm, PropertyNameArray& propertyNames)
 {
+    auto& builtinNames = static_cast<JSVMClientData*>(vm.clientData)->builtinNames();
     switch (objectType) {
     case CrossOriginObject::Location: {
-        static const Identifier* const properties[] = { &vm.propertyNames->href, &vm.propertyNames->replace };
+        static const Identifier* const properties[] = { &builtinNames.hrefPublicName(), &vm.propertyNames->replace };
         for (auto* property : properties)
             propertyNames.add(*property);
         break;
     }
     case CrossOriginObject::Window: {
-        auto& builtinNames = static_cast<JSVMClientData*>(vm.clientData)->builtinNames();
         static const Identifier* const properties[] = {
             &builtinNames.blurPublicName(), &builtinNames.closePublicName(), &builtinNames.closedPublicName(),
             &builtinNames.focusPublicName(), &builtinNames.framesPublicName(), &vm.propertyNames->length,
@@ -546,6 +572,78 @@ void JSDOMWindow::setOpener(JSC::ExecState& state, JSC::JSValue value)
         return;
     }
     replaceStaticPropertySlot(state.vm(), this, Identifier::fromString(&state.vm(), "opener"), value);
+}
+
+JSValue JSDOMWindow::self(JSC::ExecState&) const
+{
+    return globalThis();
+}
+
+JSValue JSDOMWindow::window(JSC::ExecState&) const
+{
+    return globalThis();
+}
+
+JSValue JSDOMWindow::frames(JSC::ExecState&) const
+{
+    return globalThis();
+}
+
+static inline JSC::EncodedJSValue jsDOMWindowInstanceFunctionOpenDatabaseBody(JSC::ExecState* state, typename IDLOperation<JSDOMWindow>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+{
+    if (!BindingSecurity::shouldAllowAccessToDOMWindow(state, castedThis->wrapped(), ThrowSecurityError))
+        return JSValue::encode(jsUndefined());
+    auto& impl = castedThis->wrapped();
+    if (UNLIKELY(state->argumentCount() < 4))
+        return throwVMError(state, throwScope, createNotEnoughArgumentsError(state));
+    auto name = convert<IDLDOMString>(*state, state->uncheckedArgument(0));
+    RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
+    auto version = convert<IDLDOMString>(*state, state->uncheckedArgument(1));
+    RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
+    auto displayName = convert<IDLDOMString>(*state, state->uncheckedArgument(2));
+    RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
+    auto estimatedSize = convert<IDLUnsignedLong>(*state, state->uncheckedArgument(3));
+    RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
+
+    if (!RuntimeEnabledFeatures::sharedFeatures().webSQLEnabled()) {
+        if (name != "null" || version != "null" || displayName != "null" || estimatedSize)
+            propagateException(*state, throwScope, Exception(UnknownError, "Web SQL is deprecated"_s));
+        return JSValue::encode(constructEmptyObject(state, castedThis->globalObject()->objectPrototype()));
+    }
+
+    auto creationCallback = convert<IDLNullable<IDLCallbackFunction<JSDatabaseCallback>>>(*state, state->argument(4), *castedThis->globalObject(), [](JSC::ExecState& state, JSC::ThrowScope& scope) {
+        throwArgumentMustBeFunctionError(state, scope, 4, "creationCallback", "Window", "openDatabase");
+    });
+    RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
+    return JSValue::encode(toJS<IDLNullable<IDLInterface<Database>>>(*state, *castedThis->globalObject(), throwScope, WebCore::DOMWindowWebDatabase::openDatabase(impl, WTFMove(name), WTFMove(version), WTFMove(displayName), WTFMove(estimatedSize), WTFMove(creationCallback))));
+}
+
+template<> inline JSDOMWindow* IDLOperation<JSDOMWindow>::cast(ExecState& state)
+{
+    return toJSDOMWindow(state.vm(), state.thisValue().toThis(&state, NotStrictMode));
+}
+
+EncodedJSValue JSC_HOST_CALL jsDOMWindowInstanceFunctionOpenDatabase(ExecState* state)
+{
+    return IDLOperation<JSDOMWindow>::call<jsDOMWindowInstanceFunctionOpenDatabaseBody>(*state, "openDatabase");
+}
+
+JSValue JSDOMWindow::openDatabase(JSC::ExecState& state) const
+{
+    VM& vm = state.vm();
+    StringImpl* name = PropertyName(static_cast<JSVMClientData*>(vm.clientData)->builtinNames().openDatabasePublicName()).publicName();
+    if (RuntimeEnabledFeatures::sharedFeatures().webSQLEnabled())
+        return JSFunction::create(vm, state.lexicalGlobalObject(), 4, name, jsDOMWindowInstanceFunctionOpenDatabase, NoIntrinsic);
+
+    return JSFunction::createFunctionThatMasqueradesAsUndefined(vm, state.lexicalGlobalObject(), 4, name, jsDOMWindowInstanceFunctionOpenDatabase, NoIntrinsic);
+}
+
+void JSDOMWindow::setOpenDatabase(JSC::ExecState& state, JSC::JSValue value)
+{
+    if (!BindingSecurity::shouldAllowAccessToDOMWindow(&state, wrapped(), ThrowSecurityError))
+        return;
+
+    replaceStaticPropertySlot(state.vm(), this, Identifier::fromString(&state.vm(), "openDatabase"), value);
 }
 
 } // namespace WebCore

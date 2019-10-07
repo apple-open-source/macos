@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,8 +26,8 @@
 #define __PPPOE_DLIL_H__
 
 
-int pppoe_dlil_init();
-int pppoe_dlil_dispose();
+int pppoe_dlil_init(void);
+int pppoe_dlil_dispose(void);
 int pppoe_dlil_attach(u_short unit, ifnet_t *ifpp);
 int pppoe_dlil_detach(ifnet_t ifp);
 int pppoe_dlil_output(ifnet_t ifp, mbuf_t m, u_int8_t *to, u_int16_t typ);

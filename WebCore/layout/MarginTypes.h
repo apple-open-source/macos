@@ -40,6 +40,7 @@ struct ComputedVerticalMargin {
 struct UsedVerticalMargin {
     LayoutUnit before() const { return m_collapsedValues.before.valueOr(m_nonCollapsedValues.before); }
     LayoutUnit after() const { return m_collapsedValues.after.valueOr(m_nonCollapsedValues.after); }
+    bool isCollapsedThrough() const { return m_collapsedValues.isCollapsedThrough; }
 
     struct NonCollapsedValues {
         LayoutUnit before;
@@ -50,15 +51,15 @@ struct UsedVerticalMargin {
     struct CollapsedValues {
         Optional<LayoutUnit> before;
         Optional<LayoutUnit> after;
+        bool isCollapsedThrough { false };
     };
     CollapsedValues collapsedValues() const { return m_collapsedValues; }
     bool hasCollapsedValues() const { return m_collapsedValues.before || m_collapsedValues.after; }
     void setCollapsedValues(CollapsedValues collapsedValues) { m_collapsedValues = collapsedValues; }
 
     UsedVerticalMargin(NonCollapsedValues, CollapsedValues);
-
     UsedVerticalMargin() = default;
-    ~UsedVerticalMargin() = default;
+
 private:
     NonCollapsedValues m_nonCollapsedValues;
     CollapsedValues m_collapsedValues;
@@ -74,10 +75,20 @@ struct UsedHorizontalMargin {
     LayoutUnit end;
 };
 
+struct EstimatedMarginBefore {
+    LayoutUnit usedValue() const { return collapsedValue.valueOr(nonCollapsedValue); }
+    LayoutUnit nonCollapsedValue;
+    Optional<LayoutUnit> collapsedValue;
+    bool isCollapsedThrough { false };
+};
+
 struct PositiveAndNegativeVerticalMargin {
     struct Values {
+        bool isNonZero() const { return positive.valueOr(0) || negative.valueOr(0); }
+
         Optional<LayoutUnit> positive;
         Optional<LayoutUnit> negative;
+        bool isQuirk { false };
     };
     Values before;
     Values after;

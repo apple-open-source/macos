@@ -37,6 +37,7 @@
 #include "JSObject.h"
 #include "JSString.h"
 #include "JSCInlines.h"
+#include "MarkedBlockInlines.h"
 #include "MarkingConstraintSolver.h"
 #include "SlotVisitorInlines.h"
 #include "StopIfNecessaryTimer.h"
@@ -44,6 +45,7 @@
 #include "VM.h"
 #include <wtf/ListDump.h>
 #include <wtf/Lock.h>
+#include <wtf/StdLibExtras.h>
 
 namespace JSC {
 
@@ -285,9 +287,15 @@ void SlotVisitor::appendToMarkStack(JSCell* cell)
 template<typename ContainerType>
 ALWAYS_INLINE void SlotVisitor::appendToMarkStack(ContainerType& container, JSCell* cell)
 {
-    ASSERT(Heap::isMarked(cell));
+    ASSERT(m_heap.isMarked(cell));
+#if CPU(X86_64)
+    if (Options::dumpZappedCellCrashData()) {
+        if (UNLIKELY(cell->isZapped()))
+            reportZappedCellAndCrash(cell);
+    }
+#endif
     ASSERT(!cell->isZapped());
-    
+
     container.noteMarked();
     
     m_visitCount++;
@@ -354,7 +362,7 @@ private:
 
 ALWAYS_INLINE void SlotVisitor::visitChildren(const JSCell* cell)
 {
-    ASSERT(Heap::isMarked(cell));
+    ASSERT(m_heap.isMarked(cell));
     
     SetCurrentCellScope currentCellScope(*this, cell);
     
@@ -390,6 +398,17 @@ ALWAYS_INLINE void SlotVisitor::visitChildren(const JSCell* cell)
     default:
         // FIXME: This could be so much better.
         // https://bugs.webkit.org/show_bug.cgi?id=162462
+#if CPU(X86_64)
+        if (Options::dumpZappedCellCrashData()) {
+            Structure* structure = cell->structure(vm());
+            if (LIKELY(structure)) {
+                const MethodTable* methodTable = &structure->classInfo()->methodTable;
+                methodTable->visitChildren(const_cast<JSCell*>(cell), *this);
+                break;
+            }
+            reportZappedCellAndCrash(const_cast<JSCell*>(cell));
+        }
+#endif
         cell->methodTable(vm())->visitChildren(const_cast<JSCell*>(cell), *this);
         break;
     }
@@ -808,5 +827,47 @@ void SlotVisitor::addParallelConstraintTask(RefPtr<SharedTask<void(SlotVisitor&)
     
     m_currentSolver->addParallelTask(task, *m_currentConstraint);
 }
+
+#if CPU(X86_64)
+NEVER_INLINE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void SlotVisitor::reportZappedCellAndCrash(JSCell* cell)
+{
+    MarkedBlock::Handle* foundBlockHandle = nullptr;
+    uint64_t* cellWords = reinterpret_cast_ptr<uint64_t*>(cell);
+
+    uintptr_t cellAddress = bitwise_cast<uintptr_t>(cell);
+    uint64_t headerWord = cellWords[0];
+    uint64_t zapReasonAndMore = cellWords[1];
+    unsigned subspaceHash = 0;
+    size_t cellSize = 0;
+
+    m_heap.objectSpace().forEachBlock([&] (MarkedBlock::Handle* blockHandle) {
+        if (blockHandle->contains(cell)) {
+            foundBlockHandle = blockHandle;
+            return IterationStatus::Done;
+        }
+        return IterationStatus::Continue;
+    });
+
+    uint64_t variousState = 0;
+    MarkedBlock* foundBlock = nullptr;
+    if (foundBlockHandle) {
+        foundBlock = &foundBlockHandle->block();
+        subspaceHash = StringHasher::computeHash(foundBlockHandle->subspace()->name());
+        cellSize = foundBlockHandle->cellSize();
+
+        variousState |= static_cast<uint64_t>(foundBlockHandle->isFreeListed()) << 0;
+        variousState |= static_cast<uint64_t>(foundBlockHandle->isAllocated()) << 1;
+        variousState |= static_cast<uint64_t>(foundBlockHandle->isEmpty()) << 2;
+        variousState |= static_cast<uint64_t>(foundBlockHandle->needsDestruction()) << 3;
+        variousState |= static_cast<uint64_t>(foundBlock->isNewlyAllocated(cell)) << 4;
+
+        ptrdiff_t cellOffset = cellAddress - reinterpret_cast<uint64_t>(foundBlockHandle->start());
+        bool cellIsProperlyAligned = !(cellOffset % cellSize);
+        variousState |= static_cast<uint64_t>(cellIsProperlyAligned) << 5;
+    }
+
+    CRASH_WITH_INFO(cellAddress, headerWord, zapReasonAndMore, subspaceHash, cellSize, reinterpret_cast<uint64_t>(foundBlock), variousState);
+}
+#endif // PLATFORM(MAC)
 
 } // namespace JSC

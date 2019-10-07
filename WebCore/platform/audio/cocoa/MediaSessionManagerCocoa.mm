@@ -62,15 +62,25 @@ PlatformMediaSessionManager* PlatformMediaSessionManager::sharedManagerIfExists(
 
 void MediaSessionManagerCocoa::updateSessionState()
 {
-    LOG(Media, "PlatformMediaSessionManager::scheduleUpdateSessionState() - types: Video(%d), Audio(%d), WebAudio(%d)", count(PlatformMediaSession::Video), count(PlatformMediaSession::Audio), count(PlatformMediaSession::WebAudio));
+    int videoCount = count(PlatformMediaSession::Video);
+    int videoAudioCount = count(PlatformMediaSession::VideoAudio);
+    int audioCount = count(PlatformMediaSession::Audio);
+    int webAudioCount = count(PlatformMediaSession::WebAudio);
+    int captureCount = count(PlatformMediaSession::MediaStreamCapturingAudio);
+    ALWAYS_LOG(LOGIDENTIFIER, "types: "
+        "AudioCapture(", captureCount, "), "
+        "Video(", videoCount, "), "
+        "Audio(", audioCount, "), "
+        "VideoAudio(", videoAudioCount, "), "
+        "WebAudio(", webAudioCount, ")");
 
-    if (has(PlatformMediaSession::WebAudio))
+    if (webAudioCount)
         AudioSession::sharedSession().setPreferredBufferSize(kWebAudioBufferSize);
     // In case of audio capture, we want to grab 20 ms chunks to limit the latency so that it is not noticeable by users
     // while having a large enough buffer so that the audio rendering remains stable, hence a computation based on sample rate.
-    else if (has(PlatformMediaSession::MediaStreamCapturingAudio))
+    else if (captureCount)
         AudioSession::sharedSession().setPreferredBufferSize(AudioSession::sharedSession().sampleRate() / 50);
-    else if ((has(PlatformMediaSession::VideoAudio) || has(PlatformMediaSession::Audio)) && DeprecatedGlobalSettings::lowPowerVideoAudioBufferSizeEnabled()) {
+    else if ((videoAudioCount || audioCount) && DeprecatedGlobalSettings::lowPowerVideoAudioBufferSizeEnabled()) {
         // FIXME: <http://webkit.org/b/116725> Figure out why enabling the code below
         // causes media LayoutTests to fail on 10.8.
 
@@ -86,38 +96,43 @@ void MediaSessionManagerCocoa::updateSessionState()
     if (!DeprecatedGlobalSettings::shouldManageAudioSessionCategory())
         return;
 
-    bool hasWebAudioType = false;
     bool hasAudibleAudioOrVideoMediaType = false;
-    bool hasAudioCapture = anyOfSessions([&hasWebAudioType, &hasAudibleAudioOrVideoMediaType] (PlatformMediaSession& session, size_t) mutable {
+    forEachSession([&hasAudibleAudioOrVideoMediaType] (auto& session) mutable {
         auto type = session.mediaType();
-        if (type == PlatformMediaSession::WebAudio)
-            hasWebAudioType = true;
         if ((type == PlatformMediaSession::VideoAudio || type == PlatformMediaSession::Audio) && session.canProduceAudio() && session.hasPlayedSinceLastInterruption())
             hasAudibleAudioOrVideoMediaType = true;
         if (session.isPlayingToWirelessPlaybackTarget())
             hasAudibleAudioOrVideoMediaType = true;
-        return (type == PlatformMediaSession::MediaStreamCapturingAudio);
     });
 
-    if (hasAudioCapture)
-        AudioSession::sharedSession().setCategory(AudioSession::PlayAndRecord);
-    else if (hasAudibleAudioOrVideoMediaType)
-        AudioSession::sharedSession().setCategory(AudioSession::MediaPlayback);
-    else if (hasWebAudioType)
-        AudioSession::sharedSession().setCategory(AudioSession::AmbientSound);
-    else
-        AudioSession::sharedSession().setCategory(AudioSession::None);
+    RouteSharingPolicy policy = RouteSharingPolicy::Default;
+    AudioSession::CategoryType category = AudioSession::None;
+    if (captureCount)
+        category = AudioSession::PlayAndRecord;
+    else if (hasAudibleAudioOrVideoMediaType) {
+        category = AudioSession::MediaPlayback;
+        policy = RouteSharingPolicy::LongFormAudio;
+    } else if (webAudioCount)
+        category = AudioSession::AmbientSound;
+
+    ALWAYS_LOG(LOGIDENTIFIER, "setting category = ", category, ", policy = ", policy);
+    AudioSession::sharedSession().setCategory(category, policy);
 }
 
 void MediaSessionManagerCocoa::beginInterruption(PlatformMediaSession::InterruptionType type)
 {
     if (type == PlatformMediaSession::InterruptionType::SystemInterruption) {
-        forEachSession([] (PlatformMediaSession& session, size_t) {
+        forEachSession([] (auto& session) {
             session.clearHasPlayedSinceLastInterruption();
         });
     }
 
     PlatformMediaSessionManager::beginInterruption(type);
+}
+
+void MediaSessionManagerCocoa::prepareToSendUserMediaPermissionRequest()
+{
+    providePresentingApplicationPIDIfNecessary();
 }
 
 void MediaSessionManagerCocoa::scheduleUpdateNowPlayingInfo()
@@ -130,8 +145,7 @@ bool MediaSessionManagerCocoa::sessionWillBeginPlayback(PlatformMediaSession& se
 {
     if (!PlatformMediaSessionManager::sessionWillBeginPlayback(session))
         return false;
-    
-    LOG(Media, "MediaSessionManagerCocoa::sessionWillBeginPlayback");
+
     scheduleUpdateNowPlayingInfo();
     return true;
 }
@@ -144,20 +158,18 @@ void MediaSessionManagerCocoa::sessionDidEndRemoteScrubbing(const PlatformMediaS
 void MediaSessionManagerCocoa::removeSession(PlatformMediaSession& session)
 {
     PlatformMediaSessionManager::removeSession(session);
-    LOG(Media, "MediaSessionManagerCocoa::removeSession");
     scheduleUpdateNowPlayingInfo();
 }
 
 void MediaSessionManagerCocoa::sessionWillEndPlayback(PlatformMediaSession& session)
 {
     PlatformMediaSessionManager::sessionWillEndPlayback(session);
-    LOG(Media, "MediaSessionManagerCocoa::sessionWillEndPlayback");
     updateNowPlayingInfo();
 }
 
-void MediaSessionManagerCocoa::clientCharacteristicsChanged(PlatformMediaSession&)
+void MediaSessionManagerCocoa::clientCharacteristicsChanged(PlatformMediaSession& session)
 {
-    LOG(Media, "MediaSessionManagerCocoa::clientCharacteristicsChanged");
+    ALWAYS_LOG(LOGIDENTIFIER, session.logIdentifier());
     scheduleUpdateNowPlayingInfo();
 }
 
@@ -185,13 +197,13 @@ void MediaSessionManagerCocoa::updateNowPlayingInfo()
 
     const PlatformMediaSession* currentSession = this->nowPlayingEligibleSession();
 
-    LOG(Media, "MediaSessionManagerCocoa::updateNowPlayingInfo - currentSession = %p", currentSession);
+    ALWAYS_LOG(LOGIDENTIFIER, "currentSession: ", currentSession ? currentSession->logIdentifier() : nullptr);
 
     if (!currentSession) {
         if (canLoad_MediaRemote_MRMediaRemoteSetNowPlayingVisibility())
             MRMediaRemoteSetNowPlayingVisibility(MRMediaRemoteGetLocalOrigin(), MRNowPlayingClientVisibilityNeverVisible);
 
-        LOG(Media, "MediaSessionManagerCocoa::updateNowPlayingInfo - clearing now playing info");
+        ALWAYS_LOG(LOGIDENTIFIER, "clearing now playing info");
 
         MRMediaRemoteSetCanBeNowPlayingApplication(false);
         m_registeredAsNowPlayingApplication = false;
@@ -207,7 +219,7 @@ void MediaSessionManagerCocoa::updateNowPlayingInfo()
             UNUSED_PARAM(error);
 #else
             if (error)
-                LOG(Media, "MediaSessionManagerCocoa::updateNowPlayingInfo - MRMediaRemoteSetNowPlayingApplicationPlaybackStateForOrigin(stopped) failed with error %ud", error);
+                ALWAYS_LOG(LOGIDENTIFIER, "MRMediaRemoteSetNowPlayingApplicationPlaybackStateForOrigin(stopped) failed with error ", error);
 #endif
         });
 
@@ -216,6 +228,7 @@ void MediaSessionManagerCocoa::updateNowPlayingInfo()
 
     if (!m_registeredAsNowPlayingApplication) {
         m_registeredAsNowPlayingApplication = true;
+        providePresentingApplicationPIDIfNecessary();
         MRMediaRemoteSetCanBeNowPlayingApplication(true);
     }
 
@@ -249,8 +262,7 @@ void MediaSessionManagerCocoa::updateNowPlayingInfo()
         m_lastUpdatedNowPlayingElapsedTime = currentTime;
     }
 
-    LOG(Media, "MediaSessionManagerCocoa::updateNowPlayingInfo - title = \"%s\", rate = %f, duration = %f, now = %f",
-        title.utf8().data(), rate, duration, currentTime);
+    ALWAYS_LOG(LOGIDENTIFIER, "title = \"", title, "\", rate = ", rate, ", duration = ", duration, ", now = ", currentTime);
 
     String parentApplication = currentSession->sourceApplicationIdentifier();
     if (canLoad_MediaRemote_MRMediaRemoteSetParentApplication() && !parentApplication.isEmpty())
@@ -262,7 +274,7 @@ void MediaSessionManagerCocoa::updateNowPlayingInfo()
 #if LOG_DISABLED
         UNUSED_PARAM(error);
 #else
-        LOG(Media, "MediaSessionManagerCocoa::updateNowPlayingInfo - MRMediaRemoteSetNowPlayingApplicationPlaybackStateForOrigin(playing) failed with error %ud", error);
+        ALWAYS_LOG(LOGIDENTIFIER, "MRMediaRemoteSetNowPlayingApplicationPlaybackStateForOrigin(playing) failed with error ", error);
 #endif
     });
     MRMediaRemoteSetNowPlayingInfo(info.get());

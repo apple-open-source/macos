@@ -188,6 +188,7 @@ void RenderGrid::layoutBlock(bool relayoutChildren, LayoutUnit)
         LayoutStateMaintainer statePusher(*this, locationOffset(), hasTransform() || hasReflection() || style().isFlippedBlocksWritingMode());
 
         preparePaginationBeforeBlockLayout(relayoutChildren);
+        beginUpdateScrollInfoAfterLayoutTransaction();
 
         LayoutSize previousSize = size();
         // FIXME: We should use RenderBlock::hasDefiniteLogicalHeight() but it does not work for positioned stuff.
@@ -278,6 +279,8 @@ void RenderGrid::layoutBlock(bool relayoutChildren, LayoutUnit)
 
         layoutGridItems();
         m_trackSizingAlgorithm.reset();
+
+        endAndCommitUpdateScrollInfoAfterLayoutTransaction();
 
         if (size() != previousSize)
             relayoutChildren = true;
@@ -453,24 +456,33 @@ unsigned RenderGrid::computeAutoRepeatTracksCount(GridTrackSizingDirection direc
     if (!autoRepeatTrackListLength)
         return 0;
 
-    if (!isRowAxis && !availableSize) {
-        const Length& maxLength = style().logicalMaxHeight();
-        if (!maxLength.isUndefined()) {
-            availableSize = computeContentLogicalHeight(MaxSize, maxLength, WTF::nullopt);
-            if (availableSize)
-                availableSize = constrainContentBoxLogicalHeightByMinMax(availableSize.value(), WTF::nullopt);
-        }
-    }
-
     bool needsToFulfillMinimumSize = false;
     if (!availableSize) {
+        const Length& maxSize = isRowAxis ? style().logicalMaxWidth() : style().logicalMaxHeight();
+        Optional<LayoutUnit> containingBlockAvailableSize;
+        Optional<LayoutUnit> availableMaxSize;
+        if (maxSize.isSpecified()) {
+            if (maxSize.isPercentOrCalculated())
+                containingBlockAvailableSize = isRowAxis ? containingBlockLogicalWidthForContent() : containingBlockLogicalHeightForContent(ExcludeMarginBorderPadding);
+            LayoutUnit maxSizeValue = valueForLength(maxSize, containingBlockAvailableSize.valueOr(LayoutUnit()));
+            availableMaxSize = isRowAxis ? adjustContentBoxLogicalWidthForBoxSizing(maxSizeValue) : adjustContentBoxLogicalHeightForBoxSizing(maxSizeValue);
+        }
+
         const Length& minSize = isRowAxis ? style().logicalMinWidth() : style().logicalMinHeight();
-        if (!minSize.isSpecified())
+        if (!availableMaxSize && !minSize.isSpecified())
             return autoRepeatTrackListLength;
 
-        LayoutUnit containingBlockAvailableSize = isRowAxis ? containingBlockLogicalWidthForContent() : containingBlockLogicalHeightForContent(ExcludeMarginBorderPadding);
-        availableSize = valueForLength(minSize, containingBlockAvailableSize);
-        needsToFulfillMinimumSize = true;
+        Optional<LayoutUnit> availableMinSize;
+        if (minSize.isSpecified()) {
+            if (!containingBlockAvailableSize && minSize.isPercentOrCalculated())
+                containingBlockAvailableSize = isRowAxis ? containingBlockLogicalWidthForContent() : containingBlockLogicalHeightForContent(ExcludeMarginBorderPadding);
+            LayoutUnit minSizeValue = valueForLength(minSize, containingBlockAvailableSize.valueOr(LayoutUnit()));
+            availableMinSize = isRowAxis ? adjustContentBoxLogicalWidthForBoxSizing(minSizeValue) : adjustContentBoxLogicalHeightForBoxSizing(minSizeValue);
+            if (!maxSize.isSpecified())
+                needsToFulfillMinimumSize = true;
+        }
+
+        availableSize = std::max(availableMinSize.valueOr(LayoutUnit()), availableMaxSize.valueOr(LayoutUnit()));
     }
 
     LayoutUnit autoRepeatTracksSize;
@@ -942,7 +954,7 @@ void RenderGrid::layoutGridItems()
         updateAutoMarginsInColumnAxisIfNeeded(*child);
         updateAutoMarginsInRowAxisIfNeeded(*child);
 
-        child->setLogicalLocation(findChildLogicalPosition(*child));
+        setLogicalPositionForChild(*child);
 
         // If the child moved, we have to repaint it as well as any floating/positioned
         // descendants. An exception is if we need a layout. In this case, we know we're going to
@@ -982,8 +994,8 @@ void RenderGrid::layoutPositionedObject(RenderBox& child, bool relayoutChildren,
 
     RenderBlock::layoutPositionedObject(child, relayoutChildren, fixedPositionObjectsOnly);
 
-    if (child.isGridItem() || !hasStaticPositionForChild(child, ForColumns) || !hasStaticPositionForChild(child, ForRows))
-        child.setLogicalLocation(findChildLogicalPosition(child));
+    setLogicalOffsetForChild(child, ForColumns);
+    setLogicalOffsetForChild(child, ForRows);
 }
 
 LayoutUnit RenderGrid::gridAreaBreadthForChildIncludingAlignmentOffsets(const RenderBox& child, GridTrackSizingDirection direction) const
@@ -1199,11 +1211,6 @@ static int synthesizedBaselineFromBorderBox(const RenderBox& box, LineDirectionM
     return (direction == HorizontalLine ? box.size().height() : box.size().width()).toInt();
 }
 
-static int synthesizedBaselineFromMarginBox(const RenderBox& box, LineDirectionMode direction)
-{
-    return (direction == HorizontalLine ? box.size().height() + box.verticalMarginExtent() : box.size().width() + box.horizontalMarginExtent()).toInt();
-}
-
 bool RenderGrid::isBaselineAlignmentForChild(const RenderBox& child) const
 {
     return isBaselineAlignmentForChild(child, GridRowAxis) || isBaselineAlignmentForChild(child, GridColumnAxis);
@@ -1226,7 +1233,11 @@ int RenderGrid::baselinePosition(FontBaseline, bool, LineDirectionMode direction
 #else
     UNUSED_PARAM(mode);
 #endif
-    return firstLineBaseline().valueOr(synthesizedBaselineFromMarginBox(*this, direction));
+    auto baseline = firstLineBaseline();
+    if (!baseline)
+        return synthesizedBaselineFromBorderBox(*this, direction) + marginLogicalHeight();
+
+    return baseline.value() + (direction == HorizontalLine ? marginTop() : marginRight()).toInt();
 }
 
 Optional<int> RenderGrid::firstLineBaseline() const
@@ -1260,18 +1271,14 @@ Optional<int> RenderGrid::firstLineBaseline() const
         // FIXME: We should pass |direction| into firstLineBaseline and stop bailing out if we're a writing
         // mode root. This would also fix some cases where the grid is orthogonal to its container.
         LineDirectionMode direction = isHorizontalWritingMode() ? HorizontalLine : VerticalLine;
-        return synthesizedBaselineFromBorderBox(*baselineChild, direction) + baselineChild->logicalTop().toInt();
+        return synthesizedBaselineFromBorderBox(*baselineChild, direction) + logicalTopForChild(*baselineChild).toInt();
     }
     return baseline.value() + baselineChild->logicalTop().toInt();
 }
 
-Optional<int> RenderGrid::inlineBlockBaseline(LineDirectionMode direction) const
+Optional<int> RenderGrid::inlineBlockBaseline(LineDirectionMode) const
 {
-    if (Optional<int> baseline = firstLineBaseline())
-        return baseline;
-
-    int marginAscent = direction == HorizontalLine ? marginBottom() : marginRight();
-    return synthesizedBaselineFromBorderBox(*this, direction) + marginAscent;
+    return firstLineBaseline();
 }
 
 LayoutUnit RenderGrid::columnAxisBaselineOffsetForChild(const RenderBox& child) const
@@ -1547,8 +1554,9 @@ LayoutUnit RenderGrid::gridAreaBreadthForOutOfFlowChild(const RenderBox& child, 
     return std::max(end - start, 0_lu);
 }
 
-LayoutUnit RenderGrid::logicalOffsetForChild(const RenderBox& child, GridTrackSizingDirection direction, LayoutUnit trackBreadth) const
+LayoutUnit RenderGrid::logicalOffsetForOutOfFlowChild(const RenderBox& child, GridTrackSizingDirection direction, LayoutUnit trackBreadth) const
 {
+    ASSERT(child.isOutOfFlowPositioned());
     if (hasStaticPositionForChild(child, direction))
         return 0_lu;
 
@@ -1577,7 +1585,7 @@ void RenderGrid::gridAreaPositionForOutOfFlowChild(const RenderBox& child, GridT
         auto& positions = isRowAxis ? m_columnPositions : m_rowPositions;
         start = positions[line.value()];
     }
-    start += logicalOffsetForChild(child, direction, trackBreadth);
+    start += logicalOffsetForOutOfFlowChild(child, direction, trackBreadth);
     end = start + trackBreadth;
 }
 
@@ -1756,23 +1764,36 @@ LayoutUnit RenderGrid::translateRTLCoordinate(LayoutUnit coordinate) const
     return rightGridEdgePosition + alignmentOffset - coordinate;
 }
 
-LayoutPoint RenderGrid::findChildLogicalPosition(const RenderBox& child) const
+// FIXME: SetLogicalPositionForChild has only one caller, consider its refactoring in the future.
+void RenderGrid::setLogicalPositionForChild(RenderBox& child) const
 {
-    LayoutUnit columnAxisOffset = columnAxisOffsetForChild(child);
-    LayoutUnit rowAxisOffset = rowAxisOffsetForChild(child);
-    bool isOrthogonalChild = GridLayoutFunctions::isOrthogonalChild(*this, child);
+    // "In the positioning phase [...] calculations are performed according to the writing mode of the containing block of the box establishing the
+    // orthogonal flow." However, 'setLogicalLocation' will only take into account the child's writing-mode, so the position may need to be transposed.
+    LayoutPoint childLocation(logicalOffsetForChild(child, ForColumns), logicalOffsetForChild(child, ForRows));
+    child.setLogicalLocation(GridLayoutFunctions::isOrthogonalChild(*this, child) ? childLocation.transposedPoint() : childLocation);
+}
 
+void RenderGrid::setLogicalOffsetForChild(RenderBox& child, GridTrackSizingDirection direction) const
+{
+    if (!child.isGridItem() && hasStaticPositionForChild(child, direction))
+        return;
+    // 'setLogicalLeft' and 'setLogicalTop' only take into account the child's writing-mode, that's why 'flowAwareDirectionForChild' is needed.
+    if (GridLayoutFunctions::flowAwareDirectionForChild(*this, child, direction) == ForColumns)
+        child.setLogicalLeft(logicalOffsetForChild(child, direction));
+    else
+        child.setLogicalTop(logicalOffsetForChild(child, direction));
+}
+
+LayoutUnit RenderGrid::logicalOffsetForChild(const RenderBox& child, GridTrackSizingDirection direction) const
+{
+    if (direction == ForRows)
+        return columnAxisOffsetForChild(child);
+    LayoutUnit rowAxisOffset = rowAxisOffsetForChild(child);
     // We stored m_columnPositions's data ignoring the direction, hence we might need now
     // to translate positions from RTL to LTR, as it's more convenient for painting.
     if (!style().isLeftToRightDirection())
-        rowAxisOffset = (child.isOutOfFlowPositioned() ? translateOutOfFlowRTLCoordinate(child, rowAxisOffset) : translateRTLCoordinate(rowAxisOffset)) - (isOrthogonalChild ? child.logicalHeight()  : child.logicalWidth());
-
-    // "In the positioning phase [...] calculations are performed according to the writing mode
-    // of the containing block of the box establishing the orthogonal flow." However, the
-    // resulting LayoutPoint will be used in 'setLogicalPosition' in order to set the child's
-    // logical position, which will only take into account the child's writing-mode.
-    LayoutPoint childLocation(rowAxisOffset, columnAxisOffset);
-    return isOrthogonalChild ? childLocation.transposedPoint() : childLocation;
+        rowAxisOffset = (child.isOutOfFlowPositioned() ? translateOutOfFlowRTLCoordinate(child, rowAxisOffset) : translateRTLCoordinate(rowAxisOffset)) - (GridLayoutFunctions::isOrthogonalChild(*this, child) ? child.logicalHeight()  : child.logicalWidth());
+    return rowAxisOffset;
 }
 
 unsigned RenderGrid::nonCollapsedTracks(GridTrackSizingDirection direction) const

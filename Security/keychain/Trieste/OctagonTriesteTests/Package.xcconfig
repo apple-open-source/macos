@@ -1,0 +1,4 @@
+// Narrow the list of platforms in the Scheme menu in the toolbar to just macOS.
+
+MACOSX_DEPLOYMENT_TARGET=10.15
+SUPPORTED_PLATFORMS=macosx

@@ -2,7 +2,7 @@
 #
 #   output-method.rb - output methods used by irb
 #   	$Release Version: 0.9.6$
-#   	$Revision: 53141 $
+#   	$Revision: 56371 $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
@@ -82,7 +82,7 @@ module IRB
   end
 
   # A standard output printer
-  class StdioOutputMethod<OutputMethod
+  class StdioOutputMethod < OutputMethod
     # Prints the given +opts+ to standard output, see IO#print for more
     # information.
     def print(*opts)

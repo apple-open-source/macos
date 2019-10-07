@@ -68,9 +68,9 @@ __declspec(dllimport) int getsubopt(char **optionp, const char * const *tokens, 
 #include <sasl/saslplug.h>
 #include <sasl/saslutil.h>
 #else
-#include <sasl.h>
-#include <saslplug.h>
-#include <saslutil.h>
+#include "sasl.h"
+#include "saslplug.h"
+#include "saslutil.h"
 #endif
 
 #ifndef HAVE_GETSUBOPT

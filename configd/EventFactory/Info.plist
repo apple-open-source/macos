@@ -15,16 +15,12 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>1.19</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
-	<key>LSMinimumSystemVersion</key>
-	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
-	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2017 Apple Inc. All rights reserved.</string>
 	<key>NSPrincipalClass</key>
 	<string>EventFactory</string>
 	<key>LogEventPredicate</key>
-	<string>subsystem == &quot;com.apple.SystemConfiguration&quot;</string>
+	<string>subsystem == &quot;com.apple.SystemConfiguration&quot; || (processImagePath contains &quot;configd&quot; &amp;&amp; eventType == &quot;stateEvent&quot;) || subsystem == &quot;com.apple.IPConfiguration&quot;</string>
 </dict>
 </plist>

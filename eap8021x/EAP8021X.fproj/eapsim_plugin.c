@@ -158,7 +158,8 @@ typedef struct {
  ** Identity routines
  **/
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
+
 STATIC CFStringRef
 copy_imsi_identity(CFStringRef imsi, CFStringRef realm)
 {
@@ -192,7 +193,8 @@ copy_static_realm(CFDictionaryRef properties)
     }
     return (CFRetain(realm));
 }
-#endif /* TARGET_OS_EMBEDDED */
+
+#endif /* TARGET_OS_IPHONE */
 
 STATIC CFStringRef
 copy_static_imsi(CFDictionaryRef properties)
@@ -232,7 +234,8 @@ S_get_plist_int(CFDictionaryRef plist, CFStringRef key, int def)
 	return (ret);
 }
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
+
 static bool
 S_get_plist_bool(CFDictionaryRef plist, CFStringRef key, bool def)
 {
@@ -245,7 +248,8 @@ S_get_plist_bool(CFDictionaryRef plist, CFStringRef key, bool def)
 	}
 	return (ret);
 }
-#endif /* TARGET_OS_EMBEDDED */
+
+#endif /* TARGET_OS_IPHONE */
 
 STATIC bool
 blocks_are_duplicated(const uint8_t * blocks, int n_blocks, int block_size)
@@ -282,7 +286,7 @@ fill_with_random(uint8_t * buf, int len)
 	return;
 }
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 
 STATIC CFStringRef
 copy_pseudonym_identity(CFStringRef pseudonym, CFStringRef realm)
@@ -406,7 +410,7 @@ sim_identity_create(EAPSIMAKAPersistentStateRef persist,
     return (ret_identity);
 }
 
-#else /* TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_IPHONE */
 
 STATIC CFStringRef
 sim_identity_create(EAPSIMAKAPersistentStateRef persist,
@@ -421,7 +425,7 @@ sim_identity_create(EAPSIMAKAPersistentStateRef persist,
     return (NULL);
 }
 
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 
 STATIC EAPSIMAKAAttributeType
 S_get_identity_type(CFDictionaryRef dict)
@@ -2138,7 +2142,7 @@ main(int argc, char * argv[])
 #endif /* TEST_SET_VERSION_LIST */
 
 #ifdef TEST_SIM_INFO
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 int
 main()
 {
@@ -2152,5 +2156,5 @@ main()
     exit(0);
     return (0);
 }
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 #endif /* TEST_SIM_INFO */

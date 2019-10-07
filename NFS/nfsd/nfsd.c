@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2010 Apple Inc.  All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,6 +65,7 @@
 #include <sys/mount.h>
 #include <sys/socket.h>
 #include <sys/socketvar.h>
+#include <sys/un.h>
 
 #include <oncrpc/rpc.h>
 #include <oncrpc/pmap_clnt.h>
@@ -85,9 +86,11 @@
 #include <pthread.h>
 
 #include "common.h"
+#include "pathnames.h"
 
 int nfstcpsock, nfstcp6sock;
 int nfsudpsock, nfsudp6sock;
+int nfsticosock, nfsticlsock;
 
 /*
  * The incredibly complex nfsd thread function
@@ -124,6 +127,13 @@ nfsd_accept_thread(__unused void *arg)
 		if (nfstcp6sock != -1)
 			FD_SET(nfstcp6sock, &sockbits);
 		maxlistensock = MAX(nfstcpsock, nfstcp6sock);
+	}
+
+	/*XXX if (config.ticotsord) */
+	{
+		if (nfsticosock != -1)
+			FD_SET(nfsticosock, &sockbits);
+		maxlistensock = MAX(maxlistensock, nfsticosock);
 	}
 
 	/*
@@ -184,6 +194,24 @@ nfsd_accept_thread(__unused void *arg)
 			nfssvc(NFSSVC_ADDSOCK, &nfsdargs);
 			close(newsock);
 		}
+		if ((nfsticosock >= 0) && FD_ISSET(nfsticosock, &ready)) {
+			len = sizeof(peer);
+			if ((newsock = accept(nfsticosock, (struct sockaddr *)&peer, &len)) < 0) {
+				log(LOG_WARNING, "accept failed: %s (%d)", strerror(errno), errno);
+				continue;
+			}
+			if (config.verbose >= 3)
+				DEBUG(1, "NFS TICOTSORD socket accepted");
+
+			if (setsockopt(newsock, SOL_SOCKET,
+			    SO_KEEPALIVE, (char *)&on, sizeof(on)) < 0)
+				log(LOG_NOTICE, "setsockopt SO_KEEPALIVE: %s (%d)", strerror(errno), errno);
+			nfsdargs.sock = newsock;
+			nfsdargs.name = (caddr_t)&peer;
+			nfsdargs.namelen = len;
+			nfssvc(NFSSVC_ADDSOCK, &nfsdargs);
+			close(newsock);
+		}
 	}
 
 	return (NULL);
@@ -234,11 +262,13 @@ nfsd(void)
 	struct sockaddr_storage saddr;
 	struct sockaddr_in *sin = (struct sockaddr_in*)&saddr;
 	struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)&saddr;
+	struct sockaddr_un* sun = (struct sockaddr_un*)&saddr;
 	int rv, on = 1;
 	pthread_t thd;
 
 	nfsudpsock = nfsudp6sock = -1;
 	nfstcpsock = nfstcp6sock = -1;
+	nfsticlsock = nfsticosock = -1;
 
 	/* If we are serving UDP, set up the NFS/UDP sockets. */
 	if (config.udp) {
@@ -317,6 +347,42 @@ nfsd(void)
 
 	}
 
+#ifdef _PATH_NFSD_TICLTS_SOCK
+	/*XXX if (config.ticlts?) */
+	{
+		if ((nfsticlsock = socket(AF_LOCAL, SOCK_DGRAM, 0)) < 0)
+			log(LOG_WARNING, "can't create NFS/TICLTS socket");
+		if (nfsticlsock >= 0) {
+			sun->sun_family = AF_LOCAL;
+			sun->sun_len = sizeof (struct sockaddr_un);
+			strlcpy(sun->sun_path, _PATH_NFSD_TICLTS_SOCK, sizeof (sun->sun_path));
+			(void)unlink(_PATH_NFSD_TICLTS_SOCK);
+			if (bind(nfsticlsock, (struct sockaddr *)sun, sizeof(*sun)) < 0) {
+				log(LOG_WARNING, "can't bind NFS/TICLTS addr %s", _PATH_NFSD_TICLTS_SOCK);
+				close(nfsticlsock);
+				nfsticlsock = -1;
+			}
+			if (chmod(_PATH_NFSD_TICLTS_SOCK, 0777)) {
+				log(LOG_WARNING, "can't chamge mode of %s: %s (%d)",
+				    _PATH_NFSD_TICLTS_SOCK, strerror(errno), errno);
+			}
+		}
+		if (nfsticlsock >= 0) {
+			nfsdargs.sock = nfsticlsock;
+			nfsdargs.name = NULL;
+			nfsdargs.namelen = 0;
+			if (nfssvc(NFSSVC_ADDSOCK, &nfsdargs) < 0) {
+				log(LOG_WARNING, "can't add NFS/TICLTS socket");
+				close(nfsticlsock);
+				nfsticlsock = -1;
+			} else {
+				close(nfsticlsock);
+			}
+		}
+
+	}
+#endif
+
 	/* If we are serving TCP, set up the NFS/TCP socket. */
 	if (config.tcp) {
 
@@ -371,15 +437,47 @@ nfsd(void)
 			nfstcp6sock = -1;
 			nfstcp6port = 0;
 		}
-
 	}
+
+#ifdef _PATH_NFSD_TICOTSORD_SOCK
+	/*XXX if (config.ticotsord?) */
+	{
+		if ((nfsticosock = socket(AF_LOCAL, SOCK_STREAM, 0)) < 0)
+			log(LOG_WARNING, "can't create NFS/TICOTSORD socket");
+		if (nfsticosock >= 0) {
+			sun->sun_family = AF_LOCAL;
+			sun->sun_len = sizeof (struct sockaddr_un);
+			strlcpy(sun->sun_path, _PATH_NFSD_TICOTSORD_SOCK, sizeof (sun->sun_path));
+			(void)unlink(_PATH_NFSD_TICOTSORD_SOCK);
+			if (bind(nfsticosock, (struct sockaddr *)sun, sizeof(*sun)) < 0) {
+				log(LOG_WARNING, "can't bind NFS/TICOTSORD addr %s", _PATH_NFSD_TICOTSORD_SOCK);
+				close(nfsticosock);
+				nfsticosock = -1;
+			}
+			if (chmod(_PATH_NFSD_TICOTSORD_SOCK, 0777)) {
+				log(LOG_WARNING, "can't change mode of %s: %s (%d)",
+				    _PATH_NFSD_TICOTSORD_SOCK, strerror(errno), errno);
+			}
+		}
+		if ((nfsticosock >= 0) && (listen(nfsticosock, 128) < 0)) {
+			log(LOG_WARNING, "NFS ticotsord listen failed: %s (%d)", strerror(errno), errno);
+			close(nfsticosock);
+			nfsticosock = -1;
+		}
+	}
+#endif
 
 	if ((nfsudp6sock < 0) && (nfstcp6sock < 0))
 		log(LOG_WARNING, "Can't create NFS IPv6 sockets");
 	if ((nfsudpsock < 0) && (nfstcpsock < 0))
 		log(LOG_WARNING, "Can't create NFS IPv4 sockets");
+#if defined(_PATH_NFSD_TICLTS_SOCK) || defined(_PATH_NFSD_TICOTS_SOCK)
+	if ((nfsticlsock < 0) && (nfsticosock < 0))
+		log(LOG_WARNING, "Can't create NFS TI (Local) sockets");
+#endif
 	if ((nfsudp6sock < 0) && (nfstcp6sock < 0) &&
-	    (nfsudpsock < 0) && (nfstcpsock < 0)) {
+	    (nfsudpsock < 0) && (nfstcpsock < 0) &&
+	    (nfsticlsock < 0) && (nfsticosock < 0)) {
 		log(LOG_ERR, "Can't create any NFS sockets!");
 		exit(1);
 	}
@@ -395,4 +493,3 @@ nfsd(void)
 		exit(1);
 	}
 }
-

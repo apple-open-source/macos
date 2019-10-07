@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2014, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,11 +41,10 @@ includes
 #include <CoreFoundation/CFUserNotification.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>      // for SCLog()
-#include <SystemConfiguration/SCPreferencesPathKey.h>
 #include <SystemConfiguration/SCNetworkSignaturePrivate.h>
 #include <SystemConfiguration/VPNTunnel.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #endif
 #include <IOKit/IOMessage.h>
@@ -59,9 +58,6 @@ includes
 #include <notify.h>
 #include <sys/sysctl.h>
 #include <pthread.h>
-#if 0 && TARGET_OS_EMBEDDED /* Use the LSResourceProxy SPI (in MobileCoreServices.framework) instead */
-#include <MobileInstallation/MobileInstallation.h>
-#endif	
 #include <NSSystemDirectories.h>
 #include <ifaddrs.h>
 #include <SystemConfiguration/SCNetworkSignature.h>
@@ -82,13 +78,9 @@ includes
 #include "PPPControllerPriv.h"
 #include "pppd.h"
 
-#include "network_detection.h"
-#include "app_layer.h"
-#include "behaviors.h"
 #include "controller_options.h"
 #include "reachability.h"
 #include "scnc_cache.h"
-#include "flow_divert_controller.h"
 #include "diagnostics.h"
 
 /* -----------------------------------------------------------------------------
@@ -105,7 +97,7 @@ enum {
 #define ICON 	"NetworkConnect.icns"
 
 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 #define TIMEOUT_EDGE	2 /* give 2 second after edge is ready to propagate all network dns notification. */
 #endif
 
@@ -114,12 +106,14 @@ forward declarations
 ----------------------------------------------------------------------------- */
 
 
-static int init_things();
+static int init_things(void);
+#if !TARGET_OS_OSX
 static void iosleep_notifier(void * x, io_service_t y, natural_t messageType, void *messageArgument);
+#endif
 static void store_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *info);
-static void print_services();
+static void print_services(void);
 static int update_service(CFStringRef serviceID);
-static void finish_update_services();
+static void finish_update_services(void);
 static struct service * new_service(CFStringRef serviceID , CFStringRef typeRef, CFStringRef subtypeRef);
 static int dispose_service(struct service *serv);
 static void post_ondemand_token(CFArrayRef triggersArray);
@@ -130,19 +124,20 @@ static int remove_client(struct service *serv, void *client);
 static struct service_client *get_client(struct service *serv, void *client);
 static int  remove_all_clients(struct service *serv);
 
-static int can_sleep();
+#if !TARGET_OS_OSX
+static int can_sleep(void);
+#endif
 static int will_sleep(int checking);
 static void wake_up(Boolean isFullWake);
-#if	!TARGET_OS_EMBEDDED
-static Boolean disconnect_on_wakeup_if_overslept(void);
-static void wake_from_dark();
-static void log_out();
-static void log_in();
-static void log_switch();
+#if	TARGET_OS_OSX
+static void wake_from_dark(void);
+static void log_out(void);
+static void log_in(void);
+static void log_switch(void);
 #endif
-static void ipv4_state_changed();
+static void ipv4_state_changed(void);
 
-static void reorder_services();
+static void reorder_services(void);
 
 extern void proc_name(int pid, char * buf, int size);
 
@@ -158,7 +153,7 @@ CFStringRef		gBundleDir = 0;
 CFURLRef			gIconURLRef = 0;
 CFStringRef		gIconDir = 0;
 CFMutableArrayRef	gVPNBundlesRef = 0;
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 io_connect_t		gIOPort;
 long				gSleepArgument = 0;
 #endif
@@ -183,14 +178,14 @@ CFRunLoopSourceRef	gTerminalrls = NULL;
 
 CFStringRef         gOndemand_key = NULL;
 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 int					gNattKeepAliveInterval = -1;
 #endif
 
 
 TAILQ_HEAD(, service) 	service_head;
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 static vproc_transaction_t gController_vt = NULL;		/* opaque handle used to track outstanding transactions, used by instant off */
 static int gDarkWake = 0;
 IOPMConnection      gIOconnection = NULL;
@@ -332,7 +327,6 @@ int allow_dispose(struct service *serv)
 	return 0;
 }
 
-
 static int change_sleep_state(Boolean sleep)
 {
     if (sleep) {
@@ -346,7 +340,7 @@ static int change_sleep_state(Boolean sleep)
     }
 }
 
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
 
 #define DARKWAKE (kIOPMSystemPowerStateCapabilityCPU | kIOPMSystemPowerStateCapabilityNetwork | kIOPMSystemPowerStateCapabilityDisk)
 #define NORMALWAKE (DARKWAKE | kIOPMSystemPowerStateCapabilityVideo | kIOPMSystemPowerStateCapabilityAudio)
@@ -473,7 +467,9 @@ scnc_init_resources(CFBundleRef bundle)
 ----------------------------------------------------------------------------- */
 int init_things()
 {
+#if !TARGET_OS_OSX
 	IONotificationPortRef	notify;
+#endif
     mach_timebase_info_data_t   timebaseInfo;
     CFStringRef         key = NULL, setup = NULL, entity = NULL;
     CFMutableArrayRef	keys = NULL, patterns = NULL;
@@ -488,12 +484,12 @@ int init_things()
     	kSCEntNetIPv6,
         kSCEntNetDNS,
         kSCEntNetIPSec,
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 		CFSTR("com.apple.payload"),
 #endif
         NULL,
     };
-#if	TARGET_OS_EMBEDDED
+#if	!TARGET_OS_OSX
     io_object_t			iterator;
 #else
     IOReturn ioret;
@@ -514,7 +510,7 @@ int init_things()
     gSleeping = 0;
     gStopRls = 0;    
 
-#if	TARGET_OS_EMBEDDED
+#if	!TARGET_OS_OSX
     gIOPort = IORegisterForSystemPower(0, &notify, iosleep_notifier, &iterator);
     if (gIOPort == 0) {
         SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: IORegisterForSystemPower failed"));
@@ -526,7 +522,7 @@ int init_things()
                        kCFRunLoopDefaultMode);
 #endif
 
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
 
     ioret = IOPMConnectionCreate( CFSTR("VPN"), kIOPMSystemPowerStateCapabilityDisk 
                                                 | kIOPMSystemPowerStateCapabilityNetwork
@@ -581,11 +577,9 @@ int init_things()
 
 	ipsec_init_things();
 
-	app_layer_init(CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
-
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
     gLoggedInUser = SCDynamicStoreCopyConsoleUser(gDynamicStore, &gLoggedInUserUID, 0);
-#endif	// !TARGET_OS_EMBEDDED
+#endif	// TARGET_OS_OSX
 	
     keys = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
     patterns = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
@@ -618,7 +612,7 @@ int init_things()
     CFArrayAppendValue(keys, key);
     CFRelease(key);
 
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
     /* install the notifier for power state change */
     if ((key = SCDynamicStoreKeyCreate(NULL, CFSTR("%@%@"),
 		  kSCDynamicStoreDomainState,
@@ -632,7 +626,7 @@ int init_things()
         goto fail;
     CFArrayAppendValue(keys, key);
     CFRelease(key);    
-#endif	// !TARGET_OS_EMBEDDED
+#endif	// TARGET_OS_OSX
 
     key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
                                                             kSCDynamicStoreDomainState,
@@ -664,7 +658,6 @@ int init_things()
             (void)notify_cancel(notifyToken);
         }
     }
-    
 
 	/* init list of services */
     TAILQ_INIT(&service_head);
@@ -682,7 +675,7 @@ int init_things()
     if (services == NULL)
         goto done;	// no service setup
 
-    nb = CFArrayGetCount(services);
+    nb = (int)CFArrayGetCount(services);
     for (i = 0; i < nb; i++) {
         CFStringRef serviceID;
         if ((serviceID = parse_component(CFArrayGetValueAtIndex(services, i), setup))) {
@@ -708,7 +701,7 @@ done:
     return ret;
 	
 fail:
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
     if (gIOconnection){
         IOPMConnectionUnscheduleFromRunLoop(gIOconnection, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
         IOPMConnectionRelease(gIOconnection);
@@ -723,7 +716,7 @@ fail:
 /* -----------------------------------------------------------------------------
 call back from power management
 ----------------------------------------------------------------------------- */
-#if	TARGET_OS_EMBEDDED
+#if	!TARGET_OS_OSX
 static 
 void iosleep_notifier(void * x, io_service_t y, natural_t messageType, void *messageArgument)
 {
@@ -735,7 +728,7 @@ void iosleep_notifier(void * x, io_service_t y, natural_t messageType, void *mes
     switch ( messageType ) {
     
         case kIOMessageSystemWillSleep:
-            SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: iosleep_notifier kIOMessageSystemWillSleep, sleep arg %d"), (long)messageArgument);
+            SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: iosleep_notifier kIOMessageSystemWillSleep, sleep arg %ld"), (long)messageArgument);
             /* On iOS devices, we should never put up any dialog to inform
              * users of vpn session diconnection, but we'll delay the
              * call to IOAllowPowerChange() to be after the disconnection.
@@ -848,21 +841,21 @@ void store_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *inf
     
     SCLog(TRUE, LOG_DEBUG, CFSTR("store_notifier: changedKeys %@"), changedKeys);
 
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
     CFStringRef		userkey;
     CFStringRef		powerkey;
-#endif	// !TARGET_OS_EMBEDDED
+#endif	// TARGET_OS_OSX
 	
     if (changedKeys == NULL)
         return;
 
     setup = CREATEPREFIXSETUP();
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
     userkey = SCDynamicStoreKeyCreateConsoleUser(0);
     powerkey = SCDynamicStoreKeyCreate(NULL, CFSTR("%@%@"),
 		  kSCDynamicStoreDomainState,
 		  CFSTR(kIOPMSystemPowerCapabilitiesKeySuffix));
-#endif	// !TARGET_OS_EMBEDDED
+#endif	// TARGET_OS_OSX
     ipsetupkey = CREATEGLOBALSETUP(kSCEntNetIPv4);
     ipstatekey = CREATEGLOBALSTATE(kSCEntNetIPv4);
     dnsstatekey = CREATEGLOBALSTATE(kSCEntNetDNS);
@@ -871,21 +864,21 @@ void store_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *inf
         SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: cache_notifier can't allocate keys"));
         goto done;
     }
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
     if (userkey == NULL || powerkey == NULL) {
 		SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: cache_notifier can't allocate keys"));
 		goto done;
     }
-#endif	// !TARGET_OS_EMBEDDED	
+#endif	// TARGET_OS_OSX
 	
-    nb = CFArrayGetCount(changedKeys);
+    nb = (int)CFArrayGetCount(changedKeys);
     for (i = 0; i < nb; i++) {
 
         CFStringRef	change, serviceID;
         
         change = CFArrayGetValueAtIndex(changedKeys, i);
 
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
 	    // --------- Check for change of console user --------- 
         if (CFEqual(change, userkey)) {
             CFStringRef olduser = gLoggedInUser;
@@ -899,7 +892,7 @@ void store_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *inf
             if (olduser) CFRelease(olduser);
             continue;
         }
-#endif	// !TARGET_OS_EMBEDDED
+#endif	// TARGET_OS_OSX
 
         // ---------  Check for change in service order --------- 
         if (CFEqual(change, ipsetupkey)) {
@@ -920,7 +913,7 @@ void store_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *inf
             continue;
         }
 
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
         // --------- Check for power state change---------
         if (CFEqual(change, powerkey)) {
 			CFNumberRef	num;
@@ -981,8 +974,7 @@ void store_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *inf
                                     ondemand_set_pause(serv, ONDEMAND_PAUSE_STATE_TYPE_OFF, FALSE);
                                 }
 
-                                check_network(serv); /* Network has changed */
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
                                 /* For IPSec only: tear down tunnel over cellular in favor of WiFi */
                                 if (serv->type == TYPE_IPSEC &&
                                     scnc_getstatus(serv) != kSCNetworkConnectionDisconnected &&
@@ -1032,58 +1024,17 @@ void store_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *inf
 
 done:
     my_CFRelease(&setup);
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
     my_CFRelease(&userkey);
     my_CFRelease(&powerkey);
-#endif	// !TARGET_OS_EMBEDDED	
+#endif	// TARGET_OS_OSX
     my_CFRelease(&ipsetupkey);
     my_CFRelease(&ipstatekey);
     my_CFRelease(&dnsstatekey);
     return;
 }
 
-/* -----------------------------------------------------------------------------
-force reload services, to parse for new ones
------------------------------------------------------------------------------ */
-static 
-void reload_services(CFStringRef entity)
-{
-    CFStringRef         key = NULL, setup = NULL;
-    CFArrayRef			services = NULL;
-    int					i, nb;
-  
-    /* read the initial configured interfaces */
-    key = CREATESERVICESETUP(entity);
-    setup = CREATEPREFIXSETUP();
-    if (key == NULL || setup == NULL)
-        goto done;
-
-    services = SCDynamicStoreCopyKeyList(gDynamicStore, key);
-    if (services == NULL)
-        goto done;	// no service setup
-
-    nb = CFArrayGetCount(services);
-    for (i = 0; i < nb; i++) {
-        CFStringRef serviceID;
-        if ((serviceID = parse_component(CFArrayGetValueAtIndex(services, i), setup))) {
-		
-            update_service(serviceID);            
-            CFRelease(serviceID);
-        }
-    }
-    
-	reorder_services();
-    finish_update_services();
-
-	if (gSCNCVerbose)
-		print_services();
-
-done:
-    my_CFRelease(&key);
-    my_CFRelease(&setup);
-    my_CFRelease(&services);
-}
-
+#if !TARGET_OS_OSX
 /* -----------------------------------------------------------------------------
 system is asking permission to sleep
 return if sleep is authorized
@@ -1107,6 +1058,7 @@ int can_sleep()
 
     return !prevent;
 }
+#endif
 
 /* -----------------------------------------------------------------------------
 system is going to sleep
@@ -1119,7 +1071,7 @@ int will_sleep(int checking)
     struct service	*serv;
             
     TAILQ_FOREACH(serv, &service_head, next) {
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
         serv->flags &= ~FLAG_DARKWAKE;
 #endif
 		switch (serv->type) {
@@ -1141,7 +1093,7 @@ void wake_up(Boolean isFullWake)
 
     TAILQ_FOREACH(serv, &service_head, next) {
 		serv->flags |= FLAG_FIRSTDIAL;
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
         if (gDarkWake)
             serv->flags |= FLAG_DARKWAKE;
        else
@@ -1164,8 +1116,8 @@ int allow_sleep()
 	SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: allow_sleep, sleeping %d"), gSleeping);
 
 	if (gSleeping && !will_sleep(1)) {
-#if	TARGET_OS_EMBEDDED
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: can sleep now, sleep arg %d."), gSleepArgument);
+#if	!TARGET_OS_OSX
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: can sleep now, sleep arg %ld."), gSleepArgument);
 		if (gSleepArgument) {
 			IOAllowPowerChange(gIOPort, gSleepArgument);
 			gSleepArgument = 0;
@@ -1185,7 +1137,7 @@ int allow_sleep()
 	return (rc);
 }
 
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
 /* -----------------------------------------------------------------------------
  system is waking up from dark wake
  ----------------------------------------------------------------------------- */
@@ -1208,7 +1160,7 @@ void service_started(struct service *serv)
 {      
 	switch (serv->type) {
 		case TYPE_PPP:  
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 			/* transaction started */
 			serv->vt = vproc_transaction_begin(NULL);
 			if ( serv->vt == NULL)
@@ -1242,7 +1194,7 @@ service_ending_verify_primaryservice(struct service *serv)
 	if ((newPrimary == NULL) || 					// primary not back yet, or... 
 		_SC_CFEqual(serv->serviceID, newPrimary)) {	// primary is still our service
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 		gController_vt = vproc_transaction_begin(NULL);
 		if (gController_vt)
 #endif
@@ -1263,7 +1215,7 @@ void service_ended(struct service *serv)
 {
 
 	/* perform service level cleanup */
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 	if (serv->cellular_timerref) {
 		CFRunLoopRemoveTimer(CFRunLoopGetCurrent(), serv->cellular_timerref, kCFRunLoopCommonModes);
 		my_CFRelease(&serv->cellular_timerref);
@@ -1276,7 +1228,7 @@ void service_ended(struct service *serv)
     service_ending_verify_primaryservice(serv);
 	switch (serv->type) {
 		case TYPE_PPP:  
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 			/* transaction ends */
 			if ( serv->vt)
 				vproc_transaction_end(NULL, serv->vt);
@@ -1287,7 +1239,7 @@ void service_ended(struct service *serv)
 	}
 }
 
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
 
 /* -----------------------------------------------------------------------------
 user has looged out
@@ -1372,7 +1324,7 @@ void ipv4_state_changed()
         newPrimary &&
         gWaitForPrimaryService) {
 		gWaitForPrimaryService = 0;
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 		vproc_transaction_end(NULL, gController_vt);
 		gController_vt = NULL;
 #endif
@@ -1417,7 +1369,6 @@ int update_service(CFStringRef serviceID)
         dispose_service(serv);
         serv = 0;
     }
-
 
     // check to see if it is a new service
     if (!serv) {
@@ -1532,7 +1483,7 @@ int dispose_service(struct service *serv)
 		serv->flags &= ~FLAG_FREE;
 	}
 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 	// ipsec_dispose_service() already releases the profileIdentifier
 	if (serv->type != TYPE_IPSEC) {
 		my_CFRelease(&serv->profileIdentifier);
@@ -1589,7 +1540,7 @@ void reorder_services()
 {
     CFStringRef		serviceID;
     CFArrayRef		serviceorder;
-    int				i, nb;
+    long			i, nb;
     struct service		*serv;
 
 	serviceorder = copy_service_order();
@@ -1693,7 +1644,7 @@ void finish_update_services()
 				serv->flags &= ~(FLAG_SETUP_ONDEMAND | FLAG_SETUP_NETWORKDETECTION);
 			}
 			
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 			my_CFRelease(&serv->profileIdentifier);
 			CFDictionaryRef payloadRoot = copyEntity(gDynamicStore, kSCDynamicStoreDomainSetup, serv->serviceID, CFSTR("com.apple.payload/PayloadRoot"));
 			if (payloadRoot) {
@@ -1713,30 +1664,7 @@ void finish_update_services()
             } else {
 				reachability_clear(serv);
 			}
-
-			if (dochecknetwork && (serv->flags & FLAG_SETUP_NETWORKDETECTION)) {
-				check_network(serv);
-			}
 		}
-    }
-}
-
-/*
- * Instead of checking network upon a network change event notification, we need a way to perform
- * network detection in its absence, i.e., on demand, such as when an ap sees an interface
- * connectivity mode change (e.g., authened vs. unauthened).
- */
-void check_network_refresh(void)
-{
-    struct service      *serv;
-    struct service      *serv_tmp;
-    
-    SCLog(TRUE, LOG_DEBUG, CFSTR("check_network_refresh called"));
-    
-    TAILQ_FOREACH_SAFE(serv, &service_head, next, serv_tmp) {
-        if (serv->flags & FLAG_SETUP_NETWORKDETECTION){
-            check_network(serv);
-        }
     }
 }
 
@@ -1872,69 +1800,6 @@ void phase_changed(struct service *serv, int phase)
 		ne_sm_bridge_status_changed(serv->ne_sm_bridge);
 	}
 }
-
-#if TARGET_OS_EMBEDDED
-/* -----------------------------------------------------------------------------
- ----------------------------------------------------------------------------- */
-int start_profile_janitor(struct service *serv)
-{
-	CFStringRef 	resourceDir = NULL;
-	CFURLRef 		resourceURL = NULL, absoluteURL = NULL;
-	char			thepath[MAXPATHLEN], payloadIdentifierStr[256];
-	int				ret = 0;
-	char 			*cmdarg[4];
-
-	if (serv->profileIdentifier == NULL)
-		return ret;
-	
-	if (!CFStringGetCString(serv->profileIdentifier, payloadIdentifierStr, sizeof(payloadIdentifierStr), kCFStringEncodingUTF8))
-		goto done;
-
-	resourceURL = CFBundleCopyResourcesDirectoryURL(gBundleRef);
-	if (resourceURL == NULL)
-		goto done;
-	
-	absoluteURL = CFURLCopyAbsoluteURL(resourceURL);
-	if (absoluteURL == NULL)
-		goto done;
-	
-	resourceDir = CFURLCopyPath(absoluteURL);
-	if (resourceDir == NULL)
-		goto done;
-				
-	if (!CFStringGetCString(resourceDir, thepath, sizeof(thepath), kCFStringEncodingMacRoman))
-		goto done;
-	
-	strlcat(thepath, "sbslauncher", sizeof(thepath));
-	
-	cmdarg[0] = "sbslauncher";
-	cmdarg[1] = SBSLAUNCHER_TYPE_PROFILE_JANITOR;
-	cmdarg[2] = payloadIdentifierStr;
-	cmdarg[3] = NULL;
-
-	if (SCNCPluginExecCommand(NULL, NULL, 0, 0, 0, thepath, cmdarg) == 0)
-		goto done;
-
-	ret = 1;
-
-done:
-
-	if (ret)
-		SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC Controller: Started Profile Janitor for profile '%@'"), serv->profileIdentifier);
-	else
-		SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: Failed to start Profile Janitor for profile '%@'"), serv->profileIdentifier);
-
-	if (resourceDir)
-		CFRelease(resourceDir);
-	if (absoluteURL)
-		CFRelease(absoluteURL);
-	if (resourceURL)
-		CFRelease(resourceURL);
-
-	return ret;
-}
-#endif
-
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
@@ -2078,7 +1943,8 @@ int ondemand_add_service(struct service *serv, Boolean update_configuration)
 	CFDictionaryRef			ondemand_dict = NULL, original_trigger_dict = NULL;
 	CFMutableArrayRef		new_triggers_array = NULL;
 	CFArrayRef				current_triggers_array = NULL;
-	int				service_status = 0, ret = 0, count = 0, i, found = 0, found_index = 0;
+	int				service_status = 0, ret = 0, i, found = 0, found_index = 0;
+	long			count = 0;
 	
 	if (!(serv->flags & FLAG_SETUP_ONDEMAND)) {
 		goto fail;
@@ -2216,14 +2082,6 @@ int ondemand_add_service(struct service *serv, Boolean update_configuration)
 			CFDictionarySetValue(new_trigger_dict, kSCPropNetVPNOnDemandSuspended, num);
 			CFRelease(num);
 		}
-
-		num = flow_divert_copy_service_identifier(serv);
-		if (num != NULL) {
-			CFDictionarySetValue(new_trigger_dict, kSCPropNetDNSServiceIdentifier, num);
-			CFRelease(num);
-		} else {
-			CFDictionaryRemoveValue(new_trigger_dict, kSCPropNetDNSServiceIdentifier);
-		}
 	}
 	
 	/* PERMANANT KEYS */
@@ -2240,16 +2098,8 @@ int ondemand_add_service(struct service *serv, Boolean update_configuration)
 		
 		/* add generic keys */
 		CFDictionarySetValue(new_trigger_dict, kSCNetworkConnectionOnDemandServiceID, serv->serviceID);
-		
-		behaviors_modify_ondemand(new_trigger_dict, ^{
-			struct service *serv;
-			TAILQ_FOREACH(serv, &service_head, next) {
-				if (!(serv->flags & FLAG_FREE)) {
-					serv->flags |= FLAG_SETUP;
-				}
-			}
-			finish_update_services();
-		});
+
+		finish_update_services();
 	}
 	
 	/* If no information has changed, don't update the store */
@@ -2309,7 +2159,8 @@ int ondemand_remove_service(struct service *serv)
 	CFDictionaryRef		ondemand_dict, current_trigger_dict;
 	CFMutableArrayRef	new_triggers_array = NULL;
 	CFArrayRef			current_triggers_array = NULL;
-	int					count = 0, i, ret = 0, found = 0, found_index = 0;
+	int					i, ret = 0, found = 0, found_index = 0;
+	long				count = 0;
 	
 	/* create the global plugin key */
 	if (gOndemand_key == NULL)
@@ -2385,17 +2236,7 @@ done:
 	return ret;
 }
 
-/* -----------------------------------------------------------------------------
- ----------------------------------------------------------------------------- */ 
-void disable_ondemand(struct service *serv)
-{
-	if (serv->flags & FLAG_SETUP_ONDEMAND) {
-		serv->flags &= ~FLAG_SETUP_ONDEMAND;
-		ondemand_remove_service(serv);
-	}
-}
-
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 /* -----------------------------------------------------------------------------
  Bring up EDGE
  ----------------------------------------------------------------------------- */
@@ -2452,15 +2293,6 @@ void cellular_callback(CTServerConnectionRef connection, CFStringRef notificatio
 	}
 }
 
-static 
-void __attribute__((unused)) _ServerConnectionHandleReply(CFMachPortRef port, void *msg, CFIndex size, void *info) {
-    
-    (void)port;	    /* Unused */
-    (void)size;	    /* Unused */
-    (void)info;	    /* Unused */
-    
-    _CTServerConnectionHandleReply(msg);
-}
 /* -----------------------------------------------------------------------------
  ----------------------------------------------------------------------------- */ 
 int bringup_cellular(struct service *serv)
@@ -2550,7 +2382,6 @@ check_interface_captive_and_not_ready (SCDynamicStoreRef  dynamicStoreRef,
 	}
 	return rc;
 }
-
 
 /* -----------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -2741,14 +2572,13 @@ log_scnc_start (struct service *serv, int onDemand, CFStringRef onDemandHostName
 	}
 }
 
+#if !TARGET_OS_OSX
 static vpn_metric_protocol_t
 get_metric_protocol (struct service *serv)
 {
 	switch (serv->type) {
         case TYPE_PPP:
             switch (serv->subtype) {
-                case PPP_TYPE_PPTP:
-                    return (VPN_PROTOCOL_PPTP);
                 case PPP_TYPE_L2TP:
                     return (VPN_PROTOCOL_L2TP);
                 default:
@@ -2766,12 +2596,11 @@ get_metric_protocol (struct service *serv)
     
     return (VPN_PROTOCOL_NONE);
 }
+#endif
 
 static void log_vpn_metrics (struct service *serv)
 {
-    if (!VPN_DIAGNOSTICS_SUPPORTED)
-        return;
-    
+#if !TARGET_OS_OSX
     if (!serv)
         return;
     
@@ -2788,6 +2617,9 @@ static void log_vpn_metrics (struct service *serv)
         !vpn_diagnostics_set_metric(VPN_METRIC_PROTOCOL, protocol)) {
         SCLog(TRUE, LOG_ERR, CFSTR("log_vpn_metrics: failed to log vpn diagnostics: protocol"));
     }
+#else
+#pragma unused(serv)
+#endif
 }
 
 /* --------------------------------------------------------------------------
@@ -2923,7 +2755,7 @@ int scnc_start(struct service *serv, CFDictionaryRef options, void *client, int 
 			onDemandHostName = isA_CFString(CFDictionaryGetValue(options, kSCNetworkConnectionSelectionOptionOnDemandHostName));
 		}
 
-#if	!TARGET_OS_EMBEDDED
+#if	TARGET_OS_OSX
 		/* first, check if the user is he current console user */
 		if (!gLoggedInUser 
 			|| uid != gLoggedInUserUID) 
@@ -3230,7 +3062,7 @@ int scnc_getconnectsystemdata(struct service *serv, void **reply, u_int16_t *rep
 	return ret;
 }
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 double scnc_getsleepwaketimeout (struct service *serv)
 {
 	if (serv->sleepwaketimeout == 0)
@@ -3258,7 +3090,7 @@ void scnc_idle_disconnect (struct service *serv)
 
 int scnc_disconnectifoverslept (const char *function, struct service *serv, char *if_name)
 {
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 	if ((serv->flags & FLAG_SETUP_DISCONNECTONWAKE) &&
 		(gWokeAt != -1) && (gSleptAt != -1)) {
 		double sleptFor = difftime(gWokeAt, gSleptAt);
@@ -3292,7 +3124,7 @@ int scnc_disconnectifoverslept (const char *function, struct service *serv, char
 		}
 	}
 	return 0;
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* !TARGET_OS_OSX */
 }
 
 
@@ -3303,48 +3135,7 @@ int scnc_disconnectifoverslept (const char *function, struct service *serv, char
  */
 void ondemand_set_pause(struct service *serv, uint32_t pauseFlag, Boolean update_store)
 {
-    CFMutableDictionaryRef new_ondemand_dict = NULL, new_trigger_dict = NULL;
-    CFMutableArrayRef new_triggers_array = NULL;
-    int index;
-    uint32_t old_pause;
-    CFNumberRef num = NULL;
-	
-    if (!serv->flags & FLAG_SETUP_ONDEMAND) {
-        SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: ondemand_set_pause ignored for non-OnDemand service %@"), serv->serviceID);
-        return;
-    }
-	
-    SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: ondemand_set_pause %d service %@"), pauseFlag, serv->serviceID);
-	
-    serv->ondemand_paused = pauseFlag;
-    
-    /* Invalidate any timer that may be set */
-    clear_ondemand_pause_timer(serv);
-    
-	if (update_store) {
-		index = copy_trigger_info(serv, &new_ondemand_dict, &new_triggers_array, &new_trigger_dict);
-		if (index == -1)
-			goto done;
-		
-		if (getNumber(new_trigger_dict, kSCPropNetVPNOnDemandSuspended, &old_pause) && (old_pause == pauseFlag))
-			goto done;
-		
-		num = CFNumberCreate(NULL, kCFNumberSInt32Type, &pauseFlag);
-		CFDictionarySetValue(new_trigger_dict, kSCPropNetVPNOnDemandSuspended, num);
-		CFArraySetValueAtIndex(new_triggers_array, index, new_trigger_dict);
-		CFDictionarySetValue(new_ondemand_dict, kSCNetworkConnectionOnDemandTriggers, new_triggers_array);
-		
-		if (SCDynamicStoreSetValue(gDynamicStore, gOndemand_key, new_ondemand_dict) == 0) {
-			SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: ondemand_set_pause SCDynamicStoreSetValue failed - %s"), SCErrorString(SCError()));
-			goto done;
-		}
-	}
-    
-done:
-    my_CFRelease(&new_ondemand_dict);
-    my_CFRelease(&new_triggers_array);
-    my_CFRelease(&new_trigger_dict);
-    
+#pragma unused(serv, pauseFlag, update_store)
 }
 
 /* -----------------------------------------------------------------------------

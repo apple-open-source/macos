@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,6 +29,7 @@
  */
 
 #include <sys/param.h>
+#include "symbol_scope.h"
 
 typedef union {
     char	c[2];
@@ -40,7 +41,7 @@ typedef union {
     long	l;
 } long_union_t;
 
-static __inline__ void
+STATIC __inline__ void
 reduce(int * sum)
 {
     long_union_t l_util;
@@ -55,7 +56,7 @@ reduce(int * sum)
 
 #include <stdio.h>
 
-unsigned short
+PRIVATE_EXTERN unsigned short
 in_cksum(void * pkt, int len)
 {
 	u_short * w;

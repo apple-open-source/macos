@@ -193,8 +193,16 @@ __private_extern__ io_registry_entry_t getRootDomain(void)
     return gRoot;
 }
 
+__private_extern__ io_registry_entry_t getIOPMPowerSource(void)
+{
+    static io_registry_entry_t ps = MACH_PORT_NULL;
 
+    if (ps == MACH_PORT_NULL) {
+        ps = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPMPowerSource"));
+    }
 
+    return ps;
+}
 
 /*****************************************************************************/
 /*****************************************************************************/
@@ -275,3 +283,57 @@ uint64_t intervalInNanoseconds(uint64_t start, uint64_t end)
 
 }
 
+// smc shutdown cause
+// we are only interested in normal shutdown, power button shutdown
+// and shutdown due to thermal or battery reasons
+SMCShutdownCause all_causes[] =
+{
+    { "Battery disconnected",               0},
+    { "Normal warm reset",                  1},
+    { "Power supply disconnected",          2},
+    { "Power button pressed for > 4 sec",   3},
+    { "Software initiated shutdown",        5},
+    { "Normal shutdown by SOC",             7},
+    { "Battery fully drained",              -60},
+    { "Thermal shutdown for overtemp",      -81},
+};
+
+
+const char * smcShutdownCauseString(int shutdownCause) {
+    int num_codes = sizeof(all_causes)/sizeof(SMCShutdownCause);
+    for (int i = 0; i < num_codes; i++){
+        if (all_causes[i].shutdownCause == shutdownCause)
+            return all_causes[i].shutdownCauseString;
+    }
+    return "";
+}
+
+const char * descriptiveKernelAssertions(uint32_t val) {
+
+    const char *string = "";
+    if (val&kIOPMDriverAssertionCPUBit) {
+        string = "CPU";
+    }
+    if (val&kIOPMDriverAssertionUSBExternalDeviceBit) {
+        string = "USB";
+    }
+    if (val&kIOPMDriverAssertionBluetoothHIDDevicePairedBit) {
+        string = "BT-HID";
+    }
+    if (val&kIOPMDriverAssertionExternalMediaMountedBit) {
+        string = "MEDIA";
+    }
+    if (val&kIOPMDriverAssertionReservedBit5) {
+        string = "THNDR";
+    }
+    if (val&kIOPMDriverAssertionPreventDisplaySleepBit) {
+        string = "DSPLY";
+    }
+    if (val&kIOPMDriverAssertionReservedBit7) {
+        string = "STORAGE";
+    }
+    if (val&kIOPMDriverAssertionMagicPacketWakeEnabledBit) {
+        string = "MAGICWAKE";
+    }
+    return string;
+}

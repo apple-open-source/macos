@@ -548,6 +548,8 @@ the symbol will be treated as the field separator.
 Older behavior was less definite; the symbol was treated as both field
 separator and numeric separator, simultaneously.
 This environment variable enables the old behavior.
+.It Ev GNUSORT_COMPATIBLE_BLANKS
+Use 'space' symbols as field separators (as modern GNU sort does).
 .El
 .Sh FILES
 .Bl -tag -width Pa -compact

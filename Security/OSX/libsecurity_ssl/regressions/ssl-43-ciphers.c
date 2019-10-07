@@ -47,6 +47,7 @@
 #include <Security/SecRandom.h>
 
 #include <utilities/array_size.h>
+#include <utilities/SecCFRelease.h>
 #include <utilities/SecIOFormat.h>
 
 #include <string.h>

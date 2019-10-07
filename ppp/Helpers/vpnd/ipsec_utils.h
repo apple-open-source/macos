@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,10 +37,10 @@ int IPSecValidateConfiguration(CFDictionaryRef ipsec_dict, char **error_text);
 int IPSecApplyConfiguration(CFDictionaryRef ipsec_dict, char **error_text);
 int IPSecRemoveConfiguration(CFDictionaryRef ipsec_dict, char **error_text);
 int IPSecRemoveConfigurationFile(CFDictionaryRef ipsec_dict, char **error_text);
-int IPSecKickConfiguration();
+int IPSecKickConfiguration(void);
 
-int IPSecSelfRepair();
-int IPSecFlushAll();
+int IPSecSelfRepair(void);
+int IPSecFlushAll(void);
 
 /* Kernel Policies */
 int IPSecCountPolicies(CFDictionaryRef ipsec_dict);

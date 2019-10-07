@@ -213,10 +213,10 @@ class TestSprintf < Test::Unit::TestCase
     assert_match(/\A0\.3+\z/, sprintf("%.60f", 1/3r))
     assert_match(/\A1\.20+\z/, sprintf("%.60f", 1.2r))
 
-    0.upto(9) do |len|
-      -1.upto(9) do |prec|
+    ["", *"0".."9"].each do |len|
+      ["", *".0"..".9"].each do |prec|
         ['', '+', '-', ' ', '0', '+0', '-0', ' 0', '+ ', '- ', '+ 0', '- 0'].each do |flags|
-          fmt = "%#{flags}#{len > 0 ? len : ''}#{prec >= 0 ? ".#{prec}" : ''}f"
+          fmt = "%#{flags}#{len}#{prec}f"
           [0, 0.1, 0.01, 0.001, 1.001, 100.0, 100.001, 10000000000.0, 0.00000000001, 1/3r, 2/3r, 1.2r, 10r].each do |num|
             assert_equal(sprintf(fmt, num.to_f), sprintf(fmt, num.to_r), "sprintf(#{fmt.inspect}, #{num.inspect}.to_r)")
             assert_equal(sprintf(fmt, -num.to_f), sprintf(fmt, -num.to_r), "sprintf(#{fmt.inspect}, #{(-num).inspect}.to_r)") if num > 0
@@ -226,7 +226,7 @@ class TestSprintf < Test::Unit::TestCase
     end
 
     bug11766 = '[ruby-core:71806] [Bug #11766]'
-    assert_equal("x"*10+"     1.0", sprintf("x"*10+"%8.1f", 1r))
+    assert_equal("x"*10+"     1.0", sprintf("x"*10+"%8.1f", 1r), bug11766)
   end
 
   def test_rational_precision
@@ -236,6 +236,12 @@ class TestSprintf < Test::Unit::TestCase
   def test_hash
     options = {:capture=>/\d+/}
     assert_equal("with options {:capture=>/\\d+/}", sprintf("with options %p" % options))
+  end
+
+  def test_inspect
+    obj = Object.new
+    def obj.inspect; "TEST"; end
+    assert_equal("<TEST>", sprintf("<%p>", obj))
   end
 
   def test_invalid
@@ -334,6 +340,19 @@ class TestSprintf < Test::Unit::TestCase
     assert_equal("          0x1.000p+0", sprintf("%20.3a",  1), bug3979)
   end
 
+  def test_float_prec
+    assert_equal("5.00", sprintf("%.2f",5.005))
+    assert_equal("5.02", sprintf("%.2f",5.015))
+    assert_equal("5.02", sprintf("%.2f",5.025))
+    assert_equal("5.04", sprintf("%.2f",5.035))
+    bug12889 = '[ruby-core:77864] [Bug #12889]'
+    assert_equal("1234567892", sprintf("%.0f", 1234567891.99999))
+    assert_equal("1234567892", sprintf("%.0f", 1234567892.49999))
+    assert_equal("1234567892", sprintf("%.0f", 1234567892.50000))
+    assert_equal("1234567894", sprintf("%.0f", 1234567893.50000))
+    assert_equal("1234567892", sprintf("%.0f", 1234567892.00000), bug12889)
+  end
+
   BSIZ = 120
 
   def test_skip
@@ -411,6 +430,16 @@ class TestSprintf < Test::Unit::TestCase
     assert_equal("%" * BSIZ, sprintf("%%" * BSIZ))
   end
 
+  def test_percent_sign_at_end
+    assert_raise_with_message(ArgumentError, "incomplete format specifier; use %% (double %) instead") do
+      sprintf("%")
+    end
+
+    assert_raise_with_message(ArgumentError, "incomplete format specifier; use %% (double %) instead") do
+      sprintf("abc%")
+    end
+  end
+
   def test_rb_sprintf
     assert_match(/^#<TestSprintf::T012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789:0x[0-9a-f]+>$/,
                  T012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789.new.inspect)
@@ -429,7 +458,10 @@ class TestSprintf < Test::Unit::TestCase
     assert_raise_with_message(ArgumentError, "named<key2> after numbered") {sprintf("%1$<key2>s", :key => "value")}
     assert_raise_with_message(ArgumentError, "named<key2> after unnumbered(2)") {sprintf("%s%s%<key2>s", "foo", "bar", :key => "value")}
     assert_raise_with_message(ArgumentError, "named<key2> after <key>") {sprintf("%<key><key2>s", :key => "value")}
-    assert_raise_with_message(KeyError, "key<key> not found") {sprintf("%<key>s", {})}
+    h = {}
+    e = assert_raise_with_message(KeyError, "key<key> not found") {sprintf("%<key>s", h)}
+    assert_same(h, e.receiver)
+    assert_equal(:key, e.key)
   end
 
   def test_named_untyped_enc
@@ -489,5 +521,26 @@ class TestSprintf < Test::Unit::TestCase
   def test_width_underflow
     bug = 'https://github.com/mruby/mruby/issues/3347'
     assert_equal("!", sprintf("%*c", 0, ?!.ord), bug)
+  end
+
+  def test_negative_width_overflow
+    assert_raise_with_message(ArgumentError, /too big/) do
+      sprintf("%*s", RbConfig::LIMITS["INT_MIN"], "")
+    end
+  end
+
+  def test_no_hidden_garbage
+    skip unless Thread.list.size == 1
+
+    fmt = [4, 2, 2].map { |x| "%0#{x}d" }.join('-') # defeats optimization
+    ObjectSpace.count_objects(res = {}) # creates strings on first call
+    GC.disable
+    before = ObjectSpace.count_objects(res)[:T_STRING]
+    val = sprintf(fmt, 1970, 1, 1)
+    after = ObjectSpace.count_objects(res)[:T_STRING]
+    assert_equal before + 1, after, 'only new string is the created one'
+    assert_equal '1970-01-01', val
+  ensure
+    GC.enable
   end
 end

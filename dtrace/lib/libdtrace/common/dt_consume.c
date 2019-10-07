@@ -39,6 +39,8 @@
 #include <alloca.h>
 #include <dt_impl.h>
 
+#include "dt_printf.h"
+
 #define	DT_MASK_LO 0x00000000FFFFFFFFULL
 
 /*
@@ -812,7 +814,7 @@ dt_print_quantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 	return (0);
 }
 
-int
+static int
 dt_print_quantize_packed(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
     size_t size, const dtrace_aggdata_t *aggdata)
 {
@@ -933,10 +935,11 @@ dt_print_lquantize(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
 }
 
 /*ARGSUSED*/
-int
+static int
 dt_print_lquantize_packed(dtrace_hdl_t *dtp, FILE *fp, const void *addr,
     size_t size, const dtrace_aggdata_t *aggdata)
 {
+#pragma unused(aggdata)
 	const int64_t *data = addr;
 	long double total = 0, count = 0;
 	int min, max, base, err;
@@ -1105,6 +1108,7 @@ static int
 dt_print_average(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
     size_t size, uint64_t normal)
 {
+#pragma unused(size)
 	/* LINTED - alignment */
 	int64_t *data = (int64_t *)addr;
 
@@ -1117,6 +1121,7 @@ static int
 dt_print_stddev(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr,
     size_t size, uint64_t normal)
 {
+#pragma unused(size)
 	/* LINTED - alignment */
 	uint64_t *data = (uint64_t *)addr;
 
@@ -1581,7 +1586,6 @@ dt_print_mod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 	uint64_t pc = *((uint64_t *)addr);
 	dtrace_syminfo_t dts;
 	char c[PATH_MAX * 2];
-        char aux_symbol_name[32];
 
 	if (format == NULL)
 		format = "  %-50s";
@@ -1946,7 +1950,7 @@ dt_print_datum(dtrace_hdl_t *dtp, FILE *fp, dtrace_recdesc_t *rec,
 	return (err);
 }
 
-int
+static int
 dt_print_aggs(const dtrace_aggdata_t **aggsdata, int naggvars, void *arg)
 {
 	int i, aggact = 0;
@@ -2054,7 +2058,7 @@ dt_print_agg(const dtrace_aggdata_t *aggdata, void *arg)
 	return (dt_print_aggs(&aggdata, 1, arg));
 }
 
-int
+static int
 dt_setopt(dtrace_hdl_t *dtp, const dtrace_probedata_t *data,
     const char *option, const char *value)
 {
@@ -2219,7 +2223,7 @@ again:
 
 					(void) fflush(fp);
 					(void) ftruncate(fileno(fp), 0);
-					(void) fseeko(fp, 0, SEEK_SET);
+					(void) fseek(fp, 0, SEEK_SET);
 					continue;
 
 				case DT_ACT_NORMALIZE:
@@ -2894,6 +2898,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp,
 static uint64_t
 dt_buf_oldest(void *elem, void *arg)
 {
+#pragma unused(arg)
 	dtrace_bufdesc_t *buf = elem;
 	size_t offs = buf->dtbd_oldest;
 
@@ -3099,7 +3104,7 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 		 * Reduce memory usage by re-allocating smaller buffers
 		 * for the "remnants".
 		 */
-		while (buf = dt_pq_walk(dtp->dt_bufq, &cookie))
+		while ((buf = dt_pq_walk(dtp->dt_bufq, &cookie)))
 			dt_realloc_buf(dtp, buf, buf->dtbd_size);
 	}
 

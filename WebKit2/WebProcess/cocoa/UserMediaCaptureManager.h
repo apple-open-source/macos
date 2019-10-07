@@ -79,12 +79,18 @@ private:
     WebCore::CaptureDeviceManager& videoCaptureDeviceManager() final { return m_noOpCaptureDeviceManager; }
     WebCore::CaptureDeviceManager& displayCaptureDeviceManager() final { return m_noOpCaptureDeviceManager; }
 
+#if PLATFORM(IOS_FAMILY)
+    void setAudioCapturePageState(bool interrupted, bool pageMuted) final;
+    void setVideoCapturePageState(bool interrupted, bool pageMuted) final;
+#endif
+
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 
     // Messages::UserMediaCaptureManager
     void captureFailed(uint64_t id);
     void sourceStopped(uint64_t id);
+    void sourceEnded(uint64_t id);
     void sourceMutedChanged(uint64_t id, bool muted);
     void sourceSettingsChanged(uint64_t id, const WebCore::RealtimeMediaSourceSettings&);
     void storageChanged(uint64_t id, const SharedMemory::Handle&, const WebCore::CAAudioStreamDescription&, uint64_t numberOfFrames);
@@ -98,7 +104,7 @@ private:
     void setMuted(uint64_t, bool);
     void applyConstraints(uint64_t, const WebCore::MediaConstraints&);
     void applyConstraintsSucceeded(uint64_t, const WebCore::RealtimeMediaSourceSettings&);
-    void applyConstraintsFailed(uint64_t, const String&, const String&);
+    void applyConstraintsFailed(uint64_t, String&&, String&&);
 
     class Source;
     friend class Source;

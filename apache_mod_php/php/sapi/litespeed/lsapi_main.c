@@ -37,18 +37,7 @@
 #include <unistd.h>
 #endif
 
-#ifdef PHP_WIN32
-
-#include <io.h>
-#include <fcntl.h>
-#include "win32/php_registry.h"
-
-#else
-
 #include <sys/wait.h>
-
-#endif
-
 #include <sys/stat.h>
 
 #if HAVE_SYS_TYPES_H
@@ -247,14 +236,14 @@ static void litespeed_php_import_environment_variables(zval *array_ptr)
         Z_ARR_P(array_ptr) != Z_ARR(PG(http_globals)[TRACK_VARS_ENV]) &&
         zend_hash_num_elements(Z_ARRVAL(PG(http_globals)[TRACK_VARS_ENV])) > 0
     ) {
-        zval_dtor(array_ptr);
+        zval_ptr_dtor_nogc(array_ptr);
         ZVAL_DUP(array_ptr, &PG(http_globals)[TRACK_VARS_ENV]);
         return;
     } else if (Z_TYPE(PG(http_globals)[TRACK_VARS_SERVER]) == IS_ARRAY &&
         Z_ARR_P(array_ptr) != Z_ARR(PG(http_globals)[TRACK_VARS_SERVER]) &&
         zend_hash_num_elements(Z_ARRVAL(PG(http_globals)[TRACK_VARS_SERVER])) > 0
     ) {
-        zval_dtor(array_ptr);
+        zval_ptr_dtor_nogc(array_ptr);
         ZVAL_DUP(array_ptr, &PG(http_globals)[TRACK_VARS_SERVER]);
         return;
     }
@@ -311,7 +300,8 @@ static void sapi_lsapi_register_variables(zval *track_vars_array)
 static size_t sapi_lsapi_read_post(char *buffer, size_t count_bytes)
 {
     if ( lsapi_mode ) {
-        return LSAPI_ReadReqBody( buffer, (unsigned long long)count_bytes );
+        ssize_t rv = LSAPI_ReadReqBody(buffer, (unsigned long long)count_bytes);
+        return (rv >= 0) ? (size_t)rv : 0;
     } else {
         return 0;
     }
@@ -334,12 +324,165 @@ static char *sapi_lsapi_read_cookies(void)
 /* }}} */
 
 
+typedef struct _http_error {
+  int code;
+  const char* msg;
+} http_error;
+
+static const http_error http_error_codes[] = {
+       {100, "Continue"},
+       {101, "Switching Protocols"},
+       {200, "OK"},
+       {201, "Created"},
+       {202, "Accepted"},
+       {203, "Non-Authoritative Information"},
+       {204, "No Content"},
+       {205, "Reset Content"},
+       {206, "Partial Content"},
+       {300, "Multiple Choices"},
+       {301, "Moved Permanently"},
+       {302, "Moved Temporarily"},
+       {303, "See Other"},
+       {304, "Not Modified"},
+       {305, "Use Proxy"},
+       {400, "Bad Request"},
+       {401, "Unauthorized"},
+       {402, "Payment Required"},
+       {403, "Forbidden"},
+       {404, "Not Found"},
+       {405, "Method Not Allowed"},
+       {406, "Not Acceptable"},
+       {407, "Proxy Authentication Required"},
+       {408, "Request Time-out"},
+       {409, "Conflict"},
+       {410, "Gone"},
+       {411, "Length Required"},
+       {412, "Precondition Failed"},
+       {413, "Request Entity Too Large"},
+       {414, "Request-URI Too Large"},
+       {415, "Unsupported Media Type"},
+       {428, "Precondition Required"},
+       {429, "Too Many Requests"},
+       {431, "Request Header Fields Too Large"},
+       {451, "Unavailable For Legal Reasons"},
+       {500, "Internal Server Error"},
+       {501, "Not Implemented"},
+       {502, "Bad Gateway"},
+       {503, "Service Unavailable"},
+       {504, "Gateway Time-out"},
+       {505, "HTTP Version not supported"},
+       {511, "Network Authentication Required"},
+       {0,   NULL}
+};
+
+
+static int sapi_lsapi_send_headers_like_cgi(sapi_headers_struct *sapi_headers)
+{
+    char buf[SAPI_LSAPI_MAX_HEADER_LENGTH];
+    sapi_header_struct *h;
+    zend_llist_position pos;
+    zend_bool ignore_status = 0;
+    int response_status = SG(sapi_headers).http_response_code;
+
+    if (SG(request_info).no_headers == 1) {
+        LSAPI_FinalizeRespHeaders();
+        return SAPI_HEADER_SENT_SUCCESSFULLY;
+    }
+
+    if (SG(sapi_headers).http_response_code != 200)
+    {
+        int len;
+        zend_bool has_status = 0;
+
+        char *s;
+
+        if (SG(sapi_headers).http_status_line &&
+             (s = strchr(SG(sapi_headers).http_status_line, ' ')) != 0 &&
+             (s - SG(sapi_headers).http_status_line) >= 5 &&
+             strncasecmp(SG(sapi_headers).http_status_line, "HTTP/", 5) == 0
+        ) {
+            len = slprintf(buf, sizeof(buf), "Status:%s", s);
+            response_status = atoi((s + 1));
+        } else {
+            h = (sapi_header_struct*)zend_llist_get_first_ex(&sapi_headers->headers, &pos);
+            while (h) {
+                if (h->header_len > sizeof("Status:")-1 &&
+                    strncasecmp(h->header, "Status:", sizeof("Status:")-1) == 0
+                ) {
+                    has_status = 1;
+                    break;
+                }
+                h = (sapi_header_struct*)zend_llist_get_next_ex(&sapi_headers->headers, &pos);
+            }
+            if (!has_status) {
+                http_error *err = (http_error*)http_error_codes;
+
+                while (err->code != 0) {
+                    if (err->code == SG(sapi_headers).http_response_code) {
+                        break;
+                    }
+                    err++;
+                }
+                if (err->msg) {
+                    len = slprintf(buf, sizeof(buf), "Status: %d %s", SG(sapi_headers).http_response_code, err->msg);
+                } else {
+                    len = slprintf(buf, sizeof(buf), "Status: %d", SG(sapi_headers).http_response_code);
+                }
+            }
+        }
+
+        if (!has_status) {
+            LSAPI_AppendRespHeader( buf, len );
+            ignore_status = 1;
+        }
+    }
+
+    h = (sapi_header_struct*)zend_llist_get_first_ex(&sapi_headers->headers, &pos);
+    while (h) {
+        /* prevent CRLFCRLF */
+        if (h->header_len) {
+            if (h->header_len > sizeof("Status:")-1 &&
+                strncasecmp(h->header, "Status:", sizeof("Status:")-1) == 0
+            ) {
+                if (!ignore_status) {
+                    ignore_status = 1;
+                    LSAPI_AppendRespHeader(h->header, h->header_len);
+                }
+            } else if (response_status == 304 && h->header_len > sizeof("Content-Type:")-1 &&
+                       strncasecmp(h->header, "Content-Type:", sizeof("Content-Type:")-1) == 0
+                   ) {
+                h = (sapi_header_struct*)zend_llist_get_next_ex(&sapi_headers->headers, &pos);
+                continue;
+            } else {
+                LSAPI_AppendRespHeader(h->header, h->header_len);
+            }
+        }
+        h = (sapi_header_struct*)zend_llist_get_next_ex(&sapi_headers->headers, &pos);
+    }
+
+    LSAPI_FinalizeRespHeaders();
+    return SAPI_HEADER_SENT_SUCCESSFULLY;
+}
+
+/*
+    mod_lsapi mode or legacy LS mode
+*/
+static int mod_lsapi_mode = 0;
+
+
 /* {{{ sapi_lsapi_send_headers
  */
 static int sapi_lsapi_send_headers(sapi_headers_struct *sapi_headers)
 {
     sapi_header_struct  *h;
     zend_llist_position pos;
+
+    if ( mod_lsapi_mode ) {
+        /* mod_lsapi mode */
+        return sapi_lsapi_send_headers_like_cgi(sapi_headers);
+    }
+
+    /* Legacy mode */
     if ( lsapi_mode ) {
         LSAPI_SetRespStatus( SG(sapi_headers).http_response_code );
 
@@ -381,6 +524,8 @@ static void sapi_lsapi_log_message(char *message, int syslog_type_int)
     {
         snprintf( buf, 8191, "%s\n", message );
         message = buf;
+        if (len > 8191)
+            len = 8191;
         ++len;
     }
     LSAPI_Write_Stderr( message, len);
@@ -412,8 +557,8 @@ static int lsapi_activate_user_ini();
 
 static int sapi_lsapi_activate()
 {
-    char *path, *doc_root, *server_name;
-    size_t path_len, doc_root_len, server_name_len;
+    char *path, *server_name;
+    size_t path_len, server_name_len;
 
     /* PATH_TRANSLATED should be defined at this stage but better safe than sorry :) */
     if (!SG(request_info).path_translated) {
@@ -464,7 +609,7 @@ static int sapi_lsapi_activate()
 static sapi_module_struct lsapi_sapi_module =
 {
     "litespeed",
-    "LiteSpeed V7.1",
+    "LiteSpeed V7.4.3",
 
     php_lsapi_startup,              /* startup */
     php_module_shutdown_wrapper,    /* shutdown */
@@ -500,7 +645,7 @@ static void init_request_info( void )
 {
     char * pContentType = LSAPI_GetHeader( H_CONTENT_TYPE );
     char * pAuth;
-    
+
     SG(request_info).content_type = pContentType ? pContentType : "";
     SG(request_info).request_method = LSAPI_GetRequestMethod();
     SG(request_info).query_string = LSAPI_GetQueryString();
@@ -510,7 +655,7 @@ static void init_request_info( void )
 
     /* It is not reset by zend engine, set it to 200. */
     SG(sapi_headers).http_response_code = 200;
-    
+
     pAuth = LSAPI_GetHeader( H_AUTHORIZATION );
     php_handle_auth_data(pAuth);
 }
@@ -539,6 +684,66 @@ static int lsapi_execute_script( zend_file_handle * file_handle)
 
 }
 
+static void lsapi_sigsegv( int signal )
+{
+    //fprintf(stderr, "lsapi_sigsegv: %d: Segmentation violation signal is caught during request shutdown\n", getpid());
+    _exit(1);
+}
+
+static int clean_onexit = 1;
+
+static void lsapi_sigterm( int signal )
+{
+    struct sigaction act, old_act;
+    int sa_rc;
+
+    // fprintf(stderr, "lsapi_sigterm: %d: clean_onexit %d\n", getpid(), clean_onexit );
+    if(!clean_onexit)
+    {
+        clean_onexit = 1;
+        act.sa_flags = 0;
+        act.sa_handler = lsapi_sigsegv;
+        sa_rc = sigaction( SIGINT, &act, &old_act );
+        sa_rc = sigaction( SIGQUIT, &act, &old_act );
+        sa_rc = sigaction( SIGILL, &act, &old_act );
+        sa_rc = sigaction( SIGABRT, &act, &old_act );
+        sa_rc = sigaction( SIGBUS, &act, &old_act );
+        sa_rc = sigaction( SIGSEGV, &act, &old_act );
+        sa_rc = sigaction( SIGTERM, &act, &old_act );
+
+        zend_try {
+            php_request_shutdown(NULL);
+        } zend_end_try();
+    }
+    exit(1);
+}
+
+static void lsapi_atexit( void )
+{
+    struct sigaction act, old_act;
+    int sa_rc;
+
+    //fprintf(stderr, "lsapi_atexit: %d: clean_onexit %d\n", getpid(), clean_onexit );
+    if(!clean_onexit)
+    {
+        clean_onexit = 1;
+        act.sa_flags = 0;
+        act.sa_handler = lsapi_sigsegv;
+        sa_rc = sigaction( SIGINT, &act, &old_act );
+        sa_rc = sigaction( SIGQUIT, &act, &old_act );
+        sa_rc = sigaction( SIGILL, &act, &old_act );
+        sa_rc = sigaction( SIGABRT, &act, &old_act );
+        sa_rc = sigaction( SIGBUS, &act, &old_act );
+        sa_rc = sigaction( SIGSEGV, &act, &old_act );
+        sa_rc = sigaction( SIGTERM, &act, &old_act );
+
+        //fprintf(stderr, "lsapi_atexit: %d: before php_request_shutdown\n", getpid(), clean_onexit );
+        zend_try {
+            php_request_shutdown(NULL);
+        } zend_end_try();
+    }
+}
+
 static int lsapi_module_main(int show_source)
 {
     zend_file_handle file_handle;
@@ -546,7 +751,9 @@ static int lsapi_module_main(int show_source)
     if (php_request_startup() == FAILURE ) {
         return -1;
     }
-    
+
+    clean_onexit = 0;
+
     if (show_source) {
         zend_syntax_highlighter_ini syntax_highlighter_ini;
 
@@ -557,6 +764,9 @@ static int lsapi_module_main(int show_source)
     }
     zend_try {
         php_request_shutdown(NULL);
+
+        clean_onexit = 1;
+
         memset( argv0, 0, 46 );
     } zend_end_try();
     return 0;
@@ -574,7 +784,16 @@ static int alter_ini( const char * pKey, int keyLen, const char * pValue, int va
         ++pKey;
         if ( *pKey == 4 ) {
             type = ZEND_INI_SYSTEM;
-            stage = PHP_INI_STAGE_ACTIVATE;
+            /*
+              Use ACTIVATE stage in legacy mode only.
+
+              RUNTIME stage should be used here,
+              as with ACTIVATE it's impossible to change the option from script with ini_set 
+            */
+            if(!mod_lsapi_mode)
+            {
+                stage = PHP_INI_STAGE_ACTIVATE;
+            }
         }
         else
         {
@@ -594,7 +813,7 @@ static int alter_ini( const char * pKey, int keyLen, const char * pValue, int va
             zend_alter_ini_entry_chars(psKey,
                              (char *)pValue, valLen,
                              type, stage);
-            zend_string_release(psKey);
+            zend_string_release_ex(psKey, 1);
         }
     }
     return 1;
@@ -679,7 +898,7 @@ static void walk_down_the_path(char* path_start,
 
 typedef struct {
     char *path;
-    uint path_len;
+    uint32_t path_len;
     char *doc_root;
     user_config_cache_entry *entry;
 } _lsapi_activate_user_ini_ctx;
@@ -723,8 +942,6 @@ static int lsapi_activate_user_ini_mk_path(_lsapi_activate_user_ini_ctx *ctx,
     /* Extract dir name from path_translated * and store it in 'path' */
     ctx->path_len = strlen(ctx->path);
     path = ctx->path = estrndup(SG(request_info).path_translated, ctx->path_len);
-    if (!path)
-        return FAILURE;
     ctx->path_len = zend_dirname(path, ctx->path_len);
 
     if (*fn_next) {
@@ -770,7 +987,7 @@ static int lsapi_activate_user_ini_mk_user_config(_lsapi_activate_user_ini_ctx *
     /* Find cached config entry: If not found, create one */
     ctx->entry = zend_hash_str_find_ptr(&user_config_cache, ctx->path, ctx->path_len);
 
-    if (!ctx->entry) 
+    if (!ctx->entry)
     {
         ctx->entry = pemalloc(sizeof(user_config_cache_entry), 1);
         ctx->entry->expires = 0;
@@ -802,7 +1019,7 @@ static int lsapi_activate_user_ini_walk_down_the_path(_lsapi_activate_user_ini_c
                                                       void* next)
 {
     time_t request_time = sapi_get_request_time();
-    uint docroot_len;
+    uint32_t docroot_len;
     int rc = SUCCESS;
     fn_activate_user_ini_chain_t *fn_next = next;
 
@@ -817,7 +1034,7 @@ static int lsapi_activate_user_ini_walk_down_the_path(_lsapi_activate_user_ini_c
                 strncmp(ctx->path, ctx->doc_root, docroot_len) != 0;
 
         if (is_outside_of_docroot) {
-            php_parse_user_ini_file(ctx->path, PG(user_ini_filename), 
+            php_parse_user_ini_file(ctx->path, PG(user_ini_filename),
                                     &ctx->entry->user_config);
         } else {
             walk_down_the_path(ctx->doc_root, ctx->path,
@@ -840,7 +1057,7 @@ static int lsapi_activate_user_ini_finally(_lsapi_activate_user_ini_ctx *ctx,
     int rc = SUCCESS;
     fn_activate_user_ini_chain_t *fn_next = next;
 
-    php_ini_activate_config(&ctx->entry->user_config, PHP_INI_PERDIR, 
+    php_ini_activate_config(&ctx->entry->user_config, PHP_INI_PERDIR,
                             PHP_INI_STAGE_HTACCESS);
 
     if (*fn_next) {
@@ -871,7 +1088,7 @@ static int lsapi_activate_user_ini( void )
         &lsapi_activate_user_ini_finally,
         NULL
     };
-    
+
     return fn_chain[0](&ctx, (fn_activate_user_ini_chain_t*)(fn_chain + 1));
 }
 
@@ -1014,26 +1231,22 @@ static int cli_main( int argc, char * argv[] )
     zend_string *psKey;
     lsapi_mode = 0;        /* enter CLI mode */
 
-#ifdef PHP_WIN32
-    _fmode = _O_BINARY;            /*sets default for file streams to binary */
-    setmode(_fileno(stdin), O_BINARY);    /* make the stdio mode be binary */
-    setmode(_fileno(stdout), O_BINARY);   /* make the stdio mode be binary */
-    setmode(_fileno(stderr), O_BINARY);   /* make the stdio mode be binary */
-#endif
-
     zend_first_try     {
         SG(server_context) = (void *) 1;
 
         zend_uv.html_errors = 0; /* tell the engine we're in non-html mode */
         CG(in_compilation) = 0; /* not initialized but needed for several options */
         SG(options) |= SAPI_OPTION_NO_CHDIR;
-        
+
+#if PHP_MAJOR_VERSION < 7
+        EG(uninitialized_zval_ptr) = NULL;
+#endif
         for( ini = ini_defaults; *ini; ini+=2 ) {
             psKey = zend_string_init(*ini, strlen( *ini ), 1);
             zend_alter_ini_entry_chars(psKey,
                                 (char *)*(ini+1), strlen( *(ini+1) ),
                                 PHP_INI_SYSTEM, PHP_INI_STAGE_ACTIVATE);
-            zend_string_release(psKey);
+            zend_string_release_ex(psKey, 1);
         }
 
         while (( p < argend )&&(**p == '-' )) {
@@ -1245,6 +1458,16 @@ int main( int argc, char * argv[] )
     int slow_script_msec = 0;
     char time_buf[40];
 
+    struct sigaction act, old_act;
+    struct sigaction INT_act;
+    struct sigaction QUIT_act;
+    struct sigaction ILL_act;
+    struct sigaction ABRT_act;
+    struct sigaction BUS_act;
+    struct sigaction SEGV_act;
+    struct sigaction TERM_act;
+    int sa_rc;
+
 #ifdef HAVE_SIGNAL_H
 #if defined(SIGPIPE) && defined(SIG_IGN)
     signal(SIGPIPE, SIG_IGN);
@@ -1256,11 +1479,11 @@ int main( int argc, char * argv[] )
 #endif
 
 #if PHP_MAJOR_VERSION >= 7
-#if defined(ZEND_SIGNALS) || PHP_MINOR_VERSION > 0  
+#if defined(ZEND_SIGNALS) || PHP_MINOR_VERSION > 0
     zend_signal_startup();
 #endif
 #endif
-    
+
     if (argc > 1 ) {
         if ( parse_opt( argc, argv, &climode,
                 &php_ini_path, &php_bind ) == -1 ) {
@@ -1291,7 +1514,7 @@ int main( int argc, char * argv[] )
      * options: the latter override the former.
      */
     init_sapi_from_env(&lsapi_sapi_module);
-    
+
     if ( ignore_php_ini )
         lsapi_sapi_module.php_ini_ignore = 1;
 
@@ -1331,7 +1554,7 @@ int main( int argc, char * argv[] )
 #if defined(linux) || defined(__linux) || defined(__linux__) || defined(__gnu_linux__)
     int is_criu = LSCRIU_Init(); // Must be called before the regular init as it unsets the parameters.
 #endif
-    
+
     LSAPI_Init_Env_Parameters( NULL );
     lsapi_mode = 1;
 
@@ -1343,9 +1566,19 @@ int main( int argc, char * argv[] )
         php_bind = NULL;
     }
 
-    int iRequestsProcessed = 0;
     int result;
-    
+
+    act.sa_flags = SA_NODEFER;
+    act.sa_handler = lsapi_sigterm;
+    sa_rc = sigaction( SIGINT, &act, &INT_act );
+    sa_rc = sigaction( SIGQUIT, &act, &QUIT_act );
+    sa_rc = sigaction( SIGILL, &act, &ILL_act );
+    sa_rc = sigaction( SIGABRT, &act, &ABRT_act );
+    sa_rc = sigaction( SIGBUS, &act, &BUS_act );
+    sa_rc = sigaction( SIGSEGV, &act, &SEGV_act );
+    sa_rc = sigaction( SIGTERM, &act, &TERM_act );
+    atexit(lsapi_atexit);
+
     while( ( result = LSAPI_Prefork_Accept_r( &g_req )) >= 0 ) {
 #if defined(linux) || defined(__linux) || defined(__linux__) || defined(__gnu_linux__)
         if (is_criu && !result) {
@@ -1375,6 +1608,15 @@ int main( int argc, char * argv[] )
             break;
         }
     }
+
+    sa_rc = sigaction( SIGINT, &INT_act, &old_act );
+    sa_rc = sigaction( SIGQUIT, &QUIT_act, &old_act );
+    sa_rc = sigaction( SIGILL, &ILL_act, &old_act );
+    sa_rc = sigaction( SIGABRT, &ABRT_act, &old_act );
+    sa_rc = sigaction( SIGBUS, &BUS_act, &old_act );
+    sa_rc = sigaction( SIGSEGV, &SEGV_act, &old_act );
+    sa_rc = sigaction( SIGTERM, &TERM_act, &old_act );
+
     php_module_shutdown();
 
 #ifdef ZTS
@@ -1394,13 +1636,15 @@ ZEND_END_ARG_INFO()
 PHP_FUNCTION(litespeed_request_headers);
 PHP_FUNCTION(litespeed_response_headers);
 PHP_FUNCTION(apache_get_modules);
+PHP_FUNCTION(litespeed_finish_request);
 
 PHP_MINFO_FUNCTION(litespeed);
 
-zend_function_entry litespeed_functions[] = {
+static const zend_function_entry litespeed_functions[] = {
     PHP_FE(litespeed_request_headers,   arginfo_litespeed__void)
     PHP_FE(litespeed_response_headers,  arginfo_litespeed__void)
     PHP_FE(apache_get_modules,          arginfo_litespeed__void)
+    PHP_FE(litespeed_finish_request,    arginfo_litespeed__void)
     PHP_FALIAS(getallheaders,           litespeed_request_headers,  arginfo_litespeed__void)
     PHP_FALIAS(apache_request_headers,  litespeed_request_headers,  arginfo_litespeed__void)
     PHP_FALIAS(apache_response_headers, litespeed_response_headers, arginfo_litespeed__void)
@@ -1414,6 +1658,12 @@ static PHP_MINIT_FUNCTION(litespeed)
     const char *p = getenv("LSPHP_ENABLE_USER_INI");
     if (p && 0 == strcasecmp(p, "on"))
         parse_user_ini = 1;
+
+    /*
+     * mod_lsapi always sets this env var,
+     * so we can detect mod_lsapi mode with its presense.
+     */
+    mod_lsapi_mode = ( getenv("LSAPI_DISABLE_CPAN_BEHAV") != NULL );
 
     /* REGISTER_INI_ENTRIES(); */
     return SUCCESS;
@@ -1532,6 +1782,24 @@ PHP_FUNCTION(apache_get_modules)
 /* }}} */
 
 
+/* {{{ proto array litespeed_finish_request(void)
+   Flushes all response data to the client */
+PHP_FUNCTION(litespeed_finish_request)
+{
+    if (ZEND_NUM_ARGS() > 0) {
+        WRONG_PARAM_COUNT;
+    }
+
+    php_output_end_all();
+    php_header();
+
+    if (LSAPI_End_Response() != -1) {
+        RETURN_TRUE;
+    }
+    RETURN_FALSE;
+}
+/* }}} */
+
 /*
  * Local variables:
  * tab-width: 4
@@ -1540,5 +1808,3 @@ PHP_FUNCTION(apache_get_modules)
  * vim600: sw=4 ts=4 fdm=marker
  * vim<600: sw=4 ts=4
  */
-
-

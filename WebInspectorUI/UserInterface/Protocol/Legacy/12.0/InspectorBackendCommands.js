@@ -67,7 +67,7 @@ InspectorBackend.activateDomain("CSS", ["web"]);
 
 // Canvas.
 InspectorBackend.registerCanvasDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Canvas");
-InspectorBackend.registerEnum("Canvas.ContextType", {Canvas2D: "canvas-2d", BitmapRenderer: "bitmaprenderer", WebGL: "webgl", WebGL2: "webgl2", Webgpu: "webgpu"});
+InspectorBackend.registerEnum("Canvas.ContextType", {Canvas2D: "canvas-2d", BitmapRenderer: "bitmaprenderer", WebGL: "webgl", WebGL2: "webgl2", WebGPU: "webgpu"});
 InspectorBackend.registerEnum("Canvas.ShaderType", {Fragment: "fragment", Vertex: "vertex"});
 InspectorBackend.registerEvent("Canvas.canvasAdded", ["canvas"]);
 InspectorBackend.registerEvent("Canvas.canvasRemoved", ["canvasId"]);
@@ -243,7 +243,6 @@ InspectorBackend.registerCommand("Debugger.setPauseOnExceptions", [{"name": "sta
 InspectorBackend.registerCommand("Debugger.setPauseOnAssertions", [{"name": "enabled", "type": "boolean", "optional": false}], []);
 InspectorBackend.registerCommand("Debugger.setPauseForInternalScripts", [{"name": "shouldPause", "type": "boolean", "optional": false}], []);
 InspectorBackend.registerCommand("Debugger.evaluateOnCallFrame", [{"name": "callFrameId", "type": "string", "optional": false}, {"name": "expression", "type": "string", "optional": false}, {"name": "objectGroup", "type": "string", "optional": true}, {"name": "includeCommandLineAPI", "type": "boolean", "optional": true}, {"name": "doNotPauseOnExceptionsAndMuteConsole", "type": "boolean", "optional": true}, {"name": "returnByValue", "type": "boolean", "optional": true}, {"name": "generatePreview", "type": "boolean", "optional": true}, {"name": "saveResult", "type": "boolean", "optional": true}], ["result", "wasThrown", "savedResultIndex"]);
-InspectorBackend.registerCommand("Debugger.setOverlayMessage", [{"name": "message", "type": "string", "optional": true}], []);
 InspectorBackend.activateDomain("Debugger");
 
 // Heap.

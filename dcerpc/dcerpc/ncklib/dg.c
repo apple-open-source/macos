@@ -894,7 +894,7 @@ unsigned32 *st;
         if (*st == rpc_s_ok)
         {
             rpc_dg_recvq_elt_p_t rqe =
-                RPC_DG_RECVQ_ELT_FROM_IOVECTOR_ELT(recv_data);
+                (void *) RPC_DG_RECVQ_ELT_FROM_IOVECTOR_ELT(recv_data);
             /*
              * The first rqe must have a valid hdrp.
              */

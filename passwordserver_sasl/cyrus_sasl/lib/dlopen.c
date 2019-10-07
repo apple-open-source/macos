@@ -43,7 +43,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <config.h>
+#include "config.h"
 #ifdef HAVE_DLFCN_H
 #include <dlfcn.h>
 #endif
@@ -53,11 +53,11 @@
 #include <stdio.h>
 #include <limits.h>
 
-#include <sasl.h>
+#include "sasl.h"
 #include "saslint.h"
 
 #ifndef PIC
-#include <saslplug.h>
+#include "saslplug.h"
 #include "staticopen.h"
 #endif
 

@@ -35,7 +35,11 @@
 #define kIOHITabletPointerSerialNumber	"SerialNumber"
 #define kIOHITabletPointerUniqueID		"UniqueID"
 
+#if defined(KERNEL) && !defined(KERNEL_PRIVATE)
+class __deprecated_msg("Use DriverKit") IOHITabletPointer : public IOHIDevice
+#else
 class IOHITabletPointer : public IOHIDevice
+#endif
 {
     OSDeclareDefaultStructors(IOHITabletPointer);
 
@@ -45,8 +49,8 @@ public:
     
     static UInt16 generateDeviceID();
 
-    virtual bool init(OSDictionary *propTable);
-    virtual bool attach(IOService *provider);
+    virtual bool init(OSDictionary *propTable) APPLE_KEXT_OVERRIDE;
+    virtual bool attach(IOService *provider) APPLE_KEXT_OVERRIDE;
 
     virtual void dispatchTabletEvent(NXEventData *tabletEvent,
                                      AbsoluteTime ts);

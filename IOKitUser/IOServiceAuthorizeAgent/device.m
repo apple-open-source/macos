@@ -41,7 +41,11 @@ CFDictionaryRef _DeviceCopyIdentifier( io_service_t service )
     {
         identifier = _IOUSBDeviceCopyIdentifier( service );
     }
+    else if ( IOObjectConformsTo( service, "IOUSBDevice" ) )
+    {
 
+        identifier = _IOUSBDeviceCopyIdentifier( service );
+    }
     return identifier;
 }
 
@@ -57,6 +61,10 @@ CFStringRef _DeviceCopyName( CFDictionaryRef identifier )
         name = _IOMediaCopyName( identifier );
     }
     else if ( CFEqual( class, CFSTR( kIOUSBDeviceClassName ) ) )
+    {
+        name = _IOUSBDeviceCopyName( identifier );
+    }
+    else if ( CFEqual( class, CFSTR( "IOUSBDevice" ) ) )
     {
         name = _IOUSBDeviceCopyName( identifier );
     }
@@ -81,6 +89,10 @@ Boolean _DeviceIsEqual( CFDictionaryRef identifier1, CFDictionaryRef identifier2
         {
             equal = _IOUSBDeviceIsEqual( identifier1, identifier2 );
         }
+        else if ( CFEqual( class, CFSTR( "IOUSBDevice" ) ) )
+        {
+            equal = _IOUSBDeviceIsEqual( identifier1, identifier2 );
+        }
     }
 
     return equal;
@@ -95,6 +107,10 @@ Boolean _DeviceIsValid( io_service_t service )
         valid = _IOMediaIsValid( service );
     }
     else if ( IOObjectConformsTo( service, kIOUSBDeviceClassName ) )
+    {
+        valid = _IOUSBDeviceIsValid( service );
+    }
+    else if ( IOObjectConformsTo( service, "IOUSBDevice" ) )
     {
         valid = _IOUSBDeviceIsValid( service );
     }

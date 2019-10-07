@@ -77,6 +77,7 @@ static const char * getSegmentCommandName(uint32_t theSegCommand);
 
 static void createKCMap(const uint8_t *kernelcacheImage, Boolean verbose, struct kcmap **map);
 static void printKernelCacheLayoutMap(KclistArgs *toolArgs, struct ImageInfo * ki, struct kcmap *kcmap, CFPropertyListRef kcInfoPlist);
+static void printPrelinkInfoDict(KclistArgs *toolArgs, CFDictionaryRef prelinkInfoDict);
 static void printJSON(KclistArgs *toolArgs, struct ImageInfo * ki, struct kcmap *kcmap, CFPropertyListRef kcInfoPlist);
 static void printJSONSegments(KclistArgs *toolArgs, void *mhpv, bool mh_is_64);
 static off_t getKCFileOffset(struct kcmap *kcmap, uint64_t va_ofst);
@@ -176,13 +177,13 @@ int main(int argc, char * const argv[])
                                                     fat_arch->cpusubtype);
         }
     }
-    
+
     while (true) {
         // may not be any arch info, so pass through at least once
         SAFE_RELEASE_NULL(prelinkInfoPlist);
         SAFE_RELEASE_NULL(kernelcacheImage);
         SAFE_RELEASE_NULL(rawKernelcache);
-        
+
         rawKernelcache = readMachOSliceForArch(toolArgs.kernelcachePath,
                                                nextArchInfo,
                                                /* checkArch */ FALSE);
@@ -194,7 +195,7 @@ int main(int argc, char * const argv[])
                       toolArgs.kernelcachePath);
             goto finish;
         }
-        
+
         if (MAGIC32(CFDataGetBytePtr(rawKernelcache)) == OSSwapHostToBigInt32('comp')) {
             kernelcacheImage = uncompressPrelinkedSlice(rawKernelcache);
             if (!kernelcacheImage) {
@@ -264,21 +265,21 @@ int main(int argc, char * const argv[])
                                       "__TEXT");
             ki->hasThreadedRebase = false;
         }
-        
+
         if (!ki->prelinkInfoSect) {
             OSKextLog(/* kext */ NULL,
                       kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
                       "Can't find prelink info section.");
             goto finish;
         }
-        
+
         if (!ki->prelinkTextSect) {
             OSKextLog(/* kext */ NULL,
                       kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
                       "Can't find prelink text section.");
             goto finish;
         }
-        
+
         if (!ki->textSegment) {
             OSKextLog(/* kext */ NULL,
                       kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
@@ -351,7 +352,7 @@ int main(int argc, char * const argv[])
             }
             ki->baseAddress = ((struct segment_command *)ki->textSegment)->vmaddr;
         }
-        
+
         prelinkInfoPlist = (CFPropertyListRef)
         IOCFUnserialize(ki->prelinkInfoBytes,
                         kCFAllocatorDefault, /* options */ 0,
@@ -370,6 +371,8 @@ int main(int argc, char * const argv[])
             printKernelCacheLayoutMap(&toolArgs, ki, kcmap, prelinkInfoPlist);
         } else if (toolArgs.printJSON) {
             printJSON(&toolArgs, ki, kcmap, prelinkInfoPlist);
+        } else if (toolArgs.printPrelinkInfoDict) {
+            printPrelinkInfoDict(&toolArgs, prelinkInfoPlist);
         } else {
             listPrelinkedKexts(&toolArgs, ki, kcmap, prelinkInfoPlist, nextArchInfo);
         }
@@ -391,7 +394,7 @@ int main(int argc, char * const argv[])
             break;
         }
     } // while true
-    
+
     result = EX_OK;
 
 finish:
@@ -406,6 +409,9 @@ finish:
 
     if (kernelcache_fd != -1) {
         close(kernelcache_fd);
+    }
+    if (result != EX_OK && toolArgs.outputPath) {
+        unlink(toolArgs.outputPath);
     }
     return result;
 }
@@ -471,7 +477,7 @@ ExitStatus readArgs(
         kOptChars, sOptInfo, &longindex)) != -1) {
 
         switch (optchar) {
-  
+
             case kOptArch:
                 toolArgs->archInfo = NXGetArchInfoFromName(optarg);
                 if (!toolArgs->archInfo) {
@@ -511,6 +517,14 @@ ExitStatus readArgs(
                 toolArgs->printJSON = true;
                 break;
 
+            case kOptPrelinkInfoDict:
+                toolArgs->printPrelinkInfoDict = true;
+                break;
+
+            case kOptOutput:
+                toolArgs->outputPath = optarg;
+                break;
+
             default:
                 OSKextLog(/* kext */ NULL,
                     kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
@@ -526,6 +540,16 @@ ExitStatus readArgs(
                 "cannot print map as human-readable and JSON simultaneously "
                 "(-%c and -%c are mutually exclusive)", kOptJSON,
                 kOptLayoutMap);
+            goto finish;
+            break;
+        }
+
+        if (toolArgs->printJSON && toolArgs->printPrelinkInfoDict) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                "cannot print XML prelinked info dict and JSON simultaneously "
+                "(-%c and -%c are mutually exclusive)", kOptPrelinkInfoDict,
+                kOptJSON);
             goto finish;
             break;
         }
@@ -591,6 +615,22 @@ ExitStatus checkArgs(KclistArgs * toolArgs)
         goto finish;
     }
 
+    if (toolArgs->outputPath && strcmp(toolArgs->outputPath, "-")) {
+        int fd = open(toolArgs->outputPath,
+            O_RDWR | O_CREAT | O_TRUNC | O_APPEND, 0644);
+        if (fd < 0) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                "Unable to open `%s': %s", toolArgs->outputPath, strerror(errno));
+            result = EX_IOERR;
+            goto finish;
+        }
+        dup2(fd, STDOUT_FILENO);
+        close(fd);
+    } else {
+        toolArgs->outputPath = NULL;
+    }
+
     result = EX_OK;
 
 finish:
@@ -598,6 +638,58 @@ finish:
         usage(kUsageLevelBrief);
     }
     return result;
+}
+
+void printPrelinkInfoDict(KclistArgs    * toolArgs,
+                          CFDictionaryRef prelinkInfoDict)
+{
+    (void)toolArgs;
+
+    CFErrorRef       error        = NULL;
+    CFURLRef         devStdOut    = NULL;
+    CFWriteStreamRef stdOutStream = NULL;
+
+    devStdOut = CFURLCreateWithFileSystemPath(
+                     kCFAllocatorDefault,
+                     CFSTR("/dev/stdout"),
+                     kCFURLPOSIXPathStyle,
+                     false);
+    if (!devStdOut) {
+        OSKextLogMemError();
+        goto finish;
+    }
+
+    stdOutStream = CFWriteStreamCreateWithFile(
+                     kCFAllocatorDefault,
+                     devStdOut);
+    if (!stdOutStream) {
+        OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                "Couldn't create stdout stream for writing.");
+        goto finish;
+    }
+
+    if (!CFWriteStreamOpen(stdOutStream)) {
+        OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                "Couldn't open stdout for writing.");
+        goto finish;
+    }
+
+    if (!CFPropertyListWrite(
+                     prelinkInfoDict,
+                     stdOutStream,
+                     kCFPropertyListXMLFormat_v1_0,
+                     0,
+                     &error) || error) {
+        OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                "Couldn't write prelinked info dictionary to stdout.");
+        goto finish;
+    }
+
+finish:
+    SAFE_RELEASE(error);
+    SAFE_RELEASE(devStdOut);
+    SAFE_RELEASE(stdOutStream);
+    return;
 }
 
 /*******************************************************************************
@@ -611,7 +703,7 @@ void listPrelinkedKexts(KclistArgs * toolArgs,
     CFIndex i, count, printed = 0;
     Boolean haveIDs = CFSetGetCount(toolArgs->kextIDs) > 0 ? TRUE : FALSE;
     CFArrayRef kextPlistArray = NULL;
-    
+
     if (CFArrayGetTypeID() == CFGetTypeID(kcInfoPlist)) {
         kextPlistArray = (CFArrayRef)kcInfoPlist;
     } else if (CFDictionaryGetTypeID() == CFGetTypeID(kcInfoPlist)){
@@ -1475,7 +1567,7 @@ void printKextInfo(KclistArgs *toolArgs,
                    "ncmds = %d, "
                    "sizeofcmds = %d\n",
                    mhp64->magic, mhp64->ncmds, mhp64->sizeofcmds);
-            
+
             for (cmd_i = 0; cmd_i < mhp64->ncmds; cmd_i++) {
                 if (seg_cmd->cmd == LC_SEGMENT_64) {
                     printf("\t\t-> %s: "
@@ -1497,7 +1589,7 @@ void printKextInfo(KclistArgs *toolArgs,
                            seg_cmd->fileoff,
                            seg_cmd->filesize,
                            seg_cmd->filesize);
-                    
+
                     struct section_64 *sect = NULL;
                     u_int j = 0;
                     sect = (struct section_64 *) (&seg_cmd[1]);
@@ -1615,7 +1707,7 @@ finish:
 static const char * getSegmentCommandName(uint32_t theSegCommand)
 {
     const char * theResult;
-    
+
     switch(theSegCommand) {
         case LC_SYMTAB:
             theResult = "LC_SYMTAB";
@@ -1654,10 +1746,10 @@ CFComparisonResult compareIdentifiers(const void * val1, const void * val2, void
 {
     CFDictionaryRef dict1 = (CFDictionaryRef)val1;
     CFDictionaryRef dict2 = (CFDictionaryRef)val2;
-    
+
     CFStringRef id1 = CFDictionaryGetValue(dict1, kCFBundleIdentifierKey);
     CFStringRef id2 = CFDictionaryGetValue(dict2, kCFBundleIdentifierKey);
-    
+
     return CFStringCompare(id1, id2, 0);
 }
 
@@ -1667,7 +1759,7 @@ CFComparisonResult compareIdentifiers(const void * val1, const void * val2, void
 void usage(UsageLevel usageLevel)
 {
     fprintf(stderr,
-      "usage: %1$s [-arch archname] [-j] [-l] [-M] [-u] [-v] [-x prefix] [--] kernelcache [bundle-id ...]\n"
+      "usage: %1$s [-arch archname] [-i] [-j] [-l] [-M] [-o] [-u] [-v] [-x prefix] [--] kernelcache [bundle-id ...]\n"
       "usage: %1$s -help\n"
       "\n",
       progname);
@@ -1702,6 +1794,12 @@ void usage(UsageLevel usageLevel)
     fprintf(stderr, "-%s (-%c):\n"
         "        print the kernelcache layout map as JSON\n",
             kOptNameJSON, kOptJSON);
+    fprintf(stderr, "-%s (-%c):\n"
+        "        print the prelinked info dict as XML\n",
+            kOptNamePrelinkInfoDict, kOptPrelinkInfoDict);
+    fprintf(stderr, "-%s (-%c):\n"
+        "        file to print to (default stdout)\n",
+            kOptNameOutput, kOptOutput);
     fprintf(stderr, "\n");
 
     fprintf(stderr, "-%s (-%c): print this message and exit\n",

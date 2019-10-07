@@ -40,6 +40,9 @@
 /* Return the SHA1 digest of a chunk of data as newly allocated CFDataRef. */
 CFDataRef SecSHA1DigestCreate(CFAllocatorRef allocator,
                               const UInt8 *data, CFIndex length) {
+    if (length < 0 || length > INT32_MAX || data == NULL) {
+        return NULL; /* guard against passing bad values to digest function */
+    }
     CFMutableDataRef digest = CFDataCreateMutable(allocator,
                                                   CC_SHA1_DIGEST_LENGTH);
     CFDataSetLength(digest, CC_SHA1_DIGEST_LENGTH);
@@ -49,6 +52,9 @@ CFDataRef SecSHA1DigestCreate(CFAllocatorRef allocator,
 
 CFDataRef SecSHA256DigestCreate(CFAllocatorRef allocator,
                                 const UInt8 *data, CFIndex length) {
+    if (length < 0 || length > INT32_MAX || data == NULL) {
+        return NULL; /* guard against passing bad values to digest function */
+    }
     CFMutableDataRef digest = CFDataCreateMutable(allocator,
                                                   CC_SHA256_DIGEST_LENGTH);
     CFDataSetLength(digest, CC_SHA256_DIGEST_LENGTH);
@@ -69,10 +75,10 @@ CFDataRef SecDigestCreate(CFAllocatorRef allocator,
                           const UInt8 *data, CFIndex length) {
     unsigned char *(*digestFcn)(const void *data, CC_LONG len, unsigned char *md);
     CFIndex digestLen;
-    
-    if (length > INT32_MAX)
-        return NULL;
-    
+
+    if (length < 0 || length > INT32_MAX || data == NULL)
+        return NULL; /* guard against passing bad values to digest function */
+
     if (SecAsn1OidCompare(algorithm, &CSSMOID_SHA1)) {
         digestFcn = CC_SHA1;
         digestLen = CC_SHA1_DIGEST_LENGTH;
@@ -91,7 +97,7 @@ CFDataRef SecDigestCreate(CFAllocatorRef allocator,
     } else {
         return NULL;
     }
-    
+
     CFMutableDataRef digest = CFDataCreateMutable(allocator, digestLen);
     CFDataSetLength(digest, digestLen);
 

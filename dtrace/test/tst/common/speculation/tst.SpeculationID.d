@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.SpeculationID.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * The speculation() function returns a speculative identifier when a

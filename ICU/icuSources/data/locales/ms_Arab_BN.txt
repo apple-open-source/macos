@@ -12,7 +12,7 @@ ms_Arab_BN{
             }
         }
     }
-    Version{"2.1.35.71"}
+    Version{"2.1.48.13"}
     calendar{
         generic{
             DateTimePatterns{

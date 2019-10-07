@@ -1,0 +1,6 @@
+framework module HID_Private {
+    umbrella header "HID_Private.h"
+    
+    export *
+    module * { export * }
+}

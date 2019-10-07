@@ -8,7 +8,7 @@ function_exists('mb_strlen') or die("skip mb_strlen() is not available in this b
 --FILE--
 <?php
 /* Prototype  : int mb_strlen(string $str [, string $encoding])
- * Description: Get character numbers of a string 
+ * Description: Get character numbers of a string
  * Source code: ext/mbstring/mbstring.c
  */
 
@@ -29,12 +29,12 @@ unset ($unset_var);
 class classA
 {
   public function __toString() {
-    return b"Class A object";
+    return "Class A object";
   }
 }
 
 // heredoc string
-$heredoc = b<<<EOT
+$heredoc = <<<EOT
 hello world
 EOT;
 
@@ -66,16 +66,16 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
 
        // string data
-/*18*/ b"string",
-       b'string',
+/*18*/ "string",
+       'string',
        $heredoc,
-       
+
        // object data
 /*21*/ new classA(),
 

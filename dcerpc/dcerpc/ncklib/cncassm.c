@@ -2196,7 +2196,7 @@ INTERNAL unsigned32     set_secondary_addr_action_rtn
          * rpc_bind_ack PDU use it to create a secondary address and
          * store this on the association group.
          */
-        sec_addr = (rpc_cn_port_any_t *)
+        sec_addr = (rpc_cn_port_any_t *) (void *)
             ((unsigned8 *)(header) + RPC_CN_PKT_SIZEOF_BIND_ACK_HDR);
         if (sec_addr->length > 1)
         {
@@ -3017,8 +3017,8 @@ INTERNAL unsigned32     mark_syntax_and_sec_action_rtn
     rpc_cn_port_any_t               *sec_addr;
     rpc_cn_bind_auth_value_priv_p_t priv_auth_value, local_auth_value;
     unsigned32                      st;
-    rpc_cn_sm_ctlblk_t		    *sm_p;
-    unsigned32			    status;
+    rpc_cn_sm_ctlblk_t		        *sm_p;
+    unsigned32			            status;
     unsigned8                       ptype;
 
     RPC_CN_DBG_RTN_PRINTF(CLIENT mark_syntax_and_sec_action_rtn);
@@ -3055,7 +3055,7 @@ INTERNAL unsigned32     mark_syntax_and_sec_action_rtn
      * termination byte. The presentation results also has padding in the
      * header before it to ensure it is four byte aligned.
      */
-    sec_addr = (rpc_cn_port_any_t *)
+    sec_addr = (rpc_cn_port_any_t *) (void *)
         ((unsigned8 *)(header) + RPC_CN_PKT_SIZEOF_BIND_ACK_HDR);
     pres_result_list = (rpc_cn_pres_result_list_t *)
 	RPC_CN_ALIGN_PTR(((unsigned8 *)sec_addr + 2 + sec_addr->length), 4);
@@ -3144,7 +3144,7 @@ INTERNAL unsigned32     mark_syntax_and_sec_action_rtn
      */
     if (RPC_CN_PKT_AUTH_TLR_PRESENT (header))
     {
-        auth_tlr = RPC_CN_PKT_AUTH_TLR (header, header_size);
+        auth_tlr = (void *) RPC_CN_PKT_AUTH_TLR (header, header_size);
         rpc__cn_assoc_sec_lkup_by_id (assoc,
                                       auth_tlr->key_id,
                                       &sec_context,
@@ -3170,12 +3170,12 @@ INTERNAL unsigned32     mark_syntax_and_sec_action_rtn
                  * Use reconstruction buffer for auth_value.
                  */
 
-                local_auth_value = (rpc_cn_bind_auth_value_priv_t *)
+                local_auth_value = (rpc_cn_bind_auth_value_priv_t *) (void *)
                             assoc->security.auth_buffer_info.auth_buffer;
                 local_auth_value_len = assoc->security.auth_buffer_info.auth_buffer_len;
 
                 /* Make sure we get these values from the packet we checksum */
-                auth_value = (rpc_cn_bind_auth_value_priv_t *)
+                auth_value = (rpc_cn_bind_auth_value_priv_t *) (void *)
                                  auth_tlr->auth_value;
                 local_auth_value->assoc_uuid_crc = auth_value->assoc_uuid_crc;
                 local_auth_value->sub_type = auth_value->sub_type;
@@ -3187,7 +3187,7 @@ INTERNAL unsigned32     mark_syntax_and_sec_action_rtn
                 /*
                  * Only one packet received, use it.
                  */
-                local_auth_value = (rpc_cn_bind_auth_value_priv_t *)
+                local_auth_value = (rpc_cn_bind_auth_value_priv_t *) (void *)
                                        auth_tlr->auth_value;
                 local_auth_value_len = RPC_CN_PKT_AUTH_LEN(header);
             }
@@ -3223,7 +3223,7 @@ INTERNAL unsigned32     mark_syntax_and_sec_action_rtn
                  * doing the checksum on.
                  */
                 priv_auth_value =
-                    (rpc_cn_bind_auth_value_priv_t *) auth_tlr->auth_value;
+                    (rpc_cn_bind_auth_value_priv_t *)(void *) auth_tlr->auth_value;
 
                 authn_protocol = RPC_CN_AUTH_CVT_ID_WIRE_TO_API (auth_tlr->auth_type, &st);
                 if (st != rpc_s_ok)
@@ -3613,7 +3613,7 @@ INTERNAL unsigned8 authent3_pred_rtn
 #define  AUTHENT3_PRED(spc_struct, event_param, status, tlr, st, three_way)\
 {\
     RPC_CN_DBG_RTN_PRINTF(CLIENT authent3_pred_macro);\
-    header = (rpc_cn_packet_t *) ((rpc_cn_fragbuf_t *)event_param)->data_p;\
+    header = (rpc_cn_packet_t *) (void *)((rpc_cn_fragbuf_t *)(void *)event_param)->data_p;\
     if (RPC_CN_PKT_AUTH_LEN (header) == 0)\
     {\
         status = 0;\
@@ -3621,7 +3621,7 @@ INTERNAL unsigned8 authent3_pred_rtn
     else\
     {\
         rpc_authn_protocol_id_t authn_protocol; \
-        tlr = RPC_CN_PKT_AUTH_TLR (header, RPC_CN_PKT_FRAG_LEN (header));\
+        tlr = (void *) RPC_CN_PKT_AUTH_TLR (header, RPC_CN_PKT_FRAG_LEN (header));\
         authn_protocol = RPC_CN_AUTH_CVT_ID_WIRE_TO_API (tlr->auth_type, &st); \
         if (st == rpc_s_ok) \
         {\
@@ -3793,23 +3793,23 @@ INTERNAL unsigned32     add_mark_set_action_rtn
 
     if (three_way)
     {
-	rpc_cn_sec_context_t            *sec_context;
-        RPC_DBG_PRINTF (rpc_e_dbg_auth, RPC_C_CN_DBG_AUTH_PKT,
-		("3-way auth required\n"));
-	rpc__cn_assoc_sec_lkup_by_id (assoc,
-				      tlr->key_id,
-				      &sec_context,
-				      &assoc->assoc_status);
+        rpc_cn_sec_context_t            *sec_context;
+            RPC_DBG_PRINTF (rpc_e_dbg_auth, RPC_C_CN_DBG_AUTH_PKT,
+            ("3-way auth required\n"));
+        rpc__cn_assoc_sec_lkup_by_id (assoc,
+                          tlr->key_id,
+                          &sec_context,
+                          &assoc->assoc_status);
 
-	if (assoc->assoc_status == rpc_s_ok)
-	{
-	    rpc_cn_assoc_sm_work_t assoc_sm_work;
-	    assoc_sm_work.grp_id = assoc->assoc_grp_id.all;
-	    assoc_sm_work.pres_context = NULL;
-	    assoc_sm_work.sec_context = sec_context;
+        if (assoc->assoc_status == rpc_s_ok)
+        {
+            rpc_cn_assoc_sm_work_t assoc_sm_work;
+            assoc_sm_work.grp_id = assoc->assoc_grp_id.all;
+            assoc_sm_work.pres_context = NULL;
+            assoc_sm_work.sec_context = sec_context;
 
-	    authent3_action_rtn(spc_struct, &assoc_sm_work, sm);
-	}
+            authent3_action_rtn(spc_struct, &assoc_sm_work, sm);
+        }
     }
 
     /*
@@ -4308,8 +4308,8 @@ INTERNAL unsigned32     process_frag_action_rtn
      * We have to watch out for the checksum at the end of the
      * auth trailer, we only want to recover the KRB_AP_REQ message.
      */
-    auth_tlr = RPC_CN_PKT_AUTH_TLR(req_header,RPC_CN_PKT_FRAG_LEN (req_header));
-    auth_value = (rpc_cn_bind_auth_value_priv_t *)auth_tlr->auth_value;
+    auth_tlr = (void *) RPC_CN_PKT_AUTH_TLR(req_header,RPC_CN_PKT_FRAG_LEN (req_header));
+    auth_value = (rpc_cn_bind_auth_value_priv_t *)(void *)auth_tlr->auth_value;
     auth_value_len = RPC_CN_PKT_AUTH_LEN (req_header) -
                          auth_value->checksum_length;
 
@@ -4330,7 +4330,7 @@ INTERNAL unsigned32     process_frag_action_rtn
         memcpy(auth_buffer+auth_buffer_len,
                auth_value->credentials,
                auth_value->cred_length);
-        ((rpc_cn_bind_auth_value_priv_t *)auth_buffer)->cred_length += auth_value->cred_length;
+        ((rpc_cn_bind_auth_value_priv_t *)(void *)auth_buffer)->cred_length += auth_value->cred_length;
     }
 
     RPC_DBG_PRINTF (rpc_e_dbg_auth, RPC_C_CN_DBG_AUTH_BIG_PAC,
@@ -4533,7 +4533,7 @@ INTERNAL unsigned32     illegal_event_abort_action_rtn
      */
     rpc_dce_svc_printf (
         __FILE__, __LINE__,
-        "%s %s %x",
+        "%s %s %p",
         rpc_svc_cn_state,
         svc_c_sev_warning | svc_c_action_none,
         rpc_m_cn_ill_state_trans_ca,
@@ -4692,7 +4692,7 @@ INTERNAL void send_pdu
         /*
          * Clear the control fields of the presentation context list.
          */
-        pres_cont_list = (rpc_cn_pres_cont_list_t *)
+        pres_cont_list = (rpc_cn_pres_cont_list_t *)(void *)
             ((unsigned8 *)(header) + header_size);
         memset (pres_cont_list, 0, sizeof (rpc_cn_pres_cont_list_t));
     }
@@ -4899,7 +4899,7 @@ INTERNAL void send_pdu
      * auth trailer will fall on a 4-byte boundary.
      */
     /* header_size = (header_size + 3) & ~0x03; */
-    auth_tlr = (rpc_cn_auth_tlr_t *) ((unsigned8 *)(header) + header_size);
+    auth_tlr = (rpc_cn_auth_tlr_t *)(void *) ((unsigned8 *)(header) + header_size);
     memset(auth_tlr, 0, RPC_CN_PKT_SIZEOF_COM_AUTH_TLR);
     header_size +=  RPC_CN_PKT_SIZEOF_COM_AUTH_TLR;
     auth_len = rpc_g_cn_large_frag_size - header_size;

@@ -50,6 +50,17 @@ _CCBigNumToDecimalString
 _CCBigNumToHexString
 _CCBigNumZeroLSBCount
 _CCCalibratePBKDF
+_CCCKGGetCommitmentSize
+_CCCKGGetShareSize
+_CCCKGGetOpeningSize
+_CCCKGContributorCreate
+_CCCKGContributorDestroy
+_CCCKGOwnerCreate
+_CCCKGOwnerDestroy
+_CCCKGContributorCommit
+_CCCKGOwnerGenerateShare
+_CCCKGContributorFinish
+_CCCKGOwnerFinish
 _CCCreateBigNum
 _CCCrypt
 _CCCryptorAddParameter
@@ -89,6 +100,7 @@ _CCDHParametersPKCS3EncodeLength
 _CCDHParametersPKCS3Encode
 _CCDHParametersRelease
 _CCDHRelease
+_CCDeriveKey
 _CCDesCBCCksum
 _CCDesIsWeakKey
 _CCDesSetOddParity
@@ -118,6 +130,8 @@ _CCECCryptorImportKey
 _CCECCryptorImportPublicKey
 _CCECCryptorRelease
 _CCECCryptorSignHash
+_CCECCryptorTwinDiversifyEntropySize
+_CCECCryptorTwinDiversifyKey
 _CCECCryptorUnwrapKey
 _CCECCryptorVerifyHash
 _CCECCryptorWrapKey
@@ -133,10 +147,14 @@ _CCHmacOneShot
 _CCHmacOutputSize
 _CCHmacOutputSizeFromRef
 _CCHmacUpdate
+_CCKDFParametersCreatePbkdf2
+_CCKDFParametersCreateCtrHmac
+_CCKDFParametersCreateCtrHmacFixed
+_CCKDFParametersCreateHkdf
+_CCKDFParametersCreateAnsiX963
+_CCKDFParametersDestroy
 _CCKeyDerivationPBKDF
 _CCKeyDerivationHMac
-_CCRNGCreate
-_CCRNGRelease
 _CCRSACryptorCreateFromData
 _CCRSACryptorCreatePairFromData
 _CCRSACryptorCrypt
@@ -144,6 +162,7 @@ _CCRSACryptorDecrypt
 _CCRSACryptorEncrypt
 _CCRSACryptorExport
 _CCRSACryptorGeneratePair
+_CCRSACryptorCreatePublicKeyFromPrivateKey
 _CCRSACryptorGetPublicKeyFromPrivateKey
 _CCRSACryptorImport
 _CCRSACryptorRelease
@@ -156,6 +175,7 @@ _CCRSAGetCRTComponentsSizes
 _CCRSAGetCRTComponents
 _CCRandomCopyBytes
 _CCRandomGenerateBytes
+_CCRandomUniform
 _CCSymmetricKeyUnwrap
 _CCSymmetricKeyWrap
 _CCSymmetricUnwrappedSize

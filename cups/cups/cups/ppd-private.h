@@ -1,25 +1,13 @@
 /*
  * Private PPD definitions for CUPS.
  *
- * Copyright 2007-2017 by Apple Inc.
- * Copyright 1997-2007 by Easy Software Products, all rights reserved.
+ * Copyright © 2007-2019 by Apple Inc.
+ * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  *
  * PostScript is a trademark of Adobe Systems, Inc.
- *
- * This code and any derivative of it may be used and distributed
- * freely under the terms of the GNU General Public License when
- * used with GNU Ghostscript or its derivatives.  Use of the code
- * (or any derivative of it) with software other than GNU
- * GhostScript (or its derivatives) is governed by the CUPS license
- * agreement.
- *
- * This file is subject to the Apple OS-Developed Software exception.
  */
 
 #ifndef _CUPS_PPD_PRIVATE_H_
@@ -47,7 +35,7 @@ extern "C" {
  * Constants...
  */
 
-#  define _PPD_CACHE_VERSION	8	/* Version number in cache file */
+#  define _PPD_CACHE_VERSION	9	/* Version number in cache file */
 
 
 /*
@@ -151,12 +139,14 @@ struct _ppd_cache_s			/**** PPD cache and PWG conversion data ****/
 		*prefilters;		/* cupsPreFilter values */
   int		single_file;		/* cupsSingleFile value */
   cups_array_t	*finishings;		/* cupsIPPFinishings values */
+  cups_array_t	*templates;		/* cupsFinishingTemplate values */
   int		max_copies,		/* cupsMaxCopies value */
 		account_id,		/* cupsJobAccountId value */
 		accounting_user_id;	/* cupsJobAccountingUserId value */
   char		*password;		/* cupsJobPassword value */
   cups_array_t	*mandatory;		/* cupsMandatory value */
   char		*charge_info_uri;	/* cupsChargeInfoURI value */
+  cups_array_t	*strings;		/* Localization strings */
   cups_array_t	*support_files;		/* Support files - ICC profiles, etc. */
 };
 
@@ -165,63 +155,62 @@ struct _ppd_cache_s			/**** PPD cache and PWG conversion data ****/
  * Prototypes...
  */
 
-extern int		_cupsConvertOptions(ipp_t *request, ppd_file_t *ppd, _ppd_cache_t *pc, ipp_attribute_t *media_col_sup, ipp_attribute_t *doc_handling_sup, ipp_attribute_t *print_color_mode_sup, const char *user, const char *format, int copies, int num_options, cups_option_t *options);
+extern int		_cupsConvertOptions(ipp_t *request, ppd_file_t *ppd, _ppd_cache_t *pc, ipp_attribute_t *media_col_sup, ipp_attribute_t *doc_handling_sup, ipp_attribute_t *print_color_mode_sup, const char *user, const char *format, int copies, int num_options, cups_option_t *options) _CUPS_PRIVATE;
+extern int		_cupsRasterExecPS(cups_page_header2_t *h, int *preferred_bits, const char *code) _CUPS_NONNULL(3) _CUPS_PRIVATE;
+extern int		_cupsRasterInterpretPPD(cups_page_header2_t *h, ppd_file_t *ppd, int num_options, cups_option_t *options, cups_interpret_cb_t func) _CUPS_PRIVATE;
+
 extern _ppd_cache_t	*_ppdCacheCreateWithFile(const char *filename,
-			                         ipp_t **attrs);
-extern _ppd_cache_t	*_ppdCacheCreateWithPPD(ppd_file_t *ppd);
-extern void		_ppdCacheDestroy(_ppd_cache_t *pc);
+			                         ipp_t **attrs) _CUPS_PRIVATE;
+extern _ppd_cache_t	*_ppdCacheCreateWithPPD(ppd_file_t *ppd) _CUPS_PRIVATE;
+extern void		_ppdCacheDestroy(_ppd_cache_t *pc) _CUPS_PRIVATE;
 extern const char	*_ppdCacheGetBin(_ppd_cache_t *pc,
-			                 const char *output_bin);
+			                 const char *output_bin) _CUPS_PRIVATE;
 extern int		_ppdCacheGetFinishingOptions(_ppd_cache_t *pc,
 			                             ipp_t *job,
 			                             ipp_finishings_t value,
 			                             int num_options,
-			                             cups_option_t **options);
-extern int		_ppdCacheGetFinishingValues(_ppd_cache_t *pc,
-			                            int num_options,
-			                            cups_option_t *options,
-			                            int max_values,
-			                            int *values);
+			                             cups_option_t **options) _CUPS_PRIVATE;
+extern int		_ppdCacheGetFinishingValues(ppd_file_t *ppd, _ppd_cache_t *pc, int max_values, int *values) _CUPS_PRIVATE;
 extern const char	*_ppdCacheGetInputSlot(_ppd_cache_t *pc, ipp_t *job,
-			                       const char *keyword);
+			                       const char *keyword) _CUPS_PRIVATE;
 extern const char	*_ppdCacheGetMediaType(_ppd_cache_t *pc, ipp_t *job,
-			                       const char *keyword);
+			                       const char *keyword) _CUPS_PRIVATE;
 extern const char	*_ppdCacheGetOutputBin(_ppd_cache_t *pc,
-			                       const char *keyword);
+			                       const char *keyword) _CUPS_PRIVATE;
 extern const char	*_ppdCacheGetPageSize(_ppd_cache_t *pc, ipp_t *job,
-			                      const char *keyword, int *exact);
+			                      const char *keyword, int *exact) _CUPS_PRIVATE;
 extern pwg_size_t	*_ppdCacheGetSize(_ppd_cache_t *pc,
-			                  const char *page_size);
+			                  const char *page_size) _CUPS_PRIVATE;
 extern const char	*_ppdCacheGetSource(_ppd_cache_t *pc,
-			                    const char *input_slot);
+			                    const char *input_slot) _CUPS_PRIVATE;
 extern const char	*_ppdCacheGetType(_ppd_cache_t *pc,
-			                  const char *media_type);
+			                  const char *media_type) _CUPS_PRIVATE;
 extern int		_ppdCacheWriteFile(_ppd_cache_t *pc,
-			                   const char *filename, ipp_t *attrs);
-extern char		*_ppdCreateFromIPP(char *buffer, size_t bufsize, ipp_t *response);
-extern void		_ppdFreeLanguages(cups_array_t *languages);
-extern cups_encoding_t	_ppdGetEncoding(const char *name);
-extern cups_array_t	*_ppdGetLanguages(ppd_file_t *ppd);
-extern _ppd_globals_t	*_ppdGlobals(void);
-extern unsigned		_ppdHashName(const char *name);
+			                   const char *filename, ipp_t *attrs) _CUPS_PRIVATE;
+extern char		*_ppdCreateFromIPP(char *buffer, size_t bufsize, ipp_t *response) _CUPS_PRIVATE;
+extern void		_ppdFreeLanguages(cups_array_t *languages) _CUPS_PRIVATE;
+extern cups_encoding_t	_ppdGetEncoding(const char *name) _CUPS_PRIVATE;
+extern cups_array_t	*_ppdGetLanguages(ppd_file_t *ppd) _CUPS_PRIVATE;
+extern _ppd_globals_t	*_ppdGlobals(void) _CUPS_PRIVATE;
+extern unsigned		_ppdHashName(const char *name) _CUPS_PRIVATE;
 extern ppd_attr_t	*_ppdLocalizedAttr(ppd_file_t *ppd, const char *keyword,
-			                   const char *spec, const char *ll_CC);
+			                   const char *spec, const char *ll_CC) _CUPS_PRIVATE;
 extern char		*_ppdNormalizeMakeAndModel(const char *make_and_model,
 			                           char *buffer,
-						   size_t bufsize);
+						   size_t bufsize) _CUPS_PRIVATE;
 extern ppd_file_t	*_ppdOpen(cups_file_t *fp,
-				  _ppd_localization_t localization);
+				  _ppd_localization_t localization) _CUPS_PRIVATE;
 extern ppd_file_t	*_ppdOpenFile(const char *filename,
-				      _ppd_localization_t localization);
+				      _ppd_localization_t localization) _CUPS_PRIVATE;
 extern int		_ppdParseOptions(const char *s, int num_options,
 			                 cups_option_t **options,
-					 _ppd_parse_t which);
+					 _ppd_parse_t which) _CUPS_PRIVATE;
 extern const char	*_pwgInputSlotForSource(const char *media_source,
-			                        char *name, size_t namesize);
+			                        char *name, size_t namesize) _CUPS_PRIVATE;
 extern const char	*_pwgMediaTypeForType(const char *media_type,
-					      char *name, size_t namesize);
+					      char *name, size_t namesize) _CUPS_PRIVATE;
 extern const char	*_pwgPageSizeForMedia(pwg_media_t *media,
-			                      char *name, size_t namesize);
+			                      char *name, size_t namesize) _CUPS_PRIVATE;
 
 
 /*

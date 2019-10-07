@@ -40,6 +40,7 @@
 #include "IOPMLibPrivate.h"
 #include "powermanagement.h"
 #include <asl.h>
+#include <os/lock_private.h>
 #include <xpc/xpc.h>
 
 #include <unistd.h>
@@ -53,16 +54,13 @@
 
 static const int kMaxNameLength = 128;
 static mach_port_t powerd_connection = MACH_PORT_NULL;
-static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+static os_unfair_lock lock = OS_UNFAIR_LOCK_INIT;
 
 
 static void _reset_connection( )
 {
-  pthread_mutexattr_t attr;
-
   powerd_connection = MACH_PORT_NULL;
-  pthread_mutexattr_init(&attr);
-  pthread_mutex_init(&lock, &attr);
+  lock = OS_UNFAIR_LOCK_INIT;
 }   
 
 IOReturn _pm_connect(mach_port_t *newConnection)
@@ -77,7 +75,7 @@ IOReturn _pm_connect(mach_port_t *newConnection)
         return kIOReturnSuccess;
     }
 
-    pthread_mutex_lock(&lock);
+    os_unfair_lock_lock(&lock);
 
     // Check again and see if the port is created by another thread 
     if (powerd_connection != MACH_PORT_NULL) {
@@ -102,7 +100,7 @@ IOReturn _pm_connect(mach_port_t *newConnection)
        powerd_connection = MACH_PORT_NULL;
 
 exit:
-    pthread_mutex_unlock(&lock);
+    os_unfair_lock_unlock(&lock);
 
     return ret;
 }
@@ -199,6 +197,9 @@ static void unregisterNotification(IOPMNotificationHandle handle)
     if (_useractive->callblock_bool) {
         Block_release(_useractive->callblock_bool);
     }
+    if (_useractive->callblock_activity) {
+        Block_release(_useractive->callblock_activity);
+    }
     if (_useractive->notify) {
         IONotificationPortDestroy(_useractive->notify);
     }
@@ -258,7 +259,12 @@ IOPMNotificationHandle IOPMScheduleUserActiveChangedNotification(dispatch_queue_
 
 void IOPMUnregisterNotification(IOPMNotificationHandle handle)
 {
-    dispatch_sync(getPMQueue(), ^{ unregisterNotification(handle); });
+    dispatch_sync(getPMQueue(), ^{
+        _UserActiveNotification *_useractive = (_UserActiveNotification *)handle;
+        if (_useractive && _useractive->connection) {
+            xpc_connection_cancel(_useractive->connection);
+        }
+    });
 }
 
 static void decodeUserActivityLevel64(uint64_t in,
@@ -298,12 +304,13 @@ IOReturn IOPMGetUserActivityLevel(uint64_t *outUserActive,
     return kIOReturnSuccess;
 }
 
-void sendUserActivityMsg(_UserActiveNotification *_useractive, char *key)
+bool sendUserActivityMsg(_UserActiveNotification *_useractive, char *key)
 {
     xpc_object_t            desc = NULL;
     xpc_object_t            msg = NULL;
 
 
+    dispatch_assert_queue(getPMQueue());
     desc = xpc_dictionary_create(NULL, NULL, 0);
     msg = xpc_dictionary_create(NULL, NULL, 0);
     if (desc && msg) {
@@ -313,10 +320,11 @@ void sendUserActivityMsg(_UserActiveNotification *_useractive, char *key)
         xpc_connection_send_message(_useractive->connection, msg);
         xpc_release(msg);
         xpc_release(desc);
+        return true;
     }
     else {
         os_log_error(OS_LOG_DEFAULT, "Failed to create xpc objects to send userActivityRegister message\n");
-        return;
+        return false;
     }
 
 }
@@ -328,15 +336,19 @@ void processUserActivityMsg(_UserActiveNotification *_useractive, xpc_object_t m
     if (type == XPC_TYPE_DICTIONARY) {
         _useractive->levels = xpc_dictionary_get_uint64(msg, kUserActivityLevels);
         uint64_t significant = _useractive->levels ? (1 << (ffsl(_useractive->levels)-1)) : 0;
+        void (^block)(uint64_t, uint64_t) = Block_copy(_useractive->callblock_activity);
+        uint64_t levels = _useractive->levels;
 
-        dispatch_async(_useractive->clientQueue, ^{_useractive->callblock_activity(_useractive->levels, significant);});
+        dispatch_async(_useractive->clientQueue, ^{
+            block(levels, significant);
+            Block_release(block);
+        });
     }
     else if (type == XPC_TYPE_ERROR) {
         if (msg == XPC_ERROR_CONNECTION_INTERRUPTED) {
             dispatch_async(getPMQueue(), ^{sendUserActivityMsg(_useractive, kUserActivityRegister);});
         }
         else {
-            os_log_error(OS_LOG_DEFAULT, "Irrecoverable error for useractivity connection\n");
             unregisterNotification(_useractive);
         }
     }
@@ -353,6 +365,7 @@ IOPMNotificationHandle IOPMScheduleUserActivityLevelNotificationWithTimeout(
     xpc_object_t connection;
     _UserActiveNotification *_useractive = NULL;
     _useractive = calloc(1, sizeof(_UserActiveNotification));
+    __block bool msgSent = false;
 
     if (!_useractive) {
         return NULL;
@@ -374,7 +387,13 @@ IOPMNotificationHandle IOPMScheduleUserActivityLevelNotificationWithTimeout(
     _useractive->callblock_activity = Block_copy(inblock);
     _useractive->idleTimeout = timeout;
     xpc_connection_resume(connection);
-    sendUserActivityMsg(_useractive, kUserActivityRegister);
+    dispatch_sync(getPMQueue(), ^{
+        msgSent = sendUserActivityMsg(_useractive, kUserActivityRegister);
+    });
+    if (msgSent == false) {
+        IOPMUnregisterNotification(_useractive);
+        return NULL;
+    }
 
     return _useractive;
 #endif // TARGET_OS_SIMULATOR
@@ -383,16 +402,21 @@ IOPMNotificationHandle IOPMScheduleUserActivityLevelNotificationWithTimeout(
 IOReturn IOPMSetUserActivityIdleTimeout(IOPMNotificationHandle handle, uint32_t timeout)
 {
     _UserActiveNotification *_useractive = (_UserActiveNotification *)handle;
+    __block IOReturn rc = kIOReturnInternalError;
 
-    if (!_useractive || !_useractive->connection) {
-        return kIOReturnBadArgument;
-    }
+    dispatch_sync(getPMQueue(), ^{
+        if (!_useractive || !_useractive->connection) {
+            rc =  kIOReturnBadArgument;
+        }
+        else {
+            _useractive->idleTimeout = timeout;
+            if (sendUserActivityMsg(_useractive, kUserActivityTimeoutUpdate)) {
+                rc = kIOReturnSuccess;
+            }
+        }
+    });
 
-    _useractive->idleTimeout = timeout;
-    sendUserActivityMsg(_useractive, kUserActivityTimeoutUpdate);
-
-    return kIOReturnSuccess;
-
+    return rc;
 }
 
 IOPMNotificationHandle IOPMScheduleUserActivityLevelNotification(dispatch_queue_t queue,
@@ -2185,11 +2209,28 @@ IOReturn IOPMAssertionNotify(char *name, int req_type)
 }
 
 /*****************************************************************************/
+IOReturn _copySleepPreventersList(CFStringRef key, CFArrayRef *outArray)
+{
+    io_service_t            service = IO_OBJECT_NULL;
+    CFArrayRef                  obj;
+    service = IORegistryEntryFromPath(kIOMasterPortDefault,
+            kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
+
+    if (IO_OBJECT_NULL == service)
+    {
+        return kIOReturnInternalError;
+    }
+    obj  = IORegistryEntryCreateCFProperty( service, key, kCFAllocatorDefault, 0);
+    IOObjectRelease(service);
+
+    *outArray = obj;
+    return kIOReturnSuccess;
+
+}
+/*****************************************************************************/
 IOReturn  IOPMCopySleepPreventersList(int preventerType, CFArrayRef *outArray)
 {
-    io_service_t                service = IO_OBJECT_NULL;
     CFStringRef                 key;
-    CFArrayRef                  obj;
 
     if (outArray == NULL)
     {
@@ -2207,21 +2248,36 @@ IOReturn  IOPMCopySleepPreventersList(int preventerType, CFArrayRef *outArray)
     {
         return kIOReturnBadArgument;
     }
-
-    service = IORegistryEntryFromPath(kIOMasterPortDefault,
-            kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
-
-    if (IO_OBJECT_NULL == service)
-    {
-        return kIOReturnInternalError;
-    }
-    obj  = IORegistryEntryCreateCFProperty( service, key, kCFAllocatorDefault, 0);
-    IOObjectRelease(service);
-
-    *outArray = obj;
-    return kIOReturnSuccess;
+    return _copySleepPreventersList(key, outArray);
 
 }
+
+/*****************************************************************************/
+IOReturn  IOPMCopySleepPreventersListWithID(int preventerType, CFArrayRef *outArray)
+{
+    CFStringRef                 key;
+
+    if (outArray == NULL)
+    {
+        return kIOReturnBadArgument;
+    }
+    if (preventerType == kIOPMIdleSleepPreventers)
+    {
+        key = CFSTR(kIOPMIdleSleepPreventersWithIDKey);
+    }
+    else if (preventerType == kIOPMSystemSleepPreventers)
+    {
+        key = CFSTR(kIOPMSystemSleepPreventersWithIDKey);
+    }
+    else
+    {
+        return kIOReturnBadArgument;
+    }
+
+    return _copySleepPreventersList(key, outArray);
+
+}
+
 /*****************************************************************************/
 
 

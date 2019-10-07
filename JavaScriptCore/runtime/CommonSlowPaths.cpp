@@ -242,7 +242,7 @@ SLOW_PATH_DECL(slow_path_create_this)
             cachedCallee.setWithoutWriteBarrier(JSCell::seenMultipleCalleeObjects());
 
         size_t inlineCapacity = bytecode.m_inlineCapacity;
-        ObjectAllocationProfile* allocationProfile = constructor->ensureRareDataAndAllocationProfile(exec, inlineCapacity)->objectAllocationProfile();
+        ObjectAllocationProfileWithPrototype* allocationProfile = constructor->ensureRareDataAndAllocationProfile(exec, inlineCapacity)->objectAllocationProfile();
         throwScope.releaseAssertNoException();
         Structure* structure = allocationProfile->structure();
         result = constructEmptyObject(exec, structure);
@@ -272,16 +272,17 @@ SLOW_PATH_DECL(slow_path_to_this)
     auto& metadata = bytecode.metadata(exec);
     JSValue v1 = GET(bytecode.m_srcDst).jsValue();
     if (v1.isCell()) {
-        Structure* myStructure = v1.asCell()->structure(vm);
-        Structure* otherStructure = metadata.m_cachedStructure.get();
-        if (myStructure != otherStructure) {
-            if (otherStructure)
+        StructureID myStructureID = v1.asCell()->structureID();
+        StructureID otherStructureID = metadata.m_cachedStructureID;
+        if (myStructureID != otherStructureID) {
+            if (otherStructureID)
                 metadata.m_toThisStatus = ToThisConflicted;
-            metadata.m_cachedStructure.set(vm, exec->codeBlock(), myStructure);
+            metadata.m_cachedStructureID = myStructureID;
+            vm.heap.writeBarrier(exec->codeBlock(), vm.getStructure(myStructureID));
         }
     } else {
         metadata.m_toThisStatus = ToThisConflicted;
-        metadata.m_cachedStructure.clear();
+        metadata.m_cachedStructureID = 0;
     }
     // Note: We only need to do this value profiling here on the slow path. The fast path
     // just returns the input to to_this if the structure check succeeds. If the structure
@@ -517,19 +518,11 @@ SLOW_PATH_DECL(slow_path_add)
     auto bytecode = pc->as<OpAdd>();
     JSValue v1 = GET_C(bytecode.m_lhs).jsValue();
     JSValue v2 = GET_C(bytecode.m_rhs).jsValue();
-    JSValue result;
 
     ArithProfile& arithProfile = *exec->codeBlock()->arithProfileForPC(pc);
     arithProfile.observeLHSAndRHS(v1, v2);
 
-    if (v1.isString() && !v2.isObject()) {
-        JSString* v2String = v2.toString(exec);
-        if (LIKELY(!throwScope.exception()))
-            result = jsString(exec, asString(v1), v2String);
-    } else if (v1.isNumber() && v2.isNumber())
-        result = jsNumber(v1.asNumber() + v2.asNumber());
-    else
-        result = jsAddSlowCase(exec, v1, v2);
+    JSValue result = jsAdd(exec, v1, v2);
 
     RETURN_WITH_PROFILING(result, {
         updateArithProfileForBinaryArithOp(exec, pc, result, v1, v2);
@@ -643,12 +636,26 @@ SLOW_PATH_DECL(slow_path_pow)
 {
     BEGIN();
     auto bytecode = pc->as<OpPow>();
-    double a = GET_C(bytecode.m_lhs).jsValue().toNumber(exec);
-    if (UNLIKELY(throwScope.exception()))
-        RETURN(JSValue());
-    double b = GET_C(bytecode.m_rhs).jsValue().toNumber(exec);
-    if (UNLIKELY(throwScope.exception()))
-        RETURN(JSValue());
+    JSValue left = GET_C(bytecode.m_lhs).jsValue();
+    JSValue right = GET_C(bytecode.m_rhs).jsValue();
+    auto leftNumeric = left.toNumeric(exec);
+    CHECK_EXCEPTION();
+    auto rightNumeric = right.toNumeric(exec);
+    CHECK_EXCEPTION();
+
+    if (WTF::holds_alternative<JSBigInt*>(leftNumeric) || WTF::holds_alternative<JSBigInt*>(rightNumeric)) {
+        if (WTF::holds_alternative<JSBigInt*>(leftNumeric) && WTF::holds_alternative<JSBigInt*>(rightNumeric)) {
+            JSBigInt* result = JSBigInt::exponentiate(exec, WTF::get<JSBigInt*>(leftNumeric), WTF::get<JSBigInt*>(rightNumeric));
+            CHECK_EXCEPTION();
+            RETURN(result);
+        }
+
+        THROW(createTypeError(exec, "Invalid mix of BigInt and other type in exponentiation operation."));
+    }
+    
+    double a = WTF::get<double>(leftNumeric);
+    double b = WTF::get<double>(rightNumeric);
+
     RETURN(jsNumber(operationMathPow(a, b)));
 }
 
@@ -667,13 +674,13 @@ SLOW_PATH_DECL(slow_path_lshift)
         if (WTF::holds_alternative<JSBigInt*>(leftNumeric) && WTF::holds_alternative<JSBigInt*>(rightNumeric)) {
             JSBigInt* result = JSBigInt::leftShift(exec, WTF::get<JSBigInt*>(leftNumeric), WTF::get<JSBigInt*>(rightNumeric));
             CHECK_EXCEPTION();
-            RETURN(result);
+            RETURN_PROFILED(result);
         }
 
         THROW(createTypeError(exec, "Invalid mix of BigInt and other type in left shift operation."));
     }
 
-    RETURN(jsNumber(WTF::get<int32_t>(leftNumeric) << (WTF::get<int32_t>(rightNumeric) & 31)));
+    RETURN_PROFILED(jsNumber(WTF::get<int32_t>(leftNumeric) << (WTF::get<int32_t>(rightNumeric) & 31)));
 }
 
 SLOW_PATH_DECL(slow_path_rshift)
@@ -723,9 +730,16 @@ SLOW_PATH_DECL(slow_path_bitnot)
 {
     BEGIN();
     auto bytecode = pc->as<OpBitnot>();
-    int32_t operand = GET_C(bytecode.m_operand).jsValue().toInt32(exec);
+    auto operandNumeric = GET_C(bytecode.m_operand).jsValue().toBigIntOrInt32(exec);
     CHECK_EXCEPTION();
-    RETURN_PROFILED(jsNumber(~operand));
+
+    if (WTF::holds_alternative<JSBigInt*>(operandNumeric)) {
+        JSBigInt* result = JSBigInt::bitwiseNot(exec, WTF::get<JSBigInt*>(operandNumeric));
+        CHECK_EXCEPTION();
+        RETURN_PROFILED(result);
+    }
+
+    RETURN_PROFILED(jsNumber(~WTF::get<int32_t>(operandNumeric)));
 }
 
 SLOW_PATH_DECL(slow_path_bitand)
@@ -904,8 +918,8 @@ SLOW_PATH_DECL(slow_path_has_indexed_property)
     CHECK_EXCEPTION();
     JSValue property = GET(bytecode.m_property).jsValue();
     metadata.m_arrayProfile.observeStructure(base->structure(vm));
-    ASSERT(property.isUInt32());
-    RETURN(jsBoolean(base->hasPropertyGeneric(exec, property.asUInt32(), PropertySlot::InternalMethodType::GetOwnProperty)));
+    ASSERT(property.isUInt32AsAnyInt());
+    RETURN(jsBoolean(base->hasPropertyGeneric(exec, property.asUInt32AsAnyInt(), PropertySlot::InternalMethodType::GetOwnProperty)));
 }
 
 SLOW_PATH_DECL(slow_path_has_structure_property)
@@ -996,7 +1010,9 @@ SLOW_PATH_DECL(slow_path_to_index_string)
 {
     BEGIN();
     auto bytecode = pc->as<OpToIndexString>();
-    RETURN(jsString(exec, Identifier::from(exec, GET(bytecode.m_index).jsValue().asUInt32()).string()));
+    JSValue indexValue = GET(bytecode.m_index).jsValue();
+    ASSERT(indexValue.isUInt32AsAnyInt());
+    RETURN(jsString(exec, Identifier::from(exec, indexValue.asUInt32AsAnyInt()).string()));
 }
 
 SLOW_PATH_DECL(slow_path_profile_type_clear_log)
@@ -1056,7 +1072,8 @@ SLOW_PATH_DECL(slow_path_resolve_scope)
     BEGIN();
     auto bytecode = pc->as<OpResolveScope>();
     auto& metadata = bytecode.metadata(exec);
-    const Identifier& ident = exec->codeBlock()->identifier(bytecode.m_var);
+    CodeBlock* codeBlock = exec->codeBlock();
+    const Identifier& ident = codeBlock->identifier(bytecode.m_var);
     JSScope* scope = exec->uncheckedR(bytecode.m_scope.offset()).Register::scope();
     JSObject* resolvedScope = JSScope::resolve(exec, scope, ident);
     // Proxy can throw an error here, e.g. Proxy in with statement's @unscopables.
@@ -1077,16 +1094,16 @@ SLOW_PATH_DECL(slow_path_resolve_scope)
             bool hasProperty = globalObject->hasProperty(exec, ident);
             CHECK_EXCEPTION();
             if (hasProperty) {
-                ConcurrentJSLocker locker(exec->codeBlock()->m_lock);
+                ConcurrentJSLocker locker(codeBlock->m_lock);
                 metadata.m_resolveType = needsVarInjectionChecks(resolveType) ? GlobalPropertyWithVarInjectionChecks : GlobalProperty;
-                metadata.m_globalObject = globalObject;
+                metadata.m_globalObject.set(vm, codeBlock, globalObject);
                 metadata.m_globalLexicalBindingEpoch = globalObject->globalLexicalBindingEpoch();
             }
         } else if (resolvedScope->isGlobalLexicalEnvironment()) {
             JSGlobalLexicalEnvironment* globalLexicalEnvironment = jsCast<JSGlobalLexicalEnvironment*>(resolvedScope);
-            ConcurrentJSLocker locker(exec->codeBlock()->m_lock);
+            ConcurrentJSLocker locker(codeBlock->m_lock);
             metadata.m_resolveType = needsVarInjectionChecks(resolveType) ? GlobalLexicalVarWithVarInjectionChecks : GlobalLexicalVar;
-            metadata.m_globalLexicalEnvironment = globalLexicalEnvironment;
+            metadata.m_globalLexicalEnvironment.set(vm, codeBlock, globalLexicalEnvironment);
         }
         break;
     }
@@ -1133,8 +1150,10 @@ SLOW_PATH_DECL(slow_path_get_by_val_with_this)
     if (LIKELY(baseValue.isCell() && subscript.isString())) {
         Structure& structure = *baseValue.asCell()->structure(vm);
         if (JSCell::canUseFastGetOwnProperty(structure)) {
-            if (RefPtr<AtomicStringImpl> existingAtomicString = asString(subscript)->toExistingAtomicString(exec)) {
-                if (JSValue result = baseValue.asCell()->fastGetOwnProperty(vm, structure, existingAtomicString.get()))
+            RefPtr<AtomStringImpl> existingAtomString = asString(subscript)->toExistingAtomString(exec);
+            CHECK_EXCEPTION();
+            if (existingAtomString) {
+                if (JSValue result = baseValue.asCell()->fastGetOwnProperty(vm, structure, existingAtomString.get()))
                     RETURN_PROFILED(result);
             }
         }

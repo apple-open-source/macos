@@ -1,5 +1,5 @@
---- Python-2.7.10.orig/Lib/_osx_support.py	2015-05-23 09:09:00.000000000 -0700
-+++ Python-2.7.10/Lib/_osx_support.py	2018-05-09 00:24:59.000000000 -0700
+--- Python-2.7.16/Lib/_osx_support.py	2019-03-02 10:17:42.000000000 -0800
++++ Python-2.7.16-new/Lib/_osx_support.py	2019-04-23 14:52:39.000000000 -0700
 @@ -216,7 +216,6 @@
  
      return _config_vars

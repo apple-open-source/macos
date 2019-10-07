@@ -61,6 +61,13 @@
 	(sizeof(arr) / sizeof(arr[0]))
 #endif
 
+/*
+ * countof() cannot be safely used in a _Static_assert statement, so we provide
+ * an unsafe variant that does not verify the input array is statically-defined.
+ */
+#define countof_unsafe(arr) \
+	(sizeof(arr) / sizeof(arr[0]))
+
 /* Length of a statically-defined string (does not include null terminator) */
 #define lenof(str) \
 	(sizeof(str) - 1)

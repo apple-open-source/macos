@@ -197,6 +197,7 @@ class TestMethod < Test::Unit::TestCase
     def o.foo; end
     assert_kind_of(Integer, o.method(:foo).hash)
     assert_equal(Array.instance_method(:map).hash, Array.instance_method(:collect).hash)
+    assert_kind_of(String, o.method(:foo).hash.to_s)
   end
 
   def test_owner
@@ -252,11 +253,9 @@ class TestMethod < Test::Unit::TestCase
     m = o.method(:bar).unbind
     assert_raise(TypeError) { m.bind(Object.new) }
 
-    EnvUtil.with_default_external(Encoding::UTF_8) do
-      cx = EnvUtil.labeled_class("X\u{1f431}")
-      assert_raise_with_message(TypeError, /X\u{1f431}/) {
-        o.method(cx)
-      }
+    cx = EnvUtil.labeled_class("X\u{1f431}")
+    assert_raise_with_message(TypeError, /X\u{1f431}/) do
+      o.method(cx)
     end
   end
 
@@ -286,11 +285,9 @@ class TestMethod < Test::Unit::TestCase
     assert_raise(TypeError) do
       Class.new.class_eval { define_method(:bar, o.method(:bar)) }
     end
-    EnvUtil.with_default_external(Encoding::UTF_8) do
-      cx = EnvUtil.labeled_class("X\u{1f431}")
-      assert_raise_with_message(TypeError, /X\u{1F431}/) {
-        Class.new {define_method(cx) {}}
-      }
+    cx = EnvUtil.labeled_class("X\u{1f431}")
+    assert_raise_with_message(TypeError, /X\u{1F431}/) do
+      Class.new {define_method(cx) {}}
     end
   end
 
@@ -322,7 +319,7 @@ class TestMethod < Test::Unit::TestCase
     def o.define(n)
       define_singleton_method(n)
     end
-    assert_raise(ArgumentError) {o.define(:bar) {:bar}}
+    assert_raise(ArgumentError, bug11283) {o.define(:bar) {:bar}}
   end
 
   def test_define_method_invalid_arg
@@ -458,6 +455,9 @@ class TestMethod < Test::Unit::TestCase
     c3.class_eval { alias bar foo }
     m3 = c3.new.method(:bar)
     assert_equal("#<Method: #{c3.inspect}(#{c.inspect})#bar(foo)>", m3.inspect, bug7806)
+
+    m.taint
+    assert_predicate(m.inspect, :tainted?, "inspect result should be infected")
   end
 
   def test_callee_top_level
@@ -783,6 +783,19 @@ class TestMethod < Test::Unit::TestCase
     assert_equal(:bar, m.call, feature8391)
   end
 
+  def test_singleton_method_prepend
+    bug14658 = '[Bug #14658]'
+    c1 = Class.new
+    o = c1.new
+    def o.bar; :bar; end
+    class << o; prepend Module.new; end
+    m = assert_nothing_raised(NameError, bug14658) {o.singleton_method(:bar)}
+    assert_equal(:bar, m.call, bug14658)
+
+    o = Object.new
+    assert_raise(NameError, bug14658) {o.singleton_method(:bar)}
+  end
+
   Feature9783 = '[ruby-core:62212] [Feature #9783]'
 
   def assert_curry_three_args(m)
@@ -804,7 +817,7 @@ class TestMethod < Test::Unit::TestCase
 
   def test_curry_from_proc
     c = Class.new {
-      define_method(:three_args) {|a,b,c| a + b + c}
+      define_method(:three_args) {|x,y,z| x + y + z}
     }
     assert_curry_three_args(c.new.method(:three_args))
   end
@@ -877,6 +890,16 @@ class TestMethod < Test::Unit::TestCase
     m = m.super_method
     assert_equal(c1, m.owner, Feature9781)
     assert_same(o, m.receiver, Feature9781)
+
+    c1 = Class.new {def foo; end}
+    c2 = Class.new(c1) {include m1; include m2}
+    m = c2.instance_method(:foo)
+    assert_equal(m2, m.owner)
+    m = m.super_method
+    assert_equal(m1, m.owner)
+    m = m.super_method
+    assert_equal(c1, m.owner)
+    assert_nil(m.super_method)
   end
 
   def test_super_method_removed
@@ -917,6 +940,11 @@ class TestMethod < Test::Unit::TestCase
     assert_equal(m1.source_location, m2.source_location, bug)
   end
 
+  def test_super_method_after_bind
+    assert_nil String.instance_method(:length).bind(String.new).super_method,
+      '[ruby-core:85231] [Bug #14421]'
+  end
+
   def rest_parameter(*rest)
     rest
   end
@@ -929,7 +957,7 @@ class TestMethod < Test::Unit::TestCase
   class C
     D = "Const_D"
     def foo
-      a = b = c = 12345
+      a = b = c = a = b = c = 12345
     end
   end
 
@@ -937,16 +965,16 @@ class TestMethod < Test::Unit::TestCase
     bug11012 = '[ruby-core:68673] [Bug #11012]'
 
     b = C.new.method(:foo).to_proc.binding
-    assert_equal([], b.local_variables)
-    assert_equal("Const_D", b.eval("D")) # Check CREF
+    assert_equal([], b.local_variables, bug11012)
+    assert_equal("Const_D", b.eval("D"), bug11012) # Check CREF
 
-    assert_raise(NameError){ b.local_variable_get(:foo) }
-    assert_equal(123, b.local_variable_set(:foo, 123))
-    assert_equal(123, b.local_variable_get(:foo))
-    assert_equal(456, b.local_variable_set(:bar, 456))
-    assert_equal(123, b.local_variable_get(:foo))
-    assert_equal(456, b.local_variable_get(:bar))
-    assert_equal([:bar, :foo], b.local_variables.sort)
+    assert_raise(NameError, bug11012){ b.local_variable_get(:foo) }
+    assert_equal(123, b.local_variable_set(:foo, 123), bug11012)
+    assert_equal(123, b.local_variable_get(:foo), bug11012)
+    assert_equal(456, b.local_variable_set(:bar, 456), bug11012)
+    assert_equal(123, b.local_variable_get(:foo), bug11012)
+    assert_equal(456, b.local_variable_get(:bar), bug11012)
+    assert_equal([:bar, :foo], b.local_variables.sort, bug11012)
   end
 
   class MethodInMethodClass
@@ -980,5 +1008,88 @@ class TestMethod < Test::Unit::TestCase
     obj = c.new
     assert_equal('1', obj.foo(1))
     assert_equal('1', obj.bar(1))
+  end
+
+  def test_argument_error_location
+    body = <<-'END_OF_BODY'
+    eval <<-'EOS'
+    $line_lambda = __LINE__; $f = lambda do
+      _x = 1
+    end
+    $line_method = __LINE__; def foo
+      _x = 1
+    end
+    begin
+      $f.call(1)
+    rescue ArgumentError => e
+      assert_equal "(eval):#{$line_lambda.to_s}:in `block in <main>'", e.backtrace.first
+    end
+    begin
+      foo(1)
+    rescue ArgumentError => e
+      assert_equal "(eval):#{$line_method}:in `foo'", e.backtrace.first
+    end
+    EOS
+    END_OF_BODY
+
+    assert_separately [], body
+    # without trace insn
+    assert_separately [], "RubyVM::InstructionSequence.compile_option = {trace_instruction: false}\n" + body
+  end
+
+  def test_eqq
+    assert_operator(0.method(:<), :===, 5)
+    assert_not_operator(0.method(:<), :===, -5)
+  end
+
+  def test_compose_with_method
+    c = Class.new {
+      def f(x) x * 2 end
+      def g(x) x + 1 end
+    }
+    f = c.new.method(:f)
+    g = c.new.method(:g)
+
+    assert_equal(6, (f << g).call(2))
+    assert_equal(6, (g >> f).call(2))
+  end
+
+  def test_compose_with_proc
+    c = Class.new {
+      def f(x) x * 2 end
+    }
+    f = c.new.method(:f)
+    g = proc {|x| x + 1}
+
+    assert_equal(6, (f << g).call(2))
+    assert_equal(6, (g >> f).call(2))
+  end
+
+  def test_compose_with_callable
+    c = Class.new {
+      def f(x) x * 2 end
+    }
+    c2 = Class.new {
+      def call(x) x + 1 end
+    }
+    f = c.new.method(:f)
+    g = c2.new
+
+    assert_equal(6, (f << g).call(2))
+    assert_equal(5, (f >> g).call(2))
+  end
+
+  def test_compose_with_noncallable
+    c = Class.new {
+      def f(x) x * 2 end
+    }
+    f = c.new.method(:f)
+
+    assert_raise(NoMethodError) {
+      (f << 5).call(2)
+    }
+    assert_raise(NoMethodError) {
+      (f >> 5).call(2)
+    }
   end
 end

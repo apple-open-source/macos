@@ -398,7 +398,7 @@
     XCTAssertNil(error, "no error saving TLK to database");
 
     CKKSKey* wrappedKey = [[CKKSKey alloc] initWrappedBy: tlk
-                                                  AESKey:[CKKSAESSIVKey randomKey]
+                                                  AESKey:[CKKSAESSIVKey randomKey:&error]
                                                     uuid:@"157A3171-0677-451B-9EAE-0DDC4D4315B0"
                                                 keyclass:SecCKKSKeyClassC
                                                    state: SecCKKSProcessedStateLocal
@@ -440,8 +440,8 @@
                                       groupBy: @[@"action"]
                                       orderBy:nil
                                         limit: -1
-                                   processRow: ^(NSDictionary* row) {
-                                       results[row[@"action"]] = row[@"count(rowid)"];
+                                   processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       results[row[@"action"].asString] = row[@"count(rowid)"].asString;
                                    }
                                         error: &error];
 
@@ -460,8 +460,8 @@
                                       groupBy: @[@"action"]
                                       orderBy:nil
                                         limit: -1
-                                   processRow: ^(NSDictionary* row) {
-                                       results[row[@"action"]] = row[@"count(rowid)"];
+                                   processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       results[row[@"action"].asString] = row[@"count(rowid)"].asString;
                                    }
                                         error: &error];
 
@@ -477,7 +477,7 @@
     [self addTestZoneEntries];
     NSError* error = nil;
 
-    __block NSMutableArray* rows = [[NSMutableArray alloc] init];
+    __block NSMutableArray<NSDictionary<NSString*, CKKSSQLResult*>*>* rows = [[NSMutableArray alloc] init];
 
     [CKKSSQLDatabaseObject queryDatabaseTable: [CKKSOutgoingQueueEntry sqlTable]
                                         where: nil
@@ -485,7 +485,7 @@
                                       groupBy:nil
                                       orderBy:@[@"uuid"]
                                         limit:-1
-                                   processRow: ^(NSDictionary* row) {
+                                   processRow:^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
                                        [rows addObject:row];
                                    }
                                         error: &error];
@@ -493,8 +493,8 @@
     XCTAssertNil(error, "no error doing order by query");
     XCTAssertEqual(rows.count, 3u, "got three items");
 
-    XCTAssertEqual([rows[0][@"uuid"] compare: rows[1][@"uuid"]], NSOrderedAscending, "first order is fine");
-    XCTAssertEqual([rows[1][@"uuid"] compare: rows[2][@"uuid"]], NSOrderedAscending, "second order is fine");
+    XCTAssertEqual([rows[0][@"uuid"].asString compare: rows[1][@"uuid"].asString], NSOrderedAscending, "first order is fine");
+    XCTAssertEqual([rows[1][@"uuid"].asString compare: rows[2][@"uuid"].asString], NSOrderedAscending, "second order is fine");
 
     // Check that order-by + limit works to page
     __block NSString* lastUUID = nil;
@@ -509,9 +509,9 @@
                                           groupBy:nil
                                           orderBy:@[@"uuid"]
                                             limit:1
-                                       processRow: ^(NSDictionary* row) {
+                                       processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
                                            XCTAssertNil(uuid, "Only one row returned");
-                                           uuid = row[@"UUID"];
+                                           uuid = row[@"UUID"].asString;
                                        }
                                             error: &error];
         XCTAssertNil(error, "No error doing SQL");
@@ -536,8 +536,8 @@
                                       groupBy: nil
                                       orderBy:nil
                                         limit: -1
-                                   processRow: ^(NSDictionary* row) {
-                                       results[row[@"uuid"]] = row[@"action"];
+                                   processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       results[row[@"uuid"].asString] = row[@"action"].asString;
                                    }
                                         error: &error];
 
@@ -551,8 +551,8 @@
                                       groupBy: nil
                                       orderBy:nil
                                         limit: 1
-                                   processRow: ^(NSDictionary* row) {
-                                       results[row[@"uuid"]] = row[@"action"];
+                                   processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       results[row[@"uuid"].asString] = row[@"action"].asString;
                                    }
                                         error: &error];
 
@@ -568,8 +568,8 @@
                                       groupBy: nil
                                       orderBy:nil
                                         limit: 3
-                                   processRow: ^(NSDictionary* row) {
-                                       results[row[@"uuid"]] = row[@"action"];
+                                   processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       results[row[@"uuid"].asString] = row[@"action"].asString;
                                    }
                                         error: &error];
 
@@ -584,8 +584,8 @@
                                       groupBy: nil
                                       orderBy:nil
                                         limit: 1
-                                   processRow: ^(NSDictionary* row) {
-                                       results[row[@"uuid"]] = row[@"action"];
+                                   processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       results[row[@"uuid"].asString] = row[@"action"].asString;
                                    }
                                         error: &error];
 
@@ -593,6 +593,16 @@
     XCTAssertEqual(results.count, 1u, "Received one element in where+limited query");
     results = [[NSMutableDictionary alloc] init];
 }
+
+- (void)testQuoting {
+    XCTAssertEqualObjects([CKKSSQLDatabaseObject quotedString:@"hej"], @"hej", "no quote");
+    XCTAssertEqualObjects([CKKSSQLDatabaseObject quotedString:@"hej'"], @"hej''", "single quote");
+    XCTAssertEqualObjects([CKKSSQLDatabaseObject quotedString:@"'hej'"], @"''hej''", "two single quote");
+    XCTAssertEqualObjects([CKKSSQLDatabaseObject quotedString:@"hej\""], @"hej\"", "double quote");
+    XCTAssertEqualObjects([CKKSSQLDatabaseObject quotedString:@"\"hej\""], @"\"hej\"", "double quote");
+    XCTAssertEqualObjects([CKKSSQLDatabaseObject quotedString:@"'\"hej\""], @"''\"hej\"", "double quote");
+}
+
 
 @end
 

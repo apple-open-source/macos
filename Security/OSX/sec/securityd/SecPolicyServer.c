@@ -98,6 +98,7 @@ static void secdumpdata(CFDataRef data, const char *name) {
 static SecCertificateRef SecPVCGetCertificateAtIndex(SecPVCRef pvc, CFIndex ix);
 static CFIndex SecPVCGetCertificateCount(SecPVCRef pvc);
 static CFAbsoluteTime SecPVCGetVerifyTime(SecPVCRef pvc);
+static SecTrustSettingsResult SecPVCGetTrustSettingsResult(SecPVCRef pvc, SecCertificateRef certificate, CFArrayRef constraints);
 
 static CFMutableDictionaryRef gSecPolicyLeafCallbacks = NULL;
 static CFMutableDictionaryRef gSecPolicyPathCallbacks = NULL;
@@ -803,7 +804,9 @@ static void SecPolicyCheckLeafMarkerOid(SecPVCRef pvc, CFStringRef key)
     CFTypeRef value = CFDictionaryGetValue(policy->_options, key);
 
     if (!SecPolicyCheckCertLeafMarkerOid(cert, value)) {
-        SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+        // Don't use 'key' because that may be the legacy key (see <rdar://34537018>)
+        // Force because we may have gotten the legacy key instead of the new key in the policy
+        SecPVCSetResultForced(pvc, kSecPolicyCheckLeafMarkerOid, 0, kCFBooleanFalse, true);
     }
 }
 
@@ -834,7 +837,9 @@ static void SecPolicyCheckLeafMarkersProdAndQA(SecPVCRef pvc, CFStringRef key)
     if (!SecPolicyCheckCertLeafMarkerOid(cert, prodValue)) {
         bool result = false;
         if (!result) {
-            SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+            // Don't use 'key' because that may be the legacy key (see <rdar://34537018>)
+            // Force because we may have gotten the legacy key instead of the new key in the policy
+            SecPVCSetResultForced(pvc, kSecPolicyCheckLeafMarkersProdAndQA, 0, kCFBooleanFalse, true);
         }
     }
 }
@@ -850,7 +855,23 @@ static void SecPolicyCheckIntermediateMarkerOid(SecPVCRef pvc, CFStringRef key)
         if (SecCertificateHasMarkerExtension(cert, value))
             return;
     }
-    SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+    // Don't use 'key' because that may be the legacy key (see <rdar://34537018>)
+    // Force because we may have gotten the legacy key instead of the new key in the policy
+    SecPVCSetResultForced(pvc, kSecPolicyCheckIntermediateMarkerOid, 0, kCFBooleanFalse, true);
+}
+
+static void SecPolicyCheckIntermediateMarkerOidWithoutValueCheck(SecPVCRef pvc, CFStringRef key)
+{
+    CFIndex ix, count = SecPVCGetCertificateCount(pvc);
+    SecPolicyRef policy = SecPVCGetPolicy(pvc);
+    CFTypeRef value = CFDictionaryGetValue(policy->_options, key);
+
+    for (ix = 1; ix < count - 1; ix++) {
+        SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
+        if (!SecPolicyCheckCertLeafMarkerOidWithoutValueCheck(cert, value)) {
+            SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+        }
+    }
 }
 
 static void SecPolicyCheckIntermediateEKU(SecPVCRef pvc, CFStringRef key)
@@ -876,7 +897,9 @@ static void SecPolicyCheckIntermediateOrganization(SecPVCRef pvc, CFStringRef ke
     for (ix = 1; ix < count - 1; ix++) {
         SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
         if (!SecPolicyCheckCertSubjectOrganization(cert, organization)) {
-            SecPVCSetResult(pvc, key, ix, kCFBooleanFalse);
+            // Don't use 'key' because that may be the legacy key (see <rdar://34537018>)
+            // Force because we may have gotten the legacy key instead of the new key in the policy
+            SecPVCSetResultForced(pvc, kSecPolicyCheckIntermediateOrganization, ix, kCFBooleanFalse, true);
         }
     }
 }
@@ -890,7 +913,9 @@ static void SecPolicyCheckIntermediateCountry(SecPVCRef pvc, CFStringRef key)
     for (ix = 1; ix < count - 1; ix++) {
         SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
         if (!SecPolicyCheckCertSubjectCountry(cert, country)) {
-            SecPVCSetResult(pvc, key, ix, kCFBooleanFalse);
+            // Don't use 'key' because that may be the legacy key (see <rdar://34537018>)
+            // Force because we may have gotten the legacy key instead of the new key in the policy
+            SecPVCSetResultForced(pvc, kSecPolicyCheckIntermediateCountry, ix, kCFBooleanFalse, true);
         }
     }
 }
@@ -961,8 +986,22 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
 #if POLICY_SUBTREES
     CFMutableArrayRef permitted_subtrees = NULL;
     CFMutableArrayRef excluded_subtrees = NULL;
-    permitted_subtrees = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-    excluded_subtrees = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+    /* set the initial subtrees to the trusted anchor's subtrees, if it has them */
+    SecCertificateRef anchor = SecCertificatePathVCGetRoot(path);
+    CFArrayRef anchor_permitted_subtrees = SecCertificateGetPermittedSubtrees(anchor);
+    if (is_anchor_trusted && anchor_permitted_subtrees) {
+        permitted_subtrees = CFArrayCreateMutableCopy(NULL, 0, anchor_permitted_subtrees);
+    } else {
+        permitted_subtrees = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    }
+
+    CFArrayRef anchor_excluded_subtrees = SecCertificateGetExcludedSubtrees(anchor);
+    if (is_anchor_trusted && anchor_excluded_subtrees) {
+        excluded_subtrees = CFArrayCreateMutableCopy(NULL, 0, anchor_excluded_subtrees);
+    } else {
+        excluded_subtrees = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    }
+
     require_action_quiet(permitted_subtrees != NULL, errOut,
                          SecPVCSetResultForced(pvc, kSecPolicyCheckNameConstraints, 0, kCFBooleanFalse, true));
     require_action_quiet(excluded_subtrees != NULL, errOut,
@@ -1079,24 +1118,25 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
             && bc->pathLenConstraint < max_path_length) {
             max_path_length = bc->pathLenConstraint;
         }
-#if 0 /* Checked in chain builder pre signature verify already. SecPVCParentCertificateChecks */
+
         /* (n) If a key usage extension is present, verify that the keyCertSign bit is set. */
-        SecKeyUsage keyUsage = SecCertificateGetKeyUsage(cert);
-        if (keyUsage && !(keyUsage & kSecKeyUsageKeyCertSign)) {
-            if (!SecPVCSetResultForced(pvc, kSecPolicyCheckKeyUsage,
-                                       n - i, kCFBooleanFalse, true)) {
-                goto errOut;
-            }
-        }
-#endif
+        /* Checked in chain builder pre signature verify already. SecPVCParentCertificateChecks */
+
         /* (o) Recognize and process any other critical extension present in the certificate. Process any other recognized non-critical extension present in the certificate that is relevant to path processing. */
         if (SecCertificateHasUnknownCriticalExtension(cert)) {
 			/* Certificate contains one or more unknown critical extensions. */
-			if (!SecPVCSetResult(pvc, kSecPolicyCheckCriticalExtensions,
-                                 n - i, kCFBooleanFalse)) {
+			if (!SecPVCSetResult(pvc, kSecPolicyCheckCriticalExtensions, n - i, kCFBooleanFalse)) {
                 goto errOut;
             }
 		}
+
+        if (SecCertificateGetUnparseableKnownExtension(cert) != kCFNotFound) {
+            /* Certificate contains one or more known exensions where parsing failed. */
+            if (!SecPVCSetResultForced(pvc, kSecPolicyCheckUnparseableExtension, n-i, kCFBooleanFalse, true)) {
+                goto errOut;
+            }
+        }
+
     } /* end loop over certs in path */
     /* Wrap up */
     /* (a) (b) done by SecCertificatePathVCVerifyPolicyTree */
@@ -1108,8 +1148,14 @@ working_public_key_algorithm are different, set the working_public_key_parameter
     /* (f) Recognize and process any other critical extension present in the certificate n. Process any other recognized non-critical extension present in certificate n that is relevant to path processing. */
     if (SecCertificateHasUnknownCriticalExtension(cert)) {
         /* Certificate contains one or more unknown critical extensions. */
-        if (!SecPVCSetResult(pvc, kSecPolicyCheckCriticalExtensions,
-                             0, kCFBooleanFalse)) {
+        if (!SecPVCSetResult(pvc, kSecPolicyCheckCriticalExtensions, 0, kCFBooleanFalse)) {
+            goto errOut;
+        }
+    }
+
+    if (SecCertificateGetUnparseableKnownExtension(cert) != kCFNotFound) {
+        /* Certificate contains one or more known exensions where parsing failed. */
+        if (!SecPVCSetResultForced(pvc, kSecPolicyCheckUnparseableExtension, 0, kCFBooleanFalse, true)) {
             goto errOut;
         }
     }
@@ -1220,6 +1266,16 @@ certificatePolicies or extendedKeyUsage extensions.
 /*
  * MARK: Certificate Transparency support
  */
+const CFStringRef kSecCTRetirementDateKey = CFSTR("expiry"); // For backwards compatibility, retirement date is represented with the "expiry" key
+const CFStringRef kSecCTReadOnlyDateKey = CFSTR("frozen"); // For backwards compatibility, read-only date is represented with the "frozen" key
+const CFStringRef kSecCTShardStartDateKey = CFSTR("start_inclusive");
+const CFStringRef kSecCTShardEndDateKey = CFSTR("end_exclusive");
+const CFStringRef kSecCTPublicKeyKey = CFSTR("key");
+
+enum {
+    kSecCTEntryTypeCert = 0,
+    kSecCTEntryTypePreCert = 1,
+};
 
 /***
 
@@ -1377,7 +1433,31 @@ uint64_t TimestampFromCFAbsoluteTime(CFAbsoluteTime at)
     return (uint64_t)(at + kCFAbsoluteTimeIntervalSince1970) * 1000;
 }
 
+static bool isSCTValidForLogData(CFDictionaryRef logData, int entry_type, CFAbsoluteTime sct_time, CFAbsoluteTime cert_expiry_date) {
+    /* only embedded SCTs can be used from retired logs. */
+    if(entry_type==kSecCTEntryTypeCert && CFDictionaryContainsKey(logData, kSecCTRetirementDateKey)) {
+        return false;
+    }
 
+    /* SCTs from after the transition to read-only are not valid (and indicate a operator failure) */
+    CFDateRef frozen_date = CFDictionaryGetValue(logData, kSecCTReadOnlyDateKey);
+    if (frozen_date && (sct_time > CFDateGetAbsoluteTime(frozen_date))) {
+        secerror("Frozen CT log issued SCT after freezing (log=%@)\n", logData);
+        return false;
+    }
+
+    /* If the log is temporally sharded, the certificate expiry date must be within the temporal shard window */
+    CFDateRef start_inclusive = CFDictionaryGetValue(logData, kSecCTShardStartDateKey);
+    CFDateRef end_exclusive = CFDictionaryGetValue(logData, kSecCTShardEndDateKey);
+    if (start_inclusive && (cert_expiry_date < CFDateGetAbsoluteTime(start_inclusive))) {
+        return false;
+    }
+    if (end_exclusive && (cert_expiry_date >= CFDateGetAbsoluteTime(end_exclusive))) {
+        return false;
+    }
+
+    return true;
+}
 
 
 /*
@@ -1402,9 +1482,7 @@ uint64_t TimestampFromCFAbsoluteTime(CFAbsoluteTime at)
    If an entry for the same log already existing in the dictionary, the entry is replaced only if the timestamp of this SCT is earlier.
 
  */
-
-
-static CFDictionaryRef getSCTValidatingLog(CFDataRef sct, int entry_type, CFDataRef entry, uint64_t vt, CFArrayRef trustedLogs, CFAbsoluteTime *sct_at)
+static CFDictionaryRef getSCTValidatingLog(CFDataRef sct, int entry_type, CFDataRef entry, uint64_t vt, CFAbsoluteTime cert_expiry_date, CFDictionaryRef trustedLogs, CFAbsoluteTime *sct_at)
 {
     uint8_t version;
     const uint8_t *logID;
@@ -1473,31 +1551,11 @@ static CFDictionaryRef getSCTValidatingLog(CFDataRef sct, int entry_type, CFData
 
     logIDData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, logID, 32, kCFAllocatorNull);
 
-    CFDictionaryRef logData = CFArrayGetValueMatching(trustedLogs, ^bool(const void *dict) {
-        const void *key_data;
-        if(!isDictionary(dict)) return false;
-        if(!CFDictionaryGetValueIfPresent(dict, CFSTR("key"), &key_data)) return false;
-        if(!isData(key_data)) return false;
-        CFDataRef valueID = SecSHA256DigestCreateFromData(kCFAllocatorDefault, (CFDataRef)key_data);
-        bool result = (bool)(CFDataCompare(logIDData, valueID)==kCFCompareEqualTo);
-        CFReleaseSafe(valueID);
-        return result;
-    });
-    require(logData, out);
-
-    if(entry_type==0) {
-        // For external SCTs, only keep SCTs from currently valid logs.
-        require(!CFDictionaryContainsKey(logData, CFSTR("expiry")), out);
-    }
-
+    CFDictionaryRef logData = CFDictionaryGetValue(trustedLogs, logIDData);
     CFAbsoluteTime sct_time = TimestampToCFAbsoluteTime(timestamp);
-    CFDateRef frozen_date = CFDictionaryGetValue(logData, CFSTR("frozen"));
-    if (frozen_date && (sct_time > CFDateGetAbsoluteTime(frozen_date))) {
-        secerror("Frozen CT log issued SCT after freezing (log=%@)\n", logData);
-        goto out;
-    }
+    require(logData && isSCTValidForLogData(logData, entry_type, sct_time, cert_expiry_date), out);
 
-    CFDataRef logKeyData = CFDictionaryGetValue(logData, CFSTR("key"));
+    CFDataRef logKeyData = CFDictionaryGetValue(logData, kSecCTPublicKeyKey);
     require(logKeyData, out); // This failing would be an internal logic error
     pubKey = SecKeyCreateFromSubjectPublicKeyInfoData(kCFAllocatorDefault, logKeyData);
     require(pubKey, out);
@@ -1591,12 +1649,13 @@ static void SecPolicyCheckCT(SecPVCRef pvc)
     SecCertificateRef leafCert = SecPVCGetCertificateAtIndex(pvc, 0);
     CFArrayRef embeddedScts = SecCertificateCopySignedCertificateTimestamps(leafCert);
     CFArrayRef builderScts = SecPathBuilderCopySignedCertificateTimestamps(pvc->builder);
-    CFArrayRef trustedLogs = SecPathBuilderCopyTrustedLogs(pvc->builder);
+    CFDictionaryRef trustedLogs = SecPathBuilderCopyTrustedLogs(pvc->builder);
     CFArrayRef ocspScts = copy_ocsp_scts(pvc);
     CFDataRef precertEntry = copy_precert_entry_from_chain(pvc);
     CFDataRef x509Entry = copy_x509_entry_from_chain(pvc);
     __block uint32_t trustedSCTCount = 0;
     __block CFAbsoluteTime issuanceTime = SecPVCGetVerifyTime(pvc);
+    __block CFAbsoluteTime certExpiry = SecCertificateNotValidAfter(leafCert);
     TA_CTFailureReason failureReason = TA_CTNoFailure;
 
     if (!trustedLogs) {
@@ -1620,24 +1679,24 @@ static void SecPolicyCheckCT(SecPVCRef pvc)
     require(currentLogsValidatingScts, out);
 
     /* Skip if there are no SCTs. */
-    require_action((embeddedScts && CFArrayGetCount(embeddedScts) > 0) ||
+    bool no_scts = (embeddedScts && CFArrayGetCount(embeddedScts) > 0) ||
                    (builderScts && CFArrayGetCount(builderScts) > 0) ||
-                   (ocspScts && CFArrayGetCount(ocspScts) > 0),
-                   out,
-                   TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(pvc->builder);
-                   if (analytics) {
-                       analytics->ct_failure_reason = TA_CTNoSCTs;
-                   }
+                    (ocspScts && CFArrayGetCount(ocspScts) > 0);
+    require_action_quiet(no_scts, out,
+                         TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(pvc->builder);
+                         if (analytics) {
+                             analytics->ct_failure_reason = TA_CTNoSCTs;
+                         }
     );
 
-    if(trustedLogs) { // Don't bother trying to validate SCTs if we don't have any trusted logs.
+    if(trustedLogs && CFDictionaryGetCount(trustedLogs) > 0) { // Don't bother trying to validate SCTs if we don't have any trusted logs.
         if(embeddedScts && precertEntry) { // Don't bother if we could not get the precert.
             CFArrayForEach(embeddedScts, ^(const void *value){
                 CFAbsoluteTime sct_at;
-                CFDictionaryRef log = getSCTValidatingLog(value, 1, precertEntry, vt, trustedLogs, &sct_at);
+                CFDictionaryRef log = getSCTValidatingLog(value, 1, precertEntry, vt, certExpiry, trustedLogs, &sct_at);
                 if(log) {
                     addValidatingLog(logsValidatingEmbeddedScts, log, sct_at);
-                    if(!CFDictionaryContainsKey(log, CFSTR("expiry"))) {
+                    if(!CFDictionaryContainsKey(log, kSecCTRetirementDateKey)) {
                         addValidatingLog(currentLogsValidatingScts, log, sct_at);
                         at_least_one_currently_valid_embedded = true;
                         trustedSCTCount++;
@@ -1653,7 +1712,7 @@ static void SecPolicyCheckCT(SecPVCRef pvc)
         if(builderScts && x509Entry) { // Don't bother if we could not get the cert.
             CFArrayForEach(builderScts, ^(const void *value){
                 CFAbsoluteTime sct_at;
-                CFDictionaryRef log = getSCTValidatingLog(value, 0, x509Entry, vt, trustedLogs, &sct_at);
+                CFDictionaryRef log = getSCTValidatingLog(value, 0, x509Entry, vt, certExpiry, trustedLogs, &sct_at);
                 if(log) {
                     addValidatingLog(currentLogsValidatingScts, log, sct_at);
                     at_least_one_currently_valid_external = true;
@@ -1667,7 +1726,7 @@ static void SecPolicyCheckCT(SecPVCRef pvc)
         if(ocspScts && x509Entry) {
             CFArrayForEach(ocspScts, ^(const void *value){
                 CFAbsoluteTime sct_at;
-                CFDictionaryRef log = getSCTValidatingLog(value, 0, x509Entry, vt, trustedLogs, &sct_at);
+                CFDictionaryRef log = getSCTValidatingLog(value, 0, x509Entry, vt, certExpiry, trustedLogs, &sct_at);
                 if(log) {
                     addValidatingLog(currentLogsValidatingScts, log, sct_at);
                     at_least_one_currently_valid_external = true;
@@ -1704,7 +1763,7 @@ static void SecPolicyCheckCT(SecPVCRef pvc)
         /* Calculate issuance time based on timestamp of SCTs from current logs */
         CFDictionaryForEach(currentLogsValidatingScts, ^(const void *key, const void *value) {
             CFDictionaryRef log = key;
-            if(!CFDictionaryContainsKey(log, CFSTR("expiry"))) {
+            if(!CFDictionaryContainsKey(log, kSecCTRetirementDateKey)) {
                 // Log is still qualified
                 CFDateRef ts = (CFDateRef) value;
                 CFAbsoluteTime timestamp = CFDateGetAbsoluteTime(ts);
@@ -1729,7 +1788,7 @@ static void SecPolicyCheckCT(SecPVCRef pvc)
         CFDictionaryForEach(logsValidatingEmbeddedScts, ^(const void *key, const void *value) {
             CFDictionaryRef log = key;
             CFDateRef ts = value;
-            CFDateRef expiry = CFDictionaryGetValue(log, CFSTR("expiry"));
+            CFDateRef expiry = CFDictionaryGetValue(log, kSecCTRetirementDateKey);
             if (expiry == NULL) {                                               // Currently qualified OR
                 once_or_current_qualified_embedded++;
             } else if (CFDateCompare(ts, expiry, NULL) == kCFCompareLessThan && // Once qualified. That is, qualified at the time of SCT AND
@@ -1922,6 +1981,18 @@ static void SecPolicyCheckKeySize(SecPVCRef pvc, CFStringRef key) {
     CFIndex ix, count = SecPVCGetCertificateCount(pvc);
     SecPolicyRef policy = SecPVCGetPolicy(pvc);
     CFDictionaryRef keySizes = CFDictionaryGetValue(policy->_options, key);
+    SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
+
+    /* Don't check key size for user-anchored leafs */
+#if TARGET_OS_IPHONE
+    SecCertificateSourceRef userSource = kSecUserAnchorSource;
+#else
+    SecCertificateSourceRef userSource = kSecLegacyAnchorSource;
+#endif
+    if (SecPVCIsAnchorPerConstraints(pvc, userSource, leaf)) {
+        return;
+    }
+
     for (ix = 0; ix < count; ++ix) {
         SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
         if (!SecCertificateIsAtLeastMinKeySize(cert, keySizes)) {
@@ -1946,15 +2017,28 @@ static void SecPolicyCheckWeakSignature(SecPVCRef pvc, CFStringRef key) {
 
 static void SecPolicyCheckSignatureHashAlgorithms(SecPVCRef pvc,
     CFStringRef key) {
-    CFIndex ix, count = SecPVCGetCertificateCount(pvc);
+    CFIndex ix = 0, count = SecPVCGetCertificateCount(pvc);
+
+    /* Ignore (a non-self-signed) anchor if it's trusted by the user */
+#if TARGET_OS_IPHONE
+    bool userAnchored = SecPVCIsAnchorPerConstraints(pvc, kSecUserAnchorSource, SecPVCGetCertificateAtIndex(pvc, count - 1));
+#else
+    bool userAnchored = SecPVCIsAnchorPerConstraints(pvc, kSecLegacyAnchorSource, SecPVCGetCertificateAtIndex(pvc, count - 1));
+#endif
+    if (SecPathBuilderIsAnchored(pvc->builder) && userAnchored) {
+        count--;
+    }
+
     SecPolicyRef policy = SecPVCGetPolicy(pvc);
     CFSetRef disallowedHashAlgorithms = CFDictionaryGetValue(policy->_options, key);
-    for (ix = 0; ix < count; ++ix) {
+    while (ix < count) {
         SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
+        /* note that these checks skip self-signed certs */
         if (!SecPolicyCheckCertSignatureHashAlgorithms(cert, disallowedHashAlgorithms)) {
             if (!SecPVCSetResult(pvc, key, ix, kCFBooleanFalse))
                 return;
         }
+        ix++;
     }
 }
 
@@ -2086,14 +2170,13 @@ static void SecPolicyCheckPinningRequired(SecPVCRef pvc, CFStringRef key) {
     }
 }
 
-static bool is_configured_test_system_root(SecCertificateRef root) {
+static bool is_configured_test_system_root(SecCertificateRef root, CFStringRef preference) {
     if (!SecIsInternalRelease()) {
         return false;
     }
     bool result = false;
     CFDataRef rootHash = SecCertificateCopySHA256Digest(root);
-    CFTypeRef value  = CFPreferencesCopyValue(CFSTR("TestCTRequiredSystemRoot"), CFSTR("com.apple.security"),
-                                              kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+    CFTypeRef value = CFPreferencesCopyAppValue(preference, CFSTR("com.apple.security"));
     require_quiet(isData(value), out);
     require_quiet(kCFCompareEqualTo == CFDataCompare(rootHash, value), out);
     result = true;
@@ -2249,7 +2332,11 @@ static bool is_ct_excepted(SecPVCRef pvc) {
 
 /* <rdar://45466778> some Apple servers not getting certs with embedded SCTs
  * <rdar://45545270> some Google apps have their own TLS stacks and aren't passing us TLS SCTs */
-static bool is_apple_ca(SecCertificatePathVCRef path) {
+static bool is_ct_allowlisted_ca(SecCertificatePathVCRef path) {
+    if (CFPreferencesGetAppBooleanValue(CFSTR("DisableCTAllowlist"), CFSTR("com.apple.security"), NULL)) {
+        return false;
+    }
+
     /* subject:/CN=Apple IST CA 8 - G1/OU=Certification Authority/O=Apple Inc./C=US */
     /* issuer :/C=US/O=GeoTrust Inc./OU=(c) 2007 GeoTrust Inc. - For authorized use only/CN=GeoTrust Primary Certification Authority - G2 */
     static const uint8_t appleISTCA8G1_spkiSHA256[] = {
@@ -2275,11 +2362,21 @@ static bool is_apple_ca(SecCertificatePathVCRef path) {
     for (CFIndex certIX = 1; certIX < SecCertificatePathVCGetCount(path); certIX++) {
         SecCertificateRef ca = SecCertificatePathVCGetCertificateAtIndex(path, certIX);
 
+        bool allowlistAppleCAs = true, allowlistGoogleCA = true;
+        if (CFPreferencesGetAppBooleanValue(CFSTR("DisableCTAllowlistApple"), CFSTR("com.apple.security"), NULL)) {
+            allowlistAppleCAs = false;
+        }
+        if (CFPreferencesGetAppBooleanValue(CFSTR("DisableCTAllowlistGoogle"), CFSTR("com.apple.security"), NULL)) {
+            allowlistGoogleCA = false;
+        }
+
         CFDataRef caSPKIHash = SecCertificateCopySubjectPublicKeyInfoSHA256Digest(ca);
         const uint8_t *dp = CFDataGetBytePtr(caSPKIHash);
-        if (dp && (!memcmp(appleISTCA8G1_spkiSHA256, dp, CC_SHA256_DIGEST_LENGTH) ||
-                   !memcmp(appleISTCA2G1_spkiSHA256, dp, CC_SHA256_DIGEST_LENGTH) ||
-                   !memcmp(googleIAG3_spkiSHA256, dp, CC_SHA256_DIGEST_LENGTH))) {
+        if (dp && allowlistAppleCAs && (!memcmp(appleISTCA8G1_spkiSHA256, dp, CC_SHA256_DIGEST_LENGTH) ||
+                   !memcmp(appleISTCA2G1_spkiSHA256, dp, CC_SHA256_DIGEST_LENGTH))) {
+            result = true;
+        }
+        if (dp && allowlistGoogleCA && !memcmp(googleIAG3_spkiSHA256, dp, CC_SHA256_DIGEST_LENGTH)) {
             result = true;
         }
         CFReleaseNull(caSPKIHash);
@@ -2294,7 +2391,7 @@ static void SecPolicyCheckSystemTrustedCTRequired(SecPVCRef pvc) {
     SecCertificateSourceRef appleAnchorSource = NULL;
     SecOTAPKIRef otaref = SecOTAPKICopyCurrentOTAPKIRef();
     SecCertificatePathVCRef path = SecPathBuilderGetPath(pvc->builder);
-    CFArrayRef trustedLogs = SecPathBuilderCopyTrustedLogs(pvc->builder);
+    CFDictionaryRef trustedLogs = SecPathBuilderCopyTrustedLogs(pvc->builder);
 
     /* Skip this check if we haven't done the CT checks yet */
     require_quiet(SecCertificatePathVCIsPathValidated(path), out);
@@ -2324,8 +2421,8 @@ static void SecPolicyCheckSystemTrustedCTRequired(SecPVCRef pvc) {
     require_quiet(SecPathBuilderIsAnchored(pvc->builder), out);
     require_quiet((SecCertificateSourceContains(kSecSystemAnchorSource, root) &&
                    appleAnchorSource && !SecCertificateSourceContains(appleAnchorSource, root) &&
-                   !is_apple_ca(path)) ||
-                  is_configured_test_system_root(root), out);
+                   !is_ct_allowlisted_ca(path)) ||
+                  is_configured_test_system_root(root, CFSTR("TestCTRequiredSystemRoot")), out);
 
     if (!SecCertificatePathVCIsCT(path) && !is_ct_excepted(pvc)) {
         /* Set failure. By not using the Forced variant, we implicitly check that this
@@ -2338,6 +2435,122 @@ out:
     CFReleaseNull(otaref);
     if (appleAnchorSource) {
         SecMemoryCertificateSourceDestroy(appleAnchorSource);
+    }
+}
+
+static bool SecPolicyCheckSystemTrustValidityPeriodMaximums(CFAbsoluteTime notBefore, CFAbsoluteTime notAfter) {
+    CFAbsoluteTime jul2016 = 489024000.0; // 1 July 2016 00:00:00 UTC
+    CFAbsoluteTime mar2018 = 541555200.0; // 1 March 2018 00:00:00 UTC
+    if (notBefore < jul2016) {
+        /* Validity Period no greater than 60 months.
+         60 months is no more than 5 years and 2 leap days (and 1 hour slip). */
+        CFAbsoluteTime maxPeriod = 60*60*24*(365*5+2) + 3600;
+        if (notAfter - notBefore > maxPeriod) {
+            secnotice("policy", "System-trusted leaf validity period is more than 60 months");
+            return false;
+        }
+    } else if (notBefore < mar2018) {
+        /* Validity Period no greater than 39 months.
+         39 months is no more than 3 years, 2 31-day months,
+         1 30-day month, and 1 leap day (and 1 hour slip) */
+        CFAbsoluteTime maxPeriod = 60*60*24*(365*3+2*31+30+1) + 3600;
+        if (notAfter - notBefore > maxPeriod) {
+            secnotice("policy", "System-trusted leaf validity period longer than 39 months and issued after 30 June 2016");
+            return false;
+        }
+    } else {
+        /* Validity Period no greater than 825 days (and 1 hour slip). */
+        CFAbsoluteTime maxPeriod = 60*60*24*825 + 3600;
+        if (notAfter - notBefore > maxPeriod) {
+            secnotice("policy", "System-trusted leaf validity period longer than 825 days and issued on or after 1 March 2018");
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool SecPolicyCheckOtherTrustValidityPeriodMaximums(CFAbsoluteTime notBefore, CFAbsoluteTime notAfter) {
+    /* Check whether we will enforce the validity period maximum for a non-system trusted leaf. */
+    if (SecIsInternalRelease()) {
+        if (CFPreferencesGetAppBooleanValue(CFSTR("IgnoreMaximumValidityPeriod"),
+                                            CFSTR("com.apple.security"), NULL)) {
+            return true;
+        }
+    }
+    CFAbsoluteTime jul2019 = 583628400.0; // 1 July 2019 00:00:00 UTC
+    if (notBefore > jul2019) {
+        /* Validity Period no greater than 825 days (and 1 hour slip). */
+        CFAbsoluteTime maxPeriod = 60*60*24*825 + 3600;
+        if (notAfter - notBefore > maxPeriod) {
+            secnotice("policy", "Non-system-trusted leaf validity period longer than 825 days and issued on or after 1 July 2019");
+            return false;
+        }
+    }
+    return true;
+}
+
+static void SecPolicyCheckValidityPeriodMaximums(SecPVCRef pvc, CFStringRef key) {
+    SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
+    CFAbsoluteTime notAfter = SecCertificateNotValidAfter(leaf);
+    CFAbsoluteTime notBefore = SecCertificateNotValidBefore(leaf);
+
+    CFIndex count = SecPVCGetCertificateCount(pvc);
+    SecCertificateRef root = SecPVCGetCertificateAtIndex(pvc, count - 1);
+    if (SecCertificateSourceContains(kSecSystemAnchorSource, root) || is_configured_test_system_root(root, CFSTR("TestSystemRoot"))) {
+        if (!SecPolicyCheckSystemTrustValidityPeriodMaximums(notBefore, notAfter)) {
+            SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+        }
+        return;
+    }
+
+    /* Don't check validity periods against maximums for user-anchored leafs */
+#if TARGET_OS_IPHONE
+    SecCertificateSourceRef userSource = kSecUserAnchorSource;
+#else
+    SecCertificateSourceRef userSource = kSecLegacyAnchorSource;
+#endif
+    if (SecPVCIsAnchorPerConstraints(pvc, userSource, leaf)) {
+        return;
+    }
+
+    /* all other trust */
+    if (!SecPolicyCheckOtherTrustValidityPeriodMaximums(notBefore, notAfter)) {
+        SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+    }
+}
+
+static void SecPolicyCheckServerAuthEKU(SecPVCRef pvc, CFStringRef key) {
+    /* The ExtendedKeyUsage check will verify a looser version of this check for all TLS server certs.
+     * Here we want to be stricter (enforcing that there is an EKU extension and that it contains the
+     * one true Server Auth EKU OID) for system and app anchors */
+    SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
+    CFIndex count = SecPVCGetCertificateCount(pvc);
+    SecCertificateRef root = SecPVCGetCertificateAtIndex(pvc, count - 1);
+    if (SecCertificateSourceContains(kSecSystemAnchorSource, root) || is_configured_test_system_root(root, CFSTR("TestSystemRoot"))) {
+        /* all system-anchored chains must be compliant */
+        if (!SecPolicyCheckCertExtendedKeyUsage(leaf, CFSTR("1.3.6.1.5.5.7.3.1"))) { // server auth EKU
+            SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+        }
+        return;
+    }
+
+    /* skip user/admin-anchored chains */
+#if TARGET_OS_IPHONE
+    SecCertificateSourceRef userSource = kSecUserAnchorSource;
+#else
+    SecCertificateSourceRef userSource = kSecLegacyAnchorSource;
+#endif
+    if (SecPVCIsAnchorPerConstraints(pvc, userSource, root)) {
+        return;
+    }
+
+    /* All other anchor types must be compliant if issued on or after 1 July 2019 */
+    CFAbsoluteTime notBefore = SecCertificateNotValidBefore(leaf);
+    CFAbsoluteTime jul2019 = 583628400.0; // 1 July 2019 00:00:00 UTC
+    if (notBefore > jul2019) {
+        if (!SecPolicyCheckCertExtendedKeyUsage(leaf, CFSTR("1.3.6.1.5.5.7.3.1"))) { // server auth EKU
+            SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+        }
     }
 }
 
@@ -2606,12 +2819,6 @@ if (__PC_TYPE_MEMBER_##TRUSTRESULT && CFEqual(key,CFSTR(#NAME))) { \
 bool SecPVCSetResultForced(SecPVCRef pvc,
 	CFStringRef key, CFIndex ix, CFTypeRef result, bool force) {
 
-    secnotice("policy", "cert[%d]: %@ =(%s)[%s]> %@", (int) ix, key,
-        (pvc->callbacks == gSecPolicyLeafCallbacks ? "leaf"
-            : (pvc->callbacks == gSecPolicyPathCallbacks ? "path"
-                : "custom")),
-        (force ? "force" : ""), result);
-
     /* If this is not something the current policy cares about ignore
        this error and return true so our caller continues evaluation. */
     if (!force) {
@@ -2636,6 +2843,12 @@ bool SecPVCSetResultForced(SecPVCRef pvc,
         return true;
     }
 
+    secnotice("policy", "cert[%d]: %@ =(%s)[%s]> %@", (int) ix, key,
+              (pvc->callbacks == gSecPolicyLeafCallbacks ? "leaf"
+               : (pvc->callbacks == gSecPolicyPathCallbacks ? "path"
+                  : "custom")),
+              (force ? "force" : ""), result);
+
 	/* Avoid resetting deny or fatal to recoverable */
     SecTrustResultType trustResult = trust_result_for_key(key);
     if (SecPVCIsOkResult(pvc) || trustResult == kSecTrustResultFatalTrustFailure) {
@@ -2650,6 +2863,11 @@ bool SecPVCSetResultForced(SecPVCRef pvc,
 
 	CFMutableDictionaryRef detail =
 		(CFMutableDictionaryRef)CFArrayGetValueAtIndex(pvc->details, ix);
+	if (!detail) {
+		secerror("SecPVCSetResultForced: failed to get detail at index %ld (array length %ld)",
+				ix, CFArrayGetCount(pvc->details));
+		return false;
+	}
 
 	/* Perhaps detail should have an array of results per key?  As it stands
        in the case of multiple policy failures the last failure stands.  */
@@ -2952,12 +3170,17 @@ static bool SecPVCContainsString(SecPVCRef pvc, CFIndex policyIX, CFStringRef st
     }
     bool result = false;
 
+    /* <rdar://27754596> Previous versions of macOS null-terminated the string, so we need to strip it. */
     CFStringRef tmpStringValue = NULL;
     if (CFStringGetCharacterAtIndex(stringValue, CFStringGetLength(stringValue) -1) == (UniChar)0x0000) {
         tmpStringValue = CFStringCreateTruncatedCopy(stringValue, CFStringGetLength(stringValue) - 1);
     } else {
         tmpStringValue = CFStringCreateCopy(NULL, stringValue);
     }
+    /* Some users have strings that only contain the null-termination, so we need to check that we
+     * still have a string. */
+    require(tmpStringValue, out);
+
     if (policyIX >= 0 && policyIX < CFArrayGetCount(pvc->policies)) {
         SecPolicyRef policy = (SecPolicyRef)CFArrayGetValueAtIndex(pvc->policies, policyIX);
         /* Have to look for all the possible locations of name string */
@@ -3156,7 +3379,7 @@ static bool SecPVCMeetsConstraint(SecPVCRef pvc, SecCertificateRef certificate, 
          keyUsageMatch = false, policyOptionMatch = false;
     bool result = false;
 
-#if TARGET_OS_MAC && !TARGET_OS_IPHONE
+#if TARGET_OS_OSX
     /* OS X returns a SecPolicyRef in the constraints. Convert to the oid string. */
     SecPolicyRef policy = NULL;
     policy = (SecPolicyRef)CFDictionaryGetValue(constraint, kSecTrustSettingsPolicy);
@@ -3175,7 +3398,7 @@ static bool SecPVCMeetsConstraint(SecPVCRef pvc, SecCertificateRef certificate, 
     keyUsageMatch = SecPVCContainsTrustSettingsKeyUsage(pvc, certificate, policyIX, keyUsageNumber);
     policyOptionMatch = SecPVCContainsTrustSettingsPolicyOption(pvc, policyOptions);
 
-#if TARGET_OS_MAC && !TARGET_OS_IPHONE
+#if TARGET_OS_OSX
     trustedApplicationData =  CFDictionaryGetValue(constraint, kSecTrustSettingsApplication);
     CFDataRef clientAuditToken = SecPathBuilderCopyClientAuditToken(pvc->builder);
     applicationMatch = SecPVCCallerIsApplication(clientAuditToken, trustedApplicationData);
@@ -3200,7 +3423,7 @@ static bool SecPVCMeetsConstraint(SecPVCRef pvc, SecCertificateRef certificate, 
     return result;
 }
 
-SecTrustSettingsResult SecPVCGetTrustSettingsResult(SecPVCRef pvc, SecCertificateRef certificate, CFArrayRef constraints) {
+static SecTrustSettingsResult SecPVCGetTrustSettingsResult(SecPVCRef pvc, SecCertificateRef certificate, CFArrayRef constraints) {
     SecTrustSettingsResult result = kSecTrustSettingsResultInvalid;
     CFIndex constraintIX, constraintCount = CFArrayGetCount(constraints);
     for (constraintIX = 0; constraintIX < constraintCount; constraintIX++) {
@@ -3225,6 +3448,54 @@ SecTrustSettingsResult SecPVCGetTrustSettingsResult(SecPVCRef pvc, SecCertificat
     return result;
 }
 
+/* This function assumes that the input source is an anchor source */
+bool SecPVCIsAnchorPerConstraints(SecPVCRef pvc, SecCertificateSourceRef source, SecCertificateRef certificate) {
+    __block bool result = false;
+    CFArrayRef constraints = NULL;
+    constraints = SecCertificateSourceCopyUsageConstraints(source, certificate);
+
+    /* Unrestricted certificates:
+     *      -those that come from anchor sources with no constraints
+     *      -self-signed certificates with empty contraints arrays
+     */
+    Boolean selfSigned = false;
+    require(errSecSuccess == SecCertificateIsSelfSigned(certificate, &selfSigned), out);
+    if ((NULL == source->copyUsageConstraints) ||
+        (constraints && (CFArrayGetCount(constraints) == 0) && selfSigned)) {
+        secinfo("trust", "unrestricted anchor%s",
+                (NULL == source->copyUsageConstraints) ? " source" : "");
+        result = true;
+        goto out;
+    }
+
+    /* Get the trust settings result for the PVC. Only one PVC need match to
+     * trigger the anchor behavior -- policy validation will handle whether the
+     * path is truly anchored for that PVC. */
+    require_quiet(constraints, out);
+    SecTrustSettingsResult settingsResult = kSecTrustSettingsResultInvalid;
+    settingsResult = SecPVCGetTrustSettingsResult(pvc,
+                                                  certificate,
+                                                  constraints);
+    if ((selfSigned && settingsResult == kSecTrustSettingsResultTrustRoot) ||
+        (!selfSigned && settingsResult == kSecTrustSettingsResultTrustAsRoot)) {
+        // For our purposes, this is an anchor.
+        secinfo("trust", "complex trust settings anchor");
+        result = true;
+    }
+
+    if (settingsResult == kSecTrustSettingsResultDeny) {
+        /* We consider denied certs "anchors" because the trust decision
+         is set regardless of building the chain further. The policy
+         validation will handle rejecting this chain. */
+        secinfo("trust", "complex trust settings denied anchor");
+        result = true;
+    }
+
+out:
+    CFReleaseNull(constraints);
+    return result;
+}
+
 static void SecPVCCheckUsageConstraints(SecPVCRef pvc) {
     CFIndex certIX, certCount = SecPVCGetCertificateCount(pvc);
     for (certIX = 0; certIX < certCount; certIX++) {
@@ -3243,11 +3514,12 @@ static void SecPVCCheckUsageConstraints(SecPVCRef pvc) {
              * all mean we should use the special "Proceed" trust result. */
 #if TARGET_OS_IPHONE
             if (SecPathBuilderIsAnchorSource(pvc->builder, kSecUserAnchorSource) &&
-                SecCertificateSourceContains(kSecUserAnchorSource, cert)) {
+                SecCertificateSourceContains(kSecUserAnchorSource, cert))
 #else
             if (SecPathBuilderIsAnchorSource(pvc->builder, kSecLegacyAnchorSource) &&
-                SecCertificateSourceContains(kSecLegacyAnchorSource, cert)) {
+                SecCertificateSourceContains(kSecLegacyAnchorSource, cert))
 #endif
+            {
                 pvc->result = kSecTrustResultProceed;
             }
         }
@@ -3421,6 +3693,18 @@ static void SecPVCCheckRequireCTConstraints(SecPVCRef pvc) {
     CFReleaseNull(otaref);
 }
 
+/* "Deep" copy the details array */
+static CFArrayRef CF_RETURNS_RETAINED SecPVCCopyDetailsArray(SecPVCRef pvc) {
+    CFArrayRef details = pvc->details;
+    CFMutableArrayRef copiedDetails = CFArrayCreateMutable(NULL, CFArrayGetCount(details), &kCFTypeArrayCallBacks);
+    CFArrayForEach(details, ^(const void *value) {
+        CFMutableDictionaryRef copiedValue = CFDictionaryCreateMutableCopy(NULL, 0, (CFDictionaryRef)value);
+        CFArrayAppendValue(copiedDetails, copiedValue);
+        CFReleaseNull(copiedValue);
+    });
+    return copiedDetails;
+}
+
 /* AUDIT[securityd](done):
    policy->_options is a caller provided dictionary, only its cf type has
    been checked.
@@ -3468,11 +3752,13 @@ void SecPVCPathChecks(SecPVCRef pvc) {
         bool ev_check_ok = false;
         if (SecCertificatePathVCIsOptionallyEV(path)) {
             SecTrustResultType pre_ev_check_result = pvc->result;
+            CFArrayRef pre_ev_check_details = pvc->details ? SecPVCCopyDetailsArray(pvc) : NULL;
             SecPolicyCheckEV(pvc, kSecPolicyCheckExtendedValidation);
             ev_check_ok = SecPVCIsOkResult(pvc);
             /* If ev checking failed, we still want to accept this chain
              as a non EV one, if it was valid as such. */
             pvc->result = pre_ev_check_result;
+            CFAssignRetained(pvc->details, pre_ev_check_details);
         }
 
         /* Check for CT */

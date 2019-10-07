@@ -76,9 +76,11 @@ for my $arch (split(/ /, $ENV{"ARCHS"}))
 	elsif ($unifdef == 1) {
 		# assume FEATURE_BLOCKS was on by default
 		$unifdefs{"UNIFDEF_BLOCKS"} = 1;
+		$unifdefs{"UNIFDEF_DRIVERKIT"} = defined($ENV{"DRIVERKITSDK"});
 		$unifdefs{"UNIFDEF_LEGACY_64_APIS"} = defined($features{"FEATURE_LEGACY_64_APIS"});
 		$unifdefs{"UNIFDEF_LEGACY_RUNE_APIS"} = defined($features{"FEATURE_LEGACY_RUNE_APIS"});
 		$unifdefs{"UNIFDEF_LEGACY_UTMP_APIS"} = defined($features{"FEATURE_LEGACY_UTMP_APIS"});
+		$unifdefs{"UNIFDEF_POSIX_ILP32_ALLOW"} = defined($features{"FEATURE_POSIX_ILP32_ALLOW"});
 		
 		my $output = "";
 		for my $d (keys %unifdefs) {

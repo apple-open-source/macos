@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.manyval.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *  Test the use of many aggregation results in the same format string.

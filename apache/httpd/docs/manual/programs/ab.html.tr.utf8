@@ -40,7 +40,7 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#options">Seçenekler</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#output">Çıktı</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#bugs">Börtü böcek</a></li>
-</ul><h3>Ayrıca bakınız:</h3><ul class="seealso"><li><code class="program"><a href="../programs/httpd.html">httpd</a></code></li><li><a href="#comments_section">Yorum</a></li></ul></div>
+</ul><h3>Ayrıca bakınız:</h3><ul class="seealso"><li><code class="program"><a href="../programs/httpd.html">httpd</a></code></li><li><a href="#comments_section">Yorumlar</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="synopsis" id="synopsis">Kullanım</a></h2>
@@ -52,6 +52,7 @@
     [ -<strong>C</strong> <var>çerez-ismi=değer</var> ]
     [ -<strong>d</strong> ]
     [ -<strong>e</strong> <var>csv-dosyası</var> ]
+    [ -<strong>E</strong> <var>istemci-sertifikası-dosyası</var> ]
     [ -<strong>f</strong> <var>protokol</var> ]
     [ -<strong>g</strong> <var>gnuplot-dosyası</var> ]
     [ -<strong>h</strong> ]
@@ -117,6 +118,12 @@
       cinsinden) sunulduğunu gösteren virgül ayraçlı değerler (CSV) dosyası.
       Sonuçlar 'bobin haline' getirilmiş olduğundan doğal olarak 'gnuplot'
       dosyasından daha yararlıdır.</dd>
+
+    <dt><code>-E <var>istemci-sertifikası-dosyası</var></code></dt>
+    <dd>Bir SSL sitesine bağlanırken, sunucu ile kimlik doğrulaması için
+      PEM biçeminde sağlanan sertifika kullanılır. Dosyanın sırayla istemci 
+      sertifikasını, ara sertifikaları ve özel anahtarı içermesi beklenir. 
+      2.4.36 ve sonrasında kullanılabilir.</dd>
 
     <dt><code><strong>-f</strong> <var>protokol</var></code></dt>
     <dd>SSL/TLS protokolü belirtilir (SSL2, SSL3, TLS1, TLS1.1, TLS1.2 veya
@@ -349,7 +356,7 @@
 <a href="../fr/programs/ab.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ko/programs/ab.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/programs/ab.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
-</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Yorum</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Yorumlar</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
 var comments_identifier = 'http://httpd.apache.org/docs/2.4/programs/ab.html';
@@ -367,7 +374,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/programs/ab.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2018 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2019 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

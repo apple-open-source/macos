@@ -410,6 +410,16 @@ Tcl_Main(
     Tcl_SetVar(interp, "tcl_interactive", ((path == NULL) && tty) ? "1" : "0",
 	    TCL_GLOBAL_ONLY);
 
+    if ((path == NULL) && tty) {
+        fprintf(stderr,
+                "\nWARNING: This version of tcl is included in macOS "
+                "for compatibility with legacy software. "
+                "\nIn future versions of "
+                "macOS the tcl runtime will not be available by "
+                "\ndefault, and may require you to install an "
+                "additional package.\n\n");
+    }
+
     /*
      * Invoke application-specific initialization.
      */

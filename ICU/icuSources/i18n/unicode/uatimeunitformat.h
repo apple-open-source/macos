@@ -73,8 +73,16 @@ typedef enum UATimeUnitField {
     UATIMEUNITFIELD_MINUTE,
     /** @draft ICU 53 */
     UATIMEUNITFIELD_SECOND,
-    /** @draft ICU 53 */
+    /** @draft ICU 63 */
+    UATIMEUNITFIELD_MILLISECOND,
+    /** @draft ICU 63 */
+    UATIMEUNITFIELD_MICROSECOND,
+    /** @draft ICU 63 */
+    UATIMEUNITFIELD_NANOSECOND,
+#ifndef U_HIDE_DEPRECATED_API
+     /** @deprecated The numeric value may change over time */
     UATIMEUNITFIELD_COUNT
+#endif  /* U_HIDE_DEPRECATED_API */
 } UATimeUnitField;
 
 /**

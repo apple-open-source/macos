@@ -30,9 +30,8 @@
 #include "IOHIDElement.h"
 #include "IOHIDDescriptorParserPrivate.h"
 #include "IOHIDLibUserClient.h"
-#include "IOHIDDevice.h"
 
-class IOHIDDevice;
+class IOHIDElementContainer;
 class IOHIDEventQueue;
 
 enum {
@@ -54,7 +53,7 @@ class IOHIDElementPrivate: public IOHIDElement
     OSDeclareDefaultStructors( IOHIDElementPrivate )
 
 protected:
-    IOHIDDevice            *_owner;
+    IOHIDElementContainer   *_owner;
     IOHIDElementType        _type;
     IOHIDElementCookie      _cookie;
     IOHIDElementPrivate    *_nextReportHandler;
@@ -119,59 +118,59 @@ protected:
     
     UInt32                  _previousValue;
     
-    virtual bool init( IOHIDDevice * owner, IOHIDElementType type );
+    virtual bool init( IOHIDElementContainer * owner, IOHIDElementType type );
 
-    virtual void free();
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
 
     virtual IOHIDElementPrivate * newSubElement( UInt16 rangeIndex ) const;
 
     virtual bool createSubElements();
     
     virtual IOHIDElementPrivate * arrayHandlerElement(                                
-                                IOHIDDevice *    owner,
+                                IOHIDElementContainer *owner,
                                 IOHIDElementType type,
                                 IOHIDElementPrivate * child,
                                 IOHIDElementPrivate * parent);
 
     OSDictionary*  createProperties() const;
-
-    virtual IOByteCount        getByteSize();
     
-    virtual void            setupResolution();
-
-    void setDataBits(OSData *data);
-    
-    unsigned int    iteratorSize() const;
-    bool            initIterator(void * iterationContext) const;
+    unsigned int    iteratorSize(void) const APPLE_KEXT_OVERRIDE;
+    bool            initIterator(void * iterationContext) const APPLE_KEXT_OVERRIDE;
     bool            getNextObjectForIterator(void      * iterationContext,
-                                             OSObject ** nextObject) const;
+                                             OSObject ** nextObject) const APPLE_KEXT_OVERRIDE;
+    bool enqueueValue(void *value, UInt32 valueSize);
 public:
 
     static IOHIDElementPrivate * buttonElement(
-                                IOHIDDevice *    owner,
+                                IOHIDElementContainer *owner,
                                 IOHIDElementType type,
                                 HIDButtonCapabilitiesPtr button,
                                 IOHIDElementPrivate *   parent = 0 );
 
     static IOHIDElementPrivate * valueElement(
-                                IOHIDDevice *    owner,
+                                IOHIDElementContainer *owner,
                                 IOHIDElementType type,
                                 HIDValueCapabilitiesPtr  value,
                                 IOHIDElementPrivate *   parent = 0 );
     
     static IOHIDElementPrivate * collectionElement(
-                                IOHIDDevice *        owner,
+                                IOHIDElementContainer *owner,
                                 IOHIDElementType     type,
                                 HIDCollectionExtendedNodePtr collection,
                                 IOHIDElementPrivate *       parent = 0 );
+    
+    static IOHIDElementPrivate *nullElement(
+                                IOHIDElementContainer   *owner,
+                                UInt32                  reportID,
+                                IOHIDElementPrivate     *parent = 0);
                                 
     static IOHIDElementPrivate * reportHandlerElement(
-                                IOHIDDevice *        owner,
+                                IOHIDElementContainer *owner,
                                 IOHIDElementType     type,
                                 UInt32               reportID,
                                 UInt32               reportBits );
 
-    virtual bool serialize( OSSerialize * s ) const;
+    virtual bool serialize( OSSerialize * s ) const APPLE_KEXT_OVERRIDE;
 
     virtual bool fillElementStruct(IOHIDElementStruct *element);
 
@@ -212,6 +211,8 @@ public:
 
     virtual void setRollOverElementPtr(IOHIDElementPrivate ** rollOverElementPtr);
     virtual UInt32 getElementValueSize() const;
+    virtual IOByteCount getByteSize();
+    void setDataBits(OSData *data);
 
     virtual UInt32 getRangeCount() const;
     virtual UInt32 getStartingRangeIndex() const;
@@ -230,9 +231,6 @@ public:
     inline IOHIDElementPrivate * getNextReportHandler() const
     { return _nextReportHandler; }
 
-    inline IOHIDDevice * getOwner() const
-    { return _owner; }
-
     inline UInt32 getRangeIndex() const
     { return _rangeIndex; }
     
@@ -249,48 +247,47 @@ public:
     
     virtual bool matchProperties(OSDictionary * matching);
     
-    virtual IOHIDElementCookie              getCookie();
-    virtual IOHIDElementType                getType();
-    virtual IOHIDElementCollectionType      getCollectionType();
-    virtual OSArray *                       getChildElements();
-    virtual IOHIDElement *                  getParentElement();
-    virtual UInt32                          getUsagePage();
-    virtual UInt32                          getUsage();
-    virtual UInt32                          getReportID();
-    virtual UInt32                          getReportSize();
-    virtual UInt32                          getReportCount();
-    virtual UInt32                          getFlags();
-    virtual UInt32                          getLogicalMin();
-    virtual UInt32                          getLogicalMax();
-    virtual UInt32                          getPhysicalMin();
-    virtual UInt32                          getPhysicalMax();
-    virtual UInt32                          getUnit();
-    virtual UInt32                          getUnitExponent();
-    virtual AbsoluteTime                    getTimeStamp();
-    virtual UInt32                          getValue();
-    virtual UInt32                          getValue(IOOptionBits options);
-    virtual OSData *                        getDataValue();
-    virtual OSData *                        getDataValue(IOOptionBits options);
-    virtual void                            setValue(UInt32 value);
-    virtual void                            setDataValue(OSData * value);
-    virtual bool                            conformsTo(UInt32 usagePage, UInt32 usage=0);
-    virtual void                            setCalibration(UInt32 min=0, UInt32 max=0, UInt32 saturationMin=0, UInt32 saturationMax=0, UInt32 deadZoneMin=0, UInt32 deadZoneMax=0, IOFixed granularity=0);
-    virtual UInt32                          getScaledValue(IOHIDValueScaleType type=kIOHIDValueScaleTypePhysical);
-    virtual IOFixed                         getScaledFixedValue(IOHIDValueScaleType type=kIOHIDValueScaleTypePhysical);
-    virtual IOFixed                         getScaledFixedValue(IOHIDValueScaleType type, IOOptionBits options);
-    
-    unsigned int getCount() const;
-    unsigned int getCapacity() const;
-    unsigned int getCapacityIncrement() const;
-    unsigned int setCapacityIncrement(unsigned increment);
-    unsigned int ensureCapacity(unsigned int newCapacity);
-    void flushCollection();
+    virtual IOHIDElementCookie              getCookie(void) APPLE_KEXT_OVERRIDE;
+    virtual IOHIDElementType                getType(void) APPLE_KEXT_OVERRIDE;
+    virtual IOHIDElementCollectionType      getCollectionType(void) APPLE_KEXT_OVERRIDE;
+    virtual OSArray *                       getChildElements(void) APPLE_KEXT_OVERRIDE;
+    virtual IOHIDElement *                  getParentElement(void) APPLE_KEXT_OVERRIDE;
+    virtual UInt32                          getUsagePage(void) APPLE_KEXT_OVERRIDE;
+    virtual UInt32                          getUsage(void) APPLE_KEXT_OVERRIDE;
+    virtual UInt32                          getReportID(void) APPLE_KEXT_OVERRIDE;
+    virtual UInt32                          getReportSize(void) APPLE_KEXT_OVERRIDE;
+    virtual UInt32                          getReportCount(void) APPLE_KEXT_OVERRIDE;
+    virtual UInt32                          getFlags(void) APPLE_KEXT_OVERRIDE;
+    virtual UInt32                          getLogicalMin(void) APPLE_KEXT_OVERRIDE;
+    virtual UInt32                          getLogicalMax(void) APPLE_KEXT_OVERRIDE;
+    virtual UInt32                          getPhysicalMin(void) APPLE_KEXT_OVERRIDE;
+    virtual UInt32                          getPhysicalMax(void) APPLE_KEXT_OVERRIDE;
+    virtual UInt32                          getUnit(void) APPLE_KEXT_OVERRIDE;
+    virtual UInt32                          getUnitExponent(void) APPLE_KEXT_OVERRIDE;
+    virtual AbsoluteTime                    getTimeStamp(void) APPLE_KEXT_OVERRIDE;
+    virtual UInt32                          getValue(void) APPLE_KEXT_OVERRIDE;
+    virtual UInt32                          getValue(IOOptionBits options) APPLE_KEXT_OVERRIDE;
+    virtual OSData *                        getDataValue(void) APPLE_KEXT_OVERRIDE;
+    virtual OSData *                        getDataValue(IOOptionBits options) APPLE_KEXT_OVERRIDE;
+    virtual void                            setValue(UInt32 value) APPLE_KEXT_OVERRIDE;
+    virtual void                            setDataValue(OSData * value) APPLE_KEXT_OVERRIDE;
+    virtual bool                            conformsTo(UInt32 usagePage, UInt32 usage=0) APPLE_KEXT_OVERRIDE;
+    virtual void                            setCalibration(UInt32 min=0, UInt32 max=0, UInt32 saturationMin=0, UInt32 saturationMax=0, UInt32 deadZoneMin=0, UInt32 deadZoneMax=0, IOFixed granularity=0) APPLE_KEXT_OVERRIDE;
+    virtual UInt32                          getScaledValue(IOHIDValueScaleType type=kIOHIDValueScaleTypePhysical) APPLE_KEXT_OVERRIDE;
+    virtual IOFixed                         getScaledFixedValue(IOHIDValueScaleType type=kIOHIDValueScaleTypePhysical) APPLE_KEXT_OVERRIDE;
+    virtual IOFixed                         getScaledFixedValue(IOHIDValueScaleType type, IOOptionBits options) APPLE_KEXT_OVERRIDE;
+    unsigned int getCount(void) const APPLE_KEXT_OVERRIDE;
+    unsigned int getCapacity(void) const APPLE_KEXT_OVERRIDE;
+    unsigned int getCapacityIncrement(void) const APPLE_KEXT_OVERRIDE;
+    unsigned int setCapacityIncrement(unsigned increment) APPLE_KEXT_OVERRIDE;
+    unsigned int ensureCapacity(unsigned int newCapacity) APPLE_KEXT_OVERRIDE;
+    void flushCollection(void) APPLE_KEXT_OVERRIDE;
     virtual unsigned setOptions(unsigned   options,
                                 unsigned   mask,
-                                void     * context = 0);
-    virtual OSCollection *copyCollection(OSDictionary * cycleDict = 0);
+                                void     * context = 0) APPLE_KEXT_OVERRIDE;
+    virtual OSCollection *copyCollection(OSDictionary * cycleDict = 0) APPLE_KEXT_OVERRIDE;
   
-    virtual boolean_t                               isVariableSize()
+    virtual boolean_t                       isVariableSize() APPLE_KEXT_OVERRIDE
     {  return _variableSize & kIOHIDElementVariableSizeElement; }
     
     void setVariableSizeInfo            (UInt8 variableSize)
@@ -298,6 +295,7 @@ public:
 
     UInt8 getVariableSizeInfo           ()
     { return _variableSize;}
+
 };
 
 #endif /* !_IOKIT_HID_IOHIDELEMENTPRIVATE_H */

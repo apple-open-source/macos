@@ -32,192 +32,195 @@
 #import <Foundation/Foundation.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <CoreFoundation/CFRuntime.h>
+#import <CommonCrypto/CommonHMAC.h>
+#import <os/log.h>
 
+#import "roken.h"
 #import "heimcred.h"
 #import "heimbase.h"
 #import "config.h"
+#import "heimntlm.h"
 
 #if ENABLE_NTLM
 
-#if  0
+
 static CFTypeRef
 DictionaryGetTypedValue(CFDictionaryRef dict, CFStringRef key, CFTypeID reqType)
 {
-    CFTypeRef value = CFDictionaryGetValue(dict, key);
-    if (value == NULL || CFGetTypeID(value) != reqType)
-	return NULL;
-    return value;
+	CFTypeRef value = CFDictionaryGetValue(dict, key);
+	if (value == NULL || CFGetTypeID(value) != reqType)
+		return NULL;
+	return value;
 }
-
-/*
- *
- */
-
-static int
-ntlm_domain_is_hostname(CFStringRef name)
-{
-    return CFStringHasPrefix(name, CFSTR("\\"));
-}
-#endif
 
 static CFDictionaryRef
 NTLMAuthCallback(HeimCredRef cred, CFDictionaryRef input)
 {
-#if 0
-    CFMutableDictionaryRef output = NULL;
-    CFDataRef type2data = NULL, cb = NULL, type1data = NULL;
-    CFStringRef targetname = NULL;
-    CFNumberRef _type1flags = NULL;
+	CFDictionaryRef result_cfdict = NULL;
+	CFDataRef type1_cfdata = NULL;
+	CFDataRef type2_cfdata = NULL;
+	CFDataRef type3_cfdata = NULL;
+	CFDataRef sessionkey_cfdata = NULL;
+	CFDataRef channel_binding_cfdata = NULL;
+	CFStringRef client_target_name_cfstr = NULL;
+	CFStringRef username_cfstr = NULL;
+	CFStringRef domain_cfstr = NULL;
+	CFNumberRef	flags_cfnum = NULL;
+	CFNumberRef	kcmflags_cfnum = NULL;
+	CFDataRef ntlmhash_cfdata = NULL;
+	CFDictionaryRef credential_cfdict = NULL;
 
-    CFStringRef userdomain;
+	char *username_cstr = NULL;
+	char *domain_cstr = NULL;
+	char *client_target_name_cstr = NULL;
+	uint32_t type1flags = 0;
+	uint32_t flags = 0;
+	char flagname[256];
 
-    struct ntlm_type2 type2;
-    struct ntlm_type3 type3;
-    char *user = NULL, *domain = NULL, *targetname = NULL;
-    struct ntlm_buf ndata, sessionkey, tidata;
-    krb5_data cb, type1data, tempdata;
-    krb5_error_code ret;
-    uint32_t type1flags, flags = 0;
-    const char *type = "unknown";
-    char flagname[256];
-    size_t mic_offset = 0;
-
-    KCM_LOG_REQUEST(context, client, opcode);
-
-    memset(&tidata, 0, sizeof(tidata));
-    memset(&type2, 0, sizeof(type2));
-    memset(&type3, 0, sizeof(type3));
-    sessionkey.data = NULL;
-    sessionkey.length = 0;
-    
-    //    kcm_log(10, "NTLM AUTH with cred %s\\%s", domain, user);
-
-    type2data = DictionaryGetTypedValue(input, CFSTR("type2data"), CFDataGetTypeID());
-    type1data = DictionaryGetTypedValue(input, CFSTR("type1data"), CFDataGetTypeID());
-    cb = DictionaryGetTypedValue(input, CFSTR("cb"), CFDataGetTypeID());
-    targetname = DictionaryGetValue(input, CFSTR("targetname"), CFStringGetTypeID());
-    type1flags = DictionaryGetValue(input, CFSTR("type1flags"), CFNumberGetTypeID());
-
-    /*
-     *
-     */
-
-    username = CFDictionaryGetValue(cred->attributes, kHEIMAttrNTLMUsername);
-    userdomain = CFDictionaryGetValue(cred->attributes, kHEIMAttrNTLMDomain);
-
-    /*
-     *
-     */
-
-    ndata.data = CFDataGetBytePtr(type2data);
-    ndata.length = CFDataGetLength(type2data);
-
-    ret = heim_ntlm_decode_type2(&ndata, &type2);
-    if (ret)
-	goto error;
-
-#if 0 /* XXX */
-    kcm_log(10, "checking for ntlm mirror attack");
-    ret = check_ntlm_challage(type2.challenge);
-    if (ret) {
-	kcm_log(0, "ntlm mirror attack detected");
-	goto error;
-    }
-#endif
-
-    /* if service name or case matching with domain, let pick the domain */
-    if (ntlm_domain_is_hostname(userdomain) || strcasecmp(domain, type2.targetname) == 0) {
-	domain = type2.targetname;
-    } else {
-	domain = c->domain;
-    }
-
-    type3.username = c->user;
-    type3.flags = type2.flags;
-    /* only allow what we negotiated ourself */
-    type3.flags &= type1flags;
-    type3.targetname = domain;
-    type3.ws = rk_UNCONST("workstation");
-
-    /*
-     * Only do NTLM Version 1 if they force us
-     */
-    
-    if (gss_mo_get(GSS_NTLM_MECHANISM, GSS_C_NTLM_FORCE_V1, NULL)) {
-	
-	type = "v1";
-
-	if (type2.flags & NTLM_NEG_NTLM2_SESSION) {
-	    unsigned char nonce[8];
-	    
-	    if (CCRandomCopyBytes(kCCRandomDefault, nonce, sizeof(nonce))) {
-		ret = EINVAL;
-		goto error;
-	    }
-
-	    ret = heim_ntlm_calculate_ntlm2_sess(nonce,
-						 type2.challenge,
-						 c->nthash.data,
-						 &type3.lm,
-						 &type3.ntlm);
-	} else {
-	    ret = heim_ntlm_calculate_ntlm1(c->nthash.data,
-					    c->nthash.length,
-					    type2.challenge,
-					    &type3.ntlm);
-
-	}
-	if (ret)
-	    goto error;
-	
-	if (type3.flags & NTLM_NEG_KEYEX) {
-	    ret = heim_ntlm_build_ntlm1_master(c->nthash.data,
-					       c->nthash.length,
-					       &sessionkey,
-					       &type3.sessionkey);
-	} else {
-	    ret = heim_ntlm_v1_base_session(c->nthash.data, 
-					    c->nthash.length,
-					    &sessionkey);
-	}
-	if (ret)
-	    goto error;
-
-    } else {
-	unsigned char ntlmv2[16];
+	size_t mic_offset = 0;
+	struct ntlm_buf nthash;
+	struct ntlm_buf ndata;
+	struct ntlm_buf type1data;
+	struct ntlm_buf type2data;
+	struct ntlm_buf sessionkey;
+	struct ntlm_buf tidata;
+	struct ntlm_buf cb; /* channel binding */
+	struct ntlm_type2 type2;
+	struct ntlm_type3 type3;
 	struct ntlm_targetinfo ti;
+	unsigned char ntlmv2[16];
 	static uint8_t zeros[16] = { 0 };
-	
-	type = "v2";
+	int ret;
 
+	os_log_debug(OS_LOG_DEFAULT, "NTLMAuthCallback");  // kcm_op_do_ntlm
+
+	memset(&cb, 0, sizeof(cb));
+	memset(&nthash, 0, sizeof(nthash));
+	memset(&ndata, 0, sizeof(ndata));
+	memset(&type1data, 0, sizeof(type1data));
+	memset(&type2data, 0, sizeof(type2data));
+	memset(&sessionkey, 0, sizeof(sessionkey));
+	memset(&tidata, 0, sizeof(tidata));
+	memset(&type2, 0, sizeof(type2));
+	memset(&type3, 0, sizeof(type3));
+
+	/* ntlm hash  data*/
+	credential_cfdict = HeimCredGetAttributes(cred);
+	if (!credential_cfdict)
+		goto error;
+	ntlmhash_cfdata = DictionaryGetTypedValue(credential_cfdict, kHEIMAttrData, CFDataGetTypeID());
+	if (ntlmhash_cfdata == NULL)
+		goto error;
+	nthash.data = (UInt8 *)CFDataGetBytePtr(ntlmhash_cfdata);
+	nthash.length = CFDataGetLength(ntlmhash_cfdata);
+
+	/* NTLM type2 data */
+	type2_cfdata = DictionaryGetTypedValue(input, kHEIMAttrNTLMType2Data, CFDataGetTypeID());
+	if (type2_cfdata == NULL)
+	goto error;
+	type2data.data = (UInt8 *)CFDataGetBytePtr(type2_cfdata);
+	type2data.length = CFDataGetLength(type2_cfdata);
+
+	/* channel binding */
+	channel_binding_cfdata = DictionaryGetTypedValue(input, kHEIMAttrNTLMChannelBinding, CFDataGetTypeID());
+	if (channel_binding_cfdata == NULL)
+		goto error;
+	cb.data = (UInt8 *)CFDataGetBytePtr(channel_binding_cfdata);
+	cb.length = CFDataGetLength(channel_binding_cfdata);
+
+	/* NTLM type1 data */
+	type1_cfdata = DictionaryGetTypedValue(input, kHEIMAttrNTLMType1Data, CFDataGetTypeID());
+	if (type1_cfdata == NULL)
+		goto error;
+	type1data.data = (UInt8 *)CFDataGetBytePtr(type1_cfdata);
+	type1data.length = CFDataGetLength(type1_cfdata);
+
+	/* client targetname */
+	client_target_name_cfstr = DictionaryGetTypedValue(input, kHEIMAttrNTLMClientTargetName, CFStringGetTypeID());
+	if (client_target_name_cfstr == NULL)
+		goto error;
+	client_target_name_cstr = rk_cfstring2cstring(client_target_name_cfstr);
+	if (client_target_name_cstr == NULL)
+		goto error;
+
+	/* type1 flags */
+	flags_cfnum = DictionaryGetTypedValue(input, kHEIMAttrNTLMClientFlags, CFNumberGetTypeID());
+	if (flags_cfnum == NULL)
+		goto error;
+
+	if (! CFNumberGetValue(flags_cfnum, kCFNumberSInt32Type, &type1flags))
+	   goto error;
+
+	/* NTLM username */
+	username_cfstr = DictionaryGetTypedValue(input, kHEIMAttrNTLMUsername, CFStringGetTypeID());
+	if (username_cfstr == NULL)
+		goto error;
+	username_cstr = rk_cfstring2cstring(username_cfstr);
+	if (username_cstr == NULL)
+		goto error;
+
+	/* NTLM domain */
+	domain_cfstr = DictionaryGetTypedValue(input, kHEIMAttrNTLMDomain, CFStringGetTypeID());
+	if (domain_cfstr == NULL)
+		goto error;
+	domain_cstr = rk_cfstring2cstring(domain_cfstr);
+	if (domain_cstr == NULL)
+		goto error;
+
+	ndata.data = type2data.data;
+	ndata.length = type2data.length;
+
+	ret = heim_ntlm_decode_type2(&ndata, &type2); /* ndata(encoded type2 data) -> decoded type2 data  */
+	if (ret) {
+		os_log_error(OS_LOG_DEFAULT, "heim_ntlm_decode_type2 (%d)\n", ret);
+		goto error;
+	}
+
+	// TODO NTLM Reflection Detection
+
+	// TODO select domain over hostname for targetname
+
+	/* NTLM type3 data */
+	type3.username = username_cstr;
+	type3.flags = type2.flags;
+	/* only allow what we negotiated ourself */
+	type3.flags &= type1flags;
+	type3.targetname = domain_cstr;
+	// TODO  NetBIOSName
+	//	1) store and retrieve from SCDynamicStore - com.apple.smb/NetBIOSName
+	// 	<OR>
+	// 	2) generate from Device Name (ie. "John Doe's Device"
+#ifdef __APPLE_TARGET_EMBEDDED__
+	type3.ws = strdup("MOBILE");
+#else
+	type3.ws = strdup("WORKSTATION");
+#endif
 	/* verify infotarget */
-
 	ret = heim_ntlm_decode_targetinfo(&type2.targetinfo, 1, &ti);
 	if (ret)
-	    goto error;
-	
+		goto error;
+
 	if (ti.avflags & NTLM_TI_AV_FLAG_GUEST)
-	    flags |= KCM_NTLM_FLAG_AV_GUEST;
+		flags |= HEIMCRED_NTLM_FLAG_AV_GUEST;
 
 	if (ti.channel_bindings.data)
-	    free(ti.channel_bindings.data);
+		free(ti.channel_bindings.data);
 	if (ti.targetname)
-	    free(ti.targetname);
+		free(ti.targetname);
 
-	/* 
+	/*
 	 * We are going to use MIC, tell server so it can reject the
 	 * authenticate if the mic is missing.
 	 */
 	ti.avflags |= NTLM_TI_AV_FLAG_MIC;
-	ti.targetname = targetname;
+	ti.targetname = client_target_name_cstr;
 
 	if (cb.length == 0) {
-	    ti.channel_bindings.data = zeros;
-	    ti.channel_bindings.length = sizeof(zeros);
+		ti.channel_bindings.data = zeros;
+		ti.channel_bindings.length = sizeof(zeros);
 	} else {
-	    kcm_log(10, "using channelbindings of size %lu", (unsigned long)cb.length);
-	    ti.channel_bindings.data = cb.data;
-	    ti.channel_bindings.length = cb.length;
+		ti.channel_bindings.data = cb.data;
+		ti.channel_bindings.length = cb.length;
 	}
 
 	ret = heim_ntlm_encode_targetinfo(&ti, TRUE, &tidata);
@@ -228,134 +231,140 @@ NTLMAuthCallback(HeimCredRef cred, CFDictionaryRef input)
 
 	heim_ntlm_free_targetinfo(&ti);
 	if (ret)
-	    goto error;
+		goto error;
 
 	/*
-	 * Prefer NTLM_NEG_EXTENDED_SESSION over NTLM_NEG_LM_KEY as
-	 * decribed in 2.2.2.5.
+	 * Send empty LM2 response
 	 */
 
-	if (type3.flags & NTLM_NEG_NTLM2_SESSION)
-	    type3.flags &= ~NTLM_NEG_LM_KEY;
-
-	if ((type3.flags & NTLM_NEG_LM_KEY) && 
-	    gss_mo_get(GSS_NTLM_MECHANISM, GSS_C_NTLM_SUPPORT_LM2, NULL)) {
-	    ret = heim_ntlm_calculate_lm2(c->nthash.data,
-					  c->nthash.length,
-					  type3.username,
-					  domain,
-					  type2.challenge,
-					  ntlmv2,
-					  &type3.lm);
-	} else {
-	    type3.lm.data = malloc(24);
-	    if (type3.lm.data == NULL) {
+	type3.lm.data = malloc(24);
+	if (type3.lm.data == NULL) {
 		ret = ENOMEM;
-	    } else {
+	} else {
 		type3.lm.length = 24;
 		memset(type3.lm.data, 0, type3.lm.length);
-	    }
 	}
-	if (ret)
-	    goto error;
 
-	ret = heim_ntlm_calculate_ntlm2(c->nthash.data,
-					c->nthash.length,
-					type3.username,
-					domain,
-					type2.challenge,
-					&tidata,
-					ntlmv2,
-					&type3.ntlm);
 	if (ret)
-	    goto error;
-	
+		goto error;
+
+	ret = heim_ntlm_calculate_ntlm2(nthash.data,
+									nthash.length,
+									type3.username,
+									domain_cstr,
+									type2.challenge,
+									&tidata,
+									ntlmv2,
+									&type3.ntlm);
+	if (ret)
+		goto error;
+
 	if (type3.flags & NTLM_NEG_KEYEX) {
-	    ret = heim_ntlm_build_ntlm2_master(ntlmv2, sizeof(ntlmv2),
-					       &type3.ntlm,
-					       &sessionkey,
-					       &type3.sessionkey);
+		ret = heim_ntlm_build_ntlm2_master(ntlmv2, sizeof(ntlmv2),
+										&type3.ntlm,
+										&sessionkey,
+										&type3.sessionkey);
 	} else {
-	    ret = heim_ntlm_v2_base_session(ntlmv2, sizeof(ntlmv2), &type3.ntlm, &sessionkey);
+		ret = heim_ntlm_v2_base_session(ntlmv2, sizeof(ntlmv2), &type3.ntlm, &sessionkey);
 	}
 
-	memset(ntlmv2, 0, sizeof(ntlmv2));
 	if (ret)
-	    goto error;
-    }
+		goto error;
 
-    ret = heim_ntlm_encode_type3(&type3, &ndata, &mic_offset);
-    if (ret)
-	goto error;
-    if (ndata.length < CC_MD5_DIGEST_LENGTH) {
-	ret = EINVAL;
-	goto error;
-    }
-	
-    if (mic_offset && mic_offset < ndata.length - CC_MD5_DIGEST_LENGTH) {
-	CCHmacContext mic;
-	uint8_t *p = (uint8_t *)ndata.data + mic_offset;
-	CCHmacInit(&mic, kCCHmacAlgMD5, sessionkey.data, sessionkey.length);
-	CCHmacUpdate(&mic, type1data.data, type1data.length);
-	CCHmacUpdate(&mic, type2data.data, type2data.length);
-	CCHmacUpdate(&mic, ndata.data, ndata.length);
-	CCHmacFinal(&mic, p);
-    }
+	ret = heim_ntlm_encode_type3(&type3, &ndata, &mic_offset); /* type3 data -> ndata(encoded type3 data) */
+	if (ret)
+		goto error;
+	if (ndata.length < CC_MD5_DIGEST_LENGTH) {
+		ret = EINVAL;
+		goto error;
+	}
 
-    tempdata.data = ndata.data;
-    tempdata.length = ndata.length;
-    ret = krb5_store_data(response, tempdata);
-    heim_ntlm_free_buf(&ndata);
+	if (mic_offset && mic_offset < ndata.length - CC_MD5_DIGEST_LENGTH) {
+		CCHmacContext mic;
+		uint8_t *p = (uint8_t *)ndata.data + mic_offset;
+		CCHmacInit(&mic, kCCHmacAlgMD5, sessionkey.data, sessionkey.length);
+		CCHmacUpdate(&mic, type1data.data, type1data.length);
+		CCHmacUpdate(&mic, type2data.data, type2data.length);
+		CCHmacUpdate(&mic, ndata.data, ndata.length);
+		CCHmacFinal(&mic, p);
+	}
+/* REPLY */
 
-    if (ret) goto error;
+	/* encoded type3 data */
+	type3_cfdata = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)ndata.data, ndata.length );
+	if (!type3_cfdata)
+		goto error;
+	// free ndata(encoded type3 data)
 
-    output = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	/* kcm flags  */
+	kcmflags_cfnum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &flags);
+	if (!kcmflags_cfnum)
+		goto error;
 
+	/*  flags */
+	flags_cfnum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &type3.flags);
+	if (!flags_cfnum)
+		goto error;
 
-    ret = krb5_store_int32(response, flags);
-    if (ret) goto error;
+	/* sessionkey */
+	sessionkey_cfdata = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)sessionkey.data, sessionkey.length );
+	if (!sessionkey_cfdata)
+		goto error;
 
-    tempdata.data = sessionkey.data;
-    tempdata.length = sessionkey.length;
+	/* username  = username_cfstr */
+	/* domain  = domain_cfstr */
 
-    ret = krb5_store_data(response, tempdata);
-    if (ret) goto error;
-    ret = krb5_store_string(response, c->user);
-    if (ret) goto error;
-    ret = krb5_store_string(response, domain);
-    if (ret) goto error;
-    ret = krb5_store_uint32(response, type3.flags);
-    if (ret) goto error;
+	heim_ntlm_unparse_flags(type3.flags, flagname, sizeof(flagname));
 
-    heim_ntlm_unparse_flags(type3.flags, flagname, sizeof(flagname));
+	os_log_info(OS_LOG_DEFAULT, "ntlm v2 request processed for %s\\%s flags: %s",
+		domain_cstr, username_cstr, flagname);
 
-    kcm_log(0, "ntlm %s request processed for %s\\%s flags: %s",
-	    type, domain, c->user, flagname);
+	const void *add_keys[] = {
+	(void *)kHEIMObjectType,
+			kHEIMAttrType,
+			kHEIMAttrNTLMUsername,
+			kHEIMAttrNTLMDomain,
+			kHEIMAttrNTLMType3Data,
+			kHEIMAttrNTLMSessionKey,
+			kHEIMAttrNTLMClientFlags,
+			kHEIMAttrNTLMKCMFlags
+	};
+	const void *add_values[] = {
+	(void *)kHEIMObjectNTLM,
+			kHEIMTypeNTLM,
+			username_cfstr,
+			domain_cfstr,
+			type3_cfdata,
+			sessionkey_cfdata,
+			flags_cfnum,
+			kcmflags_cfnum
+	};
 
- error:
-    HEIMDAL_MUTEX_unlock(&cred_mutex);
+	result_cfdict = CFDictionaryCreate(NULL, add_keys, add_values, sizeof(add_keys) / sizeof(add_keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	heim_assert(result_cfdict != NULL, "Failed to create dictionary");
+error:
+	memset(ntlmv2, 0, sizeof(ntlmv2));
 
-    krb5_data_free(&cb);
-    krb5_data_free(&type1data);
-    krb5_data_free(&type2data);
-    if (type3.lm.data)
-	free(type3.lm.data);
-    if (type3.ntlm.data)
-	free(type3.ntlm.data);
-    if (type3.sessionkey.data)
-	free(type3.sessionkey.data);
-    if (targetname)
-	free(targetname);
-    heim_ntlm_free_type2(&type2);
-    heim_ntlm_free_buf(&sessionkey);
-    heim_ntlm_free_buf(&tidata);
-    free(user);
+	if (type3.lm.data)
+		free(type3.lm.data);
+	if (type3.ntlm.data)
+		free(type3.ntlm.data);
+	if (type3.sessionkey.data)
+		free(type3.sessionkey.data);
+	heim_ntlm_free_type2(&type2);
+	heim_ntlm_free_buf(&sessionkey);
+	heim_ntlm_free_buf(&tidata);
 
+	if (type3_cfdata)
+		CFRelease(type3_cfdata);
+	if (kcmflags_cfnum)
+		CFRelease(kcmflags_cfnum);
+	if (flags_cfnum)
+		CFRelease(flags_cfnum);
+	if (sessionkey_cfdata)
+		CFRelease(sessionkey_cfdata);
 
-    return output;
-#else
-    return NULL;
-#endif
+	return result_cfdict;
 }
 
 #endif /* ENABLE_NTLM */
@@ -368,22 +377,22 @@ void
 _HeimCredRegisterNTLM(void)
 {
 #if ENABLE_NTLM
-    CFMutableSetRef set = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
-    CFMutableDictionaryRef schema;
+	CFMutableSetRef set = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
+	CFMutableDictionaryRef schema;
 
-    schema = _HeimCredCreateBaseSchema(kHEIMObjectNTLM);
+	schema = _HeimCredCreateBaseSchema(kHEIMObjectNTLM);
 
-    CFDictionarySetValue(schema, kHEIMAttrData, CFSTR("d"));
-    CFDictionarySetValue(schema, kHEIMAttrNTLMUsername, CFSTR("Rs"));
-    CFDictionarySetValue(schema, kHEIMAttrNTLMDomain, CFSTR("Rs"));
-    CFDictionarySetValue(schema, kHEIMAttrTransient, CFSTR("b"));
-    CFDictionarySetValue(schema, kHEIMAttrAllowedDomain, CFSTR("as"));
-    CFDictionarySetValue(schema, kHEIMAttrStatus, CFSTR("n"));
+	CFDictionarySetValue(schema, kHEIMAttrData, CFSTR("d"));
+	CFDictionarySetValue(schema, kHEIMAttrNTLMUsername, CFSTR("Rs"));
+	CFDictionarySetValue(schema, kHEIMAttrNTLMDomain, CFSTR("Rs"));
+	CFDictionarySetValue(schema, kHEIMAttrTransient, CFSTR("b"));
+	CFDictionarySetValue(schema, kHEIMAttrAllowedDomain, CFSTR("as"));
+	CFDictionarySetValue(schema, kHEIMAttrStatus, CFSTR("n"));
 
-    CFSetAddValue(set, schema);
-    CFRelease(schema);
+	CFSetAddValue(set, schema);
+	CFRelease(schema);
 
-    _HeimCredRegisterMech(kHEIMTypeNTLM, set, NULL, NTLMAuthCallback);
-    CFRelease(set);
+	_HeimCredRegisterMech(kHEIMTypeNTLM, set, NULL, NTLMAuthCallback);
+	CFRelease(set);
 #endif /* ENABLE_NTLM */
 }

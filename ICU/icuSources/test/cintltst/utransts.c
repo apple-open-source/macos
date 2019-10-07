@@ -641,22 +641,25 @@ static void TestGetRulesAndSourceSet() {
 }
 
 typedef struct {
-    const char * transID;
+    const UChar * transID;
     const char * sourceText;
     const char * targetText;
 } TransIDSourceTarg;
 
 static const TransIDSourceTarg dataVarCompItems[] = {
-    { "Simplified-Traditional",
+    { u"Simplified-Traditional",
        "\\u4E0B\\u9762\\u662F\\u4E00\\u4E9B\\u4ECE\\u7B80\\u4F53\\u8F6C\\u6362\\u4E3A\\u7E41\\u4F53\\u5B57\\u793A\\u4F8B\\u6587\\u672C\\u3002",
        "\\u4E0B\\u9762\\u662F\\u4E00\\u4E9B\\u5F9E\\u7C21\\u9AD4\\u8F49\\u63DB\\u70BA\\u7E41\\u9AD4\\u5B57\\u793A\\u4F8B\\u6587\\u672C\\u3002" },
-    { "Halfwidth-Fullwidth",
+    { u"Halfwidth-Fullwidth",
       "Sample text, \\uFF7B\\uFF9D\\uFF8C\\uFF9F\\uFF99\\uFF83\\uFF77\\uFF7D\\uFF84.",
       "\\uFF33\\uFF41\\uFF4D\\uFF50\\uFF4C\\uFF45\\u3000\\uFF54\\uFF45\\uFF58\\uFF54\\uFF0C\\u3000\\u30B5\\u30F3\\u30D7\\u30EB\\u30C6\\u30AD\\u30B9\\u30C8\\uFF0E" },
-    { "Han-Latin/Names; Latin-Bopomofo",
+    { u"Han-Latin/Names; Latin-Bopomofo",
        "\\u4E07\\u4FDF\\u919C\\u5974\\u3001\\u533A\\u695A\\u826F\\u3001\\u4EFB\\u70E8\\u3001\\u5CB3\\u98DB",
        "\\u3107\\u311B\\u02CB \\u3111\\u3127\\u02CA \\u3114\\u3121\\u02C7 \\u310B\\u3128\\u02CA\\u3001 \\u3121 \\u3114\\u3128\\u02C7 \\u310C\\u3127\\u3124\\u02CA\\u3001 \\u3116\\u3123\\u02CA \\u3127\\u311D\\u02CB\\u3001 \\u3129\\u311D\\u02CB \\u3108\\u311F" },
-    { "Greek-Latin",
+    { u"Han-Latin",
+       "\\u85CF.\\u92BA.\\u85CF\\u6587.\\u85CF\\u8BED.",
+       "c\\u00E1ng. z\\u00E0ng. z\\u00E0ng w\\u00E9n. z\\u00E0ng y\\u01D4." },
+    { u"Greek-Latin",
       "\\u1F08 \\u1FBC \\u1F89 \\u1FEC",
       "A \\u0100I H\\u0100I RH" },
 /* The following transform is provisional and not present in ICU 60
@@ -664,9 +667,21 @@ static const TransIDSourceTarg dataVarCompItems[] = {
       "\\u1F08 \\u1FBC \\u1F89 \\u1FEC",
       "A\\u0313 A\\u0345 A\\u0314\\u0345 \\u1FEC" },
 */
-    { "Greek-Latin/UNGEGN",
+    { u"Greek-Latin/UNGEGN",
       "\\u1F08 \\u1FBC \\u1F89 \\u1FEC",
       "A A A R" },
+
+    { u"NFD; [[:Mn:]&[:Diacritic:]] Remove; [ÐØøĐđĦħŁłŦŧƀƗƵƶǤǥȺȻȼȾɃɆɇɈɉɌɍɎɏɟɨᴌᵻᵽᵾⱣⱥⱦꝀꝁꝂꝃꝄꝅꝈꝉꝊꝋꝐꝑꝖꝗꝞꝟꞠꞡꞢꞣꞤꞥꞦꞧꞨꞩ] Latin-ASCII; NFC; Upper",
+      "\\u0248 \\u0249 \\u00C6 \\u00E6",
+      "J J \\u00C6 \\u00C6" },
+    { u"NFD; [[:Mn:]&[:Diacritic:]] Remove; [ÐØøĐđĦħŁłŦŧƀƗƵƶǤǥȺȻȼȾɃɆɇɈɉɌɍɎɏɟɨᴌᵻᵽᵾⱣⱥⱦꝀꝁꝂꝃꝄꝅꝈꝉꝊꝋꝐꝑꝖꝗꝞꝟꞠꞡꞢꞣꞤꞥꞦꞧꞨꞩ] Latin-ASCII; NFC; Lower",
+      "\\u0248 \\u0249 \\u00C6 \\u00E6",
+      "j j \\u00E6 \\u00E6" },
+
+    { u"Hiragana-Katakana", // rdar://52039352
+       "\\u309B\\u309C \\u308F\\u3099 \\u309F",
+       "\\u309B\\u309C \\u30F7 \\u30E8\\u30EA" },
+
     { NULL, NULL, NULL }
 };
 
@@ -675,11 +690,11 @@ static void TestDataVariantsCompounds() {
     const TransIDSourceTarg* itemsPtr;
     for (itemsPtr = dataVarCompItems; itemsPtr->transID != NULL; itemsPtr++) {
         UErrorCode status = U_ZERO_ERROR;
-        UChar utrid[kUBufMax];
-        int32_t utridlen = u_unescape(itemsPtr->transID, utrid, kUBufMax);
-        UTransliterator* utrans = utrans_openU(utrid, utridlen, UTRANS_FORWARD, NULL, 0, NULL, &status);
+        char btrid[kUBufMax];
+        u_austrcpy(btrid, itemsPtr->transID);
+        UTransliterator* utrans = utrans_openU(itemsPtr->transID, -1, UTRANS_FORWARD, NULL, 0, NULL, &status);
         if (U_FAILURE(status)) {
-            log_data_err("FAIL: utrans_openRules(%s) failed, error=%s (Are you missing data?)\n", itemsPtr->transID, u_errorName(status));
+            log_data_err("FAIL: utrans_openRules(%s) failed, error=%s (Are you missing data?)\n", btrid, u_errorName(status));
             continue;
         }
         UChar text[kUBufMax];
@@ -695,7 +710,7 @@ static void TestDataVariantsCompounds() {
                 char btext[kBBufMax], bexpect[kBBufMax];
                 u_austrncpy(btext, text, textLen);
                 u_austrncpy(bexpect, expect, expectLen);
-                log_err("FAIL: utrans_transUChars(%s),\n       expect %s\n       get    %s\n", itemsPtr->transID, bexpect, btext);
+                log_err("FAIL: utrans_transUChars(%s),\n       expect %s\n       get    %s\n", btrid, bexpect, btext);
             }
         }
         utrans_close(utrans);

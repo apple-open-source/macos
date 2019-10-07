@@ -44,18 +44,14 @@
 #include "versions.h"	/* DEFAULTVERSION, NVERSIONS, PROJECT, UPROJECT, static const char *versions[] */
 
 #define DATAVERSIONLEN		16
-#define DEFAULTPREFER32BIT	0
 #define ENV_DEBUG		ENVPREFIX "DEBUG"
-#define ENV_PREFER32BIT		ENVPREFIX UPROJECT "_PREFER_32_BIT"
 #define ENV_VERSION		ENVPREFIX UPROJECT "_VERSION"
 #define ENVPREFIX		"VERSIONER_"
 #define EXPECT_FALSE(x)		__builtin_expect((x), 0)
 #define EXPECT_TRUE(x)		__builtin_expect((x), 1)
 #define PLISTPATHLEN		(sizeof(plistpath) - 1)
-#define PREFER32CPULEN		(sizeof(prefer32cpu) / sizeof(cpu_type_t))
 
 struct data {
-    int prefer32bit;
     char version[DATAVERSIONLEN];
 };
 
@@ -63,10 +59,6 @@ extern char **environ;
 
 static int debug = 0;
 static const char plistpath[] = "/Preferences/com.apple.versioner." PROJECT ".plist";
-static cpu_type_t prefer32cpu[] = {
-    CPU_TYPE_I386,
-    CPU_TYPE_X86_64,
-};
 static char prefix[PATH_MAX];
 static size_t prefixlen;
 
@@ -158,13 +150,6 @@ read_plist(const char * restrict path, struct data * restrict dp)
 			    if (EXPECT_FALSE(debug)) warnx("read_plist: %s: plist not a dictionary", path);
 			    break;
 			}
-			if (dp->prefer32bit < 0) {
-			    CFBooleanRef prefer32bit = CFDictionaryGetValue(plist, CFSTR("Prefer-32-Bit"));
-			    if (prefer32bit
-				&& EXPECT_TRUE(CFGetTypeID(prefer32bit) == CFBooleanGetTypeID())) {
-				dp->prefer32bit = CFBooleanGetValue(prefer32bit);
-			    } else if (EXPECT_FALSE(debug)) warnx("read_plist: %s: Prefer-32-Bit not a boolean", path);
-			}
 			if (*dp->version == 0) {
 			    char *vers;
 			    CFStringRef version;
@@ -252,7 +237,7 @@ main(int argc, char **argv)
 {
     char path[PATH_MAX], path0[PATH_MAX];
     NSSearchPathEnumerationState state;
-    struct data data = {-1, ""};
+    struct data data = {""};
     int i, ret, appendvers = 1;
     char *env, *name;
     size_t vlen;
@@ -264,12 +249,8 @@ main(int argc, char **argv)
 	if (EXPECT_TRUE(version_check(env))) strcpy(data.version, env);
 	else warnx("%s environment variable error (ignored)", ENV_VERSION);
     }
-    if ((env = getenv(ENV_PREFER32BIT)) != NULL) {
-	if (EXPECT_TRUE((i = boolean_check(env)) >= 0)) data.prefer32bit = i;
-	else warnx("%s environment variable error (ignored)", ENV_PREFER32BIT);
-    }
 
-    if (data.prefer32bit < 0 || *data.version == 0) {
+    if (*data.version == 0) {
 	state = NSStartSearchPathEnumeration(NSLibraryDirectory, NSAllDomainsMask & (~NSSystemDomainMask));
 	while ((state = NSGetNextSearchPathEnumeration(state, path)) != 0) {
 	    size_t len = strlen(path);
@@ -287,9 +268,8 @@ main(int argc, char **argv)
 	    if (EXPECT_FALSE(len + PLISTPATHLEN >= sizeof(path))) errx(1, "%s: Can't append \"%s\"\n", path, plistpath);
 	    strcat(path, plistpath);
 	    read_plist(path, &data);
-	    if (data.prefer32bit >= 0 && *data.version) break;
+	    if (*data.version) break;
 	}
-	if (data.prefer32bit < 0) data.prefer32bit = DEFAULTPREFER32BIT;
 	if (*data.version == 0) strcpy(data.version, DEFAULTVERSION);
     }
 #ifdef FORCE_TWO_NUMBER_VERSIONS
@@ -301,7 +281,7 @@ main(int argc, char **argv)
 	}
     }
 #endif /* FORCE_TWO_NUMBER_VERSIONS */
-    if (EXPECT_FALSE(debug)) warnx("prefer32bit=%d version=%s", data.prefer32bit, data.version);
+    if (EXPECT_FALSE(debug)) warnx("version=%s", data.version);
 
     vlen = strlen(data.version);
     if ((name = strrchr(*argv, '/')) != NULL) {
@@ -367,11 +347,6 @@ main(int argc, char **argv)
 
     if (EXPECT_FALSE((ret = posix_spawnattr_init(&attr)) != 0)) errc(1, ret, "posix_spawnattr_init");
     if (EXPECT_FALSE((ret = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETEXEC)) != 0)) errc(1, ret, "posix_spawnattr_setflags");
-    if (data.prefer32bit) {
-	size_t copied;
-	if (EXPECT_FALSE((ret = posix_spawnattr_setbinpref_np(&attr, PREFER32CPULEN, prefer32cpu, &copied)) != 0)) errc(1, ret, "posix_spawnattr_setbinpref_np");
-	if (EXPECT_FALSE(copied != PREFER32CPULEN)) errx(1, "posix_spawnattr_setbinpref_np only copied %d of %lu", (int)copied, PREFER32CPULEN);
-    }
     ret = posix_spawn(&pid, path, NULL, &attr, argv, environ);
     errc(1, ret, "posix_spawn: %s", path);
 

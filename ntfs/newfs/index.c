@@ -354,8 +354,8 @@ static int ntfs_ie_lookup(const void *key, const int key_len,
 	 */
 	for (ie = ntfs_ie_get_first(ih); ; ie = ntfs_ie_get_next(ie)) {
 		/* Bounds checks. */
-		if ((u8 *)ie + sizeof(INDEX_ENTRY_HEADER) > index_end ||
-		    (u8 *)ie + le16_to_cpu(ie->length) > index_end) {
+		if ((le16_to_cpu(ie->length) < sizeof(INDEX_ENTRY_HEADER)) ||
+		    ((u8*)ie + le16_to_cpu(ie->length) > index_end)) {
 			errno = ERANGE;
 			ntfs_log_error("Index entry out of bounds in inode "
 				       "%llu.\n",

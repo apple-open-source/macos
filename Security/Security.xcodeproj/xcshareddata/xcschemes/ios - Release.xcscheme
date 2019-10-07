@@ -15,8 +15,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "4C91273D0ADBF46200AF202E"
-               BuildableName = "ios"
-               BlueprintName = "ios"
+               BuildableName = "Security_all_ios"
+               BlueprintName = "Security_all_ios"
                ReferencedContainer = "container:Security.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -41,6 +41,15 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "E710C7411331946400F85568"
+            BuildableName = "SecurityTests.app"
+            BlueprintName = "SecurityTests"
+            ReferencedContainer = "container:Security.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
       <Testables>
          <TestableReference
             skipped = "NO">
@@ -53,17 +62,6 @@
             </BuildableReference>
          </TestableReference>
       </Testables>
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "E710C7411331946400F85568"
-            BuildableName = "SecurityTests.app"
-            BlueprintName = "SecurityTests"
-            ReferencedContainer = "container:Security.xcodeproj">
-         </BuildableReference>
-      </MacroExpansion>
-      <AdditionalOptions>
-      </AdditionalOptions>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Release"
@@ -199,27 +197,7 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_15_certificate"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_16_ec_certificate"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
             argument = "si_17_item_system_bluetooth"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_18_certificate_parse"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_20_sectrust"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_20_sectrust_policies"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -259,7 +237,7 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_29_sectrust_sha1_deprecation"
+            argument = "si_29_cms_chain_mode"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -395,23 +373,11 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_82_seccertificate_ct"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_82_sectrust_ct"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
             argument = "si_83_seccertificate_sighashalg"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "si_84_sectrust_allowlist"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_85_sectrust_ssl_policy"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -587,8 +553,6 @@
             isEnabled = "NO">
          </CommandLineArgument>
       </CommandLineArguments>
-      <AdditionalOptions>
-      </AdditionalOptions>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

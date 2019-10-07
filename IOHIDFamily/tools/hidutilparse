@@ -1,0 +1,248 @@
+#!/usr/bin/python
+
+import sys
+import plistlib
+import argparse
+
+eventType = [
+    "null",
+    "vendordefined",
+    "button",
+    "keyboard",
+    "translation",
+    "rotation",
+    "scroll",
+    "scale",
+    "zoom",
+    "velocity",
+    "orientation",
+    "digitizer",
+    "ambientlightsensor",
+    "accelerometer",
+    "proximity",
+    "temperature",
+    "navigationalswipe",
+    "pointer",
+    "progress",
+    "multiaxispointer",
+    "gyro",
+    "compass",
+    "zoomtoggle",
+    "dockswipe",
+    "symbolichotkey",
+    "power",
+    "led",
+    "fluidtouchgesture",
+    "boundaryscroll",
+    "biometric",
+    "unicode",
+    "atmosphericpressure",
+    "force",
+    "motionactivity",
+    "motiongesture",
+    "gamecontroller",
+    "humidity",
+    "collection",
+    "brightness"
+]
+
+policyType = [
+    "none",
+    "maintain",
+    "wake",
+    "activity report"
+]
+
+clientType = [
+    "admin",
+    "monitor",
+    "passive",
+    "rate",
+    "simple"
+]
+
+serviceList = []
+serviceProperties = {}
+
+def handleClients(clients):
+    print "Clients"
+    
+    for client in sorted(clients, key=lambda client: client['ProcessName'].lower() if 'ProcessName' in client else 0):
+        if 'PID' in client:
+            print "    pid: %-5d process: %-20.20s latency: %3dms drop: %-2d type: %-8s uuid: %-37s caller: %s" % (
+                        client['PID'], 
+                        client['ProcessName'] if 'ProcessName' in client else "",
+                        int(client['MaxEventLatency'])/1000000,
+                        client['DroppedEventCount'], 
+                        clientType[client['Type']],
+                        client['UUID'] if 'UUID' in client else "",
+                        client['Caller'])
+
+def handleServices(services, desiredService, ioreg, events, properties, prop, intervals):
+    # find service passed in through --service
+    if desiredService:
+        tmpServices = []
+        for service in services:
+            if desiredService in service['IOClass']:
+                tmpServices.append(service)
+        if not len(tmpServices):
+            print "No service %s found" % desiredService
+            exit(0)
+        services = tmpServices
+    
+    # update list of services to search ioreg with
+    for service in services:
+        serviceList.append(service['IORegistryEntryID'])
+    
+    # gather service properties from ioreg
+    if properties or prop:
+        if not len(ioreg):
+            print "no ioregistry found, please use sysdiagnose path"
+            exit(0)
+        traverseRegistry(ioreg)
+    
+    print "Services"
+    for service in sorted(services, key=lambda service: service['IOClass'].lower() if 'IOClass' in service else 0):
+        sys.stdout.write("    %-25.25s id: %s  built-in: %-4s usagePage: %-7s usage: %-7s report interval: %-6s batch interval: %-6s transport: %s" % (
+                                service['IOClass'] if 'IOClass' in service else "n/a", 
+                                hex(service['IORegistryEntryID']),
+                                "yes" if service['Built-In'] else "no",
+                                hex(service['PrimaryUsagePage'])  if 'PrimaryUsagePage' in service else "",
+                                hex(service['PrimaryUsage']) if 'PrimaryUsage' in service else "",
+                                service['ReportInterval'] if 'ReportInterval' in service else "",
+                                service['BatchInterval'] if 'BatchInterval' in service else "",
+                                service['Transport'] if 'Transport' in service else "",))
+        
+        if "EventTypeCounts" in service:
+            sys.stdout.write("\n        event counts: ")
+            for key, value in service['EventTypeCounts'].iteritems():
+                sys.stdout.write("%s: %d " % (key.lower(), value))
+
+        sys.stdout.write("\n")
+
+        if intervals and "PropertyCache" in service:
+            for key, value in service['PropertyCache'].iteritems():
+                print "       %s" % key,
+                for key2, value2 in value.iteritems():
+                    print "%s: %s" % (key2, value2),
+                print ""
+        if properties and len(serviceProperties[service['IORegistryEntryID']]):
+            print "        Properties"
+            print "       ",
+            for key, value in serviceProperties[service['IORegistryEntryID']].iteritems():
+                print "%s: %s," % (key, value),
+            print ""
+        if prop and len(serviceProperties[service['IORegistryEntryID']]):
+            print "        Property"
+            print "       ",
+            for key, value in serviceProperties[service['IORegistryEntryID']].iteritems():
+                if prop in key:
+                    print "%s: %s," % (key, value),
+            print ""
+        if 'EventLog' in service and events:
+            print "        Event Log"
+            for entry in service['EventLog']:
+                print "        %-26.26s type: %s %s %s" % (entry['EventTime'], 
+                            eventType[entry['EventType']],
+                            "down: %s" % entry['Down'] if 'Down' in entry else "",
+                            "press: %s" % entry['PressCount'] if 'PressCount' in entry else "")
+
+def handleDisplayWakeLog(log):
+    print "    Display Wake Log"
+    for entry in log:
+        print "    %-26.26s timestamp: %-15d id: %s policy: %-8s type: %s" % (
+                    entry['Time'],
+                    entry['timestamp'] if 'timestamp' in entry else 0,
+                    hex(entry['ServiceID']), 
+                    policyType[entry['Policy']] if 'Policy' in entry else "", 
+                    eventType[entry['EventType']] if 'EventType' in entry else "")
+    print ""
+
+def handleSessionFilter(session):
+    if 'DisplayWakeLog' in session:
+        handleDisplayWakeLog(session['DisplayWakeLog'])
+
+def handleActivityLog(log):
+    print "    Activity Log"
+    for entry in log:
+        if entry['ActivityState']:
+            print "    %-26.26s id: %s type: %s" % (entry['ActivityTime'], 
+                        hex(0x100000000 | entry['ServiceID']) if 'ServiceID' in entry else "", 
+                        eventType[entry['EventType']] if 'EventType' in entry else "")
+        else:
+            print "    %s idle" % (entry['ActivityTime'])
+
+def handleFilters(filters):
+    print "Filters"
+    for filter in filters:
+        if 'Class' in filter and filter['Class']  == 'IOHIDNXEventTranslatorSessionFilter':
+            handleSessionFilter(filter)
+        elif 'ActivityLog' in filter:
+            handleActivityLog(filter['ActivityLog'])    
+
+def traverseRegistry(parent):
+    for child in parent:
+        if child['IORegistryEntryID'] in serviceList:
+            serviceProperties[child['IORegistryEntryID']] = {}
+            if 'HIDEventServiceProperties' in child:
+                for prop in child['HIDEventServiceProperties']:
+                    serviceProperties[child['IORegistryEntryID']][prop] = child['HIDEventServiceProperties'][prop]
+            elif 'MultitouchPreferences' in child:
+                for prop in child['MultitouchPreferences']:
+                    serviceProperties[child['IORegistryEntryID']][prop] = child['MultitouchPreferences'][prop]
+                    # if type(child['HIDEventServiceProperties'][prop]) == plistlib._InternalDict:
+            # if 'DeviceUsagePairs' in child:
+            #     for pair in child['DeviceUsagePairs']:
+            #         print "uP: %s u: %s" % (pair['DeviceUsage'], pair['DeviceUsagePage'])
+            continue
+        
+        if 'IORegistryEntryChildren' in child:
+            traverseRegistry(child['IORegistryEntryChildren'])
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Process a hidutil.plist file.')
+    parser.add_argument('file', help='hidutil.plist file or unarchived sysdiagnose path')
+    parser.add_argument("--clients", action="store_true", help="print clients")
+    parser.add_argument("--services", action="store_true", help="print services")
+    parser.add_argument("--filters", action="store_true", help="print filters")
+    parser.add_argument("--service", type=str, help="print a specific service (e.g. AppleM68Buttons)")
+    parser.add_argument("--events", action="store_true", help="print service event logs")
+    parser.add_argument("--properties", action="store_true", help="print service properties (requires sysdiagnose)")
+    parser.add_argument("--intervals", action="store_true", help="print per-connection service report and batch intervals")
+    parser.add_argument("--property", type=str, help="print a specific property")
+    args = parser.parse_args()
+    
+    hidutil = []
+    ioreg = []
+    if args.file:
+        if "plist" in args.file:
+            # plist file
+            with open(args.file, "r") as fd:
+                hidutil = plistlib.readPlist(fd)
+        else:
+            #sysdiagnose path
+            with open(args.file + '/hidutil.plist', "r") as fd:
+                hidutil = plistlib.readPlist(fd)
+            with open(args.file + '/ioreg/IOReg.xml', "r") as fd:
+                ioreg = plistlib.readPlist(fd)
+                ioreg = ioreg['IORegistryEntryChildren'][0]['IORegistryEntryChildren']
+    
+    # don't require both --services and --service
+    if args.service:
+        args.services = True
+    
+    # nothing was specified, so print everything
+    if not args.clients and not args.services and not args.filters:
+        args.clients = True
+        args.services = True
+        args.filters = True
+    
+    if args.clients:
+        handleClients(hidutil['ClientRecords'])
+        print ""
+    if args.services:   
+        handleServices(hidutil['ServiceRecords'], args.service, ioreg, args.events, args.properties, args.property, args.intervals)
+        print ""
+    if args.filters:
+        handleFilters(hidutil['SessionFilterDebug'])
+        

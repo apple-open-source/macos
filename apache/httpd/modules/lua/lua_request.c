@@ -490,7 +490,7 @@ static int req_write(lua_State *L)
     return 1;
 }
 
-/* r:addoutputfilter(name|function) */
+/* r:add_output_filter(name) */
 static int req_add_output_filter(lua_State *L)
 {
     request_rec *r = ap_lua_check_request_rec(L, 1);
@@ -1273,6 +1273,10 @@ static int lua_ap_scoreboard_worker(lua_State *L)
 
         lua_pushstring(L, "client");
         lua_pushstring(L, ws_record->client);
+        lua_settable(L, -3);
+
+        lua_pushstring(L, "client64");
+        lua_pushstring(L, ws_record->client64);
         lua_settable(L, -3);
 
         lua_pushstring(L, "conn_bytes");

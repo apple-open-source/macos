@@ -37,8 +37,8 @@
 #import "CKDSecuritydAccount.h"
 #import "NSURL+SOSPlistStore.h"
 
-#include <Security/SecureObjectSync/SOSARCDefines.h>
-#include <Security/SecureObjectSync/SOSKVSKeys.h>
+#include "keychain/SecureObjectSync/SOSARCDefines.h"
+#include "keychain/SecureObjectSync/SOSKVSKeys.h"
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecPLWrappers.h>
 
@@ -92,16 +92,13 @@ static NSString *kKeyPendingSyncBackupPeerIDs = @"SyncBackupPeerIDs";
 
 static NSString *kKeyEnsurePeerRegistration = @"EnsurePeerRegistration";
 static NSString *kKeyDSID = @"DSID";
-static NSString *kMonitorState = @"MonitorState";
-static NSString *kKeyAccountUUID = @"MonitorState";
+static NSString *kKeyAccountUUID = @"KeyAccountUUID";
 
 static NSString *kMonitorPenaltyBoxKey = @"Penalty";
 static NSString *kMonitorMessageKey = @"Message";
 static NSString *kMonitorConsecutiveWrites = @"ConsecutiveWrites";
 static NSString *kMonitorLastWriteTimestamp = @"LastWriteTimestamp";
 static NSString *kMonitorMessageQueue = @"MessageQueue";
-static NSString *kMonitorPenaltyTimer = @"PenaltyTimer";
-static NSString *kMonitorDidWriteDuringPenalty = @"DidWriteDuringPenalty";
 
 static NSString *kMonitorTimeTable = @"TimeTable";
 static NSString *kMonitorFirstMinute = @"AFirstMinute";
@@ -141,7 +138,7 @@ static NSString *kMonitorWroteInTimeSlice = @"TimeSlice";
     {
         secnotice("event", "%@ start", self);
 
-#if !(TARGET_OS_EMBEDDED)
+#if !TARGET_OS_IPHONE || TARGET_OS_SIMULATOR
         // rdar://problem/26247270
         if (geteuid() == 0) {
             secerror("Cannot run CloudKeychainProxy as root");
@@ -167,17 +164,7 @@ static NSString *kMonitorWroteInTimeSlice = @"TimeSlice";
 
         _freshnessCompletions = [NSMutableArray<FreshnessResponseBlock> array];
 
-        _monitor = [NSMutableDictionary dictionary];
-
         [[XPCNotificationDispatcher dispatcher] addListener: self];
-
-        int notificationToken;
-        notify_register_dispatch(kSecServerKeychainChangedNotification, &notificationToken, _ckdkvsproxy_queue,
-                                 ^ (int token __unused)
-                                 {
-                                     secinfo("backoff", "keychain changed, wiping backoff monitor state");
-                                     self->_monitor = [NSMutableDictionary dictionary];
-                                 });
 
         [self setPersistentData: [self.persistenceURL readPlist]];
 
@@ -261,7 +248,6 @@ static NSString *kMonitorWroteInTimeSlice = @"TimeSlice";
               kKeyPendingKeys:[_pendingKeys allObjects],
               kKeyPendingSyncPeerIDs:[_pendingSyncPeerIDs allObjects],
               kKeyPendingSyncBackupPeerIDs:[_pendingSyncBackupPeerIDs allObjects],
-              kMonitorState:_monitor,
               kKeyEnsurePeerRegistration:[NSNumber numberWithBool:_ensurePeerRegistration],
               kKeyDSID:_dsid,
               kKeyAccountUUID:_accountUUID
@@ -271,6 +257,7 @@ static NSString *kMonitorWroteInTimeSlice = @"TimeSlice";
 - (void) setPersistentData: (NSDictionary*) interests
 {
     _alwaysKeys = [NSMutableSet setWithArray: interests[kKeyAlwaysKeys]];
+    [_alwaysKeys addObject:(__bridge NSString*) kSOSKVSKeyParametersKey];  // Make sure KeyParms are always of interest
     _firstUnlockKeys = [NSMutableSet setWithArray: interests[kKeyFirstUnlockKeys]];
     _unlockedKeys = [NSMutableSet setWithArray: interests[kKeyUnlockedKeys]];
 
@@ -279,20 +266,11 @@ static NSString *kMonitorWroteInTimeSlice = @"TimeSlice";
     _pendingSyncPeerIDs = [NSMutableSet setWithArray: interests[kKeyPendingSyncPeerIDs]];
     _pendingSyncBackupPeerIDs = [NSMutableSet setWithArray: interests[kKeyPendingSyncBackupPeerIDs]];
 
-    _monitor = interests[kMonitorState];
-    if(_monitor == nil)
-        _monitor = [NSMutableDictionary dictionary];
-
     _ensurePeerRegistration = [interests[kKeyEnsurePeerRegistration] boolValue];
 
     _dsid = interests[kKeyDSID];
     _accountUUID = interests[kKeyAccountUUID];
-
-    // If we had a sync pending, we kick it off and migrate to sync with these peers
-    if ([interests[kKeySyncWithPeersPending] boolValue]) {
-        [self doSyncWithAllPeers];
     }
-}
 
 - (void)persistState
 {

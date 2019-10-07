@@ -110,6 +110,7 @@ private:
             return isWithinPowerOfTwoForConstant<power>(node);
         }
             
+        case ValueBitAnd:
         case ArithBitAnd: {
             if (power > 31)
                 return true;
@@ -120,7 +121,10 @@ private:
             
         case ArithBitOr:
         case ArithBitXor:
-        case BitLShift: {
+        case ValueBitOr:
+        case ValueBitXor:
+        case ValueBitLShift:
+        case ArithBitLShift: {
             return power > 31;
         }
             
@@ -207,6 +211,7 @@ private:
         case CheckVarargs:
             break;
             
+        case ValueBitNot:
         case ArithBitNot: {
             flags |= NodeBytecodeUsesAsInt;
             flags &= ~(NodeBytecodeUsesAsNumber | NodeBytecodeNeedsNegZero | NodeBytecodeUsesAsOther);
@@ -218,8 +223,12 @@ private:
         case ArithBitAnd:
         case ArithBitOr:
         case ArithBitXor:
+        case ValueBitAnd:
+        case ValueBitOr:
+        case ValueBitXor:
         case BitRShift:
-        case BitLShift:
+        case ValueBitLShift:
+        case ArithBitLShift:
         case BitURShift:
         case ArithIMul: {
             flags |= NodeBytecodeUsesAsInt;
@@ -356,6 +365,7 @@ private:
             break;
         }
             
+        case ValueMod:
         case ArithMod: {
             flags |= NodeBytecodeUsesAsNumber;
             flags &= ~NodeBytecodeUsesAsOther;

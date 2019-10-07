@@ -5,11 +5,14 @@ EXECUTABLE_PREFIX =
 
 CODE_SIGN_IDENTITY = 
 
-HEADER_SEARCH_PATHS = $(PROJECT_DIR)/../ $(PROJECT_DIR)/../include $(BUILT_PRODUCTS_DIR)/derived_src $(BUILT_PRODUCTS_DIR) $(PROJECT_DIR)/lib $(PROJECT_DIR)/../utilities $(PROJECT_DIR)/../../header_symlinks/macOS $(PROJECT_DIR)/../../header_symlinks/ $(inherited)
+USE_HEADERMAP = YES
+
+HEADER_SEARCH_PATHS = $(PROJECT_DIR)/../ $(PROJECT_DIR)/../include $(BUILT_PRODUCTS_DIR)/derived_src $(BUILT_PRODUCTS_DIR) $(PROJECT_DIR)/lib $(PROJECT_DIR)/../utilities $(inherited)
+SYSTEM_HEADER_SEARCH_PATHS = $(PROJECT_DIR)/../../header_symlinks/macOS/ $(PROJECT_DIR)/../../header_symlinks/
 
 SKIP_INSTALL = YES
 
-ALWAYS_SEARCH_USER_PATHS = YES
+ALWAYS_SEARCH_USER_PATHS = NO
 
 GCC_C_LANGUAGE_STANDARD = gnu99
 

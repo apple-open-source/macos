@@ -136,7 +136,32 @@ typedef uint8_t IOHIDDigitizerOrientationType;
 typedef struct _IOHIDAxisEventData {
     IOHIDEVENT_BASE;                            // options = kHIDAxisRelative
     IOHIDAXISEVENT_BASE;
-} IOHIDAxisEventData, IOHIDTranslationData, IOHIDRotationEventData, IOHIDScrollEventData, IOHIDScaleEventData, IOHIDVelocityData, IOHIDOrientationEventData, IOHIDVelocityEventData, IOHIDTranslationEventData;
+} IOHIDAxisEventData, IOHIDTranslationData, IOHIDRotationEventData, IOHIDScrollEventData, IOHIDScaleEventData, IOHIDVelocityData, IOHIDVelocityEventData, IOHIDTranslationEventData;
+
+typedef struct _IOHIDOrientationEventData {
+    IOHIDEVENT_BASE;
+    union  {
+        struct {
+            IOFixed x;
+            IOFixed y;
+            IOFixed z;
+        } polar;
+        struct {
+            IOFixed x;
+            IOFixed y;
+            IOFixed z;
+        } tilt;
+        struct {
+            uint32_t usage;
+        } deviceOrientation;
+        struct {
+            IOFixed w;
+            IOFixed x;
+            IOFixed y;
+            IOFixed z;
+        } quaternion;
+    } orientation;
+} IOHIDOrientationEventData;
 
 typedef struct _IOHIDMotionEventData {
     IOHIDEVENT_BASE;                            // options = kHIDAxisRelative

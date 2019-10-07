@@ -170,6 +170,10 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 /*! 
     @function   IOHIDQueueStart
     @abstract   Starts element value delivery to the queue.
+    @discussion When a dispatch queue is assocaited with the IOHIDQueue
+                via IOHIDQueueSetDispatchQueue, the queue does not need
+                to be explicity started, this will be done during activation
+                when IOHIDQueueActivate is called.
     @param      queue IOHIDQueue object to be started.
 */
 CF_EXPORT
@@ -179,6 +183,10 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 /*! 
     @function   IOHIDQueueStop
     @abstract   Stops element value delivery to the queue.
+    @discussion When a dispatch queue is assocaited with the IOHIDQueue
+                via IOHIDQueueSetDispatchQueue, the queue does not need
+                to be explicity stopped, this will be done during cancellation
+                when IOHIDQueueCancel is called.
     @param      queue IOHIDQueue object to be stopped.
 */
 CF_EXPORT
@@ -220,12 +228,143 @@ void IOHIDQueueUnscheduleFromRunLoop(
                                 CFRunLoopRef                    runLoop, 
                                 CFStringRef                     runLoopMode)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+ * @function IOHIDQueueSetDispatchQueue
+ *
+ * @abstract
+ * Sets the dispatch queue to be associated with the IOHIDQueue.
+ * This is necessary in order to receive asynchronous events from the kernel.
+ *
+ * @discussion
+ * An IOHIDQueue should not be associated with both a runloop and
+ * dispatch queue. A call to IOHIDQueueSetDispatchQueue should only be made once.
+ *
+ * If a dispatch queue is set but never used, a call to IOHIDQueueCancel followed
+ * by IOHIDQueueActivate should be performed in that order.
+ *
+ * After a dispatch queue is set, the IOHIDQueue must make a call to activate
+ * via IOHIDQueueActivate and cancel via IOHIDQueueCancel. All calls to "Register"
+ * functions should be done before activation and not after cancellation.
+ *
+ * @param queue
+ * Reference to an IOHIDQueue
+ *
+ * @param dispatchQueue
+ * The dispatch queue to which the event handler block will be submitted.
+ */
+CF_EXPORT
+void IOHIDQueueSetDispatchQueue(
+                                IOHIDQueueRef                   queue,
+                                dispatch_queue_t                dispatchQueue)
+__OSX_AVAILABLE(10.15) __IOS_AVAILABLE(13.0) __TVOS_AVAILABLE(13.0) __WATCHOS_AVAILABLE(6.0);
+
+/*!
+ * @function IOHIDQueueSetCancelHandler
+ *
+ * @abstract
+ * Sets a cancellation handler for the dispatch queue associated with
+ * IOHIDQueueSetDispatchQueue.
+ *
+ * @discussion
+ * The cancellation handler (if specified) will be will be submitted to the
+ * queue's dispatch queue in response to a call to IOHIDQueueCancel after all
+ * the events have been handled.
+ *
+ * IOHIDQueueSetCancelHandler should not be used when scheduling with
+ * a run loop.
+ *
+ * The IOHIDQueueRef should only be released after the queue has been
+ * cancelled, and the cancel handler has been called. This is to ensure all
+ * asynchronous objects are released. For example:
+ *
+ *     dispatch_block_t cancelHandler = dispatch_block_create(0, ^{
+ *         CFRelease(queue);
+ *     });
+ *     IOHIDQueueSetCancelHandler(queue, cancelHandler);
+ *     IOHIDQueueActivate(queue);
+ *     IOHIDQueueCancel(queue);
+ *
+ * @param queue
+ * Reference to an IOHIDQueue.
+ *
+ * @param handler
+ * The cancellation handler block to be associated with the dispatch queue.
+ */
+CF_EXPORT
+void IOHIDQueueSetCancelHandler(
+                                IOHIDQueueRef                   queue,
+                                dispatch_block_t                handler)
+__OSX_AVAILABLE(10.15) __IOS_AVAILABLE(13.0) __TVOS_AVAILABLE(13.0) __WATCHOS_AVAILABLE(6.0);
+
+/*!
+ * @function IOHIDQueueActivate
+ *
+ * @abstract
+ * Activates the IOHIDQueue object.
+ *
+ * @discussion
+ * An IOHIDQueue object associated with a dispatch queue is created
+ * in an inactive state. The object must be activated in order to
+ * receive asynchronous events from the kernel.
+ *
+ * A dispatch queue must be set via IOHIDQueueSetDispatchQueue before
+ * activation.
+ *
+ * An activated queue must be cancelled via IOHIDQueueCancel. All calls
+ * to "Register" functions should be done before activation
+ * and not after cancellation.
+ *
+ * Calling IOHIDQueueActivate on an active IOHIDQueue has no effect.
+ *
+ * @param queue
+ * Reference to an IOHIDQueue
+ */
+CF_EXPORT
+void IOHIDQueueActivate(        IOHIDQueueRef                   queue)
+__OSX_AVAILABLE(10.15) __IOS_AVAILABLE(13.0) __TVOS_AVAILABLE(13.0) __WATCHOS_AVAILABLE(6.0);
+
+/*!
+ * @function IOHIDQueueCancel
+ *
+ * @abstract
+ * Cancels the IOHIDQueue preventing any further invocation
+ * of its event handler block.
+ *
+ * @discussion
+ * Cancelling prevents any further invocation of the event handler block for
+ * the specified dispatch queue, but does not interrupt an event handler
+ * block that is already in progress.
+ *
+ * Explicit cancellation of the IOHIDQueue is required, no implicit
+ * cancellation takes place.
+ *
+ * Calling IOHIDQueueCancel on an already cancelled queue has no effect.
+ *
+ * The IOHIDQueueRef should only be released after the queue has been
+ * cancelled, and the cancel handler has been called. This is to ensure all
+ * asynchronous objects are released. For example:
+ *
+ *     dispatch_block_t cancelHandler = dispatch_block_create(0, ^{
+ *         CFRelease(queue);
+ *     });
+ *     IOHIDQueueSetCancelHandler(queue, cancelHandler);
+ *     IOHIDQueueActivate(queue);
+ *     IOHIDQueueCancel(queue);
+ *
+ * @param queue
+ * Reference to an IOHIDQueue
+ */
+CF_EXPORT
+void IOHIDQueueCancel(          IOHIDQueueRef                   queue)
+__OSX_AVAILABLE(10.15) __IOS_AVAILABLE(13.0) __TVOS_AVAILABLE(13.0) __WATCHOS_AVAILABLE(6.0);
                                 
 /*!
 	@function   IOHIDQueueRegisterValueAvailableCallback
 	@abstract   Sets callback to be used when the queue transitions to non-empty.
     @discussion In order to make use of asynchronous behavior, the queue needs
-                to be scheduled with the run loop.
+                to be scheduled with the run loop or dispatch queue.
+                If a dispatch queue is set, this call must occur before activation.
     @param      queue IOHIDQueue object to be modified.
     @param      callback Callback of type IOHIDCallback to be used when data is 
                 placed on the queue.

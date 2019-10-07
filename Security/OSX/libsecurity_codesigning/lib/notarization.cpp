@@ -22,7 +22,7 @@
  */
 #include "SecAssessment.h"
 #include "notarization.h"
-#include "unix++.h"
+#include <security_utilities/unix++.h>
 
 typedef struct __attribute__((packed)) _package_trailer {
 	uint8_t magic[4];

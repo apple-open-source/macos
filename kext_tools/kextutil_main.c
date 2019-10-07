@@ -43,7 +43,7 @@ const char * progname = "(unknown)";
 #define LOCK_MAXTRIES 90
 #define LOCK_DELAY     1
 static mach_port_t sKextdPort = MACH_PORT_NULL;
-static mach_port_t sLockPort = MACH_PORT_NULL;     // kext loading lock 
+static mach_port_t sLockPort = MACH_PORT_NULL;     // kext loading lock
 static int sLockStatus = 0;
 static bool sLockTaken = false;
 
@@ -127,6 +127,8 @@ main(int argc, char * const * argv)
         .performSignatureValidation = !doAuthBypass,
         .requireSecureLocation = !doAuthBypass,
         .respectSystemPolicy = !doAuthBypass,
+        .checkDextApproval = !doAuthBypass,
+        .is_kextcache = false,
     };
 
     /* System policy checks are meant to be called in the load path only,
@@ -262,7 +264,7 @@ readArgs(
     toolArgs->doLoad              = true;
     toolArgs->doStartMatching     = true;
     // toolArgs->archInfo must remain NULL before checkArgs
-    
+
    /*****
     * Allocate collection objects.
     */
@@ -305,7 +307,7 @@ readArgs(
                 }
                 CFArrayAppendValue(toolArgs->kextIDs, scratchString);
                 break;
-                
+
             case kOptPersonality:
                 scratchString = CFStringCreateWithCString(kCFAllocatorDefault,
                     optarg, kCFStringEncodingUTF8);
@@ -316,7 +318,7 @@ readArgs(
                 }
                 CFArrayAppendValue(toolArgs->personalityNames, scratchString);
                 break;
-                
+
             case kOptKernel:
                 if (toolArgs->kernelURL) {
                     OSKextLog(/* kext */ NULL,
@@ -335,7 +337,7 @@ readArgs(
                 }
                 toolArgs->kernelURL = CFRetain(scratchURL);
                 break;
-                
+
             case kOptDependency:
                 scratchURL = CFURLCreateFromFileSystemRepresentation(
                     kCFAllocatorDefault,
@@ -347,7 +349,7 @@ readArgs(
                 }
                 CFArrayAppendValue(toolArgs->dependencyURLs, scratchURL);
                 break;
-                
+
             case kOptRepository:
                 scratchResult = checkPath(optarg, /* suffix */ NULL,
                     /* directoryRequired */ TRUE, /* writableRequired */ FALSE);
@@ -365,19 +367,19 @@ readArgs(
                 }
                 CFArrayAppendValue(toolArgs->repositoryURLs, scratchURL);
                 break;
-                
+
             case kOptNoCaches:
                 toolArgs->useRepositoryCaches = false;
                 break;
-                
+
             case kOptNoLoadedCheck:
                 toolArgs->checkLoadedForDependencies = false;
                 break;
-                
+
             case kOptNoSystemExtensions:
                 toolArgs->useSystemExtensions = false;
                 break;
-                
+
             case kOptInteractive:
                 if (toolArgs->interactiveLevel) {
                     OSKextLog(/* kext */ NULL,
@@ -389,7 +391,7 @@ readArgs(
                 toolArgs->overwriteSymbols = false;
                 toolArgs->interactiveLevel = kOSKextExcludeKext;
                 break;
-                
+
             case kOptInteractiveAll:
                 if (toolArgs->interactiveLevel) {
                     OSKextLog(/* kext */ NULL,
@@ -401,19 +403,19 @@ readArgs(
                 toolArgs->overwriteSymbols = false;
                 toolArgs->interactiveLevel = kOSKextExcludeAll;
                 break;
-                
+
             case kOptLoadOnly:
                 toolArgs->flag_l = 1;
                 break;
-                
+
             case kOptMatchOnly:
                 toolArgs->flag_m = 1;
                 break;
-                
+
             case kOptNoLoad:
                 toolArgs->flag_n = 1;
                 break;
-                
+
             case kOptSymbolsDirectory:
                 if (toolArgs->symbolDirURL) {
                     OSKextLog(/* kext */ NULL,
@@ -438,7 +440,7 @@ readArgs(
                 }
                 toolArgs->symbolDirURL = CFRetain(scratchURL);
                 break;
-                
+
             case kOptAddress:
                 toolArgs->flag_n = 1;  // -a implies -n
 
@@ -451,7 +453,7 @@ readArgs(
                 }
                 address_string[0] = '\0';
                 address_string++;
-                
+
                /* Read a 64-bit int here; we'll check at load time
                 * whether the address is too big.
                 */
@@ -486,12 +488,12 @@ readArgs(
                 CFDictionarySetValue(toolArgs->loadAddresses, scratchString,
                     scratchNumber);
                 break;
-                
+
             case kOptUseKernelAddresses:
                 toolArgs->flag_n = 1;   // -A implies -n
                 toolArgs->getAddressesFromKernel = true;
                 break;
-                
+
             case kOptQuiet:
                 beQuiet();
                 toolArgs->logFilterChanged = true;
@@ -634,7 +636,7 @@ checkArgs(KextutilArgs * toolArgs)
         toolArgs->doLoad = false;
         toolArgs->doStartMatching = false;
     }
-    
+
     if ((toolArgs->interactiveLevel != kOSKextExcludeNone) &&
         !toolArgs->doLoad && !toolArgs->doStartMatching) {
 
@@ -652,7 +654,7 @@ checkArgs(KextutilArgs * toolArgs)
     *   not getting from kernel.
     */
     if (OSKextGetLogFilter(/* kernel? */ false) == kOSKextLogSilentFilter) {
-    
+
         Boolean interactive = (toolArgs->interactiveLevel != kOSKextExcludeNone);
         Boolean needAddresses = (toolArgs->symbolDirURL &&
             !toolArgs->doLoad &&
@@ -704,7 +706,7 @@ checkArgs(KextutilArgs * toolArgs)
    /* If we aren't sending anything to the kernel and not doing full
     * tests, then don't bother authenticating. This lets developers
     * generate symbols more conveniently & allows basic checks with -n alone.
-    */    
+    */
     if (!toolArgs->doLoad &&
         !toolArgs->doStartMatching &&
         !toolArgs->printDiagnostics) {
@@ -779,7 +781,7 @@ checkArgs(KextutilArgs * toolArgs)
         if (toolArgs->doLoad || toolArgs->getAddressesFromKernel) {
 
             if (kernelArchInfo != OSKextGetArchitecture()) {
-            
+
                 OSKextLog(/* kext */ NULL,
                     kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
                     "Specified architecture %s does not match "
@@ -788,18 +790,18 @@ checkArgs(KextutilArgs * toolArgs)
                 goto finish;
             }
         }
-        
+
        /* All good; set the default OSKext arch & safe boot mode.
         */
         OSKextSetArchitecture(toolArgs->archInfo);
         OSKextSetSimulatedSafeBoot(toolArgs->safeBootMode);
     }
-    
+
    /* Give a notice to the user in case they're doing cross-arch work.
     */
     if (toolArgs->symbolDirURL && !toolArgs->archInfo &&
         !toolArgs->getAddressesFromKernel) {
-        
+
         OSKextLog(/* kext */ NULL,
             kOSKextLogWarningLevel | kOSKextLogLinkFlag,
             "Notice: Using running kernel architecture %s to generate symbols.",
@@ -810,7 +812,7 @@ checkArgs(KextutilArgs * toolArgs)
    /* Give a notice to the user if safe boot mode is actually on.
     */
     if (OSKextGetActualSafeBoot() && !toolArgs->safeBootMode) {
-        
+
         OSKextLog(/* kext */ NULL,
             kOSKextLogWarningLevel | kOSKextLogLoadFlag,
             "Notice: system is in safe boot mode; kernel may refuse loads.");
@@ -853,12 +855,12 @@ checkArgs(KextutilArgs * toolArgs)
 
     /* If no explicit kernel image was provided by the user, default it
      * to KernelPath from /usr/standalone/bootcaches.plist
-     * <= 10.9 /mach_kernel 
+     * <= 10.9 /mach_kernel
      * > 10.9 /System/Library/Kernels/kernel
      */
     if (!toolArgs->kernelURL) {
         CFURLRef        scratchURL = NULL;
-      
+
         // use KernelPath from /usr/standalone/bootcaches.plist
         if (getKernelPathForURL(NULL,
                                 kernelPathCString,
@@ -867,7 +869,7 @@ checkArgs(KextutilArgs * toolArgs)
             strlcpy(kernelPathCString, "/System/Library/Kernels/kernel",
                     sizeof(kernelPathCString));
         }
-        
+
         if (useDevelopmentKernel(kernelPathCString)) {
             if (strlen(kernelPathCString) + strlen(kDefaultDevKernelSuffix) + 1 < sizeof(kernelPathCString)) {
                 strlcat(kernelPathCString,
@@ -875,7 +877,7 @@ checkArgs(KextutilArgs * toolArgs)
                         sizeof(kernelPathCString));
             }
         }
-        
+
         scratchURL = CFURLCreateFromFileSystemRepresentation(
                                                              kCFAllocatorDefault,
                                                              (const UInt8 *)kernelPathCString,
@@ -894,24 +896,24 @@ checkArgs(KextutilArgs * toolArgs)
     }
 
     if (toolArgs->kernelURL) {
-        /* create and fill our CFData object for toolArgs->kernelFile 
+        /* create and fill our CFData object for toolArgs->kernelFile
          */
         if (!CFURLGetFileSystemRepresentation(toolArgs->kernelURL,
                                               true,
                                               (uint8_t *)kernelPathCString,
                                               sizeof(kernelPathCString))) {
             OSKextLogStringError(/* kext */ NULL);
-            result = EX_OSFILE; 
+            result = EX_OSFILE;
             goto finish;
        }
-        
+
         if (!createCFDataFromFile(&toolArgs->kernelFile,
                                   kernelPathCString)) {
             OSKextLog(/* kext */ NULL,
                       kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
                       "Can't read kernel file '%s'",
                       kernelPathCString);
-            result = EX_OSFILE; 
+            result = EX_OSFILE;
             goto finish;
         }
     }
@@ -976,7 +978,7 @@ createKextsToProcess(
         if (!CFURLGetFileSystemRepresentation(kextURL,
             /* resolveToBase */ false,
             (u_char *)kextPathCString, sizeof(kextPathCString))) {
-                
+
             OSKextLogStringError(/* kext */ NULL);
             result = EX_OSERR;
             *fatal = true;
@@ -991,7 +993,7 @@ createKextsToProcess(
        /* Use OSKextGetKextWithURL() to avoid double open error messages,
         * because we already tried to open all kexts in main(). That means
         * we don't log here if we don't find the kext.
-        */ 
+        */
         theKext = OSKextGetKextWithURL(kextURL);
         if (!theKext) {
             result = kKextutilExitNotFound;
@@ -1064,7 +1066,7 @@ createKextsToProcess(
             OSKextRef scanKext =  (OSKextRef)CFArrayGetValueAtIndex(
                 kextsToProcess, kextIndex);
             CFStringRef scanKextID = OSKextGetIdentifier(scanKext);
-            
+
             if (CFEqual(thisKextID, scanKextID)) {
                 theKext = scanKext;
                 break;
@@ -1159,7 +1161,7 @@ setKextLoadAddress(
         context->fatal = true;
         goto finish;
     }
-    
+
 
     kexts = OSKextCopyKextsWithIdentifier(bundleID);
     if (!kexts) {
@@ -1168,7 +1170,7 @@ setKextLoadAddress(
 
     count = CFArrayGetCount(kexts);
     for (i = 0; i < count; i++) {
-        
+
         theKext = (OSKextRef)CFArrayGetValueAtIndex(kexts, i);
         if (!OSKextSetLoadAddress(theKext, loadAddress)) {
             context->fatal = true;
@@ -1221,9 +1223,9 @@ processKexts(
     count = CFArrayGetCount(kextsToProcess);
     for (i = 0; i < count; i++) {
         OSKextRef theKext = (OSKextRef)CFArrayGetValueAtIndex(kextsToProcess, i);
-        
+
         int loadResult = processKext(theKext, toolArgs, &fatal);
-        
+
        /* Save the first non-OK loadResult as the return value.
         */
         if (result == EX_OK && loadResult != EX_OK) {
@@ -1259,7 +1261,7 @@ processKext(
         *fatal = true;
         goto finish;
     }
-        
+
     result = runTestsOnKext(aKext, kextPathCString, toolArgs, fatal);
     if (result != EX_OK) {
         goto finish;
@@ -1425,10 +1427,10 @@ runTestsOnKext(
     */
     if (toolArgs->safeBootMode &&
         !OSKextIsLoadableInSafeBoot(aKext)) {
-        
+
         Boolean        mustQualify = (toolArgs->doLoad || toolArgs->doStartMatching);
         OSKextLogSpec  msgLogLevel = kOSKextLogErrorLevel;
-        
+
         if (mustQualify) {
             msgLogLevel = kOSKextLogWarningLevel;
         }
@@ -1448,7 +1450,7 @@ runTestsOnKext(
     if (OSKextHasLogOrDebugFlags(aKext)) {
         // xxx - check newline
         OSKextLog(/* kext */ NULL,
-            kOSKextLogWarningLevel | kOSKextLogLoadFlag, 
+            kOSKextLogWarningLevel | kOSKextLogLoadFlag,
             "Notice: %s has debug properties set.", kextPathCString);
     }
 
@@ -1515,7 +1517,7 @@ runTestsOnKext(
         kextLooksGood = OSKextDependenciesAreLoadableInSafeBoot(aKext) && kextLooksGood;
     }
 
-    /* Check code signature for diagnotic messages.  
+    /* Check code signature for diagnotic messages.
      */
     sigResult = checkKextSignature(aKext, false, true);
     if (sigResult != errSecSuccess) {
@@ -1576,7 +1578,7 @@ runTestsOnKext(
 
     if (result == EX_OK) {
         OSKextLog(/* kext */ NULL,
-            kOSKextLogBasicLevel | kOSKextLogLoadFlag, 
+            kOSKextLogBasicLevel | kOSKextLogLoadFlag,
             "%s appears to be loadable (%sincluding linkage for on-disk libraries).",
             kextPathCString, tryLink ? "" : "not ");
     }
@@ -1605,6 +1607,7 @@ loadKext(
     OSKextExcludeLevel startExclude     = toolArgs->interactiveLevel;
     OSKextExcludeLevel matchExclude     = toolArgs->interactiveLevel;
     CFArrayRef         personalityNames = toolArgs->personalityNames;
+    CFStringRef        kextIdentifier   = NULL; // do not release
     OSReturn           loadResult       = kOSReturnError;
 
    /* INTERACTIVE: ask if ok to load kext and its dependencies
@@ -1614,7 +1617,7 @@ loadKext(
         switch (user_approve(/* ask_all */ FALSE, /* default_answer */ REPLY_YES,
             "Load %s and its dependencies into the kernel",
             kextPathCString)) {
-            
+
             case REPLY_NO:
                 fprintf(stderr, "Not loading %s.", kextPathCString);
                 goto finish;  // result is EX_OK!
@@ -1641,11 +1644,19 @@ loadKext(
     if (!toolArgs->doStartMatching) {
         matchExclude = kOSKextExcludeAll;
     }
-    
-    loadResult = OSKextLoadWithOptions(aKext,
-        startExclude, matchExclude, personalityNames,
-        /* disableAutounload */ (startExclude != kOSKextExcludeNone));
- 
+
+    if (OSKextDeclaresUserExecutable(aKext)) {
+        /* By design, kextutil is unable to start dext daemons on its own.
+         * Instead, we ask kextd to do the load & start the daemon for us.
+         * KextManager will look up kextd's port automagically. */
+        kextIdentifier = OSKextGetIdentifier(aKext);
+        loadResult = KextManagerLoadKextWithIdentifier(kextIdentifier, toolArgs->scanURLs);
+    } else { /* !OSKextDeclaresUserExecutable(aKext) */
+        loadResult = OSKextLoadWithOptions(aKext,
+            startExclude, matchExclude, personalityNames,
+            /* disableAutounload */ (startExclude != kOSKextExcludeNone));
+    }
+
     if (loadResult == kOSReturnSuccess) {
         OSKextLog(/* kext */ NULL, kOSKextLogBasicLevel | kOSKextLogLoadFlag,
             "%s successfully loaded (or already loaded).",
@@ -1712,6 +1723,15 @@ ExitStatus generateKextSymbols(
         goto finish;
     }
 
+    if (OSKextDeclaresUserExecutable(aKext)) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+            "%s is a user extension; no symbols to generate.",
+            kextPathCString);
+        result = EX_DATAERR;
+        goto finish;
+    }
+
     archInfo = OSKextGetArchitecture();
     if (!OSKextSupportsArchitecture(aKext, archInfo)) {
         int native = (archInfo == NXGetLocalArchInfo());
@@ -1727,13 +1747,13 @@ ExitStatus generateKextSymbols(
     }
 
     /*****
-     * If we don't have a load address for aKext, ask for load addresses for it 
+     * If we don't have a load address for aKext, ask for load addresses for it
      * and any of its dependencies.
-     * NOTE (9656777) - OSKextNeedsLoadAddressForDebugSymbols() needs to be 
+     * NOTE (9656777) - OSKextNeedsLoadAddressForDebugSymbols() needs to be
      * called even if we loaded the kext.  The reason is that loading the kext
      * does not necessarily mean the load address was set in the load info
      * kept in the kernel.  Calling OSKextNeedsLoadAddressForDebugSymbols()
-     * will implicitly set the load address if the kernel has it thus 
+     * will implicitly set the load address if the kernel has it thus
      * avoiding having to ask the user for it.  And without that load address
      * we silently give back a partial symbol file that gdb dislikes.
      */
@@ -1750,11 +1770,11 @@ ExitStatus generateKextSymbols(
             *fatal = true;
             goto finish;
         }
-        
+
        /*****
         * For each kext w/o an address in loadAddresses, ask for an address.
         */
-        
+
         fprintf(stderr, "\nEnter the hexadecimal load addresses for these extensions\n"
             "(press Return to skip symbol generation for an extension):\n\n");
 
@@ -1777,7 +1797,7 @@ ExitStatus generateKextSymbols(
                     case 1: // ok to continue
                         break;
                 } /* switch */
-                
+
                /* If we didn't get a load address for the main kext, the user
                 * probably hit Return too many times.
                 */
@@ -1807,7 +1827,7 @@ ExitStatus generateKextSymbols(
         *fatal = true;
         goto finish;
     }
-    
+
     if (saveFlag) {
         SaveFileContext saveFileContext;
         saveFileContext.saveDirURL = toolArgs->symbolDirURL;
@@ -1823,7 +1843,7 @@ ExitStatus generateKextSymbols(
 finish:
     SAFE_RELEASE(loadList);
     SAFE_RELEASE(kextSymbols);
-                                        
+
     return result;
 }
 
@@ -1860,7 +1880,7 @@ requestLoadAddress(
             if (!user_response) {
                 goto finish;
             }
-            
+
            /* User wants to skip this one, don't set address & return success.
             */
             if (user_response[0] == '\0') {
@@ -1885,7 +1905,7 @@ requestLoadAddress(
                     user_response);
                 continue;
             } else if (*scan_pointer != '\0') {
-                fprintf(stderr, 
+                fprintf(stderr,
                     "input '%s' not a plain hexadecimal address; try again\n",
                     user_response);
                 continue;
@@ -1896,7 +1916,7 @@ requestLoadAddress(
 
         OSKextSetLoadAddress(aKext, address);
     }
-    
+
     result = 1;
 
 finish:
@@ -1926,7 +1946,7 @@ ExitStatus startKextsAndSendPersonalities(
 
     if (!CFURLGetFileSystemRepresentation(OSKextGetURL(aKext),
         /* resoveToBase */ false, (UInt8*)kextPath, sizeof(kextPath))) {
-        
+
         strlcpy(kextPath, "(unknown)", sizeof(kextPath));
     }
 
@@ -1996,7 +2016,7 @@ ExitStatus startKextsAndSendPersonalities(
 
             if (!CFURLGetFileSystemRepresentation(OSKextGetURL(thisKext),
                 /* resoveToBase */ false, (UInt8*)kextPath, sizeof(kextPath))) {
-                
+
                 strlcpy(kextPath, "(unknown)", sizeof(kextPath));
             }
 
@@ -2009,6 +2029,8 @@ ExitStatus startKextsAndSendPersonalities(
 
             if (OSKextIsInterface(thisKext)) {
                 status = "interface, not startable";
+            } else if (OSKextDeclaresUserExecutable(thisKext)) {
+                status = "user extension, already started"; // TODO: dext debugging support? output PID?
             } else if (!OSKextDeclaresExecutable(thisKext)) {
                 status = "no executable, not startable";
             } else if (OSKextIsStarted(thisKext)) {
@@ -2018,7 +2040,7 @@ ExitStatus startKextsAndSendPersonalities(
             }
             fprintf(stderr, "    %s - %s\n", thisKextIDCString, status);
         }
-        
+
         fprintf(stderr, "\n");
     }
 
@@ -2042,7 +2064,7 @@ ExitStatus startKextsAndSendPersonalities(
 
         if (!CFURLGetFileSystemRepresentation(OSKextGetURL(thisKext),
             /* resoveToBase */ false, (UInt8*)kextPath, sizeof(kextPath))) {
-            
+
             strlcpy(kextPath, "(unknown)", sizeof(kextPath));
         }
 
@@ -2056,10 +2078,10 @@ ExitStatus startKextsAndSendPersonalities(
         }
 
        /* Normally the kext is started when loaded, so only try to start it here
-        * if we're in interactive mode and we loaded it.
+        * if we're in interactive mode and we loaded it into the kernel.
         */
         if (toolArgs->interactiveLevel != kOSKextExcludeNone && toolArgs->doLoad) {
-            if (!OSKextIsStarted(thisKext)) {
+            if (!OSKextDeclaresUserExecutable(thisKext) && !OSKextIsStarted(thisKext)) {
                 result = startKext(thisKext, kextPath, toolArgs,
                     &startedAndPersonalitiesSent, &yesToAllKexts, fatal);
                 if (result != EX_OK || !startedAndPersonalitiesSent) {
@@ -2109,7 +2131,7 @@ ExitStatus startKextsAndSendPersonalities(
 
             if (!CFURLGetFileSystemRepresentation(OSKextGetURL(thisKext),
                 /* resoveToBase */ false, (UInt8*)kextPath, sizeof(kextPath))) {
-                
+
                 strlcpy(kextPath, "(unknown)", sizeof(kextPath));
             }
 
@@ -2181,7 +2203,7 @@ ExitStatus startKext(
             /* default_answer */ REPLY_YES,
             "Start %s",
             kextPathCString)) {
-            
+
             case REPLY_NO:
                 OSKextLog(/* kext */ NULL,
                     kOSKextLogBasicLevel | kOSKextLogLoadFlag,
@@ -2264,7 +2286,7 @@ ExitStatus sendPersonalities(
             switch (user_approve(/* ask_all */ TRUE, /* default_answer */ REPLY_YES,
                 "Send personalities for %s",
                 kextPathCString)) {
-                
+
                 case REPLY_NO:
                     fprintf(stderr, "Not sending personalities for %s.", kextPathCString);
                     goto finish;  // result is EX_OK!
@@ -2324,7 +2346,7 @@ ExitStatus sendPersonalities(
             if (kCFNotFound == CFArrayGetFirstIndexOfValue(
                 toolArgs->personalityNames,
                 RANGE_ALL(toolArgs->personalityNames), names[i])) {
-                
+
                 continue;
             }
         }
@@ -2335,7 +2357,7 @@ ExitStatus sendPersonalities(
             if (FALSE == yesToAllPersonalities) {
                 switch (user_approve(/* ask_all */ TRUE, /* default_answer */ REPLY_YES,
                     "Send personality %s", nameCString)) {
-                    
+
                     case REPLY_NO:
                         includeIt = FALSE;
                         break;
@@ -2357,7 +2379,7 @@ ExitStatus sendPersonalities(
                 } /* switch */
             } /* if (!*yesToAll) */
         } /* if (toolArgs->interactiveLevel ... ) */
-        
+
         if (includeIt) {
             CFArrayAppendValue(namesToSend, names[i]);
         }
@@ -2415,7 +2437,7 @@ Boolean serializeLoad(KextutilArgs * toolArgs, Boolean loadFlag)
     if (kern_result != KERN_SUCCESS) {
 
         OSKextLog(/* kext */ NULL,
-            kOSKextLogWarningLevel | kOSKextLogIPCFlag, 
+            kOSKextLogWarningLevel | kOSKextLogIPCFlag,
             "Can't contact kextd (continuing anyway) - %s.",
             bootstrap_strerror(kern_result));
     }
@@ -2437,7 +2459,7 @@ Boolean serializeLoad(KextutilArgs * toolArgs, Boolean loadFlag)
                     "Can't acquire kextload serialization lock; aborting.");
                 goto finish;
             }
-            
+
             if (sLockStatus == EBUSY) {
                 --lock_retries;
                 OSKextLog(/* kext */ NULL,
@@ -2567,7 +2589,7 @@ void usage(UsageLevel usageLevel)
         kOptNameNoLoad, kOptNameTests,
         kOptNoLoad, kOptTests);
     fprintf(stderr, "\n");
-    
+
     fprintf(stderr, "-%s (-%c): print this message and exit\n",
         kOptNameHelp, kOptHelp);
     fprintf(stderr, "\n");

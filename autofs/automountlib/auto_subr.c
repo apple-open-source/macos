@@ -62,6 +62,160 @@ struct mntlist *current_mounts;
 
 static bool_t nodirect_map = FALSE;
 
+#include <fakelink.h>
+
+const char *
+rosv_data_volume_prefix(size_t *lenp)
+{
+	static char data_path[PATH_MAX];
+	static size_t data_path_len;
+
+	if (data_path_len == 0) {
+		fakelink_get_property(FAKELINK_PROPERTY_DATA_VOLUME_MOUNT_POINT,
+				      data_path);
+		data_path_len = strlen(data_path);
+		/*
+		 * Make sure there's no trailing '/', because we assume that
+		 * in a bunch of places.
+		 */
+		if (data_path[data_path_len - 1] == '/') {
+			data_path[data_path_len - 1] = '\0';
+			data_path_len--;
+		}
+	}
+	if (lenp)
+		*lenp = data_path_len;
+	return data_path;
+}
+
+char *
+automount_realpath(const char *file_name, char *resolved_name)
+{
+	char *result = NULL;
+	struct attrlist al = {
+		.bitmapcount = ATTR_BIT_MAP_COUNT,
+		.commonattr  = ATTR_CMN_RETURNED_ATTRS,
+		.forkattr = ATTR_CMNEXT_NOFIRMLINKPATH,
+	};
+	struct {
+		uint32_t len;
+		attribute_set_t returned;
+		struct attrreference path_attr;
+		uint8_t extra[PATH_MAX];
+	} __attribute__((aligned(4), packed)) ab;
+	int rv;
+
+	rv = getattrlist(file_name, &al, &ab, sizeof(ab),
+			 FSOPT_ATTR_CMN_EXTENDED);
+	if (rv == -1)
+		return NULL;
+
+	result = (char *)&ab.path_attr + ab.path_attr.attr_dataoffset;
+	if (resolved_name != NULL) {
+		strlcpy(resolved_name, result, PATH_MAX);
+		result = resolved_name;
+	} else {
+		result = strdup(result);
+	}
+
+	return result;
+}
+
+#include <System/sys/fsctl.h>
+
+/*
+ * XXXJRT temporary definitions
+ */
+#ifndef APFSIOC_CREATE_SYNTHETIC_SYMLINK
+
+#ifndef APFS_NAME_MAX_BYTES
+#define APFS_NAME_MAX_BYTES (255*3)
+#endif
+
+typedef struct {
+	char synth_link_name[APFS_NAME_MAX_BYTES];
+	char synth_target_path[MAXPATHLEN];
+} apfs_create_synth_symlink_t;
+
+#define APFSIOC_CREATE_SYNTHETIC_SYMLINK _IOW('J', 75, apfs_create_synth_symlink_t)
+#define APFSIOC_CREATE_HIDDEN_SYNTHETIC_SYMLINK _IOW('J', 78, apfs_create_synth_symlink_t)
+
+#endif /* APFSIOC_CREATE_SYNTHETIC_SYMLINK */
+
+int
+synthetic_symlink(const char *link_name, const char *target, bool_t hidden)
+{
+	apfs_create_synth_symlink_t arg;
+
+	/*
+	 * The synthetic links are always in "/", and they cannot have the
+	 * leading '/' character in their name.
+	 */
+	if (*link_name == '/')
+		link_name++;
+
+	strlcpy(arg.synth_link_name, link_name, sizeof(arg.synth_link_name));
+	strlcpy(arg.synth_target_path, target, sizeof(arg.synth_target_path));
+	return fsctl("/", hidden ? APFSIOC_CREATE_HIDDEN_SYNTHETIC_SYMLINK
+				 : APFSIOC_CREATE_SYNTHETIC_SYMLINK, &arg, 0);
+}
+
+bool_t
+is_toplevel_dir(const char *dir)
+{
+	/*
+	 * This is a top-level directory if:
+	 *
+	 * ==> It's the mount point of the system data volume.
+	 * ==> It's any one of the special legacy locations.
+	 *     (We don't have any of these yet...)
+	 */
+	if (strcmp(dir, rosv_data_volume_prefix(NULL)) == 0)
+		return TRUE;
+
+	return FALSE;
+}
+
+static const char *
+skip_rosv_data_prefix(const char *dir)
+{
+	size_t prefix_len;
+	const char *prefix = rosv_data_volume_prefix(&prefix_len);
+
+	if (strncmp(dir, prefix, prefix_len) == 0) {
+		dir += prefix_len;
+	}
+	return dir;
+}
+
+bool_t
+is_reserved_mountpoint(const char *dir)
+{
+	static const char * const reserved_mountpoints[] = {
+		"/Volumes/",
+		NULL,
+	};
+	const char * const *rsp;
+
+	dir = skip_rosv_data_prefix(dir);
+
+	for (rsp = reserved_mountpoints; *rsp != NULL; rsp++) {
+		if (strncmp(dir, *rsp, strlen(*rsp)) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+bool_t
+is_slash_network(const char *dir)
+{
+	static const char slashnetwork[] = "/Network/";
+
+	dir = skip_rosv_data_prefix(dir);
+
+	return (strncmp(dir, slashnetwork, strlen(slashnetwork)) == 0);
+}
+
 void
 dirinit(char *mntpnt, char *map, char *opts, int direct, char **stack,
 	char ***stkptr)
@@ -69,25 +223,61 @@ dirinit(char *mntpnt, char *map, char *opts, int direct, char **stack,
 	struct autodir *dir;
 	size_t mntpntlen;
 	char *p;
+	bool_t is_direct_map;
+
+	is_direct_map = strcmp(mntpnt, "/-") == 0;
+
+	if (mntpnt[0] != '/') {
+		pr_msg(LOG_WARNING, "dir %s must start with '/'", mntpnt);
+		return;
+	}
+	if (mntpnt[1] == '\0') {
+		pr_msg(LOG_WARNING, "mounting on '/' is not allowed");
+		return;
+	}
+
+	/*
+	 * Map the user-specified mount point to where we're actually going
+	 * to place it (on the writable data volume of the system volume group).
+	 *
+	 * (Unless the user specified the data volume directly.)
+	 */
+	size_t prefix_len;
+	const char *prefix = rosv_data_volume_prefix(&prefix_len);
+	const char *orig_mntpnt = mntpnt;
+
+	if (strncmp(orig_mntpnt, prefix, prefix_len) == 0) {
+		/*
+		 * Already have the correct prefix; there is no need for
+		 * any ephemeral symbolic link trickery.
+		 */
+		orig_mntpnt = NULL;
+	} else {
+		mntpnt = NULL;
+		asprintf(&mntpnt, "%s%s", prefix, orig_mntpnt);
+		if (mntpnt == NULL) {
+			pr_msg(LOG_ERR, "failed to allocate mouint point path");
+			return;
+		}
+	}
 
 	if (strcmp(map, "-null") == 0) {
-		if (strcmp(mntpnt, "/-") == 0)
+		if (is_direct_map)
 			nodirect_map = TRUE;
 		goto enter;
 	}
 
 	mntpntlen = strlen(mntpnt);
-	if (mntpntlen == 0) {
-		pr_msg(LOG_WARNING, "dir is empty string");
-		return;
+
+	/*
+	 * We already know we won't have an empty string at this point.
+	 * Trim off any trailing '/' characters.
+	 */
+	for (p = mntpnt + (mntpntlen - 1); *p == '/' && p != mntpnt;
+	     p--, mntpntlen--) {
+		*p = '\0';
 	}
-	p = mntpnt + (mntpntlen - 1);
-	if (*p == '/')
-		*p = '\0';	/* trim trailing / */
-	if (*mntpnt != '/') {
-		pr_msg(LOG_WARNING, "dir %s must start with '/'", mntpnt);
-		return;
-	}
+
 	if ((p = check_hier(mntpnt)) != NULL) {
 		pr_msg(LOG_WARNING, "hierarchical mountpoint: %s and %s",
 			p, mntpnt);
@@ -98,32 +288,53 @@ dirinit(char *mntpnt, char *map, char *opts, int direct, char **stack,
 	 * If it's a direct map then call dirinit
 	 * for every map entry.
 	 */
-	if ((strcmp(mntpnt, "/-") == 0) && !(nodirect_map)) {
+	if (is_direct_map && !(nodirect_map)) {
 		(void) loaddirect_map(map, map, opts, stack, stkptr);
 		return;
 	}
 
 enter:
-	dir = (struct autodir *)malloc(sizeof (*dir));
+	dir = (struct autodir *)calloc(1, sizeof (*dir));
 	if (dir == NULL)
 		goto alloc_failed;
 	dir->dir_name = strdup(mntpnt);
 	if (dir->dir_name == NULL) {
-		dir->dir_opts = NULL;
-		dir->dir_map = NULL;
 		goto alloc_failed;
 	}
 	dir->dir_map = strdup(map);
 	if (dir->dir_map == NULL) {
-		dir->dir_opts = NULL;
 		goto alloc_failed;
 	}
 	dir->dir_opts = strdup(opts);
 	if (dir->dir_opts == NULL)
 		goto alloc_failed;
 	dir->dir_direct = direct;
-	dir->dir_realpath = NULL;
-	dir->dir_next = NULL;
+
+	/*
+	 * If the user specified "/something", then what we're really
+	 * going to do is mount on "/System/Volumes/Data/something" and
+	 * create the ephemeral symlink:
+	 *
+	 *	/something -> /System/Volumes/Data/something
+	 *
+	 * In the case of "/Network/Servers", then we will mount on
+	 * "/System/Volumes/Data/Network/Servers" and create the
+	 * ephemeral symlink:
+	 *
+	 *	/Network -> /System/Volumes/Data/Network
+	 */
+	if (orig_mntpnt) {
+		/*
+		 * We already know that orig_mntpoint starts with '/'.
+		 * Find any subsequent '/'.
+		 */
+		dir->dir_linkname = strdup(orig_mntpnt);
+		if (dir->dir_linkname == NULL)
+			goto alloc_failed;
+		char *cp = strchr(dir->dir_linkname + 1, '/');
+		if (cp != NULL)
+			*cp = '\0';
+	}
 
 	/*
 	 * Append to dir chain
@@ -144,6 +355,8 @@ alloc_failed:
 			free(dir->dir_opts);
 		if (dir->dir_map)
 			free(dir->dir_map);
+		if (dir->dir_linkname)
+			free(dir->dir_linkname);
 		if (dir->dir_name)
 			free(dir->dir_name);
 		free(dir);
@@ -204,9 +417,11 @@ getword(char *w, char *wq, char **p, char **pq, char delim, int wordsz)
 		return (-1);
 	}
 
-	while ((delim == ' ' ? isspace(**p) : **p == delim) && **pq == ' ')
-		(*p)++, (*pq)++;
-
+	while ((delim == ' ' ? isspace(**p) : **p == delim) && **pq == ' ') {
+		(*p)++;
+		(*pq)++;
+	}
+		
 	while (**p &&
 		!((delim == ' ' ? isspace(**p) : **p == delim) &&
 			**pq == ' ')) {

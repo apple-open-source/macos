@@ -4,15 +4,26 @@ SDKROOT = macosx.internal
 SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator
 BUILD_VARIANTS = normal debug
 
-INSTALL_PATH = /usr/lib/system
+SDK_INSTALL_VARIANT = $(SDK_INSTALL_VARIANT_$(DRIVERKIT))
+SDK_INSTALL_VARIANT_1 = driverkit
+SDK_INSTALL_VARIANT_ = default
+SDK_INSTALL_ROOT = $(SDK_INSTALL_ROOT_$(SDK_INSTALL_VARIANT))
+SDK_INSTALL_ROOT_driverkit = $(DRIVERKITROOT)
+SDK_INSTALL_HEADERS_ROOT = $(SDK_INSTALL_HEADERS_ROOT_$(SDK_INSTALL_VARIANT))
+SDK_INSTALL_HEADERS_ROOT_driverkit = $(SDK_INSTALL_ROOT)/$(SDK_RUNTIME_HEADERS_PREFIX)
+SDK_RUNTIME_HEADERS_PREFIX = Runtime
+
+INSTALL_PATH = $(SDK_INSTALL_ROOT)/usr/lib/system
 EXECUTABLE_PREFIX = lib
 PRODUCT_NAME = system_pthread
-PUBLIC_HEADERS_FOLDER_PATH = /usr/include/pthread
-PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/pthread
+PUBLIC_HEADERS_FOLDER_PATH = $(SDK_INSTALL_HEADERS_ROOT)/usr/include/pthread
+PRIVATE_HEADERS_FOLDER_PATH = $(SDK_INSTALL_HEADERS_ROOT)/usr/local/include/pthread
 
 SRCROOT_SEARCH_PATHS = $(SRCROOT) $(SRCROOT)/private $(SRCROOT)/os $(SRCROOT)/src/resolver
-SYSTEM_FRAMEWORK_HEADERS = $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
-HEADER_SEARCH_PATHS = $($(PRODUCT_NAME)_SEARCH_PATHS) $(SRCROOT_SEARCH_PATHS) $(SYSTEM_FRAMEWORK_HEADERS) $(SDKROOT)/usr/local/include $(inherited)
+SYSTEM_FRAMEWORK_HEADERS = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
+HEADER_SEARCH_PATHS = $($(PRODUCT_NAME)_SEARCH_PATHS) $(SRCROOT_SEARCH_PATHS) $(inherited)
+SYSTEM_HEADER_SEARCH_PATHS = $(SYSTEM_FRAMEWORK_HEADERS) $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/local/include $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/include
+SYSTEM_FRAMEWORK_SEARCH_PATHS = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks
 INSTALLHDRS_SCRIPT_PHASE = YES
 ALWAYS_SEARCH_USER_PATHS = YES
 USE_HEADERMAP = NO
@@ -61,7 +72,7 @@ BASE_PREPROCESSOR_MACROS = __LIBC__ __DARWIN_UNIX03=1 __DARWIN_64_BIT_INO_T=1 __
 GCC_PREPROCESSOR_DEFINITIONS = $(BASE_PREPROCESSOR_MACROS) $(PLATFORM_PREPROCESSOR_DEFINITIONS)
 
 // TODO: Remove -fstack-protector on _debug when it is moved to libplatform
-OTHER_CFLAGS = -fno-stack-protector -fno-builtin $(PLATFORM_CFLAGS) $($(PRODUCT_NAME)_CFLAGS)
+OTHER_CFLAGS = -fno-stack-protector -fno-stack-check -fno-builtin $(PLATFORM_CFLAGS) $($(PRODUCT_NAME)_CFLAGS)
 OTHER_CFLAGS_normal = -momit-leaf-frame-pointer
 OTHER_CFLAGS_debug = -fno-inline -O0 -DDEBUG=1
 
@@ -70,11 +81,15 @@ DYLIB_CURRENT_VERSION = $(RC_ProjectSourceVersion)
 DYLIB_COMPATIBILITY_VERSION = 1
 DIRTY_LDFLAGS = -Wl,-dirty_data_list,$(SRCROOT)/xcodescripts/pthread.dirty
 DIRTY_LDFLAGS[sdk=macos*] =
-DYLIB_LDFLAGS = -Wl,-alias_list,$(SRCROOT)/xcodescripts/pthread.aliases -Wl,-umbrella,System -L/usr/lib/system -lsystem_kernel -lsystem_platform -ldyld -lcompiler_rt
-OTHER_LDFLAGS = $(DYLIB_LDFLAGS) $(DIRTY_LDFLAGS) $(CR_LDFLAGS) $(PLATFORM_LDFLAGS)
+DYLIB_LDFLAGS = -Wl,-alias_list,$(SRCROOT)/xcodescripts/pthread.aliases -Wl,-umbrella,System -L$(SDK_INSTALL_ROOT)/usr/lib/system -lsystem_kernel -lsystem_platform -ldyld -lcompiler_rt
+OTHER_LDFLAGS = $(DYLIB_LDFLAGS) $(DIRTY_LDFLAGS) $(CR_LDFLAGS) $(PLATFORM_LDFLAGS) $(SIMULATOR_LDFLAGS)
+
+SIMULATOR_LDFLAGS =
+SIMULATOR_LDFLAGS[sdk=macosx*] = -Wl,-simulator_support
+IS_ZIPPERED = YES
+
 
 // Simulator build rules
 EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*] = *.c *.s
 SKIP_INSTALL[sdk=iphonesimulator*] = YES
 OTHER_LDFLAGS[sdk=iphonesimulator*] =
-

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2010 Apple Inc.  All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -82,6 +82,7 @@
 #include <sys/time.h>
 #include <sys/mount.h>
 #include <sys/sysctl.h>
+#include <sys/un.h>
 
 #include <libutil.h>
 #include <util.h>
@@ -94,6 +95,7 @@
 #include <nfs/nfsproto.h>
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <Security/Authorization.h>
 #include <ServiceManagement/ServiceManagement.h>
 #include <ServiceManagement/ServiceManagement_Private.h>
 
@@ -188,7 +190,6 @@ main(int argc, char *argv[], __unused char *envp[])
 {
 	struct pidfh *nfsd_pfh, *mountd_pfh;
 	pid_t pid;
-	struct stat st;
 	int ch, reregister, rv;
 	int tcpflag, udpflag, protocnt;
 	int nfsdcnt, nfsport, mountport;
@@ -522,7 +523,8 @@ config_read(struct nfs_conf_server *conf)
 	FILE *f;
 	size_t len, linenum = 0;
 	char *line, *p, *key, *value;
-	long val;
+	int val;
+    long tmp;
 
 	if (!(f = fopen(_PATH_NFS_CONF, "r"))) {
 		if (errno != ENOENT)
@@ -555,9 +557,17 @@ config_read(struct nfs_conf_server *conf)
 			continue;
 		}
 
-		val = !value ? 1 : strtol(value, NULL, 0);
-		DEBUG(2, "%4ld %s=%s (%d)", linenum, key, value ? value : "", val);
+		tmp = !value ? 1 : strtol(value, NULL, 0);
+		DEBUG(2, "%4ld %s=%s (%d)", linenum, key, value ? value : "", tmp);
 
+        if (tmp > INT32_MAX) {
+            tmp = INT32_MAX;
+        } else if (tmp < INT32_MIN) {
+            tmp = INT32_MIN;
+        }
+        
+        val = (int) tmp;
+        
 		if (!strcmp(key, "nfs.server.async")) {
 			conf->async = val;
 		} else if (!strcmp(key, "nfs.server.bonjour")) {
@@ -920,7 +930,7 @@ do_lockd_ping(void)
 		return;
 	}
 	kr = lockd_ping(mp);
-	mach_port_destroy(mach_task_self(), mp);
+	mach_port_deallocate(mach_task_self(), mp);
 	if (kr != KERN_SUCCESS) {
 		log(LOG_ERR, "Lockd did not start!");
 		return;
@@ -943,7 +953,7 @@ do_lockd_shutdown(void)
 		return;
 	}
 	kr = lockd_shutdown(mp);
-	mach_port_destroy(mach_task_self(), mp);
+	mach_port_deallocate(mach_task_self(), mp);
 	if (kr != KERN_SUCCESS) {
 		log(LOG_ERR, "lockd shutdown failed!");
 		return;
@@ -957,11 +967,13 @@ do_lockd_shutdown(void)
 static void
 register_services(void)
 {
-	struct sockaddr_storage ss, ss6;
+	struct sockaddr_storage ss, ss6, ssun;
 	struct sockaddr *sa = (struct sockaddr*)&ss;
 	struct sockaddr *sa6 = (struct sockaddr*)&ss6;
+	struct sockaddr *saun = (struct sockaddr*)&ssun;
 	struct sockaddr_in *sin = (struct sockaddr_in*)&ss;
 	struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)&ss6;
+	struct sockaddr_un *sun = (struct sockaddr_un *)&ssun;
 	int errcnt;
 
 	sin->sin_family = AF_INET;
@@ -970,6 +982,8 @@ register_services(void)
 	sin6->sin6_family = AF_INET6;
 	sin6->sin6_addr = in6addr_any;
 	sin6->sin6_len = sizeof(*sin6);
+	sun->sun_family = AF_LOCAL;
+	sun->sun_len = sizeof(*sun);
 
 	/* nfsd */
 	rpcb_unset(NULL, RPCPROG_NFS, 2);
@@ -1013,6 +1027,34 @@ register_services(void)
 			log(LOG_ERR, "couldn't register NFS/TCP service.");
 	}
 
+#ifdef _PATH_NFSD_TICLTS_SOCK
+	/* XXX if (config.ticlts?) */
+	{
+        errcnt = 0;
+		strlcpy(sun->sun_path, _PATH_NFSD_TICLTS_SOCK, sizeof(sun->sun_path));
+        if (!rpcb_set("ticotsord", RPCPROG_NFS, 2, saun))
+            errcnt++;
+		if (!rpcb_set("ticlts", RPCPROG_NFS, 3, saun))
+            errcnt++;
+        if (errcnt)
+            log(LOG_ERR, "coundn't register NFS/TICLTS service.");
+	}
+#endif
+
+#ifdef _PATH_NFSD_TICOTSORD_SOCK
+	/* XXX if (config.ticotsord?) */
+	{
+        errcnt = 0;
+        strlcpy(sun->sun_path, _PATH_NFSD_TICOTSORD_SOCK, sizeof(sun->sun_path));
+        if (!rpcb_set("ticotsord", RPCPROG_NFS, 2, saun))
+            errcnt++;
+        if (!rpcb_set("ticotsord", RPCPROG_NFS, 3, saun))
+            errcnt++;
+        if (errcnt)
+			log(LOG_ERR, "coundn't register NFS/TICOTSORD service.");
+	}
+#endif
+
 	/* mountd */
 	rpcb_unset(NULL, RPCPROG_MNT, 1);
 	rpcb_unset(NULL, RPCPROG_MNT, 3);
@@ -1054,6 +1096,32 @@ register_services(void)
 		if (errcnt)
 			log(LOG_ERR, "couldn't register MOUNT/TCP service.");
 	}
+
+#ifdef _PATH_MOUNTD_TICLTS_SOCK
+	/*XXX if (config.ticlts?) */
+	{
+		strlcpy(sun->sun_path, _PATH_MOUNTD_TICLTS_SOCK, sizeof(sun->sun_path));
+        if (!rpcb_set("ticlts", RPCPROG_MNT, 1, &sun))
+            errcnt++;
+        if (!rpcb_set("ticlts", RPCPROG_MNT, 3, &sun))
+            errcnt++;
+        if (errcnt)
+            log(LOG_ERR, "coundn't register NFS/TICLTS service.");
+	}
+#endif
+
+#ifdef _PATH_MOUNTD_TICOTSORD_SOCK
+	/*XXX if (config.ticotsord?) */
+	{
+		strlcpy(sun->sun_path, _PATH_MOUNTD_TICOTSORD_SOCK, sizeof(sun->sun_path));
+        if (!rpcb_set("ticotsord", RPCPROG_MNT, 1, (const struct sockaddr *) sun))
+            errcnt++;
+        if (!rpcb_set("ticotsord", RPCPROG_MNT, 3, (const struct sockaddr *) sun))
+            errcnt++;
+        if (errcnt)
+			log(LOG_ERR, "coundn't register NFS/TICOTSORD service.");
+	}
+#endif
 
 	/* Register NFS exports with service discovery mechanism(s). */
 
@@ -1108,7 +1176,8 @@ static pid_t
 get_pid(const char *path)
 {
 	char pidbuf[128], *pidend;
-	int fd, len, rv;
+	int fd, rv;
+    size_t len;
 	pid_t pid;
 	struct flock lock;
 
@@ -1125,7 +1194,7 @@ get_pid(const char *path)
 
 	/* parse PID */
 	pidbuf[len] = '\0';
-	pid = strtol(pidbuf, &pidend, 10);
+	pid = (pid_t) strtol(pidbuf, &pidend, 10);
 	if (!len || (pid < 1)) {
 		DEBUG(1, "%s: bogus pid: %s", path, pidbuf);
 		close(fd);
@@ -1184,6 +1253,8 @@ signal_nfsd(int signal)
  *    1      0         1
  *    1      1         0
  */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 static int
 service_is_enabled(CFStringRef service)
 {
@@ -1201,7 +1272,7 @@ service_is_loaded(CFStringRef service)
 	Boolean dummy;
 	return (SMJobIsEnabled(kSMDomainSystemLaunchd, service, &dummy));
 }
-
+#pragma clang diagnostic pop
 /*
  * Check whether the nfsd service appears to be enabled.
  */

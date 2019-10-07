@@ -8,7 +8,7 @@
 entryPoint(CommonCryptoOutputLength,"CommonCrypto Output Length Testing")
 #else
 
-static int kTestTestCount = 21912;
+static int kTestTestCount = 59184;
 
 #define MAXSTART 64
 #define MAXOUT 4096
@@ -20,7 +20,7 @@ testOutputLength(CCOperation op, CCMode mode, CCAlgorithm alg, size_t keyLength,
     size_t retval;
     CCCryptorStatus status;
     uint8_t iv[16];
-    uint8_t key[24];
+    uint8_t key[32];
     uint8_t dataIn[MAXSTART], dataOut[MAXOUT];
     size_t moved = 0;
     
@@ -52,20 +52,41 @@ int CommonCryptoOutputLength (int __unused argc, char *const * __unused argv)
 {
     int verbose = 0;
 	plan_tests(kTestTestCount);
-    
-    /* ENCRYPTING ****************************************************************************************************************************************/
-    if(verbose) diag("ENCRYPTING AES-CTR (Streaming Mode) Update");
-    for(size_t i=0; i<3*kCCBlockSizeAES128; i++) {
-        for(size_t bufferPos=0; bufferPos<kCCBlockSizeAES128; bufferPos++) {
-            testOutputLength(kCCEncrypt, kCCModeCTR, kCCAlgorithmAES128, kCCKeySizeAES128, ccNoPadding, bufferPos, i, false, i);
-        }
-    }
 
-    if(verbose) diag("ENCRYPTING AES-ECB-NoPadding Update");
-    for(size_t i=0; i<3*kCCBlockSizeAES128; i++) {
-        for(size_t bufferPos=0; bufferPos<kCCBlockSizeAES128; bufferPos++) {
-            size_t total = i+bufferPos;
-            testOutputLength(kCCEncrypt, kCCModeECB, kCCAlgorithmAES128, kCCKeySizeAES128, ccNoPadding, bufferPos, i, false, total-(total%kCCBlockSizeAES128));
+    uint8_t aes_key_sizes[] = { kCCKeySizeAES128, kCCKeySizeAES192, kCCKeySizeAES256 };
+
+    /* ENCRYPTING ****************************************************************************************************************************************/
+
+    for (size_t k=0; k < (sizeof(aes_key_sizes) / sizeof(aes_key_sizes[0])); k++) {
+        if(verbose) diag("ENCRYPTING AES-CTR (Streaming Mode) Update");
+        for(size_t i=0; i<3*kCCBlockSizeAES128; i++) {
+            for(size_t bufferPos=0; bufferPos<kCCBlockSizeAES128; bufferPos++) {
+                testOutputLength(kCCEncrypt, kCCModeCTR, kCCAlgorithmAES, aes_key_sizes[k], ccNoPadding, bufferPos, i, false, i);
+            }
+        }
+
+        if(verbose) diag("ENCRYPTING AES-ECB-NoPadding Update");
+        for(size_t i=0; i<3*kCCBlockSizeAES128; i++) {
+            for(size_t bufferPos=0; bufferPos<kCCBlockSizeAES128; bufferPos++) {
+                size_t total = i+bufferPos;
+                testOutputLength(kCCEncrypt, kCCModeECB, kCCAlgorithmAES, aes_key_sizes[k], ccNoPadding, bufferPos, i, false, total-(total%kCCBlockSizeAES128));
+            }
+        }
+
+        if(verbose) diag("ENCRYPTING AES-CBC-PKCS7Padding Update");
+        for(size_t i=0; i<3*kCCBlockSizeAES128; i++) {
+            for(size_t bufferPos=0; bufferPos<kCCBlockSizeAES128; bufferPos++) {
+                size_t total = i+bufferPos;
+                testOutputLength(kCCEncrypt, kCCModeCBC, kCCAlgorithmAES, aes_key_sizes[k], ccPKCS7Padding, bufferPos, i, false, total-(total%kCCBlockSizeAES128));
+            }
+        }
+
+        if(verbose) diag("ENCRYPTING AES-CBC-PKCS7Padding-Final");
+        for(size_t i=0; i<3*kCCBlockSizeAES128; i++) {
+            for(size_t bufferPos=0; bufferPos<kCCBlockSizeAES128; bufferPos++) {
+                size_t total = i+bufferPos;
+                testOutputLength(kCCEncrypt, kCCModeCBC, kCCAlgorithmAES, aes_key_sizes[k], ccPKCS7Padding, bufferPos, i, true, total-(total%kCCBlockSizeAES128)+kCCBlockSizeAES128);
+            }
         }
     }
     
@@ -77,26 +98,11 @@ int CommonCryptoOutputLength (int __unused argc, char *const * __unused argv)
         }
     }
     
-    if(verbose) diag("ENCRYPTING AES-CBC-PKCS7Padding Update");
-    for(size_t i=0; i<3*kCCBlockSizeAES128; i++) {
-        for(size_t bufferPos=0; bufferPos<kCCBlockSizeAES128; bufferPos++) {
-            size_t total = i+bufferPos;
-            testOutputLength(kCCEncrypt, kCCModeCBC, kCCAlgorithmAES128, kCCKeySizeAES128, ccPKCS7Padding, bufferPos, i, false, total-(total%kCCBlockSizeAES128));
-        }
-    }
-    
     if(verbose) diag("ENCRYPTING 3DES-CBC-PKCS7Padding Update");
     for(size_t i=0; i<3*kCCBlockSize3DES; i++) {
         for(size_t bufferPos=0; bufferPos<kCCBlockSize3DES; bufferPos++) {
             size_t total = i+bufferPos;
             testOutputLength(kCCEncrypt, kCCModeCBC, kCCAlgorithm3DES, kCCKeySize3DES, ccPKCS7Padding, bufferPos, i, false, total-(total%kCCBlockSize3DES));
-        }
-    }
-    if(verbose) diag("ENCRYPTING AES-CBC-PKCS7Padding-Final");
-    for(size_t i=0; i<3*kCCBlockSizeAES128; i++) {
-        for(size_t bufferPos=0; bufferPos<kCCBlockSizeAES128; bufferPos++) {
-            size_t total = i+bufferPos;
-            testOutputLength(kCCEncrypt, kCCModeCBC, kCCAlgorithmAES128, kCCKeySizeAES128, ccPKCS7Padding, bufferPos, i, true, total-(total%kCCBlockSizeAES128)+kCCBlockSizeAES128);
         }
     }
     
@@ -110,19 +116,36 @@ int CommonCryptoOutputLength (int __unused argc, char *const * __unused argv)
 
     /* DECRYPTING ****************************************************************************************************************************************/
 
-    if(verbose) diag("DECRYPTING AES-CTR (Streaming Mode) Update");
-    for(size_t i=0; i<3*kCCBlockSizeAES128; i++) {
-        for(size_t bufferPos=0; bufferPos<kCCBlockSizeAES128; bufferPos++) {
-            testOutputLength(kCCDecrypt, kCCModeCTR, kCCAlgorithmAES128, kCCKeySizeAES128, ccNoPadding, bufferPos, i, false, i);
+    for (size_t k=0; k < (sizeof(aes_key_sizes) / sizeof(aes_key_sizes[0])); k++) {
+        if(verbose) diag("DECRYPTING AES-CTR (Streaming Mode) Update");
+        for(size_t i=0; i<3*kCCBlockSizeAES128; i++) {
+            for(size_t bufferPos=0; bufferPos<kCCBlockSizeAES128; bufferPos++) {
+                testOutputLength(kCCDecrypt, kCCModeCTR, kCCAlgorithmAES, aes_key_sizes[k], ccNoPadding, bufferPos, i, false, i);
+            }
         }
-    }
-    
-    // From here down everything should be in full blocks
-    if(verbose) diag("DECRYPTING AES-ECB-NoPadding Update");
-    for(size_t i=0; i<3*kCCBlockSizeAES128; i+=kCCBlockSizeAES128) {
-        for(size_t bufferPos=0; bufferPos<kCCBlockSizeAES128; bufferPos++) {
+
+        // From here down everything should be in full blocks
+        if(verbose) diag("DECRYPTING AES-ECB-NoPadding Update");
+        for(size_t i=0; i<3*kCCBlockSizeAES128; i+=kCCBlockSizeAES128) {
+            for(size_t bufferPos=0; bufferPos<kCCBlockSizeAES128; bufferPos++) {
+                size_t total = i+bufferPos;
+                testOutputLength(kCCDecrypt, kCCModeECB, kCCAlgorithmAES, aes_key_sizes[k], ccNoPadding, bufferPos, i, false, round_down_by_blocksize(total, kCCBlockSizeAES128));
+            }
+        }
+
+        if(verbose) diag("DECRYPTING AES-CBC-PKCS7Padding Update");
+        for(size_t i=0; i<3*kCCBlockSizeAES128; i++) {
+            for(size_t bufferPos=1; bufferPos <= kCCBlockSizeAES128; bufferPos ++) {
+                size_t total = pkcs7decryptUpdateResultLength_by_blocksize(i+bufferPos, kCCBlockSizeAES128);
+                testOutputLength(kCCDecrypt, kCCModeCBC, kCCAlgorithmAES, aes_key_sizes[k], ccPKCS7Padding, bufferPos, i, false, total);
+            }
+        }
+
+        if(verbose) diag("DECRYPTING AES-CBC-PKCS7Padding-Final");
+        for(size_t i=0; i<3*kCCBlockSizeAES128; i+=kCCBlockSizeAES128) {
+            size_t bufferPos=kCCBlockSizeAES128;
             size_t total = i+bufferPos;
-            testOutputLength(kCCDecrypt, kCCModeECB, kCCAlgorithmAES128, kCCKeySizeAES128, ccNoPadding, bufferPos, i, false, round_down_by_blocksize(total, kCCBlockSizeAES128));
+            testOutputLength(kCCDecrypt, kCCModeCBC, kCCAlgorithmAES, aes_key_sizes[k], ccPKCS7Padding, bufferPos, i, true, total);
         }
     }
     
@@ -134,14 +157,6 @@ int CommonCryptoOutputLength (int __unused argc, char *const * __unused argv)
         }
     }
     
-    if(verbose) diag("DECRYPTING AES-CBC-PKCS7Padding Update");
-    for(size_t i=0; i<3*kCCBlockSizeAES128; i++) {
-        for(size_t bufferPos=1; bufferPos <= kCCBlockSizeAES128; bufferPos ++) {
-            size_t total = pkcs7decryptUpdateResultLength_by_blocksize(i+bufferPos, kCCBlockSizeAES128);
-            testOutputLength(kCCDecrypt, kCCModeCBC, kCCAlgorithmAES128, kCCKeySizeAES128, ccPKCS7Padding, bufferPos, i, false, total);
-        }
-    }
-    
     if(verbose) diag("DECRYPTING 3DES-CBC-PKCS7Padding Update");
     for(size_t i=0; i<3*kCCBlockSize3DES; i++) {
         for(size_t bufferPos=1; bufferPos <= kCCBlockSize3DES; bufferPos ++) {
@@ -149,13 +164,6 @@ int CommonCryptoOutputLength (int __unused argc, char *const * __unused argv)
             testOutputLength(kCCDecrypt, kCCModeCBC, kCCAlgorithm3DES, kCCKeySize3DES, ccPKCS7Padding, bufferPos, i, false, total);
         }
 
-    }
-    
-    if(verbose) diag("DECRYPTING AES-CBC-PKCS7Padding-Final");
-    for(size_t i=0; i<3*kCCBlockSizeAES128; i+=kCCBlockSizeAES128) {
-        size_t bufferPos=kCCBlockSizeAES128;
-        size_t total = i+bufferPos;
-        testOutputLength(kCCDecrypt, kCCModeCBC, kCCAlgorithmAES128, kCCKeySizeAES128, ccPKCS7Padding, bufferPos, i, true, total);
     }
 
     if(verbose) diag("DECRYPTING 3DES-CBC-PKCS7Padding-Final");

@@ -2,18 +2,15 @@
 #
 # CUPS configuration utility.
 #
-# Copyright 2007-2016 by Apple Inc.
-# Copyright 2001-2006 by Easy Software Products, all rights reserved.
+# Copyright © 2007-2019 by Apple Inc.
+# Copyright © 2001-2006 by Easy Software Products, all rights reserved.
 #
-# These coded instructions, statements, and computer programs are the
-# property of Apple Inc. and are protected by Federal copyright
-# law.  Distribution and use rights are outlined in the file "LICENSE.txt"
-# which should have been included with this file.  If this file is
-# file is missing or damaged, see the license at "http://www.cups.org/".
+# Licensed under Apache License v2.0.  See the file "LICENSE" for more
+# information.
 #
 
 VERSION="@CUPS_VERSION@"
-APIVERSION="2.2"
+APIVERSION="2.3"
 BUILD="@CUPS_BUILD@"
 
 prefix=@prefix@
@@ -21,7 +18,6 @@ exec_prefix=@exec_prefix@
 bindir=@bindir@
 includedir=@includedir@
 libdir=@libdir@
-imagelibdir=@libdir@
 datarootdir=@datadir@
 datadir=@datadir@
 sysconfdir=@sysconfdir@
@@ -30,19 +26,18 @@ cups_serverbin=@CUPS_SERVERBIN@
 cups_serverroot=@CUPS_SERVERROOT@
 INSTALLSTATIC=@INSTALLSTATIC@
 
-# flags for C++ compiler:
+# flags for compiler and linker...
 CFLAGS=""
 LDFLAGS="@EXPORT_LDFLAGS@"
-LIBS="@LIBGSSAPI@ @EXPORT_SSLLIBS@ @LIBZ@ @LIBS@"
+LIBS="@LIBGSSAPI@ @DNSSDLIBS@ @EXPORT_SSLLIBS@ @LIBZ@ @LIBS@"
 
 # Check for local invocation...
 selfdir=`dirname $0`
 
 if test -f "$selfdir/cups/cups.h"; then
     CFLAGS="-I$selfdir"
-    LDFLAGS="-L$selfdir/cups -L$selfdir/filter $LDFLAGS"
+    LDFLAGS="-L$selfdir/cups $LDFLAGS"
     libdir="$selfdir/cups"
-    imagelibdir="$selfdir/filter"
 else
     if test $includedir != /usr/include; then
 	CFLAGS="$CFLAGS -I$includedir"
@@ -76,7 +71,6 @@ fi
 
 # Parse command line options
 static=no
-image=no
 
 while test $# -gt 0; do
     case $1 in
@@ -96,22 +90,16 @@ while test $# -gt 0; do
 	    usage 0
 	    ;;
 	--image)
-	    image=yes
+	    # Do nothing
 	    ;;
 	--ldflags)
 	    echo $LDFLAGS
 	    ;;
 	--libs)
 	    if test $static = no; then
-	        libs="@EXTLINKCUPS@ $LIBS";
- 	        if test $image = yes; then
- 	            libs="@EXTLINKCUPSIMAGE@ $libs"
-		fi
+	        libs="@EXTLINKCUPS@";
 	    else
 	        libs="$libdir/libcups.a $LIBS";
- 	        if test $image = yes; then
- 	            libs="$libdir/libcupsimage.a $libs"
-		fi
 	    fi
 	    echo $libs
 	    ;;
@@ -123,7 +111,7 @@ while test $# -gt 0; do
 	    ;;
 	--static)
 	    if test -z "$INSTALLSTATIC"; then
-	        echo "WARNING: Static libraries not installed!" >&2
+	        echo "WARNING: Static libraries not installed." >&2
 	    else
 	        static=yes
 	    fi

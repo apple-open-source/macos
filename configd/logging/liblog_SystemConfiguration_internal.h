@@ -30,9 +30,6 @@
 #include <os/log_private.h>
 #include <os/state_private.h>
 
-extern const unsigned char *	liblog_SystemConfigurationVersionString;
-extern const double		liblog_SystemConfigurationVersionNumber;
-
 // <os/log_private.h>
 #ifdef __OBJC__
 #import <Foundation/NSObjCRuntime.h>

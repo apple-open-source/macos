@@ -64,7 +64,7 @@ __private_extern__ void ntfs_upcase_name(ntfschar *name, u32 name_len,
 static inline void ntfs_file_upcase_value(FILENAME_ATTR *filename_attr,
 		const ntfschar *upcase, const u32 upcase_len)
 {
-	ntfs_upcase_name((ntfschar*)&filename_attr->filename,
+	ntfs_upcase_name(filename_attr->filename,
 			filename_attr->filename_length, upcase, upcase_len);
 }
 
@@ -73,9 +73,9 @@ static inline int ntfs_file_compare_values(FILENAME_ATTR *filename_attr1,
 		const BOOL case_sensitive, const ntfschar *upcase,
 		const u32 upcase_len)
 {
-	return ntfs_collate_names((ntfschar*)&filename_attr1->filename,
+	return ntfs_collate_names(filename_attr1->filename,
 			filename_attr1->filename_length,
-			(ntfschar*)&filename_attr2->filename,
+			filename_attr2->filename,
 			filename_attr2->filename_length,
 			err_val, case_sensitive, upcase, upcase_len);
 }

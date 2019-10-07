@@ -234,7 +234,7 @@ get_client(host_addr, vers, client_request, use_tcp)
 	int client_request;
 	int use_tcp;
 {
-	CLIENT *client, *cached_client;
+    CLIENT *client = NULL, *cached_client;
 	struct timeval retry_time, time_now;
 	int i;
 	int sock_no, cache_ttl;
@@ -597,8 +597,8 @@ nlm_test_1_svc(arg, rqstp)
 		res.stat.stat = nlm_denied;
 		memcpy(&res.stat.nlm_testrply_u.holder, holder,
 		    sizeof(struct nlm_holder));
-		res.stat.nlm_testrply_u.holder.l_offset = holder->l_offset;
-		res.stat.nlm_testrply_u.holder.l_len = holder->l_len;
+		res.stat.nlm_testrply_u.holder.l_offset = (u_int) holder->l_offset;
+		res.stat.nlm_testrply_u.holder.l_len = (u_int) holder->l_len;
 	}
 	return (&res);
 }
@@ -630,8 +630,8 @@ nlm_test_msg_1_svc(arg, rqstp)
 		res.stat.stat = nlm_denied;
 		memcpy(&res.stat.nlm_testrply_u.holder, holder,
 		    sizeof(struct nlm_holder));
-		res.stat.nlm_testrply_u.holder.l_offset = holder->l_offset;
-		res.stat.nlm_testrply_u.holder.l_len = holder->l_len;
+		res.stat.nlm_testrply_u.holder.l_offset = (u_int) holder->l_offset;
+		res.stat.nlm_testrply_u.holder.l_len = (u_int) holder->l_len;
 	}
 
 	/*

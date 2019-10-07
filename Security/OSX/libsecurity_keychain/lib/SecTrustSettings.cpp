@@ -27,9 +27,9 @@
  */
 
 #include "SecBridge.h"
-#include "SecCertificatePriv.h"
-#include "SecTrustSettings.h"
-#include "SecTrustSettingsPriv.h"
+#include <Security/SecCertificatePriv.h>
+#include <Security/SecTrustSettings.h>
+#include <Security/SecTrustSettingsPriv.h>
 #include "SecTrustSettingsCertificates.h"
 #include "SecCFRelease.h"
 #include "TrustSettingsUtils.h"
@@ -303,6 +303,7 @@ static void tsRegisterCallback()
 static void tsTrustSettingsChanged()
 {
 	tsPurgeCache();
+    SecTrustSettingsPurgeUserAdminCertsCache();
 
 	/* The only interesting data is our pid */
 	NameValueDictionary nvd;

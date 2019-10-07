@@ -1,7 +1,7 @@
 " Vim support file to detect file types
 "
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2017 Nov 09
+" Last Change:	2019 May 06
 
 " Listen very carefully, I will say this only once
 if exists("did_load_filetypes")
@@ -42,6 +42,8 @@ endif
 
 " Function used for patterns that end in a star: don't set the filetype if the
 " file name matches ft_ignore_pat.
+" When using this, the entry should probably be further down below with the
+" other StarSetf() calls.
 func! s:StarSetf(ft)
   if expand("<amatch>") !~ g:ft_ignore_pat
     exe 'setf ' . a:ft
@@ -52,7 +54,10 @@ endfunc
 au BufNewFile,BufRead $VIMRUNTIME/doc/*.txt	setf help
 
 " Abaqus or Trasys
-au BufNewFile,BufRead *.inp			call filetype#Check_inp()
+au BufNewFile,BufRead *.inp			call dist#ft#Check_inp()
+
+" 8th (Firth-derivative)
+au BufNewFile,BufRead *.8th			setf 8th
 
 " A-A-P recipe
 au BufNewFile,BufRead *.aap			setf aap
@@ -92,11 +97,9 @@ au BufNewFile,BufRead build.xml			setf ant
 " Arduino
 au BufNewFile,BufRead *.ino,*.pde		setf arduino
 
-" Apache style config file
-au BufNewFile,BufRead proftpd.conf*		call s:StarSetf('apachestyle')
-
 " Apache config file
 au BufNewFile,BufRead .htaccess,*/etc/httpd/*.conf		setf apache
+au BufNewFile,BufRead */etc/apache2/sites-*/*.com		setf apache
 
 " XA65 MOS6510 cross assembler
 au BufNewFile,BufRead *.a65			setf a65
@@ -154,7 +157,7 @@ au BufNewFile,BufRead */boot/grub/menu.lst,*/boot/grub/grub.conf,*/etc/grub.conf
 
 " Assembly (all kinds)
 " *.lst is not pure assembly, it has two extra columns (address, byte codes)
-au BufNewFile,BufRead *.asm,*.[sS],*.[aA],*.mac,*.lst	call filetype#FTasm()
+au BufNewFile,BufRead *.asm,*.[sS],*.[aA],*.mac,*.lst	call dist#ft#FTasm()
 
 " Macro (VAX)
 au BufNewFile,BufRead *.mar			setf vmasm
@@ -184,7 +187,7 @@ au BufNewFile,BufRead *.awk			setf awk
 au BufNewFile,BufRead *.mch,*.ref,*.imp		setf b
 
 " BASIC or Visual Basic
-au BufNewFile,BufRead *.bas			call filetype#FTVB("basic")
+au BufNewFile,BufRead *.bas			call dist#ft#FTVB("basic")
 
 " Visual Basic Script (close to Visual Basic) or Visual Basic .NET
 au BufNewFile,BufRead *.vb,*.vbs,*.dsm,*.ctl	setf vb
@@ -202,7 +205,7 @@ au BufNewFile,BufRead *.cmd
 	\ if getline(1) =~ '^/\*' | setf rexx | else | setf dosbatch | endif
 
 " Batch file for 4DOS
-au BufNewFile,BufRead *.btm			call filetype#FTbtm()
+au BufNewFile,BufRead *.btm			call dist#ft#FTbtm()
 
 " BC calculator
 au BufNewFile,BufRead *.bc			setf bc
@@ -222,7 +225,7 @@ au BufNewFile,BufRead named*.conf,rndc*.conf,rndc*.key	setf named
 
 " BIND zone
 au BufNewFile,BufRead named.root		setf bindzone
-au BufNewFile,BufRead *.db			call filetype#BindzoneCheck('')
+au BufNewFile,BufRead *.db			call dist#ft#BindzoneCheck('')
 
 " Blank
 au BufNewFile,BufRead *.bl			setf blank
@@ -231,14 +234,15 @@ au BufNewFile,BufRead *.bl			setf blank
 au BufNewFile,BufRead */etc/blkid.tab,*/etc/blkid.tab.old   setf xml
 
 " Bazel (http://bazel.io)
-autocmd BufRead,BufNewFile *.bzl,WORKSPACE 	setf bzl
+autocmd BufRead,BufNewFile *.bzl,WORKSPACE,BUILD.bazel 	setf bzl
 if has("fname_case")
   " There is another check for BUILD further below.
-  autocmd BufRead,BufNewFile BUILD		setf bzl
+  autocmd BufRead,BufNewFile BUILD			setf bzl
 endif
 
 " C or lpc
-au BufNewFile,BufRead *.c			call filetype#FTlpc()
+au BufNewFile,BufRead *.c			call dist#ft#FTlpc()
+au BufNewFile,BufRead *.lpc,*.ulpc		setf lpc
 
 " Calendar
 au BufNewFile,BufRead calendar			setf calendar
@@ -292,7 +296,7 @@ endif
 " .h files can be C, Ch C++, ObjC or ObjC++.
 " Set c_syntax_for_h if you want C, ch_syntax_for_h if you want Ch. ObjC is
 " detected automatically.
-au BufNewFile,BufRead *.h			call filetype#FTheader()
+au BufNewFile,BufRead *.h			call dist#ft#FTheader()
 
 " Ch (CHscript)
 au BufNewFile,BufRead *.chf			setf ch
@@ -326,7 +330,7 @@ au BufNewFile,BufRead NEWS
 au BufNewFile,BufRead *..ch			setf chill
 
 " Changes for WEB and CWEB or CHILL
-au BufNewFile,BufRead *.ch			call filetype#FTchange()
+au BufNewFile,BufRead *.ch			call dist#ft#FTchange()
 
 " ChordPro
 au BufNewFile,BufRead *.chopro,*.crd,*.cho,*.crdpro,*.chordpro	setf chordpro
@@ -338,7 +342,7 @@ au BufNewFile,BufRead *.dcl,*.icl		setf clean
 au BufNewFile,BufRead *.eni			setf cl
 
 " Clever or dtd
-au BufNewFile,BufRead *.ent			call filetype#FTent()
+au BufNewFile,BufRead *.ent			call dist#ft#FTent()
 
 " Clipper (or FoxPro; could also be eviews)
 au BufNewFile,BufRead *.prg
@@ -378,7 +382,7 @@ au BufNewFile,BufRead *.cfm,*.cfi,*.cfc		setf cf
 au BufNewFile,BufRead configure.in,configure.ac setf config
 
 " CUDA  Cumpute Unified Device Architecture
-au BufNewFile,BufRead *.cu			setf cuda
+au BufNewFile,BufRead *.cu,*.cuh		setf cuda
 
 " Dockerfile
 au BufNewFile,BufRead Dockerfile,*.Dockerfile	setf dockerfile
@@ -393,9 +397,9 @@ au BufNewFile,BufRead *enlightenment/*.cfg	setf c
 au BufNewFile,BufRead *Eterm/*.cfg		setf eterm
 
 " Euphoria 3 or 4
-au BufNewFile,BufRead *.eu,*.ew,*.ex,*.exu,*.exw  call filetype#EuphoriaCheck()
+au BufNewFile,BufRead *.eu,*.ew,*.ex,*.exu,*.exw  call dist#ft#EuphoriaCheck()
 if has("fname_case")
-   au BufNewFile,BufRead *.EU,*.EW,*.EX,*.EXU,*.EXW  call filetype#EuphoriaCheck()
+   au BufNewFile,BufRead *.EU,*.EW,*.EX,*.EXU,*.EXW  call dist#ft#EuphoriaCheck()
 endif
 
 " Lynx config files
@@ -428,6 +432,13 @@ au BufNewFile,BufRead control
 	\|   setf debcontrol
 	\| endif
 
+" Debian Copyright
+au BufNewFile,BufRead */debian/copyright	setf debcopyright
+au BufNewFile,BufRead copyright
+	\  if getline(1) =~ '^Format:'
+	\|   setf debcopyright
+	\| endif
+
 " Debian Sources.list
 au BufNewFile,BufRead */etc/apt/sources.list		setf debsources
 au BufNewFile,BufRead */etc/apt/sources.list.d/*.list	setf debsources
@@ -442,7 +453,7 @@ au BufNewFile,BufRead */etc/dnsmasq.conf	setf dnsmasq
 au BufNewFile,BufRead *.desc			setf desc
 
 " the D language or dtrace
-au BufNewFile,BufRead *.d			call filetype#DtraceCheck()
+au BufNewFile,BufRead *.d			call dist#ft#DtraceCheck()
 
 " Desktop files
 au BufNewFile,BufRead *.desktop,.directory	setf desktop
@@ -474,7 +485,7 @@ au BufNewFile,BufRead *.rul
 	\ endif
 
 " DCL (Digital Command Language - vms) or DNS zone file
-au BufNewFile,BufRead *.com			call filetype#BindzoneCheck('dcl')
+au BufNewFile,BufRead *.com			call dist#ft#BindzoneCheck('dcl')
 
 " DOT
 au BufNewFile,BufRead *.dot			setf dot
@@ -522,7 +533,7 @@ au BufNewFile,BufRead .editorconfig		setf dosini
 au BufNewFile,BufRead *.ecd			setf ecd
 
 " Eiffel or Specman or Euphoria
-au BufNewFile,BufRead *.e,*.E			call filetype#FTe()
+au BufNewFile,BufRead *.e,*.E			call dist#ft#FTe()
 
 " Elinks configuration
 au BufNewFile,BufRead */etc/elinks.conf,*/.elinks/elinks.conf	setf elinks
@@ -578,7 +589,7 @@ au BufNewFile,BufRead auto.master		setf conf
 au BufNewFile,BufRead *.mas,*.master		setf master
 
 " Forth
-au BufNewFile,BufRead *.fs,*.ft			setf forth
+au BufNewFile,BufRead *.fs,*.ft,*.fth		setf forth
 
 " Reva Forth
 au BufNewFile,BufRead *.frt			setf reva
@@ -605,12 +616,12 @@ au BufNewFile,BufRead *.mo,*.gdmo		setf gdmo
 au BufNewFile,BufRead *.ged,lltxxxxx.txt	setf gedcom
 
 " Git
-au BufNewFile,BufRead COMMIT_EDITMSG,MERGE_MSG,TAG_EDITMSG setf gitcommit
-au BufNewFile,BufRead *.git/config,.gitconfig,.gitmodules setf gitconfig
-au BufNewFile,BufRead *.git/modules/*/config	setf gitconfig
-au BufNewFile,BufRead */.config/git/config	setf gitconfig
+au BufNewFile,BufRead COMMIT_EDITMSG,MERGE_MSG,TAG_EDITMSG 	setf gitcommit
+au BufNewFile,BufRead *.git/config,.gitconfig,/etc/gitconfig 	setf gitconfig
+au BufNewFile,BufRead */.config/git/config			setf gitconfig
+au BufNewFile,BufRead .gitmodules,*.git/modules/*/config	setf gitconfig
 if !empty($XDG_CONFIG_HOME)
-  au BufNewFile,BufRead $XDG_CONFIG_HOME/git/config	setf gitconfig
+  au BufNewFile,BufRead $XDG_CONFIG_HOME/git/config		setf gitconfig
 endif
 au BufNewFile,BufRead git-rebase-todo		setf gitrebase
 au BufRead,BufNewFile .gitsendemail.msg.??????	setf gitsendemail
@@ -643,7 +654,6 @@ au BufNewFile,BufRead gnashrc,.gnashrc,gnashpluginrc,.gnashpluginrc setf gnash
 
 " Gitolite
 au BufNewFile,BufRead gitolite.conf		setf gitolite
-au BufNewFile,BufRead */gitolite-admin/conf/*	call s:StarSetf('gitolite')
 au BufNewFile,BufRead {,.}gitolite.rc,example.gitolite.rc	setf perl
 
 " Gnuplot scripts
@@ -695,7 +705,7 @@ au BufNewFile,BufRead *.hex,*.h32		setf hex
 au BufNewFile,BufRead *.t.html			setf tilde
 
 " HTML (.shtml and .stm for server side)
-au BufNewFile,BufRead *.html,*.htm,*.shtml,*.stm  call filetype#FThtml()
+au BufNewFile,BufRead *.html,*.htm,*.shtml,*.stm  call dist#ft#FThtml()
 
 " HTML with Ruby - eRuby
 au BufNewFile,BufRead *.erb,*.rhtml		setf eruby
@@ -703,8 +713,8 @@ au BufNewFile,BufRead *.erb,*.rhtml		setf eruby
 " HTML with M4
 au BufNewFile,BufRead *.html.m4			setf htmlm4
 
-" HTML Cheetah template
-au BufNewFile,BufRead *.tmpl			setf htmlcheetah
+" Some template.  Used to be HTML Cheetah.
+au BufNewFile,BufRead *.tmpl			setf template
 
 " Host config
 au BufNewFile,BufRead */etc/host.conf		setf hostconf
@@ -722,7 +732,7 @@ au BufNewFile,BufRead *.htt,*.htb		setf httest
 au BufNewFile,BufRead *.icn			setf icon
 
 " IDL (Interface Description Language)
-au BufNewFile,BufRead *.idl			call filetype#FTidl()
+au BufNewFile,BufRead *.idl			call dist#ft#FTidl()
 
 " Microsoft IDL (Interface Description Language)  Also *.idl
 " MOF = WMI (Windows Management Instrumentation) Managed Object Format
@@ -733,10 +743,10 @@ au BufNewFile,BufRead */.icewm/menu		setf icemenu
 
 " Indent profile (must come before IDL *.pro!)
 au BufNewFile,BufRead .indent.pro		setf indent
-au BufNewFile,BufRead indent.pro		call filetype#ProtoCheck('indent')
+au BufNewFile,BufRead indent.pro		call dist#ft#ProtoCheck('indent')
 
 " IDL (Interactive Data Language)
-au BufNewFile,BufRead *.pro			call filetype#ProtoCheck('idlang')
+au BufNewFile,BufRead *.pro			call dist#ft#ProtoCheck('idlang')
 
 " Indent RC
 au BufNewFile,BufRead indentrc			setf indent
@@ -792,7 +802,6 @@ au BufNewFile,BufRead *.jsp			setf jsp
 
 " Java Properties resource file (note: doesn't catch font.properties.pl)
 au BufNewFile,BufRead *.properties,*.properties_??,*.properties_??_??	setf jproperties
-au BufNewFile,BufRead *.properties_??_??_*	call s:StarSetf('jproperties')
 
 " Jess
 au BufNewFile,BufRead *.clp			setf jess
@@ -950,7 +959,7 @@ au BufNewFile,BufRead *.markdown,*.mdown,*.mkd,*.mkdn,*.mdwn,*.md  setf markdown
 au BufNewFile,BufRead *.mason,*.mhtml,*.comp	setf mason
 
 " Mathematica, Matlab, Murphi or Objective C
-au BufNewFile,BufRead *.m			call filetype#FTm()
+au BufNewFile,BufRead *.m			call dist#ft#FTm()
 
 " Mathematica notebook
 au BufNewFile,BufRead *.nb			setf mma
@@ -980,7 +989,7 @@ au BufNewFile,BufRead *.mgl			setf mgl
 au BufNewFile,BufRead *.mix,*.mixal		setf mix
 
 " MMIX or VMS makefile
-au BufNewFile,BufRead *.mms			call filetype#FTmms()
+au BufNewFile,BufRead *.mms			call dist#ft#FTmms()
 
 " Symbian meta-makefile definition (MMP)
 au BufNewFile,BufRead *.mmp			setf mmp
@@ -1068,10 +1077,10 @@ au BufNewFile,BufRead *.me
 	\   setf nroff |
 	\ endif
 au BufNewFile,BufRead *.tr,*.nr,*.roff,*.tmac,*.mom	setf nroff
-au BufNewFile,BufRead *.[1-9]			call filetype#FTnroff()
+au BufNewFile,BufRead *.[1-9]			call dist#ft#FTnroff()
 
 " Nroff or Objective C++
-au BufNewFile,BufRead *.mm			call filetype#FTmm()
+au BufNewFile,BufRead *.mm			call dist#ft#FTmm()
 
 " Not Quite C
 au BufNewFile,BufRead *.nqc			setf nqc
@@ -1121,14 +1130,14 @@ au BufNewFile,BufRead *.dpr			setf pascal
 " PDF
 au BufNewFile,BufRead *.pdf			setf pdf
 
-" PCMK - HAE - crm configure edit 
+" PCMK - HAE - crm configure edit
 au BufNewFile,BufRead *.pcmk 			setf pcmk
 
 " Perl
 if has("fname_case")
-  au BufNewFile,BufRead *.pl,*.PL		call filetype#FTpl()
+  au BufNewFile,BufRead *.pl,*.PL		call dist#ft#FTpl()
 else
-  au BufNewFile,BufRead *.pl			call filetype#FTpl()
+  au BufNewFile,BufRead *.pl			call dist#ft#FTpl()
 endif
 au BufNewFile,BufRead *.plx,*.al,*.psgi		setf perl
 au BufNewFile,BufRead *.p6,*.pm6,*.pl6		setf perl6
@@ -1152,8 +1161,9 @@ au BufNewFile,BufRead *.pod6			setf pod6
 " Also .ctp for Cake template file
 au BufNewFile,BufRead *.php,*.php\d,*.phtml,*.ctp	setf php
 
-" Pike
-au BufNewFile,BufRead *.pike,*.lpc,*.ulpc,*.pmod setf pike
+" Pike and Cmod
+au BufNewFile,BufRead *.pike,*.pmod		setf pike
+au BufNewFile,BufRead *.cmod			setf cmod
 
 " Pinfo config
 au BufNewFile,BufRead */etc/pinforc,*/.pinforc	setf pinfo
@@ -1163,6 +1173,10 @@ au BufNewFile,BufRead *.rcp			setf pilrc
 
 " Pine config
 au BufNewFile,BufRead .pinerc,pinerc,.pinercex,pinercex		setf pine
+
+" Pipenv Pipfiles
+au BufNewFile,BufRead Pipfile			setf config
+au BufNewFile,BufRead Pipfile.lock		setf json
 
 " PL/1, PL/I
 au BufNewFile,BufRead *.pli,*.pl1		setf pli
@@ -1195,7 +1209,7 @@ au BufNewFile,BufRead *.pov			setf pov
 au BufNewFile,BufRead .povrayrc			setf povini
 
 " Povray, PHP or assembly
-au BufNewFile,BufRead *.inc			call filetype#FTinc()
+au BufNewFile,BufRead *.inc			call dist#ft#FTinc()
 
 " Printcap and Termcap
 au BufNewFile,BufRead *printcap
@@ -1224,13 +1238,13 @@ au BufNewFile,BufRead *.action			setf privoxy
 au BufNewFile,BufRead .procmail,.procmailrc	setf procmail
 
 " Progress or CWEB
-au BufNewFile,BufRead *.w			call filetype#FTprogress_cweb()
+au BufNewFile,BufRead *.w			call dist#ft#FTprogress_cweb()
 
 " Progress or assembly
-au BufNewFile,BufRead *.i			call filetype#FTprogress_asm()
+au BufNewFile,BufRead *.i			call dist#ft#FTprogress_asm()
 
 " Progress or Pascal
-au BufNewFile,BufRead *.p			call filetype#FTprogress_pascal()
+au BufNewFile,BufRead *.p			call dist#ft#FTprogress_pascal()
 
 " Software Distributor Product Specification File (POSIX 1387.2-1995)
 au BufNewFile,BufRead *.psf			setf psf
@@ -1254,9 +1268,9 @@ au BufNewFile,BufRead */etc/protocols		setf protocols
 " Pyrex
 au BufNewFile,BufRead *.pyx,*.pxd		setf pyrex
 
-" Python, Python Shell Startup Files
+" Python, Python Shell Startup and Python Stub Files
 " Quixote (Python-based web framework)
-au BufNewFile,BufRead *.py,*.pyw,.pythonstartup,.pythonrc,*.ptl  setf python
+au BufNewFile,BufRead *.py,*.pyw,.pythonstartup,.pythonrc,*.ptl,*.pyi  setf python
 
 " Radiance
 au BufNewFile,BufRead *.rad,*.mat		setf radiance
@@ -1316,7 +1330,7 @@ else
 endif
 
 " Rexx, Rebol or R
-au BufNewFile,BufRead *.r,*.R				call filetype#FTr()
+au BufNewFile,BufRead *.r,*.R				call dist#ft#FTr()
 
 " Remind
 au BufNewFile,BufRead .reminders,*.remind,*.rem		setf remind
@@ -1405,14 +1419,14 @@ au BufNewFile,BufRead *.sdl,*.pr		setf sdl
 " sed
 au BufNewFile,BufRead *.sed			setf sed
 
-" Sieve (RFC 3028)
-au BufNewFile,BufRead *.siv			setf sieve
+" Sieve (RFC 3028, 5228)
+au BufNewFile,BufRead *.siv,*.sieve		setf sieve
 
 " Sendmail
 au BufNewFile,BufRead sendmail.cf		setf sm
 
 " Sendmail .mc files are actually m4.  Could also be MS Message text file.
-au BufNewFile,BufRead *.mc			call filetype#McSetf()
+au BufNewFile,BufRead *.mc			call dist#ft#McSetf()
 
 " Services
 au BufNewFile,BufRead */etc/services		setf services
@@ -1449,31 +1463,33 @@ au BufNewFile,BufRead *.decl,*.dcl,*.dec
 
 " SGML catalog file
 au BufNewFile,BufRead catalog			setf catalog
-au BufNewFile,BufRead sgml.catalog*		call s:StarSetf('catalog')
 
 " Shell scripts (sh, ksh, bash, bash2, csh); Allow .profile_foo etc.
 " Gentoo ebuilds and Arch Linux PKGBUILDs are actually bash scripts
-au BufNewFile,BufRead .bashrc*,bashrc,bash.bashrc,.bash[_-]profile*,.bash[_-]logout*,.bash[_-]aliases*,*.bash,*/{,.}bash[_-]completion{,.d,.sh}{,/*},*.ebuild,*.eclass,PKGBUILD* call filetype#SetFileTypeSH("bash")
-au BufNewFile,BufRead .kshrc*,*.ksh call filetype#SetFileTypeSH("ksh")
-au BufNewFile,BufRead */etc/profile,.profile*,*.sh,*.env call filetype#SetFileTypeSH(getline(1))
+" NOTE: Patterns ending in a star are further down, these have lower priority.
+au BufNewFile,BufRead .bashrc,bashrc,bash.bashrc,.bash[_-]profile,.bash[_-]logout,.bash[_-]aliases,bash-fc[-.],*.bash,*/{,.}bash[_-]completion{,.d,.sh}{,/*},*.ebuild,*.eclass,PKGBUILD call dist#ft#SetFileTypeSH("bash")
+au BufNewFile,BufRead .kshrc,*.ksh call dist#ft#SetFileTypeSH("ksh")
+au BufNewFile,BufRead */etc/profile,.profile,*.sh,*.env call dist#ft#SetFileTypeSH(getline(1))
+
 
 " Shell script (Arch Linux) or PHP file (Drupal)
 au BufNewFile,BufRead *.install
 	\ if getline(1) =~ '<?php' |
 	\   setf php |
 	\ else |
-	\   call filetype#SetFileTypeSH("bash") |
+	\   call dist#ft#SetFileTypeSH("bash") |
 	\ endif
 
-" tcsh scripts
-au BufNewFile,BufRead .tcshrc*,*.tcsh,tcsh.tcshrc,tcsh.login	call filetype#SetFileTypeShell("tcsh")
+" tcsh scripts (patterns ending in a star further below)
+au BufNewFile,BufRead .tcshrc,*.tcsh,tcsh.tcshrc,tcsh.login	call dist#ft#SetFileTypeShell("tcsh")
 
 " csh scripts, but might also be tcsh scripts (on some systems csh is tcsh)
-au BufNewFile,BufRead .login*,.cshrc*,csh.cshrc,csh.login,csh.logout,*.csh,.alias  call filetype#CSH()
+" (patterns ending in a start further below)
+au BufNewFile,BufRead .login,.cshrc,csh.cshrc,csh.login,csh.logout,*.csh,.alias  call dist#ft#CSH()
 
-" Z-Shell script
+" Z-Shell script (patterns ending in a star further below)
 au BufNewFile,BufRead .zprofile,*/etc/zprofile,.zfbfmarks  setf zsh
-au BufNewFile,BufRead .zsh*,.zlog*,.zcompdump*  call s:StarSetf('zsh')
+au BufNewFile,BufRead .zshrc,.zshenv,.zlogin,.zlogout,.zcompdump setf zsh
 au BufNewFile,BufRead *.zsh			setf zsh
 
 " Scheme
@@ -1540,7 +1556,7 @@ au BufNewFile,BufRead *.mib,*.my		setf mib
 
 " Snort Configuration
 au BufNewFile,BufRead *.hog,snort.conf,vision.conf	setf hog
-au BufNewFile,BufRead *.rules			call filetype#FTRules()
+au BufNewFile,BufRead *.rules			call dist#ft#FTRules()
 
 " Spec (Linux RPM)
 au BufNewFile,BufRead *.spec			setf spec
@@ -1564,7 +1580,7 @@ au BufNewFile,BufRead squid.conf		setf squid
 au BufNewFile,BufRead *.tyb,*.typ,*.tyc,*.pkb,*.pks	setf sql
 
 " SQL
-au BufNewFile,BufRead *.sql			call filetype#SQL()
+au BufNewFile,BufRead *.sql			call dist#ft#SQL()
 
 " SQLJ
 au BufNewFile,BufRead *.sqlj			setf sqlj
@@ -1601,6 +1617,10 @@ au BufNewFile,BufRead */etc/sysctl.conf,*/etc/sysctl.d/*.conf	setf sysctl
 
 " Systemd unit files
 au BufNewFile,BufRead */systemd/*.{automount,mount,path,service,socket,swap,target,timer}	setf systemd
+" Systemd overrides
+au BufNewFile,BufRead /etc/systemd/system/*.d/*.conf	setf systemd
+" Systemd temp files
+au BufNewFile,BufRead /etc/systemd/system/*.d/.#*	setf systemd
 
 " Synopsys Design Constraints
 au BufNewFile,BufRead *.sdc			setf sdc
@@ -1613,7 +1633,7 @@ au BufNewFile,BufRead *.svg			setf svg
 
 " Tads (or Nroff or Perl test file)
 au BufNewFile,BufRead *.t
-	\ if !filetype#FTnroff() && !filetype#FTperl() | setf tads | endif
+	\ if !dist#ft#FTnroff() && !dist#ft#FTperl() | setf tads | endif
 
 " Tags
 au BufNewFile,BufRead tags			setf tags
@@ -1642,7 +1662,7 @@ au BufNewFile,BufRead *.ti			setf terminfo
 
 " TeX
 au BufNewFile,BufRead *.latex,*.sty,*.dtx,*.ltx,*.bbl	setf tex
-au BufNewFile,BufRead *.tex			call filetype#FTtex()
+au BufNewFile,BufRead *.tex			call dist#ft#FTtex()
 
 " ConTeXt
 au BufNewFile,BufRead *.mkii,*.mkiv,*.mkvi   setf context
@@ -1682,6 +1702,9 @@ au BufNewFile,BufReadPost *.tsscl		setf tsscl
 
 " TWIG files
 au BufNewFile,BufReadPost *.twig		setf twig
+
+" Typescript
+au BufNewFile,BufReadPost *.ts			setf typescript
 
 " Motif UIT/UIL files
 au BufNewFile,BufRead *.uit,*.uil		setf uil
@@ -1723,7 +1746,6 @@ au BufNewFile,BufRead *.sv,*.svh		setf systemverilog
 
 " VHDL
 au BufNewFile,BufRead *.hdl,*.vhd,*.vhdl,*.vbe,*.vst  setf vhdl
-au BufNewFile,BufRead *.vhdl_[0-9]*		call s:StarSetf('vhdl')
 
 " Vim script
 au BufNewFile,BufRead *.vim,*.vba,.exrc,_exrc	setf vim
@@ -1740,7 +1762,7 @@ au BufRead,BufNewFile *.hw,*.module,*.pkg
 	\ endif
 
 " Visual Basic (also uses *.bas) or FORM
-au BufNewFile,BufRead *.frm			call filetype#FTVB("form")
+au BufNewFile,BufRead *.frm			call dist#ft#FTVB("form")
 
 " SaxBasic is close to Visual Basic
 au BufNewFile,BufRead *.sba			setf vb
@@ -1756,6 +1778,9 @@ au BufNewFile,BufRead *.vroom			setf vroom
 
 " Webmacro
 au BufNewFile,BufRead *.wm			setf webmacro
+
+" WebAssembly
+au BufNewFile,BufRead *.wast,*.wat		setf wast
 
 " Wget config
 au BufNewFile,BufRead .wgetrc,wgetrc		setf wget
@@ -1830,10 +1855,10 @@ au BufNewFile,BufRead .Xdefaults,.Xpdefaults,.Xresources,xdm-config,*.ad setf xd
 " Xmath
 au BufNewFile,BufRead *.msc,*.msf		setf xmath
 au BufNewFile,BufRead *.ms
-	\ if !filetype#FTnroff() | setf xmath | endif
+	\ if !dist#ft#FTnroff() | setf xmath | endif
 
 " XML  specific variants: docbk and xbl
-au BufNewFile,BufRead *.xml			call filetype#FTxml()
+au BufNewFile,BufRead *.xml			call dist#ft#FTxml()
 
 " XMI (holding UML models) is also XML
 au BufNewFile,BufRead *.xmi			setf xml
@@ -1842,7 +1867,8 @@ au BufNewFile,BufRead *.xmi			setf xml
 au BufNewFile,BufRead *.csproj,*.csproj.user	setf xml
 
 " Qt Linguist translation source and Qt User Interface Files are XML
-au BufNewFile,BufRead *.ts,*.ui			setf xml
+" However, for .ts Typescript is more common.
+au BufNewFile,BufRead *.ui			setf xml
 
 " TPM's are RDF-based descriptions of TeX packages (Nikolai Weibull)
 au BufNewFile,BufRead *.tpm			setf xml
@@ -1852,6 +1878,9 @@ au BufNewFile,BufRead */etc/xdg/menus/*.menu	setf xml
 
 " ATI graphics driver configuration
 au BufNewFile,BufRead fglrxrc			setf xml
+
+" Web Services Description Language (WSDL)
+au BufNewFile,BufRead *.wsdl			setf xml
 
 " XLIFF (XML Localisation Interchange File Format) is also XML
 au BufNewFile,BufRead *.xlf			setf xml
@@ -1876,10 +1905,13 @@ au BufNewFile,BufRead *.xsl,*.xslt		setf xslt
 au BufNewFile,BufRead *.yy,*.yxx,*.y++		setf yacc
 
 " Yacc or racc
-au BufNewFile,BufRead *.y			call filetype#FTy()
+au BufNewFile,BufRead *.y			call dist#ft#FTy()
 
 " Yaml
 au BufNewFile,BufRead *.yaml,*.yml		setf yaml
+
+" Raml
+au BufNewFile,BufRead *.raml			setf raml
 
 " yum conf (close enough to dosini)
 au BufNewFile,BufRead */etc/yum.conf		setf dosini
@@ -1892,9 +1924,9 @@ au BufNewFile,BufRead *.zut			setf zimbutempl
 " Zope
 "   dtml (zope dynamic template markup language), pt (zope page template),
 "   cpt (zope form controller page template)
-au BufNewFile,BufRead *.dtml,*.pt,*.cpt		call filetype#FThtml()
+au BufNewFile,BufRead *.dtml,*.pt,*.cpt		call dist#ft#FThtml()
 "   zsql (zope sql method)
-au BufNewFile,BufRead *.zsql			call filetype#SQL()
+au BufNewFile,BufRead *.zsql			call dist#ft#SQL()
 
 " Z80 assembler asz80
 au BufNewFile,BufRead *.z8a			setf z8a
@@ -1924,6 +1956,10 @@ au StdinReadPost * if !did_filetype() | runtime! scripts.vim | endif
 " script file.
 " Most of these should call s:StarSetf() to avoid names ending in .gz and the
 " like are used.
+
+" More Apache style config files
+au BufNewFile,BufRead */etc/proftpd/*.conf*,*/etc/proftpd/conf.*/*	call s:StarSetf('apachestyle')
+au BufNewFile,BufRead proftpd.conf*					call s:StarSetf('apachestyle')
 
 " More Apache config files
 au BufNewFile,BufRead access.conf*,apache.conf*,apache2.conf*,httpd.conf*,srm.conf*	call s:StarSetf('apache')
@@ -1980,6 +2016,12 @@ au BufNewFile,BufRead *fvwm2rc*
 " Gedcom
 au BufNewFile,BufRead */tmp/lltmp*		call s:StarSetf('gedcom')
 
+" Git
+au BufNewFile,BufRead */.gitconfig.d/*,/etc/gitconfig.d/* 	call s:StarSetf('gitconfig')
+
+" Gitolite
+au BufNewFile,BufRead */gitolite-admin/conf/*	call s:StarSetf('gitolite')
+
 " GTK RC
 au BufNewFile,BufRead .gtkrc*,gtkrc*		call s:StarSetf('gtkrc')
 
@@ -1991,6 +2033,9 @@ au! BufNewFile,BufRead *jarg*
 	\ if getline(1).getline(2).getline(3).getline(4).getline(5) =~? 'THIS IS THE JARGON FILE'
 	\|  call s:StarSetf('jargon')
 	\|endif
+
+" Java Properties resource file (note: doesn't catch font.properties.pl)
+au BufNewFile,BufRead *.properties_??_??_*	call s:StarSetf('jproperties')
 
 " Kconfig
 au BufNewFile,BufRead Kconfig.*			call s:StarSetf('kconfig')
@@ -2048,10 +2093,27 @@ au BufNewFile,BufRead *termcap*
 
 " ReDIF
 " Only used when the .rdf file was not detected to be XML.
-au BufRead,BufNewFile *.rdf			call filetype#Redif()
+au BufRead,BufNewFile *.rdf			call dist#ft#Redif()
 
 " Remind
 au BufNewFile,BufRead .reminders*		call s:StarSetf('remind')
+
+" SGML catalog file
+au BufNewFile,BufRead sgml.catalog*		call s:StarSetf('catalog')
+
+" Shell scripts ending in a star
+au BufNewFile,BufRead .bashrc*,.bash[_-]profile*,.bash[_-]logout*,.bash[_-]aliases*,bash-fc[-.]*,,PKGBUILD* call dist#ft#SetFileTypeSH("bash")
+au BufNewFile,BufRead .kshrc* call dist#ft#SetFileTypeSH("ksh")
+au BufNewFile,BufRead .profile* call dist#ft#SetFileTypeSH(getline(1))
+
+" tcsh scripts ending in a star
+au BufNewFile,BufRead .tcshrc*	call dist#ft#SetFileTypeShell("tcsh")
+
+" csh scripts ending in a star
+au BufNewFile,BufRead .login*,.cshrc*  call dist#ft#CSH()
+
+" VHDL
+au BufNewFile,BufRead *.vhdl_[0-9]*		call s:StarSetf('vhdl')
 
 " Vim script
 au BufNewFile,BufRead *vimrc*			call s:StarSetf('vim')
@@ -2080,7 +2142,8 @@ au BufNewFile,BufRead */etc/xinetd.d/*		call s:StarSetf('xinetd')
 " yum conf (close enough to dosini)
 au BufNewFile,BufRead */etc/yum.repos.d/*	call s:StarSetf('dosini')
 
-" Z-Shell script
+" Z-Shell script ending in a star
+au BufNewFile,BufRead .zsh*,.zlog*,.zcompdump*  call s:StarSetf('zsh')
 au BufNewFile,BufRead zsh*,zlog*		call s:StarSetf('zsh')
 
 
@@ -2089,7 +2152,7 @@ au BufNewFile,BufRead zsh*,zlog*		call s:StarSetf('zsh')
 au BufNewFile,BufRead *.text,README		setf text
 
 " Help files match *.txt but should have a last line that is a modeline.
-au BufNewFile,BufRead *.txt	
+au BufNewFile,BufRead *.txt
 	\  if getline('$') !~ 'vim:.*ft=help'
 	\|   setf text
 	\| endif

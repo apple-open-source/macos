@@ -1,0 +1,46 @@
+HOW TO RELEASE TCSH
+
+1)  Update version number and date
+    - patchlevel.h
+    - Fixes (make a new entry at the top)
+    - tcsh.man (two separate lines, with the date in different formats)
+    - tcsh.man.new (same)
+    - configure.ac (version only)
+2)  Run autoreconf
+3)  Run make distclean; configure && make && make check
+4)  If checks succeed, commit the changed files and tag the release
+	git add patchlevel.h Fixes tcsh.man configure.ac configure
+	git commit
+	git push origin
+	git tag TCSHx_yy_zz
+	git push origin tag TCSHx_yy_zz
+    using the values
+	x  == REV
+	yy == VERS
+	zz == PATCHLEVEL
+    from patchlevel.h (the new values you picked)
+5)  Create the archive and sign it
+	git archive -o tcsh-x.yy.zz.tar.gz --prefix=tcsh-x.yy.zz/ TCSHx_yy_zz
+	gpg --armor --detach-sign tcsh-x.yy.zz.tar.gz
+6)  Make the archive and signature available on ftp
+7)  Add the new version to bugs.astron.com:
+    - Click: Manage > Manage Projects > tcsh
+    - Scroll down to "Versions"
+    - Click on "Edit" next to the HEAD version
+    - Change the "Version" from HEAD to the newly released version
+    - Change the "Date Order" to the current time
+    - Check the "Released" box
+    - Click on "Update Version"
+    - Type HEAD into the box at the bottom of the version list and
+      click on "Add and Edit Version"
+    - Set the "Date Order" to 2030-01-01 (i.e. far in the future)
+    - Click on "Update Version"
+8)  Update the version on http://www.tcsh.org/MostRecentRelease
+9)  Update the online manual page http://www.tcsh.org/tcsh.man/top.html
+    - Login to the webhost (huru)
+    - cd ~/src/tcsh && git pull
+    - cd ~/.www/sites/tcsh.org/man \
+	&& cp -p ~/src/tcsh/tcsh.man \
+	&& make clean \
+	&& make
+10) Mail an announcement to tcsh@astron.com

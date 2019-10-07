@@ -54,6 +54,31 @@
     return false;
 }
 
+- (BOOL)isCuttlefishError:(CuttlefishErrorCode)cuttlefishError
+{
+    NSError *error = self;
+    NSError* underlyingError = error.userInfo[NSUnderlyingErrorKey];
+
+    // This funny code is becase CodeOperation was not wrapping underlying errors with CKError, and then they fixed that in <rdar://problem/51905322>
+    // if you find this code, it probably time to always check for CKErrorDomain/CKErrorServerRejectedRequest
+    if ([error.domain isEqualToString:CKErrorDomain] && error.code == CKErrorServerRejectedRequest && underlyingError) {
+        error = underlyingError;
+    }
+
+    if([error.domain isEqualToString:CKInternalErrorDomain] && error.code == CKErrorInternalPluginError) {
+        NSError* underlyingError = error.userInfo[NSUnderlyingErrorKey];
+        if(underlyingError &&
+           [underlyingError.domain isEqualToString:CuttlefishErrorDomain] &&
+           underlyingError.code == cuttlefishError) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
+
+
+
 @end
 
 @implementation CKAccountInfo (CKKS)

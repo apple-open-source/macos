@@ -105,6 +105,6 @@ int ipsec_ondemand_add_service_data(struct service *serv, CFMutableDictionaryRef
 void ipsec_cellular_event(struct service *serv, int event);
 void ipsec_network_event(struct service *serv, struct kern_event_msg *ev_msg);
 
-int ipsec_init_things();
+int ipsec_init_things(void);
 
 #endif

@@ -1,0 +1,71 @@
+.\" Copyright (c) 1998 Andries Brouwer
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.
+.\" Traduzione da man-1.6d di Giulio Daprelà <giulio@pluto.it>
+.\" Revisione a cura di Vieri Giugni <v.giugni@gmail.com>
+.\" agosto 2006
+.\"
+.TH hman 1 "19 Gennaio 1998"
+.LO 1
+.SH NOME
+hman \- naviga le pagine di manuale on-line
+.SH SINTASSI
+.B hman
+[ -P \fIbrowser\fP ] [ -H \fIhost\fP ] [ \fIsection\fP ] \fIname\fP
+.br
+.B hman
+[ -P \fIbrowser\fP ] [ -H \fIhost\fP ] [ \fIsection\fP ] [ index ]
+.SH DESCRIZIONE
+Lo script
+.B hman
+è un'interfaccia per man2html(1), che permette di inserire richieste di man 
+page dalla linea di comando e vedere l'output nel browser 
+preferito.
+Il comportamento ricorda quello di
+.BR man (1)
+perciò molte persone potranno utilizzare un alias da
+.B hman
+a
+.BR man .
+Se il browser usato è netscape, e una copia di netscape
+è già in esecuzione,
+.B hman
+passerà la richiesta a quest'ultima
+
+.SH OPZIONI
+.TP
+.B \-\^P " browser"
+Specifica quale browser (lynx, xmosaic, arena, chimera,
+netscape, amaya, ...) usare.
+Questa opzione sovrascrive la variabile d'ambiente
+.B MANHTMLPAGER .
+Il valore predefinito è la versione non-httpd di
+.BR lynx .
+.TP
+.B \-\^H " host"
+Specifica da quale host prendere le man page.
+Questa opzione sovrascrive la variabile d'ambiente
+.B MANHTMLHOST .
+Il valore predefinito è
+.BR localhost .
+
+.SH AMBIENTE
+.TP
+MANHTMLPAGER
+Il browser predefinito in uso è selezionato da questa variabile d'ambiente.
+.TP
+MANHTMLHOST
+L'host predefinito in uso è selezionato da questa variabile d'ambiente.
+
+.SH "VEDERE ANCHE"
+.BR man (1),
+.BR man2html (1),
+.BR arena (1),
+.BR lynx (1),
+.BR netscape (1),
+.BR xmosaic (1),
+.BR glimpse (1)
+
+http://www.mcom.com/newsref/std/x-remote.html

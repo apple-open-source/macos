@@ -26,7 +26,9 @@
 #ifndef	_ASN1_TEMPLATES_H_
 #define _ASN1_TEMPLATES_H_
 
+#ifndef SECURITY_PROJECT_TAPI_HACKS
 #warning This is for backwards compatibility. Please use <Security/SecAsn1Templates.h> instead.
+#endif // SECURITY_PROJECT_TAPI_HACKS
 
 #include <Security/SecAsn1Templates.h>
 

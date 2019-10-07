@@ -6,18 +6,18 @@ trap [ arg ] [ sig ... ]
        a signal either with or without the string SIG in front (e.g. 1,
        HUP, and SIGHUP are all the same signal).
 
-       If  arg  is  `-',  then the specified signals are reset to their
-       defaults, or, if no sig args are present, all traps are reset.
+       If arg is `-', then the specified signals are reset to their de-
+       faults, or, if no sig args are present, all traps are reset.
 
-       If arg is an  empty  string,  then  the  specified  signals  are
-       ignored by the shell (and by the commands it invokes).
+       If arg is an empty string, then the specified  signals  are  ig-
+       nored by the shell (and by the commands it invokes).
 
        If  arg  is  omitted but one or more sig args are provided (i.e.
        the first argument is a valid signal number or name), the effect
        is the same as if arg had been specified as `-'.
 
-       The  trap  command  with  no arguments prints a list of commands
-       associated with each signal.
+       The trap command with no arguments prints a list of commands as-
+       sociated with each signal.
 
        If sig is ZERR then arg will be executed after each command with
        a nonzero exit status.  ERR is an alias for ZERR on systems that
@@ -68,5 +68,5 @@ trap [ arg ] [ sig ... ]
        Alternative signal names are allowed  as  described  under  kill
        above.   Defining a trap under either name causes any trap under
        an alternative name to be removed.  However, it  is  recommended
-       that  for  consistency  users  stick  exclusively to one name or
-       another.
+       that  for consistency users stick exclusively to one name or an-
+       other.

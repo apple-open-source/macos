@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,6 +41,28 @@
 #include "util.h"
 #include "cfutil.h"
 #include "symbol_scope.h"
+
+/*
+ * Function: seconds_since_Jan_1_2000
+ * Purpose:
+ *   Return the number of seconds since midnight (UTC), January 1, 2000, the
+ *   epoch for the DHCP DUID LLT.
+ */
+STATIC uint32_t
+S_seconds_since_Jan_1_2000(void)
+{
+    time_t		DHCPDUID_epoch;
+    uint32_t	      	seconds;
+    struct tm		tm;
+
+    bzero(&tm, sizeof(tm));
+    tm.tm_year = 100; 	/* 2000 (100 years since 1900) */
+    tm.tm_mon = 0;	/* January (0 months since January) */
+    tm.tm_mday = 1;	/* 1st (day of the month) */
+    DHCPDUID_epoch = timegm(&tm);
+    seconds = (uint32_t)(time(NULL) - DHCPDUID_epoch);
+    return (seconds);
+}
 
 PRIVATE_EXTERN void
 DHCPDUIDPrintToString(CFMutableStringRef str,
@@ -140,4 +162,39 @@ DHCPDUIDIsValid(const DHCPDUIDRef duid, int duid_len)
 	break;
     }
     return (TRUE);
+}
+
+PRIVATE_EXTERN CFDataRef
+DHCPDUID_LLDataCreate(const void * ll_addr, int ll_len, int ll_type)
+{
+    CFMutableDataRef	data;
+    int			duid_len;
+    DHCPDUID_LLRef	ll_p;
+
+    duid_len = offsetof(DHCPDUID_LL, linklayer_address) + ll_len;
+    data = CFDataCreateMutable(NULL, duid_len);
+    CFDataSetLength(data, duid_len);
+    ll_p = (DHCPDUID_LLRef)CFDataGetMutableBytePtr(data);
+    DHCPDUIDSetType((DHCPDUIDRef)ll_p, kDHCPDUIDTypeLL);
+    DHCPDUID_LLSetHardwareType(ll_p, ll_type);
+    memcpy(ll_p->linklayer_address, ll_addr, ll_len);
+    return (data);
+}
+
+CFDataRef
+DHCPDUID_LLTDataCreate(const void * ll_addr, int ll_len, int ll_type)
+{
+    CFMutableDataRef	data;
+    int			duid_len;
+    DHCPDUID_LLTRef	llt_p;
+
+    duid_len = offsetof(DHCPDUID_LLT, linklayer_address) + ll_len;
+    data = CFDataCreateMutable(NULL, duid_len);
+    CFDataSetLength(data, duid_len);
+    llt_p = (DHCPDUID_LLTRef)CFDataGetMutableBytePtr(data);
+    DHCPDUIDSetType((DHCPDUIDRef)llt_p, kDHCPDUIDTypeLLT);
+    DHCPDUID_LLTSetHardwareType(llt_p, ll_type);
+    memcpy(llt_p->linklayer_address, ll_addr, ll_len);
+    DHCPDUID_LLTSetTime(llt_p, S_seconds_since_Jan_1_2000());
+    return (data);
 }

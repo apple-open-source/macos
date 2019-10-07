@@ -133,7 +133,7 @@ bs{
         GU{"Guam"}
         GW{"Gvineja-Bisao"}
         GY{"Gvajana"}
-        HK{"Hong Kong (SAR Kina)"}
+        HK{"Hong Kong"}
         HM{"Herd i arhipelag MekDonald"}
         HN{"Honduras"}
         HR{"Hrvatska"}
@@ -183,11 +183,11 @@ bs{
         MF{"Sveti Martin"}
         MG{"Madagaskar"}
         MH{"Maršalova ostrva"}
-        MK{"Makedonija"}
+        MK{"Sjeverna Makedonija"}
         ML{"Mali"}
         MM{"Mjanmar"}
         MN{"Mongolija"}
-        MO{"Makao (SAR Kina)"}
+        MO{"Makao"}
         MP{"Sjeverna Marijanska ostrva"}
         MQ{"Martinik"}
         MR{"Mauritanija"}
@@ -297,8 +297,6 @@ bs{
     }
     Countries%short{
         GB{"UK"}
-        HK{"Hong Kong"}
-        MO{"Makao"}
         PS{"Palestina"}
         UN{"UN"}
         US{"SAD"}
@@ -309,8 +307,8 @@ bs{
         CI{"Obala Bjelokosti"}
         CZ{"Češka Republika"}
         FK{"Folklandska (Malvinska) ostrva"}
-        MK{"Makedonija (BJR)"}
+        SZ{"Svazi"}
         TL{"TL"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
 }

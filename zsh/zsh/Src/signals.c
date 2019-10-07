@@ -55,6 +55,11 @@ mod_export Eprog siglists[VSIGCOUNT];
 /**/
 mod_export int nsigtrapped;
 
+/* Running an exit trap? */
+
+/**/
+int in_exit_trap;
+
 /*
  * Flag that exit trap has been set in POSIX mode.
  * The setter's expectation is therefore that it is run
@@ -522,11 +527,33 @@ wait_for_processes(void)
 #if defined(HAVE_WAIT3) && defined(HAVE_GETRUSAGE)
 		struct timezone dummy_tz;
 		gettimeofday(&pn->endtime, &dummy_tz);
+#ifdef WIFCONTINUED
+		if (WIFCONTINUED(status))
+		    pn->status = SP_RUNNING;
+		else
+#endif
 		pn->status = status;
 		pn->ti = ru;
 #else
 		update_process(pn, status);
 #endif
+		if (WIFEXITED(status) &&
+		    pn->pid == jn->gleader &&
+		    killpg(pn->pid, 0) == -1) {
+		    if (last_attached_pgrp == jn->gleader &&
+			!(jn->stat & STAT_NOSTTY)) {
+			/*
+			 * This PID was in control of the terminal;
+			 * reclaim terminal now it has exited.
+			 * It's still possible some future forked
+			 * process of this job will become group
+			 * leader, however.
+			 */
+			attachtty(mypgrp);
+			adjustwinsize(0);
+		    }
+		    jn->gleader = 0;
+		}
 	    }
 	    update_job(jn);
 	} else if (findproc(pid, &jn, &pn, 1)) {
@@ -563,7 +590,7 @@ wait_for_processes(void)
 /* the signal handler */
  
 /**/
-mod_export RETSIGTYPE
+mod_export void
 zhandler(int sig)
 {
     sigset_t newmask, oldmask;
@@ -642,7 +669,7 @@ zhandler(int sig)
     case SIGINT:
         if (!handletrap(SIGINT)) {
 	    if ((isset(PRIVILEGED) || isset(RESTRICTED)) &&
-		isset(INTERACTIVE) && noerrexit < 0)
+		isset(INTERACTIVE) && (noerrexit & NOERREXIT_SIGNAL))
 		zexit(SIGINT, 1);
             if (list_pipe || chline || simple_pline) {
                 breaks = loops;
@@ -755,7 +782,20 @@ killjb(Job jn, int sig)
 		    if (kill(pn->pid, sig) == -1 && errno != ESRCH)
 			err = -1;
 
-                return err;
+		/*
+		 * The following marks both the superjob and subjob
+		 * as running, as done elsewhere.
+		 *
+		 * It's not entirely clear to me what the right way
+		 * to flag the status of a still-pausd final process,
+		 * as handled above, but we should be cnsistent about
+		 * this inside makerunning() rather than doing anything
+		 * special here.
+		 */
+		if (err != -1)
+		    makerunning(jn);
+
+		return err;
             }
             if (killpg(jobtab[jn->other].gleader, sig) == -1 && errno != ESRCH)
 		err = -1;
@@ -765,12 +805,27 @@ killjb(Job jn, int sig)
 
 	    return err;
         }
-        else
-	    return killpg(jn->gleader, sig);
+        else {
+	    err = killpg(jn->gleader, sig);
+	    if (sig == SIGCONT && err != -1)
+		makerunning(jn);
+	}
     }
-    for (pn = jn->procs; pn; pn = pn->next)
-        if ((err = kill(pn->pid, sig)) == -1 && errno != ESRCH && sig != 0)
-            return -1;
+    for (pn = jn->procs; pn; pn = pn->next) {
+	/*
+	 * Do not kill this job's process if it's already dead as its
+	 * pid could have been reused by the system.
+	 * As the PID doesn't exist don't return an error.
+	 */
+	if (pn->status == SP_RUNNING || WIFSTOPPED(pn->status)) {
+	    /*
+	     * kill -0 on a job is pointless. We still call kill() for each process
+	     * in case the user cares about it but we ignore its outcome.
+	     */
+	    if ((err = kill(pn->pid, sig)) == -1 && errno != ESRCH && sig != 0)
+		return -1;
+	}
+    }
     return err;
 }
 
@@ -811,7 +866,11 @@ dosavetrap(int sig, int level)
 	    newshf->node.nam = ztrdup(shf->node.nam);
 	    newshf->node.flags = shf->node.flags;
 	    newshf->funcdef = dupeprog(shf->funcdef, 0);
-	    newshf->filename = ztrdup(shf->filename);
+	    if (shf->node.flags & PM_LOADDIR) {
+		dircache_set(&newshf->filename, shf->filename);
+	    } else {
+		newshf->filename = ztrdup(shf->filename);
+	    }
 	    if (shf->sticky) {
 		newshf->sticky = sticky_emulation_dup(shf->sticky, 0);
 	    } else
@@ -1426,7 +1485,13 @@ dotrap(int sig)
 
     dont_queue_signals();
 
+    if (sig == SIGEXIT)
+	++in_exit_trap;
+
     dotrapargs(sig, sigtrapped+sig, funcprog);
+
+    if (sig == SIGEXIT)
+	--in_exit_trap;
 
     restore_queue_signals(q);
 }

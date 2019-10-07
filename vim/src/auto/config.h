@@ -121,6 +121,9 @@
 /* Define if you can safely include both <sys/time.h> and <sys/select.h>.  */
 #define SYS_SELECT_WITH_SYS_TIME 1
 
+/* Define to a typecast for select() arguments 2, 3 and 4. */
+#define SELECT_TYPE_ARG234 (fd_set *)
+
 /* Define if you have /dev/ptc */
 /* #undef HAVE_DEV_PTC */
 
@@ -442,6 +445,9 @@
 
 /* Define if you want to include process communication. */
 #define FEAT_JOB_CHANNEL 1
+
+/* Define if you want to include terminal emulator support. */
+#define FEAT_TERMINAL 1
 
 /* Define default global runtime path */
 /* #undef RUNTIME_GLOBAL */

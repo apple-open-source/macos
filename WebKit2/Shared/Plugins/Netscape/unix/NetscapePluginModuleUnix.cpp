@@ -30,12 +30,12 @@
 
 #include "NetscapeBrowserFuncs.h"
 #include "PluginProcessProxy.h"
-#include <WebCore/FileSystem.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <wtf/FileSystem.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebKit {
@@ -163,9 +163,6 @@ bool NetscapePluginModule::getPluginInfo(const String& pluginPath, PluginModuleI
     plugin.info.name = metaData.name;
     plugin.info.desc = metaData.description;
     parseMIMEDescription(metaData.mimeDescription, plugin.info.mimes);
-#if PLATFORM(GTK)
-    plugin.requiresGtk2 = metaData.requiresGtk2;
-#endif
 
     return true;
 }

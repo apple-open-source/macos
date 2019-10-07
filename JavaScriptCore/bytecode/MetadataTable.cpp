@@ -27,6 +27,7 @@
 #include "MetadataTable.h"
 
 #include "CodeBlock.h"
+#include "JSCInlines.h"
 #include "OpcodeInlines.h"
 #include "UnlinkedMetadataTableInlines.h"
 #include <wtf/FastMalloc.h>
@@ -35,8 +36,8 @@ namespace JSC {
 
 MetadataTable::MetadataTable(UnlinkedMetadataTable& unlinkedMetadata)
 {
-    linkingData() = UnlinkedMetadataTable::LinkingData {
-        &unlinkedMetadata,
+    new (&linkingData()) UnlinkedMetadataTable::LinkingData {
+        unlinkedMetadata,
         1,
     };
 }
@@ -55,7 +56,16 @@ MetadataTable::~MetadataTable()
 {
     for (unsigned i = 0; i < NUMBER_OF_BYTECODE_WITH_METADATA; i++)
         getOpcodeType<DeallocTable>(static_cast<OpcodeID>(i), this);
-    linkingData().unlinkedMetadata->unlink(*this);
+    linkingData().~LinkingData();
+}
+
+void MetadataTable::destroy(MetadataTable* table)
+{
+    Ref<UnlinkedMetadataTable> unlinkedMetadata = WTFMove(table->linkingData().unlinkedMetadata);
+    table->~MetadataTable();
+    // Since UnlinkedMetadata::unlink frees the underlying memory of MetadataTable.
+    // We need to destroy LinkingData before calling it.
+    unlinkedMetadata->unlink(*table);
 }
 
 size_t MetadataTable::sizeInBytes()

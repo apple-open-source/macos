@@ -58,7 +58,8 @@ split (char *string, void (*fn)(char *, int), int perrs) {
      if (string) {
           p = my_strdup(string);
 	  for (q = p; ; ) {
-	       r = index(q, ':');
+               if ((r = index(q, ':'))==(char*)0) 
+                    r=index(q,'\01');
 	       if (r) {
 		    *r = 0;
 		    fn (q, perrs);
@@ -267,7 +268,7 @@ add_to_list (char *dir, char *lang, int perrs) {
 static void
 add_to_mandirlist_x (char *dir, char *lang, int perrs) {
 	add_to_list(dir, lang, perrs);
-	if (lang && strlen(lang) > 5 && lang[6] == '.') {
+	if (lang && strlen(lang) > 5 && lang[5] == '.') {
 		char lang2[6];	/* e.g. zh_CN from zh_CN.GB2312 */
 
 		strncpy(lang2,lang,5);
@@ -419,6 +420,7 @@ init_manpath () {
 	  char *manp;
 
 	  if ((manp = opt_manpath) == NULL &&
+              (manp = getenv ("manpath")) == NULL &&
               (manp = getenv ("MANPATH")) == NULL)
 	       manp = "";		/* default path */
 	  split (manp, to_mandirlist, 0);

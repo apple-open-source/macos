@@ -23,16 +23,16 @@
 #if ENABLE(NETSCAPE_PLUGIN_API)
 
 messages -> NPObjectMessageReceiver LegacyReceiver {
-    Deallocate() -> () LegacySync
-    HasMethod(WebKit::NPIdentifierData methodName) -> (bool returnValue) LegacySync
-    Invoke(WebKit::NPIdentifierData methodName, Vector<WebKit::NPVariantData> argumentsData) -> (bool returnValue, WebKit::NPVariantData resultData) LegacySync
-    InvokeDefault(Vector<WebKit::NPVariantData> argumentsData) -> (bool returnValue, WebKit::NPVariantData resultData) LegacySync
-    HasProperty(WebKit::NPIdentifierData propertyName) -> (bool returnValue) LegacySync
-    GetProperty(WebKit::NPIdentifierData propertyName) -> (bool returnValue, WebKit::NPVariantData resultData) LegacySync
-    SetProperty(WebKit::NPIdentifierData propertyName, WebKit::NPVariantData propertyValueData) -> (bool returnValue) LegacySync
-    RemoveProperty(WebKit::NPIdentifierData propertyName) -> (bool returnValue) LegacySync
-    Enumerate() -> (bool returnValue, Vector<WebKit::NPIdentifierData> identifiersData) LegacySync
-    Construct(Vector<WebKit::NPVariantData> argumentsData) -> (bool returnValue, WebKit::NPVariantData resultData) LegacySync
+    Deallocate() -> () Synchronous
+    HasMethod(WebKit::NPIdentifierData methodName) -> (bool returnValue) Synchronous
+    Invoke(WebKit::NPIdentifierData methodName, Vector<WebKit::NPVariantData> argumentsData) -> (bool returnValue, WebKit::NPVariantData resultData) Synchronous
+    InvokeDefault(Vector<WebKit::NPVariantData> argumentsData) -> (bool returnValue, WebKit::NPVariantData resultData) Synchronous
+    HasProperty(WebKit::NPIdentifierData propertyName) -> (bool returnValue) Synchronous
+    GetProperty(WebKit::NPIdentifierData propertyName) -> (bool returnValue, WebKit::NPVariantData resultData) Synchronous
+    SetProperty(WebKit::NPIdentifierData propertyName, WebKit::NPVariantData propertyValueData) -> (bool returnValue) Synchronous
+    RemoveProperty(WebKit::NPIdentifierData propertyName) -> (bool returnValue) Synchronous
+    Enumerate() -> (bool returnValue, Vector<WebKit::NPIdentifierData> identifiersData) Synchronous
+    Construct(Vector<WebKit::NPVariantData> argumentsData) -> (bool returnValue, WebKit::NPVariantData resultData) Synchronous
 }
 
 #endif

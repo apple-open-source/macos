@@ -47,6 +47,12 @@ public:
         ASSERT(HashTraits<uint64_t>::emptyValue() != m_id && !HashTraits<uint64_t>::isDeletedValue(m_id));
     }
 
+    ALWAYS_INLINE CallbackID& operator=(const CallbackID& otherID)
+    {
+        m_id = otherID.m_id;
+        return *this;
+    }
+
     bool operator==(const CallbackID& other) const { return m_id == other.m_id; }
 
     uint64_t toInteger() const { return m_id; }

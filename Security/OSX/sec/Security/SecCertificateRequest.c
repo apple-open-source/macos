@@ -34,7 +34,7 @@
 #include <security_asn1/nameTemplates.h>
 
 #include <TargetConditionals.h>
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
+#if TARGET_OS_OSX
 // ENABLE_CMS 0
 OSStatus SecCmsArraySortByDER(void **objs, const SecAsn1Template *objtemplate, void **objs2);
 #else
@@ -64,7 +64,7 @@ OSStatus SecCmsArraySortByDER(void **objs, const SecAsn1Template *objtemplate, v
 
 #include <AssertMacros.h>
 
-#include "SecCertificateRequest.h"
+#include <Security/SecCertificateRequest.h>
 
 /* Subject Name Attribute OID constants */
 const CFStringRef kSecOidCommonName = CFSTR("CN");

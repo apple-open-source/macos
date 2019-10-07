@@ -25,8 +25,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)ctf_lookup.c	1.6	06/01/07 SMI"
-
 #include <ctf_impl.h>
 #include <mach-o/nlist.h>
 
@@ -179,7 +177,7 @@ err:
  * by the corresponding entry in the symbol table.
  */
 ctf_id_t
-ctf_lookup_by_symbol(ctf_file_t *fp, ulong_t symidx)
+ctf_lookup_by_symbol(ctf_file_t *fp, unsigned long symidx)
 {
 	const ctf_sect_t *sp = &fp->ctf_symtab;
 	ctf_id_t type;
@@ -233,7 +231,7 @@ ctf_lookup_by_symbol(ctf_file_t *fp, ulong_t symidx)
 	if (fp->ctf_sxlate[symidx] == -1u)
 		return (ctf_set_errno(fp, ECTF_NOTYPEDAT));
 
-	type = *(ushort_t *)((uintptr_t)fp->ctf_buf + fp->ctf_sxlate[symidx]);
+	type = *(uint16_t *)((uintptr_t)fp->ctf_buf + fp->ctf_sxlate[symidx]);
 	if (type == 0)
 		return (ctf_set_errno(fp, ECTF_NOTYPEDAT));
 
@@ -271,11 +269,11 @@ ctf_lookup_by_id(ctf_file_t **fpp, ctf_id_t type)
  * by the corresponding entry in the symbol table.
  */
 int
-ctf_func_info(ctf_file_t *fp, ulong_t symidx, ctf_funcinfo_t *fip)
+ctf_func_info(ctf_file_t *fp, unsigned long symidx, ctf_funcinfo_t *fip)
 {
 	const ctf_sect_t *sp = &fp->ctf_symtab;
-	const ushort_t *dp;
-	ushort_t info, kind, n;
+	const uint16_t *dp;
+	uint16_t info, kind, n;
 
 	if (sp->cts_data == NULL)
 		return (ctf_set_errno(fp, ECTF_NOSYMTAB));
@@ -284,7 +282,6 @@ ctf_func_info(ctf_file_t *fp, ulong_t symidx, ctf_funcinfo_t *fip)
 		return (ctf_set_errno(fp, EINVAL));
 
 	if (sp->cts_entsize == sizeof (Elf32_Sym)) {
-		const Elf32_Sym *symp = (Elf32_Sym *)sp->cts_data + symidx;
 		/*
 		 * On Darwin, we do not have symbol type information
 		 */
@@ -293,7 +290,6 @@ ctf_func_info(ctf_file_t *fp, ulong_t symidx, ctf_funcinfo_t *fip)
 			return (ctf_set_errno(fp, ECTF_NOTFUNC));
 #endif
 	} else {
-		const Elf64_Sym *symp = (Elf64_Sym *)sp->cts_data + symidx;
 #if !defined(__APPLE__)
 		if (ELF64_ST_TYPE(symp->st_info) != STT_FUNC)
 			return (ctf_set_errno(fp, ECTF_NOTFUNC));
@@ -303,7 +299,7 @@ ctf_func_info(ctf_file_t *fp, ulong_t symidx, ctf_funcinfo_t *fip)
 	if (fp->ctf_sxlate[symidx] == -1u)
 		return (ctf_set_errno(fp, ECTF_NOFUNCDAT));
 
-	dp = (ushort_t *)((uintptr_t)fp->ctf_buf + fp->ctf_sxlate[symidx]);
+	dp = (uint16_t *)((uintptr_t)fp->ctf_buf + fp->ctf_sxlate[symidx]);
 
 	info = *dp++;
 	kind = LCTF_INFO_KIND(fp, info);
@@ -332,19 +328,19 @@ ctf_func_info(ctf_file_t *fp, ulong_t symidx, ctf_funcinfo_t *fip)
  * by the corresponding entry in the symbol table.
  */
 int
-ctf_func_args(ctf_file_t *fp, ulong_t symidx, uint_t argc, ctf_id_t *argv)
+ctf_func_args(ctf_file_t *fp, unsigned long symidx, uint32_t argc, ctf_id_t *argv)
 {
-	const ushort_t *dp;
+	const uint16_t *dp;
 	ctf_funcinfo_t f;
 
 	if (ctf_func_info(fp, symidx, &f) == CTF_ERR)
 		return (CTF_ERR); /* errno is set for us */
 
 	/*
-	 * The argument data is two ushort_t's past the translation table
+	 * The argument data is two uint16_t's past the translation table
 	 * offset: one for the function info, and one for the return type.
 	 */
-	dp = (ushort_t *)((uintptr_t)fp->ctf_buf + fp->ctf_sxlate[symidx]) + 2;
+	dp = (uint16_t *)((uintptr_t)fp->ctf_buf + fp->ctf_sxlate[symidx]) + 2;
 
 	for (argc = MIN(argc, f.ctc_argc); argc != 0; argc--)
 		*argv++ = *dp++;

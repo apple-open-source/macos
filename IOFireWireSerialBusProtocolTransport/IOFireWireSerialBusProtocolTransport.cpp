@@ -743,7 +743,7 @@ IOFireWireSerialBusProtocolTransport::message (
 		}
 		break;
 			
-		case kIOMessageFWSBP2ReconnectComplete:
+		case (UInt32)kIOMessageFWSBP2ReconnectComplete:
 		{	
 			
 			// As of this writing FireWireSBP2LUN will message all multi-LUN instances with this
@@ -792,7 +792,7 @@ IOFireWireSerialBusProtocolTransport::message (
 		}
 		break;
 			
-		case kIOMessageFWSBP2ReconnectFailed:
+		case (UInt32)kIOMessageFWSBP2ReconnectFailed:
 		{
 			
 			// As of this writing FireWireSBP2LUN will message all multi-LUN instances with this
@@ -1814,7 +1814,7 @@ Retry:
 	RecordFireWireTimeStamp (
 		FW_TRACE ( kLoginCompletion ),
 		( uintptr_t ) this,
-		params->status, NULL, NULL );
+		params->status, 0, 0 );
 			
 	if ( fLoginRetryCount < kMaxLoginRetryCount )
 	{

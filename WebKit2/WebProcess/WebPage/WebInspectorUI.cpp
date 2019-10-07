@@ -34,6 +34,7 @@
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/Chrome.h>
 #include <WebCore/DOMWrapperWorld.h>
+#include <WebCore/FloatRect.h>
 #include <WebCore/InspectorController.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/RuntimeEnabledFeatures.h>
@@ -52,9 +53,12 @@ WebInspectorUI::WebInspectorUI(WebPage& page)
 {
     RuntimeEnabledFeatures::sharedFeatures().setInspectorAdditionsEnabled(true);
     RuntimeEnabledFeatures::sharedFeatures().setImageBitmapOffscreenCanvasEnabled(true);
+#if ENABLE(WEBGL2)
+    RuntimeEnabledFeatures::sharedFeatures().setWebGL2Enabled(true);
+#endif
 }
 
-void WebInspectorUI::establishConnection(uint64_t inspectedPageIdentifier, bool underTest, unsigned inspectionLevel)
+void WebInspectorUI::establishConnection(PageIdentifier inspectedPageIdentifier, bool underTest, unsigned inspectionLevel)
 {
     m_inspectedPageIdentifier = inspectedPageIdentifier;
     m_frontendAPIDispatcher.reset();
@@ -163,13 +167,18 @@ void WebInspectorUI::closeWindow()
     if (m_frontendHost)
         m_frontendHost->disconnectClient();
 
-    m_inspectedPageIdentifier = 0;
+    m_inspectedPageIdentifier = { };
     m_underTest = false;
 }
 
 void WebInspectorUI::reopen()
 {
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::Reopen(), m_inspectedPageIdentifier);
+}
+
+void WebInspectorUI::resetState()
+{
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::ResetState(), m_inspectedPageIdentifier);
 }
 
 WebCore::UserInterfaceLayoutDirection WebInspectorUI::userInterfaceLayoutDirection() const
@@ -245,6 +254,11 @@ void WebInspectorUI::changeAttachedWindowHeight(unsigned height)
 void WebInspectorUI::changeAttachedWindowWidth(unsigned width)
 {
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::SetAttachedWindowWidth(width), m_inspectedPageIdentifier);
+}
+
+void WebInspectorUI::changeSheetRect(const FloatRect& rect)
+{
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::SetSheetRect(rect), m_inspectedPageIdentifier);
 }
 
 void WebInspectorUI::openInNewTab(const String& url)

@@ -32,6 +32,7 @@ CKKSPowerEvent* const kCKKSPowerEventIncommingQueue = (CKKSPowerEvent*)@"process
 CKKSPowerEvent* const kCKKSPowerEventTLKShareProcessing = (CKKSPowerEvent*)@"TLKShareProcessing";
 CKKSPowerEvent* const kCKKSPowerEventScanLocalItems = (CKKSPowerEvent*)@"scanLocalItems";
 CKKSPowerEvent* const kCKKSPowerEventFetchAllChanges = (CKKSPowerEvent*)@"fetchAllChanges";
+CKKSPowerEvent* const kCKKSPowerEventReencryptOutgoing = (CKKSPowerEvent *)@"reencryptOutgoing";
 
 OTPowerEvent* const kOTPowerEventRestore = (OTPowerEvent *)@"restoreBottledPeer";
 OTPowerEvent* const kOTPowerEventEnroll = (OTPowerEvent *)@"enrollBottledPeer";

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)ctf_lib.c	1.3	05/06/08 SMI"
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -39,10 +37,13 @@
 static const char *_libctf_zlib = "/usr/lib/libz.dylib";
 
 static struct {
-	int (*z_uncompress)(uchar_t *, ulong_t *, const uchar_t *, ulong_t);
+	int (*z_uncompress)(uint8_t *, unsigned long *, const uint8_t *, unsigned long);
 	const char *(*z_error)(int);
 	void *z_dlp;
 } zlib;
+
+const char *z_strerror(int err);
+int z_uncompress(void *dst, size_t *dstlen, const void *src, size_t srclen);
 
 #define _PAGEMASK (~(getpagesize() - 1)) /* Infrequently used, let's burn the cost of the library call. */
 
@@ -85,7 +86,7 @@ ctf_zopen(int *errp)
 int
 z_uncompress(void *dst, size_t *dstlen, const void *src, size_t srclen)
 {
-	return (zlib.z_uncompress(dst, (ulong_t *)dstlen, src, srclen));
+	return (zlib.z_uncompress(dst, (unsigned long *)dstlen, src, srclen));
 }
 
 const char *
@@ -144,7 +145,7 @@ ctf_sect_mmap(ctf_sect_t *sp, int fd)
 {
 	size_t pageoff = sp->cts_offset & ~_PAGEMASK;
 
-	caddr_t base = mmap64(NULL, sp->cts_size + pageoff, PROT_READ,
+	caddr_t base = mmap(NULL, sp->cts_size + pageoff, PROT_READ,
 	    MAP_PRIVATE, fd, sp->cts_offset & _PAGEMASK);
 
 	if (base != MAP_FAILED)
@@ -177,7 +178,7 @@ ctf_fdopen(int fd, int *errp)
 	ctf_sect_t ctfsect, symsect, strsect;
 	ctf_file_t *fp = NULL;
 
-	struct stat64 st;
+	struct stat st;
 	ssize_t nbytes;
 
 	union {
@@ -191,10 +192,10 @@ ctf_fdopen(int fd, int *errp)
 	bzero(&strsect, sizeof (ctf_sect_t));
 	bzero(&hdr.ctf, sizeof (hdr));
 
-	if (fstat64(fd, &st) == -1)
+	if (fstat(fd, &st) == -1)
 		return (ctf_set_open_errno(errp, errno));
 
-	if ((nbytes = pread64(fd, &hdr.ctf, sizeof (hdr), 0)) <= 0)
+	if ((nbytes = pread(fd, &hdr.ctf, sizeof (hdr), 0)) <= 0)
 		return (ctf_set_open_errno(errp, nbytes < 0? errno : ECTF_FMT));
 
 	/*
@@ -206,7 +207,7 @@ ctf_fdopen(int fd, int *errp)
 		if (hdr.ctf.ctp_version > CTF_VERSION)
 			return (ctf_set_open_errno(errp, ECTF_CTFVERS));
 
-		ctfsect.cts_data = mmap64(NULL, st.st_size, PROT_READ,
+		ctfsect.cts_data = mmap(NULL, st.st_size, PROT_READ,
 		    MAP_PRIVATE, fd, 0);
 
 		if (ctfsect.cts_data == MAP_FAILED)
@@ -234,9 +235,9 @@ ctf_fdopen(int fd, int *errp)
 	if (nbytes >= sizeof (Elf32_Ehdr) &&
 	    bcmp(&hdr.e32.e_ident[EI_MAG0], ELFMAG, SELFMAG) == 0) {
 #ifdef	_BIG_ENDIAN
-		uchar_t order = ELFDATA2MSB;
+		uint8_t order = ELFDATA2MSB;
 #else
-		uchar_t order = ELFDATA2LSB;
+		uint8_t order = ELFDATA2LSB;
 #endif
 		GElf_Half i, n;
 		GElf_Shdr *sp;
@@ -276,7 +277,7 @@ ctf_fdopen(int fd, int *errp)
 
 			nbytes = sizeof (Elf32_Shdr) * n;
 
-			if ((sp32 = malloc(nbytes)) == NULL || pread64(fd,
+			if ((sp32 = malloc(nbytes)) == NULL || pread(fd,
 			    sp32, nbytes, hdr.e64.e_shoff) != nbytes) {
 				free(sp);
 				return (ctf_set_open_errno(errp, errno));
@@ -287,7 +288,7 @@ ctf_fdopen(int fd, int *errp)
 
 			free(sp32);
 
-		} else if (pread64(fd, sp, nbytes, hdr.e64.e_shoff) != nbytes) {
+		} else if (pread(fd, sp, nbytes, hdr.e64.e_shoff) != nbytes) {
 			free(sp);
 			return (ctf_set_open_errno(errp, errno));
 		}
@@ -299,7 +300,7 @@ ctf_fdopen(int fd, int *errp)
 		strs_mapsz = sp[hdr.e64.e_shstrndx].sh_size +
 		    (sp[hdr.e64.e_shstrndx].sh_offset & ~_PAGEMASK);
 
-		strs_map = mmap64(NULL, strs_mapsz, PROT_READ, MAP_PRIVATE,
+		strs_map = mmap(NULL, strs_mapsz, PROT_READ, MAP_PRIVATE,
 		    fd, sp[hdr.e64.e_shstrndx].sh_offset & _PAGEMASK);
 
 		strs = (const char *)strs_map +
@@ -332,7 +333,7 @@ ctf_fdopen(int fd, int *errp)
 				ctfsect.cts_flags = shp->sh_flags;
 				ctfsect.cts_size = shp->sh_size;
 				ctfsect.cts_entsize = shp->sh_entsize;
-				ctfsect.cts_offset = (off64_t)shp->sh_offset;
+				ctfsect.cts_offset = (int64_t)shp->sh_offset;
 
 			} else if (shp->sh_type == SHT_SYMTAB) {
 				symsect.cts_name = strs + shp->sh_name;
@@ -340,14 +341,14 @@ ctf_fdopen(int fd, int *errp)
 				symsect.cts_flags = shp->sh_flags;
 				symsect.cts_size = shp->sh_size;
 				symsect.cts_entsize = shp->sh_entsize;
-				symsect.cts_offset = (off64_t)shp->sh_offset;
+				symsect.cts_offset = (int64_t)shp->sh_offset;
 
 				strsect.cts_name = strs + lhp->sh_name;
 				strsect.cts_type = lhp->sh_type;
 				strsect.cts_flags = lhp->sh_flags;
 				strsect.cts_size = lhp->sh_size;
 				strsect.cts_entsize = lhp->sh_entsize;
-				strsect.cts_offset = (off64_t)lhp->sh_offset;
+				strsect.cts_offset = (int64_t)lhp->sh_offset;
 			}
 		}
 
@@ -403,7 +404,7 @@ ctf_open(const char *filename, int *errp)
 	ctf_file_t *fp;
 	int fd;
 
-	if ((fd = open64(filename, O_RDONLY)) == -1) {
+	if ((fd = open(filename, O_RDONLY)) == -1) {
 		if (errp != NULL)
 			*errp = errno;
 		return (NULL);
@@ -421,8 +422,8 @@ ctf_open(const char *filename, int *errp)
 int
 ctf_write(ctf_file_t *fp, int fd)
 {
-	const uchar_t *buf = fp->ctf_base;
-	ssize_t resid = fp->ctf_size;
+	const uint8_t *buf = fp->ctf_base;
+	ssize_t resid = fp->ctf_size + sizeof(ctf_header_t);
 	ssize_t len;
 
 	while (resid != 0) {

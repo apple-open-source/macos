@@ -34,7 +34,6 @@
 #include "sscommon.h"
 #include <Security/Authorization.h>
 #include <Security/AuthSession.h>
-#include <Security/SecCodeHost.h>
 
 #ifdef __cplusplus
 
@@ -354,7 +353,7 @@ public:
         const void *data, size_t dataLength, void *context);
 	
 public:
-	// securityd helper support
+    // securityd helper support. The taskPort argument is no longer used, server will use client's audit token
 	void childCheckIn(Port serverPort, Port taskPort);
 	
 public:
@@ -363,19 +362,6 @@ public:
 		KeyHandle key, CSSM_ACL_AUTHORIZATION_TAG tag);
 	void registerForAclEdits(DidChangeKeyAclCallback *callback, void *context);
 	
-public:
-	// Code Signing hosting interface
-	void registerHosting(mach_port_t hostingPort, SecCSFlags flags);
-	mach_port_t hostingPort(pid_t pid);
-	
-	SecGuestRef createGuest(SecGuestRef host,
-		uint32_t status, const char *path, const CssmData &cdhash, const CssmData &attributes, SecCSFlags flags);
-	void setGuestStatus(SecGuestRef guest, uint32 status, const CssmData &attributes);
-	void removeGuest(SecGuestRef host, SecGuestRef guest);
-	
-	void selectGuest(SecGuestRef guest);
-	SecGuestRef selectedGuest() const; 
-
 private:
 	static Port findSecurityd();
 	void getAcl(AclKind kind, GenericHandle key, const char *tag,
@@ -402,16 +388,12 @@ private:
 	static UnixPlusPlus::StaticForkMonitor mHasForked;	// global fork indicator
 
 	struct Thread {
-		Thread() : registered(false), notifySeq(0),
-			currentGuest(kSecNoGuest), lastGuest(kSecNoGuest) { }
+		Thread() : registered(false), notifySeq(0) { }
 		operator bool() const { return registered; }
 		
 		ReceivePort replyPort;	// dedicated reply port (send right held by SecurityServer)
         bool registered;		// has been registered with SecurityServer
 		uint32 notifySeq; // notification sequence number
-		
-		SecGuestRef currentGuest;	// last set guest path
-		SecGuestRef lastGuest;		// last transmitted guest path
 	};
 
 	struct Global {
@@ -423,7 +405,6 @@ private:
 
 	static ModuleNexus<Global> mGlobal;
 	static const char *mContactName;
-	static SecGuestRef mDedicatedGuest;
 };
 
 

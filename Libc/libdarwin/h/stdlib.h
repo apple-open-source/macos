@@ -47,11 +47,13 @@
 #include <os/base.h>
 #include <os/api.h>
 #include <os/assumes.h>
+#include <os/stdio.h>
 #include <dispatch/private.h>
 
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/cdefs.h>
+#include <sys/syslimits.h>
 
 __BEGIN_DECLS;
 
@@ -129,6 +131,9 @@ _os_strdup_known(const char *str)
 	return strdup(str);
 }
 
+#define __os_requires_experimental_libtrace \
+	_Pragma("GCC error \"requires OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE\"")
+
 /*!
  * @function os_malloc
  * Wrapper around malloc(3) which guarantees that the allocation succeeds.
@@ -144,6 +149,7 @@ _os_strdup_known(const char *str)
  * the size is not known at compile-time, the routine will retry until it is
  * successful.
  */
+#if defined(OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE)
 #define os_malloc(__size) ({ \
 	void *ptr = NULL; \
 	size_t _size = (__size); \
@@ -155,6 +161,9 @@ _os_strdup_known(const char *str)
 	} \
 	(ptr); \
 })
+#else
+#define os_malloc(__size) __os_requires_experimental_libtrace
+#endif
 
 /*!
  * @function os_calloc
@@ -174,6 +183,7 @@ _os_strdup_known(const char *str)
  * the size is not known at compile-time, the routine will retry until it is
  * successful.
  */
+#if defined(OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE)
 #define os_calloc(__cnt, __size) ({ \
 	void *ptr = NULL; \
 	size_t _size = (__size); \
@@ -187,6 +197,9 @@ _os_strdup_known(const char *str)
 	} \
 	(ptr); \
 })
+#else
+#define os_calloc(__size) __os_requires_experimental_libtrace
+#endif
 
 /*!
  * @function os_strdup
@@ -208,6 +221,7 @@ _os_strdup_known(const char *str)
  * stdlib.h header because its semantic changes are solely related to the manner
  * in which memory is allocated.
  */
+#if defined(OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE)
 #define os_strdup(__str) ({ \
 	char *ptr = NULL; \
 	const char *_str = (__str); \
@@ -219,6 +233,9 @@ _os_strdup_known(const char *str)
 	} \
 	(ptr); \
 })
+#else
+#define os_strdup(__size) __os_requires_experimental_libtrace
+#endif
 
 /*!
  * @function os_localtime_file
@@ -241,7 +258,7 @@ _os_strdup_known(const char *str)
 DARWIN_API_AVAILABLE_20170407
 OS_EXPORT
 void
-os_localtime_file(char buff[32]);
+os_localtime_file(char buff[static 32]);
 
 /*!
  * @function os_simple_hash
@@ -259,13 +276,39 @@ os_localtime_file(char buff[32]);
  * @discussion
  * This routine is meant to be used as a simple way to obtain a value that can
  * be used to choose a bucket in a simple hash table. Do not attach security
- * assumptions to the output of this routine. Do not assume thst the computed
+ * assumptions to the output of this routine. Do not assume that the computed
  * hash is stable between hosts, OS versions, or boot sessions.
  */
 DARWIN_API_AVAILABLE_20170407
 OS_EXPORT OS_NONNULL1
 uint64_t
 os_simple_hash(const void *buff, size_t len);
+
+/*!
+ * @function os_simple_hash_with_seed
+ * A seeded variant of os_simple_hash.
+ *
+ * @param buff
+ * A pointer to the buffer to hash.
+ *
+ * @param len
+ * The length of the buffer.
+ *
+ * @param seed
+ * The seed value for the hash.
+ *
+ * @result
+ * The hashed value of the input.
+ *
+ * @discussion
+ * Usually, hashing the same buffer with different seeds will produce
+ * different hash values.
+ * All the same considerations of {@link os_simple_hash} apply.
+ */
+DARWIN_API_AVAILABLE_20181020
+OS_EXPORT OS_NONNULL1
+uint64_t
+os_simple_hash_with_seed(const void *buff, size_t len, uint64_t seed);
 
 /*!
  * @function os_simple_hash_string
@@ -280,7 +323,7 @@ os_simple_hash(const void *buff, size_t len);
  * @discussion
  * This routine is the moral equivalent of a call to
  *
- * os_simple_hash(buff, strlen(buff));
+ *     os_simple_hash(buff, strlen(buff));
  *
  * All the same considerations of {@link os_simple_hash} apply.
  */
@@ -288,6 +331,46 @@ DARWIN_API_AVAILABLE_20170407
 OS_EXPORT OS_NONNULL1
 uint64_t
 os_simple_hash_string(const char *string);
+
+/*!
+ * @function os_simple_hash_string_with_seed
+ * A seeded variant of os_simple_hash_string.
+ *
+ * @param string
+ * A pointer to the null-terminated string to hash.
+ *
+ * @result
+ * The hashed value of the input.
+ *
+ * @discussion
+ * Usually, hashing the same string with different seeds will produce
+ * different hash values.
+ * All the same considerations of {@link os_simple_hash_string} apply.
+ */
+DARWIN_API_AVAILABLE_20181020
+OS_EXPORT OS_NONNULL1
+uint64_t
+os_simple_hash_string_with_seed(const char *string, uint64_t seed);
+
+/*!
+ * @function realpath_np
+ * Obtains a fully-resolved representation of the path to the file represented
+ * by the given descriptor.
+ *
+ * @param fd
+ * The file descriptor whose path is to be obtained.
+ *
+ * @param buff
+ * The buffer in which to write the path.
+ *
+ * @result
+ * On success, zero is returned. Otherwise, the implementation may return any
+ * error that can be returned by fcntl(2).
+ */
+DARWIN_API_AVAILABLE_20180727
+OS_EXPORT OS_WARN_RESULT
+errno_t
+realpath_np(os_fd_t fd, char buff[static PATH_MAX]);
 
 __END_DECLS;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,10 +64,10 @@ struct ppp_link_event_data {
 
 #include <IOKit/IOLib.h>
 
-int ppp_domain_init();
-int ppp_domain_dispose();
-int ppp_proto_add();
-int ppp_proto_remove();
+int ppp_domain_init(void);
+int ppp_domain_dispose(void);
+int ppp_proto_add(void);
+int ppp_proto_remove(void);
 
 int ppp_proto_input(void *data, mbuf_t m);
 void ppp_proto_free(void *data);

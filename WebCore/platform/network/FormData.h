@@ -29,6 +29,7 @@
 
 namespace WebCore {
 
+class BlobRegistry;
 class DOMFormData;
 class Document;
 class File;
@@ -209,7 +210,7 @@ public:
     // FIXME: Both these functions perform a deep copy of m_elements, but differ in handling of other data members.
     // How much of that is intentional? We need better names that explain the difference.
     Ref<FormData> copy() const;
-    Ref<FormData> isolatedCopy() const;
+    WEBCORE_EXPORT Ref<FormData> isolatedCopy() const;
 
     template<typename Encoder>
     void encode(Encoder&) const;
@@ -221,12 +222,12 @@ public:
     WEBCORE_EXPORT void appendFileRange(const String& filename, long long start, long long length, Optional<WallTime> expectedModificationTime, bool shouldGenerateFile = false);
     WEBCORE_EXPORT void appendBlob(const URL& blobURL);
 
-    Vector<char> flatten() const; // omits files
+    WEBCORE_EXPORT Vector<char> flatten() const; // omits files
     String flattenToString() const; // omits files
 
     // Resolve all blob references so we only have file and data.
     // If the FormData has no blob references to resolve, this is returned.
-    Ref<FormData> resolveBlobReferences();
+    WEBCORE_EXPORT Ref<FormData> resolveBlobReferences(BlobRegistry&);
 
     bool isEmpty() const { return m_elements.isEmpty(); }
     const Vector<FormDataElement>& elements() const { return m_elements; }
@@ -319,7 +320,7 @@ RefPtr<FormData> FormData::decode(Decoder& decoder)
     if (!decoder.decode(data->m_identifier))
         return nullptr;
 
-    return WTFMove(data);
+    return data;
 }
 
 } // namespace WebCore

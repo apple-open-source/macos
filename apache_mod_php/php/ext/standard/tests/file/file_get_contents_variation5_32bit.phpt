@@ -1,5 +1,5 @@
 --TEST--
-Test file_get_contents() function : usage variation 
+Test file_get_contents() function : usage variation
 --CREDITS--
 Dave Kelsey <d_kelsey@uk.ibm.com>
 --SKIPIF--
@@ -7,9 +7,9 @@ Dave Kelsey <d_kelsey@uk.ibm.com>
 --FILE--
 <?php
 /* Prototype  : string file_get_contents(string filename [, bool use_include_path [, resource context [, long offset [, long maxlen]]]])
- * Description: Read the entire file into a string 
+ * Description: Read the entire file into a string
  * Source code: ext/standard/file.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing file_get_contents() : usage variation ***\n";
@@ -27,7 +27,7 @@ set_error_handler('test_error_handler');
 $filename = 'FileGetContentsVar5.tmp';
 $absFile = dirname(__FILE__).'/'.$filename;
 $h = fopen($absFile,"w");
-fwrite($h, b"contents read");
+fwrite($h, "contents read");
 fclose($h);
 
 
@@ -152,30 +152,30 @@ Error: 2 - file_get_contents(): Failed to seek to position -22 in the stream, %s
 bool(false)
 
 --float 12.3456789000e10--
-Error: 2 - file_get_contents() expects parameter 4 to be integer, float given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 4 to be int, float given, %s(%d)
 NULL
 
 --float -12.3456789000e10--
-Error: 2 - file_get_contents() expects parameter 4 to be integer, float given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 4 to be int, float given, %s(%d)
 NULL
 
 --float .5--
 string(%d) "contents read"
 
 --empty array--
-Error: 2 - file_get_contents() expects parameter 4 to be integer, array given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 4 to be int, array given, %s(%d)
 NULL
 
 --int indexed array--
-Error: 2 - file_get_contents() expects parameter 4 to be integer, array given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 4 to be int, array given, %s(%d)
 NULL
 
 --associative array--
-Error: 2 - file_get_contents() expects parameter 4 to be integer, array given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 4 to be int, array given, %s(%d)
 NULL
 
 --nested arrays--
-Error: 2 - file_get_contents() expects parameter 4 to be integer, array given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 4 to be int, array given, %s(%d)
 NULL
 
 --uppercase NULL--
@@ -197,35 +197,35 @@ string(12) "ontents read"
 string(%d) "contents read"
 
 --empty string DQ--
-Error: 2 - file_get_contents() expects parameter 4 to be integer, %unicode_string_optional% given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 4 to be int, string given, %s(%d)
 NULL
 
 --empty string SQ--
-Error: 2 - file_get_contents() expects parameter 4 to be integer, %unicode_string_optional% given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 4 to be int, string given, %s(%d)
 NULL
 
 --string DQ--
-Error: 2 - file_get_contents() expects parameter 4 to be integer, %unicode_string_optional% given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 4 to be int, string given, %s(%d)
 NULL
 
 --string SQ--
-Error: 2 - file_get_contents() expects parameter 4 to be integer, %unicode_string_optional% given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 4 to be int, string given, %s(%d)
 NULL
 
 --mixed case string--
-Error: 2 - file_get_contents() expects parameter 4 to be integer, %unicode_string_optional% given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 4 to be int, string given, %s(%d)
 NULL
 
 --heredoc--
-Error: 2 - file_get_contents() expects parameter 4 to be integer, %unicode_string_optional% given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 4 to be int, string given, %s(%d)
 NULL
 
 --instance of classWithToString--
-Error: 2 - file_get_contents() expects parameter 4 to be integer, object given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 4 to be int, object given, %s(%d)
 NULL
 
 --instance of classWithoutToString--
-Error: 2 - file_get_contents() expects parameter 4 to be integer, object given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 4 to be int, object given, %s(%d)
 NULL
 
 --undefined var--

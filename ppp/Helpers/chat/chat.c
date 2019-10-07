@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -691,7 +691,8 @@ int status;
  * Allow the last of the report string to be gathered before we terminate.
  */
     if (report_gathering) {
-	int c, rep_len;
+	int c;
+	size_t rep_len;
 
 	rep_len = strlen(report_buffer);
 	while (rep_len + 1 < sizeof(report_buffer)) {
@@ -1227,7 +1228,7 @@ register char *s;
 	    if (f == NULL)
 		fatal(1, "%s -- open failed: %m", fn);
 	    while (n < STR_LEN - 1) {
-		int nr = fread(&file_data[n], 1, STR_LEN - 1 - n, f);
+		int nr = (int)fread(&file_data[n], 1, STR_LEN - 1 - n, f);
 		if (nr < 0)
 		    fatal(1, "%s -- read error", fn);
 		if (nr == 0)
@@ -1259,7 +1260,7 @@ int get_char()
     int status;
     char c;
 
-    status = read(0, &c, 1);
+    status = (int)read(0, &c, 1);
 
     switch (status) {
     case 1:
@@ -1287,7 +1288,7 @@ int c;
 
     usleep(10000);		/* inter-character typing delay (?) */
 
-    status = write(1, &ch, 1);
+    status = (int)write(1, &ch, 1);
 
     switch (status) {
     case 1:
@@ -1418,7 +1419,7 @@ register char *string;
 
     fail_reason = (char *)0;
     string = clean(string, 0);
-    len = strlen(string);
+    len = (int)strlen(string);
     minlen = (len > sizeof(fail_buffer)? len: sizeof(fail_buffer)) - 1;
 
     if (verbose)
@@ -1469,7 +1470,7 @@ register char *string;
 	if (!report_gathering) {
 	    for (n = 0; n < n_reports; ++n) {
 		if ((report_string[n] != (char*) NULL) &&
-		    s - temp >= (report_len = strlen(report_string[n])) &&
+		    s - temp >= (report_len = (int)strlen(report_string[n])) &&
 		    strncmp(s - report_len, report_string[n], report_len) == 0) {
 		    time_t time_now   = time ((time_t*) NULL);
 		    struct tm* tm_now = localtime (&time_now);
@@ -1485,7 +1486,7 @@ register char *string;
 	}
 	else {
 	    if (!iscntrl (c)) {
-		int rep_len = strlen (report_buffer);
+		size_t rep_len = strlen (report_buffer);
 		report_buffer[rep_len]     = c;
 		report_buffer[rep_len + 1] = '\0';
 	    }
@@ -1510,7 +1511,7 @@ register char *string;
 	}
 
 	for (n = 0; n < n_aborts; ++n) {
-	    if (s - temp >= (abort_len = strlen(abort_string[n])) &&
+	    if (s - temp >= (abort_len = (int)strlen(abort_string[n])) &&
 		strncmp(s - abort_len, abort_string[n], abort_len) == 0) {
 		if (verbose) {
 		    if (s > logged)
@@ -1644,7 +1645,7 @@ vfmtmsg(buf, buflen, fmt, args)
 	for (f = fmt; *f != '%' && *f != 0; ++f)
 	    ;
 	if (f > fmt) {
-	    len = f - fmt;
+	    len = (int)(f - fmt);
 	    if (len > buflen)
 		len = buflen;
 	    memcpy(buf, fmt, len);
@@ -1727,7 +1728,7 @@ vfmtmsg(buf, buflen, fmt, args)
 	    if (fillch == '0' && prec > 0) {
 		n = prec;
 	    } else {
-		n = strlen((char *)p);
+		n = (int)strlen((char *)p);
 		if (prec > 0 && prec < n)
 		    n = prec;
 	    }
@@ -1791,9 +1792,9 @@ vfmtmsg(buf, buflen, fmt, args)
 		*--str = '0';
 		break;
 	    }
-	    len = num + sizeof(num) - 1 - str;
+	    len = (int)(num + sizeof(num) - 1 - str);
 	} else {
-	    len = strlen(str);
+	    len = (int)strlen(str);
 	    if (prec > 0 && len > prec)
 		len = prec;
 	}
@@ -1813,5 +1814,5 @@ vfmtmsg(buf, buflen, fmt, args)
 	buflen -= len;
     }
     *buf = 0;
-    return buf - buf0;
+    return (int)(buf - buf0);
 }

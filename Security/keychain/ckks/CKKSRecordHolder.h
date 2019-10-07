@@ -30,8 +30,6 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@class CKKSWrappedAESSIVKey;
-
 // Helper class that includes a single encoded CKRecord
 @interface CKKSCKRecordHolder : CKKSSQLDatabaseObject
 
@@ -40,8 +38,8 @@ NS_ASSUME_NONNULL_BEGIN
                      encodedCKRecord:(NSData* _Nullable)encodedCKRecord
                               zoneID:(CKRecordZoneID*)zoneID;
 
-@property (copy) CKRecordZoneID* zoneID;
-@property (copy) NSString* ckRecordType;
+@property CKRecordZoneID* zoneID;
+@property NSString* ckRecordType;
 @property (nullable, copy) NSData* encodedCKRecord;
 @property (nullable, getter=storedCKRecord, setter=setStoredCKRecord:) CKRecord* storedCKRecord;
 

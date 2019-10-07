@@ -22,13 +22,77 @@
  */
 
 #import <Foundation/Foundation.h>
+#import <objc/runtime.h>
 #import <Foundation/NSXPCConnection_Private.h>
 
 #import <utilities/debugging.h>
-#import "SecEntitlements.h"
+#import <Security/SecEntitlements.h>
 #import "keychain/ot/OctagonControlServer.h"
 #import "keychain/ot/OTManager.h"
 #import "keychain/ot/OT.h"
+#import "keychain/ot/OTConstants.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
+
+#if OCTAGON
+@interface OctagonXPCEntitlementChecker ()
+@property OTManager* manager;
+@property id<OctagonEntitlementBearerProtocol> entitlementBearer;
+- (instancetype)initWithManager:(OTManager*)manager
+              entitlementBearer:(id<OctagonEntitlementBearerProtocol>)bearer;
+@end
+
+@implementation OctagonXPCEntitlementChecker
+
+- (instancetype)initWithManager:(OTManager*)manager entitlementBearer:(id<OctagonEntitlementBearerProtocol>)bearer
+{
+    // NSProxy does not implement init, so don't call super init
+    _manager = manager;
+    _entitlementBearer = bearer;
+    return self;
+}
+
+- (NSMethodSignature *)methodSignatureForSelector:(SEL)selector
+{
+    return [self.manager methodSignatureForSelector:selector];
+}
+
+- (void)forwardInvocation:(NSInvocation *)invocation
+{
+    if(sel_isEqual(invocation.selector, @selector(fetchEscrowContents:contextID:reply:))) {
+        if(![self.entitlementBearer valueForEntitlement:kSecEntitlementPrivateOctagonEscrow]) {
+            secerror("Client %@ does not have entitlement %@, rejecting rpc", self.entitlementBearer, kSecEntitlementPrivateOctagonEscrow);
+            [invocation setSelector:@selector(failFetchEscrowContents:contextID:reply:)];
+            [invocation invokeWithTarget:self];
+            return;
+        }
+    }
+    [invocation invokeWithTarget:self.manager];
+}
+
+- (void)failFetchEscrowContents:(NSString*)containerName
+                      contextID:(NSString *)contextID
+                          reply:(void (^)(NSData* _Nullable entropy,
+                                          NSString* _Nullable bottleID,
+                                          NSData* _Nullable signingPublicKey,
+                                          NSError* _Nullable error))reply
+{
+    reply(nil, nil, nil, [NSError errorWithDomain:NSOSStatusErrorDomain
+                                             code:errSecMissingEntitlement
+                                      description:[NSString stringWithFormat: @"Missing entitlement '%@'", kSecEntitlementPrivateOctagonEscrow]]);
+}
+
++ (BOOL)conformsToProtocol:(Protocol *)protocol {
+    return [[OTManager class] conformsToProtocol:protocol];
+}
+
+// Launder a OctagonXPCEntitlementChecker into something that type-safely implements the protocol we're interested in
++ (id<OTControlProtocol>)createWithManager:(OTManager*)manager
+                         entitlementBearer:(id<OctagonEntitlementBearerProtocol>)bearer
+{
+    return (id<OTControlProtocol>) [[OctagonXPCEntitlementChecker alloc] initWithManager:manager entitlementBearer:bearer];
+}
+@end
+#endif // OCTAGON
 
 @interface OctagonControlServer : NSObject <NSXPCListenerDelegate>
 @end
@@ -45,7 +109,7 @@
         return NO;
     }
     // In the future, we should consider vending a proxy object that can return a nicer error.
-    if (!SecOTIsEnabled()) {
+    if (!OctagonIsEnabled()) {
         secerror("Octagon: Client pid: %d attempted to use Octagon, but Octagon is not enabled.",
                  newConnection.processIdentifier);
         return NO;
@@ -53,7 +117,7 @@
     
     secnotice("octagon", "received connection from client pid %d", [newConnection processIdentifier]);
     newConnection.exportedInterface = OTSetupControlProtocol([NSXPCInterface interfaceWithProtocol:@protocol(OTControlProtocol)]);
-    newConnection.exportedObject = [OTManager manager];
+    newConnection.exportedObject = [OctagonXPCEntitlementChecker createWithManager:[OTManager manager] entitlementBearer:newConnection];
 
     [newConnection resume];
 

@@ -104,6 +104,8 @@ union MaxMsgSize {
 
 #define BOOTSTRAP_NAME "com.apple.lockd"
 
+#define ALARM_MAX 100000000
+
 /* Lock request owner. */
 typedef struct __owner {
 	pid_t	 pid;				/* Process ID. */
@@ -227,7 +229,7 @@ svc_lockd_request(
 	msg.lm_fl.l_pid = flk_pid;
 	msg.lm_fl.l_type = flk_type;
 	msg.lm_fl.l_whence = flk_whence;
-	msg.lm_fh_len = fh_len;
+	msg.lm_fh_len = fh_len > NFSV3_MAX_FH_SIZE ? NFSV3_MAX_FH_SIZE : fh_len;
 	bcopy(sock_address, &msg.lm_addr, sizeof(msg.lm_addr));
 	bcopy(cred, &msg.lm_cred, sizeof(struct xucred));
 	bcopy(fh, msg.lm_fh, NFSV3_MAX_FH_SIZE);
@@ -301,7 +303,7 @@ svc_lockd_shutdown(mach_port_t mp __attribute__((unused)))
 	int mounts, servers, maxservers;
 	struct timeval now;
 	time_t shutdown_time;
-	unsigned int delay;
+	time_t delay;
 
 	if (get_client_and_server_state(&mounts, &servers, &maxservers)) {
 		syslog(LOG_ERR, "lockd_shutdown: sysctl failed");
@@ -334,10 +336,15 @@ svc_lockd_shutdown(mach_port_t mp __attribute__((unused)))
 	/* figure out when the timer should go off */
 	shutdown_time = MAX(shutdown_time_client, shutdown_time_server);
 	delay = shutdown_time - now.tv_sec;
-	syslog(LOG_DEBUG, "lockd_shutdown: arm timer, delay %d", delay);
+    syslog(LOG_DEBUG, "lockd_shutdown: arm timer, delay %ld", delay);
 
+    /* we can't set the alarm higher than ALARM_MAX seconds */
+    if (delay > ALARM_MAX) {
+        delay = ALARM_MAX;
+    }
+    
 	/* arm the timer */
-	alarm(delay);
+	alarm((unsigned int) delay);
 
 	return (KERN_SUCCESS);
 }
@@ -366,7 +373,7 @@ client_mach_request(void)
 	int mounts, servers, maxservers;
 	struct timeval now;
 	time_t shutdown_time;
-	unsigned int delay;
+	time_t delay;
 
 	/*
 	 * Check in with launchd to get the receive right.
@@ -420,9 +427,9 @@ client_mach_request(void)
 		/* Figure out when the timer should go off. */
 		shutdown_time = MAX(shutdown_time_client, shutdown_time_server);
 		delay = shutdown_time - now.tv_sec;
-		syslog(LOG_DEBUG, "lockd setup: no client or server, arm timer, delay %d", delay);
+        syslog(LOG_DEBUG, "lockd setup: no client or server, arm timer, delay %ld", delay);
 		/* arm the timer */
-		alarm(delay);
+		alarm((unsigned int) delay);
 	}
 
 #if 0
@@ -505,8 +512,8 @@ test_request(LOCKD_MSG *msg)
 		arg.alock.oh.n_bytes = (uint8_t *)&owner;
 		arg.alock.oh.n_len = sizeof(owner);
 		arg.alock.svid = msg->lm_fl.l_pid;
-		arg.alock.l_offset = msg->lm_fl.l_start;
-		arg.alock.l_len = msg->lm_fl.l_len;
+		arg.alock.l_offset = (u_int) msg->lm_fl.l_start;
+		arg.alock.l_len = (u_int) msg->lm_fl.l_len;
 
 		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
 			return (1);
@@ -573,8 +580,8 @@ lock_request(LOCKD_MSG *msg)
 		arg.alock.oh.n_bytes = (uint8_t *)&owner;
 		arg.alock.oh.n_len = sizeof(owner);
 		arg.alock.svid = msg->lm_fl.l_pid;
-		arg.alock.l_offset = msg->lm_fl.l_start;
-		arg.alock.l_len = msg->lm_fl.l_len;
+		arg.alock.l_offset = (u_int) msg->lm_fl.l_start;
+		arg.alock.l_len = (u_int) msg->lm_fl.l_len;
 		arg.reclaim = (msg->lm_flags & LOCKD_MSG_RECLAIM) ? 1 : 0;
 		arg.state = nsm_state;
 
@@ -638,8 +645,8 @@ cancel_request(LOCKD_MSG *msg)
 		arg.alock.oh.n_bytes = (uint8_t *)&owner;
 		arg.alock.oh.n_len = sizeof(owner);
 		arg.alock.svid = msg->lm_fl.l_pid;
-		arg.alock.l_offset = msg->lm_fl.l_start;
-		arg.alock.l_len = msg->lm_fl.l_len;
+		arg.alock.l_offset = (u_int) msg->lm_fl.l_start;
+		arg.alock.l_len = (u_int) msg->lm_fl.l_len;
 
 		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
 			return (1);
@@ -696,8 +703,8 @@ unlock_request(LOCKD_MSG *msg)
 		arg.alock.oh.n_bytes = (uint8_t *)&owner;
 		arg.alock.oh.n_len = sizeof(owner);
 		arg.alock.svid = msg->lm_fl.l_pid;
-		arg.alock.l_offset = msg->lm_fl.l_start;
-		arg.alock.l_len = msg->lm_fl.l_len;
+		arg.alock.l_offset = (u_int) msg->lm_fl.l_start;
+		arg.alock.l_len = (u_int) msg->lm_fl.l_len;
 
 		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
 			return (1);

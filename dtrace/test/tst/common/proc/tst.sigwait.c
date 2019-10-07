@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.sigwait.c	1.1	06/08/28 SMI"
-
 #include <signal.h>
 #include <time.h>
 #include <stdlib.h>

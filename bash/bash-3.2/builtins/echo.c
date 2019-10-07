@@ -44,10 +44,10 @@ echo_builtin (list)
   int display_return, do_v9, i, len;
   char *temp, *s;
 
-  do_v9 = xpg_echo;
+  do_v9 = xpg_echo || posixly_correct;
   display_return = 1;
 
-  if (posixly_correct && xpg_echo)
+  if (posixly_correct)
     goto just_echo;
 
   for (; list && (temp = list->word->word) && *temp == '-'; list = list->next)

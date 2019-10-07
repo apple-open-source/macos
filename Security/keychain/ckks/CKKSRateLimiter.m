@@ -48,14 +48,31 @@ typedef NS_ENUM(int, BucketType) {
     self = [super init];
     if (self) {
         if (coder) {
-            _buckets = [coder decodeObjectOfClasses:[NSSet setWithObjects:[NSMutableDictionary class],
-                                                                          [NSString class],
-                                                                          [NSDate class],
-                                                                          nil]
-                                                                   forKey:@"buckets"];
+            NSDictionary *encoded;
+            encoded = [coder decodeObjectOfClasses:[NSSet setWithObjects:[NSDictionary class],
+                                                    [NSString class],
+                                                    [NSDate class],
+                                                    nil]
+                                            forKey:@"buckets"];
+
+            // Strongly enforce types for the dictionary
+            if (![encoded isKindOfClass:[NSDictionary class]]) {
+                return nil;
+            }
+            for (id key in encoded) {
+                if (![key isKindOfClass:[NSString class]]) {
+                    return nil;
+                }
+                if (![encoded[key] isKindOfClass:[NSDate class]]) {
+                    return nil;
+                }
+            }
+            _buckets = [encoded mutableCopy];
         } else {
             _buckets = [NSMutableDictionary new];
         }
+
+
         _overloadUntil = nil;
         // this should be done from a downloadable plist, rdar://problem/29945628
         _config = [NSDictionary dictionaryWithObjectsAndKeys:
@@ -185,7 +202,7 @@ typedef NS_ENUM(int, BucketType) {
     
     // Nothing to remove means everybody keeps being noisy. Tell them to go away.
     if ([toRemove count] == 0) {
-        self.overloadUntil = [self.buckets[@"All"] dateByAddingTimeInterval:[self.config[@"overloadDuration"] intValue]];
+        self.overloadUntil = [self.buckets[@"All"] dateByAddingTimeInterval:[self.config[@"overloadDuration"] unsignedIntValue]];
         seccritical("RateLimiter overloaded until %@", self.overloadUntil);
     } else {
         self.overloadUntil = nil;

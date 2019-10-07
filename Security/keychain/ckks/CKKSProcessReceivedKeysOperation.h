@@ -23,12 +23,34 @@
 
 #import <Foundation/Foundation.h>
 
+#if OCTAGON
+
+#import "keychain/ckks/CKKS.h"
+#import "keychain/ckks/CKKSGroupOperation.h"
+
+NS_ASSUME_NONNULL_BEGIN
+
 @class CKKSKeychainView;
 
-@interface CKKSProcessReceivedKeysOperation : NSOperation
+// CKKS's state machine depends on its operations performing callbacks to move the state, but this means
+// the operations cannot be reused outside of the state machine context.
+// Therefore, split this operation into two: one which does the work, and another which does the CKKS state manipulation.
+
+@interface CKKSProcessReceivedKeysOperation : CKKSResultOperation
+@property (weak) CKKSKeychainView* ckks;
+
+@property CKKSZoneKeyState* nextState;
+
+- (instancetype)init NS_UNAVAILABLE;
+- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks;
+@end
+
+@interface CKKSProcessReceivedKeysStateMachineOperation : CKKSResultOperation
 @property (weak) CKKSKeychainView* ckks;
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks;
-
 @end
+
+NS_ASSUME_NONNULL_END
+#endif // OCTAGON

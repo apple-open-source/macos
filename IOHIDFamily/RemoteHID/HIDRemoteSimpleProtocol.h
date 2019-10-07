@@ -9,6 +9,7 @@
 #ifndef HIDRemoteSimpleProtocol_h
 #define HIDRemoteSimpleProtocol_h
 
+#include <TargetConditionals.h>
 #include <AssertMacros.h>
 
 #define HID_AACP_MESSAGE_TYPE   0x800  //AACP_CUSTOM_MESSAGE_TYPE_SENSOR
@@ -21,11 +22,13 @@ typedef enum {
     HIDPacketTypeGetReport          = 4,
 } HIDPacketType;
 
+#if TARGET_OS_RTKIT
 typedef enum {
     HIDReportTypeInput              = 0,
     HIDReportTypeOutput             = 1,
     HIDReportTypeFeature            = 2
 } HIDReportType;
+#endif
 
 typedef struct __attribute__((__packed__)) {
     uint32_t        generation : 16;
@@ -38,7 +41,8 @@ typedef struct __attribute__((__packed__)) {
     uint32_t        deviceID   : 7;
     uint32_t        length     : 10;
     uint32_t        packetType : 3;
-    uint32_t        reserved1  : 12;
+    uint32_t        hasTS      : 1;
+    uint32_t        reserved1  : 11;
 } HIDDeviceHeader;
 
 check_compile_time (sizeof (HIDDeviceHeader) == 4);
@@ -50,6 +54,15 @@ typedef struct __attribute__((__packed__)) {
 } HIDDeviceReport;
 
 check_compile_time (sizeof(HIDDeviceReport) == 5);
+
+typedef struct __attribute__((__packed__)) {
+    HIDDeviceHeader header;
+    uint8_t         reportType;
+    uint64_t        timestamp;
+    uint8_t         data[0];
+} HIDDeviceTimestampedReport;
+
+check_compile_time (sizeof(HIDDeviceTimestampedReport) == 13);
 
 typedef struct __attribute__((__packed__)) {
     HIDDeviceHeader header;

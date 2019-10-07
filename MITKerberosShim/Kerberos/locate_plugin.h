@@ -30,6 +30,7 @@
 #ifndef KRB5_LOCATE_PLUGIN_H_INCLUDED
 #define KRB5_LOCATE_PLUGIN_H_INCLUDED
 #include <Kerberos/krb5.h>
+#include <sys/socket.h>
 
 enum locate_service_type {
     locate_service_kdc = 1,

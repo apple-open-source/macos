@@ -3,9 +3,9 @@ Test gmdate() function : usage variation - Passing unexpected values to timestam
 --FILE--
 <?php
 /* Prototype  : string gmdate(string format [, long timestamp])
- * Description: Format a GMT date/time 
+ * Description: Format a GMT date/time
  * Source code: ext/date/php_date.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing gmdate() : usage variation ***\n";
@@ -126,22 +126,22 @@ string(24) "1970-01-01T00:00:00+0000"
 
 --empty array--
 
-Warning: gmdate() expects parameter 2 to be integer, array given in %s on line %d
+Warning: gmdate() expects parameter 2 to be int, array given in %s on line %d
 bool(false)
 
 --int indexed array--
 
-Warning: gmdate() expects parameter 2 to be integer, array given in %s on line %d
+Warning: gmdate() expects parameter 2 to be int, array given in %s on line %d
 bool(false)
 
 --associative array--
 
-Warning: gmdate() expects parameter 2 to be integer, array given in %s on line %d
+Warning: gmdate() expects parameter 2 to be int, array given in %s on line %d
 bool(false)
 
 --nested arrays--
 
-Warning: gmdate() expects parameter 2 to be integer, array given in %s on line %d
+Warning: gmdate() expects parameter 2 to be int, array given in %s on line %d
 bool(false)
 
 --uppercase NULL--
@@ -164,42 +164,42 @@ string(24) "1970-01-01T00:00:00+0000"
 
 --empty string DQ--
 
-Warning: gmdate() expects parameter 2 to be integer, string given in %s on line %d
+Warning: gmdate() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 
 --empty string SQ--
 
-Warning: gmdate() expects parameter 2 to be integer, string given in %s on line %d
+Warning: gmdate() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 
 --string DQ--
 
-Warning: gmdate() expects parameter 2 to be integer, string given in %s on line %d
+Warning: gmdate() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 
 --string SQ--
 
-Warning: gmdate() expects parameter 2 to be integer, string given in %s on line %d
+Warning: gmdate() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 
 --mixed case string--
 
-Warning: gmdate() expects parameter 2 to be integer, string given in %s on line %d
+Warning: gmdate() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 
 --heredoc--
 
-Warning: gmdate() expects parameter 2 to be integer, string given in %s on line %d
+Warning: gmdate() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 
 --instance of classWithToString--
 
-Warning: gmdate() expects parameter 2 to be integer, object given in %s on line %d
+Warning: gmdate() expects parameter 2 to be int, object given in %s on line %d
 bool(false)
 
 --instance of classWithoutToString--
 
-Warning: gmdate() expects parameter 2 to be integer, object given in %s on line %d
+Warning: gmdate() expects parameter 2 to be int, object given in %s on line %d
 bool(false)
 
 --undefined var--

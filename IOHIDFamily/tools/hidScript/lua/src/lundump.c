@@ -229,6 +229,9 @@ static void fchecksize (LoadState *S, size_t size, const char *tname) {
 
 #define checksize(S,t)	fchecksize(S,sizeof(t),#t)
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstring-plus-int"
+
 static void checkHeader (LoadState *S) {
   checkliteral(S, LUA_SIGNATURE + 1, "not a");  /* 1st char already checked */
   if (LoadByte(S) != LUAC_VERSION)
@@ -247,6 +250,7 @@ static void checkHeader (LoadState *S) {
     error(S, "float format mismatch in");
 }
 
+#pragma clang diagnostic pop
 
 /*
 ** load precompiled chunk

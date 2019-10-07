@@ -54,23 +54,42 @@ typedef struct _IOHIDCallbackApplierContext {
 } IOHIDCallbackApplierContext;
 
 typedef enum {
+    kIOHIDDispatchStateInactive     = 0,
+    kIOHIDDispatchStateActive       = 1 << 0,
+    kIOHIDDispatchStateCancelled    = 1 << 1
+} IOHIDDispatchState;
+
+typedef enum {
     kIOHIDLogCategoryDefault,
     kIOHIDLogCategoryTrace,
     kIOHIDLogCategoryProperty,
     kIOHIDLogCategoryActivity,
     kIOHIDLogCategoryFastPath,
+    kIOHIDLogCategoryUserDevice,
     kIOHIDLogCategoryService,
+    kIOHIDServiceLogCategoryCarplay,
     kIOHIDLogCategoryConnection,
+    kIOHIDLogCategoryCursor,
+    kIOHIDLogCategorySignpost,
     kIOHIDLogCategoryCount
 } IOHIDLogCategory;
+
 
 extern uint32_t gIOHIDDebugConfig;
 
 #define kIOHIDLogSubsytem   "com.apple.iohid"
 
 #define IOHIDLog(fmt, ...)        os_log(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
+#define IOHIDLogInfo(fmt, ...)    os_log_info(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
 #define IOHIDLogError(fmt, ...)   os_log_error(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
 #define IOHIDLogDebug(fmt, ...)   os_log_debug(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
+#define IOHIDLogInfo(fmt, ...)    os_log_info(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
+#define IOHIDLogFault(fmt, ...)   os_log_fault(_IOHIDLogCategory(kIOHIDLogCategoryDefault), fmt, ##__VA_ARGS__)
+
+// Creates a function that is properly typecasted for objc_msgSend. Takes return
+// type, function name, and a list of function arguments.
+#define TYPECAST_MSGSEND(returnType, funcName, ...) \
+    static returnType (*funcName)(id, SEL, ##__VA_ARGS__) = (returnType (*)(id, SEL, ##__VA_ARGS__))objc_msgSend;
 
 extern void _IOObjectCFRelease(CFAllocatorRef _Nullable allocator, const void * value);
 
@@ -110,6 +129,9 @@ CF_EXPORT
 void _IOHIDValueCopyToElementValuePtr(IOHIDValueRef value, IOHIDElementValue * pElementValue);
 
 CF_EXPORT
+IOHIDValueRef _Nullable _IOHIDValueCreateWithValue(CFAllocatorRef _Nullable allocator, IOHIDValueRef value, IOHIDElementRef element);
+
+CF_EXPORT
 IOCFPlugInInterface * _Nonnull * _Nonnull _IOHIDDeviceGetIOCFPlugInInterface(
                                 IOHIDDeviceRef                  device);
 
@@ -130,10 +152,13 @@ kern_return_t IOHIDSetFixedMouseLocation(io_connect_t connect,
                                          int32_t x, int32_t y)                                      AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 CF_EXPORT
+kern_return_t IOHIDSetFixedMouseLocationWithTimeStamp(io_connect_t connect, int32_t x, int32_t y, uint64_t timestamp) AVAILABLE_MAC_OS_X_VERSION_10_15_AND_LATER;
+
+CF_EXPORT
 CFStringRef _IOHIDCreateTimeString(CFAllocatorRef _Nullable allocator, struct timeval *tv);
 
 CF_EXPORT
-uint64_t  _IOHIDGetMonotonicTime ();
+uint64_t  _IOHIDGetMonotonicTime (void);
 
 CF_EXPORT
 uint64_t _IOHIDGetTimestampDelta(uint64_t timestampA, uint64_t timestampB, uint32_t scaleFactor);
@@ -176,6 +201,10 @@ CF_EXPORT
 void _IOHIDDictionaryAddSInt64 (CFMutableDictionaryRef dict, CFStringRef key, SInt64 value);
 
 CF_EXPORT
+void _IOHIDDictionaryAddCStr (CFMutableDictionaryRef dict, CFStringRef key, const char * cStr);
+
+
+CF_EXPORT
 void _IOHIDArrayAppendSInt64 (CFMutableArrayRef array, SInt64 value);
 
 typedef struct {
@@ -205,7 +234,7 @@ uint32_t _IOHIDObjectIntRetainCount (intptr_t op, CFTypeRef cf);
 uint32_t _IOHIDObjectRetainCount (intptr_t op, CFTypeRef cf,  boolean_t isInternal);
 
 CF_EXPORT
-CFTypeRef _IOHIDObjectCreateInstance (CFAllocatorRef allocator, CFTypeID typeID, CFIndex extraBytes, unsigned char * _Nullable category);
+CFTypeRef _IOHIDObjectCreateInstance (CFAllocatorRef _Nullable allocator, CFTypeID typeID, CFIndex extraBytes, unsigned char * _Nullable category);
 
 typedef void (^IOHIDCFSetBlock) (CFTypeRef value);
 
@@ -214,6 +243,10 @@ void _IOHIDCFSetApplyBlock (CFSetRef set, IOHIDCFSetBlock block);
 typedef void (^IOHIDCFDictionaryBlock) (const void * key, const void * value);
 
 void _IOHIDCFDictionaryApplyBlock (CFDictionaryRef set, IOHIDCFDictionaryBlock block);
+
+typedef void (^IOHIDCFArrayBlock)(const void *value);
+
+void _IOHIDCFArrayApplyBlock(CFArrayRef array, IOHIDCFArrayBlock block);
 
 const void * _IOHIDObjectInternalRetainCallback (CFAllocatorRef allocator, const void * cf);
 

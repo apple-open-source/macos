@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <SecBase.h>
+#include <Security/SecBase.h>
 #include <Security/SecAccess.h>
 #include <Security/SecAccessPriv.h>
 #include <Security/SecTrustedApplication.h>
@@ -320,8 +320,6 @@ SecAccessRef SecAccessCreateWithOwnerAndACL(uid_t userId, gid_t groupId, SecAcce
 	CFShow(debugStr);
 	CFRelease(debugStr);
 #endif
-
-    CFIndex rightsSize = numAcls > 0 ? numAcls : 1;
 
 	std::vector<CSSM_ACL_AUTHORIZATION_TAG> rights(numAcls);
 

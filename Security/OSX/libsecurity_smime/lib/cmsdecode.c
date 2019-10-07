@@ -436,77 +436,77 @@ nss_cms_decoder_work_data(SecCmsDecoderRef p7dcx,
 
     if (!p7dcx->content.pointer)	// might be ExContent??
         return;
-        
+
     cinfo = SecCmsContentGetContentInfo(p7dcx->content.pointer, p7dcx->type);
 
     if (cinfo->ciphcx != NULL) {
-	/*
-	 * we are decrypting.
-	 * 
-	 * XXX If we get an error, we do not want to do the digest or callback,
-	 * but we want to keep decoding.  Or maybe we want to stop decoding
-	 * altogether if there is a callback, because obviously we are not
-	 * sending the data back and they want to know that.
-	 */
+        /*
+         * we are decrypting.
+         *
+         * XXX If we get an error, we do not want to do the digest or callback,
+         * but we want to keep decoding.  Or maybe we want to stop decoding
+         * altogether if there is a callback, because obviously we are not
+         * sending the data back and they want to know that.
+         */
 
-	CSSM_SIZE outlen = 0;	/* length of decrypted data */
-	CSSM_SIZE buflen;		/* length available for decrypted data */
+        CSSM_SIZE outlen = 0;	/* length of decrypted data */
+        CSSM_SIZE buflen;		/* length available for decrypted data */
 
-	/* find out about the length of decrypted data */
-	buflen = SecCmsCipherContextDecryptLength(cinfo->ciphcx, len, final);
+        /* find out about the length of decrypted data */
+        buflen = SecCmsCipherContextDecryptLength(cinfo->ciphcx, len, final);
 
-	/*
-	 * it might happen that we did not provide enough data for a full
-	 * block (decryption unit), and that there is no output available
-	 */
+        /*
+         * it might happen that we did not provide enough data for a full
+         * block (decryption unit), and that there is no output available
+         */
 
-	/* no output available, AND no input? */
-	if (buflen == 0 && len == 0)
-	    goto loser;	/* bail out */
+        /* no output available, AND no input? */
+        if (buflen == 0 && len == 0)
+            goto loser;	/* bail out */
 
-	/*
-	 * have inner decoder: pass the data on (means inner content type is NOT data)
-	 * no inner decoder: we have DATA in here: either call callback or store
-	 */
-	if (buflen != 0) {
-	    /* there will be some output - need to make room for it */
-	    /* allocate buffer from the heap */
-	    buf = (unsigned char *)PORT_Alloc(buflen);
-	    if (buf == NULL) {
-		p7dcx->error = SEC_ERROR_NO_MEMORY;
-		goto loser;
-	    }
-	}
+        /*
+         * have inner decoder: pass the data on (means inner content type is NOT data)
+         * no inner decoder: we have DATA in here: either call callback or store
+         */
+        if (buflen != 0) {
+            /* there will be some output - need to make room for it */
+            /* allocate buffer from the heap */
+            buf = (unsigned char *)PORT_Alloc(buflen);
+            if (buf == NULL) {
+                p7dcx->error = SEC_ERROR_NO_MEMORY;
+                goto loser;
+            }
+        }
 
-	/*
-	 * decrypt incoming data
-	 * buf can still be NULL here (and buflen == 0) here if we don't expect
-	 * any output (see above), but we still need to call SecCmsCipherContextDecrypt to
-	 * keep track of incoming data
-	 */
-	rv = SecCmsCipherContextDecrypt(cinfo->ciphcx, buf, &outlen, buflen,
-			       data, len, final);
-	if (rv != SECSuccess) {
-	    p7dcx->error = PORT_GetError();
+        /*
+         * decrypt incoming data
+         * buf can still be NULL here (and buflen == 0) here if we don't expect
+         * any output (see above), but we still need to call SecCmsCipherContextDecrypt to
+         * keep track of incoming data
+         */
+        rv = SecCmsCipherContextDecrypt(cinfo->ciphcx, buf, &outlen, buflen,
+                                        data, len, final);
+        if (rv != SECSuccess) {
+            p7dcx->error = PORT_GetError();
             PORT_SetError(0); // Clean the thread error since we've returned the error
-	    goto loser;
-	}
+            goto loser;
+        }
 
-	PORT_Assert (final || outlen == buflen);
-	
-	/* swap decrypted data in */
-	data = buf;
-	len = outlen;
+        PORT_Assert (final || outlen == buflen);
+
+        /* swap decrypted data in */
+        data = buf;
+        len = outlen;
     }
 
     if (len == 0)
-	goto done;		/* nothing more to do */
+        goto done;		/* nothing more to do */
 
     /*
      * Update the running digests with plaintext bytes (if we need to).
      */
     if (cinfo->digcx)
-	SecCmsDigestContextUpdate(cinfo->digcx, data, len);
+        SecCmsDigestContextUpdate(cinfo->digcx, data, len);
 
     /* at this point, we have the plain decoded & decrypted data */
     /* which is either more encoded DER which we need to hand to the child decoder */
@@ -515,52 +515,54 @@ nss_cms_decoder_work_data(SecCmsDecoderRef p7dcx,
     /* pass the content back to our caller or */
     /* feed our freshly decrypted and decoded data into child decoder */
     if (p7dcx->cb != NULL) {
-	(*p7dcx->cb)(p7dcx->cb_arg, (const char *)data, len);
+        (*p7dcx->cb)(p7dcx->cb_arg, (const char *)data, len);
     }
 #if 1
     else
 #endif
-    switch(SecCmsContentInfoGetContentTypeTag(cinfo)) {
-	default:
-	    break;
-	case SEC_OID_PKCS7_DATA:
-	case SEC_OID_OTHER:
-	/* store it in "inner" data item as well */
-	/* find the DATA item in the encapsulated cinfo and store it there */
-	storage = cinfo->content.data;
+        switch(SecCmsContentInfoGetContentTypeTag(cinfo)) {
+            default:
+                break;
+            case SEC_OID_PKCS7_DATA:
+            case SEC_OID_OTHER:
+                /* store it in "inner" data item as well */
+                /* find the DATA item in the encapsulated cinfo and store it there */
+                storage = cinfo->content.data;
 
-	offset = storage->Length;
+                offset = storage->Length;
 
-	/* check for potential overflow */
-	if (len >= (size_t)(INT_MAX - storage->Length)) {
-	  p7dcx->error = SEC_ERROR_NO_MEMORY;
-	  goto loser;
-	}
+                /* check for potential overflow */
+                if (len >= (size_t)(INT_MAX - storage->Length)) {
+                    p7dcx->error = SEC_ERROR_NO_MEMORY;
+                    goto loser;
+                }
 
-	if (storage->Length == 0) {
-	    dest = (unsigned char *)PORT_ArenaAlloc(p7dcx->cmsg->poolp, len);
-	} else {
-	    dest = (unsigned char *)PORT_ArenaGrow(p7dcx->cmsg->poolp, 
-				  storage->Data,
-				  storage->Length,
-				  storage->Length + len);
-	}
-	if (dest == NULL) {
-	    p7dcx->error = SEC_ERROR_NO_MEMORY;
-	    goto loser;
-	}
+                if (storage->Length == 0) {
+                    dest = (unsigned char *)PORT_ArenaAlloc(p7dcx->cmsg->poolp, len);
+                } else {
+                    dest = (unsigned char *)PORT_ArenaGrow(p7dcx->cmsg->poolp,
+                                                           storage->Data,
+                                                           storage->Length,
+                                                           storage->Length + len);
+                }
+                if (dest == NULL) {
+                    p7dcx->error = SEC_ERROR_NO_MEMORY;
+                    goto loser;
+                }
 
-	storage->Data = dest;
-	storage->Length += len;
+                storage->Data = dest;
+                storage->Length += len;
 
-	/* copy it in */
-	PORT_Memcpy(storage->Data + offset, data, len);
-    }
+                /* copy it in */
+                if (data != NULL) {
+                    PORT_Memcpy(storage->Data + offset, data, len);
+                }
+        }
 
 done:
 loser:
     if (buf)
-	PORT_Free (buf);
+        PORT_Free (buf);
 }
 
 /*

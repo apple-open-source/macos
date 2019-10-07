@@ -65,9 +65,11 @@
 static Boolean IsUsageInUsageList(HIDUsage *piUsageList, UInt32 iUsageListLength, HIDUsage usage)
 {
 	unsigned int i;
-	for (i = 0; i < iUsageListLength; i++)
-		if (piUsageList[i] == usage)
+    for (i = 0; i < iUsageListLength; i++) {
+        if (piUsageList[i] == usage) {
 			return true;
+        }
+    }
 	return false;
 }
 

@@ -26,10 +26,6 @@
 #include "cspdebugging.h" 
 #include <security_cdsa_plugin/CSPsession.h>
 #include <security_utilities/alloc.h>
-#ifdef	BSAFE_CSP_ENABLE
-#include "bsafecsp.h"
-#include "bsafecspi.h"
-#endif
 #ifdef	CRYPTKIT_CSP_ENABLE
 #include "cryptkitcsp.h"
 #include "FEEKeys.h"
@@ -51,9 +47,6 @@
 AppleCSPPlugin::AppleCSPPlugin() :
 	normAllocator(Allocator::standard(Allocator::normal)),
 	privAllocator(Allocator::standard(Allocator::sensitive)),
-	#ifdef	BSAFE_CSP_ENABLE
-	bSafe4Factory(new BSafeFactory(&normAllocator, &privAllocator)),
-	#endif
 	#ifdef	CRYPTKIT_CSP_ENABLE
 	cryptKitFactory(new CryptKitFactory(&normAllocator, &privAllocator)),
 	#endif
@@ -69,9 +62,6 @@ AppleCSPPlugin::AppleCSPPlugin() :
 
 AppleCSPPlugin::~AppleCSPPlugin()
 {
-	#ifdef	BSAFE_CSP_ENABLE
-	delete bSafe4Factory;
-	#endif
 	#ifdef	CRYPTKIT_CSP_ENABLE
 	delete cryptKitFactory;
 	#endif
@@ -128,9 +118,6 @@ AppleCSPSession::AppleCSPSession(
 			subserviceType,
 			attachFlags, 
 			upcalls),
-		#ifdef	BSAFE_CSP_ENABLE
-		bSafe4Factory(*(dynamic_cast<BSafeFactory *>(plug.bSafe4Factory))), 
-		#endif
 		#ifdef	CRYPTKIT_CSP_ENABLE
 		cryptKitFactory(*(dynamic_cast<CryptKitFactory *>(plug.cryptKitFactory))),
 		#endif
@@ -178,13 +165,6 @@ void AppleCSPSession::setupContext(
 	 * Note we leave the decision as to whether it's OK to 
 	 * reuse a context to the individual factories.
 	 */
-	#ifdef	BSAFE_CSP_ENABLE
-	/* Give BSAFE the firsrt shot if it's present */
-	if (bSafe4Factory.setup(*this, cspCtx, context)) {
-		CASSERT(cspCtx != NULL);
-		return;
-	}
-	#endif
 	if (rsaDsaAlgFactory.setup(*this, cspCtx, context)) {
 		CASSERT(cspCtx != NULL);
 		return;
@@ -616,14 +596,6 @@ CSPKeyInfoProvider *AppleCSPSession::infoProvider(
 	const CssmKey	&key)
 {
 	CSPKeyInfoProvider *provider = NULL;
-	
-	#ifdef	BSAFE_CSP_ENABLE
-	/* Give BSAFE first shot, if it's here */
-	provider = BSafe::BSafeKeyInfoProvider::provider(key, *this);
-	if(provider != NULL) {
-		return provider;
-	}
-	#endif
 	
 	provider = RSAKeyInfoProvider::provider(key, *this);
 	if(provider != NULL) {

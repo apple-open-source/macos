@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2008, 2010, 2011, 2013, 2015, 2016, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2008, 2010, 2011, 2013, 2015, 2016, 2018, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -53,22 +53,6 @@
 
 static pthread_mutex_t	_helper_lock		= PTHREAD_MUTEX_INITIALIZER;
 static mach_port_t	_helper_server		= MACH_PORT_NULL;
-
-
-static os_activity_t
-__SCHelperActivity()
-{
-	static os_activity_t	activity	= NULL;
-	static dispatch_once_t	once;
-
-	dispatch_once(&once, ^{
-		activity = os_activity_create("accessing SCPreferences [helper]",
-					      OS_ACTIVITY_CURRENT,
-					      OS_ACTIVITY_FLAG_DEFAULT);
-	});
-
-	return activity;
-}
 
 
 static mach_port_t
@@ -129,8 +113,6 @@ _SCHelperOpen(CFDataRef authorizationData, mach_port_t *helper_port)
 	server = _helper_server;
 	while (TRUE) {
 		if (server != MACH_PORT_NULL) {
-			os_activity_scope(__SCHelperActivity());
-
 			kr = helperinit(server,
 					helper_port,
 					&status);
@@ -262,8 +244,6 @@ _SCHelperExec(mach_port_t port, uint32_t msgID, CFDataRef data, uint32_t *status
 	CFDataRef		traceData;
 
 	traceData = _SCHelperExecCopyBacktrace();
-
-	os_activity_scope(__SCHelperActivity());
 
 	kr = helperexec(port,
 			msgID,

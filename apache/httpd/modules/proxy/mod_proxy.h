@@ -240,6 +240,8 @@ typedef struct {
     /** Named back references */
     apr_array_header_t *refs;
 
+    unsigned int forward_100_continue:1;
+    unsigned int forward_100_continue_set:1;
 } proxy_dir_conf;
 
 /* if we interpolate env vars per-request, we'll need a per-request
@@ -379,6 +381,12 @@ do {                             \
 (w)->s->io_buffer_size_set   = (c)->io_buffer_size_set;    \
 } while (0)
 
+#define PROXY_DO_100_CONTINUE(w, r) \
+((w)->s->ping_timeout_set \
+ && (PROXYREQ_REVERSE == (r)->proxyreq) \
+ && !(apr_table_get((r)->subprocess_env, "force-proxy-request-1.0")) \
+ && ap_request_has_body((r)))
+
 /* use 2 hashes */
 typedef struct {
     unsigned int def;
@@ -411,7 +419,7 @@ typedef struct {
         flush_on,
         flush_auto
     } flush_packets;           /* control AJP flushing */
-    apr_time_t      updated;    /* timestamp of last update */
+    apr_time_t      updated;    /* timestamp of last update for dynamic workers, or queue-time of HC workers */
     apr_time_t      error_time; /* time of the last error */
     apr_interval_time_t ttl;    /* maximum amount of time in seconds a connection
                                  * may be available while exceeding the soft limit */
@@ -846,6 +854,14 @@ PROXY_DECLARE(proxy_worker *) ap_proxy_balancer_get_best_worker(proxy_balancer *
                                                                 request_rec *r,
                                                                 proxy_is_best_callback_fn_t *is_best,
                                                                 void *baton);
+/*
+ * Needed by the lb modules.
+ */
+APR_DECLARE_OPTIONAL_FN(proxy_worker *, proxy_balancer_get_best_worker,
+                                        (proxy_balancer *balancer,
+                                         request_rec *r,
+                                         proxy_is_best_callback_fn_t *is_best,
+                                         void *baton));
 
 /**
  * Find the shm of the worker as needed

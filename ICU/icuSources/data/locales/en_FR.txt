@@ -14,6 +14,7 @@ en_FR{
                 percentFormat{"#,##0 %"}
             }
             symbols{
+                decimal{","}
                 group{" "}
             }
         }

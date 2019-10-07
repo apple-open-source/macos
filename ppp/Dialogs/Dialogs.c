@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,7 +61,7 @@
 #include <net/if.h>
 #include <CoreFoundation/CFBundle.h>
 #include <CoreFoundation/CFUserNotification.h>
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 #include <CoreFoundation/CFNumber.h>
 #endif
 
@@ -92,14 +92,14 @@
 #ifdef UNUSED
 static int dialog_idle(struct ppp_idle *idle);
 #endif
-static int dialog_start_link();
-static int dialog_change_password();
-static int dialog_retry_password();
-static int dialog_link_up();
+static int dialog_start_link(void);
+static int dialog_change_password(unsigned char *msg);
+static int dialog_retry_password(unsigned char *msg);
+static int dialog_link_up(void);
 static int dialog_ask(CFStringRef message, CFStringRef ok, CFStringRef cancel, int timeout);
 static void dialog_reminder(void *arg);
 static void dialog_phasechange(void *arg, uintptr_t p);
-static void dialog_change_reminder();
+static void dialog_change_reminder(void);
 
 /* -----------------------------------------------------------------------------
  PPP globals
@@ -249,7 +249,7 @@ void dialog_reminder(void *arg)
     }
 }        
 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 // extra CFUserNotification keys
 static CFStringRef const SBUserNotificationTextAutocapitalizationType = CFSTR("SBUserNotificationTextAutocapitalizationType");
 static CFStringRef const SBUserNotificationTextAutocorrectionType = CFSTR("SBUserNotificationTextAutocorrectionType");
@@ -268,8 +268,8 @@ int dialog_password(char *user, int maxuserlen, char *passwd, int maxpasswdlen, 
     CFURLRef			url;
     CFStringRef			str, str1;
     int				ret = 0, loop = 0;    
-#if TARGET_OS_EMBEDDED
-	int		nbfields = 0;
+#if !TARGET_OS_OSX
+	CFIndex		nbfields = 0;
 #endif
 
     do {
@@ -318,7 +318,7 @@ int dialog_password(char *user, int maxuserlen, char *passwd, int maxpasswdlen, 
 					break;
 			}
 			
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 			nbfields = CFArrayGetCount(array);
 #endif
             CFDictionaryAddValue(dict, kCFUserNotificationTextFieldTitlesKey, array);
@@ -353,7 +353,7 @@ int dialog_password(char *user, int maxuserlen, char *passwd, int maxpasswdlen, 
 		if (dialog_type == DIALOG_PASSWORD_CHANGE)
 			flags += CFUserNotificationSecureTextField(0);
 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 		if (nbfields > 0) {
 			CFMutableArrayRef autoCapsTypes = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 			CFMutableArrayRef autoCorrectionTypes = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
@@ -453,7 +453,8 @@ static void
 ----------------------------------------------------------------------------- */
 static int readn(int ref, void *data, int len)
 {
-    int 	n, left = len;
+    int 	left = len;
+	ssize_t n;
     void 	*p = data;
     
     while (left > 0) {
@@ -534,7 +535,7 @@ int dialog_start_link()
 msg can come from the server
 Returns 1 if continue, 0 if cancel.
 ----------------------------------------------------------------------------- */
-int dialog_change_password(char *msg)
+int dialog_change_password(unsigned char *msg)
 {
 	int ret = 0;
 
@@ -551,7 +552,7 @@ int dialog_change_password(char *msg)
 msg can come from the server
 Returns 1 if continue, 0 if cancel.
 ----------------------------------------------------------------------------- */
-int dialog_retry_password(char *msg)
+int dialog_retry_password(unsigned char *msg)
 {
 	int ret = 0;
 

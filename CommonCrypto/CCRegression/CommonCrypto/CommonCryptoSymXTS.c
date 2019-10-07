@@ -53,8 +53,8 @@ doXTSTestCase(int  __unused caseNumber, int direction, int dataLenBits, char *iv
     
     pt = hexStringToBytes(plainText);
     ct = hexStringToBytes(cipherText);
-    
-    if((retval = CCCryptorCreateWithMode(0, kCCModeXTS, kCCAlgorithmAES128, ccDefaultPadding, NULL, key->bytes, key->len, tweak->bytes, tweak->len, 0, 0,  &encCryptorRef)) == kCCSuccess) {
+
+    if((retval = CCCryptorCreateWithMode(0, kCCModeXTS, kCCAlgorithmAES128, ccNoPadding, NULL, key->bytes, key->len, tweak->bytes, tweak->len, 0, 0,  &encCryptorRef)) == kCCSuccess) {
         if(direction == ENCRYPT) {
             if((retval = CCCryptorEncryptDataBlock(encCryptorRef, iv->bytes, pt->bytes, dataLen, dataOut)) == kCCSuccess) {
                 byteBuffer output = bytesToBytes(dataOut, dataLen);

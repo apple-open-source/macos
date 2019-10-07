@@ -1887,7 +1887,7 @@ PUBLIC void rpc_server_free_thread_pool
     unsigned32      *status
 )
 {
-    cthread_pool_elt_p_t    p = (cthread_pool_elt_p_t) *phandle;
+    cthread_pool_elt_p_t    p = (cthread_pool_elt_p_t)(void *) *phandle;
 
     CODING_ERROR (status);
     RPC_VERIFY_INIT ();

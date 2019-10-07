@@ -9,6 +9,7 @@
 
 #define MAX_FRAMES 32
 static const int expected_nframes = 20;
+static const int skip_nframes = 5;
 
 static void *observed_bt[MAX_FRAMES] = {};
 static int observed_nframes = 0;
@@ -23,7 +24,7 @@ recurse_b(unsigned int frames);
 static int __attribute__((noinline,not_tail_called,disable_tail_calls))
 recurse_a(unsigned int frames)
 {
-	if (frames == 1) {
+	if (frames == 0) {
 		if (save_fp_at_nframes > 0) {
 			observed_nframes = backtrace_from_fp(save_fp, observed_bt,
 					MAX_FRAMES);
@@ -41,7 +42,7 @@ recurse_a(unsigned int frames)
 static int __attribute__((noinline,not_tail_called,disable_tail_calls))
 recurse_b(unsigned int frames)
 {
-	if (frames == 1) {
+	if (frames == 0) {
 		if (save_fp_at_nframes > 0) {
 			observed_nframes = backtrace_from_fp(save_fp, observed_bt,
 					MAX_FRAMES);
@@ -57,9 +58,9 @@ recurse_b(unsigned int frames)
 }
 
 static void __attribute__((noinline,not_tail_called,disable_tail_calls))
-setup_and_backtrace(unsigned int nframes, unsigned int skip_nframes)
+setup_and_backtrace(unsigned int nframes, unsigned int skip)
 {
-	save_fp_at_nframes = skip_nframes ? skip_nframes - 1 : 0;
+	save_fp_at_nframes = skip ? skip - 1 : 0;
 	recurse_a(nframes - 1);
 }
 
@@ -72,7 +73,7 @@ check_for_setup(int i, struct dl_info *info)
 	return info->dli_saddr == setup_fp;
 }
 
-static void __attribute__((noinline))
+static void __attribute__((noinline,not_tail_called))
 expect_backtrace(void)
 {
 	void *recurse_a_fp = (void *)&recurse_a;
@@ -83,8 +84,8 @@ expect_backtrace(void)
 
 	T_EXPECT_EQ(expected_nframes,
 			observed_nframes - observed_existing_nframes,
-			"number of frames traced matches");
-	bool expect_a = true;
+			"number of frames traced matches %d", expected_nframes);
+	bool expect_a = !(skip_nframes % 2);
 	bool found_setup = false;
 
 	for (int i = 0; i < observed_nframes; i++) {
@@ -96,8 +97,8 @@ expect_backtrace(void)
 
 		void *expected_saddr = expect_a ? recurse_a_fp : recurse_b_fp;
 		void *observed_saddr = info.dli_saddr;
-		T_EXPECT_GE(observed_saddr, expected_saddr,
-				"frame %d (%p) matches", i, observed_bt[i]);
+		T_EXPECT_EQ(observed_saddr, expected_saddr,
+                "frame %d (%p: %s) matches", i, observed_bt[i], info.dli_sname);
 		expect_a = !expect_a;
 	}
 
@@ -113,7 +114,6 @@ T_DECL(backtrace, "ensure backtrace(3) gives the correct backtrace")
 T_DECL(backtrace_from_fp,
 		"ensure backtrace_from_fp(3) starts from the correct frame")
 {
-	const int skip_nframes = 5;
 	setup_and_backtrace(expected_nframes + skip_nframes, skip_nframes);
 	expect_backtrace();
 }
@@ -148,4 +148,24 @@ T_DECL(backtrace_image_offsets,
 	}
 
 	T_EXPECT_TRUE(found_setup, "should have found the setup frame");
+}
+
+T_DECL(backtrace_symbols, "tests backtrace_symbols")
+{
+	setup_and_backtrace(expected_nframes, 0);
+
+	char **symbols = backtrace_symbols(observed_bt, observed_nframes);
+
+	bool found_setup = false;
+
+	for (int i = 0; i < observed_nframes; i++) {
+		T_LOG("frame[%d]: %s", i, symbols[i]);
+		if (strstr(symbols[i], "setup_and_backtrace") != NULL) {
+			found_setup = true;
+		}
+	}
+
+	T_EXPECT_TRUE(found_setup, "should have found the setup frame");
+
+	free(symbols);
 }

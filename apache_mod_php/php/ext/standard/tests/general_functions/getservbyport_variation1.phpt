@@ -18,23 +18,23 @@ Simone Gentili (sensorario@gmail.com)
 	var_dump(getservbyport( 2, 2));
 	var_dump(getservbyport( "80", "tcp"));
 	var_dump(getservbyport( new stdClass(), new stdClass()));
-	
+
 ?>
 --EXPECTF--
 bool(false)
 bool(false)
 bool(false)
 
-Warning: getservbyport() expects parameter 1 to be integer, array given in %s on line %d
+Warning: getservbyport() expects parameter 1 to be int, array given in %s on line %d
 NULL
 
-Warning: getservbyport() expects parameter 1 to be integer, array given in %s on line %d
+Warning: getservbyport() expects parameter 1 to be int, array given in %s on line %d
 NULL
 
-Warning: getservbyport() expects parameter 1 to be integer, array given in %s on line %d
+Warning: getservbyport() expects parameter 1 to be int, array given in %s on line %d
 NULL
 bool(false)
 string(%d) "%s"
 
-Warning: getservbyport() expects parameter 1 to be integer, object given in %s on line %d
+Warning: getservbyport() expects parameter 1 to be int, object given in %s on line %d
 NULL

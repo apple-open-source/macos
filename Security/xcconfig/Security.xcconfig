@@ -1,10 +1,13 @@
 OTHER_CFLAGS = -isystem $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders -fconstant-cfstrings
 
+
 HEADER_SYMLINKS = $(PROJECT_DIR)/header_symlinks
 HEADER_SYMLINKS[sdk=macosx*] = $(PROJECT_DIR)/header_symlinks $(PROJECT_DIR)/header_symlinks/macOS
 HEADER_SYMLINKS[sdk=embedded*] = $(PROJECT_DIR)/header_symlinks $(PROJECT_DIR)/header_symlinks/iOS
 
-HEADER_SEARCH_PATHS = $(PROJECT_DIR) $(HEADER_SYMLINKS) $(SDKROOT)/usr/local/include/security_libDER $(PROJECT_DIR)/OSX/libsecurity_asn1 $(PROJECT_DIR)/OSX/sec/ProjectHeaders $(PROJECT_DIR)/OSX/sec $(PROJECT_DIR)/OSX/utilities $(PROJECT_DIR)/OSX $(inherited)
+HEADER_SEARCH_PATHS = $(HEADER_SYMLINKS) $(PROJECT_DIR) $(SDKROOT)/usr/local/include/security_libDER $(PROJECT_DIR)/OSX/libsecurity_asn1 $(PROJECT_DIR)/OSX/sec $(PROJECT_DIR)/OSX/utilities $(PROJECT_DIR)/OSX $(inherited)
+ALWAYS_SEARCH_USER_PATHS = NO
+
 ARCHS[sdk=macosx*] = $(ARCHS_STANDARD)
 
 LIBRARY_SEARCH_PATHS = $(inherited) $(SDKROOT)/usr/local/lib/security_libDER
@@ -14,9 +17,12 @@ LIBRARY_SEARCH_PATHS = $(inherited) $(SDKROOT)/usr/local/lib/security_libDER
 
 // Note that the 'Settings' view in Xcode will display the wrong values for platform-dependent settings
 // Refer to the actual build command for final computed value
-GCC_PREPROCESSOR_DEFINITIONS = __KEYCHAINCORE__=1 CORECRYPTO_DONOT_USE_TRANSPARENT_UNION=1 OCTAGON=$(OCTAGON_ON) PLATFORM=$(PLATFORM_STR) SECURITY_BUILD_VERSION="\"$(SECURITY_BUILD_VERSION)\"" $(GCC_PREPROCESSOR_DEFINITIONS)
+GCC_PREPROCESSOR_DEFINITIONS = __KEYCHAINCORE__=1 CORECRYPTO_DONOT_USE_TRANSPARENT_UNION=1 OCTAGON=$(OCTAGON_ON) TRUSTEDPEERS=$(TRUSTEDPEERS_ON) SECUREOBJECTSYNC=$(SECUREOBJECTSYNC_ON) SHAREDWEBCREDENTIALS=$(SHAREDWEBCREDENTIALS_ON) PLATFORM=$(PLATFORM_STR) SECURITY_BUILD_VERSION="\"$(SECURITY_BUILD_VERSION)\"" $(GCC_PREPROCESSOR_DEFINITIONS)
 
 SECURITY_FUZZER_BASE_DIR = /AppleInternal/CoreOS/Fuzzers/Security
+
+// Apple Clang - Code Generation
+CLANG_TRIVIAL_AUTO_VAR_INIT = pattern
 
 WARNING_CFLAGS = -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-error=deprecated-declarations -Wno-error=implicit-retain-self -Wno-error=#warnings -Wno-error=unused-function -Wno-error=unused-variable
 
@@ -27,8 +33,17 @@ WARNING_CFLAGS[sdk=embedded*] = $(WARNING_CFLAGS) -Wformat=2
 // This breaks TAPI during the build, which does INSTALLHDR -> INSTALLAPI without running any copy files phases.
 // So, we must include each file as a 'public' header in the TAPI command.
 // We also add some 'private' headers here that aren't in the framework; this is unfortunate but better than putting very internal headers as SPI.
-OTHER_TAPI_FLAGS_SOS = -extra-public-header $(PROJECT_DIR)/OSX/sec/SOSCircle/SecureObjectSync/SOSPeerInfoCollections.h -extra-public-header $(PROJECT_DIR)/OSX/sec/SOSCircle/SecureObjectSync/SOSCircleDer.h -extra-public-header $(PROJECT_DIR)/OSX/sec/SOSCircle/SecureObjectSync/SOSKVSKeys.h -extra-public-header $(PROJECT_DIR)/OSX/sec/SOSCircle/SecureObjectSync/SOSInternal.h -extra-public-header $(PROJECT_DIR)/OSX/sec/SOSCircle/SecureObjectSync/SOSGenCount.h -extra-public-header $(PROJECT_DIR)/OSX/sec/SOSCircle/CKBridge/SOSCloudKeychainClient.h -extra-public-header $(PROJECT_DIR)/OSX/sec/SOSCircle/SecureObjectSync/SOSPiggyback.h -extra-public-header $(PROJECT_DIR)/OSX/sec/SOSCircle/SecureObjectSync/SOSCircle.h -extra-public-header $(PROJECT_DIR)/OSX/sec/SOSCircle/SecureObjectSync/SOSFullPeerInfo.h -extra-public-header $(PROJECT_DIR)/OSX/sec/SOSCircle/SecureObjectSync/SOSCloudCircleInternal.h -extra-public-header $(PROJECT_DIR)/OSX/sec/SOSCircle/SecureObjectSync/SOSTypes.h -extra-public-header $(PROJECT_DIR)/OSX/sec/SOSCircle/SecureObjectSync/SOSViews.h -extra-public-header $(PROJECT_DIR)/OSX/sec/SOSCircle/SecureObjectSync/SOSPeerInfo.h -extra-public-header $(PROJECT_DIR)/OSX/sec/SOSCircle/SecureObjectSync/SOSCloudCircle.h -extra-public-header $(PROJECT_DIR)/OSX/sec/SOSCircle/SecureObjectSync/SOSPeerInfoV2.h -extra-public-header $(PROJECT_DIR)/OSX/sec/SOSCircle/SecureObjectSync/SOSBackupSliceKeyBag.h -extra-private-header $(PROJECT_DIR)/OSX/sec/SOSCircle/SecureObjectSync/SOSPeerInfoInternal.h
+OTHER_TAPI_FLAGS_SOS = -extra-public-header $(PROJECT_DIR)/keychain/SecureObjectSync/SOSPeerInfoCollections.h -extra-public-header $(PROJECT_DIR)/keychain/SecureObjectSync/SOSCircleDer.h -extra-public-header $(PROJECT_DIR)/keychain/SecureObjectSync/SOSKVSKeys.h -extra-public-header $(PROJECT_DIR)/keychain/SecureObjectSync/SOSInternal.h -extra-public-header $(PROJECT_DIR)/keychain/SecureObjectSync/SOSGenCount.h -extra-public-header $(PROJECT_DIR)/keychain/SecureObjectSync/CKBridge/SOSCloudKeychainClient.h -extra-public-header $(PROJECT_DIR)/keychain/SecureObjectSync/SOSPiggyback.h -extra-public-header $(PROJECT_DIR)/keychain/SecureObjectSync/SOSCircle.h -extra-public-header $(PROJECT_DIR)/keychain/SecureObjectSync/SOSFullPeerInfo.h -extra-public-header $(PROJECT_DIR)/keychain/SecureObjectSync/SOSCloudCircleInternal.h -extra-public-header $(PROJECT_DIR)/keychain/SecureObjectSync/SOSTypes.h -extra-public-header $(PROJECT_DIR)/keychain/SecureObjectSync/SOSViews.h -extra-public-header $(PROJECT_DIR)/keychain/SecureObjectSync/SOSPeerInfo.h -extra-public-header $(PROJECT_DIR)/keychain/SecureObjectSync/SOSCloudCircle.h -extra-public-header $(PROJECT_DIR)/keychain/SecureObjectSync/SOSPeerInfoV2.h -extra-public-header $(PROJECT_DIR)/keychain/SecureObjectSync/SOSBackupSliceKeyBag.h -extra-private-header $(PROJECT_DIR)/keychain/SecureObjectSync/SOSPeerInfoInternal.h
 
 // This isn't OTHER_TAPI_FLAGS because we'll mess up other, non-Security.framework frameworks in the project
 // Please don't add any more headers here.
-OTHER_TAPI_FLAGS_SECURITY_FRAMEWORK = -D SECURITY_PROJECT_TAPI_HACKS=1 -extra-private-header $(PROJECT_DIR)/OSX/sec/Security/SecTrustInternal.h $(OTHER_TAPI_FLAGS_SOS)
+OTHER_TAPI_FLAGS_SECURITY_FRAMEWORK = --verify-api-error-as-warning -D SECURITY_PROJECT_TAPI_HACKS=1 -extra-private-header $(PROJECT_DIR)/OSX/sec/Security/SecTrustInternal.h $(OTHER_TAPI_FLAGS_SOS)
+
+SECURITY_XCTEST_DIRECTORY = /AppleInternal/XCTests/com.apple.security
+
+// If you expect to be a 'securityd', use these flags
+OTHER_LDFLAGS_FOR_SECURITYD = -framework TrustedPeers $(OTHER_LDFLAGS_COREFOLLOWUP) -lnetwork
+
+// Hack for runtime path for OCMock, add to your xctest bundle and embedd OCMock.framework
+OCMOCK_RUNTIME_SEARCH_PATH = $(inherited) @executable_path/Frameworks @loader_path/Frameworks
+OCMOCK_RUNTIME_SEARCH_PATH[sdk=macos*] = $(inherited) @executable_path/../Frameworks @loader_path/../Frameworks

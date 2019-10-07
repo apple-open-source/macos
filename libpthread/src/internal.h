@@ -81,6 +81,7 @@ typedef struct _pthread_attr_t pthread_attr_t;
 #error Unsupported target
 #endif
 
+
 #define PTHREAD_INTERNAL_CRASH(c, x) do { \
 		_os_set_crash_log_cause_and_message((c), \
 				"BUG IN LIBPTHREAD: " x); \
@@ -160,7 +161,14 @@ PTHREAD_NOEXPORT extern uint64_t _pthread_debugstart;
 #define _INTERNAL_POSIX_THREAD_KEYS_END 768
 #endif
 
+#if defined(__arm64__)
+/* Pull the pthread_t into the same page as the top of the stack so we dirty one less page.
+ * <rdar://problem/19941744> The _pthread struct at the top of the stack shouldn't be page-aligned
+ */
+#define PTHREAD_T_OFFSET (12*1024)
+#else
 #define PTHREAD_T_OFFSET 0
+#endif
 
 #define MAXTHREADNAMESIZE	64
 #define _PTHREAD_T
@@ -192,6 +200,7 @@ typedef struct _pthread {
 	// MACH_PORT_DEAD if the thread exited
 	uint32_t tl_exit_gate;
 	struct sched_param tl_param;
+	void *__unused_padding;
 
 	//
 	// Fields protected by pthread_t::lock
@@ -204,18 +213,16 @@ typedef struct _pthread {
 			schedset:1,
 			wqthread:1,
 			wqkillset:1,
-			wqoutsideqos:1,
-			__flags_pad:3;
+			__flags_pad:4;
 
 	char pthread_name[MAXTHREADNAMESIZE];	// includes NUL [aligned]
 
 	void *(*fun)(void *);	// thread start routine
-	void *wq_kqid_ptr;		// wqthreads (workloop)
 	void *arg;				// thread start routine argument
 	int   wq_nevents;		// wqthreads (workloop / kevent)
-	uint16_t wq_retop;		// wqthreads
-	uint8_t cancel_state;	// whether the thread can be canceled [atomic]
+	bool  wq_outsideqos;
 	uint8_t canceled;		// 4597450 set if conformant cancelation happened
+	uint16_t cancel_state;	// whether the thread can be canceled [atomic]
 	errno_t cancel_error;
 	errno_t err_no;			// thread-local errno
 
@@ -467,7 +474,6 @@ _pthread_selfid_direct(void)
 #define _PTHREAD_CANCEL_STATE_MASK   0x01
 #define _PTHREAD_CANCEL_TYPE_MASK    0x02
 #define _PTHREAD_CANCEL_PENDING	     0x10  /* pthread_cancel() has been called for this thread */
-#define _PTHREAD_CANCEL_INITIALIZED  0x20  /* the thread in the list is properly initialized */
 
 extern boolean_t swtch_pri(int);
 
@@ -510,14 +516,6 @@ PTHREAD_NOEXPORT
 void
 _pthread_deallocate(pthread_t t, bool from_mach_thread);
 
-PTHREAD_NORETURN PTHREAD_NOEXPORT
-void
-__pthread_abort(void);
-
-PTHREAD_NORETURN PTHREAD_NOEXPORT
-void
-__pthread_abort_reason(const char *fmt, ...) __printflike(1,2);
-
 PTHREAD_NOEXPORT
 thread_qos_t
 _pthread_qos_class_to_thread_qos(qos_class_t qos);
@@ -538,7 +536,7 @@ PTHREAD_EXPORT
 void
 _pthread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void * funarg, size_t stacksize, unsigned int flags);
 
-PTHREAD_NORETURN PTHREAD_EXPORT
+PTHREAD_EXPORT
 void
 _pthread_wqthread(pthread_t self, mach_port_t kport, void *stackaddr, void *keventlist, int flags, int nkevents);
 
@@ -596,11 +594,16 @@ _pthread_set_kernel_thread(pthread_t t, mach_port_t p)
 	t->tsd[_PTHREAD_TSD_SLOT_MACH_THREAD_SELF] = p;
 }
 
-#define PTHREAD_ABORT(f,...) __pthread_abort_reason( \
-		"%s:%s:%u: " f, __FILE__, __func__, __LINE__, ## __VA_ARGS__)
-
-#define PTHREAD_ASSERT(b) \
-		do { if (!(b)) PTHREAD_ABORT("failed assertion `%s'", #b); } while (0)
+#ifdef DEBUG
+#define PTHREAD_DEBUG_ASSERT(b) \
+		do { \
+			if (os_unlikely(!(b))) { \
+				PTHREAD_INTERNAL_CRASH(0, "Assertion failed: " #b); \
+			} \
+		} while (0)
+#else
+#define PTHREAD_DEBUG_ASSERT(b) ((void)0)
+#endif
 
 #include <os/semaphore_private.h>
 #include <os/alloc_once_private.h>
@@ -690,21 +693,13 @@ _pthread_validate_thread_and_list_lock(pthread_t thread)
 {
 	pthread_t p;
 	if (thread == NULL) return false;
-loop:
 	_PTHREAD_LOCK(_pthread_list_lock);
 	TAILQ_FOREACH(p, &__pthread_head, tl_plist) {
 		if (p != thread) continue;
-		int state = os_atomic_load(&p->cancel_state, relaxed);
-		if (os_likely(state & _PTHREAD_CANCEL_INITIALIZED)) {
-			if (os_unlikely(p->sig != _PTHREAD_SIG)) {
-				PTHREAD_CLIENT_CRASH(0, "pthread_t was corrupted");
-			}
-			return true;
+		if (os_unlikely(p->sig != _PTHREAD_SIG)) {
+			PTHREAD_CLIENT_CRASH(0, "pthread_t was corrupted");
 		}
-		_PTHREAD_UNLOCK(_pthread_list_lock);
-		thread_switch(_pthread_kernel_thread(p),
-					  SWITCH_OPTION_OSLOCK_DEPRESS, 1);
-		goto loop;
+		return true;
 	}
 	_PTHREAD_UNLOCK(_pthread_list_lock);
 

@@ -1,5 +1,8 @@
 0755	root	wheel	Library/Managed Preferences
 0700	267	267	private/var/db/gpsd
+0755	root	wheel	private/var/db/ExtensibleSSO
+0755	root	wheel	private/var/db/ExtensibleSSO/Configuration
+0755	root	wheel	private/var/hardware
 0750	501	501	private/var/mobile
 0755	501	501	private/var/mobile/Applications
 0700	501	501	private/var/mobile/Library
@@ -31,6 +34,8 @@
 0755	64	wheel	private/var/Keychains
 0755	root	wheel	private/var/MobileDevice
 0755	501	501	private/var/MobileDevice/ProvisioningProfiles
+0755	root	wheel	private/var/MobileSoftwareUpdate
 0755	33	33	private/var/installd
 0755	25	25	private/var/wireless
 0755	25	25	private/var/wireless/Library
+0755	25	25	private/var/wireless/baseband_data

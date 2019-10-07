@@ -113,7 +113,8 @@ OSStatus SecTrustSettingsEvaluateCert(
      uint32                              *numAllowedErrors,    /* RETURNED */
      SecTrustSettingsResult              *resultType,          /* RETURNED */
      bool                                *foundMatchingEntry,  /* RETURNED */
-     bool                                *foundAnyEntry);      /* RETURNED */
+     bool                                *foundAnyEntry)       /* RETURNED */
+DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*
  * Obtain trusted certs which match specified usage.
@@ -132,7 +133,8 @@ OSStatus SecTrustSettingsCopyQualifiedCerts(
      const char                          *policyString,        /* optional */
      uint32                              policyStringLen,
      SecTrustSettingsKeyUsage            keyUsage,             /* optional */
-     CFArrayRef                          *certArray);          /* RETURNED */
+     CFArrayRef                          *certArray)           /* RETURNED */
+DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*
  * Obtain unrestricted root certificates from the specified domain(s).
@@ -195,14 +197,14 @@ void SecTrustSettingsSetTrustedCertificateForSSLHost(
     CFStringRef hostname,
     void (^result)(SecTrustSettingsResult trustResult, CFErrorRef error))
     __OSX_AVAILABLE_STARTING(__MAC_10_13, __IPHONE_NA);
+#endif // SEC_OS_OSX
 
+#if SEC_OS_OSX_INCLUDES
 /*
  * Purge the cache of User and Admin Certs
  */
 void SecTrustSettingsPurgeUserAdminCertsCache(void);
-#endif // SEC_OS_OSX
 
-#if SEC_OS_OSX_INCLUDES
 /*
  * A wrapper around SecTrustSettingsCopyCertificates that combines user and admin
  * domain outputs.

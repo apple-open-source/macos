@@ -220,7 +220,7 @@ kern_return_t IOHIDCopyHIDParameterFromEventSystem(io_connect_t handle, CFString
 
 
 kern_return_t IOHIDSetHIDParameterToEventSystem(io_connect_t handle, CFStringRef key, CFTypeRef parameter) {
-    IOHIDEventSystemClientRef client = IOHIDEventSystemClientCreateWithType (kCFAllocatorDefault, kIOHIDEventSystemClientTypeMonitor, NULL);
+    IOHIDEventSystemClientRef client = IOHIDEventSystemClientCreateWithType (kCFAllocatorDefault, kIOHIDEventSystemClientTypePassive, NULL);
     kern_return_t  kr = kIOReturnNotReady;
     if (!client) {
         goto exit;

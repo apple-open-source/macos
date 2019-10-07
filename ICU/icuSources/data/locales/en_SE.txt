@@ -9,12 +9,13 @@ en_SE{
                 percentFormat{"#,##0 %"}
             }
             symbols{
+                decimal{","}
                 exponential{"×10^"}
                 group{" "}
             }
         }
     }
-    Version{"2.1.38.69"}
+    Version{"2.1.47.70"}
     calendar{
         generic{
             DateTimePatterns{
@@ -33,6 +34,11 @@ en_SE{
                 "{1}, {0}",
             }
             availableFormats{
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                hmsv{"h:mm:ss a v"}
+                hmv{"h:mm a v"}
                 yyyyM{"y-MM G"}
                 yyyyMEd{"E y-MM-dd G"}
                 yyyyMd{"y-MM-dd G"}

@@ -18,6 +18,7 @@
 #include <sysexits.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/mount.h>
 #include <sys/types.h>
 
 #pragma mark Types
@@ -50,6 +51,9 @@ typedef struct {
 
 #define kImmutableKernelFileName "immutablekernel"
 
+// relative to _kOSKextCachesRootFolder
+#define kThirdPartyKextAllowList "kextallow"
+
 // 17 leap days from 1904 to 1970, inclusive
 #define UNIX_MAC_TIME_DELTA ((1970-1904)*365*86400 + 17*86400)
 #define HFS_TIME_END (((1LL<<32) - 1) - UNIX_MAC_TIME_DELTA)
@@ -80,6 +84,7 @@ typedef struct {
 
 #define COMPILE_TIME_ASSERT(pred)   switch(0){case 0:case pred:;}
 
+#define N_ELEMS(array) (sizeof(array) / sizeof(array[0]))
 /*
  * Macros to support PATHCPY/PATHCAT
  *
@@ -150,6 +155,7 @@ typedef struct {
 #define kOptNameQuiet                   "quiet"
 #define kOptNameVerbose                 "verbose"
 #define kOptNameLayoutMap               "layout"
+#define kOptNameTargetOverride          "target-override"
 
 #define kOptNameLongindexHack           "________"
 
@@ -166,6 +172,7 @@ typedef struct {
 #define kOptQuiet            'q'
 #define kOptVerbose          'v'
 #define kOptLayoutMap        'l'
+#define kOptTargetOverride   'T'
 
 // Long opts always defined in each program to avoid # collisions
 
@@ -181,6 +188,10 @@ Boolean createCFMutableSet(CFMutableSetRef * setOut,
     const CFSetCallBacks * callbacks);
 Boolean createCFDataFromFile(CFDataRef  *dataRefOut,
                              const char *filePath);
+Boolean createCFDataFromFD(int fd, CFDataRef *dataRefOut);
+
+char *get_bootarg(char *bootArg);
+bool get_bootarg_int(char *bootarg, uint32_t *value);
 
 void addToArrayIfAbsent(CFMutableArrayRef array, const void * value);
 
@@ -197,9 +208,9 @@ ExitStatus setLogFilterForOpt(
 
 void beQuiet(void);
 
-FILE *  g_log_stream;
+extern FILE *  g_log_stream;
 // tool_openlog(), tool_log() copied to bootroot.h for libBootRoot clients
-void tool_initlog();
+void tool_initlog(void);
 void tool_openlog(const char * name);
 os_log_t get_signpost_log(void);
 void tool_log(
@@ -276,6 +287,7 @@ void addKextToAlertDict(
 
 char * getPathExtension(const char * pathPtr);
 
+int getFileDevAndInoAndSizeWith_fd(int the_fd, dev_t * the_dev_t, ino_t * the_ino_t, size_t * the_size);
 int getFileDevAndInoWith_fd(int the_fd, dev_t * the_dev_t, ino_t * the_ino_t);
 int getFileDevAndIno(const char * thePath, dev_t * the_dev_t, ino_t * the_ino_t);
 Boolean isSameFileDevAndIno(int the_fd,
@@ -304,6 +316,16 @@ Boolean getKernelPathForURL(
                             char * theBuffer,
                             int theBufferSize );
 
+bool readKextHashAllowList(bool mustMatchCurrentBoot,
+                           CFStringRef *bootUUIDStr,
+                           CFArrayRef *allowedHashesRef,
+                           CFArrayRef *allowedBundleIDsRef,
+                           CFArrayRef *exceptionListBundlesRef);
+
+ExitStatus writeKextAllowList(const char *bootuuid,
+                              CFDataRef cdhashData,
+                              int to_dir_fd, const char *to_fname);
+
 // Development kernel support
 Boolean useDevelopmentKernel(const char * theKernelPath);
 Boolean isDebugSetInBootargs(void);
@@ -319,4 +341,12 @@ bool translatePrelinkedToImmutablePath(const char *prelinked_path,
 extern char * createUTF8CStringForCFString(CFStringRef aString);
 
 void setVariantSuffix(void);
+
+ExitStatus copyLoadedKextInfo(CFArrayRef *loadedKexts, bool waitToQuiesce);
+
+int findmnt(dev_t devid, char mntpt[MNAMELEN], bool getDevicePath);
+
+#if defined(ROSP_HACKS) && __has_include(<APFS/APFS.h>)
+int isUserDataVolume(const char *systemVolumeDevicePath, const char *candidateMountPath);
+#endif /* !ROSP_HACKS && __has_include(<APFS/APFS.h>) */
 #endif /* _KEXT_TOOLS_UTIL_H */

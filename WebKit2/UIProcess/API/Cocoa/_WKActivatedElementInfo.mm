@@ -26,8 +26,6 @@
 #import "config.h"
 #import "_WKActivatedElementInfoInternal.h"
 
-#if WK_API_ENABLED
-
 #import "ShareableBitmap.h"
 #import <wtf/RetainPtr.h>
 
@@ -41,8 +39,9 @@
 
 @implementation _WKActivatedElementInfo  {
     RetainPtr<NSURL> _URL;
+    RetainPtr<NSURL> _imageURL;
     RetainPtr<NSString> _title;
-    CGPoint _interactionLocation;
+    WebCore::IntPoint _interactionLocation;
     RetainPtr<NSString> _ID;
     RefPtr<WebKit::ShareableBitmap> _image;
 #if PLATFORM(IOS_FAMILY)
@@ -52,6 +51,7 @@
 #if PLATFORM(MAC)
     RetainPtr<NSImage> _nsImage;
 #endif
+    BOOL _animatedImage;
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -66,6 +66,7 @@
         return nil;
     
     _URL = information.url;
+    _imageURL = information.imageURL;
     _interactionLocation = information.request.point;
     _title = information.title;
     _boundingRect = information.bounds;
@@ -81,22 +82,24 @@
     
     _image = information.image;
     _ID = information.idAttribute;
+    _animatedImage = information.isAnimatedImage;
     
     return self;
 }
 #endif
 
-- (instancetype)_initWithType:(_WKActivatedElementType)type URL:(NSURL *)url location:(CGPoint)location title:(NSString *)title ID:(NSString *)ID rect:(CGRect)rect image:(WebKit::ShareableBitmap*)image
+- (instancetype)_initWithType:(_WKActivatedElementType)type URL:(NSURL *)url imageURL:(NSURL *)imageURL location:(const WebCore::IntPoint&)location title:(NSString *)title ID:(NSString *)ID rect:(CGRect)rect image:(WebKit::ShareableBitmap*)image
 {
-    return [self _initWithType:type URL:url location:location title:title ID:ID rect:rect image:image userInfo:nil];
+    return [self _initWithType:type URL:url imageURL:imageURL location:location title:title ID:ID rect:rect image:image userInfo:nil];
 }
 
-- (instancetype)_initWithType:(_WKActivatedElementType)type URL:(NSURL *)url location:(CGPoint)location title:(NSString *)title ID:(NSString *)ID rect:(CGRect)rect image:(WebKit::ShareableBitmap*)image userInfo:(NSDictionary *)userInfo
+- (instancetype)_initWithType:(_WKActivatedElementType)type URL:(NSURL *)url imageURL:(NSURL *)imageURL location:(const WebCore::IntPoint&)location title:(NSString *)title ID:(NSString *)ID rect:(CGRect)rect image:(WebKit::ShareableBitmap*)image userInfo:(NSDictionary *)userInfo
 {
     if (!(self = [super init]))
         return nil;
 
     _URL = adoptNS([url copy]);
+    _imageURL = adoptNS([imageURL copy]);
     _interactionLocation = location;
     _title = adoptNS([title copy]);
     _boundingRect = rect;
@@ -115,6 +118,11 @@
     return _URL.get();
 }
 
+- (NSURL *)imageURL
+{
+    return _imageURL.get();
+}
+
 - (NSString *)title
 {
     return _title.get();
@@ -125,9 +133,14 @@
     return _ID.get();
 }
 
-- (CGPoint)_interactionLocation
+- (WebCore::IntPoint)_interactionLocation
 {
     return _interactionLocation;
+}
+
+- (BOOL)isAnimatedImage
+{
+    return _animatedImage;
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -168,5 +181,3 @@
 #endif
 
 @end
-
-#endif // WK_API_ENABLED

@@ -48,13 +48,12 @@ clearstatcache();
 
 echo "\n*** Done ***";
 ?>
-
 --CLEAN--
 <?php
 $file_path = dirname(__FILE__);
 unlink("$file_path/stat_variation2.tmp");
 ?>
---EXPECTF--
+--EXPECT--
 *** Testing stat(): writing to a file ***
 -- Testing stat() on file after data is written in it --
 bool(true)
@@ -62,4 +61,3 @@ bool(true)
 bool(true)
 
 *** Done ***
-

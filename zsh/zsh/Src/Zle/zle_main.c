@@ -58,6 +58,11 @@ mod_export int incompctlfunc;
 /**/
 mod_export int hascompmod;
 
+/* Increment for each nested recursive-edit */
+
+/**/
+mod_export int zle_recursive;
+
 /* ZLRF_* flags passed to zleread() */
 
 /**/
@@ -447,7 +452,7 @@ struct ztmout {
  */
 
 static void
-calc_timeout(struct ztmout *tmoutp, long do_keytmout)
+calc_timeout(struct ztmout *tmoutp, long do_keytmout, int full)
 {
     if (do_keytmout && (keytimeout > 0 || do_keytmout < 0)) {
 	if (do_keytmout < 0)
@@ -460,7 +465,7 @@ calc_timeout(struct ztmout *tmoutp, long do_keytmout)
     } else
 	tmoutp->tp = ZTM_NONE;
 
-    if (timedfns) {
+    if (full && timedfns) {
 	for (;;) {
 	    LinkNode tfnode = firstnode(timedfns);
 	    Timedfn tfdat;
@@ -499,7 +504,7 @@ calc_timeout(struct ztmout *tmoutp, long do_keytmout)
 /* see calc_timeout for use of do_keytmout */
 
 static int
-raw_getbyte(long do_keytmout, char *cptr)
+raw_getbyte(long do_keytmout, char *cptr, int full)
 {
     int ret;
     struct ztmout tmout;
@@ -514,7 +519,7 @@ raw_getbyte(long do_keytmout, char *cptr)
 # endif
 #endif
 
-    calc_timeout(&tmout, do_keytmout);
+    calc_timeout(&tmout, do_keytmout, full);
 
     /*
      * Handle timeouts and watched fd's.  If a watched fd or a function
@@ -631,6 +636,8 @@ raw_getbyte(long do_keytmout, char *cptr)
 		continue;
 	    }
 	    if (selret == 0) {
+		zlong save_lastval;
+
 		/*
 		 * Nothing ready and no error, so we timed out.
 		 */
@@ -648,6 +655,7 @@ raw_getbyte(long do_keytmout, char *cptr)
 		    break;
 
 		case ZTM_FUNC:
+		    save_lastval = lastval;
 		    while (firstnode(timedfns)) {
 			Timedfn tfdat = (Timedfn)getdata(firstnode(timedfns));
 			/*
@@ -661,6 +669,7 @@ raw_getbyte(long do_keytmout, char *cptr)
 			    break;
 			tfdat->func();
 		    }
+		    lastval = save_lastval;
 		    /* Function may have messed up the display */
 		    if (resetneeded)
 			zrefresh();
@@ -675,7 +684,7 @@ raw_getbyte(long do_keytmout, char *cptr)
 		     * reconsider the key timeout from scratch.
 		     * The effect of this is microscopic.
 		     */
-		    calc_timeout(&tmout, do_keytmout);
+		    calc_timeout(&tmout, do_keytmout, full);
 		    break;
 		}
 		/*
@@ -800,6 +809,8 @@ raw_getbyte(long do_keytmout, char *cptr)
 		}
 # endif
 	    }
+	    /* If looping, need to recalculate timeout */
+	    calc_timeout(&tmout, do_keytmout, full);
 	}
 # ifdef HAVE_POLL
 	zfree(fds, sizeof(struct pollfd) * nfds);
@@ -841,7 +852,7 @@ raw_getbyte(long do_keytmout, char *cptr)
 
 /**/
 mod_export int
-getbyte(long do_keytmout, int *timeout)
+getbyte(long do_keytmout, int *timeout, int full)
 {
     char cc;
     unsigned int ret;
@@ -866,7 +877,7 @@ getbyte(long do_keytmout, int *timeout)
 	for (;;) {
 	    int q = queue_signal_level();
 	    dont_queue_signals();
-	    r = raw_getbyte(do_keytmout, &cc);
+	    r = raw_getbyte(do_keytmout, &cc, full);
 	    restore_queue_signals(q);
 	    if (r == -2) {
 		/* timeout */
@@ -945,7 +956,7 @@ getbyte(long do_keytmout, int *timeout)
 mod_export ZLE_INT_T
 getfullchar(int do_keytmout)
 {
-    int inchar = getbyte((long)do_keytmout, NULL);
+    int inchar = getbyte((long)do_keytmout, NULL, 1);
 
 #ifdef MULTIBYTE_SUPPORT
     return getrestchar(inchar, NULL, NULL);
@@ -1010,7 +1021,7 @@ getrestchar(int inchar, char *outstr, int *outcount)
 	 * arrive together.  If we don't do this the input can
 	 * get stuck if an invalid byte sequence arrives.
 	 */
-	inchar = getbyte(1L, &timeout);
+	inchar = getbyte(1L, &timeout, 1);
 	/* getbyte deliberately resets lastchar_wide_valid */
 	lastchar_wide_valid = 1;
 	if (inchar == EOF) {
@@ -1245,6 +1256,7 @@ zleread(char **lp, char **rp, int flags, int context, char *init, char *finish)
     resetneeded = 0;
     fetchttyinfo = 0;
     trashedzle = 0;
+    clearflag = 0;
     raw_lp = lp;
     lpromptbuf = promptexpand(lp ? *lp : NULL, 1, NULL, NULL, &pmpt_attr);
     raw_rp = rp;
@@ -1484,6 +1496,13 @@ execzlefunc(Thingy func, char **args, int set_bindk)
 	    int inuse = w->flags & WIDGET_INUSE;
 	    w->flags |= WIDGET_INUSE;
 
+	    if (osi > 0) {
+		/*
+		 * Many commands don't like having a closed stdin, open on
+		 * /dev/null instead
+		 */
+		open("/dev/null", O_RDWR | O_NOCTTY); /* ignore failure */
+	    }
 	    if (*args) {
 		largs = newlinklist();
 		addlinknode(largs, dupstring(w->u.fnnam));
@@ -1640,6 +1659,7 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
     Param pm = 0;
     int ifl;
     int type = PM_SCALAR, obreaks = breaks, haso = 0, oSHTTY = 0;
+    int warn_flags;
     char *p1, *p2, *main_keymapname, *vicmd_keymapname, *init, *finish;
     Keymap main_keymapsave = NULL, vicmd_keymapsave = NULL;
     FILE *oshout = NULL;
@@ -1653,6 +1673,7 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
 	return 1;
     }
 
+    warn_flags = OPT_ISSET(ops, 'g') ? 0 : ASSPM_WARN;
     if (OPT_ISSET(ops,'A'))
     {
 	if (OPT_ISSET(ops, 'a'))
@@ -1833,11 +1854,11 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
 	a = spacesplit(t, 1, 0, 1);
 	zsfree(t);
 	if (PM_TYPE(pm->node.flags) == PM_ARRAY)
-	    setaparam(args[0], a);
+	    assignaparam(args[0], a, warn_flags);
 	else
 	    sethparam(args[0], a);
     } else
-	setsparam(args[0], t);
+	assignsparam(args[0], t, warn_flags);
     unqueue_signals();
     return 0;
 }
@@ -1925,6 +1946,8 @@ recursiveedit(UNUSED(char **args))
     int locerror;
     int q = queue_signal_level();
 
+    ++zle_recursive;
+
     /* zlecore() expects to be entered with signal queue disabled */
     dont_queue_signals();
 
@@ -1933,6 +1956,8 @@ recursiveedit(UNUSED(char **args))
     zlecore();
 
     restore_queue_signals(q);
+
+    --zle_recursive;
 
     locerror = errflag ? 1 : 0;
     errflag = done = eofsent = 0;
@@ -2114,7 +2139,7 @@ zle_main_entry(int cmd, va_list ap)
 	do_keytmout = va_arg(ap, long);
 	timeout = va_arg(ap, int *);
 	chrp = va_arg(ap, int *);
-	*chrp = getbyte(do_keytmout, timeout);
+	*chrp = getbyte(do_keytmout, timeout, 0);
 	break;
     }
 
@@ -2136,7 +2161,7 @@ zle_main_entry(int cmd, va_list ap)
 
 static struct builtin bintab[] = {
     BUILTIN("bindkey", 0, bin_bindkey, 0, -1, 0, "evaM:ldDANmrsLRp", NULL),
-    BUILTIN("vared",   0, bin_vared,   1,  1, 0, "aAcef:hi:M:m:p:r:t:", NULL),
+    BUILTIN("vared",   0, bin_vared,   1,  1, 0, "aAcef:ghi:M:m:p:r:t:", NULL),
     BUILTIN("zle",     0, bin_zle,     0, -1, 0, "aAcCDfFgGIKlLmMNrRTUw", NULL),
 };
 

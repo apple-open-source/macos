@@ -93,6 +93,7 @@ typedef float	Float32;
  */
 typedef double	Float64;
 
+
 /*!
  * @function IOAF_NativeInt16ToFloat32
  * @abstract Converts native 16-bit integer float to 32-bit float
@@ -146,6 +147,7 @@ extern void IOAF_NativeInt32ToFloat32( const SInt32 *src, Float32 *dest, unsigne
  * @param count The number of items to convert
  */
 extern void IOAF_SwapInt32ToFloat32( const SInt32 *src, Float32 *dest, unsigned int count );
+
 
 /*!
  * @function IOAF_Float32ToNativeInt16

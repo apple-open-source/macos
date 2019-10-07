@@ -33,6 +33,10 @@
 #include <wtf/PrintStream.h>
 #include <wtf/StdLibExtras.h>
 
+namespace JSC {
+class CachedBitVector;
+}
+
 namespace WTF {
 
 // This is a space-efficient, resizeable bitvector class. In the common case it
@@ -231,6 +235,13 @@ public:
             return bitCount(cleanseInlineBits(m_bitsOrPointer));
         return bitCountSlow();
     }
+
+    bool isEmpty() const
+    {
+        if (isInline())
+            return !cleanseInlineBits(m_bitsOrPointer);
+        return isEmptySlow();
+    }
     
     size_t findBit(size_t index, bool value) const
     {
@@ -338,6 +349,8 @@ public:
     iterator end() const { return iterator(*this, size()); }
         
 private:
+    friend class JSC::CachedBitVector;
+
     static unsigned bitsInPointer()
     {
         return sizeof(void*) << 3;
@@ -447,6 +460,7 @@ private:
     WTF_EXPORT_PRIVATE void excludeSlow(const BitVector& other);
     
     WTF_EXPORT_PRIVATE size_t bitCountSlow() const;
+    WTF_EXPORT_PRIVATE bool isEmptySlow() const;
     
     WTF_EXPORT_PRIVATE bool equalsSlowCase(const BitVector& other) const;
     bool equalsSlowCaseFast(const BitVector& other) const;

@@ -69,14 +69,6 @@ typedef uint32_t CCAsymmetricPadding;
 // The definition below will be removed.
 #define CCAsymetricPadding CCAsymmetricPadding
 
-/*
-	Additional CCCryptorStatus for signature verification failure.
- */
-
-enum {
-    kCCNotVerified    = -4306
-};
-
 /*!
 	@discussion
 
@@ -109,15 +101,29 @@ CCCryptorStatus CCRSACryptorGeneratePair(
 
 
 /*!
+ @function   CCRSACryptorCreatePublicKeyFromPrivateKey
+ @abstract   Create an RSA public key from a full private key.
+
+ @param      privkey A pointer to a private CCRSACryptorRef.
+ @result     returns either a valid public key CCRSACryptorRef or NULL.
+ */
+
+CCRSACryptorRef CCRSACryptorCreatePublicKeyFromPrivateKey(CCRSACryptorRef privkey)
+API_AVAILABLE(macos(10.15), ios(13.0));
+
+
+/*!
     @function   CCRSACryptorGetPublicKeyFromPrivateKey
-    @abstract   Create an RSA public key from a full private key.
+    @abstract   Deprecated. Use CCRSACryptorCreatePublicKeyFromPrivateKey() instead.
+                The caller is responsible for releasing the returned CCRSACryptorRef
+                via CCRSACryptorRelease().
 
     @param      privkey A pointer to a private CCRSACryptorRef.
     @result     returns either a valid public key CCRSACryptorRef or NULL.
  */
 
 CCRSACryptorRef CCRSACryptorGetPublicKeyFromPrivateKey(CCRSACryptorRef privkey)
-API_AVAILABLE(macos(10.9), ios(6.0));
+API_DEPRECATED_WITH_REPLACEMENT("CCRSACryptorCreatePublicKeyFromPrivateKey", macos(10.9, 10.15), ios(6.0, 13.0));
 
 
 /*!

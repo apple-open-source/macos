@@ -16,8 +16,6 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: $ */
-
 #ifndef	_ZEND_DTRACE_H
 #define	_ZEND_DTRACE_H
 
@@ -46,3 +44,13 @@ ZEND_API void dtrace_execute_internal(zend_execute_data *execute_data, zval *ret
 #endif
 
 #endif	/* _ZEND_DTRACE_H */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
+ */

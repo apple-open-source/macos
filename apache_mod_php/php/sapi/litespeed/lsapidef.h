@@ -163,7 +163,7 @@ struct lsapi_req_header
 
 struct lsapi_http_header_index
 {
-    int16_t m_headerLen[H_TRANSFER_ENCODING+1];
+    uint16_t m_headerLen[H_TRANSFER_ENCODING+1];
     int32_t m_headerOff[H_TRANSFER_ENCODING+1];
 } ;
 
@@ -193,4 +193,3 @@ struct lsapi_resp_header
 
 
 #endif
-

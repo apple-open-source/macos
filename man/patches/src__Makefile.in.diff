@@ -1,22 +1,22 @@
---- src/Makefile.in.orig	Sat Jun 26 11:00:47 2004
-+++ src/Makefile.in	Wed Sep  8 13:50:28 2004
-@@ -29,7 +29,7 @@
+--- src/Makefile.in	2010-12-31 12:28:46.000000000 -0800
++++ src/Makefile.in	2019-04-22 15:59:36.000000000 -0700
+@@ -30,7 +30,7 @@
  
  LIBOBJS = @LIBOBJS@
  
--all: man man.conf apropos whatis makewhatis
-+all: man man.conf apropos whatis
+-all: man$(EXEEXT) man.conf apropos whatis makewhatis
++all: man$(EXEEXT) man.conf apropos whatis
  
  MANOBJS = man.o manfile.o manpath.o man-config.o man-getopt.o \
  	man-iconv.o to_cat.o different.o gripes.o glob.o util.o msg.o
-@@ -99,14 +99,11 @@
+@@ -100,14 +100,11 @@
  
  MANCONFIG=$(DESTDIR)$(PREFIX)@man_config_file@
  
 -install: all apropos whatis makewhatis
 +install: all apropos whatis
  	mkdir -p $(DESTDIR)$(PREFIX)@bindir@
- 	$(INSTALL) -c @man_install_flags@ man $(DESTDIR)$(PREFIX)@man@
+ 	$(INSTALL) -c @man_install_flags@ man$(EXEEXT) $(DESTDIR)$(PREFIX)@man@
  	$(INSTALL) -c -m 755 apropos $(DESTDIR)$(PREFIX)@apropos@
  	$(INSTALL) -c -m 755 whatis $(DESTDIR)$(PREFIX)@whatis@
 -	$(INSTALL) -c -m 755 man2dvi $(DESTDIR)$(PREFIX)@man2dvi@

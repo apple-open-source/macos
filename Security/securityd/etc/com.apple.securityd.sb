@@ -1,0 +1,64 @@
+;;; Copyright (c) 2017 Apple Inc.  All Rights reserved.
+;;;
+;;; WARNING: The sandbox rules in this file currently constitute
+;;; Apple System Private Interface and are subject to change at any time and
+;;; without notice.
+;;;
+(version 1)
+
+(allow (with report) default)
+(allow (with report) file-map-executable process-info* nvram*)
+(allow (with report) dynamic-code-generation)
+
+(deny mach-priv-host-port)
+
+(import "system.sb")
+(import "com.apple.corefoundation.sb")
+(corefoundation)
+
+(allow file-read-metadata)
+;; We inspect all the binaries
+(allow file-read*
+       (subpath "/"))
+(allow file-write* 
+       (subpath "/private/var/db/mds"))
+(allow file-ioctl (literal "/dev/auditsessions"))
+
+(allow process-info* (target self))
+(allow process-info-codesignature)
+(allow process-info-pidinfo)
+
+(when (string=? (param "LEGACY_TOKENS_ENABLED") "YES")
+    (allow process-exec (with no-sandbox) (subpath "/Library/Security/tokend"))
+    (allow process-fork)
+    (allow signal (target children))
+    (allow file-write* (subpath "/private/var/db/TokenCache")))
+
+(allow user-preference-read 
+       (preference-domain "com.apple.security")
+       (preference-domain "com.apple.security.smartcard")
+       (preference-domain "kCFPreferencesAnyApplication")
+       (preference-domain "securityd"))
+
+(allow system-audit)
+(allow mach-lookup
+       (global-name "com.apple.CoreServices.coreservicesd")
+       (global-name "com.apple.system.opendirectoryd.api")
+       (global-name "com.apple.securitydservice")
+       (global-name "com.apple.ocspd")
+       (global-name "com.apple.PowerManagement.control")
+       (global-name "com.apple.security.syspolicy")
+       (global-name "com.apple.security.agent"))
+
+(allow ipc-posix-shm 
+    (ipc-posix-name "com.apple.AppleDatabaseChanged")
+    (ipc-posix-name "apple.cfprefs.daemonv1"))
+
+(allow iokit-open (iokit-user-client-class "RootDomainUserClient"))
+
+(allow network-outbound
+     (path "/private/var/run/systemkeychaincheck.socket"))
+
+(with-filter (system-attribute apple-internal)
+     (allow nvram-get
+            (nvram-variable "AMFITrustedKeys")))

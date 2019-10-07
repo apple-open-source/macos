@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include <WebCore/FileSystem.h>
+#include <wtf/FileSystem.h>
 
 namespace WebKit {
 namespace NetworkCache {
@@ -41,9 +41,6 @@ struct FileTimes {
 };
 FileTimes fileTimes(const String& path);
 void updateFileModificationTimeIfNeeded(const String& path);
-
-bool isSafeToUseMemoryMapForPath(const String& path);
-void registerPathAsUnsafeToMemoryMapForTesting(const String&);
 
 }
 }

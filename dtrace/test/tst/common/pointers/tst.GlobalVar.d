@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.GlobalVar.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Pointer declarations are global.
  *

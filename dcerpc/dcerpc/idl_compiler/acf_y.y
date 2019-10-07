@@ -1293,12 +1293,15 @@ acf_faultstat_attr:     FAULT_STATUS_KW;
  *
  */
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
 acf_parser_p acf_parser_alloc
 (
     boolean     *cmd_opt_arr,   /* [in] Array of command option flags */
     void        **cmd_val_arr,  /* [in] Array of command option values */
     char        *acf_file       /* [in] ACF file name */
 )
+#pragma clang diagnostic pop
 {
     acf_parser_state_t * acf;
 
@@ -2111,7 +2114,7 @@ static void dump_attributes
 #define MAX_ATTR_TEXT   1024    /* Big enough for lots of extern_exceptions */
 {
     char            attr_text[MAX_ATTR_TEXT];   /* Buf for formatting attrs */
-    int             pos;                /* Position in buffer */
+    size_t             pos;                /* Position in buffer */
     acf_attrib_t    node_attr;          /* Node attributes */
 
     node_attr = *node_attr_p;

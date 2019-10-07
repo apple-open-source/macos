@@ -27,7 +27,7 @@
 #include "Grid.h"
 #include "GridBaselineAlignment.h"
 #include "GridTrackSize.h"
-#include "LayoutUnit.h"
+#include "LayoutSize.h"
 
 namespace WebCore {
 
@@ -242,6 +242,7 @@ private:
 };
 
 class GridTrackSizingAlgorithmStrategy {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     LayoutUnit minContentForChild(RenderBox&) const;
     LayoutUnit maxContentForChild(RenderBox&) const;

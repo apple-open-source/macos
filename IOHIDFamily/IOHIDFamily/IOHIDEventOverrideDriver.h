@@ -56,10 +56,10 @@ private:
     } _buttonMap[32];
     
 protected:
-    virtual void dispatchEvent(IOHIDEvent * event, IOOptionBits options=0);
+    virtual void dispatchEvent(IOHIDEvent * event, IOOptionBits options=0) APPLE_KEXT_OVERRIDE;
     
 public:
-    virtual bool handleStart( IOService * provider );
+    virtual bool handleStart( IOService * provider ) APPLE_KEXT_OVERRIDE;
 };
 
 #endif /* !_IOKIT_HID_IOHIDEVENTOVERRIDEDRIVER_H */

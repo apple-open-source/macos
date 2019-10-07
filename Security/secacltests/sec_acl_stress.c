@@ -21,19 +21,12 @@
 
 #include "testlist.h"
 
-#if TARGET_OS_MAC && !(TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR)
-#define USE_KEYSTORE  1
-#elif TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
-#define USE_KEYSTORE  1
-#else /* no keystore on this platform */
-#define USE_KEYSTORE  0
-#endif
 
 #if USE_KEYSTORE
 #include <coreauthd_spi.h>
 #endif
 
-#if TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 #include <MobileKeyBag/MobileKeyBag.h>
 #endif
 
@@ -48,7 +41,7 @@ enum ItemAttrType {
     kAccessGroupItemAttr,
 };
 
-#if TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 CFStringRef temporaryPasscode = CFSTR("1111");
 static bool changePasscode(CFStringRef oldPasscode, CFStringRef newPasscode)
 {
@@ -70,7 +63,7 @@ static bool changePasscode(CFStringRef oldPasscode, CFStringRef newPasscode)
 }
 #endif
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 static void WithEachString(void(^each)(CFStringRef attr, enum ItemAttrType atype), ...) {
     va_list ap;
     va_start(ap, each);
@@ -258,7 +251,7 @@ static void tests(bool isPasscodeSet)
         is_status(SecItemCopyMatching(item, NULL), errSecItemNotFound, "do not find sync");
         CFDictionarySetValue(item, kSecAttrSynchronizable, kCFBooleanFalse);
 
-#if TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
         assert(protection);
         SecAccessControlRef privateKeyUsageAclRef = SecAccessControlCreateWithFlags(kCFAllocatorDefault, protection, kSecAccessControlPrivateKeyUsage, NULL);
         ok(privateKeyUsageAclRef, "Create SecAccessControlRef for kSecAccessControlPrivateKeyUsage");
@@ -318,7 +311,7 @@ static void tests(bool isPasscodeSet)
 
 int sec_acl_stress(int argc, char *const *argv)
 {
-#if TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
     bool removeTemporaryPasscode = false;
     bool isPasscodeSet = false;
     if (MKBGetDeviceLockState(NULL) == kMobileKeyBagDisabled) {
@@ -332,7 +325,7 @@ int sec_acl_stress(int argc, char *const *argv)
     if (removeTemporaryPasscode) {
         changePasscode(temporaryPasscode, NULL);
     }
-#elif TARGET_OS_MAC && !TARGET_IPHONE_SIMULATOR
+#elif TARGET_OS_MAC && !TARGET_OS_SIMULATOR
     plan_tests(152);
     tests(false);
 #else

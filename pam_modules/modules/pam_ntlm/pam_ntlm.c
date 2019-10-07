@@ -149,7 +149,7 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 			CFRelease(parts);
 			continue;
 		}
-			
+
 		CFStringRef domain = CFArrayGetValueAtIndex(parts, 3);
 
 		retval = cfstring_to_cstring(domain, &identity.realm);

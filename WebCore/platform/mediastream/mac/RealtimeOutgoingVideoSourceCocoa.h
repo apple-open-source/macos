@@ -31,10 +31,9 @@
 #include "PixelBufferConformerCV.h"
 #include <webrtc/api/video/video_rotation.h>
 
-typedef struct OpaqueVTImageRotationSession* VTImageRotationSessionRef;
-typedef struct __CVPixelBufferPool* CVPixelBufferPoolRef;
-
 namespace WebCore {
+
+class ImageRotationSessionVT;
 
 class RealtimeOutgoingVideoSourceCocoa final : public RealtimeOutgoingVideoSource {
 public:
@@ -52,9 +51,8 @@ private:
     RetainPtr<CVPixelBufferRef> rotatePixelBuffer(CVPixelBufferRef, webrtc::VideoRotation);
 
     std::unique_ptr<PixelBufferConformerCV> m_pixelBufferConformer;
-    RetainPtr<VTImageRotationSessionRef> m_rotationSession;
-    RetainPtr<CVPixelBufferPoolRef> m_rotationPool;
-    webrtc::VideoRotation m_currentRotationAngle { webrtc::kVideoRotation_0 };
+    std::unique_ptr<ImageRotationSessionVT> m_rotationSession;
+    webrtc::VideoRotation m_currentRotationSessionAngle { webrtc::kVideoRotation_0 };
     size_t m_rotatedWidth { 0 };
     size_t m_rotatedHeight { 0 };
     OSType m_rotatedFormat;

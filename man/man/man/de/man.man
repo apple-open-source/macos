@@ -103,6 +103,12 @@ gibt eine (einzeilige) Hilfe aus und beendet
 ist äquivalent zu
 .BR apropos .
 .TP
+.B \-\^K
+Suche in *allen* Manualseiten nach dem angegebenen Schlüsselwort. Achtung:
+Die Suche dauert möglicherweise sehr lange! Die Angabe der Sektion
+beschleunigt die Suche. (Als groben Richtwert für die Suche kann man
+ca. eine Minute für 500 Manualseiten ansetzen.)
+.TP
 .B \-\^m " system"
 bestimmt eine andere Menge von Handbuch-Seiten, die aufgrund des 
 angegebenen System-Namen durchsucht werden sollen.

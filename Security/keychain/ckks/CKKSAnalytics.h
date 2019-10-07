@@ -38,6 +38,27 @@ extern NSString* const CKKSAnalyticsLastUnlock;
 extern NSString* const CKKSAnalyticsLastKeystateReady;
 extern NSString* const CKKSAnalyticsLastInCircle;
 
+extern NSString* const OctagonAnalyticsStateMachineState;
+extern NSString* const OctagonAnalyticIcloudAccountState;
+extern NSString* const OctagonAnalyticsTrustState;
+extern NSString* const OctagonAnalyticsLastHealthCheck;
+extern NSString* const OctagonAnalyticsSOSStatus;
+extern NSString* const OctagonAnalyticsDateOfLastPreflightPreapprovedJoin;
+extern NSString* const OctagonAnalyticsLastKeystateReady;
+extern NSString* const OctagonAnalyticsLastCoreFollowup;
+extern NSString* const OctagonAnalyticsCoreFollowupStatus;
+extern NSString* const OctagonAnalyticsCoreFollowupFailureCount;
+extern NSString* const OctagonAnalyticsCoreFollowupLastFailureTime;
+extern NSString* const OctagonAnalyticsPrerecordPending;
+extern NSString* const OctagonAnalyticsCDPStateRun;
+
+extern NSString* const OctagonAnalyticsKVSProvisioned;
+extern NSString* const OctagonAnalyticsKVSEnabled;
+extern NSString* const OctagonAnalyticsKeychainSyncProvisioned;
+extern NSString* const OctagonAnalyticsKeychainSyncEnabled;
+extern NSString* const OctagonAnalyticsCloudKitProvisioned;
+extern NSString* const OctagonAnalyticsCloudKitEnabled;
+
 @class CKKSKeychainView;
 
 @protocol CKKSAnalyticsFailableEvent <NSObject>
@@ -49,6 +70,7 @@ extern CKKSAnalyticsFailableEvent* const CKKSEventProcessOutgoingQueue;
 extern CKKSAnalyticsFailableEvent* const CKKSEventUploadChanges;
 extern CKKSAnalyticsFailableEvent* const CKKSEventStateError;
 extern CKKSAnalyticsFailableEvent* const CKKSEventProcessHealKeyHierarchy;
+extern CKKSAnalyticsFailableEvent* const CKKSEventProcessReencryption;
 
 extern CKKSAnalyticsFailableEvent* const OctagonEventPreflightBottle;
 extern CKKSAnalyticsFailableEvent* const OctagonEventLaunchBottle;
@@ -59,12 +81,80 @@ extern CKKSAnalyticsFailableEvent* const OctagonEventRestoreBottle;
 extern CKKSAnalyticsFailableEvent* const OctagonEventRamp;
 extern CKKSAnalyticsFailableEvent* const OctagonEventBottleCheck;
 extern CKKSAnalyticsFailableEvent* const OctagonEventCoreFollowUp;
+extern CKKSAnalyticsFailableEvent* const OctagonEventUpdateBottle;
+
+extern CKKSAnalyticsFailableEvent* const OctagonEventRecoverBottle;
+extern CKKSAnalyticsFailableEvent* const OctagonEventFetchAllBottles;
+extern CKKSAnalyticsFailableEvent* const OctagonEventFetchEscrowContents;
 
 extern CKKSAnalyticsFailableEvent* const OctagonEventRestoredSignedBottlePeer;
 extern CKKSAnalyticsFailableEvent* const OctagonEventRestoredOctagonPeerEncryptionKey;
 extern CKKSAnalyticsFailableEvent* const OctagonEventRestoredOctagonPeerSigningKey;
 extern CKKSAnalyticsFailableEvent* const OctagonEventRestoreComplete;
 
+/* Initial health check */
+extern CKKSAnalyticsFailableEvent* const OctagonEventCheckTrustState;
+
+/* Outer calls as seen by the client */
+extern CKKSAnalyticsFailableEvent* const OctagonEventBottledPeerRestore;
+extern CKKSAnalyticsFailableEvent* const OctagonEventFetchEscrowContents;
+extern CKKSAnalyticsFailableEvent* const OctagonEventResetAndEstablish;
+extern CKKSAnalyticsFailableEvent* const OctagonEventEstablish;
+extern CKKSAnalyticsFailableEvent* const OctagonEventLeaveClique;
+extern CKKSAnalyticsFailableEvent* const OctagonEventRemoveFriendsInClique;
+extern CKKSAnalyticsFailableEvent* const OctagonEventRecoveryKey;
+
+/* Inner calls as seen by TPH and securityd */
+/* inner: Upgrade */
+extern CKKSAnalyticsFailableEvent* const OctagonEventUpgradeFetchDeviceIDs;
+extern CKKSAnalyticsFailableEvent* const OctagonEventUpgradeSetAllowList;
+extern CKKSAnalyticsFailableEvent* const OctagonEventUpgradeSilentEscrow;
+extern CKKSAnalyticsFailableEvent* const OctagonEventUpgradePreapprovedJoin;
+extern CKKSAnalyticsFailableEvent* const OctagonEventUpgradePreflightPreapprovedJoin;
+extern CKKSAnalyticsFailableEvent* const OctagonEventUpgradePrepare;
+extern CKKSAnalyticsFailableEvent* const OctagonEventUpgradePreapprovedJoinAfterPairing;
+
+/* inner: join with voucher */
+extern CKKSAnalyticsFailableEvent* const OctagonEventJoinWithVoucher;
+
+/* inner: join with bottle */
+extern CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithBottle;
+
+/* inner: join with recovery key */
+extern CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithRecoveryKey;
+extern CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyValidationFailed;
+extern CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyFailed;
+extern CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyCircleReset;
+extern CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyCircleResetFailed;
+extern CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyEnrollFailed;
+
+/* inner: set recovery key */
+extern CKKSAnalyticsFailableEvent* const OctagonEventSetRecoveryKey;
+extern CKKSAnalyticsFailableEvent* const OctagonEventSetRecoveryKeyValidationFailed;
+
+/* inner: reset */
+extern CKKSAnalyticsFailableEvent* const OctagonEventReset;
+
+/* inner: prepare */
+extern CKKSAnalyticsFailableEvent* const OctagonEventPrepareIdentity;
+
+/* inner: establish */
+extern CKKSAnalyticsFailableEvent* const OctagonEventEstablishIdentity;
+
+/* inner: fetchviews */
+extern CKKSAnalyticsFailableEvent* const OctagonEventFetchViews;
+
+/* state machine */
+extern CKKSAnalyticsFailableEvent* const OctagonEventStateTransition;
+
+/* become untrusted */
+extern CKKSAnalyticsFailableEvent* const OctagonEventCheckTrustForCFU;
+
+/* watchOS only: pairing with companion */
+extern CKKSAnalyticsFailableEvent* const OctagonEventCompanionPairing;
+
+/* trust state from trusted peers helper*/
+extern CKKSAnalyticsFailableEvent* const OctagonEventTPHHealthCheckStatus;
 
 @protocol CKKSAnalyticsSignpostEvent <NSObject>
 @end
@@ -78,12 +168,26 @@ extern CKKSAnalyticsSignpostEvent* const CKKSEventMissingLocalItemsFound;
 @end
 typedef NSString<CKKSAnalyticsActivity> CKKSAnalyticsActivity;
 extern CKKSAnalyticsActivity* const CKKSActivityOTFetchRampState;
-extern CKKSAnalyticsActivity* const CKKSActivityOctagonSignIn;
 extern CKKSAnalyticsActivity* const CKKSActivityOctagonPreflightBottle;
 extern CKKSAnalyticsActivity* const CKKSActivityOctagonLaunchBottle;
 extern CKKSAnalyticsActivity* const CKKSActivityOctagonRestore;
 extern CKKSAnalyticsActivity* const CKKSActivityScrubBottle;
 extern CKKSAnalyticsActivity* const CKKSActivityBottleCheck;
+extern CKKSAnalyticsActivity* const CKKSActivityOctagonUpdateBottle;
+
+extern CKKSAnalyticsActivity* const OctagonActivityAccountAvailable;
+extern CKKSAnalyticsActivity* const OctagonActivityAccountNotAvailable;
+extern CKKSAnalyticsActivity* const OctagonActivityResetAndEstablish;
+extern CKKSAnalyticsActivity* const OctagonActivityEstablish;
+extern CKKSAnalyticsActivity* const OctagonActivityFetchAllViableBottles;
+extern CKKSAnalyticsActivity* const OctagonActivityFetchEscrowContents;
+extern CKKSAnalyticsActivity* const OctagonActivityBottledPeerRestore;
+extern CKKSAnalyticsActivity* const OctagonActivitySetRecoveryKey;
+extern CKKSAnalyticsActivity* const OctagonActivityLeaveClique;
+extern CKKSAnalyticsActivity* const OctagonActivityRemoveFriendsInClique;
+extern CKKSAnalyticsActivity* const OctagonActivityJoinWithRecoveryKey;
+extern CKKSAnalyticsActivity* const OctagonSOSAdapterUpdateKeys;
+
 
 @interface CKKSAnalytics : SFAnalytics
 
@@ -100,6 +204,9 @@ extern CKKSAnalyticsActivity* const CKKSActivityBottleCheck;
                    zoneName:(NSString*)zoneName
              withAttributes:(NSDictionary *)attributes;
 
+- (void)logRecoverableError:(NSError*)error
+                   forEvent:(CKKSAnalyticsFailableEvent*)event
+             withAttributes:(NSDictionary *)attributes;
 
 - (void)logUnrecoverableError:(NSError*)error
                      forEvent:(CKKSAnalyticsFailableEvent*)event
@@ -120,8 +227,13 @@ extern CKKSAnalyticsActivity* const CKKSActivityBottleCheck;
 
 @interface CKKSAnalytics (UnitTesting)
 
-- (NSDate*)dateOfLastSuccessForEvent:(CKKSAnalyticsFailableEvent*)event inView:(CKKSKeychainView*)view;
-- (NSDictionary *)errorChain:(NSError *)error depth:(NSUInteger)depth;
+- (NSDate*)dateOfLastSuccessForEvent:(CKKSAnalyticsFailableEvent*)event
+                              inView:(CKKSKeychainView*)view;
+- (NSDictionary *)errorChain:(NSError *)error
+                       depth:(NSUInteger)depth;
+- (NSDictionary *)createErrorAttributes:(NSError *)error
+                                  depth:(NSUInteger)depth
+                             attributes:(NSDictionary *)attributes;
 
 @end
 

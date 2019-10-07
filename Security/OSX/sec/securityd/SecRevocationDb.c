@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2016-2019 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -67,9 +67,150 @@
 #include <os/variant_private.h>
 #include <os/lock.h>
 
+#include <CommonCrypto/CommonDigest.h>
 #include <CFNetwork/CFHTTPMessage.h>
 #include <CoreFoundation/CFURL.h>
 #include <CoreFoundation/CFUtilities.h>
+
+/*
+ ==============================================================================
+   CoreFoundation utilities
+ ==============================================================================
+*/
+
+static bool hashCFThing(CFTypeRef thing, CC_SHA256_CTX* hash_ctx);
+
+/* comparison function for sorting dictionary keys alphabetically */
+static int compareCFStrings(const void *p, const void *q) {
+    CFStringRef str1 = *(CFStringRef *)p;
+    CFStringRef str2 = *(CFStringRef *)q;
+    if (!(isString(str1) && isString(str2))) {
+        return -1; /* can't compare non-string types */
+    }
+    CFComparisonResult result = CFStringCompare(str1, str2, 0);
+    if (result == kCFCompareLessThan) {
+        return -1;
+    } else if (result == kCFCompareGreaterThan) {
+        return 1;
+    }
+    return 0; /* (result == kCFCompareEqualTo) */
+}
+
+static bool hashData(CFDataRef data, CC_SHA256_CTX* hash_ctx) {
+    if (!isData(data)) { return false; }
+    uint32_t length = (uint32_t)(CFDataGetLength(data) & 0xFFFFFFFF);
+    uint32_t n = OSSwapInt32(length);
+    CC_SHA256_Update(hash_ctx, &n, sizeof(uint32_t));
+    const uint8_t *p = (uint8_t*)CFDataGetBytePtr(data);
+    if (p) { CC_SHA256_Update(hash_ctx, p, length); }
+    return (p != NULL);
+}
+
+static bool hashString(CFStringRef str, CC_SHA256_CTX* hash_ctx) {
+    if (!isString(str)) { return false; }
+    __block bool ok = false;
+    CFStringPerformWithCString(str, ^(const char *strbuf) {
+        // hash string length (in bytes, not counting null terminator)
+        uint32_t c = (uint32_t)(strlen(strbuf) & 0xFFFFFFFF);
+        uint32_t n = OSSwapInt32(c);
+        CC_SHA256_Update(hash_ctx, &n, sizeof(uint32_t));
+        // hash string bytes
+        CC_SHA256_Update(hash_ctx, strbuf, c);
+        ok = true;
+    });
+    return ok;
+}
+
+static bool hashNumber(CFNumberRef num, CC_SHA256_CTX* hash_ctx) {
+    uint32_t n = 0;
+    if (!isNumber(num) || !CFNumberGetValue(num, kCFNumberSInt32Type, &n)) {
+        return false;
+    }
+    n = OSSwapInt32(n);
+    CC_SHA256_Update(hash_ctx, &n, sizeof(uint32_t));
+    return true;
+}
+
+static bool hashBoolean(CFBooleanRef value, CC_SHA256_CTX* hash_ctx) {
+    if (!isBoolean(value)) { return false; }
+    uint8_t c = CFBooleanGetValue(value) ? 1 : 0;
+    CC_SHA256_Update(hash_ctx, &c, sizeof(uint8_t));
+    return true;
+}
+
+static bool hashArray(CFArrayRef array, CC_SHA256_CTX* hash_ctx) {
+    if (!isArray(array)) { return false; }
+    CFIndex count = CFArrayGetCount(array);
+    uint32_t n = OSSwapInt32(count & 0xFFFFFFFF);
+    CC_SHA256_Update(hash_ctx, &n, sizeof(uint32_t));
+    __block bool ok = true;
+    CFArrayForEach(array, ^(const void *thing) {
+        ok &= hashCFThing(thing, hash_ctx);
+    });
+    return ok;
+}
+
+static bool hashDictionary(CFDictionaryRef dictionary, CC_SHA256_CTX* hash_ctx) {
+    if (!isDictionary(dictionary)) { return false; }
+    CFIndex count = CFDictionaryGetCount(dictionary);
+    const void **keys = (const void **)malloc(sizeof(void*) * count);
+    const void **vals = (const void **)malloc(sizeof(void*) * count);
+    bool ok = (keys && vals);
+    if (ok) {
+        CFDictionaryGetKeysAndValues(dictionary, keys, vals);
+        qsort(keys, count, sizeof(CFStringRef), compareCFStrings);
+        uint32_t n = OSSwapInt32(count & 0xFFFFFFFF);
+        CC_SHA256_Update(hash_ctx, &n, sizeof(uint32_t));
+    }
+    for (CFIndex idx = 0; ok && idx < count; idx++) {
+        CFStringRef key = (CFStringRef)keys[idx];
+        CFTypeRef value = (CFTypeRef)CFDictionaryGetValue(dictionary, key);
+        ok &= hashString(key, hash_ctx);
+        ok &= hashCFThing(value, hash_ctx);
+    }
+    free(keys);
+    free(vals);
+    return ok;
+}
+
+static bool hashCFThing(CFTypeRef thing, CC_SHA256_CTX* hash_ctx) {
+    if (isArray(thing)) {
+        return hashArray(thing, hash_ctx);
+    } else if (isDictionary(thing)) {
+        return hashDictionary(thing, hash_ctx);
+    } else if (isData(thing)) {
+        return hashData(thing, hash_ctx);
+    } else if (isString(thing)) {
+        return hashString(thing, hash_ctx);
+    } else if (isNumber(thing)) {
+        return hashNumber(thing, hash_ctx);
+    } else if (isBoolean(thing)) {
+        return hashBoolean(thing, hash_ctx);
+    }
+    return false;
+}
+
+static double htond(double h) {
+    /* no-op if big endian */
+    if (OSHostByteOrder() == OSBigEndian) {
+        return h;
+    }
+    double n;
+    size_t i=0;
+    char *hp = (char*)&h;
+    char *np = (char*)&n;
+    while (i < sizeof(h)) { np[i] = hp[(sizeof(h)-1)-i]; ++i; }
+    return n;
+}
+
+
+// MARK: -
+// MARK: Valid definitions
+/*
+ ==============================================================================
+   Valid definitions
+ ==============================================================================
+*/
 
 const CFStringRef kValidUpdateProdServer   = CFSTR("valid.apple.com");
 const CFStringRef kValidUpdateSeedServer   = CFSTR("valid.apple.com/seed");
@@ -78,6 +219,7 @@ const CFStringRef kValidUpdateCarryServer  = CFSTR("valid.apple.com/carry");
 static CFStringRef kSecPrefsDomain          = CFSTR("com.apple.security");
 static CFStringRef kUpdateServerKey         = CFSTR("ValidUpdateServer");
 static CFStringRef kUpdateEnabledKey        = CFSTR("ValidUpdateEnabled");
+static CFStringRef kVerifyEnabledKey        = CFSTR("ValidVerifyEnabled");
 static CFStringRef kUpdateIntervalKey       = CFSTR("ValidUpdateInterval");
 static CFStringRef kBoolTrueKey             = CFSTR("1");
 static CFStringRef kBoolFalseKey            = CFSTR("0");
@@ -103,7 +245,7 @@ typedef CF_OPTIONS(CFOptionFlags, SecValidInfoFlags) {
 #define kSecMinUpdateInterval           (60.0 * 5)
 
 /* standard update interval */
-#define kSecStdUpdateInterval           (60.0 * 60)
+#define kSecStdUpdateInterval           (60.0 * 60 * 3)
 
 /* maximum allowed interval */
 #define kSecMaxUpdateInterval           (60.0 * 60 * 24 * 7)
@@ -124,14 +266,15 @@ typedef CF_OPTIONS(CFOptionFlags, SecValidInfoFlags) {
    v4 = add db_format and db_source entries
    v5 = add date constraints table, with updated group flags
    v6 = explicitly set autovacuum and journal modes at db creation
+   v7 = add policies column to groups table (policy constraints)
 
    Note: kSecRevocationDbMinSchemaVersion is the lowest version whose
    results can be used. This allows revocation results to be obtained
    from an existing db before the next update interval occurs, at which
    time we'll update to the current version (kSecRevocationDbSchemaVersion).
 */
-#define kSecRevocationDbSchemaVersion       6  /* current version we support */
-#define kSecRevocationDbMinSchemaVersion    6  /* minimum version we can use */
+#define kSecRevocationDbSchemaVersion       7  /* current version we support */
+#define kSecRevocationDbMinSchemaVersion    7  /* minimum version we can use */
 
 /* update file format
 */
@@ -164,6 +307,7 @@ struct __SecRevocationDbConnection {
     SecDbConnectionRef dbconn;
     CFIndex precommitVersion;
     CFIndex precommitDbVersion;
+    CFIndex precommitInterval;
     bool fullUpdate;
 };
 
@@ -181,14 +325,21 @@ CFAbsoluteTime SecRevocationDbGetNextUpdateTime(void);
 dispatch_queue_t SecRevocationDbGetUpdateQueue(void);
 bool _SecRevocationDbRemoveAllEntries(SecRevocationDbConnectionRef dbc, CFErrorRef *error);
 void SecRevocationDbReleaseAllConnections(void);
+static bool SecValidUpdateForceReplaceDatabase(void);
 static void SecRevocationDbWith(void(^dbJob)(SecRevocationDbRef db));
 static bool SecRevocationDbPerformWrite(SecRevocationDbRef rdb, CFErrorRef *error, bool(^writeJob)(SecRevocationDbConnectionRef dbc, CFErrorRef *blockError));
-static SecValidInfoFormat _SecRevocationDbGetGroupFormat(SecRevocationDbConnectionRef dbc, int64_t groupId, SecValidInfoFlags *flags, CFDataRef *data, CFErrorRef *error);
+static bool SecRevocationDbPerformRead(SecRevocationDbRef rdb, CFErrorRef *error, bool(^readJob)(SecRevocationDbConnectionRef dbc, CFErrorRef *blockError));
+static SecValidInfoFormat _SecRevocationDbGetGroupFormat(SecRevocationDbConnectionRef dbc, int64_t groupId, SecValidInfoFlags *flags, CFDataRef *data, CFDataRef *policies, CFErrorRef *error);
+static bool _SecRevocationDbSetUpdateInterval(SecRevocationDbConnectionRef dbc, int64_t interval, CFErrorRef *error);
+static int64_t _SecRevocationDbGetUpdateInterval(SecRevocationDbConnectionRef dbc, CFErrorRef *error);
 static bool _SecRevocationDbSetVersion(SecRevocationDbConnectionRef dbc, CFIndex version, CFErrorRef *error);
 static int64_t _SecRevocationDbGetVersion(SecRevocationDbConnectionRef dbc, CFErrorRef *error);
 static int64_t _SecRevocationDbGetSchemaVersion(SecRevocationDbRef rdb, SecRevocationDbConnectionRef dbc, CFErrorRef *error);
+static CFArrayRef _SecRevocationDbCopyHashes(SecRevocationDbConnectionRef dbc, CFErrorRef *error);
+static bool _SecRevocationDbSetHashes(SecRevocationDbConnectionRef dbc, CFArrayRef hashes, CFErrorRef *error);
 static void SecRevocationDbResetCaches(void);
 static SecRevocationDbConnectionRef SecRevocationDbConnectionInit(SecRevocationDbRef db, SecDbConnectionRef dbconn, CFErrorRef *error);
+static bool SecRevocationDbComputeDigests(SecRevocationDbConnectionRef dbc, CFErrorRef *error);
 
 
 static CFDataRef copyInflatedData(CFDataRef data) {
@@ -223,10 +374,7 @@ static CFDataRef copyInflatedData(CFDataRef data) {
     } while (rc == Z_OK);
 
     inflateEnd(&zs);
-
-    if (buf) {
-        free(buf);
-    }
+    free(buf);
     if (rc != Z_STREAM_END) {
         CFReleaseSafe(outData);
         return NULL;
@@ -273,10 +421,7 @@ static CFDataRef copyDeflatedData(CFDataRef data) {
     } while (rc == Z_OK && zs.avail_in);
 
     deflateEnd(&zs);
-
-    if (buf) {
-        free(buf);
-    }
+    free(buf);
     if (rc != Z_STREAM_END) {
         CFReleaseSafe(outData);
         return NULL;
@@ -346,6 +491,36 @@ static bool removeFileWithSuffix(const char *basepath, const char *suffix) {
     return result;
 }
 
+static CFDataRef CF_RETURNS_RETAINED createPoliciesData(CFArrayRef policies) {
+    /*
+     * Given an array of CFNumber values (in the range 0..127),
+     * allocate and return a CFDataRef representation. Per Valid specification,
+     * a zero-length array is allowed, meaning no policies are permitted.
+     */
+    CFIndex count = (policies) ? CFArrayGetCount(policies) : -1;
+    if (count < 0 || count > 127) {
+        return NULL; /* either no constraints, or far more than we expect. */
+    }
+    CFDataRef data = NULL;
+    CFIndex length = 1 + (sizeof(int8_t) * count);
+    int8_t *bytes = malloc(length);
+    if (bytes) {
+        int8_t *p = bytes;
+        *p++ = (int8_t)(count & 0xFF);
+        for (CFIndex idx = 0; idx < count; idx++) {
+            int8_t pval = 0;
+            CFNumberRef value = (CFNumberRef)CFArrayGetValueAtIndex(policies, idx);
+            if (isNumber(value)) {
+                (void)CFNumberGetValue(value, kCFNumberSInt8Type, &pval);
+            }
+            *p++ = pval;
+        }
+        data = CFDataCreate(kCFAllocatorDefault, (const UInt8*)bytes, length);
+    }
+    free(bytes);
+    return data;
+}
+
 static CFDataRef CF_RETURNS_RETAINED cfToHexData(CFDataRef data, bool prependWildcard) {
     if (!isData(data)) { return NULL; }
     CFIndex len = CFDataGetLength(data) * 2;
@@ -365,12 +540,54 @@ static CFDataRef CF_RETURNS_RETAINED cfToHexData(CFDataRef data, bool prependWil
     return result;
 }
 
+static bool copyFilterComponents(CFDataRef xmlData, CFDataRef * CF_RETURNS_RETAINED xor,
+                                 CFArrayRef * CF_RETURNS_RETAINED params) {
+    /*
+       The 'xmlData' parameter is a flattened XML dictionary,
+       containing 'xor' and 'params' keys. First order of
+       business is to reconstitute the blob into components.
+    */
+    bool result = false;
+    CFRetainSafe(xmlData);
+    CFDataRef propListData = xmlData;
+    /* Expand data blob if needed */
+    CFDataRef inflatedData = copyInflatedData(propListData);
+    if (inflatedData) {
+        CFReleaseSafe(propListData);
+        propListData = inflatedData;
+    }
+    CFDataRef xorData = NULL;
+    CFArrayRef paramsArray = NULL;
+    CFPropertyListRef nto1 = CFPropertyListCreateWithData(kCFAllocatorDefault, propListData, 0, NULL, NULL);
+    CFReleaseSafe(propListData);
+    if (nto1) {
+        xorData = (CFDataRef)CFDictionaryGetValue((CFDictionaryRef)nto1, CFSTR("xor"));
+        CFRetainSafe(xorData);
+        paramsArray = (CFArrayRef)CFDictionaryGetValue((CFDictionaryRef)nto1, CFSTR("params"));
+        CFRetainSafe(paramsArray);
+        CFReleaseSafe(nto1);
+    }
+    result = (xorData && paramsArray);
+    if (xor) {
+        *xor = xorData;
+    } else {
+        CFReleaseSafe(xorData);
+    }
+    if (params) {
+        *params = paramsArray;
+    } else {
+        CFReleaseSafe(paramsArray);
+    }
+    return result;
+}
+
 // MARK: -
 // MARK: SecValidUpdate
-
-/* ======================================================================
+/*
+ ==============================================================================
    SecValidUpdate
-   ======================================================================*/
+ ==============================================================================
+*/
 
 CFAbsoluteTime gUpdateStarted = 0.0;
 CFAbsoluteTime gNextUpdate = 0.0;
@@ -460,6 +677,10 @@ static bool SecValidUpdateProcessData(SecRevocationDbConnectionRef dbc, CFIndex 
                 if (isNumber(value)) {
                     CFNumberGetValue((CFNumberRef)value, kCFNumberCFIndexType, &interval);
                 }
+                // get server-provided hash list
+                value = (CFArrayRef)CFDictionaryGetValue((CFDictionaryRef)propertyList,
+                                                         CFSTR("hash"));
+                ok = _SecRevocationDbSetHashes(dbc, (CFArrayRef)value, &localError);
             }
             if (ok && curVersion < 0) {
                 plistCount = 0; // we already had this version; skip remaining plists
@@ -516,20 +737,19 @@ void SecValidUpdateVerifyAndIngest(CFDataRef updateData, CFStringRef updateServe
        in their entirety if any error occurs. */
     __block bool ok = true;
     __block CFErrorRef localError = NULL;
-    __block SecRevocationDbConnectionRef dbc = NULL;
     SecRevocationDbWith(^(SecRevocationDbRef rdb) {
         ok &= SecRevocationDbPerformWrite(rdb, &localError, ^bool(SecRevocationDbConnectionRef dbc, CFErrorRef *blockError) {
             if (fullUpdate) {
                 /* Must completely replace existing database contents */
                 secdebug("validupdate", "starting to process full update; clearing database");
-                ok = ok && _SecRevocationDbRemoveAllEntries(dbc,blockError);
+                ok = ok && _SecRevocationDbRemoveAllEntries(dbc, blockError);
                 ok = ok && _SecRevocationDbSetUpdateSource(dbc, updateServer, blockError);
-                if (dbc) {
-                    dbc->precommitVersion = 0;
-                    dbc->fullUpdate = true;
-                }
+                dbc->precommitVersion = 0;
+                dbc->fullUpdate = true;
             }
+            CFIndex startingVersion = dbc->precommitVersion;
             ok = ok && SecValidUpdateProcessData(dbc, kSecValidUpdateFormatG3, updateData, blockError);
+            rdb->changed = ok && (startingVersion < dbc->precommitVersion);
             if (!ok) {
                 secerror("failed to process valid update: %@", blockError ? *blockError : NULL);
                 TrustdHealthAnalyticsLogErrorCode(TAEventValidUpdate, TAFatalError, errSecDecode);
@@ -540,6 +760,24 @@ void SecValidUpdateVerifyAndIngest(CFDataRef updateData, CFStringRef updateServe
         });
         if (rdb->changed) {
             rdb->changed = false;
+            bool verifyEnabled = false;
+            CFBooleanRef value = (CFBooleanRef)CFPreferencesCopyValue(kVerifyEnabledKey,
+                                 kSecPrefsDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+            if (isBoolean(value)) {
+                verifyEnabled = CFBooleanGetValue(value);
+            }
+            CFReleaseNull(value);
+            if (verifyEnabled) {
+                /* compute and verify database content hashes */
+                ok = ok && SecRevocationDbPerformRead(rdb, &localError, ^bool(SecRevocationDbConnectionRef dbc, CFErrorRef *blockError) {
+                    ok = ok && SecRevocationDbComputeDigests(dbc, blockError);
+                    if (!ok) {
+                        /* digests failed to verify, so roll back to known-good snapshot */
+                        (void) SecValidUpdateForceReplaceDatabase();
+                    }
+                    return ok;
+                });
+            }
             /* signal other trustd instances that the database has been updated */
             notify_post(kSecRevocationDbChanged);
         }
@@ -548,31 +786,25 @@ void SecValidUpdateVerifyAndIngest(CFDataRef updateData, CFStringRef updateServe
     /* remember next update time in case of restart (separate write transaction) */
     (void) SecRevocationDbSetNextUpdateTime(gNextUpdate, NULL);
 
-    if (dbc) {
-        free(dbc);
-    }
     CFReleaseSafe(localError);
 }
 
 static bool SecValidUpdateForceReplaceDatabase(void) {
-    bool result = false;
+    __block bool result = false;
 
     // write semaphore file that we will pick up when we next launch
-    char *semPathBuf = NULL;
-    asprintf(&semPathBuf, "%s/%s", kSecRevocationBasePath, kSecRevocationDbReplaceFile);
-    if (semPathBuf) {
+    WithPathInRevocationInfoDirectory(CFSTR(kSecRevocationDbReplaceFile), ^(const char *utf8String) {
         struct stat sb;
-        int fd = open(semPathBuf, O_WRONLY | O_CREAT, DEFFILEMODE);
+        int fd = open(utf8String, O_WRONLY | O_CREAT, DEFFILEMODE);
         if (fd == -1 || fstat(fd, &sb)) {
-            secnotice("validupdate", "unable to write %s", semPathBuf);
+            secnotice("validupdate", "unable to write %s (error %d)", utf8String, errno);
         } else {
             result = true;
         }
         if (fd >= 0) {
             close(fd);
         }
-        free(semPathBuf);
-    }
+    });
     if (result) {
         // exit as gracefully as possible so we can replace the database
         secnotice("validupdate", "process exiting to replace db file");
@@ -711,7 +943,9 @@ void SecRevocationDbInitialize() {
     __block bool initializeDb = false;
 
     /* create base path if it doesn't exist */
-    (void)mkpath_np(kSecRevocationBasePath, 0755);
+    WithPathInRevocationInfoDirectory(NULL, ^(const char *utf8String) {
+        (void)mkpath_np(utf8String, 0755);
+    });
 
     /* check semaphore file */
     WithPathInRevocationInfoDirectory(CFSTR(kSecRevocationDbReplaceFile), ^(const char *path) {
@@ -765,11 +999,11 @@ void SecRevocationDbInitialize() {
 
 // MARK: -
 // MARK: SecValidInfoRef
-
-/* ======================================================================
+/*
+ ==============================================================================
    SecValidInfoRef
-   ======================================================================
- */
+ ==============================================================================
+*/
 
 CFGiblisWithCompareFor(SecValidInfo);
 
@@ -875,10 +1109,10 @@ static CFStringRef SecValidInfoCopyFormatDescription(CFTypeRef cf, CFDictionaryR
 
 // MARK: -
 // MARK: SecRevocationDb
-
-/* ======================================================================
+/*
+ ==============================================================================
    SecRevocationDb
-   ======================================================================
+ ==============================================================================
 */
 
 /* SecRevocationDbCheckNextUpdate returns true if we dispatched an
@@ -1201,8 +1435,8 @@ setVersionAndExit:
    kSecValidInfoNoCACheck   (0x00000020) set if this entry does not require an OCSP check to accept (deprecated)
    kSecValidInfoOverridable (0x00000040) set if the trust status is recoverable and can be overridden
    kSecValidInfoDateConstraints (0x00000080) set if this group has not-before or not-after constraints
-   kSecValidInfoNameConstraints (0x00000100) [RESERVED] set if this group has name constraints in database
-   kSecValidInfoPolicyConstraints (0x00000200) [RESERVED] set if this group has policy constraints in database
+   kSecValidInfoNameConstraints (0x00000100) set if this group has name constraints in database
+   kSecValidInfoPolicyConstraints (0x00000200) set if this group has policy constraints in database
    kSecValidInfoNoCAv2Check (0x00000400) set if this entry does not require an OCSP check to accept
  format (integer)      // an integer describing format of entries:
    kSecValidInfoFormatUnknown (0) unknown format
@@ -1210,6 +1444,7 @@ setVersionAndExit:
    kSecValidInfoFormatSHA256  (2) SHA-256 hash, 32 bytes in length
    kSecValidInfoFormatNto1    (3) filter data blob of arbitrary length
  data (blob)           // Bloom filter data if format is 'nto1', otherwise NULL
+ policies (blob)       // NULL, or uint8_t count value followed by array of int8_t policy values
  --> entries in groups table are unique by groupid
 
  serials table holds serial number blobs with these attributes:
@@ -1243,7 +1478,8 @@ setVersionAndExit:
                                     "groupid INTEGER PRIMARY KEY AUTOINCREMENT," \
                                     "flags INTEGER," \
                                     "format INTEGER," \
-                                    "data BLOB" \
+                                    "data BLOB," \
+                                    "policies BLOB" \
                                 ");" \
                                 "CREATE TABLE IF NOT EXISTS serials(" \
                                     "groupid INTEGER NOT NULL," \
@@ -1283,8 +1519,10 @@ setVersionAndExit:
     "WHERE key='db_source'")
 #define selectNextUpdateSQL CFSTR("SELECT value FROM admin " \
     "WHERE key='check_again'")
-#define selectGroupRecordSQL CFSTR("SELECT flags,format,data FROM " \
-    "groups WHERE groupid=?")
+#define selectUpdateIntervalSQL CFSTR("SELECT ival FROM admin " \
+    "WHERE key='interval'")
+#define selectGroupRecordSQL CFSTR("SELECT flags,format,data,policies " \
+    "FROM groups WHERE groupid=?")
 #define selectSerialRecordSQL CFSTR("SELECT rowid FROM serials " \
     "WHERE groupid=? AND serial=?")
 #define selectDateRecordSQL CFSTR("SELECT notbefore,notafter FROM " \
@@ -1296,7 +1534,7 @@ setVersionAndExit:
 #define insertIssuerRecordSQL CFSTR("INSERT OR REPLACE INTO issuers " \
     "(groupid,issuer_hash) VALUES (?,?)")
 #define insertGroupRecordSQL CFSTR("INSERT OR REPLACE INTO groups " \
-    "(groupid,flags,format,data) VALUES (?,?,?,?)")
+    "(groupid,flags,format,data,policies) VALUES (?,?,?,?,?)")
 #define insertSerialRecordSQL CFSTR("INSERT OR REPLACE INTO serials " \
     "(groupid,serial) VALUES (?,?)")
 #define deleteSerialRecordSQL CFSTR("DELETE FROM serials " \
@@ -1311,6 +1549,10 @@ setVersionAndExit:
     "WHERE groupid=?")
 #define deleteGroupIssuersSQL CFSTR("DELETE FROM issuers " \
     "WHERE groupid=?")
+#define addPoliciesColumnSQL CFSTR("ALTER TABLE groups " \
+    "ADD COLUMN policies BLOB")
+#define updateGroupPoliciesSQL CFSTR("UPDATE OR IGNORE groups " \
+    "SET policies=? WHERE groupid=?")
 
 #define updateConstraintsTablesSQL CFSTR("" \
 "CREATE TABLE IF NOT EXISTS dates(" \
@@ -1485,8 +1727,9 @@ static SecRevocationDbConnectionRef SecRevocationDbConnectionInit(SecRevocationD
     if (dbc) {
         dbc->db = db;
         dbc->dbconn = dbconn;
-        dbc->precommitVersion = _SecRevocationDbGetVersion(dbc, &localError);
-        dbc->precommitDbVersion = _SecRevocationDbGetSchemaVersion(db, dbc, &localError);
+        dbc->precommitVersion = (CFIndex)_SecRevocationDbGetVersion(dbc, &localError);
+        dbc->precommitDbVersion = (CFIndex)_SecRevocationDbGetSchemaVersion(db, dbc, &localError);
+        dbc->precommitInterval = 0; /* set only if we are explicitly given a new value */
         dbc->fullUpdate = false;
     }
     (void) CFErrorPropagate(localError, error);
@@ -1579,6 +1822,116 @@ static void SecRevocationDbCachePurge(SecRevocationDbRef db) {
     CFDictionaryRemoveAllValues(db->info_cache);
     secdebug("validcache", "cache purge");
     os_unfair_lock_unlock(&db->info_cache_lock);
+}
+
+static int64_t _SecRevocationDbGetUpdateInterval(SecRevocationDbConnectionRef dbc, CFErrorRef *error) {
+    /* look up interval entry in admin table; returns -1 on error */
+    __block int64_t interval = -1;
+    __block bool ok = true;
+    __block CFErrorRef localError = NULL;
+
+    ok = ok && SecDbWithSQL(dbc->dbconn, selectUpdateIntervalSQL, &localError, ^bool(sqlite3_stmt *selectInterval) {
+        ok = ok && SecDbStep(dbc->dbconn, selectInterval, &localError, ^void(bool *stop) {
+            interval = sqlite3_column_int64(selectInterval, 0);
+            *stop = true;
+        });
+        return ok;
+    });
+    if (!ok || localError) {
+        secerror("_SecRevocationDbGetUpdateInterval failed: %@", localError);
+        TrustdHealthAnalyticsLogErrorCodeForDatabase(TARevocationDb, TAOperationRead, TAFatalError,
+                                                     localError ? CFErrorGetCode(localError) : errSecInternalComponent);
+    }
+    (void) CFErrorPropagate(localError, error);
+    return interval;
+}
+
+static bool _SecRevocationDbSetUpdateInterval(SecRevocationDbConnectionRef dbc, int64_t interval, CFErrorRef *error) {
+    secdebug("validupdate", "setting interval to %lld", interval);
+
+    __block CFErrorRef localError = NULL;
+    __block bool ok = (dbc != NULL);
+    ok = ok && SecDbWithSQL(dbc->dbconn, insertAdminRecordSQL, &localError, ^bool(sqlite3_stmt *insertInterval) {
+        const char *intervalKey = "interval";
+        ok = ok && SecDbBindText(insertInterval, 1, intervalKey, strlen(intervalKey),
+                            SQLITE_TRANSIENT, &localError);
+        ok = ok && SecDbBindInt64(insertInterval, 2,
+                             (sqlite3_int64)interval, &localError);
+        ok = ok && SecDbStep(dbc->dbconn, insertInterval, &localError, NULL);
+        return ok;
+    });
+    if (!ok || localError) {
+        secerror("_SecRevocationDbSetUpdateInterval failed: %@", localError);
+        TrustdHealthAnalyticsLogErrorCodeForDatabase(TARevocationDb, TAOperationWrite, TAFatalError,
+                                                     localError ? CFErrorGetCode(localError) : errSecInternalComponent);
+    }
+    (void) CFErrorPropagate(localError, error);
+    return ok;
+}
+
+static CFArrayRef _SecRevocationDbCopyHashes(SecRevocationDbConnectionRef dbc, CFErrorRef *error) {
+    /* return a retained copy of the db_hash array stored in the admin table; or NULL on error */
+    __block CFMutableArrayRef hashes = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+    __block bool ok = (dbc && hashes);
+    __block CFErrorRef localError = NULL;
+
+    ok = ok && SecDbWithSQL(dbc->dbconn, selectDbHashSQL, &localError, ^bool(sqlite3_stmt *selectDbHash) {
+        ok = ok && SecDbStep(dbc->dbconn, selectDbHash, &localError, ^void(bool *stop) {
+            uint8_t *p = (uint8_t *)sqlite3_column_blob(selectDbHash, 0);
+            uint64_t len = sqlite3_column_bytes(selectDbHash, 0);
+            CFIndex hashLen = CC_SHA256_DIGEST_LENGTH;
+            while (p && len >= (uint64_t)hashLen) {
+                CFDataRef hash = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)p, hashLen);
+                if (hash) {
+                    CFArrayAppendValue(hashes, hash);
+                    CFReleaseNull(hash);
+                }
+                len -= hashLen;
+                p += hashLen;
+            }
+            *stop = true;
+        });
+        return ok;
+    });
+    if (!ok || localError) {
+        CFReleaseNull(hashes);
+    }
+    (void) CFErrorPropagate(localError, error);
+    return hashes;
+}
+
+static bool _SecRevocationDbSetHashes(SecRevocationDbConnectionRef dbc, CFArrayRef hashes, CFErrorRef *error) {
+    /* flatten and store db_hash array in the admin table */
+    __block CFErrorRef localError = NULL;
+    __block bool ok = (dbc && hashes);
+
+    ok = ok && SecDbWithSQL(dbc->dbconn, insertAdminRecordSQL, &localError, ^bool(sqlite3_stmt *insertHashes) {
+        CFIndex count = CFArrayGetCount(hashes);
+        CFIndex hashLen = CC_SHA256_DIGEST_LENGTH, dataLen = hashLen * count;
+        uint8_t *dataPtr = (uint8_t *)calloc(dataLen, 1);
+        uint8_t *p = dataPtr;
+        for (CFIndex idx = 0; idx < count && p; idx++) {
+            CFDataRef hash = CFArrayGetValueAtIndex(hashes, idx);
+            uint8_t *h = (hash) ? (uint8_t *)CFDataGetBytePtr(hash) : NULL;
+            if (h && CFDataGetLength(hash) == hashLen) { memcpy(p, h, hashLen); }
+            p += hashLen;
+        }
+        const char *hashKey = "db_hash";
+        ok = ok && SecDbBindText(insertHashes, 1, hashKey, strlen(hashKey),
+                                 SQLITE_TRANSIENT, &localError);
+        ok = ok && SecDbBindInt64(insertHashes, 2,
+                                  (sqlite3_int64)0, &localError);
+        ok = ok && SecDbBindBlob(insertHashes, 3,
+                                 dataPtr, dataLen,
+                                 SQLITE_TRANSIENT, &localError);
+        ok = ok && SecDbStep(dbc->dbconn, insertHashes, &localError, NULL);
+        free(dataPtr);
+        return ok;
+    });
+    if (!ok || localError) {
+    }
+    (void) CFErrorPropagate(localError, error);
+    return ok;
 }
 
 static int64_t _SecRevocationDbGetVersion(SecRevocationDbConnectionRef dbc, CFErrorRef *error) {
@@ -1751,6 +2104,14 @@ static bool _SecRevocationDbUpdateSchema(SecRevocationDbConnectionRef dbc, CFErr
         if (db_version > 0) {
             SecValidUpdateForceReplaceDatabase();
         }
+    }
+    if (ok && db_version < 7) {
+        /* apply v7 changes (add policies column in groups table) */
+        ok &= SecDbWithSQL(dbc->dbconn, addPoliciesColumnSQL, &localError, ^bool(sqlite3_stmt *addPoliciesColumn) {
+            ok = SecDbStep(dbc->dbconn, addPoliciesColumn, &localError, NULL);
+            return ok;
+        });
+        secdebug("validupdate", "applied schema update to v7 (%s)", (ok) ? "ok" : "failed!");
     }
 
     if (!ok) {
@@ -2026,7 +2387,7 @@ static SecValidInfoFormat _SecRevocationDbGetGroupFormatForData(SecRevocationDbC
        otherwise return the expected format for the given data. */
     SecValidInfoFormat format = kSecValidInfoFormatUnknown;
     if (groupId >= 0 && !dbc->fullUpdate) {
-        format = _SecRevocationDbGetGroupFormat(dbc, groupId, NULL, NULL, NULL);
+        format = _SecRevocationDbGetGroupFormat(dbc, groupId, NULL, NULL, NULL, NULL);
     }
     if (format == kSecValidInfoFormatUnknown && data != NULL) {
         /* group doesn't exist, so determine format based on length of specified data.
@@ -2194,11 +2555,10 @@ static bool _SecRevocationDbCopyDateConstraints(SecRevocationDbConnectionRef dbc
     return ok;
 }
 
-static bool _SecRevocationDbUpdateIssuerConstraints(SecRevocationDbConnectionRef dbc, int64_t groupId, CFDictionaryRef dict, CFErrorRef *error) {
-    /* update optional records in dates, names, or policies tables. */
-    if (!dbc || !dict || groupId < 0) {
-        return false; /* must have something to insert, and a group to associate with it */
-    }
+static bool _SecRevocationDbUpdateDateConstraints(SecRevocationDbConnectionRef dbc, int64_t groupId, CFDictionaryRef dict, CFErrorRef *error) {
+    /* Called only from _SecRevocationDbUpdateIssuerConstraints.
+       Function assumes that the caller has checked the input arguments.
+    */
     __block bool ok = true;
     __block CFErrorRef localError = NULL;
     __block CFAbsoluteTime notBefore = -3155760000.0; /* default: 1901-01-01 00:00:00-0000 */
@@ -2206,6 +2566,7 @@ static bool _SecRevocationDbUpdateIssuerConstraints(SecRevocationDbConnectionRef
 
     CFDateRef notBeforeDate = (CFDateRef)CFDictionaryGetValue(dict, CFSTR("not-before"));
     CFDateRef notAfterDate = (CFDateRef)CFDictionaryGetValue(dict, CFSTR("not-after"));
+
     if (isDate(notBeforeDate)) {
         notBefore = CFDateGetAbsoluteTime(notBeforeDate);
     } else {
@@ -2240,7 +2601,6 @@ static bool _SecRevocationDbUpdateIssuerConstraints(SecRevocationDbConnectionRef
             }
         }
     }
-
     ok = ok && SecDbWithSQL(dbc->dbconn, insertDateRecordSQL, &localError, ^bool(sqlite3_stmt *insertDate) {
         /* (groupid,notbefore,notafter) */
         ok = ok && SecDbBindInt64(insertDate, 1, groupId, &localError);
@@ -2250,24 +2610,76 @@ static bool _SecRevocationDbUpdateIssuerConstraints(SecRevocationDbConnectionRef
         return ok;
     });
 
-    /* %%% (TBI:9254570,21234699) update name and policy constraint entries here */
-
     if (!ok || localError) {
-        secinfo("validupdate", "_SecRevocationDbUpdateIssuerConstraints failed (ok=%s, localError=%@)",
+        secinfo("validupdate", "_SecRevocationDbUpdateDateConstraints failed (ok=%s, localError=%@)",
                 (ok) ? "1" : "0", localError);
         TrustdHealthAnalyticsLogErrorCodeForDatabase(TARevocationDb, TAOperationWrite, TAFatalError,
                                                      localError ? CFErrorGetCode(localError) : errSecInternalComponent);
     }
-
     (void) CFErrorPropagate(localError, error);
     return ok;
 }
 
+static bool _SecRevocationDbUpdatePolicyConstraints(SecRevocationDbConnectionRef dbc, int64_t groupId, CFDictionaryRef dict, CFErrorRef *error) {
+    /* Called only from _SecRevocationDbUpdateIssuerConstraints.
+       Function assumes that the caller has checked the input arguments.
+    */
+    __block bool ok = true;
+    __block CFErrorRef localError = NULL;
+    CFArrayRef policies = (CFArrayRef)CFDictionaryGetValue(dict, CFSTR("policies"));
+    if (!isArray(policies)) {
+        return ok; /* no policies supplied, so nothing to update for this issuer */
+    }
+
+    __block CFDataRef data = createPoliciesData(policies);
+    ok = data && SecDbWithSQL(dbc->dbconn, updateGroupPoliciesSQL, &localError, ^bool(sqlite3_stmt *updatePolicies) {
+        /* (policies,groupid) */
+        ok = ok && SecDbBindBlob(updatePolicies, 1,
+                                 CFDataGetBytePtr(data),
+                                 CFDataGetLength(data),
+                                 SQLITE_TRANSIENT, &localError);
+        ok = ok && SecDbBindInt64(updatePolicies, 2, groupId, &localError);
+        ok = ok && SecDbStep(dbc->dbconn, updatePolicies, &localError, NULL);
+        return ok;
+    });
+    CFReleaseSafe(data);
+
+    if (!ok || localError) {
+        secinfo("validupdate", "_SecRevocationDbUpdatePolicyConstraints failed (ok=%s, localError=%@)",
+                (ok) ? "1" : "0", localError);
+        TrustdHealthAnalyticsLogErrorCodeForDatabase(TARevocationDb, TAOperationWrite, TAFatalError,
+                                                     localError ? CFErrorGetCode(localError) : errSecInternalComponent);
+    }
+    (void) CFErrorPropagate(localError, error);
+    return ok;
+}
+
+static bool _SecRevocationDbUpdateNameConstraints(SecRevocationDbConnectionRef dbc, int64_t groupId, CFDictionaryRef dict, CFErrorRef *error) {
+    /* Called only from _SecRevocationDbUpdateIssuerConstraints.
+       Function assumes that the caller has checked the input arguments.
+    */
+
+    /* %%% (TBI:9254570) update name constraint entries here */
+    return true;
+}
+
+static bool _SecRevocationDbUpdateIssuerConstraints(SecRevocationDbConnectionRef dbc, int64_t groupId, CFDictionaryRef dict, CFErrorRef *error) {
+    /* check input arguments */
+    if (!dbc || !dict || groupId < 0) {
+        return false;
+    }
+    bool ok = true;
+    ok = ok && _SecRevocationDbUpdateDateConstraints(dbc, groupId, dict, error);
+    ok = ok && _SecRevocationDbUpdateNameConstraints(dbc, groupId, dict, error);
+    ok = ok && _SecRevocationDbUpdatePolicyConstraints(dbc, groupId, dict, error);
+    return ok;
+}
+
 static SecValidInfoFormat _SecRevocationDbGetGroupFormat(SecRevocationDbConnectionRef dbc,
-    int64_t groupId, SecValidInfoFlags *flags, CFDataRef *data, CFErrorRef *error) {
+    int64_t groupId, SecValidInfoFlags *flags, CFDataRef *data, CFDataRef *policies, CFErrorRef *error) {
     /* return group record fields for a given groupId.
        on success, returns a non-zero format type, and other field values in optional output parameters.
-       caller is responsible for releasing data and error parameters, if provided.
+       caller is responsible for releasing data, policies, and error parameters, if provided.
     */
     __block bool ok = (dbc != NULL);
     __block SecValidInfoFormat format = 0;
@@ -2287,6 +2699,13 @@ static SecValidInfoFormat _SecRevocationDbGetGroupFormat(SecRevocationDbConnecti
                 if (p != NULL && format == kSecValidInfoFormatNto1) {
                     CFIndex length = (CFIndex)sqlite3_column_bytes(selectGroup, 2);
                     *data = CFDataCreate(kCFAllocatorDefault, p, length);
+                }
+            }
+            if (policies) {
+                uint8_t *p = (uint8_t *)sqlite3_column_blob(selectGroup, 3);
+                if (p != NULL) {
+                    CFIndex length = (CFIndex)sqlite3_column_bytes(selectGroup, 3);
+                    *policies = CFDataCreate(kCFAllocatorDefault, p, length);
                 }
             }
         });
@@ -2483,11 +2902,12 @@ static int64_t _SecRevocationDbUpdateGroup(SecRevocationDbConnectionRef dbc, int
     __block SecValidInfoFormat format = kSecValidInfoFormatUnknown;
     __block SecValidInfoFormat formatUpdate = kSecValidInfoFormatUnknown;
     __block CFDataRef data = NULL;
+    __block CFDataRef policies = NULL;
 
     if (groupId >= 0) {
         /* fetch the flags and data for an existing group record, in case some are being changed. */
         if (ok) {
-            format = _SecRevocationDbGetGroupFormat(dbc, groupId, &flags, &data, NULL);
+            format = _SecRevocationDbGetGroupFormat(dbc, groupId, &flags, &data, &policies, NULL);
         }
         if (format == kSecValidInfoFormatUnknown) {
             secdebug("validupdate", "existing group %lld has unknown format %d, flags=0x%lx",
@@ -2527,7 +2947,7 @@ static int64_t _SecRevocationDbUpdateGroup(SecRevocationDbConnectionRef dbc, int
         });
     }
     ok = ok && SecDbWithSQL(dbc->dbconn, insertGroupRecordSQL, &localError, ^bool(sqlite3_stmt *insertGroup) {
-        /* (groupid,flags,format,data) */
+        /* (groupid,flags,format,data,policies) */
         /* groups.groupid */
         if (ok && (!isFormatChange) && (groupId >= 0)) {
             /* bind to existing groupId row if known, otherwise will insert and autoincrement */
@@ -2557,10 +2977,16 @@ static int64_t _SecRevocationDbUpdateGroup(SecRevocationDbConnectionRef dbc, int
                    this flag; either a new date entry will be supplied, or a format change will cause
                    the entire group entry to be deleted. */
             }
+            /* policy constraints exist if "policies" key is found */
+            CFTypeRef policiesValue = (CFArrayRef)CFDictionaryGetValue(dict, CFSTR("policies"));
+            if (isArray(policiesValue)) {
+                (void)_SecRevocationDbUpdateFlags(dict, kBoolTrueKey, kSecValidInfoPolicyConstraints, &flags);
+                /* As above, not providing this value in an update does not change the existing state,
+                   so we never need to clear this flag once it is set. */
+            }
 
-            /* %%% (TBI:9254570,21234699) name and policy constraints don't exist yet */
+            /* %%% (TBI:9254570) name constraints don't exist yet */
             (void)_SecRevocationDbUpdateFlags(dict, kBoolFalseKey, kSecValidInfoNameConstraints, &flags);
-            (void)_SecRevocationDbUpdateFlags(dict, kBoolFalseKey, kSecValidInfoPolicyConstraints, &flags);
 
             ok = SecDbBindInt(insertGroup, 2, (int)flags, &localError);
             if (!ok) {
@@ -2602,6 +3028,26 @@ static int64_t _SecRevocationDbUpdateGroup(SecRevocationDbConnectionRef dbc, int
             }
             /* else there is no data, so NULL is implicitly bound to column 4 */
         }
+        /* groups.policies */
+        CFDataRef newPoliciesData = NULL;
+        if (ok) {
+            CFDataRef policiesValue = policies; /* use existing policies */
+            newPoliciesData = createPoliciesData((CFArrayRef)CFDictionaryGetValue(dict, CFSTR("policies")));
+            if (newPoliciesData) {
+                policiesValue = newPoliciesData; /* use updated policies */
+            }
+            if (policiesValue) {
+                ok = SecDbBindBlob(insertGroup, 5,
+                                   CFDataGetBytePtr(policiesValue),
+                                   CFDataGetLength(policiesValue),
+                                   SQLITE_TRANSIENT, &localError);
+            }
+            /* else there is no policy data, so NULL is implicitly bound to column 5 */
+            if (!ok) {
+                secdebug("validupdate", "failed to set policies for groupId %lld",
+                         (long long)groupId);
+            }
+        }
 
         /* Execute the insert statement for the group record. */
         if (ok) {
@@ -2615,11 +3061,15 @@ static int64_t _SecRevocationDbUpdateGroup(SecRevocationDbConnectionRef dbc, int
         if (!ok) {
             secdebug("validupdate", "failed to insert group %lld", (long long)result);
         }
-        /* Clean up temporary allocation made in this block. */
+        /* Clean up temporary allocations made in this block. */
         CFReleaseSafe(xmlData);
-        CFReleaseSafe(data);
+        CFReleaseSafe(newPoliciesData);
         return ok;
     });
+
+    CFReleaseSafe(data);
+    CFReleaseSafe(policies);
+
     if (!ok || localError) {
         secerror("_SecRevocationDbUpdateGroup failed: %@", localError);
         TrustdHealthAnalyticsLogErrorCodeForDatabase(TARevocationDb, TAOperationWrite, TAFatalError,
@@ -2814,6 +3264,13 @@ bool _SecRevocationDbApplyUpdate(SecRevocationDbConnectionRef dbc, CFDictionaryR
     /* set version */
     ok = ok && _SecRevocationDbSetVersion(dbc, version, &localError);
 
+    /* set interval if not already set, or changed */
+    int64_t interval = _SecRevocationDbGetUpdateInterval(dbc, NULL);
+    if (interval != dbc->precommitInterval) {
+        interval = (dbc->precommitInterval > 0) ? dbc->precommitInterval : kSecStdUpdateInterval;
+        ok = ok && _SecRevocationDbSetUpdateInterval(dbc, interval, &localError);
+    }
+
     /* set db_version if not already set */
     int64_t db_version = _SecRevocationDbGetSchemaVersion(dbc->db, dbc, NULL);
     if (db_version <= 0) {
@@ -2975,16 +3432,16 @@ static SecValidInfoRef _SecRevocationDbValidInfoForCertificate(SecRevocationDbCo
     CFDataRef certHash = NULL;
     CFDateRef notBeforeDate = NULL;
     CFDateRef notAfterDate = NULL;
-    CFDataRef nameConstraints = NULL;
-    CFDataRef policyConstraints = NULL;
+    CFDataRef names = NULL;
+    CFDataRef policies = NULL;
     SecValidInfoRef result = NULL;
 
     require((serial = SecCertificateCopySerialNumberData(certificate, NULL)) != NULL, errOut);
     require((certHash = SecCertificateCopySHA256Digest(certificate)) != NULL, errOut);
-    require((groupId = _SecRevocationDbGroupIdForIssuerHash(dbc, issuerHash, &localError)) > 0, errOut);
+    require_quiet((groupId = _SecRevocationDbGroupIdForIssuerHash(dbc, issuerHash, &localError)) > 0, errOut);
 
     /* Look up the group record to determine flags and format. */
-    format = _SecRevocationDbGetGroupFormat(dbc, groupId, &flags, &data, &localError);
+    format = _SecRevocationDbGetGroupFormat(dbc, groupId, &flags, &data, &policies, &localError);
 
     if (format == kSecValidInfoFormatUnknown) {
         /* No group record found for this issuer. Don't return a SecValidInfoRef */
@@ -3024,7 +3481,7 @@ static SecValidInfoRef _SecRevocationDbValidInfoForCertificate(SecRevocationDbCo
     result = SecValidInfoCreate(format, flags, isOnList,
                                 certHash, issuerHash, /*anchorHash*/ NULL,
                                 notBeforeDate, notAfterDate,
-                                nameConstraints, policyConstraints);
+                                names, policies);
 
     if (result && SecIsAppleTrustAnchor(certificate, 0)) {
         /* Prevent a catch-22. */
@@ -3040,8 +3497,8 @@ errOut:
     CFReleaseSafe(serial);
     CFReleaseSafe(notBeforeDate);
     CFReleaseSafe(notAfterDate);
-    CFReleaseSafe(nameConstraints);
-    CFReleaseSafe(policyConstraints);
+    CFReleaseSafe(names);
+    CFReleaseSafe(policies);
     return result;
 }
 
@@ -3195,7 +3652,7 @@ CFIndex SecRevocationDbGetVersion(void) {
 CFIndex SecRevocationDbGetSchemaVersion(void) {
     __block CFIndex result = -1;
     SecRevocationDbWith(^(SecRevocationDbRef db) {
-        result = _SecRevocationDbGetSchemaVersion(db, NULL, NULL);
+        result = (CFIndex)_SecRevocationDbGetSchemaVersion(db, NULL, NULL);
     });
     return result;
 }
@@ -3214,3 +3671,308 @@ CFIndex SecRevocationDbGetUpdateFormat(void) {
     });
     return result;
 }
+
+// MARK: -
+// MARK: Digests
+/*
+ ==============================================================================
+   Digest computation
+ ==============================================================================
+*/
+
+/* Returns array of SHA-256 hashes computed over the contents of a valid.sqlite3
+   database, in the order specified by the valid-server-api documentation. The
+   resulting hashes can be compared against those in the update's 'hash' array.
+
+   Hash 0: full database (all fields in initial Valid specification)
+   Hash 1: all issuer_hash arrays, plus not-after and not-before dates for each
+   Hash 2: subset of issuer_hash arrays where the no-ca-v2 flag is set
+*/
+static CF_RETURNS_RETAINED CFArrayRef SecRevocationDbComputeFullContentDigests(SecRevocationDbConnectionRef dbc, CFErrorRef *error) {
+    if (!dbc) { return NULL; }
+    __block bool ok = true;
+    __block CFErrorRef localError = NULL;
+    __block uint32_t N[4]={0,0,0,0};
+    __block CC_SHA256_CTX hash0_ctx, hash1_ctx, hash2_ctx;
+    CC_SHA256_Init(&hash0_ctx);
+    CC_SHA256_Init(&hash1_ctx);
+    CC_SHA256_Init(&hash2_ctx);
+
+    // Add version, check-again, and update (array count) fields as array of N.
+    // (Note: 'N' is defined as "unsigned 32-bit integer in network byte order")
+    int64_t version = _SecRevocationDbGetVersion(dbc, NULL);
+    N[0] = OSSwapInt32(version & 0xffffffff);
+    int64_t interval =  _SecRevocationDbGetUpdateInterval(dbc, NULL);
+    if (interval < 0) {
+        interval = kSecStdUpdateInterval; // if we didn't store it, assume default
+    }
+    N[1] = OSSwapInt32(interval & 0xffffffff);
+    __block int64_t count = 0;
+    ok = ok && SecDbWithSQL(dbc->dbconn, CFSTR("SELECT count(*) FROM groups"), &localError, ^bool(sqlite3_stmt *selectGroupsCount) {
+        ok = ok && SecDbStep(dbc->dbconn, selectGroupsCount, &localError, ^void(bool *stop) {
+            count = sqlite3_column_int64(selectGroupsCount, 0);
+            *stop = true;
+        });
+        return ok;
+    });
+    N[2] = OSSwapInt32(count & 0xffffffff);
+    CC_SHA256_Update(&hash0_ctx, N, sizeof(uint32_t) * 3);
+
+    // Sort the update array in order of minimum 'issuer-hash' entry.
+    // The issuer-hash array is first sorted to determine the lowest issuer-hash,
+    // and that value is used to sort the update entries.
+    //
+    // For our sqlite database, recreating the update array order means fetching
+    // the groupid column from the issuers table after sorting on issuer_hash,
+    // using DISTINCT to remove duplicates. Then, for each returned groupid, we
+    // obtain its list of issuers, its list of serials or hashes, and other data.
+
+    ok = ok && SecDbWithSQL(dbc->dbconn, CFSTR("SELECT DISTINCT groupid FROM issuers ORDER BY issuer_hash ASC"), &localError, ^bool(sqlite3_stmt *selectGroups) {
+        ok = ok && SecDbForEach(dbc->dbconn, selectGroups, &localError, ^bool(int row_index) {
+            __block int64_t groupId = sqlite3_column_int64(selectGroups, 0);
+            ok = ok && SecDbWithSQL(dbc->dbconn, CFSTR("SELECT flags,format,data FROM groups WHERE groupid=?"), &localError, ^bool(sqlite3_stmt *selectGroup) {
+                ok = ok && SecDbBindInt64(selectGroup, 1, groupId, &localError);
+                ok = ok && SecDbStep(dbc->dbconn, selectGroup, &localError, ^(bool *stop) {
+                    // per-group info is hashed in the following order:
+                    // - issuer_hash array data (sorted)
+                    // - flag bytes, in order listed below
+                    // - format string [serial|sha256|nto1]
+                    // - add array data (sorted), if [serial|sha256]
+                    // - params (if present)
+                    // - xor data (if present)
+
+                    int64_t flags = sqlite3_column_int64(selectGroup, 0);
+                    bool noCAv2 = (flags & kSecValidInfoNoCAv2Check);
+
+                    // instead of recreating the issuer_hash array in memory,
+                    // hash its length (item count) followed by the data of each issuer_hash.
+                    ok = ok && SecDbWithSQL(dbc->dbconn, CFSTR("SELECT count(*) FROM issuers WHERE groupid=?"), &localError, ^bool(sqlite3_stmt *selectIssuersCount) {
+                        ok = ok && SecDbBindInt64(selectIssuersCount, 1, groupId, &localError);
+                        ok = ok && SecDbStep(dbc->dbconn, selectIssuersCount, &localError, ^void(bool *stop) {
+                            count = sqlite3_column_int64(selectIssuersCount, 0);
+                            *stop = true;
+                        });
+                        return ok;
+                    });
+                    uint32_t n = OSSwapInt32(count & 0xffffffff);
+                    CC_SHA256_Update(&hash0_ctx, &n, sizeof(uint32_t));
+                    CC_SHA256_Update(&hash1_ctx, &n, sizeof(uint32_t));
+                    if (noCAv2) {
+                        CC_SHA256_Update(&hash2_ctx, &n, sizeof(uint32_t));
+                    }
+
+                    // process issuer_hash entries for this group
+                    ok = ok && SecDbWithSQL(dbc->dbconn, CFSTR("SELECT issuer_hash FROM issuers WHERE groupid=? ORDER BY issuer_hash ASC"), &localError, ^bool(sqlite3_stmt *selectIssuerHash) {
+                        ok = ok && SecDbBindInt64(selectIssuerHash, 1, groupId, &localError);
+                        ok = ok && SecDbForEach(dbc->dbconn, selectIssuerHash, &localError, ^bool(int row_index) {
+                            uint8_t *p = (uint8_t *)sqlite3_column_blob(selectIssuerHash, 0);
+                            CFDataRef data = NULL;
+                            if (p != NULL) {
+                                CFIndex length = (CFIndex)sqlite3_column_bytes(selectIssuerHash, 0);
+                                data = CFDataCreate(kCFAllocatorDefault, p, length);
+                            }
+                            if (data != NULL) {
+                                hashData(data, &hash0_ctx);
+                                hashData(data, &hash1_ctx);
+                                if (noCAv2) {
+                                    hashData(data, &hash2_ctx);
+                                }
+                                CFRelease(data);
+                            } else {
+                                ok = false;
+                            }
+                            return ok;
+                        });
+                        return ok;
+                    });
+
+                    // process flags, converting to array of unsigned 8-bit values, either 0 or 1:
+                    // [ complete, check-ocsp, known-intermediates-only, no-ca, overridable, require-ct, valid ]
+                    uint8_t C[8]={0,0,0,0,0,0,0,0};
+                    C[0] = (flags & kSecValidInfoComplete) ? 1 : 0;
+                    C[1] = (flags & kSecValidInfoCheckOCSP) ? 1 : 0;
+                    C[2] = (flags & kSecValidInfoKnownOnly) ? 1 : 0;
+                    C[3] = (flags & kSecValidInfoNoCACheck) ? 1 : 0;
+                    C[4] = (flags & kSecValidInfoOverridable) ? 1 : 0;
+                    C[5] = (flags & kSecValidInfoRequireCT) ? 1 : 0;
+                    C[6] = (flags & kSecValidInfoAllowlist) ? 1 : 0;
+                    CC_SHA256_Update(&hash0_ctx, C, sizeof(uint8_t) * 7);
+
+                    // process format, converting integer to string value [serial|sha256|nto1]
+                    SecValidInfoFormat format = (SecValidInfoFormat)sqlite3_column_int(selectGroup, 1);
+                    switch (format) {
+                        case kSecValidInfoFormatSerial:
+                            hashString(CFSTR("serial"), &hash0_ctx);
+                            break;
+                        case kSecValidInfoFormatSHA256:
+                            hashString(CFSTR("sha256"), &hash0_ctx);
+                            break;
+                        case kSecValidInfoFormatNto1:
+                            hashString(CFSTR("nto1"), &hash0_ctx);
+                            break;
+                        case kSecValidInfoFormatUnknown:
+                        default:
+                            ok = false; // unexpected format values are not allowed
+                            break;
+                    }
+                    // process 'add' array (serial or sha256 format).
+                    // instead of recreating the 'add' array in memory,
+                    // hash its length (item count) followed by the data of each entry.
+                    CFStringRef arrayCountSql = NULL;
+                    if (format == kSecValidInfoFormatSerial) {
+                        arrayCountSql = CFSTR("SELECT count(*) FROM serials WHERE groupid=?");
+                    } else if (format == kSecValidInfoFormatSHA256) {
+                        arrayCountSql = CFSTR("SELECT count(*) FROM hashes WHERE groupid=?");
+                    }
+                    if (arrayCountSql) {
+                        ok = ok && SecDbWithSQL(dbc->dbconn, arrayCountSql, &localError, ^bool(sqlite3_stmt *selectAddCount) {
+                            ok = ok && SecDbBindInt64(selectAddCount, 1, groupId, &localError);
+                            ok = ok && SecDbStep(dbc->dbconn, selectAddCount, &localError, ^void(bool *stop) {
+                                count = sqlite3_column_int64(selectAddCount, 0);
+                                *stop = true;
+                            });
+                            return ok;
+                        });
+                        n = OSSwapInt32(count & 0xffffffff);
+                        CC_SHA256_Update(&hash0_ctx, &n, sizeof(uint32_t));
+                    }
+                    // process data entries for this group
+                    CFStringRef arrayDataSql = NULL;
+                    if (format == kSecValidInfoFormatSerial) {
+                        arrayDataSql = CFSTR("SELECT serial FROM serials WHERE groupid=? ORDER BY serial ASC");
+                    } else if (format == kSecValidInfoFormatSHA256) {
+                        arrayDataSql = CFSTR("SELECT sha256 FROM hashes WHERE groupid=? ORDER by sha256 ASC");
+                    }
+                    if (arrayDataSql) {
+                        ok = ok && SecDbWithSQL(dbc->dbconn, arrayDataSql, &localError, ^bool(sqlite3_stmt *selectAddData) {
+                            ok = ok && SecDbBindInt64(selectAddData, 1, groupId, &localError);
+                            ok = ok && SecDbForEach(dbc->dbconn, selectAddData, &localError, ^bool(int row_index) {
+                                uint8_t *p = (uint8_t *)sqlite3_column_blob(selectAddData, 0);
+                                CFDataRef data = NULL;
+                                if (p != NULL) {
+                                    CFIndex length = (CFIndex)sqlite3_column_bytes(selectAddData, 0);
+                                    data = CFDataCreate(kCFAllocatorDefault, p, length);
+                                }
+                                if (data != NULL) {
+                                    hashData(data, &hash0_ctx);
+                                    CFRelease(data);
+                                } else {
+                                    ok = false;
+                                }
+                                return ok;
+                            });
+                            return ok;
+                        });
+                    }
+
+                    // process params and xor data, if format is nto1
+                    if (format == kSecValidInfoFormatNto1) {
+                        uint8_t *p = (uint8_t *)sqlite3_column_blob(selectGroup, 2);
+                        CFDataRef data = NULL;
+                        if (p != NULL) {
+                            CFIndex length = (CFIndex)sqlite3_column_bytes(selectGroup, 2);
+                            data = CFDataCreate(kCFAllocatorDefault, p, length);
+                        }
+                        if (data != NULL) {
+                            // unpack params and xor data
+                            CFDataRef xor = NULL;
+                            CFArrayRef params = NULL;
+                            if (copyFilterComponents(data, &xor, &params)) {
+                                hashArray(params, &hash0_ctx);
+                                hashData(xor, &hash0_ctx);
+                            } else {
+                                ok = false;
+                            }
+                            CFReleaseSafe(xor);
+                            CFReleaseSafe(params);
+                        }
+                        CFReleaseSafe(data);
+                    }
+
+                    // process date constraints [not-after, not-before]
+                    CFAbsoluteTime notBefore = -3155760000.0; /* default: 1901-01-01 00:00:00-0000 */
+                    CFAbsoluteTime notAfter = 31556908800.0;  /* default: 3001-01-01 00:00:00-0000 */
+                    CFDateRef notBeforeDate = NULL;
+                    CFDateRef notAfterDate = NULL;
+                    if (_SecRevocationDbCopyDateConstraints(dbc, groupId, &notBeforeDate, &notAfterDate, &localError)) {
+                        if (notBeforeDate) {
+                            notBefore = CFDateGetAbsoluteTime(notBeforeDate);
+                            CFReleaseNull(notBeforeDate);
+                        }
+                        if (notAfterDate) {
+                            notAfter = CFDateGetAbsoluteTime(notAfterDate);
+                            CFReleaseNull(notAfterDate);
+                        }
+                    }
+                    double nb = htond(notBefore);
+                    double na = htond(notAfter);
+                    CC_SHA256_Update(&hash1_ctx, &na, sizeof(double));
+                    CC_SHA256_Update(&hash1_ctx, &nb, sizeof(double));
+
+                    *stop = true;
+                }); // per-group step
+                return ok;
+            }); // per-group select
+            return ok;
+        }); // for each group in list
+        return ok;
+    }); // select full group list
+
+    CFMutableArrayRef result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    if (result) {
+        uint8_t digest[CC_SHA256_DIGEST_LENGTH];
+        CFDataRef data = NULL;
+        CC_SHA256_Final(digest, &hash0_ctx);
+        if ((data = CFDataCreate(NULL, (const UInt8 *)digest, CC_SHA256_DIGEST_LENGTH)) != NULL) {
+            CFArrayAppendValue(result, data);
+            CFReleaseNull(data);
+        }
+        CC_SHA256_Final(digest, &hash1_ctx);
+        if ((data = CFDataCreate(NULL, (const UInt8 *)digest, CC_SHA256_DIGEST_LENGTH)) != NULL) {
+            CFArrayAppendValue(result, data);
+            CFReleaseNull(data);
+        }
+        CC_SHA256_Final(digest, &hash2_ctx);
+        if ((data = CFDataCreate(NULL, (const UInt8 *)digest, CC_SHA256_DIGEST_LENGTH)) != NULL) {
+            CFArrayAppendValue(result, data);
+            CFReleaseNull(data);
+        }
+    }
+    (void) CFErrorPropagate(localError, error);
+    return result;
+}
+
+static bool SecRevocationDbComputeDigests(SecRevocationDbConnectionRef dbc, CFErrorRef *error) {
+    secinfo("validupdate", "Started verifying db content");
+    bool result = true;
+    CFArrayRef expectedList = _SecRevocationDbCopyHashes(dbc, error);
+    CFIndex expectedCount = (expectedList) ? CFArrayGetCount(expectedList) : 0;
+    if (expectedCount < 1) {
+        secinfo("validupdate", "Unable to read db_hash values");
+        CFReleaseNull(expectedList);
+        return result; // %%%% this will happen on first update, when db_hash isn't there
+    }
+    CFArrayRef computedList = SecRevocationDbComputeFullContentDigests(dbc, error);
+    CFIndex computedCount = (computedList) ? CFArrayGetCount(computedList) : 0;
+    for (CFIndex idx = 0; idx < expectedCount; idx++) {
+        if (idx >= computedCount) {
+            continue; // server provided additional hash value that we don't yet compute
+        }
+        CFDataRef expectedHash = (CFDataRef)CFArrayGetValueAtIndex(expectedList, idx);
+        CFDataRef computedHash = (CFDataRef)CFArrayGetValueAtIndex(computedList, idx);
+        if (!CFEqualSafe(expectedHash, computedHash)) {
+            result = false;
+            break;
+        }
+    }
+    if (!result) {
+        secinfo("validupdate", "Expected: %@", expectedList);
+        secinfo("validupdate", "Computed: %@", computedList);
+    }
+    secinfo("validupdate", "Finished verifying db content; result=%s",
+            (result) ? "SUCCESS" : "FAIL");
+    CFReleaseSafe(expectedList);
+    CFReleaseSafe(computedList);
+    return result;
+}
+

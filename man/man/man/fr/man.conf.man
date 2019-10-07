@@ -1,5 +1,5 @@
 .\" @(#)man.conf
-.\" Traduction franÃ§aise RenÃ© Cougnenc - Mai 1995
+.\" Traduction française René Cougnenc - Mai 1995
 .\"
 .TH MAN.CONF 5 "19 septembre 2005" "Manuel Linux" "Commandes utilisateur"
 .SH NOM
@@ -8,13 +8,13 @@ man.conf \- fichier de configuration de la commande man
 .LP
 Ce fichier est lu par
 .BR man (1)
-et contient\ : (a) des informations sur la maniÃ¨re de construire le
-chemin de recherche des pages de manuel, (b) les chemins d'accÃ¨s
+et contient\ : (a) des informations sur la manière de construire le
+chemin de recherche des pages de manuel, (b) les chemins d'accès
 complets de divers programmes de formatage tels nroff, eqn, tbl, etc.
-utilisÃ©s par man, et (c) une liste des dÃ©compacteurs Ã  employer pour
-traiter les pages prÃ©formatÃ©es selon l'extension de leur nom de
-fichier. Il est possible de spÃ©cifier un autre fichier que celui-ci en
-prÃ©cisant\ :
+utilisés par man, et (c) une liste des décompacteurs à employer pour
+traiter les pages préformatées selon l'extension de leur nom de
+fichier. Il est possible de spécifier un autre fichier que celui-ci en
+précisant\ :
 .LP
 .RS
 man -C man.conf_personnel ...
@@ -22,7 +22,7 @@ man -C man.conf_personnel ...
 .LP
 Les noms de commandes peuvent comporter des options.
 Les options utiles pour nroff se trouvent dans grotty(1).
-Par exemple, au lieu de la ligne par dÃ©faut\ :
+Par exemple, au lieu de la ligne par défaut\ :
 .LP
 .RS
 .nf
@@ -38,12 +38,12 @@ NROFF /usr/bin/groff -mandoc -Tlatin1 -P-u -P-b
 .fi
 .RE
 .LP
-afin de supprimer le soulignement et les caractÃ¨res gras.
+afin de supprimer le soulignement et les caractères gras.
 
-Notez que l'option -Tlatin1 passÃ©e Ã  la commande groff est importante
-pour nous autres, francophones\ ; associÃ©e Ã  un visualiseur et un
-terminal supportant ce jeu de caractÃ¨res (comme less et xterm), elle
-permet de conserver nos prÃ©cieux accents dans les pages de manuel.
+Notez que l'option -Tlatin1 passée à la commande groff est importante
+pour nous autres, francophones\ ; associée à un visualiseur et un
+terminal supportant ce jeu de caractères (comme less et xterm), elle
+permet de conserver nos précieux accents dans les pages de manuel.
 .SH FICHIERS
 .I "@man_config_file@"
 .SH AUTEUR
@@ -66,12 +66,12 @@ et
 
 .SH TRADUCTION
 .PP
-Ce document est une traduction rÃ©alisÃ©e par RenÃ© Cougnenc en mai 1995 et mise
-Ã  jour par Alain Portal <aportal AT univ-montp2 DOT fr> le 7 novembre 2005.
+Ce document est une traduction réalisée par René Cougnenc en mai 1995 et mise
+à jour par Alain Portal <aportal AT univ-montp2 DOT fr> le 7 novembre 2005.
 .PP
-L'Ã©quipe de traduction a fait le maximum pour rÃ©aliser une adaptation
-franÃ§aise de qualitÃ©. La version anglaise la plus Ã  jour de ce document est
-toujours consultable via la commande\ : Â«\ \fBLANG=en\ man\ 5\ man.conf\fR\ Â».
-N'hÃ©sitez pas Ã  signaler Ã  l'auteur ou au traducteur, selon le cas, toute
+L'équipe de traduction a fait le maximum pour réaliser une adaptation
+française de qualité. La version anglaise la plus à jour de ce document est
+toujours consultable via la commande\ : «\ \fBLANG=en\ man\ 5\ man.conf\fR\ ».
+N'hésitez pas à signaler à l'auteur ou au traducteur, selon le cas, toute
 erreur dans cette page de manuel.
 

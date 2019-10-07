@@ -23,8 +23,8 @@
 
 #include <securityd/SecItemBackupServer.h>
 #include <securityd/SecItemServer.h>
-#include <Security/SecureObjectSync/SOSEnginePriv.h>
-#include <Security/SecureObjectSync/SOSPeer.h>
+#include "keychain/SecureObjectSync/SOSEnginePriv.h"
+#include "keychain/SecureObjectSync/SOSPeer.h"
 #include <Security/SecureObjectSync/SOSBackupSliceKeyBag.h>
 #include <Security/SecureObjectSync/SOSViews.h>
 #include <unistd.h>

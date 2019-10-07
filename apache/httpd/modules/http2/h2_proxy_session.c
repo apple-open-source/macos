@@ -45,6 +45,7 @@ typedef struct h2_proxy_stream {
     unsigned int suspended : 1;
     unsigned int waiting_on_100 : 1;
     unsigned int waiting_on_ping : 1;
+    unsigned int headers_ended : 1;
     uint32_t error_code;
 
     apr_bucket_brigade *input;
@@ -61,6 +62,7 @@ static void dispatch_event(h2_proxy_session *session, h2_proxys_event_t ev,
 static void ping_arrived(h2_proxy_session *session);
 static apr_status_t check_suspended(h2_proxy_session *session);
 static void stream_resume(h2_proxy_stream *stream);
+static apr_status_t submit_trailers(h2_proxy_stream *stream);
 
 
 static apr_status_t proxy_session_pre_close(void *theconn)
@@ -237,11 +239,12 @@ static int before_frame_send(nghttp2_session *ngh2,
 
 static int add_header(void *table, const char *n, const char *v)
 {
-    apr_table_addn(table, n, v);
+    apr_table_add(table, n, v);
     return 1;
 }
 
-static void process_proxy_header(h2_proxy_stream *stream, const char *n, const char *v)
+static void process_proxy_header(apr_table_t *headers, h2_proxy_stream *stream, 
+                                 const char *n, const char *v)
 {
     static const struct {
         const char *name;
@@ -262,20 +265,18 @@ static void process_proxy_header(h2_proxy_stream *stream, const char *n, const c
     if (!dconf->preserve_host) {
         for (i = 0; transform_hdrs[i].name; ++i) {
             if (!ap_cstr_casecmp(transform_hdrs[i].name, n)) {
-                apr_table_add(r->headers_out, n,
-                              (*transform_hdrs[i].func)(r, dconf, v));
+                apr_table_add(headers, n, (*transform_hdrs[i].func)(r, dconf, v));
                 return;
             }
         }
         if (!ap_cstr_casecmp("Link", n)) {
             dconf = ap_get_module_config(r->per_dir_config, &proxy_module);
-            apr_table_add(r->headers_out, n,
-                          h2_proxy_link_reverse_map(r, dconf, 
-                                                    stream->real_server_uri, stream->p_server_uri, v));
+            apr_table_add(headers, n, h2_proxy_link_reverse_map(r, dconf, 
+                            stream->real_server_uri, stream->p_server_uri, v));
             return;
         }
     }
-    apr_table_add(r->headers_out, n, v);
+    apr_table_add(headers, n, v);
 }
 
 static apr_status_t h2_proxy_stream_add_header_out(h2_proxy_stream *stream,
@@ -299,8 +300,13 @@ static apr_status_t h2_proxy_stream_add_header_out(h2_proxy_stream *stream,
         return APR_SUCCESS;
     }
     
+    ap_log_cerror(APLOG_MARK, APLOG_TRACE2, 0, stream->session->c, 
+                  "h2_proxy_stream(%s-%d): on_header %s: %s", 
+                  stream->session->id, stream->id, n, v);
     if (!h2_proxy_res_ignore_header(n, nlen)) {
         char *hname, *hvalue;
+        apr_table_t *headers = (stream->headers_ended? 
+                               stream->r->trailers_out : stream->r->headers_out);
     
         hname = apr_pstrndup(stream->pool, n, nlen);
         h2_proxy_util_camel_case_header(hname, nlen);
@@ -309,7 +315,7 @@ static apr_status_t h2_proxy_stream_add_header_out(h2_proxy_stream *stream,
         ap_log_cerror(APLOG_MARK, APLOG_TRACE2, 0, stream->session->c, 
                       "h2_proxy_stream(%s-%d): got header %s: %s", 
                       stream->session->id, stream->id, hname, hvalue);
-        process_proxy_header(stream, hname, hvalue);
+        process_proxy_header(headers, stream, hname, hvalue);
     }
     return APR_SUCCESS;
 }
@@ -361,7 +367,7 @@ static void h2_proxy_stream_end_headers_out(h2_proxy_stream *stream)
         }
 
         /* create a "Via:" response header entry and merge it */
-        apr_table_addn(r->headers_out, "Via",
+        apr_table_add(r->headers_out, "Via",
                        (session->conf->viaopt == via_full)
                        ? apr_psprintf(p, "%d.%d %s%s (%s)",
                                       HTTP_VERSION_MAJOR(r->proto_num),
@@ -374,6 +380,7 @@ static void h2_proxy_stream_end_headers_out(h2_proxy_stream *stream)
                                       server_name, portstr)
                        );
     }
+    if (r->status >= 200) stream->headers_ended = 1;
     
     if (APLOGrtrace2(stream->r)) {
         ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, stream->r, 
@@ -428,12 +435,6 @@ static int stream_response_data(nghttp2_session *ngh2, uint8_t flags,
         nghttp2_submit_rst_stream(ngh2, NGHTTP2_FLAG_NONE,
                                   stream_id, NGHTTP2_STREAM_CLOSED);
         return NGHTTP2_ERR_STREAM_CLOSING;
-    }
-    if (stream->standalone) {
-        nghttp2_session_consume(ngh2, stream_id, len);
-        ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, stream->r,
-                      "h2_proxy_session(%s): stream %d, win_update %d bytes",
-                      session->id, stream_id, (int)len);
     }
     return 0;
 }
@@ -493,8 +494,8 @@ static ssize_t stream_request_data(nghttp2_session *ngh2, int32_t stream_id,
     stream = nghttp2_session_get_stream_user_data(ngh2, stream_id);
     if (!stream) {
         ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, ap_server_conf, APLOGNO(03361)
-                     "h2_proxy_stream(%s): data_read, stream %d not found", 
-                     stream->session->id, stream_id);
+                     "h2_proxy_stream(NULL): data_read, stream %d not found", 
+                     stream_id);
         return NGHTTP2_ERR_CALLBACK_FAILURE;
     }
     
@@ -553,9 +554,14 @@ static ssize_t stream_request_data(nghttp2_session *ngh2, int32_t stream_id,
         stream->data_sent += readlen;
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, status, stream->r, APLOGNO(03468) 
                       "h2_proxy_stream(%d): request DATA %ld, %ld"
-                      " total, flags=%d", 
-                      stream->id, (long)readlen, (long)stream->data_sent,
+                      " total, flags=%d", stream->id, (long)readlen, (long)stream->data_sent,
                       (int)*data_flags);
+        if ((*data_flags & NGHTTP2_DATA_FLAG_EOF) && !apr_is_empty_table(stream->r->trailers_in)) {
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, status, stream->r, APLOGNO(10179) 
+                          "h2_proxy_stream(%d): submit trailers", stream->id);
+            *data_flags |= NGHTTP2_DATA_FLAG_NO_END_STREAM;
+            submit_trailers(stream);
+        } 
         return readlen;
     }
     else if (APR_STATUS_IS_EAGAIN(status)) {
@@ -641,7 +647,7 @@ h2_proxy_session *h2_proxy_session_setup(const char *id, proxy_conn_rec *p_conn,
         
         nghttp2_option_new(&option);
         nghttp2_option_set_peer_max_concurrent_streams(option, 100);
-        nghttp2_option_set_no_auto_window_update(option, 1);
+        nghttp2_option_set_no_auto_window_update(option, 0);
         
         nghttp2_session_client_new2(&session->ngh2, cbs, session, option);
         
@@ -653,10 +659,12 @@ h2_proxy_session *h2_proxy_session_setup(const char *id, proxy_conn_rec *p_conn,
     }
     else {
         h2_proxy_session *session = p_conn->data;
-        apr_interval_time_t age = apr_time_now() - session->last_frame_received;
-        if (age > apr_time_from_sec(1)) {
-            session->check_ping = 1;
-            nghttp2_submit_ping(session->ngh2, 0, (const uint8_t *)"nevergonnagiveyouup");
+        if (!session->check_ping) {
+            apr_interval_time_t age = apr_time_now() - session->last_frame_received;
+            if (age > apr_time_from_sec(1)) {
+                session->check_ping = 1;
+                nghttp2_submit_ping(session->ngh2, 0, (const uint8_t *)"nevergonnagiveyouup");
+            }
         }
     }
     return p_conn->data;
@@ -740,6 +748,8 @@ static apr_status_t open_stream(h2_proxy_session *session, const char *url,
     stream->real_server_uri = apr_psprintf(stream->pool, "%s://%s", scheme, authority); 
     stream->p_server_uri = apr_psprintf(stream->pool, "%s://%s", puri.scheme, authority); 
     path = apr_uri_unparse(stream->pool, &puri, APR_URI_UNP_OMITSITEPART);
+
+
     h2_proxy_req_make(stream->req, stream->pool, r->method, scheme,
                 authority, path, r->headers_in);
 
@@ -824,6 +834,16 @@ static apr_status_t submit_stream(h2_proxy_session *session, h2_proxy_stream *st
         return APR_SUCCESS;
     }
     return APR_EGENERAL;
+}
+
+static apr_status_t submit_trailers(h2_proxy_stream *stream)
+{
+    h2_proxy_ngheader *hd;
+    int rv;
+
+    hd = h2_proxy_util_nghd_make(stream->pool, stream->r->trailers_in);
+    rv = nghttp2_submit_trailer(stream->session->ngh2, stream->id, hd->nv, hd->nvlen);
+    return rv == 0? APR_SUCCESS: APR_EGENERAL;
 }
 
 static apr_status_t feed_brigade(h2_proxy_session *session, apr_bucket_brigade *bb)
@@ -1423,7 +1443,7 @@ run_loop:
                 ap_log_cerror(APLOG_MARK, APLOG_TRACE3, status, session->c, 
                               APLOGNO(03365)
                               "h2_proxy_session(%s): WAIT read, timeout=%fms", 
-                              session->id, (float)session->wait_timeout/1000.0);
+                              session->id, session->wait_timeout/1000.0);
                 if (status == APR_SUCCESS) {
                     have_read = 1;
                     dispatch_event(session, H2_PROXYS_EV_DATA_READ, 0, NULL);
@@ -1542,43 +1562,4 @@ typedef struct {
     apr_off_t bytes;
     int updated;
 } win_update_ctx;
-
-static int win_update_iter(void *udata, void *val)
-{
-    win_update_ctx *ctx = udata;
-    h2_proxy_stream *stream = val;
-    
-    if (stream->r && stream->r->connection == ctx->c) {
-        ap_log_cerror(APLOG_MARK, APLOG_TRACE2, 0, ctx->session->c, 
-                      "h2_proxy_session(%s-%d): win_update %ld bytes",
-                      ctx->session->id, (int)stream->id, (long)ctx->bytes);
-        nghttp2_session_consume(ctx->session->ngh2, stream->id, ctx->bytes);
-        ctx->updated = 1;
-        return 0;
-    }
-    return 1;
-}
-
-
-void h2_proxy_session_update_window(h2_proxy_session *session, 
-                                    conn_rec *c, apr_off_t bytes)
-{
-    if (!h2_proxy_ihash_empty(session->streams)) {
-        win_update_ctx ctx;
-        ctx.session = session;
-        ctx.c = c;
-        ctx.bytes = bytes;
-        ctx.updated = 0;
-        h2_proxy_ihash_iter(session->streams, win_update_iter, &ctx);
-        
-        if (!ctx.updated) {
-            /* could not find the stream any more, possibly closed, update
-             * the connection window at least */
-            ap_log_cerror(APLOG_MARK, APLOG_TRACE2, 0, session->c, 
-                          "h2_proxy_session(%s): win_update conn %ld bytes",
-                          session->id, (long)bytes);
-            nghttp2_session_consume_connection(session->ngh2, (size_t)bytes);
-        }
-    }
-}
 

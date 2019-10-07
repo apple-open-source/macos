@@ -60,11 +60,8 @@
 #include "feeECDSA.h"
 #include "platform.h"
 #include "enc64.h"
-#include "feeDES.h"
 #include "byteRep.h"
-#if	CRYPTKIT_DER_ENABLE
 #include "CryptKitDER.h"
-#endif
 #include <stdio.h>
 
 /*
@@ -86,9 +83,7 @@
 #define PUBLIC_KEY_BLOB_VERSION  		6
 #define PUBLIC_KEY_BLOB_MINVERSION		6
 
-#if	CRYPTKIT_DER_ENABLE
 #define PUBLIC_DER_KEY_BLOB_VERSION		1
-#endif
 
 /*
  * Private data. All "instance" routines are passed a feePubKey (actually
@@ -107,9 +102,7 @@ static feeReturn feeGenPrivate(pubKeyInst *pkinst,
 	char hashPasswd);
 static pubKeyInst *pubKeyInstAlloc(void);
 static void pubKeyInstFree(pubKeyInst *pkinst);
-#if		GIANTS_VIA_STACK
-static void feePubKeyInitGiants(void);
-#endif
+
 static feeReturn createKeyBlob(pubKeyInst *pkinst,
 	int isPrivate,			// 0 : public   1 : private
 	unsigned char **keyBlob,	// mallocd and RETURNED
@@ -127,9 +120,7 @@ feePubKey feePubKeyAlloc(void)
 {
 	pubKeyInst *pkinst = pubKeyInstAlloc();
 
-	#if		GIANTS_VIA_STACK
-	feePubKeyInitGiants();
-	#endif
+	
 	return pkinst;
 }
 
@@ -173,12 +164,6 @@ feeReturn feePubKeyInitFromPrivDataDepth(feePubKey pubKey,
 	pubKeyInst *pkinst = (pubKeyInst *) pubKey;
 	feeReturn  frtn;
 
-	#if	ENGINE_127_BITS
-	if(depth != FEE_DEPTH_127_1) {
-		dbgLog(("Illegal Depth\n"));
-		return FR_IllegalDepth;
-	}
-	#endif	// ENGINE_127_BITS
 	if(depth > FEE_DEPTH_MAX) {
 		dbgLog(("Illegal Depth\n"));
 		return FR_IllegalDepth;
@@ -411,229 +396,6 @@ int feePubKeyIsPrivate(feePubKey key)
 
 	return ((myPkinst->privGiant != NULL) ? 1 : 0);
 }
-
-#ifndef	ECDSA_VERIFY_ONLY
-
-#if	CRYPTKIT_KEY_EXCHANGE
-
-feeReturn feePubKeyCreatePad(feePubKey myKey,
-	feePubKey theirKey,
-	unsigned char **padData,	/* RETURNED */
-	unsigned *padDataLen)		/* RETURNED padData length in bytes */
-{
-	pubKeyInst *myPkinst = (pubKeyInst *) myKey;
-	pubKeyInst *theirPkinst = (pubKeyInst *) theirKey;
-	giant pad;
-	unsigned char *result;
-    	unsigned padLen;
-	key pkey;
-
-	/*
-	 * Do some compatibility checking (myKey, theirKey) here...?
-	 */
-	if(DEFAULT_CURVE == CURVE_PLUS) {
-		pkey = theirPkinst->plus;
-	}
-	else {
-		pkey = theirPkinst->minus;
-	}
-	pad = make_pad(myPkinst->privGiant, pkey);
-	result = mem_from_giant(pad, &padLen);
-	freeGiant(pad);
-
-	/*
-	 * Ensure we have a the minimum necessary for DES. A bit of a hack,
-	 * to be sure.
-	 */
-	if(padLen >= FEE_DES_MIN_STATE_SIZE) {
-		*padData = result;
-		*padDataLen = padLen;
-	}
-	else {
-		*padData = (unsigned char*) fmalloc(FEE_DES_MIN_STATE_SIZE);
-		*padDataLen = FEE_DES_MIN_STATE_SIZE;
-		bzero(*padData, FEE_DES_MIN_STATE_SIZE);
-		bcopy(result, *padData, padLen);
-		ffree(result);
-	}
-	return FR_Success;
-}
-
-#endif	/* CRYPTKIT_KEY_EXCHANGE */
-
-#if	CRYPTKIT_HIGH_LEVEL_SIG
-
-#warning HLS
-/*
- * Generate digital signature, ElGamal style.
- */
-feeReturn feePubKeyCreateSignature(feePubKey pubKey,
-	const unsigned char *data,
-	unsigned dataLen,
-	unsigned char **signature,	/* fmalloc'd and RETURNED */
-	unsigned *signatureLen)		/* RETURNED */
-{
-	pubKeyInst	*pkinst = (pubKeyInst *) pubKey;
-	feeHash 	hash;
-	feeSig 		sig;
-	unsigned char 	*Pm = NULL;
-	unsigned 	PmLen;
-	feeReturn	frtn;
-
-	if(pkinst->privGiant == NULL) {
-		dbgLog(("feePubKeyCreateSignature: Attempt to Sign without"
-			" private data\n"));
-		return FR_BadPubKey;
-	}
-	hash = feeHashAlloc();
-	sig = feeSigNewWithKey(pubKey, NULL, NULL);
-	if(sig == NULL) {
-		/*
-		 * Shouldn't happen, but...
-		 */
-		feeHashFree(hash);
-		return FR_BadPubKey;
-	}
-
-	/*
-	 * Get Pm to salt hash object
-	 */
-	Pm = feeSigPm(sig, &PmLen);
-	feeHashAddData(hash, Pm, PmLen);
-
-	/*
-	 * Now hash the data proper, then sign the hash
-	 */
-	feeHashAddData(hash, data, dataLen);
-	frtn = feeSigSign(sig,
-		feeHashDigest(hash),
-		feeHashDigestLen(),
-		pubKey);
-	if(frtn == FR_Success) {
-		frtn = feeSigData(sig, signature, signatureLen);
-	}
-	feeHashFree(hash);
-	feeSigFree(sig);
-	ffree(Pm);
-	return frtn;
-}
-
-/*
- * Verify digital signature, ElGamal style. If the signature is ECDSA,
- * we'll use that format for compatibility.
- */
-feeReturn feePubKeyVerifySignature(feePubKey pubKey,
-	const unsigned char *data,
-	unsigned dataLen,
-	const unsigned char *signature,
-	unsigned signatureLen)
-{
-	feeHash 		hash;
-	feeSig 			sig;
-	unsigned char 	*Pm = NULL;
-	unsigned 		PmLen;
-	feeReturn		frtn;
-
-	hash = feeHashAlloc();
-	frtn = feeSigParse(signature, signatureLen, &sig);
-	if(frtn) {
-		feeHashFree(hash);
-		#if CRYPTKIT_ECDSA_ENABLE
-		if(frtn == FR_WrongSignatureType) {
-			return feePubKeyVerifyECDSASignature(pubKey,
-				data,
-				dataLen,
-				signature,
-				signatureLen);
-		}
-		#endif	/* CRYPTKIT_ECDSA_ENABLE */
-		return frtn;
-	}
-
-	/*
-	 * Get PM as salt; eat salt, then hash data
-	 */
-	Pm = feeSigPm(sig, &PmLen);
-	feeHashAddData(hash, Pm, PmLen);
-	feeHashAddData(hash, data, dataLen);
-	frtn = feeSigVerify(sig,
-		feeHashDigest(hash),
-		feeHashDigestLen(),
-		pubKey);
-
-	feeHashFree(hash);
-	feeSigFree(sig);
-	ffree(Pm);
-	return frtn;
-}
-
-#pragma mark --- ECDSA signature: high level routines ---
-
-#if	CRYPTKIT_ECDSA_ENABLE
-/*
- * Generate digital signature, ECDSA style.
- */
-feeReturn feePubKeyCreateECDSASignature(feePubKey pubKey,
-	const unsigned char *data,
-	unsigned dataLen,
-	unsigned char **signature,	/* fmalloc'd and RETURNED */
-	unsigned *signatureLen)		/* RETURNED */
-{
-	pubKeyInst	*pkinst = (pubKeyInst *) pubKey;
-	sha1Obj 	sha1;
-	feeReturn	frtn;
-
-	if(pkinst->privGiant == NULL) {
-		dbgLog(("feePubKeyCreateECDSASignature: Attempt to Sign "
-			"without private data\n"));
-		return FR_BadPubKey;
-	}
-	sha1 = sha1Alloc();
-	sha1AddData(sha1, data, dataLen);
-	frtn = feeECDSASign(pubKey,
-		sha1Digest(sha1),
-		sha1DigestLen(),
-		NULL,			// randFcn
-		NULL,
-		signature,
-		signatureLen);
-	sha1Free(sha1);
-	return frtn;
-}
-#endif	/* CRYPTKIT_ECDSA_ENABLE */
-#endif  /* CRYPTKIT_HIGH_LEVEL_SIG */
-#endif	/* ECDSA_VERIFY_ONLY */
-
-#if	CRYPTKIT_HIGH_LEVEL_SIG
-
-#if	CRYPTKIT_ECDSA_ENABLE
-
-/*
- * Verify digital signature, ECDSA style.
- */
-feeReturn feePubKeyVerifyECDSASignature(feePubKey pubKey,
-	const unsigned char *data,
-	unsigned dataLen,
-	const unsigned char *signature,
-	unsigned signatureLen)
-{
-	sha1Obj 	sha1;
-	feeReturn	frtn;
-
-	sha1 = sha1Alloc();
-	sha1AddData(sha1, data, dataLen);
-	frtn = feeECDSAVerify(signature,
-		signatureLen,
-		sha1Digest(sha1),
-		sha1DigestLen(),
-		pubKey);
-	sha1Free(sha1);
-	return frtn;
-}
-
-#endif	/* CRYPTKIT_ECDSA_ENABLE */
-
-#endif	/* CRYPTKIT_HIGH_LEVEL_SIG */
 
 #pragma mark --- ECDH ---
 
@@ -957,22 +719,6 @@ void printPubKey(feePubKey pubKey)
 void printPubKey(feePubKey pubKey) {}
 #endif	// FEE_DEBUG
 
-/*
- * Prime the curveParams and giants modules for quick allocs of giants.
- */
-#if		GIANTS_VIA_STACK
-
-static int giantsInitd = 0;
-
-static void feePubKeyInitGiants(void)
-{
-	if(giantsInitd) {
-		return;
-	}
-	curveParamsInitGiants();
-	giantsInitd = 1;
-}
-#endif
 
 #pragma mark --- Native (custom) key blob formatting ---
 
@@ -1180,7 +926,6 @@ feeReturn feePubKeyInitFromPrivBlob(feePubKey pubKey,
 
 #endif	/* ECDSA_VERIFY_ONLY */
 
-#if	CRYPTKIT_DER_ENABLE
 #ifndef	ECDSA_VERIFY_ONLY
 
 /* 
@@ -1480,8 +1225,6 @@ feeReturn feePubKeyInitFromOpenSSLBlob(
 	}
 	return frtn;
 }
-
-#endif	/* CRYPTKIT_DER_ENABLE */
 
 /*
  * ANSI X9.62/Certicom key support.

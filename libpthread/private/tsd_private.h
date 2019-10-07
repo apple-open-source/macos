@@ -225,6 +225,13 @@
 #define __PTK_FRAMEWORK_SWIFT_KEY8		108
 #define __PTK_FRAMEWORK_SWIFT_KEY9		109
 
+/* Keys 190 - 194 are for the use of PerfUtils */
+#define __PTK_PERF_UTILS_KEY0		190
+#define __PTK_PERF_UTILS_KEY1		191
+#define __PTK_PERF_UTILS_KEY2		192
+#define __PTK_PERF_UTILS_KEY3		193
+#define __PTK_PERF_UTILS_KEY4		194
+
 /* Keys 210 - 229 are for libSystem usage within the iOS Simulator */
 /* They are offset from their corresponding libSystem keys by 200 */
 #define __PTK_LIBC_SIM_LOCALE_KEY	210

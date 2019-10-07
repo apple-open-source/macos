@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -89,20 +89,20 @@
 /* -----------------------------------------------------------------------------
  Forward declarations
 ----------------------------------------------------------------------------- */
-void pppoe_process_extra_options();
-void pppoe_check_options();
+void pppoe_process_extra_options(void);
+void pppoe_check_options(void);
 int pppoe_connect(int *errorcode);
-void pppoe_disconnect();
-void pppoe_close();
-void pppoe_cleanup();
+void pppoe_disconnect(void);
+void pppoe_close(void);
+void pppoe_cleanup(void);
 int pppoe_establish_ppp(int);
-void pppoe_wait_input();
+void pppoe_wait_input(void);
 void pppoe_disestablish_ppp(int);
 void pppoe_link_down(void *arg, uintptr_t p);
 
-static int pppoe_dial();
-static int pppoe_listen();
-static void closeall();
+static int pppoe_dial(void);
+static int pppoe_listen(void);
+static void closeall(void);
 static u_long load_kext(char *kext, int byBundleID);
 
 /* -----------------------------------------------------------------------------
@@ -250,7 +250,7 @@ int pppoe_connect(int *errorcode)
     s = socket(PF_SYSTEM, SOCK_RAW, SYSPROTO_EVENT);
     if (s >= 0) {
         
-        len = strlen(device);
+        len = (int)strlen(device);
         if (len <= sizeof(ifr.ifr_name)) {
 
             bzero(&ifr, sizeof(ifr));
@@ -287,7 +287,7 @@ int pppoe_connect(int *errorcode)
                         CFRelease(url);
                         strlcat(name, "/", sizeof(name));
                         strlcat(name, PPPOE_NKE, sizeof(name));
-#if !TARGET_OS_EMBEDDED // This file is not built for Embedded
+#if TARGET_OS_OSX // This file is not built for Embedded
                         if (!load_kext(name, 0))
 #else
                         if (!load_kext(PPPOE_NKE_ID, 1))
@@ -332,7 +332,7 @@ int pppoe_connect(int *errorcode)
         }
     }
 
-    if (setsockopt(sockfd, PPPPROTO_PPPOE, PPPOE_OPT_INTERFACE, device, strlen(device))) {
+    if (setsockopt(sockfd, PPPPROTO_PPPOE, PPPOE_OPT_INTERFACE, device, (socklen_t)strlen(device))) {
         error("PPPoE can't specify interface...\n");
         return errno;
     }

@@ -15,6 +15,9 @@ args=(
 )
 
 case $OSTYPE in
+  solaris2.<11->)
+    args+=( '(-c)-A[include absolute timestamps in output]' )
+  ;|
   aix*|solaris*)
     args+=(
       '(-c)-E[include delta timestamps of time spent within the system call]'
@@ -40,6 +43,9 @@ case $OSTYPE in
       "(-c)-S[don't report signals received by the process]"
       '(*)-p[trace specified existing processes]:pid:_pids'
     )
+  ;|
+  freebsd<10->.*)
+    args+=( '-H[include thread ID in the output of each event]' )
   ;;
 esac
 

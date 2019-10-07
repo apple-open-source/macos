@@ -29,9 +29,14 @@
 #include "WebFullScreenManagerProxy.h"
 
 struct wpe_view_backend;
+typedef struct _AtkObject AtkObject;
 
 namespace WKWPE {
 class View;
+}
+
+namespace WebCore {
+enum class DOMPasteAccessResponse : uint8_t;
 }
 
 namespace WebKit {
@@ -51,11 +56,15 @@ public:
 
     struct wpe_view_backend* viewBackend();
 
+#if ENABLE(ACCESSIBILITY)
+    AtkObject* accessible();
+#endif
+
 private:
     // PageClient
     std::unique_ptr<DrawingAreaProxy> createDrawingAreaProxy(WebProcessProxy&) override;
     void setViewNeedsDisplay(const WebCore::Region&) override;
-    void requestScroll(const WebCore::FloatPoint&, const WebCore::IntPoint&, bool) override;
+    void requestScroll(const WebCore::FloatPoint&, const WebCore::IntPoint&) override;
     WebCore::FloatPoint viewScrollPosition() override;
     WebCore::IntSize viewSize() override;
     bool isViewWindowActive() override;
@@ -70,7 +79,7 @@ private:
     void toolTipChanged(const String&, const String&) override;
 
     void didCommitLoadForMainFrame(const String&, bool) override;
-    void handleDownloadRequest(DownloadProxy*) override;
+    void handleDownloadRequest(DownloadProxy&) override;
 
     void didChangeContentSize(const WebCore::IntSize&) override;
 
@@ -87,6 +96,8 @@ private:
     WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&) override;
     WebCore::IntPoint screenToRootView(const WebCore::IntPoint&) override;
     WebCore::IntRect rootViewToScreen(const WebCore::IntRect&) override;
+    WebCore::IntPoint accessibilityScreenToRootView(const WebCore::IntPoint&) override;
+    WebCore::IntRect rootViewToAccessibilityScreen(const WebCore::IntRect&) override;
 
     void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool) override;
 #if ENABLE(TOUCH_EVENTS)
@@ -112,6 +123,7 @@ private:
     void willRecordNavigationSnapshot(WebBackForwardListItem&) override;
     void didRemoveNavigationGestureSnapshot() override;
 
+    void didStartProvisionalLoadForMainFrame() override;
     void didFirstVisuallyNonEmptyLayoutForMainFrame() override;
     void didFinishLoadForMainFrame() override;
     void didFailLoadForMainFrame() override;
@@ -142,6 +154,9 @@ private:
 #endif
 
     void didFinishProcessingAllPendingMouseEvents() final { }
+
+    IPC::Attachment hostFileDescriptor() final;
+    void requestDOMPasteAccess(const WebCore::IntRect&, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) final;
 
     WebCore::UserInterfaceLayoutDirection userInterfaceLayoutDirection() override;
 

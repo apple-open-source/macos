@@ -65,6 +65,7 @@ void DESContext::init(
     if (DesInst != NULL)
     {
         CCCryptorRelease(DesInst);
+        DesInst = NULL;
     }
     
     (void) CCCryptorCreateWithMode(0, kCCModeECB, kCCAlgorithmDES, ccDefaultPadding, NULL, keyData, kCCKeySizeDES, NULL, 0, 0, 0, &DesInst);
@@ -152,6 +153,7 @@ void DES3Context::init(
 
     if (DesInst != NULL) {
         CCCryptorRelease(DesInst);
+        DesInst = NULL;
     }
     
     (void) CCCryptorCreateWithMode(0, kCCModeECB, kCCAlgorithm3DES, ccDefaultPadding, NULL, keyData, kCCKeySize3DES, NULL, 0, 0, 0, &DesInst);

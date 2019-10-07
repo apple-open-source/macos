@@ -6,8 +6,6 @@
 	<true/>
 	<key>com.apple.private.allow-explicit-graphics-priority</key>
 	<true/>
-	<key>com.apple.private.network.socket-delegate</key>
-	<true/>
 	<key>com.apple.private.webinspector.allow-remote-inspection</key>
 	<true/>
 	<key>com.apple.private.webinspector.proxy-application</key>
@@ -32,6 +30,10 @@
 		<string>kTCCServiceCamera</string>
 	</array>
 	<key>com.apple.private.memorystatus</key>
+	<true/>
+	<key>com.apple.QuartzCore.webkit-end-points</key>
+	<true/>
+	<key>com.apple.QuartzCore.secure-mode</key>
 	<true/>
 </dict>
 </plist>

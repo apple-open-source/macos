@@ -210,6 +210,31 @@ _this; \
 if(!ok(memcmp_print(_P1_, _P2_, _LEN_)==0, args)) return 0; \
 })
     
+#define is(THIS, THAT, args...) \
+({ \
+char test_string[200]={0}; \
+snprintf(test_string,sizeof(test_string),args); \
+__typeof__(THIS) _this = (THIS); \
+__typeof__(THAT) _that = (THAT); \
+test_ok((_this == _that), test_string, test_directive, test_reason, \
+__FILE__, __LINE__, \
+"#          got: '%d'\n" \
+"#     expected: '%d'\n" , \
+_this, _that); \
+})
+    
+#define is_or_goto(THIS, THAT, TESTNAME, LABEL) \
+({ \
+__typeof__(THIS) _this = (THIS); \
+__typeof__(THAT) _that = (THAT); \
+test_ok((_this == _that), TESTNAME, test_directive, test_reason, \
+__FILE__, __LINE__, \
+"#          got: '%d'\n" \
+"#     expected: '%d'\n" , \
+_this, _that); \
+if(_this != _that) goto LABEL; \
+})
+    
 #define is_status(THIS, THAT, TESTNAME) \
 ({ \
 OSStatus _this = (THIS); \

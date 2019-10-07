@@ -64,6 +64,8 @@
 		0C259F1314FCA25F00A3A244 /* protos.h in Headers */ = {isa = PBXBuildFile; fileRef = C66479270A35E7C90026B51E /* protos.h */; };
 		0C477C9715000D7200C0DFA2 /* BLSetEFIBootDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CAD6839135CD78E00C9B626 /* BLSetEFIBootDevice.c */; };
 		0CAD683A135CD78E00C9B626 /* BLSetEFIBootDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CAD6839135CD78E00C9B626 /* BLSetEFIBootDevice.c */; };
+		A05957FA22989C69008C0499 /* bless.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = A087F015229769E20021CE0D /* bless.plist */; };
+		A0968A3C22A5B8E200F39FBD /* test_bless in CopyFiles */ = {isa = PBXBuildFile; fileRef = A0F8D4B222A1F8CA0018E165 /* test_bless */; };
 		B0063D8C16E7DD1C0001102E /* BLCreateEFIXMLRepresentationForElToritoEntry.c in Sources */ = {isa = PBXBuildFile; fileRef = B0063D8B16E7DD1C0001102E /* BLCreateEFIXMLRepresentationForElToritoEntry.c */; };
 		B074D69316E5ACDA006D723F /* BLElToritoFindUEFI.c in Sources */ = {isa = PBXBuildFile; fileRef = B074D69216E5ACDA006D723F /* BLElToritoFindUEFI.c */; };
 		BA17434C0987550D0076FBBE /* BLCreateEFIXMLRepresentationForLegacyDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = BA17434B0987550D0076FBBE /* BLCreateEFIXMLRepresentationForLegacyDevice.c */; };
@@ -192,7 +194,7 @@
 		FC4A2ABA1B0A6DE0005044BB /* BLGetOSVersion.c in Sources */ = {isa = PBXBuildFile; fileRef = FCBA42D71B0A4AB60044E800 /* BLGetOSVersion.c */; };
 		FC4A58401F86A12F00F15E95 /* personalize.m in Sources */ = {isa = PBXBuildFile; fileRef = FC4A583E1F86A12F00F15E95 /* personalize.m */; };
 		FC4A58421F86D9CB00F15E95 /* Bom.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC4A58411F86D9CB00F15E95 /* Bom.framework */; };
-		FC88167E1EBBD73500935340 /* OSPersonalization.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC88167D1EBBD6EE00935340 /* OSPersonalization.framework */; };
+		FC88167E1EBBD73500935340 /* OSPersonalization.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC88167D1EBBD6EE00935340 /* OSPersonalization.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -283,6 +285,26 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		A063B40D224D9723006A3A3B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				A05957FA22989C69008C0499 /* bless.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		A0968A3B22A5B89D00F39FBD /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/tests/bless;
+			dstSubfolderSpec = 0;
+			files = (
+				A0968A3C22A5B8E200F39FBD /* test_bless in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		BA83D5A10C19C22F00752534 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -327,6 +349,8 @@
 
 /* Begin PBXFileReference section */
 		0CAD6839135CD78E00C9B626 /* BLSetEFIBootDevice.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLSetEFIBootDevice.c; sourceTree = "<group>"; };
+		A087F015229769E20021CE0D /* bless.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = bless.plist; sourceTree = "<group>"; };
+		A0F8D4B222A1F8CA0018E165 /* test_bless */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_bless; sourceTree = "<group>"; };
 		B0063D8B16E7DD1C0001102E /* BLCreateEFIXMLRepresentationForElToritoEntry.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLCreateEFIXMLRepresentationForElToritoEntry.c; sourceTree = "<group>"; };
 		B074D69216E5ACDA006D723F /* BLElToritoFindUEFI.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLElToritoFindUEFI.c; sourceTree = "<group>"; };
 		BA10D77D04FADE430070B3E0 /* minibless.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = minibless.c; sourceTree = "<group>"; };
@@ -569,6 +593,8 @@
 		BA3A398B04C8AB2200E2414C /* test */ = {
 			isa = PBXGroup;
 			children = (
+				A0F8D4B222A1F8CA0018E165 /* test_bless */,
+				A087F015229769E20021CE0D /* bless.plist */,
 				BA3A398C04C8AB3500E2414C /* testgetfileid.c */,
 				C6F19FD90AB0CA2800380AF6 /* testcgtext.c */,
 				FCA63E2014F5C291006483AF /* testgenerateoflabel.c */,
@@ -840,6 +866,8 @@
 				C617597C057E749600252FAB /* Frameworks */,
 				C6175982057E749600252FAB /* Rez */,
 				C6175983057E749600252FAB /* CopyFiles */,
+				A063B40D224D9723006A3A3B /* CopyFiles */,
+				A0968A3B22A5B89D00F39FBD /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -968,6 +996,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* bless */;

@@ -23,8 +23,6 @@
 # Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-#pragma ident	"@(#)tst.ufunc.ksh	1.1	06/08/28 SMI"
-
 script()
 {
 	$dtrace -xnolibs -qs /dev/stdin <<EOF
@@ -45,7 +43,7 @@ EOF
 spinny()
 {
 	while true; do
-		let i=i+1
+		i=$((i+1))
 	done
 }
 

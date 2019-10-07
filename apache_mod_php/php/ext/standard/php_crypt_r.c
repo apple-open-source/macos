@@ -1,4 +1,3 @@
-/* $Id$ */
 /*
    +----------------------------------------------------------------------+
    | PHP Version 7                                                        |
@@ -364,7 +363,7 @@ char * php_md5_crypt_r(const char *pw, const char *salt, char *out)
 		PHP_MD5Update(&ctx, final, (unsigned int)(pl > 16 ? 16 : pl));
 
 	/* Don't leave anything around in vm they could use. */
-	memset(final, 0, sizeof(final));
+	ZEND_SECURE_ZERO(final, sizeof(final));
 
 	/* Then something really weird... */
 	for (i = pwl; i != 0; i >>= 1)
@@ -425,4 +424,3 @@ char * php_md5_crypt_r(const char *pw, const char *salt, char *out)
 #undef MD5_MAGIC
 #undef MD5_MAGIC_LEN
 #endif
-

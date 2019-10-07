@@ -107,6 +107,7 @@ public:
     uint64_t resultInteger() const { return m_resultInteger; }
 
     WEBCORE_EXPORT const IDBGetResult& getResult() const;
+    WEBCORE_EXPORT IDBGetResult& getResultRef();
     WEBCORE_EXPORT const IDBGetAllResult& getAllResult() const;
 
     WEBCORE_EXPORT IDBResultData();
@@ -228,7 +229,7 @@ template<class Decoder> Optional<IDBResultData> IDBResultData::decode(Decoder& d
         result.m_getAllResult = WTFMove(object);
     }
 
-    return WTFMove(result);
+    return result;
 }
 
 } // namespace WebCore

@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: LsofTest.h,v 1.12 2008/07/05 16:21:07 abe Exp $
+ * $Id: LsofTest.h,v 1.13 2018/02/14 14:21:44 abe Exp $
  */
 
 
@@ -77,6 +77,12 @@
 #include <signal.h>
 
 #include <sys/types.h>
+
+#if	defined(LT_DIAL_linux) && LT_VERS>=414014
+#undef	major
+#include <sys/sysmacros.h>
+#endif	/* defined(LT_DIAL_linux) && LT_VERS>=414014 */
+
 #include <sys/param.h>
 #include <sys/stat.h>
 

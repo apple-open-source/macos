@@ -50,7 +50,7 @@ SecCertificateRef CERT_FindUserCertByUsage(SecKeychainRef dbhandle,
 SecCertificateRef CERT_FindCertByNicknameOrEmailAddr(SecKeychainRef dbhandle, char *name);
 
 SecPublicKeyRef SECKEY_CopyPublicKey(SecPublicKeyRef pubKey);
-void SECKEY_DestroyPublicKey(SecPublicKeyRef pubKey);
+void SECKEY_DestroyPublicKey(SecPublicKeyRef CF_CONSUMED pubKey);
 SecPublicKeyRef SECKEY_CopyPrivateKey(SecPublicKeyRef privKey);
 void SECKEY_DestroyPrivateKey(SecPublicKeyRef privKey);
 void CERT_DestroyCertificate(SecCertificateRef cert);
@@ -69,14 +69,14 @@ SecCertificateRef CERT_DupCertificate(SecCertificateRef cert);
 
 // Generate a certificate chain from a certificate.
 
-CFArrayRef CERT_CertChainFromCert(SecCertificateRef cert, SECCertUsage usage,Boolean includeRoot);
+CF_RETURNS_RETAINED CFArrayRef CERT_CertChainFromCert(SecCertificateRef cert, SECCertUsage usage,Boolean includeRoot, Boolean mustIncludeRoot);
 
-CFArrayRef CERT_CertListFromCert(SecCertificateRef cert);
+CF_RETURNS_RETAINED CFArrayRef CERT_CertListFromCert(SecCertificateRef cert);
 
-CFArrayRef CERT_DupCertList(CFArrayRef oldList);
+CF_RETURNS_RETAINED CFArrayRef CERT_DupCertList(CFArrayRef oldList);
 
 // Extract a public key object from a SubjectPublicKeyInfo
-SecPublicKeyRef CERT_ExtractPublicKey(SecCertificateRef cert);
+CF_RETURNS_RETAINED SecPublicKeyRef CERT_ExtractPublicKey(SecCertificateRef cert);
 
 SECStatus CERT_CheckCertUsage (SecCertificateRef cert,unsigned char usage);
 
@@ -125,7 +125,7 @@ SECStatus CERT_VerifyCert(SecKeychainRef keychainOrArray, SecCertificateRef cert
 	  		  const CSSM_DATA_PTR *otherCerts,    /* intermediates */
 			  CFTypeRef policies, CFAbsoluteTime stime, SecTrustRef *trustRef);
 
-CFTypeRef CERT_PolicyForCertUsage(SECCertUsage certUsage);
+CF_RETURNS_RETAINED CFTypeRef CERT_PolicyForCertUsage(SECCertUsage certUsage);
 
 int CERT_CompareCssmData(const CSSM_DATA *d1, const CSSM_DATA *d2);
 

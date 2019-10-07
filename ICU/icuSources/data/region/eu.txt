@@ -14,11 +14,11 @@ eu{
         017{"Erdialdeko Afrika"}
         018{"Afrika hegoaldea"}
         019{"Amerika"}
-        021{"Amerika iparraldea"}
+        021{"Amerikako iparraldea"}
         029{"Karibea"}
         030{"Asia ekialdea"}
         034{"Asia hegoaldea"}
-        035{"Asia hego-ekialdea"}
+        035{"Asiako hego-ekialdea"}
         039{"Europa hegoaldea"}
         053{"Australasia"}
         054{"Melanesia"}
@@ -48,7 +48,7 @@ eu{
         AT{"Austria"}
         AU{"Australia"}
         AW{"Aruba"}
-        AX{"Aland uharteak"}
+        AX{"Åland"}
         AZ{"Azerbaijan"}
         BA{"Bosnia-Herzegovina"}
         BB{"Barbados"}
@@ -72,7 +72,7 @@ eu{
         BY{"Bielorrusia"}
         BZ{"Belize"}
         CA{"Kanada"}
-        CC{"Cocos uharteak"}
+        CC{"Cocos (Keeling) uharteak"}
         CD{"Kongoko Errepublika Demokratikoa"}
         CF{"Afrika Erdiko Errepublika"}
         CG{"Kongo"}
@@ -110,7 +110,7 @@ eu{
         EZ{"Eurogunea"}
         FI{"Finlandia"}
         FJ{"Fiji"}
-        FK{"Malvinak"}
+        FK{"Falklandak"}
         FM{"Mikronesia"}
         FO{"Faroe uharteak"}
         FR{"Frantzia"}
@@ -133,7 +133,7 @@ eu{
         GU{"Guam"}
         GW{"Ginea Bissau"}
         GY{"Guyana"}
-        HK{"Hong Kong Txinako AEB"}
+        HK{"Hong Kong"}
         HM{"Heard eta McDonald uharteak"}
         HN{"Honduras"}
         HR{"Kroazia"}
@@ -183,11 +183,11 @@ eu{
         MF{"San Martin"}
         MG{"Madagaskar"}
         MH{"Marshall Uharteak"}
-        MK{"Mazedonia"}
+        MK{"Ipar Mazedonia"}
         ML{"Mali"}
         MM{"Myanmar (Birmania)"}
         MN{"Mongolia"}
-        MO{"Macau Txinako AEB"}
+        MO{"Macau"}
         MP{"Ipar Mariana uharteak"}
         MQ{"Martinika"}
         MR{"Mauritania"}
@@ -222,7 +222,7 @@ eu{
         PM{"Saint-Pierre eta Mikelune"}
         PN{"Pitcairn uharteak"}
         PR{"Puerto Rico"}
-        PS{"Palestinako Lurraldeak"}
+        PS{"Palestinar Lurralde Okupatuak"}
         PT{"Portugal"}
         PW{"Palau"}
         PY{"Paraguai"}
@@ -297,8 +297,6 @@ eu{
     }
     Countries%short{
         GB{"EB"}
-        HK{"Hong Kong"}
-        MO{"Macau"}
         PS{"Palestina"}
         US{"AEB"}
     }
@@ -307,9 +305,8 @@ eu{
         CG{"Kongoko Errepublika"}
         CI{"CI"}
         CZ{"Txekiar Errepublika"}
-        FK{"Falkland uharteak"}
-        MK{"Mazedoniako Jugoslaviar Errepublika Ohia"}
+        FK{"Falklandak (Malvinak)"}
         TL{"TL"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
 }

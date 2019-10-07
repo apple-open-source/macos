@@ -229,7 +229,7 @@ static void ntfs_buf_iodone(buf_t buf, void *arg __unused)
 	vnode_t vn;
 	mount_t mp;
 	ntfs_inode *ni;
-	unsigned size, b_flags;
+	unsigned size, recs_per_block, b_flags;
 	errno_t err;
 
 	vn = buf_vnode(buf);
@@ -242,8 +242,9 @@ static void ntfs_buf_iodone(buf_t buf, void *arg __unused)
 		panic("%s(): Called not for $MFT!\n", __FUNCTION__);
 	/* The size and offset in the attribute at which this buffer begins. */
 	size = buf_count(buf);
-	if (size != ni->block_size)
-		panic("%s(): size != ni->block_size\n", __FUNCTION__);
+	recs_per_block = size >> ni->block_size_shift;
+	if (!recs_per_block)
+		panic("%s(): !recs_per_block\n", __FUNCTION__);
 	ofs = (s64)buf_lblkno(buf) << ni->block_size_shift;
 	lck_spin_lock(&ni->size_lock);
 	data_size = ni->data_size;
@@ -278,26 +279,35 @@ static void ntfs_buf_iodone(buf_t buf, void *arg __unused)
 	 * nothing to remove.
 	 */
 	if (!buf_error(buf) || !(b_flags & B_READ)) {
-		NTFS_RECORD *rec;
+		u8 *block_data;
+		u32 recno;
 
-		err = buf_map(buf, (caddr_t*)&rec);
+		err = buf_map(buf, (caddr_t*)&block_data);
 		if (err) {
 			ntfs_error(mp, "Failed to map buffer (error %d).",
 					err);
 			goto err;
 		}
-		if (b_flags & B_READ) {
-			err = ntfs_mst_fixup_post_read(rec, size);
-			if (err) {
-				ntfs_error(mp, "Multi sector transfer error "
-						"detected in mft_no 0x%llx "
-						"(error %d).  Run chkdsk",
-						(unsigned long long)ni->mft_no,
-						err);
-				buf_seterror(buf, err);
+		for (recno = 0; recno < recs_per_block; ++recno) {
+			NTFS_RECORD *const rec = (NTFS_RECORD*)
+				&block_data[recno * ni->block_size];
+			if (b_flags & B_READ) {
+				err = ntfs_mst_fixup_post_read(rec,
+					ni->block_size);
+				if (err) {
+					ntfs_error(mp, "Multi sector transfer "
+							"error detected in "
+							"mft_no 0x%llx (error "
+							"%d).  Run chkdsk",
+							(unsigned long long)
+							ni->mft_no,
+							err);
+					buf_seterror(buf, err);
+				}
+			} else if(__ntfs_is_magic(rec->magic, magic_FILE)) {
+				ntfs_mst_fixup_post_write(rec);
 			}
-		} else
-			ntfs_mst_fixup_post_write(rec);
+		}
 		err = buf_unmap(buf);
 		if (err) {
 			ntfs_error(mp, "Failed to unmap buffer (error %d).",
@@ -437,66 +447,87 @@ static int ntfs_vnop_strategy(struct vnop_strategy_args *a)
 	 * check that B_READ is not set which implies it is a write.
 	 */
 	if (!(b_flags & B_READ)) {
-		NTFS_RECORD *rec;
-		NTFS_RECORD_TYPE magic;
-		BOOL need_mirr_sync;
-		
-		err = buf_map(buf, (caddr_t*)&rec);
+		const u32 recs_per_block =
+			buf_count(buf) >> ni->block_size_shift;
+
+		u8 *block_data;
+		u32 recno;
+
+		err = buf_map(buf, (caddr_t*)&block_data);
 		if (err) {
 			ntfs_error(vol->mp, "Failed to map buffer (error %d).",
 					err);
 			goto err;
 		}
-		if (!rec)
+		if (!block_data)
 			panic("%s(): buf_map() returned NULL.\n", __FUNCTION__);
+
+		for (recno = 0; recno < recs_per_block; ++recno) {
+			NTFS_RECORD *const rec = (NTFS_RECORD*)
+				&block_data[recno << ni->block_size_shift];
+			NTFS_RECORD_TYPE magic;
+			BOOL need_mirr_sync;
+
 #if 0
-		need_mirr_sync = FALSE;
-		if (ni->type == AT_INDEX_ALLOCATION)
-			magic = magic_INDX;
-		else if (ni == mft_ni || ni == vol->mftmirr_ni) {
-			magic = magic_FILE;
-			if (ni == mft_ni)
-				need_mirr_sync = (lblkno < vol->mftmirr_size);
-		} else
-			panic("%s(): Unknown mst protected inode 0x%llx, type "
-					"0x%x, name_len 0x%x.", __FUNCTION__,
-					(unsigned long long)ni->mft_no,
-					(unsigned)le32_to_cpu(ni->type),
-					(unsigned)ni->name_len);
-#else
-		need_mirr_sync = (lblkno < vol->mftmirr_size);
-		magic = magic_FILE;
-#endif
-		/*
-		 * Only apply fixups if the record has the correct magic.  We
-		 * may have detected a multi sector transfer error and are thus
-		 * now writing a BAAD record in which case we do not want to
-		 * touch its contents.
-		 *
-		 * Further, if there is an error do not sync the record to the
-		 * mft mirror as that may still be intact and we do not want to
-		 * overwrite the correct data with corrupt data.
-		 */
-		if (__ntfs_is_magic(rec->magic, magic)) {
-			err = ntfs_mst_fixup_pre_write(rec, ni->block_size);
-			if (err) {
-				/* The record is corrupt, do not write it. */
-				ntfs_error(vol->mp, "Failed to apply mst "
-						"fixups (mft_no 0x%llx, type "
-						"0x%x, offset 0x%llx).",
+			need_mirr_sync = FALSE;
+			if (ni->type == AT_INDEX_ALLOCATION)
+				magic = magic_INDX;
+			else if (ni == mft_ni || ni == vol->mftmirr_ni) {
+				magic = magic_FILE;
+				if (ni == mft_ni)
+					need_mirr_sync =
+						((lblkno + recno) <
+						vol->mftmirr_size);
+			} else
+				panic("%s(): Unknown mst protected inode "
+						"0x%llx, type 0x%x, name_len "
+						"0x%x.", __FUNCTION__,
 						(unsigned long long)ni->mft_no,
 						(unsigned)le32_to_cpu(ni->type),
-						(unsigned long long)ofs);
-				err = EIO;
-				goto unm_err;
+						(unsigned)ni->name_len);
+#else
+			need_mirr_sync = ((lblkno + recno) < vol->mftmirr_size);
+			magic = magic_FILE;
+#endif
+			/*
+			 * Only apply fixups if the record has the correct
+			 * magic.  We may have detected a multi sector transfer
+			 * error and are thus now writing a BAAD record in which
+			 * case we do not want to touch its contents.
+			 *
+			 * Further, if there is an error do not sync the record
+			 * to the mft mirror as that may still be intact and we
+			 * do not want to overwrite the correct data with
+			 * corrupt data.
+			 */
+			if (__ntfs_is_magic(rec->magic, magic)) {
+				err = ntfs_mst_fixup_pre_write(rec,
+					ni->block_size);
+				if (err) {
+					/* The record is corrupt, do not write
+					 * it. */
+					ntfs_error(vol->mp, "Failed to apply "
+							"mst fixups (mft_no "
+							"0x%llx, type 0x%x, "
+							"offset 0x%llx).",
+							(unsigned long long)ni->
+							mft_no,
+							(unsigned)le32_to_cpu(
+							ni->type),
+							(unsigned long long)
+							ofs);
+					err = EIO;
+					goto unm_err;
+				}
+				do_fixup = TRUE;
 			}
-			do_fixup = TRUE;
+
 			if (need_mirr_sync) {
 				/*
 				 * Note we continue despite an error as we may
 				 * succeed to write the actual mft record.
 				 */
-				err = ntfs_mft_mirror_sync(vol, lblkno,
+				err = ntfs_mft_mirror_sync(vol, lblkno + recno,
 						(MFT_RECORD*)rec,
 						!(b_flags & B_ASYNC));
 				if (err)
@@ -1732,7 +1763,7 @@ static int ntfs_vnop_close(struct vnop_close_args *a)
  * ntfs_vnop_access -
  *
  */
-static int ntfs_vnop_access(struct vnop_access_args *a)
+static int ntfs_vnop_access(struct vnop_access_args *a __attribute__((unused)))
 {
 	errno_t err;
 
@@ -3825,7 +3856,7 @@ static int ntfs_vnop_write(struct vnop_write_args *a)
  * ntfs_vnop_ioctl -
  *
  */
-static int ntfs_vnop_ioctl(struct vnop_ioctl_args *a)
+static int ntfs_vnop_ioctl(struct vnop_ioctl_args *a __attribute__((unused)))
 {
 	errno_t err;
 
@@ -3840,7 +3871,7 @@ static int ntfs_vnop_ioctl(struct vnop_ioctl_args *a)
  * ntfs_vnop_select -
  *
  */
-static int ntfs_vnop_select(struct vnop_select_args *a)
+static int ntfs_vnop_select(struct vnop_select_args *a __attribute__((unused)))
 {
 	errno_t err;
 
@@ -3855,7 +3886,8 @@ static int ntfs_vnop_select(struct vnop_select_args *a)
  * ntfs_vnop_exchange -
  *
  */
-static int ntfs_vnop_exchange(struct vnop_exchange_args *a)
+static int ntfs_vnop_exchange(
+		struct vnop_exchange_args *a __attribute__((unused)))
 {
 	errno_t err;
 

@@ -3,9 +3,9 @@ Test date_sunrise() function : usage variation - Passing unexpected values to fi
 --FILE--
 <?php
 /* Prototype  : mixed date_sunrise(mixed time [, int format [, float latitude [, float longitude [, float zenith [, float gmt_offset]]]]])
- * Description: Returns time of sunrise for a given day and location 
+ * Description: Returns time of sunrise for a given day and location
  * Source code: ext/date/php_date.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing date_sunrise() : usage variation ***\n";
@@ -113,14 +113,14 @@ bool(false)
 bool(false)
 
 --int 12345--
-string(5) "09:51"
-float(9.855%d)
-int(1218169278)
+string(5) "09:50"
+float(9.849%d)
+int(1218169259)
 
 --int -12345--
 string(5) "09:54"
-float(9.9097820911118)
-int(1218169475)
+float(9.904%d)
+int(1218169455)
 
 --empty array--
 

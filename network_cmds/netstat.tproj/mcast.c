@@ -251,7 +251,7 @@ ether_ntoa((struct ether_addr *)&psa->sdl.sdl_data);
 		/* Interface upon which the membership exists */
 		psa = (sockunion_t *)ifma->ifma_name;
 		if (psa != NULL && psa->sa.sa_family == AF_LINK) {
-			strlcpy(myifname, link_ntoa(&psa->sdl), IFNAMSIZ);
+			strlcpy(myifname, link_ntoa(&psa->sdl), sizeof(myifname));
 			pcolon = strchr(myifname, ':');
 			if (pcolon)
 				*pcolon = '\0';
@@ -339,7 +339,7 @@ ifmalist_dump_mcstat(struct ifmaddrs *ifmap)
 		if (af != 0 && pgsa->sa.sa_family != af)
 			continue;
 
-		strlcpy(thisifname, link_ntoa(&psa->sdl), IFNAMSIZ);
+		strlcpy(thisifname, link_ntoa(&psa->sdl), sizeof(thisifname));
 		pcolon = strchr(thisifname, ':');
 		if (pcolon)
 			*pcolon = '\0';

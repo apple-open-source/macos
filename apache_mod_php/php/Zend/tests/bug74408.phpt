@@ -1,11 +1,7 @@
 --TEST--
 Bug #74408 (Endless loop bypassing execution time limit)
---INI--
-error_reporting = E_ALL | E_DEPRECATED | E_STRICT
 --FILE--
 <?php
-
- //php.ini: error_reporting = E_ALL | E_DEPRECATED | E_STRICT
 
  class ErrorHandling {
 
@@ -13,7 +9,7 @@ error_reporting = E_ALL | E_DEPRECATED | E_STRICT
 	  $bla = new NonExistingClass2();
   }
 
-  public function exception_handler(Error $e) { 
+  public function exception_handler(Error $e) {
 	  echo "Caught, exception: " . $e->getMessage();
   }
  }

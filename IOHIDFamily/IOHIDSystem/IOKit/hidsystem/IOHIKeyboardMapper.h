@@ -147,11 +147,11 @@ public:
 					const UInt8 *  mapping,
 					  UInt32         mappingLength,
 					  bool           mappingShouldBeFreed);
-	virtual void free();
+	virtual void free(void) APPLE_KEXT_OVERRIDE;
 	
 	virtual const UInt8 *   mapping();
 	virtual UInt32          mappingLength();
-	virtual bool 		  	serialize(OSSerialize *s) const;
+	virtual bool 		  	serialize(OSSerialize *s) const APPLE_KEXT_OVERRIDE;
 	
 	virtual void 		translateKeyCode(UInt8 key, bool keyDown, kbdBitVector keyBits);
 	virtual UInt8  		getParsedSpecialKey(UInt8 logical);   //retrieve a key from _parsedMapping

@@ -4,11 +4,7 @@
  * Copyright 2007-2016 by Apple Inc.
  * Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
  */
 
 /*
@@ -205,6 +201,7 @@ cupsdUpdateEnv(void)
   set_if_undefined("CUPS_SERVERBIN", ServerBin);
   set_if_undefined("CUPS_SERVERROOT", ServerRoot);
   set_if_undefined("CUPS_STATEDIR", StateDir);
+  set_if_undefined("DYLD_INSERT_LIBRARIES", NULL);
   set_if_undefined("DYLD_LIBRARY_PATH", NULL);
   set_if_undefined("HOME", TempDir);
   set_if_undefined("LD_ASSUME_KERNEL", NULL);

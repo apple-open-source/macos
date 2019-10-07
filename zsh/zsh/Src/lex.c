@@ -158,7 +158,7 @@ mod_export int nocomments;
 /* add raw input characters while parsing command substitution */
 
 /**/
-static int lex_add_raw;
+int lex_add_raw;
 
 /* variables associated with the above */
 
@@ -677,7 +677,7 @@ gettok(void)
 		(char *)hcalloc(lexbuf.siz = LEX_HEAP_SIZE);
 	    add(c);
 	}
-	hwend();
+	hwabort();
 	while ((c = ingetc()) != '\n' && !lexstop) {
 	    hwaddc(c);
 	    addtoline(c);
@@ -760,7 +760,7 @@ gettok(void)
 	return AMPER;
     case LX1_BAR:
 	d = hgetc();
-	if (d == '|')
+	if (d == '|' && !incasepat)
 	    return DBAR;
 	else if (d == '&')
 	    return BARAMP;
@@ -1058,7 +1058,7 @@ gettokstr(int c, int sub)
 	    if (isset(SHGLOB)) {
 		if (sub || in_brace_param)
 		    break;
-		if (incasepat && !lexbuf.len)
+		if (incasepat > 0 && !lexbuf.len)
 		    return INPAR;
 		if (!isset(KSHGLOB) && lexbuf.len)
 		    goto brk;
@@ -1291,7 +1291,9 @@ gettokstr(int c, int sub)
 		ALLOWHIST
 		if (c != '\'') {
 		    unmatched = '\'';
-		    peek = LEXERR;
+		    /* Not an error when called from bufferwords() */
+		    if (!(lexflags & LEXFLAGS_ACTIVE))
+			peek = LEXERR;
 		    cmdpop();
 		    goto brk;
 		}
@@ -1313,7 +1315,9 @@ gettokstr(int c, int sub)
 	    cmdpop();
 	    if (c) {
 		unmatched = '"';
-		peek = LEXERR;
+		/* Not an error when called from bufferwords() */
+		if (!(lexflags & LEXFLAGS_ACTIVE))
+		    peek = LEXERR;
 		goto brk;
 	    }
 	    c = Dnull;
@@ -1350,7 +1354,9 @@ gettokstr(int c, int sub)
 	    cmdpop();
 	    if (c != '`') {
 		unmatched = '`';
-		peek = LEXERR;
+		/* Not an error when called from bufferwords() */
+		if (!(lexflags & LEXFLAGS_ACTIVE))
+		    peek = LEXERR;
 		goto brk;
 	    }
 	    c = Tick;
@@ -1359,17 +1365,13 @@ gettokstr(int c, int sub)
 	case LX2_DASH:
 	    /*
 	     * - shouldn't be treated as a special character unless
-	     * we're in a pattern.  Howeve,simply  counting "[" doesn't
-	     * work as []a-z] is a valid expression and we don't know
-	     * down here what this "[" is for as $foo[stuff] is valid
-	     * in zsh.  So just detect an opening [, which is enough
-	     * to turn this into a pattern; the Dash will be harmlessly
-	     * untokenised if not wanted.
+	     * we're in a pattern.  Unfortunately, working out for
+	     * sure in complicated expressions whether we're in a
+	     * pattern is tricky.  So we'll make it special and
+	     * turn it back any time we don't need it special.
+	     * This is not ideal as it's a lot of work.
 	     */
-	    if (seen_brct)
-		c = Dash;
-           else
-               c = '-';
+	    c = Dash;
            break;
        case LX2_BANG:
            /*
@@ -1396,7 +1398,7 @@ gettokstr(int c, int sub)
 	return LEXERR;
     }
     hungetc(c);
-    if (unmatched)
+    if (unmatched && !(lexflags & LEXFLAGS_ACTIVE))
 	zerr("unmatched %c", unmatched);
     if (in_brace_param) {
 	while(bct-- >= in_brace_param)
@@ -1611,6 +1613,7 @@ parsestr(char **s)
 		zerr("parse error near `%c'", err);
 	    else
 		zerr("parse error");
+	    tok = LEXERR;
 	}
     }
     return err;
@@ -1624,7 +1627,7 @@ parsestrnoerr(char **s)
 
     zcontext_save();
     untokenize(*s);
-    inpush(dupstring(*s), 0, NULL);
+    inpush(dupstring_wlen(*s, l), 0, NULL);
     strinbeg(0);
     lexbuf.len = 0;
     lexbuf.ptr = tokstr = *s;
@@ -1656,7 +1659,7 @@ parse_subscript(char *s, int sub, int endchar)
     if (!*s || *s == endchar)
 	return 0;
     zcontext_save();
-    untokenize(t = dupstring(s));
+    untokenize(t = dupstring_wlen(s, l));
     inpush(t, 0, NULL);
     strinbeg(0);
     /*
@@ -1672,7 +1675,7 @@ parse_subscript(char *s, int sub, int endchar)
      * length preservation.
      */
     lexbuf.len = 0;
-    lexbuf.ptr = tokstr = dupstring(s);
+    lexbuf.ptr = tokstr = dupstring_wlen(s, l);
     lexbuf.siz = l + 1;
     err = dquote_parse(endchar, sub);
     toklen = (int)(lexbuf.ptr - tokstr);
@@ -1711,7 +1714,7 @@ parse_subst_string(char *s)
 	return 0;
     zcontext_save();
     untokenize(s);
-    inpush(dupstring(s), 0, NULL);
+    inpush(dupstring_wlen(s, l), 0, NULL);
     strinbeg(0);
     lexbuf.len = 0;
     lexbuf.ptr = tokstr = s;
@@ -1863,7 +1866,7 @@ exalias(void)
     Reswd rw;
 
     hwend();
-    if (interact && isset(SHINSTDIN) && !strin && !incasepat &&
+    if (interact && isset(SHINSTDIN) && !strin && incasepat <= 0 &&
 	tok == STRING && !nocorrect && !(inbufflags & INP_ALIAS) &&
 	(isset(CORRECTALL) || (isset(CORRECT) && incmdpos)))
 	spckword(&tokstr, 1, incmdpos, 1);
@@ -2064,9 +2067,7 @@ skipcomm(void)
     int new_lexstop, new_lex_add_raw;
     int save_infor = infor;
     struct lexbufstate new_lexbuf;
-    int noalias = noaliases;
 
-    noaliases = 1;
     infor = 0;
     cmdpush(CS_CMDSUBST);
     SETPARBEGIN
@@ -2134,8 +2135,12 @@ skipcomm(void)
      * function at the history layer --- this is consistent with the
      * intention of maintaining the history and input layers across
      * the recursive parsing.
+     *
+     * Also turn off LEXFLAGS_NEWLINE because this is already skipping
+     * across the entire construct, and parse_event() needs embedded
+     * newlines to be "real" when looking for the OUTPAR token.
      */
-    lexflags &= ~LEXFLAGS_ZLE;
+    lexflags &= ~(LEXFLAGS_ZLE|LEXFLAGS_NEWLINE);
     dbparens = 0;	/* restored by zcontext_restore_partial() */
 
     if (!parse_event(OUTPAR) || tok != OUTPAR) {
@@ -2193,7 +2198,6 @@ skipcomm(void)
 	SETPAREND
     cmdpop();
     infor = save_infor;
-    noaliases = noalias;
 
     return lexstop;
 #endif

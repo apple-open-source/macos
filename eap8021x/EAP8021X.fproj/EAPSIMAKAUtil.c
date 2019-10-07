@@ -645,7 +645,7 @@ EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, boo
 	}
 	goto done;
     }
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     CFDictionaryRef info = SIMCopyEncryptedIMSIInfo(type);
     if (info == NULL) {
 	return NULL;
@@ -674,7 +674,7 @@ EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, boo
     }
     my_CFRelease(&realm);
     my_CFRelease(&info);
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 
 done:
     encrypted_identity_info = (EAPSIMAKAEncryptedIdentityInfoRef)malloc(sizeof(*encrypted_identity_info));

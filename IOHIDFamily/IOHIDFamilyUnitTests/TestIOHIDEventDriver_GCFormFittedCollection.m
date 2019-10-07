@@ -52,7 +52,7 @@
     HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_IOREG,
                                 result == XCTWaiterResultCompleted,
                                 "result:%ld %@",
-                                (long)result,
+                                result,
                                 self.testServiceExpectation);
 
     id property = CFBridgingRelease(IOHIDServiceClientCopyProperty(self.eventService, CFSTR("GameControllerPointer")));

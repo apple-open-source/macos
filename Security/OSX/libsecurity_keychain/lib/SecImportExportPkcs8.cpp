@@ -49,7 +49,6 @@
 #include <Security/secasn1t.h>
 #include <security_asn1/nssUtils.h>
 #include <security_utilities/debugging.h>
-#include <security_utilities/devrandom.h>
 #include <Security/oidsalg.h>
 #include <Security/SecKeyPriv.h>
 #include <security_cdsa_utils/cuCdsaUtils.h>
@@ -828,7 +827,6 @@ OSStatus impExpPkcs8Export(
 	CFMutableDataRef					outData,		// output appended here
 	const char							**pemHeader)	
 {
-	DevRandomGenerator				rng;
 	SecNssCoder						coder;
 	impExpPKCS5_PBES2_Params		pbes2Params;
 	CSSM_X509_ALGORITHM_IDENTIFIER  &keyDeriveAlgId = pbes2Params.keyDerivationFunc;
@@ -853,7 +851,8 @@ OSStatus impExpPkcs8Export(
 	impExpPKCS5_PBKDF2_Params pbkdf2Params;
 	memset(&pbkdf2Params, 0, sizeof(pbkdf2Params));
 	coder.allocItem(pbkdf2Params.salt, PKCS5_V2_SALT_LEN);
-	rng.random(pbkdf2Params.salt.Data, PKCS5_V2_SALT_LEN);
+    MacOSError::check(SecRandomCopyBytes(kSecRandomDefault, PKCS5_V2_SALT_LEN, pbkdf2Params.salt.Data));
+    
 	p12IntToData(PKCS5_V2_ITERATIONS, pbkdf2Params.iterationCount, coder);
 	/* leave pbkdf2Params.keyLengthInBytes NULL for default */
 	/* openssl can't handle this, which is the default value:
@@ -871,7 +870,7 @@ OSStatus impExpPkcs8Export(
 	encrScheme.algorithm = CSSMOID_PKCS5_DES_EDE3_CBC;
 	CSSM_DATA rawIv = {0, NULL};
 	coder.allocItem(rawIv, PKCS5_V2_DES_IV_SIZE);
-	rng.random(rawIv.Data, PKCS5_V2_DES_IV_SIZE);
+    MacOSError::check(SecRandomCopyBytes(kSecRandomDefault, PKCS5_V2_DES_IV_SIZE, rawIv.Data));
 
 	coder.encodeItem(&rawIv, kSecAsn1OctetStringTemplate,
 			encrScheme.parameters);

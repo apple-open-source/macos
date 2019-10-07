@@ -395,8 +395,9 @@ pindex(RECEXACT)
 pindex(NORECEXACT)
 cindex(completion, exact matches)
 item(tt(REC_EXACT) (tt(-S)))(
-In completion, recognize exact matches even
-if they are ambiguous.
+If the string on the command line exactly matches one of the possible
+completions, it is accepted, even if there is another completion (i.e. that
+string with something else added) that also matches.
 )
 enditem()
 
@@ -722,9 +723,10 @@ pindex(REMATCHPCRE)
 pindex(NOREMATCHPCRE)
 cindex(regexp, PCRE)
 cindex(PCRE, regexp)
-item(tt(REMATCH_PCRE) <Z>)(
+item(tt(REMATCH_PCRE))(
 If set, regular expression matching with the tt(=~) operator will use
-Perl-Compatible Regular Expressions from the PCRE library, if available.
+Perl-Compatible Regular Expressions from the PCRE library.
+(The tt(zsh/pcre) module must be available.)
 If not set, regular expressions will use the extended regexp syntax
 provided by the system libraries.
 )
@@ -751,7 +753,9 @@ pindex(NOUNSET)
 cindex(parameters, substituting unset)
 cindex(unset parameters, substituting)
 item(tt(UNSET) (tt(PLUS()u), ksh: tt(PLUS()u)) <K> <S> <Z>)(
-Treat unset parameters as if they were empty when substituting.
+Treat unset parameters as if they were empty when substituting, and as if
+they were zero when reading their values in arithmetic expansion and
+arithmetic commands.
 Otherwise they are treated as an error.
 )
 pindex(WARN_CREATE_GLOBAL)
@@ -767,6 +771,37 @@ declared local when it should have been.  Parameters explicitly declared
 global from within a function using tt(typeset -g) do not cause a warning.
 Note that there is no warning when a local parameter is assigned to in
 a nested function, which may also indicate an error.
+)
+pindex(WARN_NESTED_VAR)
+pindex(NO_WARN_NESTED_VAR)
+pindex(WARNNESTEDVAR)
+pindex(NO_WARNNESTEDVAR)
+cindex(parameters, warning when setting in enclosing scope)
+item(tt(WARN_NESTED_VAR))(
+Print a warning message when an existing parameter from an
+enclosing function scope, or global, is set in a function
+by an assignment or in math context.  Assignment to shell
+special parameters does not cause a warning.  This is the companion
+to tt(WARN_CREATE_GLOBAL) as in this case the warning is only
+printed when a parameter is em(not) created.  Where possible,
+use of tt(typeset -g) to set the parameter suppresses the error,
+but note that this needs to be used every time the parameter is set.
+To restrict the effect of this option to a single function scope,
+use `tt(functions -W)'.
+
+For example, the following code produces a warning for the assignment
+inside the function tt(nested) as that overrides the value within
+tt(toplevel)
+
+example(toplevel+LPAR()RPAR() {
+  local foo="in fn"
+  nested
+}
+nested+LPAR()RPAR() {
+     foo="in nested"
+}
+setopt warn_nested_var
+toplevel)
 )
 enditem()
 
@@ -784,7 +819,7 @@ zsh sessions will all have the new entries from their history lists
 added to the history file, in the order that they exit.
 The file will still be periodically re-written to trim it when the
 number of lines grows 20% beyond the value specified by
-tt($SAVEHIST) (see also the HIST_SAVE_BY_COPY option).
+tt($SAVEHIST) (see also the tt(HIST_SAVE_BY_COPY) option).
 )
 pindex(BANG_HIST)
 pindex(NO_BANG_HIST)
@@ -983,7 +1018,7 @@ pindex(INCAPPENDHISTORY)
 pindex(NOINCAPPENDHISTORY)
 cindex(history, incremental appending to a file)
 item(tt(INC_APPEND_HISTORY))(
-This options works like tt(APPEND_HISTORY) except that new history lines
+This option works like tt(APPEND_HISTORY) except that new history lines
 are added to the tt($HISTFILE) incrementally (as soon as they are
 entered), rather than waiting until the shell exits.
 The file will still be periodically re-written to trim it when the
@@ -1396,6 +1431,19 @@ ifnzman(the section Special Functions in noderef(Functions))\
 ifzman(the section SPECIAL FUNCTIONS in zmanref(zshmisc))
 is not counted for this purpose.
 )
+pindex(CHECK_RUNNING_JOBS)
+pindex(NO_CHECK_RUNNING_JOBS)
+pindex(CHECKRUNNINGJOBS)
+pindex(NOCHECKRUNNINGJOBS)
+cindex(exiting, checking running jobs when)
+cindex(logging out, checking running jobs when)
+item(tt(CHECK_RUNNING_JOBS) <Z>)(
+Check for both running and suspended jobs when tt(CHECK_JOBS) is enabled.
+When this option is disabled, zsh checks only for suspended jobs, which
+matches the default behavior of bash.
+
+This option has no effect unless tt(CHECK_JOBS) is set.
+)
 pindex(HUP)
 pindex(NO_HUP)
 pindex(NOHUP)
@@ -1410,7 +1458,7 @@ pindex(LONGLISTJOBS)
 pindex(NOLONGLISTJOBS)
 cindex(jobs, list format)
 item(tt(LONG_LIST_JOBS) (tt(-R)))(
-List jobs in the long format by default.
+Print job notifications in the long format by default.
 )
 pindex(MONITOR)
 pindex(NO_MONITOR)
@@ -1539,6 +1587,36 @@ enditem()
 
 subsect(Scripts and Functions)
 startitem()
+pindex(ALIAS_FUNC_DEF)
+pindex(NO_ALIAS_FUNC_DEF)
+pindex(ALIASFUNCDEF)
+pindex(NOALIASFUNCDEF)
+cindex(functions, defining with expanded aliases)
+cindex(aliases, expanding in function definition)
+item(tt(ALIAS_FUNC_DEF) <S>)(
+By default, zsh does not allow the definition of functions using
+the `var(name) tt(LPAR()RPAR())' syntax if var(name) was expanded as an
+alias: this causes an error.  This is usually the desired behaviour, as
+otherwise the combination of an alias and a function based on the same
+definition can easily cause problems.
+
+When this option is set, aliases can be used for defining functions.
+
+For example, consider the following definitions as they might
+occur in a startup file.
+
+example(alias foo=bar
+foo+LPAR()RPAR() {
+  print This probably does not do what you expect.
+})
+
+Here, tt(foo) is expanded as an alias to tt(bar) before the
+tt(LPAR()RPAR()) is encountered, so the function defined would be named
+tt(bar).  By default this is instead an error in native mode.  Note that
+quoting any part of the function name, or using the keyword
+tt(function), avoids the problem, so is recommended when the function
+name can also be an alias.
+)
 pindex(C_BASES)
 pindex(NO_C_BASES)
 pindex(CBASES)
@@ -1596,6 +1674,13 @@ as it is by default, and the option tt(ERR_EXIT) is found to have been set
 on exit, then the command for which the tt(DEBUG) trap is being executed is
 skipped.  The option is restored after the trap exits.
 
+Non-zero status in a command list containing tt(&&) or tt(||) is ignored
+for commands not at the end of the list.  Hence
+
+example(false && true)
+
+does not trigger exit.
+
 Exiting due to tt(ERR_EXIT) has certain interactions with asynchronous
 jobs noted in
 ifzman(the section JOBS in zmanref(zshmisc))\
@@ -1609,10 +1694,25 @@ cindex(function return, on error)
 cindex(return from function, on error)
 item(tt(ERR_RETURN))(
 If a command has a non-zero exit status, return immediately from the
-enclosing function.  The logic is identical to that for tt(ERR_EXIT),
+enclosing function.  The logic is similar to that for tt(ERR_EXIT),
 except that an implicit tt(return) statement is executed instead of an
 tt(exit).  This will trigger an exit at the outermost level of a
 non-interactive script.
+
+Normally this option inherits the behaviour of tt(ERR_EXIT) that
+code followed by `tt(&&)' `tt(||)' does not trigger a return.  Hence
+in the following:
+
+example(summit || true)
+
+no return is forced as the combined effect always has a zero return
+status.
+
+Note. however, that if tt(summit) in the above example is itself a
+function, code inside it is considered separately: it may force a return
+from tt(summit) (assuming the option remains set within tt(summit)), but
+not from the enclosing context.  This behaviour is different from
+tt(ERR_EXIT) which is unaffected by function scope.
 )
 pindex(EVAL_LINENO)
 pindex(NO_EVAL_LINENO)
@@ -2077,9 +2177,16 @@ In addition, various error conditions associated with the above builtins
 or tt(exec) cause a non-interactive shell to exit and an interactive
 shell to return to its top-level processing.
 
+Furthermore, functions and shell builtins are not executed after
+an tt(exec) prefix; the command to be executed must be an external
+command found in the path.
+
 Furthermore, the tt(getopts) builtin behaves in a POSIX-compatible
 fashion in that the associated variable tt(OPTIND) is not made
 local to functions.
+
+Moreover, the warning and special exit code from
+tt([[ -o )var(non_existent_option)tt( ]]) are suppressed.
 )
 pindex(POSIX_IDENTIFIERS)
 pindex(NO_POSIX_IDENTIFIERS)

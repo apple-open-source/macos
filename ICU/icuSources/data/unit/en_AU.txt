@@ -2,8 +2,20 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 en_AU{
     %%Parent{"en_001"}
-    Version{"2.1.38.73"}
+    Version{"2.1.48.43"}
     units{
+        concentr{
+            percent{
+                dnam{"per cent"}
+                one{"{0} per cent"}
+                other{"{0} per cent"}
+            }
+            permille{
+                dnam{"per mill"}
+                one{"{0} per mill"}
+                other{"{0} per mill"}
+            }
+        }
         energy{
             kilowatt-hour{
                 dnam{"kilowatt hours"}
@@ -12,12 +24,6 @@ en_AU{
             }
         }
         length{
-            centimeter{
-                other{"{0} centimetres"}
-            }
-            decimeter{
-                other{"{0} decimetres"}
-            }
             kilometer{
                 dnam{"kilometre"}
                 one{"{0} kilometre"}
@@ -35,6 +41,9 @@ en_AU{
                 dnam{"tonnes"}
                 one{"tonne"}
                 other{"{0} tonnes"}
+            }
+            stone{
+                one{"{0} stone"}
             }
         }
         temperature{
@@ -73,18 +82,18 @@ en_AU{
         duration{
             millisecond{
                 dnam{"msec."}
-                one{"{0} ms"}
-                other{"{0} ms"}
+                one{"{0}ms"}
+                other{"{0}ms"}
             }
             minute{
                 dnam{"min."}
-                one{"{0} min."}
-                other{"{0} min."}
+                one{"{0}min."}
+                other{"{0}min."}
             }
             second{
                 dnam{"sec."}
-                one{"{0} s."}
-                other{"{0} s."}
+                one{"{0}s."}
+                other{"{0}s."}
             }
         }
         length{
@@ -188,6 +197,12 @@ en_AU{
                 one{"{0} mmol/L"}
                 other{"{0} mmol/L"}
             }
+            percent{
+                dnam{"per cent"}
+            }
+            permille{
+                dnam{"per mill"}
+            }
         }
         consumption{
             liter-per-100kilometers{
@@ -275,11 +290,6 @@ en_AU{
                 one{"{0} AU"}
                 other{"{0} AU"}
             }
-            fathom{
-                dnam{"fathoms"}
-                one{"{0} fm"}
-                other{"{0} fm"}
-            }
             light-year{
                 dnam{"light yrs"}
                 one{"{0} l.y."}
@@ -291,9 +301,6 @@ en_AU{
                 dnam{"carats"}
                 one{"{0} CM"}
                 other{"{0} CM"}
-            }
-            pound{
-                other{"{0} lb"}
             }
         }
         pressure{
@@ -330,6 +337,14 @@ en_AU{
                 dnam{"cL"}
                 one{"{0} cL"}
                 other{"{0} cL"}
+            }
+            cubic-centimeter{
+                one{"{0} cm³"}
+                other{"{0} cm³"}
+            }
+            cubic-mile{
+                one{"{0} mi³"}
+                other{"{0} mi³"}
             }
             deciliter{
                 dnam{"dL"}

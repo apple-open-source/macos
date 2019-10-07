@@ -127,7 +127,7 @@ rpc_ss_me_short_float
   mp = NIDL_msp->mp;
   op = NIDL_msp->op;
   rpc_align_mop(mp, op, 4);
-  rpc_marshall_short_float(mp, (*p_node));
+  rpc_marshall_short_float(mp, (p_node));
   rpc_advance_mop(mp, op, 4);
   NIDL_msp->space_in_buff -= (op - NIDL_msp->op);
   NIDL_msp->mp = mp;
@@ -165,9 +165,11 @@ rpc_ss_ue_short_float
   {
     node_size = sizeof(idl_short_float );
     if (NIDL_node_type == rpc_ss_mutable_node_k)
-    p_node = (idl_short_float *)rpc_ss_return_pointer_to_node(
-        p_unmar_params->node_table, node_number, node_size,
-        NULL, &NIDL_already_unmarshalled, (long *)NULL);
+    {
+        p_node = (idl_short_float *) (void *) rpc_ss_return_pointer_to_node(
+                p_unmar_params->node_table, node_number, node_size,
+                NULL, &NIDL_already_unmarshalled, (long *)NULL);
+    }
     else
     p_node = (idl_short_float *)rpc_ss_mem_alloc(
         p_unmar_params->p_mem_h, node_size );
@@ -183,6 +185,6 @@ rpc_ss_ue_short_float
   {
     rpc_ss_new_recv_buff(p_unmar_params->p_rcvd_data, p_unmar_params->call_h, &(p_unmar_params->mp), &(*p_unmar_params->p_st));
   }
-  rpc_convert_short_float(p_unmar_params->src_drep, ndr_g_local_drep, p_unmar_params->mp, (*p_node));
+  rpc_convert_short_float(p_unmar_params->src_drep, ndr_g_local_drep, (byte_p_t) p_unmar_params->mp, (byte_p_t) (p_node));
   rpc_advance_mop(p_unmar_params->mp, p_unmar_params->op, 4);
 }

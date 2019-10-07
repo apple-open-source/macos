@@ -23,7 +23,7 @@
 
 #include <TargetConditionals.h>
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 struct _not_empty;
 #else
 
@@ -808,4 +808,4 @@ bsd_out_reset(void)
 	return 0;
 }
 
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */

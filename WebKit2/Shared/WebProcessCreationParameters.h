@@ -65,6 +65,8 @@ namespace WebKit {
 struct WebProcessCreationParameters {
     WebProcessCreationParameters();
     ~WebProcessCreationParameters();
+    WebProcessCreationParameters(WebProcessCreationParameters&&);
+    WebProcessCreationParameters& operator=(WebProcessCreationParameters&&);
 
     void encode(IPC::Encoder&) const;
     static bool decode(IPC::Decoder&, WebProcessCreationParameters&);
@@ -75,28 +77,17 @@ struct WebProcessCreationParameters {
 
     UserData initializationUserData;
 
-    String applicationCacheDirectory;
-    String applicationCacheFlatFileSubdirectoryName;
-    SandboxExtension::Handle applicationCacheDirectoryExtensionHandle;
-    String webSQLDatabaseDirectory;
-    SandboxExtension::Handle webSQLDatabaseDirectoryExtensionHandle;
-    String mediaCacheDirectory;
-    SandboxExtension::Handle mediaCacheDirectoryExtensionHandle;
-    String javaScriptConfigurationDirectory;
-    SandboxExtension::Handle javaScriptConfigurationDirectoryExtensionHandle;
 #if PLATFORM(IOS_FAMILY)
     SandboxExtension::Handle cookieStorageDirectoryExtensionHandle;
     SandboxExtension::Handle containerCachesDirectoryExtensionHandle;
     SandboxExtension::Handle containerTemporaryDirectoryExtensionHandle;
 #endif
-    SandboxExtension::Handle mediaKeyStorageDirectoryExtensionHandle;
 #if ENABLE(MEDIA_STREAM)
     SandboxExtension::Handle audioCaptureExtensionHandle;
     bool shouldCaptureAudioInUIProcess { false };
     bool shouldCaptureVideoInUIProcess { false };
     bool shouldCaptureDisplayInUIProcess { false };
 #endif
-    String mediaKeyStorageDirectory;
 
     String webCoreLoggingChannels;
     String webKitLoggingChannels;
@@ -124,12 +115,10 @@ struct WebProcessCreationParameters {
 
     double defaultRequestTimeoutInterval { INT_MAX };
 
-    bool shouldUseTestingNetworkSession { false };
     bool shouldAlwaysUseComplexTextCodePath { false };
     bool shouldEnableMemoryPressureReliefLogging { false };
     bool shouldSuppressMemoryPressureHandler { false };
     bool shouldUseFontSmoothing { true };
-    bool resourceLoadStatisticsEnabled { false };
     bool fullKeyboardAccessEnabled { false };
     bool memoryCacheDisabled { false };
     bool attrStyleEnabled { false };
@@ -198,6 +187,12 @@ struct WebProcessCreationParameters {
 #if PLATFORM(MAC)
     WebCore::ScreenProperties screenProperties;
     bool useOverlayScrollbars { true };
+#endif
+
+#if USE(WPE_RENDERER)
+    bool isServiceWorkerProcess { false };
+    IPC::Attachment hostClientFileDescriptor;
+    CString implementationLibraryName;
 #endif
 };
 

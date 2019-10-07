@@ -420,7 +420,8 @@ static void secd_perform_with_data_in_file(const char* test_prefix, void(^with)(
     CFStringRef tmp_dir = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("/tmp/%s.%X/"), test_prefix, arc4random());
 
     CFStringPerformWithCString(tmp_dir, ^(const char *tmp_dir_string) {
-        ok_unix(mkpath_np(tmp_dir_string, 0755), "Create temp dir %s", tmp_dir_string);
+        errno_t err = mkpath_np(tmp_dir_string, 0755);
+        ok(err == 0 || err == EEXIST, "Create temp dir %s (%d)", tmp_dir_string, err);
         FILE *file = fopen(fname, "w", error);
 
     });

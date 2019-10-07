@@ -216,17 +216,17 @@ no_remote_configs(ignore_anonymous)
 {
 	
 	struct remoteconf *p;
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	static const char default_idv[] = "macuser@localhost";
 	static const int default_idv_len = sizeof(default_idv) - 1;
-#endif
+#endif // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 	TAILQ_FOREACH(p, &rmtree, chain) {
 		if (ignore_anonymous) {
 			if (p->remote->ss_family == AF_UNSPEC)	/* anonymous */
 				continue;
 		}
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 		// ignore the default btmm ipv6 config thats always present in racoon.conf
 		if (p->remote->ss_family == AF_INET6 &&
 			p->idvtype == IDTYPE_USERFQDN &&
@@ -235,7 +235,7 @@ no_remote_configs(ignore_anonymous)
 			strncmp(p->idv->v, default_idv, p->idv->l) == 0) {
 			continue;
 		}
-#endif
+#endif // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 		return 0;
 	}
 	return 1;

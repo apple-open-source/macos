@@ -46,6 +46,7 @@
 #include "SWClientConnection.h"
 #include "SWContextManager.h"
 #include "SchemeRegistry.h"
+#include "ScriptController.h"
 #include "ScriptDisallowedScope.h"
 #include "ScriptState.h"
 #include "ServiceWorker.h"
@@ -105,7 +106,7 @@ ScriptExecutionContextIdentifier ScriptExecutionContext::contextIdentifier() con
     if (!m_contextIdentifier) {
         Locker<Lock> locker(allScriptExecutionContextsMapLock);
 
-        m_contextIdentifier = generateObjectIdentifier<ScriptExecutionContextIdentifierType>();
+        m_contextIdentifier = ScriptExecutionContextIdentifier::generate();
 
         ASSERT(!allScriptExecutionContextsMap().contains(m_contextIdentifier));
         allScriptExecutionContextsMap().add(m_contextIdentifier, const_cast<ScriptExecutionContext*>(this));
@@ -306,6 +307,10 @@ void ScriptExecutionContext::resumeActiveDOMObjects(ReasonForSuspension why)
         activeDOMObject.resume();
         return ShouldContinue::Yes;
     });
+
+    // In case there were pending messages at the time the script execution context entered PageCache,
+    // make sure those get dispatched shortly after restoring from PageCache.
+    processMessageWithMessagePortsSoon();
 }
 
 void ScriptExecutionContext::stopActiveDOMObjects()
@@ -554,7 +559,19 @@ String ScriptExecutionContext::domainForCachePartition() const
     return m_domainForCachePartition.isNull() ? topOrigin().domainForCachePartition() : m_domainForCachePartition;
 }
 
-bool ScriptExecutionContext::hasServiceWorkerScheme()
+bool ScriptExecutionContext::allowsMediaDevices() const
+{
+#if ENABLE(MEDIA_STREAM)
+    if (!is<Document>(*this))
+        return false;
+    auto page = downcast<Document>(*this).page();
+    return page ? !page->settings().mediaCaptureRequiresSecureConnection() : false;
+#else
+    return false;
+#endif
+}
+
+bool ScriptExecutionContext::hasServiceWorkerScheme() const
 {
     ASSERT(securityOrigin());
     return SchemeRegistry::isServiceWorkerContainerCustomScheme(securityOrigin()->protocol());

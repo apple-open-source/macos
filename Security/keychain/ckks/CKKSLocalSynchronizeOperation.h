@@ -25,6 +25,7 @@
 #import "keychain/ckks/CKKSGroupOperation.h"
 
 #if OCTAGON
+NS_ASSUME_NONNULL_BEGIN
 
 @class CKKSKeychainView;
 
@@ -43,5 +44,6 @@
 - (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks;
 @end
 
+NS_ASSUME_NONNULL_END
 #endif  // OCTAGON
 

@@ -106,7 +106,7 @@ static CSSM_RETURN tpCrlViaNet(
 	/* verifyTime: we want a CRL that's valid right now. */
 	{
 		StLock<Mutex> _(tpTimeLock());
-		timeAtNowPlus(0, TIME_CSSM, cssmTime);
+		timeAtNowPlus(0, TP_TIME_CSSM, cssmTime);
 	}
 
 	crtn = tpFetchViaNet(url, issuer, LT_Crl, cssmTime, alloc, crlData);

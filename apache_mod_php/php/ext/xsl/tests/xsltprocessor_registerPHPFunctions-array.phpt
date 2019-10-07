@@ -1,7 +1,7 @@
 --TEST--
 Check xsltprocessor::registerPHPFunctions with array
 --SKIPIF--
-<?php 
+<?php
         if (!extension_loaded('xsl')) {
                 die("skip\n");
         }
@@ -18,7 +18,7 @@ if(!$phpfuncxsl) {
 $proc->importStylesheet($phpfuncxsl);
 var_dump($proc->registerPHPFunctions(array('ucwords')));
 var_dump($proc->transformToXml($dom));
---EXPECTF--
+--EXPECT--
 NULL
 string(18) "This Is An Example"
 --CREDITS--

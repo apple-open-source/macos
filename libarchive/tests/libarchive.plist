@@ -22,8 +22,55 @@
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/Tests/libarchive</string>
 		</dict>
+		<dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/libarchive/libarchive_test</string>
+			</array>
+			<key>TestName</key>
+			<string>libarchive_test</string>
+			<key>WhenToRun</key>
+			<array>
+				<string>PRESUBMISSION</string>
+				<string>NIGHTLY</string>
+			</array>
+			<key>WorkingDirectory</key>
+			<string>/AppleInternal/Tests/libarchive</string>
+		</dict>
+		<dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/libarchive/bsdtar_test</string>
+				<string>-p /usr/bin/bsdtar</string>
+			</array>
+			<key>TestName</key>
+			<string>bsdtar_test</string>
+			<key>WhenToRun</key>
+			<array>
+				<string>PRESUBMISSION</string>
+				<string>NIGHTLY</string>
+			</array>
+			<key>WorkingDirectory</key>
+			<string>/AppleInternal/Tests/libarchive</string>
+		</dict>
+		<dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/libarchive/bsdcpio_test</string>
+				<string>-p /usr/bin/cpio</string>
+			</array>
+			<key>TestName</key>
+			<string>bsdcpio_test</string>
+			<key>WhenToRun</key>
+			<array>
+				<string>PRESUBMISSION</string>
+				<string>NIGHTLY</string>
+			</array>
+			<key>WorkingDirectory</key>
+			<string>/AppleInternal/Tests/libarchive</string>
+		</dict>
 	</array>
 	<key>Timeout</key>
-	<integer>30</integer>
+	<integer>300</integer>
 </dict>
 </plist>

@@ -45,7 +45,7 @@ CF_ASSUME_NONNULL_BEGIN
 	@discussion This API is deprecated in 10.7. The SecKeychainSearchRef type is no longer used.
 */
 CFTypeID SecKeychainSearchGetTypeID(void)
-		DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+		API_DEPRECATED("SecKeychainSearch is not supported", macos(10.0, 10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
 	@function SecKeychainSearchCreateFromAttributes
@@ -58,7 +58,7 @@ CFTypeID SecKeychainSearchGetTypeID(void)
 	@discussion This function is deprecated in Mac OS X 10.7 and later; to find keychain items which match specified attributes, please use the SecItemCopyMatching API (see SecItem.h).
 */
 OSStatus SecKeychainSearchCreateFromAttributes(CFTypeRef __nullable keychainOrArray, SecItemClass itemClass, const SecKeychainAttributeList * __nullable attrList, SecKeychainSearchRef * __nonnull CF_RETURNS_RETAINED searchRef)
-		DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+		API_DEPRECATED("SecKeychainSearch is not supported", macos(10.0, 10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
 	@function SecKeychainSearchCopyNext
@@ -69,7 +69,7 @@ OSStatus SecKeychainSearchCreateFromAttributes(CFTypeRef __nullable keychainOrAr
 	@discussion This function is deprecated in Mac OS X 10.7 and later; to find keychain items which match specified attributes, please use the SecItemCopyMatching API (see SecItem.h).
 */
 OSStatus SecKeychainSearchCopyNext(SecKeychainSearchRef searchRef, SecKeychainItemRef * __nonnull CF_RETURNS_RETAINED itemRef)
-		DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+		API_DEPRECATED("SecKeychainSearch is not supported", macos(10.0, 10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 CF_ASSUME_NONNULL_END
 

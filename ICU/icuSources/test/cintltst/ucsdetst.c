@@ -31,6 +31,9 @@ static void TestChaining(void);
 static void TestBufferOverflow(void);
 static void TestIBM424(void);
 static void TestIBM420(void);
+#if U_PLATFORM_IS_DARWIN_BASED
+static void TestMailFilterCSS(void);
+#endif
 
 void addUCsdetTest(TestNode** root);
 
@@ -46,6 +49,9 @@ void addUCsdetTest(TestNode** root)
 #if !UCONFIG_NO_LEGACY_CONVERSION
     addTest(root, &TestIBM424, "ucsdetst/TestIBM424");
     addTest(root, &TestIBM420, "ucsdetst/TestIBM420");
+#endif
+#if U_PLATFORM_IS_DARWIN_BASED
+    addTest(root, &TestMailFilterCSS, "ucsdetst/TestMailFilterCSS");
 #endif
 }
 
@@ -589,3 +595,107 @@ bail:
     freeBytes(bytes_r);
     ucsdet_close(csd);
 }
+
+#if U_PLATFORM_IS_DARWIN_BASED
+#include <stdio.h>
+// read data from file into a malloc'ed buf, which must be freed by caller.
+// returns NULL if error. Copied from cbiapts.c
+static void* dataBufFromFile(const char* path, long* dataBufSizeP) {
+    FILE * dataFile;
+    void * dataBuf;
+    long dataBufSize, dataFileRead = 0;
+
+    if (dataBufSizeP) {
+        *dataBufSizeP = 0;
+    }
+    dataFile = fopen(path, "r");
+    if (dataFile == NULL) {
+        log_data_err("FAIL: for %s, fopen fails\n", path);
+        return NULL;
+    }
+    fseek(dataFile, 0, SEEK_END);
+    dataBufSize = ftell(dataFile);
+    rewind(dataFile);
+
+    dataBuf = uprv_malloc(dataBufSize);
+    if (dataBuf != NULL) {
+        dataFileRead = fread(dataBuf, 1, dataBufSize, dataFile);
+    }
+    fclose(dataFile);
+    if (dataBuf == NULL) {
+        log_data_err("FAIL: for %s, uprv_malloc fails for dataBuf[%ld]\n", path, dataBufSize);
+        return NULL;
+    }
+    if (dataFileRead < dataBufSize) {
+        log_data_err("FAIL: for %s, fread fails, read %ld of %ld\n", path, dataFileRead, dataBufSize);
+        uprv_free(dataBuf);
+        return NULL;
+    }
+    if (dataBufSizeP) {
+        *dataBufSizeP = dataBufSize;
+    }
+    return dataBuf;
+}
+
+typedef struct {
+    const char* sampleTextPath; // relative to cintltst directory
+    const char* encodingName;   // expected
+} SampleTextAndEncoding;
+
+static const SampleTextAndEncoding mailSampleTests[] = {
+    { "../testdata/encodingSamples/mailExample_Latin1_2.txt", "iso-8859-1" },
+    { "../testdata/encodingSamples/mailExample_Latin1_3.txt", "iso-8859-1" },
+    { "../testdata/encodingSamples/mailExample_Latin1_4.txt", "iso-8859-1" },
+    { "../testdata/encodingSamples/mailExample_Latin1_6.txt", "iso-8859-1" },
+    { "../testdata/encodingSamples/mailExample_Latin1_7.txt", "iso-8859-1" },
+    { "../testdata/encodingSamples/mailExample_Latin1_8.txt", "iso-8859-1" },
+    { "../testdata/encodingSamples/mailExample_Latin1_9.txt", "iso-8859-1" },
+    { "../testdata/encodingSamples/mailExample_Latin1Esc_2.txt", "iso-8859-1" },
+    { "../testdata/encodingSamples/mailExample_Latin1Esc_3.txt", "iso-8859-1" },
+    { "../testdata/encodingSamples/mailExample_Latin1Esc_4.txt", "iso-8859-1" },
+    { "../testdata/encodingSamples/mailExample_Latin1Esc_6.txt", "iso-8859-1" },
+    { "../testdata/encodingSamples/mailExample_Latin1Esc_7.txt", "iso-8859-1" },
+    { "../testdata/encodingSamples/mailExample_Latin1Esc_8.txt", "iso-8859-1" },
+    { "../testdata/encodingSamples/mailExample_Latin1Esc_9.txt", "iso-8859-1" },
+    { NULL, NULL }
+};
+
+static void TestMailFilterCSS(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UCharsetDetector *detector = ucsdet_open(&status);
+    if (U_FAILURE(status)) {
+        log_data_err("ucsdet_open fails. %s\n", u_errorName(status));
+    } else {
+        const SampleTextAndEncoding* testPtr;
+        for (testPtr = mailSampleTests; testPtr->sampleTextPath != NULL; testPtr++) {
+            long sampleTextLen;
+            char * sampleText = (char *)dataBufFromFile(testPtr->sampleTextPath, &sampleTextLen);
+            if (sampleText != NULL) { // dataBufFromFile reports the errors that would produce NULL
+                status = U_ZERO_ERROR;
+                ucsdet_setText(detector, sampleText, sampleTextLen, &status);
+                if (U_FAILURE(status)) {
+                    log_data_err("ucsdet_setText fails for text file %s: %s\n", testPtr->sampleTextPath, u_errorName(status));
+                } else {
+                    const UCharsetMatch *highestMatch = NULL;
+                    ucsdet_enableInputFilter(detector, TRUE);
+                    highestMatch = ucsdet_detect(detector, &status);
+                    if (U_FAILURE(status) || highestMatch==NULL) {
+                        log_err("ucsdet_detect fails for text file %s: %s\n", testPtr->sampleTextPath, u_errorName(status));
+                    } else {
+                        const char *icuName = ucsdet_getName(highestMatch, &status);
+                        int32_t confidence = ucsdet_getConfidence(highestMatch, &status);
+                        if (U_FAILURE(status) || icuName==NULL) {
+                            log_err("ucsdet_getName and/or ucsdet_getConfidence fails for text file %s: %s\n", testPtr->sampleTextPath, u_errorName(status));
+                        } else {
+                            log_info("For text file %s: expect %s; get %s with confidence %d, text length %ld\n",
+                                    testPtr->sampleTextPath, testPtr->encodingName, icuName, confidence, sampleTextLen);
+                        }
+                    }
+                }
+                uprv_free(sampleText);
+            }
+        }
+        ucsdet_close(detector);
+    }
+}
+#endif /* U_PLATFORM_IS_DARWIN_BASED */

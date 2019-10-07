@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_KEY_TYPE.badkey2.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *   Test the use of a dynamic expression as an aggregation key.

@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <paths.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
 #include <sys/param.h>
@@ -71,6 +72,7 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 	BLVersionRec	osVersion;
 
     BLPreBootEnvType	preboot;
+	bool				useFullPath = false;
 	
 	ret = BLGetPreBootEnvironmentType(context, &preboot);
 	if(ret) {
@@ -215,8 +217,13 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
         blesscontextprintf(context, kBLLogLevelError,  "Could not determine filesystem of %s\n", actargs[kmount].argument );
         return 1;
     }
-    
-
+	
+	if (0 != blsustatfs(actargs[kmount].argument, &sb)) {
+		blesscontextprintf(context, kBLLogLevelError,  "Can't statfs %s\n" ,
+						   actargs[kmount].argument);
+		return 1;
+	}
+	
     /* If user gave options that require boot.efi creation, do it now. */
     if(actargs[kbootefi].present) {
         if(!actargs[kbootefi].hasArg) {
@@ -240,46 +247,49 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 			}
         }
 		
-		ret = BLLoadFile(context, actargs[kbootefi].argument, 0, &bootEFIdata);
-		if (ret) {
-			blesscontextprintf(context, kBLLogLevelVerbose,  "Could not load boot.efi data from %s\n",
-							   actargs[kbootefi].argument);
-		}
+		if (!(sb.f_flags & MNT_RDONLY)) {
 		
-        if (actargs[kfile].present && bootEFIdata) {
-            
-            // check to see if needed
-            CFDataRef oldEFIdata = NULL;
-            struct stat oldPresence;
-            
-            ret = lstat(actargs[kfile].argument, &oldPresence);
-            
-            if (ret == 0 && S_ISREG(oldPresence.st_mode)) {
-                ret = BLLoadFile(context, actargs[kfile].argument, 0, &oldEFIdata);                
-            }
-            if ((ret == 0) && oldEFIdata && CFEqual(oldEFIdata, bootEFIdata)) {
-				blesscontextprintf(context, kBLLogLevelVerbose,  "boot.efi unchanged at %s. Skipping update...\n",
-                                   actargs[kfile].argument );
-            } else {
-                ret = BLCreateFileWithOptions(context, bootEFIdata, actargs[kfile].argument, 0, 0, 0, isAPFS ? kTryPreallocate : kMustPreallocate);
-                if (ret) {
-                    blesscontextprintf(context, kBLLogLevelError,  "Could not create boot.efi at %s\n", actargs[kfile].argument );
-                    return 2;
-                } else {
-                    blesscontextprintf(context, kBLLogLevelVerbose,  "boot.efi created successfully at %s\n",
-                        actargs[kfile].argument );
-                }                
-            }
-            
-            if (oldEFIdata) CFRelease(oldEFIdata);
-			ret = CopyManifests(context, actargs[kfile].argument, actargs[kbootefi].argument);
+			ret = BLLoadFile(context, actargs[kbootefi].argument, 0, &bootEFIdata);
 			if (ret) {
-				blesscontextprintf(context, kBLLogLevelError, "Can't copy img4 manifests for file %s\n", actargs[kfile].argument);
-				return 3;
+				blesscontextprintf(context, kBLLogLevelVerbose,  "Could not load boot.efi data from %s\n",
+								   actargs[kbootefi].argument);
 			}
-        } else {
-            blesscontextprintf(context, kBLLogLevelVerbose,  "Could not create boot.efi, no X folder specified\n" );
-        }
+			
+			if (actargs[kfile].present && bootEFIdata) {
+				
+				// check to see if needed
+				CFDataRef oldEFIdata = NULL;
+				struct stat oldPresence;
+				
+				ret = lstat(actargs[kfile].argument, &oldPresence);
+				
+				if (ret == 0 && S_ISREG(oldPresence.st_mode)) {
+					ret = BLLoadFile(context, actargs[kfile].argument, 0, &oldEFIdata);
+				}
+				if ((ret == 0) && oldEFIdata && CFEqual(oldEFIdata, bootEFIdata)) {
+					blesscontextprintf(context, kBLLogLevelVerbose,  "boot.efi unchanged at %s. Skipping update...\n",
+									   actargs[kfile].argument );
+				} else {
+					ret = BLCreateFileWithOptions(context, bootEFIdata, actargs[kfile].argument, 0, 0, 0, isAPFS ? kTryPreallocate : kMustPreallocate);
+					if (ret) {
+						blesscontextprintf(context, kBLLogLevelError,  "Could not create boot.efi at %s\n", actargs[kfile].argument );
+						return 2;
+					} else {
+						blesscontextprintf(context, kBLLogLevelVerbose,  "boot.efi created successfully at %s\n",
+										   actargs[kfile].argument );
+					}
+				}
+				
+				if (oldEFIdata) CFRelease(oldEFIdata);
+				ret = CopyManifests(context, actargs[kfile].argument, actargs[kbootefi].argument);
+				if (ret) {
+					blesscontextprintf(context, kBLLogLevelError, "Can't copy img4 manifests for file %s\n", actargs[kfile].argument);
+					return 3;
+				}
+			} else {
+				blesscontextprintf(context, kBLLogLevelVerbose,  "Could not create boot.efi, no X folder specified\n" );
+			}
+		}
     } else {
         blesscontextprintf(context, kBLLogLevelVerbose,  "No boot.efi creation requested\n" );
     }
@@ -292,12 +302,6 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 		}
 	}
 
-	if (0 != blsustatfs(actargs[kmount].argument, &sb)) {
-        blesscontextprintf(context, kBLLogLevelError,  "Can't statfs %s\n" ,
-                           actargs[kmount].argument);
-        return 1;	    
-    }
-    
     if (isAPFS && actargs[ksetboot].present) {
         char        pathBuf[MAXPATHLEN];
         CFDataRef   apfsDriverData;
@@ -607,7 +611,9 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
                     return 2;
                 }
                 
-                if (role & (APFS_VOL_ROLE_PREBOOT | APFS_VOL_ROLE_RECOVERY)) {
+                if (role == APFS_VOL_ROLE_PREBOOT || role == APFS_VOL_ROLE_RECOVERY) {
+					if (actargs[kfile].present) useFullPath = true;
+					
                     ret = BLGetAPFSBlessData(context, actargs[kmount].argument, oldWords);
                     if (ret && ret != ENOENT) {
                         blesscontextprintf(context, kBLLogLevelError,  "Error getting bless data for %s\n", actargs[kmount].argument);
@@ -676,25 +682,66 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
                     
                     blesscontextprintf(context, kBLLogLevelVerbose,  "blessed file = %lld\n", oldWords[0]);
                     blesscontextprintf(context, kBLLogLevelVerbose,  "blessed folder = %lld\n", oldWords[1]);
-                } else {
-                    oldWords[0] = oldWords[1] = 0;
-                    blesscontextprintf(context, kBLLogLevelVerbose, "clearing blessed file and folder data\n");
+					
+					if (geteuid() != 0 && geteuid() != sb.f_owner) {
+						blesscontextprintf(context, kBLLogLevelError,  "Authorization required\n" );
+						return 1;
+					}
+					
+					ret = BLSetAPFSBlessData(context,  actargs[kmount].argument, oldWords);
+					if (ret) {
+						blesscontextprintf(context, kBLLogLevelError,  "Can't set bless data for volume mounted at %s: %s\n", actargs[kmount].argument , strerror(errno));
+						return 2;
+					}
+					
                 }
                 
                 
-                if (geteuid() != 0 && geteuid() != sb.f_owner) {
-                    blesscontextprintf(context, kBLLogLevelError,  "Authorization required\n" );
-                    return 1;
-                }
-                
-                
-                ret = BLSetAPFSBlessData(context,  actargs[kmount].argument, oldWords);
-                if (ret) {
-                    blesscontextprintf(context, kBLLogLevelError,  "Can't set bless data for volume mounted at %s: %s\n", actargs[kmount].argument , strerror(errno));
-                    return 2;
+				
+                if (actargs[ksnapshot].present) {
+                    CFStringRef bsd;
+                    char c_bsd[64] = _PATH_DEV;
+                    uuid_string_t vol_uuid;
+                    struct statfs *mnts;
+                    int livefs, i, mntsize = 0;
+
+                    bsd = BLGetAPFSBlessedVolumeBSDName(context, actargs[kmount].argument, actargs[kfolder].argument, vol_uuid);
+                    if (!bsd) {
+                        blesscontextprintf(context, kBLLogLevelError, "Couldn't find a valid volume UUID in the boot path: %s\n",
+                                           actargs[kfolder].argument);
+                        return 3;
+                    }
+
+                    CFStringGetCString(bsd, c_bsd + strlen(_PATH_DEV),
+                                        sizeof c_bsd - strlen(_PATH_DEV),
+                                        kCFStringEncodingUTF8);
+
+                    mntsize = getmntinfo(&mnts, MNT_NOWAIT);
+                    for (i = 0; i < mntsize; i++) {
+                        if (strcmp(mnts[i].f_mntfromname, c_bsd) == 0) break;
+                    }
+
+                    if (i < mntsize) {
+                        livefs = (!strlen(actargs[ksnapshot].argument));
+                        ret = BLSetAPFSSnapshotBlessData(context, mnts[i].f_mntonname, actargs[ksnapshot].argument);
+                        if (ret) {
+                            blesscontextprintf(context, kBLLogLevelError,  "Can't set bless data for APFS snapshot %s: %s\n",
+                                               livefs ? "live file system" : actargs[ksnapshot].argument, strerror(errno));
+                            return 4;
+                        } else {
+                            blesscontextprintf(context, kBLLogLevelVerbose,  "blessed snapshot = %s\n",
+                                                livefs ? "live file system" : actargs[ksnapshot].argument);
+                        }
+                    } else {
+                        blesscontextprintf(context, kBLLogLevelError, "Cant set blessed snapshot for unmounted blessed APFS volume: %s.\n", c_bsd);
+                        return 5;
+                    }
+
+                    CFRelease(bsd);
                 }
             }
-            
+
+
             bootEFISource = (shouldBless && actargs[kbootefi].present) ? actargs[kbootefi].argument : NULL;
             ret = BlessPrebootVolume(context, sb.f_mntfromname + 5, bootEFISource, labeldata, labeldata2,
                                      actargs[knextonly].present == 0);
@@ -720,9 +767,8 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 									   actargs[koptions].present ? actargs[koptions].argument : NULL);
 
             } else {
-                ret = setefifilepath(context, ( (!shouldBless || isAPFS) && actargs[kfile].present ?
-											actargs[kfile].argument :
-											actargs[kmount].argument),
+				if (!shouldBless && !isAPFS && actargs[kfile].present) useFullPath = true;
+                ret = setefifilepath(context, (useFullPath ? actargs[kfile].argument : actargs[kmount].argument),
                                  actargs[knextonly].present,
                                  actargs[koptions].present ? actargs[koptions].argument : NULL,
                                  actargs[kshortform].present ? true : false);

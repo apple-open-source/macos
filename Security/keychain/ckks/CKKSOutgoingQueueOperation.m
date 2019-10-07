@@ -35,6 +35,7 @@
 #import "CKKSReencryptOutgoingItemsOperation.h"
 #import "CKKSManifest.h"
 #import "CKKSAnalytics.h"
+#import "keychain/ot/ObjCImprovements.h"
 
 #include <securityd/SecItemServer.h>
 #include <securityd/SecItemDb.h>
@@ -71,7 +72,7 @@
 
 - (void) groupStart {
     // Synchronous, on some thread. Get back on the CKKS queue for thread-safety.
-    __weak __typeof(self) weakSelf = self;
+    WEAKIFY(self);
 
     CKKSKeychainView* ckks = self.ckks;
     if(!ckks) {
@@ -88,15 +89,61 @@
 
         NSError* error = nil;
 
+        NSSet<NSString*>* priorityUUIDs = [ckks _onqueuePriorityOutgoingQueueUUIDs];
+
+        NSMutableArray<CKKSOutgoingQueueEntry*>* priorityEntries = [NSMutableArray array];
+        NSMutableSet<NSString*>* priorityEntryUUIDs = [NSMutableSet set];
+
+        for(NSString* uuid in priorityUUIDs) {
+            NSError* priorityFetchError = nil;
+            CKKSOutgoingQueueEntry* oqe = [CKKSOutgoingQueueEntry tryFromDatabase:uuid zoneID:ckks.zoneID error:&priorityFetchError];
+
+            if(priorityFetchError) {
+                ckkserror("ckksoutgoing", ckks, "Unable to fetch priority uuid %@: %@", uuid, priorityFetchError);
+                continue;
+            }
+
+            if(!oqe) {
+                continue;
+            }
+
+            if(![oqe.state isEqualToString:SecCKKSStateNew]) {
+                ckksnotice("ckksoutgoing", ckks, "Priority uuid %@ is not in 'new': %@", uuid, oqe);
+                continue;
+            }
+
+            if(oqe) {
+                ckksnotice("ckksoutgoing", ckks, "Found OQE  to fetch priority uuid %@: %@", uuid, priorityFetchError);
+                [priorityEntries addObject:oqe];
+                [priorityEntryUUIDs addObject:oqe.uuid];
+            }
+        }
 
         // We only actually care about queue items in the 'new' state
-        NSArray<CKKSOutgoingQueueEntry*> * queueEntries = [CKKSOutgoingQueueEntry fetch:SecCKKSOutgoingQueueItemsAtOnce state: SecCKKSStateNew zoneID:ckks.zoneID error:&error];
-
+        NSArray<CKKSOutgoingQueueEntry*> * newEntries = [CKKSOutgoingQueueEntry fetch:SecCKKSOutgoingQueueItemsAtOnce
+                                                                                state:SecCKKSStateNew
+                                                                               zoneID:ckks.zoneID
+                                                                                error:&error];
         if(error != nil) {
             ckkserror("ckksoutgoing", ckks, "Error fetching outgoing queue records: %@", error);
             self.error = error;
             return false;
         }
+
+        // Build our list of oqes to transmit
+        NSMutableArray<CKKSOutgoingQueueEntry*>* queueEntries = [priorityEntries mutableCopy];
+        for(CKKSOutgoingQueueEntry* oqe in newEntries) {
+            if(queueEntries.count >= SecCKKSOutgoingQueueItemsAtOnce) {
+                break;
+            } else {
+                // We only need to add this OQE if it wasn't already there
+                if(![priorityEntryUUIDs containsObject:oqe.uuid]) {
+                    [queueEntries addObject:oqe];
+                }
+            }
+        }
+
+        bool fullUpload = queueEntries.count >= SecCKKSOutgoingQueueItemsAtOnce;
 
         [CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventOutgoingQueue zone:ckks.zoneName count:[queueEntries count]];
 
@@ -264,9 +311,9 @@
         }
 
         void (^modifyRecordsCompletionBlock)(NSArray<CKRecord*>*, NSArray<CKRecordID*>*, NSError*) = ^(NSArray<CKRecord *> *savedRecords, NSArray<CKRecordID *> *deletedRecordIDs, NSError *ckerror) {
-            __strong __typeof(weakSelf) strongSelf = weakSelf;
-            __strong __typeof(strongSelf.ckks) strongCKKS = strongSelf.ckks;
-            if(!strongSelf || !strongCKKS) {
+            STRONGIFY(self);
+            CKKSKeychainView* strongCKKS = self.ckks;
+            if(!self || !strongCKKS) {
                 ckkserror("ckksoutgoing", strongCKKS, "received callback for released object");
                 return;
             }
@@ -291,10 +338,10 @@
 
                         bool askForReencrypt = false;
 
-                        if([strongSelf _onqueueIsErrorBadEtagOnKeyPointersOnly:ckerror]) {
+                        if([self _onqueueIsErrorBadEtagOnKeyPointersOnly:ckerror]) {
                             // The current key pointers have updated without our knowledge, so CloudKit failed this operation. Mark all records as 'needs reencryption' and kick that off.
                             ckksnotice("ckksoutgoing", strongCKKS, "Error is simply due to current key pointers changing; marking all records as 'needs reencrypt'");
-                            [strongSelf _onqueueModifyAllRecords:failedRecords.allKeys as:SecCKKSStateReencrypt];
+                            [self _onqueueModifyAllRecords:failedRecords.allKeys as:SecCKKSStateReencrypt];
                             askForReencrypt = true;
                         } else {
                             // Iterate all failures, and reset each item
@@ -303,7 +350,7 @@
 
                                 ckksnotice("ckksoutgoing", strongCKKS, "failed record: %@ %@", recordID, recordError);
 
-                                if(recordError.code == CKErrorServerRecordChanged) {
+                                if([recordError.domain isEqualToString: CKErrorDomain] && recordError.code == CKErrorServerRecordChanged) {
                                     if([recordID.recordName isEqualToString: SecCKKSKeyClassA] ||
                                        [recordID.recordName isEqualToString: SecCKKSKeyClassC]) {
                                         // Note that _onqueueCKWriteFailed is responsible for kicking the key state machine, so we don't need to do it here.
@@ -311,10 +358,10 @@
                                     } else {
                                         // CKErrorServerRecordChanged on an item update means that we've been overwritten.
                                         if([recordIDsModified containsObject:recordID]) {
-                                            [strongSelf _onqueueModifyRecordAsError:recordID recordError:recordError];
+                                            [self _onqueueModifyRecordAsError:recordID recordError:recordError];
                                         }
                                     }
-                                } else if(recordError.code == CKErrorBatchRequestFailed) {
+                                } else if([recordError.domain isEqualToString: CKErrorDomain] && recordError.code == CKErrorBatchRequestFailed) {
                                     // Also fine. This record only didn't succeed because something else failed.
                                     // OQEs should be placed back into the 'new' state, unless they've been overwritten by a new OQE. Other records should be ignored.
 
@@ -331,7 +378,7 @@
                                     // Some unknown error occurred on this record. If it's an OQE, move it to the error state.
                                     ckkserror("ckksoutgoing", strongCKKS, "Unknown error on row: %@ %@", recordID, recordError);
                                     if([recordIDsModified containsObject:recordID]) {
-                                        [strongSelf _onqueueModifyRecordAsError:recordID recordError:recordError];
+                                        [self _onqueueModifyRecordAsError:recordID recordError:recordError];
                                     }
                                 }
                             }
@@ -341,16 +388,16 @@
                             // This will wait for the key hierarchy to become 'ready'
                             ckkserror("ckksoutgoing", strongCKKS, "Starting new Reencrypt items operation");
                             CKKSReencryptOutgoingItemsOperation* op = [[CKKSReencryptOutgoingItemsOperation alloc] initWithCKKSKeychainView:strongCKKS
-                                                                                                                           ckoperationGroup:strongSelf.ckoperationGroup];
+                                                                                                                           ckoperationGroup:self.ckoperationGroup];
                             [strongCKKS scheduleOperation: op];
                         }
                     } else {
                         // Some non-partial error occured. We should place all "inflight" OQEs back into the outgoing queue.
                         ckksnotice("ckks", strongCKKS, "Error is scary: putting all inflight OQEs back into state 'new'");
-                        [strongSelf _onqueueModifyAllRecords:[recordIDsModified allObjects] as:SecCKKSStateNew];
+                        [self _onqueueModifyAllRecords:[recordIDsModified allObjects] as:SecCKKSStateNew];
                     }
 
-                    strongSelf.error = ckerror;
+                    self.error = ckerror;
                     return true;
                 }
 
@@ -365,14 +412,14 @@
                         [strongCKKS _onqueueChangeOutgoingQueueEntry:oqe toState:SecCKKSStateDeleted error:&error];
                         if(error) {
                             ckkserror("ckksoutgoing", strongCKKS, "Couldn't update %@ in outgoingqueue: %@", record.recordID.recordName, error);
-                            strongSelf.error = error;
+                            self.error = error;
                         }
                         error = nil;
                         CKKSMirrorEntry* ckme = [[CKKSMirrorEntry alloc] initWithCKRecord: record];
                         [ckme saveToDatabase: &error];
                         if(error) {
                             ckkserror("ckksoutgoing", strongCKKS, "Couldn't save %@ to ckmirror: %@", record.recordID.recordName, error);
-                            strongSelf.error = error;
+                            self.error = error;
                         }
 
                         [plstats storedOQE:oqe];
@@ -383,7 +430,7 @@
                         [currentkey saveToDatabase: &error];
                         if(error) {
                             ckkserror("ckksoutgoing", strongCKKS, "Couldn't save %@ to currentkey: %@", record.recordID.recordName, error);
-                            strongSelf.error = error;
+                            self.error = error;
                         }
 
                     } else if ([record.recordType isEqualToString:SecCKRecordDeviceStateType]) {
@@ -391,7 +438,7 @@
                         [newcdse saveToDatabase:&error];
                         if(error) {
                             ckkserror("ckksoutgoing", strongCKKS, "Couldn't save %@ to ckdevicestate: %@", record.recordID.recordName, error);
-                            strongSelf.error = error;
+                            self.error = error;
                         }
 
                     } else if ([record.recordType isEqualToString:SecCKRecordManifestType]) {
@@ -409,14 +456,14 @@
                     [strongCKKS _onqueueChangeOutgoingQueueEntry:oqe toState:SecCKKSStateDeleted error:&error];
                     if(error) {
                         ckkserror("ckksoutgoing", strongCKKS, "Couldn't delete %@ from outgoingqueue: %@", ckrecordID.recordName, error);
-                        strongSelf.error = error;
+                        self.error = error;
                     }
                     error = nil;
                     CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase: ckrecordID.recordName zoneID:strongCKKS.zoneID error:&error];
                     [ckme deleteFromDatabase: &error];
                     if(error) {
                         ckkserror("ckksoutgoing", strongCKKS, "Couldn't delete %@ from ckmirror: %@", ckrecordID.recordName, error);
-                        strongSelf.error = error;
+                        self.error = error;
                     }
 
                     [plstats deletedOQE:oqe];
@@ -424,9 +471,9 @@
 
                 [plstats commit];
 
-                if(strongSelf.error) {
-                    ckkserror("ckksoutgoing", strongCKKS, "Operation failed; rolling back: %@", strongSelf.error);
-                    [logger logRecoverableError:strongSelf.error
+                if(self.error) {
+                    ckkserror("ckksoutgoing", strongCKKS, "Operation failed; rolling back: %@", self.error);
+                    [logger logRecoverableError:self.error
                                        forEvent:CKKSEventProcessOutgoingQueue
                                          inView:strongCKKS
                                  withAttributes:NULL];
@@ -437,7 +484,7 @@
                 return true;
             }];
 
-            [strongSelf.operationQueue addOperation: modifyComplete];
+            [self.operationQueue addOperation: modifyComplete];
             // Kick off another queue process. We expect it to exit instantly, but who knows!
             // If we think the network is iffy, though, wait for it to come back
             CKKSResultOperation* possibleNetworkDependency = nil;
@@ -446,7 +493,9 @@
                 possibleNetworkDependency = reachabilityTracker.reachabilityDependency;
             }
 
-            [strongCKKS processOutgoingQueueAfter:possibleNetworkDependency ckoperationGroup:strongSelf.ckoperationGroup];
+            [strongCKKS processOutgoingQueueAfter:possibleNetworkDependency
+                                    requiredDelay:fullUpload && !ckerror ? NSEC_PER_MSEC * 100 : DISPATCH_TIME_FOREVER
+                                 ckoperationGroup:self.ckoperationGroup];
         };
 
         ckksinfo("ckksoutgoing", ckks, "Current keys to update: %@", currentKeysToSave);
@@ -478,6 +527,7 @@
         // Until <rdar://problem/38725728> Changes to discretionary-ness (explicit or derived from QoS) should be "live", all requests should be nondiscretionary
         self.modifyRecordsOperation.configuration.automaticallyRetryNetworkFailures = NO;
         self.modifyRecordsOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
+        self.modifyRecordsOperation.configuration.isCloudKitSupportOperation = YES;
 
         self.modifyRecordsOperation.savePolicy = CKRecordSaveIfServerRecordUnchanged;
         self.modifyRecordsOperation.group = self.ckoperationGroup;
@@ -485,8 +535,8 @@
         ckksnotice("ckksoutgoing", ckks, "Beginning upload for %@ %@", recordsToSave.allKeys, recordIDsToDelete);
 
         self.modifyRecordsOperation.perRecordCompletionBlock = ^(CKRecord *record, NSError * _Nullable error) {
-            __strong __typeof(weakSelf) strongSelf = weakSelf;
-            __strong __typeof(strongSelf.ckks) blockCKKS = strongSelf.ckks;
+            STRONGIFY(self);
+            CKKSKeychainView* blockCKKS = self.ckks;
 
             if(!error) {
                 ckksnotice("ckksoutgoing", blockCKKS, "Record upload successful for %@ (%@)", record.recordID.recordName, record.recordChangeTag);
@@ -575,7 +625,7 @@
         for(CKRecordID* recordID in failedRecords) {
             NSError* recordError = failedRecords[recordID];
 
-            if(recordError.code == CKErrorServerRecordChanged) {
+            if([recordError.domain isEqualToString: CKErrorDomain] && recordError.code == CKErrorServerRecordChanged) {
                 if([recordID.recordName isEqualToString: SecCKKSKeyClassA] ||
                    [recordID.recordName isEqualToString: SecCKKSKeyClassC]) {
                     // this is fine!

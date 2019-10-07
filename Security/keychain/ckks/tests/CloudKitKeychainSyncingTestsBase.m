@@ -31,8 +31,13 @@
     return self.keys[self.keychainZoneID];
 }
 
+- (BOOL)mockPostFollowUpWithContext:(CDPFollowUpContext *)context error:(NSError **)error {
+    secnotice("octagon", "mock cdp posting follow up");
+    return YES;
+}
+
 // Override our base class
--(NSSet*)managedViewList {
+- (NSSet<NSString*>*)managedViewList {
     return [NSSet setWithObject:@"keychain"];
 }
 
@@ -48,22 +53,29 @@
 
     [super setUp];
 
-    self.keychainZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"keychain" ownerName:CKCurrentUserDefaultName];
-    self.keychainZone = [[FakeCKZone alloc] initZone: self.keychainZoneID];
+    if(SecCKKSIsEnabled()) {
+        self.keychainZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"keychain" ownerName:CKCurrentUserDefaultName];
+        self.keychainZone = [[FakeCKZone alloc] initZone: self.keychainZoneID];
 
-    [self.ckksZones addObject:self.keychainZoneID];
+        [self.ckksZones addObject:self.keychainZoneID];
 
-    // Wait for the ViewManager to be brought up
-    XCTAssertEqual(0, [self.injectedManager.completedSecCKKSInitialize wait:20*NSEC_PER_SEC], "No timeout waiting for SecCKKSInitialize");
+        // Wait for the ViewManager to be brought up
+        XCTAssertEqual(0, [self.injectedManager.completedSecCKKSInitialize wait:20*NSEC_PER_SEC], "No timeout waiting for SecCKKSInitialize");
 
-    self.keychainView = [[CKKSViewManager manager] findView:@"keychain"];
-    [self.ckksViews addObject:self.keychainView];
-    XCTAssertNotNil(self.keychainView, "CKKSViewManager created the keychain view");
+        self.keychainView = [[CKKSViewManager manager] findOrCreateView:@"keychain"];
+        XCTAssertNotNil(self.keychainView, "CKKSViewManager created the keychain view");
+        [self.ckksViews addObject:self.keychainView];
+    }
 
     // Check that your environment is set up correctly
     XCTAssertFalse([CKKSManifest shouldSyncManifests], "Manifests syncing is disabled");
     XCTAssertFalse([CKKSManifest shouldEnforceManifests], "Manifests enforcement is disabled");
+
+    self.aksLockState = false; // Lie and say AKS is always unlocked
+    self.mockLockStateTracker = OCMClassMock([CKKSLockStateTracker class]);
+    OCMStub([self.mockLockStateTracker queryAKSLocked]).andCall(self, @selector(aksLockState));
 }
+
 
 + (void)tearDown {
     [super tearDown];
@@ -80,6 +92,8 @@
 
     self.keychainView = nil;
     self.keychainZoneID = nil;
+
+    [self.injectedManager haltAll];
 
     [super tearDown];
 } 

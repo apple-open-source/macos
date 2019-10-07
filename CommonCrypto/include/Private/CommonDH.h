@@ -25,7 +25,13 @@
 #define _CC_DH_H_
 
 #include <stddef.h>
+
+#if defined(_MSC_VER)
+#include <availability.h>
+#else
 #include <os/availability.h>
+#endif
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,8 +41,11 @@ typedef struct CCDHRef_s *CCDHRef;
 
 typedef struct CCDHParameters_s *CCDHParameters;
 
+    // 1024 bit DL group
 extern const CCDHParameters kCCDHRFC2409Group2
     API_AVAILABLE(macos(10.8), ios(5.0));
+    
+    // 1536 bit DL group
 extern const CCDHParameters kCCDHRFC3526Group5
     API_AVAILABLE(macos(10.8), ios(5.0));
 

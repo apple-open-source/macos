@@ -57,14 +57,19 @@ public:
     void removeItem(WebCore::Frame* sourceFrame, StorageAreaImpl* sourceArea, const String& key);
     void clear(WebCore::Frame* sourceFrame, StorageAreaImpl* sourceArea);
     bool contains(const String& key);
-
-    const WebCore::SecurityOrigin& securityOrigin() const { return m_securityOrigin.get(); }
-
-private:
-    StorageAreaMap(StorageNamespaceImpl*, Ref<WebCore::SecurityOrigin>&&);
+    bool prewarm();
 
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
+
+    const WebCore::SecurityOrigin& securityOrigin() const { return m_securityOrigin.get(); }
+
+    void connect();
+    void disconnect();
+    uint64_t identifier() const { return m_storageMapID; }
+
+private:
+    StorageAreaMap(StorageNamespaceImpl*, Ref<WebCore::SecurityOrigin>&&);
 
     void didGetValues(uint64_t storageMapSeed);
     void didSetItem(uint64_t storageMapSeed, const String& key, bool quotaError);
@@ -98,6 +103,9 @@ private:
     bool m_hasPendingClear;
     bool m_hasPendingGetValues;
     HashCountedSet<String> m_pendingValueChanges;
+
+    bool m_isDisconnected { true };
+    bool m_didPrewarm { false };
 };
 
 } // namespace WebKit

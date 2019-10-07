@@ -67,8 +67,8 @@ OSDefineMetaClassAndFinalStructors( IONetworkStack, IOService )
 
 #define NIF_NO_BSD_ATTACH(n)    ((n)->_clientVar[2])
 
-#define LOCK()                  IOLockLock(_stateLock)
-#define UNLOCK()                IOLockUnlock(_stateLock)
+#define LOCK()                  IORecursiveLockLock(_stateLock)
+#define UNLOCK()                IORecursiveLockUnlock(_stateLock)
 
 #define kDetachStateKey         "detach state"
 
@@ -130,7 +130,7 @@ bool IONetworkStack::start( IOService * provider )
     if (super::start(provider) == false)
         goto fail;
 
-    _stateLock = IOLockAlloc();
+    _stateLock = IORecursiveLockAlloc();
     if (!_stateLock)
         goto fail;
 
@@ -277,7 +277,7 @@ void IONetworkStack::free( void )
 
     if (_stateLock)
     {
-        IOLockFree(_stateLock);
+        IORecursiveLockFree(_stateLock);
         _stateLock = 0;
     }
 
@@ -767,7 +767,6 @@ IOReturn IONetworkStack::attachNetworkInterfaceToBSD( IONetworkInterface * netif
 {
     bool        attachOK     = false;
     bool        detachWakeup = false;
-    bool        pingMatching = false;
     char        ifname[32];
     IOReturn    result;
 
@@ -803,8 +802,9 @@ IOReturn IONetworkStack::attachNetworkInterfaceToBSD( IONetworkInterface * netif
 
     if (attachOK)
     {
-        NIF_SET( netif, kInterfaceStateAttached  );
-        pingMatching = true;
+        bool pingMatching = true;
+
+        NIF_SET( netif, kInterfaceStateAttached );
 
         if (NIF_TEST(netif, kInterfaceStateInactive))
         {
@@ -816,6 +816,12 @@ IOReturn IONetworkStack::attachNetworkInterfaceToBSD( IONetworkInterface * netif
                 detachWakeup = true;
             }
             pingMatching = false;
+        }
+
+        if (pingMatching && !netif->isInactive())
+        {
+            // Re-register interface after setting kIOBSDNameKey.
+            netif->registerService();
         }
     }
     else
@@ -839,12 +845,6 @@ IOReturn IONetworkStack::attachNetworkInterfaceToBSD( IONetworkInterface * netif
         // In the event that an interface was terminated while attaching
         // to BSD, re-schedule the BSD detach and interface close.
         thread_call_enter(_asyncThread);
-    }
-
-    if (pingMatching)
-    {
-        // Re-register interface after setting kIOBSDNameKey.
-        netif->registerService();
     }
 
     return result;

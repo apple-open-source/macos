@@ -67,6 +67,7 @@ print_line_detail(char *prefix,
 		  int is_stmt, int basic_block, int end_sequence,
 		  int prologue_end, int epilogue_begin, int isa)
 {
+#pragma unused(prologue_end, epilogue_begin, isa)
     printf("%-15s %2d 0x%08llx "
 	   "%2lu   %4lu %2lu   %1d %1d %1d\n",
 	   prefix,
@@ -83,7 +84,7 @@ print_line_detail(char *prefix,
 /*
 	return DW_DLV_OK if ok. else DW_DLV_NO_ENTRY or DW_DLV_ERROR
 */
-int
+static int
 _dwarf_internal_printlines(Dwarf_Die die, Dwarf_Error * error)
 {
     /* 
@@ -151,10 +152,6 @@ _dwarf_internal_printlines(Dwarf_Die die, Dwarf_Error * error)
        opcode. */
     Dwarf_Half fixed_advance_pc;
 
-
-     /*REFERENCED*/		/* Not used in this instance of the
-				   macro */
-    int local_extension_size;
 
     /* The Dwarf_Debug this die belongs to. */
     Dwarf_Debug dbg;

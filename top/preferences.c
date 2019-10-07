@@ -68,7 +68,7 @@ static struct {
     int signal_number;   
 } prefs = {
     .mode = STATMODE_NON_EVENT, 
-    .sort_by = STATISTIC_PID,
+    .sort_by = STATISTIC_CPU,
     .secondary_sort = STATISTIC_PID,
     .sort_ascending = false,
     .secondary_sort_ascending = false,

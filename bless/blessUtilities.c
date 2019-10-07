@@ -61,7 +61,7 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
         ret = 8;
         goto exit;
     }
-    if (role & (APFS_VOL_ROLE_PREBOOT | APFS_VOL_ROLE_RECOVERY)) {
+	if (role == APFS_VOL_ROLE_PREBOOT || role == APFS_VOL_ROLE_RECOVERY) {
         // Nothing to do here.  See ya.
         ret = 0;
         goto exit;

@@ -14,7 +14,7 @@ if (!function_exists("posix_mkfifo")) {
 /*
 Prototype: string filetype ( string $filename );
 Description: Returns the type of the file. Possible values are fifo, char,
-             dir, block, link, file, and unknown. 
+             dir, block, link, file, and unknown.
 */
 
 echo "*** Testing filetype() with various types ***\n";
@@ -61,7 +61,7 @@ unlink($file3);
 
 echo "\n*** Done ***\n";
 ?>
---EXPECTF--
+--EXPECT--
 *** Testing filetype() with various types ***
 -- Checking with files --
 file

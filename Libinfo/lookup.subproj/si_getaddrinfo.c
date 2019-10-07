@@ -77,9 +77,17 @@ typedef struct {
 } build_hostent_t;
 
 static void
+gai_child_has_forked(void)
+{
+	// Cannot use os_log_t object from parent process in child process.
+	_gai_log = OS_LOG_DEFAULT;
+}
+
+static void
 gai_log_init(void)
 {
 	_gai_log = os_log_create("com.apple.network.libinfo", "getaddrinfo");
+	(void)pthread_atfork(NULL, NULL, gai_child_has_forked);
 }
 
 static os_log_t

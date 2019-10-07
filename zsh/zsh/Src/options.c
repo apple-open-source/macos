@@ -78,6 +78,7 @@ mod_export HashTable optiontab;
  */
 static struct optname optns[] = {
 {{NULL, "aliases",	      OPT_EMULATE|OPT_ALL},	 ALIASESOPT},
+{{NULL, "aliasfuncdef",       OPT_EMULATE|OPT_BOURNE},	 ALIASFUNCDEF},
 {{NULL, "allexport",	      OPT_EMULATE},		 ALLEXPORT},
 {{NULL, "alwayslastprompt",   OPT_ALL},			 ALWAYSLASTPROMPT},
 {{NULL, "alwaystoend",	      0},			 ALWAYSTOEND},
@@ -110,6 +111,7 @@ static struct optname optns[] = {
 {{NULL, "chasedots",	      OPT_EMULATE},		 CHASEDOTS},
 {{NULL, "chaselinks",	      OPT_EMULATE},		 CHASELINKS},
 {{NULL, "checkjobs",	      OPT_EMULATE|OPT_ZSH},	 CHECKJOBS},
+{{NULL, "checkrunningjobs",   OPT_EMULATE|OPT_ZSH},	 CHECKRUNNINGJOBS},
 {{NULL, "clobber",	      OPT_EMULATE|OPT_ALL},	 CLOBBER},
 {{NULL, "combiningchars",     0},			 COMBININGCHARS},
 {{NULL, "completealiases",    0},			 COMPLETEALIASES},
@@ -257,6 +259,7 @@ static struct optname optns[] = {
 {{NULL, "verbose",	      0},			 VERBOSE},
 {{NULL, "vi",		      0},			 VIMODE},
 {{NULL, "warncreateglobal",   OPT_EMULATE},		 WARNCREATEGLOBAL},
+{{NULL, "warnnestedvar",      OPT_EMULATE},		 WARNNESTEDVAR},
 {{NULL, "xtrace",	      0},			 XTRACE},
 {{NULL, "zle",		      OPT_SPECIAL},		 USEZLE},
 {{NULL, "braceexpand",	      OPT_ALIAS}, /* ksh/bash */ -IGNOREBRACES},
@@ -645,7 +648,7 @@ bin_setopt(char *nam, char **args, UNUSED(Options ops), int isun)
 
 	    /* Expand the current arg. */
 	    tokenize(s);
-	    if (!(pprog = patcompile(s, PAT_STATIC, NULL))) {
+	    if (!(pprog = patcompile(s, PAT_HEAPDUP, NULL))) {
 		zwarnnam(nam, "bad pattern: %s", *args);
 		continue;
 	    }
@@ -766,15 +769,32 @@ dosetopt(int optno, int value, int force, char *new_opts)
     } else if(optno == PRIVILEGED && !value) {
 	/* unsetting PRIVILEGED causes the shell to make itself unprivileged */
 #ifdef HAVE_SETUID
-	setuid(getuid());
-	setgid(getgid());
-        if (setuid(getuid())) {
-            zwarn("failed to change user ID: %e", errno);
-            return -1;
-	} else if (setgid(getgid())) {
+	int ignore_err;
+	errno = 0;
+	/*
+	 * Set the GID first as if we set the UID to non-privileged it
+	 * might be impossible to restore the GID.
+	 *
+	 * Some OSes (possibly no longer around) have been known to
+	 * fail silently the first time, so we attempt the change twice.
+	 * If it fails we are guaranteed to pick this up the second
+	 * time, so ignore the first time.
+	 *
+	 * Some versions of gcc make it hard to ignore the results the
+	 * first time, hence the following.  (These are probably not
+	 * systems that require the doubled calls.)
+	 */
+	ignore_err = setgid(getgid());
+	(void)ignore_err;
+	ignore_err = setuid(getuid());
+	(void)ignore_err;
+	if (setgid(getgid())) {
             zwarn("failed to change group ID: %e", errno);
             return -1;
-        }
+        } else if (setuid(getuid())) {
+            zwarn("failed to change user ID: %e", errno);
+            return -1;
+	}
 #else
         zwarn("setuid not available");
         return -1;

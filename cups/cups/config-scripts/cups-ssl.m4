@@ -1,14 +1,10 @@
 dnl
 dnl TLS stuff for CUPS.
 dnl
-dnl Copyright 2007-2017 by Apple Inc.
+dnl Copyright 2007-2019 by Apple Inc.
 dnl Copyright 1997-2007 by Easy Software Products, all rights reserved.
 dnl
-dnl These coded instructions, statements, and computer programs are the
-dnl property of Apple Inc. and are protected by Federal copyright
-dnl law.  Distribution and use rights are outlined in the file "LICENSE.txt"
-dnl which should have been included with this file.  If this file is
-dnl missing or damaged, see the license at "http://www.cups.org/".
+dnl Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
 dnl
 
 AC_ARG_ENABLE(ssl, [  --disable-ssl           disable SSL/TLS support])
@@ -31,30 +27,12 @@ if test x$enable_ssl != xno; then
 		CUPS_SERVERKEYCHAIN="/Library/Keychains/System.keychain"
 
 		dnl Check for the various security headers...
-		AC_CHECK_HEADER(Security/SecureTransportPriv.h,
-		    AC_DEFINE(HAVE_SECURETRANSPORTPRIV_H))
 		AC_CHECK_HEADER(Security/SecCertificate.h,
 		    AC_DEFINE(HAVE_SECCERTIFICATE_H))
 		AC_CHECK_HEADER(Security/SecItem.h,
 		    AC_DEFINE(HAVE_SECITEM_H))
-		AC_CHECK_HEADER(Security/SecItemPriv.h,
-		    AC_DEFINE(HAVE_SECITEMPRIV_H),,
-		    [#include <Security/SecItem.h>])
 		AC_CHECK_HEADER(Security/SecPolicy.h,
-		    AC_DEFINE(HAVE_SECPOLICY_H))
-		AC_CHECK_HEADER(Security/SecPolicyPriv.h,
-		    AC_DEFINE(HAVE_SECPOLICYPRIV_H))
-		AC_CHECK_HEADER(Security/SecBasePriv.h,
-		    AC_DEFINE(HAVE_SECBASEPRIV_H))
-		AC_CHECK_HEADER(Security/SecIdentitySearchPriv.h,
-		    AC_DEFINE(HAVE_SECIDENTITYSEARCHPRIV_H))
-
-		AC_DEFINE(HAVE_CSSMERRORSTRING)
-		AC_DEFINE(HAVE_SECKEYCHAINOPEN)])
-
-		if test $host_os_version -ge 150; then
-			AC_DEFINE(HAVE_SSLSETENABLEDCIPHERS)
-		fi
+		    AC_DEFINE(HAVE_SECPOLICY_H))])
 	fi
     fi
 

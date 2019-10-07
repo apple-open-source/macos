@@ -39,7 +39,7 @@ env -i \
 	TOOLCHAINS="${TOOLCHAINS}" \
 	xcrun -sdk "${SDKROOT}" xcodebuild install \
 		-target zic \
-		-sdk "macosx" \
+		-sdk "macosxinternal" \
 		SRCROOT="${SRCROOT}" \
 		OBJROOT="${OBJROOT}" \
 		SYMROOT="${ZICHOST_SYMROOT}" \

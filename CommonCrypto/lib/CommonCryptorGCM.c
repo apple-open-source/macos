@@ -21,7 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include "ccMemory.h"
 #include "ccdebug.h"
 #include <CommonCrypto/CommonCryptor.h>
 #include <CommonCrypto/CommonCryptorSPI.h>
@@ -60,10 +59,13 @@
 
 static inline CCCryptorStatus translate_err_code(int err)
 {
-    if (err==0) {
-        return kCCSuccess;
-    } else {
-        return kCCUnspecifiedError;
+    switch (err) {
+        case CCERR_OK:
+            return kCCSuccess;
+        case CCERR_PARAMETER:
+            return kCCParamError;
+        default:
+            return kCCUnspecifiedError;
     }
 }
 
@@ -105,7 +107,7 @@ CCCryptorGCMAddAAD(CCCryptorRef cryptorRef,
     decl_cryptor();
     if(aDataLen!=0 && aData==NULL) return kCCParamError;
     //it is okay to call with aData zero
-    int rc = ccgcm_gmac(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, aDataLen, aData);
+    int rc = ccgcm_aad(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, aDataLen, aData);
     return translate_err_code(rc);
 }
 
@@ -261,6 +263,10 @@ static CCCryptorStatus validate_gcm_params(CCAlgorithm alg, CCOperation op, cons
     
     if(alg!=kCCAlgorithmAES)
         return kCCParamError;
+
+    if (keyLength != kCCKeySizeAES128 && keyLength != kCCKeySizeAES192 && keyLength != kCCKeySizeAES256) {
+        return kCCKeySizeError;
+    }
     
     if(tagLength<AESGCM_MIN_TAG_LEN || tagLength>AESGCM_BLOCK_LEN)
         return kCCParamError;
@@ -283,8 +289,6 @@ CCCryptorStatus CCCryptorGCMOneshotEncrypt(CCAlgorithm alg, const void  *key, si
                                            void        *tagOut,  size_t tagLength)
 
 {
-
-        
     CCCryptorStatus rv = validate_gcm_params(alg, kCCEncrypt, key, keyLength, iv, ivLen, aData, aDataLen, dataIn, dataInLength, dataOut, tagOut, tagLength);
     if(rv!=kCCSuccess)
         return rv;
@@ -308,11 +312,11 @@ CCCryptorStatus CCCryptorGCMOneshotDecrypt(CCAlgorithm alg, const void  *key, si
         return rv;
     
     char tag[tagLength]; //we are sure tagLength is not very large
-    CC_XMEMCPY(tag, tagIn, sizeof(tag));
+    memcpy(tag, tagIn, sizeof(tag));
 
     int rc = ccgcm_one_shot(ccaes_gcm_decrypt_mode(), keyLength, key, ivLen, iv, aDataLen, aData, dataInLength, dataIn, dataOut, tagLength, tag);
 
-    if (rc) {
+    if (rc != CCERR_OK) {
         cc_clear(dataInLength, dataOut);
     }
 

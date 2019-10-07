@@ -65,7 +65,7 @@ int secd_37_pairing_initial_sync(int argc, char *const *argv)
     /* custom keychain dir */
     secd_test_setup_temp_keychain("secd_37_pairing_initial_sync", NULL);
 
-    CFArrayRef currentACL = SecAccessGroupsGetCurrent();
+    CFArrayRef currentACL = CFRetainSafe(SecAccessGroupsGetCurrent());
 
     NSMutableArray *newACL = [NSMutableArray arrayWithArray:(__bridge NSArray *)currentACL];
     [newACL addObjectsFromArray:@[
@@ -151,6 +151,7 @@ int secd_37_pairing_initial_sync(int argc, char *const *argv)
     CFReleaseNull(stuff);
 
     SecAccessGroupsSetCurrent(currentACL);
+    CFReleaseNull(currentACL);
 
 
     return 0;

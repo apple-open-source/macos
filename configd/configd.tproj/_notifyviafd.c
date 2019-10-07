@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2006, 2008-2011, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2006, 2008-2011, 2015, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -47,9 +47,8 @@ __private_extern__
 int
 __SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store)
 {
+	serverSessionRef		mySession;
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
-	CFStringRef			sessionKey;
-	CFDictionaryRef			info;
 
 	if (storePrivate->notifyStatus != NotifierNotRegistered) {
 		/* sorry, you can only have one notification registered at once */
@@ -57,10 +56,8 @@ __SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store)
 	}
 
 	/* push out a notification if any changes are pending */
-	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), storePrivate->server);
-	info = CFDictionaryGetValue(sessionData, sessionKey);
-	CFRelease(sessionKey);
-	if (info && CFDictionaryContainsKey(info, kSCDChangedKeys)) {
+	mySession = getSession(storePrivate->server);
+	if (mySession->changedKeys != NULL) {
 		CFNumberRef	sessionNum;
 
 		if (needsNotification == NULL)

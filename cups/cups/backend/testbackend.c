@@ -1,16 +1,11 @@
 /*
  * Backend test program for CUPS.
  *
- * Copyright 2007-2014 by Apple Inc.
- * Copyright 1997-2005 by Easy Software Products, all rights reserved.
+ * Copyright © 2007-2014 by Apple Inc.
+ * Copyright © 1997-2005 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * "LICENSE" which should have been included with this file.  If this
- * file is missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 /*
@@ -38,7 +33,7 @@ static int	job_canceled = 0;
  */
 
 static void	sigterm_handler(int sig);
-static void	usage(void) __attribute__((noreturn));
+static void	usage(void) _CUPS_NORETURN;
 static void	walk_cb(const char *oid, const char *data, int datalen,
 		        void *context);
 

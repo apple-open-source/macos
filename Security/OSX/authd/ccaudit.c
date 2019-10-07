@@ -11,7 +11,6 @@
 
 AUTHD_DEFINE_LOG
 
-
 struct _ccaudit_s {
     __AUTH_BASE_STRUCT_HEADER__;
     
@@ -149,7 +148,6 @@ static bool _subject(ccaudit_t ccaudit)
 
 void ccaudit_log_authorization(ccaudit_t ccaudit, const char * right, OSStatus err)
 {
-
     if (!_open(ccaudit)) {
         return;
     }
@@ -177,7 +175,6 @@ void ccaudit_log_authorization(ccaudit_t ccaudit, const char * right, OSStatus e
 
 void ccaudit_log_success(ccaudit_t ccaudit, credential_t cred, const char * right)
 {
-
     if (!_open(ccaudit)) {
         return;
     }
@@ -198,7 +195,6 @@ void ccaudit_log_success(ccaudit_t ccaudit, credential_t cred, const char * righ
 
 void ccaudit_log_failure(ccaudit_t ccaudit, const char * credName, const char * right)
 {
-
     if (!_open(ccaudit)) {
         return;
     }
@@ -216,7 +212,6 @@ void ccaudit_log_failure(ccaudit_t ccaudit, const char * credName, const char * 
 
 void ccaudit_log_mechanism(ccaudit_t ccaudit, const char * right, const char * mech, uint32_t status, const char * interrupted)
 {
-
     if (!_open(ccaudit)) {
         return;
     }

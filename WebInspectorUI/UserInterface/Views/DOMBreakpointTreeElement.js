@@ -29,23 +29,20 @@ WI.DOMBreakpointTreeElement = class DOMBreakpointTreeElement extends WI.GeneralT
     {
         console.assert(breakpoint instanceof WI.DOMBreakpoint);
 
-        if (!className)
-            className = WI.BreakpointTreeElement.GenericLineIconStyleClassName;
+        let classNames = ["breakpoint", "dom", `breakpoint-for-${breakpoint.type}`];
+        if (className)
+            classNames.push(className);
 
         if (!title)
             title = WI.DOMBreakpointTreeElement.displayNameForType(breakpoint.type);
 
         const subtitle = null;
-        super(["breakpoint", "dom", className], title, subtitle, breakpoint);
+        super(classNames, title, subtitle, breakpoint);
 
-        this.status = document.createElement("img");
-        this.status.classList.add("status-image", "resolved");
+        this.status = WI.ImageUtilities.useSVGSymbol("Images/Breakpoint.svg");
+        this.status.className = WI.BreakpointTreeElement.StatusImageElementStyleClassName;
 
         this.tooltipHandledSeparately = true;
-
-        breakpoint.addEventListener(WI.DOMBreakpoint.Event.DisabledStateDidChange, this._updateStatus, this);
-
-        this._updateStatus();
     }
 
     // Static
@@ -54,11 +51,11 @@ WI.DOMBreakpointTreeElement = class DOMBreakpointTreeElement extends WI.GeneralT
     {
         switch (type) {
         case WI.DOMBreakpoint.Type.SubtreeModified:
-            return WI.UIString("Subtree Modified");
+            return WI.UIString("Subtree Modified", "A submenu item of 'Break On' that breaks (pauses) before child DOM node is modified");
         case WI.DOMBreakpoint.Type.AttributeModified:
-            return WI.UIString("Attribute Modified");
+            return WI.UIString("Attribute Modified", "A submenu item of 'Break On' that breaks (pauses) before DOM attribute is modified");
         case WI.DOMBreakpoint.Type.NodeRemoved:
-            return WI.UIString("Node Removed");
+            return WI.UIString("Node Removed", "A submenu item of 'Break On' that breaks (pauses) before DOM node is removed");
         default:
             console.error("Unexpected DOM breakpoint type: " + type);
             return null;
@@ -71,6 +68,9 @@ WI.DOMBreakpointTreeElement = class DOMBreakpointTreeElement extends WI.GeneralT
     {
         super.onattach();
 
+        this.representedObject.addEventListener(WI.DOMBreakpoint.Event.DisabledStateChanged, this._updateStatus, this);
+        WI.debuggerManager.addEventListener(WI.DebuggerManager.Event.BreakpointsEnabledDidChange, this._updateStatus, this);
+
         this._boundStatusImageElementClicked = this._statusImageElementClicked.bind(this);
         this._boundStatusImageElementFocused = this._statusImageElementFocused.bind(this);
         this._boundStatusImageElementMouseDown = this._statusImageElementMouseDown.bind(this);
@@ -78,11 +78,16 @@ WI.DOMBreakpointTreeElement = class DOMBreakpointTreeElement extends WI.GeneralT
         this.status.addEventListener("click", this._boundStatusImageElementClicked);
         this.status.addEventListener("focus", this._boundStatusImageElementFocused);
         this.status.addEventListener("mousedown", this._boundStatusImageElementMouseDown);
+
+        this._updateStatus();
     }
 
     ondetach()
     {
         super.ondetach();
+
+        this.representedObject.removeEventListener(null, null, this);
+        WI.debuggerManager.removeEventListener(null, null, this);
 
         this.status.removeEventListener("click", this._boundStatusImageElementClicked);
         this.status.removeEventListener("focus", this._boundStatusImageElementFocused);
@@ -122,7 +127,6 @@ WI.DOMBreakpointTreeElement = class DOMBreakpointTreeElement extends WI.GeneralT
         let label = breakpoint.disabled ? WI.UIString("Enable Breakpoint") : WI.UIString("Disable Breakpoint");
         contextMenu.appendItem(label, this._toggleBreakpoint.bind(this));
 
-        contextMenu.appendSeparator();
         contextMenu.appendItem(WI.UIString("Delete Breakpoint"), function() {
             WI.domDebuggerManager.removeDOMBreakpoint(breakpoint);
         });
@@ -154,6 +158,10 @@ WI.DOMBreakpointTreeElement = class DOMBreakpointTreeElement extends WI.GeneralT
 
     _updateStatus()
     {
-        this.status.classList.toggle("disabled", this.representedObject.disabled);
+        if (!this.status)
+            return;
+
+        this.status.classList.toggle(WI.BreakpointTreeElement.StatusImageDisabledStyleClassName, this.representedObject.disabled);
+        this.status.classList.toggle(WI.BreakpointTreeElement.StatusImageResolvedStyleClassName, WI.debuggerManager.breakpointsEnabled);
     }
 };

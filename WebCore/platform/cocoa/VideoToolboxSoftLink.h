@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,10 +25,14 @@
 
 #pragma once
 
+#if USE(VIDEOTOOLBOX)
+
 #include <VideoToolbox/VideoToolbox.h>
 #include <wtf/SoftLinking.h>
 
+typedef struct OpaqueVTVideoDecoder VTVideoDecoderRef;
 typedef struct OpaqueVTImageRotationSession* VTImageRotationSessionRef;
+typedef struct OpaqueVTPixelBufferConformer* VTPixelBufferConformerRef;
 typedef struct OpaqueVTPixelTransferSession* VTPixelTransferSessionRef;
 
 SOFT_LINK_FRAMEWORK_FOR_HEADER(WebCore, VideoToolbox)
@@ -61,6 +65,8 @@ SOFT_LINK_FUNCTION_MAY_FAIL_FOR_HEADER(WebCore, VideoToolbox, VTCopyHEVCDecoderC
 #define VTCopyHEVCDecoderCapabilitiesDictionary softLink_VideoToolbox_VTCopyHEVCDecoderCapabilitiesDictionary
 SOFT_LINK_FUNCTION_MAY_FAIL_FOR_HEADER(WebCore, VideoToolbox, VTGetHEVCCapabilitesForFormatDescription, OSStatus, (CMVideoFormatDescriptionRef formatDescription, CFDictionaryRef decoderCapabilitiesDict, Boolean* isDecodable, Boolean* mayBePlayable), (formatDescription, decoderCapabilitiesDict, isDecodable, mayBePlayable))
 #define VTGetHEVCCapabilitesForFormatDescription softLink_VideoToolbox_VTGetHEVCCapabilitesForFormatDescription
+SOFT_LINK_FUNCTION_FOR_HEADER(WebCore, VideoToolbox, VTSelectAndCreateVideoDecoderInstance, OSStatus, (CMVideoCodecType codecType, CFAllocatorRef allocator, CFDictionaryRef videoDecoderSpecification, VTVideoDecoderRef *decoderInstanceOut), (codecType, allocator, videoDecoderSpecification, decoderInstanceOut))
+#define VTSelectAndCreateVideoDecoderInstance softLink_VideoToolbox_VTSelectAndCreateVideoDecoderInstance
 SOFT_LINK_CONSTANT_FOR_HEADER(WebCore, VideoToolbox, kVTVideoDecoderSpecification_EnableHardwareAcceleratedVideoDecoder, CFStringRef)
 #define kVTVideoDecoderSpecification_EnableHardwareAcceleratedVideoDecoder get_VideoToolbox_kVTVideoDecoderSpecification_EnableHardwareAcceleratedVideoDecoder()
 SOFT_LINK_CONSTANT_FOR_HEADER(WebCore, VideoToolbox, kVTDecompressionPropertyKey_PixelBufferPool, CFStringRef)
@@ -85,6 +91,8 @@ SOFT_LINK_CONSTANT_FOR_HEADER(WebCore, VideoToolbox, kVTPixelTransferPropertyKey
 #define kVTPixelTransferPropertyKey_ScalingMode get_VideoToolbox_kVTPixelTransferPropertyKey_ScalingMode()
 SOFT_LINK_CONSTANT_FOR_HEADER(WebCore, VideoToolbox, kVTScalingMode_Letterbox, CFStringRef)
 #define kVTScalingMode_Letterbox get_VideoToolbox_kVTScalingMode_Letterbox()
+SOFT_LINK_CONSTANT_FOR_HEADER(WebCore, VideoToolbox, kVTScalingMode_Trim, CFStringRef)
+#define kVTScalingMode_Trim get_VideoToolbox_kVTScalingMode_Trim()
 SOFT_LINK_CONSTANT_FOR_HEADER(WebCore, VideoToolbox, kVTPixelTransferPropertyKey_EnableHardwareAcceleratedTransfer, CFStringRef)
 #define kVTPixelTransferPropertyKey_EnableHardwareAcceleratedTransfer get_VideoToolbox_kVTPixelTransferPropertyKey_EnableHardwareAcceleratedTransfer()
 SOFT_LINK_CONSTANT_FOR_HEADER(WebCore, VideoToolbox, kVTPixelTransferPropertyKey_EnableHighSpeedTransfer, CFStringRef)
@@ -102,3 +110,12 @@ SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(WebCore, VideoToolbox, kVTHEVCDecoderProf
 #define kVTHEVCDecoderProfileCapability_MaxDecodeLevel get_VideoToolbox_kVTHEVCDecoderProfileCapability_MaxDecodeLevel()
 SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(WebCore, VideoToolbox, kVTHEVCDecoderProfileCapability_MaxPlaybackLevel, CFStringRef)
 #define kVTHEVCDecoderProfileCapability_MaxPlaybackLevel get_VideoToolbox_kVTHEVCDecoderProfileCapability_MaxPlaybackLevel()
+
+SOFT_LINK_FUNCTION_FOR_HEADER(WebCore, VideoToolbox, VTPixelBufferConformerCreateWithAttributes, OSStatus, (CFAllocatorRef allocator, CFDictionaryRef attributes, VTPixelBufferConformerRef* conformerOut), (allocator, attributes, conformerOut));
+#define VTPixelBufferConformerCreateWithAttributes softLink_VideoToolbox_VTPixelBufferConformerCreateWithAttributes
+SOFT_LINK_FUNCTION_FOR_HEADER(WebCore, VideoToolbox, VTPixelBufferConformerIsConformantPixelBuffer, Boolean, (VTPixelBufferConformerRef conformer, CVPixelBufferRef pixBuf), (conformer, pixBuf))
+#define VTPixelBufferConformerIsConformantPixelBuffer softLink_VideoToolbox_VTPixelBufferConformerIsConformantPixelBuffer
+SOFT_LINK_FUNCTION_FOR_HEADER(WebCore, VideoToolbox, VTPixelBufferConformerCopyConformedPixelBuffer, OSStatus, (VTPixelBufferConformerRef conformer, CVPixelBufferRef sourceBuffer, Boolean ensureModifiable, CVPixelBufferRef* conformedBufferOut), (conformer, sourceBuffer, ensureModifiable, conformedBufferOut))
+#define VTPixelBufferConformerCopyConformedPixelBuffer softLink_VideoToolbox_VTPixelBufferConformerCopyConformedPixelBuffer
+
+#endif // USE(VIDEOTOOLBOX)

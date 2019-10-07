@@ -25,7 +25,7 @@
 
 #import "WKAPICast.h"
 
-#if PLATFORM(COCOA) && !PLATFORM(WATCHOS) && !PLATFORM(APPLETV) && WK_API_ENABLED
+#if PLATFORM(COCOA) && !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
 
 @class WKWebView;
 @protocol WKShareSheetDelegate;
@@ -38,7 +38,7 @@ struct ShareDataWithParsedURL;
 
 - (instancetype)initWithView:(WKWebView *)view;
 
-- (void)presentWithParameters:(const WebCore::ShareDataWithParsedURL&)data completionHandler:(WTF::CompletionHandler<void(bool)>&&)completionHandler;
+- (void)presentWithParameters:(const WebCore::ShareDataWithParsedURL&)data inRect:(WTF::Optional<WebCore::FloatRect>)rect completionHandler:(WTF::CompletionHandler<void(bool)>&&)completionHandler;
 - (void)dismiss;
 
 @property (nonatomic, weak) id <WKShareSheetDelegate> delegate;
@@ -50,4 +50,4 @@ struct ShareDataWithParsedURL;
 - (void)shareSheetDidDismiss:(WKShareSheet *)shareSheet;
 @end
 
-#endif // PLATFORM(COCOA) && !PLATFORM(WATCHOS) && !PLATFORM(APPLETV) && WK_API_ENABLED
+#endif // PLATFORM(COCOA) && !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)

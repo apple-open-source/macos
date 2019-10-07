@@ -126,7 +126,7 @@ int sectask_10_sectask_self(int argc, char *const *argv)
 
     /* TODO: remove the todo once xcode signs simulator binaries */
 SKIP: {
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
         todo("no entitlements in the simulator binaries yet, until <rdar://problem/12194625>");
 #endif
         ok(appId=SecTaskCopyValueForEntitlement(task, kSecEntitlementApplicationIdentifier, NULL), "SecTaskCopyValueForEntitlement");
@@ -172,7 +172,7 @@ int sectask_10_sectask(int argc, char *const *argv)
 
     /* TODO: remove the todo once xcode signs simulator binaries */
 SKIP: {
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
     todo("no entitlements in the simulator binaries yet, until <rdar://problem/12194625>");
 #endif
     ok(appId=SecTaskCopyValueForEntitlement(task, kSecEntitlementApplicationIdentifier, NULL), "SecTaskCopyValueForEntitlement");

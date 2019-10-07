@@ -27,7 +27,11 @@
 
 #import <Foundation/Foundation.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface SFAnalyticsActivityTracker : NSObject
+
+@property (readonly, nullable) NSNumber * measurement;
 
 - (instancetype)init NS_UNAVAILABLE;
 - (void)performAction:(void (^)(void))action;
@@ -36,7 +40,12 @@
 - (void)start;
 - (void)stop;
 
+- (void)stopWithEvent:(NSString*)eventName
+               result:(NSError* _Nullable)eventResultError;
+
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif
 #endif

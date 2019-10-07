@@ -62,6 +62,7 @@
 
 #include <sys/cdefs.h>
 #include <machine/limits.h>
+#ifndef UNIFDEF_DRIVERKIT
 #include <sys/syslimits.h>
 
 #if __DARWIN_C_LEVEL > __DARWIN_C_ANSI
@@ -163,5 +164,6 @@
 #endif /* __DARWIN_C_LEVEL > __DARWIN_C_ANSI */
 
 /* NZERO to be defined here. TBD. See also sys/param.h  */
+#endif /* UNIFDEF_DRIVERKIT */
 
 #endif /* !_LIMITS_H_ */

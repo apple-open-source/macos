@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -184,9 +184,9 @@ upap_authwithpeer(unit, user, password)
 
     /* Save the username and password we're given */
     u->us_user = user;
-    u->us_userlen = strlen(user);
+    u->us_userlen = (int)strlen(user);
     u->us_passwd = password;
-    u->us_passwdlen = strlen(password);
+    u->us_passwdlen = (int)strlen(password);
     u->us_transmits = 0;
 
     /* Lower layer up yet? */
@@ -469,7 +469,7 @@ upap_rauthreq(u, inp, id, len)
 	}
     }
 
-    msglen = strlen(msg);
+    msglen = (int)strlen(msg);
     if (msglen > 255)
 	msglen = 255;
     upap_sresp(u, retcode, id, msg, msglen);
@@ -709,5 +709,5 @@ upap_printpkt(p, plen, printer, arg)
 	printer(arg, " %.2x", code);
     }
 
-    return p - pstart;
+    return (int)(p - pstart);
 }

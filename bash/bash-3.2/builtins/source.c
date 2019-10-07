@@ -76,7 +76,7 @@ source_builtin (list)
 
   if (list == 0)
     {
-      builtin_error (_("filename argument required"));
+      builtin_error ("%s", _("filename argument required"));
       builtin_usage ();
       return (EX_USAGE);
     }

@@ -26,6 +26,7 @@
 #pragma once
 
 #include <algorithm>
+#include <climits>
 #include <cmath>
 #include <float.h>
 #include <limits>
@@ -123,15 +124,110 @@ template<> constexpr float defaultMinimumForClamp() { return -std::numeric_limit
 template<> constexpr double defaultMinimumForClamp() { return -std::numeric_limits<double>::max(); }
 template<typename T> constexpr T defaultMaximumForClamp() { return std::numeric_limits<T>::max(); }
 
-template<typename T> inline T clampTo(double value, T min = defaultMinimumForClamp<T>(), T max = defaultMaximumForClamp<T>())
+// Same type in and out.
+template<typename TargetType, typename SourceType>
+typename std::enable_if<std::is_same<TargetType, SourceType>::value, TargetType>::type
+clampTo(SourceType value, TargetType min = defaultMinimumForClamp<TargetType>(), TargetType max = defaultMaximumForClamp<TargetType>())
 {
-    if (value >= static_cast<double>(max))
+    if (value >= max)
         return max;
-    if (value <= static_cast<double>(min))
+    if (value <= min)
         return min;
-    return static_cast<T>(value);
+    return value;
 }
-template<> inline long long int clampTo(double, long long int, long long int); // clampTo does not support long long ints.
+
+// Floating point source.
+template<typename TargetType, typename SourceType>
+typename std::enable_if<!std::is_same<TargetType, SourceType>::value
+    && std::is_floating_point<SourceType>::value
+    && !(std::is_floating_point<TargetType>::value && sizeof(TargetType) > sizeof(SourceType)), TargetType>::type
+clampTo(SourceType value, TargetType min = defaultMinimumForClamp<TargetType>(), TargetType max = defaultMaximumForClamp<TargetType>())
+{
+    if (value >= static_cast<SourceType>(max))
+        return max;
+    if (value <= static_cast<SourceType>(min))
+        return min;
+    return static_cast<TargetType>(value);
+}
+
+template<typename TargetType, typename SourceType>
+typename std::enable_if<!std::is_same<TargetType, SourceType>::value
+    && std::is_floating_point<SourceType>::value
+    && std::is_floating_point<TargetType>::value
+    && (sizeof(TargetType) > sizeof(SourceType)), TargetType>::type
+clampTo(SourceType value, TargetType min = defaultMinimumForClamp<TargetType>(), TargetType max = defaultMaximumForClamp<TargetType>())
+{
+    TargetType convertedValue = static_cast<TargetType>(value);
+    if (convertedValue >= max)
+        return max;
+    if (convertedValue <= min)
+        return min;
+    return convertedValue;
+}
+
+// Source and Target have the same sign and Source is larger or equal to Target
+template<typename TargetType, typename SourceType>
+typename std::enable_if<!std::is_same<TargetType, SourceType>::value
+    && std::numeric_limits<SourceType>::is_integer
+    && std::numeric_limits<TargetType>::is_integer
+    && std::numeric_limits<TargetType>::is_signed == std::numeric_limits<SourceType>::is_signed
+    && sizeof(SourceType) >= sizeof(TargetType), TargetType>::type
+clampTo(SourceType value, TargetType min = defaultMinimumForClamp<TargetType>(), TargetType max = defaultMaximumForClamp<TargetType>())
+{
+    if (value >= static_cast<SourceType>(max))
+        return max;
+    if (value <= static_cast<SourceType>(min))
+        return min;
+    return static_cast<TargetType>(value);
+}
+
+// Clamping a unsigned integer to the max signed value.
+template<typename TargetType, typename SourceType>
+typename std::enable_if<!std::is_same<TargetType, SourceType>::value
+    && std::numeric_limits<SourceType>::is_integer
+    && std::numeric_limits<TargetType>::is_integer
+    && std::numeric_limits<TargetType>::is_signed
+    && !std::numeric_limits<SourceType>::is_signed
+    && sizeof(SourceType) >= sizeof(TargetType), TargetType>::type
+clampTo(SourceType value)
+{
+    TargetType max = std::numeric_limits<TargetType>::max();
+    if (value >= static_cast<SourceType>(max))
+        return max;
+    return static_cast<TargetType>(value);
+}
+
+// Clamping a signed integer into a valid unsigned integer.
+template<typename TargetType, typename SourceType>
+typename std::enable_if<!std::is_same<TargetType, SourceType>::value
+    && std::numeric_limits<SourceType>::is_integer
+    && std::numeric_limits<TargetType>::is_integer
+    && !std::numeric_limits<TargetType>::is_signed
+    && std::numeric_limits<SourceType>::is_signed
+    && sizeof(SourceType) == sizeof(TargetType), TargetType>::type
+clampTo(SourceType value)
+{
+    if (value < 0)
+        return 0;
+    return static_cast<TargetType>(value);
+}
+
+template<typename TargetType, typename SourceType>
+typename std::enable_if<!std::is_same<TargetType, SourceType>::value
+    && std::numeric_limits<SourceType>::is_integer
+    && std::numeric_limits<TargetType>::is_integer
+    && !std::numeric_limits<TargetType>::is_signed
+    && std::numeric_limits<SourceType>::is_signed
+    && (sizeof(SourceType) > sizeof(TargetType)), TargetType>::type
+clampTo(SourceType value)
+{
+    if (value < 0)
+        return 0;
+    TargetType max = std::numeric_limits<TargetType>::max();
+    if (value >= static_cast<SourceType>(max))
+        return max;
+    return static_cast<TargetType>(value);
+}
 
 inline int clampToInteger(double value)
 {
@@ -205,22 +301,6 @@ template<typename T> constexpr bool hasTwoOrMoreBitsSet(T value)
 {
     return !hasZeroOrOneBitsSet(value);
 }
-
-// FIXME: Some Darwin projects shamelessly include WTF headers and don't build with C++14... See: rdar://problem/45395767
-// Since C++11 and before don't support constexpr statements we can't mark this function constexpr.
-#if !defined(WTF_CPP_STD_VER) || WTF_CPP_STD_VER >= 14
-template <typename T> constexpr unsigned getLSBSet(T value)
-{
-    typedef typename std::make_unsigned<T>::type UnsignedT;
-    unsigned result = 0;
-
-    UnsignedT unsignedValue = static_cast<UnsignedT>(value);
-    while (unsignedValue >>= 1)
-        ++result;
-
-    return result;
-}
-#endif
 
 template<typename T> inline T divideRoundedUp(T a, T b)
 {
@@ -535,79 +615,122 @@ void shuffleVector(VectorType& vector, const RandomFunc& randomFunc)
     shuffleVector(vector, vector.size(), randomFunc);
 }
 
-inline unsigned clz32(uint32_t number)
+template <typename T>
+constexpr unsigned clzConstexpr(T value)
 {
-#if COMPILER(GCC_COMPATIBLE)
-    if (number)
-        return __builtin_clz(number);
-    return 32;
-#elif COMPILER(MSVC)
-    // Visual Studio 2008 or upper have __lzcnt, but we can't detect Intel AVX at compile time.
-    // So we use bit-scan-reverse operation to calculate clz.
-    unsigned long ret = 0;
-    if (_BitScanReverse(&ret, number))
-        return 31 - ret;
-    return 32;
-#else
+    constexpr unsigned bitSize = sizeof(T) * CHAR_BIT;
+
+    using UT = typename std::make_unsigned<T>::type;
+    UT uValue = value;
+
     unsigned zeroCount = 0;
-    for (int i = 31; i >= 0; i--) {
-        if (!(number >> i))
-            zeroCount++;
-        else
+    for (int i = bitSize - 1; i >= 0; i--) {
+        if (uValue >> i)
             break;
+        zeroCount++;
     }
     return zeroCount;
-#endif
 }
 
-inline unsigned clz64(uint64_t number)
+template<typename T>
+inline unsigned clz(T value)
 {
+    constexpr unsigned bitSize = sizeof(T) * CHAR_BIT;
+
+    using UT = typename std::make_unsigned<T>::type;
+    UT uValue = value;
+
 #if COMPILER(GCC_COMPATIBLE)
-    if (number)
-        return __builtin_clzll(number);
-    return 64;
+    constexpr unsigned bitSize64 = sizeof(uint64_t) * CHAR_BIT;
+    if (uValue)
+        return __builtin_clzll(uValue) - (bitSize64 - bitSize);
+    return bitSize;
 #elif COMPILER(MSVC) && !CPU(X86)
     // Visual Studio 2008 or upper have __lzcnt, but we can't detect Intel AVX at compile time.
     // So we use bit-scan-reverse operation to calculate clz.
     // _BitScanReverse64 is defined in X86_64 and ARM in MSVC supported environments.
     unsigned long ret = 0;
-    if (_BitScanReverse64(&ret, number))
-        return 63 - ret;
-    return 64;
+    if (_BitScanReverse64(&ret, uValue))
+        return bitSize - 1 - ret;
+    return bitSize;
 #else
-    unsigned zeroCount = 0;
-    for (int i = 63; i >= 0; i--) {
-        if (!(number >> i))
-            zeroCount++;
-        else
-            break;
-    }
-    return zeroCount;
+    UNUSED_PARAM(bitSize);
+    UNUSED_PARAM(uValue);
+    return clzConstexpr(value);
 #endif
 }
 
-inline unsigned ctz32(uint32_t number)
+template <typename T>
+constexpr unsigned ctzConstexpr(T value)
 {
-#if COMPILER(GCC_COMPATIBLE)
-    if (number)
-        return __builtin_ctz(number);
-    return 32;
-#elif COMPILER(MSVC) && !CPU(X86)
-    unsigned long ret = 0;
-    if (_BitScanForward(&ret, number))
-        return ret;
-    return 32;
-#else
+    constexpr unsigned bitSize = sizeof(T) * CHAR_BIT;
+
+    using UT = typename std::make_unsigned<T>::type;
+    UT uValue = value;
+
     unsigned zeroCount = 0;
-    for (unsigned i = 0; i < 32; i++) {
-        if (number & 1)
+    for (unsigned i = 0; i < bitSize; i++) {
+        if (uValue & 1)
             break;
 
         zeroCount++;
-        number >>= 1;
+        uValue >>= 1;
     }
     return zeroCount;
+}
+
+template<typename T>
+inline unsigned ctz(T value)
+{
+    constexpr unsigned bitSize = sizeof(T) * CHAR_BIT;
+
+    using UT = typename std::make_unsigned<T>::type;
+    UT uValue = value;
+
+#if COMPILER(GCC_COMPATIBLE)
+    if (uValue)
+        return __builtin_ctzll(uValue);
+    return bitSize;
+#elif COMPILER(MSVC) && !CPU(X86)
+    unsigned long ret = 0;
+    if (_BitScanForward64(&ret, uValue))
+        return ret;
+    return bitSize;
+#else
+    UNUSED_PARAM(bitSize);
+    UNUSED_PARAM(uValue);
+    return ctzConstexpr(value);
 #endif
+}
+
+template<typename T>
+inline unsigned getLSBSet(T t)
+{
+    ASSERT(t);
+    return ctz(t);
+}
+
+template<typename T>
+constexpr unsigned getLSBSetConstexpr(T t)
+{
+    ASSERT_UNDER_CONSTEXPR_CONTEXT(t);
+    return ctzConstexpr(t);
+}
+
+template<typename T>
+inline unsigned getMSBSet(T t)
+{
+    constexpr unsigned bitSize = sizeof(T) * CHAR_BIT;
+    ASSERT(t);
+    return bitSize - 1 - clz(t);
+}
+
+template<typename T>
+constexpr unsigned getMSBSetConstexpr(T t)
+{
+    constexpr unsigned bitSize = sizeof(T) * CHAR_BIT;
+    ASSERT_UNDER_CONSTEXPR_CONTEXT(t);
+    return bitSize - 1 - clzConstexpr(t);
 }
 
 } // namespace WTF
@@ -617,6 +740,7 @@ using WTF::preciseIndexMaskPtr;
 using WTF::preciseIndexMaskShift;
 using WTF::preciseIndexMaskShiftForSize;
 using WTF::shuffleVector;
-using WTF::clz32;
-using WTF::clz64;
-using WTF::ctz32;
+using WTF::clz;
+using WTF::ctz;
+using WTF::getLSBSet;
+using WTF::getMSBSet;

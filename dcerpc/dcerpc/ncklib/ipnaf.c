@@ -1034,7 +1034,7 @@ INTERNAL void addr_set_netaddr
         return;
     }
 
-    ip_addr->sa.sin_addr.s_addr = * (unsigned32 *) he->h_addr;
+    memcpy(&ip_addr->sa.sin_addr, he->h_addr, sizeof(unsigned32));
 
     *status = rpc_s_ok;
 }

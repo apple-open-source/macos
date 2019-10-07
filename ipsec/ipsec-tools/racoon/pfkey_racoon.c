@@ -1987,13 +1987,13 @@ pk_recvacquire(mhp)
 		goto err;
 	}
 	
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	if ( lcconf->vt == NULL){
 		if (!(lcconf->vt = vproc_transaction_begin(NULL)))
 			plog(ASL_LEVEL_ERR, 
 			 	"vproc_transaction_begin returns NULL.\n");
 	}
-#endif				
+#endif // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 	
 	return 0;

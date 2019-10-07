@@ -23,13 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef AuthenticationManager_h
-#define AuthenticationManager_h
+#pragma once
 
 #include "MessageReceiver.h"
 #include "NetworkProcessSupplement.h"
 #include "WebProcessSupplement.h"
 #include <WebCore/AuthenticationChallenge.h>
+#include <WebCore/PageIdentifier.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
@@ -46,9 +46,9 @@ class Credential;
 
 namespace WebKit {
 
-class ChildProcess;
 class Download;
 class DownloadID;
+class NetworkProcess;
 class WebFrame;
 
 enum class AuthenticationChallengeDisposition : uint8_t;
@@ -57,11 +57,11 @@ using ChallengeCompletionHandler = CompletionHandler<void(AuthenticationChalleng
 class AuthenticationManager : public NetworkProcessSupplement, public IPC::MessageReceiver, public CanMakeWeakPtr<AuthenticationManager> {
     WTF_MAKE_NONCOPYABLE(AuthenticationManager);
 public:
-    explicit AuthenticationManager(ChildProcess&);
+    explicit AuthenticationManager(NetworkProcess&);
 
     static const char* supplementName();
 
-    void didReceiveAuthenticationChallenge(uint64_t pageID, uint64_t frameID, const WebCore::AuthenticationChallenge&, ChallengeCompletionHandler&&);
+    void didReceiveAuthenticationChallenge(WebCore::PageIdentifier, uint64_t frameID, const WebCore::AuthenticationChallenge&, ChallengeCompletionHandler&&);
     void didReceiveAuthenticationChallenge(IPC::MessageSender& download, const WebCore::AuthenticationChallenge&, ChallengeCompletionHandler&&);
 
     void completeAuthenticationChallenge(uint64_t challengeID, AuthenticationChallengeDisposition, WebCore::Credential&&);
@@ -70,7 +70,7 @@ public:
 
 private:
     struct Challenge {
-        uint64_t pageID;
+        WebCore::PageIdentifier pageID;
         WebCore::AuthenticationChallenge challenge;
         ChallengeCompletionHandler completionHandler;
     };
@@ -84,15 +84,13 @@ private:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
     uint64_t addChallengeToChallengeMap(Challenge&&);
-    bool shouldCoalesceChallenge(uint64_t pageID, uint64_t challengeID, const WebCore::AuthenticationChallenge&) const;
+    bool shouldCoalesceChallenge(WebCore::PageIdentifier, uint64_t challengeID, const WebCore::AuthenticationChallenge&) const;
 
     Vector<uint64_t> coalesceChallengesMatching(uint64_t challengeID) const;
 
-    ChildProcess& m_process;
+    NetworkProcess& m_process;
 
     HashMap<uint64_t, Challenge> m_challenges;
 };
 
 } // namespace WebKit
-
-#endif // AuthenticationManager_h

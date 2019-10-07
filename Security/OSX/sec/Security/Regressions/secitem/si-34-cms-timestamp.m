@@ -28,6 +28,7 @@
 
 #import <Security/CMSDecoder.h>
 #import <Security/CMSEncoder.h>
+#import <Security/CMSPrivate.h>
 #import <Security/SecTrust.h>
 #include <utilities/SecCFRelease.h>
 #include <stdlib.h>
@@ -37,8 +38,9 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
+#define TIMESTAMPING_SUPPORTED TARGET_OS_OSX
+
 #if TARGET_OS_OSX
-#include <Security/CMSPrivate.h>
 #include <Security/tsaSupport.h>
 #endif
 
@@ -135,7 +137,9 @@ static void test_create_timestamp(void) {
 
 #if TIMESTAMPING_SUPPORTED
     /* Set timestamp context */
-    CmsMessageSetTSAContext(encoder, SecCmsTSAGetDefaultContext(NULL));
+    CFMutableDictionaryRef context = SecCmsTSAGetDefaultContext(NULL);
+    CmsMessageSetTSAContext(encoder, context);
+    CFReleaseNull(context);
 #endif
 
     /* Load content */

@@ -32,7 +32,7 @@
 #include <CoreFoundation/CFDictionary.h>
 #include <utilities/SecCFWrappers.h>
 
-#include <Security/SecureObjectSync/SOSAccount.h>
+#include "keychain/SecureObjectSync/SOSAccount.h"
 
 #include "secd_regressions.h"
 #include "SOSAccountTesting.h"
@@ -82,10 +82,10 @@ static void alwaysOnTest()
     CFReleaseNull(cfpassword);
 
     testView(alice_account, kSOSCCViewMember, kSOSViewContinuityUnlock, kSOSCCViewQuery, "Expected view capability for kSOSViewContinuityUnlock");
-    testView(alice_account, kSOSCCViewNotMember, kSOSViewContinuityUnlock, kSOSCCViewDisable, "Expected to disable kSOSViewContinuityUnlock");
+    testView(alice_account, kSOSCCViewMember, kSOSViewContinuityUnlock, kSOSCCViewDisable, "Not expected to disable kSOSViewContinuityUnlock - it's always-on");
 
     ok(SOSAccountAssertUserCredentialsAndUpdate(bob_account, cfaccount, cfpasswordNew, NULL), "Bob changes the password");
-    testView(alice_account, kSOSCCViewNotMember, kSOSViewContinuityUnlock, kSOSCCViewQuery, "Expected  kSOSViewContinuityUnlock is off for alice still");
+    testView(alice_account, kSOSCCViewMember, kSOSViewContinuityUnlock, kSOSCCViewQuery, "Expected  kSOSViewContinuityUnlock is on for alice still");
     ok(SOSAccountAssertUserCredentialsAndUpdate(alice_account, cfaccount, cfpasswordNew, NULL), "Alice sets the new password");
     CFReleaseNull(cfpasswordNew);
     testView(alice_account, kSOSCCViewMember, kSOSViewContinuityUnlock, kSOSCCViewQuery, "Expected view capability for kSOSViewContinuityUnlock");
@@ -97,8 +97,8 @@ static void alwaysOnTest()
 
 int secd_80_views_alwayson(int argc, char *const *argv)
 {
-    plan_tests(44);
-    
+    plan_tests(35);
+    secd_test_clear_testviews();
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     alwaysOnTest();
     return 0;

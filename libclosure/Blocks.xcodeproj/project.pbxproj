@@ -19,6 +19,17 @@
 			name = "Blocks-simulator";
 			productName = "Blocks-simulator";
 		};
+		E47E9844221EB9D0006E312E /* libclosure_driverkit */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = E47E9845221EB9D0006E312E /* Build configuration list for PBXAggregateTarget "libclosure_driverkit" */;
+			buildPhases = (
+			);
+			dependencies = (
+				E47E9849221EB9D8006E312E /* PBXTargetDependency */,
+			);
+			name = libclosure_driverkit;
+			productName = Blocks_driverkit;
+		};
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
@@ -43,6 +54,13 @@
 			remoteInfo = Blocks;
 		};
 		96FA3B6715093BCF003EABC7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2AAC0C605546C1D00DB518D;
+			remoteInfo = Blocks;
+		};
+		E47E9848221EB9D8006E312E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
 			proxyType = 1;
@@ -218,6 +236,9 @@
 					3F23D0731A4757F4008445C3 = {
 						CreatedOnToolsVersion = 6.3;
 					};
+					E47E9844221EB9D0006E312E = {
+						CreatedOnToolsVersion = 11.0;
+					};
 				};
 			};
 			buildConfigurationList = 1DEB918108733D990010E9CD /* Build configuration list for PBXProject "Blocks" */;
@@ -239,6 +260,7 @@
 				831D5AD4122788D500E4A1EC /* Blocks-bundle */,
 				96EF75951507C1CE00581A2E /* libclosure_eOS */,
 				3F23D0731A4757F4008445C3 /* Blocks-simulator */,
+				E47E9844221EB9D0006E312E /* libclosure_driverkit */,
 			);
 		};
 /* End PBXProject section */
@@ -270,7 +292,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "# This target is only here for B&I compatibility.  Cortex should be\n# updated to use the Blocks target and then this target can be\n# removed.\n\ntrue";
+			shellScript = "# This target is only here for B&I compatibility.  Cortex should be\n# updated to use the Blocks target and then this target can be\n# removed.\n\ntrue\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -315,6 +337,11 @@
 			target = D2AAC0C605546C1D00DB518D /* Blocks */;
 			targetProxy = 96FA3B6715093BCF003EABC7 /* PBXContainerItemProxy */;
 		};
+		E47E9849221EB9D8006E312E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2AAC0C605546C1D00DB518D /* Blocks */;
+			targetProxy = E47E9848221EB9D8006E312E /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -329,6 +356,7 @@
 					"$(CONFIGURATION_BUILD_DIR)/usr/local/include/**",
 				);
 				INSTALL_PATH = /usr/lib/system;
+				"INSTALL_PATH[sdk=driverkit*]" = "$(DRIVERKITROOT)/usr/lib/system";
 				OTHER_LDFLAGS = (
 					"-nostdlib",
 					"-L/usr/lib/system/",
@@ -338,9 +366,21 @@
 					"-ldyld",
 					"-Wl,-umbrella,System",
 				);
+				"OTHER_LDFLAGS[sdk=driverkit*]" = (
+					"-nostdlib",
+					"-L$(DRIVERKITROOT)/usr/lib/system/",
+					"-lsystem_platform",
+					"-lsystem_malloc",
+					"-Wl,-upward-lsystem_c",
+					"-ldyld",
+					"-Wl,-umbrella,System",
+				);
+				"PRIVATE_HEADERS_FOLDER_PATH[sdk=driverkit*]" = "$(DRIVERKITROOT)/Runtime/usr/local/include";
 				PRODUCT_NAME = system_blocks;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
+				"PUBLIC_HEADERS_FOLDER_PATH[sdk=driverkit*]" = "$(DRIVERKITROOT)/Runtime/usr/include";
 				SUPPORTS_TEXT_BASED_API = YES;
+				"SYSTEM_HEADER_SEARCH_PATHS[sdk=driverkit*]" = "$(SDKROOT)/$(DRIVERKITROOT)/Runtime/usr/local/include $(SDKROOT)/$(DRIVERKITROOT)/Runtime/usr/include";
 				TAPI_VERIFY_MODE = ErrorsAndWarnings;
 			};
 			name = Debug;
@@ -356,6 +396,7 @@
 					"$(CONFIGURATION_BUILD_DIR)/usr/local/include/**",
 				);
 				INSTALL_PATH = /usr/lib/system;
+				"INSTALL_PATH[sdk=driverkit*]" = "$(DRIVERKITROOT)/usr/lib/system";
 				OTHER_LDFLAGS = (
 					"-nostdlib",
 					"-L/usr/lib/system/",
@@ -365,9 +406,21 @@
 					"-ldyld",
 					"-Wl,-umbrella,System",
 				);
+				"OTHER_LDFLAGS[sdk=driverkit*]" = (
+					"-nostdlib",
+					"-L$(DRIVERKITROOT)/usr/lib/system/",
+					"-lsystem_platform",
+					"-lsystem_malloc",
+					"-Wl,-upward-lsystem_c",
+					"-ldyld",
+					"-Wl,-umbrella,System",
+				);
+				"PRIVATE_HEADERS_FOLDER_PATH[sdk=driverkit*]" = "$(DRIVERKITROOT)/Runtime/usr/local/include";
 				PRODUCT_NAME = system_blocks;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
+				"PUBLIC_HEADERS_FOLDER_PATH[sdk=driverkit*]" = "$(DRIVERKITROOT)/Runtime/usr/include";
 				SUPPORTS_TEXT_BASED_API = YES;
+				"SYSTEM_HEADER_SEARCH_PATHS[sdk=driverkit*]" = "$(SDKROOT)/$(DRIVERKITROOT)/Runtime/usr/local/include $(SDKROOT)/$(DRIVERKITROOT)/Runtime/usr/include";
 				TAPI_VERIFY_MODE = ErrorsAndWarnings;
 			};
 			name = Release;
@@ -534,6 +587,22 @@
 			};
 			name = Release;
 		};
+		E47E9846221EB9D0006E312E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		E47E9847221EB9D0006E312E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -578,6 +647,15 @@
 			buildConfigurations = (
 				96EF75971507C1CE00581A2E /* Debug */,
 				96EF75981507C1CE00581A2E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E47E9845221EB9D0006E312E /* Build configuration list for PBXAggregateTarget "libclosure_driverkit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E47E9846221EB9D0006E312E /* Debug */,
+				E47E9847221EB9D0006E312E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

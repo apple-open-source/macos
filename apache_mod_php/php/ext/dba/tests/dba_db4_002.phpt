@@ -1,7 +1,7 @@
 --TEST--
 DBA DB4 New File Creation open("n") & Insert Test
 --SKIPIF--
-<?php 
+<?php
 $handler = "db4";
 require_once(dirname(__FILE__) .'/skipif.inc');
 die("info $HND handler used");
@@ -23,10 +23,10 @@ if (($db_file = dba_open($db_filename, "n", $handler)) !== FALSE) {
 
 ?>
 --CLEAN--
-<?php 
-require(dirname(__FILE__) .'/clean.inc'); 
+<?php
+require(dirname(__FILE__) .'/clean.inc');
 ?>
---EXPECTF--
+--EXPECT--
 database handler: db4
 database file created
 This is a test insert

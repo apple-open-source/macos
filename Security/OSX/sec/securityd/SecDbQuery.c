@@ -630,13 +630,13 @@ static void query_add_use(const void *key, const void *value, Query *q)
         }
 #if TARGET_OS_IPHONE
     } else if (CFEqual(key, kSecUseSystemKeychain)) {
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
         q->q_keybag = KEYBAG_DEVICE;
 #endif
         q->q_system_keychain = true;
     } else if (CFEqual(key, kSecUseSyncBubbleKeychain)) {
         if (isNumber(value) && CFNumberGetValue(value, kCFNumberSInt32Type, &q->q_sync_bubble) && q->q_sync_bubble > 0) {
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
             q->q_keybag = KEYBAG_DEVICE;
 #endif
         } else {

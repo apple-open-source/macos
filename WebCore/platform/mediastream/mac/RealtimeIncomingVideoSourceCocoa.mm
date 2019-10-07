@@ -113,7 +113,7 @@ CVPixelBufferPoolRef RealtimeIncomingVideoSourceCocoa::pixelBufferPool(size_t wi
         auto status = CVPixelBufferPoolCreate(kCFAllocatorDefault, nullptr, (__bridge CFDictionaryRef)pixelAttributes, &pool);
 
         if (status != kCVReturnSuccess) {
-            RELEASE_LOG(MediaStream, "RealtimeIncomingVideoSourceCocoa::pixelBufferFromVideoFrame failed creating a pixel buffer pool with error %d", status);
+            ERROR_LOG_IF(loggerPtr(), LOGIDENTIFIER, "Failed creating a pixel buffer pool with error ", status);
             return nullptr;
         }
         m_pixelBufferPool = adoptCF(pool);
@@ -144,7 +144,7 @@ RetainPtr<CVPixelBufferRef> RealtimeIncomingVideoSourceCocoa::pixelBufferFromVid
         auto status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, m_pixelBufferPool.get(), &pixelBuffer);
 
         if (status != kCVReturnSuccess) {
-            RELEASE_LOG(MediaStream, "RealtimeIncomingVideoSourceCocoa::pixelBufferFromVideoFrame failed creating a pixel buffer with error %d", status);
+            ERROR_LOG_IF(loggerPtr(), LOGIDENTIFIER, "Failed creating a pixel buffer with error ", status);
             return nullptr;
         }
         newPixelBuffer = adoptCF(pixelBuffer);
@@ -158,13 +158,18 @@ void RealtimeIncomingVideoSourceCocoa::OnFrame(const webrtc::VideoFrame& frame)
         return;
 
 #if !RELEASE_LOG_DISABLED
-    if (!(++m_numberOfFrames % 30))
-        RELEASE_LOG(MediaStream, "RealtimeIncomingVideoSourceCocoa::OnFrame %zu frame", m_numberOfFrames);
+    if (!(++m_numberOfFrames % 60)) {
+        callOnMainThread([this, protectedThis = makeRef(*this), numberOfFrames = m_numberOfFrames] {
+            ALWAYS_LOG_IF(loggerPtr(), LOGIDENTIFIER, "frame ", numberOfFrames);
+        });
+    }
 #endif
 
     auto pixelBuffer = pixelBufferFromVideoFrame(frame);
     if (!pixelBuffer) {
-        LOG_ERROR("Failed to get a pixel buffer from a frame");
+        callOnMainThread([this, protectedThis = makeRef(*this)] {
+            ERROR_LOG_IF(loggerPtr(), LOGIDENTIFIER, "Failed to get a pixel buffer from a frame");
+        });
         return;
     }
 
@@ -178,7 +183,9 @@ void RealtimeIncomingVideoSourceCocoa::OnFrame(const webrtc::VideoFrame& frame)
     CMVideoFormatDescriptionRef formatDescription;
     OSStatus ostatus = CMVideoFormatDescriptionCreateForImageBuffer(kCFAllocatorDefault, (CVImageBufferRef)pixelBuffer, &formatDescription);
     if (ostatus != noErr) {
-        LOG_ERROR("Failed to initialize CMVideoFormatDescription: %d", static_cast<int>(ostatus));
+        callOnMainThread([this, protectedThis = makeRef(*this), ostatus] {
+            ERROR_LOG_IF(loggerPtr(), LOGIDENTIFIER, "Failed to initialize CMVideoFormatDescription with error ", static_cast<int>(ostatus));
+        });
         return;
     }
 
@@ -186,7 +193,9 @@ void RealtimeIncomingVideoSourceCocoa::OnFrame(const webrtc::VideoFrame& frame)
     ostatus = CMSampleBufferCreateReadyWithImageBuffer(kCFAllocatorDefault, (CVImageBufferRef)pixelBuffer, formatDescription, &timingInfo, &sampleBuffer);
     CFRelease(formatDescription);
     if (ostatus != noErr) {
-        LOG_ERROR("Failed to create the sample buffer: %d", static_cast<int>(ostatus));
+        callOnMainThread([this, protectedThis = makeRef(*this), ostatus] {
+            ERROR_LOG_IF(loggerPtr(), LOGIDENTIFIER, "Failed to create the sample buffer with error ", static_cast<int>(ostatus));
+        });
         return;
     }
 

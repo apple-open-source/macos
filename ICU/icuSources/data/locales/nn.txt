@@ -9,7 +9,7 @@ nn{
         default{"latn"}
         latn{
             miscPatterns{
-                atLeast{"⩾{0}"}
+                atLeast{"≥{0}"}
                 range{"{0}‒{1}"}
             }
             patterns{
@@ -98,7 +98,7 @@ nn{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
     calendar{
         buddhist{
             eras{
@@ -312,8 +312,8 @@ nn{
                 MMM{"LLL"}
                 MMMEd{"E d. MMM"}
                 MMMMW{
-                    one{"'veke' W 'i' MMM"}
-                    other{"'veke' W 'i' MMM"}
+                    one{"'veke' W 'i' MMMM"}
+                    other{"'veke' W 'i' MMMM"}
                 }
                 MMMMd{"d. MMMM"}
                 MMMd{"d. MMM"}

@@ -4,7 +4,7 @@
 
 Summary: Apache HTTP Server
 Name: httpd
-Version: 2.4.34
+Version: 2.4.41
 Release: 1
 URL: http://httpd.apache.org/
 Vendor: Apache Software Foundation
@@ -392,6 +392,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/httpd/modules/mod_slotmem_shm.so
 %{_libdir}/httpd/modules/mod_socache_dbm.so
 %{_libdir}/httpd/modules/mod_socache_memcache.so
+%{_libdir}/httpd/modules/mod_socache_redis.so
 %{_libdir}/httpd/modules/mod_socache_shmcb.so
 %{_libdir}/httpd/modules/mod_speling.so
 %{_libdir}/httpd/modules/mod_status.so

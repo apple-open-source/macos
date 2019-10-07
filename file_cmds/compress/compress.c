@@ -54,6 +54,7 @@ __FBSDID("$FreeBSD: src/usr.bin/compress/compress.c,v 1.23 2010/12/11 08:32:16 j
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <locale.h>
 
 #include "zopen.h"
 
@@ -412,14 +413,23 @@ int
 permission(const char *fname)
 {
 	int ch, first;
+	char resp[] = {'\0', '\0'};
 
 	if (!isatty(fileno(stderr)))
 		return (0);
 	(void)fprintf(stderr, "overwrite %s? ", fname);
+
+	/* Load user specified locale */
+	setlocale(LC_MESSAGES, "");
+
 	first = ch = getchar();
 	while (ch != '\n' && ch != EOF)
 		ch = getchar();
-	return (first == 'y');
+
+	/* only care about first character */
+	resp[0] = first;
+
+	return (rpmatch(resp) == 1);
 }
 
 void

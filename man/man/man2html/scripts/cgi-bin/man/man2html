@@ -90,6 +90,9 @@ then
     *.gz)
 	zcat "$PAGE" | "$MAN2HTML" "$LL" -D "$PAGE"
 	;;
+    *.bz2)
+	bzcat "$PAGE" | "$MAN2HTML" "$LL" -D "$PAGE"
+	;;
     *)
 	"$MAN2HTML" "$LL" "$PAGE"
 	;;
@@ -97,6 +100,9 @@ then
 elif [ -r "$PAGE".gz ]
 then
 	zcat "$PAGE".gz | "$MAN2HTML" "$LL" -D "$PAGE"
+elif [ -r "$PAGE".bz2 ]
+then
+	bzcat "$PAGE".bz2 | "$MAN2HTML" "$LL" -D "$PAGE"
 else
 	"$MAN2HTML" -E "Strange... Cannot find (or read) $PAGE."
 fi

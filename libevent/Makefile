@@ -17,6 +17,11 @@ Install_Prefix = $(USRDIR)/local/libevent2
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 #
+CFLAGS += -I/usr/local/libressl/include
+LDFLAGS += -L/usr/local/libressl/lib
+#
+
+#
 # Automatic Extract & Patch
 #
 

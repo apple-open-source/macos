@@ -27,7 +27,13 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+
+#if defined(_MSC_VER)
+#include <availability.h>
+#else
 #include <os/availability.h>
+#endif
+
 #include <CommonCrypto/CommonCryptoError.h>
 
 #ifdef __cplusplus

@@ -448,7 +448,7 @@ _asl_dir_storedata_open(asl_out_rule_t *r, uint64_t xid)
 			return -1;
 		}
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 		if (chown(dstpath, r->dst->uid[0], r->dst->gid[0]) != 0)
 		{
 			asldebug("_asl_dir_storedata_open: chown %d %d new %s: %s\n", dstpath, r->dst->uid[0], r->dst->gid[0], strerror(errno));
@@ -542,6 +542,7 @@ static int
 _act_checkpoint(asl_out_rule_t *r, uint32_t force)
 {
 	char tmpcurrent_name[MAXPATHLEN], *fn;
+	bool size_only = false;
 
 	if (r == NULL) return 0;
 	if (r->dst == NULL) return 0;
@@ -554,7 +555,12 @@ _act_checkpoint(asl_out_rule_t *r, uint32_t force)
 		fn = tmpcurrent_name;
 	}
 
-	if ((force == CHECKPOINT_TEST) && (r->dst->file_max == 0)) return 0;
+	if ((force == CHECKPOINT_TEST) || (r->dst->flags & MODULE_FLAG_SIZE_ONLY))
+	{
+		size_only = true;
+	}
+
+	if (size_only && (r->dst->file_max == 0)) return 0;
 
 	if ((r->dst->size == 0) || (r->dst->timestamp == 0))
 	{
@@ -573,7 +579,7 @@ _act_checkpoint(asl_out_rule_t *r, uint32_t force)
 		r->dst->size = sb.st_size;
 	}
 	
-	if ((force == CHECKPOINT_TEST) && (r->dst->size < r->dst->file_max)) return 0;
+	if (size_only && (r->dst->size < r->dst->file_max)) return 0;
 
 	if (r->dst->flags & MODULE_FLAG_BASESTAMP)
 	{
@@ -680,7 +686,7 @@ _asl_dir_today_open(asl_out_rule_t *r, const time_t *tick)
 		return -1;
 	}
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 	uid_t uid = -1;
 	gid_t gid = -1;
 #else
@@ -1404,7 +1410,6 @@ _act_file_checkpoint(asl_out_module_t *m, const char *path, uint32_t force)
 
 	if (m == NULL) return 0;
 
-
 	for (r = m->ruleset; r != NULL; r = r->next)
 	{
 		if ((r->action == ACTION_FILE) || (r->action == ACTION_ASL_FILE))
@@ -1413,24 +1418,10 @@ _act_file_checkpoint(asl_out_module_t *m, const char *path, uint32_t force)
 			{
 				if (_act_file_equal(r->dst->path, path))
 				{
-					if (force & CHECKPOINT_CRASH)
+					if (_act_checkpoint(r, force) > 0)
 					{
-						if (r->dst->flags & MODULE_FLAG_CRASHLOG)
-						{
-							if (_act_checkpoint(r, CHECKPOINT_FORCE) > 0)
-							{
-								did_checkpoint = 1;
-								_act_dst_close(r, DST_CLOSE_CHECKPOINT);
-							}
-						}
-					}
-					else
-					{
-						if (_act_checkpoint(r, force) > 0)
-						{
-							did_checkpoint = 1;
-							_act_dst_close(r, DST_CLOSE_CHECKPOINT);
-						}
+						did_checkpoint = 1;
+						_act_dst_close(r, DST_CLOSE_CHECKPOINT);
 					}
 				}
 			}
@@ -1749,7 +1740,7 @@ asl_out_message(asl_msg_t *msg, int64_t msize)
 		if (p != NULL) asl_msg_set_key_val(msg, ASL_KEY_FREE_NOTE, p);
 
 		/* chain to the next output module (done this way to make queue size accounting easier */
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 		if (global.bsd_out_enabled) bsd_out_message(msg, msize);
 		else OSAtomicAdd64(-1ll * msize, &global.memory_size);
 #else
@@ -2444,18 +2435,6 @@ asl_action_control_set_param(const char *s)
 	});
 
 	free_string_list(l);
-	return 0;
-}
-
-int
-asl_action_file_checkpoint(const char *module, const char *path)
-{
-	/* Note this is synchronous on asl_action queue */
-	dispatch_sync(asl_action_queue, ^{
-		asl_out_module_t *m = _asl_action_module_with_name(module);
-		_act_file_checkpoint(m, path, CHECKPOINT_FORCE);
-	});
-
 	return 0;
 }
 

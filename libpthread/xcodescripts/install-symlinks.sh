@@ -27,6 +27,8 @@ if [ "$ACTION" = build ]; then exit 0; fi
 # Symlink old header locations.
 #
 
+DSTROOT="${DSTROOT}/${SDK_INSTALL_HEADERS_ROOT}"
+
 ln -sf "pthread/pthread.h" "$DSTROOT/usr/include/pthread.h"
 ln -sf "pthread/pthread_impl.h" "$DSTROOT/usr/include/pthread_impl.h"
 ln -sf "pthread/pthread_spis.h" "$DSTROOT/usr/include/pthread_spis.h"

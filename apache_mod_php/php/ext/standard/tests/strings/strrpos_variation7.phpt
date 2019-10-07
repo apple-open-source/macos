@@ -7,7 +7,7 @@ Test strrpos() function : usage variations - empty heredoc string for 'haystack'
  * Source code: ext/standard/string.c
 */
 
-/* Test strrpos() function by passing empty heredoc string for haystack 
+/* Test strrpos() function by passing empty heredoc string for haystack
  *  and with various needles & offsets
 */
 
@@ -27,6 +27,10 @@ echo "*** Done ***";
 -- With empty heredoc string --
 bool(false)
 bool(false)
+
+Deprecated: strrpos(): Non-string needles will be interpreted as strings in %s on line %d
 bool(false)
+
+Deprecated: strrpos(): Non-string needles will be interpreted as strings in %s on line %d
 bool(false)
 *** Done ***

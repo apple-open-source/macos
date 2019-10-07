@@ -53,9 +53,6 @@ namespace WebCore {
         PlatformKeyboardEvent()
             : PlatformEvent(PlatformEvent::KeyDown)
             , m_windowsVirtualKeyCode(0)
-#if USE(APPKIT) || PLATFORM(GTK)
-            , m_handledByInputMethod(false)
-#endif
             , m_autoRepeat(false)
             , m_isKeypad(false)
             , m_isSystemKey(false)
@@ -84,9 +81,6 @@ namespace WebCore {
 #endif
             , m_keyIdentifier(keyIdentifier)
             , m_windowsVirtualKeyCode(windowsVirtualKeyCode)
-#if USE(APPKIT) || PLATFORM(GTK)
-            , m_handledByInputMethod(false)
-#endif
             , m_autoRepeat(isAutoRepeat)
             , m_isKeypad(isKeypad)
             , m_isSystemKey(isSystemKey)
@@ -122,7 +116,7 @@ namespace WebCore {
         int windowsVirtualKeyCode() const { return m_windowsVirtualKeyCode; }
         void setWindowsVirtualKeyCode(int code) { m_windowsVirtualKeyCode = code; }
 
-#if USE(APPKIT) || PLATFORM(GTK)
+#if USE(APPKIT) || USE(UIKIT_KEYBOARD_ADDITIONS) || PLATFORM(GTK)
         bool handledByInputMethod() const { return m_handledByInputMethod; }
 #endif
 #if USE(APPKIT)
@@ -134,6 +128,9 @@ namespace WebCore {
         bool isAutoRepeat() const { return m_autoRepeat; }
         bool isKeypad() const { return m_isKeypad; }
         bool isSystemKey() const { return m_isSystemKey; }
+        
+        bool isSyntheticEvent() const { return m_isSyntheticEvent; }
+        void setIsSyntheticEvent() { m_isSyntheticEvent = true; }
 
         WEBCORE_EXPORT static bool currentCapsLockState();
         WEBCORE_EXPORT static void getCurrentModifierState(bool& shiftKey, bool& ctrlKey, bool& altKey, bool& metaKey);
@@ -185,8 +182,8 @@ namespace WebCore {
 #endif
         String m_keyIdentifier;
         int m_windowsVirtualKeyCode;
-#if USE(APPKIT) || PLATFORM(GTK)
-        bool m_handledByInputMethod;
+#if USE(APPKIT) || USE(UIKIT_KEYBOARD_ADDITIONS) || PLATFORM(GTK)
+        bool m_handledByInputMethod { false };
 #endif
 #if USE(APPKIT)
         Vector<KeypressCommand> m_commands;
@@ -196,6 +193,8 @@ namespace WebCore {
         bool m_autoRepeat;
         bool m_isKeypad;
         bool m_isSystemKey;
+        
+        bool m_isSyntheticEvent { false };
 
 #if PLATFORM(COCOA)
 #if !PLATFORM(IOS_FAMILY)

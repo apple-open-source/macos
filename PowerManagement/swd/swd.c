@@ -29,16 +29,22 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <sys/dir.h>
+#include <System/sys/stackshot.h>
 #include <string.h>
 #include <sys/sysctl.h>
 #include <IOKit/pwr_mgt/IOPMPrivate.h>
+#include <IOKit/IOKitLib.h>
 #include <zlib.h>
 #include <os/log.h>
+#include <CoreFoundation/CoreFoundation.h>
 
-#define APPLEOSXWATCHDOG_FILENAMETOKEN "progress watchdog"
 #define SLEEP_WAKE_FILENAMETOKEN "Sleep Wake Failure"
 
 #define PANIC_FILE "/var/db/PanicReporter/current.panic"
+
+#define STACKSHOT_TEMP_FILE "/tmp/sw_stackshot"
+
+#define STACKSHOT_KCDATA_FORMAT  0x10000
 
 ssize_t uncompress_stackshot(char *gz_fname, char *fname_out)
 {
@@ -85,7 +91,7 @@ exit:
     return total_bytes;
 }
 
-void process_logfiles(char *gz_stacksfile, char *logfile)
+void process_logfiles(char *gz_stacksfile, char *logfile, int compressed)
 {
     struct stat stacks;
     struct stat logs;
@@ -97,7 +103,6 @@ void process_logfiles(char *gz_stacksfile, char *logfile)
     struct stat fstats, pfstat;
     struct timeval sleeptime, boottime;
     size_t size;
-    bool isAppleOSXWatchdog = false;
     bool stacksExist = true;
     char stacksfile[128];
 
@@ -109,9 +114,14 @@ void process_logfiles(char *gz_stacksfile, char *logfile)
         stacksExist = false;
     }
     else {
-        snprintf(stacksfile, sizeof(stacksfile), "/tmp/sw_stackshot.%ld", time(NULL));
-        if (uncompress_stackshot(gz_stacksfile, stacksfile) == 0) {
-            stacksExist = false;
+        if (compressed) {
+            snprintf(stacksfile, sizeof(stacksfile), "%s.%ld", STACKSHOT_TEMP_FILE, time(NULL));
+            if (uncompress_stackshot(gz_stacksfile, stacksfile) == 0) {
+                stacksExist = false;
+            }
+        } else {
+            snprintf(stacksfile, sizeof(stacksfile), "%s", gz_stacksfile);
+            unlink(kSleepWakeStacksFilename);
         }
     }
     
@@ -119,24 +129,18 @@ void process_logfiles(char *gz_stacksfile, char *logfile)
      * We need to differentiate Sleep/Wake failure from AppleOSXWatchdog failure. Indeed,
      * currently spindump has a different interface for both watchdogs.
      */
-    isAppleOSXWatchdog = (stacksfile == kOSWatchdogStacksFilename || logfile == kOSWatchdogFailureStringFile);
     
-    if (isAppleOSXWatchdog) {
-        snprintf(cmd, sizeof(cmd),
-                 "/usr/sbin/spindump %s %s -progress_watchdog_data_file %s",
-                 (stacksExist) ? "-progress_watchdog_stackshot_file" : "",
-                 (stacksExist) ? stacksfile : "",
-                 logfile);
-    } else {
-        snprintf(cmd, sizeof(cmd),
-                 "/usr/sbin/spindump %s %s -sleepwakefailure_data_file %s",
-                 (stacksExist) ? "-sleepwakefailure_stackshot_file" : "",
-                 (stacksExist) ? stacksfile : "",
-                 logfile);
-    }
+    snprintf(cmd, sizeof(cmd),
+             "/usr/sbin/spindump %s %s -sleepwakefailure_data_file %s",
+             (stacksExist) ? "-sleepwakefailure_stackshot_file" : "",
+             (stacksExist) ? stacksfile : "",
+             logfile);
     
     // Invoke spindump.
-    system(cmd);
+    int err = system(cmd);
+    if (err) {
+        os_log_error(OS_LOG_DEFAULT, "spindump cmd %s returned non zero exit code %d\n", cmd, err);
+    }
 
 
     unlink(gz_stacksfile);
@@ -159,8 +163,8 @@ void process_logfiles(char *gz_stacksfile, char *logfile)
     }
 
     while ((dp = readdir(dirp)) != NULL) {
-        char *filename      = isAppleOSXWatchdog ? APPLEOSXWATCHDOG_FILENAMETOKEN : SLEEP_WAKE_FILENAMETOKEN;
-        size_t filename_len = isAppleOSXWatchdog ? sizeof(APPLEOSXWATCHDOG_FILENAMETOKEN) : sizeof(SLEEP_WAKE_FILENAMETOKEN);
+        char *filename      = SLEEP_WAKE_FILENAMETOKEN;
+        size_t filename_len = sizeof(SLEEP_WAKE_FILENAMETOKEN);
         
         if ((strnstr(dp->d_name, filename, filename_len) == dp->d_name)
                     && (dp->d_type == DT_REG)) {
@@ -191,13 +195,94 @@ void process_logfiles(char *gz_stacksfile, char *logfile)
 
 }
 
+ssize_t take_stackshot(char *stackshot_filename) {
+    void *buffer = NULL;
+    uint32_t buffer_size = 0;
+    ssize_t bytes_saved = 0;
+    pid_t pid = -1;
+    int fd = -1;
+    int ret = 0;
+
+    stackshot_config_t *config = stackshot_config_create();
+    if (!config) {
+        os_log_error(OS_LOG_DEFAULT, "Unable to create stackshot config\n");
+        return bytes_saved;
+    }
+
+    // stackshot format flag needs to be set
+    stackshot_config_set_flags(config, STACKSHOT_KCDATA_FORMAT);
+    pid = getpid();
+    ret = stackshot_config_set_pid(config, pid);
+    if (ret) {
+        os_log_error(OS_LOG_DEFAULT, "Unable to set config with pid %d. Return %d\n", pid, ret);
+    }
+    ret = stackshot_capture_with_config(config);
+    if (ret) {
+        os_log_error(OS_LOG_DEFAULT, "stackshot capture returned error %d for pid %d\n", ret, pid);
+        return bytes_saved;
+    }
+
+    buffer = stackshot_config_get_stackshot_buffer(config);
+    if (!buffer) {
+        os_log_error(OS_LOG_DEFAULT, "stackshot buffer returned NULL\n");
+        return bytes_saved;
+    }
+    buffer_size = stackshot_config_get_stackshot_size(config);
+    if (!buffer_size) {
+        os_log_error(OS_LOG_DEFAULT, "stackshot buffer size returned %d\n", buffer_size);
+        return bytes_saved;
+    }
+    fd = open(stackshot_filename, O_CREAT|O_RDWR, 0600);
+    if (fd == -1) {
+        os_log_error(OS_LOG_DEFAULT, "Failed to open temp file to save stackshot. errno: %d\n", errno);
+        return bytes_saved;
+    }
+
+    bytes_saved = write(fd, buffer, buffer_size);
+    os_log_info(OS_LOG_DEFAULT, "Saved %ld bytes to stackshot file %s\n", bytes_saved, stackshot_filename);
+    return bytes_saved;
+
+}
+
 int main(int argc, char **argv)
 {
+    /*
+     * If sleep wake failure in EFI (0x1f)
+     * take a stackshot of swd to create a
+     * "Sleep Wake Failure" report
+     */
+    uint64_t status_code = 0;
+    uint32_t phase_data = 0;
+    uint32_t phase_detail = 0;
+    io_registry_entry_t root_domain = MACH_PORT_NULL;
 
-    process_logfiles(kSleepWakeStacksFilename, kSleepWakeFailureStringFile);
-    
-    /* AppleOSXWatchdog */
-    process_logfiles(kOSWatchdogStacksFilename, kOSWatchdogFailureStringFile);
+    root_domain = IORegistryEntryFromPath(kIOMasterPortDefault, kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
+    CFNumberRef status_code_cf = (CFNumberRef)IORegistryEntryCreateCFProperty(root_domain, CFSTR(kIOPMSleepWakeFailureCodeKey), kCFAllocatorDefault, 0);
+    if (status_code_cf) {
 
+        // get sleep wake failure code
+        CFNumberGetValue(status_code_cf, kCFNumberLongLongType, &status_code);
+
+        // failure phase and detail
+        phase_detail = (status_code >> 32) & 0xFFFFFFFF;
+        phase_data = (status_code & 0xFFFFFFFF) & 0xFF;
+        if (phase_data == 0x1f) {
+
+            // failure in EFI
+            os_log_error(OS_LOG_DEFAULT, "EFI failure\n");
+
+            // take a stackshot
+            char temp_filename[128];
+            ssize_t bytes_saved = 0;
+            snprintf(temp_filename, sizeof(temp_filename), "%s.%ld", STACKSHOT_TEMP_FILE, time(NULL));
+            bytes_saved = take_stackshot(temp_filename);
+            if (bytes_saved) {
+                process_logfiles(temp_filename, kSleepWakeFailureStringFile, 0);
+            }
+        } else {
+            process_logfiles(kSleepWakeStacksFilename, kSleepWakeFailureStringFile, 1);
+        }
+        CFRelease(status_code_cf);
+    }
     return 0;
 }

@@ -78,9 +78,6 @@ static uint8_t descriptor[] = {
         self.sourceController = nil;
     }
     
-    int status = system ("leaks hidxctest");
-    XCTAssert (status == 0);
-    
     system("kextunload -b com.apple.IOHIDEventFastPathDriver");
     
     [super tearDown];

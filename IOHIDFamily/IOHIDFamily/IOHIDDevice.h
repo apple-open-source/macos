@@ -25,6 +25,7 @@
 #ifndef _IOKIT_HID_IOHIDDEVICE_H
 #define _IOKIT_HID_IOHIDDEVICE_H
 
+#include <TargetConditionals.h>
 #include <IOKit/IOService.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
@@ -32,6 +33,8 @@
 #include <IOKit/hid/IOHIDKeys.h>
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/IOEventSource.h>
+#include <IOKit/hid/IOHIDDeviceTypes.h>
+#include <HIDDriverKit/IOHIDDevice.h>
 
 class   IOHIDSystem;
 class   IOHIDPointing;
@@ -43,45 +46,7 @@ class   IOHIDInterface;
 class   IOHIDDeviceShim;
 struct  IOHIDReportHandler;
 class   IOHIDAsyncReportQueue;
-
-/*!
-    @typedef IOHIDCompletionAction
-    @abstract Function called when set/get report completes
-    @param target The target specified in the IOHIDCompletion struct.
-    @param parameter The parameter specified in the IOHIDCompletion struct.
-    @param status Completion status
-*/
-typedef void (*IOHIDCompletionAction)(
-                void *			target,
-                void *			parameter,
-                IOReturn		status,
-                UInt32			bufferSizeRemaining);
-
-/*!
-    @typedef IOHIDCompletion
-    @abstract Struct spefifying action to perform when set/get report completes.
-    @var target The target to pass to the action function.
-    @var action The function to call.
-    @var parameter The parameter to pass to the action function.
-*/
-typedef struct IOHIDCompletion {
-    void * 			target;
-    IOHIDCompletionAction	action;
-    void *			parameter;
-} IOHIDCompletion;
-
-/*!
-    @enum IOHIDReportOption
-    @abstract Option bits for IOHIDDevice::handleReport,
-    IOHIDDevice::getReport, and IOHIDDevice::setReport
-    @constant kIOHIDReportOptionNotInterrupt Tells method that the report
-    passed was not interrupt driven.
-*/
-enum
-{
-    kIOHIDReportOptionNotInterrupt	= 0x100,
-    kIOHIDReportOptionVariableSize  = 0x200
-};
+class   IOHIDDeviceElementContainer;
 
 
 /*! @class IOHIDDevice : public IOService
@@ -102,19 +67,24 @@ enum
     by the physical device, as long as the reports abide to the USB
     specification. */
 
+#if defined(KERNEL) && !defined(KERNEL_PRIVATE)
+class __deprecated_msg("Use DriverKit") IOHIDDevice : public IOService
+#else
 class IOHIDDevice : public IOService
+#endif
 {
-    OSDeclareDefaultStructors( IOHIDDevice )
+    OSDeclareDefaultStructorsWithDispatch ( IOHIDDevice )
 
     friend class IOHIDLibUserClient;
     friend class IOHIDDeviceShim;
+    friend class IOHIDInterface;
 
 private:
     OSArray *                   _elementArray;
     UInt32                      _dataElementIndex;
     IORecursiveLock *           _elementLock;
-    IOHIDReportHandler *        _reportHandlers;
-    IOBufferMemoryDescriptor *  _elementValuesDescriptor;
+    IOHIDReportHandler *        _reportHandlers; // unused
+    IOBufferMemoryDescriptor *  _elementValuesDescriptor; // unused
     bool                        _readyForInputReports;
     UInt32                      _reportCount;
     UInt32                      _maxInputReportSize;
@@ -125,21 +95,22 @@ private:
         OSSet *                 clientSet;
         IOService *             seizedClient;
         AbsoluteTime            eventDeadline;
-        OSArray *               inputInterruptElementArray;
         bool                    performTickle;
         bool                    performWakeTickle;
         OSArray *               interfaceNubs;
-        IOHIDElementPrivate *   rollOverElement;
         OSArray *               hierarchElements;
         OSArray *               interfaceElementArrays;
         IOHIDAsyncReportQueue * asyncReportQueue;
         IOWorkLoop *            workLoop;
         IOEventSource *         eventSource;
         IONotifier *            deviceNotify;
+        IOHIDDeviceElementContainer *elementContainer;
     };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
     ExpansionData * _reserved;
+    
+    void setupResolution();
 
     // HID report descriptor parsing support.
 
@@ -726,8 +697,21 @@ protected:
     OSMetaClassDeclareReservedUsed(IOHIDDevice, 13);
     virtual void destroyInterface(IOOptionBits options = 0);
 
-    OSMetaClassDeclareReservedUnused(IOHIDDevice, 14);
-    OSMetaClassDeclareReservedUnused(IOHIDDevice, 15);
+    /*! @function conformsTo
+     @abstract Checks if a device conforms to a certain usage page/usage.
+     @discussion Iterates through the usages returned from newDeviceUsagePairs
+     function and checks for matching usages.
+     @result true if the device conforms to the specified usage page/usage. */
+    OSMetaClassDeclareReservedUsed(IOHIDDevice, 14);
+    virtual bool conformsTo(UInt32 usagePage, UInt32 usage);
+    
+    /*! @function completeReport
+     @abstract complete reports for DriverKit drivers
+     @discussion This method only used by DriverKit driver
+     created. */
+    OSMetaClassDeclareReservedUsed(IOHIDDevice, 15);
+    virtual void completeReport(OSAction * action, IOReturn status, uint32_t actualByteCount);
+
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 16);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 17);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 18);

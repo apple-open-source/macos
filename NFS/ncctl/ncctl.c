@@ -346,7 +346,7 @@ main_ncinit(int argc, char *argv[], uint32_t flags)
 		printf("Setting %s type principal %s\n", type, pname);
 
 	gprincipal.principal = (uint8_t *)pname;
-	gprincipal.princlen = pname ? strlen(pname) : 0;
+	gprincipal.princlen = pname ? (uint32_t) strlen(pname) : 0;
 	gprincipal.flags = 0;
 	if (gprincipal.princlen == 0 || gprincipal.princlen > MAXPATHLEN)
 		errx(1, "Principal is invalid");

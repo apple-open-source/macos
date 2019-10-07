@@ -29,99 +29,73 @@
 
 #include "DisplayBox.h"
 #include "FormattingContext.h"
-#include "InlineRun.h"
+#include "InlineFormattingState.h"
+#include "InlineLine.h"
 #include <wtf/IsoMalloc.h>
 
 namespace WebCore {
 namespace Layout {
 
-class InlineFormattingState;
-class InlineRunProvider;
+class FloatingState;
+class InlineContainer;
+struct LineContent;
+struct LineInput;
 
 // This class implements the layout logic for inline formatting contexts.
 // https://www.w3.org/TR/CSS22/visuren.html#inline-formatting
 class InlineFormattingContext : public FormattingContext {
     WTF_MAKE_ISO_ALLOCATED(InlineFormattingContext);
 public:
-    InlineFormattingContext(const Box& formattingContextRoot, FormattingState&);
-
+    InlineFormattingContext(const Box& formattingContextRoot, InlineFormattingState&);
     void layout() const override;
 
 private:
-    class Line {
+    void computeIntrinsicWidthConstraints() const override;
+
+    class InlineLayout {
     public:
-        void init(const LayoutPoint& topLeft, LayoutUnit availableWidth, LayoutUnit minimalHeight);
-        void close();
-
-        void appendContent(const InlineRunProvider::Run&, const LayoutSize&);
-
-        void adjustLogicalLeft(LayoutUnit delta);
-        void adjustLogicalRight(LayoutUnit delta);
-
-        bool hasContent() const { return !m_inlineRuns.isEmpty(); }
-        bool isClosed() const { return m_closed; }
-        bool isFirstLine() const { return m_isFirstLine; }
-        Vector<InlineRun>& runs() { return m_inlineRuns; }
-
-        LayoutUnit contentLogicalRight() const;
-        LayoutUnit contentLogicalLeft() const { return m_logicalRect.left(); }
-        LayoutUnit availableWidth() const { return m_availableWidth; }
-        Optional<InlineRunProvider::Run::Type> lastRunType() const { return m_lastRunType; }
-
-        LayoutUnit logicalTop() const { return m_logicalRect.top(); }
-        LayoutUnit logicalBottom() const { return m_logicalRect.bottom(); }
-        LayoutUnit logicalHeight() const { return logicalBottom() - logicalTop(); }
+        InlineLayout(const InlineFormattingContext&);
+        void layout(const InlineItems&, LayoutUnit widthConstraint) const;
+        LayoutUnit computedIntrinsicWidth(const InlineItems&, LayoutUnit widthConstraint) const;
 
     private:
-        struct TrailingTrimmableContent {
-            LayoutUnit width;
-            unsigned length;
-        };
-        Optional<TrailingTrimmableContent> m_trailingTrimmableContent;
-        Optional<InlineRunProvider::Run::Type> m_lastRunType;
-        bool m_lastRunCanExpand { false };
+        LayoutState& layoutState() const { return m_layoutState; }
+        LineContent placeInlineItems(const LineInput&) const;
+        void createDisplayRuns(const Line::Content&, const Vector<WeakPtr<InlineItem>>& floats, LayoutUnit widthConstraint) const;
+        void alignRuns(TextAlignMode, InlineRuns&, unsigned firstRunIndex, LayoutUnit availableWidth) const;
 
-        Display::Box::Rect m_logicalRect;
-        LayoutUnit m_availableWidth;
-
-        Vector<InlineRun> m_inlineRuns;
-        bool m_isFirstLine { true };
-        bool m_closed { true };
+    private:
+        LayoutState& m_layoutState;
+        const Container& m_formattingRoot;
     };
-    enum class IsLastLine { No, Yes };
+
+    class Quirks {
+    public:
+        static bool lineDescentNeedsCollapsing(const LayoutState&, const Line::Content&);
+        static Line::InitialConstraints::HeightAndBaseline lineHeightConstraints(const LayoutState&, const Box& formattingRoot);
+    };
 
     class Geometry : public FormattingContext::Geometry {
     public:
         static HeightAndMargin inlineBlockHeightAndMargin(const LayoutState&, const Box&);
-        static WidthAndMargin inlineBlockWidthAndMargin(LayoutState&, const Box&);
-        static void alignRuns(TextAlignMode, Line&, IsLastLine);
-        static void computeExpansionOpportunities(Line&, const InlineRunProvider::Run&, InlineRunProvider::Run::Type lastRunType);
-        static LayoutUnit runWidth(const InlineContent&, const InlineItem&, ItemPosition from, unsigned length, LayoutUnit contentLogicalLeft); 
-
-    private:
-        static void justifyRuns(Line&);
+        static WidthAndMargin inlineBlockWidthAndMargin(LayoutState&, const Box&, UsedHorizontalValues);
     };
 
-    void layoutInlineContent(const InlineRunProvider&) const;
-    void initializeNewLine(Line&) const;
-    void closeLine(Line&, IsLastLine) const;
-    void appendContentToLine(Line&, const InlineRunProvider::Run&, const LayoutSize&) const;
-    void postProcessInlineRuns(Line&, IsLastLine) const;
-    void createFinalRuns(Line&) const;
-    void splitInlineRunIfNeeded(const InlineRun&, InlineRuns& splitRuns) const;
-
-    void layoutFormattingContextRoot(const Box&) const;
-    void computeWidthAndHeightForReplacedInlineBox(const Box&) const;
+    void layoutFormattingContextRoot(const Box&, UsedHorizontalValues) const;
+    void computeIntrinsicWidthForFloatBox(const Box&) const;
+    void computeMarginBorderAndPaddingForInlineContainer(const InlineContainer&, UsedHorizontalValues) const;
+    void initializeMarginBorderAndPaddingForGenericInlineBox(const InlineBox&) const;
+    void computeIntrinsicWidthForInlineBlock(const Box&) const;
+    void computeWidthAndHeightForReplacedInlineBox(const Box&, UsedHorizontalValues) const;
+    void computeHorizontalMargin(const Box&, UsedHorizontalValues) const;
     void computeHeightAndMargin(const Box&) const;
-    void computeWidthAndMargin(const Box&) const;
-    void computeFloatPosition(const FloatingContext&, Line&, const Box&) const;
-    void placeInFlowPositionedChildren(unsigned firstRunIndex) const;
+    void computeWidthAndMargin(const Box&, UsedHorizontalValues) const;
 
-    void collectInlineContent(InlineRunProvider&) const;
-    void collectInlineContentForSubtree(const Box& root, InlineRunProvider&) const;
-    InstrinsicWidthConstraints instrinsicWidthConstraints() const override;
+    void collectInlineContent() const;
 
-    InlineFormattingState& inlineFormattingState() const { return downcast<InlineFormattingState>(formattingState()); }
+    InlineFormattingState& formattingState() const { return downcast<InlineFormattingState>(FormattingContext::formattingState()); }
+    // FIXME: Come up with a structure that requires no friending.
+    friend class Line;
 };
 
 }

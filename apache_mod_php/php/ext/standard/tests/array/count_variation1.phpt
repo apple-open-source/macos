@@ -3,7 +3,7 @@ Test count() function : usage variations - Pass different data types as $var arg
 --FILE--
 <?php
 /* Prototype  : int count(mixed $var [, int $mode])
- * Description: Count the number of elements in a variable (usually an array) 
+ * Description: Count the number of elements in a variable (usually an array)
  * Source code: ext/standard/array.c
  */
 
@@ -58,7 +58,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
@@ -67,7 +67,7 @@ $inputs = array(
 /*18*/ "string",
        'string',
        $heredoc,
-       
+
        // object data
 /*21*/ new classA(),
 
@@ -97,74 +97,122 @@ echo "Done";
 *** Testing count() : usage variations ***
 
 -- Iteration 1 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 2 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 3 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 4 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 5 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 6 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 7 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 8 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 9 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 10 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(0)
 
 -- Iteration 11 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(0)
 
 -- Iteration 12 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 13 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 14 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 15 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 16 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 17 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 18 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 19 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 20 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 21 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 
 -- Iteration 22 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(0)
 
 -- Iteration 23 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(0)
 
 -- Iteration 24 --
+
+Warning: count(): Parameter must be an array or an object that implements Countable in %s on line %d
 int(1)
 Done

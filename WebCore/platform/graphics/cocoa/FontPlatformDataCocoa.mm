@@ -26,7 +26,7 @@
 
 #import "SharedBuffer.h"
 #import <pal/spi/cocoa/CoreTextSPI.h>
-#import <wtf/text/WTFString.h>
+#import <wtf/text/StringConcatenateNumbers.h>
 
 #if PLATFORM(IOS_FAMILY)
 #import <CoreText/CoreText.h>
@@ -155,7 +155,7 @@ CTFontRef FontPlatformData::ctFont() const
         return m_ctFont.get();
 
     ASSERT(m_font);
-    m_ctFont = adoptCF(CTFontCreateCopyWithAttributes(m_font.get(), m_size, 0, cascadeToLastResortAndVariationsFontDescriptor(m_font.get()).get()));
+    m_ctFont = adoptCF(CTFontCreateCopyWithAttributes(m_font.get(), m_size, nullptr, cascadeToLastResortAndVariationsFontDescriptor(m_font.get()).get()));
 
     if (m_widthVariant != FontWidthVariant::RegularWidth) {
         int featureTypeValue = kTextSpacingType;
@@ -197,12 +197,16 @@ RefPtr<SharedBuffer> FontPlatformData::openTypeTable(uint32_t table) const
 }
 
 #if !LOG_DISABLED
+
 String FontPlatformData::description() const
 {
-    auto fontDescription = adoptCF(CFCopyDescription(font()));
-    return String(fontDescription.get()) + " " + String::number(m_size)
-        + (m_syntheticBold ? " synthetic bold" : "") + (m_syntheticOblique ? " synthetic oblique" : "") + (m_orientation == FontOrientation::Vertical ? " vertical orientation" : "");
+    String fontDescription { adoptCF(CFCopyDescription(font())).get() };
+    return makeString(fontDescription, ' ', m_size,
+        (m_syntheticBold ? " synthetic bold" : ""),
+        (m_syntheticOblique ? " synthetic oblique" : ""),
+        (m_orientation == FontOrientation::Vertical ? " vertical orientation" : ""));
 }
+
 #endif
 
 } // namespace WebCore

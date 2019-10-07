@@ -24,9 +24,13 @@
 #if OCTAGON
 
 #import "OTTestsBase.h"
+#import "keychain/ot/OTSOSAdapter.h"
 
 static NSString* const testContextID = @"Foo";
+static NSString* const testContextForAcceptor = @"Acceptor";
+
 static NSString* const testDSID = @"123456789";
+
 static int _test_num = 0;
 static NSString* _path;
 static NSString* _dbPath;
@@ -116,9 +120,21 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
     self.rampZone = [[FakeCKZone alloc]initZone:self.rampZoneID];
     self.zones[self.rampZoneID] = self.rampZone;
 
-    self.cfu = [self fakeRamp:kOTRampForCFURecordName featureName:@"FAKE-cfu"];
-    self.enroll = [self fakeRamp:kOTRampForEnrollmentRecordName featureName:@"FAKE-enroll"];
-    self.restore = [self fakeRamp:kOTRampForRestoreRecordName featureName:@"FAKE-restore"];
+    self.cfu = [self fakeRamp:kOTRampForCFURecordName
+                  featureName:@"FAKE-cfu"
+                accountTracker:self.accountStateTracker
+            lockStateStracker:self.lockStateTracker
+          reachabilityTracker:self.reachabilityTracker];
+    self.enroll = [self fakeRamp:kOTRampForEnrollmentRecordName
+                     featureName:@"FAKE-enroll"
+                  accountTracker:self.accountStateTracker
+               lockStateStracker:self.lockStateTracker
+             reachabilityTracker:self.reachabilityTracker];
+    self.restore = [self fakeRamp:kOTRampForRestoreRecordName
+                      featureName:@"FAKE-restore"
+                   accountTracker:self.accountStateTracker
+                lockStateStracker:self.lockStateTracker
+              reachabilityTracker:self.reachabilityTracker];
 
     self.scheduler = [[CKKSNearFutureScheduler alloc] initWithName: @"test" delay:50*NSEC_PER_MSEC keepProcessAlive:true
                                          dependencyDescriptionCode:CKKSResultDescriptionNone
@@ -130,34 +146,25 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
                                                enroll:self.enroll
                                               restore:self.restore
                                                   cfu:self.cfu
-                                         cfuScheduler:self.scheduler];
+                                         cfuScheduler:self.scheduler
+                                           sosAdapter:[[OTSOSActualAdapter alloc] init]
+                                       authKitAdapter:[[OTAuthKitActualAdapter alloc] init]
+                                   apsConnectionClass:[FakeAPSConnection class]];
+    [OTManager resetManager:true to:self.manager];
+
+    self.cuttlefishContext = [self.manager contextForContainerName:OTCKContainerName
+                                                         contextID:OTDefaultContext];
     
     id mockConnection = OCMPartialMock([[NSXPCConnection alloc] init]);
     OCMStub([mockConnection remoteObjectProxyWithErrorHandler:[OCMArg any]]).andCall(self, @selector(manager));
-    self.otControl = [[OTControl alloc] initWithConnection:mockConnection];
+    self.otControl = [[OTControl alloc] initWithConnection:mockConnection sync:true];
     XCTAssertNotNil(self.otControl, "Should have received control object");
 
-    [self startCKKSSubsystem];
-    
-    self.accountStatus = CKAccountStatusAvailable;
-    self.circleStatus = [[SOSAccountStatus alloc] init:kSOSCCInCircle error:nil];
-    [self.cfu.accountTracker notifyCKAccountStatusChangeAndWaitForSignal];
-
-    [self.context.accountTracker notifyCKAccountStatusChangeAndWaitForSignal];
-    [self.enroll.accountTracker notifyCKAccountStatusChangeAndWaitForSignal];
-    [self.restore.accountTracker notifyCKAccountStatusChangeAndWaitForSignal];
-
-    [self.context.accountTracker notifyCircleStatusChangeAndWaitForSignal];
-    [self.cfu.accountTracker notifyCircleStatusChangeAndWaitForSignal];
-    [self.enroll.accountTracker notifyCircleStatusChangeAndWaitForSignal];
-    [self.restore.accountTracker notifyCircleStatusChangeAndWaitForSignal];
-
-    self.reachabilityFlags = kSCNetworkReachabilityFlagsReachable;
+    [self.reachabilityTracker setNetworkReachability:true];
     [self.context.reachabilityTracker recheck];
     [self.cfu.reachabilityTracker recheck];
     [self.enroll.reachabilityTracker recheck];
     [self.restore.reachabilityTracker recheck];
-
 }
 
 
@@ -187,7 +194,11 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
     [super tearDown];
 }
 
--(OTRamp*) fakeRamp:(NSString*)recordName featureName:(NSString*)featureName
+- (OTRamp*)fakeRamp:(NSString*)recordName
+        featureName:(NSString*)featureName
+     accountTracker:(CKKSAccountStateTracker*)accountTracker
+  lockStateStracker:(CKKSLockStateTracker*)lockStateTracker
+reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
 {
 
     OTRamp* ramp = [[OTRamp alloc]initWithRecordName:recordName
@@ -195,9 +206,9 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
                                            container:self.mockContainer
                                             database:self.mockDatabase
                                               zoneID:self.rampZoneID
-                                      accountTracker:[CKKSViewManager manager].accountTracker
-                                    lockStateTracker:[CKKSViewManager manager].lockStateTracker
-                                 reachabilityTracker:[CKKSViewManager manager].reachabilityTracker
+                                      accountTracker:accountTracker
+                                    lockStateTracker:lockStateTracker
+                                 reachabilityTracker:reachabilityTracker
                     fetchRecordRecordsOperationClass:self.mockFakeCKFetchRecordsOperation];
 
     return ramp;
@@ -276,7 +287,10 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
             }
            runAfterModification:^{
                __strong __typeof(self) strongSelf = weakSelf;
-               [strongSelf holdCloudKitFetches];
+               if(shouldHoldTheFetch){
+                   [strongSelf holdCloudKitFetches];
+               }
+
            }
      ];
 }
@@ -297,7 +311,9 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
             }
            runAfterModification:^{
                __strong __typeof(self) strongSelf = weakSelf;
-               [strongSelf holdCloudKitFetches];
+               if(shouldHoldTheFetch){
+                   [strongSelf holdCloudKitFetches];
+               }
            }
      ];
 }
@@ -305,7 +321,6 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
 - (nullable OTIdentity *)currentIdentity:(NSError * _Nullable __autoreleasing * _Nullable)error {
     return [[OTIdentity alloc]initWithPeerID:self.egoPeerID spID:self.sosPeerID peerSigningKey:self.peerSigningKey peerEncryptionkey:self.peerEncryptionKey error:error];
 }
-
 
 @end
 #endif

@@ -37,7 +37,7 @@
 #include "DFGVariableAccessDataDump.h"
 #include "JSCInlines.h"
 #include "MathCommon.h"
-#include "RegExpConstructor.h"
+#include "RegExpObject.h"
 #include "StringPrototype.h"
 #include <cstdlib>
 #include <wtf/text/StringBuilder.h>
@@ -92,7 +92,7 @@ private:
             handleCommutativity();
             break;
             
-        case BitLShift:
+        case ArithBitLShift:
         case BitRShift:
         case BitURShift:
             if (m_node->child1().useKind() != UntypedUse && m_node->child2()->isInt32Constant() && !(m_node->child2()->asInt32() & 0x1f)) {
@@ -350,7 +350,7 @@ private:
                     if (value.isInt32())
                         return String::number(value.asInt32());
                     if (value.isNumber())
-                        return String::numberToStringECMAScript(value.asNumber());
+                        return String::number(value.asNumber());
                     if (value.isBoolean())
                         return value.asBoolean() ? "true"_s : "false"_s;
                     if (value.isNull())
@@ -421,7 +421,7 @@ private:
                         if (value.isInt32())
                             result = String::number(value.asInt32());
                         else if (value.isNumber())
-                            result = String::numberToStringECMAScript(value.asNumber());
+                            result = String::number(value.asNumber());
 
                         if (!result.isNull()) {
                             convertToLazyJSValue(m_node, LazyJSValue::newString(m_graph, result));
@@ -620,8 +620,7 @@ private:
                 }
                 m_graph.registerStructure(structure);
 
-                RegExpConstructor* constructor = globalObject->regExpConstructor();
-                FrozenValue* constructorFrozenValue = m_graph.freeze(constructor);
+                FrozenValue* globalObjectFrozenValue = m_graph.freeze(globalObject);
 
                 MatchResult result;
                 Vector<int> ovector;
@@ -736,7 +735,7 @@ private:
                 } else
                     m_graph.convertToConstant(m_node, jsBoolean(!!result));
 
-                // Whether it's Exec or Test, we need to tell the constructor and RegExpObject what's up.
+                // Whether it's Exec or Test, we need to tell the globalObject and RegExpObject what's up.
                 // Because SetRegExpObjectLastIndex may exit and it clobbers exit state, we do that
                 // first.
 
@@ -756,7 +755,7 @@ private:
                     unsigned firstChild = m_graph.m_varArgChildren.size();
                     m_graph.m_varArgChildren.append(
                         m_insertionSet.insertConstantForUse(
-                            m_nodeIndex, origin, constructorFrozenValue, KnownCellUse));
+                            m_nodeIndex, origin, globalObjectFrozenValue, KnownCellUse));
                     m_graph.m_varArgChildren.append(
                         m_insertionSet.insertConstantForUse(
                             m_nodeIndex, origin, regExpFrozenValue, KnownCellUse));

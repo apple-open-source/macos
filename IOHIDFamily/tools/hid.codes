@@ -21,5 +21,8 @@
  0x523810c   kHID_ES_Service_FiltersDone         
  0x5238140   kHID_ES_Session_Callback            
  0x5238144   kHID_ES_Session_Dispatch            
- 0x5238148   kHID_ES_Session_FiltersDone         
-
+ 0x5238148   kHID_ES_Session_FiltersDone
+ 0x523003c   kIOHIDDebugCode_HandleReport
+ 0x5230084   kIOHIDDebugCode_DK_Intf_HandleReport
+ 0x523c004   kHIDDK_ES_HandleReportCB
+ 0x523c008   kHIDDK_Dev_InputReport

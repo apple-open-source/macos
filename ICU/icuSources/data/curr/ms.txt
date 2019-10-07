@@ -639,7 +639,7 @@ ms{
             "Franc CFP",
         }
         XXX{
-            "XXX",
+            "¤",
             "Mata Wang Tidak Diketahui",
         }
         YER{
@@ -739,7 +739,6 @@ ms{
         SHP{"£"}
         SRD{"$"}
         SSP{"£"}
-        STN{"Db"}
         SYP{"£"}
         THB{"฿"}
         TOP{"T$"}
@@ -1249,5 +1248,12 @@ ms{
     CurrencyUnitPatterns{
         other{"{0} {1}"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.2"}
+    currencySpacing{
+        afterCurrency{
+            currencyMatch{"[]"}
+            insertBetween{""}
+            surroundingMatch{"[]"}
+        }
+    }
 }

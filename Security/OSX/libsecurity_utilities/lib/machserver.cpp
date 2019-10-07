@@ -30,7 +30,7 @@
 #include <mach/kern_return.h>
 #include <mach/message.h>
 #include <mach/mig_errors.h>
-#include "mach_notify.h"
+#include "mach_notifyServer.h"
 #include <security_utilities/debugging.h>
 #include <malloc/malloc.h>
 
@@ -300,21 +300,25 @@ void MachServer::runServerThread(bool doTimeout)
              *  To avoid falling off the kernel's fast RPC path unnecessarily,
              *  we only supply MACH_SEND_TIMEOUT when absolutely necessary.
              */
-			mr = mach_msg_overwrite(bufReply,
+            mr = mach_msg_overwrite(bufReply,
                           (MACH_MSGH_BITS_REMOTE(bufReply.bits()) ==
                                                 MACH_MSG_TYPE_MOVE_SEND_ONCE) ?
                           MACH_SEND_MSG | mMsgOptions :
                           MACH_SEND_MSG | MACH_SEND_TIMEOUT | mMsgOptions,
                           bufReply.length(), 0, MACH_PORT_NULL,
                           0, MACH_PORT_NULL, NULL, 0);
-			switch (mr) {
-			case MACH_MSG_SUCCESS:
-				break;
-			default:
+            switch (mr) {
+            case MACH_MSG_SUCCESS:
+                break;
+            case MACH_SEND_INVALID_DEST:
+            case MACH_SEND_TIMED_OUT:
                 secinfo("machserver", "send error: %d %d", mr, bufReply.remotePort().port());
-				bufReply.destroy();
-				break;
-			}
+                bufReply.destroy();
+                break;
+            default:
+                secinfo("machserver", "send error: %d %d", mr, bufReply.remotePort().port());
+                break;
+            }
 
             
             // clean up after the transaction

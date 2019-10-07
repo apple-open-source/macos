@@ -27,7 +27,8 @@
 #if ENABLE(POINTER_LOCK)
 
 #include <wtf/RefPtr.h>
-#include <wtf/text/AtomicString.h>
+#include <wtf/WeakPtr.h>
+#include <wtf/text/AtomString.h>
 
 namespace WebCore {
 
@@ -56,13 +57,13 @@ public:
     WEBCORE_EXPORT void didAcquirePointerLock();
     WEBCORE_EXPORT void didNotAcquirePointerLock();
     WEBCORE_EXPORT void didLosePointerLock();
-    void dispatchLockedMouseEvent(const PlatformMouseEvent&, const AtomicString& eventType);
+    void dispatchLockedMouseEvent(const PlatformMouseEvent&, const AtomString& eventType);
     void dispatchLockedWheelEvent(const PlatformWheelEvent&);
 
 private:
     void clearElement();
-    void enqueueEvent(const AtomicString& type, Element*);
-    void enqueueEvent(const AtomicString& type, Document*);
+    void enqueueEvent(const AtomString& type, Element*);
+    void enqueueEvent(const AtomString& type, Document*);
     Page& m_page;
     bool m_lockPending { false };
     bool m_unlockPending { false };

@@ -26,13 +26,17 @@
 #pragma once
 
 #include "APIObject.h"
-#include "CompositingManagerProxy.h"
 #include "PageClientImpl.h"
 #include "WebPageProxy.h"
 #include <WebCore/ActivityState.h>
 #include <memory>
 #include <wtf/OptionSet.h>
 #include <wtf/RefPtr.h>
+
+#if ENABLE(ACCESSIBILITY)
+#include "WebKitWebViewAccessible.h"
+#include <wtf/glib/GRefPtr.h>
+#endif
 
 typedef struct OpaqueJSContext* JSGlobalContextRef;
 struct wpe_view_backend;
@@ -55,12 +59,14 @@ public:
     {
         return new View(backend, configuration);
     }
-    virtual ~View();
+
+    ~View();
 
     // Client methods
     void setClient(std::unique_ptr<API::ViewClient>&&);
     void frameDisplayed();
     void handleDownloadRequest(WebKit::DownloadProxy&);
+    void willStartLoad();
 
     WebKit::WebPageProxy& page() { return *m_pageProxy; }
 
@@ -77,6 +83,10 @@ public:
     void setFullScreen(bool fullScreenState) { m_fullScreenModeActive = fullScreenState; };
 #endif
 
+#if ENABLE(ACCESSIBILITY)
+    WebKitWebViewAccessible* accessible() const;
+#endif
+
 private:
     View(struct wpe_view_backend*, const API::PageConfiguration&);
 
@@ -90,11 +100,14 @@ private:
     WebCore::IntSize m_size;
     OptionSet<WebCore::ActivityState::Flag> m_viewStateFlags;
 
-    WebKit::CompositingManagerProxy m_compositingManagerProxy;
     struct wpe_view_backend* m_backend;
 
 #if ENABLE(FULLSCREEN_API)
     bool m_fullScreenModeActive { false };
+#endif
+
+#if ENABLE(ACCESSIBILITY)
+    mutable GRefPtr<WebKitWebViewAccessible> m_accessible;
 #endif
 };
 

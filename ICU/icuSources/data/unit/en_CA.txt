@@ -2,7 +2,7 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 en_CA{
     %%Parent{"en_001"}
-    Version{"2.1.38.73"}
+    Version{"2.1.47.86"}
     units{
         concentr{
             karat{
@@ -14,7 +14,20 @@ en_CA{
         energy{
             kilowatt-hour{
                 one{"{0} kilowatt-hour"}
-                other{"{0} kilowatt-hours"}
+            }
+        }
+        torque{
+            newton-meter{
+                dnam{"newton-metres"}
+                one{"{0} newton-metre"}
+                other{"{0} newton-metres"}
+            }
+        }
+        volume{
+            fluid-ounce-imperial{
+                dnam{"imp. fluid ounces"}
+                one{"{0} imp. fluid ounce"}
+                other{"{0} imp. fluid ounces"}
             }
         }
     }
@@ -105,11 +118,6 @@ en_CA{
             }
         }
         speed{
-            kilometer-per-hour{
-                dnam{"km/h"}
-                one{"{0}km/h"}
-                other{"{0}km/h"}
-            }
             mile-per-hour{
                 dnam{"mi./hr."}
             }
@@ -397,10 +405,6 @@ en_CA{
             }
         }
         speed{
-            kilometer-per-hour{
-                one{"{0} km/h"}
-                other{"{0} km/h"}
-            }
             knot{
                 dnam{"kn."}
                 one{"{0} kn."}
@@ -425,6 +429,10 @@ en_CA{
                 dnam{"acre ft."}
                 one{"{0} ac. ft."}
                 other{"{0} ac. ft."}
+            }
+            barrel{
+                one{"{0} bbl."}
+                other{"{0} bbl."}
             }
             centiliter{
                 dnam{"cL"}
@@ -464,6 +472,11 @@ en_CA{
                 dnam{"fl. oz."}
                 one{"{0} fl. oz."}
                 other{"{0} fl. oz."}
+            }
+            fluid-ounce-imperial{
+                dnam{"imp. fl. oz."}
+                one{"{0} fl. oz. imp."}
+                other{"{0} fl. oz. imp."}
             }
             gallon{
                 dnam{"US gal."}

@@ -55,6 +55,10 @@
  *
  * path_node_releases() releases a path_node_t object and all of the vnode_t objects
  * that were monitoring components of its target path.
+ *
+ * All of the code in this file is to be run on the workloop in order to maintain internal
+ * datastructures. This is asserted in every non-static function and thus can be safely
+ * assumed by all static functions.
  */
 
 #include <stdio.h>
@@ -70,7 +74,9 @@
 #include <assert.h>
 #include <tzfile.h>
 #include <sandbox.h>
+#include <bsm/libbsm.h>
 #include "pathwatch.h"
+#include "notifyd.h"
 
 #define forever for(;;)
 #define streq(A,B) (strcmp(A,B)==0)
@@ -111,7 +117,6 @@ typedef struct
 static struct
 {
 	dispatch_once_t pathwatch_init;
-	dispatch_queue_t pathwatch_queue;
 	uint32_t vnode_count;
 	vnode_t **vnode;
 	char *tzdir;
@@ -207,7 +212,7 @@ _path_stat(const char *path, int link, uid_t uid, gid_t gid)
  * Sets ftype output parameter if it is non-NULL.
  */
 static int
-_path_stat_check_access(const char *path, pid_t pid, uid_t uid, gid_t gid, uint32_t *ftype)
+_path_stat_check_access(const char *path, audit_token_t audit, bool client_is_notifyd, uint32_t *ftype)
 {
 	struct stat sb;
 	char buf[MAXPATHLEN + 1];
@@ -228,7 +233,7 @@ _path_stat_check_access(const char *path, pid_t pid, uid_t uid, gid_t gid, uint3
 	}
 
 	/* Don't perform stat if sandbox won't allow it. (15907527) */
-	if (pid != getpid() && sandbox_check(pid, "file-read-metadata", SANDBOX_FILTER_PATH | SANDBOX_CHECK_NO_REPORT, path) != 0) {
+	if (!client_is_notifyd && (sandbox_check_by_audit_token(audit, "file-read-metadata", SANDBOX_FILTER_PATH | SANDBOX_CHECK_NO_REPORT, path) != 0)) {
 		return PATH_STAT_ACCESS;
 	}
 
@@ -245,8 +250,8 @@ _path_stat_check_access(const char *path, pid_t pid, uid_t uid, gid_t gid, uint3
 
 	if (t == PATH_NODE_TYPE_OTHER) return PATH_STAT_FAILED;
 
-	/* skip access control check if uid is zero */
-	if (uid == 0) return 0;
+	/* skip access control check if uid is zero or if the client is notifyd */
+	if (client_is_notifyd || audit_token_to_euid(audit) == 0) return 0;
 
 	/* special case: anything in the timezone directory is OK */
 	memset(buf, 0, sizeof(buf));
@@ -259,20 +264,20 @@ _path_stat_check_access(const char *path, pid_t pid, uid_t uid, gid_t gid, uint3
 	/* call _path_stat to check access as the user/group provided */
 	if (t == PATH_NODE_TYPE_FILE)
 	{
-		status = _path_stat(path, 0, uid, gid);
+		status = _path_stat(path, 0, audit_token_to_euid(audit), audit_token_to_egid(audit));
 		if ((status == PATH_STAT_ACCESS) && (ftype != NULL)) *ftype = PATH_NODE_TYPE_GHOST;
 		return status;
 	}
 	else if (t == PATH_NODE_TYPE_LINK)
 	{
-		status = _path_stat(path, 1, uid, gid);
+		status = _path_stat(path, 1, audit_token_to_euid(audit), audit_token_to_egid(audit));
 		if ((status == PATH_STAT_ACCESS) && (ftype != NULL)) *ftype = PATH_NODE_TYPE_GHOST;
 		return status;
 	}
 	else if (t == PATH_NODE_TYPE_DIR)
 	{
 		snprintf(buf, MAXPATHLEN, "%s/.", path);
-		status = _path_stat(buf, 0, uid, gid);
+		status = _path_stat(buf, 0, audit_token_to_euid(audit), audit_token_to_egid(audit));
 		if ((status == PATH_STAT_ACCESS) && (ftype != NULL)) *ftype = PATH_NODE_TYPE_GHOST;
 		return status;
 	}
@@ -325,12 +330,7 @@ _vnode_free(vnode_t *vnode)
 {
 	dispatch_source_cancel(vnode->src);
 
-	/*
-	 * Actually free the vnode on the pathwatch queue.  This allows any
-	 * enqueued _vnode_event operations to complete before the vnode disappears.
-	 * _vnode_event() quietly returns if the source has been cancelled.
-	 */
-	dispatch_async(_global.pathwatch_queue, ^{
+	dispatch_async(get_notifyd_workloop(), ^{
 		dispatch_release(vnode->src);
 		free(vnode->path);
 		free(vnode->path_node);
@@ -420,7 +420,7 @@ _vnode_create(const char *path, uint32_t type, path_node_t *pnode)
 	fd = open(path, flags, 0);
 	if (fd < 0) return NULL;
 
-	src = dispatch_source_create(DISPATCH_SOURCE_TYPE_VNODE, (uintptr_t)fd, DISPATCH_VNODE_ALL, _global.pathwatch_queue);
+	src = dispatch_source_create(DISPATCH_SOURCE_TYPE_VNODE, (uintptr_t)fd, DISPATCH_VNODE_ALL, get_notifyd_workloop());
 	if (src == NULL)
 	{
 		close(fd);
@@ -602,7 +602,6 @@ _vnode_release_for_node(path_node_t *pnode)
 
 /*
  * Retain a path_node_t object.
- * Dispatched on _global.pathwatch_queue.
  */
 static void
 _path_node_retain(path_node_t *pnode)
@@ -613,7 +612,6 @@ _path_node_retain(path_node_t *pnode)
 
 /*
  * Free a path_node_t object.
- * Dispatched on _global.pathwatch_queue.
  */
 static void
 _path_node_free(path_node_t *pnode)
@@ -647,7 +645,6 @@ _path_node_free(path_node_t *pnode)
 	free(pnode->contextp);
 
 	dispatch_release(pnode->src);
-	dispatch_release(pnode->src_queue);
 
 	memset(pnode, 0, sizeof(path_node_t));
 	free(pnode);
@@ -661,28 +658,19 @@ _path_node_release(path_node_t *pnode)
 {
 	if (pnode == NULL) return;
 
-	/*
-	 * We need to make sure that the node's event handler isn't currently
-	 * executing before freeing the node.  We dispatch on the src_queue, so
-	 * that when the block executes there will be no more events in the queue.
-	 * From there, we dispatch async back to the pathwatch_queue to do the
-	 * data structure cleanup.
-	 */
-	dispatch_async(pnode->src_queue, ^{
-		dispatch_async(_global.pathwatch_queue, ^{
-			if (pnode->refcount > 0) pnode->refcount--;
-			if (pnode->refcount == 0) _path_node_free(pnode);
-		});
-	});
+
+	if (pnode->refcount > 0) pnode->refcount--;
+	if (pnode->refcount == 0) _path_node_free(pnode);
 }
 
 /*
  * Frees a path_node_t object.
- * The work is actually done on the global pathwatch_queue to make this safe.
  */
 void
 path_node_close(path_node_t *pnode)
 {
+	dispatch_assert_queue(get_notifyd_workloop());
+
 	if (pnode == NULL) return;
 
 	if (pnode->src != NULL) dispatch_source_cancel(pnode->src);
@@ -693,9 +681,6 @@ static void
 _pathwatch_init()
 {
 	char buf[MAXPATHLEN];
-	
-	/* Create serial queue for node creation / deletion operations */
-	_global.pathwatch_queue = dispatch_queue_create("pathwatch", NULL);
 
 	_global.tzdir = NULL;
 	_global.tzdir_len = 0;
@@ -801,7 +786,6 @@ _path_node_init(const char *path)
 	return pnode;
 }
 
-/* dispatched on _global.pathwatch_queue */
 static void
 _path_node_update(path_node_t *pnode, uint32_t flags, vnode_t *vnode)
 {
@@ -816,7 +800,7 @@ _path_node_update(path_node_t *pnode, uint32_t flags, vnode_t *vnode)
 
 	old_type = pnode->type;
 
-	status = _path_stat_check_access(pnode->path, pnode->pid, pnode->uid, pnode->gid, &(pnode->type));
+	status = _path_stat_check_access(pnode->path, pnode->audit, pnode->flags & PATH_NODE_CLIENT_NOTIFYD, &(pnode->type));
 	if (status == PATH_STAT_ACCESS) flags |= DISPATCH_VNODE_REVOKE;
 
 	data = 0;
@@ -868,7 +852,7 @@ _path_node_update(path_node_t *pnode, uint32_t flags, vnode_t *vnode)
 				dispatch_time_t delay = dispatch_time(DISPATCH_TIME_NOW, PNODE_COALESCE_TIME);
 				_path_node_retain(pnode);
 
-				dispatch_after(delay, _global.pathwatch_queue, ^{
+				dispatch_after(delay, get_notifyd_workloop(), ^{
 					pnode->flags &= ~PATH_SRC_SUSPENDED;
 					dispatch_resume(pnode->src);
 					_path_node_release(pnode);
@@ -880,7 +864,7 @@ _path_node_update(path_node_t *pnode, uint32_t flags, vnode_t *vnode)
 	}
 
 	buf = NULL;
-	if (pnode->plen < MAXPATHLEN) buf = fixed;
+	if (pnode->plen > MAXPATHLEN) buf = fixed;
 	else buf = malloc(pnode->plen);
 	assert(buf != NULL);
 
@@ -934,9 +918,12 @@ _path_node_update(path_node_t *pnode, uint32_t flags, vnode_t *vnode)
  * be shared with other path_node_t structures.
  */
 path_node_t *
-path_node_create(const char *path, pid_t pid, uid_t uid, gid_t gid, uint32_t mask, dispatch_queue_t queue)
+path_node_create(const char *path, audit_token_t audit, bool is_notifyd, uint32_t mask)
 {
 	path_node_t *pnode;
+	dispatch_queue_t queue = get_notifyd_workloop();
+
+	dispatch_assert_queue(queue);
 
 	dispatch_once(&(_global.pathwatch_init), ^{ _pathwatch_init(); });
 
@@ -944,17 +931,17 @@ path_node_create(const char *path, pid_t pid, uid_t uid, gid_t gid, uint32_t mas
 	if (pnode == NULL) return NULL;
 
 	pnode->refcount = 1;
-	pnode->pid = pid;
-	pnode->uid = uid;
-	pnode->gid = gid;
+	pnode->audit = audit;
 
-	dispatch_sync(_global.pathwatch_queue, ^{ _path_node_update(pnode, 0, NULL); });
+	_path_node_update(pnode, 0, NULL);
 
 	dispatch_retain(queue);
 
 	pnode->src = dispatch_source_create(DISPATCH_SOURCE_TYPE_DATA_OR, 0, 0, queue);
-	pnode->src_queue = queue;
 	pnode->flags = mask & PATH_NODE_ALL;
-
+	if (is_notifyd)
+	{
+		pnode->flags |= PATH_NODE_CLIENT_NOTIFYD;
+	}
 	return pnode;
 }

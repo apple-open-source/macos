@@ -181,7 +181,7 @@ static void AST_dump_field_ref (
 );
 
 static void print_type_name (
-    char *format,
+    const char *format,
     AST_type_k_t type,
     int indentation
 );
@@ -239,10 +239,13 @@ void AST_dump_nametable_id
     const char   *name_ptr;
 
     if (id == NAMETABLE_NIL_ID)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
         printf (format_string, "NAMETABLE_NIL_ID");
     else {
         NAMETABLE_id_to_string (id, &name_ptr);
         printf (format_string, name_ptr);
+#pragma clang diagnostic pop
     }
 }
 
@@ -530,7 +533,8 @@ static void AST_dump_exported_item
         printf ("Type = AST_operation_k\n");
         AST_dump_operation (export_ptr->thing_p.exported_operation, 1);
         break;
-
+    default:
+        break;
     }
 }
 
@@ -686,7 +690,7 @@ void AST_dump_constant
 
 static void print_type_name
 (
-    char   *format,
+    const char   *format,
     AST_type_k_t type,
     int    indentation
 )
@@ -694,6 +698,8 @@ static void print_type_name
     indent (indentation);
 
     switch (type) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     case AST_small_integer_k:
         printf (format, "AST_small_integer_k");
         break;
@@ -760,7 +766,7 @@ static void print_type_name
     case AST_byte_k:
         printf (format, "AST_byte_k") ;
         break;
-
+#pragma clang diagnostic pop
     default:
         /* Not sure why we're here - look into later if time */
         /* For now, just print the new line to finish the statement */
@@ -816,7 +822,7 @@ static void AST_dump_indices
 void AST_dump_type
 (
     AST_type_n_t * type_n_p,
-    char   * format,
+    const char   * format,
     int      indentation
 )
 {

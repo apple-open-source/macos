@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2019 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,11 @@
 
 #import "Metrics.h"
 
-#if (TARGET_OS_IOS)
+#if MDNSRESPONDER_SUPPORTS(APPLE, METRICS)
 #import <CoreUtils/SoftLinking.h>
 #import <WirelessDiagnostics/AWDDNSDomainStats.h>
 #import <WirelessDiagnostics/AWDMDNSResponderDNSMessageSizeStats.h>
 #import <WirelessDiagnostics/AWDMDNSResponderDNSStatistics.h>
-#import <WirelessDiagnostics/AWDMDNSResponderResolveStats.h>
-#import <WirelessDiagnostics/AWDMDNSResponderResolveStatsDNSServer.h>
-#import <WirelessDiagnostics/AWDMDNSResponderResolveStatsDomain.h>
-#import <WirelessDiagnostics/AWDMDNSResponderResolveStatsHostname.h>
-#import <WirelessDiagnostics/AWDMDNSResponderResolveStatsResult.h>
 #import <WirelessDiagnostics/AWDMDNSResponderServicesStats.h>
 #import <WirelessDiagnostics/AWDMetricIds_MDNSResponder.h>
 #import <WirelessDiagnostics/WirelessDiagnostics.h>
@@ -54,20 +49,6 @@ SOFT_LINK_CLASS(WirelessDiagnostics, AWDDNSDomainStats)
 #define AWDMDNSResponderDNSStatisticsSoft       getAWDMDNSResponderDNSStatisticsClass()
 #define AWDDNSDomainStatsSoft                   getAWDDNSDomainStatsClass()
 
-// Classes for resolve stats
-
-SOFT_LINK_CLASS(WirelessDiagnostics, AWDMDNSResponderResolveStats)
-SOFT_LINK_CLASS(WirelessDiagnostics, AWDMDNSResponderResolveStatsDNSServer)
-SOFT_LINK_CLASS(WirelessDiagnostics, AWDMDNSResponderResolveStatsDomain)
-SOFT_LINK_CLASS(WirelessDiagnostics, AWDMDNSResponderResolveStatsHostname)
-SOFT_LINK_CLASS(WirelessDiagnostics, AWDMDNSResponderResolveStatsResult)
-
-#define AWDMDNSResponderResolveStatsSoft                getAWDMDNSResponderResolveStatsClass()
-#define AWDMDNSResponderResolveStatsDNSServerSoft       getAWDMDNSResponderResolveStatsDNSServerClass()
-#define AWDMDNSResponderResolveStatsDomainSoft          getAWDMDNSResponderResolveStatsDomainClass()
-#define AWDMDNSResponderResolveStatsHostnameSoft        getAWDMDNSResponderResolveStatsHostnameClass()
-#define AWDMDNSResponderResolveStatsResultSoft          getAWDMDNSResponderResolveStatsResultClass()
-
 // Classes for services stats
 
 SOFT_LINK_CLASS(WirelessDiagnostics, AWDMetricManager)
@@ -86,7 +67,6 @@ SOFT_LINK_CLASS(WirelessDiagnostics, AWDMDNSResponderDNSMessageSizeStats)
 
 #define countof(X)                      (sizeof(X) / sizeof(X[0]))
 #define countof_field(TYPE, FIELD)      countof(((TYPE *)0)->FIELD)
-#define increment_saturate(VAR, MAX)    do {if ((VAR) < (MAX)) {++(VAR);}} while (0)
 #define ForgetMem(X)                    do {if(*(X)) {free(*(X)); *(X) = NULL;}} while(0)
 
 //===========================================================================================================================
@@ -97,7 +77,7 @@ SOFT_LINK_CLASS(WirelessDiagnostics, AWDMDNSResponderDNSMessageSizeStats)
 #define kQueryStatsSendCountBinCount        (kQueryStatsMaxQuerySendCount + 1)
 #define kQueryStatsLatencyBinCount          55
 #define kQueryStatsExpiredAnswerStateCount  (ExpiredAnswer_EnumCount)
-#define kResolveStatsMaxObjCount            2000
+#define kQueryStatsDNSOverTCPStateCount     (DNSOverTCP_EnumCount)
 
 //===========================================================================================================================
 //  Data structures
@@ -153,7 +133,8 @@ typedef struct
     uint16_t    responseLatencyBins[kQueryStatsLatencyBinCount];
     uint16_t    negAnsweredQuerySendCountBins[kQueryStatsSendCountBinCount];
     uint16_t    negResponseLatencyBins[kQueryStatsLatencyBinCount];
-    uint16_t    expiredAnswerStateBins[kQueryStatsExpiredAnswerStateCount];
+    uint32_t    expiredAnswerStateBins[kQueryStatsExpiredAnswerStateCount];
+    uint32_t    dnsOverTCPStateBins[kQueryStatsDNSOverTCPStateCount];
 
 }   DNSHist;
 
@@ -161,7 +142,8 @@ check_compile_time(sizeof(DNSHist) <= 512);
 check_compile_time(countof_field(DNSHist, unansweredQuerySendCountBins)  == (kQueryStatsMaxQuerySendCount + 1));
 check_compile_time(countof_field(DNSHist, answeredQuerySendCountBins)    == (kQueryStatsMaxQuerySendCount + 1));
 check_compile_time(countof_field(DNSHist, negAnsweredQuerySendCountBins) == (kQueryStatsMaxQuerySendCount + 1));
-check_compile_time(countof_field(DNSHist, expiredAnswerStateBins)         == (kQueryStatsExpiredAnswerStateCount));
+check_compile_time(countof_field(DNSHist, expiredAnswerStateBins)        == (kQueryStatsExpiredAnswerStateCount));
+check_compile_time(countof_field(DNSHist, dnsOverTCPStateBins)           == (kQueryStatsDNSOverTCPStateCount));
 
 // Important: Do not modify kResponseLatencyMsLimits because the code used to generate AWD reports expects the response
 // latency histogram bins to observe these time interval upper bounds.
@@ -197,120 +179,6 @@ typedef struct
 
 }   QueryStatsArgs;
 
-// Data structures for resolve stats.
-
-static const char * const       kResolveStatsDomains[] =
-{
-    "apple.com.",
-    "icloud.com.",
-    "mzstatic.com.",
-    "me.com."
-};
-
-check_compile_time(countof(kResolveStatsDomains) == 4);
-
-typedef struct ResolveStatsDomain           ResolveStatsDomain;
-typedef struct ResolveStatsHostname         ResolveStatsHostname;
-typedef struct ResolveStatsDNSServer        ResolveStatsDNSServer;
-typedef struct ResolveStatsIPv4AddrSet      ResolveStatsIPv4AddrSet;
-typedef struct ResolveStatsIPv6Addr         ResolveStatsIPv6Addr;
-typedef struct ResolveStatsNegAAAASet       ResolveStatsNegAAAASet;
-
-struct ResolveStatsDomain
-{
-    ResolveStatsDomain *        next;           // Next domain object in list.
-    const char *                domainStr;
-    uint8_t *                   domain;         // Domain for which these stats are collected.
-    int                         labelCount;     // Number of labels in domain name. Used for domain name comparisons.
-    ResolveStatsHostname *      hostnameList;   // List of hostname objects in this domain.
-};
-
-check_compile_time(sizeof(ResolveStatsDomain) <= 40);
-
-struct ResolveStatsHostname
-{
-    ResolveStatsHostname *          next;       // Next hostname object in list.
-    ResolveStatsIPv4AddrSet *       addrV4List; // List of IPv4 addresses to which this hostname resolved.
-    ResolveStatsIPv6Addr *          addrV6List; // List of IPv6 addresses to which this hostname resolved.
-    ResolveStatsNegAAAASet *        negV6List;  // List of negative AAAA response objects.
-    uint8_t                         name[1];    // Variable length storage for hostname as length-prefixed labels.
-};
-
-check_compile_time(sizeof(ResolveStatsHostname) <= 64);
-
-struct ResolveStatsDNSServer
-{
-    ResolveStatsDNSServer *     next;           // Next DNS server object in list.
-    uint8_t                     id;             // 8-bit ID assigned to this DNS server used by IP address objects.
-    mDNSBool                    isForCell;      // True if this DNS server belongs to a cellular interface.
-    mDNSBool                    isAddrV6;       // True if this DNS server has an IPv6 address instead of IPv4.
-    uint8_t                     addrBytes[1];   // Variable length storage for DNS server's IP address.
-};
-
-check_compile_time(sizeof(ResolveStatsDNSServer) <= 32);
-
-typedef struct
-{
-    uint16_t        count;          // Number of times this IPv4 address was provided as a resolution result.
-    uint8_t         serverID;       // 8-bit ID of the DNS server from which this IPv4 address came.
-    uint8_t         isNegative;
-    uint8_t         addrBytes[4];   // IPv4 address bytes.
-
-}   IPv4AddrCounter;
-
-check_compile_time(sizeof(IPv4AddrCounter) <= 8);
-
-struct ResolveStatsIPv4AddrSet
-{
-    ResolveStatsIPv4AddrSet *       next;           // Next set of IPv4 address counters in list.
-    IPv4AddrCounter                 counters[3];    // Array of IPv4 address counters.
-};
-
-check_compile_time(sizeof(ResolveStatsIPv4AddrSet) <= 32);
-
-struct ResolveStatsIPv6Addr
-{
-    ResolveStatsIPv6Addr *      next;           // Next IPv6 address object in list.
-    uint16_t                    count;          // Number of times this IPv6 address was provided as a resolution result.
-    uint8_t                     serverID;       // 8-bit ID of the DNS server from which this IPv6 address came.
-    uint8_t                     addrBytes[16];  // IPv6 address bytes.
-};
-
-check_compile_time(sizeof(ResolveStatsIPv6Addr) <= 32);
-
-typedef struct
-{
-    uint16_t        count;      // Number of times that a negative response was returned by a DNS server.
-    uint8_t         serverID;   // 8-bit ID of the DNS server that sent the negative responses.
-
-}   NegAAAACounter;
-
-check_compile_time(sizeof(NegAAAACounter) <= 4);
-
-struct ResolveStatsNegAAAASet
-{
-    ResolveStatsNegAAAASet *        next;           // Next set of negative AAAA response counters in list.
-    NegAAAACounter                  counters[6];    // Array of negative AAAA response counters.
-};
-
-check_compile_time(sizeof(ResolveStatsNegAAAASet) <= 32);
-
-typedef enum
-{
-    kResponseType_IPv4Addr  = 1,
-    kResponseType_IPv6Addr  = 2,
-    kResponseType_NegA      = 3,
-    kResponseType_NegAAAA   = 4
-
-}   ResponseType;
-
-typedef struct
-{
-    ResponseType        type;
-    const uint8_t *     data;
-
-}   Response;
-
 // Data structures for DNS message size stats.
 
 #define kQuerySizeBinWidth      16
@@ -331,12 +199,12 @@ check_compile_time((kResponseSizeBinMax % kResponseSizeBinWidth) == 0);
 
 typedef struct
 {
-    uint16_t    querySizeBins[kQuerySizeBinCount];
-    uint16_t    responseSizeBins[kResponseSizeBinCount];
+    uint32_t    querySizeBins[kQuerySizeBinCount];
+    uint32_t    responseSizeBins[kResponseSizeBinCount];
 
 }   DNSMessageSizeStats;
 
-check_compile_time(sizeof(DNSMessageSizeStats) <= 132);
+check_compile_time(sizeof(DNSMessageSizeStats) <= 264);
 
 //===========================================================================================================================
 //  Local Prototypes
@@ -347,38 +215,12 @@ check_compile_time(sizeof(DNSMessageSizeStats) <= 132);
 mDNSlocal mStatus       QueryStatsCreate(const char *inDomainStr, const char *inAltDomainStr, QueryNameTest_f inTest, mDNSBool inTerminal, QueryStats **outStats);
 mDNSlocal void          QueryStatsFree(QueryStats *inStats);
 mDNSlocal void          QueryStatsFreeList(QueryStats *inList);
-mDNSlocal mStatus       QueryStatsUpdate(QueryStats *inStats, int inType, const ResourceRecord *inRR, mDNSu32 inQuerySendCount, ExpiredAnswerMetric inExpiredAnswerState, mDNSu32 inLatencyMs, mDNSBool inForCell);
+mDNSlocal mStatus       QueryStatsUpdate(QueryStats *inStats, int inType, const ResourceRecord *inRR, mDNSu32 inQuerySendCount, ExpiredAnswerMetric inExpiredAnswerState, DNSOverTCPMetric inDNSOverTCPState, mDNSu32 inLatencyMs, mDNSBool inForCell);
 mDNSlocal const char *  QueryStatsGetDomainString(const QueryStats *inStats);
 mDNSlocal mDNSBool      QueryStatsDomainTest(const QueryStats *inStats, const domainname *inQueryName);
 mDNSlocal mDNSBool      QueryStatsHostnameTest(const QueryStats *inStats, const domainname *inQueryName);
 mDNSlocal mDNSBool      QueryStatsContentiCloudTest(const QueryStats *inStats, const domainname *inQueryName);
 mDNSlocal mDNSBool      QueryStatsCourierPushTest(const QueryStats *inStats, const domainname *inQueryName);
-
-// Resolve stats
-
-mDNSlocal mStatus   ResolveStatsDomainCreate(const char *inDomainStr, ResolveStatsDomain **outDomain);
-mDNSlocal void      ResolveStatsDomainFree(ResolveStatsDomain *inDomain);
-mDNSlocal mStatus   ResolveStatsDomainUpdate(ResolveStatsDomain *inDomain, const domainname *inHostname, const Response *inResp, const mDNSAddr *inDNSAddr, mDNSBool inForCell);
-mDNSlocal mStatus   ResolveStatsDomainCreateAWDVersion(const ResolveStatsDomain *inDomain, AWDMDNSResponderResolveStatsDomain **outDomain);
-
-mDNSlocal mStatus   ResolveStatsHostnameCreate(const domainname *inName, ResolveStatsHostname **outHostname);
-mDNSlocal void      ResolveStatsHostnameFree(ResolveStatsHostname *inHostname);
-mDNSlocal mStatus   ResolveStatsHostnameUpdate(ResolveStatsHostname *inHostname, const Response *inResp, uint8_t inServerID);
-mDNSlocal mStatus   ResolveStatsHostnameCreateAWDVersion(const ResolveStatsHostname *inHostname, AWDMDNSResponderResolveStatsHostname **outHostname);
-
-mDNSlocal mStatus   ResolveStatsDNSServerCreate(const mDNSAddr *inAddr, mDNSBool inForCell, ResolveStatsDNSServer **outServer);
-mDNSlocal void      ResolveStatsDNSServerFree(ResolveStatsDNSServer *inServer);
-mDNSlocal mStatus   ResolveStatsDNSServerCreateAWDVersion(const ResolveStatsDNSServer *inServer, AWDMDNSResponderResolveStatsDNSServer **outServer);
-
-mDNSlocal mStatus   ResolveStatsIPv4AddrSetCreate(ResolveStatsIPv4AddrSet **outSet);
-mDNSlocal void      ResolveStatsIPv4AddrSetFree(ResolveStatsIPv4AddrSet *inSet);
-
-mDNSlocal mStatus   ResolveStatsIPv6AddressCreate(uint8_t inServerID, const uint8_t inAddrBytes[16], ResolveStatsIPv6Addr **outAddr);
-mDNSlocal void      ResolveStatsIPv6AddressFree(ResolveStatsIPv6Addr *inAddr);
-
-mDNSlocal mStatus   ResolveStatsNegAAAASetCreate(ResolveStatsNegAAAASet **outSet);
-mDNSlocal void      ResolveStatsNegAAAASetFree(ResolveStatsNegAAAASet *inSet);
-mDNSlocal mStatus   ResolveStatsGetServerID(const mDNSAddr *inServerAddr, mDNSBool inForCell, uint8_t *outServerID);
 
 // DNS message size stats
 
@@ -386,33 +228,57 @@ mDNSlocal mStatus   DNSMessageSizeStatsCreate(DNSMessageSizeStats **outStats);
 mDNSlocal void      DNSMessageSizeStatsFree(DNSMessageSizeStats *inStats);
 
 mDNSlocal mStatus   CreateQueryStatsList(QueryStats **outList);
-mDNSlocal mStatus   CreateResolveStatsList(ResolveStatsDomain **outList);
-mDNSlocal void      FreeResolveStatsList(ResolveStatsDomain *inList);
-mDNSlocal void      FreeResolveStatsServerList(ResolveStatsDNSServer *inList);
 mDNSlocal mStatus   SubmitAWDMetric(UInt32 inMetricID);
 mDNSlocal mStatus   SubmitAWDMetricQueryStats(void);
-mDNSlocal mStatus   SubmitAWDMetricResolveStats(void);
 mDNSlocal mStatus   SubmitAWDMetricDNSMessageSizeStats(void);
 mDNSlocal mStatus   CreateAWDDNSDomainStats(DNSHist *inHist, const char *inDomain, mDNSBool inForCell, AWDDNSDomainStats_RecordType inType, AWDDNSDomainStats **outStats);
-mDNSlocal void      LogDNSHistSet(const DNSHistSet *inSet, const char *inDomain, mDNSBool inForCell);
-mDNSlocal void      LogDNSHist(const DNSHist *inHist, const char *inDomain, mDNSBool inForCell, const char *inType);
-mDNSlocal void      LogDNSHistSendCounts(const uint16_t inSendCountBins[kQueryStatsSendCountBinCount]);
-mDNSlocal void      LogDNSHistLatencies(const uint16_t inLatencyBins[kQueryStatsLatencyBinCount]);
-mDNSlocal void      LogDNSMessageSizeStats(const uint16_t *inBins, size_t inBinCount, unsigned int inBinWidth);
+mDNSlocal void      LogDNSHistSetToFD(int fd, const DNSHistSet *inSet, const char *inDomain, mDNSBool inForCell);
+mDNSlocal void      LogDNSHistToFD(int fd, const DNSHist *inHist, const char *inDomain, mDNSBool inForCell, const char *inType);
+mDNSlocal void      LogDNSHistSendCountsToFD(int fd, const uint16_t inSendCountBins[kQueryStatsSendCountBinCount]);
+mDNSlocal void      LogDNSHistLatenciesToFD(int fd, const uint16_t inLatencyBins[kQueryStatsLatencyBinCount]);
+mDNSlocal void      LogDNSMessageSizeStatsToFD(int fd, const uint32_t *inBins, size_t inBinCount, unsigned int inBinWidth);
 
-mDNSlocal size_t    CopyHistogramBins(uint32_t *inDstBins, uint16_t *inSrcBins, size_t inBinCount);
+//===========================================================================================================================
+//  Histogram Bin Helpers
+//===========================================================================================================================
+
+#define INCREMENT_BIN_DEFINITION(BIN_SIZE) \
+    mDNSlocal void IncrementBin ## BIN_SIZE (uint ## BIN_SIZE ## _t *inBin) \
+    { \
+        if (*inBin < UINT ## BIN_SIZE ## _MAX) ++(*inBin); \
+    } \
+    extern int _MetricsDummyVariable
+
+INCREMENT_BIN_DEFINITION(16);
+INCREMENT_BIN_DEFINITION(32);
+
+//  Note: The return value is the size (in number of elements) of the smallest contiguous sub-array that contains the first
+//  bin and all bins with non-zero values.
+
+#define COPY_BINS_DEFINITION(BIN_SIZE) \
+    mDNSlocal size_t CopyBins ## BIN_SIZE (uint32_t *inDstBins, uint ## BIN_SIZE ## _t *inSrcBins, size_t inBinCount) \
+    { \
+        if (inBinCount == 0) return (0); \
+        size_t minCount = 1; \
+        for (size_t i = 0; i < inBinCount; ++i) \
+        { \
+            inDstBins[i] = inSrcBins[i]; \
+            if (inDstBins[i] > 0) minCount = i + 1; \
+        } \
+        return (minCount); \
+    } \
+    extern int _MetricsDummyVariable
+
+COPY_BINS_DEFINITION(16);
+COPY_BINS_DEFINITION(32);
 
 //===========================================================================================================================
 //  Globals
 //===========================================================================================================================
 
-static AWDServerConnection *        gAWDServerConnection        = nil;
-static QueryStats *                 gQueryStatsList             = NULL;
-static ResolveStatsDomain *         gResolveStatsList           = NULL;
-static ResolveStatsDNSServer *      gResolveStatsServerList     = NULL;
-static unsigned int                 gResolveStatsNextServerID   = 0;
-static int                          gResolveStatsObjCount       = 0;
-static DNSMessageSizeStats *        gDNSMessageSizeStats        = NULL;
+static AWDServerConnection *        gAWDServerConnection    = nil;
+static QueryStats *                 gQueryStatsList         = NULL;
+static DNSMessageSizeStats *        gDNSMessageSizeStats    = NULL;
 
 // Important: Do not add to this list without getting privacy approval. See <rdar://problem/24155761&26397203&34763471>.
 
@@ -459,13 +325,6 @@ mStatus MetricsInit(void)
                 {
                     SubmitAWDMetric(inMetricID);
                 }
-                forIdentifier: (UInt32)AWDMetricId_MDNSResponder_ResolveStats];
-
-            [gAWDServerConnection
-                registerQueriableMetricCallback: ^(UInt32 inMetricID)
-                {
-                    SubmitAWDMetric(inMetricID);
-                }
                 forIdentifier: (UInt32)AWDMetricId_MDNSResponder_ServicesStats];
 
             [gAWDServerConnection
@@ -484,7 +343,6 @@ mStatus MetricsInit(void)
     if( gAWDServerConnection )
     {
         CreateQueryStatsList(&gQueryStatsList);
-        CreateResolveStatsList(&gResolveStatsList);
         DNSMessageSizeStatsCreate(&gDNSMessageSizeStats);
     }
 
@@ -495,7 +353,7 @@ mStatus MetricsInit(void)
 //  MetricsUpdateDNSQueryStats
 //===========================================================================================================================
 
-mDNSexport void MetricsUpdateDNSQueryStats(const domainname *inQueryName, mDNSu16 inType, const ResourceRecord *inRR, mDNSu32 inSendCount, ExpiredAnswerMetric inExpiredAnswerState, mDNSu32 inLatencyMs, mDNSBool inForCell)
+mDNSexport void MetricsUpdateDNSQueryStats(const domainname *inQueryName, mDNSu16 inType, const ResourceRecord *inRR, mDNSu32 inSendCount, ExpiredAnswerMetric inExpiredAnswerState, DNSOverTCPMetric inDNSOverTCPState, mDNSu32 inLatencyMs, mDNSBool inForCell)
 {
     QueryStats *        stats;
     mDNSBool            match;
@@ -508,69 +366,9 @@ mDNSexport void MetricsUpdateDNSQueryStats(const domainname *inQueryName, mDNSu1
         match = stats->test(stats, inQueryName);
         if (match)
         {
-            QueryStatsUpdate(stats, inType, inRR, inSendCount, inExpiredAnswerState, inLatencyMs, inForCell);
+            QueryStatsUpdate(stats, inType, inRR, inSendCount, inExpiredAnswerState, inDNSOverTCPState, inLatencyMs, inForCell);
             if (stats->terminal) break;
         }
-    }
-
-exit:
-    return;
-}
-
-//===========================================================================================================================
-//  MetricsUpdateDNSResolveStats
-//===========================================================================================================================
-
-mDNSexport void MetricsUpdateDNSResolveStats(const domainname *inQueryName, const ResourceRecord *inRR, mDNSBool inForCell)
-{
-    ResolveStatsDomain *        domainStats;
-    domainname                  hostname;
-    size_t                      hostnameLen;
-    mDNSBool                    isQueryInDomain;
-    int                         skipCount;
-    int                         skipCountLast = -1;
-    int                         queryLabelCount;
-    const domainname *          queryParentDomain;
-    Response                    response;
-
-    require_quiet(gAWDServerConnection, exit);
-    require_quiet((inRR->rrtype == kDNSType_A) || (inRR->rrtype == kDNSType_AAAA), exit);
-    require_quiet(inRR->rDNSServer, exit);
-
-    queryLabelCount = CountLabels(inQueryName);
-
-    for (domainStats = gResolveStatsList; domainStats; domainStats = domainStats->next)
-    {
-        isQueryInDomain = mDNSfalse;
-        skipCount = queryLabelCount - domainStats->labelCount;
-        if (skipCount >= 0)
-        {
-            if (skipCount != skipCountLast)
-            {
-                queryParentDomain = SkipLeadingLabels(inQueryName, skipCount);
-                skipCountLast = skipCount;
-            }
-            isQueryInDomain = SameDomainName(queryParentDomain, (const domainname *)domainStats->domain);
-        }
-        if (!isQueryInDomain) continue;
-
-        hostnameLen = (size_t)(queryParentDomain->c - inQueryName->c);
-        if (hostnameLen >= sizeof(hostname.c)) continue;
-
-        memcpy(hostname.c, inQueryName->c, hostnameLen);
-        hostname.c[hostnameLen] = 0;
-
-        if (inRR->RecordType == kDNSRecordTypePacketNegative)
-        {
-            response.type = (inRR->rrtype == kDNSType_A) ? kResponseType_NegA : kResponseType_NegAAAA;
-            response.data = NULL;
-        }
-        else
-        {
-            response.type = (inRR->rrtype == kDNSType_A) ? kResponseType_IPv4Addr : kResponseType_IPv6Addr;
-            response.data = (inRR->rrtype == kDNSType_A) ? inRR->rdata->u.ipv4.b : inRR->rdata->u.ipv6.b;
-        }
-        ResolveStatsDomainUpdate(domainStats, &hostname, &response, &inRR->rDNSServer->addr, inForCell);
     }
 
 exit:
@@ -581,7 +379,7 @@ exit:
 //  MetricsUpdateDNSQuerySize
 //===========================================================================================================================
 
-mDNSlocal void UpdateMessageSizeCounts(uint16_t *inBins, size_t inBinCount, unsigned int inBinWidth, uint32_t inSize);
+mDNSlocal void UpdateMessageSizeCounts(uint32_t *inBins, size_t inBinCount, unsigned int inBinWidth, uint32_t inSize);
 
 mDNSexport void MetricsUpdateDNSQuerySize(mDNSu32 inSize)
 {
@@ -589,14 +387,14 @@ mDNSexport void MetricsUpdateDNSQuerySize(mDNSu32 inSize)
     UpdateMessageSizeCounts(gDNSMessageSizeStats->querySizeBins, kQuerySizeBinCount, kQuerySizeBinWidth, inSize);
 }
 
-mDNSlocal void UpdateMessageSizeCounts(uint16_t *inBins, size_t inBinCount, unsigned int inBinWidth, uint32_t inSize)
+mDNSlocal void UpdateMessageSizeCounts(uint32_t *inBins, size_t inBinCount, unsigned int inBinWidth, uint32_t inSize)
 {
     size_t      i;
 
     if (inSize == 0) return;
     i = (inSize - 1) / inBinWidth;
     if (i >= inBinCount) i = inBinCount - 1;
-    increment_saturate(inBins[i], UINT16_MAX);
+    IncrementBin32(&inBins[i]);
 }
 
 //===========================================================================================================================
@@ -613,125 +411,39 @@ mDNSexport void MetricsUpdateDNSResponseSize(mDNSu32 inSize)
 //  LogMetrics
 //===========================================================================================================================
 
-mDNSexport void LogMetrics(void)
+mDNSexport void LogMetricsToFD(int fd)
 {
-    QueryStats *                        stats;
-    const ResolveStatsDomain *          domain;
-    const ResolveStatsHostname *        hostname;
-    const ResolveStatsDNSServer *       server;
-    const ResolveStatsIPv4AddrSet *     addrV4;
-    const ResolveStatsIPv6Addr *        addrV6;
-    const ResolveStatsNegAAAASet *      negV6;
-    int                                 hostnameCount;
-    int                                 i;
-    unsigned int                        serverID;
-    int                                 serverObjCount   = 0;
-    int                                 hostnameObjCount = 0;
-    int                                 addrObjCount     = 0;
+    QueryStats *        stats;
 
-    LogMsgNoIdent("gAWDServerConnection %p", gAWDServerConnection);
-    LogMsgNoIdent("---- DNS query stats by domain -----");
+    LogToFD(fd, "gAWDServerConnection %p", gAWDServerConnection);
+    LogToFD(fd, "---- DNS query stats by domain -----");
 
     for (stats = gQueryStatsList; stats; stats = stats->next)
     {
         if (!stats->nonCellular && !stats->cellular)
         {
-            LogMsgNoIdent("No data for %s", QueryStatsGetDomainString(stats));
+            LogToFD(fd, "No data for %s", QueryStatsGetDomainString(stats));
             continue;
         }
-        if (stats->nonCellular) LogDNSHistSet(stats->nonCellular, QueryStatsGetDomainString(stats), mDNSfalse);
-        if (stats->cellular)    LogDNSHistSet(stats->cellular,    QueryStatsGetDomainString(stats), mDNStrue);
+        if (stats->nonCellular) LogDNSHistSetToFD(fd, stats->nonCellular, QueryStatsGetDomainString(stats), mDNSfalse);
+        if (stats->cellular)    LogDNSHistSetToFD(fd, stats->cellular,    QueryStatsGetDomainString(stats), mDNStrue);
     }
 
-    LogMsgNoIdent("---- DNS resolve stats by domain -----");
-
-    LogMsgNoIdent("Servers:");
-    for (server = gResolveStatsServerList; server; server = server->next)
-    {
-        serverObjCount++;
-        LogMsgNoIdent(server->isAddrV6 ? "%2u: %s %.16a" : "%2u: %s %.4a",
-            server->id, server->isForCell ? " C" : "NC", server->addrBytes);
-    }
-
-    for (domain = gResolveStatsList; domain; domain = domain->next)
-    {
-        hostnameCount = 0;
-        for (hostname = domain->hostnameList; hostname; hostname = hostname->next) { hostnameCount++; }
-        hostnameObjCount += hostnameCount;
-
-        LogMsgNoIdent("%s (%d hostname%s)", domain->domainStr, hostnameCount, (hostnameCount == 1) ? "" : "s");
-
-        for (hostname = domain->hostnameList; hostname; hostname = hostname->next)
-        {
-            LogMsgNoIdent("    %##s", hostname->name);
-            for (serverID = 0; serverID < gResolveStatsNextServerID; ++serverID)
-            {
-                for (addrV4 = hostname->addrV4List; addrV4; addrV4 = addrV4->next)
-                {
-                    if (serverID == 0) addrObjCount++;
-                    for (i = 0; i < (int)countof(addrV4->counters); ++i)
-                    {
-                        const IPv4AddrCounter *      counter;
-
-                        counter = &addrV4->counters[i];
-                        if (counter->count == 0) break;
-                        if (counter->serverID == serverID)
-                        {
-                            if (counter->isNegative)
-                            {
-                                LogMsgNoIdent("%10u: %3u negative A", counter->serverID, counter->count);
-                            }
-                            else
-                            {
-                                LogMsgNoIdent("%10u: %3u %.4a", counter->serverID, counter->count, counter->addrBytes);
-                            }
-                        }
-                    }
-                }
-                for (addrV6 = hostname->addrV6List; addrV6; addrV6 = addrV6->next)
-                {
-                    if (serverID == 0) addrObjCount++;
-                    if (addrV6->serverID == serverID)
-                    {
-                        LogMsgNoIdent("%10u: %3u %.16a", addrV6->serverID, addrV6->count, addrV6->addrBytes);
-                    }
-                }
-                for (negV6 = hostname->negV6List; negV6; negV6 = negV6->next)
-                {
-                    if (serverID == 0) addrObjCount++;
-                    for (i = 0; i < (int)countof(negV6->counters); ++i)
-                    {
-                        const NegAAAACounter *      counter;
-
-                        counter = &negV6->counters[i];
-                        if (counter->count == 0) break;
-                        if (counter->serverID == serverID)
-                        {
-                            LogMsgNoIdent("%10u: %3u negative AAAA", counter->serverID, counter->count);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    LogMsgNoIdent("Total object count: %3d (server %d hostname %d address %d)",
-        serverObjCount + hostnameObjCount + addrObjCount, serverObjCount, hostnameObjCount, addrObjCount);
-
-    LogMsgNoIdent("---- Num of Services Registered -----");
-    LogMsgNoIdent("Current_number_of_services_registered :[%d], Max_number_of_services_registered :[%d]",
-                  curr_num_regservices, max_num_regservices);
+    LogToFD(fd, "---- Num of Services Registered -----");
+    LogToFD(fd, "Current_number_of_services_registered :[%d], Max_number_of_services_registered :[%d]",
+              curr_num_regservices, max_num_regservices);
 
     if (gDNSMessageSizeStats)
     {
-        LogMsgNoIdent("---- DNS query size stats ---");
-        LogDNSMessageSizeStats(gDNSMessageSizeStats->querySizeBins, kQuerySizeBinCount, kQuerySizeBinWidth);
+        LogToFD(fd, "---- DNS query size stats ---");
+        LogDNSMessageSizeStatsToFD(fd, gDNSMessageSizeStats->querySizeBins, kQuerySizeBinCount, kQuerySizeBinWidth);
 
-        LogMsgNoIdent("-- DNS response size stats --");
-        LogDNSMessageSizeStats(gDNSMessageSizeStats->responseSizeBins, kResponseSizeBinCount, kResponseSizeBinWidth);
+        LogToFD(fd, "-- DNS response size stats --");
+        LogDNSMessageSizeStatsToFD(fd, gDNSMessageSizeStats->responseSizeBins, kResponseSizeBinCount, kResponseSizeBinWidth);
     }
     else
     {
-        LogMsgNoIdent("No DNS message size stats.");
+        LogToFD(fd, "No DNS message size stats.");
     }
 }
 
@@ -842,7 +554,7 @@ mDNSlocal void QueryStatsFreeList(QueryStats *inList)
 //  QueryStatsUpdate
 //===========================================================================================================================
 
-mDNSlocal mStatus QueryStatsUpdate(QueryStats *inStats, int inType, const ResourceRecord *inRR, mDNSu32 inQuerySendCount, ExpiredAnswerMetric inExpiredAnswerState, mDNSu32 inLatencyMs, mDNSBool inForCell)
+mDNSlocal mStatus QueryStatsUpdate(QueryStats *inStats, int inType, const ResourceRecord *inRR, mDNSu32 inQuerySendCount, ExpiredAnswerMetric inExpiredAnswerState, DNSOverTCPMetric inDNSOverTCPState, mDNSu32 inLatencyMs, mDNSBool inForCell)
 {
     mStatus             err;
     DNSHistSet *        set;
@@ -878,24 +590,25 @@ mDNSlocal mStatus QueryStatsUpdate(QueryStats *inStats, int inType, const Resour
         i = Min(inQuerySendCount, kQueryStatsMaxQuerySendCount);
 
         sendCountBins = isNegative ? hist->negAnsweredQuerySendCountBins : hist->answeredQuerySendCountBins;
-        increment_saturate(sendCountBins[i], UINT16_MAX);
+        IncrementBin16(&sendCountBins[i]);
 
         if (inQuerySendCount > 0)
         {
             for (i = 0; (i < (int)countof(kResponseLatencyMsLimits)) && (inLatencyMs >= kResponseLatencyMsLimits[i]); ++i) {}
             latencyBins = isNegative ? hist->negResponseLatencyBins : hist->responseLatencyBins;
-            increment_saturate(latencyBins[i], UINT16_MAX);
+            IncrementBin16(&latencyBins[i]);
         }
     }
     else
     {
         i = Min(inQuerySendCount, kQueryStatsMaxQuerySendCount);
-        increment_saturate(hist->unansweredQuerySendCountBins[i], UINT16_MAX);
+        IncrementBin16(&hist->unansweredQuerySendCountBins[i]);
 
         for (i = 0; (i < (int)countof(kResponseLatencyMsLimits)) && (inLatencyMs >= kResponseLatencyMsLimits[i]); ++i) {}
-        increment_saturate(hist->unansweredQueryDurationBins[i], UINT16_MAX);
+        IncrementBin16(&hist->unansweredQueryDurationBins[i]);
     }
-    increment_saturate(hist->expiredAnswerStateBins[Min(inExpiredAnswerState, (kQueryStatsExpiredAnswerStateCount-1))], UINT16_MAX);
+    IncrementBin32(&hist->expiredAnswerStateBins[Min(inExpiredAnswerState, (kQueryStatsExpiredAnswerStateCount - 1))]);
+    IncrementBin32(&hist->dnsOverTCPStateBins[Min(inDNSOverTCPState, (kQueryStatsDNSOverTCPStateCount - 1))]);
     err = mStatus_NoError;
 
 exit:
@@ -1034,638 +747,6 @@ mDNSlocal mDNSBool QueryStatsCourierPushTest(const QueryStats *inStats, const do
 }
 
 //===========================================================================================================================
-//  ResolveStatsDomainCreate
-//===========================================================================================================================
-
-mDNSlocal mStatus ResolveStatsDomainCreate(const char *inDomainStr, ResolveStatsDomain **outDomain)
-{
-    mStatus                     err;
-    ResolveStatsDomain *        obj;
-
-    obj = (ResolveStatsDomain *)calloc(1, sizeof(*obj));
-    require_action_quiet(obj, exit, err = mStatus_NoMemoryErr);
-
-    obj->domainStr = inDomainStr;
-    err = StringToDomainName(obj->domainStr, &obj->domain);
-    require_noerr_quiet(err, exit);
-
-    obj->labelCount = CountLabels((const domainname *)obj->domain);
-
-    *outDomain = obj;
-    obj = NULL;
-    err = mStatus_NoError;
-
-exit:
-    if (obj) ResolveStatsDomainFree(obj);
-    return (err);
-}
-
-//===========================================================================================================================
-//  ResolveStatsDomainFree
-//===========================================================================================================================
-
-mDNSlocal void ResolveStatsDomainFree(ResolveStatsDomain *inDomain)
-{
-    ResolveStatsHostname *      hostname;
-
-    ForgetMem(&inDomain->domain);
-    while ((hostname = inDomain->hostnameList) != NULL)
-    {
-        inDomain->hostnameList = hostname->next;
-        ResolveStatsHostnameFree(hostname);
-    }
-    free(inDomain);
-}
-
-//===========================================================================================================================
-//  ResolveStatsDomainUpdate
-//===========================================================================================================================
-
-mDNSlocal mStatus ResolveStatsDomainUpdate(ResolveStatsDomain *inDomain, const domainname *inHostname, const Response *inResp, const mDNSAddr *inDNSAddr, mDNSBool inForCell)
-{
-    mStatus                     err;
-    ResolveStatsHostname **     p;
-    ResolveStatsHostname *      hostname;
-    uint8_t                     serverID;
-
-    for (p = &inDomain->hostnameList; (hostname = *p) != NULL; p = &hostname->next)
-    {
-        if (SameDomainName((domainname *)hostname->name, inHostname)) break;
-    }
-
-    if (!hostname)
-    {
-        require_action_quiet(gResolveStatsObjCount < kResolveStatsMaxObjCount, exit, err = mStatus_Refused);
-        err = ResolveStatsHostnameCreate(inHostname, &hostname);
-        require_noerr_quiet(err, exit);
-        gResolveStatsObjCount++;
-        *p = hostname;
-    }
-
-    err = ResolveStatsGetServerID(inDNSAddr, inForCell, &serverID);
-    require_noerr_quiet(err, exit);
-
-    err = ResolveStatsHostnameUpdate(hostname, inResp, serverID);
-    require_noerr_quiet(err, exit);
-
-exit:
-    return (err);
-}
-
-//===========================================================================================================================
-//  ResolveStatsHostnameCreate
-//===========================================================================================================================
-
-mDNSlocal mStatus ResolveStatsHostnameCreate(const domainname *inName, ResolveStatsHostname **outHostname)
-{
-    mStatus                     err;
-    ResolveStatsHostname *      obj;
-    size_t                      nameLen;
-
-    nameLen = DomainNameLength(inName);
-    require_action_quiet(nameLen > 0, exit, err = mStatus_Invalid);
-
-    obj = (ResolveStatsHostname *)calloc(1, sizeof(*obj) - 1 + nameLen);
-    require_action_quiet(obj, exit, err = mStatus_NoMemoryErr);
-
-    memcpy(obj->name, inName, nameLen);
-
-    *outHostname = obj;
-    err = mStatus_NoError;
-
-exit:
-    return (err);
-}
-
-//===========================================================================================================================
-//  ResolveStatsDomainCreateAWDVersion
-//===========================================================================================================================
-
-mDNSlocal mStatus ResolveStatsDomainCreateAWDVersion(const ResolveStatsDomain *inDomain, AWDMDNSResponderResolveStatsDomain **outDomain)
-{
-    mStatus                                     err;
-    AWDMDNSResponderResolveStatsDomain *        domain;
-    ResolveStatsHostname *                      hostname;
-    AWDMDNSResponderResolveStatsHostname *      awdHostname;
-    NSString *                                  name;
-
-    domain = [[AWDMDNSResponderResolveStatsDomainSoft alloc] init];
-    require_action_quiet(domain, exit, err = mStatus_UnknownErr);
-
-    name = [[NSString alloc] initWithUTF8String:inDomain->domainStr];
-    require_action_quiet(name, exit, err = mStatus_UnknownErr);
-
-    domain.name = name;
-    [name release];
-    name = nil;
-
-    for (hostname = inDomain->hostnameList; hostname; hostname = hostname->next)
-    {
-        err = ResolveStatsHostnameCreateAWDVersion(hostname, &awdHostname);
-        require_noerr_quiet(err, exit);
-
-        [domain addHostname:awdHostname];
-        [awdHostname release];
-        awdHostname = nil;
-    }
-
-    *outDomain = domain;
-    domain = nil;
-    err = mStatus_NoError;
-
-exit:
-    [domain release];
-    return (err);
-}
-
-//===========================================================================================================================
-//  ResolveStatsHostnameFree
-//===========================================================================================================================
-
-mDNSlocal void ResolveStatsHostnameFree(ResolveStatsHostname *inHostname)
-{
-    ResolveStatsIPv4AddrSet *       addrV4;
-    ResolveStatsIPv6Addr *          addrV6;
-    ResolveStatsNegAAAASet *        negV6;
-
-    while ((addrV4 = inHostname->addrV4List) != NULL)
-    {
-        inHostname->addrV4List = addrV4->next;
-        ResolveStatsIPv4AddrSetFree(addrV4);
-    }
-    while ((addrV6 = inHostname->addrV6List) != NULL)
-    {
-        inHostname->addrV6List = addrV6->next;
-        ResolveStatsIPv6AddressFree(addrV6);
-    }
-    while ((negV6 = inHostname->negV6List) != NULL)
-    {
-        inHostname->negV6List = negV6->next;
-        ResolveStatsNegAAAASetFree(negV6);
-    }
-    free(inHostname);
-}
-
-//===========================================================================================================================
-//  ResolveStatsHostnameUpdate
-//===========================================================================================================================
-
-mDNSlocal mStatus ResolveStatsHostnameUpdate(ResolveStatsHostname *inHostname, const Response *inResp, uint8_t inServerID)
-{
-    mStatus     err;
-
-    if ((inResp->type == kResponseType_IPv4Addr) || (inResp->type == kResponseType_NegA))
-    {
-        ResolveStatsIPv4AddrSet **      p;
-        ResolveStatsIPv4AddrSet *       addrV4;
-        int                             i;
-        IPv4AddrCounter *               counter;
-
-        for (p = &inHostname->addrV4List; (addrV4 = *p) != NULL; p = &addrV4->next)
-        {
-            for (i = 0; i < (int)countof(addrV4->counters); ++i)
-            {
-                counter = &addrV4->counters[i];
-                if (counter->count == 0) break;
-                if (counter->serverID != inServerID) continue;
-                if (inResp->type == kResponseType_NegA)
-                {
-                    if (counter->isNegative) break;
-                }
-                else
-                {
-                    if (memcmp(counter->addrBytes, inResp->data, 4) == 0) break;
-                }
-            }
-            if (i < (int)countof(addrV4->counters)) break;
-        }
-        if (!addrV4)
-        {
-            require_action_quiet(gResolveStatsObjCount < kResolveStatsMaxObjCount, exit, err = mStatus_Refused);
-            err = ResolveStatsIPv4AddrSetCreate(&addrV4);
-            require_noerr_quiet(err, exit);
-            gResolveStatsObjCount++;
-
-            *p = addrV4;
-            counter = &addrV4->counters[0];
-        }
-        if (counter->count == 0)
-        {
-            counter->serverID = inServerID;
-            if (inResp->type == kResponseType_NegA)
-            {
-                counter->isNegative = 1;
-            }
-            else
-            {
-                counter->isNegative = 0;
-                memcpy(counter->addrBytes, inResp->data, 4);
-            }
-        }
-        increment_saturate(counter->count, UINT16_MAX);
-        err = mStatus_NoError;
-    }
-    else if (inResp->type == kResponseType_IPv6Addr)
-    {
-        ResolveStatsIPv6Addr **     p;
-        ResolveStatsIPv6Addr *      addrV6;
-
-        for (p = &inHostname->addrV6List; (addrV6 = *p) != NULL; p = &addrV6->next)
-        {
-            if ((addrV6->serverID == inServerID) && (memcmp(addrV6->addrBytes, inResp->data, 16) == 0)) break;
-        }
-        if (!addrV6)
-        {
-            require_action_quiet(gResolveStatsObjCount < kResolveStatsMaxObjCount, exit, err = mStatus_Refused);
-            err = ResolveStatsIPv6AddressCreate(inServerID, inResp->data, &addrV6);
-            require_noerr_quiet(err, exit);
-            gResolveStatsObjCount++;
-
-            *p = addrV6;
-        }
-        increment_saturate(addrV6->count, UINT16_MAX);
-        err = mStatus_NoError;
-    }
-    else if (inResp->type == kResponseType_NegAAAA)
-    {
-        ResolveStatsNegAAAASet **       p;
-        ResolveStatsNegAAAASet *        negV6;
-        int                             i;
-        NegAAAACounter *                counter;
-
-        for (p = &inHostname->negV6List; (negV6 = *p) != NULL; p = &negV6->next)
-        {
-            for (i = 0; i < (int)countof(negV6->counters); ++i)
-            {
-                counter = &negV6->counters[i];
-                if ((counter->count == 0) || (counter->serverID == inServerID)) break;
-            }
-            if (i < (int)countof(negV6->counters)) break;
-        }
-        if (!negV6)
-        {
-            require_action_quiet(gResolveStatsObjCount < kResolveStatsMaxObjCount, exit, err = mStatus_Refused);
-            err = ResolveStatsNegAAAASetCreate(&negV6);
-            require_noerr_quiet(err, exit);
-            gResolveStatsObjCount++;
-
-            *p = negV6;
-            counter = &negV6->counters[0];
-        }
-        if (counter->count == 0) counter->serverID = inServerID;
-        increment_saturate(counter->count, UINT16_MAX);
-        err = mStatus_NoError;
-    }
-    else
-    {
-        err = mStatus_Invalid;
-    }
-
-exit:
-    return (err);
-}
-
-//===========================================================================================================================
-//  ResolveStatsHostnameCreateAWDVersion
-//===========================================================================================================================
-
-mDNSlocal mStatus ResolveStatsHostnameCreateAWDVersion(const ResolveStatsHostname *inHostname, AWDMDNSResponderResolveStatsHostname **outHostname)
-{
-    mStatus                                     err;
-    AWDMDNSResponderResolveStatsHostname *      hostname;
-    NSString *                                  name;
-    char                                        nameBuf[MAX_ESCAPED_DOMAIN_NAME];
-    const char *                                ptr;
-    ResolveStatsIPv4AddrSet *                   addrV4;
-    ResolveStatsIPv6Addr *                      addrV6;
-    ResolveStatsNegAAAASet *                    negV6;
-    AWDMDNSResponderResolveStatsResult *        result = nil;
-    int                                         i;
-
-    hostname = [[AWDMDNSResponderResolveStatsHostnameSoft alloc] init];
-    require_action_quiet(hostname, exit, err = mStatus_UnknownErr);
-
-    ptr = ConvertDomainNameToCString((domainname *)inHostname->name, nameBuf);
-    require_action_quiet(ptr, exit, err = mStatus_UnknownErr);
-
-    name = [[NSString alloc] initWithUTF8String:nameBuf];
-    require_action_quiet(name, exit, err = mStatus_UnknownErr);
-
-    hostname.name = name;
-    [name release];
-    name = nil;
-
-    for (addrV4 = inHostname->addrV4List; addrV4; addrV4 = addrV4->next)
-    {
-        for (i = 0; i < (int)countof(addrV4->counters); ++i)
-        {
-            const IPv4AddrCounter *     counter;
-            NSData *                    addrBytes;
-
-            counter = &addrV4->counters[i];
-            if (counter->count == 0) break;
-
-            result = [[AWDMDNSResponderResolveStatsResultSoft alloc] init];
-            require_action_quiet(result, exit, err = mStatus_UnknownErr);
-
-            if (counter->isNegative)
-            {
-                result.type = AWDMDNSResponderResolveStatsResult_ResultType_NegA;
-            }
-            else
-            {
-                addrBytes = [[NSData alloc] initWithBytes:counter->addrBytes length:4];
-                require_action_quiet(addrBytes, exit, err = mStatus_UnknownErr);
-
-                result.type = AWDMDNSResponderResolveStatsResult_ResultType_IPv4Addr;
-                result.data = addrBytes;
-                [addrBytes release];
-            }
-            result.count    = counter->count;
-            result.serverID = counter->serverID;
-
-            [hostname addResult:result];
-            [result release];
-            result = nil;
-        }
-    }
-
-    for (addrV6 = inHostname->addrV6List; addrV6; addrV6 = addrV6->next)
-    {
-        NSData *        addrBytes;
-
-        result = [[AWDMDNSResponderResolveStatsResultSoft alloc] init];
-        require_action_quiet(result, exit, err = mStatus_UnknownErr);
-
-        addrBytes = [[NSData alloc] initWithBytes:addrV6->addrBytes length:16];
-        require_action_quiet(addrBytes, exit, err = mStatus_UnknownErr);
-
-        result.type     = AWDMDNSResponderResolveStatsResult_ResultType_IPv6Addr;
-        result.count    = addrV6->count;
-        result.serverID = addrV6->serverID;
-        result.data     = addrBytes;
-
-        [addrBytes release];
-
-        [hostname addResult:result];
-        [result release];
-        result = nil;
-    }
-
-    for (negV6 = inHostname->negV6List; negV6; negV6 = negV6->next)
-    {
-        for (i = 0; i < (int)countof(negV6->counters); ++i)
-        {
-            const NegAAAACounter *      counter;
-
-            counter = &negV6->counters[i];
-            if (counter->count == 0) break;
-
-            result = [[AWDMDNSResponderResolveStatsResultSoft alloc] init];
-            require_action_quiet(result, exit, err = mStatus_UnknownErr);
-
-            result.type     = AWDMDNSResponderResolveStatsResult_ResultType_NegAAAA;
-            result.count    = counter->count;
-            result.serverID = counter->serverID;
-
-            [hostname addResult:result];
-            [result release];
-            result = nil;
-        }
-    }
-
-    *outHostname = hostname;
-    hostname = nil;
-    err = mStatus_NoError;
-
-exit:
-    [result release];
-    [hostname release];
-    return (err);
-}
-
-//===========================================================================================================================
-//  ResolveStatsDNSServerCreate
-//===========================================================================================================================
-
-mDNSlocal mStatus ResolveStatsDNSServerCreate(const mDNSAddr *inAddr, mDNSBool inForCell, ResolveStatsDNSServer **outServer)
-{
-    mStatus                     err;
-    ResolveStatsDNSServer *     obj;
-    size_t                      addrLen;
-
-    require_action_quiet((inAddr->type == mDNSAddrType_IPv4) || (inAddr->type == mDNSAddrType_IPv6), exit, err = mStatus_Invalid);
-
-    addrLen = (inAddr->type == mDNSAddrType_IPv4) ? 4 : 16;
-    obj = (ResolveStatsDNSServer *)calloc(1, sizeof(*obj) - 1 + addrLen);
-    require_action_quiet(obj, exit, err = mStatus_NoMemoryErr);
-
-    obj->isForCell = inForCell;
-    if (inAddr->type == mDNSAddrType_IPv4)
-    {
-        obj->isAddrV6 = mDNSfalse;
-        memcpy(obj->addrBytes, inAddr->ip.v4.b, addrLen);
-    }
-    else
-    {
-        obj->isAddrV6 = mDNStrue;
-        memcpy(obj->addrBytes, inAddr->ip.v6.b, addrLen);
-    }
-
-    *outServer = obj;
-    err = mStatus_NoError;
-
-exit:
-    return (err);
-}
-
-//===========================================================================================================================
-//  ResolveStatsDNSServerFree
-//===========================================================================================================================
-
-mDNSlocal void ResolveStatsDNSServerFree(ResolveStatsDNSServer *inServer)
-{
-    free(inServer);
-}
-
-//===========================================================================================================================
-//  ResolveStatsDNSServerCreateAWDVersion
-//===========================================================================================================================
-
-mDNSlocal mStatus ResolveStatsDNSServerCreateAWDVersion(const ResolveStatsDNSServer *inServer, AWDMDNSResponderResolveStatsDNSServer **outServer)
-{
-    mStatus                                     err;
-    AWDMDNSResponderResolveStatsDNSServer *     server;
-    NSData *                                    addrBytes = nil;
-
-    server = [[AWDMDNSResponderResolveStatsDNSServerSoft alloc] init];
-    require_action_quiet(server, exit, err = mStatus_UnknownErr);
-
-    addrBytes = [[NSData alloc] initWithBytes:inServer->addrBytes length:(inServer->isAddrV6 ? 16 : 4)];
-    require_action_quiet(addrBytes, exit, err = mStatus_UnknownErr);
-
-    server.serverID = inServer->id;
-    server.address  = addrBytes;
-    if (inServer->isForCell)
-    {
-        server.networkType = AWDMDNSResponderResolveStatsDNSServer_NetworkType_Cellular;
-    }
-    else
-    {
-        server.networkType = AWDMDNSResponderResolveStatsDNSServer_NetworkType_NonCellular;
-    }
-
-    *outServer = server;
-    server = nil;
-    err = mStatus_NoError;
-
-exit:
-    [addrBytes release];
-    [server release];
-    return (err);
-}
-
-//===========================================================================================================================
-//  ResolveStatsIPv4AddrSetCreate
-//===========================================================================================================================
-
-mDNSlocal mStatus ResolveStatsIPv4AddrSetCreate(ResolveStatsIPv4AddrSet **outSet)
-{
-    mStatus                         err;
-    ResolveStatsIPv4AddrSet *       obj;
-
-    obj = (ResolveStatsIPv4AddrSet *)calloc(1, sizeof(*obj));
-    require_action_quiet(obj, exit, err = mStatus_NoMemoryErr);
-
-    *outSet = obj;
-    err = mStatus_NoError;
-
-exit:
-    return (err);
-}
-
-//===========================================================================================================================
-//  ResolveStatsIPv4AddrSetFree
-//===========================================================================================================================
-
-mDNSlocal void ResolveStatsIPv4AddrSetFree(ResolveStatsIPv4AddrSet *inSet)
-{
-    free(inSet);
-}
-
-//===========================================================================================================================
-//  ResolveStatsIPv6AddressCreate
-//===========================================================================================================================
-
-mDNSlocal mStatus ResolveStatsIPv6AddressCreate(uint8_t inServerID, const uint8_t inAddrBytes[16], ResolveStatsIPv6Addr **outAddr)
-{
-    mStatus                     err;
-    ResolveStatsIPv6Addr *      obj;
-
-    obj = (ResolveStatsIPv6Addr *)calloc(1, sizeof(*obj));
-    require_action_quiet(obj, exit, err = mStatus_NoMemoryErr);
-
-    obj->serverID = inServerID;
-    memcpy(obj->addrBytes, inAddrBytes, 16);
-
-    *outAddr = obj;
-    err = mStatus_NoError;
-
-exit:
-    return (err);
-}
-
-//===========================================================================================================================
-//  ResolveStatsIPv6AddressFree
-//===========================================================================================================================
-
-mDNSlocal void ResolveStatsIPv6AddressFree(ResolveStatsIPv6Addr *inAddr)
-{
-    free(inAddr);
-}
-
-//===========================================================================================================================
-//  ResolveStatsNegAAAASetCreate
-//===========================================================================================================================
-
-mDNSlocal mStatus ResolveStatsNegAAAASetCreate(ResolveStatsNegAAAASet **outSet)
-{
-    mStatus                         err;
-    ResolveStatsNegAAAASet *        obj;
-
-    obj = (ResolveStatsNegAAAASet *)calloc(1, sizeof(*obj));
-    require_action_quiet(obj, exit, err = mStatus_NoMemoryErr);
-
-    *outSet = obj;
-    err = mStatus_NoError;
-
-exit:
-    return (err);
-}
-
-//===========================================================================================================================
-//  ResolveStatsNegAAAASetFree
-//===========================================================================================================================
-
-mDNSlocal void ResolveStatsNegAAAASetFree(ResolveStatsNegAAAASet *inSet)
-{
-    free(inSet);
-}
-
-//===========================================================================================================================
-//  ResolveStatsGetServerID
-//===========================================================================================================================
-
-mDNSlocal mStatus ResolveStatsGetServerID(const mDNSAddr *inServerAddr, mDNSBool inForCell, uint8_t *outServerID)
-{
-    mStatus                         err;
-    ResolveStatsDNSServer **        p;
-    ResolveStatsDNSServer *         server;
-
-    require_action_quiet((inServerAddr->type == mDNSAddrType_IPv4) || (inServerAddr->type == mDNSAddrType_IPv6), exit, err = mStatus_Invalid);
-
-    for (p = &gResolveStatsServerList; (server = *p) != NULL; p = &server->next)
-    {
-        if ((inForCell && server->isForCell) || (!inForCell && !server->isForCell))
-        {
-            if (inServerAddr->type == mDNSAddrType_IPv4)
-            {
-                if (!server->isAddrV6 && (memcmp(server->addrBytes, inServerAddr->ip.v4.b, 4) == 0)) break;
-            }
-            else
-            {
-                if (server->isAddrV6 && (memcmp(server->addrBytes, inServerAddr->ip.v6.b, 16) == 0)) break;
-            }
-        }
-    }
-
-    if (!server)
-    {
-        require_action_quiet(gResolveStatsNextServerID <= UINT8_MAX, exit, err = mStatus_Refused);
-        require_action_quiet(gResolveStatsObjCount < kResolveStatsMaxObjCount, exit, err = mStatus_Refused);
-        err = ResolveStatsDNSServerCreate(inServerAddr, inForCell, &server);
-        require_noerr_quiet(err, exit);
-        gResolveStatsObjCount++;
-
-        server->id   = (uint8_t)gResolveStatsNextServerID++;
-        server->next = gResolveStatsServerList;
-        gResolveStatsServerList = server;
-    }
-    else if (gResolveStatsServerList != server)
-    {
-        *p = server->next;
-        server->next = gResolveStatsServerList;
-        gResolveStatsServerList = server;
-    }
-
-    *outServerID = server->id;
-    err = mStatus_NoError;
-
-exit:
-    return (err);
-}
-
-//===========================================================================================================================
 //  DNSMessageSizeStatsCreate
 //===========================================================================================================================
 
@@ -1726,67 +807,6 @@ exit:
 }
 
 //===========================================================================================================================
-//  CreateResolveStatsList
-//===========================================================================================================================
-
-mDNSlocal mStatus CreateResolveStatsList(ResolveStatsDomain **outList)
-{
-    mStatus                     err;
-    unsigned int                i;
-    ResolveStatsDomain *        domain;
-    ResolveStatsDomain **       p;
-    ResolveStatsDomain *        list = NULL;
-
-    p = &list;
-    for (i = 0; i < (unsigned int)countof(kResolveStatsDomains); ++i)
-    {
-        err = ResolveStatsDomainCreate(kResolveStatsDomains[i], &domain);
-        require_noerr_quiet(err, exit);
-
-        *p = domain;
-        p = &domain->next;
-    }
-
-    *outList = list;
-    list = NULL;
-    err = mStatus_NoError;
-
-exit:
-    FreeResolveStatsList(list);
-    return (err);
-}
-
-//===========================================================================================================================
-//  FreeResolveStatsList
-//===========================================================================================================================
-
-mDNSlocal void FreeResolveStatsList(ResolveStatsDomain *inList)
-{
-    ResolveStatsDomain *        domain;
-
-    while ((domain = inList) != NULL)
-    {
-        inList = domain->next;
-        ResolveStatsDomainFree(domain);
-    }
-}
-
-//===========================================================================================================================
-//  FreeResolveStatsServerList
-//===========================================================================================================================
-
-mDNSlocal void FreeResolveStatsServerList(ResolveStatsDNSServer *inList)
-{
-    ResolveStatsDNSServer *     server;
-
-    while ((server = inList) != NULL)
-    {
-        inList = server->next;
-        ResolveStatsDNSServerFree(server);
-    }
-}
-
-//===========================================================================================================================
 //  SubmitAWDMetric
 //===========================================================================================================================
 
@@ -1798,10 +818,6 @@ mDNSlocal mStatus SubmitAWDMetric(UInt32 inMetricID)
     {
         case AWDMetricId_MDNSResponder_DNSStatistics:
             err = SubmitAWDMetricQueryStats();
-            break;
-
-        case AWDMetricId_MDNSResponder_ResolveStats:
-            err = SubmitAWDMetricResolveStats();
             break;
 
         case AWDMetricId_MDNSResponder_ServicesStats:
@@ -1872,8 +888,6 @@ mDNSlocal mStatus SubmitAWDMetricQueryStats(void)
     err = success ? mStatus_NoError : mStatus_UnknownErr;
 
 exit:
-    [metric release];
-    [container release];
     QueryStatsFreeList(statsList);
     return (err);
 }
@@ -1909,7 +923,6 @@ mDNSlocal mStatus AddDNSHistSet(AWDMDNSResponderDNSStatistics *inMetric, DNSHist
         require_noerr_quiet(err, exit);
 
         [inMetric addStats:awdStats];
-        [awdStats release];
     }
     if (inSet->histAAAA)
     {
@@ -1917,84 +930,10 @@ mDNSlocal mStatus AddDNSHistSet(AWDMDNSResponderDNSStatistics *inMetric, DNSHist
         require_noerr_quiet(err, exit);
 
         [inMetric addStats:awdStats];
-        [awdStats release];
     }
     err = mStatus_NoError;
 
 exit:
-    return (err);
-}
-
-//===========================================================================================================================
-//  SubmitAWDMetricResolveStats
-//===========================================================================================================================
-
-mDNSlocal mStatus SubmitAWDMetricResolveStats(void)
-{
-    mStatus                             err;
-    ResolveStatsDomain *                newResolveStatsList;
-    ResolveStatsDomain *                domainList  = NULL;
-    ResolveStatsDNSServer *             serverList  = NULL;
-    AWDMetricContainer *                container   = nil;
-    AWDMDNSResponderResolveStats *      metric      = nil;
-    ResolveStatsDNSServer *             server;
-    ResolveStatsDomain *                domain;
-    BOOL                                success;
-
-    err = CreateResolveStatsList(&newResolveStatsList);
-    require_noerr_quiet(err, exit);
-
-    KQueueLock();
-    domainList = gResolveStatsList;
-    serverList = gResolveStatsServerList;
-    gResolveStatsList           = newResolveStatsList;
-    gResolveStatsServerList     = NULL;
-    gResolveStatsNextServerID   = 0;
-    gResolveStatsObjCount       = 0;
-    KQueueUnlock("SubmitAWDMetricResolveStats");
-
-    container = [gAWDServerConnection newMetricContainerWithIdentifier:AWDMetricId_MDNSResponder_ResolveStats];
-    require_action_quiet(container, exit, err = mStatus_UnknownErr);
-
-    metric = [[AWDMDNSResponderResolveStatsSoft alloc] init];
-    require_action_quiet(metric, exit, err = mStatus_UnknownErr);
-
-    while ((server = serverList) != NULL)
-    {
-        AWDMDNSResponderResolveStatsDNSServer *     awdServer;
-
-        serverList = server->next;
-        err = ResolveStatsDNSServerCreateAWDVersion(server, &awdServer);
-        ResolveStatsDNSServerFree(server);
-        require_noerr_quiet(err, exit);
-
-        [metric addServer:awdServer];
-        [awdServer release];
-    }
-
-    while ((domain = domainList) != NULL)
-    {
-        AWDMDNSResponderResolveStatsDomain *        awdDomain;
-
-        domainList = domain->next;
-        err = ResolveStatsDomainCreateAWDVersion(domain, &awdDomain);
-        ResolveStatsDomainFree(domain);
-        require_noerr_quiet(err, exit);
-
-        [metric addDomain:awdDomain];
-        [awdDomain release];
-    }
-
-    container.metric = metric;
-    success = [gAWDServerConnection submitMetric:container];
-    LogMsg("SubmitAWDMetricResolveStats: metric submission %s.", success ? "succeeded" : "failed");
-    err = success ? mStatus_NoError : mStatus_UnknownErr;
-
-exit:
-    [metric release];
-    [container release];
-    FreeResolveStatsList(domainList);
-    FreeResolveStatsServerList(serverList);
     return (err);
 }
 
@@ -2032,12 +971,12 @@ mDNSlocal mStatus SubmitAWDMetricDNSMessageSizeStats(void)
 
         // Set query size counts.
 
-        binCount = CopyHistogramBins(bins, stats->querySizeBins, kQuerySizeBinCount);
+        binCount = CopyBins32(bins, stats->querySizeBins, kQuerySizeBinCount);
         [metric setQuerySizeCounts:bins count:(NSUInteger)binCount];
 
         // Set response size counts.
 
-        binCount = CopyHistogramBins(bins, stats->responseSizeBins, kResponseSizeBinCount);
+        binCount = CopyBins32(bins, stats->responseSizeBins, kResponseSizeBinCount);
         [metric setResponseSizeCounts:bins count:(NSUInteger)binCount];
     }
 
@@ -2047,8 +986,6 @@ mDNSlocal mStatus SubmitAWDMetricDNSMessageSizeStats(void)
     err = success ? mStatus_NoError : mStatus_UnknownErr;
 
 exit:
-    [metric release];
-    [container release];
     if (stats) DNSMessageSizeStatsFree(stats);
     return (err);
 }
@@ -2066,6 +1003,7 @@ mDNSlocal mStatus CreateAWDDNSDomainStats(DNSHist *inHist, const char *inDomain,
     uint32_t                sendCountBins[kQueryStatsSendCountBinCount];
     uint32_t                latencyBins[kQueryStatsLatencyBinCount];
     uint32_t                expiredAnswerBins[kQueryStatsExpiredAnswerStateCount];
+    uint32_t                dnsOverTCPBins[kQueryStatsDNSOverTCPStateCount];
 
     awdStats = [[AWDDNSDomainStatsSoft alloc] init];
     require_action_quiet(awdStats, exit, err = mStatus_UnknownErr);
@@ -2079,7 +1017,7 @@ mDNSlocal mStatus CreateAWDDNSDomainStats(DNSHist *inHist, const char *inDomain,
 
     // Positively answered query send counts
 
-    binCount = CopyHistogramBins(sendCountBins, inHist->answeredQuerySendCountBins, kQueryStatsSendCountBinCount);
+    binCount = CopyBins16(sendCountBins, inHist->answeredQuerySendCountBins, kQueryStatsSendCountBinCount);
     [awdStats setAnsweredQuerySendCounts:sendCountBins count:(NSUInteger)binCount];
 
     // binCount > 1 means that at least one of the non-zero send count bins had a non-zero count, i.e., at least one query
@@ -2087,67 +1025,69 @@ mDNSlocal mStatus CreateAWDDNSDomainStats(DNSHist *inHist, const char *inDomain,
 
     if (binCount > 1)
     {
-        binCount = CopyHistogramBins(latencyBins, inHist->responseLatencyBins, kQueryStatsLatencyBinCount);
+        binCount = CopyBins16(latencyBins, inHist->responseLatencyBins, kQueryStatsLatencyBinCount);
         [awdStats setResponseLatencyMs:latencyBins count:(NSUInteger)binCount];
     }
 
     // Negatively answered query send counts
 
-    binCount = CopyHistogramBins(sendCountBins, inHist->negAnsweredQuerySendCountBins, kQueryStatsSendCountBinCount);
+    binCount = CopyBins16(sendCountBins, inHist->negAnsweredQuerySendCountBins, kQueryStatsSendCountBinCount);
     [awdStats setNegAnsweredQuerySendCounts:sendCountBins count:(NSUInteger)binCount];
 
     if (binCount > 1)
     {
-        binCount = CopyHistogramBins(latencyBins, inHist->negResponseLatencyBins, kQueryStatsLatencyBinCount);
+        binCount = CopyBins16(latencyBins, inHist->negResponseLatencyBins, kQueryStatsLatencyBinCount);
         [awdStats setNegResponseLatencyMs:latencyBins count:(NSUInteger)binCount];
     }
 
     // Unanswered query send counts
 
-    binCount = CopyHistogramBins(sendCountBins, inHist->unansweredQuerySendCountBins, kQueryStatsSendCountBinCount);
+    binCount = CopyBins16(sendCountBins, inHist->unansweredQuerySendCountBins, kQueryStatsSendCountBinCount);
     [awdStats setUnansweredQuerySendCounts:sendCountBins count:(NSUInteger)binCount];
 
     if (binCount > 1)
     {
-        binCount = CopyHistogramBins(latencyBins, inHist->unansweredQueryDurationBins, kQueryStatsLatencyBinCount);
+        binCount = CopyBins16(latencyBins, inHist->unansweredQueryDurationBins, kQueryStatsLatencyBinCount);
         [awdStats setUnansweredQueryDurationMs:latencyBins count:(NSUInteger)binCount];
     }
     
     // Expired answers states
     
-    binCount = CopyHistogramBins(expiredAnswerBins, inHist->expiredAnswerStateBins, kQueryStatsExpiredAnswerStateCount);
+    binCount = CopyBins32(expiredAnswerBins, inHist->expiredAnswerStateBins, kQueryStatsExpiredAnswerStateCount);
     [awdStats setExpiredAnswerStates:expiredAnswerBins count:(NSUInteger)binCount];
 
-    *outStats = awdStats;
-    awdStats = nil;
+    // DNS Over TCP states
+
+    binCount = CopyBins32(dnsOverTCPBins, inHist->dnsOverTCPStateBins, kQueryStatsDNSOverTCPStateCount);
+    [awdStats setDnsOverTCPStates:dnsOverTCPBins count:(NSUInteger)binCount];
+
+   *outStats = awdStats;
     err = mStatus_NoError;
 
 exit:
-    [domain release];
-    [awdStats release];
     return (err);
 }
 
 //===========================================================================================================================
-//  LogDNSHistSet
+//  LogDNSHistSetToFD
 //===========================================================================================================================
 
-mDNSlocal void LogDNSHistSet(const DNSHistSet *inSet, const char *inDomain, mDNSBool inForCell)
+mDNSlocal void LogDNSHistSetToFD(int fd, const DNSHistSet *inSet, const char *inDomain, mDNSBool inForCell)
 {
-    if (inSet->histA)       LogDNSHist(inSet->histA,    inDomain, inForCell, "A");
-    if (inSet->histAAAA)    LogDNSHist(inSet->histAAAA, inDomain, inForCell, "AAAA");
+    if (inSet->histA)       LogDNSHistToFD(fd, inSet->histA,    inDomain, inForCell, "A");
+    if (inSet->histAAAA)    LogDNSHistToFD(fd, inSet->histAAAA, inDomain, inForCell, "AAAA");
 }
 
 //===========================================================================================================================
-//  LogDNSHist
+//  LogDNSHistToFD
 //===========================================================================================================================
 
 #define Percent(N, D)       (((N) * 100) / (D)), ((((N) * 10000) / (D)) % 100)
 #define PercentFmt          "%3u.%02u"
-#define LogStat(LABEL, COUNT, ACCUMULATOR, TOTAL) \
-    LogMsgNoIdent("%s %5u " PercentFmt " " PercentFmt, (LABEL), (COUNT), Percent(COUNT, TOTAL), Percent(ACCUMULATOR, TOTAL))
+#define LogStatToFD(FILE_DESCRIPTOR, LABEL, COUNT, ACCUMULATOR, TOTAL) \
+    LogToFD((FILE_DESCRIPTOR), "%s %5u " PercentFmt " " PercentFmt, (LABEL), (COUNT), Percent(COUNT, TOTAL), Percent(ACCUMULATOR, TOTAL))
 
-mDNSlocal void LogDNSHist(const DNSHist *inHist, const char *inDomain, mDNSBool inForCell, const char *inType)
+mDNSlocal void LogDNSHistToFD(int fd, const DNSHist *inHist, const char *inDomain, mDNSBool inForCell, const char *inType)
 {
     unsigned int        totalAnswered;
     unsigned int        totalNegAnswered;
@@ -2172,42 +1112,46 @@ mDNSlocal void LogDNSHist(const DNSHist *inHist, const char *inDomain, mDNSBool 
         totalUnanswered += inHist->unansweredQuerySendCountBins[i];
     }
 
-    LogMsgNoIdent("Domain: %s (%s, %s)", inDomain, inForCell ? "C" : "NC", inType);
-    LogMsgNoIdent("Answered questions            %4u", totalAnswered);
-    LogMsgNoIdent("Negatively answered questions %4u", totalNegAnswered);
-    LogMsgNoIdent("Unanswered questions          %4u", totalUnanswered);
-    LogMsgNoIdent("Expired - no cached answer    %4u", inHist->expiredAnswerStateBins[ExpiredAnswer_Allowed]);
-    LogMsgNoIdent("Expired - answered from cache %4u", inHist->expiredAnswerStateBins[ExpiredAnswer_AnsweredWithExpired]);
-    LogMsgNoIdent("Expired - cache changed       %4u", inHist->expiredAnswerStateBins[ExpiredAnswer_ExpiredAnswerChanged]);
-    LogMsgNoIdent("-- Query send counts ---------");
-    LogDNSHistSendCounts(inHist->answeredQuerySendCountBins);
-    LogMsgNoIdent("-- Query send counts (NAQs) --");
-    LogDNSHistSendCounts(inHist->negAnsweredQuerySendCountBins);
+    LogToFD(fd, "Domain: %s (%s, %s)", inDomain, inForCell ? "C" : "NC", inType);
+    LogToFD(fd, "Answered questions            %10u", totalAnswered);
+    LogToFD(fd, "Negatively answered questions %10u", totalNegAnswered);
+    LogToFD(fd, "Unanswered questions          %10u", totalUnanswered);
+    LogToFD(fd, "Expired - no cached answer    %10u", inHist->expiredAnswerStateBins[ExpiredAnswer_Allowed]);
+    LogToFD(fd, "Expired - answered from cache %10u", inHist->expiredAnswerStateBins[ExpiredAnswer_AnsweredWithCache]);
+    LogToFD(fd, "Expired - answered expired    %10u", inHist->expiredAnswerStateBins[ExpiredAnswer_AnsweredWithExpired]);
+    LogToFD(fd, "Expired - cache changed       %10u", inHist->expiredAnswerStateBins[ExpiredAnswer_ExpiredAnswerChanged]);
+    LogToFD(fd, "DNSoTCP - truncated           %10u", inHist->dnsOverTCPStateBins[DNSOverTCP_Truncated]);
+    LogToFD(fd, "DNSoTCP - suspicious          %10u", inHist->dnsOverTCPStateBins[DNSOverTCP_Suspicious]);
+    LogToFD(fd, "DNSoTCP - suspicious defense  %10u", inHist->dnsOverTCPStateBins[DNSOverTCP_SuspiciousDefense]);
+    LogToFD(fd, "-- Query send counts ---------");
+    LogDNSHistSendCountsToFD(fd, inHist->answeredQuerySendCountBins);
+    LogToFD(fd, "-- Query send counts (NAQs) --");
+    LogDNSHistSendCountsToFD(fd, inHist->negAnsweredQuerySendCountBins);
 
     if (totalAnswered > inHist->answeredQuerySendCountBins[0])
     {
-        LogMsgNoIdent("--- Response times -----------");
-        LogDNSHistLatencies(inHist->responseLatencyBins);
+        LogToFD(fd, "--- Response times -----------");
+        LogDNSHistLatenciesToFD(fd, inHist->responseLatencyBins);
     }
 
     if (totalNegAnswered > inHist->negAnsweredQuerySendCountBins[0])
     {
-        LogMsgNoIdent("--- Response times (NAQs) ----");
-        LogDNSHistLatencies(inHist->negResponseLatencyBins);
+        LogToFD(fd, "--- Response times (NAQs) ----");
+        LogDNSHistLatenciesToFD(fd, inHist->negResponseLatencyBins);
     }
 
     if (totalUnanswered > 0)
     {
-        LogMsgNoIdent("--- Unanswered query times ---");
-        LogDNSHistLatencies(inHist->unansweredQueryDurationBins);
+        LogToFD(fd, "--- Unanswered query times ---");
+        LogDNSHistLatenciesToFD(fd, inHist->unansweredQueryDurationBins);
     }
 }
 
 //===========================================================================================================================
-//  LogDNSHistSendCounts
+//  LogDNSHistSendCountsToFD
 //===========================================================================================================================
 
-mDNSlocal void LogDNSHistSendCounts(const uint16_t inSendCountBins[kQueryStatsSendCountBinCount])
+mDNSlocal void LogDNSHistSendCountsToFD(int fd, const uint16_t inSendCountBins[kQueryStatsSendCountBinCount])
 {
     uint32_t        total;
     char            label[16];
@@ -2234,21 +1178,22 @@ mDNSlocal void LogDNSHistSendCounts(const uint16_t inSendCountBins[kQueryStatsSe
             {
                 snprintf(label, sizeof(label), "%2d+", i);
             }
-            LogStat(label, inSendCountBins[i], accumulator, total);
+            LogStatToFD(fd, label, inSendCountBins[i], accumulator, total);
             if (accumulator == total) break;
         }
     }
     else
     {
-        LogMsgNoIdent("No data.");
+        LogToFD(fd, "No data.");
     }
 }
 
 //===========================================================================================================================
-//  LogDNSHistLatencies
+//  LogDNSHistLatenciesToFD
 //===========================================================================================================================
 
-mDNSlocal void LogDNSHistLatencies(const uint16_t inLatencyBins[kQueryStatsLatencyBinCount])
+mDNSlocal void LogDNSHistLatenciesToFD(int fd,
+                                         const uint16_t inLatencyBins[kQueryStatsLatencyBinCount])
 {
     uint32_t        total;
     int             i;
@@ -2275,21 +1220,21 @@ mDNSlocal void LogDNSHistLatencies(const uint16_t inLatencyBins[kQueryStatsLaten
             {
                 snprintf(label, sizeof(label), "<     ∞ ms");
             }
-            LogStat(label, inLatencyBins[i], accumulator, total);
+            LogStatToFD(fd, label, inLatencyBins[i], accumulator, total);
             if (accumulator == total) break;
         }
     }
     else
     {
-        LogMsgNoIdent("No data.");
+        LogToFD(fd, "No data.");
     }
 }
 
 //===========================================================================================================================
-//  LogDNSMessageSizeStats
+//  LogDNSMessageSizeStatsToFD
 //===========================================================================================================================
 
-mDNSlocal void LogDNSMessageSizeStats(const uint16_t *inBins, size_t inBinCount, unsigned int inBinWidth)
+mDNSlocal void LogDNSMessageSizeStatsToFD(int fd, const uint32_t *inBins, size_t inBinCount, unsigned int inBinWidth)
 {
     size_t          i;
     uint32_t        total;
@@ -2321,37 +1266,14 @@ mDNSlocal void LogDNSMessageSizeStats(const uint16_t *inBins, size_t inBinCount,
             {
                 snprintf(label, sizeof(label), "%3u+     ", lower);
             }
-            LogStat(label, inBins[i], accumulator, total);
+            LogStatToFD(fd, label, inBins[i], accumulator, total);
             if (accumulator == total) break;
         }
     }
     else
     {
-        LogMsgNoIdent("No data.");
+        LogToFD(fd, "No data.");
     }
 }
 
-//===========================================================================================================================
-//  CopyHistogramBins
-//
-//  Note: The return value is the size (in number of elements) of the smallest contiguous sub-array that contains the first
-//  bin and all bins with non-zero values.
-//===========================================================================================================================
-
-mDNSlocal size_t CopyHistogramBins(uint32_t *inDstBins, uint16_t *inSrcBins, size_t inBinCount)
-{
-    size_t      i;
-    size_t      minCount;
-
-    if (inBinCount == 0) return (0);
-
-    minCount = 1;
-    for (i = 0; i < inBinCount; ++i)
-    {
-        inDstBins[i] = inSrcBins[i];
-        if (inDstBins[i] > 0) minCount = i + 1;
-    }
-
-    return (minCount);
-}
-#endif // TARGET_OS_IOS
+#endif  // MDNSRESPONDER_SUPPORTS(APPLE, METRICS)

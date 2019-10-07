@@ -1,0 +1,11 @@
+--- src/cmd/INIT/cc.darwin.i386.original        2012-03-05 10:27:04.000000000 -0800
++++ src/cmd/INIT/cc.darwin.i386 2018-09-26 14:28:10.000000000 -0700
+@@ -6,7 +6,7 @@
+ *" -dumpmachine "*) echo $HOSTTYPE; exit ;;
+ esac
+ 
+-CC='/usr/bin/cc -m32'
++CC=/usr/bin/cc
+ op=init
+ for arg
+ do     case $op in

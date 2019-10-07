@@ -38,6 +38,7 @@
 #include "HTMLInputElement.h"
 #include "HTMLLegendElement.h"
 #include "HTMLTextAreaElement.h"
+#include "Quirks.h"
 #include "RenderBox.h"
 #include "RenderTheme.h"
 #include "ScriptDisallowedScope.h"
@@ -81,7 +82,7 @@ HTMLFormControlElement::~HTMLFormControlElement()
 
 String HTMLFormControlElement::formEnctype() const
 {
-    const AtomicString& formEnctypeAttr = attributeWithoutSynchronization(formenctypeAttr);
+    const AtomString& formEnctypeAttr = attributeWithoutSynchronization(formenctypeAttr);
     if (formEnctypeAttr.isNull())
         return emptyString();
     return FormSubmission::Attributes::parseEncodingType(formEnctypeAttr);
@@ -112,13 +113,13 @@ bool HTMLFormControlElement::formNoValidate() const
 
 String HTMLFormControlElement::formAction() const
 {
-    const AtomicString& value = attributeWithoutSynchronization(formactionAttr);
+    const AtomString& value = attributeWithoutSynchronization(formactionAttr);
     if (value.isEmpty())
         return document().url();
     return getURLAttribute(formactionAttr);
 }
 
-void HTMLFormControlElement::setFormAction(const AtomicString& value)
+void HTMLFormControlElement::setFormAction(const AtomString& value)
 {
     setAttributeWithoutSynchronization(formactionAttr, value);
 }
@@ -146,7 +147,7 @@ void HTMLFormControlElement::setAncestorDisabled(bool isDisabled)
         disabledStateChanged();
 }
 
-void HTMLFormControlElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
+void HTMLFormControlElement::parseAttribute(const QualifiedName& name, const AtomString& value)
 {
     if (name == formAttr)
         formAttributeChanged();
@@ -211,6 +212,13 @@ static bool shouldAutofocus(HTMLFormControlElement* element)
         element->document().addConsoleMessage(MessageSource::Security, MessageLevel::Error, "Blocked autofocusing on a form control because the form's frame is sandboxed and the 'allow-scripts' permission is not set."_s);
         return false;
     }
+
+    auto& document = element->document();
+    if (!document.frame()->isMainFrame() && !document.topDocument().securityOrigin().canAccess(document.securityOrigin())) {
+        document.addConsoleMessage(MessageSource::Security, MessageLevel::Error, "Blocked autofocusing on a form control in a cross-origin subframe."_s);
+        return false;
+    }
+
     if (element->hasAutofocused())
         return false;
 
@@ -281,7 +289,9 @@ static void removeInvalidElementToAncestorFromInsertionPoint(const HTMLFormContr
 
 Node::InsertedIntoAncestorResult HTMLFormControlElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
 {
-    m_dataListAncestorState = Unknown;
+    if (m_dataListAncestorState == NotInsideDataList)
+        m_dataListAncestorState = Unknown;
+
     setNeedsWillValidateCheck();
     if (willValidate() && !isValidFormControlElement())
         addInvalidElementToAncestorFromInsertionPoint(*this, &parentOfInsertedTree);
@@ -304,12 +314,21 @@ void HTMLFormControlElement::removedFromAncestor(RemovalType removalType, Contai
     m_validationMessage = nullptr;
     if (m_disabledByAncestorFieldset)
         setAncestorDisabled(computeIsDisabledByFieldsetAncestor());
-    m_dataListAncestorState = Unknown;
+
+    bool wasInsideDataList = false;
+    if (m_dataListAncestorState == InsideDataList) {
+        m_dataListAncestorState = Unknown;
+        wasInsideDataList = true;
+    }
+
     HTMLElement::removedFromAncestor(removalType, oldParentOfRemovedTree);
     FormAssociatedElement::removedFromAncestor(removalType, oldParentOfRemovedTree);
 
     if (wasMatchingInvalidPseudoClass)
         removeInvalidElementToAncestorFromInsertionPoint(*this, &oldParentOfRemovedTree);
+
+    if (wasInsideDataList)
+        setNeedsWillValidateCheck();
 }
 
 void HTMLFormControlElement::setChangedSinceLastFormControlChangeEvent(bool changed)
@@ -608,7 +627,7 @@ void HTMLFormControlElement::dispatchBlurEvent(RefPtr<Element>&& newFocusedEleme
 
 bool HTMLFormControlElement::shouldAutocorrect() const
 {
-    const AtomicString& autocorrectValue = attributeWithoutSynchronization(autocorrectAttr);
+    const AtomString& autocorrectValue = attributeWithoutSynchronization(autocorrectAttr);
     if (!autocorrectValue.isEmpty())
         return !equalLettersIgnoringASCIICase(autocorrectValue, "off");
     if (RefPtr<HTMLFormElement> form = this->form())
@@ -664,15 +683,7 @@ AutofillData HTMLFormControlElement::autofillData() const
 // FIXME: We should remove the quirk once <rdar://problem/47334655> is fixed.
 bool HTMLFormControlElement::needsMouseFocusableQuirk() const
 {
-#if PLATFORM(MAC)
-    if (!document().settings().needsSiteSpecificQuirks())
-        return false;
-
-    auto host = document().url().host();
-    return equalLettersIgnoringASCIICase(host, "ceac.state.gov") || host.endsWithIgnoringASCIICase(".ceac.state.gov");
-#else
-    return false;
-#endif
+    return document().quirks().needsFormControlToBeMouseFocusable();
 }
 
 } // namespace Webcore

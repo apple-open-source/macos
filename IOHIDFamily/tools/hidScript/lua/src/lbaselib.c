@@ -511,8 +511,9 @@ LUAMOD_API int luaopen_base (lua_State *L) {
   lua_pushliteral(L, LUA_VERSION);
   lua_setfield(L, -2, "_VERSION");
   /* set function 'type' with proper upvalues */
-  for (i = 0; i < LUA_NUMTAGS; i++)  /* push all type names as upvalues */
+  for (i = 0; i < LUA_NUMTAGS; i++) { /* push all type names as upvalues */
     lua_pushstring(L, lua_typename(L, i));
+  }
   lua_pushcclosure(L, luaB_type, LUA_NUMTAGS);
   lua_setfield(L, -2, "type");
   return 1;

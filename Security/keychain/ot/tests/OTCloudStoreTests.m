@@ -50,8 +50,8 @@ static NSString* OTCKRecordEscrowRecordID = @"escrowRecordID";
     self.fakeBottledPeerRecord.peerID = @"peer id";
     self.fakeBottledPeerRecord.spID = @"sos peer id";
     self.fakeBottledPeerRecord.escrowRecordID = @"escrowRecordID";
-    self.fakeBottledPeerRecord.escrowedSigningSPKI = [@"escrowedSigningSPKI" dataUsingEncoding:kCFStringEncodingUTF8];
-    self.fakeBottledPeerRecord.peerSigningSPKI = [@"peerSigningSPKI" dataUsingEncoding:kCFStringEncodingUTF8];
+    self.fakeBottledPeerRecord.escrowedSigningSPKI = [@"escrowedSigningSPKI" dataUsingEncoding:NSUTF8StringEncoding];
+    self.fakeBottledPeerRecord.peerSigningSPKI = [@"peerSigningSPKI" dataUsingEncoding:NSUTF8StringEncoding];
 }
 
 - (void)tearDown {
@@ -267,13 +267,10 @@ static NSString* OTCKRecordEscrowRecordID = @"escrowRecordID";
 {
     NSError* error = nil;
 
-    NSMutableDictionary* recordDictionary = [NSMutableDictionary dictionaryWithObjectsAndKeys:[[NSNumber alloc] initWithInt:1], OTCKRecordBottledPeerType, nil];
-
-    [self expectAddedCKModifyRecords:recordDictionary holdFetch:NO];
-
-    [self startCKKSSubsystem];
+    [self expectAddedCKModifyRecords:@{OTCKRecordBottledPeerType: @1} holdFetch:NO];
 
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
     [self startCKKSSubsystem];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:4*NSEC_PER_SEC], @"Key state should have arrived at ready");
@@ -286,7 +283,7 @@ static NSString* OTCKRecordEscrowRecordID = @"escrowRecordID";
     XCTAssertNotNil(error, "error should not be nil");
     XCTAssertTrue([(NSString*)error.userInfo[@"NSLocalizedDescription"] isEqualToString:@"Operation(CKKSResultOperation(cloudkit-modify-changes)) timed out waiting to start for [<CKKSResultOperation(modify-records-watcher): ready>]"], "expecting timed out error");
 
-    [self expectAddedCKModifyRecords:recordDictionary holdFetch:NO];
+    [self expectAddedCKModifyRecords:@{OTCKRecordBottledPeerType: @1} holdFetch:NO];
 
     [self releaseCloudKitModificationHold];
     [self waitForCKModifications];

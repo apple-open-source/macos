@@ -36,6 +36,25 @@ APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(ssl, SSL, int, init_server,
                                     (server_rec *s,apr_pool_t *p,int is_proxy,SSL_CTX *ctx),
                                     (s,p,is_proxy,ctx), OK, DECLINED)
 
+APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(ssl, SSL, int, add_cert_files,
+                                    (server_rec *s, apr_pool_t *p, 
+                                    apr_array_header_t *cert_files, apr_array_header_t *key_files),
+                                    (s, p, cert_files, key_files),
+                                    OK, DECLINED)
+
+APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(ssl, SSL, int, add_fallback_cert_files,
+                                    (server_rec *s, apr_pool_t *p, 
+                                    apr_array_header_t *cert_files, apr_array_header_t *key_files),
+                                    (s, p, cert_files, key_files),
+                                    OK, DECLINED)
+
+APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(ssl, SSL, int, answer_challenge,
+                                    (conn_rec *c, const char *server_name, 
+                                    X509 **pcert, EVP_PKEY **pkey),
+                                    (c, server_name, pcert, pkey),
+                                    DECLINED, DECLINED)
+
+
 /*  _________________________________________________________________
 **
 **  Module Initialization
@@ -165,23 +184,31 @@ static void ssl_add_version_components(apr_pool_t *p,
                  modver, AP_SERVER_BASEVERSION, incver);
 }
 
-/**************************************************************************************************/
-/* Managed Domains Interface */
-
-static APR_OPTIONAL_FN_TYPE(md_is_managed) *md_is_managed;
-static APR_OPTIONAL_FN_TYPE(md_get_certificate) *md_get_certificate;
-static APR_OPTIONAL_FN_TYPE(md_is_challenge) *md_is_challenge;
+/*  _________________________________________________________________
+**
+**  Let other answer special connection attempts. 
+**  Used in ACME challenge handling by mod_md.
+**  _________________________________________________________________
+*/
 
 int ssl_is_challenge(conn_rec *c, const char *servername, 
                      X509 **pcert, EVP_PKEY **pkey)
 {
-    if (md_is_challenge) {
-        return md_is_challenge(c, servername, pcert, pkey);
+    if (APR_SUCCESS == ssl_run_answer_challenge(c, servername, pcert, pkey)) {
+        return 1;
     }
     *pcert = NULL;
     *pkey = NULL;
     return 0;
 }
+
+#ifdef HAVE_FIPS
+static apr_status_t modssl_fips_cleanup(void *data)
+{
+    FIPS_mode_set(0);
+    return APR_SUCCESS;
+}
+#endif
 
 /*
  *  Per-module initialization
@@ -222,16 +249,6 @@ apr_status_t ssl_init_Module(apr_pool_t *p, apr_pool_t *plog,
      */
     ssl_config_global_create(base_server); /* just to avoid problems */
     ssl_config_global_fix(mc);
-
-    /* Initialize our interface to mod_md, if it is loaded 
-     */
-    md_is_managed = APR_RETRIEVE_OPTIONAL_FN(md_is_managed);
-    md_get_certificate = APR_RETRIEVE_OPTIONAL_FN(md_get_certificate);
-    md_is_challenge = APR_RETRIEVE_OPTIONAL_FN(md_is_challenge);
-    if (!md_is_managed || !md_get_certificate) {
-        md_is_managed = NULL;
-        md_get_certificate = NULL;
-    }
 
     /*
      *  try to fix the configuration and open the dedicated SSL
@@ -285,9 +302,6 @@ apr_status_t ssl_init_Module(apr_pool_t *p, apr_pool_t *plog,
             sc->fips = FALSE;
         }
 #endif
-        if (sc->allow_empty_fragments == UNSET)
-            sc->allow_empty_fragments = TRUE;
-
     }
 
 #if APR_HAS_THREADS && MODSSL_USE_OPENSSL_PRE_1_1_API
@@ -314,11 +328,13 @@ apr_status_t ssl_init_Module(apr_pool_t *p, apr_pool_t *plog,
     ssl_rand_seed(base_server, ptemp, SSL_RSCTX_STARTUP, "Init: ");
 
 #ifdef HAVE_FIPS
-    if(sc->fips) {
+    if (sc->fips) {
         if (!FIPS_mode()) {
             if (FIPS_mode_set(1)) {
                 ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, s, APLOGNO(01884)
                              "Operating in SSL FIPS mode");
+                apr_pool_cleanup_register(p, NULL, modssl_fips_cleanup,
+                                          apr_pool_cleanup_null);
             }
             else {
                 ap_log_error(APLOG_MARK, APLOG_EMERG, 0, s, APLOGNO(01885) "FIPS mode failed");
@@ -571,6 +587,9 @@ static apr_status_t ssl_init_ctx_protocol(server_rec *s,
 #ifdef HAVE_TLSV1_X
                      (protocol & SSL_PROTOCOL_TLSV1_1 ? "TLSv1.1, " : ""),
                      (protocol & SSL_PROTOCOL_TLSV1_2 ? "TLSv1.2, " : ""),
+#if SSL_HAVE_PROTOCOL_TLSV1_3
+                     (protocol & SSL_PROTOCOL_TLSV1_3 ? "TLSv1.3, " : ""),
+#endif
 #endif
                      NULL);
     cp[strlen(cp)-2] = NUL;
@@ -603,6 +622,13 @@ static apr_status_t ssl_init_ctx_protocol(server_rec *s,
             TLSv1_2_client_method() : /* proxy */
             TLSv1_2_server_method();  /* server */
     }
+#if SSL_HAVE_PROTOCOL_TLSV1_3
+    else if (protocol == SSL_PROTOCOL_TLSV1_3) {
+        method = mctx->pkp ?
+            TLSv1_3_client_method() : /* proxy */
+            TLSv1_3_server_method();  /* server */
+    }
+#endif
 #endif
     else { /* For multiple protocols, we need a flexible method */
         method = mctx->pkp ?
@@ -620,11 +646,8 @@ static apr_status_t ssl_init_ctx_protocol(server_rec *s,
 
     SSL_CTX_set_options(ctx, SSL_OP_ALL);
 
-    if (sc->allow_empty_fragments) {
-        SSL_CTX_clear_options(ctx, SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS);
-    }
-
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#if OPENSSL_VERSION_NUMBER < 0x10100000L  || \
+	(defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x20800000L)
     /* always disable SSLv2, as per RFC 6176 */
     SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2);
 
@@ -646,10 +669,19 @@ static apr_status_t ssl_init_ctx_protocol(server_rec *s,
     if (!(protocol & SSL_PROTOCOL_TLSV1_2)) {
         SSL_CTX_set_options(ctx, SSL_OP_NO_TLSv1_2);
     }
+#if SSL_HAVE_PROTOCOL_TLSV1_3
+    ssl_set_ctx_protocol_option(s, ctx, SSL_OP_NO_TLSv1_3,
+                                protocol & SSL_PROTOCOL_TLSV1_3, "TLSv1.3");
+#endif
 #endif
 
 #else /* #if OPENSSL_VERSION_NUMBER < 0x10100000L */
     /* We first determine the maximum protocol version we should provide */
+#if SSL_HAVE_PROTOCOL_TLSV1_3
+    if (SSL_HAVE_PROTOCOL_TLSV1_3 && (protocol & SSL_PROTOCOL_TLSV1_3)) {
+        prot = TLS1_3_VERSION;
+    } else  
+#endif
     if (protocol & SSL_PROTOCOL_TLSV1_2) {
         prot = TLS1_2_VERSION;
     } else if (protocol & SSL_PROTOCOL_TLSV1_1) {
@@ -671,6 +703,11 @@ static apr_status_t ssl_init_ctx_protocol(server_rec *s,
 
     /* Next we scan for the minimal protocol version we should provide,
      * but we do not allow holes between max and min */
+#if SSL_HAVE_PROTOCOL_TLSV1_3
+    if (prot == TLS1_3_VERSION && protocol & SSL_PROTOCOL_TLSV1_2) {
+        prot = TLS1_2_VERSION;
+    }
+#endif
     if (prot == TLS1_2_VERSION && protocol & SSL_PROTOCOL_TLSV1_1) {
         prot = TLS1_1_VERSION;
     }
@@ -743,6 +780,13 @@ static apr_status_t ssl_init_ctx_protocol(server_rec *s,
         SSL_CTX_set_mode(ctx, SSL_MODE_RELEASE_BUFFERS);
 #endif
 
+#if OPENSSL_VERSION_NUMBER >= 0x1010100fL
+    /* For OpenSSL >=1.1.1, disable auto-retry mode so it's possible
+     * to consume handshake records without blocking for app-data.
+     * https://github.com/openssl/openssl/issues/7178 */
+    SSL_CTX_clear_mode(ctx, SSL_MODE_AUTO_RETRY);
+#endif
+    
     return APR_SUCCESS;
 }
 
@@ -895,7 +939,15 @@ static apr_status_t ssl_init_ctx_cipher_suite(server_rec *s,
         ssl_log_ssl_error(SSLLOG_MARK, APLOG_EMERG, s);
         return ssl_die(s);
     }
-
+#if SSL_HAVE_PROTOCOL_TLSV1_3
+    if (mctx->auth.tls13_ciphers 
+        && !SSL_CTX_set_ciphersuites(ctx, mctx->auth.tls13_ciphers)) {
+        ap_log_error(APLOG_MARK, APLOG_EMERG, 0, s, APLOGNO(10127)
+                "Unable to configure permitted TLSv1.3 ciphers");
+        ssl_log_ssl_error(SSLLOG_MARK, APLOG_EMERG, s);
+        return ssl_die(s);
+    }
+#endif
     return APR_SUCCESS;
 }
 
@@ -1005,8 +1057,10 @@ static int use_certificate_chain(
         ctx->extra_certs = NULL;
     }
 #endif
+
     /* create new extra chain by loading the certs */
     n = 0;
+    ERR_clear_error();
     while ((x509 = PEM_read_bio_X509(bio, NULL, cb, NULL)) != NULL) {
         if (!SSL_CTX_add_extra_chain_cert(ctx, x509)) {
             X509_free(x509);
@@ -1299,8 +1353,7 @@ static apr_status_t ssl_init_server_certs(server_rec *s,
          * loaded via SSLOpenSSLConfCmd Certificate), so for 1.0.2 and
          * later, we defer to the code in ssl_init_server_ctx.
          */
-        if ((mctx->stapling_enabled == TRUE) &&
-            !ssl_stapling_init_cert(s, p, ptemp, mctx, cert)) {
+        if (!ssl_stapling_init_cert(s, p, ptemp, mctx, cert)) {
             ap_log_error(APLOG_MARK, APLOG_ERR, 0, s, APLOGNO(02567)
                          "Unable to configure certificate %s for stapling",
                          key_id);
@@ -1459,6 +1512,13 @@ static apr_status_t ssl_init_proxy_certs(server_rec *s,
     X509_STORE_CTX *sctx;
     X509_STORE *store = SSL_CTX_get_cert_store(mctx->ssl_ctx);
 
+#if OPENSSL_VERSION_NUMBER >= 0x1010100fL
+    /* For OpenSSL >=1.1.1, turn on client cert support which is
+     * otherwise turned off by default (by design).
+     * https://github.com/openssl/openssl/issues/6933 */
+    SSL_CTX_set_post_handshake_auth(mctx->ssl_ctx, 1);
+#endif
+    
     SSL_CTX_set_client_cert_cb(mctx->ssl_ctx,
                                ssl_callback_proxy_cert);
 
@@ -1687,11 +1747,13 @@ static apr_status_t ssl_init_server_ctx(server_rec *s,
                                         apr_array_header_t *pphrases)
 {
     apr_status_t rv;
+    modssl_pk_server_t *pks;
 #ifdef HAVE_SSL_CONF_CMD
     ssl_ctx_param_t *param = (ssl_ctx_param_t *)sc->server->ssl_ctx_param->elts;
     SSL_CONF_CTX *cctx = sc->server->ssl_ctx_config;
     int i;
 #endif
+    int n;
 
     /*
      *  Check for problematic re-initializations
@@ -1703,50 +1765,26 @@ static apr_status_t ssl_init_server_ctx(server_rec *s,
         return APR_EGENERAL;
     }
 
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(10083)
-                 "Init: (%s) mod_md support is %s.", ssl_util_vhostid(p, s),
-                 md_is_managed? "available" : "unavailable");
-    if (md_is_managed && md_is_managed(s)) {
-        modssl_pk_server_t *const pks = sc->server->pks;
-        if (pks->cert_files->nelts > 0 || pks->key_files->nelts > 0) {
-            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(10084)
-                         "Init: (%s) You configured certificate/key files on this host, but "
-                         "is is covered by a Managed Domain. You need to remove these directives "
-                         "for the Managed Domain to take over.", ssl_util_vhostid(p, s));
+    /* Allow others to provide certificate files */
+    pks = sc->server->pks;
+    n = pks->cert_files->nelts;
+    ssl_run_add_cert_files(s, p, pks->cert_files, pks->key_files);
+
+    if (apr_is_empty_array(pks->cert_files)) {
+        /* does someone propose a certiciate to fall back on here? */
+        ssl_run_add_fallback_cert_files(s, p, pks->cert_files, pks->key_files);
+        if (n < pks->cert_files->nelts) {
+            pks->service_unavailable = 1;
+            ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(10085)
+                         "Init: %s will respond with '503 Service Unavailable' for now. There "
+                         "are no SSL certificates configured and no other module contributed any.",
+                         ssl_util_vhostid(p, s));
         }
-        else {
-            const char *key_file, *cert_file, *chain_file;
-            
-            key_file = cert_file = chain_file = NULL;
-            
-            if (md_get_certificate) {
-                rv = md_get_certificate(s, p, &key_file, &cert_file);
-            }
-            else {
-                rv = APR_ENOTIMPL;
-            }
-            
-            if (key_file && cert_file) {
-                ap_log_error(APLOG_MARK, APLOG_TRACE1, 0, s, 
-                             "%s: installing key=%s, cert=%s, chain=%s", 
-                             ssl_util_vhostid(p, s), key_file, cert_file, chain_file);
-                APR_ARRAY_PUSH(pks->key_files, const char *) = key_file;
-                APR_ARRAY_PUSH(pks->cert_files, const char *) = cert_file;
-                sc->server->cert_chain = chain_file;
-            }
-            
-            if (APR_STATUS_IS_EAGAIN(rv)) {
-                /* Managed Domain not ready yet. This is not a reason to fail the config */
-                ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s, APLOGNO(10085)
-                             "Init: %s will respond with '503 Service Unavailable' for now. This "
-                             "host is part of a Managed Domain, but no SSL certificate is "
-                             "available (yet).", ssl_util_vhostid(p, s));
-                pks->service_unavailable = 1;
-            }
-            else if (rv != APR_SUCCESS) {
-                return rv;
-            }
-        }
+    }
+    
+    if (n < pks->cert_files->nelts) {
+        /* additionally installed certs overrides any old chain configuration */
+        sc->server->cert_chain = NULL;
     }
     
     if ((rv = ssl_init_ctx(s, p, ptemp, sc->server)) != APR_SUCCESS) {
@@ -1799,7 +1837,7 @@ static apr_status_t ssl_init_server_ctx(server_rec *s,
      * (late) point makes sure that we catch both certificates loaded
      * via SSLCertificateFile and SSLOpenSSLConfCmd Certificate.
      */
-    if (sc->server->stapling_enabled == TRUE) {
+    do {
         X509 *cert;
         int i = 0;
         int ret = SSL_CTX_set_current_cert(sc->server->ssl_ctx,
@@ -1816,7 +1854,7 @@ static apr_status_t ssl_init_server_ctx(server_rec *s,
                                            SSL_CERT_SET_NEXT);
             i++;
         }
-    }
+    } while(0);
 #endif
 
 #ifdef HAVE_TLS_SESSION_TICKETS

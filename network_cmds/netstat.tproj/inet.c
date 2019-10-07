@@ -354,11 +354,7 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 					   "Current listen queue sizes (qlen/incqlen/maxqlen)");
 			putchar('\n');
 			if (Aflag) {
-#if !TARGET_OS_EMBEDDED
 				printf("%-16.16s ", "Socket");
-#else
-				printf("%-8.8s ", "Socket");
-#endif
 				printf("%-9.9s", "Flowhash");
 			}
 			if (Lflag)
@@ -384,18 +380,9 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 		}
 		if (Aflag) {
 			if (istcp)
-#if !TARGET_OS_EMBEDDED
 				printf("%16lx ", (u_long)inp->inp_ppcb);
-#else
-			printf("%8lx ", (u_long)inp->inp_ppcb);
-			
-#endif
 			else
-#if !TARGET_OS_EMBEDDED
 				printf("%16lx ", (u_long)so->so_pcb);
-#else
-			printf("%8lx ", (u_long)so->so_pcb);
-#endif
 			printf("%8x ", inp->inp_flowhash);
 		}
 		if (Lflag) {
@@ -482,11 +469,6 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 				printf("%-11d", tp->t_state);
 			else {
 				printf("%-11s", tcpstates[tp->t_state]);
-#if defined(TF_NEEDSYN) && defined(TF_NEEDFIN)
-				/* Show T/TCP `hidden state' */
-				if (tp->t_flags & (TF_NEEDSYN|TF_NEEDFIN))
-					putchar('*');
-#endif /* defined(TF_NEEDSYN) && defined(TF_NEEDFIN) */
 			}
 		}
 		if (!istcp)
@@ -661,6 +643,7 @@ tcp_stats(uint32_t off , char *name, int af)
 	p(tcps_keeptimeo, "\t%u keepalive timeout%s\n");
 	p(tcps_keepprobe, "\t\t%u keepalive probe%s sent\n");
 	p(tcps_keepdrops, "\t\t%u connection%s dropped by keepalive\n");
+	p(tcps_ka_offload_drops, "\t\t%u connection%s dropped by keepalive offload\n");
 	p(tcps_predack, "\t%u correct ACK header prediction%s\n");
 	p(tcps_preddat, "\t%u correct data packet header prediction%s\n");
 #ifdef TCP_MAX_SACK
@@ -959,12 +942,12 @@ ip_stats(uint32_t off , char *name, int af )
 
 	if (sysctlbyname("net.inet.ip.output_perf_data", &out_net_perf, &out_net_perf_len, 0, 0) < 0) {
 		warn("sysctl: net.inet.ip.output_perf_data");
-		return;
+		bzero(&out_net_perf, out_net_perf_len);
 	}
 
 	if (sysctlbyname("net.inet.ip.input_perf_data", &in_net_perf, &in_net_perf_len, 0, 0) < 0) {
 		warn("sysctl: net.inet.ip.input_perf_data");
-		return;
+		bzero(&in_net_perf, in_net_perf_len);
 	}
 
 	if (interval && vflag > 0)
@@ -1370,8 +1353,7 @@ inetname(struct in_addr *inp)
 	if (inp->s_addr == INADDR_ANY)
 		strlcpy(line, "*", sizeof(line));
 	else if (cp) {
-		strncpy(line, cp, sizeof(line) - 1);
-		line[sizeof(line) - 1] = '\0';
+		strlcpy(line, cp, sizeof(line));
 	} else {
 		inp->s_addr = ntohl(inp->s_addr);
 #define C(x)	((u_int)((x) & 0xff))

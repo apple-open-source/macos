@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -633,7 +633,7 @@ chapms2_retry_password(unsigned char *response, char *our_name,
 			  u_char *secret, int secret_len,
 		      unsigned char *private)
 {
-	int pktlen, namelen = strlen(our_name);
+	int pktlen, namelen = (int)strlen(our_name);
 	unsigned char *p = response;
 	
 	/* status_pkt and response point to the beginning of the CHAP payload */
@@ -735,7 +735,7 @@ chapms_handle_failure(unsigned char *inp, int len, char *message, int message_ma
 	 * chapms[2]_verify_response.
 	 */
 	if (!strncmp(p, "E=", 2))
-		err = strtol(p + 2, NULL, 10); /* Remember the error code. */
+		err = (int)strtol(p + 2, NULL, 10); /* Remember the error code. */
 	else {
 #ifdef __APPLE__
 		p += len;

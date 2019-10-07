@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_DECL_COMBO.UnionWithoutColon.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Combining multiple union definitions in a single line should throw a

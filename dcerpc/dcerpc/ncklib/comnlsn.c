@@ -533,7 +533,7 @@ PRIVATE void rpc__nlsn_fork_handler
   rpc_fork_stage_id_t stage
 )
 {
-    unsigned32 st;
+    unsigned long st;
 
     switch ((int)stage)
     {

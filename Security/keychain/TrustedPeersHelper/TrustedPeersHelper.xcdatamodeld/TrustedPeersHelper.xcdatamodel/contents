@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="14685" systemVersion="18C40" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+    <entity name="Bottle" representedClassName="BottleMO" syncable="YES" codeGenerationType="class">
+        <attribute name="bottleID" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="contents" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="escrowedSigningSPKI" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="peerID" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="signatureUsingEscrowKey" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="signatureUsingPeerKey" optional="YES" attributeType="Binary" syncable="YES"/>
+        <relationship name="container" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Container" inverseName="bottles" inverseEntity="Container" syncable="YES"/>
+    </entity>
+    <entity name="Container" representedClassName="ContainerMO" syncable="YES" codeGenerationType="class">
+        <attribute name="accountDSID" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="allowedMachineIDs" optional="YES" attributeType="Transformable" customClassName="NSSet" syncable="YES" valueTransformerName="SetValueTransformer"/>
+        <attribute name="changeToken" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="egoPeerID" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="egoPeerPermanentInfo" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="egoPeerPermanentInfoSig" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="egoPeerStableInfo" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="egoPeerStableInfoSig" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="moreChanges" optional="YES" attributeType="Boolean" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="name" optional="YES" attributeType="String" syncable="YES"/>
+        <relationship name="bottles" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Bottle" inverseName="container" inverseEntity="Bottle" syncable="YES"/>
+        <relationship name="peers" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Peer" inverseName="container" inverseEntity="Peer" syncable="YES"/>
+        <relationship name="policies" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Policy" inverseName="container" inverseEntity="Policy" syncable="YES"/>
+    </entity>
+    <entity name="Peer" representedClassName="PeerMO" syncable="YES" codeGenerationType="class">
+        <attribute name="dynamicInfo" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="dynamicInfoSig" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="isEgoPeer" optional="YES" attributeType="Boolean" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="peerID" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="permanentInfo" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="permanentInfoSig" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="stableInfo" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="stableInfoSig" optional="YES" attributeType="Binary" syncable="YES"/>
+        <relationship name="container" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Container" inverseName="peers" inverseEntity="Container" syncable="YES"/>
+        <relationship name="recoveryVoucher" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="RecoveryVoucher" inverseName="beneficiary" inverseEntity="RecoveryVoucher" syncable="YES"/>
+        <relationship name="vouchers" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Voucher" inverseName="beneficiary" inverseEntity="Voucher" syncable="YES"/>
+    </entity>
+    <entity name="Policy" representedClassName="PolicyMO" syncable="YES" codeGenerationType="class">
+        <attribute name="policyData" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="policyHash" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="version" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <relationship name="container" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Container" inverseName="policies" inverseEntity="Container" syncable="YES"/>
+    </entity>
+    <entity name="RecoveryVoucher" representedClassName="RecoveryVoucherMO" syncable="YES" codeGenerationType="class">
+        <attribute name="recoverySigningPubKey" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="recoveryVoucherInfo" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="signature" optional="YES" attributeType="Binary" syncable="YES"/>
+        <relationship name="beneficiary" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Peer" inverseName="recoveryVoucher" inverseEntity="Peer" syncable="YES"/>
+    </entity>
+    <entity name="Voucher" representedClassName="VoucherMO" syncable="YES" codeGenerationType="class">
+        <attribute name="voucherInfo" optional="YES" attributeType="Binary" syncable="YES"/>
+        <attribute name="voucherInfoSig" optional="YES" attributeType="Binary" syncable="YES"/>
+        <relationship name="beneficiary" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Peer" inverseName="vouchers" inverseEntity="Peer" syncable="YES"/>
+    </entity>
+    <elements>
+        <element name="Bottle" positionX="-549" positionY="-234" width="128" height="150"/>
+        <element name="Container" positionX="-758" positionY="-261" width="128" height="240"/>
+        <element name="Peer" positionX="-414" positionY="-387" width="128" height="210"/>
+        <element name="Policy" positionX="-414" positionY="54" width="128" height="105"/>
+        <element name="RecoveryVoucher" positionX="-65" positionY="-297" width="128" height="105"/>
+        <element name="Voucher" positionX="-65" positionY="-171" width="128" height="90"/>
+    </elements>
+</model>

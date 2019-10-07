@@ -75,10 +75,18 @@
 #include <machine/vmparam.h>
 #define	__APPLE_API_PRIVATE
 #include <machine/cpu_capabilities.h>
+#if __has_include(<ptrauth.h>)
+#include <ptrauth.h>
+#endif // __has_include(<ptrauth.h>)
 
 #include <_simple.h>
 #include <platform/string.h>
 #include <platform/compat.h>
+
+#include <stack_logging.h>
+
+// Defined in libsyscall; initialized in libmalloc
+extern malloc_logger_t *__syscall_logger;
 
 extern int __sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp,
 		void *newp, size_t newlen);
@@ -203,11 +211,12 @@ __pthread_invalid_workloopfunction(uint64_t *workloop_id, void **events, int *ne
 static pthread_workqueue_function2_t __libdispatch_workerfunction;
 static pthread_workqueue_function_kevent_t __libdispatch_keventfunction = &__pthread_invalid_keventfunction;
 static pthread_workqueue_function_workloop_t __libdispatch_workloopfunction = &__pthread_invalid_workloopfunction;
-static int __libdispatch_offset;
 static int __pthread_supported_features; // supported feature set
 
 #if defined(__i386__) || defined(__x86_64__)
 static mach_vm_address_t __pthread_stack_hint = 0xB0000000;
+#elif defined(__arm__) || defined(__arm64__)
+static mach_vm_address_t __pthread_stack_hint = 0x30000000;
 #else
 #error no __pthread_stack_hint for this architecture
 #endif
@@ -223,7 +232,7 @@ static inline void _pthread_struct_init(pthread_t t, const pthread_attr_t *attrs
 #if VARIANT_DYLD
 static void _pthread_set_self_dyld(void);
 #endif // VARIANT_DYLD
-static inline void _pthread_set_self_internal(pthread_t, bool needs_tsd_base_set);
+static inline void _pthread_set_self_internal(pthread_t);
 
 static void _pthread_dealloc_reply_port(pthread_t t);
 static void _pthread_dealloc_special_reply_port(pthread_t t);
@@ -258,11 +267,6 @@ extern void thread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *)
 #define PTHREAD_START_POLICY_BITSHIFT 16
 #define PTHREAD_START_POLICY_MASK 0xff
 #define PTHREAD_START_IMPORTANCE_MASK 0xffff
-
-#if (!defined(__OPEN_SOURCE__) && TARGET_OS_OSX) || OS_VARIANT_RESOLVED // 40703288
-static int pthread_setschedparam_internal(pthread_t, mach_port_t, int,
-		const struct sched_param *);
-#endif
 
 extern pthread_t __bsdthread_create(void *(*func)(void *), void * func_arg, void * stack, pthread_t  thread, unsigned int flags);
 extern int __bsdthread_register(void (*)(pthread_t, mach_port_t, void *(*)(void *), void *, size_t, unsigned int), void (*)(pthread_t, mach_port_t, void *, void *, int), int,void (*)(pthread_t, mach_port_t, void *(*)(void *), void *, size_t, unsigned int), int32_t *,__uint64_t);
@@ -584,20 +588,26 @@ pthread_attr_setcpupercent_np(pthread_attr_t *attr, int percent,
 // it should be freed.
 
 static pthread_t
-_pthread_allocate(const pthread_attr_t *attrs, void **stack)
+_pthread_allocate(const pthread_attr_t *attrs, void **stack,
+		bool from_mach_thread)
 {
 	mach_vm_address_t allocaddr = __pthread_stack_hint;
 	size_t allocsize, guardsize, stacksize, pthreadoff;
 	kern_return_t kr;
 	pthread_t t;
 
-	PTHREAD_ASSERT(attrs->stacksize == 0 ||
-			attrs->stacksize >= PTHREAD_STACK_MIN);
+	if (os_unlikely(attrs->stacksize != 0 &&
+			attrs->stacksize < PTHREAD_STACK_MIN)) {
+		PTHREAD_CLIENT_CRASH(attrs->stacksize, "Stack size in attrs is too small");
+	}
+
+	if (os_unlikely(((uintptr_t)attrs->stackaddr % vm_page_size) != 0)) {
+		PTHREAD_CLIENT_CRASH(attrs->stacksize, "Unaligned stack addr in attrs");
+	}
 
 	// Allocate a pthread structure if necessary
 
 	if (attrs->stackaddr != NULL) {
-		PTHREAD_ASSERT(((uintptr_t)attrs->stackaddr % vm_page_size) == 0);
 		allocsize = PTHREAD_SIZE;
 		guardsize = 0;
 		pthreadoff = 0;
@@ -621,10 +631,32 @@ _pthread_allocate(const pthread_attr_t *attrs, void **stack)
 	if (kr != KERN_SUCCESS) {
 		kr = mach_vm_allocate(mach_task_self(), &allocaddr, allocsize,
 				 VM_MAKE_TAG(VM_MEMORY_STACK)| VM_FLAGS_ANYWHERE);
+	} else if (__syscall_logger && !from_mach_thread) {
+		// libsyscall will not output malloc stack logging events when
+		// VM_MEMORY_STACK is passed in to facilitate mach thread promotion.
+		// To avoid losing the stack traces for normal p-thread create
+		// operations, libpthread must pretend to be the vm syscall and log
+		// the allocations. <rdar://36418708>
+		int eventTypeFlags = stack_logging_type_vm_allocate |
+				stack_logging_type_mapped_file_or_shared_mem;
+		__syscall_logger(eventTypeFlags | VM_MAKE_TAG(VM_MEMORY_STACK),
+				(uintptr_t)mach_task_self(), (uintptr_t)allocsize, 0,
+				(uintptr_t)allocaddr, 0);
 	}
+
 	if (kr != KERN_SUCCESS) {
 		*stack  = NULL;
 		return NULL;
+	} else if (__syscall_logger && !from_mach_thread) {
+		// libsyscall will not output malloc stack logging events when
+		// VM_MEMORY_STACK is passed in to facilitate mach thread promotion.
+		// To avoid losing the stack traces for normal p-thread create
+		// operations, libpthread must pretend to be the vm syscall and log
+		// the allocations. <rdar://36418708>
+		int eventTypeFlags = stack_logging_type_vm_allocate;
+		__syscall_logger(eventTypeFlags | VM_MAKE_TAG(VM_MEMORY_STACK),
+						 (uintptr_t)mach_task_self(), (uintptr_t)allocsize, 0,
+						 (uintptr_t)allocaddr, 0);
 	}
 
 	// The stack grows down.
@@ -662,7 +694,9 @@ _pthread_deallocate(pthread_t t, bool from_mach_thread)
 			_pthread_introspection_thread_destroy(t);
 		}
 		ret = mach_vm_deallocate(mach_task_self(), t->freeaddr, t->freesize);
-		PTHREAD_ASSERT(ret == KERN_SUCCESS);
+		if (ret != KERN_SUCCESS) {
+			PTHREAD_INTERNAL_CRASH(ret, "Unable to deallocate stack");
+		}
 	}
 }
 
@@ -700,8 +734,6 @@ PTHREAD_NORETURN PTHREAD_NOINLINE PTHREAD_NOT_TAIL_CALLED
 static void
 _pthread_terminate(pthread_t t, void *exit_value)
 {
-	PTHREAD_ASSERT(t == pthread_self());
-
 	_pthread_introspection_thread_terminate(t);
 
 	uintptr_t freeaddr = (uintptr_t)t->freeaddr;
@@ -839,38 +871,27 @@ _pthread_terminate_invoke(pthread_t t, void *exit_value)
 
 #pragma mark pthread start / body
 
-/*
- * Create and start execution of a new thread.
- */
-PTHREAD_NOINLINE PTHREAD_NORETURN
-static void
-_pthread_body(pthread_t self, bool needs_tsd_base_set)
-{
-	_pthread_set_self_internal(self, needs_tsd_base_set);
-	__pthread_started_thread(self);
-	_pthread_exit(self, (self->fun)(self->arg));
-}
-
 PTHREAD_NORETURN
 void
 _pthread_start(pthread_t self, mach_port_t kport,
 		__unused void *(*fun)(void *), __unused void *arg,
 		__unused size_t stacksize, unsigned int pflags)
 {
-	bool thread_tsd_bsd_set = (bool)(pflags & PTHREAD_START_TSD_BASE_SET);
-
 	if (os_unlikely(pflags & PTHREAD_START_SUSPENDED)) {
-		PTHREAD_INTERNAL_CRASH(0,
+		PTHREAD_INTERNAL_CRASH(pflags,
 				"kernel without PTHREAD_START_SUSPENDED support");
 	}
-#if DEBUG
-	PTHREAD_ASSERT(MACH_PORT_VALID(kport));
-	PTHREAD_ASSERT(_pthread_kernel_thread(self) == kport);
-#endif
-	// will mark the thread initialized
+	if (os_unlikely((pflags & PTHREAD_START_TSD_BASE_SET) == 0)) {
+		PTHREAD_INTERNAL_CRASH(pflags,
+				"thread_set_tsd_base() wasn't called by the kernel");
+	}
+	PTHREAD_DEBUG_ASSERT(MACH_PORT_VALID(kport));
+	PTHREAD_DEBUG_ASSERT(_pthread_kernel_thread(self) == kport);
 	_pthread_markcancel_if_canceled(self, kport);
 
-	_pthread_body(self, !thread_tsd_bsd_set);
+	_pthread_set_self_internal(self);
+	__pthread_started_thread(self);
+	_pthread_exit(self, (self->fun)(self->arg));
 }
 
 PTHREAD_ALWAYS_INLINE
@@ -878,9 +899,7 @@ static inline void
 _pthread_struct_init(pthread_t t, const pthread_attr_t *attrs,
 		void *stackaddr, size_t stacksize, void *freeaddr, size_t freesize)
 {
-#if DEBUG
-	PTHREAD_ASSERT(t->sig != _PTHREAD_SIG);
-#endif
+	PTHREAD_DEBUG_ASSERT(t->sig != _PTHREAD_SIG);
 
 	t->sig = _PTHREAD_SIG;
 	t->tsd[_PTHREAD_TSD_SLOT_PTHREAD_SELF] = t;
@@ -965,13 +984,12 @@ size_t
 pthread_get_stacksize_np(pthread_t t)
 {
 	size_t size = 0;
-	size_t stacksize = t->stackaddr - t->stackbottom;
 
 	if (t == NULL) {
 		return ESRCH; // XXX bug?
 	}
 
-#if !defined(__arm__) && !defined(__arm64__)
+#if TARGET_OS_OSX
 	// The default rlimit based allocations will be provided with a stacksize
 	// of the current limit and a freesize of the max.  However, custom
 	// allocations will just have the guard page to free.  If we aren't in the
@@ -982,37 +1000,40 @@ pthread_get_stacksize_np(pthread_t t)
 	//
 	// Of course, on arm rlim_cur == rlim_max and there's only the one guard
 	// page.  So, we can skip all this there.
-	if (t == main_thread() && stacksize + vm_page_size != t->freesize) {
-		// We want to call getrlimit() just once, as it's relatively expensive
-		static size_t rlimit_stack;
+	if (t == main_thread()) {
+		size_t stacksize = t->stackaddr - t->stackbottom;
 
-		if (rlimit_stack == 0) {
-			struct rlimit limit;
-			int ret = getrlimit(RLIMIT_STACK, &limit);
+		if (stacksize + vm_page_size != t->freesize) {
+			// We want to call getrlimit() just once, as it's relatively
+			// expensive
+			static size_t rlimit_stack;
 
-			if (ret == 0) {
-				rlimit_stack = (size_t) limit.rlim_cur;
+			if (rlimit_stack == 0) {
+				struct rlimit limit;
+				int ret = getrlimit(RLIMIT_STACK, &limit);
+
+				if (ret == 0) {
+					rlimit_stack = (size_t) limit.rlim_cur;
+				}
+			}
+
+			if (rlimit_stack == 0 || rlimit_stack > t->freesize) {
+				return stacksize;
+			} else {
+				return round_page(rlimit_stack);
 			}
 		}
-
-		if (rlimit_stack == 0 || rlimit_stack > t->freesize) {
-			return stacksize;
-		} else {
-			return rlimit_stack;
-		}
 	}
-#endif /* !defined(__arm__) && !defined(__arm64__) */
+#endif /* TARGET_OS_OSX */
 
 	if (t == pthread_self() || t == main_thread()) {
-		size = stacksize;
+		size = t->stackaddr - t->stackbottom;;
 		goto out;
 	}
 
 	if (_pthread_validate_thread_and_list_lock(t)) {
-		size = stacksize;
+		size = t->stackaddr - t->stackbottom;;
 		_PTHREAD_UNLOCK(_pthread_list_lock);
-	} else {
-		size = ESRCH; // XXX bug?
 	}
 
 out:
@@ -1108,6 +1129,24 @@ pthread_main_np(void)
 }
 
 
+static int
+_pthread_threadid_slow(pthread_t thread, uint64_t *thread_id)
+{
+	unsigned int info_count = THREAD_IDENTIFIER_INFO_COUNT;
+	mach_port_t thport = _pthread_kernel_thread(thread);
+	struct thread_identifier_info info;
+	kern_return_t kr;
+
+	kr = thread_info(thport, THREAD_IDENTIFIER_INFO,
+			(thread_info_t)&info, &info_count);
+	if (kr == KERN_SUCCESS && info.thread_id) {
+		*thread_id = info.thread_id;
+		os_atomic_store(&thread->thread_id, info.thread_id, relaxed);
+		return 0;
+	}
+	return EINVAL;
+}
+
 /*
  * if we are passed in a pthread_t that is NULL, then we return the current
  * thread's thread_id. So folks don't have to call pthread_self, in addition to
@@ -1129,10 +1168,11 @@ pthread_threadid_np(pthread_t thread, uint64_t *thread_id)
 	} else if (!_pthread_validate_thread_and_list_lock(thread)) {
 		res = ESRCH;
 	} else {
-		if (thread->thread_id == 0) {
-			res = EINVAL;
-		} else {
-			*thread_id = thread->thread_id;
+		*thread_id = os_atomic_load(&thread->thread_id, relaxed);
+		if (os_unlikely(*thread_id == 0)) {
+			// there is a race at init because the thread sets its own TID.
+			// correct this by asking mach
+			res = _pthread_threadid_slow(thread, thread_id);
 		}
 		_PTHREAD_UNLOCK(_pthread_list_lock);
 	}
@@ -1235,7 +1275,7 @@ static inline void
 __pthread_started_thread(pthread_t t)
 {
 	mach_port_t kport = _pthread_kernel_thread(t);
-	if (os_slowpath(!MACH_PORT_VALID(kport))) {
+	if (os_unlikely(!MACH_PORT_VALID(kport))) {
 		PTHREAD_CLIENT_CRASH(kport,
 				"Unable to allocate thread port, possible port leak");
 	}
@@ -1277,7 +1317,7 @@ _pthread_create(pthread_t *thread, const pthread_attr_t *attrs,
 
 	__is_threaded = 1;
 
-	t =_pthread_allocate(attrs, &stack);
+	t =_pthread_allocate(attrs, &stack, from_mach_thread);
 	if (t == NULL) {
 		return EAGAIN;
 	}
@@ -1295,10 +1335,6 @@ _pthread_create(pthread_t *thread, const pthread_attr_t *attrs,
 		__pthread_undo_add_thread(t, from_mach_thread);
 		_pthread_deallocate(t, from_mach_thread);
 		return EAGAIN;
-	}
-
-	if (create_flags & _PTHREAD_CREATE_SUSPENDED) {
-		_pthread_markcancel_if_canceled(t, _pthread_kernel_thread(t));
 	}
 
 	// n.b. if a thread is created detached and exits, t will be invalid
@@ -1322,70 +1358,10 @@ pthread_create_from_mach_thread(pthread_t *thread, const pthread_attr_t *attr,
 	return _pthread_create(thread, attr, start_routine, arg, flags);
 }
 
-#if !defined(__OPEN_SOURCE__) && TARGET_OS_OSX // 40703288
-/* Functions defined in machine-dependent files. */
-PTHREAD_NOEXPORT void _pthread_setup_suspended(pthread_t th, void (*f)(pthread_t), void *sp);
-
-PTHREAD_NORETURN
-static void
-_pthread_suspended_body(pthread_t self)
-{
-	_pthread_set_self(self);
-	__pthread_started_thread(self);
-	_pthread_exit(self, (self->fun)(self->arg));
-}
-
-static int
-_pthread_create_suspended_np(pthread_t *thread, const pthread_attr_t *attrs,
-		void *(*start_routine)(void *), void *arg)
-{
-	pthread_t t;
-	void *stack;
-	mach_port_t kernel_thread = MACH_PORT_NULL;
-
-	if (attrs == NULL) {
-		attrs = &_pthread_attr_default;
-	} else if (attrs->sig != _PTHREAD_ATTR_SIG) {
-		return EINVAL;
-	}
-
-	t = _pthread_allocate(attrs, &stack);
-	if (t == NULL) {
-		return EAGAIN;
-	}
-
-	if (thread_create(mach_task_self(), &kernel_thread) != KERN_SUCCESS) {
-		_pthread_deallocate(t, false);
-		return EAGAIN;
-	}
-
-	_pthread_set_kernel_thread(t, kernel_thread);
-	(void)pthread_setschedparam_internal(t, kernel_thread,
-			t->tl_policy, &t->tl_param);
-
-	__is_threaded = 1;
-
-	t->arg = arg;
-	t->fun = start_routine;
-	t->cancel_state |= _PTHREAD_CANCEL_INITIALIZED;
-	__pthread_add_thread(t, false);
-
-	// Set up a suspended thread.
-	_pthread_setup_suspended(t, _pthread_suspended_body, stack);
-	*thread = t;
-	return 0;
-}
-#endif // !defined(__OPEN_SOURCE__) && TARGET_OS_OSX
-
 int
 pthread_create_suspended_np(pthread_t *thread, const pthread_attr_t *attr,
 		void *(*start_routine)(void *), void *arg)
 {
-#if !defined(__OPEN_SOURCE__) && TARGET_OS_OSX // 40703288
-	if (_os_xbs_chrooted) {
-		return _pthread_create_suspended_np(thread, attr, start_routine, arg);
-	}
-#endif
 	unsigned int flags = _PTHREAD_CREATE_SUSPENDED;
 	return _pthread_create(thread, attr, start_routine, arg, flags);
 }
@@ -1433,13 +1409,10 @@ pthread_kill(pthread_t th, int sig)
 	}
 
 	mach_port_t kport = MACH_PORT_NULL;
-	if (!_pthread_is_valid(th, &kport)) {
-		return ESRCH; // Not a valid thread.
-	}
-
-	// Don't signal workqueue threads.
-	if (th->wqthread != 0 && th->wqkillset == 0) {
-		return ENOTSUP;
+	{
+		if (!_pthread_is_valid(th, &kport)) {
+			return ESRCH;
+		}
 	}
 
 	int ret = __pthread_kill(kport, sig);
@@ -1454,13 +1427,9 @@ PTHREAD_NOEXPORT_VARIANT
 int
 __pthread_workqueue_setkill(int enable)
 {
-	pthread_t self = pthread_self();
-
-	_PTHREAD_LOCK(self->lock);
-	self->wqkillset = enable ? 1 : 0;
-	_PTHREAD_UNLOCK(self->lock);
-
-	return 0;
+	{
+		return __bsdthread_ctl(BSDTHREAD_CTL_WORKQ_ALLOW_KILL, enable, 0, 0);
+	}
 }
 
 
@@ -1629,7 +1598,8 @@ _pthread_set_self(pthread_t p)
 		return _pthread_set_self_dyld();
 	}
 #endif // VARIANT_DYLD
-	_pthread_set_self_internal(p, true);
+	_pthread_set_self_internal(p);
+	_thread_set_tsd_base(&p->tsd[0]);
 }
 
 #if VARIANT_DYLD
@@ -1660,16 +1630,12 @@ _pthread_set_self_dyld(void)
 
 PTHREAD_ALWAYS_INLINE
 static inline void
-_pthread_set_self_internal(pthread_t p, bool needs_tsd_base_set)
+_pthread_set_self_internal(pthread_t p)
 {
-	p->thread_id = __thread_selfid();
+	os_atomic_store(&p->thread_id, __thread_selfid(), relaxed);
 
 	if (os_unlikely(p->thread_id == -1ull)) {
 		PTHREAD_INTERNAL_CRASH(0, "failed to set thread_id");
-	}
-
-	if (needs_tsd_base_set) {
-		_thread_set_tsd_base(&p->tsd[0]);
 	}
 }
 
@@ -1899,10 +1865,12 @@ __pthread_init(const struct _libpthread_functions *pthread_funcs,
 	// and make it our main thread point.
 	pthread_t thread = (pthread_t)_pthread_getspecific_direct(
 			_PTHREAD_TSD_SLOT_PTHREAD_SELF);
-	PTHREAD_ASSERT(thread);
+	if (os_unlikely(thread == NULL)) {
+		PTHREAD_INTERNAL_CRASH(0, "PTHREAD_SELF TSD not initialized");
+	}
 	_main_thread_ptr = thread;
 
-	PTHREAD_ASSERT(_pthread_attr_default.qosclass ==
+	PTHREAD_DEBUG_ASSERT(_pthread_attr_default.qosclass ==
 			_pthread_default_priority(0));
 	_pthread_struct_init(thread, &_pthread_attr_default,
 			stackaddr, stacksize, allocaddr, allocsize);
@@ -1950,7 +1918,6 @@ _pthread_main_thread_init(pthread_t p)
 	p->tl_exit_gate = MACH_PORT_NULL;
 	p->tsd[__TSD_SEMAPHORE_CACHE] = (void*)(uintptr_t)SEMAPHORE_NULL;
 	p->tsd[__TSD_MACH_SPECIAL_REPLY] = 0;
-	p->cancel_state |= _PTHREAD_CANCEL_INITIALIZED;
 
 	// Initialize the list of threads with the new main thread.
 	TAILQ_INSERT_HEAD(&__pthread_head, p, tl_plist);
@@ -1964,7 +1931,7 @@ void
 _pthread_main_thread_postfork_init(pthread_t p)
 {
 	_pthread_main_thread_init(p);
-	_pthread_set_self_internal(p, false);
+	_pthread_set_self_internal(p);
 }
 
 int
@@ -1985,6 +1952,25 @@ void
 pthread_yield_np(void)
 {
 	sched_yield();
+}
+
+// Libsystem knows about this symbol and exports it to libsyscall
+int
+pthread_current_stack_contains_np(const void *addr, size_t length)
+{
+	uintptr_t begin = (uintptr_t) addr, end;
+	uintptr_t stack_base = (uintptr_t) _pthread_self_direct()->stackbottom;
+	uintptr_t stack_top = (uintptr_t) _pthread_self_direct()->stackaddr;
+
+	if (stack_base == stack_top) {
+		return -ENOTSUP;
+	}
+
+	if (__builtin_add_overflow(begin, length, &end)) {
+		return -EINVAL;
+	}
+
+	return stack_base <= begin && end <= stack_top;
 }
 
 
@@ -2021,7 +2007,15 @@ _pthread_clear_qos_tsd(mach_port_t thread_port)
 
 
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__arm64__)
+#if __ARM64_ARCH_8_32__
+/*
+ * arm64_32 uses 64-bit sizes for the frame pointer and
+ * return address of a stack frame.
+ */
+typedef uint64_t frame_data_addr_t;
+#else
 typedef uintptr_t frame_data_addr_t;
+#endif
 
 struct frame_data {
 	frame_data_addr_t frame_addr_next;
@@ -2037,9 +2031,18 @@ pthread_stack_frame_decode_np(uintptr_t frame_addr, uintptr_t *return_addr)
 	struct frame_data *frame = (struct frame_data *)frame_addr;
 
 	if (return_addr) {
+#if __has_feature(ptrauth_calls)
+		*return_addr = (uintptr_t)ptrauth_strip((void *)frame->ret_addr,
+				ptrauth_key_return_address);
+#else
 		*return_addr = (uintptr_t)frame->ret_addr;
+#endif /* __has_feature(ptrauth_calls) */
 	}
 
+#if __has_feature(ptrauth_calls)
+	return (uintptr_t)ptrauth_strip((void *)frame->frame_addr_next,
+			ptrauth_key_frame_pointer);
+#endif /* __has_feature(ptrauth_calls) */
 	return (uintptr_t)frame->frame_addr_next;
 }
 
@@ -2175,11 +2178,13 @@ _pthread_wqthread_setup(pthread_t self, mach_port_t kport, void *stacklowaddr,
 	self->wqthread = 1;
 	self->wqkillset = 0;
 	self->tl_joinable = false;
-	self->cancel_state |= _PTHREAD_CANCEL_INITIALIZED;
 
 	// Update the running thread count and set childrun bit.
-	bool thread_tsd_base_set = (bool)(flags & WQ_FLAG_THREAD_TSD_BASE_SET);
-	_pthread_set_self_internal(self, !thread_tsd_base_set);
+	if (os_unlikely((flags & WQ_FLAG_THREAD_TSD_BASE_SET) == 0)) {
+		PTHREAD_INTERNAL_CRASH(flags,
+				"thread_set_tsd_base() wasn't called by the kernel");
+	}
+	_pthread_set_self_internal(self);
 	__pthread_add_thread(self, false);
 	__pthread_started_thread(self);
 }
@@ -2212,36 +2217,36 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void *stacklowaddr,
 	}
 
 	pthread_priority_t pp;
+
 	if (flags & WQ_FLAG_THREAD_OUTSIDEQOS) {
-		self->wqoutsideqos = 1;
+		self->wq_outsideqos = 1;
 		pp = _pthread_priority_make_from_thread_qos(THREAD_QOS_LEGACY, 0,
 				_PTHREAD_PRIORITY_FALLBACK_FLAG);
 	} else {
-		self->wqoutsideqos = 0;
+		self->wq_outsideqos = 0;
 		pp = _pthread_wqthread_priority(flags);
 	}
 
 	self->tsd[_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS] = (void *)pp;
 
 	// avoid spills on the stack hard to keep used stack space minimal
-	if (nkevents == WORKQ_EXIT_THREAD_NKEVENT) {
-		goto exit;
+	if (os_unlikely(nkevents == WORKQ_EXIT_THREAD_NKEVENT)) {
+		_pthread_wqthread_exit(self);
 	} else if (flags & WQ_FLAG_THREAD_WORKLOOP) {
+		kqueue_id_t *kqidptr = (kqueue_id_t *)keventlist - 1;
 		self->fun = (void *(*)(void*))__libdispatch_workloopfunction;
-		self->wq_retop = WQOPS_THREAD_WORKLOOP_RETURN;
-		self->wq_kqid_ptr = ((kqueue_id_t *)keventlist - 1);
 		self->arg = keventlist;
 		self->wq_nevents = nkevents;
+		(*__libdispatch_workloopfunction)(kqidptr, &self->arg, &self->wq_nevents);
+		__workq_kernreturn(WQOPS_THREAD_WORKLOOP_RETURN, self->arg, self->wq_nevents, 0);
 	} else if (flags & WQ_FLAG_THREAD_KEVENT) {
 		self->fun = (void *(*)(void*))__libdispatch_keventfunction;
-		self->wq_retop = WQOPS_THREAD_KEVENT_RETURN;
-		self->wq_kqid_ptr = NULL;
 		self->arg = keventlist;
 		self->wq_nevents = nkevents;
+		(*__libdispatch_keventfunction)(&self->arg, &self->wq_nevents);
+		__workq_kernreturn(WQOPS_THREAD_KEVENT_RETURN, self->arg, self->wq_nevents, 0);
 	} else {
 		self->fun = (void *(*)(void*))__libdispatch_workerfunction;
-		self->wq_retop = WQOPS_THREAD_RETURN;
-		self->wq_kqid_ptr = NULL;
 		self->arg = (void *)(uintptr_t)pp;
 		self->wq_nevents = 0;
 		if (os_likely(__workq_newapi)) {
@@ -2249,33 +2254,15 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void *stacklowaddr,
 		} else {
 			_pthread_wqthread_legacy_worker_wrap(pp);
 		}
-		goto just_return;
+		__workq_kernreturn(WQOPS_THREAD_RETURN, NULL, 0, 0);
 	}
 
-	if (nkevents > 0) {
-kevent_errors_retry:
-		if (self->wq_retop == WQOPS_THREAD_WORKLOOP_RETURN) {
-			((pthread_workqueue_function_workloop_t)self->fun)
-					(self->wq_kqid_ptr, &self->arg, &self->wq_nevents);
-		} else {
-			((pthread_workqueue_function_kevent_t)self->fun)
-					(&self->arg, &self->wq_nevents);
-		}
-		int rc = __workq_kernreturn(self->wq_retop, self->arg, self->wq_nevents, 0);
-		if (os_unlikely(rc > 0)) {
-			self->wq_nevents = rc;
-			goto kevent_errors_retry;
-		}
-		if (os_unlikely(rc < 0)) {
-			PTHREAD_INTERNAL_CRASH(self->err_no, "kevent (workloop) failed");
-		}
-	} else {
-just_return:
-		__workq_kernreturn(self->wq_retop, NULL, 0, 0);
-	}
-
-exit:
-	_pthread_wqthread_exit(self);
+	_os_set_crash_log_cause_and_message(self->err_no,
+			"BUG IN LIBPTHREAD: __workq_kernreturn returned");
+	/*
+	 * 52858993: we should never return but the compiler insists on outlining,
+	 * so the __builtin_trap() is in _start_wqthread in pthread_asm.s
+	 */
 }
 
 
@@ -2288,33 +2275,70 @@ _Static_assert(WORKQ_KEVENT_EVENT_BUFFER_LEN == WQ_KEVENT_LIST_LEN,
 void
 pthread_workqueue_setdispatchoffset_np(int offset)
 {
-	__libdispatch_offset = offset;
+	__workq_kernreturn(WQOPS_QUEUE_NEWSPISUPP, NULL, offset, 0x00);
 }
 
-static int
-pthread_workqueue_setdispatch_with_workloop_np(pthread_workqueue_function2_t queue_func,
-		pthread_workqueue_function_kevent_t kevent_func,
-		pthread_workqueue_function_workloop_t workloop_func)
+int
+pthread_workqueue_setup(struct pthread_workqueue_config *cfg, size_t cfg_size)
 {
-	int res = EBUSY;
+	int rv = EBUSY;
+	struct workq_dispatch_config wdc_cfg;
+	size_t min_size = 0;
+
+	if (cfg_size < sizeof(uint32_t)) {
+		return EINVAL;
+	}
+
+	switch (cfg->version) {
+		case 1:
+			min_size = offsetof(struct pthread_workqueue_config, queue_label_offs);
+			break;
+		case 2:
+			min_size = sizeof(struct pthread_workqueue_config);
+			break;
+		default:
+			return EINVAL;
+		}
+
+	if (!cfg || cfg_size < min_size) {
+		return EINVAL;
+	}
+
+	if (cfg->flags & ~PTHREAD_WORKQUEUE_CONFIG_SUPPORTED_FLAGS ||
+		cfg->version < PTHREAD_WORKQUEUE_CONFIG_MIN_SUPPORTED_VERSION) {
+		return ENOTSUP;
+	}
+
 	if (__libdispatch_workerfunction == NULL) {
-		// Check whether the kernel supports new SPIs
-		res = __workq_kernreturn(WQOPS_QUEUE_NEWSPISUPP, NULL, __libdispatch_offset, kevent_func != NULL ? 0x01 : 0x00);
-		if (res == -1){
-			res = ENOTSUP;
+		__workq_newapi = true;
+
+		wdc_cfg.wdc_version = WORKQ_DISPATCH_CONFIG_VERSION;
+		wdc_cfg.wdc_flags = 0;
+		wdc_cfg.wdc_queue_serialno_offs = cfg->queue_serialno_offs;
+#if WORKQ_DISPATCH_CONFIG_VERSION >= 2
+		wdc_cfg.wdc_queue_label_offs = cfg->queue_label_offs;
+#endif
+
+		// Tell the kernel about dispatch internals
+		rv = (int) __workq_kernreturn(WQOPS_SETUP_DISPATCH, &wdc_cfg, sizeof(wdc_cfg), 0);
+		if (rv == -1) {
+			return errno;
 		} else {
-			__libdispatch_workerfunction = queue_func;
-			__libdispatch_keventfunction = kevent_func;
-			__libdispatch_workloopfunction = workloop_func;
+			__libdispatch_keventfunction = cfg->kevent_cb;
+			__libdispatch_workloopfunction = cfg->workloop_cb;
+			__libdispatch_workerfunction = cfg->workq_cb;
 
 			// Prepare the kernel for workq action
 			(void)__workq_open();
 			if (__is_threaded == 0) {
 				__is_threaded = 1;
 			}
+
+			return 0;
 		}
 	}
-	return res;
+
+	return rv;
 }
 
 int
@@ -2323,15 +2347,17 @@ _pthread_workqueue_init_with_workloop(pthread_workqueue_function2_t queue_func,
 		pthread_workqueue_function_workloop_t workloop_func,
 		int offset, int flags)
 {
-	if (flags != 0) {
-		return ENOTSUP;
-	}
+	struct pthread_workqueue_config cfg = {
+		.version = PTHREAD_WORKQUEUE_CONFIG_VERSION,
+		.flags = 0,
+		.workq_cb = queue_func,
+		.kevent_cb = kevent_func,
+		.workloop_cb = workloop_func,
+		.queue_serialno_offs = offset,
+		.queue_label_offs = 0,
+	};
 
-	__workq_newapi = true;
-	__libdispatch_offset = offset;
-
-	int rv = pthread_workqueue_setdispatch_with_workloop_np(queue_func, kevent_func, workloop_func);
-	return rv;
+	return pthread_workqueue_setup(&cfg, sizeof(cfg));
 }
 
 int
@@ -2351,7 +2377,17 @@ _pthread_workqueue_init(pthread_workqueue_function2_t func, int offset, int flag
 int
 pthread_workqueue_setdispatch_np(pthread_workqueue_function_t worker_func)
 {
-	return pthread_workqueue_setdispatch_with_workloop_np((pthread_workqueue_function2_t)worker_func, NULL, NULL);
+	struct pthread_workqueue_config cfg = {
+		.version = PTHREAD_WORKQUEUE_CONFIG_VERSION,
+		.flags = 0,
+		.workq_cb = (uint64_t)(pthread_workqueue_function2_t)worker_func,
+		.kevent_cb = 0,
+		.workloop_cb = 0,
+		.queue_serialno_offs = 0,
+		.queue_label_offs = 0,
+	};
+
+	return pthread_workqueue_setup(&cfg, sizeof(cfg));
 }
 
 int
@@ -2589,6 +2625,8 @@ _pthread_introspection_thread_destroy(pthread_t t)
 	_pthread_introspection_hook_callout_thread_destroy(t);
 }
 
+
+#if !VARIANT_DYLD
 #pragma mark libplatform shims
 
 #include <platform/string.h>
@@ -2623,3 +2661,4 @@ memcpy(void* a, const void* b, unsigned long s)
 	return _platform_memmove(a, b, s);
 }
 
+#endif // !VARIANT_DYLD

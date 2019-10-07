@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,6 +53,7 @@
 #include <libkern/libkern.h>
 #include <libkern/OSAtomic.h>
 #include <kern/debug.h>
+#include <vfs/vfs_support.h>
 
 #include "webdav.h"
 #include "webdav_utils.h"
@@ -4363,7 +4364,10 @@ static int webdav_vnop_ioctl(struct vnop_ioctl_args *ap)
 		
 	START_MARKER("webdav_vnop_ioctl");
 
-	error = EINVAL;
+	if (ap == NULL || ap->a_vp == NULL) {
+		error = EINVAL;
+		RET_ERR("webdav_vnop_ioctl", error);
+	}
 	vp = ap->a_vp;
 	
 	switch (ap->a_command)
@@ -4472,7 +4476,7 @@ static int webdav_vnop_ioctl(struct vnop_ioctl_args *ap)
 	
 		default:
 
-		error = EINVAL;
+		error = ENOTTY;
 		break;
 	}
 
@@ -4500,7 +4504,7 @@ static int webdav_vnop_advlock(struct vnop_advlock_args *ap)
 
 #define VOPFUNC int (*)(void *)
 
-int( **webdav_vnodeop_p)();
+int( **webdav_vnodeop_p)(void *);
 
 struct vnodeopv_entry_desc webdav_vnodeop_entries[] = {
 	{&vnop_default_desc, (VOPFUNC)vn_default_error},				/* default */

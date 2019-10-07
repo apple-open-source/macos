@@ -41,19 +41,24 @@ UserMediaPermissionCheckProxy::UserMediaPermissionCheckProxy(uint64_t frameID, C
 {
 }
 
+UserMediaPermissionCheckProxy::~UserMediaPermissionCheckProxy()
+{
+    invalidate();
+}
+
 void UserMediaPermissionCheckProxy::setUserMediaAccessInfo(bool allowed)
 {
     ASSERT(m_completionHandler);
+    complete(allowed ? PermissionInfo::Granted : PermissionInfo::Unknown);
+}
+
+void UserMediaPermissionCheckProxy::complete(PermissionInfo info)
+{
     if (!m_completionHandler)
         return;
 
-    m_completionHandler(allowed);
-    m_completionHandler = nullptr;
-}
-
-void UserMediaPermissionCheckProxy::invalidate()
-{
-    m_completionHandler = nullptr;
+    auto completionHandler = WTFMove(m_completionHandler);
+    completionHandler(info);
 }
 
 } // namespace WebKit

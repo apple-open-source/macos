@@ -44,6 +44,8 @@
 
 #include "shared_regressions.h"
 
+#define VERBOSE_ERRORS 1
+
 /*
    Bag Attributes
 friendlyName: uranusLeaf
@@ -1744,7 +1746,21 @@ static void tests(void)
     ok_status(SecCMSSignDataAndAttributes(identity, test_data, false, message_data, simple_attr), "encode message");
     ok_status(SecCMSVerifyCopyDataAndAttributes(message_data, NULL, policy, &trust, &message, &attrs), "decode message again");
     CFReleaseNull(trust);
+#if VERBOSE_ERRORS
+    size_t message_len = CFDataGetLength(message_data);
+    const uint8_t* message_ptr = CFDataGetBytePtr(message_data);
+    char *message_hex = (char *)calloc(1, 2 * message_len + 1);
+    for (size_t ix = 0; ix < message_len; ix++) {
+        snprintf(&message_hex[2*ix], 3, "%02X", message_ptr[ix]);
+    }
+    is(CFDictionaryGetCount(attrs), 6, "5 signed attributes + cooked date. \n\tattrs=%@\tmessage_data=%s", attrs, message_hex);
+    free(message_hex);
+#else
     is(CFDictionaryGetCount(attrs), 6, "5 signed attributes + cooked date");
+#endif
+    isnt(CFDictionaryGetValue(attrs, kSecCMSSignDate), NULL, "failed to get cooked data from attributes");
+    isnt(CFDictionaryGetValue(attrs, kSecCMSAllCerts), NULL, "failed to get cert(s) from attributes");
+    isnt(CFDictionaryGetValue(attrs, oid_data), NULL, "failed to get user-defined attribute");
     CFReleaseNull(attrs);
     is(CFEqual(message, test_data), true, "contents preserved");
     CFReleaseNull(message);
@@ -1939,9 +1955,9 @@ out:
 int si_60_cms(int argc, char *const *argv)
 {
 #if TARGET_OS_IPHONE
-	plan_tests(43);
+	plan_tests(46);
 #else
-    plan_tests(42);
+    plan_tests(45);
 #endif
 
 	tests();

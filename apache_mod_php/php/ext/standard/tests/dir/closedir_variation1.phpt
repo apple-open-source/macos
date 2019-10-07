@@ -3,7 +3,7 @@ Test closedir() function : usage variations - different data types as $dir_handl
 --FILE--
 <?php
 /* Prototype  : void closedir([resource $dir_handle])
- * Description: Close directory connection identified by the dir_handle 
+ * Description: Close directory connection identified by the dir_handle
  * Source code: ext/standard/dir.c
  * Alias to functions: close
  */
@@ -56,7 +56,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
@@ -66,7 +66,7 @@ $inputs = array(
 /*19*/ "string",
        'string',
        $heredoc,
-       
+
        // object data
 /*22*/ new classA(),
 
@@ -92,22 +92,22 @@ foreach($inputs as $input) {
 
 -- Iteration 1 --
 
-Warning: closedir() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: closedir() expects parameter 1 to be resource, int given in %s on line %d
 NULL
 
 -- Iteration 2 --
 
-Warning: closedir() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: closedir() expects parameter 1 to be resource, int given in %s on line %d
 NULL
 
 -- Iteration 3 --
 
-Warning: closedir() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: closedir() expects parameter 1 to be resource, int given in %s on line %d
 NULL
 
 -- Iteration 4 --
 
-Warning: closedir() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: closedir() expects parameter 1 to be resource, int given in %s on line %d
 NULL
 
 -- Iteration 5 --
@@ -147,22 +147,22 @@ NULL
 
 -- Iteration 12 --
 
-Warning: closedir() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: closedir() expects parameter 1 to be resource, bool given in %s on line %d
 NULL
 
 -- Iteration 13 --
 
-Warning: closedir() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: closedir() expects parameter 1 to be resource, bool given in %s on line %d
 NULL
 
 -- Iteration 14 --
 
-Warning: closedir() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: closedir() expects parameter 1 to be resource, bool given in %s on line %d
 NULL
 
 -- Iteration 15 --
 
-Warning: closedir() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: closedir() expects parameter 1 to be resource, bool given in %s on line %d
 NULL
 
 -- Iteration 16 --

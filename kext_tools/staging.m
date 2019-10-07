@@ -132,7 +132,7 @@ kextBundleValidates(NSURL *bundleURL)
         if (isInvalidSignatureAllowed()) {
             OSKextLogCFString(NULL,
                               kOSKextLogErrorLevel | kOSKextLogValidationFlag,
-                              CFSTR("Kext with invalid signatured (%d) allowed: %@"),
+                              CFSTR("Kext with invalid signature (%d) allowed: %@"),
                               (int)status, bundleURL.path);
         } else {
             OSKextLogCFString(NULL,
@@ -760,11 +760,25 @@ pruneStagingDirectoryHelper(NSString *stagingRoot)
                               kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
                               CFSTR("Unable to delete kernel extension: %@, %@"),
                               stagedURL.path, error);
+            success = false;
+            continue;
         }
 
         // Then walk up directories to see if we need to remove empty parents.
         parentURL = [stagedURL URLByDeletingLastPathComponent];
-        while ([stagedURL isNotEqualTo:parentURL]) {
+        if (parentURL == nil) {
+            OSKextLogCFString(NULL,
+                              kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                              CFSTR("Unable to prune because URL parent cannot be found: %@"),
+                              stagedURL.path);
+            success = false;
+            continue;
+        }
+
+        // While walking up, make sure we're within the staging area and break when we
+        // hit the top level staging directory itself.
+        while ([parentURL.path hasPrefix:stagingRoot] &&
+               ![parentURL.path isEqualToString:stagingRoot]) {
             NSArray *contents = [fm contentsOfDirectoryAtPath:parentURL.path error:&error];
 
             // If parent is now empty, remove it...otherwise, move on to the next kext.
@@ -774,9 +788,23 @@ pruneStagingDirectoryHelper(NSString *stagingRoot)
                                       kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
                                       CFSTR("Unable to delete empty staging directory: %@, %@"),
                                       parentURL.path, error);
+                    success = false;
+                    break;
                 }
-                parentURL = [parentURL URLByDeletingLastPathComponent];
+
+                // Continue walking up to the parent directory.
+                NSURL *nextURL = [parentURL URLByDeletingLastPathComponent];
+                if (nextURL == nil || [nextURL isEqualTo:parentURL]) {
+                    OSKextLogCFString(NULL,
+                                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                                      CFSTR("Unable to prune because URL parent cannot be found: %@"),
+                                      stagedURL.path);
+                    success = false;
+                    break;
+                }
+                parentURL = nextURL;
             } else {
+                // First non-empty directory, so we're done.
                 break;
             }
         }
@@ -817,4 +845,20 @@ Boolean
 clearStagingDirectory(void)
 {
     return clearStagingDirectoryHelper(@SECURE_KEXT_STAGING_PATH);
+}
+
+
+CFURLRef
+copyUnstagedKextURL(CFURLRef kextURL)
+{
+    NSURL *url = (__bridge NSURL *)kextURL;
+    if (!pathIsSecure(url.path)) {
+        // if the kext is unstaged, just return the URL
+        return CFBridgingRetain(url);
+    }
+
+    NSURL *unstagedURL;
+    // Check if it still exists on the filesystem.
+    unstagedURL = createURLWithoutPrefix(url, @SECURE_KEXT_STAGING_PATH);
+    return CFBridgingRetain(unstagedURL);
 }

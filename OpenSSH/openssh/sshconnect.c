@@ -27,9 +27,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#ifdef __APPLE_TCP_CONNECTION__
-#  include <network/private.h>
-#endif
+#ifdef __APPLE_NW_CONNECTION__
+#  include <nw/private.h>
+#endif /* __APPLE_NW_CONNECTION__ */
 
 #include <ctype.h>
 #include <errno.h>
@@ -512,7 +512,7 @@ ssh_connect_direct(struct ssh *ssh, const char *host, struct addrinfo *aitop,
 #ifdef __APPLE_TCP_CONNECTION__
 	if (aitop == NULL) {
 		/*
-		 * Hostname resolution was skipped, we use tcp_connection
+		 * Hostname resolution was skipped, we use nw_connection
 		 * to leverage Happy Eyeballs and to trigger VPN on demand
 		 */
 		if (port == 0) {
@@ -523,36 +523,31 @@ ssh_connect_direct(struct ssh *ssh, const char *host, struct addrinfo *aitop,
 
 		debug("Connecting to %.200s port %d.", host, port);
 
-		dispatch_queue_t queue = dispatch_queue_create("OpenSSH.tcp_connection", NULL);
+		dispatch_queue_t queue = dispatch_queue_create("OpenSSH.nw_connection", NULL);
 		nw_endpoint_t endpoint = nw_endpoint_create_host(host, port_string);
-		nw_parameters_t parameters = nw_parameters_create();
+		nw_parameters_t parameters = nw_parameters_create_legacy_tcp_socket(NW_PARAMETERS_DEFAULT_CONFIGURATION);
 		if (want_keepalive) {
 			nw_parameters_set_keepalive_enabled(parameters, true);
 		}
 		if (family != AF_UNSPEC) {
 			nw_parameters_set_required_address_family(parameters, family);
 		}
-#ifdef NW_HAS_PREFER_NO_PROXY
 		nw_parameters_set_prefer_no_proxy(parameters, true);
-#endif
-		tcp_connection_t connection = tcp_connection_create_with_endpoint_and_parameters(endpoint, parameters, queue);
-		network_release(endpoint);
-		network_release(parameters);
+		nw_connection_t connection = nw_connection_create(endpoint, parameters);
+		nw_connection_set_queue(connection, queue);
+		nw_release(endpoint);
+		nw_release(parameters);
 		dispatch_release(queue);
-		tcp_connection_allow_client_socket_access(connection, true);
 		dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
 		__block int ret = -1;
 		__block bool semaphore_signalled = false;
 		__block bool connection_connected = false;
 		__block bool connection_cancelled = false;
-		tcp_connection_set_event_handler(connection, ^(uint32_t event,
-							       const void * _Nonnull eventdata) {
-			if (event == TCP_CONNECTION_EVENT_CONNECTED ||
-			    event == TCP_CONNECTION_EVENT_DISCONNECTED) {
-				bool should_cancel = true;
-				if (event == TCP_CONNECTION_EVENT_CONNECTED) {
+		nw_connection_set_state_changed_handler(connection, ^(nw_connection_state_t state, nw_error_t _Nullable event_error) {
+			switch (state) {
+				case nw_connection_state_ready: {
 					/*
-					 * We will receive a CONNECTED event when the socket is successfully connected
+					 * We will receive a ready event when the socket is successfully connected
 					 */
 					if (connection_connected || connection_cancelled) {
 						return;
@@ -560,28 +555,50 @@ ssh_connect_direct(struct ssh *ssh, const char *host, struct addrinfo *aitop,
 					connection_connected = true;
 					debug("Connection established.");
 
-					const int sock2 = tcp_connection_copy_socket(connection);
+					const int connected_socket = nw_connection_get_connected_socket(connection);
+					const int sock2 = dup(connected_socket); // Dup the fd out
 					if (sock2 >= 0) {
 						/* Save address of the remote host. */
-						tcp_connection_get_remote(connection, (sockaddr_ip *)hostaddr);
+						nw_endpoint_t connected_endpoint = nw_connection_copy_connected_remote_endpoint(connection);
+						if (connected_endpoint != NULL) {
+							if (nw_endpoint_get_type(connected_endpoint) == nw_endpoint_type_address) {
+								const struct sockaddr *connected_address = nw_endpoint_get_address(connected_endpoint);
+								if (connected_address != NULL &&
+								    connected_address->sa_len <= sizeof(*hostaddr)) {
+									memcpy(hostaddr, connected_address, connected_address->sa_len);
+								}
+							}
+							nw_release(connected_endpoint);
+						}
 
 						/* Set the connection. */
 						packet_set_connection(sock2, sock2);
 
 						ret = 0;
-						should_cancel = false;
 					} else {
 						error("ssh: connect to host %s port %u: failed to copy socket",
 						      host, port);
+						if (!connection_cancelled) {
+							connection_cancelled = true;
+							nw_connection_cancel(connection);
+						}
 					}
-				} else { /* event == TCP_CONNECTION_EVENT_DISCONNECTED */
+					if (!semaphore_signalled) {
+						semaphore_signalled = true;
+						dispatch_semaphore_signal(semaphore);
+					}
+					break;
+				}
+				case nw_connection_state_waiting:
+				case nw_connection_state_failed: {
 					/*
-					 * We will receive a DISCONNECTED event on failure to connect
-					 * and when the socket is closed in ssh_packet_close()
-					 * so we can rely on that to cancel the tcp_connection
+					 * We will receive a failed or waiting event on failure
+					 * to connect and when the socket is closed in ssh_packet_close()
+					 * so we can rely on that to cancel the nw_connection.
+					 * The waiting event indicates no network connectivity.
 					 */
 					if (!semaphore_signalled) { /* only log error once */
-						const int connection_error = tcp_connection_get_error(connection);
+						const int connection_error = event_error ? nw_error_get_error_code(event_error) : 0;
 						if (connection_error == kDNSServiceErr_NoSuchRecord) {
 							error("ssh: Could not resolve hostname %.100s:"
 							      " nodename nor servname provided, or not known", host);
@@ -593,27 +610,35 @@ ssh_connect_direct(struct ssh *ssh, const char *host, struct addrinfo *aitop,
 							error("ssh: connect to host %s port %u: %s",
 							      host, port, strerror(connection_error));
 						}
+
+						semaphore_signalled = true;
+						dispatch_semaphore_signal(semaphore);
 					}
+					if (!connection_cancelled) {
+						connection_cancelled = true;
+						nw_connection_cancel(connection);
+					}
+					break;
 				}
-				if (should_cancel && !connection_cancelled) {
-					connection_cancelled = true;
-					tcp_connection_cancel(connection);
-					network_release(connection);
+				case nw_connection_state_cancelled: {
+					nw_release(connection);
+					break;
 				}
-				if (!semaphore_signalled) {
-					semaphore_signalled = true;
-					dispatch_semaphore_signal(semaphore);
+
+				default: {
+					// Ignore other states
+					break;
 				}
 			}
 		});
-		tcp_connection_start(connection);
+		nw_connection_start(connection);
 
 		(void)dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
 		dispatch_release(semaphore);
 
 		return ret;
 	}
-#endif
+#endif /* __APPLE_NW_CONNECTION__ */
 
 	debug2("%s", __func__);
 	memset(ntop, 0, sizeof(ntop));

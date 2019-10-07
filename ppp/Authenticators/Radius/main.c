@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -75,7 +75,7 @@
  Forward declarations
 ----------------------------------------------------------------------------- */
 
-static int radius_papchap_check();
+static int radius_papchap_check(void);
 static int radius_pap_auth(char *user, char *passwd, char **msgp,
 		struct wordlist **paddrs, struct wordlist **popts);
 static int radius_chap_auth(u_char *name, u_char *ourname, int id,
@@ -254,7 +254,7 @@ int start(CFBundleRef ref)
 void makestr(CFDictionaryRef dict, const void *key, char **value, char *defaultval, char *errorstr) {
 
 	CFStringRef	strRef;
-	int len;
+	CFIndex len;
 	char *str = 0;
 	 
 	strRef = CFDictionaryGetValue(dict, key);
@@ -323,7 +323,7 @@ void radius_system_inited(void *param, uintptr_t code)
 		nb_auth_servers = 0;
 		serversArray = CFDictionaryGetValue(radiusDict, kRASPropRadiusServers);
 		if (serversArray && CFGetTypeID(serversArray) == CFArrayGetTypeID())
-			nb_auth_servers = CFArrayGetCount(serversArray);
+			nb_auth_servers = (int)CFArrayGetCount(serversArray);
 
 		if (nb_auth_servers == 0) {
 			error("Radius : No server specified\n");
@@ -790,7 +790,7 @@ int radius_authenticate_user(char *user, char *passwd, int type,
 													ret = 0;
 													break;
 												}
-												len = strlen((char*)message) - (p - message);
+												len = (int)(strlen((char*)message) - (p - message));
 												memcpy(p+3+2*MD4_SIGNATURE_SIZE, p, len);
 												*p++ = ' ';
 												*p++ = 'C';
@@ -818,7 +818,7 @@ int radius_authenticate_user(char *user, char *passwd, int type,
 													ret = 0;
 													break;
 												}
-												len = strlen((char*)message) - (p - message);
+												len = (int)(strlen((char*)message) - (p - message));
 												memcpy(p+3+2*MD4_SIGNATURE_SIZE, p, len);
 												*p++ = ' ';
 												*p++ = 'C';
@@ -995,8 +995,8 @@ read_keychainsecret(char *service, char *account, char **password)
 	}
 	
 	status = SecKeychainFindGenericPassword(keychain,
-					        service ? strlen(service) : 0, service,
-					        account ? strlen(account) : 0, account,
+					        service ? (UInt32)strlen(service) : 0, service,
+					        account ? (UInt32)strlen(account) : 0, account,
 					        &password_len, (void**)password,
 					        NULL);
 	

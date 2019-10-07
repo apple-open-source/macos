@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.UnionDataTypes.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Declaration of the different data types within a union and
  * their definitions in a later clause should work fine.

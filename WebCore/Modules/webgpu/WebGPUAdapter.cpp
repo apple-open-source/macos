@@ -28,27 +28,27 @@
 
 #if ENABLE(WEBGPU)
 
+#include "JSWebGPUDevice.h"
 #include "ScriptExecutionContext.h"
-#include "WebGPUAdapterDescriptor.h"
-#include "WebGPUDevice.h"
 
 namespace WebCore {
 
-Ref<WebGPUAdapter> WebGPUAdapter::create(const WebGPUAdapterDescriptor& descriptor)
+Ref<WebGPUAdapter> WebGPUAdapter::create(Optional<GPURequestAdapterOptions>&& options)
 {
-    // FIXME: Validation on descriptor.
-    return adoptRef(*new WebGPUAdapter(descriptor));
+    return adoptRef(*new WebGPUAdapter(WTFMove(options)));
 }
 
-WebGPUAdapter::WebGPUAdapter(const WebGPUAdapterDescriptor& descriptor)
-    : m_descriptor(descriptor)
+WebGPUAdapter::WebGPUAdapter(Optional<GPURequestAdapterOptions>&& options)
+    : m_options(WTFMove(options))
 {
-    UNUSED_PARAM(m_descriptor);
 }
 
-RefPtr<WebGPUDevice> WebGPUAdapter::createDevice()
+void WebGPUAdapter::requestDevice(DeviceRequestPromise&& promise) const
 {
-    return WebGPUDevice::create(*this);
+    if (auto device = WebGPUDevice::tryCreate(*this))
+        promise.resolve(device.releaseNonNull());
+    else
+        promise.reject();
 }
 
 } // namespace WebCore

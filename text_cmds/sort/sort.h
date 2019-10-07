@@ -1,4 +1,4 @@
-/*	$FreeBSD: head/usr.bin/sort/sort.h 264744 2014-04-21 22:52:18Z pfg $	*/
+/*	$FreeBSD$	*/
 
 /*-
  * Copyright (C) 2009 Gabor Kovesdan <gabor@FreeBSD.org>
@@ -44,7 +44,7 @@
 #endif
 
 #ifdef __APPLE__
-#define	VERSION	"2.3-Apple"
+#define	VERSION	"2.3-Apple (" SORT_VERSION ")"
 #else
 #define	VERSION	"2.3-FreeBSD"
 #endif
@@ -132,5 +132,8 @@ extern bool need_hint;
 extern struct sort_opts sort_opts_vals;
 
 extern struct sort_mods * const default_sort_mods;
+
+extern int (*isblank_f)(int c);
+extern int (*iswblank_f)(wint_t c);
 
 #endif /* __BSD_SORT_H__ */

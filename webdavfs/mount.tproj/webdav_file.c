@@ -1336,7 +1336,8 @@ int filesystem_write_seq(struct webdav_request_writeseq *request_sq_wr)
 
 	pthread_mutex_unlock(&ctx->ctx_lock);
 	
-	totalBytesRead = 0, bytesRead = 0;
+	totalBytesRead = 0;
+	bytesRead = 0;
 	/* Loop until everything's written or an error occurs */
 	while( 1 ) {
 		pthread_mutex_lock(&ctx->ctx_lock);

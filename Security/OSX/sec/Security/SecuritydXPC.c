@@ -94,6 +94,10 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("OTAGetEscrowCertificates");
         case kSecXPCOpOTAPKIGetNewAsset:
             return CFSTR("OTAPKIGetNewAsset");
+        case kSecXPCOpOTASecExperimentGetNewAsset:
+            return CFSTR("OTASecExperimentGetNewAsset");
+        case kSecXPCOpOTASecExperimentGetAsset:
+            return CFSTR("OTASecExperimentGetAsset");
         case kSecXPCOpAcceptApplicants:
             return CFSTR("AcceptApplicants");
         case kSecXPCOpApplyToARing:
@@ -132,10 +136,6 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("GetAllTheRings");
         case kSecXPCOpGetLastDepartureReason:
             return CFSTR("GetLastDepartureReason");
-        case kSecXPCOpSyncWithKVSPeer:
-            return CFSTR("SyncKVSPeer");
-        case kSecXPCOpClearKVSPeerMessage:
-            return CFSTR("kSecXPCOpClearKVSPeerMessage");
         case kSecXPCOpLoggedOutOfAccount:
             return CFSTR("LoggedOutOfAccount");
         case kSecXPCOpProcessSyncWithAllPeers:
@@ -308,6 +308,10 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("SetCTExceptions");
         case kSecXPCOpCopyCTExceptions:
             return CFSTR("CopyCTExceptions");
+        case sec_trust_get_exception_reset_count_id:
+            return CFSTR("GetExceptionResetCount");
+        case sec_trust_increment_exception_reset_count_id:
+            return CFSTR("IncrementExceptionResetCount");
         default:
             return CFSTR("Unknown xpc operation");
     }

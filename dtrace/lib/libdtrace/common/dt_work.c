@@ -41,11 +41,6 @@ static const struct {
 	{ DTRACEOPT_MAX, 0 }
 };
 
-int dt_aggregate_setup(dtrace_hdl_t *dtp, dtrace_bufdesc_t ***agg_bufs);
-int dtrace_aggregate_collect(dtrace_hdl_t *dtp, dtrace_bufdesc_t ***agg_bufs);
-int dtrace_collect(dtrace_hdl_t *dtp, dtrace_bufdesc_t ***cpu_bufs);
-int dtrace_analyze(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t **cpu_bufs, dtrace_bufdesc_t **agg_bufs, dtrace_consume_probe_f *pf, dtrace_consume_rec_f *rf, void *arg);
-
 void
 dtrace_sleep(dtrace_hdl_t *dtp)
 {

@@ -718,6 +718,14 @@ size_t BundleDiskRep::pageSize(const SigningContext &ctx)
 //
 void BundleDiskRep::strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags)
 {
+	strictValidateStructure(cd, tolerated, flags);
+	
+	// now strict-check the main executable (which won't be an app-like object)
+	mExecRep->strictValidate(cd, tolerated, flags & ~kSecCSRestrictToAppLike);
+}
+
+void BundleDiskRep::strictValidateStructure(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags)
+{
 	// scan our metadirectory (_CodeSignature) for unwanted guests
 	if (!(flags & kSecCSQuickCheck))
 		validateMetaDirectory(cd);
@@ -736,9 +744,6 @@ void BundleDiskRep::strictValidate(const CodeDirectory* cd, const ToleratedError
 		if (!mAppLike)
 			if (tolerated.find(kSecCSRestrictToAppLike) == tolerated.end())
 				MacOSError::throwMe(errSecCSNotAppLike);
-	
-	// now strict-check the main executable (which won't be an app-like object)
-	mExecRep->strictValidate(cd, tolerated, flags & ~kSecCSRestrictToAppLike);
 }
 
 void BundleDiskRep::recordStrictError(OSStatus error)

@@ -28,25 +28,28 @@
 #include <pal/spi/cf/CFNetworkSPI.h>
 #include <wtf/Function.h>
 #include <wtf/RetainPtr.h>
-#include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/WeakPtr.h>
 
 OBJC_CLASS NSHTTPCookieStorage;
 OBJC_CLASS WebCookieObserverAdapter;
 
 namespace WebCore {
 
-class CookieStorageObserver : public ThreadSafeRefCounted<CookieStorageObserver> {
+class WEBCORE_EXPORT CookieStorageObserver : public CanMakeWeakPtr<CookieStorageObserver> {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_NONCOPYABLE(CookieStorageObserver);
 public:
-    static Ref<CookieStorageObserver> create(NSHTTPCookieStorage *);
-    CookieStorageObserver(NSHTTPCookieStorage *);
+    explicit CookieStorageObserver(NSHTTPCookieStorage *);
     ~CookieStorageObserver();
 
-    void startObserving(WTF::Function<void()>&& callback);
+    void startObserving(Function<void()>&& callback);
     void stopObserving();
 
     void cookiesDidChange();
 
 private:
+
+    WeakPtr<CookieStorageObserver> m_weakThis;
     RetainPtr<NSHTTPCookieStorage> m_cookieStorage;
     bool m_hasRegisteredInternalsForNotifications { false };
     RetainPtr<WebCookieObserverAdapter> m_observerAdapter;

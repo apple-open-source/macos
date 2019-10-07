@@ -45,7 +45,9 @@
 .Nm RB_TREE_MIN ,
 .Nm RB_TREE_MAX ,
 .Nm RB_TREE_FOREACH ,
-.Nm RB_TREE_FOREACH_REVERSE
+.Nm RB_TREE_FOREACH_SAFE ,
+.Nm RB_TREE_FOREACH_REVERSE ,
+.Nm RB_TREE_FOREACH_REVERSE_SAFE
 .Nd red-black tree
 .Sh LIBRARY
 .Lb libc
@@ -72,7 +74,9 @@
 .Ft void *
 .Fn RB_TREE_MAX "rb_tree_t *rbt"
 .Fn RB_TREE_FOREACH "void *rb" "rb_tree_t *rbt"
+.Fn RB_TREE_FOREACH_SAFE "void *rb" "rb_tree_t *rbt" "void *tmp"
 .Fn RB_TREE_FOREACH_REVERSE "void *rb" "rb_tree_t *rbt"
+.Fn RB_TREE_FOREACH_REVERSE_SAFE "void *rb" "rb_tree_t *rbt" "void *tmp"
 .Sh DESCRIPTION
 .Nm
 provides red-black trees.
@@ -275,6 +279,13 @@ header preceding a statement to traverse the nodes in
 from least to greatest, assigning
 .Fa rb
 to each node in turn and executing the statement.
+.It Fn RB_TREE_FOREACH_SAFE "rb" "rbt" "tmp"
+.Nm RB_TREE_FOREACH_SAFE
+is a macro to be used like
+.Nm RB_TREE_FOREACH
+but which uses a temporary variable to permit safe modification or deletion of
+.Fa rb
+in the body of the loop.
 .It Fn RB_TREE_FOREACH_REVERSE "rb" "rbt"
 .Nm RB_TREE_FOREACH_REVERSE
 is a macro to be used in the place of a
@@ -284,6 +295,13 @@ header preceding a statement to traverse the nodes in
 from greatest to least, assigning
 .Fa rb
 to each node in turn and executing the statement.
+.It Fn RB_TREE_FOREACH_REVERSE_SAFE "rb" "rbt" "tmp"
+.Nm RB_TREE_FOREACH_REVERSE_SAFE
+is a macro to be used like
+.Nm RB_TREE_FOREACH_REVERSE
+but which uses a temporary variable to permit safe modification or deletion of
+.Fa rb
+in the body of the loop.
 .El
 .Sh SEE ALSO
 .Xr queue 3 ,

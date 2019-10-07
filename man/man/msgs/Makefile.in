@@ -3,7 +3,7 @@ all:	../src/makemsg gencat
 	@for i in mess.??; do ../src/makemsg -c $$i $$i.catin; \
 	cat $$i.codeset $$i.catin > $$i.catin2; \
 	echo "==== Making $$i.cat ====" ;\
-	./gencat $$i.cat $$i.catin2; done; \
+	LC_ALL=en_US.UTF-8 ./gencat $$i.cat $$i.catin2; done; \
 	rm -f core *.catin *.catin2
 
 install:

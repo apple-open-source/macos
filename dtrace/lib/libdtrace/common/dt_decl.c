@@ -538,9 +538,6 @@ dt_decl_member(dt_node_t *dnp)
 	if (ddp == NULL)
 		longjmp(yypcb->pcb_jmpbuf, EDT_NODECL);
 
-	if (dnp == NULL && ident == NULL)
-		xyerror(D_DECL_MNAME, "member declaration requires a name\n");
-
 	if (ddp->dd_kind == CTF_K_UNKNOWN && ddp->dd_name == NULL) {
 		ddp->dd_kind = CTF_K_INTEGER;
 		(void) dt_decl_check(ddp);
@@ -666,6 +663,7 @@ done:
 static int
 dt_decl_hasmembers(const char *name, int value, void *private)
 {
+#pragma unused(name, value, private)
 	return (1); /* abort search and return true if a member exists */
 }
 
@@ -782,7 +780,7 @@ dt_decl_enumerator(char *s, dt_node_t *dnp)
 			return;
 	}
 
-	dt_dprintf("add global enumerator %s = %d\n", name, value);
+	dt_dprintf("add global enumerator %s = %d", name, value);
 
 	idp = dt_idhash_insert(dtp->dt_globals, name, DT_IDENT_ENUM,
 	    DT_IDFLG_INLINE | DT_IDFLG_REF, 0, _dtrace_defattr, 0,

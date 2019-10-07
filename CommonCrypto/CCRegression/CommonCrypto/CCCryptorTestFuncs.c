@@ -12,7 +12,6 @@
 #include "testbyteBuffer.h"
 #include "testmore.h"
 #include "capabilities.h"
-#include "../../lib/ccMemory.h"
 #include <CommonCrypto/CommonCryptorSPI.h>
 
 CCCryptorStatus

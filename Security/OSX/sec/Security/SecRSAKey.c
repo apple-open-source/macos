@@ -44,7 +44,7 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCFError.h>
 #include <utilities/array_size.h>
-#include "SecItemPriv.h"
+#include <Security/SecItemPriv.h>
 #include <Security/SecInternal.h>
 
 #include <corecrypto/ccn.h>
@@ -245,6 +245,13 @@ static CFTypeRef SecRSAPublicKeyCopyOperationResult(SecKeyRef key, SecKeyOperati
     switch (operation) {
         case kSecKeyOperationTypeEncrypt:
             if (mode == kSecKeyOperationModePerform) {
+                // Input buffer length must be cc_unit aligned, otherwise it is not a valid cc_unit buffer.
+                CFIndex bufferSize = CFDataGetLength(in1);
+                require_action_quiet(bufferSize == ccn_sizeof_size(ccrsa_block_size(pubkey)), out,
+                                     (result = NULL,
+                                      SecError(errSecParam, error, CFSTR("%@: sign - input buffer bad size (%d bytes)"), key,
+                                               (int)bufferSize)));
+
                 // Verify that plaintext is smaller than modulus.  Note that since we already verified that input algorithm
                 // is kSecKeyAlgorithmRSAEncryptionRawCCUnit, we can safely access in1 CFDataRef contents as cc_unit *.
                 require_action_quiet(ccn_cmpn(ccn_nof_size(CFDataGetLength(in1)), (const cc_unit *)CFDataGetBytePtr(in1),
@@ -253,15 +260,22 @@ static CFTypeRef SecRSAPublicKeyCopyOperationResult(SecKeyRef key, SecKeyOperati
                                       SecError(errSecParam, error, CFSTR("RSApubkey wrong size of buffer to encrypt"))));
 
                 // Encrypt into output buffer.
-                result = CFDataCreateMutableWithScratch(NULL, ccrsa_block_size(pubkey));
+                result = CFDataCreateMutableWithScratch(NULL, bufferSize);
                 ccerr = ccrsa_pub_crypt(pubkey, (cc_unit *)CFDataGetMutableBytePtr((CFMutableDataRef)result),
                                         (const cc_unit *)CFDataGetBytePtr(in1));
             }
             break;
         case kSecKeyOperationTypeDecrypt:
             if (mode == kSecKeyOperationModePerform) {
+                // Input buffer length must be cc_unit aligned, otherwise it is not a valid cc_unit buffer.
+                CFIndex bufferSize = CFDataGetLength(in1);
+                require_action_quiet(bufferSize == ccn_sizeof_size(ccrsa_block_size(pubkey)), out,
+                                     (result = NULL,
+                                      SecError(errSecParam, error, CFSTR("%@: sign - input buffer bad size (%d bytes)"), key,
+                                               (int)bufferSize)));
+
                 // Decrypt into output buffer.
-                result = CFDataCreateMutableWithScratch(NULL, ccrsa_block_size(pubkey));
+                result = CFDataCreateMutableWithScratch(NULL, bufferSize);
                 ccerr = ccrsa_pub_crypt(pubkey, (cc_unit *)CFDataGetMutableBytePtr((CFMutableDataRef)result),
                                         (const cc_unit *)CFDataGetBytePtr(in1));
             }
@@ -528,6 +542,13 @@ static CFTypeRef SecRSAPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperat
         case kSecKeyOperationTypeSign:
             if (CFEqual(algorithm, kSecKeyAlgorithmRSASignatureRawCCUnit)) {
                 if (mode == kSecKeyOperationModePerform) {
+                    // Input buffer length must be cc_unit aligned, otherwise it is not a valid cc_unit buffer.
+                    CFIndex bufferSize = CFDataGetLength(in1);
+                    require_action_quiet(bufferSize == ccn_sizeof_size(ccrsa_block_size(ccrsa_ctx_public(fullkey))), out,
+                                         (result = NULL,
+                                          SecError(errSecParam, error, CFSTR("%@: sign - input buffer bad size (%d bytes)"), key,
+                                                   (int)bufferSize)));
+
                     // Verify that data is smaller than modulus.  Note that since we already verified that input algorithm
                     // is kSecKeyAlgorithmRSASignatureRawCCUnit, we can safely access in1 CFDataRef contents as cc_unit *.
                     require_action_quiet(ccn_cmpn(ccn_nof_size(CFDataGetLength(in1)), (const cc_unit *)CFDataGetBytePtr(in1),
@@ -537,7 +558,7 @@ static CFTypeRef SecRSAPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperat
                                                    (int)CFDataGetLength(in1))));
 
                     // Encrypt buffer and write it to output data.
-                    result = CFDataCreateMutableWithScratch(kCFAllocatorDefault, ccrsa_block_size(ccrsa_ctx_public(fullkey)));
+                    result = CFDataCreateMutableWithScratch(kCFAllocatorDefault, bufferSize);
                     ccerr = ccrsa_priv_crypt(fullkey, (cc_unit *)CFDataGetMutableBytePtr((CFMutableDataRef)result),
                                              (const cc_unit *)CFDataGetBytePtr(in1));
                 } else {
@@ -549,8 +570,15 @@ static CFTypeRef SecRSAPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperat
         case kSecKeyOperationTypeDecrypt:
             if (CFEqual(algorithm, kSecKeyAlgorithmRSAEncryptionRawCCUnit)) {
                 if (mode == kSecKeyOperationModePerform) {
+                    // Input buffer length must be cc_unit aligned, otherwise it is not a valid cc_unit buffer.
+                    CFIndex bufferSize = CFDataGetLength(in1);
+                    require_action_quiet(bufferSize == ccn_sizeof_size(ccrsa_block_size(ccrsa_ctx_public(fullkey))), out,
+                                         (result = NULL,
+                                          SecError(errSecParam, error, CFSTR("%@: sign - input buffer bad size (%d bytes)"), key,
+                                                   (int)bufferSize)));
+
                     // Decrypt buffer and write it to output data.
-                    result = CFDataCreateMutableWithScratch(NULL, ccrsa_block_size(ccrsa_ctx_public(fullkey)));
+                    result = CFDataCreateMutableWithScratch(NULL, bufferSize);
                     ccerr = ccrsa_priv_crypt(fullkey, (cc_unit *)CFDataGetMutableBytePtr((CFMutableDataRef)result),
                                              (const cc_unit *)CFDataGetBytePtr(in1));
                 } else {

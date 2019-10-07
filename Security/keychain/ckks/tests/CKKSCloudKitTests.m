@@ -85,16 +85,20 @@
 
     self.operationQueue = [NSOperationQueue new];
 
+    CKKSCloudKitClassDependencies* cloudKitClassDependencies = [[CKKSCloudKitClassDependencies alloc] initWithFetchRecordZoneChangesOperationClass:[CKFetchRecordZoneChangesOperation class]
+                                                                                                                        fetchRecordsOperationClass:[CKFetchRecordsOperation class]
+                                                                                                                               queryOperationClass:[CKQueryOperation class]
+                                                                                                                 modifySubscriptionsOperationClass:[CKModifySubscriptionsOperation class]
+                                                                                                                   modifyRecordZonesOperationClass:[CKModifyRecordZonesOperation class]
+                                                                                                                                apsConnectionClass:[APSConnection class]
+                                                                                                                         nsnotificationCenterClass:[NSNotificationCenter class]
+                                                                                                              nsdistributednotificationCenterClass:[NSDistributedNotificationCenter class]
+                                                                                                                                     notifierClass:[FakeCKKSNotifier class]];
+
     CKKSViewManager* manager = [[CKKSViewManager alloc] initWithContainerName:containerName
                                                                        usePCS:SecCKKSContainerUsePCS
-                                         fetchRecordZoneChangesOperationClass:[CKFetchRecordZoneChangesOperation class]
-                                                   fetchRecordsOperationClass:[CKFetchRecordsOperation class]
-                                                          queryOperationClass:[CKQueryOperation class]
-                                            modifySubscriptionsOperationClass:[CKModifySubscriptionsOperation class]
-                                              modifyRecordZonesOperationClass:[CKModifyRecordZonesOperation class]
-                                                           apsConnectionClass:[APSConnection class]
-                                                    nsnotificationCenterClass:[NSNotificationCenter class]
-                                                                notifierClass:[FakeCKKSNotifier class]];
+                                                                   sosAdapter:nil
+                                                    cloudKitClassDependencies:cloudKitClassDependencies];
     [CKKSViewManager resetManager:false setTo:manager];
 
     // Make a new fake keychain
@@ -184,6 +188,7 @@
     CKFetchRecordZoneChangesOperation *op = [[CKFetchRecordZoneChangesOperation alloc] initWithRecordZoneIDs:@[self.zoneID] configurationsByRecordZoneID:@{self.zoneID : options}];
     op.configuration.automaticallyRetryNetworkFailures = NO;
     op.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
+    op.configuration.isCloudKitSupportOperation = YES;
     op.configuration.container = self.container;
 
     __block NSMutableDictionary *data = [NSMutableDictionary new];
@@ -277,6 +282,7 @@
     CKModifyRecordsOperation *op = [[CKModifyRecordsOperation alloc] initWithRecordsToSave:records recordIDsToDelete:nil];
     op.configuration.automaticallyRetryNetworkFailures = NO;
     op.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
+    op.configuration.isCloudKitSupportOperation = YES;
     op.configuration.container = self.container;
     
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.SizeofDataTypes.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: sizeof returns the size in bytes of any D expression or data
  * type.

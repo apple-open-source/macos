@@ -22,8 +22,14 @@
  */
 
 #import "SecdWatchdog.h"
-#include <utilities/debugging.h>
+#include "utilities/debugging.h"
 #include <xpc/private.h>
+#import <xpc/private.h>
+#import <libproc.h>
+#import <os/log.h>
+#import <mach/mach_time.h>
+#import <mach/message.h>
+#import <os/assumes.h>
 
 #if !TARGET_OS_MAC
 #import <CrashReporterSupport/CrashReporterSupport.h>
@@ -34,6 +40,7 @@
 #define WATCHDOG_CHECK_PERIOD (60 * 60)
 #define WATCHDOG_CHECK_PERIOD_LEEWAY (60 * 10)
 #define WATCHDOG_GRACEFUL_EXIT_LEEWAY (60 * 5)
+#define WATCHDOG_DISKUSAGE_LIMIT (1000 * 1024 * 1024) // (1GiBi)
 
 NSString* const SecdWatchdogAllowedRuntime = @"allowed-runtime";
 NSString* const SecdWatchdogResetPeriod = @"reset-period";
@@ -46,16 +53,22 @@ void SecdLoadWatchDog()
 }
 
 @implementation SecdWatchdog {
-    long _rusageBaseline;
+    uint64_t _rusageBaseline;
     CFTimeInterval _lastCheckTime;
     dispatch_source_t _timer;
 
-    long _runtimeSecondsBeforeWatchdog;
+    uint64_t _runtimeSecondsBeforeWatchdog;
     long _resetPeriod;
     long _checkPeriod;
     long _checkPeriodLeeway;
     long _gracefulExitLeeway;
+    uint64_t _diskUsageBaseLine;
+    uint64_t _diskUsageLimit;
+
+    bool _diskUsageHigh;
 }
+
+@synthesize diskUsageHigh = _diskUsageHigh;
 
 + (instancetype)watchdog
 {
@@ -76,6 +89,8 @@ void SecdLoadWatchDog()
         _checkPeriod = WATCHDOG_CHECK_PERIOD;
         _checkPeriodLeeway = WATCHDOG_CHECK_PERIOD_LEEWAY;
         _gracefulExitLeeway = WATCHDOG_GRACEFUL_EXIT_LEEWAY;
+        _diskUsageLimit = WATCHDOG_DISKUSAGE_LIMIT;
+        _diskUsageHigh = false;
 
         [self activateTimer];
     }
@@ -83,12 +98,92 @@ void SecdLoadWatchDog()
     return self;
 }
 
+- (uint64_t)secondsFromMachTime:(uint64_t)machTime
+{
+    static dispatch_once_t once;
+    static uint64_t ratio;
+    dispatch_once(&once, ^{
+        mach_timebase_info_data_t tbi;
+        if (os_assumes_zero(mach_timebase_info(&tbi)) == KERN_SUCCESS) {
+            ratio = tbi.numer / tbi.denom;
+        } else {
+            ratio = 1;
+        }
+    });
+
+    return (machTime * ratio)/NSEC_PER_SEC;
+}
+
++ (bool)watchdogrusage:(rusage_info_current *)rusage
+{
+    if (proc_pid_rusage(getpid(), RUSAGE_INFO_CURRENT, (rusage_info_t *)rusage) != 0) {
+        return false;
+    }
+    return true;
+}
+
++ (bool)triggerOSFaults
+{
+    return true;
+}
+
+- (void)runWatchdog
+{
+    rusage_info_current currentRusage;
+
+    if (![[self class] watchdogrusage:&currentRusage]) {
+        return;
+    }
+
+    @synchronized (self) {
+        uint64_t spentUserTime = [self secondsFromMachTime:currentRusage.ri_user_time];
+        if (spentUserTime > _rusageBaseline + _runtimeSecondsBeforeWatchdog) {
+            seccritical("SecWatchdog: watchdog has detected securityd/secd is using too much CPU - attempting to exit gracefully");
+#if !TARGET_OS_MAC
+            WriteStackshotReport(@"securityd watchdog triggered", __sec_exception_code_Watchdog);
+#endif
+            xpc_transaction_exit_clean(); // we've  used too much CPU - try to exit gracefully
+
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(_gracefulExitLeeway * NSEC_PER_SEC)), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+                // if we still haven't exited gracefully after 5 minutes, time to die unceremoniously
+                seccritical("SecWatchdog: watchdog has failed to exit securityd/secd gracefully - exiting ungracefully");
+                exit(EXIT_FAILURE);
+            });
+
+            return;
+        }
+
+        if (_diskUsageHigh == false &&
+            (currentRusage.ri_logical_writes > _diskUsageBaseLine + _diskUsageLimit))
+        {
+            if ([[self class] triggerOSFaults]) {
+                os_log_fault(OS_LOG_DEFAULT, "securityd have written more then %llu",
+                             (unsigned long long)_diskUsageLimit);
+            }
+            _diskUsageHigh = true;
+        }
+
+        CFTimeInterval currentTime = CFAbsoluteTimeGetCurrent();
+        if (currentTime > _lastCheckTime + _resetPeriod) {
+            // we made it through a 24 hour period - reset our timeout to 24 hours from now, and our cpu usage threshold to another 20 minutes
+            secinfo("SecWatchdog", "resetting watchdog monitoring interval ahead another 24 hours");
+            _lastCheckTime = currentTime;
+            _rusageBaseline = spentUserTime;
+            _diskUsageHigh = false;
+            _diskUsageBaseLine = currentRusage.ri_logical_writes;
+        }
+    }
+
+}
+
 - (void)activateTimer
 {
     @synchronized (self) {
-        struct rusage initialRusage;
-        getrusage(RUSAGE_SELF, &initialRusage);
-        _rusageBaseline = initialRusage.ru_utime.tv_sec;
+
+        rusage_info_current initialRusage;
+        [[self class] watchdogrusage:&initialRusage];
+
+        _rusageBaseline = [self secondsFromMachTime:initialRusage.ri_user_time];
         _lastCheckTime = CFAbsoluteTimeGetCurrent();
 
         __weak __typeof(self) weakSelf = self;
@@ -99,34 +194,7 @@ void SecdLoadWatchDog()
             if (!strongSelf) {
                 return;
             }
-
-            struct rusage currentRusage;
-            getrusage(RUSAGE_SELF, &currentRusage);
-
-            @synchronized (self) {
-                if (currentRusage.ru_utime.tv_sec > strongSelf->_rusageBaseline + strongSelf->_runtimeSecondsBeforeWatchdog) {
-                    seccritical("SecWatchdog: watchdog has detected securityd/secd is using too much CPU - attempting to exit gracefully");
-#if !TARGET_OS_MAC
-                    WriteStackshotReport(@"securityd watchdog triggered", __sec_exception_code_Watchdog);
-#endif
-                    xpc_transaction_exit_clean(); // we've  used too much CPU - try to exit gracefully
-
-                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(strongSelf->_gracefulExitLeeway * NSEC_PER_SEC)), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-                        // if we still haven't exited gracefully after 5 minutes, time to die unceremoniously
-                        seccritical("SecWatchdog: watchdog has failed to exit securityd/secd gracefully - exiting ungracefully");
-                        exit(EXIT_FAILURE);
-                    });
-                }
-                else {
-                    CFTimeInterval currentTime = CFAbsoluteTimeGetCurrent();
-                    if (currentTime > strongSelf->_lastCheckTime + strongSelf->_resetPeriod) {
-                        // we made it through a 24 hour period - reset our timeout to 24 hours from now, and our cpu usage threshold to another 20 minutes
-                        secinfo("SecWatchdog", "resetting watchdog monitoring interval ahead another 24 hours");
-                        strongSelf->_lastCheckTime = currentTime;
-                        strongSelf->_rusageBaseline = currentRusage.ru_utime.tv_sec;
-                    }
-                }
-            }
+            [strongSelf runWatchdog];
         });
         dispatch_resume(_timer);
     }

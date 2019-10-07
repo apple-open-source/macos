@@ -26,7 +26,8 @@
 #include "config.h"
 #include "WebCookieManager.h"
 
-#include "ChildProcess.h"
+#include "NetworkProcess.h"
+#include "SoupCookiePersistentStorageType.h"
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/SoupNetworkSession.h>
 #include <libsoup/soup.h>
@@ -40,54 +41,58 @@ void WebCookieManager::platformSetHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy 
 {
     SoupCookieJarAcceptPolicy soupPolicy = SOUP_COOKIE_JAR_ACCEPT_NO_THIRD_PARTY;
     switch (policy) {
-    case HTTPCookieAcceptPolicyAlways:
+    case HTTPCookieAcceptPolicy::AlwaysAccept:
         soupPolicy = SOUP_COOKIE_JAR_ACCEPT_ALWAYS;
         break;
-    case HTTPCookieAcceptPolicyNever:
+    case HTTPCookieAcceptPolicy::Never:
         soupPolicy = SOUP_COOKIE_JAR_ACCEPT_NEVER;
         break;
-    case HTTPCookieAcceptPolicyOnlyFromMainDocumentDomain:
+    case HTTPCookieAcceptPolicy::OnlyFromMainDocumentDomain:
         soupPolicy = SOUP_COOKIE_JAR_ACCEPT_NO_THIRD_PARTY;
+        break;
+    case HTTPCookieAcceptPolicy::ExclusivelyFromMainDocumentDomain:
+        ASSERT_NOT_REACHED();
         break;
     }
 
-    NetworkStorageSession::forEach([soupPolicy] (const NetworkStorageSession& session) {
+    m_process.forEachNetworkStorageSession([soupPolicy] (const auto& session) {
         soup_cookie_jar_set_accept_policy(session.cookieStorage(), soupPolicy);
     });
 }
 
 HTTPCookieAcceptPolicy WebCookieManager::platformGetHTTPCookieAcceptPolicy()
 {
-    switch (soup_cookie_jar_get_accept_policy(NetworkStorageSession::defaultStorageSession().cookieStorage())) {
+    switch (soup_cookie_jar_get_accept_policy(m_process.defaultStorageSession().cookieStorage())) {
     case SOUP_COOKIE_JAR_ACCEPT_ALWAYS:
-        return HTTPCookieAcceptPolicyAlways;
+        return HTTPCookieAcceptPolicy::AlwaysAccept;
     case SOUP_COOKIE_JAR_ACCEPT_NEVER:
-        return HTTPCookieAcceptPolicyNever;
+        return HTTPCookieAcceptPolicy::Never;
     case SOUP_COOKIE_JAR_ACCEPT_NO_THIRD_PARTY:
-        return HTTPCookieAcceptPolicyOnlyFromMainDocumentDomain;
+        return HTTPCookieAcceptPolicy::OnlyFromMainDocumentDomain;
     }
 
     ASSERT_NOT_REACHED();
-    return HTTPCookieAcceptPolicyOnlyFromMainDocumentDomain;
+    return HTTPCookieAcceptPolicy::OnlyFromMainDocumentDomain;
 }
 
-void WebCookieManager::setCookiePersistentStorage(const String& storagePath, uint32_t storageType)
+void WebCookieManager::setCookiePersistentStorage(PAL::SessionID sessionID, const String& storagePath, SoupCookiePersistentStorageType storageType)
 {
     GRefPtr<SoupCookieJar> jar;
     switch (storageType) {
-    case SoupCookiePersistentStorageText:
+    case SoupCookiePersistentStorageType::Text:
         jar = adoptGRef(soup_cookie_jar_text_new(storagePath.utf8().data(), FALSE));
         break;
-    case SoupCookiePersistentStorageSQLite:
+    case SoupCookiePersistentStorageType::SQLite:
         jar = adoptGRef(soup_cookie_jar_db_new(storagePath.utf8().data(), FALSE));
         break;
     default:
         ASSERT_NOT_REACHED();
     }
 
-    auto& storageSession = NetworkStorageSession::defaultStorageSession();
-    soup_cookie_jar_set_accept_policy(jar.get(), soup_cookie_jar_get_accept_policy(storageSession.cookieStorage()));
-    storageSession.setCookieStorage(jar.get());
+    if (auto* storageSession = m_process.storageSession(sessionID)) {
+        soup_cookie_jar_set_accept_policy(jar.get(), soup_cookie_jar_get_accept_policy(storageSession->cookieStorage()));
+        storageSession->setCookieStorage(jar.get());
+    }
 }
 
 } // namespace WebKit

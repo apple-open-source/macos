@@ -65,16 +65,15 @@ class ScrollView : public Widget, public ScrollableArea {
 public:
     virtual ~ScrollView();
 
+    using WeakValueType = Widget::WeakValueType;
+    using Widget::weakPtrFactory;
+
     // ScrollableArea functions.
-    int scrollSize(ScrollbarOrientation) const final;
-    int scrollOffset(ScrollbarOrientation) const final;
     WEBCORE_EXPORT void setScrollOffset(const ScrollOffset&) final;
     bool isScrollCornerVisible() const final;
     void scrollbarStyleChanged(ScrollbarStyle, bool forceUpdate) override;
 
     virtual void notifyPageThatContentAreaWillPaint() const;
-
-    using Widget::weakPtrFactory;
 
     IntPoint locationOfContents() const;
 
@@ -110,8 +109,8 @@ public:
     void setHorizontalScrollbarMode(ScrollbarMode mode, bool lock = false) { setScrollbarModes(mode, verticalScrollbarMode(), lock, verticalScrollbarLock()); }
     void setVerticalScrollbarMode(ScrollbarMode mode, bool lock = false) { setScrollbarModes(horizontalScrollbarMode(), mode, horizontalScrollbarLock(), lock); };
     WEBCORE_EXPORT void scrollbarModes(ScrollbarMode& horizontalMode, ScrollbarMode& verticalMode) const;
-    ScrollbarMode horizontalScrollbarMode() const { ScrollbarMode horizontal, vertical; scrollbarModes(horizontal, vertical); return horizontal; }
-    ScrollbarMode verticalScrollbarMode() const { ScrollbarMode horizontal, vertical; scrollbarModes(horizontal, vertical); return vertical; }
+    ScrollbarMode horizontalScrollbarMode() const final { ScrollbarMode horizontal, vertical; scrollbarModes(horizontal, vertical); return horizontal; }
+    ScrollbarMode verticalScrollbarMode() const final { ScrollbarMode horizontal, vertical; scrollbarModes(horizontal, vertical); return vertical; }
 
     void setHorizontalScrollbarLock(bool lock = true) { m_horizontalScrollbarLock = lock; }
     bool horizontalScrollbarLock() const { return m_horizontalScrollbarLock; }
@@ -196,8 +195,6 @@ public:
     LegacyTileCache* legacyTileCache();
 #endif
 
-    virtual bool inProgrammaticScroll() const { return false; }
-
     // Size available for view contents, including content inset areas. Not affected by zooming.
     IntSize sizeForVisibleContent(VisibleContentRectIncludesScrollbars = ExcludeScrollbars) const;
     // FIXME: remove this. It's only used for the incorrectly behaving ScrollView::unobscuredContentRectInternal().
@@ -232,7 +229,7 @@ public:
     int scrollY() const { return scrollPosition().y(); }
 
     // Scroll position used by web-exposed features (has legacy iOS behavior).
-    IntPoint contentsScrollPosition() const;
+    WEBCORE_EXPORT IntPoint contentsScrollPosition() const;
     void setContentsScrollPosition(const IntPoint&);
 
 #if PLATFORM(IOS_FAMILY)
@@ -281,12 +278,17 @@ public:
 
     WEBCORE_EXPORT IntPoint rootViewToContents(const IntPoint&) const;
     WEBCORE_EXPORT IntPoint contentsToRootView(const IntPoint&) const;
+    WEBCORE_EXPORT FloatPoint contentsToRootView(const FloatPoint&) const;
     WEBCORE_EXPORT IntRect rootViewToContents(const IntRect&) const;
     WEBCORE_EXPORT IntRect contentsToRootView(const IntRect&) const;
     WEBCORE_EXPORT FloatRect rootViewToContents(const FloatRect&) const;
+    WEBCORE_EXPORT FloatRect contentsToRootView(const FloatRect&) const;
 
     IntPoint viewToContents(const IntPoint&) const;
     IntPoint contentsToView(const IntPoint&) const;
+
+    FloatPoint viewToContents(const FloatPoint&) const;
+    FloatPoint contentsToView(const FloatPoint&) const;
 
     IntRect viewToContents(IntRect) const;
     IntRect contentsToView(IntRect) const;
@@ -378,6 +380,8 @@ public:
     void setAllowsUnclampedScrollPositionForTesting(bool allowsUnclampedScrollPosition) { m_allowsUnclampedScrollPosition = allowsUnclampedScrollPosition; }
     bool allowsUnclampedScrollPosition() const { return m_allowsUnclampedScrollPosition; }
 
+    bool managesScrollbars() const;
+
 protected:
     ScrollView();
 
@@ -425,6 +429,14 @@ protected:
     virtual void unobscuredContentSizeChanged() = 0;
 #endif
 
+#if PLATFORM(COCOA) && defined __OBJC__
+public:
+    WEBCORE_EXPORT NSView* documentView() const;
+
+private:
+    NSScrollView<WebCoreFrameScrollView>* scrollView() const;
+#endif
+
 private:
     // Size available for view contents, excluding content insets. Not affected by zooming.
     IntSize sizeForUnobscuredContent(VisibleContentRectIncludesScrollbars = ExcludeScrollbars) const;
@@ -437,54 +449,6 @@ private:
     bool setHasScrollbarInternal(RefPtr<Scrollbar>&, ScrollbarOrientation, bool hasBar, bool* contentSizeAffected);
 
     bool isScrollView() const final { return true; }
-
-    HashSet<Ref<Widget>> m_children;
-
-    RefPtr<Scrollbar> m_horizontalScrollbar;
-    RefPtr<Scrollbar> m_verticalScrollbar;
-    ScrollbarMode m_horizontalScrollbarMode { ScrollbarAuto };
-    ScrollbarMode m_verticalScrollbarMode { ScrollbarAuto };
-
-#if PLATFORM(IOS_FAMILY)
-    // FIXME: exposedContentRect is a very similar concept to fixedVisibleContentRect except it does not differentiate
-    // between exposed and unobscured areas. The two attributes should eventually be merged.
-    FloatRect m_exposedContentRect;
-    FloatSize m_unobscuredContentSize;
-    // This is only used for history scroll position restoration.
-#else
-    IntRect m_fixedVisibleContentRect;
-#endif
-    ScrollPosition m_scrollPosition;
-    IntPoint m_cachedScrollPosition;
-    IntSize m_fixedLayoutSize;
-    IntSize m_contentsSize;
-
-    Optional<IntSize> m_deferredScrollDelta; // Needed for WebKit scrolling
-    Optional<std::pair<ScrollOffset, ScrollOffset>> m_deferredScrollOffsets; // Needed for platform widget scrolling
-
-    IntPoint m_panScrollIconPoint;
-
-    bool m_horizontalScrollbarLock { false };
-    bool m_verticalScrollbarLock { false };
-
-    bool m_prohibitsScrolling { false };
-    bool m_allowsUnclampedScrollPosition { false };
-
-    // This bool is unused on Mac OS because we directly ask the platform widget
-    // whether it is safe to blit on scroll.
-    bool m_canBlitOnScroll { true };
-
-    bool m_scrollbarsSuppressed { false };
-
-    bool m_inUpdateScrollbars { false };
-    unsigned m_updateScrollbarsPass { 0 };
-
-    bool m_drawPanScrollIcon { false };
-    bool m_useFixedLayout { false };
-
-    bool m_paintsEntireContents { false };
-    bool m_delegatesScrolling { false };
-
 
     void init();
     void destroy();
@@ -514,19 +478,57 @@ private:
     void platformRepaintContentRectangle(const IntRect&);
     bool platformIsOffscreen() const;
     void platformSetScrollbarOverlayStyle(ScrollbarOverlayStyle);
-   
     void platformSetScrollOrigin(const IntPoint&, bool updatePositionAtAll, bool updatePositionSynchronously);
 
     void calculateOverhangAreasForPainting(IntRect& horizontalOverhangRect, IntRect& verticalOverhangRect);
     void updateOverhangAreas();
 
-#if PLATFORM(COCOA) && defined __OBJC__
-public:
-    WEBCORE_EXPORT NSView* documentView() const;
+    HashSet<Ref<Widget>> m_children;
 
-private:
-    NSScrollView<WebCoreFrameScrollView>* scrollView() const;
+    RefPtr<Scrollbar> m_horizontalScrollbar;
+    RefPtr<Scrollbar> m_verticalScrollbar;
+    ScrollbarMode m_horizontalScrollbarMode { ScrollbarAuto };
+    ScrollbarMode m_verticalScrollbarMode { ScrollbarAuto };
+
+#if PLATFORM(IOS_FAMILY)
+    // FIXME: exposedContentRect is a very similar concept to fixedVisibleContentRect except it does not differentiate
+    // between exposed and unobscured areas. The two attributes should eventually be merged.
+    FloatRect m_exposedContentRect;
+    FloatSize m_unobscuredContentSize;
+    // This is only used for history scroll position restoration.
+#else
+    IntRect m_fixedVisibleContentRect;
 #endif
+    ScrollPosition m_scrollPosition;
+    IntPoint m_cachedScrollPosition;
+    IntSize m_fixedLayoutSize;
+    IntSize m_contentsSize;
+
+    Optional<IntSize> m_deferredScrollDelta; // Needed for WebKit scrolling
+    Optional<std::pair<ScrollOffset, ScrollOffset>> m_deferredScrollOffsets; // Needed for platform widget scrolling
+
+    IntPoint m_panScrollIconPoint;
+
+    unsigned m_updateScrollbarsPass { 0 };
+
+    bool m_horizontalScrollbarLock { false };
+    bool m_verticalScrollbarLock { false };
+
+    bool m_prohibitsScrolling { false };
+    bool m_allowsUnclampedScrollPosition { false };
+
+    // This bool is unused on Mac OS because we directly ask the platform widget
+    // whether it is safe to blit on scroll.
+    bool m_canBlitOnScroll { true };
+
+    bool m_scrollbarsSuppressed { false };
+    bool m_inUpdateScrollbars { false };
+
+    bool m_drawPanScrollIcon { false };
+    bool m_useFixedLayout { false };
+
+    bool m_paintsEntireContents { false };
+    bool m_delegatesScrolling { false };
 }; // class ScrollView
 
 } // namespace WebCore

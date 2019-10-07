@@ -42,6 +42,7 @@ typedef enum {
     @constant kIOHIDResourceDeviceUserClientMethodTerminate Closes the device and releases memory.
     @constant kIOHIDResourceDeviceUserClientMethodHandleReport Sends a report.
     @constant kIOHIDResourceDeviceUserClientMethodPostReportResult Posts a report requested via GetReport and SetReport
+    @constant kIOHIDResourceDeviceUserClientMethodRegisterService calls registerService on the IOHIDUserDevice.
     @constant kIOHIDResourceDeviceUserClientMethodCount
 */
 typedef enum {
@@ -49,6 +50,7 @@ typedef enum {
     kIOHIDResourceDeviceUserClientMethodTerminate,
     kIOHIDResourceDeviceUserClientMethodHandleReport,
     kIOHIDResourceDeviceUserClientMethodPostReportResponse,
+    kIOHIDResourceDeviceUserClientMethodRegisterService,
     kIOHIDResourceDeviceUserClientMethodCount
 } IOHIDResourceDeviceUserClientExternalMethods;
 
@@ -110,12 +112,12 @@ protected:
 public:
     static IOHIDResourceQueue *withCapacity(UInt32 capacity);
     static IOHIDResourceQueue *withCapacity(IOService *owner, UInt32 size);
-    virtual void free();
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
     
     virtual Boolean enqueueReport(IOHIDResourceDataQueueHeader * header, IOMemoryDescriptor * report = NULL);
 
-    virtual IOMemoryDescriptor *getMemoryDescriptor();
-    virtual void setNotificationPort(mach_port_t port);
+    virtual IOMemoryDescriptor *getMemoryDescriptor(void) APPLE_KEXT_OVERRIDE;
+    virtual void setNotificationPort(mach_port_t port) APPLE_KEXT_OVERRIDE;
     
     virtual bool serialize(OSSerialize * serializer) const APPLE_KEXT_OVERRIDE;
 };
@@ -136,6 +138,7 @@ private:
     OSSet *                 _pending;
     uint32_t                _maxClientTimeoutUS;
     u_int64_t               _tokenIndex;
+    bool                    _suspended;
     
     UInt32                  _setReportCount;
     UInt32                  _setReportDroppedCount;
@@ -147,6 +150,7 @@ private:
     UInt32                  _getReportTimeoutCount;
     UInt32                  _enqueueFailCount;
     UInt32                  _handleReportCount;
+    bool                    _privileged;
 
     static const IOExternalMethodDispatch _methods[kIOHIDResourceDeviceUserClientMethodCount];
 
@@ -154,6 +158,7 @@ private:
     static IOReturn _terminateDevice(IOHIDResourceDeviceUserClient *target, void *reference, IOExternalMethodArguments *arguments);
     static IOReturn _handleReport(IOHIDResourceDeviceUserClient *target,  void *reference, IOExternalMethodArguments *arguments);
     static IOReturn _postReportResult(IOHIDResourceDeviceUserClient *target,  void *reference, IOExternalMethodArguments *arguments);
+    static IOReturn _registerService(IOHIDResourceDeviceUserClient *target,  void *reference, IOExternalMethodArguments *arguments);
 
 
     void createAndStartDeviceAsyncCallback();
@@ -190,6 +195,8 @@ private:
     IOMemoryDescriptor * createMemoryDescriptorFromInputArguments(IOExternalMethodArguments * arguments);
 
     void ReportComplete(void *param, IOReturn res, UInt32 remaining);
+    
+    IOReturn setPropertiesGated(OSObject *properties);
     bool serializeDebugState(void *ref, OSSerialize *serializer);
 
 public:
@@ -197,21 +204,21 @@ public:
         @abstract 
         @discussion 
     */
-    virtual bool initWithTask(task_t owningTask, void * security_id, UInt32 type);
+    virtual bool initWithTask(task_t owningTask, void * security_id, UInt32 type) APPLE_KEXT_OVERRIDE;
 
 
     /*! @function clientClose
         @abstract 
         @discussion 
     */
-    virtual IOReturn clientClose(void);
+    virtual IOReturn clientClose(void) APPLE_KEXT_OVERRIDE;
 
 
     /*! @function getService
         @abstract 
         @discussion 
     */
-    virtual IOService * getService(void);
+    virtual IOService * getService(void) APPLE_KEXT_OVERRIDE;
 
 
     /*! @function externalMethod
@@ -220,26 +227,28 @@ public:
     */
     virtual IOReturn externalMethod(uint32_t selector, IOExternalMethodArguments *arguments,
                                IOExternalMethodDispatch *dispatch, OSObject *target, 
-                               void *reference);
+                               void *reference) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn clientMemoryForType(UInt32 type, IOOptionBits * options, IOMemoryDescriptor ** memory );
+    virtual IOReturn clientMemoryForType(UInt32 type, IOOptionBits * options, IOMemoryDescriptor ** memory ) APPLE_KEXT_OVERRIDE;
 
 
     /*! @function start
         @abstract 
         @discussion 
     */
-    virtual bool start(IOService * provider);
+    virtual bool start(IOService * provider) APPLE_KEXT_OVERRIDE;
     
-    virtual void stop(IOService * provider);
+    virtual void stop(IOService * provider) APPLE_KEXT_OVERRIDE;
 
-    virtual void free();
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, io_user_reference_t refCon);
+    virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, io_user_reference_t refCon) APPLE_KEXT_OVERRIDE;
     
     virtual IOReturn getReport(IOMemoryDescriptor *report, IOHIDReportType reportType, IOOptionBits options);
 
     virtual IOReturn setReport(IOMemoryDescriptor *report, IOHIDReportType reportType, IOOptionBits options);
+    
+    virtual IOReturn setProperties(OSObject *properties) APPLE_KEXT_OVERRIDE;
 
 };
 

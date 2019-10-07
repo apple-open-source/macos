@@ -41,7 +41,7 @@
 
 - (instancetype) initWithCKRecord: (CKRecord*) record {
     if(self = [super init]) {
-        self.zoneID = record.recordID.zoneID;
+        _zoneID = record.recordID.zoneID;
         [self setFromCKRecord:record];
     }
     return self;

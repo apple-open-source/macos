@@ -18,6 +18,7 @@
 #include <Security/SecItem.h>
 #include <Security/SecRandom.h>
 
+#include <utilities/SecCFRelease.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -32,6 +33,12 @@
 #include "ssl-utils.h"
 #import "STLegacyTests.h"
 
+#define serverSelectedProtocol "baz"
+#define serverAdvertisedProtocols "\x03""baz"
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 @implementation STLegacyTests (sni)
 
 typedef struct {
@@ -45,7 +52,7 @@ typedef struct {
 #pragma mark -
 #pragma mark SecureTransport support
 
-#if 0
+#if SECTRANS_VERBOSE_DEBUG
 static void hexdump(const uint8_t *bytes, size_t len) {
     size_t ix;
     printf("socket write(%p, %lu)\n", bytes, len);
@@ -120,8 +127,6 @@ static void *securetransport_server_thread(void *arg)
         ortn = SSLHandshake(ctx);
     } while (ortn == errSSLWouldBlock);
 
-    ok(ortn==errSSLClientHelloReceived, "Unexpected Handshake exit code");
-
     if (ortn == errSSLClientHelloReceived) {
         char *sni = NULL;
         size_t length = 0;
@@ -134,20 +139,35 @@ static void *securetransport_server_thread(void *arg)
         SSLProtocol version = 0;
         require_noerr(SSLGetProtocolVersionMax(ctx, &version), out);
         if (version == kSSLProtocol3) {
-            ok(sni==NULL, "Unexpected SNI");
+            require_string(sni == NULL, out, "Unexpected SNI");
         } else {
-            ok(sni!=NULL &&
+            require_string(sni != NULL &&
                length == sizeof(peername) &&
-               (memcmp(sni, peername, sizeof(peername))==0),
+               (memcmp(sni, peername, sizeof(peername))==0), out,
                "SNI does not match");
         }
         require_noerr(SSLSetCertificate(ctx, server_certs), out);
         free(sni);
+
+        tls_buffer alpnData;
+        alpnData.length = strlen(serverSelectedProtocol);
+        alpnData.data = malloc(alpnData.length);
+        memcpy(alpnData.data, serverSelectedProtocol, alpnData.length);
+        require_noerr_string(SSLSetALPNData(ctx, alpnData.data, alpnData.length), out, "Error setting alpn data");
+        free(alpnData.data);
+
+        tls_buffer npnData;
+        npnData.length = strlen(serverAdvertisedProtocols);
+        npnData.data = malloc(npnData.length);
+        memcpy(npnData.data, serverAdvertisedProtocols, npnData.length);
+        require_noerr_string(SSLSetNPNData(ctx, npnData.data, npnData.length), out, "Error setting npn data");
+        free(npnData.data);
+
     }
 
 out:
     SSLClose(ctx);
-    SSLDisposeContext(ctx);
+    CFReleaseNull(ctx);
     close(ssl->comm);
     CFReleaseSafe(server_certs);
 
@@ -165,8 +185,23 @@ static void *securetransport_client_thread(void *arg)
         ortn = SSLHandshake(ctx);
     } while (ortn == errSSLWouldBlock || ortn != errSSLClosedGraceful);
 
+    size_t length = 0;
+    uint8_t *alpnData = NULL;
+    alpnData = (uint8_t*)SSLGetALPNData(ctx, &length);
+    if (alpnData != NULL) {
+        require_noerr(memcmp(alpnData, serverSelectedProtocol, strlen(serverSelectedProtocol)), out);
+    }
+
+    length = 0;
+    uint8_t *npnData = NULL;
+    npnData = (uint8_t*)SSLGetNPNData(ctx, &length);
+    if (npnData != NULL) {
+        require_noerr_string(memcmp(npnData, serverAdvertisedProtocols, strlen(serverAdvertisedProtocols)),
+                             out, "npn Data received does not match");
+    }
+out:
     SSLClose(ctx);
-    SSLDisposeContext(ctx);
+    CFReleaseNull(ctx);
     close(ssl->comm);
 
     pthread_exit((void *)(intptr_t)ortn);
@@ -197,10 +232,6 @@ ssl_test_handle_create(uint32_t session_id, bool server, int comm)
         require_noerr(SSLSetSessionOption(ctx,
                                           kSSLSessionOptionBreakOnServerAuth, true), out);
 
-    /* Tell SecureTransport to not check certs itself: it will break out of the
-     handshake to let us take care of it instead. */
-    require_noerr(SSLSetEnableCertVerify(ctx, false), out);
-
     handle->handle = ctx;
     handle->is_server = server;
     handle->session_id = session_id;
@@ -227,7 +258,7 @@ static int nversions = sizeof(versions)/sizeof(versions[0]);
     int j;
     pthread_t client_thread, server_thread;
 
-    for(j=0; j<nversions; j++)
+    for(j = 0; j < nversions; j++)
     {
         int sp[2];
         if (socketpair(AF_UNIX, SOCK_STREAM, 0, sp)) exit(errno);
@@ -238,17 +269,20 @@ static int nversions = sizeof(versions)/sizeof(versions[0]);
         server = ssl_test_handle_create(session_id, true /*server*/, sp[0]);
         client = ssl_test_handle_create(session_id, false/*client*/, sp[1]);
 
-        require_noerr(SSLSetPeerID(server->handle, &session_id, sizeof(session_id)), out);
-        require_noerr(SSLSetPeerID(client->handle, &session_id, sizeof(session_id)), out);
+        XCTAssertEqual(errSecSuccess, SSLSetPeerID(server->handle, &session_id, sizeof(session_id)));
+        XCTAssertEqual(errSecSuccess, SSLSetPeerID(client->handle, &session_id, sizeof(session_id)));
+        const void *inputPeerId = NULL;
+        size_t inputPeerIdLen;
+        XCTAssertEqual(errSecSuccess, SSLGetPeerID(client->handle, &inputPeerId, &inputPeerIdLen));
 
         /* set fixed cipher on client and server */
-        require_noerr(SSLSetEnabledCiphers(client->handle, &ciphers[0], 1), out);
-        require_noerr(SSLSetEnabledCiphers(server->handle, &ciphers[0], 1), out);
+        XCTAssertEqual(errSecSuccess, SSLSetEnabledCiphers(client->handle, &ciphers[0], 1));
+        XCTAssertEqual(errSecSuccess, SSLSetEnabledCiphers(server->handle, &ciphers[0], 1));
 
-        require_noerr(SSLSetProtocolVersionMax(client->handle, versions[j]), out);
-        require_noerr(SSLSetPeerDomainName(client->handle, peername, sizeof(peername)), out);
+        XCTAssertEqual(errSecSuccess, SSLSetProtocolVersionMax(client->handle, versions[j]));
+        XCTAssertEqual(errSecSuccess, SSLSetPeerDomainName(client->handle, peername, sizeof(peername)));
 
-        require_noerr(SSLSetProtocolVersionMax(server->handle, versions[j]), out);
+        XCTAssertEqual(errSecSuccess, SSLSetProtocolVersionMax(server->handle, versions[j]));
 
         pthread_create(&client_thread, NULL, securetransport_client_thread, client);
         pthread_create(&server_thread, NULL, securetransport_server_thread, server);
@@ -257,7 +291,6 @@ static int nversions = sizeof(versions)/sizeof(versions[0]);
         pthread_join(client_thread, (void*)&client_err);
         pthread_join(server_thread, (void*)&server_err);
 
-    out:
         free(client);
         free(server);
 
@@ -265,3 +298,5 @@ static int nversions = sizeof(versions)/sizeof(versions[0]);
 }
 
 @end
+
+#pragma clang diagnostic pop

@@ -36,18 +36,18 @@ class MockGStreamerVideoCaptureSource final : public GStreamerVideoCaptureSource
 public:
     MockGStreamerVideoCaptureSource(String&& deviceID, String&& name, String&& hashSalt);
     ~MockGStreamerVideoCaptureSource();
-    Optional<std::pair<String, String>> applyConstraints(const MediaConstraints&);
-    void applyConstraints(const MediaConstraints&, SuccessHandler&&, FailureHandler&&) final;
+    Optional<ApplyConstraintsError> applyConstraints(const MediaConstraints&);
+    void applyConstraints(const MediaConstraints&, ApplyConstraintsHandler&&) final;
 
 private:
     void stopProducingData() final;
     void startProducingData() final;
     const RealtimeMediaSourceSettings& settings() final;
-    std::unique_ptr<RealtimeMediaSource> m_wrappedSource;
     const RealtimeMediaSourceCapabilities& capabilities() final;
-    void captureFailed() override;
+    void captureFailed() final;
+    void videoSampleAvailable(MediaSample&) final;
 
-    void videoSampleAvailable(MediaSample&) override;
+    Ref<WrappedMockRealtimeVideoSource> m_wrappedSource;
 };
 
 } // namespace WebCore

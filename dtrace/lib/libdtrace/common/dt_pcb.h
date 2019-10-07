@@ -46,6 +46,7 @@ typedef struct dt_pcb {
 	dtrace_hdl_t *pcb_hdl;	/* pointer to library handle */
 	struct dt_pcb *pcb_prev; /* pointer to previous pcb in stack */
 	FILE *pcb_fileptr;	/* pointer to input file (or NULL) */
+	char *pcb_filebuf;
 	char *pcb_filetag;	/* optional file name string (or NULL) */
 	const char *pcb_string;	/* pointer to input string (or NULL) */
 	const char *pcb_strptr;	/* pointer to input position */

@@ -112,7 +112,7 @@ WEBCORE_EXPORT void appendLinkedFonts(WCHAR* linkedFonts, unsigned length, Vecto
         unsigned j = i;
         while (j < length && linkedFonts[j])
             j++;
-        result->append(wcharToString(linkedFonts + i, j - i));
+        result->append(String(linkedFonts + i, j - i));
         i = j + 1;
     }
 }
@@ -131,14 +131,14 @@ static const Vector<String>* getLinkedFonts(String& family)
         return result;
 
     DWORD linkedFontsBufferSize = 0;
-    if (::RegQueryValueEx(fontLinkKey, stringToNullTerminatedWChar(family).data(), 0, nullptr, nullptr, &linkedFontsBufferSize) == ERROR_FILE_NOT_FOUND) {
+    if (::RegQueryValueEx(fontLinkKey, family.wideCharacters().data(), 0, nullptr, nullptr, &linkedFontsBufferSize) == ERROR_FILE_NOT_FOUND) {
         WTFLogAlways("The font link key %s does not exist in the registry.", family.utf8().data());
         return result;
     }
 
     static const constexpr unsigned InitialBufferSize { 256 / sizeof(WCHAR) };
     Vector<WCHAR, InitialBufferSize> linkedFonts(roundUpToMultipleOf<sizeof(WCHAR)>(linkedFontsBufferSize) / sizeof(WCHAR));
-    if (::RegQueryValueEx(fontLinkKey, stringToNullTerminatedWChar(family).data(), 0, nullptr, reinterpret_cast<BYTE*>(linkedFonts.data()), &linkedFontsBufferSize) == ERROR_SUCCESS) {
+    if (::RegQueryValueEx(fontLinkKey, family.wideCharacters().data(), 0, nullptr, reinterpret_cast<BYTE*>(linkedFonts.data()), &linkedFontsBufferSize) == ERROR_SUCCESS) {
         unsigned length = linkedFontsBufferSize / sizeof(WCHAR);
         appendLinkedFonts(linkedFonts.data(), length, result);
     }
@@ -211,7 +211,7 @@ static HFONT createMLangFont(IMLangFontLinkType* langFontLink, HDC hdc, DWORD co
     return hfont;
 }
 
-RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& description, const Font* originalFontData, bool, const UChar* characters, unsigned length)
+RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& description, const Font* originalFontData, IsForPlatformFont, PreferColoredFont, const UChar* characters, unsigned length)
 {
     UChar character = characters[0];
     RefPtr<Font> fontData;
@@ -285,7 +285,7 @@ RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& descr
         SelectObject(hdc, hfont);
         WCHAR name[LF_FACESIZE];
         GetTextFace(hdc, LF_FACESIZE, name);
-        familyName = nullTerminatedWCharToString(name);
+        familyName = String(name);
 
         if (containsCharacter || currentFontContainsCharacter(hdc, character))
             break;
@@ -301,7 +301,7 @@ RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& descr
 
         LOGFONT logFont;
         logFont.lfCharSet = DEFAULT_CHARSET;
-        StringView(linkedFonts->at(linkedFontIndex)).getCharactersWithUpconvert(logFont.lfFaceName);
+        StringView(linkedFonts->at(linkedFontIndex)).getCharactersWithUpconvert(ucharFrom(logFont.lfFaceName));
         logFont.lfFaceName[linkedFonts->at(linkedFontIndex).length()] = 0;
         EnumFontFamiliesEx(hdc, &logFont, linkedFontEnumProc, reinterpret_cast<LPARAM>(&hfont), 0);
         linkedFontIndex++;
@@ -328,9 +328,14 @@ Vector<String> FontCache::systemFontFamilies()
     return fontFamilies;
 }
 
-RefPtr<Font> FontCache::fontFromDescriptionAndLogFont(const FontDescription& fontDescription, const LOGFONT& font, AtomicString& outFontFamilyName)
+bool FontCache::isSystemFontForbiddenForEditing(const String&)
 {
-    AtomicString familyName = wcharToString(font.lfFaceName, wcsnlen(font.lfFaceName, LF_FACESIZE));
+    return false;
+}
+
+RefPtr<Font> FontCache::fontFromDescriptionAndLogFont(const FontDescription& fontDescription, const LOGFONT& font, AtomString& outFontFamilyName)
+{
+    AtomString familyName(font.lfFaceName, wcsnlen(font.lfFaceName, LF_FACESIZE));
     RefPtr<Font> fontData = fontForFamily(fontDescription, familyName);
     if (fontData)
         outFontFamilyName = familyName;
@@ -339,7 +344,7 @@ RefPtr<Font> FontCache::fontFromDescriptionAndLogFont(const FontDescription& fon
 
 Ref<Font> FontCache::lastResortFallbackFont(const FontDescription& fontDescription)
 {
-    static NeverDestroyed<AtomicString> fallbackFontName;
+    static NeverDestroyed<AtomString> fallbackFontName;
 
     if (!fallbackFontName.get().isEmpty())
         return *fontForFamily(fontDescription, fallbackFontName);
@@ -350,12 +355,12 @@ Ref<Font> FontCache::lastResortFallbackFont(const FontDescription& fontDescripti
     // Search all typical Windows-installed full Unicode fonts.
     // Sorted by most to least glyphs according to http://en.wikipedia.org/wiki/Unicode_typefaces
     // Start with Times New Roman also since it is the default if the user doesn't change prefs.
-    static NeverDestroyed<AtomicString> fallbackFonts[] = {
-        AtomicString("Times New Roman", AtomicString::ConstructFromLiteral),
-        AtomicString("Microsoft Sans Serif", AtomicString::ConstructFromLiteral),
-        AtomicString("Tahoma", AtomicString::ConstructFromLiteral),
-        AtomicString("Lucida Sans Unicode", AtomicString::ConstructFromLiteral),
-        AtomicString("Arial", AtomicString::ConstructFromLiteral)
+    static NeverDestroyed<AtomString> fallbackFonts[] = {
+        AtomString("Times New Roman", AtomString::ConstructFromLiteral),
+        AtomString("Microsoft Sans Serif", AtomString::ConstructFromLiteral),
+        AtomString("Tahoma", AtomString::ConstructFromLiteral),
+        AtomString("Lucida Sans Unicode", AtomString::ConstructFromLiteral),
+        AtomString("Arial", AtomString::ConstructFromLiteral)
     };
     RefPtr<Font> simpleFont;
     for (size_t i = 0; i < WTF_ARRAY_LENGTH(fallbackFonts); ++i) {
@@ -389,8 +394,9 @@ Ref<Font> FontCache::lastResortFallbackFont(const FontDescription& fontDescripti
             return *simpleFont;
     }
     
-    ASSERT_NOT_REACHED();
-    return *simpleFont;
+    auto hFont = adoptGDIObject(static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT)));
+    FontPlatformData platformData(WTFMove(hFont), fontDescription.computedPixelSize(), false, false, false);
+    return fontForPlatformData(platformData);
 }
 
 static LONG toGDIFontWeight(FontSelectionValue fontWeight)
@@ -477,14 +483,14 @@ static int CALLBACK matchImprovingEnumProc(CONST LOGFONT* candidate, CONST TEXTM
     return 1;
 }
 
-static GDIObject<HFONT> createGDIFont(const AtomicString& family, LONG desiredWeight, bool desiredItalic, int size, bool synthesizeItalic)
+static GDIObject<HFONT> createGDIFont(const AtomString& family, LONG desiredWeight, bool desiredItalic, int size, bool synthesizeItalic)
 {
     HWndDC hdc(0);
 
     LOGFONT logFont;
     logFont.lfCharSet = DEFAULT_CHARSET;
     StringView truncatedFamily = StringView(family).substring(0, static_cast<unsigned>(LF_FACESIZE - 1));
-    truncatedFamily.getCharactersWithUpconvert(logFont.lfFaceName);
+    truncatedFamily.getCharactersWithUpconvert(ucharFrom(logFont.lfFaceName));
     logFont.lfFaceName[truncatedFamily.length()] = 0;
     logFont.lfPitchAndFamily = 0;
 
@@ -535,12 +541,12 @@ static GDIObject<HFONT> createGDIFont(const AtomicString& family, LONG desiredWe
 }
 
 struct TraitsInFamilyProcData {
-    TraitsInFamilyProcData(const AtomicString& familyName)
+    TraitsInFamilyProcData(const AtomString& familyName)
         : m_familyName(familyName)
     {
     }
 
-    const AtomicString& m_familyName;
+    const AtomString& m_familyName;
     Vector<FontSelectionCapabilities> m_capabilities;
 };
 
@@ -591,14 +597,14 @@ static int CALLBACK traitsInFamilyEnumProc(CONST LOGFONT* logFont, CONST TEXTMET
     return 1;
 }
 
-Vector<FontSelectionCapabilities> FontCache::getFontSelectionCapabilitiesInFamily(const AtomicString& familyName, AllowUserInstalledFonts)
+Vector<FontSelectionCapabilities> FontCache::getFontSelectionCapabilitiesInFamily(const AtomString& familyName, AllowUserInstalledFonts)
 {
     HWndDC hdc(0);
 
     LOGFONT logFont;
     logFont.lfCharSet = DEFAULT_CHARSET;
     StringView truncatedFamily = StringView(familyName).substring(0, static_cast<unsigned>(LF_FACESIZE - 1));
-    truncatedFamily.getCharactersWithUpconvert(logFont.lfFaceName);
+    truncatedFamily.getCharactersWithUpconvert(ucharFrom(logFont.lfFaceName));
     logFont.lfFaceName[truncatedFamily.length()] = 0;
     logFont.lfPitchAndFamily = 0;
 
@@ -611,7 +617,7 @@ Vector<FontSelectionCapabilities> FontCache::getFontSelectionCapabilitiesInFamil
     return result;
 }
 
-std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomicString& family, const FontFeatureSettings*, const FontVariantSettings*, FontSelectionSpecifiedCapabilities)
+std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomString& family, const FontFeatureSettings*, const FontVariantSettings*, FontSelectionSpecifiedCapabilities)
 {
     bool isLucidaGrande = equalLettersIgnoringASCIICase(family, "lucida grande");
 
@@ -657,10 +663,10 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
     return result;
 }
 
-const AtomicString& FontCache::platformAlternateFamilyName(const AtomicString& familyName)
+const AtomString& FontCache::platformAlternateFamilyName(const AtomString& familyName)
 {
-    static NeverDestroyed<AtomicString> timesNewRoman("Times New Roman", AtomicString::ConstructFromLiteral);
-    static NeverDestroyed<AtomicString> microsoftSansSerif("Microsoft Sans Serif", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<AtomString> timesNewRoman("Times New Roman", AtomString::ConstructFromLiteral);
+    static NeverDestroyed<AtomString> microsoftSansSerif("Microsoft Sans Serif", AtomString::ConstructFromLiteral);
 
     switch (familyName.length()) {
     // On Windows, we don't support bitmap fonts, but legacy content expects support.

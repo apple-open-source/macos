@@ -286,6 +286,7 @@ static bool advanceByCombiningCharacterSequence(const UChar*& iterator, const UC
     // Consume marks.
     bool sawEmojiGroupCandidate = isEmojiGroupCandidate(baseCharacter);
     bool sawJoiner = false;
+    bool sawRegionalIndicator = isEmojiRegionalIndicator(baseCharacter);
     while (iterator < end) {
         UChar32 nextCharacter;
         unsigned markLength = 0;
@@ -295,6 +296,11 @@ static bool advanceByCombiningCharacterSequence(const UChar*& iterator, const UC
 
         if (isVariationSelector(nextCharacter) || isEmojiFitzpatrickModifier(nextCharacter))
             shouldContinue = true;
+
+        if (sawRegionalIndicator && isEmojiRegionalIndicator(nextCharacter)) {
+            shouldContinue = true;
+            sawRegionalIndicator = false;
+        }
 
         if (sawJoiner && isEmojiGroupCandidate(nextCharacter))
             shouldContinue = true;
@@ -782,8 +788,7 @@ void ComplexTextController::adjustGlyphsAndAdvances()
                 if (treatAsSpace || ideograph || forceLeadingExpansion || forceTrailingExpansion) {
                     // Distribute the run's total expansion evenly over all expansion opportunities in the run.
                     if (m_expansion) {
-                        bool expandLeft, expandRight;
-                        std::tie(expandLeft, expandRight) = expansionLocation(ideograph, treatAsSpace, m_run.ltr(), afterExpansion, forbidLeadingExpansion, forbidTrailingExpansion, forceLeadingExpansion, forceTrailingExpansion);
+                        auto [expandLeft, expandRight] = expansionLocation(ideograph, treatAsSpace, m_run.ltr(), afterExpansion, forbidLeadingExpansion, forbidTrailingExpansion, forceLeadingExpansion, forceTrailingExpansion);
                         if (expandLeft) {
                             m_expansion -= m_expansionPerOpportunity;
                             // Increase previous width
@@ -804,7 +809,7 @@ void ComplexTextController::adjustGlyphsAndAdvances()
                         afterExpansion = false;
 
                     // Account for word-spacing.
-                    if (treatAsSpace && (ch != '\t' || !m_run.allowTabs()) && (characterIndex > 0 || runIndex > 0) && m_font.wordSpacing())
+                    if (treatAsSpace && (ch != '\t' || !m_run.allowTabs()) && (characterIndex > 0 || runIndex > 0 || ch == noBreakSpace) && m_font.wordSpacing())
                         advance.expand(m_font.wordSpacing(), 0);
                 } else
                     afterExpansion = false;

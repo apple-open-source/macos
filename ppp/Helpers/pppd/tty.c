@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -348,7 +348,7 @@ setspeed(arg, argv, doit)
 	char *ptr;
 	int spd;
 
-	spd = strtol(arg, &ptr, 0);
+	spd = (int)strtol(arg, &ptr, 0);
 	if (ptr == arg || *ptr != 0 || spd == 0)
 		return 0;
 	if (doit) {
@@ -430,7 +430,7 @@ setescape(argv)
     p = *argv;
     ret = 1;
     while (*p) {
-	n = strtol(p, &endp, 16);
+	n = (int)strtol(p, &endp, 16);
 	if (p == endp) {
 	    option_error("escape parameter contains invalid hex number '%s'",
 			 p);
@@ -1104,7 +1104,7 @@ maybe_relock(arg, pid)
     uintptr_t pid;
 {
     if (locked)
-	relock(pid);
+	relock((int)pid);
 }
 
 /*
@@ -1124,7 +1124,7 @@ open_socket(dest)
     /* parse host:port and resolve host to an IP address */
     sep = strchr(dest, ':');
     if (sep != NULL)
-	port = strtol(sep+1, &endp, 10);
+	port = (int)strtol(sep+1, &endp, 10);
     if (port < 0 || endp == sep+1 || sep == dest) {
 	error("Can't parse host:port for socket destination");
 	return -1;
@@ -1213,7 +1213,7 @@ stop_charshunt(arg, sig)
     uintptr_t sig;
 {
 	if (charshunt_pid)
-		kill(charshunt_pid, (sig == SIGINT? sig: SIGTERM));
+		kill(charshunt_pid, (int)(sig == SIGINT? sig: SIGTERM));
 }
 
 /*
@@ -1332,10 +1332,10 @@ charshunt(ifd, ofd, record_file)
     if (recordf != NULL) {
 	gettimeofday(&lasttime, NULL);
 	putc(7, recordf);	/* put start marker */
-	putc(lasttime.tv_sec >> 24, recordf);
-	putc(lasttime.tv_sec >> 16, recordf);
-	putc(lasttime.tv_sec >> 8, recordf);
-	putc(lasttime.tv_sec, recordf);
+	putc((int)(lasttime.tv_sec >> 24), recordf);
+	putc((int)(lasttime.tv_sec >> 16), recordf);
+	putc((int)(lasttime.tv_sec >> 8), recordf);
+	putc((int)(lasttime.tv_sec), recordf);
 	lasttime.tv_usec = 0;
     }
 
@@ -1380,7 +1380,7 @@ charshunt(ifd, ofd, record_file)
 	    ilevel = olevel = 0;
 	if (FD_ISSET(ifd, &ready)) {
 	    ibufp = inpacket_buf;
-	    nibuf = read(ifd, ibufp, PPP_MRU + PPP_HDRLEN);
+	    nibuf = (int)read(ifd, ibufp, PPP_MRU + PPP_HDRLEN);
 	    if (nibuf < 0 && errno == EIO)
 		nibuf = 0;
 	    if (nibuf < 0) {
@@ -1407,7 +1407,7 @@ charshunt(ifd, ofd, record_file)
 	}
 	if (FD_ISSET(pty_master, &ready)) {
 	    obufp = outpacket_buf;
-	    nobuf = read(pty_master, obufp, PPP_MRU + PPP_HDRLEN);
+	    nobuf = (int)read(pty_master, obufp, PPP_MRU + PPP_HDRLEN);
 	    if (nobuf < 0 && errno == EIO)
 		nobuf = 0;
 	    if (nobuf < 0) {
@@ -1436,7 +1436,7 @@ charshunt(ifd, ofd, record_file)
 	    n = nobuf;
 	    if (olevel + n > max_level)
 		n = max_level - olevel;
-	    n = write(ofd, obufp, n);
+	    n = (int)write(ofd, obufp, n);
 	    if (n < 0) {
 		if (errno == EIO) {
 		    pty_readable = 0;
@@ -1455,7 +1455,7 @@ charshunt(ifd, ofd, record_file)
 	    n = nibuf;
 	    if (ilevel + n > max_level)
 		n = max_level - ilevel;
-	    n = write(pty_master, ibufp, n);
+	    n = (int)write(pty_master, ibufp, n);
 	    if (n < 0) {
 		if (errno == EIO) {
 		    stdin_readable = 0;
@@ -1487,7 +1487,7 @@ record_write(f, code, buf, nb, tp)
 
     gettimeofday(&now, NULL);
     now.tv_usec /= 100000;	/* actually 1/10 s, not usec now */
-    diff = (now.tv_sec - tp->tv_sec) * 10 + (now.tv_usec - tp->tv_usec);
+    diff = (int)((now.tv_sec - tp->tv_sec) * 10 + (now.tv_usec - tp->tv_usec));
     if (diff > 0) {
 	if (diff > 255) {
 	    putc(5, f);

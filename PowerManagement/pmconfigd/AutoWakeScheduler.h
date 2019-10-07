@@ -60,7 +60,7 @@ struct PowerEventBehavior {
     // and upcoming power events
     CFMutableArrayRef       array;
     CFDictionaryRef         currentEvent;
-    CFRunLoopTimerRef       timer;
+    dispatch_source_t       timer;
     
     CFStringRef             title;
     

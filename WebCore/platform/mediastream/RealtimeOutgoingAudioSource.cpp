@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc.
+ * Copyright (C) 2017-2019 Apple Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted, provided that the following conditions
@@ -33,11 +33,17 @@
 
 #include "LibWebRTCAudioFormat.h"
 #include "LibWebRTCProvider.h"
+#include "Logging.h"
+#include <wtf/CryptographicallyRandomNumber.h>
 
 namespace WebCore {
 
 RealtimeOutgoingAudioSource::RealtimeOutgoingAudioSource(Ref<MediaStreamTrackPrivate>&& source)
     : m_audioSource(WTFMove(source))
+#if !RELEASE_LOG_DISABLED
+    , m_logger(m_audioSource->logger())
+    , m_logIdentifier(m_audioSource->logIdentifier())
+#endif
 {
 }
 
@@ -114,12 +120,23 @@ void RealtimeOutgoingAudioSource::RemoveSink(webrtc::AudioTrackSinkInterface* si
 
 void RealtimeOutgoingAudioSource::sendAudioFrames(const void* audioData, int bitsPerSample, int sampleRate, size_t numberOfChannels, size_t numberOfFrames)
 {
+#if !RELEASE_LOG_DISABLED
+    if (!(++m_chunksSent % 200))
+        ALWAYS_LOG(LOGIDENTIFIER, "chunk ", m_chunksSent);
+#endif
+
     auto locker = holdLock(m_sinksLock);
     for (auto sink : m_sinks)
         sink->OnData(audioData, bitsPerSample, sampleRate, numberOfChannels, numberOfFrames);
 }
 
-
+#if !RELEASE_LOG_DISABLED
+WTFLogChannel& RealtimeOutgoingAudioSource::logChannel() const
+{
+    return LogWebRTC;
+}
+#endif
+    
 } // namespace WebCore
 
 #endif // USE(LIBWEBRTC)

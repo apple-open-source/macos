@@ -529,12 +529,15 @@ initialize_shell_variables (env, privmode)
     }
 #endif /* HISTORY */
 
-#if defined (READLINE) && defined (STRICT_POSIX)
-  /* POSIXLY_CORRECT will only be 1 here if the shell was compiled
-     -DSTRICT_POSIX */
+  /* This flag allows special variables such as COLUMNS & LINES
+   * to be inherited from the enviroment if POSIX option is set,
+   * otherwise it will obtain the values for those variables from
+   * termcap. If POSIX option is set, bash will wrap around $COLUMNS
+   * boundary. For example, COLUMNS=80 will make bash wrap after 80
+   * characters including bash prompt are displayed on the window.
+   */
   if (interactive_shell && posixly_correct && no_line_editing == 0)
     rl_prefer_env_winsize = 1;
-#endif /* READLINE && STRICT_POSIX */
 
      /*
       * 24 October 2001
@@ -1680,7 +1683,7 @@ make_local_variable (name)
 
   if (vc == 0)
     {
-      internal_error (_("make_local_variable: no function context at current scope"));
+      internal_error ("%s", _("make_local_variable: no function context at current scope"));
       return ((SHELL_VAR *)NULL);
     }
   else if (vc->table == 0)
@@ -2829,7 +2832,7 @@ all_local_variables ()
 
   if (vc == 0)
     {
-      internal_error (_("all_local_variables: no function context at current scope"));
+      internal_error ("%s", _("all_local_variables: no function context at current scope"));
       return (SHELL_VAR **)NULL;
     }
   if (vc->table == 0 || HASH_ENTRIES (vc->table) == 0 || vc_haslocals (vc) == 0)
@@ -3511,7 +3514,7 @@ pop_var_context ()
   vcxt = shell_variables;
   if (vc_isfuncenv (vcxt) == 0)
     {
-      internal_error (_("pop_var_context: head of shell_variables not a function context"));
+      internal_error ("%s", _("pop_var_context: head of shell_variables not a function context"));
       return;
     }
 
@@ -3524,7 +3527,7 @@ pop_var_context ()
       dispose_var_context (vcxt);
     }
   else
-    internal_error (_("pop_var_context: no global_variables context"));
+    internal_error ("%s", _("pop_var_context: no global_variables context"));
 }
 
 /* Delete the HASH_TABLEs for all variable contexts beginning at VCXT, and
@@ -3598,7 +3601,7 @@ pop_scope (is_special)
   vcxt = shell_variables;
   if (vc_istempscope (vcxt) == 0)
     {
-      internal_error (_("pop_scope: head of shell_variables not a temporary environment scope"));
+      internal_error ("%s", _("pop_scope: head of shell_variables not a temporary environment scope"));
       return;
     }
 

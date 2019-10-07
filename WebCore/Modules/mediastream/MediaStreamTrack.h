@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2011 Google Inc. All rights reserved.
  * Copyright (C) 2011, 2015 Ericsson AB. All rights reserved.
- * Copyright (C) 2013-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
  * Copyright (C) 2013 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,7 @@
 #include "MediaProducer.h"
 #include "MediaStreamTrackPrivate.h"
 #include "MediaTrackConstraints.h"
+#include <wtf/LoggerHelper.h>
 
 namespace WebCore {
 
@@ -46,12 +47,17 @@ class Document;
 
 struct MediaTrackConstraints;
 
-class MediaStreamTrack :
-    public RefCounted<MediaStreamTrack>,
-    public ActiveDOMObject,
-    public EventTargetWithInlineData,
-    public MediaProducer,
-    private MediaStreamTrackPrivate::Observer {
+class MediaStreamTrack
+    : public RefCounted<MediaStreamTrack>
+    , public ActiveDOMObject
+    , public EventTargetWithInlineData
+    , public MediaProducer
+    , private MediaStreamTrackPrivate::Observer
+#if !RELEASE_LOG_DISABLED
+    , private LoggerHelper
+#endif
+{
+    WTF_MAKE_ISO_ALLOCATED(MediaStreamTrack);
 public:
     class Observer {
     public:
@@ -64,18 +70,18 @@ public:
 
     virtual bool isCanvas() const { return false; }
 
-    const AtomicString& kind() const;
+    const AtomString& kind() const;
     WEBCORE_EXPORT const String& id() const;
     const String& label() const;
 
-
-    const AtomicString& contentHint() const;
+    const AtomString& contentHint() const;
     void setContentHint(const String&);
         
     bool enabled() const;
     void setEnabled(bool);
 
     bool muted() const;
+    void setMuted(MediaProducer::MutedStateFlags);
 
     enum class State { Live, Ended };
     State readyState() const;
@@ -87,7 +93,7 @@ public:
     enum class StopMode { Silently, PostEvent };
     void stopTrack(StopMode = StopMode::Silently);
 
-    bool isCaptureTrack() const { return m_private->isCaptureTrack(); }
+    bool isCaptureTrack() const { return m_isCaptureTrack; }
 
     struct TrackSettings {
         Optional<int> width;
@@ -144,6 +150,11 @@ public:
 
     void setIdForTesting(String&& id) { m_private->setIdForTesting(WTFMove(id)); }
 
+#if !RELEASE_LOG_DISABLED
+    const Logger& logger() const final { return m_private->logger(); }
+    const void* logIdentifier() const final { return m_private->logIdentifier(); }
+#endif
+
 protected:
     MediaStreamTrack(ScriptExecutionContext&, Ref<MediaStreamTrackPrivate>&&);
 
@@ -175,14 +186,20 @@ private:
     void trackSettingsChanged(MediaStreamTrackPrivate&) final;
     void trackEnabledChanged(MediaStreamTrackPrivate&) final;
 
-    Vector<Observer*> m_observers;
+#if !RELEASE_LOG_DISABLED
+    const char* logClassName() const final { return "MediaStreamTrack"; }
+    WTFLogChannel& logChannel() const final;
+#endif
 
+    Vector<Observer*> m_observers;
 
     MediaTrackConstraints m_constraints;
     Optional<DOMPromiseDeferred<void>> m_promise;
     GenericTaskQueue<ScriptExecutionContext> m_taskQueue;
+    GenericTaskQueue<Timer> m_eventTaskQueue;
 
     bool m_ended { false };
+    const bool m_isCaptureTrack { false };
 };
 
 typedef Vector<RefPtr<MediaStreamTrack>> MediaStreamTrackVector;

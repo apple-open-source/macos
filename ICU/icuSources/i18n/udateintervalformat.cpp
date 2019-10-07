@@ -18,8 +18,19 @@
 #include "unicode/timezone.h"
 #include "unicode/locid.h"
 #include "unicode/unistr.h"
+#include "formattedval_impl.h"
 
 U_NAMESPACE_USE
+
+
+// Magic number: FDIV in ASCII
+UPRV_FORMATTED_VALUE_CAPI_AUTO_IMPL(
+    FormattedDateInterval,
+    UFormattedDateInterval,
+    UFormattedDateIntervalImpl,
+    UFormattedDateIntervalApiHelper,
+    udtitvfmt,
+    0x46444956)
 
 
 U_CAPI UDateIntervalFormat* U_EXPORT2
@@ -115,5 +126,34 @@ udtitvfmt_setAttribute(UDateIntervalFormat*             formatter,
     }
     ((DateIntervalFormat*)formatter)->setAttribute( attr, value, *status );
 }
+
+U_DRAFT void U_EXPORT2
+udtitvfmt_formatToResult(
+                const UDateIntervalFormat* formatter,
+                UFormattedDateInterval* result,
+                UDate           fromDate,
+                UDate           toDate,
+                UErrorCode*     status) {
+    if (U_FAILURE(*status)) {
+        return;
+    }
+    auto* resultImpl = UFormattedDateIntervalApiHelper::validate(result, *status);
+    DateInterval interval = DateInterval(fromDate,toDate);
+    resultImpl->fImpl = reinterpret_cast<const DateIntervalFormat*>(formatter)
+        ->formatToValue(interval, *status);
+}
+
+U_CAPI void U_EXPORT2
+udtitvfmt_setContext(UDateIntervalFormat* formatter, UDisplayContext value, UErrorCode* status)
+{
+    ((DateIntervalFormat*)formatter)->setContext( value, *status );
+}
+
+U_CAPI UDisplayContext U_EXPORT2
+udtitvfmt_getContext(const UDateIntervalFormat* formatter, UDisplayContextType type, UErrorCode* status)
+{
+    return ((DateIntervalFormat*)formatter)->getContext( type, *status );
+}
+
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

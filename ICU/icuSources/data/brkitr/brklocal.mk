@@ -7,4 +7,4 @@
 BRK_SOURCE_LOCAL = word_fi_sv.txt
 
 # Ordinary resources
-BRK_RES_SOURCE_LOCAL = sv.txt
+BRK_RES_SOURCE_LOCAL = fi.txt sv.txt

@@ -1,4 +1,3 @@
-// $Id$
 // vim:ft=javascript
 
 EXTENSION("date", "php_date.c", false, "/Iext/date/lib /DZEND_ENABLE_STATIC_TSRMLS_CACHE=1 /DHAVE_TIMELIB_CONFIG_H=1");
@@ -20,5 +19,5 @@ tl_config.WriteLine("#define timelib_strdup  estrdup");
 tl_config.WriteLine("#define timelib_free    efree");
 tl_config.Close();
 
-PHP_INSTALL_HEADERS("ext/date/", "php_date.h lib/timelib.h lib/timelib_structs.h lib/timelib_config.h");
+PHP_INSTALL_HEADERS("ext/date/", "php_date.h lib/timelib.h lib/timelib_config.h");
 AC_DEFINE('HAVE_TIMELIB_CONFIG_H', 1, 'Have timelib_config.h')

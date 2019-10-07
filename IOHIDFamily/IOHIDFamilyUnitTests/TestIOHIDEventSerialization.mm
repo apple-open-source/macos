@@ -10,6 +10,8 @@
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include "IOHIDUnitTestUtility.h"
 
+#define APPLE_KEXT_OVERRIDE                  override
+
 #include "TestIOHIDEventSerializationWrapper.h"
 
 void OSDefineMetaClassAndStructors();

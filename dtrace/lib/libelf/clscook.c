@@ -27,8 +27,6 @@
 /*	Copyright (c) 1988 AT&T	*/
 /*	  All Rights Reserved  	*/
 
-#pragma ident	"@(#)clscook.c	1.11	08/05/31 SMI"
-
 /*
  * This stuff used to live in cook.c, but was moved out to
  * facilitate dual (Elf32 and Elf64) compilation.  See block
@@ -40,7 +38,6 @@
 #include <stdlib.h>
 #include <errno.h>
 #include "decl.h"
-#include "member.h"
 #include "msg.h"
 
 #include <mach-o/fat.h>
@@ -103,6 +100,7 @@ int elf_macho_str_cookie(const char *name, int primary)
 }
 
 #if	defined(_ELF64) /* Want just one definition, so compile only under -D_ELF64 */
+extern const char* elf_macho_str_off(size_t);
 const char *elf_macho_str_off(size_t off)
 {
 	if (off >= (SIZE_XTAB << 1))
@@ -545,9 +543,8 @@ _elf_shdr(Elf * elf, int inplace)
 	dst.d_version = EV_CURRENT;
 	
 	if (elf->ed_kind == ELF_K_MACHO) {
-		struct _mach_header hdr, *mh = (struct _mach_header *)(elf->ed_image);
+		struct _mach_header *mh = (struct _mach_header *)(elf->ed_image);
 		struct load_command *thisLC = (struct load_command *)(&(mh[1]));
-		int needSwap = (_MH_CIGAM == mh->magic);
 		int i,j;
 		
 		Shdr *pShdr = (Shdr *)(elf->ed_shdr);
@@ -559,44 +556,21 @@ _elf_shdr(Elf * elf, int inplace)
 		SectionToShdrMap[0] = pShdr;
 		pMap++; /* By Mach-o convention the n_sect ordinal index is one-based */
 		pShdr++; /* By ELF convention the first section header is unused */
-		
-		if (needSwap) {
-			hdr = *mh;
-			mh = &hdr;
-			_swap_mh(mh);
-		}
-			
+
 		for (i = 0; i < mh->ncmds; i++) {
 			int cmd = thisLC->cmd, cmdsize = thisLC->cmdsize;
-			
-			if (needSwap) {
-				SWAP32(cmd);
-				SWAP32(cmdsize);
-			}
-				
+
 			switch(cmd) {
 				case _LC_SEGMENT:
 				{
-					struct _segcmd seg, *thisSG = (struct _segcmd *)thisLC;
-					struct _sect sect, *section_ptr, *thisSect = (struct _sect *)(&(thisSG[1]));
+					struct _segcmd *thisSG = (struct _segcmd *)thisLC;
+					struct _sect *section_ptr, *thisSect = (struct _sect *)(&(thisSG[1]));
 
-					if (needSwap) {
-						seg = *thisSG;
-						thisSG = &seg;
-						_swapsegcmd(thisSG);
-					}
-					
 					for (j = 0; j < thisSG->nsects; ++j) {
 						int primary;
 						
 						section_ptr = thisSect + j;
-						
-						if (needSwap) {
-							sect = *section_ptr;
-							section_ptr = &sect;
-							_swapsect(section_ptr);
-						}
-						
+
 						primary = (0 == strcmp(thisSG->segname, SEG_TEXT)) ||
 								  (0 == strcmp(thisSG->segname, SEG_DATA));
 
@@ -619,13 +593,7 @@ _elf_shdr(Elf * elf, int inplace)
 					
 				case LC_SYMTAB:
 				{
-					struct symtab_command symt, *thisST = (struct symtab_command *)thisLC;
-					
-					if (needSwap) {
-						symt = *thisST;
-						thisST = &symt;
-						__swap_symtab_command(thisST);
-					}
+					struct symtab_command *thisST = (struct symtab_command *)thisLC;
 
 					pShdr->sh_name = (_elf_word)elf_macho_str_cookie("__symbol_table", 1);
 					pShdr->sh_type = SHT_STRTAB; /* Must yield ELF_T_BYTE to allow the sh_entsize used below! */
@@ -677,12 +645,6 @@ _elf_shdr(Elf * elf, int inplace)
 			}
 			
 			while (nsym < pEnd) {
-			
-				if (needSwap) {
-					SWAP32(nsym->n_un.n_strx);
-					SWAP16(nsym->n_desc);
-					_SWAPVAL(nsym->n_value);
-				}
 				
 				if (nsym->n_type & N_STAB) { /* Detect C++ methods */
 	

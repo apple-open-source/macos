@@ -4,7 +4,7 @@ Test each() function : usage variations - Referenced variables
 <?php
 /* Prototype  : array each(array $arr)
  * Description: Return the currently pointed key..value pair in the passed array,
- * and advance the pointer to the next element 
+ * and advance the pointer to the next element
  * Source code: Zend/zend_builtin_functions.c
  */
 
@@ -29,12 +29,13 @@ var_dump( each($arr1) );
 
 echo "Done";
 ?>
-
 --EXPECTF--
 *** Testing each() : usage variations ***
 
 -- Array made up of referenced variables: --
 -- Call each until at the end of the array: --
+
+Deprecated: The each() function is deprecated. This message will be suppressed on further calls in %s on line %d
 array(4) {
   [1]=>
   string(3) "foo"

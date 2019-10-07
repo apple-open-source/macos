@@ -30,6 +30,9 @@ typedef struct KDFVector_t {
     int expected_failure;
 } KDFVector;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 static KDFVector kdfv[] = {
     // Test Case PBKDF2 - HMACSHA1 http://tools.ietf.org/html/draft-josefsson-pbkdf2-test-vectors-00
     { "password", "salt", -1, 1   , kCCDigestSHA1, 20, "0c60c80f961f0e71f3a9b524af6012062fe037a6", 0 },
@@ -47,13 +50,7 @@ static KDFVector kdfv_for_OriginalKDF[] = {
     { "password", NULL  ,999, 4096, kCCDigestSHA1, 20, "", kCCParamError },
     {.password=NULL},
 };
-
-static char * testString(char *format, CCDigestAlgorithm alg) {
-    static char thestring[80];
-    sprintf(thestring, format, digestName(alg));
-    return thestring;
-}
-
+#pragma clang diagnostic pop
 static int testOriginalKDF(KDFVector *v, int testid) {
     CCPseudoRandomAlgorithm prf = digestID2PRF(v->alg);
     byteBuffer derivedKey = mallocByteBuffer(v->dklen);
@@ -83,8 +80,10 @@ static int testOriginalKDF(KDFVector *v, int testid) {
 static int testNewKDF(KDFVector *v, int testid) {
     byteBuffer derivedKey = mallocByteBuffer(v->dklen);
     byteBuffer expected = hexStringToBytesIfNotNULL(v->expectedstr);
-
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     CCStatus retval = CCKeyDerivationHMac(kCCKDFAlgorithmPBKDF2_HMAC, v->alg, v->rounds, v->password, strlen(v->password), NULL, 0, NULL, 0, NULL, 0, v->salt, strlen(v->salt), derivedKey->bytes, derivedKey->len);
+#pragma clang diagnostic pop
     if(v->expected_failure) {
         is(retval, v->expected_failure,"Test %d: PBKDF2_HMAC Expected failure",testid);
     } else {

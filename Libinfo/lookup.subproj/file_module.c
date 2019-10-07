@@ -341,7 +341,7 @@ _fsi_get_validation(si_mod_t *si, int vtype, const char *path, FILE *f, uint64_t
 static int
 _fsi_validate(si_mod_t *si, int cat, uint64_t va, uint64_t vb)
 {
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	struct stat sb;
 	const char *path;
 	uint32_t item_val, curr_val, vtype;
@@ -351,7 +351,7 @@ _fsi_validate(si_mod_t *si, int cat, uint64_t va, uint64_t vb)
 
 	if (si == NULL) return 0;
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	/* /etc is on a read-only filesystem, so no validation is required */
 
 	pp = (file_si_private_t *)si->private;
@@ -1862,7 +1862,20 @@ _fsi_fs_root(si_mod_t *si)
 		}
 
 		root_spec = _fsi_get_device_path(rootstat.st_dev);
-
+		
+		// In case root is mounted from snapshot, _fsi_get_device_path will return NULL as the device name does not comply to
+		// /dev/diskAAsBB, but in the format of snap@/dev/diskAAsBB, in that case f_mntfromname has the correct device name, so return it
+		if (root_spec == NULL) {
+			const char *mntfromname = rootfsinfo.f_mntfromname;
+			size_t len = sizeof(rootfsinfo.f_mntfromname);
+			const char *p;
+			while ((p = strnstr(mntfromname, "@", len))) {
+				len -= p + 1 - mntfromname;
+				mntfromname = p + 1;
+			}
+			root_spec = strndup(mntfromname, len);
+		}
+		
 		rootfs = (si_item_t *)LI_ils_create("L4488sssss44", (unsigned long)si, CATEGORY_FS, 1, 0LL, 0LL, root_spec, root_path, rootfsinfo.f_fstypename, FSTAB_RW, FSTAB_RW, 0, 1);
 		free(root_spec);
 	});

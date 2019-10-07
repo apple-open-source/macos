@@ -5,6 +5,8 @@ if [ $# -ne 3 ]; then
     exit 1
 fi
 
+if [[ "${DRIVERKIT}" == "1" ]]; then exit 0; fi; # No compatibility symlinks in DriverKit SDK
+
 DSTROOT="$1${INSTALL_PATH_PREFIX}"
 ACTION="$2"
 VARIANTS="$3"

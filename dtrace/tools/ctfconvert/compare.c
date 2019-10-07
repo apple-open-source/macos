@@ -73,7 +73,7 @@ main(int argc, char **argv)
 	difftd = tdata_new();
 
 	if (read_stabs(stabrtd, stabname, 0) != 0)
-		merge_into_master(stabrtd, stabtd, NULL, 1);
+		merge_into_master(NULL, stabrtd, stabtd, NULL, 1);
 	else if (read_ctf(&stabname, 1, NULL, read_ctf_save_cb, &stabtd, 0)
 	    == 0)
 		terminate("%s doesn't have stabs or CTF\n", stabname);
@@ -81,7 +81,7 @@ main(int argc, char **argv)
 	if (read_ctf(&ctfname, 1, NULL, read_ctf_save_cb, &ctftd, 0) == 0)
 		terminate("%s doesn't contain CTF data\n", ctfname);
 
-	merge_into_master(stabtd, ctftd, difftd, 0);
+	merge_into_master(NULL, stabtd, ctftd, difftd, 0);
 
 	if ((new = hash_count(difftd->td_iihash)) != 0) {
 		(void) hash_iter(difftd->td_iihash, (int (*)())iidesc_dump,

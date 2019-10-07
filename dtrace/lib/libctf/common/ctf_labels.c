@@ -24,12 +24,10 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)ctf_labels.c	1.3	05/06/08 SMI"
-
 #include <ctf_impl.h>
 
 static int
-extract_label_info(ctf_file_t *fp, const ctf_lblent_t **ctl, uint_t *num_labels)
+extract_label_info(ctf_file_t *fp, const ctf_lblent_t **ctl, uint32_t *num_labels)
 {
 	const ctf_header_t *h;
 
@@ -56,7 +54,7 @@ ctf_label_topmost(ctf_file_t *fp)
 {
 	const ctf_lblent_t *ctlp;
 	const char *s;
-	uint_t num_labels;
+	uint32_t num_labels;
 
 	if (extract_label_info(fp, &ctlp, &num_labels) == CTF_ERR)
 		return (NULL); /* errno is set */
@@ -80,7 +78,7 @@ int
 ctf_label_iter(ctf_file_t *fp, ctf_label_f *func, void *arg)
 {
 	const ctf_lblent_t *ctlp;
-	uint_t i, num_labels;
+	uint32_t i, num_labels;
 	ctf_lblinfo_t linfo;
 	const char *lname;
 	int rc;

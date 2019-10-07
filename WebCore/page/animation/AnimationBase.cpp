@@ -69,14 +69,6 @@ RenderElement* AnimationBase::renderer() const
     return m_element ? m_element->renderer() : nullptr;
 }
 
-RenderBoxModelObject* AnimationBase::compositedRenderer() const
-{
-    auto* renderer = this->renderer();
-    if (!renderer || !renderer->isComposited())
-        return nullptr;
-    return downcast<RenderBoxModelObject>(renderer);
-}
-
 void AnimationBase::clear()
 {
     endAnimation();
@@ -158,7 +150,7 @@ void AnimationBase::updateStateMachine(AnimationStateInput input, double param)
     // If we get AnimationStateInput::RestartAnimation then we force a new animation, regardless of state.
     if (input == AnimationStateInput::MakeNew) {
         if (m_animationState == AnimationState::StartWaitStyleAvailable)
-            m_compositeAnimation->animationController().removeFromAnimationsWaitingForStyle(this);
+            m_compositeAnimation->animationController().removeFromAnimationsWaitingForStyle(*this);
         LOG(Animations, "%p AnimationState %s -> New", this, nameForState(m_animationState));
         m_animationState = AnimationState::New;
         m_startTime = WTF::nullopt;
@@ -171,7 +163,7 @@ void AnimationBase::updateStateMachine(AnimationStateInput input, double param)
 
     if (input == AnimationStateInput::RestartAnimation) {
         if (m_animationState == AnimationState::StartWaitStyleAvailable)
-            m_compositeAnimation->animationController().removeFromAnimationsWaitingForStyle(this);
+            m_compositeAnimation->animationController().removeFromAnimationsWaitingForStyle(*this);
         LOG(Animations, "%p AnimationState %s -> New", this, nameForState(m_animationState));
         m_animationState = AnimationState::New;
         m_startTime = WTF::nullopt;
@@ -187,7 +179,7 @@ void AnimationBase::updateStateMachine(AnimationStateInput input, double param)
 
     if (input == AnimationStateInput::EndAnimation) {
         if (m_animationState == AnimationState::StartWaitStyleAvailable)
-            m_compositeAnimation->animationController().removeFromAnimationsWaitingForStyle(this);
+            m_compositeAnimation->animationController().removeFromAnimationsWaitingForStyle(*this);
         LOG(Animations, "%p AnimationState %s -> Done", this, nameForState(m_animationState));
         m_animationState = AnimationState::Done;
         endAnimation();
@@ -237,7 +229,7 @@ void AnimationBase::updateStateMachine(AnimationStateInput input, double param)
                 // Start timer has fired, tell the animation to start and wait for it to respond with start time
                 LOG(Animations, "%p AnimationState %s -> StartWaitStyleAvailable (time is %f)", this, nameForState(m_animationState), param);
                 m_animationState = AnimationState::StartWaitStyleAvailable;
-                m_compositeAnimation->animationController().addToAnimationsWaitingForStyle(this);
+                m_compositeAnimation->animationController().addToAnimationsWaitingForStyle(*this);
 
                 // Trigger a render so we can start the animation
                 if (m_element)
@@ -275,7 +267,7 @@ void AnimationBase::updateStateMachine(AnimationStateInput input, double param)
                         timeOffset = -m_animation->delay();
                     bool started = startAnimation(timeOffset);
 
-                    m_compositeAnimation->animationController().addToAnimationsWaitingForStartTimeResponse(this, started);
+                    m_compositeAnimation->animationController().addToAnimationsWaitingForStartTimeResponse(*this, started);
                     m_isAccelerated = started;
                 }
             } else {
@@ -431,7 +423,7 @@ void AnimationBase::updateStateMachine(AnimationStateInput input, double param)
                         m_isAccelerated = true;
                     } else {
                         bool started = startAnimation(beginAnimationUpdateTime() - m_startTime.valueOr(0));
-                        m_compositeAnimation->animationController().addToAnimationsWaitingForStartTimeResponse(this, started);
+                        m_compositeAnimation->animationController().addToAnimationsWaitingForStartTimeResponse(*this, started);
                         m_isAccelerated = started;
                     }
                 }
@@ -679,7 +671,7 @@ void AnimationBase::freezeAtTime(double t)
     else
         m_pauseTime = m_startTime.valueOr(0) + t - m_animation->delay();
 
-    if (auto* renderer = compositedRenderer())
+    if (auto* renderer = this->renderer())
         renderer->suspendAnimations(MonotonicTime::fromRawSeconds(m_pauseTime.value()));
 }
 

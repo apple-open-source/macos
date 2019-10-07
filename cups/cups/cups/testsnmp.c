@@ -3,13 +3,7 @@
  *
  * Copyright 2008-2014 by Apple Inc.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
  */
 
 /*
@@ -27,7 +21,7 @@
 static void	print_packet(cups_snmp_t *packet, void *data);
 static int	show_oid(int fd, const char *community,
 		         http_addr_t *addr, const char *s, int walk);
-static void	usage(void) __attribute__((noreturn));
+static void	usage(void) _CUPS_NORETURN;
 
 
 /*

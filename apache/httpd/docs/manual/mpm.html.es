@@ -7,7 +7,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>Módulos de MultiProcesamiento (MPMs) - Servidor Apache HTTP Versión 2.4</title>
+<title>Módulos de MultiProcesamiento (MPMs) - Servidor HTTP Apache Versión 2.4</title>
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
@@ -32,16 +32,11 @@
 <a href="./tr/mpm.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a> |
 <a href="./zh-cn/mpm.html" hreflang="zh-cn" rel="alternate" title="Simplified Chinese">&nbsp;zh-cn&nbsp;</a></p>
 </div>
-<div class="outofdate">Esta traducción podría estar
-            obsoleta. Consulte la versión en inglés de la
-            documentación para comprobar si se han producido cambios
-            recientemente.</div>
 
 <p>Este documento describe que es un Módulo de Multiprocesamiento y
 como los usa Apache.</p>
 </div>
 <div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><ul id="toc"><li><img alt="" src="./images/down.gif" /> <a href="#introduction">Introducción</a></li>
-<li><img alt="" src="./images/down.gif" /> <a href="#choosing">Cómo Elegir un MPM</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#defaults">MPM por defecto</a></li>
 </ul><h3>Consulte también</h3><ul class="seealso"><li><a href="#comments_section">Comentarios</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
@@ -59,13 +54,13 @@ como los usa Apache.</p>
     diseño modular. Este diseño permite a los
     administradores de sitios web elegir que características van
     a ser incluidas en el servidor seleccionando que módulos se
-    van a cargar, ya sea al compilar o al ejecutar el servidor.</p>
+    van a cargar, ya sea al compilar o en tiempo de ejecución.</p>
 
     <p>Apache 2.0 extiende este diseño modular hasta las
     funciones más básicas de un servidor web. El servidor
     viene con una serie de Módulos de MultiProcesamiento que son
     responsables de conectar con los puertos de red de la
-    máquina, acceptar las peticiones, y generar los procesos hijo
+    máquina, aceptar las peticiones, y generar los procesos hijo
     que se encargan de servirlas.</p>
 
     <p>La extensión del diseño modular a este nivel del
@@ -83,14 +78,12 @@ como los usa Apache.</p>
 
       <li>El servidor puede personalizarse mejor para las necesidades
       de cada sitio web. Por ejemplo, los sitios web que necesitan
-      más que nada escalibildad pueden usar un MPM hebrado como
+      más que nada escalabilidad pueden usar un proceso MPM como
       <code class="module"><a href="./mod/worker.html">worker</a></code>, mientras que los sitios web que
       requieran por encima de otras cosas estabilidad o compatibilidad
       con software antiguo pueden usar
-      <code class="module"><a href="./mod/prefork.html">prefork</a></code>. Además, se pueden configurar
-      funcionalidades especiales como servir diferentes hosts con
-      diferentes identificadores de usuario
-      (<code class="module"><a href="./mod/perchild.html">perchild</a></code>).</li>
+      <code class="module"><a href="./mod/prefork.html">prefork</a></code>.
+      </li>
     </ul>
 
     <p>A nivel de usuario, los MPMs son como cualquier otro
@@ -100,40 +93,27 @@ como los usa Apache.</p>
 
 </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
-<h2><a name="choosing" id="choosing">Cómo Elegir un MPM</a></h2>
-
-    <p>Los MPMs deben elegirse durante el proceso de
-    configuración, y deben ser compilados en el servidor. Los
-    compiladores son capaces de optimizar muchas funciones si se usan
-    hebras, pero solo si se sabe que se están usando hebras. Como
-    algunos MPM usan hebras en Unix y otros no, Apache tendrá un
-    mejor rendimiento si el MPM es elegido en el momento de compilar y
-    está incorporado en el servidor.</p>
-
-    <p>Para elegir el MPM deseado, use el argumento --with-mpm=
-    <em>NAME</em> con el script ./configure.  <em>NAME</em> es el
-    nombre del MPM deseado.</p>
-
-    <p>Una vez que el servidor ha sido compilado, es posible
-    determinar que MPM ha sido elegido usando <code>./httpd
-    -l</code>. Este comando lista todos los módulos compilados en
-    el servidor, incluido en MPM.</p>
-</div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
-<div class="section">
 <h2><a name="defaults" id="defaults">MPM por defecto</a></h2>
 
 <p>En la siguiente tabla se muestran los MPMs por defecto para varios
 sistemas operativos.  Estos serán los MPM seleccionados si no se
 especifica lo contrario al compilar.</p>
 
-<table>
-
-<tr><td>BeOS</td><td><code class="module"><a href="./mod/beos.html">beos</a></code></td></tr>
-<tr><td>Netware</td><td><code class="module"><a href="./mod/mpm_netware.html">mpm_netware</a></code></td></tr>
-<tr><td>OS/2</td><td><code class="module"><a href="./mod/mpmt_os2.html">mpmt_os2</a></code></td></tr>
-<tr><td>Unix</td><td><code class="module"><a href="./mod/prefork.html">prefork</a></code></td></tr>
-<tr><td>Windows</td><td><code class="module"><a href="./mod/mpm_winnt.html">mpm_winnt</a></code></td></tr>
+<table class="bordered"><tr><td>Netware</td><td><code class="module"><a href="./mod/mpm_netware.html">mpm_netware</a></code></td></tr>
+<tr class="odd"><td>OS/2</td><td><code class="module"><a href="./mod/mpmt_os2.html">mpmt_os2</a></code></td></tr>
+<tr><td>Unix</td><td><code class="module"><a href="./mod/prefork.html">prefork</a></code>, <code class="module"><a href="./mod/worker.html">worker</a></code>, or
+    <code class="module"><a href="./mod/event.html">event</a></code>, depending on platform capabilities</td></tr>
+<tr class="odd"><td>Windows</td><td><code class="module"><a href="./mod/mpm_winnt.html">mpm_winnt</a></code></td></tr>
 </table>
+
+<div class="note"><p>aquí, 'Unix' se usa para designar a los sistemas operativos "Unix-like", como
+Linux, BSD, Solaris, Mac OS X, etc.</p></div>
+
+<p>En el caso de los Unix, la decisión de que MPM se va a instalar
+  depende de dos pregunas:</p>
+<p>1. ¿Nos permite el Sistema Operativo hilos?</p>
+<p>2. -¿Nos permite el sistema operativo soporte a pila de hilos seguros 
+  (Especificamente, las funciones kqueue y epoll)?</p>
 </div></div>
 <div class="bottomlang">
 <p><span>Idiomas disponibles: </span><a href="./de/mpm.html" hreflang="de" rel="alternate" title="Deutsch">&nbsp;de&nbsp;</a> |
@@ -162,7 +142,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mpm.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2018 The Apache Software Foundation.<br />Licencia bajo los términos de <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2019 The Apache Software Foundation.<br />Licencia bajo los términos de la <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Módulos</a> | <a href="./mod/directives.html">Directivas</a> | <a href="http://wiki.apache.org/httpd/FAQ">Preguntas Frecuentes</a> | <a href="./glossary.html">Glosario</a> | <a href="./sitemap.html">Mapa del sitio web</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

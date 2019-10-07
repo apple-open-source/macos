@@ -3,6 +3,7 @@ ASSET_DATA = ${ASSET_DIR}/AssetData
 ASSET_TOOLS_DIR = ../CertificateTool/BuildiOSAsset/
 CT_DIR = ../certificate_transparency/
 PINNING_DIR = ../Pinning
+BASE_URL = "https://basejumper.apple.com/assets/"
 
 # Set a fallback if SDKROOT or RC_PLATFORM_NAME are not defined
 SDKROOT ?= $(shell xcrun --sdk iphoneos.internal --show-sdk-path)
@@ -31,5 +32,5 @@ clean:
 stage: asset
 	echo "PKItrustSupplementals staging"
 	rm -rf staged
-	$(shell /usr/bin/xcrun --find assettool --sdk ioshostadditions) stage -p . -s staged -v 5
-	$(shell /usr/bin/xcrun --find assettool --sdk ioshostadditions) sign -s staged
+	$(shell /usr/bin/xcrun --find assettool) stage -p . -s staged -b ${BASE_URL} -v 6
+	$(shell /usr/bin/xcrun --find assettool) sign -s staged

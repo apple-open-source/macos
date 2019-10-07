@@ -14,6 +14,9 @@
 #include <libkern/OSAtomic.h>
 #include <limits.h>
 #include <errno.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include "panic.h"
+#include <IOKit/IOKitLib.h>
 
 #define IO_MODE_SEQ		0
 #define IO_MODE_RANDOM		1
@@ -25,15 +28,23 @@
 #define MAX_THREADS		1000
 #define MAX_FILENAME		64
 #define MAX_ITERATIONS		10000
-#define LATENCY_BIN_SIZE	500
-#define LATENCY_BINS		11
+#define LATENCY_BIN_SIZE	1000
+#define LATENCY_BINS		31
 #define LOW_LATENCY_BIN_SIZE	50
-#define LOW_LATENCY_BINS	11
+#define LOW_LATENCY_BINS	21
 #define THROUGHPUT_INTERVAL	5000
 #define DEFAULT_FILE_SIZE	(262144)
 #define BLOCKSIZE		1024
 #define MAX_CMD_SIZE		256
 #define PG_MASK			~(0xFFF)
+#define kIONVMeANS2ControllerString     "AppleANS2Controller"
+#define kIONVMeControllerString     	"AppleNVMeController"
+
+typedef enum {
+	kDefaultDevice    = 0,
+	kNVMeDevice       = 1,
+	kNVMeDeviceANS2   = 2,
+} qos_device_type_t;
 
 int burst_count = 10;			/* Unit: Number ; Desc.: I/O Burst Count */
 int inter_burst_duration = 0;		/* Unit: msecs  ; Desc.: I/O Inter-Burst Duration (-1: Random value [0,100]) */
@@ -47,24 +58,31 @@ int test_duration = 0;                  /* Unit: secs   ; Desc.: Total Test Dura
 int io_tier = 0;			/* Unit: 0/1/2/3; Desc.: I/O Tier */
 int file_size = DEFAULT_FILE_SIZE;	/* Unit: pages  ; Desc.: File Size in 4096 byte blocks */
 int cached_io_flag = 0;			/* Unit: 0/1	; Desc.: I/O Caching behavior (no-cached/cached) */
+int io_qos_timeout_ms = 0;		/* Unit: msecs  ; Desc.: I/O QOS timeout */
 char *user_fname;
 int user_specified_file = 0;
+qos_device_type_t qos_device = 0;
 
-int64_t total_io_count;
-int64_t total_io_size;
-int64_t total_io_time;
-int64_t total_burst_count;
+int64_t total_io_count = 0;
+int64_t total_io_size = 0;
+int64_t total_io_time = 0;
+int64_t max_io_time = 0;
+int64_t total_burst_count = 0;
 int64_t latency_histogram[LATENCY_BINS];
 int64_t burst_latency_histogram[LATENCY_BINS];
 int64_t low_latency_histogram[LOW_LATENCY_BINS];
 int64_t throughput_histogram[MAX_ITERATIONS];
 int64_t throughput_index;
+CFRunLoopTimerRef	runLoopTimer	= NULL;
 
 void print_usage(void);
-void print_data_percentage(int percent);
+void print_data_percentage(double percent);
 void print_stats(void);
 unsigned int find_io_bin(int64_t latency, int latency_bin_size, int latency_bins);
 void signalHandler(int sig);
+void assertASP(CFRunLoopTimerRef timer, void *info );
+void start_qos_timer(void);
+void stop_qos_timer(void);
 void perform_io(int fd, char *buf, int size, int type);
 void *sync_routine(void *arg);
 void *calculate_throughput(void *arg);
@@ -72,7 +90,8 @@ void *io_routine(void *arg);
 void validate_option(int value, int min, int max, char *option, char *units);
 void print_test_setup(int value, char *option, char *units, char *comment);
 void setup_process_io_policy(int io_tier);
-void print_latency_histogram(int64_t *data, int latency_bins, int latency_bin_size);
+void setup_qos_device(void);
+void print_latency_histogram(int64_t *data, int latency_bins, int latency_bin_size, double io_count);
 
 void
 print_usage(void)
@@ -92,9 +111,10 @@ print_usage(void)
 	printf("-z: (number)  File Size in pages (1 page = 4096 bytes) \n");
 	printf("-n: (string)  File name used for tests (the tool would create files if this option is not specified)\n");
 	printf("-a: (0/1   :  Non-cached/Cached) I/O Caching behavior\n");
+	printf("-q: (msecs)   I/O QoS timeout. Time of I/O before drive assert and system panic\n");
 }
 
-void print_data_percentage(int percent)
+void print_data_percentage(double percent)
 {
 	int count = (int)(round(percent / 5.0));
 	int spaces = 20 - count;
@@ -106,7 +126,7 @@ void print_data_percentage(int percent)
 	printf("|");
 }
 
-void print_latency_histogram(int64_t *data, int latency_bins, int latency_bin_size)
+void print_latency_histogram(int64_t *data, int latency_bins, int latency_bin_size, double io_count)
 {
 	double percentage;
         char label[MAX_FILENAME];
@@ -118,9 +138,9 @@ void print_latency_histogram(int64_t *data, int latency_bins, int latency_bin_si
                 else
                         snprintf(label, MAX_FILENAME, "%d - %d usecs", i * latency_bin_size, (i+1) * latency_bin_size);
                 printf("%25s ", label);
-                percentage = ((double)data[i] * 100.0) / (double)total_io_count;
-                print_data_percentage((int)percentage);
-                printf(" %.2lf%%\n", percentage);
+                percentage = ((double)data[i] * 100.000000) / io_count;
+                print_data_percentage(percentage);
+                printf(" %.6lf%%\n", percentage);
         }
 	printf("\n");
 }
@@ -135,13 +155,14 @@ void print_stats()
 
 	printf("Total I/Os      : %lld\n", total_io_count);
 	printf("Avg. Latency    : %.2lf usecs\n", ((double)total_io_time) / ((double)total_io_count));
+	printf("Max. Latency    : %.2lf usecs\n", ((double)max_io_time));
 
 	printf("Low Latency Histogram: \n");
-	print_latency_histogram(low_latency_histogram, LOW_LATENCY_BINS, LOW_LATENCY_BIN_SIZE);
+	print_latency_histogram(low_latency_histogram, LOW_LATENCY_BINS, LOW_LATENCY_BIN_SIZE, (double)total_io_count);
 	printf("Latency Histogram: \n");
-	print_latency_histogram(latency_histogram, LATENCY_BINS, LATENCY_BIN_SIZE);
+	print_latency_histogram(latency_histogram, LATENCY_BINS, LATENCY_BIN_SIZE, (double)total_io_count);
 	printf("Burst Avg. Latency Histogram: \n");
-	print_latency_histogram(burst_latency_histogram, LATENCY_BINS, LATENCY_BIN_SIZE);
+	print_latency_histogram(burst_latency_histogram, LATENCY_BINS, LATENCY_BIN_SIZE, (double)total_burst_count);
 
 	printf("Throughput Timeline: \n");
 
@@ -176,6 +197,94 @@ void signalHandler(int sig)
 	exit(0);
 }
 
+void setup_qos_device(void)
+{
+	kern_return_t		status		= kIOReturnError;
+	io_iterator_t       iterator	= IO_OBJECT_NULL;
+
+	if(io_qos_timeout_ms <= 0)
+		return;
+
+	printf ( "*** setup_qos_device *** \n" );
+
+	status = IOServiceGetMatchingServices ( kIOMasterPortDefault, IOServiceMatching ( kIONVMeANS2ControllerString ), &iterator );
+
+	if ( status != kIOReturnSuccess )
+		return;
+
+	if ( iterator != IO_OBJECT_NULL ) {
+		printf ( "Found NVMe ANS2 Device \n" );
+		qos_device = kNVMeDeviceANS2;
+	} else {
+
+		status= IOServiceGetMatchingServices ( kIOMasterPortDefault, IOServiceMatching ( kIONVMeControllerString ), &iterator );
+
+		if ( status != kIOReturnSuccess )
+			return;
+
+		if ( iterator != IO_OBJECT_NULL ) {
+			printf ( "Found NVMe Device \n" );
+			qos_device = kNVMeDevice;
+		}
+		else {
+			printf ( "NVMe Device not found, not setting qos timeout\n" );
+			qos_device = kDefaultDevice;
+		}
+	}
+}
+
+void assertASP(CFRunLoopTimerRef timer, void *info )
+{
+	char command [ 1024 ];
+
+	if(qos_device == kDefaultDevice)
+		return;
+
+	printf("assertASP. Timeout of IO exceeds = %d msec\n", io_qos_timeout_ms);
+
+	// kNVMe_ANS2_Force_Assert_offset		= 0x13EC, // GP59
+	// kNVMe_Force_Assert_Offset		    = 0x550,
+
+	if(qos_device == kNVMeDeviceANS2)
+		snprintf ( command, sizeof ( command ), "/usr/local/bin/nvmectl-tool.py -a WriteRegister32 $((0x13EC)) 0xFFFF" );
+	else if(qos_device == kNVMeDevice)
+		snprintf ( command, sizeof ( command ), "/usr/local/bin/nvmectl-tool.py -a WriteRegister32 $((0x550)) 0xFFFF" );
+	else
+		return;
+
+	// Assert ASP
+	printf("Command : %s\n", command);
+	system(command);
+
+	// Panic the system as well
+	panic("IO time > QoS timeout");
+
+	return;
+}
+
+void start_qos_timer(void)
+{
+	float timeout_sec;
+
+	if(io_qos_timeout_ms <= 0)
+		return;
+
+	timeout_sec = (float)io_qos_timeout_ms/1000;
+
+	// Schedule a "timeout" delayed task that checks IO's which take > timeout sec to complete
+	runLoopTimer = CFRunLoopTimerCreate(NULL, CFAbsoluteTimeGetCurrent()+timeout_sec, 0, 0, 0, assertASP, NULL);
+	CFRunLoopAddTimer(CFRunLoopGetMain(), runLoopTimer, kCFRunLoopDefaultMode);
+}
+
+void stop_qos_timer(void)
+{
+	if(runLoopTimer == NULL)
+		return;
+
+	CFRunLoopTimerInvalidate(runLoopTimer);
+	CFRunLoopRemoveTimer(CFRunLoopGetMain(), runLoopTimer, kCFRunLoopDefaultMode);
+	CFRelease(runLoopTimer);
+}
 
 void perform_io(int fd, char *buf, int size, int type)
 {
@@ -290,13 +399,22 @@ void *io_routine(void *arg)
 				}
 			}
 
+			start_qos_timer();
+
 			gettimeofday(&start_tv, NULL);
 			perform_io(fd, data, io_size, workload_type);
 			gettimeofday(&end_tv, NULL);
 
+			stop_qos_timer();
+
 			OSAtomicIncrement64(&total_io_count);
 			OSAtomicAdd64(io_size, &total_io_size);
 			elapsed = ((end_tv.tv_sec - start_tv.tv_sec) * 1000000)  + (end_tv.tv_usec - start_tv.tv_usec);
+
+			if (elapsed > max_io_time) {
+				max_io_time = elapsed;
+			}
+
 			OSAtomicAdd64(elapsed, &total_io_time);
 			OSAtomicIncrement64(&(latency_histogram[find_io_bin(elapsed, LATENCY_BIN_SIZE, LATENCY_BINS)]));
 			OSAtomicIncrement64(&(low_latency_histogram[find_io_bin(elapsed, LOW_LATENCY_BIN_SIZE, LOW_LATENCY_BINS)]));
@@ -373,7 +491,7 @@ int main(int argc, char *argv[])
 	pthread_t throughput_thread;
 	char fname[MAX_FILENAME];
 
-	while((option = getopt(argc, argv,"hc:i:d:t:f:m:j:s:x:l:z:n:a:")) != -1) {
+	while((option = getopt(argc, argv,"hc:i:d:t:f:m:j:s:x:l:z:n:a:q:")) != -1) {
 		switch(option) {
 			case 'c':
 				burst_count = atoi(optarg);
@@ -430,6 +548,10 @@ int main(int argc, char *argv[])
 				cached_io_flag = atoi(optarg);
 				validate_option(cached_io_flag, 0, 1, "I/Os cached/no-cached", "");
 				break;
+			case 'q':
+				io_qos_timeout_ms = atoi(optarg);
+				validate_option(io_qos_timeout_ms, 0, INT_MAX, "I/O QoS timeout", "msecs");
+				break;
 			default:
 				printf("Unknown option %c\n", option);
 				print_usage();
@@ -450,6 +572,7 @@ int main(int argc, char *argv[])
 	print_test_setup(test_duration, "Test duration", "secs", "0 indicates tool waits for Ctrl+C");
 	print_test_setup(io_tier, "I/O Tier", "", 0);
 	print_test_setup(cached_io_flag, "I/O Caching", "", "0 indicates non-cached I/Os");
+	print_test_setup(io_qos_timeout_ms, "I/O QoS Threshold Timeout", "msecs", 0);
 	print_test_setup(0, "File read-aheads", "", "0 indicates read-aheads disabled");
 
 	printf("**********************************************************\n");
@@ -467,6 +590,8 @@ int main(int argc, char *argv[])
 	}
 	system("purge");
 	setup_process_io_policy(io_tier);
+
+	setup_qos_device();
 
 	printf("**********************************************************\n");
 	printf("Creating threads and generating workload...\n");
@@ -493,9 +618,14 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	/* All threads are now initialized */
-	if (test_duration)
-		alarm(test_duration);
+	if(io_qos_timeout_ms > 0) {
+		CFRunLoopRunInMode(kCFRunLoopDefaultMode, (CFTimeInterval)test_duration, false);
+		alarm(1);
+	} else {
+		/* All threads are now initialized */
+		if (test_duration)
+			alarm(test_duration);
+	}
 
 	for(i=0; i < thread_count; i++)
 		pthread_join(thread_list[i], NULL);

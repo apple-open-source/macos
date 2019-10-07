@@ -45,8 +45,8 @@
 
 
 
-#if ! TARGET_OS_EMBEDDED
-PRIVATE_EXTERN CFStringRef
+#if ! TARGET_OS_IPHONE
+CFStringRef
 SIMCopyIMSI(__unused CFDictionaryRef properties)
 {
     return (NULL);
@@ -58,27 +58,33 @@ SIMCopyRealm(__unused CFDictionaryRef properties)
     return (NULL);
 }
 
-PRIVATE_EXTERN bool
+bool
 SIMAuthenticateGSM(CFDictionaryRef properties, const uint8_t * rand_p, int count,
 		   uint8_t * kc_p, uint8_t * sres_p)
 {
     return (false);
 }
 
-PRIVATE_EXTERN bool
+bool
 SIMAuthenticateAKA(CFDictionaryRef properties, CFDataRef rand, CFDataRef autn, AKAAuthResultsRef results)
 {
     AKAAuthResultsInit(results);
     return (false);
 }
 
-PRIVATE_EXTERN void
+void
 SIMReportDecryptionError(CFDataRef encryptedIdentity)
 {
     return;
 }
 
-#endif /* ! TARGET_OS_EMBEDDED */
+CFDictionaryRef
+SIMCopyEncryptedIMSIInfo(EAPType type)
+{
+    return NULL;
+}
+
+#endif /* ! TARGET_OS_IPHONE */
 
 #ifdef TEST_SIMACCESS
 #define USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS 1

@@ -932,7 +932,7 @@ PRIVATE void rpc__naf_desc_inq_naf_id
      * address and therefore only provide a socket address buffer 2
      * bytes long.
      */
-    addr = (rpc_addr_p_t) buff;
+    addr = (void *) buff;
 #ifdef _SOCKADDR_LEN
     addr->len = sizeof(addr->sa.family) + sizeof(addr->sa.length);
 #elif ! defined(AIX32)

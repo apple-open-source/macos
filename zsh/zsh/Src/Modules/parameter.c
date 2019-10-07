@@ -75,6 +75,8 @@ paramtypestr(Param pm)
 	    val = dyncat(val, "-readonly");
 	if (f & PM_TAGGED)
 	    val = dyncat(val, "-tag");
+	if (f & PM_TIED)
+	    val = dyncat(val, "-tied");
 	if (f & PM_EXPORTED)
 	    val = dyncat(val, "-export");
 	if (f & PM_UNIQUE)
@@ -167,7 +169,7 @@ unsetpmcommand(Param pm, UNUSED(int exp))
 
 /**/
 static void
-setpmcommands(UNUSED(Param pm), HashTable ht)
+setpmcommands(Param pm, HashTable ht)
 {
     int i;
     HashNode hn;
@@ -190,7 +192,15 @@ setpmcommands(UNUSED(Param pm), HashTable ht)
 
 	    cmdnamtab->addnode(cmdnamtab, ztrdup(hn->nam), &cn->node);
 	}
-    deleteparamtable(ht);
+    /*
+     * On full-array assignment ht is a temporary hash with the default
+     * get/set functions, whereas pm->u.hash has the special $commands
+     * get/set functions.  Do not assign ht to pm, just delete it.
+     *
+     * On append, ht and pm->u.hash are the same table, don't delete.
+     */
+    if (ht != pm->u.hash)
+	deleteparamtable(ht);
 }
 
 static const struct gsu_scalar pmcommand_gsu =
@@ -330,7 +340,7 @@ unsetpmfunction(Param pm, UNUSED(int exp))
 
 /**/
 static void
-setfunctions(UNUSED(Param pm), HashTable ht, int dis)
+setfunctions(Param pm, HashTable ht, int dis)
 {
     int i;
     HashNode hn;
@@ -349,7 +359,9 @@ setfunctions(UNUSED(Param pm), HashTable ht, int dis)
 
 	    setfunction(hn->nam, ztrdup(getstrvalue(&v)), dis);
 	}
-    deleteparamtable(ht);
+    /* See setpmcommands() above */
+    if (ht != pm->u.hash)
+	deleteparamtable(ht);
 }
 
 /**/
@@ -513,6 +525,98 @@ static void
 scanpmdisfunctions(HashTable ht, ScanFunc func, int flags)
 {
     scanfunctions(ht, func, flags, DISABLED);
+}
+
+/* Functions for the functions_source special parameter. */
+
+/* Retrieve the source file for a function by explicit name */
+
+/**/
+static HashNode
+getfunction_source(UNUSED(HashTable ht), const char *name, int dis)
+{
+    Shfunc shf;
+    Param pm = NULL;
+
+    pm = (Param) hcalloc(sizeof(struct param));
+    pm->node.nam = dupstring(name);
+    pm->node.flags = PM_SCALAR|PM_READONLY;
+    pm->gsu.s = dis ? &pmdisfunction_gsu :  &pmfunction_gsu;
+
+    if ((shf = (Shfunc) shfunctab->getnode2(shfunctab, name)) &&
+	(dis ? (shf->node.flags & DISABLED) : !(shf->node.flags & DISABLED))) {
+	pm->u.str = getshfuncfile(shf);
+	if (!pm->u.str)
+	    pm->u.str = dupstring("");
+    }
+    return &pm->node;
+}
+
+/* Retrieve the source file for functions by scanning the table */
+
+/**/
+static void
+scanfunctions_source(UNUSED(HashTable ht), ScanFunc func, int flags, int dis)
+{
+    struct param pm;
+    int i;
+    HashNode hn;
+
+    memset((void *)&pm, 0, sizeof(struct param));
+    pm.node.flags = PM_SCALAR|PM_READONLY;
+    pm.gsu.s = dis ? &pmdisfunction_gsu : &pmfunction_gsu;
+
+    for (i = 0; i < shfunctab->hsize; i++) {
+	for (hn = shfunctab->nodes[i]; hn; hn = hn->next) {
+	    if (dis ? (hn->flags & DISABLED) : !(hn->flags & DISABLED)) {
+		pm.node.nam = hn->nam;
+		if (func != scancountparams &&
+		    ((flags & (SCANPM_WANTVALS|SCANPM_MATCHVAL)) ||
+		     !(flags & SCANPM_WANTKEYS))) {
+		    pm.u.str = getshfuncfile((Shfunc)hn);
+		    if (!pm.u.str)
+			pm.u.str = dupstring("");
+		}
+		func(&pm.node, flags);
+	    }
+	}
+    }
+}
+
+/* Param table entry for retrieving functions_source element */
+
+/**/
+static HashNode
+getpmfunction_source(HashTable ht, const char *name)
+{
+    return getfunction_source(ht, name, 0);
+}
+
+/* Param table entry for retrieving ds_functions_source element */
+
+/**/
+static HashNode
+getpmdisfunction_source(HashTable ht, const char *name)
+{
+    return getfunction_source(ht, name, 1);
+}
+
+/* Param table entry for scanning functions_source table */
+
+/**/
+static void
+scanpmfunction_source(HashTable ht, ScanFunc func, int flags)
+{
+    scanfunctions_source(ht, func, flags, 0);
+}
+
+/* Param table entry for scanning dis_functions_source table */
+
+/**/
+static void
+scanpmdisfunction_source(HashTable ht, ScanFunc func, int flags)
+{
+    scanfunctions_source(ht, func, flags, 1);
 }
 
 /* Functions for the funcstack special parameter. */
@@ -845,7 +949,7 @@ unsetpmoption(Param pm, UNUSED(int exp))
 
 /**/
 static void
-setpmoptions(UNUSED(Param pm), HashTable ht)
+setpmoptions(Param pm, HashTable ht)
 {
     int i;
     HashNode hn;
@@ -870,7 +974,9 @@ setpmoptions(UNUSED(Param pm), HashTable ht)
 			      (val && strcmp(val, "off")), 0, opts))
 		zwarn("can't change option: %s", hn->nam);
 	}
-    deleteparamtable(ht);
+    /* See setpmcommands() above */
+    if (ht != pm->u.hash)
+	deleteparamtable(ht);
 }
 
 static const struct gsu_scalar pmoption_gsu =
@@ -1409,7 +1515,7 @@ unsetpmnameddir(Param pm, UNUSED(int exp))
 
 /**/
 static void
-setpmnameddirs(UNUSED(Param pm), HashTable ht)
+setpmnameddirs(Param pm, HashTable ht)
 {
     int i;
     HashNode hn, next, hd;
@@ -1451,7 +1557,9 @@ setpmnameddirs(UNUSED(Param pm), HashTable ht)
 
     i = opts[INTERACTIVE];
     opts[INTERACTIVE] = 0;
-    deleteparamtable(ht);
+    /* See setpmcommands() above */
+    if (ht != pm->u.hash)
+	deleteparamtable(ht);
     opts[INTERACTIVE] = i;
 }
 
@@ -1632,7 +1740,7 @@ unsetpmsalias(Param pm, UNUSED(int exp))
 
 /**/
 static void
-setaliases(HashTable alht, UNUSED(Param pm), HashTable ht, int flags)
+setaliases(HashTable alht, Param pm, HashTable ht, int flags)
 {
     int i;
     HashNode hn, next, hd;
@@ -1668,7 +1776,9 @@ setaliases(HashTable alht, UNUSED(Param pm), HashTable ht, int flags)
 		alht->addnode(alht, ztrdup(hn->nam),
 			      createaliasnode(ztrdup(val), flags));
 	}
-    deleteparamtable(ht);
+    /* See setpmcommands() above */
+    if (ht != pm->u.hash)
+	deleteparamtable(ht);
 }
 
 /**/
@@ -2082,66 +2192,71 @@ static const struct gsu_array dirs_gsu =
 static const struct gsu_array historywords_gsu =
 { histwgetfn, arrsetfn, stdunsetfn };
 
+/* Make sure to update autofeatures in parameter.mdd if necessary */
 static struct paramdef partab[] = {
     SPECIALPMDEF("aliases", 0,
 	    &pmraliases_gsu, getpmralias, scanpmraliases),
-    SPECIALPMDEF("builtins", PM_READONLY, NULL, getpmbuiltin, scanpmbuiltins),
+    SPECIALPMDEF("builtins", PM_READONLY_SPECIAL, NULL, getpmbuiltin, scanpmbuiltins),
     SPECIALPMDEF("commands", 0, &pmcommands_gsu, getpmcommand, scanpmcommands),
     SPECIALPMDEF("dirstack", PM_ARRAY,
 	    &dirs_gsu, NULL, NULL),
     SPECIALPMDEF("dis_aliases", 0,
 	    &pmdisraliases_gsu, getpmdisralias, scanpmdisraliases),
-    SPECIALPMDEF("dis_builtins", PM_READONLY,
+    SPECIALPMDEF("dis_builtins", PM_READONLY_SPECIAL,
 	    NULL, getpmdisbuiltin, scanpmdisbuiltins),
     SPECIALPMDEF("dis_functions", 0, 
 	    &pmdisfunctions_gsu, getpmdisfunction, scanpmdisfunctions),
+    SPECIALPMDEF("dis_functions_source", PM_READONLY_SPECIAL, NULL,
+		 getpmdisfunction_source, scanpmdisfunction_source),
     SPECIALPMDEF("dis_galiases", 0,
 	    &pmdisgaliases_gsu, getpmdisgalias, scanpmdisgaliases),
-    SPECIALPMDEF("dis_patchars", PM_ARRAY|PM_READONLY,
+    SPECIALPMDEF("dis_patchars", PM_ARRAY|PM_READONLY_SPECIAL,
 	    &dispatchars_gsu, NULL, NULL),
-    SPECIALPMDEF("dis_reswords", PM_ARRAY|PM_READONLY,
+    SPECIALPMDEF("dis_reswords", PM_ARRAY|PM_READONLY_SPECIAL,
 	    &disreswords_gsu, NULL, NULL),
     SPECIALPMDEF("dis_saliases", 0,
 	    &pmdissaliases_gsu, getpmdissalias, scanpmdissaliases),
-    SPECIALPMDEF("funcfiletrace", PM_ARRAY|PM_READONLY,
+    SPECIALPMDEF("funcfiletrace", PM_ARRAY|PM_READONLY_SPECIAL,
 	    &funcfiletrace_gsu, NULL, NULL),
-    SPECIALPMDEF("funcsourcetrace", PM_ARRAY|PM_READONLY,
+    SPECIALPMDEF("funcsourcetrace", PM_ARRAY|PM_READONLY_SPECIAL,
 	    &funcsourcetrace_gsu, NULL, NULL),
-    SPECIALPMDEF("funcstack", PM_ARRAY|PM_READONLY,
+    SPECIALPMDEF("funcstack", PM_ARRAY|PM_READONLY_SPECIAL,
 	    &funcstack_gsu, NULL, NULL),
     SPECIALPMDEF("functions", 0, &pmfunctions_gsu, getpmfunction,
 		 scanpmfunctions),
-    SPECIALPMDEF("functrace", PM_ARRAY|PM_READONLY,
+    SPECIALPMDEF("functions_source", PM_READONLY_SPECIAL, NULL,
+		 getpmfunction_source, scanpmfunction_source),
+    SPECIALPMDEF("functrace", PM_ARRAY|PM_READONLY_SPECIAL,
 	    &functrace_gsu, NULL, NULL),
     SPECIALPMDEF("galiases", 0,
 	    &pmgaliases_gsu, getpmgalias, scanpmgaliases),
-    SPECIALPMDEF("history", PM_READONLY,
+    SPECIALPMDEF("history", PM_READONLY_SPECIAL,
 	    NULL, getpmhistory, scanpmhistory),
-    SPECIALPMDEF("historywords", PM_ARRAY|PM_READONLY,
+    SPECIALPMDEF("historywords", PM_ARRAY|PM_READONLY_SPECIAL,
 	    &historywords_gsu, NULL, NULL),
-    SPECIALPMDEF("jobdirs", PM_READONLY,
+    SPECIALPMDEF("jobdirs", PM_READONLY_SPECIAL,
 	    NULL, getpmjobdir, scanpmjobdirs),
-    SPECIALPMDEF("jobstates", PM_READONLY,
+    SPECIALPMDEF("jobstates", PM_READONLY_SPECIAL,
 	    NULL, getpmjobstate, scanpmjobstates),
-    SPECIALPMDEF("jobtexts", PM_READONLY,
+    SPECIALPMDEF("jobtexts", PM_READONLY_SPECIAL,
 	    NULL, getpmjobtext, scanpmjobtexts),
-    SPECIALPMDEF("modules", PM_READONLY,
+    SPECIALPMDEF("modules", PM_READONLY_SPECIAL,
 	    NULL, getpmmodule, scanpmmodules),
     SPECIALPMDEF("nameddirs", 0,
 	    &pmnameddirs_gsu, getpmnameddir, scanpmnameddirs),
     SPECIALPMDEF("options", 0,
 	    &pmoptions_gsu, getpmoption, scanpmoptions),
-    SPECIALPMDEF("parameters", PM_READONLY,
+    SPECIALPMDEF("parameters", PM_READONLY_SPECIAL,
 	    NULL, getpmparameter, scanpmparameters),
-    SPECIALPMDEF("patchars", PM_ARRAY|PM_READONLY,
+    SPECIALPMDEF("patchars", PM_ARRAY|PM_READONLY_SPECIAL,
 	    &patchars_gsu, NULL, NULL),
-    SPECIALPMDEF("reswords", PM_ARRAY|PM_READONLY,
+    SPECIALPMDEF("reswords", PM_ARRAY|PM_READONLY_SPECIAL,
 	    &reswords_gsu, NULL, NULL),
     SPECIALPMDEF("saliases", 0,
 	    &pmsaliases_gsu, getpmsalias, scanpmsaliases),
-    SPECIALPMDEF("userdirs", PM_READONLY,
+    SPECIALPMDEF("userdirs", PM_READONLY_SPECIAL,
 	    NULL, getpmuserdir, scanpmuserdirs),
-    SPECIALPMDEF("usergroups", PM_READONLY,
+    SPECIALPMDEF("usergroups", PM_READONLY_SPECIAL,
 	    NULL, getpmusergroups, scanpmusergroups)
 };
 

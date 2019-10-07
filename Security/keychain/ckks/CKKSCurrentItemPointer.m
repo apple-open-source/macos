@@ -52,6 +52,13 @@
 }
 
 - (CKRecord*)updateCKRecord: (CKRecord*) record zoneID: (CKRecordZoneID*) zoneID {
+    if(![record.recordType isEqualToString: SecCKRecordCurrentItemType]) {
+        @throw [NSException
+                exceptionWithName:@"WrongCKRecordTypeException"
+                reason:[NSString stringWithFormat: @"CKRecordType (%@) was not %@", record.recordType, SecCKRecordCurrentItemType]
+                userInfo:nil];
+    }
+
     // The record name should already match identifier...
     if(![record.recordID.recordName isEqualToString: self.identifier]) {
         @throw [NSException
@@ -148,12 +155,12 @@
              };
 }
 
-+ (instancetype)fromDatabaseRow: (NSDictionary*) row {
-    return [[CKKSCurrentItemPointer alloc] initForIdentifier:row[@"identifier"]
-                                             currentItemUUID:CKKSNSNullToNil(row[@"currentItemUUID"])
-                                                       state:CKKSNSNullToNil(row[@"state"])
-                                                      zoneID:[[CKRecordZoneID alloc] initWithZoneName: row[@"ckzone"] ownerName:CKCurrentUserDefaultName]
-                                             encodedCKRecord:[[NSData alloc] initWithBase64EncodedString: row[@"ckrecord"] options:0]];
++ (instancetype)fromDatabaseRow:(NSDictionary<NSString *, CKKSSQLResult*>*) row {
+    return [[CKKSCurrentItemPointer alloc] initForIdentifier:row[@"identifier"].asString
+                                             currentItemUUID:row[@"currentItemUUID"].asString
+                                                       state:(CKKSProcessedState*)row[@"state"].asString
+                                                      zoneID:[[CKRecordZoneID alloc] initWithZoneName:row[@"ckzone"].asString ownerName:CKCurrentUserDefaultName]
+                                             encodedCKRecord:row[@"ckrecord"].asBase64DecodedData];
 }
 
 @end

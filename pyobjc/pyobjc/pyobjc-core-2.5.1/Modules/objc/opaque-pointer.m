@@ -208,7 +208,7 @@ static  ffi_cif* new_cif = NULL;
 	PyHeapTypeObject* newType = NULL;
 	PyObjCPointerWrapper_ToPythonFunc from_c = NULL;
 	PyObjCPointerWrapper_FromPythonFunc to_c = NULL;
-	ffi_closure* cl = NULL;
+	ffi_closure_wrapper* cl = NULL;
 	ffi_status rv;
 	int r;
 	PyObject* v = NULL;
@@ -321,13 +321,13 @@ static  ffi_cif* new_cif = NULL;
 	Py_INCREF((PyObject*)newType);
 
 
-	rv = ffi_prep_closure(cl, convert_cif, opaque_to_c, newType);
+	rv = ffi_prep_closure_loc(cl->closure, convert_cif, opaque_to_c, newType, cl->code_addr);
 	if (rv != FFI_OK) {
 		PyErr_Format(PyExc_RuntimeError,
 			"Cannot create FFI closure: %d", rv);
 		goto error_cleanup;
 	}
-	to_c = (PyObjCPointerWrapper_FromPythonFunc)cl;
+	to_c = (PyObjCPointerWrapper_FromPythonFunc)cl->code_addr;
 	cl = NULL;
 
 	cl = PyObjC_malloc_closure();
@@ -335,13 +335,13 @@ static  ffi_cif* new_cif = NULL;
 		goto error_cleanup;
 	}
 
-	rv = ffi_prep_closure(cl, new_cif, opaque_from_c, newType);
+	rv = ffi_prep_closure_loc(cl->closure, new_cif, opaque_from_c, newType, cl->code_addr);
 	if (rv != FFI_OK) {
 		PyErr_Format(PyExc_RuntimeError,
 			"Cannot create FFI closure: %d", rv);
 		goto error_cleanup;
 	}
-	from_c = (PyObjCPointerWrapper_ToPythonFunc)cl;
+	from_c = (PyObjCPointerWrapper_ToPythonFunc)cl->code_addr;
 	cl = NULL;
 
 	r = PyObjCPointerWrapper_Register(typestr, from_c, to_c);
@@ -362,10 +362,10 @@ error_cleanup:
 		PyObjC_free_closure(cl);
 	}
 	if (to_c) {
-		PyObjC_free_closure((ffi_closure*)to_c);
+		PyObjC_free_closure(PyObjC_closure_from_code(to_c));
 	}
 	if (from_c) {
-		PyObjC_free_closure((ffi_closure*)from_c);
+		PyObjC_free_closure(PyObjC_closure_from_code(from_c));
 	}
 	Py_XDECREF(v);
 	Py_XDECREF(w);

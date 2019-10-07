@@ -1,7 +1,7 @@
 diff -ur a/ext/mbstring/oniguruma/regint.h b/ext/mbstring/oniguruma/regint.h
---- a/ext/mbstring/oniguruma/regint.h	2016-06-21 18:50:40.000000000 -0700
-+++ b/ext/mbstring/oniguruma/regint.h	2016-07-08 14:31:36.000000000 -0700
-@@ -196,6 +196,7 @@
+--- a/ext/mbstring/oniguruma/src/regint.h	2016-06-21 18:50:40.000000000 -0700
++++ b/ext/mbstring/oniguruma/src/regint.h	2016-07-08 14:31:36.000000000 -0700
+@@ -170,6 +170,7 @@
  #endif
  
  #include "regenc.h"

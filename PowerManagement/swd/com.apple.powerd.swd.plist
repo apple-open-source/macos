@@ -16,12 +16,6 @@
 	<dict>
 		<key>PathState</key>
 		<dict>
-			<key>/var/log/OSWatchdogFailureString.txt</key>
-			<true/>
-			<key>/var/log/OSXWatchdogStacks.gz</key>
-			<true/>
-			<key>/var/log/SleepWakeFailureString.txt</key>
-			<true/>
 			<key>/var/log/SleepWakeStacks.gz</key>
 			<true/>
 		</dict>

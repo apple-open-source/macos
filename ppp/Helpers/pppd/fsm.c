@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -241,7 +241,7 @@ fsm_close(f, reason)
     char *reason;
 {
     f->term_reason = reason;
-    f->term_reason_len = (reason == NULL? 0: strlen(reason));
+    f->term_reason_len = (reason == NULL? 0: (int)strlen(reason));
     switch( f->state ){
     case STARTING:
 	f->state = INITIAL;

@@ -278,7 +278,7 @@ protected:
 	void makeUnlocked(const CssmData &passphrase, bool unlockKeybag);	 // interior version of unlock(CssmData)
 	
 	void establishOldSecrets(const AccessCredentials *creds);
-	bool establishNewSecrets(const AccessCredentials *creds, SecurityAgent::Reason reason);
+	bool establishNewSecrets(const AccessCredentials *creds, SecurityAgent::Reason reason, bool change);
 	
 	bool interactiveUnlock();
 	

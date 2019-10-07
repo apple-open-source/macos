@@ -26,7 +26,7 @@
 #define _SECURITY_SOSCLOUDCIRCLESERVER_H_
 
 #import <Security/SecureObjectSync/SOSCloudCircle.h>
-#import <Security/SecureObjectSync/SOSRing.h>
+#include "keychain/SecureObjectSync/SOSRing.h"
 #import <Security/SecKey.h>
 #import <xpc/xpc.h>
 
@@ -61,7 +61,7 @@ bool SOSCCRequestEnsureFreshParameters_Server(CFErrorRef* error);
 bool SOSCCApplyToARing_Server(CFStringRef ringName, CFErrorRef *error);
 bool SOSCCWithdrawlFromARing_Server(CFStringRef ringName, CFErrorRef *error);
 SOSRingStatus SOSCCRingStatus_Server(CFStringRef ringName, CFErrorRef *error);
-CFStringRef SOSCCGetAllTheRings_Server(CFErrorRef *error);
+CF_RETURNS_RETAINED CFStringRef SOSCCGetAllTheRings_Server(CFErrorRef *error);
 bool SOSCCEnableRing_Server(CFStringRef ringName, CFErrorRef *error);
 
 
@@ -92,7 +92,7 @@ CFBooleanRef SOSCCPeersHaveViewsEnabled_Server(CFArrayRef viewNames, CFErrorRef 
 
 SOSViewResultCode SOSCCView_Server(CFStringRef view, SOSViewActionCode action, CFErrorRef *error);
 bool SOSCCViewSetWithAnalytics_Server(CFSetRef enabledViews, CFSetRef disabledViews, CFDataRef parentEvent);
-bool SOSCCViewSet_Server(CFSetRef enabledView, CFSetRef disabledViews);
+bool SOSCCViewSet_Server(CFSetRef enabledViews, CFSetRef disabledViews);
 
 CFStringRef SOSCCCopyIncompatibilityInfo_Server(CFErrorRef* error);
 enum DepartureReason SOSCCGetLastDepartureReason_Server(CFErrorRef* error);
@@ -195,6 +195,10 @@ void SOSCCPerformWithOctagonEncryptionPublicKey(void (^action)(SecKeyRef octagon
 void SOSCCPerformWithAllOctagonKeys(void (^action)(SecKeyRef octagonEncryptionKey, SecKeyRef octagonSigningKey, CFErrorRef error));
 void SOSCCPerformWithTrustedPeers(void (^action)(CFSetRef sosPeerInfoRefs, CFErrorRef error));
 void SOSCCPerformWithPeerID(void (^action)(CFStringRef peerID, CFErrorRef error));
+void SOSCCPerformUpdateOfAllOctagonKeys(CFDataRef octagonSigningFullKey, CFDataRef octagonEncryptionFullKey,
+                                        CFDataRef signingPublicKey, CFDataRef encryptionPublicKey,
+                                        SecKeyRef octagonSigningPublicKeyRef, SecKeyRef octagonEncryptionPublicKeyRef,
+                                        void (^action)(CFErrorRef error));
 
 void SOSCCResetOTRNegotiation_Server(CFStringRef peerid);
 void SOSCCPeerRateLimiterSendNextMessage_Server(CFStringRef peerid, CFStringRef accessGroup);

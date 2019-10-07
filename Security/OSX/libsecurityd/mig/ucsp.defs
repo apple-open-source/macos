@@ -167,7 +167,8 @@ routine deriveKey(UCSP_PORTS; in db: IPCDbHandle; in context: Data; in baseKey: 
     in paramInput: Data; out paramOutput: Data;
 	in keyUsage: uint32; in keyAttrs: uint32; out key: IPCKeyHandle; out header: Data);
 
-routine generateRandom(UCSP_PORTS; in ssid: uint32; in context: Data; out data: Data);
+// routine generateRandom(UCSP_PORTS; in ssid: uint32; in context: Data; out data: Data);
+skip;
 
 
 //
@@ -280,7 +281,7 @@ skip; // was setAlternateSystemRoot
 // Subsidiary process (child) management.
 // This call does NOT cause securityd-client activation.
 //
-simpleroutine childCheckIn(requestport sport: mach_port_t;
+simpleroutine childCheckIn(ServerAuditToken sourceAudit: audit_token_t; requestport sport: mach_port_t;
 	in servicePort: mach_port_make_send_t; in task_port: mach_port_t);
 
 #if 1
@@ -290,29 +291,19 @@ routine commitDbForSync(UCSP_PORTS; in srcDb: IPCDbHandle; in cloneDb: IPCDbHand
     out blob: DbBlob);
 #endif
 
+//
+// The following three blocks of skips replace the old Code Hosting routines
+//
 
-//
-// Code Signing Hosting protocol part 1: registration services.
-//
-routine registerHosting(UCSP_PORTS;
-	in hostingPort: mach_port_make_send_t; in flags: uint32);
-routine hostingPort(UCSP_PORTS;
-	in hostPid: pid_t; out hostingPort: mach_port_make_send_t);
-routine setGuest(UCSP_PORTS; in guest: SecGuestRef; in flags: uint32);
+skip;
+skip;
+skip;
 
-//
-// Code Signing Hosting protocol part 2: proxy services.
-//
-routine createGuest(UCSP_PORTS; in host: SecGuestRef; in status: uint32_t;
-	in path: FilePath; in cdhash: HashData; in attributes: Data; in flags: uint32; out guest: SecGuestRef);
-routine setGuestStatus(UCSP_PORTS; in guest: SecGuestRef;
-	in status: uint32_t; in attributes: Data);
-routine removeGuest(UCSP_PORTS; in host: SecGuestRef; in guest: SecGuestRef);
+skip;
+skip;
+skip;
 
-//
-// Code Signing support calls
-//
-routine helpCheckLoad(UCSP_PORTS; in path: FilePath; in addType: uint32_t);
+skip;
 
 //
 // Keychain Syncing setup support calls

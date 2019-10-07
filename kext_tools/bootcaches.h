@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2006-2012 Apple Inc. All rights reserved.               
+ * Copyright (c) 2006-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -49,37 +49,40 @@
 // bootcaches.plist and keys
 
 #define kBootCachesPath             "/usr/standalone/bootcaches.plist"
-#define kBCPreBootKey               CFSTR("PreBootPaths")    // dict
-#define kBCLabelKey                 CFSTR("DiskLabel")       // ".disk_label"
-#define kBCBootersKey               CFSTR("BooterPaths")     // dict
-#define kBCEFIBooterKey             CFSTR("EFIBooter")       // "boot.efi"
-#define kBCOFBooterKey              CFSTR("OFBooter")        // "BootX"
-#define kBCPostBootKey              CFSTR("PostBootPaths")   // dict
-#define kBCMKextKey                 CFSTR("MKext")           // dict
-#define kBCMKext2Key                CFSTR("MKext2")          // dict
-#define kBCKernelcacheV1Key         CFSTR("Kernelcache v1.1")// dict
-#define kBCKernelcacheV2Key         CFSTR("Kernelcache v1.2")// dict
-#define kBCKernelcacheV3Key         CFSTR("Kernelcache v1.3")// dict
-#define kBCKernelcacheV4Key         CFSTR("Kernelcache v1.4")// dict
-#define kBCKernelPathKey            CFSTR("KernelPath")      //   m_k | kernel
-#define kBCPreferredCompressionKey  CFSTR("Preferred Compression") // "lzvn"
+#define kBCPreBootKey                CFSTR("PreBootPaths")    // dict
+#define kBCLabelKey                  CFSTR("DiskLabel")       // ".disk_label"
+#define kBCBootersKey                CFSTR("BooterPaths")     // dict
+#define kBCEFIBooterKey              CFSTR("EFIBooter")       // "boot.efi"
+#define kBCOFBooterKey               CFSTR("OFBooter")        // "BootX"
+#define kBCPostBootKey               CFSTR("PostBootPaths")   // dict
+#define kBCMKextKey                  CFSTR("MKext")           // dict
+#define kBCMKext2Key                 CFSTR("MKext2")          // dict
+#define kBCKernelcacheV1Key          CFSTR("Kernelcache v1.1")// dict
+#define kBCKernelcacheV2Key          CFSTR("Kernelcache v1.2")// dict
+#define kBCKernelcacheV3Key          CFSTR("Kernelcache v1.3")// dict
+#define kBCKernelcacheV4Key          CFSTR("Kernelcache v1.4")// dict
+#define kBCKernelcacheV5Key          CFSTR("Kernelcache v1.5")// dict
+#define kBCKernelPathKey             CFSTR("KernelPath")      //   m_k | kernel
+#define kBCPreferredCompressionKey   CFSTR("Preferred Compression") // "lzvn"
 #if DEV_KERNEL_SUPPORT
-#define kBCKernelsDirKey            CFSTR("KernelsDir")      //   S/L/Kernels
+#define kBCKernelsDirKey             CFSTR("KernelsDir")      //   S/L/Kernels
 #endif
-#define kBCArchsKey                 CFSTR("Archs")           //   ... i386
-#define kBCExtensionsDirKey         CFSTR("ExtensionsDir")   //   /S/L/E, /L/E
-#define kBCPathKey                  CFSTR("Path")            //   ...prelinkedkernel
+#define kBCArchsKey                  CFSTR("Archs")           //   ... i386
+#define kBCWatchedExtensionsDirKey   CFSTR("ExtensionsDir")   //   /L/E
+#define kBCUnwatchedExtensionsDirKey CFSTR("UnwatchedExtensionsDir") // /L/DE
+#define kBCPathKey                   CFSTR("Path")        // /L/A/S/L/PLKs/prelinkedkernel
+#define kBCReadOnlyPathKey           CFSTR("ReadOnlyPath") // /S/L/PLKs/prelinkedkernel
 // AdditionalPaths are optional w/PreBootPaths, required w/PostBootPaths
-#define kBCAdditionalPathsKey       CFSTR("AdditionalPaths") // array
-#define kBCBootConfigKey            CFSTR("BootConfig")      // bc.plist
-#define kBCEncryptedRootKey         CFSTR("EncryptedRoot")   // dict
-#define kBCCSFDEPropertyCacheKey    CFSTR("EncryptedPropertyCache") // .wipekey
-#define kBCCSFDERootVolPropCacheKey CFSTR("RootVolumePropertyCache")//A_B only?
-#define kBCCSFDEDefResourcesDirKey  CFSTR("DefaultResourcesDir") // EfiLoginUI
-#define kBCCSFDELocalizationSrcKey  CFSTR("LocalizationSource")  // EFI.fr/Res
-#define kBCCSFDELanguagesPrefKey    CFSTR("LanguagesPref")   //   .GlobalPrefs
-#define kBCCSFDEBackgroundImageKey  CFSTR("BackgroundImage") //   desktop..png
-#define kBCCSFDELocRsrcsCacheKey    CFSTR("LocalizedResourcesCache") // EFILocs
+#define kBCAdditionalPathsKey        CFSTR("AdditionalPaths") // array
+#define kBCBootConfigKey             CFSTR("BootConfig")      // bc.plist
+#define kBCEncryptedRootKey          CFSTR("EncryptedRoot")   // dict
+#define kBCCSFDEPropertyCacheKey     CFSTR("EncryptedPropertyCache") // .wipekey
+#define kBCCSFDERootVolPropCacheKey  CFSTR("RootVolumePropertyCache")//A_B only?
+#define kBCCSFDEDefResourcesDirKey   CFSTR("DefaultResourcesDir") // EfiLoginUI
+#define kBCCSFDELocalizationSrcKey   CFSTR("LocalizationSource")  // EFI.fr/Res
+#define kBCCSFDELanguagesPrefKey     CFSTR("LanguagesPref")   //   .GlobalPrefs
+#define kBCCSFDEBackgroundImageKey   CFSTR("BackgroundImage") //   desktop..png
+#define kBCCSFDELocRsrcsCacheKey     CFSTR("LocalizedResourcesCache") // EFILocs
 
 typedef enum {
     kMkextCRCError = -1,
@@ -114,20 +117,23 @@ struct bootCaches {
     char kernelpath[BCPATH_MAX]; // path to kernel file (watch only)
                                  // <= 10.9 - /Volumes/foo/mach_kernel
                                  // > 10.9 - /Volumes/foo/System/Library/Kernels/kernel
-    int  nexts;                 // number of extensions directory paths
-    char *exts;                 // null terminated extensions dir paths 
+    int  nWatchedExts;          // number of extensions directory paths (watched by watchvol)
+    char *watchedExts;          // null terminated extensions dir paths (watched by watchvol)
+    int  nUnwatchedExts;        // number of extensions directory paths (not watched by watchvol)
+    char *unwatchedExts;        // null terminated extensions dir paths (not watched by watchvol)
     char locSource[BCPATH_MAX]; // only EFILogin.framework/Resources for now
     char locPref[BCPATH_MAX];   // /L/P/.GlobalPreferences
     char bgImage[BCPATH_MAX];   // /L/Caches/com.apple.desktop.admin.png
     unsigned nrps;              // number of RPS paths in Apple_Boot
-    cachedPath *rpspaths;       // e.g. mkext, kernel, Boot.plist 
+    cachedPath *rpspaths;       // e.g. mkext, kernel, Boot.plist
     unsigned nmisc;             // "other" files (non-critical)
     cachedPath *miscpaths;      // e.g. icons, labels, etc
     cachedPath efibooter;       // booters get their own paths
     cachedPath ofbooter;        // (we have to bless them, etc)
 
     // pointers to special watched paths (stored in arrays above)
-    cachedPath *kext_boot_cache_file;     // -> prelinkedkernel
+    cachedPath *readonly_kext_boot_cache_file; // -> /S/L/PLKs/prelinkedkernel
+    cachedPath *kext_boot_cache_file;          // -> /L/A/S/L/PLKs/prelinkedkernel
     cachedPath *bootconfig;     // -> .../L/Prefs/SC/com.apple.Boot.plist
     cachedPath *efidefrsrcs;    // -> usr/standalone/i386/EfiLoginUI
     cachedPath *efiloccache;    // -> ...Caches/../EFILoginLocalizations
@@ -215,7 +221,7 @@ int rebuild_kext_boot_cache_file(
 // check/rebuild CSFDE caches
 Boolean check_csfde(struct bootCaches *caches);
 int rebuild_csfde_cache(struct bootCaches *caches);
-int writeCSFDEProps(int scopefd, CFDictionaryRef ectx, 
+int writeCSFDEProps(int scopefd, CFDictionaryRef ectx,
                     char *cspvbsd, char *dstpath);
 Boolean check_loccache(struct bootCaches *caches);
 int rebuild_loccache(struct bootCaches *caches);
@@ -226,5 +232,8 @@ int updateMount(mountpoint_t mount, uint32_t mntgoal);
 
 pid_t launch_rebuild_all(char * rootPath, Boolean force, Boolean wait);
 
+#if DEV_KERNEL_SUPPORT
+int getExtraKernelCachePaths(struct bootCaches *caches, cachedPath **pathsp, int *numPaths, bool readOnly);
+#endif
 #endif /* __BOOTCACHES_H__ */
 

@@ -299,10 +299,10 @@ bool SharedMemoryListener::needsPrivacyFilter(Notification *notification) {
     case kSecUnlockEvent:           // kNotificationEventUnlocked
     case kSecPasswordChangedEvent:  // kNotificationEventPassphraseChanged
     case kSecDefaultChangedEvent:
-    case kSecDataAccessEvent:
     case kSecKeychainListChangedEvent:
     case kSecTrustSettingsChangedEvent:
         return false;
+    case kSecDataAccessEvent:
     case kSecAddEvent:
     case kSecDeleteEvent:
     case kSecUpdateEvent:

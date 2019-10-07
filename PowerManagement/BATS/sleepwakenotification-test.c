@@ -54,9 +54,9 @@ enum
 } Expected_Notification;
 static void print_pretty_date(bool newline);
 
-void RestoreSystemCurrentSetting();
+void RestoreSystemCurrentSetting(void);
 
-void EnableSystemSleep()
+void EnableSystemSleep(void)
 {
 
     IOReturn                        ret;
@@ -277,7 +277,7 @@ static void install_listen_IORegisterForSystemPower(void)
     
     return;
 }
-void RestoreSystemCurrentSetting()
+void RestoreSystemCurrentSetting(void)
 {
     IOReturn ret;
     if (system_power_settings)

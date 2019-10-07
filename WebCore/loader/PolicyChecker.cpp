@@ -80,9 +80,9 @@ PolicyCheckIdentifier PolicyCheckIdentifier::create()
 
 bool PolicyCheckIdentifier::isValidFor(PolicyCheckIdentifier expectedIdentifier)
 {
-    ASSERT_WITH_MESSAGE(m_policyCheck, "Received 0 as the policy check identifier");
-    ASSERT_WITH_MESSAGE(m_process == expectedIdentifier.m_process, "Received a policy check response for a wrong process");
-    ASSERT_WITH_MESSAGE(m_policyCheck <= expectedIdentifier.m_policyCheck, "Received a policy check response from the future");
+    RELEASE_ASSERT_WITH_MESSAGE(m_policyCheck, "Received 0 as the policy check identifier");
+    RELEASE_ASSERT_WITH_MESSAGE(m_process == expectedIdentifier.m_process, "Received a policy check response for a wrong process");
+    RELEASE_ASSERT_WITH_MESSAGE(m_policyCheck <= expectedIdentifier.m_policyCheck, "Received a policy check response from the future");
     return m_policyCheck == expectedIdentifier.m_policyCheck;
 }
 
@@ -193,7 +193,7 @@ void PolicyChecker::checkNavigationPolicy(ResourceRequest&& request, const Resou
          blobURLLifetimeExtension = WTFMove(blobURLLifetimeExtension), requestIdentifier] (PolicyAction policyAction, PolicyCheckIdentifier responseIdentifier) mutable {
 
         if (!responseIdentifier.isValidFor(requestIdentifier))
-            return;
+            return function({ }, nullptr, NavigationPolicyDecision::IgnoreLoad);
 
         m_delegateIsDecidingNavigationPolicy = false;
 
@@ -234,7 +234,7 @@ void PolicyChecker::checkNewWindowPolicy(NavigationAction&& navigationAction, Re
         requestIdentifier] (PolicyAction policyAction, PolicyCheckIdentifier responseIdentifier) mutable {
 
         if (!responseIdentifier.isValidFor(requestIdentifier))
-            return;
+            return function({ }, nullptr, { }, { }, ShouldContinue::No);
 
         switch (policyAction) {
         case PolicyAction::Download:

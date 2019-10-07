@@ -5,7 +5,7 @@ Test array_slice() function : usage variations - Pass different data types as $o
 --FILE--
 <?php
 /* Prototype  : array array_slice(array $input, int $offset [, int $length [, bool $preserve_keys]])
- * Description: Returns elements specified by offset and length 
+ * Description: Returns elements specified by offset and length
  * Source code: ext/standard/array.c
  */
 
@@ -63,7 +63,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
@@ -93,7 +93,6 @@ fclose($fp);
 
 echo "Done";
 ?>
-
 --EXPECTF--
 *** Testing array_slice() : usage variations ***
 
@@ -153,7 +152,7 @@ array(4) {
 
 -- Iteration 7 --
 
-Warning: array_slice() expects parameter 2 to be integer, float given in %s on line %d
+Warning: array_slice() expects parameter 2 to be int, float given in %s on line %d
 NULL
 
 -- Iteration 8 --
@@ -250,32 +249,32 @@ array(4) {
 
 -- Iteration 16 --
 
-Warning: array_slice() expects parameter 2 to be integer, string given in %s on line %d
+Warning: array_slice() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 17 --
 
-Warning: array_slice() expects parameter 2 to be integer, string given in %s on line %d
+Warning: array_slice() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 18 --
 
-Warning: array_slice() expects parameter 2 to be integer, array given in %s on line %d
+Warning: array_slice() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
 -- Iteration 19 --
 
-Warning: array_slice() expects parameter 2 to be integer, string given in %s on line %d
+Warning: array_slice() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 20 --
 
-Warning: array_slice() expects parameter 2 to be integer, string given in %s on line %d
+Warning: array_slice() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 21 --
 
-Warning: array_slice() expects parameter 2 to be integer, string given in %s on line %d
+Warning: array_slice() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 22 --

@@ -34,7 +34,7 @@ $inputs = array(
 /*1*/  0,
        1,
        12345,
-       -2345,       
+       -2345,
        2147483647,
 
        // float data
@@ -53,7 +53,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*17*/ "",
        '',
@@ -63,10 +63,10 @@ $inputs = array(
 /*20*/ "abcxyz",
        'abcxyz',
        $heredoc,
-       
+
        // object data
-/*23*/ new classA(),       
-       
+/*23*/ new classA(),
+
        // undefined data
 /*24*/ @$undefined_var,
 
@@ -113,7 +113,7 @@ NULL
 
 -- Iteration 8 --
 
-Warning: mt_srand() expects parameter 1 to be integer, float given in %s on line %d
+Warning: mt_srand() expects parameter 1 to be int, float given in %s on line %d
 NULL
 
 -- Iteration 9 --
@@ -142,37 +142,37 @@ NULL
 
 -- Iteration 17 --
 
-Warning: mt_srand() expects parameter 1 to be integer, string given in %s on line %d
+Warning: mt_srand() expects parameter 1 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 18 --
 
-Warning: mt_srand() expects parameter 1 to be integer, string given in %s on line %d
+Warning: mt_srand() expects parameter 1 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 19 --
 
-Warning: mt_srand() expects parameter 1 to be integer, array given in %s on line %d
+Warning: mt_srand() expects parameter 1 to be int, array given in %s on line %d
 NULL
 
 -- Iteration 20 --
 
-Warning: mt_srand() expects parameter 1 to be integer, string given in %s on line %d
+Warning: mt_srand() expects parameter 1 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 21 --
 
-Warning: mt_srand() expects parameter 1 to be integer, string given in %s on line %d
+Warning: mt_srand() expects parameter 1 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 22 --
 
-Warning: mt_srand() expects parameter 1 to be integer, string given in %s on line %d
+Warning: mt_srand() expects parameter 1 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 23 --
 
-Warning: mt_srand() expects parameter 1 to be integer, object given in %s on line %d
+Warning: mt_srand() expects parameter 1 to be int, object given in %s on line %d
 NULL
 
 -- Iteration 24 --
@@ -183,6 +183,6 @@ NULL
 
 -- Iteration 26 --
 
-Warning: mt_srand() expects parameter 1 to be integer, resource given in %s on line %d
+Warning: mt_srand() expects parameter 1 to be int, resource given in %s on line %d
 NULL
 ===Done===

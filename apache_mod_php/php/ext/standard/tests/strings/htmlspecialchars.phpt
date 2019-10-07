@@ -9,7 +9,7 @@ Test htmlspecialchars() function
 /* retrieving htmlspecialchars from the ANSI character table */
 echo "*** Retrieving htmlspecialchars for 256 characters ***\n";
 for($i=0; $i<256; $i++)
-var_dump( bin2hex( htmlspecialchars(b"chr($i)") ) );
+var_dump( bin2hex( htmlspecialchars("chr($i)") ) );
 
 /* giving NULL as the argument */
 echo "\n*** Testing htmlspecialchars() with NULL as first, second and third argument ***\n";
@@ -328,4 +328,3 @@ Warning: htmlspecialchars() expects at least 1 parameter, 0 given in %s on line 
 NULL
 string(10) "&lt;br&gt;"
 Done
-

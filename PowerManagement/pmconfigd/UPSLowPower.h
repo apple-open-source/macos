@@ -33,7 +33,7 @@
  
 __private_extern__ void UPSLowPower_prime(void);
 
-__private_extern__ void UPSLowPowerPSChange();
+__private_extern__ void UPSLowPowerPSChange(void);
 
 __private_extern__ void UPSLowPowerPrefsHaveChanged(void);
 

@@ -24,22 +24,21 @@
 #include <pthread.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <CoreFoundation/CFArray.h>
-#include <IOKit/hid/IOHIDElement.h>
+#include "IOHIDElementPrivate.h"
 #include <IOKit/hid/IOHIDLibUserClient.h>
 #include <IOKit/hid/IOHIDPrivateKeys.h>
 #include <IOKit/hid/IOHIDDevicePlugIn.h>
 #include <IOKit/hid/IOHIDLibPrivate.h>
 #include "IOHIDManagerPersistentProperties.h"
+#include "HIDElementIvar.h"
 
-static IOHIDElementRef      __IOHIDElementCreate(
-                                    CFAllocatorRef          allocator, 
-                                    CFAllocatorContext *    context);
-static Boolean              __IOHIDElementEqual(
-                                    CFTypeRef               cf1, 
-                                    CFTypeRef               cf2);
-static CFHashCode           __IOHIDElementHash(CFTypeRef cf);
-static void                 __IOHIDElementRelease( 
-                                    CFTypeRef               object );
+typedef struct  __IOHIDElement {
+    struct objc_object base;
+    struct {
+    HIDElementIvar
+    };
+} __IOHIDElement;
+
 static IOHIDElementStruct * __IOHIDElementGetElementStruct(
                                     IOHIDElementRef         element);
 static void                 _IOHIDElementAttach(
@@ -53,43 +52,6 @@ static void                 _IOHIDElementDetach(
 static void                 __IOHIDElementApplyCalibration(
                                     IOHIDElementRef element);
 
-typedef struct __IOHIDElement
-{
-    CFRuntimeBase                   cfBase;   // base CFType information
-
-    IOHIDDeviceDeviceInterface**    deviceInterface;
-    IOHIDDeviceRef                  device;
-    IOHIDValueRef                   value;
-
-    IOHIDElementStruct *            elementStructPtr;
-    uint32_t                        index;    
-    CFDataRef                       data;
-    CFMutableArrayRef               attachedElements;
-    CFArrayRef                      childElements;
-    IOHIDElementRef                 parentElement;
-    IOHIDElementRef                 originalElement;
-    IOHIDCalibrationInfo *          calibrationPtr;
-    CFMutableDictionaryRef          properties;
-    CFStringRef                     rootKey;
-    Boolean                         isDirty;
-} __IOHIDElement, *__IOHIDElementRef;
-
-static const CFRuntimeClass __IOHIDElementClass = {
-    0,                      // version
-    "IOHIDElement",         // className
-    NULL,                   // init
-    NULL,                   // copy
-    __IOHIDElementRelease,  // finalize
-    __IOHIDElementEqual,    // equal
-    __IOHIDElementHash,     // hash
-    NULL,                   // copyFormattingDesc
-    NULL,
-    NULL,
-    NULL
-};
-
-static pthread_once_t   __elementTypeInit               = PTHREAD_ONCE_INIT;
-static CFTypeID         __elementTypeID                 = _kCFRuntimeNotATypeID;
 static CFStringRef      __KIOHIDElementSpecialKeys[]    = {
     CFSTR(kIOHIDElementCalibrationMinKey),
     CFSTR(kIOHIDElementCalibrationMaxKey),
@@ -101,47 +63,11 @@ static CFStringRef      __KIOHIDElementSpecialKeys[]    = {
     NULL
 };
 
-
-
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// __IOHIDElementRegister
+// _IOHIDElementReleasePrivate
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-void __IOHIDElementRegister(void)
+void _IOHIDElementReleasePrivate(IOHIDElementRef element)
 {
-    __elementTypeID = _CFRuntimeRegisterClass(&__IOHIDElementClass);
-}
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// __IOHIDElementCreate
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-IOHIDElementRef __IOHIDElementCreate(
-                                    CFAllocatorRef          allocator, 
-                                    CFAllocatorContext *    context __unused)
-{
-    IOHIDElementRef     element = NULL;
-    void *              offset  = NULL;
-    uint32_t            size;
-    
-    /* allocate session */
-    size  = sizeof(__IOHIDElement) - sizeof(CFRuntimeBase);
-    element = (IOHIDElementRef)_CFRuntimeCreateInstance(allocator, IOHIDElementGetTypeID(), size, NULL);
-    
-    if (!element)
-        return NULL;
-
-    offset = element;
-    bzero(offset + sizeof(CFRuntimeBase), size);
-    
-    return element;
-}
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// __IOHIDElementRelease
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-void __IOHIDElementRelease( CFTypeRef object )
-{
-    IOHIDElementRef element = ( IOHIDElementRef ) object;
-    
     CFRELEASE_IF_NOT_NULL(element->attachedElements);
     CFRELEASE_IF_NOT_NULL(element->childElements);
     CFRELEASE_IF_NOT_NULL(element->parentElement);
@@ -149,33 +75,10 @@ void __IOHIDElementRelease( CFTypeRef object )
     CFRELEASE_IF_NOT_NULL(element->originalElement);
     CFRELEASE_IF_NOT_NULL(element->properties);
     CFRELEASE_IF_NOT_NULL(element->rootKey);
+    CFRELEASE_IF_NOT_NULL(element->value);
 
     if (element->calibrationPtr)    free(element->calibrationPtr);
     element->calibrationPtr = NULL;
-}
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// __IOHIDElementEqual
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-Boolean __IOHIDElementEqual(CFTypeRef cf1, CFTypeRef cf2)
-{
-    if ((CFGetTypeID(cf1) != IOHIDElementGetTypeID()) || 
-        (CFGetTypeID(cf2) != IOHIDElementGetTypeID()) ||
-        (IOHIDElementGetCookie((IOHIDElementRef)cf1) != IOHIDElementGetCookie((IOHIDElementRef)cf2)))
-        return FALSE;
-        
-    return TRUE;
-}
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// __IOHIDElementHash
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-CFHashCode __IOHIDElementHash(CFTypeRef cf)
-{
-    if (CFGetTypeID(cf) == IOHIDElementGetTypeID())
-        return (CFHashCode)IOHIDElementGetCookie((IOHIDElementRef)cf);
-        
-    return  0;
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -184,18 +87,6 @@ CFHashCode __IOHIDElementHash(CFTypeRef cf)
 IOHIDElementStruct * __IOHIDElementGetElementStruct(IOHIDElementRef element)
 {
     return element->elementStructPtr;
-}
-
-//------------------------------------------------------------------------------
-// IOHIDElementGetTypeID
-//------------------------------------------------------------------------------
-CFTypeID IOHIDElementGetTypeID(void)
-{
-    /* initialize runtime */
-    if ( __elementTypeID == _kCFRuntimeNotATypeID )
-        pthread_once(&__elementTypeInit, __IOHIDElementRegister);
-
-    return __elementTypeID;
 }
 
 //------------------------------------------------------------------------------
@@ -213,7 +104,7 @@ IOHIDElementRef _IOHIDElementCreateWithParentAndData(
     if (!elementStruct)
         return (_Nonnull IOHIDElementRef)NULL;
 
-    element = __IOHIDElementCreate(allocator, NULL);
+    element = _IOHIDElementCreatePrivate(allocator);
 
     if (!element)
         return (_Nonnull IOHIDElementRef)NULL;
@@ -240,7 +131,7 @@ IOHIDElementRef _IOHIDElementCreateWithElement(
     if ( !original )
         return NULL;
 
-    element = __IOHIDElementCreate(allocator, NULL);
+    element = _IOHIDElementCreatePrivate(allocator);
 
     if (!element)
         return NULL;
@@ -327,7 +218,7 @@ IOHIDElementRef IOHIDElementCreateWithDictionary(
     if ( !dictionary )
         return (_Nonnull IOHIDElementRef)NULL;
 
-    element = __IOHIDElementCreate(allocator, NULL);
+    element = _IOHIDElementCreatePrivate(allocator);
 
     if (!element)
         return (_Nonnull IOHIDElementRef)NULL;
@@ -727,10 +618,17 @@ IOHIDValueRef _IOHIDElementGetValue(IOHIDElementRef element)
 //------------------------------------------------------------------------------
 void _IOHIDElementSetValue(IOHIDElementRef element, IOHIDValueRef value)
 {
-    if (element->value)
+    if (element->value) {
         CFRelease(element->value);
-        
-    element->value = value ? (IOHIDValueRef)CFRetain(value) : NULL;
+        element->value = NULL;
+    }
+    
+    if (value) {
+        IOHIDValueRef new = _IOHIDValueCreateWithValue(kCFAllocatorDefault,
+                                                       value,
+                                                       element);
+        element->value = new;
+    }
 }
 
 //------------------------------------------------------------------------------

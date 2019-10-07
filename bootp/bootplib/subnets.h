@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2006 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,7 @@
 
 #include <stdbool.h>
 #include <netinet/in.h>
+#include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFArray.h>
 
 #include "dhcp.h"
@@ -52,9 +53,9 @@
 #define SUBNET_PROP_LEASE_MIN		"lease_min"
 #define SUBNET_PROP_LEASE_MAX		"lease_max"
 
+
 typedef bool (SubnetIsAddressInUseFunc)(void * private, struct in_addr ip);
 typedef SubnetIsAddressInUseFunc * SubnetIsAddressInUseFuncRef;
-
 typedef struct _SubnetList * SubnetListRef;
 typedef struct _Subnet * SubnetRef;
 
@@ -83,6 +84,9 @@ SubnetListFree(SubnetListRef * subnets);
 
 void
 SubnetListPrint(SubnetListRef subnets);
+
+void
+SubnetListPrintCFString(CFMutableStringRef str, SubnetListRef subnets);
 
 /**
  ** SubnetRef API's

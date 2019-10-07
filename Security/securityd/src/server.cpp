@@ -241,23 +241,6 @@ void Server::setupConnection(ConnectLevel type, Port replyPort, Port taskPort,
 	notifyIfDead(replyPort);
 }
 
-
-//
-// Synchronously end a Connection.
-// This is due to a request from the client, so no thread races are possible.
-// In practice, this is optional since the DPN for the client thread reply port
-// will destroy the connection anyway when the thread dies.
-//
-void Server::endConnection(Port replyPort)
-{
-	StLock<Mutex> _(*this);
-	PortMap<Connection>::iterator it = mConnections.find(replyPort);
-	assert(it != mConnections.end());
-	it->second->terminate();
-	mConnections.erase(it);
-}
-
-
 //
 // Handling dead-port notifications.
 // This receives DPNs for all kinds of ports we're interested in.
@@ -277,7 +260,6 @@ void Server::notifyDeadName(Port port)
         RefPointer<Connection> con = conIt->second;
 		mConnections.erase(conIt);
         serverLock.unlock();
-		con->abort();        
         return;
     }
     
@@ -323,6 +305,7 @@ kern_return_t self_server_handleSignal(mach_port_t sport,
         secnotice("SecServer", "signal handled %d", sig);
         if (taskPort != mach_task_self()) {
             Syslog::error("handleSignal: received from someone other than myself");
+            mach_port_deallocate(mach_task_self(), taskPort);
 			return KERN_SUCCESS;
 		}
 		switch (sig) {
@@ -459,9 +442,10 @@ void Server::beginShutdown()
 			mShuttingDown = true;
             Session::invalidateAuthHosts();
             secnotice("SecServer", "%p beginning shutdown", this);
-			if (verbosity() >= 2) {
+            shutdownReport();           // always tell me about residual clients...
+			if (verbosity() >= 2) {     // ...and if we really care write to the log, too
 				reportFile = fopen("/var/log/securityd-shutdown.log", "w");
-				shutdownSnitch();
+				shutdownReport_file();
 			}
 		}
 	}
@@ -478,16 +462,24 @@ void Server::eventDone()
 {
     StLock<Mutex> lock(*this);
 	if (this->shuttingDown()) {
+        shutdownReport();
 		if (verbosity() >= 2) {
-            secnotice("SecServer", "shutting down with %ld processes and %ld transactions", mProcesses.size(), VProc::Transaction::debugCount());
-			shutdownSnitch();
+            secnotice("SecServer", "shutting down with %ld processes", mProcesses.size());
+			shutdownReport_file();
 		}
-		IFDUMPING("shutdown", NodeCore::dumpAll());
 	}
 }
 
+void Server::shutdownReport()
+{
+    PidMap mPidsCopy = PidMap(mPids);
+    secnotice("shutdown", "Residual clients count: %d", int(mPidsCopy.size()));
+    for (PidMap::const_iterator it = mPidsCopy.begin(); it != mPidsCopy.end(); ++it) {
+        secnotice("shutdown", "Residual client: %d", it->first);
+    }
+}
 
-void Server::shutdownSnitch()
+void Server::shutdownReport_file()
 {
 	time_t now;
 	time(&now);
@@ -502,7 +494,11 @@ void Server::shutdownSnitch()
 
 bool Server::inDarkWake()
 {
-    return IOPMIsADarkWake(IOPMConnectionGetSystemCapabilities());
+    bool inDarkWake = IOPMIsADarkWake(IOPMConnectionGetSystemCapabilities());
+    if (inDarkWake) {
+        secnotice("SecServer", "Server::inDarkWake returned inDarkWake");
+    }
+    return inDarkWake;
 }
 
 //
@@ -515,7 +511,7 @@ void Server::loadCssm(bool mdsIsInstalled)
 {
 	if (!mCssm->isActive()) {
 		StLock<Mutex> _(*this);
-		VProc::Transaction xact;
+        xpc_transaction_begin();
 		if (!mCssm->isActive()) {
             if (!mdsIsInstalled) {  // non-system securityd instance should not reinitialize MDS
                 secnotice("SecServer", "Installing MDS");
@@ -527,6 +523,7 @@ void Server::loadCssm(bool mdsIsInstalled)
 			mCSP->attach();
 			secnotice("SecServer", "CSSM ready with CSP %s", mCSP->guid().toString().c_str());
 		}
+        xpc_transaction_end();
 	}
 }
 

@@ -188,7 +188,7 @@ save_drift_file(
 {
 	FILE *fp;
 	int rc = TRUE;
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	vproc_transaction_t vt;
 #endif
     struct stat statbuf;
@@ -198,7 +198,7 @@ save_drift_file(
 	sigemptyset(&sigterm);
 	sigaddset(&sigterm, SIGTERM);
 	pthread_sigmask(SIG_BLOCK, &sigterm, &oset);
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	vt = vproc_transaction_begin(NULL);
 #endif
 	if (stat(stats_drift_file, &statbuf) == -1) {
@@ -271,7 +271,7 @@ save_drift_file(
 		}
 	}
 done:
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	vproc_transaction_end(NULL, vt);
 #endif
 	pthread_sigmask(SIG_SETMASK, &oset, NULL);

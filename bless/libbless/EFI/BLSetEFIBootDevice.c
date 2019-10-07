@@ -161,7 +161,7 @@ int setefidevice(BLContextPtr context, const char * bsdname, int bootNext,
 							dlclose(frameworkHandle);
 							return 2;
 						}
-						if (role & (APFS_VOL_ROLE_PREBOOT | APFS_VOL_ROLE_RECOVERY)) {
+						if (role == APFS_VOL_ROLE_PREBOOT || role == APFS_VOL_ROLE_RECOVERY) {
 							substitute = false;
 						}
 					}
@@ -345,7 +345,7 @@ int setefifilepath(BLContextPtr context, const char * path, int bootNext,
                         dlclose(frameworkHandle);
                         return 2;
                     }
-                    if (role & (APFS_VOL_ROLE_PREBOOT | APFS_VOL_ROLE_RECOVERY)) {
+					if (role == APFS_VOL_ROLE_PREBOOT || role == APFS_VOL_ROLE_RECOVERY) {
                         substitute = false;
                     }
                 }

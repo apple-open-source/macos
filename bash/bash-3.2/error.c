@@ -168,7 +168,7 @@ programming_error (format, va_alist)
   fprintf (stderr, "Report this to %s\n", the_current_maintainer);
 #endif
 
-  fprintf (stderr, _("Aborting..."));
+  fprintf (stderr, "%s", _("Aborting..."));
   fflush (stderr);
 
   abort ();

@@ -35,6 +35,8 @@
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/SecInternal.h>
+#include <Security/SecIdentity.h>
+#include <Security/SecPolicy.h>
 #include <libDER/DER_Encode.h>
 #include <uuid/uuid.h>
 #include <utilities/array_size.h>

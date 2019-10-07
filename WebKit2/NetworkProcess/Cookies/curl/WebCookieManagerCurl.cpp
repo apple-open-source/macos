@@ -26,17 +26,52 @@
 #include "config.h"
 #include "WebCookieManager.h"
 
+#include "NetworkProcess.h"
+#include <WebCore/NetworkStorageSession.h>
+
 namespace WebKit {
 
 using namespace WebCore;
 
-void WebCookieManager::platformSetHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy)
+void WebCookieManager::platformSetHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy policy)
 {
+    CookieAcceptPolicy curlPolicy = CookieAcceptPolicy::OnlyFromMainDocumentDomain;
+    switch (policy) {
+    case HTTPCookieAcceptPolicy::AlwaysAccept:
+        curlPolicy = CookieAcceptPolicy::Always;
+        break;
+    case HTTPCookieAcceptPolicy::Never:
+        curlPolicy = CookieAcceptPolicy::Never;
+        break;
+    case HTTPCookieAcceptPolicy::OnlyFromMainDocumentDomain:
+        curlPolicy = CookieAcceptPolicy::OnlyFromMainDocumentDomain;
+        break;
+    case HTTPCookieAcceptPolicy::ExclusivelyFromMainDocumentDomain:
+        curlPolicy = CookieAcceptPolicy::ExclusivelyFromMainDocumentDomain;
+        break;
+    }
+
+    m_process.forEachNetworkStorageSession([curlPolicy] (const auto& networkStorageSession) {
+        networkStorageSession.cookieStorage().setCookieAcceptPolicy(networkStorageSession, curlPolicy);
+    });
 }
 
 HTTPCookieAcceptPolicy WebCookieManager::platformGetHTTPCookieAcceptPolicy()
 {
-    return HTTPCookieAcceptPolicyOnlyFromMainDocumentDomain;
+    const auto& networkStorageSession = m_process.defaultStorageSession();
+    switch (networkStorageSession.cookieStorage().cookieAcceptPolicy(networkStorageSession)) {
+    case CookieAcceptPolicy::Always:
+        return HTTPCookieAcceptPolicy::AlwaysAccept;
+    case CookieAcceptPolicy::Never:
+        return HTTPCookieAcceptPolicy::Never;
+    case CookieAcceptPolicy::OnlyFromMainDocumentDomain:
+        return HTTPCookieAcceptPolicy::OnlyFromMainDocumentDomain;
+    case CookieAcceptPolicy::ExclusivelyFromMainDocumentDomain:
+        return HTTPCookieAcceptPolicy::ExclusivelyFromMainDocumentDomain;
+    }
+
+    ASSERT_NOT_REACHED();
+    return HTTPCookieAcceptPolicy::OnlyFromMainDocumentDomain;
 }
 
 } // namespace WebKit

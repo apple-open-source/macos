@@ -1,7 +1,7 @@
 --TEST--
 Bug # #68937 (Segfault in curl_multi_exec)
 --SKIPIF--
-<?php 
+<?php
 if (getenv("SKIP_ONLINE_TESTS")) die("skip online test");
 include 'skipif.inc';
 ?>
@@ -36,5 +36,5 @@ function curl_read($ch, $fp, $len) {
 curl_exec($ch);
 curl_close($ch);
 ?>
---EXPECTF--
+--EXPECT--
 NULL

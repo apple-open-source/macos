@@ -59,6 +59,9 @@ struct Point {
     Point() = default;
     Point(LayoutUnit, LayoutUnit);
     Point(LayoutPoint);
+    static Point max() { return { LayoutUnit::max(), LayoutUnit::max() }; }
+
+    void move(LayoutSize);
     void moveBy(LayoutPoint);
     operator LayoutPoint() const { return { x, y }; }
 };
@@ -77,6 +80,12 @@ inline Point::Point(LayoutUnit x, LayoutUnit y)
     : x(x)
     , y(y)
 {
+}
+
+inline void Point::move(LayoutSize offset)
+{
+    x += offset.width();
+    y += offset.height();
 }
 
 inline void Point::moveBy(LayoutPoint offset)
@@ -122,6 +131,32 @@ struct VerticalGeometry {
     LayoutUnit top;
     LayoutUnit bottom;
     HeightAndMargin heightAndMargin;
+};
+
+struct UsedHorizontalValues {
+    explicit UsedHorizontalValues()
+        {
+        }
+
+    explicit UsedHorizontalValues(LayoutUnit containingBlockWidth)
+        : containingBlockWidth(containingBlockWidth)
+        {
+        }
+
+    explicit UsedHorizontalValues(Optional<LayoutUnit> containingBlockWidth, Optional<LayoutUnit> width, Optional<UsedHorizontalMargin> margin)
+        : containingBlockWidth(containingBlockWidth)
+        , width(width)
+        , margin(margin)
+        {
+        }
+
+    Optional<LayoutUnit> containingBlockWidth;
+    Optional<LayoutUnit> width;
+    Optional<UsedHorizontalMargin> margin;
+};
+
+struct UsedVerticalValues {
+    Optional<LayoutUnit> height;
 };
 
 }

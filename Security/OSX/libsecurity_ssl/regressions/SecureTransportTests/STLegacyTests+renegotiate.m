@@ -20,6 +20,7 @@
 #include <Security/SecRandom.h>
 
 #include <utilities/array_size.h>
+#include <utilities/SecCFRelease.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -33,6 +34,9 @@
 
 #include "ssl-utils.h"
 #import "STLegacyTests.h"
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 @implementation STLegacyTests (renegotiation)
 
@@ -463,3 +467,4 @@ out:
 }
 @end
 
+#pragma clang diagnostic pop

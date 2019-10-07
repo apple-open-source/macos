@@ -30,6 +30,7 @@
  * Functions and data structures used in the manipulation of stabs and CTF data
  */
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -41,8 +42,11 @@
 extern "C" {
 #endif
 
+#include "array.h"
+#include "alist.h"
 #include "list.h"
 #include "hash.h"
+#include "atom.h"
 
 #ifndef DEBUG_LEVEL
 #define	DEBUG_LEVEL 0
@@ -126,6 +130,7 @@ typedef enum stabtype {
 	VOLATILE,
 	CONST,
 	RESTRICT,
+	PTRAUTH,
 	STABTYPE_LAST /* do not use */
 } stabtype_t;
 
@@ -142,14 +147,14 @@ typedef struct ardef {
 typedef struct mlist {
 	int	ml_offset;	/* Offset from start of structure (in bits) */
 	int	ml_size;	/* Member size (in bits) */
-	char	*ml_name;	/* Member name */
+	atom_t	*ml_name;	/* Member name */
 	struct	tdesc *ml_type;	/* Member type */
 	struct	mlist *ml_next;	/* Next member */
 } mlist_t;
 
 /* Auxiliary structure for enum tdesc_t */
 typedef struct elist {
-	char	*el_name;
+	atom_t	*el_name;
 	int	el_number;
 	struct elist *el_next;
 } elist_t;
@@ -177,9 +182,16 @@ typedef struct intr {
 typedef struct fndef {
 	struct tdesc *fn_ret;
 	uint_t fn_nargs;
-	tdesc_t **fn_args;
 	uint_t fn_vargs;
+	tdesc_t *fn_args[];
 } fndef_t;
+
+typedef struct ptrauth {
+	tdesc_t *pta_type;
+	uint8_t pta_key;
+	uint16_t pta_discriminator;
+	bool pta_discriminated;
+} ptrauth_t;
 
 typedef int32_t tid_t;
 
@@ -192,7 +204,7 @@ typedef int32_t tid_t;
  * globals, and statics defined by the stabs.
  */
 struct tdesc {
-	char	*t_name;
+	atom_t	*t_name;
 	tdesc_t *t_next;	/* Name hash next pointer */
 
 	tid_t t_id;
@@ -208,6 +220,7 @@ struct tdesc {
 		mlist_t *members;	/* struct, union */
 		elist_t *emem;		/* enum */
 		fndef_t *fndef;		/* function - first is return type */
+		ptrauth_t *ptrauth;	/* ptrauth */
 	} t_data;
 
 	int t_flags;
@@ -221,6 +234,7 @@ struct tdesc {
 #define	t_members	t_data.members
 #define	t_emem		t_data.emem
 #define	t_fndef		t_data.fndef
+#define	t_ptrauth	t_data.ptrauth
 
 #define	TDESC_F_ISROOT		0x1	/* Has an iidesc_t (see below) */
 #define	TDESC_F_GLOBAL		0x2
@@ -244,9 +258,9 @@ typedef enum iitype {
 
 typedef struct iidesc {
 	iitype_t	ii_type;
-	char		*ii_name;
+	atom_t		*ii_name;
 	tdesc_t 	*ii_dtype;
-	char		*ii_owner;	/* File that defined this node */
+	atom_t		*ii_owner;	/* File that defined this node */
 	int		ii_flags;
 
 	/* Function arguments (if any) */
@@ -263,7 +277,7 @@ typedef struct iidesc {
  * ids <= le_idx.
  */
 typedef struct labelent {
-	char *le_name;
+	atom_t *le_name;
 	int le_idx;
 } labelent_t;
 
@@ -279,11 +293,10 @@ typedef struct tdata {
 
 	hash_t	*td_layouthash;	/* The tdesc nodes, hashed by structure */
 	hash_t	*td_idhash;	/* The tdesc nodes, hashed by type id */
-	list_t	*td_fwdlist;	/* All forward declaration tdesc nodes */
 
-	char	*td_parlabel;	/* Top label uniq'd against in parent */
-	char	*td_parname;	/* Basename of parent */
-	list_t	*td_labels;	/* Labels and their type ranges */
+	atom_t	*td_parlabel;	/* Top label uniq'd against in parent */
+	atom_t	*td_parname;	/* Basename of parent */
+	array_t	*td_labels;	/* Labels and their type ranges */
 
 	pthread_mutex_t td_mergelock;
 
@@ -305,7 +318,7 @@ typedef struct iiburst {
 	int iib_curobjt;
 	iidesc_t **iib_objts;
 
-	list_t *iib_types;
+	array_t *iib_types;
 	int iib_maxtypeid;
 
 	tdata_t *iib_td;
@@ -316,12 +329,28 @@ typedef struct ctf_buf ctf_buf_t;
 
 typedef struct symit_data symit_data_t;
 
+/*
+ * The workhorse structure of tdata_t merging.  Holds all lists of nodes to be
+ * processed during various phases of the merge algorithm.
+ */
+typedef struct merge_cb_data {
+	tdata_t *md_parent;
+	tdata_t *md_tgt;
+	alist_t *md_ta;		/* Type Association */
+	alist_t *md_fdida;	/* Forward -> Definition ID Association */
+	array_t	*md_iitba;	/* iidesc_t nodes To Be Added to the parent */
+	hash_t	*md_tdtba;	/* tdesc_t nodes To Be Added to the parent */
+	array_t	*md_tdtbr;	/* tdesc_t nodes To Be Remapped */
+	int md_flags;
+} merge_cb_data_t;
+
+
 /* ctf.c */
 caddr_t ctf_gen(iiburst_t *, size_t *, int);
 tdata_t *ctf_load(char *, caddr_t, size_t, symit_data_t *, char *);
 
 /* iidesc.c */
-iidesc_t *iidesc_new(char *);
+iidesc_t *iidesc_new(atom_t *);
 int iidesc_hash(int, void *);
 void iter_iidescs_by_name(tdata_t *, const char *,
     int (*)(iidesc_t *, void *), void *);
@@ -354,9 +383,10 @@ char *symit_name(symit_data_t *);
 void symit_free(symit_data_t *);
 
 /* merge.c */
-void merge_into_master(tdata_t *, tdata_t *, tdata_t *, int);
+void merge_cb_data_destroy(merge_cb_data_t *);
+void merge_into_master(merge_cb_data_t *, tdata_t *, tdata_t *, tdata_t *, int);
 void ctfmerge_prepare(int nielems);
-int ctfmerge_add_td(tdata_t *td, char *name);
+int ctfmerge_add_td(tdata_t *td, const char *name);
 tdata_t *ctfmerge_done(void);
 
 /* output.c */
@@ -386,9 +416,9 @@ int tdesc_namecmp(void *, void *);
 int tdesc_layouthash(int, void *);
 int tdesc_layoutcmp(void *, void *);
 void tdesc_free(tdesc_t *);
+int	tdata_label_iter(tdata_t *, int (*)(labelent_t *, void *), void *);
 void tdata_label_add(tdata_t *, char *, int);
 labelent_t *tdata_label_top(tdata_t *);
-int tdata_label_find(tdata_t *, char *);
 void tdata_label_free(tdata_t *);
 void tdata_merge(tdata_t *, tdata_t *);
 void tdata_label_newmax(tdata_t *, int);
@@ -398,7 +428,7 @@ int streq(const char *, const char *);
 int findelfsecidx(Elf *, const char *, const char *);
 size_t elf_ptrsz(Elf *);
 char *mktmpname(const char *, const char *);
-void terminate(char *, ...);
+void terminate(const char *, ...);
 void aborterr(char *, ...);
 void set_terminate_cleanup(void (*)());
 void elfterminate(const char *, const char *, ...);

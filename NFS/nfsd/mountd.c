@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2011 Apple Inc.  All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -60,6 +60,7 @@
 #include <sys/mount.h>
 #include <sys/socket.h>
 #include <sys/sockio.h>
+#include <sys/un.h>
 #include <sys/stat.h>
 #include <sys/syslog.h>
 #include <sys/sysctl.h>
@@ -385,8 +386,19 @@ LIST_HEAD(,errlist) xerrs;		/* list of export errors */
 int export_errors, hostnamecount, hostnamegoodcount, missingexportcount;
 SVCXPRT *udptransp, *tcptransp;
 SVCXPRT *udp6transp, *tcp6transp;
+
+#ifdef _PATH_MOUNTD_TICLTS_SOCK
+SVCXPRT *ticltransp;
+#endif
+
+#ifdef _PATH_MOUNTD_TICOTSORD_SOCK
+SVCXPRT *ticotransp;
+#endif
+
 int mounttcpsock, mountudpsock;
 int mounttcp6sock, mountudp6sock;
+/* Currently optional local transport sockets */
+int  mountticlsock = -1, mountticosock = -1;
 
 /*
  * We hold a power assertion to prevent idle sleep whenever we have
@@ -470,6 +482,9 @@ mountd(void)
 	struct sockaddr_storage saddr;
 	struct sockaddr_in *sin = (struct sockaddr_in*)&saddr;
 	struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)&saddr;
+#if defined(_PATH_MOUNTD_TICLTS_SOCK) || defined(_PATH_MOUNTD_TICOTSORD_SOCK)
+	struct sockaddr_un *sun = (struct sockaddr_un*)&saddr;
+#endif
 	socklen_t socklen;
 	struct nfs_export_args nxa;
 	int error, on = 1, init_retry, svcregcnt;
@@ -539,6 +554,7 @@ mountd(void)
 
 	mountudpsock = mounttcpsock = -1;
 	mountudp6sock = mounttcp6sock = -1;
+	mountticlsock = mountticosock = -1;
 
 	/* If we are serving UDP, set up the MOUNT/UDP socket. */
 	if (config.udp) {
@@ -652,6 +668,55 @@ mountd(void)
 		}
 
 	}
+
+#ifdef _PATH_MOUNTD_TICLTS_SOCK
+	/*XXX if (config.ticlts?) */
+	{
+		if ((mountticlsock = socket(AF_LOCAL, SOCK_DGRAM, 0)) < 0)
+			log(LOG_ERR, "can't create MOUNT/TICLTS socket: %s (%d)", strerror(errno), errno);
+		if (mountticlsock >= 0) {
+			sun->sun_family = AF_LOCAL:
+			sun->sun_len = sizeof(struct sockaddr_un);
+			strlcpy(sun->sun_path, _PATH_MOUNTD_TICLTS_SOCK, sizeof(sun->sun_path));
+			(void)unlink(_PATH_MOUNTD_TICLTS_SOCK);
+			socklen = sizeof(*sun);
+			if (bind(mountticlsock, sun, socklen) < 0) {
+				log(LOG_ERR, "can't bind MOUNT/TICLSTS addr: %s (%d)", strerror(errno), errno);
+				close(mountticlsock);
+				mountticlsock = -1;
+			}
+			if (chmod(_PATH_MOUNTD_TICLTS_SOCK, 0777)) {
+				log(LOG_ERR, "could not change socket mode for %s: %s (%d)",
+				    _PATH_MOUNTD_TICLTS_SOCK, strerror(errno), errno);
+				close(mountticlsock);
+				mountticlsock = -1;
+			}
+		}
+
+		if ((mountticlsock >= 0) && ((ticltransp = svcticlts_create(mountticlsock)) == NULL)) {
+			log(LOG_ERR, "Can't create MOUNT/TICLTS service");
+			close(mountticlsock);
+			mountticlsock = -1;
+		}
+		if (mountticlsock >= 0) {
+			svcregcnt = 0;
+			if (!svc_register(ticltransp, RPCPROG_MNT, 1, mntsrv, 0))
+				log(LOG_ERR, "Can't register TICLTS MOUNT v1 service");
+			else
+				svcregcnt++;
+			if (!svc_register(ticltransp, RPCPROG_MNT, 3, mntsrv, 0))
+				log(LOG_ERR, "Can't register TICLTS  MOUNT v3 service");
+			else
+				svcregcnt++;
+			if (!svcregcnt) {
+				svc_destroy(ticltransp);
+				close(mountticlsock);
+				mountticlsock = -1;
+			}
+		}
+
+	}
+#endif
 
 	/* If we are serving TCP, set up the MOUNT/TCP socket. */
 	if (config.tcp) {
@@ -769,20 +834,75 @@ mountd(void)
 
 	}
 
+#ifdef _PATH_MOUNTD_TICOTSORD_SOCK
+	/* XXX if (config.ticotsord?) */
+	{
+		if ((mountticosock = socket(AF_LOCAL, SOCK_STREAM, 0)) < 0)
+			log(LOG_ERR, "can't create MOUNT/TICOTSORD socket: %s (%d)", strerror(errno), errno);
+		if (mountticosock >= 0) {
+			sun->sun_family = AF_LOCAL;
+			sun->sun_len = sizeof(struct sockaddr_un);
+			strlcpy(sun->sun_path, _PATH_MOUNTD_TICOTSORD_SOCK, sizeof(sun->sun_path));
+			(void)unlink(_PATH_MOUNTD_TICOTSORD_SOCK);
+			socklen = sizeof(*sun);
+			if (bind(mountticosock, (struct sockaddr *)sun, socklen) < 0) {
+				log(LOG_ERR, "can't bind MOUNT/TICOTSORD addr: %s (%d)", strerror(errno), errno);
+				close(mountticosock);
+				mountticosock = -1;
+			}
+			if (chmod(_PATH_MOUNTD_TICOTSORD_SOCK, 0777)) {
+				log(LOG_ERR, "could not change socket mode for %s: %s (%d)",
+				    _PATH_MOUNTD_TICOTSORD_SOCK, strerror(errno), errno);
+				close(mountticosock);
+				mountticosock = -1;
+			}
+		}
+
+		if ((mountticosock >= 0) && ((ticotransp = svcticotsord_create(mountticosock, 0, 0)) == NULL)) {
+			log(LOG_ERR, "Can't create MOUNT/TICOTSORD service");
+			close(mountticosock);
+			mountticosock = -1;
+		}
+		if (mountticosock >= 0) {
+			svcregcnt = 0;
+			if (!svc_register(ticotransp, RPCPROG_MNT, 1, mntsrv, 0))
+				log(LOG_ERR, "Can't register TICOTSORD MOUNT v1 service");
+			else
+				svcregcnt++;
+			if (!svc_register(ticotransp, RPCPROG_MNT, 3, mntsrv, 0))
+				log(LOG_ERR, "Can't register TICOTSORD  MOUNT v3 service");
+			else
+				svcregcnt++;
+			if (!svcregcnt) {
+				svc_destroy(ticotransp);
+				close(mountticosock);
+				mountticosock = -1;
+			}
+		}
+
+	}
+#endif
+
 	if ((mountudp6sock < 0) && (mounttcp6sock < 0))
 		log(LOG_WARNING, "Can't create MOUNT IPv6 sockets");
 	if ((mountudpsock < 0) && (mounttcpsock < 0))
 		log(LOG_WARNING, "Can't create MOUNT IPv4 sockets");
+	if ((mountticlsock < 0) && (mountticosock < 0))
+		log(LOG_WARNING, "Can't create MOUNT TI sockets");
 	if ((mountudp6sock < 0) && (mounttcp6sock < 0) &&
-	    (mountudpsock < 0) && (mounttcpsock < 0)) {
+	    (mountudpsock < 0) && (mounttcpsock < 0) &&
+	    (mountticlsock < 0) && (mountticosock < 0))  {
 		log(LOG_ERR, "Can't create any MOUNT sockets!");
 		exit(1);
 	}
 
 	/* set minimum threads for mountd */
 	if (config.nfsd_threads)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wint-to-void-pointer-cast"
 		rpc_control(RPC_SVC_MIN_THREADS_SET, (void *)config.nfsd_threads);
-
+#pragma clang diagnostic pop
+    
 	/* launch mountd pthread */
 	error = pthread_create(&thd, &pattr, mountd_thread, NULL);
 	if (error) {
@@ -1193,7 +1313,8 @@ put_exlist(struct expdir *xd, XDR *xdrsp)
 char *
 clean_pathname(char *line)
 {
-	int len, esc;
+    size_t len;
+    int esc;
 	char c, *p, *s;
 
 	if (line == NULL)
@@ -1620,7 +1741,8 @@ uuidlist_restore(void)
 	struct expidlist *xid;
 	char *cp, str[2*MAXPATHLEN];
 	FILE *ulfile;
-	int i, slen, davalid, uuidchanged;
+	int i, davalid, uuidchanged;
+    size_t slen;
 	uint32_t linenum;
 	struct statfs fsb;
 	u_char dauuid[16];
@@ -1909,7 +2031,8 @@ find_exported_fs_by_dirlist(struct dirlist *dirhead)
 {
 	struct dirlist *dirl;
 	char *path, *p;
-	int cmp, bestlen, len;
+    int cmp;
+    size_t bestlen, len;
 	struct uuidlist *ulp, *bestulp;
 
 	if (!dirhead)
@@ -1970,7 +2093,8 @@ find_exported_fs_by_dirlist(struct dirlist *dirhead)
 int
 subdir_check(char *s1, char *s2)
 {
-	int len1, len2, rv;
+    size_t len1, len2;
+    int rv;
 	len1 = strlen(s1);
 	len2 = strlen(s2);
 	if (len1 > len2)
@@ -1988,7 +2112,7 @@ subdir_check(char *s1, char *s2)
 }
 
 char *line = NULL;
-uint32_t linesize = 0;
+size_t linesize = 0;
 FILE *exp_file;
 uint32_t linenum, entrylines;
 
@@ -2011,7 +2135,8 @@ get_exportlist(void)
 	struct xucred anon;
 	struct nfs_sec secflavs;
 	char *cp, *endcp, *name, *word, *hst, *usr, *dom, savedc, *savedcp, *subdir, *mntonname, *word2;
-	int len, dlen, hostcount, badhostcount, exflags, got_nondir, netgrp, cmp, show;
+	int hostcount, badhostcount, exflags, got_nondir, netgrp, cmp, show;
+    size_t len, dlen;
 	char fspath[MAXPATHLEN];
 	u_char uuid[16], fsuuid[16];
 	struct uuidlist *ulp, *bestulp;
@@ -3363,7 +3488,8 @@ int
 add_dir(struct dirlist **dlpp, char *cp)
 {
 	struct dirlist *newdl, *dl, *dl2, *dl3, *dlstop;
-	int cplen, dlen, cmp;
+    size_t cplen, dlen;
+    int cmp;
 
 	dlstop = NULL;
 	dl2 = NULL;
@@ -4058,7 +4184,7 @@ do_opt( char **cpp,
 	u_char *fsuuid)
 {
 	char *cpoptarg = NULL, *cpoptend = NULL;
-	char *cp, *endcp, *cpopt, *cpu, savedc, savedc2 = '\0', savedc3 = '\0';
+    char *cp, *endcp = NULL, *cpopt, *cpu, savedc, savedc2 = '\0', savedc3 = '\0';
 	int mapallflag, usedarg;
 	int i, rv = 0;
 	size_t len;
@@ -4348,8 +4474,8 @@ do_export(
 	struct nfs_export_net_args *netargs, *na;
 	struct grouplist *grp;
 	struct addrinfo *ai;
-	struct sockaddr_in *sin, *imask;
-	struct sockaddr_in6 *sin6, *imask6;
+    struct sockaddr_in *sin = NULL, *imask = NULL;
+    struct sockaddr_in6 *sin6 = NULL, *imask6 = NULL;
 	uint32_t net;
 	u_int non_loopback_exports = 0;
 	int rv = 1;	/* default to failure */
@@ -4568,7 +4694,10 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 			return (1);
 		}
 		if (family == AF_INET6)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wconditional-uninitialized"
 			net->nt_mask6 = inet6addr;
+#pragma clang diagnostic pop
 		else
 			net->nt_mask = inetaddr.s_addr;
 	} else {
@@ -4587,7 +4716,10 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 				return (1);
 			}
 		} else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wconditional-uninitialized"
 			name = inet_ntoa(inetaddr);
+#pragma clang diagnostic pop
 		}
 		net->nt_name = strdup(name);
 		if (net->nt_name == NULL) {
@@ -4939,7 +5071,7 @@ get_mountlist(void)
 	char *host, *dir, *cp;
 	char str[STRSIZ];
 	FILE *mlfile;
-	int hlen, dlen;
+	size_t hlen, dlen;
 
 	if ((mlfile = fopen(_PATH_RMOUNTLIST, "r")) == NULL) {
 		if (errno != ENOENT)
@@ -5038,7 +5170,7 @@ add_mlist(char *host, char *dir)
 {
 	struct mountlist *mlp, **mlpp;
 	FILE *mlfile;
-	int hlen, dlen;
+	size_t hlen, dlen;
 
 	mlpp = &mlhead;
 	mlp = mlhead;

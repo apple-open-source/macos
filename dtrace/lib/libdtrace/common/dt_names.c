@@ -9,6 +9,7 @@
 const char *
 dtrace_subrstr(dtrace_hdl_t *dtp, int subr)
 {
+#pragma unused(dtp)
 	switch (subr) {
 	case DIF_SUBR_RAND: return ("rand");
 	case DIF_SUBR_MUTEX_OWNED: return ("mutex_owned");

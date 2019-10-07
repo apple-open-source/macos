@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -59,6 +59,7 @@
 #include "IPv4ClasslessRoute.h"
 #include "nbo.h"
 #include "cfutil.h"
+#include "symbol_scope.h"
 
 /*
  * Module: dhcpoa (dhcp options area)
@@ -73,8 +74,7 @@
 #define MAX_TAG (sizeof(dhcptag_info_table) / sizeof(dhcptag_info_table[0]))
 
 
-__private_extern__ const uint8_t	rfc_magic[] = RFC_OPTIONS_MAGIC;
-
+PRIVATE_EXTERN const uint8_t	rfc_magic[] = RFC_OPTIONS_MAGIC;
 
 /*
  * Functions: dhcptag_*, dhcptype_*
@@ -89,7 +89,7 @@ __private_extern__ const uint8_t	rfc_magic[] = RFC_OPTIONS_MAGIC;
  * Purpose:
  *   Return the type information for the given type.
  */
-const dhcptype_info_t *
+PRIVATE_EXTERN const dhcptype_info_t *
 dhcptype_info(dhcptype_t type) 
 {
     if (type > dhcptype_last_e)
@@ -104,7 +104,7 @@ dhcptype_info(dhcptype_t type)
  *   Convert from a string to the appropriate internal representation
  *   for the given type.  Calls the appropriate strto<type> function.
  */
-boolean_t
+PRIVATE_EXTERN boolean_t
 dhcptype_from_str(const char * str, int type, void * buf, int * len_p,
 		  dhcpo_err_str_t * err)
 {
@@ -206,7 +206,7 @@ dhcptype_from_str(const char * str, int type, void * buf, int * len_p,
 	  break;
       }
       case dhcptype_dns_namelist_e: {
-	  (void)DNSNameListBufferCreate(&str, 1, buf, len_p);
+	  (void)DNSNameListBufferCreate(&str, 1, buf, len_p, TRUE);
 	  if (*len_p == 0) {
 	      strlcpy(err->str, "no DNS names added", sizeof(err->str));
 	      return (FALSE);
@@ -230,7 +230,7 @@ dhcptype_from_str(const char * str, int type, void * buf, int * len_p,
  *   Convert from a string list to the appropriate internal representation
  *   for the given type.
  */
-boolean_t
+PRIVATE_EXTERN boolean_t
 dhcptype_from_strlist(const char * * strlist, int strlist_count,
 		      int type, void * buf, int * len_p,
 		      dhcpo_err_str_t * err)
@@ -241,7 +241,8 @@ dhcptype_from_strlist(const char * * strlist, int strlist_count,
 
     switch (type) {
       case dhcptype_dns_namelist_e: {
-	  (void)DNSNameListBufferCreate(strlist, strlist_count, buf, len_p);
+	  (void)DNSNameListBufferCreate(strlist, strlist_count, buf, len_p,
+					TRUE);
 	  if (*len_p == 0) {
 	      strlcpy(err->str, "no DNS names added", sizeof(err->str));
 	      return (FALSE);
@@ -291,7 +292,7 @@ dhcptype_from_strlist(const char * * strlist, int strlist_count,
  * Purpose:
  *   Give a string representation to the given type.
  */
-boolean_t
+PRIVATE_EXTERN boolean_t
 dhcptype_to_str(char * tmp, size_t maxtmplen,
 		const void * opt, int len, int type,
 		dhcpo_err_str_t * err)
@@ -336,7 +337,7 @@ dhcptype_to_str(char * tmp, size_t maxtmplen,
     return (TRUE);
 }
 
-void
+PRIVATE_EXTERN void
 dhcptype_print_cfstr_simple(CFMutableStringRef str, dhcptype_t type,
 			    const void * opt, int option_len)
 {
@@ -422,7 +423,7 @@ dhcptype_print_cfstr_simple(CFMutableStringRef str, dhcptype_t type,
     return;
 }
 
-void
+PRIVATE_EXTERN void
 dhcptype_fprint_simple(FILE * f, dhcptype_t type,
 		       const void * opt, int option_len)
 {
@@ -440,14 +441,14 @@ dhcptype_fprint_simple(FILE * f, dhcptype_t type,
  * Purpose:
  *   Display (to stdout) an option with a simple type.
  */
-void
+PRIVATE_EXTERN void
 dhcptype_print_simple(dhcptype_t type, const void * opt, int option_len)
 {
     dhcptype_fprint_simple(stdout, type, opt, option_len);
     return;
 }
 
-void
+PRIVATE_EXTERN void
 dhcptype_print_cfstr(CFMutableStringRef str,
 		     dhcptype_t type, const void * option, int option_len)
 {
@@ -481,7 +482,7 @@ dhcptype_print_cfstr(CFMutableStringRef str,
     return;
 }
 
-void
+PRIVATE_EXTERN void
 dhcptype_fprint(FILE * f, dhcptype_t type, const void * option, int option_len)
 {
     CFMutableStringRef		str;
@@ -498,14 +499,14 @@ dhcptype_fprint(FILE * f, dhcptype_t type, const void * option, int option_len)
  * Purpose:
  *   Display (to stdout) an option with the given type.
  */
-void
+PRIVATE_EXTERN void
 dhcptype_print(dhcptype_t type, const void * option, int option_len)
 {
     dhcptype_fprint(stdout, type, option, option_len);
     return;
 }
 
-static boolean_t
+STATIC boolean_t
 dhcptag_print_cfstr(CFMutableStringRef str, const void * vopt)
 {
     const dhcptag_info_t * entry;
@@ -533,7 +534,7 @@ dhcptag_print_cfstr(CFMutableStringRef str, const void * vopt)
     return (TRUE);
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 dhcptag_fprint(FILE * f, const void * vopt)
 {
     boolean_t			printed;
@@ -552,7 +553,7 @@ dhcptag_fprint(FILE * f, const void * vopt)
  * Returns:
  *   TRUE it could be displayed, FALSE otherwise.
  */
-boolean_t
+PRIVATE_EXTERN boolean_t
 dhcptag_print(const void * vopt)
 {
     return (dhcptag_fprint(stdout, vopt));
@@ -564,7 +565,7 @@ dhcptag_print(const void * vopt)
  * Purpose:
  *   Return the tag information for the give tag.
  */
-const dhcptag_info_t *
+PRIVATE_EXTERN const dhcptag_info_t *
 dhcptag_info(dhcptag_t tag)
 {
     if (tag >= MAX_TAG)
@@ -580,7 +581,7 @@ dhcptag_info(dhcptag_t tag)
  *   the table, as well as the default name of the option number itself.
  */
 
-dhcptag_t
+PRIVATE_EXTERN dhcptag_t
 dhcptag_with_name(const char * name)
 {
     dhcptag_t 		i;
@@ -609,7 +610,7 @@ dhcptag_with_name(const char * name)
  * Purpose:
  *   Return the name of the tag.
  */
-const char *
+PRIVATE_EXTERN const char *
 dhcptag_name(int tag)
 {
     const dhcptag_info_t * info;
@@ -627,7 +628,7 @@ dhcptag_name(int tag)
  *   Convert from a string list using the appropriate
  *   type conversion for the tag's type.
  */
-boolean_t
+PRIVATE_EXTERN boolean_t
 dhcptag_from_strlist(const char * * slist, int num, 
 		     int tag, void * buf, int * len_p,
 		     dhcpo_err_str_t * err)
@@ -704,7 +705,7 @@ dhcptag_from_strlist(const char * * slist, int num,
  *   only returns the string representation for the first
  *   occurrence.
  */
-boolean_t
+PRIVATE_EXTERN boolean_t
 dhcptag_to_str(char * tmp, size_t tmplen, int tag, const void * opt,
 	       int len, dhcpo_err_str_t * err)
 {
@@ -729,37 +730,37 @@ dhcptag_to_str(char * tmp, size_t tmplen, int tag, const void * opt,
  * Purpose:
  *   Routines to parse/access existing options buffers.
  */
-boolean_t
+PRIVATE_EXTERN boolean_t
 dhcpol_add(dhcpol_t * list, void * element)
 {
     return (ptrlist_add((ptrlist_t *)list, element));
 }
 
-int
+PRIVATE_EXTERN int
 dhcpol_count(dhcpol_t * list)
 {
     return (ptrlist_count((ptrlist_t *)list));
 }
 
-void *
+PRIVATE_EXTERN void *
 dhcpol_element(dhcpol_t * list, int i)
 {
     return (ptrlist_element((ptrlist_t *)list, i));
 }
 
-void
+PRIVATE_EXTERN void
 dhcpol_init(dhcpol_t * list)
 {
     ptrlist_init((ptrlist_t *)list);
 }
 
-void
+PRIVATE_EXTERN void
 dhcpol_free(dhcpol_t * list)
 {
     ptrlist_free((ptrlist_t *)list);
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 dhcpol_concat(dhcpol_t * list, dhcpol_t * extra)
 {
     return (ptrlist_concat((ptrlist_t *)list, (ptrlist_t *)extra));
@@ -774,7 +775,7 @@ dhcpol_concat(dhcpol_t * list, dhcpol_t * extra)
  *   Parsing continues until we hit the end of the buffer or
  *   the end tag.
  */
-boolean_t
+PRIVATE_EXTERN boolean_t
 dhcpol_parse_buffer(dhcpol_t * list, void * buffer, int length,
 		    dhcpo_err_str_t * err)
 {
@@ -840,7 +841,7 @@ dhcpol_parse_buffer(dhcpol_t * list, void * buffer, int length,
  *   calls will retrieve the next occurence of the option.
  *   Before the first call, *start should be set to 0.
  */
-void *
+PRIVATE_EXTERN void *
 dhcpol_find(dhcpol_t * list, int tag, int * len_p, int * start)
 {
     int 	i = 0;
@@ -872,7 +873,7 @@ dhcpol_find(dhcpol_t * list, int tag, int * len_p, int * start)
  *   as the passed in min_length value.  Return NULL if such an option
  *   does not exist.
  */
-void *
+PRIVATE_EXTERN void *
 dhcpol_find_with_length(dhcpol_t * options, dhcptag_t tag, int min_length)
 {
     int		real_length;
@@ -899,7 +900,7 @@ dhcpol_find_with_length(dhcpol_t * options, dhcptag_t tag, int min_length)
  * Note:
  *   Use free() to free the returned data area.
  */
-void *
+PRIVATE_EXTERN void *
 dhcpol_option_copy(dhcpol_t * list, int tag, int * len_p)
 {
     int 	i;
@@ -940,7 +941,7 @@ dhcpol_option_copy(dhcpol_t * list, int tag, int * len_p)
  *    the overload option, it parses pkt->dp_file if specified,
  *    then parses pkt->dp_sname if specified.
  */
-boolean_t
+PRIVATE_EXTERN boolean_t
 dhcpol_parse_packet(dhcpol_t * options, struct dhcp * pkt, int len,
 		    dhcpo_err_str_t * err)
 {
@@ -1006,7 +1007,7 @@ dhcpol_parse_packet(dhcpol_t * options, struct dhcp * pkt, int len,
  *   TRUE if vendor specific options existed and were parsed succesfully,
  *   FALSE otherwise.
  */
-boolean_t
+PRIVATE_EXTERN boolean_t
 dhcpol_parse_vendor(dhcpol_t * vendor, dhcpol_t * options,
 		    dhcpo_err_str_t * err)
 {
@@ -1055,7 +1056,7 @@ dhcpol_parse_vendor(dhcpol_t * vendor, dhcpol_t * options,
     return (FALSE);
 }
 
-void
+PRIVATE_EXTERN void
 dhcpol_print_cfstr(CFMutableStringRef str, dhcpol_t * list)
 {
     int 		i;
@@ -1072,7 +1073,7 @@ dhcpol_print_cfstr(CFMutableStringRef str, dhcpol_t * list)
     return;
 }
 
-void
+PRIVATE_EXTERN void
 dhcpol_fprint(FILE * f, dhcpol_t * list)
 {
     CFMutableStringRef	str;
@@ -1084,7 +1085,7 @@ dhcpol_fprint(FILE * f, dhcpol_t * list)
     return;
 }
 
-void
+PRIVATE_EXTERN void
 dhcpol_print(dhcpol_t * list)
 {
     dhcpol_fprint(stdout, list);
@@ -1092,7 +1093,7 @@ dhcpol_print(dhcpol_t * list)
 }
 
 
-int
+PRIVATE_EXTERN int
 dhcpol_count_params(dhcpol_t * options, const uint8_t * tags, int size)
 {
     int		i;
@@ -1121,7 +1122,7 @@ dhcpol_count_params(dhcpol_t * options, const uint8_t * tags, int size)
  *   in calling the dhcpoa_* routines.
  */
 
-static void
+STATIC void
 dhcpoa_init_common(dhcpoa_t * oa_p, void * buffer, int size, int reserve)
 {
     bzero(buffer, size);	/* fill option area with pad tags */
@@ -1133,20 +1134,20 @@ dhcpoa_init_common(dhcpoa_t * oa_p, void * buffer, int size, int reserve)
     oa_p->oa_reserve = reserve;
 }
 
-void
+PRIVATE_EXTERN void
 dhcpoa_init_no_end(dhcpoa_t * oa_p, void * buffer, int size)
 {
     dhcpoa_init_common(oa_p, buffer, size, 0);
     return;
 }
 
-int
+PRIVATE_EXTERN int
 dhcpoa_size(dhcpoa_t * oa_p)
 {
     return (oa_p->oa_size);
 }
 
-void
+PRIVATE_EXTERN void
 dhcpoa_init(dhcpoa_t * oa_p, void * buffer, int size)
 {
     /* initialize the area, reserve space for the end tag */
@@ -1154,7 +1155,7 @@ dhcpoa_init(dhcpoa_t * oa_p, void * buffer, int size)
     return;
 }
 
-dhcpoa_ret_t
+PRIVATE_EXTERN dhcpoa_ret_t
 dhcpoa_vendor_add(dhcpoa_t * oa_p, dhcpoa_t * vendor_oa_p,
 		  dhcptag_t tag, int len, void * option)
 {
@@ -1200,7 +1201,7 @@ dhcpoa_vendor_add(dhcpoa_t * oa_p, dhcpoa_t * vendor_oa_p,
  * Purpose:
  *   Add an option to the option area.
  */
-dhcpoa_ret_t
+PRIVATE_EXTERN dhcpoa_ret_t
 dhcpoa_add(dhcpoa_t * oa_p, dhcptag_t tag, int len, const void * option)
 {
 
@@ -1282,7 +1283,7 @@ dhcpoa_add(dhcpoa_t * oa_p, dhcptag_t tag, int len, const void * option)
  * Note:
  *   This only works for type representations that we know about.
  */
-dhcpoa_ret_t
+PRIVATE_EXTERN dhcpoa_ret_t
 dhcpoa_add_from_strlist(dhcpoa_t * oa_p, dhcptag_t tag, 
 			const char * * strlist, int strlist_len)
 {
@@ -1304,7 +1305,7 @@ dhcpoa_add_from_strlist(dhcpoa_t * oa_p, dhcptag_t tag,
  * Purpose:
  *   Convert the string into an option with the specified tag.
  */
-dhcpoa_ret_t
+PRIVATE_EXTERN dhcpoa_ret_t
 dhcpoa_add_from_str(dhcpoa_t * oa_p, dhcptag_t tag, 
 		    const char * str)
 {
@@ -1317,7 +1318,7 @@ dhcpoa_add_from_str(dhcpoa_t * oa_p, dhcptag_t tag,
  * Purpose:
  *   Add a dhcp message option to the option area.
  */
-dhcpoa_ret_t
+PRIVATE_EXTERN dhcpoa_ret_t
 dhcpoa_add_dhcpmsg(dhcpoa_t * oa_p, dhcp_msgtype_t msgtype)
 {
     char m = (char)msgtype;
@@ -1331,7 +1332,7 @@ dhcpoa_add_dhcpmsg(dhcpoa_t * oa_p, dhcp_msgtype_t msgtype)
  * Purpose:
  *   Return an error message for the last error that occcurred.
  */
-char *
+PRIVATE_EXTERN char *
 dhcpoa_err(dhcpoa_t * oa_p)
 {
     if (oa_p == NULL || oa_p->oa_magic != DHCPOA_MAGIC)
@@ -1340,7 +1341,7 @@ dhcpoa_err(dhcpoa_t * oa_p)
 }
 
 
-int
+PRIVATE_EXTERN int
 dhcpoa_used(dhcpoa_t * oa_p)
 {
     if (oa_p == NULL || oa_p->oa_magic != DHCPOA_MAGIC)
@@ -1348,7 +1349,7 @@ dhcpoa_used(dhcpoa_t * oa_p)
     return (oa_p->oa_offset);
 }
 
-int
+PRIVATE_EXTERN int
 dhcpoa_freespace(dhcpoa_t * oa_p)
 {
     int	freespace;
@@ -1363,7 +1364,7 @@ dhcpoa_freespace(dhcpoa_t * oa_p)
     return (freespace);
 }
 
-int
+PRIVATE_EXTERN int
 dhcpoa_count(dhcpoa_t * oa_p)
 {
     if (oa_p == NULL || oa_p->oa_magic != DHCPOA_MAGIC)
@@ -1371,7 +1372,7 @@ dhcpoa_count(dhcpoa_t * oa_p)
     return (oa_p->oa_option_count);
 }
 
-void *
+PRIVATE_EXTERN void *
 dhcpoa_buffer(dhcpoa_t * oa_p) 
 {
     if (oa_p == NULL || oa_p->oa_magic != DHCPOA_MAGIC)
@@ -1461,8 +1462,8 @@ struct test overload_tests[] = {
 
 char test_string_253[253] = "test string 253 characters long (zero padded)";
 
-static char buf[2048];
-static char vend_buf[255];
+STATIC char buf[2048];
+STATIC char vend_buf[255];
 
 int
 main()

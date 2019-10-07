@@ -18,12 +18,8 @@ CPAN_PROJECTS := \
     Net-HTTP-6.06 \
     WWW-RobotRules-6.02 \
     libwww-perl-6.05 \
-    IO-Socket-SSL-1.966 \
+    IO-Socket-SSL-2.066 \
     LWP-Protocol-https-6.04 \
-    Mac-Carbon-0.82 \
-    Mac-Apps-Launch-1.93 \
-    Mac-AppleEvents-Simple-1.18 \
-    Mac-OSA-Simple-1.09 \
     Convert-BinHex-1.123 \
     Convert-UUlib-1.4 \
     IO-String-1.08 \
@@ -134,7 +130,6 @@ CPAN_PROJECTS := \
     PAR-1.007 \
     Getopt-ArgvFile-1.11 \
     Module-ScanDeps-1.13 \
-    PAR-Packer-1.017 \
     Parse-Eyapp-1.182 \
     Data-Dumper-Concise-2.021 \
     Config-Any-0.24 \

@@ -27,8 +27,6 @@
 #include <security_cryptkit/feeTypes.h>
 #endif
 
-#if	CRYPTKIT_MD5_ENABLE
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -75,7 +73,5 @@ unsigned feeHashDigestLen(void);
 #ifdef __cplusplus
 }
 #endif
-
-#endif	/* CRYPTKIT_MD5_ENABLE */
 
 #endif	/*_CK_FEEHASH_H_*/

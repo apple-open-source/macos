@@ -18,7 +18,7 @@ install: realinstall postinstall
 
 realinstall: $(DIR) custompatching
 	cd $(DIR) && \
-	ARCHFLAGS="$(RC_CFLAGS)" \
+	ARCHFLAGS="$(RC_CFLAGS) -iwithsysroot /usr/local/libressl/include -L$(SDKROOT)/usr/local/libressl/lib" \
 	python setup.py install --home="$(EXTRAS)" --root="$(DSTROOT)" $(SETUPARGS)
 
 # allow custom patching before running setup.py

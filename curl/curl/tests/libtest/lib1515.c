@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2016, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2018, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -87,7 +87,7 @@ static int do_one_request(CURLM *m, char *URL, char *resolve)
     timeout.tv_usec = 0;
 
     multi_fdset(m, &fdread, &fdwrite, &fdexcep, &maxfd);
-    select_test(maxfd+1, &fdread, &fdwrite, &fdexcep, &timeout);
+    select_test(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
 
     abort_on_test_timeout();
     multi_perform(m, &still_running);
@@ -95,12 +95,13 @@ static int do_one_request(CURLM *m, char *URL, char *resolve)
     abort_on_test_timeout();
   }
 
-  while((msg = curl_multi_info_read(m, &msgs_left))) {
-    if(msg->msg == CURLMSG_DONE && msg->easy_handle == curls) {
+  do {
+    msg = curl_multi_info_read(m, &msgs_left);
+    if(msg && msg->msg == CURLMSG_DONE && msg->easy_handle == curls) {
       res = msg->data.result;
       break;
     }
-  }
+  } while(msg);
 
 test_cleanup:
 
@@ -122,8 +123,8 @@ int test(char *URL)
   int i;
   int count = 2;
 
-  snprintf(dns_entry, sizeof(dns_entry), "testserver.example.com:%s:%s",
-           port, address);
+  msnprintf(dns_entry, sizeof(dns_entry), "testserver.example.com:%s:%s",
+            port, address);
 
   start_test_timing();
 
@@ -132,8 +133,8 @@ int test(char *URL)
 
   for(i = 1; i <= count; i++) {
     char target_url[256];
-    snprintf(target_url, sizeof(target_url),
-             "http://testserver.example.com:%s/%s%04d", port, path, i);
+    msnprintf(target_url, sizeof(target_url),
+              "http://testserver.example.com:%s/%s%04d", port, path, i);
 
     /* second request must succeed like the first one */
     res = do_one_request(multi, target_url, dns_entry);
@@ -147,6 +148,7 @@ int test(char *URL)
 test_cleanup:
 
   curl_multi_cleanup(multi);
+  curl_global_cleanup();
 
   return (int) res;
 }

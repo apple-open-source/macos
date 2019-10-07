@@ -111,12 +111,13 @@ void EditorState::PostLayoutData::encode(IPC::Encoder& encoder) const
 #if PLATFORM(IOS_FAMILY) || PLATFORM(GTK)
     encoder << caretRectAtStart;
 #endif
-#if PLATFORM(IOS_FAMILY) || PLATFORM(MAC)
+#if PLATFORM(COCOA)
     encoder << focusedElementRect;
     encoder << selectedTextLength;
     encoder << textAlignment;
     encoder << textColor;
     encoder << enclosingListType;
+    encoder << baseWritingDirection;
 #endif
 #if PLATFORM(IOS_FAMILY)
     encoder << caretRectAtEnd;
@@ -130,8 +131,11 @@ void EditorState::PostLayoutData::encode(IPC::Encoder& encoder) const
     encoder << isStableStateUpdate;
     encoder << insideFixedPosition;
     encoder << hasPlainText;
-    encoder << elementIsTransparent;
+    encoder << editableRootIsTransparentOrFullyClipped;
     encoder << caretColor;
+    encoder << atStartOfSentence;
+    encoder << selectionStartIsAtParagraphBoundary;
+    encoder << selectionEndIsAtParagraphBoundary;
 #endif
 #if PLATFORM(MAC)
     encoder << candidateRequestStartPosition;
@@ -152,7 +156,7 @@ bool EditorState::PostLayoutData::decode(IPC::Decoder& decoder, PostLayoutData& 
     if (!decoder.decode(result.caretRectAtStart))
         return false;
 #endif
-#if PLATFORM(IOS_FAMILY) || PLATFORM(MAC)
+#if PLATFORM(COCOA)
     if (!decoder.decode(result.focusedElementRect))
         return false;
     if (!decoder.decode(result.selectedTextLength))
@@ -162,6 +166,8 @@ bool EditorState::PostLayoutData::decode(IPC::Decoder& decoder, PostLayoutData& 
     if (!decoder.decode(result.textColor))
         return false;
     if (!decoder.decode(result.enclosingListType))
+        return false;
+    if (!decoder.decode(result.baseWritingDirection))
         return false;
 #endif
 #if PLATFORM(IOS_FAMILY)
@@ -187,9 +193,15 @@ bool EditorState::PostLayoutData::decode(IPC::Decoder& decoder, PostLayoutData& 
         return false;
     if (!decoder.decode(result.hasPlainText))
         return false;
-    if (!decoder.decode(result.elementIsTransparent))
+    if (!decoder.decode(result.editableRootIsTransparentOrFullyClipped))
         return false;
     if (!decoder.decode(result.caretColor))
+        return false;
+    if (!decoder.decode(result.atStartOfSentence))
+        return false;
+    if (!decoder.decode(result.selectionStartIsAtParagraphBoundary))
+        return false;
+    if (!decoder.decode(result.selectionEndIsAtParagraphBoundary))
         return false;
 #endif
 #if PLATFORM(MAC)
@@ -261,7 +273,7 @@ TextStream& operator<<(TextStream& ts, const EditorState& editorState)
     if (editorState.postLayoutData().caretRectAtStart != IntRect())
         ts.dumpProperty("caretRectAtStart", editorState.postLayoutData().caretRectAtStart);
 #endif
-#if PLATFORM(IOS_FAMILY) || PLATFORM(MAC)
+#if PLATFORM(COCOA)
     if (editorState.postLayoutData().focusedElementRect != IntRect())
         ts.dumpProperty("focusedElementRect", editorState.postLayoutData().focusedElementRect);
     if (editorState.postLayoutData().selectedTextLength)
@@ -272,7 +284,9 @@ TextStream& operator<<(TextStream& ts, const EditorState& editorState)
         ts.dumpProperty("textColor", editorState.postLayoutData().textColor);
     if (editorState.postLayoutData().enclosingListType != NoList)
         ts.dumpProperty("enclosingListType", editorState.postLayoutData().enclosingListType);
-#endif
+    if (editorState.postLayoutData().baseWritingDirection != WebCore::WritingDirection::Natural)
+        ts.dumpProperty("baseWritingDirection", static_cast<uint8_t>(editorState.postLayoutData().baseWritingDirection));
+#endif // PLATFORM(COCOA)
 #if PLATFORM(IOS_FAMILY)
     if (editorState.postLayoutData().caretRectAtEnd != IntRect())
         ts.dumpProperty("caretRectAtEnd", editorState.postLayoutData().caretRectAtEnd);

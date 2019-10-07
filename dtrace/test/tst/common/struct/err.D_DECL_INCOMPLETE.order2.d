@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_DECL_INCOMPLETE.order2.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * When struct definitions are nested inside one another, the inner struct

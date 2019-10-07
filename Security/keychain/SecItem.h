@@ -85,8 +85,8 @@ extern const CFStringRef kSecClassIdentity
     kSecClassGenericPassword item attributes:
         kSecAttrAccess (OS X only)
         kSecAttrAccessControl
-        kSecAttrAccessGroup (iOS; also OS X if kSecAttrSynchronizable specified)
-        kSecAttrAccessible (iOS; also OS X if kSecAttrSynchronizable specified)
+        kSecAttrAccessGroup (iOS; also OS X if kSecAttrSynchronizable and/or kSecUseDataProtectionKeychain set)
+        kSecAttrAccessible (iOS; also OS X if kSecAttrSynchronizable and/or kSecUseDataProtectionKeychain set)
         kSecAttrCreationDate
         kSecAttrModificationDate
         kSecAttrDescription
@@ -104,8 +104,8 @@ extern const CFStringRef kSecClassIdentity
     kSecClassInternetPassword item attributes:
         kSecAttrAccess (OS X only)
         kSecAttrAccessControl
-        kSecAttrAccessGroup (iOS; also OS X if kSecAttrSynchronizable specified)
-        kSecAttrAccessible (iOS; also OS X if kSecAttrSynchronizable specified)
+        kSecAttrAccessGroup (iOS; also OS X if kSecAttrSynchronizable and/or kSecUseDataProtectionKeychain set)
+        kSecAttrAccessible (iOS; also OS X if kSecAttrSynchronizable and/or kSecUseDataProtectionKeychain set)
         kSecAttrCreationDate
         kSecAttrModificationDate
         kSecAttrDescription
@@ -141,8 +141,8 @@ extern const CFStringRef kSecClassIdentity
     kSecClassKey item attributes:
         kSecAttrAccess (OS X only)
         kSecAttrAccessControl
-        kSecAttrAccessGroup (iOS; also OS X if kSecAttrSynchronizable specified)
-        kSecAttrAccessible (iOS; also OS X if kSecAttrSynchronizable specified)
+        kSecAttrAccessGroup (iOS; also OS X if kSecAttrSynchronizable and/or kSecUseDataProtectionKeychain set)
+        kSecAttrAccessible (iOS; also OS X if kSecAttrSynchronizable and/or kSecUseDataProtectionKeychain set)
         kSecAttrKeyClass
         kSecAttrLabel
         kSecAttrApplicationLabel
@@ -444,7 +444,7 @@ extern const CFStringRef kSecClassIdentity
         words it is not possible to migrate existing items to, from or between tokens.
         Currently the only available value for this attribute is
         kSecAttrTokenIDSecureEnclave, which indicates that item (private key) is
-        backed by device's Secure Enclave. iOS only.
+        backed by device's Secure Enclave.
  */
 extern const CFStringRef kSecAttrAccessible
     API_AVAILABLE(macos(10.9), ios(4.0));
@@ -608,7 +608,7 @@ extern const CFStringRef kSecAttrAccessibleWhenUnlocked
 extern const CFStringRef kSecAttrAccessibleAfterFirstUnlock
     API_AVAILABLE(macos(10.9), ios(4.0));
 extern const CFStringRef kSecAttrAccessibleAlways
-    API_AVAILABLE(macos(10.9), ios(4.0));
+    API_DEPRECATED("Use an accessibility level that provides some user protection, such as kSecAttrAccessibleAfterFirstUnlock", macos(10.9, 10.14), ios(4.0, 12.0));
 extern const CFStringRef kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly
     API_AVAILABLE(macos(10.10), ios(8.0));
 extern const CFStringRef kSecAttrAccessibleWhenUnlockedThisDeviceOnly
@@ -616,7 +616,7 @@ extern const CFStringRef kSecAttrAccessibleWhenUnlockedThisDeviceOnly
 extern const CFStringRef kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
     API_AVAILABLE(macos(10.9), ios(4.0));
 extern const CFStringRef kSecAttrAccessibleAlwaysThisDeviceOnly
-    API_AVAILABLE(macos(10.9), ios(4.0));
+    API_DEPRECATED("Use an accessibility level that provides some user protection, such as kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly", macos(10.9, 10.14), ios(4.0, 12.0));
 
 /*!
     @enum kSecAttrProtocol Value Constants
@@ -1017,11 +1017,16 @@ extern const CFStringRef kSecValuePersistentRef
           will succeed without asking user for authentication.
         * If the specified context has not been previously authenticated, the new
           authentication will be started on this context, allowing caller to
-          eventually reuse the sucessfully authenticated context in subsequent
+          eventually reuse the successfully authenticated context in subsequent
           keychain operations.
+    @constant kSecUseDataProtectionKeychain Specifies a dictionary key whose value
+        is a CFBooleanRef. Set to kCFBooleanTrue to use kSecAttrAccessGroup and/or
+        kSecAttrAccessible on macOS without requiring the item to be marked synchronizable.
 */
 extern const CFStringRef kSecUseItemList
-    API_AVAILABLE(macos(10.6)) API_UNAVAILABLE(ios, tvos, watchos);
+    API_AVAILABLE(macos(10.6))
+    API_DEPRECATED("Not implemented on this platform", ios(2.0, 12.0), tvos(9.0, 12.0), watchos(1.0, 5.0))
+    API_UNAVAILABLE(bridgeos, iosmac);
 extern const CFStringRef kSecUseKeychain
     API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecUseOperationPrompt
@@ -1032,6 +1037,8 @@ extern const CFStringRef kSecUseAuthenticationUI
     API_AVAILABLE(macos(10.11), ios(9.0));
 extern const CFStringRef kSecUseAuthenticationContext
     API_AVAILABLE(macos(10.11), ios(9.0));
+extern const CFStringRef kSecUseDataProtectionKeychain
+    API_AVAILABLE(macos(10.15), ios(13.0));
 
 /*!
     @enum kSecUseAuthenticationUI Value Constants
@@ -1063,7 +1070,7 @@ extern const CFStringRef kSecUseAuthenticationUISkip
      @constant kSecAttrTokenIDSecureEnclave Specifies well-known identifier of the
          token implemented using device's Secure Enclave. The only keychain items
          supported by the Secure Enclave token are 256-bit elliptic curve keys
-         (kSecAttrKeyTypeEC).  Keys must be generated on the secure enclave using
+         (kSecAttrKeyTypeECSecPrimeRandom). Keys must be generated on the secure enclave using
          SecKeyGenerateKeyPair call with kSecAttrTokenID set to
          kSecAttrTokenIDSecureEnclave in the parameters dictionary, it is not
          possible to import pregenerated keys to kSecAttrTokenIDSecureEnclave token.

@@ -18,8 +18,8 @@
     (literal "/private/var/run/systemkeychaincheck.socket"))
 
 (allow mach-lookup
-       (global-name "com.apple.CoreAuthentication.agent.libxpc")
-       (global-name "com.apple.CoreAuthentication.daemon.libxpc")
+       (global-name "com.apple.CoreAuthentication.agent")
+       (global-name "com.apple.CoreAuthentication.daemon")
        (global-name "com.apple.CoreServices.coreservicesd")
        (global-name "com.apple.PowerManagement.control")
        (global-name "com.apple.security.agent")
@@ -28,11 +28,15 @@
        (global-name "com.apple.SecurityServer")
        (global-name "com.apple.system.opendirectoryd.api")
        (global-name "com.apple.ocspd"))
-       
+
 (allow ipc-posix-shm
        (ipc-posix-name "apple.shm.notification_center")
        (ipc-posix-name "com.apple.AppleDatabaseChanged"))
 
-(allow mach-per-user-lookup)
+(allow mach-priv-host-port)
+
+(allow user-preference-read
+       (preference-domain "kCFPreferencesAnyApplication")
+       (preference-domain "com.apple.authd"))
 
 (allow system-audit system-sched)

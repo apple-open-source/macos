@@ -45,6 +45,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/realpath.c,v 1.20 2003/05/28 08:23:01 fj
 #include <sys/vnode.h>
 #include "un-namespace.h"
 
+
 struct attrs {
 	u_int32_t len;
 	attrreference_t name;
@@ -105,6 +106,7 @@ realpath(const char *path, char inresolved[PATH_MAX])
 		return (NULL);
 	}
 #endif /* __DARWIN_UNIX03 */
+
 	/*
 	 * Extension to the standard; if inresolved == NULL, allocate memory
 	 */

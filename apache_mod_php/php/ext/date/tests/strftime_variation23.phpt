@@ -5,9 +5,9 @@ Test strftime() function : usage variation - Checking large positive and negativ
 --FILE--
 <?php
 /* Prototype  : string strftime(string format [, int timestamp])
- * Description: Format a local time/date according to locale settings 
+ * Description: Format a local time/date according to locale settings
  * Source code: ext/date/php_date.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing strftime() : usage variation ***\n";
@@ -32,11 +32,11 @@ var_dump( strftime($format, $timestamp) );
 
 -- Testing strftime() function with float 12.3456789000e10 to timestamp --
 
-Warning: strftime() expects parameter 2 to be integer, float given in %s on line %d
+Warning: strftime() expects parameter 2 to be int, float given in %s on line %d
 bool(false)
 
 -- Testing strftime() function with float -12.3456789000e10 to timestamp --
 
-Warning: strftime() expects parameter 2 to be integer, float given in %s on line %d
+Warning: strftime() expects parameter 2 to be int, float given in %s on line %d
 bool(false)
 ===DONE===

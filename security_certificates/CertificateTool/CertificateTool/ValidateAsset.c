@@ -167,7 +167,7 @@ static int CreatePropertyListFromData(CFDataRef prop_data,  CFTypeID output_type
 
 int ValidateAsset(const char* asset_dir_path, unsigned long current_version)
 {
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
+#if TARGET_OS_OSX
     const char* files[] =
 	{
 		"AssertVersion.plist",

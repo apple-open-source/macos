@@ -1,7 +1,7 @@
 .\"
 .\" Copyright (c) 2002 Apple Computer, Inc.  All rights reserved.
 .\"
-.Dd August 30, 2017
+.Dd November 2, 2017
 .Dt COPYFILE 3
 .Os
 .Sh NAME
@@ -185,7 +185,8 @@ This flag is equivalent to (COPYFILE_EXCL | COPYFILE_ACL | COPYFILE_STAT | COPYF
 | COPYFILE_NOFOLLOW_SRC).
 Note that if cloning is successful, progress callbacks will not be invoked.
 Note also that there is no support for cloning directories: if a directory is provided as the source,
-an error will be returned.
+an error will be returned. Since this flag implies COPYFILE_NOFOLLOW_SRC, symbolic links themselves will
+be cloned instead of their targets.
 (This is only applicable for the
 .Fn copyfile
 function.)
@@ -196,7 +197,8 @@ This flag is equivalent to (COPYFILE_EXCL | COPYFILE_ACL | COPYFILE_STAT | COPYF
 | COPYFILE_NOFOLLOW_SRC).
 Note that if cloning is successful, progress callbacks will not be invoked.
 Note also that there is no support for cloning directories: if a directory is provided as the source and
-COPYFILE_CLONE_FORCE is not passed, this will instead copy the directory. Recursive copying however is
+COPYFILE_CLONE_FORCE is not passed, this will instead copy the directory. Since this flag implies COPYFILE_NOFOLLOW_SRC,
+symbolic links themselves will be cloned instead of their targets. Recursive copying however is
 supported, see below for more information.
 (This is only applicable for the
 .Fn copyfile
@@ -216,6 +218,18 @@ This is a convenience macro, equivalent to
 .It Dv COPYFILE_RUN_IN_PLACE
 If the src file has quarantine information, add the QTN_FLAG_DO_NOT_TRANSLOCATE flag to the quarantine information of the dst file. This allows a bundle to run in place instead of being translocated.
 .El
+.Pp
+Copying files into a directory is supported. If
+.Va to
+is a directory,
+.Va from
+will be copied into
+.Va to
+(if
+.Va from
+is a directory,
+copying its contents requires use of the COPYFILE_RECURSIVE parameter,
+which is documented below).
 .Pp
 The
 .Fn copyfile_state_get
@@ -478,6 +492,19 @@ and
 .Dv COPYFILE_UNLINK
 flags are not used during a recursive copy, and will result
 in an error being returned.
+.Pp
+Note that if the source path ends in a
+.Va /
+its contents are copied rather than the directory itself (like cp(1)).
+The behavior of a recursive copy on a directory hierarchy also depends
+on the contents of the destination. If the destination is a directory,
+the source directory (or its contents, if the source path ends in a
+.Va /
+) will be copied into it. If the destination exists but is not a
+directory, and the source is a non-empty directory, the copy will fail;
+the exact error set depends on the flags provided to
+.Fn copyfile
+initially.
 .Sh Progress Callback
 In addition to the recursive callbacks described above,
 .Fn copyfile

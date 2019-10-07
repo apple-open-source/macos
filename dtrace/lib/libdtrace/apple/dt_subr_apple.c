@@ -1,8 +1,10 @@
 #include <dt_impl.h>
 
 #include <errno.h>
-#include <sys/sysctl.h>
 #include <stdlib.h>
+#include <string.h>
+
+#include <sys/sysctl.h>
 
 static int
 dt_pid_from_process_name(const char* name)
@@ -89,4 +91,49 @@ dt_macro_lookup(dt_idhash_t *macros, const char *name)
 		}
 	}
 	return NULL;
+}
+
+
+cpu_type_t
+dtrace_str2arch(const char *str)
+{
+	int i;
+	const struct {
+		char *name;
+		cpu_type_t type;
+	} archs[] = {
+		{"i386", CPU_TYPE_I386},
+		{"x86_64", CPU_TYPE_X86_64},
+		{"arm", CPU_TYPE_ARM},
+		{"arm64", CPU_TYPE_ARM64},
+		{"any", CPU_TYPE_ANY},
+		{NULL, NULL}
+	};
+
+	for (i = 0; archs[i].name != NULL; i++) {
+		if (strcmp(str, archs[i].name) == 0)
+			return archs[i].type;
+	}
+	return (cpu_type_t)0;
+}
+
+int
+dt_kernel_lp64(void)
+{
+	int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, 0 /* kernproc */ };
+	struct kinfo_proc kp;
+	size_t len = sizeof(kp);
+
+	int ret = sysctl(mib, sizeof(mib) / sizeof(mib[0]), &kp, &len, NULL, 0);
+	if (ret == -1) {
+		/* default to 32-bit */
+		return 0;
+	}
+
+	if (kp.kp_proc.p_flag & P_LP64) {
+		return 1;
+	}
+
+	return 0;
+
 }

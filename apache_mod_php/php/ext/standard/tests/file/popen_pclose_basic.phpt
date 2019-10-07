@@ -1,11 +1,10 @@
 --TEST--
-Test popen() and pclose function: basic functionality 
+Test popen() and pclose function: basic functionality
 --SKIPIF--
 <?php
 if(substr(PHP_OS, 0, 3) == 'WIN' )
   die("skip Not Valid for Windows");
 ?>
-
 --FILE--
 <?php
 /*
@@ -47,8 +46,8 @@ $file_handle = popen("sort", "w");
 $counter = 0;
 $newline = "\n";
 foreach($arr as $str) {
-  fwrite($file_handle, (binary)$str);
-  fwrite($file_handle, (binary)$newline);
+  fwrite($file_handle, $str);
+  fwrite($file_handle, $newline);
 }
 pclose($file_handle);
 
@@ -71,8 +70,7 @@ unlink($dirpath."/popen_basic.tmp");
 unlink($dirpath."/popen_basic1.tmp");
 rmdir($dirpath);
 ?>
-
---EXPECTF--
+--EXPECT--
 *** Testing popen() and pclose() with different processes ***
 -- Testing popen(): reading from the pipe --
 popen_basic.tmp

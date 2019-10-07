@@ -3,11 +3,7 @@
 //
 // Copyright 2009-2010 by Apple Inc.
 //
-// These coded instructions, statements, and computer programs are the
-// property of Apple Inc. and are protected by Federal copyright
-// law.  Distribution and use rights are outlined in the file "LICENSE.txt"
-// which should have been included with this file.  If this file is
-// missing or damaged, see the license at "http://www.cups.org/".
+// Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
 //
 
 #ifndef _PPDC_PRIVATE_H_
@@ -25,10 +21,16 @@
 // Macros...
 //
 
-#  define PPDC_NEW		DEBUG_printf(("%s: %p new", class_name(), this))
-#  define PPDC_NEWVAL(s)	DEBUG_printf(("%s(\"%s\"): %p new", class_name(), s, this))
-#  define PPDC_DELETE		DEBUG_printf(("%s: %p delete", class_name(), this))
-#  define PPDC_DELETEVAL(s)	DEBUG_printf(("%s(\"%s\"): %p delete", class_name(), s, this))
-
+#  ifdef PPDC_DEBUG
+#    define PPDC_NEW		DEBUG_printf(("%s: %p new", class_name(), this))
+#    define PPDC_NEWVAL(s)	DEBUG_printf(("%s(\"%s\"): %p new", class_name(), s, this))
+#    define PPDC_DELETE		DEBUG_printf(("%s: %p delete", class_name(), this))
+#    define PPDC_DELETEVAL(s)	DEBUG_printf(("%s(\"%s\"): %p delete", class_name(), s, this))
+#  else
+#    define PPDC_NEW
+#    define PPDC_NEWVAL(s)
+#    define PPDC_DELETE
+#    define PPDC_DELETEVAL(s)
+#  endif /* PPDC_DEBUG */
 
 #endif // !_PPDC_PRIVATE_H_

@@ -54,10 +54,13 @@ struct BC_command {
 #define BC_OP_MOUNT    0x07
 #define BC_OP_TEST     0x08
 #define BC_OP_SET_USER_TIMESTAMPS 0x09
-#define BC_OP_ADD_USER_OPTIMIZATIONS 0x0A
-#define BC_OP_RESET    0x0B
-#define BC_OP_START_NORECORDING 0x0C
-	
+#define BC_OP_SET_FUSION_OPTIMIZATION_STATS 0x0A
+#define BC_OP_SET_HDD_OPTIMIZATION_STATS 0x0B
+#define BC_OP_SET_HDD_OPTIMIZATION_STATE 0x0C
+#define BC_OP_RESET    0x0D
+#define BC_OP_START_NORECORDING 0x0E
+#define BC_OP_SET_USER_OVERSIZE 0x0F
+
 	/* user-space data buffers, use varies with opcode */
 	unsigned int bc_data1_size;
 	unsigned int bc_data2_size;
@@ -204,9 +207,9 @@ struct BC_history_entry {
 
 
 /* Number of disks and batches we can collect statistics on */
-#define STAT_DISKMAX	8
-#define STAT_MOUNTMAX	32
-#define STAT_BATCHMAX	16
+#define STAT_DISKMAX	2
+#define STAT_MOUNTMAX	16
+#define STAT_BATCHMAX	8
 
 /*
  * BC_OP_STATS - return statistics.
@@ -221,13 +224,46 @@ struct BC_statistics {
 		u_int64_t	ssup_oid_timestamp;		/* machabstime when userspace process OID lookup started */
 	} userspace_timestamps;
 
-	struct BC_userspace_optimizations {
-		u_int64_t	ssup_num_inodes_optimized;	/* number of inodes optimized for next boot */
+	struct BC_userspace_fusion_optimizations {
+		/* See fusion_history_* to calculate reads requested and reads already optimized */
+		u_int64_t	ssup_reads_optimized;       /* number of reads this boot that were optimized */
+		u_int64_t	ssup_inodes_requested;      /* number of inodes requested during boot */
+		u_int64_t	ssup_inodes_optimized;      /* number of inodes optimized for next boot */
+		u_int64_t	ssup_inodes_already_optimized;	/* number of inodes read this boot that were previously optimized */
+		/* See fusion_history_* to calculate bytes requested and bytes already optimized */
+		u_int64_t   ssup_bytes_requested;       /* number of bytes requested  during boot */
 		u_int64_t	ssup_bytes_optimized;       /* number of bytes optimized for next boot */
-		u_int64_t	ssup_hdd_num_reads_already_optimized; /* number of reads this boot that were previously optimized */
-		u_int64_t	ssup_hdd_bytes_already_optimized; /* number of bytes read this boot that were previously optimized */
-		u_int64_t	ssup_hdd_optimization_range_length; /* size of region holding optimized bytes */
-	} userspace_optimizations;
+	} userspace_fusion_optimizations;
+	
+	struct BC_userspace_hdd_optimizations {
+		/* See hdd_history_* for reads requested */
+		u_int64_t	ssup_reads_optimized;         /* number of reads this boot that were optimized */
+		u_int64_t	ssup_reads_already_optimized; /* number of reads this boot that were previously optimized */
+		u_int64_t	ssup_inodes_requested;	/* number of inodes read during boot */
+		u_int64_t	ssup_inodes_optimized;	/* number of inodes optimized for next boot */
+		u_int64_t	ssup_inodes_already_optimized;	/* number of inodes read this boot that were previously optimized */
+		/* See hdd_history_* for bytes requested */
+		u_int64_t   ssup_bytes_requested;       /* number of bytes requested during boot */
+		u_int64_t	ssup_bytes_optimized;       /* number of bytes optimized for next boot */
+		u_int64_t   ssup_bytes_surplus;         /* number of bytes optimized for next boot that wasn't read during boot */
+		u_int64_t	ssup_bytes_nonoptimized;    /* number of bytes not optimized for next boot that was read in during boot */
+		u_int64_t	ssup_bytes_already_optimized; /* number of bytes read this boot that were previously optimized */
+		u_int64_t	ssup_optimization_range_length; /* size of region holding optimized bytes */
+	} userspace_hdd_optimizations;
+
+	struct BC_userspace_oversize {
+		u_int64_t ssup_highpri_bytes_trimmed;
+		u_int64_t ssup_lowpri_bytes_trimmed;
+	} userspace_oversize;
+	
+	struct BC_userspace_hdd_optimization_state {
+		u_int32_t   ssup_num_optimizations_attempted; /* number of hdd optimization passes attempted (including in-progress) */
+		u_int32_t   ssup_optimization_state; /* 0: pending, 1: in progress, 2: paused, 3: completed,  */
+#define	BC_HDD_OPTIMIZATION_STATE_PENDING	0 /* optimization has not yet started */
+#define	BC_HDD_OPTIMIZATION_STATE_IN_PROGRESS	1 /* optimization is in progress */
+#define	BC_HDD_OPTIMIZATION_STATE_PAUSED	2 /* optimization has been paused (partial completion) */
+#define	BC_HDD_OPTIMIZATION_STATE_COMPLETE	3 /* optimization has been completed */
+	} userspace_hdd_optimization_state;
 	
 	struct stat_numbers {
 		/* readahead */
@@ -333,16 +369,30 @@ struct BC_statistics {
 		u_int64_t	ss_unsupported_unread;	/* bytes unread due to unsupported configuration */
 
 		/* history activity */
-		u_int64_t	ss_history_bytes;			/* number of bytes contained in the history we've seen for this boot */
-		u_int64_t	ss_history_reads;			/* number of reads we saw during initial boot */
 		u_int64_t	ss_history_writes;			/* number of writes we saw during initial boot */
+		u_int64_t	ss_history_writes_bytes;			/* number of writes we saw during initial boot */
+		u_int64_t	ss_history_reads;			/* number of reads we saw during initial boot */
+		u_int64_t	ss_history_reads_bytes;			/* number of reads we saw during initial boot */
+		u_int64_t	ss_history_reads_truncated; /* number of reads we saw but ignored due to truncation */
+		u_int64_t	ss_history_reads_truncated_bytes; /* number of reads we saw but ignored due to truncation */
+		u_int64_t	ss_history_reads_nomount;   /* number of reads we saw but had no mount */
+		u_int64_t	ss_history_reads_nomount_bytes;   /* number of reads we saw but had no mount */
+		u_int64_t	ss_history_reads_unknown;			/* history calls we couldn't find a mount for */
+		u_int64_t	ss_history_reads_unknown_bytes;	/* bytes history calls we couldn't find a mount for */
+		u_int64_t	ss_history_reads_no_blocksize;	/* history calls with 0 blocksize mounts */
+		u_int64_t	ss_history_reads_no_blocksize_bytes;	/* bytes history calls with 0 blocksize mounts */
+		u_int64_t	ss_history_reads_nonroot;	/* history calls with 0 blocksize mounts */
+		u_int64_t	ss_history_reads_nonroot_bytes;	/* bytes history calls with 0 blocksize mounts */
+		u_int64_t	ss_history_reads_ssd;	/* history calls with 0 blocksize mounts */
+		u_int64_t	ss_history_reads_ssd_bytes;	/* bytes history calls with 0 blocksize mounts */
 		u_int64_t	ss_history_entries;			/* number of history entries we've created this boot */
-		u_int64_t	ss_history_unknown;			/* history calls we couldn't find a mount for */
-		u_int64_t	ss_history_unknown_bytes;	/* bytes history calls we couldn't find a mount for */
-		u_int64_t	ss_history_no_blocksize;	/* history calls with 0 blocksize mounts */
-		u_int64_t	ss_history_no_blocksize_bytes;	/* bytes history calls with 0 blocksize mounts */
-		u_int64_t	ss_history_optimized_reads;	/* number of bytes contained in the history that were previously optimized */
-		u_int64_t	ss_history_optimized_bytes;	/* number of bytes contained in the history that were previously optimized */
+		u_int64_t	ss_history_entries_bytes;			/* number of bytes contained in the history we've seen for this boot */
+		u_int64_t	ss_fusion_history_already_optimized_reads;	/* number of reads in the history that were previously optimized on fusion */
+		u_int64_t	ss_fusion_history_already_optimized_bytes;	/* number of bytes in the history that were previously optimized on fusion */
+		u_int64_t	ss_fusion_history_not_already_optimized_reads;	/* number of reads in the history that were not previously optimized on fusion */
+		u_int64_t	ss_fusion_history_not_already_optimized_bytes;	/* number of bytes in the history that were not previously optimized on fusion */
+		u_int64_t	ss_hdd_history_reads;	/* number of reads in the history that were read from an hdd */
+		u_int64_t	ss_hdd_history_bytes;	/* number of bytes in the history that were read from an hdd */
 	} ss_nonsharedcache; // Just non-shared cache
 
 	struct stat_numbers ss_sharedcache;
@@ -370,6 +420,15 @@ struct BC_statistics {
 
 	/* current status */
 	u_int64_t	ss_cache_flags;		/* current cache flags */
+#define	BC_FLAG_SETUP			(1 << 0)	/* cache setup properly during mount */
+#define	BC_FLAG_CACHEACTIVE		(1 << 1)	/* cache is active, owns memory */
+#define	BC_FLAG_HISTORYACTIVE	(1 << 2)	/* currently recording history */
+#define	BC_FLAG_HTRUNCATED		(1 << 3)	/* history list truncated */
+#define	BC_FLAG_SHUTDOWN		(1 << 4)	/* readahead shut down */
+
+	char ss_playback_end_reason[64];
+	char ss_cache_end_reason[64];
+	char ss_history_end_reason[64];
 };
 
 #ifndef KERNEL
@@ -430,6 +489,8 @@ struct bc_file_extent {
 // Defaults to NULL (os_log)
 extern FILE* bc_log_stream;
 	
+struct bc_optimization_info;
+	
 extern int	BC_read_playlist(const char *, struct BC_playlist **);
 extern int	BC_write_playlist(const char *, const struct BC_playlist *);
 extern int	BC_merge_playlists(struct BC_playlist *, const struct BC_playlist *);
@@ -437,23 +498,31 @@ extern int  BC_playlists_intersect(const struct BC_playlist*, const struct BC_pl
 extern int	BC_playlist_for_file(int fd, struct BC_playlist** ppc);
 extern int  BC_playlist_for_filename(int fd, const char *fname, off_t maxsize, struct BC_playlist** ppc);
 extern int  BC_playlist_for_file_extents(int fd, uint nextents, const struct bc_file_extent* extents, struct BC_playlist** ppc);
+extern int  BC_sort_and_coalesce_playlist(struct BC_playlist* pc);
 extern int  BC_verify_playlist(const struct BC_playlist *);
 extern struct BC_playlist *BC_allocate_playlist(uint nmounts, uint nentries, uint nomaps);
 extern void BC_reset_playlist(struct BC_playlist *);
 extern struct BC_playlist *BC_copy_playlist(const struct BC_playlist *);
 extern void BC_free_playlist(struct BC_playlist *);
 #define PC_FREE_ZERO(pc) do { if (pc) { BC_free_playlist(pc); (pc) = NULL; } } while (0)
+extern void BC_merge_history(struct BC_history *, const struct BC_history *);
 extern struct BC_history *BC_copy_history(const struct BC_history *);
 extern void BC_free_history(struct BC_history *);
 #define HC_FREE_ZERO(hc) do { if (hc) { BC_free_history(hc); (hc) = NULL; } } while (0)
+extern void BC_merge_omap_history(struct BC_omap_history *, const struct BC_omap_history *);
 extern struct BC_omap_history *BC_copy_omap_history(const struct BC_omap_history *);
 extern void BC_free_omap_history(struct BC_omap_history *);
 #define OH_FREE_ZERO(oh) do { if (oh) { BC_free_omap_history(oh); (oh) = NULL; } } while (0)
 extern int	BC_fetch_statistics(struct BC_statistics **);
+extern int	BC_set_userspace_oversize(const struct BC_userspace_oversize *);
 extern int	BC_set_userspace_timestamps(const struct BC_userspace_timestamps *);
-extern int	BC_add_userspace_optimizations(const struct BC_userspace_optimizations *);
+extern int	BC_set_userspace_fusion_optimization_stats(const struct BC_userspace_fusion_optimizations *);
+extern int	BC_set_userspace_hdd_optimization_stats(const struct BC_userspace_hdd_optimizations *);
 extern int BC_convert_history_and_omaps(const struct BC_history *, const struct BC_omap_history *, struct BC_playlist **);
-extern void BC_optimize_history(struct BC_history *);
+extern int BC_optimize_history(struct BC_history *, struct bc_optimization_info**, bool);
+extern int BC_pause_optimizations(void);
+extern void BC_free_optimization_info(struct bc_optimization_info*);
+#define OI_FREE_ZERO(oi) do { if (oi) { BC_free_optimization_info(oi); (oi) = NULL; } } while (0)
 extern int BC_start(const struct BC_playlist *);
 extern int BC_stop_and_fetch(struct BC_history **, struct BC_omap_history **);
 #define BC_stop(hc) BC_stop_and_fetch(hc, NULL)

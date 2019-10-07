@@ -298,18 +298,14 @@ void SecItemCertificateSourceDestroy(SecCertificateSourceRef source) {
 
 static bool SecSystemAnchorSourceCopyParents(SecCertificateSourceRef source, SecCertificateRef certificate,
                                              void *context, SecCertificateSourceParents callback) {
-    //#ifndef SECITEM_SHIM_OSX
     CFArrayRef parents = NULL;
     CFArrayRef anchors = NULL;
-    SecOTAPKIRef otapkiref = NULL;
 
     CFDataRef nic = SecCertificateGetNormalizedIssuerContent(certificate);
     /* 64 bits cast: the worst that can happen here is we truncate the length and match an actual anchor.
      It does not matter since we would be returning the wrong anchors */
     assert((unsigned long)CFDataGetLength(nic)<UINT_MAX); /* Debug check. correct as long as CFIndex is signed long */
 
-    otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
-    require_quiet(otapkiref, errOut);
     anchors = subject_to_anchors(nic);
     require_quiet(anchors, errOut);
     parents = CopyCertsFromIndices(anchors);
@@ -317,8 +313,6 @@ static bool SecSystemAnchorSourceCopyParents(SecCertificateSourceRef source, Sec
 errOut:
     callback(context, parents);
     CFReleaseSafe(parents);
-    CFReleaseSafe(otapkiref);
-    //#endif // SECITEM_SHIM_OSX
     return true;
 }
 
@@ -698,9 +692,19 @@ static bool SecLegacyAnchorSourceContains(SecCertificateSourceRef source,
     if ((status == errSecSuccess) && (trusted != NULL)) {
         CFIndex index, count = CFArrayGetCount(trusted);
         for (index = 0; index < count; index++) {
-            SecCertificateRef anchor = (SecCertificateRef)CFArrayGetValueAtIndex(trusted, index);
+            SecCertificateRef anchor = (SecCertificateRef)CFRetainSafe(CFArrayGetValueAtIndex(trusted, index));
+            if (anchor && (CFGetTypeID(anchor) != CFGetTypeID(certificate))) {
+                /* This should only happen if trustd and the Security framework are using different SecCertificate TypeIDs.
+                 * This occurs in TrustTests where we rebuild SecCertificate.c for code coverage purposes, so we end up with
+                 * two registered SecCertificate types. So we'll make a SecCertificate of our type. */
+                SecCertificateRef temp = SecCertificateCreateWithBytes(NULL, SecCertificateGetBytePtr(anchor), SecCertificateGetLength(anchor));
+                CFAssignRetained(anchor, temp);
+            }
             if (anchor && CFEqual(anchor, certificate)) {
                 result = true;
+            }
+            CFReleaseNull(anchor);
+            if (result) {
                 break;
             }
         }

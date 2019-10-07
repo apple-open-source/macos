@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: lsof.h,v 1.68 2015/07/07 20:16:58 abe Exp $
+ * $Id: lsof.h,v 1.70 2018/03/26 21:50:45 abe Exp $
  */
 
 
@@ -85,14 +85,22 @@ struct l_dev {
  * End point definitions
  */
 
-#define	CHEND_PIPE	1		/* pipe endpoint ID */
-#define	EPT_PIPE	1		/* process has pipe file */
-#define	EPT_PIPE_END	2		/* process has pipe end point file */
+#define	CHEND_PIPE	0x01		/* pipe endpoint ID */
+#define	CHEND_PTY	0x02		/* pseudoterminal endpoint ID */
 
 #  if	defined(HASUXSOCKEPT)
-#define	CHEND_UXS	2		/* UNIX socket endpoint ID */
-#define	EPT_UXS		4		/* process has a UNIX socket file */
-#define	EPT_UXS_END	8		/* process has a UNIX socket end point
+#define	CHEND_UXS	0x04		/* UNIX socket endpoint ID */
+#  endif	/* defined(HASUXSOCKEPT) */
+
+#define	EPT_PIPE	0x01		/* process has pipe file */
+#define	EPT_PIPE_END	0x02		/* process has pipe end point file */
+#define	EPT_PTY		0x04		/* process has a pseudoterminal file */
+#define	EPT_PTY_END	0x08		/* process has a pseudoterminal end
+					 * point file */
+
+#  if	defined(HASUXSOCKEPT)
+#define	EPT_UXS		0x10		/* process has a UNIX socket file */
+#define	EPT_UXS_END	0x20		/* process has a UNIX socket end point
 					 * file */
 #  endif	/* defined(HASUXSOCKEPT) */
 # endif	/* defined(HASEPTOPTS) */
@@ -382,6 +390,9 @@ static struct utmp dummy_utmp;		/* to get login name length */
 
 #define	RPTTM		15		/* default repeat seconds */
 #define	RTD		" rtd"		/* root directory fd name */
+#define	TASKCMDL	9		/* maximum number of characters from
+					 * command name to print in TASKCMD
+					 * column */
 #define TCPTPI_FLAGS	0x0001		/* report TCP/TPI socket options and
 					 * state, and TCP_NODELAY state */
 #define	TCPTPI_QUEUES	0x0002		/* report TCP/TPI queue lengths */
@@ -455,8 +466,10 @@ extern int PpidColW;
 #define SZTTL		"SIZE"
 #define	SZOFFTTL	"SIZE/OFF"
 extern int SzOffColW;
-#define	TIDTTL		"TID"
-extern	int TidColW;
+#define	TASKCMDTTL	"TASKCMD"
+extern	int TaskCmdColW;
+#define	TASKTIDTTL	"TID"
+extern	int TaskTidColW;
 #define TYPETTL		"TYPE"
 extern int TypeColW;
 #define	USERTTL		"USER"
@@ -490,7 +503,9 @@ extern int ZoneColW;
 #define	SELTASK		0x4000		/* select tasks (-K) */
 #define	SELPINFO	0x8000		/* selected for pipe info (cleared in
 					 * link_lfile() */
-#define	SELUXSINFO	0x10000		/* selected for UNIX socket info
+#define	SELUXSINFO	0x10000		/* selected for UNIX socket info;
+					 * cleared in link_lfile() */
+#define	SELPTYINFO	0x20000		/* selected for pseudoterminal info;
 					 * cleared in link_lfile() */
 #define	SELALL		(SELCMD|SELCNTX|SELFD|SELNA|SELNET|SELNM|SELNFS|SELPID|SELUID|SELUNX|SELZONE|SELTASK)
 #define	SELPROC		(SELCMD|SELCNTX|SELPGID|SELPID|SELUID|SELZONE|SELTASK)
@@ -512,6 +527,8 @@ struct afsnode {			/* AFS pseudo-node structure */
 	long nlink;
 };
 # endif	/* defined(HAS_AFS) */
+
+extern int AllProc;
 
 # if	defined(HAS_STD_CLONE)
 struct clone {
@@ -568,8 +585,8 @@ struct pff_tab {			/* print file flags table structure */
 # endif	/* defined(HASFSTRUCT) */
 
 # if	defined(HASEPTOPTS)
-typedef struct pxinfo {			/* hashed pipe or UNIX socket inode
-					 * information */
+typedef struct pxinfo {			/* hashed pipe, UNIX socket or pseudo-
+					 * terminal inode information */
 	INODETYPE ino;			/* file's inode */
 	struct lfile *lf;		/* connected peer file */
 	int lpx;			/* connected process index */
@@ -728,6 +745,7 @@ extern struct fieldsel FieldSel[];
 extern int Hdr;
 
 enum IDType {PGID, PID};
+extern int  IgnTasks;
 extern char *InodeFmt_d;
 extern char *InodeFmt_x;
 extern int LastPid;
@@ -763,6 +781,10 @@ struct lfile {
 # if	defined(HASEPTOPTS)
 	unsigned char chend;		/* communication channel endpoint
 					 * file */
+#  if	defined(HASPTYEPT)
+	int tty_index;			/* pseudoterminal index of slave side
+					 * (if this is the master side) */
+#  endif	/* defined(HASPTYEPT) */
 # endif	/* defined(HASEPTOPTS) */
 
 	unsigned char rdev_def;		/* rdev definition status */
@@ -908,6 +930,7 @@ struct lproc {
 
 # if	defined(HASTASKS)
 	int tid;			/* task ID */
+	char *tcmd;			/* task command name */
 # endif	/* HASTASKS */
 
 	int pgid;			/* process group ID */
@@ -1005,8 +1028,9 @@ extern int Procsrch;
 extern int PrPass;
 extern int RptTm;
 extern struct l_dev **Sdev;
-extern int Selall;
+extern int SelAll;
 extern int Selflags;
+extern int SelProc;
 extern int Setgid;
 extern int Selinet;
 extern int Setuidroot;
@@ -1018,7 +1042,9 @@ extern char *SzOffFmt_0t;
 extern char *SzOffFmt_d;
 extern char *SzOffFmt_dv;
 extern char *SzOffFmt_x;
-extern int TaskPrtFl;
+extern int TaskCmdLim;
+extern int TaskPrtCmd;
+extern int TaskPrtTid;
 extern int TcpStAlloc;
 extern unsigned char *TcpStI;
 extern int TcpStIn;

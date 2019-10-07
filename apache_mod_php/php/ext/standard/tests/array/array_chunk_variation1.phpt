@@ -1,20 +1,20 @@
 --TEST--
-Test array_chunk() function : usage variations - unexpected values for 'array' argument 
+Test array_chunk() function : usage variations - unexpected values for 'array' argument
 --FILE--
 <?php
 /* Prototype  : proto array array_chunk(array $array, int $size [, bool $preserve_keys])
  * Description: Split array into chunks
- *              Chunks an array into size  large chunks. 
+ *              Chunks an array into size  large chunks.
  * Source code: ext/standard/array.c
 */
 
 /*
-* Testing array_chunk() function with unexpected values for 'array' argument 
+* Testing array_chunk() function with unexpected values for 'array' argument
 */
 
 echo "*** Testing array_chunk() : usage variations ***\n";
 
-// Initialise function arguments 
+// Initialise function arguments
 $size = 10;
 
 //get an unset variable
@@ -59,10 +59,10 @@ $values = array(
 /*20*/  new stdclass(),
 
         // undefined data
-/*21*/  @undefined_var,
+/*21*/  @$undefined_var,
 
         // unset data
-/*22*/  @unset_var
+/*22*/  @$unset_var
 
 );
 
@@ -83,46 +83,46 @@ echo "Done";
 
 -- Iteration 1 --
 
-Warning: array_chunk() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 2 --
 
-Warning: array_chunk() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 3 --
 
-Warning: array_chunk() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 4 --
 
-Warning: array_chunk() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 5 --
@@ -204,46 +204,46 @@ NULL
 
 -- Iteration 12 --
 
-Warning: array_chunk() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 13 --
 
-Warning: array_chunk() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 14 --
 
-Warning: array_chunk() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 15 --
 
-Warning: array_chunk() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 16 --
@@ -303,23 +303,23 @@ NULL
 
 -- Iteration 21 --
 
-Warning: array_chunk() expects parameter 1 to be array, string given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, null given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, string given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, null given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, string given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, null given in %s on line %d
 NULL
 
 -- Iteration 22 --
 
-Warning: array_chunk() expects parameter 1 to be array, string given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, null given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, string given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, null given in %s on line %d
 NULL
 
-Warning: array_chunk() expects parameter 1 to be array, string given in %s on line %d
+Warning: array_chunk() expects parameter 1 to be array, null given in %s on line %d
 NULL
 Done

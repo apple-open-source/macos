@@ -1,9 +1,9 @@
 alias [ {+|-}gmrsL ] [ name[=value] ... ]
        For each name with a corresponding value, define an  alias  with
        that  value.   A trailing space in value causes the next word to
-       be checked for alias expansion.  If  the  -g  flag  is  present,
-       define  a global alias; global aliases are expanded even if they
-       do not occur in command position.
+       be checked for alias expansion.  If the -g flag is present,  de-
+       fine a global alias; global aliases are expanded even if they do
+       not occur in command position.
 
        If the -s flag is present, define a suffix alias: if the command
        word on a command line is in the form `text.name', where text is

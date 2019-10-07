@@ -161,7 +161,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
     NSMutableDictionary *   gameData        = !match.matchData ? nil : [NSPropertyListSerialization propertyListWithData:match.matchData options:0 format:&format error:nil];
     MBCController *         controller      = (MBCController *)[NSApp delegate];
     NSString *              localPlayerID   = controller.localPlayer.playerID;
-    if (!gameData) { 
+    if (!gameData) {
         //
         // Brand new game, pick a side
         //
@@ -190,32 +190,6 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
                                                                          format:NSPropertyListXMLFormat_v1_0
                                                                         options:0
                                                                           error:nil]);
-        } else {
-            //
-            // Push our choices to the server
-            //
-            
-            // we need to get the next participant and pass the turn off, we should start with getting all participants
-            // and then pulling out the current player.
-            
-            NSArray *matchParticipants = [[[NSArray alloc] initWithArray:match.participants] autorelease];
-            NSMutableArray *nextParticipants = [[[NSMutableArray alloc] init] autorelease];
-            
-            for (GKTurnBasedParticipant *participant in matchParticipants) {
-                if (![participant.player.playerID isEqualToString:[GKLocalPlayer localPlayer].playerID]) {
-                    [nextParticipants addObject:participant];
-                }
-            }
-            
-            [match endTurnWithNextParticipants:nextParticipants
-                                   turnTimeout:86400
-                                     matchData:[NSPropertyListSerialization
-                                                dataWithPropertyList:gameData
-                                                format:NSPropertyListXMLFormat_v1_0
-                                                options:0
-                                                error:nil]
-                             completionHandler:^(NSError *error) {}];
-            
         }
     } else if (![localPlayerID isEqual:[gameData objectForKey:@"WhitePlayerID"]] && ![localPlayerID isEqual:[gameData objectForKey:@"BlackPlayerID"]]) {
         //

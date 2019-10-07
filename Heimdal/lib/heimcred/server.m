@@ -60,6 +60,39 @@
 #import "heimbase.h"
 #import "hc_err.h"
 
+
+#if __has_include(<MobileKeyBag/MobileKeyBag.h>)
+#include <MobileKeyBag/MobileKeyBag.h>
+#define HAVE_MOBILE_KEYBAG_SUPPORT 1
+#endif
+
+#if __has_include(<UserManagement/UserManagement.h>)
+#include <UserManagement/UserManagement.h>
+#endif
+
+#if TARGET_OS_IOS && HAVE_MOBILE_KEYBAG_SUPPORT
+static bool
+device_is_multiuser(void)
+{
+    static dispatch_once_t once;
+    static bool result;
+    
+    dispatch_once(&once, ^{
+	CFDictionaryRef deviceMode = MKBUserTypeDeviceMode(NULL, NULL);
+	CFTypeRef value = NULL;
+	
+	if (deviceMode && CFDictionaryGetValueIfPresent(deviceMode, kMKBDeviceModeKey, &value) && CFEqual(value, kMKBDeviceModeMultiUser)) {
+	    result = true;
+	}
+        if (deviceMode) {
+            CFRelease(deviceMode);
+        }
+    });
+    
+    return result;
+}
+#endif /* HAVE_MOBILE_KEYBAG_SUPPORT && TARGET_OS_IOS */
+
 /*
  *
  */
@@ -323,6 +356,24 @@ checkACLInCredentialChain(struct peer *peer, CFUUIDRef uuid, bool *hasACL)
 	if (max_depth-- < 0)
 	    goto out;
 	
+#if TARGET_OS_IOS && HAVE_MOBILE_KEYBAG_SUPPORT
+	if (device_is_multiuser()) {
+	    BOOL usersMatch = false;
+	    CFNumberRef credUid = CFDictionaryGetValue(cred->attributes, kHEIMAttrUserID);
+	    uid_t uid = xpc_connection_get_euid(peer->peer);
+	    CFNumberRef uidNumber = CFNumberCreate(NULL, kCFNumberIntType, &uid);
+	    if (credUid && uidNumber) {
+	    	usersMatch = CFEqual(uidNumber, credUid);
+	    }
+	    if (uidNumber) {
+		CFRelease(uidNumber);
+	    }
+	    if (!usersMatch) {
+		//The uid that created the credential doesnt match the uid requesting the credential.
+		goto out;
+	    }
+	}
+#endif
 	CFArrayRef array = CFDictionaryGetValue(cred->attributes,  kHEIMAttrBundleIdentifierACL);
 	if (array) {
 	    CFIndex n, count;
@@ -340,7 +391,7 @@ checkACLInCredentialChain(struct peer *peer, CFUUIDRef uuid, bool *hasACL)
 		if (CFGetTypeID(prefix) != CFStringGetTypeID())
 		    goto out;
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 		if (CFEqual(prefix, CFSTR("*")))
 		    goto pass;
 #endif
@@ -493,11 +544,13 @@ reElectDefaultCredential(struct peer *peer)
     CFDictionaryApplyFunction(HeimCredCTX.mechanisms, reElectMechCredential, peer->session);
 }
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 static bool
 canSetAnyBundleIDACL(struct peer *peer)
 {
-    return CFStringCompare(CFSTR("com.apple.accountsd"), peer->bundleID, 0) == kCFCompareEqualTo;
+    return CFStringCompare(CFSTR("com.apple.accountsd"), peer->bundleID, 0) == kCFCompareEqualTo
+    || CFStringCompare(CFSTR("com.apple.AppSSO.KerberosPlugin-iOS"), peer->bundleID, 0) == kCFCompareEqualTo
+    || CFStringCompare(CFSTR("com.apple.AppSSOKerberos.KerberosExtension"), peer->bundleID, 0) == kCFCompareEqualTo;
 }
 #endif
 
@@ -552,7 +605,7 @@ do_CreateCred(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 
     bool hasACLInAttributes = addPeerToACL(peer, attrs);
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
     if (hasACLInAttributes && !canSetAnyBundleIDACL(peer)) {
        CFArrayRef array = CFDictionaryGetValue(attrs, kHEIMAttrBundleIdentifierACL);
        if (array == NULL || CFGetTypeID(array) != CFArrayGetTypeID() || CFArrayGetCount(array) != 1) {
@@ -594,7 +647,19 @@ do_CreateCred(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 
     updateStoreTime(cred, attrs);
     handleDefaultCredentialUpdate(peer->session, cred, attrs);
+    
+#if TARGET_OS_IOS && HAVE_MOBILE_KEYBAG_SUPPORT
+    if (device_is_multiuser()) {
+	//store the uid for the new credential when in edu mode on ios
+	uid_t uid = xpc_connection_get_euid(peer->peer);
+	CFNumberRef uidNumber = CFNumberCreate(NULL, kCFNumberIntType, &uid);
+	CFDictionarySetValue(attrs, kHEIMAttrUserID, uidNumber);
+	CFRelease(uidNumber);
+	
+    }
+#endif
 
+    
     cred->attributes = CFRetain(attrs);
     
     CFDictionarySetValue(peer->session->items, cred->uuid, cred);
@@ -929,6 +994,43 @@ do_SetAttrs(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 }
 
 static void
+do_Auth(struct peer *peer, xpc_object_t request, xpc_object_t reply)
+{
+    CFDictionaryRef outputAttrs = NULL;
+    CFUUIDRef uuid = HeimCredCopyUUID(request, "uuid");
+    if (uuid == NULL)
+	return;
+
+    if (!checkACLInCredentialChain(peer, uuid, NULL)) {
+	CFRelease(uuid);
+	return;
+    }
+
+    HeimCredRef cred = (HeimCredRef)CFDictionaryGetValue(peer->session->items, uuid);
+    CFRelease(uuid);
+    if (cred == NULL)
+	return;
+
+    CFDictionaryRef inputAttrs = HeimCredMessageCopyAttributes(request, "attributes", CFDictionaryGetTypeID());
+    if (inputAttrs == NULL) {
+	return;
+    }
+    
+/* call mech authCallback */
+    if( cred->mech->authCallback ) {
+	outputAttrs = cred->mech->authCallback(cred, inputAttrs);
+	if (outputAttrs)
+	    HeimCredMessageSetAttributes(reply, "attributes", outputAttrs);
+    } else {
+	syslog(LOG_ERR, "no HeimCredAuthCallback defined for mech");
+    }
+    
+    if (inputAttrs) {
+	CFRelease(inputAttrs);
+    }
+}
+
+static void
 do_Fetch(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 {
     CFUUIDRef uuid = HeimCredCopyUUID(request, "uuid");
@@ -939,7 +1041,7 @@ do_Fetch(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 	CFRelease(uuid);
 	return;
     }
-
+    
     HeimCredRef cred = (HeimCredRef)CFDictionaryGetValue(peer->session->items, uuid);
     CFRelease(uuid);
     if (cred == NULL)
@@ -1066,6 +1168,11 @@ do_GetDefault(struct peer *peer, xpc_object_t request, xpc_object_t reply)
 	 addErrorToReply(reply, error);
 	 CFRelease(error);
      }
+    
+    if (mechName) {
+	CFRelease(mechName);
+    }
+	
 }
 
 static void
@@ -1248,7 +1355,9 @@ static void GSSCred_peer_event_handler(struct peer *peer, xpc_object_t event)
 		return;
 	    }
 	}
-	CFRelease(bundle);
+	if (bundle) {
+	    CFRelease(bundle);
+	}
     }
 
 
@@ -1286,6 +1395,9 @@ static void GSSCred_peer_event_handler(struct peer *peer, xpc_object_t event)
     } else if (strcmp(cmd, "status") == 0) {
 	reply = xpc_dictionary_create_reply(event);
 	do_Status(peer, event, reply);
+    } else if (strcmp(cmd, "doauth") == 0) {
+	reply = xpc_dictionary_create_reply(event);
+	do_Auth(peer, event, reply);
     } else {
 	syslog(LOG_ERR, "peer sent invalid command %s", cmd);
 	xpc_connection_cancel(peer->peer);
@@ -1327,7 +1439,7 @@ peer_final(void *ptr)
 static CFStringRef
 CopySigningIdentitier(xpc_connection_t conn)
 {
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 	char path[MAXPATHLEN];
 	CFStringRef ident = NULL;
 	const char *str = NULL;
@@ -1453,7 +1565,11 @@ HeimCredCopySession(int sessionID)
 static void GSSCred_event_handler(xpc_connection_t peerconn)
 {
     struct peer *peer;
-
+    
+    xpc_type_t type = xpc_get_type(peerconn);
+    if (type == XPC_TYPE_ERROR)
+	return;
+    
     peer = calloc(1, sizeof(*peer));
     heim_assert(peer != NULL, "out of memory");
     
@@ -1466,7 +1582,7 @@ static void GSSCred_event_handler(xpc_connection_t peerconn)
 	    path[0] = '\0';
 
 	syslog(LOG_ERR, "client[pid-%d] \"%s\" is not signed", (int)xpc_connection_get_pid(peerconn), path);
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	free(peer);
 	xpc_connection_cancel(peerconn);
 	return;
@@ -1809,7 +1925,8 @@ _HeimCredRegisterMech(CFStringRef name,
     mech->authCallback = authCallback;
 
     CFDictionarySetValue(HeimCredCTX.mechanisms, name, mech);
-
+    CFRelease(mech);
+    
     CFSetApplyFunction(schemas, registerSchema, NULL);
 }
 
@@ -1848,6 +1965,7 @@ _HeimCredCreateBaseSchema(CFStringRef objectType)
     CFDictionarySetValue(schema, kHEIMAttrStoreTime, CFSTR("Gt"));
     CFDictionarySetValue(schema, kHEIMAttrData, CFSTR("d"));
     CFDictionarySetValue(schema, kHEIMAttrRetainStatus, CFSTR("n"));
+    CFDictionarySetValue(schema, kHEIMAttrUserID, CFSTR("n"));
 
 #if 0
     CFDictionarySetValue(schema, kHEIMAttrTransient, CFSTR("b"));
@@ -1972,7 +2090,7 @@ int main(int argc, const char *argv[])
     /* Tell logd we're special */
     os_log_set_client_type(OS_LOG_CLIENT_TYPE_LOGD_DEPENDENCY, 0);
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
     char *error = NULL;
 
     if (sandbox_init("com.apple.GSSCred", SANDBOX_NAMED, &error)) {
@@ -1997,7 +2115,7 @@ int main(int argc, const char *argv[])
 
     CFRELEASE_NULL(HeimCredCTX.globalSchema);
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
     archivePath = [[NSString alloc] initWithFormat:@"%@/Library/Caches/com.apple.GSSCred.simulator-archive", NSHomeDirectory()];
 #else
     archivePath = @"/var/db/heim-credential-store.archive";

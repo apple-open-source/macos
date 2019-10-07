@@ -22,59 +22,70 @@
  */
 
 #import <Foundation/Foundation.h>
-
+#import "keychain/ot/OTClique.h"
 #import "keychain/ot/OTControlProtocol.h"
+#import "keychain/ot/OTJoiningConfiguration.h"
+#import <Security/SecXPCHelper.h>
 
 #if OCTAGON
 #import <CloudKit/CloudKit.h>
 #import <CloudKit/CloudKit_Private.h>
 #import <utilities/debugging.h>
 #include <dlfcn.h>
+#import <KeychainCircle/KeychainCircle.h>
 #import <SecurityFoundation/SFKey.h>
 #endif // OCTAGON
 
+
 NSXPCInterface* OTSetupControlProtocol(NSXPCInterface* interface) {
 #if OCTAGON
-    static NSMutableSet *errClasses;
-    
-    static dispatch_once_t onceToken;
+    NSSet<Class> *errorClasses = [SecXPCHelper safeErrorClasses];
 
-    dispatch_once(&onceToken, ^{
-        errClasses = [NSMutableSet set];
-        char *classes[] = {
-            "NSArray",
-            "NSData",
-            "NSDate",
-            "NSDictionary",
-            "NSError",
-            "NSNull",
-            "NSNumber",
-            "NSOrderedSet",
-            "NSSet",
-            "NSString",
-            "NSURL",
-        };
-        
-        for (unsigned n = 0; n < sizeof(classes)/sizeof(classes[0]); n++) {
-            Class cls = objc_getClass(classes[n]);
-            if (cls) {
-                [errClasses addObject:cls];
-            }
-        }
-    });
-    
     @try {
-        [interface setClasses:errClasses forSelector:@selector(restore:dsid:secret:escrowRecordID:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(octagonEncryptionPublicKey:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(octagonSigningPublicKey:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(listOfEligibleBottledPeerRecords:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(signOut:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(signIn:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(reset:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(restore:dsid:secret:escrowRecordID:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(octagonEncryptionPublicKey:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(octagonSigningPublicKey:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(listOfEligibleBottledPeerRecords:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(signOut:context:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(signIn:container:context:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(reset:) argumentIndex:0 ofReply:YES];
 
-        [interface setClasses:errClasses forSelector:@selector(preflightBottledPeer:dsid:reply:) argumentIndex:3 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(launchBottledPeer:bottleID:reply:) argumentIndex:0 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(scrubBottledPeer:bottleID:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(preflightBottledPeer:dsid:reply:) argumentIndex:3 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(launchBottledPeer:bottleID:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(scrubBottledPeer:bottleID:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(handleIdentityChangeForSigningKey:ForEncryptionKey:ForPeerID:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(fetchCliqueStatus:context:configuration:reply:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(fetchTrustStatus:context:configuration:reply:) argumentIndex:4 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(fetchEscrowContents:contextID:reply:) argumentIndex:3 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(fetchAllViableBottles:context:reply:) argumentIndex:2 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(createRecoveryKey:contextID:recoveryKey:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(joinWithRecoveryKey:contextID:recoveryKey:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(healthCheck:context:skipRateLimitingCheck:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(attemptSosUpgrade:context:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(waitForOctagonUpgrade:context:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(postCDPFollowupResult:type:error:containerName:contextName:reply:) argumentIndex:2 ofReply:NO];
+        [interface setClasses:errorClasses forSelector:@selector(postCDPFollowupResult:type:error:containerName:contextName:reply:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errorClasses forSelector:@selector(tapToRadar:description:radar:reply:) argumentIndex:0 ofReply:YES];
+
+#if __OBJC2__
+
+        [interface setClasses:errorClasses
+                  forSelector:@selector(rpcEpochWithConfiguration:reply:)
+                argumentIndex:1
+                      ofReply:YES];
+        [interface setClasses:errorClasses
+                  forSelector:@selector(rpcPrepareIdentityAsApplicantWithConfiguration:reply:)
+                argumentIndex:5
+                      ofReply:YES];
+        [interface setClasses:errorClasses
+                  forSelector:@selector(rpcVoucherWithConfiguration:peerID:permanentInfo:permanentInfoSig:stableInfo:stableInfoSig:reply:)
+                argumentIndex:2
+                      ofReply:YES];
+        [interface setClasses:errorClasses
+                  forSelector:@selector(rpcJoinWithConfiguration:vouchData:vouchSig:preapprovedKeys:reply:)
+                argumentIndex:0
+                      ofReply:YES];
+#endif /* __OBJC2__ */
     }
     @catch(NSException* e) {
         secerror("OTSetupControlProtocol failed, continuing, but you might crash later: %@", e);

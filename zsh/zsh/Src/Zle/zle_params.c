@@ -85,12 +85,16 @@ static const struct gsu_integer cursor_gsu =
 { get_cursor, set_cursor, zleunsetfn };
 static const struct gsu_integer histno_gsu =
 { get_histno, set_histno, zleunsetfn };
+static const struct gsu_integer keys_queued_count_gsu =
+{ get_keys_queued_count, NULL, zleunsetfn };
 static const struct gsu_integer mark_gsu =
 { get_mark, set_mark, zleunsetfn };
 static const struct gsu_integer numeric_gsu =
 { get_numeric, set_numeric, unset_numeric };
 static const struct gsu_integer pending_gsu =
 { get_pending, NULL, zleunsetfn };
+static const struct gsu_integer recursive_gsu =
+{ get_recursive, NULL, zleunsetfn };
 static const struct gsu_integer region_active_gsu =
 { get_region_active, set_region_active, zleunsetfn };
 static const struct gsu_integer undo_change_no_gsu =
@@ -122,7 +126,7 @@ static const struct gsu_array killring_gsu =
 static const struct gsu_scalar register_gsu =
 { strgetfn, set_register, unset_register };
 static const struct gsu_hash registers_gsu =
-{ hashgetfn, set_registers, zleunsetfn };
+{ hashgetfn, set_registers, unset_registers };
 
 /* implementation is in zle_refresh.c */
 static const struct gsu_array region_highlight_gsu =
@@ -146,6 +150,8 @@ static struct zleparam {
     { "HISTNO", PM_INTEGER, GSU(histno_gsu), NULL },
     { "KEYMAP", PM_SCALAR | PM_READONLY, GSU(keymap_gsu), NULL },
     { "KEYS", PM_SCALAR | PM_READONLY, GSU(keys_gsu), NULL },
+    { "KEYS_QUEUED_COUNT", PM_INTEGER | PM_READONLY, GSU(keys_queued_count_gsu),
+      NULL},
     { "killring", PM_ARRAY, GSU(killring_gsu), NULL },
     { "LASTABORTEDSEARCH", PM_SCALAR | PM_READONLY, GSU(lastabortedsearch_gsu),
       NULL },
@@ -176,6 +182,7 @@ static struct zleparam {
     { "SUFFIX_START", PM_INTEGER, GSU(suffixstart_gsu), NULL },
     { "SUFFIX_END", PM_INTEGER, GSU(suffixend_gsu), NULL },
     { "SUFFIX_ACTIVE", PM_INTEGER | PM_READONLY, GSU(suffixactive_gsu), NULL },
+    { "ZLE_RECURSIVE", PM_INTEGER | PM_READONLY, GSU(recursive_gsu), NULL },
     { "ZLE_STATE", PM_SCALAR | PM_READONLY, GSU(zle_state_gsu), NULL },
     { NULL, 0, NULL, NULL }
 };
@@ -458,6 +465,13 @@ get_keys(UNUSED(Param pm))
 }
 
 /**/
+static zlong
+get_keys_queued_count(UNUSED(Param pm))
+{
+    return kungetct;
+}
+
+/**/
 static void
 set_numeric(UNUSED(Param pm), zlong x)
 {
@@ -513,6 +527,13 @@ static zlong
 get_pending(UNUSED(Param pm))
 {
     return noquery(0);
+}
+
+/**/
+static zlong
+get_recursive(UNUSED(Param pm))
+{
+    return zle_recursive;
 }
 
 /**/
@@ -808,7 +829,7 @@ get_registers(UNUSED(HashTable ht), const char *name)
 
 /**/
 static void
-set_registers(UNUSED(Param pm), HashTable ht)
+set_registers(Param pm, HashTable ht)
 {
     int i;
     HashNode hn;
@@ -826,7 +847,17 @@ set_registers(UNUSED(Param pm), HashTable ht)
 
 	    set_register(v.pm, getstrvalue(&v));
         }
-    deleteparamtable(ht);
+    if (ht != pm->u.hash)
+	deleteparamtable(ht);
+}
+
+/**/
+static void
+unset_registers(Param pm, int exp)
+{
+    stdunsetfn(pm, exp);
+    deletehashtable(pm->u.hash);
+    pm->u.hash = NULL;
 }
 
 static void

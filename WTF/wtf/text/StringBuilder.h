@@ -27,8 +27,9 @@
 #pragma once
 
 #include <wtf/CheckedArithmetic.h>
-#include <wtf/text/AtomicString.h>
+#include <wtf/text/AtomString.h>
 #include <wtf/text/IntegerToStringConversion.h>
+#include <wtf/text/StringConcatenateNumbers.h>
 #include <wtf/text/StringView.h>
 #include <wtf/text/WTFString.h>
 
@@ -72,9 +73,9 @@ public:
 
     ALWAYS_INLINE void append(const char* characters, unsigned length) { append(reinterpret_cast<const LChar*>(characters), length); }
 
-    void append(const AtomicString& atomicString)
+    void append(const AtomString& atomString)
     {
-        append(atomicString.string());
+        append(atomString.string());
     }
 
     void append(const String& string)
@@ -115,6 +116,7 @@ public:
         if (!m_length && !m_buffer && !other.m_string.isNull()) {
             m_string = other.m_string;
             m_length = other.m_length;
+            m_is8Bit = other.m_is8Bit;
             return;
         }
 
@@ -216,13 +218,17 @@ public:
     ALWAYS_INLINE void appendLiteral(const char (&characters)[characterCount]) { append(characters, characterCount - 1); }
 
     WTF_EXPORT_PRIVATE void appendNumber(int);
-    WTF_EXPORT_PRIVATE void appendNumber(unsigned int);
+    WTF_EXPORT_PRIVATE void appendNumber(unsigned);
     WTF_EXPORT_PRIVATE void appendNumber(long);
     WTF_EXPORT_PRIVATE void appendNumber(unsigned long);
     WTF_EXPORT_PRIVATE void appendNumber(long long);
     WTF_EXPORT_PRIVATE void appendNumber(unsigned long long);
-    WTF_EXPORT_PRIVATE void appendNumber(double, unsigned precision = 6, TrailingZerosTruncatingPolicy = TruncateTrailingZeros);
-    WTF_EXPORT_PRIVATE void appendECMAScriptNumber(double);
+    WTF_EXPORT_PRIVATE void appendNumber(float);
+    WTF_EXPORT_PRIVATE void appendNumber(double);
+
+    WTF_EXPORT_PRIVATE void appendFixedPrecisionNumber(float, unsigned precision = 6, TrailingZerosTruncatingPolicy = TruncateTrailingZeros);
+    WTF_EXPORT_PRIVATE void appendFixedPrecisionNumber(double, unsigned precision = 6, TrailingZerosTruncatingPolicy = TruncateTrailingZeros);
+    WTF_EXPORT_PRIVATE void appendFixedWidthNumber(float, unsigned decimalPlaces);
     WTF_EXPORT_PRIVATE void appendFixedWidthNumber(double, unsigned decimalPlaces);
 
     String toString()
@@ -247,24 +253,24 @@ public:
         return m_string;
     }
 
-    AtomicString toAtomicString() const
+    AtomString toAtomString() const
     {
         RELEASE_ASSERT(!hasOverflowed());
         if (!m_length)
             return emptyAtom();
 
-        // If the buffer is sufficiently over-allocated, make a new AtomicString from a copy so its buffer is not so large.
+        // If the buffer is sufficiently over-allocated, make a new AtomString from a copy so its buffer is not so large.
         if (canShrink()) {
             if (is8Bit())
-                return AtomicString(characters8(), length());
-            return AtomicString(characters16(), length());            
+                return AtomString(characters8(), length());
+            return AtomString(characters16(), length());            
         }
 
         if (!m_string.isNull())
-            return AtomicString(m_string);
+            return AtomString(m_string);
 
         ASSERT(m_buffer);
-        return AtomicString(m_buffer.get(), 0, m_length.unsafeGet());
+        return AtomString(m_buffer.get(), 0, m_length.unsafeGet());
     }
 
     unsigned length() const
@@ -301,7 +307,7 @@ public:
     {
         ASSERT(m_is8Bit);
         if (!m_length)
-            return 0;
+            return nullptr;
         if (!m_string.isNull())
             return m_string.characters8();
         ASSERT(m_buffer);
@@ -312,7 +318,7 @@ public:
     {
         ASSERT(!m_is8Bit);
         if (!m_length)
-            return 0;
+            return nullptr;
         if (!m_string.isNull())
             return m_string.characters16();
         ASSERT(m_buffer);
@@ -326,7 +332,7 @@ public:
         m_length = 0;
         m_string = String();
         m_buffer = nullptr;
-        m_bufferCharacters8 = 0;
+        m_bufferCharacters8 = nullptr;
         m_is8Bit = true;
     }
 

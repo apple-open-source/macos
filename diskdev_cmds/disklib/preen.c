@@ -64,7 +64,9 @@
 #include <ctype.h>
 #include <fstab.h>
 #include <string.h>
+#include <TargetConditionals.h>
 
+#if TARGET_OS_OSX
 struct part {
 	struct	part *next;		/* forward link of partitions on disk */
 	char	*name;			/* device name */
@@ -82,13 +84,13 @@ struct disk {
 int	nrun, ndisks;
 char	hotroot;
 
-static void addpart __P((char *name, char *fsname, long auxdata));
-static struct disk *finddisk __P((char *name));
-static char *rawname __P((char *name));
-static int startdisk __P((struct disk *dk,
-		int (*checkit)(char *, char *, long, int)));
-static char *unrawname __P((char *name));
-char* blockcheck __P((char *name));
+static void addpart (char *name, char *fsname, long auxdata);
+static struct disk *finddisk (char *name);
+static char *rawname (char *name);
+static int startdisk (struct disk *dk,
+		int (*checkit)(char *, char *, long, int));
+static char *unrawname (char *name);
+char* blockcheck (char *name);
 
 int
 checkfstab(preen, maxrun, docheck, chkit)
@@ -385,3 +387,6 @@ rawname(name)
 	(void)strlcat(rawbuf, &dp[1], sizeof(rawbuf));
 	return (rawbuf);
 }
+
+#endif /* TARGET_OS_OSX */
+

@@ -577,13 +577,15 @@ SCNetworkInterfaceCopyMTU			(SCNetworkInterfaceRef			interface,
 		media subtype and options.
 	@param interface The desired network interface.
 	@param subtype The desired media subtype (e.g. "autoselect", "100baseTX", ...).
+		If NULL, no specific media subtype will be requested.
 	@param options The desired media options (e.g. "half-duplex", "full-duplex", ...).
+		If NULL, no specific media options will be requested.
 	@result TRUE if the configuration was updated; FALSE if an error was encountered.
  */
 Boolean
-SCNetworkInterfaceSetMediaOptions		(SCNetworkInterfaceRef		interface,
-						 CFStringRef			subtype,
-						 CFArrayRef			options)	API_AVAILABLE(macos(10.5))
+SCNetworkInterfaceSetMediaOptions		(SCNetworkInterfaceRef			interface,
+						 CFStringRef		__nullable	subtype,
+						 CFArrayRef		__nullable	options)	API_AVAILABLE(macos(10.5))
 												SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 /*!
@@ -592,6 +594,7 @@ SCNetworkInterfaceSetMediaOptions		(SCNetworkInterfaceRef		interface,
 		requested MTU setting.
 	@param interface The desired network interface.
 	@param mtu The desired MTU setting for the interface.
+		If zero, the interface will use the default MTU setting.
 	@result TRUE if the configuration was updated; FALSE if an error was encountered.
  */
 Boolean

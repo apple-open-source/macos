@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_TRUNC_SCALAR.bad.d	1.1	06/08/28 SMI"
-
 BEGIN
 {
 	@[0] = count();

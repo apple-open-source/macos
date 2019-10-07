@@ -20,6 +20,26 @@ Coding style:
 * Please try not to use lines longer than 79 characters. Don't worry
   about breaking long `_arguments' or `_values' specs though.
 
+* Never use alternative, unusual, or optional syntax in completion
+  functions (or any other shell code distributed with zsh). In other
+  words, do NOT use the following:
+
+    # Short loops
+    for x in $y; myfunc $x
+
+    # Alternative forms
+    if { [[ $x == $y ]] } {
+      myfunc $x
+    }
+    foreach x in $y {
+      myfunc $x
+    }
+
+    # Weird tricks
+    () for 1 {
+      myfunc $1
+    } $x
+
 Descriptions:
 
 Descriptions should not have a trailing full stop and initial capital
@@ -64,7 +84,7 @@ tells _wanted where to put options specifying the `directory' description.
 Where two matches have identical meaning, give them the same
 description so that the completion system can group them together.
 Conventionally a brace expansion of this form is used:
-  '(--context,-C)'{--context=,-C-}'[specify lines of context]:lines'
+  '(--context -C)'{--context=,-C-}'[specify lines of context]:lines'
 You won't need the exclusion list if the option can be specified
 multiple times. It can also be useful to use the same description for
 matches which are completely opposite in their meaning if it shortens
@@ -493,3 +513,20 @@ Misc. remarks
     completion function would contain the code for the default way to
     generate the matches.
     See the `_email_addresses', `_rpm' and `_nslookup' files for examples.
+9)  Be mindful of quoting/escaping edge cases. Notably:
+    * Elements of the `$words' array are derived verbatim from the user's
+      command-line input -- if they type an argument in quotes or escaped
+      by backslashes, that is how it appears in the array.
+    * Option-arguments are stored in `$opt_args` the same way. Further,
+      since multiple arguments to the same option are represented in a
+      colon-delimited fashion, backslashes and colons passed by the user
+      are escaped. For instance, the option-arguments parsed from
+      `-afoo -a "bar" -a 1:2:3' appear in `$opt_args[-a]` as
+      `foo:"bar":1\:2\:3'.
+    * The `_call_program` helper used by many completion functions is
+      implemented using `eval', so arguments to it must be quoted
+      accordingly. As mentioned above, most of the user's own input comes
+      pre-escaped, but you may run into problems passing file names or
+      data derived from another command's output to the helper. Consider
+      using some variation of the `q` expansion flag to deal with this:
+      `_call_program vals $words[1] ${(q-)myfile}'

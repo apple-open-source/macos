@@ -74,6 +74,8 @@
 #include "autofs_kern.h"
 #include "autofs_protUser.h"
 
+uint32_t vnode_recycle_on_inactive = 1;
+
 /*
  *  Vnode ops for autofs
  */
@@ -393,6 +395,16 @@ auto_lookup(struct vnop_lookup_args *ap)
 		}
 	}
 
+	/* Search for the vnode in the cache first. */
+	if (!vnode_recycle_on_inactive && (error = cache_lookup(dvp, vpp, cnp))) {
+		/* nonzero indicates a successful lookup. */
+		if (error == -1) {
+			error = 0;
+		}
+			
+		goto done;
+	}
+		
 	dfnp = vntofn(dvp);
 	searchnm = cnp->cn_nameptr;
 	searchnmlen = namelen;
@@ -618,6 +630,12 @@ fail:
 		    (nameiop == CREATE || nameiop == RENAME) &&
 		    (flags & ISLASTCN))
 			error = ENOTSUP;
+		
+		/* Enter a negative entry into the cache. */
+		if (!vnode_recycle_on_inactive && error == ENOENT) {
+			cache_enter(dvp, NULL, cnp);
+		}
+			
 		goto done;
 	}
 
@@ -625,7 +643,12 @@ fail:
 	 * We now have the actual fnnode we're interested in.
 	 */
 	*vpp = fntovn(fnp);
-
+		
+	/* Add this vnode to the cache. */
+	if (!vnode_recycle_on_inactive) {
+		cache_enter(dvp, *vpp, cnp);
+	}
+		
 	/*
 	 * If the directory in which we created this is one on which a
 	 * readdir will only return names corresponding to the vnodes
@@ -1197,7 +1220,10 @@ auto_inactive(struct vnop_inactive_args *ap)
 {
 	AUTOFS_DPRINT((4, "auto_inactive: vp=%p\n", (void *)ap->a_vp));
 
-	vnode_recycle(ap->a_vp);
+	if (vnode_recycle_on_inactive) {
+		AUTOFS_DPRINT((4, "auto_inactive: recycling vp=%p\n", (void *)ap->a_vp))
+		vnode_recycle(ap->a_vp);
+	}
 
 	AUTOFS_DPRINT((5, "auto_inactive: (exit) vp=%p\n", (void *)ap->a_vp));
 	return (0);

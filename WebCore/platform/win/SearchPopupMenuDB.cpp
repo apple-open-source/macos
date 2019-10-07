@@ -25,9 +25,11 @@
 #include "config.h"
 #include "SearchPopupMenuDB.h"
 
-#include "FileSystem.h"
 #include "SQLiteFileSystem.h"
 #include "SQLiteTransaction.h"
+#include <wtf/FileSystem.h>
+#include <wtf/Vector.h>
+#include <wtf/text/StringConcatenateNumbers.h>
 
 namespace WebCore {
 
@@ -170,7 +172,7 @@ bool SearchPopupMenuDB::openDatabase()
     bool existsDatabaseFile = SQLiteFileSystem::ensureDatabaseFileExists(m_databaseFilename, false);
 
     if (existsDatabaseFile) {
-        if (m_database.open(m_databaseFilename, false)) {
+        if (m_database.open(m_databaseFilename)) {
             if (!checkDatabaseValidity()) {
                 // delete database and try to re-create again
                 LOG_ERROR("Search autosave database validity check failed, attempting to recreate the database");
@@ -189,7 +191,7 @@ bool SearchPopupMenuDB::openDatabase()
         if (!FileSystem::makeAllDirectories(FileSystem::directoryName(m_databaseFilename)))
             LOG_ERROR("Failed to create the search autosave database path %s", m_databaseFilename.utf8().data());
 
-        m_database.open(m_databaseFilename, false);
+        m_database.open(m_databaseFilename);
     }
 
     if (!m_database.isOpen())
@@ -250,7 +252,7 @@ void SearchPopupMenuDB::verifySchemaVersion()
     }
 
     // Update version
-    executeSimpleSql(String::format("PRAGMA user_version=%d", schemaVersion));
+    executeSimpleSql(makeString("PRAGMA user_version=", schemaVersion));
 }
 
 void SearchPopupMenuDB::checkSQLiteReturnCode(int actual)

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.default.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *   Test the stack action with the default stack depth.

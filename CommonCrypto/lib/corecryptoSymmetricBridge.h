@@ -121,7 +121,7 @@ typedef union {
  @param ctx		[out] The destination of the mode context
  */
 
-typedef void (*ccmode_setup_p)(const corecryptoMode modeObj, const void *iv,
+typedef int (*ccmode_setup_p)(const corecryptoMode modeObj, const void *iv,
                             const void *key, size_t keylen, const void *tweak,
                             size_t tweaklen, int options, modeCtx ctx);
 /** Encrypt a block
@@ -131,7 +131,7 @@ typedef void (*ccmode_setup_p)(const corecryptoMode modeObj, const void *iv,
  @param ctx		The mode context
  */
 
-typedef void (*ccmode_encrypt_p)(const corecryptoMode modeObj, const void *pt, void *ct, size_t len, modeCtx ctx);
+typedef int (*ccmode_encrypt_p)(const corecryptoMode modeObj, const void *pt, void *ct, size_t len, modeCtx ctx);
 
 /** Decrypt a block
  @param ct		The ciphertext
@@ -139,7 +139,7 @@ typedef void (*ccmode_encrypt_p)(const corecryptoMode modeObj, const void *pt, v
  @param len		the length of data (in == out) octets
  @param ctx		The mode context
  */
-typedef void (*ccmode_decrypt_p)(const corecryptoMode modeObj, const void *ct, void *pt, size_t len, modeCtx ctx);
+typedef int (*ccmode_decrypt_p)(const corecryptoMode modeObj, const void *ct, void *pt, size_t len, modeCtx ctx);
 
 /** Encrypt a block with a tweak (XTS mode currently)
  @param pt		The plaintext
@@ -149,7 +149,7 @@ typedef void (*ccmode_decrypt_p)(const corecryptoMode modeObj, const void *ct, v
  number)
  @param ctx		The mode context
   */
-typedef void (*ccmode_encrypt_tweaked_p)(const corecryptoMode modeObj, const void *pt, size_t len,
+typedef int (*ccmode_encrypt_tweaked_p)(const corecryptoMode modeObj, const void *pt, size_t len,
                                       void *ct, const void *tweak, modeCtx ctx);
 /** Decrypt a block with a tweak (XTS mode currently)
  @param ct		The ciphertext
@@ -157,7 +157,7 @@ typedef void (*ccmode_encrypt_tweaked_p)(const corecryptoMode modeObj, const voi
  @param len		the length of data (in == out) octets
  @param ctx		The mode context
  */
-typedef void (*ccmode_decrypt_tweaked_p)(const corecryptoMode modeObj, const void *ct, size_t len,
+typedef int (*ccmode_decrypt_tweaked_p)(const corecryptoMode modeObj, const void *ct, size_t len,
                                       void *pt, const void *tweak, modeCtx ctx);
 /** Terminate the mode
  @param ctx		[out] The mode context
@@ -245,8 +245,6 @@ typedef struct cc2CCPaddingDescriptor_t {
 } cc2CCPaddingDescriptor, *cc2CCPaddingDescriptorPtr;
 
 extern const cc2CCPaddingDescriptor ccnopad_pad;
-extern const cc2CCPaddingDescriptor cccts1_pad;
-extern const cc2CCPaddingDescriptor cccts2_pad;
 extern const cc2CCPaddingDescriptor cccts3_pad;
 extern const cc2CCPaddingDescriptor ccpkcs7_pad;
 extern const cc2CCPaddingDescriptor ccpkcs7_ecb_pad;

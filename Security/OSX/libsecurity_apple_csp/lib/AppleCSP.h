@@ -68,10 +68,6 @@ public:
 private:
     Allocator 				&normAllocator;	
     Allocator 				&privAllocator;	
-	#ifdef	BSAFE_CSP_ENABLE
-    AppleCSPAlgorithmFactory	*bSafe4Factory;		// actually subclasses not visible
-													// in this header
-	#endif
 	#ifdef	CRYPTKIT_CSP_ENABLE
 	AppleCSPAlgorithmFactory	*cryptKitFactory;		
 	#endif

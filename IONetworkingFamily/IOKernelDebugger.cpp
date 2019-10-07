@@ -192,7 +192,7 @@ IOService *IOKDP::probe(IOService *provider, SInt32 *score)
 			break;
 		}
         
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
         return 0; // Do not use built-in Ethernet as default debugger in embedded OS <rdar://31970820>
 #else
         //else default to old plist metric: the IOKernelDebugger has IOPrimaryDebugPort property

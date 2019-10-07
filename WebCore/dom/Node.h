@@ -165,17 +165,17 @@ public:
     Ref<Node> cloneNode(bool deep) { return cloneNodeInternal(document(), deep ? CloningOperation::Everything : CloningOperation::OnlySelf); }
     WEBCORE_EXPORT ExceptionOr<Ref<Node>> cloneNodeForBindings(bool deep);
 
-    virtual const AtomicString& localName() const;
-    virtual const AtomicString& namespaceURI() const;
-    virtual const AtomicString& prefix() const;
-    virtual ExceptionOr<void> setPrefix(const AtomicString&);
+    virtual const AtomString& localName() const;
+    virtual const AtomString& namespaceURI() const;
+    virtual const AtomString& prefix() const;
+    virtual ExceptionOr<void> setPrefix(const AtomString&);
     WEBCORE_EXPORT void normalize();
 
     bool isSameNode(Node* other) const { return this == other; }
     WEBCORE_EXPORT bool isEqualNode(Node*) const;
-    WEBCORE_EXPORT bool isDefaultNamespace(const AtomicString& namespaceURI) const;
-    WEBCORE_EXPORT const AtomicString& lookupPrefix(const AtomicString& namespaceURI) const;
-    WEBCORE_EXPORT const AtomicString& lookupNamespaceURI(const AtomicString& prefix) const;
+    WEBCORE_EXPORT bool isDefaultNamespace(const AtomString& namespaceURI) const;
+    WEBCORE_EXPORT const AtomString& lookupPrefix(const AtomString& namespaceURI) const;
+    WEBCORE_EXPORT const AtomString& lookupNamespaceURI(const AtomString& prefix) const;
 
     WEBCORE_EXPORT String textContent(bool convertBRsToNewlines = false) const;
     WEBCORE_EXPORT ExceptionOr<void> setTextContent(const String&);
@@ -234,9 +234,6 @@ public:
 
     // If this node is in a shadow tree, returns its shadow host. Otherwise, returns null.
     WEBCORE_EXPORT Element* shadowHost() const;
-    // If this node is in a shadow tree, returns its shadow host. Otherwise, returns this.
-    // Deprecated. Should use shadowHost() and check the return value.
-    WEBCORE_EXPORT Node* deprecatedShadowAncestorNode() const;
     ShadowRoot* containingShadowRoot() const;
     ShadowRoot* shadowRoot() const;
     bool isClosedShadowHidden(const Node&) const;
@@ -286,7 +283,7 @@ public:
 
     virtual bool canContainRangeEndPoint() const { return false; }
 
-    bool isRootEditableElement() const;
+    WEBCORE_EXPORT bool isRootEditableElement() const;
     WEBCORE_EXPORT Element* rootEditableElement() const;
 
     // Called by the parser when this element's close tag is reached,
@@ -387,7 +384,7 @@ public:
     unsigned countChildNodes() const;
     Node* traverseToChildAt(unsigned) const;
 
-    ExceptionOr<void> checkSetPrefix(const AtomicString& prefix);
+    ExceptionOr<void> checkSetPrefix(const AtomString& prefix);
 
     WEBCORE_EXPORT bool isDescendantOf(const Node&) const;
     bool isDescendantOf(const Node* other) const { return other && isDescendantOf(*other); }
@@ -395,7 +392,6 @@ public:
     bool isDescendantOrShadowDescendantOf(const Node*) const;
     WEBCORE_EXPORT bool contains(const Node*) const;
     bool containsIncludingShadowDOM(const Node*) const;
-    bool containsIncludingHostElements(const Node*) const;
 
     // Number of DOM 16-bit units contained in node. Note that rendered text length can be different - e.g. because of
     // css-transform:capitalize breaking up precomposed characters and ligatures.
@@ -476,8 +472,8 @@ public:
     EventTargetInterface eventTargetInterface() const override;
     ScriptExecutionContext* scriptExecutionContext() const final; // Implemented in Document.h
 
-    bool addEventListener(const AtomicString& eventType, Ref<EventListener>&&, const AddEventListenerOptions&) override;
-    bool removeEventListener(const AtomicString& eventType, EventListener&, const ListenerOptions&) override;
+    bool addEventListener(const AtomString& eventType, Ref<EventListener>&&, const AddEventListenerOptions&) override;
+    bool removeEventListener(const AtomString& eventType, EventListener&, const ListenerOptions&) override;
 
     using EventTarget::dispatchEvent;
     void dispatchEvent(Event&) override;
@@ -503,7 +499,7 @@ public:
     void ref();
     void deref();
     bool hasOneRef() const;
-    int refCount() const;
+    unsigned refCount() const;
 
 #ifndef NDEBUG
     bool m_deletionHasBegun { false };
@@ -516,7 +512,7 @@ public:
     EventTargetData& ensureEventTargetData() final;
 
     HashMap<Ref<MutationObserver>, MutationRecordDeliveryOptions> registeredMutationObservers(MutationObserver::MutationType, const QualifiedName* attributeName);
-    void registerMutationObserver(MutationObserver&, MutationObserverOptions, const HashSet<AtomicString>& attributeFilter);
+    void registerMutationObserver(MutationObserver&, MutationObserverOptions, const HashSet<AtomString>& attributeFilter);
     void unregisterMutationObserver(MutationObserverRegistration&);
     void registerTransientMutationObserver(MutationObserverRegistration&);
     void unregisterTransientMutationObserver(MutationObserverRegistration&);
@@ -621,6 +617,9 @@ protected:
     };
     Node(Document&, ConstructionType);
 
+    static constexpr uint32_t s_refCountIncrement = 2;
+    static constexpr uint32_t s_refCountMask = ~static_cast<uint32_t>(1);
+
     virtual void addSubresourceAttributeURLs(ListHashSet<URL>&) const { }
 
     bool hasRareData() const { return getFlag(HasRareDataFlag); }
@@ -667,7 +666,7 @@ private:
     static void moveTreeToNewScope(Node&, TreeScope& oldScope, TreeScope& newScope);
     void moveNodeToNewDocument(Document& oldDocument, Document& newDocument);
 
-    int m_refCount;
+    uint32_t m_refCountAndParentBit { s_refCountIncrement };
     mutable uint32_t m_nodeFlags;
 
     ContainerNode* m_parentNode { nullptr };
@@ -698,34 +697,39 @@ ALWAYS_INLINE void Node::ref()
     ASSERT(!m_deletionHasBegun);
     ASSERT(!m_inRemovedLastRefFunction);
     ASSERT(!m_adoptionIsRequired);
-    ++m_refCount;
+    m_refCountAndParentBit += s_refCountIncrement;
 }
 
 ALWAYS_INLINE void Node::deref()
 {
     ASSERT(isMainThread());
-    ASSERT(m_refCount >= 0);
+    ASSERT(refCount());
     ASSERT(!m_deletionHasBegun);
     ASSERT(!m_inRemovedLastRefFunction);
     ASSERT(!m_adoptionIsRequired);
-    if (--m_refCount <= 0 && !parentNode()) {
+    auto updatedRefCount = m_refCountAndParentBit - s_refCountIncrement;
+    if (!updatedRefCount) {
+        // Don't update m_refCountAndParentBit to avoid double destruction through use of Ref<T>/RefPtr<T>.
+        // (This is a security mitigation in case of programmer error. It will ASSERT in debug builds.)
 #ifndef NDEBUG
         m_inRemovedLastRefFunction = true;
 #endif
         removedLastRef();
+        return;
     }
+    m_refCountAndParentBit = updatedRefCount;
 }
 
 ALWAYS_INLINE bool Node::hasOneRef() const
 {
     ASSERT(!m_deletionHasBegun);
     ASSERT(!m_inRemovedLastRefFunction);
-    return m_refCount == 1;
+    return refCount() == 1;
 }
 
-ALWAYS_INLINE int Node::refCount() const
+ALWAYS_INLINE unsigned Node::refCount() const
 {
-    return m_refCount;
+    return m_refCountAndParentBit / s_refCountIncrement;
 }
 
 // Used in Node::addSubresourceAttributeURLs() and in addSubresourceStyleURLs()
@@ -739,6 +743,7 @@ inline void Node::setParentNode(ContainerNode* parent)
 {
     ASSERT(isMainThread());
     m_parentNode = parent;
+    m_refCountAndParentBit = (m_refCountAndParentBit & s_refCountMask) | !!parent;
 }
 
 inline ContainerNode* Node::parentNode() const

@@ -13,7 +13,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	from: @(#)sh.1	8.6 (Berkeley) 5/4/95
-.\" $FreeBSD: head/bin/sh/sh.1 306843 2016-10-08 13:40:12Z jilles $
+.\" $FreeBSD: head/bin/sh/sh.1 327121 2017-12-23 22:58:19Z jilles $
 .\"
 .Dd October 8, 2016
 .Dt SH 1
@@ -343,7 +343,7 @@ Write each command
 variable subjected to parameter expansion and arithmetic expansion)
 to standard error before it is executed.
 Useful for debugging.
-.It nolog
+.It Li nolog
 Another do-nothing option for
 .Tn POSIX
 compliance.
@@ -1033,7 +1033,7 @@ The syntax of the
 command is:
 .Bd -unfilled -offset indent -compact
 .Ic case Ar word Ic in
-.Ar pattern Ns Li ) Ar list Li ;;
+.Ar pattern ) Ar list Li ;;
 .Ar ...
 .Ic esac
 .Ed
@@ -2018,6 +2018,11 @@ to return exit status 1 if the full pathname of the new directory
 cannot be determined reliably or at all.
 Normally this is not considered an error,
 although a warning is printed.
+.Pp
+If changing the directory fails, the exit status is greater than 1.
+If the directory is changed, the exit status is 0, or also 1 if
+.Fl e
+was given.
 .It Ic chdir
 A synonym for the
 .Ic cd
@@ -2734,7 +2739,7 @@ were a known job that exited with exit status 127.
 If no operands are given, wait for all jobs to complete
 and return an exit status of zero.
 .El
-.Ss Commandline Editing
+.Ss Command Line Editing
 When
 .Nm
 is being used interactively from a terminal, the current command

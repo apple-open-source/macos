@@ -75,7 +75,7 @@ create_item(NSString *acct)
         (id)kSecAttrAccount : acct,
         (id)kSecAttrAccessGroup : kCanaryAccessGroup,
         (id)kSecAttrAccessible : (id)kSecAttrAccessibleAfterFirstUnlock,
-        (id)kSecAttrNoLegacy : (id)kCFBooleanTrue,
+        (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
         (id)kSecValueData : [NSData dataWithBytes:"password" length: 8],
     };
     status = SecItemAdd((__bridge CFDictionaryRef)attrs, NULL);
@@ -107,7 +107,7 @@ verify_item(NSString *acct, bool deleteit)
         (id)kSecAttrAccount : acct,
         (id)kSecReturnAttributes : @YES,
         (id)kSecMatchLimit : (id)kSecMatchLimitAll,
-        (id)kSecAttrNoLegacy : (id)kCFBooleanTrue,
+        (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
     };
     result = NULL;
     status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
@@ -154,7 +154,7 @@ initial_state(void)
         (id)kSecAttrAccount : kCanaryStateAccount,
         (id)kSecAttrAccessGroup : kCanaryAccessGroup,
         (id)kSecAttrAccessible : (id)kSecAttrAccessibleAfterFirstUnlock,
-        (id)kSecAttrNoLegacy : (id)kCFBooleanTrue,
+        (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
         (id)kSecValueData : [NSData dataWithBytes:&state length:sizeof(state)],
     };
     status = SecItemAdd((__bridge CFDictionaryRef)attrs, NULL);
@@ -181,7 +181,7 @@ update_state(void)
     query[(id)kSecClass] = (id)kSecClassGenericPassword;
     query[(id)kSecAttrAccessGroup] = kCanaryAccessGroup;
     query[(id)kSecAttrAccount] = kCanaryStateAccount;
-    query[(id)kSecAttrNoLegacy] = (id)kCFBooleanTrue;
+    query[(id)kSecUseDataProtectionKeychain] = (id)kCFBooleanTrue;
     query[(id)kSecReturnData] = @YES;
 
     status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
@@ -223,7 +223,7 @@ reset(void)
     query = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrAccessGroup : kCanaryAccessGroup,
-        (id)kSecAttrNoLegacy : (id)kCFBooleanTrue,
+        (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
     };
     status = SecItemDelete((__bridge CFDictionaryRef)query);
     switch (status) {

@@ -4,20 +4,27 @@
 
 # Project info
 Project		      = zsh
-ProjectVersion	      = 5.3
+ProjectVersion	      = 5.7.1
 UserType	      = Administration
 ToolType	      = Commands
 Extra_CC_Flags	      = -no-cpp-precomp
+Extra_CPP_Flags	      = -DUSE_GETCWD
 Extra_Configure_Flags = --bindir="$(BINDIR)" --with-tcsetpgrp --enable-multibyte \
                         --enable-unicode9 \
                         --enable-max-function-depth=700
 Extra_Install_Flags   = bindir="$(DSTROOT)$(BINDIR)"
 GnuAfterInstall	      = post-install install-plist strip-binaries
 
-Patches = no_strip.patch arg_zero.patch \
-          zsh-Doc.patch svn-zsh-complete.patch no_auto.patch \
-          export-22966068.patch \
-          log-24988289.patch
+ifeq ($(RC_PURPLE),YES)
+Extra_Configure_Flags += --host=arm-apple-darwin
+Extra_Configure_Flags += --cache-file=$(SRCROOT)/configure.cache-embedded
+
+Extra_CC_Flags += -isysroot $(SDKROOT)
+Extra_CPP_Flags += -isysroot $(SDKROOT)
+Extra_LD_Flags += -isysroot $(SDKROOT)
+
+Extra_CPP_Flags += $(wordlist 1, 2, $(CC_Archs))
+endif
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -46,14 +53,6 @@ strip-binaries:
 	$(DSYMUTIL) $(SYMROOT)$(ZSH_MODULE_DIR)/net/*.so
 
 install_source::
-	$(RMDIR) $(SRCROOT)/$(Project)-$(ProjectVersion) $(SRCROOT)/$(Project)
-	$(TAR) -C $(SRCROOT) -xf $(SRCROOT)/$(Project)-$(ProjectVersion).tar.xz
-	$(MV) $(SRCROOT)/$(Project)-$(ProjectVersion) $(SRCROOT)/$(Project)
-	@set -x && \
-	cd $(SRCROOT)/$(Project) && \
-	for patchfile in $(Patches); do \
-	    patch -p0 -F0 -i $(SRCROOT)/patches/$$patchfile || exit 1; \
-	done
 
 OSV	= $(DSTROOT)/usr/local/OpenSourceVersions
 OSL	= $(DSTROOT)/usr/local/OpenSourceLicenses

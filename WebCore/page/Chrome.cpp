@@ -111,8 +111,6 @@ IntRect Chrome::rootViewToScreen(const IntRect& rect) const
     return m_client.rootViewToScreen(rect);
 }
     
-#if PLATFORM(IOS_FAMILY)
-
 IntPoint Chrome::accessibilityScreenToRootView(const IntPoint& point) const
 {
     return m_client.accessibilityScreenToRootView(point);
@@ -122,8 +120,6 @@ IntRect Chrome::rootViewToAccessibilityScreen(const IntRect& rect) const
 {
     return m_client.rootViewToAccessibilityScreen(rect);
 }
-
-#endif
 
 PlatformPageClient Chrome::platformPageClient() const
 {
@@ -528,12 +524,6 @@ void Chrome::windowScreenDidChange(PlatformDisplayID displayID)
     GraphicsContext3DManager::sharedManager().screenDidChange(displayID, this);
 #endif
 }
-
-#if ENABLE(DASHBOARD_SUPPORT)
-void ChromeClient::annotatedRegionsChanged()
-{
-}
-#endif
 
 bool ChromeClient::shouldReplaceWithGeneratedFileForUpload(const String&, String&)
 {

@@ -252,6 +252,8 @@ IOReturn IOFramebufferUserClient::clientMemoryForType( UInt32 type,
     switch (type)
     {
         case kIOFBCursorMemory:
+            // Window service check-in?  Probably doesn't matter if it is
+            // published from multiple threads.
             if (!havePublishedResource)
             {
                 havePublishedResource = true;
@@ -261,13 +263,15 @@ IOReturn IOFramebufferUserClient::clientMemoryForType( UInt32 type,
             break;
 
         case kIOFBVRAMMemory:
+            // Safe against TOCTOU and UAF as it creates a new IODeviceMemory
+            // object on the client thread rather than looking up in cache.
             FB_START(getVRAMRange,0,__LINE__,0);
             mem = fOwner->getVRAMRange();
             FB_END(getVRAMRange,0,__LINE__,0);
             break;
 
         default:
-            err = fOwner->extCopyUserAccessObject(type, &mem);
+            err = fOwner->extCopyUserMemory(type, &mem);
             break;
     }
 
@@ -477,7 +481,7 @@ bool IOFramebufferSharedUserClient::start( IOService * _owner )
 
     fOwner = OSDynamicCast(IOFramebuffer, _owner);
     if (!fOwner) {
-        DEBG("IOGUC", " _owner not IOFB\n");
+        DEBG("IOGSUC", " _owner not IOFB\n");
         IOFBSUC_END(start,false,__LINE__,0);
         return false;
     }

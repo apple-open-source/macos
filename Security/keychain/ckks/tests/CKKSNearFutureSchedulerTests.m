@@ -497,6 +497,75 @@
     [self waitForExpectations: @[second] timeout:0.4];
 }
 
+- (void)testTriggerAtFromNoTimer {
+    XCTestExpectation *first = [self expectationWithDescription:@"FutureScheduler fired (one)"];
+    first.inverted = YES;
+
+    XCTestExpectation *second = [self expectationWithDescription:@"FutureScheduler fired (two)"];
+    second.assertForOverFulfill = YES;
+
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName:@"test"
+                                                                                 delay:1*NSEC_PER_MSEC
+                                                                      keepProcessAlive:false
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{
+                                                                                     [first fulfill];
+                                                                                     [second fulfill];
+                                                                                 }];
+
+    [scheduler triggerAt:300*NSEC_PER_MSEC];
+    [self waitForExpectations: @[first] timeout:0.1];
+    [self waitForExpectations: @[second] timeout:2];
+}
+
+- (void)testTriggerAtShortensTriggerDelay {
+    XCTestExpectation *first = [self expectationWithDescription:@"FutureScheduler fired (one)"];
+    first.inverted = YES;
+
+    XCTestExpectation *second = [self expectationWithDescription:@"FutureScheduler fired (two)"];
+    second.assertForOverFulfill = YES;
+
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName:@"test"
+                                                                                 delay:10*NSEC_PER_SEC
+                                                                      keepProcessAlive:false
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{
+                                                                                     [first fulfill];
+                                                                                     [second fulfill];
+                                                                                 }];
+
+    // Triggers a 10 second invocation, then invoke a triggerAt
+    [scheduler trigger];
+    [scheduler triggerAt:300*NSEC_PER_MSEC];
+
+    [self waitForExpectations: @[first] timeout:0.1];
+    [self waitForExpectations: @[second] timeout:2];
+}
+
+- (void)testTriggerAtLengthensTriggerDelay {
+    XCTestExpectation *first = [self expectationWithDescription:@"FutureScheduler fired (one)"];
+    first.inverted = YES;
+
+    XCTestExpectation *second = [self expectationWithDescription:@"FutureScheduler fired (two)"];
+    second.assertForOverFulfill = YES;
+
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName:@"test"
+                                                                                 delay:400*NSEC_PER_MSEC
+                                                                      keepProcessAlive:false
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{
+                                                                                     [first fulfill];
+                                                                                     [second fulfill];
+                                                                                 }];
+
+    // Triggers a 400 millisecond invocation, then invoke a triggerAt
+    [scheduler trigger];
+    [scheduler triggerAt:1*NSEC_PER_SEC];
+
+    [self waitForExpectations: @[first] timeout:0.5];
+    [self waitForExpectations: @[second] timeout:2];
+}
+
 @end
 
 #endif /* OCTAGON */

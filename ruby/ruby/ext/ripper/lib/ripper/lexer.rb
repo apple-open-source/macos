@@ -1,6 +1,6 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 #
-# $Id: lexer.rb 59214 2017-06-30 10:30:56Z usa $
+# $Id: lexer.rb 67208 2019-03-11 06:52:01Z naruse $
 #
 # Copyright (c) 2004,2005 Minero Aoki
 #
@@ -23,29 +23,47 @@ class Ripper
   end
 
   # Tokenizes the Ruby program and returns an array of an array,
-  # which is formatted like <code>[[lineno, column], type, token]</code>.
+  # which is formatted like
+  # <code>[[lineno, column], type, token, state]</code>.
   #
   #   require 'ripper'
   #   require 'pp'
   #
   #   pp Ripper.lex("def m(a) nil end")
-  #     #=> [[[1,  0], :on_kw,     "def"],
-  #          [[1,  3], :on_sp,     " "  ],
-  #          [[1,  4], :on_ident,  "m"  ],
-  #          [[1,  5], :on_lparen, "("  ],
-  #          [[1,  6], :on_ident,  "a"  ],
-  #          [[1,  7], :on_rparen, ")"  ],
-  #          [[1,  8], :on_sp,     " "  ],
-  #          [[1,  9], :on_kw,     "nil"],
-  #          [[1, 12], :on_sp,     " "  ],
-  #          [[1, 13], :on_kw,     "end"]]
+  #   #=> [[[1,  0], :on_kw,     "def", Ripper::EXPR_FNAME                   ],
+  #        [[1,  3], :on_sp,     " ",   Ripper::EXPR_FNAME                   ],
+  #        [[1,  4], :on_ident,  "m",   Ripper::EXPR_ENDFN                   ],
+  #        [[1,  5], :on_lparen, "(",   Ripper::EXPR_LABEL | Ripper::EXPR_BEG],
+  #        [[1,  6], :on_ident,  "a",   Ripper::EXPR_ARG                     ],
+  #        [[1,  7], :on_rparen, ")",   Ripper::EXPR_ENDFN                   ],
+  #        [[1,  8], :on_sp,     " ",   Ripper::EXPR_BEG                     ],
+  #        [[1,  9], :on_kw,     "nil", Ripper::EXPR_END                     ],
+  #        [[1, 12], :on_sp,     " ",   Ripper::EXPR_END                     ],
+  #        [[1, 13], :on_kw,     "end", Ripper::EXPR_END                     ]]
   #
   def Ripper.lex(src, filename = '-', lineno = 1)
     Lexer.new(src, filename, lineno).lex
   end
 
   class Lexer < ::Ripper   #:nodoc: internal use only
-    Elem = Struct.new(:pos, :event, :tok)
+    State = Struct.new(:to_int, :to_s) do
+      alias to_i to_int
+      def initialize(i) super(i, Ripper.lex_state_name(i)).freeze end
+      def inspect; "#<#{self.class}: #{self}>" end
+      def pretty_print(q) q.text(to_s) end
+      def ==(i) super or to_int == i end
+      def &(i) self.class.new(to_int & i) end
+      def |(i) self.class.new(to_int & i) end
+      def allbits?(i) to_int.allbits?(i) end
+      def anybits?(i) to_int.anybits?(i) end
+      def nobits?(i) to_int.nobits?(i) end
+    end
+
+    Elem = Struct.new(:pos, :event, :tok, :state) do
+      def initialize(pos, event, tok, state)
+        super(pos, event, tok, State.new(state))
+      end
+    end
 
     def tokenize
       parse().sort_by(&:pos).map(&:tok)
@@ -65,14 +83,25 @@ class Ripper
 
     private
 
+    unless SCANNER_EVENT_TABLE.key?(:ignored_sp)
+      SCANNER_EVENT_TABLE[:ignored_sp] = 1
+      SCANNER_EVENTS << :ignored_sp
+      EVENTS << :ignored_sp
+    end
+
     def on_heredoc_dedent(v, w)
       ignored_sp = []
       heredoc = @buf.last
       heredoc.each_with_index do |e, i|
-        if Elem === e and e.event == :on_tstring_content
+        if Elem === e and e.event == :on_tstring_content and e.pos[1].zero?
           tok = e.tok.dup if w > 0 and /\A\s/ =~ e.tok
           if (n = dedent_string(e.tok, w)) > 0
-            ignored_sp << [i, Elem.new(e.pos.dup, :on_ignored_sp, tok[0, n])]
+            if e.tok.empty?
+              e.tok = tok[0, n]
+              e.event = :on_ignored_sp
+              next
+            end
+            ignored_sp << [i, Elem.new(e.pos.dup, :on_ignored_sp, tok[0, n], e.state)]
             e.pos[1] += n
           end
         end
@@ -88,16 +117,16 @@ class Ripper
       buf = []
       @buf << buf
       @buf = buf
-      @buf.push Elem.new([lineno(), column()], __callee__, tok)
+      @buf.push Elem.new([lineno(), column()], __callee__, tok, state())
     end
 
     def on_heredoc_end(tok)
-      @buf.push Elem.new([lineno(), column()], __callee__, tok)
+      @buf.push Elem.new([lineno(), column()], __callee__, tok, state())
       @buf = @stack.pop
     end
 
     def _push_token(tok)
-      @buf.push Elem.new([lineno(), column()], __callee__, tok)
+      @buf.push Elem.new([lineno(), column()], __callee__, tok, state())
     end
 
     (SCANNER_EVENTS.map {|event|:"on_#{event}"} - private_instance_methods(false)).each do |event|
@@ -163,7 +192,7 @@ class Ripper
       if m = /[^\w\s$()\[\]{}?*+\.]/.match(pattern)
         raise CompileError, "invalid char in pattern: #{m[0].inspect}"
       end
-      buf = ''
+      buf = +''
       pattern.scan(/(?:\w+|\$\(|[()\[\]\{\}?*+\.]+)/) do |tok|
         case tok
         when /\w/
@@ -184,14 +213,14 @@ class Ripper
     end
 
     def map_tokens(tokens)
-      tokens.map {|pos,type,str| map_token(type.to_s.sub(/\Aon_/,'')) }.join
+      tokens.map {|pos,type,str| map_token(type.to_s.delete_prefix('on_')) }.join
     end
 
     MAP = {}
     seed = ('a'..'z').to_a + ('A'..'Z').to_a + ('0'..'9').to_a
     SCANNER_EVENT_TABLE.each do |ev, |
       raise CompileError, "[RIPPER FATAL] too many system token" if seed.empty?
-      MAP[ev.to_s.sub(/\Aon_/,'')] = seed.shift
+      MAP[ev.to_s.delete_prefix('on_')] = seed.shift
     end
 
     def map_token(tok)

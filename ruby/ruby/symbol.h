@@ -17,10 +17,10 @@
 #define DYNAMIC_ID_P(id) (!(id&ID_STATIC_SYM)&&id>tLAST_OP_ID)
 #define STATIC_ID2SYM(id)  (((VALUE)(id)<<RUBY_SPECIAL_SHIFT)|SYMBOL_FLAG)
 
-#ifdef __GNUC__
+#ifdef HAVE_BUILTIN___BUILTIN_CONSTANT_P
 #define rb_id2sym(id) \
-    __extension__(__builtin_constant_p(id) && !DYNAMIC_ID_P(id) ? \
-		  STATIC_ID2SYM(id) : rb_id2sym(id))
+    RB_GNUC_EXTENSION_BLOCK(__builtin_constant_p(id) && !DYNAMIC_ID_P(id) ? \
+			    STATIC_ID2SYM(id) : rb_id2sym(id))
 #endif
 
 struct RSymbol {
@@ -98,7 +98,7 @@ is_global_name_punct(const int c)
     return (ruby_global_name_punct_bits[(c - 0x20) / 32] >> (c % 32)) & 1;
 }
 
-ID rb_intern_cstr_without_pindown(const char *, long, rb_encoding *);
+int rb_enc_symname_type(const char *name, long len, rb_encoding *enc, unsigned int allowed_attrset);
 
 RUBY_SYMBOL_EXPORT_BEGIN
 

@@ -28,12 +28,12 @@
 
 #include <CoreFoundation/CFDictionary.h>
 
-#include <Security/SecureObjectSync/SOSAccount.h>
+#include "keychain/SecureObjectSync/SOSAccount.h"
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
-#include <Security/SecureObjectSync/SOSInternal.h>
-#include <Security/SecureObjectSync/SOSUserKeygen.h>
-#include <Security/SecureObjectSync/SOSTransport.h>
-#include <Security/SecureObjectSync/SOSAccountTrustClassic+Circle.h>
+#include "keychain/SecureObjectSync/SOSInternal.h"
+#include "keychain/SecureObjectSync/SOSUserKeygen.h"
+#include "keychain/SecureObjectSync/SOSTransport.h"
+#include "keychain/SecureObjectSync/SOSAccountTrustClassic+Circle.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -50,8 +50,6 @@
 #include "SOSAccountTesting.h"
 
 #include "SecdTestKeychainUtilities.h"
-
-static int kTestTestCount = 116;
 
 /*
  static void trim_retirements_from_circle(SOSAccount* account) {
@@ -182,7 +180,7 @@ static void tests(void)
 
 int secd_61_account_leave_not_in_kansas_anymore(int argc, char *const *argv)
 {
-    plan_tests(kTestTestCount);
+    plan_tests(82);
     
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
 

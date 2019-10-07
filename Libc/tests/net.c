@@ -147,11 +147,6 @@ T_DECL(inet_ntop_resolve_zeroes, "Check for proper behavior when shortening zero
 		T_EXPECT_EQ(inet_pton(AF_INET6, in_addr, &addr6), 1, "inet_pton(AF_INET6, %s)", in_addr);
 		char *str = inet_ntop(AF_INET6, &addr6, buf, sizeof(buf));
 		T_EXPECT_NOTNULL(str, "inet_ntop(AF_INET6) of %s", in_addr);
-		// <rdar://problem/32825795> Single-zero tests will fail until change
-		// implemented.
-		if (i < 2) {
-			T_EXPECTFAIL;
-		}
 		T_EXPECT_EQ_STR(str, expected_out_addr, NULL);
 	}
 
@@ -168,13 +163,42 @@ T_DECL(inet_ntop_resolve_zeroes, "Check for proper behavior when shortening zero
 		T_QUIET;
 		T_EXPECT_NOTNULL(str, "inet_ntop(AF_INET6) of %s", in_addr);
 		T_QUIET;
-		// <rdar://problem/32825795>
-		if (i == 0) {
-			T_PASS("Never displayed"); // Cancel out the T_QUIET
-			T_EXPECTFAIL;
-		}
 		T_EXPECT_EQ_STR(str, expected_out_addr, NULL);
 	}
 	T_PASS("Passed ipv6 value testing");
 
+}
+
+static void
+conv(const char *addr)
+{
+	int ret;
+	void *retp;
+
+	struct in6_addr addr6;
+	memset(&addr6, 0, sizeof addr6);
+	ret = inet_pton(AF_INET6, addr, &addr6);
+	T_ASSERT_EQ(ret, 1, "inet_pton");
+
+	T_LOG("%s: %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x\n", addr,
+			((unsigned char *) &addr6)[0], ((unsigned char *) &addr6)[1], ((unsigned char *) &addr6)[2], ((unsigned char *) &addr6)[3],
+			((unsigned char *) &addr6)[4], ((unsigned char *) &addr6)[5], ((unsigned char *) &addr6)[6], ((unsigned char *) &addr6)[7],
+			((unsigned char *) &addr6)[8], ((unsigned char *) &addr6)[9], ((unsigned char *) &addr6)[10], ((unsigned char *) &addr6)[11],
+			((unsigned char *) &addr6)[12], ((unsigned char *) &addr6)[13], ((unsigned char *) &addr6)[14], ((unsigned char *) &addr6)[15]);
+
+	char buf6[INET6_ADDRSTRLEN];
+	memset(buf6, 0, sizeof buf6);
+	retp = inet_ntop(AF_INET6, &addr6, buf6, (socklen_t) sizeof buf6);
+	T_ASSERT_NOTNULL(retp, "inet_ntop");
+
+	T_LOG("%s: %s\n", addr, buf6);
+
+	T_EXPECT_EQ_STR(addr, buf6, NULL);
+}
+
+T_DECL(inet_ntop_PR46867324, "Regression test for PR46867324")
+{
+	conv("2001:db8::1");
+	conv("::192.168.1.2");
+	conv("::ffff:10.11.12.13");
 }

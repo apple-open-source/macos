@@ -158,9 +158,10 @@ static int32_t xar_parse_header(xar_t x) {
 	 * if the recorded header length is greater than the 
 	 * expected header length.
 	 */
-	r = xar_read_fd(XAR(x)->fd, (char *)&XAR(x)->header.magic+off, sizeof(XAR(x)->header.magic)-off);
-	if ( r == -1 )
-		return r;
+	size_t size_to_read = sizeof(XAR(x)->header.magic)-off;
+	r = xar_read_fd(XAR(x)->fd, (char *)&XAR(x)->header.magic+off, size_to_read);
+	if ( r == -1 || size_to_read != r)
+		return -1;
 
 	/* Verify the header.  If the header doesn't match, exit without
 	 * attempting to read any more.
@@ -171,8 +172,9 @@ static int32_t xar_parse_header(xar_t x) {
 		return -1;
 	}
 
-	r = xar_read_fd(XAR(x)->fd, (char *)&XAR(x)->header.size+off, sizeof(XAR(x)->header.size)-off);
-	if ( r == -1 )
+	size_to_read = sizeof(XAR(x)->header.size)-off;
+	r = xar_read_fd(XAR(x)->fd, (char *)&XAR(x)->header.size+off, size_to_read);
+	if ( r == -1 || size_to_read != r )
 		return r;
 
 	XAR(x)->header.size = ntohs(XAR(x)->header.size);
@@ -183,8 +185,9 @@ static int32_t xar_parse_header(xar_t x) {
 		sz2read = XAR(x)->header.size;
 
 	off = sizeof(XAR(x)->header.magic) + sizeof(XAR(x)->header.size);
-	r = xar_read_fd(XAR(x)->fd, ((char *)&XAR(x)->header)+off, sizeof(xar_header_t)-off);
-	if ( r == -1 )
+	size_to_read = sizeof(xar_header_t)-off;
+	r = xar_read_fd(XAR(x)->fd, ((char *)&XAR(x)->header)+off, size_to_read);
+	if ( r == -1 || size_to_read != r)
 		return r;
 
 	XAR(x)->header.version = ntohs(XAR(x)->header.version);
@@ -439,7 +442,14 @@ xar_t xar_open_digest_verify(const char *file, int32_t flags, void *expected_toc
 			return NULL;
 		}
 		
-		xar_read_fd(XAR(ret)->fd, cval, tlen);
+		ssize_t r = xar_read_fd(XAR(ret)->fd, cval, tlen);
+		
+		if (r < 0 || r != tlen) {
+			free(toccksum);
+			xar_close(ret);
+			return NULL;
+		}
+		
 		XAR(ret)->heap_offset += tlen;
 		if( memcmp(cval, toccksum, tlen) != 0 ) {
 			fprintf(stderr, "Checksums do not match!\n");
@@ -527,7 +537,7 @@ int xar_close(xar_t x) {
 		char *tmpser;
 		void *rbuf, *wbuf = NULL;
 		int fd, r, off, wbytes, rbytes;
-		long rsize, wsize;
+		size_t rsize, wsize;
 		z_stream zs;
 		uint64_t ungztoc, gztoc;
 		int tocfd;
@@ -635,7 +645,12 @@ int xar_close(xar_t x) {
 	
 			off = 0;
 			while( zs.avail_in != 0 ) {
-				wsize *= 2;
+				size_t newlen = wsize * 2;
+				if (newlen > wsize)
+					wsize = newlen;
+				else
+					abort();	/* Someone has somehow malloced over 2^64 bits of ram. */
+				
 				wbuf = realloc(wbuf, wsize);
 
 				zs.next_out = ((unsigned char *)wbuf) + off;
@@ -1484,7 +1499,11 @@ int32_t xar_extract(xar_t x, xar_file_t f) {
 		free(dname);
 		free(tmp1);
 		XAR_FILE(f)->parent_extracted++;
-		xar_extract(x, tmpf);
+		int32_t result = xar_extract(x, tmpf);
+		
+		if (result < 0)
+			return result;
+			
 	}
 	
 	return xar_extract_tofile(x, f, XAR_FILE(f)->fspath);
@@ -1520,11 +1539,16 @@ static int toc_read_callback(void *context, char *buffer, int len) {
 
 	if ( ((!XAR(x)->offset) || (XAR(x)->offset == XAR(x)->readbuf_len)) && (XAR(x)->toc_count != XAR(x)->header.toc_length_compressed) ) {
 		XAR(x)->offset = 0;
-		if( (XAR(x)->readbuf_len - off) + XAR(x)->toc_count > XAR(x)->header.toc_length_compressed )
-			ret = xar_read_fd(XAR(x)->fd, XAR(x)->readbuf, XAR(x)->header.toc_length_compressed - XAR(x)->toc_count);
-		else
-			ret = read(XAR(x)->fd, XAR(x)->readbuf, XAR(x)->readbuf_len);
-		if ( ret == -1 )
+		size_t read_size = 0;
+		if( (XAR(x)->readbuf_len - off) + XAR(x)->toc_count > XAR(x)->header.toc_length_compressed ) {
+			read_size = XAR(x)->header.toc_length_compressed - XAR(x)->toc_count;
+			ret = xar_read_fd(XAR(x)->fd, XAR(x)->readbuf, read_size);
+		}
+		else {
+			read_size = XAR(x)->readbuf_len;
+			ret = read(XAR(x)->fd, XAR(x)->readbuf, read_size);
+		}
+		if ( ret == -1 ||  read_size != ret)
 			return ret;
 		
 		if ( XAR(x)->toc_hash_ctx )

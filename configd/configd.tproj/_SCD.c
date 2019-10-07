@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2009, 2011, 2012, 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2009, 2011, 2012, 2015-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -38,8 +38,6 @@
 #include "configd_server.h"
 #include "session.h"
 
-
-__private_extern__ CFMutableDictionaryRef	sessionData		= NULL;
 
 __private_extern__ CFMutableDictionaryRef	storeData		= NULL;
 
@@ -268,11 +266,6 @@ pushNotifications(void)
 		if ((storePrivate->notifyStatus == Using_NotifierInformViaMachPort) &&
 		    (storePrivate->notifyPort != MACH_PORT_NULL)) {
 			/*
-			 * Associate notification activity with the client
-			 */
-			os_activity_scope(theSession->activity);
-
-			/*
 			 * Post notification as mach message
 			 */
 			SC_trace("-->port : %5d : port = %d",
@@ -290,11 +283,6 @@ pushNotifications(void)
 		if ((storePrivate->notifyStatus == Using_NotifierInformViaFD) &&
 		    (storePrivate->notifyFile >= 0)) {
 			ssize_t		written;
-
-			/*
-			 * Associate notification activity with the client
-			 */
-			os_activity_scope(theSession->activity);
 
 			SC_trace("-->fd   : %5d : fd = %d, msgid = %d",
 				 storePrivate->server,
@@ -323,54 +311,6 @@ pushNotifications(void)
 				storePrivate->notifyFile = -1;
 			}
 		}
-
-		if ((storePrivate->notifyStatus == Using_NotifierInformViaSignal) &&
-		    (storePrivate->notifySignal > 0)) {
-			kern_return_t	status;
-			pid_t		pid;
-
-			/*
-			 * Associate notification activity with the client
-			 */
-			os_activity_scope(theSession->activity);
-
-			/*
-			 * Post notification as signal
-			 */
-			status = pid_for_task(storePrivate->notifySignalTask, &pid);
-			if (status == KERN_SUCCESS) {
-				SC_trace("-->sig  : %5d : pid = %d, signal = sig%s (%d)",
-					 storePrivate->server,
-					 pid,
-					 sys_signame[storePrivate->notifySignal],
-					 storePrivate->notifySignal);
-
-				if (kill(pid, storePrivate->notifySignal) != 0) {
-					if (errno != ESRCH) {
-						SC_log(LOG_NOTICE, "could not send sig%s to PID %d: %s",
-						       sys_signame[storePrivate->notifySignal],
-						       pid,
-						       strerror(errno));
-					}
-				}
-			} else {
-				mach_port_type_t	pt;
-
-				__MACH_PORT_DEBUG(TRUE, "*** pushNotifications pid_for_task failed: releasing task", storePrivate->notifySignalTask);
-				if (mach_port_type(mach_task_self(), storePrivate->notifySignalTask, &pt) == KERN_SUCCESS) {
-					if ((pt & MACH_PORT_TYPE_DEAD_NAME) != 0) {
-						SC_log(LOG_NOTICE, "pid_for_task() failed: %s", mach_error_string(status));
-					}
-				} else {
-					SC_log(LOG_NOTICE, "mach_port_type() failed: %s", mach_error_string(status));
-				}
-
-				/* don't bother with any more attempts */
-				(void) mach_port_deallocate(mach_task_self(), storePrivate->notifySignalTask);
-				storePrivate->notifySignal     = 0;
-				storePrivate->notifySignalTask = TASK_NULL;
-			}
-	       }
 	}
 	if (sessionsToNotify != sessionsToNotify_q) CFAllocatorDeallocate(NULL, sessionsToNotify);
 

@@ -42,7 +42,7 @@ STATIC os_log_t S_eap_logger = NULL;
 
 #define EAPOL_OS_LOG_SUBSYSTEM	"com.apple.eapol"
 
-char * const S_eap_os_log_categories[] = {
+STATIC char * const S_eap_os_log_categories[] = {
 	"Controller",
 	"Monitor",
 	"Client",

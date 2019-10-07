@@ -29,9 +29,25 @@
 
 #include "MessageReceiver.h"
 #include "MessageSender.h"
+#include "ServiceWorkerFetchTask.h"
 #include <WebCore/SWServerToContextConnection.h>
 
+namespace WebCore {
+struct FetchOptions;
+class ResourceRequest;
+}
+
+namespace IPC {
+class FormDataReference;
+}
+
+namespace PAL {
+class SessionID;
+}
+
 namespace WebKit {
+
+class NetworkProcess;
 
 class WebSWServerToContextConnection : public WebCore::SWServerToContextConnection, public IPC::MessageSender, public IPC::MessageReceiver {
 public:
@@ -49,12 +65,22 @@ public:
 
     void terminate();
 
+    void startFetch(PAL::SessionID, Ref<IPC::Connection>&&, WebCore::SWServerConnectionIdentifier, WebCore::FetchIdentifier, WebCore::ServiceWorkerIdentifier, const WebCore::ResourceRequest&, const WebCore::FetchOptions&, const IPC::FormDataReference&, const String&);
+    void cancelFetch(WebCore::SWServerConnectionIdentifier, WebCore::FetchIdentifier, WebCore::ServiceWorkerIdentifier);
+    void continueDidReceiveFetchResponse(WebCore::SWServerConnectionIdentifier, WebCore::FetchIdentifier, WebCore::ServiceWorkerIdentifier);
+
+    void didReceiveFetchTaskMessage(IPC::Connection&, IPC::Decoder&);
+
+    void setThrottleState(bool isThrottleable);
+    bool isThrottleable() const { return m_isThrottleable; }
+
 private:
-    WebSWServerToContextConnection(const WebCore::SecurityOriginData&, Ref<IPC::Connection>&&);
+    WebSWServerToContextConnection(NetworkProcess&, const WebCore::RegistrableDomain&, Ref<IPC::Connection>&&);
+    ~WebSWServerToContextConnection();
 
     // IPC::MessageSender
-    IPC::Connection* messageSenderConnection() final;
-    uint64_t messageSenderDestinationID() final;
+    IPC::Connection* messageSenderConnection() const final;
+    uint64_t messageSenderDestinationID() const final;
 
     // Messages to the SW host WebProcess
     void installServiceWorkerContext(const WebCore::ServiceWorkerContextData&, PAL::SessionID, const String& userAgent) final;
@@ -70,7 +96,11 @@ private:
     void connectionMayNoLongerBeNeeded() final;
 
     Ref<IPC::Connection> m_ipcConnection;
+    Ref<NetworkProcess> m_networkProcess;
     
+    HashMap<ServiceWorkerFetchTask::Identifier, WebCore::FetchIdentifier> m_ongoingFetchIdentifiers;
+    HashMap<WebCore::FetchIdentifier, Ref<ServiceWorkerFetchTask>> m_ongoingFetches;
+    bool m_isThrottleable { true };
 }; // class WebSWServerToContextConnection
 
 } // namespace WebKit

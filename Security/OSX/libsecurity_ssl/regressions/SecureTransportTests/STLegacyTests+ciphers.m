@@ -20,6 +20,7 @@
 #include <Security/SecRandom.h>
 
 #include <utilities/array_size.h>
+#include <utilities/SecCFRelease.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -34,6 +35,9 @@
 #endif
 
 #include "ssl-utils.h"
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 /*
     SSL CipherSuite tests
@@ -147,58 +151,7 @@ typedef struct {
     uint64_t time; // output
 } ssl_test_handle;
 
-#if 0 // currently unused
-static CFArrayRef SecIdentityCopySSLClientAuthenticationChain(SecIdentityRef identity)
-{
-   CFMutableArrayRef chain = NULL;
-   SecPolicyRef policy = NULL;
-   SecTrustRef trust = NULL;
-   SecTrustResultType trust_result;
-
-   do {
-       policy = SecPolicyCreateSSL(false, NULL);
-       if (!policy)
-           break;
-
-       SecCertificateRef cert = NULL;
-       if (SecIdentityCopyCertificate(identity, &cert))
-           break;
-
-       CFArrayRef certs = CFArrayCreate(NULL, (const void **)&cert,
-                 1, &kCFTypeArrayCallBacks);
-       CFRelease(cert);
-       if (!certs)
-           break;
-
-       if (SecTrustCreateWithCertificates(certs, policy, &trust))
-           break;
-       CFRelease(certs);
-       CFRelease(policy);
-       if (SecTrustEvaluate(trust, &trust_result))
-           break;
-
-       int i, count = SecTrustGetCertificateCount(trust);
-       chain = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
-       CFArrayAppendValue(chain, identity);
-       for (i = 1; i < count; i++) {
-           if ((i+1 == count) && (trust_result == kSecTrustResultUnspecified))
-               continue; /* skip anchor if chain is complete */
-           SecCertificateRef s = SecTrustGetCertificateAtIndex(trust, i);
-           CFArrayAppendValue(chain, s);
-       }
-   } while (0);
-   if (trust)
-       CFRelease(trust);
-   if (policy)
-       CFRelease(policy);
-   return chain;
-}
-#endif // currently unused
-
-// MARK: -
-// MARK: SecureTransport support
-
-#if 0
+#if SECTRANS_VERBOSE_DEBUG
 static void hexdump(const uint8_t *bytes, size_t len) {
 	size_t ix;
     printf("socket write(%p, %lu)\n", bytes, len);
@@ -274,10 +227,12 @@ static unsigned int dn_len = 96;
 static SSLContextRef make_ssl_ref(bool server, SSLAuthenticate client_side_auth, bool dh_anonymous,
     bool dtls, int sock, CFArrayRef certs, SSLProtocol proto)
 {
-    SSLContextRef ctx = SSLCreateContext(kCFAllocatorDefault, server?kSSLServerSide:kSSLClientSide, dtls?kSSLDatagramType:kSSLStreamType);
+    SSLContextRef ctx = SSLCreateContext(kCFAllocatorDefault,
+                                         server ? kSSLServerSide : kSSLClientSide,
+                                         dtls ? kSSLDatagramType : kSSLStreamType);
     require(ctx, out);
 
-    if(dtls) {
+    if (dtls) {
         size_t mtu;
         require_noerr(SSLSetMaxDatagramRecordSize(ctx, 400), out);
         require_noerr(SSLGetMaxDatagramRecordSize(ctx, &mtu), out);
@@ -294,30 +249,24 @@ static SSLContextRef make_ssl_ref(bool server, SSLAuthenticate client_side_auth,
     require_noerr(SSLSetMinimumDHGroupSize(ctx, 512), out);
 
     if (!dh_anonymous) {
-        if (server)
+        if (server) {
             require_noerr(SSLSetCertificate(ctx, certs), out);
+        }
         if ((client_side_auth != kNeverAuthenticate) && server) {
             SSLAuthenticate auth;
             require_noerr(SSLSetClientSideAuthenticate(ctx, client_side_auth), out);
             require_noerr(SSLGetClientSideAuthenticate(ctx, &auth), out);
-            require(auth==client_side_auth, out);
+            require(auth == client_side_auth, out);
             require_noerr(SSLAddDistinguishedName(ctx, dn, dn_len), out);
         }
-#if 0 /* Setting client certificate in advance */
-        if ((client_side_auth == kAlwaysAuthenticate) && !server)
-            require_noerr(SSLSetCertificate(ctx, certs), out);
-#endif
-        if ((client_side_auth != kNeverAuthenticate) && !server) /* enable break from SSLHandshake */
+        if ((client_side_auth != kNeverAuthenticate) && !server) { /* enable break from SSLHandshake */
             require_noerr(SSLSetSessionOption(ctx,
                 kSSLSessionOptionBreakOnCertRequested, true), out);
+        }
     }
 
     /* Set this option, even if doing anonDH or PSK - it should NOT break out in those case */
     require_noerr(SSLSetSessionOption(ctx, kSSLSessionOptionBreakOnServerAuth, true), out);
-
-    /* Tell SecureTransport to not check certs itself: it will break out of the
-       handshake to let us take care of it instead. */
-    require_noerr(SSLSetEnableCertVerify(ctx, false), out);
 
     if (server) {
         require_noerr(SSLSetDiffieHellmanParams(ctx,
@@ -328,8 +277,9 @@ static SSLContextRef make_ssl_ref(bool server, SSLAuthenticate client_side_auth,
 
     return ctx;
 out:
-    if (ctx)
+    if (ctx) {
         CFRelease(ctx);
+    }
     return NULL;
 }
 
@@ -340,6 +290,7 @@ static bool check_peer_cert(SSLContextRef ctx, const ssl_test_handle *ssl, SecTr
 
     /* verify peer cert chain */
     require_noerr(SSLCopyPeerTrust(ctx, trust), out);
+    require_noerr(SSLGetPeerSecTrust(ctx, trust), out);
     SecTrustResultType trust_result = 0;
     /* this won't verify without setting up a trusted anchor */
     require_noerr(SecTrustEvaluate(*trust, &trust_result), out);
@@ -348,12 +299,12 @@ static bool check_peer_cert(SSLContextRef ctx, const ssl_test_handle *ssl, SecTr
 
     peer_cert_array = CFArrayCreateMutable(NULL, n_certs, &kCFTypeArrayCallBacks);
     orig_peer_cert_array = CFArrayCreateMutableCopy(NULL, n_certs, ssl->peer_certs);
-    while (n_certs--)
+    while (n_certs--) {
         CFArrayInsertValueAtIndex(peer_cert_array, 0,
                                   SecTrustGetCertificateAtIndex(*trust, n_certs));
+    }
 
-    SecIdentityRef ident =
-    (SecIdentityRef)CFArrayGetValueAtIndex(orig_peer_cert_array, 0);
+    SecIdentityRef ident = (SecIdentityRef)CFArrayGetValueAtIndex(orig_peer_cert_array, 0);
     SecCertificateRef peer_cert = NULL;
     require_noerr(SecIdentityCopyCertificate(ident, &peer_cert), out);
     CFArraySetValueAtIndex(orig_peer_cert_array, 0, peer_cert);
@@ -377,6 +328,10 @@ out:
 #define perf_scale_factor() ({struct mach_timebase_info info; mach_timebase_info(&info); ((double)info.numer) / (1000000.0 * info.denom);})
 #define perf_time() ((mach_absolute_time() - _perf_time) * perf_scale_factor())
 
+static void test_get_client_server_random(SSLContextRef ctx, const void *arg, void *secret, size_t *secretLen)
+{
+    return;
+}
 
 static void *securetransport_ssl_thread(void *arg)
 {
@@ -386,21 +341,27 @@ static void *securetransport_ssl_thread(void *arg)
     SecTrustRef trust = NULL;
     bool got_server_auth = false, got_client_cert_req = false;
     SSLSessionState ssl_state;
+    char random[SSL_CLIENT_SRVR_RAND_SIZE*2];
+    size_t randomSize = SSL_CLIENT_SRVR_RAND_SIZE*2;
+    size_t offset;
 
     perf_start();
 
-    pthread_setname_np(ssl->is_server?"server thread":"client thread");
+    pthread_setname_np(ssl->is_server ? "server thread" : "client thread");
 
-    require_noerr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
-    require_action(ssl_state==kSSLIdle, out, ortn = -1);
+    require_noerr(ortn = SSLGetSessionState(ctx, &ssl_state), out);
+    require_action(ssl_state == kSSLIdle, out, ortn = -1);
 
     do {
         ortn = SSLHandshake(ctx);
-        require_noerr(SSLGetSessionState(ctx,&ssl_state), out);
-
-        if (ortn == errSSLPeerAuthCompleted)
-        {
-            require_action(ssl_state==kSSLHandshake, out, ortn = -1);
+        require_noerr(SSLGetSessionState(ctx, &ssl_state), out);
+        require_noerr(SSLInternalSetMasterSecretFunction(ctx, test_get_client_server_random, NULL), out);
+        require_noerr(SSLInternalClientRandom(ctx, random, &randomSize), out);
+        offset = randomSize;
+        randomSize = SSL_CLIENT_SRVR_RAND_SIZE;
+        require_noerr(SSLInternalServerRandom(ctx, random+offset, &randomSize), out);
+        if (ortn == errSSLPeerAuthCompleted) {
+            require_action(ssl_state == kSSLHandshake, out, ortn = -1);
             require_string(!got_server_auth, out, "second server auth");
             require_string(!ssl->dh_anonymous, out, "server auth with anon cipher");
             // Note: Previously, the implementation always returned errSSLPeerAuthCompleted before
@@ -414,7 +375,7 @@ static void *securetransport_ssl_thread(void *arg)
             require_string(!trust, out, "Got errSSLServerAuthCompleted twice?");
             require_string(check_peer_cert(ctx, ssl, &trust), out, "Certificate check failed");
         } else if (ortn == errSSLClientCertRequested) {
-            require_action(ssl_state==kSSLHandshake, out, ortn = -1);
+            require_action(ssl_state == kSSLHandshake, out, ortn = -1);
             require_string(!got_client_cert_req, out, "second client cert req");
             // Note: see Note above.
             //require_string(got_server_auth, out, "didn't get server auth first");
@@ -434,15 +395,15 @@ static void *securetransport_ssl_thread(void *arg)
                 require_noerr(SSLSetCertificate(ctx, ssl->certs), out);
             }
         } else if (ortn == errSSLWouldBlock) {
-            require_action(ssl_state==kSSLHandshake, out, ortn = -1);
+            require_action(ssl_state == kSSLHandshake, out, ortn = -1);
         }
     } while (ortn == errSSLWouldBlock
         || ortn == errSSLServerAuthCompleted
         || ortn == errSSLClientCertRequested);
     require_noerr_action_quiet(ortn, out,
-        fprintf(stderr, "Fell out of SSLHandshake with error: %d (%s)\n", (int)ortn, ssl->is_server?"server":"client"));
+        fprintf(stderr, "Fell out of SSLHandshake with error: %d (%s)\n", (int)ortn, ssl->is_server ? "server" : "client"));
 
-    require_action(ssl_state==kSSLConnected, out, ortn = -1);
+    require_action(ssl_state == kSSLConnected, out, ortn = -1);
 
     if (!ssl->is_server && !ssl->dh_anonymous && !ssl->is_session_resume) {
         require_string(got_server_auth, out, "never got server auth");
@@ -457,8 +418,12 @@ static void *securetransport_ssl_thread(void *arg)
 
     SSLCipherSuite cipherSuite;
     require_noerr_quiet(ortn = SSLGetNegotiatedCipher(ctx, &cipherSuite), out);
-
-    if(ssl->is_dtls) {
+    KeyExchangeMethod kem = sslCipherSuiteGetKeyExchangeMethod(cipherSuite);
+    if (kem == SSL_ECDHE_ECDSA || kem == SSL_ECDHE_RSA) {
+        SSL_ECDSA_NamedCurve namedCurve;
+        require_noerr_quiet(ortn = SSLGetNegotiatedCurve(ctx, &namedCurve), out);
+    }
+    if (ssl->is_dtls) {
         size_t sz;
         SSLGetDatagramWriteSize(ctx, &sz);
     }
@@ -472,7 +437,7 @@ static void *securetransport_ssl_thread(void *arg)
 #define BUFSIZE (8*1024)
     unsigned char ibuf[BUFSIZE], obuf[BUFSIZE];
 
-    for(int i=0; i<10; i++) {
+    for (int i = 0; i < 10; i++) {
         size_t len;
         if (ssl->is_server) {
             memset(obuf, i, BUFSIZE);
@@ -483,9 +448,9 @@ static void *securetransport_ssl_thread(void *arg)
             require_action(len == 0, out, ortn = -1);
         }
 
-        len=0;
-        while(len<BUFSIZE) {
-            size_t l=len;
+        len = 0;
+        while (len < BUFSIZE) {
+            size_t l = len;
             ortn = SSLRead(ctx, ibuf+len, BUFSIZE-len, &l);
             len+=l;
         }
@@ -547,17 +512,18 @@ ssl_test_handle_create(uint32_t session_id, bool resume, bool server, SSLAuthent
     XCTAssert(server_ec_certs != NULL);
     XCTAssert(client_certs != NULL);
 
-    int i,k,l, p;
+    unsigned i;
+    int k,l, p;
 
-    for (p=0; p<nprotos; p++)
-    for (k=0; k<3; k++) /* client side auth mode:
+    for (p = 0; p < nprotos; p++)
+    for (k = 0; k < 3; k++) /* client side auth mode:
                                 0 (kSSLNeverAuthenticate): server doesn't request ,
                                 1 (kSSLAlwaysAuthenticate): server request, client provide,
                                 2 (kSSLTryAuthenticate): server request, client does not provide */
     {
 
-        for (i=0; i<SupportedCipherSuitesCount; i++)
-        for (l = 0; l<2; l++) { /* resumption or not */
+        for (i = 0; i < SupportedCipherSuitesCount; i++) {
+        for (l = 0; l < 2; l++) { /* resumption or not */
             uint16_t cs = (uint16_t)(SupportedCipherSuites[i]);
             KeyExchangeMethod kem = sslCipherSuiteGetKeyExchangeMethod(cs);
             SSL_CipherAlgorithm cipher = sslCipherSuiteGetSymmetricCipherAlgorithm(cs);
@@ -565,7 +531,7 @@ ssl_test_handle_create(uint32_t session_id, bool resume, bool server, SSLAuthent
 
             CFArrayRef server_certs;
 
-            if(kem == SSL_ECDHE_ECDSA) {
+            if (kem == SSL_ECDHE_ECDSA) {
                 server_certs = server_ec_certs;
             } else {
                 server_certs = server_rsa_certs;
@@ -641,37 +607,38 @@ ssl_test_handle_create(uint32_t session_id, bool resume, bool server, SSLAuthent
                 intptr_t server_err, client_err;
                 pthread_join(client_thread, (void*)&client_err);
                 pthread_join(server_thread, (void*)&server_err);
-
-#if 0
+                const char *cipher_name = ciphersuite_name(SupportedCipherSuites[i]);
+#if SECTRANS_VERBOSE_DEBUG
                 // If you want to print an approximate time for each handshake.
                 printf("%4llu - %40s CSA:%d RESUME:%d PROTO:0x%04x\n",
                         client->time,
-                        ciphersuite_name(SupportedCipherSuites[i]),
+                        cipher_name,
                         server->client_side_auth,
                         l, protos[p]);
 #endif
 
                 XCTAssert(!server_err && !client_err,
                    "%40s CSA:%d RESUME:%d PROTO:0x%04x",
-                   ciphersuite_name(SupportedCipherSuites[i]),
+                   cipher_name,
                    server->client_side_auth,
                    l, protos[p]);
-out:
                 free(client);
                 free(server);
                 free(supported_ciphers);
             }
         } /* all ciphers */
+        }
     } /* all configs */
 
 
-end:
-    CFReleaseSafe(client_certs);
-    CFReleaseSafe(server_ec_certs);
-    CFReleaseSafe(server_rsa_certs);
+    CFReleaseNull(client_certs);
+    CFReleaseNull(server_ec_certs);
+    CFReleaseNull(server_rsa_certs);
 }
 
 @end
+
+#pragma clang diagnostic pop
 
 /*
 TODO: count errSSLWouldBlock
@@ -683,3 +650,4 @@ TODO: make sure DHE is not available if not explicitly enabled and no parameters
       are set
 TODO: resumable sessions
 */
+

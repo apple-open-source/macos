@@ -3465,10 +3465,19 @@
 			);
 			name = "Run Script";
 			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/codes.c",
+				"$(BUILT_PRODUCTS_DIR)/comp_captab.c",
+				"$(BUILT_PRODUCTS_DIR)/expanded.c",
+				"$(BUILT_PRODUCTS_DIR)/fallback.c",
+				"$(BUILT_PRODUCTS_DIR)/lib_gen.c",
+				"$(BUILT_PRODUCTS_DIR)/lib_keyname.c",
+				"$(BUILT_PRODUCTS_DIR)/names.c",
+				"$(BUILT_PRODUCTS_DIR)/termsort.c",
+				"$(BUILT_PRODUCTS_DIR)/unctrl.c",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/derived_headers.sh\n. \"$PROJECT_DIR\"/xcodescripts/derived_sources.sh";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/derived_headers.sh\n. \"$PROJECT_DIR\"/xcodescripts/derived_sources.sh\n";
 			showEnvVarsInLog = 0;
 		};
 		FCD5D44514E5CC5500752D20 /* ShellScript */ = {

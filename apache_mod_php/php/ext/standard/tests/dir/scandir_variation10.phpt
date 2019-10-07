@@ -3,7 +3,7 @@ Test scandir() function : usage variations - different sorting constants
 --FILE--
 <?php
 /* Prototype  : array scandir(string $dir [, int $sorting_order [, resource $context]])
- * Description: List files & directories inside the specified path 
+ * Description: List files & directories inside the specified path
  * Source code: ext/standard/dir.c
  */
 
@@ -46,7 +46,7 @@ delete_files($dir, 2);
 $dir = dirname(__FILE__) . '/scandir_variation10';
 rmdir($dir);
 ?>
---EXPECTF--
+--EXPECT--
 SCANDIR_SORT_ASCENDING: 0
 SCANDIR_SORT_DESCENDING: 1
 SCANDIR_SORT_NONE: 2

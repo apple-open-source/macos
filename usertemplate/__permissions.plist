@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>Command</key>
+		<string>CHMOD</string>
+		<key>Argument</key>
+		<string>0755</string>
+		<key>Paths</key>
+		<array>
+			<string>/Public</string>
+		</array>
+	</dict>
+	<dict>
+		<key>Command</key>
+		<string>CHMOD</string>
+		<key>Argument</key>
+		<string>0733</string>
+		<key>Paths</key>
+		<array>
+			<string>/Public/Drop Box</string>
+		</array>
+	</dict>
+	<dict>
+		<key>Command</key>
+		<string>CHGRP</string>
+		<key>Argument</key>
+		<string>_qtss</string>
+		<key>Paths</key>
+		<array>
+			<string>/Sites/Streaming</string>
+		</array>
+	</dict>
+</array>
+</plist>

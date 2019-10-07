@@ -17,7 +17,7 @@
 int CopyManifests(BLContextPtr context, const char *destPath, const char *srcPath)
 {
     int                            ret = 0;
-    OSPersonalizationController    *pc = [OSPersonalizationController sharedController];
+    OSPersonalizationController    *pc;
     NSArray<NSString *>            *manifestNames;
     NSString                       *manifestPath;
     NSString                       *srcDir;
@@ -31,7 +31,12 @@ int CopyManifests(BLContextPtr context, const char *destPath, const char *srcPat
     NSString                       *newDestPath;
     NSFileManager                  *fmd = [NSFileManager defaultManager];
     NSError                        *nserr;
-    
+	
+	// OSPersonalization is weak-linked, so check to make sure it's present
+	if ([OSPersonalizationController class] == nil) {
+		return ENOTSUP;
+	}
+	pc = [OSPersonalizationController sharedController];
     srcDir = [[NSString stringWithUTF8String:srcPath] stringByDeletingLastPathComponent];
     destDir = [[NSString stringWithUTF8String:destPath] stringByDeletingLastPathComponent];
     srcName = [[NSString stringWithUTF8String:srcPath] lastPathComponent];

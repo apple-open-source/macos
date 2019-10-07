@@ -38,6 +38,7 @@
 
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecCertificatePriv.h>
+#include <utilities/SecCFRelease.h>
 
 #include "test-certs/eckey.h"
 #include "test-certs/eccert.h"
@@ -90,9 +91,9 @@ CFArrayRef CF_RETURNS_RETAINED chain_from_der(bool ecdsa, const unsigned char *p
     require(items = CFArrayCreate(kCFAllocatorDefault, (const void **)&ident, 1, &kCFTypeArrayCallBacks), errOut);
 
 errOut:
-    CFReleaseSafe(pkey);
-    CFReleaseSafe(cert);
-    CFReleaseSafe(ident);
+    CFReleaseNull(pkey);
+    CFReleaseNull(cert);
+    CFReleaseNull(ident);
     return items;
 }
 
@@ -110,7 +111,7 @@ CFArrayRef trusted_roots(void)
     require(roots = CFArrayCreate(kCFAllocatorDefault, (const void **)&cert, 1, &kCFTypeArrayCallBacks), errOut);
 
 errOut:
-    CFReleaseSafe(cert);
+    CFReleaseNull(cert);
     return roots;
 }
 

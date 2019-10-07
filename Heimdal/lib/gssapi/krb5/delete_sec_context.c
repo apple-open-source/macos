@@ -82,6 +82,9 @@ _gsskrb5_delete_sec_context(OM_uint32 * minor_status,
     krb5_data_free(&ctx->fwd_data);
     if (ctx->gk5c.crypto)
     	krb5_crypto_destroy(context, ctx->gk5c.crypto);
+    if (ctx->tgsctx) {
+	krb5_tkt_creds_free(context, ctx->tgsctx);
+    }
 #ifdef PKINIT
     if (ctx->cert)
 	hx509_cert_free(ctx->cert);

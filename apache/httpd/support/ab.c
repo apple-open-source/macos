@@ -353,6 +353,10 @@ int is_ssl;
 SSL_CTX *ssl_ctx;
 char *ssl_cipher = NULL;
 char *ssl_info = NULL;
+char *ssl_cert = NULL;
+#if OPENSSL_VERSION_NUMBER >= 0x10002000L
+char *ssl_tmp_key = NULL;
+#endif
 BIO *bio_out,*bio_err;
 #ifdef HAVE_TLSEXT
 int tls_use_sni = 1;         /* used by default, -I disables it */
@@ -732,6 +736,46 @@ static void ssl_proceed_handshake(struct connection *c)
                              SSL_CIPHER_get_name(ci),
                              pk_bits, sk_bits);
             }
+#if OPENSSL_VERSION_NUMBER >= 0x10002000L
+            if (ssl_tmp_key == NULL) {
+                EVP_PKEY *key;
+                if (SSL_get_server_tmp_key(c->ssl, &key)) {
+                    ssl_tmp_key = xmalloc(128);
+                    switch (EVP_PKEY_id(key)) {
+                    case EVP_PKEY_RSA:
+                        apr_snprintf(ssl_tmp_key, 128, "RSA %d bits",
+                                     EVP_PKEY_bits(key));
+                        break;
+                    case EVP_PKEY_DH:
+                        apr_snprintf(ssl_tmp_key, 128, "DH %d bits",
+                                     EVP_PKEY_bits(key));
+                        break;
+#ifndef OPENSSL_NO_EC
+                    case EVP_PKEY_EC: {
+                        const char *cname = NULL;
+                        EC_KEY *ec = EVP_PKEY_get1_EC_KEY(key);
+                        int nid = EC_GROUP_get_curve_name(EC_KEY_get0_group(ec));
+                        EC_KEY_free(ec);
+                        cname = EC_curve_nid2nist(nid);
+                        if (!cname)
+                            cname = OBJ_nid2sn(nid);
+
+                        apr_snprintf(ssl_tmp_key, 128, "ECDH %s %d bits",
+                                     cname,
+                                     EVP_PKEY_bits(key));
+                        break;
+                        }
+#endif
+                    default:
+                        apr_snprintf(ssl_tmp_key, 128, "%s %d bits",
+                                     OBJ_nid2sn(EVP_PKEY_id(key)),
+                                     EVP_PKEY_bits(key));
+                        break;
+                    }
+                    EVP_PKEY_free(key);
+                }
+            }
+#endif
             write_request(c);
             do_next = 0;
             break;
@@ -895,6 +939,11 @@ static void output_results(int sig)
     if (is_ssl && ssl_info) {
         printf("SSL/TLS Protocol:       %s\n", ssl_info);
     }
+#if OPENSSL_VERSION_NUMBER >= 0x10002000L
+    if (is_ssl && ssl_tmp_key) {
+        printf("Server Temp Key:        %s\n", ssl_tmp_key);
+    }
+#endif
 #ifdef HAVE_TLSEXT
     if (is_ssl && tls_sni) {
         printf("TLS Server Name:        %s\n", tls_sni);
@@ -2033,14 +2082,14 @@ static void test(void)
 static void copyright(void)
 {
     if (!use_html) {
-        printf("This is ApacheBench, Version %s\n", AP_AB_BASEREVISION " <$Revision: 1826891 $>");
+        printf("This is ApacheBench, Version %s\n", AP_AB_BASEREVISION " <$Revision: 1843412 $>");
         printf("Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/\n");
         printf("Licensed to The Apache Software Foundation, http://www.apache.org/\n");
         printf("\n");
     }
     else {
         printf("<p>\n");
-        printf(" This is ApacheBench, Version %s <i>&lt;%s&gt;</i><br>\n", AP_AB_BASEREVISION, "$Revision: 1826891 $");
+        printf(" This is ApacheBench, Version %s <i>&lt;%s&gt;</i><br>\n", AP_AB_BASEREVISION, "$Revision: 1843412 $");
         printf(" Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/<br>\n");
         printf(" Licensed to The Apache Software Foundation, http://www.apache.org/<br>\n");
         printf("</p>\n<p>\n");
@@ -2122,6 +2171,7 @@ static void usage(const char *progname)
     fprintf(stderr, "    -Z ciphersuite  Specify SSL/TLS cipher suite (See openssl ciphers)\n");
     fprintf(stderr, "    -f protocol     Specify SSL/TLS protocol\n");
     fprintf(stderr, "                    (" SSL2_HELP_MSG SSL3_HELP_MSG "TLS1" TLS1_X_HELP_MSG " or ALL)\n");
+    fprintf(stderr, "    -E certfile     Specify optional client certificate chain and private key\n");
 #endif
     exit(EINVAL);
 }
@@ -2292,7 +2342,7 @@ int main(int argc, const char * const argv[])
     apr_getopt_init(&opt, cntxt, argc, argv);
     while ((status = apr_getopt(opt, "n:c:t:s:b:T:p:u:v:lrkVhwiIx:y:z:C:H:P:A:g:X:de:SqB:m:"
 #ifdef USE_SSL
-            "Z:f:"
+            "Z:f:E:"
 #endif
             ,&c, &opt_arg)) == APR_SUCCESS) {
         switch (c) {
@@ -2476,6 +2526,9 @@ int main(int argc, const char * const argv[])
             case 'Z':
                 ssl_cipher = strdup(opt_arg);
                 break;
+            case 'E':
+                ssl_cert = strdup(opt_arg);
+                break;
             case 'f':
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
                 if (strncasecmp(opt_arg, "ALL", 3) == 0) {
@@ -2610,6 +2663,26 @@ int main(int argc, const char * const argv[])
     if (verbosity >= 3) {
         SSL_CTX_set_info_callback(ssl_ctx, ssl_state_cb);
     }
+    if (ssl_cert != NULL) {
+        if (SSL_CTX_use_certificate_chain_file(ssl_ctx, ssl_cert) <= 0) {
+            BIO_printf(bio_err, "unable to get certificate from '%s'\n",
+            		ssl_cert);
+            ERR_print_errors(bio_err);
+            exit(1);
+        }
+        if (SSL_CTX_use_PrivateKey_file(ssl_ctx, ssl_cert, SSL_FILETYPE_PEM) <= 0) {
+            BIO_printf(bio_err, "unable to get private key from '%s'\n",
+                ssl_cert);
+            ERR_print_errors(bio_err);
+            exit(1);
+        }
+        if (!SSL_CTX_check_private_key(ssl_ctx)) {
+            BIO_printf(bio_err,
+                       "private key does not match the certificate public key in %s\n", ssl_cert);
+            exit(1);
+        }
+    }
+
 #endif
 #ifdef SIGPIPE
     apr_signal(SIGPIPE, SIG_IGN);       /* Ignore writes to connections that

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.DiscardWithZero.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: An Id of zero though invalid may be passed to speculate(),
  * commit() and discard() without any ill effects.

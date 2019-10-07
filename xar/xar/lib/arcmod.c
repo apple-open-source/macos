@@ -96,6 +96,8 @@ int32_t xar_arcmod_extract(xar_t x, xar_file_t f, const char *file, char *buffer
 		if( xar_arcmods[i].extract ) {
 			ret = xar_arcmods[i].extract(x, f, file, buffer, len);
 			if( ret < 0 ) {
+				// If the extract failed we have corrupt asset on disk, remove, well try.
+				unlink(file);
 				return ret;
 			}
 			if( ret > 0 ) {

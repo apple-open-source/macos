@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,8 +25,8 @@
 #ifndef __PPPOE_WAN_H__
 #define __PPPOE_WAN_H__
 
-int pppoe_wan_init();
-int pppoe_wan_dispose();
+int pppoe_wan_init(void);
+int pppoe_wan_dispose(void);
 int pppoe_wan_attach(void *rfc, struct ppp_link **link);
 void pppoe_wan_detach(struct ppp_link *link);
 int pppoe_wan_input(struct ppp_link *link, mbuf_t m);

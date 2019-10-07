@@ -320,7 +320,7 @@ void WebInspectorProxy::platformAttach()
 
 void WebInspectorProxy::platformDetach()
 {
-    if (!inspectedPage()->isValid())
+    if (!inspectedPage()->hasRunningProcess())
         return;
 
     if (!m_inspectorDetachWindow) {
@@ -358,6 +358,11 @@ void WebInspectorProxy::platformSetAttachedWindowWidth(unsigned width)
     ::SetWindowPos(m_inspectedViewWindow, 0, windowInfo.left, windowInfo.top, windowInfo.parentWidth - windowInfo.left, windowInfo.parentHeight - windowInfo.top, SWP_NOZORDER);
 }
 
+void WebInspectorProxy::platformSetSheetRect(const WebCore::FloatRect&)
+{
+    notImplemented();
+}
+
 bool WebInspectorProxy::platformIsFront()
 {
     notImplemented();
@@ -365,6 +370,11 @@ bool WebInspectorProxy::platformIsFront()
 }
 
 void WebInspectorProxy::platformHide()
+{
+    notImplemented();
+}
+
+void WebInspectorProxy::platformResetState()
 {
     notImplemented();
 }

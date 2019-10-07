@@ -498,7 +498,7 @@ PRIVATE void rpc__dg_execute_call
         goto END_OF_CALL;
     }
 
-    rqe = RPC_DG_RECVQ_ELT_FROM_IOVECTOR_ELT(&iove);
+    rqe = (void *) RPC_DG_RECVQ_ELT_FROM_IOVECTOR_ELT(&iove);
     assert(rqe != NULL && rqe->hdrp != NULL);
     hdrp = rqe->hdrp;
     idem  = ((hdrp->flags & RPC_C_DG_PF_IDEMPOTENT) != 0);
@@ -841,7 +841,7 @@ PRIVATE void rpc__dg_execute_call
                     reject_st = rpc_s_who_are_you_failed;
                     goto AFTER_CALL_TO_STUB;
                 }
-                assert(rqe == RPC_DG_RECVQ_ELT_FROM_IOVECTOR_ELT(&iove));
+                assert((byte_p_t) rqe == RPC_DG_RECVQ_ELT_FROM_IOVECTOR_ELT(&iove));
             }
         }
     }

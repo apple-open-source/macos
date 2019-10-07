@@ -146,7 +146,6 @@ static void attestationTest(CFStringRef protection, BOOL noACL) {
         ok(pubUIKP != nil, "Sys-UIK-proposed copy public key");
         id pubUIKC = CFBridgingRelease(SecKeyCopyPublicKey((__bridge SecKeyRef)sysUikC));
         ok(pubUIKC != nil, "Sys-UIK-proposed copy public key");
-        ok([pubUIKP isEqual:pubUIKC], "Sys-UIK proposed and committed are same before bump");
 
         BOOL res = SecKeyControlLifetime((__bridge SecKeyRef)sysUikC, kSecKeyControlLifetimeTypeBump, (void *)&error);
         ok(res, "bumping sys-uik: %@", error);
@@ -176,7 +175,7 @@ static void attestationTest(CFStringRef protection, BOOL noACL) {
 
         id pubUIKCN = CFBridgingRelease(SecKeyCopyPublicKey((__bridge SecKeyRef)sysUikC));
         ok(pubUIKCN != nil, "Sys-UIK-committed copy public key");
-        ok([pubUIKPN isEqual:pubUIKC], "Sys-UIK proposed and committed same after commit");
+        ok([pubUIKPN isEqual:pubUIKCN], "Sys-UIK proposed and committed same after commit");
 
         // Attest system-UIK with SIK
         NSData *attSIKUIKP = CFBridgingRelease(SecKeyCreateAttestation((__bridge SecKeyRef)sik, (__bridge SecKeyRef)sysUikP, (void *)&error));
@@ -187,13 +186,28 @@ static void attestationTest(CFStringRef protection, BOOL noACL) {
     }
 }
 
-static const uint8_t satori_pub[] = {
-    0x04, 0xe4, 0xef, 0x00, 0x27, 0xcb, 0xa6, 0x46, 0x0d, 0xa6, 0xbd, 0x77, 0x14, 0x65, 0xe5, 0x5a,
-    0x14, 0xc9, 0xf8, 0xd8, 0xdd, 0x4c, 0x70, 0x44, 0x50, 0x49, 0xe4, 0xfa, 0x24, 0x71, 0xaa, 0x4c,
-    0xe2, 0x74, 0x3b, 0xfd, 0x23, 0xda, 0x6f, 0x92, 0x04, 0x4c, 0x93, 0x6c, 0xea, 0x8a, 0xac, 0x22,
-    0x99, 0xd9, 0x6e, 0x3f, 0xed, 0x20, 0xfd, 0xdd, 0x95, 0xe2, 0x32, 0xa0, 0xeb, 0x23, 0xa2, 0xd2,
-    0x8b
-};
+static void keyFromBlobTest(void) {
+    NSError *error;
+    
+    NSDictionary *keyParams = @{ (id)kSecAttrTokenID: (id)kSecAttrTokenIDAppleKeyStore,
+                                 (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom,
+                                 (id)kSecAttrIsPermanent: @NO
+                                 };
+    id privateKeyRef = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)keyParams, (void *)&error));
+    ok(privateKeyRef != nil, "Failed to create a random key: %@", error);
+
+    NSDictionary *keyAttrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)privateKeyRef));
+    NSData *keyBlob = keyAttrs[(id)kSecAttrTokenOID];
+    
+    // keyBlob -> SecKey:
+    NSDictionary *params = @{ (id)kSecAttrTokenID : (id)kSecAttrTokenIDAppleKeyStore,
+                              (id)kSecAttrTokenOID : keyBlob };
+    id newKeyRef = CFBridgingRelease(SecKeyCreateWithData((CFDataRef)keyBlob, (CFDictionaryRef)params, (void *)&error));
+    ok(newKeyRef != nil, "Failed to create key from data: %@", error);
+
+    id ref;
+    is_status(SecItemCopyMatching(((__bridge CFDictionaryRef) @{(id)kSecClass: (id)kSecClassKey, (id)kSecValueRef: newKeyRef}), (void *)&ref), errSecItemNotFound);
+}
 
 static const uint8_t satori_priv[] = {
     0x04, 0xe4, 0xef, 0x00, 0x27, 0xcb, 0xa6, 0x46,
@@ -414,16 +428,18 @@ int si_44_seckey_aks(int argc, char *const *argv) {
 
         testPKA = NO;
 #endif
-        plan_tests(testPKA ? 100 : 85);
+        plan_tests(testPKA ? 102 : 87);
+
+        secKeySepTest(testPKA);
+        attestationTest(kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, NO);
+        attestationTest(kSecAttrAccessibleUntilReboot, YES);
+        keyFromBlobTest();
 
         // Put SEP keys into test-keybag mode. Available only when running in direct-mode, not with extension.
         SecKeySetParameter(NULL, kSecAttrTokenIDAppleKeyStore, kCFBooleanTrue, NULL);
         rewrapTest();
         SecKeySetParameter(NULL, kSecAttrTokenIDAppleKeyStore, kCFBooleanFalse, NULL);
 
-        secKeySepTest(testPKA);
-        attestationTest(kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, NO);
-        attestationTest(kSecAttrAccessibleUntilReboot, YES);
         return 0;
     }
 }

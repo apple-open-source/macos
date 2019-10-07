@@ -93,26 +93,6 @@ sslFree(void *p)
 	}
 }
 
-void *
-sslRealloc(void *oldPtr, size_t oldLen, size_t newLen)
-{
-    /* _REALLOC is in sys/malloc.h but is only exported in debug kernel */
-    /* return _REALLOC(oldPtr, newLen, M_TEMP, M_NOWAIT); */
-
-    /* FIXME */
-    void *newPtr;
-    if(newLen>oldLen) {
-        newPtr=sslMalloc(newLen);
-        if(newPtr) {
-            memcpy(newPtr, oldPtr, oldLen);
-            sslFree(oldPtr);
-        }
-    } else {
-        newPtr=oldPtr;
-    }
-    return newPtr;
-}
-
 #else
 
 #include <stdlib.h>
@@ -129,12 +109,6 @@ sslFree(void *p)
 	if(p != NULL) {
 		free(p);
 	}
-}
-
-void *
-sslRealloc(void *oldPtr, size_t oldLen, size_t newLen)
-{
-	return realloc(oldPtr, newLen);
 }
 
 #endif
@@ -171,23 +145,6 @@ SSLFreeBuffer(SSLBuffer *buf)
     return 0;
 }
 
-int
-SSLReallocBuffer(SSLBuffer *buf, size_t newSize)
-{   
-	buf->data = (uint8_t *)sslRealloc(buf->data, buf->length, newSize);
-	if(buf->data == NULL) {
-        sslErrorLog("SSLReallocBuffer: NULL buf!\n");
-        check(0);
-		buf->length = 0;
-		return -1;
-	}
-	buf->length = newSize;
-	return 0;
-}
-
-// MARK: -
-// MARK: Convenience routines
-
 uint8_t *sslAllocCopy(
 	const uint8_t *src,
 	size_t len)
@@ -200,28 +157,6 @@ uint8_t *sslAllocCopy(
 	}
 	memmove(dst, src, len);
 	return dst;
-}
-
-int SSLAllocCopyBuffer(
-	const SSLBuffer *src, 
-	SSLBuffer **dst)		// buffer and data mallocd and returned 
-{   
-	int serr;
-	
-	SSLBuffer *rtn = (SSLBuffer *)sslMalloc(sizeof(SSLBuffer));
-	if(rtn == NULL) {
-        sslErrorLog("SSLAllocCopyBuffer: NULL buf!\n");
-        check(0);
-		return -1;
-	}
-	serr = SSLCopyBuffer(src, rtn);
-	if(serr) {
-		sslFree(rtn);
-	}
-	else {
-		*dst = rtn;
-	}
-	return serr;
 }
 
 int SSLCopyBufferFromData(

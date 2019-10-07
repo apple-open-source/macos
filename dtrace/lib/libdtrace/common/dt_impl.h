@@ -45,6 +45,11 @@
 
 #include <sys/param.h>
 
+#if defined(__APPLE__)
+#define OS_LOG_SUPPORTED 1
+#include <os/log.h>
+#endif /* defined(__APPLE__) */
+
 /* In lieu of Solaris #include <sys/objfs.h> */
 /*
  * Given an inode number, return the module ID for the given node.  When given
@@ -269,6 +274,7 @@ struct dtrace_hdl {
 	uint_t dt_provbuckets;	/* number of provider hash buckets */
 	uint_t dt_nprovs;	/* number of providers in hash and list */
 	dt_proc_hash_t *dt_procs; /* hash table of grabbed process handles */
+	char **dt_proc_env;	/* additional environment variables */
 	dt_intdesc_t dt_ints[6]; /* cached integer type descriptions */
 	ctf_id_t dt_type_func;	/* cached CTF identifier for function type */
 	ctf_id_t dt_type_fptr;	/* cached CTF identifier for function pointer */
@@ -573,9 +579,10 @@ enum {
 	EDT_OVERSION,		/* client is requesting deprecated version */
 	EDT_BADPID,		/* invalid pid in pid or objc probe */
 	EDT_NOSYMBOLICATOR,	 /* no kernel symbols found */
-	EDT_PROBE_RESTRICTED,	/* probe not found because system is restricted */
+	EDT_PROBERESTRICTED,	/* probe not found because system is restricted */
 	EDT_BOOTARGS,		/* failed to retrieve boot-args */
 	EDT_OPTUNSUPPORTED,	/* option value not supported on current OS */
+	EDT_USELOG		/* debug is unsupported, use log instead */
 };
 
 /*
@@ -649,6 +656,8 @@ extern int dt_rw_read_held(pthread_rwlock_t *);
 extern int dt_rw_write_held(pthread_rwlock_t *);
 extern int dt_mutex_held(pthread_mutex_t *);
 
+extern int dt_type_is_pointer(uint_t);
+
 extern dt_ident_t* dt_macro_lookup(dt_idhash_t*, const char *);
 
 extern uint64_t dt_stddev(uint64_t *, uint64_t);
@@ -660,10 +669,23 @@ extern uint64_t dt_stddev(uint64_t *, uint64_t);
 
 extern int dt_options_load(dtrace_hdl_t *);
 
-extern void dt_dprintf(const char *, ...);
+#if OS_LOG_SUPPORTED
+extern os_log_t dtrace_log;
+
+#define dt_log(format, ...) os_log(dtrace_log, format, ##__VA_ARGS__)
+#define dt_dprintf(format, ...) os_log_info(dtrace_log, format, ##__VA_ARGS__)
+#define dt_dprintf_debug(format, ...) os_log_debug(dtrace_log, format, ##__VA_ARGS__)
+#else
+#define dt_log(format, ...)
+#define dt_dprintf_debug dt_dprintf
+extern void dt_dprintf(const char *format, ...);
+#endif /* OS_LOG_SUPPORTED */
+
 
 extern void dt_setcontext(dtrace_hdl_t *, dtrace_probedesc_t *);
 extern void dt_endcontext(dtrace_hdl_t *);
+
+extern dt_node_t* dt_compile_sugar(dtrace_hdl_t *, dt_node_t *);
 
 extern void dt_pragma(dt_node_t *);
 extern int dt_reduce(dtrace_hdl_t *, dt_version_t);
@@ -695,6 +717,7 @@ extern int dt_print_llquantize(dtrace_hdl_t *, FILE *,
     const void *, size_t, uint64_t);
 extern int dt_print_agg(const dtrace_aggdata_t *, void *);
 
+
 extern int dt_handle(dtrace_hdl_t *, dtrace_probedata_t *);
 extern int dt_handle_liberr(dtrace_hdl_t *,
     const dtrace_probedata_t *, const char *);
@@ -706,6 +729,8 @@ extern int dt_handle_setopt(dtrace_hdl_t *, dtrace_setoptdata_t *);
 
 extern int dt_lib_depend_add(dtrace_hdl_t *, dt_list_t *, const char *);
 extern dt_lib_depend_t *dt_lib_depend_lookup(dt_list_t *, const char *);
+
+extern int dt_kernel_lp64(void);
 
 extern dt_pcb_t *yypcb;		/* pointer to current parser control block */
 extern char yyintprefix;	/* int token prefix for macros (+/-) */

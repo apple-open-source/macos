@@ -7,10 +7,10 @@ Test timezone_offset_get() function : usage variation - Passing unexpected value
  * Source code: ext/date/php_date.c
  * Alias to functions: DateTimeZone::getOffset()
  */
- 
+
 echo "*** Testing timezone_offset_get() : usage variation -  unexpected values to first argument \$object***\n";
 
-//Set the default time zone 
+//Set the default time zone
 date_default_timezone_set("Europe/London");
 
 set_error_handler('handler');
@@ -98,8 +98,8 @@ $inputs = array(
 
       // unset data
       'unset var' => @$unset_var,
-      
-      // resource 
+
+      // resource
       'resource' => $file_handle
 );
 
@@ -119,20 +119,20 @@ fclose( $file_handle );
 
 ?>
 ===DONE===
---EXPECTF--
+--EXPECT--
 *** Testing timezone_offset_get() : usage variation -  unexpected values to first argument $object***
 
 -- int 0 --
-Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, integer given
+Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, int given
 
 -- int 1 --
-Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, integer given
+Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, int given
 
 -- int 12345 --
-Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, integer given
+Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, int given
 
 -- int -12345 --
-Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, integer given
+Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, int given
 
 -- float 10.5 --
 Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, float given
@@ -162,16 +162,16 @@ Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, 
 Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, null given
 
 -- lowercase true --
-Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, boolean given
+Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, bool given
 
 -- lowercase false --
-Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, boolean given
+Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, bool given
 
 -- uppercase TRUE --
-Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, boolean given
+Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, bool given
 
 -- uppercase FALSE --
-Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, boolean given
+Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, bool given
 
 -- empty string DQ --
 Argument 1 passed to timezone_offset_get() must be an instance of DateTimeZone, string given

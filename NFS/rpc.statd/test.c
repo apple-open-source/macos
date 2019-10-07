@@ -21,16 +21,17 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifndef lint
-static const char rcsid[] =
-"$FreeBSD$";
-#endif				/* not lint */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
+#include <sys/cdefs.h>
 #include <oncrpc/rpc.h>
 #include "sm_inter.h"
+
+#ifndef lint
+__unused const char rcsid[] =
+"$FreeBSD$";
+#endif /* not lint */
 
 char *progname;
 

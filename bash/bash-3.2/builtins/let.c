@@ -29,7 +29,7 @@ let_builtin (list)
 
   if (list == 0)
     {
-      builtin_error (_("expression expected"));
+      builtin_error ("%s", _("expression expected"));
       return (EXECUTION_FAILURE);
     }
 
@@ -54,7 +54,7 @@ exp_builtin (list)
 
   if (list == 0)
     {
-      builtin_error (_("expression expected"));
+      builtin_error ("%s", _("expression expected"));
       return (EXECUTION_FAILURE);
     }
 

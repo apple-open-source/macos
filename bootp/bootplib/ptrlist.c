@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,11 +28,12 @@
 #include <strings.h>
 
 #include "ptrlist.h"
+#include "symbol_scope.h"
 
 #ifdef TESTING
 #define DEBUG
 
-static __inline__ void
+STATIC __inline__ void
 ptrlist_print(ptrlist_t * list)
 {
     printf("ptrlist count %d, size %d\n", list->count, list->size);
@@ -46,14 +47,14 @@ ptrlist_print(ptrlist_t * list)
 
 #endif /* TESTING */
 
-void
+PRIVATE_EXTERN void
 ptrlist_init(ptrlist_t * list)
 {
     bzero(list, sizeof(*list));
     return;
 }
 
-void
+PRIVATE_EXTERN void
 ptrlist_init_size(ptrlist_t * list, int size)
 {
     bzero(list, sizeof(*list));
@@ -67,7 +68,7 @@ ptrlist_init_size(ptrlist_t * list, int size)
     return;
 }
 
-void
+PRIVATE_EXTERN void
 ptrlist_free(ptrlist_t * list)
 {
     if (list->array)
@@ -76,7 +77,7 @@ ptrlist_free(ptrlist_t * list)
     return;
 }
 
-int
+PRIVATE_EXTERN int
 ptrlist_index(ptrlist_t * list, void * element)
 {
     int i;
@@ -87,7 +88,7 @@ ptrlist_index(ptrlist_t * list, void * element)
     return (-1);
 }
 
-int
+PRIVATE_EXTERN int
 ptrlist_count(ptrlist_t * list)
 {
     if (list == NULL || list->array == NULL)
@@ -96,7 +97,7 @@ ptrlist_count(ptrlist_t * list)
     return (list->count);
 }
 
-void *
+PRIVATE_EXTERN void *
 ptrlist_element(ptrlist_t * list, int i)
 {
     if (list->array == NULL)
@@ -106,7 +107,7 @@ ptrlist_element(ptrlist_t * list, int i)
     return (NULL);
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 ptrlist_remove(ptrlist_t * list, int i, void * * ret)
 {
     int		nmove;
@@ -125,7 +126,7 @@ ptrlist_remove(ptrlist_t * list, int i, void * * ret)
     return (TRUE);
 }
 
-static boolean_t
+STATIC boolean_t
 ptrlist_grow(ptrlist_t * list)
 {
     if (list->array == NULL) {
@@ -147,7 +148,7 @@ ptrlist_grow(ptrlist_t * list)
     return (TRUE);
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 ptrlist_add(ptrlist_t * list, void * element)
 {
     if (ptrlist_grow(list) == FALSE)
@@ -157,7 +158,7 @@ ptrlist_add(ptrlist_t * list, void * element)
     return (TRUE);
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 ptrlist_insert(ptrlist_t * list, void * element, int where)
 {
     if (where < 0)
@@ -179,7 +180,7 @@ ptrlist_insert(ptrlist_t * list, void * element, int where)
 
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 ptrlist_dup(ptrlist_t * dest, ptrlist_t * source)
 {
     ptrlist_init(dest);
@@ -194,7 +195,7 @@ ptrlist_dup(ptrlist_t * dest, ptrlist_t * source)
 }
 
 /* concatenates extra onto list */
-boolean_t
+PRIVATE_EXTERN boolean_t
 ptrlist_concat(ptrlist_t * list, ptrlist_t * extra)
 {
     if (extra->count == 0)

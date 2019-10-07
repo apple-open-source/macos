@@ -125,14 +125,19 @@ int	glob(const char * __restrict, int, int (*)(const char *, int),
 #endif /* !LIBC_ALIAS_GLOB */
 //End-Libc
 #ifdef __BLOCKS__
+#if __has_attribute(noescape)
+#define __glob_noescape __attribute__((__noescape__))
+#else
+#define __glob_noescape
+#endif
 //Begin-Libc
 #ifndef LIBC_ALIAS_GLOB_B
 //End-Libc
-int	glob_b(const char * __restrict, int, int (^)(const char *, int), 
+int	glob_b(const char * __restrict, int, int (^)(const char *, int) __glob_noescape,
 	     glob_t * __restrict) __DARWIN_INODE64(glob_b) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 //Begin-Libc
 #else /* LIBC_ALIAS_GLOB_B */
-int	glob_b(const char * __restrict, int, int (^)(const char *, int), 
+int	glob_b(const char * __restrict, int, int (^)(const char *, int) __glob_noescape,
 	     glob_t * __restrict) LIBC_INODE64(glob_b);
 #endif /* !LIBC_ALIAS_GLOB_B */
 //End-Libc

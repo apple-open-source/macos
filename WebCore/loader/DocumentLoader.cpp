@@ -38,6 +38,7 @@
 #include "CachedResourceLoader.h"
 #include "ContentExtensionError.h"
 #include "ContentSecurityPolicy.h"
+#include "CustomHeaderFields.h"
 #include "DOMWindow.h"
 #include "Document.h"
 #include "DocumentParser.h"
@@ -53,7 +54,6 @@
 #include "FrameTree.h"
 #include "HTMLFormElement.h"
 #include "HTMLFrameOwnerElement.h"
-#include "HTTPHeaderField.h"
 #include "HTTPHeaderNames.h"
 #include "HistoryItem.h"
 #include "HistoryController.h"
@@ -72,6 +72,7 @@
 #include "ProgressTracker.h"
 #include "ResourceHandle.h"
 #include "ResourceLoadObserver.h"
+#include "RuntimeEnabledFeatures.h"
 #include "SWClientConnection.h"
 #include "SchemeRegistry.h"
 #include "ScriptableDocumentParser.h"
@@ -124,6 +125,42 @@ static void setAllDefersLoading(const ResourceLoaderMap& loaders, bool defers)
         loader->setDefersLoading(defers);
 }
 
+static bool shouldPendingCachedResourceLoadPreventPageCache(CachedResource& cachedResource)
+{
+    if (!cachedResource.isLoading())
+        return false;
+
+    switch (cachedResource.type()) {
+    case CachedResource::Type::ImageResource:
+    case CachedResource::Type::Icon:
+    case CachedResource::Type::Beacon:
+    case CachedResource::Type::Ping:
+    case CachedResource::Type::LinkPrefetch:
+        return false;
+    case CachedResource::Type::MainResource:
+    case CachedResource::Type::CSSStyleSheet:
+    case CachedResource::Type::Script:
+    case CachedResource::Type::FontResource:
+#if ENABLE(SVG_FONTS)
+    case CachedResource::Type::SVGFontResource:
+#endif
+    case CachedResource::Type::MediaResource:
+    case CachedResource::Type::RawResource:
+    case CachedResource::Type::SVGDocumentResource:
+#if ENABLE(XSLT)
+    case CachedResource::Type::XSLStyleSheet:
+#endif
+#if ENABLE(VIDEO_TRACK)
+    case CachedResource::Type::TextTrackResource:
+#endif
+#if ENABLE(APPLICATION_MANIFEST)
+    case CachedResource::Type::ApplicationManifest:
+#endif
+        break;
+    };
+    return !cachedResource.areAllClientsXMLHttpRequests();
+}
+
 static bool areAllLoadersPageCacheAcceptable(const ResourceLoaderMap& loaders)
 {
     for (auto& loader : copyToVector(loaders.values())) {
@@ -134,9 +171,9 @@ static bool areAllLoadersPageCacheAcceptable(const ResourceLoaderMap& loaders)
         if (!cachedResource)
             return false;
 
-        // Only image and XHR loads do prevent the page from entering the PageCache.
+        // Only image and XHR loads do not prevent the page from entering the PageCache.
         // All non-image loads will prevent the page from entering the PageCache.
-        if (!cachedResource->isImage() && !cachedResource->areAllClientsXMLHttpRequests())
+        if (shouldPendingCachedResourceLoadPreventPageCache(*cachedResource))
             return false;
     }
     return true;
@@ -145,7 +182,6 @@ static bool areAllLoadersPageCacheAcceptable(const ResourceLoaderMap& loaders)
 DocumentLoader::DocumentLoader(const ResourceRequest& request, const SubstituteData& substituteData)
     : FrameDestructionObserver(nullptr)
     , m_cachedResourceLoader(CachedResourceLoader::create(this))
-    , m_writer(m_frame)
     , m_originalRequest(request)
     , m_substituteData(substituteData)
     , m_originalRequestCopy(request)
@@ -664,7 +700,7 @@ void DocumentLoader::willSendRequest(ResourceRequest&& newRequest, const Resourc
 
     // FIXME: Add a load type check.
     auto& policyChecker = frameLoader()->policyChecker();
-    ASSERT(!isBackForwardLoadType(policyChecker.loadType()) || frameLoader()->history().provisionalItem());
+    RELEASE_ASSERT(!isBackForwardLoadType(policyChecker.loadType()) || frameLoader()->history().provisionalItem());
     policyChecker.checkNavigationPolicy(WTFMove(newRequest), redirectResponse, WTFMove(navigationPolicyCompletionHandler));
 }
 
@@ -787,13 +823,15 @@ void DocumentLoader::responseReceived(const ResourceResponse& response, Completi
             return;
         }
 
-        String frameOptions = response.httpHeaderFields().get(HTTPHeaderName::XFrameOptions);
-        if (!frameOptions.isNull()) {
-            if (frameLoader()->shouldInterruptLoadForXFrameOptions(frameOptions, url, identifier)) {
-                String message = "Refused to display '" + url.stringCenterEllipsizedToLength() + "' in a frame because it set 'X-Frame-Options' to '" + frameOptions + "'.";
-                m_frame->document()->addConsoleMessage(MessageSource::Security, MessageLevel::Error, message, identifier);
-                stopLoadingAfterXFrameOptionsOrContentSecurityPolicyDenied(identifier, response);
-                return;
+        if (!contentSecurityPolicy.overridesXFrameOptions()) {
+            String frameOptions = response.httpHeaderFields().get(HTTPHeaderName::XFrameOptions);
+            if (!frameOptions.isNull()) {
+                if (frameLoader()->shouldInterruptLoadForXFrameOptions(frameOptions, url, identifier)) {
+                    String message = "Refused to display '" + url.stringCenterEllipsizedToLength() + "' in a frame because it set 'X-Frame-Options' to '" + frameOptions + "'.";
+                    m_frame->document()->addConsoleMessage(MessageSource::Security, MessageLevel::Error, message, identifier);
+                    stopLoadingAfterXFrameOptionsOrContentSecurityPolicyDenied(identifier, response);
+                    return;
+                }
             }
         }
     }
@@ -845,11 +883,7 @@ void DocumentLoader::responseReceived(const ResourceResponse& response, Completi
     auto requestIdentifier = PolicyCheckIdentifier::create();
     frameLoader()->checkContentPolicy(m_response, requestIdentifier, [this, protectedThis = makeRef(*this), mainResourceLoader = WTFMove(mainResourceLoader),
         completionHandler = completionHandlerCaller.release(), requestIdentifier] (PolicyAction policy, PolicyCheckIdentifier responseIdentifeir) mutable {
-#if ASSERT_DISABLED
-        UNUSED_PARAM(requestIdentifier);
-        UNUSED_PARAM(responseIdentifeir);
-#endif
-        ASSERT(responseIdentifeir.isValidFor(requestIdentifier));
+        RELEASE_ASSERT(responseIdentifeir.isValidFor(requestIdentifier));
         continueAfterContentPolicy(policy);
         if (mainResourceLoader)
             mainResourceLoader->didReceiveResponsePolicy();
@@ -944,9 +978,15 @@ void DocumentLoader::continueAfterContentPolicy(PolicyAction policy)
         } else
             frameLoader()->client().convertMainResourceLoadToDownload(this, sessionID, m_request, m_response);
 
-        // It might have gone missing
-        if (mainResourceLoader())
+        // The main resource might be loading from the memory cache, or its loader might have gone missing.
+        if (mainResourceLoader()) {
             static_cast<ResourceLoader*>(mainResourceLoader())->didFail(interruptedForPolicyChangeError());
+            return;
+        }
+
+        // We must stop loading even if there is no main resource loader. Otherwise, we might remain
+        // the client of a CachedRawResource that will continue to send us data.
+        stopLoadingForPolicyChange();
         return;
     }
     case PolicyAction::StopAllLoads:
@@ -1080,6 +1120,9 @@ void DocumentLoader::commitData(const char* bytes, size_t length)
         if (!isLoading())
             return;
 
+        if (auto* window = m_frame->document()->domWindow())
+            window->prewarmLocalStorageIfNecessary();
+
         bool userChosen;
         String encoding;
         if (overrideEncoding().isNull()) {
@@ -1179,6 +1222,21 @@ void DocumentLoader::checkLoadComplete()
     m_frame->document()->domWindow()->finishedLoading();
 }
 
+void DocumentLoader::applyPoliciesToSettings()
+{
+    if (!m_frame) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    if (!m_frame->isMainFrame())
+        return;
+
+#if ENABLE(MEDIA_SOURCE)
+    m_frame->settings().setMediaSourceEnabled(m_mediaSourcePolicy == MediaSourcePolicy::Default ? Settings::platformDefaultMediaSourceEnabled() : m_mediaSourcePolicy == MediaSourcePolicy::Enable);
+#endif
+}
+
 void DocumentLoader::attachToFrame(Frame& frame)
 {
     if (m_frame == &frame)
@@ -1186,12 +1244,14 @@ void DocumentLoader::attachToFrame(Frame& frame)
 
     ASSERT(!m_frame);
     observeFrame(&frame);
-    m_writer.setFrame(&frame);
+    m_writer.setFrame(frame);
     attachToFrame();
 
 #ifndef NDEBUG
     m_hasEverBeenAttached = true;
 #endif
+
+    applyPoliciesToSettings();
 }
 
 void DocumentLoader::attachToFrame()
@@ -1306,11 +1366,6 @@ void DocumentLoader::notifyFinishedLoadingApplicationManifest(uint64_t callbackI
     m_frame->loader().client().finishedLoadingApplicationManifest(callbackIdentifier, manifest);
 }
 #endif
-
-void DocumentLoader::setCustomHeaderFields(Vector<HTTPHeaderField>&& fields)
-{
-    m_customHeaderFields = WTFMove(fields);
-}
 
 bool DocumentLoader::isLoadingInAPISense() const
 {
@@ -1560,6 +1615,11 @@ void DocumentLoader::stopRecordingResponses()
     m_responses.shrinkToFit();
 }
 
+void DocumentLoader::setCustomHeaderFields(Vector<CustomHeaderFields>&& fields)
+{
+    m_customHeaderFields = WTFMove(fields);
+}
+
 void DocumentLoader::setTitle(const StringWithDirection& title)
 {
     if (m_pageTitle == title)
@@ -1658,8 +1718,24 @@ void DocumentLoader::addSubresourceLoader(ResourceLoader* loader)
     if (loader->options().applicationCacheMode == ApplicationCacheMode::Bypass)
         return;
 
-    // A page in the PageCache or about to enter PageCache should not be able to start loads.
-    ASSERT_WITH_SECURITY_IMPLICATION(!document() || document()->pageCacheState() == Document::NotInPageCache);
+#if !ASSERT_DISABLED
+    if (document()) {
+        switch (document()->pageCacheState()) {
+        case Document::NotInPageCache:
+            break;
+        case Document::AboutToEnterPageCache: {
+            // A page about to enter PageCache should only be able to start ping loads.
+            auto* cachedResource = MemoryCache::singleton().resourceForRequest(loader->request(), loader->frameLoader()->frame().page()->sessionID());
+            ASSERT(cachedResource && CachedResource::shouldUsePingLoad(cachedResource->type()));
+            break;
+        }
+        case Document::InPageCache:
+            // A page in the PageCache should not be able to start loads.
+            ASSERT_NOT_REACHED();
+            break;
+        }
+    }
+#endif
 
     m_subresourceLoaders.add(loader->identifier(), loader);
 }
@@ -1799,19 +1875,21 @@ void DocumentLoader::registerTemporaryServiceWorkerClient(const URL& url)
         return;
 
     m_temporaryServiceWorkerClient = TemporaryServiceWorkerClient {
-        generateObjectIdentifier<DocumentIdentifierType>(),
-        *ServiceWorkerProvider::singleton().existingServiceWorkerConnectionForSession(m_frame->page()->sessionID())
+        DocumentIdentifier::generate(),
+        m_frame->page()->sessionID()
     };
 
+    auto& serviceWorkerConnection = ServiceWorkerProvider::singleton().serviceWorkerConnectionForSession(m_temporaryServiceWorkerClient->sessionID);
+
     // FIXME: Compute ServiceWorkerClientFrameType appropriately.
-    ServiceWorkerClientData data { { m_temporaryServiceWorkerClient->serviceWorkerConnection->serverConnectionIdentifier(), m_temporaryServiceWorkerClient->documentIdentifier }, ServiceWorkerClientType::Window, ServiceWorkerClientFrameType::None, url };
+    ServiceWorkerClientData data { { serviceWorkerConnection.serverConnectionIdentifier(), m_temporaryServiceWorkerClient->documentIdentifier }, ServiceWorkerClientType::Window, ServiceWorkerClientFrameType::None, url };
 
     RefPtr<SecurityOrigin> topOrigin;
     if (m_frame->isMainFrame())
         topOrigin = SecurityOrigin::create(url);
     else
         topOrigin = &m_frame->mainFrame().document()->topOrigin();
-    m_temporaryServiceWorkerClient->serviceWorkerConnection->registerServiceWorkerClient(*topOrigin, WTFMove(data), m_serviceWorkerRegistrationData->identifier, m_frame->loader().userAgent(url));
+    serviceWorkerConnection.registerServiceWorkerClient(*topOrigin, WTFMove(data), m_serviceWorkerRegistrationData->identifier, m_frame->loader().userAgent(url));
 #else
     UNUSED_PARAM(url);
 #endif
@@ -1823,7 +1901,8 @@ void DocumentLoader::unregisterTemporaryServiceWorkerClient()
     if (!m_temporaryServiceWorkerClient)
         return;
 
-    m_temporaryServiceWorkerClient->serviceWorkerConnection->unregisterServiceWorkerClient(m_temporaryServiceWorkerClient->documentIdentifier);
+    auto& serviceWorkerConnection = ServiceWorkerProvider::singleton().serviceWorkerConnectionForSession(m_temporaryServiceWorkerClient->sessionID);
+    serviceWorkerConnection.unregisterServiceWorkerClient(m_temporaryServiceWorkerClient->documentIdentifier);
     m_temporaryServiceWorkerClient = WTF::nullopt;
 #endif
 }
@@ -2080,10 +2159,18 @@ void DocumentLoader::setTriggeringAction(NavigationAction&& action)
 
 ShouldOpenExternalURLsPolicy DocumentLoader::shouldOpenExternalURLsPolicyToPropagate() const
 {
-    if (!m_frame || !m_frame->isMainFrame())
+    if (!m_frame)
         return ShouldOpenExternalURLsPolicy::ShouldNotAllow;
 
-    return m_shouldOpenExternalURLsPolicy;
+    if (m_frame->isMainFrame())
+        return m_shouldOpenExternalURLsPolicy;
+
+    if (auto* currentDocument = document()) {
+        if (currentDocument->securityOrigin().isSameOriginAs(currentDocument->topOrigin()))
+            return m_shouldOpenExternalURLsPolicy;
+    }
+
+    return ShouldOpenExternalURLsPolicy::ShouldNotAllow;
 }
 
 void DocumentLoader::becomeMainResourceClient()

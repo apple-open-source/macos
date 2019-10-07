@@ -30,6 +30,8 @@
 #include <IOKit/IOReturn.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/hid/IOHIDProperties.h>
+#include <IOKit/hid/IOHIDDeviceTypes.h>
+#include <IOKit/hid/IOHIDDeviceKeys.h>
 
 __BEGIN_DECLS
 
@@ -71,34 +73,12 @@ __BEGIN_DECLS
         instead add an array or dictionaries referenced by kIOHIDDeviceUsagePairsKey to his 
         matching dictionary.
 */
-#define kIOHIDTransportKey                  "Transport"
-#define kIOHIDVendorIDKey                   "VendorID"
 #define kIOHIDVendorIDSourceKey             "VendorIDSource"
-#define kIOHIDProductIDKey                  "ProductID"
-#define kIOHIDVersionNumberKey              "VersionNumber"
-#define kIOHIDManufacturerKey               "Manufacturer"
-#define kIOHIDProductKey                    "Product"
-#define kIOHIDSerialNumberKey               "SerialNumber"
-#define kIOHIDCountryCodeKey                "CountryCode"
 #define kIOHIDStandardTypeKey               "StandardType"
-#define kIOHIDLocationIDKey                 "LocationID"
-#define kIOHIDDeviceUsageKey                "DeviceUsage"
-#define kIOHIDDeviceUsagePageKey            "DeviceUsagePage"
-#define kIOHIDDeviceUsagePairsKey           "DeviceUsagePairs"
-#define kIOHIDPrimaryUsageKey               "PrimaryUsage"
-#define kIOHIDPrimaryUsagePageKey           "PrimaryUsagePage"
-#define kIOHIDMaxInputReportSizeKey         "MaxInputReportSize"
-#define kIOHIDMaxOutputReportSizeKey        "MaxOutputReportSize"
-#define kIOHIDMaxFeatureReportSizeKey       "MaxFeatureReportSize"
-#define kIOHIDReportIntervalKey             "ReportInterval"
 #define kIOHIDSampleIntervalKey             "SampleInterval"
-#define kIOHIDBatchIntervalKey              "BatchInterval"
-#define kIOHIDRequestTimeoutKey             "RequestTimeout"
-#define kIOHIDReportDescriptorKey           "ReportDescriptor"
 #define kIOHIDResetKey                      "Reset"
 #define kIOHIDKeyboardLanguageKey           "KeyboardLanguage"
 #define kIOHIDAltHandlerIdKey               "alt_handler_id"
-#define kIOHIDBuiltInKey                    "Built-In"
 #define kIOHIDDisplayIntegratedKey          "DisplayIntegrated"
 #define kIOHIDProductIDMaskKey              "ProductIDMask"
 #define kIOHIDProductIDArrayKey             "ProductIDArray"
@@ -106,14 +86,13 @@ __BEGIN_DECLS
 #define kIOHIDCategoryKey                   "Category"
 #define kIOHIDMaxResponseLatencyKey         "MaxResponseLatency"
 #define kIOHIDUniqueIDKey                   "UniqueID"
-#define kIOHIDPhysicalDeviceUniqueIDKey     "PhysicalDeviceUniqueID"
 #define kIOHIDModelNumberKey                "ModelNumber"
 
 
 #define kIOHIDTransportUSBValue                 "USB"
 #define kIOHIDTransportBluetoothValue           "Bluetooth"
 #define kIOHIDTransportBluetoothLowEnergyValue  "BluetoothLowEnergy"
-#define kIOHIDTransportAIDBValue                "AIDB"
+#define kIOHIDTransportAIDBValue                "AID"
 #define kIOHIDTransportI2CValue                 "I2C"
 #define kIOHIDTransportSPIValue                 "SPI"
 #define kIOHIDTransportSerialValue              "Serial"
@@ -232,97 +211,11 @@ __BEGIN_DECLS
 #define kIOHIDElementCalibrationGranularityKey      "CalibrationGranularity"
 
 /*!
-    @typedef IOHIDElementCookie
-    @abstract Abstract data type used as a unique identifier for an element.
-*/
-#ifdef __LP64__
-    typedef uint32_t IOHIDElementCookie;
-#else
-    typedef void * IOHIDElementCookie;
-#endif
-
-/*!
-  @typedef IOHIDElementType
-  @abstract Describes different types of HID elements.
-  @discussion Used by the IOHIDFamily to identify the type of
-  element processed.  Represented by the key kIOHIDElementTypeKey in the 
-    dictionary describing the element.
-  @constant kIOHIDElementTypeInput_Misc
-    Misc input data field or varying size.
-  @constant kIOHIDElementTypeInput_Button 
-    One bit input data field.
-  @constant kIOHIDElementTypeInput_Axis 
-    Input data field used to represent an axis.
-  @constant kIOHIDElementTypeInput_ScanCodes
-    Input data field used to represent a scan code or usage selector.
-  @constant kIOHIDElementTypeOutput
-    Used to represent an output data field in a report.
-  @constant kIOHIDElementTypeFeature
-    Describes input and output elements not intended for 
-    consumption by the end user.
-  @constant kIOHIDElementTypeCollection
-    Element used to identify a relationship between two or more elements.
-*/
-enum IOHIDElementType {
-    kIOHIDElementTypeInput_Misc        = 1,
-    kIOHIDElementTypeInput_Button      = 2,
-    kIOHIDElementTypeInput_Axis        = 3,
-    kIOHIDElementTypeInput_ScanCodes   = 4,
-    kIOHIDElementTypeOutput            = 129,
-    kIOHIDElementTypeFeature           = 257,
-    kIOHIDElementTypeCollection        = 513
-};
-typedef enum IOHIDElementType IOHIDElementType;
-
-/*!
-  @typedef IOHIDElementCollectionType
-  @abstract Describes different types of HID collections.
-  @discussion Collections identify a relationship between two or more
-    elements.
-  @constant kIOHIDElementCollectionTypePhysical   
-    Used for a set of data items that represent data points 
-    collected at one geometric point.
-  @constant kIOHIDElementCollectionTypeApplication 
-    Identifies item groups serving different purposes in a single device.
-  @constant kIOHIDElementCollectionTypeLogical
-    Used when a set of data items form a composite data structure.
-  @constant kIOHIDElementCollectionTypeReport 
-    Wraps all the fields in a report.
-  @constant kIOHIDElementCollectionTypeNamedArray 
-    Contains an array of selector usages.
-  @constant kIOHIDElementCollectionTypeUsageSwitch 
-    Modifies the meaning of the usage it contains.
-  @constant kIOHIDElementCollectionTypeUsageModifier 
-    Modifies the meaning of the usage attached to the encompassing collection.
-*/
-enum IOHIDElementCollectionType{
-    kIOHIDElementCollectionTypePhysical    = 0x00,
-    kIOHIDElementCollectionTypeApplication,
-    kIOHIDElementCollectionTypeLogical,
-    kIOHIDElementCollectionTypeReport,
-    kIOHIDElementCollectionTypeNamedArray,
-    kIOHIDElementCollectionTypeUsageSwitch,
-    kIOHIDElementCollectionTypeUsageModifier
-};
-typedef enum IOHIDElementCollectionType IOHIDElementCollectionType;
-
-
-/*!
-  @typedef IOHIDReportType
-  @abstract Describes different type of HID reports.
-  @discussion Used by the IOHIDFamily to identify the type of
-    report being processed.
-  @constant kIOHIDReportTypeInput Input report.
-  @constant kIOHIDReportTypeOutput Output report.
-  @constant kIOHIDReportTypeFeature Feature report.
-*/
-enum IOHIDReportType{
-    kIOHIDReportTypeInput = 0,
-    kIOHIDReportTypeOutput,
-    kIOHIDReportTypeFeature,
-    kIOHIDReportTypeCount
-};
-typedef enum IOHIDReportType IOHIDReportType;
+    @defined kIOHIDKeyboardSupportsEscKey
+    @abstract Describe if keyboard device supports esc key.
+    @discussion Keyboard devices having full HID keyboard descriptor can specify if esc key is actually supported or not. For new macs with TouchBar this is ideal scenario where keyboard descriptor by defaultspecifies presence of esc key but through given property client can check if key is present or not
+ */
+#define kIOHIDKeyboardSupportsEscKey                 "HIDKeyboardSupportsEscKey"
 
 /*!
   @typedef IOHIDOptionsType
@@ -352,20 +245,6 @@ enum {
 };
 typedef uint32_t IOHIDQueueOptionsType;
 
-
-enum {
-    kIOHIDElementFlagsConstantMask        = 0x0001,
-    kIOHIDElementFlagsVariableMask        = 0x0002,
-    kIOHIDElementFlagsRelativeMask        = 0x0004,
-    kIOHIDElementFlagsWrapMask            = 0x0008,
-    kIOHIDElementFlagsNonLinearMask       = 0x0010,
-    kIOHIDElementFlagsNoPreferredMask     = 0x0020,
-    kIOHIDElementFlagsNullStateMask       = 0x0040,
-    kIOHIDElementFlagsVolativeMask        = 0x0080,
-    kIOHIDElementFlagsBufferedByteMask    = 0x0100
-};
-typedef uint32_t IOHIDElementFlags;
-
 /*!
   @typedef IOHIDStandardType
   @abstract Type to define what industrial standard the device is referencing.
@@ -379,32 +258,6 @@ enum {
     kIOHIDStandardTypeJIS                 = 2
 };
 typedef uint32_t IOHIDStandardType;
-
-/*!
- @typedef IOHIDValueScaleType
- @abstract Describes different types of scaling that can be performed on element values.
- @constant kIOHIDValueScaleTypeCalibrated Type for value that is scaled with respect to the calibration properties.
- @constant kIOHIDValueScaleTypePhysical Type for value that is scaled with respect to the physical min and physical max of the element.
- @constant kIOHIDValueScaleTypeExponent Type for value that is scaled with respect to the element's unit exponent.
- */
-enum {
-    kIOHIDValueScaleTypeCalibrated,
-    kIOHIDValueScaleTypePhysical,
-    kIOHIDValueScaleTypeExponent
-};
-typedef uint32_t IOHIDValueScaleType;
-
-/*!
- @typedef IOHIDValueOptions
- @abstract Describes options for gathering element values.
- @constant kIOHIDValueOptionsFlagRelativeSimple Compares against previous value
- */
-enum {
-    kIOHIDValueOptionsFlagRelativeSimple    = (1<<0),
-    kIOHIDValueOptionsFlagPrevious          = (1<<1),
-    kIOHIDValueOptionsUpdateElementValues   = (1<<2)
-};
-typedef uint32_t IOHIDValueOptions;
 
 #define kIOHIDDigitizerGestureCharacterStateKey "DigitizerCharacterGestureState"
 
@@ -448,6 +301,63 @@ typedef uint32_t IOHIDValueOptions;
  
  */
 #define  kIOHIDDeviceOpenedByEventSystemKey "DeviceOpenedByEventSystem"
+
+/*!
+ * @define kIOHIDDeviceSuspendKey
+ *
+ * @abstract
+ * Boolean property set on a user space IOHIDDeviceRef to suspend report delivery
+ * to registered callbacks.
+ *
+ * @discussion
+ * When set to true, the callbacks registered via the following API will not be invoked:
+ *     IOHIDDeviceRegisterInputReportCallback
+ *     IOHIDDeviceRegisterInputReportWithTimeStampCallback
+ *     IOHIDDeviceRegisterInputValueCallback
+ * To resume report delivery, this property should be set to false.
+ */
+#define kIOHIDDeviceSuspendKey              "IOHIDDeviceSuspend"
+
+
+
+/*!
+    @defined    kIOHIDSensorPropertyReportIntervalKey
+    @abstract   Property to get or set the Report Interval in us of supported sensor devices
+    @discussion Corresponds to kHIDUsage_Snsr_Property_ReportInterval in a sensor device's
+                descriptor.
+ */
+#define kIOHIDSensorPropertyReportIntervalKey   kIOHIDReportIntervalKey
+
+/*!
+    @defined    kIOHIDSensorPropertySampleIntervalKey
+    @abstract   Property to get or set the Sample Interval in us of supported sensor devices
+    @discussion Corresponds to kHIDUsage_Snsr_Property_SamplingRate in a sensor device's
+                descriptor.
+ */
+#define kIOHIDSensorPropertySampleIntervalKey   kIOHIDSampleIntervalKey
+
+/*!
+    @defined    kIOHIDSensorPropertyBatchIntervalKey
+    @abstract   Property to get or set the Batch Interval / Report Latency in us of supported sensor devices
+    @discussion Corresponds to kHIDUsage_Snsr_Property_ReportLatency in a sensor device's
+                descriptor.
+ */
+#define kIOHIDSensorPropertyBatchIntervalKey    kIOHIDBatchIntervalKey
+
+/*!
+    @defined    kIOHIDSensorPropertyReportLatencyKey
+    @abstract   Alias of kIOHIDSensorPropertyBatchIntervalKey
+ */
+#define kIOHIDSensorPropertyReportLatencyKey    kIOHIDSensorPropertyBatchIntervalKey
+
+/*!
+    @defined    kIOHIDSensorPropertyMaxFIFOEventsKey
+    @abstract   Property to get or set the maximum FIFO event queue size of supported sensor devices
+    @discussion Corresponds to kHIDUsage_Snsr_Property_MaxFIFOEvents in a sensor device's
+                descriptor.
+ */
+#define kIOHIDSensorPropertyMaxFIFOEventsKey    "MaxFIFOEvents"
+
 __END_DECLS
 
 #endif /* !_IOKIT_HID_IOHIDKEYS_H_ */

@@ -424,7 +424,7 @@ getconfig(intface)
 			exit(1);
 		}
 		memset(&ndi, 0, sizeof(ndi));
-		strncpy(ndi.ifname, intface, IFNAMSIZ);
+		strlcpy(ndi.ifname, intface, sizeof(ndi.ifname));
 		if (ioctl(s, SIOCGIFINFO_IN6, (caddr_t)&ndi) < 0) {
 			infolog("<%s> ioctl:SIOCGIFINFO_IN6 at %s: %s",
 			     __func__, intface, strerror(errno));
@@ -840,9 +840,9 @@ add_prefix(struct rainfo *rai, struct in6_prefixreq *ipr)
 	prefix->onlinkflg = ipr->ipr_raf_onlink;
 	prefix->autoconfflg = ipr->ipr_raf_auto;
 	prefix->origin = PREFIX_FROM_DYNAMIC;
+	prefix->rainfo = rai;
 
 	insque(prefix, &rai->prefix);
-	prefix->rainfo = rai;
 
 	debuglog("<%s> new prefix %s/%d was added on %s",
 	       __func__, inet_ntop(AF_INET6, &ipr->ipr_prefix.sin6_addr,

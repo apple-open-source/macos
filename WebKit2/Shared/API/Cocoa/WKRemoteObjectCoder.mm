@@ -26,8 +26,6 @@
 #import "config.h"
 #import "WKRemoteObjectCoder.h"
 
-#if WK_API_ENABLED
-
 #import "APIArray.h"
 #import "APIData.h"
 #import "APIDictionary.h"
@@ -179,7 +177,7 @@ static void encodeInvocationArguments(WKRemoteObjectEncoder *encoder, NSInvocati
         }
 
         // long
-        case 'q': {
+        case 'l': {
             long value;
             [invocation getArgument:&value atIndex:i];
 
@@ -188,8 +186,26 @@ static void encodeInvocationArguments(WKRemoteObjectEncoder *encoder, NSInvocati
         }
 
         // unsigned long
-        case 'Q': {
+        case 'L': {
             unsigned long value;
+            [invocation getArgument:&value atIndex:i];
+
+            encodeToObjectStream(encoder, @(value));
+            break;
+        }
+
+        // long long
+        case 'q': {
+            long long value;
+            [invocation getArgument:&value atIndex:i];
+
+            encodeToObjectStream(encoder, @(value));
+            break;
+        }
+
+        // unsigned long long
+        case 'Q': {
+            unsigned long long value;
             [invocation getArgument:&value atIndex:i];
 
             encodeToObjectStream(encoder, @(value));
@@ -532,15 +548,29 @@ static void decodeInvocationArguments(WKRemoteObjectDecoder *decoder, NSInvocati
         }
 
         // long
-        case 'q': {
+        case 'l': {
             long value = [decodeObjectFromObjectStream(decoder, { (__bridge CFTypeRef)[NSNumber class] }) longValue];
             [invocation setArgument:&value atIndex:i];
             break;
         }
 
         // unsigned long
-        case 'Q': {
+        case 'L': {
             unsigned long value = [decodeObjectFromObjectStream(decoder, { (__bridge CFTypeRef)[NSNumber class] }) unsignedLongValue];
+            [invocation setArgument:&value atIndex:i];
+            break;
+        }
+
+        // long long
+        case 'q': {
+            long long value = [decodeObjectFromObjectStream(decoder, { (__bridge CFTypeRef)[NSNumber class] }) longLongValue];
+            [invocation setArgument:&value atIndex:i];
+            break;
+        }
+
+        // unsigned long long
+        case 'Q': {
+            unsigned long long value = [decodeObjectFromObjectStream(decoder, { (__bridge CFTypeRef)[NSNumber class] }) unsignedLongLongValue];
             [invocation setArgument:&value atIndex:i];
             break;
         }
@@ -609,7 +639,6 @@ static NSInvocation *decodeInvocation(WKRemoteObjectDecoder *decoder)
         [NSException raise:NSInvalidUnarchiveOperationException format:@"Invocation had no type signature"];
 
     NSMethodSignature *remoteMethodSignature = [NSMethodSignature signatureWithObjCTypes:typeSignature.UTF8String];
-    localMethodSignature = remoteMethodSignature;
     if (![localMethodSignature isEqual:remoteMethodSignature])
         [NSException raise:NSInvalidUnarchiveOperationException format:@"Local and remote method signatures are not equal for method \"%s\"", selector ? sel_getName(selector) : "(no selector)"];
 
@@ -782,5 +811,3 @@ static id decodeObject(WKRemoteObjectDecoder *decoder, const API::Dictionary* di
 }
 
 @end
-
-#endif // WK_API_ENABLED

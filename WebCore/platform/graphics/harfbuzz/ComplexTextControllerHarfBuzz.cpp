@@ -78,7 +78,7 @@ static hb_font_funcs_t* harfBuzzFontFunctions()
             CairoFtFaceLocker cairoFtFaceLocker(scaledFont);
             if (FT_Face ftFace = cairoFtFaceLocker.ftFace()) {
                 *glyph = FT_Face_GetCharVariantIndex(ftFace, unicode, variation);
-                return true;
+                return !!*glyph;
             }
             return false;
             }, nullptr, nullptr);
@@ -167,6 +167,9 @@ ComplexTextController::ComplexTextRun::ComplexTextRun(hb_buffer_t* buffer, const
         float offsetY = -harfBuzzPositionToFloat(glyphPositions[i].y_offset);
         float advanceX = harfBuzzPositionToFloat(glyphPositions[i].x_advance);
         float advanceY = harfBuzzPositionToFloat(glyphPositions[i].y_advance);
+
+        if (!i)
+            m_initialAdvance = { offsetX, -offsetY };
 
         m_glyphs[i] = glyph;
         m_baseAdvances[i] = { advanceX, advanceY };

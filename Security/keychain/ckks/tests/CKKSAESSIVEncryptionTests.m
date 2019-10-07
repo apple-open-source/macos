@@ -35,6 +35,7 @@
 
 #include <securityd/SecItemServer.h>
 #include <Security/SecItemPriv.h>
+#include "OSX/sec/Security/SecItemShim.h"
 
 @interface CloudKitKeychainAESSIVEncryptionTests : CloudKitMockXCTest
 @end
@@ -62,8 +63,12 @@
 }
 
 - (void)testKeyGeneration {
-    CKKSAESSIVKey* key1 = [CKKSAESSIVKey randomKey];
-    CKKSAESSIVKey* key2 = [CKKSAESSIVKey randomKey];
+    NSError* error = nil;
+    CKKSAESSIVKey* key1 = [CKKSAESSIVKey randomKey:&error];
+    XCTAssertNil(error, "Should be no error creating random key");
+    CKKSAESSIVKey* key2 = [CKKSAESSIVKey randomKey:&error];
+    XCTAssertNil(error, "Should be no error creating random key");
+
     CKKSAESSIVKey* fixedkey1 = [[CKKSAESSIVKey alloc] initWithBase64: @"uImdbZ7Zg+6WJXScTnRBfNmoU1UiMkSYxWc+d1Vuq3IFn2RmTRkTdWTe3HmeWo1pAomqy+upK8KHg2PGiRGhqg=="];
     XCTAssertNotNil(fixedkey1, "fixedkey1 generated from base64");
     CKKSAESSIVKey* fixedkey2 = [[CKKSAESSIVKey alloc] initWithBase64: @"uImdbZ7Zg+6WJXScTnRBfNmoU1UiMkSYxWc+d1Vuq3IFn2RmTRkTdWTe3HmeWo1pAomqy+upK8KHg2PGiRGhqg=="];
@@ -275,7 +280,7 @@
     NSMutableDictionary* query = [@{
                                     (id)kSecClass : (id)kSecClassInternetPassword,
                                     (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
-                                    (id)kSecAttrNoLegacy : @YES,
+                                    (id)kSecUseDataProtectionKeychain : @YES,
                                     (id)kSecAttrAccessGroup: @"com.apple.security.ckks",
                                     (id)kSecAttrDescription: tlk.keyclass,
                                     (id)kSecAttrServer: tlk.zoneID.zoneName,
@@ -779,13 +784,47 @@
                                                           uuid:@"f5e7f20f-0885-48f9-b75d-9f0cfd2171b6"
                                                       keyclass:SecCKKSKeyClassC
                                                          state:SecCKKSProcessedStateLocal
-                                                        zoneID:nil
+                                                        zoneID:[[CKRecordZoneID alloc] initWithZoneName:@"testzone" ownerName:CKCurrentUserDefaultName]
                                                encodedCKRecord:nil
                                                     currentkey:true];
 
     XCTAssertTrue([self encryptAndDecryptDictionary:unaligned_74 key:key], "Roundtrip with unaligned data succeeds");
     XCTAssertTrue([self encryptAndDecryptDictionary:unaligned_79 key:key], "Roundtrip with unaligned data succeeds");
     XCTAssertTrue([self encryptAndDecryptDictionary:aligned_80 key:key], "Roundtrip with aligned data succeeds");
+}
+
+- (void)testCKKSKeychainBackedKeySerialization {
+    NSError* error = nil;
+    CKKSKeychainBackedKey* tlk =  [self fakeTLK:self.testZoneID].keycore;
+    CKKSKeychainBackedKey* classC = [CKKSKeychainBackedKey randomKeyWrappedByParent:tlk keyclass:SecCKKSKeyClassC error:&error];
+    XCTAssertNil(error, "Should be no error creating classC key");
+
+    XCTAssertTrue([tlk saveKeyMaterialToKeychain:&error], "Should be able to save tlk key material to keychain");
+    XCTAssertNil(error, "Should be no error saving key material");
+
+    XCTAssertTrue([classC saveKeyMaterialToKeychain:&error], "Should be able to save classC key material to keychain");
+    XCTAssertNil(error, "Should be no error saving key material");
+
+    NSKeyedArchiver* encoder = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
+    [encoder encodeObject:tlk forKey:@"tlk"];
+    [encoder encodeObject:classC forKey:@"classC"];
+    NSData* data = encoder.encodedData;
+    XCTAssertNotNil(data, "encoding should have produced some data");
+
+    NSKeyedUnarchiver* decoder = [[NSKeyedUnarchiver alloc] initForReadingFromData:data error:nil];
+    CKKSKeychainBackedKey* decodedTLK = [decoder decodeObjectOfClass: [CKKSKeychainBackedKey class] forKey:@"tlk"];
+    CKKSKeychainBackedKey* decodedClassC = [decoder decodeObjectOfClass: [CKKSKeychainBackedKey class] forKey:@"classC"];
+
+    XCTAssertEqualObjects(tlk, decodedTLK, "TLKs should transit NSSecureCoding without changes");
+    XCTAssertEqualObjects(classC, decodedClassC, "Class C keys should transit NSSecureCoding without changes");
+
+    // Now, check that they can load the key material
+
+    XCTAssertTrue([decodedTLK loadKeyMaterialFromKeychain:&error], "Should be able to load tlk key material from keychain");
+    XCTAssertNil(error, "Should be no error from loading key material");
+
+    XCTAssertTrue([decodedClassC loadKeyMaterialFromKeychain:&error], "Should be able to load classC key material from keychain");
+    XCTAssertNil(error, "Should be no error from loading key material");
 }
 
 @end

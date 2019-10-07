@@ -2,7 +2,7 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 yue_Hans{
     %%Parent{"root"}
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -45,6 +45,10 @@ yue_Hans{
             acre{
                 dnam{"英亩"}
                 other{"{0} 英亩"}
+            }
+            dunam{
+                dnam{"德南"}
+                other{"{0} 德南"}
             }
             hectare{
                 dnam{"公顷"}
@@ -100,9 +104,25 @@ yue_Hans{
                 dnam{"毫摩尔/公升"}
                 other{"{0} 毫摩尔/公升"}
             }
+            mole{
+                dnam{"摩尔"}
+                other{"{0} 摩尔"}
+            }
             part-per-million{
                 dnam{"百万分率"}
                 other{"{0} 百万分率"}
+            }
+            percent{
+                dnam{"%"}
+                other{"{0}%"}
+            }
+            permille{
+                dnam{"‰"}
+                other{"{0}‰"}
+            }
+            permyriad{
+                dnam{"点子"}
+                other{"{0} 点子"}
             }
         }
         consumption{
@@ -124,6 +144,7 @@ yue_Hans{
             }
         }
         coordinate{
+            dnam{"方向"}
             east{"东经{0}"}
             north{"北纬{0}"}
             south{"南纬{0}"}
@@ -161,6 +182,10 @@ yue_Hans{
             megabyte{
                 dnam{"MB"}
                 other{"{0} MB"}
+            }
+            petabyte{
+                dnam{"PB"}
+                other{"{0} PB"}
             }
             terabit{
                 dnam{"Tb"}
@@ -243,9 +268,17 @@ yue_Hans{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"英制热量单位"}
+                other{"{0} 英制热量单位"}
+            }
             calorie{
                 dnam{"卡路里"}
                 other{"{0} 卡路里"}
+            }
+            electronvolt{
+                dnam{"电子伏特"}
+                other{"{0} 电子伏特"}
             }
             foodcalorie{
                 dnam{"卡路里"}
@@ -266,6 +299,16 @@ yue_Hans{
             kilowatt-hour{
                 dnam{"千瓦小时"}
                 other{"{0} 千瓦小时"}
+            }
+        }
+        force{
+            newton{
+                dnam{"牛顿"}
+                other{"{0} 牛顿"}
+            }
+            pound-force{
+                dnam{"磅力"}
+                other{"{0} 磅力"}
             }
         }
         frequency{
@@ -368,6 +411,10 @@ yue_Hans{
                 dnam{"点"}
                 other{"{0} 点"}
             }
+            solar-radius{
+                dnam{"太阳半径"}
+                other{"{0} 太阳半径"}
+            }
             yard{
                 dnam{"码"}
                 other{"{0} 码"}
@@ -378,11 +425,23 @@ yue_Hans{
                 dnam{"勒克斯"}
                 other{"{0} 勒克斯"}
             }
+            solar-luminosity{
+                dnam{"太阳光度"}
+                other{"{0} 太阳光度"}
+            }
         }
         mass{
             carat{
                 dnam{"克拉"}
                 other{"{0} 克拉"}
+            }
+            dalton{
+                dnam{"道尔顿"}
+                other{"{0} 道尔顿"}
+            }
+            earth-mass{
+                dnam{"地球质量"}
+                other{"{0} 地球质量"}
             }
             gram{
                 dnam{"克"}
@@ -420,6 +479,10 @@ yue_Hans{
                 other{"{0} 磅"}
                 per{"每磅 {0}"}
             }
+            solar-mass{
+                dnam{"太阳质量"}
+                other{"{0} 太阳质量"}
+            }
             stone{
                 dnam{"英石"}
                 other{"{0} 英石"}
@@ -456,6 +519,10 @@ yue_Hans{
             }
         }
         pressure{
+            atmosphere{
+                dnam{"atm"}
+                other{"{0} atm"}
+            }
             hectopascal{
                 dnam{"百帕"}
                 other{"{0} 百帕"}
@@ -463,6 +530,14 @@ yue_Hans{
             inch-hg{
                 dnam{"英寸汞柱"}
                 other{"{0} 英寸汞柱"}
+            }
+            kilopascal{
+                dnam{"千帕"}
+                other{"{0} 千帕"}
+            }
+            megapascal{
+                dnam{"兆帕"}
+                other{"{0} 兆帕"}
             }
             millibar{
                 dnam{"毫巴"}
@@ -513,10 +588,24 @@ yue_Hans{
                 other{"{0} 克耳文"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"牛顿米"}
+                other{"{0} 牛顿米"}
+            }
+            pound-foot{
+                dnam{"尺磅"}
+                other{"{0} 尺磅"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"英亩英尺"}
                 other{"{0} 英亩英尺"}
+            }
+            barrel{
+                dnam{"桶"}
+                other{"{0} 桶"}
             }
             bushel{
                 dnam{"蒲式耳"}
@@ -571,6 +660,10 @@ yue_Hans{
             fluid-ounce{
                 dnam{"液盎司"}
                 other{"{0} 液盎司"}
+            }
+            fluid-ounce-imperial{
+                dnam{"英制液盎司"}
+                other{"{0} 英制液盎司"}
             }
             gallon{
                 dnam{"加仑"}
@@ -680,6 +773,10 @@ yue_Hans{
             karat{
                 other{"{0}kt"}
             }
+            percent{
+                dnam{"%"}
+                other{"{0}%"}
+            }
         }
         consumption{
             liter-per-100kilometers{
@@ -694,6 +791,7 @@ yue_Hans{
             }
         }
         coordinate{
+            dnam{"方向"}
             east{"东经{0}"}
             north{"北纬{0}"}
             south{"南纬{0}"}
@@ -832,7 +930,7 @@ yue_Hans{
             }
             fathom{
                 dnam{"英寻"}
-                other{"{0}fm"}
+                other{"{0}fth"}
             }
             foot{
                 other{"{0}呎"}
@@ -1095,6 +1193,10 @@ yue_Hans{
                 dnam{"英亩"}
                 other{"{0} 英亩"}
             }
+            dunam{
+                dnam{"德南"}
+                other{"{0} 德南"}
+            }
             hectare{
                 dnam{"公顷"}
                 other{"{0} 公顷"}
@@ -1149,9 +1251,25 @@ yue_Hans{
                 dnam{"毫摩尔/公升"}
                 other{"{0} 毫摩尔/公升"}
             }
+            mole{
+                dnam{"摩尔"}
+                other{"{0} 摩尔"}
+            }
             part-per-million{
                 dnam{"百万分率"}
                 other{"{0} 百万分率"}
+            }
+            percent{
+                dnam{"%"}
+                other{"{0}%"}
+            }
+            permille{
+                dnam{"‰"}
+                other{"{0}‰"}
+            }
+            permyriad{
+                dnam{"点子"}
+                other{"{0} 点子"}
             }
         }
         consumption{
@@ -1173,6 +1291,7 @@ yue_Hans{
             }
         }
         coordinate{
+            dnam{"方向"}
             east{"东经{0}"}
             north{"北纬{0}"}
             south{"南纬{0}"}
@@ -1210,6 +1329,10 @@ yue_Hans{
             megabyte{
                 dnam{"MB"}
                 other{"{0} MB"}
+            }
+            petabyte{
+                dnam{"PB"}
+                other{"{0} PB"}
             }
             terabit{
                 dnam{"Tb"}
@@ -1292,9 +1415,17 @@ yue_Hans{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"英制热量单位"}
+                other{"{0} 英制热量单位"}
+            }
             calorie{
                 dnam{"卡路里"}
                 other{"{0} 卡"}
+            }
+            electronvolt{
+                dnam{"电子伏特"}
+                other{"{0} 电子伏特"}
             }
             foodcalorie{
                 dnam{"大卡"}
@@ -1315,6 +1446,16 @@ yue_Hans{
             kilowatt-hour{
                 dnam{"千瓦小时"}
                 other{"{0} 千瓦小时"}
+            }
+        }
+        force{
+            newton{
+                dnam{"牛顿"}
+                other{"{0} 牛顿"}
+            }
+            pound-force{
+                dnam{"磅力"}
+                other{"{0} 磅力"}
             }
         }
         frequency{
@@ -1417,6 +1558,10 @@ yue_Hans{
                 dnam{"点"}
                 other{"{0} 点"}
             }
+            solar-radius{
+                dnam{"太阳半径"}
+                other{"{0} 太阳半径"}
+            }
             yard{
                 dnam{"码"}
                 other{"{0} 码"}
@@ -1427,11 +1572,23 @@ yue_Hans{
                 dnam{"勒克斯"}
                 other{"{0} 勒克斯"}
             }
+            solar-luminosity{
+                dnam{"太阳光度"}
+                other{"{0} 太阳光度"}
+            }
         }
         mass{
             carat{
                 dnam{"克拉"}
                 other{"{0} 克拉"}
+            }
+            dalton{
+                dnam{"道尔顿"}
+                other{"{0} 道尔顿"}
+            }
+            earth-mass{
+                dnam{"地球质量"}
+                other{"{0} 地球质量"}
             }
             gram{
                 dnam{"克"}
@@ -1469,6 +1626,10 @@ yue_Hans{
                 other{"{0} 磅"}
                 per{"每磅{0}"}
             }
+            solar-mass{
+                dnam{"太阳质量"}
+                other{"{0} 太阳质量"}
+            }
             stone{
                 dnam{"st"}
                 other{"{0} 英石"}
@@ -1505,6 +1666,10 @@ yue_Hans{
             }
         }
         pressure{
+            atmosphere{
+                dnam{"atm"}
+                other{"{0} atm"}
+            }
             hectopascal{
                 dnam{"百帕"}
                 other{"{0} 百帕"}
@@ -1512,6 +1677,14 @@ yue_Hans{
             inch-hg{
                 dnam{"英寸汞柱"}
                 other{"{0} 英寸汞柱"}
+            }
+            kilopascal{
+                dnam{"千帕"}
+                other{"{0} 千帕"}
+            }
+            megapascal{
+                dnam{"兆帕"}
+                other{"{0} 兆帕"}
             }
             millibar{
                 dnam{"毫巴"}
@@ -1562,10 +1735,24 @@ yue_Hans{
                 other{"{0} K"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"牛顿米"}
+                other{"{0} 牛顿米"}
+            }
+            pound-foot{
+                dnam{"尺磅"}
+                other{"{0} 尺磅"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"英亩英尺"}
                 other{"{0} 英亩英尺"}
+            }
+            barrel{
+                dnam{"桶"}
+                other{"{0} 桶"}
             }
             bushel{
                 dnam{"bu"}
@@ -1620,6 +1807,10 @@ yue_Hans{
             fluid-ounce{
                 dnam{"液盎司"}
                 other{"{0} 液盎司"}
+            }
+            fluid-ounce-imperial{
+                dnam{"英制液盎司"}
+                other{"{0} 英制液盎司"}
             }
             gallon{
                 dnam{"加仑"}

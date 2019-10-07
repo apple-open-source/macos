@@ -1,4 +1,4 @@
-/*	$FreeBSD: head/usr.bin/sort/radixsort.h 264744 2014-04-21 22:52:18Z pfg $	*/
+/*	$FreeBSD$	*/
 
 /*-
  * Copyright (C) 2012 Oleg Moskalenko <mom040267@gmail.com>

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_IDENT_BADREF.SizeofAssoc.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: sizeof returns the size in bytes of any D expression or data
  * type. For an associative array, the D compiler should throw an error since

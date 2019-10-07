@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,8 +23,9 @@
 
 #include "ioregpath.h"
 #include <IOKit/IOKitLib.h>
+#include "symbol_scope.h"
 
-CFDictionaryRef
+PRIVATE_EXTERN CFDictionaryRef
 myIORegistryEntryCopyValue(const char * path)
 {
     io_registry_entry_t 	service;
@@ -46,7 +47,7 @@ myIORegistryEntryCopyValue(const char * path)
     return (properties);
 }
 
-CFTypeRef
+PRIVATE_EXTERN CFTypeRef
 myIORegistryEntryCopyProperty(const char * path, CFStringRef prop)
 {
     io_registry_entry_t 	service;
@@ -63,7 +64,7 @@ myIORegistryEntryCopyProperty(const char * path, CFStringRef prop)
     return (val);
 }
 
-CFDictionaryRef
+PRIVATE_EXTERN CFDictionaryRef
 myIORegistryEntryBSDNameMatchingCopyValue(const char * devname, Boolean parent)
 {
     kern_return_t       	status;

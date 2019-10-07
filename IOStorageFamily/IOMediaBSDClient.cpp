@@ -45,9 +45,9 @@
 #include <IOKit/storage/IOMedia.h>
 #include <IOKit/storage/IOMediaBSDClient.h>
 ///w:start
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 #include <IOKit/pwr_mgt/RootDomain.h>
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 ///w:stop
 
 #define super IOService
@@ -185,9 +185,9 @@ struct MinorSlot
     void *             cdevNode;      // (character device's devfs node)
     UInt32             cdevOpen;      // (character device's open count)
     IOStorageAccess    cdevOpenLevel; // (character device's open level)
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
     IOStorageOptions   cdevOptions;
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* !TARGET_OS_OSX */
 };
 
 class MinorTable
@@ -245,12 +245,12 @@ protected:
     IOLock *      _openLock;          // (lock for opens, closes)
     IOLock *      _stateLock;         // (lock for state, tables)
 ///w:start
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     thread_call_t         _assertionCall;
     IOPMDriverAssertionID _assertionID;
     IOLock *              _assertionLock;
     AbsoluteTime          _assertionTime;
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
     OSMallocTag           _iostorageMallocTag;
 ///w:stop
 
@@ -272,7 +272,7 @@ public:
     void          lockState();
     void          unlockState();
 ///w:start
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     thread_call_t         getAssertionCall();
 
     IOPMDriverAssertionID getAssertionID();
@@ -283,7 +283,7 @@ public:
 
     void                  lockAssertion();
     void                  unlockAssertion();
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
     OSMallocTag           getIOStorageMallocTag();
 ///w:stop
 };
@@ -1111,9 +1111,9 @@ int dkclose(dev_t dev, int /* flags */, int devtype, proc_t /* proc */)
     {
         minor->cdevOpen      = 0;
         minor->cdevOpenLevel = kIOStorageAccessNone;
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
         minor->cdevOptions   = 0;
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* !TARGET_OS_OSX */
     }
 
     levelOut = DK_ADD_ACCESS(minor->bdevOpenLevel, minor->cdevOpenLevel);
@@ -1282,7 +1282,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                 *(uint64_t *)data = 0;
 
         } break;
-
+            
         case DKIOCGETMAXBLOCKCOUNTREAD:                          // (uint64_t *)
         {
             //
@@ -2321,6 +2321,67 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                 *(uint32_t *)data = 0;
             
         } break;
+            
+        case DKIOCGETLOCATION:                                     // (uint64_t *)
+        {
+            
+            //
+            // This ioctl returns the physical location of the device ( internal / external ).
+            //
+            
+            // This ioctl was added to help the kernel differentiate between I/O to/from internal
+            // and external storage in an effort to better monitor NAND usage. This ioctl is reliant
+            // upon storage controller drivers providing information that is accurate. Therefore the
+            // result of this ioctl should be considered a "best effort" and should NOT be relied
+            // upon for making critical decisions.
+            
+            // We default to the storage being considered internal.
+            *(uint64_t *)data = 0;
+            
+            // First we look for a Protocol Characteristics dictionary. First party storage controller
+            // drivers should publish one.
+            OSDictionary * dictionary = OSDynamicCast(
+                            /* class  */ OSDictionary,
+                            /* object */ minor->media->getProperty(
+                                    /* key   */ kIOPropertyProtocolCharacteristicsKey,
+                                    /* plane */ gIOServicePlane ) );
+
+            if ( dictionary )
+            {
+                
+                // We have a Protocol Characteristics dictionary. Check for the Physical Interconnect
+                // Location property.
+                OSString * string = OSDynamicCast(
+                         /* class  */ OSString,
+                         /* object */ dictionary->getObject(
+                                 /* key   */ kIOPropertyPhysicalInterconnectLocationKey ) );
+                
+                if ( string && string->isEqualTo(kIOPropertyExternalKey) )
+                {
+                    *(uint64_t *)data = DK_LOCATION_EXTERNAL;
+                }
+                
+            }
+            
+            else
+            {
+                
+                // We couldn't find a Protocol Characteristics dictionary. Look for a Physical Interconnect
+                // Location property.
+                OSString * string = OSDynamicCast(
+                         /* class  */ OSString,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOPropertyPhysicalInterconnectLocationKey,
+                                 /* plane */ gIOServicePlane ) );
+                
+                if ( string && string->isEqualTo(kIOPropertyExternalKey) )
+                {
+                    *(uint64_t *)data = DK_LOCATION_EXTERNAL;
+                }
+                
+            }
+            
+        } break;
 
 ///w:start
 #if defined(DKIOCGETMAXSWAPWRITE) && defined(kIOMaximumSwapWriteKey)
@@ -2590,13 +2651,13 @@ int dkioctl_cdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
     switch ( cmd )
     {
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
         case _DKIOCSETSTATIC:                                          // (void)
         {
             minor->cdevOptions |= kIOStorageOptionIsStatic;
 
         } break;
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* !TARGET_OS_OSX */
 
         default:
         {
@@ -2800,7 +2861,7 @@ inline IOStorageAttributes DKR_GET_ATTRIBUTES(dkr_t dkr, dkrtype_t dkrtype)
 
         attributes.priority = DK_TIER_TO_PRIORITY(bufattr_throttled(attributes.bufattr));
     }
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
     else
     {
         dev_t       dev = ((dio_t)dkr)->dev;
@@ -2810,19 +2871,19 @@ inline IOStorageAttributes DKR_GET_ATTRIBUTES(dkr_t dkr, dkrtype_t dkrtype)
 
         attributes.options |= minor->cdevOptions;
     }
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* !TARGET_OS_OSX */
 
     return attributes;
 }
 ///w:start
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 inline bool DKR_DELAY_IDLE_SLEEP(dkr_t dkr, dkrtype_t dkrtype)
 {
     return (dkrtype == DKRTYPE_BUF)
            ? bufattr_delayidlesleep(buf_attr((buf_t)dkr))
            : false;
 }
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 ///w:stop
 
 int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
@@ -2949,7 +3010,7 @@ int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
     DKR_SET_DRIVER_DATA(dkr, dkrtype, buffer);
 
 ///w:start
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     if ( DKR_DELAY_IDLE_SLEEP(dkr, dkrtype) )
     {
         IOPMDriverAssertionID assertionID;
@@ -2983,7 +3044,7 @@ int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
 
         gIOMediaBSDClientGlobals.unlockAssertion();
     }
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 ///w:stop
     if ( DKR_IS_ASYNCHRONOUS(dkr, dkrtype) )       // (an asynchronous request?)
     {
@@ -3087,7 +3148,7 @@ void dkreadwritecompletion( void *   target,
     }
 }
 ///w:start
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 void dkreadwriteassertion(thread_call_param_t param0, thread_call_param_t param1)
 {
     AbsoluteTime assertionTime;
@@ -3115,7 +3176,7 @@ void dkreadwriteassertion(thread_call_param_t param0, thread_call_param_t param1
 
     gIOMediaBSDClientGlobals.unlockAssertion();
 }
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 ///w:stop
 
 // =============================================================================
@@ -3540,9 +3601,9 @@ UInt32 MinorTable::insert( IOMedia *          media,
     _table[minorID].cdevNode      = cdevNode;
     _table[minorID].cdevOpen      = 0;
     _table[minorID].cdevOpenLevel = kIOStorageAccessNone;
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
     _table[minorID].cdevOptions   = 0;
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* !TARGET_OS_OSX */
 
     _table[minorID].client->retain();              // (retain client)
     _table[minorID].media->retain();               // (retain media)
@@ -3840,11 +3901,11 @@ IOMediaBSDClientGlobals::IOMediaBSDClientGlobals()
     _openLock  = IOLockAlloc();
     _stateLock = IOLockAlloc();
 ///w:start
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     _assertionCall = thread_call_allocate(dkreadwriteassertion, NULL);
     _assertionID   = kIOPMUndefinedDriverAssertionID;
     _assertionLock = IOLockAlloc();
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
     // Alloc tag before bdevsw and cdevsw hook-ups.
     _iostorageMallocTag = OSMalloc_Tagalloc ( "com.apple.iokit.iostoragefamily", 0 );
 ///w:stop
@@ -3857,10 +3918,10 @@ IOMediaBSDClientGlobals::~IOMediaBSDClientGlobals()
     //
 
 ///w:start
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     if ( _assertionCall )               thread_call_free(_assertionCall);
     if ( _assertionLock )               IOLockFree(_assertionLock);
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 ///w:stop
     if ( _openLock )                    IOLockFree(_openLock);
     if ( _stateLock )                   IOLockFree(_stateLock);
@@ -3919,10 +3980,10 @@ bool IOMediaBSDClientGlobals::isValid()
            ( _minors                     ) &&
            ( _majorID != kInvalidMajorID ) &&
 ///w:start
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
            ( _assertionCall              ) &&
            ( _assertionLock              ) &&
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 ///w:stop
            ( _openLock                   ) &&
            ( _stateLock                  ) &&
@@ -3970,7 +4031,7 @@ OSMallocTag IOMediaBSDClientGlobals::getIOStorageMallocTag()
     return _iostorageMallocTag;
 }
 ///w:start
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 thread_call_t IOMediaBSDClientGlobals::getAssertionCall()
 {
     return _assertionCall;
@@ -4005,5 +4066,5 @@ void IOMediaBSDClientGlobals::unlockAssertion()
 {
     IOLockUnlock(_assertionLock);
 }
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 ///w:stop

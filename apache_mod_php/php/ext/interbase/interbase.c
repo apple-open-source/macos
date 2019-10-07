@@ -318,7 +318,7 @@ ZEND_END_ARG_INFO()
 /* }}} */
 
 /* {{{ extension definition structures */
-const zend_function_entry ibase_functions[] = {
+static const zend_function_entry ibase_functions[] = {
 	PHP_FE(ibase_connect, 		arginfo_ibase_connect)
 	PHP_FE(ibase_pconnect, 		arginfo_ibase_pconnect)
 	PHP_FE(ibase_close, 		arginfo_ibase_close)
@@ -902,7 +902,7 @@ static void _php_ibase_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent) /* 
 	}
 
 	/* restrict to the server/db in the .ini if in safe mode */
-	if ((!len[DB] || PG(sql_safe_mode)) && (c = INI_STR("ibase.default_db"))) {
+	if (!len[DB] && (c = INI_STR("ibase.default_db"))) {
 		args[DB] = c;
 		len[DB] = strlen(c);
 	}
@@ -939,13 +939,15 @@ static void _php_ibase_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent) /* 
 
 		xlink = (zend_resource*) le->ptr;
 		if ((!persistent && xlink->type == le_link) || xlink->type == le_plink) {
-			if (IBG(default_link)) {
-				zend_list_close(IBG(default_link));
+			if (IBG(default_link) != xlink) {
+				GC_ADDREF(xlink);
+				if (IBG(default_link)) {
+					zend_list_delete(IBG(default_link));
+				}
+				IBG(default_link) = xlink;
 			}
-			xlink->gc.refcount++;
-			xlink->gc.refcount++;
-			IBG(default_link) = xlink;
-			RETVAL_RES(xlink);
+			GC_ADDREF(xlink);
+			RETURN_RES(xlink);
 		} else {
 			zend_hash_str_del(&EG(regular_list), hash, sizeof(hash)-1);
 		}
@@ -988,18 +990,13 @@ static void _php_ibase_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent) /* 
 			ib_link = (ibase_db_link *) emalloc(sizeof(ibase_db_link));
 			RETVAL_RES(zend_register_resource(ib_link, le_link));
 		} else {
-			zend_resource new_le;
-
 			ib_link = (ibase_db_link *) malloc(sizeof(ibase_db_link));
 			if (!ib_link) {
 				RETURN_FALSE;
 			}
 
 			/* hash it up */
-			new_le.type = le_plink;
-			new_le.ptr = ib_link;
-			if (zend_hash_str_update_mem(&EG(persistent_list), hash, sizeof(hash)-1,
-					(void *) &new_le, sizeof(zend_resource)) == NULL) {
+			if (zend_register_persistent_resource(hash, sizeof(hash)-1, ib_link, le_plink) == NULL) {
 				free(ib_link);
 				RETURN_FALSE;
 			}
@@ -1017,10 +1014,8 @@ static void _php_ibase_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent) /* 
 	/* add it to the hash */
 	new_index_ptr.ptr = (void *) Z_RES_P(return_value);
 	new_index_ptr.type = le_index_ptr;
-	if (zend_hash_str_update_mem(&EG(regular_list), hash, sizeof(hash)-1,
-			(void *) &new_index_ptr, sizeof(zend_resource)) == NULL) {
-		RETURN_FALSE;
-	}
+	zend_hash_str_update_mem(&EG(regular_list), hash, sizeof(hash)-1,
+			(void *) &new_index_ptr, sizeof(zend_resource));
 	if (IBG(default_link)) {
 		zend_list_delete(IBG(default_link));
 	}
@@ -1130,7 +1125,7 @@ PHP_FUNCTION(ibase_drop_db)
 PHP_FUNCTION(ibase_trans)
 {
 	unsigned short i, link_cnt = 0, tpb_len = 0;
-	int argn;
+	int argn = ZEND_NUM_ARGS();
 	char last_tpb[TPB_MAX_SIZE];
 	ibase_db_link **ib_link = NULL;
 	ibase_trans *ib_trans;
@@ -1138,8 +1133,6 @@ PHP_FUNCTION(ibase_trans)
 	ISC_STATUS result;
 
 	RESET_ERRMSG;
-
-	argn = ZEND_NUM_ARGS();
 
 	/* (1+argn) is an upper bound for the number of links this trans connects to */
 	ib_link = (ibase_db_link **) safe_emalloc(sizeof(ibase_db_link *),1+argn,0);
@@ -1150,7 +1143,7 @@ PHP_FUNCTION(ibase_trans)
 		ISC_TEB *teb;
 		zval *args = NULL;
 
-		if (zend_parse_parameters(ZEND_NUM_ARGS(), "+", &args, &argn) == FAILURE) {
+		if (zend_parse_parameters(argn, "+", &args, &argn) == FAILURE) {
 			efree(ib_link);
 			RETURN_FALSE;
 		}

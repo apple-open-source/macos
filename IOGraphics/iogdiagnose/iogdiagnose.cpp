@@ -90,10 +90,12 @@ extern char **environ;
 #include <spawn.h>
 #include <sys/wait.h>
 
-#include "IOGDiagnoseUtils/iokit"
-#include "IOGDiagnoseUtils/IOGDiagnoseUtils.hpp"
+#include "iokit"
 
-#include "GTrace/GTraceTypes.hpp"
+#include "IOGraphicsDiagnose.h"
+#include "IOGDiagnoseUtils.hpp"
+
+#include "IOKit/graphics/GTraceTypes.hpp"
 
 #define kFILENAME_LENGTH                64
 
@@ -101,6 +103,9 @@ using std::string;
 using std::vector;
 
 namespace {
+
+#define COUNT_OF(x) \
+    ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 
 void print_usage(const char* name)
 {
@@ -130,7 +135,7 @@ void foutsep(FILE* outfile, const string title)
     const int prefixsep = remainsep / 2;
     const int sufficsep = prefixsep + (remainsep & 1);
 
-    fprintf(outfile, "%.*s %s %.*s\n\n", 
+    fprintf(outfile, "%.*s %s %.*s\n\n",
             prefixsep, kSep, title.c_str(), sufficsep, kSep);
 }
 inline void foutsep(FILE* outfile) { foutsep(outfile, string()); }
@@ -392,6 +397,121 @@ void dumpGTraceReport(const IOGDiagnose& diag,
     if (static_cast<bool>(fp))
         fclose(fp);
 }
+
+IOReturn fetchGTraceBuffers(const IOConnect& gtrace,
+                            vector<GTraceBuffer>* traceBuffersP)
+{
+    uint64_t scalarParams[] = { GTRACE_REVISION, 0 };
+    const uint32_t scalarParamsCount = COUNT_OF(scalarParams);
+    size_t   bufSize;
+
+    // TODO(gvdl): Need to multithread the fetches the problem is that the
+    // fetch code makes a subroutine call into the driver.
+    // Single thread for the time being.
+
+    // Default vector fo GTraceEntries allocates a MiB of entries
+    const size_t kBufSizeBytes = 1024 * 1024;
+    const vector<GTraceEntry>::size_type
+        kBufSize = kBufSizeBytes / sizeof(GTraceEntry);
+
+    IOReturn err = kIOReturnSuccess;
+    for (int i = 0; i < kGTraceMaximumBufferCount; i++) {
+        GTraceBuffer::vector_type buf(kBufSize);  // allocate a buffer
+        scalarParams[1] = i;  // GTrace buffer index
+        bufSize = kBufSizeBytes;
+        const IOReturn bufErr = gtrace.callMethod(
+                kIOGDGTCInterface_fetch,
+                scalarParams, scalarParamsCount, NULL, 0,  // Inputs
+                NULL, NULL, buf.data(), &bufSize);         // Outputs
+        if (bufErr) {
+            if (bufErr != kIOReturnNotFound) {
+                fprintf(stderr, "Error retrieving gtrace buffer %d - %s[%x]\n",
+                        i, mach_error_string(bufErr), bufErr);
+                if (!err)
+                    err = bufErr;  // Record first error
+            }
+            continue;  // Problem with buffer
+        }
+        if (bufSize < kGTraceHeaderSize) {
+            fprintf(stderr, "malformed gtrace buffer %d no header %ld\n",
+                    i, bufSize);
+            if (!err)
+                err = kIOReturnUnformattedMedia;  // Record first error
+            continue;
+        }
+        const auto* header = reinterpret_cast<GTraceHeader*>(buf.data());
+        if (bufSize < header->fBufferSize) {
+            fprintf(stderr,
+                    "malformed gtrace buffer %d bad copyout %ld exp %d\n",
+                    i, bufSize, header->fBufferSize);
+            if (!err)
+                err = kIOReturnInternalError;  // Record first error
+            continue;
+        }
+        auto numEntries = header->fBufferSize / sizeof(GTraceEntry);
+        const auto expectTokens = kGTraceHeaderEntries + header->fTokensCopied;
+        if (numEntries < expectTokens) {
+            fprintf(stderr, "malformed gtrace buffer %d too small %ld\n",
+                    i, numEntries);
+            if (!err)
+                err = kIOReturnUnformattedMedia;  // Record first error
+            continue;
+        }
+        const auto alwaysCopy
+            = kGTraceHeaderEntries + header->fBreadcrumbTokens;
+        auto citer = buf.cbegin();
+        auto cstopat = buf.cbegin() + numEntries;
+        for (citer += alwaysCopy; citer < cstopat; ++citer)
+            if (!citer->timestamp())
+                break;
+        numEntries = citer - buf.cbegin();
+
+        // Copy the non-zero timestamp entries and update header
+        traceBuffersP->emplace_back(buf.cbegin(), citer);
+        auto& bufHeader = traceBuffersP->back().header();
+        bufHeader.fBufferSize
+            = static_cast<uint32_t>(numEntries * sizeof(*citer));
+        bufHeader.fTokensCopied = numEntries - kGTraceHeaderEntries;
+    }
+    return err;
+}
+
+// If errmsgP is set then the caller is required to free returned string
+kern_return_t iogDiagnose(
+        const IOConnect& diag, IOGDiagnose* reportP, size_t reportLength,
+        const char** errmsgP)
+{
+    const char*   errmsg;
+    kern_return_t err = kIOReturnInternalError;
+
+    do {
+        errmsg = "NULL IOGDiagnose pointer argument passed";
+        err = kIOReturnBadArgument;
+        if (!reportP)
+            continue;
+        errmsg = "report too small for an IOGDiagnose header";
+        err = kIOReturnBadArgument;
+        if (sizeof(*reportP) > reportLength)
+            continue;
+
+        // Grab the main IOFB reports first
+        errmsg = "Problem getting framebuffer diagnostic data";
+        uint64_t       scalarParams[]    = {reportLength};
+        const uint32_t scalarParamsCount = COUNT_OF(scalarParams);
+        memset(reportP, 0, reportLength);
+        err = diag.callMethod(
+                kIOGDUCInterface_diagnose,
+                scalarParams, scalarParamsCount, NULL, 0,  // input
+                NULL, NULL, reportP, &reportLength);       // output
+    } while(false);
+
+    if (err && errmsgP) {
+        char *tmpMsg;
+        asprintf(&tmpMsg, "%s - %s(%x)", errmsg, mach_error_string(err), err);
+        *errmsgP = tmpMsg;
+    }
+    return err;
+}
 }; // namespace
 
 int main(int argc, char * argv[])
@@ -428,34 +548,40 @@ int main(int argc, char * argv[])
         }
     }
 
-    int exitValue = EXIT_SUCCESS;
-    char *error = nullptr;
-    IOConnect dc; // Diagnostic connection
-    kern_return_t err = openDiagnostics(&dc, &error);
-    if (err) {
+    auto reportFailure = [](const char *error, const kern_return_t err) {
         fprintf(stderr, "%s %s (%#x)\n", error, mach_error_string(err), err);
         exit(EXIT_FAILURE);
-    }
+    };
+
+    const char *error = nullptr;
+    kern_return_t err = kIOReturnSuccess;
 
     vector<GTraceBuffer> gtraces;
-    if (bBinaryToFile) {
-        err = fetchGTraceBuffers(dc, &gtraces);
+    {
+        IOConnect gtrace; // GTrace connection
+        err = openGTrace(&gtrace, &error);
+        if (!err) {
+            error = "A problem occured fetching gTraces, see kernel logs";
+            err = fetchGTraceBuffers(gtrace, &gtraces);
+        }
         if (err)
-            exitValue = EXIT_FAILURE; // error reported by library
-        else
-            writeGTraceBinary(gtraces, inputFilename);
-        exit(exitValue);
+            reportFailure(error, err);
+    }
+    if (bBinaryToFile) {
+        writeGTraceBinary(gtraces, inputFilename);
+        exit(EXIT_SUCCESS);
     }
 
     IOGDiagnose report = { 0 };
-    err = iogDiagnose(dc, &report, sizeof(report), &gtraces, &error);
-    if (err) {
-        fprintf(stderr, "%s %s (%#x)\n", error, mach_error_string(err), err);
-        exitValue = EXIT_FAILURE;
+    {
+        IOConnect diag; // Diagnostic connection
+        err = openDiagnostics(&diag, &error);
+        if (!err)
+            err = iogDiagnose(diag, &report, sizeof(report), &error);
+        if (err)
+            reportFailure(error, err);
     }
-    else
-        dumpGTraceReport(report, gtraces, bDumpToFile);
 
-    return exitValue;
+    dumpGTraceReport(report, gtraces, bDumpToFile);
+    return EXIT_SUCCESS;
 }
-

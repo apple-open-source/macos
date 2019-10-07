@@ -2,7 +2,7 @@
 
   dln_find.c -
 
-  $Author: kosaki $
+  $Author: nobu $
   created at: Tue Jan 18 17:05:06 JST 1994
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -46,13 +46,6 @@ char *dln_argv0;
 
 #ifndef S_ISDIR
 #   define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
-#endif
-
-#ifdef HAVE_SYS_PARAM_H
-# include <sys/param.h>
-#endif
-#ifndef MAXPATHLEN
-# define MAXPATHLEN 1024
 #endif
 
 #ifdef HAVE_UNISTD_H

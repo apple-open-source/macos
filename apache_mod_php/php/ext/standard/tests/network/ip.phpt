@@ -34,7 +34,7 @@ var_dump(long2ip(array()));
 
 echo "Done\n";
 ?>
---EXPECTF--	
+--EXPECTF--
 int(2130706433)
 string(9) "127.0.0.1"
 int(167772161)
@@ -61,9 +61,9 @@ Warning: long2ip() expects exactly 1 parameter, 0 given in %sip.php on line %d
 NULL
 string(13) "255.254.82.80"
 
-Warning: long2ip() expects parameter 1 to be integer, string given in %sip.php on line %d
+Warning: long2ip() expects parameter 1 to be int, string given in %sip.php on line %d
 NULL
 
-Warning: long2ip() expects parameter 1 to be integer, array given in %sip.php on line %d
+Warning: long2ip() expects parameter 1 to be int, array given in %sip.php on line %d
 NULL
 Done

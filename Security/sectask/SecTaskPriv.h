@@ -26,6 +26,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecTask.h>
+#include <xpc/xpc.h>
 
 __BEGIN_DECLS
 
@@ -41,15 +42,17 @@ __BEGIN_DECLS
 
 OSStatus SecTaskValidateForRequirement(SecTaskRef _Nonnull task, CFStringRef _Nonnull requirement);
 
-/*!
-  @function SecTaskGetCodeSignStatus
-  @abstract Get code signing flags
-  @param task A previously created SecTask object
-*/
-
-uint32_t
-SecTaskGetCodeSignStatus(SecTaskRef _Nonnull task);
 #endif /* SEC_OS_OSX */
+
+/*!
+ @function SecTaskCreateWithXPCMessage
+ @abstract Get SecTask instance from the remote peer of the xpc connection
+ @param message message from peer in the xpc connection event handler, you can't use
+                connection since it cached and uses the most recent sender to this connection.
+ */
+
+_Nullable SecTaskRef
+SecTaskCreateWithXPCMessage(xpc_object_t _Nonnull message);
 
 /*!
  @function SecTaskEntitlementsValidated

@@ -4,20 +4,23 @@
 ; This script was contributed by Tim Peters.
 ; It was designed for Inno Setup 2.0.19 but works with later versions as well.
 
+#define expatVer "2.2.6"
+
 [Setup]
 AppName=Expat
 AppId=expat
-AppVersion=2.2.1
-AppVerName=Expat 2.2.1
-AppCopyright=Copyright � 1998-2017 Thai Open Source Software Center, Clark Cooper, and the Expat maintainers
+AppVersion={#expatVer}
+AppVerName=Expat {#expatVer}
+AppCopyright=Copyright © 1998-2017 Thai Open Source Software Center, Clark Cooper, and the Expat maintainers
 AppPublisher=The Expat Developers
 AppPublisherURL=http://www.libexpat.org/
 AppSupportURL=http://www.libexpat.org/
 AppUpdatesURL=http://www.libexpat.org/
-UninstallDisplayName=Expat XML Parser 2.2.1
-VersionInfoVersion=2.2.1
+UninstallDisplayName=Expat XML Parser {#expatVer}
+VersionInfoVersion={#expatVer}
+OutputBaseFilename=expat-win32bin-{#expatVer}
 
-DefaultDirName={pf}\Expat 2.2.1
+DefaultDirName={pf}\Expat {#expatVer}
 UninstallFilesDir={app}\Uninstall
 
 Compression=lzma
@@ -35,7 +38,7 @@ Flags: ignoreversion; Source: win32\MANIFEST.txt;           DestDir: "{app}"
 Flags: ignoreversion; Source: AUTHORS;                      DestDir: "{app}"; DestName: AUTHORS.txt
 Flags: ignoreversion; Source: Changes;                      DestDir: "{app}"; DestName: Changes.txt
 Flags: ignoreversion; Source: COPYING;                      DestDir: "{app}"; DestName: COPYING.txt
-Flags: ignoreversion; Source: README;                       DestDir: "{app}"; DestName: README.txt
+Flags: ignoreversion; Source: README.md;                    DestDir: "{app}"; DestName: README.txt
 Flags: ignoreversion; Source: doc\*.html;                   DestDir: "{app}\Doc"
 Flags: ignoreversion; Source: doc\*.css;                    DestDir: "{app}\Doc"
 Flags: ignoreversion; Source: doc\*.png;                    DestDir: "{app}\Doc"

@@ -156,6 +156,13 @@ static DAReturn __DAQueueRequest( DASessionRef   session,
         if ( argument2 )  _argument2 = _DASerialize( kCFAllocatorDefault, argument2 );
         if ( argument3 )  _argument3 = _DASerialize( kCFAllocatorDefault, argument3 );
 
+        /*
+         * store the callback and context in the session instead of passing it directly over to the server for security reasons.
+         * pass the handle to the callback object to the server which will be used to lookup the correct callback
+         */
+        CFMutableDictionaryRef   callback =  DACallbackCreate(kCFAllocatorDefault, address, context);
+        SInt32 index = DAAddCallbackToSession(session, callback);
+        CFRelease(callback);
         status = _DAServerSessionQueueRequest( _DASessionGetID( session ),
                                                ( int32_t                ) kind,
                                                ( caddr_t                ) _DADiskGetID( argument0 ),
@@ -164,8 +171,8 @@ static DAReturn __DAQueueRequest( DASessionRef   session,
                                                ( mach_msg_type_number_t ) ( _argument2 ? CFDataGetLength(  _argument2 ) : 0 ),
                                                ( vm_address_t           ) ( _argument3 ? CFDataGetBytePtr( _argument3 ) : 0 ),
                                                ( mach_msg_type_number_t ) ( _argument3 ? CFDataGetLength(  _argument3 ) : 0 ),
-                                               ( uintptr_t              ) address,
-                                               ( uintptr_t              ) context );
+                                               ( uintptr_t              ) index,
+                                               ( uintptr_t              ) index );
 
         if ( _argument2 )  CFRelease( _argument2 );
         if ( _argument3 )  CFRelease( _argument3 );
@@ -316,6 +323,26 @@ __private_extern__ DAReturn _DAAuthorize( DASessionRef session, _DAAuthorizeOpti
     return status;
 }
 
+static bool DARequestKindWithResponse(_DARequestKind kind)
+{
+    bool daRequest = false;
+    switch ( kind )
+    {
+        case _kDADiskClaimCallback:
+        case _kDADiskEjectCallback:
+        case _kDADiskMountCallback:
+        case _kDADiskRenameCallback:
+        case _kDADiskUnmountCallback:
+        {
+            daRequest = true;
+            break;
+        }
+        default:
+            break;
+    }
+    return daRequest;
+}
+
 __private_extern__ void _DADispatchCallback( DASessionRef    session,
                                              void *          address,
                                              void *          context,
@@ -330,7 +357,24 @@ __private_extern__ void _DADispatchCallback( DASessionRef    session,
     {
         disk = _DADiskCreateFromSerialization( CFGetAllocator( session ), session, argument0 );
     }
-
+   
+    /*
+     * address is the handle to the callbacks dictionary stored in the session.
+     * Use it as the key to find the actual callback address and context
+     */
+    SInt32 index = address;
+    CFMutableDictionaryRef callback = DAGetCallbackFromSession(session, index);
+    if (NULL == callback)
+    {
+        goto exit;
+    }
+    address = ( void * ) ( uintptr_t ) ___CFDictionaryGetIntegerValue( callback, _kDACallbackAddressKey );
+    context = ( void * ) ( uintptr_t ) ___CFDictionaryGetIntegerValue( callback, _kDACallbackContextKey );
+    
+    if (NULL == address)
+    {
+        goto exit;
+    }
     switch ( kind )
     {
         case _kDADiskAppearedCallback:
@@ -440,18 +484,26 @@ __private_extern__ void _DADispatchCallback( DASessionRef    session,
             response = NULL;
         }
 
-        __DAQueueResponse( session, address, context, kind, disk, response, responseID );
+        __DAQueueResponse( session, index, index, kind, disk, response, responseID );
 
         if ( response )
         {
             CFRelease( response );
         }
     }
+ 
+exit:
+    /*
+     * Remove the callback address and context from the session's register dict table
+     * this is only done for request type kind callbacks like mount, unmount etc.
+     */
+    if (DARequestKindWithResponse(kind))
+    {
+        DARemoveCallbackFromSessionWithKey(session, index);
+    }
 
     if ( disk )
     {
-        _DADiskSetDescription( disk, NULL );
-
         CFRelease( disk );
     }
 }
@@ -479,9 +531,16 @@ __private_extern__ void _DARegisterCallback( DASessionRef    session,
         if ( match )  _match = _DASerializeDiskDescription( kCFAllocatorDefault, match );
         if ( watch )  _watch = _DASerialize( kCFAllocatorDefault, watch );
 
+        /*
+         * store the callback and context in the session instead of passing it directly over to the server for security reasons.
+         * pass the handle to the callback object to the server which will be used to lookup the correct callback
+         */
+        CFMutableDictionaryRef   callback =  DACallbackCreate(kCFAllocatorDefault, address, context);
+        SInt32 index = DAAddCallbackToSession(session, callback);
+        CFRelease(callback);
         _DAServerSessionRegisterCallback( _DASessionGetID( session ),
-                                          ( uintptr_t              ) address,
-                                          ( uintptr_t              ) context,
+                                          ( uintptr_t              ) index,
+                                          ( uintptr_t              ) index,
                                           ( int32_t                ) kind,
                                           ( int32_t                ) order,
                                           ( vm_address_t           ) ( _match ? CFDataGetBytePtr( _match ) : 0 ),
@@ -498,7 +557,13 @@ __private_extern__ void _DAUnregisterCallback( DASessionRef session, void * addr
 {
     if ( session )
     {
-        _DAServerSessionUnregisterCallback( _DASessionGetID( session ), ( uintptr_t ) address, ( uintptr_t ) context );
+        /*
+         * Remove the callback address and context from the session's register dict table
+         * pass the handle to the callback object to the server to unregister the callback
+         * since only the keys are passed to the server to avoid security issues.
+         */
+        SInt32 matchingIndex = DARemoveCallbackFromSession(session, address, context);
+        _DAServerSessionUnregisterCallback( _DASessionGetID( session ), ( uintptr_t ) matchingIndex, ( uintptr_t ) matchingIndex );
     }
 }
 
@@ -517,8 +582,15 @@ void DADiskClaim( DADiskRef                  disk,
 
     if ( disk )
     {
-        _release        = ___CFNumberCreateWithIntegerValue( kCFAllocatorDefault, ( uintptr_t ) release        );
-        _releaseContext = ___CFNumberCreateWithIntegerValue( kCFAllocatorDefault, ( uintptr_t ) releaseContext );
+        /*
+         * store the callback and context in the session instead of passing it directly over to the server for security reasons.
+         * pass the handle to the callback object to the server which will be used to lookup the correct callback
+         */
+        CFMutableDictionaryRef   releaseCallback =  DACallbackCreate(kCFAllocatorDefault, release, releaseContext);
+        SInt32 index = DAAddCallbackToSession(_DADiskGetSession( disk ), releaseCallback);
+        CFRelease(releaseCallback);
+        _release        = ___CFNumberCreateWithIntegerValue( kCFAllocatorDefault,  index );
+        _releaseContext = ___CFNumberCreateWithIntegerValue( kCFAllocatorDefault,  index );
 
         status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskClaim, disk, options, _release, _releaseContext, callback, callbackContext );
 

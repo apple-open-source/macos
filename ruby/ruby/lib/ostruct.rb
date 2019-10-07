@@ -1,4 +1,4 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 #
 # = ostruct.rb: OpenStruct implementation
 #
@@ -73,13 +73,6 @@
 # of these properties compared to using a Hash or a Struct.
 #
 class OpenStruct
-  # :nodoc:
-  class << self
-    def allocate
-      (x = super).instance_variable_set(:@table, {})
-      x
-    end
-  end
 
   #
   # Creates a new OpenStruct object.  By default, the resulting OpenStruct
@@ -112,15 +105,28 @@ class OpenStruct
   end
 
   #
+  # call-seq:
+  #   ostruct.to_h                        -> hash
+  #   ostruct.to_h {|name, value| block } -> hash
+  #
   # Converts the OpenStruct to a hash with keys representing
   # each attribute (as symbols) and their corresponding values.
+  #
+  # If a block is given, the results of the block on each pair of
+  # the receiver will be used as pairs.
   #
   #   require "ostruct"
   #   data = OpenStruct.new("country" => "Australia", :capital => "Canberra")
   #   data.to_h   # => {:country => "Australia", :capital => "Canberra" }
+  #   data.to_h {|name, value| [name.to_s, value.upcase] }
+  #               # => {"country" => "AUSTRALIA", "capital" => "CANBERRA" }
   #
-  def to_h
-    @table.dup
+  def to_h(&block)
+    if block_given?
+      @table.to_h(&block)
+    else
+      @table.dup
+    end
   end
 
   #
@@ -159,14 +165,19 @@ class OpenStruct
   # Used internally to check if the OpenStruct is able to be
   # modified before granting access to the internal Hash table to be modified.
   #
-  def modifiable
+  def modifiable? # :nodoc:
     begin
       @modifiable = true
     rescue
-      raise RuntimeError, "can't modify frozen #{self.class}", caller(3)
+      exception_class = defined?(FrozenError) ? FrozenError : RuntimeError
+      raise exception_class, "can't modify frozen #{self.class}", caller(3)
     end
     @table
   end
+  private :modifiable?
+
+  # ::Kernel.warn("do not use OpenStruct#modifiable", uplevel: 1)
+  alias modifiable modifiable? # :nodoc:
   protected :modifiable
 
   #
@@ -174,24 +185,28 @@ class OpenStruct
   # OpenStruct. It does this by using the metaprogramming function
   # define_singleton_method for both the getter method and the setter method.
   #
-  def new_ostruct_member(name)
+  def new_ostruct_member!(name) # :nodoc:
     name = name.to_sym
     unless singleton_class.method_defined?(name)
       define_singleton_method(name) { @table[name] }
-      define_singleton_method("#{name}=") { |x| modifiable[name] = x }
+      define_singleton_method("#{name}=") {|x| modifiable?[name] = x}
     end
     name
   end
+  private :new_ostruct_member!
+
+  # ::Kernel.warn("do not use OpenStruct#new_ostruct_member", uplevel: 1)
+  alias new_ostruct_member new_ostruct_member! # :nodoc:
   protected :new_ostruct_member
 
   def freeze
-    @table.each_key {|key| new_ostruct_member(key)}
+    @table.each_key {|key| new_ostruct_member!(key)}
     super
   end
 
   def respond_to_missing?(mid, include_private = false) # :nodoc:
     mname = mid.to_s.chomp("=").to_sym
-    @table.key?(mname) || super
+    @table&.key?(mname) || super
   end
 
   def method_missing(mid, *args) # :nodoc:
@@ -200,16 +215,19 @@ class OpenStruct
       if len != 1
         raise ArgumentError, "wrong number of arguments (#{len} for 1)", caller(1)
       end
-      modifiable[new_ostruct_member(mname)] = args[0]
-    elsif len == 0
+      modifiable?[new_ostruct_member!(mname)] = args[0]
+    elsif len == 0 # and /\A[a-z_]\w*\z/ =~ mid #
       if @table.key?(mid)
-        new_ostruct_member(mid)
+        new_ostruct_member!(mid) unless frozen?
         @table[mid]
       end
     else
-      err = NoMethodError.new "undefined method `#{mid}' for #{self}", mid, args
-      err.set_backtrace caller(1)
-      raise err
+      begin
+        super
+      rescue NoMethodError => err
+        err.backtrace.shift
+        raise
+      end
     end
   end
 
@@ -239,7 +257,7 @@ class OpenStruct
   #   person.age          # => 42
   #
   def []=(name, value)
-    modifiable[new_ostruct_member(name)] = value
+    modifiable?[new_ostruct_member!(name)] = value
   end
 
   #
@@ -290,7 +308,7 @@ class OpenStruct
   def delete_field(name)
     sym = name.to_sym
     begin
-      singleton_class.__send__(:remove_method, sym, "#{sym}=")
+      singleton_class.remove_method(sym, "#{sym}=")
     rescue NameError
     end
     @table.delete(sym) do
@@ -304,30 +322,26 @@ class OpenStruct
   # Returns a string containing a detailed summary of the keys and values.
   #
   def inspect
-    str = "#<#{self.class}"
-
     ids = (Thread.current[InspectKey] ||= [])
     if ids.include?(object_id)
-      return str << ' ...>'
-    end
-
-    ids << object_id
-    begin
-      first = true
-      for k,v in @table
-        str << "," unless first
-        first = false
-        str << " #{k}=#{v.inspect}"
+      detail = ' ...'
+    else
+      ids << object_id
+      begin
+        detail = @table.map do |key, value|
+          " #{key}=#{value.inspect}"
+        end.join(',')
+      ensure
+        ids.pop
       end
-      return str << '>'
-    ensure
-      ids.pop
     end
+    ['#<', self.class, detail, '>'].join
   end
   alias :to_s :inspect
 
   attr_reader :table # :nodoc:
   protected :table
+  alias table! table
 
   #
   # Compares this object and +other+ for equality.  An OpenStruct is equal to
@@ -344,7 +358,7 @@ class OpenStruct
   #
   def ==(other)
     return false unless other.kind_of?(OpenStruct)
-    @table == other.table
+    @table == other.table!
   end
 
   #
@@ -354,7 +368,7 @@ class OpenStruct
   #
   def eql?(other)
     return false unless other.kind_of?(OpenStruct)
-    @table.eql?(other.table)
+    @table.eql?(other.table!)
   end
 
   # Computes a hash code for this OpenStruct.

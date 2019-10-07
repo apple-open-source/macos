@@ -78,12 +78,13 @@ bool doesGC(Graph& graph, Node* node)
     case Phi:
     case Flush:
     case PhantomLocal:
-    case SetArgument:
+    case SetArgumentDefinitely:
+    case SetArgumentMaybe:
     case ArithBitNot:
     case ArithBitAnd:
     case ArithBitOr:
     case ArithBitXor:
-    case BitLShift:
+    case ArithBitLShift:
     case BitRShift:
     case BitURShift:
     case ValueToInt32:
@@ -109,13 +110,6 @@ bool doesGC(Graph& graph, Node* node)
     case ArithTrunc:
     case ArithFRound:
     case ArithUnary:
-    case ValueBitAnd:
-    case ValueBitOr:
-    case ValueBitXor:
-    case ValueAdd:
-    case ValueSub:
-    case ValueMul:
-    case ValueDiv:
     case CheckStructure:
     case CheckStructureOrEmpty:
     case CheckStructureImmediate:
@@ -146,6 +140,7 @@ bool doesGC(Graph& graph, Node* node)
     case OverridesHasInstance:
     case IsEmpty:
     case IsUndefined:
+    case IsUndefinedOrNull:
     case IsBoolean:
     case IsNumber:
     case NumberIsInteger:
@@ -377,6 +372,17 @@ bool doesGC(Graph& graph, Node* node)
     case ParseInt: // We might resolve a rope even though we don't clobber anything.
     case SetAdd:
     case MapSet:
+    case ValueBitAnd:
+    case ValueBitOr:
+    case ValueBitXor:
+    case ValueBitLShift:
+    case ValueAdd:
+    case ValueSub:
+    case ValueMul:
+    case ValueDiv:
+    case ValueMod:
+    case ValuePow:
+    case ValueBitNot:
     case ValueNegate:
 #else
     // See comment at the top for why be default for all nodes should be to
@@ -508,14 +514,13 @@ bool doesGC(Graph& graph, Node* node)
             ASSERT(node->child1().useKind() == StringUse || node->child1().useKind() == UntypedUse);
             return true;
         }
+        RELEASE_ASSERT_NOT_REACHED();
 
     case LastNodeType:
         RELEASE_ASSERT_NOT_REACHED();
-        return true;
     }
     
     RELEASE_ASSERT_NOT_REACHED();
-    return true;
 }
 
 } } // namespace JSC::DFG

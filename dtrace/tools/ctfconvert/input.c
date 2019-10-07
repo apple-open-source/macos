@@ -126,64 +126,6 @@ read_file(Elf *elf, char *file, char *label, read_cb_f *func, void *arg,
 }
 
 static int
-read_archive(int fd, Elf *elf, char *file, char *label, read_cb_f *func,
-    void *arg, int require_ctf)
-{
-	Elf *melf;
-	Elf_Cmd cmd = ELF_C_READ;
-	Elf_Arhdr *arh;
-	int secnum = 1, found = 0;
-
-	while ((melf = elf_begin(fd, cmd, elf)) != NULL) {
-		int rc = 0;
-
-		if ((arh = elf_getarhdr(melf)) == NULL) {
-			elfterminate(file, "Can't get archive header for "
-			    "member %d", secnum);
-		}
-
-		/* skip special sections - their names begin with "/" */
-		if (*arh->ar_name != '/') {
-			size_t memlen = strlen(file) + 1 +
-			    strlen(arh->ar_name) + 1 + 1;
-			char *memname = xmalloc(memlen);
-
-			snprintf(memname, memlen, "%s(%s)", file, arh->ar_name);
-
-			switch (elf_kind(melf)) {
-			case ELF_K_AR:
-				rc = read_archive(fd, melf, memname, label,
-				    func, arg, require_ctf);
-				break;
-			case ELF_K_ELF:
-#if defined(__APPLE__)
-			case ELF_K_MACHO: /* Underlying file is Mach-o */
-#endif /* __APPLE__ */
-				rc = read_file(melf, memname, label,
-				    func, arg, require_ctf);
-				break;
-			default:
-				terminate("%s: Unknown elf kind %d\n",
-				    memname, elf_kind(melf));
-			}
-
-			free(memname);
-		}
-
-		cmd = elf_next(melf);
-		(void) elf_end(melf);
-		secnum++;
-
-		if (rc < 0)
-			return (rc);
-		else
-			found += rc;
-	}
-
-	return (found);
-}
-
-static int
 read_ctf_common(char *file, char *label, read_cb_f *func, void *arg,
     int require_ctf)
 {
@@ -201,11 +143,6 @@ read_ctf_common(char *file, char *label, read_cb_f *func, void *arg,
 		elfterminate(file, "Cannot read");
 
 	switch (elf_kind(elf)) {
-	case ELF_K_AR:
-		found = read_archive(fd, elf, file, label,
-		    func, arg, require_ctf);
-		break;
-
 	case ELF_K_ELF:
 #if defined(__APPLE__)
 	case ELF_K_MACHO: /* Underlying file is Mach-o */
@@ -252,34 +189,6 @@ read_ctf(char **files, int n, char *label, read_cb_f *func, void *private,
 	return (found);
 }
 
-static int
-count_archive(int fd, Elf *elf, char *file)
-{
-	Elf *melf;
-	Elf_Cmd cmd = ELF_C_READ;
-	Elf_Arhdr *arh;
-	int nfiles = 0, err = 0;
-
-	while ((melf = elf_begin(fd, cmd, elf)) != NULL) {
-		if ((arh = elf_getarhdr(melf)) == NULL) {
-			warning("Can't process input archive %s\n",
-			    file);
-			err++;
-		}
-
-		if (*arh->ar_name != '/')
-			nfiles++;
-
-		cmd = elf_next(melf);
-		(void) elf_end(melf);
-	}
-
-	if (err > 0)
-		return (-1);
-
-	return (nfiles);
-}
-
 int
 count_files(char **files, int n)
 {
@@ -307,12 +216,6 @@ count_files(char **files, int n)
 		}
 
 		switch (elf_kind(elf)) {
-		case ELF_K_AR:
-			if ((rc = count_archive(fd, elf, file)) < 0)
-				err++;
-			else
-				nfiles += rc;
-			break;
 		case ELF_K_ELF:
 #if defined(__APPLE__)
 		case ELF_K_MACHO: /* Underlying file is Mach-o */

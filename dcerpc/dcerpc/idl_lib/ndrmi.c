@@ -141,7 +141,7 @@ void rpc_ss_attach_buff_to_iovec
     p_elt->buff_addr = (byte_p_t)IDL_msp->IDL_buff_addr;
     p_elt->buff_len = IDL_BUFF_SIZE;
     p_elt->data_addr = (byte_p_t)IDL_msp->IDL_data_addr;
-    p_elt->data_len = IDL_msp->IDL_mp - IDL_msp->IDL_data_addr;
+    p_elt->data_len = (unsigned32) (IDL_msp->IDL_mp - IDL_msp->IDL_data_addr);
     (IDL_msp->IDL_elts_in_use)++;
     IDL_msp->IDL_buff_addr = NULL;
 }
@@ -248,7 +248,7 @@ void rpc_ss_ndr_marsh_init_buffer
                 ((((IDL_msp->IDL_buff_addr - (idl_byte *)0) + 7) & (~7))
                                              + IDL_msp->IDL_mp_start_offset);
     IDL_msp->IDL_mp = IDL_msp->IDL_data_addr;
-    IDL_msp->IDL_left_in_buff = beyond_usable_buffer - IDL_msp->IDL_data_addr;
+    IDL_msp->IDL_left_in_buff = (idl_long_int) (beyond_usable_buffer - IDL_msp->IDL_data_addr);
 }
 
 /******************************************************************************/
@@ -379,7 +379,14 @@ void rpc_ss_ndr_marsh_struct
     idl_ulong_int shadow_length = 0;    /* Number of elements in a cs_shadow */
     IDL_cs_shadow_elt_t *cs_shadow = NULL;
     unsigned32 i;
-
+    byte_p_t tmp;
+    idl_ulong_int ulval;
+    idl_long_int lval;
+    idl_short_int sval;
+    idl_ushort_int usval;
+    idl_short_float fval;
+    idl_long_float lfval;
+    
     defn_vec_ptr = IDL_msp->IDL_type_vec + defn_index;
     IDL_GET_LONG_FROM_VECTOR(offset_index,defn_vec_ptr);
     struct_offset_vec_ptr = IDL_msp->IDL_offset_vec + offset_index;
@@ -474,7 +481,8 @@ void rpc_ss_ndr_marsh_struct
             case IDL_DT_DOUBLE:
                 offset = *offset_vec_ptr;
                 offset_vec_ptr++;
-                IDL_CHECK_RANGE_DOUBLE( range_bounds, (idl_byte *)struct_addr + offset );
+                memcpy(&lfval, (idl_byte *)struct_addr + offset, sizeof(idl_long_float));
+                IDL_CHECK_RANGE_DOUBLE( range_bounds, &lfval );
                 IDL_MARSH_DOUBLE( (idl_byte *)struct_addr + offset );
                 break;
             case IDL_DT_ENUM:
@@ -485,7 +493,8 @@ void rpc_ss_ndr_marsh_struct
             case IDL_DT_FLOAT:
                 offset = *offset_vec_ptr;
                 offset_vec_ptr++;
-                IDL_CHECK_RANGE_FLOAT( range_bounds, (idl_byte *)struct_addr + offset );
+                memcpy(&fval, (idl_byte *)struct_addr + offset, sizeof(idl_short_float));
+                IDL_CHECK_RANGE_FLOAT( range_bounds, &fval );
                 IDL_MARSH_FLOAT( (idl_byte *)struct_addr + offset );
                 break;
             case IDL_DT_SMALL:
@@ -497,13 +506,15 @@ void rpc_ss_ndr_marsh_struct
             case IDL_DT_SHORT:
                 offset = *offset_vec_ptr;
                 offset_vec_ptr++;
-                IDL_CHECK_RANGE_SHORT( range_bounds, (idl_byte *)struct_addr + offset );
+                memcpy(&sval, (idl_byte *)struct_addr + offset, sizeof(idl_short_int));
+                IDL_CHECK_RANGE_SHORT( range_bounds, &sval );
                 IDL_MARSH_SHORT( (idl_byte *)struct_addr + offset );
                 break;
             case IDL_DT_LONG:
                 offset = *offset_vec_ptr;
                 offset_vec_ptr++;
-                IDL_CHECK_RANGE_LONG( range_bounds, (idl_byte *)struct_addr + offset );
+                memcpy(&lval, (idl_byte *)struct_addr + offset, sizeof(idl_long_int));
+                IDL_CHECK_RANGE_LONG( range_bounds, &lval );
                 IDL_MARSH_LONG( (idl_byte *)struct_addr + offset );
                 break;
             case IDL_DT_HYPER:
@@ -520,13 +531,15 @@ void rpc_ss_ndr_marsh_struct
             case IDL_DT_USHORT:
                 offset = *offset_vec_ptr;
                 offset_vec_ptr++;
-                IDL_CHECK_RANGE_USHORT( range_bounds, (idl_byte *)struct_addr + offset );
+                memcpy(&usval, (idl_byte *)struct_addr + offset, sizeof(idl_ushort_int));
+                IDL_CHECK_RANGE_USHORT( range_bounds, &usval );
                 IDL_MARSH_USHORT( (idl_byte *)struct_addr + offset );
                 break;
             case IDL_DT_ULONG:
                 offset = *offset_vec_ptr;
                 offset_vec_ptr++;
-                IDL_CHECK_RANGE_ULONG( range_bounds, (idl_byte *)struct_addr + offset );
+                memcpy(&ulval, (idl_byte *)struct_addr + offset, sizeof(idl_ulong_int));
+                IDL_CHECK_RANGE_ULONG( range_bounds, &ulval );
                 IDL_MARSH_ULONG( (idl_byte *)struct_addr + offset );
                 break;
             case IDL_DT_UHYPER:
@@ -651,8 +664,9 @@ void rpc_ss_ndr_marsh_struct
                                                 /* Pointee definition */
                 offset = *offset_vec_ptr;
                 offset_vec_ptr++;
+                memcpy(&tmp, ((idl_byte *)struct_addr+offset), sizeof(byte_p_t));
                 node_number = rpc_ss_register_node( IDL_msp->IDL_node_table,
-                        *(byte_p_t *)((idl_byte *)struct_addr+offset),
+                        tmp,
                         ndr_false, &already_marshalled );
                 IDL_MARSH_ULONG( &node_number );
                 break;
@@ -663,8 +677,8 @@ void rpc_ss_ndr_marsh_struct
                 offset = *offset_vec_ptr;
                 offset_vec_ptr++;
                 /* Get a value of 0 if pointer is null, 1 otherwise */
-                node_number =
-                        (*(byte_p_t *)((idl_byte *)struct_addr+offset) != NULL);
+                memcpy(&tmp, ((idl_byte *)struct_addr+offset), sizeof(byte_p_t));
+                node_number = (tmp != NULL);
                 IDL_MARSH_ULONG( &node_number );
                 break;
             case IDL_DT_REF_PTR:
@@ -744,7 +758,7 @@ void rpc_ss_ndr_marsh_struct
                 rpc_ss_ndr_marsh_cs_array(
                         (rpc_void_p_t)((idl_byte *)struct_addr+offset),
                         cs_shadow,
-                        offset_vec_ptr-(struct_offset_vec_ptr+1),
+                        (idl_ulong_int)(offset_vec_ptr-(struct_offset_vec_ptr+1)),
                         idl_true, &defn_vec_ptr, IDL_msp);
                 offset_vec_ptr++;
                 break;
@@ -924,9 +938,9 @@ void rpc_ss_ndr_marsh_by_looping
                                                                base_type_size);
                     IDL_MARSH_ALIGN_MP(IDL_msp, 4);
                     rpc_ss_ndr_marsh_check_buffer(8, IDL_msp);
-                    rpc_marshall_ulong_int(IDL_msp->IDL_mp, A);
+                    rpc_marshall_ulong_int(IDL_msp->IDL_mp, &A);
                     IDL_msp->IDL_mp += 4;
-                    rpc_marshall_ulong_int(IDL_msp->IDL_mp, B);
+                    rpc_marshall_ulong_int(IDL_msp->IDL_mp, &B);
                     IDL_msp->IDL_mp += 4;
                     IDL_msp->IDL_left_in_buff -= 8;
                     rpc_ss_ndr_marsh_by_copying(B, base_type_size, array_addr,
@@ -1151,7 +1165,9 @@ void rpc_ss_ndr_marsh_fixed_arr
       rpc_ss_fixed_bounds_from_vector(dimensionality, defn_vec_ptr,
 				      &bounds_list, IDL_msp);
     else
-      bounds_list = (IDL_bound_pair_t *)defn_vec_ptr;
+    {
+        bounds_list = (IDL_bound_pair_t *) (void *) defn_vec_ptr;
+    }
     rpc_ss_ndr_m_fix_or_conf_arr( array_addr, dimensionality, bounds_list,
                     defn_vec_ptr + dimensionality * IDL_FIXED_BOUND_PAIR_WIDTH,
                     flags, IDL_msp );
@@ -1450,7 +1466,9 @@ void rpc_ss_ndr_marsh_varying_arr
       rpc_ss_fixed_bounds_from_vector(dimensionality, defn_vec_ptr, &bounds_list,
                                     IDL_msp);
     else
-      bounds_list = (IDL_bound_pair_t *)defn_vec_ptr;
+    {
+        bounds_list = (IDL_bound_pair_t *) (void *) defn_vec_ptr;
+    }
     if (dimensionality > IDL_NORMAL_DIMS)
     {
         Z_values = NULL;

@@ -1,25 +1,25 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2002-2003,2019 Apple Inc. All Rights Reserved.
+ *
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
- * You may not use this file except in compliance with the License. Please 
- * obtain a copy of the License at http://www.apple.com/publicsource and 
+ * You may not use this file except in compliance with the License. Please
+ * obtain a copy of the License at http://www.apple.com/publicsource and
  * read it before using this file.
- * 
+ *
  * This Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
- * Please see the License for the specific language governing rights and 
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  */
 
 /*
 	File:		 CertUI.cpp
-	
-	Description: stdio-based routines to get cert info from user. 
+
+	Description: stdio-based routines to get cert info from user.
 
 	Author:		 dmitch
 */
@@ -44,7 +44,7 @@ void showError(
 }
 
 
-/* 
+/*
  * Safe gets().
  * -- guaranteed no buffer overflow
  * -- guaranteed NULL-terminated string
@@ -57,13 +57,13 @@ void getString(
 	unsigned dex;
 	char c;
 	char *cp = buf;
-	
+
 	for(dex=0; dex<bufSize-1; dex++) {
 		c = getchar();
 		if (c == EOF) {
 			throw kEOFException;
 		}
-		
+
 		if(!isprint(c)) {
 			break;
 		}
@@ -90,9 +90,9 @@ void getStringWithPrompt(
 	printf("%s", prompt);
 	fflush(stdout);
 	getString(buf, bufSize);
-}	
+}
 
-static const NameOidInfo nameOidInfo[] = 
+static const NameOidInfo nameOidInfo[] =
 {
 	{ &CSSMOID_CommonName,				"Common Name      ", "www.apple.com"},
 	{ &CSSMOID_CountryName,				"Country          ", "US"},
@@ -103,10 +103,10 @@ static const NameOidInfo nameOidInfo[] =
 };
 
 static const char *oidToDesc(
-	const CSSM_OID *oid) 
+	const CSSM_OID *oid)
 {
 	unsigned dex;
-	
+
 	for(dex=0; dex<MAX_NAMES; dex++) {
 		if(cuCompareCssmData(oid, nameOidInfo[dex].oid)) {
 			return nameOidInfo[dex].description;
@@ -128,10 +128,10 @@ void getNameOids(
 	unsigned dex;
 	char resp[200];
 	unsigned outNames;
-	
+
 	*numNames = 0;
 	memset(subjectNames, 0, MAX_NAMES * sizeof(CSSM_APPLE_TP_NAME_OID));
-	
+
 	printf("\nYou will now specify the various components of the certificate's\n"
 		   "Relative Distinguished Name (RDN). An RDN has a number of \n"
 		   "components, all of which are optional, but at least one of \n"
@@ -147,12 +147,12 @@ void getNameOids(
 		outNames = 0;
 		for(dex=0; dex<MAX_NAMES; dex++) {
 			nameOidIn = &nameOidInfo[dex];
-			printf("%s (e.g, %s) : ", 
+			printf("%s (e.g, %s) : ",
 				nameOidIn->description, nameOidIn->example);
 			fflush(stdout);
 			getString(resp, sizeof(resp));
 			if(resp[0] != '\0') {
-				unsigned len = strlen(resp) + 1;
+				unsigned len = (unsigned)strlen(resp) + 1;
 				nameOidOut->string = (char *)malloc(len);
 				strcpy((char *)nameOidOut->string, resp);
 				nameOidOut->oid = nameOidIn->oid;
@@ -182,8 +182,8 @@ void getNameOids(
  * Free strings mallocd in getNameOids.
  */
 void freeNameOids(
-	CSSM_APPLE_TP_NAME_OID *subjectNames,	
-	uint32 numNames)						
+	CSSM_APPLE_TP_NAME_OID *subjectNames,
+	uint32 numNames)
 {
 	for(unsigned i=0; i<numNames; i++) {
 		if(subjectNames[i].string) {
@@ -248,17 +248,17 @@ typedef struct _AlgInfo {
 	const CSSM_OID			*oid;				// only for signatures
 	uint32					defaultKeySize;		// only for keys
 	const char				*keyRangeString;	// only for keys
-	const struct _AlgInfo	*sigAlgInfo;		// only for keys 	
+	const struct _AlgInfo	*sigAlgInfo;		// only for keys
 	keySizeVerifyFcn		vfyFcn;		// only for keys
 } AlgInfo;
 
 /*
- * Note: CSSM_ALGID_MD2WithRSA does not work due to an inimplemented 
+ * Note: CSSM_ALGID_MD2WithRSA does not work due to an inimplemented
  * Security Server feature. Even though CSP and CL support this, we
  * don't really want to provide this capability anyway - it's a known
  * insecure digest algorithm.
  */
-static const AlgInfo rsaSigAlgInfo[] = 
+static const AlgInfo rsaSigAlgInfo[] =
 {
 //	{ CSSM_ALGID_MD5WithRSA,  	"RSA with MD5", '5', &CSSMOID_MD5WithRSA},
 //	{ CSSM_ALGID_MD2WithRSA,  	"RSA with MD2", '2', &CSSMOID_MD2WithRSA},
@@ -269,7 +269,7 @@ static const AlgInfo rsaSigAlgInfo[] =
 	{ CSSM_ALGID_NONE, 			NULL,   0 }
 };
 
-static const AlgInfo feeSigAlgInfo[] = 
+static const AlgInfo feeSigAlgInfo[] =
 {
 //	{ CSSM_ALGID_FEE_MD5,  		"FEE with MD5", '5', &CSSMOID_APPLE_FEE_MD5  },
 	{ CSSM_ALGID_FEE_SHA1, 		"FEE with SHA1", 's', &CSSMOID_APPLE_FEE_SHA1  },
@@ -277,13 +277,13 @@ static const AlgInfo feeSigAlgInfo[] =
 	{ CSSM_ALGID_NONE, 			NULL,   0,  NULL }
 };
 
-static const AlgInfo dsaSigAlgInfo[] = 
+static const AlgInfo dsaSigAlgInfo[] =
 {
 	{ CSSM_ALGID_SHA1WithDSA, 	"DSA with SHA1", 's', &CSSMOID_SHA1WithDSA  },
 	{ CSSM_ALGID_NONE, 			NULL,   0,  NULL }
 };
 
-static const AlgInfo ecdsaSigAlgInfo[] = 
+static const AlgInfo ecdsaSigAlgInfo[] =
 {
 	{ CSSM_ALGID_SHA1WithECDSA, "ECDSA with SHA1", 's', &CSSMOID_ECDSA_WithSHA1  },
     { CSSM_ALGID_SHA256WithECDSA, "ECDSA with SHA256", '2', &CSSMOID_ECDSA_WithSHA256  },
@@ -292,15 +292,15 @@ static const AlgInfo ecdsaSigAlgInfo[] =
 	{ CSSM_ALGID_NONE, 			NULL,   0,  NULL }
 };
 
-static const AlgInfo keyAlgInfo[] = 
+static const AlgInfo keyAlgInfo[] =
 {
 	{ CSSM_ALGID_RSA, 	"RSA", 'r', NULL, 2048, "1024..2048",
 		rsaSigAlgInfo, rsaKeySizeVerify},
 	{ CSSM_ALGID_DSA, 	"DSA", 'd', NULL, 2048, "1024..2048",
 		dsaSigAlgInfo, dsaKeySizeVerify},
-	{ CSSM_ALGID_FEE, 	"FEE", 'f', NULL, 128, "128, 161, 192", 
+	{ CSSM_ALGID_FEE, 	"FEE", 'f', NULL, 128, "128, 161, 192",
 		feeSigAlgInfo, feeKeySizeVerify},
-	{ CSSM_ALGID_ECDSA,	"ECDSA", 'e', NULL, 256, "256, 384, 521", 
+	{ CSSM_ALGID_ECDSA,	"ECDSA", 'e', NULL, 256, "256, 384, 521",
 		ecdsaSigAlgInfo, ecdsaKeySizeVerify},
 	{ CSSM_ALGID_NONE, 	NULL,   0,  NULL }
 };
@@ -344,7 +344,7 @@ void getKeyParams(
 	char resp[200];
 	const AlgInfo *keyInfo;
 	const AlgInfo *tempInfo;
-	
+
 	/* get a key algorithm */
 	printf("\nPlease specify parameters for the key pair you will generate.\n\n");
 	while(1) {
@@ -364,12 +364,12 @@ void getKeyParams(
 			break;
 		}
 	}
-	
+
 	while(1) {
 		/* until we get a valid key size */
 		printf("\nValid key sizes for %s are %s; default is %u\n",
 			keyInfo->str, keyInfo->keyRangeString, (unsigned)keyInfo->defaultKeySize);
-		getStringWithPrompt("Enter key size in bits or CR for default: ", 
+		getStringWithPrompt("Enter key size in bits or CR for default: ",
 			resp, sizeof(resp));
 		if(resp[0] == '\0') {
 			keySizeInBits = keyInfo->defaultKeySize;
@@ -407,7 +407,7 @@ OSStatus getSigAlg(
 
 	keyInfo = algInfoForAlg(signingKey->KeyHeader.AlgorithmId);
 	if(keyInfo == NULL) {
-		printf("***Signing key has unknown algorithm (%u).\n", 
+		printf("***Signing key has unknown algorithm (%u).\n",
 			(unsigned)signingKey->KeyHeader.AlgorithmId);
 		return paramErr;
 	}
@@ -421,7 +421,7 @@ OSStatus getSigAlg(
 			printf("  %c  %s\n", tempInfo->selector, tempInfo->str);
 			tempInfo++;
 		}
-		getStringWithPrompt("\nSelect signature algorithm by letter: ", 
+		getStringWithPrompt("\nSelect signature algorithm by letter: ",
 			resp, sizeof(resp));
 		if(resp[0] == '\0') {
 			printf("***There is no default. Please choose a signature algorithm.\n");
@@ -447,7 +447,7 @@ CU_KeyUsage getKeyUsage(bool isRoot)
 {
 	char resp[200];
 	const char *prompt;
-	
+
 	if(isRoot) {
 		/* root HAS to be capable of signing */
 		prompt = "Enter cert/key usage (s=signing, b=signing AND encrypting, d(derive AND sign): ";

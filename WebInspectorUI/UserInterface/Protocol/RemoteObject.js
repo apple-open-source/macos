@@ -610,7 +610,7 @@ WI.RemoteObject = class RemoteObject
 
         this._target.DebuggerAgent.getFunctionDetails(this._objectId, (error, response) => {
             if (error) {
-                result.reject(error);
+                result.resolve(WI.RemoteObject.SourceCodeLocationPromise.NoSourceFound);
                 return;
             }
 
@@ -649,19 +649,6 @@ WI.RemoteObject = class RemoteObject
     _weakCollectionObjectGroup()
     {
         return JSON.stringify(this._objectId) + "-" + this._subtype;
-    }
-
-    getPropertyDescriptorsAsObject(callback, options = {})
-    {
-        this.getPropertyDescriptors(function(properties) {
-            var propertiesResult = {};
-            var internalPropertiesResult = {};
-            for (var propertyDescriptor of properties) {
-                var object = propertyDescriptor.isInternalProperty ? internalPropertiesResult : propertiesResult;
-                object[propertyDescriptor.name] = propertyDescriptor;
-            }
-            callback(propertiesResult, internalPropertiesResult);
-        }, options);
     }
 
     _getPropertyDescriptorsResolver(callback, error, properties, internalProperties)

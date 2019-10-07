@@ -2,14 +2,14 @@
  * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <string.h>
@@ -29,25 +29,25 @@ u_int32_t local_adler32(u_int8_t * buffer, int32_t length)
 {
     int32_t cnt;
     u_int32_t  result, lowHalf, highHalf;
-    
+
     lowHalf = 1;
     highHalf = 0;
-    
+
     for (cnt = 0; cnt < length; cnt++) {
         if ((cnt % 5000) == 0) {
             lowHalf  %= 65521L;
             highHalf %= 65521L;
         }
-        
+
         lowHalf += buffer[cnt];
         highHalf += lowHalf;
     }
-    
+
     lowHalf  %= 65521L;
     highHalf %= 65521L;
-    
+
     result = (highHalf << 16) | lowHalf;
-    
+
     return result;
 }
 
@@ -101,7 +101,7 @@ int decompress_lzss(
     const u_int8_t * srcend = src + srclen;
     int  i, j, k, r, c;
     unsigned int flags;
-    
+
     dst = dststart;
     for (i = 0; i < N - F; i++)
         text_buf[i] = ' ';
@@ -130,18 +130,18 @@ int decompress_lzss(
             }
         }
     }
-    
+
     return (int)(dst - dststart);
 }
 
 /*
  * initialize state, mostly the trees
  *
- * For i = 0 to N - 1, rchild[i] and lchild[i] will be the right and left 
- * children of node i.  These nodes need not be initialized.  Also, parent[i] 
- * is the parent of node i.  These are initialized to NIL (= N), which stands 
- * for 'not used.'  For i = 0 to 255, rchild[N + i + 1] is the root of the 
- * tree for strings that begin with character i.  These are initialized to NIL. 
+ * For i = 0 to N - 1, rchild[i] and lchild[i] will be the right and left
+ * children of node i.  These nodes need not be initialized.  Also, parent[i]
+ * is the parent of node i.  These are initialized to NIL (= N), which stands
+ * for 'not used.'  For i = 0 to 255, rchild[N + i + 1] is the root of the
+ * tree for strings that begin with character i.  These are initialized to NIL.
  * Note there are 256 trees. */
 static void init_state(struct encode_state *sp)
 {
@@ -180,7 +180,7 @@ static void insert_node(struct encode_state *sp, int r)
             if (sp->rchild[p] != NIL)
                 p = sp->rchild[p];
             else {
-                sp->rchild[p] = r; 
+                sp->rchild[p] = r;
                 sp->parent[r] = p;
                 return;
             }
@@ -219,7 +219,7 @@ static void insert_node(struct encode_state *sp, int r)
 static void delete_node(struct encode_state *sp, int p)
 {
     int  q;
-    
+
     if (sp->parent[p] == NIL)
         return;  /* not in tree */
     if (sp->rchild[p] == NIL)
@@ -285,7 +285,7 @@ u_int8_t * compress_lzss(
 
     /* Read F bytes into the last F bytes of the buffer */
     for (len = 0; len < F && src < srcend; len++)
-        sp->text_buf[r + len] = *src++;  
+        sp->text_buf[r + len] = *src++;
     if (!len)
         goto finish;
 
@@ -295,7 +295,7 @@ u_int8_t * compress_lzss(
      * inserted.  This way, degenerate trees will be less likely to occur.
      */
     for (i = 1; i <= F; i++)
-        insert_node(sp, r - i); 
+        insert_node(sp, r - i);
 
     /*
      * Finally, insert the whole string just read.
@@ -321,7 +321,7 @@ u_int8_t * compress_lzss(
                 /* Send at most 8 units of code together */
             for (i = 0; i < code_buf_ptr; i++)
                 if (dst < dstend)
-                    *dst++ = code_buf[i]; 
+                    *dst++ = code_buf[i];
                 else
                     goto finish;
             code_buf[0] = 0;
@@ -345,13 +345,13 @@ u_int8_t * compress_lzss(
             r = (r + 1) & (N - 1);
 
             /* Register the string in text_buf[r..r+F-1] */
-            insert_node(sp, r); 
+            insert_node(sp, r);
         }
         while (i++ < last_match_length) {
         delete_node(sp, s);
 
             /* After the end of text, no need to read, */
-            s = (s + 1) & (N - 1); 
+            s = (s + 1) & (N - 1);
             r = (r + 1) & (N - 1);
             /* but buffer may not be empty. */
             if (--len)
@@ -362,7 +362,7 @@ u_int8_t * compress_lzss(
     if (code_buf_ptr > 1) {    /* Send remaining code. */
         for (i = 0; i < code_buf_ptr; i++)
             if (dst < dstend)
-                *dst++ = code_buf[i]; 
+                *dst++ = code_buf[i];
             else
                 goto finish;
     }

@@ -37,7 +37,7 @@ var_dump( compare_self_stat($old_stat) );
 var_dump( compare_self_stat($new_stat) );
 
 // compare the two stats - all except ctime
-$keys_to_compare = array(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 
+$keys_to_compare = array(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12,
                        "dev", "ino", "mode", "nlink", "uid", "gid",
                        "rdev", "size", "atime", "mtime", "blksize", "blocks");
 var_dump( compare_stats($old_stat, $new_stat, $keys_to_compare) );
@@ -46,13 +46,12 @@ clearstatcache();
 
 echo "\n--- Done ---";
 ?>
-
 --CLEAN--
 <?php
 $file_path = dirname(__FILE__);
 rmdir("$file_path/lstat_stat_variation1a");
 ?>
---EXPECTF--
+--EXPECT--
 *** Testing stat() for directory after being renamed ***
 bool(true)
 bool(true)

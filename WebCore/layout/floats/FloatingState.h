@@ -54,13 +54,14 @@ public:
 
     const Box& root() const { return *m_formattingContextRoot; }
 
+    Optional<PositionInContextRoot> top(const Box& formattingContextRoot) const;
     Optional<PositionInContextRoot> leftBottom(const Box& formattingContextRoot) const;
     Optional<PositionInContextRoot> rightBottom(const Box& formattingContextRoot) const;
     Optional<PositionInContextRoot> bottom(const Box& formattingContextRoot) const;
 
     struct Constraints {
-        Optional<PositionInContextRoot> left;
-        Optional<PositionInContextRoot> right;
+        Optional<PointInContextRoot> left;
+        Optional<PointInContextRoot> right;
     };
     Constraints constraints(PositionInContextRoot verticalPosition, const Box& formattingContextRoot) const;
 
@@ -71,9 +72,9 @@ public:
         bool operator==(const Box& layoutBox) const { return m_layoutBox.get() == &layoutBox; }
 
         bool isLeftPositioned() const { return m_layoutBox->isLeftFloatingPositioned(); }
-        bool inFormattingContext(const Box&) const;
+        bool isDescendantOfFormattingRoot(const Box&) const;
 
-        Display::Box::Rect rectWithMargin() const { return m_absoluteDisplayBox.rectWithMargin(); }
+        Display::Rect rectWithMargin() const { return m_absoluteDisplayBox.rectWithMargin(); }
         PositionInContextRoot bottom() const { return { m_absoluteDisplayBox.bottom() }; }
 
     private:
@@ -115,10 +116,12 @@ inline Optional<PositionInContextRoot> FloatingState::bottom(const Box& formatti
     return bottom(formattingContextRoot, Clear::Both);
 }
 
-inline bool FloatingState::FloatItem::inFormattingContext(const Box& formattingContextRoot) const
+inline bool FloatingState::FloatItem::isDescendantOfFormattingRoot(const Box& formattingContextRoot) const
 {
     ASSERT(formattingContextRoot.establishesFormattingContext());
-    return &m_layoutBox->formattingContextRoot() == &formattingContextRoot;
+    if (!is<Container>(formattingContextRoot))
+        return false;
+    return m_layoutBox->isContainingBlockDescendantOf(downcast<Container>(formattingContextRoot));
 }
 
 }

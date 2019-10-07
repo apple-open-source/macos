@@ -101,7 +101,7 @@ struct SecPathBuilder {
     CFMutableArrayRef       parentSources;
     CFArrayRef              ocspResponses;               // Stapled OCSP responses
     CFArrayRef              signedCertificateTimestamps; // Stapled SCTs
-    CFArrayRef              trustedLogs;                 // Trusted CT logs
+    CFDictionaryRef         trustedLogs;                 // Trusted CT logs
     CFAbsoluteTime          verifyTime;
     CFArrayRef              exceptions;
 
@@ -162,7 +162,7 @@ static bool SecPathBuilderIsAnchor(SecPathBuilderRef builder,
 	SecCertificateRef certificate, SecCertificateSourceRef *foundInSource);
 static void SecPathBuilderSetPath(SecPathBuilderRef builder, SecCertificatePathVCRef path);
 
-static void SecPathBuilderInit(SecPathBuilderRef builder,
+static void SecPathBuilderInit(SecPathBuilderRef builder, dispatch_queue_t builderQueue,
     CFDataRef clientAuditToken, CFArrayRef certificates,
     CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed,
     CFArrayRef policies, CFArrayRef ocspResponses,
@@ -178,26 +178,13 @@ static void SecPathBuilderInit(SecPathBuilderRef builder,
     builder->clientAuditToken = (CFDataRef)
         ((clientAuditToken) ? CFRetain(clientAuditToken) : NULL);
 
-    /* Put all trust evaluations on the same workloop in order to avoid
-     * high thread fanout and frequent expensive context switches */
-    static dispatch_workloop_t workloop = NULL;
-    static dispatch_once_t onceToken;
-    static const char *recursion_key = "trust-evaluation-recursion-token";
-    dispatch_once(&onceToken, ^{
-        workloop = dispatch_workloop_create("com.apple.trustd.evaluation");
-    });
-    dispatch_queue_t builderQueue = NULL;
-    if (dispatch_workloop_is_current(workloop) || dispatch_get_specific(recursion_key)) {
-        /* If we're on the workloop already or are in a recursive trust evaluation, make a
-         * new thread so that the new path builder block will get scheduled and the blocked
-         * trust evaluation can proceed. */
-        builderQueue = dispatch_queue_create("com.apple.trustd.evaluation.recursive", DISPATCH_QUEUE_SERIAL);
-        dispatch_queue_set_specific(builderQueue, recursion_key, (void *)1, NULL);
+    if (!builderQueue) {
+        /* make our own queue if caller fails to provide one */
+        builder->queue = dispatch_queue_create("com.apple.trustd.evaluation.builder", DISPATCH_QUEUE_SERIAL);
     } else {
-        builderQueue = workloop;
         dispatch_retain_safe(builderQueue);
+        builder->queue = builderQueue;
     }
-    builder->queue = builderQueue;
 
     builder->nextParentSource = 1;
 #if !TARGET_OS_WATCH
@@ -277,20 +264,22 @@ static void SecPathBuilderInit(SecPathBuilderRef builder,
      ** Apple's anchors cannot be overriden by a trust setting.
      **/
 #if !TARGET_OS_BRIDGE
-	if (builder->anchorSource) {
-		CFArrayAppendValue(builder->anchorSources, builder->anchorSource);
-	}
+    if (builder->anchorSource) {
+        CFArrayAppendValue(builder->anchorSources, builder->anchorSource);
+    }
     if (!anchorsOnly) {
         /* Only add the system and user anchor certificate db to the
          anchorSources if we are supposed to trust them. */
         CFArrayAppendValue(builder->anchorSources, builder->appleAnchorSource);
- #if TARGET_OS_IPHONE
-        CFArrayAppendValue(builder->anchorSources, kSecUserAnchorSource);
- #else /* TARGET_OS_OSX */
-        if (keychainsAllowed && kSecLegacyAnchorSource->contains && kSecLegacyAnchorSource->copyParents) {
-            CFArrayAppendValue(builder->anchorSources, kSecLegacyAnchorSource);
+        if (keychainsAllowed) {
+#if TARGET_OS_IPHONE
+            CFArrayAppendValue(builder->anchorSources, kSecUserAnchorSource);
+#else /* TARGET_OS_OSX */
+            if (kSecLegacyAnchorSource->contains && kSecLegacyAnchorSource->copyParents) {
+                CFArrayAppendValue(builder->anchorSources, kSecLegacyAnchorSource);
+            }
+#endif
         }
- #endif
         CFArrayAppendValue(builder->anchorSources, kSecSystemAnchorSource);
     }
 #else /* TARGET_OS_BRIDGE */
@@ -307,7 +296,7 @@ static void SecPathBuilderInit(SecPathBuilderRef builder,
     builder->signedCertificateTimestamps = CFRetainSafe(signedCertificateTimestamps);
 
     if(trustedLogs) {
-        builder->trustedLogs = CFRetainSafe(trustedLogs);
+        builder->trustedLogs = SecOTAPKICreateTrustedCTLogsDictionaryFromArray(trustedLogs);
     }
 
     /* Now let's get the leaf cert and turn it into a path. */
@@ -328,7 +317,7 @@ static void SecPathBuilderInit(SecPathBuilderRef builder,
     builder->context = context;
 }
 
-SecPathBuilderRef SecPathBuilderCreate(CFDataRef clientAuditToken,
+SecPathBuilderRef SecPathBuilderCreate(dispatch_queue_t builderQueue, CFDataRef clientAuditToken,
     CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly,
     bool keychainsAllowed, CFArrayRef policies, CFArrayRef ocspResponses,
     CFArrayRef signedCertificateTimestamps, CFArrayRef trustedLogs,
@@ -336,7 +325,7 @@ SecPathBuilderRef SecPathBuilderCreate(CFDataRef clientAuditToken,
     SecPathBuilderCompleted completed, const void *context) {
     SecPathBuilderRef builder = malloc(sizeof(*builder));
     memset(builder, 0, sizeof(*builder));
-    SecPathBuilderInit(builder, clientAuditToken, certificates,
+    SecPathBuilderInit(builder, builderQueue, clientAuditToken, certificates,
         anchors, anchorsOnly, keychainsAllowed, policies, ocspResponses,
         signedCertificateTimestamps, trustedLogs, verifyTime,
         accessGroups, exceptions, completed, context);
@@ -459,7 +448,7 @@ CFArrayRef SecPathBuilderCopySignedCertificateTimestamps(SecPathBuilderRef build
     return CFRetainSafe(builder->signedCertificateTimestamps);
 }
 
-CFArrayRef SecPathBuilderCopyTrustedLogs(SecPathBuilderRef builder)
+CFDictionaryRef SecPathBuilderCopyTrustedLogs(SecPathBuilderRef builder)
 {
     return CFRetainSafe(builder->trustedLogs);
 }
@@ -617,53 +606,18 @@ SecPVCRef SecPathBuilderGetResultPVC(SecPathBuilderRef builder) {
 /* This function assumes that the input source is an anchor source */
 static bool SecPathBuilderIsAnchorPerConstraints(SecPathBuilderRef builder, SecCertificateSourceRef source,
     SecCertificateRef certificate) {
-    __block bool result = false;
-    CFArrayRef constraints = NULL;
-    constraints = SecCertificateSourceCopyUsageConstraints(source, certificate);
-
-    /* Unrestricted certificates:
-     *      -those that come from anchor sources with no constraints
-     *      -self-signed certificates with empty contraints arrays
-     */
-    Boolean selfSigned = false;
-    require(errSecSuccess == SecCertificateIsSelfSigned(certificate, &selfSigned), out);
-    if ((NULL == source->copyUsageConstraints) ||
-        (constraints && (CFArrayGetCount(constraints) == 0) && selfSigned)) {
-        secinfo("trust", "unrestricted anchor%s",
-                (NULL == source->copyUsageConstraints) ? " source" : "");
-        result = true;
-        goto out;
-    }
 
     /* Get the trust settings result for the PVCs. Only one PVC need match to
      * trigger the anchor behavior -- policy validation will handle whether the
      * path is truly anchored for that PVC. */
-    require(constraints, out);
+    __block bool result = false;
     SecPathBuilderForEachPVC(builder, ^(SecPVCRef pvc, bool * __unused stop) {
-        SecTrustSettingsResult settingsResult = kSecTrustSettingsResultInvalid;
-        settingsResult = SecPVCGetTrustSettingsResult(pvc,
-                                                      certificate,
-                                                      constraints);
-        if ((selfSigned && settingsResult == kSecTrustSettingsResultTrustRoot) ||
-            (!selfSigned && settingsResult == kSecTrustSettingsResultTrustAsRoot)) {
-            // For our purposes, this is an anchor.
-            secinfo("trust", "complex trust settings anchor");
-            result = true;
-            *stop = true;
-        }
-
-        if (settingsResult == kSecTrustSettingsResultDeny) {
-            /* We consider denied certs "anchors" because the trust decision
-             is set regardless of building the chain further. The policy
-             validation will handle rejecting this chain. */
-            secinfo("trust", "complex trust settings denied anchor");
+        if (SecPVCIsAnchorPerConstraints(pvc, source, certificate)) {
             result = true;
             *stop = true;
         }
     });
 
-out:
-    CFReleaseNull(constraints);
     return result;
 }
 
@@ -726,7 +680,7 @@ static bool SecPathBuilderIsPartial(SecPathBuilderRef builder,
 	}
 
 	if (vstatus == kSecPathVerifySuccess) {
-		/* The signature chain verified sucessfully, now let's find
+		/* The signature chain verified successfully, now let's find
 		   out if we have an anchor for path.  */
 		if (SecCertificatePathVCIsAnchored(path)) {
             secdebug("trust", "Adding candidate %@", path);
@@ -1257,6 +1211,14 @@ static bool SecPathBuilderReportResult(SecPathBuilderRef builder) {
         }
     }
 
+    /* If revoked, set the revocation reason */
+    if (builder->info && !SecPathBuilderIsOkResult(builder) && SecCertificatePathVCIsRevocationDone(builder->bestPath)
+        && SecCertificatePathVCGetRevocationReason(builder->bestPath)) {
+        CFNumberRef reason = SecCertificatePathVCGetRevocationReason(builder->bestPath);
+        CFDictionarySetValue(builder->info, kSecTrustRevocationReason, reason);
+    }
+
+    /* Set CT marker in the info */
     if (builder->info && SecCertificatePathVCIsCT(builder->bestPath) && SecPathBuilderIsOkResult(builder)) {
         CFDictionarySetValue(builder->info, kSecTrustInfoCertificateTransparencyKey,
                              kCFBooleanTrue);
@@ -1376,7 +1338,7 @@ SecTrustServerEvaluateCompleted(const void *userData,
 }
 
 void
-SecTrustServerEvaluateBlock(CFDataRef clientAuditToken, CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, CFArrayRef accessGroups, CFArrayRef exceptions, void (^evaluated)(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, CFArrayRef chain, CFErrorRef error)) {
+SecTrustServerEvaluateBlock(dispatch_queue_t builderQueue, CFDataRef clientAuditToken, CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, CFArrayRef accessGroups, CFArrayRef exceptions, void (^evaluated)(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, CFArrayRef chain, CFErrorRef error)) {
     /* We need an array containing at least one certificate to proceed. */
     if (!isArray(certificates) || !(CFArrayGetCount(certificates) > 0)) {
         CFErrorRef certError = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInvalidCertificate, NULL);
@@ -1386,13 +1348,13 @@ SecTrustServerEvaluateBlock(CFDataRef clientAuditToken, CFArrayRef certificates,
     }
     SecTrustServerEvaluationCompleted userData = Block_copy(evaluated);
     /* Call the actual evaluator function. */
-    SecPathBuilderRef builder = SecPathBuilderCreate(clientAuditToken,
+    SecPathBuilderRef builder = SecPathBuilderCreate(builderQueue, clientAuditToken,
                                                      certificates, anchors,
                                                      anchorsOnly, keychainsAllowed, policies,
                                                      responses, SCTs, trustedLogs,
                                                      verifyTime, accessGroups, exceptions,
                                                      SecTrustServerEvaluateCompleted, userData);
-    dispatch_async(builder->queue, ^{ SecPathBuilderStep(builder); });
+    SecPathBuilderStep(builder);
 }
 
 
@@ -1400,31 +1362,41 @@ SecTrustServerEvaluateBlock(CFDataRef clientAuditToken, CFArrayRef certificates,
 SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFArrayRef *pdetails, CFDictionaryRef *pinfo, CFArrayRef *pchain, CFErrorRef *perror) {
     dispatch_semaphore_t done = dispatch_semaphore_create(0);
     __block SecTrustResultType result = kSecTrustResultInvalid;
-    SecTrustServerEvaluateBlock(NULL, certificates, anchors, anchorsOnly, keychainsAllowed, policies, responses, SCTs, trustedLogs, verifyTime, accessGroups, exceptions, ^(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, CFArrayRef chain, CFErrorRef error) {
-        result = tr;
-        if (tr == kSecTrustResultInvalid) {
-            if (perror) {
-                *perror = error;
-                CFRetainSafe(error);
+    __block dispatch_queue_t queue = dispatch_queue_create("com.apple.trustd.evaluation.recursive", DISPATCH_QUEUE_SERIAL);
+
+    /* We need to use the async call with the semaphore here instead of a synchronous call because we may return from
+     * SecPathBuilderStep while waiting for an asynchronous network call in order to complete the evaluation. That return
+     * is necessary in the XPC interface in order to free up the workloop for other trust evaluations while we wait for
+     * the networking to complete, but here, we need to make sure we wait for the network call (which will async back
+     * onto our queue) to complete and signal us before we return to the "inline" caller. */
+    dispatch_async(queue, ^{
+        SecTrustServerEvaluateBlock(queue, NULL, certificates, anchors, anchorsOnly, keychainsAllowed, policies, responses, SCTs, trustedLogs, verifyTime, accessGroups, exceptions, ^(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, CFArrayRef chain, CFErrorRef error) {
+            result = tr;
+            if (tr == kSecTrustResultInvalid) {
+                if (perror) {
+                    *perror = error;
+                    CFRetainSafe(error);
+                }
+            } else {
+                if (pdetails) {
+                    *pdetails = details;
+                    CFRetainSafe(details);
+                }
+                if (pinfo) {
+                    *pinfo = info;
+                    CFRetainSafe(info);
+                }
+                if (pchain) {
+                    *pchain = chain;
+                    CFRetainSafe(chain);
+                }
             }
-        } else {
-            if (pdetails) {
-                *pdetails = details;
-                CFRetainSafe(details);
-            }
-            if (pinfo) {
-                *pinfo = info;
-                CFRetainSafe(info);
-            }
-            if (pchain) {
-                *pchain = chain;
-                CFRetainSafe(chain);
-            }
-        }
-        dispatch_semaphore_signal(done);
+            dispatch_semaphore_signal(done);
+        });
     });
     dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
     dispatch_release(done);
+    dispatch_release_null(queue);
 
     return result;
 }

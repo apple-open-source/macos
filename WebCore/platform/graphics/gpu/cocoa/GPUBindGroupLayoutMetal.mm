@@ -37,89 +37,149 @@
 
 namespace WebCore {
 
-static MTLDataType MTLDataTypeForBindingType(GPUBindGroupLayoutBinding::BindingType type)
+static MTLDataType MTLDataTypeForBindingType(GPUBindingType type)
 {
     switch (type) {
-    case GPUBindGroupLayoutBinding::BindingType::Sampler:
+    case GPUBindingType::Sampler:
         return MTLDataTypeSampler;
-    case GPUBindGroupLayoutBinding::BindingType::SampledTexture:
+    case GPUBindingType::SampledTexture:
         return MTLDataTypeTexture;
-    case GPUBindGroupLayoutBinding::BindingType::UniformBuffer:
-    case GPUBindGroupLayoutBinding::BindingType::StorageBuffer:
+    case GPUBindingType::UniformBuffer:
+    case GPUBindingType::DynamicUniformBuffer:
+    case GPUBindingType::StorageBuffer:
+    case GPUBindingType::DynamicStorageBuffer:
         return MTLDataTypePointer;
     }
 }
 
 using ArgumentArray = RetainPtr<NSMutableArray<MTLArgumentDescriptor *>>;
-static void appendArgumentToArray(ArgumentArray array, RetainPtr<MTLArgumentDescriptor> argument)
+static void appendArgumentToArray(ArgumentArray& array, RetainPtr<MTLArgumentDescriptor> argument)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     if (!array)
-        array = [[NSMutableArray alloc] initWithObjects:argument.get(), nil];
+        array = adoptNS([[NSMutableArray alloc] initWithObjects:argument.get(), nil]);
     else
         [array addObject:argument.get()];
     END_BLOCK_OBJC_EXCEPTIONS;
 }
 
-static RetainPtr<MTLArgumentEncoder> newEncoder(const GPUDevice& device, ArgumentArray array)
+static RetainPtr<MTLArgumentEncoder> tryCreateMtlArgumentEncoder(const GPUDevice& device, ArgumentArray array)
 {
     RetainPtr<MTLArgumentEncoder> encoder;
+
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     encoder = adoptNS([device.platformDevice() newArgumentEncoderWithArguments:array.get()]);
     END_BLOCK_OBJC_EXCEPTIONS;
-    if (!encoder)
+    if (!encoder) {
         LOG(WebGPU, "GPUBindGroupLayout::tryCreate(): Unable to create MTLArgumentEncoder!");
-
+        return nullptr;
+    }
     return encoder;
 };
 
-RefPtr<GPUBindGroupLayout> GPUBindGroupLayout::tryCreate(const GPUDevice& device, GPUBindGroupLayoutDescriptor&& descriptor)
+static RetainPtr<MTLArgumentDescriptor> argumentDescriptor(MTLDataType dataType, NSUInteger index)
 {
-    ArgumentArray vertexArguments, fragmentArguments, computeArguments;
+    RetainPtr<MTLArgumentDescriptor> mtlArgument;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    mtlArgument = adoptNS([MTLArgumentDescriptor new]);
+    END_BLOCK_OBJC_EXCEPTIONS;
 
+    [mtlArgument setDataType:dataType];
+    [mtlArgument setIndex:index];
+    return mtlArgument;
+}
+
+RefPtr<GPUBindGroupLayout> GPUBindGroupLayout::tryCreate(const GPUDevice& device, const GPUBindGroupLayoutDescriptor& descriptor)
+{
+    if (!device.platformDevice()) {
+        LOG(WebGPU, "GPUBindGroupLayout::tryCreate(): Invalid MTLDevice!");
+        return nullptr;
+    }
+
+    ArgumentArray vertexArgs, fragmentArgs, computeArgs, vertexLengths, fragmentLengths, computeLengths;
+    BindingsMapType bindingsMap;
+
+    unsigned internalName = 0;
+    unsigned internalLengthBase = descriptor.bindings.size();
     for (const auto& binding : descriptor.bindings) {
-        RetainPtr<MTLArgumentDescriptor> mtlArgument;
-
-        BEGIN_BLOCK_OBJC_EXCEPTIONS;
-        mtlArgument = adoptNS([MTLArgumentDescriptor new]);
-        END_BLOCK_OBJC_EXCEPTIONS;
-
-        if (!mtlArgument) {
-            LOG(WebGPU, "GPUBindGroupLayout::tryCreate(): Unable to create MTLArgumentDescriptor!");
+        Optional<unsigned> extraIndex;
+        auto internalDetails = ([&]() -> GPUBindGroupLayout::InternalBindingDetails {
+            switch (binding.type) {
+            case GPUBindingType::UniformBuffer:
+                extraIndex = internalLengthBase++;
+                return GPUBindGroupLayout::UniformBuffer { *extraIndex };
+            case GPUBindingType::DynamicUniformBuffer:
+                extraIndex = internalLengthBase++;
+                return GPUBindGroupLayout::DynamicUniformBuffer { *extraIndex };
+            case GPUBindingType::Sampler:
+                return GPUBindGroupLayout::Sampler { };
+            case GPUBindingType::SampledTexture:
+                return GPUBindGroupLayout::SampledTexture { };
+            case GPUBindingType::StorageBuffer:
+                extraIndex = internalLengthBase++;
+                return GPUBindGroupLayout::StorageBuffer { *extraIndex };
+            default:
+                ASSERT(binding.type == GPUBindingType::DynamicStorageBuffer);
+                extraIndex = internalLengthBase++;
+                return GPUBindGroupLayout::DynamicStorageBuffer { *extraIndex };
+            }
+        })();
+        Binding bindingDetails = { binding, internalName++, WTFMove(internalDetails) };
+        if (!bindingsMap.add(binding.binding, bindingDetails)) {
+            LOG(WebGPU, "GPUBindGroupLayout::tryCreate(): Duplicate binding %u found in GPUBindGroupLayoutDescriptor!", binding.binding);
             return nullptr;
         }
 
-        mtlArgument.get().dataType = MTLDataTypeForBindingType(binding.type);
-        mtlArgument.get().index = binding.binding;
+        RetainPtr<MTLArgumentDescriptor> mtlArgument = argumentDescriptor(MTLDataTypeForBindingType(binding.type), bindingDetails.internalName);
 
-        if (binding.visibility & GPUShaderStageBit::VERTEX)
-            appendArgumentToArray(vertexArguments, mtlArgument);
-        if (binding.visibility & GPUShaderStageBit::FRAGMENT)
-            appendArgumentToArray(fragmentArguments, mtlArgument);
-        if (binding.visibility & GPUShaderStageBit::COMPUTE)
-            appendArgumentToArray(computeArguments, mtlArgument);
-    }
+        if (!mtlArgument) {
+            LOG(WebGPU, "GPUBindGroupLayout::tryCreate(): Unable to create MTLArgumentDescriptor for binding %u!", binding.binding);
+            return nullptr;
+        }
 
-    ArgumentEncoders encoders;
-
-    if (vertexArguments) {
-        if (!(encoders.vertex = newEncoder(device, vertexArguments)))
+        auto addIndices = [&](ArgumentArray& args, ArgumentArray& lengths) -> bool {
+            appendArgumentToArray(args, mtlArgument);
+            if (extraIndex) {
+                RetainPtr<MTLArgumentDescriptor> mtlArgument = argumentDescriptor(MTLDataTypeUInt2, *extraIndex);
+                if (!mtlArgument) {
+                    LOG(WebGPU, "GPUBindGroupLayout::tryCreate(): Unable to create MTLArgumentDescriptor for binding %u!", binding.binding);
+                    return false;
+                }
+                appendArgumentToArray(lengths, mtlArgument);
+            }
+            return true;
+        };
+        if ((binding.visibility & GPUShaderStageBit::Flags::Vertex) && !addIndices(vertexArgs, vertexLengths))
+            return nullptr;
+        if ((binding.visibility & GPUShaderStageBit::Flags::Fragment) && !addIndices(fragmentArgs, fragmentLengths))
+            return nullptr;
+        if ((binding.visibility & GPUShaderStageBit::Flags::Compute) && !addIndices(computeArgs, computeLengths))
             return nullptr;
     }
-    if (fragmentArguments) {
-        if (!(encoders.fragment = newEncoder(device, fragmentArguments)))
-            return nullptr;
-    }
-    if (computeArguments) {
-        if (!(encoders.compute = newEncoder(device, computeArguments)))
-            return nullptr;
-    }
 
-    return adoptRef(new GPUBindGroupLayout(WTFMove(encoders)));
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    [vertexArgs addObjectsFromArray:vertexLengths.get()];
+    [fragmentArgs addObjectsFromArray:fragmentLengths.get()];
+    [computeArgs addObjectsFromArray:computeLengths.get()];
+    END_BLOCK_OBJC_EXCEPTIONS;
+
+    RetainPtr<MTLArgumentEncoder> vertex, fragment, compute;
+
+    if (vertexArgs && !(vertex = tryCreateMtlArgumentEncoder(device, vertexArgs)))
+        return nullptr;
+    if (fragmentArgs && !(fragment = tryCreateMtlArgumentEncoder(device, fragmentArgs)))
+        return nullptr;
+    if (computeArgs && !(compute = tryCreateMtlArgumentEncoder(device, computeArgs)))
+        return nullptr;
+
+    return adoptRef(new GPUBindGroupLayout(WTFMove(bindingsMap), WTFMove(vertex), WTFMove(fragment), WTFMove(compute)));
 }
 
-GPUBindGroupLayout::GPUBindGroupLayout(ArgumentEncoders&& encoders)
-    : m_argumentEncoders(WTFMove(encoders))
+GPUBindGroupLayout::GPUBindGroupLayout(BindingsMapType&& bindingsMap, RetainPtr<MTLArgumentEncoder>&& vertex, RetainPtr<MTLArgumentEncoder>&& fragment, RetainPtr<MTLArgumentEncoder>&& compute)
+    : m_vertexEncoder(WTFMove(vertex))
+    , m_fragmentEncoder(WTFMove(fragment))
+    , m_computeEncoder(WTFMove(compute))
+    , m_bindingsMap(WTFMove(bindingsMap))
 {
 }
 

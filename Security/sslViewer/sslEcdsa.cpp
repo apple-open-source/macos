@@ -380,6 +380,8 @@ static int doSslPing(
 	 * Set up a SecureTransport session.
 	 * First the standard calls.
 	 */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	ortn = SSLNewContext(false, &ctx);
 	if(ortn) {
 		printSslErrStr("SSLNewContext", ortn);
@@ -436,43 +438,6 @@ static int doSslPing(
 		}
 	}
 
-#if 0
-	if(testParams->keychain) {
-		char kcPath[2000];
-		const char *lbd = getenv("LOCAL_BUILD_DIR");
-		if(lbd == NULL) {
-			printf("WARNING: no LOCAL_BUILD_DIR env var faound\n");
-			lbd = "";
-		}
-		snprintf(kcPath, 2000, "%s/%s", lbd, testParams->keychain);
-		SecKeychainRef kcRef = NULL;
-		CFArrayRef certArray = getSslCerts(kcPath,
-			false,          // encryptOnly
-			false,          // completeCertChain
-			NULL,			// anchorFile
-			&kcRef);
-		if(kcRef) {
-			/* Unlock it */
-			ortn = SecKeychainUnlock(kcRef,
-				strlen(testParams->kcPassword), testParams->kcPassword,
-				true);
-			if(ortn) {
-				cssmPerror("SecKeychainUnlock", ortn);
-				/* oh well */
-			}
-			CFRelease(kcRef);
-		}
-		if(certArray == NULL) {
-			printf("***WARNING no keychain found at %s\n", kcPath);
-		}
-		ortn = SSLSetCertificate(ctx, certArray);
-		if(ortn) {
-			printSslErrStr("SSLSetAllowAnyRoot", ortn);
-			goto cleanup;
-		}
-		CFRelease(certArray);
-	}
-#endif
     do {
 		ortn = SSLHandshake(ctx);
     } while (ortn == errSSLWouldBlock);
@@ -543,6 +508,8 @@ static int doSslPing(
 	}
 
     ortn = SSLClose(ctx);
+
+#pragma clang diagnostic pop
 
 cleanup:
 	if(sock) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -75,6 +75,13 @@
 #include <TargetConditionals.h>
 
 #include "fsck.h"
+#include "../edt_fstab/edt_fstab.h"
+
+
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+#include <os/bsd.h>
+#define AUTO_BOOT   "auto-boot"
+#endif
 
 /* Local Static Functions */
 static int argtoi(int flag, char *req, char *str, int base);
@@ -92,6 +99,7 @@ int debug = 0;				/* Output Debugging info */
 int force_fsck = 0;			/* Force an fsck even if the underlying FS is clean */
 int maximum_running = 0;	/* Maximum number of sub-processes we'll allow to be spawned */
 int quick_check = 0;		/* Do a quick check.  Quick check returns clean, dirty, or fail */
+int live_check = 0;			/* Do a live check. This allows fsck to run on a partition which is mounted RW */
 int requested_passno = 0;	/* only check the filesystems with the specified passno */
 /*
  * The two following globals are mutually exclusive; you cannot assume "yes" and "no."
@@ -115,7 +123,7 @@ static int argtoi(int flag, char *req, char *str, int base) {
 }
 
 static void usage(void) {
-	fprintf(stderr, "fsck usage: fsck [-fdnypq] [-l number]\n");
+	fprintf(stderr, "fsck usage: fsck [-fdnypqL] [-l number]\n");
 }
 
 #if DEBUG
@@ -208,7 +216,7 @@ int main (int argc, char** argv) {
 	
 
 	sync();
-	while ((ch = getopt(argc, argv, "dfpR:qnNyYl:")) != EOF) {
+	while ((ch = getopt(argc, argv, "dfpR:qnNyYl:L")) != EOF) {
 		switch (ch) {
 			case 'd':
 				debug++;
@@ -250,7 +258,11 @@ int main (int argc, char** argv) {
 				assume_yes = 1;
 				assume_no = 0;
 				break;
-				
+
+            case 'L':
+                live_check = 1;
+                break;
+
 			default:
 				errx(EEXIT, "%c option?", ch);
 				break;
@@ -274,7 +286,16 @@ int main (int argc, char** argv) {
 		usage();
 		exit(ret);
 	}
-	
+
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+    char arg_val[16];
+    if (os_parse_boot_arg_string(AUTO_BOOT, arg_val, sizeof(arg_val))) {
+        if (strcmp(arg_val, "false")) {
+            fprintf(stderr, "warning: auto-boot is set to %s\n", arg_val);
+        }
+    }
+#endif /* (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) */
+
 	/* 
 	 * checkfstab does the bulk of work for fsck.  It will scan through the
 	 * fstab and iterate through the devices, as needed	
@@ -289,6 +310,57 @@ int main (int argc, char** argv) {
 	
 }
 
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+static int check_boot_container(void)
+{
+    int error = 0;
+    uint32_t os_env = 0;
+    const char *boot_container = get_boot_container(&os_env);
+    char *rcontainer = NULL;
+    char *container = NULL;
+
+    if (os_env != EDT_OS_ENV_MAIN) {
+        fprintf(stdout, "fsck: not booting main OS. Skipping fsck on OS container\n");
+        return (0);
+    }
+
+    if (!boot_container) {
+        fprintf(stderr, "fsck: failed to get boot container\n");
+        return (EEXIT);
+    }
+
+    /* get a non-const copy */
+    container = strdup(boot_container);
+    if (!container) {
+        fprintf(stderr, "fsck: failed to copy boot container\n");
+        return (EEXIT);
+    }
+
+    /* Take the special device name, and do some cursory checks */
+    if ((rcontainer = blockcheck(container)) != 0) {
+        /* Construct a temporary disk_t for checkfilesys */
+        disk_t disk;
+        part_t part;
+
+        disk.name = NULL;
+        disk.next = NULL;
+        disk.part = &part;
+        disk.pid = 0;
+
+        part.next = NULL;
+        part.name = rcontainer;
+        part.vfstype = "apfs";
+
+        /* Run the filesystem check against the filesystem in question */
+        error = checkfilesys(&disk, 0);
+    }
+
+    free(container);
+
+    return (error);
+}
+#endif
+
 /*
  * This is now the guts of fsck. 
  *
@@ -299,13 +371,26 @@ int main (int argc, char** argv) {
 int checkfstab(void) {
 	int running_status = 0;
 	int ret;
-	
-	/* Open the fstab file (or rewind it) */
-	if (setfsent() == 0) {
-		fprintf(stderr, "Can't open checklist file: %s\n", _PATH_FSTAB);
-		return EEXIT;
-	}
-	
+
+    /*
+     * fsck boot-task (fsck -q):
+     *      iOS - fsck_apfs -q will quick-check the container and volumes.
+     *          So no need to obtain and check the fstab entries from EDT,
+     *          just check the container.
+     *      OSX - See comment in build_disklist(). In short - during early boot
+     *          getfsent() will only return a synthetic entry for the root volume ("/")
+     *          and additional fstab entries. An invalid entry will fail boot.
+     *          To avoid this we require passing the "-R 1" flag to only check
+     *          the root volume, which per fsck_apfs behaviour will quick-check the container and
+     *          the root volume. We dont need to check the other volumes for boot
+     *          (except perhaps for the VM and Data volumes but those are mounted earlier anyway).
+     */
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+    if (quick_check && (requested_passno == 0)) {
+        return check_boot_container();
+    }
+#endif
+
 	ret = build_disklist ();	
 	/* 
 	 * If we encountered any errors or if 'preen' was off,
@@ -337,7 +422,7 @@ int checkfstab(void) {
 		return (running_status);
 	}
 	
-	(void)endfsent();
+	end_fsent();
 	return (0);
 	
 }
@@ -393,12 +478,12 @@ int build_disklist(void) {
 
 	for (passno = starting_passno; passno <= ending_passno; passno++) {
 		/* Open or reset the fstab entry */
-		if (setfsent() == 0) {
-			fprintf(stderr, "Can't open checklist file: %s\n", _PATH_FSTAB);
+		if (setup_fsent() == 0) {
+			fprintf(stderr, "Can't get filesystem checklist: %s\n", strerror(errno));
 			return EEXIT;
 		}
 		/* Iterate through the fs entries returned from fstab */
-		while ((fsp = getfsent()) != 0) {			
+		while ((fsp = get_fsent()) != 0) {
 			/* 
 			 * Determine if the filesystem is worth checking. Ignore it if it
 			 * is not checkable. 
@@ -421,7 +506,7 @@ int build_disklist(void) {
 			 * tell that the fsp represents the root filesystem if fsp->fs_passno == 1.
 			 *
 			 * NOTE: On Mac OSX, LibInfo, part of Libsystem is in charge of vending us a valid
-			 * fstab entry when we're running 'fsck -p' in early boot to ensure the validity of the 
+			 * fstab entry when we're running 'fsck -q' in early boot to ensure the validity of the
 			 * boot disk.  Since it's before the volume is mounted read-write, getfsent() will probe
 			 * the Mach port for directory services.  Since it's not up yet, it will determine the
 			 * underlying /dev/disk entry for '/' and mechanically construct a fstab entry for / here.
@@ -433,8 +518,7 @@ int build_disklist(void) {
 			 * field.  Also, they would have to be valid /dev/disk fstab entries as opposed to 
 			 * UUID or LABEL ones.
 			 *
-			 * on iOS the above is not true; we rely on the fstab file, like a BSD system, to infer
-			 * the partition state and what is root vs. non-root.
+			 * on iOS the above is not true; we rely on the EDT for all fstab entries.
 			 */
 			if ((preen == 0) || (passno == 1 && fsp->fs_passno == 1)) {
 
@@ -449,6 +533,13 @@ int build_disklist(void) {
 
 				/* Take the special device name, and do some cursory checks. */
 				if ((name = blockcheck(fsp->fs_spec)) != 0) {
+#if TARGET_OS_IPHONE
+					if (!strcmp(name, RAMDISK_FS_SPEC)) {
+						fprintf(stdout, "Encountered ramdisk definition for location %s - will be created during mount.\n", fsp->fs_file);
+						continue;
+					}
+#endif // TARGET_OS_IPHONE
+
 					/* Construct a temporary disk_t for checkfilesys */
 					disk_t disk;
 					part_t part;
@@ -706,7 +797,7 @@ int checkfilesys(disk_t *disk, int child) {
 	struct stat buf;
 	pid_t pid;
 	int status = 0;
-	char options[] = "-pdfnyq";  /* constant strings are not on the stack */
+	char options[] = "-pdfnyql";  /* constant strings are not on the stack */
 	char progname[NAME_MAX];
 	char execname[MAXPATHLEN + 1];
 	char* filesys = part->name;
@@ -715,6 +806,14 @@ int checkfilesys(disk_t *disk, int child) {
 	if (preen && child) {
 		(void)signal(SIGQUIT, ignore_single_quit);
 	}
+
+#if TARGET_OS_IPHONE
+	if (!strcmp(filesys, RAMDISK_FS_SPEC)) {
+		fprintf(stdout, "No need to check filesys for ramdisk, does not exist yet.\n");
+		return  0;
+	}
+#endif // TARGET_OS_IPHONE
+
 	/* 
 	 * If there was a vfstype specified, then we can go ahead and fork/exec
 	 * the child fsck process if the fsck_XXX binary exists.
@@ -722,14 +821,27 @@ int checkfilesys(disk_t *disk, int child) {
 	if (vfstype) {
 		int exitstatus;
 
+        /*
+         * Not all options are currently supported by all 5 fsck_* binaries.
+         * Specifically:
+         *      udf does not support debug, quick or live
+         *      msdos does not support quick or live
+         *      exfat does not support live
+         *      apfs does not support preen
+         * When the System invokes fsck it is during boot (one of launchd's boot-tasks).
+         * This task is run with the quick and live options.
+         * On iOS we can assume all partitions are APFS or HFS.
+         * On OSX we run this only against the System volume which will always be HFS or APFS
+         */
 		bzero(options, sizeof(options));
-		snprintf(options, sizeof(options), "-%s%s%s%s%s%s",
+		snprintf(options, sizeof(options), "-%s%s%s%s%s%s%s",
 				 (preen) ? "p" : "",
 				 (debug) ? "d" : "",
 				 (force_fsck) ? "f" : "",
 				 (assume_no) ? "n" : "",
 				 (assume_yes) ? "y" : "",
-				 (quick_check) ? "q" : ""
+				 (quick_check) ? "q" : "",
+                 (live_check) ? "l" : ""
 				 );
 		
 		argc = 0;
@@ -770,6 +882,14 @@ int checkfilesys(disk_t *disk, int child) {
 				if (preen) {
 					(void)signal(SIGQUIT, ignore_single_quit);
 				}
+#if DEBUG
+				printf("exec: %s", execname);
+				for (int i = 1; i < argc; i++) {
+					printf(" %s", argv[i]);
+				}
+				printf("\n");
+				exit(0);
+#endif
 				execv(execname, (char * const *)argv);
 				fprintf(stderr, "error attempting to exec %s\n", execname);
 				_exit(8);
@@ -868,7 +988,7 @@ char *blockcheck (char *origname) {
 	int retried = 0;
 	int error = 0;
 	
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	/* Variables for setting up the kqueue listener*/
 #define TIMEOUT_SEC 30l	
 	struct kevent kev;
@@ -879,7 +999,7 @@ char *blockcheck (char *origname) {
 	int ct;
 	time_t end;
 	time_t now;
-#endif
+#endif // (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	
 	hotroot = 0;
 	/* Try to get device info for '/' */
@@ -890,12 +1010,19 @@ char *blockcheck (char *origname) {
 		return (origname);
 	}
 	newname = origname;
-	
+#if TARGET_OS_IPHONE
+	if (!strcmp(newname, RAMDISK_FS_SPEC)) {
+		// Keyword ramdisk
+		fprintf(stdout, "Encountered ramdisk definition. Do not stat\n");
+		return (newname);
+	}
+#endif // TARGET_OS_IPHONE
+
 retry:
 	/* Poke the block device argument */
 	error = stat(newname, &stblock);
 	if (error < 0) {
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 		/* 
 		 * If the device node is not present, set up 
 		 * a kqueue and wait for up to 30 seconds for it to be
@@ -952,11 +1079,11 @@ retry:
 			return NULL;
 		}
 		
-#else 
+#else //(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 		perror(newname);
 		printf("Can't stat %s\n", newname);
 		return (NULL);
-#endif
+#endif // (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	}
 
 	if ((stblock.st_mode & S_IFMT) == S_IFBLK) {
@@ -1029,7 +1156,7 @@ char *rawname(char *name) {
 char *unrawname(char *name) {
 	char *dp;
 	struct stat stb;
-	int length;
+	size_t length;
 	
 	/* Find the last '/' in the pathname */
 	if ((dp = strrchr(name, '/')) == 0) {

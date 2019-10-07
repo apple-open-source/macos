@@ -4,13 +4,7 @@
  * Copyright 2007-2014 by Apple Inc.
  * Copyright 2006 by Easy Software Products.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
  */
 
 /*
@@ -19,15 +13,14 @@
 
 #include "sidechannel.h"
 #include "cups-private.h"
-#ifdef WIN32
+#include "debug-internal.h"
+#ifdef _WIN32
 #  include <io.h>
 #else
 #  include <unistd.h>
-#endif /* WIN32 */
-#ifndef WIN32
 #  include <sys/select.h>
 #  include <sys/time.h>
-#endif /* !WIN32 */
+#endif /* _WIN32 */
 #ifdef HAVE_POLL
 #  include <poll.h>
 #endif /* HAVE_POLL */

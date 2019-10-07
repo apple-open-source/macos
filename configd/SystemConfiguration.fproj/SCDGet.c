@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009-2011, 2013, 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009-2011, 2013, 2016-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -86,10 +86,6 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 		}
 	}
 
-#ifdef	VERBOSE_ACTIVITY_LOGGING
-	os_activity_scope(storePrivate->activity);
-#endif	// VERBOSE_ACTIVITY_LOGGING
-
     retry :
 
 	/* send the keys and patterns, fetch the associated result from the server */
@@ -109,26 +105,28 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 		goto retry;
 	}
 
-	/* clean up */
-	if (xmlKeys != NULL)		CFRelease(xmlKeys);
-	if (xmlPatterns != NULL)	CFRelease(xmlPatterns);
-
 	if (sc_status != kSCStatusOK) {
 		if (xmlDictRef != NULL) {
 			(void) vm_deallocate(mach_task_self(), (vm_address_t)xmlDictRef, xmlDictLen);
 		}
 		_SCErrorSet(sc_status);
-		return NULL;
+		goto done;
 	}
 
 	/* un-serialize the dictionary */
 	if (!_SCUnserialize((CFPropertyListRef *)&dict, NULL, xmlDictRef, xmlDictLen)) {
 		_SCErrorSet(kSCStatusFailed);
-		return NULL;
+		goto done;
 	}
 
 	expDict = _SCUnserializeMultiple(dict);
 	CFRelease(dict);
+
+    done:
+
+	/* clean up */
+	if (xmlKeys != NULL)		CFRelease(xmlKeys);
+	if (xmlPatterns != NULL)	CFRelease(xmlPatterns);
 
 	return expDict;
 }
@@ -163,15 +161,34 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 		return NULL;	/* you must have an open session to play */
 	}
 
+	if (storePrivate->cache_active) {
+		if ((storePrivate->cached_set != NULL) &&
+		    CFDictionaryGetValueIfPresent(storePrivate->cached_set, key, (const void **)&data)) {
+			// if we have "set" a new value
+			return (CFRetain(data));
+		}
+
+		if ((storePrivate->cached_removals != NULL) &&
+		    CFArrayContainsValue(storePrivate->cached_removals,
+					 CFRangeMake(0, CFArrayGetCount(storePrivate->cached_removals)),
+					 key)) {
+			// if we have "removed" the key
+			_SCErrorSet(kSCStatusNoKey);
+			return NULL;
+		}
+
+		if ((storePrivate->cached_keys != NULL) &&
+		    CFDictionaryGetValueIfPresent(storePrivate->cached_keys, key, (const void **)&data)) {
+			// if we have a cached value
+			return (CFRetain(data));
+		}
+	}
+
 	/* serialize the key */
 	if (!_SCSerializeString(key, &utfKey, (void **)&myKeyRef, &myKeyLen)) {
 		_SCErrorSet(kSCStatusFailed);
 		return NULL;
 	}
-
-#ifdef	VERBOSE_ACTIVITY_LOGGING
-	os_activity_scope(storePrivate->activity);
-#endif	// VERBOSE_ACTIVITY_LOGGING
 
     retry :
 
@@ -206,6 +223,16 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 	if (!_SCUnserialize(&data, NULL, xmlDataRef, xmlDataLen)) {
 		_SCErrorSet(kSCStatusFailed);
 		return NULL;
+	}
+
+	if (storePrivate->cache_active && (data != NULL)) {
+		if (storePrivate->cached_keys == NULL) {
+			storePrivate->cached_keys = CFDictionaryCreateMutable(NULL,
+									      0,
+									      &kCFTypeDictionaryKeyCallBacks,
+									      &kCFTypeDictionaryValueCallBacks);
+		}
+		CFDictionarySetValue(storePrivate->cached_keys, key, data);
 	}
 
 	return data;

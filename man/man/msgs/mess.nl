@@ -1,170 +1,189 @@
 BAD_CONFIG_FILE
-	"er staat onzin in het bestand %s\n"
+	"De inhoud van bestand %s is onbegrijpelijk.\n"
 CONFIG_OPEN_ERROR
-	"Waarschuwing: ik kan mijn configuratiebestand %s niet openen.\n"
+	"Waarschuwing: kan configuratiebestand %s niet openen.\n"
 PARSE_ERROR_IN_CONFIG
-	"Fout bij het interpreteren van het configuratiebestand.\n"
+	"Syntaxfout in configuratiebestand.\n"
 INCOMPAT
-	"de vlaggen %s en %s zijn onverenigbaar.\n"
+	"Opties %s en %s gaan niet samen.\n"
 NO_ALTERNATE
-	"Jammer - er is geen ondersteuning voor andere systemen meevertaald."
+	"Sorry, ondersteuning voor andere systemen is niet meegecompileerd.\n"
 NO_COMPRESS
-	"Bij het vertalen van man was gevraagd om automatische compressie\n\
-van cat pagina's, maar het configuratiebestand definieert COMPRESS niet.\n"
+	"Deze 'man' is gecompileerd met automatische compressie van cat-pagina's,\n\
+maar het configuratiebestand definieert COMPRESS niet.\n"
 NO_NAME_FROM_SECTION
-	"Welke handboek blz wil je uit sectie %s?\n"
+	"Welke man-pagina wilt u zien uit sectie %s?\n"
 NO_NAME_NO_SECTION
-	"Welke handboek blz wilt u hebben?\n"
+	"Welke man-pagina wilt u zien?\n"
 NO_SUCH_ENTRY_IN_SECTION
-	"Ik kan geen blz over %s in sectie %s van het handboek vinden.\n"
+	"Er is geen pagina over '%s' in sectie %s.\n"
 NO_SUCH_ENTRY
-	"Ik heb niets over %s, geloof ik.\n"
+	"Er is geen pagina over '%s'.\n"
 PAGER_IS
-	"\nIk zal %s als pagineer programma gebruiken.\n"
+	"\n'%s' wordt gebruikt als om de uitvoer te tonen\n"
 SYSTEM_FAILED
-	"Fout bij het uitvoeren van de formatteer- of vertoonopdracht.\n\
-De exit status van %s was %d.\n"
+	"Fout tijdens opmaak- of uitvoeropdracht.\n\
+De afsluitwaarde van '%s' was %d.\n"
 VERSION
-	"%s, versie %s\n\n"
+	"Dit is '%s', versie %s.\n\n\
+Toont de handleiding ('man-pagina') van de gegeven opdrachtnaam.\n\n"
 OUT_OF_MEMORY
-	"Geen geheugen meer - kon van malloc geen %d bytes krijgen\n"
+	"Onvoldoende geheugen beschikbaar -- kan geen %d bytes reserveren\n"
 ROFF_CMD_FROM_FILE_ERROR
-	"Ontleed fout in het *roff commando uit bestand %s\n"
+	"Fout tijdens ontleden van een '*roff'-opdracht uit bestand '%s'.\n"
 MANROFFSEQ_ERROR
-	"Ontleed fout bij het lezen van MANROFFSEQ.  Ik zal de standaard volgorde gebruiken.\n"
+	"Fout tijdens ontleden van MANROFFSEQ -- standaardvolgorde wordt gebruikt.\n"
 ROFF_CMD_FROM_COMMANDLINE_ERROR
-	"Ontleed fout in het *roff commando op de opxdrachtregel.\n"
+	"Fout tijdens ontleden van '*roff'-opdracht van de opdrachtregel.\n"
 UNRECOGNIZED_LINE
-	"Onbegrepen regel in het configuratiebestand (genegeerd)\n%s\n"
+	"Onbegrepen regel in het configuratiebestand -- wordt genegeerd\n%s\n"
 GETVAL_ERROR
-	"man-config.c: interne fout: ik kan de string %s niet vinden\n"
+	"man-config.c: **interne fout**: kan tekenreeks '%s' niet vinden\n"
 FOUND_MANDIR
-	"man directory %s gevonden\n"
+	"man-map %s gevonden\n"
 FOUND_MAP
-	"manpad afbeelding %s --> %s gevonden\n"
+	"man-pad-afbeelding %s --> %s gevonden\n"
 FOUND_CATDIR
-	"het overeenkomstige catdir is %s\n"
+	"de overeenkomstige cat-map is %s\n"
 LINE_TOO_LONG
-	"Te lange regel in het configuratiebestand\n"
+	"Te lange regel in het configuratiebestand.\n"
 SECTION
-	"\nhoofdstuk: %s\n"
+	"\nsectie: %s\n"
 UNLINKED
-	"%s verwijderd\n"
+	"%s is verwijderd\n"
 GLOBBING
-	"glob %s\n"
+	"globben van %s\n"
 EXPANSION_FAILED
-	"Poging [%s] om de man bladzijde te decomprimeren faalde\n"
+	"Poging [%s] om de man-pagina te decomprimeren is mislukt.\n"
 OPEN_ERROR
-	"Ik kan de man bladzijde %s niet openen\n"
+	"Kan man-pagina %s niet openen.\n"
 READ_ERROR
-	"Fout bij het lezen van de man bladzijde %s\n"
+	"Fout tijdens lezen van man-pagina %s.\n"
 FOUND_EQN
-	"eqn(1) aanwijzing gevonden\n"
+	"eqn(1)-aanwijzing gevonden\n"
 FOUND_GRAP
-	"grap(1) aanwijzing gevonden\n"
+	"grap(1)-aanwijzing gevonden\n"
 FOUND_PIC
-	"pic(1) aanwijzing gevonden\n"
+	"pic(1)-aanwijzing gevonden\n"
 FOUND_TBL
-	"tbl(1) aanwijzing gevonden\n"
+	"tbl(1)-aanwijzing gevonden\n"
 FOUND_VGRIND
-	"vgrind(1) aanwijzing gevonden\n"
+	"vgrind(1)-aanwijzing gevonden\n"
 FOUND_REFER
-	"refer(1) aanwijzing gevonden\n"
+	"refer(1)-aanwijzing gevonden\n"
 ROFF_FROM_COMMAND_LINE
-	"ontleed aanwijzingen van de opdrachtregel\n"
+	"ontleden van aanwijzingen van de opdrachtregel\n"
 ROFF_FROM_FILE
-	"ontleed aanwijzingen uit het bestand %s\n"
+	"ontleden van aanwijzingen uit bestand %s\n"
 ROFF_FROM_ENV
-	"ontleed aanwijzingen uit de omgeving\n"
+	"ontleden van aanwijzingen uit de omgeving\n"
 USING_DEFAULT
-	"gebruik de standaard preprocessor volgorde\n"
+	"de standaard preprocessor-volgorde wordt gebruikt\n"
 PLEASE_WAIT
-	"Ik ben de bladzijde aan het formatteren, even geduld a.u.b...\n"
+	"Opmaken van de pagina...\n"
 CHANGED_MODE
-	"De mode van %s is gewijzigd in %o\n"
+	"De modus van %s is gewijzigd in %o.\n"
 CAT_OPEN_ERROR
-	"Kon niet schrijven in %s.\n"
+	"Kan niet schrijven naar %s.\n"
 PROPOSED_CATFILE
-	"Ik zal indien nodig in het bestand %s schrijven\n"
+	"indien nodig wordt bestand %s geschreven\n"
 IS_NEWER_RESULT
-	"status van is_newer() = %d\n"
+	"afsluitwaarde van is_newer() = %d\n"
 TRYING_SECTION
-	"probeer hoofdstuk %s\n"
+	"sectie %s wordt bekeken\n"
 SEARCHING
-	"\nzoek in %s\n"
+	"\nzoeken in %s\n"
 ALREADY_IN_MANPATH
 	"maar %s zit al in het zoekpad\n"
 CANNOT_STAT
-	"Waarschuwing: stat %s faalt!\n"
+	"Waarschuwing: kan status van bestand '%s' niet opvragen!\n"
 IS_NO_DIR
-	"Waarschuwing: %s is geen directory!\n"
+	"Waarschuwing: '%s' is geen map!\n"
 ADDING_TO_MANPATH
-	"voeg %s toe aan het zoekpad\n"
+	"%s is toegevoegd aan het zoekpad\n"
 PATH_DIR
-	"\npad directory %s "
+	"\nzoekpad-map %s "
 IS_IN_CONFIG
-	"is in het configuratiebestand\n"
+	"staat in het configuratiebestand\n"
 IS_NOT_IN_CONFIG
-	"is niet in het configuratiebestand\n"
+	"staat niet in het configuratiebestand\n"
 MAN_NEARBY
-	"maar er is een man directory in de buurt\n"
+	"maar er is een man-map in de buurt\n"
 NO_MAN_NEARBY
-	"en ik zie geen man directory in de buurt\n"
+	"en er is geen man-map in de buurt\n"
 ADDING_MANDIRS
-	"\nvoeg de standaard man directories toe\n\n"
+	"\nstandaard man-mappen worden toegevoegd\n\n"
 CATNAME_IS
-	"cat_name in convert_to_cat () is: %s\n"
+	"cat_name in convert_to_cat() is: %s\n"
 NO_EXEC
-	"\nIk zou de volgende opdracht uitvoeren:\n  %s\n"
+	"\nNiet-uitgevoerde opdracht:\n  %s\n"
 USAGE1
-	"aanroep: %s [-adfhktwW] [hoofdstuk] [-M zoekpad] [-P prog] [-S hoofdstukken]\n\t"
+	"Gebruik:  %s [-adfhktwW] [-M zoekpad] [-P viewer] [-S secties]\n\t     "
 USAGE2
-	"[-m systeem] "
+	" [-m systeem]"
 USAGE3
-	"[-p string] naam ...\n\n"
+	" [-p tekenreeks] [sectie] naam...\n\n"
 USAGE4
-	"  a : vind alle passende bladzijden\n\
-  c : (her)formatteer, zelfs als een recente geformatteerde versie bestaat\n\
-  d : druk af wat man aan het doen is - om fouten op te sporen\n\
-  D : idem, maar formatteer en vertoon ook de bladzijden\n\
-  f : hetzelfde als whatis(1)\n\
-  h : druk deze hulpboodschap af\n\
-  k : hetzelfde als apropos(1)\n\
-  K : zoek een woord in alle pagina's\n"
+	"  -a   alle overeenkomende pagina's tonen, niet slechts de eerste\n\
+  -c   geen cat-bestanden gebruiken\n\
+  -d   uitgebreide debug-informatie produceren\n\
+  -D   als '-d', maar ook de pagina's tonen\n\
+  -f   als 'whatis' fungeren\n\
+  -h   deze hulptekst tonen\n\
+  -k   als 'apropos' fungeren\n\
+  -K   in alle man-pagina's naar een tekenreeks zoeken\n"
 USAGE5
-	"  t : gebruik troff om bladzijden te formatteren (om ze af te drukken)\n"
+	"  -t   'troff' gebruiken om pagina's op te maken (om ze af te drukken)\n"
 USAGE6
 	"\
-  w : uit welke bestanden komen de bladzijde(n) die vertoond zouden worden?\n\
-      (als geen naam is opgegeven: druk af in welke directories wordt gezocht)\n\
-  W : idem, maar geef alleen de padnamen\n\n\
-  C bestand: gebruik `bestand' als configuratiebestand\n\
-  M pad    : geef een expliciet zoekpad voor man bladzijden\n\
-  P prog   : gebruik het programma `prog' als pagineerprogramma\n\
-  S lijst  : lijst met door dubbele punten gescheiden hoofdstuknamen\n"
+  -w   het volledige pad weergeven van de pagina die getoond zou worden\n\
+       (als geen naam gegeven is, dan tonen welke mappen doorzocht worden)\n\
+  -W   als '-w', maar alleen de bestandsnamen tonen, niet het volledige pad\n\n\
+  -C bestand   te gebruiken configuratiebestand\n\
+  -M pad       pad waarin naar man-pagina's gezocht moet worden\n\
+  -P viewer    dit programma gebruiken om de uitvoer te tonen\n\
+  -S secties   te doorzoeken secties (scheiden met dubbele punten)\n"
 USAGE7
-	"  m systeem: zoek man bladzijden van een ander systeem\n"
+	"  -m systeem   naar man-pagina's van dit Unix-systeem zoeken\n"
 USAGE8
-	"  p string : vertel welke preprocessoren de tekst moeten voorbewerken\n\
-               e - [n]eqn(1)   p - pic(1)    t - tbl(1)\n\
-               g - grap(1)     r - refer(1)  v - vgrind(1)\n"
+	"  -p letters   uit te voeren voorverwerkingsprogramma's:\n\
+                 e - [n]eqn   p - pic     t - tbl\n\
+                 g - grap     r - refer   v - vgrind\n"
 USER_CANNOT_OPEN_CAT
-	"en de gebruiker kan het cat bestand ook niet openen\n"
+	"en de werkelijke gebruiker kan het cat-bestand ook niet openen\n"
 USER_CAN_OPEN_CAT
-	"maar de gebruiker kan het cat bestand openen\n"
+	"maar de werkelijke gebruiker kan het cat-bestand wel openen\n"
 CANNOT_FORK
-	"ik kon het commando _%s_ niet starten\n"
+	"Kan geen nieuw proces starten voor opdracht '%s'\n"
 WAIT_FAILED
-	"fout bij het wachten op mijn kind _%s_\n"
+	"Fout tijdens wachten op dochterproces '%s'\n"
 GOT_WRONG_PID
-	"vreemd ..., ik wachtte op mijn kind maar kreeg een ander terug\n"
+	"Vreemd..., kreeg een verkeerd PID tijdens wachten op dochterproces\n"
 CHILD_TERMINATED_ABNORMALLY
-	"fatale fout: het commando _%s_ werd abnormaal beëindigd\n"
+	"Fatale fout: opdracht '%s' werd abnormaal beëindigd\n"
 IDENTICAL
-        "Man bladzijde %s is hetzelfde als %s\n"
+	"Man-pagina %s is identiek aan %s\n"
 MAN_FOUND
-	"ik heb de volgende bladzijde(n) gevonden:\n"
+	"Gevonden man-pagina('s):\n"
 NO_TROFF
-	"fout: er is geen TROFF commando in %s gespecificeerd\n"
+	"Fout: er is in %s geen TROFF-commando gegeven\n"
 NO_CAT_FOR_NONSTD_LL
-	"ik maak geen cat pagina aan, vanwege de afwijkende lijnlengte\n"
+	"Geen cat-pagina aangemaakt vanwege de afwijkende regellengte.\n"
+BROWSER_IS
+	"\n'%s' wordt gebruikt als browser\n"
+HTMLPAGER_IS
+	"\n'%s' wordt gebruikt voor het omzetten van HTML-pagina's naar tekst\n"
+FOUND_FILE
+	"manfile_from_sec_and_dir() vond %s\n"
+CALLTRACE1
+	"manfile_from_sec_and_dir(map=%s, sectie=%s, naam=%s, vlaggen=0x%0x)\n"
+CALLTRACE2
+	"glob_for_file(map=%s, sectie=%s, naam=%s, type=0x%0x, ...)\n"
+NO_MATCH
+	"glob_for_file() heeft geen overeenkomsten gevonden\n"
+GLOB_FOR_FILE
+	"glob_for_file() geeft %s terug\n"
+CALLTRACE3
+	"glob_for_file_ext_glob(map=%s, sectie=%s, naam=%s, extensie=%s, hpx=%s, glob=%d, type=0x%0x)\n"
+ABOUT_TO_GLOB
+	"glob_for_file_ext_glob() zal %s expanderen\n"

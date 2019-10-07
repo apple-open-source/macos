@@ -46,7 +46,7 @@
 #ifndef _PLUGIN_COMMON_H_
 #define _PLUGIN_COMMON_H_
 
-#include <config.h>
+#include "config.h"
 
 #ifndef macintosh
 #ifdef WIN32
@@ -59,9 +59,9 @@
 #endif /* WIN32 */
 #endif /* macintosh */
 
-#include <sasl.h>
-#include <saslutil.h>
-#include <saslplug.h>
+#include "sasl.h"
+#include "saslplug.h"
+#include "saslutil.h"
 
 /* APPLE: setpoints for maxbuff */
 #define MAXBUFF_LOWATER		(0x4000)

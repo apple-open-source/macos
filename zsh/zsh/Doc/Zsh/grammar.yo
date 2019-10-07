@@ -183,11 +183,14 @@ findex(for)
 cindex(for loops)
 cindex(loops, for)
 item(tt(for) var(name) ... [ tt(in) var(word) ... ] var(term) tt(do) var(list) tt(done))(
-where var(term) is at least one newline or tt(;).
 Expand the list of var(word)s, and set the parameter
-var(name) to each of them in turn, executing
-var(list) each time.  If the tt(in) var(word) is omitted,
+var(name) to each of them in turn, executing var(list)
+each time.  If the `tt(in) var(word)' is omitted,
 use the positional parameters instead of the var(word)s.
+
+The var(term) consists of one or more newline or tt(;)
+which terminate the var(word)s, and are optional when the
+`tt(in) var(word)' is omitted.
 
 More than one parameter var(name) can appear before the list of
 var(word)s.  If var(N) var(name)s are given, then on each execution of the
@@ -461,6 +464,9 @@ item(tt(select) var(name) [ tt(in) var(word) ... var(term) ] var(sublist))(
 where var(term) is at least one newline or tt(;).
 A short form of tt(select).
 )
+item(tt(function) var(word) ... [ tt(+LPAR()+RPAR()) ] [ var(term) ] var(sublist))(
+This is a short form of tt(function).
+)
 enditem()
 texinode(Reserved Words)(Errors)(Alternate Forms For Complex Commands)(Shell Grammar)
 sect(Reserved Words)
@@ -565,28 +571,49 @@ itemiz(With global aliasing, any command separator, any redirection
 operator, and `tt(LPAR())' or `tt(RPAR())' when not part of a glob pattern)
 enditemize()
 
-It is not presently possible to alias the `tt(LPAR()LPAR())' token that
-introduces arithmetic expressions, because until a full statement has been
-parsed, it cannot be distinguished from two consecutive `tt(LPAR())'
-tokens introducing nested subshells.
-
-When tt(POSIX_ALIASES) is set, only plain unquoted strings are eligible
-for aliasing.  The tt(alias) builtin does not reject ineligible aliases,
-but they are not expanded.
-
 Alias expansion is done on the shell input before any other expansion
 except history expansion.  Therefore, if an alias is defined for the
 word tt(foo), alias expansion may be avoided by quoting part of the
 word, e.g. tt(\foo).  Any form of quoting works, although there is
 nothing to prevent an alias being defined for the quoted form such as
-tt(\foo) as well.  Also, if a separator such as tt(&&) is aliased,
-tt(\&&) turns into the two tokens tt(\&) and tt(&), each of which may
-have been aliased separately.  Similarly for tt(\<<), tt(\>|), etc.
+tt(\foo) as well.
+
+When tt(POSIX_ALIASES) is set, only plain unquoted strings are eligible
+for aliasing.  The tt(alias) builtin does not reject ineligible aliases,
+but they are not expanded.
 
 For use with completion, which would remove an initial backslash followed
 by a character that isn't special, it may be more convenient to quote the
 word by starting with a single quote, i.e. tt('foo); completion will
 automatically add the trailing single quote.
+
+subsect(Alias difficulties)
+
+Although aliases can be used in ways that bend normal shell syntax, not
+every string of non-white-space characters can be used as an alias.
+
+Any set of characters not listed as a word above is not a word, hence no
+attempt is made to expand it as an alias, no matter how it is defined
+(i.e. via the builtin or the special parameter tt(aliases) described in
+ifnzman(noderef(The zsh/parameter Module))\
+ifzman(the section THE ZSH/PARAMETER MODULE in zmanref(zshmodules))).
+However, as noted in the case of tt(POSIX_ALIASES) above, the shell does
+not attempt to deduce whether the string corresponds to a word at the
+time the alias is created.
+
+For example, an expression containing an tt(=) at the start of
+a command line is an assignment and cannot be expanded as an alias;
+a lone tt(=) is not an assignment but can only be set as an alias
+using the parameter, as otherwise the tt(=) is taken part of the
+syntax of the builtin command.
+
+It is not presently possible to alias the `tt(LPAR()LPAR())' token that
+introduces arithmetic expressions, because until a full statement has been
+parsed, it cannot be distinguished from two consecutive `tt(LPAR())'
+tokens introducing nested subshells.
+Also, if a separator such as tt(&&) is aliased,
+tt(\&&) turns into the two tokens tt(\&) and tt(&), each of which may
+have been aliased separately.  Similarly for tt(\<<), tt(\>|), etc.
 
 There is a commonly encountered problem with aliases
 illustrated by the following code:
@@ -647,4 +674,5 @@ single quote if it is set.
 
 Inside double quotes (tt("")), parameter and
 command substitution occur, and `tt(\)' quotes the characters
-`tt(\)', `tt(`)', `tt(")', and `tt($)'.
+`tt(\)', `tt(`)', `tt(")', `tt($)', and the first character
+of tt($histchars) (default `tt(!)').

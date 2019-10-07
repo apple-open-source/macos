@@ -25,7 +25,7 @@
 #define	_SCPREFERENCESKEYCHAINPRIVATE_H
 
 /*
- * SCPreferencesKeychain.h
+ * SCPreferencesKeychainPrivate.h
  * - routines to deal with keychain passwords
  */
 
@@ -34,11 +34,7 @@
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCPreferences.h>
-#if	!TARGET_OS_IPHONE
 #include <Security/Security.h>
-#else	// !TARGET_OS_IPHONE
-typedef struct CF_BRIDGED_TYPE(id) __SecKeychain *SecKeychainRef;
-#endif	// !TARGET_OS_IPHONE
 
 #pragma mark -
 #pragma mark Keychain helper APIs

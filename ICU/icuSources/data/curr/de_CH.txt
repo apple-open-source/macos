@@ -10,17 +10,25 @@ de_CH{
             "BYR",
             "Weissrussischer Rubel (2000–2016)",
         }
+        CHF{
+            "CHF",
+            "Schweizer Franken",
+        }
         EUR{
             "EUR",
             "Euro",
         }
-        PEN{
-            "PEN",
-            "Peruanischer Neuer Sol",
-        }
         STN{
             "STN",
             "São-toméischer Dobra (2018)",
+        }
+        VEF{
+            "VEF",
+            "Venezolanischer Bolívar",
+        }
+        VES{
+            "VES",
+            "VES",
         }
     }
     Currencies%narrow{
@@ -35,13 +43,18 @@ de_CH{
             one{"Weissrussischer Rubel (2000–2016)"}
             other{"Weissrussische Rubel (2000–2016)"}
         }
-        PEN{
-            one{"Peruanischer Neuer Sol"}
-        }
         STN{
             one{"São-toméischer Dobra (2018)"}
             other{"São-toméischer Dobra (2018)"}
         }
+        VEF{
+            one{"Venezolanischer Bolívar"}
+            other{"Venezolanische Bolívares"}
+        }
+        VES{
+            one{"VES"}
+            other{"VES"}
+        }
     }
-    Version{"2.1.39.37"}
+    Version{"2.1.47.86"}
 }

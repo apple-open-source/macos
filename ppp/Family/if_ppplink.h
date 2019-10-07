@@ -31,7 +31,6 @@
 #define PPP_TYPE_SYNCSERIAL	1		/* Synchonous Line Discipline */
 #define PPP_TYPE_PPPoE		2		/* PPP over Ethernet */
 #define PPP_TYPE_PPPoA		3		/* PPP over ATM */
-#define PPP_TYPE_PPTP		4		/* Point-to-Point Tunneling Protocol */
 #define PPP_TYPE_L2TP		5		/* Layer 2 Tunneling Protocol */
 #define PPP_TYPE_OTHER		0xFFF0		/* Undefined PPP type */
 

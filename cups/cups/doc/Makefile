@@ -1,14 +1,11 @@
 #
 # Documentation makefile for CUPS.
 #
-# Copyright 2007-2016 by Apple Inc.
-# Copyright 1997-2007 by Easy Software Products.
+# Copyright © 2007-2019 by Apple Inc.
+# Copyright © 1997-2007 by Easy Software Products.
 #
-# These coded instructions, statements, and computer programs are the
-# property of Apple Inc. and are protected by Federal copyright
-# law.  Distribution and use rights are outlined in the file "LICENSE.txt"
-# which should have been included with this file.  If this file is
-# missing or damaged, see the license at "http://www.cups.org/".
+# Licensed under Apache License v2.0.  See the file "LICENSE" for more
+#s information.
 #
 
 include ../Makedefs
@@ -44,6 +41,7 @@ HELPIMAGES	=	\
 			images/smiley.jpg
 HELPFILES	=	\
 			help/accounting.html \
+			help/admin.html \
 			help/api-admin.html \
 			help/api-filter.html \
 			help/api-ppd.html \
@@ -51,6 +49,7 @@ HELPFILES	=	\
 			help/cgi.html \
 			help/cupspm.html \
 			help/encryption.html \
+			help/firewalls.html \
 			help/glossary.html \
 			help/kerberos.html \
 			help/license.html \
@@ -64,15 +63,15 @@ HELPFILES	=	\
 			help/man-cups-lpd.html \
 			help/man-cups-snmp.html \
 			help/man-cupsaccept.html \
-			help/man-cupsaddsmb.html \
 			help/man-cupsd.conf.html \
 			help/man-cupsd.html \
 			help/man-cupsd-helper.html \
 			help/man-cupsd-logs.html \
 			help/man-cupsenable.html \
-			help/man-cupstestdsc.html \
 			help/man-cupstestppd.html \
 			help/man-filter.html \
+			help/man-ippevepcl.html \
+			help/man-ippeveprinter.html \
 			help/man-ipptool.html \
 			help/man-ipptoolfile.html \
 			help/man-lp.html \
@@ -109,8 +108,6 @@ HELPFILES	=	\
 			help/spec-command.html \
 			help/spec-design.html \
 			help/spec-ipp.html \
-			help/spec-pdf.html \
-			help/spec-postscript.html \
 			help/spec-ppd.html \
 			help/spec-raster.html \
 			help/spec-stp.html \
@@ -172,6 +169,9 @@ install-data: $(INSTALL_LANGUAGES)
 	for file in $(HELPFILES); do \
 		$(INSTALL_MAN) $$file $(DOCDIR)/help; \
 	done
+	if test "x$(IPPFIND_MAN)" != x; then \
+		$(INSTALL_MAN) help/man-ippfind.html $(DOCDIR)/help; \
+	fi
 	$(INSTALL_DIR) -m 755 $(DOCDIR)/images
 	for file in $(WEBIMAGES) $(HELPIMAGES); do \
 		$(INSTALL_MAN) $$file $(DOCDIR)/images; \
@@ -219,10 +219,13 @@ uninstall: $(UNINSTALL_LANGUAGES)
 		$(RM) $(DOCDIR)/$$file; \
 	done
 	for file in $(HELPFILES); do \
-		$(RM) $(DOCDIR)/$$file; \
+		$(RM) $(DOCDIR)/help/$$file; \
+	done
+	if test "x$(IPPFIND_MAN)" != x; then \
+		$(RM) $(DOCDIR)/help/man-ippfind.html; \
 	done
 	for file in $(WEBIMAGES); do \
-		$(RM) $(DOCDIR)/$$file; \
+		$(RM) $(DOCDIR)/images/$$file; \
 	done
 	-$(RMDIR) $(DOCDIR)/images
 	-$(RMDIR) $(DOCDIR)/help
@@ -236,13 +239,3 @@ uninstall-languages:
 	done
 
 install-langbundle:
-
-
-#
-# Install the docset bits locally...
-#
-
-docset:
-	cp $(HELPFILES) ../org.cups.docset/Contents/Resources/Documentation/help
-	cp cups-printable.css ../org.cups.docset/Contents/Resources/Documentation
-	cp $(HELPIMAGES) ../org.cups.docset/Contents/Resources/Documentation/images

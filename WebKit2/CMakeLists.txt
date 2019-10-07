@@ -2,15 +2,25 @@ include(WebKitCommon)
 
 set_property(DIRECTORY . PROPERTY FOLDER "WebKit")
 
+set(WebKit_PRIVATE_INCLUDE_DIRECTORIES
+    "${CMAKE_BINARY_DIR}"
+)
+
 set(WebKit_INCLUDE_DIRECTORIES
+    "${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}"
+    "${WebKit_FRAMEWORK_HEADERS_DIR}"
+    "${WebKit_DERIVED_SOURCES_DIR}"
+    "${WebKit_DERIVED_SOURCES_DIR}/include"
     "${WEBKIT_DIR}"
     "${WEBKIT_DIR}/NetworkProcess"
+    "${WEBKIT_DIR}/NetworkProcess/Classifier"
     "${WEBKIT_DIR}/NetworkProcess/Cookies"
     "${WEBKIT_DIR}/NetworkProcess/CustomProtocols"
     "${WEBKIT_DIR}/NetworkProcess/Downloads"
     "${WEBKIT_DIR}/NetworkProcess/FileAPI"
     "${WEBKIT_DIR}/NetworkProcess/IndexedDB"
     "${WEBKIT_DIR}/NetworkProcess/ServiceWorker"
+    "${WEBKIT_DIR}/NetworkProcess/WebStorage"
     "${WEBKIT_DIR}/NetworkProcess/cache"
     "${WEBKIT_DIR}/NetworkProcess/watchos"
     "${WEBKIT_DIR}/NetworkProcess/webrtc"
@@ -20,6 +30,7 @@ set(WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/Shared"
     "${WEBKIT_DIR}/Shared/API"
     "${WEBKIT_DIR}/Shared/API/c"
+    "${WEBKIT_DIR}/Shared/ApplePay"
     "${WEBKIT_DIR}/Shared/Authentication"
     "${WEBKIT_DIR}/Shared/CoreIPCSupport"
     "${WEBKIT_DIR}/Shared/Databases"
@@ -35,7 +46,6 @@ set(WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/UIProcess/API"
     "${WEBKIT_DIR}/UIProcess/API/C"
     "${WEBKIT_DIR}/UIProcess/API/cpp"
-    "${WEBKIT_DIR}/UIProcess/ApplePay"
     "${WEBKIT_DIR}/UIProcess/Authentication"
     "${WEBKIT_DIR}/UIProcess/Automation"
     "${WEBKIT_DIR}/UIProcess/Downloads"
@@ -49,7 +59,6 @@ set(WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/UIProcess/UserContent"
     "${WEBKIT_DIR}/UIProcess/WebAuthentication"
     "${WEBKIT_DIR}/UIProcess/WebAuthentication/Mock"
-    "${WEBKIT_DIR}/UIProcess/WebStorage"
     "${WEBKIT_DIR}/UIProcess/WebsiteData"
     "${WEBKIT_DIR}/WebProcess"
     "${WEBKIT_DIR}/WebProcess/ApplePay"
@@ -83,8 +92,6 @@ set(WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/WebProcess/WebPage"
     "${WEBKIT_DIR}/WebProcess/WebPage/RemoteLayerTree"
     "${WEBKIT_DIR}/WebProcess/WebStorage"
-    "${DERIVED_SOURCES_WEBKIT_DIR}"
-    "${DERIVED_SOURCES_WEBKIT_DIR}/include"
     "${CMAKE_SOURCE_DIR}/Source"
     "${CMAKE_SOURCE_DIR}/WebKitLibraries"
 )
@@ -108,10 +115,14 @@ set(WebKit_MESSAGES_IN_FILES
     NetworkProcess/NetworkContentRuleListManager.messages.in
     NetworkProcess/NetworkProcess.messages.in
     NetworkProcess/NetworkResourceLoader.messages.in
+    NetworkProcess/NetworkSocketChannel.messages.in
     NetworkProcess/NetworkSocketStream.messages.in
 
+    NetworkProcess/ServiceWorker/ServiceWorkerFetchTask.messages.in
     NetworkProcess/ServiceWorker/WebSWServerConnection.messages.in
     NetworkProcess/ServiceWorker/WebSWServerToContextConnection.messages.in
+
+    NetworkProcess/WebStorage/StorageManager.messages.in
 
     NetworkProcess/cache/CacheStorageEngineConnection.messages.in
 
@@ -124,7 +135,7 @@ set(WebKit_MESSAGES_IN_FILES
     PluginProcess/PluginProcess.messages.in
     PluginProcess/WebProcessConnection.messages.in
 
-    Shared/ChildProcess.messages.in
+    Shared/AuxiliaryProcess.messages.in
     Shared/WebConnection.messages.in
 
     Shared/Authentication/AuthenticationManager.messages.in
@@ -142,7 +153,6 @@ set(WebKit_MESSAGES_IN_FILES
     UIProcess/WebPasteboardProxy.messages.in
     UIProcess/WebProcessPool.messages.in
     UIProcess/WebProcessProxy.messages.in
-    UIProcess/WebResourceLoadStatisticsStore.messages.in
 
     UIProcess/Automation/WebAutomationSession.messages.in
 
@@ -154,13 +164,9 @@ set(WebKit_MESSAGES_IN_FILES
 
     UIProcess/UserContent/WebUserContentControllerProxy.messages.in
 
-    UIProcess/WebStorage/StorageManager.messages.in
-
     WebProcess/WebProcess.messages.in
 
     WebProcess/Automation/WebAutomationSessionProxy.messages.in
-
-    WebProcess/Cache/WebCacheStorageConnection.messages.in
 
     WebProcess/Databases/IndexedDB/WebIDBConnectionToServer.messages.in
 
@@ -175,6 +181,7 @@ set(WebKit_MESSAGES_IN_FILES
 
     WebProcess/Network/NetworkProcessConnection.messages.in
     WebProcess/Network/WebResourceLoader.messages.in
+    WebProcess/Network/WebSocketChannel.messages.in
     WebProcess/Network/WebSocketStream.messages.in
 
     WebProcess/Notifications/WebNotificationManager.messages.in
@@ -265,17 +272,6 @@ if (ENABLE_GRAPHICS_CONTEXT_3D)
             add_definitions(${EGL_DEFINITIONS})
         endif ()
     endif ()
-
-    list(APPEND WebKit_INCLUDE_DIRECTORIES
-        "${THIRDPARTY_DIR}/ANGLE"
-        "${THIRDPARTY_DIR}/ANGLE/include/KHR"
-    )
-endif ()
-
-if (WIN32 AND INTERNAL_BUILD)
-    set(JavaScriptCore_SCRIPTS_DIR "${CMAKE_BINARY_DIR}/../include/private/JavaScriptCore/Scripts")
-else ()
-    set(JavaScriptCore_SCRIPTS_DIR "${FORWARDING_HEADERS_DIR}/JavaScriptCore/Scripts")
 endif ()
 
 if (ATOMIC_INT64_REQUIRES_LIBATOMIC)
@@ -317,18 +313,18 @@ macro(GENERATE_MESSAGE_SOURCES _output_source _input_files)
     foreach (_file ${_input_files})
         get_filename_component(_name ${_file} NAME_WE)
         add_custom_command(
-            OUTPUT ${DERIVED_SOURCES_WEBKIT_DIR}/${_name}MessageReceiver.cpp ${DERIVED_SOURCES_WEBKIT_DIR}/${_name}Messages.h
+            OUTPUT ${WebKit_DERIVED_SOURCES_DIR}/${_name}MessageReceiver.cpp ${WebKit_DERIVED_SOURCES_DIR}/${_name}Messages.h
             MAIN_DEPENDENCY ${_file}
             DEPENDS ${WEBKIT_DIR}/Scripts/webkit/__init__.py
                     ${WEBKIT_DIR}/Scripts/webkit/messages.py
                     ${WEBKIT_DIR}/Scripts/webkit/model.py
                     ${WEBKIT_DIR}/Scripts/webkit/parser.py
-            COMMAND ${PYTHON_EXECUTABLE} ${WEBKIT_DIR}/Scripts/generate-message-receiver.py ${_file} > ${DERIVED_SOURCES_WEBKIT_DIR}/${_name}MessageReceiver.cpp
-            COMMAND ${PYTHON_EXECUTABLE} ${WEBKIT_DIR}/Scripts/generate-messages-header.py ${_file} > ${DERIVED_SOURCES_WEBKIT_DIR}/${_name}Messages.h
+            COMMAND ${PYTHON_EXECUTABLE} ${WEBKIT_DIR}/Scripts/generate-message-receiver.py ${_file} > ${WebKit_DERIVED_SOURCES_DIR}/${_name}MessageReceiver.cpp
+            COMMAND ${PYTHON_EXECUTABLE} ${WEBKIT_DIR}/Scripts/generate-messages-header.py ${_file} > ${WebKit_DERIVED_SOURCES_DIR}/${_name}Messages.h
             WORKING_DIRECTORY ${WEBKIT_DIR}
             VERBATIM)
 
-        list(APPEND ${_output_source} ${DERIVED_SOURCES_WEBKIT_DIR}/${_name}MessageReceiver.cpp)
+        list(APPEND ${_output_source} ${WebKit_DERIVED_SOURCES_DIR}/${_name}MessageReceiver.cpp)
     endforeach ()
 endmacro()
 GENERATE_MESSAGE_SOURCES(WebKit_DERIVED_SOURCES "${WebKit_MESSAGES_IN_FILES}")
@@ -353,35 +349,35 @@ set(WebKit_AUTOMATION_PROTOCOL_GENERATOR_INPUTS
 )
 
 add_custom_command(
-    OUTPUT ${DERIVED_SOURCES_WEBKIT_DIR}/AutomationBackendDispatchers.h ${DERIVED_SOURCES_WEBKIT_DIR}/AutomationBackendDispatchers.cpp ${DERIVED_SOURCES_WEBKIT_DIR}/AutomationProtocolObjects.h ${DERIVED_SOURCES_WEBKIT_DIR}/AutomationProtocolObjects.cpp ${DERIVED_SOURCES_WEBKIT_DIR}/AutomationFrontendDispatchers.h ${DERIVED_SOURCES_WEBKIT_DIR}/AutomationFrontendDispatchers.cpp
+    OUTPUT ${WebKit_DERIVED_SOURCES_DIR}/AutomationBackendDispatchers.h ${WebKit_DERIVED_SOURCES_DIR}/AutomationBackendDispatchers.cpp ${WebKit_DERIVED_SOURCES_DIR}/AutomationProtocolObjects.h ${WebKit_DERIVED_SOURCES_DIR}/AutomationProtocolObjects.cpp ${WebKit_DERIVED_SOURCES_DIR}/AutomationFrontendDispatchers.h ${WebKit_DERIVED_SOURCES_DIR}/AutomationFrontendDispatchers.cpp
     MAIN_DEPENDENCY ${WebKit_AUTOMATION_PROTOCOL_GENERATOR_INPUTS}
     DEPENDS ${WebKit_AUTOMATION_PROTOCOL_GENERATOR_SCRIPTS}
-    COMMAND ${PYTHON_EXECUTABLE} ${PROTOCOL_GENERATOR_SCRIPTS_DIR}/generate-inspector-protocol-bindings.py --outputDir "${DERIVED_SOURCES_WEBKIT_DIR}" --framework WebKit ${WebKit_AUTOMATION_PROTOCOL_GENERATOR_EXTRA_FLAGS} --backend ${WebKit_AUTOMATION_PROTOCOL_GENERATOR_INPUTS}
+    COMMAND ${PYTHON_EXECUTABLE} ${PROTOCOL_GENERATOR_SCRIPTS_DIR}/generate-inspector-protocol-bindings.py --outputDir "${WebKit_DERIVED_SOURCES_DIR}" --framework WebKit ${WebKit_AUTOMATION_PROTOCOL_GENERATOR_EXTRA_FLAGS} --backend ${WebKit_AUTOMATION_PROTOCOL_GENERATOR_INPUTS}
     VERBATIM)
 
 list(APPEND WebKit_HEADERS
-    ${DERIVED_SOURCES_WEBKIT_DIR}/AutomationBackendDispatchers.h
-    ${DERIVED_SOURCES_WEBKIT_DIR}/AutomationFrontendDispatchers.h
-    ${DERIVED_SOURCES_WEBKIT_DIR}/AutomationProtocolObjects.h
+    ${WebKit_DERIVED_SOURCES_DIR}/AutomationBackendDispatchers.h
+    ${WebKit_DERIVED_SOURCES_DIR}/AutomationFrontendDispatchers.h
+    ${WebKit_DERIVED_SOURCES_DIR}/AutomationProtocolObjects.h
 )
 
 list(APPEND WebKit_SOURCES
-    ${DERIVED_SOURCES_WEBKIT_DIR}/AutomationBackendDispatchers.cpp
-    ${DERIVED_SOURCES_WEBKIT_DIR}/AutomationFrontendDispatchers.cpp
-    ${DERIVED_SOURCES_WEBKIT_DIR}/AutomationProtocolObjects.cpp
+    ${WebKit_DERIVED_SOURCES_DIR}/AutomationBackendDispatchers.cpp
+    ${WebKit_DERIVED_SOURCES_DIR}/AutomationFrontendDispatchers.cpp
+    ${WebKit_DERIVED_SOURCES_DIR}/AutomationProtocolObjects.cpp
 )
 
 add_custom_command(
-    OUTPUT ${DERIVED_SOURCES_WEBKIT_DIR}/WebAutomationSessionProxyScriptSource.h ${DERIVED_SOURCES_WEBKIT_DIR}/WebAutomationSessionProxy.min.js
+    OUTPUT ${WebKit_DERIVED_SOURCES_DIR}/WebAutomationSessionProxyScriptSource.h ${WebKit_DERIVED_SOURCES_DIR}/WebAutomationSessionProxy.min.js
     MAIN_DEPENDENCY ${WEBKIT_DIR}/WebProcess/Automation/WebAutomationSessionProxy.js
     DEPENDS ${JavaScriptCore_SCRIPTS_DIR}/xxd.pl ${JavaScriptCore_SCRIPTS_DIR}/jsmin.py
-    COMMAND ${CMAKE_COMMAND} -E echo "//# sourceURL=__InjectedScript_WebAutomationSessionProxy.js" > ${DERIVED_SOURCES_WEBKIT_DIR}/WebAutomationSessionProxy.min.js
-    COMMAND ${PYTHON_EXECUTABLE} ${JavaScriptCore_SCRIPTS_DIR}/jsmin.py < ${WEBKIT_DIR}/WebProcess/Automation/WebAutomationSessionProxy.js >> ${DERIVED_SOURCES_WEBKIT_DIR}/WebAutomationSessionProxy.min.js
-    COMMAND ${PERL_EXECUTABLE} ${JavaScriptCore_SCRIPTS_DIR}/xxd.pl WebAutomationSessionProxyScriptSource ${DERIVED_SOURCES_WEBKIT_DIR}/WebAutomationSessionProxy.min.js ${DERIVED_SOURCES_WEBKIT_DIR}/WebAutomationSessionProxyScriptSource.h
+    COMMAND ${CMAKE_COMMAND} -E echo "//# sourceURL=__InjectedScript_WebAutomationSessionProxy.js" > ${WebKit_DERIVED_SOURCES_DIR}/WebAutomationSessionProxy.min.js
+    COMMAND ${PYTHON_EXECUTABLE} ${JavaScriptCore_SCRIPTS_DIR}/jsmin.py < ${WEBKIT_DIR}/WebProcess/Automation/WebAutomationSessionProxy.js >> ${WebKit_DERIVED_SOURCES_DIR}/WebAutomationSessionProxy.min.js
+    COMMAND ${PERL_EXECUTABLE} ${JavaScriptCore_SCRIPTS_DIR}/xxd.pl WebAutomationSessionProxyScriptSource ${WebKit_DERIVED_SOURCES_DIR}/WebAutomationSessionProxy.min.js ${WebKit_DERIVED_SOURCES_DIR}/WebAutomationSessionProxyScriptSource.h
     VERBATIM)
 
 list(APPEND WebKit_HEADERS
-    ${DERIVED_SOURCES_WEBKIT_DIR}/WebAutomationSessionProxyScriptSource.h
+    ${WebKit_DERIVED_SOURCES_DIR}/WebAutomationSessionProxyScriptSource.h
 )
 
 set(WebKit_WEB_PREFERENCES_TEMPLATES
@@ -395,23 +391,23 @@ set(WebKit_WEB_PREFERENCES_TEMPLATES
 )
 
 add_custom_command(
-    OUTPUT ${DERIVED_SOURCES_WEBKIT_DIR}/WebPageUpdatePreferences.cpp ${DERIVED_SOURCES_WEBKIT_DIR}/WebPreferencesDefinitions.h ${DERIVED_SOURCES_WEBKIT_DIR}/WebPreferencesExperimentalFeatures.cpp ${DERIVED_SOURCES_WEBKIT_DIR}/WebPreferencesInternalDebugFeatures.cpp ${DERIVED_SOURCES_WEBKIT_DIR}/WebPreferencesKeys.cpp ${DERIVED_SOURCES_WEBKIT_DIR}/WebPreferencesKeys.h ${DERIVED_SOURCES_WEBKIT_DIR}/WebPreferencesStoreDefaultsMap.cpp
+    OUTPUT ${WebKit_DERIVED_SOURCES_DIR}/WebPageUpdatePreferences.cpp ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesDefinitions.h ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesExperimentalFeatures.cpp ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesInternalDebugFeatures.cpp ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesKeys.cpp ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesKeys.h ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesStoreDefaultsMap.cpp
     MAIN_DEPENDENCY ${WEBKIT_DIR}/Shared/WebPreferences.yaml
     DEPENDS ${WebKit_WEB_PREFERENCES_TEMPLATES}
-    COMMAND ${RUBY_EXECUTABLE} ${WEBKIT_DIR}/Scripts/GeneratePreferences.rb --input ${WEBKIT_DIR}/Shared/WebPreferences.yaml --outputDir "${DERIVED_SOURCES_WEBKIT_DIR}"
+    COMMAND ${RUBY_EXECUTABLE} ${WEBKIT_DIR}/Scripts/GeneratePreferences.rb --input ${WEBKIT_DIR}/Shared/WebPreferences.yaml --outputDir "${WebKit_DERIVED_SOURCES_DIR}"
     VERBATIM)
 
 list(APPEND WebKit_HEADERS
-    ${DERIVED_SOURCES_WEBKIT_DIR}/WebPreferencesDefinitions.h
-    ${DERIVED_SOURCES_WEBKIT_DIR}/WebPreferencesKeys.h
+    ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesDefinitions.h
+    ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesKeys.h
 )
 
 list(APPEND WebKit_SOURCES
-    ${DERIVED_SOURCES_WEBKIT_DIR}/WebPageUpdatePreferences.cpp
-    ${DERIVED_SOURCES_WEBKIT_DIR}/WebPreferencesExperimentalFeatures.cpp
-    ${DERIVED_SOURCES_WEBKIT_DIR}/WebPreferencesInternalDebugFeatures.cpp
-    ${DERIVED_SOURCES_WEBKIT_DIR}/WebPreferencesKeys.cpp
-    ${DERIVED_SOURCES_WEBKIT_DIR}/WebPreferencesStoreDefaultsMap.cpp
+    ${WebKit_DERIVED_SOURCES_DIR}/WebPageUpdatePreferences.cpp
+    ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesExperimentalFeatures.cpp
+    ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesInternalDebugFeatures.cpp
+    ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesKeys.cpp
+    ${WebKit_DERIVED_SOURCES_DIR}/WebPreferencesStoreDefaultsMap.cpp
 )
 
 

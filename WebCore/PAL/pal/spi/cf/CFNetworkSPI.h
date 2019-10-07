@@ -101,6 +101,14 @@ typedef struct OpaqueCFHTTPCookieStorage* CFHTTPCookieStorageRef;
 typedef CFIndex CFURLRequestPriority;
 typedef int CFHTTPCookieStorageAcceptPolicy;
 
+CF_ENUM(CFHTTPCookieStorageAcceptPolicy)
+{
+    CFHTTPCookieStorageAcceptPolicyAlways = 0,
+    CFHTTPCookieStorageAcceptPolicyNever = 1,
+    CFHTTPCookieStorageAcceptPolicyOnlyFromMainDocumentDomain = 2,
+    CFHTTPCookieStorageAcceptPolicyExclusivelyFromMainDocumentDomain = 3,
+};
+
 #ifdef __BLOCKS__
 typedef void (^CFCachedURLResponseCallBackBlock)(CFCachedURLResponseRef);
 #endif
@@ -189,6 +197,7 @@ typedef NS_ENUM(NSInteger, NSURLSessionCompanionProxyPreference) {
 @property (nullable, copy) NSString *_sourceApplicationBundleIdentifier;
 @property (nullable, copy) NSString *_sourceApplicationSecondaryIdentifier;
 @property BOOL _shouldSkipPreferredClientCertificateLookup NS_AVAILABLE(10_10, 8_0);
+@property BOOL _allowsTLSFallback;
 #if PLATFORM(IOS_FAMILY)
 @property (nullable, copy) NSString *_CTDataConnectionServiceType;
 #endif
@@ -197,6 +206,12 @@ typedef NS_ENUM(NSInteger, NSURLSessionCompanionProxyPreference) {
 #endif
 #if PLATFORM(WATCHOS) && __WATCH_OS_VERSION_MAX_ALLOWED >= 60000
 @property NSURLSessionCompanionProxyPreference _companionProxyPreference;
+#endif
+#if HAVE(APP_SSO)
+@property BOOL _preventsAppSSO;
+#endif
+#if HAVE(ALLOWS_SENSITIVE_LOGGING)
+@property BOOL _allowsSensitiveLogging;
 #endif
 @end
 
@@ -223,6 +238,22 @@ typedef NS_ENUM(NSInteger, NSURLSessionCompanionProxyPreference) {
 @property (assign, readonly) int64_t _responseBodyBytesDecoded;
 @end
 #endif
+
+#if HAVE(CFNETWORK_NEGOTIATED_SSL_PROTOCOL_CIPHER)
+@interface NSURLSessionTaskTransactionMetrics ()
+@property (assign) SSLProtocol _negotiatedTLSProtocol;
+@property (assign) SSLCipherSuite _negotiatedTLSCipher;
+@end
+#endif
+
+@interface NSURLSession (SPI)
+#if HAVE(CFNETWORK_NSURLSESSION_STRICTRUSTEVALUATE)
++ (void)_strictTrustEvaluate:(NSURLAuthenticationChallenge *)challenge queue:(dispatch_queue_t)queue completionHandler:(void (^)(NSURLAuthenticationChallenge *challenge, OSStatus trustResult))cb;
+#endif
+#if HAVE(APP_SSO)
++ (void)_disableAppSSO;
+#endif
+@end
 
 extern NSString * const NSURLAuthenticationMethodOAuth;
 
@@ -310,6 +341,10 @@ Boolean _CFHostIsDomainTopLevel(CFStringRef domain);
 void _CFURLRequestCreateArchiveList(CFAllocatorRef, CFURLRequestRef, CFIndex* version, CFTypeRef** objects, CFIndex* objectCount, CFDictionaryRef* protocolProperties);
 CFMutableURLRequestRef _CFURLRequestCreateFromArchiveList(CFAllocatorRef, CFIndex version, CFTypeRef* objects, CFIndex objectCount, CFDictionaryRef protocolProperties);
 void CFURLRequestSetProxySettings(CFMutableURLRequestRef, CFDictionaryRef);
+
+#if HAVE(HSTS_STORAGE_PATH)
+void _CFNetworkSetHSTSStoragePath(CFStringRef);
+#endif
 
 #endif // !PLATFORM(WIN)
 

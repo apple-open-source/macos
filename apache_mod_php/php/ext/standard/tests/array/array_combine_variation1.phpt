@@ -3,8 +3,8 @@ Test array_combine() function : usage variations - unexpected values for 'keys' 
 --FILE--
 <?php
 /* Prototype  : array array_combine(array $keys, array $values)
- * Description: Creates an array by using the elements of the first parameter as keys 
- *              and the elements of the second as the corresponding values 
+ * Description: Creates an array by using the elements of the first parameter as keys
+ *              and the elements of the second as the corresponding values
  * Source code: ext/standard/array.c
 */
 
@@ -16,7 +16,7 @@ Test array_combine() function : usage variations - unexpected values for 'keys' 
 
 echo "*** Testing array_combine() : Passing non-array values to \$keys argument ***\n";
 
-// Initialise $values argument 
+// Initialise $values argument
 $values = array(1, 2);
 
 //get an unset variable
@@ -101,19 +101,19 @@ echo "Done";
 *** Testing array_combine() : Passing non-array values to $keys argument ***
 -- Iteration 1 --
 
-Warning: array_combine() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_combine() expects parameter 1 to be array, int given in %s on line %d
 NULL
 -- Iteration 2 --
 
-Warning: array_combine() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_combine() expects parameter 1 to be array, int given in %s on line %d
 NULL
 -- Iteration 3 --
 
-Warning: array_combine() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_combine() expects parameter 1 to be array, int given in %s on line %d
 NULL
 -- Iteration 4 --
 
-Warning: array_combine() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_combine() expects parameter 1 to be array, int given in %s on line %d
 NULL
 -- Iteration 5 --
 
@@ -145,19 +145,19 @@ Warning: array_combine() expects parameter 1 to be array, null given in %s on li
 NULL
 -- Iteration 12 --
 
-Warning: array_combine() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_combine() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 -- Iteration 13 --
 
-Warning: array_combine() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_combine() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 -- Iteration 14 --
 
-Warning: array_combine() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_combine() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 -- Iteration 15 --
 
-Warning: array_combine() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: array_combine() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 -- Iteration 16 --
 

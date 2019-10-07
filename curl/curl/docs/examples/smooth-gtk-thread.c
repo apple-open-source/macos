@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2016, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -64,7 +64,7 @@ size_t write_file(void *ptr, size_t size, size_t nmemb, FILE *stream)
   return fwrite(ptr, size, nmemb, stream);
 }
 
-/* http://xoap.weather.com/weather/local/46214?cc=*&dayf=5&unit=i */
+/* https://weather.com/weather/today/l/46214?cc=*&dayf=5&unit=i */
 void *pull_one_url(void *NaN)
 {
   CURL *curl;
@@ -134,7 +134,7 @@ void *create_thread(void *progress_bar)
   int error;
 
   /* Make sure I don't create more threads than urls. */
-  for(i=0; i < NUMT && i < num_urls ; i++) {
+  for(i = 0; i < NUMT && i < num_urls ; i++) {
     error = pthread_create(&tid[i],
                            NULL, /* default attributes please */
                            pull_one_url,
@@ -146,7 +146,7 @@ void *create_thread(void *progress_bar)
   }
 
   /* Wait for all threads to terminate. */
-  for(i=0; i < NUMT && i < num_urls; i++) {
+  for(i = 0; i < NUMT && i < num_urls; i++) {
     error = pthread_join(tid[i], NULL);
     fprintf(stderr, "Thread %d terminated\n", i);
   }

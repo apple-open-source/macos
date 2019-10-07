@@ -35,6 +35,24 @@ is_different(const char *file, struct filelist *p) {
     return 1;
 }
 
+static int
+free_filelist (struct filelist *list){
+struct filelist *current, *next;
+
+ current = list; 
+ if (current != list)
+    do {
+        next = current->next;
+        if (current != list)
+            free(current);
+        current = next;
+    } while (current->next != NULL);
+
+ list->next = NULL;  
+ 
+ return 0; 
+}
+
 int
 different_cat_file (const char *file) {
     return is_different (file, &cat_list);
@@ -43,4 +61,12 @@ different_cat_file (const char *file) {
 int
 different_man_file (const char *file) {
     return is_different (file, &man_list);
+}
+
+int 
+free_catman_filelists (void){
+
+    free_filelist(&man_list);
+    free_filelist(&cat_list);
+return 0;
 }

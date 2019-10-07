@@ -1,0 +1,105 @@
+To create a zsh release:
+
+- Be satisfied that 'master' is releaseable.
+  (No recent destabilizing changes, `make check` passes, etc)
+
+- Bump or update:
+
+	Config/version.mk to today's date
+	Config/version.mk version number (sequence: 5.4.2, 5.4.2-dev-$((i++)), 5.4.2-test-$((++j)), 5.5)
+	Etc/FAQ.yo
+	README
+	NEWS
+
+  README should document compatibility-breaking changes. Generally, NEWS should
+  document new features and major bug fixes (but not routine fixes or changes to
+  completion/contrib functions).
+
+- Commit those changes with an "unposted" ChangeLog entry.
+
+	git commit -am "Test release: 5.5.1-test-1." &&
+		zshdev-add-nnnnn-and-changelog unposted
+	# (Everyone has a different way of getting the "unposted" magic string
+	# into ChangeLog and the log message.  This script is how I do it; YMMV;
+	# see Etc/zsh-development-guide for alternative scripts.)
+
+- Create signed git tag named "zsh-5.5.1-..." (not "5.5.1-...")
+
+	git tag --sign -m "Tag version zsh-5.5.1-test-1." zsh-5.5.1-test-1
+
+- If the tagged release is a stable release (as opposed to a test release):
+
+	vi Config/version.mk # bump to 5.6-dev-0 and tomorrow's date
+	git commit -am "Post-release version bump." &&
+		zshdev-add-nnnnn-and-changelog unposted
+		# or local equivalent (see above)
+
+- Create tarball:
+
+	git checkout zsh-5.5.1-test-1
+	git diff HEAD # ensure no local mods
+	rm -f Doc/help.txt Doc/help/[_a-zA-Z0-9]* # some devs have had issues with these
+	Util/preconfig && ./configure ...
+	make -C Etc
+	make -C Doc everything
+	make tarxz-doc tarxz-src
+	for i in zsh*.tar.?z ; do gpg -ab -- $i ; done
+
+- [one time step] Add your key to http://zsh.sf.net/Arc/source.html; see README in the 'web' repository for how to do this.  Its URL is:
+
+	git clone git://git.code.sf.net/p/zsh/web
+	git clone ssh://git.code.sf.net/p/zsh/web
+
+- Upload to sf.net
+
+	Test releases go to the "zsh-test" directory.
+	Stable releases to zsh/ and zsh-doc/.
+	After uploading, select the tar.xz artifact, press the 🛈 button ("View Details") to its right, and press [Select All] next to "Default Download For:".  This should cause sf.net to offer that artifact in the "Looking for the latest version?" line.
+
+- If the new release is a stable release, update zsh.sf.net:
+
+	# Move into the 'web' repository mentioned above
+	cd /path/to/web/repo
+	git pull
+
+	# Review the README, in case there is any new information there
+	cat README
+
+	# Run release.zsh to update the documentation from the main repository
+	# (making sure you still have checked out the tag you created!)
+	ZSHPATH=/path/to/zsh/repo ./release.zsh
+
+	# Commit changes
+	git commit -am 'Doc, FAQ, Intro: Update for <version>' # replace <version>
+
+	# Update the files mentioned in the release.zsh instructions (just
+	# adhere to the existing structure/format)
+	$EDITOR index.html
+	$EDITOR News/index.html
+	$EDITOR releases.html
+
+	# Run release-update-versions.zsh to update the names and sizes of the
+	# files listed on the documentation index and source page
+	./release-update-versions.zsh <version> # replace <version>
+
+	# Commit changes
+	git commit -am 'Update downloads, notes, etc., for <version>' # replace <version>
+
+	# Tag and push changes
+	git tag -sm 'Release of zsh <version>' zsh-<version> # replace <version>
+	git push
+
+	# Post changes; see web/README for the full rsync command. When in
+	# doubt, use `rsync -n` to perform a dry run. Note that changes may take
+	# several minutes to appear afterwards
+	rsync ...
+
+- Upload the build artefacts to zsh.org/pub; you may need assistance from
+  another dev if you don't have access to do this.
+
+- Post to -workers@
+
+- After a day or so post to:
+
+	-users@, if test release;
+	-announce@, if stable release.

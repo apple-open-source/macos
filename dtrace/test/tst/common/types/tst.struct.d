@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.struct.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *   Declare a dynamic type and then use it to copyin the first 3 environment

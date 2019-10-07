@@ -33,8 +33,11 @@
 #include "TextTrackCueList.h"
 #include "VTTCue.h"
 #include "VTTRegionList.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(LoadableTextTrack);
 
 LoadableTextTrack::LoadableTextTrack(HTMLTrackElement& track, const String& kind, const String& label, const String& language)
     : TextTrack(&track.document(), &track, kind, emptyString(), label, language, TrackElement)
@@ -98,7 +101,7 @@ void LoadableTextTrack::newCuesAvailable(TextTrackLoader& loader)
 
     for (auto& newCue : newCues) {
         newCue->setTrack(this);
-        DEBUG_LOG(LOGIDENTIFIER, *toVTTCue(newCue.get()));
+        INFO_LOG(LOGIDENTIFIER, *toVTTCue(newCue.get()));
         m_cues->add(newCue.releaseNonNull());
     }
 
@@ -137,7 +140,7 @@ void LoadableTextTrack::newStyleSheetsAvailable(TextTrackLoader& loader)
     m_styleSheets = m_loader->getNewStyleSheets();
 }
 
-AtomicString LoadableTextTrack::id() const
+AtomString LoadableTextTrack::id() const
 {
     if (!m_trackElement)
         return emptyAtom();

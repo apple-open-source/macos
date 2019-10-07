@@ -14,7 +14,6 @@
 #include "CCCryptorTestFuncs.h"
 #include "testbyteBuffer.h"
 #include "testmore.h"
-#include "../../lib/ccMemory.h"
 
 #if (CCSYMCCM == 0)
 entryPoint(CommonCryptoSymCCM,"CommonCrypto Symmetric CCM Testing")

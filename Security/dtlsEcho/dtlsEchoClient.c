@@ -320,6 +320,9 @@ int main(int argc, char **argv)
     OSStatus            ortn;
     SSLContextRef       ctx = NULL;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
     SSLClientCertificateState certState;
     SSLCipherSuite negCipher;
     SSLProtocol negVersion;
@@ -416,6 +419,8 @@ int main(int argc, char **argv)
     SSLClose(ctx);
 
     SSLDisposeContext(ctx);
+
+#pragma clang diagnostic pop
 
     return ortn;
 }

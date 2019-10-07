@@ -25,6 +25,7 @@ bool SeriesMatcher::match(StringSegment& segment, ParsedNumber& result, UErrorCo
     bool maybeMore = true;
     for (auto* it = begin(); it < end();) {
         const NumberParseMatcher* matcher = *it;
+        bool startCurrencyIsEmpty = (result.currencyCode[0]==0); // Apple fix for <rdar://problem/46915356>
         int matcherOffset = segment.getOffset();
         if (segment.length() != 0) {
             maybeMore = matcher->match(segment, result, status);
@@ -33,7 +34,8 @@ bool SeriesMatcher::match(StringSegment& segment, ParsedNumber& result, UErrorCo
             maybeMore = true;
         }
 
-        bool success = (segment.getOffset() != matcherOffset);
+        bool success = ((segment.getOffset() != matcherOffset)
+                        || (startCurrencyIsEmpty && result.currencyCode[0]!=0)); // Apple fix for <rdar://problem/46915356>
         bool isFlexible = matcher->isFlexible();
         if (success && isFlexible) {
             // Match succeeded, and this is a flexible matcher. Re-run it.

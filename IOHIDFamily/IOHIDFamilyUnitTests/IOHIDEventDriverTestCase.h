@@ -8,6 +8,7 @@
 #import <XCTest/XCTest.h>
 #include <IOKit/hid/IOHIDUserDevice.h>
 #include <IOKit/hid/IOHIDEventSystemClient.h>
+#include <IOKit/hid/IOHIDEventSystemKeys.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -26,6 +27,7 @@ NS_ASSUME_NONNULL_BEGIN
 -(void) addService: (IOHIDServiceClientRef) service;
 -(void) handleEvent: (IOHIDEventRef) event fromService:(IOHIDServiceClientRef) service;
 -(IOReturn)userDeviceGetReportHandler: (IOHIDReportType)type :(uint32_t)reportID :(uint8_t *)report :(NSUInteger *) length;
+-(IOReturn)userDeviceSetReportHandler: (IOHIDReportType)type :(uint32_t)reportID :(uint8_t *)report :(NSUInteger ) length;
 
 @end
 

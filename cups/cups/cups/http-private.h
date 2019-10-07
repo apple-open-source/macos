@@ -4,13 +4,8 @@
  * Copyright 2007-2018 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 #ifndef _CUPS_HTTP_PRIVATE_H_
@@ -30,7 +25,8 @@
 #  endif /* __sun */
 
 #  include <limits.h>
-#  ifdef WIN32
+#  ifdef _WIN32
+#    define _WINSOCK_DEPRECATED_NO_WARNINGS 1
 #    include <io.h>
 #    include <winsock2.h>
 #    define CUPS_SOCAST (const char *)
@@ -39,7 +35,7 @@
 #    include <fcntl.h>
 #    include <sys/socket.h>
 #    define CUPS_SOCAST
-#  endif /* WIN32 */
+#  endif /* _WIN32 */
 
 #  ifdef HAVE_GSSAPI
 #    ifdef HAVE_GSS_GSSAPI_H
@@ -77,60 +73,13 @@ typedef int socklen_t;
 #    include <CoreFoundation/CoreFoundation.h>
 #    include <Security/Security.h>
 #    include <Security/SecureTransport.h>
-#    ifdef HAVE_SECURETRANSPORTPRIV_H
-#      include <Security/SecureTransportPriv.h>
-#    endif /* HAVE_SECURETRANSPORTPRIV_H */
 #    ifdef HAVE_SECITEM_H
 #      include <Security/SecItem.h>
 #    endif /* HAVE_SECITEM_H */
-#    ifdef HAVE_SECBASEPRIV_H
-#      include <Security/SecBasePriv.h>
-#    endif /* HAVE_SECBASEPRIV_H */
 #    ifdef HAVE_SECCERTIFICATE_H
 #      include <Security/SecCertificate.h>
 #      include <Security/SecIdentity.h>
 #    endif /* HAVE_SECCERTIFICATE_H */
-#    ifdef HAVE_SECCERTIFICATEPRIV_H
-#      include <Security/SecCertificatePriv.h>
-#    else
-#      ifdef __cplusplus
-extern "C" {
-#      endif /* __cplusplus */
-#      ifndef _SECURITY_VERSION_GREATER_THAN_57610_
-typedef CF_OPTIONS(uint32_t, SecKeyUsage) {
-    kSecKeyUsageAll              = 0x7FFFFFFF
-};
-#       endif /* !_SECURITY_VERSION_GREATER_THAN_57610_ */
-extern const void * kSecCSRChallengePassword;
-extern const void * kSecSubjectAltName;
-extern const void * kSecCertificateKeyUsage;
-extern const void * kSecCSRBasicContraintsPathLen;
-extern const void * kSecCertificateExtensions;
-extern const void * kSecCertificateExtensionsEncoded;
-extern const void * kSecOidCommonName;
-extern const void * kSecOidCountryName;
-extern const void * kSecOidStateProvinceName;
-extern const void * kSecOidLocalityName;
-extern const void * kSecOidOrganization;
-extern const void * kSecOidOrganizationalUnit;
-extern SecCertificateRef SecCertificateCreateWithBytes(CFAllocatorRef allocator, const UInt8 *bytes, CFIndex length);
-extern bool SecCertificateIsValid(SecCertificateRef certificate, CFAbsoluteTime verifyTime);
-extern CFAbsoluteTime SecCertificateNotValidAfter(SecCertificateRef certificate);
-extern SecCertificateRef SecGenerateSelfSignedCertificate(CFArrayRef subject, CFDictionaryRef parameters, SecKeyRef publicKey, SecKeyRef privateKey);
-extern SecIdentityRef SecIdentityCreate(CFAllocatorRef allocator, SecCertificateRef certificate, SecKeyRef privateKey);
-#      ifdef __cplusplus
-}
-#      endif /* __cplusplus */
-#    endif /* HAVE_SECCERTIFICATEPRIV_H */
-#    ifdef HAVE_SECITEMPRIV_H
-#      include <Security/SecItemPriv.h>
-#    endif /* HAVE_SECITEMPRIV_H */
-#    ifdef HAVE_SECIDENTITYSEARCHPRIV_H
-#      include <Security/SecIdentitySearchPriv.h>
-#    endif /* HAVE_SECIDENTITYSEARCHPRIV_H */
-#    ifdef HAVE_SECPOLICYPRIV_H
-#      include <Security/SecPolicyPriv.h>
-#    endif /* HAVE_SECPOLICYPRIV_H */
 #  elif defined(HAVE_SSPISSL)
 #    include <wincrypt.h>
 #    include <wintrust.h>
@@ -140,7 +89,7 @@ extern SecIdentityRef SecIdentityCreate(CFAllocatorRef allocator, SecCertificate
 #    include <sspi.h>
 #  endif /* HAVE_GNUTLS */
 
-#  ifndef WIN32
+#  ifndef _WIN32
 #    include <net/if.h>
 #    include <resolv.h>
 #    ifdef HAVE_GETIFADDRS
@@ -151,11 +100,7 @@ extern SecIdentityRef SecIdentityCreate(CFAllocatorRef allocator, SecCertificate
 #        include <sys/sockio.h>
 #      endif /* HAVE_SYS_SOCKIO_H */
 #    endif /* HAVE_GETIFADDRS */
-#  endif /* !WIN32 */
-
-#  ifdef HAVE_LIBZ
-#    include <zlib.h>
-#  endif /* HAVE_LIBZ */
+#  endif /* !_WIN32 */
 
 
 /*
@@ -208,21 +153,6 @@ typedef gnutls_certificate_credentials_t *http_tls_credentials_t;
  * Darwin's Security framework provides its own SSL/TLS context structure
  * for its IO and protocol management...
  */
-
-#    if !defined(HAVE_SECBASEPRIV_H) && defined(HAVE_CSSMERRORSTRING) /* Declare prototype for function in that header... */
-extern const char *cssmErrorString(int error);
-#    endif /* !HAVE_SECBASEPRIV_H && HAVE_CSSMERRORSTRING */
-#    if !defined(HAVE_SECIDENTITYSEARCHPRIV_H) && defined(HAVE_SECIDENTITYSEARCHCREATEWITHPOLICY) /* Declare prototype for function in that header... */
-extern OSStatus SecIdentitySearchCreateWithPolicy(SecPolicyRef policy,
-				CFStringRef idString, CSSM_KEYUSE keyUsage,
-				CFTypeRef keychainOrArray,
-				Boolean returnOnlyValidIdentities,
-				SecIdentitySearchRef* searchRef);
-#    endif /* !HAVE_SECIDENTITYSEARCHPRIV_H && HAVE_SECIDENTITYSEARCHCREATEWITHPOLICY */
-#    if !defined(HAVE_SECPOLICYPRIV_H) && defined(HAVE_SECPOLICYSETVALUE) /* Declare prototype for function in that header... */
-extern OSStatus SecPolicySetValue(SecPolicyRef policyRef,
-                                  const CSSM_DATA *value);
-#    endif /* !HAVE_SECPOLICYPRIV_H && HAVE_SECPOLICYSETVALUE */
 
 typedef SSLContextRef	http_tls_t;
 typedef CFArrayRef	http_tls_credentials_t;
@@ -291,8 +221,8 @@ struct _http_s				/**** HTTP connection structure ****/
   struct sockaddr_in	_hostaddr;	/* Address of connected host (deprecated) */
   char			hostname[HTTP_MAX_HOST],
   					/* Name of connected host */
-			fields[HTTP_FIELD_ACCEPT_ENCODING][HTTP_MAX_VALUE];
-					/* Field values up to Accept-Encoding */
+			_fields[HTTP_FIELD_ACCEPT_ENCODING][HTTP_MAX_VALUE];
+					/* Field values up to Accept-Encoding (deprecated) */
   char			*data;		/* Pointer to data buffer */
   http_encoding_t	data_encoding;	/* Chunked or not */
   int			_data_remaining;/* Number of bytes left (deprecated) */
@@ -328,8 +258,6 @@ struct _http_s				/**** HTTP connection structure ****/
   int			wused;		/* Write buffer bytes used */
 
   /**** New in CUPS 1.3 ****/
-  char			*field_authorization;
-					/* Authorization field */
   char			*authstring;	/* Current Authorization field */
 #  ifdef HAVE_GSSAPI
   gss_OID 		gssmech;	/* Authentication mechanism */
@@ -354,30 +282,26 @@ struct _http_s				/**** HTTP connection structure ****/
   /**** New in CUPS 1.7 ****/
   int			tls_upgrade;	/* Non-zero if we are doing an upgrade */
   _http_mode_t		mode;		/* _HTTP_MODE_CLIENT or _HTTP_MODE_SERVER */
-  char			*accept_encoding,
-					/* Accept-Encoding field */
-			*allow,		/* Allow field */
-			*server,	/* Server field */
-			*default_accept_encoding,
-			*default_server,
-			*default_user_agent;
-					/* Default field values */
 #  ifdef HAVE_LIBZ
   _http_coding_t	coding;		/* _HTTP_CODING_xxx */
-  z_stream		stream;		/* (De)compression stream */
-  Bytef			*sbuffer;	/* (De)compression buffer */
+  void			*stream;	/* (De)compression stream */
+  unsigned char		*sbuffer;	/* (De)compression buffer */
 #  endif /* HAVE_LIBZ */
 
   /**** New in CUPS 2.2.9 ****/
-  char			*authentication_info,
-					/* Authentication-Info header */
-			algorithm[65],	/* Algorithm from WWW-Authenticate */
+  char			algorithm[65],	/* Algorithm from WWW-Authenticate */
 			nextnonce[HTTP_MAX_VALUE],
 					/* Next nonce value from Authentication-Info */
 			opaque[HTTP_MAX_VALUE],
 					/* Opaque value from WWW-Authenticate */
 			realm[HTTP_MAX_VALUE];
 					/* Realm from WWW-Authenticate */
+
+  /**** New in CUPS 2.3 ****/
+  char			*fields[HTTP_FIELD_MAX],
+					/* Allocated field values */
+  			*default_fields[HTTP_FIELD_MAX];
+					/* Default field values, if any */
 };
 #  endif /* !_HTTP_NO_PRIVATE */
 
@@ -393,76 +317,33 @@ extern const char *_cups_hstrerror(int error);
 
 
 /*
- * Some OS's don't have getifaddrs() and freeifaddrs()...
- */
-
-#  if !defined(WIN32) && !defined(HAVE_GETIFADDRS)
-#    ifdef ifa_dstaddr
-#      undef ifa_dstaddr
-#    endif /* ifa_dstaddr */
-#    ifndef ifr_netmask
-#      define ifr_netmask ifr_addr
-#    endif /* !ifr_netmask */
-
-struct ifaddrs				/**** Interface Structure ****/
-{
-  struct ifaddrs	*ifa_next;	/* Next interface in list */
-  char			*ifa_name;	/* Name of interface */
-  unsigned int		ifa_flags;	/* Flags (up, point-to-point, etc.) */
-  struct sockaddr	*ifa_addr,	/* Network address */
-			*ifa_netmask;	/* Address mask */
-  union
-  {
-    struct sockaddr	*ifu_broadaddr;	/* Broadcast address of this interface. */
-    struct sockaddr	*ifu_dstaddr;	/* Point-to-point destination address. */
-  } ifa_ifu;
-
-  void			*ifa_data;	/* Interface statistics */
-};
-
-#    ifndef ifa_broadaddr
-#      define ifa_broadaddr ifa_ifu.ifu_broadaddr
-#    endif /* !ifa_broadaddr */
-#    ifndef ifa_dstaddr
-#      define ifa_dstaddr ifa_ifu.ifu_dstaddr
-#    endif /* !ifa_dstaddr */
-
-extern int	_cups_getifaddrs(struct ifaddrs **addrs);
-#    define getifaddrs _cups_getifaddrs
-extern void	_cups_freeifaddrs(struct ifaddrs *addrs);
-#    define freeifaddrs _cups_freeifaddrs
-#  endif /* !WIN32 && !HAVE_GETIFADDRS */
-
-
-/*
  * Prototypes...
  */
 
-extern void		_httpAddrSetPort(http_addr_t *addr, int port);
+extern void		_httpAddrSetPort(http_addr_t *addr, int port) _CUPS_PRIVATE;
 extern http_tls_credentials_t
-			_httpCreateCredentials(cups_array_t *credentials);
+			_httpCreateCredentials(cups_array_t *credentials) _CUPS_PRIVATE;
 extern char		*_httpDecodeURI(char *dst, const char *src,
-			                size_t dstsize);
-extern void		_httpDisconnect(http_t *http);
+			                size_t dstsize) _CUPS_PRIVATE;
+extern void		_httpDisconnect(http_t *http) _CUPS_PRIVATE;
 extern char		*_httpEncodeURI(char *dst, const char *src,
-			                size_t dstsize);
-extern void		_httpFreeCredentials(http_tls_credentials_t credentials);
+			                size_t dstsize) _CUPS_PRIVATE;
+extern void		_httpFreeCredentials(http_tls_credentials_t credentials) _CUPS_PRIVATE;
 extern const char	*_httpResolveURI(const char *uri, char *resolved_uri,
 			                 size_t resolved_size, int options,
 					 int (*cb)(void *context),
-					 void *context);
-extern int		_httpSetDigestAuthString(http_t *http, const char *nonce, const char *method, const char *resource);
-extern const char	*_httpStatus(cups_lang_t *lang, http_status_t status);
-extern void		_httpTLSInitialize(void);
-extern size_t		_httpTLSPending(http_t *http);
-extern int		_httpTLSRead(http_t *http, char *buf, int len);
-extern int		_httpTLSSetCredentials(http_t *http);
-extern void		_httpTLSSetOptions(int options, int min_version, int max_version);
-extern int		_httpTLSStart(http_t *http);
-extern void		_httpTLSStop(http_t *http);
-extern int		_httpTLSWrite(http_t *http, const char *buf, int len);
-extern int		_httpUpdate(http_t *http, http_status_t *status);
-extern int		_httpWait(http_t *http, int msec, int usessl);
+					 void *context) _CUPS_PRIVATE;
+extern int		_httpSetDigestAuthString(http_t *http, const char *nonce, const char *method, const char *resource) _CUPS_PRIVATE;
+extern const char	*_httpStatus(cups_lang_t *lang, http_status_t status) _CUPS_PRIVATE;
+extern void		_httpTLSInitialize(void) _CUPS_PRIVATE;
+extern size_t		_httpTLSPending(http_t *http) _CUPS_PRIVATE;
+extern int		_httpTLSRead(http_t *http, char *buf, int len) _CUPS_PRIVATE;
+extern void		_httpTLSSetOptions(int options, int min_version, int max_version) _CUPS_PRIVATE;
+extern int		_httpTLSStart(http_t *http) _CUPS_PRIVATE;
+extern void		_httpTLSStop(http_t *http) _CUPS_PRIVATE;
+extern int		_httpTLSWrite(http_t *http, const char *buf, int len) _CUPS_PRIVATE;
+extern int		_httpUpdate(http_t *http, http_status_t *status) _CUPS_PRIVATE;
+extern int		_httpWait(http_t *http, int msec, int usessl) _CUPS_PRIVATE;
 
 
 /*

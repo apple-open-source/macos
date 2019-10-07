@@ -29,6 +29,7 @@
 
 #import "WKFullScreenWindowController.h"
 
+#import "AppKitSPI.h"
 #import "LayerTreeContext.h"
 #import "VideoFullscreenManagerProxy.h"
 #import "WKAPICast.h"
@@ -91,7 +92,7 @@ enum FullScreenState : NSInteger {
     ExitingFullScreen,
 };
 
-@interface NSWindow (WebNSWindowDetails)
+@interface NSWindow (WebNSWindowFullScreenDetails)
 - (void)exitFullScreenMode:(id)sender;
 - (void)enterFullScreenMode:(id)sender;
 @end
@@ -125,6 +126,9 @@ static void makeResponderFirstResponderIfDescendantOfView(NSWindow *window, NSRe
         return nil;
     [window setDelegate:self];
     [window setCollectionBehavior:([window collectionBehavior] | NSWindowCollectionBehaviorFullScreenPrimary)];
+
+    // Hide the titlebar during the animation to full screen so that only the WKWebView content is visible.
+    window.titlebarAlphaValue = 0;
 
     NSView *contentView = [window contentView];
     contentView.hidden = YES;
@@ -341,6 +345,9 @@ static const float minVideoWidth = 480 + 20 + 20; // Note: Keep in sync with med
         NSSize minContentSize = self.window.contentMinSize;
         minContentSize.width = minVideoWidth;
         self.window.contentMinSize = minContentSize;
+
+        // Always show the titlebar in full screen mode.
+        self.window.titlebarAlphaValue = 1;
     } else {
         // Transition to fullscreen failed. Clean up.
         _fullScreenState = NotInFullScreen;
@@ -413,6 +420,18 @@ static const float minVideoWidth = 480 + 20 + 20; // Note: Keep in sync with med
     [self _manager]->willExitFullScreen();
 }
 
+- (void)exitFullScreenImmediately
+{
+    if (![self isFullScreen])
+        return;
+
+    [self _manager]->requestExitFullScreen();
+    [_webViewPlaceholder setExitWarningVisible:NO];
+    [self _manager]->willExitFullScreen();
+    _fullScreenState = ExitingFullScreen;
+    [self finishedExitFullScreenAnimation:YES];
+}
+
 - (void)requestExitFullScreen
 {
     [self _manager]->requestExitFullScreen();
@@ -474,6 +493,9 @@ static RetainPtr<CGImageRef> takeWindowSnapshot(CGSWindowID windowID, bool captu
     } else if (_fullScreenState != ExitingFullScreen)
         return;
     _fullScreenState = NotInFullScreen;
+
+    // Hide the titlebar at the end of the animation so that it can slide away without turning blank.
+    self.window.titlebarAlphaValue = 0;
 
     NSResponder *firstResponder = [[self window] firstResponder];
 
@@ -571,7 +593,7 @@ static RetainPtr<CGImageRef> takeWindowSnapshot(CGSWindowID windowID, bool captu
     // normal exit full screen sequence, but don't wait to be called back
     // in response.
     if ([self isFullScreen])
-        [self exitFullScreen];
+        [self exitFullScreenImmediately];
     
     if (_fullScreenState == ExitingFullScreen)
         [self finishedExitFullScreenAnimation:YES];

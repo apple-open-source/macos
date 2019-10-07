@@ -95,7 +95,6 @@ Server &Session::server() const
 	return parent<Server>();
 }
 
-
 //
 // Locate a session object by session identifier
 //
@@ -245,16 +244,22 @@ void Session::invalidateSessionAuthHosts()
     StLock<Mutex> _(mAuthHostLock);
     
     // if you got here, we don't care about pending operations: the auth hosts die
-    Syslog::warning("Killing auth hosts");
-    if (mSecurityAgent) mSecurityAgent->UnixPlusPlus::Child::kill(SIGTERM);
+    Syslog::warning("Killing auth hosts for session %d", this->sessionId());
+    if (mSecurityAgent) {
+        secnotice("shutdown", "SIGTERMing child in state %d, pid %d", mSecurityAgent->UnixPlusPlus::Child::state(), mSecurityAgent->UnixPlusPlus::Child::pid());
+        mSecurityAgent->UnixPlusPlus::Child::kill(SIGTERM);
+    } else {
+        secnotice("shutdown", "No securityagent for session %d", this->sessionId());
+    }
     mSecurityAgent = NULL;
 }
 
 void Session::invalidateAuthHosts()
 {
 	StLock<Mutex> _(mSessionLock);
-	for (SessionMap::const_iterator it = mSessions.begin(); it != mSessions.end(); it++)
+    for (SessionMap::const_iterator it = mSessions.begin(); it != mSessions.end(); it++) {
         it->second->invalidateSessionAuthHosts();
+    }
 }
 
 //

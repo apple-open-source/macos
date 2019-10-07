@@ -1,0 +1,268 @@
+diff -urw pyobjc-core-2.5.1.orig/Modules/objc/closure_pool.h pyobjc-core-2.5.1/Modules/objc/closure_pool.h
+--- pyobjc-core-2.5.1.orig/Modules/objc/closure_pool.h	2013-01-10 12:00:30.000000000 -0800
++++ pyobjc-core-2.5.1/Modules/objc/closure_pool.h	2018-09-20 23:47:54.000000000 -0700
+@@ -5,8 +5,14 @@
+ #ifndef PyObjC_CLOSURE_POOL
+ #define PyObjC_CLOSURE_POOL
+ 
+-extern ffi_closure* PyObjC_malloc_closure(void);
+-extern int PyObjC_free_closure(ffi_closure* cl);
++typedef struct ffi_closure_wrapper {
++	ffi_closure* closure;
++	void* code_addr;
++} ffi_closure_wrapper;
++
++extern ffi_closure_wrapper* PyObjC_malloc_closure(void);
++extern int PyObjC_free_closure(ffi_closure_wrapper* cl);
++extern ffi_closure_wrapper* PyObjC_closure_from_code(void* code);
+ 
+ 
+ #endif /* PyObjC_CLOSURE_POOL */
+diff -urw pyobjc-core-2.5.1.orig/Modules/objc/closure_pool.m pyobjc-core-2.5.1/Modules/objc/closure_pool.m
+--- pyobjc-core-2.5.1.orig/Modules/objc/closure_pool.m	2013-01-10 12:00:30.000000000 -0800
++++ pyobjc-core-2.5.1/Modules/objc/closure_pool.m	2018-10-07 13:07:59.000000000 -0700
+@@ -4,59 +4,67 @@
+  */
+ #include "pyobjc.h"
+ 
+-#include <sys/mman.h>
++#include <stdlib.h>
++#include <sys/queue.h>
++#include <os/lock.h>
++
++SLIST_HEAD(closurelist, closureelem);
++
++struct closurelist freelist = SLIST_HEAD_INITIALIZER(freelist);
++struct closurelist usedlist = SLIST_HEAD_INITIALIZER(usedlist);
++os_unfair_lock listlock;
++
++typedef struct closureelem {
++	ffi_closure_wrapper wrapper;
++	SLIST_ENTRY(closureelem) entries;
++} closureelem;
+ 
+-typedef struct freelist {
+-	struct freelist* next;
+-} freelist;
+-
+-static freelist* closure_freelist = NULL;
+-
+-
+-static freelist* allocate_block(void)
++ffi_closure_wrapper*
++PyObjC_malloc_closure(void)
+ {
+-
+-	/* Allocate ffi_closure in groups of 10 VM pages */
+-#define BLOCKSIZE ((PAGE_SIZE*10)/sizeof(ffi_closure*))
+-
+-	freelist* newblock = mmap(NULL, BLOCKSIZE * sizeof(ffi_closure),
+-		PROT_READ|PROT_WRITE|PROT_EXEC,
+-		MAP_PRIVATE|MAP_ANON, -1, 0);
+-	size_t i;
+-
+-	if (newblock == (void*)-1) {
+-		PyErr_NoMemory();
+-		return NULL;
++	closureelem* entry;
++	os_unfair_lock_lock(&listlock);
++	entry = SLIST_FIRST(&freelist);
++	if (entry)
++	{
++		SLIST_REMOVE_HEAD(&freelist, entries);
+ 	}
+-	for (i = 0; i < BLOCKSIZE-1; i++) {
+-		((freelist*)(((ffi_closure*)newblock)+i))->next = 
+-			(freelist*)(((ffi_closure*)newblock)+(i+1));
++	else
++	{
++		entry = calloc(1, sizeof(*entry));
++		entry->wrapper.closure = ffi_closure_alloc(sizeof(ffi_closure), &entry->wrapper.code_addr);
+ 	}
+-
+-	((freelist*)(((ffi_closure*)newblock)+(BLOCKSIZE-1)))->next = NULL;
+-	return newblock;
++	SLIST_INSERT_HEAD(&usedlist, entry, entries);
++	os_unfair_lock_unlock(&listlock);
++	return &entry->wrapper;
+ }
+ 
+-
+-
+-ffi_closure* 
+-PyObjC_malloc_closure(void)
++int
++PyObjC_free_closure(ffi_closure_wrapper* cl)
+ {
+-	if (closure_freelist == NULL) {
+-		closure_freelist = allocate_block();
+-		if (closure_freelist == NULL) {
+-			return NULL;
+-		}
++	if (cl)
++	{
++		closureelem *entry = (closureelem *)cl;
++		os_unfair_lock_lock(&listlock);
++		SLIST_REMOVE(&usedlist, entry, closureelem, entries);
++		SLIST_INSERT_HEAD(&freelist, entry, entries);
++		os_unfair_lock_unlock(&listlock);
+ 	}
+-	ffi_closure* result = (ffi_closure*)closure_freelist;
+-	closure_freelist = closure_freelist->next;
+-	return result;
++	return 0;
+ }
+ 
+-int
+-PyObjC_free_closure(ffi_closure* cl)
++ffi_closure_wrapper*
++PyObjC_closure_from_code(void* code)
+ {
+-	((freelist*)cl)->next = closure_freelist;
+-	closure_freelist = (freelist*)cl;
+-	return 0;
++	ffi_closure_wrapper* result = NULL;
++	if (code)
++	{
++		closureelem *entry;
++		os_unfair_lock_lock(&listlock);
++		SLIST_FOREACH(entry, &usedlist, entries)
++		if (entry->wrapper.code_addr == code)
++			result = &entry->wrapper;
++		os_unfair_lock_unlock(&listlock);
++	}
++	return result;
+ }
+diff -urw pyobjc-core-2.5.1.orig/Modules/objc/libffi_support.m pyobjc-core-2.5.1/Modules/objc/libffi_support.m
+--- pyobjc-core-2.5.1.orig/Modules/objc/libffi_support.m	2013-01-10 12:01:36.000000000 -0800
++++ pyobjc-core-2.5.1/Modules/objc/libffi_support.m	2018-09-20 23:44:15.000000000 -0700
+@@ -4031,7 +4031,7 @@
+ 	void* userdata)
+ {
+ 	ffi_cif *cif;
+-	ffi_closure *cl;
++	ffi_closure_wrapper *cl;
+ 	ffi_status rv;
+ 
+ 	cif = PyObjCFFI_CIFForSignature(methinfo);
+@@ -4052,7 +4052,7 @@
+ 	describe_cif(cif);
+ 	printf("\n\n");*/
+ 
+-	rv = ffi_prep_closure(cl, cif, func, userdata);
++	rv = ffi_prep_closure_loc(cl->closure, cif, func, userdata, cl->code_addr);
+ 	if (rv != FFI_OK) {
+ 		PyObjCFFI_FreeCIF(cif);
+ 		PyErr_Format(PyExc_RuntimeError,
+@@ -4060,7 +4060,7 @@
+ 		return NULL;
+ 	}
+ 
+-	return (IMP)cl;
++	return (IMP)cl->code_addr;
+ }
+ 
+ /* 
+@@ -4072,11 +4072,11 @@
+ PyObjCFFI_FreeClosure(IMP closure)
+ {
+ 	void* retval;
+-	ffi_closure* cl;
++	ffi_closure_wrapper* cl;
+ 
+-	cl = (ffi_closure*)closure;
+-	retval = cl->user_data;
+-	PyObjCFFI_FreeCIF(cl->cif);
++	cl = PyObjC_closure_from_code(closure);
++	retval = cl->closure->user_data;
++	PyObjCFFI_FreeCIF(cl->closure->cif);
+ 	PyObjC_free_closure(cl); /* XXX: error handling */
+ 
+ 	return retval;
+diff -urw pyobjc-core-2.5.1.orig/Modules/objc/opaque-pointer.m pyobjc-core-2.5.1/Modules/objc/opaque-pointer.m
+--- pyobjc-core-2.5.1.orig/Modules/objc/opaque-pointer.m	2013-01-16 13:51:28.000000000 -0800
++++ pyobjc-core-2.5.1/Modules/objc/opaque-pointer.m	2018-09-20 23:48:38.000000000 -0700
+@@ -208,7 +208,7 @@
+ 	PyHeapTypeObject* newType = NULL;
+ 	PyObjCPointerWrapper_ToPythonFunc from_c = NULL;
+ 	PyObjCPointerWrapper_FromPythonFunc to_c = NULL;
+-	ffi_closure* cl = NULL;
++	ffi_closure_wrapper* cl = NULL;
+ 	ffi_status rv;
+ 	int r;
+ 	PyObject* v = NULL;
+@@ -321,13 +321,13 @@
+ 	Py_INCREF((PyObject*)newType);
+ 
+ 
+-	rv = ffi_prep_closure(cl, convert_cif, opaque_to_c, newType);
++	rv = ffi_prep_closure_loc(cl->closure, convert_cif, opaque_to_c, newType, cl->code_addr);
+ 	if (rv != FFI_OK) {
+ 		PyErr_Format(PyExc_RuntimeError,
+ 			"Cannot create FFI closure: %d", rv);
+ 		goto error_cleanup;
+ 	}
+-	to_c = (PyObjCPointerWrapper_FromPythonFunc)cl;
++	to_c = (PyObjCPointerWrapper_FromPythonFunc)cl->code_addr;
+ 	cl = NULL;
+ 
+ 	cl = PyObjC_malloc_closure();
+@@ -335,13 +335,13 @@
+ 		goto error_cleanup;
+ 	}
+ 
+-	rv = ffi_prep_closure(cl, new_cif, opaque_from_c, newType);
++	rv = ffi_prep_closure_loc(cl->closure, new_cif, opaque_from_c, newType, cl->code_addr);
+ 	if (rv != FFI_OK) {
+ 		PyErr_Format(PyExc_RuntimeError,
+ 			"Cannot create FFI closure: %d", rv);
+ 		goto error_cleanup;
+ 	}
+-	from_c = (PyObjCPointerWrapper_ToPythonFunc)cl;
++	from_c = (PyObjCPointerWrapper_ToPythonFunc)cl->code_addr;
+ 	cl = NULL;
+ 
+ 	r = PyObjCPointerWrapper_Register(typestr, from_c, to_c);
+@@ -362,10 +362,10 @@
+ 		PyObjC_free_closure(cl);
+ 	}
+ 	if (to_c) {
+-		PyObjC_free_closure((ffi_closure*)to_c);
++		PyObjC_free_closure(PyObjC_closure_from_code(to_c));
+ 	}
+ 	if (from_c) {
+-		PyObjC_free_closure((ffi_closure*)from_c);
++		PyObjC_free_closure(PyObjC_closure_from_code(from_c));
+ 	}
+ 	Py_XDECREF(v);
+ 	Py_XDECREF(w);
+diff -urw pyobjc-core-2.5.1.orig/Modules/objc/struct-wrapper.m pyobjc-core-2.5.1/Modules/objc/struct-wrapper.m
+--- pyobjc-core-2.5.1.orig/Modules/objc/struct-wrapper.m	2013-01-10 12:01:36.000000000 -0800
++++ pyobjc-core-2.5.1/Modules/objc/struct-wrapper.m	2018-09-20 23:49:29.000000000 -0700
+@@ -814,7 +814,7 @@
+ make_init(const char* typestr)
+ {
+ static 	ffi_cif* init_cif = NULL;
+-	ffi_closure* cl = NULL;
++	ffi_closure_wrapper* cl = NULL;
+ 	ffi_status rv;
+ 
+ 	if (init_cif == NULL) {
+@@ -832,7 +832,7 @@
+ 		return NULL;
+ 	}
+ 
+-	rv = ffi_prep_closure(cl, init_cif, struct_init, (char*)typestr);
++	rv = ffi_prep_closure_loc(cl->closure, init_cif, struct_init, (char*)typestr, cl->code_addr);
+ 	if (rv != FFI_OK) {
+ 		PyObjC_free_closure(cl);
+ 		PyErr_Format(PyExc_RuntimeError,
+@@ -840,7 +840,7 @@
+ 		return NULL;
+ 	}
+ 
+-	return (initproc)cl;
++	return (initproc)cl->code_addr;
+ }
+ 
+ 

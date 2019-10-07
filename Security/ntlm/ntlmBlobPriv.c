@@ -338,10 +338,13 @@ void md4Hash(
 	unsigned			dataLen,
 	unsigned char		*digest)		// caller-supplied, NTLM_DIGEST_LENGTH */
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	CC_MD4_CTX ctx;
 	CC_MD4_Init(&ctx);
 	CC_MD4_Update(&ctx, data, dataLen);
 	CC_MD4_Final(digest, &ctx);
+#pragma clang diagnostic pop
 }
 
 void md5Hash(
@@ -349,10 +352,13 @@ void md5Hash(
 	unsigned			dataLen,
 	unsigned char		*digest)		// caller-supplied, NTLM_DIGEST_LENGTH */
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	CC_MD5_CTX ctx;
 	CC_MD5_Init(&ctx);
 	CC_MD5_Update(&ctx, data, dataLen);
 	CC_MD5_Final(digest, &ctx);
+#pragma clang diagnostic pop
 }
 
 /*

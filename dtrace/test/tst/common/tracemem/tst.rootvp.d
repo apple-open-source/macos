@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.rootvp.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *  Test tracemem() by tracing out the contents of the root vnode

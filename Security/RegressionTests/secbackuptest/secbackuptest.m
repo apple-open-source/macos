@@ -18,7 +18,7 @@
 #include <sys/stat.h>
 #include <err.h>
 
-#if TARGET_OS_SIMULATOR
+#if TARGET_OS_SIMULATOR || TARGET_OS_BRIDGE
 int
 main(void)
 {

@@ -23,6 +23,7 @@
 
 #import <Foundation/Foundation.h>
 #import "keychain/ckks/NSOperationCategories.h"
+#import "keychain/ot/ObjCImprovements.h"
 
 @implementation NSOperation (CKKSUsefulPrintingOperation)
 - (NSString*)selfname {
@@ -118,11 +119,11 @@
 
 - (void)removeDependenciesUponCompletion
 {
-    __weak __typeof(self) weakSelf = self;
+    WEAKIFY(self);
     self.completionBlock = ^{
-        __strong __typeof(weakSelf) strongSelf = weakSelf;
-        for (NSOperation *op in strongSelf.dependencies) {
-            [strongSelf removeDependency:op];
+        STRONGIFY(self);
+        for (NSOperation *op in self.dependencies) {
+            [self removeDependency:op];
         }
     };
 }

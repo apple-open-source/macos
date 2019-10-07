@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,8 +26,8 @@
 
 #include <servers/bootstrap.h>
 
-int ppp_mach_start_server();
-int ppp_mach_start_server_priv();
+int ppp_mach_start_server(void);
+int ppp_mach_start_server_priv(void);
 
 
 #endif /* _PPP_MACH_SERVER_H */

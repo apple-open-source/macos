@@ -191,7 +191,7 @@ dt_cg_ptrsize(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 
 	type = ctf_type_resolve(ctfp, dnp->dn_type);
 	kind = ctf_type_kind(ctfp, type);
-	assert(kind == CTF_K_POINTER || kind == CTF_K_ARRAY);
+	assert(dt_type_is_pointer(kind) || kind == CTF_K_ARRAY);
 
 	if (kind == CTF_K_ARRAY) {
 		if (ctf_array_info(ctfp, type, &r) != 0) {
@@ -199,6 +199,10 @@ dt_cg_ptrsize(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 			longjmp(yypcb->pcb_jmpbuf, EDT_CTF);
 		}
 		type = r.ctr_contents;
+	} else if (kind == CTF_K_PTRAUTH) {
+		type = ctf_type_reference(ctfp, type);
+		assert(ctf_type_kind(ctfp, type) == CTF_K_POINTER);
+		type = ctf_type_reference(ctfp, type);
 	} else
 		type = ctf_type_reference(ctfp, type);
 
@@ -645,10 +649,16 @@ dt_cg_prearith_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 	ctf_id_t type;
 	ssize_t size = 1;
 	int reg;
+	uint_t kind;
 
 	if (dt_node_is_pointer(dnp)) {
 		type = ctf_type_resolve(ctfp, dnp->dn_type);
-		assert(ctf_type_kind(ctfp, type) == CTF_K_POINTER);
+		kind = ctf_type_kind(ctfp, type);
+		assert(dt_type_is_pointer(kind));
+		if (kind == CTF_K_PTRAUTH) {
+			type = ctf_type_reference(ctfp, type);
+			assert(ctf_type_kind(ctfp, type) == CTF_K_POINTER);
+		}
 		size = ctf_type_size(ctfp, ctf_type_reference(ctfp, type));
 	}
 
@@ -702,10 +712,16 @@ dt_cg_postarith_op(dt_node_t *dnp, dt_irlist_t *dlp,
 	ctf_id_t type;
 	ssize_t size = 1;
 	int nreg;
+	uint_t kind;
 
 	if (dt_node_is_pointer(dnp)) {
 		type = ctf_type_resolve(ctfp, dnp->dn_type);
-		assert(ctf_type_kind(ctfp, type) == CTF_K_POINTER);
+		kind = ctf_type_kind(ctfp, type);
+		assert(dt_type_is_pointer(kind));
+		if (kind == CTF_K_PTRAUTH) {
+			type = ctf_type_reference(ctfp, type);
+			assert(ctf_type_kind(ctfp, type) == CTF_K_POINTER);
+		}
 		size = ctf_type_size(ctfp, ctf_type_reference(ctfp, type));
 	}
 
@@ -1366,6 +1382,7 @@ typedef struct dt_xlmemb {
 static int
 dt_cg_xlate_member(const char *name, ctf_id_t type, ulong_t off, void *arg)
 {
+#pragma unused(type)
 	dt_xlmemb_t *dx = arg;
 	dt_ident_t *idp = dx->dtxl_idp;
 	dt_irlist_t *dlp = dx->dtxl_dlp;
@@ -1521,7 +1538,7 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 	dif_instr_t instr;
 	dt_ident_t *idp;
 	ssize_t stroff;
-	uint_t op;
+	uint_t op, kind;
 
 	switch (dnp->dn_op) {
 	case DT_TOK_COMMA:
@@ -1745,12 +1762,24 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 
 			instr = DIF_INSTR_LOAD(dt_cg_load(dnp, ctfp,
 			    dnp->dn_type), dnp->dn_reg, dnp->dn_reg);
-
+			dt_irlist_append(dlp,
+			    dt_cg_node_alloc(DT_LBL_NONE, instr));
+#if defined(DIF_OP_STRIP)
+			if (ctf_type_kind(ctfp, dnp->dn_type) == CTF_K_PTRAUTH) {
+				ctf_ptrauth_t pta;
+				if (ctf_type_ptrauth(ctfp, dnp->dn_type, &pta) != 0) {
+					yypcb->pcb_hdl->dt_ctferr = ctf_errno(octfp);
+					longjmp(yypcb->pcb_jmpbuf, EDT_CTF);
+				}
+				instr = DIF_INSTR_FMT(DIF_OP_STRIP, dnp->dn_reg,
+					pta.ctp_key, dnp->dn_reg);
+				dt_irlist_append(dlp,
+				    dt_cg_node_alloc(DT_LBL_NONE, instr));
+			}
+#endif /* defined(DIF_OP_STRIP) */
 			dnp->dn_flags &= ~DT_NF_USERLAND;
 			dnp->dn_flags |= ubit;
 
-			dt_irlist_append(dlp,
-			    dt_cg_node_alloc(DT_LBL_NONE, instr));
 		}
 		break;
 
@@ -1863,7 +1892,12 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 		}
 
 		ctfp = dnp->dn_left->dn_ctfp;
-		type = ctf_type_resolve(ctfp, dnp->dn_left->dn_type);
+		type = dnp->dn_left->dn_type;
+		kind = ctf_type_kind(ctfp, type);
+		if (kind == CTF_K_PTRAUTH) {
+			type = ctf_type_reference(ctfp, type);
+		}
+		type = ctf_type_resolve(ctfp, type);
 
 		if (dnp->dn_op == DT_TOK_PTR) {
 			type = ctf_type_reference(ctfp, type);
@@ -1910,12 +1944,26 @@ dt_cg_node(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp)
 			instr = DIF_INSTR_LOAD(dt_cg_load(dnp,
 			    ctfp, m.ctm_type), dnp->dn_left->dn_reg,
 			    dnp->dn_left->dn_reg);
+			dt_irlist_append(dlp,
+			    dt_cg_node_alloc(DT_LBL_NONE, instr));
+
+#if defined(DIF_OP_STRIP)
+			if (ctf_type_kind(ctfp, m.ctm_type) == CTF_K_PTRAUTH) {
+				ctf_ptrauth_t pta;
+				if (ctf_type_ptrauth(ctfp, m.ctm_type, &pta) != 0) {
+					yypcb->pcb_hdl->dt_ctferr = ctf_errno(octfp);
+					longjmp(yypcb->pcb_jmpbuf, EDT_CTF);
+				}
+				instr = DIF_INSTR_FMT(DIF_OP_STRIP, dnp->dn_left->dn_reg,
+					pta.ctp_key, dnp->dn_left->dn_reg);
+				dt_irlist_append(dlp,
+				    dt_cg_node_alloc(DT_LBL_NONE, instr));
+			}
+#endif /* defined(DIF_OP_STRIP) */
 
 			dnp->dn_flags &= ~DT_NF_USERLAND;
 			dnp->dn_flags |= ubit;
 
-			dt_irlist_append(dlp,
-			    dt_cg_node_alloc(DT_LBL_NONE, instr));
 
 			if (dnp->dn_flags & DT_NF_BITFIELD)
 				dt_cg_field_get(dnp, dlp, drp, ctfp, &m);

@@ -21,6 +21,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <sys/cdefs.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #include <regressions/test/testmore.h>
 #include <Security/SecCMS.h>
@@ -34,10 +37,7 @@
 #include <utilities/array_size.h>
 #include <utilities/SecCFRelease.h>
 
-#include <stdlib.h>
-#include <unistd.h>
-
-int smime_cms_test(int argc, char *const *argv);
+#include "cms_regressions.h"
 
 /*
    Bag Attributes

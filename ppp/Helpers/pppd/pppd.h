@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2003, 2014, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -877,9 +877,9 @@ void add_fd __P((int));		/* Add fd to set to wait for */
 void remove_fd __P((int));	/* Remove fd from set to wait for */
 #ifdef __APPLE__
 void sys_runloop __P((void));	/* Do system-dependent runloop action */
-int save_new_password(); /* save new password to the keychain */
-void sys_statusnotify(); /* send status notification to the controller */
-void sys_reinit();			/* reinit after pid has changed */
+int save_new_password(void); /* save new password to the keychain */
+void sys_statusnotify(void); /* send status notification to the controller */
+void sys_reinit(void);			/* reinit after pid has changed */
 void sys_install_options(void);		/* install system specific options, before sys_init */
 int sys_check_controller(void);
 int sys_setup_security_session(void);
@@ -892,7 +892,7 @@ void ppp_hold __P((int unit));	/* stop ppp traffic on this link */
 void ppp_cont __P((int unit));	/* resume ppp traffic on this link */
 void auth_hold(int unit);
 void auth_cont(int unit);
-void option_change_idle();
+void option_change_idle(void);
 void set_server_peer(struct in_addr ppp_server); /* set the remote server peer address */
 void set_network_signature(char *, char *, char *, char *); /* set the network signature */
 int wait_input_fd(int fd, int delay);
@@ -990,7 +990,7 @@ int setipaddr __P((char *, char **, int)); /* Set local/remote ip addresses */
 int  parse_args __P((int argc, char **argv));
 				/* Parse options from arguments given */
 #ifdef __APPLE__
-int options_from_controller __P(());
+int options_from_controller __P((void));
 #endif
 int  options_from_file __P((char *filename, int must_exist, int check_prot,
 			    int privileged));
@@ -1290,7 +1290,7 @@ extern int (*acl_hook) __P((u_char *user, int len));
  * if the connection is not currently reachable but will be when needed. i.e. It becomes reachable 
  * automatically via the iphone EDGE (using PPP).
  */
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 /* currently works for iphone build only (because kSCNetworkReachabilityFlagsIsWWAN is defined). */
 #define REACHABLE_AUTOMATICALLY_VIA_WWAN ((flags & kSCNetworkReachabilityFlagsReachable) && \
                                             (flags & kSCNetworkReachabilityFlagsTransientConnection) && \
@@ -1299,7 +1299,7 @@ extern int (*acl_hook) __P((u_char *user, int len));
 #else
 /* currently doesn't work for non-iphone builds (because kSCNetworkReachabilityFlagsIsWWAN is undefined). */
 #define REACHABLE_AUTOMATICALLY_VIA_WWAN 0
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* !TARGET_OS_OSX */
 
 /*
  * if connection is automatic without user intervention. currently two cases (see the macros above); 

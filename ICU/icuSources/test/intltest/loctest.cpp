@@ -6,7 +6,13 @@
  * others. All Rights Reserved.
  ********************************************************************/
 
+#include <iterator>
+#include <set>
+#include <utility>
+
 #include "loctest.h"
+#include "unicode/localebuilder.h"
+#include "unicode/localpointer.h"
 #include "unicode/decimfmt.h"
 #include "unicode/ucurr.h"
 #include "unicode/smpdtfmt.h"
@@ -15,6 +21,7 @@
 #include "unicode/brkiter.h"
 #include "unicode/coll.h"
 #include "unicode/ustring.h"
+#include "unicode/std_string.h"
 #include "charstr.h"
 #include "cmemory.h"
 #include "cstring.h"
@@ -43,7 +50,7 @@ static const char* const rawData[33][8] = {
         // LCID
         {   "409", "40c", "403", "408", "814", "10",     "0",   "804"  },
 
-        // display langage (English)
+        // display language (English)
         {   "English",  "French",   "Catalan", "Greek",    "Norwegian",    "Italian",  "xx",   "Chinese" },
         // display script (English)
         {   "",     "",     "",     "",     "",   "",     "",   "Simplified Han" },
@@ -54,9 +61,9 @@ static const char* const rawData[33][8] = {
         // display name (English)
         // Updated no_NO_NY English display name for new pattern-based algorithm
         // (part of Euro support).
-        {   "English (United States)", "French (France)", "Catalan (Spain)", "Greek (Greece)", "Norwegian (Norway, NY)", "Italian", "xx (YY)", "Chinese (Simplified, China mainland)" },
+        {   "English (United States)", "French (France)", "Catalan (Spain)", "Greek (Greece)", "Norwegian (Norway, NY)", "Italian", "xx (YY)", "Chinese, Simplified (China mainland)" },
 
-        // display langage (French)
+        // display language (French)
         {   "anglais",  "fran\\u00E7ais",   "catalan", "grec",    "norv\\u00E9gien",    "italien", "xx", "chinois" },
         // display script (French)
         {   "",     "",     "",     "",     "",     "",     "",   "sinogrammes simplifi\\u00E9s" },
@@ -66,7 +73,7 @@ static const char* const rawData[33][8] = {
         {   "",     "",     "",     "",     "NY",     "",     "",   "" },
         // display name (French)
         //{   "anglais (Etats-Unis)", "francais (France)", "catalan (Espagne)", "grec (Grece)", "norvegien (Norvege,Nynorsk)", "italien", "xx (YY)" },
-        {   "anglais (\\u00C9tats-Unis)", "fran\\u00E7ais (France)", "catalan (Espagne)", "grec (Gr\\u00E8ce)", "norv\\u00E9gien (Norv\\u00E8ge, NY)", "italien", "xx (YY)", "chinois (simplifi\\u00E9, Chine continentale)" },
+        {   "anglais (\\u00C9tats-Unis)", "fran\\u00E7ais (France)", "catalan (Espagne)", "grec (Gr\\u00E8ce)", "norv\\u00E9gien (Norv\\u00E8ge, NY)", "italien", "xx (YY)", "chinois simplifi\\u00E9 (Chine continentale)" },
 
 
         /* display language (Catalan) */
@@ -78,9 +85,9 @@ static const char* const rawData[33][8] = {
         /* display variant (Catalan) */
         {   "", "", "",                    "", "NY", "", "" },
         /* display name (Catalan) */
-        {   "angl\\u00E8s (Estats Units)", "franc\\u00E8s (Fran\\u00E7a)", "catal\\u00E0 (Espanya)", "grec (Gr\\u00E8cia)", "noruec (Noruega, NY)", "itali\\u00E0", "", "xin\\u00E8s (simplificat, Xina continental)" },
+        {   "angl\\u00E8s (Estats Units)", "franc\\u00E8s (Fran\\u00E7a)", "catal\\u00E0 (Espanya)", "grec (Gr\\u00E8cia)", "noruec (Noruega, NY)", "itali\\u00E0", "", "xin\\u00E8s simplificat (Xina continental)" },
 
-        // display langage (Greek)[actual values listed below]
+        // display language (Greek)[actual values listed below]
         {   "\\u0391\\u03b3\\u03b3\\u03bb\\u03b9\\u03ba\\u03ac",
             "\\u0393\\u03b1\\u03bb\\u03bb\\u03b9\\u03ba\\u03ac",
             "\\u039a\\u03b1\\u03c4\\u03b1\\u03bb\\u03b1\\u03bd\\u03b9\\u03ba\\u03ac",
@@ -112,10 +119,10 @@ static const char* const rawData[33][8] = {
             "\\u039d\\u03bf\\u03c1\\u03b2\\u03b7\\u03b3\\u03b9\\u03ba\\u03ac (\\u039d\\u03bf\\u03c1\\u03b2\\u03b7\\u03b3\\u03af\\u03b1, NY)",
             "\\u0399\\u03c4\\u03b1\\u03bb\\u03b9\\u03ba\\u03ac",
             "",
-            "\\u039A\\u03B9\\u03BD\\u03B5\\u03B6\\u03B9\\u03BA\\u03AC (\\u0391\\u03c0\\u03bb\\u03bf\\u03c0\\u03bf\\u03b9\\u03b7\\u03bc\\u03ad\\u03bd\\u03b1, \\u039A\\u03AF\\u03BD\\u03B1 \\u03B7\\u03C0\\u03B5\\u03B9\\u03C1\\u03C9\\u03C4\\u03B9\\u03BA\\u03AE)"
+            "\\u0391\\u03c0\\u03bb\\u03bf\\u03c0\\u03bf\\u03b9\\u03b7\\u03bc\\u03ad\\u03bd\\u03b1 \\u039A\\u03B9\\u03BD\\u03B5\\u03B6\\u03B9\\u03BA\\u03AC (\\u039A\\u03AF\\u03BD\\u03B1 \\u03B7\\u03C0\\u03B5\\u03B9\\u03C1\\u03C9\\u03C4\\u03B9\\u03BA\\u03AE)"
         },
 
-        // display langage (<root>)
+        // display language (<root>)
         {   "English",  "French",   "Catalan", "Greek",    "Norwegian",    "Italian",  "xx", "" },
         // display script (<root>)
         {   "",     "",     "",     "",     "",   "",     "", ""},
@@ -219,9 +226,19 @@ void LocaleTest::runIndexedTest( int32_t index, UBool exec, const char* &name, c
 #endif
     TESTCASE_AUTO(TestSetIsBogus);
     TESTCASE_AUTO(TestParallelAPIValues);
+    TESTCASE_AUTO(TestAddLikelySubtags);
+    TESTCASE_AUTO(TestMinimizeSubtags);
+    TESTCASE_AUTO(TestAddLikelyAndMinimizeSubtags);
     TESTCASE_AUTO(TestKeywordVariants);
+    TESTCASE_AUTO(TestCreateUnicodeKeywords);
     TESTCASE_AUTO(TestKeywordVariantParsing);
+    TESTCASE_AUTO(TestCreateKeywordSet);
+    TESTCASE_AUTO(TestCreateUnicodeKeywordSet);
+    TESTCASE_AUTO(TestGetKeywordValueStdString);
+    TESTCASE_AUTO(TestGetUnicodeKeywordValueStdString);
     TESTCASE_AUTO(TestSetKeywordValue);
+    TESTCASE_AUTO(TestSetKeywordValueStringPiece);
+    TESTCASE_AUTO(TestSetUnicodeKeywordValueStringPiece);
     TESTCASE_AUTO(TestGetBaseName);
 #if !UCONFIG_NO_FILE_IO
     TESTCASE_AUTO(TestGetLocale);
@@ -233,6 +250,18 @@ void LocaleTest::runIndexedTest( int32_t index, UBool exec, const char* &name, c
     TESTCASE_AUTO(TestIsRightToLeft);
     TESTCASE_AUTO(TestBug13277);
     TESTCASE_AUTO(TestBug13554);
+    TESTCASE_AUTO(TestBug20410);
+    TESTCASE_AUTO(TestForLanguageTag);
+    TESTCASE_AUTO(TestToLanguageTag);
+    TESTCASE_AUTO(TestMoveAssign);
+    TESTCASE_AUTO(TestMoveCtor);
+    TESTCASE_AUTO(TestBug20407iVariantPreferredValue);
+    TESTCASE_AUTO(TestBug13417VeryLongLanguageTag);
+    TESTCASE_AUTO(TestBug11053UnderlineTimeZone);
+    TESTCASE_AUTO(TestUnd);
+    TESTCASE_AUTO(TestUndScript);
+    TESTCASE_AUTO(TestUndRegion);
+    TESTCASE_AUTO(TestUndCAPI);
     TESTCASE_AUTO_END;
 }
 
@@ -1043,24 +1072,24 @@ LocaleTest::TestAtypicalLocales()
                                      "Dominican Republic",
                                      "Belgium" };
     UnicodeString frenchDisplayNames []= { "allemand (Canada)",
-                                    "japonais (Afrique du Sud)",
-                                    "russe (Mexique)",
+                                     "japonais (Afrique du Sud)",
+                                     "russe (Mexique)",
                                      "anglais (France)",
                                      "espagnol (Allemagne)",
-                                    "Croatie",
-                                    CharsToUnicodeString("Su\\u00E8de"),
-                                    CharsToUnicodeString("R\\u00E9publique dominicaine"),
-                                    "Belgique" };
+                                     u"Croatie",
+                                     u"Suède",
+                                     u"République dominicaine",
+                                     u"Belgique" };
     UnicodeString spanishDisplayNames [] = {
-                                     CharsToUnicodeString("alem\\u00E1n (Canad\\u00E1)"),
-                                     CharsToUnicodeString("japon\\u00E9s (Sud\\u00E1frica)"),
-                                     CharsToUnicodeString("ruso (M\\u00E9xico)"),
-                                     CharsToUnicodeString("ingl\\u00E9s (Francia)"),
-                                     CharsToUnicodeString("espa\\u00F1ol (Alemania)"),
+                                     u"alemán (Canadá)",
+                                     u"japonés (Sudáfrica)",
+                                     u"ruso (México)",
+                                     u"inglés (Francia)",
+                                     u"español (Alemania)",
                                      "Croacia",
                                      "Suecia",
-                                     CharsToUnicodeString("Rep\\u00FAblica Dominicana"),
-                                     CharsToUnicodeString("B\\u00E9lgica") };
+                                     u"República Dominicana",
+                                     u"Bélgica" };
     // De-Anglicizing root required the change from
     // English display names to ISO Codes - ram 2003/09/26
     UnicodeString invDisplayNames [] = { "German (Canada)",
@@ -1136,7 +1165,7 @@ LocaleTest::TestThaiCurrencyFormat()
     UErrorCode status = U_ZERO_ERROR;
     DecimalFormat *thaiCurrency = (DecimalFormat*)NumberFormat::createCurrencyInstance(
                     Locale("th", "TH"), status);
-    UnicodeString posPrefix("THB", 3, US_INV);  // per cldrbug 7618
+    UnicodeString posPrefix(u"\u0E3F");
     UnicodeString temp;
 
     if(U_FAILURE(status) || !thaiCurrency)
@@ -1145,7 +1174,7 @@ LocaleTest::TestThaiCurrencyFormat()
         return;
     }
     if (thaiCurrency->getPositivePrefix(temp) != posPrefix)
-        errln("Thai currency prefix wrong: expected THB, got \"" +
+        errln("Thai currency prefix wrong: expected Baht sign, got \"" +
                         thaiCurrency->getPositivePrefix(temp) + "\"");
     if (thaiCurrency->getPositiveSuffix(temp) != "")
         errln("Thai currency suffix wrong: expected \"\", got \"" +
@@ -1178,8 +1207,8 @@ LocaleTest::TestEuroSupport()
                             "el_GR",
                             "en_BE",
                             "en_IE",
-                            "en_GB_EURO",
-                            "en_US_EURO",
+                            "en_GB@currency=EUR",
+                            "en_US@currency=EUR",
                             "es_ES",
                             "eu_ES",
                             "fi_FI",
@@ -1238,20 +1267,15 @@ LocaleTest::TestEuroSupport()
     if (dollarStr != resultStr) {
         errcheckln(status, "Fail: en_US didn't return USD - %s", u_errorName(status));
     }
-    ucurr_forLocale("en_US_EURO", tmp, 4, &status);
+    ucurr_forLocale("en_US@currency=EUR", tmp, 4, &status);
     resultStr.setTo(tmp);
     if (euroStr != resultStr) {
-        errcheckln(status, "Fail: en_US_EURO didn't return EUR - %s", u_errorName(status));
+        errcheckln(status, "Fail: en_US@currency=EUR didn't return EUR - %s", u_errorName(status));
     }
-    ucurr_forLocale("en_GB_EURO", tmp, 4, &status);
+    ucurr_forLocale("en_GB@currency=EUR", tmp, 4, &status);
     resultStr.setTo(tmp);
     if (euroStr != resultStr) {
-        errcheckln(status, "Fail: en_GB_EURO didn't return EUR - %s", u_errorName(status));
-    }
-    ucurr_forLocale("en_US_PREEURO", tmp, 4, &status);
-    resultStr.setTo(tmp);
-    if (dollarStr != resultStr) {
-        errcheckln(status, "Fail: en_US_PREEURO didn't fallback to en_US - %s", u_errorName(status));
+        errcheckln(status, "Fail: en_GB@currency=EUR didn't return EUR - %s", u_errorName(status));
     }
     ucurr_forLocale("en_US_Q", tmp, 4, &status);
     resultStr.setTo(tmp);
@@ -1599,6 +1623,82 @@ LocaleTest::TestSetIsBogus() {
 
 
 void
+LocaleTest::TestAddLikelySubtags() {
+    IcuTestErrorCode status(*this, "TestAddLikelySubtags()");
+
+    static const Locale min("sv");
+    static const Locale max("sv_Latn_SE");
+
+    Locale result(min);
+    result.addLikelySubtags(status);
+    status.errIfFailureAndReset("\"%s\"", min.getName());
+    assertEquals("addLikelySubtags", max.getName(), result.getName());
+}
+
+
+void
+LocaleTest::TestMinimizeSubtags() {
+    IcuTestErrorCode status(*this, "TestMinimizeSubtags()");
+
+    static const Locale max("zh_Hant_TW");
+    static const Locale min("zh_TW");
+
+    Locale result(max);
+    result.minimizeSubtags(status);
+    status.errIfFailureAndReset("\"%s\"", max.getName());
+    assertEquals("minimizeSubtags", min.getName(), result.getName());
+}
+
+
+void
+LocaleTest::TestAddLikelyAndMinimizeSubtags() {
+    IcuTestErrorCode status(*this, "TestAddLikelyAndMinimizeSubtags()");
+
+    static const struct {
+        const char* const from;
+        const char* const add;
+        const char* const remove;
+    } full_data[] = {
+        {
+            "und_AQ",
+            "und_Latn_AQ",
+            "und_AQ"
+        }, {
+            "und_Zzzz_AQ",
+            "und_Latn_AQ",
+            "und_AQ"
+        }, {
+            "und_Latn_AQ",
+            "und_Latn_AQ",
+            "und_AQ"
+        }, {
+            "und_Moon_AQ",
+            "und_Moon_AQ",
+            "und_Moon_AQ"
+        },
+    };
+
+    for (const auto& item : full_data) {
+        const char* const org = item.from;
+        const char* const exp = item.add;
+        Locale res(org);
+        res.addLikelySubtags(status);
+        status.errIfFailureAndReset("\"%s\"", org);
+        assertEquals("addLikelySubtags", exp, res.getName());
+    }
+
+    for (const auto& item : full_data) {
+        const char* const org = item.from;
+        const char* const exp = item.remove;
+        Locale res(org);
+        res.minimizeSubtags(status);
+        status.errIfFailureAndReset("\"%s\"", org);
+        assertEquals("minimizeSubtags", exp, res.getName());
+    }
+}
+
+
+void
 LocaleTest::TestKeywordVariants(void) {
     static const struct {
         const char *localeID;
@@ -1705,6 +1805,63 @@ LocaleTest::TestKeywordVariants(void) {
 
 }
 
+
+void
+LocaleTest::TestCreateUnicodeKeywords(void) {
+    IcuTestErrorCode status(*this, "TestCreateUnicodeKeywords()");
+
+    static const Locale l("de@calendar=buddhist;collation=phonebook");
+
+    LocalPointer<StringEnumeration> keys(l.createUnicodeKeywords(status));
+    status.errIfFailureAndReset("\"%s\"", l.getName());
+
+    const char* key;
+    int32_t resultLength;
+
+    key = keys->next(&resultLength, status);
+    status.errIfFailureAndReset("key #1");
+    assertEquals("resultLength", 2, resultLength);
+    assertTrue("key != nullptr", key != nullptr);
+    if (key != nullptr) {
+        assertEquals("calendar", "ca", key);
+    }
+
+    key = keys->next(&resultLength, status);
+    status.errIfFailureAndReset("key #2");
+    assertEquals("resultLength", 2, resultLength);
+    assertTrue("key != nullptr", key != nullptr);
+    if (key != nullptr) {
+        assertEquals("collation", "co", key);
+    }
+
+    key = keys->next(&resultLength, status);
+    status.errIfFailureAndReset("end of keys");
+    assertEquals("resultLength", 0, resultLength);
+    assertTrue("key == nullptr", key == nullptr);
+
+    const UnicodeString* skey;
+    keys->reset(status);  // KeywordEnumeration::reset() never touches status.
+
+    skey = keys->snext(status);
+    status.errIfFailureAndReset("skey #1");
+    assertTrue("skey != nullptr", skey != nullptr);
+    if (skey != nullptr) {
+        assertEquals("calendar", "ca", *skey);
+    }
+
+    skey = keys->snext(status);
+    status.errIfFailureAndReset("skey #2");
+    assertTrue("skey != nullptr", skey != nullptr);
+    if (skey != nullptr) {
+        assertEquals("collation", "co", *skey);
+    }
+
+    skey = keys->snext(status);
+    status.errIfFailureAndReset("end of keys");
+    assertTrue("skey == nullptr", skey == nullptr);
+}
+
+
 void
 LocaleTest::TestKeywordVariantParsing(void) {
     static const struct {
@@ -1734,6 +1891,74 @@ LocaleTest::TestKeywordVariantParsing(void) {
                 testCases[i].expectedValue, testCases[i].localeID, testCases[i].keyword, buffer);
         }
     }
+}
+
+void
+LocaleTest::TestCreateKeywordSet(void) {
+    IcuTestErrorCode status(*this, "TestCreateKeywordSet()");
+
+    static const Locale l("de@calendar=buddhist;collation=phonebook");
+
+    std::set<std::string> result;
+    l.getKeywords<std::string>(
+            std::insert_iterator<decltype(result)>(result, result.begin()),
+            status);
+    status.errIfFailureAndReset("\"%s\"", l.getName());
+
+    assertEquals("set::size()", 2, static_cast<int32_t>(result.size()));
+    assertTrue("set::find(\"calendar\")",
+               result.find("calendar") != result.end());
+    assertTrue("set::find(\"collation\")",
+               result.find("collation") != result.end());
+}
+
+void
+LocaleTest::TestCreateUnicodeKeywordSet(void) {
+    IcuTestErrorCode status(*this, "TestCreateUnicodeKeywordSet()");
+
+    static const Locale l("de@calendar=buddhist;collation=phonebook");
+
+    std::set<std::string> result;
+    l.getUnicodeKeywords<std::string>(
+            std::insert_iterator<decltype(result)>(result, result.begin()),
+            status);
+    status.errIfFailureAndReset("\"%s\"", l.getName());
+
+    assertEquals("set::size()", 2, static_cast<int32_t>(result.size()));
+    assertTrue("set::find(\"ca\")",
+               result.find("ca") != result.end());
+    assertTrue("set::find(\"co\")",
+               result.find("co") != result.end());
+}
+
+void
+LocaleTest::TestGetKeywordValueStdString(void) {
+    IcuTestErrorCode status(*this, "TestGetKeywordValueStdString()");
+
+    static const char tag[] = "fa-u-nu-latn";
+    static const char keyword[] = "numbers";
+    static const char expected[] = "latn";
+
+    Locale l = Locale::forLanguageTag(tag, status);
+    status.errIfFailureAndReset("\"%s\"", tag);
+
+    std::string result = l.getKeywordValue<std::string>(keyword, status);
+    status.errIfFailureAndReset("\"%s\"", keyword);
+    assertEquals(keyword, expected, result.c_str());
+}
+
+void
+LocaleTest::TestGetUnicodeKeywordValueStdString(void) {
+    IcuTestErrorCode status(*this, "TestGetUnicodeKeywordValueStdString()");
+
+    static const char keyword[] = "co";
+    static const char expected[] = "phonebk";
+
+    static const Locale l("de@calendar=buddhist;collation=phonebook");
+
+    std::string result = l.getUnicodeKeywordValue<std::string>(keyword, status);
+    status.errIfFailureAndReset("\"%s\"", keyword);
+    assertEquals(keyword, expected, result.c_str());
 }
 
 void
@@ -1769,6 +1994,53 @@ LocaleTest::TestSetKeywordValue(void) {
                 testCases[i].value, testCases[i].keyword, buffer);
         }
     }
+}
+
+void
+LocaleTest::TestSetKeywordValueStringPiece(void) {
+    IcuTestErrorCode status(*this, "TestSetKeywordValueStringPiece()");
+    Locale l(Locale::getGerman());
+
+    l.setKeywordValue(StringPiece("collation"), StringPiece("phonebook"), status);
+    l.setKeywordValue(StringPiece("calendarxxx", 8), StringPiece("buddhistxxx", 8), status);
+
+    static const char expected[] = "de@calendar=buddhist;collation=phonebook";
+    assertEquals("", expected, l.getName());
+}
+
+void
+LocaleTest::TestSetUnicodeKeywordValueStringPiece(void) {
+    IcuTestErrorCode status(*this, "TestSetUnicodeKeywordValueStringPiece()");
+    Locale l(Locale::getGerman());
+
+    l.setUnicodeKeywordValue(StringPiece("co"), StringPiece("phonebk"), status);
+    status.errIfFailureAndReset();
+
+    l.setUnicodeKeywordValue(StringPiece("caxxx", 2), StringPiece("buddhistxxx", 8), status);
+    status.errIfFailureAndReset();
+
+    static const char expected[] = "de@calendar=buddhist;collation=phonebook";
+    assertEquals("", expected, l.getName());
+
+    l.setUnicodeKeywordValue("cu", nullptr, status);
+    status.errIfFailureAndReset();
+    assertEquals("", expected, l.getName());
+
+    l.setUnicodeKeywordValue("!!", nullptr, status);
+    assertEquals("status", U_ILLEGAL_ARGUMENT_ERROR, status.reset());
+    assertEquals("", expected, l.getName());
+
+    l.setUnicodeKeywordValue("co", "!!", status);
+    assertEquals("status", U_ILLEGAL_ARGUMENT_ERROR, status.reset());
+    assertEquals("", expected, l.getName());
+
+    l.setUnicodeKeywordValue("co", nullptr, status);
+    status.errIfFailureAndReset();
+
+    l.setUnicodeKeywordValue("ca", "", status);
+    status.errIfFailureAndReset();
+
+    assertEquals("", Locale::getGerman().getName(), l.getName());
 }
 
 void
@@ -1819,8 +2091,8 @@ static UBool _loccmp(const char* string, const char* prefix) {
             plen = (int32_t)strlen(prefix);
     int32_t c = uprv_strncmp(string, prefix, plen);
     /* 'root' is "less than" everything */
-    if (uprv_strcmp(prefix, "root") == 0) {
-        return (uprv_strcmp(string, "root") == 0) ? 0 : 1;
+    if (prefix[0] == '\0') {
+        return string[0] != '\0';
     }
     if (c) return -1; /* mismatch */
     if (slen == plen) return 0;
@@ -2127,7 +2399,7 @@ void LocaleTest::checkRegisteredCollators(const char *expectExtra) {
     int32_t count1=0,count2=0;
     Hashtable oldHash(status);
     Hashtable newHash(status);
-    TEST_ASSERT_STATUS(status);
+    assertSuccess(WHERE, status);
 
     UnicodeString expectStr(expectExtra?expectExtra:"n/a", "");
 
@@ -2255,40 +2527,9 @@ void LocaleTest::TestCanonicalization(void)
         const char *getNameID;   /* expected getName() result */
         const char *canonicalID; /* expected canonicalize() result */
     } testCases[] = {
-        { "", "", "en_US_POSIX" },
-        { "C", "c", "en_US_POSIX" },
-        { "POSIX", "posix", "en_US_POSIX" },
-        { "ca_ES_PREEURO-with-extra-stuff-that really doesn't make any sense-unless-you're trying to increase code coverage",
-          "ca_ES_PREEURO_WITH_EXTRA_STUFF_THAT REALLY DOESN'T MAKE ANY SENSE_UNLESS_YOU'RE TRYING TO INCREASE CODE COVERAGE",
-          "ca_ES_PREEURO_WITH_EXTRA_STUFF_THAT REALLY DOESN'T MAKE ANY SENSE_UNLESS_YOU'RE TRYING TO INCREASE CODE COVERAGE"},
-        { "ca_ES_PREEURO", "ca_ES_PREEURO", "ca_ES@currency=ESP" },
-        { "de_AT_PREEURO", "de_AT_PREEURO", "de_AT@currency=ATS" },
-        { "de_DE_PREEURO", "de_DE_PREEURO", "de_DE@currency=DEM" },
-        { "de_LU_PREEURO", "de_LU_PREEURO", "de_LU@currency=LUF" },
-        { "el_GR_PREEURO", "el_GR_PREEURO", "el_GR@currency=GRD" },
-        { "en_BE_PREEURO", "en_BE_PREEURO", "en_BE@currency=BEF" },
-        { "en_IE_PREEURO", "en_IE_PREEURO", "en_IE@currency=IEP" },
-        { "es_ES_PREEURO", "es_ES_PREEURO", "es_ES@currency=ESP" },
-        { "eu_ES_PREEURO", "eu_ES_PREEURO", "eu_ES@currency=ESP" },
-        { "fi_FI_PREEURO", "fi_FI_PREEURO", "fi_FI@currency=FIM" },
-        { "fr_BE_PREEURO", "fr_BE_PREEURO", "fr_BE@currency=BEF" },
-        { "fr_FR_PREEURO", "fr_FR_PREEURO", "fr_FR@currency=FRF" },
-        { "fr_LU_PREEURO", "fr_LU_PREEURO", "fr_LU@currency=LUF" },
-        { "ga_IE_PREEURO", "ga_IE_PREEURO", "ga_IE@currency=IEP" },
-        { "gl_ES_PREEURO", "gl_ES_PREEURO", "gl_ES@currency=ESP" },
-        { "it_IT_PREEURO", "it_IT_PREEURO", "it_IT@currency=ITL" },
-        { "nl_BE_PREEURO", "nl_BE_PREEURO", "nl_BE@currency=BEF" },
-        { "nl_NL_PREEURO", "nl_NL_PREEURO", "nl_NL@currency=NLG" },
-        { "pt_PT_PREEURO", "pt_PT_PREEURO", "pt_PT@currency=PTE" },
-        { "de__PHONEBOOK", "de__PHONEBOOK", "de@collation=phonebook" },
-        { "en_GB_EURO", "en_GB_EURO", "en_GB@currency=EUR" },
-        { "en_GB@EURO", "en_GB@EURO", "en_GB@currency=EUR" }, /* POSIX ID */
-        { "es__TRADITIONAL", "es__TRADITIONAL", "es@collation=traditional" },
-        { "hi__DIRECT", "hi__DIRECT", "hi@collation=direct" },
-        { "ja_JP_TRADITIONAL", "ja_JP_TRADITIONAL", "ja_JP@calendar=japanese" },
-        { "th_TH_TRADITIONAL", "th_TH_TRADITIONAL", "th_TH@calendar=buddhist" },
-        { "zh_TW_STROKE", "zh_TW_STROKE", "zh_TW@collation=stroke" },
-        { "zh__PINYIN", "zh__PINYIN", "zh@collation=pinyin" },
+        { "ca_ES-with-extra-stuff-that really doesn't make any sense-unless-you're trying to increase code coverage",
+          "ca_ES_WITH_EXTRA_STUFF_THAT REALLY DOESN'T MAKE ANY SENSE_UNLESS_YOU'RE TRYING TO INCREASE CODE COVERAGE",
+          "ca_ES_WITH_EXTRA_STUFF_THAT REALLY DOESN'T MAKE ANY SENSE_UNLESS_YOU'RE TRYING TO INCREASE CODE COVERAGE"},
         { "zh@collation=pinyin", "zh@collation=pinyin", "zh@collation=pinyin" },
         { "zh_CN@collation=pinyin", "zh_CN@collation=pinyin", "zh_CN@collation=pinyin" },
         { "zh_CN_CA@collation=pinyin", "zh_CN_CA@collation=pinyin", "zh_CN_CA@collation=pinyin" },
@@ -2297,19 +2538,12 @@ void LocaleTest::TestCanonicalization(void)
         { "no_NO_NY", "no_NO_NY", "no_NO_NY" /* not: "nn_NO" [alan ICU3.0] */ },
         { "no@ny", "no@ny", "no__NY" /* not: "nn" [alan ICU3.0] */ }, /* POSIX ID */
         { "no-no.utf32@B", "no_NO.utf32@B", "no_NO_B" /* not: "nb_NO_B" [alan ICU3.0] */ }, /* POSIX ID */
-        { "qz-qz@Euro", "qz_QZ@Euro", "qz_QZ@currency=EUR" }, /* qz-qz uses private use iso codes */
+        { "qz-qz@Euro", "qz_QZ@Euro", "qz_QZ_EURO" }, /* qz-qz uses private use iso codes */
         // NOTE: uloc_getName() works on en-BOONT, but Locale() parser considers it BOGUS
         // TODO: unify this behavior
         { "en-BOONT", "en__BOONT", "en__BOONT" }, /* registered name */
         { "de-1901", "de__1901", "de__1901" }, /* registered name */
         { "de-1906", "de__1906", "de__1906" }, /* registered name */
-        { "sr-SP-Cyrl", "sr_SP_CYRL", "sr_Cyrl_RS" }, /* .NET name */
-        { "sr-SP-Latn", "sr_SP_LATN", "sr_Latn_RS" }, /* .NET name */
-        { "sr_YU_CYRILLIC", "sr_YU_CYRILLIC", "sr_Cyrl_RS" }, /* Linux name */
-        { "uz-UZ-Cyrl", "uz_UZ_CYRL", "uz_Cyrl_UZ" }, /* .NET name */
-        { "uz-UZ-Latn", "uz_UZ_LATN", "uz_Latn_UZ" }, /* .NET name */
-        { "zh-CHS", "zh_CHS", "zh_Hans" }, /* .NET name */
-        { "zh-CHT", "zh_CHT", "zh_Hant" }, /* .NET name This may change back to zh_Hant */
 
         /* posix behavior that used to be performed by getName */
         { "mr.utf8", "mr.utf8", "mr" },
@@ -2324,19 +2558,63 @@ void LocaleTest::TestCanonicalization(void)
         { "en_Hant_IL_VALLEY_GIRL@ currency = EUR; calendar = Japanese ;", "en_Hant_IL_VALLEY_GIRL@calendar=Japanese;currency=EUR", "en_Hant_IL_VALLEY_GIRL@calendar=Japanese;currency=EUR" },
         /* already-canonical ids are not changed */
         { "en_Hant_IL_VALLEY_GIRL@calendar=Japanese;currency=EUR", "en_Hant_IL_VALLEY_GIRL@calendar=Japanese;currency=EUR", "en_Hant_IL_VALLEY_GIRL@calendar=Japanese;currency=EUR" },
-        /* PRE_EURO and EURO conversions don't affect other keywords */
-        { "es_ES_PREEURO@CALendar=Japanese", "es_ES_PREEURO@calendar=Japanese", "es_ES@calendar=Japanese;currency=ESP" },
-        { "es_ES_EURO@SHOUT=zipeedeedoodah", "es_ES_EURO@shout=zipeedeedoodah", "es_ES@currency=EUR;shout=zipeedeedoodah" },
-        /* currency keyword overrides PRE_EURO and EURO currency */
-        { "es_ES_PREEURO@currency=EUR", "es_ES_PREEURO@currency=EUR", "es_ES@currency=EUR" },
-        { "es_ES_EURO@currency=ESP", "es_ES_EURO@currency=ESP", "es_ES@currency=ESP" },
         /* norwegian is just too weird, if we handle things in their full generality */
         { "no-Hant-GB_NY@currency=$$$", "no_Hant_GB_NY@currency=$$$", "no_Hant_GB_NY@currency=$$$" /* not: "nn_Hant_GB@currency=$$$" [alan ICU3.0] */ },
 
         /* test cases reflecting internal resource bundle usage */
         { "root@kw=foo", "root@kw=foo", "root@kw=foo" },
         { "@calendar=gregorian", "@calendar=gregorian", "@calendar=gregorian" },
-        { "ja_JP@calendar=Japanese", "ja_JP@calendar=Japanese", "ja_JP@calendar=Japanese" }
+        { "ja_JP@calendar=Japanese", "ja_JP@calendar=Japanese", "ja_JP@calendar=Japanese" },
+
+        // Before ICU 64, ICU locale canonicalization had some additional mappings.
+        // They were removed for ICU-20187 "drop support for long-obsolete locale ID variants".
+        // The following now use standard canonicalization.
+        // Apple ICU restores these first 3 mappings deleted in open ICU 64
+        { "", "", "en_US_POSIX" },
+        { "C", "c", "en_US_POSIX" },
+        { "POSIX", "posix", "en_US_POSIX" },
+        //
+        { "ca_ES_PREEURO", "ca_ES_PREEURO", "ca_ES_PREEURO" },
+        { "de_AT_PREEURO", "de_AT_PREEURO", "de_AT_PREEURO" },
+        { "de_DE_PREEURO", "de_DE_PREEURO", "de_DE_PREEURO" },
+        { "de_LU_PREEURO", "de_LU_PREEURO", "de_LU_PREEURO" },
+        { "el_GR_PREEURO", "el_GR_PREEURO", "el_GR_PREEURO" },
+        { "en_BE_PREEURO", "en_BE_PREEURO", "en_BE_PREEURO" },
+        { "en_IE_PREEURO", "en_IE_PREEURO", "en_IE_PREEURO" },
+        { "es_ES_PREEURO", "es_ES_PREEURO", "es_ES_PREEURO" },
+        { "eu_ES_PREEURO", "eu_ES_PREEURO", "eu_ES_PREEURO" },
+        { "fi_FI_PREEURO", "fi_FI_PREEURO", "fi_FI_PREEURO" },
+        { "fr_BE_PREEURO", "fr_BE_PREEURO", "fr_BE_PREEURO" },
+        { "fr_FR_PREEURO", "fr_FR_PREEURO", "fr_FR_PREEURO" },
+        { "fr_LU_PREEURO", "fr_LU_PREEURO", "fr_LU_PREEURO" },
+        { "ga_IE_PREEURO", "ga_IE_PREEURO", "ga_IE_PREEURO" },
+        { "gl_ES_PREEURO", "gl_ES_PREEURO", "gl_ES_PREEURO" },
+        { "it_IT_PREEURO", "it_IT_PREEURO", "it_IT_PREEURO" },
+        { "nl_BE_PREEURO", "nl_BE_PREEURO", "nl_BE_PREEURO" },
+        { "nl_NL_PREEURO", "nl_NL_PREEURO", "nl_NL_PREEURO" },
+        { "pt_PT_PREEURO", "pt_PT_PREEURO", "pt_PT_PREEURO" },
+        { "de__PHONEBOOK", "de__PHONEBOOK", "de__PHONEBOOK" },
+        { "en_GB_EURO", "en_GB_EURO", "en_GB_EURO" },
+        { "en_GB@EURO", "en_GB@EURO", "en_GB_EURO" }, /* POSIX ID */
+        { "es__TRADITIONAL", "es__TRADITIONAL", "es__TRADITIONAL" },
+        { "hi__DIRECT", "hi__DIRECT", "hi__DIRECT" },
+        { "ja_JP_TRADITIONAL", "ja_JP_TRADITIONAL", "ja_JP_TRADITIONAL" },
+        { "th_TH_TRADITIONAL", "th_TH_TRADITIONAL", "th_TH_TRADITIONAL" },
+        { "zh_TW_STROKE", "zh_TW_STROKE", "zh_TW_STROKE" },
+        { "zh__PINYIN", "zh__PINYIN", "zh__PINYIN" },
+        { "sr-SP-Cyrl", "sr_SP_CYRL", "sr_SP_CYRL" }, /* .NET name */
+        { "sr-SP-Latn", "sr_SP_LATN", "sr_SP_LATN" }, /* .NET name */
+        { "sr_YU_CYRILLIC", "sr_YU_CYRILLIC", "sr_YU_CYRILLIC" }, /* Linux name */
+        { "uz-UZ-Cyrl", "uz_UZ_CYRL", "uz_UZ_CYRL" }, /* .NET name */
+        { "uz-UZ-Latn", "uz_UZ_LATN", "uz_UZ_LATN" }, /* .NET name */
+        { "zh-CHS", "zh_CHS", "zh_CHS" }, /* .NET name */
+        { "zh-CHT", "zh_CHT", "zh_CHT" }, /* .NET name This may change back to zh_Hant */
+        /* PRE_EURO and EURO conversions don't affect other keywords */
+        { "es_ES_PREEURO@CALendar=Japanese", "es_ES_PREEURO@calendar=Japanese", "es_ES_PREEURO@calendar=Japanese" },
+        { "es_ES_EURO@SHOUT=zipeedeedoodah", "es_ES_EURO@shout=zipeedeedoodah", "es_ES_EURO@shout=zipeedeedoodah" },
+        /* currency keyword overrides PRE_EURO and EURO currency */
+        { "es_ES_PREEURO@currency=EUR", "es_ES_PREEURO@currency=EUR", "es_ES_PREEURO@currency=EUR" },
+        { "es_ES_EURO@currency=ESP", "es_ES_EURO@currency=ESP", "es_ES_EURO@currency=ESP" },
     };
     
     static const char* label[] = { "createFromName", "createCanonical", "Locale" };
@@ -2665,10 +2943,6 @@ void LocaleTest::TestCurrencyByDate(void)
     if (u_strcmp(USD, TMP) != 0) {
         errcheckln(status, "Fail: en_US didn't return USD - %s", u_errorName(status));
     }
-    ucurr_forLocaleAndDate("en_US_PREEURO", date, 1, TMP, 4, &status);
-    if (u_strcmp(USD, TMP) != 0) {
-        errcheckln(status, "Fail: en_US_PREEURO didn't fallback to en_US - %s", u_errorName(status));
-    }
     ucurr_forLocaleAndDate("en_US_Q", date, 1, TMP, 4, &status);
     if (u_strcmp(USD, TMP) != 0) {
         errcheckln(status, "Fail: en_US_Q didn't fallback to en_US - %s", u_errorName(status));
@@ -2701,6 +2975,25 @@ void LocaleTest::TestIsRightToLeft() {
     assertTrue("ckb RTL", Locale("ckb").isRightToLeft(), FALSE, TRUE);  // Sorani Kurdish
     assertFalse("fil LTR", Locale("fil").isRightToLeft());
     assertFalse("he-Zyxw LTR", Locale("he-Zyxw").isRightToLeft());
+    // Additional Apple tests for rdar://51447187
+    assertTrue("sd RTL",        Locale("sd").isRightToLeft());
+    assertTrue("sd_Arab RTL",   Locale("sd_Arab").isRightToLeft());
+    assertFalse("sd_Deva LTR",  Locale("sd_Deva").isRightToLeft());
+    assertFalse("mni_Beng LTR", Locale("mni_Beng").isRightToLeft());
+    assertFalse("mni_Mtei LTR", Locale("mni_Mtei").isRightToLeft());
+    assertFalse("sat_Deva LTR", Locale("sat_Deva").isRightToLeft());
+    assertFalse("sat_Olck LTR", Locale("sat_Olck").isRightToLeft());
+    assertTrue("ks RTL",        Locale("ks").isRightToLeft());
+    assertTrue("ks_Arab RTL",   Locale("ks_Arab").isRightToLeft());
+    assertTrue("ks_Aran RTL",   Locale("ks_Aran").isRightToLeft());
+    assertFalse("ks_Deva LTR",  Locale("ks_Deva").isRightToLeft());
+    assertFalse("pa LTR",       Locale("pa").isRightToLeft());
+    assertFalse("pa_Guru LTR",  Locale("pa_Guru").isRightToLeft());
+    assertTrue("pa_Arab RTL",   Locale("pa_Arab").isRightToLeft());
+    assertTrue("pa_Aran RTL",   Locale("pa_Aran").isRightToLeft());
+    assertTrue("ur RTL",        Locale("ur").isRightToLeft());
+    assertTrue("ur_Arab RTL",   Locale("ur_Arab").isRightToLeft());
+    assertTrue("ur_Aran RTL",   Locale("ur_Aran").isRightToLeft());
 }
 
 void LocaleTest::TestBug11421() {
@@ -2748,4 +3041,727 @@ void LocaleTest::TestBug13554() {
     }
 }
 
+void LocaleTest::TestBug20410() {
+    IcuTestErrorCode status(*this, "TestBug20410()");
 
+    static const char tag1[] = "art-lojban-x-0";
+    static const Locale expected1("jbo@x=0");
+    Locale result1 = Locale::forLanguageTag(tag1, status);
+    status.errIfFailureAndReset("\"%s\"", tag1);
+    assertEquals(tag1, expected1.getName(), result1.getName());
+
+    static const char tag2[] = "zh-xiang-u-nu-thai-x-0";
+    static const Locale expected2("hsn@numbers=thai;x=0");
+    Locale result2 = Locale::forLanguageTag(tag2, status);
+    status.errIfFailureAndReset("\"%s\"", tag2);
+    assertEquals(tag2, expected2.getName(), result2.getName());
+
+    static const char locid3[] = "art__lojban@x=0";
+    Locale result3 = Locale::createCanonical(locid3);
+    static const Locale expected3("art__LOJBAN@x=0");
+    assertEquals(locid3, expected3.getName(), result3.getName());
+
+    static const char locid4[] = "art-lojban-x-0";
+    Locale result4 = Locale::createCanonical(locid4);
+    static const Locale expected4("jbo@x=0");
+    assertEquals(locid4, expected4.getName(), result4.getName());
+}
+
+void LocaleTest::TestForLanguageTag() {
+    IcuTestErrorCode status(*this, "TestForLanguageTag()");
+
+    static const char tag_en[] = "en-US";
+    static const char tag_oed[] = "en-GB-oed";
+    static const char tag_af[] = "af-t-ar-i0-handwrit-u-ca-coptic-x-foo";
+    static const char tag_ill[] = "!";
+    static const char tag_no_nul[] = { 'e', 'n', '-', 'G', 'B' };
+    static const char tag_ext[] = "en-GB-1-abc-efg-a-xyz";
+
+    static const Locale loc_en("en_US");
+    static const Locale loc_oed("en_GB_OXENDICT");
+    static const Locale loc_af("af@calendar=coptic;t=ar-i0-handwrit;x=foo");
+    static const Locale loc_null("");
+    static const Locale loc_gb("en_GB");
+    static const Locale loc_ext("en_GB@1=abc-efg;a=xyz");
+
+    Locale result_en = Locale::forLanguageTag(tag_en, status);
+    status.errIfFailureAndReset("\"%s\"", tag_en);
+    assertEquals(tag_en, loc_en.getName(), result_en.getName());
+
+    Locale result_oed = Locale::forLanguageTag(tag_oed, status);
+    status.errIfFailureAndReset("\"%s\"", tag_oed);
+    assertEquals(tag_oed, loc_oed.getName(), result_oed.getName());
+
+    Locale result_af = Locale::forLanguageTag(tag_af, status);
+    status.errIfFailureAndReset("\"%s\"", tag_af);
+    assertEquals(tag_af, loc_af.getName(), result_af.getName());
+
+    Locale result_ill = Locale::forLanguageTag(tag_ill, status);
+    assertEquals(tag_ill, U_ILLEGAL_ARGUMENT_ERROR, status.reset());
+    assertTrue(result_ill.getName(), result_ill.isBogus());
+
+    Locale result_null = Locale::forLanguageTag(nullptr, status);
+    status.errIfFailureAndReset("nullptr");
+    assertEquals("nullptr", loc_null.getName(), result_null.getName());
+
+    StringPiece sp_substr(tag_oed, 5);  // "en-GB", no NUL.
+    Locale result_substr = Locale::forLanguageTag(sp_substr, status);
+    status.errIfFailureAndReset("\"%.*s\"", sp_substr.size(), sp_substr.data());
+    assertEquals(CharString(sp_substr, status).data(),
+            loc_gb.getName(), result_substr.getName());
+
+    StringPiece sp_no_nul(tag_no_nul, sizeof tag_no_nul);  // "en-GB", no NUL.
+    Locale result_no_nul = Locale::forLanguageTag(sp_no_nul, status);
+    status.errIfFailureAndReset("\"%.*s\"", sp_no_nul.size(), sp_no_nul.data());
+    assertEquals(CharString(sp_no_nul, status).data(),
+            loc_gb.getName(), result_no_nul.getName());
+
+    Locale result_ext = Locale::forLanguageTag(tag_ext, status);
+    status.errIfFailureAndReset("\"%s\"", tag_ext);
+    assertEquals(tag_ext, loc_ext.getName(), result_ext.getName());
+}
+
+void LocaleTest::TestToLanguageTag() {
+    IcuTestErrorCode status(*this, "TestToLanguageTag()");
+
+    static const Locale loc_c("en_US_POSIX");
+    static const Locale loc_en("en_US");
+    static const Locale loc_af("af@calendar=coptic;t=ar-i0-handwrit;x=foo");
+    static const Locale loc_ext("en@0=abc;a=xyz");
+    static const Locale loc_empty("");
+    static const Locale loc_ill("!");
+
+    static const char tag_c[] = "en-US-u-va-posix";
+    static const char tag_en[] = "en-US";
+    static const char tag_af[] = "af-t-ar-i0-handwrit-u-ca-coptic-x-foo";
+    static const char tag_ext[] = "en-0-abc-a-xyz";
+    static const char tag_und[] = "und";
+
+    std::string result;
+    StringByteSink<std::string> sink(&result);
+    loc_c.toLanguageTag(sink, status);
+    status.errIfFailureAndReset("\"%s\"", loc_c.getName());
+    assertEquals(loc_c.getName(), tag_c, result.c_str());
+
+    std::string result_c = loc_c.toLanguageTag<std::string>(status);
+    status.errIfFailureAndReset("\"%s\"", loc_c.getName());
+    assertEquals(loc_c.getName(), tag_c, result_c.c_str());
+
+    std::string result_en = loc_en.toLanguageTag<std::string>(status);
+    status.errIfFailureAndReset("\"%s\"", loc_en.getName());
+    assertEquals(loc_en.getName(), tag_en, result_en.c_str());
+
+    std::string result_af = loc_af.toLanguageTag<std::string>(status);
+    status.errIfFailureAndReset("\"%s\"", loc_af.getName());
+    assertEquals(loc_af.getName(), tag_af, result_af.c_str());
+
+    std::string result_ext = loc_ext.toLanguageTag<std::string>(status);
+    status.errIfFailureAndReset("\"%s\"", loc_ext.getName());
+    assertEquals(loc_ext.getName(), tag_ext, result_ext.c_str());
+
+    std::string result_empty = loc_empty.toLanguageTag<std::string>(status);
+    status.errIfFailureAndReset("\"%s\"", loc_empty.getName());
+    assertEquals(loc_empty.getName(), tag_und, result_empty.c_str());
+
+    std::string result_ill = loc_ill.toLanguageTag<std::string>(status);
+    status.errIfFailureAndReset("\"%s\"", loc_ill.getName());
+    assertEquals(loc_ill.getName(), tag_und, result_ill.c_str());
+
+    Locale loc_bogus;
+    loc_bogus.setToBogus();
+    std::string result_bogus = loc_bogus.toLanguageTag<std::string>(status);
+    assertEquals("bogus", U_ILLEGAL_ARGUMENT_ERROR, status.reset());
+    assertTrue(result_bogus.c_str(), result_bogus.empty());
+}
+
+void LocaleTest::TestMoveAssign() {
+    // ULOC_FULLNAME_CAPACITY == 157 (uloc.h)
+    Locale l1("de@collation=phonebook;x="
+              "aaaaabbbbbcccccdddddeeeeefffffggggghhhhh"
+              "aaaaabbbbbcccccdddddeeeeefffffggggghhhhh"
+              "aaaaabbbbbcccccdddddeeeeefffffggggghhhhh"
+              "aaaaabbbbbzz");
+
+    Locale l2;
+    {
+        Locale l3(l1);
+        assertTrue("l1 == l3", l1 == l3);
+        l2 = std::move(l3);
+        assertTrue("l1 == l2", l1 == l2);
+        assertTrue("l2 != l3", l2.getName() != l3.getName());
+    }
+
+    // This should remain true also after l3 has been destructed.
+    assertTrue("l1 == l2, again", l1 == l2);
+
+    Locale l4("de@collation=phonebook");
+
+    Locale l5;
+    {
+        Locale l6(l4);
+        assertTrue("l4 == l6", l4 == l6);
+        l5 = std::move(l6);
+        assertTrue("l4 == l5", l4 == l5);
+        assertTrue("l5 != l6", l5.getName() != l6.getName());
+    }
+
+    // This should remain true also after l6 has been destructed.
+    assertTrue("l4 == l5, again", l4 == l5);
+
+    Locale l7("vo_Cyrl_AQ_EURO");
+
+    Locale l8;
+    {
+        Locale l9(l7);
+        assertTrue("l7 == l9", l7 == l9);
+        l8 = std::move(l9);
+        assertTrue("l7 == l8", l7 == l8);
+        assertTrue("l8 != l9", l8.getName() != l9.getName());
+    }
+
+    // This should remain true also after l9 has been destructed.
+    assertTrue("l7 == l8, again", l7 == l8);
+
+    assertEquals("language", l7.getLanguage(), l8.getLanguage());
+    assertEquals("script", l7.getScript(), l8.getScript());
+    assertEquals("country", l7.getCountry(), l8.getCountry());
+    assertEquals("variant", l7.getVariant(), l8.getVariant());
+    assertEquals("bogus", l7.isBogus(), l8.isBogus());
+}
+
+void LocaleTest::TestMoveCtor() {
+    // ULOC_FULLNAME_CAPACITY == 157 (uloc.h)
+    Locale l1("de@collation=phonebook;x="
+              "aaaaabbbbbcccccdddddeeeeefffffggggghhhhh"
+              "aaaaabbbbbcccccdddddeeeeefffffggggghhhhh"
+              "aaaaabbbbbcccccdddddeeeeefffffggggghhhhh"
+              "aaaaabbbbbzz");
+
+    Locale l3(l1);
+    assertTrue("l1 == l3", l1 == l3);
+    Locale l2(std::move(l3));
+    assertTrue("l1 == l2", l1 == l2);
+    assertTrue("l2 != l3", l2.getName() != l3.getName());
+
+    Locale l4("de@collation=phonebook");
+
+    Locale l6(l4);
+    assertTrue("l4 == l6", l4 == l6);
+    Locale l5(std::move(l6));
+    assertTrue("l4 == l5", l4 == l5);
+    assertTrue("l5 != l6", l5.getName() != l6.getName());
+
+    Locale l7("vo_Cyrl_AQ_EURO");
+
+    Locale l9(l7);
+    assertTrue("l7 == l9", l7 == l9);
+    Locale l8(std::move(l9));
+    assertTrue("l7 == l8", l7 == l8);
+    assertTrue("l8 != l9", l8.getName() != l9.getName());
+
+    assertEquals("language", l7.getLanguage(), l8.getLanguage());
+    assertEquals("script", l7.getScript(), l8.getScript());
+    assertEquals("country", l7.getCountry(), l8.getCountry());
+    assertEquals("variant", l7.getVariant(), l8.getVariant());
+    assertEquals("bogus", l7.isBogus(), l8.isBogus());
+}
+
+void LocaleTest::TestBug20407iVariantPreferredValue() {
+    IcuTestErrorCode status(*this, "TestBug20407iVariantPreferredValue()");
+
+    Locale l = Locale::forLanguageTag("hy-arevela", status);
+    status.errIfFailureAndReset("hy-arevela fail");
+    assertTrue("!l.isBogus()", !l.isBogus());
+
+    std::string result = l.toLanguageTag<std::string>(status);
+    assertEquals(l.getName(), "hy", result.c_str());
+
+    l = Locale::forLanguageTag("hy-arevmda", status);
+    status.errIfFailureAndReset("hy-arevmda");
+    assertTrue("!l.isBogus()", !l.isBogus());
+
+    result = l.toLanguageTag<std::string>(status);
+    assertEquals(l.getName(), "hyw", result.c_str());
+}
+
+void LocaleTest::TestBug13417VeryLongLanguageTag() {
+    IcuTestErrorCode status(*this, "TestBug13417VeryLongLanguageTag()");
+
+    static const char tag[] =
+        "zh-x"
+        "-foo-bar-baz-foo-bar-baz-foo-bar-baz-foo-bar-baz"
+        "-foo-bar-baz-foo-bar-baz-foo-bar-baz-foo-bar-baz"
+        "-foo-bar-baz-foo-bar-baz-foo-bar-baz-foo-bar-baz"
+        "-foo-bar-baz-fxx"
+    ;
+
+    Locale l = Locale::forLanguageTag(tag, status);
+    status.errIfFailureAndReset("\"%s\"", tag);
+    assertTrue("!l.isBogus()", !l.isBogus());
+
+    std::string result = l.toLanguageTag<std::string>(status);
+    status.errIfFailureAndReset("\"%s\"", l.getName());
+    assertEquals("equals", tag, result.c_str());
+}
+
+void LocaleTest::TestBug11053UnderlineTimeZone() {
+    static const char* const tz_in_ext[] = {
+        "etadd",
+        "tzdar",
+        "eheai",
+        "sttms",
+        "arirj",
+        "arrgl",
+        "aruaq",
+        "arluq",
+        "mxpvr",
+        "brbvb",
+        "arbue",
+        "caycb",
+        "brcgr",
+        "cayzs",
+        "crsjo",
+        "caydq",
+        "svsal",
+        "cafne",
+        "caglb",
+        "cagoo",
+        "tcgdt",
+        "ustel",
+        "bolpb",
+        "uslax",
+        "sxphi",
+        "mxmex",
+        "usnyc",
+        "usxul",
+        "usndcnt",
+        "usndnsl",
+        "ttpos",
+        "brpvh",
+        "prsju",
+        "clpuq",
+        "caffs",
+        "cayek",
+        "brrbr",
+        "mxstis",
+        "dosdq",
+        "brsao",
+        "gpsbh",
+        "casjf",
+        "knbas",
+        "lccas",
+        "vistt",
+        "vcsvd",
+        "cayyn",
+        "cathu",
+        "hkhkg",
+        "mykul",
+        "khpnh",
+        "cvrai",
+        "gsgrv",
+        "shshn",
+        "aubhq",
+        "auldh",
+        "imdgs",
+        "smsai",
+        "asppg",
+        "pgpom",
+    };
+    static const char* const tzname_with_underline[] = {
+        "America/Buenos_Aires",
+        "America/Coral_Harbour",
+        "America/Los_Angeles",
+        "America/Mexico_City",
+        "America/New_York",
+        "America/Rio_Branco",
+        "America/Sao_Paulo",
+        "America/St_Johns",
+        "America/St_Thomas",
+        "Australia/Broken_Hill",
+        "Australia/Lord_Howe",
+        "Pacific/Pago_Pago",
+    };
+    std::string locale_str;
+    for (int32_t i = 0; i < UPRV_LENGTHOF(tz_in_ext); i++) {
+        locale_str = "en-u-tz-";
+        locale_str += tz_in_ext[i];
+        Locale l(locale_str.c_str());
+        assertTrue((locale_str + " !l.isBogus()").c_str(), !l.isBogus());
+    }
+    for (int32_t i = 0; i < UPRV_LENGTHOF(tzname_with_underline); i++) {
+        locale_str = "en@timezone=";
+        locale_str +=  tzname_with_underline[i];
+        Locale l(locale_str.c_str());
+        assertTrue((locale_str + " !l.isBogus()").c_str(), !l.isBogus());
+    }
+    locale_str = "en_US@timezone=America/Coral_Harbour";
+    Locale l2(locale_str.c_str());
+    assertTrue((locale_str + " !l2.isBogus()").c_str(), !l2.isBogus());
+    locale_str = "en_Latn@timezone=America/New_York";
+    Locale l3(locale_str.c_str());
+    assertTrue((locale_str + " !l3.isBogus()").c_str(), !l3.isBogus());
+    locale_str = "en_Latn_US@timezone=Australia/Broken_Hill";
+    Locale l4(locale_str.c_str());
+    assertTrue((locale_str + " !l4.isBogus()").c_str(), !l4.isBogus());
+    locale_str = "en-u-tz-ciabj";
+    Locale l5(locale_str.c_str());
+    assertTrue((locale_str + " !l5.isBogus()").c_str(), !l5.isBogus());
+    locale_str = "en-US-u-tz-asppg";
+    Locale l6(locale_str.c_str());
+    assertTrue((locale_str + " !l6.isBogus()").c_str(), !l6.isBogus());
+    locale_str = "fil-Latn-u-tz-cvrai";
+    Locale l7(locale_str.c_str());
+    assertTrue((locale_str + " !l7.isBogus()").c_str(), !l7.isBogus());
+    locale_str = "fil-Latn-PH-u-tz-gsgrv";
+    Locale l8(locale_str.c_str());
+    assertTrue((locale_str + " !l8.isBogus()").c_str(), !l8.isBogus());
+}
+
+void LocaleTest::TestUnd() {
+    IcuTestErrorCode status(*this, "TestUnd()");
+
+    static const char empty[] = "";
+    static const char root[] = "root";
+    static const char und[] = "und";
+
+    Locale empty_ctor(empty);
+    Locale empty_tag = Locale::forLanguageTag(empty, status);
+    status.errIfFailureAndReset("\"%s\"", empty);
+
+    Locale root_ctor(root);
+    Locale root_tag = Locale::forLanguageTag(root, status);
+    Locale root_build = LocaleBuilder().setLanguageTag(root).build(status);
+    status.errIfFailureAndReset("\"%s\"", root);
+
+    Locale und_ctor(und);
+    Locale und_tag = Locale::forLanguageTag(und, status);
+    Locale und_build = LocaleBuilder().setLanguageTag(und).build(status);
+    status.errIfFailureAndReset("\"%s\"", und);
+
+    assertEquals("getName() 1", empty, empty_ctor.getName());
+    assertEquals("getName() 2", root, root_ctor.getName()); // open ICU expects empty
+    assertEquals("getName() 3", und, und_ctor.getName()); // open ICU expects empty
+
+    assertEquals("getName() 4", empty, empty_tag.getName());
+    assertEquals("getName() 5", root, root_tag.getName()); // open ICU expects empty
+    assertEquals("getName() 6", empty, und_tag.getName());
+
+    assertEquals("getName() 7", root, root_build.getName()); // open ICU expects empty
+    assertEquals("getName() 8", empty, und_build.getName());
+
+    assertEquals("toLanguageTag() 1", und, empty_ctor.toLanguageTag<std::string>(status).c_str());
+    assertEquals("toLanguageTag() 2", root, root_ctor.toLanguageTag<std::string>(status).c_str()); // open ICU expects und
+    assertEquals("toLanguageTag() 3", und, und_ctor.toLanguageTag<std::string>(status).c_str());
+    status.errIfFailureAndReset();
+
+    assertEquals("toLanguageTag() 4", und, empty_tag.toLanguageTag<std::string>(status).c_str());
+    assertEquals("toLanguageTag() 5", root, root_tag.toLanguageTag<std::string>(status).c_str()); // open ICU expects und
+    assertEquals("toLanguageTag() 6", und, und_tag.toLanguageTag<std::string>(status).c_str());
+    status.errIfFailureAndReset();
+
+    assertEquals("toLanguageTag() 7", root, root_build.toLanguageTag<std::string>(status).c_str()); // open ICU expects und
+    assertEquals("toLanguageTag() 8", und, und_build.toLanguageTag<std::string>(status).c_str());
+    status.errIfFailureAndReset();
+
+    assertTrue("empty_ctor == empty_tag", empty_ctor == empty_tag);
+
+    assertTrue("root_ctor == root_tag", root_ctor == root_tag);
+    assertTrue("root_ctor == root_build", root_ctor == root_build);
+    assertTrue("root_tag == root_build", root_tag == root_build);
+
+    //assertTrue("und_ctor == und_tag", und_ctor == und_tag); // change from open ICU
+    //assertTrue("und_ctor == und_build", und_ctor == und_build); // change from open ICU
+    assertTrue("und_tag == und_build", und_tag == und_build);
+
+    //assertTrue("empty_ctor == root_ctor", empty_ctor == root_ctor); // change from open ICU
+    //assertTrue("empty_ctor == und_ctor", empty_ctor == und_ctor); // change from open ICU
+    //assertTrue("root_ctor == und_ctor", root_ctor == und_ctor); // change from open ICU
+
+    //assertTrue("empty_tag == root_tag", empty_tag == root_tag); // change from open ICU
+    assertTrue("empty_tag == und_tag", empty_tag == und_tag);
+    //assertTrue("root_tag == und_tag", root_tag == und_tag); // change from open ICU
+
+    //assertTrue("root_build == und_build", root_build == und_build); // change from open ICU
+
+    static const Locale& displayLocale = Locale::getEnglish();
+    static const UnicodeString displayName("Unknown language");
+    static const UnicodeString displayRoot("Root");
+    static const UnicodeString displayEmpty("");
+    UnicodeString tmp;
+
+    assertEquals("getDisplayName() 1", displayEmpty, empty_ctor.getDisplayName(displayLocale, tmp)); // change from open ICU
+    assertEquals("getDisplayName() 2", displayRoot, root_ctor.getDisplayName(displayLocale, tmp)); // change from open ICU
+    assertEquals("getDisplayName() 3", displayName, und_ctor.getDisplayName(displayLocale, tmp));
+
+    assertEquals("getDisplayName() 4", displayEmpty, empty_tag.getDisplayName(displayLocale, tmp)); // change from open ICU
+    assertEquals("getDisplayName() 5", displayRoot, root_tag.getDisplayName(displayLocale, tmp)); // change from open ICU
+    assertEquals("getDisplayName() 6", displayEmpty, und_tag.getDisplayName(displayLocale, tmp)); // change from open ICU
+
+    assertEquals("getDisplayName() 7", displayRoot, root_build.getDisplayName(displayLocale, tmp)); // change from open ICU
+    assertEquals("getDisplayName() 8", displayEmpty, und_build.getDisplayName(displayLocale, tmp)); // change from open ICU
+}
+
+void LocaleTest::TestUndScript() {
+    IcuTestErrorCode status(*this, "TestUndScript()");
+
+    static const char id[] = "_Cyrl";
+    static const char tag[] = "und-Cyrl";
+    static const char script[] = "Cyrl";
+    static const char tag_[] = "und_Cyrl";
+
+    Locale locale_ctor(id);
+    Locale locale_legacy(tag);
+    Locale locale_tag = Locale::forLanguageTag(tag, status);
+    Locale locale_build = LocaleBuilder().setScript(script).build(status);
+    status.errIfFailureAndReset("\"%s\"", tag);
+
+    assertEquals("getName() 1", id, locale_ctor.getName());
+    assertEquals("getName() 2", tag_, locale_legacy.getName()); // change from open ICU
+    assertEquals("getName() 3", id, locale_tag.getName());
+    assertEquals("getName() 4", id, locale_build.getName());
+
+    assertEquals("toLanguageTag()", tag, locale_ctor.toLanguageTag<std::string>(status).c_str());
+    assertEquals("toLanguageTag()", tag, locale_legacy.toLanguageTag<std::string>(status).c_str());
+    assertEquals("toLanguageTag()", tag, locale_tag.toLanguageTag<std::string>(status).c_str());
+    assertEquals("toLanguageTag()", tag, locale_build.toLanguageTag<std::string>(status).c_str());
+    status.errIfFailureAndReset();
+
+    static const Locale& displayLocale = Locale::getEnglish();
+    static const UnicodeString displayName("Unknown language (Cyrillic)");
+    static const UnicodeString displayScript("Cyrillic");
+    UnicodeString tmp;
+
+    assertEquals("getDisplayName() 1", displayScript, locale_ctor.getDisplayName(displayLocale, tmp)); // change from open-source
+    assertEquals("getDisplayName() 2", displayName, locale_legacy.getDisplayName(displayLocale, tmp));
+    assertEquals("getDisplayName() 3", displayScript, locale_tag.getDisplayName(displayLocale, tmp)); // change from open-source
+    assertEquals("getDisplayName() 4", displayScript, locale_build.getDisplayName(displayLocale, tmp)); // change from open-source
+}
+
+void LocaleTest::TestUndRegion() {
+    IcuTestErrorCode status(*this, "TestUndRegion()");
+
+    static const char id[] = "_AQ";
+    static const char tag[] = "und-AQ";
+    static const char region[] = "AQ";
+    static const char tag_[] = "und_AQ";
+
+    Locale locale_ctor(id);
+    Locale locale_legacy(tag);
+    Locale locale_tag = Locale::forLanguageTag(tag, status);
+    Locale locale_build = LocaleBuilder().setRegion(region).build(status);
+    status.errIfFailureAndReset("\"%s\"", tag);
+
+    assertEquals("getName() 1", id, locale_ctor.getName());
+    assertEquals("getName() 2", tag_, locale_legacy.getName()); // change from open ICU
+    assertEquals("getName() 3", id, locale_tag.getName());
+    assertEquals("getName() 4", id, locale_build.getName());
+
+    assertEquals("toLanguageTag()", tag, locale_ctor.toLanguageTag<std::string>(status).c_str());
+    assertEquals("toLanguageTag()", tag, locale_legacy.toLanguageTag<std::string>(status).c_str());
+    assertEquals("toLanguageTag()", tag, locale_tag.toLanguageTag<std::string>(status).c_str());
+    assertEquals("toLanguageTag()", tag, locale_build.toLanguageTag<std::string>(status).c_str());
+    status.errIfFailureAndReset();
+
+    static const Locale& displayLocale = Locale::getEnglish();
+    static const UnicodeString displayName("Unknown language (Antarctica)");
+    static const UnicodeString displayRegion("Antarctica");
+    UnicodeString tmp;
+
+    assertEquals("getDisplayName() 1", displayRegion, locale_ctor.getDisplayName(displayLocale, tmp)); // change from open-source
+    assertEquals("getDisplayName() 2", displayName, locale_legacy.getDisplayName(displayLocale, tmp));
+    assertEquals("getDisplayName() 3", displayRegion, locale_tag.getDisplayName(displayLocale, tmp)); // change from open-source
+    assertEquals("getDisplayName() 4", displayRegion, locale_build.getDisplayName(displayLocale, tmp)); // change from open-source
+}
+
+void LocaleTest::TestUndCAPI() {
+    IcuTestErrorCode status(*this, "TestUndCAPI()");
+
+    static const char empty[] = "";
+    static const char root[] = "root";
+    static const char und[] = "und";
+
+    static const char empty_script[] = "_Cyrl";
+    static const char empty_region[] = "_AQ";
+
+    static const char und_script[] = "und_Cyrl";
+    static const char und_region[] = "und_AQ";
+
+    char tmp[ULOC_FULLNAME_CAPACITY];
+    int32_t reslen;
+
+    // uloc_getName()
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getName(empty, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", empty);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getName() 1", empty, tmp);
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getName(root, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", root);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getName() 2", root, tmp); // change from open ICU
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getName(und, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", und);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getName() 3", und, tmp); // change from open ICU
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getName(empty_script, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", empty_script);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getName() 4", empty_script, tmp);
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getName(empty_region, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", empty_region);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getName() 5", empty_region, tmp);
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getName(und_script, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", und_script);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getName() 6", und_script, tmp); // change from open ICU
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getName(und_region, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", und_region);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getName() 7", und_region, tmp); // change from open ICU
+
+    // uloc_getBaseName()
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getBaseName(empty, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", empty);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getBaseName() 1", empty, tmp);
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getBaseName(root, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", root);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getBaseName() 2", root, tmp); // change from open ICU
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getBaseName(und, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", und);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getBaseName() 3", und, tmp); // change from open ICU
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getBaseName(empty_script, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", empty_script);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getBaseName() 4", empty_script, tmp);
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getBaseName(empty_region, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", empty_region);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getBaseName() 5", empty_region, tmp);
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getBaseName(und_script, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", und_script);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getBaseName() 6", und_script, tmp); // change from open ICU
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getBaseName(und_region, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", und_region);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getBaseName() 7", und_region, tmp); // change from open ICU
+
+    // uloc_getParent()
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getParent(empty, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", empty);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getParent() 1", empty, tmp);
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getParent(root, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", root);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getParent() 2", empty, tmp);
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getParent(und, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", und);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getParent() 3", empty, tmp);
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getParent(empty_script, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", empty_script);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getParent() 4", empty, tmp);
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getParent(empty_region, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", empty_region);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getParent() 5", empty, tmp);
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getParent(und_script, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", und_script);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getParent() 6", und, tmp); // change from open ICU
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getParent(und_region, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", und_region);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getParent() 7", und, tmp); // change from open ICU
+
+    // uloc_getLanguage()
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getLanguage(empty, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", empty);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getLanguage() 1", empty, tmp);
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getLanguage(root, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", root);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getLanguage() 2", root, tmp); // change from open ICU
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getLanguage(und, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", und);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getLanguage() 3", und, tmp); // change from open ICU
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getLanguage(empty_script, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", empty_script);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getLanguage() 4", empty, tmp);
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getLanguage(empty_region, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", empty_region);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getLanguage() 5", empty, tmp);
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getLanguage(und_script, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", und_script);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getLanguage() 6", und, tmp); // change from open ICU
+
+    uprv_memset(tmp, '!', sizeof tmp);
+    reslen = uloc_getLanguage(und_region, tmp, sizeof tmp, status);
+    status.errIfFailureAndReset("\"%s\"", und_region);
+    assertTrue("reslen >= 0", reslen >= 0);
+    assertEquals("uloc_getLanguage() 7", und, tmp); // change from open ICU
+}

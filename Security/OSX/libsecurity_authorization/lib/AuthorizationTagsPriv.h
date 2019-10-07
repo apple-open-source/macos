@@ -356,4 +356,7 @@
 /* LocalAuthentication specific */
 #define AGENT_CONTEXT_LACONTEXT "la-context"
 
+/* Sheet window ID */
+#define kAuthorizationEnvironmentWindowId "cgwindowid"
+
 #endif /* !_SECURITY_AUTHORIZATIONTAGSPRIV_H_ */

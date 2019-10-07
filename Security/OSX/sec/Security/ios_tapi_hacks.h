@@ -57,6 +57,8 @@ typedef struct SecurityClient {
 extern struct securityd *gSecurityd;
 extern struct trustd *gTrustd;
 extern SecurityClient * SecSecurityClientGet(void);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wvisibility"
 bool securityd_send_sync_and_do(enum SecXPCOperation op, CFErrorRef *error,
                                 bool (^add_to_message)(xpc_object_t message, CFErrorRef* error),
                                 bool (^handle_response)(xpc_object_t response, CFErrorRef* error));
@@ -67,6 +69,7 @@ void securityd_send_async_and_do(enum SecXPCOperation op, dispatch_queue_t reply
 XPC_RETURNS_RETAINED xpc_object_t securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error);
 XPC_RETURNS_RETAINED xpc_object_t securityd_create_message(enum SecXPCOperation op, CFErrorRef *error);
 bool securityd_message_no_error(xpc_object_t message, CFErrorRef *error);
+#pragma clang diagnostic pop
 
 @interface SecuritydXPCClient : NSObject
 @end
@@ -79,6 +82,7 @@ extern os_log_t secLogObjForScope(const char *scope);
 extern os_log_t secLogObjForCFScope(CFStringRef scope);
 #if TARGET_OS_IOS
 void SecSecuritySetMusrMode(bool mode, uid_t uid, int activeUser);
+void SecSecuritySetPersonaMusr(CFStringRef uuid);
 #endif // TARGET_OS_IOS
 
 void SecServerSetTrustdMachServiceName(const char *name);

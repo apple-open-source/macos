@@ -2,7 +2,7 @@
 
   util.h -
 
-  $Author: kosaki $
+  $Author: nobu $
   created at: Thu Mar  9 11:55:53 JST 1995
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -64,17 +64,12 @@ void ruby_qsort(void *, const size_t, const size_t,
 
 void ruby_setenv(const char *, const char *);
 void ruby_unsetenv(const char *);
-#undef setenv
-#undef unsetenv
-#define setenv(name,val) ruby_setenv((name),(val))
-#define unsetenv(name,val) ruby_unsetenv(name)
 
 char *ruby_strdup(const char *);
 #undef strdup
 #define strdup(s) ruby_strdup(s)
 
 char *ruby_getcwd(void);
-#define my_getcwd() ruby_getcwd()
 
 double ruby_strtod(const char *, char **);
 #undef strtod

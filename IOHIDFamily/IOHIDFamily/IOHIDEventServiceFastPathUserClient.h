@@ -25,7 +25,7 @@
 #define IOHIDEventServiceFastPathUserClient_h
 
 
-#define kIOHIDEventServiceFastPathUserClientType 'HIDF'
+#define kIOHIDEventServiceFastPathUserClientType 0x2
 
 enum IOHIDEventServiceFastPathUserClientCommandCodes {
     kIOHIDEventServiceFastPathUserClientOpen,
@@ -46,7 +46,6 @@ enum IOHIDEventServiceFastPathUserClientCopySpecType {
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 
-
 class IOHIDEventServiceQueue;
 
 class IOHIDEventServiceFastPathUserClient : public IOUserClient
@@ -64,15 +63,23 @@ private:
     } ExternalMethodGatedArguments;
   
     static const IOExternalMethodDispatch sMethods[kIOHIDEventServiceFastPathUserClientNumCommands];
-
+    task_t                      _task;
     IOHIDEventService *         _owner;
     void *                      _clientContext;
     IOBufferMemoryDescriptor *  _buffer;
     IOCommandGate *             _commandGate;
-    volatile uint32_t           _opened;
+    IOWorkLoop *                _workloop;
+    bool                        _opened;
+    bool                        _openedByClient;
     IOOptionBits                _options;
     IOLock *                    _lock;
     bool                        _fastPathEntitlement;
+    OSDictionary *              _properties;
+    struct {
+        uint32_t                copycount;
+        uint32_t                errcount;
+        uint32_t                suspendcount;
+    } _stats;
     
     static IOReturn _open (IOHIDEventServiceFastPathUserClient * target, void * reference, IOExternalMethodArguments * arguments);
     static IOReturn _close (IOHIDEventServiceFastPathUserClient *  target, void * reference, IOExternalMethodArguments * arguments);
@@ -82,15 +89,15 @@ private:
     
 protected:
     // IOUserClient methods
-    virtual IOReturn clientClose (void);
+    virtual IOReturn clientClose (void) APPLE_KEXT_OVERRIDE;
 
-    virtual void stop (IOService * provider);
+    virtual void stop (IOService * provider) APPLE_KEXT_OVERRIDE;
     
-    virtual IOService * getService (void);
+    virtual IOService * getService (void) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn clientMemoryForType(UInt32 type, IOOptionBits * options, IOMemoryDescriptor ** memory);
     
-    IOReturn clientMemoryForTypeGated (IOOptionBits * options, IOMemoryDescriptor ** memory);
+    IOReturn clientMemoryForTypeGated (IOOptionBits * options, IOMemoryDescriptor ** memory) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn externalMethod (
                         uint32_t                        selector,
@@ -98,7 +105,7 @@ protected:
                         IOExternalMethodDispatch *      dispatch,
                         OSObject *                      target,
                         void *                          reference
-                        );
+                        ) APPLE_KEXT_OVERRIDE;
     
     IOReturn externalMethodGated(ExternalMethodGatedArguments *arguments);
     
@@ -114,13 +121,14 @@ protected:
     
 public:
     
-    virtual bool initWithTask(task_t owningTask, void * security_id, UInt32 type);
-    virtual bool start( IOService * provider );
-    virtual bool didTerminate(IOService *provider, IOOptionBits options, bool *defer);
-    virtual void free();
-    virtual IOReturn setProperties( OSObject * properties);
-    virtual OSObject * copyProperty( const char * aKey) const;
+    virtual bool initWithTask(task_t owningTask, void * security_id, UInt32 type) APPLE_KEXT_OVERRIDE;
+    virtual bool start( IOService * provider ) APPLE_KEXT_OVERRIDE;
+    virtual bool didTerminate(IOService *provider, IOOptionBits options, bool *defer) APPLE_KEXT_OVERRIDE;
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn setProperties( OSObject * properties) APPLE_KEXT_OVERRIDE;
+    virtual OSObject * copyProperty( const char * aKey) const APPLE_KEXT_OVERRIDE;
     virtual IOReturn close();
+    virtual IOReturn message( UInt32 type, IOService * provider,  void * argument = 0 ) APPLE_KEXT_OVERRIDE;
 };
 #endif /* KERNEL */
 #endif /* IOHIDEventServiceFastPathUserClient_h */

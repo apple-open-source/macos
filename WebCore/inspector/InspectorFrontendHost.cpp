@@ -39,6 +39,7 @@
 #include "Document.h"
 #include "Editor.h"
 #include "Event.h"
+#include "FloatRect.h"
 #include "FocusController.h"
 #include "Frame.h"
 #include "HitTestResult.h"
@@ -196,6 +197,13 @@ void InspectorFrontendHost::reopen()
         m_client->reopen();
 }
 
+void InspectorFrontendHost::reset()
+{
+    if (m_client)
+        m_client->resetState();
+    reopen();
+}
+
 void InspectorFrontendHost::bringToFront()
 {
     if (m_client)
@@ -242,6 +250,12 @@ void InspectorFrontendHost::setAttachedWindowWidth(unsigned width)
         m_client->changeAttachedWindowWidth(width);
 }
 
+void InspectorFrontendHost::setSheetRect(float x, float y, unsigned width, unsigned height)
+{
+    if (m_client)
+        m_client->changeSheetRect(FloatRect(x, y, width, height));
+}
+
 void InspectorFrontendHost::startWindowDrag()
 {
     if (m_client)
@@ -252,6 +266,11 @@ void InspectorFrontendHost::moveWindowBy(float x, float y) const
 {
     if (m_client)
         m_client->moveWindowBy(x, y);
+}
+
+bool InspectorFrontendHost::isRemote() const
+{
+    return m_client ? m_client->isRemote() : false;
 }
 
 String InspectorFrontendHost::localizedStringsURL()
@@ -414,10 +433,8 @@ void InspectorFrontendHost::dispatchEventAsContextMenuEvent(Event& event)
         return;
 
     auto& mouseEvent = downcast<MouseEvent>(event);
-    IntPoint mousePoint { mouseEvent.clientX(), mouseEvent.clientY() };
     auto& frame = *downcast<Node>(mouseEvent.target())->document().frame();
-
-    m_frontendPage->contextMenuController().showContextMenuAt(frame, mousePoint);
+    m_frontendPage->contextMenuController().showContextMenuAt(frame, roundedIntPoint(mouseEvent.absoluteLocation()));
 #else
     UNUSED_PARAM(event);
 #endif
@@ -443,6 +460,15 @@ void InspectorFrontendHost::inspectInspector()
 {
     if (m_frontendPage)
         m_frontendPage->inspectorController().show();
+}
+
+bool InspectorFrontendHost::isBeingInspected()
+{
+    if (!m_frontendPage)
+        return false;
+
+    InspectorController& inspectorController = m_frontendPage->inspectorController();
+    return inspectorController.hasLocalFrontend() || inspectorController.hasRemoteFrontend();
 }
 
 bool InspectorFrontendHost::supportsShowCertificate() const

@@ -31,6 +31,7 @@ de{
         151{"Osteuropa"}
         154{"Nordeuropa"}
         155{"Westeuropa"}
+        202{"Subsahara-Afrika"}
         419{"Lateinamerika"}
         AC{"Ascension"}
         AD{"Andorra"}
@@ -182,7 +183,7 @@ de{
         MF{"St. Martin"}
         MG{"Madagaskar"}
         MH{"Marshallinseln"}
-        MK{"Mazedonien"}
+        MK{"Nordmazedonien"}
         ML{"Mali"}
         MM{"Myanmar"}
         MN{"Mongolei"}
@@ -306,8 +307,8 @@ de{
         CI{"Elfenbeinküste"}
         CZ{"Tschechische Republik"}
         FK{"Falklandinseln (Malwinen)"}
-        MK{"Mazedonien (EJR)"}
+        SZ{"Eswatini"}
         TL{"Osttimor"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.42"}
 }

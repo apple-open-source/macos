@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -82,7 +83,22 @@ __removefile_process_file(FTS* stream, FTSENT* current_file, removefile_state_t 
 						errno = EACCES;
 						res = -1;
 					} else {
+#if __APPLE__
+                        int is_dataless = (current_file->fts_statp->st_flags & SF_DATALESS) != 0;
+                        if (is_dataless) {
+                            int iopolicy = getiopolicy_np(IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES, IOPOL_SCOPE_THREAD);
+                            int non_materializing = iopolicy == IOPOL_MATERIALIZE_DATALESS_FILES_OFF;
+                            if (non_materializing || state->confirm_callback == NULL) {
+                                res = unlinkat(AT_FDCWD, path, AT_REMOVEDIR_DATALESS);
+                            } else {
+                                res = rmdir(path);
+                            }
+                        } else {
+                            res = rmdir(path);
+                        }
+#else
 						res = rmdir(path);
+#endif
 					}
 				}
 				if (res == -1) state->error_num = errno;

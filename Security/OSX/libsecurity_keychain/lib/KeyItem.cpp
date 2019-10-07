@@ -38,8 +38,8 @@
 #include <security_keychain/Globals.h>
 #include "KCEventNotifier.h"
 #include <CommonCrypto/CommonDigest.h>
-#include <SecBase.h>
-#include <SecBasePriv.h>
+#include <Security/SecBase.h>
+#include <Security/SecBasePriv.h>
 #include <CoreFoundation/CFPriv.h>
 
 // @@@ This needs to be shared.
@@ -81,7 +81,7 @@ KeyItem::operator CFTypeRef() const throw()
 
     if (mWeakSecKeyRef != NULL) {
         if (_CFTryRetain(mWeakSecKeyRef) == NULL) {
-            StMaybeLock<Mutex> secKeyCDSAMutex(mWeakSecKeyRef->cdsaKeyMutex);
+            StMaybeLock<Mutex> secKeyCDSAMutex(static_cast<CDSASecKey *>(mWeakSecKeyRef)->cdsaKeyMutex);
             // mWeakSecKeyRef is not really valid, pointing to SecKeyRef which going to die - it is somewhere between last CFRelease and entering into mutex-protected section of SecCDSAKeyDestroy.  Avoid using it, pretend that no enveloping SecKeyRef exists.  But make sure that this KeyImpl is disconnected from this about-to-die SecKeyRef, because we do not want KeyImpl connected to it to be really destroyed, it will be connected to newly created SecKeyRef (see below).
             mWeakSecKeyRef->key = NULL;
             mWeakSecKeyRef = NULL;

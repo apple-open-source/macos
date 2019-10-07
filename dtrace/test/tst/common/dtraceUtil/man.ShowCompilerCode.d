@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)man.ShowCompilerCode.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Using -S option with dtrace utility shows the intermediate compiler code.

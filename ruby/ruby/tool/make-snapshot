@@ -6,7 +6,9 @@ require 'digest/sha2'
 require 'fileutils'
 require 'shellwords'
 require 'tmpdir'
+require 'pathname'
 require File.expand_path("../vcs", __FILE__)
+require File.expand_path("../colorize", __FILE__)
 STDOUT.sync = true
 
 $srcdir ||= nil
@@ -16,7 +18,10 @@ $keep_temp ||= nil
 $patch_file ||= nil
 $packages ||= nil
 $digests ||= nil
+$s3 ||= nil
 $tooldir = File.expand_path("..", __FILE__)
+$unicode_version = nil if ($unicode_version ||= nil) == ""
+$colorize = Colorize.new
 
 def usage
   <<USAGE
@@ -29,6 +34,13 @@ options:
   -patch_file=PATCH     apply PATCH file after export
   -packages=PKG[,...]   make PKG packages (#{PACKAGES.keys.join(", ")})
   -digests=ALG[,...]    show ALG digests (#{DIGESTS.join(", ")})
+  -unicode_version=VER  Unicode version to generate encodings
+  -svn[=URL]            make snapshot from SVN repository
+                        (#{SVNURL})
+  -git[=URL]            make snapshot from GIT repository
+                        (#{GITURL})
+  -s3=PATH              s3 bucket path(default=tmp)
+  -help, --help         show this message
 version:
   trunk, stable, branches/*, tags/*, X.Y, X.Y.Z, X.Y.Z-pL
 each versions may be followed by optional @revision.
@@ -43,8 +55,22 @@ PACKAGES = {
   "zip"  => %w".zip     zip -qr",
 }
 
+if system("7z", out: IO::NULL)
+  PACKAGES["gzip"] = %w".tar.gz 7z a dummy -tgzip -mx -so"
+  PACKAGES["zip"]  = %w".zip    7z a -tzip  -mx" << {out: IO::NULL}
+end
+if gzip = ENV.delete("GZIP")
+  PACKAGES["gzip"].concat(gzip.shellsplit)
+end
+
+if mflags = ENV["GNUMAKEFLAGS"] and /\A-(\S*)j\d*/ =~ mflags
+  mflags = mflags.gsub(/(\A|\s)(-\S*)j\d*/, '\1\2')
+  mflags.strip!
+  ENV["GNUMAKEFLAGS"] = (mflags unless mflags.empty?)
+end
 ENV["LC_ALL"] = ENV["LANG"] = "C"
-SVNURL = URI.parse("http://svn.ruby-lang.org/repos/ruby/")
+SVNURL = URI.parse("https://svn.ruby-lang.org/repos/ruby/")
+GITURL = URI.parse("https://git.ruby-lang.org/ruby.git")
 RUBY_VERSION_PATTERN = /^\#define\s+RUBY_VERSION\s+"([\d.]+)"/
 
 ENV["VPATH"] ||= "include/ruby"
@@ -77,6 +103,9 @@ class Dir
 end
 
 $packages &&= $packages.split(/[, ]+/).tap {|pkg|
+  if all = pkg.index("all")
+    pkg[all, 1] = PACKAGES.keys - pkg
+  end
   pkg -= PACKAGES.keys
   pkg.empty? or abort "#{File.basename $0}: unknown packages - #{pkg.join(", ")}"
 }
@@ -101,7 +130,7 @@ path = ENV["PATH"].split(File::PATH_SEPARATOR)
 end
 
 %w[BASERUBY RUBY MINIRUBY].each do |var|
-  `#{ENV[var]} --disable-gem -e1 2>&1`
+  %x[#{ENV[var]} --disable-gem -e1 2>&1]
   if $?.success?
     ENV[var] += ' --disable-gem'
   end
@@ -124,6 +153,46 @@ unless tmp = $exported
     Dir.chdir "/"
     FileUtils.rm_rf(tmp)
   } unless $keep_temp
+end
+
+def tar_create(tarball, dir)
+  require 'rubygems'
+  require 'rubygems/package'
+  require 'rubygems/package/tar_writer'
+  header = Gem::Package::TarHeader
+  dir_type = "5"
+  uname = gname = "ruby"
+  File.open(tarball, "wb") do |f|
+    w = Gem::Package::TarWriter.new(f)
+    Dir.glob("#{dir}/**/*", File::FNM_DOTMATCH) do |path|
+      next if File.basename(path) == "."
+      s = File.stat(path)
+      case
+      when s.file?
+        type = nil
+        size = s.size
+      when s.directory?
+        path += "/"
+        type = dir_type
+        size = 0
+      else
+        next
+      end
+      name, prefix = w.split_name(path)
+      h = header.new(name: name, prefix: prefix, typeflag: type,
+                     mode: s.mode, size: size, mtime: s.mtime,
+                     uname: uname, gname: gname)
+      f.write(h)
+      if size > 0
+        IO.copy_stream(path, f)
+        f.write("\0" * (-size % 512))
+      end
+    end
+  end
+  true
+rescue => e
+  warn e.message
+  false
 end
 
 def package(vcs, rev, destdir, tmp = nil)
@@ -187,26 +256,33 @@ def package(vcs, rev, destdir, tmp = nil)
       return
     end
     if $srcdir
-      Dir.glob($srcdir + "/{tool/config.{guess,sub},gems/*.gem,.downloaded-cache/*}") do |file|
+      Dir.glob($srcdir + "/{tool/config.{guess,sub},gems/*.gem,.downloaded-cache/*,enc/unicode/data/**/*.txt}") do |file|
         puts "copying #{file}"
         dest = exported + file[$srcdir.size..-1]
         FileUtils.mkpath(File.dirname(dest))
         begin
           FileUtils.ln(file, dest, force: true)
+          next unless File.symlink?(dest)
+          File.unlink(dest)
         rescue SystemCallError
-          FileUtils.cp(file, dest, preserve: true)
+        end
+        begin
+          FileUtils.cp_r(file, dest, preserve: true)
+        rescue SystemCallError
         end
       end
     end
   end
 
+  status = IO.read(File.dirname(__FILE__) + "/prereq.status")
   Dir.chdir(tmp) if tmp
 
   if !File.directory?(v)
     v = Dir.glob("ruby-*").select(&File.method(:directory?))
-    v.size == 1 or abort "not exported"
+    v.size == 1 or abort "#{File.basename $0}: not exported"
     v = v[0]
   end
+
   open("#{v}/revision.h", "wb") {|f| f.puts "#define RUBY_REVISION #{revision}"}
   version ||= (versionhdr = IO.read("#{v}/version.h"))[RUBY_VERSION_PATTERN, 1]
   version or return
@@ -236,10 +312,32 @@ def package(vcs, rev, destdir, tmp = nil)
   end
   system(*%W"patch -d #{v} -p0 -i #{$patch_file}") if $patch_file
   if !$exported or $patch_file
-    "take a breath, and go ahead".scan(/./) {|c|print c; sleep(c == "," ? 0.7 : 0.05)}; puts
+    colors = %w[red yellow green cyan blue magenta]
+    "take a breath, and go ahead".scan(/./) do |c|
+      if c == ' '
+        print c
+      else
+        colors.push(color = colors.shift)
+        print $colorize.decorate(c, color)
+      end
+      sleep(c == "," ? 0.7 : 0.05)
+    end
+    puts
   end
   def (clean = []).add(n) push(n); n end
   Dir.chdir(v) do
+    unless File.exist?("ChangeLog")
+      # get last revision from previous ChangeLog archive
+      last_ChangeLog = Dir["doc/ChangeLog-*"].grep(/-(\d+)\z/) {|n| [$1.to_i, n]}.max[1]
+      open(last_ChangeLog) do |f|
+        f.readline
+        unless /\Ar(\d+) / =~ f.readline
+          abort "#{File.basename $0}: Cannot find revision from '#{last_ChangeLog}'"
+        end
+        vcs.export_changelog(url, $1.to_i, revision.to_i, "ChangeLog")
+      end
+    end
+
     File.open(clean.add("cross.rb"), "w") do |f|
       f.puts "Object.__send__(:remove_const, :CROSS_COMPILING) if defined?(CROSS_COMPILING)"
       f.puts "CROSS_COMPILING=true"
@@ -251,37 +349,24 @@ def package(vcs, rev, destdir, tmp = nil)
     unless File.exist?("configure")
       print "creating configure..."
       unless system([ENV["AUTOCONF"]]*2)
-        puts " failed"
+        puts $colorize.fail(" failed")
         return
       end
-      puts " done"
+      puts $colorize.pass(" done")
     end
     clean.add("autom4te.cache")
+    clean.add("enc/unicode/data")
     print "creating prerequisites..."
     if File.file?("common.mk") && /^prereq/ =~ commonmk = IO.read("common.mk")
       puts
       extout = clean.add('tmp')
+      begin
+        status = IO.read("tool/prereq.status")
+      rescue Errno::ENOENT
+        # use fallback file
+      end
       File.open(clean.add("config.status"), "w") {|f|
-        f.puts "s,@configure_args@,|#_!!_#|,g"
-        f.puts "s,@EXTOUT@,|#_!!_#|#{extout},g"
-        f.puts "s,@bindir@,|#_!!_#|,g"
-        f.puts "s,@ruby_install_name@,|#_!!_#|,g"
-        f.puts "s,@ARCH_FLAG@,|#_!!_#|,g"
-        f.puts "s,@CFLAGS@,|#_!!_#|,g"
-        f.puts "s,@CPPFLAGS@,|#_!!_#|,g"
-        f.puts "s,@CXXFLAGS@,|#_!!_#|,g"
-        f.puts "s,@LDFLAGS@,|#_!!_#|,g"
-        f.puts "s,@DLDFLAGS@,|#_!!_#|,g"
-        f.puts "s,@LIBEXT@,|#_!!_#|a,g"
-        f.puts "s,@OBJEXT@,|#_!!_#|o,g"
-        f.puts "s,@EXEEXT@,|#_!!_#|,g"
-        f.puts "s,@LIBRUBY@,|#_!!_#|libruby.a,g"
-        f.puts "s,@LIBRUBY_A@,|#_!!_#|libruby.a,g"
-        f.puts "s,@RM@,|#_!!_#|rm -f,g"
-        f.puts "s,@CP@,|#_!!_#|cp,g"
-        f.puts "s,@rubyarchdir@,|#_!!_#|,g"
-        f.puts "s,@rubylibprefix@,|#_!!_#|,g"
-        f.puts "s,@ruby_version@,|#_!!_#|#{version},g"
+        f.print status
       }
       FileUtils.mkpath(hdrdir = "#{extout}/include/ruby")
       File.open("#{hdrdir}/config.h", "w") {}
@@ -292,36 +377,41 @@ def package(vcs, rev, destdir, tmp = nil)
       baseruby = ENV["BASERUBY"]
       mk = IO.read("Makefile.in").gsub(/^@.*\n/, '')
       vars = {
-        "srcdir"=>".",
-        "CHDIR"=>"cd",
-        "NULLCMD"=>":",
+        "EXTOUT"=>extout,
         "PATH_SEPARATOR"=>File::PATH_SEPARATOR,
-        "IFCHANGE"=>"tool/ifchange",
-        "MKDIR_P"=>"mkdir -p",
-        "RMALL"=>"rm -fr",
         "MINIRUBY"=>miniruby,
-        "RUNRUBY"=>miniruby,
         "RUBY"=>ENV["RUBY"],
-        "HAVE_BASERUBY"=>"yes",
         "BASERUBY"=>baseruby,
-        "BOOTSTRAPRUBY"=>baseruby,
         "PWD"=>Dir.pwd,
-        "CONFIGURE"=>"configure",
+        "ruby_version"=>version,
       }
+      status.scan(/^s([%,])@([A-Za-z_][A-Za-z_0-9]*)@\1(.*?)\1g$/) do
+        vars[$2] ||= $3
+      end
+      vars["UNICODE_VERSION"] = $unicode_version if $unicode_version
       args = vars.dup
       mk.gsub!(/@([A-Za-z_]\w*)@/) {args.delete($1); vars[$1] || ENV[$1]}
-      mk << commonmk.gsub(/(?<!#)\{[^{}]*\}/, "")
+      mk << commonmk.gsub(/\{\$([^(){}]*)[^{}]*\}/, "")
       mk << <<-'APPEND'
 
 prereq: clean-cache $(CLEAN_CACHE)
 clean-cache $(CLEAN_CACHE): after-update
+touch-unicode-files: _touch-unicode-files
+update-download:: touch-unicode-files
+update-download:: update-gems
 after-update:: extract-gems
-extract-gems:
+extract-gems: update-gems
+update-gems:
+_touch-unicode-files:
+	$(MAKEDIRS) $(UNICODE_SRC_DATA_DIR)
+	touch $(UNICODE_SRC_DATA_DIR)/.unicode-tables.time $(UNICODE_DATA_HEADERS)
       APPEND
       open(clean.add("Makefile"), "w") do |f|
+        f.puts "prereq: update-download"
         f.puts mk
       end
-      system("make", "prereq", *args.map {|arg| arg.join("=")})
+      ENV["CACHE_SAVE"] = "no"
+      system(ENV["MAKE"] || ENV["make"] || "make", "prereq", *args.map {|arg| arg.join("=")})
       clean.push("rbconfig.rb", ".rbconfig.time", "enc.mk")
       print "prerequisites"
     else
@@ -333,17 +423,18 @@ extract-gems:
     if File.exist?("gems/bundled_gems")
       gems = Dir.glob("gems/*.gem")
       gems -= File.readlines("gems/bundled_gems").map {|line|
-        'gems/'+line.split(' ').join('-')+'.gem'
+        name, version, _ = line.split(' ')
+        "gems/#{name}-#{version}.gem"
       }
       FileUtils.rm_f(gems)
     else
       FileUtils.rm_rf("gems")
     end
     unless $?.success?
-      puts " failed"
+      puts $colorize.fail(" failed")
       return
     end
-    puts " done"
+    puts $colorize.pass(" done")
   end
 
   if v == "."
@@ -366,10 +457,10 @@ extract-gems:
       else
         tarball = "#{$archname||v}.tar"
         print "creating tarball... #{tarball}"
-        if system("tar", "cf", tarball, v)
-          puts " done"
+        if tar_create(tarball, v)
+          puts $colorize.pass(" done")
         else
-          puts " failed"
+          puts $colorize.fail(" failed")
           tarball = ""
           next
         end
@@ -378,13 +469,19 @@ extract-gems:
       done = system(*cmd, tarball, out: file)
     else
       print "creating #{mesg} archive... #{file}"
-      done = system(*cmd, file, v)
+      if Hash === cmd.last
+        *cmd, opt = *cmd
+        cmd << file << v << opt
+      else
+        (cmd = cmd.dup) << file << v
+      end
+      done = system(*cmd)
     end
     if done
-      puts " done"
+      puts $colorize.pass(" done")
       file
     else
-      puts " failed"
+      puts $colorize.fail(" failed")
       nil
     end
   end.compact
@@ -392,7 +489,18 @@ ensure
   FileUtils.rm_rf(v) if v and !$exported and !$keep_temp
 end
 
-vcs = (VCS.detect($srcdir) rescue nil if $srcdir) || VCS::SVN.new(SVNURL)
+if [$srcdir, ($svn||=nil), ($git||=nil)].compact.size > 1
+  abort "#{File.basename $0}: -srcdir, -svn, and -git are exclusive"
+end
+if $srcdir
+  vcs = VCS.detect($srcdir)
+elsif $svn
+  vcs = VCS::SVN.new($svn == true ? SVNURL : URI.parse($svn))
+elsif $git
+  vcs = VCS::GIT.new($git == true ? GITURL : URI.parse($git))
+else
+  vcs = VCS::SVN.new(SVNURL)
+end
 
 success = true
 revisions.collect {|rev| package(vcs, rev, destdir, tmp)}.flatten.each do |name|
@@ -401,7 +509,12 @@ revisions.collect {|rev| package(vcs, rev, destdir, tmp)}.flatten.each do |name|
     next
   end
   str = open(name, "rb") {|f| f.read}
-  puts "* #{name}"
+  if $s3
+    %x[aws s3 cp #{name} s3://ftp.r-l.o/pub/#{$s3}/#{Pathname(name).basename}]
+    FileUtils.rm_f name
+    name = "https://s3.amazonaws.com/ftp.r-l.o/pub/#{$s3}/#{Pathname(name).basename}"
+  end
+  puts "* #{$colorize.pass(name)}"
   puts "  SIZE:   #{str.bytesize} bytes"
   $digests.each do |alg|
     printf "  %-8s%s\n", "#{alg}:", Digest.const_get(alg).hexdigest(str)

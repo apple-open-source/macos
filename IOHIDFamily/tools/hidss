@@ -1,0 +1,111 @@
+#!/usr/bin/python
+
+import argparse
+import json
+import sys
+
+# try to make this look as good as possible
+def printFrames(frames):
+    for userFrame in frames:
+        sys.stdout.write("    [")
+        for thing in userFrame:
+            sys.stdout.write('"%s"' % str(thing)) if thing == userFrame[-1] else sys.stdout.write('"%s",' % str(thing))
+        sys.stdout.write("]\n") if userFrame == frames[-1] else sys.stdout.write("],\n")
+    sys.stdout.write("\n")
+
+# returns a dictionary describing the wait info.
+# The key is the threadID, and the value is a dictionary that contains
+# the wait reason along with any thread that the thread is waiting on
+def parseWaitInfo(waitInfo):
+    blocked = {}
+    unblocked = {}
+    for wait in waitInfo:
+        tid = wait.split(" ")[1].split(":")[0]
+        reason = wait.split(":", 1)[1].strip()
+
+        # this thread is blocked on another thread
+        if 'lock' in reason or 'wait' in reason or 'mutex' in reason:
+            waitTID = reason.split(" thread")[1].strip().split(",")[0]
+            blocked[tid] = { 'reason' : reason, 'waitTID' : waitTID }
+        else:
+            unblocked[tid] = { 'reason' : reason }
+
+    return blocked, unblocked
+
+# finds all blocking threads from the wait info
+def findBlockingTIDs(blocked):
+    blockers = []
+    for key, value in blocked.iteritems():
+        # only store unique bllocker TIDs that aren't also blocked
+        if value['waitTID'] not in blockers and value['waitTID'] not in blocked:
+            blockers.append(value['waitTID'])
+
+    return blockers
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Parse an iOS stackshot file for IOHID related stacks.')
+    parser.add_argument('file', help='stackshot.txt file')
+    args = parser.parse_args()
+    
+    if args.file:
+        with open(args.file, "r") as fd:
+            data = json.load(fd)
+    
+    # get bbd process stacks
+    for process in data['processByPid']:
+        if data['processByPid'][process]['procname'] == "backboardd":
+            backboardd = data['processByPid'][process]
+            break
+
+    if not backboardd:
+        print("backboardd process not found")
+        sys.exit()
+
+    if not backboardd['waitInfo']:
+        print("no backboardd waitInfo found")
+        sys.exit()
+
+    blocked, unblocked = parseWaitInfo(backboardd['waitInfo'])
+
+    if not blocked:
+        print("no blocked threads found")
+        sys.exit()
+
+    blockingTIDs = findBlockingTIDs(blocked)
+
+    if not blockingTIDs:
+        print("failed to find any blocking threads")
+        sys.exit();
+
+    blockingThreads = []
+
+    print "HID Stackshot Analysis:\n"
+
+    for thread in backboardd['threadById']:
+        userFrames = backboardd['threadById'][thread]['userFrames']
+        kernelFrames = backboardd['threadById'][thread]['kernelFrames'] if 'kernelFrames' in backboardd['threadById'][thread] else []
+
+        # print these last
+        if thread in blockingTIDs:
+            blockingThreads.append({"user": userFrames, "kernel": kernelFrames, "tid": thread})
+        
+        if thread in blocked:
+            print "Thread %d blocked: %s" % (int(thread), blocked[thread]['reason'])
+            if kernelFrames:
+                print("Kernel Frames:")
+                printFrames(kernelFrames)
+            print("User Frames:")
+            printFrames(userFrames)
+
+    if not len(blockingThreads):
+        print("Failed to retrieve blocking threads from backboardd stacks")
+        sys.exit()
+
+    print("\nSuspected blocking thread(s):")
+    for blocker in blockingThreads:
+        print("Thread %d" % int(blocker["tid"]))
+        if blocker['kernel']:
+            print ("Kernel Frames:")
+            printFrames(blocker['kernel'])
+        print ("User Frames:")
+        printFrames(blocker['user'])

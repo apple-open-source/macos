@@ -961,7 +961,7 @@ bin_bindkey_meta(char *name, char *kmname, Keymap km, UNUSED(char **argv), UNUSE
 	    m[0] = i;
 	    metafy(m, 1, META_NOALLOC);
 	    fn = keybind(km, m, &str);
-	    if(fn == t_selfinsert || fn == t_undefinedkey)
+	    if(IS_THINGY(fn, selfinsert) || fn == t_undefinedkey)
 		bindkey(km, m, refthingy(Th(metabind[i - 128])), NULL);
 	}
     return 0;
@@ -1518,7 +1518,7 @@ getrestchar_keybuf(void)
 	     * arrive together.  If we don't do this the input can
 	     * get stuck if an invalid byte sequence arrives.
 	     */
-	    inchar = getbyte(1L, &timeout);
+	    inchar = getbyte(1L, &timeout, 1);
 	    /* getbyte deliberately resets lastchar_wide_valid */
 	    lastchar_wide_valid = 1;
 	    if (inchar == EOF) {
@@ -1673,7 +1673,7 @@ addkeybuf(int c)
 static int
 getkeybuf(int w)
 {
-    int c = getbyte((long)w, NULL);
+    int c = getbyte((long)w, NULL, 1);
 
     if(c < 0)
 	return EOF;

@@ -45,8 +45,9 @@
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/pwr_mgt/IOPM.h>
+#include <IOKit/IOReporter.h>
 #include "IOHIDWorkLoop.h"
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 class IOGraphicsDevice;
 #else
 #include <IOKit/graphics/IOGraphicsDevice.h>
@@ -75,7 +76,11 @@ class IOHIDPointingDevice;
 class IOHIDEvent;
 class IOFixedPoint64;
 
+#if defined(KERNEL) && !defined(KERNEL_PRIVATE)
+class __deprecated_msg("Use DriverKit") IOHIDSystem : public IOService
+#else
 class IOHIDSystem : public IOService
+#endif
 {
 	OSDeclareDefaultStructors(IOHIDSystem);
 
@@ -133,20 +138,38 @@ private:
 	bool cursorCoupled;	// cursor positioning on pointer moves ok?
 	bool cursorPinned;	// cursor positioning on pointer moves ok?
 
-
-	// The periodic event mechanism timestamps and state
-	// are recorded here.
-    uint64_t clickTime;		// Timestamps used to determine doubleclicks
-    uint64_t clickTimeThresh;
-
-    uint64_t lastEventTime;
     uint64_t lastUndimEvent;
-    
-    uint64_t lastSetCursorTime;
-    uint64_t lastShowCursorTime;
-    uint64_t lastHideCursorTime;
-    uint64_t lastChangeCursorTime;
-    uint64_t lastMoveCursorTime;
+
+    struct SetFixedMouseLocData {
+        uint64_t    origTs;
+        uint64_t    callTs;
+        int32_t     x;
+        int32_t     y;
+        int32_t     pid;
+    } __attribute__((packed));
+
+    struct Diags {
+        /* Cursor actions slower than this are tracked for diagnostics */
+        static const uint32_t SLOW_CURSOR_MS = 20;
+        
+        typedef enum {
+            kCursorActionShow = 0,
+            kCursorActionHide,
+            kCursorActionMove,
+
+            kCursorActionCount
+        } CursorAction;
+
+        static const char * cursorStrings[kCursorActionCount];
+
+        uint64_t    cursorWorkloopTime;
+        uint64_t    lastActionTimes[kCursorActionCount];
+        uint8_t     lastCursorActionsMask;
+
+        IOHistogramReporter * cursorTotalHistReporter;
+        IOHistogramReporter * cursorGraphicsHistReporter;
+
+    } _diags;
 
     IOService       *displayManager;	// points to display manager
     IOPMPowerFlags	displayState;
@@ -176,7 +199,7 @@ private:
 private:
 
 
-  virtual IOReturn powerStateDidChangeTo( IOPMPowerFlags, unsigned long, IOService * );
+  virtual IOReturn powerStateDidChangeTo( IOPMPowerFlags, unsigned long, IOService * ) APPLE_KEXT_OVERRIDE;
   static IOReturn powerStateHandler( void *target, void *refCon,
             UInt32 messageType, IOService *service, void *messageArgument, vm_size_t argSize );
   void updatePowerState(UInt32 messageType);
@@ -263,6 +286,17 @@ private:
   static bool _cursorStateSerializerCallback(void * target, void * ref, OSSerialize *s);
   static bool _displaySerializerCallback(void * target, void * ref, OSSerialize *s);
 
+  IOReturn _recordCursorAction(uint64_t origTS, uint64_t entryTS);
+
+  virtual IOReturn configureReport(IOReportChannelList *channels,
+                                   IOReportConfigureAction action,
+                                   void *result,
+                                   void *destination) APPLE_KEXT_OVERRIDE;
+  virtual IOReturn updateReport(IOReportChannelList      *channels,
+                                IOReportUpdateAction      action,
+                                void                     *result,
+                                void                     *destination) APPLE_KEXT_OVERRIDE;
+
   void createParameters( void );
 
 /* END HISTORICAL NOTE */
@@ -273,22 +307,22 @@ public:
   static IOHIDSystem * instance();     /* Return the current instance of the */
 				       /* EventDriver, or 0 if none. */
 
-  virtual bool init(OSDictionary * properties = 0);
+  virtual bool init(OSDictionary * properties = 0) APPLE_KEXT_OVERRIDE;
   virtual IOHIDSystem * probe(IOService *    provider,
-                              SInt32 * score);
-  virtual bool start(IOService * provider);
+                              SInt32 * score) APPLE_KEXT_OVERRIDE;
+  virtual bool start(IOService * provider) APPLE_KEXT_OVERRIDE;
   virtual IOReturn message(UInt32 type, IOService * provider,
-				void * argument);
-  virtual void free();
-  virtual bool attach( IOService * provider );
-  virtual void detach( IOService * provider );
+				void * argument) APPLE_KEXT_OVERRIDE;
+  virtual void free(void) APPLE_KEXT_OVERRIDE;
+  virtual bool attach( IOService * provider ) APPLE_KEXT_OVERRIDE;
+  virtual void detach( IOService * provider ) APPLE_KEXT_OVERRIDE;
 
-  virtual IOWorkLoop *getWorkLoop() const;
+  virtual IOWorkLoop *getWorkLoop(void) const APPLE_KEXT_OVERRIDE;
 
   virtual IOReturn evOpen(void);
   virtual IOReturn evClose(void);
 
-  virtual IOReturn  setProperties( OSObject * properties );
+  virtual IOReturn  setProperties( OSObject * properties ) APPLE_KEXT_OVERRIDE;
   virtual IOReturn  setParamProperties(OSDictionary * dict);
 
   /* Create the shared memory area */
@@ -306,7 +340,7 @@ public:
                  /* withToken */ void *         security_id,
                  /* ofType */    UInt32         type,
                  /* withProps*/  OSDictionary *  properties,
-                 /* client */    IOUserClient ** handler);
+                 /* client */    IOUserClient ** handler) APPLE_KEXT_OVERRIDE;
 
 /*
  * HISTORICAL NOTE:

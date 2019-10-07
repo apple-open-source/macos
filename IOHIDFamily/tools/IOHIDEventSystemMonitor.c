@@ -75,8 +75,7 @@ boolean_t isNXEvent (IOHIDEventRef event) {
   if (IOHIDEventGetType(event) == kIOHIDEventTypeVendorDefined &&
       IOHIDEventGetIntegerValue(event, kIOHIDEventFieldVendorDefinedUsagePage) == kHIDPage_AppleVendor &&
       (usage == kHIDUsage_AppleVendor_NXEvent ||
-       usage == kHIDUsage_AppleVendor_NXEvent_Translated ||
-       usage == kHIDUsage_AppleVendor_NXEvent_Diagnostic)) {
+       usage == kHIDUsage_AppleVendor_NXEvent_Translated)) {
         return true;
       }
     return false;
@@ -929,7 +928,7 @@ static void printHelp()
     printf("\t-k <string>\t\t\t: Key to be used with -bp or -np options for setting properties\n");
     printf("\t-bp <0/1>\t\t\t: Boolean to use with -k option\n");
     printf("\t-np <number>\t\t\t: Numeric value, use with -k option\n");
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     printf("\t-nxtype <NX event type number> monitor all NX events with type\n");
     printf("\t-nxusage <NX event usage number> monitor all NX events with usage\n");
 #endif
@@ -952,7 +951,7 @@ static void printHelp()
     for (int type = kIOHIDEventTypeNULL; type<kIOHIDEventTypeCount; type++) {
         printf("\t\t%2d: %s\n", type, CFStringGetCStringPtr(IOHIDEventTypeGetName(type), kCFStringEncodingMacRoman));
     }
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     printf("\t\t%2d: %s\n", 63, "Legacy NXEvents");
     printf("\n\tAvailable NXEvent Types:\n");
     printf("\t\t%2d: %s\n", NX_NULLEVENT, "NX_NULLEVENT");
@@ -979,7 +978,6 @@ static void printHelp()
     printf("\n\tAvailable NXEvent Usages:\n");
     printf("\t\t%2d: %s\n", kHIDUsage_AppleVendor_NXEvent, "kHIDUsage_AppleVendor_NXEvent");
     printf("\t\t%2d: %s\n", kHIDUsage_AppleVendor_NXEvent_Translated, "kHIDUsage_AppleVendor_NXEvent_Translated");
-    printf("\t\t%2d: %s\n", kHIDUsage_AppleVendor_NXEvent_Diagnostic, "kHIDUsage_AppleVendor_NXEvent_Diagnostic");
 #endif
 }
 
@@ -1114,7 +1112,7 @@ int main (int argc __unused, const char * argv[] __unused)
             else if ( !strcmp("-bp", arg) ) {
                 registrationType = kEventRegistrationTypeBooleanProperty;
             }
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
             else if ( !strcmp("-nxtype", arg) ) {
               if (__nxTypeMask == -1) {
                 __nxTypeMask = 0;

@@ -81,7 +81,7 @@ fi{
         CK{"Cookinsaaret"}
         CL{"Chile"}
         CM{"Kamerun"}
-        CN{"Kiina, manner-"}
+        CN{"Kiina, Manner-"}
         CO{"Kolumbia"}
         CP{"Clippertoninsaari"}
         CR{"Costa Rica"}
@@ -183,7 +183,7 @@ fi{
         MF{"Saint-Martin"}
         MG{"Madagaskar"}
         MH{"Marshallinsaaret"}
-        MK{"Makedonia"}
+        MK{"Pohjois-Makedonia"}
         ML{"Mali"}
         MM{"Myanmar (Burma)"}
         MN{"Mongolia"}
@@ -307,8 +307,7 @@ fi{
         CI{"Côte d’Ivoire"}
         CZ{"Tšekinmaa"}
         FK{"Falklandinsaaret (Malvinassaaret)"}
-        MK{"EJT Makedonia"}
         TL{"Timor-Leste"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.42"}
 }

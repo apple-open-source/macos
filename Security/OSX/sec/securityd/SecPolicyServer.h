@@ -31,11 +31,11 @@
 #define _SECURITY_SECPOLICYSERVER_H_
 
 #include <Security/SecTrust.h>
-#include <Security/SecPolicyInternal.h>
+#include "Security/SecPolicyInternal.h"
 #include <Security/SecTrustSettings.h>
 
-#include <securityd/SecTrustServer.h>
-#include <securityd/SecCertificateServer.h>
+#include "securityd/SecTrustServer.h"
+#include "securityd/SecCertificateServer.h"
 
 __BEGIN_DECLS
 
@@ -91,7 +91,7 @@ void SecPolicyServerInitialize(void);
 
 bool SecPolicyIsEVPolicy(const DERItem *policyOID);
 
-SecTrustSettingsResult SecPVCGetTrustSettingsResult(SecPVCRef pvc, SecCertificateRef certificate, CFArrayRef constraints);
+bool SecPVCIsAnchorPerConstraints(SecPVCRef pvc, SecCertificateSourceRef source, SecCertificateRef certificate);
 
 __END_DECLS
 

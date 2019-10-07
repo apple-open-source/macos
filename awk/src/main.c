@@ -65,6 +65,7 @@ int main(int argc, char *argv[])
 	const char *fs = NULL;
 
 	setlocale(LC_CTYPE, "");
+	setlocale(LC_COLLATE, "");
 	setlocale(LC_NUMERIC, "C"); /* for parsing cmdline & prog */
 	cmdname = argv[0];
 	if (argc == 1) {

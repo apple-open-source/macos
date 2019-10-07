@@ -1,14 +1,11 @@
 #
 # Top-level Makefile for CUPS.
 #
-# Copyright 2007-2016 by Apple Inc.
-# Copyright 1997-2007 by Easy Software Products, all rights reserved.
+# Copyright © 2007-2019 by Apple Inc.
+# Copyright © 1997-2007 by Easy Software Products, all rights reserved.
 #
-# These coded instructions, statements, and computer programs are the
-# property of Apple Inc. and are protected by Federal copyright
-# law.  Distribution and use rights are outlined in the file "LICENSE.txt"
-# which should have been included with this file.  If this file is
-# missing or damaged, see the license at "http://www.cups.org/".
+# Licensed under Apache License v2.0.  See the file "LICENSE" for more
+# information.
 #
 
 include Makedefs
@@ -18,7 +15,14 @@ include Makedefs
 # Directories to make...
 #
 
-DIRS	=	cups test $(BUILDDIRS)
+DIRS	=	cups $(BUILDDIRS)
+
+
+#
+# Test suite options - normally blank, override with make command...
+#
+
+TESTOPTIONS	=
 
 
 #
@@ -98,16 +102,14 @@ distclean:	clean
 	$(RM) Makedefs config.h config.log config.status
 	$(RM) conf/cups-files.conf conf/cupsd.conf conf/mime.convs conf/pam.std conf/snmp.conf
 	$(RM) cups-config
-	$(RM) data/testprint
 	$(RM) desktop/cups.desktop
 	$(RM) doc/index.html
-	$(RM) man/client.conf.man man/cups-files.conf.man man/cups-lpd.man man/cups-snmp.man man/cupsaddsmb.man man/cupsd.conf.man man/cupsd.man man/lpoptions.man
 	$(RM) packaging/cups.list
 	$(RM) scheduler/cups-lpd.xinetd scheduler/cups.sh scheduler/cups.xml scheduler/org.cups.cups-lpd.plist scheduler/org.cups.cups-lpdAT.service scheduler/org.cups.cupsd.path scheduler/org.cups.cupsd.service scheduler/org.cups.cupsd.socket
 	$(RM) templates/header.tmpl
 	-$(RM) doc/*/index.html
 	-$(RM) templates/*/header.tmpl
-	-$(RM) -r autom4te*.cache clang cups/charmaps cups/locale
+	-$(RM) -r autom4te*.cache cups/charmaps cups/locale
 
 
 #
@@ -119,25 +121,6 @@ depend:
 		echo Making dependencies in $$dir... ;\
 		(cd $$dir; $(MAKE) $(MFLAGS) depend) || exit 1;\
 	done
-
-
-#
-# Run the Clang static code analysis tool on the sources, available here:
-#
-#    http://clang-analyzer.llvm.org
-#
-# At least checker-231 is required.
-#
-# Alternatively, use "--analyze -Xanalyzer -analyzer-output=text" for OPTIM (text
-# output instead of HTML...)
-#
-
-.PHONY: clang clang-changes
-clang:
-	$(RM) -r clang
-	scan-build -V -k -o `pwd`/clang $(MAKE) $(MFLAGS) clean all
-clang-changes:
-	scan-build -V -k -o `pwd`/clang $(MAKE) $(MFLAGS) all
 
 
 #
@@ -249,7 +232,7 @@ uninstall:
 
 test:	all unittests
 	echo Running CUPS test suite...
-	cd test; ./run-stp-tests.sh
+	cd test; ./run-stp-tests.sh $(TESTOPTIONS)
 
 
 check:	all unittests
@@ -262,7 +245,7 @@ debugcheck:	all unittests
 
 
 #
-# Create HTML documentation using Mini-XML's mxmldoc (http://www.msweet.org/)...
+# Create HTML documentation using codedoc (http://www.msweet.org/codedoc)...
 #
 
 apihelp:
@@ -270,32 +253,6 @@ apihelp:
 		echo Generating API help in $$dir... ;\
 		(cd $$dir; $(MAKE) $(MFLAGS) apihelp) || exit 1;\
 	done
-
-
-#
-# Create an Xcode docset using Mini-XML's mxmldoc (http://www.msweet.org/)...
-#
-
-docset:	apihelp
-	echo Generating docset directory tree...
-	$(RM) -r org.cups.docset
-	mkdir -p org.cups.docset/Contents/Resources/Documentation/help
-	mkdir -p org.cups.docset/Contents/Resources/Documentation/images
-	cd man; $(MAKE) $(MFLAGS) html
-	cd doc; $(MAKE) $(MFLAGS) docset
-	cd cgi-bin; $(MAKE) $(MFLAGS) makedocset
-	cgi-bin/makedocset org.cups.docset \
-		`svnversion . | sed -e '1,$$s/[a-zA-Z]//g'` \
-		doc/help/api-*.tokens
-	$(RM) doc/help/api-*.tokens
-	echo Indexing docset...
-	/Applications/Xcode.app/Contents/Developer/usr/bin/docsetutil index org.cups.docset
-	echo Generating docset archive and feed...
-	$(RM) org.cups.docset.atom
-	/Applications/Xcode.app/Contents/Developer/usr/bin/docsetutil package --output org.cups.docset.xar \
-		--atom org.cups.docset.atom \
-		--download-url http://www.cups.org/org.cups.docset.xar \
-		org.cups.docset
 
 
 #

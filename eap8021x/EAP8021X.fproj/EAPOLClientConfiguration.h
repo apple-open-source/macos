@@ -29,14 +29,15 @@
  * - EAPOL client configuration API
  */
 
+#include <TargetConditionals.h>
+#include <os/availability.h>
 #include <stdint.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFPropertyList.h>
-#include <Security/SecIdentity.h>
+#include <Security/Security.h>
 #include <Security/Authorization.h>
-#include <TargetConditionals.h>
 #include <sys/cdefs.h>
 
 typedef struct __EAPOLClientConfiguration * EAPOLClientConfigurationRef;
@@ -217,7 +218,7 @@ EAPOLClientItemIDRemovePasswordItem(EAPOLClientItemIDRef itemID,
  *   NULL otherwise.
  */
 SecIdentityRef
-EAPOLClientItemIDCopyIdentity(EAPOLClientItemIDRef itemID, 
+EAPOLClientItemIDCopyIdentity(EAPOLClientItemIDRef itemID,
 			      EAPOLClientDomain domain);
 
 /*
@@ -426,7 +427,7 @@ CFArrayRef /* of EAPOLClientProfileRef */
 EAPOLClientConfigurationCopyMatchingProfiles(EAPOLClientConfigurationRef cfg,
 					     EAPOLClientProfileRef profile);
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 /*
  * Function: EAPOLClientConfigurationCopyLoginWindowProfiles
  *
@@ -570,7 +571,7 @@ EAPOLClientConfigurationCopyAllLoginWindowProfiles(EAPOLClientConfigurationRef
 						   cfg);
 
 
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
 /*
  * Function: EAPOLClientConfigurationGetDefaultAuthenticationProperties

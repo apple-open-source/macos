@@ -40,11 +40,11 @@ public:
     
     void                unlock();
     
-    void                free();
+    void                free(void) APPLE_KEXT_OVERRIDE;
 
 protected:
     
-    void                setWorkLoop(IOWorkLoop * inWorkLoop);
+    void                setWorkLoop(IOWorkLoop * inWorkLoop) APPLE_KEXT_OVERRIDE;
 
 };
 

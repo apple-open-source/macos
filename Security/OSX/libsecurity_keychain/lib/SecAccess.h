@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2002-2004,2011,2014 Apple Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -97,11 +97,11 @@ extern const CFStringRef kSecACLAuthorizationKeychainItemModify
 	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 extern const CFStringRef kSecACLAuthorizationKeychainItemDelete
 	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
-	
-extern const CFStringRef kSecACLAuthorizationChangeACL 
-	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+
+extern const CFStringRef kSecACLAuthorizationChangeACL
+	__OSX_AVAILABLE_STARTING(__MAC_10_13_4, __IPHONE_NA);
 extern const CFStringRef kSecACLAuthorizationChangeOwner
-	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+	__OSX_AVAILABLE_STARTING(__MAC_10_13_4, __IPHONE_NA);
 extern const CFStringRef kSecACLAuthorizationPartitionID
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_NA);
 extern const CFStringRef kSecACLAuthorizationIntegrity
@@ -127,7 +127,7 @@ CFTypeID SecAccessGetTypeID(void);
 	@param accessRef On return, a pointer to the new access reference.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecAccessCreate(CFStringRef descriptor, CFArrayRef __nullable trustedlist, SecAccessRef * __nonnull CF_RETURNS_RETAINED accessRef) API_UNAVAILABLE(ios);
+OSStatus SecAccessCreate(CFStringRef descriptor, CFArrayRef __nullable trustedlist, SecAccessRef * __nonnull CF_RETURNS_RETAINED accessRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
 	@function SecAccessCreateFromOwnerAndACL
@@ -140,8 +140,8 @@ OSStatus SecAccessCreate(CFStringRef descriptor, CFArrayRef __nullable trustedli
 	@discussion For 10.7 and later please use the SecAccessCreateWithOwnerAndACL API
 */
 OSStatus SecAccessCreateFromOwnerAndACL(const CSSM_ACL_OWNER_PROTOTYPE *owner, uint32 aclCount, const CSSM_ACL_ENTRY_INFO *acls, SecAccessRef * __nonnull CF_RETURNS_RETAINED accessRef)
-	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
-	
+	CSSM_DEPRECATED;
+
 /*!
 	@function SecAccessCreateWithOwnerAndACL
 	@abstract Creates a new SecAccessRef using either for a user or a group with a list of ACLs
@@ -167,8 +167,8 @@ SecAccessRef SecAccessCreateWithOwnerAndACL(uid_t userId, gid_t groupId, SecAcce
 	@discussion For 10.7 and later please use the SecAccessCopyOwnerAndACL API
  */
 OSStatus SecAccessGetOwnerAndACL(SecAccessRef accessRef, CSSM_ACL_OWNER_PROTOTYPE_PTR __nullable * __nonnull owner, uint32 *aclCount, CSSM_ACL_ENTRY_INFO_PTR __nullable * __nonnull acls)
-	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
-	
+	CSSM_DEPRECATED;
+
 /*!
 	@function SecAccessCopyOwnerAndACL
 	@abstract Retrieves the owner and the access control list of a given access.
@@ -178,7 +178,7 @@ OSStatus SecAccessGetOwnerAndACL(SecAccessRef accessRef, CSSM_ACL_OWNER_PROTOTYP
 	@param ownerType On return, the type of owner for this AccessRef
 	@param aclList On return, a pointer to a new created CFArray of SecACL instances.  The caller is responsible for calling CFRelease on this array.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
- */	
+ */
 OSStatus SecAccessCopyOwnerAndACL(SecAccessRef accessRef, uid_t * __nullable userId, gid_t * __nullable groupId, SecAccessOwnerType * __nullable ownerType, CFArrayRef * __nullable CF_RETURNS_RETAINED aclList)
 	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 
@@ -189,7 +189,7 @@ OSStatus SecAccessCopyOwnerAndACL(SecAccessRef accessRef, uid_t * __nullable use
 	@param aclList On return, a pointer to a new created CFArray of SecACL instances.  The caller is responsible for calling CFRelease on this array.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecAccessCopyACLList(SecAccessRef accessRef, CFArrayRef * __nonnull CF_RETURNS_RETAINED aclList) API_UNAVAILABLE(ios);
+OSStatus SecAccessCopyACLList(SecAccessRef accessRef, CFArrayRef * __nonnull CF_RETURNS_RETAINED aclList) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
 	@function SecAccessCopySelectedACLList
@@ -201,7 +201,7 @@ OSStatus SecAccessCopyACLList(SecAccessRef accessRef, CFArrayRef * __nonnull CF_
 	@discussion For 10.7 and later please use the SecAccessCopyMatchingACLList API
 */
 OSStatus SecAccessCopySelectedACLList(SecAccessRef accessRef, CSSM_ACL_AUTHORIZATION_TAG action, CFArrayRef * __nonnull CF_RETURNS_RETAINED aclList)
-	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+	CSSM_DEPRECATED;
 
 
 /*!

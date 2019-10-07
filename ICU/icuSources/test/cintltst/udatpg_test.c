@@ -43,6 +43,7 @@ static void TestUsage(void);
 static void TestBuilder(void);
 static void TestOptions(void);
 static void TestGetFieldDisplayNames(void);
+static void TestJapaneseCalendarItems(void); // rdar://52042600
 
 void addDateTimePatternGeneratorTest(TestNode** root) {
     TESTCASE(TestOpenClose);
@@ -50,6 +51,7 @@ void addDateTimePatternGeneratorTest(TestNode** root) {
     TESTCASE(TestBuilder);
     TESTCASE(TestOptions);
     TESTCASE(TestGetFieldDisplayNames);
+    TESTCASE(TestJapaneseCalendarItems);
 }
 
 /*
@@ -513,6 +515,46 @@ static void TestGetFieldDisplayNames() {
             }
             udatpg_close(dtpgen);
         }
+    }
+}
+
+enum { kUFmtMax = 64, kBFmtMax = 128 };
+static void TestJapaneseCalendarItems(void) { // rdar://52042600
+    static const UChar* jaJpnCalSkelAndFmt[][2] = {
+        { u"yMd",          u"GGGGGy/MM/dd" },
+        { u"GGGGGyMd",     u"GGGGGy/MM/dd" },
+        { u"GyMd",         u"GGGGGy/MM/dd" },
+        { u"yyMMdd",       u"GGGGGy/MM/dd" },
+        //{ u"GGGGGyyMMdd",  u"GGGGGy/MM/dd" },
+        { u"GyyMMdd",      u"GGGGGy/MM/dd" },
+        { u"yyMMEdd",      u"GGGGGy/MM/dd(EEE)" },
+        { u"GGGGGyyMMEdd", u"GGGGGy/MM/dd(EEE)" },
+        { u"yyMEdjmma",    u"GGGGGy/MM/dd(EEE) H:mm" },
+        { NULL, NULL }
+    };
+    UErrorCode status = U_ZERO_ERROR;
+    UDateTimePatternGenerator* udatpg = udatpg_open("ja@calendar=japanese", &status);
+    if ( U_FAILURE(status) ) {
+        log_data_err("FAIL udatpg_open failed for locale ja@calendar=japanese : %s\n", myErrorName(status));
+    } else {
+        int32_t idx;
+        for (idx = 0; jaJpnCalSkelAndFmt[idx][0] != NULL; idx++) {
+            UChar uget[kUFmtMax];
+            char  bskel[kBFmtMax];
+            status = U_ZERO_ERROR;
+            u_strToUTF8(bskel, kBFmtMax, NULL, jaJpnCalSkelAndFmt[idx][0], -1, &status);
+            int32_t ulen = udatpg_getBestPattern(udatpg, jaJpnCalSkelAndFmt[idx][0], -1, uget, kUFmtMax, &status);
+            if ( U_FAILURE(status) ) {
+                log_data_err("FAIL udatpg_getBestPattern status for skeleton %s : %s\n", bskel);
+            } else if (u_strcmp(uget,jaJpnCalSkelAndFmt[idx][1]) != 0) {
+                char  bexp[kBFmtMax];
+                char  bget[kBFmtMax];
+                u_strToUTF8(bexp, kBFmtMax, NULL, jaJpnCalSkelAndFmt[idx][1], -1, &status);
+                u_strToUTF8(bget, kBFmtMax, NULL, uget, ulen, &status);
+                log_data_err("ERROR udatpg_getBestPattern for skeleton %s, expect %s, get %s\n", bskel, bexp, bget);
+            }
+        }
+        udatpg_close(udatpg);
     }
 }
 

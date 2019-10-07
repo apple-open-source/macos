@@ -43,7 +43,6 @@
 #include <libgen.h>
 #include <libproc.h>
 
-#include "arch.h"
 #include <mach/mach.h>
 #include <mach/machine.h>
 #include <sys/sysctl.h>
@@ -52,7 +51,6 @@
 #include <IOKit/IOKitLib.h>
 
 #include <System/sys/csr.h>
-#include <TargetConditionals.h>
 
 typedef struct dtrace_cmd {
 	void (*dc_func)(struct dtrace_cmd *);	/* function to compile arg */
@@ -111,7 +109,7 @@ static const char *g_script_name = NULL;
 static FILE *g_ofp = NULL;
 static dtrace_hdl_t *g_dtp;
 
-static io_registry_entry_t registry_entry = NULL;
+static io_registry_entry_t registry_entry = 0;
 
 static int
 usage(FILE *fp)
@@ -167,38 +165,6 @@ usage(FILE *fp)
 	    "\t-Z  permit probe descriptions that match zero probes\n");
 
 	return (E_USAGE);
-}
-
-static cpu_type_t current_kernel_arch(void)
-{
-        struct host_basic_info  hi;
-        unsigned int            size;
-        kern_return_t           kret;
-        cpu_type_t                                current_arch;
-        int                                                ret, mib[4];
-        size_t                                        len;
-        struct kinfo_proc                kp;
-        
-        size = sizeof(hi)/sizeof(int);
-        kret = host_info(mach_host_self(), HOST_BASIC_INFO, (host_info_t)&hi, &size);
-        if (kret != KERN_SUCCESS) {
-                return 0;
-        }
-        current_arch = hi.cpu_type;
-        /* Now determine if the kernel is running in 64-bit mode */
-        mib[0] = CTL_KERN;
-        mib[1] = KERN_PROC;
-        mib[2] = KERN_PROC_PID;
-        mib[3] = 0; /* kernproc, pid 0 */
-        len = sizeof(kp);
-        ret = sysctl(mib, sizeof(mib)/sizeof(mib[0]), &kp, &len, NULL, 0);
-        if (ret == -1) {
-                return 0;
-        }
-        if (kp.kp_proc.p_flag & P_LP64) {
-                current_arch |= CPU_ARCH_ABI64;
-        }
-        return current_arch;
 }
 
 static void
@@ -448,6 +414,7 @@ static int
 info_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
     dtrace_stmtdesc_t *stp, dtrace_ecbdesc_t **last)
 {
+#pragma unused(pgp)
 	dtrace_ecbdesc_t *edp = stp->dtsd_ecbdesc;
 	dtrace_probedesc_t *pdp = &edp->dted_probe;
 	dtrace_probeinfo_t p;
@@ -524,11 +491,10 @@ static void
 dof_prune_all(void)
 {
 	CFTypeRef value;
-	CFDataRef data;
 	CFStringRef key_str;
 	int i;
 
-	assert(registry_entry != NULL);
+	assert(registry_entry != 0);
 
 	for (i = 0;; i++) {
 		key_str = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("dof-data-%d"), i);
@@ -549,7 +515,7 @@ anon_prog(const dtrace_cmd_t *dcp, dof_hdr_t *dof, int n)
 	CFStringRef key_str;
 	kern_return_t kr;
 
-	assert(registry_entry != NULL);
+	assert(registry_entry != 0);
 
 	if (NULL == dof) {
 		dof_prune_all();
@@ -579,6 +545,7 @@ anon_prog(const dtrace_cmd_t *dcp, dof_hdr_t *dof, int n)
 static int
 list_probe(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp, void *arg)
 {
+#pragma unused(arg)
 	dtrace_probeinfo_t p;
 	char funcname[DTRACE_FUNCNAMELEN + DTRACE_FUNCNAMELEN + 4];
 	char *filtFunc = demangleSymbolCString((const char *)pdp->dtpd_func);
@@ -605,6 +572,7 @@ static int
 list_stmt(dtrace_hdl_t *dtp, dtrace_prog_t *pgp,
     dtrace_stmtdesc_t *stp, dtrace_ecbdesc_t **last)
 {
+#pragma unused(pgp)
 	dtrace_ecbdesc_t *edp = stp->dtsd_ecbdesc;
 
 	if (edp == *last)
@@ -677,18 +645,19 @@ compile_str(dtrace_cmd_t *dcp)
 static void
 prochandler(struct ps_prochandle *P, const char *msg, void *arg)
 {
+#pragma unused(arg)
 #define SIG2STR_MAX 32 /* Not referenced so long as prp just below is NULL. */
 #define proc_signame(x,y,z) "Unknown" /* Not referenced so long as prp just below is NULL. */
 	typedef struct psinfo { int pr_wstat; } psinfo_t;
 	const psinfo_t *prp = NULL;
-	int pid = Pstatus(P)->pr_pid;
+	int pid = dtrace_proc_status(g_dtp, P)->pr_pid;
 
 	if (msg != NULL) {
 		notice("pid %d: %s\n", pid, msg);
 		return;
 	}
 
-	switch (Pstate(P)) {
+	switch (dtrace_proc_state(g_dtp, P)) {
 	case PS_UNDEAD:
 		/*
 		 * Ideally we would like to always report pr_wstat here, but it
@@ -725,6 +694,7 @@ prochandler(struct ps_prochandle *P, const char *msg, void *arg)
 static int
 errhandler(const dtrace_errdata_t *data, void *arg)
 {
+#pragma unused(arg)
 	error(data->dteda_msg);
 	return (DTRACE_HANDLE_OK);
 }
@@ -733,6 +703,7 @@ errhandler(const dtrace_errdata_t *data, void *arg)
 static int
 drophandler(const dtrace_dropdata_t *data, void *arg)
 {
+#pragma unused(arg)
 	error(data->dtdda_msg);
 	return (DTRACE_HANDLE_OK);
 }
@@ -741,6 +712,7 @@ drophandler(const dtrace_dropdata_t *data, void *arg)
 static int
 setopthandler(const dtrace_setoptdata_t *data, void *arg)
 {
+#pragma unused(arg)
 	if (strcmp(data->dtsda_option, "quiet") == 0)
 		g_quiet = data->dtsda_newval != DTRACEOPT_UNSET;
 
@@ -756,16 +728,16 @@ setopthandler(const dtrace_setoptdata_t *data, void *arg)
 #define	BUFDUMPSTR(ptr, field) \
 	(void) printf("%s: %20s => ", g_pname, #field);	\
 	if ((ptr)->field != NULL) {			\
-		const char *c = (ptr)->field;		\
+		const char *ch = (ptr)->field;		\
 		(void) printf("\"");			\
 		do {					\
-			if (*c == '\n') {		\
+			if (*ch == '\n') {		\
 				(void) printf("\\n");	\
 				continue;		\
 			}				\
 							\
-			(void) printf("%c", *c);	\
-		} while (*c++ != '\0');			\
+			(void) printf("%c", *ch);	\
+		} while (*ch++ != '\0');			\
 		(void) printf("\"\n");			\
 	} else {					\
 		(void) printf("<NULL>\n");		\
@@ -786,6 +758,7 @@ setopthandler(const dtrace_setoptdata_t *data, void *arg)
 static int
 bufhandler(const dtrace_bufdata_t *bufdata, void *arg)
 {
+#pragma unused(arg)
 	const dtrace_aggdata_t *agg = bufdata->dtbda_aggdata;
 	const dtrace_recdesc_t *rec = bufdata->dtbda_recdesc;
 	const dtrace_probedesc_t *pd;
@@ -901,6 +874,7 @@ bufhandler(const dtrace_bufdata_t *bufdata, void *arg)
 static int
 chewrec(const dtrace_probedata_t *data, const dtrace_recdesc_t *rec, void *arg)
 {
+#pragma unused(arg)
 	dtrace_actkind_t act;
 	uintptr_t addr;
 
@@ -930,6 +904,7 @@ chewrec(const dtrace_probedata_t *data, const dtrace_recdesc_t *rec, void *arg)
 static int
 chew(const dtrace_probedata_t *data, void *arg)
 {
+#pragma unused(arg)
 	dtrace_probedesc_t *pd = data->dtpda_pdesc;
 	processorid_t cpu = data->dtpda_cpu;
 	static int heading;
@@ -994,14 +969,14 @@ go(void)
 		char *optname;
 		dtrace_optval_t val;
 	} bufs[] = {
-		{ "buffer size", "bufsize" },
-		{ "aggregation size", "aggsize" },
-		{ "speculation size", "specsize" },
-		{ "dynamic variable size", "dynvarsize" },
-		{ NULL }
+		{ "buffer size", "bufsize", 0 },
+		{ "aggregation size", "aggsize", 0 },
+		{ "speculation size", "specsize", 0 },
+		{ "dynamic variable size", "dynvarsize", 0 },
+		{ NULL, NULL, 0 }
 	}, rates[] = {
-		{ "cleaning rate", "cleanrate" },
-		{ "status rate", "statusrate" },
+		{ "cleaning rate", "cleanrate", 0 },
+		{ "status rate", "statusrate", 0 },
 		{ NULL }
 	};
 
@@ -1111,6 +1086,7 @@ set_sched_policy() {
 static void
 intr(int signo)
 {
+#pragma unused(signo)
 	if (!g_intr)
 		g_newline = 1;
 
@@ -1133,7 +1109,6 @@ main(int argc, char *argv[])
 	struct ps_prochandle *P;
 	pid_t pid;
 	int cc, k;
-	cpu_type_t target_arch = CPU_TYPE_ANY;
 
 	// This assignment can no longer be done staticly, that causes a compiler error.
 	g_ofp = stdout;
@@ -1192,13 +1167,14 @@ main(int argc, char *argv[])
 				if (0 == strcmp(optarg, "rch")) {
 					if (optind < argc && '-' != argv[optind][0]) {
 						const char* arch_string = argv[optind++];
-						target_arch = arch_for_string(arch_string);
-						if(!target_arch) {
+						cpu_type_t arch = dtrace_str2arch(arch_string);
+						if (arch == 0) {
 							(void) fprintf(stderr,
 								"%s: invalid architecture -- %s\n",
 								argv[0], arch_string);
 							return usage(stderr);
 						}
+						g_oflags |= (arch & CPU_ARCH_ABI64) ? DTRACE_O_LP64 : DTRACE_O_ILP32;
 					}
 					else
 					{
@@ -1216,11 +1192,11 @@ main(int argc, char *argv[])
 				break;
 
 			case 'A':
-#if !TARGET_OS_EMBEDDED
+#if DTRACE_TARGET_APPLE_MAC
 				if (csr_check(CSR_ALLOW_UNRESTRICTED_DTRACE) != 0 && csr_check(CSR_ALLOW_APPLE_INTERNAL) != 0) {
 					fatal("system integrity protection restricts the use of anonymous tracing");
 				}
-#endif
+#endif /* DTRACE_TARGET_APPLE_MAC */
 				g_mode = DMODE_ANON;
 				g_exec = 0;
 				mode++;
@@ -1314,26 +1290,11 @@ main(int argc, char *argv[])
 	if (g_mode == DMODE_VERS)
 		return (printf("%s: %s\n", g_pname, _dtrace_version) <= 0);
 
-#if !TARGET_OS_EMBEDDED
+#if DTRACE_TARGET_APPLE_MAC
 	if (g_mode != DMODE_HEADER && csr_check(CSR_ALLOW_UNRESTRICTED_DTRACE) != 0) {
 		notice("system integrity protection is on, some features will not be available\n");
 	}
-#endif
-
-	/*
-	 * D compiler target_arch is current_kernel_arch() by default.
-	 * Can be set explicitly by "-arch".
-	 */
-    cpu_type_t compiler_arch = (target_arch == CPU_TYPE_ANY) ? current_kernel_arch() : target_arch;
-    
-    if(compiler_arch & CPU_ARCH_ABI64) {
-		g_oflags &= ~DTRACE_O_ILP32;
-		g_oflags |= DTRACE_O_LP64;
-	}
-	else {
-		g_oflags &= ~DTRACE_O_LP64;
-		g_oflags |= DTRACE_O_ILP32;
-	}
+#endif /* DTRACE_TARGET_APPLE_MAC */
 
 	/*
 	 * Open libdtrace.  If we are not actually going to be enabling any
@@ -1354,7 +1315,6 @@ main(int argc, char *argv[])
 	(void) dtrace_setopt(g_dtp, "temporal", "yes");
 
 	(void) dtrace_setopt(g_dtp, "stacksymbols", "enabled");
-	(void) dtrace_setopt(g_dtp, "arch", string_for_arch(target_arch));
 
 	/*
 	 * If -G is specified, enable -xlink=dynamic and -xunodefs to permit
@@ -1394,7 +1354,8 @@ main(int argc, char *argv[])
 			switch (c) {
 			case 'a':
 				if (0 == strcmp(optarg, "rch")) {
-					optind++;
+					if (dtrace_setopt(g_dtp, "arch", argv[optind++]) != 0)
+						dfatal("failed to set -arch");
 				}
 				else
 				{
@@ -1436,7 +1397,7 @@ main(int argc, char *argv[])
 				break;
 
 			case 'h':
-				(void) dtrace_setopt(g_dtp, "nolibs", NULL); /* In case /usr/lib/dtrace/* is broken, -h can succeed. */
+				(void) dtrace_setopt(g_dtp, "nolibs", NULL); /* In case /usr/lib/dtrace/ is broken, -h can succeed. */
 
 			case 'H':
 				if (dtrace_setopt(g_dtp, "cpphdrs", 0) != 0)
@@ -1695,7 +1656,7 @@ main(int argc, char *argv[])
 
 	case DMODE_ANON:
 		registry_entry = IORegistryEntryFromPath(kIOMasterPortDefault, "IODeviceTree:/options");
-		if (registry_entry == NULL) {
+		if (registry_entry == 0) {
 			error("nvram is not supported on this system\n");
 			dtrace_close(g_dtp);
 			return (g_status);

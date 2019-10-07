@@ -24,17 +24,17 @@
 #include <libDER/oids.h>
 #include <Security/oidscert.h>
 
-#include "SecTrust.h"
-#include "SecTrustPriv.h"
+#include <Security/SecTrust.h>
+#include <Security/SecTrustPriv.h>
 #include "Trust.h"
-#include "SecBase.h"
+#include <Security/SecBase.h>
 #include "SecBridge.h"
-#include "SecInternal.h"
-#include "SecTrustSettings.h"
-#include "SecTrustSettingsPriv.h"
-#include "SecTrustStatusCodes.h"
-#include "SecCertificatePriv.h"
-#include "SecPolicyPriv.h"
+#include <Security/SecInternal.h>
+#include <Security/SecTrustSettings.h>
+#include <Security/SecTrustSettingsPriv.h>
+#include <Security/SecTrustStatusCodes.h>
+#include <Security/SecCertificatePriv.h>
+#include <Security/SecPolicyPriv.h>
 #include <security_utilities/cfutilities.h>
 #include <security_utilities/cfmunge.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -182,98 +182,24 @@ static uint8_t convertCssmResultToPriority(CSSM_RETURN resultCode) {
     }
 }
 
-static bool isSoftwareUpdateDevelopment(SecTrustRef trust) {
-    bool isPolicy = false, isEKU = false;
-    CFArrayRef policies = NULL;
-
-    /* Policy used to evaluate was SWUpdateSigning */
-    SecTrustCopyPolicies(trust, &policies);
-    if (policies) {
-        SecPolicyRef swUpdatePolicy = SecPolicyCreateAppleSWUpdateSigning();
-        if (swUpdatePolicy && CFArrayContainsValue(policies, CFRangeMake(0, CFArrayGetCount(policies)),
-                                                   swUpdatePolicy)) {
-            isPolicy = true;
-        }
-        if (swUpdatePolicy) { CFRelease(swUpdatePolicy); }
-        CFRelease(policies);
-    }
-    if (!isPolicy) {
-        return false;
-    }
-
-    /* Only error was EKU on the leaf */
-    CFArrayRef details = SecTrustCopyFilteredDetails(trust);
-    CFIndex ix, count = CFArrayGetCount(details);
-    bool hasDisqualifyingError = false;
-    for (ix = 0; ix < count; ix++) {
-        CFDictionaryRef detail = (CFDictionaryRef)CFArrayGetValueAtIndex(details, ix);
-        if (ix == 0) { // Leaf
-            if (CFDictionaryGetCount(detail) != 1 || // One error
-                CFDictionaryGetValue(detail, CFSTR("ExtendedKeyUsage")) != kCFBooleanFalse) { // kSecPolicyCheckExtendedKeyUsage
-                hasDisqualifyingError = true;
-                break;
-            }
-        } else {
-            if (CFDictionaryGetCount(detail) > 0) { // No errors on other certs
-                hasDisqualifyingError = true;
-                break;
-            }
-        }
-    }
-    CFReleaseSafe(details);
-    if (hasDisqualifyingError) {
-        return false;
-    }
-
-    /* EKU on the leaf is the Apple Development Code Signing OID */
-    SecCertificateRef leaf = SecTrustGetCertificateAtIndex(trust, 0);
-    CSSM_DATA *fieldValue = NULL;
-    if (errSecSuccess != SecCertificateCopyFirstFieldValue(leaf, &CSSMOID_ExtendedKeyUsage, &fieldValue)) {
-        return false;
-    }
-    if (fieldValue && fieldValue->Data && fieldValue->Length == sizeof(CSSM_X509_EXTENSION)) {
-        const CSSM_X509_EXTENSION *ext = (const CSSM_X509_EXTENSION *)fieldValue->Data;
-        if (ext->format == CSSM_X509_DATAFORMAT_PARSED) {
-            const CE_ExtendedKeyUsage *ekus = (const CE_ExtendedKeyUsage *)ext->value.parsedValue;
-            if (ekus && (ekus->numPurposes == 1) && ekus->purposes[0].Data &&
-                (ekus->purposes[0].Length == CSSMOID_APPLE_EKU_CODE_SIGNING_DEV.Length) &&
-                (memcmp(ekus->purposes[0].Data, CSSMOID_APPLE_EKU_CODE_SIGNING_DEV.Data,
-                        ekus->purposes[0].Length) == 0)) {
-                isEKU = true;
-            }
-        }
-    }
-    SecCertificateReleaseFirstFieldValue(leaf, &CSSMOID_ExtendedKeyUsage, fieldValue);
-    return isEKU;
-}
-
 //
 // Retrieve CSSM_LEVEL TP return code
 //
 /* OS X only: __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2, __MAC_10_7, __IPHONE_NA, __IPHONE_NA) */
 OSStatus SecTrustGetCssmResultCode(SecTrustRef trustRef, OSStatus *result)
 {
-	/* bridge to support old functionality */
+    /* bridge to support old functionality */
 #if SECTRUST_DEPRECATION_WARNINGS
     syslog(LOG_ERR, "WARNING: SecTrustGetCssmResultCode has been deprecated since 10.7, and will be removed in a future release. Please use SecTrustCopyProperties instead.");
 #endif
-	if (!trustRef || !result) {
-		return errSecParam;
-	}
+    if (!trustRef || !result) {
+        return errSecParam;
+    }
 
     SecTrustResultType trustResult = kSecTrustResultInvalid;
     (void) SecTrustGetTrustResult(trustRef, &trustResult);
     if (trustResult == kSecTrustResultProceed || trustResult == kSecTrustResultUnspecified) {
         if (result) { *result = 0; }
-        return errSecSuccess;
-    }
-
-    /* Development Software Update certs return a special error code when evaluated
-     * against the AppleSWUpdateSigning policy. See <rdar://27362805>. */
-    if (isSoftwareUpdateDevelopment(trustRef)) {
-        if (result) {
-            *result = CSSMERR_APPLETP_CODE_SIGN_DEVELOPMENT;
-        }
         return errSecSuccess;
     }
 
@@ -299,10 +225,10 @@ OSStatus SecTrustGetCssmResultCode(SecTrustRef trustRef, OSStatus *result)
         if (resultCodePriority == 1) { break; }
     }
 
-	if (result) {
-		*result = cssmResultCode;
-	}
-	return errSecSuccess;
+    if (result) {
+        *result = cssmResultCode;
+    }
+    return errSecSuccess;
 }
 
 /* OS X only: __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2, __MAC_10_7, __IPHONE_NA, __IPHONE_NA) */
@@ -374,7 +300,12 @@ out:
 	END_SECAPI
 }
 
-/* We have an iOS-style SecTrustRef, but we need to return a CDSA-based SecKeyRef.
+/*
+ * We have an iOS-style SecTrustRef, but we need to return a CDSA-based SecKeyRef.
+ *
+ * If you need a SecKeyRef based of the iOS based SecKey, check certificate chain
+ * length, get certificate with SecTrustGetCertificateAtIndex(0), use
+ * SecCertificateCopyKey() to get a iOS based key.
  */
 SecKeyRef SecTrustCopyPublicKey(SecTrustRef trust)
 {

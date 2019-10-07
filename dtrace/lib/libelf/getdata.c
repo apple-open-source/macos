@@ -27,8 +27,6 @@
 /*	Copyright (c) 1988 AT&T	*/
 /*	  All Rights Reserved  	*/
 
-#pragma ident	"@(#)getdata.c	1.23	08/05/31 SMI"
-
 #include <stdlib.h>
 #include <assert.h>
 #include <errno.h>
@@ -63,10 +61,6 @@ static const size_t	align32[ELF_T_NUM] =
 	sizeof (Elf64),		/* ELF_T_XWORD */
 	sizeof (Elf32_Half), 	/* ELF_T_SYMINFO */
 	sizeof (Elf32),		/* ELF_T_NOTE */
-	sizeof (Elf32_Lword),	/* ELF_T_MOVE */
-	sizeof (Elf32_Lword),	/* ELF_T_MOVEP */
-	sizeof (Elf32_Word)	/* ELF_T_CAP */
-
 };
 
 #define	Nalign32	(sizeof (align32)/sizeof (align32[0]))
@@ -92,9 +86,6 @@ static const size_t	align64[ELF_T_NUM] =
 	sizeof (Elf64),		/* ELF_T_XWORD */
 	sizeof (Elf32_Half), 	/* ELF_T_SYMINFO */
 	sizeof (Elf32),		/* ELF_T_NOTE */
-	sizeof (Elf64),		/* ELF_T_MOVE */
-	sizeof (Elf64),		/* ELF_T_MOVEP */
-	sizeof (Elf64_Word)	/* ELF_T_CAP */
 };
 
 #define	Nalign64	(sizeof (align64)/sizeof (align64[0]))
@@ -119,6 +110,7 @@ _elf_locked_getdata(Elf_Scn * scn, Elf_Data * data)
 
 	assert(!elf_threaded || RW_LOCK_HELD(&(scn->s_elf->ed_rwlock)));
 	assert(!elf_threaded || MUTEX_HELD(&(scn->s_mutex)));
+
 	elf = scn->s_elf;
 
 	if ((scn->s_myflags & SF_READY) == 0) {

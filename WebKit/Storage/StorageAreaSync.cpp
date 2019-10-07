@@ -28,11 +28,11 @@
 #include "StorageAreaImpl.h"
 #include "StorageSyncManager.h"
 #include "StorageTracker.h"
-#include <WebCore/FileSystem.h>
 #include <WebCore/SQLiteDatabaseTracker.h>
 #include <WebCore/SQLiteStatement.h>
 #include <WebCore/SQLiteTransaction.h>
 #include <WebCore/SuddenTermination.h>
+#include <wtf/FileSystem.h>
 #include <wtf/MainThread.h>
 
 using namespace WebCore;
@@ -347,7 +347,7 @@ void StorageAreaSync::performImport()
         return;
     }
 
-    m_storageArea->importItems(itemMap);
+    m_storageArea->importItems(WTFMove(itemMap));
 
     markImported();
 }

@@ -18,7 +18,7 @@ int n_token;
 int handled = 0;
 
 void post_notification(char * msg, int should_handle) {
-    int i, loops = 100;
+    int i, loops = 5000;   //5000*10 = 50,000 = 50ms
 
     // Post notification
     handled = UNHANDLED;

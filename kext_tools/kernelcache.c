@@ -9,6 +9,7 @@
 
 #include "kernelcache.h"
 #include "compression.h"
+#include "bootcaches.h"
 
 #if EMBEDDED_HOST
 size_t lzvn_encode(void *       dst,
@@ -33,6 +34,8 @@ size_t lzvn_encode_work_size(void);
 #include <IOKit/kext/OSKext.h>
 #include <IOKit/kext/OSKextPrivate.h>
 #include <libgen.h> // dirname()
+#include <errno.h>
+#include <string.h> // strerror()
 
 /*******************************************************************************
 *******************************************************************************/
@@ -45,7 +48,7 @@ writeFatFile(
              const struct timeval        fileTimes[2])
 {
     ExitStatus        result               = EX_SOFTWARE;
-    
+
     result = writeFatFileWithValidation(filePath,
                                         FALSE,
                                         0,
@@ -54,7 +57,7 @@ writeFatFile(
                                         fileArchs,
                                         fileMode,
                                         fileTimes);
-    
+
     return result;
 }
 
@@ -93,15 +96,15 @@ writeFatFileWithValidation(
     char              to_base_name[64];
     char *            to_base_name_ptr      = &to_base_name[0];
     size_t            to_base_name_size     = 0;
-    
+
     /* Make the temporary file */
-    
+
     strlcpy(tmpPath, filePath, sizeof(tmpPath));
     if (strlcat(tmpPath, ".XXXX", sizeof(tmpPath)) >= sizeof(tmpPath)) {
         OSKextLogStringError(/* kext */ NULL);
         goto finish;
     }
-    
+
     fileDescriptor = mkstemp(tmpPath);
     if (-1 == fileDescriptor) {
         OSKextLog(/* kext */ NULL,
@@ -110,71 +113,71 @@ writeFatFileWithValidation(
                   tmpPath, strerror(errno));
         goto finish;
     }
-    
+
     /* Set the file's permissions */
-    
+
     /* Set the umask to get it, then set it back to iself. Wish there were a
      * better way to query it.
      */
     procMode = umask(0);
     umask(procMode);
-    
+
     if (-1 == fchmod(fileDescriptor, fileMode & ~procMode)) {
         OSKextLog(/* kext */ NULL,
                   kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
                   "Can't set permissions on %s - %s.",
                   tmpPathPtr, strerror(errno));
     }
-    
+
     /* Write out the fat headers even if there's only one arch so we know what
      * arch a compressed prelinked kernel belongs to.
      */
-    
+
     numArchs = (int)CFArrayGetCount(fileArchs);
     fatHeader.magic = OSSwapHostToBigInt32(FAT_MAGIC);
     fatHeader.nfat_arch = OSSwapHostToBigInt32(numArchs);
-    
+
     result = writeToFile(fileDescriptor, (const UInt8 *)&fatHeader,
                          sizeof(fatHeader));
     if (result != EX_OK) {
         goto finish;
     }
-    
+
     fatOffset = sizeof(struct fat_header) +
     (sizeof(struct fat_arch) * numArchs);
-    
+
     for (i = 0; i < numArchs; i++) {
         targetArch = CFArrayGetValueAtIndex(fileArchs, i);
         sliceData = CFArrayGetValueAtIndex(fileSlices, i);
         sliceLength = (uint32_t)CFDataGetLength(sliceData);
-        
+
         fatArch.cputype = OSSwapHostToBigInt32(targetArch->cputype);
         fatArch.cpusubtype = OSSwapHostToBigInt32(targetArch->cpusubtype);
         fatArch.offset = OSSwapHostToBigInt32(fatOffset);
         fatArch.size = OSSwapHostToBigInt32(sliceLength);
         fatArch.align = OSSwapHostToBigInt32(0);
-        
+
         result = writeToFile(fileDescriptor,
                              (UInt8 *)&fatArch, sizeof(fatArch));
         if (result != EX_OK) {
             goto finish;
         }
-        
+
         fatOffset += sliceLength;
     }
-    
+
     /* Write out the file slices */
     for (i = 0; i < numArchs; i++) {
         sliceData = CFArrayGetValueAtIndex(fileSlices, i);
         sliceDataPtr = CFDataGetBytePtr(sliceData);
         sliceLength = (uint32_t)CFDataGetLength(sliceData);
-        
+
         result = writeToFile(fileDescriptor, sliceDataPtr, sliceLength);
         if (result != EX_OK) {
             goto finish;
         }
     }
-    
+
     from_base_name_size = strlen(basename((char *)tmpPathPtr)) + 1;
     if (from_base_name_size > sizeof(from_base_name)) {
         from_base_name_ptr = malloc(from_base_name_size);
@@ -194,7 +197,7 @@ writeFatFileWithValidation(
                   dirname((char *)tmpPathPtr), strerror(errno));
         goto finish;
     }
-    
+
     to_base_name_size = strlen(basename((char *)filePath)) + 1;
     if (to_base_name_size > sizeof(to_base_name)) {
         to_base_name_ptr = malloc(to_base_name_size);
@@ -214,7 +217,7 @@ writeFatFileWithValidation(
                   dirname((char *)filePath), strerror(errno));
         goto finish;
     }
-    
+
     if (doValidation) {
         /* check to make sure our target path has not changed */
         if (isSameFileDevAndIno(to_dir_fd,
@@ -230,13 +233,13 @@ writeFatFileWithValidation(
             goto finish;
         }
     }
-    
+
     /* Move the file to its final path */
     OSKextLog(/* kext */ NULL,
               kOSKextLogDebugLevel | kOSKextLogFileAccessFlag,
               "Renaming temp file '%s' to '%s' ",
               from_base_name_ptr, to_base_name_ptr);
-    
+
     if (renameat(from_dir_fd, from_base_name_ptr,
                  to_dir_fd, to_base_name_ptr) != 0) {
         OSKextLog(/* kext */ NULL,
@@ -247,16 +250,16 @@ writeFatFileWithValidation(
         goto finish;
     }
     tmpPathPtr = NULL;
-    
+
     /* Update the file's mod time if necessary */
     if (utimes(filePath, fileTimes)) {
         OSKextLog(/* kext */ NULL,
                   kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
                   "Can't update mod time of %s - %s.", filePath, strerror(errno));
     }
-    
+
 finish:
-    
+
     if (fileDescriptor >= 0) (void)close(fileDescriptor);
     if (tmpPathPtr) unlink(tmpPathPtr);
     if (from_dir_fd != -1) {
@@ -271,7 +274,7 @@ finish:
     if (to_base_name_ptr != NULL && to_base_name_ptr != &to_base_name[0]) {
         free(to_base_name_ptr);
     }
-    
+
     return result;
 }
 
@@ -281,14 +284,29 @@ void *
 mapAndSwapFatHeaderPage(
     int fileDescriptor)
 {
-    void              * result          = NULL; 
+    void              * result          = NULL;
     void              * headerPage      = NULL;  // must unmapFatHeaderPage()
     struct fat_header * fatHeader       = NULL;  // do not free
     struct fat_arch   * fatArch         = NULL;  // do not free
+    struct stat         sb              = {};
+
+    if (fstat(fileDescriptor, &sb)) {
+        OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                "Failed to stat file header page: %d (%s)", errno, strerror(errno));
+        goto finish;
+    }
+
+    /* mmap will happily lie if the file is there, but smaller than a page. */
+    if (sb.st_size < PAGE_SIZE) {
+        OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                "Prelinked kernel looks invalid (smaller than a page?)");
+        goto finish;
+    }
 
     /* Map the first page to read the fat headers. */
-
-    headerPage = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, 
+    headerPage = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
         MAP_FILE | MAP_PRIVATE, fileDescriptor, 0);
     if (MAP_FAILED == headerPage) {
         OSKextLog(/* kext */ NULL,
@@ -313,7 +331,7 @@ mapAndSwapFatHeaderPage(
     headerPage = NULL;
 
 finish:
-    if (headerPage) unmapFatHeaderPage(headerPage);
+    if (headerPage && headerPage != MAP_FAILED) unmapFatHeaderPage(headerPage);
 
     return result;
 }
@@ -351,7 +369,7 @@ finish:
 *******************************************************************************/
 struct fat_arch *
 getNextFatArch(
-    u_char *headerPage, 
+    u_char *headerPage,
     struct fat_arch *prevArch)
 {
     struct fat_header * fatHeader       = NULL;
@@ -381,7 +399,7 @@ finish:
 *******************************************************************************/
 struct fat_arch *
 getFatArchForArchInfo(
-    u_char *headerPage, 
+    u_char *headerPage,
     const NXArchInfo *archInfo)
 {
     struct fat_header * fatHeader       = NULL;
@@ -394,7 +412,7 @@ getFatArchForArchInfo(
     }
 
     fatArch = (struct fat_arch *)(&fatHeader[1]);
-    fatArch = NXFindBestFatArch(archInfo->cputype, archInfo->cpusubtype, 
+    fatArch = NXFindBestFatArch(archInfo->cputype, archInfo->cpusubtype,
         fatArch, fatHeader->nfat_arch);
 
 finish:
@@ -403,7 +421,7 @@ finish:
 
 /*******************************************************************************
 *******************************************************************************/
-const NXArchInfo * 
+const NXArchInfo *
 getThinHeaderPageArch(
     const void *headerPage)
 {
@@ -434,7 +452,7 @@ getThinHeaderPageArch(
 
     if (is32Bit) {
         machHdr64 = NULL;
-        result = NXGetArchInfoFromCpuType(machHdr->cputype, 
+        result = NXGetArchInfoFromCpuType(machHdr->cputype,
             machHdr->cpusubtype);
     } else {
         machHdr = NULL;
@@ -455,18 +473,18 @@ readFatFileArchsWith_fd(
 {
     ExitStatus          result          = EX_SOFTWARE;
     void              * headerPage      = NULL;         // must unmapFatHeaderPage()
-    
+
     /* Map the fat headers in */
-    
+
     headerPage = mapAndSwapFatHeaderPage(the_fd);
     if (!headerPage) {
         goto finish;
     }
-    
+
     result = readFatFileArchsWithHeader(headerPage, archsOut);
 finish:
     if (headerPage) unmapFatHeaderPage(headerPage);
-    
+
     return result;
 }
 
@@ -480,26 +498,26 @@ readFatFileArchsWithPath(
     ExitStatus          result          = EX_SOFTWARE;
     void              * headerPage      = NULL;         // must unmapFatHeaderPage()
     int                 fileDescriptor  = 0;            // must close()
-    
+
     /* Open the file. */
-    
+
     fileDescriptor = open(filePath, O_RDONLY);
     if (fileDescriptor < 0) {
         goto finish;
     }
-    
+
     /* Map the fat headers in */
-    
+
     headerPage = mapAndSwapFatHeaderPage(fileDescriptor);
     if (!headerPage) {
         goto finish;
     }
-    
+
     result = readFatFileArchsWithHeader(headerPage, archsOut);
 finish:
     if (fileDescriptor >= 0) close(fileDescriptor);
     if (headerPage) unmapFatHeaderPage(headerPage);
-    
+
     return result;
 }
 
@@ -611,38 +629,38 @@ readMachOSlicesWith_fd(
     u_char            * fileBuf         = NULL;         // must free
     void              * headerPage      = NULL;         // must unmapFatHeaderPage()
     struct fat_arch   * fatArch         = NULL;         // do not free
-    
+
     /* Create an array to hold the fat slices */
-    
+
     if (!createCFMutableArray(&fileSlices, &kCFTypeArrayCallBacks))
     {
         OSKextLogMemError();
         result = EX_OSERR;
         goto finish;
     }
-    
+
     if (fstat(the_fd, &statBuf)) {
         goto finish;
     }
-    
+
     /* Map the fat headers in */
-    
+
     headerPage = mapAndSwapFatHeaderPage(the_fd);
     if (!headerPage) {
         goto finish;
     }
-    
+
     /* If the file is fat, read the slices into separate objects.  If not,
      * read the whole file into one large slice.
      */
-    
+
     fatArch = getFirstFatArch(headerPage);
     if (fatArch) {
         while (fatArch) {
             sliceData = readMachOSlice(the_fd,
                                        fatArch->offset, fatArch->size);
             if (!sliceData) goto finish;
-            
+
             CFArrayAppendValue(fileSlices, sliceData);
             fatArch = getNextFatArch(headerPage, fatArch);
             CFRelease(sliceData); // drop ref from readMachOSlice()
@@ -651,19 +669,19 @@ readMachOSlicesWith_fd(
     } else {
         sliceData = readMachOSlice(the_fd, 0, (size_t)statBuf.st_size);
         if (!sliceData) goto finish;
-        
+
         CFArrayAppendValue(fileSlices, sliceData);
     }
-    
+
     if (archsOut) {
         result = readFatFileArchsWithHeader(headerPage, &fileArchs);
         if (result != EX_OK) {
             goto finish;
         }
-        
+
         if (!fileArchs) archsOut = NULL;
     }
-    
+
     result = EX_OK;
     if (slicesOut) *slicesOut = (CFMutableArrayRef) CFRetain(fileSlices);
     if (archsOut) *archsOut = (CFMutableArrayRef) CFRetain(fileArchs);
@@ -672,28 +690,28 @@ readMachOSlicesWith_fd(
         TIMESPEC_TO_TIMEVAL(&machOTimesOut[0], &statBuf.st_atimespec);
         TIMESPEC_TO_TIMEVAL(&machOTimesOut[1], &statBuf.st_mtimespec);
     }
-    
+
 finish:
     SAFE_RELEASE(fileSlices);
     SAFE_RELEASE(fileArchs);
     SAFE_RELEASE(sliceData);
     SAFE_FREE(fileBuf);
     if (headerPage) unmapFatHeaderPage(headerPage);
-    
+
     return result;
 }
 
 /*******************************************************************************
 *******************************************************************************/
-CFDataRef 
+CFDataRef
 readMachOSliceForArch(
     const char        * filePath,
     const NXArchInfo  * archInfo,
     Boolean             checkArch)
-{   
+{
     CFDataRef           result          = NULL; // must release
     int                 fileDescriptor  = 0;    // must close()
- 
+
     /* Open the file */
 
     fileDescriptor = open(filePath, O_RDONLY);
@@ -726,18 +744,18 @@ readMachOSliceForArchWith_fd(
     off_t               fileSliceOffset = 0;
     size_t              fileSliceSize   = 0;
     struct stat statBuf;
-    
+
     /* Map the fat headers in */
-    
+
     headerPage = mapAndSwapFatHeaderPage(the_fd);
     if (!headerPage) {
         goto finish;
     }
-    
+
     /* Find the slice for the target architecture */
-    
+
     fatHeader = (struct fat_header *)headerPage;
-    
+
     if (archInfo && fatHeader->magic == FAT_MAGIC) {
         fatArch = NXFindBestFatArch(archInfo->cputype, archInfo->cpusubtype,
                                     (struct fat_arch *)(&fatHeader[1]), fatHeader->nfat_arch);
@@ -748,28 +766,28 @@ readMachOSliceForArchWith_fd(
                       archInfo->name);
             goto finish;
         }
-        
+
         fileSliceOffset = fatArch->offset;
         fileSliceSize = fatArch->size;
     } else {
         if (fstat(the_fd, &statBuf)) {
             goto finish;
         }
-        
+
         fileSliceOffset = 0;
         fileSliceSize = (size_t)statBuf.st_size;
     }
-    
+
     /* Read the file */
-    
+
     fileData = readMachOSlice(the_fd, fileSliceOffset,
                               fileSliceSize);
     if (!fileData) {
         goto finish;
     }
-    
+
     /* Verify that the file is of the right architecture */
-    
+
     if (checkArch) {
         if (verifyMachOIsArch(CFDataGetBytePtr(fileData),
                               fileSliceSize, archInfo))
@@ -777,19 +795,19 @@ readMachOSliceForArchWith_fd(
             goto finish;
         }
     }
-    
+
     result = CFRetain(fileData);
-    
+
 finish:
     SAFE_RELEASE(fileData);
     if (headerPage) unmapFatHeaderPage(headerPage);
-    
+
     return result;
 }
 
 /*******************************************************************************
 *******************************************************************************/
-CFDataRef 
+CFDataRef
 readMachOSlice(
     int         fileDescriptor,
     off_t       fileOffset,
@@ -836,7 +854,7 @@ readMachOSlice(
 
     /* Wrap the file slice in a CFData object */
 
-    fileData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, 
+    fileData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
             (UInt8 *) fileBuf, fileSliceSize, kCFAllocatorMalloc);
     if (!fileData) {
         goto finish;
@@ -851,9 +869,9 @@ finish:
 
 /*******************************************************************************
 *******************************************************************************/
-int 
+int
 verifyMachOIsArch(
-    const UInt8      * fileBuf, 
+    const UInt8      * fileBuf,
     size_t             size,
     const NXArchInfo * archInfo)
 {
@@ -872,7 +890,7 @@ verifyMachOIsArch(
     }
 
     if (checkHeader->magic == MH_MAGIC_64 || checkHeader->magic == MH_CIGAM_64) {
-        struct mach_header_64 *machHeader = 
+        struct mach_header_64 *machHeader =
             (struct mach_header_64 *) fileBuf;
 
         if (size < sizeof(*machHeader)) {
@@ -882,7 +900,7 @@ verifyMachOIsArch(
         cputype = machHeader->cputype;
         if (checkHeader->magic == MH_CIGAM_64) cputype = OSSwapInt32(cputype);
     } else if (checkHeader->magic == MH_MAGIC || checkHeader->magic == MH_CIGAM) {
-        struct mach_header *machHeader = 
+        struct mach_header *machHeader =
             (struct mach_header *) fileBuf;
 
         if (size < sizeof(*machHeader)) {
@@ -909,7 +927,7 @@ finish:
 
 /*********************************************************************
  *********************************************************************/
-CFDataRef 
+CFDataRef
 uncompressPrelinkedSlice(
     CFDataRef      prelinkImage)
 {
@@ -928,7 +946,7 @@ uncompressPrelinkedSlice(
     if (prelinkHeader->signature != OSSwapHostToBigInt32('comp')) {
         OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
-                "Compressed prelinked kernel has invalid signature: 0x%x.", 
+                "Compressed prelinked kernel has invalid signature: 0x%x.",
                 prelinkHeader->signature);
         goto finish;
     }
@@ -941,7 +959,7 @@ uncompressPrelinkedSlice(
                   prelinkHeader->compressType);
         goto finish;
     }
-    
+
     /* Create a buffer to hold the uncompressed kernel.
      */
     bufsize = OSSwapBigToHostInt32(prelinkHeader->uncompressedSize);
@@ -976,7 +994,7 @@ uncompressPrelinkedSlice(
     else {
         goto finish;
     }
-    
+
     if (uncompsize != bufsize) {
         OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
@@ -1003,7 +1021,7 @@ finish:
 
 /*********************************************************************
  *********************************************************************/
-CFDataRef 
+CFDataRef
 compressPrelinkedSlice(
                        uint32_t            compressionType,
                        CFDataRef           prelinkImage,
@@ -1022,7 +1040,7 @@ compressPrelinkedSlice(
 
     /* Check that the kernel is not already compressed */
 
-    kernelHeaderIn = (const PrelinkedKernelHeader *) 
+    kernelHeaderIn = (const PrelinkedKernelHeader *)
         CFDataGetBytePtr(prelinkImage);
     if (kernelHeaderIn->signature == OSSwapHostToBigInt('comp')) {
         OSKextLog(/* kext */ NULL,
@@ -1039,7 +1057,7 @@ compressPrelinkedSlice(
     if (!compressedImage) {
         goto finish;
     }
-    
+
     /* We have to call CFDataSetLength explicitly to get CFData to allocate
      * its internal buffer.
      */
@@ -1060,14 +1078,14 @@ compressPrelinkedSlice(
     adler32 = local_adler32((u_int8_t *)CFDataGetBytePtr(prelinkImage),
             (int)CFDataGetLength(prelinkImage));
     kernelHeader->adler32 = OSSwapHostToBigInt32(adler32);
-    kernelHeader->uncompressedSize = 
+    kernelHeader->uncompressedSize =
         OSSwapHostToBigInt32(CFDataGetLength(prelinkImage));
 
     /* Compress the kernel */
     if (compressionType == COMP_TYPE_FASTLIB) {
         size_t outSize = 0;
         void * work_space = malloc(lzvn_encode_work_size());
-        
+
         if (work_space != NULL) {
             kernelHeader->compressType = OSSwapHostToBigInt32(COMP_TYPE_FASTLIB);
             outSize = lzvn_encode(buf + offset,
@@ -1093,7 +1111,7 @@ compressPrelinkedSlice(
                   "Unrecognized compression algorithm.");
         goto finish;
     }
-    
+
     if (!bufend) {
         OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
@@ -1104,7 +1122,7 @@ compressPrelinkedSlice(
     compsize = bufend - (buf + offset);
     kernelHeader->compressedSize = OSSwapHostToBigInt32(compsize);
     CFDataSetLength(compressedImage, bufend - buf);
-    
+
     result = CFRetain(compressedImage);
 
 finish:
@@ -1143,7 +1161,7 @@ writePrelinkedSymbols(
             saveDirURL = CFRetain(symbolDirURL);
         } else {
             saveDirURL = CFURLCreateFromFileSystemRepresentationRelativeToBase(
-                kCFAllocatorDefault, (const UInt8 *) archInfo->name, 
+                kCFAllocatorDefault, (const UInt8 *) archInfo->name,
                 strlen(archInfo->name), /* isDirectory */ true, symbolDirURL);
             if (!saveDirURL) {
                 goto finish;
@@ -1157,7 +1175,7 @@ writePrelinkedSymbols(
 
         saveFileContext.saveDirURL = saveDirURL;
 
-        CFDictionaryApplyFunction(sliceSymbols, &saveFile, 
+        CFDictionaryApplyFunction(sliceSymbols, &saveFile,
             &saveFileContext);
         if (saveFileContext.fatal) {
             goto finish;
@@ -1167,7 +1185,7 @@ writePrelinkedSymbols(
 
 finish:
     SAFE_RELEASE(saveDirURL);
-        
+
     return result;
 }
 
@@ -1186,7 +1204,7 @@ makeDirectoryWithURL(
     }
 
     if (!CFURLGetFileSystemRepresentation(dirURL, /* resolveToBase */ true,
-            (UInt8 *)dirPath, sizeof(dirPath))) 
+            (UInt8 *)dirPath, sizeof(dirPath)))
     {
         goto finish;
     }
@@ -1203,7 +1221,7 @@ makeDirectoryWithURL(
     if (result == 0 || errno != ENOENT) {
         goto finish;
     }
-    
+
     result = mkdir(dirPath, 0755);
     if (result != 0) {
         goto finish;
@@ -1253,7 +1271,7 @@ size_t lzvn_encode_work_size(void)
     return 0;
 }
 
-#else 
+#else
 
 Boolean supportsFastLibCompression(void)
 {

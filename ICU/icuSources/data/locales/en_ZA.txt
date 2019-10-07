@@ -15,7 +15,7 @@ en_ZA{
             }
         }
     }
-    Version{"2.1.38.69"}
+    Version{"2.1.47.70"}
     calendar{
         generic{
             DateTimePatterns{
@@ -38,6 +38,11 @@ en_ZA{
                 MMMEd{"E, dd MMM"}
                 MMMd{"dd MMM"}
                 Md{"MM/dd"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                hmsv{"h:mm:ss a v"}
+                hmv{"h:mm a v"}
                 yyyyMEd{"E, G y/MM/dd"}
                 yyyyMMMEd{"E, dd MMM y G"}
                 yyyyMMMd{"dd MMM y G"}

@@ -20,48 +20,20 @@
  */
 
 /*
- * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+ * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
-
-#pragma ident	"@(#)baddof.c	1.1	06/08/28 SMI"
 
 #include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
-#include <sys/varargs.h>
 #include <errno.h>
 #include <math.h>
-
-#define	DTRACE_VERSION	1
-
-typedef struct dtrace_hdl dtrace_hdl_t;
-typedef struct dtrace_prog dtrace_prog_t;
-typedef struct dtrace_vector dtrace_vector_t;
-typedef int64_t dtrace_aggvarid_t;
-
-#define	DTRACEIOC		(('d' << 24) | ('t' << 16) | ('r' << 8))
-#define	DTRACEIOC_ENABLE	(DTRACEIOC | 6)		/* enable probes */
-
-extern dtrace_hdl_t *dtrace_open(int, int, int *);
-extern dtrace_prog_t *dtrace_program_fcompile(dtrace_hdl_t *,
-    FILE *, uint_t, int, char *const []);
-extern void *dtrace_program_dof(dtrace_hdl_t *, dtrace_prog_t *, uint_t);
-
-#define	DOF_ID_SIZE	16	/* total size of dofh_ident[] in bytes */
-
-typedef struct dof_hdr {
-	uint8_t dofh_ident[DOF_ID_SIZE]; /* identification bytes (see below) */
-	uint32_t dofh_flags;		/* file attribute flags (if any) */
-	uint32_t dofh_hdrsize;		/* size of file header in bytes */
-	uint32_t dofh_secsize;		/* size of section header in bytes */
-	uint32_t dofh_secnum;		/* number of section headers */
-	uint64_t dofh_secoff;		/* file offset of section headers */
-	uint64_t dofh_loadsz;		/* file size of loadable portion */
-	uint64_t dofh_filesz;		/* file size of entire DOF file */
-	uint64_t dofh_pad;		/* reserved for future use */
-} dof_hdr_t;
+#include <stdarg.h>
+#include <dtrace.h>
+#include <unistd.h>
+#include <strings.h>
 
 void
 fatal(char *fmt, ...)
@@ -128,7 +100,7 @@ again:
 		printf("enabled %d probes; resetting device.\n", ttl);
 		close(fd);
 
-		new = open("/devices/pseudo/dtrace@0:dtrace", O_RDWR);
+		new = open("/dev/dtrace", O_RDWR);
 
 		if (new == -1)
 			fatal("couldn't open DTrace pseudo device");
@@ -180,7 +152,7 @@ again:
 	}
 }
 
-void
+int
 main(int argc, char **argv)
 {
 	char *filename = argv[1];
@@ -190,7 +162,7 @@ main(int argc, char **argv)
 	FILE *fp;
 	unsigned char *dof, *copy;
 
-	if (argc < 1)
+	if (argc < 2)
 		fatal("expected D script as argument\n");
 
 	if ((fp = fopen(filename, "r")) == NULL)
@@ -212,7 +184,7 @@ main(int argc, char **argv)
 		    dtrace_errmsg(dtp, dtrace_errno(dtp)));
 	}
 
-	dof = dtrace_program_dof(dtp, pgp, 0);
+	dof = dtrace_dof_create(dtp, pgp, 0);
 	len = ((dof_hdr_t *)dof)->dofh_loadsz;
 
 	if ((copy = malloc(len)) == NULL)
@@ -223,7 +195,7 @@ main(int argc, char **argv)
 		/*
 		 * Open another instance of the dtrace device.
 		 */
-		fd = open("/devices/pseudo/dtrace@0:dtrace", O_RDWR);
+		fd = open("/dev/dtrace", O_RDWR);
 
 		if (fd == -1)
 			fatal("couldn't open DTrace pseudo device");
@@ -231,4 +203,7 @@ main(int argc, char **argv)
 		corrupt(fd, copy, len);
 		close(fd);
 	}
+
+	/* NOTREACHED */
+	return (0);
 }

@@ -28,6 +28,9 @@
 #include "IOHIDLibPrivate.h"
 #include "IOHIDDevice.h"
 #include "IOHIDQueue.h"
+#include <AssertMacros.h>
+#include <os/assumes.h>
+#include <dispatch/private.h>
 
 static IOHIDQueueRef    __IOHIDQueueCreate(
                                     CFAllocatorRef          allocator, 
@@ -38,17 +41,27 @@ static void             __IOHIDQueueValueAvailableCallback(
                                 void *                          context,
                                 IOReturn                        result,
                                 void *                          sender);
-
+static Boolean          __IOHIDQueueSetupAsyncSupport(IOHIDQueueRef queue);
 
 typedef struct __IOHIDQueue
 {
     IOHIDObjectBase                 hidBase;
 
     IOHIDDeviceQueueInterface**     queueInterface;
+    IOCFPlugInInterface**           deviceInterface;
     
-    CFTypeRef                       asyncEventSource;
+    CFRunLoopSourceRef              asyncEventSource;
+    CFRunLoopSourceContext1         sourceContext;
+    CFMachPortRef                   queuePort;
+    
     CFRunLoopRef                    asyncRunLoop;
     CFStringRef                     asyncRunLoopMode;
+    
+    dispatch_queue_t                dispatchQueue;
+    dispatch_mach_t                 dispatchMach;
+    dispatch_block_t                cancelHandler;
+    
+    _Atomic uint32_t                dispatchStateMask;
 
     IOHIDDeviceRef                  device;
     CFMutableDictionaryRef          callbackDictionary;
@@ -68,7 +81,8 @@ static const IOHIDObjectClass __IOHIDQueueClass = {
         NULL,                       // copyFormattingDesc
         NULL,                       // copyDebugDesc
         NULL,                       // reclaim
-        _IOHIDObjectExtRetainCount  // refcount
+        _IOHIDObjectExtRetainCount, // refcount
+        NULL                        // requiredAlignment
     },
     _IOHIDObjectIntRetainCount,
     __IOHIDQueueIntRelease
@@ -103,26 +117,19 @@ IOHIDQueueRef __IOHIDQueueCreate(
 //------------------------------------------------------------------------------
 // __IOHIDQueueExtRelease
 //------------------------------------------------------------------------------
-void __IOHIDQueueExtRelease( CFTypeRef object __unused )
-{
-    
-}
-
-//------------------------------------------------------------------------------
-// __IOHIDQueueIntRelease
-//------------------------------------------------------------------------------
-void __IOHIDQueueIntRelease( CFTypeRef object )
+void __IOHIDQueueExtRelease( CFTypeRef object )
 {
     IOHIDQueueRef queue = (IOHIDQueueRef)object;
+    
+    if (queue->dispatchQueue) {
+        // enforce the call to activate/cancel
+        os_assert(queue->dispatchStateMask == (kIOHIDDispatchStateActive | kIOHIDDispatchStateCancelled),
+                  "Invalid dispatch state: 0x%x", queue->dispatchStateMask);
+    }
     
     if ( queue->elements ) {
         CFRelease(queue->elements);
         queue->elements = NULL;
-    }
-    
-    if ( queue->queueInterface ) {
-        (*queue->queueInterface)->Release(queue->queueInterface);
-        queue->queueInterface = NULL;
     }
     
     if ( queue->device ) {
@@ -132,6 +139,24 @@ void __IOHIDQueueIntRelease( CFTypeRef object )
     if ( queue->callbackDictionary ) {
         CFRelease(queue->callbackDictionary);
         queue->callbackDictionary = NULL;
+    }
+}
+
+//------------------------------------------------------------------------------
+// __IOHIDQueueIntRelease
+//------------------------------------------------------------------------------
+void __IOHIDQueueIntRelease(CFTypeRef object)
+{
+    IOHIDQueueRef queue = (IOHIDQueueRef)object;
+    
+    if (queue->queueInterface) {
+        (*queue->queueInterface)->Release(queue->queueInterface);
+        queue->queueInterface = NULL;
+    }
+    
+    if (queue->deviceInterface) {
+        (*queue->deviceInterface)->Release(queue->deviceInterface);
+        queue->deviceInterface = NULL;
     }
 }
 
@@ -208,6 +233,9 @@ IOHIDQueueRef IOHIDQueueCreate(
     queue->queueInterface   = queueInterface;
     /* 9254987 - device is retained by our caller */
     queue->device           = device;
+    queue->deviceInterface  = deviceInterface;
+    
+    (*queue->deviceInterface)->AddRef(queue->deviceInterface);
     
     (*queue->queueInterface)->setDepth(queue->queueInterface, depth, options);
     
@@ -311,6 +339,38 @@ void IOHIDQueueStop(            IOHIDQueueRef                   queue)
 }
 
 //------------------------------------------------------------------------------
+// __IOHIDQueueSetupAsyncSupport
+//------------------------------------------------------------------------------
+Boolean __IOHIDQueueSetupAsyncSupport(IOHIDQueueRef queue)
+{
+    IOReturn                    ret             = kIOReturnError;
+    CFTypeRef                   asyncSource     = NULL;
+    Boolean                     result          = false;
+    CFRunLoopSourceContext1     sourceContext   = { 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+    
+    // we've already been scheduled
+    os_assert(!queue->asyncRunLoop && !queue->dispatchQueue, "Queue already scheduled");
+    
+    require_action(!queue->asyncEventSource, exit, result = true);
+    
+    ret = (*queue->queueInterface)->getAsyncEventSource(queue->queueInterface, &asyncSource);
+    
+    require(ret == kIOReturnSuccess && asyncSource, exit);
+    queue->asyncEventSource = (CFRunLoopSourceRef)asyncSource;
+    
+    CFRunLoopSourceGetContext(queue->asyncEventSource, (CFRunLoopSourceContext *)&sourceContext);
+    queue->sourceContext = sourceContext;
+    
+    queue->queuePort = (CFMachPortRef)queue->sourceContext.info;
+    require(queue->queuePort, exit);
+    
+    result = true;
+    
+exit:
+    return result;
+}
+
+//------------------------------------------------------------------------------
 // IOHIDQueueScheduleWithRunLoop
 //------------------------------------------------------------------------------
 void IOHIDQueueScheduleWithRunLoop(
@@ -318,29 +378,12 @@ void IOHIDQueueScheduleWithRunLoop(
                                 CFRunLoopRef                    runLoop, 
                                 CFStringRef                     runLoopMode)
 {
-    if ( !queue->asyncEventSource) {
-        IOReturn ret;
-        
-        ret = (*queue->queueInterface)->getAsyncEventSource(
-                                                    queue->queueInterface,
-                                                    &queue->asyncEventSource);
-        
-        if (ret != kIOReturnSuccess || !queue->asyncEventSource)
-            return;
-    }
+    os_assert(__IOHIDQueueSetupAsyncSupport(queue));
 
     queue->asyncRunLoop     = runLoop;
     queue->asyncRunLoopMode = runLoopMode;
 
-    if (CFGetTypeID(queue->asyncEventSource) == CFRunLoopSourceGetTypeID())
-        CFRunLoopAddSource( queue->asyncRunLoop, 
-                            (CFRunLoopSourceRef)queue->asyncEventSource, 
-                            queue->asyncRunLoopMode);
-    else if (CFGetTypeID(queue->asyncEventSource) == CFRunLoopTimerGetTypeID())
-        CFRunLoopAddTimer(  queue->asyncRunLoop, 
-                            (CFRunLoopTimerRef)queue->asyncEventSource, 
-                            queue->asyncRunLoopMode);
-
+	CFRunLoopAddSource(queue->asyncRunLoop, queue->asyncEventSource, queue->asyncRunLoopMode);
 }
 
 //------------------------------------------------------------------------------
@@ -348,23 +391,108 @@ void IOHIDQueueScheduleWithRunLoop(
 //------------------------------------------------------------------------------
 void IOHIDQueueUnscheduleFromRunLoop(  
                                 IOHIDQueueRef                   queue, 
-                                CFRunLoopRef                    runLoop, 
-                                CFStringRef                     runLoopMode)
+                                CFRunLoopRef                    runLoop __unused,
+                                CFStringRef                     runLoopMode __unused)
 {
-    if ( !queue->asyncEventSource )
+    if (!queue->asyncRunLoop) {
         return;
-        
-    if (CFGetTypeID(queue->asyncEventSource) == CFRunLoopSourceGetTypeID())
-        CFRunLoopRemoveSource(  runLoop, 
-                                (CFRunLoopSourceRef)queue->asyncEventSource, 
-                                runLoopMode);
-    else if (CFGetTypeID(queue->asyncEventSource) == CFRunLoopTimerGetTypeID())
-        CFRunLoopRemoveTimer(   runLoop, 
-                                (CFRunLoopTimerRef)queue->asyncEventSource, 
-                                runLoopMode);
-                                
-    queue->asyncRunLoop     = NULL;
+    }
+    
+    CFRunLoopRemoveSource(queue->asyncRunLoop, queue->asyncEventSource, queue->asyncRunLoopMode);
+    
+    queue->asyncRunLoop = NULL;
     queue->asyncRunLoopMode = NULL;
+}
+
+//------------------------------------------------------------------------------
+// IOHIDQueueSetDispatchQueue
+//------------------------------------------------------------------------------
+void IOHIDQueueSetDispatchQueue(IOHIDQueueRef queue, dispatch_queue_t dispatchQueue)
+{
+    os_assert(__IOHIDQueueSetupAsyncSupport(queue));
+    
+    queue->dispatchQueue = dispatch_queue_create_with_target("IOHIDQueueDispatchQueue", DISPATCH_QUEUE_SERIAL, dispatchQueue);
+    require(queue->dispatchQueue, exit);
+    
+    _IOHIDObjectInternalRetain(queue);
+    queue->dispatchMach = dispatch_mach_create("IOHIDQueueDispatchMach", queue->dispatchQueue,
+                                               ^(dispatch_mach_reason_t reason,
+                                                 dispatch_mach_msg_t message,
+                                                 mach_error_t error __unused) {
+        switch (reason) {
+            case DISPATCH_MACH_MESSAGE_RECEIVED: {
+                size_t size = 0;
+                mach_msg_header_t *header = dispatch_mach_msg_get_msg(message, &size);
+                
+                // this will call into queueEventSourceCallback in IOHIDQueueClass
+                ((CFRunLoopSourceContext1*)&queue->sourceContext)->perform(header, size, NULL, queue->queuePort);
+                break;
+            }
+            case DISPATCH_MACH_CANCELED: {
+                dispatch_release(queue->dispatchMach);
+                queue->dispatchMach = NULL;
+                
+                if (queue->cancelHandler) {
+                    (queue->cancelHandler)();
+                    Block_release(queue->cancelHandler);
+                    queue->cancelHandler = NULL;
+                }
+                
+                dispatch_release(queue->dispatchQueue);
+                _IOHIDObjectInternalRelease(queue);
+                break;
+            }
+            default:
+                break;
+        }
+    });
+    
+    require_action(queue->dispatchMach, exit, _IOHIDObjectInternalRelease(queue));
+    
+exit:
+    return;
+}
+
+//------------------------------------------------------------------------------
+// IOHIDQueueSetCancelHandler
+//------------------------------------------------------------------------------
+void IOHIDQueueSetCancelHandler(IOHIDQueueRef queue, dispatch_block_t handler)
+{
+    os_assert(!queue->cancelHandler && handler);
+    
+    queue->cancelHandler = Block_copy(handler);
+}
+
+//------------------------------------------------------------------------------
+// IOHIDQueueActivate
+//------------------------------------------------------------------------------
+void IOHIDQueueActivate(IOHIDQueueRef queue)
+{
+    os_assert(queue->dispatchQueue && !queue->asyncRunLoop,
+              "Activate failed queue: %p runLoop: %p", queue->dispatchQueue, queue->asyncRunLoop);
+    
+    if (atomic_fetch_or(&queue->dispatchStateMask, kIOHIDDispatchStateActive) & kIOHIDDispatchStateActive) {
+        return;
+    }
+    
+    dispatch_mach_connect(queue->dispatchMach, CFMachPortGetPort(queue->queuePort), MACH_PORT_NULL, 0);
+    IOHIDQueueStart(queue);
+}
+
+//------------------------------------------------------------------------------
+// IOHIDQueueCancel
+//------------------------------------------------------------------------------
+void IOHIDQueueCancel(IOHIDQueueRef queue)
+{
+    os_assert(queue->dispatchQueue && !queue->asyncRunLoop,
+              "Cancel failed queue: %p runLoop: %p", queue->dispatchQueue, queue->asyncRunLoop);
+    
+    if (atomic_fetch_or(&queue->dispatchStateMask, kIOHIDDispatchStateCancelled) & kIOHIDDispatchStateCancelled) {
+        return;
+    }
+    
+    IOHIDQueueStop(queue);
+    dispatch_mach_cancel(queue->dispatchMach);
 }
                                 
 //------------------------------------------------------------------------------
@@ -375,6 +503,8 @@ void IOHIDQueueRegisterValueAvailableCallback(
                                               IOHIDCallback                   callback,
                                               void *                          context)
 {
+    os_assert(queue->dispatchStateMask == kIOHIDDispatchStateInactive, "Queue has already been activated/cancelled.");
+    
     if (!callback) {
         os_log_error(_IOHIDLog(), "called with a NULL callback");
         return;

@@ -36,11 +36,11 @@ extern "C" {
    #endif
 #endif
 
-ALUTAPI ALvoid	ALUTAPIENTRY alutInit(ALint *argc,ALbyte **argv);
-ALUTAPI ALvoid	ALUTAPIENTRY alutExit(ALvoid);
-ALUTAPI ALvoid	ALUTAPIENTRY alutLoadWAVFile(ALbyte *file,ALenum *format,ALvoid **data,ALsizei *size,ALsizei *freq);
-ALUTAPI ALvoid  ALUTAPIENTRY alutLoadWAVMemory(ALbyte *memory,ALenum *format,ALvoid **data,ALsizei *size,ALsizei *freq);
-ALUTAPI ALvoid  ALUTAPIENTRY alutUnloadWAV(ALenum format,ALvoid *data,ALsizei size,ALsizei freq);
+ALUTAPI ALvoid	ALUTAPIENTRY alutInit(ALint *argc,ALbyte **argv) OPENAL_DEPRECATED;
+ALUTAPI ALvoid	ALUTAPIENTRY alutExit(ALvoid) OPENAL_DEPRECATED;
+ALUTAPI ALvoid	ALUTAPIENTRY alutLoadWAVFile(ALbyte *file,ALenum *format,ALvoid **data,ALsizei *size,ALsizei *freq) OPENAL_DEPRECATED;
+ALUTAPI ALvoid  ALUTAPIENTRY alutLoadWAVMemory(ALbyte *memory,ALenum *format,ALvoid **data,ALsizei *size,ALsizei *freq) OPENAL_DEPRECATED;
+ALUTAPI ALvoid  ALUTAPIENTRY alutUnloadWAV(ALenum format,ALvoid *data,ALsizei size,ALsizei freq) OPENAL_DEPRECATED;
 
 #ifdef TARGET_OS_MAC
    #if TARGET_OS_MAC

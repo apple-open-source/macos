@@ -1,11 +1,11 @@
 --TEST--
-Test uksort() function : usage variation 
+Test uksort() function : usage variation
 --FILE--
 <?php
 /* Prototype  : bool uksort(array array_arg, string cmp_function)
- * Description: Sort an array by keys using a user-defined comparison function 
+ * Description: Sort an array by keys using a user-defined comparison function
  * Source code: ext/standard/array.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing uksort() : usage variation ***\n";
@@ -99,22 +99,22 @@ foreach($inputs as $key =>$value) {
 
 --int 0--
 
-Warning: uksort() expects parameter 1 to be array, integer given in %suksort_variation1.php on line %d
+Warning: uksort() expects parameter 1 to be array, int given in %suksort_variation1.php on line %d
 NULL
 
 --int 1--
 
-Warning: uksort() expects parameter 1 to be array, integer given in %suksort_variation1.php on line %d
+Warning: uksort() expects parameter 1 to be array, int given in %suksort_variation1.php on line %d
 NULL
 
 --int 12345--
 
-Warning: uksort() expects parameter 1 to be array, integer given in %suksort_variation1.php on line %d
+Warning: uksort() expects parameter 1 to be array, int given in %suksort_variation1.php on line %d
 NULL
 
 --int -12345--
 
-Warning: uksort() expects parameter 1 to be array, integer given in %suksort_variation1.php on line %d
+Warning: uksort() expects parameter 1 to be array, int given in %suksort_variation1.php on line %d
 NULL
 
 --float 10.5--
@@ -154,22 +154,22 @@ NULL
 
 --lowercase true--
 
-Warning: uksort() expects parameter 1 to be array, boolean given in %suksort_variation1.php on line %d
+Warning: uksort() expects parameter 1 to be array, bool given in %suksort_variation1.php on line %d
 NULL
 
 --lowercase false--
 
-Warning: uksort() expects parameter 1 to be array, boolean given in %suksort_variation1.php on line %d
+Warning: uksort() expects parameter 1 to be array, bool given in %suksort_variation1.php on line %d
 NULL
 
 --uppercase TRUE--
 
-Warning: uksort() expects parameter 1 to be array, boolean given in %suksort_variation1.php on line %d
+Warning: uksort() expects parameter 1 to be array, bool given in %suksort_variation1.php on line %d
 NULL
 
 --uppercase FALSE--
 
-Warning: uksort() expects parameter 1 to be array, boolean given in %suksort_variation1.php on line %d
+Warning: uksort() expects parameter 1 to be array, bool given in %suksort_variation1.php on line %d
 NULL
 
 --empty string DQ--

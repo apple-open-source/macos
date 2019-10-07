@@ -1,21 +1,22 @@
-<?php # $Id$
+<?php
 /* piece together a windows binary distro */
 
-$build_dir = $argv[1];
-$php_build_dir = $argv[2];
-$phpdll = $argv[3];
-$sapi_targets = explode(" ", $argv[4]);
-$ext_targets = explode(" ", $argv[5]);
-$pecl_targets = explode(" ", $argv[6]);
-$snapshot_template = $argv[7];
+$php_version = $argv[1];
+$build_dir = $argv[2];
+$php_build_dir = $argv[3];
+$phpdll = $argv[4];
+$sapi_targets = explode(" ", $argv[5]);
+$ext_targets = explode(" ", $argv[6]);
+$pecl_targets = explode(" ", $argv[7]);
+$snapshot_template = $argv[8];
 
 $is_debug = preg_match("/^debug/i", $build_dir);
 
 echo "Making dist for $build_dir\n";
 
-$dist_dir = $build_dir . "/php-" . phpversion();
-$test_dir = $build_dir . "/php-test-pack-" . phpversion();
-$pecl_dir = $build_dir . "/pecl-" . phpversion();
+$dist_dir = $build_dir . "/php-" . $php_version;
+$test_dir = $build_dir . "/php-test-pack-" . $php_version;
+$pecl_dir = $build_dir . "/pecl-" . $php_version;
 
 @mkdir($dist_dir);
 @mkdir("$dist_dir/ext");
@@ -37,19 +38,13 @@ function get_depends($module)
 		'shell32.dll', 'shlwapi.dll', 'user32.dll', 'ws2_32.dll', 'ws2help.dll',
 		'comctl32.dll', 'winmm.dll', 'wsock32.dll', 'winspool.drv', 'msasn1.dll',
 		'secur32.dll', 'netapi32.dll', 'dnsapi.dll', 'psapi.dll', 'normaliz.dll',
-		'iphlpapi.dll',
+		'iphlpapi.dll', 'bcrypt.dll',
 
 		/* apache */
 		'apachecore.dll',
 
 		/* apache 2 */
 		'libhttpd.dll', 'libapr.dll', 'libaprutil.dll','libapr-1.dll', 'libaprutil-1.dll',
-
-		/* pi3web */
-		'piapi.dll', 'pi3api.dll',
-
-		/* nsapi */
-		'ns-httpd30.dll', 'ns-httpd35.dll', 'ns-httpd36.dll', 'ns-httpd40.dll',
 
 		/* oracle */
 		'oci.dll', 'ociw32.dll',
@@ -73,13 +68,13 @@ function get_depends($module)
 		"api-ms-win-crt-.+\.dll",
 	);
 	global $build_dir, $extra_dll_deps, $ext_targets, $sapi_targets, $pecl_targets, $phpdll, $per_module_deps, $pecl_dll_deps;
-	
+
 	$bd = strtolower(realpath($build_dir));
 
 	$is_pecl = in_array($module, $pecl_targets);
-	
+
 	$cmd = "$GLOBALS[build_dir]\\deplister.exe \"$module\" \"$GLOBALS[build_dir]\"";
-	$proc = proc_open($cmd, 
+	$proc = proc_open($cmd,
 			array(1 => array("pipe", "w")),
 			$pipes);
 
@@ -111,7 +106,7 @@ function get_depends($module)
 				continue;
 			}
 		}
-		
+
 		if ($is_pecl) {
 			if (!in_array($dep, $pecl_dll_deps)) {
 				$pecl_dll_deps[] = $dep;
@@ -208,7 +203,7 @@ function extract_file_from_tarball($pkg, $filename, $dest_dir) /* {{{ */
 
 		$hdr['size'] = octdec(trim($hdr['size']));
 		echo "File: $hdr[filename] $hdr[size]\n";
-		
+
 		if ($filename == $hdr['filename']) {
 			echo "Found the file we want\n";
 			$dest = fopen($destfilename, 'wb');
@@ -217,14 +212,14 @@ function extract_file_from_tarball($pkg, $filename, $dest_dir) /* {{{ */
 			echo "Wrote $x bytes into $destfilename\n";
 			break;
 		}
-		
+
 		/* skip body of the file */
 		$size = 512 * ceil((int)$hdr['size'] / 512);
 		echo "Skipping $size bytes\n";
 		gzseek($fp, gztell($fp) + $size);
-		
+
 	} while (!$done);
-	
+
 } /* }}} */
 
 
@@ -256,10 +251,10 @@ if(sizeof($pecl_targets)) {
 $text_files = array(
 	"LICENSE" => "license.txt",
 	"NEWS" => "news.txt",
+	"INSTALL" => "install.txt",
 	"README.REDIST.BINS" => "readme-redist-bins.txt",
 	"php.ini-development" => "php.ini-development",
-	"php.ini-production" => "php.ini-production",
-	"win32/install.txt" => "install.txt",
+	"php.ini-production" => "php.ini-production"
 );
 
 foreach ($text_files as $src => $dest) {
@@ -280,12 +275,11 @@ foreach ($general_files as $src => $dest) {
 $branch = "HEAD"; // TODO - determine this from SVN branche name
 $fp = fopen("$dist_dir/snapshot.txt", "w");
 $now = date("r");
-$version = phpversion();
 fwrite($fp, <<<EOT
 This snapshot was automatically generated on
 $now
 
-Version: $version
+Version: $php_version
 Branch: $branch
 Build: $build_dir
 
@@ -333,9 +327,9 @@ foreach ($extra_dll_deps as $dll) {
 }
 
 /* TODO:
-add sanity check and test if all required DLLs are present, per version 
+add sanity check and test if all required DLLs are present, per version
 This version works at least for 3.6, 3.8 and 4.0 (5.3-vc6, 5.3-vc9 and HEAD).
-Add ADD_DLLS to add extra DLLs like dynamic dependencies for standard 
+Add ADD_DLLS to add extra DLLs like dynamic dependencies for standard
 deps. For example, libenchant.dll loads libenchant_myspell.dll or
 libenchant_ispell.dll
 */
@@ -457,7 +451,7 @@ function copy_test_dir($directory, $dest)
 		}
 	}
 
-	closedir($directory_list); 
+	closedir($directory_list);
 }
 
 function make_phar_dot_phar($dist_dir)
@@ -543,7 +537,7 @@ if (!$use_pear_template) {
 	extract_file_from_tarball('Archive_Tar', 'Archive/Tar.php', "$dist_dir/PEAR/go-pear-bundle");
 	extract_file_from_tarball('Console_Getopt', 'Console/Getopt.php', "$dist_dir/PEAR/go-pear-bundle");
 }
-	
+
 /* add extras from the template dir */
 if (file_exists($snapshot_template)) {
 	$items = glob("$snapshot_template/*");
@@ -573,7 +567,7 @@ if (file_exists($snapshot_template)) {
 			}
 		}
 	}
-	
+
 	/* copy c++ runtime */
 	$items = glob("$snapshot_template/dlls/*.CRT");
 

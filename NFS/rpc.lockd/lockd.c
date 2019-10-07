@@ -185,7 +185,7 @@ main(argc, argv)
 	int argc;
 	char **argv;
 {
-	SVCXPRT *transp;
+	SVCXPRT *transp = NULL;
 	struct sockaddr_storage saddr;
 	struct sockaddr_in *sin = (struct sockaddr_in*)&saddr;
 	struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)&saddr;
@@ -720,20 +720,16 @@ handle_sigchld(int sig __unused)
 void
 my_svc_run(void)
 {
-        fd_set readfds;
-        struct timeval timeout;
+	struct timespec timeout;
 	struct timeval now;
-	int error;
 	int hashosts = 0;
-	struct timeval *top;
-	extern int svc_maxfd;
-
+	struct timespec *top;
+	SVCXPRT *xprt;
 
 	for( ;; ) {
 		timeout.tv_sec = config.host_monitor_cache_timeout + 1;
-		timeout.tv_usec = 0;
-
-		bcopy(&svc_fdset, &readfds, sizeof(svc_fdset));
+		timeout.tv_nsec = 0;
+        
 		/*
 		 * If there are any expired hosts then sleep with a
 		 * timeout to expire them.
@@ -742,19 +738,15 @@ my_svc_run(void)
 			top = &timeout;
 		else
 			top = NULL;
-		error = select(svc_maxfd+1, &readfds, NULL, NULL, top);
-		if (error == -1) {
-			if (errno == EINTR)
-				continue;
-                        perror("rpc.lockd: my_svc_run: select failed");
-                        return;
-		}
+
+		xprt = svc_pollnext(top);
+
 		gettimeofday(&now, NULL);
 		currsec = now.tv_sec;
-		if (error > 0)
-			svc_getreqset(&readfds);
-		if ((config.verbose > 3) && (error == 0))
-			fprintf(stderr, "my_svc_run: select timeout\n");
+		if (xprt)
+			(void)svc_getsomerequests(xprt, -1);
+		else if (config.verbose > 3)
+			fprintf(stderr, "my_svc_run: svc_pollnext() timeout\n");
 		hashosts = expire_lock_hosts();
 	}
 }
@@ -768,7 +760,8 @@ config_read(struct nfs_conf_lockd *conf)
 	FILE *f;
 	size_t len, linenum = 0;
 	char *line, *p, *key, *value;
-	long val;
+	int val;
+	long tmp;
 
 	if (!(f = fopen(_PATH_NFS_CONF, "r"))) {
 		if (errno != ENOENT)
@@ -800,9 +793,15 @@ config_read(struct nfs_conf_lockd *conf)
 				syslog(LOG_DEBUG, "%4ld %s=%s\n", linenum, key, value ? value : "");
 			continue;
 		}
-		val = !value ? 1 : strtol(value, NULL, 0);
+		tmp = !value ? 1 : strtol(value, NULL, 0);
 		if (config.verbose)
-			syslog(LOG_DEBUG, "%4ld %s=%s (%ld)\n", linenum, key, value ? value : "", val);
+			syslog(LOG_DEBUG, "%4ld %s=%s (%ld)\n", linenum, key, value ? value : "", tmp);
+		
+		if (tmp > INT32_MAX) {
+			tmp = INT32_MAX;
+		}
+		
+		val = (int) tmp;
 
 		if (!strcmp(key, "nfs.lockd.grace_period")) {
 			if (value && val)
@@ -847,7 +846,8 @@ static pid_t
 get_statd_pid(void)
 {
 	char pidbuf[128], *pidend;
-	int fd, len, rv;
+	int fd, rv;
+	size_t len;
 	pid_t pid;
 	struct flock lock;
 
@@ -866,7 +866,7 @@ get_statd_pid(void)
 
 	/* parse PID */
 	pidbuf[len] = '\0';
-	pid = strtol(pidbuf, &pidend, 10);
+	pid = (pid_t) strtol(pidbuf, &pidend, 10);
 	if (!len || (pid < 1)) {
 		if (config.verbose)
 			syslog(LOG_DEBUG, "%s: bogus pid: %s", _PATH_STATD_PID, pidbuf);

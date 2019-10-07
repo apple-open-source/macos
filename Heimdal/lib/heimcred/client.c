@@ -331,6 +331,15 @@ HeimCredGetUUID(HeimCredRef cred)
     return cred->uuid;
 }
 
+/*
+ *
+ */
+ 
+CFDictionaryRef
+HeimCredGetAttributes(HeimCredRef cred)
+{
+    return cred->attributes;
+}
 
 /*
  *
@@ -711,10 +720,49 @@ HeimCredCopyDefaultCredential(CFStringRef mech, CFErrorRef *error)
  */
 
 CFDictionaryRef
-HeimCredDoAuth(HeimCredRef cred, CFDictionaryRef input)
+HeimCredDoAuth(HeimCredRef cred, CFDictionaryRef attributes, CFErrorRef *error)
 {
-    HC_INIT();
-    return NULL;
+	__block CFDictionaryRef result_cfdict = NULL;
+
+	HC_INIT();
+
+	if (cred == NULL)
+		return NULL;
+
+	if (error)
+		*error = NULL;
+
+	xpc_object_t xpcquery = _CFXPCCreateXPCObjectFromCFObject(attributes);
+	if (xpcquery == NULL)
+		return NULL;
+
+	xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
+	xpc_dictionary_set_string(request, "command", "doauth");
+	HeimCredSetUUID(request, "uuid", cred->uuid);
+	xpc_dictionary_set_value(request, "attributes", xpcquery);
+	xpc_release(xpcquery);
+
+	UpdateImpersonateBundle(request);
+
+	xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
+	xpc_release(request);
+	if (reply == NULL) {
+		CreateCFError(error, kHeimCredErrorServerDisconnected, CFSTR("Server didn't return any data"));
+		return NULL;
+	}
+	if (xpc_get_type(reply) == XPC_TYPE_ERROR) {
+		CreateCFError(error, kHeimCredErrorServerReturnedError, CFSTR("Server returned an error: %@"), reply);
+		return NULL;
+	}
+
+	dispatch_sync(HeimCredCTX.queue, ^{
+		result_cfdict = HeimCredMessageCopyAttributes(reply, "attributes", CFDictionaryGetTypeID());
+		if (result_cfdict)
+			CFRetain(result_cfdict);
+	});
+	xpc_release(reply);
+	
+	return result_cfdict;
 }
 
 /*

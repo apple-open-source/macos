@@ -1,4 +1,4 @@
-#compdef svn svnadmin svnadmin-static=svnadmin
+#compdef svn svnlite=svn svnadmin svnadmin-static=svnadmin
 
 _svn () {
   local curcontext="$curcontext" state line expl ret=1
@@ -24,9 +24,9 @@ _svn () {
     zstyle ":completion:*:*:$service:*" cache-policy _svn_caching_policy
   fi
 
-  _arguments -C \
+  _arguments -C -A "-*" \
     '(-)--help[print help information]' \
-    '(- *)--version[print client version information]' \
+    '(*)--version[print client version information]' \
     '1: :->cmds' \
     '*:: :->args' && ret=0
 
@@ -34,9 +34,14 @@ _svn () {
     typeset -gHA _svn_cmds
     if _cache_invalid svn-cmds || ! _retrieve_cache svn-cmds; then
       _svn_cmds=(
-	${=${(f)${${"$(_comp_locale; _call_program commands svn help)"#l#*Available subcommands:}%%Subversion is a tool*}}/(#s)[[:space:]]#(#b)([a-z]##)[[:space:]]#(\([a-z, ?]##\))#/$match[1] :$match[1]${match[2]:+:${${match[2]//[(),]}// /:}}:}
+	${=${(f)${${"$(_call_program commands svn help)"#l#*Available subcommands:}%%Subversion is a tool*}}/(#s)[[:space:]]#(#b)([a-z-]##)[[:space:]]#(\([a-z, ?-]##\))#/$match[1] :$match[1]${match[2]:+:${${match[2]//[(),]}// /:}}:}
       )
-      _store_cache svn-cmds _svn_cmds
+      if (( $? == 0 )); then
+        _store_cache svn-cmds _svn_cmds
+      else
+        # Ensure we enter this block again on the next <TAB>.
+        unset _svn_cmds
+      fi
     fi
   fi
 
@@ -55,39 +60,42 @@ _svn () {
 	if _cache_invalid svn-${cmd}-usage || \
 	    ! _retrieve_cache svn-${cmd}-usage;
 	then
-	  usage=${${(M)${(f)"$(_comp_locale; _call_program options svn help $cmd)"}:#usage:*}#usage:*$cmd] }
+	  usage=${${(M)${(f)"$(_call_program options svn help $cmd)"}:#usage:*}#usage:*$cmd] }
 	  _store_cache svn-${cmd}-usage usage
 	fi
 	if _cache_invalid svn-${cmd}-usage || \
 	    ! _retrieve_cache svn-${cmd}-args;
 	then
 	  args=(
-	    ${=${${${(M)${(f)"$(_comp_locale; _call_program options svn help $cmd)"#(*Valid options:|(#e))}:#* :*}%% #:*}/ (arg|ARG)/:arg:}/(#b)(-##)([[:alpha:]]##) \[--([a-z-]##)\](:arg:)#/(--$match[3])$match[1]$match[2]$match[4] ($match[1]$match[2])--$match[3]$match[4]}
+	    ${=${${${(M)${(f)"$(_call_program options svn help $cmd)"#(*Valid options:|(#e))}:#* :*}%% #:*}/ (arg|ARG)/:arg:}/(#b)(-##)([[:alpha:]]##) \[--([a-z-]##)\](:arg:)#/(--$match[3])$match[1]$match[2]$match[4] ($match[1]$match[2])--$match[3]$match[4]}
 	  )
           while (( idx=$args[(I)*--accept:arg:] )); do
-            args[(I)*--accept:arg:]=( --accept'=:automatic conflict resolution action:((working\:working base\:base '"`for i j in p postpone mc mine-conflict tc theirs-conflict mf mine-full tf theirs-full e edit l launch; do print -rn $i\\\\:$j $j\\\\:$j ""; done `"'))' )
+            args[idx]=( --accept'=:automatic conflict resolution action:((working\:working base\:base recommended\:recommended '"`for i j in p postpone mc mine-conflict tc theirs-conflict mf mine-full tf theirs-full e edit l launch; do print -rn $i\\\\:$j $j\\\\:$j ""; done `"'))' )
           done
           while (( idx=$args[(I)*--c(l|hangelist):arg:] )); do
-            args[(I)*--c(l|hangelist):arg:]=( \*{--cl,--changelist}'=:change list:_svn_changelists' )
+            args[idx]=( \*{--cl,--changelist}'=:change list:_svn_changelists' )
           done
           while (( idx=$args[(I)*--config-dir:arg:] )); do
-            args[(I)*--config-dir:arg:]=( --config-dir'=:config dir:_directories' )
+            args[idx]=( --config-dir'=:config dir:_directories' )
           done
+	  while (( idx=$args[(I)*--config-option:arg:] )); do
+	    args[idx]=( '*--config-option=: :_svn_config_options' )
+	  done
           while (( idx=$args[(I)*--depth:arg:] )); do
-            args[(I)*--depth:arg:]=( --depth'=:operation depth (how far to recurse):(empty files immediates infinity)' )
+            args[idx]=( --depth'=:operation depth (how far to recurse):(empty files immediates infinity)' )
           done
           while (( idx=$args[(I)*(-F|--file):arg:] )); do
-            args[(I)*(-F|--file):arg:]=( '(-F --file)'{-F+,--file=}':log message file:_files' )
+            args[idx]=( '(-F --file)'{-F+,--file=}':log message file:_files' )
           done
           while (( idx=$args[(I)*--set-depth:arg:] )); do
-            args[(I)*--set-depth:arg:]=( --set-depth'=[make working copy deeper or shallower]:new depth:(exclude empty files immediates infinity)' )
+            args[idx]=( --set-depth'=[make working copy deeper or shallower]:new depth:(exclude empty files immediates infinity)' )
           done
           while (( idx=$args[(I)*--trust-server-cert-failures:arg:] )); do
-            args[(I)*--trust-server-cert-failures:arg:]=( --trust-server-cert-failures'=:failures:_values -s , "certificate failures to ignore" "unknown-ca[unknown authority]" "cn-mismatch[hostname mismatch]" "expired[certificate expired]" "not-yet-valid[certificate not yet valid]" "other[all other failures]"' )
+            args[idx]=( --trust-server-cert-failures'=:failures:_values -s , "certificate failures to ignore" "unknown-ca[unknown authority]" "cn-mismatch[hostname mismatch]" "expired[certificate expired]" "not-yet-valid[certificate not yet valid]" "other[all other failures]"' )
           done
           while (( idx=$args[(I)*--show-item:arg:] )); do
             # (q) to quote the parentheses in the value
-            args[(I)*--show-item:arg:]=( --show-item'=:item key:(('"`for i j in ${(kv)show_item_keys}; do print -rn - $i\\\\:"${(q)j}" ""; done`"'))' )
+            args[idx]=( --show-item'=:item key:(('"`for i j in ${(kv)show_item_keys}; do print -rn - $i\\\\:"${(q)j}" ""; done`"'))' )
           done
           # All other options get {-x+,--long-x=}
           args=( ${args/(#b)(--[A-Za-z0-9-]##):arg:/$match[1]=:arg:} )
@@ -135,7 +143,7 @@ _svn () {
             )
           ;;
           (mergeinfo)
-            args[(r)--show-revs:arg:]=( '--show-revs=:revisions:(merged eligible)' )
+            args[(r)--show-revs=:arg:]=( '--show-revs=:revisions:(merged eligible)' )
           ;;
 	  (propget|propedit|propdel)
 	    args+=(
@@ -145,7 +153,8 @@ _svn () {
 	  ;;
 	  (propset)
 	    args=(
-	    ':propname:(svn:ignore svn:keywords svn:executable svn:eol-style svn:mime-type svn:externals svn:needs-lock)'
+	    ':propname:(svn:ignore svn:keywords svn:executable svn:eol-style svn:mime-type svn:externals svn:needs-lock svn:global-ignores svn:auto-props)'
+	    ':propval:->propset_propval'
 	    ${args/(#b)(*--file*):ARG:/$match[1]:file:_files}
 	    '*:path or url: _alternative "files:file:_files" "urls:URL:_svn_urls"'
 	    )
@@ -160,6 +169,9 @@ _svn () {
               '*:file:_files -g "(.svn|*)(/e:_svn_deletedfiles:,e:_svn_status:)"'
             )
           ;;
+	  (unshelve)
+	    args+=( '1:shelf name:compadd - ${${(f)"$(_call_program shelves svn unshelve -q --list)"}%%      *}' )
+	  ;;
           (*)
             case $usage in
               *(SRC|DST|TARGET|URL*PATH)*)
@@ -174,6 +186,28 @@ _svn () {
         esac
 
         _arguments "$args[@]" && ret=0
+        case $state in
+          (propset_propval)
+            case $words[2] in
+              (svn:executable|svn:needs-lock) compadd yes;;
+              (svn:keywords)
+                compset -q
+                # '_values -w' only excludes words in argv[1] or later, so
+                # install a dummy argv[0].  This affects Foo in [[svn propset
+                # svn:keywords 'Foo Bar Baz <TAB>]].
+                words=( dummy $words ); (( ++CURRENT ))
+                _values -s ' ' -w "keywords (or custom)" \
+                  '(URL HeadURL)'{URL,HeadURL}'[URL for the head version of the file]' \
+                  '(Author LastChangedBy)'{Author,LastChangedBy}'[last person to modify the file]' \
+                  '(Date LastChangedDate)'{Date,LastChangedDate}'[date/time the file was last modified]' \
+                  '(Rev Revision LastChangedRevision)'{Rev,Revision,LastChangedRevision}'[last revision the file changed]' \
+                  Id'[compressed summary of URL,Revision,Date,Author]' \
+                  Header"[like 'Id' but includes the full URL]";;
+              (svn:eol-style) compadd - CR LF CRLF native;;
+              (svn:mime-type) _mime_types;;
+              (*) _message 'property value';;
+            esac
+        esac
 
       else
         _message "unknown svn command: $words[1]"
@@ -199,7 +233,7 @@ _svnadmin () {
   if [[ -n $state ]] && (( ! $+_svnadmin_cmds )); then
     typeset -gHA _svnadmin_cmds
     _svnadmin_cmds=(
-      ${=${(f)${${"$(_comp_locale; _call_program commands svnadmin help)"#l#*Available subcommands:}}}/(#s)[[:space:]]#(#b)([-a-z]##)[[:space:]]#(\([a-z, ?]##\))#/$match[1] :$match[1]${match[2]:+:${${match[2]//[(),]}// /:}}:}
+      ${=${(f)${${"$(_call_program commands svnadmin help)"#l#*Available subcommands:}}}/(#s)[[:space:]]#(#b)([-a-z]##)[[:space:]]#(\([a-z, ?]##\))#/$match[1] :$match[1]${match[2]:+:${${match[2]//[(),]}// /:}}:}
     )
   fi
 
@@ -214,9 +248,9 @@ _svnadmin () {
       if (( $#cmd )); then
         curcontext="${curcontext%:*:*}:svnadmin-${cmd}:"
 
-        usage=${${(M)${(f)"$(_comp_locale; _call_program options svnadmin help $cmd)"}:#$cmd: usage:*}#$cmd: usage: svnadmin $cmd }
+        usage=${${(M)${(f)"$(_call_program options svnadmin help $cmd)"}:#$cmd: usage:*}#$cmd: usage: svnadmin $cmd }
         args=(
-          ${=${${${(M)${(f)"$(_comp_locale; _call_program options svnadmin help $cmd)"#(*Valid options:|(#e))}:#* :*}%% #:*}/ (arg|ARG)/:arg:}/(#b)-([[:alpha:]]) \[--([a-z-]##)\](:arg:)#/(--$match[2])-$match[1]$match[3] (-$match[1])--$match[2]$match[3]}
+          ${=${${${(M)${(f)"$(_call_program options svnadmin help $cmd)"#(*Valid options:|(#e))}:#* :*}%% #:*}/ (arg|ARG)/:arg:}/(#b)-([[:alpha:]]) \[--([a-z-]##)\](:arg:)#/(--$match[2])-$match[1]$match[3] (-$match[1])--$match[2]$match[3]}
         )
         # All options get {-x+,--long-x=}
         args=( ${args/(#b)(--[A-Za-z0-9-]##):arg:/$match[1]=:arg:} )
@@ -389,6 +423,27 @@ _svnadmin_commands() {
   compadd "$@" -k _svnadmin_cmds || compadd "$@" ${(s.:.)_svnadmin_cmds}
 }
 
+(( $+functions[_svn_config_options] )) ||
+_svn_config_options() {
+  local -a expl suf
+  local cfgfile
+  compset -S ':*' || suf=( -qS : )
+  if compset -P 2 '*:'; then
+    if compset -P '*='; then
+      _message -e values 'value'
+    else
+      _message -e options 'option'
+    fi
+  elif compset -P 1 '*:'; then
+    cfgfile=( ~/.subversion/${(M)${IPREFIX%:}%(config|servers)}(N) /dev/null )
+    _description sections expl 'section'
+    compadd $suf "$expl[@]" ${${${(M)${(f)"$(<${cfgfile[1]})"}:#\[*\]}#\[}%\]}
+  else
+    _description config-files expl 'configuration file'
+    compadd $suf "$expl[@]" config servers
+  fi
+}
+
 (( $+functions[_svn_props] )) ||
 _svn_props() {
   local properties
@@ -401,7 +456,7 @@ _svn_props() {
 _svn_changelists() {
   local cls
 
-  cls=( ${${${(M)${(f)"$(_comp_locale; _call_program changelists svn status 2>/dev/null)"}:#--- Changelist*}%??}##*\'} )
+  cls=( ${${${(M)${(f)"$(_call_program changelists svn status 2>/dev/null)"}:#--- Changelist*}%??}##*\'} )
   compadd "$@" -a cls && return 0
 }
 

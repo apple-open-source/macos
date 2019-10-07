@@ -108,10 +108,13 @@
 /*
  * By default, don't try to auto unload the KEXT on embedded systems, since
  * that isn't currently supported.  You can always explicitly set
- * MSDOSFS_AUTO_UNLOAD to 0 or 1 to override the default.
+ * MSDOSFS_AUTO_UNLOAD to 0 or 1 to override the default.  Note that 
+ * the simulator doesn't run kexts; it will use the host filesystem 
+ * functionality. So even if we disable kext auto-unload for the simulator
+ * target it doesn't do much.
  */
 #ifndef MSDOSFS_AUTO_UNLOAD
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 #define MSDOSFS_AUTO_UNLOAD		0
 #else
 #define MSDOSFS_AUTO_UNLOAD		1

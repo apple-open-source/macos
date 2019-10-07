@@ -219,8 +219,8 @@ WebInspectorFrontendClient::WebInspectorFrontendClient(WebView* inspectedWebView
     : InspectorFrontendClientLocal(&inspectedWebView->page()->inspectorController(),  core(frontendWebView.get()), WTFMove(settings))
     , m_inspectedWebView(inspectedWebView)
     , m_inspectedWebViewHwnd(inspectedWebViewHwnd)
-    , m_inspectorClient(inspectorClient)
     , m_frontendHwnd(frontendHwnd)
+    , m_inspectorClient(inspectorClient)
     , m_frontendWebView(frontendWebView)
     , m_frontendWebViewHwnd(frontendWebViewHwnd)
     , m_attached(false)
@@ -276,6 +276,14 @@ void WebInspectorFrontendClient::reopen()
 
     if (Page* inspectedPage = m_inspectedWebView->page())
         inspectedPage->inspectorController().show();
+}
+
+void WebInspectorFrontendClient::resetState()
+{
+    InspectorFrontendClientLocal::resetState();
+
+    m_inspectorClient->deleteInspectorStartsAttached();
+    m_inspectorClient->deleteInspectorAttachDisabled();
 }
 
 void WebInspectorFrontendClient::attachWindow(DockSide)
@@ -336,6 +344,11 @@ void WebInspectorFrontendClient::setAttachedWindowHeight(unsigned height)
 }
 
 void WebInspectorFrontendClient::setAttachedWindowWidth(unsigned)
+{
+    notImplemented();
+}
+
+void WebInspectorFrontendClient::setSheetRect(const FloatRect&)
 {
     notImplemented();
 }
@@ -450,7 +463,7 @@ void WebInspectorFrontendClient::destroyInspectorView()
 void WebInspectorFrontendClient::updateWindowTitle()
 {
     String title = makeString("Web Inspector ", static_cast<UChar>(0x2014), ' ', m_inspectedURL);
-    ::SetWindowText(m_frontendHwnd, title.charactersWithNullTermination().data());
+    ::SetWindowText(m_frontendHwnd, title.wideCharacters().data());
 }
 
 LRESULT WebInspectorFrontendClient::onGetMinMaxInfo(WPARAM, LPARAM lParam)

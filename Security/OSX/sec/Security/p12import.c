@@ -38,7 +38,7 @@
 
 #include "p12pbegen.h"
 #include "p12import.h"
-#include "SecImportExport.h"
+#include <Security/SecImportExport.h>
 
 #ifdef NDEBUG
 #define p12DecodeLog(args...)

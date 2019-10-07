@@ -46,6 +46,8 @@
 
 #define HEIM_HC_SF 1
 
+#define ENABLE_NTLM 1
+
 #else
 
 #define KCM_IS_API_CACHE 1

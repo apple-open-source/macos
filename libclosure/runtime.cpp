@@ -13,7 +13,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <dlfcn.h>
 #include <os/assumes.h>
 #ifndef os_assumes
 #define os_assumes(_x) os_assumes(_x)

@@ -41,14 +41,20 @@
 #include <assert.h>
 #include <inttypes.h>
 #include <TargetConditionals.h>
+#include <bsm/libbsm.h>
+#include <servers/bootstrap.h>
+
 #include "pathwatch.h"
 #include "service.h"
 #include "pathwatch.h"
 #include "timer.h"
 
+#include "notify_internal.h"
+#include "notify.h"
 #include "notify_ipc.h"
 #include "notify_ipcServer.h"
 #include "notify_private.h"
+#include "notifyServer.h"
 
 #define CRSetCrashLogMessage(msg) /**/
 
@@ -58,7 +64,7 @@
 /* Compile flags */
 #define RUN_TIME_CHECKS
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 static char *_config_file_path;
 #define CONFIG_FILE_PATH _config_file_path
 
@@ -80,6 +86,26 @@ static char *status_file = NULL;
 struct global_s global;
 struct call_statistics_s call_statistics;
 
+static void
+notify_reset_stats(void)
+{
+	_nc_table_foreach(&global.notify_state.name_table, ^bool (void *_n){
+		name_info_t *n = _n;
+
+		n->last_hour_postcount = n->postcount;
+		n->postcount = 0;
+		return true;
+	});
+
+	global.last_reset_time = time(NULL);
+}
+
+dispatch_queue_t
+get_notifyd_workloop(void)
+{
+	return global.workloop;
+}
+
 static const char *
 notify_type_name(uint32_t t)
 {
@@ -99,24 +125,19 @@ notify_type_name(uint32_t t)
 static void
 fprint_client(FILE *f, client_t *c)
 {
-	int token;
-
 	if (c == NULL)
 	{
 		fprintf(f, "NULL client\n");
 		return;
 	}
 
-	token = (int)c->client_id;
-
-	fprintf(f, "client_id: %llu\n", c->client_id);
-	fprintf(f, "pid: %d\n", c->pid);
-	fprintf(f, "token: %d\n", token);
+	fprintf(f, "client_id: %llu\n", c->cid.hash_key);
+	fprintf(f, "pid: %d\n", c->cid.pid);
+	fprintf(f, "token: %d\n", c->cid.token);
 	fprintf(f, "lastval: %u\n", c->lastval);
 	fprintf(f, "suspend_count: %u\n", c->suspend_count);
-	fprintf(f, "get_state count: %u\n", c->get_state_count);
-	fprintf(f, "type: %s\n", notify_type_name(c->notify_type));
-	switch(c->notify_type)
+	fprintf(f, "type: %s\n", notify_type_name(c->state_and_type & NOTIFY_TYPE_MASK));
+	switch(c->state_and_type & NOTIFY_TYPE_MASK)
 	{
 		case NOTIFY_TYPE_NONE:
 			break;
@@ -128,15 +149,15 @@ fprint_client(FILE *f, client_t *c)
 			break;
 
 		case NOTIFY_TYPE_PORT:
-			fprintf(f, "mach port: 0x%08x\n", c->port);
+			fprintf(f, "mach port: 0x%08x\n", c->deliver.port);
 			break;
 
 		case NOTIFY_TYPE_FILE:
-			fprintf(f, "fd: %d\n", c->fd);
+			fprintf(f, "fd: %d\n", c->deliver.fd);
 			break;
 
 		case NOTIFY_TYPE_SIGNAL:
-			fprintf(f, "signal: %d\n", c->sig);
+			fprintf(f, "signal: %d\n", c->deliver.sig);
 			break;
 
 		default: break;
@@ -146,27 +167,24 @@ fprint_client(FILE *f, client_t *c)
 static void
 fprint_quick_client(FILE *f, client_t *c)
 {
-	int token;
 	if (c == NULL) return;
 
-	token = (int)c->client_id;
+	//client_id,pid,token,lastval,suspend_count,0,type,type-info
+	fprintf(f, "%llu,%d,%d,%u,%u,%u,", c->cid.hash_key, c->cid.pid, c->cid.token,
+			c->lastval, c->suspend_count, 0);
 
-	//client_id,pid,token,lastval,suspend_count,get_state count,type,type-info
-	fprintf(f, "%llu,%d,%d,%u,%u,%u,", c->client_id, c->pid, token, c->lastval, c->suspend_count,
-		c->get_state_count);
-
-	switch(c->notify_type)
+	switch(c->state_and_type & NOTIFY_TYPE_MASK)
 	{
 	case NOTIFY_TYPE_PORT:
-		fprintf(f, "port,0x%08x\n", c->port);
+		fprintf(f, "port,0x%08x\n", c->deliver.port);
 		break;
 
 	case NOTIFY_TYPE_FILE:
-		fprintf(f, "fd,%d\n", c->fd);
+		fprintf(f, "fd,%d\n", c->deliver.fd);
 		break;
 
 	case NOTIFY_TYPE_SIGNAL:
-		fprintf(f, "signal,%d\n", c->sig);
+		fprintf(f, "signal,%d\n", c->deliver.sig);
 		break;
 
 	case NOTIFY_TYPE_MEMORY:
@@ -189,13 +207,14 @@ fprint_quick_name_info(FILE *f, name_info_t *n)
 	if (n == NULL) return;
 
 	// name:name\n
-	// info:id,uid,gid,access,refcount,postcount,slot,val,state\n
+	// info:id,uid,gid,access,refcount,postcount,lh_postcount,slot,val,state\n
 	// clients:\n
 	// <client info>
 	// <client info>
 	// ...
 	fprintf(f, "name:%s\n", n->name);
-	fprintf(f, "info:%llu,%u,%u,%03x,%u,%u,", n->name_id, n->uid, n->gid, n->access, n->refcount, n->postcount);
+	fprintf(f, "info:%llu,%u,%u,%03x,%u,%u,%u,", n->name_id, n->uid, n->gid, n->access, n->refcount, n->postcount,
+		n->last_hour_postcount);
 	if (n->slot == -1)
 	{
 		fprintf(f, "-1,");
@@ -211,11 +230,7 @@ fprint_quick_name_info(FILE *f, name_info_t *n)
 
 	LIST_FOREACH(c, &n->subscriptions, client_subscription_entry)
 	{
-
-		if (c == NULL) break;
-
 		fprint_quick_client(f, c);
-
 	}
 
 	fprintf(f, "\n");
@@ -223,7 +238,7 @@ fprint_quick_name_info(FILE *f, name_info_t *n)
 }
 
 static void
-fprint_name_info(FILE *f, const char *name, name_info_t *n, table_t *pid_table, pid_t *max_pid)
+fprint_name_info(FILE *f, const char *name, name_info_t *n, pid_t *max_pid)
 {
 	client_t *c;
 	uint32_t i, reg[N_NOTIFY_TYPES];
@@ -241,6 +256,7 @@ fprint_name_info(FILE *f, const char *name, name_info_t *n, table_t *pid_table, 
 	fprintf(f, "access: %03x\n", n->access);
 	fprintf(f, "refcount: %u\n", n->refcount);
 	fprintf(f, "postcount: %u\n", n->postcount);
+	fprintf(f, "last hour postcount: %u\n", n->last_hour_postcount);
 	if (n->slot == -1) fprintf(f, "slot: -unassigned-");
 	else
 	{
@@ -256,23 +272,9 @@ fprint_name_info(FILE *f, const char *name, name_info_t *n, table_t *pid_table, 
 
 	LIST_FOREACH(c, &n->subscriptions, client_subscription_entry)
 	{
-		list_t *l;
+		if ((c->cid.pid != (pid_t)-1) && (c->cid.pid > *max_pid)) *max_pid = c->cid.pid;
 
-		if (c == NULL) break;
-
-		if ((c->pid != (pid_t)-1) && (c->pid > *max_pid)) *max_pid = c->pid;
-
-		l = _nc_table_find_n(pid_table, c->pid);
-		if (l == NULL)
-		{
-			_nc_table_insert_n(pid_table, (uint32_t)c->pid, _nc_list_new(c));
-		}
-		else
-		{
-			_nc_list_concat(l, _nc_list_new(c));
-		}
-
-		switch (c->notify_type)
+		switch (c->state_and_type & NOTIFY_TYPE_MASK)
 		{
 			case NOTIFY_TYPE_MEMORY: reg[1]++; break;
 			case NOTIFY_TYPE_PLAIN:  reg[2]++; break;
@@ -287,8 +289,6 @@ fprint_name_info(FILE *f, const char *name, name_info_t *n, table_t *pid_table, 
 
 	LIST_FOREACH(c, &n->subscriptions, client_subscription_entry)
 	{
-		if (c == NULL) break;
-
 		fprintf(f, "\n");
 		fprint_client(f, c);
 	}
@@ -297,15 +297,7 @@ fprint_name_info(FILE *f, const char *name, name_info_t *n, table_t *pid_table, 
 static void
 fprint_quick_status(FILE *f)
 {
-	void *tt;
-	name_info_t *n;
 	int32_t i;
-	client_t *c;
-	svc_info_t *info;
-	path_node_t *node;
-	timer_t *timer;
-	uint32_t count;
-	portproc_data_t *pdata;
 
 	fprintf(f, "--- GLOBALS ---\n");
 	fprintf(f, "%u slots (current id %u)\n", global.nslots, global.slot_id);
@@ -355,73 +347,53 @@ fprint_quick_status(FILE *f)
 	fprintf(f, "svc_path     %llu\n", call_statistics.service_path);
 	fprintf(f, "svc_timer    %llu\n", call_statistics.service_timer);
 
+	{
+		char buf[128];
+		strftime(buf, 128, "%a, %d %b %Y %T %z", localtime(&global.last_reset_time));
+		fprintf(f, "last reset time was %s\n", buf);
+	}
+
 	fprintf(f, "\n");
-	fprintf(f, "name         alloc %9u   free %9u   extant %9u\n", global.notify_state->stat_name_alloc , global.notify_state->stat_name_free, global.notify_state->stat_name_alloc - global.notify_state->stat_name_free);
-	fprintf(f, "subscription alloc %9u   free %9u   extant %9u\n", global.notify_state->stat_client_alloc , global.notify_state->stat_client_free, global.notify_state->stat_client_alloc - global.notify_state->stat_client_free);
-	fprintf(f, "portproc     alloc %9u   free %9u   extant %9u\n", global.notify_state->stat_portproc_alloc , global.notify_state->stat_portproc_free, global.notify_state->stat_portproc_alloc - global.notify_state->stat_portproc_free);
+	fprintf(f, "name         alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_name_alloc , global.notify_state.stat_name_free, global.notify_state.stat_name_alloc - global.notify_state.stat_name_free);
+	fprintf(f, "subscription alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_client_alloc , global.notify_state.stat_client_free, global.notify_state.stat_client_alloc - global.notify_state.stat_client_free);
+	fprintf(f, "portproc     alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_portproc_alloc , global.notify_state.stat_portproc_free, global.notify_state.stat_portproc_alloc - global.notify_state.stat_portproc_free);
 	fprintf(f, "\n");
 
-	count = 0;
-	tt = _nc_table_traverse_start(global.notify_state->port_table);
-	while (tt != NULL)
-	{
-		pdata = _nc_table_traverse(global.notify_state->port_table, tt);
-		if (pdata == NULL) break;
-		count++;
-	}
-	_nc_table_traverse_end(global.notify_state->port_table, tt);
-	fprintf(f, "port count   %u\n", count);
-
-	count = 0;
-	tt = _nc_table_traverse_start(global.notify_state->proc_table);
-	while (tt != NULL)
-	{
-		pdata = _nc_table_traverse(global.notify_state->proc_table, tt);
-		if (pdata == NULL) break;
-		count++;
-	}
-	_nc_table_traverse_end(global.notify_state->proc_table, tt);
-	fprintf(f, "proc count   %u\n", count);
+	fprintf(f, "port count   %u\n", global.notify_state.port_table.count);
+	fprintf(f, "proc count   %u\n", global.notify_state.proc_table.count);
 	fprintf(f, "\n");
 
 	fprintf(f, "--- NAME TABLE ---\n");
-	fprintf(f, "Name Info: id, uid, gid, access, refcount, postcount, slot, val, state\n");
-	fprintf(f, "Client Info: client_id, pid,token, lastval, suspend_count, get_state count, type, type-info\n\n\n");
+	fprintf(f, "Name Info: id, uid, gid, access, refcount, postcount, last hour postcount, slot, val, state\n");
+	fprintf(f, "Client Info: client_id, pid,token, lastval, suspend_count, 0, 0, type, type-info\n\n\n");
 
-	count = 0;
-	tt = _nc_table_traverse_start(global.notify_state->name_table);
-
-	while (tt != NULL)
-	{
-		n = _nc_table_traverse(global.notify_state->name_table, tt);
-		if (n == NULL) break;
+	_nc_table_foreach(&global.notify_state.name_table, ^bool(void *n) {
 		fprint_quick_name_info(f, n);
 		fprintf(f, "\n");
-		count++;
-	}
+		return true;
+	});
 
-	fprintf(f, "--- NAME COUNT %u ---\n", count);
-	_nc_table_traverse_end(global.notify_state->name_table, tt);
+	fprintf(f, "--- NAME COUNT %u ---\n", global.notify_state.name_table.count);
 	fprintf(f, "\n");
 
 	fprintf(f, "--- CONTROLLED NAME ---\n");
-	for (i = 0; i < global.notify_state->controlled_name_count; i++)
+	for (i = 0; i < global.notify_state.controlled_name_count; i++)
 	{
-		fprintf(f, "%s %u %u %03x\n", global.notify_state->controlled_name[i]->name, global.notify_state->controlled_name[i]->uid, global.notify_state->controlled_name[i]->gid, global.notify_state->controlled_name[i]->access);
+		fprintf(f, "%s %u %u %03x\n", global.notify_state.controlled_name[i]->name, global.notify_state.controlled_name[i]->uid, global.notify_state.controlled_name[i]->gid, global.notify_state.controlled_name[i]->access);
 	}
-	fprintf(f, "--- CONTROLLED NAME COUNT %u ---\n", global.notify_state->controlled_name_count);
+	fprintf(f, "--- CONTROLLED NAME COUNT %u ---\n", global.notify_state.controlled_name_count);
 	fprintf(f, "\n");
 
 	fprintf(f, "--- PUBLIC SERVICE ---\n");
-	count = 0;
-	tt = _nc_table_traverse_start(global.notify_state->name_table);
-	while (tt != NULL)
-	{
-		n = _nc_table_traverse(global.notify_state->name_table, tt);
-		if (n == NULL) break;
-		if (n->private == NULL) continue;
 
-		count++;
+	_nc_table_foreach(&global.notify_state.name_table, ^bool(void *_n) {
+		name_info_t *n = _n;
+		svc_info_t *info;
+		path_node_t *node;
+		timer_t *timer;
+
+		if (n->private == NULL) return true;
+
 		info = (svc_info_t *)n->private;
 
 		if (info->type == 0)
@@ -459,33 +431,33 @@ fprint_quick_status(FILE *f)
 		{
 			fprintf(f, "Unknown service: %s (%u)\n", n->name, info->type);
 		}
-	}
+		return true;
+	});
 
-	fprintf(f, "--- PUBLIC SERVICE COUNT %u ---\n", count);
-	_nc_table_traverse_end(global.notify_state->name_table, tt);
+	fprintf(f, "--- PUBLIC SERVICE COUNT %u ---\n", global.notify_state.name_table.count);
 	fprintf(f, "\n");
 
 	fprintf(f, "--- PRIVATE SERVICE ---\n");
-	count = 0;
-	tt = _nc_table_traverse_start(global.notify_state->client_table);
-	while (tt != NULL)
-	{
-		c = _nc_table_traverse(global.notify_state->client_table, tt);
-		if (c == NULL) break;
-		if (c->private == NULL) continue;
+	_nc_table_foreach_64(&global.notify_state.client_table, ^bool(void *_c) {
+		client_t *c = _c;
+		svc_info_t *info;
+		name_info_t *n;
+		path_node_t *node;
+		timer_t *timer;
 
-		count++;
-		info = (svc_info_t *)c->private;
+		if (c->service_index == 0) return true;
+
+		info = (svc_info_t *)service_info_get(c->service_index);
 		n = c->name_info;
 
 		if (info->type == 0)
 		{
-			fprintf(f, "PID %u Null service: %s\n", c->pid, n->name);
+			fprintf(f, "PID %u Null service: %s\n", c->cid.pid, n->name);
 		}
 		if (info->type == SERVICE_TYPE_PATH_PRIVATE)
 		{
 			node = (path_node_t *)info->private;
-			fprintf(f, "PID %u Path Service: %s <- %s (UID %d GID %d)\n", c->pid, n->name, node->path, node->uid, node->gid);
+			fprintf(f, "PID %u Path Service: %s <- %s\n", c->cid.pid, n->name, node->path);
 		}
 		else if (info->type == SERVICE_TYPE_TIMER_PRIVATE)
 		{
@@ -494,25 +466,25 @@ fprint_quick_status(FILE *f)
 			{
 				case TIME_EVENT_ONESHOT:
 				{
-					fprintf(f, "PID %u Time Service: %s <- Oneshot %"PRId64"\n", c->pid, n->name, timer->start);
+					fprintf(f, "PID %u Time Service: %s <- Oneshot %"PRId64"\n", c->cid.pid, n->name, timer->start);
 					break;
 				}
 				case TIME_EVENT_CLOCK:
 				{
-					fprintf(f, "PID %u Time Service: %s <- Clock start %"PRId64" freq %"PRIu32" end %"PRId64"\n", c->pid, n->name, timer->start, timer->freq, timer->end);
+					fprintf(f, "PID %u Time Service: %s <- Clock start %"PRId64" freq %"PRIu32" end %"PRId64"\n", c->cid.pid, n->name, timer->start, timer->freq, timer->end);
 					break;
 				}
 				case TIME_EVENT_CAL:
 				{
-					fprintf(f, "PID %u Time Service: %s <- Calendar start %"PRId64" freq %"PRIu32" end %"PRId64" day %"PRId32"\n", c->pid, n->name, timer->start, timer->freq, timer->end, timer->day);
+					fprintf(f, "PID %u Time Service: %s <- Calendar start %"PRId64" freq %"PRIu32" end %"PRId64" day %"PRId32"\n", c->cid.pid, n->name, timer->start, timer->freq, timer->end, timer->day);
 					break;
 				}
 			}
 		}
-	}
+		return true;
+	});
 
-	fprintf(f, "--- PRIVATE SERVICE COUNT %u ---\n", count);
-	_nc_table_traverse_end(global.notify_state->client_table, tt);
+	fprintf(f, "--- PRIVATE SERVICE COUNT %u ---\n", global.notify_state.client_table.count);
 	fprintf(f, "\n");
 
 }
@@ -520,19 +492,9 @@ fprint_quick_status(FILE *f)
 static void
 fprint_status(FILE *f)
 {
-	void *tt;
-	name_info_t *n;
+	__block pid_t pid, max_pid;
 	int32_t i;
-	client_t *c;
-	svc_info_t *info;
-	path_node_t *node;
-	timer_t *timer;
-	table_t *pid_table;
-	pid_t pid, max_pid;
-	uint32_t count;
-	portproc_data_t *pdata;
 
-	pid_table = _nc_table_new(0);
 	max_pid = 0;
 
 	fprintf(f, "--- GLOBALS ---\n");
@@ -583,86 +545,64 @@ fprint_status(FILE *f)
 	fprintf(f, "svc_path     %llu\n", call_statistics.service_path);
 	fprintf(f, "svc_timer    %llu\n", call_statistics.service_timer);
 
+
+	{
+		char buf[128];
+		strftime(buf, 128, "%a, %d %b %Y %T %z", localtime(&global.last_reset_time));
+		fprintf(f, "last reset time was %s\n", buf);
+	}
+
 	fprintf(f, "\n");
-	fprintf(f, "name         alloc %9u   free %9u   extant %9u\n", global.notify_state->stat_name_alloc , global.notify_state->stat_name_free, global.notify_state->stat_name_alloc - global.notify_state->stat_name_free);
-	fprintf(f, "subscription alloc %9u   free %9u   extant %9u\n", global.notify_state->stat_client_alloc , global.notify_state->stat_client_free, global.notify_state->stat_client_alloc - global.notify_state->stat_client_free);
-	fprintf(f, "portproc     alloc %9u   free %9u   extant %9u\n", global.notify_state->stat_portproc_alloc , global.notify_state->stat_portproc_free, global.notify_state->stat_portproc_alloc - global.notify_state->stat_portproc_free);
+	fprintf(f, "name         alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_name_alloc , global.notify_state.stat_name_free, global.notify_state.stat_name_alloc - global.notify_state.stat_name_free);
+	fprintf(f, "subscription alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_client_alloc , global.notify_state.stat_client_free, global.notify_state.stat_client_alloc - global.notify_state.stat_client_free);
+	fprintf(f, "portproc     alloc %9u   free %9u   extant %9u\n", global.notify_state.stat_portproc_alloc , global.notify_state.stat_portproc_free, global.notify_state.stat_portproc_alloc - global.notify_state.stat_portproc_free);
 	fprintf(f, "\n");
 
-	count = 0;
-	tt = _nc_table_traverse_start(global.notify_state->port_table);
-	while (tt != NULL)
-	{
-		pdata = _nc_table_traverse(global.notify_state->port_table, tt);
-		if (pdata == NULL) break;
-		count++;
-	}
-	_nc_table_traverse_end(global.notify_state->port_table, tt);
-	fprintf(f, "port count   %u\n", count);
-
-	count = 0;
-	tt = _nc_table_traverse_start(global.notify_state->proc_table);
-	while (tt != NULL)
-	{
-		pdata = _nc_table_traverse(global.notify_state->proc_table, tt);
-		if (pdata == NULL) break;
-		count++;
-	}
-	_nc_table_traverse_end(global.notify_state->proc_table, tt);
-	fprintf(f, "proc count   %u\n", count);
+	fprintf(f, "port count   %u\n", global.notify_state.port_table.count);
+	fprintf(f, "proc count   %u\n", global.notify_state.proc_table.count);
 	fprintf(f, "\n");
 
 	fprintf(f, "--- NAME TABLE ---\n");
-	count = 0;
-	tt = _nc_table_traverse_start(global.notify_state->name_table);
 
-	while (tt != NULL)
-	{
-		n = _nc_table_traverse(global.notify_state->name_table, tt);
-		if (n == NULL) break;
-		fprint_name_info(f, n->name, n, pid_table, &max_pid);
+	_nc_table_foreach(&global.notify_state.name_table, ^bool(void *_n) {
+		name_info_t *n = _n;
+		fprint_name_info(f, n->name, n, &max_pid);
 		fprintf(f, "\n");
-		count++;
-	}
+		return true;
+	});
 
-	fprintf(f, "--- NAME COUNT %u ---\n", count);
-	_nc_table_traverse_end(global.notify_state->name_table, tt);
+	fprintf(f, "--- NAME COUNT %u ---\n", global.notify_state.name_table.count);
 	fprintf(f, "\n");
 
 	fprintf(f, "--- SUBSCRIPTION TABLE ---\n");
-	count = 0;
-	tt = _nc_table_traverse_start(global.notify_state->client_table);
 
-	while (tt != NULL)
-	{
-		c = _nc_table_traverse(global.notify_state->client_table, tt);
-		if (c == NULL) break;
-		fprintf(f, "%d\n", c->pid);
-		count++;
-	}
+	_nc_table_foreach_64(&global.notify_state.client_table, ^bool (void *_c) {
+		client_t *c = _c;
+		fprintf(f, "%d\n", c->cid.pid);
+		return true;
+	});
 
-	fprintf(f, "--- SUBSCRIPTION COUNT %u ---\n", count);
-	_nc_table_traverse_end(global.notify_state->client_table, tt);
+	fprintf(f, "--- SUBSCRIPTION COUNT %u ---\n", global.notify_state.client_table.count);
 	fprintf(f, "\n");
 
 	fprintf(f, "--- CONTROLLED NAME ---\n");
-	for (i = 0; i < global.notify_state->controlled_name_count; i++)
+	for (i = 0; i < global.notify_state.controlled_name_count; i++)
 	{
-		fprintf(f, "%s %u %u %03x\n", global.notify_state->controlled_name[i]->name, global.notify_state->controlled_name[i]->uid, global.notify_state->controlled_name[i]->gid, global.notify_state->controlled_name[i]->access);
+		fprintf(f, "%s %u %u %03x\n", global.notify_state.controlled_name[i]->name, global.notify_state.controlled_name[i]->uid, global.notify_state.controlled_name[i]->gid, global.notify_state.controlled_name[i]->access);
 	}
-	fprintf(f, "--- CONTROLLED NAME COUNT %u ---\n", global.notify_state->controlled_name_count);
+	fprintf(f, "--- CONTROLLED NAME COUNT %u ---\n", global.notify_state.controlled_name_count);
 	fprintf(f, "\n");
 
 	fprintf(f, "--- PUBLIC SERVICE ---\n");
-	count = 0;
-	tt = _nc_table_traverse_start(global.notify_state->name_table);
-	while (tt != NULL)
-	{
-		n = _nc_table_traverse(global.notify_state->name_table, tt);
-		if (n == NULL) break;
-		if (n->private == NULL) continue;
 
-		count++;
+	_nc_table_foreach(&global.notify_state.name_table, ^bool(void *_n) {
+		name_info_t *n = _n;
+		svc_info_t *info;
+		path_node_t *node;
+		timer_t *timer;
+
+		if (n->private == NULL) return true;
+
 		info = (svc_info_t *)n->private;
 
 		if (info->type == 0)
@@ -700,33 +640,34 @@ fprint_status(FILE *f)
 		{
 			fprintf(f, "Unknown service: %s (%u)\n", n->name, info->type);
 		}
-	}
+		return true;
+	});
 
-	fprintf(f, "--- PUBLIC SERVICE COUNT %u ---\n", count);
-	_nc_table_traverse_end(global.notify_state->name_table, tt);
+	fprintf(f, "--- PUBLIC SERVICE COUNT %u ---\n", global.notify_state.name_table.count);
 	fprintf(f, "\n");
 
 	fprintf(f, "--- PRIVATE SERVICE ---\n");
-	count = 0;
-	tt = _nc_table_traverse_start(global.notify_state->client_table);
-	while (tt != NULL)
-	{
-		c = _nc_table_traverse(global.notify_state->client_table, tt);
-		if (c == NULL) break;
-		if (c->private == NULL) continue;
 
-		count++;
-		info = (svc_info_t *)c->private;
+	_nc_table_foreach_64(&global.notify_state.client_table, ^bool (void *_c) {
+		client_t *c = _c;
+		name_info_t *n;
+		svc_info_t *info;
+		path_node_t *node;
+		timer_t *timer;
+
+        if (c->service_index == 0) return true;
+
+		info = (svc_info_t *)service_info_get(c->service_index);
 		n = c->name_info;
 
 		if (info->type == 0)
 		{
-			fprintf(f, "PID %u Null service: %s\n", c->pid, n->name);
+			fprintf(f, "PID %u Null service: %s\n", c->cid.pid, n->name);
 		}
 		if (info->type == SERVICE_TYPE_PATH_PRIVATE)
 		{
 			node = (path_node_t *)info->private;
-			fprintf(f, "PID %u Path Service: %s <- %s (UID %d GID %d)\n", c->pid, n->name, node->path, node->uid, node->gid);
+			fprintf(f, "PID %u Path Service: %s <- %s\n", c->cid.pid, n->name, node->path);
 		}
 		else if (info->type == SERVICE_TYPE_TIMER_PRIVATE)
 		{
@@ -735,118 +676,84 @@ fprint_status(FILE *f)
 			{
 				case TIME_EVENT_ONESHOT:
 				{
-					fprintf(f, "PID %u Time Service: %s <- Oneshot %"PRId64"\n", c->pid, n->name, timer->start);
+					fprintf(f, "PID %u Time Service: %s <- Oneshot %"PRId64"\n", c->cid.pid, n->name, timer->start);
 					break;
 				}
 				case TIME_EVENT_CLOCK:
 				{
-					fprintf(f, "PID %u Time Service: %s <- Clock start %"PRId64" freq %"PRIu32" end %"PRId64"\n", c->pid, n->name, timer->start, timer->freq, timer->end);
+					fprintf(f, "PID %u Time Service: %s <- Clock start %"PRId64" freq %"PRIu32" end %"PRId64"\n", c->cid.pid, n->name, timer->start, timer->freq, timer->end);
 					break;
 				}
 				case TIME_EVENT_CAL:
 				{
-					fprintf(f, "PID %u Time Service: %s <- Calendar start %"PRId64" freq %"PRIu32" end %"PRId64" day %"PRId32"\n", c->pid, n->name, timer->start, timer->freq, timer->end, timer->day);
+					fprintf(f, "PID %u Time Service: %s <- Calendar start %"PRId64" freq %"PRIu32" end %"PRId64" day %"PRId32"\n", c->cid.pid, n->name, timer->start, timer->freq, timer->end, timer->day);
 					break;
 				}
 			}
 		}
-	}
+		return true;
+	});
 
-	fprintf(f, "--- PRIVATE SERVICE COUNT %u ---\n", count);
-	_nc_table_traverse_end(global.notify_state->client_table, tt);
+	fprintf(f, "--- PRIVATE SERVICE COUNT %u ---\n", global.notify_state.client_table.count);
 	fprintf(f, "\n");
 
 	fprintf(f, "--- PROCESSES ---\n");
 	for (pid = 0; pid <= max_pid; pid++)
 	{
-		int mem_count, plain_count, file_count, port_count, sig_count, com_port_count;
-		mach_port_t common_port = MACH_PORT_NULL;
+		int mem_count, plain_count, file_count, port_count, sig_count;
+		proc_data_t *pdata;
+		client_t *c;
 
-		list_t *x;
-		list_t *l = _nc_table_find_n(pid_table, pid);
-		if (l == NULL) continue;
+		pdata = _nc_table_find_n(&global.notify_state.proc_table, pid);
+		if (pdata == NULL) continue;
 
 		mem_count = 0;
 		plain_count = 0;
 		file_count = 0;
 		port_count = 0;
 		sig_count = 0;
-		com_port_count = 0;
 
-		for (x = l; x != NULL; x = _nc_list_next(x))
-		{
-			c = _nc_list_data(x);
-			if (c != NULL)
-			{
-				if ((c->notify_type == NOTIFY_TYPE_PORT) && (!strcmp(c->name_info->name, COMMON_PORT_KEY))) common_port = c->port;
-			}
-		}
+		LIST_FOREACH(c, &pdata->clients, client_pid_entry) {
+			switch(c->state_and_type & NOTIFY_TYPE_MASK) {
+			case NOTIFY_TYPE_NONE:
+				break;
 
-		for (x = l; x != NULL; x = _nc_list_next(x))
-		{
-			c = _nc_list_data(x);
-			if (c != NULL)
-			{
-				switch(c->notify_type)
-				{
-					case NOTIFY_TYPE_NONE:
-						break;
+			case NOTIFY_TYPE_PLAIN:
+				plain_count++;
+				break;
 
-					case NOTIFY_TYPE_PLAIN:
-						plain_count++;
-						break;
+			case NOTIFY_TYPE_MEMORY:
+				mem_count++;
+				break;
 
-					case NOTIFY_TYPE_MEMORY:
-						mem_count++;
-						break;
+			case NOTIFY_TYPE_PORT:
+				port_count++;
+				break;
 
-					case NOTIFY_TYPE_PORT:
-						port_count++;
-						if (c->port == common_port) com_port_count++;
-						break;
+			case NOTIFY_TYPE_FILE:
+				file_count++;
+				break;
 
-					case NOTIFY_TYPE_FILE:
-						file_count++;
-						break;
+			case NOTIFY_TYPE_SIGNAL:
+				sig_count++;
+				break;
 
-					case NOTIFY_TYPE_SIGNAL:
-						sig_count++;
-						break;
-
-					default: break;
-				}
+			default:
+				break;
 			}
 		}
 
 		fprintf(f, "pid: %u   ", pid);
-		if (file_count + sig_count == 0)
-		{
-			if (port_count == 0) fprintf(f, "regenerable / polling\n");
-			else if (port_count == com_port_count) fprintf(f, "regenerable\n");
-			else if (com_port_count > 0) fprintf(f, "partially regenerable\n");
-			else fprintf(f, "non-regenerable\n");
-		}
-		else
-		{
-			if (com_port_count == 0) fprintf(f, "non-regenerable\n");
-			else fprintf(f, "partially regenerable\n");
-		}
 
-		fprintf(f, "memory %u   plain %u   port %u   file %u   signal %u   common port %u\n", mem_count, plain_count, port_count, file_count, sig_count, com_port_count);
-		for (x = l; x != NULL; x = _nc_list_next(x))
-		{
-			c = _nc_list_data(x);
-			if (c != NULL)
-			{
-				fprintf(f, "  %s: %s\n", notify_type_name(c->notify_type), c->name_info->name);
-			}
+		fprintf(f, "memory %u   plain %u   port %u   file %u   signal %u\n",
+				mem_count, plain_count, port_count, file_count, sig_count);
+		LIST_FOREACH(c, &pdata->clients, client_pid_entry) {
+			fprintf(f, "  %s: %s\n", notify_type_name(c->state_and_type & NOTIFY_TYPE_MASK), c->name_info->name);
 		}
 
 		fprintf(f, "\n");
-		_nc_list_free_list(l);
 	}
 	fprintf(f, "\n");
-	_nc_table_free(pid_table);
 }
 
 void
@@ -914,46 +821,30 @@ log_message(int priority, const char *str, ...)
 }
 
 bool
-has_root_entitlement(pid_t pid)
+has_entitlement(audit_token_t audit, const char *entitlement)
 {
-	xpc_object_t edata, entitlements;
-	bool val = false;
-	size_t len;
-	const void *ptr;
+	xpc_object_t edata;
+	bool result = false;
+
+	pid_t pid = audit_token_to_pid(audit);
+
 	log_message(ASL_LEVEL_NOTICE, "-> has_root_entitlement (PID %d)\n", pid);
 
-	edata = xpc_copy_entitlements_for_pid(pid);
-	if (edata == NULL)
-	{
-		log_message(ASL_LEVEL_NOTICE, "has_root_entitlement (PID %d): FAIL xpc_copy_entitlements_for_pid -> NULL\n", pid);
-		return false;
+	edata = xpc_copy_entitlement_for_token(entitlement, &audit);
+
+	if(edata != NULL){
+		result = xpc_bool_get_value(edata);
+		xpc_release(edata);
 	}
 
-	ptr = xpc_data_get_bytes_ptr(edata);
-	len = xpc_data_get_length(edata);
+	log_message(ASL_LEVEL_NOTICE, "<- has_root_entitlement (PID %d) = %s\n", pid, result ? "OK" : "FAIL");
+	return result;
+}
 
-	entitlements = xpc_create_from_plist(ptr, len);
-	xpc_release(edata);
-
-	if (entitlements == NULL)
-	{
-		log_message(ASL_LEVEL_NOTICE, "has_root_entitlement (PID %d): FAIL xpc_create_from_plist -> NULL\n", pid);
-		return false;
-	}
-
-	if (xpc_get_type(entitlements) == XPC_TYPE_DICTIONARY)
-	{
-		val = xpc_dictionary_get_bool(entitlements, ROOT_ENTITLEMENT_KEY);
-		log_message(ASL_LEVEL_NOTICE, "has_root_entitlement (PID %d): xpc_dictionary_get_bool %s -> %s\n", pid, ROOT_ENTITLEMENT_KEY, val ? "TRUE" : "FALSE");
-	}
-	else
-	{
-		log_message(ASL_LEVEL_NOTICE, "has_root_entitlement (PID %d): FAIL xpc_get_type != XPC_TYPE_DICTIONARY\n", pid);
-	}
-
-	xpc_release(entitlements);
-	log_message(ASL_LEVEL_NOTICE, "<- has_root_entitlement (PID %d) = %s\n", pid, val ? "OK" : "FAIL");
-	return val;
+inline bool
+has_root_entitlement(audit_token_t audit)
+{
+	return has_entitlement(audit, ROOT_ENTITLEMENT_KEY);
 }
 
 uint32_t
@@ -962,14 +853,14 @@ daemon_post(const char *name, uint32_t u, uint32_t g)
 	name_info_t *n;
 	uint32_t status;
 
-	if (name == NULL) return 0;
+	if (name == NULL) return NOTIFY_STATUS_NULL_INPUT;
 
-	n = (name_info_t *)_nc_table_find(global.notify_state->name_table, name);
-	if (n == NULL) return 0;
+	n = _nc_table_find(&global.notify_state.name_table, name);
+	if (n == NULL) return NOTIFY_STATUS_OK;
 
 	if (n->slot != (uint32_t)-1) global.shared_memory_base[n->slot]++;
 
-	status = _notify_lib_post(global.notify_state, name, u, g);
+	status = _notify_lib_post(&global.notify_state, name, u, g);
 	return status;
 }
 
@@ -979,12 +870,12 @@ daemon_post_nid(uint64_t nid, uint32_t u, uint32_t g)
 	name_info_t *n;
 	uint32_t status;
 
-	n = (name_info_t *)_nc_table_find_64(global.notify_state->name_id_table, nid);
-	if (n == NULL) return 0;
+	n = _nc_table_find_64(&global.notify_state.name_id_table, nid);
+	if (n == NULL) return NOTIFY_STATUS_OK;
 
 	if (n->slot != (uint32_t)-1) global.shared_memory_base[n->slot]++;
 
-	status = _notify_lib_post_nid(global.notify_state, nid, u, g);
+	status = _notify_lib_post_nid(&global.notify_state, nid, u, g);
 	return status;
 }
 
@@ -993,15 +884,15 @@ daemon_post_client(uint64_t cid)
 {
 	client_t *c;
 
-	c = _nc_table_find_64(global.notify_state->client_table, cid);
+	c = _nc_table_find_64(&global.notify_state.client_table, cid);
 	if (c == NULL) return;
 
-	if ((c->notify_type == NOTIFY_TYPE_MEMORY) && (c->name_info != NULL) && (c->name_info->slot != (uint32_t)-1))
+	if ((c->state_and_type & NOTIFY_TYPE_MEMORY) && (c->name_info != NULL) && (c->name_info->slot != (uint32_t)-1))
 	{
 		global.shared_memory_base[c->name_info->slot]++;
 	}
 
-	_notify_lib_post_client(global.notify_state, c);
+	_notify_lib_post_client(&global.notify_state, c);
 }
 
 void
@@ -1011,7 +902,7 @@ daemon_set_state(const char *name, uint64_t val)
 
 	if (name == NULL) return;
 
-	n = (name_info_t *)_nc_table_find(global.notify_state->name_table, name);
+	n = _nc_table_find(&global.notify_state.name_table, name);
 	if (n == NULL) return;
 
 	n->state = val;
@@ -1020,38 +911,28 @@ daemon_set_state(const char *name, uint64_t val)
 static void
 init_launch_config(const char *name)
 {
-	launch_data_t tmp, pdict;
+	kern_return_t kr;
 
-	tmp = launch_data_new_string(LAUNCH_KEY_CHECKIN);
-	global.launch_dict = launch_msg(tmp);
-	launch_data_free(tmp);
+	kr = bootstrap_check_in(bootstrap_port, name, &global.server_port);
 
-	if (global.launch_dict == NULL)
+	if(kr != KERN_SUCCESS)
 	{
-		fprintf(stderr, "%d launchd checkin failed\n", getpid());
-		exit(1);
+		{
+			fprintf(stderr, "%d bootstrap_check_in failed (%d)\n", getpid(), kr);
+			exit(1);
+		}
 	}
 
-	tmp = launch_data_dict_lookup(global.launch_dict, LAUNCH_JOBKEY_MACHSERVICES);
-	if (tmp == NULL)
-	{
-		fprintf(stderr, "%d launchd lookup of LAUNCH_JOBKEY_MACHSERVICES failed\n", getpid());
-		exit(1);
-	}
+	/*
+	 * Notifyd uses its port for communication, system wide.
+	 * Up our queue length as most of our traffic is made of simpleroutines
+	 */
+	struct mach_port_limits limits = {
+		.mpl_qlimit = 32,
+	};
 
-	pdict = launch_data_dict_lookup(tmp, name);
-	if (pdict == NULL)
-	{
-		fprintf(stderr, "%d launchd lookup of name %s failed\n", getpid(), name);
-		exit(1);
-	}
-
-	global.server_port = launch_data_get_machport(pdict);
-	if (global.server_port == MACH_PORT_NULL)
-	{
-		fprintf(stderr, "%d launchd lookup of server port for name %s failed\n", getpid(), name);
-		exit(1);
-	}
+	mach_port_set_attributes(mach_task_self(), global.server_port,
+			MACH_PORT_LIMITS_INFO, (mach_port_info_t)&limits, sizeof(limits));
 }
 
 static void
@@ -1186,7 +1067,7 @@ init_config(void)
 	struct stat sb;
 	char line[1024];
 	char **args;
-	uint32_t status, argslen;
+	uint32_t argslen;
 	uint32_t uid, gid, access;
 	uint64_t nid, val64;
 
@@ -1197,8 +1078,8 @@ init_config(void)
 	val64 <<= 32;
 	val64 |= NOTIFY_IPC_VERSION;
 
-	_notify_lib_register_plain(global.notify_state, NOTIFY_IPC_VERSION_NAME, -1, notifyd_token++, -1, 0, 0, &nid);
-	_notify_lib_set_state(global.notify_state, nid, val64, 0, 0);
+	_notify_lib_register_plain(&global.notify_state, NOTIFY_IPC_VERSION_NAME, -1, notifyd_token++, -1, 0, 0, &nid);
+	_notify_lib_set_state(&global.notify_state, nid, val64, 0, 0);
 
 	/* Check config file */
 	if (stat(CONFIG_FILE_PATH, &sb) != 0) return;
@@ -1230,46 +1111,46 @@ init_config(void)
 		argslen = string_list_length(args);
 		if (argslen == 0) continue;
 
-		if (!strcasecmp(args[0], "monitor"))
-		{
+		if (!strcasecmp(args[0], "monitor")) {
 			if (argslen < 3)
 			{
 				string_list_free(args);
 				continue;
 			}
-			_notify_lib_register_plain(global.notify_state, args[1], -1, notifyd_token++, -1, 0, 0, &nid);
-			service_open_path(args[1], args[2], 0, 0);
-		}
+			_notify_lib_register_plain(&global.notify_state, args[1], -1, notifyd_token++, -1, 0, 0, &nid);
 
-		if (!strcasecmp(args[0], "timer"))
-		{
+			dispatch_async(global.workloop, ^{
+				service_open_path(args[1], args[2], 0, 0);
+				string_list_free(args);
+			});
+		} else if (!strcasecmp(args[0], "timer")) {
 			if (argslen < 3)
 			{
 				string_list_free(args);
 				continue;
 			}
-			_notify_lib_register_plain(global.notify_state, args[1], -1, notifyd_token++, -1, 0, 0, &nid);
-			status = service_open_timer(args[1], args[2]);
-		}
+			_notify_lib_register_plain(&global.notify_state, args[1], -1, notifyd_token++, -1, 0, 0, &nid);
 
-		else if (!strcasecmp(args[0], "set"))
-		{
+			dispatch_async(global.workloop, ^{
+				service_open_timer(args[1], args[2]);
+				string_list_free(args);
+			});
+		} else if (!strcasecmp(args[0], "set")) {
 			if (argslen == 1 || argslen > 3)
 			{
 				string_list_free(args);
 				continue;
 			}
 
-			_notify_lib_register_plain(global.notify_state, args[1], -1, notifyd_token++, -1, 0, 0, &nid);
+			_notify_lib_register_plain(&global.notify_state, args[1], -1, notifyd_token++, -1, 0, 0, &nid);
 			if (argslen == 3)
 			{
 				val64 = atoll(args[2]);
-				_notify_lib_set_state(global.notify_state, nid, val64, 0, 0);
+				_notify_lib_set_state(&global.notify_state, nid, val64, 0, 0);
 			}
-		}
 
-		else if (!strcasecmp(args[0], "reserve"))
-		{
+			string_list_free(args);
+		} else if (!strcasecmp(args[0], "reserve")) {
 			if (argslen == 1)
 			{
 				string_list_free(args);
@@ -1284,16 +1165,15 @@ init_config(void)
 			if (argslen > 3) gid = atoi(args[3]);
 			if (argslen > 4) access = atoaccess(args[4]);
 
-			if ((uid != 0) || (gid != 0)) _notify_lib_set_owner(global.notify_state, args[1], uid, gid);
-			if (access != NOTIFY_ACCESS_DEFAULT) _notify_lib_set_access(global.notify_state, args[1], access);
-		}
-		else if (!strcasecmp(args[0], "quit"))
-		{
+			if ((uid != 0) || (gid != 0)) _notify_lib_set_owner(&global.notify_state, args[1], uid, gid);
+			if (access != NOTIFY_ACCESS_DEFAULT) _notify_lib_set_access(&global.notify_state, args[1], access);
+
+			string_list_free(args);
+		} else if (!strcasecmp(args[0], "quit")) {
 			string_list_free(args);
 			break;
 		}
 
-		string_list_free(args);
 	}
 
 	fclose(f);
@@ -1309,6 +1189,45 @@ notifyd_mach_channel_handler(void *context, dispatch_mach_reason_t reason,
 	if (reason == DISPATCH_MACH_MESSAGE_RECEIVED) {
 		if (!dispatch_mach_mig_demux(context, subsystems, 1, message)) {
 			mach_msg_destroy(dispatch_mach_msg_get_msg(message, NULL));
+		}
+	}
+}
+
+kern_return_t
+do_mach_notify_port_deleted(mach_port_t notify, mach_port_name_t name)
+{
+	NOTIFY_INTERNAL_CRASH(0, "notifyd never requests port-deleted");
+}
+
+kern_return_t
+do_mach_notify_port_destroyed(mach_port_t notify, mach_port_t rights)
+{
+	NOTIFY_INTERNAL_CRASH(0, "notifyd never requests port-destroyed");
+}
+
+kern_return_t
+do_mach_notify_no_senders(mach_port_t notify, mach_port_mscount_t mscount)
+{
+	NOTIFY_INTERNAL_CRASH(0, "notifyd never requests no-senders");
+}
+
+kern_return_t
+do_mach_notify_send_once(mach_port_t notify)
+{
+	NOTIFY_INTERNAL_CRASH(0, "someone destroyed our send-possible notification");
+}
+
+static void
+mach_notifs_handle(void *context, dispatch_mach_reason_t reason,
+				   dispatch_mach_msg_t msg, mach_error_t error)
+{
+	static const struct mig_subsystem *const subsystems[] = {
+		(mig_subsystem_t)&do_notify_subsystem,
+	};
+
+	if (reason == DISPATCH_MACH_MESSAGE_RECEIVED) {
+		if (!dispatch_mach_mig_demux(context, subsystems, 1, msg)) {
+			mach_msg_destroy(dispatch_mach_msg_get_msg(msg, NULL));
 		}
 	}
 }
@@ -1373,8 +1292,9 @@ main(int argc, const char *argv[])
 	const char *shm_name;
 	uint32_t i, status;
 	struct rlimit rlim;
+	kern_return_t kr;
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 	asprintf(&_config_file_path, "%s/private/etc/notify.conf", getenv("SIMULATOR_ROOT"));
 	asprintf(&_debug_log_path, "%s/var/log/notifyd.log", getenv("SIMULATOR_LOG_ROOT"));
 #endif
@@ -1398,7 +1318,8 @@ main(int argc, const char *argv[])
 	memset(&call_statistics, 0, sizeof(struct call_statistics_s));
 
 	global.nslots = getpagesize() / sizeof(uint32_t);
-	global.notify_state = _notify_lib_notify_state_new(NOTIFY_STATE_ENABLE_RESEND, 1024);
+	_notify_lib_notify_state_init(&global.notify_state, NOTIFY_STATE_ENABLE_RESEND);
+
 	global.log_cutoff = ASL_LEVEL_ERR;
 	global.log_path = strdup(DEBUG_LOG_PATH);
 	global.slot_id = (uint32_t)-1;
@@ -1451,6 +1372,19 @@ main(int argc, const char *argv[])
 	/* init from config file before starting the listener */
 	init_config();
 
+	mach_port_options_t opts = {
+		.flags = MPO_STRICT | MPO_CONTEXT_AS_GUARD,
+	};
+	kr = mach_port_construct(current_task(), &opts, &global, &global.mach_notify_port);
+	if (kr != KERN_SUCCESS) {
+		NOTIFY_INTERNAL_CRASH(kr, "Unable to allocate Mach notification port");
+	}
+	global.mach_notifs_channel = dispatch_mach_create_f("com.apple.notifyd.mach-notifs",
+			global.workloop, NULL, mach_notifs_handle);
+	dispatch_set_qos_class_fallback(global.mach_notifs_channel, QOS_CLASS_USER_INITIATED);
+	dispatch_mach_connect(global.mach_notifs_channel, global.mach_notify_port,
+			MACH_PORT_NULL, NULL);
+
 	global.mach_channel = dispatch_mach_create_f("com.apple.notifyd.channel",
 			global.workloop, NULL, notifyd_mach_channel_handler);
 #if TARGET_OS_SIMULATOR
@@ -1486,6 +1420,17 @@ main(int argc, const char *argv[])
 		else global.log_cutoff = ASL_LEVEL_DEBUG;
 	});
 	dispatch_activate(global.sig_winch_src);
+
+	global.stat_reset_src = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, global.workloop);
+	{
+		dispatch_time_t trigger = dispatch_walltime(NULL, 0);
+		dispatch_source_set_timer(global.stat_reset_src, trigger, 60 * 60 * NSEC_PER_SEC, 0);
+	}
+	dispatch_source_set_event_handler(global.stat_reset_src, ^{
+		notify_reset_stats();
+	});
+	dispatch_activate(global.stat_reset_src);
+	notify_reset_stats();
 
 	dispatch_main();
 }

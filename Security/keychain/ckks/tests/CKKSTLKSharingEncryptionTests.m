@@ -26,7 +26,7 @@
 #import <XCTest/XCTest.h>
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSKey.h"
-#import "keychain/ckks/CKKSTLKShare.h"
+#import "keychain/ckks/CKKSTLKShareRecord.h"
 #import "keychain/ckks/CKKSPeer.h"
 #import "keychain/ckks/tests/CloudKitMockXCTest.h"
 
@@ -54,17 +54,20 @@
 
     self.localPeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"local"
                                                   encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
-                                                     signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]];
+                                                     signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
+                                                       viewList:self.managedViewList];
     XCTAssertNotNil(self.localPeer, "Should be able to make a new local peer");
 
     self.remotePeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"remote"
                                                    encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
-                                                      signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]];
+                                                      signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
+                                                        viewList:self.managedViewList];
     XCTAssertNotNil(self.remotePeer, "Should be able to make a new remote peer");
 
     self.remotePeer2 = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"remote"
                                                     encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
-                                                       signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]];
+                                                       signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
+                                                         viewList:self.managedViewList];
     XCTAssertNotNil(self.remotePeer2, "Should be able to make a new remote peer");
 
     [super setUp];
@@ -76,7 +79,7 @@
 
 - (void)testKeyWrapAndUnwrap {
     NSError* error = nil;
-    CKKSTLKShare* share = [CKKSTLKShare share:self.tlk
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.tlk
                                            as:self.localPeer
                                            to:self.remotePeer
                                         epoch:-1
@@ -93,7 +96,7 @@
 
 - (void)testTLKShareSignAndVerify {
     NSError* error = nil;
-    CKKSTLKShare* share = [CKKSTLKShare share:self.tlk
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.tlk
                                            as:self.localPeer
                                            to:self.remotePeer
                                         epoch:-1
@@ -110,7 +113,7 @@
 
 - (void)testTLKShareSignAndFailVerify {
     NSError* error = nil;
-    CKKSTLKShare* share = [CKKSTLKShare share:self.tlk
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.tlk
                                            as:self.localPeer
                                            to:self.remotePeer
                                         epoch:-1
@@ -122,26 +125,26 @@
     XCTAssertNil(error, "Should have been no error signing a CKKSTLKShare");
     XCTAssertNotNil(signature, "Should have received a signature blob");
 
-    CKKSTLKShare* shareEpoch = [share copy];
+    CKKSTLKShareRecord* shareEpoch = [share copy];
     XCTAssertTrue([shareEpoch verifySignature:signature verifyingPeer:self.localPeer error:&error], "Signature should verify using the local peer's signing key");
     error = nil;
-    shareEpoch.epoch = 1;
+    shareEpoch.share.epoch = 1;
     XCTAssertFalse([shareEpoch verifySignature:signature verifyingPeer:self.localPeer error:&error], "After epoch change, signature should no longer verify");
     XCTAssertNotNil(error, "Signature verification after epoch change should have produced an error");
     error = nil;
 
-    CKKSTLKShare* sharePoisoned = [share copy];
+    CKKSTLKShareRecord* sharePoisoned = [share copy];
     XCTAssertTrue([sharePoisoned verifySignature:signature verifyingPeer:self.localPeer error:&error], "Signature should verify using the local peer's signing key");
     error = nil;
-    sharePoisoned.poisoned = 1;
+    sharePoisoned.share.poisoned = 1;
     XCTAssertFalse([sharePoisoned verifySignature:signature verifyingPeer:self.localPeer error:&error], "After poison change, signature should no longer verify");
     XCTAssertNotNil(error, "Signature verification after poison change should have produced an error");
     error = nil;
 
-    CKKSTLKShare* shareData = [share copy];
+    CKKSTLKShareRecord* shareData = [share copy];
     XCTAssertTrue([shareData verifySignature:signature verifyingPeer:self.localPeer error:&error], "Signature should verify using the local peer's signing key");
     error = nil;
-    shareData.wrappedTLK = [NSMutableData dataWithLength:shareData.wrappedTLK.length];
+    shareData.share.wrappedTLK = [NSMutableData dataWithLength:shareData.wrappedTLK.length];
     XCTAssertFalse([shareData verifySignature:signature verifyingPeer:self.localPeer error:&error], "After data change, signature should no longer verify");
     XCTAssertNotNil(error, "Signature verification due to data change should have produced an error");
     error = nil;
@@ -149,7 +152,7 @@
 
 - (void)testKeyShareAndRecover {
     NSError* error = nil;
-    CKKSTLKShare* share = [CKKSTLKShare share:self.tlk
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.tlk
                                            as:self.localPeer
                                            to:self.remotePeer
                                         epoch:-1
@@ -166,7 +169,7 @@
 - (void)testKeyShareAndFailRecovery {
     NSError* error = nil;
     CKKSKey* key = nil;
-    CKKSTLKShare* share = [CKKSTLKShare share:self.tlk
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.tlk
                                            as:self.localPeer
                                            to:self.remotePeer
                                         epoch:-1
@@ -186,15 +189,15 @@
     XCTAssertNotNil(error, "Should have produced an error when failing to extract with the wrong key");
     error = nil;
 
-    CKKSTLKShare* shareSignature = [share copy];
-    shareSignature.signature = [NSMutableData dataWithLength:shareSignature.signature.length];
+    CKKSTLKShareRecord* shareSignature = [share copy];
+    shareSignature.share.signature = [NSMutableData dataWithLength:shareSignature.signature.length];
     key = [shareSignature recoverTLK:self.remotePeer trustedPeers:peers error:&error];
     XCTAssertNil(key, "No key should have been extracted when signature fails to verify");
     XCTAssertNotNil(error, "Should have produced an error when failing to extract a key with an invalid signature");
     error = nil;
 
-    CKKSTLKShare* shareUUID = [share copy];
-    shareUUID.tlkUUID = [[NSUUID UUID] UUIDString];
+    CKKSTLKShareRecord* shareUUID = [share copy];
+    shareUUID.share.tlkUUID = [[NSUUID UUID] UUIDString];
     key = [shareUUID recoverTLK:self.remotePeer trustedPeers:peers error:&error];
     XCTAssertNil(key, "No key should have been extracted when uuid has changed");
     XCTAssertNotNil(error, "Should have produced an error when failing to extract a key after uuid has changed");
@@ -203,7 +206,7 @@
 
 - (void)testKeyShareSaveAndLoad {
     NSError* error = nil;
-    CKKSTLKShare* share = [CKKSTLKShare share:self.tlk
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.tlk
                                            as:self.localPeer
                                            to:self.remotePeer
                                         epoch:-1
@@ -214,7 +217,7 @@
     [share saveToDatabase:&error];
     XCTAssertNil(error, "Shouldn't be an error saving a TLKShare record to the database");
 
-    CKKSTLKShare* loadedShare = [CKKSTLKShare fromDatabase:self.tlk.uuid
+    CKKSTLKShareRecord* loadedShare = [CKKSTLKShareRecord fromDatabase:self.tlk.uuid
                                             receiverPeerID:self.remotePeer.peerID
                                               senderPeerID:self.localPeer.peerID
                                                     zoneID:self.tlk.zoneID
@@ -228,7 +231,7 @@
     XCTAssertNotNil(record, "Should be able to turn a share into a CKRecord");
     XCTAssertTrue([share matchesCKRecord: record], "Should be able to compare a CKRecord with a TLKShare");
 
-    CKKSTLKShare* fromCKRecord = [[CKKSTLKShare alloc] initWithCKRecord:record];
+    CKKSTLKShareRecord* fromCKRecord = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
     XCTAssertNotNil(fromCKRecord, "Should be able to turn a CKRecord into a TLK share");
 
     XCTAssertEqualObjects(share, fromCKRecord, "TLK shares sent through CloudKit should be identical");
@@ -236,7 +239,7 @@
 
 - (void)testKeyShareSignExtraFieldsInCKRecord {
     NSError* error = nil;
-    CKKSTLKShare* share = [CKKSTLKShare share:self.tlk
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.tlk
                                            as:self.localPeer
                                            to:self.remotePeer
                                         epoch:-1
@@ -252,14 +255,14 @@
     record[@"extra_field"] = @"asdf";
     record[@"another_field"] = [NSNumber numberWithInt:5];
     record[@"data"] = [@"asdfdata" dataUsingEncoding:NSUTF8StringEncoding];
-    CKKSTLKShare* share2 = [share copy];
+    CKKSTLKShareRecord* share2 = [share copy];
     share2.storedCKRecord = record;
 
     XCTAssertNotNil([share dataForSigning], "TLKShares should be able to produce some data to sign");
     XCTAssertNotNil([share2 dataForSigning], "TLKShares should be able to produce some data to sign (that includes extra fields)");
     XCTAssertNotEqualObjects([share dataForSigning], [share2 dataForSigning], "TLKShares should prepare to sign extra unknown data");
 
-    share2.signature = [share2 signRecord:self.localPeer.signingKey error:&error];
+    share2.share.signature = [share2 signRecord:self.localPeer.signingKey error:&error];
     XCTAssertNil(error, "Shouldn't be an error signing a record with extra fields");
     XCTAssertNotEqualObjects(share.signature, share2.signature, "Signatures should be different for different data");
 
@@ -282,7 +285,7 @@
     [share2 saveToDatabase:&error];
     XCTAssertNil(error, "No error saving share2 to database");
 
-    CKKSTLKShare* loadedShare2 = [CKKSTLKShare tryFromDatabaseFromCKRecordID:record.recordID error:&error];
+    CKKSTLKShareRecord* loadedShare2 = [CKKSTLKShareRecord tryFromDatabaseFromCKRecordID:record.recordID error:&error];
     XCTAssertNil(error, "No error loading loadedShare2 from database");
     XCTAssertNotNil(loadedShare2, "Should have received a CKKSTLKShare from the database");
 

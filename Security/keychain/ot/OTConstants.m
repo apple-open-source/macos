@@ -21,8 +21,165 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import "OTConstants.h"
+#include <TargetConditionals.h>
+#if TARGET_OS_IOS
+#include <MobileGestalt.h>
+#endif
+
+#import <os/feature_private.h>
+
+#import "keychain/ot/OTConstants.h"
+#import "utilities/debugging.h"
+
+NSString* const OctagonErrorDomain = @"com.apple.security.octagon";
 
 NSString* OTDefaultContext = @"defaultContext";
+NSString* OTDefaultsDomain = @"com.apple.security.octagon";
+NSString* OTDefaultsOctagonEnable = @"enable";
+
+NSString* OTProtocolPairing = @"OctagonPairing";
+NSString* OTProtocolPiggybacking = @"OctagonPiggybacking";
+
+const char * OTTrustStatusChangeNotification = "com.apple.security.octagon.trust-status-change";
+
+// I don't recommend using this command, but it does describe the plist that will enable this feature:
+//
+//  defaults write /System/Library/FeatureFlags/Domain/Security octagon -dict Enabled -bool YES
+//
+static bool OctagonEnabledOverrideSet = false;
+static bool OctagonEnabledOverride = false;
+
+static bool OctagonRecoveryKeyEnabledOverrideSet = false;
+static bool OctagonRecoveryKeyEnabledOverride = false;
+
+static bool OctagonAuthoritativeTrustEnabledOverrideSet = false;
+static bool OctagonAuthoritativeTrustEnabledOverride = false;
+
+bool OctagonIsEnabled(void)
+{
+    if(OctagonEnabledOverrideSet) {
+        secnotice("octagon", "Octagon is %@ (overridden)", OctagonEnabledOverride ? @"enabled" : @"disabled");
+        return OctagonEnabledOverride;
+    }
+
+    static bool octagonEnabled = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        octagonEnabled = os_feature_enabled(Security, octagon);
+        secnotice("octagon", "Octagon is %@ (via feature flags)", octagonEnabled ? @"enabled" : @"disabled");
+    });
+
+    return octagonEnabled;
+}
+
+void OctagonSetIsEnabled(BOOL value)
+{
+    OctagonEnabledOverrideSet = true;
+    OctagonEnabledOverride = value;
+}
+
+static bool OctagonOverridePlatformSOS = false;
+static bool OctagonPlatformSOSOverrideValue = false;
+static bool OctagonPlatformSOSUpgrade = false;
+
+BOOL OctagonPlatformSupportsSOS(void)
+{
+    if(OctagonOverridePlatformSOS) {
+        return OctagonPlatformSOSOverrideValue ? YES : NO;
+    }
+    
+#if TARGET_OS_OSX
+    return YES;
+#elif TARGET_OS_IOS
+    static bool isSOSCapable = false;
+
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        // Only iPhones, iPads, and iPods support SOS.
+        CFStringRef deviceClass = MGCopyAnswer(kMGQDeviceClass, NULL);
+
+        isSOSCapable = deviceClass && (CFEqual(deviceClass, kMGDeviceClassiPhone) ||
+                                       CFEqual(deviceClass, kMGDeviceClassiPad) ||
+                                       CFEqual(deviceClass, kMGDeviceClassiPod));
+
+        if(deviceClass) {
+            CFRelease(deviceClass);
+        } else {
+            secerror("octagon: Unable to determine device class. Guessing SOS status as Not Supported");
+            isSOSCapable = false;
+        }
+
+        secnotice("octagon", "SOS is %@ on this platform" , isSOSCapable ? @"supported" : @"not supported");
+    });
+
+    return isSOSCapable ? YES : NO;
+#else
+    return NO;
+#endif
+}
+
+void OctagonSetPlatformSupportsSOS(BOOL value)
+{
+    OctagonPlatformSOSOverrideValue = value;
+    OctagonOverridePlatformSOS = YES;
+}
+
+void OctagonSetSOSUpgrade(BOOL value)
+{
+    OctagonPlatformSOSUpgrade = value;
+}
+
+BOOL OctagonPerformSOSUpgrade()
+{
+    if(OctagonPlatformSOSUpgrade){
+        return OctagonPlatformSOSUpgrade;
+    }
+    return os_feature_enabled(Security, octagonSOSupgrade);
+}
+
+BOOL OctagonRecoveryKeyIsEnabled(void)
+{
+    if(OctagonRecoveryKeyEnabledOverrideSet) {
+        secnotice("octagon", "Octagon RecoveryKey is %@ (overridden)", OctagonRecoveryKeyEnabledOverride ? @"enabled" : @"disabled");
+        return OctagonRecoveryKeyEnabledOverride;
+    }
+
+    static bool octagonRecoveryKeyEnabled = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        octagonRecoveryKeyEnabled = os_feature_enabled(Security, recoverykey);
+        secnotice("octagon", "Octagon is %@ (via feature flags)", octagonRecoveryKeyEnabled ? @"enabled" : @"disabled");
+    });
+
+    return octagonRecoveryKeyEnabled;
+}
+
+void OctagonRecoveryKeySetIsEnabled(BOOL value)
+{
+    OctagonRecoveryKeyEnabledOverrideSet = true;
+    OctagonRecoveryKeyEnabledOverride = value;
+}
 
 
+BOOL OctagonAuthoritativeTrustIsEnabled(void)
+{
+    if(OctagonAuthoritativeTrustEnabledOverrideSet) {
+        secnotice("octagon", "Authoritative Octagon Trust is %@ (overridden)", OctagonAuthoritativeTrustEnabledOverride ? @"enabled" : @"disabled");
+        return OctagonAuthoritativeTrustEnabledOverride;
+    }
+
+    static bool octagonAuthoritativeTrustEnabled = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        octagonAuthoritativeTrustEnabled = os_feature_enabled(Security, octagonTrust);
+        secnotice("octagon", "Authoritative Octagon Trust is %@ (via feature flags)", octagonAuthoritativeTrustEnabled ? @"enabled" : @"disabled");
+    });
+
+    return octagonAuthoritativeTrustEnabled;
+}
+
+void OctagonAuthoritativeTrustSetIsEnabled(BOOL value)
+{
+    OctagonAuthoritativeTrustEnabledOverrideSet = true;
+    OctagonAuthoritativeTrustEnabledOverride = value;
+}

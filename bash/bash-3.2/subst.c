@@ -4302,7 +4302,7 @@ process_substitute (string, open_for_read_in_child)
 #else /* HAVE_DEV_FD */
   if (pipe (fildes) < 0)
     {
-      sys_error (_("cannot make pipe for process substitution"));
+      sys_error ("%s", _("cannot make pipe for process substitution"));
       return ((char *)NULL);
     }
   /* If OPEN_FOR_READ_IN_CHILD == 1, we want to use the write end of
@@ -4318,7 +4318,7 @@ process_substitute (string, open_for_read_in_child)
 
   if (!pathname)
     {
-      sys_error (_("cannot make pipe for process substitution"));
+      sys_error ("%s", _("cannot make pipe for process substitution"));
       return ((char *)NULL);
     }
 
@@ -4349,7 +4349,7 @@ process_substitute (string, open_for_read_in_child)
 
   if (pid < 0)
     {
-      sys_error (_("cannot make child for process substitution"));
+      sys_error ("%s", _("cannot make child for process substitution"));
       free (pathname);
 #if defined (HAVE_DEV_FD)
       close (parent_pipe_fd);
@@ -4597,7 +4597,7 @@ command_substitute (string, quoted)
   /* Pipe the output of executing STRING into the current shell. */
   if (pipe (fildes) < 0)
     {
-      sys_error (_("cannot make pipe for command substitution"));
+      sys_error ("%s", _("cannot make pipe for command substitution"));
       goto error_exit;
     }
 
@@ -4634,7 +4634,7 @@ command_substitute (string, quoted)
 
   if (pid < 0)
     {
-      sys_error (_("cannot make child for command substitution"));
+      sys_error ("%s", _("cannot make child for command substitution"));
     error_exit:
 
       FREE (istring);
@@ -4651,7 +4651,7 @@ command_substitute (string, quoted)
 
       if (dup2 (fildes[1], 1) < 0)
 	{
-	  sys_error (_("command_substitute: cannot duplicate pipe as fd 1"));
+	  sys_error ("%s", _("command_substitute: cannot duplicate pipe as fd 1"));
 	  exit (EXECUTION_FAILURE);
 	}
 

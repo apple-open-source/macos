@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -92,7 +92,7 @@
 #include "../../../Helpers/vpnd/ipsec_utils.h"
 #include "vpn_control.h"
 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 #include <CoreTelephony/CTServerConnectionPriv.h>
 #endif
 
@@ -190,7 +190,7 @@ static u_int8_t routeraddress[16] = { 0 };
 static u_int8_t interface[17] = { 0 };
 static pthread_t resolverthread = 0;
 static int 	resolverfds[2] = { -1, -1 };
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 static pthread_t edgethread = 0;
 static int 	edgefds[2] = { -1, -1 };
 #endif
@@ -258,29 +258,29 @@ option_t l2tp_options[] = {
     Function Prototypes
 ----------------------------------------------------------------------------- */
 
-void l2tp_process_extra_options();
-void l2tp_check_options();
-int  l2tp_pre_start_link_check();
+void l2tp_process_extra_options(void);
+void l2tp_check_options(void);
+int  l2tp_pre_start_link_check(void);
 int l2tp_connect(int *errorcode);
-void l2tp_disconnect();
-void l2tp_close_fds();
-void l2tp_cleanup();
+void l2tp_disconnect(void);
+void l2tp_close_fds(void);
+void l2tp_cleanup(void);
 int l2tp_establish_ppp(int);
-void l2tp_wait_input();
+void l2tp_wait_input(void);
 void l2tp_disestablish_ppp(int);
 
 static void l2tp_hello_timeout(void *arg);
 static void closeall(void);
 static u_long load_kext(char*, int byBundleID);
-static void l2tp_link_failure();
+static void l2tp_link_failure(void);
 static boolean_t l2tp_set_host_gateway(int cmd, struct in_addr host, struct in_addr gateway, char *ifname, int isnet);
-static int l2tp_set_peer_route();
-static int l2tp_clean_peer_route();
+static int l2tp_set_peer_route(void);
+static int l2tp_clean_peer_route(void);
 static void l2tp_ip_up(void *arg, uintptr_t p);
-static void l2tp_start_wait_interface ();
-static void l2tp_stop_wait_interface ();
+static void l2tp_start_wait_interface (void);
+static void l2tp_stop_wait_interface (void);
 static void l2tp_wait_interface_timeout (void *arg);
-static void l2tp_assert_ipsec();
+static void l2tp_assert_ipsec(void);
 
 void l2tp_init_session __P((char *, u_int32_t, struct in_addr *, link_failure_func));
 
@@ -378,7 +378,7 @@ static void l2tp_start_wait_interface ()
     if (wait_interface_timer_running != 0)
         return;
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     // increase the timeout if we're waiting for a wireless interface
     if (IFM_TYPE(interface_media) == IFM_IEEE80211) {
         timeout_scale_factor = 2;
@@ -628,7 +628,7 @@ void *l2tp_resolver_thread(void *arg)
     return 0;
 }
 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 static 
 void callbackEDGE(CTServerConnectionRef connection, CFStringRef notification, CFDictionaryRef notificationInfo, void* info) {
 	
@@ -1176,7 +1176,7 @@ static void l2tp_get_router_address_for_interface(void)
         if (ifnameRef) {
             char ifname[IFNAMSIZ] = { 0 };
             CFStringGetCString(ifnameRef, ifname, sizeof(ifname), kCFStringEncodingASCII);
-            if (!strcmp(ifname, interface)) {
+            if (!strcmp(ifname, (const char *)interface)) {
                 if ((CFStringHasPrefix(ipv4Key, kSCDynamicStoreDomainState)) && (CFStringHasSuffix(ipv4Key, kSCEntNetIPv4))) {
                     // Fetch the serviceID, then the router address
                     serviceID = l2tp_copy_str_at_index(ipv4Key, 3);
@@ -1273,7 +1273,7 @@ static int l2tp_connect_internal(int *errorcode, int *aggressive_mode, int dhgro
     our_params.protocol_vers = L2TP_PROTOCOL_VERSION;
 
     if (ifscope && ifscope[0]) {
-        strcpy(interface, ifscope);
+        strcpy((char *)interface, ifscope);
         l2tp_get_router_address_for_interface();
     } else {
         key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetIPv4);
@@ -1305,7 +1305,7 @@ static int l2tp_connect_internal(int *errorcode, int *aggressive_mode, int dhgro
 #endif
 	}
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     interface_media = get_if_media((char*)interface);
 #endif /* !iPhone */
 	
@@ -1341,7 +1341,7 @@ static int l2tp_connect_internal(int *errorcode, int *aggressive_mode, int dhgro
                         CFRelease(url);
                         strlcat(name, "/", sizeof(name));
                         strlcat(name, L2TP_NKE, sizeof(name));
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
                         if (!load_kext(name, 0))
 #else
                         if (!load_kext(L2TP_NKE_ID, 1))
@@ -1386,7 +1386,7 @@ static int l2tp_connect_internal(int *errorcode, int *aggressive_mode, int dhgro
 
 		set_network_signature("VPN.RemoteAddress", remoteaddress, 0, 0);
 		
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 		{
 			/* first, bring up EDGE */
 			int need_edge = FALSE;

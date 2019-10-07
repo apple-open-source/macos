@@ -114,6 +114,7 @@ extern "C" {
 #endif
 
 #include <dce/dce.h>
+#include <string.h>
 
 /***************************************************************************/
 
@@ -428,10 +429,10 @@ typedef ndr_ulong_int rpc_op_t;
         dst = (*ndr_g_ascii_to_ebcdic) [*(ndr_char *)mp]
 
 #define rpc_marshall_enum(mp, src)\
-    *(ndr_short_int *)mp = (ndr_short_int)src
+    memcpy(mp, src, sizeof(ndr_short_int))
 
 #define rpc_unmarshall_enum(mp, dst)\
-    dst = *(ndr_short_int *)mp
+    memcpy(dst, mp, sizeof(ndr_short_int))
 
 #define rpc_convert_enum(src_drep, dst_drep, mp, dst)\
     if (src_drep.int_rep == dst_drep.int_rep)\
@@ -441,12 +442,12 @@ typedef ndr_ulong_int rpc_op_t;
         ndr_byte *_d = (ndr_byte *) &_sh;\
         ndr_byte *_s = (ndr_byte *) mp;\
         _d[0]=_s[1]; _d[1]=_s[0];\
-        dst = _sh;\
+        memcpy(dst, _d, sizeof(ndr_short_int));\
         }
 
 #ifdef TWO_BYTE_ENUMS
 #define rpc_marshall_v1_enum(mp, src)\
-    rpc_marshall_ushort(mp, 0);\
+    memset(mp, 0, sizeof(ndr_short_int);\
     rpc_marshall_enum((mp+2), src)
 
 #define rpc_unmarshall_v1_enum(mp, dst)\
@@ -460,14 +461,14 @@ typedef ndr_ulong_int rpc_op_t;
         ndr_byte *_d = (ndr_byte *) &_sh;\
         ndr_byte *_s = (ndr_byte *) mp;\
         _d[0]=_s[1]; _d[1]=_s[0];\
-        dst = _sh;\
+        *dst = _sh;\
         }
 #else
 #define rpc_marshall_v1_enum(mp, src)\
-    *(ndr_ulong_int *)mp = (ndr_ulong_int)src
+    memcpy(mp, src, sizeof(ndr_ulong_int))
 
 #define rpc_unmarshall_v1_enum(mp, dst)\
-    dst = *(ndr_ulong_int *)mp
+    memcpy(dst, mp, sizeof(ndr_ulong_int))
 
 #define rpc_convert_v1_enum(src_drep, dst_drep, mp, dst)\
     if (src_drep.int_rep == dst_drep.int_rep)\
@@ -477,7 +478,7 @@ typedef ndr_ulong_int rpc_op_t;
         ndr_byte *_d = (ndr_byte *) &_l;\
         ndr_byte *_s = (ndr_byte *) mp;\
         _d[0]=_s[3]; _d[1]=_s[2]; _d[2]=_s[1]; _d[3]=_s[0];\
-        dst = _l;\
+        memcpy(dst, &_l, sizeof(ndr_ulong_int));\
         }
 #endif /* TWO_BYTE_ENUMS */
 
@@ -500,109 +501,107 @@ typedef ndr_ulong_int rpc_op_t;
     rpc_unmarshall_usmall_int(mp, dst)
 
 #define rpc_marshall_short_int(mp, src)\
-    *(ndr_short_int *)mp = src
+    memcpy(mp, src, sizeof(ndr_short_int))
 
 #define rpc_unmarshall_short_int(mp, dst)\
-    dst = *(ndr_short_int *)mp
+    memcpy(dst, mp, sizeof(ndr_short_int))
 
 #define rpc_convert_short_int(src_drep, dst_drep, mp, dst)\
     if (src_drep.int_rep == dst_drep.int_rep)\
         rpc_unmarshall_short_int(mp, dst);\
     else {\
-        ndr_byte *_d = (ndr_byte *) &dst;\
+        ndr_byte *_d = (ndr_byte *) dst;\
         ndr_byte *_s = (ndr_byte *) mp;\
         _d[0]=_s[1]; _d[1]=_s[0];\
         }
 
 #define rpc_marshall_ushort_int(mp, src)\
-    *(ndr_ushort_int *)mp = (ndr_ushort_int)src
+    memcpy(mp, src, sizeof(ndr_ushort_int))
 
 #define rpc_unmarshall_ushort_int(mp, dst)\
-    dst = *(ndr_ushort_int *)mp
+    memcpy(dst, mp, sizeof(ndr_ushort_int))
 
 #define rpc_convert_ushort_int(src_drep, dst_drep, mp, dst)\
     if (src_drep.int_rep == dst_drep.int_rep)\
         rpc_unmarshall_ushort_int(mp, dst);\
     else {\
-        ndr_byte *_d = (ndr_byte *) &dst;\
+        ndr_byte *_d = (ndr_byte *) dst;\
         ndr_byte *_s = (ndr_byte *) mp;\
         _d[0]=_s[1]; _d[1]=_s[0];\
         }
 
 #define rpc_marshall_long_int(mp, src)\
-    *(ndr_long_int *)mp = src
+     memcpy(mp, src, sizeof(ndr_long_int))
 
 #define rpc_unmarshall_long_int(mp, dst)\
-    dst = *(ndr_long_int *)mp
+    memcpy(dst, mp, sizeof(ndr_long_int))
 
 #define rpc_convert_long_int(src_drep, dst_drep, mp, dst)\
     if (src_drep.int_rep == dst_drep.int_rep)\
         rpc_unmarshall_long_int(mp, dst);\
     else {\
-        ndr_byte *_d = (ndr_byte *) &dst;\
+        ndr_byte *_d = (ndr_byte *) dst;\
         ndr_byte *_s = (ndr_byte *) mp;\
         _d[0]=_s[3]; _d[1]=_s[2]; _d[2]=_s[1]; _d[3]=_s[0];\
         }
 
 #define rpc_marshall_ulong_int(mp, src)\
-    *(ndr_ulong_int *)mp = (ndr_ulong_int)src
+    memcpy(mp, src, sizeof(ndr_ulong_int))
 
 #define rpc_unmarshall_ulong_int(mp, dst)\
-    dst = *(ndr_ulong_int *)mp
+    memcpy(dst, mp, sizeof(ndr_ulong_int))
 
 #define rpc_convert_ulong_int(src_drep, dst_drep, mp, dst)\
     if (src_drep.int_rep == dst_drep.int_rep)\
         rpc_unmarshall_ulong_int(mp, dst);\
     else {\
-        ndr_byte *_d = (ndr_byte *) &dst;\
+        ndr_byte *_d = (ndr_byte *) dst;\
         ndr_byte *_s = (ndr_byte *) mp;\
         _d[0]=_s[3]; _d[1]=_s[2]; _d[2]=_s[1]; _d[3]=_s[0];\
         }
 
 #define rpc_marshall_hyper_int(mp, src) {\
-    *(ndr_hyper_int *)mp = *(ndr_hyper_int *)&src;\
+    memcpy(mp, src, sizeof(ndr_hyper_int));\
     }
 
 #define rpc_unmarshall_hyper_int(mp, dst) {\
-    *(ndr_hyper_int *)&dst = *(ndr_hyper_int *)mp;\
+    memcpy(dst, mp, sizeof(ndr_hyper_int));\
     }
 
 #define rpc_convert_hyper_int(src_drep, dst_drep, mp, dst)\
     if (src_drep.int_rep == dst_drep.int_rep)\
         rpc_unmarshall_hyper_int(mp, dst)\
     else {\
-        ndr_byte *_d = (ndr_byte *) &dst;\
+        ndr_byte *_d = (ndr_byte *) dst;\
         ndr_byte *_s = (ndr_byte *) mp;\
         _d[0]=_s[7]; _d[1]=_s[6]; _d[2]=_s[5]; _d[3]=_s[4];\
         _d[4]=_s[3]; _d[5]=_s[2]; _d[6]=_s[1]; _d[7]=_s[0];\
         }
 
 #define rpc_marshall_uhyper_int(mp, src) {\
-    *(ndr_uhyper_int *)mp = *(ndr_uhyper_int *)&src;\
+    memcpy(mp, src, sizeof(ndr_uhyper_int));\
     }
 
 #define rpc_unmarshall_uhyper_int(mp, dst) {\
-    *(ndr_uhyper_int *)&dst = *(ndr_uhyper_int *)mp;\
+    memcpy(dst, mp, sizeof(ndr_uhyper_int));\
     }
 
 #define rpc_convert_uhyper_int(src_drep, dst_drep, mp, dst)\
     if (src_drep.int_rep == dst_drep.int_rep)\
         rpc_unmarshall_uhyper_int(mp, dst)\
     else {\
-        ndr_byte *_d = (ndr_byte *) &dst;\
+        ndr_byte *_d = (ndr_byte *) dst;\
         ndr_byte *_s = (ndr_byte *) mp;\
         _d[0]=_s[7]; _d[1]=_s[6]; _d[2]=_s[5]; _d[3]=_s[4];\
         _d[4]=_s[3]; _d[5]=_s[2]; _d[6]=_s[1]; _d[7]=_s[0];\
         }
 
 #define rpc_marshall_short_float(mp, src) {\
-    ndr_short_float tmp;\
-    tmp = src;\
-    *(ndr_short_float *)mp = tmp;\
+    memcpy(mp, src, sizeof(ndr_short_float));\
     }
 
 #define rpc_unmarshall_short_float(mp, dst)\
-    dst = *(ndr_short_float *)mp
+    memcpy(dst, mp, sizeof(ndr_short_float))
 
 #define rpc_convert_short_float(src_drep, dst_drep, mp, dst)\
     if ((src_drep.float_rep == dst_drep.float_rep) &&\
@@ -610,15 +609,15 @@ typedef ndr_ulong_int rpc_op_t;
         rpc_unmarshall_short_float(mp, dst);\
     else {\
         ndr_cvt_short_float (src_drep, dst_drep,\
-            (short_float_p_t)mp,\
-            (short_float_p_t)&dst);\
+            mp,\
+            dst);\
         }
 
 #define rpc_marshall_long_float(mp, src)\
-    *(ndr_long_float *)mp = src
+    memcpy(mp, src, sizeof(ndr_long_float))
 
 #define rpc_unmarshall_long_float(mp, dst)\
-    dst = *(ndr_long_float *)mp
+    memcpy(dst, mp, sizeof(ndr_long_float))
 
 #define rpc_convert_long_float(src_drep, dst_drep, mp, dst)\
     if ((src_drep.float_rep == dst_drep.float_rep) &&\
@@ -626,8 +625,8 @@ typedef ndr_ulong_int rpc_op_t;
         rpc_unmarshall_long_float(mp, dst);\
     else\
         ndr_cvt_long_float (src_drep, dst_drep,\
-            (long_float_p_t)mp,\
-            (long_float_p_t)&dst)
+            mp,\
+            dst)
 
 #endif  /* USE_DEFAULT_MACROS */
 
@@ -820,7 +819,7 @@ typedef volatile struct {
  * Returns NULL if unable to allocate
  */
 
-byte_p_t rpc_ss_mem_alloc   (
+rpc_void_p_t rpc_ss_mem_alloc   (
     rpc_ss_mem_handle *,  /* The (initially NULL) allocation handle */
     size_t                /* Number of bytes to allocate */
 );
@@ -833,7 +832,7 @@ byte_p_t rpc_ss_mem_alloc   (
  * Returns NULL if unable to allocate
  * returns rpc_s_no_memory instead of Raise( rpc_x_no_memory)
  */
-byte_p_t rpc_sm_mem_alloc   (
+rpc_void_p_t rpc_sm_mem_alloc   (
     rpc_ss_mem_handle *,    /* The (initially NULL) allocation handle */
     size_t,                 /* Number of bytes to allocate */
     error_status_t *        /*The status parameter if alloc returns NULL */
@@ -1595,7 +1594,7 @@ void rpc_ss_flag_error_on_binding   (
 
 void rpc_ss_call_end   (
     volatile rpc_call_handle_t *,
-    volatile ndr_ulong_int *,
+    ndr_ulong_int *,
     volatile error_status_t *
 );
 
@@ -1625,15 +1624,15 @@ void ndr_cvt_string   (
 void ndr_cvt_short_float   (
         ndr_format_t,
         ndr_format_t,
-        short_float_p_t,
-        short_float_p_t
+        byte_p_t,
+        byte_p_t
 );
 
 void ndr_cvt_long_float   (
         ndr_format_t ,
         ndr_format_t ,
-        long_float_p_t ,
-        long_float_p_t
+        byte_p_t ,
+        byte_p_t
 );
 
 /*

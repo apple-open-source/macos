@@ -13,7 +13,9 @@
 
 #include <IOKit/IOTypes.h>
 #if MAC_OS_X_VERSION_10_5
+#if !defined(__LP64__)
 #include <IOKit/iokitmig.h>
+#endif
 #else
 #include <IOKit/iokitmig_c.h>
 #endif

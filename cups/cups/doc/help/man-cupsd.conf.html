@@ -13,20 +13,17 @@ cupsd.conf - server configuration file for cups
 The
 <i>cupsd.conf</i>
 file configures the CUPS scheduler,
-<a href="man-cupsd.html?TOPIC=Man+Pages"><b>cupsd</b>(8).</a>
+<b>cupsd</b>(8).
 It is normally located in the
 <i>/etc/cups</i>
 directory.
-<b>Note:</b> File, directory, and user configuration directives that used to be allowed in the <b>cupsd.conf</b> file are now stored in the
-<a href="man-cups-files.conf.html?TOPIC=Man+Pages"><b>cups-files.conf</b>(5)</a>
-file instead in order to prevent certain types of privilege escalation attacks.
-<p>Each line in the file can be a configuration directive, a blank line, or a comment.
+Each line in the file can be a configuration directive, a blank line, or a comment.
 Configuration directives typically consist of a name and zero or more values separated by whitespace.
 The configuration directive name and values are case-insensitive.
 Comment lines start with the # character.
 <h3><a name="TOP_LEVEL_DIRECTIVES">Top-level Directives</a></h3>
 The following top-level directives are understood by
-<a href="man-cupsd.html?TOPIC=Man+Pages"><b>cupsd</b>(8):</a>
+<b>cupsd</b>(8):
 <dl class="man">
 <dt><a name="AccessLogLevel"></a><b>AccessLogLevel config</b>
 <dd style="margin-left: 5.0em"><dt><b>AccessLogLevel actions</b>
@@ -41,6 +38,10 @@ The default access log level is "actions".
 <dd style="margin-left: 5.0em"><br>
 Specifies whether to purge job history data automatically when it is no longer required for quotas.
 The default is "No".
+<dt><a name="BrowseDNSSDSubTypes"></a><b>BrowseDNSSDSubTypes</b><i>_subtype[,...]</i>
+<dd style="margin-left: 5.0em">Specifies a list of Bonjour sub-types to advertise for each shared printer.
+For example, "BrowseDNSSDSubTypes _cups,_print" will tell network clients that both CUPS sharing and IPP Everywhere are supported.
+The default is "_cups" which is necessary for printer sharing to work between systems using CUPS.
 <dt><a name="BrowseLocalProtocols"></a><b>BrowseLocalProtocols all</b>
 <dd style="margin-left: 5.0em"><dt><b>BrowseLocalProtocols dnssd</b>
 <dd style="margin-left: 5.0em"><dt><b>BrowseLocalProtocols none</b>
@@ -86,6 +87,9 @@ The default is "Yes".
 <dd style="margin-left: 5.0em">Specifies the delay for updating of configuration and state files.
 A value of 0 causes the update to happen as soon as possible, typically within a few milliseconds.
 The default value is "30".
+<dt><a name="DNSSDHostName"></a><b>DNSSDHostName</b><i>hostname.example.com</i>
+<dd style="margin-left: 5.0em">Specifies the fully-qualified domain name for the server that is used for Bonjour sharing.
+The default is typically the server's ".local" hostname.
 <dt><a name="ErrorPolicy"></a><b>ErrorPolicy abort-job</b>
 <dd style="margin-left: 5.0em">Specifies that a failed print job should be aborted (discarded) unless otherwise specified for the printer.
 <dt><b>ErrorPolicy retry-current-job</b>
@@ -115,7 +119,7 @@ The default service name is "http."
 <dd style="margin-left: 5.0em"><dt><b>HostNameLookups Double</b>
 <dd style="margin-left: 5.0em">Specifies whether to do reverse lookups on connecting clients.
 The "Double" setting causes
-<a href="man-cupsd.html?TOPIC=Man+Pages"><b>cupsd</b>(8)</a>
+<b>cupsd</b>(8)
 to verify that the hostname resolved from the address matches one of the addresses returned for that hostname.
 Double lookups also prevent clients with unregistered addresses from connecting to your server.
 The default is "Off" to avoid the potential server performance problems with hostname lookups.
@@ -124,7 +128,7 @@ Only set this option to "On" or "Double" if absolutely required.
 <dd style="margin-left: 5.0em">Specifies the length of time to wait before shutting down due to inactivity.
 The default is "60" seconds.
 Note: Only applicable when
-<a href="man-cupsd.html?TOPIC=Man+Pages"><b>cupsd</b>(8)</a>
+<b>cupsd</b>(8)
 is run on-demand (e.g., with <b>-l</b>).
 <dt><a name="JobKillDelay"></a><b>JobKillDelay </b><i>seconds</i>
 <dd style="margin-left: 5.0em">Specifies the number of seconds to wait before killing the filters and backend associated with a canceled or held job.
@@ -219,7 +223,7 @@ The value "0" disables log rotation.
 The default is "1048576" (1MB).
 <dt><a name="MultipleOperationTimeout"></a><b>MultipleOperationTimeout </b><i>seconds</i>
 <dd style="margin-left: 5.0em">Specifies the maximum amount of time to allow between files in a multiple file print job.
-The default is "300" (5 minutes).
+The default is "900" (15 minutes).
 <dt><a name="Policy"></a><b>&lt;Policy </b><i>name</i><b>> </b>... <b>&lt;/Policy></b>
 <dd style="margin-left: 5.0em">Specifies access control for the named policy.
 <dt><a name="Port"></a><b>Port </b><i>number</i>
@@ -263,21 +267,19 @@ command.
 <dd style="margin-left: 5.0em">Specifies what information is included in the Server header of HTTP responses.
 "None" disables the Server header.
 "ProductOnly" reports "CUPS".
-"Major" reports "CUPS 2".
-"Minor" reports "CUPS 2.0".
-"Minimal" reports "CUPS 2.0.0".
-"OS" reports "CUPS 2.0.0 (UNAME)" where UNAME is the output of the
-<b>uname</b>(1)
-command.
-"Full" reports "CUPS 2.0.0 (UNAME) IPP/2.0".
+"Major" reports "CUPS/major IPP/2".
+"Minor" reports "CUPS/major.minor IPP/2.1".
+"Minimal" reports "CUPS/major.minor.patch IPP/2.1".
+"OS" reports "CUPS/major.minor.path (osname osversion) IPP/2.1".
+"Full" reports "CUPS/major.minor.path (osname osversion; architecture) IPP/2.1".
 The default is "Minimal".
 <dt><a name="SSLListen"></a><b>SSLListen </b><i>ipv4-address</i><b>:</b><i>port</i>
 <dd style="margin-left: 5.0em"><dt><b>SSLListen [</b><i>ipv6-address</i><b>]:</b><i>port</i>
 <dd style="margin-left: 5.0em"><dt><b>SSLListen *:</b><i>port</i>
 <dd style="margin-left: 5.0em">Listens on the specified address and port for encrypted connections.
-<dt><a name="SSLOptions"></a><b>SSLOptions </b>[<i>AllowDH</i>] [<i>AllowRC4</i>] [<i>AllowSSL3</i>] [<i>DenyCBC</i>] [<i>DenyTLS1.0</i>]
+<dt><a name="SSLOptions"></a><dt><b>SSLOptions </b>[<i>AllowDH</i>] [<i>AllowRC4</i>] [<i>AllowSSL3</i>] [<i>DenyCBC</i>] [<i>DenyTLS1.0</i>] [<i>MaxTLS1.0</i>] [<i>MaxTLS1.1</i>] [<i>MaxTLS1.2</i>] [<i>MaxTLS1.3</i>] [<i>MinTLS1.0</i>] [<i>MinTLS1.1</i>] [<i>MinTLS1.2</i>] [<i>MinTLS1.3</i>]
 <dd style="margin-left: 5.0em"><dt><b>SSLOptions None</b>
-<dd style="margin-left: 5.0em">Sets encryption options.
+<dd style="margin-left: 5.0em">Sets encryption options (only in /etc/cups/client.conf).
 By default, CUPS only supports encryption using TLS v1.0 or higher using known secure cipher suites.
 Security is reduced when <i>Allow</i> options are used.
 Security is enhanced when <i>Deny</i> options are used.
@@ -286,6 +288,9 @@ The <i>AllowRC4</i> option enables the 128-bit RC4 cipher suites, which are requ
 The <i>AllowSSL3</i> option enables SSL v3.0, which is required for some older clients that do not support TLS v1.0.
 The <i>DenyCBC</i> option disables all CBC cipher suites.
 The <i>DenyTLS1.0</i> option disables TLS v1.0 support - this sets the minimum protocol version to TLS v1.1.
+The <i>MinTLS</i> options set the minimum TLS version to support.
+The <i>MaxTLS</i> options set the maximum TLS version to support.
+Not all operating systems support TLS 1.3 at this time.
 <dt><a name="SSLPort"></a><b>SSLPort </b><i>port</i>
 <dd style="margin-left: 5.0em">Listens on the specified port for encrypted connections.
 <dt><a name="StrictConformance"></a><b>StrictConformance Yes</b>
@@ -294,7 +299,7 @@ The <i>DenyTLS1.0</i> option disables TLS v1.0 support - this sets the minimum p
 The default is "No".
 <dt><a name="Timeout"></a><b>Timeout </b><i>seconds</i>
 <dd style="margin-left: 5.0em">Specifies the HTTP request timeout.
-The default is "300" (5 minutes).
+The default is "900" (15 minutes).
 <dt><a name="WebInterface"></a><b>WebInterface yes</b>
 <dd style="margin-left: 5.0em"><dt><b>WebInterface no</b>
 <dd style="margin-left: 5.0em">Specifies whether the web interface is enabled.
@@ -302,7 +307,7 @@ The default is "No".
 </dl>
 <h3><a name="HTTP_METHOD_NAMES">Http Method Names</a></h3>
 The following HTTP methods are supported by
-<a href="man-cupsd.html?TOPIC=Man+Pages"><b>cupsd</b>(8):</a>
+<b>cupsd</b>(8):
 <dl class="man">
 <dt>GET
 <dd style="margin-left: 5.0em">Used by a client to download icons and other printer resources and to access the CUPS web interface.
@@ -317,7 +322,7 @@ The following HTTP methods are supported by
 </dl>
 <h3><a name="IPP_OPERATION_NAMES">Ipp Operation Names</a></h3>
 The following IPP operations are supported by
-<a href="man-cupsd.html?TOPIC=Man+Pages"><b>cupsd</b>(8):</a>
+<b>cupsd</b>(8):
 <dl class="man">
 <dt>CUPS-Accept-Jobs
 <dd style="margin-left: 5.0em">Allows a printer to accept new jobs.
@@ -410,7 +415,7 @@ The following IPP operations are supported by
 </dl>
 <h3><a name="LOCATION_PATHS">Location Paths</a></h3>
 The following paths are commonly used when configuring
-<a href="man-cupsd.html?TOPIC=Man+Pages"><b>cupsd</b>(8):</a>
+<b>cupsd</b>(8):
 <dl class="man">
 <dt>/
 <dd style="margin-left: 5.0em">The path for all get operations (get-printers, get-jobs, etc.)
@@ -452,6 +457,8 @@ The following directives may be placed inside Location and Limit sections in the
 <dd style="margin-left: 5.0em"><dt><b>Allow @IF(</b><i>name</i><b>)</b>
 <dd style="margin-left: 5.0em"><dt><b>Allow @LOCAL</b>
 <dd style="margin-left: 5.0em">Allows access from the named hosts, domains, addresses, or interfaces.
+The @IF(name) form uses the current subnets configured for the named interface.
+The @LOCAL form uses the current subnets configured for all interfaces that are not point-to-point, for example Ethernet and Wi-Fi interfaces are used but DSL and VPN interfaces are not.
 The Order directive controls whether Allow lines are evaluated before or after Deny lines.
 <dt><b>AuthType None</b>
 <dd style="margin-left: 5.0em"><dt><b>AuthType Basic</b>
@@ -471,6 +478,8 @@ The value "Default" corresponds to the DefaultAuthType value.
 <dd style="margin-left: 5.0em"><dt><b>Deny @IF(</b><i>name</i><b>)</b>
 <dd style="margin-left: 5.0em"><dt><b>Deny @LOCAL</b>
 <dd style="margin-left: 5.0em">Denies access from the named hosts, domains, addresses, or interfaces.
+The @IF(name) form uses the current subnets configured for the named interface.
+The @LOCAL form uses the current subnets configured for all interfaces that are not point-to-point, for example Ethernet and Wi-Fi interfaces are used but DSL and VPN interfaces are not.
 The Order directive controls whether Deny lines are evaluated before or after Allow lines.
 <dt><b>Encryption IfRequested</b>
 <dd style="margin-left: 5.0em"><dt><b>Encryption Never</b>
@@ -486,7 +495,7 @@ The default value is "IfRequested".
 <dt><b>Require user {</b><i>user-name</i>|<b>@</b><i>group-name</i>} ...
 <dd style="margin-left: 5.0em">Specifies that an authenticated user must match one of the named users or be a member of one of the named groups.
 The group name "@SYSTEM" corresponds to the list of groups defined by the SystemGroup directive in the
-<a href="man-cups-files.conf.html?TOPIC=Man+Pages"><b>cups-files.conf</b>(5)</a>
+<b>cups-files.conf</b>(5)
 file.
 The group name "@OWNER" corresponds to the owner of the resource, for example the person that submitted a print job.
 Note: The 'root' user is not special and must be granted privileges like any other user account.
@@ -509,7 +518,7 @@ The "default" access list is "@OWNER @SYSTEM".
 "@ACL" maps to the printer's requesting-user-name-allowed or requesting-user-name-denied values.
 "@OWNER" maps to the job's owner.
 "@SYSTEM" maps to the groups listed for the SystemGroup directive in the
-<a href="man-cups-files.conf.html?TOPIC=Man+Pages"><b>cups-files.conf</b>(5)</a>
+<b>cups-files.conf</b>(5)
 file.
 <dt><b>JobPrivateValues all</b>
 <dd style="margin-left: 5.0em"><dt><b>JobPrivateValues default</b>
@@ -525,7 +534,7 @@ The "default" access list is "@OWNER @SYSTEM".
 "@ACL" maps to the printer's requesting-user-name-allowed or requesting-user-name-denied values.
 "@OWNER" maps to the job's owner.
 "@SYSTEM" maps to the groups listed for the SystemGroup directive in the
-<a href="man-cups-files.conf.html?TOPIC=Man+Pages"><b>cups-files.conf</b>(5)</a>
+<b>cups-files.conf</b>(5)
 file.
 <dt><b>SubscriptionPrivateValues all</b>
 <dd style="margin-left: 5.0em"><dt><b>SubscriptionPrivateValues default</b>
@@ -565,10 +574,24 @@ The following percent sequences are recognized:
 </pre>
 The default is the empty string, which disables page logging.
 The string "%p %u %j %T %P %C %{job-billing} %{job-originating-host-name} %{job-name} %{media} %{sides}" creates a page log with the standard items.
+Use "%{job-impressions-completed}" to insert the number of pages (sides) that were printed, or "%{job-media-sheets-completed}" to insert the number of sheets that were printed.
 <dt><a name="RIPCache"></a><b>RIPCache </b><i>size</i>
 <dd style="margin-left: 5.0em">Specifies the maximum amount of memory to use when converting documents into bitmaps for a printer.
 The default is "128m".
 </dl>
+<h2 class="title"><a name="NOTES">Notes</a></h2>
+File, directory, and user configuration directives that used to be allowed in the <b>cupsd.conf</b> file are now stored in the
+<b>cups-files.conf</b>(5)
+file instead in order to prevent certain types of privilege escalation attacks.
+<p>The scheduler MUST be restarted manually after making changes to the <b>cupsd.conf</b> file.
+On Linux this is typically done using the
+<b>systemctl</b>(8)
+command, while on macOS the
+<b>launchctl</b>(8)
+command is used instead.
+<p>The @LOCAL macro name can be confusing since the system running
+<b>cupsd</b>
+often belongs to a different set of subnets from its clients.
 <h2 class="title"><a name="CONFORMING_TO">Conforming To</a></h2>
 The <b>cupsd.conf</b> file format is based on the Apache HTTP Server configuration file format.
 <h2 class="title"><a name="EXAMPLES">Examples</a></h2>
@@ -592,16 +615,16 @@ Require authentication for accesses from outside the 10. network:
     &lt;/Location>
 </pre>
 <h2 class="title"><a name="SEE_ALSO">See Also</a></h2>
-<a href="man-classes.conf.html?TOPIC=Man+Pages"><b>classes.conf</b>(5),</a>
-<a href="man-cups-files.conf.html?TOPIC=Man+Pages"><b>cups-files.conf</b>(5),</a>
-<a href="man-cupsd.html?TOPIC=Man+Pages"><b>cupsd</b>(8),</a>
-<a href="man-mime.convs.html?TOPIC=Man+Pages"><b>mime.convs</b>(5),</a>
-<a href="man-mime.types.html?TOPIC=Man+Pages"><b>mime.types</b>(5),</a>
-<a href="man-printers.conf.html?TOPIC=Man+Pages"><b>printers.conf</b>(5),</a>
-<a href="man-subscriptions.conf.html?TOPIC=Man+Pages"><b>subscriptions.conf</b>(5),</a>
+<b>classes.conf</b>(5),
+<b>cups-files.conf</b>(5),
+<b>cupsd</b>(8),
+<b>mime.convs</b>(5),
+<b>mime.types</b>(5),
+<b>printers.conf</b>(5),
+<b>subscriptions.conf</b>(5),
 CUPS Online Help (<a href="http://localhost:631/help">http://localhost:631/help</a>)
 <h2 class="title"><a name="COPYRIGHT">Copyright</a></h2>
-Copyright &copy; 2007-2018 by Apple Inc.
+Copyright &copy; 2007-2019 by Apple Inc.
 
 </body>
 </html>

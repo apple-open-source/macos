@@ -16,7 +16,6 @@ entryPoint(CommonCryptoSymRegression,"CommonCrypto Base Behavior Regression Test
 #include <CommonCrypto/CommonCryptor.h>
 #include <fcntl.h>
 #include <sys/types.h>
-#include "../../lib/ccMemory.h"
 
 /*
  * Defaults.
@@ -72,6 +71,23 @@ appGetRandomBytes(void *keyBytes, size_t keySizeInBytes)
     }
     
     return rc == TRUE ? 0 : -1;
+
+}
+#elif defined (__ANDROID__)
+static int
+appGetRandomBytes(void *keyBytes, size_t keySizeInBytes)
+{
+    int fd;
+
+    if((fd = open("/dev/urandom", O_RDONLY)) < 0) {
+        diag("Can't open URandom\n");
+        exit(0);
+    }
+    if(read(fd, keyBytes, keySizeInBytes) != (int) keySizeInBytes) {
+        diag("Can't read URandom\n");
+        exit(0);
+    }
+    close(fd);
 
 }
 #else
@@ -203,12 +219,12 @@ static CCCryptorStatus doCCCrypt(
 	}
 	
 	outBuf = (uint8_t *)malloc(outLen + MARKER_LENGTH);
-	CC_XMEMSET(outBuf, 0xEE, outLen + MARKER_LENGTH);
-	
+	memset(outBuf, 0xEE, outLen + MARKER_LENGTH);
+
 	/* library should not touch this memory */
 	textMarker = outBuf + outLen;
-	CC_XMEMSET(textMarker, MARKER_BYTE, MARKER_LENGTH);
-	
+	memset(textMarker, MARKER_BYTE, MARKER_LENGTH);
+
 	/* subsequent errors to errOut: */
 
 	if(inPlace) {
@@ -275,7 +291,7 @@ static CCCryptorStatus doCCCrypt(
 			return crtn;
 		}
 		ctxMarker = ctx + ctxSizeCreated;
-		CC_XMEMSET(ctxMarker, MARKER_BYTE, MARKER_LENGTH);
+		memset(ctxMarker, MARKER_BYTE, MARKER_LENGTH);
 	}
 	else {
 		crtn = CCCryptorCreate(op, encrAlg, options,
@@ -400,8 +416,8 @@ static int doTest(const uint8_t *ptext,
 	/* random IV if needed */
 	if(doCbc) {
 		if(nullIV) {
-			CC_XZEROMEM(iv, MAX_BLOCK_SIZE);
-			
+			cc_clear(MAX_BLOCK_SIZE, iv);
+
 			/* flip a coin, give one side NULL, the other size zeroes */
 			if(genRand(1,2) == 1) {
 				ivPtrEncrypt = NULL;

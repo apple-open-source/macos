@@ -1,0 +1,70 @@
+diff -upr Python-2.7.16/configure Python-2.7.16-fix/configure
+--- Python-2.7.16/configure	2019-03-02 10:17:42.000000000 -0800
++++ Python-2.7.16-fix/configure	2019-05-10 08:15:00.000000000 -0700
+@@ -10593,7 +10593,7 @@ for ac_func in alarm setitimer getitimer
+  gai_strerror getgroups getlogin getloadavg getpeername getpgid getpid \
+  getentropy \
+  getpriority getresuid getresgid getpwent getspnam getspent getsid getwd \
+- initgroups kill killpg lchown lstat mkfifo mknod mktime mmap \
++ initgroups kill killpg lchmod lchown lstat mkfifo mknod mktime mmap \
+  mremap nice pathconf pause plock poll pthread_init \
+  putenv readlink realpath \
+  select sem_open sem_timedwait sem_getvalue sem_unlink setegid seteuid \
+@@ -10615,18 +10615,6 @@ _ACEOF
+ fi
+ done
+ 
+-
+-# Force lchmod off for Linux. Linux disallows changing the mode of symbolic
+-# links. Some libc implementations have a stub lchmod implementation that always
+-# returns an error.
+-if test "$MACHDEP" != linux; then
+-  ac_fn_c_check_func "$LINENO" "lchmod" "ac_cv_func_lchmod"
+-if test "x$ac_cv_func_lchmod" = xyes; then :
+-
+-fi
+-
+-fi
+-
+ # For some functions, having a definition is not sufficient, since
+ # we want to take their address.
+ { $as_echo "$as_me:${as_lineno-$LINENO}: checking for chroot" >&5
+diff -upr Python-2.7.16/configure.ac Python-2.7.16-fix/configure.ac
+--- Python-2.7.16/configure.ac	2019-03-02 10:17:42.000000000 -0800
++++ Python-2.7.16-fix/configure.ac	2019-05-10 08:28:40.000000000 -0700
+@@ -3122,7 +3122,7 @@ AC_CHECK_FUNCS(alarm setitimer getitimer
+  gai_strerror getgroups getlogin getloadavg getpeername getpgid getpid \
+  getentropy \
+  getpriority getresuid getresgid getpwent getspnam getspent getsid getwd \
+- initgroups kill killpg lchown lstat mkfifo mknod mktime mmap \
++ initgroups kill killpg lchmod lchown lstat mkfifo mknod mktime mmap \
+  mremap nice pathconf pause plock poll pthread_init \
+  putenv readlink realpath \
+  select sem_open sem_timedwait sem_getvalue sem_unlink setegid seteuid \
+@@ -3134,13 +3134,6 @@ AC_CHECK_FUNCS(alarm setitimer getitimer
+  sysconf tcgetpgrp tcsetpgrp tempnam timegm times tmpfile tmpnam tmpnam_r \
+  truncate uname unsetenv utimes waitpid wait3 wait4 wcscoll _getpty)
+ 
+-# Force lchmod off for Linux. Linux disallows changing the mode of symbolic
+-# links. Some libc implementations have a stub lchmod implementation that always
+-# returns an error.
+-if test "$MACHDEP" != linux; then
+-  AC_CHECK_FUNC(lchmod)
+-fi
+-
+ # For some functions, having a definition is not sufficient, since
+ # we want to take their address.
+ AC_MSG_CHECKING(for chroot)
+diff -upr Python-2.7.16/pyconfig.h.in Python-2.7.16-fix/pyconfig.h.in
+--- Python-2.7.16/pyconfig.h.in	2019-03-02 10:17:42.000000000 -0800
++++ Python-2.7.16-fix/pyconfig.h.in	2019-05-10 08:30:20.000000000 -0700
+@@ -439,6 +439,9 @@
+ /* Define to 1 if you have the 'lchflags' function. */
+ #undef HAVE_LCHFLAGS
+ 
++/* Define to 1 if you have the `lchmod' function. */
++#undef HAVE_LCHMOD
++
+ /* Define to 1 if you have the `lchown' function. */
+ #undef HAVE_LCHOWN
+ 

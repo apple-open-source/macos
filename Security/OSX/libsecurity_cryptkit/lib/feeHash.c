@@ -20,8 +20,6 @@
 
 #include "ckconfig.h"
 
-#if	CRYPTKIT_MD5_ENABLE
-
 #include "feeTypes.h"
 #include "feeHash.h"
 #include "ckMD5.h"
@@ -107,4 +105,3 @@ unsigned feeHashDigestLen(void)
 	return MD5_DIGEST_SIZE;
 }
 
-#endif	/* CRYPTKIT_MD5_ENABLE*/

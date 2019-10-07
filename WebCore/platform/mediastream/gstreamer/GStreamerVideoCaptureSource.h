@@ -22,12 +22,13 @@
 #pragma once
 
 #if ENABLE(MEDIA_STREAM) && USE(LIBWEBRTC) && USE(GSTREAMER)
+#include "CaptureDevice.h"
 #include "GStreamerVideoCapturer.h"
-#include "RealtimeVideoSource.h"
+#include "RealtimeVideoCaptureSource.h"
 
 namespace WebCore {
 
-class GStreamerVideoCaptureSource : public RealtimeVideoSource {
+class GStreamerVideoCaptureSource : public RealtimeVideoCaptureSource {
 public:
     static CaptureSourceOrError create(String&& deviceID, String&& hashSalt, const MediaConstraints*);
     WEBCORE_EXPORT static VideoCaptureFactory& factory();
@@ -39,6 +40,7 @@ public:
     const RealtimeMediaSourceSettings& settings() override;
     GstElement* pipeline() { return m_capturer->pipeline(); }
     GStreamerCapturer* capturer() { return m_capturer.get(); }
+    void processNewFrame(Ref<MediaSample>&&);
 
 protected:
     GStreamerVideoCaptureSource(String&& deviceID, String&& name, String&& hashSalt, const gchar * source_factory);
@@ -52,6 +54,7 @@ protected:
 
     mutable Optional<RealtimeMediaSourceCapabilities> m_capabilities;
     mutable Optional<RealtimeMediaSourceSettings> m_currentSettings;
+    CaptureDevice::DeviceType deviceType() const override { return CaptureDevice::DeviceType::Camera; }
 
 private:
     static GstFlowReturn newSampleCallback(GstElement*, GStreamerVideoCaptureSource*);

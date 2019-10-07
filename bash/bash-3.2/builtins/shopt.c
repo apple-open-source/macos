@@ -197,7 +197,7 @@ shopt_builtin (list)
 
   if ((flags & (SFLAG|UFLAG)) == (SFLAG|UFLAG))
     {
-      builtin_error (_("cannot set and unset shell options simultaneously"));
+      builtin_error ("%s", _("cannot set and unset shell options simultaneously"));
       return (EXECUTION_FAILURE);
     }
 

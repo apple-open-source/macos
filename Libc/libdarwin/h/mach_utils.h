@@ -155,7 +155,7 @@ os_mach_msg_get_context_trailer(const mach_msg_header_t *hdr);
  * required.
  */
 DARWIN_API_AVAILABLE_20170407
-OS_EXPORT OS_WARN_RESULT OS_MALLOC OS_NONNULL1
+OS_EXPORT OS_COLD OS_WARN_RESULT OS_MALLOC OS_NONNULL1
 char *
 os_mach_msg_copy_description(const mach_msg_header_t *msg);
 
@@ -176,7 +176,7 @@ os_mach_msg_copy_description(const mach_msg_header_t *msg);
  * required.
  */
 DARWIN_API_AVAILABLE_20170407
-OS_EXPORT OS_WARN_RESULT OS_MALLOC OS_NONNULL1
+OS_EXPORT OS_COLD OS_WARN_RESULT OS_MALLOC OS_NONNULL1
 char *
 os_mach_msg_trailer_copy_description(const mach_msg_trailer_t *tlr);
 
@@ -196,7 +196,7 @@ os_mach_msg_trailer_copy_description(const mach_msg_trailer_t *tlr);
  * required.
  */
 DARWIN_API_AVAILABLE_20170407
-OS_EXPORT OS_WARN_RESULT OS_MALLOC
+OS_EXPORT OS_COLD OS_WARN_RESULT OS_MALLOC
 char *
 os_mach_port_copy_description(mach_port_t port);
 

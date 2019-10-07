@@ -232,7 +232,7 @@ void WebInspector::showMainResourceForFrame(uint64_t frameIdentifier)
 
     m_page->corePage()->inspectorController().show();
 
-    String inspectorFrameIdentifier = m_page->corePage()->inspectorController().pageAgent()->frameId(frame->coreFrame());
+    String inspectorFrameIdentifier = m_page->corePage()->inspectorController().ensurePageAgent().frameId(frame->coreFrame());
 
     whenFrontendConnectionEstablished([=] {
         m_frontendConnection->send(Messages::WebInspectorUI::ShowMainResourceForFrame(inspectorFrameIdentifier), 0);
@@ -282,6 +282,11 @@ void WebInspector::stopElementSelection()
 void WebInspector::elementSelectionChanged(bool active)
 {
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::ElementSelectionChanged(active), m_page->pageID());
+}
+
+void WebInspector::setMockCaptureDevicesEnabledOverride(Optional<bool> enabled)
+{
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::SetMockCaptureDevicesEnabledOverride(enabled), m_page->pageID());
 }
 
 bool WebInspector::canAttachWindow()

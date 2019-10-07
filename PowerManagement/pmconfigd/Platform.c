@@ -30,8 +30,8 @@
 #include "SystemLoad.h"
 #include "StandbyTimer.h"
 
-__private_extern__ CFAbsoluteTime   get_SleepFromUserWakeTime();
-static bool userPrefForTcpka();
+__private_extern__ CFAbsoluteTime   get_SleepFromUserWakeTime(void);
+static bool userPrefForTcpka(void);
 
 __private_extern__ TCPKeepAliveStruct   *gTCPKeepAlive = NULL;
 
@@ -111,7 +111,7 @@ __private_extern__ void startTCPKeepAliveExpTimer( )
 
     if (!gTCPKeepAlive->expiration) {
         gTCPKeepAlive->expiration = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0,
-                                                           0, dispatch_get_main_queue());
+                                                           0, _getPMMainQueue());
         dispatch_source_set_event_handler(gTCPKeepAlive->expiration, ^{
                            gTCPKeepAlive->state = kInactive;
                            configAssertionType(kInteractivePushServiceType, false);

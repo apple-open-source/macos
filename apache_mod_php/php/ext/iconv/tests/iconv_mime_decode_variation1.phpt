@@ -19,7 +19,7 @@ function_exists('iconv_mime_decode') or die("skip iconv_mime_decode() is not ava
 echo "*** Testing iconv_mime_decode() : usage variations ***\n";
 
 // Initialise function arguments not being substituted
-$header = b'Subject: =?UTF-8?B?UHLDvGZ1bmcgUHLDvGZ1bmc=?=';
+$header = 'Subject: =?UTF-8?B?UHLDvGZ1bmcgUHLDvGZ1bmc=?=';
 $mode = ICONV_MIME_DECODE_CONTINUE_ON_ERROR;
 $charset = 'ISO-8859-1';
 
@@ -69,7 +69,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
@@ -78,7 +78,7 @@ $inputs = array(
 /*18*/ "string",
        'string',
        $heredoc,
-       
+
        // object data
 /*21*/ new classA(),
 

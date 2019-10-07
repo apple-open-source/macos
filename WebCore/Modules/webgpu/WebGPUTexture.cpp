@@ -28,25 +28,44 @@
 
 #if ENABLE(WEBGPU)
 
-#include "WebGPUTextureView.h"
+#include "Logging.h"
 
 namespace WebCore {
 
-RefPtr<WebGPUTexture> WebGPUTexture::create(RefPtr<GPUTexture>&& texture)
+Ref<WebGPUTexture> WebGPUTexture::create(RefPtr<GPUTexture>&& texture)
 {
-    return texture ? adoptRef(new WebGPUTexture(texture.releaseNonNull())) : nullptr;
+    return adoptRef(*new WebGPUTexture(WTFMove(texture)));
 }
 
-WebGPUTexture::WebGPUTexture(Ref<GPUTexture>&& texture)
+WebGPUTexture::WebGPUTexture(RefPtr<GPUTexture>&& texture)
     : m_texture(WTFMove(texture))
 {
 }
 
-RefPtr<WebGPUTextureView> WebGPUTexture::createDefaultTextureView()
+Ref<WebGPUTextureView> WebGPUTexture::createDefaultView()
 {
-    if (auto gpuTexture = m_texture->createDefaultTextureView())
-        return WebGPUTextureView::create(gpuTexture.releaseNonNull());
-    return nullptr;
+    if (!m_texture) {
+        LOG(WebGPU, "GPUTexture::createDefaultView(): Invalid operation!");
+        return WebGPUTextureView::create(nullptr);
+    }
+
+    auto view = WebGPUTextureView::create(m_texture->tryCreateDefaultTextureView());
+    m_textureViews.append(view.copyRef());
+    return view;
+}
+
+void WebGPUTexture::destroy()
+{
+    if (!m_texture) {
+        LOG(WebGPU, "GPUTexture::destroy(): Invalid operation!");
+        return;
+    }
+    for (auto& view : m_textureViews)
+        view->destroy();
+    m_textureViews.clear();
+
+    m_texture->destroy();
+    m_texture = nullptr;
 }
 
 } // namespace WebCore

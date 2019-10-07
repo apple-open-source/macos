@@ -73,6 +73,7 @@
 #include "timer.h"
 #include "IPv6Sock_Compat.h"
 #include "IPv6Socket.h"
+#include "ICMPv6Socket.h"
 #include "ifutil.h"
 
 STATIC const struct sockaddr_in6 sin6_allrouters = {

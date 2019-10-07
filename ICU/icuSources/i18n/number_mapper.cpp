@@ -80,8 +80,10 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
     ///////////
 
     bool useCurrency = (
-            !properties.currency.isNull() || !properties.currencyPluralInfo.fPtr.isNull() ||
-            !properties.currencyUsage.isNull() || affixProvider->hasCurrencySign());
+            !properties.currency.isNull() ||
+            !properties.currencyPluralInfo.fPtr.isNull() ||
+            !properties.currencyUsage.isNull() ||
+            affixProvider->hasCurrencySign());
     CurrencyUnit currency = resolveCurrency(properties, locale, status);
     UCurrencyUsage currencyUsage = properties.currencyUsage.getOrDefault(UCURR_USAGE_STANDARD);
     if (useCurrency) {
@@ -102,6 +104,7 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
     int32_t minSig = properties.minimumSignificantDigits;
     int32_t maxSig = properties.maximumSignificantDigits;
     double roundingIncrement = properties.roundingIncrement;
+    bool didAdjustRoundIncr = false;
     RoundingMode roundingMode = properties.roundingMode.getOrDefault(UNUM_ROUND_HALFEVEN);
     bool explicitMinMaxFrac = minFrac != -1 || maxFrac != -1;
     bool explicitMinMaxSig = minSig != -1 || maxSig != -1;
@@ -141,7 +144,25 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
     if (!properties.currencyUsage.isNull()) {
         precision = Precision::constructCurrency(currencyUsage).withCurrency(currency);
     } else if (roundingIncrement != 0.0) {
-        precision = Precision::constructIncrement(roundingIncrement, minFrac);
+        double roundingIncrAdj = roundingIncrement;
+        if (!explicitMinMaxSig && PatternStringUtils::ignoreRoundingIncrement(&roundingIncrAdj, maxFrac)) {
+            precision = Precision::constructFraction(minFrac, maxFrac);
+        } else {
+            double delta = (roundingIncrement/roundingIncrAdj) - 1.0;
+            if (delta > 0.001 || delta < -0.001) {
+                roundingIncrAdj = roundingIncrement;
+            } else {
+                didAdjustRoundIncr = true;
+            }
+            if (explicitMinMaxSig) {
+                minSig = minSig < 1 ? 1 : minSig > kMaxIntFracSig ? kMaxIntFracSig : minSig;
+                maxSig = maxSig < 0 ? kMaxIntFracSig : maxSig < minSig ? minSig : maxSig > kMaxIntFracSig
+                                                                                  ? kMaxIntFracSig : maxSig;
+                precision = Precision::constructIncrementSignificant(roundingIncrAdj, minSig, maxSig); // Apple rdar://52538227
+            } else {
+                precision = Precision::constructIncrement(roundingIncrAdj, minFrac);
+            }
+        }
     } else if (explicitMinMaxSig) {
         minSig = minSig < 1 ? 1 : minSig > kMaxIntFracSig ? kMaxIntFracSig : minSig;
         maxSig = maxSig < 0 ? kMaxIntFracSig : maxSig < minSig ? minSig : maxSig > kMaxIntFracSig
@@ -153,9 +174,12 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
         precision = Precision::constructCurrency(currencyUsage);
     }
     if (!precision.isBogus()) {
-        precision = precision.withMode(roundingMode);
+        precision.fRoundingMode = roundingMode;
         macros.precision = precision;
     }
+
+    // Apple addition for <rdar://problem/39240173>
+    macros.adjustDoublePrecision = (!properties.formatFullPrecision && !explicitMinMaxSig && maxFrac>15);
 
     ///////////////////
     // INTEGER WIDTH //
@@ -176,7 +200,7 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
     // PADDING //
     /////////////
 
-    if (properties.formatWidth != -1) {
+    if (properties.formatWidth > 0) {
         macros.padder = Padder::forProperties(properties);
     }
 
@@ -225,22 +249,29 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
         // TODO: Overriding here is a bit of a hack. Should this logic go earlier?
         if (macros.precision.fType == Precision::PrecisionType::RND_FRACTION) {
             // For the purposes of rounding, get the original min/max int/frac, since the local
-            // variables
-            // have been manipulated for display purposes.
+            // variables have been manipulated for display purposes.
+            int maxInt_ = properties.maximumIntegerDigits;
             int minInt_ = properties.minimumIntegerDigits;
             int minFrac_ = properties.minimumFractionDigits;
             int maxFrac_ = properties.maximumFractionDigits;
             if (minInt_ == 0 && maxFrac_ == 0) {
                 // Patterns like "#E0" and "##E0", which mean no rounding!
-                macros.precision = Precision::unlimited().withMode(roundingMode);
+                macros.precision = Precision::unlimited();
             } else if (minInt_ == 0 && minFrac_ == 0) {
                 // Patterns like "#.##E0" (no zeros in the mantissa), which mean round to maxFrac+1
-                macros.precision = Precision::constructSignificant(1, maxFrac_ + 1).withMode(roundingMode);
+                macros.precision = Precision::constructSignificant(1, maxFrac_ + 1);
             } else {
-                // All other scientific patterns, which mean round to minInt+maxFrac
-                macros.precision = Precision::constructSignificant(
-                        minInt_ + minFrac_, minInt_ + maxFrac_).withMode(roundingMode);
+                int maxSig_ = minInt_ + maxFrac_;
+                // Bug #20058: if maxInt_ > minInt_ > 1, then minInt_ should be 1.
+                if (maxInt_ > minInt_ && minInt_ > 1) {
+                    minInt_ = 1;
+                }
+                int minSig_ = minInt_ + minFrac_;
+                // To avoid regression, maxSig is not reset when minInt_ set to 1.
+                // TODO: Reset maxSig_ = 1 + minFrac_ to follow the spec.
+                macros.precision = Precision::constructSignificant(minSig_, maxSig_);
             }
+            macros.precision.fRoundingMode = roundingMode;
         }
     }
 
@@ -289,13 +320,19 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
         if (rounding_.fType == Precision::PrecisionType::RND_FRACTION) {
             minFrac_ = rounding_.fUnion.fracSig.fMinFrac;
             maxFrac_ = rounding_.fUnion.fracSig.fMaxFrac;
-        } else if (rounding_.fType == Precision::PrecisionType::RND_INCREMENT) {
-            increment_ = rounding_.fUnion.increment.fIncrement;
+        } else if (rounding_.fType == Precision::PrecisionType::RND_INCREMENT
+                || rounding_.fType == Precision::PrecisionType::RND_INCREMENT_ONE
+                || rounding_.fType == Precision::PrecisionType::RND_INCREMENT_FIVE) {
+            increment_ = (didAdjustRoundIncr)? roundingIncrement: rounding_.fUnion.increment.fIncrement; // rdar://51452216
             minFrac_ = rounding_.fUnion.increment.fMinFrac;
             maxFrac_ = rounding_.fUnion.increment.fMinFrac;
         } else if (rounding_.fType == Precision::PrecisionType::RND_SIGNIFICANT) {
             minSig_ = rounding_.fUnion.fracSig.fMinSig;
             maxSig_ = rounding_.fUnion.fracSig.fMaxSig;
+        } else if (rounding_.fType == Precision::PrecisionType::RND_INCREMENT_SIGNIFICANT) { // Apple rdar://52538227
+            increment_ = (didAdjustRoundIncr)? roundingIncrement: rounding_.fUnion.incrSig.fIncrement; // rdar://51452216
+            minSig_ = rounding_.fUnion.incrSig.fMinSig;
+            maxSig_ = rounding_.fUnion.incrSig.fMaxSig;
         }
 
         exportedProperties->minimumFractionDigits = minFrac_;
@@ -309,7 +346,7 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
 }
 
 
-void PropertiesAffixPatternProvider::setTo(const DecimalFormatProperties& properties, UErrorCode&) {
+void PropertiesAffixPatternProvider::setTo(const DecimalFormatProperties& properties, UErrorCode& status) {
     fBogus = false;
 
     // There are two ways to set affixes in DecimalFormat: via the pattern string (applyPattern), and via the
@@ -319,9 +356,7 @@ void PropertiesAffixPatternProvider::setTo(const DecimalFormatProperties& proper
     // 2) Otherwise, follows UTS 35 rules based on the pattern string.
     //
     // Importantly, the explicit setters affect only the one field they override.  If you set the positive
-    // prefix, that should not affect the negative prefix.  Since it is impossible for the user of this class
-    // to know whether the origin for a string was the override or the pattern, we have to say that we always
-    // have a negative subpattern and perform all resolution logic here.
+    // prefix, that should not affect the negative prefix.
 
     // Convenience: Extract the properties into local variables.
     // Variables are named with three chars: [p/n][p/s][o/p]
@@ -373,6 +408,14 @@ void PropertiesAffixPatternProvider::setTo(const DecimalFormatProperties& proper
         // UTS 35: Default negative prefix is the positive prefix.
         negSuffix = psp.isBogus() ? u"" : psp;
     }
+
+    // For declaring if this is a currency pattern, we need to look at the
+    // original pattern, not at any user-specified overrides.
+    isCurrencyPattern = (
+        AffixUtils::hasCurrencySymbols(ppp, status) ||
+        AffixUtils::hasCurrencySymbols(psp, status) ||
+        AffixUtils::hasCurrencySymbols(npp, status) ||
+        AffixUtils::hasCurrencySymbols(nsp, status));
 }
 
 char16_t PropertiesAffixPatternProvider::charAt(int flags, int i) const {
@@ -409,8 +452,11 @@ bool PropertiesAffixPatternProvider::positiveHasPlusSign() const {
 }
 
 bool PropertiesAffixPatternProvider::hasNegativeSubpattern() const {
-    // See comments in the constructor for more information on why this is always true.
-    return true;
+    return (
+        (negSuffix != posSuffix) ||
+        negPrefix.tempSubString(1) != posPrefix ||
+        negPrefix.charAt(0) != u'-'
+    );
 }
 
 bool PropertiesAffixPatternProvider::negativeHasMinusSign() const {
@@ -420,11 +466,7 @@ bool PropertiesAffixPatternProvider::negativeHasMinusSign() const {
 }
 
 bool PropertiesAffixPatternProvider::hasCurrencySign() const {
-    ErrorCode localStatus;
-    return AffixUtils::hasCurrencySymbols(posPrefix, localStatus) ||
-           AffixUtils::hasCurrencySymbols(posSuffix, localStatus) ||
-           AffixUtils::hasCurrencySymbols(negPrefix, localStatus) ||
-           AffixUtils::hasCurrencySymbols(negSuffix, localStatus);
+    return isCurrencyPattern;
 }
 
 bool PropertiesAffixPatternProvider::containsSymbolType(AffixPatternType type, UErrorCode& status) const {

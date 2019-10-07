@@ -28,7 +28,10 @@
 #include "IOAudioDefines.h"
 #include "IOAudioLevelControl.h"
 #include "IOAudioToggleControl.h"
-#include <IOKit/audio/AudioTracepoints.h>
+// Unused macros in open source
+#define AudioTrace_Start(a, b, c, d, e, f)
+#define AudioTrace_End(a, b, c, d, e, f)
+#define AudioTrace(a, b, c, d, e, f)
 
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandGate.h>
@@ -39,6 +42,18 @@
 #include <libkern/c++/OSCollectionIterator.h>
 
 #include <sys/sysctl.h>
+
+#define AbsoluteTime_to_scalar(x)       (*(uint64_t *)(x))
+
+/* t1 < = > t2 */
+#define CMP_ABSOLUTETIME(t1, t2)    (AbsoluteTime_to_scalar(t1) > AbsoluteTime_to_scalar(t2)? (int)+1 :   \
+                                    (AbsoluteTime_to_scalar(t1) < AbsoluteTime_to_scalar(t2)? (int)-1 : 0))
+
+/* t1 += t2 */
+#define ADD_ABSOLUTETIME(t1, t2)    (AbsoluteTime_to_scalar(t1) += AbsoluteTime_to_scalar(t2))
+
+/* t1 -= t2 */
+#define SUB_ABSOLUTETIME(t1, t2)    (AbsoluteTime_to_scalar(t1) -= AbsoluteTime_to_scalar(t2))
 
 #define NUM_POWER_STATES	2
 

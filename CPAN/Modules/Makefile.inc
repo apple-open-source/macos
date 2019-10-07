@@ -43,7 +43,7 @@ build: patchafterconfigure
 	$(ARCHFLAGS) $(ENV) $(MAKECMD) $($(INDIRECTMAKEARGS))
 
 $(DIR):
-	gnutar xozf $(TARBALL) -C $(OBJROOT)
+	tar -xozf $(TARBALL) -C $(OBJROOT)
 
 unpack: $(DIR)
 

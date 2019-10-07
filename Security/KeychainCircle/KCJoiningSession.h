@@ -9,6 +9,10 @@
 #include <Security/SecureObjectSync/SOSPeerInfo.h>
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 
+
+bool KCJoiningOctagonPiggybackingEnabled(void);
+bool KCSetJoiningOctagonPiggybackingEnabled(bool value);
+
 NS_ASSUME_NONNULL_BEGIN
 
 @protocol KCJoiningRequestCircleDelegate <NSObject>
@@ -88,7 +92,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
-
+@class OTControl;
 @interface KCJoiningRequestCircleSession : NSObject
 
 - (bool) isDone;
@@ -102,7 +106,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype) initWithCircleDelegate: (NSObject<KCJoiningRequestCircleDelegate>*) circleDelegate
                                 session: (KCAESGCMDuplexSession*) session
-                                  error: (NSError**) error NS_DESIGNATED_INITIALIZER;
+                                  error: (NSError**) error;
+
+
+- (instancetype)initWithCircleDelegate:(NSObject<KCJoiningRequestCircleDelegate>*) circleDelegate
+                               session:(KCAESGCMDuplexSession*) session
+                             otcontrol:(OTControl*)otcontrol
+                                 error:(NSError**) error NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
 @end

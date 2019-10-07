@@ -31,20 +31,24 @@ typedef struct _SoupSession SoupSession;
 
 namespace WebKit {
 
+class NetworkSocketChannel;
+class WebSocketTask;
 struct NetworkSessionCreationParameters;
 
 class NetworkSessionSoup final : public NetworkSession {
 public:
-    static Ref<NetworkSession> create(NetworkSessionCreationParameters&& parameters)
+    static Ref<NetworkSession> create(NetworkProcess& networkProcess, NetworkSessionCreationParameters&& parameters)
     {
-        return adoptRef(*new NetworkSessionSoup(WTFMove(parameters)));
+        return adoptRef(*new NetworkSessionSoup(networkProcess, WTFMove(parameters)));
     }
     ~NetworkSessionSoup();
 
     SoupSession* soupSession() const;
 
 private:
-    NetworkSessionSoup(NetworkSessionCreationParameters&&);
+    NetworkSessionSoup(NetworkProcess&, NetworkSessionCreationParameters&&);
+
+    std::unique_ptr<WebSocketTask> createWebSocketTask(NetworkSocketChannel&, const WebCore::ResourceRequest&, const String& protocol) override;
 
     void clearCredentials() override;
 };

@@ -36,6 +36,7 @@
 #import "WebPageProxy.h"
 #import <UIKit/UIPickerView.h>
 #import <WebCore/LocalizedStrings.h>
+#import <pal/spi/cocoa/IOKitSPI.h>
 #import <wtf/RetainPtr.h>
 
 using namespace WebKit;
@@ -78,7 +79,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 @class WKSelectPopover;
 
+#if USE(UIKIT_KEYBOARD_ADDITIONS)
+@interface WKSelectTableViewController : UITableViewController
+#else
 @interface WKSelectTableViewController : UITableViewController <UIKeyInput>
+#endif
 {
     NSUInteger _singleSelectionIndex;
     NSUInteger _singleSelectionSection;
@@ -359,6 +364,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     }
 }
 
+#if !USE(UIKIT_KEYBOARD_ADDITIONS)
 #pragma mark UIKeyInput delegate methods
 
 - (BOOL)hasText
@@ -374,6 +380,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
 }
 
+#endif
+
 @end
 
 @implementation WKSelectPopover {
@@ -387,7 +395,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     
     CGRect frame;
     frame.origin = CGPointZero;
-    frame.size = [UIKeyboard defaultSizeForInterfaceOrientation:[UIApp interfaceOrientation]];
+    frame.size = [UIKeyboard defaultSizeForInterfaceOrientation:view.interfaceOrientation];
 
     _tableViewController = adoptNS([[WKSelectTableViewController alloc] initWithView:view hasGroups:hasGroups]);
     [_tableViewController setPopover:self];
@@ -410,8 +418,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     ALLOW_DEPRECATED_DECLARATIONS_END
 
     [navController release];
-    
+
+#if !USE(UIKIT_KEYBOARD_ADDITIONS)
     [[UIKeyboardImpl sharedInstance] setDelegate:_tableViewController.get()];
+#endif
     
     return self;
 }
@@ -437,6 +447,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (void)controlEndEditing
 {
+    [self dismissPopoverAnimated:NO];
 }
 
 - (void)_userActionDismissedPopover:(id)sender

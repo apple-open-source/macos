@@ -40,7 +40,7 @@
 #include <Security/SecFramework.h>
 #include <Security/SecRandom.h>
 #include <utilities/debugging.h>
-#include "SecItemPriv.h"
+#include <Security/SecItemPriv.h>
 #include <Security/SecInternal.h>
 #include <utilities/SecCFError.h>
 #include <utilities/SecCFWrappers.h>
@@ -167,47 +167,31 @@ errOut:
 static CFTypeRef SecECPublicKeyCopyOperationResult(SecKeyRef key, SecKeyOperationType operation, SecKeyAlgorithm algorithm,
                                                    CFArrayRef algorithms, SecKeyOperationMode mode,
                                                    CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
-    if (operation != kSecKeyOperationTypeVerify) {
-        // EC public key supports only signature verification.
+    if (operation != kSecKeyOperationTypeVerify || !CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureDigestX962)) {
+        // EC public key supports only signature verification with X962 algorithm.
         return kCFNull;
     }
 
-    if (CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureRFC4754) || CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureDigestX962)) {
-        if (mode == kSecKeyOperationModePerform) {
-            bool valid = false;
-            int err = -1;
-            size_t sigLen = CFDataGetLength(in2);
-            uint8_t *sig = (uint8_t *)CFDataGetBytePtr(in2);
-            ccec_pub_ctx_t pubkey = key->key;
+    if (mode == kSecKeyOperationModePerform) {
+        bool valid = false;
+        int err = -1;
+        size_t sigLen = CFDataGetLength(in2);
+        uint8_t *sig = (uint8_t *)CFDataGetBytePtr(in2);
+        ccec_pub_ctx_t pubkey = key->key;
 
-            if (CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureDigestX962)) {
-                err = ccec_verify(pubkey, CFDataGetLength(in1), CFDataGetBytePtr(in1), sigLen, sig, &valid);
-            } else {
-                if (ccec_signature_r_s_size(pubkey) * 2 != sigLen) {
-                    SecError(errSecParam, error, CFSTR("bad signature size, got %d, expecting %d bytes"),
-                             (int)sigLen, (int)ccec_signature_r_s_size(pubkey) * 2);
-                    return NULL;
-                }
-                err = ccec_verify_composite(pubkey, CFDataGetLength(in1), CFDataGetBytePtr(in1),
-                                            sig, sig + (sigLen >> 1), &valid);
-            }
-
-            if (err != 0) {
-                SecError(errSecVerifyFailed, error, CFSTR("EC signature verification failed (ccerr %d)"), err);
-                return NULL;
-            } else if (!valid) {
-                SecError(errSecVerifyFailed, error, CFSTR("EC signature verification failed, no match"));
-                return NULL;
-            } else {
-                return kCFBooleanTrue;
-            }
+        err = ccec_verify(pubkey, CFDataGetLength(in1), CFDataGetBytePtr(in1), sigLen, sig, &valid);
+        if (err != 0) {
+            SecError(errSecVerifyFailed, error, CFSTR("EC signature verification failed (ccerr %d)"), err);
+            return NULL;
+        } else if (!valid) {
+            SecError(errSecVerifyFailed, error, CFSTR("EC signature verification failed, no match"));
+            return NULL;
         } else {
-            // Algorithm is supported.
             return kCFBooleanTrue;
         }
     } else {
-        // Other algorithms are unsupported.
-        return kCFNull;
+        // Algorithm is supported.
+        return kCFBooleanTrue;
     }
 }
 
@@ -517,22 +501,7 @@ static CFTypeRef SecECPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperati
     ccec_full_ctx_t fullkey = key->key;
     switch (operation) {
         case kSecKeyOperationTypeSign: {
-            if (CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureRFC4754)) {
-                if (mode == kSecKeyOperationModePerform) {
-                    // Perform r/s mode of signature.
-                    cc_size r_s_size = ccec_signature_r_s_size(ccec_ctx_public(fullkey));
-                    result = CFDataCreateMutableWithScratch(NULL, r_s_size << 1);
-                    uint8_t *signatureBuffer = CFDataGetMutableBytePtr((CFMutableDataRef)result);
-                    int err = ccec_sign_composite(fullkey, CFDataGetLength(in1), CFDataGetBytePtr(in1),
-                                                  signatureBuffer, signatureBuffer + r_s_size, ccrng_seckey);
-                    require_action_quiet(err == 0, out, (CFReleaseNull(result),
-                                                         SecError(errSecParam, error, CFSTR("%@: RFC4754 signing failed (ccerr %d)"),
-                                                                  key, err)));
-                } else {
-                    // Operation is supported.
-                    result = kCFBooleanTrue;
-                }
-            } else if (CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureDigestX962)) {
+            if (CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureDigestX962)) {
                 if (mode == kSecKeyOperationModePerform) {
                     // Perform x962 mode of signature.
                     size_t size = ccec_sign_max_size(ccec_ctx_cp(fullkey));

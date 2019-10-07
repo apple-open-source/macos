@@ -29,6 +29,7 @@
 #include "FrameLoadState.h"
 #include "GenericCallback.h"
 #include "WebFramePolicyListenerProxy.h"
+#include "WebPageProxy.h"
 #include <WebCore/FrameLoaderTypes.h>
 #include <wtf/Forward.h>
 #include <wtf/Function.h>
@@ -51,13 +52,10 @@ namespace WebKit {
 class SafeBrowsingWarning;
 class WebCertificateInfo;
 class WebFramePolicyListenerProxy;
-class WebPageProxy;
 class WebsiteDataStore;
 enum class ShouldExpectSafeBrowsingResult;
 enum class ProcessSwapRequestedByClient;
 struct WebsitePoliciesData;
-
-typedef GenericCallback<API::Data*> DataCallback;
 
 class WebFrameProxy : public API::ObjectImpl<API::Object::Type::Frame> {
 public:
@@ -80,7 +78,9 @@ public:
 
     FrameLoadState& frameLoadState() { return m_frameLoadState; }
 
-    void loadURL(const URL&);
+    void loadURL(const URL&, const String& referrer = String());
+    // Sub frames only. For main frames, use WebPageProxy::loadData.
+    void loadData(const IPC::DataReference&, const String& MIMEType, const String& encodingName, const URL& baseURL);
     void stopLoading() const;
 
     const URL& url() const { return m_frameLoadState.url(); }
@@ -109,6 +109,7 @@ public:
     void getResourceData(API::URL*, Function<void (API::Data*, CallbackBase::Error)>&&);
 
     void didStartProvisionalLoad(const URL&);
+    void didExplicitOpen(const URL&);
     void didReceiveServerRedirectForProvisionalLoad(const URL&);
     void didFailProvisionalLoad();
     void didCommitLoad(const String& contentType, WebCertificateInfo&, bool containsPluginDocument);

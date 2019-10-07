@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 te{
-    Version{"2.1.41.97"}
+    Version{"2.1.48.17"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -52,6 +52,11 @@ te{
                 dnam{"ఎకరాలు"}
                 one{"{0} ఎకరం"}
                 other{"{0} ఎకరాలు"}
+            }
+            dunam{
+                dnam{"డునామ్"}
+                one{"{0} డునామ్"}
+                other{"{0} డునామ్‌లు"}
             }
             hectare{
                 dnam{"హెక్టార్లు"}
@@ -118,10 +123,30 @@ te{
                 one{"{0} మిల్లీమోల్‌/లీటర్"}
                 other{"{0} మిల్లీమోల్‌లు/లీటర్"}
             }
+            mole{
+                dnam{"మోల్‌లు"}
+                one{"{0} మోల్"}
+                other{"{0} మోల్‌లు"}
+            }
             part-per-million{
                 dnam{"భాగాలు/మిలియన్"}
                 one{"{0} భాగం/మిలియన్"}
                 other{"{0} భాగాలు/మిలియన్"}
+            }
+            percent{
+                dnam{"శాతం"}
+                one{"{0} శాతం"}
+                other{"{0} శాతం"}
+            }
+            permille{
+                dnam{"మైలుకు"}
+                one{"{0}/మైలుకు"}
+                other{"{0}/మైలుకు"}
+            }
+            permyriad{
+                dnam{"పెర్మేరియాడ్"}
+                one{"{0} పెర్మేరియాడ్"}
+                other{"{0} పెర్మేరియాడ్"}
             }
         }
         consumption{
@@ -147,6 +172,7 @@ te{
             }
         }
         coordinate{
+            dnam{"కార్డినల్ దిశ"}
             east{"{0} తూర్పు"}
             north{"{0} ఉత్తరం"}
             south{"{0} దక్షిణం"}
@@ -192,6 +218,11 @@ te{
                 dnam{"మెగాబైట్లు"}
                 one{"{0} మెగాబైట్"}
                 other{"{0} మెగాబైట్లు"}
+            }
+            petabyte{
+                dnam{"పెటాబైట్లు"}
+                one{"{0} పెటాబైట్"}
+                other{"{0} పెటాబైట్లు"}
             }
             terabit{
                 dnam{"టెరాబిట్లు"}
@@ -291,10 +322,20 @@ te{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"బ్రిటీష్ థెర్మల్ యూనిట్లు"}
+                one{"{0} బ్రిటీష్ థెర్మల్ యూనిట్"}
+                other{"{0} బ్రిటీష్ థెర్మల్ యూనిట్లు"}
+            }
             calorie{
                 dnam{"కేలరీలు"}
                 one{"{0} కేలరీ"}
                 other{"{0} కేలరీలు"}
+            }
+            electronvolt{
+                dnam{"ఎలక్ట్రాన్‌వోల్ట్స్"}
+                one{"{0} ఎలక్ట్రాన్‌వోల్ట్"}
+                other{"{0} ఎలక్ట్రాన్‌వోల్ట్స్"}
             }
             foodcalorie{
                 dnam{"కేలరీలు"}
@@ -320,6 +361,18 @@ te{
                 dnam{"కిలోవాట్-గంటలు"}
                 one{"{0} కిలోవాట్ గంట"}
                 other{"{0} కిలోవాట్-గంటలు"}
+            }
+        }
+        force{
+            newton{
+                dnam{"న్యూటన్‌లు"}
+                one{"{0} న్యూటన్"}
+                other{"{0} న్యూటన్‌లు"}
+            }
+            pound-force{
+                dnam{"పౌండ్-ఫోర్స్"}
+                one{"{0} పౌండ్-ఫోర్స్"}
+                other{"{0} పౌండ్‌లు-ఫోర్స్"}
             }
         }
         frequency{
@@ -435,6 +488,11 @@ te{
                 one{"{0} పాయింట్"}
                 other{"{0} పాయింట్‌లు"}
             }
+            solar-radius{
+                dnam{"సౌర అర్ధవ్యాసం"}
+                one{"{0} సౌర అర్ధవ్యాసం"}
+                other{"{0} సౌర అర్ధవ్యాసం"}
+            }
             yard{
                 dnam{"గజాలు"}
                 one{"{0} గజం"}
@@ -447,12 +505,27 @@ te{
                 one{"{0} లక్స్"}
                 other{"{0} లక్స్"}
             }
+            solar-luminosity{
+                dnam{"సోలార్ ల్యూమినోసైటైస్"}
+                one{"{0} సోలార్ ల్యూమినోసిటీ"}
+                other{"{0} సోలార్ ల్యూమినోసైటైస్"}
+            }
         }
         mass{
             carat{
                 dnam{"క్యారెట్లు"}
                 one{"{0} క్యారెట్"}
                 other{"{0} క్యారెట్లు"}
+            }
+            dalton{
+                dnam{"డాల్టన్‌లు"}
+                one{"{0} డాల్టన్"}
+                other{"{0} డాల్టన్‌లు"}
+            }
+            earth-mass{
+                dnam{"భూమి ద్రవ్యరాశులు"}
+                one{"{0} భూమి ద్రవ్యరాశి"}
+                other{"{0} భూమి ద్రవ్యరాశులు"}
             }
             gram{
                 dnam{"గ్రాములు"}
@@ -498,6 +571,11 @@ te{
                 other{"{0} పౌండ్లు"}
                 per{"పౌండుకు {0}"}
             }
+            solar-mass{
+                dnam{"సౌర ద్రవ్యరాశులు"}
+                one{"{0} సౌర ద్రవ్యరాశి"}
+                other{"{0} సౌర ద్రవ్యరాశులు"}
+            }
             stone{
                 dnam{"స్టోన్లు"}
                 one{"{0} స్టోను"}
@@ -542,6 +620,11 @@ te{
             }
         }
         pressure{
+            atmosphere{
+                dnam{"వాతావరణాలు"}
+                one{"{0} వాతావరణం"}
+                other{"{0} వాతావరణాలు"}
+            }
             hectopascal{
                 dnam{"హెక్టోపాస్కల్‌లు"}
                 one{"{0} హెక్టోపాస్కల్"}
@@ -551,6 +634,16 @@ te{
                 dnam{"అంగుళాల పాదరసం"}
                 one{"{0} అంగుళం పాదరసం"}
                 other{"{0} అంగుళాల పాదరసం"}
+            }
+            kilopascal{
+                dnam{"కిలోపాస్కెల్స్"}
+                one{"{0} కిలోపాస్కెల్స్"}
+                other{"{0} కిలోపాస్కెల్స్"}
+            }
+            megapascal{
+                dnam{"మెగాపాస్కెల్స్"}
+                one{"{0} మెగాపాస్కెల్స్"}
+                other{"{0} మెగాపాస్కెల్స్"}
             }
             millibar{
                 dnam{"మిల్లీబార్‌లు"}
@@ -612,11 +705,28 @@ te{
                 other{"{0} కెల్విన్స్"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"న్యూటన్-మీటర్లు"}
+                one{"{0} న్యూటన్-మీటరు"}
+                other{"{0} న్యూటన్-మీటర్లు"}
+            }
+            pound-foot{
+                dnam{"పౌండ్-ఫీట్"}
+                one{"{0} పౌండ్-ఫూట్"}
+                other{"{0} పౌండ్-ఫీట్"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"ఎకరా-అడుగులు"}
                 one{"{0} ఎకరా-అడుగు"}
                 other{"{0} ఎకరా-అడుగులు"}
+            }
+            barrel{
+                dnam{"బారెల్‌లు"}
+                one{"{0} బారెల్‌లు"}
+                other{"{0} బారెల్‌లు"}
             }
             centiliter{
                 dnam{"సెంటీలీటర్లు"}
@@ -679,6 +789,11 @@ te{
                 dnam{"ద్రవరూప ఔన్సులు"}
                 one{"{0} ద్రవరూప ఔన్సు"}
                 other{"{0} ద్రవరూప ఔన్సులు"}
+            }
+            fluid-ounce-imperial{
+                dnam{"ఇంపీ. ద్రవ ఔన్సులు"}
+                one{"{0} ఇంపీ. ద్రవ ఔన్సు"}
+                other{"{0} ఇంపీ. ద్రవ ఔన్సులు"}
             }
             gallon{
                 dnam{"గ్యాలన్లు"}
@@ -756,10 +871,6 @@ te{
                 one{"{0}″"}
                 other{"{0}″"}
             }
-            degree{
-                one{"{0}°"}
-                other{"{0}°"}
-            }
         }
         area{
             acre{
@@ -790,6 +901,13 @@ te{
         compound{
             per{"{0}/{1}"}
         }
+        concentr{
+            percent{
+                dnam{"%"}
+                one{"{0}%"}
+                other{"{0}%"}
+            }
+        }
         consumption{
             liter-per-100kilometers{
                 dnam{"లీ/100కి.మీ."}
@@ -798,6 +916,7 @@ te{
             }
         }
         coordinate{
+            dnam{"దిశ"}
             east{"{0} తూ."}
             north{"{0} ఉ."}
             south{"{0} ద."}
@@ -1011,13 +1130,6 @@ te{
             }
             fahrenheit{
                 dnam{"°ఫా"}
-                one{"{0}°F"}
-                other{"{0}°F"}
-            }
-            generic{
-                dnam{"°"}
-                one{"{0}°"}
-                other{"{0}°"}
             }
             kelvin{
                 dnam{"కె"}
@@ -1087,6 +1199,11 @@ te{
                 one{"{0} ఎక."}
                 other{"{0} ఎక."}
             }
+            dunam{
+                dnam{"డునామ్‌లు"}
+                one{"{0} డునామ్"}
+                other{"{0} డునామ్"}
+            }
             hectare{
                 dnam{"హెక్టార్లు"}
                 one{"{0} హె."}
@@ -1152,10 +1269,30 @@ te{
                 one{"{0} మి.మో./లీ."}
                 other{"{0} మి.మో./లీ."}
             }
+            mole{
+                dnam{"మోల్"}
+                one{"{0} mol"}
+                other{"{0} mol"}
+            }
             part-per-million{
                 dnam{"భాగాలు/మిలియన్"}
                 one{"{0} భా./మి."}
                 other{"{0} భా./మి."}
+            }
+            percent{
+                dnam{"శాతం"}
+                one{"{0}%"}
+                other{"{0}%"}
+            }
+            permille{
+                dnam{"మైలుకు"}
+                one{"{0}‰"}
+                other{"{0}‰"}
+            }
+            permyriad{
+                dnam{"పెర్మేరియాడ్"}
+                one{"{0}‱"}
+                other{"{0}‱"}
             }
         }
         consumption{
@@ -1181,6 +1318,7 @@ te{
             }
         }
         coordinate{
+            dnam{"దిశ"}
             east{"{0} తూ."}
             north{"{0} ఉ."}
             south{"{0} ద."}
@@ -1226,6 +1364,11 @@ te{
                 dnam{"మె.బైట్"}
                 one{"{0} ఎమ్‌బి"}
                 other{"{0} ఎమ్‌బి"}
+            }
+            petabyte{
+                dnam{"పె.బైట్"}
+                one{"{0} పీబీ"}
+                other{"{0} పీబీ"}
             }
             terabit{
                 dnam{"టె.బిట్"}
@@ -1325,10 +1468,20 @@ te{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"BTU"}
+                one{"{0} Btu"}
+                other{"{0} Btu"}
+            }
             calorie{
                 dnam{"కే"}
                 one{"{0} కే."}
                 other{"{0} కే."}
+            }
+            electronvolt{
+                dnam{"ఎలక్ట్రాన్‌వోల్ట్"}
+                one{"{0} eV"}
+                other{"{0} eV"}
             }
             foodcalorie{
                 dnam{"కే."}
@@ -1356,11 +1509,23 @@ te{
                 other{"{0} కి.వా.గం"}
             }
         }
+        force{
+            newton{
+                dnam{"న్యూటన్"}
+                one{"{0} N"}
+                other{"{0} N"}
+            }
+            pound-force{
+                dnam{"పౌండ్-ఫోర్స్"}
+                one{"{0} lbf"}
+                other{"{0} lbf"}
+            }
+        }
         frequency{
             gigahertz{
-                dnam{"గిగా హె"}
-                one{"{0} గిగా హె"}
-                other{"{0} గిగా హె"}
+                dnam{"గిగా హెడ్జ్"}
+                one{"{0} గిగా హెడ్జ్"}
+                other{"{0} గిగా హెడ్జ్"}
             }
             hertz{
                 dnam{"హెర్ట్‌జ్"}
@@ -1467,6 +1632,11 @@ te{
             point{
                 dnam{"పాయింట్‌లు"}
             }
+            solar-radius{
+                dnam{"సౌర అర్ధవ్యాసం"}
+                one{"{0} R☉"}
+                other{"{0} R☉"}
+            }
             yard{
                 dnam{"గజాలు"}
                 one{"{0} గ."}
@@ -1479,12 +1649,27 @@ te{
                 one{"{0} ల."}
                 other{"{0} ల."}
             }
+            solar-luminosity{
+                dnam{"సోలార్ ల్యూమినోసైటైస్"}
+                one{"{0} L☉"}
+                other{"{0} L☉"}
+            }
         }
         mass{
             carat{
                 dnam{"క్యారెట్లు"}
                 one{"{0} క్యారె."}
                 other{"{0} క్యారె."}
+            }
+            dalton{
+                dnam{"డాల్టన్‌లు"}
+                one{"{0} Da"}
+                other{"{0} Da"}
+            }
+            earth-mass{
+                dnam{"భూమి ద్రవ్యరాశులు"}
+                one{"{0} M⊕"}
+                other{"{0} M⊕"}
             }
             gram{
                 dnam{"గ్రాములు"}
@@ -1530,6 +1715,11 @@ te{
                 other{"{0} పౌ."}
                 per{"{0}/పౌ."}
             }
+            solar-mass{
+                dnam{"సౌర ద్రవ్యరాశులు"}
+                one{"{0} M☉"}
+                other{"{0} M☉"}
+            }
             stone{
                 dnam{"స్టోన్లు"}
                 one{"{0} స్టో"}
@@ -1574,6 +1764,11 @@ te{
             }
         }
         pressure{
+            atmosphere{
+                dnam{"వాతావ"}
+                one{"{0} వాతావ"}
+                other{"{0} వాతావ"}
+            }
             hectopascal{
                 dnam{"హె.పా"}
                 one{"{0} హె.పా"}
@@ -1583,6 +1778,16 @@ te{
                 dnam{"అం.పాద"}
                 one{"{0} అం.పాద"}
                 other{"{0} అం.పాద"}
+            }
+            kilopascal{
+                dnam{"kPa"}
+                one{"{0} kPa"}
+                other{"{0} kPa"}
+            }
+            megapascal{
+                dnam{"MPa"}
+                one{"{0} MPa"}
+                other{"{0} MPa"}
             }
             millibar{
                 dnam{"మి.బార్"}
@@ -1644,11 +1849,28 @@ te{
                 other{"{0} కె"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"N⋅m"}
+                one{"{0} N⋅m"}
+                other{"{0} N⋅m"}
+            }
+            pound-foot{
+                dnam{"lbf⋅ft"}
+                one{"{0} lbf⋅ft"}
+                other{"{0} lbf⋅ft"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"ఎ.అ."}
                 one{"{0} ఎ.అ."}
                 other{"{0} ఎ.అ."}
+            }
+            barrel{
+                dnam{"బారెల్"}
+                one{"{0} బారెల్"}
+                other{"{0} బారెల్"}
             }
             centiliter{
                 dnam{"సె.లీ."}
@@ -1711,6 +1933,11 @@ te{
                 dnam{"ద్ర.ఔ."}
                 one{"{0} ద్ర.ఔ."}
                 other{"{0} ద్ర.ఔ."}
+            }
+            fluid-ounce-imperial{
+                dnam{"Imp. fl oz"}
+                one{"{0} fl oz Imp."}
+                other{"{0} fl oz Imp."}
             }
             gallon{
                 dnam{"గ్యా."}

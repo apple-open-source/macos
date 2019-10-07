@@ -6,11 +6,11 @@
 # Copyright (c) 2003 Internet Programming with Ruby writers. All rights
 # reserved.
 #
-# $Id: cgi.rb 53141 2015-12-16 05:07:31Z naruse $
+# $Id: cgi.rb 65505 2018-11-02 17:52:33Z marcandre $
 
-require "webrick/httprequest"
-require "webrick/httpresponse"
-require "webrick/config"
+require_relative "httprequest"
+require_relative "httpresponse"
+require_relative "config"
 require "stringio"
 
 module WEBrick
@@ -263,6 +263,10 @@ module WEBrick
 
       def <<(data)
         @out_port << data
+      end
+
+      def write(data)
+        @out_port.write(data)
       end
 
       def cert

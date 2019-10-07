@@ -19,9 +19,7 @@ try {
 
 var_dump(intltz_to_date_time_zone());
 var_dump(intltz_to_date_time_zone(1));
-
 --EXPECTF--
-
 Warning: IntlTimeZone::toDateTimeZone() expects exactly 0 parameters, 1 given in %s on line %d
 
 Warning: IntlTimeZone::toDateTimeZone(): intltz_to_date_time_zone: bad arguments in %s on line %d
@@ -35,7 +33,7 @@ Warning: intltz_to_date_time_zone() expects exactly 1 parameter, 0 given in %s o
 Warning: intltz_to_date_time_zone(): intltz_to_date_time_zone: bad arguments in %s on line %d
 bool(false)
 
-Fatal error: Uncaught TypeError: Argument 1 passed to intltz_to_date_time_zone() must be an instance of IntlTimeZone, integer given in %s:%d
+Fatal error: Uncaught TypeError: Argument 1 passed to intltz_to_date_time_zone() must be an instance of IntlTimeZone, int given in %s:%d
 Stack trace:
 #0 %s(%d): intltz_to_date_time_zone(1)
 #1 {main}

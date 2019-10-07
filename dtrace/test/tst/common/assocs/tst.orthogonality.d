@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.orthogonality.d	1.1	06/08/28 SMI"
-
 /*
  * This test confirms the orthogonality of associative arrays and thread-local
  * variables by intentionally deriving a matching key signature (based on

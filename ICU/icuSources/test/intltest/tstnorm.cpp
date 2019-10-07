@@ -633,6 +633,29 @@ BasicNormalizerTest::TestPreviousNext(const UChar *src, int32_t srcLength,
                                       const char *moves,
                                       UNormalizationMode mode,
                                       const char *name) {
+    // Sanity check non-iterative normalization.
+    {
+        IcuTestErrorCode errorCode(*this, "TestPreviousNext");
+        UnicodeString result;
+        Normalizer::normalize(UnicodeString(src, srcLength), mode, 0, result, errorCode);
+        if (errorCode.isFailure()) {
+            dataerrln("error: non-iterative normalization of %s failed: %s",
+                      name, errorCode.errorName());
+            errorCode.reset();
+            return;
+        }
+        // UnicodeString::fromUTF32(expect, expectLength)
+        // would turn unpaired surrogates into U+FFFD.
+        for (int32_t i = 0, j = 0; i < result.length(); ++j) {
+            UChar32 c = result.char32At(i);
+            if (c != expect[j]) {
+                errln("error: non-iterative normalization of %s did not yield the expected result",
+                      name);
+            }
+            i += U16_LENGTH(c);
+        }
+    }
+
     // iterators
     Normalizer iter(src, srcLength, mode);
 
@@ -1432,9 +1455,14 @@ struct StringPair { const char *input, *expected; };
 void
 BasicNormalizerTest::TestCustomComp() {
     static const StringPair pairs[]={
-        { "\\uD801\\uE000\\uDFFE", "" },
-        { "\\uD800\\uD801\\uE000\\uDFFE\\uDFFF", "\\uD7FF\\uFFFF" },
-        { "\\uD800\\uD801\\uDFFE\\uDFFF", "\\uD7FF\\U000107FE\\uFFFF" },
+        // ICU 63 normalization with UCPTrie requires inert surrogate code points.
+        // { "\\uD801\\uE000\\uDFFE", "" },
+        // { "\\uD800\\uD801\\uE000\\uDFFE\\uDFFF", "\\uD7FF\\uFFFF" },
+        // { "\\uD800\\uD801\\uDFFE\\uDFFF", "\\uD7FF\\U000107FE\\uFFFF" },
+        { "\\uD801\\uE000\\uDFFE", "\\uD801\\uDFFE" },
+        { "\\uD800\\uD801\\uE000\\uDFFE\\uDFFF", "\\uD800\\uD801\\uDFFE\\uDFFF" },
+        { "\\uD800\\uD801\\uDFFE\\uDFFF", "\\uD800\\U000107FE\\uDFFF" },
+
         { "\\uE001\\U000110B9\\u0345\\u0308\\u0327", "\\uE002\\U000110B9\\u0327\\u0345" },
         { "\\uE010\\U000F0011\\uE012", "\\uE011\\uE012" },
         { "\\uE010\\U000F0011\\U000F0011\\uE012", "\\uE011\\U000F0010" },
@@ -1462,9 +1490,14 @@ BasicNormalizerTest::TestCustomComp() {
 void
 BasicNormalizerTest::TestCustomFCC() {
     static const StringPair pairs[]={
-        { "\\uD801\\uE000\\uDFFE", "" },
-        { "\\uD800\\uD801\\uE000\\uDFFE\\uDFFF", "\\uD7FF\\uFFFF" },
-        { "\\uD800\\uD801\\uDFFE\\uDFFF", "\\uD7FF\\U000107FE\\uFFFF" },
+        // ICU 63 normalization with UCPTrie requires inert surrogate code points.
+        // { "\\uD801\\uE000\\uDFFE", "" },
+        // { "\\uD800\\uD801\\uE000\\uDFFE\\uDFFF", "\\uD7FF\\uFFFF" },
+        // { "\\uD800\\uD801\\uDFFE\\uDFFF", "\\uD7FF\\U000107FE\\uFFFF" },
+        { "\\uD801\\uE000\\uDFFE", "\\uD801\\uDFFE" },
+        { "\\uD800\\uD801\\uE000\\uDFFE\\uDFFF", "\\uD800\\uD801\\uDFFE\\uDFFF" },
+        { "\\uD800\\uD801\\uDFFE\\uDFFF", "\\uD800\\U000107FE\\uDFFF" },
+
         // The following expected result is different from CustomComp
         // because of only-contiguous composition.
         { "\\uE001\\U000110B9\\u0345\\u0308\\u0327", "\\uE001\\U000110B9\\u0327\\u0308\\u0345" },
@@ -1544,7 +1577,7 @@ BasicNormalizerTest::TestNormalizeUTF8WithEdits() {
         u8"  AÄA\u0308A\u0308\u00ad\u0323Ä\u0323,\u00ad\u1100\u1161가\u11A8가\u3133  ";
     std::string expected = u8"  aääạ\u0308ạ\u0308,가각갃  ";
     std::string result;
-    StringByteSink<std::string> sink(&result, expected.length());
+    StringByteSink<std::string> sink(&result, static_cast<int32_t>(expected.length()));
     Edits edits;
     nfkc_cf->normalizeUTF8(0, src, sink, &edits, errorCode);
     assertSuccess("normalizeUTF8 with Edits", errorCode.get());
@@ -1747,7 +1780,7 @@ BasicNormalizerTest::TestComposeJamoTBase() {
     std::string s8(u8"\u1100\u1161\u11A7\u1100\u314F\u11A7가\u11A7");
     std::string expected8(u8"가\u11A7가\u11A7가\u11A7");
     std::string result8;
-    StringByteSink<std::string> sink(&result8, expected8.length());
+    StringByteSink<std::string> sink(&result8, static_cast<int32_t>(expected8.length()));
     nfkc->normalizeUTF8(0, s8, sink, nullptr, errorCode);
     assertSuccess("normalizeUTF8(LV+11A7)", errorCode.get());
     assertEquals("normalizeUTF8(LV+11A7)", expected8.c_str(), result8.c_str());

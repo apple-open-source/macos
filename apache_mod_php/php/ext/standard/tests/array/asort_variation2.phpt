@@ -59,10 +59,10 @@ $unexpected_values = array(
 /*16*/ new stdclass(),
 
        // undefined data
-/*17*/ @undefined_var,
+/*17*/ @$undefined_var,
 
        // unset data
-/*18*/ @unset_var,
+/*18*/ @$unset_var,
 
        // resource variable
 /*19*/ $fp
@@ -78,7 +78,7 @@ for($index = 0; $index < count($unexpected_values); $index ++) {
   echo "-- Iteration $counter --\n";
   $value = $unexpected_values [$index];
   $temp_array = $unsorted_values;
-  var_dump( asort($temp_array, $value) ); 
+  var_dump( asort($temp_array, $value) );
   var_dump($temp_array);
   $counter++;
 }
@@ -211,7 +211,7 @@ array(3) {
 }
 -- Iteration 13 --
 
-Warning: asort() expects parameter 2 to be integer, string given in %s on line %d
+Warning: asort() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 array(3) {
   [1]=>
@@ -223,7 +223,7 @@ array(3) {
 }
 -- Iteration 14 --
 
-Warning: asort() expects parameter 2 to be integer, string given in %s on line %d
+Warning: asort() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 array(3) {
   [1]=>
@@ -235,7 +235,7 @@ array(3) {
 }
 -- Iteration 15 --
 
-Warning: asort() expects parameter 2 to be integer, string given in %s on line %d
+Warning: asort() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 array(3) {
   [1]=>
@@ -247,7 +247,7 @@ array(3) {
 }
 -- Iteration 16 --
 
-Warning: asort() expects parameter 2 to be integer, string given in %s on line %d
+Warning: asort() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 array(3) {
   [1]=>
@@ -259,7 +259,7 @@ array(3) {
 }
 -- Iteration 17 --
 
-Warning: asort() expects parameter 2 to be integer, object given in %s on line %d
+Warning: asort() expects parameter 2 to be int, object given in %s on line %d
 bool(false)
 array(3) {
   [1]=>
@@ -270,32 +270,28 @@ array(3) {
   int(45)
 }
 -- Iteration 18 --
-
-Warning: asort() expects parameter 2 to be integer, string given in %s on line %d
-bool(false)
+bool(true)
 array(3) {
-  [1]=>
-  int(10)
   [2]=>
   int(2)
+  [1]=>
+  int(10)
   [3]=>
   int(45)
 }
 -- Iteration 19 --
-
-Warning: asort() expects parameter 2 to be integer, string given in %s on line %d
-bool(false)
+bool(true)
 array(3) {
-  [1]=>
-  int(10)
   [2]=>
   int(2)
+  [1]=>
+  int(10)
   [3]=>
   int(45)
 }
 -- Iteration 20 --
 
-Warning: asort() expects parameter 2 to be integer, resource given in %s on line %d
+Warning: asort() expects parameter 2 to be int, resource given in %s on line %d
 bool(false)
 array(3) {
   [1]=>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2017-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -39,11 +39,9 @@ void
 nat64_prefix_request_add_pattern	(CFMutableArrayRef	patterns);
 
 void
-nat64_configuration_init		(CFBundleRef		bundle);
-
-void
-nat64_configuration_update		(CFSetRef		interface_changes,
-					 CFSetRef		interface_requests);
+nat64_configuration_update		(CFSetRef	updates,
+					 CFSetRef	requests,
+					 CFSetRef	cancellations);
 
 __END_DECLS
 

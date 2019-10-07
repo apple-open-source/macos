@@ -123,6 +123,11 @@ static int acf_screen(          /* Screens a token to see if it is a keyword */
     YYSTYPE * yy_lval
 );
 
+const char * acf_keyword_lookup
+(
+    int token_value     /* Numeric value of keyword token */
+);
+
 void read_c_comment(yyscan_t scanner); /* from nidl_l.l */
 
 #if 0 // FLEXIFY

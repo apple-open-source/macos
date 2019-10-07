@@ -36,8 +36,6 @@
 #import <pal/spi/cocoa/IOKitSPI.h>
 #import <wtf/MainThread.h>
 
-using namespace WTF;
-
 namespace WebCore {
 
 int windowsKeyCodeForKeyCode(uint16_t keyCode)
@@ -174,8 +172,10 @@ int windowsKeyCodeForKeyCode(uint16_t keyCode)
         /* 0x80 */ VK_VOLUME_UP, // Volume Up
         /* 0x81 */ VK_VOLUME_DOWN, // Volume Down
     };
-    // Check if key is a modifier.
+    // Check if key is a modifier or the keypad comma (on JIS keyboard).
     switch (keyCode) {
+    case kHIDUsage_KeypadComma:
+        return VK_SEPARATOR;
     case kHIDUsage_KeyboardLeftControl:
         return VK_LCONTROL;
     case kHIDUsage_KeyboardLeftShift:
@@ -205,7 +205,6 @@ int windowsKeyCodeForCharCode(unichar charCode)
     case 8: case 0x7F: return VK_BACK;
     case 9: return VK_TAB;
     case 0xD: case 3: return VK_RETURN;
-    case 0x1B: return VK_ESCAPE; // WebKit generated code for Escape.
     case ' ': return VK_SPACE;
 
     case '0': case ')': return VK_0;
@@ -245,6 +244,8 @@ int windowsKeyCodeForCharCode(unichar charCode)
     case 'y': case 'Y': return VK_Y;
     case 'z': case 'Z': return VK_Z;
 
+    case 0x1B: return VK_ESCAPE; // WebKit generated code for Escape.
+
     // WebKit uses Unicode PUA codes in the OpenStep reserve range for some special keys.
     case NSUpArrowFunctionKey: return VK_UP;
     case NSDownArrowFunctionKey: return VK_DOWN;
@@ -273,11 +274,13 @@ int windowsKeyCodeForCharCode(unichar charCode)
 static bool isFunctionKey(UChar charCode)
 {
     switch (charCode) {
+#if !USE(UIKIT_KEYBOARD_ADDITIONS)
     case 1: // Home
     case 4: // End
     case 5: // FIXME: For some reason WebKitTestRunner generates this code for F14 (why?).
     case 0x7F: // Forward Delete
     case 0x10: // Function key (e.g. F1, F2, ...)
+#endif
 
     // WebKit uses Unicode PUA codes in the OpenStep reserve range for some special keys.
     case NSUpArrowFunctionKey:
@@ -287,8 +290,18 @@ static bool isFunctionKey(UChar charCode)
     case NSPageUpFunctionKey:
     case NSPageDownFunctionKey:
     case NSClearLineFunctionKey: // Num Lock / Clear
+#if USE(UIKIT_KEYBOARD_ADDITIONS)
+    case NSDeleteFunctionKey: // Forward delete
+    case NSEndFunctionKey:
+    case NSInsertFunctionKey:
+    case NSHomeFunctionKey:
+#endif
         return true;
     }
+#if USE(UIKIT_KEYBOARD_ADDITIONS)
+    if (charCode >= NSF1FunctionKey && charCode <= NSF24FunctionKey)
+        return true;
+#endif
     return false;
 }
 
@@ -328,7 +341,7 @@ OptionSet<PlatformEvent::Modifier> PlatformKeyboardEvent::currentStateOfModifier
     if (currentModifiers & ::WebEventFlagMaskShiftKey)
         modifiers.add(PlatformEvent::Modifier::ShiftKey);
     if (currentModifiers & ::WebEventFlagMaskControlKey)
-        modifiers.add(PlatformEvent::Modifier::CtrlKey);
+        modifiers.add(PlatformEvent::Modifier::ControlKey);
     if (currentModifiers & ::WebEventFlagMaskOptionKey)
         modifiers.add(PlatformEvent::Modifier::AltKey);
     if (currentModifiers & ::WebEventFlagMaskCommandKey)

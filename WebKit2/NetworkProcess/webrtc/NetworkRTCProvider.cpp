@@ -65,7 +65,7 @@ NetworkRTCProvider::NetworkRTCProvider(NetworkConnectionToWebProcess& connection
 #if defined(NDEBUG)
     rtc::LogMessage::LogToDebug(rtc::LS_NONE);
 #else
-    if (WebKit2LogWebRTC.state != WTFLogChannelOn)
+    if (WebKit2LogWebRTC.state != WTFLogChannelState::On)
         rtc::LogMessage::LogToDebug(rtc::LS_WARNING);
 #endif
 }
@@ -98,7 +98,8 @@ void NetworkRTCProvider::close()
 void NetworkRTCProvider::createSocket(uint64_t identifier, std::unique_ptr<rtc::AsyncPacketSocket>&& socket, LibWebRTCSocketClient::Type type)
 {
     if (!socket) {
-        sendFromMainThread([identifier](IPC::Connection& connection) {
+        sendFromMainThread([identifier, size = m_sockets.size()](IPC::Connection& connection) {
+            RELEASE_LOG_ERROR(WebRTC, "NetworkRTCProvider with %u sockets is unable to create a new socket", size);
             connection.send(Messages::WebRTCSocket::SignalClose(1), identifier);
         });
         return;

@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV     67
+#define IOGRAPHICSTYPES_REV     71
 
 typedef SInt32  IOIndex;
 typedef UInt32  IOSelect;
@@ -288,6 +288,8 @@ enum {
     kIOFBBlueGammaScaleAttribute        = 'gslb',    // as of IOGRAPHICSTYPES_REV 54
 
     kIOFBHDRMetaDataAttribute           = 'hdrm',    // as of IOGRAPHICSTYPES_REV 64
+
+    kIOBuiltinPanelPowerAttribute       = 'pnlp',    // as of IOGRAPHICSTYPES_REV 71
 };
 
 enum {
@@ -452,6 +454,9 @@ typedef struct IODetailedTimingInformationV1 IODetailedTimingInformationV1;
  * @field bitsPerColorComponent 2017 Timing Features - ERS 2-58 (6.3.1)
  * @field colorimetry 2017 Timing Features - ERS 2-58 (6.3.1)
  * @field dynamicRange 2017 Timing Features - ERS 2-58 (6.3.1)
+ * @field dscCompressedBitsPerPixel 2018 Timing Features - ERS 2-63 (6.3.1)
+ * @field dscSliceHeight 2018 Timing Features - ERS 2-63 (6.3.1)
+ * @field dscSliceWidth 2018 Timing Features - ERS 2-63 (6.3.1)
  * @field __reservedB Reserved set to zero.
  */
 
@@ -500,8 +505,11 @@ struct IODetailedTimingInformationV2 {
     UInt16      bitsPerColorComponent;
     UInt16      colorimetry;
     UInt16      dynamicRange;
-
-    UInt32      __reservedB[4];                 // Init to 0
+    
+    UInt16      dscCompressedBitsPerPixel;
+    UInt16      dscSliceHeight;
+    UInt16      dscSliceWidth;
+    UInt16      __reservedB[5];                 // Init to 0
 };
 typedef struct IODetailedTimingInformationV2 IODetailedTimingInformationV2;
 typedef struct IODetailedTimingInformationV2 IODetailedTimingInformation;
@@ -587,7 +595,7 @@ typedef struct IOFBDisplayModeDescription IOFBDisplayModeDescription;
 #pragma pack(pop)
 
 /*!
- * @struct IODisplayTimingRange
+ * @struct IODisplayTimingRangeV1
  * @abstract A structure defining the limits and attributes of a display or framebuffer.
  * @discussion This structure is used to define the limits for modes programmed as detailed timings by the OS. The VESA EDID is useful background information for many of these fields. A data property with this structure under the key kIOFBTimingRangeKey in a framebuffer will allow the OS to program detailed timings that fall within its range.
  * @field __reservedA Set to zero.
@@ -671,7 +679,7 @@ typedef struct IOFBDisplayModeDescription IOFBDisplayModeDescription;
  * @field __reservedF Set to zero.
  */
 
-struct IODisplayTimingRange
+struct IODisplayTimingRangeV1
 {
     UInt32      __reservedA[2];                 // Init to 0
     UInt32      version;                        // Init to 0
@@ -755,7 +763,136 @@ struct IODisplayTimingRange
 
     UInt32      __reservedF[1];                    // Init to 0
 };
-typedef struct IODisplayTimingRange  IODisplayTimingRange;
+    
+typedef struct IODisplayTimingRangeV1 IODisplayTimingRangeV1;
+/*!
+ * @struct IODisplayTimingRangeV2
+ * @abstract A structure defining the limits and attributes of DSC capabilities in a  framebuffer.
+ * @discussion This structure is used to define the limits for DSC enabled modes programmed as detailed timings by the OS. The VESA DSC spec is useful background information for many of these fields.
+ * @field maxBandwidth Maximum permitted bandwidth of the given topology in bits per second.
+ * @field dscMinSliceHeight Minimum slice Height, in units of line.
+ * @field dscMaxSliceHeight Maximum slice Height, in units of line.
+ * @field dscMinSliceWidth  Minimum slice width, in units of line.
+ * @field dscMaxSliceWidth  Maximum slice width, in units of line.
+ * @field dscMinSlicePerLine Minimum slice per Line.
+ * @field dscMaxSlicePerLine Maximum slice per Line.
+ * @field dscMinBPC  Minimum Bits per component, in units of bits.
+ * @field dscMaxBPC  Maximum Bits per component, in units of bits.
+ * @field dscMinBPP  Minimum target bits/pixel, in bpp.
+ * @field dscMaxBPP  Maximum target bits/pixel, in bpp.
+ * @field dscVBR     VBR mode, 0:disabled 1:enabled.
+ * @field dscBlockPredEnable  DSC BP is user or not, 0: not used, 1: used.
+ * @field __reservedF  Set to zero.
+ */
+struct IODisplayTimingRangeV2
+{
+    UInt32      __reservedA[2];                 // Init to 0
+    UInt32      version;                        // Init to 0
+    UInt32      __reservedB[5];                 // Init to 0
+    
+    UInt64      minPixelClock;                  // Min dot clock in Hz
+    UInt64      maxPixelClock;                  // Max dot clock in Hz
+    
+    UInt32      maxPixelError;                  // Max dot clock error
+    UInt32      supportedSyncFlags;
+    UInt32      supportedSignalLevels;
+    UInt32      supportedSignalConfigs;
+    
+    UInt32      minFrameRate;                   // Hz
+    UInt32      maxFrameRate;                   // Hz
+    UInt32      minLineRate;                    // Hz
+    UInt32      maxLineRate;                    // Hz
+    
+    UInt32      maxHorizontalTotal;             // Clocks - Maximum total (active + blanking)
+    UInt32      maxVerticalTotal;               // Clocks - Maximum total (active + blanking)
+    UInt32      __reservedD[2];                 // Init to 0
+    
+    UInt8       charSizeHorizontalActive;
+    UInt8       charSizeHorizontalBlanking;
+    UInt8       charSizeHorizontalSyncOffset;
+    UInt8       charSizeHorizontalSyncPulse;
+    
+    UInt8       charSizeVerticalActive;
+    UInt8       charSizeVerticalBlanking;
+    UInt8       charSizeVerticalSyncOffset;
+    UInt8       charSizeVerticalSyncPulse;
+    
+    UInt8       charSizeHorizontalBorderLeft;
+    UInt8       charSizeHorizontalBorderRight;
+    UInt8       charSizeVerticalBorderTop;
+    UInt8       charSizeVerticalBorderBottom;
+    
+    UInt8       charSizeHorizontalTotal;                // Character size for active + blanking
+    UInt8       charSizeVerticalTotal;                  // Character size for active + blanking
+    UInt16      __reservedE;                            // Reserved (Init to 0)
+    
+    UInt32      minHorizontalActiveClocks;
+    UInt32      maxHorizontalActiveClocks;
+    UInt32      minHorizontalBlankingClocks;
+    UInt32      maxHorizontalBlankingClocks;
+    
+    UInt32      minHorizontalSyncOffsetClocks;
+    UInt32      maxHorizontalSyncOffsetClocks;
+    UInt32      minHorizontalPulseWidthClocks;
+    UInt32      maxHorizontalPulseWidthClocks;
+    
+    UInt32      minVerticalActiveClocks;
+    UInt32      maxVerticalActiveClocks;
+    UInt32      minVerticalBlankingClocks;
+    UInt32      maxVerticalBlankingClocks;
+    
+    UInt32      minVerticalSyncOffsetClocks;
+    UInt32      maxVerticalSyncOffsetClocks;
+    UInt32      minVerticalPulseWidthClocks;
+    UInt32      maxVerticalPulseWidthClocks;
+    
+    UInt32      minHorizontalBorderLeft;
+    UInt32      maxHorizontalBorderLeft;
+    UInt32      minHorizontalBorderRight;
+    UInt32      maxHorizontalBorderRight;
+    
+    UInt32      minVerticalBorderTop;
+    UInt32      maxVerticalBorderTop;
+    UInt32      minVerticalBorderBottom;
+    UInt32      maxVerticalBorderBottom;
+    UInt32      maxNumLinks;                       // number of links, if zero, assume link 1
+    UInt32      minLink0PixelClock;                // min pixel clock for link 0 (kHz)
+    UInt32      maxLink0PixelClock;                // max pixel clock for link 0 (kHz)
+    UInt32      minLink1PixelClock;                // min pixel clock for link 1 (kHz)
+    UInt32      maxLink1PixelClock;                // max pixel clock for link 1 (kHz)
+    
+    UInt16      supportedPixelEncoding;
+    UInt16      supportedBitsPerColorComponent;
+    UInt16      supportedColorimetryModes;
+    UInt16      supportedDynamicRangeModes;
+    
+    UInt32      __reservedF[1];                    // Init to 0
+    UInt64      maxBandwidth;
+    UInt32      dscMinSliceHeight;
+    UInt32      dscMaxSliceHeight;
+    UInt32      dscMinSliceWidth;
+    UInt32      dscMaxSliceWidth;
+    UInt32      dscMinSlicePerLine;
+    UInt32      dscMaxSlicePerLine;
+    UInt16      dscMinBPC;
+    UInt16      dscMaxBPC;
+    UInt16      dscMinBPP;
+    UInt16      dscMaxBPP;
+    UInt8       dscVBR;
+    UInt8       dscBlockPredEnable;
+    UInt32      __reservedC[6];
+};
+    
+typedef struct IODisplayTimingRangeV2 IODisplayTimingRangeV2;
+
+
+typedef struct IODisplayTimingRangeV2 IODisplayTimingRange;
+
+enum {
+    // IOTimingRange version
+    kIOTimingRangeV2      = 0x00000002,
+    kIOTimingRangeV1      = 0x00000000
+};
 
 enum {
     // supportedPixelEncoding
@@ -827,7 +964,8 @@ enum {
     kIOAnalogSetupExpected    = 0x00000002,
     kIOInterlacedCEATiming    = 0x00000004,
     kIONTSCTiming             = 0x00000008,
-    kIOPALTiming              = 0x00000010
+    kIOPALTiming              = 0x00000010,
+    kIODSCBlockPredEnable     = 0x00000020,
 };
 
 enum {
@@ -1074,7 +1212,8 @@ enum {
     // connection types for IOServiceOpen
     kIOFBServerConnectType              = 0,
     kIOFBSharedConnectType              = 1,
-    kIOGDiagnoseConnectType             = 38744,  // On Display Wrangler
+    kIOGDiagnoseGTraceType              = 11452,  // On Display Wrangler
+    kIOGDiagnoseConnectType             = 38744,
 };
 
 enum {

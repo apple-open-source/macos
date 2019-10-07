@@ -28,19 +28,24 @@
 #if KERNEL
 #include <libkern/c++/OSObject.h>
 #include <libkern/c++/OSArray.h>
+#include <libkern/c++/OSData.h>
 #endif /*KERNEL*/
 #include <IOKit/IOTypes.h>
 #include <IOKit/hid/IOHIDEventTypes.h>
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 #include <IOKit/hidsystem/IOLLEvent.h>
-#endif /*!TARGET_OS_EMBEDDED*/
+#endif /*TARGET_OS_OSX*/
 
 #define ALIGNED_DATA_SIZE(data_size,align_size) ((((data_size - 1) / align_size) + 1) * align_size)
 
 typedef struct IOHIDEventData IOHIDEventData;
 
-class IOHIDEvent: public OSObject
+#if defined(KERNEL) && !defined(KERNEL_PRIVATE)
+class __deprecated_msg("Use DriverKit") IOHIDEvent : public OSObject
+#else
+class IOHIDEvent : public OSObject
+#endif
 {
     OSDeclareAbstractStructors( IOHIDEvent )
     
@@ -436,10 +441,11 @@ public:
     
     virtual UInt8 *         getDataValue(IOHIDEventField key, IOOptionBits options = 0);
 
-    virtual void            free();
+    virtual void            free(void) APPLE_KEXT_OVERRIDE;
     
     virtual size_t          getLength(); 
     virtual IOByteCount     readBytes(void *bytes, IOByteCount withLength);
+    virtual OSData          *createBytes();
     
     virtual void            setSenderID(uint64_t senderID);
     

@@ -1317,13 +1317,13 @@ void rpc_ss_call_end_2
         if (status == error_status_ok)
         {
             rpc_init_mp(mp, iovec_elt.data_addr);
-            rpc_convert_ulong_int(drep, ndr_g_local_drep, mp, (*p_fault_code));
+            rpc_convert_ulong_int(drep, ndr_g_local_drep, mp, (void *) p_fault_code);
             if (*p_fault_code == nca_s_fault_user_defined)
             {
                 rpc_advance_mp(mp, 4);  /* Next longword represents user
                                                                     exception */
                 rpc_convert_ulong_int(drep, ndr_g_local_drep, mp,
-                                                    (*p_user_fault_id));
+                                                    (void *) (p_user_fault_id));
             }
             if (iovec_elt.buff_dealloc != NULL)
             {
@@ -1361,7 +1361,7 @@ void rpc_ss_call_end_2
 void rpc_ss_call_end
 (
     volatile rpc_call_handle_t *p_call_h,
-    volatile ndr_ulong_int *p_fault_code,
+    ndr_ulong_int *p_fault_code,
     volatile error_status_t *p_st
 )
 {

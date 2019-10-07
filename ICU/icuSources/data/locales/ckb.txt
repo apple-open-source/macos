@@ -6,6 +6,7 @@ ckb{
         "ؤ إ ة ث ذ ص ض ط ظ ك ه ى ي]"
     }
     ExemplarCharacters{"[ئ ا ب پ ت ج چ ح خ د ر ز ڕ ژ س ش ع غ ف ڤ ق ک گ ل ڵ م ن ھ ە و ۆ ی ێ]"}
+    ExemplarCharactersIndex{"[ئ ا ب پ ت ج چ ح خ د ر ز ڕ ژ س ش ع غ ف ڤ ق ک گ ل ڵ م ن ھ ە و ۆ ی ێ]"}
     ExemplarCharactersNumbers{"[\u200E\u200F \\- , ٫ ٬ . % ٪ ‰ ؉ + 0٠ 1١ 2٢ 3٣ 4٤ 5٥ 6٦ 7٧ 8٨ 9٩]"}
     NumberElements{
         arab{
@@ -31,7 +32,7 @@ ckb{
         default{"arab"}
         latn{
             miscPatterns{
-                atLeast{"⩾{0}"}
+                atLeast{"≥{0}"}
                 range{"{0}–{1}"}
             }
             patterns{
@@ -57,7 +58,7 @@ ckb{
         minimumGroupingDigits{"1"}
         native{"arab"}
     }
-    Version{"2.1.38.71"}
+    Version{"2.1.47.72"}
     calendar{
         generic{
             DateTimePatterns{
@@ -90,6 +91,7 @@ ckb{
                 MMMd{"dی MMM"}
                 Md{"MM-dd"}
                 d{"d"}
+                h{"hی a"}
                 y{"G y"}
                 yM{"M/y"}
                 yMEd{"E، d/M/y"}
@@ -224,8 +226,8 @@ ckb{
                 MMM{"LLL"}
                 MMMEd{"E، dی MMM"}
                 MMMMW{
-                    one{"هەفتەی W ی MMM"}
-                    other{"هەفتەی W ی MMM"}
+                    one{"هەفتەی W ی MMMM"}
+                    other{"هەفتەی W ی MMMM"}
                 }
                 MMMMd{"MMMM d"}
                 MMMd{"dی MMM"}
@@ -248,8 +250,8 @@ ckb{
                 yQQQ{"y QQQ"}
                 yQQQQ{"y QQQQ"}
                 yw{
-                    one{"هەفتەی w ی y"}
-                    other{"هەفتەی w ی y"}
+                    one{"هەفتەی w ی Y"}
+                    other{"هەفتەی w ی Y"}
                 }
             }
             dayNames{
@@ -355,6 +357,10 @@ ckb{
                     "BCE",
                     "CE",
                 }
+                narrow{
+                    "پ.ن",
+                    "ز",
+                }
                 wide{
                     "پێش زایین",
                     "زایینی",
@@ -362,6 +368,38 @@ ckb{
                 wide%variant{
                     "BCE",
                     "CE",
+                }
+            }
+            intervalFormats{
+                MEd{
+                    M{"E، M/d – E، M/d"}
+                    d{"E، M/d – E، M/d"}
+                }
+                MMM{
+                    M{"MMM–MMM"}
+                }
+                MMMEd{
+                    d{"E، dی MMM – E، dی MMM"}
+                }
+                MMMd{
+                    d{"d–dی MMM"}
+                }
+                yMEd{
+                    M{"E، d/M/y – E، d/M/y"}
+                    d{"E، d/M/y – E، d/M/y"}
+                    y{"E، d/M/y – E، d/M/y"}
+                }
+                yMMM{
+                    M{"MMM–MMMی y"}
+                    y{"MMMی y – MMMی y"}
+                }
+                yMMMd{
+                    M{"dی MMM – dی MMMی y"}
+                    d{"d–dی MMMی y"}
+                    y{"dی MMMMی y – dی MMMMی y"}
+                }
+                yMd{
+                    y{"d/M/y – d/M/y"}
                 }
             }
             monthNames{
@@ -497,8 +535,108 @@ ckb{
                 }
             }
         }
+        persian{
+            monthNames{
+                format{
+                    abbreviated{
+                        "خاکەلێوە",
+                        "بانەمەڕ",
+                        "جۆزەردان",
+                        "پووشپەڕ",
+                        "گەلاوێژ",
+                        "خەرمانان",
+                        "ڕەزبەر",
+                        "خەزەڵوەر",
+                        "سەرماوەز",
+                        "بەفرانبار",
+                        "ڕێبەندان",
+                        "رەشەمێ",
+                    }
+                    wide{
+                        "خاکەلێوە",
+                        "بانەمەڕ",
+                        "جۆزەردان",
+                        "پووشپەڕ",
+                        "گەلاوێژ",
+                        "خەرمانان",
+                        "ڕەزبەر",
+                        "خەزەڵوەر",
+                        "سەرماوەز",
+                        "بەفرانبار",
+                        "ڕێبەندان",
+                        "رەشەمێ",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "خاکەلێوە",
+                        "بانەمەڕ",
+                        "جۆزەردان",
+                        "پووشپەڕ",
+                        "گەلاوێژ",
+                        "خەرمانان",
+                        "ڕەزبەر",
+                        "خەزەڵوەر",
+                        "سەرماوەز",
+                        "بەفرانبار",
+                        "ڕێبەندان",
+                        "رەشەمێ",
+                    }
+                    wide{
+                        "خاکەلێوە",
+                        "بانەمەڕ",
+                        "جۆزەردان",
+                        "پووشپەڕ",
+                        "گەلاوێژ",
+                        "خەرمانان",
+                        "ڕەزبەر",
+                        "خەزەڵوەر",
+                        "سەرماوەز",
+                        "بەفرانبار",
+                        "ڕێبەندان",
+                        "رەشەمێ",
+                    }
+                }
+            }
+        }
+    }
+    fields{
+        day{
+            dn{"ڕۆژ"}
+            relative{
+                "-1"{"yesterday"}
+                "0"{"ئەمڕۆ"}
+                "1"{"سبەی"}
+            }
+        }
+        hour{
+            dn{"کاتژمێر"}
+        }
+        minute{
+            dn{"خولەک"}
+        }
+        month{
+            dn{"مانگ"}
+        }
+        second{
+            dn{"چرکە"}
+        }
+        week{
+            dn{"ھەفتە"}
+        }
+        weekday{
+            dn{"ڕۆژی ھەفتە"}
+        }
+        year{
+            dn{"ساڵ"}
+        }
     }
     layout{
         characters{"right-to-left"}
+    }
+    measurementSystemNames{
+        UK{"بریتانی"}
+        US{"ئەمەریکی"}
+        metric{"مەتریک"}
     }
 }

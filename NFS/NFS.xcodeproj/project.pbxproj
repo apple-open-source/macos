@@ -1,0 +1,2261 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 48;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		D6E728361FE3815500E0B2FC /* Common */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = D6E7283A1FE3815500E0B2FC /* Build configuration list for PBXAggregateTarget "Common" */;
+			buildPhases = (
+			);
+			dependencies = (
+				D6E7283C1FE3818F00E0B2FC /* PBXTargetDependency */,
+				D6E7283E1FE3818F00E0B2FC /* PBXTargetDependency */,
+				D6E728401FE3818F00E0B2FC /* PBXTargetDependency */,
+				D6E728421FE3818F00E0B2FC /* PBXTargetDependency */,
+				D6E728441FE3818F00E0B2FC /* PBXTargetDependency */,
+			);
+			name = Common;
+			productName = Common;
+		};
+		D6EA4A181FB7B995002AF776 /* All */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = D6EA4A191FB7B995002AF776 /* Build configuration list for PBXAggregateTarget "All" */;
+			buildPhases = (
+			);
+			dependencies = (
+				D6E728481FE381CC00E0B2FC /* PBXTargetDependency */,
+				D6EA4A311FB7BC75002AF776 /* PBXTargetDependency */,
+				D6EA4A331FB7BC75002AF776 /* PBXTargetDependency */,
+				D6EA4A351FB7BC75002AF776 /* PBXTargetDependency */,
+				D6EA4A371FB7BC75002AF776 /* PBXTargetDependency */,
+				D6EA4A391FB7BC75002AF776 /* PBXTargetDependency */,
+				D6EA4A3B1FB7BC75002AF776 /* PBXTargetDependency */,
+				D6EA4A901FB9837C002AF776 /* PBXTargetDependency */,
+			);
+			name = All;
+			productName = All;
+		};
+		D6EA4A1C1FB7BA3A002AF776 /* Embedded */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = D6EA4A1D1FB7BA3A002AF776 /* Build configuration list for PBXAggregateTarget "Embedded" */;
+			buildPhases = (
+			);
+			dependencies = (
+				D6E728461FE381B300E0B2FC /* PBXTargetDependency */,
+			);
+			name = Embedded;
+			productName = Embedded;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		D6354ACC1FA3D0F100AACC99 /* mount_nfs.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354AC81FA3D0F100AACC99 /* mount_nfs.c */; };
+		D6354AD21FA3D14C00AACC99 /* ncctl.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354ACF1FA3D14C00AACC99 /* ncctl.c */; };
+		D6354AD81FA3D15F00AACC99 /* nfs4mapid.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354AD61FA3D15F00AACC99 /* nfs4mapid.c */; };
+		D6354AE11FA3D17C00AACC99 /* nfs_acl_tool.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354ADD1FA3D17C00AACC99 /* nfs_acl_tool.c */; };
+		D6354AE21FA3D17C00AACC99 /* nfs_acl_lib.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354ADF1FA3D17C00AACC99 /* nfs_acl_lib.c */; };
+		D6354AEE1FA3D19E00AACC99 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354AE31FA3D19E00AACC99 /* main.c */; };
+		D6354AF01FA3D19E00AACC99 /* mountd.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354AEA1FA3D19E00AACC99 /* mountd.c */; };
+		D6354AF11FA3D19E00AACC99 /* nfsd.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354AEB1FA3D19E00AACC99 /* nfsd.c */; };
+		D6354AF51FA3D1DA00AACC99 /* nfsiod.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354AF21FA3D1DA00AACC99 /* nfsiod.c */; };
+		D6354AFB1FA3D1E700AACC99 /* nfsstat.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354AF81FA3D1E700AACC99 /* nfsstat.c */; };
+		D6354B0E1FA3D1FD00AACC99 /* lockd_mach.defs in Sources */ = {isa = PBXBuildFile; fileRef = D6354AFD1FA3D1FC00AACC99 /* lockd_mach.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
+		D6354B0F1FA3D1FD00AACC99 /* sm_inter_xdr.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354AFE1FA3D1FC00AACC99 /* sm_inter_xdr.c */; };
+		D6354B101FA3D1FD00AACC99 /* lockd_lock.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354B021FA3D1FC00AACC99 /* lockd_lock.c */; };
+		D6354B111FA3D1FD00AACC99 /* lockd.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354B031FA3D1FC00AACC99 /* lockd.c */; };
+		D6354B131FA3D1FD00AACC99 /* kern.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354B061FA3D1FC00AACC99 /* kern.c */; };
+		D6354B141FA3D1FD00AACC99 /* lock_proc.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354B071FA3D1FC00AACC99 /* lock_proc.c */; };
+		D6354B151FA3D1FD00AACC99 /* nlm_prot_xdr.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354B081FA3D1FC00AACC99 /* nlm_prot_xdr.c */; };
+		D6354B161FA3D1FD00AACC99 /* nlm_prot_svc.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354B091FA3D1FC00AACC99 /* nlm_prot_svc.c */; };
+		D6354B1E1FA3D21000AACC99 /* rquotad.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354B1B1FA3D21000AACC99 /* rquotad.c */; };
+		D6354B1F1FA3D21000AACC99 /* rquota_xdr.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354B1C1FA3D21000AACC99 /* rquota_xdr.c */; };
+		D6354B2A1FA3D22300AACC99 /* sm_inter_svc.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354B201FA3D22200AACC99 /* sm_inter_svc.c */; };
+		D6354B2B1FA3D22300AACC99 /* sm_inter_xdr.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354B211FA3D22200AACC99 /* sm_inter_xdr.c */; };
+		D6354B2C1FA3D22300AACC99 /* statd.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354B221FA3D22200AACC99 /* statd.c */; };
+		D6354B2D1FA3D22300AACC99 /* procs.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354B231FA3D22300AACC99 /* procs.c */; };
+		D6354B301FA3D22300AACC99 /* file.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354B291FA3D22300AACC99 /* file.c */; };
+		D6354B361FA3D23500AACC99 /* showmount.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354B321FA3D23500AACC99 /* showmount.c */; };
+		D6354B371FA3D23500AACC99 /* mshow.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354B331FA3D23500AACC99 /* mshow.c */; };
+		D6C1940D1FA4068400FA298E /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = D6C194081FA4022100FA298E /* InfoPlist.strings */; };
+		D6EA4A3D1FB7D190002AF776 /* oncrpc.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A3C1FB7D0C5002AF776 /* oncrpc.framework */; };
+		D6EA4A3E1FB7D1A8002AF776 /* oncrpc.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A3C1FB7D0C5002AF776 /* oncrpc.framework */; };
+		D6EA4A3F1FB7D1B0002AF776 /* oncrpc.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A3C1FB7D0C5002AF776 /* oncrpc.framework */; };
+		D6EA4A411FB7F884002AF776 /* oncrpc.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A3C1FB7D0C5002AF776 /* oncrpc.framework */; };
+		D6EA4A431FB7FCA0002AF776 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A421FB7FC7B002AF776 /* DiskArbitration.framework */; };
+		D6EA4A441FB7FD0A002AF776 /* lockd_mach.defs in Sources */ = {isa = PBXBuildFile; fileRef = D6354AFD1FA3D1FC00AACC99 /* lockd_mach.defs */; settings = {ATTRIBUTES = (Client, ); }; };
+		D6EA4A461FB7FD5A002AF776 /* ServiceManagement.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A451FB7FD5A002AF776 /* ServiceManagement.framework */; };
+		D6EA4A481FB7FDF2002AF776 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A471FB7FDF2002AF776 /* IOKit.framework */; };
+		D6EA4A4A1FB7FE08002AF776 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A491FB7FE08002AF776 /* CoreFoundation.framework */; };
+		D6EA4A4C1FB7FED0002AF776 /* libutil.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A4B1FB7FECF002AF776 /* libutil.tbd */; };
+		D6EA4A4D1FB7FFEA002AF776 /* libutil.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A4B1FB7FECF002AF776 /* libutil.tbd */; };
+		D6EA4A4E1FB8000C002AF776 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A491FB7FE08002AF776 /* CoreFoundation.framework */; };
+		D6EA4A4F1FB80025002AF776 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A471FB7FDF2002AF776 /* IOKit.framework */; };
+		D6EA4A511FB8005E002AF776 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A501FB8005E002AF776 /* Heimdal.framework */; };
+		D6EA4A531FB816FD002AF776 /* libutil.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A4B1FB7FECF002AF776 /* libutil.tbd */; };
+		D6EA4A541FB8192D002AF776 /* libutil.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A4B1FB7FECF002AF776 /* libutil.tbd */; };
+		D6EA4A551FB81A3D002AF776 /* libutil.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A4B1FB7FECF002AF776 /* libutil.tbd */; };
+		D6EA4A571FB821E4002AF776 /* oncrpc.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A3C1FB7D0C5002AF776 /* oncrpc.framework */; };
+		D6EA4A591FB8252A002AF776 /* libutil.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A4B1FB7FECF002AF776 /* libutil.tbd */; };
+		D6EA4A601FB94F29002AF776 /* mount_nfs.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354AC61FA3D0F100AACC99 /* mount_nfs.8 */; };
+		D6EA4A611FB94F9B002AF776 /* ncctl.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354AD11FA3D14C00AACC99 /* ncctl.1 */; };
+		D6EA4A621FB94FAA002AF776 /* nfs4mapid.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354AD51FA3D15F00AACC99 /* nfs4mapid.8 */; };
+		D6EA4A631FB95048002AF776 /* exports.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354AE41FA3D19E00AACC99 /* exports.5 */; };
+		D6EA4A641FB9505A002AF776 /* netgroup.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354AEC1FA3D19E00AACC99 /* netgroup.5 */; };
+		D6EA4A661FB950DE002AF776 /* mountd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354AED1FA3D19E00AACC99 /* mountd.8 */; };
+		D6EA4A671FB950DE002AF776 /* nfsd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354AE61FA3D19E00AACC99 /* nfsd.8 */; };
+		D6EA4A681FB95165002AF776 /* nfsiod.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354AF41FA3D1DA00AACC99 /* nfsiod.8 */; };
+		D6EA4A691FB95708002AF776 /* nfsstat.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354AF91FA3D1E700AACC99 /* nfsstat.1 */; };
+		D6EA4A6A1FB95776002AF776 /* rpc.lockd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354B0C1FA3D1FD00AACC99 /* rpc.lockd.8 */; };
+		D6EA4A6B1FB9578F002AF776 /* rpc.rquotad.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354B191FA3D21000AACC99 /* rpc.rquotad.8 */; };
+		D6EA4A6C1FB957AF002AF776 /* rpc.statd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354B271FA3D22300AACC99 /* rpc.statd.8 */; };
+		D6EA4A6D1FB9590C002AF776 /* showmount.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354B311FA3D23500AACC99 /* showmount.8 */; };
+		D6EA4A6F1FB95D5F002AF776 /* com.apple.nfsconf.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354AC51FA3D0F100AACC99 /* com.apple.nfsconf.plist */; };
+		D6EA4A711FB95E11002AF776 /* com.apple.nfsd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354AE81FA3D19E00AACC99 /* com.apple.nfsd.plist */; };
+		D6EA4A731FB95E70002AF776 /* com.apple.lockd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354AFF1FA3D1FC00AACC99 /* com.apple.lockd.plist */; };
+		D6EA4A751FB95E9C002AF776 /* com.apple.statd.notify.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354B281FA3D22300AACC99 /* com.apple.statd.notify.plist */; };
+		D6EA4A7C1FB9653A002AF776 /* Makefile in Sources */ = {isa = PBXBuildFile; fileRef = D6EA4A7A1FB96539002AF776 /* Makefile */; };
+		D6EA4A7D1FB96564002AF776 /* nfs.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6EA4A791FB96539002AF776 /* nfs.5 */; };
+		D6EA4A7E1FB96564002AF776 /* nfs.conf.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6EA4A7B1FB96539002AF776 /* nfs.conf.5 */; };
+		D6EA4A8E1FB9793F002AF776 /* nfs.conf in CopyFiles */ = {isa = PBXBuildFile; fileRef = D6354ACA1FA3D0F100AACC99 /* nfs.conf */; };
+		F93E0CC11FCE12AD006EA7D9 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6EA4A491FB7FE08002AF776 /* CoreFoundation.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		D6E7283B1FE3818F00E0B2FC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D6354A241FA3CCBC00AACC99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6354A441FA3CDDB00AACC99;
+			remoteInfo = mount_nfs;
+		};
+		D6E7283D1FE3818F00E0B2FC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D6354A241FA3CCBC00AACC99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6354A7B1FA3CEB700AACC99;
+			remoteInfo = nfsiod;
+		};
+		D6E7283F1FE3818F00E0B2FC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D6354A241FA3CCBC00AACC99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6354A861FA3CECF00AACC99;
+			remoteInfo = nfsstat;
+		};
+		D6E728411FE3818F00E0B2FC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D6354A241FA3CCBC00AACC99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6354AB21FA3CF1200AACC99;
+			remoteInfo = showmount;
+		};
+		D6E728431FE3818F00E0B2FC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D6354A241FA3CCBC00AACC99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6C194001FA400A900FA298E;
+			remoteInfo = nfs;
+		};
+		D6E728451FE381B300E0B2FC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D6354A241FA3CCBC00AACC99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6E728361FE3815500E0B2FC;
+			remoteInfo = Common;
+		};
+		D6E728471FE381CC00E0B2FC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D6354A241FA3CCBC00AACC99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6E728361FE3815500E0B2FC;
+			remoteInfo = Common;
+		};
+		D6EA4A301FB7BC75002AF776 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D6354A241FA3CCBC00AACC99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6354A5A1FA3CE7500AACC99;
+			remoteInfo = nfs4mapid;
+		};
+		D6EA4A321FB7BC75002AF776 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D6354A241FA3CCBC00AACC99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6354A651FA3CE8900AACC99;
+			remoteInfo = nfs_acl;
+		};
+		D6EA4A341FB7BC75002AF776 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D6354A241FA3CCBC00AACC99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6354A701FA3CEAB00AACC99;
+			remoteInfo = nfsd;
+		};
+		D6EA4A361FB7BC75002AF776 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D6354A241FA3CCBC00AACC99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6354A911FA3CEDB00AACC99;
+			remoteInfo = rpc.lockd;
+		};
+		D6EA4A381FB7BC75002AF776 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D6354A241FA3CCBC00AACC99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6354A9C1FA3CEEF00AACC99;
+			remoteInfo = rpc.rquotad;
+		};
+		D6EA4A3A1FB7BC75002AF776 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D6354A241FA3CCBC00AACC99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6354AA71FA3CF0100AACC99;
+			remoteInfo = rpc.statd;
+		};
+		D6EA4A8F1FB9837C002AF776 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D6354A241FA3CCBC00AACC99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6354A4F1FA3CE5800AACC99;
+			remoteInfo = ncctl;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		D6354A431FA3CDDB00AACC99 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				D6EA4A601FB94F29002AF776 /* mount_nfs.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D6354A4E1FA3CE5800AACC99 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				D6EA4A611FB94F9B002AF776 /* ncctl.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D6354A591FA3CE7500AACC99 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				D6EA4A621FB94FAA002AF776 /* nfs4mapid.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D6354A641FA3CE8900AACC99 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D6354A6F1FA3CEAB00AACC99 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man5;
+			dstSubfolderSpec = 0;
+			files = (
+				D6EA4A641FB9505A002AF776 /* netgroup.5 in CopyFiles */,
+				D6EA4A631FB95048002AF776 /* exports.5 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D6354A7A1FA3CEB700AACC99 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				D6EA4A681FB95165002AF776 /* nfsiod.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D6354A851FA3CECF00AACC99 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				D6EA4A691FB95708002AF776 /* nfsstat.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D6354A901FA3CEDB00AACC99 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				D6EA4A6A1FB95776002AF776 /* rpc.lockd.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D6354A9B1FA3CEEF00AACC99 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				D6EA4A6B1FB9578F002AF776 /* rpc.rquotad.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D6354AA61FA3CF0100AACC99 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				D6EA4A6C1FB957AF002AF776 /* rpc.statd.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D6354AB11FA3CF1200AACC99 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				D6EA4A6D1FB9590C002AF776 /* showmount.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D6EA4A651FB950AA002AF776 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				D6EA4A661FB950DE002AF776 /* mountd.8 in CopyFiles */,
+				D6EA4A671FB950DE002AF776 /* nfsd.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D6EA4A6E1FB95D29002AF776 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				D6EA4A6F1FB95D5F002AF776 /* com.apple.nfsconf.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D6EA4A701FB95DDD002AF776 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				D6EA4A711FB95E11002AF776 /* com.apple.nfsd.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D6EA4A721FB95E49002AF776 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				D6EA4A731FB95E70002AF776 /* com.apple.lockd.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D6EA4A741FB95E79002AF776 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				D6EA4A751FB95E9C002AF776 /* com.apple.statd.notify.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D6EA4A771FB964D4002AF776 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man5;
+			dstSubfolderSpec = 0;
+			files = (
+				D6EA4A7D1FB96564002AF776 /* nfs.5 in CopyFiles */,
+				D6EA4A7E1FB96564002AF776 /* nfs.conf.5 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D6EA4A8D1FB97860002AF776 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /private/etc;
+			dstSubfolderSpec = 0;
+			files = (
+				D6EA4A8E1FB9793F002AF776 /* nfs.conf in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		D6354A451FA3CDDB00AACC99 /* mount_nfs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mount_nfs; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6354A501FA3CE5800AACC99 /* ncctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ncctl; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6354A5B1FA3CE7500AACC99 /* nfs4mapid */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = nfs4mapid; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6354A661FA3CE8900AACC99 /* nfs_acl_tool */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = nfs_acl_tool; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6354A711FA3CEAB00AACC99 /* nfsd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = nfsd; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6354A7C1FA3CEB700AACC99 /* nfsiod */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = nfsiod; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6354A871FA3CECF00AACC99 /* nfsstat */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = nfsstat; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6354A921FA3CEDB00AACC99 /* rpc.lockd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = rpc.lockd; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6354A9D1FA3CEEF00AACC99 /* rpc.rquotad */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = rpc.rquotad; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6354AA81FA3CF0100AACC99 /* rpc.statd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = rpc.statd; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6354AB31FA3CF1200AACC99 /* showmount */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = showmount; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6354AC51FA3D0F100AACC99 /* com.apple.nfsconf.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.nfsconf.plist; sourceTree = "<group>"; };
+		D6354AC61FA3D0F100AACC99 /* mount_nfs.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mount_nfs.8; sourceTree = "<group>"; };
+		D6354AC71FA3D0F100AACC99 /* nfs_sys_prot.x */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = nfs_sys_prot.x; sourceTree = "<group>"; };
+		D6354AC81FA3D0F100AACC99 /* mount_nfs.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = mount_nfs.c; sourceTree = "<group>"; tabWidth = 8; usesTabs = 1; };
+		D6354ACA1FA3D0F100AACC99 /* nfs.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = nfs.conf; sourceTree = "<group>"; };
+		D6354ACB1FA3D0F100AACC99 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		D6354ACF1FA3D14C00AACC99 /* ncctl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ncctl.c; sourceTree = "<group>"; };
+		D6354AD01FA3D14C00AACC99 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		D6354AD11FA3D14C00AACC99 /* ncctl.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = ncctl.1; sourceTree = "<group>"; };
+		D6354AD41FA3D15F00AACC99 /* nfs4mapid-tester.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "nfs4mapid-tester.sh"; sourceTree = "<group>"; };
+		D6354AD51FA3D15F00AACC99 /* nfs4mapid.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = nfs4mapid.8; sourceTree = "<group>"; };
+		D6354AD61FA3D15F00AACC99 /* nfs4mapid.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfs4mapid.c; sourceTree = "<group>"; };
+		D6354AD71FA3D15F00AACC99 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		D6354ADA1FA3D17C00AACC99 /* nfs_acl_lib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nfs_acl_lib.h; sourceTree = "<group>"; };
+		D6354ADB1FA3D17C00AACC99 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		D6354ADC1FA3D17C00AACC99 /* nfs_acl-tester */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "nfs_acl-tester"; sourceTree = "<group>"; };
+		D6354ADD1FA3D17C00AACC99 /* nfs_acl_tool.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfs_acl_tool.c; sourceTree = "<group>"; };
+		D6354ADE1FA3D17C00AACC99 /* nfs_acl-tester.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "nfs_acl-tester.sh"; sourceTree = "<group>"; };
+		D6354ADF1FA3D17C00AACC99 /* nfs_acl_lib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfs_acl_lib.c; sourceTree = "<group>"; };
+		D6354AE31FA3D19E00AACC99 /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		D6354AE41FA3D19E00AACC99 /* exports.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = exports.5; sourceTree = "<group>"; };
+		D6354AE51FA3D19E00AACC99 /* pathnames.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pathnames.h; sourceTree = "<group>"; };
+		D6354AE61FA3D19E00AACC99 /* nfsd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = nfsd.8; sourceTree = "<group>"; };
+		D6354AE71FA3D19E00AACC99 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		D6354AE81FA3D19E00AACC99 /* com.apple.nfsd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.nfsd.plist; sourceTree = "<group>"; };
+		D6354AE91FA3D19E00AACC99 /* common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = common.h; sourceTree = "<group>"; };
+		D6354AEA1FA3D19E00AACC99 /* mountd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mountd.c; sourceTree = "<group>"; };
+		D6354AEB1FA3D19E00AACC99 /* nfsd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfsd.c; sourceTree = "<group>"; };
+		D6354AEC1FA3D19E00AACC99 /* netgroup.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = netgroup.5; sourceTree = "<group>"; };
+		D6354AED1FA3D19E00AACC99 /* mountd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mountd.8; sourceTree = "<group>"; };
+		D6354AF21FA3D1DA00AACC99 /* nfsiod.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfsiod.c; sourceTree = "<group>"; };
+		D6354AF31FA3D1DA00AACC99 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		D6354AF41FA3D1DA00AACC99 /* nfsiod.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = nfsiod.8; sourceTree = "<group>"; };
+		D6354AF71FA3D1E700AACC99 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		D6354AF81FA3D1E700AACC99 /* nfsstat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfsstat.c; sourceTree = "<group>"; usesTabs = 1; };
+		D6354AF91FA3D1E700AACC99 /* nfsstat.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = nfsstat.1; sourceTree = "<group>"; };
+		D6354AFC1FA3D1FC00AACC99 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		D6354AFD1FA3D1FC00AACC99 /* lockd_mach.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = lockd_mach.defs; sourceTree = "<group>"; };
+		D6354AFE1FA3D1FC00AACC99 /* sm_inter_xdr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sm_inter_xdr.c; sourceTree = "<group>"; };
+		D6354AFF1FA3D1FC00AACC99 /* com.apple.lockd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.lockd.plist; sourceTree = "<group>"; };
+		D6354B001FA3D1FC00AACC99 /* lockd_lock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lockd_lock.h; sourceTree = "<group>"; };
+		D6354B011FA3D1FC00AACC99 /* lockd_mach_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lockd_mach_types.h; sourceTree = "<group>"; };
+		D6354B021FA3D1FC00AACC99 /* lockd_lock.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lockd_lock.c; sourceTree = "<group>"; };
+		D6354B031FA3D1FC00AACC99 /* lockd.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = lockd.c; sourceTree = "<group>"; tabWidth = 8; usesTabs = 1; };
+		D6354B041FA3D1FC00AACC99 /* sm_inter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sm_inter.h; sourceTree = "<group>"; };
+		D6354B051FA3D1FC00AACC99 /* test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test.c; sourceTree = "<group>"; };
+		D6354B061FA3D1FC00AACC99 /* kern.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kern.c; sourceTree = "<group>"; };
+		D6354B071FA3D1FC00AACC99 /* lock_proc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lock_proc.c; sourceTree = "<group>"; };
+		D6354B081FA3D1FC00AACC99 /* nlm_prot_xdr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nlm_prot_xdr.c; sourceTree = "<group>"; };
+		D6354B091FA3D1FC00AACC99 /* nlm_prot_svc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nlm_prot_svc.c; sourceTree = "<group>"; };
+		D6354B0A1FA3D1FD00AACC99 /* lockd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lockd.h; sourceTree = "<group>"; };
+		D6354B0B1FA3D1FD00AACC99 /* nlm_prot.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nlm_prot.h; sourceTree = "<group>"; };
+		D6354B0C1FA3D1FD00AACC99 /* rpc.lockd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rpc.lockd.8; sourceTree = "<group>"; };
+		D6354B171FA3D21000AACC99 /* rquota.x */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rquota.x; sourceTree = "<group>"; };
+		D6354B181FA3D21000AACC99 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		D6354B191FA3D21000AACC99 /* rpc.rquotad.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rpc.rquotad.8; sourceTree = "<group>"; };
+		D6354B1A1FA3D21000AACC99 /* rquota.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rquota.h; sourceTree = "<group>"; };
+		D6354B1B1FA3D21000AACC99 /* rquotad.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rquotad.c; sourceTree = "<group>"; };
+		D6354B1C1FA3D21000AACC99 /* rquota_xdr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rquota_xdr.c; sourceTree = "<group>"; };
+		D6354B201FA3D22200AACC99 /* sm_inter_svc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sm_inter_svc.c; sourceTree = "<group>"; };
+		D6354B211FA3D22200AACC99 /* sm_inter_xdr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sm_inter_xdr.c; sourceTree = "<group>"; };
+		D6354B221FA3D22200AACC99 /* statd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = statd.c; sourceTree = "<group>"; };
+		D6354B231FA3D22300AACC99 /* procs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = procs.c; sourceTree = "<group>"; };
+		D6354B241FA3D22300AACC99 /* test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test.c; sourceTree = "<group>"; };
+		D6354B251FA3D22300AACC99 /* statd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = statd.h; sourceTree = "<group>"; };
+		D6354B261FA3D22300AACC99 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		D6354B271FA3D22300AACC99 /* rpc.statd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rpc.statd.8; sourceTree = "<group>"; };
+		D6354B281FA3D22300AACC99 /* com.apple.statd.notify.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.statd.notify.plist; sourceTree = "<group>"; };
+		D6354B291FA3D22300AACC99 /* file.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = file.c; sourceTree = "<group>"; };
+		D6354B311FA3D23500AACC99 /* showmount.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = showmount.8; sourceTree = "<group>"; };
+		D6354B321FA3D23500AACC99 /* showmount.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = showmount.c; sourceTree = "<group>"; };
+		D6354B331FA3D23500AACC99 /* mshow.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mshow.c; sourceTree = "<group>"; };
+		D6354B341FA3D23500AACC99 /* showmount.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = showmount.h; sourceTree = "<group>"; };
+		D6354B351FA3D23500AACC99 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		D68656E01FE4ABF0006A28EC /* LiveFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = LiveFS.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS12.0.Internal.sdk/System/Library/PrivateFrameworks/LiveFS.framework; sourceTree = DEVELOPER_DIR; };
+		D6C194011FA400A900FA298E /* nfs.fs */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = nfs.fs; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6C194091FA4022100FA298E /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		D6C1940A1FA4022100FA298E /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		D6C1940B1FA4022100FA298E /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		D6D3E2CE1FE20B1A0082628F /* UserFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserFS.framework; path = System/Library/PrivateFrameworks/UserFS.framework; sourceTree = SDKROOT; };
+		D6EA4A3C1FB7D0C5002AF776 /* oncrpc.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = oncrpc.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/System/Library/PrivateFrameworks/oncrpc.framework; sourceTree = DEVELOPER_DIR; };
+		D6EA4A421FB7FC7B002AF776 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = System/Library/Frameworks/DiskArbitration.framework; sourceTree = SDKROOT; };
+		D6EA4A451FB7FD5A002AF776 /* ServiceManagement.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ServiceManagement.framework; path = System/Library/Frameworks/ServiceManagement.framework; sourceTree = SDKROOT; };
+		D6EA4A471FB7FDF2002AF776 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
+		D6EA4A491FB7FE08002AF776 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		D6EA4A4B1FB7FECF002AF776 /* libutil.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libutil.tbd; path = usr/lib/libutil.tbd; sourceTree = SDKROOT; };
+		D6EA4A501FB8005E002AF776 /* Heimdal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Heimdal.framework; path = System/Library/PrivateFrameworks/Heimdal.framework; sourceTree = SDKROOT; };
+		D6EA4A791FB96539002AF776 /* nfs.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = nfs.5; sourceTree = "<group>"; };
+		D6EA4A7A1FB96539002AF776 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		D6EA4A7B1FB96539002AF776 /* nfs.conf.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = nfs.conf.5; sourceTree = "<group>"; };
+		F93E0CC21FCE13EF006EA7D9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		F989103B20E40D34001EF1D0 /* nfsd-entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "nfsd-entitlements.plist"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D6354A421FA3CDDB00AACC99 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6EA4A4D1FB7FFEA002AF776 /* libutil.tbd in Frameworks */,
+				D6EA4A4E1FB8000C002AF776 /* CoreFoundation.framework in Frameworks */,
+				D6EA4A4F1FB80025002AF776 /* IOKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354A4D1FA3CE5800AACC99 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6EA4A511FB8005E002AF776 /* Heimdal.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354A581FA3CE7500AACC99 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354A631FA3CE8900AACC99 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6EA4A591FB8252A002AF776 /* libutil.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354A6E1FA3CEAB00AACC99 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6EA4A4C1FB7FED0002AF776 /* libutil.tbd in Frameworks */,
+				D6EA4A411FB7F884002AF776 /* oncrpc.framework in Frameworks */,
+				D6EA4A431FB7FCA0002AF776 /* DiskArbitration.framework in Frameworks */,
+				D6EA4A461FB7FD5A002AF776 /* ServiceManagement.framework in Frameworks */,
+				D6EA4A481FB7FDF2002AF776 /* IOKit.framework in Frameworks */,
+				D6EA4A4A1FB7FE08002AF776 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354A791FA3CEB700AACC99 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354A841FA3CECF00AACC99 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354A8F1FA3CEDB00AACC99 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6EA4A531FB816FD002AF776 /* libutil.tbd in Frameworks */,
+				D6EA4A3E1FB7D1A8002AF776 /* oncrpc.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354A9A1FA3CEEF00AACC99 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6EA4A541FB8192D002AF776 /* libutil.tbd in Frameworks */,
+				D6EA4A3D1FB7D190002AF776 /* oncrpc.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354AA51FA3CF0100AACC99 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6EA4A551FB81A3D002AF776 /* libutil.tbd in Frameworks */,
+				D6EA4A3F1FB7D1B0002AF776 /* oncrpc.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354AB01FA3CF1200AACC99 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F93E0CC11FCE12AD006EA7D9 /* CoreFoundation.framework in Frameworks */,
+				D6EA4A571FB821E4002AF776 /* oncrpc.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		D6354A231FA3CCBC00AACC99 = {
+			isa = PBXGroup;
+			children = (
+				D6EA4A781FB96539002AF776 /* files */,
+				D6C194071FA4022100FA298E /* nfs_fs */,
+				D6354A461FA3CDDB00AACC99 /* mount_nfs */,
+				D6354A511FA3CE5800AACC99 /* ncctl */,
+				D6354A5C1FA3CE7500AACC99 /* nfs4mapid */,
+				D6354A671FA3CE8900AACC99 /* nfs_acl */,
+				D6354A721FA3CEAB00AACC99 /* nfsd */,
+				D6354A7D1FA3CEB700AACC99 /* nfsiod */,
+				D6354A881FA3CECF00AACC99 /* nfsstat */,
+				D6354A931FA3CEDB00AACC99 /* rpc.lockd */,
+				D6354A9E1FA3CEEF00AACC99 /* rpc.rquotad */,
+				D6354AA91FA3CF0100AACC99 /* rpc.statd */,
+				D6354AB41FA3CF1200AACC99 /* showmount */,
+				D6354A2D1FA3CCBC00AACC99 /* Products */,
+				D6354B391FA3D25900AACC99 /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		D6354A2D1FA3CCBC00AACC99 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D6354A451FA3CDDB00AACC99 /* mount_nfs */,
+				D6354A501FA3CE5800AACC99 /* ncctl */,
+				D6354A5B1FA3CE7500AACC99 /* nfs4mapid */,
+				D6354A661FA3CE8900AACC99 /* nfs_acl_tool */,
+				D6354A711FA3CEAB00AACC99 /* nfsd */,
+				D6354A7C1FA3CEB700AACC99 /* nfsiod */,
+				D6354A871FA3CECF00AACC99 /* nfsstat */,
+				D6354A921FA3CEDB00AACC99 /* rpc.lockd */,
+				D6354A9D1FA3CEEF00AACC99 /* rpc.rquotad */,
+				D6354AA81FA3CF0100AACC99 /* rpc.statd */,
+				D6354AB31FA3CF1200AACC99 /* showmount */,
+				D6C194011FA400A900FA298E /* nfs.fs */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D6354A461FA3CDDB00AACC99 /* mount_nfs */ = {
+			isa = PBXGroup;
+			children = (
+				D6354AC51FA3D0F100AACC99 /* com.apple.nfsconf.plist */,
+				D6354ACB1FA3D0F100AACC99 /* Makefile */,
+				D6354AC61FA3D0F100AACC99 /* mount_nfs.8 */,
+				D6354AC81FA3D0F100AACC99 /* mount_nfs.c */,
+				D6354AC71FA3D0F100AACC99 /* nfs_sys_prot.x */,
+				D6354ACA1FA3D0F100AACC99 /* nfs.conf */,
+			);
+			path = mount_nfs;
+			sourceTree = "<group>";
+		};
+		D6354A511FA3CE5800AACC99 /* ncctl */ = {
+			isa = PBXGroup;
+			children = (
+				D6354AD01FA3D14C00AACC99 /* Makefile */,
+				D6354AD11FA3D14C00AACC99 /* ncctl.1 */,
+				D6354ACF1FA3D14C00AACC99 /* ncctl.c */,
+			);
+			path = ncctl;
+			sourceTree = "<group>";
+		};
+		D6354A5C1FA3CE7500AACC99 /* nfs4mapid */ = {
+			isa = PBXGroup;
+			children = (
+				D6354AD71FA3D15F00AACC99 /* Makefile */,
+				D6354AD41FA3D15F00AACC99 /* nfs4mapid-tester.sh */,
+				D6354AD51FA3D15F00AACC99 /* nfs4mapid.8 */,
+				D6354AD61FA3D15F00AACC99 /* nfs4mapid.c */,
+			);
+			path = nfs4mapid;
+			sourceTree = "<group>";
+		};
+		D6354A671FA3CE8900AACC99 /* nfs_acl */ = {
+			isa = PBXGroup;
+			children = (
+				D6354ADB1FA3D17C00AACC99 /* Makefile */,
+				D6354ADF1FA3D17C00AACC99 /* nfs_acl_lib.c */,
+				D6354ADA1FA3D17C00AACC99 /* nfs_acl_lib.h */,
+				D6354ADD1FA3D17C00AACC99 /* nfs_acl_tool.c */,
+				D6354ADC1FA3D17C00AACC99 /* nfs_acl-tester */,
+				D6354ADE1FA3D17C00AACC99 /* nfs_acl-tester.sh */,
+			);
+			path = nfs_acl;
+			sourceTree = "<group>";
+		};
+		D6354A721FA3CEAB00AACC99 /* nfsd */ = {
+			isa = PBXGroup;
+			children = (
+				D6354AE81FA3D19E00AACC99 /* com.apple.nfsd.plist */,
+				D6354AE91FA3D19E00AACC99 /* common.h */,
+				D6354AE41FA3D19E00AACC99 /* exports.5 */,
+				D6354AE31FA3D19E00AACC99 /* main.c */,
+				D6354AE71FA3D19E00AACC99 /* Makefile */,
+				D6354AED1FA3D19E00AACC99 /* mountd.8 */,
+				D6354AEA1FA3D19E00AACC99 /* mountd.c */,
+				D6354AEC1FA3D19E00AACC99 /* netgroup.5 */,
+				D6354AE61FA3D19E00AACC99 /* nfsd.8 */,
+				D6354AEB1FA3D19E00AACC99 /* nfsd.c */,
+				D6354AE51FA3D19E00AACC99 /* pathnames.h */,
+				F989103B20E40D34001EF1D0 /* nfsd-entitlements.plist */,
+			);
+			path = nfsd;
+			sourceTree = "<group>";
+		};
+		D6354A7D1FA3CEB700AACC99 /* nfsiod */ = {
+			isa = PBXGroup;
+			children = (
+				D6354AF31FA3D1DA00AACC99 /* Makefile */,
+				D6354AF41FA3D1DA00AACC99 /* nfsiod.8 */,
+				D6354AF21FA3D1DA00AACC99 /* nfsiod.c */,
+			);
+			path = nfsiod;
+			sourceTree = "<group>";
+		};
+		D6354A881FA3CECF00AACC99 /* nfsstat */ = {
+			isa = PBXGroup;
+			children = (
+				D6354AF71FA3D1E700AACC99 /* Makefile */,
+				D6354AF91FA3D1E700AACC99 /* nfsstat.1 */,
+				D6354AF81FA3D1E700AACC99 /* nfsstat.c */,
+			);
+			path = nfsstat;
+			sourceTree = "<group>";
+		};
+		D6354A931FA3CEDB00AACC99 /* rpc.lockd */ = {
+			isa = PBXGroup;
+			children = (
+				D6354AFF1FA3D1FC00AACC99 /* com.apple.lockd.plist */,
+				D6354B061FA3D1FC00AACC99 /* kern.c */,
+				D6354B071FA3D1FC00AACC99 /* lock_proc.c */,
+				D6354B021FA3D1FC00AACC99 /* lockd_lock.c */,
+				D6354B001FA3D1FC00AACC99 /* lockd_lock.h */,
+				D6354B011FA3D1FC00AACC99 /* lockd_mach_types.h */,
+				D6354AFD1FA3D1FC00AACC99 /* lockd_mach.defs */,
+				D6354B031FA3D1FC00AACC99 /* lockd.c */,
+				D6354B0A1FA3D1FD00AACC99 /* lockd.h */,
+				D6354AFC1FA3D1FC00AACC99 /* Makefile */,
+				D6354B091FA3D1FC00AACC99 /* nlm_prot_svc.c */,
+				D6354B081FA3D1FC00AACC99 /* nlm_prot_xdr.c */,
+				D6354B0B1FA3D1FD00AACC99 /* nlm_prot.h */,
+				D6354B0C1FA3D1FD00AACC99 /* rpc.lockd.8 */,
+				D6354AFE1FA3D1FC00AACC99 /* sm_inter_xdr.c */,
+				D6354B041FA3D1FC00AACC99 /* sm_inter.h */,
+				D6354B051FA3D1FC00AACC99 /* test.c */,
+			);
+			path = rpc.lockd;
+			sourceTree = "<group>";
+		};
+		D6354A9E1FA3CEEF00AACC99 /* rpc.rquotad */ = {
+			isa = PBXGroup;
+			children = (
+				D6354B181FA3D21000AACC99 /* Makefile */,
+				D6354B191FA3D21000AACC99 /* rpc.rquotad.8 */,
+				D6354B1C1FA3D21000AACC99 /* rquota_xdr.c */,
+				D6354B1A1FA3D21000AACC99 /* rquota.h */,
+				D6354B171FA3D21000AACC99 /* rquota.x */,
+				D6354B1B1FA3D21000AACC99 /* rquotad.c */,
+			);
+			path = rpc.rquotad;
+			sourceTree = "<group>";
+		};
+		D6354AA91FA3CF0100AACC99 /* rpc.statd */ = {
+			isa = PBXGroup;
+			children = (
+				D6354B281FA3D22300AACC99 /* com.apple.statd.notify.plist */,
+				D6354B291FA3D22300AACC99 /* file.c */,
+				D6354B261FA3D22300AACC99 /* Makefile */,
+				D6354B231FA3D22300AACC99 /* procs.c */,
+				D6354B271FA3D22300AACC99 /* rpc.statd.8 */,
+				D6354B201FA3D22200AACC99 /* sm_inter_svc.c */,
+				D6354B211FA3D22200AACC99 /* sm_inter_xdr.c */,
+				D6354B221FA3D22200AACC99 /* statd.c */,
+				D6354B251FA3D22300AACC99 /* statd.h */,
+				D6354B241FA3D22300AACC99 /* test.c */,
+			);
+			path = rpc.statd;
+			sourceTree = "<group>";
+		};
+		D6354AB41FA3CF1200AACC99 /* showmount */ = {
+			isa = PBXGroup;
+			children = (
+				D6354B351FA3D23500AACC99 /* Makefile */,
+				D6354B331FA3D23500AACC99 /* mshow.c */,
+				D6354B311FA3D23500AACC99 /* showmount.8 */,
+				D6354B321FA3D23500AACC99 /* showmount.c */,
+				D6354B341FA3D23500AACC99 /* showmount.h */,
+			);
+			path = showmount;
+			sourceTree = "<group>";
+		};
+		D6354B391FA3D25900AACC99 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D68656E01FE4ABF0006A28EC /* LiveFS.framework */,
+				D6D3E2CE1FE20B1A0082628F /* UserFS.framework */,
+				F93E0CC21FCE13EF006EA7D9 /* Foundation.framework */,
+				D6EA4A501FB8005E002AF776 /* Heimdal.framework */,
+				D6EA4A4B1FB7FECF002AF776 /* libutil.tbd */,
+				D6EA4A491FB7FE08002AF776 /* CoreFoundation.framework */,
+				D6EA4A471FB7FDF2002AF776 /* IOKit.framework */,
+				D6EA4A451FB7FD5A002AF776 /* ServiceManagement.framework */,
+				D6EA4A421FB7FC7B002AF776 /* DiskArbitration.framework */,
+				D6EA4A3C1FB7D0C5002AF776 /* oncrpc.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		D6C194071FA4022100FA298E /* nfs_fs */ = {
+			isa = PBXGroup;
+			children = (
+				D6C194081FA4022100FA298E /* InfoPlist.strings */,
+				D6C1940A1FA4022100FA298E /* Makefile */,
+				D6C1940B1FA4022100FA298E /* Info.plist */,
+			);
+			path = nfs_fs;
+			sourceTree = "<group>";
+		};
+		D6EA4A781FB96539002AF776 /* files */ = {
+			isa = PBXGroup;
+			children = (
+				D6EA4A791FB96539002AF776 /* nfs.5 */,
+				D6EA4A7A1FB96539002AF776 /* Makefile */,
+				D6EA4A7B1FB96539002AF776 /* nfs.conf.5 */,
+			);
+			path = files;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D6354A441FA3CDDB00AACC99 /* mount_nfs */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D6354A491FA3CDDB00AACC99 /* Build configuration list for PBXNativeTarget "mount_nfs" */;
+			buildPhases = (
+				D6354A411FA3CDDB00AACC99 /* Sources */,
+				D6354A421FA3CDDB00AACC99 /* Frameworks */,
+				D6354A431FA3CDDB00AACC99 /* CopyFiles */,
+				D6EA4A6E1FB95D29002AF776 /* CopyFiles */,
+				D6EA4A771FB964D4002AF776 /* CopyFiles */,
+				D6EA4A8D1FB97860002AF776 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = mount_nfs;
+			productName = mount_nfs;
+			productReference = D6354A451FA3CDDB00AACC99 /* mount_nfs */;
+			productType = "com.apple.product-type.tool";
+		};
+		D6354A4F1FA3CE5800AACC99 /* ncctl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D6354A541FA3CE5800AACC99 /* Build configuration list for PBXNativeTarget "ncctl" */;
+			buildPhases = (
+				D6354A4C1FA3CE5800AACC99 /* Sources */,
+				D6354A4D1FA3CE5800AACC99 /* Frameworks */,
+				D6354A4E1FA3CE5800AACC99 /* CopyFiles */,
+				D6EA4A911FB983BD002AF776 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ncctl;
+			productName = ncctl;
+			productReference = D6354A501FA3CE5800AACC99 /* ncctl */;
+			productType = "com.apple.product-type.tool";
+		};
+		D6354A5A1FA3CE7500AACC99 /* nfs4mapid */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D6354A5F1FA3CE7500AACC99 /* Build configuration list for PBXNativeTarget "nfs4mapid" */;
+			buildPhases = (
+				D6354A571FA3CE7500AACC99 /* Sources */,
+				D6354A581FA3CE7500AACC99 /* Frameworks */,
+				D6354A591FA3CE7500AACC99 /* CopyFiles */,
+				D6EA4A921FB98940002AF776 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = nfs4mapid;
+			productName = nfs4mapid;
+			productReference = D6354A5B1FA3CE7500AACC99 /* nfs4mapid */;
+			productType = "com.apple.product-type.tool";
+		};
+		D6354A651FA3CE8900AACC99 /* nfs_acl_tool */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D6354A6A1FA3CE8900AACC99 /* Build configuration list for PBXNativeTarget "nfs_acl_tool" */;
+			buildPhases = (
+				D6354A621FA3CE8900AACC99 /* Sources */,
+				D6354A631FA3CE8900AACC99 /* Frameworks */,
+				D6354A641FA3CE8900AACC99 /* CopyFiles */,
+				D6EA4A761FB96404002AF776 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = nfs_acl_tool;
+			productName = nfs_acl;
+			productReference = D6354A661FA3CE8900AACC99 /* nfs_acl_tool */;
+			productType = "com.apple.product-type.tool";
+		};
+		D6354A701FA3CEAB00AACC99 /* nfsd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D6354A751FA3CEAB00AACC99 /* Build configuration list for PBXNativeTarget "nfsd" */;
+			buildPhases = (
+				D6354A6D1FA3CEAB00AACC99 /* Sources */,
+				D6354A6E1FA3CEAB00AACC99 /* Frameworks */,
+				D6354A6F1FA3CEAB00AACC99 /* CopyFiles */,
+				D6EA4A651FB950AA002AF776 /* CopyFiles */,
+				D6EA4A701FB95DDD002AF776 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = nfsd;
+			productName = nfsd;
+			productReference = D6354A711FA3CEAB00AACC99 /* nfsd */;
+			productType = "com.apple.product-type.tool";
+		};
+		D6354A7B1FA3CEB700AACC99 /* nfsiod */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D6354A801FA3CEB700AACC99 /* Build configuration list for PBXNativeTarget "nfsiod" */;
+			buildPhases = (
+				D6354A781FA3CEB700AACC99 /* Sources */,
+				D6354A791FA3CEB700AACC99 /* Frameworks */,
+				D6354A7A1FA3CEB700AACC99 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = nfsiod;
+			productName = nfsiod;
+			productReference = D6354A7C1FA3CEB700AACC99 /* nfsiod */;
+			productType = "com.apple.product-type.tool";
+		};
+		D6354A861FA3CECF00AACC99 /* nfsstat */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D6354A8B1FA3CECF00AACC99 /* Build configuration list for PBXNativeTarget "nfsstat" */;
+			buildPhases = (
+				D6354A831FA3CECF00AACC99 /* Sources */,
+				D6354A841FA3CECF00AACC99 /* Frameworks */,
+				D6354A851FA3CECF00AACC99 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = nfsstat;
+			productName = nfsstat;
+			productReference = D6354A871FA3CECF00AACC99 /* nfsstat */;
+			productType = "com.apple.product-type.tool";
+		};
+		D6354A911FA3CEDB00AACC99 /* rpc.lockd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D6354A961FA3CEDB00AACC99 /* Build configuration list for PBXNativeTarget "rpc.lockd" */;
+			buildPhases = (
+				D6354A8E1FA3CEDB00AACC99 /* Sources */,
+				D6354A8F1FA3CEDB00AACC99 /* Frameworks */,
+				D6354A901FA3CEDB00AACC99 /* CopyFiles */,
+				D6EA4A721FB95E49002AF776 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = rpc.lockd;
+			productName = rpc.lockd;
+			productReference = D6354A921FA3CEDB00AACC99 /* rpc.lockd */;
+			productType = "com.apple.product-type.tool";
+		};
+		D6354A9C1FA3CEEF00AACC99 /* rpc.rquotad */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D6354AA11FA3CEEF00AACC99 /* Build configuration list for PBXNativeTarget "rpc.rquotad" */;
+			buildPhases = (
+				D6354A991FA3CEEF00AACC99 /* Sources */,
+				D6354A9A1FA3CEEF00AACC99 /* Frameworks */,
+				D6354A9B1FA3CEEF00AACC99 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = rpc.rquotad;
+			productName = rpc.rquotad;
+			productReference = D6354A9D1FA3CEEF00AACC99 /* rpc.rquotad */;
+			productType = "com.apple.product-type.tool";
+		};
+		D6354AA71FA3CF0100AACC99 /* rpc.statd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D6354AAC1FA3CF0100AACC99 /* Build configuration list for PBXNativeTarget "rpc.statd" */;
+			buildPhases = (
+				D6354AA41FA3CF0100AACC99 /* Sources */,
+				D6354AA51FA3CF0100AACC99 /* Frameworks */,
+				D6354AA61FA3CF0100AACC99 /* CopyFiles */,
+				D6EA4A741FB95E79002AF776 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = rpc.statd;
+			productName = rpc.statd;
+			productReference = D6354AA81FA3CF0100AACC99 /* rpc.statd */;
+			productType = "com.apple.product-type.tool";
+		};
+		D6354AB21FA3CF1200AACC99 /* showmount */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D6354AB71FA3CF1200AACC99 /* Build configuration list for PBXNativeTarget "showmount" */;
+			buildPhases = (
+				D6354AAF1FA3CF1200AACC99 /* Sources */,
+				D6354AB01FA3CF1200AACC99 /* Frameworks */,
+				D6354AB11FA3CF1200AACC99 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = showmount;
+			productName = showmount;
+			productReference = D6354AB31FA3CF1200AACC99 /* showmount */;
+			productType = "com.apple.product-type.tool";
+		};
+		D6C194001FA400A900FA298E /* nfs */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D6C194061FA400A900FA298E /* Build configuration list for PBXNativeTarget "nfs" */;
+			buildPhases = (
+				D6C193FD1FA400A900FA298E /* Sources */,
+				D6C193FF1FA400A900FA298E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = nfs;
+			productName = nfs_fs;
+			productReference = D6C194011FA400A900FA298E /* nfs.fs */;
+			productType = "com.apple.product-type.bundle";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D6354A241FA3CCBC00AACC99 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1000;
+				ORGANIZATIONNAME = "Apple, Inc.";
+				TargetAttributes = {
+					D6354A441FA3CDDB00AACC99 = {
+						CreatedOnToolsVersion = 9.0;
+						ProvisioningStyle = Automatic;
+					};
+					D6354A4F1FA3CE5800AACC99 = {
+						CreatedOnToolsVersion = 9.0;
+						ProvisioningStyle = Automatic;
+					};
+					D6354A5A1FA3CE7500AACC99 = {
+						CreatedOnToolsVersion = 9.0;
+						ProvisioningStyle = Automatic;
+					};
+					D6354A651FA3CE8900AACC99 = {
+						CreatedOnToolsVersion = 9.0;
+						ProvisioningStyle = Automatic;
+					};
+					D6354A701FA3CEAB00AACC99 = {
+						CreatedOnToolsVersion = 9.0;
+						ProvisioningStyle = Automatic;
+					};
+					D6354A7B1FA3CEB700AACC99 = {
+						CreatedOnToolsVersion = 9.0;
+						ProvisioningStyle = Automatic;
+					};
+					D6354A861FA3CECF00AACC99 = {
+						CreatedOnToolsVersion = 9.0;
+						ProvisioningStyle = Automatic;
+					};
+					D6354A911FA3CEDB00AACC99 = {
+						CreatedOnToolsVersion = 9.0;
+						ProvisioningStyle = Automatic;
+					};
+					D6354A9C1FA3CEEF00AACC99 = {
+						CreatedOnToolsVersion = 9.0;
+						ProvisioningStyle = Automatic;
+					};
+					D6354AA71FA3CF0100AACC99 = {
+						CreatedOnToolsVersion = 9.0;
+						ProvisioningStyle = Automatic;
+					};
+					D6354AB21FA3CF1200AACC99 = {
+						CreatedOnToolsVersion = 9.0;
+						ProvisioningStyle = Automatic;
+					};
+					D6C194001FA400A900FA298E = {
+						CreatedOnToolsVersion = 9.0;
+						ProvisioningStyle = Automatic;
+					};
+					D6E728361FE3815500E0B2FC = {
+						CreatedOnToolsVersion = 9.3;
+						ProvisioningStyle = Automatic;
+					};
+					D6EA4A181FB7B995002AF776 = {
+						CreatedOnToolsVersion = 9.2;
+						ProvisioningStyle = Automatic;
+					};
+					D6EA4A1C1FB7BA3A002AF776 = {
+						CreatedOnToolsVersion = 9.2;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = D6354A271FA3CCBC00AACC99 /* Build configuration list for PBXProject "NFS" */;
+			compatibilityVersion = "Xcode 8.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = D6354A231FA3CCBC00AACC99;
+			productRefGroup = D6354A2D1FA3CCBC00AACC99 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D6EA4A181FB7B995002AF776 /* All */,
+				D6EA4A1C1FB7BA3A002AF776 /* Embedded */,
+				D6E728361FE3815500E0B2FC /* Common */,
+				D6354A441FA3CDDB00AACC99 /* mount_nfs */,
+				D6354A4F1FA3CE5800AACC99 /* ncctl */,
+				D6354A5A1FA3CE7500AACC99 /* nfs4mapid */,
+				D6354A651FA3CE8900AACC99 /* nfs_acl_tool */,
+				D6354A701FA3CEAB00AACC99 /* nfsd */,
+				D6354A7B1FA3CEB700AACC99 /* nfsiod */,
+				D6354A861FA3CECF00AACC99 /* nfsstat */,
+				D6354A911FA3CEDB00AACC99 /* rpc.lockd */,
+				D6354A9C1FA3CEEF00AACC99 /* rpc.rquotad */,
+				D6354AA71FA3CF0100AACC99 /* rpc.statd */,
+				D6354AB21FA3CF1200AACC99 /* showmount */,
+				D6C194001FA400A900FA298E /* nfs */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D6C193FF1FA400A900FA298E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6C1940D1FA4068400FA298E /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		D6EA4A761FB96404002AF776 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "LOCAL_DST_DIR=${DSTROOT}/usr/local/bin\ninstall -d -m 755 ${LOCAL_DST_DIR}\ninstall -c -m 555 ${SRCROOT}/nfs_acl/nfs_acl-tester.sh ${LOCAL_DST_DIR}/nfs_acl-tester";
+		};
+		D6EA4A911FB983BD002AF776 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "MPATH=${DSTROOT}/usr/share/man/man1\nln -fs ./ncctl.1 ${MPATH}/ncdestroy.1\nln -fs ./ncctl.1 ${MPATH}/ncinit.1\nln -fs ./ncctl.1 ${MPATH}/nclist.1\nBPATH=${DSTROOT}/usr/bin/\nln -fs ./ncctl ${BPATH}/ncdestroy\nln -fs ./ncctl ${BPATH}/ncinit\nln -fs ./ncctl ${BPATH}/nclist";
+		};
+		D6EA4A921FB98940002AF776 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "LOCAL_DST_DIR=${DSTROOT}/usr/local/bin\ninstall -d -m 755 ${LOCAL_DST_DIR}\ninstall -c -m 555 ${SRCROOT}/nfs4mapid/nfs4mapid-tester.sh ${LOCAL_DST_DIR}/nfs4mapid-tester\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D6354A411FA3CDDB00AACC99 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6EA4A7C1FB9653A002AF776 /* Makefile in Sources */,
+				D6354ACC1FA3D0F100AACC99 /* mount_nfs.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354A4C1FA3CE5800AACC99 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6354AD21FA3D14C00AACC99 /* ncctl.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354A571FA3CE7500AACC99 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6354AD81FA3D15F00AACC99 /* nfs4mapid.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354A621FA3CE8900AACC99 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6354AE21FA3D17C00AACC99 /* nfs_acl_lib.c in Sources */,
+				D6354AE11FA3D17C00AACC99 /* nfs_acl_tool.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354A6D1FA3CEAB00AACC99 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6EA4A441FB7FD0A002AF776 /* lockd_mach.defs in Sources */,
+				D6354AF01FA3D19E00AACC99 /* mountd.c in Sources */,
+				D6354AF11FA3D19E00AACC99 /* nfsd.c in Sources */,
+				D6354AEE1FA3D19E00AACC99 /* main.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354A781FA3CEB700AACC99 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6354AF51FA3D1DA00AACC99 /* nfsiod.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354A831FA3CECF00AACC99 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6354AFB1FA3D1E700AACC99 /* nfsstat.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354A8E1FA3CEDB00AACC99 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6354B141FA3D1FD00AACC99 /* lock_proc.c in Sources */,
+				D6354B111FA3D1FD00AACC99 /* lockd.c in Sources */,
+				D6354B151FA3D1FD00AACC99 /* nlm_prot_xdr.c in Sources */,
+				D6354B0F1FA3D1FD00AACC99 /* sm_inter_xdr.c in Sources */,
+				D6354B0E1FA3D1FD00AACC99 /* lockd_mach.defs in Sources */,
+				D6354B161FA3D1FD00AACC99 /* nlm_prot_svc.c in Sources */,
+				D6354B101FA3D1FD00AACC99 /* lockd_lock.c in Sources */,
+				D6354B131FA3D1FD00AACC99 /* kern.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354A991FA3CEEF00AACC99 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6354B1E1FA3D21000AACC99 /* rquotad.c in Sources */,
+				D6354B1F1FA3D21000AACC99 /* rquota_xdr.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354AA41FA3CF0100AACC99 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6354B301FA3D22300AACC99 /* file.c in Sources */,
+				D6354B2C1FA3D22300AACC99 /* statd.c in Sources */,
+				D6354B2A1FA3D22300AACC99 /* sm_inter_svc.c in Sources */,
+				D6354B2B1FA3D22300AACC99 /* sm_inter_xdr.c in Sources */,
+				D6354B2D1FA3D22300AACC99 /* procs.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6354AAF1FA3CF1200AACC99 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6354B371FA3D23500AACC99 /* mshow.c in Sources */,
+				D6354B361FA3D23500AACC99 /* showmount.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6C193FD1FA400A900FA298E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D6E7283C1FE3818F00E0B2FC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6354A441FA3CDDB00AACC99 /* mount_nfs */;
+			targetProxy = D6E7283B1FE3818F00E0B2FC /* PBXContainerItemProxy */;
+		};
+		D6E7283E1FE3818F00E0B2FC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6354A7B1FA3CEB700AACC99 /* nfsiod */;
+			targetProxy = D6E7283D1FE3818F00E0B2FC /* PBXContainerItemProxy */;
+		};
+		D6E728401FE3818F00E0B2FC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6354A861FA3CECF00AACC99 /* nfsstat */;
+			targetProxy = D6E7283F1FE3818F00E0B2FC /* PBXContainerItemProxy */;
+		};
+		D6E728421FE3818F00E0B2FC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6354AB21FA3CF1200AACC99 /* showmount */;
+			targetProxy = D6E728411FE3818F00E0B2FC /* PBXContainerItemProxy */;
+		};
+		D6E728441FE3818F00E0B2FC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6C194001FA400A900FA298E /* nfs */;
+			targetProxy = D6E728431FE3818F00E0B2FC /* PBXContainerItemProxy */;
+		};
+		D6E728461FE381B300E0B2FC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6E728361FE3815500E0B2FC /* Common */;
+			targetProxy = D6E728451FE381B300E0B2FC /* PBXContainerItemProxy */;
+		};
+		D6E728481FE381CC00E0B2FC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6E728361FE3815500E0B2FC /* Common */;
+			targetProxy = D6E728471FE381CC00E0B2FC /* PBXContainerItemProxy */;
+		};
+		D6EA4A311FB7BC75002AF776 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6354A5A1FA3CE7500AACC99 /* nfs4mapid */;
+			targetProxy = D6EA4A301FB7BC75002AF776 /* PBXContainerItemProxy */;
+		};
+		D6EA4A331FB7BC75002AF776 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6354A651FA3CE8900AACC99 /* nfs_acl_tool */;
+			targetProxy = D6EA4A321FB7BC75002AF776 /* PBXContainerItemProxy */;
+		};
+		D6EA4A351FB7BC75002AF776 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6354A701FA3CEAB00AACC99 /* nfsd */;
+			targetProxy = D6EA4A341FB7BC75002AF776 /* PBXContainerItemProxy */;
+		};
+		D6EA4A371FB7BC75002AF776 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6354A911FA3CEDB00AACC99 /* rpc.lockd */;
+			targetProxy = D6EA4A361FB7BC75002AF776 /* PBXContainerItemProxy */;
+		};
+		D6EA4A391FB7BC75002AF776 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6354A9C1FA3CEEF00AACC99 /* rpc.rquotad */;
+			targetProxy = D6EA4A381FB7BC75002AF776 /* PBXContainerItemProxy */;
+		};
+		D6EA4A3B1FB7BC75002AF776 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6354AA71FA3CF0100AACC99 /* rpc.statd */;
+			targetProxy = D6EA4A3A1FB7BC75002AF776 /* PBXContainerItemProxy */;
+		};
+		D6EA4A901FB9837C002AF776 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6354A4F1FA3CE5800AACC99 /* ncctl */;
+			targetProxy = D6EA4A8F1FB9837C002AF776 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		D6C194081FA4022100FA298E /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D6C194091FA4022100FA298E /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		D6354A311FA3CCBC00AACC99 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CCOVERAGEDIR = "";
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"XCDEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_GROUP = wheel;
+				INSTALL_OWNER = root;
+				LIBRARY_SEARCH_PATHS = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "";
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macosx";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
+			};
+			name = Debug;
+		};
+		D6354A321FA3CCBC00AACC99 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CCOVERAGEDIR = "";
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_GROUP = wheel;
+				INSTALL_OWNER = root;
+				LIBRARY_SEARCH_PATHS = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_CFLAGS = "";
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macosx";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
+			};
+			name = Release;
+		};
+		D6354A4A1FA3CDDB00AACC99 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		D6354A4B1FA3CDDB00AACC99 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		D6354A551FA3CE5800AACC99 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		D6354A561FA3CE5800AACC99 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		D6354A601FA3CE7500AACC99 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		D6354A611FA3CE7500AACC99 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		D6354A6B1FA3CE8900AACC99 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/usr/local/include",
+				);
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		D6354A6C1FA3CE8900AACC99 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/usr/local/include",
+				);
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		D6354A761FA3CEAB00AACC99 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "nfsd/nfsd-entitlements.plist";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		D6354A771FA3CEAB00AACC99 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "nfsd/nfsd-entitlements.plist";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		D6354A811FA3CEB700AACC99 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		D6354A821FA3CEB700AACC99 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		D6354A8C1FA3CECF00AACC99 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		D6354A8D1FA3CECF00AACC99 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		D6354A971FA3CEDB00AACC99 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		D6354A981FA3CEDB00AACC99 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		D6354AA21FA3CEEF00AACC99 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		D6354AA31FA3CEEF00AACC99 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		D6354AAD1FA3CF0100AACC99 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		D6354AAE1FA3CF0100AACC99 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		D6354AB81FA3CF1200AACC99 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		D6354AB91FA3CF1200AACC99 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		D6C194041FA400A900FA298E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = nfs_fs/Info.plist;
+				INSTALL_GROUP = "";
+				INSTALL_OWNER = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.nfs-fs";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = NO;
+				WRAPPER_EXTENSION = fs;
+			};
+			name = Debug;
+		};
+		D6C194051FA400A900FA298E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = nfs_fs/Info.plist;
+				INSTALL_GROUP = "";
+				INSTALL_OWNER = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.nfs-fs";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = NO;
+				WRAPPER_EXTENSION = fs;
+			};
+			name = Release;
+		};
+		D6E728371FE3815500E0B2FC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		D6E728381FE3815500E0B2FC /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Coverage;
+		};
+		D6E728391FE3815500E0B2FC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		D6EA4A1A1FB7B995002AF776 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		D6EA4A1B1FB7B995002AF776 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		D6EA4A1E1FB7BA3A002AF776 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+			};
+			name = Debug;
+		};
+		D6EA4A1F1FB7BA3A002AF776 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+			};
+			name = Release;
+		};
+		D6EA4A961FBA8BF0002AF776 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CCOVERAGEDIR = /var/tmp/cc;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"XCDEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_GROUP = wheel;
+				INSTALL_OWNER = root;
+				LIBRARY_SEARCH_PATHS = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate=$(CCOVERAGEDIR)/$(TARGETNAME).%p",
+					"-fcoverage-mapping",
+					"-DCCOVERAGE",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macosx";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
+			};
+			name = Coverage;
+		};
+		D6EA4A971FBA8BF0002AF776 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Coverage;
+		};
+		D6EA4A981FBA8BF0002AF776 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+			};
+			name = Coverage;
+		};
+		D6EA4A9A1FBA8BF0002AF776 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Coverage;
+		};
+		D6EA4A9B1FBA8BF0002AF776 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Coverage;
+		};
+		D6EA4A9C1FBA8BF0002AF776 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Coverage;
+		};
+		D6EA4A9D1FBA8BF0002AF776 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/usr/local/include",
+				);
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Coverage;
+		};
+		D6EA4A9E1FBA8BF0002AF776 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "nfsd/nfsd-entitlements.plist";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Coverage;
+		};
+		D6EA4A9F1FBA8BF0002AF776 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Coverage;
+		};
+		D6EA4AA01FBA8BF0002AF776 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Coverage;
+		};
+		D6EA4AA11FBA8BF0002AF776 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Coverage;
+		};
+		D6EA4AA21FBA8BF0002AF776 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Coverage;
+		};
+		D6EA4AA31FBA8BF0002AF776 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Coverage;
+		};
+		D6EA4AA41FBA8BF0002AF776 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Coverage;
+		};
+		D6EA4AA51FBA8BF0002AF776 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = nfs_fs/Info.plist;
+				INSTALL_GROUP = "";
+				INSTALL_OWNER = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.nfs-fs";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = NO;
+				WRAPPER_EXTENSION = fs;
+			};
+			name = Coverage;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		D6354A271FA3CCBC00AACC99 /* Build configuration list for PBXProject "NFS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6354A311FA3CCBC00AACC99 /* Debug */,
+				D6EA4A961FBA8BF0002AF776 /* Coverage */,
+				D6354A321FA3CCBC00AACC99 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6354A491FA3CDDB00AACC99 /* Build configuration list for PBXNativeTarget "mount_nfs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6354A4A1FA3CDDB00AACC99 /* Debug */,
+				D6EA4A9A1FBA8BF0002AF776 /* Coverage */,
+				D6354A4B1FA3CDDB00AACC99 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6354A541FA3CE5800AACC99 /* Build configuration list for PBXNativeTarget "ncctl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6354A551FA3CE5800AACC99 /* Debug */,
+				D6EA4A9B1FBA8BF0002AF776 /* Coverage */,
+				D6354A561FA3CE5800AACC99 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6354A5F1FA3CE7500AACC99 /* Build configuration list for PBXNativeTarget "nfs4mapid" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6354A601FA3CE7500AACC99 /* Debug */,
+				D6EA4A9C1FBA8BF0002AF776 /* Coverage */,
+				D6354A611FA3CE7500AACC99 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6354A6A1FA3CE8900AACC99 /* Build configuration list for PBXNativeTarget "nfs_acl_tool" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6354A6B1FA3CE8900AACC99 /* Debug */,
+				D6EA4A9D1FBA8BF0002AF776 /* Coverage */,
+				D6354A6C1FA3CE8900AACC99 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6354A751FA3CEAB00AACC99 /* Build configuration list for PBXNativeTarget "nfsd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6354A761FA3CEAB00AACC99 /* Debug */,
+				D6EA4A9E1FBA8BF0002AF776 /* Coverage */,
+				D6354A771FA3CEAB00AACC99 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6354A801FA3CEB700AACC99 /* Build configuration list for PBXNativeTarget "nfsiod" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6354A811FA3CEB700AACC99 /* Debug */,
+				D6EA4A9F1FBA8BF0002AF776 /* Coverage */,
+				D6354A821FA3CEB700AACC99 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6354A8B1FA3CECF00AACC99 /* Build configuration list for PBXNativeTarget "nfsstat" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6354A8C1FA3CECF00AACC99 /* Debug */,
+				D6EA4AA01FBA8BF0002AF776 /* Coverage */,
+				D6354A8D1FA3CECF00AACC99 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6354A961FA3CEDB00AACC99 /* Build configuration list for PBXNativeTarget "rpc.lockd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6354A971FA3CEDB00AACC99 /* Debug */,
+				D6EA4AA11FBA8BF0002AF776 /* Coverage */,
+				D6354A981FA3CEDB00AACC99 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6354AA11FA3CEEF00AACC99 /* Build configuration list for PBXNativeTarget "rpc.rquotad" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6354AA21FA3CEEF00AACC99 /* Debug */,
+				D6EA4AA21FBA8BF0002AF776 /* Coverage */,
+				D6354AA31FA3CEEF00AACC99 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6354AAC1FA3CF0100AACC99 /* Build configuration list for PBXNativeTarget "rpc.statd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6354AAD1FA3CF0100AACC99 /* Debug */,
+				D6EA4AA31FBA8BF0002AF776 /* Coverage */,
+				D6354AAE1FA3CF0100AACC99 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6354AB71FA3CF1200AACC99 /* Build configuration list for PBXNativeTarget "showmount" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6354AB81FA3CF1200AACC99 /* Debug */,
+				D6EA4AA41FBA8BF0002AF776 /* Coverage */,
+				D6354AB91FA3CF1200AACC99 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6C194061FA400A900FA298E /* Build configuration list for PBXNativeTarget "nfs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6C194041FA400A900FA298E /* Debug */,
+				D6EA4AA51FBA8BF0002AF776 /* Coverage */,
+				D6C194051FA400A900FA298E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6E7283A1FE3815500E0B2FC /* Build configuration list for PBXAggregateTarget "Common" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6E728371FE3815500E0B2FC /* Debug */,
+				D6E728381FE3815500E0B2FC /* Coverage */,
+				D6E728391FE3815500E0B2FC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6EA4A191FB7B995002AF776 /* Build configuration list for PBXAggregateTarget "All" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6EA4A1A1FB7B995002AF776 /* Debug */,
+				D6EA4A971FBA8BF0002AF776 /* Coverage */,
+				D6EA4A1B1FB7B995002AF776 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6EA4A1D1FB7BA3A002AF776 /* Build configuration list for PBXAggregateTarget "Embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6EA4A1E1FB7BA3A002AF776 /* Debug */,
+				D6EA4A981FBA8BF0002AF776 /* Coverage */,
+				D6EA4A1F1FB7BA3A002AF776 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D6354A241FA3CCBC00AACC99 /* Project object */;
+}

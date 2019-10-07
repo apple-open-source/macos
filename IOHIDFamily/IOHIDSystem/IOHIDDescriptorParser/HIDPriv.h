@@ -363,7 +363,7 @@ OSStatus
 HIDPreProcessRIValue  	   (HIDReportItem *	 		reportItem,
 							SInt32 *				value);
 							
-extern 
+extern
 Boolean
 HIDHasUsage				   (HIDPreparsedDataRef		preparsedDataRef,
 							HIDReportItem *			reportItem,
@@ -372,12 +372,12 @@ HIDHasUsage				   (HIDPreparsedDataRef		preparsedDataRef,
 							UInt32 *				usageIndex,
 							UInt32 *				count);
 
-extern 
+extern
 Boolean
 HIDIsButton				   (HIDReportItem *			reportItem,
 							HIDPreparsedDataRef		preparsedDataRef);
 
-extern 
+extern
 Boolean
 HIDIsVariable			   (HIDReportItem *			reportItem,
 							HIDPreparsedDataRef		preparsedDataRef);
@@ -409,7 +409,7 @@ HIDUsageAndPageFromIndex   (HIDPreparsedDataRef		preparsedDataRef,
 							UInt32 					index,
 							HIDUsageAndPage *		usageAndPage);
 
-extern 
+extern
 Boolean
 HIDUsageInRange			   (HIDP_UsageItem *		usageItem, 
 							HIDUsage				usagePage,

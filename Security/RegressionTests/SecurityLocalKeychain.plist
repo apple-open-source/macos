@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Project</key>
+	<string>Security</string>
+	<key>Tests</key>
+	<array>
+		<dict>
+			<key>TestName</key>
+			<string>BackupNegativeTest</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secbackupntest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>BackupTest</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secbackuptest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>secitemstresstest</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secitemstresstest</string>
+			</array>
+			<key>ShowSubtestResults</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>secitemfunctionality</string>
+			<key>EnableEasyperf</key>
+			<true/>
+			<key>EasyperfArgs</key>
+			<array>
+				<string>-p</string>
+				<string>secd</string>
+			</array>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secitemfunctionality</string>
+			</array>
+			<key>ShowSubtestResults</key>
+			<true/>
+			<key>EligibleResource</key>
+			<string>type != &apos;CAMEmbeddedDeviceResource&apos;</string>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>secitemfunctionality</string>
+			<key>EnableEasyperf</key>
+			<true/>
+			<key>EasyperfArgs</key>
+			<array>
+				<string>-p</string>
+				<string>securityd</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secitemfunctionality</string>
+			</array>
+			<key>ShowSubtestResults</key>
+			<true/>
+			<key>EligibleResource</key>
+			<string>type == &apos;CAMEmbeddedDeviceResource&apos;</string>
+		</dict>
+	</array>
+</dict>
+</plist>

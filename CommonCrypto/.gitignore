@@ -59,3 +59,10 @@ windows/CommonNumerics/
 *.svclog
 *.scc
 *.opendb
+
+# Android build results
+DSTROOT/
+libs/
+android/.idea
+android/.gradle
+*.iml

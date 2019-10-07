@@ -1,0 +1,40 @@
+syntax = "proto2";
+
+option objc_class_naming = "extended";
+
+// Maintain identity consistency by including this in key and bag messages
+message SecDbBackupBagIdentity {
+    optional bytes baguuid = 1;
+    optional bytes baghash = 2;
+}
+
+// Insert into backupkeyclasssigningkeys table, v12_keyClassSigningKey column
+message SecDbBackupKeyClassSigningKey {
+    optional int32 keyClass = 1;
+    optional bytes publicKey = 3;
+    optional bytes aksRefKey = 4;                   // Contains bag identity as authenticated data
+    optional bytes aksWrappedKey = 5;               // SFECIESKeyPair wrapped by AKS ref key
+    optional bytes backupWrappedKey = 6;            // SFECIESKeyPair wrapped by KCSKSecret in RecoverySet. Also authenticates bag identity
+}
+
+// Insert into metadatakeys table, v12_metadatakeydata column
+message SecDbBackupMetadataClassKey {
+    optional int32 keyClass = 1;
+    optional bytes backupWrappedMetadataKey = 2;    // wrapped by appropriate backup keyclass for recovery
+//    optional bytes aksWrappedMetadataKey = 3;     // wrapped by device bag for daily use. Not in use right now.
+}
+
+// Insert into backuprecoverysets table, v12_recoverySet column
+message SecDbBackupRecoverySet {
+    optional int32 recoveryType = 1;
+    optional SecDbBackupBagIdentity bagIdentity = 2;
+    optional bytes wrappedBagSecret = 3;            // 'passphrase' to unlock backup bag's private keys
+    optional bytes wrappedKCSKSecret = 4;           // recovers KCSKs to verify authenticity of IKs and MCKs
+    optional bytes wrappedRecoveryKey = 5;          // wraps the above two secrets
+}
+
+// Insert into backupbags table, v12_backupBag column
+message SecDbBackupBag {
+    optional SecDbBackupBagIdentity bagIdentity = 1;
+    optional bytes keybag = 2;
+}

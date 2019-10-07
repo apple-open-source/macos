@@ -1208,7 +1208,7 @@ idl_boolean rpc_ss_find_union_arm_defn
      */
     do {
         mid = (low + high) / 2;         /* Compute midpoint element */
-        arm_switch_value = IDL_ARM_SWITCH_VALUE(defn_vec_ptr, mid);
+        arm_switch_value = IDL_ARM_SWITCH_VALUE(arm_switch_value, defn_vec_ptr, mid);
         if (switch_value > arm_switch_value)
         {
             /* If element is beyond the midpoint */
@@ -1506,6 +1506,7 @@ idl_ulong_int rpc_ss_ndr_bug_1_align
     return rpc_ss_ndr_bug_1_align(last_field_defn_ptr, IDL_msp);
 }
 
+
 /******************************************************************************/
 /*                                                                            */
 /*  Check type vector consistent with interpreter version                     */
@@ -1518,8 +1519,8 @@ void rpc_ss_type_vec_vers_check
 {
     idl_short_int interp_major_version, interp_minor_version;
 
-    interp_major_version = IDL_VERSION_NUMBER(IDL_INTERP_ENCODE_MAJOR);
-    interp_minor_version = IDL_VERSION_NUMBER(IDL_INTERP_ENCODE_MINOR);
+    IDL_VERSION_NUMBER(interp_major_version, IDL_INTERP_ENCODE_MAJOR);
+    IDL_VERSION_NUMBER(interp_minor_version, IDL_INTERP_ENCODE_MINOR);
     if ((interp_major_version != 3) || (interp_minor_version > 2))
     {
 #ifdef DEBUG_INTERP

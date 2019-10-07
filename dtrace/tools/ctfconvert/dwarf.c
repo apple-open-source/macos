@@ -94,12 +94,16 @@
 #include "ctftools.h"
 #include "memory.h"
 #include "list.h"
+#include "alist.h"
 #include "traverse.h"
 
 #if defined(__APPLE__)
 /* Sun extensions not present in Darwin's dwarf.h */
 #define DW_ATE_SUN_interval_float       0x91
 #define DW_ATE_SUN_imaginary_float      0x92 /* Obsolete: See DW_ATE_imaginary_float */
+
+/* it is EXTREMELY slow, and doesn't affect memory that much */
+#define dwarf_dealloc(...)
 #endif /* __APPLE__ */
 
 /* The version of DWARF which we support. */
@@ -138,7 +142,7 @@ typedef struct dwarf {
 	Dwarf_Unsigned dw_maxoff;	/* highest legal offset in this cu */
 	Dwarf_Off dw_cuoff;		/* lowest offset in this cu */
 	tdata_t *dw_td;			/* root of the tdesc/iidesc tree */
-	hash_t *dw_tidhash;		/* hash of tdescs by t_id */
+	alist_t *dw_tidhash;		/* hash of tdescs by t_id */
 	hash_t *dw_fwdhash;		/* hash of fwd decls by name */
 	hash_t *dw_enumhash;		/* hash of memberless enums by name */
 	tdesc_t *dw_void;		/* manufactured void type */
@@ -147,13 +151,13 @@ typedef struct dwarf {
 	tid_t dw_mfgtid_last;		/* last mfg'd type ID used */
 	uint_t dw_nunres;		/* count of unresolved types */
 	Dwarf_Die dw_cu;		/* die of cu */
-	char *dw_cuname;		/* name of compilation unit */
+	atom_t *dw_cuname;		/* name of compilation unit */
 } dwarf_t;
 
 typedef struct cu_data
 {
 	struct cu_data *cud_next;
-	char * cud_name;
+	atom_t *cud_name;
 	Dwarf_Unsigned cud_nxthdr;
 } cu_data_t;
 
@@ -170,25 +174,20 @@ mfgtid_next(dwarf_t *dw)
 static void
 tdesc_add(dwarf_t *dw, tdesc_t *tdp)
 {
-	hash_add(dw->dw_tidhash, tdp);
+	alist_add(dw->dw_tidhash, (void *)(uintptr_t)tdp->t_id, tdp);
 }
 
 static tdesc_t *
 tdesc_lookup(dwarf_t *dw, int tid)
 {
-	tdesc_t tmpl, *tdp;
-
-	tmpl.t_id = tid;
-
-	if (hash_find(dw->dw_tidhash, &tmpl, (void **)&tdp))
-		return (tdp);
-	else
-		return (NULL);
+	void *tpd = NULL;
+	(void)alist_find(dw->dw_tidhash, (void *)(uintptr_t)tid, &tpd);
+	return tpd;
 }
 
 /*
  * Resolve a tdesc down to a node which should have a size.  Returns the size,
- * zero if the size hasn't yet been determined.
+ * SIZE_MAX if the size hasn't yet been determined.
  */
 static size_t
 tdesc_size(tdesc_t *tdp)
@@ -202,6 +201,7 @@ tdesc_size(tdesc_t *tdp)
 		case STRUCT:
 		case UNION:
 		case ENUM:
+		case PTRAUTH:
 			return (tdp->t_size);
 
 		case FORWARD:
@@ -238,6 +238,7 @@ tdesc_bitsize(tdesc_t *tdp)
 		case UNION:
 		case ENUM:
 		case POINTER:
+		case PTRAUTH:
 			return (tdp->t_size * NBBY);
 
 		case FORWARD:
@@ -464,23 +465,36 @@ die_bool(dwarf_t *dw, Dwarf_Die die, Dwarf_Half name, Dwarf_Bool *valp, int req)
 }
 
 static int
-die_string(dwarf_t *dw, Dwarf_Die die, Dwarf_Half name, char **strp, int req)
+die_atom(dwarf_t *dw, Dwarf_Die die, Dwarf_Half name, atom_t **atomp, int req)
 {
 	Dwarf_Attribute attr;
 	char *str;
 
-	if ((attr = die_attr(dw, die, name, req)) == NULL)
+	if ((attr = die_attr(dw, die, name, req)) == NULL) {
+		*atomp = ATOM_NULL;
 		return (0); /* die_attr will terminate for us if necessary */
+	}
 
 	if (dwarf_formstring(attr, &str, &dw->dw_err) != DW_DLV_OK) {
 		terminate("die %llu: failed to get string (form 0x%x)\n",
-			die_off(dw, die), die_attr_form(dw, attr));
+				  die_off(dw, die), die_attr_form(dw, attr));
 	}
 
-	*strp = xstrdup(str);
+	*atomp = atom_get(str);
 	dwarf_dealloc(dw->dw_dw, str, DW_DLA_STRING);
 
 	return (1);
+}
+
+static int
+die_string(dwarf_t *dw, Dwarf_Die die, Dwarf_Half name, char **strp, int req)
+{
+	atom_t *atom;
+	int rc;
+
+	rc = die_atom(dw, die, name, &atom, req);
+	*strp = atom ? xstrdup(atom->value) : NULL;
+	return rc;
 }
 
 static Dwarf_Off
@@ -501,14 +515,14 @@ die_attr_ref(dwarf_t *dw, Dwarf_Die die, Dwarf_Half name)
 	return (off);
 }
 
-static char *
+static atom_t *
 die_name(dwarf_t *dw, Dwarf_Die die)
 {
-	char *str = NULL;
+	atom_t *atom = ATOM_NULL;
 
-	(void) die_string(dw, die, DW_AT_name, &str, 0);
+	(void) die_atom(dw, die, DW_AT_name, &atom, 0);
 
-	return (str);
+	return (atom);
 }
 
 static int
@@ -520,14 +534,14 @@ die_isdecl(dwarf_t *dw, Dwarf_Die die)
 }
 
 #if defined(__APPLE__)
-static char *
+static atom_t *
 die_linkage_name(dwarf_t *dw, Dwarf_Die die)
 {
-	char *str = NULL;
+	atom_t *atom = ATOM_NULL;
 
-	(void) die_string(dw, die, DW_AT_MIPS_linkage_name, &str, 0);
+	(void) die_atom(dw, die, DW_AT_MIPS_linkage_name, &atom, 0);
 
-	return (str);
+	return (atom);
 }
 
 static Dwarf_Die
@@ -677,7 +691,7 @@ tdesc_intr_common(dwarf_t *dw, int tid, const char *name, size_t sz)
 	intr->intr_nbits = sz * NBBY;
 
 	tdp = xcalloc(sizeof (tdesc_t));
-	tdp->t_name = xstrdup(name);
+	tdp->t_name = atom_get(name);
 	tdp->t_size = sz;
 	tdp->t_id = tid;
 	tdp->t_type = INTRINSIC;
@@ -733,7 +747,7 @@ tdesc_intr_clone(dwarf_t *dw, tdesc_t *old, size_t bitsz)
 		    "unresolved type\n", old->t_id);
 	}
 
-	new->t_name = xstrdup(old->t_name);
+	new->t_name = old->t_name;
 	new->t_size = old->t_size;
 	new->t_id = mfgtid_next(dw);
 	new->t_type = INTRINSIC;
@@ -952,7 +966,7 @@ die_enum_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 			}
 
 			debug(3, "die %llu: enum %llu: created %s = %d\n", off,
-			    die_off(dw, mem), el->el_name, el->el_number);
+			    die_off(dw, mem), el->el_name->value, el->el_number);
 
 			*elastp = el;
 			elastp = &el->el_next;
@@ -963,10 +977,10 @@ die_enum_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 
 		tdp->t_flags |= TDESC_F_RESOLVED;
 
-		if (tdp->t_name != NULL) {
+		if (tdp->t_name != ATOM_NULL) {
 			iidesc_t *ii = xcalloc(sizeof (iidesc_t));
 			ii->ii_type = II_SOU;
-			ii->ii_name = xstrdup(tdp->t_name);
+			ii->ii_name = tdp->t_name;
 			ii->ii_dtype = tdp;
 
 			iidesc_add(dw->dw_td->td_iihash, ii);
@@ -1089,7 +1103,7 @@ die_sou_create(dwarf_t *dw, Dwarf_Die str, Dwarf_Off off, tdesc_t *tdp,
 		 * bug 11816).
 		 */
 		if ((ml->ml_name = die_name(dw, mem)) == NULL)
-			ml->ml_name = "";
+			ml->ml_name = atom_get("");
 
         Dwarf_Off ref = die_attr_ref(dw, mem, DW_AT_type);
 		ml->ml_type = die_lookup_pass1(dw, mem, DW_AT_type);
@@ -1144,7 +1158,7 @@ die_sou_create(dwarf_t *dw, Dwarf_Die str, Dwarf_Off off, tdesc_t *tdp,
 			ml->ml_offset += bitoff;
 		}
 		debug(3, "die %llu: mem %llu: created \"%s\" (off %u sz %u)\n",
-		    off, memoff, ml->ml_name, ml->ml_offset, ml->ml_size);
+		    off, memoff, ml->ml_name->value, ml->ml_offset, ml->ml_size);
 
 		*mlastp = ml;
 		mlastp = &ml->ml_next;
@@ -1178,17 +1192,15 @@ die_sou_create(dwarf_t *dw, Dwarf_Die str, Dwarf_Off off, tdesc_t *tdp,
 
 		debug(3, "die %llu: worked around %s %s\n", off, typename, old);
 
-		if (tdp->t_name != NULL)
-			free(tdp->t_name);
-		tdp->t_name = new;
+		tdp->t_name = atom_get_consume(new);
 		return;
 	}
 
 out:
-	if (tdp->t_name != NULL) {
+	if (tdp->t_name != ATOM_NULL) {
 		ii = xcalloc(sizeof (iidesc_t));
 		ii->ii_type = II_SOU;
-		ii->ii_name = xstrdup(tdp->t_name);
+		ii->ii_name = tdp->t_name;
 		ii->ii_dtype = tdp;
 
 		iidesc_add(dw->dw_td->td_iihash, ii);
@@ -1293,7 +1305,7 @@ die_sou_failed(tdesc_t *tdp, tdesc_t **tdpp, void *private)
 		if (ml->ml_size == 0) {
 			fprintf(stderr, "%s %d: failed to size member \"%s\" "
 			    "of type %s (%d)\n", typename, tdp->t_id,
-			    ml->ml_name, tdesc_name(ml->ml_type),
+			    ml->ml_name->value, tdesc_name(ml->ml_type),
 			    ml->ml_type->t_id);
 		}
 	}
@@ -1307,7 +1319,8 @@ die_funcptr_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 	Dwarf_Attribute attr;
 	Dwarf_Half tag;
 	Dwarf_Die arg;
-	fndef_t *fn;
+	fndef_t fnbuf = {0};
+	fndef_t *fn = &fnbuf;
 	int i;
 
 	debug(3, "die %llu: creating function pointer\n", off);
@@ -1335,8 +1348,6 @@ die_funcptr_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 		return;
 	}
 
-	fn = xcalloc(sizeof (fndef_t));
-
 	tdp->t_type = FUNCTION;
 
 	if ((attr = die_attr(dw, die, DW_AT_type, 0)) != NULL) {
@@ -1358,11 +1369,13 @@ die_funcptr_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 			fn->fn_vargs = 1;
 	}
 
+	fn = xcalloc(sizeof(fndef_t) + fn->fn_nargs * sizeof(tdesc_t *));
+	*fn = fnbuf;
+
 	if (fn->fn_nargs != 0) {
 		debug(3, "die %llu: adding %d argument%s\n", off, fn->fn_nargs,
 		    (fn->fn_nargs > 1 ? "s" : ""));
 
-		fn->fn_args = xcalloc(sizeof (tdesc_t *) * fn->fn_nargs);
 		for (i = 0, arg = die_child(dw, die);
 		    arg != NULL && i < fn->fn_nargs;
 		    arg = die_sibling(dw, arg)) {
@@ -1386,8 +1399,9 @@ die_funcptr_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
  * that reflects said name.
  */
 static intr_t *
-die_base_name_parse(const char *name, char **newp)
+die_base_name_parse(atom_t *atom, atom_t **newp)
 {
+	const char *name = atom->value;
 	char buf[100];
 	char *base, *c;
 	int nlong = 0, nshort = 0, nchar = 0, nint = 0;
@@ -1456,7 +1470,7 @@ die_base_name_parse(const char *name, char **newp)
 	    (nlong > 1 ? "long " : ""),
 	    base);
 
-	*newp = xstrdup(buf);
+	*newp = atom_get(buf);
 	return (intr);
 }
 
@@ -1554,7 +1568,7 @@ die_base_create(dwarf_t *dw, Dwarf_Die base, Dwarf_Off off, tdesc_t *tdp)
 {
 	Dwarf_Unsigned sz;
 	intr_t *intr;
-	char *new;
+	atom_t *new;
 
 	debug(3, "die %llu: creating base type %d\n", off, tdp->t_id);
 
@@ -1569,16 +1583,14 @@ die_base_create(dwarf_t *dw, Dwarf_Die base, Dwarf_Off off, tdesc_t *tdp)
 	 */
 	(void) die_unsigned(dw, base, DW_AT_byte_size, &sz, DW_ATTR_REQ);
 
-	if (tdp->t_name == NULL)
+	if (tdp->t_name == ATOM_NULL)
 		terminate("die %llu: base type without name\n", off);
 
 	/* XXX make a name parser for float too */
 	if ((intr = die_base_name_parse(tdp->t_name, &new)) != NULL) {
 		/* Found it.  We'll use the parsed version */
 		debug(3, "die %llu: name \"%s\" remapped to \"%s\" size %d\n", off,
-		    tdesc_name(tdp), new, sz);
-
-		free(tdp->t_name);
+		    tdesc_name(tdp), new->value, sz);
 		tdp->t_name = new;
 	} else {
 		/*
@@ -1627,7 +1639,7 @@ die_through_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp,
 	if (type == TYPEDEF) {
 		iidesc_t *ii = xcalloc(sizeof (iidesc_t));
 		ii->ii_type = II_TYPE;
-		ii->ii_name = xstrdup(tdp->t_name);
+		ii->ii_name = tdp->t_name;
 		ii->ii_dtype = tdp;
 
 		iidesc_add(dw->dw_td->td_iihash, ii);
@@ -1664,6 +1676,50 @@ die_volatile_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 	die_through_create(dw, die, off, tdp, VOLATILE, "volatile");
 }
 
+static int
+die_isdiscriminated(dwarf_t *dw, Dwarf_Die die)
+{
+	Dwarf_Bool val;
+	return (die_bool(dw, die,
+	    DW_AT_APPLE_ptrauth_address_discriminated, &val, 0) && val);
+}
+
+/*ARGSUSED*/
+static void
+die_ptrauth_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
+{
+	Dwarf_Signed discriminator, key;
+	Dwarf_Attribute attr;
+	ptrauth_t *pta = xcalloc(sizeof (ptrauth_t));
+
+	debug(3, "die %llu: creating ptrauth\n", off);
+
+	if ((attr = die_attr(dw, die, DW_AT_type, 0)) == NULL) {
+		terminate("die %llu: no referenced type", die_off(dw, die));
+	}
+
+	dwarf_dealloc(dw->dw_dw, attr, DW_DLA_ATTR);
+
+	pta->pta_type = die_lookup_pass1(dw, die, DW_AT_type);
+
+	pta->pta_discriminated = die_isdiscriminated(dw, die);
+
+	die_signed(dw, die, DW_AT_APPLE_ptrauth_key, &key, 1);
+	pta->pta_key = key;
+	if (die_signed(dw, die, DW_AT_APPLE_ptrauth_extra_discriminator,
+	    &discriminator, 0)) {
+		pta->pta_discriminator = discriminator;
+	}
+
+	tdp->t_type = PTRAUTH;
+	tdp->t_size = dw->dw_ptrsz;
+	tdp->t_flags |= TDESC_F_RESOLVED;
+
+	tdp->t_ptrauth = pta;
+
+	debug(3, "die %llu: to %llu\n", off, pta->pta_type->t_id);
+}
+
 /*ARGSUSED3*/
 static void
 die_function_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
@@ -1671,7 +1727,7 @@ die_function_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 	Dwarf_Die arg;
 	Dwarf_Half tag;
 	iidesc_t *ii;
-	char *name;
+	atom_t *name;
 
 	debug(3, "die %llu: creating function definition\n", off);
 
@@ -1703,7 +1759,7 @@ die_function_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 		name = die_name(dw, die);
 	}
 	
-	if (name == NULL) {
+	if (name == ATOM_NULL) {
 		return; /* Subprogram without name. */
 	}
 #else
@@ -1720,9 +1776,9 @@ die_function_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 	ii->ii_type = die_isglobal(dw, die) ? II_GFUN : II_SFUN;
 	ii->ii_name = name;
 	if (ii->ii_type == II_SFUN)
-		ii->ii_owner = xstrdup(dw->dw_cuname);
+		ii->ii_owner = dw->dw_cuname;
 
-	debug(3, "die %llu: function %s is %s\n", off, ii->ii_name,
+	debug(3, "die %llu: function %s is %s\n", off, name,
 	    (ii->ii_type == II_GFUN ? "global" : "static"));
 
 	if (die_attr(dw, die, DW_AT_type, 0) != NULL)
@@ -1732,7 +1788,7 @@ die_function_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 
 	for (arg = die_child(dw, die); arg != NULL;
 	    arg = die_sibling(dw, arg)) {
-		char *name;
+		atom_t *tmp;
 
 		debug(3, "die %llu: looking at sub member at %llu\n",
 		    off, die_off(dw, die));
@@ -1745,12 +1801,12 @@ die_function_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 #endif /* __APPLE__ */
 
 #if !defined(__APPLE__)
-		if ((name = die_name(dw, arg)) == NULL) {
+		if ((tmp = die_name(dw, arg)) == ATOM_NULL) {
 			terminate("die %llu: func arg %d has no name\n",
 			    off, ii->ii_nargs + 1);
 		}
 #else
-		if ((name = die_name(dw, arg)) == NULL) {
+		if ((tmp = die_name(dw, arg)) == ATOM_NULL) {
 			/* C++ admits this, IOKit does it, we'll allow it. */
 			debug(1, "die %llu: func arg %d has no name\n",
 			    off, ii->ii_nargs + 1);
@@ -1759,8 +1815,7 @@ die_function_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 		}
 #endif /* __APPLE__ */
 
-		if (strcmp(name, "...") == 0) {
-			free(name);
+		if (strcmp(tmp->value, "...") == 0) {
 			ii->ii_vargs = 1;
 			continue;
 		}
@@ -1803,11 +1858,11 @@ static void
 die_variable_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 {
 	iidesc_t *ii;
-	char *name;
+	atom_t *name;
 
 	debug(3, "die %llu: creating object definition\n", off);
 
-	if (die_isdecl(dw, die) || (name = die_name(dw, die)) == NULL)
+	if (die_isdecl(dw, die) || (name = die_name(dw, die)) == ATOM_NULL)
 		return; /* skip prototypes and nameless objects */
 
 	ii = xcalloc(sizeof (iidesc_t));
@@ -1815,7 +1870,7 @@ die_variable_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 	ii->ii_name = name;
 	ii->ii_dtype = die_lookup_pass1(dw, die, DW_AT_type);
 	if (ii->ii_type == II_SVAR)
-		ii->ii_owner = xstrdup(dw->dw_cuname);
+		ii->ii_owner = dw->dw_cuname;
 
 	iidesc_add(dw->dw_td->td_iihash, ii);
 }
@@ -1878,6 +1933,7 @@ static const die_creator_t die_creators[] = {
 	{ DW_TAG_variable,		DW_F_NOTDP,	die_variable_create },
 	{ DW_TAG_volatile_type,		0,		die_volatile_create },
 	{ DW_TAG_restrict_type,		0,		die_restrict_create },
+	{ DW_TAG_APPLE_ptrauth_type,	0,		die_ptrauth_create },
 	{ 0, NULL }
 };
 
@@ -1928,8 +1984,8 @@ die_create_one(dwarf_t *dw, Dwarf_Die die)
 #if defined(__APPLE__)
 #warning BOGUS workaround (nameless base die emitted by gcc)!
 	/* gcc 5402 emits nameless die that are base types. Workaround imminent failure. */
-	if (tdp != NULL && NULL == tdp->t_name && dc->dc_create == die_base_create)
-		tdp->t_name = xstrdup("unsigned int");
+	if (tdp != NULL && ATOM_NULL == tdp->t_name && dc->dc_create == die_base_create)
+		tdp->t_name = atom_get("unsigned int");
 #endif /* __APPLE__ */
 
 	dc->dc_create(dw, die, off, tdp);
@@ -1960,6 +2016,7 @@ static tdtrav_cb_f die_resolvers[] = {
 	NULL,			/* volatile */
 	NULL,			/* const */
 	NULL,			/* restrict */
+	NULL,			/* ptrauth */
 };
 
 static tdtrav_cb_f die_fail_reporters[] = {
@@ -1977,6 +2034,7 @@ static tdtrav_cb_f die_fail_reporters[] = {
 	NULL,			/* volatile */
 	NULL,			/* const */
 	NULL,			/* restrict */
+	NULL,			/* ptrauth */
 };
 
 static void
@@ -2028,6 +2086,7 @@ dw_read(Elf *elf, const char *filename, const char *unitmatch, int verbose, tdat
 	cu_data_t *cunext = NULL;
 	cu_data_t *cudata;
 	tdata_t *cutd = NULL;
+	merge_cb_data_t mcd = {0};
 
 	bzero(dw, sizeof (dwarf_t));
 	dw->dw_ptrsz = elf_ptrsz(elf);
@@ -2051,10 +2110,7 @@ dw_read(Elf *elf, const char *filename, const char *unitmatch, int verbose, tdat
 	/* First pass to find the compilation units we will process */
 
 	while (1) {
-		if (dw->dw_cuname) {
-			free(dw->dw_cuname);
-			dw->dw_cuname = NULL;
-		}
+		dw->dw_cuname = ATOM_NULL;
 		if ((rc = dwarf_next_cu_header(dw->dw_dw, &hdrlen, &vers, &abboff,
 			&addrsz, &nxthdr, &dw->dw_err)) != DW_DLV_OK) {
 			break;
@@ -2123,7 +2179,7 @@ dw_read(Elf *elf, const char *filename, const char *unitmatch, int verbose, tdat
 		}
 		culast = cudata;
 		cucount++;
-		cudata->cud_name = xstrdup(dw->dw_cuname);
+		cudata->cud_name = dw->dw_cuname;
 		cudata->cud_nxthdr = nxthdr;
 	}
 
@@ -2131,8 +2187,10 @@ dw_read(Elf *elf, const char *filename, const char *unitmatch, int verbose, tdat
 
 	/* Second pass to extract & merge */
 
+	dw->dw_tidhash = alist_new(TDESC_HASH_BUCKETS);
+
 	for (cudata = cunext = cufirst; cudata; cudata = cunext) {
-		dw->dw_cuname = NULL;
+		dw->dw_cuname = ATOM_NULL;
 		if ((rc = dwarf_next_cu_header(dw->dw_dw, &hdrlen, &vers, &abboff,
 			&addrsz, &nxthdr, &dw->dw_err)) != DW_DLV_OK) {
 			break;
@@ -2141,21 +2199,6 @@ dw_read(Elf *elf, const char *filename, const char *unitmatch, int verbose, tdat
 			continue;
 		}
 		cunext = cudata->cud_next;
-
-		hash_free(dw->dw_tidhash,  NULL, NULL);
-		hash_free(dw->dw_fwdhash,  NULL, NULL);
-		hash_free(dw->dw_enumhash, NULL, NULL);
-
-		dw->dw_mfgtid_last = TID_MFGTID_BASE;
-		dw->dw_tidhash = hash_new(TDESC_HASH_BUCKETS, tdesc_idhash, tdesc_idcmp);
-		dw->dw_fwdhash = hash_new(TDESC_HASH_BUCKETS, tdesc_namehash,
-			tdesc_namecmp);
-		dw->dw_enumhash = hash_new(TDESC_HASH_BUCKETS, tdesc_namehash,
-			tdesc_namecmp);
-
-		dw->dw_void = NULL;
-		dw->dw_long = NULL;
-		dw->dw_maxoff = nxthdr - 1;
 
 		Dwarf_Die no_die = 0;
 		Dwarf_Error error = NULL;
@@ -2167,17 +2210,27 @@ dw_read(Elf *elf, const char *filename, const char *unitmatch, int verbose, tdat
 		dw->dw_cuoff = die_off(dw, dw->dw_cu);
 		dw->dw_cuname = cudata->cud_name;
 		if (verbose && (cucount > 1)) {
-			printf("[%.02fM] %s\n", nxthdr / 1024. / 1024., dw->dw_cuname);
+			printf("[%.02fM] %s\n", nxthdr / 1024. / 1024., dw->dw_cuname->value);
 		}
-		char *base = xstrdup(basename(dw->dw_cuname));
-		free(dw->dw_cuname);
-		dw->dw_cuname = base;
+		char *tmp = xstrdup(dw->dw_cuname->value);
+		dw->dw_cuname = atom_get(basename(tmp));
+		free(tmp);
 
 		rc = dwarf_child(dw->dw_cu, &child, &error);
 		if (rc != DW_DLV_OK) {
 			printf("Error in dwarf_child on CU die \n");
 			continue;
 		}
+
+		dw->dw_mfgtid_last = TID_MFGTID_BASE;
+		dw->dw_fwdhash = hash_new(TDESC_HASH_BUCKETS, tdesc_namehash,
+		    tdesc_namecmp);
+		dw->dw_enumhash = hash_new(TDESC_HASH_BUCKETS, tdesc_namehash,
+		    tdesc_namecmp);
+
+		dw->dw_void = NULL;
+		dw->dw_long = NULL;
+		dw->dw_maxoff = nxthdr - 1;
 
 		dw->dw_td = tdata_new();
 		die_create(dw, child);
@@ -2190,12 +2243,21 @@ dw_read(Elf *elf, const char *filename, const char *unitmatch, int verbose, tdat
 #endif
 
 		cutd = tdata_new();
-		debug(1, "mergeto %s to cutd\n", dw->dw_cuname);
-		merge_into_master(dw->dw_td, cutd, NULL, 1);
+		debug(1, "mergeto %s to cutd\n", dw->dw_cuname->value);
+		merge_into_master(&mcd, dw->dw_td, cutd, NULL, 1);
 
-		ctfmerge_add_td(cutd, dw->dw_cuname);
+		ctfmerge_add_td(cutd, dw->dw_cuname->value);
+
+		alist_clear(dw->dw_tidhash);
+		hash_free(dw->dw_fwdhash,  NULL, NULL);
+		hash_free(dw->dw_enumhash, NULL, NULL);
+		tdata_free(dw->dw_td);
+
 		cumerged++;
 	}
+
+	alist_free(dw->dw_tidhash);
+	merge_cb_data_destroy(&mcd);
 
 	debug(1, "dwarf_finish\n");
 	(void) dwarf_finish(dw->dw_dw, &dw->dw_err);

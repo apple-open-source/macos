@@ -133,7 +133,7 @@ az{
         GU{"Quam"}
         GW{"Qvineya-Bisau"}
         GY{"Qayana"}
-        HK{"Honq Konq Xüsusi İnzibati Ərazi Çin"}
+        HK{"Honq Konq"}
         HM{"Herd və Makdonald adaları"}
         HN{"Honduras"}
         HR{"Xorvatiya"}
@@ -183,11 +183,11 @@ az{
         MF{"Sent Martin"}
         MG{"Madaqaskar"}
         MH{"Marşal adaları"}
-        MK{"Makedoniya"}
+        MK{"Şimali Makedoniya"}
         ML{"Mali"}
         MM{"Myanma"}
         MN{"Monqolustan"}
-        MO{"Makao Xüsusi İnzibati Ərazi Çin"}
+        MO{"Makao"}
         MP{"Şimali Marian adaları"}
         MQ{"Martinik"}
         MR{"Mavritaniya"}
@@ -253,7 +253,7 @@ az{
         SV{"Salvador"}
         SX{"Sint-Marten"}
         SY{"Suriya"}
-        SZ{"Svazilend"}
+        SZ{"Esvatini"}
         TA{"Tristan da Kunya"}
         TC{"Törks və Kaykos adaları"}
         TD{"Çad"}
@@ -287,6 +287,8 @@ az{
         VU{"Vanuatu"}
         WF{"Uollis və Futuna"}
         WS{"Samoa"}
+        XA{"Psevdo-Aksent"}
+        XB{"Psevdo-Bidi"}
         XK{"Kosovo"}
         YE{"Yəmən"}
         YT{"Mayot"}
@@ -297,8 +299,6 @@ az{
     }
     Countries%short{
         GB{"BK"}
-        HK{"Honq Konq"}
-        MO{"Makao"}
         PS{"Fələstin"}
         UN{"BMT"}
         US{"ABŞ"}
@@ -309,8 +309,8 @@ az{
         CI{"Fil Dişi Sahili"}
         CZ{"Çex Respublikası"}
         FK{"Folklend adaları (Malvin adaları)"}
-        MK{"Makedoniya (KYRM)"}
+        SZ{"Svazilend"}
         TL{"Doğu Timor"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
 }

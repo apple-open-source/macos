@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.ArrayPointer1.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Declare arrays of different data types and verify that the
  * addresses of the individual elements differ by an amount equal to the number

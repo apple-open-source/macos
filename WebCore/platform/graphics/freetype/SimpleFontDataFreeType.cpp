@@ -50,7 +50,6 @@
 #include <ft2build.h>
 #include FT_TRUETYPE_TABLES_H
 #include FT_TRUETYPE_TAGS_H
-#include <unicode/normlzr.h>
 #include <wtf/MathExtras.h>
 
 namespace WebCore {
@@ -186,6 +185,29 @@ float Font::platformWidthForGlyph(Glyph glyph) const
     cairo_scaled_font_glyph_extents(m_platformData.scaledFont(), &cairoGlyph, 1, &extents);
     float width = platformData().orientation() == FontOrientation::Horizontal ? extents.x_advance : -extents.y_advance;
     return width ? width : m_spaceWidth;
+}
+
+bool Font::variantCapsSupportsCharacterForSynthesis(FontVariantCaps fontVariantCaps, UChar32) const
+{
+    switch (fontVariantCaps) {
+    case FontVariantCaps::Small:
+    case FontVariantCaps::Petite:
+    case FontVariantCaps::AllSmall:
+    case FontVariantCaps::AllPetite:
+        return false;
+    default:
+        // Synthesis only supports the variant-caps values listed above.
+        return true;
+    }
+}
+
+bool Font::platformSupportsCodePoint(UChar32 character, Optional<UChar32> variation) const
+{
+    CairoFtFaceLocker cairoFtFaceLocker(m_platformData.scaledFont());
+    if (FT_Face face = cairoFtFaceLocker.ftFace())
+        return variation ? !!FT_Face_GetCharVariantIndex(face, character, variation.value()) : !!FcFreeTypeCharIndex(face, character);
+
+    return false;
 }
 
 }

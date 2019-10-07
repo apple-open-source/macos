@@ -112,6 +112,17 @@ enum {
 */
 #define kIOPMWakeRequestEntitlement      CFSTR("com.apple.iokit.wakerequest")
 
+/*! @define     kIOPMAssertionSuspendResumeEntitlement
+ *  @abstract   Apple internal entitlement for process to suspend and resume assertions on
+ *              on behalf of another process
+ */
+#define kIOPMAssertionSuspendResumeEntitlement     CFSTR("com.apple.private.iokit.assertion-suspendresume")
+
+/*! @define     kIOPMLimitedPowerWakeRequestEntitlement
+ *  @abstract   Apple internal entitlement for process, allowing it to program Wake Event while on
+ *              Limited Power
+ */
+#define kIOPMLimitedPowerWakeRequestEntitlement    CFSTR("com.apple.private.iokit.limitedpower-wakerequest")
 
 /*!
  * @constant    kIOPMServerBootstrapName
@@ -539,6 +550,8 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
 #define kPMASLAssertionActionTurnOn             "TurnedOn"
 #define kPMASlAssertionActionCapTimeOut         "CapExpired"
 #define kPMASLAssertionActionNameChange         "NameChange"
+#define kPMASLAssertionActionSuspend            "Suspended"
+#define kPMASLAssertionActionResume             "Resumed"
 
 #pragma mark Private Assertion Dictionary Keys
 /*
@@ -807,6 +820,16 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
  * @abstract Holds the assertionId returned to client on creation
  */
 #define kIOPMAsyncClientAssertionIdKey          CFSTR("AsyncClientAssertionId")
+
+/*!
+ * @constant        kIOPMAssertionIsStateSuspendedKey
+ *
+ * @abstract        The CFDictionary key in assertion info dictionary
+ *                  specifies whether the assertion is in a suspended state.
+ *
+ * @discussion      The value of this key will be a CFBooleanRef.
+ */
+#define kIOPMAssertionIsStateSuspendedKey          CFSTR("AssertionIsStateSuspended")
 
 /*!
  * @constant        kIOPMAssertionTimedOutNotifyString
@@ -1426,6 +1449,10 @@ void IOPMUnregisterExceptionNotification(IOPMNotificationHandle handle);
 #define kIOPMDarkWakeLingerDurationKey                  "DarkWake Linger Duration"
 #define kIOPMAdaptiveDisplaySleepKey                    "Adaptive Display Sleep"
 #define kIOPMAdaptiveStandbySleepKey                    "Adaptive Standby Sleep"
+
+#define kIOPMCarrierMode                                "Carrier Mode"
+#define kIOPMCarrierModeVh                              "Carrier Mode High Voltage"
+#define kIOPMCarrierModeVl                              "Carrier Mode Low Voltage"
 
 // Restart on Kernel panic
 // Deprecated in 10.8. Do not use.
@@ -2730,6 +2757,26 @@ typedef void (*IOPMEventHandlerType)(
  */
 #define kIOPMAckClientInfoAppRefreshKey                         CFSTR("ClientInfoAppRefresh")
 
+/*!
+ * @constant kIOPMAckLimitedPowerWakeDate
+ *
+ *  This string can be used as a key in the 'options' dictionary
+ *  argument to IOPMConnectionAcknowledgeEventWithOptions.
+ *
+ *  Only a client with a kIOPMLimitedPowerWakeRequestEntitlement is
+ *  allowed to use this key.
+ *
+ *  Passing this "Date" option lets a caller request a maintenance wake
+ *  from the system at a later date. If possible, the system will wake
+ *  and perform maintenance activity at the specified time.
+ *
+ *  This acknowledgement option is only valid when the system is transitioning into a
+ *  sleep state i.e. entering a state with 0 capabilities.
+ *
+ */
+#define kIOPMAckLimitedPowerWakeDate                            CFSTR("LimitedPowerWakeDate")
+
+
 /*****************************************************************************/
 /*****************************************************************************/
 
@@ -3006,6 +3053,21 @@ IOReturn IOPMAssertionDeclareSystemActivity(
                         CFStringRef         AssertionName,
                         IOPMAssertionID     *AssertionID,
                         IOPMSystemState     *SystemState);
+
+/*!
+ * @function            IOPMAssertionDeclareSystemActivityWithProperties
+ *
+ * @abstract            Allows the use of <code>@link IOPMAssertionDeclareSystemActivity()@/link</code>
+ *                      while allowing the assertion properties to be set, except for
+ *                      <code>kIOPMAssertionTypeKey</code>.
+ *
+ * @result              Returns kIOReturnSuccess on success, any other return indicates
+ *                      PM could not successfully activate the specified assertion.
+ */
+IOReturn IOPMAssertionDeclareSystemActivityWithProperties(
+                        CFMutableDictionaryRef     AssertionProperties,
+                        IOPMAssertionID            *AssertionID,
+                        IOPMSystemState            *SystemState);
 
 IOReturn IOPMChangeSystemActivityAssertionBehavior(uint32_t newFlags, uint32_t *oldFlags);
 
@@ -3286,6 +3348,17 @@ enum
 IOReturn  IOPMCopySleepPreventersList(int preventerType, CFArrayRef *outArray);
 
 /*!
+ * IOPMCopySleepPreventersListWithID
+ *
+ * Returns an array of dictionary entries with kext names and registryIDs that are 
+ * preventing idle sleep/system sleep
+ * Dictionary keys -
+ * kIOPMDriverAssertionRegistryEntryIDKey : <registry entry id>
+ * kIOPMDriverAssertionOwnerStringKey : <kext name>
+ */
+IOReturn  IOPMCopySleepPreventersListWithID(int preventerType, CFArrayRef *outArray);
+
+/*!
  * kIOPMSleepServiceActiveNotifyName
  *
  * This API is optional; use <code>IOPMGetSleepServicesActive()</code> for thee easiest way
@@ -3440,6 +3513,26 @@ enum {
  */
 IOReturn IOPMAssertionNotify(char *name, int req_type);
 
+/* Process Assertion State Types */
+typedef enum {
+    kIOPMAssertionProcessStateSuspend = 0x1, /* Set State to Suspended */
+    kIOPMAssertionProcessStateResume = 0x2   /* Set State to Resume */
+} IOPMAssertionProcessStateType;
+
+/*!
+ * @function        IOPMAssertionSetProcessState
+ *
+ * @abstract        Activates or Deactivates the state of assertions held by a process
+ *
+ * @discussion      Caller must entitlement kIOPMAssertionSuspendResumeEntitlement
+ *
+ * @param pid       Process id for which assertion state is to be changed
+ *
+ * @param state     Specifies type of state change as defined by <code>IOPMAssertionProcessStateType</code>.
+ *
+ * @result          kIOResturnSuccess, or another IOKit return code on error.
+ */
+IOReturn IOPMAssertionSetProcessState(pid_t pid, IOPMAssertionProcessStateType state);
 
 /*
  * Enable/disable back trace collection at the time of assertion creation.

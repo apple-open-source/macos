@@ -2,14 +2,14 @@
  * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -215,7 +215,7 @@ name:
 
 #else /* defined(__arm___) */
 
-#if defined(__arm64__) 
+#if defined(__arm64__)
 
 #define ALIGN	.align 2
 
@@ -228,11 +228,11 @@ name:
 #define LEAF(name, localvarsize)	\
 	.globl	name					%%\
 	ALIGN							%%\
-name:				
+name:
 
 #define X_LEAF(name, value)			\
 	.globl	name					%%\
-	.set	name, value		
+	.set	name, value
 
 #define P_LEAF(name, localvarsize)	\
 	ALIGN							%%\
@@ -256,27 +256,27 @@ name:
 	ALIGN							%%\
 name:
 
-#define END(name)			
+#define END(name)
 
 #define IMPORT(name)				\
 	.reference name
 
 #define ABS(name, value)			\
 	.globl 	name					%%\
-	.set 	name, value	
+	.set 	name, value
 
 #define P_ABS(name, value)			\
-	.set 	name, value		
+	.set 	name, value
 
 #define EXPORT(name)				\
 	.globl	name					%%\
 name:
 
 #define BSS(name, size)				\
-	.comm	name, size	
+	.comm	name, size
 
 #define P_BSS(name, size)			\
-	.lcomm	name, size		
+	.lcomm	name, size
 
 
 #if __LP64__

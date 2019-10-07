@@ -4,11 +4,7 @@
  * Copyright 2007-2014 by Apple Inc.
  * Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
  */
 
 /*
@@ -216,9 +212,6 @@ add_ppd_filter(mime_t      *mime,	/* I - MIME database */
   mime_filter_t	*filterptr;		/* MIME filter */
 
 
-  DEBUG_printf(("add_ppd_filter(mime=%p, filtertype=%p(%s/%s), filter=\"%s\")",
-                mime, filtertype, filtertype->super, filtertype->type, filter));
-
  /*
   * Parse the filter string; it should be in one of the following formats:
   *
@@ -282,26 +275,13 @@ add_ppd_filter(mime_t      *mime,	/* I - MIME database */
     {
       if (desttype != filtertype)
       {
-        DEBUG_printf(("add_ppd_filter: Adding filter %s/%s %s/%s %d %s",
-		      temptype->super, temptype->type, desttype->super,
-		      desttype->type, cost, program));
         filterptr = mimeAddFilter(mime, temptype, desttype, cost, program);
 
         if (!mimeFilterLookup(mime, desttype, filtertype))
-        {
-          DEBUG_printf(("add_printer_filter: Adding filter %s/%s %s/%s 0 -",
-	                desttype->super, desttype->type, filtertype->super,
-	                filtertype->type));
           mimeAddFilter(mime, desttype, filtertype, 0, "-");
-        }
       }
       else
-      {
-        DEBUG_printf(("add_printer_filter: Adding filter %s/%s %s/%s %d %s",
-		      temptype->super, temptype->type, filtertype->super,
-		      filtertype->type, cost, program));
         filterptr = mimeAddFilter(mime, temptype, filtertype, cost, program);
-      }
 
       if (filterptr)
 	filterptr->maxsize = maxsize;

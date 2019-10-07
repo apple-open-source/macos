@@ -30,6 +30,9 @@
 #include <errno.h>
 #include <unistd.h>
 #include <locale.h>
+#ifdef TERMIOS_HEADER
+#include <sys/termios.h>
+#endif
 
 #ifndef R_OK
 #define R_OK 4
@@ -347,6 +350,28 @@ again:
 	       return (NULL);
 	  }
 	  fgr = fgets (buf, sizeof(buf), fp);
+
+          #ifdef __APPLE__
+          /* Man 1.5x randomly freezes under Mac OS X 10.4.7 when the 
+             man page is compressed (with either gzip or bzip2), and 
+             only with large pages.
+             The freeze occurs at the pclose function, and a ps shows 
+             that gunzip is still running. 
+
+             The problem is the specification of pclose(): The pclose()
+             function waits for the associated process to terminate
+             and returns the exit status of the command as returned by 
+             wait4().
+
+             So, if gunzip is started to look at the start of a file and 
+             the file is larger than the buffer used by stdio then the 
+             first read does not read everything, and the pclose hangs. */
+
+          /* Reading loop insures lockup cannot occur */
+          char dummy[BUFSIZE]; 
+          while (fgets (dummy,sizeof(dummy),fp) ); 
+          #endif // __APPLE__
+
 	  pclose (fp);
 	  expfl = 1;
      } else {
@@ -790,10 +815,10 @@ make_cat_file (const char *path, const char *man_file, const char *cat_file) {
 	     But it changes the meaning of man_file and cat_file,
 	     if these are not absolute. */
 	
-	  command = my_xsprintf("(cd %S && %s | %S > %S)", path,
+          command = my_xsprintf("(cd %S && %s | %S > %S)", path,
 		   roff_command, getval("COMPRESS"), cat_file);
      else
-	  command = my_xsprintf ("(cd %S && %s > %S)", path,
+          command = my_xsprintf ("(cd %S && %s > %S)", path,
 		   roff_command, cat_file);
 
      /*
@@ -833,14 +858,14 @@ display_man_file(const char *path, const char *man_file) {
      char *command;
 
      if (!different_man_file (man_file))
-	  return 0;
+	  return 0; 
      roff_command = make_roff_command (path, man_file);
      if (roff_command == NULL)
 	  return 0;
      if (do_troff)
-	  command = my_xsprintf ("(cd '%Q' && %s)", path, roff_command);
+	  command = my_xsprintf ("(cd \"%Q\" && %s)", path, roff_command);
      else
-	  command = my_xsprintf ("(cd '%Q' && %s | (%s || true))", path,
+	  command = my_xsprintf ("(cd \"%Q\" && %s | (%s || true))", path,
 		   roff_command, pager);
 
      return !do_system_command (command, 0);
@@ -949,7 +974,7 @@ format_and_display (const char *man_file) {
 	  if (roff_command == NULL)
 	       return 0;
 
-	  command = my_xsprintf("(cd %S && %s)", path, roff_command);
+	  command = my_xsprintf("(cd \"%S\" && %s)", path, roff_command);
 	  return !do_system_command (command, 0);
      }
 
@@ -1344,6 +1369,10 @@ main (int argc, char **argv) {
 			 gripe (NO_SUCH_ENTRY, nextarg);
 	       }
 	  }
+
+          /* reset duplicate search - 
+             fixes Fedora#542852 "man cut cut throws an error" */
+          free_catman_filelists ();
      }
      return status ? EXIT_SUCCESS : EXIT_FAILURE;
 }

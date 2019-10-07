@@ -28,6 +28,9 @@
 #define IOHID_DEBUG_CODE(code)          IOKDBG_CODE(DBG_IOHID, code)
 #define IOHID_DEBUG(code, a, b, c, d)   KERNEL_DEBUG_CONSTANT(IOHID_DEBUG_CODE(code), a, b, c, d, 0)
 
+#define IOHIDTraceStart(code, a, b, c, d)     KERNEL_DEBUG_CONSTANT(IOKDBG_CODE(DBG_IOHID, code) | DBG_FUNC_START, a, b, c, d, 0)
+#define IOHIDTraceEnd(code, a, b, c, d)       KERNEL_DEBUG_CONSTANT(IOKDBG_CODE(DBG_IOHID, code) | DBG_FUNC_END, a, b, c, d, 0)
+
 enum kIOHIDDebugCodes {
     kIOHIDDebugCode_Unexpected,                 // 0  0x5230000
     kIOHIDDebugCode_KeyboardLEDThreadTrigger,
@@ -62,6 +65,7 @@ enum kIOHIDDebugCodes {
     kIOHIDDebugCode_HIDUserDeviceEnqueueFail,
     kIOHIDDebugCode_HIDDeviceEnqueueFail,
     kIOHIDDebugCode_HIDEventServiceEnqueueFail, // 32 0x5230080
+    kIOHIDDebugCode_DK_Intf_HandleReport,
     kIOHIDDebugCode_Invalid
 };
 

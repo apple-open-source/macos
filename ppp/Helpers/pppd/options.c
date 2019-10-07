@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -578,7 +578,7 @@ options_from_user()
     path = malloc(pl);
     if (path == NULL)
 	novm("init file name");
-    slprintf(path, pl, "%s/%s", user, file);
+    slprintf(path, (int)pl, "%s/%s", user, file);
     option_priority = OPRIO_CFGFILE;
     ret = options_from_file(path, 0, 1, privileged);
     free(path);
@@ -609,7 +609,7 @@ options_for_tty()
     path = malloc(pl);
     if (path == NULL)
 	novm("tty init file name");
-    slprintf(path, pl, "%s%s", _PATH_TTYOPT, dev);
+    slprintf(path, (int)pl, "%s%s", _PATH_TTYOPT, dev);
     /* Turn slashes into dots, for Solaris case (e.g. /dev/term/a) */
     for (p = path + strlen(_PATH_TTYOPT); *p != 0; ++p)
 	if (*p == '/')
@@ -932,7 +932,7 @@ process_option(opt, cmd, argv)
 
 #ifdef __APPLE__
     if (opt->type == o_string && opt->flags & OPT_HIDE)
-        for (i = 0, len = strlen(*argv); i < len; (*argv)[i++] = '*');
+        for (i = 0, len = (int)strlen(*argv); i < len; (*argv)[i++] = '*');
         
     // call the change function
     if (phase != PHASE_INITIALIZE && opt->addr3) {
@@ -1515,7 +1515,7 @@ number_option(str, valp, base)
 {
     char *ptr;
 
-    *valp = strtoul(str, &ptr, base);
+    *valp = (u_int32_t)strtoul(str, &ptr, base);
     if (ptr == str) {
 	option_error("invalid numeric parameter '%s' for %s option",
 		     str, current_option);
@@ -1590,7 +1590,7 @@ callfile(argv)
 	return 0;
     }
 
-    l = strlen(arg) + strlen(_PATH_PEERFILES) + 1;
+    l = (int)(strlen(arg) + strlen(_PATH_PEERFILES) + 1);
     if ((fname = (char *) malloc(l)) == NULL)
 	novm("call file name");
     slprintf(fname, l, "%s%s", _PATH_PEERFILES, arg);
@@ -1674,7 +1674,7 @@ static int makepath( char *path)
 	oldmask = umask(0);
 	newmask = S_IRWXU | S_IRGRP | S_IROTH | S_IXGRP | S_IXOTH; 
 	
-	slen = strlen(path);
+	slen = (int)strlen(path);
 	if  ( !(thepath =  malloc( slen+1) ))
 		return -1;
 	strlcpy( thepath, path, slen+1);

@@ -18,6 +18,7 @@
 #include <apr_strings.h>
 
 #include <ap_mpm.h>
+#include <ap_mmn.h>
 
 #include <httpd.h>
 #include <http_core.h>
@@ -109,7 +110,6 @@ static void check_modules(int force)
 
 apr_status_t h2_conn_child_init(apr_pool_t *pool, server_rec *s)
 {
-    const h2_config *config = h2_config_sget(s);
     apr_status_t status = APR_SUCCESS;
     int minw, maxw;
     int max_threads_per_child = 0;
@@ -129,7 +129,7 @@ apr_status_t h2_conn_child_init(apr_pool_t *pool, server_rec *s)
     
     h2_get_num_workers(s, &minw, &maxw);
     
-    idle_secs = h2_config_geti(config, H2_CONF_MAX_WORKER_IDLE_SECS);
+    idle_secs = h2_config_sgeti(s, H2_CONF_MAX_WORKER_IDLE_SECS);
     ap_log_error(APLOG_MARK, APLOG_TRACE3, 0, s,
                  "h2_workers: min=%d max=%d, mthrpchild=%d, idle_secs=%d", 
                  minw, maxw, max_threads_per_child, idle_secs);
@@ -172,9 +172,10 @@ static module *h2_conn_mpm_module(void)
     return mpm_module;
 }
 
-apr_status_t h2_conn_setup(h2_ctx *ctx, conn_rec *c, request_rec *r)
+apr_status_t h2_conn_setup(conn_rec *c, request_rec *r, server_rec *s)
 {
     h2_session *session;
+    h2_ctx *ctx;
     apr_status_t status;
     
     if (!workers) {
@@ -183,24 +184,19 @@ apr_status_t h2_conn_setup(h2_ctx *ctx, conn_rec *c, request_rec *r)
         return APR_EGENERAL;
     }
     
-    if (r) {
-        status = h2_session_rcreate(&session, r, ctx, workers);
-    }
-    else {
-        status = h2_session_create(&session, c, ctx, workers);
-    }
-
-    if (status == APR_SUCCESS) {
+    if (APR_SUCCESS == (status = h2_session_create(&session, c, r, s, workers))) {
+        ctx = h2_ctx_get(c, 1);
         h2_ctx_session_set(ctx, session);
     }
+    
     return status;
 }
 
-apr_status_t h2_conn_run(struct h2_ctx *ctx, conn_rec *c)
+apr_status_t h2_conn_run(conn_rec *c)
 {
     apr_status_t status;
     int mpm_state = 0;
-    h2_session *session = h2_ctx_session_get(ctx);
+    h2_session *session = h2_ctx_get_session(c);
     
     ap_assert(session);
     do {
@@ -235,6 +231,13 @@ apr_status_t h2_conn_run(struct h2_ctx *ctx, conn_rec *c)
             case H2_SESSION_ST_BUSY:
             case H2_SESSION_ST_WAIT:
                 c->cs->state = CONN_STATE_WRITE_COMPLETION;
+                if (c->cs && (session->open_streams || !session->remote.emitted_count)) {
+                    /* let the MPM know that we are not done and want
+                     * the Timeout behaviour instead of a KeepAliveTimeout
+                     * See PR 63534. 
+                     */
+                    c->cs->sense = CONN_SENSE_WANT_READ;
+                }
                 break;
             case H2_SESSION_ST_CLEANUP:
             case H2_SESSION_ST_DONE:
@@ -249,7 +252,7 @@ apr_status_t h2_conn_run(struct h2_ctx *ctx, conn_rec *c)
 
 apr_status_t h2_conn_pre_close(struct h2_ctx *ctx, conn_rec *c)
 {
-    h2_session *session = h2_ctx_session_get(ctx);
+    h2_session *session = h2_ctx_get_session(c);
     if (session) {
         apr_status_t status = h2_session_pre_close(session, async_mpm);
         return (status == APR_SUCCESS)? DONE : status;
@@ -305,9 +308,15 @@ conn_rec *h2_slave_create(conn_rec *master, int slave_id, apr_pool_t *parent)
     c->notes                  = apr_table_make(pool, 5);
     c->input_filters          = NULL;
     c->output_filters         = NULL;
+    c->keepalives             = 0;
+#if AP_MODULE_MAGIC_AT_LEAST(20180903, 1)
+    c->filter_conn_ctx        = NULL;
+#endif
     c->bucket_alloc           = apr_bucket_alloc_create(pool);
-    c->data_in_input_filters  = 0;
-    c->data_in_output_filters = 0;
+#if !AP_MODULE_MAGIC_AT_LEAST(20180720, 1)
+     c->data_in_input_filters  = 0;
+     c->data_in_output_filters = 0;
+#endif
     /* prevent mpm_event from making wrong assumptions about this connection,
      * like e.g. using its socket for an async read check. */
     c->clogging_input_filters = 1;
@@ -332,16 +341,15 @@ conn_rec *h2_slave_create(conn_rec *master, int slave_id, apr_pool_t *parent)
         ap_set_module_config(c->conn_config, mpm, cfg);
     }
 
-    ap_log_cerror(APLOG_MARK, APLOG_TRACE2, 0, c, 
-                  "h2_stream(%ld-%d): created slave", master->id, slave_id);
+    ap_log_cerror(APLOG_MARK, APLOG_TRACE3, 0, c, 
+                  "h2_slave(%s): created", c->log_id);
     return c;
 }
 
 void h2_slave_destroy(conn_rec *slave)
 {
-    ap_log_cerror(APLOG_MARK, APLOG_TRACE1, 0, slave,
-                  "h2_stream(%s): destroy slave", 
-                  apr_table_get(slave->notes, H2_TASK_ID_NOTE));
+    ap_log_cerror(APLOG_MARK, APLOG_TRACE3, 0, slave,
+                  "h2_slave(%s): destroy", slave->log_id);
     slave->sbh = NULL;
     apr_pool_destroy(slave->pool);
 }
@@ -354,8 +362,18 @@ apr_status_t h2_slave_run_pre_connection(conn_rec *slave, apr_socket_t *csd)
          * (Not necessarily in pre_connection, but later. Set it here, so it
          * is in place.) */
         slave->keepalives = 1;
+        /* We signal that this connection will be closed after the request.
+         * Which is true in that sense that we throw away all traffic data
+         * on this slave connection after each requests. Although we might
+         * reuse internal structures like memory pools.
+         * The wanted effect of this is that httpd does not try to clean up
+         * any dangling data on this connection when a request is done. Which
+         * is unneccessary on a h2 stream.
+         */
+        slave->keepalive = AP_CONN_CLOSE;
         return ap_run_pre_connection(slave, csd);
     }
+    ap_assert(slave->output_filters);
     return APR_SUCCESS;
 }
 

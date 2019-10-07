@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.float.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Make sure we can work on processes that use the FPU
  *

@@ -56,7 +56,7 @@
  *
  */
 
-#include <e_os.h>
+#include "e_os.h"
 #include <openssl/err.h>
 
 /* Internal only functions: only ever used here */

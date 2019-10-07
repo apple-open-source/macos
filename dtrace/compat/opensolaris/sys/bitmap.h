@@ -35,27 +35,6 @@
 extern "C" {
 #endif
 
-#ifdef KERNEL
-#ifndef _KERNEL
-#define _KERNEL /* Solaris vs. Darwin */
-#endif
-#endif
-
-#if defined(__LP64__)
-#if !defined(_LP64)
-#define _LP64 /* Solaris vs. Darwin */
-#endif
-#else
-#if !defined(_ILP32)
-#define _ILP32 /* Solaris vs. Darwin */
-#endif
-#endif
-
-#if defined(__GNUC__) && defined(_ASM_INLINES) && \
-	(defined(__i386) || defined(__amd64))
-#include <asm/bitmap.h>
-#endif
-
 /*
  * Operations on bitmaps of arbitrary size
  * A bitmap is a vector of 1 or more ulong_t's.

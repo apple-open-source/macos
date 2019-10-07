@@ -233,6 +233,7 @@ OSStatus SecCodeCheckValidityWithErrors(SecCodeRef codeRef, SecCSFlags flags,
 	checkFlags(flags,
 		  kSecCSConsiderExpiration
 		| kSecCSStrictValidate
+		| kSecCSStrictValidateStructure
 		| kSecCSRestrictSidebandData
 		| kSecCSEnforceRevocationChecks
 	);

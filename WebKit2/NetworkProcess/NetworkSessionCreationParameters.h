@@ -25,10 +25,16 @@
 
 #pragma once
 
+#include "SandboxExtension.h"
+#include <WebCore/RegistrableDomain.h>
 #include <pal/SessionID.h>
 #include <wtf/Seconds.h>
 #include <wtf/URL.h>
 #include <wtf/text/WTFString.h>
+
+#if USE(SOUP)
+#include "SoupCookiePersistentStorageType.h"
+#endif
 
 #if USE(CURL)
 #include <WebCore/CurlProxySettings.h>
@@ -47,7 +53,8 @@ extern "C" CFStringRef const WebKit2HTTPSProxyDefaultsKey;
 namespace WebKit {
 
 enum class AllowsCellularAccess : bool { No, Yes };
-    
+enum class AllowsTLSFallback : bool { No, Yes };
+
 struct NetworkSessionCreationParameters {
     void encode(IPC::Encoder&) const;
     static Optional<NetworkSessionCreationParameters> decode(IPC::Decoder&);
@@ -60,15 +67,31 @@ struct NetworkSessionCreationParameters {
     RetainPtr<CFDictionaryRef> proxyConfiguration;
     String sourceApplicationBundleIdentifier;
     String sourceApplicationSecondaryIdentifier;
+    AllowsTLSFallback allowsTLSFallback { AllowsTLSFallback::Yes };
     bool shouldLogCookieInformation { false };
     Seconds loadThrottleLatency;
     URL httpProxy;
     URL httpsProxy;
 #endif
+#if USE(SOUP)
+    String cookiePersistentStoragePath;
+    SoupCookiePersistentStorageType cookiePersistentStorageType { SoupCookiePersistentStorageType::Text };
+#endif
 #if USE(CURL)
     String cookiePersistentStorageFile;
     WebCore::CurlProxySettings proxySettings;
 #endif
+    String resourceLoadStatisticsDirectory;
+    SandboxExtension::Handle resourceLoadStatisticsDirectoryExtensionHandle;
+    bool enableResourceLoadStatistics { false };
+    bool shouldIncludeLocalhostInResourceLoadStatistics { true };
+    bool enableResourceLoadStatisticsDebugMode { false };
+    bool deviceManagementRestrictionsEnabled { false };
+    bool allLoadsBlockedByDeviceManagementRestrictionsForTesting { false };
+    WebCore::RegistrableDomain resourceLoadStatisticsManualPrevalentResource { };
+
+    String localStorageDirectory;
+    SandboxExtension::Handle localStorageDirectoryExtensionHandle;
 };
 
 } // namespace WebKit

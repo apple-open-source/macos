@@ -54,6 +54,14 @@
 #include "internal.h"
 #include <TargetConditionals.h>
 
+#ifndef PTHREAD_KEY_LEGACY_SUPPORT
+#if TARGET_OS_DRIVERKIT
+#define PTHREAD_KEY_LEGACY_SUPPORT 0
+#else
+#define PTHREAD_KEY_LEGACY_SUPPORT 1
+#endif // TARGET_OS_DRIVERKIT
+#endif // PTHREAD_KEY_LEGACY_SUPPORT
+
 #if !VARIANT_DYLD
 // __pthread_tsd_first is first static key managed by libpthread.
 // __pthread_tsd_max is the (observed) end of static key destructors.
@@ -66,8 +74,13 @@ static const int __pthread_tsd_end = _INTERNAL_POSIX_THREAD_KEYS_END;
 
 static int __pthread_tsd_max = __pthread_tsd_first;
 static _pthread_lock __pthread_tsd_lock = _PTHREAD_LOCK_INITIALIZER;
+#if PTHREAD_KEY_LEGACY_SUPPORT
 static bool __pthread_key_legacy_behaviour = 0;
 static bool __pthread_key_legacy_behaviour_log = 0;
+#else
+#define __pthread_key_legacy_behaviour 0
+#define _pthread_tsd_cleanup_legacy(...)
+#endif // PTHREAD_KEY_LEGACY_SUPPORT
 
 // Omit support for pthread key destructors in the static archive for dyld.
 // dyld does not create and destroy threads so these are not necessary.
@@ -86,12 +99,14 @@ static struct {
 void
 _pthread_key_global_init(const char *envp[])
 {
+#if PTHREAD_KEY_LEGACY_SUPPORT
 	if (_simple_getenv(envp, "PTHREAD_KEY_LEGACY_DESTRUCTOR_ORDER")) {
 		__pthread_key_legacy_behaviour = true;
 	}
 	if (_simple_getenv(envp, "PTHREAD_KEY_LEGACY_DESTRUCTOR_ORDER_LOG")) {
 		__pthread_key_legacy_behaviour_log = true;
 	}
+#endif // PTHREAD_KEY_LEGACY_SUPPORT
 }
 
 // Returns true if successful, false if destructor was already set.
@@ -239,9 +254,6 @@ _pthread_tsd_cleanup_key(pthread_t self, pthread_key_t key)
 }
 #endif // !VARIANT_DYLD
 
-#import <_simple.h>
-#import <dlfcn.h>
-
 #if !VARIANT_DYLD
 static void
 _pthread_tsd_cleanup_new(pthread_t self)
@@ -263,6 +275,9 @@ _pthread_tsd_cleanup_new(pthread_t self)
 	self->max_tsd_key = 0;
 }
 
+#if PTHREAD_KEY_LEGACY_SUPPORT
+#import <_simple.h>
+#import <dlfcn.h>
 static void
 _pthread_tsd_behaviour_check(pthread_t self)
 {
@@ -320,6 +335,7 @@ _pthread_tsd_cleanup_legacy(pthread_t self)
 		}
 	}
 }
+#endif // PTHREAD_KEY_LEGACY_SUPPORT
 #endif // !VARIANT_DYLD
 
 void

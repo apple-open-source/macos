@@ -107,14 +107,16 @@
 #define	REG_NOSPEC	0020	/* Compile turning off all special characters */
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED  >= __MAC_10_8 \
- || __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_6_0
+ || __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_6_0 \
+ || defined(__DRIVERKIT_VERSION_MIN_REQUIRED)
 #define	REG_LITERAL	REG_NOSPEC
 #endif
 
 #define	REG_PEND	0040	/* Use re_endp as end pointer */
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED  >= __MAC_10_8 \
- || __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_6_0
+ || __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_6_0 \
+ || defined(__DRIVERKIT_VERSION_MIN_REQUIRED)
 #define	REG_MINIMAL	0100	/* Compile using minimal repetition */
 #define	REG_UNGREEDY	REG_MINIMAL
 #endif
@@ -122,7 +124,8 @@
 #define	REG_DUMP	0200	/* Unused */
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED  >= __MAC_10_8 \
- || __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_6_0
+ || __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_6_0 \
+ || defined(__DRIVERKIT_VERSION_MIN_REQUIRED)
 #define	REG_ENHANCED	0400	/* Additional (non-POSIX) features */
 #endif
 #endif /* __DARWIN_C_LEVEL >= __DARWIN_C_FULL */
@@ -168,7 +171,8 @@
 #define	REG_BACKR	02000	/* force use of backref code */
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED  >= __MAC_10_8 \
- || __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_6_0
+ || __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_6_0 \
+ || defined(__DRIVERKIT_VERSION_MIN_REQUIRED)
 #define	REG_BACKTRACKING_MATCHER	REG_BACKR
 #endif
 #endif /* __DARWIN_C_LEVEL >= __DARWIN_C_FULL */
@@ -183,7 +187,7 @@ int	regcomp(regex_t * __restrict, const char * __restrict, int) __DARWIN_ALIAS(r
 int	regcomp(regex_t * __restrict, const char * __restrict, int) LIBC_ALIAS(regcomp);
 #endif /* !LIBC_ALIAS_REGCOMP */
 //End-Libc
-size_t	regerror(int, const regex_t * __restrict, char * __restrict, size_t);
+size_t	regerror(int, const regex_t * __restrict, char * __restrict, size_t) __cold;
 /*
  * gcc under c99 mode won't compile "[ __restrict]" by itself.  As a workaround,
  * a dummy argument name is added.

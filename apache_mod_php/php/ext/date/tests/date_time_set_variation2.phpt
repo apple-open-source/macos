@@ -3,14 +3,14 @@ Test date_time_set() function : usage variation - Passing unexpected values to s
 --FILE--
 <?php
 /* Prototype  : DateTime date_time_set  ( DateTime $object  , int $hour  , int $minute  [, int $second  ] )
- * Description: Resets the current time of the DateTime object to a different time. 
+ * Description: Resets the current time of the DateTime object to a different time.
  * Source code: ext/date/php_date.c
  * Alias to functions: DateTime::setTime
  */
 
 echo "*** Testing date_time_set() : usage variation -  unexpected values to second argument \$hour***\n";
 
-//Set the default time zone 
+//Set the default time zone
 date_default_timezone_set("Europe/London");
 
 //get an unset variable
@@ -90,8 +90,8 @@ $inputs = array(
 
       // unset data
       'unset var' => @$unset_var,
-      
-      // resource 
+
+      // resource
       'resource' => $file_handle
 );
 
@@ -184,22 +184,22 @@ object(DateTime)#%d (3) {
 
 -- empty array --
 
-Warning: date_time_set() expects parameter 2 to be integer, array given in %s
+Warning: date_time_set() expects parameter 2 to be int, array given in %s
 bool(false)
 
 -- int indexed array --
 
-Warning: date_time_set() expects parameter 2 to be integer, array given in %s
+Warning: date_time_set() expects parameter 2 to be int, array given in %s
 bool(false)
 
 -- associative array --
 
-Warning: date_time_set() expects parameter 2 to be integer, array given in %s
+Warning: date_time_set() expects parameter 2 to be int, array given in %s
 bool(false)
 
 -- nested arrays --
 
-Warning: date_time_set() expects parameter 2 to be integer, array given in %s
+Warning: date_time_set() expects parameter 2 to be int, array given in %s
 bool(false)
 
 -- uppercase NULL --
@@ -264,42 +264,42 @@ object(DateTime)#%d (3) {
 
 -- empty string DQ --
 
-Warning: date_time_set() expects parameter 2 to be integer, string given in %s
+Warning: date_time_set() expects parameter 2 to be int, string given in %s
 bool(false)
 
 -- empty string SQ --
 
-Warning: date_time_set() expects parameter 2 to be integer, string given in %s
+Warning: date_time_set() expects parameter 2 to be int, string given in %s
 bool(false)
 
 -- string DQ --
 
-Warning: date_time_set() expects parameter 2 to be integer, string given in %s
+Warning: date_time_set() expects parameter 2 to be int, string given in %s
 bool(false)
 
 -- string SQ --
 
-Warning: date_time_set() expects parameter 2 to be integer, string given in %s
+Warning: date_time_set() expects parameter 2 to be int, string given in %s
 bool(false)
 
 -- mixed case string --
 
-Warning: date_time_set() expects parameter 2 to be integer, string given in %s
+Warning: date_time_set() expects parameter 2 to be int, string given in %s
 bool(false)
 
 -- heredoc --
 
-Warning: date_time_set() expects parameter 2 to be integer, string given in %s
+Warning: date_time_set() expects parameter 2 to be int, string given in %s
 bool(false)
 
 -- instance of classWithToString --
 
-Warning: date_time_set() expects parameter 2 to be integer, object given in %s
+Warning: date_time_set() expects parameter 2 to be int, object given in %s
 bool(false)
 
 -- instance of classWithoutToString --
 
-Warning: date_time_set() expects parameter 2 to be integer, object given in %s
+Warning: date_time_set() expects parameter 2 to be int, object given in %s
 bool(false)
 
 -- undefined var --
@@ -324,6 +324,6 @@ object(DateTime)#%d (3) {
 
 -- resource --
 
-Warning: date_time_set() expects parameter 2 to be integer, resource given in %s
+Warning: date_time_set() expects parameter 2 to be int, resource given in %s
 bool(false)
 ===DONE===

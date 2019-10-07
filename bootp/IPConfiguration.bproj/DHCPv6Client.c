@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -782,7 +782,7 @@ DHCPv6ClientSendInform(DHCPv6ClientRef client)
     DHCPv6OptionArea		oa;
     DHCPv6PacketRef		pkt;
 
-    pkt = DHCPv6ClientMakePacket(client,  kDHCPv6MessageINFORMATION_REQUEST,
+    pkt = DHCPv6ClientMakePacket(client, kDHCPv6MessageINFORMATION_REQUEST,
 				 buf, sizeof(buf), &oa);
     if (pkt == NULL) {
 	return;

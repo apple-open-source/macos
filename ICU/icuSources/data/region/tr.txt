@@ -81,7 +81,7 @@ tr{
         CK{"Cook Adaları"}
         CL{"Şili"}
         CM{"Kamerun"}
-        CN{"Çin anakarası"}
+        CN{"Çin ana karası"}
         CO{"Kolombiya"}
         CP{"Clipperton Adası"}
         CR{"Kosta Rika"}
@@ -98,7 +98,7 @@ tr{
         DM{"Dominika"}
         DO{"Dominik Cumhuriyeti"}
         DZ{"Cezayir"}
-        EA{"Septe ve Melilla"}
+        EA{"Ceuta ve Melilla"}
         EC{"Ekvador"}
         EE{"Estonya"}
         EG{"Mısır"}
@@ -183,7 +183,7 @@ tr{
         MF{"Saint Martin"}
         MG{"Madagaskar"}
         MH{"Marshall Adaları"}
-        MK{"Makedonya"}
+        MK{"Kuzey Makedonya"}
         ML{"Mali"}
         MM{"Myanmar (Burma)"}
         MN{"Moğolistan"}
@@ -253,7 +253,7 @@ tr{
         SV{"El Salvador"}
         SX{"Sint Maarten"}
         SY{"Suriye"}
-        SZ{"Svaziland"}
+        SZ{"Esvatini"}
         TA{"Tristan da Cunha"}
         TC{"Turks ve Caicos Adaları"}
         TD{"Çad"}
@@ -306,8 +306,8 @@ tr{
         CG{"Kongo Cumhuriyeti"}
         CZ{"Çek Cumhuriyeti"}
         FK{"Falkland Adaları (Malvinas Adaları)"}
-        MK{"Makedonya (EYMC)"}
+        SZ{"Svaziland"}
         TL{"Doğu Timor"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.42"}
 }

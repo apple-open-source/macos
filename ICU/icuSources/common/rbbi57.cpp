@@ -1791,7 +1791,7 @@ static void U_CALLCONV initLanguageFactories() {
 
 
 static const LanguageBreakEngine*
-getLanguageBreakEngineFromFactory(UChar32 c, int32_t breakType)
+getLanguageBreakEngineFromFactory(UChar32 c)
 {
     umtx_initOnce(gLanguageBreakFactoriesInitOnce, &initLanguageFactories);
     if (gLanguageBreakFactories == NULL) {
@@ -1841,7 +1841,7 @@ RuleBasedBreakIterator57::getLanguageBreakEngine(UChar32 c) {
     
     // No existing dictionary took the character. See if a factory wants to
     // give us a new LanguageBreakEngine for this character.
-    lbe = getLanguageBreakEngineFromFactory(c, fBreakType);
+    lbe = getLanguageBreakEngineFromFactory(c);
     
     // If we got one, use it and push it on our stack.
     if (lbe != NULL) {

@@ -81,4 +81,5 @@ s/'.*/'Nav', '_Win']/
 .
 .,/^$/-1s/^/#/
 g/('-Wl,-search_paths_first',)/s//()/
+/sources.append('_ctypes\/malloc_closure.c')/s/^/#/
 w

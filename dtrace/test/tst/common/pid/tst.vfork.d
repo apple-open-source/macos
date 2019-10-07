@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.vfork.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: make sure probes called from a vfork(2) child fire in the parent
  *

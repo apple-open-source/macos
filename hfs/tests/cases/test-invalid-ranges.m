@@ -151,7 +151,7 @@ int run_invalid_ranges(__unused test_ctx_t *ctx)
 
 	assert_no_err(munmap(p, 1024 * ps * 2));
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	disk_image_t *di2 = disk_image_create(DISK_IMAGE, &(disk_image_opts_t){
 															.size = 100 * 1024 * 1024
 														});
@@ -331,7 +331,7 @@ int run_invalid_ranges(__unused test_ctx_t *ctx)
 
 	assert_no_err(close(fd));
 
-#endif
+#endif //!(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 	// Test for <rdar://20994239>
 	fd = open(file, O_CREAT | O_RDWR, 0666);

@@ -45,8 +45,9 @@
 static lua_Unsigned andaux (lua_State *L) {
   int i, n = lua_gettop(L);
   lua_Unsigned r = ~(lua_Unsigned)0;
-  for (i = 1; i <= n; i++)
+  for (i = 1; i <= n; i++) {
     r &= luaL_checkunsigned(L, i);
+  }
   return trim(r);
 }
 
@@ -68,8 +69,9 @@ static int b_test (lua_State *L) {
 static int b_or (lua_State *L) {
   int i, n = lua_gettop(L);
   lua_Unsigned r = 0;
-  for (i = 1; i <= n; i++)
+  for (i = 1; i <= n; i++) {
     r |= luaL_checkunsigned(L, i);
+  }
   lua_pushunsigned(L, trim(r));
   return 1;
 }
@@ -78,8 +80,9 @@ static int b_or (lua_State *L) {
 static int b_xor (lua_State *L) {
   int i, n = lua_gettop(L);
   lua_Unsigned r = 0;
-  for (i = 1; i <= n; i++)
-    r ^= luaL_checkunsigned(L, i);
+  for (i = 1; i <= n; i++) {
+        r ^= luaL_checkunsigned(L, i);
+   }
   lua_pushunsigned(L, trim(r));
   return 1;
 }

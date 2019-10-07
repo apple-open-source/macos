@@ -43,7 +43,7 @@ Process::Process(TaskPort taskPort,	const ClientSetupInfo *info, const CommonCri
  :  mTaskPort(taskPort), mByteFlipped(false), mPid(audit.pid()), mUid(audit.euid()), mGid(audit.egid()), mAudit(audit)
 {
 	StLock<Mutex> _(*this);
-	
+    xpc_transaction_begin();
 	// set parent session
 	parent(Session::find(audit.sessionId(), true));
 	
@@ -74,7 +74,7 @@ Process::Process(TaskPort taskPort,	const ClientSetupInfo *info, const CommonCri
     // as it is not protected against its underlying process's destruction.  
 	if (this->pid() == getpid() // called ourselves (through some API). Do NOT record this as a "dirty" transaction
         || ServerChild::find<ServerChild>(this->pid()))   // securityd's child; do not mark this txn dirty
-		VProc::Transaction::deactivate();
+        xpc_transaction_end();
 
     secinfo("SecServer", "%p client new: pid:%d session:%d %s taskPort:%d uid:%d gid:%d", this, this->pid(), this->session().sessionId(),
              (char *)codePath(this->processCode()).c_str(), taskPort.port(), mUid, mGid);
@@ -103,7 +103,6 @@ void Process::reset(TaskPort taskPort, const ClientSetupInfo *info, const Common
         secnotice("SecServer", "%p Client reset amnesia", this);
 	} else {
         secnotice("SecServer", "%p Client reset full", this);
-		CodeSigningHost::reset();
 	}
 }
 
@@ -142,6 +141,7 @@ Process::~Process()
     if (mTaskPort) {
         mTaskPort.deallocate();
     }
+    xpc_transaction_end();
 }
 
 void Process::kill()
@@ -209,7 +209,6 @@ void Process::dumpNode()
 		Debug::dump(" FLIPPED");
 	Debug::dump(" task=%d pid=%d uid/gid=%d/%d",
 		mTaskPort.port(), mPid, mUid, mGid);
-	CodeSigningHost::dump();
 	ClientIdentification::dump();
 }
 

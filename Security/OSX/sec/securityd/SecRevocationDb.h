@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2016-2019 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -47,6 +47,17 @@ typedef CF_ENUM(uint32_t, SecValidInfoFormat) {
     kSecValidInfoFormatSerial       = 1,
     kSecValidInfoFormatSHA256       = 2,
     kSecValidInfoFormatNto1         = 3
+};
+
+/* policy types */
+typedef CF_ENUM(int8_t, SecValidPolicy) {
+    kSecValidPolicyNone = -1,
+    kSecValidPolicyAny = 0,
+    kSecValidPolicyServerAuthentication = 1,
+    kSecValidPolicyClientAuthentication = 2,
+    kSecValidPolicyEmailProtection = 3,
+    kSecValidPolicyCodeSigning = 4,
+    kSecValidPolicyTimeStamping = 5,
 };
 
 /*!

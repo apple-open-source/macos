@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>setuptools</string>
+        <key>OpenSourceVersion</key>
+        <string>41.0.1</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://pypi.python.org/pypi/setuptools</string>
+        <key>OpenSourceURL</key>
+        <string>https://files.pythonhosted.org/packages/1d/64/a18a487b4391a05b9c7f938b94a16d80305bf0369c6b0b9509e86165e1d3/setuptools-41.0.1.zip</string>
+        <key>OpenSourceImportDate</key>
+        <string>2019-05-29</string>
+        <key>OpenSourceSHA256</key>
+        <string>a222d126f5471598053c9a77f4b5d4f26eaa1f150ad6e01dcf1a42e185d05613</string>
+        <key>OpenSourceLicense</key>
+        <string>PSFL</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+</dict>

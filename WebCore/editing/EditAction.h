@@ -54,7 +54,8 @@ enum class EditAction : uint8_t {
     AlignRight,
     Center,
     Justify,
-    SetWritingDirection,
+    SetInlineWritingDirection,
+    SetBlockWritingDirection,
     Subscript,
     Superscript,
     Underline,
@@ -95,6 +96,6 @@ enum class EditAction : uint8_t {
     InsertEditableImage
 };
 
-WEBCORE_EXPORT WTF::String nameForUndoRedo(EditAction);
+WTF::String undoRedoLabel(EditAction);
 
 } // namespace WebCore

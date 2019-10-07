@@ -30,6 +30,7 @@
 #ifndef KRB5_LOCATE_PLUGIN_H_INCLUDED
 #define KRB5_LOCATE_PLUGIN_H_INCLUDED
 #include <krb5/krb5.h>
+#include <Availability.h>
 
 enum locate_service_type {
     locate_service_kdc = 1,
@@ -37,9 +38,9 @@ enum locate_service_type {
     locate_service_kadmin,
     locate_service_krb524,
     locate_service_kpasswd
-};
+} __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac);
 
-typedef struct krb5plugin_service_locate_ftable {
+typedef struct __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac) krb5plugin_service_locate_ftable {
     int minor_version;		/* currently 0 */
     /* Per-context setup and teardown.  Returned void* blob is
        private to the plugin.  */

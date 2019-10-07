@@ -52,6 +52,7 @@
     (iokit-property "AlwaysNeedsVelocityCalculated")
     (iokit-property "Apple(DisplayType|GVAKeyDoesNotExist|IntelMEVABundleName|Sense)")
     (iokit-property "CFBundleIdentifier")
+    (iokit-property "CFBundleIdentifierKernel") ;; <rdar://problem/54347503>
     (iokit-property-regex #"^Display(ParameterHandlerUsesCharPtr|ProductID|Routing|SerialNumber|VendorID)")
     (iokit-property "Development")
     (iokit-property "DeviceEqID")
@@ -90,6 +91,7 @@
     (iokit-property "IOGLBundleName")
     (iokit-property-regex #"^IOGVA(BGRAEnc|Codec|EncoderRestricted|Scaler|VTCapabilities)")
     (iokit-property-regex "^IOGVA[A-Z]+(De|En)code")
+    (iokit-property "IOGVAH264EncodeCapabilities") ;; <rdar://problem/49498040>
     (iokit-property "IOI2CTransactionTypes")
     (iokit-property "IOKitDebug")
     (iokit-property "IOMACAddress") ;; For some Flash players
@@ -151,7 +153,6 @@
     (iokit-property "touch-size-id")
 )
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
 (deny mach-lookup (xpc-service-name-prefix ""))
 (allow mach-lookup
     (xpc-service-name "com.apple.ViewBridgeAuxiliary")
@@ -165,7 +166,6 @@
     (xpc-service-name "com.apple.hiservices-xpcservice")
     (xpc-service-name "com.apple.print.normalizerd")
 )
-#endif
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
 ;; <rdar://problem/47268166>
@@ -342,22 +342,6 @@
 
     (home-literal "/Library/Preferences/com.apple.lookup.shared.plist"))
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
-;; FIXME: This should be removed when <rdar://problem/10479685> is fixed.
-;; Restrict AppSandboxed processes from creating /Library/Keychains, but allow access to the contents of /Library/Keychains:
-(allow file-read-data file-read-metadata file-write-data
-    (subpath "/Library/Keychains"))
-
-;; Do permit creating per-user keychains
-(allow file-read* file-write*
-    (home-library-subpath "/Keychains"))
-
-;; Except deny access to new-style iOS Keychain folders which are UUIDs.
-(deny file-read* file-write*
-    (regex (string-append "/Library/Keychains/" (uuid-regex-string) "(/|$)"))
-    (home-library-regex (string-append "/Keychains/" (uuid-regex-string) "(/|$)")))
-#endif
-
 ;; Security framework
 (allow mach-lookup (global-name "com.apple.ocspd"))
 (allow file-read*
@@ -390,9 +374,7 @@
     (global-name "com.apple.SystemConfiguration.PPPController")
     (global-name "com.apple.SystemConfiguration.configd")
     (global-name "com.apple.UNCUserNotification")
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
     (global-name "com.apple.analyticsd")
-#endif
     (global-name "com.apple.audio.audiohald")
     (global-name "com.apple.audio.coreaudiod")
     (global-name "com.apple.cfnetwork.AuthBrokerAgent")

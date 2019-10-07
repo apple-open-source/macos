@@ -28,9 +28,8 @@ from webkit import parser
 
 WANTS_CONNECTION_ATTRIBUTE = 'WantsConnection'
 LEGACY_RECEIVER_ATTRIBUTE = 'LegacyReceiver'
-DELAYED_ATTRIBUTE = 'Delayed'
+SYNCHRONOUS_ATTRIBUTE = 'Synchronous'
 ASYNC_ATTRIBUTE = 'Async'
-LEGACY_SYNC_ATTRIBUTE = 'LegacySync'
 
 _license_header = """/*
  * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
@@ -110,6 +109,10 @@ def reply_type(message):
     return 'std::tuple<%s>' % (', '.join(reply_parameter_type(parameter.type) for parameter in message.reply_parameters))
 
 
+def reply_arguments_type(message):
+    return 'std::tuple<%s>' % (', '.join(parameter.type for parameter in message.reply_parameters))
+
+
 def message_to_struct_declaration(message):
     result = []
     function_parameters = [(function_parameter_type(x.type, x.kind), x.name) for x in message.parameters]
@@ -130,15 +133,16 @@ def message_to_struct_declaration(message):
             result.append('    static void cancelReply(CompletionHandler<void(%s)>&&);\n' % move_parameters)
             result.append('    static IPC::StringReference asyncMessageReplyName() { return { "%sReply" }; }\n' % message.name)
             result.append('    using AsyncReply')
-        elif message.has_attribute(DELAYED_ATTRIBUTE):
+        elif message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
             result.append('    using DelayedReply')
-        if message.has_attribute(DELAYED_ATTRIBUTE) or message.has_attribute(ASYNC_ATTRIBUTE):
+        if message.has_attribute(SYNCHRONOUS_ATTRIBUTE) or message.has_attribute(ASYNC_ATTRIBUTE):
             result.append(' = CompletionHandler<void(%s)>;\n' % completion_handler_parameters)
             result.append('    static void send(std::unique_ptr<IPC::Encoder>&&, IPC::Connection&')
             if len(send_parameters):
                 result.append(', %s' % completion_handler_parameters)
             result.append(');\n')
-        result.append('    typedef %s Reply;\n' % reply_type(message))
+        result.append('    using Reply = %s;\n' % reply_type(message))
+        result.append('    using ReplyArguments = %s;\n' % reply_arguments_type(message))
 
     if len(function_parameters):
         result.append('    %s%s(%s)' % (len(function_parameters) == 1 and 'explicit ' or '', message.name, ', '.join([' '.join(x) for x in function_parameters])))
@@ -184,21 +188,26 @@ def forward_declarations_and_headers(receiver):
         '<wtf/Forward.h>',
     ])
 
+    header_conditions = {
+        '"LayerHostingContext.h"': ["PLATFORM(COCOA)", ],
+    }
+
     non_template_wtf_types = frozenset([
         'MachSendRight',
         'String',
     ])
 
-    for message in receiver.messages:
-        if message.reply_parameters != None:
-            headers.add('<wtf/ThreadSafeRefCounted.h>')
-            types_by_namespace['IPC'].update([('class', 'Connection')])
+    headers.add('"Connection.h"')
+    headers.add('<wtf/ThreadSafeRefCounted.h>')
 
     no_forward_declaration_types = frozenset([
         'MachSendRight',
         'String',
         'WebCore::DocumentIdentifier',
         'WebCore::FetchIdentifier',
+        'WebCore::PageIdentifier',
+        'WebCore::PointerID',
+        'WebCore::ProcessIdentifier',
         'WebCore::ServiceWorkerIdentifier',
         'WebCore::ServiceWorkerJobIdentifier',
         'WebCore::ServiceWorkerOrClientData',
@@ -206,6 +215,7 @@ def forward_declarations_and_headers(receiver):
         'WebCore::ServiceWorkerRegistrationIdentifier',
         'WebCore::SWServerConnectionIdentifier',
         'WebKit::ActivityStateChangeID',
+        'WebKit::LayerHostingContextID',
         'WebKit::UserContentControllerIdentifier',
     ])
 
@@ -234,9 +244,18 @@ def forward_declarations_and_headers(receiver):
             headers.update(headers_for_type(type))
 
     forward_declarations = '\n'.join([forward_declarations_for_namespace(namespace, types) for (namespace, types) in sorted(types_by_namespace.items())])
-    headers = ['#include %s\n' % header for header in sorted(headers)]
 
-    return (forward_declarations, headers)
+    header_includes = []
+    for header in sorted(headers):
+        if header in header_conditions and not None in header_conditions[header]:
+            header_include = '#if %s\n' % ' || '.join(set(header_conditions[header]))
+            header_include += '#include %s\n' % header
+            header_include += '#endif\n'
+            header_includes.append(header_include)
+        else:
+            header_includes.append('#include %s\n' % header)
+
+    return (forward_declarations, header_includes)
 
 
 def generate_messages_header(file):
@@ -304,18 +323,18 @@ def async_message_statement(receiver, message):
 
 def sync_message_statement(receiver, message):
     dispatch_function = 'handleMessage'
-    if message.has_attribute(DELAYED_ATTRIBUTE):
-        dispatch_function += 'Delayed'
+    if message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
+        dispatch_function += 'Synchronous'
+        if message.has_attribute(WANTS_CONNECTION_ATTRIBUTE):
+            dispatch_function += 'WantsConnection'
     if message.has_attribute(ASYNC_ATTRIBUTE):
         dispatch_function += 'Async'
-    if message.has_attribute(LEGACY_SYNC_ATTRIBUTE):
-        dispatch_function += 'LegacySync'
 
-    wants_connection = message.has_attribute(DELAYED_ATTRIBUTE) or message.has_attribute(WANTS_CONNECTION_ATTRIBUTE)
+    wants_connection = message.has_attribute(SYNCHRONOUS_ATTRIBUTE) or message.has_attribute(WANTS_CONNECTION_ATTRIBUTE)
 
     result = []
     result.append('    if (decoder.messageName() == Messages::%s::%s::name()) {\n' % (receiver.name, message.name))
-    result.append('        IPC::%s<Messages::%s::%s>(%sdecoder, %sreplyEncoder, this, &%s);\n' % (dispatch_function, receiver.name, message.name, 'connection, ' if wants_connection else '', '' if message.has_attribute(DELAYED_ATTRIBUTE) or message.has_attribute(ASYNC_ATTRIBUTE) else '*', handler_function(receiver, message)))
+    result.append('        IPC::%s<Messages::%s::%s>(%sdecoder, %sreplyEncoder, this, &%s);\n' % (dispatch_function, receiver.name, message.name, 'connection, ' if wants_connection else '', '' if message.has_attribute(SYNCHRONOUS_ATTRIBUTE) or message.has_attribute(ASYNC_ATTRIBUTE) else '*', handler_function(receiver, message)))
     result.append('        return;\n')
     result.append('    }\n')
     return surround_in_condition(''.join(result), message.condition)
@@ -397,6 +416,8 @@ def headers_for_type(type):
         'String': ['<wtf/text/WTFString.h>'],
         'PAL::SessionID': ['<pal/SessionID.h>'],
         'WebCore::AutoplayEventFlags': ['<WebCore/AutoplayEvent.h>'],
+        'WebCore::DOMPasteAccessResponse': ['<WebCore/DOMPasteAccess.h>'],
+        'WebKit::DocumentEditingContextRequest': ['"DocumentEditingContext.h"'],
         'WebCore::DragHandlingMethod': ['<WebCore/DragActions.h>'],
         'WebCore::ExceptionDetails': ['<WebCore/JSDOMExceptionHandling.h>'],
         'WebCore::FileChooserSettings': ['<WebCore/FileChooser.h>'],
@@ -406,7 +427,9 @@ def headers_for_type(type):
         'WebCore::GrammarDetail': ['<WebCore/TextCheckerClient.h>'],
         'WebCore::HasInsecureContent': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::Highlight': ['<WebCore/InspectorOverlay.h>'],
-        'WebCore::IncludeSecureCookies': ['<WebCore/CookiesStrategy.h>'],
+        'WebCore::IncludeSecureCookies': ['<WebCore/CookieJar.h>'],
+        'WebCore::IndexedDB::ObjectStoreOverwriteMode': ['<WebCore/IndexedDB.h>'],
+        'WebCore::InputMode': ['<WebCore/InputMode.h>'],
         'WebCore::KeyframeValueList': ['<WebCore/GraphicsLayer.h>'],
         'WebCore::KeypressCommand': ['<WebCore/KeyboardEvent.h>'],
         'WebCore::LockBackForwardList': ['<WebCore/FrameLoaderTypes.h>'],
@@ -420,6 +443,7 @@ def headers_for_type(type):
         'WebCore::PluginInfo': ['<WebCore/PluginData.h>'],
         'WebCore::PolicyAction': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::PolicyCheckIdentifier': ['<WebCore/FrameLoaderTypes.h>'],
+        'WebCore::ProcessIdentifier': ['<WebCore/ProcessIdentifier.h>'],
         'WebCore::RecentSearch': ['<WebCore/SearchPopupMenu.h>'],
         'WebCore::RouteSharingPolicy': ['<WebCore/AudioSession.h>'],
         'WebCore::SWServerConnectionIdentifier': ['<WebCore/ServiceWorkerTypes.h>'],
@@ -433,15 +457,19 @@ def headers_for_type(type):
         'WebCore::ShippingMethodUpdate': ['<WebCore/ApplePaySessionPaymentRequest.h>'],
         'WebCore::ShouldNotifyWhenResolved': ['<WebCore/ServiceWorkerTypes.h>'],
         'WebCore::ShouldSample': ['<WebCore/DiagnosticLoggingClient.h>'],
+        'WebCore::StorageAccessPromptWasShown': ['<WebCore/DocumentStorageAccess.h>'],
+        'WebCore::StorageAccessWasGranted': ['<WebCore/DocumentStorageAccess.h>'],
         'WebCore::SupportedPluginIdentifier': ['<WebCore/PluginData.h>'],
         'WebCore::TextCheckingRequestData': ['<WebCore/TextChecking.h>'],
         'WebCore::TextCheckingResult': ['<WebCore/TextCheckerClient.h>'],
         'WebCore::TextCheckingType': ['<WebCore/TextChecking.h>'],
         'WebCore::TextIndicatorData': ['<WebCore/TextIndicator.h>'],
         'WebCore::ViewportAttributes': ['<WebCore/ViewportArguments.h>'],
+        'WebCore::WillContinueLoading': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::SelectionRect': ['"EditorState.h"'],
         'WebKit::ActivityStateChangeID': ['"DrawingAreaInfo.h"'],
         'WebKit::BackForwardListItemState': ['"SessionState.h"'],
+        'WebKit::LayerHostingContextID': ['"LayerHostingContext.h"'],
         'WebKit::LayerHostingMode': ['"LayerTreeContext.h"'],
         'WebKit::PageState': ['"SessionState.h"'],
         'WebKit::WebGestureEvent': ['"WebEvent.h"'],
@@ -449,6 +477,7 @@ def headers_for_type(type):
         'WebKit::WebMouseEvent': ['"WebEvent.h"'],
         'WebKit::WebTouchEvent': ['"WebEvent.h"'],
         'WebKit::WebWheelEvent': ['"WebEvent.h"'],
+        'struct WebKit::TextInputContext': ['"TextInputContext.h"'],
         'struct WebKit::WebUserScriptData': ['"WebUserContentControllerDataTypes.h"'],
         'struct WebKit::WebUserStyleSheetData': ['"WebUserContentControllerDataTypes.h"'],
         'struct WebKit::WebScriptMessageHandlerData': ['"WebUserContentControllerDataTypes.h"'],
@@ -548,7 +577,7 @@ def generate_message_handler(file):
 
     delayed_or_async_messages = []
     for message in receiver.messages:
-        if message.reply_parameters != None and (message.has_attribute(DELAYED_ATTRIBUTE) or message.has_attribute(ASYNC_ATTRIBUTE)):
+        if message.reply_parameters != None and (message.has_attribute(SYNCHRONOUS_ATTRIBUTE) or message.has_attribute(ASYNC_ATTRIBUTE)):
             delayed_or_async_messages.append(message)
 
     if delayed_or_async_messages:
@@ -566,13 +595,13 @@ def generate_message_handler(file):
                 for x in message.reply_parameters:
                     result.append('    Optional<%s> %s;\n' % (x.type, x.name))
                     result.append('    decoder >> %s;\n' % x.name)
-                    result.append('    if (!%s) {\n        ASSERT_NOT_REACHED();\n        return;\n    }\n' % x.name)
+                    result.append('    if (!%s) {\n        ASSERT_NOT_REACHED();\n        cancelReply(WTFMove(completionHandler));\n        return;\n    }\n' % x.name)
                 result.append('    completionHandler(')
                 if len(message.reply_parameters):
                     result.append('WTFMove(*%s)' % ('), WTFMove(*'.join(x.name for x in message.reply_parameters)))
                 result.append(');\n}\n\n')
                 result.append('void %s::cancelReply(CompletionHandler<void(%s)>&& completionHandler)\n{\n    completionHandler(' % move_parameters)
-                result.append(', '.join(['{ }' for x in message.reply_parameters]))
+                result.append(', '.join(['IPC::AsyncReplyError<' + x.type + '>::create()' for x in message.reply_parameters]))
                 result.append(');\n}\n\n')
 
             result.append('void %s::send(std::unique_ptr<IPC::Encoder>&& encoder, IPC::Connection& connection' % (message.name))

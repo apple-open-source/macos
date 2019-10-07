@@ -1,6 +1,30 @@
+Update Feb 25, 2019
+
+This project has many aggregate top-level targets. These map directly to build system aliases of Security in the obvious way:
+Alias                                   macOS Target                              iOS Target                                bridgeOS Target               tvOS Target                       watchOS Target
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Security                             |  Security_frameworks_osx                |  Security_frameworks_ios                |  Security_frameworks_bridge  | Security_frameworks_tvos        | Security_frameworks_watchos
+Security_executables_core            |  Security_executables_core_osx          |  Security_executables_core_ios          |                              | Security_executables_core_tvos  | Security_executables_core_watchos
+Security_executables                 |  Security_executables_osx               |  Security_executables_ios               |  Security_executables_bridge | Security_executables_tvos       | Security_executables_watchos
+Security_internal                    |  Security_internal_osx                  |  Security_internal_ios                  |                              | Security_internal_tvos          | Security_internal_watchos
+Security_executables_Swift           |  Security_executables_Swift             |  Security_executables_Swift             |                              | Security_executables_Swift      |
+Security_tests                       |  Security_tests_osx                     |  Security_tests_ios                     |  Security_tests_bridge       | Security_tests_tvos             | Security_tests_watchos
+Security_executables_darwinos_only   |  Security_executables_darwinos_only_osx |  Security_executables_darwinos_only_ios |                              |                                 |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Security_frameworks targets are for frameworks, dynamic libraries, or libraries that should be in the (public or private) SDK.
+Security_executables_core targets are for binaries (particularly daemons) that are absolutely necessary for base operation of any variant of the OS, including the recovery OS. If you are unsure, do not put your target here.
+Security_executables targets are for binaries that ship in customer images. These are daemons, tools, services, plug-ins, apps, etc.
+Security_internal targets are for non-test binaries that ship in internal images (e.g. /AppleInternal/*, /usr/local/*). These are usually tools and internal apps.
+Security_executables_Swift is for any and all Swift targets.
+Security_tests targets are for test binaries that ship in the TestsSupport dmg. These are usually xctests and test executables and test apps.
+Security_executables_darwinos_only targets are for binaries that should only ship in very special variants of the OS. If you are unsure, do not put your target here.
+
+Security_all targets aggregate all of the above targets for each platform and are used by the local Xcode schemes.
+
 Update Dec 1, 2016
 
-This project wont build without internal headers that are not public.
+This project currently does not build without internal headers that are not public.
 
 Update June 17, 2014
 
@@ -38,6 +62,6 @@ libScripts/
 ====
 
 To regenerate strings file run:
-genstrings -u -o resources/English.lproj -s SecString OSX/sec/Security/SecFrameworkStrings.h
+genstrings -u -o resources/en.lproj -s SecString OSX/sec/Security/SecFrameworkStrings.h
 
 in the top level dir.

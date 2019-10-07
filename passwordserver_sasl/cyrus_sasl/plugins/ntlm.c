@@ -47,7 +47,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <config.h>
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -77,10 +77,10 @@
 #include <CommonCrypto/CommonHMAC.h>
 #include <CommonCrypto/CommonCryptor.h>
 
-#include <sasl.h>
+#include "sasl.h"
 // Use internal MD5 implementation so we can get off of OpenSSL - TODO: <rdar://problem/14931407> passwordserver_sasl should use CommonCrypto for MD5 where possible
 //#define MD5_H  /* suppress internal MD5 */
-#include <saslplug.h>
+#include "saslplug.h"
 
 #include "plugin_common.h"
 

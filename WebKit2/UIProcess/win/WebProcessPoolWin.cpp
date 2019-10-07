@@ -28,8 +28,8 @@
 #include "WebProcessPool.h"
 
 #include "WebProcessCreationParameters.h"
-#include <WebCore/FileSystem.h>
 #include <WebCore/NotImplemented.h>
+#include <wtf/FileSystem.h>
 
 namespace WebKit {
 
@@ -43,7 +43,7 @@ void WebProcessPool::platformInitializeNetworkProcess(NetworkProcessCreationPara
     notImplemented();
 }
 
-void WebProcessPool::platformInitializeWebProcess(WebProcessCreationParameters& parameters)
+void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy&, WebProcessCreationParameters&)
 {
     notImplemented();
 }

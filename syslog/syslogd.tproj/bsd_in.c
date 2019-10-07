@@ -72,7 +72,7 @@ bsd_in_init()
 	launch_data_t sockets_dict, fd_array, fd_dict;
 	static dispatch_once_t once;
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 	const char *_PATH_SYSLOG_IN = getenv("IOS_SIMULATOR_SYSLOG_SOCKET");
 #endif
 

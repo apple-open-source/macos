@@ -30,7 +30,7 @@
 #include "TextControlInnerElements.h"
 #include <glib-object.h>
 
-#if HAVE(ACCESSIBILITY)
+#if ENABLE(ACCESSIBILITY)
 
 namespace WebCore {
 
@@ -156,25 +156,6 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
     return AccessibilityObjectInclusion::DefaultBehavior;
 }
 
-AccessibilityObjectWrapper* AccessibilityObject::wrapper() const
-{
-    return m_wrapper;
-}
-
-void AccessibilityObject::setWrapper(AccessibilityObjectWrapper* wrapper)
-{
-    if (wrapper == m_wrapper)
-        return;
-
-    if (m_wrapper)
-        g_object_unref(m_wrapper);
-
-    m_wrapper = wrapper;
-
-    if (m_wrapper)
-        g_object_ref(m_wrapper);
-}
-
 bool AccessibilityObject::allowsTextRanges() const
 {
     // Check type for the AccessibilityObject.
@@ -209,4 +190,4 @@ unsigned AccessibilityObject::getLengthForTextRange() const
 
 } // namespace WebCore
 
-#endif // HAVE(ACCESSIBILITY)
+#endif // ENABLE(ACCESSIBILITY)

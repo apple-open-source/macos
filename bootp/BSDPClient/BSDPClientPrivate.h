@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifndef _S_BSDPCLIENTPRIVATE_H
+#define _S_BSDPCLIENTPRIVATE_H
 BSDPClientRef
 BSDPClientCreateWithInterface(BSDPClientStatus * status_p,
 			      const char * ifname);
@@ -31,3 +33,4 @@ BSDPClientCreateWithInterfaceAndAttributes(BSDPClientStatus * status_p,
 					   const u_int16_t * attrs,
 					   int n_attrs);
 
+#endif /* _S_BSDPCLIENTPRIVATE_H */

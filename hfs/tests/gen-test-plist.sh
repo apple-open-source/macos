@@ -28,6 +28,17 @@ EOF
 set -e
 set -o pipefail
 
+# The following change is taken directly from the XCBuild changes made for APFS in
+# the commit cf61eef74b8
+if [ "$CURRENT_ARCH" = undefined_arch ]; then
+     # Xcode's New Build System, XCBuild, doesn't define CURRENT_ARCH anymore for script
+     # targets.  It does define ARCHS though, which is the complete list of architectures
+     # being built for the platform.  Since we don't really expect to have a different list
+     # of tests for different architectures of the same platform, it should be safe to just
+     # use the first one on the list for purposes of this script
+     CURRENT_ARCH=${ARCHS%% *}
+fi
+
 # Look for any files containing the TEST macro.  Then
 # push those through the preprocessor (which should
 # filter out any that aren't applicable to the targeted

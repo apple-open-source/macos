@@ -24,12 +24,12 @@ ms_Arab{
             "دولر سيڠاڤورا",
         }
         XXX{
-            "XXX",
+            "¤",
             "مات واڠ تيدق دکتاهوءي",
         }
     }
     CurrencyUnitPatterns{
         other{"{0} {1}"}
     }
-    Version{"2.1.35.71"}
+    Version{"2.1.48.13"}
 }

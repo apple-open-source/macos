@@ -38,11 +38,10 @@ DEFINE_TEST(test_option_y)
 	r = systemf("echo f | %s -oy >archive.out 2>archive.err",
 	    testprog);
 	p = slurpfile(&s, "archive.err");
-	p[s] = '\0';
+	free(p);
 	if (r != 0) {
-		if (strstr(p, "compression not available") != NULL) {
-			skipping("This version of bsdcpio was compiled "
-			    "without bzip2 support");
+		if (!canBzip2()) {
+			skipping("bzip2 is not supported on this platform");
 			return;
 		}
 		failure("-y option is broken");
@@ -54,4 +53,5 @@ DEFINE_TEST(test_option_y)
 	p = slurpfile(&s, "archive.out");
 	assert(s > 2);
 	assertEqualMem(p, "BZh9", 4);
+	free(p);
 }

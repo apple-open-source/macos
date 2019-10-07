@@ -49,7 +49,7 @@ protected:
     @abstract Free the IOHIDDevice object.
     @discussion Release all resources that were previously allocated,
     then call super::free() to propagate the call to our superclass. */
-    virtual void free();
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
 
 /*! @function handleStart
     @abstract Prepare the hardware and driver to support I/O operations.
@@ -62,7 +62,7 @@ protected:
     @param provider The provider argument passed to start().
     @result True on success, or false otherwise. Returning false will
     cause start() to fail and return false. */
-    virtual bool handleStart(IOService * provider);
+    virtual bool handleStart(IOService * provider) APPLE_KEXT_OVERRIDE;
 
 /*! @function handleStop
     @abstract Quiesce the hardware and stop the driver.
@@ -71,7 +71,7 @@ protected:
     A subclass that overrides this method should end its implementation
     by calling the version in super.
     @param provider The provider argument passed to stop(). */
-    virtual void handleStop(IOService * provider);
+    virtual void handleStop(IOService * provider) APPLE_KEXT_OVERRIDE;
 
 public:
 /*! @function withProperties
@@ -93,84 +93,84 @@ public:
     @abstract Create and return a new memory descriptor that describes the
     report descriptor for the HID device.
     @result kIOReturnSuccess on success, or an error return otherwise. */
-	virtual IOReturn newReportDescriptor(IOMemoryDescriptor ** descriptor ) const;
+	virtual IOReturn newReportDescriptor(IOMemoryDescriptor ** descriptor ) const APPLE_KEXT_OVERRIDE;
 
 /*! @function newTransportString
     @abstract Returns a string object that describes the transport
     layer used by the HID device.
     @result A string object. The caller must decrement the retain count
     on the object returned. */
-    virtual OSString * newTransportString() const;
+    virtual OSString * newTransportString() const APPLE_KEXT_OVERRIDE;
 
 /*! @function newManufacturerString
     @abstract Returns a string object that describes the manufacturer
     of the HID device.
     @result A string object. The caller must decrement the retain count
     on the object returned. */
-    virtual OSString * newManufacturerString() const;
+    virtual OSString * newManufacturerString() const APPLE_KEXT_OVERRIDE;
 
 /*! @function newProductString
     @abstract Returns a string object that describes the product
     of the HID device.
     @result A string object. The caller must decrement the retain count
     on the object returned. */
-    virtual OSString * newProductString() const;
+    virtual OSString * newProductString() const APPLE_KEXT_OVERRIDE;
 
 /*! @function newVendorIDNumber
     @abstract Returns a number object that describes the vendor ID
     of the HID device.
     @result A number object. The caller must decrement the retain count
     on the object returned. */
-    virtual OSNumber * newVendorIDNumber() const;
+    virtual OSNumber * newVendorIDNumber() const APPLE_KEXT_OVERRIDE;
 
 /*! @function newProductIDNumber
     @abstract Returns a number object that describes the product ID
     of the HID device.
     @result A number object. The caller must decrement the retain count
     on the object returned. */
-    virtual OSNumber * newProductIDNumber() const;
+    virtual OSNumber * newProductIDNumber() const APPLE_KEXT_OVERRIDE;
 
 /*! @function newVersionNumber
     @abstract Returns a number object that describes the version number
     of the HID device.
     @result A number object. The caller must decrement the retain count
     on the object returned. */
-    virtual OSNumber * newVersionNumber() const;
+    virtual OSNumber * newVersionNumber() const APPLE_KEXT_OVERRIDE;
 
 /*! @function newSerialNumberString
     @abstract Returns a string object that describes the serial number
     of the HID device.
     @result A number object. The caller must decrement the retain count
     on the object returned. */
-    virtual OSString * newSerialNumberString() const;
+    virtual OSString * newSerialNumberString(void) const APPLE_KEXT_OVERRIDE;
 
 /*! @function newVendorIDSourceNumber
     @abstract Returns a number object that describes the vendor ID
     source of the HID device.  
     @result A number object. The caller must decrement the retain count
     on the object returned. */
-    virtual OSNumber * newVendorIDSourceNumber() const;
+    virtual OSNumber * newVendorIDSourceNumber(void) const APPLE_KEXT_OVERRIDE;
 
 /*! @function newCountryCodeNumber
     @abstract Returns a number object that describes the country code
     of the HID device.  
     @result A number object. The caller must decrement the retain count
     on the object returned. */
-    virtual OSNumber * newCountryCodeNumber() const;
+    virtual OSNumber * newCountryCodeNumber(void) const APPLE_KEXT_OVERRIDE;
     
 /*! @function newReportIntervalNumber
     @abstract Returns a number object that describes the report interval
     of the HID device.  
     @result A number object. The caller must decrement the retain count
     on the object returned. */
-    virtual OSNumber * newReportIntervalNumber() const;
+    virtual OSNumber * newReportIntervalNumber(void) const APPLE_KEXT_OVERRIDE;
 
     /*! @function newLocationIDNumber
      @abstract Returns a number object that describes the location
      of the HID device.  
      @result A number object. The caller must decrement the retain count
      on the object returned. */
-    virtual OSNumber *newLocationIDNumber() const;
+    virtual OSNumber *newLocationIDNumber(void) const APPLE_KEXT_OVERRIDE;
 
 /*! @function getReport
     @abstract Get a report from the HID device.
@@ -183,7 +183,7 @@ public:
     @result kIOReturnSuccess on success, or an error return otherwise. */
 	IOReturn getReport(IOMemoryDescriptor	*report,
 					   IOHIDReportType		reportType,
-					   IOOptionBits			options );
+					   IOOptionBits			options ) APPLE_KEXT_OVERRIDE;
 
 /*! @function setReport
     @abstract Send a report to the HID device.
@@ -196,7 +196,7 @@ public:
     @result kIOReturnSuccess on success, or an error return otherwise. */
 	IOReturn setReport(IOMemoryDescriptor	*report,
 					   IOHIDReportType		reportType,
-					   IOOptionBits			options);
+					   IOOptionBits			options) APPLE_KEXT_OVERRIDE;
 
 };
 

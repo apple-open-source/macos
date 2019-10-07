@@ -2,11 +2,15 @@
 //  HIDDisplay.xcconfig
 //  IOHIDFamily
 //
-//  Created by AB on 3/12/19.
+//  Created by Abhishek Nayyar on 3/13/19.
 //
 
 // Configuration settings file format documentation can be found at:
 // https://help.apple.com/xcode/#/dev745c5c974
 
-SKIP_INSTALL = ${RC_HIDE_J290}
-INSTALL_PATH = /System/Library/PrivateFrameworks
+
+_HID_FRAMEWORKS_PATH_1 = /AppleInternal/Library/Frameworks
+_HID_FRAMEWORKS_PATH_0 = /System/Library/PrivateFrameworks
+_HID_FRAMEWORKS_PATH_ = /System/Library/PrivateFrameworks
+INSTALL_PATH = $(_HID_FRAMEWORKS_PATH_$(RC_HIDE_J290))
+OTHER_CFLAGS =  $(inherited) -ftrivial-auto-var-init=pattern

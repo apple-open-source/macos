@@ -28,12 +28,15 @@
 #ifndef CCGLOBALS_H
 #define CCGLOBALS_H
 
+#if defined(_MSC_VER) || defined(__ANDROID__)
+#else
 #include <os/log.h>
 #include <os/assumes.h>
+#endif
+
 #include <corecrypto/ccdh.h>
 #include <corecrypto/ccdigest.h>
 #include "CommonCryptorPriv.h"
-#include "CommonRandomPriv.h"
 #include "basexx.h"
 
 #include "crc.h"
@@ -54,7 +57,7 @@
 #define CN_SUPPORTED_CRCS kCN_CRC_64_ECMA_182+1
 #define CN_STANDARD_BASE_ENCODERS kCNEncodingBase16+1
 
-#define  CC_MAX_N_DIGESTS (kCCDigestSkein512+1)
+#define  CC_MAX_N_DIGESTS (kCCDigestMax)
 
 struct cc_globals_s {
     crcInfo crcSelectionTab[CN_SUPPORTED_CRCS]; // CommonCRC.c
@@ -84,9 +87,9 @@ _cc_globals(void) {
     }
     return globals;
 #else
-    #error this mode is not supported
-    extern struct cc_globals_s cc_globals_storage;
-    cc_dispatch_once(&globals->digest_info_init, NULL, init_globals);
+    extern dispatch_once_t cc_globals_init;
+    extern struct cc_globals_s cc_globals_storage;    
+    cc_dispatch_once(&cc_globals_init, &cc_globals_storage, init_globals);
     return &cc_globals_storage;
 #endif
 }

@@ -12,7 +12,9 @@ PATCHFILES	= cve-2014-8140-test-compr-eb \
                   handle-pkware-verification-bit \
                   initialize-the-symlink-flag \
                   increase-size-of-cfactorstr \
-                  patch-quarantine 
+                  patch-quarantine \
+                  PR-25537454.diff \
+                  PR-4126223.diff
 
 SRCROOT		?= $(shell pwd)
 OBJROOT		?= $(SRCROOT)/obj

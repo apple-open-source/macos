@@ -2,14 +2,14 @@
  * Copyright (c) 2006, 2012 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <CoreFoundation/CoreFoundation.h>
@@ -97,7 +97,7 @@ int main(int argc, char * const * argv)
    /* Set the OSKext log callback right away.
     */
     OSKextSetLogOutputFunction(&tool_log);
-    
+
    /* Make the library not sort opened kexts by version for bundle ID lookups.
     */
     _OSKextSetStrictRecordingByLastOpened(TRUE);
@@ -143,7 +143,7 @@ int main(int argc, char * const * argv)
     * and exit.
     */
     if (toolArgs.prelinkedKernelPath && !CFArrayGetCount(toolArgs.argURLs) &&
-        (toolArgs.compress || toolArgs.uncompress)) 
+        (toolArgs.compress || toolArgs.uncompress))
     {
         result = compressPrelinkedKernel(toolArgs.prelinkedKernelPath,
                                          toolArgs.compress,
@@ -232,7 +232,7 @@ ExitStatus readArgs(
     int          longindex      = -1;
 
     bzero(toolArgs, sizeof(*toolArgs));
-    
+
    /*****
     * Allocate collection objects.
     */
@@ -272,14 +272,14 @@ ExitStatus readArgs(
                 default:
                     OSKextLog(/* kext */ NULL,
                         kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                        "Error - option requires an argument -- -%c.", 
+                        "Error - option requires an argument -- -%c.",
                         optopt);
                     break;
             }
         }
 
         switch (optchar) {
-  
+
             case kOptArch:
                 if (!addArchForName(toolArgs, optarg)) {
                     OSKextLog(/* kext */ NULL,
@@ -288,7 +288,7 @@ ExitStatus readArgs(
                     goto finish;
                 }
                 break;
-  
+
             case kOptBundleIdentifier:
                 scratchString = CFStringCreateWithCString(kCFAllocatorDefault,
                    optarg, kCFStringEncodingUTF8);
@@ -299,7 +299,7 @@ ExitStatus readArgs(
                 }
                 CFSetAddValue(toolArgs->kextIDs, scratchString);
                 break;
-  
+
             case kOptPrelinkedKernel:
                 scratchResult = readPrelinkedKernelArgs(toolArgs, *argc, *argv,
                     /* isLongopt */ longindex != -1);
@@ -308,12 +308,12 @@ ExitStatus readArgs(
                     goto finish;
                 }
                 break;
-  
+
             case kOptHelp:
                 usage(kUsageLevelFull);
                 result = kKcgenExitHelp;
                 goto finish;
-    
+
             case kOptKernel:
                 if (toolArgs->kernelPath) {
                     OSKextLog(/* kext */ NULL,
@@ -336,11 +336,15 @@ ExitStatus readArgs(
                     goto finish;
                 }
                 break;
-    
+
             case kOptTests:
                 toolArgs->printTestResults = true;
                 break;
-  
+
+            case kOptTargetOverride:
+                toolArgs->targetForKextVariants = optarg;
+                break;
+
             case kOptQuiet:
                 beQuiet();
                 break;
@@ -372,7 +376,7 @@ ExitStatus readArgs(
                         }
                         CFSetAddValue(toolArgs->optionalKextIDs, scratchString);
                         break;
-          
+
                     case kLongOptCompressed:
                         toolArgs->compress = true;
                         if (optarg == NULL) {
@@ -489,7 +493,7 @@ ExitStatus readArgs(
                 break;
 
         }
-        
+
        /* Reset longindex, because getopt_long_only() is stupid and doesn't.
         */
         longindex = -1;
@@ -587,7 +591,7 @@ void logUsedKexts(
 
             CFStringGetCString(kextID, kextIDCString, sizeof(kextIDCString),
                                kCFStringEncodingUTF8);
-            
+
             snprintf(tmpBuffer, sizeof(tmpBuffer), "[Logging for XBS] Used kext bundle identifier: %s\n", kextIDCString);
             tmpBufLen = strlen(tmpBuffer);
             writeSize = write(fd, tmpBuffer, tmpBufLen);
@@ -617,7 +621,7 @@ ExitStatus readPrelinkedKernelArgs(
         filename = argv[optind];
         optind++;
     }
-    
+
     if (filename && !filename[0]) {
         filename = NULL;
     }
@@ -676,8 +680,8 @@ void addArch(
     KcgenArgs * toolArgs,
     const NXArchInfo  * arch)
 {
-    if (CFArrayContainsValue(toolArgs->targetArchs, 
-        RANGE_ALL(toolArgs->targetArchs), arch)) 
+    if (CFArrayContainsValue(toolArgs->targetArchs,
+        RANGE_ALL(toolArgs->targetArchs), arch))
     {
         return;
     }
@@ -692,14 +696,14 @@ const NXArchInfo * addArchForName(
     const char    * archname)
 {
     const NXArchInfo * result = NULL;
-    
+
     result = NXGetArchInfoFromName(archname);
     if (!result) {
         goto finish;
     }
 
     addArch(toolArgs, result);
-    
+
 finish:
     return result;
 }
@@ -717,9 +721,9 @@ ExitStatus checkArgs(KcgenArgs * toolArgs)
             "Error - no work to do; check options and try again.");
         goto finish;
     }
-    
+
     if (!CFArrayGetCount(toolArgs->argURLs) &&
-        !toolArgs->compress && !toolArgs->uncompress) 
+        !toolArgs->compress && !toolArgs->uncompress)
     {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
@@ -738,7 +742,7 @@ ExitStatus checkArgs(KcgenArgs * toolArgs)
         toolArgs->compress = true;
         toolArgs->uncompress = false;
     }
-    
+
     result = EX_OK;
 
 finish:
@@ -769,7 +773,7 @@ void filterKextID(const void * vValue, void * vContext)
 
         CFStringGetCString(kextID, kextIDCString, sizeof(kextIDCString),
             kCFStringEncodingUTF8);
-            
+
         if (context->optional) {
             OSKextLog(/* kext */ NULL,
                     kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
@@ -787,7 +791,7 @@ void filterKextID(const void * vValue, void * vContext)
     if (checkKextForProblems(context->toolArgs, theKext, context->arch)) {
         if (!context->optional) {
             OSKextLog(/* kext */ NULL,
-                    kOSKextLogErrorLevel | kOSKextLogGeneralFlag, 
+                    kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
                     "Error - a required kext was omitted");
             context->error = true;
         }
@@ -795,13 +799,13 @@ void filterKextID(const void * vValue, void * vContext)
     }
 
     if (!CFArrayContainsValue(context->kextArray,
-            RANGE_ALL(context->kextArray), theKext)) 
+            RANGE_ALL(context->kextArray), theKext))
     {
         CFArrayAppendValue(context->kextArray, theKext);
     }
 
 finish:
-    return;    
+    return;
 }
 
 /*******************************************************************************
@@ -817,11 +821,11 @@ ExitStatus checkKextForProblems(
     boolean_t           present;
 
     if (!CFURLGetFileSystemRepresentation(OSKextGetURL(theKext),
-                              /* resolveToBase */ false, (UInt8 *)kextPath, sizeof(kextPath))) 
+                              /* resolveToBase */ false, (UInt8 *)kextPath, sizeof(kextPath)))
     {
         strlcpy(kextPath, "(unknown)", sizeof(kextPath));
     }
-    
+
     /* Skip kexts we have no interest in for the current arch.
      */
     if (!OSKextSupportsArchitecture(theKext, arch)) {
@@ -831,11 +835,11 @@ ExitStatus checkKextForProblems(
                   arch->name);
         goto finish;
     }
-    
+
     if (!OSKextIsValid(theKext)) {
         OSKextLog(/* kext */ NULL,
                   kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
-                  kOSKextLogValidationFlag | kOSKextLogGeneralFlag, 
+                  kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
                   "%s is not valid; omitting.", kextPath);
         if (toolArgs->printTestResults) {
             OSKextLogDiagnostics(theKext, kOSKextDiagnosticsFlagAll);
@@ -846,7 +850,7 @@ ExitStatus checkKextForProblems(
     if (!OSKextResolveDependencies(theKext)) {
         OSKextLog(/* kext */ NULL,
                   kOSKextLogWarningLevel | kOSKextLogArchiveFlag |
-                  kOSKextLogDependenciesFlag | kOSKextLogGeneralFlag, 
+                  kOSKextLogDependenciesFlag | kOSKextLogGeneralFlag,
                   "%s is missing dependencies (including anyway; "
                   "dependencies may be available from elsewhere)", kextPath);
         if (toolArgs->printTestResults) {
@@ -855,7 +859,7 @@ ExitStatus checkKextForProblems(
     }
 
     result = EX_OK;
-    
+
 finish:
     return result;
 
@@ -945,7 +949,7 @@ createPrelinkedKernelArchs(
     CFMutableArrayRef   prelinkArchs    = NULL;  // must release
     const NXArchInfo  * targetArch      = NULL;  // do not free
     int                 i               = 0;
-    
+
     result = readFatFileArchsWithPath(toolArgs->kernelPath, &kernelArchs);
     if (result != EX_OK) {
         goto finish;
@@ -962,7 +966,7 @@ createPrelinkedKernelArchs(
     for (i = 0; i < CFArrayGetCount(prelinkArchs); ++i) {
         targetArch = CFArrayGetValueAtIndex(prelinkArchs, i);
         if (!CFArrayContainsValue(kernelArchs,
-            RANGE_ALL(kernelArchs), targetArch)) 
+            RANGE_ALL(kernelArchs), targetArch))
         {
             OSKextLog(/* kext */ NULL,
                       kOSKextLogWarningLevel | kOSKextLogArchiveFlag,
@@ -1007,7 +1011,7 @@ createPrelinkedKernel(
     int                 j                   = 0;
 
     bzero(prelinkFileTimes, sizeof(prelinkFileTimes));
-        
+
     result = createPrelinkedKernelArchs(toolArgs, &prelinkArchs);
     if (result != EX_OK) {
         goto finish;
@@ -1016,16 +1020,16 @@ createPrelinkedKernel(
 
     prelinkSlices = CFArrayCreateMutable(kCFAllocatorDefault,
         numArchs, &kCFTypeArrayCallBacks);
-    generatedSymbols = CFArrayCreateMutable(kCFAllocatorDefault, 
+    generatedSymbols = CFArrayCreateMutable(kCFAllocatorDefault,
         numArchs, &kCFTypeArrayCallBacks);
-    generatedArchs = CFArrayCreateMutable(kCFAllocatorDefault, 
+    generatedArchs = CFArrayCreateMutable(kCFAllocatorDefault,
         numArchs, NULL);
     if (!prelinkSlices || !generatedSymbols || !generatedArchs) {
         OSKextLogMemError();
         result = EX_OSERR;
         goto finish;
     }
-    
+
     for (i = 0; i < numArchs; i++) {
         targetArch = CFArrayGetValueAtIndex(prelinkArchs, i);
 
@@ -1036,7 +1040,7 @@ createPrelinkedKernel(
         * running architecture if asked, but we'll reuse existing slices
         * for other architectures if possible.
         */
-        if (existingArchs && 
+        if (existingArchs &&
             targetArch != OSKextGetRunningKernelArchitecture())
         {
             j = (int)CFArrayGetFirstIndexOfValue(existingArchs,
@@ -1052,12 +1056,12 @@ createPrelinkedKernel(
                 continue;
             }
         }
-        
+
         OSKextLog(/* kext */ NULL,
                   kOSKextLogDebugLevel | kOSKextLogArchiveFlag,
                   "Generating a new prelinked slice for arch %s",
                   targetArch->name);
-        
+
         result = createPrelinkedKernelForArch(toolArgs, &prelinkSlice,
             &sliceSymbols, targetArch);
         if (result != EX_OK) {
@@ -1087,18 +1091,18 @@ createPrelinkedKernel(
     if (result != EX_OK) {
         goto finish;
     }
-     
+
     if (toolArgs->symbolDirURL) {
-        result = writePrelinkedSymbols(toolArgs->symbolDirURL, 
+        result = writePrelinkedSymbols(toolArgs->symbolDirURL,
             generatedSymbols, generatedArchs);
         if (result != EX_OK) {
             goto finish;
         }
     }
-    
+
     OSKextLog(/* kext */ NULL,
         kOSKextLogBasicLevel | kOSKextLogGeneralFlag | kOSKextLogArchiveFlag,
-        "Created prelinked kernel %s.", 
+        "Created prelinked kernel %s.",
         toolArgs->prelinkedKernelPath);
 
     result = EX_OK;
@@ -1130,7 +1134,7 @@ ExitStatus createPrelinkedKernelForArch(
     CFDataRef prelinkedKernel = NULL;
     uint32_t flags = 0;
     Boolean fatalOut = false;
-    
+
     /* Retrieve the kernel image for the requested architecture.
      */
     kernelImage = readMachOSliceForArch(toolArgs->kernelPath, archInfo, /* checkArch */ TRUE);
@@ -1144,6 +1148,11 @@ ExitStatus createPrelinkedKernelForArch(
     /* Set suffix for kext executables from kernel path
      */
     OSKextSetExecutableSuffix(NULL, toolArgs->kernelPath);
+
+    /* Set current target if there is one */
+    if (toolArgs->targetForKextVariants) {
+        OSKextSetTargetString(toolArgs->targetForKextVariants);
+    }
 
     /* Set the architecture in the OSKext library */
 
@@ -1216,7 +1225,7 @@ ExitStatus createPrelinkedKernelForArch(
     } else {
         *prelinkedKernelOut = CFRetain(prelinkedKernel);
     }
-    
+
     if (!*prelinkedKernelOut) {
         goto finish;
     }
@@ -1248,13 +1257,13 @@ ExitStatus compressPrelinkedKernel(
     const u_char      * sliceBytes      = NULL; // do not free
     mode_t              fileMode        = 0;
     int                 i               = 0;
-    
-    result = readMachOSlices(prelinkPath, &prelinkedSlices, 
+
+    result = readMachOSlices(prelinkPath, &prelinkedSlices,
         &prelinkedArchs, &fileMode, prelinkedKernelTimes);
     if (result != EX_OK) {
         goto finish;
     }
-    
+
     /* Compress/uncompress each slice of the prelinked kernel.
      */
 
@@ -1317,7 +1326,7 @@ ExitStatus compressPrelinkedKernel(
         goto finish;
     }
 
-    result = writeFatFile(prelinkPath, prelinkedSlices, 
+    result = writeFatFile(prelinkPath, prelinkedSlices,
         prelinkedArchs, fileMode, prelinkedKernelTimes);
     if (result != EX_OK) {
         goto finish;
@@ -1377,6 +1386,11 @@ loadList(
 
     /* Set suffix for kext executables from kernel path */
     OSKextSetExecutableSuffix(NULL, toolArgs->kernelPath);
+
+    /* Set current target if there is one */
+    if (toolArgs->targetForKextVariants) {
+        OSKextSetTargetString(toolArgs->targetForKextVariants);
+    }
 
     /* Set the architecture in the OSKext library */
     if (!OSKextSetArchitecture(targetArch)) {
@@ -1460,7 +1474,7 @@ loadList(
         CFArrayAppendValue(bundleList, infoDict);
         CFRelease(infoDict);
 
-        if (!OSKextIsInterface(aKext) && (moduleURL = OSKextGetExecutableURL(aKext)))
+        if (!OSKextIsInterface(aKext) && (moduleURL = OSKextGetKernelExecutableURL(aKext)))
         {
             if (!CFURLGetFileSystemRepresentation(moduleURL, true, (UInt8 *)path, PATH_MAX))
             {
@@ -1630,7 +1644,7 @@ void usage(UsageLevel usageLevel)
     fprintf(stderr, "-%s (-%c):\n"
         "        print diagnostics for kexts with problems\n",
         kOptNameTests, kOptTests);
-    
+
     fprintf(stderr, "-%s (-%c): print this message and exit\n",
         kOptNameHelp, kOptHelp);
 

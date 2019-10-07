@@ -38,7 +38,7 @@
 #include <Security/Security.h>
 #include <Security/SecTask.h>
 
-#define SC_LOG_HANDLE		__log_SCHelper()
+#define SC_LOG_HANDLE		__log_SCHelper
 #define SC_LOG_HANDLE_TYPE	static
 #include "SCPreferencesInternal.h"
 #include "SCHelper_client.h"

@@ -134,7 +134,7 @@ rmslashes(const char *rrpin, char rrpout[MAXPATHLEN])
 {
 	char *rrpoutstart;
 
-	for (rrpoutstart = rrpout; *rrpin != '\0'; *rrpout++ = *rrpin++) {
+    for (rrpoutstart = rrpout; (*rrpin != '\0') && (rrpout - rrpoutstart < MAXPATHLEN - 1); *rrpout++ = *rrpin++) {
 		/* skip all double slashes */
 		while (*rrpin == '/' && *(rrpin + 1) == '/')
 			 rrpin++;

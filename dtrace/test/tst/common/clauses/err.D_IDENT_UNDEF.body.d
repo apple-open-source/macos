@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_IDENT_UNDEF.body.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Test a clause where an unknown identifier appears in a clause.
  * SECTION:   Program Structure / Probe Clauses and Declarations

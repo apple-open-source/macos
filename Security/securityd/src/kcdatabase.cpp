@@ -43,6 +43,7 @@
 #include "server.h"
 #include "session.h"
 #include "notifications.h"
+#include "SecRandom.h"
 #include <vector>           // @@@  4003540 workaround
 #include <security_cdsa_utilities/acl_any.h>	// for default owner ACLs
 #include <security_cdsa_utilities/cssmendian.h>
@@ -53,6 +54,7 @@
 #include <security_cdsa_client/macclient.h>
 #include <securityd_client/dictionary.h>
 #include <security_utilities/endian.h>
+#include <security_utilities/errors.h>
 #include "securityd_service/securityd_service/securityd_service_client.h"
 #include <AssertMacros.h>
 #include <syslog.h>
@@ -265,7 +267,8 @@ KeychainDatabase::KeychainDatabase(const DLDbIdentifier &id, const DBParameters 
 
     // create a new random signature to complete the DLDbIdentifier
     DbBlob::Signature newSig;
-    Server::active().random(newSig.bytes);
+    
+    (MacOSError::check)(SecRandomCopyBytes(kSecRandomDefault, sizeof(newSig.bytes), newSig.bytes));
     DbIdentifier ident(id, newSig);
 	
     // create common block and initialize
@@ -279,7 +282,7 @@ KeychainDatabase::KeychainDatabase(const DLDbIdentifier &id, const DBParameters 
 	// new common is now visible (in ident-map) but we hold its lock
 
 	// establish the new master secret
-	establishNewSecrets(cred, SecurityAgent::newDatabase);
+	establishNewSecrets(cred, SecurityAgent::newDatabase, false);
 	
 	// set initial database parameters
 	common().mParams = params;
@@ -685,7 +688,6 @@ void KeychainDatabase::encode()
 		common().mParams.idleTimeout, common().mParams.lockOnSleep);
 }
 
-
 //
 // Change the passphrase on a database
 //
@@ -694,18 +696,34 @@ void KeychainDatabase::changePassphrase(const AccessCredentials *cred)
 	// get and hold the common lock (don't let other threads break in here)
 	StLock<Mutex> _(common());
 
-    if (!checkCredentials(cred)) {
+    list<CssmSample> samples;
+    bool hasOldSecret = cred && cred->samples().collect(CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK, samples);
+    samples.clear();    // Can't count the samples at the end because I could specify CSSM_SAMPLE_TYPE_KEYCHAIN_CHANGE_LOCK twice
+    bool hasNewSecret = cred && cred->samples().collect(CSSM_SAMPLE_TYPE_KEYCHAIN_CHANGE_LOCK, samples);
+
+    // If no creds we do interactive, if both we do silently. If unequal, think harder.
+    if (hasOldSecret != hasNewSecret) {
+        if (!hasOldSecret && !isLocked()) {
+            // Alternative: do a confirm_access SA dialog and run validatePassphrase on it (what client name?)
+            // That's risky for now, but it would cover the remaining use case.
+            secerror("KCdb: changePassphrase credential set has no old secret and KC not locked");
+            MacOSError::throwMe(errSecAuthFailed);
+        }
+    }
+
+    secnotice("KCdb", "changePassphrase proceeding with old %i, new %i, locked %i", hasOldSecret, hasNewSecret, isLocked());
+
+    if (hasOldSecret && !checkCredentials(cred)) {
         secinfo("KCdb", "Cannot change passphrase for (%s): existing passphrase does not match", common().dbName());
         MacOSError::throwMe(errSecAuthFailed);
     }
 
-	// establish OLD secret - i.e. unlock the database
-	//@@@ do we want to leave the final lock state alone?
+	// establish OLD secret - i.e. unlock the database. You'll be prompted if !hasOldSecrets and DB is locked.
     if (common().isLoginKeychain()) mSaveSecret = true;
 	makeUnlocked(cred, false);
 	
     // establish NEW secret
-    if(!establishNewSecrets(cred, SecurityAgent::changePassphrase)) {
+    if(!establishNewSecrets(cred, SecurityAgent::changePassphrase, true)) {
         secinfo("KCdb", "Old and new passphrases are the same. Database %s(%p) master secret did not change.",
                  common().dbName(), this);
         return;
@@ -1227,7 +1245,7 @@ uint32_t KeychainDatabase::getInteractiveUnlockAttempts() {
 //
 // Same thing, but obtain a new secret somehow and set it into the common.
 //
-bool KeychainDatabase::establishNewSecrets(const AccessCredentials *creds, SecurityAgent::Reason reason)
+bool KeychainDatabase::establishNewSecrets(const AccessCredentials *creds, SecurityAgent::Reason reason, bool change)
 {
 	list<CssmSample> samples;
 	if (creds && creds->samples().collect(CSSM_SAMPLE_TYPE_KEYCHAIN_CHANGE_LOCK, samples)) {
@@ -1321,6 +1339,10 @@ bool KeychainDatabase::establishNewSecrets(const AccessCredentials *creds, Secur
         SecurityAgent::Reason reason(query(oldPassphrase, passphrase));
         uisync.unlock();
 		if (reason == SecurityAgent::noReason) {
+            // If the DB was already unlocked then we have not yet checked the caller knows the old passphrase. Do so here.
+            if (change && !validatePassphrase(oldPassphrase.get())) {
+                MacOSError::throwMe(errSecAuthFailed);
+            }
 			common().setup(NULL, passphrase);
             change_secret_on_keybag(*this, oldPassphrase.data(), (int)oldPassphrase.length(), passphrase.data(), (int)passphrase.length());
 			return true;

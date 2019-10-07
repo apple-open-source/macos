@@ -80,14 +80,14 @@ ifbifconf_copy(int s, const char * ifname)
 	struct ifdrv		ifd;
 	uint32_t		len	= sizeof(struct ifbreq) * 16;
 
-	bzero(&ifd, sizeof(ifd));
+	memset(&ifd, 0, sizeof(ifd));
 	strlcpy(ifd.ifd_name, ifname, sizeof(ifd.ifd_name));
 	ifd.ifd_cmd = BRDGGIFS;
 
 	buflen = sizeof(struct ifbifconf) + len;
 	buf = malloc(buflen);
 	while (buf != NULL) {
-		bzero(buf, buflen);
+		memset(buf, 0, buflen);
 		ibc_p = (struct ifbifconf *)buf;
 		ibc_p->ifbic_len = len;
 		ibc_p->ifbic_buf = buf + sizeof(*ibc_p);
@@ -949,7 +949,7 @@ __bridge_add_interface(int s, CFStringRef bridge_if, CFStringRef interface_if)
 	struct ifdrv	ifd;
 
 	// bridge interface
-	bzero(&ifd, sizeof(ifd));
+	memset(&ifd, 0, sizeof(ifd));
 	(void) _SC_cfstring_to_cstring(bridge_if,
 				       ifd.ifd_name,
 				       sizeof(ifd.ifd_name),
@@ -959,7 +959,7 @@ __bridge_add_interface(int s, CFStringRef bridge_if, CFStringRef interface_if)
 	ifd.ifd_data = (caddr_t)&breq;
 
 	// new bridge member
-	bzero(&breq, sizeof(breq));
+	memset(&breq, 0, sizeof(breq));
 	(void) _SC_cfstring_to_cstring(interface_if,
 				       breq.ifbr_ifsname,
 				       sizeof(breq.ifbr_ifsname),
@@ -987,7 +987,7 @@ __bridge_remove_interface(int s, CFStringRef bridge_if, CFStringRef interface_if
 	struct ifdrv	ifd;
 
 	// bridge interface
-	bzero(&ifd, sizeof(ifd));
+	memset(&ifd, 0, sizeof(ifd));
 	(void) _SC_cfstring_to_cstring(bridge_if,
 				       ifd.ifd_name,
 				       sizeof(ifd.ifd_name),
@@ -997,7 +997,7 @@ __bridge_remove_interface(int s, CFStringRef bridge_if, CFStringRef interface_if
 	ifd.ifd_data = (caddr_t)&breq;
 
 	// bridge member to remove
-	bzero(&breq, sizeof(breq));
+	memset(&breq, 0, sizeof(breq));
 	(void) _SC_cfstring_to_cstring(interface_if,
 				       breq.ifbr_ifsname,
 				       sizeof(breq.ifbr_ifsname),
@@ -1023,7 +1023,7 @@ __bridge_set_mac(int s, CFStringRef bridge_if, CFDataRef macAddr)
 {
 	struct ifreq	ifr;
 
-	bzero(&ifr, sizeof(ifr));
+	memset(&ifr, 0, sizeof(ifr));
 	(void) _SC_cfstring_to_cstring(bridge_if,
 				       ifr.ifr_name,
 				       sizeof(ifr.ifr_name),

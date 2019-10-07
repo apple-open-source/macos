@@ -1,17 +1,18 @@
 #include <dt_impl.h>
 #include <dt_provider.h>
+
 #include <ctype.h>
-#include <TargetConditionals.h>
+#include <string.h>
 #include <mach/machine.h>
 
-#if TARGET_OS_EMBEDDED
+#if DTRACE_TARGET_APPLE_EMBEDDED
 #include <sys/sysctl.h>
-#else
+#elif DTRACE_TARGET_APPLE_MAC
 #include <sys/csr.h>
 #endif
 
 int
-dt_probe_noprobe_errno(dtrace_hdl_t *dtp, dtrace_probedesc_t *pdp)
+dt_probe_noprobe_errno(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp)
 {
 	dt_provider_t *pvp;
 	/*
@@ -34,12 +35,12 @@ dt_probe_noprobe_errno(dtrace_hdl_t *dtp, dtrace_probedesc_t *pdp)
 	 * actually exist).
 	 */
 
-#if !TARGET_OS_EMBEDDED
+#if DTRACE_TARGET_APPLE_MAC
 	if (csr_check(CSR_ALLOW_UNRESTRICTED_DTRACE) != 0) {
-		return EDT_PROBE_RESTRICTED;
+		return EDT_PROBERESTRICTED;
 	}
-#else
-#endif
+#elif DTRACE_TARGET_APPLE_EMBEDDED
+#endif /* DTRACE_TARGET_APPLE_EMBEDDED */
 
 	return EDT_NOPROBE;
 }

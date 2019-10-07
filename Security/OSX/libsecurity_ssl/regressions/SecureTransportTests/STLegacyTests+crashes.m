@@ -43,6 +43,8 @@
 #include <Security/SecItem.h>
 #include <Security/SecRandom.h>
 
+#include <utilities/SecCFRelease.h>
+
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -55,6 +57,9 @@
 #endif
 
 #include "ssl-utils.h"
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 @implementation STLegacyTests (crashes)
 
@@ -70,7 +75,7 @@ typedef struct {
 #pragma mark -
 #pragma mark SecureTransport support
 
-#if 0
+#if SECTRANS_VERBOSE_DEBUG
 static void hexdump(const char *s, const uint8_t *bytes, size_t len) {
 	size_t ix;
     printf("socket %s(%p, %lu)\n", s, bytes, len);
@@ -189,12 +194,10 @@ static void *securetransport_ssl_thread(void *arg)
     SSLContextRef ctx = ssl->st;
     bool got_server_auth = false;
 
-    //uint64_t start = mach_absolute_time();
     do {
         ortn = SSLHandshake(ctx);
 
-        if (ortn == errSSLServerAuthCompleted)
-        {
+        if (ortn == errSSLServerAuthCompleted) {
             require_string(!got_server_auth, out, "second server auth");
             got_server_auth = true;
         }
@@ -242,10 +245,6 @@ ssl_test_handle_create(bool server, int comm, CFArrayRef certs)
     require_noerr(SSLSetSessionOption(ctx,
                                       kSSLSessionOptionBreakOnServerAuth, true), out);
 
-    /* Tell SecureTransport to not check certs itself: it will break out of the
-     handshake to let us take care of it instead. */
-    require_noerr(SSLSetEnableCertVerify(ctx, false), out);
-
     handle->is_server = server;
     handle->comm = comm;
     handle->certs = certs;
@@ -267,10 +266,11 @@ out:
 
     int i;
 
-    for(i=0; i<4; i++)
-    {
+    for (i = 0; i < 4; i++) {
         int sp[2];
-        if (socketpair(AF_UNIX, SOCK_STREAM, 0, sp)) exit(errno);
+        if (socketpair(AF_UNIX, SOCK_STREAM, 0, sp)) {
+            exit(errno);
+        }
         fcntl(sp[0], F_SETNOSIGPIPE, 1);
         fcntl(sp[1], F_SETNOSIGPIPE, 1);
 
@@ -279,8 +279,8 @@ out:
         server = ssl_test_handle_create(true /*server*/, sp[0], server_certs);
         client = ssl_test_handle_create(false/*client*/, sp[1], NULL);
 
-        server->test=i;
-        client->test=i;
+        server->test = i;
+        client->test = i;
 
         require(client, out);
         require(server, out);
@@ -308,3 +308,5 @@ out:
 }
 
 @end
+
+#pragma clang diagnostic pop

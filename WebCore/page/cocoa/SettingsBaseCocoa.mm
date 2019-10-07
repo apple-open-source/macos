@@ -30,13 +30,8 @@
 
 #if PLATFORM(IOS_FAMILY)
 #include "Device.h"
+#include <pal/ios/UIKitSoftLink.h>
 #include <pal/spi/ios/UIKitSPI.h>
-#include <wtf/SoftLinking.h>
-#endif
-
-#if PLATFORM(IOS_FAMILY)
-SOFT_LINK_FRAMEWORK(UIKit)
-SOFT_LINK_CLASS(UIKit, UIApplication)
 #endif
 
 namespace WebCore {
@@ -66,6 +61,11 @@ void SettingsBase::initializeDefaultFontFamilies()
     setSansSerifFontFamily("Helvetica", USCRIPT_COMMON);
 }
 
+bool SettingsBase::platformDefaultMediaSourceEnabled()
+{
+    return true;
+}
+
 #else
 
 void SettingsBase::initializeDefaultFontFamilies()
@@ -83,15 +83,14 @@ void SettingsBase::initializeDefaultFontFamilies()
 
 bool SettingsBase::defaultTextAutosizingEnabled()
 {
-    return !deviceHasIPadCapability() || [[getUIApplicationClass() sharedApplication] _isClassic];
+    return true;
 }
 
 #endif
 
 const String& SettingsBase::defaultMediaContentTypesRequiringHardwareSupport()
 {
-    static NeverDestroyed<String> defaultMediaContentTypes { "video/mp4;codecs=hvc1:video/mp4;codecs=hev1" };
-    return defaultMediaContentTypes;
+    return emptyString();
 }
 
 } // namespace WebCore

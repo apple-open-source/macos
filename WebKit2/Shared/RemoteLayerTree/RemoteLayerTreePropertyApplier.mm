@@ -261,6 +261,9 @@ void RemoteLayerTreePropertyApplier::applyProperties(RemoteLayerTreeNode& node, 
     updateChildren(node, properties, relatedLayers);
     updateMask(node, properties, relatedLayers);
 
+    if (properties.changedProperties & RemoteLayerTreeTransaction::EventRegionChanged)
+        node.setEventRegion(properties.eventRegion);
+
 #if PLATFORM(IOS_FAMILY)
     applyPropertiesToUIView(node.uiView(), properties, relatedLayers);
 #endif

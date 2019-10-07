@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -172,37 +172,38 @@ S_timestamp(char * msg)
 #endif /* DEBUG */
 
 static void
-SubnetPrint(SubnetRef subnet)
+SubnetPrintCFString(CFMutableStringRef str, SubnetRef subnet)
 {
-    printf("Subnet '%s'", 
-	   (subnet->name != NULL) 
-	   ? subnet->name : inet_nettoa(subnet->net_address, subnet->net_mask));
+    STRING_APPEND(str, "Subnet '%s'", 
+		  (subnet->name != NULL) 
+		  ? subnet->name
+		  : inet_nettoa(subnet->net_address, subnet->net_mask));
     if (subnet->supernet != NULL) {
-	printf(": supernet %s\n", subnet->supernet);
+	STRING_APPEND(str, ": supernet %s\n", subnet->supernet);
     }
     else {
-	printf("\n");
+	STRING_APPEND(str, "\n");
     }
-    printf("\tNetwork: %s", inet_ntoa(subnet->net_address));
-    printf("/%s\n", inet_ntoa(subnet->net_mask));
-    printf("\tRange: %s..", inet_ntoa(subnet->net_range.start));
-    printf("%s\n", inet_ntoa(subnet->net_range.end));
-    printf("\tAllocate: %s\n", (subnet->allocate) ? "yes" : "no");
+    STRING_APPEND(str, "\tNetwork: %s", inet_ntoa(subnet->net_address));
+    STRING_APPEND(str, "/%s\n", inet_ntoa(subnet->net_mask));
+    STRING_APPEND(str, "\tRange: %s..", inet_ntoa(subnet->net_range.start));
+    STRING_APPEND(str, "%s\n", inet_ntoa(subnet->net_range.end));
+    STRING_APPEND(str, "\tAllocate: %s\n", (subnet->allocate) ? "yes" : "no");
     if (subnet->allocate) {
-	printf("\tLease Min: %d   Lease Max: %d\n", 
-	       subnet->lease_min, subnet->lease_max);
+	STRING_APPEND(str, "\tLease Min: %d   Lease Max: %d\n", 
+		      subnet->lease_min, subnet->lease_max);
     }
     if (subnet->options_count != 0) {
 	int 	i;
 
-	printf("\tOptions:\n");
-	printf("\t%6s %6s   %s\n", "Code", "Length", "Data");
+	STRING_APPEND(str, "\tOptions:\n");
+	STRING_APPEND(str, "\t%6s %6s   %s\n", "Code", "Length", "Data");
 	for (i = 0; i < subnet->options_count; i++) {
-	    printf("\t%6d %6d   ",
-		   subnet->options[i].tag, subnet->options[i].length);
-	    print_bytes((void *)subnet->options[i].value, 
-			subnet->options[i].length);
-	    printf("\n");
+	    STRING_APPEND(str, "\t%6d %6d   ",
+			  subnet->options[i].tag, subnet->options[i].length);
+	    print_bytes_cfstr(str, (void *)subnet->options[i].value, 
+			      subnet->options[i].length);
+	    STRING_APPEND(str, "\n");
 	}
     }
     return;
@@ -299,31 +300,6 @@ S_get_plist_boolean(CFDictionaryRef plist, CFStringRef key, bool d)
 	ret = CFBooleanGetValue(b);
     }
     return (ret);
-}
-
-static char *
-myCFStringCreateCStringWithRange(CFStringRef cfstr,
-				 CFRange range, CFStringEncoding encoding)
-{
-    CFIndex	len = 0;
-    char *	str;
-
-    CFStringGetBytes(cfstr, range, encoding, 0, FALSE, NULL, 0, &len);
-    if (len == 0) {
-	return (NULL);
-    }
-    str = malloc(len + 1);
-    CFStringGetBytes(cfstr, range, encoding, 0, FALSE, (UInt8 *)str, len, &len);
-    str[len] = '\0';
-    return (str);
-}
-
-static char *
-myCFStringCreateCString(CFStringRef cfstr, CFStringEncoding encoding)
-{
-    CFRange	range;
-    range = CFRangeMake(0, CFStringGetLength(cfstr));
-    return (myCFStringCreateCStringWithRange(cfstr, range, encoding));
 }
 
 static CFDataRef
@@ -449,31 +425,15 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 		}
 	    }
 	    break;
-	case dhcptype_dns_namelist_e: {
-	    uint8_t *	encoded;
-	    int		encoded_length;
-	    char *	str;
-
-	    str = myCFStringCreateCString(value, kCFStringEncodingUTF8);
-	    if (str == NULL) {
-		if (err != NULL) {
-		    strlcpy(err, "Failed to convert to string", err_len);
-		}
-		goto done;
-	    }
-	    encoded = DNSNameListBufferCreate((const char * *)&str, 1, 
-					      NULL, &encoded_length);
-	    free(str);
-	    if (encoded == NULL) {
+	case dhcptype_dns_namelist_e:
+	    data = DNSNameListDataCreateWithString(value);
+	    if (data == NULL) {
 		if (err != NULL) {
 		    strlcpy(err, "Failed to encode DNS search", err_len);
 		}
 		goto done;
 	    }
-	    data = CFDataCreate(NULL, encoded, encoded_length);
-	    free(encoded);
 	    break;
-	}
 	default:
 	    if (err != NULL) {
 		snprintf(err, err_len, "Failed to convert from string to %s",
@@ -587,45 +547,12 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 	    CFRelease(d);
 	    break;
 	}
-	case dhcptype_dns_namelist_e: {
-	    uint8_t *	encoded;
-	    int		encoded_length;
-	    char * *	strlist;
-	    int		strlist_count;
-	    int		strlist_size;
-
-	    /* find out how much space to allocate */
-	    if (my_CFStringArrayToCStringArray(value, NULL, &strlist_size,
-					       &strlist_count) == FALSE) {
-		if (err != NULL) {
-		    strlcpy(err, "Could not convert DNS search to string list",
-			    err_len);
-		}
-		goto done;
+	case dhcptype_dns_namelist_e:
+	    data = DNSNameListDataCreateWithArray(value, TRUE);
+	    if (data == NULL) {
+		strlcpy(err, "Failed to encode DNS search",  err_len);
 	    }
-	    /* allocate and populate */
-	    strlist = (char * *)malloc(strlist_size);
-	    if (my_CFStringArrayToCStringArray(value,
-					       (char *)strlist, &strlist_size,
-					       &strlist_count) == FALSE) {
-		free(strlist);
-		goto done;
-	    }
-	    encoded = DNSNameListBufferCreate((const char * *)strlist,
-					      strlist_count,
-					      NULL, &encoded_length);
-	    free(strlist);
-	    if (encoded == NULL) {
-		if (err != NULL) {
-		    strlcpy(err, "Failed to encode DNS search", 
-			    err_len);
-		}
-		goto done;
-	    }
-	    data = CFDataCreate(NULL, encoded, encoded_length);
-	    free(encoded);
 	    break;
-	}
 	case dhcptype_classless_route_e: {
 	    IPv4ClasslessRouteRef	list;
 	    int				list_count;
@@ -705,15 +632,15 @@ createOptionsDataArrayFromDictionary(CFDictionaryRef plist, int * ret_space)
 	dhcptag_t		tag;
 	CFDataRef		this_data;
 	CFStringRef		this_key = keys[i];
-	CFStringRef		this_value = values[i];
+	CFTypeRef		this_value = values[i];
 
 	if (CFStringHasPrefix(this_key, CFSTR("dhcp_")) == FALSE) {
 	    /* not a DHCP option */
 	    continue;
 	}
 	range = CFRangeMake(5, CFStringGetLength(this_key));
-	option_name = myCFStringCreateCStringWithRange(this_key, range,
-						       kCFStringEncodingASCII);
+	option_name = my_CFStringToCStringWithRange(this_key, range,
+						    kCFStringEncodingASCII);
 	if (option_name == NULL) {
 	    continue;
 	}
@@ -727,7 +654,7 @@ createOptionsDataArrayFromDictionary(CFDictionaryRef plist, int * ret_space)
 	    /* redundant, subnet mask comes from net_mask property */
 	    goto loop_done;
 	}
-	this_data = myCFDataCreateWithTagAndCFType(tag, (CFTypeRef)this_value,
+	this_data = myCFDataCreateWithTagAndCFType(tag, this_value,
 						   err, sizeof(err));
 	if (this_data != NULL) {
 	    CFMutableDictionaryRef	dict;
@@ -1230,19 +1157,31 @@ SubnetListFree(SubnetListRef * subnets_p)
 }
 
 void
-SubnetListPrint(SubnetListRef subnets)
+SubnetListPrintCFString(CFMutableStringRef str, SubnetListRef subnets)
 {
-    int		count;
-    int		i;
+    int			count;
+    int			i;
 
     count = SubnetListCount(subnets);
-    printf("There are %d entries\n", count);
+    STRING_APPEND(str, "Subnets[%d]\n", count);
     for (i = 0; i < count; i++) {
 	SubnetRef	entry = SubnetListElement(subnets, i);
 
-	printf("%2d. ", i + 1);
-	SubnetPrint(entry);
+	STRING_APPEND(str, "%2d. ", i + 1);
+	SubnetPrintCFString(str, entry);
     }
+    return;
+}
+
+void
+SubnetListPrint(SubnetListRef subnets)
+{
+    CFMutableStringRef	str;
+
+    str = CFStringCreateMutable(NULL, 0);
+    SubnetListPrintCFString(str, subnets);
+    my_CFStringPrint(stdout, str);
+    CFRelease(str);
     return;
 }
 
@@ -1326,6 +1265,17 @@ SubnetListAreAddressesOnSameSupernet(SubnetListRef subnets,
 
 #ifdef TEST_SUBNETS
 
+static void
+SubnetPrint(SubnetRef subnet)
+{
+    CFMutableStringRef	str;
+
+    str = CFStringCreateMutable(NULL, 0);
+    SubnetPrintCFString(str, subnet);
+    my_CFStringPrint(stdout, str);
+    CFRelease(str);
+}
+
 int
 main(int argc, const char * argv[])
 {
@@ -1348,13 +1298,13 @@ main(int argc, const char * argv[])
 	struct in_addr	ip;
 	SubnetRef	subnet;
 
-	inet_aton("17.202.42.110", &ip);
+	inet_aton("10.0.1.10", &ip);
 	SubnetListPrint(subnets);
 
 	subnet = SubnetListAcquireAddress(subnets, &ip, NULL, NULL);
 	if (subnet != NULL) {
+	    printf("Allocated %s from:\n", inet_ntoa(ip));
 	    SubnetPrint(subnet);
-	    printf("Allocated %s\n", inet_ntoa(ip));
 	}
 	SubnetListFree(&subnets);
     }

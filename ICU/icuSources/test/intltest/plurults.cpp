@@ -6,7 +6,7 @@
 * others. All Rights Reserved.
 ********************************************************************************
 
-* File PLURRULTS.cpp
+* File PLURULTS.cpp
 *
 ********************************************************************************
 */
@@ -22,6 +22,7 @@
 #include "unicode/localpointer.h"
 #include "unicode/plurrule.h"
 #include "unicode/stringpiece.h"
+#include "unicode/numberformatter.h"
 
 #include "cmemory.h"
 #include "plurrule_impl.h"
@@ -53,6 +54,8 @@ void PluralRulesTest::runIndexedTest( int32_t index, UBool exec, const char* &na
     TESTCASE_AUTO(testAvailbleLocales);
     TESTCASE_AUTO(testParseErrors);
     TESTCASE_AUTO(testFixedDecimal);
+    TESTCASE_AUTO(testSelectTrailingZeros);
+    TESTCASE_AUTO(testLocaleExtension);
     TESTCASE_AUTO_END;
 }
 
@@ -644,7 +647,7 @@ void PluralRulesTest::checkSelect(const LocalPointer<PluralRules> &rules, UError
         }
         double numDbl = dl.toDouble();
         const char *decimalPoint = strchr(num, '.');
-        int fractionDigitCount = decimalPoint == NULL ? 0 : (num + strlen(num) - 1) - decimalPoint;
+        int fractionDigitCount = decimalPoint == NULL ? 0 : static_cast<int>((num + strlen(num) - 1) - decimalPoint);
         int fractionDigits = fractionDigitCount == 0 ? 0 : atoi(decimalPoint + 1);
         FixedDecimal ni(numDbl, fractionDigitCount, fractionDigits);
         
@@ -1004,5 +1007,42 @@ void PluralRulesTest::testFixedDecimal() {
 }
 
 
+void PluralRulesTest::testSelectTrailingZeros() {
+    IcuTestErrorCode status(*this, "testSelectTrailingZeros");
+    number::UnlocalizedNumberFormatter unf = number::NumberFormatter::with()
+            .precision(number::Precision::fixedFraction(2));
+    struct TestCase {
+        const char* localeName;
+        const char16_t* expectedDoubleKeyword;
+        const char16_t* expectedFormattedKeyword;
+        double number;
+    } cases[] = {
+        {"bs",  u"few",   u"other", 5.2},  // 5.2 => two, but 5.20 => other
+        {"si",  u"one",   u"one",   0.0},
+        {"si",  u"one",   u"one",   1.0},
+        {"si",  u"one",   u"other", 0.1},  // 0.1 => one, but 0.10 => other
+        {"si",  u"one",   u"one",   0.01}, // 0.01 => one
+        {"hsb", u"few",   u"few",   1.03}, // (f % 100 == 3) => few
+        {"hsb", u"few",   u"other", 1.3},  // 1.3 => few, but 1.30 => other
+    };
+    for (const auto& cas : cases) {
+        UnicodeString message(UnicodeString(cas.localeName) + u" " + DoubleToUnicodeString(cas.number));
+        status.setScope(message);
+        Locale locale(cas.localeName);
+        LocalPointer<PluralRules> rules(PluralRules::forLocale(locale, status));
+        assertEquals(message, cas.expectedDoubleKeyword, rules->select(cas.number));
+        number::FormattedNumber fn = unf.locale(locale).formatDouble(cas.number, status);
+        assertEquals(message, cas.expectedFormattedKeyword, rules->select(fn, status));
+        status.errIfFailureAndReset();
+    }
+}
+
+void PluralRulesTest::testLocaleExtension() {
+    IcuTestErrorCode errorCode(*this, "testLocaleExtension");
+    LocalPointer<PluralRules> rules(PluralRules::forLocale("pt@calendar=gregorian", errorCode));
+    if (errorCode.errIfFailureAndReset("PluralRules::forLocale()")) { return; }
+    UnicodeString key = rules->select(1);
+    assertEquals("pt@calendar=gregorian select(1)", u"one", key);
+}
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

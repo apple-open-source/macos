@@ -293,7 +293,7 @@ int KEYWORDS_screen
              */
             if ((!strcmp (identifier, keywords [i].keyword)) &&
                 (keywords [i].res_word || search_attributes_table))
-                    return keywords [i].token;  /* We matched! */
+                    return (int) keywords [i].token;  /* We matched! */
         };
     };
 

@@ -4,9 +4,9 @@ SPL: Test ArrayObject::asort() function : basic functionality with array based s
 <?php
 /* Prototype  : int ArrayObject::asort()
  * Description: proto int ArrayIterator::asort()
- * Sort the entries by values. 
+ * Sort the entries by values.
  * Source code: ext/spl/spl_array.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing ArrayObject::asort() : basic functionality ***\n";
@@ -36,7 +36,7 @@ object(ArrayObject)#%d (1) {
   }
 }
 
-Warning: asort() expects parameter 2 to be integer, string given in %sarrayObject_asort_basic1.php on line %d
+Warning: asort() expects parameter 2 to be int, string given in %sarrayObject_asort_basic1.php on line %d
 bool(false)
 object(ArrayObject)#%d (1) {
   ["storage":"ArrayObject":private]=>

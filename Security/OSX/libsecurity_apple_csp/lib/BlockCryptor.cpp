@@ -317,7 +317,7 @@ void BlockCryptor::update(
 	/* 
 	 * en/decrypt even blocks in (remaining) inp.  
 	 */
-	size_t leftOver = uInSize % mInBlockSize;
+    size_t leftOver = (mInBlockSize > 0) ? uInSize % mInBlockSize : 0;
 	if((leftOver == 0) && needLeftOver) {
 		/* 
 		 * Even blocks coming in, but we really need to leave some data
@@ -327,7 +327,7 @@ void BlockCryptor::update(
 		leftOver = mInBlockSize; 
 	}
 	toMove = uInSize - leftOver;
-	size_t blocks = toMove / mInBlockSize;
+    size_t blocks = (mInBlockSize > 0) ? toMove / mInBlockSize : 0;
 	if(mMultiBlockCapable && !doCbc && (blocks != 0)) {
 		/* 
 		 * Optimization for algorithms that are multi-block capable and that

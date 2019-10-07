@@ -60,7 +60,17 @@ KeyframeAnimation::KeyframeAnimation(const Animation& animation, Element& elemen
 #endif
     checkForMatchingColorFilterFunctionLists();
 
-    computeStackingContextImpact();
+    for (auto propertyID : m_keyframes.properties()) {
+        if (WillChangeData::propertyCreatesStackingContext(propertyID))
+            m_triggersStackingContext = true;
+        
+        if (CSSPropertyAnimation::animationOfPropertyIsAccelerated(propertyID))
+            m_hasAcceleratedProperty = true;
+        
+        if (m_triggersStackingContext && m_hasAcceleratedProperty)
+            break;
+    }
+
     computeLayoutDependency();
 }
 
@@ -69,16 +79,6 @@ KeyframeAnimation::~KeyframeAnimation()
     // Make sure to tell the renderer that we are ending. This will make sure any accelerated animations are removed.
     if (!postActive())
         endAnimation();
-}
-
-void KeyframeAnimation::computeStackingContextImpact()
-{
-    for (auto propertyID : m_keyframes.properties()) {
-        if (WillChangeData::propertyCreatesStackingContext(propertyID)) {
-            m_triggersStackingContext = true;
-            break;
-        }
-    }
 }
 
 void KeyframeAnimation::computeLayoutDependency()
@@ -156,7 +156,7 @@ void KeyframeAnimation::fetchIntervalEndpointsForProperty(CSSPropertyID property
     prog = progress(scale, offset, prevKeyframe.timingFunction());
 }
 
-bool KeyframeAnimation::animate(CompositeAnimation& compositeAnimation, const RenderStyle& targetStyle, std::unique_ptr<RenderStyle>& animatedStyle, bool& didBlendStyle)
+OptionSet<AnimateChange> KeyframeAnimation::animate(CompositeAnimation& compositeAnimation, const RenderStyle& targetStyle, std::unique_ptr<RenderStyle>& animatedStyle)
 {
     AnimationState oldState = state();
 
@@ -171,12 +171,12 @@ bool KeyframeAnimation::animate(CompositeAnimation& compositeAnimation, const Re
             updateStateMachine(AnimationStateInput::PlayStatePaused, -1);
     }
 
-    // If we get this far and the animation is done, it means we are cleaning up a just finished animation.
+    // If we get this far and the animation is done, it means we are cleaning up a just-finished animation.
     // If so, we need to send back the targetStyle.
     if (postActive()) {
         if (!animatedStyle)
             animatedStyle = RenderStyle::clonePtr(targetStyle);
-        return false;
+        return { };
     }
 
     // If we are waiting for the start timer, we don't want to change the style yet.
@@ -185,12 +185,12 @@ bool KeyframeAnimation::animate(CompositeAnimation& compositeAnimation, const Re
     // Special case 2 - if there is a backwards fill mode, then we want to continue
     // through to the style blend so that we get the fromStyle.
     if (waitingToStart() && m_animation->delay() > 0 && !m_animation->fillsBackwards())
-        return false;
+        return { };
     
     // If we have no keyframes, don't animate.
     if (!m_keyframes.size()) {
         updateStateMachine(AnimationStateInput::EndAnimation, -1);
-        return false;
+        return { };
     }
 
     // Run a cycle of animation.
@@ -209,9 +209,15 @@ bool KeyframeAnimation::animate(CompositeAnimation& compositeAnimation, const Re
 
         CSSPropertyAnimation::blendProperties(this, propertyID, animatedStyle.get(), fromStyle, toStyle, progress);
     }
-    
-    didBlendStyle = true;
-    return state() != oldState;
+
+    OptionSet<AnimateChange> change(AnimateChange::StyleBlended);
+    if (state() != oldState)
+        change.add(AnimateChange::StateChange);
+
+    if ((isPausedState(oldState) || isRunningState(oldState)) != (isPausedState(state()) || isRunningState(state())))
+        change.add(AnimateChange::RunningStateChange);
+
+    return change;
 }
 
 void KeyframeAnimation::getAnimatedStyle(std::unique_ptr<RenderStyle>& animatedStyle)
@@ -285,8 +291,8 @@ bool KeyframeAnimation::hasAnimationForProperty(CSSPropertyID property) const
 
 bool KeyframeAnimation::startAnimation(double timeOffset)
 {
-    if (auto* renderer = compositedRenderer())
-        return renderer->startAnimation(timeOffset, m_animation.ptr(), m_keyframes);
+    if (auto* renderer = this->renderer())
+        return renderer->startAnimation(timeOffset, m_animation, m_keyframes);
     return false;
 }
 
@@ -295,7 +301,7 @@ void KeyframeAnimation::pauseAnimation(double timeOffset)
     if (!element())
         return;
 
-    if (auto* renderer = compositedRenderer())
+    if (auto* renderer = this->renderer())
         renderer->animationPaused(timeOffset, m_keyframes.animationName());
 
     // Restore the original (unanimated) style
@@ -308,7 +314,7 @@ void KeyframeAnimation::endAnimation(bool fillingForwards)
     if (!element())
         return;
 
-    if (auto* renderer = compositedRenderer())
+    if (auto* renderer = this->renderer())
         renderer->animationFinished(m_keyframes.animationName());
 
     // Restore the original (unanimated) style
@@ -337,7 +343,7 @@ void KeyframeAnimation::onAnimationEnd(double elapsedTime)
     endAnimation(m_animation->fillsForwards());
 }
 
-bool KeyframeAnimation::sendAnimationEvent(const AtomicString& eventType, double elapsedTime)
+bool KeyframeAnimation::sendAnimationEvent(const AtomString& eventType, double elapsedTime)
 {
     Document::ListenerType listenerType;
     if (eventType == eventNames().webkitAnimationIterationEvent || eventType == eventNames().animationiterationEvent)

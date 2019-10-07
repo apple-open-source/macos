@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1121,7 +1121,7 @@ endswitch:
 	eui64_put(wo->hisid, ucp);
     }
 
-    *len = ucp - inp;			/* Compute output length */
+    *len = (int)(ucp - inp);			/* Compute output length */
     IPV6CPDEBUG(("ipv6cp: returning Configure-%s", CODENAME(rc)));
     return (rc);			/* Return final code */
 }
@@ -1603,7 +1603,7 @@ ipv6cp_printpkt(p, plen, printer, arg)
 	printer(arg, " %.2x", code);
     }
 
-    return p - pstart;
+    return (int)(p - pstart);
 }
 
 /*

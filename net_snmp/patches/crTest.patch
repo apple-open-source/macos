@@ -1,0 +1,84 @@
+diff -Naur net-snmp-5.6.2.1.orig/agent/Makefile.in net-snmp-5.6.2.1.working/agent/Makefile.in
+--- net-snmp-5.6.2.1.orig/agent/Makefile.in	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/agent/Makefile.in	2018-10-29 20:57:23.000000000 -0700
+@@ -249,7 +249,7 @@
+ 	$(LINK) $(CFLAGS) -o $@ ${LAGENTOBJS} ${LDFLAGS} ${OUR_AGENT_LIBS}
+ 
+ libnetsnmpagent.$(LIB_EXTENSION)$(LIB_VERSION):    ${LLIBAGENTOBJS} $(USELIBS)
+-	$(LIB_LD_CMD) $(AGENTLIB) ${LLIBAGENTOBJS} $(USELIBS) ${LAGENTLIBS} @LD_NO_UNDEFINED@ $(LDFLAGS) $(PERLLDOPTS_FOR_LIBS) $(LIB_LD_LIBS) @AGENTLIBS@
++	$(LIB_LD_CMD) $(AGENTLIB) ${LLIBAGENTOBJS} $(USELIBS) ${LAGENTLIBS} -L${SDKROOT}/usr/local/lib -lCrashReporterClient @LD_NO_UNDEFINED@ $(LDFLAGS) $(PERLLDOPTS_FOR_LIBS) $(LIB_LD_LIBS) @AGENTLIBS@
+ 	$(RANLIB) $(AGENTLIB)
+ 
+ libnetsnmpmibs.$(LIB_EXTENSION)$(LIB_VERSION): ${LMIBOBJS} $(AGENTLIB) $(USELIBS)
+diff -Naur net-snmp-5.6.2.1.orig/agent/snmp_agent.c net-snmp-5.6.2.1.working/agent/snmp_agent.c
+--- net-snmp-5.6.2.1.orig/agent/snmp_agent.c	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/agent/snmp_agent.c	2018-11-06 15:14:41.000000000 -0800
+@@ -107,6 +107,20 @@
+ #include "smux/smux.h"
+ #endif
+ 
++
++char crMessage[512];
++
++void append_snmp_oid(char *buffer, int length, oid *inOid, int oidLen) {
++	char oidBuf[16];
++	oidBuf[0] = 0;
++	for (int i = 0; i < oidLen; i++) {
++		snprintf(oidBuf, sizeof(oidBuf), ".%ld", inOid[i]);
++		strlcat(buffer, oidBuf, length);
++	}
++
++}
++
++
+ NETSNMP_INLINE void
+ netsnmp_agent_add_list_data(netsnmp_agent_request_info *ari,
+                             netsnmp_data_list *node)
+@@ -3265,6 +3279,10 @@
+     int             status, inclusives = 0;
+     netsnmp_variable_list *v = NULL;
+ 
++
++	bzero(crMessage, sizeof(crMessage));
++	snprintf(crMessage, sizeof(crMessage), "%d:", asp->pdu->command);
++
+     /*
+      * for illegal requests, mark all nodes as ASN_NULL 
+      */
+@@ -3284,6 +3302,10 @@
+     case SNMP_MSG_GETNEXT:
+     case SNMP_MSG_GETBULK:
+         for (v = asp->pdu->variables; v != NULL; v = v->next_variable) {
++
++			append_snmp_oid(crMessage, sizeof(crMessage), v->name, v->name_length);
++			strlcat(crMessage, ":", sizeof(crMessage));
++
+             if (v->type == ASN_PRIV_INCL_RANGE) {
+                 /*
+                  * Leave the type for now (it gets set to
+diff -Naur net-snmp-5.6.2.1.orig/agent/snmpd.c net-snmp-5.6.2.1.working/agent/snmpd.c
+--- net-snmp-5.6.2.1.orig/agent/snmpd.c	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/agent/snmpd.c	2018-10-29 15:58:37.000000000 -0700
+@@ -112,6 +112,11 @@
+ #include <grp.h>
+ #endif
+ 
++
++#include <CrashReporterClient.h>
++extern char crMessage[512];
++
++
+ #ifndef PATH_MAX
+ # ifdef _POSIX_PATH_MAX
+ #  define PATH_MAX _POSIX_PATH_MAX
+@@ -447,6 +452,10 @@
+         (void) close(i);
+     }
+ #endif /* #WIN32 */
++
++    // set up the crashlog message
++    CRSetCrashLogMessage(crMessage);
++
+     
+     /*
+      * register signals ASAP to prevent default action (usually core)

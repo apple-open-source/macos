@@ -127,7 +127,10 @@ void rpc_ss_ndr_u_conf_cs_struct_hdr
     idl_ulong_int cs_type_defn_index;
     idl_byte *cs_type_defn_ptr;
     idl_ulong_int routine_index;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
     void (**routine_ptr)();
+#pragma clang diagnostic pop
     idl_ulong_int l_storage_len;
     idl_byte *base_type_defn_ptr;       /* Pointer to base type of array */
 
@@ -159,7 +162,7 @@ void rpc_ss_ndr_u_conf_cs_struct_hdr
     if (allocate)
     {
         rpc_ss_ndr_alloc_storage(fixed_part_size, 1, &l_storage_len,
-                                   base_type_defn_ptr, p_param_addr, IDL_msp);
+                                   base_type_defn_ptr, (idl_byte *) p_param_addr, IDL_msp);
         if (type_has_pointers)
         {
             rpc_ss_init_new_struct_ptrs(IDL_DT_CONF_STRUCT, struct_defn_ptr,
@@ -191,13 +194,17 @@ void rpc_ss_ndr_unmar_cs_array
     idl_ulong_int array_defn_index;
     idl_byte *array_defn_ptr;
     IDL_bound_pair_t *bounds_list;
+    IDL_bound_pair_t single_bound;
     IDL_bound_pair_t range_data;
     idl_ulong_int cs_type_defn_index;
     idl_byte *cs_type_defn_ptr;
     idl_ulong_int routine_index;
     idl_ulong_int ln_index;     /* Index in shadow of [length_is] item */
     idl_ulong_int sz_index;     /* Index in shadow of [size_is] item */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
     void (**routine_ptr)();
+#pragma clang diagnostic pop
     /* Parameters for ..._net_size */
     idl_ulong_int l_storage_len;
     idl_ulong_int w_storage_len;
@@ -223,9 +230,9 @@ void rpc_ss_ndr_unmar_cs_array
         rpc_ss_fixed_bounds_from_vector(1, array_defn_ptr, &bounds_list,
                                         IDL_msp);
       else
-        bounds_list = (IDL_bound_pair_t *)array_defn_ptr;
+        memcpy(&single_bound, array_defn_ptr, sizeof(IDL_bound_pair_t));
         array_defn_ptr += IDL_FIXED_BOUND_PAIR_WIDTH;
-        w_storage_len = bounds_list[0].upper - bounds_list[0].lower + 1;
+        w_storage_len = single_bound.upper - single_bound.lower + 1;
         l_storage_len = w_storage_len;
     }
     else    /* Conformant or open */
@@ -354,7 +361,10 @@ void rpc_ss_ndr_unmar_cs_char
 {
     idl_byte *cs_type_defn_ptr;
     idl_ulong_int routine_index;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
     void (**routine_ptr)();
+#pragma clang diagnostic pop
     /* Parameters for ..._net_size */
     idl_ulong_int w_storage_len = 1;
     idl_cs_convert_t convert_type;
@@ -673,8 +683,11 @@ static void rpc_ss_ndr_conf_cs_array_param
     idl_ulong_int cs_type_defn_index;
     idl_byte *cs_type_defn_ptr;
     idl_ulong_int routine_index;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
     void (**routine_ptr)();
-
+#pragma clang diagnostic pop
+    
     if (array_type == IDL_DT_OPEN_ARRAY)
     {
         /* Ignore the "varying" information */
@@ -704,7 +717,7 @@ static void rpc_ss_ndr_conf_cs_array_param
     {
         /* Allocate the array */
         rpc_ss_ndr_alloc_storage( 0, 1, p_l_storage_len, cs_type_defn_ptr,
-                              p_array_addr, IDL_msp );
+                              (idl_byte *) p_array_addr, IDL_msp );
     }
 }
 

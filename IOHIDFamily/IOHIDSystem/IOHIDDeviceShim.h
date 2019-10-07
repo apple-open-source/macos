@@ -49,22 +49,22 @@ private:
 
 protected:
 
-    virtual bool handleStart( IOService * provider );
+    virtual bool handleStart( IOService * provider ) APPLE_KEXT_OVERRIDE;
     
 public:
     virtual IOReturn newReportDescriptor(
-                        IOMemoryDescriptor ** descriptor ) const = 0;
+                        IOMemoryDescriptor ** descriptor ) const APPLE_KEXT_OVERRIDE = 0;
     virtual bool initWithLocation(UInt32 location = 0);
     
     virtual IOHIDTransport transport() {return _transport;};
     
-    virtual OSString * newTransportString() const;
-    virtual OSString * newProductString() const;
-    virtual OSString * newManufacturerString() const;
-    virtual OSNumber * newVendorIDNumber() const;
-    virtual OSNumber * newProductIDNumber() const;
-    virtual OSNumber * newLocationIDNumber() const;
-    virtual OSString * newSerialNumberString() const;
+    virtual OSString * newTransportString() const APPLE_KEXT_OVERRIDE;
+    virtual OSString * newProductString() const APPLE_KEXT_OVERRIDE;
+    virtual OSString * newManufacturerString() const APPLE_KEXT_OVERRIDE;
+    virtual OSNumber * newVendorIDNumber() const APPLE_KEXT_OVERRIDE;
+    virtual OSNumber * newProductIDNumber() const APPLE_KEXT_OVERRIDE;
+    virtual OSNumber * newLocationIDNumber() const APPLE_KEXT_OVERRIDE;
+    virtual OSString * newSerialNumberString() const APPLE_KEXT_OVERRIDE;
     
     virtual bool       isSeized();
     virtual bool       initWithParameters(UInt32 location, boolean_t allowVirtualProvider);

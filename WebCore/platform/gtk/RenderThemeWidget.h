@@ -27,8 +27,6 @@
 
 #include <gtk/gtk.h>
 
-#if GTK_CHECK_VERSION(3, 20, 0)
-
 #include "RenderThemeGadget.h"
 
 namespace WebCore {
@@ -59,6 +57,7 @@ public:
         IndeterminateProgressBar,
         ListView,
         Icon,
+        Window,
     };
     static RenderThemeWidget& getOrCreate(Type);
     static void clearCache();
@@ -233,6 +232,16 @@ private:
     std::unique_ptr<RenderThemeGadget> m_icon;
 };
 
-} // namespace WebCore
+class RenderThemeWindow final : public RenderThemeWidget {
+public:
+    RenderThemeWindow();
+    ~RenderThemeWindow() = default;
 
-#endif // GTK_CHECK_VERSION(3, 20, 0)
+    RenderThemeGadget& window() const { return *m_window; }
+
+private:
+    std::unique_ptr<RenderThemeGadget> m_window;
+
+};
+
+} // namespace WebCore

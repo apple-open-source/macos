@@ -29,6 +29,7 @@
 #include "CSSAnimationController.h"
 #include "CachedFramePlatformData.h"
 #include "CachedPage.h"
+#include "CustomHeaderFields.h"
 #include "DOMWindow.h"
 #include "Document.h"
 #include "DocumentLoader.h"
@@ -143,9 +144,21 @@ CachedFrame::CachedFrame(Frame& frame)
     ASSERT(m_view);
     ASSERT(m_document->pageCacheState() == Document::InPageCache);
 
+    RELEASE_ASSERT(m_document->domWindow());
+    RELEASE_ASSERT(m_document->frame());
+    RELEASE_ASSERT(m_document->domWindow()->frame());
+
+    // FIXME: We have evidence that constructing CachedFrames for descendant frames may detach the document from its frame (rdar://problem/49877867).
+    // This sets the flag to help find the guilty code.
+    m_document->setMayBeDetachedFromFrame(false);
+
     // Create the CachedFrames for all Frames in the FrameTree.
     for (Frame* child = frame.tree().firstChild(); child; child = child->tree().nextSibling())
         m_childFrames.append(std::make_unique<CachedFrame>(*child));
+
+    RELEASE_ASSERT(m_document->domWindow());
+    RELEASE_ASSERT(m_document->frame());
+    RELEASE_ASSERT(m_document->domWindow()->frame());
 
     // Active DOM objects must be suspended before we cache the frame script data.
     m_document->suspend(ReasonForSuspension::PageCache);
@@ -191,6 +204,7 @@ CachedFrame::CachedFrame(Frame& frame)
     }
 #endif
 
+    m_document->setMayBeDetachedFromFrame(true);
     m_document->detachFromCachedFrame(*this);
 
     ASSERT_WITH_SECURITY_IMPLICATION(!m_documentLoader->isLoading());
@@ -202,8 +216,6 @@ void CachedFrame::open()
     ASSERT(m_document);
     if (!m_isMainFrame)
         m_view->frame().page()->incrementSubframeCount();
-
-    m_document->attachToCachedFrame(*this);
 
     m_view->frame().loader().open(*this);
 }

@@ -2,7 +2,7 @@
 
   etc.c -
 
-  $Author: usa $
+  $Author: stomar $
   created at: Tue Mar 22 18:39:19 JST 1994
 
 ************************************************/
@@ -627,8 +627,9 @@ VALUE rb_w32_conv_from_wchar(const WCHAR *wstr, rb_encoding *enc);
  * Returns system configuration directory.
  *
  * This is typically "/etc", but is modified by the prefix used when Ruby was
- * compiled. For example, if Ruby is built and installed in /usr/local, returns
- * "/usr/local/etc".
+ * compiled. For example, if Ruby is built and installed in /usr/local,
+ * returns "/usr/local/etc" on other platforms than Windows.
+ * On Windows, this always returns the directory provided by the system.
  */
 static VALUE
 etc_sysconfdir(VALUE obj)
@@ -666,9 +667,15 @@ etc_systmpdir(void)
     if (len > 0) {
 	tmpstr = path;
 	tmplen = len - 1;
+	if (len > sizeof(path)) tmpstr = 0;
     }
 # endif
     tmpdir = rb_filesystem_str_new(tmpstr, tmplen);
+# if defined _CS_DARWIN_USER_TEMP_DIR
+    if (!tmpstr) {
+	confstr(_CS_DARWIN_USER_TEMP_DIR, RSTRING_PTR(tmpdir), len);
+    }
+# endif
 #endif
     FL_UNSET(tmpdir, FL_TAINT);
     return tmpdir;
@@ -1008,7 +1015,7 @@ etc_nprocessors(VALUE obj)
 
     ncpus = etc_nprocessors_affin();
     if (ncpus != -1) {
-       return INT2NUM(ncpus);
+	return INT2NUM(ncpus);
     }
     /* fallback to _SC_NPROCESSORS_ONLN */
 #endif

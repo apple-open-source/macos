@@ -6,16 +6,11 @@
  * our own file functions allows us to provide transparent support of
  * different line endings, gzip'd print files, PPD files, etc.
  *
- * Copyright 2007-2017 by Apple Inc.
- * Copyright 1997-2007 by Easy Software Products, all rights reserved.
+ * Copyright © 2007-2018 by Apple Inc.
+ * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 #ifndef _CUPS_FILE_PRIVATE_H_
@@ -31,13 +26,10 @@
 #  include <stdarg.h>
 #  include <fcntl.h>
 
-#  ifdef HAVE_LIBZ
-#    include <zlib.h>
-#  endif /* HAVE_LIBZ */
-#  ifdef WIN32
+#  ifdef _WIN32
 #    include <io.h>
 #    include <sys/locking.h>
-#  endif /* WIN32 */
+#  endif /* _WIN32 */
 
 
 /*
@@ -88,43 +80,13 @@ typedef enum				/**** _cupsFileCheck file type values ****/
 typedef void (*_cups_fc_func_t)(void *context, _cups_fc_result_t result,
 				const char *message);
 
-struct _cups_file_s			/**** CUPS file structure... ****/
-
-{
-  int		fd;			/* File descriptor */
-  char		mode,			/* Mode ('r' or 'w') */
-		compressed,		/* Compression used? */
-		is_stdio,		/* stdin/out/err? */
-		eof,			/* End of file? */
-		buf[4096],		/* Buffer */
-		*ptr,			/* Pointer into buffer */
-		*end;			/* End of buffer data */
-  off_t		pos,			/* Position in file */
-		bufpos;			/* File position for start of buffer */
-
-#ifdef HAVE_LIBZ
-  z_stream	stream;			/* (De)compression stream */
-  Bytef		cbuf[4096];		/* (De)compression buffer */
-  uLong		crc;			/* (De)compression CRC */
-#endif /* HAVE_LIBZ */
-
-  char		*printf_buffer;		/* cupsFilePrintf buffer */
-  size_t	printf_size;		/* Size of cupsFilePrintf buffer */
-};
-
-
 /*
  * Prototypes...
  */
 
-extern _cups_fc_result_t	_cupsFileCheck(const char *filename,
-					       _cups_fc_filetype_t filetype,
-				               int dorootchecks,
-					       _cups_fc_func_t cb,
-					       void *context);
-extern void			_cupsFileCheckFilter(void *context,
-						     _cups_fc_result_t result,
-						     const char *message);
+extern _cups_fc_result_t	_cupsFileCheck(const char *filename, _cups_fc_filetype_t filetype, int dorootchecks, _cups_fc_func_t cb, void *context) _CUPS_PRIVATE;
+extern void			_cupsFileCheckFilter(void *context, _cups_fc_result_t result, const char *message) _CUPS_PRIVATE;
+extern int			_cupsFilePeekAhead(cups_file_t *fp, int ch);
 
 #  ifdef __cplusplus
 }

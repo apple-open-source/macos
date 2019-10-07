@@ -39,6 +39,7 @@ namespace IPC {
 
 class DataReference;
 class ImportanceAssertion;
+enum class ShouldDispatchWhenWaitingForSyncReply;
 
 class Decoder {
     WTF_MAKE_FAST_ALLOCATED;
@@ -54,7 +55,7 @@ public:
     uint64_t destinationID() const { return m_destinationID; }
 
     bool isSyncMessage() const;
-    bool shouldDispatchMessageWhenWaitingForSyncReply() const;
+    ShouldDispatchWhenWaitingForSyncReply shouldDispatchMessageWhenWaitingForSyncReply() const;
     bool shouldUseFullySynchronousModeForTesting() const;
 
 #if PLATFORM(MAC)
@@ -150,10 +151,33 @@ public:
         return ArgumentCoder<T>::decode(*this, t);
     }
 
+    template<typename T, std::enable_if_t<!std::is_enum<T>::value && !UsesLegacyDecoder<T>::value>* = nullptr>
+    bool decode(T& t)
+    {
+        Optional<T> optional;
+        *this >> optional;
+        if (!optional)
+            return false;
+        t = WTFMove(*optional);
+        return true;
+    }
+
     template<typename T, std::enable_if_t<UsesModernDecoder<T>::value>* = nullptr>
     Decoder& operator>>(Optional<T>& t)
     {
         t = ArgumentCoder<T>::decode(*this);
+        return *this;
+    }
+    
+    template<typename T, std::enable_if_t<!std::is_enum<T>::value && !UsesModernDecoder<T>::value>* = nullptr>
+    Decoder& operator>>(Optional<T>& optional)
+    {
+        T t;
+        if (ArgumentCoder<T>::decode(*this, t)) {
+            optional = WTFMove(t);
+            return *this;
+        }
+        optional = WTF::nullopt;
         return *this;
     }
 

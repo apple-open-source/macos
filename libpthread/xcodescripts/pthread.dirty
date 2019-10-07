@@ -17,7 +17,6 @@ _exitf
 
 # int-sized
 ___is_threaded
-___libdispatch_offset
 ___pthread_supported_features
 ___pthread_tsd_lock
 ___pthread_tsd_max

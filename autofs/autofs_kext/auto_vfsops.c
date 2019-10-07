@@ -65,6 +65,12 @@ static u_int autofs_mounts;
 __private_extern__ int auto_module_start(kmod_info_t *, void *);
 __private_extern__ int auto_module_stop(kmod_info_t *, void *);
 
+
+extern uint32_t vnode_recycle_on_inactive;
+
+SYSCTL_DECL(_vfs_generic);
+SYSCTL_NODE(_vfs_generic, OID_AUTO, autofs, CTLFLAG_RW, 0, "Automounter (autofs) file system");
+SYSCTL_INT(_vfs_generic_autofs, OID_AUTO, vnode_recycle_on_inactive, CTLFLAG_RW, &vnode_recycle_on_inactive, 1, "Should autofs vnodes be recycled when become inactive");
 /*
  * autofs VFS operations
  */
@@ -2324,6 +2330,12 @@ auto_module_start(__unused kmod_info_t *ki, __unused void *data)
 		goto fail;
 	}
 
+	/*
+	 * Register sysctl on success
+	 */
+	sysctl_register_oid(&sysctl__vfs_generic_autofs);
+	sysctl_register_oid(&sysctl__vfs_generic_autofs_vnode_recycle_on_inactive);
+
 	return (KERN_SUCCESS);
 
 fail:
@@ -2528,6 +2540,9 @@ auto_module_stop(__unused kmod_info_t *ki, __unused void *data)
 	lck_mtx_unlock(autofs_control_isopen_lock);
 	lck_mtx_free(autofs_control_isopen_lock, autofs_lck_grp);
 	lck_grp_free(autofs_lck_grp);
-	
+
+	sysctl_unregister_oid(&sysctl__vfs_generic_autofs_vnode_recycle_on_inactive);
+	sysctl_unregister_oid(&sysctl__vfs_generic_autofs);
+
 	return (KERN_SUCCESS);
 }

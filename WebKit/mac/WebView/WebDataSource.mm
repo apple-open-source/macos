@@ -53,6 +53,7 @@
 #import <WebCore/FrameLoader.h>
 #import <WebCore/LegacyWebArchive.h>
 #import <WebCore/MIMETypeRegistry.h>
+#import <WebCore/PreviewLoaderClient.h>
 #import <WebCore/ResourceRequest.h>
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/WebCoreObjCExtras.h>
@@ -108,6 +109,7 @@ public:
 #endif
 #if USE(QUICK_LOOK)
     RetainPtr<NSDictionary> _quickLookContent;
+    RefPtr<WebCore::PreviewLoaderClient> _quickLookPreviewLoaderClient;
 #endif
 };
 
@@ -246,7 +248,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 - (void)_receivedData:(NSData *)data
 {
     // protect self temporarily, as the bridge receivedData call could remove our last ref
-    RetainPtr<WebDataSource*> protect(self);
+    RetainPtr<WebDataSource> protect(self);
     
     [[self representation] receivedData:data withDataSource:self];
     [[[[self webFrame] frameView] documentView] dataSourceUpdated:self];
@@ -417,9 +419,19 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 }
 
 #if USE(QUICK_LOOK)
+- (WebCore::PreviewLoaderClient*)_quickLookPreviewLoaderClient
+{
+    return toPrivate(_private)->_quickLookPreviewLoaderClient.get();
+}
+
 - (void)_setQuickLookContent:(NSDictionary *)quickLookContent
 {
     toPrivate(_private)->_quickLookContent = adoptNS([quickLookContent copy]);
+}
+
+- (void)_setQuickLookPreviewLoaderClient:(WebCore::PreviewLoaderClient*)quickLookPreviewLoaderClient
+{
+    toPrivate(_private)->_quickLookPreviewLoaderClient = quickLookPreviewLoaderClient;
 }
 #endif
 

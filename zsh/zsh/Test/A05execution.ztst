@@ -6,13 +6,24 @@
 
   cd command.tmp
 
-  print '#!/bin/sh\necho This is top' >tstcmd
+  shcmd="$(which sh)"
+  shpath=${shcmd:h}
+  echocmd="$(which -p echo)"
+  echopath=${echocmd:h}
+  print "#!${shcmd}\necho This is top" >tstcmd
 
-  print '#!/bin/sh\necho This is dir1' >dir1/tstcmd
+  print "#!${shcmd}\necho This is dir1" >dir1/tstcmd
 
-  print '#!/bin/sh\necho This is dir2' >dir2/tstcmd
+  print "#!${shcmd}\necho This is dir2" >dir2/tstcmd
+
+  print -n '#!sh\necho This is slashless' >tstcmd-slashless
+  print -n '#!echo foo\necho This is arg' >tstcmd-arg
+  print '#!xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxnyyy' >tstcmd-interp-too-long
+  print "#!${sh}\necho should not execute; exit 1" >xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxn
 
   chmod 755 tstcmd dir1/tstcmd dir2/tstcmd
+  chmod 755 tstcmd-slashless tstcmd-arg tstcmd-interp-too-long
+  chmod 755 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxn
 
 %test
   ./tstcmd
@@ -32,6 +43,26 @@
   path=($storepath)
 0:path (2)
 >This is top
+
+  PATH=${shpath}:${ZTST_testdir}/command.tmp/ tstcmd-slashless
+0:path (3)
+>This is slashless
+
+  PATH=${echopath}:${ZTST_testdir}/command.tmp tstcmd-arg
+0:path (4)
+*>foo */command.tmp/tstcmd-arg
+
+  # Just check this exits with non-zero status,
+  # as output and status code can differ.
+  (
+    path=($shpath $echopath ${ZTST_testdir}/command.tmp/)
+    if tstcmd-interp-too-long >/dev/null 2>&1; then
+      exit 0
+    else
+      exit 1
+    fi
+  )
+1:path (5)
 
   functst() { print $# arguments:; print -l $*; }
   functst "Eines Morgens" "als Gregor Samsa"
@@ -310,3 +341,56 @@ F:anonymous function, and a descriptor leak when backgrounding a pipeline
 >17
 >19
 
+# Test 'wait' for unknown job/process ID.
+  wait 1
+  echo $?
+  wait %%
+  echo $?
+  wait %+
+  echo $?
+  wait %-
+  echo $?
+  wait %1
+  echo $?
+  wait %foo
+  echo $?
+  wait %\?bar
+127:'wait' exit status and warning for unknown ID
+>127
+>127
+>127
+>127
+>127
+>127
+?(eval):wait:1: pid 1 is not a child of this shell
+?(eval):wait:3: %%: no such job
+?(eval):wait:5: %+: no such job
+?(eval):wait:7: %-: no such job
+?(eval):wait:9: %1: no such job
+?(eval):wait:11: job not found: foo
+?(eval):wait:13: job not found: ?bar
+
+# Test 'wait' for unknown job/process ID (POSIX mode).
+  (setopt POSIX_BUILTINS
+  wait 1
+  echo $?
+  wait %%
+  echo $?
+  wait %+
+  echo $?
+  wait %-
+  echo $?
+  wait %1
+  echo $?
+  wait %foo
+  echo $?
+  wait %\?bar)
+127:'wait' exit status for unknown ID (POSIX mode)
+>127
+>0
+>127
+>127
+>127
+>127
+# TBD: the 0 above is believed to be bogus and should also be turned
+# into 127 when the ccorresponding bug is fixed in the main shell.

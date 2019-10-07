@@ -27,4 +27,27 @@ __BEGIN_DECLS
 
 void OctagonControlServerInitialize(void);
 
+
+#if __OBJC__
+#import "keychain/ot/OTControlProtocol.h"
+NS_ASSUME_NONNULL_BEGIN
+
+@protocol OctagonEntitlementBearerProtocol
+- (nullable id)valueForEntitlement:(NSString *)entitlement;
+@end
+
+@interface NSXPCConnection (OctagonEntitlement) <OctagonEntitlementBearerProtocol>
+@end
+
+#if OCTAGON
+@class OTManager;
+@interface OctagonXPCEntitlementChecker : NSProxy
++ (id<OTControlProtocol>)createWithManager:(OTManager*)manager
+                         entitlementBearer:(id<OctagonEntitlementBearerProtocol>)bearer;
+@end
+#endif // OCTAGON
+
+NS_ASSUME_NONNULL_END
+#endif // __OBJC__
+
 __END_DECLS

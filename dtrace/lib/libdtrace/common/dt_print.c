@@ -310,6 +310,17 @@ dt_print_ptr(ctf_id_t base, ulong_t off, dt_printarg_t *pap)
 	dt_print_hex(fp, addr, size);
 }
 
+static void
+dt_print_ptrauth(ctf_id_t base, ulong_t off, dt_printarg_t *pap)
+{
+	FILE *fp = pap->pa_file;
+	ctf_file_t *ctfp = pap->pa_ctfp;
+	caddr_t addr = pap->pa_addr + off / NBBY;
+	size_t size = ctf_type_size(ctfp, base);
+
+	dt_print_hex(fp, addr, size);
+}
+
 /*
  * Print out an array.  This is somewhat complex, as we must manually visit
  * each member, and recursively invoke ctf_type_visit() for each member.  If
@@ -438,6 +449,7 @@ dt_print_array(ctf_id_t base, ulong_t off, dt_printarg_t *pap)
 static void
 dt_print_structlike(ctf_id_t id, ulong_t off, dt_printarg_t *pap)
 {
+#pragma unused(id, off)
 	(void) fprintf(pap->pa_file, "{");
 }
 
@@ -449,6 +461,7 @@ dt_print_structlike(ctf_id_t id, ulong_t off, dt_printarg_t *pap)
 static void
 dt_print_enum(ctf_id_t base, ulong_t off, dt_printarg_t *pap)
 {
+#pragma unused(off)
 	FILE *fp = pap->pa_file;
 	ctf_file_t *ctfp = pap->pa_ctfp;
 	const char *ename;
@@ -468,21 +481,23 @@ dt_print_enum(ctf_id_t base, ulong_t off, dt_printarg_t *pap)
 static void
 dt_print_tag(ctf_id_t base, ulong_t off, dt_printarg_t *pap)
 {
+#pragma unused(base, off)
 	(void) fprintf(pap->pa_file, "<forward decl>");
 }
 
 typedef void dt_printarg_f(ctf_id_t, ulong_t, dt_printarg_t *);
 
 static dt_printarg_f *const dt_printfuncs[] = {
-	dt_print_int,		/* CTF_K_INTEGER */
-	dt_print_float,		/* CTF_K_FLOAT */
-	dt_print_ptr,		/* CTF_K_POINTER */
-	dt_print_array,		/* CTF_K_ARRAY */
-	dt_print_ptr,		/* CTF_K_FUNCTION */
-	dt_print_structlike,	/* CTF_K_STRUCT */
-	dt_print_structlike,	/* CTF_K_UNION */
-	dt_print_enum,		/* CTF_K_ENUM */
-	dt_print_tag		/* CTF_K_FORWARD */
+	[CTF_K_INTEGER] = dt_print_int,
+	[CTF_K_FLOAT] = dt_print_float,
+	[CTF_K_POINTER] = dt_print_ptr,
+	[CTF_K_ARRAY] = dt_print_array,
+	[CTF_K_FUNCTION] = dt_print_ptr,
+	[CTF_K_STRUCT] = dt_print_structlike,
+	[CTF_K_UNION] = dt_print_structlike,
+	[CTF_K_ENUM] = dt_print_enum,
+	[CTF_K_FORWARD] = dt_print_tag,
+	[CTF_K_PTRAUTH] = dt_print_ptrauth
 };
 
 /*
@@ -514,7 +529,7 @@ dt_print_member(const char *name, ctf_id_t id, ulong_t off, int depth,
 
 	if ((rtype = ctf_type_resolve(ctfp, id)) == CTF_ERR ||
 	    (kind = ctf_type_kind(ctfp, rtype)) == CTF_ERR ||
-	    kind < CTF_K_INTEGER || kind > CTF_K_FORWARD) {
+	    dt_printfuncs[kind] == NULL) {
 		dt_print_indent(pap);
 		(void) fprintf(fp, "%s = <invalid type %lu>", name, id);
 		return (0);
@@ -577,7 +592,7 @@ dt_print_member(const char *name, ctf_id_t id, ulong_t off, int depth,
 		(void) fprintf(fp, " ");
 	}
 
-	dt_printfuncs[kind - 1](rtype, off, pap);
+	dt_printfuncs[kind](rtype, off, pap);
 
 	/* direct simple array members are not separated by newlines */
 	if (!brief)

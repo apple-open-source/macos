@@ -1819,7 +1819,7 @@ static void TestVariableTopSetting(void) {
   }
 }
 
-static void TestMaxVariable() {
+static void TestMaxVariable(void) {
   UErrorCode status = U_ZERO_ERROR;
   UColReorderCode oldMax, max;
   UCollator *coll;
@@ -3288,10 +3288,19 @@ static void TestBeforePinyin(void) {
         "xAx"
     };
 
+    const static char *test3[] = { // rdar://53741390
+        "\\u85CF", // 藏 cáng
+        "\\u92BA", // 銺 zàng
+        "\\u85CF\\u6587", // 藏文 zàngwén
+        "\\u85CF\\u8BED", // 藏语 zàngyǔ
+        "\\u81D3", // 臓 zàng
+    };
+
     genericRulesStarter(rules, test, UPRV_LENGTHOF(test));
     genericLocaleStarter("zh", test, UPRV_LENGTHOF(test));
     genericRulesStarter(rules, test2, UPRV_LENGTHOF(test2));
     genericLocaleStarter("zh", test2, UPRV_LENGTHOF(test2));
+    genericLocaleStarter("zh", test3, UPRV_LENGTHOF(test3));
 }
 
 static void TestBeforeTightening(void) {
@@ -4102,11 +4111,11 @@ static void TestCroatianSortKey(void) {
         return;
     }
 
-    uiter_setString(&iter, text, length);
+    uiter_setString(&iter, text, (int32_t)length);
 
     actualSortKeyLen = ucol_nextSortKeyPart(
         ucol, &iter, (uint32_t*)uStateInfo,
-        textSortKey, lenSortKey, &status
+        textSortKey, (int32_t)lenSortKey, &status
         );
 
     if (actualSortKeyLen == lenSortKey) {

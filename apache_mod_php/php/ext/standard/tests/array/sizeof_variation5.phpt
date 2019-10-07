@@ -1,5 +1,5 @@
 --TEST--
-Test sizeof() function : usage variations - different values for 'mode' argument 
+Test sizeof() function : usage variations - different values for 'mode' argument
 --FILE--
 <?php
 /* Prototype  : int sizeof($mixed var[, int $mode])
@@ -52,15 +52,15 @@ $mode_values = array (
             new test(),
   /* 22 */  $fp
 );
-  
-// loop through the each element of $modes_array for 'mode' argument 
+
+// loop through the each element of $modes_array for 'mode' argument
 // and check the working of sizeof()
 $counter = 1;
 for($i = 0; $i < count($mode_values); $i++)
 {
   echo "-- Iteration $counter --\n";
   $mode = $mode_values[$i];
-  
+
   var_dump( sizeof($array1, $mode) );
 
   $counter++;
@@ -105,28 +105,28 @@ int(6)
 int(6)
 -- Iteration 16 --
 
-Warning: sizeof() expects parameter 2 to be integer, string given in %s on line %d
+Warning: sizeof() expects parameter 2 to be int, string given in %s on line %d
 NULL
 -- Iteration 17 --
 
-Warning: sizeof() expects parameter 2 to be integer, string given in %s on line %d
+Warning: sizeof() expects parameter 2 to be int, string given in %s on line %d
 NULL
 -- Iteration 18 --
 
-Warning: sizeof() expects parameter 2 to be integer, string given in %s on line %d
+Warning: sizeof() expects parameter 2 to be int, string given in %s on line %d
 NULL
 -- Iteration 19 --
 
-Warning: sizeof() expects parameter 2 to be integer, string given in %s on line %d
+Warning: sizeof() expects parameter 2 to be int, string given in %s on line %d
 NULL
 -- Iteration 20 --
 int(6)
 -- Iteration 21 --
 
-Warning: sizeof() expects parameter 2 to be integer, object given in %s on line %d
+Warning: sizeof() expects parameter 2 to be int, object given in %s on line %d
 NULL
 -- Iteration 22 --
 
-Warning: sizeof() expects parameter 2 to be integer, resource given in %s on line %d
+Warning: sizeof() expects parameter 2 to be int, resource given in %s on line %d
 NULL
 Done

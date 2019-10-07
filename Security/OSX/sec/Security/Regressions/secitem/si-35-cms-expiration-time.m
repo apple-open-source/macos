@@ -28,6 +28,7 @@
 #include <Security/SecCMS.h>
 #include <Security/CMSEncoder.h>
 #include <Security/CMSDecoder.h>
+#include <Security/CMSPrivate.h>
 
 #include <utilities/SecCFWrappers.h>
 
@@ -320,9 +321,8 @@ int si_35_cms_expiration_time(int argc, char *const *argv) {
         SecCMS_tests();
         CMSEncoder_tests(identity);
         CMSDecoder_tests();
+        cleanup_keychain(identity);
     }
-
-    cleanup_keychain(identity);
 
     return 0;
 }

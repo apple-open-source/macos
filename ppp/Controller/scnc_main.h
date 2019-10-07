@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2013, 2014, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,7 +35,7 @@
 #include <dns_sd.h>
 #include <IOKit/network/IOEthernetController.h>
 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 #include <CoreTelephony/CTServerConnectionPriv.h>
 #endif
 #include <sys/types.h>
@@ -103,7 +103,7 @@ enum {
     TYPE_IPSEC = 0x1,		/* IPSEC TYPE service */
 };
 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 enum {
 	CELLULAR_BRINGUP_SUCCESS_EVENT, 
 	CELLULAR_BRINGUP_FATAL_FAILURE_EVENT,
@@ -252,7 +252,6 @@ struct ipsec_service {
 	service_route_t         *routes;
 };
 
-
 typedef enum {
     ONDEMAND_PAUSE_STATE_TYPE_OFF = 0,
     ONDEMAND_PAUSE_STATE_TYPE_UNTIL_REBOOT = 1,
@@ -293,7 +292,7 @@ struct service {
 
     CFDictionaryRef connectopts;		/* connect options in use */ 
     CFDictionaryRef systemprefs;		/* system prefs */ 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
     CFStringRef profileIdentifier;		/* profile Identifier in the prefs */ 
 	/* Cellular context */
 	CTServerConnectionRef	cellularConnection;
@@ -303,7 +302,7 @@ struct service {
     CFUserNotificationRef userNotificationRef;	/* user notification */ 
     CFRunLoopSourceRef userNotificationRLS;		/* user notification rls */ 
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 	vproc_transaction_t	vt;		/* opaque handle used to track outstanding transactions, used by instant off */
 #endif
 	u_int32_t 	connecttime;		/* time when connection occured */
@@ -329,7 +328,7 @@ struct service {
 	Boolean            dnsRedirectDetected;
 	CFDictionaryRef    dnsRedirectedAddresses;
 	CFDictionaryRef	   routeCache;
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 	void              *connection_nap_monitor;
 #endif
 	envKeyValue_t     *envKeys;
@@ -390,23 +389,19 @@ extern int					gSCNCDebug;
 
 extern CFStringRef          gOndemand_key;
 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 extern int					gNattKeepAliveInterval;
 #endif
 
 int client_gone(void *client);
 
-int allow_sleep();
-int allow_stop();
+int allow_sleep(void);
+int allow_stop(void);
 int allow_dispose(struct service *serv);
 void service_started(struct service *serv);
 void service_ended(struct service *serv);
 void phase_changed(struct service *serv, int phase);
-void disable_ondemand(struct service *serv);
-void application_installed(CFDictionaryRef appInfo);
-void application_removed(CFDictionaryRef appInfo);
-#if TARGET_OS_EMBEDDED
-int start_profile_janitor(struct service *serv);
+#if !TARGET_OS_OSX
 int bringup_cellular(struct service *serv);
 #endif
 int check_interface_captive_and_not_ready(SCDynamicStoreRef dynamicStoreRef, char *interface_name);
@@ -426,7 +421,7 @@ int scnc_copyextendedstatus(struct service *serv, void **reply, u_int16_t *reply
 int scnc_copystatistics(struct service *serv, void **reply, u_int16_t *replylen);
 int scnc_getconnectdata(struct service *serv, void **reply, u_int16_t *replylen, int all);
 int scnc_getconnectsystemdata(struct service *serv, void **reply, u_int16_t *replylen);
-#if !TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_OSX
 double scnc_getsleepwaketimeout (struct service *serv);
 #endif
 void scnc_idle_disconnect (struct service *serv);
@@ -441,7 +436,6 @@ u_int32_t makeref(struct service *serv);
 int scnc_disconnectifoverslept(const char *function, struct service *serv, char *if_name);
 void nat_port_mapping_set(struct service *serv);
 void nat_port_mapping_clear(struct service *serv);
-void check_network_refresh(void);
 void ondemand_set_pause(struct service *serv, uint32_t pauseflag, Boolean update_store);
 Boolean set_ondemand_pause_timer(struct service *serv, uint32_t timeout, uint32_t pause_type, uint32_t pause_type_on_expire);
 void clear_ondemand_pause_timer(struct service *serv);

@@ -40,7 +40,9 @@ extern "C" {
 #endif
 
 #define WEBKIT2_LOG_CHANNELS(M) \
+    M(AdClickAttribution) \
     M(Automation) \
+    M(AutomationInteractions) \
     M(ActivityState) \
     M(BackForward) \
     M(CacheStorage) \
@@ -53,8 +55,10 @@ extern "C" {
     M(IconDatabase) \
     M(IndexedDB) \
     M(IPC) \
+    M(ITPDebug) \
     M(KeyHandling) \
     M(Layers) \
+    M(Layout) \
     M(Loading) \
     M(LocalStorageDatabaseTracker) \
     M(MouseHandling) \
@@ -74,14 +78,17 @@ extern "C" {
     M(RemoteLayerTree) \
     M(Resize) \
     M(ResourceLoadStatistics) \
-    M(ResourceLoadStatisticsDebug) \
+    M(Scrolling) \
     M(Selection) \
     M(ServiceWorker) \
     M(SessionState) \
+    M(Storage) \
     M(StorageAPI) \
     M(TextInput) \
+    M(UIHitTesting) \
     M(ViewGestures) \
     M(ViewState) \
+    M(ViewportSizing) \
     M(VirtualMemory) \
     M(VisibleRects) \
     M(WebGL) \
@@ -90,6 +97,10 @@ extern "C" {
 WEBKIT2_LOG_CHANNELS(DECLARE_LOG_CHANNEL)
 
 #undef DECLARE_LOG_CHANNEL
+
+namespace WebKit {
+WTFLogChannel* getLogChannel(const String&);
+} // namespace WebKit
 
 #ifdef __cplusplus
 }

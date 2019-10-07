@@ -173,7 +173,7 @@ linea non standard\n"
 BROWSER_IS
         "\nutilizzando %s come browser\n"
 HTMLPAGER_IS
-        "\nimpiegando %s per convertire pagine HTML in puro testo"
+        "\nimpiegando %s per convertire pagine HTML in puro testo\n"
 FOUND_FILE
         "manfile_from_sec_and_dir() ha trovato %s\n"
 CALLTRACE1

@@ -71,7 +71,7 @@ public:
         if (webEvent.shiftKey())
             m_modifiers.add(Modifier::ShiftKey);
         if (webEvent.controlKey())
-            m_modifiers.add(Modifier::CtrlKey);
+            m_modifiers.add(Modifier::ControlKey);
         if (webEvent.altKey())
             m_modifiers.add(Modifier::AltKey);
         if (webEvent.metaKey())
@@ -113,13 +113,13 @@ public:
 #endif
         m_modifierFlags = 0;
         if (webEvent.shiftKey())
-            m_modifierFlags |= WebEvent::ShiftKey;
+            m_modifierFlags |= static_cast<unsigned>(WebEvent::Modifier::ShiftKey);
         if (webEvent.controlKey())
-            m_modifierFlags |= WebEvent::ControlKey;
+            m_modifierFlags |= static_cast<unsigned>(WebEvent::Modifier::ControlKey);
         if (webEvent.altKey())
-            m_modifierFlags |= WebEvent::AltKey;
+            m_modifierFlags |= static_cast<unsigned>(WebEvent::Modifier::AltKey);
         if (webEvent.metaKey())
-            m_modifierFlags |= WebEvent::MetaKey;
+            m_modifierFlags |= static_cast<unsigned>(WebEvent::Modifier::MetaKey);
     }
 };
 
@@ -138,7 +138,7 @@ public:
         if (webEvent.shiftKey())
             m_modifiers.add(Modifier::ShiftKey);
         if (webEvent.controlKey())
-            m_modifiers.add(Modifier::CtrlKey);
+            m_modifiers.add(Modifier::ControlKey);
         if (webEvent.altKey())
             m_modifiers.add(Modifier::AltKey);
         if (webEvent.metaKey())
@@ -200,7 +200,7 @@ public:
         if (webEvent.shiftKey())
             m_modifiers.add(Modifier::ShiftKey);
         if (webEvent.controlKey())
-            m_modifiers.add(Modifier::CtrlKey);
+            m_modifiers.add(Modifier::ControlKey);
         if (webEvent.altKey())
             m_modifiers.add(Modifier::AltKey);
         if (webEvent.metaKey())
@@ -221,8 +221,10 @@ public:
 #endif
         m_keyIdentifier = webEvent.keyIdentifier();
         m_windowsVirtualKeyCode = webEvent.windowsVirtualKeyCode();
-#if USE(APPKIT) || PLATFORM(GTK)
+#if USE(APPKIT) || USE(UIKIT_KEYBOARD_ADDITIONS) || PLATFORM(GTK)
         m_handledByInputMethod = webEvent.handledByInputMethod();
+#endif
+#if USE(APPKIT) || PLATFORM(GTK)
         m_commands = webEvent.commands();
 #endif
         m_autoRepeat = webEvent.isAutoRepeat();
@@ -341,7 +343,7 @@ public:
         if (webEvent.shiftKey())
             m_modifiers.add(Modifier::ShiftKey);
         if (webEvent.controlKey())
-            m_modifiers.add(Modifier::CtrlKey);
+            m_modifiers.add(Modifier::ControlKey);
         if (webEvent.altKey())
             m_modifiers.add(Modifier::AltKey);
         if (webEvent.metaKey())
@@ -400,7 +402,7 @@ public:
         if (webEvent.shiftKey())
             m_modifiers.add(Modifier::ShiftKey);
         if (webEvent.controlKey())
-            m_modifiers.add(Modifier::CtrlKey);
+            m_modifiers.add(Modifier::ControlKey);
         if (webEvent.altKey())
             m_modifiers.add(Modifier::AltKey);
         if (webEvent.metaKey())

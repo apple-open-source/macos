@@ -1,0 +1,12 @@
+diff -Naurp asn1crypto-0.24.0.orig/asn1crypto/_perf/_big_num_ctypes.py asn1crypto-0.24.0/asn1crypto/_perf/_big_num_ctypes.py
+--- asn1crypto-0.24.0.orig/asn1crypto/_perf/_big_num_ctypes.py	2017-05-09 02:59:01.000000000 -0700
++++ asn1crypto-0.24.0/asn1crypto/_perf/_big_num_ctypes.py	2019-05-29 21:59:06.000000000 -0700
+@@ -32,7 +32,7 @@ from .._ffi import LibraryNotFoundError,
+ try:
+     # On Python 2, the unicode string here may raise a UnicodeDecodeError as it
+     # tries to join a bytestring path to the unicode name "crypto"
+-    libcrypto_path = find_library(b'crypto' if sys.version_info < (3,) else 'crypto')
++    libcrypto_path = find_library(b'crypto.44' if sys.version_info < (3,) else 'crypto.44')
+     if not libcrypto_path:
+         raise LibraryNotFoundError('The library libcrypto could not be found')
+ 

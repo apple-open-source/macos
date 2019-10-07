@@ -35,14 +35,13 @@
 #define SYSLOG_NAMES
 #include <syslog.h>
 #include <sys/fslog.h>
-#include <vproc.h>
 #include <pthread.h>
-#include <vproc_priv.h>
 #include <mach/mach.h>
 #include <libkern/OSAtomic.h>
 #include <libproc.h>
 #include <uuid/uuid.h>
 #include <asl_private.h>
+#include <os/transaction_private.h>
 #include "daemon.h"
 
 #define LIST_SIZE_DELTA 256
@@ -74,7 +73,7 @@ static int name_change_token = -1;
 static OSSpinLock count_lock = 0;
 
 #if !TARGET_OS_EMBEDDED
-static vproc_transaction_t vproc_trans = {0};
+static os_transaction_t main_transaction;
 #endif
 
 #define DEFAULT_MEMORY_MAX SYSLOGD_WORK_QUEUE_MEMORY
@@ -324,7 +323,7 @@ asl_client_count_increment()
 	OSSpinLockLock(&count_lock);
 
 #if !TARGET_OS_EMBEDDED
-	if (global.client_count == 0) vproc_trans = vproc_transaction_begin(NULL);
+	if (global.client_count == 0) main_transaction = os_transaction_create("com.apple.syslogd");
 #endif
 	global.client_count++;
 
@@ -338,7 +337,7 @@ asl_client_count_decrement()
 
 	if (global.client_count > 0) global.client_count--;
 #if !TARGET_OS_EMBEDDED
-	if (global.client_count == 0) vproc_transaction_end(NULL, vproc_trans);
+	if (global.client_count == 0) os_release(main_transaction);
 #endif
 
 	OSSpinLockUnlock(&count_lock);
@@ -942,7 +941,7 @@ process_message(asl_msg_t *msg, uint32_t source)
 		}
 	}
 
-	__block vproc_transaction_t vt = vproc_transaction_begin(NULL);
+	os_transaction_t transaction = os_transaction_create("com.apple.syslogd.message");
 
 	for (x = msg; x != NULL; x = x->next) msize += x->mem_size;
 
@@ -1000,7 +999,7 @@ process_message(asl_msg_t *msg, uint32_t source)
 		asl_msg_release(msg);
 
 		OSAtomicDecrement32(&global.work_queue_count);
-		vproc_transaction_end(NULL, vt);
+		os_release(transaction);
 	});
 }
 
@@ -1320,7 +1319,7 @@ asl_input_parse(const char *in, int len, char *rhost, uint32_t source)
 	return msg;
 }
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 void
 launchd_callback(struct timeval *when, pid_t from_pid, pid_t about_pid, uid_t sender_uid, gid_t sender_gid, int priority, const char *from_name, const char *about_name, const char *session_name, const char *msg)
 {

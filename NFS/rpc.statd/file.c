@@ -194,7 +194,8 @@ find_host(char *hostname, int create)
 	HostInfo *hip = NULL;
 	HostInfo *spare_slot = NULL;
 	off_t off, spare_off = status_file_len;
-	int rv, namelen;
+    ssize_t rv;
+    size_t namelen;
 	uint i;
 	uint16_t len, nlen;
 
@@ -291,13 +292,14 @@ find_host(char *hostname, int create)
 int
 convert_version0_file(const char *filename0)
 {
-	int fd0, fd = -1, len, namelen, rv, nhosts0, nhosts, i, newcreated = 0;
+	int fd0, fd = -1, nhosts0, nhosts, i, newcreated = 0;
+    ssize_t rv;
 	struct stat st;
 	FileHeader fh;
 	HostInfo0 *hi0p = NULL;
 	HostInfo *hip = NULL;
 	char *filename = NULL;
-	int filenamelen;
+    size_t filenamelen, len, namelen;
 
 	log(LOG_NOTICE, "converting old status file");
 
@@ -412,7 +414,7 @@ convert_version0_file(const char *filename0)
 	if (rv < 0)
 		log(LOG_ERR, "can't rename new status file into place: %d %s", rv, strerror(errno));
 	free(filename);
-	return (rv);
+	return ((int) rv);
 fail:
 	if (hip)
 		free(hip);
@@ -446,7 +448,8 @@ init_file(const char *filename)
 {
 	int new_file = FALSE;
 	struct flock lock = {0};
-	int rv, len, err, update, need_notify = FALSE;
+	int len, err, update, need_notify = FALSE;
+    ssize_t rv;
 	uint i;
 	FileHeader fh;
 	HostInfo *hip = NULL;
@@ -659,7 +662,7 @@ notify_one_host(char *hostname, int warn)
 	struct timeval timeout = {20, 0};	/* 20 secs timeout		 */
 	struct timeval try = {4, 0};		/* 4 secs per try		 */
 	struct addrinfo *ai, *ailist;
-	CLIENT *cli;
+	CLIENT *cli = NULL;
 	char dummy, empty[] = "", *spcerr = NULL;
 	stat_chge arg;
 	char our_hostname[SM_MAXSTRLEN + 1];
@@ -728,7 +731,8 @@ notify_one_host(char *hostname, int warn)
 int
 notify_hosts(void)
 {
-	int i, reccnt;
+    off_t i;
+    int reccnt;
 	int attempts, warn;
 	int work_to_do = FALSE;
 	HostInfo *hip;

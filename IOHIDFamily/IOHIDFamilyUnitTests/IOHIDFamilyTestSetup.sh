@@ -3,5 +3,7 @@ tailspin set buffer-size 100
 if [ -d "/var/tmp/hidxctest" ]; then
     mv /var/tmp/hidxctest /var/tmp/_hidxctest
 fi
+#log config --subsystem "com.apple.iohid" --mode level:debug,persist:debug
+log config --subsystem "com.apple.iohid" --mode level:debug
 exit 0
  

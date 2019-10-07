@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		226F987D1CA9A5F000E4A1A2 /* Chess_128x128.png in Resources */ = {isa = PBXBuildFile; fileRef = 226F987C1CA9A5F000E4A1A2 /* Chess_128x128.png */; };
+		72527B4E229F534100070CBF /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 72527B4D229F534100070CBF /* COPYING */; };
+		72527B4F229F534100070CBF /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 72527B4D229F534100070CBF /* COPYING */; };
+		72527B51229F544500070CBF /* Tuner.xib in Resources */ = {isa = PBXBuildFile; fileRef = 72527B50229F544500070CBF /* Tuner.xib */; };
 		950BD1140A1E582B00395116 /* MBCBoard.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC0A02FA7C5601AC80B8 /* MBCBoard.h */; };
 		950BD1150A1E582B00395116 /* MBCEngineCommands.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC1002FAB09301AC80B8 /* MBCEngineCommands.h */; };
 		950BD1160A1E582B00395116 /* MBCPlayer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC1202FAB09301AC80B8 /* MBCPlayer.h */; };
@@ -139,7 +142,6 @@
 		95844CC70A670C280068CA82 /* Defaults.plist in Resources */ = {isa = PBXBuildFile; fileRef = F598AC41035A958501000102 /* Defaults.plist */; };
 		95844CCA0A670C280068CA82 /* sjeng.rc in Resources */ = {isa = PBXBuildFile; fileRef = 9595B6C00458E2CD00A8D2EE /* sjeng.rc */; };
 		95844CCB0A670C280068CA82 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 95D6CE62045BBDBE0045D5FC /* Localizable.strings */; };
-		95844CCD0A670C280068CA82 /* Tuner.nib in Resources */ = {isa = PBXBuildFile; fileRef = 95A35D03048EEF8900D1AB5E /* Tuner.nib */; };
 		95844CCF0A670C280068CA82 /* SpeechHelp.plist in Resources */ = {isa = PBXBuildFile; fileRef = 9594A40504C76CA4005DC0DD /* SpeechHelp.plist */; };
 		95844CD20A670C280068CA82 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5775A1A02F9176F01D8996C /* main.mm */; };
 		95844CD30A670C280068CA82 /* MBCBoard.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5C8AC0B02FA7C5601AC80B8 /* MBCBoard.mm */; };
@@ -167,8 +169,6 @@
 		95844CEA0A670C280068CA82 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
 		95844CEB0A670C280068CA82 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5228DC5030ADA9401D8E860 /* OpenGL.framework */; };
 		95844CEC0A670C280068CA82 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5529B030314493B01CA17FB /* Carbon.framework */; };
-		959212FB12B0676D0021B5BA /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 959212FA12B0676D0021B5BA /* COPYING */; };
-		959212FC12B0676D0021B5BA /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 959212FA12B0676D0021B5BA /* COPYING */; };
 		9595F35C1467285D00FC37E4 /* GameKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9595F35B1467285D00FC37E4 /* GameKit.framework */; };
 		95A7266E1426CFE6006CE6F2 /* MBCUserDefaults.h in Headers */ = {isa = PBXBuildFile; fileRef = 95A7266C1426CFE6006CE6F2 /* MBCUserDefaults.h */; };
 		95A7266F1426CFE6006CE6F2 /* MBCUserDefaults.h in Headers */ = {isa = PBXBuildFile; fileRef = 95A7266C1426CFE6006CE6F2 /* MBCUserDefaults.h */; };
@@ -199,8 +199,6 @@
 		D71B7D5D19E5D6FC00CB06F5 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 29B97324FDCFA39411CA2CEA /* AppKit.framework */; };
 		D73E3F281B5FE9EF002BCF37 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D73E3F271B5FE9EF002BCF37 /* SystemConfiguration.framework */; };
 		D74735DE1AC9A07D00AB3466 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D74735DD1AC9A07D00AB3466 /* CoreFoundation.framework */; };
-		D7AA0A7619E7691400A65121 /* GameCenterFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D7AA0A7519E7691400A65121 /* GameCenterFoundation.framework */; };
-		D7AA0A7819E7692300A65121 /* GameCenterUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D7AA0A7719E7692300A65121 /* GameCenterUI.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -265,11 +263,14 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		089C165DFE840E0CC02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		089C165DFE840E0CC02AAC07 /* en */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
 		226F987C1CA9A5F000E4A1A2 /* Chess_128x128.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Chess_128x128.png; path = Resources/Icons/Chess_128x128.png; sourceTree = "<group>"; };
 		29B97324FDCFA39411CA2CEA /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
 		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
+		72527B4D229F534100070CBF /* COPYING */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = COPYING; path = sjeng/COPYING; sourceTree = "<group>"; };
+		72527B50229F544500070CBF /* Tuner.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = Tuner.xib; sourceTree = "<group>"; };
+		90A6A10320A5FA8C00BF7AFF /* Chess.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Chess.xcconfig; sourceTree = "<group>"; };
 		950B5942049D8C73000001C9 /* MBCMoveGenerator.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCMoveGenerator.h; path = Sources/MBCMoveGenerator.h; sourceTree = "<group>"; };
 		950B5943049D8C73000001C9 /* MBCMoveGenerator.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCMoveGenerator.mm; path = Sources/MBCMoveGenerator.mm; sourceTree = "<group>"; };
 		950BD16F0A1E582B00395116 /* Info-MBChess.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info-MBChess.plist"; path = "Resources/Info-MBChess.plist"; sourceTree = "<group>"; };
@@ -297,7 +298,6 @@
 		9595F35B1467285D00FC37E4 /* GameKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameKit.framework; path = /System/Library/Frameworks/GameKit.framework; sourceTree = "<absolute>"; };
 		95A35CFF048EEA7300D1AB5E /* MBCTuner.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCTuner.h; path = Sources/MBCTuner.h; sourceTree = "<group>"; };
 		95A35D00048EEA7300D1AB5E /* MBCTuner.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCTuner.mm; path = Sources/MBCTuner.mm; sourceTree = "<group>"; };
-		95A35D04048EEF8900D1AB5E /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/Tuner.nib; sourceTree = "<group>"; };
 		95A7266C1426CFE6006CE6F2 /* MBCUserDefaults.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MBCUserDefaults.h; path = Sources/MBCUserDefaults.h; sourceTree = "<group>"; };
 		95A7266D1426CFE6006CE6F2 /* MBCUserDefaults.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCUserDefaults.mm; path = Sources/MBCUserDefaults.mm; sourceTree = "<group>"; };
 		95B4181814E0B5FE006B675E /* libCrashReporterClient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libCrashReporterClient.a; path = ../../../../../usr/local/lib/libCrashReporterClient.a; sourceTree = "<group>"; };
@@ -345,10 +345,9 @@
 		95C85026048F342500A9DF4F /* Styles */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder; path = Styles; sourceTree = "<group>"; };
 		95D2026204C2247A00590F98 /* MBCLanguageModel.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCLanguageModel.h; path = Sources/MBCLanguageModel.h; sourceTree = "<group>"; };
 		95D2026304C2247B00590F98 /* MBCLanguageModel.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCLanguageModel.mm; path = Sources/MBCLanguageModel.mm; sourceTree = "<group>"; };
-		95D4D51A1327E29E0063FA06 /* English */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Spoken.strings; sourceTree = "<group>"; };
-		95D6CE63045BBDBE0045D5FC /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
+		95D4D51A1327E29E0063FA06 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Spoken.strings; sourceTree = "<group>"; };
+		95D6CE63045BBDBE0045D5FC /* en */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		95DEC3D81488581300E1305A /* Chess.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Chess.entitlements; sourceTree = "<group>"; };
-		95E9EE6D045797010091A3D7 /* English */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = English; path = sjeng/English.lproj/COPYING; sourceTree = "<group>"; };
 		95ECDE261491C5B100DFD47B /* container-migration.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "container-migration.plist"; path = "Resources/container-migration.plist"; sourceTree = "<group>"; };
 		95F5B80D06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardViewAccessibility.h; path = Sources/MBCBoardViewAccessibility.h; sourceTree = "<group>"; };
 		95F5B80E06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardViewAccessibility.mm; path = Sources/MBCBoardViewAccessibility.mm; sourceTree = "<group>"; };
@@ -403,8 +402,6 @@
 			files = (
 				D73E3F281B5FE9EF002BCF37 /* SystemConfiguration.framework in Frameworks */,
 				D74735DE1AC9A07D00AB3466 /* CoreFoundation.framework in Frameworks */,
-				D7AA0A7819E7692300A65121 /* GameCenterUI.framework in Frameworks */,
-				D7AA0A7619E7691400A65121 /* GameCenterFoundation.framework in Frameworks */,
 				D71B7D5D19E5D6FC00CB06F5 /* AppKit.framework in Frameworks */,
 				9595F35C1467285D00FC37E4 /* GameKit.framework in Frameworks */,
 				950BD1640A1E582B00395116 /* Cocoa.framework in Frameworks */,
@@ -482,6 +479,7 @@
 		29B97314FDCFA39411CA2CEA /* MBChess */ = {
 			isa = PBXGroup;
 			children = (
+				90A6A10320A5FA8C00BF7AFF /* Chess.xcconfig */,
 				080E96DDFE201D6D7F000001 /* Classes */,
 				29B97315FDCFA39411CA2CEA /* Other Sources */,
 				29B97317FDCFA39411CA2CEA /* Resources */,
@@ -517,7 +515,7 @@
 				950BD16F0A1E582B00395116 /* Info-MBChess.plist */,
 				950EE08807769701004ED524 /* Chess.plist */,
 				950EE08907769701004ED524 /* Chess.txt */,
-				959212FA12B0676D0021B5BA /* COPYING */,
+				72527B4D229F534100070CBF /* COPYING */,
 				089C165CFE840E0CC02AAC07 /* InfoPlist.strings */,
 				95D6CE62045BBDBE0045D5FC /* Localizable.strings */,
 				95D4D5191327E29E0063FA06 /* Spoken.strings */,
@@ -529,8 +527,8 @@
 				9595B6C00458E2CD00A8D2EE /* sjeng.rc */,
 				F598AC41035A958501000102 /* Defaults.plist */,
 				95C85026048F342500A9DF4F /* Styles */,
-				95A35D03048EEF8900D1AB5E /* Tuner.nib */,
 				9594A40504C76CA4005DC0DD /* SpeechHelp.plist */,
+				72527B50229F544500070CBF /* Tuner.xib */,
 				95ECDE261491C5B100DFD47B /* container-migration.plist */,
 			);
 			name = Resources;
@@ -888,17 +886,15 @@
 		29B97313FDCFA39411CA2CEA /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				DefaultBuildSystemTypeForWorkspace = Latest;
 				LastUpgradeCheck = 0420;
 			};
 			buildConfigurationList = 950BD17E0A1E582C00395116 /* Build configuration list for PBXProject "MBChess" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 1;
 			knownRegions = (
-				English,
-				Japanese,
-				French,
-				German,
+				en,
 				Base,
 			);
 			mainGroup = 29B97314FDCFA39411CA2CEA /* MBChess */;
@@ -927,7 +923,6 @@
 				950BD12F0A1E582B00395116 /* suicide.opn in Resources */,
 				950BD1300A1E582B00395116 /* zbook.db in Resources */,
 				950BD1420A1E582B00395116 /* Defaults.plist in Resources */,
-				959212FB12B0676D0021B5BA /* COPYING in Resources */,
 				950BD1450A1E582B00395116 /* sjeng.rc in Resources */,
 				950BD1460A1E582B00395116 /* Localizable.strings in Resources */,
 				950BD1480A1E582B00395116 /* Styles in Resources */,
@@ -937,6 +932,7 @@
 				95D8520F13E710190045366C /* Board.xib in Resources */,
 				95D8521813E710B80045366C /* About.xib in Resources */,
 				95D8521A13E710B80045366C /* MainMenu.xib in Resources */,
+				72527B4E229F534100070CBF /* COPYING in Resources */,
 				95261CDD1478580E004EF501 /* background.pdf in Resources */,
 				95ECDE271491C5B100DFD47B /* container-migration.plist in Resources */,
 				9556A24514FC15F4000219D4 /* selected_piece_texture@2x.png in Resources */,
@@ -954,10 +950,10 @@
 				95844CB40A670C280068CA82 /* suicide.opn in Resources */,
 				95844CB50A670C280068CA82 /* zbook.db in Resources */,
 				95844CC70A670C280068CA82 /* Defaults.plist in Resources */,
-				959212FC12B0676D0021B5BA /* COPYING in Resources */,
+				72527B51229F544500070CBF /* Tuner.xib in Resources */,
 				95844CCA0A670C280068CA82 /* sjeng.rc in Resources */,
 				95844CCB0A670C280068CA82 /* Localizable.strings in Resources */,
-				95844CCD0A670C280068CA82 /* Tuner.nib in Resources */,
+				72527B4F229F534100070CBF /* COPYING in Resources */,
 				95844CCF0A670C280068CA82 /* SpeechHelp.plist in Resources */,
 				9561960A0EB12AD70097627D /* selected_piece_texture.png in Resources */,
 				95D4D51C1327E29E0063FA06 /* Spoken.strings in Resources */,
@@ -991,7 +987,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Copy provisioning profile, ignoring errors, so we can build without one as well\ncp -f Chess.provisionprofile \"$BUILT_PRODUCTS_DIR/$PRODUCT_NAME.app\"/Contents/embedded.provisionprofile 2>/dev/null || echo \"No provisionprofile (Ignoring)\"";
+			shellScript = "# Copy provisioning profile, ignoring errors, so we can build without one as well\ncp -f Chess.provisionprofile \"$BUILT_PRODUCTS_DIR/$PRODUCT_NAME.app\"/Contents/embedded.provisionprofile 2>/dev/null || echo \"No provisionprofile (Ignoring)\"\n";
 		};
 		95AC35A31501964C00D81DC7 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1004,7 +1000,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Build all icons\n/usr/local/bin/iconcompiler -b \"$BUILT_PRODUCTS_DIR/$PRODUCT_NAME.app\" -r \"$PROJECT_DIR/Resources/Icons\" || exit 1\n# In textures, preserve only the highest resolution\nshopt -s nullglob\nfor tex in \"$BUILT_PRODUCTS_DIR/$PRODUCT_NAME.app\"/Contents/Resources/{,Styles/*/}*2x*\ndo \n    mv \"$tex\" \"${tex%@2x.png}.png\"\ndone";
+			shellScript = "# Build all icons\n/usr/local/bin/iconcompiler -b \"$BUILT_PRODUCTS_DIR/$PRODUCT_NAME.app\" -r \"$PROJECT_DIR/Resources/Icons\" || exit 1\n# In textures, preserve only the highest resolution\nshopt -s nullglob\nfor tex in \"$BUILT_PRODUCTS_DIR/$PRODUCT_NAME.app\"/Contents/Resources/{,Styles/*/}*2x*\ndo \n    mv \"$tex\" \"${tex%@2x.png}.png\"\ndone\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1122,31 +1118,15 @@
 		089C165CFE840E0CC02AAC07 /* InfoPlist.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
-				089C165DFE840E0CC02AAC07 /* English */,
+				089C165DFE840E0CC02AAC07 /* en */,
 			);
 			name = InfoPlist.strings;
-			sourceTree = "<group>";
-		};
-		959212FA12B0676D0021B5BA /* COPYING */ = {
-			isa = PBXVariantGroup;
-			children = (
-				95E9EE6D045797010091A3D7 /* English */,
-			);
-			name = COPYING;
-			sourceTree = "<group>";
-		};
-		95A35D03048EEF8900D1AB5E /* Tuner.nib */ = {
-			isa = PBXVariantGroup;
-			children = (
-				95A35D04048EEF8900D1AB5E /* English */,
-			);
-			name = Tuner.nib;
 			sourceTree = "<group>";
 		};
 		95D4D5191327E29E0063FA06 /* Spoken.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
-				95D4D51A1327E29E0063FA06 /* English */,
+				95D4D51A1327E29E0063FA06 /* en */,
 			);
 			name = Spoken.strings;
 			sourceTree = "<group>";
@@ -1154,7 +1134,7 @@
 		95D6CE62045BBDBE0045D5FC /* Localizable.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
-				95D6CE63045BBDBE0045D5FC /* English */,
+				95D6CE63045BBDBE0045D5FC /* en */,
 			);
 			name = Localizable.strings;
 			sourceTree = "<group>";
@@ -1206,7 +1186,7 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
-				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
+				INSTALL_PATH = "$(PLATFORM_SYSTEM_APPLICATIONS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				ORDER_FILE = Chess.order;
@@ -1240,7 +1220,7 @@
 				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
-				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
+				INSTALL_PATH = "$(PLATFORM_SYSTEM_APPLICATIONS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				ORDER_FILE = Chess.order;
@@ -1273,7 +1253,7 @@
 				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
-				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
+				INSTALL_PATH = "$(PLATFORM_SYSTEM_APPLICATIONS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				ORDER_FILE = Chess.order;
@@ -1350,7 +1330,9 @@
 		};
 		950BD17F0A1E582C00395116 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 90A6A10320A5FA8C00BF7AFF /* Chess.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++98";
 				LEXFLAGS = "-R";
 				OTHER_LDFLAGS = "";
 			};
@@ -1358,14 +1340,18 @@
 		};
 		950BD1800A1E582C00395116 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 90A6A10320A5FA8C00BF7AFF /* Chess.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++98";
 				LEXFLAGS = "-R";
 			};
 			name = Deployment;
 		};
 		950BD1810A1E582C00395116 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 90A6A10320A5FA8C00BF7AFF /* Chess.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++98";
 				LEXFLAGS = "-R";
 				OTHER_LDFLAGS = "";
 			};

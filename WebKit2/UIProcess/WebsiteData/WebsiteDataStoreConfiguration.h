@@ -26,6 +26,7 @@
 #pragma once
 
 #include "APIObject.h"
+#include <WebCore/StorageQuotaManager.h>
 #include <wtf/URL.h>
 #include <wtf/text/WTFString.h>
 
@@ -37,8 +38,11 @@ public:
 
     Ref<WebsiteDataStoreConfiguration> copy();
 
-    uint64_t cacheStoragePerOriginQuota() { return m_cacheStoragePerOriginQuota; }
-    void setCacheStoragePerOriginQuota(uint64_t quota) { m_cacheStoragePerOriginQuota = quota; }
+    bool isPersistent() const { return m_isPersistent; }
+    void setPersistent(bool isPersistent) { m_isPersistent = isPersistent; }
+
+    uint64_t perOriginStorageQuota() const { return m_perOriginStorageQuota; }
+    void setPerOriginStorageQuota(uint64_t quota) { m_perOriginStorageQuota = quota; }
 
     const String& applicationCacheDirectory() const { return m_applicationCacheDirectory; }
     void setApplicationCacheDirectory(String&& directory) { m_applicationCacheDirectory = WTFMove(directory); }
@@ -97,13 +101,19 @@ public:
     const URL& httpsProxy() const { return m_httpsProxy; }
     void setHTTPSProxy(URL&& proxy) { m_httpsProxy = WTFMove(proxy); }
 
-    constexpr static uint64_t defaultCacheStoragePerOriginQuota = 50 * 1024 * 1024;
+    bool deviceManagementRestrictionsEnabled() const { return m_deviceManagementRestrictionsEnabled; }
+    void setDeviceManagementRestrictionsEnabled(bool enabled) { m_deviceManagementRestrictionsEnabled = enabled; }
+
+    bool allLoadsBlockedByDeviceManagementRestrictionsForTesting() const { return m_allLoadsBlockedByDeviceManagementRestrictionsForTesting; }
+    void setAllLoadsBlockedByDeviceManagementRestrictionsForTesting(bool blocked) { m_allLoadsBlockedByDeviceManagementRestrictionsForTesting = blocked; }
 
 private:
     WebsiteDataStoreConfiguration();
 
+    bool m_isPersistent { false };
+
     String m_cacheStorageDirectory;
-    uint64_t m_cacheStoragePerOriginQuota { defaultCacheStoragePerOriginQuota };
+    uint64_t m_perOriginStorageQuota { WebCore::StorageQuotaManager::defaultQuota() };
     String m_networkCacheDirectory;
     String m_applicationCacheDirectory;
     String m_applicationCacheFlatFileSubdirectoryName;
@@ -122,6 +132,8 @@ private:
     String m_sourceApplicationSecondaryIdentifier;
     URL m_httpProxy;
     URL m_httpsProxy;
+    bool m_deviceManagementRestrictionsEnabled { false };
+    bool m_allLoadsBlockedByDeviceManagementRestrictionsForTesting { false };
 };
 
 }

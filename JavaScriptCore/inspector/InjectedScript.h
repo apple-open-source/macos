@@ -51,6 +51,16 @@ public:
     InjectedScript(Deprecated::ScriptObject, InspectorEnvironment*);
     virtual ~InjectedScript();
 
+    struct ExecuteOptions {
+        String objectGroup;
+        bool includeCommandLineAPI { false };
+        bool returnByValue { false };
+        bool generatePreview { false };
+        bool saveResult { false };
+        Vector<JSC::JSValue> args;
+    };
+    void execute(ErrorString&, const String& functionString, ExecuteOptions&&, RefPtr<Protocol::Runtime::RemoteObject>& result, Optional<bool>& wasThrown, Optional<int>& savedResultIndex);
+
     void evaluate(ErrorString&, const String& expression, const String& objectGroup, bool includeCommandLineAPI, bool returnByValue, bool generatePreview, bool saveResult, RefPtr<Protocol::Runtime::RemoteObject>& result, Optional<bool>& wasThrown, Optional<int>& savedResultIndex);
     void awaitPromise(const String& promiseObjectId, bool returnByValue, bool generatePreview, bool saveResult, AsyncCallCallback&&);
     void evaluateOnCallFrame(ErrorString&, JSC::JSValue callFrames, const String& callFrameId, const String& expression, const String& objectGroup, bool includeCommandLineAPI, bool returnByValue, bool generatePreview, bool saveResult, RefPtr<Protocol::Runtime::RemoteObject>& result, Optional<bool>& wasThrown, Optional<int>& savedResultIndex);
@@ -70,6 +80,9 @@ public:
     RefPtr<Protocol::Runtime::RemoteObject> wrapTable(JSC::JSValue table, JSC::JSValue columns) const;
     RefPtr<Protocol::Runtime::ObjectPreview> previewValue(JSC::JSValue) const;
 
+    void setEventValue(JSC::JSValue);
+    void clearEventValue();
+
     void setExceptionValue(JSC::JSValue);
     void clearExceptionValue();
 
@@ -79,6 +92,8 @@ public:
     void releaseObjectGroup(const String& objectGroup);
 
 private:
+    JSC::JSValue arrayFromVector(Vector<JSC::JSValue>&&);
+
     friend class InjectedScriptModule;
 };
 

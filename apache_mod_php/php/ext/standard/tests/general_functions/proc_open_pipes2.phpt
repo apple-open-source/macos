@@ -1,5 +1,5 @@
 --TEST--
-proc_open() with no pipes 
+proc_open() with no pipes
 --FILE--
 <?php
 
@@ -22,7 +22,7 @@ include dirname(__FILE__) . "/proc_open_pipes.inc";
 unlink_sleep_script();
 
 ?>
---EXPECTF--
+--EXPECT--
 int(0)
 array(0) {
 }

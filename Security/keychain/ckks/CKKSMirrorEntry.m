@@ -119,17 +119,17 @@
     return [self.item whereClauseToFindSelf];
 }
 
-- (NSDictionary<NSString*,id>*)sqlValues {
+- (NSDictionary<NSString*,NSString*>*)sqlValues {
     NSMutableDictionary* values = [[self.item sqlValues] mutableCopy];
-    values[@"wascurrent"] = [NSNumber numberWithUnsignedLongLong:self.wasCurrent];
+    values[@"wascurrent"] = [[NSNumber numberWithUnsignedLongLong:self.wasCurrent] stringValue];
     return values;
 }
 
-+ (instancetype) fromDatabaseRow: (NSDictionary*) row {
++ (instancetype)fromDatabaseRow:(NSDictionary<NSString*, CKKSSQLResult*>*)row {
     CKKSMirrorEntry* ckme = [[CKKSMirrorEntry alloc] initWithCKKSItem: [CKKSItem fromDatabaseRow:row]];
 
     // This appears to be the best way to get an unsigned long long out of a string.
-    ckme.wasCurrent = [[[[NSNumberFormatter alloc] init] numberFromString:CKKSNSNullToNil(row[@"wascurrent"])] unsignedLongLongValue];
+    ckme.wasCurrent = [[[[NSNumberFormatter alloc] init] numberFromString:row[@"wascurrent"].asString] unsignedLongLongValue];
     return ckme;
 }
 
@@ -142,11 +142,28 @@
                                       groupBy: @[@"parentKeyUUID"]
                                       orderBy:nil
                                         limit: -1
-                                   processRow: ^(NSDictionary* row) {
-                                       results[row[@"parentKeyUUID"]] = [NSNumber numberWithInteger: [row[@"count(rowid)"] integerValue]];
+                                   processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       results[row[@"parentKeyUUID"].asString] = row[@"count(rowid)"].asNSNumberInteger;
                                    }
                                         error: error];
     return results;
+}
+
++ (NSNumber*)counts:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
+    __block NSNumber *result = nil;
+
+    [CKKSSQLDatabaseObject queryDatabaseTable: [[self class] sqlTable]
+                                        where: @{@"ckzone": CKKSNilToNSNull(zoneID.zoneName)}
+                                      columns: @[@"count(rowid)"]
+                                      groupBy:nil
+                                      orderBy:nil
+                                        limit: -1
+                                   processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       result = row[@"count(rowid)"].asNSNumberInteger;
+                                   }
+                                        error: error];
+    return result;
+
 }
 
 

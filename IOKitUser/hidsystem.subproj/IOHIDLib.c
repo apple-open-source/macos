@@ -33,6 +33,7 @@
 #include <libkern/OSByteOrder.h>
 #include <bootstrap_priv.h>
 #include <mach/mach.h>
+#include <mach/mach_time.h>
 
 
 #include <IOKit/IOKitLib.h>
@@ -46,53 +47,129 @@
 #include <os/log.h>
 #include <dlfcn.h>
 #include "IOHIDLibPrivate.h"
+#include <AssertMacros.h>
 
 #if TARGET_OS_OSX
 #include <msgtracer_client.h>
 #include <msgtracer_keys.h>
 #endif //TARGET_OS_OSX
 
+#define IOHID_LOG_CURSOR _IOHIDLogCategory(kIOHIDLogCategoryCursor)
+
+struct SetFixedMouseLocData {
+    uint64_t    origTs;
+    uint64_t    callTs;
+    int32_t     x;
+    int32_t     y;
+    int32_t     pid;
+} __attribute__((packed));
+
 #define TCC_FRAMEWORK  "/System/Library/PrivateFrameworks/TCC.framework/TCC"
+
+typedef enum {
+    kTCCAccessPreflightGranted,
+    kTCCAccessPreflightDenied,
+    kTCCAccessPreflightUnknown
+} TCCAccessPreflightResult;
+
+TCCAccessPreflightResult TCCAccessPreflight(CFStringRef service, __unused CFDictionaryRef options);
 void TCCAccessRequest(CFStringRef service, CFDictionaryRef options, void (^callback)(Boolean granted));
 
-static bool __IOHIDRequestPostEventAccess(void) {
-    static bool tccAccessGranted = false;
-    static dispatch_once_t predicate;
+static typeof (TCCAccessPreflight) *_preflightFunc = NULL;
+static typeof (TCCAccessRequest) *_requestFunc = NULL;
+
+static void *__loadTCCFramework()
+{
+    static void *tccFramework = NULL;
+    static dispatch_once_t onceToken;
     
-    dispatch_once(&predicate, ^{
-        void *tcc_framework_handle = dlopen(TCC_FRAMEWORK, RTLD_LAZY | RTLD_LOCAL);
-        static typeof (TCCAccessRequest) *requestFunc = NULL;
+    dispatch_once(&onceToken, ^{
+        tccFramework = dlopen(TCC_FRAMEWORK, RTLD_LAZY | RTLD_LOCAL);
         
-        if (tcc_framework_handle == NULL) {
+        if (tccFramework == NULL) {
             IOHIDLogError("Could not load TCC");
             return;
         }
         
-        requestFunc = dlsym(tcc_framework_handle, "TCCAccessRequest");
-        if (requestFunc == NULL) {
-            IOHIDLogError("Could not find TCC symbol \"TCCAccessRequest\"");
+        _preflightFunc = dlsym(tccFramework, "TCCAccessPreflight");
+        if (_preflightFunc == NULL) {
+            IOHIDLogError("Could not find TCC symbol \"TCCAccessPreflight\"");
             return;
         }
         
-        __block dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
-        if (semaphore != NULL) {
-            dispatch_retain(semaphore);
-        }
-        
-        requestFunc(CFSTR("kTCCServicePostEvent"), NULL, ^(Boolean granted) {
-            tccAccessGranted = granted;
-            if (semaphore != NULL) {
-                dispatch_semaphore_signal(semaphore);
-                dispatch_release(semaphore);
-            }
-        });
-        if (semaphore != NULL) {
-            dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
-            dispatch_release(semaphore);
+        _requestFunc = dlsym(tccFramework, "TCCAccessRequest");
+        if (_requestFunc == NULL) {
+            IOHIDLogError("Could not find TCC symbol \"TCCAccessRequest\"");
+            return;
         }
     });
     
-    return tccAccessGranted;
+    return tccFramework;
+}
+
+IOHIDAccessType IOHIDCheckAccess(IOHIDRequestType requestType) {
+    TCCAccessPreflightResult tccResult = kTCCAccessPreflightUnknown;
+    IOHIDAccessType result = kIOHIDAccessTypeUnknown;
+    CFStringRef request = NULL;
+    
+    require(__loadTCCFramework() && _preflightFunc, exit);
+    
+    if (requestType == kIOHIDRequestTypePostEvent) {
+        request = CFSTR("kTCCServicePostEvent");
+    } else if (requestType == kIOHIDRequestTypeListenEvent) {
+        request = CFSTR("kTCCServiceListenEvent");
+    }
+    
+    require(request, exit);
+    
+    tccResult = _preflightFunc(request, NULL);
+    
+    switch (tccResult) {
+        case kTCCAccessPreflightGranted:
+            result = kIOHIDAccessTypeGranted;
+            break;
+        case kTCCAccessPreflightDenied:
+            result = kIOHIDAccessTypeDenied;
+            break;
+        case kTCCAccessPreflightUnknown:
+            result = kIOHIDAccessTypeUnknown;
+            break;
+        default:
+            break;
+    }
+    
+exit:
+    return result;
+}
+
+bool IOHIDRequestAccess(IOHIDRequestType requestType) {
+    __block bool result = false;
+    __block dispatch_semaphore_t semaphore = 0;
+    CFStringRef request = NULL;
+    
+    require(__loadTCCFramework() && _requestFunc, exit);
+    
+    if (requestType == kIOHIDRequestTypePostEvent) {
+        request = CFSTR("kTCCServicePostEvent");
+    } else if (requestType == kIOHIDRequestTypeListenEvent) {
+        request = CFSTR("kTCCServiceListenEvent");
+    }
+    
+    require(request, exit);
+    
+    semaphore = dispatch_semaphore_create(0);
+    require(semaphore, exit);
+    
+    _requestFunc(request, NULL, ^(Boolean granted) {
+        result = granted;
+        dispatch_semaphore_signal(semaphore);
+    });
+    
+    dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+    dispatch_release(semaphore);
+    
+exit:
+    return result;
 }
 
 kern_return_t
@@ -119,10 +196,19 @@ kern_return_t
 IOHIDSetCursorEnable( io_connect_t connect,
 	boolean_t enable )
 {
-    uint64_t inData = enable;
-    return IOConnectCallMethod( connect, 2,		// Index
-			   &inData, 1, NULL, 0,		// Input
-			   NULL, NULL, NULL, NULL);	// Output
+    uint64_t        inData = enable;
+    kern_return_t   ret;
+
+    os_log_info(IOHID_LOG_CURSOR, "Set cursor enable:%s", enable ? "YES" : "NO");
+
+    ret = IOConnectCallMethod(connect, 2,               // Index
+                              &inData, 1, NULL, 0,      // Input
+                              NULL, NULL, NULL, NULL);	// Output
+    if (ret != KERN_SUCCESS) {
+        os_log_error(IOHID_LOG_CURSOR, "Set cursor enable failed:0x%x", ret);
+    }
+
+    return ret;
 }
 
 /* DEPRECATED form of IOHIDPostEvent().
@@ -166,12 +252,12 @@ static void _LOGIOHIDPostEventCaller(void)
     if (!appBundleName) {
         return;
     }
-        
-        
+    
+    
     msgtracer_log_with_keys("com.apple.iokituser.hid.iohidpostevent", ASL_LEVEL_NOTICE,
-                                kMsgTracerKeySignature, CFStringGetCStringPtr(appBundleName, kCFStringEncodingASCII),
-                                kMsgTracerKeySummarize, "YES",
-                                NULL);
+                            kMsgTracerKeySignature, CFStringGetCStringPtr(appBundleName, kCFStringEncodingASCII),
+                            kMsgTracerKeySummarize, "YES",
+                            NULL);
 }
 #endif //TARGET_OS_OSX
 
@@ -190,6 +276,7 @@ IOHIDPostEvent( io_connect_t        connect,
     struct evioLLEvent* event;
     UInt32              eventDataSize = sizeof(NXEventData);
     int                 allowEvent = true;
+    static dispatch_once_t onceToken;
 
     bzero(data, dataSize);
     
@@ -237,7 +324,9 @@ IOHIDPostEvent( io_connect_t        connect,
     if (allowEvent) {
         
         if ((event->setCursor & kIOHIDSetCursorPosition) || event->type != NX_NULLEVENT) {
-            __IOHIDRequestPostEventAccess();
+            dispatch_once(&onceToken, ^{
+                IOHIDRequestAccess(kIOHIDRequestTypePostEvent);
+            });
         }
         
         return IOConnectCallMethod(connect, 3,		// Index
@@ -252,25 +341,45 @@ IOHIDPostEvent( io_connect_t        connect,
 extern kern_return_t
 IOHIDSetCursorBounds( io_connect_t connect, const IOGBounds * bounds )
 {
+    kern_return_t ret;
+
 	if ( !bounds )
 		return kIOReturnBadArgument;
 
-	return IOConnectCallMethod(connect, 6,			// Index
-			NULL, 0,    bounds, sizeof(*bounds),	// Input,
-			NULL, NULL, NULL,   NULL);				// Output
+    os_log_info(IOHID_LOG_CURSOR, "Set cursor bounds minx:%d miny:%d maxx:%d maxy:%d",
+           bounds->minx, bounds->miny, bounds->maxx, bounds->maxy);
+
+	ret = IOConnectCallMethod(connect,    6,                        // Index
+                              NULL, 0,    bounds, sizeof(*bounds),  // Input,
+                              NULL, NULL, NULL,   NULL);            // Output
+    if (ret != KERN_SUCCESS) {
+        os_log_error(IOHID_LOG_CURSOR, "Set cursor bounds failed:0x%x", ret);
+    }
+
+    return ret;
 }
 
 extern kern_return_t
 IOHIDSetOnScreenCursorBounds( io_connect_t connect, const IOGPoint * point, const IOGBounds * bounds )
 {
+    kern_return_t ret;
+
     if ( !bounds || !point )
         return kIOReturnBadArgument;
+
+    os_log_info(IOHID_LOG_CURSOR, "Set on screen cursor bounds px:%d py:%d minx:%d miny:%d maxx:%d maxy:%d",
+           point->x, point->y, bounds->minx, bounds->miny, bounds->maxx, bounds->maxy);
     
     int16_t   data[6] = {point->x, point->y, bounds->minx, bounds->miny, bounds->maxx, bounds->maxy};
     
-    return IOConnectCallMethod(connect, 12,			// Index
-                               NULL, 0,    data, sizeof(data),	// Input,
-                               NULL, NULL, NULL,   NULL);				// Output
+    ret = IOConnectCallMethod(connect, 12,                      // Index
+                              NULL, 0,    data, sizeof(data),   // Input,
+                              NULL, NULL, NULL,   NULL);        // Output
+    if (ret != KERN_SUCCESS) {
+        os_log_error(IOHID_LOG_CURSOR, "Set on screen cursor bounds failed:0x%x", ret);
+    }
+
+    return ret;
 }
 
 kern_return_t
@@ -283,15 +392,44 @@ IOHIDSetMouseLocation( io_connect_t connect, int x, int y )
 }
 
 kern_return_t
+_IOHIDSetFixedMouseLocation( io_connect_t connect, struct SetFixedMouseLocData *data)
+{
+    kern_return_t ret = IOConnectCallMethod(connect, 4,                                             // Index
+                                            NULL, 0,    data, sizeof(struct SetFixedMouseLocData),  // Input
+                                            NULL, NULL, NULL, NULL);                                // Output
+
+    if (ret != KERN_SUCCESS) {
+        os_log_debug(IOHID_LOG_CURSOR, "Set fixed mouse location failed:0x%x", ret);
+    }
+
+    return ret;
+}
+
+kern_return_t
 IOHIDSetFixedMouseLocation( io_connect_t connect, int32_t x, int32_t y )
 {
-    int32_t     data[3] = {x, y, 0};
+    struct SetFixedMouseLocData data = {0};
+
+    data.callTs = mach_absolute_time();
+    data.x = x;
+    data.y = y;
+    data.pid = getpid();
     
-    data[2] = getpid();
-    
-    return IOConnectCallMethod(connect, 4,                      // Index
-                               NULL, 0,    data, sizeof(data),  // Input
-                               NULL, NULL, NULL, NULL);         // Output
+    return _IOHIDSetFixedMouseLocation(connect, &data);
+}
+
+kern_return_t
+IOHIDSetFixedMouseLocationWithTimeStamp( io_connect_t connect, int32_t x, int32_t y, uint64_t timestamp )
+{
+    struct SetFixedMouseLocData data = {0};
+
+    data.origTs = timestamp;
+    data.callTs = mach_absolute_time();
+    data.x = x;
+    data.y = y;
+    data.pid = getpid();
+
+    return _IOHIDSetFixedMouseLocation(connect, &data);
 }
 
 kern_return_t
@@ -332,63 +470,48 @@ IOHIDSetStateForSelector( io_connect_t handle, int selector, UInt32 state )
     uint64_t        inData[2] = {selector, state};
     uint32_t        outCount = 0;
     
-    err = IOConnectCallMethod(handle, 6,      // Index
+    if (selector == kIOHIDActivityUserIdle) {
+    
+        io_service_t service;
+        
+        err = IOConnectGetService(handle, &service);
+        
+        if (err) {
+            IOHIDLogError("IOConnectGetService Failed with err : 0x%x", err);
+            return err;
+        }
+        
+        CFNumberRef property = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &state);
+        
+        err = IORegistryEntrySetCFProperty(service, CFSTR(kIOHIDActivityUserIdleKey), property);
+        
+        if (err) {
+            IOHIDLogError("IORegistryEntrySetCFProperty Failed for kIOHIDActivityUserIdleKey with err : 0x%x", err);
+        }
+       
+        if (property) {
+            CFRelease(property);
+        }
+        
+        
+    } else {
+    
+        
+        err = IOConnectCallMethod(handle, 6,      // Index
                               inData, 2, NULL, 0,    // Input
                               NULL, &outCount, NULL, NULL); // Output
+    }
     
     return err;
 }
 
 
 kern_return_t
-IOHIDGetModifierLockState( io_connect_t handle __unused, int selector, bool *state )
+IOHIDGetModifierLockState( io_connect_t handle, int selector, bool *state )
 {
-    kern_return_t               err = kIOReturnSuccess;
-    boolean_t                   modifierState = false;
-    IOHIDEventSystemClientRef   client = NULL;
-    CFArrayRef                  services = NULL;
-  
-    if (selector != kIOHIDCapsLockState &&  selector != kIOHIDNumLockState) {
-        err = kIOReturnBadArgument;
-        goto exit;
-    }
-    
-    client = IOHIDEventSystemClientCreateWithType (kCFAllocatorDefault, kIOHIDEventSystemClientTypePassive, NULL);
-    if (client == NULL) {
-      os_log_error (OS_LOG_DEFAULT, "Failed to create event system client");
-      return kIOReturnError;
-    }
-    
-    services = (CFArrayRef) IOHIDEventSystemClientCopyServices (client);
-    if (services == NULL || CFArrayGetCount(services) == 0) {
-        err = kIOReturnNoDevice;
-        goto exit;
-    }
-    
-    for (CFIndex index = 0; index < CFArrayGetCount(services); index++) {
-        IOHIDServiceClientRef service = (IOHIDServiceClientRef) CFArrayGetValueAtIndex(services, index);
-        if (service && IOHIDServiceClientConformsTo (service, kHIDPage_GenericDesktop, kHIDUsage_GD_Keyboard)) {
-            CFStringRef key = (selector == kIOHIDCapsLockState) ?  CFSTR(kIOHIDServiceCapsLockStateKey) : CFSTR(kIOHIDServiceNumLockStateKey);
-            CFBooleanRef modifierStateProp = (CFBooleanRef)IOHIDServiceClientCopyProperty(service, key);
-            if (modifierStateProp) {
-                modifierState = CFBooleanGetValue(modifierStateProp);
-                CFRelease(modifierStateProp);
-                if (modifierState) {
-                    break;
-                }
-            }
-        }
-    }
-    
-exit:
-
-    *state = modifierState;
-    if (services) {
-        CFRelease(services);
-    }
-    if (client) {
-        CFRelease(client);
-    }
+    UInt32 result = 0;
+    kern_return_t err = IOHIDGetStateForSelector(handle, selector, &result);
+    *state = result ? true : false;
     return err;
 }
 
@@ -406,7 +529,7 @@ IOHIDSetModifierLockState( io_connect_t handle __unused, int selector, bool stat
     
     client = IOHIDEventSystemClientCreateWithType (kCFAllocatorDefault, kIOHIDEventSystemClientTypePassive, NULL);
     if (client == NULL) {
-        os_log_error (OS_LOG_DEFAULT, "Failed to create event system client");
+        IOHIDLogError("Failed to create event system client");
         return kIOReturnError;
     }
     

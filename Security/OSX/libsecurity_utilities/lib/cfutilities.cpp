@@ -430,7 +430,7 @@ CFDataRef cfMapFile(CFURLRef url) {
 }
 
 CFDataRef cfLoadFile(CFURLRef url){
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
     return cfMapFile(url);
 #else
     return cfReadFile(url);
@@ -438,7 +438,7 @@ CFDataRef cfLoadFile(CFURLRef url){
 }
 
 CFDataRef cfLoadFile(int fd, size_t bytes){
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
     return cfMapFile(fd, bytes);
 #else
     return cfReadFile(fd, bytes);

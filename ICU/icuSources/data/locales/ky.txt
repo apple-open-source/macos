@@ -10,7 +10,7 @@ ky{
         word-initial{"… {0}"}
         word-medial{"{0} … {1}"}
     }
-    ExemplarCharacters{"[а б г д е ё ж з и й к л м н ӊ о ө п р с т у ү х ч ш ъ ы э ю я]"}
+    ExemplarCharacters{"[а б г д е ё ж з и й к л м н ң о ө п р с т у ү х ч ш ъ ы э ю я]"}
     ExemplarCharactersIndex{"[А Б В Г Д Е Ё Ж З И Й К Л М Н Ң О Ө П Р С Т У Ү Ф Х Ц Ч Ш Щ Ъ Ы Ь Э Ю Я]"}
     ExemplarCharactersNumbers{"[  \\- , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{
@@ -22,7 +22,9 @@ ky{
         default{"latn"}
         latn{
             miscPatterns{
+                approximately{"~{0}"}
                 atLeast{"{0}+"}
+                atMost{"≤{0}"}
                 range{"{0}–{1}"}
             }
             patterns{
@@ -35,16 +37,16 @@ ky{
             patternsLong{
                 decimalFormat{
                     1000{
-                        one{"0 миӊ"}
-                        other{"0 миӊ"}
+                        one{"0 миң"}
+                        other{"0 миң"}
                     }
                     10000{
-                        one{"00 миӊ"}
-                        other{"00 миӊ"}
+                        one{"00 миң"}
+                        other{"00 миң"}
                     }
                     100000{
-                        one{"000 миӊ"}
-                        other{"000 миӊ"}
+                        one{"000 миң"}
+                        other{"000 миң"}
                     }
                     1000000{
                         one{"0 миллион"}
@@ -87,16 +89,16 @@ ky{
             patternsShort{
                 currencyFormat{
                     1000{
-                        one{"0 миӊ ¤"}
-                        other{"0 миӊ ¤"}
+                        one{"0 миң ¤"}
+                        other{"0 миң ¤"}
                     }
                     10000{
-                        one{"00 миӊ ¤"}
-                        other{"00 миӊ ¤"}
+                        one{"00 миң ¤"}
+                        other{"00 миң ¤"}
                     }
                     100000{
-                        one{"000 миӊ ¤"}
-                        other{"000 миӊ ¤"}
+                        one{"000 миң ¤"}
+                        other{"000 миң ¤"}
                     }
                     1000000{
                         one{"0 млн ¤"}
@@ -137,16 +139,16 @@ ky{
                 }
                 decimalFormat{
                     1000{
-                        one{"0 миӊ"}
-                        other{"0 миӊ"}
+                        one{"0 миң"}
+                        other{"0 миң"}
                     }
                     10000{
-                        one{"00 миӊ"}
-                        other{"00 миӊ"}
+                        one{"00 миң"}
+                        other{"00 миң"}
                     }
                     100000{
-                        one{"000 миӊ"}
-                        other{"000 миӊ"}
+                        one{"000 миң"}
+                        other{"000 миң"}
                     }
                     1000000{
                         one{"0 млн"}
@@ -212,7 +214,7 @@ ky{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
     calendar{
         generic{
             DateTimePatterns{
@@ -274,6 +276,29 @@ ky{
                 yyyyQQQQ{"G y-'ж'. QQQQ"}
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h–h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm–h:mm B"}
+                    m{"h:mm–h:mm B"}
+                }
+                H{
+                    H{"HH–HH"}
+                }
+                Hm{
+                    H{"HH:mm–HH:mm"}
+                    m{"HH:mm–HH:mm"}
+                }
+                Hmv{
+                    H{"HH:mm–HH:mm v"}
+                    m{"HH:mm–HH:mm v"}
+                }
+                Hv{
+                    H{"HH–HH v"}
+                }
                 M{
                     M{"M–M"}
                 }
@@ -300,6 +325,20 @@ ky{
                     d{"d–d"}
                 }
                 fallback{"{0} - {1}"}
+                h{
+                    h{"h–h a"}
+                }
+                hm{
+                    h{"h:mm–h:mm a"}
+                    m{"h:mm–h:mm a"}
+                }
+                hmv{
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
+                }
+                hv{
+                    h{"h–h a v"}
+                }
                 y{
                     y{"y-'ж'.–y-'ж'. G"}
                 }
@@ -394,8 +433,8 @@ ky{
                 MMM{"LLL"}
                 MMMEd{"d-MMM, E"}
                 MMMMW{
-                    one{"MMM 'айынын' W-'аптасы'"}
-                    other{"MMM 'айынын' W-'аптасы'"}
+                    one{"MMMM 'айынын' W-'аптасы'"}
+                    other{"MMMM 'айынын' W-'аптасы'"}
                 }
                 MMMMd{"d-MMMM"}
                 MMMd{"d-MMM"}
@@ -443,13 +482,13 @@ ky{
                         "И",
                     }
                     short{
-                        "жек.",
-                        "дүй.",
-                        "шейш.",
-                        "шарш.",
-                        "бейш.",
-                        "жума",
-                        "ишм.",
+                        "жш.",
+                        "дш.",
+                        "шш.",
+                        "шр.",
+                        "бш.",
+                        "жм.",
+                        "иш.",
                     }
                     wide{
                         "жекшемби",
@@ -481,7 +520,7 @@ ky{
                         "И",
                     }
                     short{
-                        "жк",
+                        "жш.",
                         "дш.",
                         "шш.",
                         "шр.",
@@ -565,6 +604,10 @@ ky{
                     "б.з.ч.",
                     "б.з.",
                 }
+                narrow{
+                    "б.з.ч.",
+                    "б.з.",
+                }
                 wide{
                     "биздин заманга чейин",
                     "биздин заман",
@@ -575,6 +618,15 @@ ky{
                 }
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h–h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm–h:mm B"}
+                    m{"h:mm–h:mm B"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -904,7 +956,7 @@ ky{
                 "-1"{"кечээ"}
                 "-2"{"мурдагы күнү"}
                 "0"{"бүгүн"}
-                "1"{"эртеӊ"}
+                "1"{"эртең"}
                 "2"{"бүрсүгүнү"}
             }
             relativeTime{
@@ -924,7 +976,7 @@ ky{
                 "-1"{"кечээ"}
                 "-2"{"мурдагы күнү"}
                 "0"{"бүгүн"}
-                "1"{"эртеӊ"}
+                "1"{"эртең"}
                 "2"{"бүрсүгүнү"}
             }
             relativeTime{
@@ -944,7 +996,7 @@ ky{
                 "-1"{"кечээ"}
                 "-2"{"мурдагы күнү"}
                 "0"{"бүгүн"}
-                "1"{"эртеӊ"}
+                "1"{"эртең"}
                 "2"{"бүрсүгүнү"}
             }
             relativeTime{
@@ -971,10 +1023,10 @@ ky{
             dn{"ТЧ/ТК"}
         }
         dayperiod-narrow{
-            dn{"ТЧ/ТК"}
+            dn{"тң/тк"}
         }
         dayperiod-short{
-            dn{"ТЧ/ТК"}
+            dn{"тң/тк"}
         }
         era{
             dn{"заман"}
@@ -1737,6 +1789,12 @@ ky{
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
+        standard-narrow{
+            2{"{0} жана {1}"}
+            end{"{0} жана {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
+        }
         standard-short{
             2{"{0} жана {1}"}
             end{"{0} жана {1}"}
@@ -1766,5 +1824,37 @@ ky{
         UK{"Британия"}
         US{"АКШ"}
         metric{"Метрикалык өлчөө тутуму"}
+    }
+    parse{
+        date{
+            lenient{
+                "[\\--/]",
+                "[\\:∶]",
+            }
+        }
+        general{
+            lenient{
+                "[.․。︒﹒．｡]",
+                "['ʼ՚᾽᾿’＇]",
+                "[%٪﹪％]",
+                "[؉‰]",
+                "[\$﹩＄$]",
+                "[£₤]",
+                "[¥￥]",
+                "[₩￦]",
+                "[₨₹{Rp}{Rs}]",
+            }
+        }
+        number{
+            lenient{
+                "[\\-‒⁻₋−➖﹣－]",
+                "[,،٫、︐︑﹐﹑，､]",
+                "[+⁺₊➕﬩﹢＋]",
+            }
+            stricter{
+                "[,٫︐﹐，]",
+                "[.․﹒．｡]",
+            }
+        }
     }
 }

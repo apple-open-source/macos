@@ -1,0 +1,12 @@
+diff -upr IO-Socket-SSL-2.066/lib/IO/Socket/SSL.pm IO-Socket-SSL-2.066-new/lib/IO/Socket/SSL.pm
+--- IO-Socket-SSL-2.066/lib/IO/Socket/SSL.pm	2019-03-05 22:51:09.000000000 -0800
++++ IO-Socket-SSL-2.066-new/lib/IO/Socket/SSL.pm	2019-04-01 19:33:52.000000000 -0700
+@@ -80,7 +80,7 @@ my $netssleay_version;
+ BEGIN {
+     $openssl_version = Net::SSLeay::OPENSSL_VERSION_NUMBER();
+     $netssleay_version = do { no warnings; $Net::SSLeay::VERSION + 0.0; };
+-    $can_client_sni = $openssl_version >= 0x10000000;
++    $can_client_sni = 1;
+     $can_server_sni = defined &Net::SSLeay::get_servername;
+     $can_npn = defined &Net::SSLeay::P_next_proto_negotiated &&
+ 	! Net::SSLeay::constant("LIBRESSL_VERSION_NUMBER");

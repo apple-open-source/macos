@@ -43,17 +43,12 @@
 #include "notify.h"
 #include "notify_internal.h"
 
-#define USER_PROTECTED_UID_PREFIX "user.uid."
-#define USER_PROTECTED_UID_PREFIX_LEN 9
-
-#define INITIAL_TOKEN_ID 0
-#define CLIENT_NAME_TABLE_SIZE 256
 
 #pragma mark -
 const char *
 _notify_shm_id(void)
 {
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
     static dispatch_once_t once;
     static char *shm_id;
     
@@ -126,101 +121,30 @@ _notify_shm_id(void)
 #endif
 }
 
-/*
- * Initialization of global variables. Called once per process.
- */
-void
-_notify_init_globals(void * /* notify_globals_t */ _globals)
-{
-    notify_globals_t globals = _globals;
-    
-    globals->notify_lock = OS_UNFAIR_LOCK_INIT;
-    globals->token_id = INITIAL_TOKEN_ID;
-    globals->notify_common_token = -1;
-    globals->name_table = _nc_table_new(CLIENT_NAME_TABLE_SIZE);
-    globals->registration_table = _nc_table_new(CLIENT_NAME_TABLE_SIZE);
-    globals->check_lock = OS_UNFAIR_LOCK_INIT;
-}
-
-#if !_NOTIFY_HAS_ALLOC_ONCE
-notify_globals_t
-_notify_globals_impl(void)
-{
-    static dispatch_once_t once;
-    static notify_globals_t globals;
-    dispatch_once(&once, ^{
-        globals = calloc(1, sizeof(struct notify_globals_s));
-        _notify_init_globals(globals);
-    });
-    return globals;
-}
-#endif
-
-uint64_t
+inline uint64_t
 make_client_id(pid_t pid, int token)
 {
-	uint64_t cid;
-
-	cid = pid;
-	cid <<= 32;
-	cid |= token;
-
-	return cid;
+	union client_id cid = {
+		.pid = pid,
+		.token = token,
+	};
+	return cid.hash_key;
 }
 
-notify_state_t *
-_notify_lib_notify_state_new(uint32_t flags, uint32_t table_size)
+void
+_notify_lib_notify_state_init(notify_state_t * ns, uint32_t flags)
 {
-	notify_state_t *ns;
-
-	ns = (notify_state_t *)calloc(1, sizeof(notify_state_t));
-	if (ns == NULL) return NULL;
-
 #ifdef SINGLE_THREADED_NOTIFY_STATE
 	assert((flags & NOTIFY_STATE_USE_LOCKS) == 0);
 #endif
 	ns->flags = flags;
 	ns->sock = -1;
-
 	ns->lock = OS_UNFAIR_LOCK_INIT;
-	ns->name_table = _nc_table_new(table_size);
-	ns->name_id_table = _nc_table_new(table_size);
-	ns->client_table = _nc_table_new(table_size);
-	ns->port_table = _nc_table_new(table_size);
-	ns->proc_table = _nc_table_new(table_size);
-
-	if ((ns->name_table == NULL) || (ns->name_id_table == NULL) || (ns->client_table == NULL) || (ns->port_table == NULL) || (ns->proc_table == NULL))
-	{
-		_nc_table_free(ns->name_table);
-		_nc_table_free(ns->name_id_table);
-		_nc_table_free(ns->client_table);
-		_nc_table_free(ns->port_table);
-		_nc_table_free(ns->proc_table);
-		free(ns);
-		return NULL;
-	}
-
-	return ns;
-}
-
-void
-_notify_lib_notify_state_free(notify_state_t *ns)
-{
-	if (ns == NULL) return;
-
-	_nc_table_free(ns->name_table);
-	_nc_table_free(ns->name_id_table);
-	_nc_table_free(ns->client_table);
-	_nc_table_free(ns->port_table);
-	_nc_table_free(ns->proc_table);
-
-	if (ns->sock != -1)
-	{
-		shutdown(ns->sock, 2);
-		close(ns->sock);
-	}
-
-	if (ns->controlled_name != NULL) free(ns->controlled_name);
+	_nc_table_init(&ns->name_table, offsetof(name_info_t, name));
+	_nc_table_init_64(&ns->name_id_table, offsetof(name_info_t, name_id));
+	_nc_table_init_64(&ns->client_table, offsetof(client_t, cid.hash_key));
+	_nc_table_init_n(&ns->port_table, offsetof(port_data_t, port));
+	_nc_table_init_n(&ns->proc_table, offsetof(proc_data_t, pid));
 }
 
 // We only need to lock in the client
@@ -238,71 +162,42 @@ _notify_state_unlock(os_unfair_lock_t lock)
 #ifndef SINGLE_THREADED_NOTIFY_STATE
 	os_unfair_lock_unlock(lock);
 #endif
-
 }
 
 static client_t *
-_internal_client_new(notify_state_t *ns, pid_t pid, int token)
+_internal_client_new(notify_state_t *ns, pid_t pid, int token, name_info_t *n)
 {
 	client_t *c;
 	uint64_t cid = make_client_id(pid, token);
 
-	if (ns == NULL) return NULL;
-
 	/* detect duplicates - should never happen, but it would be bad */
-	c = _nc_table_find_64(ns->client_table, cid);
+	c = _nc_table_find_64(&ns->client_table, cid);
 	if (c != NULL) return NULL;
 
 	c = calloc(1, sizeof(client_t));
 	if (c == NULL) return NULL;
 
 	ns->stat_client_alloc++;
+	c->cid.hash_key = cid;
+	c->name_info = n;
 
-	c->client_id = cid;
-	c->pid = pid;
-	c->send_val = token;
+	LIST_INSERT_HEAD(&n->subscriptions, c, client_subscription_entry);
+	n->refcount++;
 
-	_nc_table_insert_64(ns->client_table, cid, c);
-
+	_nc_table_insert_64(&ns->client_table, &c->cid.hash_key);
 	return c;
 }
 
 static void
 _internal_client_release(notify_state_t *ns, client_t *c)
 {
-	uint64_t cid;
+	_nc_table_delete_64(&ns->client_table, c->cid.hash_key);
 
-	if (ns == NULL) return;
-	if (c == NULL) return;
-
-	cid = c->client_id;
-	_nc_table_delete_64(ns->client_table, cid);
-
-	switch (c->notify_type)
-	{
-		case NOTIFY_TYPE_SIGNAL:
-		{
-			break;
-		}
-		case NOTIFY_TYPE_FILE:
-		{
-			if (c->fd > 0) close(c->fd);
-			c->fd = -1;
-			break;
-		}
-		case NOTIFY_TYPE_PORT:
-		{
-			if (c->port != MACH_PORT_NULL)
-			{
-				/* release my send right to the port */
-				mach_port_deallocate(mach_task_self(), c->port);
-			}
-			break;
-		}
-		default:
-		{
-			break;
-		}
+	if (c->state_and_type & NOTIFY_TYPE_FILE) {
+		if (c->deliver.fd >= 0) close(c->deliver.fd);
+	} else if (c->state_and_type & NOTIFY_TYPE_PORT) {
+		/* release my send right to the port */
+		mach_port_deallocate(mach_task_self(), c->deliver.port);
 	}
 
 	free(c);
@@ -315,7 +210,6 @@ _internal_new_name(notify_state_t *ns, const char *name)
 	name_info_t *n;
 	size_t namelen;
 
-	if (ns == NULL) return NULL;
 	if (name == NULL) return NULL;
 
 	namelen = strlen(name) + 1;
@@ -328,17 +222,15 @@ _internal_new_name(notify_state_t *ns, const char *name)
 	n->name = (char *)n + sizeof(name_info_t);
 	memcpy(n->name, name, namelen);
 
-	notify_globals_t globals = _notify_globals();
-	n->name_id = globals->name_id++;
-
+	n->name_id = ns->name_id++;
 	n->access = NOTIFY_ACCESS_DEFAULT;
 	n->slot = (uint32_t)-1;
 	n->val = 1;
 
 	LIST_INIT(&n->subscriptions);
 
-	_nc_table_insert_no_copy(ns->name_table, n->name, n);
-	_nc_table_insert_64(ns->name_id_table, n->name_id, n);
+	_nc_table_insert(&ns->name_table, &n->name);
+	_nc_table_insert_64(&ns->name_id_table, &n->name_id);
 
 	return n;
 }
@@ -348,7 +240,6 @@ _internal_insert_controlled_name(notify_state_t *ns, name_info_t *n)
 {
 	int i, j;
 
-	if (ns == NULL) return;
 	if (n == NULL) return;
 
 	if (ns->controlled_name == NULL) ns->controlled_name_count = 0;
@@ -418,8 +309,7 @@ _internal_check_access(notify_state_t *ns, const char *name, uid_t uid, gid_t gi
 	name_info_t *p;
 	char str[64];
 
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
-	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
+	if (name == NULL) return NOTIFY_STATUS_NULL_INPUT;
 
 	/* root may do anything */
 	if (uid == 0) return NOTIFY_STATUS_OK;
@@ -464,8 +354,6 @@ _notify_lib_check_controlled_access(notify_state_t *ns, char *name, uid_t uid, g
 {
 	uint32_t status;
 
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
-
 	_notify_state_lock(&ns->lock);
 	status = _internal_check_access(ns, name, uid, gid, req);
 	_notify_state_unlock(&ns->lock);
@@ -473,125 +361,48 @@ _notify_lib_check_controlled_access(notify_state_t *ns, char *name, uid_t uid, g
 	return status;
 }
 
-uint32_t
-_notify_lib_port_proc_new(notify_state_t *ns, mach_port_t port, pid_t proc, uint32_t state, dispatch_source_t src)
-{
-	portproc_data_t *pdata;
-
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
-	if ((proc == 0) && (port == MACH_PORT_NULL)) return NOTIFY_STATUS_FAILED;
-
-	pdata = (portproc_data_t *)calloc(1, sizeof(portproc_data_t));
-	if (pdata == NULL) return NOTIFY_STATUS_FAILED;
-
-	ns->stat_portproc_alloc++;
-
-	pdata->refcount = 1;
-	pdata->flags = state;
-	pdata->src = src;
-
-	_notify_state_lock(&ns->lock);
-	if (proc == 0) _nc_table_insert_n(ns->port_table, port, pdata);
-	else _nc_table_insert_n(ns->proc_table, proc, pdata);
-	_notify_state_unlock(&ns->lock);
-
-	return NOTIFY_STATUS_OK;
-}
-
-portproc_data_t *
-_notify_lib_port_proc_find(notify_state_t *ns, mach_port_t port, pid_t proc)
-{
-	portproc_data_t *pdata = NULL;
-
-	if (ns == NULL) return NULL;
-	if ((proc == 0) && (port == MACH_PORT_NULL)) return NULL;
-
-	_notify_state_lock(&ns->lock);
-
-	if (proc == 0) pdata = _nc_table_find_n(ns->port_table, port);
-	else pdata = _nc_table_find_n(ns->proc_table, proc);
-
-	if (pdata != NULL) pdata->refcount++;
-
-	_notify_state_unlock(&ns->lock);
-
-	return pdata;
-}
-
-void
-_notify_lib_port_proc_release(notify_state_t *ns, mach_port_t port, pid_t proc)
-{
-	portproc_data_t *pdata = NULL;
-
-	if (ns == NULL) return;
-	if ((proc == 0) && (port == MACH_PORT_NULL)) return;
-
-	_notify_state_lock(&ns->lock);
-
-	if (proc == 0) pdata = _nc_table_find_n(ns->port_table, port);
-	else pdata = _nc_table_find_n(ns->proc_table, proc);
-
-	if (pdata != NULL)
-	{
-		if (pdata->refcount > 0) pdata->refcount--;
-		if (pdata->refcount == 0)
-		{
-			if (proc == 0) _nc_table_delete_n(ns->port_table, port);
-			else _nc_table_delete_n(ns->proc_table, proc);
-
-			dispatch_source_cancel(pdata->src);
-			dispatch_release(pdata->src);
-
-			free(pdata);
-			ns->stat_portproc_free++;
-		}
-	}
-
-	_notify_state_unlock(&ns->lock);
-}
-
 /*
  * Send notification to a subscriber
  */
 static uint32_t
-_internal_send(notify_state_t *ns, client_t *c)
+_internal_send(notify_state_t *ns, client_t *c,
+		proc_data_t *proc_data, port_data_t *port_data)
 {
 	uint32_t send;
-	portproc_data_t *pdata;
 
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
-	if (c == NULL) return NOTIFY_STATUS_FAILED;
-
-	if (c->state & NOTIFY_CLIENT_STATE_SUSPENDED)
+	if (c->state_and_type & NOTIFY_CLIENT_STATE_SUSPENDED)
 	{
-		c->state |= NOTIFY_CLIENT_STATE_PENDING;
+		c->state_and_type |= NOTIFY_CLIENT_STATE_PENDING;
 		return NOTIFY_STATUS_OK;
 	}
 
-	pdata = _nc_table_find_n(ns->proc_table, c->pid);
-	if ((pdata != NULL) && (pdata->flags & NOTIFY_PORT_PROC_STATE_SUSPENDED))
+	if (proc_data == NULL)
+	{
+		proc_data = _nc_table_find_n(&ns->proc_table, c->cid.pid);
+	}
+	if ((proc_data != NULL) && (proc_data->flags & NOTIFY_PORT_PROC_STATE_SUSPENDED))
 	{
 		c->suspend_count++;
-		c->state |= NOTIFY_CLIENT_STATE_SUSPENDED;
-		c->state |= NOTIFY_CLIENT_STATE_PENDING;
+		c->state_and_type |= NOTIFY_CLIENT_STATE_SUSPENDED;
+		c->state_and_type |= NOTIFY_CLIENT_STATE_PENDING;
 		return NOTIFY_STATUS_OK;
 	}
 
-	send = c->send_val;
+	send = c->cid.token;
 
-	switch (c->notify_type)
+	switch (c->state_and_type & NOTIFY_TYPE_MASK)
 	{
 		case NOTIFY_TYPE_SIGNAL:
 		{
 			int rc = 0;
 
-			if (c->pid == NOTIFY_CLIENT_SELF) rc = kill(getpid(), c->sig);
-			else rc = kill(c->pid, c->sig);
+			if (c->cid.pid == NOTIFY_CLIENT_SELF) rc = kill(getpid(), c->deliver.sig);
+			else rc = kill(c->cid.pid, c->deliver.sig);
 
-			if (rc != 0) return NOTIFY_STATUS_FAILED;
+			if (rc != 0) return NOTIFY_STATUS_KILL_FAILED;
 
-			c->state &= ~NOTIFY_CLIENT_STATE_PENDING;
-			c->state &= ~NOTIFY_CLIENT_STATE_TIMEOUT;
+			c->state_and_type &= ~NOTIFY_CLIENT_STATE_PENDING;
+			c->state_and_type &= ~NOTIFY_CLIENT_STATE_TIMEOUT;
 
 			return NOTIFY_STATUS_OK;
 		}
@@ -600,20 +411,20 @@ _internal_send(notify_state_t *ns, client_t *c)
 		{
 			ssize_t len;
 
-			if (c->fd >= 0)
+			if (c->deliver.fd >= 0)
 			{
 				send = htonl(send);
-				len = write(c->fd, &send, sizeof(uint32_t));
+				len = write(c->deliver.fd, &send, sizeof(uint32_t));
 				if (len != sizeof(uint32_t))
 				{
-					close(c->fd);
-					c->fd = -1;
-					return NOTIFY_STATUS_FAILED;
+					close(c->deliver.fd);
+					c->deliver.fd = -1;
+					return NOTIFY_STATUS_WRITE_FAILED;
 				}
 			}
 
-			c->state &= ~NOTIFY_CLIENT_STATE_PENDING;
-			c->state &= ~NOTIFY_CLIENT_STATE_TIMEOUT;
+			c->state_and_type &= ~NOTIFY_CLIENT_STATE_PENDING;
+			c->state_and_type &= ~NOTIFY_CLIENT_STATE_TIMEOUT;
 
 			return NOTIFY_STATUS_OK;
 		}
@@ -624,12 +435,15 @@ _internal_send(notify_state_t *ns, client_t *c)
 			mach_msg_empty_send_t msg;
 			mach_msg_option_t opts = MACH_SEND_MSG | MACH_SEND_TIMEOUT;
 
-			pdata = _nc_table_find_n(ns->port_table, c->port);
-			if ((pdata != NULL) && (pdata->flags & NOTIFY_PORT_PROC_STATE_SUSPENDED))
+			if (port_data == NULL)
+			{
+				port_data = _nc_table_find_n(&ns->port_table, c->deliver.port);
+			}
+			if ((port_data != NULL) && (port_data->flags & NOTIFY_PORT_PROC_STATE_SUSPENDED))
 			{
 				c->suspend_count++;
-				c->state |= NOTIFY_CLIENT_STATE_SUSPENDED;
-				c->state |= NOTIFY_CLIENT_STATE_PENDING;
+				c->state_and_type |= NOTIFY_CLIENT_STATE_SUSPENDED;
+				c->state_and_type |= NOTIFY_CLIENT_STATE_PENDING;
 				return NOTIFY_STATUS_OK;
 			}
 
@@ -639,7 +453,7 @@ _internal_send(notify_state_t *ns, client_t *c)
 			msg.header.msgh_size = sizeof(mach_msg_empty_send_t);
 			msg.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, MACH_MSGH_BITS_ZERO);
 			msg.header.msgh_local_port = MACH_PORT_NULL;
-			msg.header.msgh_remote_port = c->port;
+			msg.header.msgh_remote_port = c->deliver.port;
 			msg.header.msgh_id = (mach_msg_id_t)send;
 
 			kstatus = mach_msg(&msg.header, opts, msg.header.msgh_size, 0, MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
@@ -656,19 +470,26 @@ _internal_send(notify_state_t *ns, client_t *c)
 					 * c->suspend_count must be zero, or we would not be trying to send.
 					 */
 					c->suspend_count++;
-					c->state |= NOTIFY_CLIENT_STATE_SUSPENDED;
-					c->state |= NOTIFY_CLIENT_STATE_PENDING;
-					c->state |= NOTIFY_CLIENT_STATE_TIMEOUT;
+					c->state_and_type |= NOTIFY_CLIENT_STATE_SUSPENDED;
+					c->state_and_type |= NOTIFY_CLIENT_STATE_PENDING;
+					c->state_and_type |= NOTIFY_CLIENT_STATE_TIMEOUT;
 
+					if (port_data) {
+						/*
+						 * If we failed to send, stop trying on this port
+						 * and just wait for the send-possible notification
+						 */
+						port_data->flags |= NOTIFY_PORT_PROC_STATE_SUSPENDED;
+					}
 					return NOTIFY_STATUS_OK;
 				}
 
-				return NOTIFY_STATUS_FAILED;
+				return NOTIFY_STATUS_MACH_MSG_TIMEOUT;
 			}
-			else if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_FAILED;
+			else if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_MACH_MSG_FAILED;
 
-			c->state &= ~NOTIFY_CLIENT_STATE_PENDING;
-			c->state &= ~NOTIFY_CLIENT_STATE_TIMEOUT;
+			c->state_and_type &= ~NOTIFY_CLIENT_STATE_PENDING;
+			c->state_and_type &= ~NOTIFY_CLIENT_STATE_TIMEOUT;
 
 			return NOTIFY_STATUS_OK;
 		}
@@ -679,8 +500,8 @@ _internal_send(notify_state_t *ns, client_t *c)
 		}
 	}
 
-	c->state &= ~NOTIFY_CLIENT_STATE_PENDING;
-	c->state &= ~NOTIFY_CLIENT_STATE_TIMEOUT;
+	c->state_and_type &= ~NOTIFY_CLIENT_STATE_PENDING;
+	c->state_and_type &= ~NOTIFY_CLIENT_STATE_TIMEOUT;
 
 	return NOTIFY_STATUS_OK;
 }
@@ -690,11 +511,10 @@ _notify_lib_post_client(notify_state_t *ns, client_t *c)
 {
 	uint32_t status;
 
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
-	if (c == NULL) return NOTIFY_STATUS_FAILED;
+	if (c == NULL) return NOTIFY_STATUS_NULL_INPUT;
 
 	_notify_state_lock(&ns->lock);
-	status = _internal_send(ns, c);
+	status = _internal_send(ns, c, NULL, NULL);
 	_notify_state_unlock(&ns->lock);
 
 	return status;
@@ -713,9 +533,8 @@ _internal_post_name(notify_state_t *ns, name_info_t *n, uid_t uid, gid_t gid)
 
 	n->val++;
 
-	LIST_FOREACH(c, &n->subscriptions, client_subscription_entry)
-	{
-		if (c != NULL) _internal_send(ns, c);
+	LIST_FOREACH(c, &n->subscriptions, client_subscription_entry) {
+		_internal_send(ns, c, NULL, NULL);
 	}
 
 	return NOTIFY_STATUS_OK;
@@ -730,11 +549,9 @@ _notify_lib_post(notify_state_t *ns, const char *name, uid_t uid, gid_t gid)
 	name_info_t *n;
 	uint32_t status;
 
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
-
 	_notify_state_lock(&ns->lock);
 
-	n = (name_info_t *)_nc_table_find(ns->name_table, name);
+	n = _nc_table_find(&ns->name_table, name);
 	if (n == NULL)
 	{
 		_notify_state_unlock(&ns->lock);
@@ -753,11 +570,9 @@ _notify_lib_post_nid(notify_state_t *ns, uint64_t nid, uid_t uid, gid_t gid)
 	name_info_t *n;
 	uint32_t status;
 
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
-
 	_notify_state_lock(&ns->lock);
 
-	n = (name_info_t *)_nc_table_find_64(ns->name_id_table, nid);
+	n = _nc_table_find_64(&ns->name_id_table, nid);
 	if (n == NULL)
 	{
 		_notify_state_unlock(&ns->lock);
@@ -773,15 +588,14 @@ _notify_lib_post_nid(notify_state_t *ns, uint64_t nid, uid_t uid, gid_t gid)
 static void
 _internal_release_name_info(notify_state_t *ns, name_info_t *n)
 {
-	if (ns == NULL) return;
 	if (n == NULL) return;
 
 	if (n->refcount > 0) n->refcount--;
 	if (n->refcount == 0)
 	{
 		_internal_remove_controlled_name(ns, n);
-		_nc_table_delete(ns->name_table, n->name);
-		_nc_table_delete_64(ns->name_id_table, n->name_id);
+		_nc_table_delete(&ns->name_table, n->name);
+		_nc_table_delete_64(&ns->name_id_table, n->name_id);
 		free(n);
 		ns->stat_name_free++;
 	}
@@ -791,21 +605,9 @@ _internal_release_name_info(notify_state_t *ns, name_info_t *n)
  * Cancel (delete) a client
  */
 static void
-_internal_cancel(notify_state_t *ns, uint64_t cid)
+_internal_cancel(notify_state_t *ns, client_t *c)
 {
-	client_t *c;
-	name_info_t *n;
-
-	if (ns == NULL) return;
-
-	c = NULL;
-	n = NULL;
-
-	c = _nc_table_find_64(ns->client_table, cid);
-	if (c == NULL) return;
-
-	n = c->name_info;
-	if (n == NULL) return;
+	name_info_t *n = c->name_info;
 
 	LIST_REMOVE(c, client_subscription_entry);
 	_internal_client_release(ns, c);
@@ -813,223 +615,92 @@ _internal_cancel(notify_state_t *ns, uint64_t cid)
 }
 
 void
-_notify_lib_cancel(notify_state_t *ns, pid_t pid, int token)
+_notify_lib_cancel_client(notify_state_t *ns, client_t *c)
 {
-	uint64_t cid;
-
-	if (ns == NULL) return;
-
-	cid = make_client_id(pid, token);
-
 	_notify_state_lock(&ns->lock);
-	_internal_cancel(ns, cid);
+	_internal_cancel(ns, c);
 	_notify_state_unlock(&ns->lock);
 }
 
 void
+_notify_lib_cancel(notify_state_t *ns, pid_t pid, int token)
+{
+	uint64_t cid = make_client_id(pid, token);
+	client_t *c;
+
+	_notify_state_lock(&ns->lock);
+	c = _nc_table_find_64(&ns->client_table, cid);
+	if (c) {
+		_internal_cancel(ns, c);
+	}
+	_notify_state_unlock(&ns->lock);
+}
+
+uint32_t
 _notify_lib_suspend(notify_state_t *ns, pid_t pid, int token)
 {
+	uint64_t cid = make_client_id(pid, token);
+	uint32_t result = NOTIFY_STATUS_OK;
 	client_t *c;
-	uint64_t cid;
-
-	if (ns == NULL) return;
-
-	cid = make_client_id(pid, token);
 
 	_notify_state_lock(&ns->lock);
 
-	c = _nc_table_find_64(ns->client_table, cid);
-	if (c != NULL)
-	{
-		c->state |= NOTIFY_CLIENT_STATE_SUSPENDED;
-		if (c->suspend_count < UINT32_MAX) c->suspend_count++;
+	c = _nc_table_find_64(&ns->client_table, cid);
+	if (c != NULL) {
+		c->state_and_type |= NOTIFY_CLIENT_STATE_SUSPENDED;
+		if (c->suspend_count < UINT8_MAX) c->suspend_count++;
+	} else {
+		result = NOTIFY_STATUS_CLIENT_NOT_FOUND;
 	}
 
+	_notify_state_unlock(&ns->lock);
+
+	return result;
+}
+
+static void
+_internal_resume(notify_state_t *ns, client_t *c,
+		proc_data_t *proc_data, port_data_t *port_data)
+{
+	if (c->suspend_count > 0) c->suspend_count--;
+	if (c->suspend_count == 0) {
+		c->state_and_type &= ~NOTIFY_CLIENT_STATE_SUSPENDED;
+		c->state_and_type &= ~NOTIFY_CLIENT_STATE_TIMEOUT;
+
+		if (c->state_and_type & NOTIFY_CLIENT_STATE_PENDING) {
+			_internal_send(ns, c, proc_data, port_data);
+		}
+	}
+}
+
+void
+_notify_lib_resume_client(notify_state_t *ns, client_t *c,
+		proc_data_t *proc_data, port_data_t *port_data)
+{
+	_notify_state_lock(&ns->lock);
+	_internal_resume(ns, c, proc_data, port_data);
 	_notify_state_unlock(&ns->lock);
 }
 
 uint32_t
 _notify_lib_resume(notify_state_t *ns, pid_t pid, int token)
 {
-	client_t *c;
-	uint64_t cid;
 	uint32_t status = NOTIFY_STATUS_OK;
-
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
-
-	cid = make_client_id(pid, token);
+	uint64_t cid = make_client_id(pid, token);
+	client_t *c;
 
 	_notify_state_lock(&ns->lock);
 
-	c = _nc_table_find_64(ns->client_table, cid);
-	if (c != NULL)
-	{
-		if (c->suspend_count > 0) c->suspend_count--;
-		if (c->suspend_count == 0)
-		{
-			c->state &= ~NOTIFY_CLIENT_STATE_SUSPENDED;
-			c->state &= ~NOTIFY_CLIENT_STATE_TIMEOUT;
-
-			if (c->state & NOTIFY_CLIENT_STATE_PENDING)
-			{
-				status = _internal_send(ns, c);
-			}
-		}
+	c = _nc_table_find_64(&ns->client_table, cid);
+	if (c != NULL) {
+		_internal_resume(ns, c, NULL, NULL);
+	} else {
+		status = NOTIFY_STATUS_CLIENT_NOT_FOUND;
 	}
 
 	_notify_state_unlock(&ns->lock);
 
 	return status;
-}
-
-void
-_notify_lib_suspend_proc(notify_state_t *ns, pid_t pid)
-{
-	portproc_data_t *pdata;
-
-	if (ns == NULL) return;
-
-	_notify_state_lock(&ns->lock);
-
-	pdata = _nc_table_find_n(ns->proc_table, pid);
-	if (pdata != NULL) pdata->flags |= NOTIFY_PORT_PROC_STATE_SUSPENDED;
-
-	_notify_state_unlock(&ns->lock);
-}
-
-void
-_notify_lib_resume_proc(notify_state_t *ns, pid_t pid)
-{
-	client_t *c;
-	void *tt;
-	portproc_data_t *pdata;
-
-	if (ns == NULL) return;
-
-	_notify_state_lock(&ns->lock);
-
-	/* Resume all subscriptions for this process */
-	pdata = _nc_table_find_n(ns->proc_table, pid);
-	if (pdata != NULL) pdata->flags &= ~NOTIFY_PORT_PROC_STATE_SUSPENDED;
-
-	tt = _nc_table_traverse_start(ns->client_table);
-	while (tt != NULL)
-	{
-		c = _nc_table_traverse(ns->client_table, tt);
-		if (c == NULL) break;
-
-		if (c->pid == pid)
-		{
-			if (c->suspend_count > 0) c->suspend_count--;
-			if (c->suspend_count == 0)
-			{
-				c->state &= ~NOTIFY_CLIENT_STATE_SUSPENDED;
-				c->state &= ~NOTIFY_CLIENT_STATE_TIMEOUT;
-
-				if (c->state & NOTIFY_CLIENT_STATE_PENDING)
-				{
-					_internal_send(ns, c);
-				}
-			}
-		}
-	}
-	_nc_table_traverse_end(ns->client_table, tt);
-
-	_notify_state_unlock(&ns->lock);
-}
-
-void
-_notify_lib_suspend_port(notify_state_t *ns, mach_port_t port)
-{
-	portproc_data_t *pdata;
-
-	if (ns == NULL) return;
-
-	_notify_state_lock(&ns->lock);
-
-	pdata = _nc_table_find_n(ns->port_table, port);
-	if (pdata != NULL) pdata->flags |= NOTIFY_PORT_PROC_STATE_SUSPENDED;
-
-	_notify_state_unlock(&ns->lock);
-}
-
-void
-_notify_lib_resume_port(notify_state_t *ns, mach_port_t port)
-{
-	client_t *c;
-	void *tt;
-	portproc_data_t *pdata;
-
-	if (ns == NULL) return;
-
-	_notify_state_lock(&ns->lock);
-
-	/* Resume all subscriptions with this port */
-	pdata = _nc_table_find_n(ns->port_table, port);
-	if (pdata != NULL) pdata->flags &= ~NOTIFY_PORT_PROC_STATE_SUSPENDED;
-
-	tt = _nc_table_traverse_start(ns->client_table);
-	while (tt != NULL)
-	{
-		c = _nc_table_traverse(ns->client_table, tt);
-		if (c == NULL) break;
-
-		if (c->port == port)
-		{
-			if (c->suspend_count > 0) c->suspend_count--;
-			if (c->suspend_count == 0)
-			{
-				c->state &= ~NOTIFY_CLIENT_STATE_SUSPENDED;
-				c->state &= ~NOTIFY_CLIENT_STATE_TIMEOUT;
-
-				if (c->state & NOTIFY_CLIENT_STATE_PENDING)
-				{
-					_internal_send(ns, c);
-				}
-			}
-		}
-	}
-	_nc_table_traverse_end(ns->client_table, tt);
-
-	_notify_state_unlock(&ns->lock);
-}
-
-/*
- * Delete all clients for a process
- * N.B. notifyd does not use this routine.
- */
-void
-_notify_lib_cancel_proc(notify_state_t *ns, pid_t pid)
-{
-	client_t *c;
-	void *tt;
-	list_t *l, *x;
-
-	if (ns == NULL) return;
-
-	x = NULL;
-
-	_notify_state_lock(&ns->lock);
-
-	tt = _nc_table_traverse_start(ns->client_table);
-	while (tt != NULL)
-	{
-		c = _nc_table_traverse(ns->client_table, tt);
-		if (c == NULL) break;
-
-		if (c->pid == pid) x = _nc_list_prepend(x, _nc_list_new(c));
-	}
-	_nc_table_traverse_end(ns->client_table, tt);
-
-	for (l = x; l != NULL; l = _nc_list_next(l))
-	{
-		c = _nc_list_data(l);
-		_internal_cancel(ns, c->client_id);
-	}
-
-	_nc_list_free_list(x);
-
-	_notify_state_unlock(&ns->lock);
 }
 
 /*
@@ -1042,22 +713,15 @@ _notify_lib_check(notify_state_t *ns, pid_t pid, int token, int *check)
 	client_t *c;
 	uint64_t cid;
 
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
-	if (check == NULL) return NOTIFY_STATUS_FAILED;
+	if (check == NULL) return NOTIFY_STATUS_NULL_INPUT;
 
 	cid = make_client_id(pid, token);
 
 	_notify_state_lock(&ns->lock);
 
-	c = _nc_table_find_64(ns->client_table, cid);
+	c = _nc_table_find_64(&ns->client_table, cid);
 
 	if (c == NULL)
-	{
-		_notify_state_unlock(&ns->lock);
-		return NOTIFY_STATUS_INVALID_TOKEN;
-	}
-
-	if (c->name_info == NULL)
 	{
 		_notify_state_unlock(&ns->lock);
 		return NOTIFY_STATUS_INVALID_TOKEN;
@@ -1085,23 +749,16 @@ _notify_lib_peek(notify_state_t *ns, pid_t pid, int token, int *val)
 {
     client_t *c;
     uint64_t cid;
-    
-    if (ns == NULL) return NOTIFY_STATUS_FAILED;
-    if (val == NULL) return NOTIFY_STATUS_FAILED;
+
+    if (val == NULL) return NOTIFY_STATUS_NULL_INPUT;
     
     cid = make_client_id(pid, token);
     
     _notify_state_lock(&ns->lock);
     
-    c = _nc_table_find_64(ns->client_table, cid);
+    c = _nc_table_find_64(&ns->client_table, cid);
     
     if (c == NULL)
-    {
-        _notify_state_unlock(&ns->lock);
-        return NOTIFY_STATUS_INVALID_TOKEN;
-    }
-    
-    if (c->name_info == NULL)
     {
         _notify_state_unlock(&ns->lock);
         return NOTIFY_STATUS_INVALID_TOKEN;
@@ -1121,14 +778,13 @@ _notify_lib_get_state(notify_state_t *ns, uint64_t nid, uint64_t *state, uid_t u
 {
 	name_info_t *n;
 
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
-	if (state == NULL) return NOTIFY_STATUS_FAILED;
+	if (state == NULL) return NOTIFY_STATUS_NULL_INPUT;
 
 	*state = 0;
 
 	_notify_state_lock(&ns->lock);
 
-	n = (name_info_t *)_nc_table_find_64(ns->name_id_table, nid);
+	n = _nc_table_find_64(&ns->name_id_table, nid);
 
 	if (n == NULL)
 	{
@@ -1160,11 +816,9 @@ _notify_lib_set_state(notify_state_t *ns, uint64_t nid, uint64_t state, uid_t ui
 	name_info_t *n;
 	int auth;
 
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
-
 	_notify_state_lock(&ns->lock);
 
-	n = (name_info_t *)_nc_table_find_64(ns->name_id_table, nid);
+	n = _nc_table_find_64(&ns->name_id_table, nid);
 
 	if (n == NULL)
 	{
@@ -1194,7 +848,6 @@ _internal_register_common(notify_state_t *ns, const char *name, pid_t pid, int t
 	int is_new_name;
 	uint32_t status;
 
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 	if (outc == NULL) return NOTIFY_STATUS_OK;
 
@@ -1204,32 +857,27 @@ _internal_register_common(notify_state_t *ns, const char *name, pid_t pid, int t
 	*outc = NULL;
 	is_new_name = 0;
 
-	n = (name_info_t *)_nc_table_find(ns->name_table, name);
+	n = _nc_table_find(&ns->name_table, name);
 	if (n == NULL)
 	{
 		is_new_name = 1;
 
 		n = _internal_new_name(ns, name);
-		if (n == NULL) return NOTIFY_STATUS_FAILED;
+		if (n == NULL) return NOTIFY_STATUS_NEW_NAME_FAILED;
 	}
 
-	c = _internal_client_new(ns, pid, token);
+	c = _internal_client_new(ns, pid, token, n);
 	if (c == NULL)
 	{
 		if (is_new_name == 1)
 		{
-			_nc_table_delete(ns->name_table, n->name);
+			_nc_table_delete(&ns->name_table, n->name);
 			free(n);
 			ns->stat_name_free++;
 		}
 
-		return NOTIFY_STATUS_FAILED;
+		return NOTIFY_STATUS_NEW_CLIENT_FAILED;
 	}
-
-	n->refcount++;
-
-	c->name_info = n;
-	LIST_INSERT_HEAD(&n->subscriptions, c, client_subscription_entry);
 
 	*outc = c;
 
@@ -1246,7 +894,6 @@ _notify_lib_register_signal(notify_state_t *ns, const char *name, pid_t pid, int
 	client_t *c;
 	uint32_t status;
 
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
 	c = NULL;
@@ -1260,9 +907,10 @@ _notify_lib_register_signal(notify_state_t *ns, const char *name, pid_t pid, int
 		return status;
 	}
 
-	c->notify_type = NOTIFY_TYPE_SIGNAL;
-	c->pid = pid;
-	c->sig = sig;
+	c->state_and_type &= ~NOTIFY_TYPE_MASK;
+	c->state_and_type |= NOTIFY_TYPE_SIGNAL;
+	c->cid.pid = pid;
+	c->deliver.sig = sig;
 	*out_nid = c->name_info->name_id;
 
 	_notify_state_unlock(&ns->lock);
@@ -1279,7 +927,6 @@ _notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, pid_t
 	client_t *c;
 	uint32_t status;
 
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
 	c = NULL;
@@ -1293,8 +940,10 @@ _notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, pid_t
 		return status;
 	}
 
-	c->notify_type = NOTIFY_TYPE_FILE;
-	c->fd = fd;
+	c->state_and_type &= ~NOTIFY_TYPE_MASK;
+	c->state_and_type |= NOTIFY_TYPE_FILE;
+
+	c->deliver.fd = fd;
 	*out_nid = c->name_info->name_id;
 
 	_notify_state_unlock(&ns->lock);
@@ -1311,8 +960,8 @@ _notify_lib_register_mach_port(notify_state_t *ns, const char *name, pid_t pid, 
 	client_t *c;
 	uint32_t status;
 
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
+	if (!MACH_PORT_VALID(port)) return NOTIFY_STATUS_INVALID_PORT;
 
 	c = NULL;
 
@@ -1325,8 +974,9 @@ _notify_lib_register_mach_port(notify_state_t *ns, const char *name, pid_t pid, 
 		return status;
 	}
 
-	c->notify_type = NOTIFY_TYPE_PORT;
-	c->port = port;
+	c->state_and_type &= ~NOTIFY_TYPE_MASK;
+	c->state_and_type |= NOTIFY_TYPE_PORT;
+	c->deliver.port = port;
 	*out_nid = c->name_info->name_id;
 
 	_notify_state_unlock(&ns->lock);
@@ -1343,7 +993,6 @@ _notify_lib_register_plain(notify_state_t *ns, const char *name, pid_t pid, int 
 	client_t *c;
 	uint32_t status;
 
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
 	c = NULL;
@@ -1359,11 +1008,13 @@ _notify_lib_register_plain(notify_state_t *ns, const char *name, pid_t pid, int 
 
 	if (slot == SLOT_NONE)
 	{
-		c->notify_type = NOTIFY_TYPE_PLAIN;
+		c->state_and_type &= ~NOTIFY_TYPE_MASK;
+		c->state_and_type |= NOTIFY_TYPE_PLAIN;
 	}
 	else
 	{
-		c->notify_type = NOTIFY_TYPE_MEMORY;
+		c->state_and_type &= ~NOTIFY_TYPE_MASK;
+		c->state_and_type |= NOTIFY_TYPE_MEMORY;
 		c->name_info->slot = slot;
 	}
 
@@ -1378,12 +1029,11 @@ _notify_lib_set_owner(notify_state_t *ns, const char *name, uid_t uid, gid_t gid
 {
 	name_info_t *n;
 
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
 	_notify_state_lock(&ns->lock);
 
-	n = (name_info_t *)_nc_table_find(ns->name_table, name);
+	n = _nc_table_find(&ns->name_table, name);
 	if (n == NULL)
 	{
 		/* create new name */
@@ -1391,7 +1041,7 @@ _notify_lib_set_owner(notify_state_t *ns, const char *name, uid_t uid, gid_t gid
 		if (n == NULL)
 		{
 			_notify_state_unlock(&ns->lock);
-			return NOTIFY_STATUS_FAILED;
+			return NOTIFY_STATUS_NEW_NAME_FAILED;
 		}
 
 		/* 
@@ -1416,12 +1066,11 @@ _notify_lib_set_access(notify_state_t *ns, const char *name, uint32_t mode)
 {
 	name_info_t *n;
 
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
 	_notify_state_lock(&ns->lock);
 
-	n = (name_info_t *)_nc_table_find(ns->name_table, name);
+	n = _nc_table_find(&ns->name_table, name);
 	if (n == NULL)
 	{
 		/* create new name */
@@ -1429,7 +1078,7 @@ _notify_lib_set_access(notify_state_t *ns, const char *name, uint32_t mode)
 		if (n == NULL)
 		{
 			_notify_state_unlock(&ns->lock);
-			return NOTIFY_STATUS_FAILED;
+			return NOTIFY_STATUS_NEW_NAME_FAILED;
 		}
 
 		/* 

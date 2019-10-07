@@ -149,7 +149,7 @@ typedef CF_OPTIONS(uint32_t, SecKeyImportExportFlags)
 /*
  * Parameters specific to SecKeyRefs.
  */
-typedef struct
+typedef struct API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac)
 {
      /* for import and export */
      uint32_t                    version;        /* SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION */
@@ -166,10 +166,10 @@ typedef struct
      CSSM_KEYUSE                    keyUsage;    /* CSSM_KEYUSE_DECRYPT, CSSM_KEYUSE_SIGN,
                                                   *    etc. */
      CSSM_KEYATTR_FLAGS          keyAttributes;  /* CSSM_KEYATTR_PERMANENT, etc. */
-} SecKeyImportExportParameters;
+} SecKeyImportExportParameters API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 
-typedef struct
+typedef struct API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac)
 {
      /* for import and export */
      uint32_t                    version;        /* SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION */
@@ -194,7 +194,7 @@ typedef struct
                                                   *    - kSecAttrIsSensitive for private keys
                                                   *    - kSecAttrIsExtractable by default
                                                   */
-} SecItemImportExportKeyParameters;
+} SecItemImportExportKeyParameters API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*
  * SecKeychainItemExport()
@@ -254,7 +254,7 @@ OSStatus SecKeychainItemExport(
      SecItemImportExportFlags               flags,                  /* kSecItemPemArmour, etc. */
      const SecKeyImportExportParameters * __nullable keyParams,     /* optional */
      CFDataRef * __nonnull CF_RETURNS_RETAINED exportedData)        /* external representation returned here */
-          DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+          API_DEPRECATED_WITH_REPLACEMENT("SecItemExport", macos(10.0, 10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*
  * SecItemExport()
@@ -472,7 +472,7 @@ OSStatus SecKeychainItemImport(
      const SecKeyImportExportParameters * __nullable keyParams,         /* optional */
      SecKeychainRef __nullable               importKeychain,            /* optional */
      CFArrayRef * __nullable CF_RETURNS_RETAINED outItems)              /* optional */
-          DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+          API_DEPRECATED_WITH_REPLACEMENT("SecItemImport", macos(10.0, 10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*
  * SecItemImport()
@@ -701,7 +701,6 @@ extern const CFStringRef kSecImportItemIdentity
 */
 OSStatus SecPKCS12Import(CFDataRef pkcs12_data, CFDictionaryRef options, CFArrayRef * __nonnull CF_RETURNS_RETAINED items)
      API_AVAILABLE(macos(10.6), ios(2.0));
-
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

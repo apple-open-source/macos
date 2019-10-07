@@ -2,7 +2,7 @@
 #
 #   fork.rb -
 #   	$Release Version: 0.9.6 $
-#   	$Revision: 53141 $
+#   	$Revision: 56371 $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
@@ -14,7 +14,7 @@
 # :stopdoc:
 module IRB
   module ExtendCommand
-    class Fork<Nop
+    class Fork < Nop
       def execute
         pid = send ExtendCommand.irb_original_method_name("fork")
         unless pid

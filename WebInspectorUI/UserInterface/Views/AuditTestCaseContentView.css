@@ -24,7 +24,7 @@
  */
 
 .content-view-container > .content-view.audit-test-case > header {
-    position: -webkit-sticky;
+    position: sticky;
     top: -1px;
     z-index: var(--z-index-header);
     margin-top: -1px;
@@ -101,6 +101,7 @@
 }
 
 .content-view.audit-test-case > section table {
+    width: 100%;
     border-collapse: collapse;
 }
 
@@ -124,6 +125,10 @@
 .content-view.audit-test-case > section > .dom-nodes > table > tr > td:first-child {
     position: relative;
     top: -1px;
+}
+
+.content-view.audit-test-case > section table > tr > td + td {
+    width: 100%;
 }
 
 .content-view.audit-test-case > section .CodeMirror {

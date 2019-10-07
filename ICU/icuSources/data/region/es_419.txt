@@ -17,12 +17,14 @@ es_419{
         155{"Europa del Oeste"}
         AC{"Isla Ascensión"}
         BA{"Bosnia-Herzegovina"}
+        CG{"República del Congo"}
         CI{"Costa de Marfil"}
         EZ{"Eurozona"}
         GG{"Guernesey"}
         HK{"Hong-Kong"}
         IC{"Islas Canarias"}
         QO{"Islas Ultramarinas"}
+        SZ{"Suazilandia"}
         TA{"Tristán da Cunha"}
         TL{"Timor Oriental"}
         UM{"Islas Ultramarinas de EE.UU."}
@@ -31,5 +33,8 @@ es_419{
     Countries%short{
         GB{"R. U."}
     }
-    Version{"2.1.38.39"}
+    Countries%variant{
+        CD{"Congo (República Democrática del Congo)"}
+    }
+    Version{"2.1.47.86"}
 }

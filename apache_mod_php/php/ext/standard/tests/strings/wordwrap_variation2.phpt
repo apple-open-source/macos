@@ -8,7 +8,7 @@ Test wordwrap() function : usage variations  - unexpected values for width argum
 */
 
 /*
- * test wordwrap by passing different values for width argument 
+ * test wordwrap by passing different values for width argument
 */
 echo "*** Testing wordwrap() : usage variations ***\n";
 // initialize all required variables
@@ -16,7 +16,7 @@ $str = 'testing wordwrap function';
 $break = '<br />\n';
 $cut = true;
 
-// resource var 
+// resource var
 $fp = fopen(__FILE__, "r");
 
 // get an unset variable
@@ -53,7 +53,7 @@ $values =  array (
   // objects
   new stdclass(),
 
-  // Null value 
+  // Null value
   NULL,
   null,
 
@@ -83,7 +83,7 @@ for($index = 0; $index < count($values); $index ++) {
   var_dump( wordwrap($str, $width) );
   var_dump( wordwrap($str, $width, $break) );
 
-  // cut as false 
+  // cut as false
   $cut = false;
   var_dump( wordwrap($str, $width, $break, $cut) );
 
@@ -128,68 +128,68 @@ string(39) "testing<br />\nwordwrap<br />\nfunction"
 string(223) "<br />\nt<br />\ne<br />\ns<br />\nt<br />\ni<br />\nn<br />\ng<br />\n<br />\nw<br />\no<br />\nr<br />\nd<br />\nw<br />\nr<br />\na<br />\np<br />\n<br />\nf<br />\nu<br />\nn<br />\nc<br />\nt<br />\ni<br />\no<br />\nn"
 -- Iteration 4 --
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 -- Iteration 5 --
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 -- Iteration 6 --
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 -- Iteration 7 --
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 -- Iteration 8 --
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, array given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, array given in %s on line %d
 NULL
 -- Iteration 9 --
 string(25) "testing
@@ -225,42 +225,42 @@ Warning: wordwrap(): Can't force cut when width is zero in %s on line %d
 bool(false)
 -- Iteration 13 --
 
-Warning: wordwrap() expects parameter 2 to be integer, string given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, string given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, string given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, string given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, string given in %s on line %d
 NULL
 -- Iteration 14 --
 
-Warning: wordwrap() expects parameter 2 to be integer, string given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, string given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, string given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, string given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, string given in %s on line %d
 NULL
 -- Iteration 15 --
 
-Warning: wordwrap() expects parameter 2 to be integer, object given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, object given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, object given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, object given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, object given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, object given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, object given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, object given in %s on line %d
 NULL
 -- Iteration 16 --
 string(25) "testing
@@ -282,42 +282,42 @@ Warning: wordwrap(): Can't force cut when width is zero in %s on line %d
 bool(false)
 -- Iteration 18 --
 
-Warning: wordwrap() expects parameter 2 to be integer, string given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, string given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, string given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, string given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, string given in %s on line %d
 NULL
 -- Iteration 19 --
 
-Warning: wordwrap() expects parameter 2 to be integer, string given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, string given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, string given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, string given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, string given in %s on line %d
 NULL
 -- Iteration 20 --
 
-Warning: wordwrap() expects parameter 2 to be integer, resource given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, resource given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, resource given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, resource given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, resource given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, resource given in %s on line %d
 NULL
 
-Warning: wordwrap() expects parameter 2 to be integer, resource given in %s on line %d
+Warning: wordwrap() expects parameter 2 to be int, resource given in %s on line %d
 NULL
 -- Iteration 21 --
 string(25) "testing

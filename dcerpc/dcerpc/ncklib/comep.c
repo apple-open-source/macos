@@ -342,7 +342,7 @@ INTERNAL void ep_register
 )
 {
     ept_entry_t                 *ept_entry;
-    rpc_if_rep_p_t              if_rep = (rpc_if_rep_p_t) ifspec;
+    rpc_if_rep_p_t              if_rep = (rpc_if_rep_p_t)(void *) ifspec;
     rpc_binding_handle_t        ep_binding = NULL;
     unsigned32                  i, j;
     unsigned32                  curr_hand = 0, curr_tower = 0, curr_obj = 0;
@@ -686,7 +686,7 @@ PUBLIC void rpc_ep_unregister
 )
 {
     ept_entry_t                 *ept_entry;
-    rpc_if_rep_p_t              if_rep = (rpc_if_rep_p_t) ifspec;
+    rpc_if_rep_p_t              if_rep = (rpc_if_rep_p_t)(void *) ifspec;
     rpc_binding_handle_t        ep_binding = NULL;
     unsigned32                  i, j, k, st;
     rpc_tower_ref_vector_p_t    tower_vec;
@@ -1105,7 +1105,7 @@ PUBLIC void rpc_mgmt_ep_elt_inq_next
         return;
     }
 
-    chp = (mgmt_ep_inq_rep_t *) inquiry_context;
+    chp = (mgmt_ep_inq_rep_t *)(void *) inquiry_context;
 
     if (chp->usage != MGMT_EP_C_INQUIRY_CONTEXT)
     {
@@ -1314,7 +1314,7 @@ PUBLIC void rpc_mgmt_ep_elt_inq_done
         return;
     }
 
-    chp = (mgmt_ep_inq_rep_t *) (*inquiry_context);
+    chp = (mgmt_ep_inq_rep_t *)(void *) (*inquiry_context);
 
     if (chp->usage != MGMT_EP_C_INQUIRY_CONTEXT)
     {
@@ -1838,7 +1838,7 @@ PUBLIC void rpc_ep_resolve_binding
          * from using this handle while we are trying to resolve
          * it.
          */
-        ep_get_endpoint ((rpc_if_rep_p_t) if_spec_h, binding_rep, status);
+        ep_get_endpoint ((rpc_if_rep_p_t)(void *) if_spec_h, binding_rep, status);
     }
     else
     {
@@ -2035,7 +2035,7 @@ INTERNAL void ep_get_endpoint
          * endpoint associated with the EP interface
          * (for the designated protocol sequence).
          */
-        rpc__if_set_wk_endpoint ((rpc_if_rep_p_t) ept_v3_0_c_ifspec,
+        rpc__if_set_wk_endpoint ((rpc_if_rep_p_t)(void *) ept_v3_0_c_ifspec,
                                  rpc_addr,
                                  st);
         if (*st != rpc_s_ok)

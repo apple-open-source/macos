@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -134,7 +134,7 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
                     CFRelease(url);
                     strlcat(name, "/", sizeof(name));
                     strlcat(name, PPPOE_NKE, sizeof(name));
-#if !TARGET_OS_EMBEDDED  // This file is not built for Embedded
+#if TARGET_OS_OSX  // This file is not built for Embedded
                     if (!load_kext(name, 0))
 #else
                     if (!load_kext(PPPOE_NKE_ID, 1))
@@ -305,7 +305,7 @@ int pppoevpn_listen(void)
         }
     }
     
-    if (setsockopt(listen_sockfd, PPPPROTO_PPPOE, PPPOE_OPT_INTERFACE, device, strlen(device))) {
+    if (setsockopt(listen_sockfd, PPPPROTO_PPPOE, PPPOE_OPT_INTERFACE, device, (socklen_t)strlen(device))) {
         vpnlog(LOG_ERR, "PPPoE plugin: Could not specify listening interface '%s' - err = %s\n", device, strerror(errno));
         goto fail;
     }
@@ -322,7 +322,7 @@ int pppoevpn_listen(void)
 
         if (bind(listen_sockfd, (struct sockaddr *)&addr, sizeof(struct sockaddr_pppoe)) < 0) {
             vpnlog(LOG_ERR, "PPPoE plugin: bind failed for service = '%s', access concentrator = '%s'. Error = %s\n", 
-                    service, access_concentrator, strerror(errno));
+                    addr.pppoe_service, addr.pppoe_ac_name, strerror(errno));
             goto fail;
         }
     }

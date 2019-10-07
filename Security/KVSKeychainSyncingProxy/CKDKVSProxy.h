@@ -89,10 +89,6 @@ typedef void (^FreshnessResponseBlock)(bool success, NSError *err);
 @property (atomic) dispatch_queue_t calloutQueue;
 
 @property (atomic) dispatch_queue_t ckdkvsproxy_queue;
-@property (atomic) dispatch_source_t penaltyTimer;
-@property (atomic) bool penaltyTimerScheduled;
-@property (retain, atomic) NSMutableDictionary *monitor;
-@property (retain, atomic) NSDictionary *queuedMessages;
 
 @property (copy, atomic) dispatch_block_t shadowFlushBlock;
 

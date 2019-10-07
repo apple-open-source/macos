@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2016, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2016, 2018, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -145,9 +145,17 @@ extern const CFStringRef kCNNetworkInfoKeyBSSID
 
 /*!
  @function CNCopyCurrentNetworkInfo
- @discussion Returns the Network Info for the specified interface.
-	For example, Network Info dictionary will contain the following
-	keys, and values:
+ @discussion Returns the network information for the specified interface when the requesting application meets one of following 3 requirements -.
+	1. application is using CoreLocation API and has user's authorization to access location.
+	2. application has used NEHotspotConfiguration API to configure the current Wi-Fi network.
+	3. application has active VPN configurations installed.
+
+	- An application that is linked against iOS 12.0 SDK and above must have the "com.apple.developer.networking.wifi-info" entitlement.
+	- An application will receive a pseudo network information if it is linked against an SDK before iOS 13.0, and if it fails to meet any of the
+	  above 3 requirements.
+	- An application will receive NULL if it is linked against iOS 13.0 SDK or above, and if it fails to meet any of the above 3 requirements..
+
+	Network Information dictionary will contain the following keys, and values:
 	<pre>
 	@textblock
 	Keys                      : Values
@@ -157,8 +165,10 @@ extern const CFStringRef kCNNetworkInfoKeyBSSID
 	kCNNetworkInfoKeyBSSID    : CFStringRef
 	@/textblock
 	</pre>
+
+	Pseudo network information will contain "Wi-Fi" SSID and "00:00:00:00:00:00" BSSID. For China region, the SSID will be "WLAN".
  @param interfaceName Name of the interface you are interested in
- @result Network Info dictionary associated with the interface.
+ @result Network Information dictionary associated with the interface.
 	 Returns NULL if an error was encountered.
 	 You MUST release the returned value.
  */

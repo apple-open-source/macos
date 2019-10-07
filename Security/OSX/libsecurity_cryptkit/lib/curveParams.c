@@ -100,11 +100,8 @@ static const arrayDigit ga_one[]  = {1, 1   };	// (giant)1
  * individually....
  */
 
-#if		FEE_PROTOTYPE_CURVES
-#include "curveParamDataOld.h"
-#else
 #include "curveParamData.h"
-#endif
+
 
 /*
  * Now the curveParamsStatic structs, which provide templates for creating the
@@ -116,257 +113,7 @@ static const arrayDigit ga_one[]  = {1, 1   };	// (giant)1
  * Note these are stored as an array, an index into which is a feeDepth
  * parameter.
  */
-#if		FEE_PROTOTYPE_CURVES
-static curveParamsStatic curveParamsArray[] = {
-    {	// depth=0
-	FPT_Mersenne,
-	FCT_Weierstrass,
-	31, 1,			// q=31, k=1
-	NULL,			// basePrime only used for FPT_General
-	1,				// m = 1
-    ga_w31_1_a,		// a = 7
-	ga_one,			// b = 1
-	ga_zero,		// c = 0
-	ga_w31_1_x1Plus,
-	NULL,			// y1Plus
-	ga_w31_1_x1Minus,
-	ga_w31_1_plusOrder,
-	ga_w31_1_minusOrder,
-	ga_w31_1_x1OrderPlus,
-	ga_w31_1_x1OrderMinus,
-	ga_w31_1_x1OrderPlusRecip,
-	ga_w31_1_lesserX1OrderRecip
-    },
-    {	// depth=1
-     	FPT_Mersenne,
-	FCT_Montgomery,
-   	31, 1,			// q=31, k=1
-	NULL,
-	1,				// m = 1
-   	ga_one,			// a = 1
-	ga_zero,		// b = 0
-	ga_666,			// c = 666
-	ga_m31_1_x1Plus,
-	NULL,			// y1Plus
-	ga_m31_1_x1Minus,
-	ga_m31_1_plusOrder,
-	ga_m31_1_minusOrder,
-	ga_m31_1_x1OrderPlus,
-	ga_m31_1_x1OrderMinus,
-	ga_m31_1_x1OrderPlusRecip,
-	ga_m31_1_lesserX1OrderRecip
 
-   },
-    {	// depth=2
-    	FPT_Mersenne,
-	FCT_Weierstrass,
-   	31, 1,				// q=31, k=1, prime curve orders
-	NULL,
-	1,					// m = 1
-    ga_31_1P_a,			// a = 5824692
-	ga_31_1P_b,			// b = 2067311435
-	ga_zero,			// c = 0
-	ga_31_1P_x1Plus,
-	NULL,			// y1Plus
-	ga_31_1P_x1Minus,
-	ga_31_1P_plusOrder,
-	ga_31_1P_minusOrder,
-	ga_31_1P_x1OrderPlus,
-	ga_31_1P_x1OrderMinus,
-	ga_31_1P_x1OrderPlusRecip,
-	NULL			// x1PlusOrder is lesser
-
-   },
-    {	// depth=3
-    	FPT_FEE,
-	FCT_Weierstrass,
-   	40, 213,			// q=40, k=213, prime curve orders
-	NULL,
- 	1,					// m = 1
-   	ga_40_213_a,		// a = 1627500953
-	ga_40_213_b,		// b = 523907505
-	ga_zero,			// c = 0
-	ga_40_213_x1Plus,
-	NULL,			// y1Plus
-	ga_40_213_x1Minus,
-	ga_40_213_plusOrder,
-	ga_40_213_minusOrder,
-	ga_40_213_x1OrderPlus,
-	ga_40_213_x1OrderMinus,
-	ga_40_213_x1OrderPlusRecip,
-	ga_40_213_lesserX1OrderRecip
-
-   },
-   {	// depth=4
-     	FPT_Mersenne,
-	FCT_Montgomery,
-   	127, 1,
-	NULL,
-	1,				// m = 1
-   	ga_one,			// a = 1
-	ga_zero,		// b = 0
-	ga_666,			// c = 666
-	ga_127_1_x1Plus,
-	NULL,			// y1Plus
-	ga_127_1_x1Minus,
-	ga_127_1_plusOrder,
-	ga_127_1_minusOrder,
-	ga_127_1_x1OrderPlus,
-	ga_127_1_x1OrderMinus,
-	ga_127_1_x1OrderPlusRecip,
-	ga_127_1_lesserX1OrderRecip
-
-    },
-    {	// depth=5
-     	FPT_Mersenne,
-	FCT_Weierstrass,
-   	127, 1, 		// q=127, k=1 Weierstrass
-	NULL,
-	1,				// m = 1
-    ga_666,			// a = 666
-	ga_one,			// b = 1
-	ga_zero,		// c = 0
-	ga_127_1W_x1Plus,
-	NULL,			// y1Plus
-	ga_127_1W_x1Minus,
-	ga_127_1W_plusOrder,
-	ga_127_1W_minusOrder,
-	ga_127_1W_x1OrderPlus,
-	ga_127_1W_x1OrderMinus,
-	ga_127_1W_x1OrderPlusRecip,
-	NULL			// x1PlusOrder is lesser
-
-    },
-    {	// depth=6
-    FPT_FEE,
-	FCT_Weierstrass,	// also Atkin3
-    160, 57,
-	NULL,
-	1,					// m = 1
-	ga_zero,			// a = 0
-	ga_160_57_b,		// b = 3
-	ga_zero,			// c = 0
-	ga_160_57_x1Plus,
-	NULL,			// y1Plus
-	ga_160_57_x1Minus,
-	ga_160_57_plusOrder,
-	ga_160_57_minusOrder,
-	ga_160_57_x1OrderPlus,
-	ga_160_57_x1OrderMinus,
-	ga_160_57_x1OrderPlusRecip,
-	NULL			// x1PlusOrder is lesser
-    },
-    {	// depth=7
-    FPT_FEE,
-	FCT_Weierstrass,	// also Atkin3
-     192, 1425,
-	NULL,
-	1,					// m = 1
-    ga_zero,			// a = 0
-	ga_192_1425_b,		// b = -11
-	ga_zero,			// c = 0
-	ga_192_1425_x1Plus,
-	NULL,			// y1Plus
-	ga_192_1425_x1Minus,
-	ga_192_1425_plusOrder,
-	ga_192_1425_minusOrder,
-	ga_192_1425_x1OrderPlus,
-	ga_192_1425_x1OrderMinus,
-	ga_192_1425_x1OrderPlusRecip,
-	NULL			// x1PlusOrder is lesser
-
-    },
-    {	// depth=8
-    FPT_FEE,
-	FCT_Weierstrass,
-    192, -529891,
-	NULL,
-	1,						// m = 1
-    ga_192_M529891_a,		// a = -152
-	ga_192_M529891_b,		// b = 722
-	ga_zero,				// c = 0
-	ga_192_M529891_x1Plus,
-	NULL,			// y1Plus
-	ga_192_M529891_x1Minus,
-	ga_192_M529891_plusOrder,
-	ga_192_M529891_minusOrder,
-	ga_192_M529891_x1OrderPlus,
-	ga_192_M529891_x1OrderMinus,
-	ga_192_M529891_x1OrderPlusRecip,
-	ga_192_M529891_lesserX1OrderRecip
-
-    },
-    /*
-     * FPT_General curves, currently just copies of known FPT_FEE or FPT_Mersenne
-     * curves with primeType set to FPT_General. These are just for
-     * verification the general curve are handled properly.
-	 * We include the q parameter here for use by feeKeyBitsToDepth().
-     */
-    {	// depth=9
-    FPT_General,
-	FCT_General,
-   	127, 0,
-	ga_127_1_bp,	// explicit basePrime
-	1,				// m = 1
-   	ga_one,			// a = 1
-	ga_zero,		// b = 0
-	ga_666,			// c = 666
-	ga_127_1_x1Plus,
-	NULL,			// y1Plus
-	ga_127_1_x1Minus,
-	ga_127_1_plusOrder,
-	ga_127_1_minusOrder,
-	ga_127_1_x1OrderPlus,
-	ga_127_1_x1OrderMinus,
-	ga_127_1_x1OrderPlusRecip,
-	ga_127_1_lesserX1OrderRecip
-
-    },
-
-    {	// depth=10, FPT_General version of q=160
-	FPT_General,
-	FCT_Weierstrass,
-	160, 0,				// we don't use these...
-	ga_160_57_bp,		// explicit basePrime
-	1,					// m = 1
-	ga_zero,			// a = 0
-	ga_160_57_b,		// b = 3
-	ga_zero,
-	ga_160_57_x1Plus,
-	NULL,			// y1Plus
-	ga_160_57_x1Minus,
-	ga_160_57_plusOrder,
-	ga_160_57_minusOrder,
-	ga_160_57_x1OrderPlus,
-	ga_160_57_x1OrderMinus,
-	ga_160_57_x1OrderPlusRecip,
-	NULL			// x1PlusOrder is lesser
-    },
-
-    {	// depth=11, FPT_General, 161 bits
-	FPT_General,
-	FCT_Weierstrass,
-	//161, 0,
-    161, 0,				// for verifying we don't use these...
-	ga_161_gen_bp,		// explicit basePrime
-	1,					// m = 1
-	ga_161_gen_a,		// a = -152
-	ga_161_gen_b,		// b = 722
-	ga_zero,			// c = 0
-	ga_161_gen_x1Plus,
-	NULL,			// y1Plus
-	ga_161_gen_x1Minus,
-	ga_161_gen_plusOrder,
-	ga_161_gen_minusOrder,
-	ga_161_gen_x1OrderPlus,
-	ga_161_gen_x1OrderMinus,
-	ga_161_gen_x1OrderPlusRecip,
-	NULL			// x1PlusOrder is lesser
-    },
-
-};
-
-#else	/* FEE_PROTOTYPE_CURVES */
 
 static const curveParamsStatic curveParamsArray[] = {
 {	
@@ -666,7 +413,6 @@ static const curveParamsStatic curveParamsArray[] = {
 	NULL  
 }
 };
-#endif	/* FEE_PROTOTYPE_CURVES */
 
 /*
  * Convert the static form of a giant - i.e., an array of arrayDigits,
@@ -778,9 +524,7 @@ curveParams *curveParamsForDepth(feeDepth depth)
 	if(depth > FEE_DEPTH_MAX) {
 		return NULL;
 	}
-	#if	GIANTS_VIA_STACK
-	curveParamsInitGiants();
-	#endif
+	
 	cp = newCurveParams();
 	cp->primeType = cps->primeType;
 	cp->curveType = cps->curveType;
@@ -1017,29 +761,6 @@ giant lesserX1Order(curveParams *cp)
 	}
 }
 
-#if		GIANTS_VIA_STACK
-
-/*
- * Prime the curveParams and giants modules for quick allocs of giants.
- */
-static int giantsInitd = 0;
-
-void curveParamsInitGiants(void)
-{
-	const curveParamsStatic *cps = &curveParamsArray[FEE_DEPTH_MAX];
-
-	if(giantsInitd) {
-		return;
-	}
-
-	/*
-	 * Figure the max giant size of the largest depth we know about...
-	 */
-	initGiantStacks(giantMaxDigits(giantMinBytes(cps->q, cps->k)));
-	giantsInitd = 1;
-}
-
-#endif	// GIANTS_VIA_STACK
 
 /*
  * Infer the following fields from a partially constructed curveParams:
@@ -1076,7 +797,6 @@ void curveParamsInferFields(curveParams *cp)
 	}
 
 	/* y1Plus */
-	#if CRYPTKIT_ELL_PROJ_ENABLE
 	if(cp->curveType == FCT_Weierstrass) {
 		if(cp->y1Plus == NULL) {
 			/* ECDSA Curves already have this */
@@ -1094,9 +814,7 @@ void curveParamsInferFields(curveParams *cp)
 	else {
 		cp->y1Plus = newGiant(1);
 	}
-	#else	/* CRYPTKIT_ELL_PROJ_ENABLE */
-	cp->y1Plus = newGiant(1);
-	#endif
+	
 	
 	if((cp->x1OrderPlusRecip == NULL) || isZero(cp->x1OrderPlusRecip)) {
 		/*
@@ -1118,88 +836,6 @@ void curveParamsInferFields(curveParams *cp)
  * in current curve tables. 
  */
 #define LOG_DEPTH	0
-
-#if	FEE_PROTOTYPE_CURVES
-feeReturn feeKeyBitsToDepth(unsigned keySize,
-	feePrimeType primeType,		/* FPT_Fefault means "best one" */
-	feeCurveType curveType,		/* FCT_Default means "best one" */
-	feeDepth *depth)
-{
-	feeReturn frtn = FR_Success;
-	switch(keySize) {
-	    case 31:
-			switch(curveType) {
-				case FCT_Montgomery:
-				default:
-					*depth = FEE_DEPTH_31_1_M;
-					break;
-				case FCT_Weierstrass:
-					*depth = FEE_DEPTH_31_1_P;
-					break;
-			}
-			break;
-		case 40:
-			switch(curveType) {
-				case FCT_Weierstrass:
-				default:
-					*depth = FEE_DEPTH_40_213;
-					break;
-				case FCT_Montgomery:
-					return FR_IllegalDepth;
-			}
-			break;
-		case 127:
-			switch(curveType) {
-				case FCT_Montgomery:
-					if(primeType == FPT_General) {
-						*depth = FEE_DEPTH_127_GEN;
-					}
-					else{
-						*depth = FEE_DEPTH_127_1;
-					}
-					break;
-				case FCT_Weierstrass:
-				default:
-					*depth = FEE_DEPTH_127_1W;
-					break;
-			}
-			break;
-		case 160:
-			switch(curveType) {
-				case FCT_Montgomery:
-					return FR_IllegalDepth;
-				case FCT_Weierstrass:
-				default:
-					if(primeType == FPT_General) {
-						*depth = FEE_DEPTH_160_GEN;
-					}
-					else {
-						*depth = FEE_DEPTH_160_57;
-					}
-					break;
-			}
-			break;
-		case 192:
-			switch(curveType) {
-				case FCT_Montgomery:
-					*depth = FEE_DEPTH_192_M529891;
-				case FCT_Weierstrass:
-				default:
-					*depth = FEE_DEPTH_192_1425;
-					break;
-			}
-			break;
-		default:
-			frtn = FR_IllegalDepth;
-			break;
-	}
-	#if LOG_DEPTH
-	printf("feeKeyBitsToDepth: depth %d\n", *depth);
-	#endif
-	return frtn;
-}
-
-#else	/* FEE_PROTOTYPE_CURVES */
 
 feeReturn feeKeyBitsToDepth(unsigned keySize,
 	feePrimeType primeType,		/* FPT_Fefault means "best one" */
@@ -1373,8 +1009,6 @@ feeReturn feeKeyBitsToDepth(unsigned keySize,
 	#endif
 	return frtn;
 }
-
-#endif	/* FEE_PROTOTYPE_CURVES  */
 
 /* 
  * Obtain depth for specified curveParams

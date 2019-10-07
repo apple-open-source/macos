@@ -22,7 +22,7 @@
  */
 
 #include "cms-01-basic.h"
-#include "smime_regressions.h"
+#include "cms_regressions.h"
 
 #include <AssertMacros.h>
 

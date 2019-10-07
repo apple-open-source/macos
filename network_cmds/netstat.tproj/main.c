@@ -204,7 +204,7 @@ int	Fflag;		/* show i/f forwarded packets */
 int	gflag;		/* show group (multicast) routing or stats */
 #endif
 int	iflag;		/* show interfaces */
-int	lflag;		/* show routing table with use and ref */
+int	lflag;		/* show routing table with more information */
 int	Lflag;		/* show size of listen queues */
 int	mflag;		/* show memory stats */
 int	nflag;		/* show addresses numerically */

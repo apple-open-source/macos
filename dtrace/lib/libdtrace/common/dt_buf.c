@@ -63,7 +63,7 @@ dt_buf_create(dtrace_hdl_t *dtp, dt_buf_t *bp, const char *name, size_t len)
 void
 dt_buf_destroy(dtrace_hdl_t *dtp, dt_buf_t *bp)
 {
-	dt_dprintf("dt_buf_destroy(%s): size=%lu resizes=%u\n",
+	dt_dprintf("dt_buf_destroy(%s): size=%lu resizes=%u",
 	    bp->dbu_name, (ulong_t)bp->dbu_len, bp->dbu_resizes);
 
 	dt_free(dtp, bp->dbu_buf);

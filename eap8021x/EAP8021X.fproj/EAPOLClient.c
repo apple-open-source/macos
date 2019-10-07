@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -148,7 +148,7 @@ EAPOLClientEstablishSession(const char * interface_name)
     }
     bzero(if_name, sizeof(if_name));
     strlcpy(if_name, interface_name, sizeof(if_name));
-    status = eapolcontroller_client_get_session(server, mach_task_self(),
+    status = eapolcontroller_client_get_session(server,
 						if_name,
 						&bootstrap, &au_session);
     if (status != KERN_SUCCESS) {
@@ -226,7 +226,7 @@ EAPOLClientAttach(const char * interface_name,
 		  mach_error_string(status));
 	goto failed;
     }
-    status = eapolcontroller_client_attach(server, mach_task_self(),
+    status = eapolcontroller_client_attach(server,
 					   client->if_name,
 					   port, &client->session_port,
 					   &control, &control_len, &result);
@@ -294,7 +294,7 @@ EAPOLClientDetach(EAPOLClientRef * client_p)
 	    result = ENXIO;
 	}
     }
-    EAPOLClientInvalidate(client, TRUE);
+    EAPOLClientInvalidate(client, FALSE);
     free(client);
     *client_p = NULL;
     return (result);
@@ -385,7 +385,7 @@ EAPOLClientForceRenew(EAPOLClientRef client)
     return (result);
 }
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 
 int
 EAPOLClientUserCancelled(EAPOLClientRef client)
@@ -402,4 +402,4 @@ EAPOLClientUserCancelled(EAPOLClientRef client)
     return (result);
 }
 
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */

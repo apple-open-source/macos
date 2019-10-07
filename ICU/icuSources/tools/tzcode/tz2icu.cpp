@@ -1781,7 +1781,6 @@ int main(int argc, char *argv[]) {
     time_t sec;
     time(&sec);
     struct tm* now = localtime(&sec);
-    int32_t thisYear = now->tm_year + 1900;
 
     string filename = TZ_RESOURCE_NAME + ".txt";
     // Write out a resource-bundle source file containing data for

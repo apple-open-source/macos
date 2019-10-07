@@ -148,6 +148,7 @@ struct watchedVol {
 
     CFMutableArrayRef tokens;   // notify(3) tokens
     struct bootCaches *caches;  // parsed version of bootcaches.plist
+    CFNumberRef index;          // index into notify_set_state token table
 
     // XX should track the PID of any launched kextcache (5736801)
 };
@@ -158,10 +159,12 @@ static DAApprovalSessionRef    sDAApproval = NULL;     // retain volumes
 static CFMachPortRef           sFsysChangedPort = NULL; // let us know
 static CFRunLoopSourceRef      sFsysChangedSource = NULL; // on the runloop
 static CFMutableDictionaryRef  sFsysWatchDict = NULL;  // disk ids -> wstruct*s
+static CFMutableDictionaryRef  sVolTable = NULL;  // notify tokens -> wstruct*s
 static CFMutableDictionaryRef  sReplyPorts = NULL;  // cfports -> replyPorts
 static CFMachPortRef           sRebootLock = NULL;     // sys lock for reboot
 static CFMachPortRef           sRebootWaiter = NULL;   // only need one
 static CFRunLoopTimerRef       sAutoUpdateDelayer = NULL; // avoid boot / movie
+static CFIndex                 sNextVolIndex = 0; // the next token value to use
 
 /*
  * For historical reasons (avoiding first boot movie, old kextcache -U
@@ -241,6 +244,16 @@ static void debug_chld(int signum) __attribute__((unused))
 }
 #endif
 
+static bool isBaseSystemActive(void)
+{
+    return getenv("__OSINSTALL_ENVIRONMENT") != NULL;
+}
+
+static bool isInstallerActive(void)
+{
+    return get_bootarg("-rootdmg-ramdisk") != NULL;
+}
+
 /******************************************************************************
  * kextd_watch_volumes sets everything up (on the current runloop)
  * cleanup of the file-glabal static objects is done in kextd_stop_volwatch()
@@ -265,6 +278,12 @@ int kextd_watch_volumes(void)
     sFsysWatchDict = CFDictionaryCreateMutable(nil, 0,
             &kCFTypeDictionaryKeyCallBacks, NULL);  // storing watchedVol*'s
     if (!sFsysWatchDict)    goto finish;
+
+    // sVolTable keeps track of watched volumes with integer IDs as keys
+    sVolTable = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+            &kCFTypeDictionaryKeyCallBacks, NULL);
+    if (!sVolTable)         goto finish;
+
     // We keep two ports for a client; one to for death tracking and one to
     // reply when the time comes.  sReplyPorts maps between the CF wrapper
     // for the death-tracking port and the mach_port_t replyPort.
@@ -438,7 +457,13 @@ static void destroy_watchedVol(struct watchedVol *watched)
         }
         CFRelease(watched->tokens);
     }
-    if (watched->caches)    destroyCaches(watched->caches);
+    if (watched->caches) {
+        destroyCaches(watched->caches);
+    }
+    if (watched->index) {
+        CFDictionaryRemoveValue(sVolTable, watched->index);
+    }
+    SAFE_RELEASE(watched->index);
     free(watched);
 }
 
@@ -468,11 +493,18 @@ static struct watchedVol* create_watchedVol(DADiskRef disk)
         (void)updateStamps(watched->caches, kBCStampsUnlinkOnly);
     }
 
-    // There will be RPS paths, booters, "misc" paths, and the exts folder.
+    // There will be RPS paths, booters, "misc" paths, and the watchedExts folder.
     // For now, we'll just set the array size to 0 and let it grow.
     errmsg = "allocation error";
     watched->tokens = CFArrayCreateMutable(nil, 0, NULL);
     if (!watched->tokens)   goto finish;
+
+    watched->index = CFNumberCreate(kCFAllocatorDefault, kCFNumberCFIndexType, &sNextVolIndex);
+    if (!watched->index) {
+        goto finish;
+    }
+    CFDictionarySetValue(sVolTable, watched->index, watched);
+    sNextVolIndex++;
 
     errmsg = NULL;
     rval = watched;     // success!
@@ -639,6 +671,7 @@ static int watch_path(char *path, struct watchedVol* watched)
     int token = 0;
     int errnum;
     uint64_t state;
+    CFIndex index;
     mach_port_t fsPort = (sFsysChangedPort != NULL) ?
                             CFMachPortGetPort(sFsysChangedPort) : MACH_PORT_NULL;
 
@@ -671,7 +704,8 @@ static int watch_path(char *path, struct watchedVol* watched)
             goto finish;
     }
 
-    state = (intptr_t)watched;
+    if (!CFNumberGetValue(watched->index, kCFNumberCFIndexType, &index)) goto finish;
+    state = (intptr_t)index;
     if (notify_set_state(token, state))  goto finish;
     if (notify_monitor_file(token, path, /* flags; 0 means "all" */ 0)) goto finish;
 
@@ -872,10 +906,11 @@ static void vol_appeared(DADiskRef disk, void *launchCtx)
     if (!volURL)        goto finish;    // ignore unmounted volumes
 
     // 7628429: ignore read-only filesystems (which might be on writable media)
-    if (CFURLGetFileSystemRepresentation(volURL,false,(UInt8*)path,PATH_MAX)) {
+    if (CFURLGetFileSystemRepresentation(volURL, false, (UInt8*)path, PATH_MAX)) {
         struct statfs sfs;
         if (statfs(path, &sfs) == -1)       goto finish;
-        if (sfs.f_flags & MNT_RDONLY)       goto finish;    // ignore r-only
+        if (strcmp(path, "/") != 0 &&
+            sfs.f_flags & MNT_RDONLY)       goto finish;    // ignore ro, non-root
         if (sfs.f_flags & MNT_DONTBROWSE)   goto finish;    // respect nobrowse
     } else {
         // couldn't get a path, we don't care about this one
@@ -899,7 +934,7 @@ static void vol_appeared(DADiskRef disk, void *launchCtx)
     result = -1;    // anything after this is an error
     caches = watched->caches;
 
-    /* for path in { bootcaches.plist, installd.commit.pid, exts, kernel,
+    /* for path in { bootcaches.plist, installd.commit.pid, watchedExts, kernel,
      * locSrcs, rpspaths[], booters, miscpaths[] }
      * rpspaths contains mkext, bootconfig; miscpaths the label file
      * cache paths are relative; WATCH() makes absolute */
@@ -908,8 +943,8 @@ static void vol_appeared(DADiskRef disk, void *launchCtx)
 
     /* support multiple extensions directories - 11860417 */
     char    *bufptr;
-    bufptr = caches->exts;
-    for (i = 0; i < caches->nexts; i++) {
+    bufptr = caches->watchedExts;
+    for (i = 0; i < caches->nWatchedExts; i++) {
         WATCH(watched, path, bufptr);
         bufptr += (strlen(bufptr) + 1);
     }
@@ -960,7 +995,7 @@ static void vol_appeared(DADiskRef disk, void *launchCtx)
     // if startup delay hasn't yet passed, skip the usual checks & updates
     if (sAutoUpdateDelayer) {
         OSKextLog(NULL, kOSKextLogDetailLevel | kOSKextLogDirectoryScanFlag,
-                "ignoring '%s' until boot is complete", 
+                "ignoring '%s' until boot is complete",
                 watched->caches->root);
     } else {
         launched = check_rebuild(watched);
@@ -995,7 +1030,7 @@ finish:
 
 /******************************************************************************
  * vol_changed updates our structures if the mountpoint changed
- * - includes the initial mount after a device appears 
+ * - includes the initial mount after a device appears
  * - thus we only call appeared and disappeared as appropriate
  *
  * Multiple notifications fire multiple times as disks come and go.
@@ -1242,7 +1277,7 @@ is_dadisk_busy(DADiskRef disk, void *ctx)
 
     // 37135736 - don't dissent any mounts while in the install environment
     // booted into the BaseSystem
-    if (getenv("__OSINSTALL_ENVIRONMENT") != NULL) {
+    if (isBaseSystemActive()) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogWarningLevel | kOSKextLogIPCFlag,
             "is_dadisk_busy won't dissent an unmount in the install environment");
@@ -1383,6 +1418,7 @@ static void
 fsys_changed(CFMachPortRef p, void *m, CFIndex size, void *info)
 {
     uint64_t nstate;
+    CFNumberRef index = NULL;
     struct watchedVol *watched;
     int notify_status = NOTIFY_STATUS_OK;
     int token;
@@ -1400,10 +1436,26 @@ fsys_changed(CFMachPortRef p, void *m, CFIndex size, void *info)
         goto finish;
     }
 
+    if ((CFIndex)nstate > sNextVolIndex) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Index with value %lld rejected: higher than current volume index.",
+            nstate);
+        goto finish;
+    }
+
+    index = CFNumberCreate(kCFAllocatorDefault, kCFNumberCFIndexType, &nstate);
+    if (!index) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Failed to create volume index with value %lld",
+            nstate);
+        goto finish;
+    }
     // XX should call notify_get_event() here to consume events?
     // how to know when this notification's events have been consumed?
     // filter out useless (generally spurious) events (esp on unmount :P)
-    watched = (struct watchedVol*)(intptr_t)nstate;
+    watched = (struct watchedVol *)CFDictionaryGetValue(sVolTable, index);
     if (!watched) {
         OSKextLogCFString(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
@@ -1415,6 +1467,7 @@ fsys_changed(CFMachPortRef p, void *m, CFIndex size, void *info)
     checkScheduleUpdate(watched);
 
 finish:
+    SAFE_RELEASE(index);
     return;
 }
 
@@ -1453,6 +1506,18 @@ checkScheduleUpdate(struct watchedVol *watched)
             }
         }
     }
+
+	// If we're in the RecoveryOS and RAMDisk booted we should never
+	// opportunistically update, or else we can end up disenting unmount on
+	// the installer.
+	// The OSInstaller cannot rely on kInstallCommitPath as that file lives
+	// on the data volume, and not the system volume which is being updated.
+	if (isBaseSystemActive() && isInstallerActive()) {
+		OSKextLog(NULL, kOSKextLogDetailLevel|kOSKextLogFileAccessFlag,
+				  "%s: install environment active, ignoring changes",
+				  watched->caches->root);
+		goto finish;
+	}
 
     // Check for new bootcaches.plist content
     if (strlcpy(path,watched->caches->root,sizeof(path)) >= sizeof(path))
@@ -1583,8 +1648,17 @@ static Boolean check_rebuild(struct watchedVol *watched)
         goto finish;
     }
 
+    // This check is also in checkScheduleUpdate(), but _kextmanager_lock_reboot can also
+    // result in a call to check_rebuild(), which we don't want in the installer.
+    if (isBaseSystemActive() && isInstallerActive()) {
+        OSKextLog(NULL, kOSKextLogDetailLevel|kOSKextLogFileAccessFlag,
+                  "%s: install environment active, ignoring changes",
+                  watched->caches->root);
+        goto finish;
+    }
+
     // stat stuff to see if a rebuild is needed
-    // (it was 'goto' or ever-deeper nesting)
+    // (it was 'goto' or ever-deeper nesting): https://www.xkcd.com/292/
     if (check_kext_boot_cache_file(watched->caches,
                                    watched->caches->kext_boot_cache_file->rpath,
                                    watched->caches->kernelpath, NULL)) {
@@ -2520,6 +2594,8 @@ OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
 }
 
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations" // needed for asl_*
 /*******************************************************************************
 * logMTMessage() - log MessageTracer message
 *******************************************************************************/
@@ -2546,3 +2622,4 @@ static void logMTMessage(char *signature, char *result, char *mfmt, ...)
 
     asl_free(amsg);
 }
+#pragma clang diagnostic pop

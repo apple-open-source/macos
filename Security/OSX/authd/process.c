@@ -26,7 +26,6 @@ struct _process_s {
     
     CFMutableSetRef connections;
     
-    SecCodeRef codeRef;
     char code_url[PATH_MAX+1];
     char * code_identifier;
     CFDataRef code_requirement_data;
@@ -82,7 +81,6 @@ _process_finalize(CFTypeRef value)
     CFReleaseNull(proc->authTokens);
     CFReleaseNull(proc->connections);
     CFReleaseNull(proc->session);
-    CFReleaseNull(proc->codeRef);
     CFReleaseNull(proc->code_requirement);
     CFReleaseNull(proc->code_requirement_data);
     CFReleaseNull(proc->code_entitlements);
@@ -121,6 +119,7 @@ process_create(const audit_info_s * auditInfo, session_t session)
     process_t proc = NULL;
     CFDictionaryRef code_info = NULL;
     CFURLRef code_url = NULL;
+    SecCodeRef codeRef = NULL;
 
     require(session != NULL, done);
     require(auditInfo != NULL, done);
@@ -141,11 +140,18 @@ process_create(const audit_info_s * auditInfo, session_t session)
     check(proc->dispatch_queue != NULL);
 
     CFMutableDictionaryRef codeDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    CFNumberRef codePid = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &proc->auditInfo.pid);
-    CFDictionarySetValue(codeDict, kSecGuestAttributePid, codePid);
-    status = SecCodeCopyGuestWithAttributes(NULL, codeDict, kSecCSDefaultFlags, &proc->codeRef);
+    CFDataRef auditToken = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (UInt8 *)&auditInfo->opaqueToken, sizeof(auditInfo->opaqueToken), kCFAllocatorNull);
+    if (auditToken) {
+        CFDictionarySetValue(codeDict, kSecGuestAttributeAudit, auditToken);
+        CFReleaseNull(auditToken);
+    } else {
+        CFReleaseSafe(codeDict);
+        os_log_error(AUTHD_LOG, "process: PID %d failed to create audit token", proc->auditInfo.pid);
+        CFReleaseNull(proc);
+        goto done;
+    }
+    status = SecCodeCopyGuestWithAttributes(NULL, codeDict, kSecCSDefaultFlags, &codeRef);
     CFReleaseSafe(codeDict);
-    CFReleaseSafe(codePid);
 
     if (status) {
         os_log_error(AUTHD_LOG, "process: PID %d failed to create code ref %d", proc->auditInfo.pid, (int)status);
@@ -153,7 +159,7 @@ process_create(const audit_info_s * auditInfo, session_t session)
         goto done;
     }
     
-    status = SecCodeCopySigningInformation(proc->codeRef, kSecCSRequirementInformation, &code_info);
+    status = SecCodeCopySigningInformation(codeRef, kSecCSRequirementInformation, &code_info);
     require_noerr_action(status, done, os_log_debug(AUTHD_LOG, "process: PID %d SecCodeCopySigningInformation failed with %d", proc->auditInfo.pid, (int)status));
 
     CFTypeRef value = NULL;
@@ -167,7 +173,7 @@ process_create(const audit_info_s * auditInfo, session_t session)
         value = NULL;
     }
 
-    if (SecCodeCopyPath(proc->codeRef, kSecCSDefaultFlags, &code_url) == errSecSuccess) {
+    if (SecCodeCopyPath(codeRef, kSecCSDefaultFlags, &code_url) == errSecSuccess) {
         CFURLGetFileSystemRepresentation(code_url, true, (UInt8*)proc->code_url, sizeof(proc->code_url));
     }
 
@@ -189,15 +195,15 @@ process_create(const audit_info_s * auditInfo, session_t session)
 	// AppStore apps must have resource envelope 2. Check with spctl -a -t exec -vv <path>
     CFStringRef firstPartyRequirement = CFSTR("anchor apple");
 	CFStringRef appStoreRequirement = CFSTR("anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.9] exists");
-    SecRequirementRef  secRequirementRef = NULL;
+    SecRequirementRef secRequirementRef = NULL;
     status = SecRequirementCreateWithString(firstPartyRequirement, kSecCSDefaultFlags, &secRequirementRef);
     if (status == errSecSuccess) {
-        proc->firstPartySigned = process_verify_requirement(proc, secRequirementRef);
+        proc->firstPartySigned = process_verify_requirement(proc, codeRef, secRequirementRef);
 		CFReleaseNull(secRequirementRef);
     }
 	status = SecRequirementCreateWithString(appStoreRequirement, kSecCSDefaultFlags, &secRequirementRef);
 	if (status == errSecSuccess) {
-		proc->appStoreSigned = process_verify_requirement(proc, secRequirementRef);
+		proc->appStoreSigned = process_verify_requirement(proc, codeRef, secRequirementRef);
 		CFReleaseSafe(secRequirementRef);
 	}
     os_log_debug(AUTHD_LOG, "process: PID %d created (sid=%i) %{public}s", proc->auditInfo.pid, proc->auditInfo.asid, proc->code_url);
@@ -205,6 +211,7 @@ process_create(const audit_info_s * auditInfo, session_t session)
 done:
     CFReleaseSafe(code_info);
     CFReleaseSafe(code_url);
+    CFReleaseSafe(codeRef);
     return proc;
 }
 
@@ -252,12 +259,6 @@ const audit_info_s *
 process_get_audit_info(process_t proc)
 {
     return &proc->auditInfo;
-}
-
-SecCodeRef
-process_get_code(process_t proc)
-{
-    return proc->codeRef;
 }
 
 const char *
@@ -466,9 +467,9 @@ process_get_requirement(process_t proc)
     return proc->code_requirement;
 }
 
-bool process_verify_requirement(process_t proc, SecRequirementRef requirment)
+bool process_verify_requirement(process_t proc, SecCodeRef codeRef, SecRequirementRef requirment)
 {
-    OSStatus status = SecCodeCheckValidity(proc->codeRef, kSecCSDefaultFlags, requirment);
+    OSStatus status = SecCodeCheckValidity(codeRef, kSecCSDefaultFlags, requirment);
     if (status != errSecSuccess) {
         os_log_debug(AUTHD_LOG, "process: PID %d code requirement check failed (%d)", proc->auditInfo.pid, (int)status);
     }

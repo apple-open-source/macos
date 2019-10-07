@@ -360,6 +360,39 @@
 			<key>VerboseLogging</key>
 			<integer>0</integer>
 		</dict>
+		<key>PPP-VLAN</key>
+		<dict>
+			<key>ACSPEnabled</key>
+			<integer>0</integer>
+			<key>CommUseTerminalScript</key>
+			<integer>0</integer>
+			<key>DialOnDemand</key>
+			<integer>0</integer>
+			<key>DisconnectOnFastUserSwitch</key>
+			<integer>1</integer>
+			<key>DisconnectOnIdle</key>
+			<integer>0</integer>
+			<key>DisconnectOnIdleTimer</key>
+			<integer>1800</integer>
+			<key>DisconnectOnLogout</key>
+			<integer>1</integer>
+			<key>DisconnectOnSleep</key>
+			<integer>1</integer>
+			<key>IdleReminder</key>
+			<integer>0</integer>
+			<key>IdleReminderTimer</key>
+			<integer>1800</integer>
+			<key>LCPEchoEnabled</key>
+			<integer>1</integer>
+			<key>LCPEchoFailure</key>
+			<integer>4</integer>
+			<key>LCPEchoInterval</key>
+			<integer>10</integer>
+			<key>Logfile</key>
+			<string>/var/log/ppp.log</string>
+			<key>VerboseLogging</key>
+			<integer>0</integer>
+		</dict>
 		<key>PPP-WWAN</key>
 		<dict>
 			<key>ACSPEnabled</key>
@@ -718,6 +751,26 @@
 			</dict>
 		</dict>
 		<key>PPP-Serial</key>
+		<dict>
+			<key>DNS</key>
+			<dict/>
+			<key>IPv4</key>
+			<dict>
+				<key>ConfigMethod</key>
+				<string>PPP</string>
+			</dict>
+			<key>IPv6</key>
+			<dict>
+				<key>ConfigMethod</key>
+				<string>Automatic</string>
+			</dict>
+			<key>Proxies</key>
+			<dict>
+				<key>FTPPassive</key>
+				<integer>1</integer>
+			</dict>
+		</dict>
+		<key>PPP-VLAN</key>
 		<dict>
 			<key>DNS</key>
 			<dict/>

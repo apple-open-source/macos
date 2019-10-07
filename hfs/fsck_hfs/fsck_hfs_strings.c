@@ -197,7 +197,7 @@ hfs_errors[] = {
 
     /* 610 - 619 */
     { E_BadHardLinkDate,        "Bad hard link creation date",                                   fsckMsgError, fsckLevel1,    0, },
-    { E_DirtyJournal,           "Journal need to be replayed but volume is read-only",           fsckMsgError, fsckLevel1,    0, },
+    { E_DirtyJournal,           "Journal needs to be replayed but volume is read-only",          fsckMsgError, fsckLevel1,    0, },
     { E_LinkChainNonLink,       "File record has hard link chain flag (id = %u)",                fsckMsgError, fsckLevel1,    1, (const int[]){ fsckTypeInt, } },
     { E_LinkHasData,            "Hard link record has data extents (id = %u)",                   fsckMsgError, fsckLevel1,    1, (const int[]){ fsckTypeInt, } },
     { E_FileLinkCountError,     "File has incorrect number of links (id = %u)",                  fsckMsgError, fsckLevel1,    1, (const int[]){ fsckTypeInt, } },

@@ -35,6 +35,7 @@
 #include "ContextMenuClient.h"
 #include "ContextMenuItem.h"
 #include "ContextMenuProvider.h"
+#include "CustomHeaderFields.h"
 #include "Document.h"
 #include "DocumentFragment.h"
 #include "DocumentLoader.h"
@@ -74,8 +75,8 @@
 
 
 namespace WebCore {
-using namespace WTF;
-using namespace Unicode;
+
+using namespace WTF::Unicode;
 
 ContextMenuController::ContextMenuController(Page& page, ContextMenuClient& client)
     : m_page(page)
@@ -163,7 +164,7 @@ std::unique_ptr<ContextMenu> ContextMenuController::maybeCreateContextMenu(Event
     if (!frame)
         return nullptr;
 
-    auto result = frame->eventHandler().hitTestResultAtPoint(mouseEvent.absoluteLocation());
+    auto result = frame->eventHandler().hitTestResultAtPoint(mouseEvent.absoluteLocation(), HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::DisallowUserAgentShadowContent | HitTestRequest::AllowChildFrameContent);
     if (!result.innerNonSharedNode())
         return nullptr;
 
@@ -357,10 +358,11 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuAction action, co
     case ContextMenuItemTagUnicodeInsertZWNJMark:
         insertUnicodeCharacter(zeroWidthNonJoiner, *frame);
         break;
-#endif
-#if PLATFORM(GTK)
     case ContextMenuItemTagSelectAll:
         frame->editor().command("SelectAll").execute();
+        break;
+    case ContextMenuItemTagInsertEmoji:
+        m_client.insertEmoji(*frame);
         break;
 #endif
     case ContextMenuItemTagSpellingGuess: {
@@ -811,9 +813,8 @@ void ContextMenuController::populate()
     ContextMenuItem PasteItem(ActionType, ContextMenuItemTagPaste, contextMenuItemTagPaste());
 #if PLATFORM(GTK)
     ContextMenuItem DeleteItem(ActionType, ContextMenuItemTagDelete, contextMenuItemTagDelete());
-#endif
-#if PLATFORM(GTK)
     ContextMenuItem SelectAllItem(ActionType, ContextMenuItemTagSelectAll, contextMenuItemTagSelectAll());
+    ContextMenuItem InsertEmojiItem(ActionType, ContextMenuItemTagInsertEmoji, contextMenuItemTagInsertEmoji());
 #endif
 
 #if PLATFORM(GTK) || PLATFORM(WIN)
@@ -1049,9 +1050,8 @@ void ContextMenuController::populate()
 #if PLATFORM(GTK)
         appendItem(DeleteItem, m_contextMenu.get());
         appendItem(*separatorItem(), m_contextMenu.get());
-#endif
-#if PLATFORM(GTK)
         appendItem(SelectAllItem, m_contextMenu.get());
+        appendItem(InsertEmojiItem, m_contextMenu.get());
 #endif
 
         if (!inPasswordField) {
@@ -1206,6 +1206,10 @@ void ContextMenuController::checkOrEnableIfNeeded(ContextMenuItem& item) const
         case ContextMenuItemTagDelete:
             shouldEnable = frame->editor().canDelete();
             break;
+        case ContextMenuItemTagInsertEmoji:
+            shouldEnable = frame->editor().canEdit();
+            break;
+        case ContextMenuItemTagSelectAll:
         case ContextMenuItemTagInputMethods:
         case ContextMenuItemTagUnicode:
         case ContextMenuItemTagUnicodeInsertLRMMark:
@@ -1218,11 +1222,6 @@ void ContextMenuController::checkOrEnableIfNeeded(ContextMenuItem& item) const
         case ContextMenuItemTagUnicodeInsertZWSMark:
         case ContextMenuItemTagUnicodeInsertZWJMark:
         case ContextMenuItemTagUnicodeInsertZWNJMark:
-            shouldEnable = true;
-            break;
-#endif
-#if PLATFORM(GTK)
-        case ContextMenuItemTagSelectAll:
             shouldEnable = true;
             break;
 #endif

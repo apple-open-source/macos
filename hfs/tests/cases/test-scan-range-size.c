@@ -6,7 +6,7 @@
  
 #include <TargetConditionals.h>
 
-#if !TARGET_OS_EMBEDDED
+#if !TARGET_OS_IPHONE
  
 #include <sys/ioctl.h>
 #include <sys/ioccom.h>
@@ -63,4 +63,4 @@ int run_scan_range_size(__unused test_ctx_t *ctx) {
 	return 0;
 }
 
-#endif // !TARGET_OS_EMBEDDED
+#endif // !TARGET_OS_IPHONE

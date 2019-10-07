@@ -10,7 +10,7 @@ libcurl bindings
  The bindings listed below are not part of the curl/libcurl distribution
  archives, but must be downloaded and installed separately.
 
-[Ada95](http://www.almroth.com/adacurl/index.html)  Written by Andreas Almroth
+[Ada95](https://web.archive.org/web/20070403105909/www.almroth.com/adacurl/index.html) Written by Andreas Almroth
 
 [Basic](http://scriptbasic.com/) ScriptBasic bindings written by Peter Verhas
 
@@ -31,15 +31,15 @@ Cocoa: [BBHTTP](https://github.com/brunodecarvalho/BBHTTP) written by Bruno de C
 
 [Eiffel](https://room.eiffel.com/library/curl) Written by Eiffel Software
 
-[Euphoria](http://rays-web.com/eulibcurl.htm) Written by Ray Smith
+[Euphoria](https://web.archive.org/web/20050204080544/rays-web.com/eulibcurl.htm) Written by Ray Smith
 
 [Falcon](http://www.falconpl.org/index.ftd?page_id=prjs&prj_id=curl)
 
-[Ferite](http://www.ferite.org/) Written by Paul Querna
+[Ferite](https://web.archive.org/web/20150102192018/ferite.org/) Written by Paul Querna
 
 [Gambas](https://gambas.sourceforge.io/)
 
-[glib/GTK+](http://atterer.net/glibcurl/) Written by Richard Atterer
+[glib/GTK+](https://web.archive.org/web/20100526203452/atterer.net/glibcurl) Written by Richard Atterer
 
 Go: [go-curl](https://github.com/andelf/go-curl) by ShuYu Wang
 
@@ -63,11 +63,11 @@ Lua: [luacurl](http://luacurl.luaforge.net/) by Alexander Marinov, [Lua-cURL](ht
 
 [node.js](https://github.com/JCMais/node-libcurl) node-libcurl by Jonathan Cardoso Machado
 
-[Object-Pascal](http://www.tekool.com/opcurl) Free Pascal, Delphi and Kylix binding written by Christophe Espern.
+[Object-Pascal](https://web.archive.org/web/20020610214926/www.tekool.com/opcurl) Free Pascal, Delphi and Kylix binding written by Christophe Espern.
 
-[O'Caml](https://sourceforge.net/projects/ocurl/) Written by Lars Nilsson
+[OCaml](https://opam.ocaml.org/packages/ocurl/) Written by Lars Nilsson and ygrek
 
-[Pascal](http://houston.quik.com/jkp/curlpas/) Free Pascal, Delphi and Kylix binding written by Jeffrey Pohlmeyer.
+[Pascal](https://web.archive.org/web/20030804091414/houston.quik.com/jkp/curlpas/) Free Pascal, Delphi and Kylix binding written by Jeffrey Pohlmeyer.
 
 Perl: [WWW--Curl](https://github.com/szbalint/WWW--Curl) Maintained by Cris
 Bailiff and Bálint Szilakszi,
@@ -75,7 +75,7 @@ Bailiff and Bálint Szilakszi,
 
 [PHP](https://php.net/curl) Originally written by Sterling Hughes
 
-[PostgreSQL](http://gborg.postgresql.org/project/pgcurl/projdisplay.php) Written by Gian Paolo Ciceri
+[PostgreSQL](https://github.com/pramsey/pgsql-http) - HTTP client for PostgreSQL
 
 [Python](http://pycurl.io/) PycURL by Kjetil Jacobsen
 
@@ -83,9 +83,11 @@ Bailiff and Bálint Szilakszi,
 
 [Rexx](https://rexxcurl.sourceforge.io/) Written Mark Hessling
 
+[Ring](https://ring-lang.sourceforge.io/doc1.3/libcurl.html) RingLibCurl by Mahmoud Fayed
+
 RPG, support for ILE/RPG on OS/400 is included in source distribution
 
-Ruby: [curb](http://curb.rubyforge.org/) written by Ross Bamford, [ruby-curl-multi](http://curl-multi.rubyforge.org/) written by Kristjan Petursson and Keith Rarick
+Ruby: [curb](https://github.com/taf2/curb) written by Ross Bamford
 
 [Rust](https://github.com/carllerche/curl-rust) curl-rust - by Carl Lerche
 
@@ -93,24 +95,24 @@ Ruby: [curb](http://curb.rubyforge.org/) written by Ross Bamford, [ruby-curl-mul
 
 [Scilab](https://help.scilab.org/docs/current/fr_FR/getURL.html) binding by Sylvestre Ledru
 
-[S-Lang](http://www.jedsoft.org/slang/modules/curl.html) by John E Davis
+[S-Lang](https://www.jedsoft.org/slang/modules/curl.html) by John E Davis
 
 [Smalltalk](http://www.squeaksource.com/CurlPlugin/) Written by Danil Osipchuk
 
-[SP-Forth](http://www.forth.org.ru/~ac/lib/lin/curl/) Written by ygrek
+[SP-Forth](https://sourceforge.net/p/spf/spf/ci/master/tree/devel/~ac/lib/lin/curl/) Written by Andrey Cherezov
 
 [SPL](http://www.clifford.at/spl/) Written by Clifford Wolf
 
-[Tcl](http://mirror.yellow5.com/tclcurl/) Tclcurl by Andrés García
+[Tcl](https://web.archive.org/web/20160826011806/mirror.yellow5.com/tclcurl/) Tclcurl by Andrés García
 
 [Visual Basic](https://sourceforge.net/projects/libcurl-vb/) libcurl-vb by Jeffrey Phillips
 
-[Visual Foxpro](http://www.ctl32.com.ar/libcurl.asp) by Carlos Alloatti
+[Visual Foxpro](https://web.archive.org/web/20130730181523/www.ctl32.com.ar/libcurl.asp) by Carlos Alloatti
 
 [Q](https://q-lang.sourceforge.io/) The libcurl module is part of the default install
 
 [wxWidgets](https://wxcode.sourceforge.io/components/wxcurl/) Written by Casey O'Donnell
 
-[XBLite](http://perso.wanadoo.fr/xblite/libraries.html) Written by David Szafranski
+[XBLite](https://web.archive.org/web/20060426150418/perso.wanadoo.fr/xblite/libraries.html) Written by David Szafranski
 
 [Xojo](https://github.com/charonn0/RB-libcURL) Written by Andrew Lambert

@@ -33,6 +33,8 @@
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
 #import "keychain/ckks/CKKSAnalytics.h"
 #import "keychain/ot/OTDefines.h"
+#import "keychain/ot/OTConstants.h"
+#import "keychain/ckks/CKKS.h"
 
 static NSString* kFeatureAllowedKey =       @"FeatureAllowed";
 static NSString* kFeaturePromotedKey =      @"FeaturePromoted";
@@ -55,10 +57,10 @@ static NSString* kRampPriorityKey =         @"RampPriority";
 @property (nonatomic, strong) CKRecordZoneID    *zoneID;
 
 @property (nonatomic, strong) NSString      *recordName;
-@property (nonatomic, strong) NSString      *featureName;
+@property (nonatomic, strong) NSString      *localSettingName;
 @property (nonatomic, strong) CKRecordID    *recordID;
 
-@property (nonatomic, strong) CKKSCKAccountStateTracker *accountTracker;
+@property (nonatomic, strong) CKKSAccountStateTracker *accountTracker;
 @property (nonatomic, strong) CKKSLockStateTracker      *lockStateTracker;
 @property (nonatomic, strong) CKKSReachabilityTracker   *reachabilityTracker;
 
@@ -66,16 +68,20 @@ static NSString* kRampPriorityKey =         @"RampPriority";
 
 @property (readonly) Class<CKKSFetchRecordsOperation> fetchRecordRecordsOperationClass;
 
+@property (atomic, strong) NSDate *lastFetch;
+@property (atomic) NSTimeInterval retryAfter;
+@property (atomic) BOOL cachedFeatureAllowed;
+
 @end
 
 @implementation OTRamp
 
 -(instancetype) initWithRecordName:(NSString *) recordName
-                       featureName:(NSString*) featureName
+                  localSettingName:(NSString*) localSettingName
                          container:(CKContainer*) container
                           database:(CKDatabase*) database
                             zoneID:(CKRecordZoneID*) zoneID
-                    accountTracker:(CKKSCKAccountStateTracker*) accountTracker
+                    accountTracker:(CKKSAccountStateTracker*) accountTracker
                   lockStateTracker:(CKKSLockStateTracker*) lockStateTracker
                reachabilityTracker:(CKKSReachabilityTracker*) reachabilityTracker
 fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordRecordsOperationClass
@@ -85,24 +91,28 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
     if(self){
         _container = container;
         _recordName = [recordName copy];
-        _featureName = [featureName copy];
+        _localSettingName = [localSettingName copy];
         _database = database;
         _zoneID = zoneID;
         _accountTracker = accountTracker;
         _lockStateTracker = lockStateTracker;
         _reachabilityTracker = reachabilityTracker;
         _fetchRecordRecordsOperationClass = fetchRecordRecordsOperationClass;
+        _lastFetch = [NSDate distantPast];
+        _retryAfter = kCKRampManagerDefaultRetryTimeInSeconds;
+        _cachedFeatureAllowed = NO;
     }
     return self;
 }
 
--(void) fetchRampRecord:(CKOperationDiscretionaryNetworkBehavior)networkBehavior reply:(void (^)(BOOL featureAllowed, BOOL featurePromoted, BOOL featureVisible, NSInteger retryAfter, NSError *rampStateFetchError))recordRampStateFetchCompletionBlock
+-(void)fetchRampRecord:(CKOperationDiscretionaryNetworkBehavior)networkBehavior reply:(void (^)(BOOL featureAllowed, BOOL featurePromoted, BOOL featureVisible, NSInteger retryAfter, NSError *rampStateFetchError))recordRampStateFetchCompletionBlock
 {
     __weak __typeof(self) weakSelf = self;
 
     CKOperationConfiguration *opConfig = [[CKOperationConfiguration alloc] init];
     opConfig.allowsCellularAccess = YES;
     opConfig.discretionaryNetworkBehavior = networkBehavior;
+    opConfig.isCloudKitSupportOperation = YES;
 
     _recordID = [[CKRecordID alloc] initWithRecordName:_recordName zoneID:_zoneID];
     CKFetchRecordsOperation *operation = [[[self.fetchRecordRecordsOperationClass class] alloc] initWithRecordIDs:@[ _recordID]];
@@ -114,7 +124,7 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
         __strong __typeof(weakSelf) strongSelf = weakSelf;
         if(!strongSelf) {
             secnotice("octagon", "received callback for released object");
-            operationError = [NSError errorWithDomain:octagonErrorDomain code:OTErrorCKCallback userInfo:@{NSLocalizedDescriptionKey: @"Received callback for released object"}];
+            operationError = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorCKCallback userInfo:@{NSLocalizedDescriptionKey: @"Received callback for released object"}];
             recordRampStateFetchCompletionBlock(NO, NO, NO, kCKRampManagerDefaultRetryTimeInSeconds , operationError);
             return;
         }
@@ -137,7 +147,7 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
             secnotice("octagon", "Fetch ramp state - featureAllowed %@, featurePromoted: %@, featureVisible: %@, retryAfter: %ld", (featureAllowed ? @YES : @NO), (featurePromoted ? @YES : @NO), (featureVisible ? @YES : @NO), (long)retryAfter);
         } else {
             secerror("octagon: Couldn't find CKRecord for ramp. Defaulting to not ramped in");
-            operationError = [NSError errorWithDomain:octagonErrorDomain code:OTErrorRecordNotFound userInfo:@{NSLocalizedDescriptionKey: @" Couldn't find CKRecord for ramp. Defaulting to not ramped in"}];
+            operationError = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorRecordNotFound userInfo:@{NSLocalizedDescriptionKey: @" Couldn't find CKRecord for ramp. Defaulting to not ramped in"}];
         }
         recordRampStateFetchCompletionBlock(featureAllowed, featurePromoted, featureVisible, retryAfter, operationError);
     };
@@ -146,11 +156,34 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
     secnotice("octagon", "Attempting to fetch ramp state from CloudKit");
 }
 
--(BOOL) checkRampState:(NSInteger*)retryAfter networkBehavior:(CKOperationDiscretionaryNetworkBehavior)networkBehavior error:(NSError**)error
+-(BOOL) checkRampStateWithError:(NSError**)error
 {
     __block BOOL isFeatureEnabled = NO;
     __block NSError* localError = nil;
     __block NSInteger localRetryAfter = 0;
+
+    //defaults write to for whether or not a ramp record returns "enabled or disabled"
+    CFBooleanRef enabled = (CFBooleanRef)CFPreferencesCopyValue((__bridge CFStringRef)self.localSettingName,
+                                                                CFSTR("com.apple.security"),
+                                                                kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+
+    secnotice("octagon", "%@ Defaults availability: SecCKKSTestsEnabled[%s] DefaultsPointer[%s] DefaultsValue[%s]", (__bridge CFStringRef)self.localSettingName,
+              SecCKKSTestsEnabled() ? "True": "False", (enabled != NULL) ? "True": "False",
+              (enabled && (CFGetTypeID(enabled) == CFBooleanGetTypeID()) && (enabled == kCFBooleanTrue)) ? "True": "False");
+    
+    if(!SecCKKSTestsEnabled() && enabled && CFGetTypeID(enabled) == CFBooleanGetTypeID()){
+        BOOL localConfigEnable = (enabled == kCFBooleanTrue);
+        secnotice("octagon", "feature is %@: %@ (local config)", localConfigEnable ? @"enabled" : @"disabled", self.recordName);
+        CFReleaseNull(enabled);
+        return localConfigEnable;
+    }
+    CFReleaseNull(enabled);
+    
+    NSDate* now = [[NSDate alloc] init];
+
+    if([now timeIntervalSinceDate: self.lastFetch] < self.retryAfter) {
+        return self.cachedFeatureAllowed;
+    }
 
     if(self.lockStateTracker.isLocked){
         secnotice("octagon","device is locked! can't check ramp state");
@@ -162,9 +195,12 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
         }
         return NO;
     }
+
+    // Wait until the account tracker has had a chance to figure out the state
+    [self.accountTracker.ckAccountInfoInitialized wait:5*NSEC_PER_SEC];
     if(self.accountTracker.currentCKAccountInfo.accountStatus != CKAccountStatusAvailable){
         secnotice("octagon","not signed in! can't check ramp state");
-        localError = [NSError errorWithDomain:octagonErrorDomain
+        localError = [NSError errorWithDomain:OctagonErrorDomain
                                          code:OTErrorNotSignedIn
                                      userInfo:@{NSLocalizedDescriptionKey: @"not signed in"}];
         if(error){
@@ -174,7 +210,7 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
     }
     if(!self.reachabilityTracker.currentReachability){
         secnotice("octagon","no network! can't check ramp state");
-        localError = [NSError errorWithDomain:octagonErrorDomain
+        localError = [NSError errorWithDomain:OctagonErrorDomain
                                          code:OTErrorNoNetwork
                                      userInfo:@{NSLocalizedDescriptionKey: @"no network"}];
         if(error){
@@ -183,18 +219,6 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
         return NO;
     }
 
-    //defaults write to for whether or not a ramp record returns "enabled or disabled"
-    CFBooleanRef enabled = (CFBooleanRef)CFPreferencesCopyValue((__bridge CFStringRef)self.recordName,
-                                                                CFSTR("com.apple.security"),
-                                                                kCFPreferencesAnyUser, kCFPreferencesAnyHost);
-    if(enabled && CFGetTypeID(enabled) == CFBooleanGetTypeID()){
-        BOOL localConfigEnable = (enabled == kCFBooleanTrue);
-        secnotice("octagon", "feature is %@: %@ (local config)", localConfigEnable ? @"enabled" : @"disabled", self.recordName);
-        CFReleaseNull(enabled);
-        return localConfigEnable;
-    }
-    CFReleaseNull(enabled);
-    
     CKKSAnalytics* logger = [CKKSAnalytics logger];
     SFAnalyticsActivityTracker *tracker = [logger logSystemMetricsForActivityNamed:CKKSActivityOTFetchRampState withAction:nil];
 
@@ -202,7 +226,7 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
 
     [tracker start];
 
-    [self fetchRampRecord:networkBehavior reply:^(BOOL featureAllowed, BOOL featurePromoted, BOOL featureVisible, NSInteger retryAfter, NSError *rampStateFetchError) {
+    [self fetchRampRecord:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary reply:^(BOOL featureAllowed, BOOL featurePromoted, BOOL featureVisible, NSInteger retryAfter, NSError *rampStateFetchError) {
         secnotice("octagon", "fetch ramp records returned with featureAllowed: %d,\n featurePromoted: %d,\n featureVisible: %d,\n", featureAllowed, featurePromoted, featureVisible);
 
         isFeatureEnabled = featureAllowed;
@@ -213,10 +237,10 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
         dispatch_semaphore_signal(sema);
     }];
 
-    long timeout = (SecCKKSTestsEnabled() ? 2*NSEC_PER_SEC : NSEC_PER_SEC * 65);
+    int64_t timeout = (int64_t)(SecCKKSTestsEnabled() ? 2*NSEC_PER_SEC : NSEC_PER_SEC * 65);
     if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, timeout)) != 0) {
         secnotice("octagon", "timed out waiting for response from CloudKit\n");
-        localError = [NSError errorWithDomain:octagonErrorDomain code:OTErrorCKTimeOut userInfo:@{NSLocalizedDescriptionKey: @"Failed to deserialize bottle peer"}];
+        localError = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorCKTimeOut userInfo:@{NSLocalizedDescriptionKey: @"timed out waiting for response from CloudKit"}];
 
         [logger logUnrecoverableError:localError forEvent:OctagonEventRamp withAttributes:@{
                                                                                             OctagonEventAttributeFailureReason : @"cloud kit timed out"}
@@ -227,7 +251,7 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
 
     if(localRetryAfter > 0){
         secnotice("octagon", "cloud kit asked security to retry: %lu", (unsigned long)localRetryAfter);
-        *retryAfter = localRetryAfter;
+        self.retryAfter = localRetryAfter;
     }
 
     if(localError){
@@ -243,37 +267,9 @@ fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordR
         [logger logSuccessForEventNamed:OctagonEventRamp];
     }
 
+    self.lastFetch = now;
+    self.cachedFeatureAllowed = isFeatureEnabled;
     return isFeatureEnabled;
-
-}
-
-- (void)ckAccountStatusChange:(CKKSAccountStatus)oldStatus to:(CKKSAccountStatus)currentStatus {
-    secnotice("octagon", "%@ Received notification of CloudKit account status change, moving from %@ to %@",
-              self.zoneID.zoneName,
-              [CKKSCKAccountStateTracker stringFromAccountStatus: oldStatus],
-              [CKKSCKAccountStateTracker stringFromAccountStatus: currentStatus]);
-
-    switch(currentStatus) {
-        case CKKSAccountStatusAvailable: {
-            secnotice("octagon", "Logged into iCloud.");
-            self.accountStatus = CKKSAccountStatusAvailable;
-        }
-            break;
-
-        case CKKSAccountStatusNoAccount: {
-            secnotice("octagon", "Logging out of iCloud. Shutting down.");
-            self.accountStatus = CKKSAccountStatusNoAccount;
-        }
-            break;
-
-        case CKKSAccountStatusUnknown: {
-            // We really don't expect to receive this as a notification, but, okay!
-            secnotice("octagon", "Account status has become undetermined. Pausing for %@", self.zoneID.zoneName);
-            self.accountStatus = CKKSAccountStatusNoAccount;
-
-        }
-            break;
-    }
 }
 
 @end

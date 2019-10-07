@@ -36,6 +36,11 @@ en_BD{
                 Ed{"d E"}
                 GyMMMEd{"E, d MMM, y G"}
                 GyMMMd{"d MMM, y G"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                Hmsv{"HH:mm:ss v"}
+                Hmv{"HH:mm v"}
                 yyyyMMMEd{"E, d MMM, y G"}
                 yyyyMMMd{"d MMM, y G"}
             }

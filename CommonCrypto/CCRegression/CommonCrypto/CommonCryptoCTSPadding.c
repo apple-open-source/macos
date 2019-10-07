@@ -35,7 +35,7 @@ entryPoint(CommonCryptoCTSPadding,"CommonCrypto CTS Padding Testing")
 
 #else
 
-static int kTestTestCount = 9;
+static int kTestTestCount = 3;
 
 int CommonCryptoCTSPadding(int __unused argc, char *const * __unused argv)
 {
@@ -54,63 +54,10 @@ int CommonCryptoCTSPadding(int __unused argc, char *const * __unused argv)
 	iv         = "0f0e0d0c0b0a09080706050403020100";
     mode 	   = kCCModeCBC;
     alg		= kCCAlgorithmAES128;
-    padding = ccCBCCTS1;
-    
-	plan_tests(kTestTestCount);
-    
-    test = "CTS1 Test - Length 64";
-	plainText  = "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a";
-	cipherText = "e22abba9d2a201b18dc2f57e04aba21a16e0ed6358164c59ca64d204f33247ee2dc88b70f6ae0243d2dbcd6822a1058604b1c432a7a71395b36d820e2c3de4ee";
-    if(verbose) diag(test);
-    retval = CCModeTestCase(keyStr, iv, mode, alg, padding, cipherText, plainText);
-    ok(retval == 0, test);
-    accum += retval;
-    
-    test = "CTS1 Test - Length 63";
-	plainText  = "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a";
-	cipherText = "e22abba9d2a201b18dc2f57e04aba21a16e0ed6358164c59ca64d204f33247ee2dc88b70f6ae0243d2dbcd6822a105950b6576660739916d058623d688e27e";
-    if(verbose) diag(test);
-    retval = CCModeTestCase(keyStr, iv, mode, alg, padding, cipherText, plainText);
-    ok(retval == 0, test);
-    accum += retval;
-    
-    test = "CTS1 Test - Length 57";
-	plainText  = "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a";
-	cipherText = "e22abba9d2a201b18dc2f57e04aba21a16e0ed6358164c59ca64d204f33247ee2dc88b70f6ae0243d2db751002ef7a0f9d915d15346571eee7aa";
-    if(verbose) diag(test);
-    retval = CCModeTestCase(keyStr, iv, mode, alg, padding, cipherText, plainText);
-    ok(retval == 0, test);
-    accum += retval;
-    
-    
-    padding = ccCBCCTS2;
-    
-    test = "CTS2 Test - Length 64";
-	plainText  = "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a";
-	cipherText = "e22abba9d2a201b18dc2f57e04aba21a16e0ed6358164c59ca64d204f33247ee2dc88b70f6ae0243d2dbcd6822a1058604b1c432a7a71395b36d820e2c3de4ee";
-    if(verbose) diag(test);
-    retval = CCModeTestCase(keyStr, iv, mode, alg, padding, cipherText, plainText);
-    ok(retval == 0, test);
-    accum += retval;
-    
-    test = "CTS2 Test - Length 63";
-	plainText  = "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a";
-	cipherText = "e22abba9d2a201b18dc2f57e04aba21a16e0ed6358164c59ca64d204f33247ee950b6576660739916d058623d688e27e2dc88b70f6ae0243d2dbcd6822a105";
-    if(verbose) diag(test);
-    retval = CCModeTestCase(keyStr, iv, mode, alg, padding, cipherText, plainText);
-    ok(retval == 0, test);
-    accum += retval;
-    
-    test = "CTS2 Test - Length 57";
-	plainText  = "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a";
-	cipherText = "e22abba9d2a201b18dc2f57e04aba21a16e0ed6358164c59ca64d204f33247ee751002ef7a0f9d915d15346571eee7aa2dc88b70f6ae0243d2db";
-    if(verbose) diag(test);
-    retval = CCModeTestCase(keyStr, iv, mode, alg, padding, cipherText, plainText);
-    ok(retval == 0, test);
-    accum += retval;
-    
     padding = ccCBCCTS3;
-    
+
+	plan_tests(kTestTestCount);
+
     test = "CTS3 Test - Length 64";
 	plainText  = "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a";
 	cipherText = "e22abba9d2a201b18dc2f57e04aba21a16e0ed6358164c59ca64d204f33247ee04b1c432a7a71395b36d820e2c3de4ee2dc88b70f6ae0243d2dbcd6822a10586";

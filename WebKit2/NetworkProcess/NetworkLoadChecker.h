@@ -41,18 +41,20 @@ class ContentSecurityPolicy;
 struct ContentSecurityPolicyClient;
 class SecurityOrigin;
 enum class PreflightPolicy : uint8_t;
-enum class StoredCredentialsPolicy : bool;
+enum class StoredCredentialsPolicy : uint8_t;
 }
 
 namespace WebKit {
 
 class NetworkCORSPreflightChecker;
+class NetworkProcess;
 
 class NetworkLoadChecker : public CanMakeWeakPtr<NetworkLoadChecker> {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     enum class LoadType : bool { MainFrame, Other };
 
-    NetworkLoadChecker(WebCore::FetchOptions&&, PAL::SessionID, uint64_t pageID, uint64_t frameID, WebCore::HTTPHeaderMap&&, URL&&, RefPtr<WebCore::SecurityOrigin>&&, WebCore::PreflightPolicy, String&& referrer, bool isHTTPSUpgradeEnabled = false, bool shouldCaptureExtraNetworkLoadMetrics = false, LoadType requestLoadType = LoadType::Other);
+    NetworkLoadChecker(NetworkProcess&, WebCore::FetchOptions&&, PAL::SessionID, WebCore::PageIdentifier, uint64_t frameID, WebCore::HTTPHeaderMap&&, URL&&, RefPtr<WebCore::SecurityOrigin>&&, WebCore::PreflightPolicy, String&& referrer, bool isHTTPSUpgradeEnabled = false, bool shouldCaptureExtraNetworkLoadMetrics = false, LoadType requestLoadType = LoadType::Other);
     ~NetworkLoadChecker();
 
     struct RedirectionTriplet {
@@ -110,11 +112,11 @@ private:
 #if ENABLE(CONTENT_EXTENSIONS)
     struct ContentExtensionResult {
         WebCore::ResourceRequest request;
-        const WebCore::ContentExtensions::BlockedStatus& status;
+        const WebCore::ContentRuleListResults& results;
     };
     using ContentExtensionResultOrError = Expected<ContentExtensionResult, WebCore::ResourceError>;
     using ContentExtensionCallback = CompletionHandler<void(ContentExtensionResultOrError)>;
-    void processContentExtensionRulesForLoad(WebCore::ResourceRequest&&, ContentExtensionCallback&&);
+    void processContentRuleListsForLoad(WebCore::ResourceRequest&&, ContentExtensionCallback&&);
 #endif
 
     void applyHTTPSUpgradeIfNeeded(WebCore::ResourceRequest&&, CompletionHandler<void(WebCore::ResourceRequest&&)>&&) const;
@@ -122,7 +124,8 @@ private:
     WebCore::FetchOptions m_options;
     WebCore::StoredCredentialsPolicy m_storedCredentialsPolicy;
     PAL::SessionID m_sessionID;
-    uint64_t m_pageID;
+    Ref<NetworkProcess> m_networkProcess;
+    WebCore::PageIdentifier m_pageID;
     uint64_t m_frameID;
     WebCore::HTTPHeaderMap m_originalRequestHeaders; // Needed for CORS checks.
     WebCore::HTTPHeaderMap m_firstRequestHeaders; // Needed for CORS checks.

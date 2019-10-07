@@ -1306,7 +1306,10 @@ step_iakerb_auth_tgs(OM_uint32 * minor_status,
 	    *minor_status = ret;
 	    return GSS_S_FAILURE;
 	}
-	
+
+	krb5_tkt_creds_free(context, ctx->tgsctx);
+	ctx->tgsctx = NULL;
+
 	ctx->endtime = ctx->kcred->times.endtime;
 
 	ctx->initiator_state = step_setup_keys;

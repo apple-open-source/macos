@@ -120,15 +120,14 @@ CFDictionaryRef SecTaskCopyValuesForEntitlements(SecTaskRef task, CFArrayRef ent
 __nullable
 CFStringRef SecTaskCopySigningIdentifier(SecTaskRef task, CFErrorRef *error);
 
-#if SEC_OS_IPHONE
 /*!
     @function SecTaskGetCodeSignStatus
     @abstract Return the code sign status flags
     @param task A previously created SecTask object
 */
 
-uint32_t SecTaskGetCodeSignStatus(SecTaskRef task);
-#endif /* SEC_OS_IPHONE */
+uint32_t SecTaskGetCodeSignStatus(SecTaskRef task)
+    API_AVAILABLE(ios(10.0), watchos(3.0), tvos(10.0), iosmac(11.0)) SPI_AVAILABLE(macos(10.5));
 
 
 CF_IMPLICIT_BRIDGING_DISABLED

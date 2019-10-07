@@ -31,6 +31,8 @@
 #import <Security/SecFrameworkStrings.h>
 #import "notify.h"
 #import <utilities/debugging.h>
+#import <utilities/SecCFWrappers.h>
+#import <utilities/SecXPCError.h>
 #import <os/variant_private.h>
 
 #import <Accounts/Accounts.h>
@@ -65,6 +67,15 @@ static NSUserNotificationCenter *appropriateNotificationCenter()
 {
     return [NSUserNotificationCenter _centerForIdentifier: @"com.apple.security.keychain-circle-notification"
 													 type: _NSUserNotificationCenterTypeSystem];
+}
+
+static BOOL isErrorFromXPC(CFErrorRef error)
+{
+    // Error due to XPC failure does not provide information about the circle.
+    if (error && (CFEqual(sSecXPCErrorDomain, CFErrorGetDomain(error)))) {
+        return YES;
+    }
+    return NO;
 }
 
 static void PSKeychainSyncIsUsingICDP(void)
@@ -215,10 +226,227 @@ static void PSKeychainSyncIsUsingICDP(void)
 		return 24*60*60;
 }
 
+- (NSMutableSet *) makeApplicantSet {
+    KNAppDelegate *me = self;
+    NSMutableSet *applicantIds = [NSMutableSet new];
+    for (KDCirclePeer *applicant in me.circle.applicants) {
+        [me postForApplicant:applicant];
+        [applicantIds addObject:applicant.idString];
+    }
+    return applicantIds;
+}
 
-#define ICKC_EVENT_DISABLED          "com.apple.security.secureobjectsync.disabled"
-#define ICKC_EVENT_DEPARTURE_REASON  "com.apple.security.secureobjectsync.departurereason"
-#define ICKC_EVENT_NUM_PEERS         "com.apple.security.secureobjectsync.numcircledevices"
+- (bool) removeAllNotificationsOfType: (NSString *) typeString {
+    bool didRemove = false;
+    NSUserNotificationCenter *noteCenter = appropriateNotificationCenter();
+    for (NSUserNotification *note in noteCenter.deliveredNotifications) {
+        if (note.userInfo[typeString]) {
+            [appropriateNotificationCenter() removeDeliveredNotification: note];
+            didRemove = true;
+        }
+    }
+    return didRemove;
+}
+
+static const char *sosCCStatusCString(SOSCCStatus status) {
+    switch(status) {
+        case kSOSCCError: return "kSOSCCError";
+        case kSOSCCInCircle: return "kSOSCCInCircle";
+        case kSOSCCNotInCircle: return "kSOSCCNotInCircle";
+        case kSOSCCCircleAbsent: return "kSOSCCCircleAbsent";
+        case kSOSCCRequestPending: return "kSOSCCRequestPending";
+        default: return "unknown";
+    }
+}
+
+static const char *sosDepartureReasonCString(enum DepartureReason departureReason){
+    switch(departureReason) {
+        case kSOSDepartureReasonError: return "kSOSDepartureReasonError";
+        case kSOSNeverLeftCircle: return "kSOSNeverLeftCircle";
+        case kSOSWithdrewMembership: return "kSOSWithdrewMembership";
+        case kSOSMembershipRevoked: return "kSOSMembershipRevoked";
+        case kSOSLeftUntrustedCircle: return "kSOSLeftUntrustedCircle";
+        case kSOSNeverAppliedToCircle: return "kSOSNeverAppliedToCircle";
+        case kSOSDiscoveredRetirement: return "kSOSDiscoveredRetirement";
+        case kSOSLostPrivateKey: return "kSOSLostPrivateKey";
+        default: return "unknown reason";
+    }
+}
+
+
+- (void) processCircleState {
+    CFErrorRef err = NULL;
+    KNAppDelegate *me = self;
+
+    enum DepartureReason departureReason = SOSCCGetLastDepartureReason(&err);
+    if (isErrorFromXPC(err)) {
+        secnotice("kcn", "SOSCCGetLastDepartureReason failed with xpc error: %@", err);
+        CFReleaseNull(err);
+        return;
+    } else if (err) {
+        secnotice("kcn", "SOSCCGetLastDepartureReason failed with: %@", err);
+    }
+    CFReleaseNull(err);
+
+    SOSCCStatus circleStatus     = SOSCCThisDeviceIsInCircle(&err);
+    if (isErrorFromXPC(err)) {
+        secnotice("kcn", "SOSCCThisDeviceIsInCircle failed with xpc error: %@", err);
+        CFReleaseNull(err);
+        return;
+    } else if (err) {
+        secnotice("kcn", "SOSCCThisDeviceIsInCircle failed with: %@", err);
+    }
+    CFReleaseNull(err);
+
+    NSDate                *nowish             = [NSDate date];
+    me.state                             = [KNPersistentState loadFromStorage];
+    SOSCCStatus lastCircleStatus         = me.state.lastCircleStatus;
+
+    PSKeychainSyncIsUsingICDP();
+
+    secnotice("kcn", "processCircleState starting ICDP: %s SOSCCStatus: %s DepartureReason: %s",
+              (_isAccountICDP) ? "Enabled": "Disabled",
+              sosCCStatusCString(circleStatus),
+              sosDepartureReasonCString(departureReason));
+
+    if(_isAccountICDP){
+        me.state.lastCircleStatus = circleStatus;
+        [me.state writeToStorage];
+
+        switch(circleStatus) {
+            case kSOSCCInCircle:
+                secnotice("kcn", "iCDP: device is in circle!");
+                _hasPostedAndStillInError = false;
+                break;
+            case kSOSCCRequestPending:
+                [me scheduleActivityAt:me.state.pendingApplicationReminder];
+                break;
+            case kSOSCCCircleAbsent:
+            case kSOSCCNotInCircle:
+                [me outOfCircleAlert: departureReason];
+                secnotice("kcn", "{ChangeCallback} Pending request START");
+                me.state.applicationDate            = nowish;
+                me.state.pendingApplicationReminder = [me.state.applicationDate dateByAddingTimeInterval:[me getPendingApplicationReminderInterval]];
+                [me.state writeToStorage];            // FIXME: move below? might be needed for scheduleActivityAt...
+                [me scheduleActivityAt:me.state.pendingApplicationReminder];
+                break;
+            case kSOSCCError:
+                /*
+                 You would think we could count on not being iCDP if the account was signed out.  Evidently that's wrong.
+                 So we'll go based on the artifact that when the account object is reset (like by signing out) the
+                 departureReason will be set to kSOSDepartureReasonError.  So we won't push to get back into a circle if that's
+                 the current reason.  I've checked code for other ways we could be out.  If we boot and can't load the account
+                 we'll end up with kSOSDepartureReasonError.  Then too if we end up in kSOSDepartureReasonError and reboot we end up
+                 in the same place.  Leave it to cdpd to decide whether the user needs to sign in to an account.
+                 */
+                if(departureReason != kSOSDepartureReasonError) {
+                    secnotice("kcn", "ICDP: We need the password to initiate trust");
+                    [me postRequirePassword];
+                    _hasPostedAndStillInError = true;
+                } else {
+                    secnotice("kcn", "iCDP: We appear to not be associated with an iCloud account");
+                }
+                break;
+            default:
+                secnotice("kcn", "Bad SOSCCStatus return %d", circleStatus);
+                break;
+        }
+    } else { // SA version
+        switch(circleStatus) {
+            case kSOSCCInCircle:
+                secnotice("kcn", "SA: device is in circle!");
+                _hasPostedAndStillInError = false;
+                break;
+            case kSOSCCRequestPending:
+                [me scheduleActivityAt:me.state.pendingApplicationReminder];
+                secnotice("kcn", "{ChangeCallback} scheduleActivity %@", me.state.pendingApplicationReminder);
+                break;
+            case kSOSCCCircleAbsent:
+            case kSOSCCNotInCircle:
+                switch (departureReason) {
+                    case kSOSDiscoveredRetirement:
+                    case kSOSLostPrivateKey:
+                    case kSOSWithdrewMembership:
+                    case kSOSNeverAppliedToCircle:
+                    case kSOSDepartureReasonError:
+                    case kSOSMembershipRevoked:
+                    default:
+                        if(me.state.lastCircleStatus == kSOSCCInCircle) {
+                            secnotice("kcn", "SA: circle status went from in circle to %s: reason: %s", sosCCStatusCString(circleStatus), sosDepartureReasonCString(departureReason));
+                        }
+                        break;
+
+                    case kSOSNeverLeftCircle:
+                    case kSOSLeftUntrustedCircle:
+                        [me outOfCircleAlert: departureReason];
+                        secnotice("kcn", "{ChangeCallback} Pending request START");
+                        me.state.applicationDate            = nowish;
+                        me.state.pendingApplicationReminder = [me.state.applicationDate dateByAddingTimeInterval:[me getPendingApplicationReminderInterval]];
+                        [me.state writeToStorage];            // FIXME: move below? might be needed for scheduleActivityAt...
+                        [me scheduleActivityAt:me.state.pendingApplicationReminder];
+                        break;
+                }
+                break;
+            case kSOSCCError:
+                if(me.state.lastCircleStatus == kSOSCCInCircle && (departureReason == kSOSNeverLeftCircle)) {
+                    secnotice("kcn", "SA: circle status went from in circle to error - we need the password");
+                    [me postRequirePassword];
+                    _hasPostedAndStillInError = true;
+                }
+                break;
+            default:
+                secnotice("kcn", "Bad SOSCCStatus return %d", circleStatus);
+                break;
+        }
+    }
+
+
+    // Circle applications: pending request(s) started / completed
+    if (lastCircleStatus == kSOSCCRequestPending && circleStatus != kSOSCCRequestPending) {
+        secnotice("kcn", "Pending request completed");
+        me.state.applicationDate            = [NSDate distantPast];
+        me.state.pendingApplicationReminder = [NSDate distantFuture];
+        [me.state writeToStorage];
+
+        // Remove reminders
+        if([me removeAllNotificationsOfType: @"ApplicationReminder"]) {
+            secnotice("kcn", "{ChangeCallback} removed application remoinders");
+        }
+    }
+
+    // Clear out (old) reset notifications
+    if (circleStatus == kSOSCCInCircle) {
+        secnotice("kcn", "{ChangeCallback} kSOSCCInCircle");
+        if([me removeAllNotificationsOfType: (NSString*) kValidOnlyOutOfCircleKey]) {
+            secnotice("kcn", "Removed existing notifications now that we're in circle");
+        }
+        if([me removeAllNotificationsOfType: (NSString*) kPasswordChangedOrTrustedDeviceChanged]) {
+            secnotice("kcn", "Removed existing password notifications now that we're in circle");
+        }
+
+        // Applicants
+        secnotice("kcn", "{ChangeCallback} Applicants");
+        NSMutableSet *applicantIds = [me makeApplicantSet];
+        // Clear applicant notifications that aren't pending any more
+        NSUserNotificationCenter *notificationCenter = appropriateNotificationCenter();
+        secnotice("kcn", "Checking validity of %lu notes", (unsigned long)notificationCenter.deliveredNotifications.count);
+        for (NSUserNotification *note in notificationCenter.deliveredNotifications) {
+            if (note.userInfo[@"applicantId"] && ![applicantIds containsObject:note.userInfo[@"applicantId"]]) {
+                secnotice("kcn", "No longer an applicant (%@) for %@ (I=%@)", note.userInfo[@"applicantId"], note, [note.userInfo compactDescription]);
+                [notificationCenter removeDeliveredNotification:note];
+            } else {
+                secnotice("kcn", "Still an applicant (%@) for %@ (I=%@)", note.userInfo[@"applicantId"], note, [note.userInfo compactDescription]);
+            }
+        }
+    } else { // Clear any pending applicant notifications since we aren't in circle or invalid
+        if([me removeAllNotificationsOfType: (NSString*) @"applicantId"]) {
+            secnotice("kcn", "Not in circle or invalid - removed applicant notes");
+        }
+    }
+
+    me.state.lastCircleStatus = circleStatus;
+    [me.state writeToStorage];
+}
 
 - (void) applicationDidFinishLaunching: (NSNotification *) aNotification
 {
@@ -231,46 +459,26 @@ static void PSKeychainSyncIsUsingICDP(void)
         CFErrorRef err = NULL;
         KNAppDelegate *me = self;
         SOSCCStatus currentCircleStatus     = SOSCCThisDeviceIsInCircle(&err);
+
+        if (isErrorFromXPC(err)) {
+            secnotice("kcn", "SOSCCThisDeviceIsInCircle failed with: %@", err);
+            CFReleaseNull(err);
+            return;
+        }
+        CFReleaseNull(err);
+
         me.state                          = [KNPersistentState loadFromStorage];
 
         secnotice("kcn", "got public key available notification");
-
         me.state.lastCircleStatus = currentCircleStatus;
-
         [me.state writeToStorage];
     });
 
     //register for public key not available notification, if occurs KCN can react
     notify_register_dispatch(kPublicKeyNotAvailable, &out_taken, dispatch_get_main_queue(), ^(int token) {
-        CFErrorRef err = NULL;
+        secnotice("kcn", "got public key not available notification");
         KNAppDelegate *me = self;
-        enum DepartureReason departureReason = SOSCCGetLastDepartureReason(&err);
-        SOSCCStatus currentCircleStatus     = SOSCCThisDeviceIsInCircle(&err);
-        me.state 						 = [KNPersistentState loadFromStorage];
-        
-        secnotice("kcn", "got public key not available notification, but won't send notification unless circle transition matches");
-        secnotice("kcn", "current circle status: %d, current departure reason: %d, last circle status: %d", currentCircleStatus, departureReason, me.state.lastCircleStatus);
-        
-        PSKeychainSyncIsUsingICDP();
-        
-        if(_isAccountICDP){
-            if((currentCircleStatus == kSOSCCError || currentCircleStatus == kSOSCCCircleAbsent || currentCircleStatus == kSOSCCNotInCircle) && _hasPostedAndStillInError == false) {
-                secnotice("kcn", "iCDP: device not in circle, posting follow up");
-                [self postRequirePassword];
-                _hasPostedAndStillInError = true;
-            }
-            else if(currentCircleStatus == kSOSCCInCircle){
-                secnotice("kcn", "iCDP: device is in circle!");
-                _hasPostedAndStillInError = false;
-            }
-        }
-        else if(!_isAccountICDP && currentCircleStatus == kSOSCCError && me.state.lastCircleStatus == kSOSCCInCircle && (departureReason == kSOSNeverLeftCircle)) {
-            secnotice("kcn", "circle status went from in circle to not in circle");
-            [self postRequirePassword];
-        }
-        me.state.lastCircleStatus = currentCircleStatus;
-
-        [me.state writeToStorage];
+        [me processCircleState];
     });
 
     self.viewedIds    = [NSMutableSet new];
@@ -279,206 +487,8 @@ static void PSKeychainSyncIsUsingICDP(void)
 
 	[self.circle addChangeCallback:^{
 		secnotice("kcn", "{ChangeCallback}");
-
-        CFErrorRef err = NULL;
-
-		NSDate				*nowish			 = [NSDate date];
-        enum DepartureReason departureReason = SOSCCGetLastDepartureReason(&err);
-		SOSCCStatus	circleStatus 			 = SOSCCThisDeviceIsInCircle(&err);
-		me.state 							 = [KNPersistentState loadFromStorage];
-        secnotice("kcn", "applicationDidFinishLaunching");
-        
-        PSKeychainSyncIsUsingICDP();
-        
-        if(_isAccountICDP){
-            if((circleStatus == kSOSCCError || circleStatus == kSOSCCCircleAbsent || circleStatus == kSOSCCNotInCircle) && _hasPostedAndStillInError == false) {
-
-                secnotice("kcn", "ICDP: We need the password to re-validate ourselves - it's changed on another device");
-                me.state.lastCircleStatus = circleStatus;
-                [me.state writeToStorage];
-                [me postRequirePassword];
-                _hasPostedAndStillInError = true;
-            }
-            else if(circleStatus == kSOSCCInCircle){
-                secnotice("kcn", "iCDP: device is in circle!");
-                _hasPostedAndStillInError = false;
-            }
-        }
-        else if(!_isAccountICDP && circleStatus == kSOSCCError && me.state.lastCircleStatus == kSOSCCInCircle && (departureReason == kSOSNeverLeftCircle)) {
-            secnotice("kcn", "SA: circle status went from in circle to not in circle");
-            [me postRequirePassword];
-        }
-        // Pending application reminder
-		secnotice("kcn", "{ChangeCallback} scheduleActivity %@", me.state.pendingApplicationReminder);
-		if (circleStatus == kSOSCCRequestPending)
-			[me scheduleActivityAt:me.state.pendingApplicationReminder];
-
-
-		// No longer in circle?
-		if ((me.state.lastCircleStatus == kSOSCCInCircle     && (circleStatus == kSOSCCNotInCircle || circleStatus == kSOSCCCircleAbsent)) ||
-			(me.state.lastCircleStatus == kSOSCCCircleAbsent && circleStatus == kSOSCCNotInCircle && me.state.absentCircleWithNoReason) ||
-			me.state.debugLeftReason) {
-			enum DepartureReason reason = kSOSNeverLeftCircle;
-			if (me.state.debugLeftReason) {
-				reason = [me.state.debugLeftReason intValue];
-				me.state.debugLeftReason = nil;
-				[me.state writeToStorage];
-			} else {
-				reason = SOSCCGetLastDepartureReason(&err);
-				if (reason == kSOSDepartureReasonError) {
-					secnotice("kcn", "SOSCCGetLastDepartureReason err: %@", err);
-				}
-				if (err) CFRelease(err);
-			}
-
-			if (reason != kSOSDepartureReasonError) {
-				// Post kick-out alert
-
-				// <rdar://problem/20862435> MessageTracer data to find out how many users were dropped & reset
-				msgtracer_domain_t	domain = msgtracer_domain_new(ICKC_EVENT_DISABLED);
-				msgtracer_msg_t		mt_msg = NULL;
-
-				if (domain != NULL)
-					mt_msg = msgtracer_msg_new(domain);
-
-				if (mt_msg) {
-					char	s[16];
-
-					msgtracer_set(mt_msg, kMsgTracerKeySignature, ICKC_EVENT_DEPARTURE_REASON);
-					snprintf(s, sizeof(s), "%u", reason);
-					msgtracer_set(mt_msg, kMsgTracerKeyValue, s);
-
-					int64_t    num_peers = 0;
-					CFArrayRef peerList  = SOSCCCopyPeerPeerInfo(NULL);
-					if (peerList) {
-						num_peers = CFArrayGetCount(peerList);
-						if (num_peers > 99) {
-							// Round down # peers to 2 significant digits
-							int factor;
-							for (factor = 10; num_peers >= 100*factor; factor *= 10) ;
-							num_peers = (num_peers / factor) * factor;
-						}
-						CFRelease(peerList);
-					}
-					msgtracer_set(mt_msg, kMsgTracerKeySignature2, ICKC_EVENT_NUM_PEERS);
-					snprintf(s, sizeof(s), "%lld", num_peers);
-					msgtracer_set(mt_msg, kMsgTracerKeyValue2, s);
-
-					msgtracer_set(mt_msg, kMsgTracerKeySummarize, "NO");
-					msgtracer_log(mt_msg, ASL_LEVEL_DEBUG, "");
-				}
-
-				// FIXME:
-				// 1. Write here due to [me timerCheck] => [KNPersistentState loadFromStorage] below?!?
-				// 2. Or change call order of timerCheck, pendingApplication reminder below???
-				me.state.absentCircleWithNoReason = (circleStatus == kSOSCCCircleAbsent && reason == kSOSNeverLeftCircle);
-				[me.state writeToStorage];
-				secnotice("kcn", "{ChangeCallback} departure reason %d", reason);
-
-				switch (reason) {
-				case kSOSDiscoveredRetirement:
-				case kSOSLostPrivateKey:
-				case kSOSWithdrewMembership:
-				case kSOSNeverAppliedToCircle:
-					break;
-
-				case kSOSNeverLeftCircle:
-				case kSOSMembershipRevoked:
-				case kSOSLeftUntrustedCircle:
-				default:
-					[me postKickedOutAlert: reason];
-					break;
-				}
-			}
-		}
-		
-		
-		// Circle applications: pending request(s) started / completed
-		if (me.circle.rawStatus != me.state.lastCircleStatus) {
-			SOSCCStatus lastCircleStatus = me.state.lastCircleStatus;
-			me.state.lastCircleStatus	 = circleStatus;
-		
-			if (lastCircleStatus != kSOSCCRequestPending && circleStatus == kSOSCCRequestPending) {
-				secnotice("kcn", "{ChangeCallback} Pending request START");
-				me.state.applicationDate			= nowish;
-				me.state.pendingApplicationReminder = [me.state.applicationDate dateByAddingTimeInterval:[me getPendingApplicationReminderInterval]];
-				[me.state writeToStorage];			// FIXME: move below? might be needed for scheduleActivityAt...
-				[me scheduleActivityAt:me.state.pendingApplicationReminder];
-			}
-			
-			if (lastCircleStatus == kSOSCCRequestPending && circleStatus != kSOSCCRequestPending) {
-				secnotice("kcn", "Pending request completed");
-				me.state.applicationDate			= [NSDate distantPast];
-				me.state.pendingApplicationReminder = [NSDate distantFuture];
-				[me.state writeToStorage];
-
-				// Remove reminders
-				NSUserNotificationCenter *noteCenter = appropriateNotificationCenter();
-				for (NSUserNotification *note in noteCenter.deliveredNotifications) {
-					if (note.userInfo[(NSString*) kValidOnlyOutOfCircleKey] && note.userInfo[@"ApplicationReminder"]) {
-						secnotice("kcn", "{ChangeCallback} Removing notification %@", note);
-						[appropriateNotificationCenter() removeDeliveredNotification: note];
-					}
-				}
-			}
-        }
-		
-
-		// Clear out (old) reset notifications
-		if (me.circle.isInCircle) {
-			secnotice("kcn", "{ChangeCallback} me.circle.isInCircle");
-            NSUserNotificationCenter *noteCenter = appropriateNotificationCenter();
-            for (NSUserNotification *note in noteCenter.deliveredNotifications) {
-                if (note.userInfo[(NSString*) kValidOnlyOutOfCircleKey]) {
-                    secnotice("kcn", "Removing existing notification (%@) now that we are in circle", note);
-                    [appropriateNotificationCenter() removeDeliveredNotification: note];
-                }
-            }
-        }
-
-        //Clear out (old) password changed notifications
-        if(me.circle.isInCircle){
-            secnotice("kcn", "{ChangeCallback} me.circle.isInCircle");
-            NSUserNotificationCenter *noteCenter = appropriateNotificationCenter();
-            for (NSUserNotification *note in noteCenter.deliveredNotifications) {
-                if (note.userInfo[(NSString*) kPasswordChangedOrTrustedDeviceChanged]) {
-                    secnotice("kcn", "Removing existing notification (%@) now that we are valid again", note);
-                    [appropriateNotificationCenter() removeDeliveredNotification: note];
-                }
-            }
-
-        }
-
-		// Applicants
-		secnotice("kcn", "{ChangeCallback} Applicants");
-		NSMutableSet *applicantIds = [NSMutableSet new];
-		for (KDCirclePeer *applicant in me.circle.applicants) {
-            if (!me.circle.isInCircle) {
-                // Don't yammer on about circles we aren't in, and don't announce our own
-                // join requests as if the user could approve them locally!
-                break;
-            }
-			[me postForApplicant:applicant];
-			[applicantIds addObject:applicant.idString];
-		}
-		
-
-		// Update notifications
-		NSUserNotificationCenter *notificationCenter = appropriateNotificationCenter();
-		secnotice("kcn", "Checking validity of %lu notes", (unsigned long)notificationCenter.deliveredNotifications.count);
-		for (NSUserNotification *note in notificationCenter.deliveredNotifications) {
-			if (note.userInfo[@"applicantId"] && ![applicantIds containsObject:note.userInfo[@"applicantId"]]) {
-				secnotice("kcn", "No longer an applicant (%@) for %@ (I=%@)", note.userInfo[@"applicantId"], note, [note.userInfo compactDescription]);
-				[notificationCenter removeDeliveredNotification:note];
-			} else {
-				secnotice("kcn", "Still an applicant (%@) for %@ (I=%@)", note.userInfo[@"applicantId"], note, [note.userInfo compactDescription]);
-			}
-		}
-		
-        me.state.lastCircleStatus = circleStatus;
-        
-		[me.state writeToStorage];
-	}];
+        [me processCircleState];
+    }];
 }
 
 
@@ -537,7 +547,7 @@ static void PSKeychainSyncIsUsingICDP(void)
     note.title               = [NSString stringWithFormat: (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_APPROVAL_TITLE), applicant.name];
     note.informativeText	 = [KNAppDelegate localisedApprovalBodyWithDeviceTypeFromPeerInfo:applicant.peerObject];
 	note._displayStyle		 = _NSUserNotificationDisplayStyleAlert;
-    note._identityImage		 = [NSImage bundleImage];
+    note._identityImage		 = [NSImage bundleImageNamed:kAOSUISpyglassAppleID];
 	note._identityImageStyle = _NSUserNotificationIdentityImageStyleRectangleNoBorder;
 	note.otherButtonTitle	 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_DECLINE);
 	note.actionButtonTitle	 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_APPROVE);
@@ -573,7 +583,18 @@ static void PSKeychainSyncIsUsingICDP(void)
 
 - (void) postRequirePassword
 {
-    if(!_isAccountICDP){
+    SOSCCStatus currentCircleStatus     = SOSCCThisDeviceIsInCircle(NULL);
+    if(currentCircleStatus != kSOSCCError) {
+        secnotice("kcn", "postRequirePassword when not needed");
+        return;
+    }
+
+    enum DepartureReason departureReason = SOSCCGetLastDepartureReason(NULL);
+
+    if(_isAccountICDP){
+        secnotice("kcn","would have posted needs password and then followed up");
+        [self startFollowupKitRepair];
+    } else if(departureReason == kSOSNeverLeftCircle) { // The only SA case for prompting
         NSUserNotificationCenter *noteCenter = appropriateNotificationCenter();
         for (NSUserNotification *note in noteCenter.deliveredNotifications) {
             if (note.userInfo[(NSString*) kPasswordChangedOrTrustedDeviceChanged]) {
@@ -588,14 +609,14 @@ static void PSKeychainSyncIsUsingICDP(void)
 
         NSString *message = CFBridgingRelease(SecCopyCKString(SEC_CK_PWD_REQUIRED_BODY_OSX));
         if (os_variant_has_internal_ui("iCloudKeychain")) {
-            NSString *reason_str = [NSString stringWithFormat:(__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CR_REASON_INTERNAL), @"Device became untrusted or password changed"];
+            NSString *reason_str = [NSString stringWithFormat:(__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CR_REASON_INTERNAL), "Device became untrusted or password changed"];
             message = [message stringByAppendingString: reason_str];
         }
 
         NSUserNotification *note = [NSUserNotification new];
         note.title                 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_PWD_REQUIRED_TITLE);
         note.informativeText     = message;
-        note._identityImage         = [NSImage bundleImage];
+        note._identityImage         = [NSImage bundleImageNamed:kAOSUISpyglassAppleID];
         note._identityImageStyle = _NSUserNotificationIdentityImageStyleRectangleNoBorder;
         note.otherButtonTitle     = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_NOT_NOW);
         note.actionButtonTitle     = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CONTINUE);
@@ -609,14 +630,12 @@ static void PSKeychainSyncIsUsingICDP(void)
         secnotice("kcn", "body=%@", note.informativeText);
         secnotice("kcn", "About to post #-/%lu (PASSWORD/TRUSTED DEVICE): %@", noteCenter.deliveredNotifications.count, note);
         [appropriateNotificationCenter() deliverNotification:note];
-    }
-    else{
-        secnotice("kcn","would have posted needs password and then followed up");
-        [self startFollowupKitRepair];
+    } else {
+        secnotice("kcn", "postRequirePassword when not needed for SA");
     }
 }
 
-- (void) postKickedOutAlert: (int) reason
+- (void) outOfCircleAlert: (int) reason
 {
 
     if(!_isAccountICDP){
@@ -634,19 +653,7 @@ static void PSKeychainSyncIsUsingICDP(void)
 
         NSString *message = CFBridgingRelease(SecCopyCKString(SEC_CK_PWD_REQUIRED_BODY_OSX));
         if (os_variant_has_internal_ui("iCloudKeychain")) {
-            static const char *departureReasonStrings[] = {
-                "kSOSDepartureReasonError",
-                "kSOSNeverLeftCircle",
-                "kSOSWithdrewMembership",
-                "kSOSMembershipRevoked",
-                "kSOSLeftUntrustedCircle",
-                "kSOSNeverAppliedToCircle",
-                "kSOSDiscoveredRetirement",
-                "kSOSLostPrivateKey",
-                "unknown reason"
-            };
-            int idx = (kSOSDepartureReasonError <= reason && reason <= kSOSLostPrivateKey) ? reason : (kSOSLostPrivateKey + 1);
-            NSString *reason_str = [NSString stringWithFormat:(__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CR_REASON_INTERNAL), departureReasonStrings[idx]];
+            NSString *reason_str = [NSString stringWithFormat:(__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CR_REASON_INTERNAL), sosDepartureReasonCString(reason)];
             message = [message stringByAppendingString: reason_str];
         }
 
@@ -658,7 +665,7 @@ static void PSKeychainSyncIsUsingICDP(void)
         NSUserNotification *note = [NSUserNotification new];
         note.title                 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_PWD_REQUIRED_TITLE);
         note.informativeText     = message;
-        note._identityImage         = [NSImage bundleImage];
+        note._identityImage         = [NSImage bundleImageNamed:kAOSUISpyglassAppleID];
         note._identityImageStyle = _NSUserNotificationIdentityImageStyleRectangleNoBorder;
         note.otherButtonTitle     = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_NOT_NOW);
         note.actionButtonTitle     = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CONTINUE);
@@ -676,7 +683,7 @@ static void PSKeychainSyncIsUsingICDP(void)
     }
 
     else{
-        secnotice("kcn","postKickedOutAlert starting followup repair");
+        secnotice("kcn","outOfCircleAlert starting followup repair");
         [self startFollowupKitRepair];
     }
 }
@@ -703,7 +710,7 @@ static void PSKeychainSyncIsUsingICDP(void)
 	NSUserNotification *note = [NSUserNotification new];
 	note.title				 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_REMINDER_TITLE_OSX);
 	note.informativeText	 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_REMINDER_BODY_OSX);
-    note._identityImage 	 = [NSImage bundleImage];
+    note._identityImage 	 = [NSImage bundleImageNamed:kAOSUISpyglassAppleID];
 	note._identityImageStyle = _NSUserNotificationIdentityImageStyleRectangleNoBorder;
 	note.otherButtonTitle	 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_NOT_NOW);
 	note.actionButtonTitle	 = (__bridge_transfer NSString *) SecCopyCKString(SEC_CK_CONTINUE);

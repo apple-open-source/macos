@@ -26,11 +26,8 @@
 #import "config.h"
 #import "WKWebViewContentProviderRegistry.h"
 
-#if WK_API_ENABLED
-
 #if PLATFORM(IOS_FAMILY)
 
-#import "WKLegacyPDFView.h"
 #import "WKPDFView.h"
 #import "WKSystemPreviewView.h"
 #import "WKWebViewConfigurationPrivate.h"
@@ -55,9 +52,6 @@
 #if ENABLE(WKPDFVIEW)
     for (auto& mimeType : WebCore::MIMETypeRegistry::pdfMIMETypes())
         [self registerProvider:[WKPDFView class] forMIMEType:mimeType];
-#elif ENABLE(WKLEGACYPDFVIEW)
-    for (auto& mimeType : WebCore::MIMETypeRegistry::pdfMIMETypes())
-        [self registerProvider:[WKLegacyPDFView class] forMIMEType:mimeType];
 #endif
 
 #if USE(SYSTEM_PREVIEW)
@@ -108,5 +102,3 @@
 @end
 
 #endif // PLATFORM(IOS_FAMILY)
-
-#endif // WK_API_ENABLED

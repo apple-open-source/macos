@@ -645,7 +645,7 @@ GridTrackSize GridTrackSizingAlgorithm::gridTrackSize(GridTrackSizingDirection d
 
     auto& trackSize = rawGridTrackSize(direction, translatedIndex);
     if (trackSize.isFitContent())
-        return trackSize;
+        return isRelativeGridLengthAsAuto(trackSize.fitContentTrackBreadth(), direction) ? GridTrackSize(Length(Auto), Length(MaxContent)) : trackSize;
 
     GridLength minTrackBreadth = trackSize.minTrackBreadth();
     GridLength maxTrackBreadth = trackSize.maxTrackBreadth();
@@ -799,10 +799,14 @@ LayoutUnit GridTrackSizingAlgorithmStrategy::minSizeForChild(RenderBox& child) c
 {
     GridTrackSizingDirection childInlineDirection = GridLayoutFunctions::flowAwareDirectionForChild(*renderGrid(), child, ForColumns);
     bool isRowAxis = direction() == childInlineDirection;
-    const Length& childMinSize = isRowAxis ? child.style().logicalMinWidth() : child.style().logicalMinHeight();
     const Length& childSize = isRowAxis ? child.style().logicalWidth() : child.style().logicalHeight();
+    if (!childSize.isAuto())
+        return minContentForChild(child);
 
+    const Length& childMinSize = isRowAxis ? child.style().logicalMinWidth() : child.style().logicalMinHeight();
     bool overflowIsVisible = isRowAxis ? child.style().overflowInlineDirection() == Overflow::Visible : child.style().overflowBlockDirection() == Overflow::Visible;
+    LayoutUnit baselineShim = m_algorithm.baselineOffsetForChild(child, gridAxisForDirection(direction()));
+
     if (childSize.isAuto() && childMinSize.isAuto() && overflowIsVisible) {
         auto minSize = minContentForChild(child);
         LayoutUnit maxBreadth;
@@ -815,15 +819,11 @@ LayoutUnit GridTrackSizingAlgorithmStrategy::minSizeForChild(RenderBox& child) c
         if (minSize > maxBreadth) {
             auto marginAndBorderAndPadding = GridLayoutFunctions::marginLogicalSizeForChild(*renderGrid(), direction(), child);
             marginAndBorderAndPadding += isRowAxis ? child.borderAndPaddingLogicalWidth() : child.borderAndPaddingLogicalHeight();
-            minSize = std::max(maxBreadth, marginAndBorderAndPadding);
+            minSize = std::max(maxBreadth, marginAndBorderAndPadding + baselineShim);
         }
         return minSize;
     }
 
-    if (!childSize.isAuto())
-        return minContentForChild(child);
-
-    LayoutUnit baselineShim = m_algorithm.baselineOffsetForChild(child, gridAxisForDirection(direction()));
     LayoutUnit gridAreaSize = m_algorithm.gridAreaBreadthForChild(child, childInlineDirection);
     if (isRowAxis)
         return minLogicalWidthForChild(child, childMinSize, gridAreaSize) + baselineShim;
@@ -1099,7 +1099,6 @@ void GridTrackSizingAlgorithm::initializeTrackSizes()
     ASSERT(!m_hasPercentSizedRowsIndefiniteHeight);
 
     Vector<GridTrack>& allTracks = tracks(m_direction);
-    const bool hasDefiniteFreeSpace = !!availableSpace();
     const bool indefiniteHeight = m_direction == ForRows && !m_renderGrid->hasDefiniteLogicalHeight();
     LayoutUnit maxSize = std::max(0_lu, availableSpace().valueOr(0_lu));
     // 1. Initialize per Grid track variables.
@@ -1111,11 +1110,8 @@ void GridTrackSizingAlgorithm::initializeTrackSizes()
         track.setGrowthLimit(initialGrowthLimit(trackSize, track.baseSize()));
         track.setInfinitelyGrowable(false);
 
-        if (trackSize.isFitContent()) {
-            GridLength gridLength = trackSize.fitContentTrackBreadth();
-            if (!gridLength.isPercentage() || hasDefiniteFreeSpace)
-                track.setGrowthLimitCap(valueForLength(gridLength.length(), maxSize));
-        }
+        if (trackSize.isFitContent())
+            track.setGrowthLimitCap(valueForLength(trackSize.fitContentTrackBreadth().length(), maxSize));
         if (trackSize.isContentSized())
             m_contentSizedTracksIndex.append(i);
         if (trackSize.maxTrackBreadth().isFlex())

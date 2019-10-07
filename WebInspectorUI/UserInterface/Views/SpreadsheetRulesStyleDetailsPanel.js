@@ -157,6 +157,11 @@ WI.SpreadsheetRulesStyleDetailsPanel = class SpreadsheetRulesStyleDetailsPanel e
 
     // SpreadsheetCSSStyleDeclarationSection delegate
 
+    spreadsheetCSSStyleDeclarationSectionSelectProperty(property)
+    {
+        this.scrollToSectionAndHighlightProperty(property);
+    }
+
     spreadsheetCSSStyleDeclarationSectionStartEditingAdjacentRule(currentSection, delta)
     {
         console.assert(delta !== 0);
@@ -209,60 +214,111 @@ WI.SpreadsheetRulesStyleDetailsPanel = class SpreadsheetRulesStyleDetailsPanel e
 
         this._shouldRefreshSubviews = false;
 
-        this.removeAllSubviews();
+        let oldSections = this._sections.slice();
+        let preservedSections = oldSections.filter((section) => {
+            if (section[SpreadsheetRulesStyleDetailsPanel.SectionShowingForNodeSymbol] !== this.nodeStyles.node) {
+                section[SpreadsheetRulesStyleDetailsPanel.SectionShowingForNodeSymbol] = null;
+                section[SpreadsheetRulesStyleDetailsPanel.SectionIndexSymbol] = -1;
+            }
+            return section[SpreadsheetRulesStyleDetailsPanel.SectionShowingForNodeSymbol];
+        });
+
+        if (preservedSections.length) {
+            for (let section of oldSections) {
+                if (!preservedSections.includes(section))
+                    this.removeSubview(section);
+            }
+            for (let header of this._headerMap.values())
+                header.remove();
+        } else
+            this.removeAllSubviews();
 
         let previousStyle = null;
+        let currentHeader = null;
         this._headerMap.clear();
         this._sections = [];
 
-        let createHeader = (text, node) => {
-            let header = this.element.appendChild(document.createElement("h2"));
-            header.classList.add("section-header");
-            header.append(text);
-            header.append(" ", WI.linkifyNodeReference(node, {
-                maxLength: 100,
-                excludeRevealElement: true,
-            }));
+        let addHeader = (text, nodeOrPseudoId) => {
+            currentHeader = this.element.appendChild(document.createElement("h2"));
+            currentHeader.classList.add("section-header");
+            currentHeader.append(text);
 
-            this._headerMap.set(node, header);
+            if (nodeOrPseudoId) {
+                if (nodeOrPseudoId instanceof WI.DOMNode) {
+                    currentHeader.append(" ", WI.linkifyNodeReference(nodeOrPseudoId, {
+                        maxLength: 100,
+                        excludeRevealElement: true,
+                    }));
+                } else
+                    currentHeader.append(" ", WI.CSSManager.displayNameForPseudoId(nodeOrPseudoId));
+            }
+        };
+
+        let addSection = (section) => {
+            if (section.style.inherited && (!previousStyle || previousStyle.node !== section.style.node))
+                addHeader(WI.UIString("Inherited From", "A section of CSS rules matching an ancestor DOM node"), section.style.node);
+
+            if (!section.isDescendantOf(this)) {
+                let referenceView = this.subviews[this._sections.length];
+                if (!referenceView || referenceView[SpreadsheetRulesStyleDetailsPanel.SectionIndexSymbol] === this._sections.length)
+                    this.addSubview(section);
+                else
+                    this.insertSubviewBefore(section, referenceView);
+            }
+
+            this._sections.push(section);
+            section.needsLayout();
+
+            if (currentHeader)
+                this._headerMap.set(section.style, currentHeader);
+
+            previousStyle = section.style;
         };
 
         let createSection = (style) => {
-            let section = style[WI.SpreadsheetRulesStyleDetailsPanel.RuleSection];
+            let section = style[SpreadsheetRulesStyleDetailsPanel.StyleSectionSymbol];
             if (!section) {
                 section = new WI.SpreadsheetCSSStyleDeclarationSection(this, style);
-                style[WI.SpreadsheetRulesStyleDetailsPanel.RuleSection] = section;
+                section.addEventListener(WI.SpreadsheetCSSStyleDeclarationSection.Event.FilterApplied, this._handleSectionFilterApplied, this);
+                section.addEventListener(WI.SpreadsheetCSSStyleDeclarationSection.Event.SelectorWillChange, this._handleSectionSelectorWillChange, this);
+                style[SpreadsheetRulesStyleDetailsPanel.StyleSectionSymbol] = section;
             }
 
-            section.addEventListener(WI.SpreadsheetCSSStyleDeclarationSection.Event.FilterApplied, this._handleSectionFilterApplied, this);
-
-            if (this._newRuleSelector === style.selectorText && !style.hasProperties())
+            if (this._newRuleSelector === style.selectorText && style.enabledProperties.length === 0)
                 section.startEditingRuleSelector();
 
-            this.addSubview(section);
-            section.needsLayout();
-            this._sections.push(section);
+            addSection(section);
 
-            previousStyle = style;
+            let preservedSection = preservedSections.find((sectionToPreserve) => sectionToPreserve[SpreadsheetRulesStyleDetailsPanel.SectionIndexSymbol] === this._sections.length - 1);
+            if (preservedSection)
+                addSection(preservedSection);
         };
 
-        for (let style of this.nodeStyles.uniqueOrderedStyles) {
-            if (style.inherited && (!previousStyle || previousStyle.node !== style.node))
-                createHeader(WI.UIString("Inherited From"), style.node);
-
+        for (let style of this.nodeStyles.uniqueOrderedStyles)
             createSection(style);
+
+        let beforePseudoId = null;
+        let afterPseudoId = null;
+        if (InspectorBackend.domains.CSS.PseudoId) {
+            beforePseudoId = InspectorBackend.domains.CSS.PseudoId.Before;
+            afterPseudoId = InspectorBackend.domains.CSS.PseudoId.After;
+        } else {
+            // Compatibility (iOS 12.2): CSS.PseudoId did not exist.
+            beforePseudoId = 4;
+            afterPseudoId = 5;
         }
 
-        let pseudoElements = Array.from(this.nodeStyles.node.pseudoElements().values());
-        Promise.all(pseudoElements.map((pseudoElement) => WI.cssManager.stylesForNode(pseudoElement).refreshIfNeeded()))
-        .then((pseudoNodeStyles) => {
-            for (let pseudoNodeStyle of pseudoNodeStyles) {
-                createHeader(WI.UIString("Pseudo Element"), pseudoNodeStyle.node);
+        for (let [pseudoId, pseudoElementInfo] of this.nodeStyles.pseudoElements) {
+            let pseudoElement = null;
+            if (pseudoId === beforePseudoId)
+                pseudoElement = this.nodeStyles.node.beforePseudoElement();
+            else if (pseudoId === afterPseudoId)
+                pseudoElement = this.nodeStyles.node.afterPseudoElement();
+            addHeader(WI.UIString("Pseudo-Element"), pseudoElement || pseudoId);
 
-                for (let style of pseudoNodeStyle.uniqueOrderedStyles)
-                    createSection(style);
-            }
-        });
+            for (let style of WI.DOMNodeStyles.uniqueOrderedStyles(pseudoElementInfo.orderedStyles))
+                createSection(style);
+        }
 
         this._newRuleSelector = null;
 
@@ -288,12 +344,10 @@ WI.SpreadsheetRulesStyleDetailsPanel = class SpreadsheetRulesStyleDetailsPanel e
 
         this.element.classList.remove("filter-non-matching");
 
-        let header = this._headerMap.get(event.target.style.node);
+        let header = this._headerMap.get(event.target.style);
         if (header)
             header.classList.remove(WI.GeneralStyleDetailsSidebarPanel.NoFilterMatchInSectionClassName);
     }
-
-    // Private
 
     _addNewRule(stylesheetId)
     {
@@ -303,6 +357,16 @@ WI.SpreadsheetRulesStyleDetailsPanel = class SpreadsheetRulesStyleDetailsPanel e
         const text = "";
         this.nodeStyles.addRule(this._newRuleSelector, text, stylesheetId);
     }
+
+    _handleSectionSelectorWillChange(event)
+    {
+        let section = event.target;
+        section[SpreadsheetRulesStyleDetailsPanel.SectionShowingForNodeSymbol] = this.nodeStyles.node;
+        section[SpreadsheetRulesStyleDetailsPanel.SectionIndexSymbol] = this._sections.indexOf(section);
+        console.assert(section[SpreadsheetRulesStyleDetailsPanel.SectionIndexSymbol] >= 0);
+    }
 };
 
-WI.SpreadsheetRulesStyleDetailsPanel.RuleSection = Symbol("rule-section");
+WI.SpreadsheetRulesStyleDetailsPanel.StyleSectionSymbol = Symbol("style-section");
+WI.SpreadsheetRulesStyleDetailsPanel.SectionShowingForNodeSymbol = Symbol("style-showing-for-node");
+WI.SpreadsheetRulesStyleDetailsPanel.SectionIndexSymbol = Symbol("style-index");

@@ -34,8 +34,6 @@
 #include <gst/app/gstappsrc.h>
 #include <gst/base/gstflowcombiner.h>
 
-#if GST_CHECK_VERSION(1, 10, 0)
-
 namespace WebCore {
 
 static void webkitMediaStreamSrcPushVideoSample(WebKitMediaStreamSrc* self, GstSample* gstsample);
@@ -368,18 +366,21 @@ typedef struct {
 
 static GstFlowReturn webkitMediaStreamSrcChain(GstPad* pad, GstObject* parent, GstBuffer* buffer)
 {
-    GstFlowReturn result;
+    GstFlowReturn result, chain_result;
     GRefPtr<WebKitMediaStreamSrc> self = adoptGRef(WEBKIT_MEDIA_STREAM_SRC(gst_object_get_parent(parent)));
 
-    result = gst_flow_combiner_update_pad_flow(self.get()->flowCombiner, pad,
-        gst_proxy_pad_chain_default(pad, GST_OBJECT(self.get()), buffer));
+    chain_result = gst_proxy_pad_chain_default(pad, GST_OBJECT(self.get()), buffer);
+    result = gst_flow_combiner_update_pad_flow(self.get()->flowCombiner, pad, chain_result);
+
+    if (result == GST_FLOW_FLUSHING)
+        return chain_result;
 
     return result;
 }
 
 static void webkitMediaStreamSrcAddPad(WebKitMediaStreamSrc* self, GstPad* target, GstStaticPadTemplate* pad_template)
 {
-    auto padname = String::format("src_%u", g_atomic_int_add(&(self->npads), 1));
+    auto padname = makeString("src_", g_atomic_int_add(&(self->npads), 1));
     auto ghostpad = gst_ghost_pad_new_from_template(padname.utf8().data(), target,
         gst_static_pad_template_get(pad_template));
 
@@ -611,5 +612,5 @@ GstElement* webkitMediaStreamSrcNew(void)
 }
 
 } // WebCore
-#endif // GST_CHECK_VERSION(1, 10, 0)
+
 #endif // ENABLE(VIDEO) && ENABLE(MEDIA_STREAM) && USE(LIBWEBRTC)

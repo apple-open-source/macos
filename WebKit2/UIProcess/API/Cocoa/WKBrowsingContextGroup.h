@@ -25,12 +25,10 @@
 
 #import <WebKit/WKFoundation.h>
 
-#if WK_API_ENABLED
-
 #import <Foundation/Foundation.h>
 #import <WebKit/WKUserScriptInjectionTime.h>
 
-WK_CLASS_DEPRECATED_WITH_REPLACEMENT("WKUserContentController and WKPreferences", macos(10.10, WK_MAC_TBA), ios(8.0, WK_IOS_TBA))
+WK_CLASS_DEPRECATED_WITH_REPLACEMENT("WKUserContentController and WKPreferences", macos(10.10, 10.14.4), ios(8.0, 12.2))
 @interface WKBrowsingContextGroup : NSObject
 
 - (id)initWithIdentifier:(NSString *)identifier;
@@ -62,5 +60,3 @@ WK_CLASS_DEPRECATED_WITH_REPLACEMENT("WKUserContentController and WKPreferences"
 @property BOOL privateBrowsingEnabled;
 
 @end
-
-#endif // WK_API_ENABLED

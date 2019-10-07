@@ -31,9 +31,13 @@ WI.AuditTestContentView = class AuditTestContentView extends WI.ContentView
 
         super(representedObject);
 
+        // This class should not be instantiated directly. Create a concrete subclass instead.
+        console.assert(this.constructor !== WI.AuditTestContentView && this instanceof WI.AuditTestContentView);
+
         this.element.classList.add("audit-test");
 
         this._exportButtonNavigationItem = new WI.ButtonNavigationItem("audit-export", WI.UIString("Export"), "Images/Export.svg", 15, 15);
+        this._exportButtonNavigationItem.tooltip = WI.UIString("Export result (%s)").format(WI.saveKeyboardShortcut.displayName);
         this._exportButtonNavigationItem.buttonStyle = WI.ButtonNavigationItem.Style.ImageAndText;
         this._exportButtonNavigationItem.visibilityPriority = WI.NavigationItem.VisibilityPriority.Low;
         this._exportButtonNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._handleExportButtonNavigationItemClicked, this);
@@ -65,7 +69,7 @@ WI.AuditTestContentView = class AuditTestContentView extends WI.ContentView
 
     get saveData()
     {
-        return {customSaveHandler: () => { this._exportAudit(); }};
+        return {customSaveHandler: () => { this._exportResult(); }};
     }
 
     get result()
@@ -98,7 +102,7 @@ WI.AuditTestContentView = class AuditTestContentView extends WI.ContentView
         if (this.representedObject instanceof WI.AuditTestBase) {
             this.representedObject.addEventListener(WI.AuditTestBase.Event.Completed, this._handleTestChanged, this);
             this.representedObject.addEventListener(WI.AuditTestBase.Event.Progress, this._handleTestChanged, this);
-            this.representedObject.addEventListener(WI.AuditTestBase.Event.ResultCleared, this._handleTestChanged, this);
+            this.representedObject.addEventListener(WI.AuditTestBase.Event.ResultChanged, this.handleResultChanged, this);
             this.representedObject.addEventListener(WI.AuditTestBase.Event.Scheduled, this._handleTestChanged, this);
             this.representedObject.addEventListener(WI.AuditTestBase.Event.Stopping, this._handleTestChanged, this);
         }
@@ -110,6 +114,13 @@ WI.AuditTestContentView = class AuditTestContentView extends WI.ContentView
             this.representedObject.removeEventListener(null, null, this);
 
         super.hidden();
+    }
+
+    handleResultChanged(event)
+    {
+        // Overridden by sub-classes.
+
+        this.needsLayout();
     }
 
     get placeholderElement()
@@ -262,7 +273,7 @@ WI.AuditTestContentView = class AuditTestContentView extends WI.ContentView
 
     // Private
 
-    _exportAudit()
+    _exportResult()
     {
         WI.auditManager.export(this.representedObject.result);
     }
@@ -280,7 +291,7 @@ WI.AuditTestContentView = class AuditTestContentView extends WI.ContentView
 
     _handleExportButtonNavigationItemClicked(event)
     {
-        this._exportAudit();
+        this._exportResult();
     }
 
     _handleTestChanged(event)

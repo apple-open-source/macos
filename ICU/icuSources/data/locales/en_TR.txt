@@ -79,6 +79,11 @@ en_TR{
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
                 Md{"dd.MM"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                hmsv{"h:mm:ss a v"}
+                hmv{"h:mm a v"}
                 y{"G y"}
                 yyyy{"G y"}
                 yyyyM{"GGGGG M.y"}

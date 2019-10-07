@@ -17,7 +17,9 @@ extern "C++" {
 // system
 #import <mach/mach.h>
 #import <IOKit/IOKitLib.h>
+#if !defined(__LP64__)
 #import <IOKit/iokitmig.h>
+#endif
 #import <exception>
 #import <assert.h>
 #import <pthread.h>

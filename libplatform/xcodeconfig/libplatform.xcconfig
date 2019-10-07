@@ -8,9 +8,20 @@ SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator
 BUILD_VARIANTS = normal debug dyld static
 
 EXECUTABLE_PREFIX = lib
-INSTALL_PATH = /usr/lib/system
-PUBLIC_HEADERS_FOLDER_PATH = /usr/include
-PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include
+
+// Pick the right install locations depending on whether building for DriverKit SDK or not
+SDK_INSTALL_VARIANT = $(SDK_INSTALL_VARIANT_$(DRIVERKIT))
+SDK_INSTALL_VARIANT_1 = driverkit
+SDK_INSTALL_VARIANT_ = default
+SDK_INSTALL_ROOT = $(SDK_INSTALL_ROOT_$(SDK_INSTALL_VARIANT))
+SDK_INSTALL_ROOT_driverkit = $(DRIVERKITROOT)
+SDK_INSTALL_HEADERS_ROOT = $(SDK_INSTALL_HEADERS_ROOT_$(SDK_INSTALL_VARIANT))
+SDK_INSTALL_HEADERS_ROOT_driverkit = $(SDK_INSTALL_ROOT)/$(SDK_RUNTIME_HEADERS_PREFIX)
+SDK_RUNTIME_HEADERS_PREFIX = Runtime
+
+INSTALL_PATH = $(SDK_INSTALL_ROOT)/usr/lib/system
+PUBLIC_HEADERS_FOLDER_PATH=$(SDK_INSTALL_HEADERS_ROOT)/usr/include
+PRIVATE_HEADERS_FOLDER_PATH=$(SDK_INSTALL_HEADERS_ROOT)/usr/local/include
 
 USE_HEADERMAP = NO
 SKIP_INSTALL = YES
@@ -19,7 +30,7 @@ INSTALLHDRS_SCRIPT_PHASE = YES
 GCC_OPTIMIZATION_LEVEL = s
 
 // TODO: Remove -fno-stack-protector once it has been moved down (after libproc is moved down)
-OTHER_CFLAGS = -fno-stack-protector -fdollars-in-identifiers -fno-common -fverbose-asm $(COMPILER_CFLAGS) $(PLATFORM_CFLAGS) -isystem $(SYSTEM_FRAMEWORK_HEADERS)
+OTHER_CFLAGS = -fno-stack-protector -fdollars-in-identifiers -fno-common -fverbose-asm $(COMPILER_CFLAGS) $(PLATFORM_CFLAGS)
 OTHER_CFLAGS_normal = -momit-leaf-frame-pointer
 OTHER_CFLAGS_debug = -fno-inline -O0
 
@@ -37,8 +48,9 @@ STRIP_INSTALLED_PRODUCT_static = NO
 STRIP_INSTALLED_PRODUCT_debug = YES
 
 SRCROOT_SEARCH_PATHS = $(SRCROOT)/private $(SRCROOT)/include $(SRCROOT)/internal
-SYSTEM_FRAMEWORK_HEADERS = $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
-HEADER_SEARCH_PATHS = $(SRCROOT_SEARCH_PATHS) $(SDKROOT)/usr/local/include $(SDKROOT)/usr/include $(inherited)
+HEADER_SEARCH_PATHS = $(SRCROOT_SEARCH_PATHS) $(inherited)
+SYSTEM_HEADER_SEARCH_PATHS = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/local/include $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/usr/include
+SYSTEM_FRAMEWORK_SEARCH_PATHS = $(SDKROOT)/$(SDK_INSTALL_HEADERS_ROOT)/System/Library/Frameworks
 
 DEAD_CODE_STRIPPING = NO
 
@@ -52,8 +64,13 @@ SETJMP_LIBRARIES = $(CONFIGURATION_BUILD_DIR)/libsetjmp_i386_$(CURRENT_VARIANT).
 STRING_LIBRARIES = $(CONFIGURATION_BUILD_DIR)/libstring_i386_$(CURRENT_VARIANT).a $(CONFIGURATION_BUILD_DIR)/libstring_x86_64_$(CURRENT_VARIANT).a $(CONFIGURATION_BUILD_DIR)/libstring_arm_$(CURRENT_VARIANT).a $(CONFIGURATION_BUILD_DIR)/libstring_arm64_$(CURRENT_VARIANT).a $(EXTRA_STRING_LIBRARIES)
 UCONTEXT_LIBRARIES = $(CONFIGURATION_BUILD_DIR)/libucontext_i386_$(CURRENT_VARIANT).a $(CONFIGURATION_BUILD_DIR)/libucontext_x86_64_$(CURRENT_VARIANT).a
 
+IS_ZIPPERED = YES
+
+SIMULATOR_LDFLAGS =
+SIMULATOR_LDFLAGS[sdk=macosx*] = -Wl,-simulator_support
+
 OTHER_LDFLAGS = $(OTHER_LDFLAGS_$(TARGET_NAME)) $(CR_LDFLAGS)
-OTHER_LDFLAGS_libsystem_platform = -all_load $(PLATFORM_LIBRARIES) -umbrella System -L/usr/lib/system -ldyld -lcompiler_rt $(lsystem_kernel) -Wl,-alias_list,$(SRCROOT)/xcodeconfig/libplatform.aliases,$(DIRTY_DATA_LDFLAGS)
+OTHER_LDFLAGS_libsystem_platform = -all_load $(PLATFORM_LIBRARIES) -umbrella System -L$(SDK_INSTALL_ROOT)/usr/lib/system -ldyld $(lcompiler_rt) $(lsystem_kernel) -Wl,-alias_list,$(SRCROOT)/xcodeconfig/libplatform.aliases,$(DIRTY_DATA_LDFLAGS) $(SIMULATOR_LDFLAGS)
 
 OTHER_LIBTOOLFLAGS = $(OTHER_LIBTOOLFLAGS_$(TARGET_NAME))
 OTHER_LIBTOOLFLAGS_libplatform_simple_dyld = $(CONFIGURATION_BUILD_DIR)/libsimple_$(CURRENT_VARIANT).a
@@ -70,4 +87,6 @@ OTHER_LIBTOOLFLAGS_libucontext = $(UCONTEXT_LIBRARIES)
 
 lsystem_kernel = -lsystem_kernel
 lsystem_kernel[sdk=iphonesimulator*] = -lsystem_sim_kernel
+lcompiler_rt = -lcompiler_rt
+lcompiler_rt[sdk=driverkit*] =
 

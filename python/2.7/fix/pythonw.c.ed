@@ -1,0 +1,5 @@
+/cpu_types\[0\] = CPU_TYPE_X86;/a
+#elif defined(__arm64__)
+    cpu_types[0] = CPU_TYPE_ARM64;
+.
+w

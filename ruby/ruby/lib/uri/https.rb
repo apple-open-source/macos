@@ -3,12 +3,12 @@
 #
 # Author:: Akira Yamada <akira@ruby-lang.org>
 # License:: You can redistribute it and/or modify it under the same term as Ruby.
-# Revision:: $Id: https.rb 53141 2015-12-16 05:07:31Z naruse $
+# Revision:: $Id: https.rb 65505 2018-11-02 17:52:33Z marcandre $
 #
 # See URI for general documentation
 #
 
-require 'uri/http'
+require_relative 'http'
 
 module URI
 

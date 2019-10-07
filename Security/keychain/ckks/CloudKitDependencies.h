@@ -27,6 +27,7 @@
 #import <ApplePushService/ApplePushService.h>
 #import <CloudKit/CloudKit.h>
 #import <Foundation/Foundation.h>
+#import <Foundation/NSDistributedNotificationCenter.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -149,18 +150,19 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 /* APSConnection */
-@protocol CKKSAPSConnection <NSObject>
+@protocol OctagonAPSConnection <NSObject>
 + (instancetype)alloc;
 - (id)initWithEnvironmentName:(NSString*)environmentName
             namedDelegatePort:(NSString*)namedDelegatePort
                         queue:(dispatch_queue_t)queue;
 
-- (void)setEnabledTopics:(NSArray*)enabledTopics;
+- (void)setEnabledTopics:(NSArray<NSString *> *)enabledTopics;
+- (void)setDarkWakeTopics:(NSArray<NSString *> *)darkWakeTopics;
 
 @property (nonatomic, readwrite, assign) id<APSConnectionDelegate> delegate;
 @end
 
-@interface APSConnection (SecCKKSAPSConnection) <CKKSAPSConnection>
+@interface APSConnection (SecOctagonAPSConnection) <OctagonAPSConnection>
 @end
 
 /* NSNotificationCenter */
@@ -169,7 +171,17 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)addObserver:(id)observer selector:(SEL)aSelector name:(nullable NSNotificationName)aName object:(nullable id)anObject;
 - (void)removeObserver:(id)observer;
 @end
-@interface NSNotificationCenter () <CKKSNSNotificationCenter>
+@interface NSNotificationCenter (CKKSMock) <CKKSNSNotificationCenter>
+@end
+
+@protocol CKKSNSDistributedNotificationCenter <NSObject>
++ (instancetype)defaultCenter;
+- (void)addObserver:(id)observer selector:(SEL)aSelector name:(nullable NSNotificationName)aName object:(nullable id)anObject;
+- (void)removeObserver:(id)observer;
+- (void)postNotificationName:(NSNotificationName)name object:(nullable NSString *)object userInfo:(nullable NSDictionary *)userInfo options:(NSDistributedNotificationOptions)options;
+@end
+
+@interface NSDistributedNotificationCenter (CKKSMock) <CKKSNSDistributedNotificationCenter>
 @end
 
 /* Since CKDatabase doesn't share any types with NSOperationQueue, tell the type system about addOperation */

@@ -209,7 +209,7 @@ void rpc_ss_send_server_exception
         mapped_code = nca_s_fault_unspec;
 
     rpc_init_mp(mp, &fault_buff);
-    rpc_marshall_ulong_int(mp, mapped_code);
+    rpc_marshall_ulong_int(mp, &mapped_code);
     rpc_call_transmit_fault( h, &iovec, &st );
 
 #ifdef PERFMON
@@ -246,9 +246,9 @@ void rpc_ss_send_server_exception_2
         {
             mapped_code = nca_s_fault_user_defined;
             rpc_init_mp(mp, fault_buff);
-            rpc_marshall_ulong_int(mp, mapped_code);
+            rpc_marshall_ulong_int(mp, &mapped_code);
             rpc_advance_mp(mp, 4);
-            rpc_marshall_ulong_int(mp, i);
+            rpc_marshall_ulong_int(mp, &i);
             iovec.num_elt = 1;
             iovec.elt[0].buff_dealloc = NULL;
             iovec.elt[0].flags = rpc_c_iovector_elt_reused;

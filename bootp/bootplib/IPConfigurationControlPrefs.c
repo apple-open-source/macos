@@ -95,7 +95,7 @@ prefs_changed(__unused void * arg)
     return;
 }
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 /*
  * kIPConfigurationControlManangedPrefsID
  * - identifies the location of the managed preferences file
@@ -143,7 +143,7 @@ enable_prefs_observer(CFRunLoopRef runloop)
     return;
 }
 
-#else /* TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_IPHONE */
 
 STATIC void
 enable_prefs_observer(CFRunLoopRef runloop)
@@ -151,7 +151,7 @@ enable_prefs_observer(CFRunLoopRef runloop)
     return;
 }
 
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 
 PRIVATE_EXTERN void
 IPConfigurationControlPrefsSynchronize(void)
@@ -159,11 +159,11 @@ IPConfigurationControlPrefsSynchronize(void)
     if (S_prefs != NULL) {
 	SCPreferencesSynchronize(S_prefs);
     }
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     if (S_managed_prefs != NULL) {
 	SCPreferencesSynchronize(S_managed_prefs);
     }
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
     return;
 }
 
@@ -210,10 +210,10 @@ prefs_get_boolean(CFStringRef key)
 {
     CFBooleanRef	b = NULL;
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     b = SCPreferencesGetValue(IPConfigurationControlManagedPrefsGet(), key);
     b = isA_CFBoolean(b);
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
     if (b == NULL) {
 	b = SCPreferencesGetValue(IPConfigurationControlPrefsGet(), key);
 	b = isA_CFBoolean(b);
@@ -242,10 +242,10 @@ prefs_get_string(CFStringRef key)
 {
     CFStringRef	str = NULL;
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     str = SCPreferencesGetValue(IPConfigurationControlManagedPrefsGet(), key);
     str = isA_CFString(str);
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
     if (str == NULL) {
 	str = SCPreferencesGetValue(IPConfigurationControlPrefsGet(), key);
 	str = isA_CFString(str);

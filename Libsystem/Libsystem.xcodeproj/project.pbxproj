@@ -7,6 +7,18 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		923662F4212762D7001FB3E7 /* Sanitizer Support */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 923662F6212762D7001FB3E7 /* Build configuration list for PBXAggregateTarget "Sanitizer Support" */;
+			buildPhases = (
+				923662F7212762EA001FB3E7 /* Copy enable_asan_mode */,
+				923662FB21276319001FB3E7 /* Run create_asan_override_file.sh */,
+			);
+			dependencies = (
+			);
+			name = "Sanitizer Support";
+			productName = "Sanitizer Support";
+		};
 		BA5511CF136CA8480012B9B5 /* Generate Linker Arguments */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = BA5511D0136CA8480012B9B5 /* Build configuration list for PBXAggregateTarget "Generate Linker Arguments" */;
@@ -31,10 +43,37 @@
 			name = "Generate Symlinks";
 			productName = "Generate Symlinks";
 		};
+		E47E982E221DFDFC006E312E /* Libsystem_driverkit */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = E47E9830221DFDFC006E312E /* Build configuration list for PBXAggregateTarget "Libsystem_driverkit" */;
+			buildPhases = (
+			);
+			dependencies = (
+				E47E983D221DFE8B006E312E /* PBXTargetDependency */,
+				E47E983F221DFE90006E312E /* PBXTargetDependency */,
+				E47E9841221DFE94006E312E /* PBXTargetDependency */,
+			);
+			name = Libsystem_driverkit;
+			productName = Libsystem_driverkit;
+		};
+		E47E9831221DFE23006E312E /* Libsystem */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = E47E9832221DFE23006E312E /* Build configuration list for PBXAggregateTarget "Libsystem" */;
+			buildPhases = (
+			);
+			dependencies = (
+				E47E9835221DFE4A006E312E /* PBXTargetDependency */,
+				E47E9837221DFE4F006E312E /* PBXTargetDependency */,
+				E47E9839221DFE58006E312E /* PBXTargetDependency */,
+				E47E983B221DFE5E006E312E /* PBXTargetDependency */,
+			);
+			name = Libsystem;
+			productName = Libsystem;
+		};
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		8C0BF12A1F58E51E00706493 /* enable_asan_mode in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8C0BF1291F58E51D00706493 /* enable_asan_mode */; };
+		923662F821276300001FB3E7 /* enable_asan_mode in Copy enable_asan_mode */ = {isa = PBXBuildFile; fileRef = 8C0BF1291F58E51D00706493 /* enable_asan_mode */; };
 		BA2BD900136D282200FF78C0 /* Info.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA5511B6136C9D780012B9B5 /* Info.plist */; };
 		BA2FABC5136DBF45004383E5 /* linker_arguments_changed.c in Sources */ = {isa = PBXBuildFile; fileRef = BA2FABC4136DBF45004383E5 /* linker_arguments_changed.c */; };
 		BA5511C9136C9E4D0012B9B5 /* CompatibilityHacks.c in Sources */ = {isa = PBXBuildFile; fileRef = BA5511B4136C9D780012B9B5 /* CompatibilityHacks.c */; };
@@ -43,31 +82,67 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		BA5511D2136CA8550012B9B5 /* PBXContainerItemProxy */ = {
+		E47E9834221DFE4A006E312E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = BA5511A9136C9D400012B9B5 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = BA5511CF136CA8480012B9B5;
-			remoteInfo = "Generate Linker Arguments";
+			remoteGlobalIDString = 923662F4212762D7001FB3E7;
+			remoteInfo = "Sanitizer Support";
 		};
-		BA5511DA136D23EE0012B9B5 /* PBXContainerItemProxy */ = {
+		E47E9836221DFE4F006E312E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = BA5511A9136C9D400012B9B5 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = BA5511D6136D22ED0012B9B5;
 			remoteInfo = "Generate Symlinks";
 		};
+		E47E9838221DFE58006E312E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA5511A9136C9D400012B9B5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA5511CF136CA8480012B9B5;
+			remoteInfo = "Generate Linker Arguments";
+		};
+		E47E983A221DFE5E006E312E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA5511A9136C9D400012B9B5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA5511C3136C9E2E0012B9B5;
+			remoteInfo = System;
+		};
+		E47E983C221DFE8B006E312E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA5511A9136C9D400012B9B5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA5511D6136D22ED0012B9B5;
+			remoteInfo = "Generate Symlinks";
+		};
+		E47E983E221DFE90006E312E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA5511A9136C9D400012B9B5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA5511CF136CA8480012B9B5;
+			remoteInfo = "Generate Linker Arguments";
+		};
+		E47E9840221DFE94006E312E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA5511A9136C9D400012B9B5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA5511C3136C9E2E0012B9B5;
+			remoteInfo = System;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		8C0BF1281F58E4B400706493 /* CopyFiles */ = {
+		923662F7212762EA001FB3E7 /* Copy enable_asan_mode */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = "$(INSTALL_PATH_PREFIX)/usr/local/bin";
 			dstSubfolderSpec = 0;
 			files = (
-				8C0BF12A1F58E51E00706493 /* enable_asan_mode in CopyFiles */,
+				923662F821276300001FB3E7 /* enable_asan_mode in Copy enable_asan_mode */,
 			);
+			name = "Copy enable_asan_mode";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		BA2BD8FF136D27FE00FF78C0 /* CopyFiles */ = {
@@ -84,6 +159,7 @@
 
 /* Begin PBXFileReference section */
 		8C0BF1291F58E51D00706493 /* enable_asan_mode */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = enable_asan_mode; sourceTree = "<group>"; };
+		923662FC212B442C001FB3E7 /* create_asan_override_file.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = create_asan_override_file.sh; sourceTree = "<group>"; };
 		BA2FABC4136DBF45004383E5 /* linker_arguments_changed.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = linker_arguments_changed.c; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA5511B3136C9D780012B9B5 /* APPLE_LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
 		BA5511B4136C9D780012B9B5 /* CompatibilityHacks.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CompatibilityHacks.c; sourceTree = "<group>"; };
@@ -97,6 +173,8 @@
 		C64EE1D9136F644700676C52 /* linker_arguments.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = linker_arguments.sh; sourceTree = "<group>"; };
 		C9A43CAB15374DB200388D0C /* alloc_once_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = alloc_once_private.h; sourceTree = "<group>"; };
 		C9B56C55153751A600C153A8 /* Libsystem.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Libsystem.xcconfig; sourceTree = "<group>"; };
+		E43B88B32245778F00215272 /* requiredlibs_driverkit */ = {isa = PBXFileReference; lastKnownFileType = text; path = requiredlibs_driverkit; sourceTree = "<group>"; };
+		E43B88B42245778F00215272 /* optionallibs_driverkit */ = {isa = PBXFileReference; lastKnownFileType = text; path = optionallibs_driverkit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -129,6 +207,8 @@
 				BA5511B7136C9D780012B9B5 /* init.c */,
 				BA5511B9136C9D780012B9B5 /* optionallibs */,
 				BA5511BA136C9D780012B9B5 /* requiredlibs */,
+				E43B88B42245778F00215272 /* optionallibs_driverkit */,
+				E43B88B32245778F00215272 /* requiredlibs_driverkit */,
 				8C0BF1291F58E51D00706493 /* enable_asan_mode */,
 				C64EE1D6136F644700676C52 /* xcodescripts */,
 				BA5511C5136C9E2E0012B9B5 /* Products */,
@@ -147,6 +227,7 @@
 		C64EE1D6136F644700676C52 /* xcodescripts */ = {
 			isa = PBXGroup;
 			children = (
+				923662FC212B442C001FB3E7 /* create_asan_override_file.sh */,
 				C64EE1D7136F644700676C52 /* create_dylib_symlinks.sh */,
 				C64EE1D8136F644700676C52 /* create_system_framework.sh */,
 				C64EE1D9136F644700676C52 /* linker_arguments.sh */,
@@ -175,13 +256,10 @@
 				BA5511C0136C9E2E0012B9B5 /* Sources */,
 				BA5511C1136C9E2E0012B9B5 /* Frameworks */,
 				BA5511C2136C9E2E0012B9B5 /* Headers */,
-				8C0BF1281F58E4B400706493 /* CopyFiles */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				BA5511DB136D23EE0012B9B5 /* PBXTargetDependency */,
-				BA5511D3136CA8550012B9B5 /* PBXTargetDependency */,
 			);
 			name = System;
 			productName = System;
@@ -195,6 +273,18 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 0700;
+				TargetAttributes = {
+					923662F4212762D7001FB3E7 = {
+						CreatedOnToolsVersion = 10.0;
+						ProvisioningStyle = Automatic;
+					};
+					E47E982E221DFDFC006E312E = {
+						CreatedOnToolsVersion = 11.0;
+					};
+					E47E9831221DFE23006E312E = {
+						CreatedOnToolsVersion = 11.0;
+					};
+				};
 			};
 			buildConfigurationList = BA5511AC136C9D400012B9B5 /* Build configuration list for PBXProject "Libsystem" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -208,14 +298,35 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				E47E9831221DFE23006E312E /* Libsystem */,
+				E47E982E221DFDFC006E312E /* Libsystem_driverkit */,
 				BA5511C3136C9E2E0012B9B5 /* System */,
 				BA5511CF136CA8480012B9B5 /* Generate Linker Arguments */,
 				BA5511D6136D22ED0012B9B5 /* Generate Symlinks */,
+				923662F4212762D7001FB3E7 /* Sanitizer Support */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		923662FB21276319001FB3E7 /* Run create_asan_override_file.sh */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Run create_asan_override_file.sh";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "set -x\nset -e\n\n\"${SRCROOT}/xcodescripts/create_asan_override_file.sh\"\n";
+		};
 		BA2BD8FE136D271D00FF78C0 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -244,7 +355,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -x\nset -e\n\n\"${SRCROOT}/xcodescripts/linker_arguments.sh\" \"${ARCHS}\" \"${BUILD_VARIANTS}\" \"${BUILT_PRODUCTS_DIR}\" \"${SDKROOT}\" \"${SRCROOT}\"\n";
+			shellScript = "set -x\nset -e\n\n# workaround 48125283\n[ -n \"$DRIVERKIT_DEPLOYMENT_TARGET\" ] && unset MACOSX_DEPLOYMENT_TARGET\n\n\"${SRCROOT}/xcodescripts/linker_arguments.sh\" \"${ARCHS}\" \"${BUILD_VARIANTS}\" \"${BUILT_PRODUCTS_DIR}\" \"${SDKROOT}\" \"${SRCROOT}\"\n";
 		};
 		BA5511D9136D23110012B9B5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -275,19 +386,52 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		BA5511D3136CA8550012B9B5 /* PBXTargetDependency */ = {
+		E47E9835221DFE4A006E312E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = BA5511CF136CA8480012B9B5 /* Generate Linker Arguments */;
-			targetProxy = BA5511D2136CA8550012B9B5 /* PBXContainerItemProxy */;
+			target = 923662F4212762D7001FB3E7 /* Sanitizer Support */;
+			targetProxy = E47E9834221DFE4A006E312E /* PBXContainerItemProxy */;
 		};
-		BA5511DB136D23EE0012B9B5 /* PBXTargetDependency */ = {
+		E47E9837221DFE4F006E312E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = BA5511D6136D22ED0012B9B5 /* Generate Symlinks */;
-			targetProxy = BA5511DA136D23EE0012B9B5 /* PBXContainerItemProxy */;
+			targetProxy = E47E9836221DFE4F006E312E /* PBXContainerItemProxy */;
+		};
+		E47E9839221DFE58006E312E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA5511CF136CA8480012B9B5 /* Generate Linker Arguments */;
+			targetProxy = E47E9838221DFE58006E312E /* PBXContainerItemProxy */;
+		};
+		E47E983B221DFE5E006E312E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA5511C3136C9E2E0012B9B5 /* System */;
+			targetProxy = E47E983A221DFE5E006E312E /* PBXContainerItemProxy */;
+		};
+		E47E983D221DFE8B006E312E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA5511D6136D22ED0012B9B5 /* Generate Symlinks */;
+			targetProxy = E47E983C221DFE8B006E312E /* PBXContainerItemProxy */;
+		};
+		E47E983F221DFE90006E312E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA5511CF136CA8480012B9B5 /* Generate Linker Arguments */;
+			targetProxy = E47E983E221DFE90006E312E /* PBXContainerItemProxy */;
+		};
+		E47E9841221DFE94006E312E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA5511C3136C9E2E0012B9B5 /* System */;
+			targetProxy = E47E9840221DFE94006E312E /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		923662F5212762D7001FB3E7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		BA5511AF136C9D400012B9B5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C9B56C55153751A600C153A8 /* Libsystem.xcconfig */;
@@ -299,7 +443,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C9B56C55153751A600C153A8 /* Libsystem.xcconfig */;
 			buildSettings = {
-				PRODUCT_NAME = "$(TARGET_NAME).B";
+				PRODUCT_NAME = "$(TARGET_NAME)$(DYLIB_NAME_VERSION_SUFFIX)";
 				SDKROOT = macosx.internal;
 			};
 			name = Release;
@@ -321,9 +465,31 @@
 			};
 			name = Release;
 		};
+		E47E982F221DFDFC006E312E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		E47E9833221DFE23006E312E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		923662F6212762D7001FB3E7 /* Build configuration list for PBXAggregateTarget "Sanitizer Support" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				923662F5212762D7001FB3E7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		BA5511AC136C9D400012B9B5 /* Build configuration list for PBXProject "Libsystem" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -352,6 +518,22 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				BA5511D8136D22ED0012B9B5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E47E9830221DFDFC006E312E /* Build configuration list for PBXAggregateTarget "Libsystem_driverkit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E47E982F221DFDFC006E312E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E47E9832221DFE23006E312E /* Build configuration list for PBXAggregateTarget "Libsystem" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E47E9833221DFE23006E312E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

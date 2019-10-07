@@ -7,6 +7,7 @@ int od_record_create(pam_handle_t*, ODRecordRef*, CFStringRef);
 int od_record_create_cstring(pam_handle_t*, ODRecordRef*, const char*);
 int od_record_attribute_create_cfstring(ODRecordRef record, CFStringRef attrib,  CFStringRef *out);
 int od_record_attribute_create_cfarray(ODRecordRef record, CFStringRef attrib,  CFArrayRef *out);
+int od_record_attribute_create_cstring(ODRecordRef record, CFStringRef attrib,  char **out);
 
 int od_record_check_pwpolicy(ODRecordRef);
 int od_record_check_authauthority(ODRecordRef);

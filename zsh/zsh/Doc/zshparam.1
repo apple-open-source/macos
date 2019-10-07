@@ -1,4 +1,4 @@
-.TH "ZSHPARAM" "1" "December 11, 2016" "zsh 5\&.3"
+.TH "ZSHPARAM" "1" "February 3, 2019" "zsh 5\&.7\&.1"
 .SH "NAME"
 zshparam \- zsh parameters
 .\" Yodl file: Zsh/params.yo
@@ -78,17 +78,85 @@ To assign an array value, write one of:
 \fIname\fP\fB=(\fP\fIvalue\fP \&.\&.\&.\fB)\fP
 .fi
 .RE
+.RS
+.nf
+\fIname\fP\fB=(\fP\fB[\fP\fIkey\fP\fB]=\fP\fIvalue\fP \&.\&.\&.\fB)\fP
+.fi
+.RE
 .PP
 If no parameter \fIname\fP exists, an ordinary array parameter is created\&.
 If the parameter \fIname\fP exists and is a scalar, it is replaced by a new
-array\&.  To append to an array without changing the existing values, use
-the syntax:
+array\&.
+.PP
+In the third form, \fIkey\fP is an expression that will be evaluated in
+arithmetic context (in its simplest form, an integer) that gives the
+index of the element to be assigned with \fIvalue\fP\&.  In this form any
+elements not explicitly mentioned that come before the largest index to
+which a value is assigned are assigned an empty string\&.  The indices
+may be in any order\&.  Note that this syntax is strict: \fB[\fP and \fB]=\fP must
+not be quoted, and \fIkey\fP may not consist of the unquoted string
+\fB]=\fP, but is otherwise treated as a simple string\&.  The enhanced forms
+of subscript expression that may be used when directly subscripting a
+variable name, described in the section Array Subscripts below, are not
+available\&.
+.PP
+The syntaxes with and without the explicit key may be mixed\&.  An implicit
+\fIkey\fP is deduced by incrementing the index from the previously
+assigned element\&.  Note that it is not treated as an error
+if latter assignments in this form overwrite earlier assignments\&.
+.PP
+For example, assuming the option \fBKSH_ARRAYS\fP is not set, the following:
+.PP
+.RS
+.nf
+\fBarray=(one [3]=three four)\fP
+.fi
+.RE
+.PP
+causes the array variable \fBarray\fP to contain four elements \fBone\fP,
+an empty string, \fBthree\fP and \fBfour\fP, in that order\&.
+.PP
+In the forms where only \fIvalue\fP is specified, full command
+line expansion is performed\&.
+.PP
+In the \fB[\fP\fIkey\fP\fB]=\fP\fIvalue\fP form,
+both \fIkey\fP and \fIvalue\fP undergo all forms of expansion
+allowed for single word shell expansions (this does not include filename
+generation); these are as performed by the parameter expansion flag
+\fB(e)\fP as described in
+\fIzshparam\fP(1)\&.
+Nested parentheses may surround \fIvalue\fP and are included as part of the
+value, which is joined into a plain string; this differs from ksh which
+allows the values themselves to be arrays\&.  A future version of zsh may
+support that\&.  To cause the brackets to be interpreted as a character
+class for filename generation, and therefore to treat the resulting list
+of files as a set of values, quote the equal sign using any form of quoting\&.
+Example:
+
+.RS
+.nf
+\fIname\fP\fB=(\fP\fB[a\-z]\&'='*)\fP
+.fi
+.RE
+.PP
+To append to an array without changing the existing values, use
+one of the following:
 
 .RS
 .nf
 \fIname\fP\fB+=(\fP\fIvalue\fP \&.\&.\&.\fB)\fP
 .fi
 .RE
+.RS
+.nf
+\fIname\fP\fB+=(\fP\fB[\fP\fIkey\fP\fB]=\fP\fIvalue\fP \&.\&.\&.\fB)\fP
+.fi
+.RE
+.PP
+In the second form \fIkey\fP may specify an existing index as well as an
+index off the end of the old array; any existing value is overwritten by
+\fIvalue\fP\&.  Also, it is possible to use \fB[\fP\fIkey\fP\fB]+=\fP\fIvalue\fP
+to append to the existing value at that index\&.
 .PP
 Within the parentheses on the right hand side of either form of the
 assignment, newlines and semicolons are treated the same as white space,
@@ -124,6 +192,15 @@ is interpreted as alternating keys and values:
 \fIname\fP\fB=(\fP\fIkey\fP \fIvalue\fP \&.\&.\&.\fB)\fP
 .fi
 .RE
+.RS
+.nf
+\fIname\fP\fB=(\fP\fB[\fP\fIkey\fP\fB]=\fP\fIvalue\fP \&.\&.\&.\fB)\fP
+.fi
+.RE
+.PP
+Note that only one of the two syntaxes above may be used in any
+given assignment; the forms may not be mixed\&.  This is unlike the case
+of numerically indexed arrays\&.
 .PP
 Every \fIkey\fP must have a \fIvalue\fP in this case\&.  Note that this
 assigns to the entire array, deleting any elements that do not appear in
@@ -134,9 +211,18 @@ the list\&.  The append syntax may also be used with an associative array:
 \fIname\fP\fB+=(\fP\fIkey\fP \fIvalue\fP \&.\&.\&.\fB)\fP
 .fi
 .RE
+.RS
+.nf
+\fIname\fP\fB+=(\fP\fB[\fP\fIkey\fP\fB]=\fP\fIvalue\fP \&.\&.\&.\fB)\fP
+.fi
+.RE
 .PP
 This adds a new key/value pair if the key is not already present, and
-replaces the value for the existing key if it is\&.
+replaces the value for the existing key if it is\&.  In the second
+form it is also possible to use \fB[\fP\fIkey\fP\fB]+=\fP\fIvalue\fP to
+append to the existing value at that key\&.  Expansion is performed
+identically to the corresponding forms for normal arrays, as
+described above\&.
 .PP
 To create an empty array (including associative arrays), use one of:
 
@@ -296,8 +382,10 @@ The flags currently understood are:
 \fBw\fP
 If the parameter subscripted is a scalar then this flag makes
 subscripting work on words instead of characters\&.  The default word
-separator is whitespace\&.  This flag may not be used with the \fBi\fP or
-\fBI\fP flag\&.
+separator is whitespace\&.  When combined with the \fBi\fP or \fBI\fP flag,
+the effect is to produce the index of the first character of the
+first/last word which matches the given pattern; note that a failed
+match in this case always yields 0\&.
 .TP
 \fBs:\fP\fIstring\fP\fB:\fP
 This gives the \fIstring\fP that separates words (for use with the
@@ -701,6 +789,15 @@ This value is system dependent and is intended for debugging
 purposes\&.  It is also useful with the \fBzsh/system\fP module which
 allows the number to be turned into a name or message\&.
 .TP
+\fBFUNCNEST\fP <S>
+Integer\&.  If greater than or equal to zero, the maximum nesting depth of
+shell functions\&.  When it is exceeded, an error is raised at the point
+where a function is called\&.  The default value is determined when
+the shell is configured, but is typically 500\&.  Increasing
+the value increases the danger of a runaway function recursion
+causing the shell to crash\&.  Setting a negative value turns off
+the check\&.
+.TP
 \fBGID\fP <S>
 The real group ID of the shell process\&.  If you have sufficient privileges,
 you may change the group ID of the shell process by assigning to this
@@ -966,8 +1063,8 @@ Expands to the basename of the command used to invoke this instance
 of zsh\&.
 .TP
 \fBZSH_PATCHLEVEL\fP
-The revision string for the version number of the ChangeLog file
-in the zsh distribution\&.  This is most useful in order to keep
+The output of `\fBgit describe \-\-tags \-\-long\fP\&' for the zsh repository
+used to build the shell\&.  This is most useful in order to keep
 track of versions of the shell during development between releases;
 hence most users should not use it and should instead rely on
 \fB$ZSH_VERSION\fP\&.
@@ -1370,7 +1467,7 @@ is specified with no command\&.  Defaults to \fBmore\fP\&.
 .TP
 \fBREPORTMEMORY\fP
 If nonnegative, commands whose maximum resident set size (roughly
-speaking, main memory usage) in megabytes is greater than this
+speaking, main memory usage) in kilobytes is greater than this
 value have timing statistics reported\&.  The format used to output
 statistics is the value of the \fBTIMEFMT\fP parameter, which is the same
 as for the \fBREPORTTIME\fP variable and the \fBtime\fP builtin; note that
@@ -1530,7 +1627,7 @@ The total space used (\fB%X\fP+\fB%D\fP) in kilobytes\&.
 .TP
 \fB%M\fP
 The  maximum memory the process had in use at any time in
-megabytes\&.
+kilobytes\&.
 .TP
 \fB%F\fP
 The number of major page faults (page needed to be brought
@@ -1564,10 +1661,12 @@ Number of involuntary context switches\&.
 The name of this job\&.
 .PD
 .PP
-A star may be inserted between the percent sign and flags printing time\&.
-This cause the time to be printed in
+A star may be inserted between the percent sign and flags printing time
+(e\&.g\&., `\fB%*E\fP\&'); this causes the time to be printed in
 `\fIhh\fP\fB:\fP\fImm\fP\fB:\fP\fIss\fP\fB\&.\fP\fIttt\fP\&'
 format (hours and minutes are only printed if they are not zero)\&.
+Alternatively, `\fBm\fP\&' or `\fBu\fP' may be used (e\&.g\&., `\fB%mE\fP') to produce
+time output in milliseconds or microseconds, respectively\&.
 .RE
 .TP
 \fBTMOUT\fP

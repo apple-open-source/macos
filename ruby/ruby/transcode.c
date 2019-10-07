@@ -2,13 +2,14 @@
 
   transcode.c -
 
-  $Author: nagachika $
+  $Author: nobu $
   created at: Tue Oct 30 16:10:22 JST 2007
 
   Copyright (C) 2007 Martin Duerst
 
 **********************************************************************/
 
+#include "ruby/encoding.h"
 #include "internal.h"
 #include "transcode_data.h"
 #include <ctype.h>
@@ -16,9 +17,9 @@
 #define ENABLE_ECONV_NEWLINE_OPTION 1
 
 /* VALUE rb_cEncoding = rb_define_class("Encoding", rb_cObject); */
-VALUE rb_eUndefinedConversionError;
-VALUE rb_eInvalidByteSequenceError;
-VALUE rb_eConverterNotFoundError;
+static VALUE rb_eUndefinedConversionError;
+static VALUE rb_eInvalidByteSequenceError;
+static VALUE rb_eConverterNotFoundError;
 
 VALUE rb_cEncodingConverter;
 
@@ -368,14 +369,13 @@ load_transcoder_entry(transcoder_entry_t *entry)
         const size_t total_len = sizeof(transcoder_lib_prefix) - 1 + len;
         const VALUE fn = rb_str_new(0, total_len);
         char *const path = RSTRING_PTR(fn);
-	const int safe = rb_safe_level();
 
         memcpy(path, transcoder_lib_prefix, sizeof(transcoder_lib_prefix) - 1);
         memcpy(path + sizeof(transcoder_lib_prefix) - 1, lib, len);
         rb_str_set_len(fn, total_len);
         FL_UNSET(fn, FL_TAINT);
         OBJ_FREEZE(fn);
-        rb_require_safe(fn, safe > 3 ? 3 : safe);
+        rb_require_safe(fn, rb_safe_level());
     }
 
     if (entry->transcoder)
@@ -2905,6 +2905,11 @@ encoded_dup(VALUE newstr, VALUE str, int encidx)
     return str_encode_associate(newstr, encidx);
 }
 
+/*
+ * Document-class: Encoding::Converter
+ *
+ * Encoding conversion class.
+ */
 static void
 econv_free(void *ptr)
 {
@@ -3150,8 +3155,12 @@ econv_s_search_convpath(int argc, VALUE *argv, VALUE klass)
     convpath = Qnil;
     transcode_search_path(sname, dname, search_convpath_i, &convpath);
 
-    if (NIL_P(convpath))
-        rb_exc_raise(rb_econv_open_exc(sname, dname, ecflags));
+    if (NIL_P(convpath)) {
+        VALUE exc = rb_econv_open_exc(sname, dname, ecflags);
+        RB_GC_GUARD(snamev);
+        RB_GC_GUARD(dnamev);
+        rb_exc_raise(exc);
+    }
 
     if (decorate_convpath(convpath, ecflags) == -1) {
 	VALUE exc = rb_econv_open_exc(sname, dname, ecflags);
@@ -3344,7 +3353,7 @@ rb_econv_init_by_convpath(VALUE self, VALUE convpath,
  *   Convert LF to CR.
  * [:xml => :text]
  *   Escape as XML CharData.
- *   This form can be used as a HTML 4.0 #PCDATA.
+ *   This form can be used as an HTML 4.0 #PCDATA.
  *   - '&' -> '&amp;'
  *   - '<' -> '&lt;'
  *   - '>' -> '&gt;'
@@ -3352,7 +3361,7 @@ rb_econv_init_by_convpath(VALUE self, VALUE convpath,
  * [:xml => :attr]
  *   Escape as XML AttValue.
  *   The converted result is quoted as "...".
- *   This form can be used as a HTML 4.0 attribute value.
+ *   This form can be used as an HTML 4.0 attribute value.
  *   - '&' -> '&amp;'
  *   - '<' -> '&lt;'
  *   - '>' -> '&gt;'
@@ -4075,7 +4084,7 @@ econv_insert_output(VALUE self, VALUE string)
 }
 
 /*
- * call-seq
+ * call-seq:
  *   ec.putback                    -> string
  *   ec.putback(max_numbytes)      -> string
  *
@@ -4106,10 +4115,9 @@ econv_putback(int argc, VALUE *argv, VALUE self)
     int putbackable;
     VALUE str, max;
 
-    rb_scan_args(argc, argv, "01", &max);
-
-    if (NIL_P(max))
+    if (!rb_check_arity(argc, 0, 1) || NIL_P(max = argv[0])) {
         n = rb_econv_putbackable(ec);
+    }
     else {
         n = NUM2INT(max);
         putbackable = rb_econv_putbackable(ec);

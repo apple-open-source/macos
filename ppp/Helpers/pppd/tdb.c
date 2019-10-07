@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -186,7 +186,7 @@ static unsigned tdb_hash(TDB_DATA *key)
 	unsigned   i;	/* Used to cycle through random values. */
 
 	/* Set the initial value from the key size. */
-	value = 0x238F13AF * key->dsize;
+	value = (unsigned)(0x238F13AF * key->dsize);
 	for (i=0; i < key->dsize; i++) {
 		value = (value + (key->dptr[i] << (i*5 % 24)));
 	}
@@ -227,7 +227,7 @@ static int tdb_oob(TDB_CONTEXT *tdb, tdb_off offset)
 	}
 #endif
 
-	tdb->map_size = st.st_size;
+	tdb->map_size = (tdb_len)st.st_size;
 #if HAVE_MMAP
 	tdb->map_ptr = (void *)mmap(NULL, tdb->map_size, 
 				    tdb->read_only?PROT_READ:PROT_READ|PROT_WRITE,
@@ -666,12 +666,12 @@ int tdb_update(TDB_CONTEXT *tdb, TDB_DATA key, TDB_DATA dbuf)
 		goto out;
 
 	if (tdb_write(tdb, rec_ptr + sizeof(rec) + rec.key_len,
-		      dbuf.dptr, dbuf.dsize) == -1)
+		      dbuf.dptr, (tdb_len)dbuf.dsize) == -1)
 		goto out;
 
 	if (dbuf.dsize != rec.data_len) {
 		/* update size */
-		rec.data_len = dbuf.dsize;
+		rec.data_len = (tdb_len)dbuf.dsize;
 		ret = rec_write(tdb, rec_ptr, &rec);
 	} else
 		ret = 0;
@@ -1058,7 +1058,7 @@ int tdb_store(TDB_CONTEXT *tdb, TDB_DATA key, TDB_DATA dbuf, int flag)
 		return 0;
 	}
 
-	rec_ptr = tdb_allocate(tdb, key.dsize + dbuf.dsize);
+	rec_ptr = tdb_allocate(tdb, (tdb_len)(key.dsize + dbuf.dsize));
 	if (rec_ptr == 0) {
 		return -1;
 	}
@@ -1085,8 +1085,8 @@ int tdb_store(TDB_CONTEXT *tdb, TDB_DATA key, TDB_DATA dbuf, int flag)
 		goto fail;
 	}
 
-	rec.key_len = key.dsize;
-	rec.data_len = dbuf.dsize;
+	rec.key_len = (tdb_len)key.dsize;
+	rec.data_len = (tdb_len)dbuf.dsize;
 	rec.full_hash = hash;
 	rec.magic = TDB_MAGIC;
 
@@ -1100,7 +1100,7 @@ int tdb_store(TDB_CONTEXT *tdb, TDB_DATA key, TDB_DATA dbuf, int flag)
 	memcpy(p+sizeof(rec), key.dptr, key.dsize);
 	memcpy(p+sizeof(rec)+key.dsize, dbuf.dptr, dbuf.dsize);
 
-	if (tdb_write(tdb, rec_ptr, p, sizeof(rec)+key.dsize+dbuf.dsize) == -1)
+	if (tdb_write(tdb, rec_ptr, p, (tdb_len)(sizeof(rec)+key.dsize+dbuf.dsize)) == -1)
 		goto fail;
 
 	free(p); 
@@ -1195,7 +1195,7 @@ TDB_CONTEXT *tdb_open(char *name, int hash_size, int tdb_flags,
 
             /* map the database and fill in the return structure */
             tdb.name = (char *)strdup(name);
-            tdb.map_size = st.st_size;
+            tdb.map_size = (tdb_len)st.st_size;
         }
 
         tdb.locked = (int *)calloc(tdb.header.hash_size+1, 

@@ -1,0 +1,2 @@
+g/res = objc_msgSendSuper(\&super,/s/res = objc_msgSendSuper(\&super,/res = ((id (*)(struct objc_super *, SEL, NSDecimal))objc_msgSendSuper)(\&super,/
+w

@@ -72,7 +72,7 @@ LayoutUnit RenderMathMLFraction::defaultLineThickness() const
 {
     const auto& primaryFont = style().fontCascade().primaryFont();
     if (const auto* mathData = primaryFont.mathData())
-        return mathData->getMathConstant(primaryFont, OpenTypeMathData::FractionRuleThickness);
+        return LayoutUnit(mathData->getMathConstant(primaryFont, OpenTypeMathData::FractionRuleThickness));
     return ruleThicknessFallback();
 }
 
@@ -248,6 +248,8 @@ void RenderMathMLFraction::layoutBlock(bool relayoutChildren, LayoutUnit)
 
     layoutPositionedObjects(relayoutChildren);
 
+    updateScrollInfoAfterLayout();
+
     clearNeedsLayout();
 }
 
@@ -265,7 +267,7 @@ void RenderMathMLFraction::paint(PaintInfo& info, const LayoutPoint& paintOffset
     info.context().setStrokeThickness(thickness);
     info.context().setStrokeStyle(SolidStroke);
     info.context().setStrokeColor(style().visitedDependentColorWithColorFilter(CSSPropertyColor));
-    info.context().drawLine(adjustedPaintOffset, roundedIntPoint(LayoutPoint(adjustedPaintOffset.x() + logicalWidth(), adjustedPaintOffset.y())));
+    info.context().drawLine(adjustedPaintOffset, roundedIntPoint(LayoutPoint(adjustedPaintOffset.x() + logicalWidth(), LayoutUnit(adjustedPaintOffset.y()))));
 }
 
 Optional<int> RenderMathMLFraction::firstLineBaseline() const

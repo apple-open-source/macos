@@ -26,7 +26,7 @@
 #include "config.h"
 #import "WebItemProviderPasteboard.h"
 
-#if ENABLE(DATA_INTERACTION) || PLATFORM(IOSMAC)
+#if ENABLE(DATA_INTERACTION)
 
 #import <Foundation/NSItemProvider.h>
 #import <Foundation/NSProgress.h>
@@ -34,17 +34,13 @@
 #import <UIKit/NSItemProvider+UIKitAdditions.h>
 #import <UIKit/UIColor.h>
 #import <UIKit/UIImage.h>
-#import <WebCore/FileSystem.h>
 #import <WebCore/Pasteboard.h>
+#import <pal/ios/UIKitSoftLink.h>
 #import <pal/spi/ios/UIKitSPI.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/FileSystem.h>
 #import <wtf/OSObjectPtr.h>
 #import <wtf/RetainPtr.h>
-#import <wtf/SoftLinking.h>
-
-SOFT_LINK_FRAMEWORK(UIKit)
-SOFT_LINK_CLASS(UIKit, UIColor)
-SOFT_LINK_CLASS(UIKit, UIImage)
 
 typedef void(^ItemProviderDataLoadCompletionHandler)(NSData *, NSError *);
 typedef void(^ItemProviderFileLoadCompletionHandler)(NSURL *, BOOL, NSError *);
@@ -297,7 +293,7 @@ static BOOL typeConformsToTypes(NSString *type, NSArray *conformsToTypes)
         block([self itemAtIndex:index], index);
 }
 
-#if !PLATFORM(IOSMAC)
+#if !PLATFORM(MACCATALYST)
 static UIPreferredPresentationStyle uiPreferredPresentationStyle(WebPreferredPresentationStyle style)
 {
     switch (style) {
@@ -323,7 +319,7 @@ static UIPreferredPresentationStyle uiPreferredPresentationStyle(WebPreferredPre
     for (id <WebItemProviderRegistrar> representation in _representations.get())
         [representation registerItemProvider:itemProvider.get()];
     [itemProvider setSuggestedName:self.suggestedName];
-#if !PLATFORM(IOSMAC)
+#if !PLATFORM(MACCATALYST)
     [itemProvider setPreferredPresentationSize:self.preferredPresentationSize];
     [itemProvider setPreferredPresentationStyle:uiPreferredPresentationStyle(self.preferredPresentationStyle)];
     [itemProvider setTeamData:self.teamData];
@@ -387,7 +383,7 @@ static UIPreferredPresentationStyle uiPreferredPresentationStyle(WebPreferredPre
     if ([_itemProvider web_containsFileURLAndFileUploadContent])
         return YES;
 
-#if PLATFORM(IOSMAC)
+#if PLATFORM(MACCATALYST)
     return NO;
 #else
     return [_itemProvider preferredPresentationStyle] != UIPreferredPresentationStyleInline;
@@ -491,11 +487,6 @@ static UIPreferredPresentationStyle uiPreferredPresentationStyle(WebPreferredPre
     _supportedTypeIdentifiers = types;
 }
 
-- (NSArray<NSString *> *)pasteboardTypesByFidelityForItemAtIndex:(NSUInteger)index
-{
-    return [self itemProviderAtIndex:index].registeredTypeIdentifiers ?: @[ ];
-}
-
 - (NSArray<NSString *> *)pasteboardTypes
 {
     NSMutableSet<NSString *> *allTypes = [NSMutableSet set];
@@ -579,7 +570,7 @@ static UIPreferredPresentationStyle uiPreferredPresentationStyle(WebPreferredPre
 
 static NSArray<Class<NSItemProviderReading>> *allLoadableClasses()
 {
-    return @[ [getUIColorClass() class], [getUIImageClass() class], [NSURL class], [NSString class], [NSAttributedString class] ];
+    return @[ [PAL::getUIColorClass() class], [PAL::getUIImageClass() class], [NSURL class], [NSString class], [NSAttributedString class] ];
 }
 
 static Class classForTypeIdentifier(NSString *typeIdentifier, NSString *&outTypeIdentifierToLoad)
@@ -673,7 +664,7 @@ static Class classForTypeIdentifier(NSString *typeIdentifier, NSString *&outType
 {
     NSInteger numberOfFiles = 0;
     for (NSItemProvider *itemProvider in _itemProviders.get()) {
-#if !PLATFORM(IOSMAC)
+#if !PLATFORM(MACCATALYST)
         // First, check if the source has explicitly indicated that this item should or should not be treated as an attachment.
         if (itemProvider.preferredPresentationStyle == UIPreferredPresentationStyleInline)
             continue;
@@ -694,12 +685,12 @@ static NSURL *linkTemporaryItemProviderFilesToDropStagingDirectory(NSURL *url, N
 {
     static NSString *defaultDropFolderName = @"folder";
     static NSString *defaultDropFileName = @"file";
-    static NSString *dataInteractionDirectoryPrefix = @"data-interaction";
+    static NSString *droppedDataDirectoryPrefix = @"dropped-data";
     if (!url)
         return nil;
 
-    NSString *temporaryDataInteractionDirectory = WebCore::FileSystem::createTemporaryDirectory(dataInteractionDirectoryPrefix);
-    if (!temporaryDataInteractionDirectory)
+    NSString *temporaryDropDataDirectory = FileSystem::createTemporaryDirectory(droppedDataDirectoryPrefix);
+    if (!temporaryDropDataDirectory)
         return nil;
 
     NSURL *destination = nil;
@@ -712,7 +703,7 @@ static NSURL *linkTemporaryItemProviderFilesToDropStagingDirectory(NSURL *url, N
     if (![suggestedName containsString:@"."] && !isFolder)
         suggestedName = [suggestedName stringByAppendingPathExtension:url.pathExtension];
 
-    destination = [NSURL fileURLWithPath:[temporaryDataInteractionDirectory stringByAppendingPathComponent:suggestedName]];
+    destination = [NSURL fileURLWithPath:[temporaryDropDataDirectory stringByAppendingPathComponent:suggestedName]];
     return [fileManager linkItemAtURL:url toURL:destination error:nil] ? destination : nil;
 }
 
@@ -868,4 +859,4 @@ static NSURL *linkTemporaryItemProviderFilesToDropStagingDirectory(NSURL *url, N
 
 @end
 
-#endif // ENABLE(DATA_INTERACTION) || PLATFORM(IOSMAC)
+#endif // ENABLE(DATA_INTERACTION)

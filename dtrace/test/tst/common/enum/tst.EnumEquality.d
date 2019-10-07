@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.EnumEquality.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Test the identifiers in different D enumerations at same position for

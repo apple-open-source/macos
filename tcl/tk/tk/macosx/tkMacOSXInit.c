@@ -22,6 +22,9 @@
 #include <sys/utsname.h>
 #include <dlfcn.h>
 #include <objc/objc-auto.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 static char tkLibPath[PATH_MAX + 1] = "";
 
@@ -334,12 +337,16 @@ TkpInit(
 	    close(1);
 	}
 
+	char *silenceDeprecationOption = getenv("TK_SILENCE_DEPRECATION");
+	char showDeprecationFlag = (silenceDeprecationOption == NULL || strcmp(silenceDeprecationOption, "1") != 0);
+	const char *deprecationWarningMessage = "The system version of Tk is deprecated and may be removed in a future release. Please don't rely on it. Set TK_SILENCE_DEPRECATION=1 to suppress this warning.";
+	const char *deprecationWarningTitle = "DEPRECATION WARNING";
+
 	/*
 	 * If we don't have a TTY and stdin is a special character file of
 	 * length 0, (e.g. /dev/null, which is what Finder sets when double
 	 * clicking Wish) then use the Tk based console interpreter.
 	 */
-
 	if (getenv("TK_CONSOLE") ||
 		(!isatty(0) && (fstat(0, &st) ||
 		(S_ISCHR(st.st_mode) && st.st_blocks == 0)))) {
@@ -365,6 +372,12 @@ TkpInit(
 	    if (Tk_CreateConsoleWindow(interp) == TCL_ERROR) {
 		return TCL_ERROR;
 	    }
+
+	    if (showDeprecationFlag) {
+	    	TkpDisplayWarning(deprecationWarningMessage, deprecationWarningTitle);
+	    }
+	} else if (showDeprecationFlag && isatty(STDERR_FILENO)) {
+		fprintf(stderr, "%s: %s\n", deprecationWarningTitle, deprecationWarningMessage);
 	}
     }
 

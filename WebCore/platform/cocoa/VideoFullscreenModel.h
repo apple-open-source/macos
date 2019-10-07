@@ -34,6 +34,7 @@
 #include "MediaPlayerEnums.h"
 #include "PlaybackSessionModel.h"
 #include <wtf/CompletionHandler.h>
+#include <wtf/WeakPtr.h>
 
 #if PLATFORM(IOS_FAMILY)
 OBJC_CLASS AVPlayerViewController;
@@ -82,6 +83,7 @@ public:
     virtual void failedToEnterPictureInPicture() { }
     virtual void willExitPictureInPicture() { }
     virtual void didExitPictureInPicture() { }
+    virtual void modelDestroyed() { }
 };
 
 WEBCORE_EXPORT bool supportsPictureInPicture();

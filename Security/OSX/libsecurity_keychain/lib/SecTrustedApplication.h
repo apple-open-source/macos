@@ -2,14 +2,14 @@
  * Copyright (c) 2002-2004,2011-2012,2014 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -56,7 +56,9 @@ CFTypeID SecTrustedApplicationGetTypeID(void);
     @param app On return, a pointer to the trusted application reference.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecTrustedApplicationCreateFromPath(const char * __nullable path, SecTrustedApplicationRef * __nonnull CF_RETURNS_RETAINED app) API_UNAVAILABLE(ios);
+OSStatus SecTrustedApplicationCreateFromPath(const char * __nullable path, SecTrustedApplicationRef * __nonnull CF_RETURNS_RETAINED app)
+    API_DEPRECATED("No longer supported", macos(10.0, 10.15))
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
 	@function SecTrustedApplicationCopyData
@@ -65,7 +67,9 @@ OSStatus SecTrustedApplicationCreateFromPath(const char * __nullable path, SecTr
 	@param data On return, a pointer to a data reference of the trusted application.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecTrustedApplicationCopyData(SecTrustedApplicationRef appRef, CFDataRef * __nonnull CF_RETURNS_RETAINED data) API_UNAVAILABLE(ios);
+OSStatus SecTrustedApplicationCopyData(SecTrustedApplicationRef appRef, CFDataRef * __nonnull CF_RETURNS_RETAINED data)
+    API_DEPRECATED("No longer supported", macos(10.0, 10.15))
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
 	@function SecTrustedApplicationSetData
@@ -74,7 +78,9 @@ OSStatus SecTrustedApplicationCopyData(SecTrustedApplicationRef appRef, CFDataRe
 	@param data A reference to the data to set in the trusted application.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecTrustedApplicationSetData(SecTrustedApplicationRef appRef, CFDataRef data) API_UNAVAILABLE(ios);
+OSStatus SecTrustedApplicationSetData(SecTrustedApplicationRef appRef, CFDataRef data)
+    API_DEPRECATED("No longer supported", macos(10.0, 10.15))
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 CF_ASSUME_NONNULL_END
 

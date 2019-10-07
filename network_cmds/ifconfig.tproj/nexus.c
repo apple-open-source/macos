@@ -60,7 +60,7 @@ static void
 nexus_status(int s)
 {
 	struct if_nexusreq	ifnr;
-	uuid_string_t		multistack;
+	uuid_string_t		flowswitch;
 	uuid_string_t		netif;
 
 	if (!verbose) {
@@ -77,9 +77,9 @@ nexus_status(int s)
 	}
 	uuid_unparse_upper(ifnr.ifnr_netif, netif);
 	printf("\tnetif: %s\n", netif);
-	if (uuid_is_null(ifnr.ifnr_multistack) == 0) {
-		uuid_unparse_upper(ifnr.ifnr_multistack, multistack);
-		printf("\tmultistack: %s\n", multistack);
+	if (uuid_is_null(ifnr.ifnr_flowswitch) == 0) {
+		uuid_unparse_upper(ifnr.ifnr_flowswitch, flowswitch);
+		printf("\tflowswitch: %s\n", flowswitch);
 	}
 	return;
 }

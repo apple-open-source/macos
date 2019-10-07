@@ -1,5 +1,5 @@
 --TEST--
-SplFileObject::fflush function - basic test 
+SplFileObject::fflush function - basic test
 --FILE--
 <?php
 /*
@@ -33,6 +33,6 @@ $obj = New SplFileObject("SPLtest://ftruncate_test");
 var_dump($obj->fflush());
 
 ?>
---EXPECTF--
+--EXPECT--
 bool(true)
 bool(false)

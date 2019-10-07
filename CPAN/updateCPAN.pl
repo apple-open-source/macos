@@ -22,8 +22,8 @@ use Getopt::Long ();
 use IO::File;
 use Proc::Reliable;
 
-my $FileCurrent = '5.18.inc';
-my @FilePreviousList = qw(5.16.inc);
+my $FileCurrent = '5.28.inc';
+my @FilePreviousList = qw(5.18.inc);
 my $URLprefix = 'http://search.cpan.org/CPAN/authors/id';
 
 my $download;

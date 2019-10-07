@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2000-2004,2011,2014 Apple Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,13 +17,13 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 /*!
 @header SecPassword
-	SecPassword implements logic to use the system facilities for acquiring a password, 
+	SecPassword implements logic to use the system facilities for acquiring a password,
     optionally stored and retrieved from the user's keychain.
  */
 
@@ -63,30 +63,30 @@ enum {
             Use CFRelease on the returned SecPasswordRef when it is no longer needed.
     @param searchAttrList (in/opt) The list of search attributes for the item.
 	@param itemAttrList (in/opt) A list of attributes which will be used for item creation.
-    @param itemRef (out) On return, a pointer to a password reference.  Release this by calling the CFRelease function. 
+    @param itemRef (out) On return, a pointer to a password reference.  Release this by calling the CFRelease function.
  */
-OSStatus SecGenericPasswordCreate(SecKeychainAttributeList *searchAttrList, SecKeychainAttributeList *itemAttrList, SecPasswordRef *itemRef) API_UNAVAILABLE(ios);
+OSStatus SecGenericPasswordCreate(SecKeychainAttributeList *searchAttrList, SecKeychainAttributeList *itemAttrList, SecPasswordRef *itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
     @function SecPasswordAction
     @abstract Get the password for a SecPassword, either from the user or the keychain and return it.
     Use SecKeychainItemFreeContent to free the data.
- 
+
 	@param itemRef An itemRef previously obtained from SecGenericPasswordCreate.
     @param message Message to display to the user as a CFString or nil for a default message.
         (future extension accepts CFDictionary for other hints, icon, secaccess)
     @param flags (in) The mode of operation.  See the flags documentation above.
     @param length (out) The length of the buffer pointed to by data.
 	@param data A pointer to a buffer containing the data to store.
- 
+
  */
-OSStatus SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt32 *length, const void **data) API_UNAVAILABLE(ios);
+OSStatus SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt32 *length, const void **data) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
     @function SecPasswordSetInitialAccess
-    @abstract Set the initial access ref.  Only used when a password is first added to the keychain.  
+    @abstract Set the initial access ref.  Only used when a password is first added to the keychain.
  */
-OSStatus SecPasswordSetInitialAccess(SecPasswordRef itemRef, SecAccessRef accessRef) API_UNAVAILABLE(ios);
+OSStatus SecPasswordSetInitialAccess(SecPasswordRef itemRef, SecAccessRef accessRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 #if defined(__cplusplus)
 }

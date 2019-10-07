@@ -20,8 +20,8 @@ if (PHP_INT_SIZE != 8) die('skip 64-bit only');
 echo "*** Testing mb_stripos() : usage variations ***\n";
 
 // Initialise function arguments not being substituted
-$needle = b'A';
-$haystack = b'string_val';
+$needle = 'A';
+$haystack = 'string_val';
 $encoding = 'utf-8';
 
 //get an unset variable
@@ -71,7 +71,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*18*/ "",
        '',
@@ -80,7 +80,7 @@ $inputs = array(
 /*20*/ "string",
        'string',
        $heredoc,
-       
+
        // object data
 /*23*/ new classA(),
 
@@ -170,32 +170,32 @@ int(8)
 
 -- Iteration 18 --
 
-Warning: mb_stripos() expects parameter 3 to be integer, string given in %s on line %d
+Warning: mb_stripos() expects parameter 3 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 19 --
 
-Warning: mb_stripos() expects parameter 3 to be integer, string given in %s on line %d
+Warning: mb_stripos() expects parameter 3 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 20 --
 
-Warning: mb_stripos() expects parameter 3 to be integer, string given in %s on line %d
+Warning: mb_stripos() expects parameter 3 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 21 --
 
-Warning: mb_stripos() expects parameter 3 to be integer, string given in %s on line %d
+Warning: mb_stripos() expects parameter 3 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 22 --
 
-Warning: mb_stripos() expects parameter 3 to be integer, string given in %s on line %d
+Warning: mb_stripos() expects parameter 3 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 23 --
 
-Warning: mb_stripos() expects parameter 3 to be integer, object given in %s on line %d
+Warning: mb_stripos() expects parameter 3 to be int, object given in %s on line %d
 NULL
 
 -- Iteration 24 --
@@ -206,6 +206,6 @@ int(8)
 
 -- Iteration 26 --
 
-Warning: mb_stripos() expects parameter 3 to be integer, resource given in %s on line %d
+Warning: mb_stripos() expects parameter 3 to be int, resource given in %s on line %d
 NULL
 Done

@@ -39,7 +39,7 @@
 
 namespace WebCore {
 
-static String cookiesForSession(const NetworkStorageSession& session, const URL&, const URL& url, bool forHTTPHeader)
+static String cookiesForSession(const NetworkStorageSession& session, const URL& firstParty, const URL& url, bool forHTTPHeader)
 {
     StringBuilder cookies;
 
@@ -47,7 +47,7 @@ static String cookiesForSession(const NetworkStorageSession& session, const URL&
     auto searchHTTPOnly = (forHTTPHeader ? WTF::nullopt : Optional<bool> {false});
     auto secure = url.protocolIs("https") ? WTF::nullopt : Optional<bool> {false};
 
-    if (auto result = cookieJarDB.searchCookies(url.string(), searchHTTPOnly, secure, WTF::nullopt)) {
+    if (auto result = cookieJarDB.searchCookies(firstParty, url, searchHTTPOnly, secure, WTF::nullopt)) {
         for (auto& cookie : *result) {
             if (!cookies.isEmpty())
                 cookies.append("; ");
@@ -59,23 +59,21 @@ static String cookiesForSession(const NetworkStorageSession& session, const URL&
     return cookies.toString();
 }
 
-void CookieJarCurl::setCookiesFromDOM(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo&, const URL& url, Optional<uint64_t> frameID, Optional<uint64_t> pageID, const String& value) const
+void CookieJarCurl::setCookiesFromDOM(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo&, const URL& url, Optional<uint64_t> frameID, Optional<PageIdentifier>, const String& value) const
 {
     UNUSED_PARAM(frameID);
-    UNUSED_PARAM(pageID);
-    UNUSED_PARAM(firstParty);
 
     CookieJarDB& cookieJarDB = session.cookieDatabase();
-    cookieJarDB.setCookie(url.string(), value, CookieJarDB::Source::Script);
+    cookieJarDB.setCookie(firstParty, url, value, CookieJarDB::Source::Script);
 }
 
-void CookieJarCurl::setCookiesFromHTTPResponse(const NetworkStorageSession& session, const URL& url, const String& value) const
+void CookieJarCurl::setCookiesFromHTTPResponse(const NetworkStorageSession& session, const URL& firstParty, const URL& url, const String& value) const
 {
     CookieJarDB& cookieJarDB = session.cookieDatabase();
-    cookieJarDB.setCookie(url.string(), value, CookieJarDB::Source::Network);
+    cookieJarDB.setCookie(firstParty, url, value, CookieJarDB::Source::Network);
 }
 
-std::pair<String, bool> CookieJarCurl::cookiesForDOM(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo&, const URL& url, Optional<uint64_t> frameID, Optional<uint64_t> pageID, IncludeSecureCookies) const
+std::pair<String, bool> CookieJarCurl::cookiesForDOM(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo&, const URL& url, Optional<uint64_t> frameID, Optional<PageIdentifier> pageID, IncludeSecureCookies) const
 {
     UNUSED_PARAM(frameID);
     UNUSED_PARAM(pageID);
@@ -84,7 +82,7 @@ std::pair<String, bool> CookieJarCurl::cookiesForDOM(const NetworkStorageSession
     return { cookiesForSession(session, firstParty, url, false), false };
 }
 
-std::pair<String, bool> CookieJarCurl::cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo&, const URL& url, Optional<uint64_t> frameID, Optional<uint64_t> pageID, IncludeSecureCookies) const
+std::pair<String, bool> CookieJarCurl::cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo&, const URL& url, Optional<uint64_t> frameID, Optional<PageIdentifier> pageID, IncludeSecureCookies) const
 {
     UNUSED_PARAM(frameID);
     UNUSED_PARAM(pageID);
@@ -98,18 +96,29 @@ std::pair<String, bool> CookieJarCurl::cookieRequestHeaderFieldValue(const Netwo
     return cookieRequestHeaderFieldValue(session, headerFieldProxy.firstParty, headerFieldProxy.sameSiteInfo, headerFieldProxy.url, headerFieldProxy.frameID, headerFieldProxy.pageID, headerFieldProxy.includeSecureCookies);
 }
 
+void CookieJarCurl::setCookieAcceptPolicy(const NetworkStorageSession& session, CookieAcceptPolicy policy) const
+{
+    auto& cookieJarDB = session.cookieDatabase();
+    cookieJarDB.setAcceptPolicy(policy);
+}
+
+CookieAcceptPolicy CookieJarCurl::cookieAcceptPolicy(const NetworkStorageSession& session) const
+{
+    return session.cookieDatabase().acceptPolicy();
+}
+
 bool CookieJarCurl::cookiesEnabled(const NetworkStorageSession& session) const
 {
     return session.cookieDatabase().isEnabled();
 }
 
-bool CookieJarCurl::getRawCookies(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo&, const URL&, Optional<uint64_t> frameID, Optional<uint64_t> pageID, Vector<Cookie>& rawCookies) const
+bool CookieJarCurl::getRawCookies(const NetworkStorageSession& session, const URL& firstParty, const SameSiteInfo&, const URL& url, Optional<uint64_t> frameID, Optional<PageIdentifier> pageID, Vector<Cookie>& rawCookies) const
 {
     UNUSED_PARAM(frameID);
     UNUSED_PARAM(pageID);
 
     CookieJarDB& cookieJarDB = session.cookieDatabase();
-    if (auto cookies = cookieJarDB.searchCookies(firstParty.string(), WTF::nullopt, WTF::nullopt, WTF::nullopt)) {
+    if (auto cookies = cookieJarDB.searchCookies(firstParty, url, WTF::nullopt, WTF::nullopt, WTF::nullopt)) {
         rawCookies = WTFMove(*cookies);
         return true;
     }

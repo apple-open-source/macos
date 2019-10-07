@@ -100,7 +100,7 @@ __getCapabilities(CFStringRef	interfaceName,
 	Boolean		ok		= FALSE;
 	int		sock		= -1;
 
-	bzero((void *)&ifr, sizeof(ifr));
+	memset((void *)&ifr, 0, sizeof(ifr));
 	if (_SC_cfstring_to_cstring(interfaceName, ifr.ifr_name, sizeof(ifr.ifr_name), kCFStringEncodingASCII) == NULL) {
 		SC_log(LOG_NOTICE, "could not convert interface name");
 		_SCErrorSet(kSCStatusInvalidArgument);
@@ -397,7 +397,7 @@ __copyMediaList(CFStringRef interfaceName)
 	int			sock	= -1;
 
 	ifm = (struct ifmediareq *)CFAllocatorAllocate(NULL, sizeof(struct ifmediareq), 0);
-	bzero((void *)ifm, sizeof(*ifm));
+	memset((void *)ifm, 0, sizeof(*ifm));
 
 	if (_SC_cfstring_to_cstring(interfaceName, ifm->ifm_name, sizeof(ifm->ifm_name), kCFStringEncodingASCII) == NULL) {
 		SC_log(LOG_NOTICE, "could not convert interface name");
@@ -1012,7 +1012,7 @@ SCNetworkInterfaceCopyMTU(SCNetworkInterfaceRef	interface,
 		return FALSE;
 	}
 
-	bzero((void *)&ifr, sizeof(ifr));
+	memset((void *)&ifr, 0, sizeof(ifr));
 	if (_SC_cfstring_to_cstring(interfaceName, ifr.ifr_name, sizeof(ifr.ifr_name), kCFStringEncodingASCII) == NULL) {
 		SC_log(LOG_NOTICE, "could not convert interface name");
 		_SCErrorSet(kSCStatusInvalidArgument);

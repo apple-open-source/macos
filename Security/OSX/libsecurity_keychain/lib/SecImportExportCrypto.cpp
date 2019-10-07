@@ -31,13 +31,12 @@
 #include "Keychains.h"
 #include "Access.h"
 #include "Item.h"
-#include "SecKeyPriv.h"
+#include <Security/SecKeyPriv.h>
 #include "KCEventNotifier.h"
 #include <security_cdsa_utilities/cssmacl.h>
 #include <security_cdsa_utilities/KeySchema.h>
 #include <security_cdsa_utilities/cssmdata.h>
 #include <security_cdsa_utils/cuCdsaUtils.h>
-#include <security_utilities/devrandom.h>
 #include <security_cdsa_client/securestorage.h>
 #include <security_cdsa_client/dlclient.h>
 #include <Security/cssmapi.h>
@@ -395,9 +394,8 @@ OSStatus impExpImportKeyCommon(
 		char *randAscii = (char *)randLabel;
 		uint8 randBinary[SEC_RANDOM_LABEL_LEN / 2];
 		unsigned randBinaryLen = SEC_RANDOM_LABEL_LEN / 2;
-		DevRandomGenerator rng;
-
-		rng.random(randBinary, randBinaryLen);
+        MacOSError::check(SecRandomCopyBytes(kSecRandomDefault, randBinaryLen, randBinary));
+        
 		for(unsigned i=0; i<randBinaryLen; i++) {
 			sprintf(randAscii, "%02X", randBinary[i]);
 			randAscii += 2;

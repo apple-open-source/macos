@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.zerobuf.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *   Test with a bufsize of 0 - should return an error.

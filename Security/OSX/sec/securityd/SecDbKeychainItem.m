@@ -46,6 +46,7 @@
 #include <utilities/der_plist_internal.h>
 #include <utilities/SecCFCCWrappers.h>
 #import "SecDbKeychainItemV7.h"
+#import "SecDbKeychainMetadataKeyStore.h"
 #import "sec_action.h"
 
 #if USE_KEYSTORE
@@ -56,6 +57,8 @@
 #include <securityd/spi.h>
 
 #endif /* USE_KEYSTORE */
+
+#include "OSX/utilities/SecAKSWrappers.h"
 
 pthread_key_t CURRENT_CONNECTION_KEY;
 
@@ -304,10 +307,11 @@ ks_warn_non_device_keybag(void)
 
 bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef access_control, CFDataRef acm_context,
                      CFDictionaryRef secretData, CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef *pBlob, bool useDefaultIV, CFErrorRef *error) {
-    if (CFDictionaryGetCount(secretData) == 0) {
-        secerror("SecDbKeychainItem: encrypting item with no secret data"); // not actually making this an error because it seems this is done frequently by third parties
-    }
+    return ks_encrypt_data_with_backupuuid(keybag, access_control, acm_context, secretData, attributes, authenticated_attributes, pBlob, NULL, useDefaultIV, error);
+}
 
+bool ks_encrypt_data_with_backupuuid(keybag_handle_t keybag, SecAccessControlRef access_control, CFDataRef acm_context,
+                     CFDictionaryRef secretData, CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef *pBlob, CFDataRef *bkUUID, bool useDefaultIV, CFErrorRef *error) {
     if (keybag != KEYBAG_DEVICE) {
         ks_warn_non_device_keybag();
 
@@ -347,6 +351,9 @@ bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef access_control,
             *((uint32_t*)encryptedBlobWithVersion.mutableBytes) = (uint32_t)7;
             memcpy((uint32_t*)encryptedBlobWithVersion.mutableBytes + 1, encryptedBlob.bytes, encryptedBlob.length);
             *pBlob = (__bridge_retained CFDataRef)encryptedBlobWithVersion;
+            if (bkUUID && item.backupUUID) {    // TODO: Failing this should turn into at least a stern warning at some point
+                *bkUUID = (__bridge_retained CFDataRef)[item.backupUUID copy];
+            }
             success = true;
         }
         else {
@@ -442,10 +449,6 @@ bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessContro
                     NSDictionary* secretAttributes = [item secretAttributesWithAcmContext:(__bridge NSData*)acm_context accessControl:access_control callerAccessGroups:(__bridge NSArray*)caller_access_groups error:&localError];
                     if (secretAttributes) {
                         [itemAttributes addEntriesFromDictionary:secretAttributes];
-
-                        if (secretAttributes.count == 0) {
-                            secerror("SecDbKeychainItemV7: item decrypted succussfully, but has no secret data so it's useless"); // not actually making this an error because a bunch of third parties store items with no secret data on purpose
-                        }
                     }
                     else {
                         ok = false;
@@ -978,18 +981,22 @@ bool s3dl_item_from_data(CFDataRef edata, Query *q, CFArrayRef accessGroups,
     require_quiet((ok = ks_decrypt_data(q->q_keybag, kAKSKeyOpDecrypt, &ac, q->q_use_cred_handle, edata, q->q_class,
                                         q->q_caller_access_groups, item, &version, decryptSecretData, keyclass, error)), out);
     if (version < 2) {
+        SecError(errSecDecode, error, CFSTR("version is unexpected: %d"), (int)version);
+        ok = false;
         goto out;
     }
 
     ac_data = SecAccessControlCopyData(ac);
     if (!itemInAccessGroup(*item, accessGroups)) {
-        secerror("items accessGroup %@ not in %@",
+        secerror("items accessGroup '%@' not in %@",
                  CFDictionaryGetValue(*item, kSecAttrAccessGroup),
                  accessGroups);
-        ok = SecError(errSecDecode, error, CFSTR("items accessGroup %@ not in %@"),
-                                                 CFDictionaryGetValue(*item, kSecAttrAccessGroup),
-                                                 accessGroups);
+        // We likely don't want to surface it to clients like this, but this is most accurate
+        SecError(errSecMissingEntitlement, error, CFSTR("item's access group '%@' not in %@"),
+                 CFDictionaryGetValue(*item, kSecAttrAccessGroup), accessGroups);
         CFReleaseNull(*item);
+        ok = false;
+        goto out;
     }
 
     /* AccessControl attribute does not exist in the db, so synthesize it. */
@@ -1214,6 +1221,7 @@ CFTypeRef SecDbKeychainItemCopySHA1(SecDbItemRef item, const SecDbAttr *attr, CF
 
 CFTypeRef SecDbKeychainItemCopyEncryptedData(SecDbItemRef item, const SecDbAttr *attr, CFErrorRef *error) {
     CFDataRef edata = NULL;
+    CFDataRef bkuuid = NULL;
     CFMutableDictionaryRef secretStuff = SecDbItemCopyPListWithMask(item, kSecDbReturnDataFlag, error);
     CFMutableDictionaryRef attributes = SecDbItemCopyPListWithMask(item, kSecDbInCryptoDataFlag, error);
     CFMutableDictionaryRef auth_attributes = SecDbItemCopyPListWithMask(item, kSecDbInAuthenticatedDataFlag, error);
@@ -1230,8 +1238,8 @@ CFTypeRef SecDbKeychainItemCopyEncryptedData(SecDbItemRef item, const SecDbAttr 
                 CFDictionaryRemoveValue(attributes, key);
                 CFDictionaryRemoveValue(auth_attributes, key);
             });
-            
-            if (ks_encrypt_data(item->keybag, access_control, item->credHandle, secretStuff, attributes, auth_attributes, &edata, true, error)) {
+
+            if (ks_encrypt_data_with_backupuuid(item->keybag, access_control, item->credHandle, secretStuff, attributes, auth_attributes, &edata, &bkuuid, true, error)) {
                 item->_edataState = kSecDbItemEncrypting;
             } else if (!error || !*error || CFErrorGetCode(*error) != errSecAuthNeeded || !CFEqualSafe(CFErrorGetDomain(*error), kSecErrorDomain) ) {
                 seccritical("ks_encrypt_data (db): failed: %@", error ? *error : (CFErrorRef)CFSTR(""));
@@ -1242,8 +1250,18 @@ CFTypeRef SecDbKeychainItemCopyEncryptedData(SecDbItemRef item, const SecDbAttr 
         CFReleaseNull(attributes);
         CFReleaseNull(auth_attributes);
         CFReleaseNull(sha1);
+        if (bkuuid) {
+            // "data" is defined first in the schema so called first. The UUID will therefore be in the cache when ForEach gets to it
+            CFErrorRef localError = NULL;
+            SecDbItemSetValueWithName(item, CFSTR("backupUUID"), bkuuid, &localError);
+            if (localError) {
+                // Don't want to propagate this. It's bad but should be handled in the manager and not interrupt production
+                secerror("Unable to wrap keychain item to backup: %@", localError);
+                CFReleaseNull(localError);
+                CFReleaseNull(bkuuid);
+            }
+        }
     }
-
     return edata;
 }
 
@@ -1520,7 +1538,5 @@ exit:
 }
 
 void SecDbResetMetadataKeys(void) {
-#if !TARGET_OS_BRIDGE
     [SecDbKeychainMetadataKeyStore resetSharedStore];
-#endif
 }

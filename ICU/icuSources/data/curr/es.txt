@@ -962,6 +962,10 @@ es{
             "UYU",
             "peso uruguayo",
         }
+        UYW{
+            "UYW",
+            "unidad previsional uruguayo",
+        }
         UZS{
             "UZS",
             "sum",
@@ -1063,7 +1067,7 @@ es{
             "código reservado para pruebas",
         }
         XXX{
-            "XXX",
+            "¤",
             "moneda desconocida",
         }
         YDD{
@@ -1150,7 +1154,6 @@ es{
         FKP{"£"}
         GBP{"£"}
         GEL{"₾"}
-        GIP{"£"}
         GNF{"FG"}
         GTQ{"Q"}
         GYD{"$"}
@@ -1165,7 +1168,6 @@ es{
         JMD{"$"}
         JPY{"¥"}
         KHR{"៛"}
-        KMF{"CF"}
         KPW{"₩"}
         KRW{"₩"}
         KYD{"$"}
@@ -2104,6 +2106,10 @@ es{
             one{"peso uruguayo"}
             other{"pesos uruguayos"}
         }
+        UYW{
+            one{"unidad previsional uruguayo"}
+            other{"unidades previsionales uruguayos"}
+        }
         UZS{
             one{"sum"}
             other{"sums"}
@@ -2221,5 +2227,5 @@ es{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
 }

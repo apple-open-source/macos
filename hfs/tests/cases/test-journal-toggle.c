@@ -1,6 +1,6 @@
 #include <TargetConditionals.h>
 
-#if !TARGET_OS_EMBEDDED
+#if !TARGET_OS_IPHONE
 
 #include <unistd.h>
 #include <pthread.h>
@@ -62,4 +62,4 @@ int run_journal_toggle(__unused test_ctx_t *ctx)
 	return 0;
 }
 
-#endif // !TARGET_OS_EMBEDDED
+#endif // !TARGET_OS_IPHONE

@@ -1,4 +1,3 @@
-/* $Header: /p/tcsh/cvsroot/tcsh/sh.exec.c,v 3.79 2011/02/25 23:58:34 christos Exp $ */
 /*
  * sh.exec.c: Search, find, and execute a command!
  */
@@ -31,9 +30,6 @@
  * SUCH DAMAGE.
  */
 #include "sh.h"
-
-RCSID("$tcsh: sh.exec.c,v 3.79 2011/02/25 23:58:34 christos Exp $")
-
 #include "tc.h"
 #include "tw.h"
 #ifdef WINNT_NATIVE
@@ -606,9 +602,10 @@ execash(Char **t, struct command *kp)
     cleanup_push(&state, execash_cleanup);
 
     /*
-     * Decrement the shell level
+     * Decrement the shell level, if not in a subshell
      */
-    shlvl(-1);
+    if (mainpid == getpid())
+	shlvl(-1);
 #ifdef WINNT_NATIVE
     __nt_really_exec=1;
 #endif /* WINNT_NATIVE */
@@ -1070,6 +1067,9 @@ dowhere(Char **v, struct command *c)
 {
     int found = 1;
     USE(c);
+
+    if (adrof(STRautorehash))
+	dohash(NULL, NULL);
     for (v++; *v; v++)
 	found &= find_cmd(*v, 1);
     /* Make status nonzero if any command is not found. */
@@ -1166,7 +1166,11 @@ retry:
 		return rval;
 	}
     }
-    if (adrof(STRautorehash) && !rehashed && havhash) {
+    /*
+     * If we are printing, we are being called from dowhere() which it 
+     * has rehashed already
+     */
+    if (!prt && adrof(STRautorehash) && !rehashed && havhash) {
 	dohash(NULL, NULL);
 	rehashed = 1;
 	goto retry;

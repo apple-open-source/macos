@@ -22,14 +22,14 @@
  */
 
 
-#include <Security/SecureObjectSync/SOSManifest.h>
-#include <Security/SecureObjectSync/SOSMessage.h>
+#include "keychain/SecureObjectSync/SOSManifest.h"
+#include "keychain/SecureObjectSync/SOSMessage.h"
 
 #include "secd_regressions.h"
 
 #include <utilities/SecCFWrappers.h>
 #include <utilities/der_plist.h>
-#include <Security/SecureObjectSync/SOSDigestVector.h>
+#include "keychain/SecureObjectSync/SOSDigestVector.h"
 #include <securityd/SecDbItem.h>
 
 static void testNullMessage(uint64_t msgid)

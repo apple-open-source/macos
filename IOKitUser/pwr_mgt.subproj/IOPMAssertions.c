@@ -1343,6 +1343,46 @@ exit:
     }
     return return_code;    
 }
+/******************************************************************************
+ * IOPMAssertionSetProcessState
+ *
+ ******************************************************************************/
+IOReturn IOPMAssertionSetProcessState(pid_t pid, IOPMAssertionProcessStateType state)
+{
+    xpc_connection_t        connection = NULL;
+    xpc_object_t            msg = NULL;
+
+    connection = xpc_connection_create_mach_service(POWERD_XPC_ID,
+                                                    dispatch_get_global_queue(DISPATCH_QUEUE_CONCURRENT, 0), 0);
+
+    if (!connection) {
+        return kIOReturnError;
+    }
+
+    xpc_connection_set_target_queue(connection,
+                                    dispatch_get_global_queue(DISPATCH_QUEUE_CONCURRENT, 0));
+
+    xpc_connection_set_event_handler(connection,
+                                     ^(xpc_object_t e __unused) { });
+
+    msg = xpc_dictionary_create(NULL, NULL, 0);
+    if(!msg) {
+        xpc_release(connection);
+        os_log_error(OS_LOG_DEFAULT, "Failed to create xpc msg object\n");
+        return kIOReturnError;
+    }
+
+    os_log_debug(OS_LOG_DEFAULT, "Setting Assertion State for PID %d to %d\n", pid, state);
+
+    xpc_dictionary_set_uint64(msg, "pid", pid);
+    xpc_dictionary_set_uint64(msg, kAssertionSetStateMsg, state);
+    xpc_connection_resume(connection);
+    xpc_connection_send_message(connection, msg);
+
+    xpc_release(msg);
+    xpc_release(connection);
+    return kIOReturnSuccess;
+}
 
 /******************************************************************************
  * IOPMAssertionSetTimeout
@@ -1411,23 +1451,24 @@ exit:
 }
 
 /******************************************************************************
- * IOPMAssertionDeclareSystemActivity
+ * IOPMAssertionDeclareSystemActivityWithProperties
  *
  ******************************************************************************/
-IOReturn IOPMAssertionDeclareSystemActivity(
-                                            CFStringRef             AssertionName,
-                                            IOPMAssertionID         *AssertionID,
-                                            IOPMSystemState         *SystemState)
+IOReturn IOPMAssertionDeclareSystemActivityWithProperties(
+    CFMutableDictionaryRef         assertionProperties,
+    IOPMAssertionID                *AssertionID,
+    IOPMSystemState                *SystemState)
 {
     IOReturn        err;
     IOReturn        return_code = kIOReturnError;
     mach_port_t     pm_server   = MACH_PORT_NULL;
     kern_return_t   kern_result = KERN_SUCCESS;
 
-    CFMutableDictionaryRef  properties      = NULL;
-    CFDataRef               flattenedProps  = NULL;
+    CFDataRef   flattenedProps  = NULL;
+    CFStringRef assertionTypeString = NULL;
+    CFStringRef name = NULL;
 
-    if (!AssertionName || !AssertionID || !SystemState) {
+    if (!assertionProperties || !AssertionID || !SystemState) {
         return_code = kIOReturnBadArgument;
         goto exit;
     }
@@ -1438,16 +1479,24 @@ IOReturn IOPMAssertionDeclareSystemActivity(
         goto exit;
     }
 
-    properties = CFDictionaryCreateMutable(0, 1, &kCFTypeDictionaryKeyCallBacks, 
-                                           &kCFTypeDictionaryValueCallBacks);
-    CFDictionarySetValue(properties, kIOPMAssertionNameKey, AssertionName);
-
-
-    if (collectBackTrace) {
-        saveBackTrace(properties);
+    name = CFDictionaryGetValue(assertionProperties, kIOPMAssertionNameKey);
+    if (!isA_CFString(name)) {
+        return_code = kIOReturnBadArgument;
+        goto exit;
     }
 
-    flattenedProps = CFPropertyListCreateData(0, properties, 
+    assertionTypeString = CFDictionaryGetValue(assertionProperties, kIOPMAssertionTypeKey);
+    /* Caller is not allowed to specify the AssertionType */
+    if (isA_CFString(assertionTypeString)) {
+        return_code = kIOReturnBadArgument;
+        goto exit;
+    }
+
+    if (collectBackTrace) {
+        saveBackTrace(assertionProperties);
+    }
+
+    flattenedProps = CFPropertyListCreateData(0, assertionProperties,
                                               kCFPropertyListBinaryFormat_v1_0, 0, NULL /* error */);
     if (!flattenedProps) {
         return_code = kIOReturnBadArgument;
@@ -1470,12 +1519,41 @@ exit:
     if (flattenedProps)
         CFRelease(flattenedProps);
 
-    if (properties)
-        CFRelease(properties);
-
     if (MACH_PORT_NULL != pm_server) {
         pm_connect_close(pm_server);
     }
+
+    return return_code;
+}
+
+/******************************************************************************
+ * IOPMAssertionDeclareSystemActivity
+ *
+ ******************************************************************************/
+IOReturn IOPMAssertionDeclareSystemActivity(
+                                            CFStringRef             AssertionName,
+                                            IOPMAssertionID         *AssertionID,
+                                            IOPMSystemState         *SystemState)
+{
+    IOReturn                return_code = kIOReturnError;
+    CFMutableDictionaryRef  properties  = NULL;
+
+    if (!AssertionName || !AssertionID || !SystemState) {
+        return_code = kIOReturnBadArgument;
+        goto exit;
+    }
+
+    properties = CFDictionaryCreateMutable(0, 1, &kCFTypeDictionaryKeyCallBacks,
+                                           &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(properties, kIOPMAssertionNameKey, AssertionName);
+
+    return_code = IOPMAssertionDeclareSystemActivityWithProperties(properties,
+                                                                   AssertionID,
+                                                                   SystemState);
+
+exit:
+    if (properties)
+        CFRelease(properties);
 
     return return_code;
 

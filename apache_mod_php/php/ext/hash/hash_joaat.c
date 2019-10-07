@@ -16,8 +16,6 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id$ */
-
 /* Implements Jenkins's one-at-a-time hashing algorithm as presented on
  * http://www.burtleburtle.net/bob/hash/doobs.html.
  */
@@ -32,7 +30,8 @@ const php_hash_ops php_hash_joaat_ops = {
 	(php_hash_copy_func_t) php_hash_copy,
 	4,
 	4,
-	sizeof(PHP_JOAAT_CTX)
+	sizeof(PHP_JOAAT_CTX),
+	0
 };
 
 PHP_HASH_API void PHP_JOAATInit(PHP_JOAAT_CTX *context)

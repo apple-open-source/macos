@@ -5,10 +5,9 @@
 
 #import <Foundation/Foundation.h>
 #import <IOKit/hid/IOHIDEvent.h>
+#import <HID/HIDEvent.h>
 
-@interface HIDEvent : NSObject {
-IOHIDEventRef eventRef;
-}
+@interface HIDEvent (HIDUtil)
 
 @property               NSNumber *timestamp;
 @property               NSNumber *sender;
@@ -17,436 +16,510 @@ IOHIDEventRef eventRef;
 @property               NSNumber *flags;
 @property (readonly)    NSString *typestr;
 
-- (id)initWithEvent:(IOHIDEventRef)event;
-
 @end
 
-HIDEvent *createHIDEvent(IOHIDEventRef event);
+@interface HIDEvent (HIDUtilVendorDefinedEvent)
 
-@interface HIDVendorDefinedEvent : HIDEvent
+@property (readonly) NSNumber *vendorDefinedDataLength;
+@property NSNumber *vendorDefinedVersion;
+@property NSNumber *vendorDefinedUsage;
+@property (readonly) uint8_t *vendorDefinedData;
+@property NSNumber *vendorDefinedUsagePage;
 
-@property (readonly) NSNumber *length;
-@property NSNumber *version;
-@property NSNumber *usage;
-@property (readonly) uint8_t *data;
-@property NSNumber *usagepage;
-
-@end
-
-
-@interface HIDScaleEvent : HIDEvent
-
-@property NSNumber *z;
-@property NSNumber *x;
-@property NSNumber *y;
+- (NSString *)vendorDefinedDescription;
 
 @end
 
 
-@interface HIDSymbolicHotKeyEvent : HIDEvent
+@interface HIDEvent (HIDUtilScaleEvent)
 
-@property NSNumber *value;
-@property NSNumber *iscgsevent;
+@property NSNumber *scaleZ;
+@property NSNumber *scaleX;
+@property NSNumber *scaleY;
 
-@end
-
-
-@interface HIDTemperatureEvent : HIDEvent
-
-@property NSNumber *level;
+- (NSString *)scaleDescription;
 
 @end
 
 
-@interface HIDAccelerometerEvent : HIDEvent
+@interface HIDEvent (HIDUtilSymbolicHotKeyEvent)
 
-@property NSNumber *y;
-@property NSNumber *x;
-@property NSNumber *z;
-@property NSNumber *type;
-@property NSNumber *subtype;
-@property NSNumber *sequence;
+@property NSNumber *symbolicHotKeyValue;
+@property NSNumber *symbolicHotKeyIsCGSEvent;
+
+- (NSString *)symbolicHotKeyDescription;
 
 @end
 
 
-@interface HIDProgressEvent : HIDEvent
+@interface HIDEvent (HIDUtilTemperatureEvent)
 
-@property NSNumber *level;
-@property NSNumber *eventtype;
+@property NSNumber *temperatureLevel;
 
-@end
-
-
-@interface HIDGenericGestureEvent : HIDEvent
-
-@property NSNumber *typetapcount;
-@property (readonly) NSNumber *type;
-@property NSNumber *typeswipeprogress;
+- (NSString *)temperatureDescription;
 
 @end
 
 
-@interface HIDNULLEvent : HIDEvent
+@interface HIDEvent (HIDUtilAccelerometerEvent)
 
-@property NSNumber *relative;
-@property NSNumber *centerorigin;
-@property NSNumber *builtin;
-@property NSNumber *pixelunits;
-@property NSNumber *collection;
+@property NSNumber *accelerometerY;
+@property NSNumber *accelerometerX;
+@property NSNumber *accelerometerZ;
+@property NSNumber *accelerometerType;
+@property NSNumber *accelerometerSubType;
+@property NSNumber *accelerometerSequence;
 
-@end
-
-
-@interface HIDAmbientLightSensorEvent : HIDEvent
-
-@property NSNumber *colorspace;
-@property NSNumber *colorcomponent2;
-@property NSNumber *colorcomponent1;
-@property NSNumber *colorcomponent0;
-@property NSNumber *rawchannel0;
-@property NSNumber *rawchannel1;
-@property NSNumber *rawchannel2;
-@property NSNumber *rawchannel3;
-@property NSNumber *level;
-@property NSNumber *illuminance;
-@property NSNumber *brightnesschanged;
-@property NSNumber *colortemperature;
+- (NSString *)accelerometerDescription;
 
 @end
 
 
-@interface HIDPowerEvent : HIDEvent
+@interface HIDEvent (HIDUtilProgressEvent)
 
-@property NSNumber *type;
-@property NSNumber *subtype;
-@property NSNumber *measurement;
+@property NSNumber *progressLevel;
+@property NSNumber *progressEventType;
 
-@end
-
-
-@interface HIDForceEvent : HIDEvent
-
-@property NSNumber *stagepressure;
-@property NSNumber *stage;
-@property NSNumber *progress;
-@property NSNumber *behavior;
+- (NSString *)progressDescription;
 
 @end
 
 
-@interface HIDMotionGestureEvent : HIDEvent
+@interface HIDEvent (HIDUtilGenericGestureEvent)
 
-@property NSNumber *progress;
-@property NSNumber *gesturetype;
+@property NSNumber *genericGestureTypeTapCount;
+@property (readonly) NSNumber *genericGestureType;
+@property NSNumber *genericGestureTypeSwipeProgress;
 
-@end
-
-
-@interface HIDGameControllerEvent : HIDEvent
-
-@property NSNumber *joystickaxisx;
-@property NSNumber *joystickaxisy;
-@property NSNumber *type;
-@property NSNumber *directionpadright;
-@property NSNumber *shoulderbuttonr1;
-@property NSNumber *facebuttona;
-@property NSNumber *facebuttonb;
-@property NSNumber *directionpadleft;
-@property NSNumber *thumbstickbuttonright;
-@property NSNumber *directionpaddown;
-@property NSNumber *thumbstickbuttonleft;
-@property NSNumber *joystickaxisz;
-@property NSNumber *shoulderbuttonr2;
-@property NSNumber *facebuttony;
-@property NSNumber *shoulderbuttonl2;
-@property NSNumber *joystickaxisrz;
-@property NSNumber *shoulderbuttonl1;
-@property NSNumber *facebuttonx;
-@property NSNumber *directionpadup;
+- (NSString *)genericGestureDescription;
 
 @end
 
 
-@interface HIDTranslationEvent : HIDEvent
+@interface HIDEvent (HIDUtilNULLEvent)
 
-@property NSNumber *y;
-@property NSNumber *x;
-@property NSNumber *z;
+@property NSNumber *isRelative;
+@property NSNumber *isCenterOrigin;
+@property NSNumber *isBuiltIn;
+@property NSNumber *isPixelUnits;
+@property NSNumber *isCollection;
 
-@end
-
-
-@interface HIDDigitizerEvent : HIDEvent
-
-@property NSNumber *type;
-@property NSNumber *childeventmask;
-@property NSNumber *auxiliarypressure;
-@property NSNumber *qualityradiiaccuracy;
-@property NSNumber *quality;
-@property NSNumber *minorradius;
-@property NSNumber *eventmask;
-@property NSNumber *generationcount;
-@property NSNumber *index;
-@property NSNumber *touch;
-@property NSNumber *azimuth;
-@property NSNumber *tiltx;
-@property NSNumber *tilty;
-@property NSNumber *range;
-@property NSNumber *pressure;
-@property NSNumber *collection;
-@property NSNumber *altitude;
-@property NSNumber *density;
-@property (readonly) NSNumber *orientationtype;
-@property NSNumber *y;
-@property NSNumber *willupdatemask;
-@property NSNumber *identity;
-@property NSNumber *twist;
-@property NSNumber *x;
-@property NSNumber *isdisplayintegrated;
-@property NSNumber *z;
-@property NSNumber *majorradius;
-@property NSNumber *buttonmask;
-@property NSNumber *irregularity;
-@property NSNumber *didupdatemask;
+- (NSString *)nullDescription;
 
 @end
 
 
-@interface HIDCompassEvent : HIDEvent
+@interface HIDEvent (HIDUtilAmbientLightSensorEvent)
 
-@property NSNumber *type;
-@property NSNumber *z;
-@property NSNumber *x;
-@property NSNumber *y;
-@property NSNumber *subtype;
-@property NSNumber *sequence;
+@property NSNumber *ambientLightColorSpace;
+@property NSNumber *ambientLightColorComponent2;
+@property NSNumber *ambientLightColorComponent1;
+@property NSNumber *ambientLightColorComponent0;
+@property NSNumber *ambientLightSensorRawChannel0;
+@property NSNumber *ambientLightSensorRawChannel1;
+@property NSNumber *ambientLightSensorRawChannel2;
+@property NSNumber *ambientLightSensorRawChannel3;
+@property NSNumber *ambientLightSensorLevel;
+@property NSNumber *ambientLightSensorIlluminance;
+@property NSNumber *ambientLightDisplayBrightnessChanged;
+@property NSNumber *ambientLightSensorColorTemperature;
 
-@end
-
-
-@interface HIDRotationEvent : HIDEvent
-
-@property NSNumber *y;
-@property NSNumber *x;
-@property NSNumber *z;
-
-@end
-
-
-@interface HIDMotionActivityEvent : HIDEvent
-
-@property NSNumber *confidence;
-@property NSNumber *activitytype;
+- (NSString *)ambientLightSensorDescription;
 
 @end
 
 
-@interface HIDMultiAxisPointerEvent : HIDEvent
+@interface HIDEvent (HIDUtilPowerEvent)
 
-@property NSNumber *ry;
-@property NSNumber *rx;
-@property NSNumber *rz;
-@property NSNumber *buttonmask;
-@property NSNumber *z;
-@property NSNumber *x;
-@property NSNumber *y;
+@property NSNumber *powerType;
+@property NSNumber *powerSubType;
+@property NSNumber *powerMeasurement;
+
+- (NSString *)powerDescription;
 
 @end
 
 
-@interface HIDBrightnessEvent : HIDEvent
+@interface HIDEvent (HIDUtilForceEvent)
 
-@property NSNumber *targetbrightness;
-@property NSNumber *currentbrightness;
-@property NSNumber *transitiontime;
+@property NSNumber *forceStagePressure;
+@property NSNumber *forceStage;
+@property NSNumber *forceProgress;
+@property NSNumber *forceBehavior;
 
-@end
-
-
-@interface HIDGyroEvent : HIDEvent
-
-@property NSNumber *x;
-@property NSNumber *y;
-@property NSNumber *z;
-@property NSNumber *subtype;
-@property NSNumber *sequence;
-@property NSNumber *type;
+- (NSString *)forceDescription;
 
 @end
 
 
-@interface HIDButtonEvent : HIDEvent
+@interface HIDEvent (HIDUtilMotionGestureEvent)
 
-@property NSNumber *pressure;
-@property NSNumber *clickcount;
-@property NSNumber *mask;
-@property NSNumber *state;
-@property NSNumber *number;
+@property NSNumber *motionGestureProgress;
+@property NSNumber *motionGestureGestureType;
 
-@end
-
-
-@interface HIDNavigationSwipeEvent : HIDEvent
-
-@property NSNumber *flavor;
-@property NSNumber *progress;
-@property NSNumber *mask;
-@property NSNumber *motion;
-@property NSNumber *positiony;
-@property NSNumber *positionx;
-@property NSNumber *positionz;
+- (NSString *)motionGestureDescription;
 
 @end
 
 
-@interface HIDAtmosphericPressureEvent : HIDEvent
+@interface HIDEvent (HIDUtilGameControllerEvent)
 
-@property NSNumber *level;
-@property NSNumber *sequence;
+@property NSNumber *gameControllerJoyStickAxisX;
+@property NSNumber *gameControllerJoyStickAxisY;
+@property NSNumber *gameControllerType;
+@property NSNumber *gameControllerDirectionPadRight;
+@property NSNumber *gameControllerShoulderButtonR1;
+@property NSNumber *gameControllerFaceButtonA;
+@property NSNumber *gameControllerFaceButtonB;
+@property NSNumber *gameControllerDirectionPadLeft;
+@property NSNumber *gameControllerThumbstickButtonRight;
+@property NSNumber *gameControllerDirectionPadDown;
+@property NSNumber *gameControllerThumbstickButtonLeft;
+@property NSNumber *gameControllerJoyStickAxisZ;
+@property NSNumber *gameControllerShoulderButtonR2;
+@property NSNumber *gameControllerFaceButtonY;
+@property NSNumber *gameControllerShoulderButtonL2;
+@property NSNumber *gameControllerJoyStickAxisRz;
+@property NSNumber *gameControllerShoulderButtonL1;
+@property NSNumber *gameControllerFaceButtonX;
+@property NSNumber *gameControllerDirectionPadUp;
 
-@end
-
-
-@interface HIDHumidityEvent : HIDEvent
-
-@property NSNumber *sequence;
-@property NSNumber *rh;
-
-@end
-
-
-@interface HIDVelocityEvent : HIDEvent
-
-@property NSNumber *x;
-@property NSNumber *y;
-@property NSNumber *z;
-
-@end
-
-
-@interface HIDScrollEvent : HIDEvent
-
-@property NSNumber *ispixels;
-@property NSNumber *x;
-@property NSNumber *y;
-@property NSNumber *z;
+- (NSString *)gameControllerDescription;
 
 @end
 
 
-@interface HIDBiometricEvent : HIDEvent
+@interface HIDEvent (HIDUtilTranslationEvent)
 
-@property NSNumber *eventtype;
-@property NSNumber *usage;
-@property NSNumber *level;
-@property NSNumber *tapcount;
-@property NSNumber *usagepage;
+@property NSNumber *translationY;
+@property NSNumber *translationX;
+@property NSNumber *translationZ;
 
-@end
-
-
-@interface HIDBoundaryScrollEvent : HIDEvent
-
-@property NSNumber *progress;
-@property NSNumber *flavor;
-@property NSNumber *positiony;
-@property NSNumber *positionx;
-@property NSNumber *mask;
-@property NSNumber *motion;
+- (NSString *)translationDescription;
 
 @end
 
 
-@interface HIDLEDEvent : HIDEvent
+@interface HIDEvent (HIDUtilDigitizerEvent)
 
-@property NSNumber *mask;
-@property NSNumber *state;
-@property NSNumber *number;
+@property NSNumber *digitizerType;
+@property NSNumber *digitizerChildEventMask;
+@property NSNumber *digitizerAuxiliaryPressure;
+@property NSNumber *digitizerQualityRadiiAccuracy;
+@property NSNumber *digitizerQuality;
+@property NSNumber *digitizerMinorRadius;
+@property NSNumber *digitizerEventMask;
+@property NSNumber *digitizerGenerationCount;
+@property NSNumber *digitizerIndex;
+@property NSNumber *digitizerTouch;
+@property NSNumber *digitizerAzimuth;
+@property NSNumber *digitizerTiltX;
+@property NSNumber *digitizerTiltY;
+@property NSNumber *digitizerRange;
+@property NSNumber *digitizerPressure;
+@property NSNumber *digitizerCollection;
+@property NSNumber *digitizerAltitude;
+@property NSNumber *digitizerDensity;
+@property (readonly) NSNumber *digitizerOrientationType;
+@property NSNumber *digitizerY;
+@property NSNumber *digitizerWillUpdateMask;
+@property NSNumber *digitizerIdentity;
+@property NSNumber *digitizerTwist;
+@property NSNumber *digitizerX;
+@property NSNumber *digitizerIsDisplayIntegrated;
+@property NSNumber *digitizerZ;
+@property NSNumber *digitizerMajorRadius;
+@property NSNumber *digitizerButtonMask;
+@property NSNumber *digitizerIrregularity;
+@property NSNumber *digitizerDidUpdateMask;
 
-@end
-
-
-@interface HIDOrientationEvent : HIDEvent
-
-@property (readonly) NSNumber *orientationtype;
-@property NSNumber *tiltz;
-@property NSNumber *tilty;
-@property NSNumber *tiltx;
-@property NSNumber *azimuth;
-@property NSNumber *deviceorientationusage;
-@property NSNumber *altitude;
-@property NSNumber *radius;
-
-@end
-
-
-@interface HIDProximityEvent : HIDEvent
-
-@property NSNumber *level;
-@property NSNumber *detectionmask;
-
-@end
-
-
-@interface HIDFluidTouchGestureEvent : HIDEvent
-
-@property NSNumber *positiony;
-@property NSNumber *positionx;
-@property NSNumber *mask;
-@property NSNumber *progress;
-@property NSNumber *motion;
-@property NSNumber *flavor;
+- (NSString *)digitizerDescription;
 
 @end
 
 
-@interface HIDDockSwipeEvent : HIDEvent
+@interface HIDEvent (HIDUtilCompassEvent)
 
-@property NSNumber *progress;
-@property NSNumber *mask;
-@property NSNumber *motion;
-@property NSNumber *flavor;
-@property NSNumber *positionx;
-@property NSNumber *positiony;
-@property NSNumber *positionz;
+@property NSNumber *compassType;
+@property NSNumber *compassZ;
+@property NSNumber *compassX;
+@property NSNumber *compassY;
+@property NSNumber *compassSubType;
+@property NSNumber *compassSequence;
 
-@end
-
-
-@interface HIDUnicodeEvent : HIDEvent
-
-@property (readonly) uint8_t *payload;
-@property NSNumber *length;
-@property NSNumber *quality;
-@property NSNumber *encoding;
+- (NSString *)compassDescription;
 
 @end
 
 
-@interface HIDKeyboardEvent : HIDEvent
+@interface HIDEvent (HIDUtilRotationEvent)
 
-@property NSNumber *stickykeyphase;
-@property NSNumber *stickykeytoggle;
-@property NSNumber *mousekeytoggle;
-@property NSNumber *clickspeed;
-@property NSNumber *presscount;
-@property NSNumber *longpress;
-@property NSNumber *usagepage;
-@property NSNumber *slowkeyphase;
-@property NSNumber *down;
-@property NSNumber *repeat;
-@property NSNumber *usage;
+@property NSNumber *rotationY;
+@property NSNumber *rotationX;
+@property NSNumber *rotationZ;
+
+- (NSString *)rotationDescription;
 
 @end
 
 
-@interface HIDPointerEvent : HIDEvent
+@interface HIDEvent (HIDUtilMotionActivityEvent)
 
-@property NSNumber *z;
-@property NSNumber *y;
-@property NSNumber *x;
-@property NSNumber *buttonmask;
+@property NSNumber *motionActivityConfidence;
+@property NSNumber *motionActivityActivityType;
+
+- (NSString *)motionActivityDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilMultiAxisPointerEvent)
+
+@property NSNumber *multiAxisPointerRy;
+@property NSNumber *multiAxisPointerRx;
+@property NSNumber *multiAxisPointerRz;
+@property NSNumber *multiAxisPointerButtonMask;
+@property NSNumber *multiAxisPointerZ;
+@property NSNumber *multiAxisPointerX;
+@property NSNumber *multiAxisPointerY;
+
+- (NSString *)multiAxisPointerDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilBrightnessEvent)
+
+@property NSNumber *targetBrightness;
+@property NSNumber *currentBrightness;
+@property NSNumber *transitionTime;
+
+- (NSString *)brightnessDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilGyroEvent)
+
+@property NSNumber *gyroX;
+@property NSNumber *gyroY;
+@property NSNumber *gyroZ;
+@property NSNumber *gyroSubType;
+@property NSNumber *gyroSequence;
+@property NSNumber *gyroType;
+
+- (NSString *)gyroDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilButtonEvent)
+
+@property NSNumber *buttonPressure;
+@property NSNumber *buttonClickCount;
+@property NSNumber *buttonMask;
+@property NSNumber *buttonState;
+@property NSNumber *buttonNumber;
+
+- (NSString *)buttonDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilNavigationSwipeEvent)
+
+@property NSNumber *navigationSwipeFlavor;
+@property NSNumber *navigationSwipeProgress;
+@property NSNumber *navigationSwipeMask;
+@property NSNumber *navigationSwipeMotion;
+@property NSNumber *navigationSwipePositionY;
+@property NSNumber *navigationSwipePositionX;
+@property NSNumber *navigationSwipePositionZ;
+
+- (NSString *)navigationSwipeDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilAtmosphericPressureEvent)
+
+@property NSNumber *atmosphericPressureLevel;
+@property NSNumber *atmosphericSequence;
+
+- (NSString *)atmosphericPressureDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilHumidityEvent)
+
+@property NSNumber *humiditySequence;
+@property NSNumber *humidityRH;
+
+- (NSString *)humidityDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilVelocityEvent)
+
+@property NSNumber *velocityX;
+@property NSNumber *velocityY;
+@property NSNumber *velocityZ;
+
+- (NSString *)velocityDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilScrollEvent)
+
+@property NSNumber *scrollIsPixels;
+@property NSNumber *scrollX;
+@property NSNumber *scrollY;
+@property NSNumber *scrollZ;
+
+- (NSString *)scrollDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilBiometricEvent)
+
+@property NSNumber *biometricEventType;
+@property NSNumber *biometricUsage;
+@property NSNumber *biometricLevel;
+@property NSNumber *biometricTapCount;
+@property NSNumber *biometricUsagePage;
+
+- (NSString *)biometricDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilBoundaryScrollEvent)
+
+@property NSNumber *boundaryScrollProgress;
+@property NSNumber *boundaryScrollFlavor;
+@property NSNumber *boundaryScrollPositionY;
+@property NSNumber *boundaryScrollPositionX;
+@property NSNumber *boundaryScrollMask;
+@property NSNumber *boundaryScrollMotion;
+
+- (NSString *)boundaryScrollDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilLEDEvent)
+
+@property NSNumber *ledMask;
+@property NSNumber *ledState;
+@property NSNumber *ledNumber;
+
+- (NSString *)ledDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilOrientationEvent)
+
+@property (readonly) NSNumber *orientationOrientationType;
+@property NSNumber *orientationTiltZ;
+@property NSNumber *orientationTiltY;
+@property NSNumber *orientationTiltX;
+@property NSNumber *orientationAzimuth;
+@property NSNumber *orientationQuatZ;
+@property NSNumber *orientationQuatY;
+@property NSNumber *orientationQuatX;
+@property NSNumber *orientationQuatW;
+@property NSNumber *orientationDeviceOrientationUsage;
+@property NSNumber *orientationAltitude;
+@property NSNumber *orientationRadius;
+
+- (NSString *)orientationDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilProximityEvent)
+
+@property NSNumber *proximityLevel;
+@property NSNumber *proximityDetectionMask;
+
+- (NSString *)proximityDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilFluidTouchGestureEvent)
+
+@property NSNumber *fluidTouchGesturePositionY;
+@property NSNumber *fluidTouchGesturePositionX;
+@property NSNumber *fluidTouchGestureMask;
+@property NSNumber *fluidTouchGestureProgress;
+@property NSNumber *fluidTouchGestureMotion;
+@property NSNumber *fluidTouchGestureFlavor;
+
+- (NSString *)fluidTouchGestureDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilDockSwipeEvent)
+
+@property NSNumber *dockSwipeProgress;
+@property NSNumber *dockSwipeMask;
+@property NSNumber *dockSwipeMotion;
+@property NSNumber *dockSwipeFlavor;
+@property NSNumber *dockSwipePositionX;
+@property NSNumber *dockSwipePositionY;
+@property NSNumber *dockSwipePositionZ;
+
+- (NSString *)dockSwipeDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilUnicodeEvent)
+
+@property (readonly) uint8_t *unicodePayload;
+@property NSNumber *unicodeLength;
+@property NSNumber *unicodeQuality;
+@property NSNumber *unicodeEncoding;
+
+- (NSString *)unicodeDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilKeyboardEvent)
+
+@property NSNumber *keyboardStickyKeyPhase;
+@property NSNumber *keyboardStickyKeyToggle;
+@property NSNumber *keyboardMouseKeyToggle;
+@property NSNumber *keyboardClickSpeed;
+@property NSNumber *keyboardPressCount;
+@property NSNumber *keyboardLongPress;
+@property NSNumber *keyboardUsagePage;
+@property NSNumber *keyboardSlowKeyPhase;
+@property NSNumber *keyboardDown;
+@property NSNumber *keyboardRepeat;
+@property NSNumber *keyboardUsage;
+
+- (NSString *)keyboardDescription;
+
+@end
+
+
+@interface HIDEvent (HIDUtilPointerEvent)
+
+@property NSNumber *pointerZ;
+@property NSNumber *pointerY;
+@property NSNumber *pointerX;
+@property NSNumber *pointerButtonMask;
+
+- (NSString *)pointerDescription;
 
 @end
 

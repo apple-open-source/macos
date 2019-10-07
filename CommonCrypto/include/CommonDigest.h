@@ -29,11 +29,20 @@
 #define _CC_COMMON_DIGEST_H_
 
 #include <stdint.h>
+
+#if defined(_MSC_VER)
+#include <availability.h>
+#else
 #include <os/availability.h>
+#endif
+
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define CC_DIGEST_DEPRECATION_WARNING                                                                                          \
+    "This function is cryptographically broken and should not be used in security contexts. Clients should migrate to SHA256 (or stronger)."
 
 /*
  * For compatibility with legacy implementations, the *Init(), *Update(),
@@ -69,16 +78,16 @@ typedef struct CC_MD2state_st
 } CC_MD2_CTX;
 
 extern int CC_MD2_Init(CC_MD2_CTX *c)
-API_AVAILABLE(macos(10.4), ios(2.0));
+API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(2.0, 13.0));
 
 extern int CC_MD2_Update(CC_MD2_CTX *c, const void *data, CC_LONG len)
-API_AVAILABLE(macos(10.4), ios(2.0));
+API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(2.0, 13.0));
 
 extern int CC_MD2_Final(unsigned char *md, CC_MD2_CTX *c)
-API_AVAILABLE(macos(10.4), ios(2.0));
+API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(2.0, 13.0));
 
 extern unsigned char *CC_MD2(const void *data, CC_LONG len, unsigned char *md)
-API_AVAILABLE(macos(10.4), ios(2.0));
+API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(2.0, 13.0));
 
 /*** MD4 ***/
 
@@ -95,16 +104,16 @@ typedef struct CC_MD4state_st
 } CC_MD4_CTX;
 
 extern int CC_MD4_Init(CC_MD4_CTX *c)
-API_AVAILABLE(macos(10.4), ios(2.0));
+API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(2.0, 13.0));
 
 extern int CC_MD4_Update(CC_MD4_CTX *c, const void *data, CC_LONG len)
-API_AVAILABLE(macos(10.4), ios(2.0));
+API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(2.0, 13.0));
 
 extern int CC_MD4_Final(unsigned char *md, CC_MD4_CTX *c)
-API_AVAILABLE(macos(10.4), ios(2.0));
+API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(2.0, 13.0));
 
 extern unsigned char *CC_MD4(const void *data, CC_LONG len, unsigned char *md)
-API_AVAILABLE(macos(10.4), ios(2.0));
+API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(2.0, 13.0));
 
 
 /*** MD5 ***/
@@ -122,17 +131,16 @@ typedef struct CC_MD5state_st
 } CC_MD5_CTX;
 
 extern int CC_MD5_Init(CC_MD5_CTX *c)
-API_AVAILABLE(macos(10.4), ios(2.0));
-
+API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(2.0, 13.0));
+    
 extern int CC_MD5_Update(CC_MD5_CTX *c, const void *data, CC_LONG len)
-API_AVAILABLE(macos(10.4), ios(2.0));
-
+API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(2.0, 13.0));
+    
 extern int CC_MD5_Final(unsigned char *md, CC_MD5_CTX *c)
-API_AVAILABLE(macos(10.4), ios(2.0));
+API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(2.0, 13.0));
 
 extern unsigned char *CC_MD5(const void *data, CC_LONG len, unsigned char *md)
-API_AVAILABLE(macos(10.4), ios(2.0));
-
+API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(2.0, 13.0));
 
 /*** SHA1 ***/
 
@@ -148,18 +156,13 @@ typedef struct CC_SHA1state_st
     int num;
 } CC_SHA1_CTX;
 
-extern int CC_SHA1_Init(CC_SHA1_CTX *c)
-API_AVAILABLE(macos(10.4), ios(2.0));
+extern int CC_SHA1_Init(CC_SHA1_CTX *c);
 
-extern int CC_SHA1_Update(CC_SHA1_CTX *c, const void *data, CC_LONG len)
-API_AVAILABLE(macos(10.4), ios(2.0));
+extern int CC_SHA1_Update(CC_SHA1_CTX *c, const void *data, CC_LONG len);
 
-extern int CC_SHA1_Final(unsigned char *md, CC_SHA1_CTX *c)
-API_AVAILABLE(macos(10.4), ios(2.0));
+extern int CC_SHA1_Final(unsigned char *md, CC_SHA1_CTX *c);
 
-extern unsigned char *CC_SHA1(const void *data, CC_LONG len, unsigned char *md)
-API_AVAILABLE(macos(10.4), ios(2.0));
-
+extern unsigned char *CC_SHA1(const void *data, CC_LONG len, unsigned char *md);
 
 /*** SHA224 ***/
 #define CC_SHA224_DIGEST_LENGTH     28          /* digest length in bytes */
@@ -323,7 +326,7 @@ API_AVAILABLE(macos(10.4), ios(2.0));
 #define MD5Update                   CC_MD5_Update
 
 void MD5Final (unsigned char [16], MD5_CTX *)
-API_AVAILABLE(macos(10.4), ios(2.0));
+API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(2.0, 13.0));
 
 #endif  /* COMMON_DIGEST_FOR_RFC_1321 */
 

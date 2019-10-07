@@ -20,9 +20,6 @@ extern const CFDictionaryKeyCallBacks kAuthTokenKeyCallBacks;
     
 AUTH_WARN_RESULT AUTH_MALLOC AUTH_NONNULL_ALL AUTH_RETURNS_RETAINED
 auth_token_t auth_token_create(process_t,bool operateAsLeastPrivileged);
-
-AUTH_WARN_RESULT AUTH_MALLOC AUTH_NONNULL_ALL AUTH_RETURNS_RETAINED
-auth_token_t auth_token_create_with_audit_info(const audit_info_s*,bool operateAsLeastPrivileged);
     
 AUTH_NONNULL_ALL
 bool auth_token_get_sandboxed(auth_token_t);

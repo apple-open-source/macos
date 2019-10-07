@@ -33,7 +33,7 @@
 #include <unistd.h>
 #include <CoreFoundation/CoreFoundation.h>
 
-#define	SC_LOG_HANDLE		__log_SCMonitor()
+#define	SC_LOG_HANDLE		__log_SCMonitor
 #define SC_LOG_HANDLE_TYPE	static
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
@@ -980,7 +980,7 @@ add_node_watcher(MyType *myInstance, io_registry_entry_t node, io_registry_entry
 	/* ALIGN: CF aligns to at least >8 bytes */
 	myNode = (MyNode *)(void *)CFDataGetBytePtr(myData);
 
-	bzero(myNode, sizeof(MyNode));
+	memset(myNode, 0, sizeof(MyNode));
 	myNode->interface      = interface;
 	if (myNode->interface != MACH_PORT_NULL) {
 		IOObjectRetain(myNode->interface);
@@ -1372,7 +1372,7 @@ UserEventAgentFactory(CFAllocatorRef allocator, CFUUIDRef typeID)
 
 	if (CFEqual(typeID, kUserEventAgentTypeID)) {
 		newOne	= (MyType *)malloc(sizeof(MyType));
-		bzero(newOne, sizeof(*newOne));
+		memset(newOne, 0, sizeof(*newOne));
 		newOne->_UserEventAgentInterface = &UserEventAgentInterfaceFtbl;
 		newOne->_factoryID = (CFUUIDRef)CFRetain(kUserEventAgentFactoryID);
 		CFPlugInAddInstanceForFactory(kUserEventAgentFactoryID);
@@ -1392,7 +1392,7 @@ main(int argc, char **argv)
 	_sc_log     = FALSE;
 	_sc_verbose = (argc > 1) ? TRUE : FALSE;
 
-	bzero(newOne, sizeof(*newOne));
+	memset(newOne, 0, sizeof(*newOne));
 	myInstall(newOne);
 	CFRunLoopRun();
 	exit(0);

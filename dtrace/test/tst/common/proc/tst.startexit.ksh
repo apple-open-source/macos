@@ -23,8 +23,6 @@
 # Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-#pragma ident	"@(#)tst.startexit.ksh	1.1	06/08/28 SMI"
-
 #
 # This script tests that the firing order of probes in a process is:
 # 

@@ -692,7 +692,7 @@ SecCmsSignedDataAddCertChain(SecCmsSignedDataRef sigd, SecCertificateRef cert)
     usage = certUsageEmailSigner;
 
     /* do not include root */
-    certlist = CERT_CertChainFromCert(cert, usage, PR_FALSE);
+    certlist = CERT_CertChainFromCert(cert, usage, PR_FALSE, PR_FALSE);
     if (certlist == NULL)
 	return SECFailure;
 

@@ -35,6 +35,7 @@
 #include "WebProcessPool.h"
 #include "WebProcessProxy.h"
 #include <wtf/DebugUtilities.h>
+#include <wtf/HexNumber.h>
 #include <wtf/URL.h>
 
 namespace WebKit {
@@ -77,17 +78,16 @@ static const HashSet<IPC::StringReference>& messageNamesToIgnoreWhileSuspended()
 }
 #endif
 
-SuspendedPageProxy::SuspendedPageProxy(WebPageProxy& page, Ref<WebProcessProxy>&& process, WebBackForwardListItem& item, uint64_t mainFrameID)
+SuspendedPageProxy::SuspendedPageProxy(WebPageProxy& page, Ref<WebProcessProxy>&& process, uint64_t mainFrameID, ShouldDelayClosingUntilEnteringAcceleratedCompositingMode shouldDelayClosingUntilEnteringAcceleratedCompositingMode)
     : m_page(page)
     , m_process(WTFMove(process))
     , m_mainFrameID(mainFrameID)
-    , m_registrableDomain(toRegistrableDomain(URL(URL(), item.url())))
+    , m_shouldDelayClosingUntilEnteringAcceleratedCompositingMode(shouldDelayClosingUntilEnteringAcceleratedCompositingMode)
     , m_suspensionTimeoutTimer(RunLoop::main(), this, &SuspendedPageProxy::suspensionTimedOut)
 #if PLATFORM(IOS_FAMILY)
     , m_suspensionToken(m_process->throttler().backgroundActivityToken())
 #endif
 {
-    item.setSuspendedPage(this);
     m_process->incrementSuspendedPageCount();
     m_process->addMessageReceiver(Messages::WebPageProxy::messageReceiverName(), m_page.pageID(), *this);
 
@@ -157,13 +157,40 @@ void SuspendedPageProxy::close()
     if (m_isClosed)
         return;
 
+    RELEASE_LOG(ProcessSwapping, "%p - SuspendedPageProxy::close()", this);
     m_isClosed = true;
     m_process->send(Messages::WebPage::Close(), m_page.pageID());
+}
+
+void SuspendedPageProxy::pageEnteredAcceleratedCompositingMode()
+{
+    m_shouldDelayClosingUntilEnteringAcceleratedCompositingMode = ShouldDelayClosingUntilEnteringAcceleratedCompositingMode::No;
+
+    if (m_shouldCloseWhenEnteringAcceleratedCompositingMode) {
+        // We needed the suspended page to stay alive to avoid flashing. Now we can get rid of it.
+        close();
+    }
+}
+
+bool SuspendedPageProxy::pageIsClosedOrClosing() const
+{
+    return m_isClosed || m_shouldCloseWhenEnteringAcceleratedCompositingMode;
+}
+
+void SuspendedPageProxy::closeWithoutFlashing()
+{
+    RELEASE_LOG(ProcessSwapping, "%p - SuspendedPageProxy::closeWithoutFlashing() shouldDelayClosingUntilEnteringAcceleratedCompositingMode? %d", this, m_shouldDelayClosingUntilEnteringAcceleratedCompositingMode == ShouldDelayClosingUntilEnteringAcceleratedCompositingMode::Yes);
+    if (m_shouldDelayClosingUntilEnteringAcceleratedCompositingMode == ShouldDelayClosingUntilEnteringAcceleratedCompositingMode::Yes) {
+        m_shouldCloseWhenEnteringAcceleratedCompositingMode = true;
+        return;
+    }
+    close();
 }
 
 void SuspendedPageProxy::didProcessRequestToSuspend(SuspensionState newSuspensionState)
 {
     LOG(ProcessSwapping, "SuspendedPageProxy %s from process %i finished transition to suspended", loggingString(), m_process->processIdentifier());
+    RELEASE_LOG(ProcessSwapping, "%p - SuspendedPageProxy::didProcessRequestToSuspend() success? %d", this, newSuspensionState == SuspensionState::Suspended);
 
     ASSERT(m_suspensionState == SuspensionState::Suspending);
     ASSERT(newSuspensionState == SuspensionState::Suspended || newSuspensionState == SuspensionState::FailedToSuspend);
@@ -178,14 +205,8 @@ void SuspendedPageProxy::didProcessRequestToSuspend(SuspensionState newSuspensio
 
     m_process->removeMessageReceiver(Messages::WebPageProxy::messageReceiverName(), m_page.pageID());
 
-    bool shouldDelayClosingOnFailure = false;
-#if PLATFORM(MAC)
-    // With web process side tiles, we need to keep the suspended page around on failure to avoid flashing.
-    // It is removed by WebPageProxy::enterAcceleratedCompositingMode when the target page is ready.
-    shouldDelayClosingOnFailure = m_page.drawingArea() && m_page.drawingArea()->type() == DrawingAreaTypeTiledCoreAnimation;
-#endif
-    if (m_suspensionState == SuspensionState::FailedToSuspend && !shouldDelayClosingOnFailure)
-        close();
+    if (m_suspensionState == SuspensionState::FailedToSuspend)
+        closeWithoutFlashing();
 
     if (m_readyToUnsuspendHandler)
         m_readyToUnsuspendHandler(this);
@@ -222,10 +243,12 @@ void SuspendedPageProxy::didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, 
 }
 
 #if !LOG_DISABLED
+
 const char* SuspendedPageProxy::loggingString() const
 {
-    return debugString("(", String::format("%p", this), " page ID ", String::number(m_page.pageID()), ", m_suspensionState ", String::number(static_cast<unsigned>(m_suspensionState)), ")");
+    return debugString("(0x", hex(reinterpret_cast<uintptr_t>(this)), " page ID ", m_page.pageID().toUInt64(), ", m_suspensionState ", static_cast<unsigned>(m_suspensionState), ')');
 }
+
 #endif
 
 } // namespace WebKit

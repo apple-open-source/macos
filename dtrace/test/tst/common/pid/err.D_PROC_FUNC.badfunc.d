@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_PROC_FUNC.badfunc.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Can't specify a bogus function name (if the module is specified)
  *

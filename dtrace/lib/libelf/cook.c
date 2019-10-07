@@ -27,8 +27,6 @@
 /*	Copyright (c) 1988 AT&T	*/
 /*	  All Rights Reserved  	*/
 
-#pragma ident	"@(#)cook.c	1.20	08/05/31 SMI"
-
 #include <string.h>
 #include <ar.h>
 #include <stdlib.h>
@@ -36,7 +34,6 @@
 #include <errno.h>
 #include <libelf.h>
 #include "decl.h"
-#include "member.h"
 #include "msg.h"
 
 #include <sys/mman.h>
@@ -90,72 +87,16 @@
  *	Phdr table; so that's kept in the working version.
  */
 
-Dnode *
-_elf_dnode()
-{
-	register Dnode	*d;
-
-	if ((d = (Dnode *)malloc(sizeof (Dnode))) == 0) {
-		_elf_seterr(EMEM_DNODE, errno);
-		return (0);
-	}
-	NOTE(NOW_INVISIBLE_TO_OTHER_THREADS(*d))
-	*d = _elf_dnode_init;
-	d->db_myflags = DBF_ALLOC;
-	NOTE(NOW_VISIBLE_TO_OTHER_THREADS(*d))
-	return (d);
-}
-
-
-
-int
+static int
 _elf_slide(Elf * elf)
 {
+#pragma unused(elf)
 	NOTE(ASSUMING_PROTECTED(*elf))
 	Elf		*par = elf->ed_parent;
-	size_t		sz, szof;
-	register char	*dst;
-	register char	*src = elf->ed_ident;
 
 	if (par == 0 || par->ed_kind != ELF_K_AR)
 		return (0);
-
-	/*
-	 * This code relies on other code to ensure
-	 * the ar_hdr is big enough to move into.
-	 */
-	if (elf->ed_ident[EI_CLASS] == ELFCLASS64)
-		szof = sizeof (Elf64);
-	else
-		szof = sizeof (Elf32);
-	if ((sz = (size_t)(src - (char *)elf->ed_image) % szof) == 0)
-		return (0);
-	dst = src - sz;
-	elf->ed_ident -= sz;
-	elf->ed_memoff -= sz;
-	elf->ed_armem->m_slide = sz;
-	if (_elf_vm(par, elf->ed_memoff, sz + elf->ed_fsz) != OK_YES)
-		return (-1);
-
-	/*
-	 * If the archive has been mmaped in, and we're going to slide it,
-	 * and it wasn't open for write in the first place, and we've never
-	 * done the mprotect() operation before, then do it now.
-	 */
-	if ((elf->ed_vm == 0) && ((elf->ed_myflags & EDF_WRITE) == 0) &&
-	    ((elf->ed_myflags & EDF_MPROTECT) == 0)) {
-		if (mprotect((char *)elf->ed_image, elf->ed_imagesz,
-		    PROT_READ|PROT_WRITE) == -1) {
-			_elf_seterr(EIO_VM, errno);
-			return (-1);
-		}
-		elf->ed_myflags |= EDF_MPROTECT;
-	}
-
-	if (memmove((void *)dst, (const void *)src, elf->ed_fsz) != (void *)dst)
-		return (-1);
-	else
-		return (0);
+	return (-1);
 }
 
 

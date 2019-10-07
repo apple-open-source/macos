@@ -20,6 +20,7 @@
 #include <Security/SecRandom.h>
 
 #include <utilities/array_size.h>
+#include <utilities/SecCFRelease.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -33,6 +34,9 @@
 
 #include "ssl-utils.h"
 #import "STLegacyTests.h"
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 @implementation STLegacyTests (clientauth)
 
@@ -84,8 +88,9 @@ static OSStatus SocketWrite(SSLConnectionRef conn, const void *data, size_t *len
             len -= ret;
             ptr += ret;
         }
-        else
+        else {
             return -36;
+        }
     } while (len > 0);
 
     *length = *length - len;
@@ -139,8 +144,15 @@ ssl_client_handle_create(bool break_on_req, int comm, CFArrayRef certs, CFArrayR
     require_noerr(SSLSetPeerDomainName(ctx, peer_domain_name,
         strlen(peer_domain_name)), out);
 
+    CFArrayRef trustedRoots = NULL;
+    require_noerr(SSLCopyTrustedRoots(ctx, &trustedRoots), out);
+#if (TARGET_OS_MAC && !TARGET_OS_IPHONE)
+    require(trustedRoots, out);
+#endif
+    CFReleaseNull(trustedRoots);
     require_noerr(SSLSetTrustedRoots(ctx, trustedCA, true), out);
-
+    require_noerr(SSLCopyTrustedRoots(ctx, &trustedRoots), out);
+    CFReleaseNull(trustedRoots);
 
     /* Setting client certificate in advance */
     if (!break_on_req && certs) {
@@ -161,11 +173,10 @@ ssl_client_handle_create(bool break_on_req, int comm, CFArrayRef certs, CFArrayR
     return handle;
 
 out:
-    if (ctx)
-        CFRelease(ctx);
-    if (handle)
+    CFReleaseNull(ctx);
+    if (handle) {
         free(handle);
-
+    }
     return NULL;
 }
 
@@ -186,25 +197,34 @@ static void *securetransport_ssl_client_thread(void *arg)
     SSLContextRef ctx = ssl->st;
     bool got_client_cert_req = false;
     SSLSessionState ssl_state;
+    SSLSignatureAndHashAlgorithm *sigAlgs;
+    unsigned int numSigAlgs, numTypes;
+    SSLClientAuthenticationType *authTypes;
 
     pthread_setname_np("client thread");
 
-    require_noerr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
-    require_action(ssl_state==kSSLIdle, out, ortn = -1);
+    require_noerr(ortn = SSLGetSessionState(ctx, &ssl_state), out);
+    require_action(ssl_state == kSSLIdle, out, ortn = -1);
 
     do {
         ortn = SSLHandshake(ctx);
-        require_noerr(SSLGetSessionState(ctx,&ssl_state), out);
+        require_noerr(SSLGetSessionState(ctx, &ssl_state), out);
 
         if (ortn == errSSLClientCertRequested) {
+            require_noerr(SSLGetNumberOfSignatureAlgorithms(ctx, &numSigAlgs), out);
+            sigAlgs = malloc(numSigAlgs * sizeof(SSLSignatureAndHashAlgorithm));
+            require_noerr(SSLGetSignatureAlgorithms(ctx, sigAlgs, &numSigAlgs), out);
+            require_noerr(SSLGetNumberOfClientAuthTypes(ctx, &numTypes), out);
+            authTypes = malloc(numTypes * sizeof(SSLClientAuthenticationType));
+            require_noerr(SSLGetClientAuthTypes(ctx, authTypes, &numTypes), out);
             require_string(ssl->auth, out, "cert req not expected");
-            require_string(ssl_state==kSSLHandshake, out, "wrong client handshake state after errSSLClientCertRequested");
+            require_string(ssl_state == kSSLHandshake, out, "wrong client handshake state after errSSLClientCertRequested");
             require_string(!got_client_cert_req, out, "second client cert req");
             got_client_cert_req = true;
 
             SSLClientCertificateState clientState;
             SSLGetClientCertificateState(ctx, &clientState);
-            require_string(clientState==kSSLClientCertRequested, out, "Wrong client cert state after cert request");
+            require_string(clientState == kSSLClientCertRequested, out, "Wrong client cert state after cert request");
 
             require_string(ssl->break_on_req, out, "errSSLClientCertRequested in run not testing that");
             if(ssl->certs) {
@@ -212,7 +232,7 @@ static void *securetransport_ssl_client_thread(void *arg)
             }
 
         } else if (ortn == errSSLWouldBlock) {
-            require_string(ssl_state==kSSLHandshake, out, "Wrong client handshake state after errSSLWouldBlock");
+            require_string(ssl_state == kSSLHandshake, out, "Wrong client handshake state after errSSLWouldBlock");
         }
     } while (ortn == errSSLWouldBlock || ortn == errSSLClientCertRequested);
 
@@ -254,7 +274,7 @@ ssl_server_handle_create(SSLAuthenticate client_auth, int comm, CFArrayRef certs
     SSLAuthenticate auth;
     require_noerr(SSLSetClientSideAuthenticate(ctx, client_auth), out);
     require_noerr(SSLGetClientSideAuthenticate(ctx, &auth), out);
-    require(auth==client_auth, out);
+    require(auth == client_auth, out);
 
     handle->client_auth = client_auth;
     handle->comm = comm;
@@ -275,7 +295,7 @@ out:
 static void
 ssl_server_handle_destroy(ssl_server_handle *handle)
 {
-    if(handle) {
+    if (handle) {
         SSLClose(handle->st);
         CFRelease(handle->st);
         free(handle);
@@ -291,21 +311,21 @@ static void *securetransport_ssl_server_thread(void *arg)
 
     pthread_setname_np("server thread");
 
-    require_noerr(ortn=SSLGetSessionState(ctx,&ssl_state), out);
-    require_action(ssl_state==kSSLIdle, out, ortn = -1);
+    require_noerr(ortn = SSLGetSessionState(ctx, &ssl_state), out);
+    require_action(ssl_state == kSSLIdle, out, ortn = -1);
 
     do {
         ortn = SSLHandshake(ctx);
-        require_noerr(SSLGetSessionState(ctx,&ssl_state), out);
+        require_noerr(SSLGetSessionState(ctx, &ssl_state), out);
 
         if (ortn == errSSLWouldBlock) {
-            require_action(ssl_state==kSSLHandshake, out, ortn = -1);
+            require_action(ssl_state == kSSLHandshake, out, ortn = -1);
         }
     } while (ortn == errSSLWouldBlock);
 
     require_noerr_quiet(ortn, out);
 
-    require_action(ssl_state==kSSLConnected, out, ortn = -1);
+    require_action(ssl_state == kSSLConnected, out, ortn = -1);
 
 out:
     SSLClose(ssl->st);
@@ -327,17 +347,17 @@ out:
 
     int i, j, k;
 
-    for (i=0; i<3; i++) {/* client side cert: 0 = no cert, 1 = trusted cert, 2 = untrusted cert. */
-        for (j=0; j<2; j++) { /* break on cert request */
-            for (k=0; k<3; k++) { /* server behvior: 0 = no cert request, 1 = optional cert, 2 = required cert */
+    for (i = 0; i < 3; i++) {/* client side cert: 0 = no cert, 1 = trusted cert, 2 = untrusted cert. */
+        for (j = 0; j < 2; j++) { /* break on cert request */
+            for (k = 0; k < 3; k++) { /* server behvior: 0 = no cert request, 1 = optional cert, 2 = required cert */
 
                 int sp[2];
                 if (socketpair(AF_UNIX, SOCK_STREAM, 0, sp)) exit(errno);
                 fcntl(sp[0], F_SETNOSIGPIPE, 1);
                 fcntl(sp[1], F_SETNOSIGPIPE, 1);
 
-                bool break_on_req = (j!=0);
-                SSLClientAuthenticationType auth = (k == 0) ? kNeverAuthenticate
+                bool break_on_req = (j != 0);
+                SSLAuthenticate auth = (k == 0) ? kNeverAuthenticate
                                                    : (k == 1) ? kTryAuthenticate
                                                    : kAlwaysAuthenticate;
 
@@ -405,3 +425,5 @@ out:
 }
 
 @end
+
+#pragma clang diagnostic pop

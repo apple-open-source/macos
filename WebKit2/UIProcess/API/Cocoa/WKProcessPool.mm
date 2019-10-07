@@ -26,8 +26,6 @@
 #import "config.h"
 #import "WKProcessPoolInternal.h"
 
-#if WK_API_ENABLED
-
 #import "AutomationClient.h"
 #import "CacheModel.h"
 #import "DownloadClient.h"
@@ -200,11 +198,6 @@ static WKProcessPool *sharedProcessPool;
     _processPool->registerURLSchemeAsCanDisplayOnlyIfCanRequest(scheme);
 }
 
-- (void)_setMaximumNumberOfProcesses:(NSUInteger)value
-{
-    _processPool->setMaximumNumberOfProcesses(value);
-}
-
 - (void)_setCanHandleHTTPSServerTrustEvaluation:(BOOL)value
 {
     _processPool->setCanHandleHTTPSServerTrustEvaluation(value);
@@ -214,17 +207,17 @@ static WebKit::HTTPCookieAcceptPolicy toHTTPCookieAcceptPolicy(NSHTTPCookieAccep
 {
     switch (static_cast<NSUInteger>(policy)) {
     case NSHTTPCookieAcceptPolicyAlways:
-        return WebKit::HTTPCookieAcceptPolicyAlways;
+        return WebKit::HTTPCookieAcceptPolicy::AlwaysAccept;
     case NSHTTPCookieAcceptPolicyNever:
-        return WebKit::HTTPCookieAcceptPolicyNever;
+        return WebKit::HTTPCookieAcceptPolicy::Never;
     case NSHTTPCookieAcceptPolicyOnlyFromMainDocumentDomain:
-        return WebKit::HTTPCookieAcceptPolicyOnlyFromMainDocumentDomain;
+        return WebKit::HTTPCookieAcceptPolicy::OnlyFromMainDocumentDomain;
     case NSHTTPCookieAcceptPolicyExclusivelyFromMainDocumentDomain:
-        return WebKit::HTTPCookieAcceptPolicyExclusivelyFromMainDocumentDomain;
+        return WebKit::HTTPCookieAcceptPolicy::ExclusivelyFromMainDocumentDomain;
     }
 
     ASSERT_NOT_REACHED();
-    return WebKit::HTTPCookieAcceptPolicyAlways;
+    return WebKit::HTTPCookieAcceptPolicy::AlwaysAccept;
 }
 
 - (void)_setCookieAcceptPolicy:(NSHTTPCookieAcceptPolicy)policy
@@ -396,7 +389,7 @@ static NSDictionary *policiesHashMapToDictionary(const HashMap<String, HashMap<S
 
 - (void)_warmInitialProcess
 {
-    _processPool->prewarmProcess(WebKit::WebProcessPool::MayCreateDefaultDataStore::Yes);
+    _processPool->prewarmProcess();
 }
 
 - (void)_automationCapabilitiesDidChange
@@ -432,6 +425,16 @@ static NSDictionary *policiesHashMapToDictionary(const HashMap<String, HashMap<S
     _processPool->terminateNetworkProcess();
 }
 
+- (void)_sendNetworkProcessWillSuspendImminently
+{
+    _processPool->sendNetworkProcessWillSuspendImminently();
+}
+
+- (void)_sendNetworkProcessDidResume
+{
+    _processPool->sendNetworkProcessDidResume();
+}
+
 - (void)_terminateServiceWorkerProcesses
 {
     _processPool->terminateServiceWorkerProcesses();
@@ -446,6 +449,12 @@ static NSDictionary *policiesHashMapToDictionary(const HashMap<String, HashMap<S
 {
     return _processPool->networkProcessIdentifier();
 }
+
+- (pid_t)_prewarmedProcessIdentifier
+{
+    return _processPool->prewarmedProcessIdentifier();
+}
+
 
 - (void)_syncNetworkProcessCookies
 {
@@ -529,6 +538,11 @@ static NSDictionary *policiesHashMapToDictionary(const HashMap<String, HashMap<S
     return _processPool->webProcessCache().capacity();
 }
 
+- (NSUInteger)_processCacheSize
+{
+    return _processPool->webProcessCache().size();
+}
+
 - (size_t)_serviceWorkerProcessCount
 {
 #if ENABLE(SERVICE_WORKER)
@@ -565,7 +579,12 @@ static NSDictionary *policiesHashMapToDictionary(const HashMap<String, HashMap<S
     _processPool->setStorageAccessAPIEnabled(enabled);
 }
 
-- (void)_setAllowsAnySSLCertificateForServiceWorker:(BOOL) allows
+- (void)_synthesizeAppIsBackground:(BOOL)background
+{
+    _processPool->synthesizeAppIsBackground(background);
+}
+
+- (void)_setAllowsAnySSLCertificateForServiceWorker:(BOOL)allows
 {
 #if ENABLE(SERVICE_WORKER)
     _processPool->setAllowsAnySSLCertificateForServiceWorker(allows);
@@ -589,7 +608,7 @@ static NSDictionary *policiesHashMapToDictionary(const HashMap<String, HashMap<S
 
 - (_WKDownload *)_downloadURLRequest:(NSURLRequest *)request originatingWebView:(WKWebView *)webView
 {
-    return (_WKDownload *)_processPool->download([webView _page], request)->wrapper();
+    return (_WKDownload *)_processPool->download([webView _page], request).wrapper();
 }
 
 - (_WKDownload *)_resumeDownloadFromData:(NSData *)resumeData path:(NSString *)path originatingWebView:(WKWebView *)webView
@@ -612,6 +631,11 @@ static NSDictionary *policiesHashMapToDictionary(const HashMap<String, HashMap<S
     return _processPool->networkProcessHasEntitlementForTesting(entitlement);
 }
 
-@end
+- (void)_clearPermanentCredentialsForProtectionSpace:(NSURLProtectionSpace *)protectionSpace completionHandler:(void(^)())completionHandler
+{
+    _processPool->clearPermanentCredentialsForProtectionSpace(WebCore::ProtectionSpace(protectionSpace), [completionHandler = makeBlockPtr(completionHandler)] {
+        completionHandler();
+    });
+}
 
-#endif // WK_API_ENABLED
+@end

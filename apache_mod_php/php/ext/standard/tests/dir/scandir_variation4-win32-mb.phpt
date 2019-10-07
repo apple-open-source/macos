@@ -9,7 +9,7 @@ if (substr(PHP_OS, 0, 3) != 'WIN') {
 --FILE--
 <?php
 /* Prototype  : array scandir(string $dir [, int $sorting_order [, resource $context]])
- * Description: List files & directories inside the specified path 
+ * Description: List files & directories inside the specified path
  * Source code: ext/standard/dir.c
  */
 
@@ -71,7 +71,7 @@ $dir_path = dirname(__FILE__);
 rmdir("$dir_path/私はガラスを食べられますlevel_one/私はガラスを食べられますlevel_two");
 rmdir("$dir_path/私はガラスを食べられますlevel_one");
 ?>
---EXPECTF--
+--EXPECT--
 *** Testing scandir() : usage variations ***
 
 -- $path = './私はガラスを食べられますlevel_one': --

@@ -1,7 +1,6 @@
-perf/perf.launchtime.ksh
-perf/perf.fbt_probes.ksh
+perf/perf.launchtime.exe
 perf/perf.overhead.exe
-perf/perf.probes.ksh
+perf/perf.probes.exe
 perf/perf.usdt_overhead.exe
 begin/tst.begin.d
 begin/tst.multibegin.d
@@ -21,6 +20,7 @@ fbtprovider/tst.functionreturnvalue.d
 fbtprovider/tst.ioctlargs.d
 fbtprovider/tst.offset.d
 fbtprovider/tst.offsetzero.d
+fbtprovider/tst.predicates.d
 fbtprovider/tst.return.d
 fbtprovider/tst.return0.d
 fbtprovider/tst.tailcall.d

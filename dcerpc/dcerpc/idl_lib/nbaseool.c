@@ -130,11 +130,11 @@ rpc_ss_marsh_state_t *NIDL_msp
   mp = NIDL_msp->mp;
   op = NIDL_msp->op;
   rpc_align_mop(mp, op, 4);
-  rpc_marshall_ulong_int(mp, (*p_node).time_low);
+  rpc_marshall_ulong_int(mp, &(*p_node).time_low);
   rpc_advance_mp(mp, 4);
-  rpc_marshall_ushort_int(mp, (*p_node).time_mid);
+  rpc_marshall_ushort_int(mp, &(*p_node).time_mid);
   rpc_advance_mp(mp, 2);
-  rpc_marshall_ushort_int(mp, (*p_node).time_hi_and_version);
+  rpc_marshall_ushort_int(mp, &(*p_node).time_hi_and_version);
   rpc_advance_mp(mp, 2);
   rpc_marshall_usmall_int(mp, (*p_node).clock_seq_hi_and_reserved);
   rpc_advance_mp(mp, 1);
@@ -186,7 +186,7 @@ p_unmar_params->p_rcvd_data->data_len)
 &(p_unmar_params->mp), &(*p_unmar_params->p_st));
   }
   rpc_convert_ulong_int(p_unmar_params->src_drep, ndr_g_local_drep,
-p_unmar_params->mp, (*p_node).time_low);
+p_unmar_params->mp, &(*p_node).time_low);
   rpc_advance_mp(p_unmar_params->mp, 4);
 
   if ((unsigned32)((byte_p_t)p_unmar_params->mp - p_unmar_params->p_rcvd_data->data_addr) >=
@@ -196,10 +196,10 @@ p_unmar_params->p_rcvd_data->data_len)
 &(p_unmar_params->mp), &(*p_unmar_params->p_st));
   }
   rpc_convert_ushort_int(p_unmar_params->src_drep, ndr_g_local_drep,
-p_unmar_params->mp, (*p_node).time_mid);
+p_unmar_params->mp, &(*p_node).time_mid);
   rpc_advance_mp(p_unmar_params->mp, 2);
   rpc_convert_ushort_int(p_unmar_params->src_drep, ndr_g_local_drep,
-p_unmar_params->mp, (*p_node).time_hi_and_version);
+p_unmar_params->mp, &(*p_node).time_hi_and_version);
   rpc_advance_mp(p_unmar_params->mp, 2);
 
   if ((unsigned32)((byte_p_t)p_unmar_params->mp - p_unmar_params->p_rcvd_data->data_addr) >=

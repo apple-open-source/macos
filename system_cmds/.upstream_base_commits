@@ -1,0 +1,2 @@
+#freebsd = https://github.com/freebsd/freebsd.git
+iostat.tproj/iostat.8	freebsd	usr.sbin/iostat/iostat.8	4724d1448f7e7698308a1e05a7bb9b2069d68234

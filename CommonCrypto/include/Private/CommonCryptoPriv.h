@@ -28,6 +28,7 @@
 #ifndef	__COMMONCRYPTO_PRIVATE__
 #define __COMMONCRYPTO_PRIVATE__
 
+#include <CommonCrypto/CommonCryptoErrorSPI.h>
 #include <CommonCrypto/CommonCryptorSPI.h>
 #include <CommonCrypto/CommonDigestSPI.h>
 #include <CommonCrypto/CommonECCryptor.h>
@@ -37,5 +38,6 @@
 #include <CommonCrypto/CommonHMacSPI.h>
 #include <CommonCrypto/CommonCMACSPI.h>
 #include <CommonCrypto/CommonRandomSPI.h>
+#include <CommonCrypto/CommonCollabKeyGen.h>
 
 #endif	/* __COMMONCRYPTO_PRIVATE__ */

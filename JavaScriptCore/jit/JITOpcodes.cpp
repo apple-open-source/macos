@@ -96,7 +96,7 @@ void JIT::emit_op_new_object(const Instruction* currentInstruction)
     auto& metadata = bytecode.metadata(m_codeBlock);
     Structure* structure = metadata.m_objectAllocationProfile.structure();
     size_t allocationSize = JSFinalObject::allocationSize(structure->inlineCapacity());
-    Allocator allocator = subspaceFor<JSFinalObject>(*m_vm)->allocatorForNonVirtual(allocationSize, AllocatorForMode::AllocatorIfExists);
+    Allocator allocator = allocatorForNonVirtualConcurrently<JSFinalObject>(*m_vm, allocationSize, AllocatorForMode::AllocatorIfExists);
 
     RegisterID resultReg = regT0;
     RegisterID allocatorReg = regT1;
@@ -239,6 +239,21 @@ void JIT::emit_op_is_undefined(const Instruction* currentInstruction)
 
     notMasqueradesAsUndefined.link(this);
     done.link(this);
+    boxBoolean(regT0, JSValueRegs { regT0 });
+    emitPutVirtualRegister(dst);
+}
+
+void JIT::emit_op_is_undefined_or_null(const Instruction* currentInstruction)
+{
+    auto bytecode = currentInstruction->as<OpIsUndefinedOrNull>();
+    int dst = bytecode.m_dst.offset();
+    int value = bytecode.m_operand.offset();
+
+    emitGetVirtualRegister(value, regT0);
+
+    and64(TrustedImm32(~TagBitUndefined), regT0);
+    compare64(Equal, regT0, TrustedImm32(ValueNull), regT0);
+
     boxBoolean(regT0, JSValueRegs { regT0 });
     emitPutVirtualRegister(dst);
 }
@@ -692,7 +707,7 @@ void JIT::emit_op_catch(const Instruction* currentInstruction)
         buffer->forEach([&] (ValueProfileAndOperand& profile) {
             JSValueRegs regs(regT0);
             emitGetVirtualRegister(profile.m_operand, regs);
-            emitValueProfilingSite(profile.m_profile);
+            emitValueProfilingSite(static_cast<ValueProfile&>(profile));
         });
     }
 #endif // ENABLE(DFG_JIT)
@@ -863,15 +878,13 @@ void JIT::emit_op_to_this(const Instruction* currentInstruction)
 {
     auto bytecode = currentInstruction->as<OpToThis>();
     auto& metadata = bytecode.metadata(m_codeBlock);
-    WriteBarrierBase<Structure>* cachedStructure = &metadata.m_cachedStructure;
+    StructureID* cachedStructureID = &metadata.m_cachedStructureID;
     emitGetVirtualRegister(bytecode.m_srcDst.offset(), regT1);
 
     emitJumpSlowCaseIfNotJSCell(regT1);
 
     addSlowCase(branchIfNotType(regT1, FinalObjectType));
-    loadPtr(cachedStructure, regT2);
-    addSlowCase(branchTestPtr(Zero, regT2));
-    load32(Address(regT2, Structure::structureIDOffset()), regT2);
+    load32(cachedStructureID, regT2);
     addSlowCase(branch32(NotEqual, Address(regT1, JSCell::structureIDOffset()), regT2));
 }
 
@@ -893,9 +906,8 @@ void JIT::emit_op_create_this(const Instruction* currentInstruction)
     addSlowCase(branchIfNotFunction(calleeReg));
     loadPtr(Address(calleeReg, JSFunction::offsetOfRareData()), rareDataReg);
     addSlowCase(branchTestPtr(Zero, rareDataReg));
-    xorPtr(TrustedImmPtr(JSFunctionPoison::key()), rareDataReg);
-    loadPtr(Address(rareDataReg, FunctionRareData::offsetOfObjectAllocationProfile() + ObjectAllocationProfile::offsetOfAllocator()), allocatorReg);
-    loadPtr(Address(rareDataReg, FunctionRareData::offsetOfObjectAllocationProfile() + ObjectAllocationProfile::offsetOfStructure()), structureReg);
+    loadPtr(Address(rareDataReg, FunctionRareData::offsetOfObjectAllocationProfile() + ObjectAllocationProfileWithPrototype::offsetOfAllocator()), allocatorReg);
+    loadPtr(Address(rareDataReg, FunctionRareData::offsetOfObjectAllocationProfile() + ObjectAllocationProfileWithPrototype::offsetOfStructure()), structureReg);
 
     loadPtr(cachedFunction, cachedFunctionReg);
     Jump hasSeenMultipleCallees = branchPtr(Equal, cachedFunctionReg, TrustedImmPtr(JSCell::seenMultipleCalleeObjects()));
@@ -905,10 +917,7 @@ void JIT::emit_op_create_this(const Instruction* currentInstruction)
     JumpList slowCases;
     auto butterfly = TrustedImmPtr(nullptr);
     emitAllocateJSObject(resultReg, JITAllocator::variable(), allocatorReg, structureReg, butterfly, scratchReg, slowCases);
-    emitGetVirtualRegister(callee, scratchReg);
-    loadPtr(Address(scratchReg, JSFunction::offsetOfRareData()), scratchReg);
-    xorPtr(TrustedImmPtr(JSFunctionPoison::key()), scratchReg);
-    load32(Address(scratchReg, FunctionRareData::offsetOfObjectAllocationProfile() + ObjectAllocationProfile::offsetOfInlineCapacity()), scratchReg);
+    load8(Address(structureReg, Structure::inlineCapacityOffset()), scratchReg);
     emitInitializeInlineStorage(resultReg, scratchReg);
     addSlowCase(slowCases);
     emitPutVirtualRegister(bytecode.m_dst.offset());
@@ -1236,6 +1245,8 @@ void JIT::emit_op_has_indexed_property(const Instruction* currentInstruction)
     
     emitGetVirtualRegisters(base, regT0, property, regT1);
 
+    emitJumpSlowCaseIfNotInt(regT1);
+
     // This is technically incorrect - we're zero-extending an int32. On the hot path this doesn't matter.
     // We check the value as if it was a uint32 against the m_vectorLength - which will always fail if
     // number was signed since m_vectorLength is always less than intmax (since the total allocation
@@ -1445,6 +1456,7 @@ void JIT::emit_op_profile_type(const Instruction* currentInstruction)
 
 void JIT::emit_op_log_shadow_chicken_prologue(const Instruction* currentInstruction)
 {
+    RELEASE_ASSERT(vm()->shadowChicken());
     updateTopCallFrame();
     static_assert(nonArgGPR0 != regT0 && nonArgGPR0 != regT2, "we will have problems if this is true.");
     auto bytecode = currentInstruction->as<OpLogShadowChickenPrologue>();
@@ -1458,6 +1470,7 @@ void JIT::emit_op_log_shadow_chicken_prologue(const Instruction* currentInstruct
 
 void JIT::emit_op_log_shadow_chicken_tail(const Instruction* currentInstruction)
 {
+    RELEASE_ASSERT(vm()->shadowChicken());
     updateTopCallFrame();
     static_assert(nonArgGPR0 != regT0 && nonArgGPR0 != regT2, "we will have problems if this is true.");
     auto bytecode = currentInstruction->as<OpLogShadowChickenTail>();

@@ -41,7 +41,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <pwd.h>
-#include <config.h>
+#include "config.h"
 /* END PUBLIC DEPENDENCIES */
 
 #define RETURN(x) return strdup(x)

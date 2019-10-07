@@ -26,6 +26,8 @@
 #pragma once
 
 #include "DownloadID.h"
+#include "DownloadManager.h"
+#include "DownloadMonitor.h"
 #include "MessageSender.h"
 #include "NetworkDataTask.h"
 #include "SandboxExtension.h"
@@ -35,6 +37,7 @@
 #include <pal/SessionID.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/WeakPtr.h>
 
 #if PLATFORM(COCOA)
 OBJC_CLASS NSProgress;
@@ -57,12 +60,12 @@ class ResourceResponse;
 
 namespace WebKit {
 
-class DownloadManager;
+class DownloadMonitor;
 class NetworkDataTask;
 class NetworkSession;
 class WebPage;
 
-class Download : public IPC::MessageSender {
+class Download : public IPC::MessageSender, public CanMakeWeakPtr<Download> {
     WTF_MAKE_NONCOPYABLE(Download); WTF_MAKE_FAST_ALLOCATED;
 public:
     Download(DownloadManager&, DownloadID, NetworkDataTask&, const PAL::SessionID& sessionID, const String& suggestedFilename = { });
@@ -89,18 +92,24 @@ public:
     void didFail(const WebCore::ResourceError&, const IPC::DataReference& resumeData);
     void didCancel(const IPC::DataReference& resumeData);
 
+    bool isAlwaysOnLoggingAllowed() const;
+    bool wasCanceled() const { return m_wasCanceled; }
+
+    void applicationDidEnterBackground() { m_monitor.applicationDidEnterBackground(); }
+    void applicationWillEnterForeground() { m_monitor.applicationWillEnterForeground(); }
+    DownloadManager& manager() const { return m_downloadManager; }
+
 private:
     // IPC::MessageSender
-    IPC::Connection* messageSenderConnection() override;
-    uint64_t messageSenderDestinationID() override;
+    IPC::Connection* messageSenderConnection() const override;
+    uint64_t messageSenderDestinationID() const override;
 
     void platformCancelNetworkLoad();
     void platformDestroyDownload();
 
-    bool isAlwaysOnLoggingAllowed() const;
-
     DownloadManager& m_downloadManager;
     DownloadID m_downloadID;
+    Ref<DownloadManager::Client> m_client;
 
     Vector<RefPtr<WebCore::BlobDataFileReference>> m_blobFileReferences;
     RefPtr<SandboxExtension> m_sandboxExtension;
@@ -112,7 +121,9 @@ private:
 #endif
     PAL::SessionID m_sessionID;
     String m_suggestedName;
+    bool m_wasCanceled { false };
     bool m_hasReceivedData { false };
+    DownloadMonitor m_monitor { *this };
 };
 
 } // namespace WebKit

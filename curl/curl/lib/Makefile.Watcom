@@ -6,7 +6,7 @@
 #                             \___|\___/|_| \_\_____|
 #
 # Copyright (C) 2005 - 2009, Gisle Vanem <gvanem@yahoo.no>.
-# Copyright (C) 2005 - 2015, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 2005 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -81,7 +81,7 @@ RD = rmdir /q /s 2>NUL
 SYS_INCL = -I"$(%watcom)/h/nt" -I"$(%watcom)/h"
 
 CFLAGS = -3r -mf -hc -zff -zgf -zq -zm -zc -s -fr=con -w2 -fpi -oilrtfm &
-         -wcd=201 -bt=nt -d+ -dWIN32 -dCURL_WANTS_CA_BUNDLE_ENV         &
+         -wcd=201 -bt=nt -d+ -dWIN32 &
          -dBUILDING_LIBCURL -I. -I"../include" $(SYS_INCL)
 
 !ifdef %debug
@@ -157,7 +157,7 @@ CFLAGS += -DUSE_LIBSSH2 -DHAVE_LIBSSH2_H -I"$(LIBSSH2_ROOT)/include" -I"$(LIBSSH
 !endif
 
 !ifdef %use_ssl
-CFLAGS += -wcd=138 -dUSE_OPENSSL -dUSE_SSLEAY -I"$(OPENSSL_ROOT)/inc32"
+CFLAGS += -wcd=138 -dUSE_OPENSSL -I"$(OPENSSL_ROOT)/inc32"
 !endif
 
 !ifdef %use_ares
@@ -192,14 +192,13 @@ OBJS4 = $(OBJS3: = ./)
 OBJS_STAT = $(OBJS4:./=$(OBJ_STAT)/)
 OBJS_DYN  = $(OBJS4:./=$(OBJ_DYN)/)
 
-CURLBUILDH = ../include/curl/curlbuild.h
 RESOURCE   = $(OBJ_DYN)/libcurl.res
 
 DIRS = $(OBJ_BASE) $(OBJ_BASE)/stat $(OBJ_BASE)/dyn
 
 .c : vauth vtls
 
-all: $(CURLBUILDH) $(DIRS) $(TARGETS) .SYMBOLIC
+all: $(DIRS) $(TARGETS) .SYMBOLIC
 	@echo Welcome to libcurl
 
 clean: .SYMBOLIC
@@ -215,9 +214,6 @@ vclean distclean: clean .SYMBOLIC
 
 $(DIRS):
 	-$(MD) $^@
-
-$(CURLBUILDH): .EXISTSONLY
-	$(CP) $^@.dist $^@
 
 $(LIBNAME).dll: $(OBJS_DYN) $(RESOURCE) $(__MAKEFILES__)
 	%create $(LINK_ARG)
@@ -276,4 +272,3 @@ $(RESOURCE): libcurl.rc
 
 .c{$(OBJ_STAT)}.obj:
 	$(CC) $(CFLAGS) -DCURL_STATICLIB $[@ -fo=$^@
-	

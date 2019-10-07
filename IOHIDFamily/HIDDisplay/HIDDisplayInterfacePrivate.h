@@ -11,14 +11,14 @@
 #import <Foundation/Foundation.h>
 #import <HIDDisplay/HIDDisplay.h>
 #import <HIDDisplay/HIDDisplayInterface.h>
-#import <IOKit/hid/IOHIDDevice.h>
-#import "HIDElement.h"
+#import <HID/HIDDevice.h>
+#import <HID/HIDElement.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface HIDDisplayInterface (HIDDisplayInterfacePrivate)
 
-@property(nullable) IOHIDDeviceRef device;
+@property HIDDevice *device;
 
 -(nullable instancetype) initWithMatching:(NSDictionary*) matching;
 -(BOOL) commit:(NSArray<HIDElement*>*) elements error:(NSError**) error;

@@ -48,7 +48,7 @@ protected:
     OSArray *           _ifListAttach;
     OSDictionary *      _ifPrefixDict;
     IONotifier *        _ifNotifier;
-    IOLock *            _stateLock;
+    IORecursiveLock *   _stateLock;
     thread_call_t       _asyncThread;
     const OSSymbol *    _noBSDAttachSymbol;
     IONotifier *        _sleepWakeNotifier;

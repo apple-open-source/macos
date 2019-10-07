@@ -129,10 +129,10 @@ OSStatus SecDHCreate(uint32_t g, const uint8_t *p, size_t p_len,
     if(recip) {
         if(ccn_read_uint(n+1, CCDH_GP_RECIP(gp), recip_len, recip))
             goto errOut;
-        CCZP_MOD_PRIME(CCDH_GP_ZP(gp)) = cczp_mod;
-    } else {
-        cczp_init(CCDH_GP_ZP(gp));
-    };
+        cczp_init_with_recip(CCDH_GP_ZP(gp), CCDH_GP_RECIP(gp));
+    } else if (cczp_init(CCDH_GP_ZP(gp))) {
+        goto errOut;
+    }
     ccn_seti(n, CCDH_GP_G(gp), g);
 
     *pdh = (SecDHContext) context;
@@ -227,10 +227,10 @@ OSStatus SecDHCreateFromParameters(const uint8_t *params,
     if(decodedParams.recip.length) {
         if(ccn_read_uint(n+1, CCDH_GP_RECIP(gp), decodedParams.recip.length, decodedParams.recip.data))
             goto errOut;
-        CCZP_MOD_PRIME(CCDH_GP_ZP(gp)) = cczp_mod;
-    } else {
-        cczp_init(CCDH_GP_ZP(gp));
-    };
+        cczp_init_with_recip(CCDH_GP_ZP(gp), CCDH_GP_RECIP(gp));
+    } else if (cczp_init(CCDH_GP_ZP(gp))) {
+        goto errOut;
+    }
 
     if(ccn_read_uint(n, CCDH_GP_G(gp), decodedParams.g.length, decodedParams.g.data))
         goto errOut;

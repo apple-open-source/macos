@@ -1,16 +1,11 @@
 /*
  * AppSocket backend for CUPS.
  *
- * Copyright 2007-2016 by Apple Inc.
- * Copyright 1997-2007 by Easy Software Products, all rights reserved.
+ * Copyright © 2007-2018 by Apple Inc.
+ * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * "LICENSE" which should have been included with this file.  If this
- * file is missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 /*
@@ -23,7 +18,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#ifdef WIN32
+#ifdef _WIN32
 #  include <winsock.h>
 #else
 #  include <unistd.h>
@@ -32,7 +27,7 @@
 #  include <netinet/in.h>
 #  include <arpa/inet.h>
 #  include <netdb.h>
-#endif /* WIN32 */
+#endif /* _WIN32 */
 
 
 /*
@@ -402,8 +397,10 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
       lseek(print_fd, 0, SEEK_SET);
     }
 
-    tbytes = backendRunLoop(print_fd, device_fd, snmp_fd, &(addrlist->addr), 1,
-                            0, backendNetworkSideCB);
+    if ((bytes = backendRunLoop(print_fd, device_fd, snmp_fd, &(addrlist->addr), 1, 0, backendNetworkSideCB)) < 0)
+      tbytes = -1;
+    else
+      tbytes = bytes;
 
     if (print_fd != 0 && tbytes >= 0)
       _cupsLangPrintFilter(stderr, "INFO", _("Print file sent."));
@@ -411,7 +408,7 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
 
   fputs("STATE: +cups-waiting-for-job-completed\n", stderr);
 
-  if (waiteof)
+  if (waiteof && tbytes >= 0)
   {
    /*
     * Shutdown the socket and wait for the other end to finish...
@@ -448,7 +445,7 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
   if (print_fd != 0)
     close(print_fd);
 
-  return (CUPS_BACKEND_OK);
+  return (tbytes >= 0 ? CUPS_BACKEND_OK : CUPS_BACKEND_FAILED);
 }
 
 

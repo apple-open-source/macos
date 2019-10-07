@@ -92,6 +92,14 @@ extern int dt_pid_create_offset_probe(struct ps_prochandle *, dtrace_hdl_t *,
 extern int dt_pid_create_glob_offset_probes(struct ps_prochandle *,
     dtrace_hdl_t *, fasttrap_probe_spec_t *, const GElf_Sym *, const char *);
 
+extern int dt_pid_create_objc_probes(dtrace_probedesc_t *, dtrace_hdl_t *,
+    dt_pcb_t *, dt_proc_t *, dt_pr_t);
+
+extern int dt_pid_per_sym(dt_pid_probe_t *, const GElf_Sym *, const char *);
+
+extern int dt_pid_error(dtrace_hdl_t *, dt_pcb_t *, dt_proc_t *,
+    fasttrap_probe_spec_t *, dt_errtag_t, const char *, ...);
+
 #ifdef	__cplusplus
 }
 #endif

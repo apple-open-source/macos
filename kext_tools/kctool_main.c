@@ -80,12 +80,12 @@ int main(int argc, char * const argv[])
         result = EX_OSERR;
         goto finish;
     }
-    
+
     fat_arch = getFirstFatArch(fat_header);
     if (fat_arch && !toolArgs.archInfo) {
         toolArgs.archInfo = NXGetArchInfoFromCpuType(fat_arch->cputype, fat_arch->cpusubtype);
     }
-    
+
     rawKernelcache = readMachOSliceForArch(toolArgs.kernelcachePath, toolArgs.archInfo,
         /* checkArch */ FALSE);
     if (!rawKernelcache) {
@@ -108,7 +108,7 @@ int main(int argc, char * const argv[])
     }
 
     toolArgs.kernelcacheImageBytes = CFDataGetBytePtr(kernelcacheImage);
-    
+
     if (ISMACHO64(MAGIC32(toolArgs.kernelcacheImageBytes))) {
         prelinkInfoSect = (void *)macho_get_section_by_name_64(
             (struct mach_header_64 *)toolArgs.kernelcacheImageBytes,
@@ -180,7 +180,7 @@ ExitStatus readArgs(
     int          longindex      = -1;
 
     bzero(toolArgs, sizeof(*toolArgs));
-    
+
     /*****
     * Process command line arguments.
     */
@@ -188,7 +188,7 @@ ExitStatus readArgs(
         kOptChars, sOptInfo, &longindex)) != -1) {
 
         switch (optchar) {
-  
+
             case kOptArch:
                 toolArgs->archInfo = NXGetArchInfoFromName(optarg);
                 if (!toolArgs->archInfo) {
@@ -198,12 +198,12 @@ ExitStatus readArgs(
                     goto finish;
                 }
                 break;
-  
+
             case kOptHelp:
                 usage(kUsageLevelFull);
                 result = kKctoolExitHelp;
                 goto finish;
-    
+
             default:
                 OSKextLog(/* kext */ NULL,
                     kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
@@ -212,7 +212,7 @@ ExitStatus readArgs(
                 break;
 
         }
-        
+
        /* Reset longindex, because getopt_long_only() is stupid and doesn't.
         */
         longindex = -1;
@@ -250,7 +250,7 @@ finish:
     if (result == EX_USAGE) {
         usage(kUsageLevelBrief);
     }
-    
+
     return result;
 }
 
@@ -295,7 +295,7 @@ ExitStatus printKextInfo(KctoolArgs * toolArgs)
     ExitStatus result         = EX_SOFTWARE;
     CFArrayRef kextPlistArray = NULL;
     CFIndex    i, count;
-    
+
     if (CFArrayGetTypeID() == CFGetTypeID(toolArgs->kernelcacheInfoPlist)) {
         kextPlistArray = (CFArrayRef)toolArgs->kernelcacheInfoPlist;
     } else if (CFDictionaryGetTypeID() == CFGetTypeID(toolArgs->kernelcacheInfoPlist)){
@@ -307,12 +307,12 @@ ExitStatus printKextInfo(KctoolArgs * toolArgs)
             "Unrecognized kernelcache plist data.");
         goto finish;
     }
-    
+
     count = CFArrayGetCount(kextPlistArray);
     for (i = 0; i < count; i++) {
         CFDictionaryRef kextInfoDict = (CFDictionaryRef)CFArrayGetValueAtIndex(kextPlistArray, i);
         CFStringRef     thisKextID = CFDictionaryGetValue(kextInfoDict, kCFBundleIdentifierKey);
-        
+
         if (thisKextID && CFEqual(thisKextID, toolArgs->kextID)) {
             uint64_t      kextAddr   = 0;
             uint64_t      kextSize   = 0;
@@ -462,7 +462,7 @@ void usage(UsageLevel usageLevel)
         "        list info for architecture <archname>\n",
         kOptNameArch);
     fprintf(stderr, "\n");
-   
+
     fprintf(stderr, "-%s (-%c): print this message and exit\n",
         kOptNameHelp, kOptHelp);
 

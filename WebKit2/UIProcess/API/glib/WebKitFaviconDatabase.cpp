@@ -23,12 +23,12 @@
 #include "IconDatabase.h"
 #include "WebKitFaviconDatabasePrivate.h"
 #include "WebPreferences.h"
-#include <WebCore/FileSystem.h>
 #include <WebCore/Image.h>
 #include <WebCore/IntSize.h>
 #include <WebCore/RefPtrCairo.h>
 #include <WebCore/SharedBuffer.h>
 #include <glib/gi18n-lib.h>
+#include <wtf/FileSystem.h>
 #include <wtf/RunLoop.h>
 #include <wtf/SetForScope.h>
 #include <wtf/glib/GRefPtr.h>
@@ -175,7 +175,7 @@ static void processPendingIconsForPageURL(WebKitFaviconDatabase* database, const
     for (size_t i = 0; i < pendingIconRequests->size(); ++i) {
         GTask* task = pendingIconRequests->at(i).get();
         if (error)
-            g_task_return_error(task, error.release().release());
+            g_task_return_error(task, error.release());
         else {
             GetFaviconSurfaceAsyncData* data = static_cast<GetFaviconSurfaceAsyncData*>(g_task_get_task_data(task));
             data->icon = icon;
@@ -273,7 +273,7 @@ void webkitFaviconDatabaseOpen(WebKitFaviconDatabase* database, const String& pa
     priv->iconDatabase->setEnabled(true);
     priv->iconDatabase->setPrivateBrowsingEnabled(WebPreferences::anyPagesAreUsingPrivateBrowsing());
 
-    if (!priv->iconDatabase->open(WebCore::FileSystem::directoryName(path), WebCore::FileSystem::pathGetFileName(path))) {
+    if (!priv->iconDatabase->open(FileSystem::directoryName(path), FileSystem::pathGetFileName(path))) {
         priv->iconDatabase = nullptr;
         IconDatabase::allowDatabaseCleanup();
     }
@@ -413,7 +413,7 @@ void webkit_favicon_database_get_favicon(WebKitFaviconDatabase* database, const 
     data->shouldReleaseIconForPageURL = true;
 
     if (g_error_matches(error.get(), WEBKIT_FAVICON_DATABASE_ERROR, WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_NOT_FOUND)) {
-        g_task_return_error(task.get(), error.release().release());
+        g_task_return_error(task.get(), error.release());
         return;
     }
 

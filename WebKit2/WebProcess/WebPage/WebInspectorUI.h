@@ -29,10 +29,12 @@
 #include "WebInspectorFrontendAPIDispatcher.h"
 #include <WebCore/InspectorFrontendClient.h>
 #include <WebCore/InspectorFrontendHost.h>
+#include <WebCore/PageIdentifier.h>
 
 namespace WebCore {
 class InspectorController;
 class CertificateInfo;
+class FloatRect;
 }
 
 namespace WebKit {
@@ -51,7 +53,7 @@ public:
     void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference, IPC::StringReference) override { closeWindow(); }
 
     // Called by WebInspectorUI messages
-    void establishConnection(uint64_t inspectedPageIdentifier, bool underTest, unsigned inspectionLevel);
+    void establishConnection(WebCore::PageIdentifier inspectedPageIdentifier, bool underTest, unsigned inspectionLevel);
     void updateConnection();
 
     void showConsole();
@@ -88,17 +90,21 @@ public:
     void startWindowDrag() override;
     void moveWindowBy(float x, float y) override;
 
+    bool isRemote() const final { return false; }
     String localizedStringsURL() override;
 
     void bringToFront() override;
     void closeWindow() override;
     void reopen() override;
+    void resetState() override;
 
     WebCore::UserInterfaceLayoutDirection userInterfaceLayoutDirection() const override;
 
     void requestSetDockSide(DockSide) override;
     void changeAttachedWindowHeight(unsigned) override;
     void changeAttachedWindowWidth(unsigned) override;
+
+    void changeSheetRect(const WebCore::FloatRect&) override;
 
     void openInNewTab(const String& url) override;
 
@@ -129,7 +135,7 @@ private:
     // corePage(), since we may need it after the frontend's page has started destruction.
     WebCore::InspectorController* m_frontendController { nullptr };
 
-    uint64_t m_inspectedPageIdentifier { 0 };
+    WebCore::PageIdentifier m_inspectedPageIdentifier;
     bool m_underTest { false };
     bool m_dockingUnavailable { false };
     bool m_isVisible { false };

@@ -10,5 +10,11 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<key>com.apple.security.device.microphone</key>
+	<true/>
+    <key>com.apple.private.tcc.allow</key>
+    <array>
+        <string>kTCCServiceMicrophone</string>
+    </array>
 </dict>
 </plist>

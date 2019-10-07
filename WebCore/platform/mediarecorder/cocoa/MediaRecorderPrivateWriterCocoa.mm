@@ -29,63 +29,64 @@
 #if ENABLE(MEDIA_STREAM) && USE(AVFOUNDATION)
 
 #include "AudioStreamDescription.h"
-#include "FileSystem.h"
 #include "Logging.h"
 #include "MediaStreamTrackPrivate.h"
 #include "WebAudioBufferList.h"
 #include <AVFoundation/AVAssetWriter.h>
 #include <AVFoundation/AVAssetWriterInput.h>
 #include <pal/cf/CoreMediaSoftLink.h>
+#include <wtf/FileSystem.h>
 
-typedef AVAssetWriter AVAssetWriterType;
-typedef AVAssetWriterInput AVAssetWriterInputType;
+#import <pal/cocoa/AVFoundationSoftLink.h>
 
-SOFT_LINK_FRAMEWORK_OPTIONAL(AVFoundation)
-
-SOFT_LINK_CLASS(AVFoundation, AVAssetWriter)
-SOFT_LINK_CLASS(AVFoundation, AVAssetWriterInput)
-
-SOFT_LINK_CONSTANT(AVFoundation, AVFileTypeMPEG4, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVVideoCodecKey, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVVideoCodecH264, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVVideoWidthKey, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVVideoHeightKey, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVMediaTypeVideo, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVMediaTypeAudio, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVEncoderBitRateKey, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVFormatIDKey, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVNumberOfChannelsKey, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVSampleRateKey, NSString *)
-
-SOFT_LINK_CONSTANT(AVFoundation, AVVideoExpectedSourceFrameRateKey, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVVideoProfileLevelKey, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVVideoAverageBitRateKey, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVVideoMaxKeyFrameIntervalKey, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVVideoProfileLevelH264MainAutoLevel, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVVideoCompressionPropertiesKey, NSString *)
-
-#define AVFileTypeMPEG4 getAVFileTypeMPEG4()
-#define AVMediaTypeAudio getAVMediaTypeAudio()
-#define AVMediaTypeVideo getAVMediaTypeVideo()
-#define AVVideoCodecKey getAVVideoCodecKey()
-#define AVVideoCodecH264 getAVVideoCodecH264()
-#define AVVideoWidthKey getAVVideoWidthKey()
-#define AVVideoHeightKey getAVVideoHeightKey()
-#define AVEncoderBitRateKey getAVEncoderBitRateKey()
-#define AVFormatIDKey getAVFormatIDKey()
-#define AVNumberOfChannelsKey getAVNumberOfChannelsKey()
-#define AVSampleRateKey getAVSampleRateKey()
-
-#define AVVideoExpectedSourceFrameRateKey getAVVideoExpectedSourceFrameRateKey()
-#define AVVideoProfileLevelKey getAVVideoProfileLevelKey()
-#define AVVideoAverageBitRateKey getAVVideoAverageBitRateKey()
-#define AVVideoMaxKeyFrameIntervalKey getAVVideoMaxKeyFrameIntervalKey()
-#define AVVideoProfileLevelH264MainAutoLevel getAVVideoProfileLevelH264MainAutoLevel()
-#define AVVideoCompressionPropertiesKey getAVVideoCompressionPropertiesKey()
+#undef AVEncoderBitRateKey
+#define AVEncoderBitRateKey getAVEncoderBitRateKeyWithFallback()
+#undef AVFormatIDKey
+#define AVFormatIDKey getAVFormatIDKeyWithFallback()
+#undef AVNumberOfChannelsKey
+#define AVNumberOfChannelsKey getAVNumberOfChannelsKeyWithFallback()
+#undef AVSampleRateKey
+#define AVSampleRateKey getAVSampleRateKeyWithFallback()
 
 namespace WebCore {
 
 using namespace PAL;
+
+static NSString *getAVFormatIDKeyWithFallback()
+{
+    if (PAL::canLoad_AVFoundation_AVFormatIDKey())
+        return PAL::get_AVFoundation_AVFormatIDKey();
+
+    RELEASE_LOG_ERROR(Media, "Failed to load AVFormatIDKey");
+    return @"AVFormatIDKey";
+}
+
+static NSString *getAVNumberOfChannelsKeyWithFallback()
+{
+    if (PAL::canLoad_AVFoundation_AVNumberOfChannelsKey())
+        return PAL::get_AVFoundation_AVNumberOfChannelsKey();
+
+    RELEASE_LOG_ERROR(Media, "Failed to load AVNumberOfChannelsKey");
+    return @"AVNumberOfChannelsKey";
+}
+
+static NSString *getAVSampleRateKeyWithFallback()
+{
+    if (PAL::canLoad_AVFoundation_AVSampleRateKey())
+        return PAL::get_AVFoundation_AVSampleRateKey();
+
+    RELEASE_LOG_ERROR(Media, "Failed to load AVSampleRateKey");
+    return @"AVSampleRateKey";
+}
+
+static NSString *getAVEncoderBitRateKeyWithFallback()
+{
+    if (PAL::canLoad_AVFoundation_AVEncoderBitRateKey())
+        return PAL::get_AVFoundation_AVEncoderBitRateKey();
+
+    RELEASE_LOG_ERROR(Media, "Failed to load AVEncoderBitRateKey");
+    return @"AVEncoderBitRateKey";
+}
 
 RefPtr<MediaRecorderPrivateWriter> MediaRecorderPrivateWriter::create(const MediaStreamTrackPrivate* audioTrack, const MediaStreamTrackPrivate* videoTrack)
 {
@@ -96,7 +97,7 @@ RefPtr<MediaRecorderPrivateWriter> MediaRecorderPrivateWriter::create(const Medi
     NSURL *outputURL = [NSURL fileURLWithPath:path];
     String filePath = [path UTF8String];
     NSError *error = nil;
-    auto avAssetWriter = adoptNS([allocAVAssetWriterInstance() initWithURL:outputURL fileType:AVFileTypeMPEG4 error:&error]);
+    auto avAssetWriter = adoptNS([PAL::allocAVAssetWriterInstance() initWithURL:outputURL fileType:AVFileTypeMPEG4 error:&error]);
     if (error) {
         RELEASE_LOG_ERROR(MediaStream, "create AVAssetWriter instance failed with error code %ld", (long)error.code);
         return nullptr;
@@ -159,7 +160,7 @@ bool MediaRecorderPrivateWriter::setVideoInput(int width, int height)
         AVVideoCompressionPropertiesKey: compressionProperties
     };
     
-    m_videoInput = adoptNS([allocAVAssetWriterInputInstance() initWithMediaType:AVMediaTypeVideo outputSettings:videoSettings sourceFormatHint:nil]);
+    m_videoInput = adoptNS([PAL::allocAVAssetWriterInputInstance() initWithMediaType:AVMediaTypeVideo outputSettings:videoSettings sourceFormatHint:nil]);
     [m_videoInput setExpectsMediaDataInRealTime:true];
     
     if (![m_writer canAddInput:m_videoInput.get()]) {
@@ -183,7 +184,7 @@ bool MediaRecorderPrivateWriter::setAudioInput()
         AVSampleRateKey : @(22050)
     };
 
-    m_audioInput = adoptNS([allocAVAssetWriterInputInstance() initWithMediaType:AVMediaTypeAudio outputSettings:audioSettings sourceFormatHint:nil]);
+    m_audioInput = adoptNS([PAL::allocAVAssetWriterInputInstance() initWithMediaType:AVMediaTypeAudio outputSettings:audioSettings sourceFormatHint:nil]);
     [m_audioInput setExpectsMediaDataInRealTime:true];
     
     if (![m_writer canAddInput:m_audioInput.get()]) {

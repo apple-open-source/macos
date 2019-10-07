@@ -34,6 +34,7 @@
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/Chrome.h>
 #include <WebCore/DOMWrapperWorld.h>
+#include <WebCore/FloatRect.h>
 #include <WebCore/InspectorController.h>
 
 namespace WebKit {
@@ -99,6 +100,11 @@ void RemoteWebInspectorUI::frontendLoaded()
     bringToFront();
 }
 
+void RemoteWebInspectorUI::changeSheetRect(const FloatRect& rect)
+{
+    WebProcess::singleton().parentProcessConnection()->send(Messages::RemoteWebInspectorProxy::SetSheetRect(rect), m_page.pageID());
+}
+
 void RemoteWebInspectorUI::startWindowDrag()
 {
     WebProcess::singleton().parentProcessConnection()->send(Messages::RemoteWebInspectorProxy::StartWindowDrag(), m_page.pageID());
@@ -131,6 +137,11 @@ void RemoteWebInspectorUI::closeWindow()
 void RemoteWebInspectorUI::reopen()
 {
     WebProcess::singleton().parentProcessConnection()->send(Messages::RemoteWebInspectorProxy::Reopen(), m_page.pageID());
+}
+
+void RemoteWebInspectorUI::resetState()
+{
+    WebProcess::singleton().parentProcessConnection()->send(Messages::RemoteWebInspectorProxy::ResetState(), m_page.pageID());
 }
 
 void RemoteWebInspectorUI::openInNewTab(const String& url)

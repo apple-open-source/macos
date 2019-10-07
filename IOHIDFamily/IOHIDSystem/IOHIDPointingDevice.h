@@ -41,22 +41,22 @@ private:
 
 protected:
 
-    virtual void free();
-    virtual bool handleStart( IOService * provider );
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
+    virtual bool handleStart( IOService * provider ) APPLE_KEXT_OVERRIDE;
     
 public:
     static IOHIDPointingDevice	* newPointingDeviceAndStart(IOService * owner, UInt8 numButtons = 8, UInt32 resolution = 100, bool scroll = false, UInt32 location = 0);
     
-    virtual bool initWithLocation( UInt32 location = 0 );
+    virtual bool initWithLocation( UInt32 location = 0 ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn newReportDescriptor(
-                        IOMemoryDescriptor ** descriptor ) const;
+                        IOMemoryDescriptor ** descriptor ) const APPLE_KEXT_OVERRIDE;
     
-    virtual OSString * newProductString() const;
+    virtual OSString * newProductString() const APPLE_KEXT_OVERRIDE;
                                                                 
     virtual IOReturn getReport( IOMemoryDescriptor * report,
                                  IOHIDReportType      reportType,
-                                 IOOptionBits         options );
+                                 IOOptionBits         options ) APPLE_KEXT_OVERRIDE;
 
     virtual void postMouseEvent(UInt8 buttons, UInt16 x, UInt16 y, UInt8 wheel=0);
     

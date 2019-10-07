@@ -6,6 +6,7 @@
  * others. All Rights Reserved.
  ********************************************************************/
 
+#include <utility>
 
 /**
  * IntlTestUtilities is the medium level test class for everything in the directory "utility".
@@ -18,6 +19,7 @@
 #include "itutil.h"
 #include "strtest.h"
 #include "loctest.h"
+#include "localebuildertest.h"
 #include "citrtest.h"
 #include "ustrtest.h"
 #include "ucdtest.h"
@@ -148,6 +150,7 @@ void IntlTestUtilities::runIndexedTest( int32_t index, UBool exec, const char* &
             }
 #endif
             break;
+        CASE(25, LocaleBuilderTest);
         default: name = ""; break; //needed to end loop
     }
 }
@@ -300,7 +303,7 @@ void ErrorCodeTest::TestIcuTestErrorCode() {
     helper.test = this;
 
     // Test destructor message
-    helper.expectedErrln = u"AAA failure: U_ILLEGAL_PAD_POSITION";
+    helper.expectedErrln = u"AAA destructor: expected success but got error: U_ILLEGAL_PAD_POSITION";
     helper.expectedDataErr = FALSE;
     helper.seenError = FALSE;
     {
@@ -310,7 +313,7 @@ void ErrorCodeTest::TestIcuTestErrorCode() {
     assertTrue("Should have seen an error", helper.seenError);
 
     // Test destructor message with scope
-    helper.expectedErrln = u"BBB failure: U_ILLEGAL_PAD_POSITION scope: foo";
+    helper.expectedErrln = u"BBB destructor: expected success but got error: U_ILLEGAL_PAD_POSITION scope: foo";
     helper.expectedDataErr = FALSE;
     helper.seenError = FALSE;
     {
@@ -321,7 +324,7 @@ void ErrorCodeTest::TestIcuTestErrorCode() {
     assertTrue("Should have seen an error", helper.seenError);
 
     // Check errIfFailure message with scope
-    helper.expectedErrln = u"CCC failure: U_ILLEGAL_PAD_POSITION scope: foo";
+    helper.expectedErrln = u"CCC expected success but got error: U_ILLEGAL_PAD_POSITION scope: foo";
     helper.expectedDataErr = FALSE;
     helper.seenError = FALSE;
     {
@@ -331,14 +334,14 @@ void ErrorCodeTest::TestIcuTestErrorCode() {
         testStatus.errIfFailureAndReset();
         assertTrue("Should have seen an error", helper.seenError);
         helper.seenError = FALSE;
-        helper.expectedErrln = u"CCC failure: U_ILLEGAL_CHAR_FOUND scope: foo - 5.4300";
+        helper.expectedErrln = u"CCC expected success but got error: U_ILLEGAL_CHAR_FOUND scope: foo - 5.4300";
         testStatus.set(U_ILLEGAL_CHAR_FOUND);
         testStatus.errIfFailureAndReset("%6.4f", 5.43);
         assertTrue("Should have seen an error", helper.seenError);
     }
 
     // Check errDataIfFailure message without scope
-    helper.expectedErrln = u"DDD failure: U_ILLEGAL_PAD_POSITION";
+    helper.expectedErrln = u"DDD data: expected success but got error: U_ILLEGAL_PAD_POSITION";
     helper.expectedDataErr = TRUE;
     helper.seenError = FALSE;
     {
@@ -347,9 +350,31 @@ void ErrorCodeTest::TestIcuTestErrorCode() {
         testStatus.errDataIfFailureAndReset();
         assertTrue("Should have seen an error", helper.seenError);
         helper.seenError = FALSE;
-        helper.expectedErrln = u"DDD failure: U_ILLEGAL_CHAR_FOUND - 5.4300";
+        helper.expectedErrln = u"DDD data: expected success but got error: U_ILLEGAL_CHAR_FOUND - 5.4300";
         testStatus.set(U_ILLEGAL_CHAR_FOUND);
         testStatus.errDataIfFailureAndReset("%6.4f", 5.43);
+        assertTrue("Should have seen an error", helper.seenError);
+    }
+
+    // Check expectFailure
+    helper.expectedErrln = u"EEE expected: U_ILLEGAL_CHAR_FOUND but got error: U_ILLEGAL_PAD_POSITION";
+    helper.expectedDataErr = FALSE;
+    helper.seenError = FALSE;
+    {
+        IcuTestErrorCode testStatus(helper, "EEE");
+        testStatus.set(U_ILLEGAL_PAD_POSITION);
+        testStatus.expectErrorAndReset(U_ILLEGAL_PAD_POSITION);
+        assertFalse("Should NOT have seen an error", helper.seenError);
+        testStatus.set(U_ILLEGAL_PAD_POSITION);
+        testStatus.expectErrorAndReset(U_ILLEGAL_CHAR_FOUND);
+        assertTrue("Should have seen an error", helper.seenError);
+        helper.seenError = FALSE;
+        helper.expectedErrln = u"EEE expected: U_ILLEGAL_CHAR_FOUND but got error: U_ZERO_ERROR scope: scopety scope - 5.4300";
+        testStatus.setScope("scopety scope");
+        testStatus.set(U_ILLEGAL_PAD_POSITION);
+        testStatus.expectErrorAndReset(U_ILLEGAL_PAD_POSITION, "%6.4f", 5.43);
+        assertFalse("Should NOT have seen an error", helper.seenError);
+        testStatus.expectErrorAndReset(U_ILLEGAL_CHAR_FOUND, "%6.4f", 5.43);
         assertTrue("Should have seen an error", helper.seenError);
     }
 }
@@ -363,11 +388,14 @@ public:
 
     void TestLocalPointer();
     void TestLocalPointerMoveSwap();
+    void TestLocalPointerStdUniquePtr();
     void TestLocalArray();
     void TestLocalArrayMoveSwap();
+    void TestLocalArrayStdUniquePtr();
     void TestLocalXyzPointer();
     void TestLocalXyzPointerMoveSwap();
     void TestLocalXyzPointerNull();
+    void TestLocalXyzStdUniquePtr();
 };
 
 static IntlTest *createLocalPointerTest() {
@@ -381,11 +409,14 @@ void LocalPointerTest::runIndexedTest(int32_t index, UBool exec, const char *&na
     TESTCASE_AUTO_BEGIN;
     TESTCASE_AUTO(TestLocalPointer);
     TESTCASE_AUTO(TestLocalPointerMoveSwap);
+    TESTCASE_AUTO(TestLocalPointerStdUniquePtr);
     TESTCASE_AUTO(TestLocalArray);
     TESTCASE_AUTO(TestLocalArrayMoveSwap);
+    TESTCASE_AUTO(TestLocalArrayStdUniquePtr);
     TESTCASE_AUTO(TestLocalXyzPointer);
     TESTCASE_AUTO(TestLocalXyzPointerMoveSwap);
     TESTCASE_AUTO(TestLocalXyzPointerNull);
+    TESTCASE_AUTO(TestLocalXyzStdUniquePtr);
     TESTCASE_AUTO_END;
 }
 
@@ -457,6 +488,12 @@ void LocalPointerTest::TestLocalPointer() {
     // destructor
 }
 
+// Try to avoid clang -Wself-move warnings from s1 = std::move(s1);
+template<typename T>
+void moveFrom(T &dest, T &src) {
+    dest = std::move(src);
+}
+
 void LocalPointerTest::TestLocalPointerMoveSwap() {
     UnicodeString *p1 = new UnicodeString((UChar)0x61);
     UnicodeString *p2 = new UnicodeString((UChar)0x62);
@@ -471,9 +508,9 @@ void LocalPointerTest::TestLocalPointerMoveSwap() {
         errln("swap(LocalPointer) did not swap back");
     }
     LocalPointer<UnicodeString> s3;
-    s3.moveFrom(s1);
+    s3 = std::move(s1);
     if(s3.getAlias() != p1 || s1.isValid()) {
-        errln("LocalPointer.moveFrom() did not move");
+        errln("LocalPointer = std::move() did not move");
     }
     infoln("TestLocalPointerMoveSwap() with rvalue references");
     s1 = static_cast<LocalPointer<UnicodeString> &&>(s3);
@@ -488,8 +525,21 @@ void LocalPointerTest::TestLocalPointerMoveSwap() {
     // Move self assignment leaves the object valid but in an undefined state.
     // Do it to make sure there is no crash,
     // but do not check for any particular resulting value.
-    s1.moveFrom(s1);
-    s3.moveFrom(s3);
+    moveFrom(s1, s1);
+    moveFrom(s3, s3);
+}
+
+void LocalPointerTest::TestLocalPointerStdUniquePtr() {
+    auto* ptr = new UnicodeString((UChar32)0x50005);
+    // Implicit conversion operator
+    std::unique_ptr<UnicodeString> s = LocalPointer<UnicodeString>(ptr);
+    // Explicit move constructor
+    LocalPointer<UnicodeString> s2(std::move(s));
+    // Conversion operator should also work with std::move
+    s = std::move(s2);
+    // Back again with move assignment
+    s2 = std::move(s);
+    assertTrue("Pointer should remain the same", ptr == s2.getAlias());
 }
 
 // Exercise almost every LocalArray method (but not LocalPointerBase).
@@ -564,9 +614,9 @@ void LocalPointerTest::TestLocalArrayMoveSwap() {
         errln("swap(LocalArray) did not swap back");
     }
     LocalArray<UnicodeString> a3;
-    a3.moveFrom(a1);
+    a3 = std::move(a1);
     if(a3.getAlias() != p1 || a1.isValid()) {
-        errln("LocalArray.moveFrom() did not move");
+        errln("LocalArray = std::move() did not move");
     }
     infoln("TestLocalArrayMoveSwap() with rvalue references");
     a1 = static_cast<LocalArray<UnicodeString> &&>(a3);
@@ -581,8 +631,21 @@ void LocalPointerTest::TestLocalArrayMoveSwap() {
     // Move self assignment leaves the object valid but in an undefined state.
     // Do it to make sure there is no crash,
     // but do not check for any particular resulting value.
-    a1.moveFrom(a1);
-    a3.moveFrom(a3);
+    moveFrom(a1, a1);
+    moveFrom(a3, a3);
+}
+
+void LocalPointerTest::TestLocalArrayStdUniquePtr() {
+    auto* ptr = new UnicodeString[2];
+    // Implicit conversion operator
+    std::unique_ptr<UnicodeString[]> a = LocalArray<UnicodeString>(ptr);
+    // Explicit move constructor
+    LocalArray<UnicodeString> a2(std::move(a));
+    // Conversion operator should also work with std::move
+    a = std::move(a2);
+    // Back again with move assignment
+    a2 = std::move(a);
+    assertTrue("Pointer should remain the same", ptr == a2.getAlias());
 }
 
 #include "unicode/ucnvsel.h"
@@ -594,6 +657,7 @@ void LocalPointerTest::TestLocalArrayMoveSwap() {
 #include "unicode/unorm2.h"
 #include "unicode/uregex.h"
 #include "unicode/utrans.h"
+#include "unicode/uformattedvalue.h"
 
 // Use LocalXyzPointer types that are not covered elsewhere in the intltest suite.
 void LocalPointerTest::TestLocalXyzPointer() {
@@ -732,9 +796,9 @@ void LocalPointerTest::TestLocalXyzPointerMoveSwap() {
         errln("swap(LocalUNormalizer2Pointer) did not swap back");
     }
     LocalUNormalizer2Pointer f3;
-    f3.moveFrom(f1);
+    f3 = std::move(f1);
     if(f3.getAlias() != p1 || f1.isValid()) {
-        errln("LocalUNormalizer2Pointer.moveFrom() did not move");
+        errln("LocalUNormalizer2Pointer = std::move() did not move");
     }
     infoln("TestLocalXyzPointerMoveSwap() with rvalue references");
     f1 = static_cast<LocalUNormalizer2Pointer &&>(f3);
@@ -748,8 +812,8 @@ void LocalPointerTest::TestLocalXyzPointerMoveSwap() {
     // Move self assignment leaves the object valid but in an undefined state.
     // Do it to make sure there is no crash,
     // but do not check for any particular resulting value.
-    f1.moveFrom(f1);
-    f3.moveFrom(f3);
+    moveFrom(f1, f1);
+    moveFrom(f3, f3);
 #endif /* !UCONFIG_NO_NORMALIZATION */
 }
 
@@ -816,6 +880,23 @@ void LocalPointerTest::TestLocalXyzPointerNull() {
 
 }
 
+void LocalPointerTest::TestLocalXyzStdUniquePtr() {
+    IcuTestErrorCode status(*this, "TestLocalXyzStdUniquePtr");
+#if !UCONFIG_NO_FORMATTING
+    auto* ptr = ucfpos_open(status);
+    // Implicit conversion operator
+    std::unique_ptr<UConstrainedFieldPosition, void(*)(UConstrainedFieldPosition*)> a =
+        LocalUConstrainedFieldPositionPointer(ptr);
+    // Explicit move constructor
+    LocalUConstrainedFieldPositionPointer a2(std::move(a));
+    // Conversion operator should also work with std::move
+    a = std::move(a2);
+    // Back again with move assignment
+    a2 = std::move(a);
+    assertTrue("Pointer should remain the same", ptr == a2.getAlias());
+#endif // UCONFIG_NO_FORMATTING
+}
+
 /** EnumSet test **/
 #include "unicode/enumset.h"
 
@@ -852,47 +933,47 @@ void EnumSetTest::TestEnumSet() {
     logln("Enum is from [%d..%d]\n", MAX_NONBOOLEAN+1,
           LIMIT_BOOLEAN);
 
-    TEST_ASSERT_TRUE(flags.get(THING1) == FALSE);
-    TEST_ASSERT_TRUE(flags.get(THING2) == FALSE);
-    TEST_ASSERT_TRUE(flags.get(THING3) == FALSE);
+    assertFalse(WHERE, flags.get(THING1));
+    assertFalse(WHERE, flags.get(THING2));
+    assertFalse(WHERE, flags.get(THING3));
 
     logln("get(thing1)=%d, get(thing2)=%d, get(thing3)=%d\n",          flags.get(THING1),          flags.get(THING2),          flags.get(THING3));
     logln("Value now: %d\n", flags.getAll());
     flags.clear();
     logln("clear -Value now: %d\n", flags.getAll());
     logln("get(thing1)=%d, get(thing2)=%d, get(thing3)=%d\n",          flags.get(THING1),          flags.get(THING2),          flags.get(THING3));
-    TEST_ASSERT_TRUE(flags.get(THING1) == FALSE);
-    TEST_ASSERT_TRUE(flags.get(THING2) == FALSE);
-    TEST_ASSERT_TRUE(flags.get(THING3) == FALSE);
+    assertFalse(WHERE, flags.get(THING1));
+    assertFalse(WHERE, flags.get(THING2));
+    assertFalse(WHERE, flags.get(THING3));
     flags.add(THING1);
     logln("set THING1 -Value now: %d\n", flags.getAll());
-    TEST_ASSERT_TRUE(flags.get(THING1) == TRUE);
-    TEST_ASSERT_TRUE(flags.get(THING2) == FALSE);
-    TEST_ASSERT_TRUE(flags.get(THING3) == FALSE);
+    assertTrue(WHERE, flags.get(THING1));
+    assertFalse(WHERE, flags.get(THING2));
+    assertFalse(WHERE, flags.get(THING3));
     logln("get(thing1)=%d, get(thing2)=%d, get(thing3)=%d\n",          flags.get(THING1),          flags.get(THING2),          flags.get(THING3));
     flags.add(THING3);
     logln("set THING3 -Value now: %d\n", flags.getAll());
-    TEST_ASSERT_TRUE(flags.get(THING1) == TRUE);
-    TEST_ASSERT_TRUE(flags.get(THING2) == FALSE);
-    TEST_ASSERT_TRUE(flags.get(THING3) == TRUE);
+    assertTrue(WHERE, flags.get(THING1));
+    assertFalse(WHERE, flags.get(THING2));
+    assertTrue(WHERE, flags.get(THING3));
     logln("get(thing1)=%d, get(thing2)=%d, get(thing3)=%d\n",          flags.get(THING1),          flags.get(THING2),          flags.get(THING3));
     flags.remove(THING2);
-    TEST_ASSERT_TRUE(flags.get(THING1) == TRUE);
-    TEST_ASSERT_TRUE(flags.get(THING2) == FALSE);
-    TEST_ASSERT_TRUE(flags.get(THING3) == TRUE);
+    assertTrue(WHERE, flags.get(THING1));
+    assertFalse(WHERE, flags.get(THING2));
+    assertTrue(WHERE, flags.get(THING3));
     logln("remove THING2 -Value now: %d\n", flags.getAll());
     logln("get(thing1)=%d, get(thing2)=%d, get(thing3)=%d\n",          flags.get(THING1),          flags.get(THING2),          flags.get(THING3));
     flags.remove(THING1);
-    TEST_ASSERT_TRUE(flags.get(THING1) == FALSE);
-    TEST_ASSERT_TRUE(flags.get(THING2) == FALSE);
-    TEST_ASSERT_TRUE(flags.get(THING3) == TRUE);
+    assertFalse(WHERE, flags.get(THING1));
+    assertFalse(WHERE, flags.get(THING2));
+    assertTrue(WHERE, flags.get(THING3));
     logln("remove THING1 -Value now: %d\n", flags.getAll());
     logln("get(thing1)=%d, get(thing2)=%d, get(thing3)=%d\n",          flags.get(THING1),          flags.get(THING2),          flags.get(THING3));
 
     flags.clear();
     logln("clear -Value now: %d\n", flags.getAll());
     logln("get(thing1)=%d, get(thing2)=%d, get(thing3)=%d\n",          flags.get(THING1),          flags.get(THING2),          flags.get(THING3));
-    TEST_ASSERT_TRUE(flags.get(THING1) == FALSE);
-    TEST_ASSERT_TRUE(flags.get(THING2) == FALSE);
-    TEST_ASSERT_TRUE(flags.get(THING3) == FALSE);
+    assertFalse(WHERE, flags.get(THING1));
+    assertFalse(WHERE, flags.get(THING2));
+    assertFalse(WHERE, flags.get(THING3));
 }

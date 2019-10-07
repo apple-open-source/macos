@@ -47,9 +47,10 @@
 #import <wtf/MainThread.h>
 #import <wtf/RecursiveLockAdapter.h>
 #import <wtf/RunLoop.h>
+#import <wtf/ThreadSpecific.h>
 #import <wtf/Threading.h>
 #import <wtf/spi/cocoa/objcSPI.h>
-#import <wtf/text/AtomicString.h>
+#import <wtf/text/AtomString.h>
 
 #define LOG_MESSAGES 0
 #define LOG_WEB_LOCK 0
@@ -631,11 +632,11 @@ static void StartWebThread()
 {
     webThreadStarted = TRUE;
 
-    // ThreadGlobalData touches AtomicString, which requires Threading initialization.
+    // ThreadGlobalData touches AtomString, which requires Threading initialization.
     WTF::initializeThreading();
 
-    // Initialize AtomicString on the main thread.
-    WTF::AtomicString::init();
+    // Initialize AtomString on the main thread.
+    WTF::AtomString::init();
 
     // Initialize ThreadGlobalData on the main UI thread so that the WebCore thread
     // can later set it's thread-specific data to point to the same objects.
@@ -667,12 +668,9 @@ static void StartWebThread()
     // The web thread is a secondary thread, and secondary threads are usually given
     // a 512 kb stack, but we need more space in order to have room for the JavaScriptCore
     // reentrancy limit. This limit works on both the simulator and the device.
-    pthread_attr_setstacksize(&tattr, 200 * 4096);
+    pthread_attr_setstacksize(&tattr, 800 * KB);
 
-    struct sched_param param;
-    pthread_attr_getschedparam(&tattr, &param);
-    param.sched_priority--;
-    pthread_attr_setschedparam(&tattr, &param);
+    pthread_attr_set_qos_class_np(&tattr, QOS_CLASS_USER_INTERACTIVE, -10);
 
     // Wait for the web thread to startup completely before we continue.
     {

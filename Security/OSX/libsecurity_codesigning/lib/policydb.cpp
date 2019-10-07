@@ -360,17 +360,75 @@ void PolicyDatabase::upgradeDatabase()
 			migrateReq(this, 3, "anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists");
 		});
 	
-		// Add simpleFeatureNoTransaction for going from the requirements create above, to add secure timestamps in requirements, here before the commit
+		simpleFeatureNoTransaction("legacy_devid_v2", ^{
+			auto migrateReq = [](auto db, int type, string oldreq, string newreq) {
+				const string legacy =
+				" and legacy";
+
+				SQLite::Statement update(*db, "UPDATE OR IGNORE authority "
+										 "SET requirement = :newreq "
+										 "WHERE requirement = :oldreq "
+										 "      AND type = :type "
+										 "      AND label = 'Developer ID'");
+				update.bind(":oldreq") = oldreq;
+				update.bind(":type") = type;
+				update.bind(":newreq") = newreq;
+				update.execute();
+			};
+
+			// App handling has moved to the sunfish path.  The legacy keyword won't work well for apps because we don't collect nested code hashes to whitelist them.
+			migrateReq(this, 2,
+					   "anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and (certificate leaf[field.1.2.840.113635.100.6.1.14] or certificate leaf[field.1.2.840.113635.100.6.1.13]) and (certificate leaf[timestamp.1.2.840.113635.100.6.1.33] absent or certificate leaf[timestamp.1.2.840.113635.100.6.1.33] < timestamp \"20190408000000Z\")",
+					   "anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and (certificate leaf[field.1.2.840.113635.100.6.1.14] or certificate leaf[field.1.2.840.113635.100.6.1.13]) and legacy");
+			migrateReq(this, 3,
+					   "anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and (certificate leaf[timestamp.1.2.840.113635.100.6.1.33] absent or certificate leaf[timestamp.1.2.840.113635.100.6.1.33] < timestamp \"20190408000000Z\")",
+					   "anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and legacy");
+		});
+		
+		simpleFeatureNoTransaction("unnotarized_without_timestamp", ^{
+			auto migrateReq = [](auto db, int type, string req) {
+				const string to_remove =
+				" and (certificate leaf[timestamp.1.2.840.113635.100.6.1.33] exists and "
+				"certificate leaf[timestamp.1.2.840.113635.100.6.1.33] >= timestamp \"20190408000000Z\")";
+				
+				SQLite::Statement update(*db, "UPDATE OR IGNORE authority "
+										 "SET requirement = :newreq "
+										 "WHERE requirement = :oldreq "
+										 "      AND type = :type "
+										 "      AND label = 'Unnotarized Developer ID'");
+				update.bind(":oldreq") = req + to_remove;
+				update.bind(":type") = type;
+				update.bind(":newreq") = req;
+				update.execute();
+			};
+			
+			migrateReq(this, kAuthorityInstall, "anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and (certificate leaf[field.1.2.840.113635.100.6.1.14] or certificate leaf[field.1.2.840.113635.100.6.1.13])");
+			migrateReq(this, kAuthorityOpenDoc, "anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists");
+		});
 		
 		devIdRequirementUpgrades.commit();
 	}
-
+	
 	simpleFeature("notarized_documents", ^{
 		SQLite::Statement addNotarizedDocs(*this,
 										   "INSERT INTO authority (type, allow, flags, priority, label, requirement) "
 										   "  VALUES (3, 1, 2, 5.0, 'Notarized Developer ID', "
 										   "          'anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and notarized')");
 		addNotarizedDocs.execute();
+	});
+
+	simpleFeature("notarization_priority_fix", ^{
+		auto migrateReq = [](auto db, string label, float priority) {
+			SQLite::Statement update(*db,
+									 "UPDATE OR IGNORE authority "
+									 "SET priority = :newpriority "
+									 "WHERE label = :label");
+			update.bind(":newpriority") = priority;
+			update.bind(":label") = label;
+			update.execute();
+		};
+		migrateReq(this, "Developer ID", 4.0);
+		migrateReq(this, "Unnotarized Developer ID", 0.0);
 	});
 }
 

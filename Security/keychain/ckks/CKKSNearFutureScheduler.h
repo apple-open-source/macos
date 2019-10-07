@@ -53,7 +53,7 @@ NS_ASSUME_NONNULL_BEGIN
                        delay:(dispatch_time_t)ns
             keepProcessAlive:(bool)keepProcessAlive
    dependencyDescriptionCode:(NSInteger)code
-                       block:(void (^_Nonnull)(void))futureOperation;
+                       block:(void (^_Nonnull)(void))futureBlock;
 
 - (instancetype)initWithName:(NSString*)name
                 initialDelay:(dispatch_time_t)initialDelay
@@ -68,6 +68,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Don't trigger again until at least this much time has passed.
 - (void)waitUntil:(uint64_t)delay;
+
+// Trigger at this time (unless further instructions are given)
+- (void)triggerAt:(uint64_t)delay;
 
 - (void)changeDelays:(dispatch_time_t)initialDelay continuingDelay:(dispatch_time_t)continuingDelay;
 

@@ -4,7 +4,7 @@ Testing wrong parameter passing of PIXELATE in imagefilter() of GD library
 Guilherme Blanco <guilhermeblanco [at] hotmail [dot] com>
 #testfest PHPSP on 2009-06-20
 --SKIPIF--
-<?php 
+<?php
 if (!extension_loaded("gd")) die("skip GD not present");
 ?>
 --FILE--
@@ -14,5 +14,5 @@ $image = imagecreatetruecolor(180, 30);
 var_dump(imagefilter($image, IMG_FILTER_PIXELATE, 'wrong parameter'));
 ?>
 --EXPECTF--
-Warning: imagefilter() expects parameter 3 to be integer, %unicode_string_optional% given in %s on line %d
+Warning: imagefilter() expects parameter 3 to be int, string given in %s on line %d
 bool(false)

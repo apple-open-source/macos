@@ -30,60 +30,31 @@
 
 #ifndef _SYS_ELFTYPES_H
 #define	_SYS_ELFTYPES_H
-
-#if defined(__LP64__)
-#if !defined(_LP64)
-#define _LP64 /* Solaris vs. Darwin */
-#endif
-#else
-#if !defined(_ILP32)
-#define _ILP32 /* Solaris vs. Darwin */
-#endif
-#endif
-
-#if !defined(_LONGLONG_TYPE)
-#define _LONGLONG_TYPE
-#endif
+#include <stdint.h>
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-#if defined(_LP64) || defined(_I32LPx)
-typedef unsigned int		Elf32_Addr;
-typedef unsigned short		Elf32_Half;
-typedef unsigned int		Elf32_Off;
-typedef int			Elf32_Sword;
-typedef unsigned int		Elf32_Word;
-#else
-typedef unsigned long		Elf32_Addr;
-typedef unsigned short		Elf32_Half;
-typedef unsigned long		Elf32_Off;
-typedef long			Elf32_Sword;
-typedef unsigned long		Elf32_Word;
-#endif
+typedef uint32_t	Elf32_Addr;	/* Program address. */
+typedef uint8_t		Elf32_Byte;	/* Unsigned tiny integer. */
+typedef uint16_t	Elf32_Half;	/* Unsigned medium integer. */
+typedef uint32_t	Elf32_Off;	/* File offset. */
+typedef uint16_t	Elf32_Section;	/* Section index. */
+typedef int32_t		Elf32_Sword;	/* Signed integer. */
+typedef uint32_t	Elf32_Word;	/* Unsigned integer. */
+typedef uint64_t	Elf32_Lword;	/* Unsigned long integer. */
 
-#if defined(_LP64)
-typedef unsigned long		Elf64_Addr;
-typedef unsigned short		Elf64_Half;
-typedef unsigned long		Elf64_Off;
-typedef int			Elf64_Sword;
-typedef long			Elf64_Sxword;
-typedef	unsigned int		Elf64_Word;
-typedef	unsigned long		Elf64_Xword;
-typedef unsigned long		Elf64_Lword;
-typedef unsigned long		Elf32_Lword;
-#elif defined(_LONGLONG_TYPE)
-typedef unsigned long long	Elf64_Addr;
-typedef unsigned short		Elf64_Half;
-typedef unsigned long long	Elf64_Off;
-typedef int			Elf64_Sword;
-typedef long long		Elf64_Sxword;
-typedef	unsigned int		Elf64_Word;
-typedef	unsigned long long	Elf64_Xword;
-typedef	unsigned long long	Elf64_Lword;
-typedef unsigned long long	Elf32_Lword;
-#endif
+typedef uint64_t	Elf64_Addr;	/* Program address. */
+typedef uint8_t		Elf64_Byte;	/* Unsigned tiny integer. */
+typedef uint16_t	Elf64_Half;	/* Unsigned medium integer. */
+typedef uint64_t	Elf64_Off;	/* File offset. */
+typedef uint16_t	Elf64_Section;	/* Section index. */
+typedef int32_t		Elf64_Sword;	/* Signed integer. */
+typedef uint32_t	Elf64_Word;	/* Unsigned integer. */
+typedef uint64_t	Elf64_Lword;	/* Unsigned long integer. */
+typedef uint64_t	Elf64_Xword;	/* Unsigned long integer. */
+typedef int64_t		Elf64_Sxword;	/* Signed long integer. */
 
 #ifdef	__cplusplus
 }

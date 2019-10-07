@@ -92,13 +92,6 @@ WI.TextContentView = class TextContentView extends WI.ContentView
         this._textEditor.hidden();
     }
 
-    closed()
-    {
-        super.closed();
-
-        this._textEditor.close();
-    }
-
     get supportsSave()
     {
         return true;
@@ -106,7 +99,7 @@ WI.TextContentView = class TextContentView extends WI.ContentView
 
     get saveData()
     {
-        var url = "web-inspector:///" + encodeURI(WI.UIString("Untitled")) + ".txt";
+        let url = WI.FileUtilities.inspectorURLForFilename(WI.UIString("Untitled") + ".txt");
         return {url, content: this._textEditor.string, forceSaveAs: true};
     }
 

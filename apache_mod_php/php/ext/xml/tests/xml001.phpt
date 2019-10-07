@@ -16,7 +16,7 @@ xml_set_character_data_handler($xml_parser, "characterData");
 xml_set_processing_instruction_handler($xml_parser, "PIHandler");
 xml_set_default_handler($xml_parser, "defaultHandler");
 xml_set_external_entity_ref_handler($xml_parser, "externalEntityRefHandler");
-    
+
 if (!($fp = @fopen("xmltest.xml", "r"))) {
     die("could not open XML input");
 }
@@ -35,7 +35,7 @@ function startElement($parser, $name, $attribs)
 {
 	print '{'.$name;
 	if (sizeof($attribs)) {
-		while (list($k, $v) = each($attribs)) {
+        foreach ($attribs as $k => $v) {
 			print " $k=\"$v\"";
 		}
 	}

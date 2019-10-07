@@ -23,8 +23,6 @@
 
 #include "ckconfig.h"
 
-#if CRYPTKIT_ELL_PROJ_ENABLE
-
 #include "giantIntegers.h"
 #include "curveParams.h"
 
@@ -72,5 +70,4 @@ normalizeProj(pointProj pt, curveParams *cp);
 void /* Find a point (x, y, 1) on the curve. */
 findPointProj(pointProj pt, giant seed, curveParams *cp);
 
-#endif	/* CRYPTKIT_ELL_PROJ_ENABLE*/
 #endif	/* _CRYPTKIT_ELLIPTIC_PROJ_H_ */

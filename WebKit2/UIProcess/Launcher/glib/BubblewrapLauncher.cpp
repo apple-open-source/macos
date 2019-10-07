@@ -20,12 +20,12 @@
 
 #if ENABLE(BUBBLEWRAP_SANDBOX)
 
-#include <WebCore/FileSystem.h>
 #include <WebCore/PlatformDisplay.h>
 #include <fcntl.h>
 #include <glib.h>
 #include <seccomp.h>
 #include <sys/ioctl.h>
+#include <wtf/FileSystem.h>
 #include <wtf/glib/GLibUtilities.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/GUniquePtr.h>
@@ -308,22 +308,6 @@ static void bindX11(Vector<CString>& args)
         bindIfExists(args, xauth);
 }
 
-static void bindDconf(Vector<CString>& args)
-{
-    const char* runtimeDir = g_get_user_runtime_dir();
-    GUniquePtr<char> dconfRuntimeDir(g_build_filename(runtimeDir, "dconf", nullptr));
-    args.appendVector(Vector<CString>({ "--bind", dconfRuntimeDir.get(), dconfRuntimeDir.get() }));
-
-    const char* dconfDir = g_getenv("DCONF_USER_CONFIG_DIR");
-    if (dconfDir)
-        bindIfExists(args, dconfDir);
-    else {
-        const char* configDir = g_get_user_config_dir();
-        GUniquePtr<char> dconfConfigDir(g_build_filename(configDir, "dconf", nullptr));
-        bindIfExists(args, dconfConfigDir.get(), BindFlags::ReadWrite);
-    }
-}
-
 #if PLATFORM(WAYLAND) && USE(EGL)
 static void bindWayland(Vector<CString>& args)
 {
@@ -457,8 +441,10 @@ static void bindA11y(Vector<CString>& args)
     }
 
     if (proxy.proxyPath().data()) {
+        GUniquePtr<char> proxyAddress(g_strdup_printf("unix:path=%s", proxy.proxyPath().data()));
         args.appendVector(Vector<CString>({
-            "--bind", proxy.proxyPath(), proxy.path(),
+            "--ro-bind", proxy.proxyPath(), proxy.proxyPath(),
+            "--setenv", "AT_SPI_BUS_ADDRESS", proxyAddress.get(),
         }));
     }
 }
@@ -571,7 +557,7 @@ static int setupSeccomp()
     //  https://git.gnome.org/browse/linux-user-chroot
     //    in src/setup-seccomp.c
     struct scmp_arg_cmp cloneArg = SCMP_A0(SCMP_CMP_MASKED_EQ, CLONE_NEWUSER, CLONE_NEWUSER);
-    struct scmp_arg_cmp ttyArg = SCMP_A1(SCMP_CMP_EQ, static_cast<scmp_datum_t>(TIOCSTI), static_cast<scmp_datum_t>(0));
+    struct scmp_arg_cmp ttyArg = SCMP_A1(SCMP_CMP_MASKED_EQ, 0xFFFFFFFFu, TIOCSTI);
     struct {
         int scall;
         struct scmp_arg_cmp* arg;
@@ -657,9 +643,6 @@ static int createFlatpakInfo()
 {
     GUniquePtr<GKeyFile> keyFile(g_key_file_new());
 
-    const char* sharedPermissions[] = { "network", nullptr };
-    g_key_file_set_string_list(keyFile.get(), "Context", "shared", sharedPermissions, sizeof(sharedPermissions));
-
     // xdg-desktop-portal relates your name to certain permissions so we want
     // them to be application unique which is best done via GApplication.
     GApplication* app = g_application_get_default();
@@ -684,11 +667,13 @@ GRefPtr<GSubprocess> bubblewrapSpawn(GSubprocessLauncher* launcher, const Proces
 {
     ASSERT(launcher);
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
     // It is impossible to know what access arbitrary plugins need and since it is for legacy
     // reasons lets just leave it unsandboxed.
     if (launchOptions.processType == ProcessLauncher::ProcessType::Plugin64
         || launchOptions.processType == ProcessLauncher::ProcessType::Plugin32)
         return adoptGRef(g_subprocess_launcher_spawnv(launcher, argv, error));
+#endif
 
     // For now we are just considering the network process trusted as it
     // requires a lot of access but doesn't execute arbitrary code like
@@ -700,6 +685,7 @@ GRefPtr<GSubprocess> bubblewrapSpawn(GSubprocessLauncher* launcher, const Proces
         "--die-with-parent",
         "--unshare-pid",
         "--unshare-uts",
+        "--unshare-net",
 
         // We assume /etc has safe permissions.
         // At a later point we can start masking privacy-concerning files.
@@ -762,7 +748,6 @@ GRefPtr<GSubprocess> bubblewrapSpawn(GSubprocessLauncher* launcher, const Proces
         }));
     }
 
-    // NOTE: This has network access for HLS via GStreamer.
     if (launchOptions.processType == ProcessLauncher::ProcessType::Web) {
         static XDGDBusProxyLauncher proxy;
 
@@ -775,19 +760,14 @@ GRefPtr<GSubprocess> bubblewrapSpawn(GSubprocessLauncher* launcher, const Proces
 #endif
             bindX11(sandboxArgs);
 
-        // NOTE: This is not a great solution but we just assume that applications create this directory
-        // ahead of time if they require it.
-        GUniquePtr<char> configDir(g_build_filename(g_get_user_config_dir(), g_get_prgname(), nullptr));
-        GUniquePtr<char> cacheDir(g_build_filename(g_get_user_cache_dir(), g_get_prgname(), nullptr));
-        GUniquePtr<char> dataDir(g_build_filename(g_get_user_data_dir(), g_get_prgname(), nullptr));
+        for (const auto& pathAndPermission : launchOptions.extraWebProcessSandboxPaths) {
+            sandboxArgs.appendVector(Vector<CString>({
+                pathAndPermission.value == SandboxPermission::ReadOnly ? "--ro-bind-try": "--bind-try",
+                pathAndPermission.key, pathAndPermission.key
+            }));
+        }
 
-        sandboxArgs.appendVector(Vector<CString>({
-            "--ro-bind-try", cacheDir.get(), cacheDir.get(),
-            "--ro-bind-try", configDir.get(), configDir.get(),
-            "--ro-bind-try", dataDir.get(), dataDir.get(),
-        }));
-
-        Vector<String> extraPaths = { "applicationCacheDirectory", "waylandSocket"};
+        Vector<String> extraPaths = { "applicationCacheDirectory", "mediaKeysDirectory", "waylandSocket", "webSQLDatabaseDirectory" };
         for (const auto& path : extraPaths) {
             String extraPath = launchOptions.extraInitializationData.get(path);
             if (!extraPath.isEmpty())
@@ -795,8 +775,6 @@ GRefPtr<GSubprocess> bubblewrapSpawn(GSubprocessLauncher* launcher, const Proces
         }
 
         bindDBusSession(sandboxArgs, proxy);
-        // FIXME: This needs to be restricted, upstream is working on it.
-        bindDconf(sandboxArgs);
         // FIXME: We should move to Pipewire as soon as viable, Pulse doesn't restrict clients atm.
         bindPulse(sandboxArgs);
         bindFonts(sandboxArgs);
@@ -811,8 +789,6 @@ GRefPtr<GSubprocess> bubblewrapSpawn(GSubprocessLauncher* launcher, const Proces
 
         if (!proxy.isRunning()) {
             Vector<CString> permissions = {
-                // FIXME: Used by GTK on Wayland.
-                "--talk=ca.desrt.dconf",
                 // GStreamers plugin install helper.
                 "--call=org.freedesktop.PackageKit=org.freedesktop.PackageKit.Modify2.InstallGStreamerResources@/org/freedesktop/PackageKit"
             };

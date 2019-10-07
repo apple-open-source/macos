@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,28 +55,6 @@
 
 STATIC CFDataRef		S_DUID;
 STATIC CFMutableArrayRef	S_IAIDList;
-
-/*
- * Function: seconds_since_Jan_1_2000
- * Purpose:
- *   Return the number of seconds since midnight (UTC), January 1, 2000, the
- *   epoch for the DHCP DUID LLT.
- */
-STATIC uint32_t
-S_seconds_since_Jan_1_2000(void)
-{
-    time_t		DHCPDUID_epoch;
-    uint32_t	      	seconds;
-    struct tm		tm;
-
-    bzero(&tm, sizeof(tm));
-    tm.tm_year = 100; 	/* 2000 (100 years since 1900) */
-    tm.tm_mon = 0;	/* January (0 months since January) */
-    tm.tm_mday = 1;	/* 1st (day of the month) */
-    DHCPDUID_epoch = timegm(&tm);
-    seconds = (uint32_t)(time(NULL) - DHCPDUID_epoch);
-    return (seconds);
-}
 
 STATIC void
 save_DUID_info(void)
@@ -170,45 +148,23 @@ load_DUID_info(void)
 STATIC CF_RETURNS_RETAINED CFDataRef
 make_DUID_LL_data(interface_t * if_p)
 {
-    CFMutableDataRef	data;
-    int			duid_len;
-    DHCPDUID_LLRef	ll_p;
-
-    duid_len = offsetof(DHCPDUID_LL, linklayer_address) + if_link_length(if_p);
-    data = CFDataCreateMutable(NULL, duid_len);
-    CFDataSetLength(data, duid_len);
-    ll_p = (DHCPDUID_LLRef)CFDataGetMutableBytePtr(data);
-    DHCPDUIDSetType((DHCPDUIDRef)ll_p, kDHCPDUIDTypeLL);
-    DHCPDUID_LLSetHardwareType(ll_p, if_link_arptype(if_p));
-    bcopy(if_link_address(if_p), ll_p->linklayer_address,
-	  if_link_length(if_p));
-    return (data);
+    return (DHCPDUID_LLDataCreate(if_link_address(if_p),
+				  if_link_length(if_p),
+				  if_link_arptype(if_p)));
 }
 
 STATIC CF_RETURNS_RETAINED CFDataRef
 make_DUID_LLT_data(interface_t * if_p)
 {
-    CFMutableDataRef	data;
-    int			duid_len;
-    DHCPDUID_LLTRef	llt_p;
-
-    duid_len = offsetof(DHCPDUID_LLT, linklayer_address) + if_link_length(if_p);
-    data = CFDataCreateMutable(NULL, duid_len);
-    CFDataSetLength(data, duid_len);
-    llt_p = (DHCPDUID_LLTRef)CFDataGetMutableBytePtr(data);
-    DHCPDUIDSetType((DHCPDUIDRef)llt_p, kDHCPDUIDTypeLLT);
-    DHCPDUID_LLTSetHardwareType(llt_p, if_link_arptype(if_p));
-    bcopy(if_link_address(if_p), llt_p->linklayer_address,
-	  if_link_length(if_p));
-    DHCPDUID_LLTSetTime(llt_p, S_seconds_since_Jan_1_2000());
-    return (data);
+    return (DHCPDUID_LLTDataCreate(if_link_address(if_p),
+				   if_link_length(if_p),
+				   if_link_arptype(if_p)));
 }
 
 PRIVATE_EXTERN CFDataRef
 DHCPDUIDGet(interface_list_t * interfaces)
 {
     interface_t *		if_p;
-    interface_t *	       	if_with_linkaddr_p = NULL;
 
     if (S_DUID != NULL) {
 	goto done;
@@ -220,45 +176,11 @@ DHCPDUIDGet(interface_list_t * interfaces)
     if (interfaces == NULL) {
 	goto done;
     }
-    if_p = ifl_find_name(interfaces, "en0");
+    if_p = ifl_find_stable_interface(interfaces);
     if (if_p == NULL) {
-	int		count;
-	int		i;
-
-	count = ifl_count(interfaces);
-	for (i = 0; i < count; i++) {
-	    interface_t *	scan = ifl_at_index(interfaces, i);
-
-	    switch (if_ift_type(scan)) {
-	    case IFT_ETHER:
-	    case IFT_IEEE1394:
-		break;
-	    default:
-		if (if_with_linkaddr_p == NULL
-		    && if_link_length(scan) > 0) {
-		    if_with_linkaddr_p = scan;
-		}
-		continue;
-	    }
-	    if (if_p == NULL) {
-		if_p = scan;
-	    }
-	    else if (strcmp(if_name(scan), if_name(if_p)) < 0) {
-		/* pick "lowest" named interface */
-		if_p = scan;
-	    }
-	}
+	goto done;
     }
-    if (if_p == NULL) {
-	if (G_dhcp_duid_type == kDHCPDUIDTypeLL || if_with_linkaddr_p == NULL) {
-	    my_log(LOG_NOTICE,
-		   "DHCPv6Client: can't determine interface for DUID");
-	    goto done;
-	}
-	if_p = if_with_linkaddr_p;
-    }
-    my_log(LOG_INFO, "DHCPv6Client: chose %s for DUID",
-	   if_name(if_p));
+    my_log(LOG_INFO, "DHCPv6Client: chose %s for DUID", if_name(if_p));
     if (G_dhcp_duid_type == kDHCPDUIDTypeLL || G_is_netboot) {
 	S_DUID = make_DUID_LL_data(if_p);
     }

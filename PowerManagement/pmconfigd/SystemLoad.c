@@ -80,7 +80,7 @@ static int      tpl_supported           = 0;
 
 static UserActiveStruct gUserActive;
 
-__private_extern__ bool isDisplayAsleep( );
+__private_extern__ bool isDisplayAsleep(void);
 /************************* ****************************** ********************/
 
 static uint32_t updateUserActivityLevels(void);
@@ -151,9 +151,7 @@ void userActiveHandleRootDomainActivity(void)
         cancel_NotificationDisplayWake();
         cancelPowerNapStates();
         cancelDarkWakeCapabilitiesTimer();
-#if TCPKEEPALIVE
         enableTCPKeepAlive();
-#endif
         gUserActive.sessionUserActivity = gUserActive.rootDomain = true;
 
         // Consider this equivalent to an user active assertion.
@@ -574,7 +572,7 @@ static void evaluateHidIdleNotification()
     }
 
     if (!hidIdleEval) {
-        hidIdleEval = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+        hidIdleEval = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _getPMMainQueue());
 
         dispatch_source_set_event_handler(hidIdleEval, ^{ evaluateHidIdleNotification(); });
 
@@ -678,7 +676,7 @@ void hidPropertyCallback( void * target, void * context, CFStringRef property, C
     }
 
     // Evaluate on main queue
-    dispatch_async(dispatch_get_main_queue(), ^{
+    dispatch_async(_getPMMainQueue(), ^{
         if (state == 1) {
             gUserActive.hidActive = true;
         }
@@ -718,7 +716,6 @@ static void registerForHidActivity()
 __private_extern__ void SystemLoad_prime(void)
 {
     IONotificationPortRef       notify_port = 0;
-    CFRunLoopSourceRef          rlser = 0;
     int                         token;
 
     sysLoad_log = os_log_create(PM_LOG_SYSTEM, SYSLOAD_LOG);
@@ -753,9 +750,7 @@ __private_extern__ void SystemLoad_prime(void)
     SystemLoadCPUPowerHasChanged(NULL);
 
     notify_port = IONotificationPortCreate(0);
-    rlser = IONotificationPortGetRunLoopSource(notify_port);
-    if(rlser)
-       CFRunLoopAddSource(CFRunLoopGetCurrent(), rlser, kCFRunLoopDefaultMode);
+    IONotificationPortSetDispatchQueue(notify_port, _getPMMainQueue());
 
     gUserActive.idleTimeout = kIOPMDefaultUserActivityTimeout;
 
@@ -771,7 +766,7 @@ __private_extern__ void SystemLoad_prime(void)
 
 
     notify_register_dispatch( kOSThermalNotificationPressureLevelName,
-                              &token, dispatch_get_main_queue(),
+                              &token, _getPMMainQueue(),
                               ^(int token) {
                                     notify_get_state(token, &thermalPressureLevel);
                                     tpl_supported = 1;
@@ -1053,7 +1048,7 @@ static void setAssertionIdleNotificationTimer()
         return;
     }
     if (!assertionEval) {
-        assertionEval = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+        assertionEval = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _getPMMainQueue());
 
         dispatch_source_set_event_handler(assertionEval, ^{ SystemLoadUserActiveAssertions( false ); });
 
@@ -1243,7 +1238,7 @@ __private_extern__ uint32_t getTimeSinceLastTickle( )
     // NOTE: This section is required on iOS to get last tickle timestamp from backboardd.
     // Hid activity tickle time stamp is not required on macOS as an
     // assertion update is guaranteed for each HID activity.
-    dispatch_assert_queue_not(dispatch_get_main_queue());
+    dispatch_assert_queue_not(_getPMMainQueue());
     dispatch_sync(sysloadQ, ^{
         hidActivity_ts = monotonicTS2Secs(__IOHIDEventSystemClientCopyIntegerProperty(
                 CFSTR(kIOHIDLastActivityTimestampKey)));

@@ -43,6 +43,8 @@ extern int	fsreadfd;		/* file descriptor for reading file system */
 extern int	fswritefd;		/* file descriptor for writing file system */
 extern Cache_t	fscache;
 
+extern int  detonator_run;
+
 
 #define DIRTYEXIT  3		/* Filesystem Dirty, no checks */
 #define FIXEDROOTEXIT  4	/* Writeable Root Filesystem was fixed */
@@ -71,5 +73,5 @@ int		reply __P((char *question));
 void		start_progress(void);
 void		draw_progress(int);
 void		end_progress(void);
-void		DumpData(const void *, size_t);
+void		DumpData(const void *ptr, size_t sz, char *label);
 

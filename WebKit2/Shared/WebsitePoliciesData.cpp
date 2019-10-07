@@ -28,6 +28,7 @@
 
 #include "ArgumentCoders.h"
 #include "WebProcess.h"
+#include <WebCore/CustomHeaderFields.h>
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/Frame.h>
 #include <WebCore/Page.h>
@@ -37,14 +38,22 @@ namespace WebKit {
 void WebsitePoliciesData::encode(IPC::Encoder& encoder) const
 {
     encoder << contentBlockersEnabled;
-    encoder << deviceOrientationEventEnabled;
     encoder << autoplayPolicy;
+#if ENABLE(DEVICE_ORIENTATION)
+    encoder << deviceOrientationAndMotionAccessState;
+#endif
     encoder << allowedAutoplayQuirks;
     encoder << customHeaderFields;
     encoder << popUpPolicy;
     encoder << websiteDataStoreParameters;
     encoder << customUserAgent;
+    encoder << customJavaScriptUserAgentAsSiteSpecificQuirks;
     encoder << customNavigatorPlatform;
+    encoder << metaViewportPolicy;
+    encoder << mediaSourcePolicy;
+    encoder << simulatedMouseEventsDispatchPolicy;
+    encoder << legacyOverflowScrollingTouchPolicy;
+    encoder << allowContentChangeObserverQuirk;
 }
 
 Optional<WebsitePoliciesData> WebsitePoliciesData::decode(IPC::Decoder& decoder)
@@ -53,23 +62,25 @@ Optional<WebsitePoliciesData> WebsitePoliciesData::decode(IPC::Decoder& decoder)
     decoder >> contentBlockersEnabled;
     if (!contentBlockersEnabled)
         return WTF::nullopt;
-
-    Optional<bool> deviceOrientationEventEnabled;
-    decoder >> deviceOrientationEventEnabled;
-    if (!deviceOrientationEventEnabled)
-        return WTF::nullopt;
     
     Optional<WebsiteAutoplayPolicy> autoplayPolicy;
     decoder >> autoplayPolicy;
     if (!autoplayPolicy)
         return WTF::nullopt;
+
+#if ENABLE(DEVICE_ORIENTATION)
+    Optional<DeviceOrientationOrMotionPermissionState> deviceOrientationAndMotionAccessState;
+    decoder >> deviceOrientationAndMotionAccessState;
+    if (!deviceOrientationAndMotionAccessState)
+        return WTF::nullopt;
+#endif
     
     Optional<OptionSet<WebsiteAutoplayQuirk>> allowedAutoplayQuirks;
     decoder >> allowedAutoplayQuirks;
     if (!allowedAutoplayQuirks)
         return WTF::nullopt;
     
-    Optional<Vector<WebCore::HTTPHeaderField>> customHeaderFields;
+    Optional<Vector<WebCore::CustomHeaderFields>> customHeaderFields;
     decoder >> customHeaderFields;
     if (!customHeaderFields)
         return WTF::nullopt;
@@ -89,21 +100,59 @@ Optional<WebsitePoliciesData> WebsitePoliciesData::decode(IPC::Decoder& decoder)
     if (!customUserAgent)
         return WTF::nullopt;
 
+    Optional<String> customJavaScriptUserAgentAsSiteSpecificQuirks;
+    decoder >> customJavaScriptUserAgentAsSiteSpecificQuirks;
+    if (!customJavaScriptUserAgentAsSiteSpecificQuirks)
+        return WTF::nullopt;
+
     Optional<String> customNavigatorPlatform;
     decoder >> customNavigatorPlatform;
     if (!customNavigatorPlatform)
         return WTF::nullopt;
+
+    Optional<WebsiteMetaViewportPolicy> metaViewportPolicy;
+    decoder >> metaViewportPolicy;
+    if (!metaViewportPolicy)
+        return WTF::nullopt;
+
+    Optional<WebsiteMediaSourcePolicy> mediaSourcePolicy;
+    decoder >> mediaSourcePolicy;
+    if (!mediaSourcePolicy)
+        return WTF::nullopt;
+    
+    Optional<WebsiteSimulatedMouseEventsDispatchPolicy> simulatedMouseEventsDispatchPolicy;
+    decoder >> simulatedMouseEventsDispatchPolicy;
+    if (!simulatedMouseEventsDispatchPolicy)
+        return WTF::nullopt;
+
+    Optional<WebsiteLegacyOverflowScrollingTouchPolicy> legacyOverflowScrollingTouchPolicy;
+    decoder >> legacyOverflowScrollingTouchPolicy;
+    if (!legacyOverflowScrollingTouchPolicy)
+        return WTF::nullopt;
+
+    Optional<bool> allowContentChangeObserverQuirk;
+    decoder >> allowContentChangeObserverQuirk;
+    if (!allowContentChangeObserverQuirk)
+        return WTF::nullopt;
     
     return { {
         WTFMove(*contentBlockersEnabled),
-        WTFMove(*deviceOrientationEventEnabled),
         WTFMove(*allowedAutoplayQuirks),
         WTFMove(*autoplayPolicy),
+#if ENABLE(DEVICE_ORIENTATION)
+        WTFMove(*deviceOrientationAndMotionAccessState),
+#endif
         WTFMove(*customHeaderFields),
         WTFMove(*popUpPolicy),
         WTFMove(*websiteDataStoreParameters),
         WTFMove(*customUserAgent),
+        WTFMove(*customJavaScriptUserAgentAsSiteSpecificQuirks),
         WTFMove(*customNavigatorPlatform),
+        WTFMove(*metaViewportPolicy),
+        WTFMove(*mediaSourcePolicy),
+        WTFMove(*simulatedMouseEventsDispatchPolicy),
+        WTFMove(*legacyOverflowScrollingTouchPolicy),
+        WTFMove(*allowContentChangeObserverQuirk),
     } };
 }
 
@@ -111,9 +160,13 @@ void WebsitePoliciesData::applyToDocumentLoader(WebsitePoliciesData&& websitePol
 {
     documentLoader.setCustomHeaderFields(WTFMove(websitePolicies.customHeaderFields));
     documentLoader.setCustomUserAgent(websitePolicies.customUserAgent);
+    documentLoader.setCustomJavaScriptUserAgentAsSiteSpecificQuirks(websitePolicies.customJavaScriptUserAgentAsSiteSpecificQuirks);
     documentLoader.setCustomNavigatorPlatform(websitePolicies.customNavigatorPlatform);
-    documentLoader.setDeviceOrientationEventEnabled(websitePolicies.deviceOrientationEventEnabled);
-    
+
+#if ENABLE(DEVICE_ORIENTATION)
+    documentLoader.setDeviceOrientationAndMotionAccessState(websitePolicies.deviceOrientationAndMotionAccessState);
+#endif
+
     // Only setUserContentExtensionsEnabled if it hasn't already been disabled by reloading without content blockers.
     if (documentLoader.userContentExtensionsEnabled())
         documentLoader.setUserContentExtensionsEnabled(websitePolicies.contentBlockersEnabled);
@@ -129,6 +182,9 @@ void WebsitePoliciesData::applyToDocumentLoader(WebsitePoliciesData&& websitePol
     
     if (allowedQuirks.contains(WebsiteAutoplayQuirk::ArbitraryUserGestures))
         quirks.add(WebCore::AutoplayQuirk::ArbitraryUserGestures);
+
+    if (allowedQuirks.contains(WebsiteAutoplayQuirk::PerDocumentAutoplayBehavior))
+        quirks.add(WebCore::AutoplayQuirk::PerDocumentAutoplayBehavior);
 
     documentLoader.setAllowedAutoplayQuirks(quirks);
 
@@ -159,15 +215,68 @@ void WebsitePoliciesData::applyToDocumentLoader(WebsitePoliciesData&& websitePol
         break;
     }
 
-    if (websitePolicies.websiteDataStoreParameters) {
-        if (auto* frame = documentLoader.frame()) {
-            if (auto* page = frame->page()) {
-                auto sessionID = websitePolicies.websiteDataStoreParameters->networkSessionParameters.sessionID;
-                WebProcess::singleton().addWebsiteDataStore(WTFMove(*websitePolicies.websiteDataStoreParameters));
-                page->setSessionID(sessionID);
-            }
-        }
+    switch (websitePolicies.metaViewportPolicy) {
+    case WebsiteMetaViewportPolicy::Default:
+        documentLoader.setMetaViewportPolicy(WebCore::MetaViewportPolicy::Default);
+        break;
+    case WebsiteMetaViewportPolicy::Respect:
+        documentLoader.setMetaViewportPolicy(WebCore::MetaViewportPolicy::Respect);
+        break;
+    case WebsiteMetaViewportPolicy::Ignore:
+        documentLoader.setMetaViewportPolicy(WebCore::MetaViewportPolicy::Ignore);
+        break;
     }
+
+    switch (websitePolicies.mediaSourcePolicy) {
+    case WebsiteMediaSourcePolicy::Default:
+        documentLoader.setMediaSourcePolicy(WebCore::MediaSourcePolicy::Default);
+        break;
+    case WebsiteMediaSourcePolicy::Disable:
+        documentLoader.setMediaSourcePolicy(WebCore::MediaSourcePolicy::Disable);
+        break;
+    case WebsiteMediaSourcePolicy::Enable:
+        documentLoader.setMediaSourcePolicy(WebCore::MediaSourcePolicy::Enable);
+        break;
+    }
+
+    switch (websitePolicies.simulatedMouseEventsDispatchPolicy) {
+    case WebsiteSimulatedMouseEventsDispatchPolicy::Default:
+        documentLoader.setSimulatedMouseEventsDispatchPolicy(WebCore::SimulatedMouseEventsDispatchPolicy::Default);
+        break;
+    case WebsiteSimulatedMouseEventsDispatchPolicy::Allow:
+        documentLoader.setSimulatedMouseEventsDispatchPolicy(WebCore::SimulatedMouseEventsDispatchPolicy::Allow);
+        break;
+    case WebsiteSimulatedMouseEventsDispatchPolicy::Deny:
+        documentLoader.setSimulatedMouseEventsDispatchPolicy(WebCore::SimulatedMouseEventsDispatchPolicy::Deny);
+        break;
+    }
+
+    switch (websitePolicies.legacyOverflowScrollingTouchPolicy) {
+    case WebsiteLegacyOverflowScrollingTouchPolicy::Default:
+        documentLoader.setLegacyOverflowScrollingTouchPolicy(WebCore::LegacyOverflowScrollingTouchPolicy::Default);
+        break;
+    case WebsiteLegacyOverflowScrollingTouchPolicy::Disable:
+        documentLoader.setLegacyOverflowScrollingTouchPolicy(WebCore::LegacyOverflowScrollingTouchPolicy::Disable);
+        break;
+    case WebsiteLegacyOverflowScrollingTouchPolicy::Enable:
+        documentLoader.setLegacyOverflowScrollingTouchPolicy(WebCore::LegacyOverflowScrollingTouchPolicy::Enable);
+        break;
+    }
+
+    documentLoader.setAllowContentChangeObserverQuirk(websitePolicies.allowContentChangeObserverQuirk);
+
+    auto* frame = documentLoader.frame();
+    if (!frame)
+        return;
+
+    documentLoader.applyPoliciesToSettings();
+
+    auto* page = frame->page();
+    if (!page)
+        return;
+
+    if (websitePolicies.websiteDataStoreParameters)
+        page->setSessionID(websitePolicies.websiteDataStoreParameters->networkSessionParameters.sessionID);
 }
 
 }

@@ -11,24 +11,24 @@ echo "*** Testing ftruncate() : error conditions ***\n";
 
 $filename = dirname(__FILE__)."/ftruncate_error.tmp";
 $file_handle = fopen($filename, "w" );
-fwrite($file_handle, (binary)"Testing ftruncate error conditions \n");
+fwrite($file_handle, "Testing ftruncate error conditions \n");
 fflush($file_handle);
 echo "\n Initial file size = ".filesize($filename)."\n";
 
 echo "-- Testing ftruncate() with less than expected number of arguments --\n";
 
-// zero arguments 
+// zero arguments
 var_dump( ftruncate() );
 
 // arguments less than expected numbers
 var_dump( ftruncate( $file_handle ) );
-// check the first size 
+// check the first size
 var_dump( filesize($filename) );
 
 echo "-- Testing ftruncate() with more than expected number of arguments --\n";
-// more than expected number of arguments 
+// more than expected number of arguments
 var_dump( ftruncate($file_handle, 10, 20) );
-// check the first size 
+// check the first size
 var_dump( filesize($filename) );
 
 // test invalid arguments : non-resources
@@ -53,18 +53,18 @@ echo "-- Testing ftruncate() with closed/unset file handle --\n";
 // ftruncate on close file handle
 fclose($file_handle);
 var_dump( ftruncate($file_handle,10) );
-// check the first size 
+// check the first size
 var_dump( filesize($filename) );
 
 // ftruncate on a file handle which is unset
 $fp = fopen($filename, "w");
 unset($fp); //unset file handle
 var_dump( ftruncate(@$fp,10));
-// check the first size 
+// check the first size
 var_dump( filesize($filename) );
 
 echo "Done\n";
-?> 
+?>
 --CLEAN--
 <?php
 $filename = dirname(__FILE__)."/ftruncate_error.tmp";
@@ -94,7 +94,7 @@ Warning: ftruncate() expects parameter 1 to be resource, string given in %s on l
 bool(false)
 -- Iteration 2 --
 
-Warning: ftruncate() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: ftruncate() expects parameter 1 to be resource, int given in %s on line %d
 bool(false)
 -- Iteration 3 --
 
@@ -102,7 +102,7 @@ Warning: ftruncate() expects parameter 1 to be resource, float given in %s on li
 bool(false)
 -- Iteration 4 --
 
-Warning: ftruncate() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: ftruncate() expects parameter 1 to be resource, bool given in %s on line %d
 bool(false)
 -- Iteration 5 --
 

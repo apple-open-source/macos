@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.predlast.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Test a clause that has a body and a predicate where the
  *            predicate must be cooked last because the clause creates

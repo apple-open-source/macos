@@ -1,0 +1,2 @@
+g/(void)objc_msgSendSuper(\&super,/s/(void)objc_msgSendSuper(\&super,/((void (*)(struct objc_super *, SEL, char *, void *))objc_msgSendSuper)(\&super,/
+w

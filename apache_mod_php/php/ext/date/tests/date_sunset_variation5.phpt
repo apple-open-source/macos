@@ -3,9 +3,9 @@ Test date_sunset() function : usage variation - Passing unexpected values to fif
 --FILE--
 <?php
 /* Prototype  : mixed date_sunset(mixed time [, int format [, float latitude [, float longitude [, float zenith [, float gmt_offset]]]]])
- * Description: Returns time of sunset for a given day and location 
+ * Description: Returns time of sunset for a given day and location
  * Source code: ext/date/php_date.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing date_sunset() : usage variation ***\n";
@@ -114,8 +114,8 @@ bool(false)
 
 --int 12345--
 string(5) "19:20"
-float(19.340%d)
-int(1218203424)
+float(19.343%d)
+int(1218203437)
 
 --int -12345--
 bool(false)

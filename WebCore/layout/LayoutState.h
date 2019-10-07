@@ -31,6 +31,7 @@
 #include <wtf/HashSet.h>
 #include <wtf/IsoMalloc.h>
 #include <wtf/OptionSet.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
@@ -47,6 +48,7 @@ namespace Layout {
 enum class StyleDiff;
 class Box;
 class Container;
+class FormattingContext;
 class FormattingState;
 
 // LayoutState is the entry point for layout. It takes the initial containing block which acts as the root of the layout context.
@@ -58,11 +60,12 @@ class FormattingState;
 class LayoutState {
     WTF_MAKE_ISO_ALLOCATED(LayoutState);
 public:
-    LayoutState(const Container& initialContainingBlock, const LayoutSize&);
+    LayoutState(const Container& initialContainingBlock);
 
     void updateLayout();
     void styleChanged(const Box&, StyleDiff);
-    void setInQuirksMode(bool inQuirksMode) { m_inQuirksMode = inQuirksMode; }
+    enum class QuirksMode { No, Limited, Yes };
+    void setQuirksMode(QuirksMode quirksMode) { m_quirksMode = quirksMode; }
 
     enum class UpdateType {
         Overflow = 1 << 0,
@@ -75,12 +78,21 @@ public:
 
     FormattingState& formattingStateForBox(const Box&) const;
     FormattingState& establishedFormattingState(const Box& formattingRoot) const;
+    bool hasFormattingState(const Box& formattingRoot) const { return m_formattingStates.contains(&formattingRoot); }
     FormattingState& createFormattingStateForFormattingRootIfNeeded(const Box& formattingRoot);
+
+    std::unique_ptr<FormattingContext> createFormattingContext(const Box& formattingContextRoot);
+#ifndef NDEBUG
+    void registerFormattingContext(const FormattingContext&);
+    void deregisterFormattingContext(const FormattingContext& formattingContext) { m_formattingContextList.remove(&formattingContext); }
+#endif
 
     Display::Box& displayBoxForLayoutBox(const Box& layoutBox) const;
     bool hasDisplayBox(const Box& layoutBox) const { return m_layoutToDisplayBox.contains(&layoutBox); }
 
-    bool inQuirksMode() const { return m_inQuirksMode; }
+    bool inQuirksMode() const { return m_quirksMode == QuirksMode::Yes; }
+    bool inLimitedQuirksMode() const { return m_quirksMode == QuirksMode::Limited; }
+    bool inNoQuirksMode() const { return m_quirksMode == QuirksMode::No; }
     // For testing purposes only
     void verifyAndOutputMismatchingLayoutTree(const RenderView&) const;
 
@@ -91,9 +103,21 @@ private:
     WeakPtr<const Container> m_initialContainingBlock;
     HashSet<const Container*> m_formattingContextRootListForLayout;
     HashMap<const Box*, std::unique_ptr<FormattingState>> m_formattingStates;
+#ifndef NDEBUG
+    HashSet<const FormattingContext*> m_formattingContextList;
+#endif
     mutable HashMap<const Box*, std::unique_ptr<Display::Box>> m_layoutToDisplayBox;
-    bool m_inQuirksMode { false };
+    QuirksMode m_quirksMode { QuirksMode::No };
 };
+
+#ifndef NDEBUG
+inline void LayoutState::registerFormattingContext(const FormattingContext& formattingContext)
+{
+    // Multiple formatting contexts of the same root within a layout frame indicates defective layout logic.
+    ASSERT(!m_formattingContextList.contains(&formattingContext));
+    m_formattingContextList.add(&formattingContext);
+}
+#endif
 
 }
 }

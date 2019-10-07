@@ -54,6 +54,13 @@ __BEGIN_DECLS
 #define kSecEntitlementApplicationIdentifier kSecEntitlementAppleApplicationIdentifier
 #endif
 
+/* Marzipan apps distributed through the App Store cannot share an application
+   identifier with their iOS versions, so they have an associated application
+   identifier which matches the iOS identifier. It will be preferred, when
+   present, over the 'regular' application identifier. This avoids developers
+   having to jump through hoops to port iOS apps to the Mac. */
+#define kSecEntitlementAssociatedApplicationIdentifier CFSTR("com.apple.developer.associated-application-identifier")
+
 /* The value should be an array of strings.  Each string is the name of an
    access group that the application has access to.  The
    application-identifier is implicitly added to this list.   When creating
@@ -161,6 +168,9 @@ __BEGIN_DECLS
 #if __OBJC__
 /* Entitlement to control use of OT */
 #define kSecEntitlementPrivateOctagon @"com.apple.private.octagon"
+
+/* Entitlement to control use of Escrow Update */
+#define kSecEntitlementPrivateEscrowRequest @"com.apple.private.escrow-update"
 #endif
 
 __END_DECLS

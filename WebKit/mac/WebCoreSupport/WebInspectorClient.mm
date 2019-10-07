@@ -53,10 +53,7 @@
 #import <WebCore/ScriptController.h>
 #import <WebKitLegacy/DOMExtensions.h>
 #import <algorithm>
-#import <wtf/SoftLinking.h>
 #import <wtf/text/Base64.h>
-
-SOFT_LINK_STAGED_FRAMEWORK(WebInspectorUI, PrivateFrameworks, A)
 
 using namespace WebCore;
 using namespace Inspector;
@@ -224,13 +221,15 @@ void WebInspectorFrontendClient::startWindowDrag()
 
 String WebInspectorFrontendClient::localizedStringsURL()
 {
-    // Call the soft link framework function to dlopen it, then [NSBundle bundleWithIdentifier:] will work.
-    WebInspectorUILibrary();
+    NSBundle *bundle = [NSBundle bundleWithIdentifier:@"com.apple.WebInspectorUI"];
+    if (!bundle)
+        return String();
 
-    NSString *path = [[NSBundle bundleWithIdentifier:@"com.apple.WebInspectorUI"] pathForResource:@"localizedStrings" ofType:@"js"];
-    if ([path length])
-        return [[NSURL fileURLWithPath:path] absoluteString];
-    return String();
+    NSString *path = [bundle pathForResource:@"localizedStrings" ofType:@"js"];
+    if (!path.length)
+        return String();
+    
+    return [NSURL fileURLWithPath:path isDirectory:NO].absoluteString;
 }
 
 void WebInspectorFrontendClient::bringToFront()
@@ -257,6 +256,17 @@ void WebInspectorFrontendClient::reopen()
     [inspector show:nil];
 }
 
+void WebInspectorFrontendClient::resetState()
+{
+    InspectorFrontendClientLocal::resetState();
+
+    auto* inspectorClient = [m_frontendWindowController inspectorClient];
+    inspectorClient->deleteInspectorStartsAttached();
+    inspectorClient->deleteInspectorAttachDisabled();
+
+    [NSWindow removeFrameUsingName:[[m_frontendWindowController window] frameAutosaveName]];
+}
+
 void WebInspectorFrontendClient::attachWindow(DockSide)
 {
     if ([m_frontendWindowController.get() attached])
@@ -278,6 +288,11 @@ void WebInspectorFrontendClient::setAttachedWindowHeight(unsigned height)
 void WebInspectorFrontendClient::setAttachedWindowWidth(unsigned)
 {
     // Dock to right is not implemented in WebKit 1.
+}
+
+void WebInspectorFrontendClient::setSheetRect(const FloatRect& rect)
+{
+    m_sheetRect = rect;
 }
 
 void WebInspectorFrontendClient::inspectedURLChanged(const String& newURL)
@@ -463,26 +478,21 @@ void WebInspectorFrontendClient::append(const String& suggestedURL, const String
 
 - (NSString *)inspectorPagePath
 {
-    // Call the soft link framework function to dlopen it, then [NSBundle bundleWithIdentifier:] will work.
-    WebInspectorUILibrary();
+    NSBundle *bundle = [NSBundle bundleWithIdentifier:@"com.apple.WebInspectorUI"];
+    if (!bundle)
+        return nil;
 
-    NSString *path = [[NSBundle bundleWithIdentifier:@"com.apple.WebInspectorUI"] pathForResource:@"Main" ofType:@"html"];
-    ASSERT([path length]);
-    return path;
+    return [bundle pathForResource:@"Main" ofType:@"html"];
 }
 
 - (NSString *)inspectorTestPagePath
 {
-    // Call the soft link framework function to dlopen it, then [NSBundle bundleWithIdentifier:] will work.
-    WebInspectorUILibrary();
-
-    NSString *path = [[NSBundle bundleWithIdentifier:@"com.apple.WebInspectorUI"] pathForResource:@"Test" ofType:@"html"];
-
-    // We might not have a Test.html in Production builds.
-    if (!path)
+    NSBundle *bundle = [NSBundle bundleWithIdentifier:@"com.apple.WebInspectorUI"];
+    if (!bundle)
         return nil;
 
-    return path;
+    // We might not have a Test.html in Production builds.
+    return [bundle pathForResource:@"Test" ofType:@"html"];
 }
 
 // MARK: -
@@ -521,8 +531,10 @@ void WebInspectorFrontendClient::append(const String& suggestedURL, const String
 
 - (NSRect)window:(NSWindow *)window willPositionSheet:(NSWindow *)sheet usingRect:(NSRect)rect
 {
+    if (_frontendClient)
+        return NSMakeRect(0, _frontendClient->sheetRect().height(), _frontendClient->sheetRect().width(), 0);
+
     // AppKit doesn't know about our HTML toolbar, and places the sheet just a little bit too high.
-    // FIXME: It would be better to get the height of the toolbar and use it in this calculation.
     rect.origin.y -= 1;
     return rect;
 }

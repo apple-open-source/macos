@@ -17,8 +17,6 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id$ */
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -30,7 +28,7 @@
 /*
 * class DOMDocumentType extends DOMNode
 *
-* URL: http://www.w3.org/TR/2003/WD-DOM-Level-3-Core-20030226/DOM3-Core.html#core-ID-412266927
+* URL: https://www.w3.org/TR/2003/WD-DOM-Level-3-Core-20030226/DOM3-Core.html#core-ID-412266927
 * Since:
 */
 
@@ -52,7 +50,7 @@ int dom_documenttype_name_read(dom_object *obj, zval *retval)
 		return FAILURE;
 	}
 
-	ZVAL_STRING(retval, (char *) (dtdptr->name));
+	ZVAL_STRING(retval, dtdptr->name ? (char *) (dtdptr->name) : "");
 
 	return SUCCESS;
 }

@@ -12,7 +12,7 @@
 #include "IOHIDUserDeviceTestController.h"
 #include "IOHIDUnitTestDescriptors.h"
 #include <IOKit/hid/IOHIDEventSystemPrivate.h>
-
+#include "HIDEventAccessors_Private.h"
 
 
 @interface TestHIDEventDriver : XCTestCase
@@ -88,213 +88,6 @@
     HIDXCTAssertAndThrowTrue(self.eventController != nil);
 }
 
-
-- (void)MAC_OS_ONLY_TEST_CASE(testGameController) {
-    
-    IOReturn status;
-    
-    static uint8_t descriptor [] = {HIDGameControllerDescriptor};
-    
-    NSData * descriptorData = [[NSData alloc] initWithBytes:descriptor length:sizeof(descriptor)];
-    
-    [self setupTestSystem :  descriptorData];
-    
-    HIDGameControllerDescriptorInputReport report;
-    memset (&report, 0 , sizeof(report));
-    
-    for (int index = 0; index < 10; index++) {
-        report.BTN_CountedBufferGamePadButton2 = 20 + index;
-        report.BTN_CountedBufferGamePadButton3 = 20 + index;
-        report.GD_CountedBufferGamePadPointerX = 20 + index;
-        report.GD_CountedBufferGamePadPointerY = 20 + index;
-        status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-        XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-
-    }
-   
-    NSArray *events = nil;
-    @synchronized (self.eventController.events) {
-        events = [self.eventController.events copy];
-    }
-    
-    EVENTS_STATS stats =  [IOHIDEventSystemTestController getEventsStats:events];
-
-    HIDTestEventLatency(stats);
-    
-    XCTAssert(stats.totalCount == 9,
-                  "events count:%lu expected:%d events:%@ ", (unsigned long)stats.totalCount , 9, events);
-
-    XCTAssert (stats.counts[kIOHIDEventTypeGameController] == 9, "kIOHIDEventTypeGameController count:%lu events:%@", (unsigned long)stats.counts[kIOHIDEventTypeGameController], events);
-}
-
-
-- (void)testHeadsetTelephony {
-    IOReturn status;
-    
-    static uint8_t descriptor [] = {HIDHeadsetTelephonyDescriptor};
-    
-    NSData * descriptorData = [[NSData alloc] initWithBytes:descriptor length:sizeof(descriptor)];
-    
-    [self setupTestSystem :  descriptorData];
-    
-    HIDHeadsetTelephonyDescriptorInputReport report;
-    memset (&report, 0 , sizeof(report));
-    
-    for (int index = 0; index < 10; index++) {
-        report.CD_ConsumerControlVolumeIncrement = 1;
-        report.CD_ConsumerControlVolumeDecrement = 0;
-        status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-        XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-        report.CD_ConsumerControlVolumeIncrement = 0;
-        report.CD_ConsumerControlVolumeDecrement = 1;
-        status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-        XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    }
-
-    report.CD_ConsumerControlVolumeIncrement = 0;
-    report.CD_ConsumerControlVolumeDecrement = 0;
-    
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    // Allow event to be dispatched
-    usleep(kDefaultReportDispatchCompletionTime);
-
-    
-    NSArray *events = nil;
-    @synchronized (self.eventController.events) {
-        events = [self.eventController.events copy];
-    }
-    
-    EVENTS_STATS stats =  [IOHIDEventSystemTestController getEventsStats:events];
-    
-    HIDTestEventLatency(stats);
-
-    XCTAssert(stats.totalCount == 40,
-              "events count:%lu expected:%d events:%@\n", (unsigned long)stats.totalCount , 40, events);
-    
-    XCTAssert (stats.counts[kIOHIDEventTypeKeyboard] == 40, "kIOHIDEventTypeKeyboard count:%lu events:%@", (unsigned long)stats.counts[kIOHIDEventTypeKeyboard], events);
-}
-
-- (void)testMediaPlayback {
-    IOReturn status;
-    
-    static uint8_t descriptor [] = {HIDMediaPlaybackDescriptor};
-    
-    NSData * descriptorData = [[NSData alloc] initWithBytes:descriptor length:sizeof(descriptor)];
-    
-    [self setupTestSystem :  descriptorData];
-    
-    HIDMediaPlaybackDescriptorInputReport report;
-    memset (&report, 0 , sizeof(report));
-    
-    report.CD_ConsumerControlScanNextTrack = 1;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    report.CD_ConsumerControlScanNextTrack = 0;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    
-    report.CD_ConsumerControlMute = 1;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    report.CD_ConsumerControlMute = 0;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-  
-    report.CD_ConsumerControlRandomPlay = 1;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    report.CD_ConsumerControlRandomPlay = 0;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    
-    report.CD_ConsumerControlRepeat = 1;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    report.CD_ConsumerControlRepeat = 0;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-
-    report.CD_ConsumerControlAcPromote = 1;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    report.CD_ConsumerControlAcPromote = 0;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-   
-    report.CD_ConsumerControlAcDemote = 1;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    report.CD_ConsumerControlAcDemote = 0;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-
-    report.CD_ConsumerControlAcAddToCart = 1;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    report.CD_ConsumerControlAcAddToCart = 0;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-
-    // Allow event to be dispatched
-    usleep(kDefaultReportDispatchCompletionTime);
-
-    
-    NSArray *events = nil;
-    @synchronized (self.eventController.events) {
-        events = [self.eventController.events copy];
-    }
-    
-    EVENTS_STATS stats =  [IOHIDEventSystemTestController getEventsStats:events];
-    
-    HIDTestEventLatency(stats);
-
-    XCTAssert(stats.totalCount == 14,
-              "events count:%lu expected:%d events:%@", (unsigned long)stats.totalCount , 14, events);
-    
-    XCTAssert (stats.counts[kIOHIDEventTypeKeyboard] == 14, "kIOHIDEventTypeKeyboard count:%lu events:%@", (unsigned long)stats.counts[kIOHIDEventTypeKeyboard], events);
-}
- 
-    
-- (void)testMediaPlaybackAndTelephony {
-    IOReturn status;
-    
-    static uint8_t descriptor [] = {HIDTelephonyAndMediaPlaybackDescriptor};
-    
-    NSData * descriptorData = [[NSData alloc] initWithBytes:descriptor length:sizeof(descriptor)];
-    
-    [self setupTestSystem :  descriptorData];
-    
-    HIDTelephonyAndMediaPlaybackDescriptorInputReport report;
-    memset (&report, 0 , sizeof(report));
-    
-    report.TEL_ConsumerControlFlash = 1;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    report.TEL_ConsumerControlFlash = 0;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    
-    
-    // Allow event to be dispatched
-    usleep(kDefaultReportDispatchCompletionTime);
-
-    
-    NSArray *events = nil;
-    @synchronized (self.eventController.events) {
-        events = [self.eventController.events copy];
-    }
-    
-    EVENTS_STATS stats =  [IOHIDEventSystemTestController getEventsStats:events];
-    
-    HIDTestEventLatency(stats);
-
-    XCTAssert(stats.totalCount == 2,
-              "events count:%lu expected:%d \n%@\n", (unsigned long)stats.totalCount , 2, events);
-    
-    XCTAssert (stats.counts[kIOHIDEventTypeKeyboard] == 2, "kIOHIDEventTypeKeyboard count:%lu", (unsigned long)stats.counts[kIOHIDEventTypeNULL]);
-}
-    
 
 - (void)EMBEDDED_OS_ONLY_TEST_CASE(testSingleTouch) {
 
@@ -488,50 +281,6 @@
     XCTAssert (stats.counts[kIOHIDEventTypePointer] == 2, "kIOHIDEventTypePointer count:%lu events:%@", (unsigned long)stats.counts[kIOHIDEventTypePointer], events);
 }
 
-- (void) testMediaButtons {
-    
-    IOReturn status;
-    
-    static uint8_t descriptor [] = {HIDSimpleMediaButtonsDescriptor};
-    
-    NSData * descriptorData = [[NSData alloc] initWithBytes:descriptor length:sizeof(descriptor)];
-    
-    [self setupTestSystem :  descriptorData];
-    
-    HIDSimpleMediaButtonsDescriptorInputReport report;
-    memset (&report, 0 , sizeof(report));
-    
-    
-    report.CD_ConsumerControlScanNextTrack = 1;
-    report.CD_ConsumerControlScanPreviousTrack = 1;
-    report.CD_ConsumerControlPlayPause = 1;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    
-    report.CD_ConsumerControlScanNextTrack = 0;
-    report.CD_ConsumerControlScanPreviousTrack = 0;
-    report.CD_ConsumerControlPlayPause = 0;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    
-    // Allow event to be dispatched
-    usleep(kDefaultReportDispatchCompletionTime);
-
-    
-    NSArray *events = nil;
-    @synchronized (self.eventController.events) {
-        events = [self.eventController.events copy];
-    }
-    
-    EVENTS_STATS stats =  [IOHIDEventSystemTestController getEventsStats:events];
-    
-    HIDTestEventLatency(stats);
-
-    XCTAssert(stats.totalCount == 6,
-              "events count:%lu expected:%d events:%@", (unsigned long)stats.totalCount , 6, events);
-    
-    XCTAssert (stats.counts[kIOHIDEventTypeKeyboard] == 6, "kIOHIDEventTypeKeyboard count:%lu events:%@", (unsigned long)stats.counts[kIOHIDEventTypeKeyboard], events);
-}
 
 - (void) testTelephonyButtons {
     
@@ -573,10 +322,10 @@
     
     HIDTestEventLatency(stats);
 
-    XCTAssert(stats.totalCount == 8,
+    XCTAssert(stats.totalCount >= 8,
               "events count:%lu expected:%d events:%@", (unsigned long)stats.totalCount , 8, events);
     
-    XCTAssert (stats.counts[kIOHIDEventTypeKeyboard] == 8, "kIOHIDEventTypeKeyboard count:%lu events:%@", (unsigned long)stats.counts[kIOHIDEventTypeKeyboard], events);
+    XCTAssert (stats.counts[kIOHIDEventTypeKeyboard] >= 8, "kIOHIDEventTypeKeyboard count:%lu events:%@", (unsigned long)stats.counts[kIOHIDEventTypeKeyboard], events);
     
 }
 
@@ -701,6 +450,7 @@
     HIDPointerAbsoluteDescriptorInputReport report;
     memset (&report, 0 , sizeof(report));
     
+    report.BTN_MousePointerButton1 = 1;
     report.GD_MousePointerX = 1;
     report.GD_MousePointerY = 1;
     
@@ -732,8 +482,9 @@
     XCTAssert (stats.counts[kIOHIDEventTypePointer] == 2, "Events:%@", events);
 
     XCTAssert (IOHIDEventIsAbsolute((IOHIDEventRef)events[0]), "Events:%@", events);
+    XCTAssert (((HIDEvent *)events[0]).pointerButtonMask, "Events:%@", events);
     XCTAssert (IOHIDEventIsAbsolute((IOHIDEventRef)events[1]), "Events:%@", events);
-
+    XCTAssert (((HIDEvent *)events[1]).pointerButtonMask, "Events:%@", events);
 }
 
 - (void)testBiometricHumanPresenceAndProximity {
@@ -771,46 +522,6 @@
     
     XCTAssert (stats.counts[kIOHIDEventTypeBiometric] == 2, "Events:%@", events);
 
-}
-
-- (void)EMBEDDED_OS_ONLY_TEST_CASE(testCarpaySelectButton) {
-    
-    IOReturn status;
-    
-    static uint8_t descriptor [] = {HIDCarplaySelectButton};
-    
-    NSData * descriptorData = [[NSData alloc] initWithBytes:descriptor length:sizeof(descriptor)];
-    [self setupTestSystem :  descriptorData];
-    
-    HIDCarplaySelectButtonInputReport report;
-    memset (&report, 0 , sizeof(report));
-    
-    report.BTN_ConsumerControlButton1 = 1;
-    
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    
-    report.BTN_ConsumerControlButton1 = 0;
-
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    
-    // Allow event to be dispatched
-    usleep(kDefaultReportDispatchCompletionTime);
-    
-    NSArray *events = nil;
-    @synchronized (self.eventController.events) {
-        events = [self.eventController.events copy];
-    }
-    
-    EVENTS_STATS stats =  [IOHIDEventSystemTestController getEventsStats:events];
-    
-    HIDTestEventLatency(stats);
-    
-    XCTAssert(stats.totalCount == 2,
-              "events count:%lu expected:%d events:%@", (unsigned long)stats.totalCount , 2, events);
-    
-    XCTAssert (stats.counts[kIOHIDEventTypePointer] == 2, "Events:%@", events);
 }
 
 - (void)testAccel {
@@ -917,163 +628,6 @@
 }
 
 
-#define OrientationReportForUsage(u) (u - kHIDUsage_AppleVendorMotion_DeviceOrientationTypeAmbiguous + 1)
-
-- (void)testOrientationEvents {
-    IOReturn status;
-    CFIndex  value;
-    
-    static uint8_t descriptor [] = {HIDOrientation};
-    
-    NSData * descriptorData = [[NSData alloc] initWithBytes:descriptor length:sizeof(descriptor)];
-    
-    [self setupTestSystem :  descriptorData];
-
-    
-    IOHIDEventRef event = IOHIDServiceClientCopyEvent (self.eventController.eventService, kIOHIDEventTypeOrientation, NULL, 0);
-    XCTAssert(event == NULL, "Event:%@", event);
-
-    HIDOrientationInputReport report;
-    memset (&report, 0 , sizeof(report));
-    
-    report.OrientationDeviceOrientation = OrientationReportForUsage(kHIDUsage_AppleVendorMotion_DeviceOrientationTypeAmbiguous);
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    
-    event = IOHIDServiceClientCopyEvent (self.eventController.eventService, kIOHIDEventTypeOrientation, NULL, 0);
-    HIDXCTAssertAndThrowTrue(event != NULL);
-    
-    value = IOHIDEventGetIntegerValue (event, kIOHIDEventFieldOrientationOrientationType);
-    XCTAssert (value == kIOHIDOrientationTypeCMUsage);
-    
-    value = IOHIDEventGetIntegerValue (event, kIOHIDEventFieldOrientationDeviceOrientationUsage);
-    XCTAssert (value == kHIDUsage_AppleVendorMotion_DeviceOrientationTypeAmbiguous, "Event:%@", event);
-
-    CFRelease (event);
-    
-    report.OrientationDeviceOrientation = OrientationReportForUsage(kHIDUsage_AppleVendorMotion_DeviceOrientationTypePortrait);
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-
-    event = IOHIDServiceClientCopyEvent (self.eventController.eventService, kIOHIDEventTypeOrientation, NULL, 0);
-    HIDXCTAssertAndThrowTrue(event != NULL);
-    
-    value = IOHIDEventGetIntegerValue (event, kIOHIDEventFieldOrientationOrientationType);
-    XCTAssert (value == kIOHIDOrientationTypeCMUsage);
-    
-    value = IOHIDEventGetIntegerValue (event, kIOHIDEventFieldOrientationDeviceOrientationUsage);
-    XCTAssert (value == kHIDUsage_AppleVendorMotion_DeviceOrientationTypePortrait, "Event:%@", event);
-
-    CFRelease (event);
-
-    report.OrientationDeviceOrientation = OrientationReportForUsage(kHIDUsage_AppleVendorMotion_DeviceOrientationTypeAmbiguous);
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    
-    event = IOHIDServiceClientCopyEvent (self.eventController.eventService, kIOHIDEventTypeOrientation, NULL, 0);
-    HIDXCTAssertAndThrowTrue(event != NULL);
-    
-    value = IOHIDEventGetIntegerValue (event, kIOHIDEventFieldOrientationOrientationType);
-    XCTAssert (value == kIOHIDOrientationTypeCMUsage);
-    
-    value = IOHIDEventGetIntegerValue (event, kIOHIDEventFieldOrientationDeviceOrientationUsage);
-    XCTAssert (value == kHIDUsage_AppleVendorMotion_DeviceOrientationTypeAmbiguous, "Event:%@", event);
-
-    CFRelease (event);
-
-    report.OrientationDeviceOrientation = OrientationReportForUsage(kHIDUsage_AppleVendorMotion_DeviceOrientationTypePortraitUpsideDown);
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-    
-    event = IOHIDServiceClientCopyEvent (self.eventController.eventService, kIOHIDEventTypeOrientation, NULL, 0);
-    HIDXCTAssertAndThrowTrue(event != NULL);
-    
-    value = IOHIDEventGetIntegerValue (event, kIOHIDEventFieldOrientationOrientationType);
-    XCTAssert (value == kIOHIDOrientationTypeCMUsage);
-    
-    value = IOHIDEventGetIntegerValue (event, kIOHIDEventFieldOrientationDeviceOrientationUsage);
-    XCTAssert (value == kHIDUsage_AppleVendorMotion_DeviceOrientationTypePortraitUpsideDown, "Event:%@", event);
-
-    CFRelease (event);
-
-    // out of bounds value
-    report.OrientationDeviceOrientation = 0;
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    XCTAssert(status == kIOReturnSuccess, "handleReport:%x", status);
-
-    // Allow event to be dispatched
-    usleep(kDefaultReportDispatchCompletionTime);
-    
-    NSArray *events = nil;
-    @synchronized (self.eventController.events) {
-        events = [self.eventController.events copy];
-    }
-    
-    EVENTS_STATS stats =  [IOHIDEventSystemTestController getEventsStats:events];
-    
-    XCTAssert(stats.totalCount == 4,
-              "events count:%lu expected:%d events:%@", (unsigned long)stats.totalCount , 2, events);
-    
-    XCTAssert (stats.counts[kIOHIDEventTypeOrientation] == 4, "Events:%@", events);
-}
-
-
-- (void)MAC_OS_ONLY_TEST_CASE(testGamecontrollerEventWithTubmstickButtons) {
-    
-    IOReturn status;
-    CFIndex  value;
-    
-    static uint8_t descriptor [] = {HIDGameControllerWithThumbstickButtons};
-    
-    NSData * descriptorData = [[NSData alloc] initWithBytes:descriptor length:sizeof(descriptor)];
-    
-    [self setupTestSystem :  descriptorData];
-    
-    HIDGameControllerWithThumbstickButtonsInputReport report;
-    memset (&report, 0 , sizeof(report));
- 
-    report.BTN_CountedBufferGamePadButton9 = 1;
-    report.BTN_CountedBufferGamePadButton10 = 1;
-
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-
-    report.BTN_CountedBufferGamePadButton9 = 0;
-    report.BTN_CountedBufferGamePadButton10 = 0;
-
-    status = [self.sourceController handleReport:(uint8_t*)&report Length:sizeof(report) andInterval:2000];
-    
-    // Allow event to be dispatched
-    usleep(kDefaultReportDispatchCompletionTime);
-    
-    
-    NSArray *events = nil;
-    @synchronized (self.eventController.events) {
-        events = [self.eventController.events copy];
-    }
-
-    
-    EVENTS_STATS stats =  [IOHIDEventSystemTestController getEventsStats:events];
-    
-    HIDTestEventLatency(stats);
-    
-    XCTAssert(stats.totalCount == 2,
-              "events count:%lu expected:%d events:%@ ", (unsigned long)stats.totalCount , 2, events);
-    
-    XCTAssert (stats.counts[kIOHIDEventTypeGameController] == 2, "kIOHIDEventTypeGameController count:%lu events:%@", (unsigned long)stats.counts[kIOHIDEventTypeGameController], events);
-    
-
-    value = IOHIDEventGetIntegerValue ((IOHIDEventRef)events[0], kIOHIDEventFieldGameControllerThumbstickButtonRight);
-    XCTAssert (value == 1);
-
-    value = IOHIDEventGetIntegerValue ((IOHIDEventRef)events[0], kIOHIDEventFieldGameControllerThumbstickButtonLeft);
-    XCTAssert (value == 1);
-
-    value = IOHIDEventGetIntegerValue ((IOHIDEventRef)events[1], kIOHIDEventFieldGameControllerThumbstickButtonRight);
-    XCTAssert (value == 0);
-    
-    value = IOHIDEventGetIntegerValue ((IOHIDEventRef)events[1], kIOHIDEventFieldGameControllerThumbstickButtonLeft);
-    XCTAssert (value == 0);
-}
 - (void)testCameraEvents {
     IOReturn status;
     static uint8_t descriptor[] = { HIDCameraDescriptor };

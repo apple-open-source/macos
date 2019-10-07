@@ -52,7 +52,7 @@
     HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_IOREG,
                                 result == XCTWaiterResultCompleted,
                                 "result:%ld %@",
-                                (long)result,
+                                result,
                                 self.testServiceExpectation);
 
     HIDCompassInputReport01 report;
@@ -154,8 +154,8 @@
                                 "events:%@",
                                 self.events);
 
-    for (NSInteger index = 0; index < self.events.count; index++) {
-        NSInteger sequence = IOHIDEventGetIntegerValue((IOHIDEventRef)self.events[index], kIOHIDEventFieldCompassSequence);
+    for (NSUInteger index = 0; index < self.events.count; index++) {
+        NSUInteger sequence = IOHIDEventGetIntegerValue((IOHIDEventRef)self.events[index], kIOHIDEventFieldCompassSequence);
         HIDXCTAssertWithParameters (RETURN_FROM_TEST,
                                     sequence == index + 1,
                                     "index:%ld events:%@",

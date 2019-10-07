@@ -31,13 +31,15 @@
 #include <Security/SecPolicy.h>
 #include <Security/SecTrust.h>
 #include <Security/SecKeyPriv.h>
-#include "SecInternal.h"
+#include <Security/SecInternal.h>
 
 //#include <AssertMacros.h>
 #include <CommonCrypto/CommonDigest.h>
 
 //#include "p12import.h"
-#include <Security/SecImportExport.h>
+#include <Security/SecImportExportPriv.h>
+
+#include <CoreFoundation/CFPriv.h>
 
 const CFStringRef __nonnull kSecImportExportPassphrase = CFSTR("passphrase");
 const CFStringRef __nonnull kSecImportExportKeychain = CFSTR("keychain");
@@ -139,6 +141,9 @@ out:
 
 OSStatus SecPKCS12Import(CFDataRef pkcs12_data, CFDictionaryRef options, CFArrayRef *items)
 {
+	if (_CFMZEnabled()) {
+		return SecPKCS12Import_ios(pkcs12_data, options, items);
+	}
 	// SecPKCS12Import is implemented on Mac OS X in terms of the existing
 	// SecKeychainItemImport API, which supports importing items into a
 	// specified keychain with initial access control settings for keys.

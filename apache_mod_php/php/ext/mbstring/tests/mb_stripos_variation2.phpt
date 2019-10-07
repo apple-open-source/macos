@@ -8,9 +8,9 @@ function_exists('mb_stripos') or die("skip mb_stripos() is not available in this
 --FILE--
 <?php
 /* Prototype  : int mb_stripos(string haystack, string needle [, int offset [, string encoding]])
- * Description: Finds position of first occurrence of a string within another, case insensitive 
+ * Description: Finds position of first occurrence of a string within another, case insensitive
  * Source code: ext/mbstring/mbstring.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 /*
@@ -20,7 +20,7 @@ function_exists('mb_stripos') or die("skip mb_stripos() is not available in this
 echo "*** Testing mb_stripos() : usage variations ***\n";
 
 // Initialise function arguments not being substituted
-$haystack = b'string_val';
+$haystack = 'string_val';
 $offset = 0;
 $encoding = 'utf-8';
 
@@ -69,16 +69,16 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
 
        // string data
-/*18*/ b"string",
-       b'string',
+/*18*/ "string",
+       'string',
        $heredoc,
-       
+
        // object data
 /*21*/ new classA(),
 
@@ -197,4 +197,3 @@ bool(false)
 Warning: mb_stripos() expects parameter 2 to be string, resource given in %s on line %d
 NULL
 Done
-

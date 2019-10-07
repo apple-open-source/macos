@@ -1,5 +1,5 @@
-# frozen_string_literal: false
-# $Id: test_verbose.rb 53141 2015-12-16 05:07:31Z naruse $
+# frozen_string_literal: true
+# $Id: test_verbose.rb 62738 2018-03-13 06:29:02Z nobu $
 
 require 'test/unit'
 require 'fileutils'
@@ -8,7 +8,7 @@ require_relative 'visibility_tests'
 class TestFileUtilsVerbose < Test::Unit::TestCase
 
   include FileUtils::Verbose
-  include TestFileUtils::Visibility
+  include TestFileUtilsInc::Visibility
 
   def setup
     super

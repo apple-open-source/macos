@@ -98,6 +98,7 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#maxrangeoverlaps">MaxRangeOverlaps</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#maxrangereversals">MaxRangeReversals</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#maxranges">MaxRanges</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#mergeslashes">MergeSlashes</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#mergetrailers">MergeTrailers</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#mutex">Mutex</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#namevirtualhost">NameVirtualHost</a></li>
@@ -130,9 +131,9 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#usecanonicalphysicalport">UseCanonicalPhysicalPort</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#virtualhost">&lt;VirtualHost&gt;</a></li>
 </ul>
-<h3>Bugfix checklist</h3><ul class="seealso"><li><a href="https://www.apache.org/dist/httpd/CHANGES_2.4">httpd changelog</a></li><li><a href="https://bz.apache.org/bugzilla/buglist.cgi?bug_status=__open__&amp;list_id=144532&amp;product=Apache%20httpd-2&amp;query_format=specific&amp;order=changeddate%20DESC%2Cpriority%2Cbug_severity&amp;component=core">Known issues</a></li><li><a href="https://bz.apache.org/bugzilla/enter_bug.cgi?product=Apache%20httpd-2&amp;component=core">Report a bug</a></li></ul><h3>Ayrıca bakınız:</h3>
+<h3>Bulunan hatalar</h3><ul class="seealso"><li><a href="https://www.apache.org/dist/httpd/CHANGES_2.4">httpd günlüğü</a></li><li><a href="https://bz.apache.org/bugzilla/buglist.cgi?bug_status=__open__&amp;list_id=144532&amp;product=Apache%20httpd-2&amp;query_format=specific&amp;order=changeddate%20DESC%2Cpriority%2Cbug_severity&amp;component=core">Bilinenler</a></li><li><a href="https://bz.apache.org/bugzilla/enter_bug.cgi?product=Apache%20httpd-2&amp;component=core">Hata bildir</a></li></ul><h3>Ayrıca bakınız:</h3>
 <ul class="seealso">
-<li><a href="#comments_section">Yorum</a></li></ul></div>
+<li><a href="#comments_section">Yorumlar</a></li></ul></div>
 
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="AcceptFilter" id="AcceptFilter">AcceptFilter</a> <a name="acceptfilter" id="acceptfilter">Yönergesi</a></h2>
@@ -1907,7 +1908,7 @@ ErrorLogFormat connection "[%{uc}t] [C:%{c}L] local\ %a remote\ %A"</pre>
       kullanılmalıdır.</p>
 
 <pre class="prettyprint lang-config">&lt;FilesMatch "^(?&lt;sitename&gt;[^/]+)"&gt;
-    require ldap-group cn=%{env:MATCH_SITENAME},ou=combined,o=Example
+    Require ldap-group cn=%{env:MATCH_SITENAME},ou=combined,o=Example
 &lt;/FilesMatch&gt;</pre>
 
 
@@ -2294,17 +2295,41 @@ sokulacak yönergeleri sarmalar.</td></tr>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="IfDirective" id="IfDirective">&lt;IfDirective&gt;</a> <a name="ifdirective" id="ifdirective">Yönergesi</a></h2>
 <table class="directive">
-<tr><th><a href="directive-dict.html#Description">Açıklama:</a></th><td>Encloses directives that are processed conditional on the
-presence or absence of a specific directive</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Sözdizimi:</a></th><td><code>&lt;IfDirective [!]<var>directive-name</var>&gt; ...
+<tr><th><a href="directive-dict.html#Description">Açıklama:</a></th><td>Belirtilen yönerge adının varlığı veya yokluğuna bağlı olarak çalıştırılacak yönergeleri sarmalar.</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Sözdizimi:</a></th><td><code>&lt;IfDirective [!]<var>yönerge-adı</var>&gt; ...
     &lt;/IfDirective&gt;</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli, sanal konak, dizin, .htaccess</td></tr>
 <tr><th><a href="directive-dict.html#Override">Geçersizleştirme:</a></th><td>All</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>Çekirdek</td></tr>
 <tr><th><a href="directive-dict.html#Module">Modül:</a></th><td>core</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Uyumluluk:</a></th><td>Available in 2.4.34 and later.</td></tr>
-</table><p>Bu yönergenin belgesi henüz Türkçeye çevrilmedi.
-            Lütfen İngilizce sürümüne bakınız.</p><h3>Ayrıca bakınız:</h3>
+<tr><th><a href="directive-dict.html#Compatibility">Uyumluluk:</a></th><td>2.4.34 ve sonrasında kullanılabilir.</td></tr>
+</table>
+    <p><code>&lt;IfDirective <var>yönerge-adı</var>&gt; 
+    ...&lt;/IfDirective&gt;</code> bölümü içindeki yönergeler 
+    <var>yönerge-adı</var> ile belirtilen yönerge mevcutsa çalıştırılır yoksa 
+    yok sayılır.</p>
+
+    <p><code class="directive">&lt;IfDirective&gt;</code> yönergenide sınama iki türlü yapılır:</p>
+
+    <ul>
+      <li><var>yönerge-adı</var></li>
+
+      <li>!<var>yönerge-adı</var></li>
+    </ul>
+
+    <p>İlk durumda bölüm içinde kalan yönergeler, yönerge başlangıç satırına 
+    belirtilen yönerge işlem sırasında mevcutsa çalıştırılır, değilse 
+    çalıştırılmaz. İkinci durumda ise, bölüm içinde kalan yönergeler, yönerge 
+    başlangıç satırına belirtilen yönerge işlem sırasında mevcut 
+    <strong>değilse</strong> çalıştırılır, mevcutsa çalıştırılmaz.</p>
+
+  <div class="note">Bu yönergeyi kullanma ihtiyacı sadece çok sayıda  
+    <code class="program"><a href="../programs/httpd.html">httpd</a></code> tek bir yapılandırma dosyası ile çalıştırılmak 
+    zorundaysa ortaya çıkar. Böyle bir ihtiyacın olmadığı normal durumlarda 
+    yönergelerin <code class="directive">&lt;IfDirective&gt;</code> bölümlerine 
+    yerleştirlmesine gerek yoktur.</div>
+
+<h3>Ayrıca bakınız:</h3>
 <ul>
 <li><code class="directive"><a href="#ifsection">&lt;IfSection&gt;</a></code></li>
 </ul>
@@ -2312,17 +2337,38 @@ presence or absence of a specific directive</td></tr>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="IfFile" id="IfFile">&lt;IfFile&gt;</a> <a name="iffile" id="iffile">Yönergesi</a></h2>
 <table class="directive">
-<tr><th><a href="directive-dict.html#Description">Açıklama:</a></th><td>Encloses directives that will be processed only
-if file exists at startup</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Sözdizimi:</a></th><td><code>&lt;IfFile [!]<var>parameter-name</var>&gt; ...
+<tr><th><a href="directive-dict.html#Description">Açıklama:</a></th><td>Başlatma sırasında bir dosyanın varlığı durumunda işleme
+sokulacak yönergeleri sarmalar.</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Sözdizimi:</a></th><td><code>&lt;IfFile [!]<var>dosyaadı</var>&gt; ...
     &lt;/IfFile&gt;</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli, sanal konak, dizin, .htaccess</td></tr>
 <tr><th><a href="directive-dict.html#Override">Geçersizleştirme:</a></th><td>All</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>Çekirdek</td></tr>
 <tr><th><a href="directive-dict.html#Module">Modül:</a></th><td>core</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Uyumluluk:</a></th><td>Available in 2.4.34 and later.</td></tr>
-</table><p>Bu yönergenin belgesi henüz Türkçeye çevrilmedi.
-            Lütfen İngilizce sürümüne bakınız.</p></div>
+<tr><th><a href="directive-dict.html#Compatibility">Uyumluluk:</a></th><td>2.4.34 ve sonrsında kullanılabilir.</td></tr>
+</table>
+    <p><code>&lt;IfFile <var>dosyaadı</var>&gt;...&lt;/IfFile&gt;
+    </code> bölümü bir dosyanın diskteki mevcudiyetine bağlı olarak 
+    çalıştırılacak yönergeleri belirtmekte kullanılır.
+    <code class="directive">&lt;IfFile&gt;</code> bölümü içindeki yönergeler 
+    sadece diskte <var>dosyaadı</var> mevcutsa çalıştırılır. <var>dosyaadı</var>
+    mevcut değilse bölüm içindeki yönergeler yok sayılır. <var>dosyaadı</var> 
+    sunucu kök dizinine göreli veya mutlak bir yol olarak belirtilebilir.</p>
+
+    <p><code class="directive">&lt;IfFile&gt;</code> bölüm yönergesindeki 
+    <var>dosyaadı</var>, <code class="directive"><a href="#ifdefine">&lt;IfDefine&gt;</a></code> yönergesindeki <var>sınama</var> değişkenindeki gibi 
+    ele alınır, yani <var>dosyaadı</var> bir ! ile öncelenirse bölüm içindeki 
+    yonergeler dosyanın yokluğu durumunda çalıştırılır. 
+    </p>
+   
+    <p>Göreli bir <var>dosyaadı</var> belirtilmişse sınama <code class="directive"><a href="#serverroot">ServerRoot</a></code> yönergesinde belirtilen dizinde göre 
+    yapılır. <code class="directive">&lt;IfFile&gt;</code> yönergesinin 
+    <code class="directive"><a href="#serverroot">ServerRoot</a></code> yönergesinde önce yer alması 
+    durumunda dosya yolu derleme sırasında kullanılan sunucu köküne veya komut 
+    satırında <code>-d</code> seçeneği ile belirtilen dizine göre sınanır.</p>
+    
+
+</div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="IfModule" id="IfModule">&lt;IfModule&gt;</a> <a name="ifmodule" id="ifmodule">Yönergesi</a></h2>
 <table class="directive">
@@ -2377,17 +2423,56 @@ yönergeleri sarmalar.</td></tr>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="IfSection" id="IfSection">&lt;IfSection&gt;</a> <a name="ifsection" id="ifsection">Yönergesi</a></h2>
 <table class="directive">
-<tr><th><a href="directive-dict.html#Description">Açıklama:</a></th><td>Encloses directives that are processed conditional on the
-presence or absence of a specific section directive</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Sözdizimi:</a></th><td><code>&lt;IfSection [!]<var>section-name</var>&gt; ...
+<tr><th><a href="directive-dict.html#Description">Açıklama:</a></th><td>Belirtilen bölüm adının varlığı veya yokluğuna bağlı olarak çalıştırılacak yönergeleri sarmalar.</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Sözdizimi:</a></th><td><code>&lt;IfSection [!]<var>bölüm-adı</var>&gt; ...
     &lt;/IfSection&gt;</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli, sanal konak, dizin, .htaccess</td></tr>
 <tr><th><a href="directive-dict.html#Override">Geçersizleştirme:</a></th><td>All</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>Çekirdek</td></tr>
 <tr><th><a href="directive-dict.html#Module">Modül:</a></th><td>core</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Uyumluluk:</a></th><td>Available in 2.4.34 and later.</td></tr>
-</table><p>Bu yönergenin belgesi henüz Türkçeye çevrilmedi.
-            Lütfen İngilizce sürümüne bakınız.</p><h3>Ayrıca bakınız:</h3>
+<tr><th><a href="directive-dict.html#Compatibility">Uyumluluk:</a></th><td>2.4.34 ve sonrasında kullanılabilir.</td></tr>
+</table>
+    <p><code>&lt;IfSection <var>bölüm-adı</var>&gt; 
+    ...&lt;/IfSection&gt;</code> bölümü içindeki yönergeler 
+    <var>bölüm-adı</var> ile belirtilen bölüm mevcutsa çalıştırılır yoksa 
+    yok sayılır. Bir bölüm yönergesi "&lt;" ile öncelenmiş bir yönerge adına 
+    sahip olmalı ve <code class="directive">&lt;VirtualHost&gt;</code> gibi başka 
+    yönergeleri sarmalayan bir yönerge olmalıdır.</p>
+
+    <p><code class="directive">&lt;IfSection&gt;</code> bölümü içindeki 
+    yönergeler sadece <var>sınama</var> doğru ise çalıştırılır, 
+    <var>sınama</var> yanlışsa çalıştırılmaz.</p>
+
+    <p><var>bölüm-adı</var> başında "&lt;" veya sonunda "&gt;" olmaksızın 
+    belirtilmelidir. <code class="directive">&lt;IfSection&gt;</code> 
+    yönergesindeki <var>bölüm-adı</var> iki türlü ele alınır:</p>
+
+    <ul>
+      <li><var>bölüm-adı</var></li>
+      <li>!<var>bölüm-adı</var></li>
+    </ul>
+
+    <p>İlk durumda bölüm içinde kalan yönergeler, yönerge başlangıç satırına 
+    belirtilen bölüm işlem sırasında mevcutsa çalıştırılır, değilse 
+    çalıştırılmaz. İkinci durumda ise, bölüm içinde kalan yönergeler, yönerge 
+    başlangıç satırına belirtilen bölüm işlem sırasında mevcut 
+    <strong>değilse</strong> çalıştırılır, mevcutsa çalıştırılmaz.</p>
+
+    <p>Örnek:</p>
+
+    <pre class="prettyprint lang-config">&lt;IfSection VirtualHost&gt;
+   ...
+&lt;/IfSection&gt;</pre>
+
+    
+    <div class="note">Bu yönergeyi kullanma ihtiyacı sadece çok sayıda  
+    <code class="program"><a href="../programs/httpd.html">httpd</a></code> tek bir yapılandırma dosyası ile (belli bir bölüm 
+    yönergesinin var olup olmamasına bakmaksızın) çalıştırılmak 
+    zorundaysa ortaya çıkar. Böyle bir ihtiyacın olmadığı normal durumlarda 
+    yönergelerin <code class="directive">&lt;IfSection&gt;</code> bölümlerine 
+    yerleştirlmesine gerek yoktur.</div>
+
+<h3>Ayrıca bakınız:</h3>
 <ul>
 <li><code class="directive"><a href="#ifdirective">&lt;IfDirective&gt;</a></code></li>
 </ul>
@@ -3059,9 +3144,29 @@ uygulanır.</td></tr>
       kullanılmalıdır.</p>
 
     <pre class="prettyprint lang-config">&lt;LocationMatch "^/combined/(?&lt;sitename&gt;[^/]+)"&gt;
-    require ldap-group cn=%{env:MATCH_SITENAME},ou=combined,o=Example
+    Require ldap-group cn=%{env:MATCH_SITENAME},ou=combined,o=Example
 &lt;/LocationMatch&gt;</pre>
 
+
+    <div class="note"><h3>/ (bölü çizgisi) hakkında</h3>
+      <p>Bölü çizgisi karakteri URL üzerinde göründüğü yere bağlı olarak farklı anlamlar içerir. İnsanlar, birden çok bitişik bölü çizgisinin sık sık 
+      tek bir bölü çizgisine daraltıldığı dosya sistemindeki davranışına 
+      alışkın olabilir (<em>örn</em>, <code>/home///foo</code> ile
+      <code>/home/foo</code> aynıdır). URL bakımından bu her zaman doğru 
+      değildir. Eğer niyetiniz buysa, <code class="directive"><a href="#locationmatch">&lt;LocationMatch&gt;</a></code> yönergesi ve <code class="directive">&lt;Location&gt;</code> yönergesinin regex ile kullanımı,
+      bölü çizgisinin özel anlam ifade etmesi nedeniyle gerektiği kadarının 
+      belirtilmesini gerektirir.</p>
+
+      <p>Örneğin, <code>&lt;LocationMatch "^/abc"&gt;</code> ile 
+      <code>/abc</code> isteği eşleşirken <code>//abc</code> isteği 
+      eşleşmez. <code class="directive">&lt;Location&gt;</code> yönergesinin
+      regex olmayan kullanımı vekil isteklerindeki gibi davranır. Fakat
+      vekil harici işlemlerde <code class="directive">&lt;Location&gt;</code> 
+      yönergesinin regex olmayan kullanımında çok sayıda bölü çizgisi örtük 
+      olarak tek bölü çizgisiyle eşleşir. Örneğin,
+      <code>&lt;Location "/abc/def"&gt;</code> belirtirseniz 
+      <code>/abc//def</code> isteği bu ifade ile eşleşecektir.</p>
+    </div>
 
 <h3>Ayrıca bakınız:</h3>
 <ul>
@@ -3386,6 +3491,32 @@ LogLevel info ssl_module:warn</pre>
       <dd>Sunucunun sağlamaya gönüllü olacağı HTTP Range'lerinin azami
         sayısını ifade eden pozitif bir tamsayı.</dd>
     </dl>
+
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="MergeSlashes" id="MergeSlashes">MergeSlashes</a> <a name="mergeslashes" id="mergeslashes">Yönergesi</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Açıklama:</a></th><td>Sunucunun URL’lerde ardışık bölü çizgilerini birleştirip birleştirmeyeceğini denetler.
+</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Sözdizimi:</a></th><td><code>MergeSlashes ON|OFF</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>MergeSlashes ON</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli, sanal konak</td></tr>
+<tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>Çekirdek</td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Uyumluluk:</a></th><td>2.4.39 sürümünde eklendi</td></tr>
+</table>
+    <p>Öntanımlı olarak, sunucu istek adresinin yol bileşenindeki ardışık bölü 
+    çizgilerini ('/') birleştirip tek bölü çizgisi olarak ele alır.</p>
+
+    <p>Bu adresleri dosya sistemi ile eşleştirirken bu ardışık bölü 
+    çizgilerinin önemi yoktur. Ancak. bu adresler CGI veya vekil gibi başka 
+    yollardan değerlendiriliyorsa bu ardışık bölü çizgilerinin olduğu gibi 
+    kalması tercih edilebilir. Bu durumlarda ardışık bölü çizgilerinin 
+    birleştirilmesini önlemek için <code class="directive">MergeSlashes</code> 
+    yönergesine <em>OFF</em> atanabilir. Bu atamayla, yapılandırma dosyasında, 
+    adresin yol bileşenini ile eşleşen düzenli ifadelerde 
+    (<code class="directive">LocationMatch</code>, <code class="directive">RewriteRule</code>, 
+    ...) ardışık bölü çizgileri hesaba katılacaktır.</p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -4965,7 +5096,7 @@ gerçekleşmesi için sunucunun geçmesini bekleyeceği süre.</td></tr>
 <a href="../fr/mod/core.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/core.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../tr/mod/core.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
-</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Yorum</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Yorumlar</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
 var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/core.html';
@@ -4983,7 +5114,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/core.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2018 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2019 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -158,6 +158,31 @@ static NSString* tablePath = nil;
     return [NSTemporaryDirectory() stringByAppendingPathComponent:@"test_ckks_analytics_v2.db"];
 }
 
+static void _XCTAssertTimeDiffWithInterval(CKKSAnalyticsTests* self, const char* filename, int line, NSDate* a, NSDate* b, int delta, NSString * _Nullable format, ...) NS_FORMAT_FUNCTION(7,8);
+
+/*
+ * Check if [a,b] are within expected time difference.
+ * The actual acceptable range is (-1.0, d.0] -- to deal with rounding errors when stored in SQLite.
+ */
+
+#define XCTAssertTimeDiffWithInterval(a, b, delta, ...)          \
+  _XCTAssertTimeDiffWithInterval(self, __FILE__, __LINE__, a, b, delta, @"" __VA_ARGS__)
+
+static void _XCTAssertTimeDiffWithInterval(CKKSAnalyticsTests* self, const char* filename, int line, NSDate* a, NSDate* b, int delta, NSString * _Nullable format, ...) {
+    NSTimeInterval interval = [b timeIntervalSinceDate:a];
+    if (interval <= -1.0 || interval > delta) {
+        NSString *comparison = [[NSString alloc] initWithFormat:@"time diff not expected (a=%@(%f), b=%@(%f), delta = %f) -- valid range (-1.0, %d.0]: ", a, [a timeIntervalSince1970], b, [b timeIntervalSince1970], interval, delta];
+        NSString *arg = [[NSString alloc] init];
+        if (format) {
+            va_list args;
+            va_start(args, format);
+            va_end(args);
+            arg = [[NSString alloc] initWithFormat: format arguments: args];
+        }
+        [self recordFailureWithDescription: [comparison stringByAppendingString: arg] inFile: [NSString stringWithUTF8String: filename] atLine: line expected: YES];
+    }
+}
+
 - (void)testLastSuccessfulXDate
 {
     [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
@@ -171,41 +196,37 @@ static NSString* tablePath = nil;
     [[[self.keychainView waitForFetchAndIncomingQueueProcessing] completionHandlerDidRunCondition] wait:4 * NSEC_PER_SEC];
 
     NSDate* nowDate = [NSDate date];
-    NSTimeInterval timeInterval;
 
     /*
      * Check last sync date for class A
      */
     NSDate* syncADate = [[CKKSAnalytics logger] dateOfLastSuccessForEvent:CKKSEventProcessIncomingQueueClassA inView:self.keychainView];
     XCTAssertNotNil(syncADate, "Failed to get a last successful A sync date");
-    timeInterval = [nowDate timeIntervalSinceDate:syncADate];
-    XCTAssertTrue(timeInterval >= 0.0 && timeInterval <= 15.0, "Last sync date does not look like a reasonable one");
+    XCTAssertTimeDiffWithInterval(syncADate, nowDate, 15, "Last sync A date should be recent");
 
     /*
      * Check last sync date for class C
      */
     NSDate *syncCDate = [[CKKSAnalytics logger] dateOfLastSuccessForEvent:CKKSEventProcessIncomingQueueClassC inView:self.keychainView];
     XCTAssertNotNil(syncCDate, "Failed to get a last successful C sync date");
-    timeInterval = [nowDate timeIntervalSinceDate:syncCDate];
-    XCTAssertTrue(timeInterval >= 0.0 && timeInterval <= 15.0, "Last sync date does not look like a reasonable one");
+    XCTAssertTimeDiffWithInterval(syncCDate, nowDate, 15, "Last sync C date should be recent");
 
     /*
      * Check last unlock date
      */
     NSDate* unlockDate = [[CKKSAnalytics logger] datePropertyForKey:CKKSAnalyticsLastUnlock];
     XCTAssertNotNil(unlockDate, "Failed to get a last unlock date");
-    timeInterval = [nowDate timeIntervalSinceDate:unlockDate];
-    NSLog(@"timeinterval: %f\n", timeInterval);
-    XCTAssertTrue(timeInterval >= 0.0 && timeInterval <= 15.0, "Last unlock date does not look like a reasonable one");
+    XCTAssertTimeDiffWithInterval(unlockDate, nowDate, 15, "Last unlock date should be recent");
 
-    sleep(1); // wait to be a differnt second
+    sleep(2); // wait to be a different second (+/- 1s)
 
     self.aksLockState = true;
     [self.lockStateTracker recheck];
 
     NSDate* newUnlockDate = [[CKKSAnalytics logger] datePropertyForKey:CKKSAnalyticsLastUnlock];
     XCTAssertNotNil(newUnlockDate, "Failed to get a last unlock date");
-    XCTAssertEqualObjects(newUnlockDate, unlockDate, "unlock date not the same");
+
+    XCTAssertTimeDiffWithInterval(newUnlockDate, unlockDate, 1, "unlock dates not the same (within one second)");
 
     sleep(1); // wait to be a differnt second
 

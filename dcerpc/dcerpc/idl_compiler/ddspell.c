@@ -968,6 +968,12 @@ void DDBE_spell_type_vec_preamble
 (
     FILE                *fid,       /* [in] output file handle */
     DDBE_vectors_t      *vip        /* [in] vector information pointer */
+);
+
+void DDBE_spell_type_vec_preamble
+(
+    FILE                *fid,       /* [in] output file handle */
+    DDBE_vectors_t      *vip        /* [in] vector information pointer */
 )
 {
     AST_interface_n_t   *int_p;     /* Ptr to AST interface node */
@@ -1219,6 +1225,15 @@ void DDBE_spell_type_vec_preamble
  *           but does include alignment pad bytes before the addenda.
  *           vip->type_vec_size does include the addenda on exit.
  */
+
+void DDBE_spell_type_vec_addenda
+(
+    FILE                *fid,       /* [in] output file handle */
+    DDBE_vectors_t      *vip,       /* [io] vector information pointer */
+    boolean             *cmd_opt ATTRIBUTE_UNUSED,   /* [in] array of cmd option flags */
+    void                **cmd_val  /* [in] array of cmd option values */
+);
+
 void DDBE_spell_type_vec_addenda
 (
     FILE                *fid,       /* [in] output file handle */
@@ -1530,9 +1545,7 @@ void DDBE_spell_param_vec_init
     if (oper_p->result->type->kind != AST_void_k)
         fprintf(fid, "%sparam_vec[0] = (rpc_void_p_t)%cIDL_function_result;\n",
                 DDBE_PREFIX_IDL,
-                (
-                  false
-                ) ? ' ' : '&' );
+                '&' );
 
     for (param_num = 1, param_p = oper_p->parameters;
          param_p != NULL;

@@ -194,9 +194,15 @@ struct _ntfs_inode {
 	 * inodes.
 	 */
 	ntfs_inode *mft_ni;	/* Pointer to the ntfs inode of $MFT. */
+	lck_mtx_t buf_lock;     /* Mutex to protect the buffer when we cannot
+				   rely on buf_map(...) providing this service
+				   for free. */
 	buf_t m_buf;		/* Buffer containing the mft record of the
 				   inode.  This should only be touched by the
 				   ntfs_*mft_record_(un)map() functions. */
+	u8 *m_dbuf;		/* Explicit in-memory copy (double buffer) of
+				   the MFT record, only used when the MFT record
+				   is not sector aligned. */
 	MFT_RECORD *m;		/* Address of the buffer data and thus address
 				   of the mft record.  This should only be
 				   touched by the ntfs_*mft_record_(un)map()

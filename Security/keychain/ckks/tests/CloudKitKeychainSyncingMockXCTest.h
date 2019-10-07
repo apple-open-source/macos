@@ -28,6 +28,10 @@
 #import "keychain/ckks/CKKSControl.h"
 #import "keychain/ckks/CKKSCurrentKeyPointer.h"
 #import "keychain/ckks/CKKSItem.h"
+#import "keychain/ckks/tests/CKKSMockSOSPresentAdapter.h"
+#import "keychain/ot/proto/generated_source/OTAccountMetadataClassC.h"
+#import "keychain/ot/OTCuttlefishAccountStateHolder.h"
+#include "OSX/sec/Security/SecItemShim.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -47,18 +51,19 @@ NS_ASSUME_NONNULL_BEGIN
 @interface CloudKitKeychainSyncingMockXCTest : CloudKitMockXCTest
 
 @property CKKSControl* ckksControl;
-
-@property (nullable) id mockCKKSKey;
-
-@property (nullable) CKKSSOSSelfPeer* currentSelfPeer;
-@property (nullable) NSError* currentSelfPeerError;
-@property (nullable) NSMutableSet<id<CKKSPeer>>* currentPeers;
-@property (nullable) NSError* currentPeersError;
+@property OTCuttlefishAccountStateHolder *accountMetaDataStore;
+@property (nullable) id mockCKKSKeychainBackedKey;
 
 @property (nullable) NSError* keychainFetchError;
 
 // A single trusted SOSPeer, but without any CKKS keys
 @property CKKSSOSPeer* remoteSOSOnlyPeer;
+
+// Set this to false after calling -setUp if you want to initialize the views yourself
+@property bool automaticallyBeginCKKSViewCloudKitOperation;
+
+// Fill this in before allowing initialization to use your own mock instead of a default stub
+@property id suggestTLKUpload;
 
 @property NSMutableSet<CKKSKeychainView*>* ckksViews;
 @property NSMutableSet<CKRecordZoneID*>* ckksZones;
@@ -75,15 +80,23 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)putFakeDeviceStatusInCloudKit:(CKRecordZoneID*)zoneID
                              zonekeys:(ZoneKeys*)zonekeys;
 
-- (void)putFakeOctagonOnlyDeviceStatusInCloudKit:(CKRecordZoneID*)zoneID zonekeys:(ZoneKeys*)zonekeys;
 - (void)putFakeOctagonOnlyDeviceStatusInCloudKit:(CKRecordZoneID*)zoneID;
+- (void)putFakeOctagonOnlyDeviceStatusInCloudKit:(CKRecordZoneID*)zoneID
+                                        zonekeys:(ZoneKeys*)zonekeys;
 
 - (void)SOSPiggyBackAddToKeychain:(NSDictionary*)piggydata;
 - (NSMutableDictionary*)SOSPiggyBackCopyFromKeychain;
 - (NSMutableArray<NSData*>*)SOSPiggyICloudIdentities;
 
+// Octagon is responsible for telling CKKS that it's trusted.
+// But, in these tests, use these to pretend that SOS is the only trust source around.
+- (void)beginSOSTrustedOperationForAllViews;
+- (void)beginSOSTrustedViewOperation:(CKKSKeychainView*)view;
+- (void)endSOSTrustedOperationForAllViews;
+- (void)endSOSTrustedViewOperation:(CKKSKeychainView*)view;
+
 - (void)putTLKShareInCloudKit:(CKKSKey*)key
-                         from:(CKKSSOSSelfPeer*)sharingPeer
+                         from:(id<CKKSSelfPeer>)sharingPeer
                            to:(id<CKKSPeer>)receivingPeer
                        zoneID:(CKRecordZoneID*)zoneID;
 - (void)putTLKSharesInCloudKit:(CKKSKey*)key from:(CKKSSOSSelfPeer*)sharingPeer zoneID:(CKRecordZoneID*)zoneID;
@@ -96,6 +109,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)createAndSaveFakeKeyHierarchy:(CKRecordZoneID*)zoneID;
 
 - (void)rollFakeKeyHierarchyInCloudKit:(CKRecordZoneID*)zoneID;
+
+- (NSArray<CKRecord*>*)putKeySetInCloudKit:(CKKSCurrentKeySet*)keyset;
+- (void)performOctagonTLKUpload:(NSSet<CKKSKeychainView*>*)views;
+- (void)performOctagonTLKUpload:(NSSet<CKKSKeychainView*>*)views afterUpload:(void (^_Nullable)(void))afterUpload;
 
 - (NSDictionary*)fakeRecordDictionary:(NSString* _Nullable)account zoneID:(CKRecordZoneID*)zoneID;
 - (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName;
@@ -127,6 +144,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)checkNoCKKSData:(CKKSKeychainView*)view;
 
 - (void)deleteGenericPassword:(NSString*)account;
+- (void)deleteGenericPasswordWithoutTombstones:(NSString*)account;
 
 - (void)findGenericPassword:(NSString*)account expecting:(OSStatus)status;
 - (void)checkGenericPassword:(NSString*)password account:(NSString*)account;
@@ -150,6 +168,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Add expectations that CKKS will upload a single TLK share
 - (void)expectCKKSTLKSelfShareUpload:(CKRecordZoneID*)zoneID;
+
+// Can't call OCMVerifyMock due to Swift? Use this.
+- (void)verifyDatabaseMocks;
 @end
 
 NS_ASSUME_NONNULL_END

@@ -84,26 +84,26 @@
 #define ENABLE_DNSSEC_CERTS 0
 
 /* Define to 1 if keychain is used */
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #undef HAVE_KEYCHAIN
-#else
+#else // (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #define HAVE_KEYCHAIN 1
-#endif
+#endif // (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 /* Define to 1 if keychain is used */
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #undef HAVE_SECURITY_FRAMEWORK
-#else
+#else // (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #define HAVE_SECURITY_FRAMEWORK 1
-#endif
+#endif // (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 
 /* Define to 1 if Open Dir available */
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #undef HAVE_OPENDIR
-#else
+#else // (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #define HAVE_OPENDIR 1
-#endif
+#endif // (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 #define HAVE_NETINET6_IPSEC 1
 

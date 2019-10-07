@@ -36,7 +36,7 @@
 
 namespace WebKit {
 
-class DeviceIdHashSaltStorage : public ThreadSafeRefCounted<DeviceIdHashSaltStorage, WTF::DestructionThread::Main> {
+class DeviceIdHashSaltStorage : public ThreadSafeRefCounted<DeviceIdHashSaltStorage, WTF::DestructionThread::MainRunLoop> {
 public:
     static Ref<DeviceIdHashSaltStorage> create(const String& deviceIdHashSaltStorageDirectory);
     ~DeviceIdHashSaltStorage();
@@ -49,6 +49,8 @@ public:
 
 private:
     struct HashSaltForOrigin {
+        WTF_MAKE_STRUCT_FAST_ALLOCATED;
+
         HashSaltForOrigin(WebCore::SecurityOriginData&& documentOrigin, WebCore::SecurityOriginData&& parentOrigin, String&& deviceIdHashSalt)
             : documentOrigin(WTFMove(documentOrigin))
             , parentOrigin(WTFMove(parentOrigin))

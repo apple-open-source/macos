@@ -418,6 +418,13 @@ static void cloudkeychainproxy_event_handler(xpc_connection_t peer)
         return;
     }
 
+    xpc_object_t ent = xpc_connection_copy_entitlement_value(peer, "com.apple.CloudKeychainProxy.client");
+    if (ent == NULL || xpc_get_type(ent) != XPC_TYPE_BOOL || xpc_bool_get_value(ent) != true) {
+        secnotice(PROXYXPCSCOPE, "cloudkeychainproxy_event_handler: rejected client %d", xpc_connection_get_pid(peer));
+        xpc_connection_cancel(peer);
+        return;
+    }
+
     xpc_connection_set_target_queue(peer, [SharedProxy() ckdkvsproxy_queue]);
     xpc_connection_set_event_handler(peer, ^(xpc_object_t event)
     {
@@ -462,7 +469,7 @@ int ckdproxymain(int argc, const char *argv[])
     UbiqitousKVSProxy* proxyID = SharedProxy();
 
     if (proxyID) {  // nothing bad happened when initializing
-        xpc_connection_t listener = xpc_connection_create_mach_service(xpcServiceName, NULL, XPC_CONNECTION_MACH_SERVICE_LISTENER);
+        xpc_connection_t listener = xpc_connection_create_mach_service(kCKPServiceName, NULL, XPC_CONNECTION_MACH_SERVICE_LISTENER);
         xpc_connection_set_event_handler(listener, ^(xpc_object_t object){ cloudkeychainproxy_event_handler(object); });
 
         // It looks to me like there is insufficient locking to allow a request to come in on the XPC connection while doing the initial all items.

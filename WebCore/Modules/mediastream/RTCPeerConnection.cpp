@@ -52,8 +52,8 @@
 #include "RTCIceCandidate.h"
 #include "RTCPeerConnectionIceEvent.h"
 #include "RTCSessionDescription.h"
-#include "RTCTrackEvent.h"
 #include <wtf/CryptographicallyRandomNumber.h>
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/MainThread.h>
 #include <wtf/UUID.h>
 #include <wtf/text/Base64.h>
@@ -62,16 +62,20 @@ namespace WebCore {
 
 using namespace PeerConnection;
 
+WTF_MAKE_ISO_ALLOCATED_IMPL(RTCPeerConnection);
+
 Ref<RTCPeerConnection> RTCPeerConnection::create(ScriptExecutionContext& context)
 {
-    Ref<RTCPeerConnection> peerConnection = adoptRef(*new RTCPeerConnection(context));
+    auto peerConnection = adoptRef(*new RTCPeerConnection(context));
     peerConnection->suspendIfNeeded();
     // RTCPeerConnection may send events at about any time during its lifetime.
     // Let's make it uncollectable until the pc is closed by JS or the page stops it.
     if (!peerConnection->isClosed()) {
         peerConnection->m_pendingActivity = peerConnection->makePendingActivity(peerConnection.get());
-        if (auto* page = downcast<Document>(context).page())
+        if (auto* page = downcast<Document>(context).page()) {
             peerConnection->registerToController(page->rtcController());
+            page->libWebRTCProvider().setEnableLogging(!context.sessionID().isEphemeral());
+        }
     }
     return peerConnection;
 }
@@ -300,7 +304,7 @@ static inline ExceptionOr<Vector<MediaEndpointConfiguration::IceServerInfo>> ice
                 servers.uncheckedAppend({ WTFMove(serverURLs), server.credential, server.username });
         }
     }
-    return WTFMove(servers);
+    return servers;
 }
 
 ExceptionOr<Vector<MediaEndpointConfiguration::CertificatePEM>> RTCPeerConnection::certificatesFromConfiguration(const RTCConfiguration& configuration)
@@ -311,7 +315,7 @@ ExceptionOr<Vector<MediaEndpointConfiguration::CertificatePEM>> RTCPeerConnectio
     Vector<MediaEndpointConfiguration::CertificatePEM> certificates;
     certificates.reserveInitialCapacity(configuration.certificates.size());
     for (auto& certificate : configuration.certificates) {
-        if (!originsMatch(origin, certificate->origin()))
+        if (!origin.isSameOriginAs(certificate->origin()))
             return Exception { InvalidAccessError, "Certificate does not have a valid origin" };
 
         if (currentMilliSeconds > certificate->expires())
@@ -319,7 +323,7 @@ ExceptionOr<Vector<MediaEndpointConfiguration::CertificatePEM>> RTCPeerConnectio
 
         certificates.uncheckedAppend(MediaEndpointConfiguration::CertificatePEM { certificate->pemCertificate(), certificate->pemPrivateKey(), });
     }
-    return WTFMove(certificates);
+    return certificates;
 }
 
 ExceptionOr<void> RTCPeerConnection::initializeConfiguration(RTCConfiguration&& configuration)
@@ -437,9 +441,7 @@ void RTCPeerConnection::close()
 
     updateConnectionState();
     ASSERT(isClosed());
-    scriptExecutionContext()->postTask([protectedThis = makeRef(*this)](ScriptExecutionContext&) {
-        protectedThis->doStop();
-    });
+    doStop();
 }
 
 void RTCPeerConnection::emulatePlatformEvent(const String& action)
@@ -580,7 +582,7 @@ void RTCPeerConnection::fireEvent(Event& event)
 
 void RTCPeerConnection::dispatchEvent(Event& event)
 {
-    DEBUG_LOG(LOGIDENTIFIER, "dispatching '", event.type(), "'");
+    INFO_LOG(LOGIDENTIFIER, "dispatching '", event.type(), "'");
     EventTarget::dispatchEvent(event);
 }
 
@@ -619,12 +621,12 @@ static inline ExceptionOr<PeerConnectionBackend::CertificateInformation> certifi
             result.rsaParameters = PeerConnectionBackend::CertificateInformation::RSA { *parameters.modulusLength, publicExponent };
         }
         result.expires = parameters.expires;
-        return WTFMove(result);
+        return result;
     }
     if (parameters.name == "ECDSA"_s && parameters.namedCurve == "P-256"_s) {
         auto result = PeerConnectionBackend::CertificateInformation::ECDSA_P256();
         result.expires = parameters.expires;
-        return WTFMove(result);
+        return result;
     }
 
     return Exception { NotSupportedError, "Algorithm is not supported"_s };

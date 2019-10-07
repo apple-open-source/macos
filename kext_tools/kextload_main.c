@@ -153,7 +153,7 @@ readArgs(
    /* Set up default arg values.
     */
     bzero(toolArgs, sizeof(*toolArgs));
-    
+
    /*****
     * Allocate collection objects needed for reading args.
     */
@@ -191,7 +191,7 @@ readArgs(
                 }
                 CFArrayAppendValue(toolArgs->kextIDs, scratchString);
                 break;
-                
+
             case kOptDependency:
             case kOptRepository:
                 scratchURL = CFURLCreateFromFileSystemRepresentation(
@@ -206,7 +206,7 @@ readArgs(
                     toolArgs->dependencyURLs : toolArgs->repositoryURLs,
                     scratchURL);
                 break;
-                
+
             case kOptQuiet:
                 beQuiet();
                 break;
@@ -335,7 +335,8 @@ ExitStatus checkAccess(void)
             OSKextLog(/* kext */ NULL,
                 kOSKextLogBasicLevel | kOSKextLogGeneralFlag |
                 kOSKextLogLoadFlag | kOSKextLogIPCFlag,
-                "Can't contact kextd; attempting to load directly into kernel.");
+                "Can't contact kextd; attempting to load directly into kernel. "
+                "Dexts will not be loadable.");
         } else {
             OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogGeneralFlag |
@@ -356,11 +357,11 @@ ExitStatus checkAccess(void)
         result = EX_NOPERM;
         goto finish;
     }
-    
+
 #endif /* !TARGET_OS_EMBEDDED */
 
 finish:
-    
+
 #if !TARGET_OS_EMBEDDED
     if (kextd_port != MACH_PORT_NULL) {
         mach_port_deallocate(mach_task_self(), kextd_port);
@@ -382,19 +383,19 @@ ExitStatus loadKextsViaKextd(KextloadArgs * toolArgs)
     count = CFArrayGetCount(toolArgs->kextIDs);
     for (index = 0; index < count; index++) {
         CFStringRef kextID  = CFArrayGetValueAtIndex(toolArgs->kextIDs, index);
-            
+
         if (!CFStringGetCString(kextID, scratchCString, sizeof(scratchCString),
             kCFStringEncodingUTF8)) {
 
             strlcpy(scratchCString, "unknown", sizeof(scratchCString));
         }
-        
+
         OSKextLog(/* kext */ NULL,
             kOSKextLogBasicLevel | kOSKextLogGeneralFlag |
             kOSKextLogLoadFlag | kOSKextLogIPCFlag,
             "Requesting load of %s.",
             scratchCString);
-        
+
         loadResult = KextManagerLoadKextWithIdentifier(kextID,
             toolArgs->scanURLs);
         if (loadResult != kOSReturnSuccess) {
@@ -420,7 +421,7 @@ ExitStatus loadKextsViaKextd(KextloadArgs * toolArgs)
         CFURLRef kextURL = CFArrayGetValueAtIndex(toolArgs->kextURLs, index);
         if (!CFURLGetFileSystemRepresentation(kextURL, /* resolveToBase */ true,
             (UInt8 *)scratchCString, sizeof(scratchCString))) {
-            
+
             strlcpy(scratchCString, "unknown", sizeof(scratchCString));
         }
 
@@ -498,6 +499,8 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
         .performSignatureValidation = true,
         .requireSecureLocation = true,
         .respectSystemPolicy = !earlyBoot,
+        .checkDextApproval = !earlyBoot,
+        .is_kextcache = false,
     };
     _OSKextSetAuthenticationFunction(&authenticateKext, &authOptions);
     _OSKextSetStrictAuthentication(true);
@@ -516,7 +519,7 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
         CFStringRef   kextID  = CFArrayGetValueAtIndex(
                                                        toolArgs->kextIDs,
                                                        index);
-            
+
         if (!CFStringGetCString(kextID, scratchCString, sizeof(scratchCString),
             kCFStringEncodingUTF8)) {
 
@@ -537,7 +540,15 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
             result = exitStatusForOSReturn(kOSKextReturnNotFound);
             goto finish;
         }
-        
+
+        if (OSKextDeclaresUserExecutable(theKext)) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+                "Error: Dext %s can't be loaded while kextd is unreachable.", scratchCString);
+            result = exitStatusForOSReturn(kOSKextReturnNotLoadable);
+            goto finish;
+        }
+
 #if !TARGET_OS_EMBEDDED
         // Diskless netboot environment authentication workaround: 18367703
         isNetbootKext = ((CFStringCompare(kextID, CFSTR("com.apple.nke.asp-tcp"), 0) == kCFCompareEqualTo) ||
@@ -642,7 +653,7 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
             index);
         if (!CFURLGetFileSystemRepresentation(kextURL, /* resolveToBase */ true,
             (UInt8 *)scratchCString, sizeof(scratchCString))) {
-            
+
             strlcpy(scratchCString, "unknown", sizeof(scratchCString));
         }
 
@@ -657,7 +668,7 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
        /* Use OSKextGetKextWithURL() to avoid double open error messages,
         * because we already tried to open all kexts above.
         * That means we don't log here if we don't find the kext.
-        */ 
+        */
         loadResult = kOSKextReturnNotFound;
         theKext = OSKextGetKextWithURL(kextURL);
         if (theKext) {
@@ -668,6 +679,14 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
             CFStringRef     myBundleID = NULL;         // do not release
 
             myBundleID = OSKextGetIdentifier(theKext);
+
+            if (OSKextDeclaresUserExecutable(theKext)) {
+                OSKextLog(/* kext */ NULL,
+                    kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+                    "Error: Dext %s can't be loaded while kextd is unreachable.", scratchCString);
+                result = exitStatusForOSReturn(kOSKextReturnNotLoadable);
+                goto finish;
+            }
 
             // Netboot environment authentication workaround: 18367703
             isNetbootKext = ((CFStringCompare(myBundleID, CFSTR("com.apple.nke.asp-tcp"), 0) == kCFCompareEqualTo) ||

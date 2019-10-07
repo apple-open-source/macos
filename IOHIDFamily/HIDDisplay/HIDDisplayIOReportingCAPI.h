@@ -1,13 +1,12 @@
 //
-//  HIDDisplayIOReporting.h
+//  HIDDisplayIOReportingCAPI.h
 //  IOHIDFamily
 //
-//  Created by AB on 4/15/19.
+//  Created by AB on 4/22/19.
 //
 
-#ifndef HIDDisplayIOReporting_h
-#define HIDDisplayIOReporting_h
-
+#ifndef HIDDisplayIOReportingCAPI_h
+#define HIDDisplayIOReportingCAPI_h
 
 #import <CoreFoundation/CoreFoundation.h>
 
@@ -99,7 +98,7 @@ void HIDDisplayIOReportingSetInputDataHandler(HIDDisplayIOReportingInterfaceRef 
  *
  */
 void HIDDisplayIOReportingSetCancelHandler(HIDDisplayIOReportingInterfaceRef hidDisplayInterface, dispatch_block_t handler);
-    
+
 /*!
  * HIDDisplayIOReportingActivate
  *
@@ -173,4 +172,5 @@ CF_ASSUME_NONNULL_END
 
 __END_DECLS
 
-#endif /* HIDDisplayIOReporting_h */
+
+#endif /* HIDDisplayIOReportingCAPI_h */

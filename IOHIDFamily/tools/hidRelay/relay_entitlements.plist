@@ -8,5 +8,9 @@
 	<true/>
 	<key>com.apple.hid.manager.user-access-device</key>
 	<true/>
+	<key>com.apple.private.tcc.allow</key>
+	<array>
+		<string>kTCCServiceListenEvent</string>
+	</array>
 </dict>
 </plist>

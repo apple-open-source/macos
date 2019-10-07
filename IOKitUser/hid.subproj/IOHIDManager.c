@@ -25,9 +25,13 @@
 #include "IOHIDManager.h"
 #include <IOKit/IOKitLib.h>
 #include "IOHIDLibPrivate.h"
-#include "IOHIDDevice.h"
+#include "IOHIDDevicePrivate.h"
 #include "IOHIDLib.h"
 #include "IOHIDManagerPersistentProperties.h"
+#include <os/assumes.h>
+#include <AssertMacros.h>
+#include <os/lock.h>
+#include <os/state_private.h>
 
 static IOHIDManagerRef  __IOHIDManagerCreate(
                                     CFAllocatorRef          allocator, 
@@ -40,10 +44,12 @@ static void             __IOHIDManagerSetDeviceMatching(
 static void             __IOHIDManagerDeviceAdded(
                                     void *                      context,
                                     io_iterator_t               iterator);
-static void             __IOHIDManagerDeviceRemoved(
-                                    void *                      context,
-                                    IOReturn                    result,
-                                    void *                      sender);
+static void             __IOHIDManagerDeviceRemoved(void *refcon,
+                                                    io_service_t service,
+                                                    uint32_t messageType,
+                                                    void *messageArgument);
+static IOReturn         __ApplyToDevices(IOHIDManagerRef manager,
+                                         IOOptionBits options);
 static void             __IOHIDManagerDeviceApplier(
                                     const void *                value,
                                     void *                      context);
@@ -52,6 +58,9 @@ static void             __IOHIDManagerInitialEnumCallback(
 static void             __IOHIDManagerMergeDictionaries(
                                     CFDictionaryRef             srcDict, 
                                     CFMutableDictionaryRef      dstDict);
+static  void __IOHIDManagerFinalizeStateHandler (void *context);
+static  os_state_data_t __IOHIDManagerStateHandler (IOHIDManagerRef device, os_state_hints_t hints);
+static  CFMutableDictionaryRef __IOHIDManagerSerializeState(IOHIDManagerRef device);
 
 enum {
     kDeviceApplierOpen                      = 1 << 0,
@@ -61,7 +70,12 @@ enum {
     kDeviceApplierSetInputCallback          = 1 << 4,
     kDeviceApplierSetInputReportCallback    = 1 << 5, 
     kDeviceApplierScheduleRunLoop           = 1 << 6,
-    kDeviceApplierUnscheduleRunLoop         = 1 << 7
+    kDeviceApplierUnscheduleRunLoop         = 1 << 7,
+    kDeviceApplierSetDispatchQueue          = 1 << 8,
+    kDeviceApplierSetCancelHandler          = 1 << 9,
+    kDeviceApplierActivate                  = 1 << 10,
+    kDeviceApplierCancel                    = 1 << 11,
+    kDeviceApplierSetInputTSReportCallback  = 1 << 12,
 };
 
 typedef struct __DeviceApplierArgs {
@@ -75,13 +89,23 @@ typedef struct __IOHIDManager
     IOHIDObjectBase                 hidBase;
     
     CFMutableSetRef                 devices;
+    os_unfair_lock                  deviceLock;
+    
     CFMutableSetRef                 iterators;
+    CFMutableDictionaryRef          removalNotifiers;
+    
     CFMutableDictionaryRef          properties;
     CFMutableDictionaryRef          deviceInputBuffers;
 
     IONotificationPortRef           notifyPort;
     CFRunLoopRef                    runLoop;
     CFStringRef                     runLoopMode;
+    
+    dispatch_queue_t                dispatchQueue;
+    dispatch_block_t                cancelHandler;
+    uint32_t                        cancelCount;
+    
+    _Atomic uint32_t                dispatchStateMask;
     
     CFRunLoopSourceRef              initEnumRunLoopSource;
     CFMutableDictionaryRef          initRetVals;
@@ -93,8 +117,9 @@ typedef struct __IOHIDManager
     void *                          inputContext;
     IOHIDValueCallback              inputCallback;
     
-    void *                          reportContext;
-    IOHIDReportCallback             reportCallback;
+    void *                              reportContext;
+    IOHIDReportCallback                 reportCallback;
+    IOHIDReportWithTimeStampCallback    reportTimestampCallback;
     
     void *                          matchContext;
     IOHIDDeviceCallback             matchCallback;
@@ -104,6 +129,9 @@ typedef struct __IOHIDManager
     
     CFArrayRef                      inputMatchingMultiple;
     Boolean                         isDirty;
+
+    os_state_handle_t               stateHandler;
+    dispatch_queue_t                stateQueue;
 
 } __IOHIDManager, *__IOHIDManagerRef;
 
@@ -119,7 +147,8 @@ static const IOHIDObjectClass __IOHIDManagerClass = {
         NULL,                       // copyFormattingDesc
         NULL,                       // copyDebugDesc
         NULL,                       // reclaim
-        _IOHIDObjectExtRetainCount  // refcount
+        _IOHIDObjectExtRetainCount, // refcount
+        NULL                        // requiredAlignment
     },
     _IOHIDObjectIntRetainCount,
     __IOHIDManagerIntRelease
@@ -158,6 +187,12 @@ void __IOHIDManagerExtRelease( CFTypeRef object )
 {
     IOHIDManagerRef manager = (IOHIDManagerRef)object;
     
+    if (manager->dispatchQueue) {
+        // enforce the call to activate/cancel
+        os_assert(manager->dispatchStateMask == (kIOHIDDispatchStateActive | kIOHIDDispatchStateCancelled),
+                  "Invalid dispatch state: 0x%x", manager->dispatchStateMask);
+    }
+    
     if ( (manager->createOptions & kIOHIDManagerOptionUsePersistentProperties) && 
         !(manager->createOptions & kIOHIDManagerOptionDoNotSaveProperties)) {
         __IOHIDManagerSaveProperties(manager, NULL);
@@ -192,6 +227,18 @@ void __IOHIDManagerExtRelease( CFTypeRef object )
                                   manager->initEnumRunLoopSource,
                                   manager->runLoopMode);
     }
+    
+    if (manager->stateHandler) {
+        os_state_remove_handler(manager->stateHandler);
+    }
+    
+    if (manager->stateQueue) {
+        dispatch_set_context(manager->stateQueue, manager);
+        dispatch_set_finalizer_f(manager->stateQueue, __IOHIDManagerFinalizeStateHandler);
+        _IOHIDObjectInternalRetain(manager);
+        dispatch_release(manager->stateQueue);
+    }
+
 }
 
 //------------------------------------------------------------------------------
@@ -241,6 +288,14 @@ void __IOHIDManagerIntRelease( CFTypeRef object )
         CFRelease(manager->inputMatchingMultiple);
         manager->inputMatchingMultiple = NULL;
     }
+    
+    if (manager->dispatchQueue) {
+        dispatch_release(manager->dispatchQueue);
+    }
+    
+    if (manager->removalNotifiers) {
+        CFRelease(manager->removalNotifiers);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -286,8 +341,10 @@ void __IOHIDManagerSetDeviceMatching(
                                           &iterator
                                           );
 
-    if ( kr != kIOReturnSuccess )
+    if (kr != kIOReturnSuccess) {
+        IOHIDLogError("IOServiceAddMatchingNotification:0x%x", kr);
         return;
+    }
                 
     // Add iterator to set for later destruction
     if ( !manager->iterators ) {
@@ -307,7 +364,9 @@ void __IOHIDManagerSetDeviceMatching(
     }
     
     intptr_t temp = iterator;
+    os_unfair_lock_lock(&manager->deviceLock);
     CFSetAddValue(manager->iterators, (void *)temp);
+    os_unfair_lock_unlock(&manager->deviceLock);
     IOObjectRelease(iterator);
 
     __IOHIDManagerDeviceAdded(manager, iterator);
@@ -324,8 +383,9 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
     IOReturn        retVal;
     io_service_t    service;
     Boolean         initial = FALSE;
+    io_object_t     notification;
     
-    while (( service = IOIteratorNext(iterator) )) {        
+    while (( service = IOIteratorNext(iterator) )) {
         
         device = IOHIDDeviceCreate(CFGetAllocator(manager), service);
         
@@ -344,23 +404,54 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
                                             &kCFTypeDictionaryKeyCallBacks,
                                             NULL);
             }
-        
-            if ( manager->devices ) {
-                CFSetAddValue(manager->devices, device);
-            }
-                
-            CFRelease(device);
             
             DeviceApplierArgs args;
 
             args.manager = manager;
             args.options = 0;
-
-            IOHIDDeviceRegisterRemovalCallback(
-                                            device,
-                                            __IOHIDManagerDeviceRemoved,
-                                            manager);
-                                            
+            
+            retVal = IOServiceAddInterestNotification(manager->notifyPort,
+                                                      service,
+                                                      kIOGeneralInterest,
+                                                      __IOHIDManagerDeviceRemoved,
+                                                      manager,
+                                                      &notification);
+            
+            if (!manager->removalNotifiers) {
+                CFDictionaryValueCallBacks cb = kCFTypeDictionaryValueCallBacks;
+                
+                cb.retain = _IOObjectCFRetain;
+                cb.release = _IOObjectCFRelease;
+                
+                manager->removalNotifiers = CFDictionaryCreateMutable(kCFAllocatorDefault,
+                                                                      0,
+                                                                      &kCFTypeDictionaryKeyCallBacks,
+                                                                      &cb);
+            }
+            
+            if (retVal == kIOReturnSuccess) {
+                os_unfair_lock_lock(&manager->deviceLock);
+                CFDictionarySetValue(manager->removalNotifiers,
+                                     device,
+                                     (void *)(intptr_t)notification);
+                os_unfair_lock_unlock(&manager->deviceLock);
+                
+                IOObjectRelease(notification);
+            } else {
+                IOHIDLogError("IOServiceAddInterestNotification: 0x%x", retVal);
+                CFRelease(device);
+                IOObjectRelease(service);
+                continue;
+            }
+            
+            if ( manager->devices ) {
+                os_unfair_lock_lock(&manager->deviceLock);
+                CFSetAddValue(manager->devices, device);
+                os_unfair_lock_unlock(&manager->deviceLock);
+            }
+            
+            CFRelease(device);
+            
             retVal = kIOReturnSuccess;
             
             if ( manager->isOpen )
@@ -374,6 +465,10 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
 
             if ( manager->reportCallback )
                 args.options |= kDeviceApplierSetInputReportCallback;
+            
+            if (manager->reportTimestampCallback) {
+                args.options |= kDeviceApplierSetInputTSReportCallback;
+            }
                                                        
             if ( manager->runLoop ) {
                 args.options |= kDeviceApplierScheduleRunLoop;
@@ -383,6 +478,22 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
                 // callback on the runLoop
                 if ( !initial && manager->matchCallback )
                     args.options |= kDeviceApplierInitEnumCallback;
+            }
+            
+            if (manager->dispatchQueue) {
+                args.options |= kDeviceApplierSetDispatchQueue;
+                
+                if (manager->matchCallback &&
+                    manager->dispatchStateMask == kIOHIDDispatchStateActive)
+                    args.options |= kDeviceApplierInitEnumCallback;
+            }
+            
+            if (manager->cancelHandler) {
+                args.options |= kDeviceApplierSetCancelHandler;
+            }
+            
+            if (manager->dispatchStateMask & kIOHIDDispatchStateActive) {
+                args.options |= kDeviceApplierActivate;
             }
             
             __IOHIDManagerDeviceApplier((const void *)device, &args);
@@ -430,11 +541,42 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
 //------------------------------------------------------------------------------
 // __IOHIDManagerDeviceRemoved
 //------------------------------------------------------------------------------
-void __IOHIDManagerDeviceRemoved(   void *                      context,
-                                    IOReturn                    result __unused,
-                                    void *                      sender)
+void __IOHIDManagerDeviceRemoved(void *refcon,
+                                 io_service_t service,
+                                 uint32_t messageType,
+                                 void *messageArgument __unused)
 {
-    IOHIDManagerRef manager = (IOHIDManagerRef)context;
+    IOHIDManagerRef manager = (IOHIDManagerRef)refcon;
+    __block IOHIDDeviceRef sender = NULL;
+    uint64_t regID = 0;
+    
+    IORegistryEntryGetRegistryEntryID(service, &regID);
+    
+    if (messageType != kIOMessageServiceIsTerminated) {
+        return;
+    }
+    
+    os_unfair_lock_lock(&manager->deviceLock);
+    _IOHIDCFSetApplyBlock(manager->devices, ^(CFTypeRef value) {
+        IOHIDDeviceRef device = (IOHIDDeviceRef)value;
+        
+        if (!sender) {
+            uint64_t deviceID = IOHIDDeviceGetRegistryEntryID(device);
+            
+            if (regID == deviceID) {
+                sender = device;
+            }
+        }
+    });
+    os_unfair_lock_unlock(&manager->deviceLock);
+    
+    if (!sender) {
+        return;
+    }
+    
+    os_unfair_lock_lock(&manager->deviceLock);
+    CFDictionaryRemoveValue(manager->removalNotifiers, sender);
+    os_unfair_lock_unlock(&manager->deviceLock);
     
     if ( manager->deviceInputBuffers )
         CFDictionaryRemoveValue(manager->deviceInputBuffers, sender);
@@ -444,14 +586,24 @@ void __IOHIDManagerDeviceRemoved(   void *                      context,
         if (CFSetContainsValue(manager->devices, sender))
             __IOHIDDeviceSaveProperties((IOHIDDeviceRef)sender, NULL);
     }
-
-    CFSetRemoveValue(manager->devices, sender);
     
-    if ( manager->removalCallback )
+    if (!(manager->createOptions &kIOHIDManagerOptionIndependentDevices) &&
+        manager->dispatchQueue) {
+        IOHIDDeviceCancel(sender);
+        IOHIDDeviceActivate(sender);
+    }
+    
+    if (manager->removalCallback &&
+        (manager->runLoop || manager->dispatchStateMask & kIOHIDDispatchStateActive)) {
         (*manager->removalCallback)(manager->removalContext,
                                     kIOReturnSuccess,
                                     manager,
                                     sender);
+    }
+    
+    os_unfair_lock_lock(&manager->deviceLock);
+    CFSetRemoveValue(manager->devices, sender);
+    os_unfair_lock_unlock(&manager->deviceLock);
 }
 
 //------------------------------------------------------------------------------
@@ -461,30 +613,51 @@ void __IOHIDManagerInitialEnumCallback(void * info)
 {
     IOHIDManagerRef manager = (IOHIDManagerRef)info;
     
-    if ( manager->matchCallback && manager->devices ) {
-        DeviceApplierArgs args;
-        
-        args.manager = manager;
-        args.options = kDeviceApplierInitEnumCallback;
+    require(manager->matchCallback && manager->devices, exit);
     
-        CFSetApplyFunction( manager->devices, 
-                            __IOHIDManagerDeviceApplier, 
-                            &args);
-    }
+    __ApplyToDevices(manager, kDeviceApplierInitEnumCallback);
     
+exit:
     // After we have dispatched all of the enum callbacks, kill the source
-    if (manager->runLoop)
+    if (manager->runLoop) {
         CFRunLoopRemoveSource(manager->runLoop,
                               manager->initEnumRunLoopSource, 
                               manager->runLoopMode);
+    }
 
     CFRelease(manager->initEnumRunLoopSource);
     manager->initEnumRunLoopSource = NULL;
     
-    if ( manager->initRetVals ) {
+    if (manager->initRetVals) {
         CFRelease(manager->initRetVals);
         manager->initRetVals = NULL;
     }
+}
+
+//------------------------------------------------------------------------------
+// __ApplyToDevices
+//------------------------------------------------------------------------------
+IOReturn __ApplyToDevices(IOHIDManagerRef manager, IOOptionBits options)
+{
+    CFSetRef devices = NULL;
+    IOReturn ret = kIOReturnError;
+    DeviceApplierArgs args = { manager, options, kIOReturnSuccess };
+    
+    require_action(manager->devices, exit, ret = kIOReturnNoDevice);
+    
+    os_unfair_lock_lock(&manager->deviceLock);
+    devices = CFSetCreateCopy(CFGetAllocator(manager), manager->devices);
+    os_unfair_lock_unlock(&manager->deviceLock);
+    
+    require(devices, exit);
+    
+    CFSetApplyFunction(devices, __IOHIDManagerDeviceApplier, &args);
+    ret = args.retVal;
+    
+    CFRelease(devices);
+    
+exit:
+    return ret;
 }
 
 //------------------------------------------------------------------------------
@@ -496,7 +669,10 @@ void __IOHIDManagerDeviceApplier(
 {
     DeviceApplierArgs * args    = (DeviceApplierArgs*)context;
     IOHIDDeviceRef      device  = (IOHIDDeviceRef)value;
+    IOHIDManagerRef     manager = args->manager;
     intptr_t            retVal  = kIOReturnSuccess;
+    
+    require_quiet((manager->createOptions & kIOHIDManagerOptionIndependentDevices) == 0, exit);
     
     if ( args->options & kDeviceApplierOpen ) {
         retVal = IOHIDDeviceOpen(           device,
@@ -508,18 +684,6 @@ void __IOHIDManagerDeviceApplier(
     if ( args->options & kDeviceApplierClose )
         retVal = IOHIDDeviceClose(          device,
                                             args->manager->openOptions);
-                                            
-    if ( args->options & kDeviceApplierInitEnumCallback ) {
-        if ( args->manager->initRetVals )
-            retVal = (intptr_t)CFDictionaryGetValue(
-                                            args->manager->initRetVals, 
-                                            device);
-            
-        (*args->manager->matchCallback)(    args->manager->matchContext,
-                                            retVal,
-                                            args->manager,
-                                            device);
-    }
 
     if ( args->options & kDeviceApplierSetInputMatching )
         IOHIDDeviceSetInputValueMatchingMultiple( 
@@ -532,7 +696,8 @@ void __IOHIDManagerDeviceApplier(
                                             args->manager->inputCallback,
                                             args->manager->inputContext);
 
-    if ( args->options & kDeviceApplierSetInputReportCallback ) {
+    if ( args->options & kDeviceApplierSetInputReportCallback ||
+         args->options & kDeviceApplierSetInputTSReportCallback ) {
         CFMutableDataRef dataRef = NULL;
         if ( !args->manager->deviceInputBuffers ) {
             args->manager->deviceInputBuffers = CFDictionaryCreateMutable(CFGetAllocator(args->manager), 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -554,13 +719,20 @@ void __IOHIDManagerDeviceApplier(
                 CFRelease(dataRef);
             }
         }
-    
-        IOHIDDeviceRegisterInputReportCallback(  
-                                            device,
-                                            (uint8_t *)CFDataGetMutableBytePtr(dataRef),
-                                            CFDataGetLength(dataRef),
-                                            args->manager->reportCallback,
-                                            args->manager->reportContext);
+        
+        if (args->options & kDeviceApplierSetInputReportCallback) {
+            IOHIDDeviceRegisterInputReportCallback(device,
+                                                   (uint8_t *)CFDataGetMutableBytePtr(dataRef),
+                                                   CFDataGetLength(dataRef),
+                                                   args->manager->reportCallback,
+                                                   args->manager->reportContext);
+        } else {
+            IOHIDDeviceRegisterInputReportWithTimeStampCallback(device,
+                                                                (uint8_t *)CFDataGetMutableBytePtr(dataRef),
+                                                                CFDataGetLength(dataRef),
+                                                                args->manager->reportTimestampCallback,
+                                                                args->manager->reportContext);
+        }
     }
     
     if ( args->options & kDeviceApplierScheduleRunLoop )
@@ -572,9 +744,54 @@ void __IOHIDManagerDeviceApplier(
         IOHIDDeviceUnscheduleFromRunLoop(   device,
                                             args->manager->runLoop,
                                             args->manager->runLoopMode);
-                                            
+    
+    if (args->options & kDeviceApplierSetDispatchQueue) {
+        IOHIDDeviceSetDispatchQueue(device, manager->dispatchQueue);
+    }
+    
+    if (args->options & kDeviceApplierSetCancelHandler) {
+        manager->cancelCount++;
+        
+        IOHIDDeviceSetCancelHandler(device, ^{
+            manager->cancelCount--;
+            
+            // once all of our devices have been cancelled
+            // we call our manager's cancel handler
+            if ((manager->dispatchStateMask & kIOHIDDispatchStateCancelled)
+                && !manager->cancelCount) {
+                if (manager->cancelHandler) {
+                    (manager->cancelHandler)();
+                    Block_release(manager->cancelHandler);
+                    manager->cancelHandler = NULL;
+                    _IOHIDObjectInternalRelease(manager);
+                }
+            }
+        });
+    }
+    
+    if (args->options & kDeviceApplierActivate) {
+        IOHIDDeviceActivate(device);
+    }
+    
+    if (args->options & kDeviceApplierCancel) {
+        IOHIDDeviceCancel(device);
+    }
+    
     if ( args->retVal == kIOReturnSuccess && retVal != kIOReturnSuccess )
         args->retVal = retVal;
+    
+exit:
+    if (args->options & kDeviceApplierInitEnumCallback) {
+        if (args->manager->initRetVals) {
+            retVal = (intptr_t)CFDictionaryGetValue(args->manager->initRetVals,
+                                                    device);
+        }
+        
+        (*args->manager->matchCallback)(args->manager->matchContext,
+                                        retVal,
+                                        args->manager,
+                                        device);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -602,6 +819,7 @@ IOHIDManagerRef IOHIDManagerCreate(
     if (!manager)
         return (_Nonnull IOHIDManagerRef)NULL;
     
+    manager->deviceLock = OS_UNFAIR_LOCK_INIT;
     manager->createOptions = options;
     
     if ( (manager->createOptions & kIOHIDManagerOptionUsePersistentProperties) && 
@@ -609,7 +827,15 @@ IOHIDManagerRef IOHIDManagerCreate(
     {
         __IOHIDManagerLoadProperties(manager);
     }
-        
+    
+    manager->stateQueue = dispatch_queue_create("IOHIDManagerStateQueue", DISPATCH_QUEUE_SERIAL);
+    require(manager->stateQueue, error);
+    
+    manager->stateHandler = os_state_add_handler(manager->stateQueue,
+                                                ^os_state_data_t(os_state_hints_t hints) {
+                                                    return __IOHIDManagerStateHandler(manager, hints);
+                                                });
+error:
     return manager;
 }
 
@@ -620,37 +846,37 @@ IOReturn IOHIDManagerOpen(
                                 IOHIDManagerRef                 manager,
                                 IOOptionBits                    options)
 {
-    IOReturn retVal = kIOReturnSuccess;
+    IOReturn ret = kIOReturnSuccess;
     
-    if ( !manager->isOpen ) {
-        manager->isOpen     = TRUE;
-        manager->openOptions    = options;
-
-        if ( manager->devices ) {
-            DeviceApplierArgs args;
-            
-            args.manager        = manager;
-            args.options        = kDeviceApplierOpen;
-            args.retVal         = kIOReturnSuccess;
-            
-            if ( manager->inputMatchingMultiple )
-                args.options |= kDeviceApplierSetInputMatching;
-            
-            if ( manager->inputCallback )
-                args.options |= kDeviceApplierSetInputCallback;
-
-            if ( manager->reportCallback )
-                args.options |= kDeviceApplierSetInputReportCallback;
-                        
-            CFSetApplyFunction( manager->devices, 
-                                __IOHIDManagerDeviceApplier, 
-                                &args);
-                                
-            retVal = args.retVal;
+    require(!manager->isOpen, exit);
+    
+    manager->isOpen = true;
+    manager->openOptions = options;
+    
+    if (manager->devices) {
+        IOOptionBits deviceOptions = kDeviceApplierOpen;
+        
+        if (manager->inputMatchingMultiple) {
+            deviceOptions |= kDeviceApplierSetInputMatching;
         }
+        
+        if (manager->inputCallback) {
+            deviceOptions |= kDeviceApplierSetInputCallback;
+        }
+        
+        if (manager->reportCallback) {
+            deviceOptions |= kDeviceApplierSetInputReportCallback;
+        }
+        
+        if (manager->reportTimestampCallback) {
+            deviceOptions |= kDeviceApplierSetInputTSReportCallback;
+        }
+        
+        ret = __ApplyToDevices(manager, deviceOptions);
     }
-
-    return retVal;
+    
+exit:
+    return ret;
 }
                                 
 //------------------------------------------------------------------------------
@@ -660,37 +886,30 @@ IOReturn IOHIDManagerClose(
                                 IOHIDManagerRef                 manager,
                                 IOOptionBits                    options)
 {
-    IOReturn retVal = kIOReturnSuccess;
+    IOReturn ret = kIOReturnError;
     
     if (manager->runLoop) {
         IOHIDManagerUnscheduleFromRunLoop(manager, manager->runLoop, manager->runLoopMode);
     }
-
-    if ( manager->isOpen ) {
-        manager->isOpen     = FALSE;
-        manager->openOptions    = options;
-
-        if ( manager->devices ) {
-            DeviceApplierArgs args;
-            
-            args.manager        = manager;
-            args.options        = kDeviceApplierClose;
-            args.retVal         = kIOReturnSuccess;
-
-            CFSetApplyFunction( manager->devices, 
-                                __IOHIDManagerDeviceApplier, 
-                                &args);
-
-            retVal = args.retVal;
-        }
+    
+    require_action(manager->isOpen, exit, ret = kIOReturnNotOpen);
+    
+    manager->isOpen = false;
+    manager->openOptions = options;
+    
+    if (manager->devices) {
+        ret = __ApplyToDevices(manager, kDeviceApplierClose);
+    } else {
+        ret = kIOReturnSuccess;
     }
-
+    
+exit:
     if ( (manager->createOptions & kIOHIDManagerOptionUsePersistentProperties) && 
         !(manager->createOptions & kIOHIDManagerOptionDoNotSaveProperties)) {
         __IOHIDManagerSaveProperties(manager, NULL);
     }
-
-    return retVal;
+    
+    return ret;
 }
 
 //------------------------------------------------------------------------------
@@ -714,25 +933,36 @@ Boolean IOHIDManagerSetProperty(
                                 CFStringRef                     key,
                                 CFTypeRef                       value)
 {
-    __IOHIDApplyPropertyToSetContext context = {
-        key, value
-    };
+    CFSetRef devices = NULL;
+    bool result = false;
+    __IOHIDApplyPropertyToSetContext context = { key, value };
     
     if (!manager->properties) {
         manager->properties = CFDictionaryCreateMutable(CFGetAllocator(manager),
                                                         0,
                                                         &kCFTypeDictionaryKeyCallBacks,
                                                         &kCFTypeDictionaryValueCallBacks);
-        if (!manager->properties)
-            return FALSE;
+        require(manager->properties, exit);
     }
     
     manager->isDirty = TRUE;
     CFDictionarySetValue(manager->properties, key, value);
-    if (manager->devices)
-        CFSetApplyFunction(manager->devices, __IOHIDApplyPropertyToDeviceSet, &context);
     
-    return TRUE;
+    require_action(manager->devices, exit, result = true);
+    
+    os_unfair_lock_lock(&manager->deviceLock);
+    devices = CFSetCreateCopy(CFGetAllocator(manager), manager->devices);
+    os_unfair_lock_unlock(&manager->deviceLock);
+    
+    require(devices, exit);
+    
+    CFSetApplyFunction(devices, __IOHIDApplyPropertyToDeviceSet, &context);
+    CFRelease(devices);
+    
+    result = true;
+    
+exit:
+    return result;
 }
                                         
 //------------------------------------------------------------------------------
@@ -742,7 +972,9 @@ void IOHIDManagerSetDeviceMatching(
                                 IOHIDManagerRef                 manager,
                                 CFDictionaryRef                 matching)
 {
-    CFArrayRef multiple = NULL;     
+    CFArrayRef multiple = NULL;
+    
+    os_assert(manager->dispatchStateMask == kIOHIDDispatchStateInactive, "Manager has already been activated/cancelled.");
       
     if ( matching ) 
         multiple = CFArrayCreate(CFGetAllocator(manager),
@@ -766,16 +998,30 @@ void IOHIDManagerSetDeviceMatchingMultiple(
     CFIndex         i, count;
     CFTypeRef       value;
     
+    os_assert(manager->dispatchStateMask == kIOHIDDispatchStateInactive, "Manager has already been activated/cancelled.");
+    
     if ( manager->devices ) {
         if ( (manager->createOptions & kIOHIDManagerOptionUsePersistentProperties) && 
             !(manager->createOptions & kIOHIDManagerOptionDoNotSaveProperties)) {
             __IOHIDManagerSaveProperties(manager, NULL);
         }
+        
+        os_unfair_lock_lock(&manager->deviceLock);
         CFSetRemoveAllValues(manager->devices);
+        os_unfair_lock_unlock(&manager->deviceLock);
+    }
+    
+    if (manager->removalNotifiers) {
+        os_unfair_lock_lock(&manager->deviceLock);
+        CFDictionaryRemoveAllValues(manager->removalNotifiers);
+        os_unfair_lock_unlock(&manager->deviceLock);
     }
         
-    if ( manager->iterators )
+    if (manager->iterators) {
+        os_unfair_lock_lock(&manager->deviceLock);
         CFSetRemoveAllValues(manager->iterators);
+        os_unfair_lock_unlock(&manager->deviceLock);
+    }
 
     if ( manager->deviceInputBuffers )
         CFDictionaryRemoveAllValues(manager->deviceInputBuffers);
@@ -799,8 +1045,16 @@ void IOHIDManagerSetDeviceMatchingMultiple(
 CFSetRef IOHIDManagerCopyDevices(
                                 IOHIDManagerRef                 manager)
 {
-    return manager->devices ? 
-                CFSetCreateCopy(CFGetAllocator(manager), manager->devices) : NULL;
+    CFSetRef devices = NULL;
+    
+    require(manager->devices, exit);
+    
+    os_unfair_lock_lock(&manager->deviceLock);
+    devices = CFSetCreateCopy(CFGetAllocator(manager), manager->devices);
+    os_unfair_lock_unlock(&manager->deviceLock);
+    
+exit:
+    return devices;
 }
 
 //------------------------------------------------------------------------------
@@ -811,6 +1065,8 @@ void IOHIDManagerRegisterDeviceMatchingCallback(
                                 IOHIDDeviceCallback             callback,
                                 void *                          context)
 {
+    os_assert(manager->dispatchStateMask == kIOHIDDispatchStateInactive, "Manager has already been activated/cancelled.");
+    
     manager->matchCallback  = callback;
     manager->matchContext   = context;
 }
@@ -823,6 +1079,8 @@ void IOHIDManagerRegisterDeviceRemovalCallback(
                                 IOHIDDeviceCallback             callback,
                                 void *                          context)
 {
+    os_assert(manager->dispatchStateMask == kIOHIDDispatchStateInactive, "Manager has already been activated/cancelled.");
+    
     manager->removalCallback    = callback;
     manager->removalContext     = context;
 
@@ -836,19 +1094,38 @@ void IOHIDManagerRegisterInputReportCallback(
                                     IOHIDReportCallback         callback,
                                     void *                      context)
 {
+    os_assert(manager->dispatchStateMask == kIOHIDDispatchStateInactive, "Manager has already been activated/cancelled.");
+    
     manager->reportCallback  = callback;
     manager->reportContext   = context;
     
-    if ( manager->isOpen && manager->devices ) {
-        DeviceApplierArgs args;
-        
-        args.manager = manager;
-        args.options = kDeviceApplierSetInputReportCallback;
+    require(manager->isOpen && manager->devices, exit);
     
-        CFSetApplyFunction( manager->devices, 
-                            __IOHIDManagerDeviceApplier, 
-                            &args);
-    }
+    __ApplyToDevices(manager, kDeviceApplierSetInputReportCallback);
+    
+exit:
+    return;
+}
+
+//------------------------------------------------------------------------------
+// IOHIDManagerRegisterInputReportWithTimeStampCallback
+//------------------------------------------------------------------------------
+void IOHIDManagerRegisterInputReportWithTimeStampCallback(
+                                    IOHIDManagerRef                    manager,
+                                    IOHIDReportWithTimeStampCallback   callback,
+                                    void *                             context)
+{
+    os_assert(manager->dispatchStateMask == kIOHIDDispatchStateInactive, "Manager has already been activated/cancelled.");
+    
+    manager->reportTimestampCallback = callback;
+    manager->reportContext = context;
+    
+    require(manager->isOpen && manager->devices, exit);
+    
+    __ApplyToDevices(manager, kDeviceApplierSetInputTSReportCallback);
+    
+exit:
+    return;
 }
 
 //------------------------------------------------------------------------------
@@ -859,19 +1136,17 @@ void IOHIDManagerRegisterInputValueCallback(
                                     IOHIDValueCallback          callback,
                                     void *                      context)
 {
+    os_assert(manager->dispatchStateMask == kIOHIDDispatchStateInactive, "Manager has already been activated/cancelled.");
+    
     manager->inputCallback  = callback;
     manager->inputContext   = context;
     
-    if ( manager->isOpen && manager->devices ) {
-        DeviceApplierArgs args;
-        
-        args.manager = manager;
-        args.options = kDeviceApplierSetInputCallback;
+    require(manager->isOpen && manager->devices, exit);
     
-        CFSetApplyFunction( manager->devices, 
-                            __IOHIDManagerDeviceApplier, 
-                            &args);
-    }
+    __ApplyToDevices(manager, kDeviceApplierSetInputCallback);
+    
+exit:
+    return;
 }
 
 //------------------------------------------------------------------------------
@@ -881,6 +1156,8 @@ void IOHIDManagerSetInputValueMatching(
                                     IOHIDManagerRef             manager,
                                     CFDictionaryRef             matching)
 {
+    os_assert(manager->dispatchStateMask == kIOHIDDispatchStateInactive, "Manager has already been activated/cancelled.");
+    
     if ( matching ) {
         CFArrayRef multiple = CFArrayCreate(CFGetAllocator(manager), (const void **)&matching, 1, &kCFTypeArrayCallBacks);
         
@@ -899,6 +1176,8 @@ void IOHIDManagerSetInputValueMatchingMultiple(
                                     IOHIDManagerRef             manager,
                                     CFArrayRef                  multiple)
 {
+    os_assert(manager->dispatchStateMask == kIOHIDDispatchStateInactive, "Manager has already been activated/cancelled.");
+    
     if ( manager->inputMatchingMultiple )
         CFRelease(manager->inputMatchingMultiple);
         
@@ -906,17 +1185,13 @@ void IOHIDManagerSetInputValueMatchingMultiple(
         CFRetain(multiple);
         
     manager->inputMatchingMultiple = multiple;
-        
-    if ( manager->isOpen && manager->devices ) {
-        DeviceApplierArgs args;
-        
-        args.manager = manager;
-        args.options = kDeviceApplierSetInputMatching;
     
-        CFSetApplyFunction( manager->devices, 
-                            __IOHIDManagerDeviceApplier, 
-                            &args);
-    }
+    require(manager->isOpen && manager->devices, exit);
+    
+    __ApplyToDevices(manager, kDeviceApplierSetInputMatching);
+    
+exit:
+    return;
 }
 
 //------------------------------------------------------------------------------
@@ -927,6 +1202,9 @@ void IOHIDManagerScheduleWithRunLoop(
                                         CFRunLoopRef            runLoop, 
                                         CFStringRef             runLoopMode)
 {
+    os_assert(!manager->runLoop && !manager->dispatchQueue,
+              "Schedule failed queue: %p runLoop: %p", manager->dispatchQueue, manager->runLoop);
+    
     manager->runLoop        = runLoop;
     manager->runLoopMode    = runLoopMode;
 
@@ -951,18 +1229,9 @@ void IOHIDManagerScheduleWithRunLoop(
 
             CFRunLoopSourceSignal(manager->initEnumRunLoopSource);
         }
-                        
+        
         // Schedule the devices
-        if ( manager->devices ) {
-            DeviceApplierArgs args;
-            
-            args.manager = manager;
-            args.options = kDeviceApplierScheduleRunLoop;
-            
-            CFSetApplyFunction( manager->devices, 
-                                __IOHIDManagerDeviceApplier, 
-                                &args);
-        }
+        __ApplyToDevices(manager, kDeviceApplierScheduleRunLoop);
     }
 }
 
@@ -980,31 +1249,134 @@ void IOHIDManagerUnscheduleFromRunLoop(
     if (!CFEqual(manager->runLoop, runLoop) || 
         !CFEqual(manager->runLoopMode, runLoopMode)) 
         return;
-        
-    if ( manager->devices ) {
-        // Unschedule the devices
-        DeviceApplierArgs args;
-        
-        args.manager = manager;
-        args.options = kDeviceApplierUnscheduleRunLoop;
-        
-        CFSetApplyFunction( manager->devices, 
-                            __IOHIDManagerDeviceApplier, 
-                            &args);
-        
-        // Unschedule the initial enumeration routine
-        if (manager->initEnumRunLoopSource) {
-            CFRunLoopSourceInvalidate(manager->initEnumRunLoopSource);
-            CFRunLoopRemoveSource(manager->runLoop, 
-                                  manager->initEnumRunLoopSource, 
-                                  manager->runLoopMode);
-            CFRelease(manager->initEnumRunLoopSource);
-            manager->initEnumRunLoopSource = NULL;
-        }
+    
+    // Unschedule the devices
+    __ApplyToDevices(manager, kDeviceApplierUnscheduleRunLoop);
+    
+    // Unschedule the initial enumeration routine
+    if (manager->initEnumRunLoopSource) {
+        CFRunLoopSourceInvalidate(manager->initEnumRunLoopSource);
+        CFRunLoopRemoveSource(manager->runLoop,
+                              manager->initEnumRunLoopSource,
+                              manager->runLoopMode);
+        CFRelease(manager->initEnumRunLoopSource);
+        manager->initEnumRunLoopSource = NULL;
     }
-                            
+    
+    // stop receiving device notifications
+    if (manager->iterators) {
+        os_unfair_lock_lock(&manager->deviceLock);
+        CFSetRemoveAllValues(manager->iterators);
+        os_unfair_lock_unlock(&manager->deviceLock);
+    }
+    
+    if (manager->removalNotifiers) {
+        os_unfair_lock_lock(&manager->deviceLock);
+        CFDictionaryRemoveAllValues(manager->removalNotifiers);
+        os_unfair_lock_unlock(&manager->deviceLock);
+    }
+    
     manager->runLoop        = NULL;
     manager->runLoopMode    = NULL;
+}
+
+//------------------------------------------------------------------------------
+// IOHIDManagerSetDispatchQueue
+//------------------------------------------------------------------------------
+
+void IOHIDManagerSetDispatchQueue(IOHIDManagerRef manager, dispatch_queue_t queue)
+{
+    os_assert(!manager->runLoop && !manager->dispatchQueue);
+    
+    manager->dispatchQueue = dispatch_queue_create_with_target("IOHIDManagerDispatchQueue", DISPATCH_QUEUE_SERIAL, queue);
+    require(manager->dispatchQueue, exit);
+    
+    __ApplyToDevices(manager, kDeviceApplierSetDispatchQueue);
+    
+exit:
+    return;
+}
+
+//------------------------------------------------------------------------------
+// IOHIDManagerSetCancelHandler
+//------------------------------------------------------------------------------
+void IOHIDManagerSetCancelHandler(IOHIDManagerRef manager, dispatch_block_t handler)
+{
+    os_assert(!manager->cancelHandler && handler);
+    
+    _IOHIDObjectInternalRetain(manager);
+    manager->cancelHandler = Block_copy(handler);
+    
+    __ApplyToDevices(manager, kDeviceApplierSetCancelHandler);
+}
+
+//------------------------------------------------------------------------------
+// IOHIDManagerActivate
+//------------------------------------------------------------------------------
+void IOHIDManagerActivate(IOHIDManagerRef manager)
+{
+    IOOptionBits deviceOptions = 0;
+    
+    os_assert(manager->dispatchQueue && !manager->runLoop,
+              "Activate failed queue: %p runLoop: %p", manager->dispatchQueue, manager->runLoop);
+    
+    if (atomic_fetch_or(&manager->dispatchStateMask, kIOHIDDispatchStateActive) & kIOHIDDispatchStateActive) {
+        return;
+    }
+    
+    if (manager->notifyPort) {
+        IONotificationPortSetDispatchQueue(manager->notifyPort, manager->dispatchQueue);
+    }
+    
+    deviceOptions = kDeviceApplierActivate;
+    
+    if (manager->matchCallback) {
+        deviceOptions |= kDeviceApplierInitEnumCallback;
+    }
+    
+    __ApplyToDevices(manager, deviceOptions);
+}
+
+//------------------------------------------------------------------------------
+// IOHIDManagerCancel
+//------------------------------------------------------------------------------
+void IOHIDManagerCancel(IOHIDManagerRef manager)
+{
+    os_assert(manager->dispatchQueue && !manager->runLoop,
+              "Cancel failed queue: %p runLoop: %p", manager->dispatchQueue, manager->runLoop);
+    
+    if (atomic_fetch_or(&manager->dispatchStateMask, kIOHIDDispatchStateCancelled) & kIOHIDDispatchStateCancelled) {
+        return;
+    }
+    
+    if (manager->notifyPort) {
+        IONotificationPortDestroy(manager->notifyPort);
+        manager->notifyPort = NULL;
+    }
+    
+    // stop receiving device notifications
+    if (manager->iterators) {
+        os_unfair_lock_lock(&manager->deviceLock);
+        CFSetRemoveAllValues(manager->iterators);
+        os_unfair_lock_unlock(&manager->deviceLock);
+    }
+    
+    if (manager->removalNotifiers) {
+        os_unfair_lock_lock(&manager->deviceLock);
+        CFDictionaryRemoveAllValues(manager->removalNotifiers);
+        os_unfair_lock_unlock(&manager->deviceLock);
+    }
+    
+    if (manager->devices &&
+        CFSetGetCount(manager->devices) &&
+        manager->cancelCount) {
+        __ApplyToDevices(manager, kDeviceApplierCancel);
+    } else if (manager->cancelHandler) {
+        (manager->cancelHandler)();
+        Block_release(manager->cancelHandler);
+        manager->cancelHandler = NULL;
+        _IOHIDObjectInternalRelease(manager);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -1045,8 +1417,21 @@ void __IOHIDManagerSaveProperties(IOHIDManagerRef manager, __IOHIDPropertyContex
         manager->isDirty = FALSE;
     }
     
-    if (manager->devices)
-        CFSetApplyFunction(manager->devices, __IOHIDSaveDeviceSet, context);
+    if (manager->devices) {
+        CFSetRef devices = NULL;
+        
+        os_unfair_lock_lock(&manager->deviceLock);
+        devices = CFSetCreateCopy(CFGetAllocator(manager), manager->devices);
+        os_unfair_lock_unlock(&manager->deviceLock);
+        
+        require(devices, exit);
+        
+        CFSetApplyFunction(devices, __IOHIDSaveDeviceSet, context);
+        CFRelease(devices);
+    }
+    
+exit:
+    return;
 }
 
 //------------------------------------------------------------------------------
@@ -1228,3 +1613,101 @@ void __IOHIDManagerMergeDictionaries(CFDictionaryRef        srcDict,
         free(keys);
 }
 
+//------------------------------------------------------------------------------
+// __IOHIDManagerFinalizeStateHandler
+//------------------------------------------------------------------------------
+void __IOHIDManagerFinalizeStateHandler (void *context)
+{
+    IOHIDManagerRef manager = (IOHIDManagerRef)context;
+    _IOHIDObjectInternalRelease(manager);
+}
+
+//------------------------------------------------------------------------------
+// __IOHIDManagerStateHandler
+//------------------------------------------------------------------------------
+os_state_data_t __IOHIDManagerStateHandler (IOHIDManagerRef device, os_state_hints_t hints)
+{
+    os_state_data_t stateData = NULL;
+    CFMutableDictionaryRef deviceState = NULL;
+    CFDataRef serializedDeviceState = NULL;
+    
+    if (hints->osh_api != OS_STATE_API_FAULT &&
+        hints->osh_api != OS_STATE_API_REQUEST) {
+        return NULL;
+    }
+    
+    deviceState = __IOHIDManagerSerializeState(device);
+    require(deviceState, exit);
+    
+    serializedDeviceState = CFPropertyListCreateData(kCFAllocatorDefault, deviceState, kCFPropertyListBinaryFormat_v1_0, 0, NULL);
+    require(serializedDeviceState, exit);
+    
+    uint32_t serializedDeviceStateSize = (uint32_t)CFDataGetLength(serializedDeviceState);
+    stateData = calloc(1, OS_STATE_DATA_SIZE_NEEDED(serializedDeviceStateSize));
+    require(stateData, exit);
+    
+    strlcpy(stateData->osd_title, "IOHIDManager State", sizeof(stateData->osd_title));
+    stateData->osd_type = OS_STATE_DATA_SERIALIZED_NSCF_OBJECT;
+    stateData->osd_data_size = serializedDeviceStateSize;
+    CFDataGetBytes(serializedDeviceState, CFRangeMake(0, serializedDeviceStateSize), stateData->osd_data);
+    
+exit:
+    if (deviceState) {
+        CFRelease(deviceState);
+    }
+    
+    if (serializedDeviceState) {
+        CFRelease(serializedDeviceState);
+    }
+    
+    return stateData;
+}
+
+//------------------------------------------------------------------------------
+// __IOHIDUserDeviceSerializeState
+//------------------------------------------------------------------------------
+CFMutableDictionaryRef __IOHIDManagerSerializeState(IOHIDManagerRef manager)
+{
+    CFMutableDictionaryRef state = NULL;
+    CFSetRef devices = NULL;
+    state = CFDictionaryCreateMutable(kCFAllocatorDefault,
+                                      0,
+                                      &kCFTypeDictionaryKeyCallBacks,
+                                      &kCFTypeDictionaryValueCallBacks);
+    require(state, exit);
+    
+    
+    CFDictionarySetValue(state, CFSTR("DispatchQueue"), manager->dispatchQueue ? kCFBooleanTrue : kCFBooleanFalse);
+    CFDictionarySetValue(state, CFSTR("RunLoop"), manager->runLoop ? kCFBooleanTrue : kCFBooleanFalse);
+    _IOHIDDictionaryAddSInt32(state, CFSTR("openOptions"), manager->openOptions);
+    _IOHIDDictionaryAddSInt32(state, CFSTR("createOptions"), manager->createOptions);
+    CFDictionarySetValue(state, CFSTR("isOpen"), manager->isOpen ? kCFBooleanTrue : kCFBooleanFalse);
+    
+    os_unfair_lock_lock(&manager->deviceLock);
+    if (manager->devices) {
+        devices = CFSetCreateCopy(CFGetAllocator(manager->devices), manager->devices);
+    }
+    os_unfair_lock_unlock(&manager->deviceLock);
+    
+    if (devices) {
+        CFMutableArrayRef deviceList = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+        if (deviceList) {
+            _IOHIDCFSetApplyBlock (devices, ^(CFTypeRef value) {
+                IOHIDDeviceRef device =  (IOHIDDeviceRef) value;
+                uint64_t regID  = 0;
+                io_service_t service = IOHIDDeviceGetService (device);
+                if (service) {
+                    IORegistryEntryGetRegistryEntryID(service, &regID);
+                    _IOHIDArrayAppendSInt64 (deviceList, regID);
+                }
+            });
+            CFDictionarySetValue(state, CFSTR("devices"), deviceList);
+            CFRelease(deviceList);
+        }
+        CFRelease(devices);
+    }
+
+exit:
+    
+    return state;
+}

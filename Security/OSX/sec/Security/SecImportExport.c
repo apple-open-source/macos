@@ -36,14 +36,16 @@
 #include <AssertMacros.h>
 
 #include "p12import.h"
-#include "SecImportExport.h"
+#include <Security/SecImportExportPriv.h>
 
+#if !TARGET_OS_OSX
 const CFStringRef kSecImportExportPassphrase = CFSTR("passphrase");
 const CFStringRef kSecImportItemLabel = CFSTR("label");
 const CFStringRef kSecImportItemKeyID = CFSTR("keyid");
 const CFStringRef kSecImportItemTrust = CFSTR("trust");
 const CFStringRef kSecImportItemCertChain = CFSTR("chain");
 const CFStringRef kSecImportItemIdentity = CFSTR("identity");
+#endif
 
 typedef struct {
     CFMutableArrayRef certs;
@@ -147,7 +149,11 @@ out:
     CFReleaseSafe(trust);
 }
 
+#if TARGET_OS_OSX
+OSStatus SecPKCS12Import_ios(CFDataRef pkcs12_data, CFDictionaryRef options, CFArrayRef *items)
+#else
 OSStatus SecPKCS12Import(CFDataRef pkcs12_data, CFDictionaryRef options, CFArrayRef *items)
+#endif
 {
     pkcs12_context context = {};
     SecAsn1CoderCreate(&context.coder);

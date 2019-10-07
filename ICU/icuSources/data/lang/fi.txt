@@ -109,6 +109,7 @@ fi{
         car{"karibi"}
         cay{"cayuga"}
         cch{"atsam"}
+        ccp{"chakma"}
         ce{"tšetšeeni"}
         ceb{"cebuano"}
         cgg{"kiga"}
@@ -314,6 +315,7 @@ fi{
         krl{"karjala"}
         kru{"kurukh"}
         ks{"kašmiri"}
+        ks_Arab{"kašmiri (naskh)"}
         ksb{"shambala"}
         ksf{"bafia"}
         ksh{"kölsch"}
@@ -439,6 +441,7 @@ fi{
         osa{"osage"}
         ota{"osmani"}
         pa{"pandžabi"}
+        pa_Arab{"pandžabi (naskh)"}
         pag{"pangasinan"}
         pal{"pahlavi"}
         pam{"pampanga"}
@@ -593,6 +596,7 @@ fi{
         umb{"mbundu"}
         und{"tuntematon kieli"}
         ur{"urdu"}
+        ur_Arab{"urdu (naskh)"}
         uz{"uzbekki"}
         vai{"vai"}
         ve{"venda"}
@@ -656,6 +660,7 @@ fi{
         Aghb{"kaukasianalbanialainen"}
         Ahom{"ahom"}
         Arab{"arabialainen"}
+        Aran{"nastaliq"}
         Armi{"valtakunnanaramealainen"}
         Armn{"armenialainen"}
         Avst{"avestalainen"}
@@ -777,6 +782,7 @@ fi{
         Phnx{"foinikialainen"}
         Plrd{"Pollardin foneettinen"}
         Prti{"piirtokirjoitusparthialainen"}
+        Qaag{"zawgyi"}
         Rjng{"rejang"}
         Roro{"rongorongo"}
         Runr{"riimukirjoitus"}
@@ -1118,7 +1124,7 @@ fi{
     Variants%secondary{
         FONUPA{"suomalais-ugrilainen tarkekirjoitus"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.42"}
     characterLabelPattern{
         all{"{0} – kaikki"}
         category-list{"{0}: {1}"}

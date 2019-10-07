@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -283,7 +283,7 @@ when there is data ready to be sent
 int l2tp_wan_output(struct ppp_link *link, mbuf_t m)
 {
     struct l2tp_wan 	*wan = (struct l2tp_wan *)link;
-    u_int32_t		len = mbuf_pkthdr_len(m);	// take it now, as output will change the mbuf
+    size_t		len = mbuf_pkthdr_len(m);	// take it now, as output will change the mbuf
     int 		err;
 	struct timespec tv;	
 	

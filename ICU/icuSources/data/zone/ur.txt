@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 ur{
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
     zoneStrings{
         "Africa:Abidjan"{
             ec{"عابدجان"}
@@ -810,6 +810,9 @@ ur{
         "Asia:Qatar"{
             ec{"قطر"}
         }
+        "Asia:Qostanay"{
+            ec{"کوستانے"}
+        }
         "Asia:Qyzylorda"{
             ec{"کیزیلورڈا"}
         }
@@ -1019,7 +1022,7 @@ ur{
             ec{"جرسی"}
         }
         "Europe:Kaliningrad"{
-            ec{"كالينينغراد"}
+            ec{"کالينينغراد"}
         }
         "Europe:Kiev"{
             ec{"کیوو"}
@@ -1898,7 +1901,7 @@ ur{
         gmtZeroFormat{"GMT"}
         hourFormat{"+HH:mm;-HH:mm"}
         regionFormat{"{0} وقت"}
-        regionFormatDaylight{"{0} (+1)"}
-        regionFormatStandard{"{0} (+0)"}
+        regionFormatDaylight{"{0} ڈے لائٹ ٹائم"}
+        regionFormatStandard{"{0} اسٹینڈرڈ ٹائم"}
     }
 }

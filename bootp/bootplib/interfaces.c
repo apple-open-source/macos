@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,27 +47,30 @@
 #include <net/if_media.h>
 #include <net/route.h>
 #include <ifaddrs.h>
-
 #include "util.h"
 #include "IPConfigurationLog.h"
+#include "symbol_scope.h"
+
+#define my_log	SC_log
+
 #if !NO_SYSTEMCONFIGURATION
 #include <SystemConfiguration/SCNetworkConfigurationPrivate.h>
 #endif /* !NO_SYSTEMCONFIGURATION */
 
-static boolean_t
+STATIC boolean_t
 S_get_ifmediareq(int s, const char * name, struct ifmediareq * ifmr_p);
 
-static uint64_t
+STATIC uint64_t
 S_get_eflags(int s, const char * name);
 
-static boolean_t
+STATIC boolean_t
 S_ifmediareq_get_is_wireless(struct ifmediareq * ifmr_p);
 
-static link_status_t
+STATIC link_status_t
 S_ifmediareq_get_link_status(struct ifmediareq * ifmr_p);
 
 #if !NO_SYSTEMCONFIGURATION
-static boolean_t
+STATIC boolean_t
 S_interface_is_tethered(const char * ifname)
 {
     CFStringRef			ifname_cf;
@@ -87,7 +90,7 @@ S_interface_is_tethered(const char * ifname)
 
 #else /* !NO_SYSTEMCONFIGURATION */
 
-static boolean_t
+STATIC boolean_t
 S_interface_is_tethered(const char * ifname)
 {
     return (FALSE);
@@ -95,7 +98,7 @@ S_interface_is_tethered(const char * ifname)
 #endif /* !NO_SYSTEMCONFIGURATION */
 
 
-void *
+PRIVATE_EXTERN void *
 inet_addrinfo_copy(void * p)
 {
     inet_addrinfo_t * src = (inet_addrinfo_t *)p;
@@ -108,14 +111,14 @@ inet_addrinfo_copy(void * p)
     return (dest);
 }
 
-void
+PRIVATE_EXTERN void
 inet_addrinfo_free(void * p)
 {
     free(p);
     return;
 }
 
-static interface_t *
+STATIC interface_t *
 S_next_entry(interface_list_t * interfaces, const char * name)
 {
     interface_t * entry;
@@ -131,7 +134,7 @@ S_next_entry(interface_list_t * interfaces, const char * name)
     return (entry);
 }
 
-static __inline__ int
+STATIC __inline__ int
 count_ifaddrs(const struct ifaddrs * ifap)
 {
     int		count;
@@ -143,7 +146,7 @@ count_ifaddrs(const struct ifaddrs * ifap)
     return (count);
 }
 
-static boolean_t
+STATIC boolean_t
 S_build_interface_list(interface_list_t * interfaces)
 {
     struct ifaddrs *	addrs = NULL;
@@ -190,8 +193,8 @@ S_build_interface_list(interface_list_t * interfaces)
 		  entry = S_next_entry(interfaces, name);
 		  if (entry == NULL) {
 		      /* NOT REACHED */
-		      IPConfigLog(LOG_NOTICE,
-				  "interfaces: S_next_entry returns NULL"); 
+		      my_log(LOG_NOTICE,
+			     "interfaces: S_next_entry returns NULL"); 
 		      continue;
 		  }
 		  entry->flags = ifap->ifa_flags;
@@ -214,8 +217,7 @@ S_build_interface_list(interface_list_t * interfaces)
 		      = ((struct sockaddr_in *)(void *)
 				ifap->ifa_broadaddr)->sin_addr;
 	      }
-	      info.netaddr.s_addr = htonl(iptohl(info.addr)
-					  & iptohl(info.mask));
+	      info.netaddr.s_addr = info.addr.s_addr & info.mask.s_addr;
 	      dynarray_add(&entry->inet, inet_addrinfo_copy(&info));
 	      break;
 	  }
@@ -233,17 +235,17 @@ S_build_interface_list(interface_list_t * interfaces)
 		  entry = S_next_entry(interfaces, name);
 		  if (entry == NULL) {
 		      /* NOT REACHED */
-		      IPConfigLog(LOG_NOTICE,
-				  "interfaces: S_next_entry returns NULL"); 
+		      my_log(LOG_NOTICE,
+			     "interfaces: S_next_entry returns NULL"); 
 		      continue;
 		  }
 		  entry->flags = ifap->ifa_flags;
 	      }
 	      if (dl_p->sdl_alen > sizeof(entry->link_address.addr)) {
-		  IPConfigLog(LOG_NOTICE,
-			      "%s: link type %d address length %d > %ld", name,
-			      dl_p->sdl_type, dl_p->sdl_alen,
-			      sizeof(entry->link_address.addr));
+		  my_log(LOG_NOTICE,
+			 "%s: link type %d address length %d > %ld", name,
+			 dl_p->sdl_type, dl_p->sdl_alen,
+			 sizeof(entry->link_address.addr));
 		  entry->link_address.length = sizeof(entry->link_address.addr);
 	      }
 	      else {
@@ -309,24 +311,18 @@ S_build_interface_list(interface_list_t * interfaces)
     return (success);
 }
 
-int
+PRIVATE_EXTERN int
 ifl_count(interface_list_t * list_p)
 {
-    return (list_p->count);
+    return ((list_p != NULL) ? list_p->count: 0);
 }
 
-interface_t *		
+PRIVATE_EXTERN interface_t *		
 ifl_at_index(interface_list_t * list_p, int i)
 {
-    if (i >= list_p->count || i < 0)
+    if (i >= ifl_count(list_p) || i < 0)
 	return (NULL);
     return (list_p->list + i);
-}
-
-int
-ifl_index(interface_list_t * list_p, interface_t * if_p)
-{
-    return ((int)(if_p - list_p->list));
 }
 
 /*
@@ -335,11 +331,12 @@ ifl_index(interface_list_t * list_p, interface_t * if_p)
  * Purpose:
  *   Return the first non-loopback, broadcast capable interface.
  */
-interface_t *
+PRIVATE_EXTERN interface_t *
 ifl_first_broadcast_inet(interface_list_t * list_p)
 {
     int i;
-    for (i = 0; i < list_p->count; i++) {
+
+    for (i = 0; i < ifl_count(list_p); i++) {
 	interface_t * if_p = list_p->list + i;
 
 	if (dynarray_count(&if_p->inet) > 0
@@ -350,12 +347,12 @@ ifl_first_broadcast_inet(interface_list_t * list_p)
     return (NULL);
 }
 
-interface_t *
+PRIVATE_EXTERN interface_t *
 ifl_find_ip(interface_list_t * list_p, struct in_addr iaddr)
 {
     int 	i;
 
-    for (i = 0; i < list_p->count; i++) {
+    for (i = 0; i < ifl_count(list_p); i++) {
 	interface_t * if_p = list_p->list + i;
 	int j;
 
@@ -363,62 +360,69 @@ ifl_find_ip(interface_list_t * list_p, struct in_addr iaddr)
 	    inet_addrinfo_t *	info;
 
 	    info = dynarray_element(&if_p->inet, j);
-	    if (info->addr.s_addr == iaddr.s_addr)
+	    if (info->addr.s_addr == iaddr.s_addr) {
 		return (if_p);
+	    }
 	}
     }
     return (NULL);
 }
 
-interface_t *
-ifl_find_subnet(interface_list_t * list_p, struct in_addr iaddr)
-{
-    int 	i;
-    u_long	addr_hl = iptohl(iaddr);
-
-    for (i = 0; i < list_p->count; i++) {
-	interface_t * if_p = list_p->list + i;
-	int j;
-
-	for (j = 0; j < dynarray_count(&if_p->inet); j++) {
-	    inet_addrinfo_t *	info = dynarray_element(&if_p->inet, j);
-	    u_long 		ifnetaddr_hl = iptohl(info->netaddr);
-	    u_long 		ifmask_hl = iptohl(info->mask);
-
-	    if ((addr_hl & ifmask_hl) == ifnetaddr_hl)
-		return (if_p);
-	}
-    }
-    return (NULL);
-}
-
-interface_t *
+PRIVATE_EXTERN interface_t *
 ifl_find_name(interface_list_t * list_p, const char * name)
 {
     int i;
 
-    for (i = 0; i < list_p->count; i++) {
+    for (i = 0; i < ifl_count(list_p); i++) {
 	if (strcmp(list_p->list[i].name, name) == 0)
 	    return (list_p->list + i);
     }
     return (NULL);
 }
 
-interface_t *
-ifl_find_link(interface_list_t * list_p, int index)
+PRIVATE_EXTERN interface_t *
+ifl_find_stable_interface(interface_list_t * list_p)
 {
-    int i;
+    interface_t * if_p;
 
-    for (i = 0; i < list_p->count; i++) {
-	if (list_p->list[i].link_address.type != 0
-	    && list_p->list[i].link_address.index == index)
-	    return (list_p->list + i);
+    if_p = ifl_find_name(list_p, "en0");
+    if (if_p == NULL) {
+	int		count;
+	int		i;
+	interface_t *  	if_with_linkaddr_p = NULL;
+
+	count = ifl_count(list_p);
+	for (i = 0; i < count; i++) {
+	    interface_t *	scan = ifl_at_index(list_p, i);
+
+	    switch (if_ift_type(scan)) {
+	    case IFT_ETHER:
+	    case IFT_IEEE1394:
+		break;
+	    default:
+		if (if_with_linkaddr_p == NULL
+		    && if_link_length(scan) > 0) {
+		    if_with_linkaddr_p = scan;
+		}
+		continue;
+	    }
+	    if (if_p == NULL) {
+		if_p = scan;
+	    }
+	    else if (strcmp(if_name(scan), if_name(if_p)) < 0) {
+		/* pick "lowest" named interface */
+		if_p = scan;
+	    }
+	}
+	if (if_p == NULL && if_with_linkaddr_p != NULL) {
+	    if_p = if_with_linkaddr_p;
+	}
     }
-    return (NULL);
+    return (if_p);
 }
 
-interface_list_t *
-ifl_init()
+PRIVATE_EXTERN interface_list_t *
+ifl_init(void)
 {
     interface_list_t * list_p = (interface_list_t *)malloc(sizeof(*list_p));
     if (list_p == NULL
@@ -430,14 +434,14 @@ ifl_init()
     return (list_p);
 }
 
-void
+PRIVATE_EXTERN void
 ifl_free(interface_list_t * * iflist)
 {
     if (iflist != NULL && *iflist != NULL) {
 	int 			i;
 	interface_list_t * 	list_p = *iflist;
 	
-	for (i = 0; i < list_p->count; i++) {
+	for (i = 0; i < ifl_count(list_p); i++) {
 	    dynarray_free(&list_p->list[i].inet);
 	}
 	if (list_p->list)
@@ -453,32 +457,32 @@ ifl_free(interface_list_t * * iflist)
  * Purpose:
  *   Interface-specific routines.
  */
-const char *
+PRIVATE_EXTERN const char *
 if_name(interface_t * if_p)
 {
     return (if_p->name);
 }
 
-uint16_t
+PRIVATE_EXTERN uint16_t
 if_flags(interface_t * if_p)
 {
     return (if_p->flags);
 }
 
-int
+PRIVATE_EXTERN int
 if_inet_count(interface_t * if_p)
 {
     return (dynarray_count(&if_p->inet));
 }
 
-inet_addrinfo_t *
+PRIVATE_EXTERN inet_addrinfo_t *
 if_inet_addr_at(interface_t * if_p, int i)
 {
     return (dynarray_element(&if_p->inet, i));
 }
 
 /* get the primary address, mask, broadcast */
-struct in_addr
+PRIVATE_EXTERN struct in_addr
 if_inet_addr(interface_t * if_p)
 {
     inet_addrinfo_t * 	info = if_inet_addr_at(if_p, 0);
@@ -490,41 +494,41 @@ if_inet_addr(interface_t * if_p)
     return (info->addr);
 }
 
-struct in_addr
+PRIVATE_EXTERN struct in_addr
 if_inet_netmask(interface_t * if_p)
 {
     inet_addrinfo_t * info = if_inet_addr_at(if_p, 0);
     return (info->mask);
 }
 
-struct in_addr
+PRIVATE_EXTERN struct in_addr
 if_inet_netaddr(interface_t * if_p)
 {
     inet_addrinfo_t * info = if_inet_addr_at(if_p, 0);
     return (info->netaddr);
 }
 
-struct in_addr
+PRIVATE_EXTERN struct in_addr
 if_inet_broadcast(interface_t * if_p)
 {
     inet_addrinfo_t * info = if_inet_addr_at(if_p, 0);
     return (info->broadcast);
 }
 
-void
+PRIVATE_EXTERN void
 if_setflags(interface_t * if_p, uint16_t flags)
 {
     if_p->flags = flags;
     return;
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 if_inet_valid(interface_t * if_p)
 {
     return (dynarray_count(&if_p->inet) > 0);
 }
 
-void
+PRIVATE_EXTERN void
 if_free(interface_t * * if_p_p)
 {
     interface_t * if_p;
@@ -542,7 +546,7 @@ if_free(interface_t * * if_p_p)
     return;
 }
 
-interface_t *
+PRIVATE_EXTERN interface_t *
 if_dup(interface_t * intface)
 {
     interface_t * new_p;
@@ -556,20 +560,23 @@ if_dup(interface_t * intface)
     return (new_p);
 }
 
-int
-if_inet_find_ip(interface_t * if_p, struct in_addr iaddr)
+PRIVATE_EXTERN int
+if_inet_match_subnet(interface_t * if_p, struct in_addr match)
 {
+    int count = if_inet_count(if_p);
     int i;
-    for (i = 0; i < if_inet_count(if_p); i++) {
+
+    for (i = 0; i < count; i++) {
 	inet_addrinfo_t *	info = if_inet_addr_at(if_p, i);
-	if (info->addr.s_addr == iaddr.s_addr) {
+
+	if (in_subnet(info->netaddr, info->mask, match)) {
 	    return (i);
 	}
     }
     return (INDEX_BAD);
 }
 
-void
+PRIVATE_EXTERN void
 if_link_copy(interface_t * dest, const interface_t * source)
 {
     dest->type_flags = source->type_flags;
@@ -578,7 +585,7 @@ if_link_copy(interface_t * dest, const interface_t * source)
     return;
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 if_link_update(interface_t * if_p)
 {
     void *			addr;
@@ -619,12 +626,12 @@ if_link_update(interface_t * if_p)
 	addr_length = dl_p->sdl_alen;
 	type = dl_p->sdl_type;
 	if (addr_length > sizeof(if_p->link_address.addr)) {
-	    IPConfigLog(LOG_DEBUG,
-			"%s: link type %d address length %d > %ld",
-			if_name(if_p), 
-			type,
-			addr_length, 
-			sizeof(if_p->link_address.addr));
+	    my_log(LOG_DEBUG,
+		   "%s: link type %d address length %d > %ld",
+		   if_name(if_p), 
+		   type,
+		   addr_length, 
+		   sizeof(if_p->link_address.addr));
 	    addr_length = sizeof(if_p->link_address.addr);
 	}
 	if (if_p->link_address.type != type
@@ -644,19 +651,19 @@ if_link_update(interface_t * if_p)
     return (changed);
 }
 
-int
+PRIVATE_EXTERN int
 if_ift_type(interface_t * if_p)
 {
     return (if_p->type);
 }
 
-int
+PRIVATE_EXTERN int
 if_link_type(interface_t * if_p)
 {
     return (if_p->link_address.type);
 }
 
-int
+PRIVATE_EXTERN int
 if_link_dhcptype(interface_t * if_p)
 {
     if (if_p->link_address.type == IFT_IEEE1394) {
@@ -667,68 +674,68 @@ if_link_dhcptype(interface_t * if_p)
     }
 }
 
-int
+PRIVATE_EXTERN int
 if_link_arptype(interface_t * if_p)
 {
     return (dl_to_arp_hwtype(if_p->link_address.type));
 }
 
 
-void *
+PRIVATE_EXTERN void *
 if_link_address(interface_t * if_p)
 {
     return (if_p->link_address.addr);
 }
 
-int
+PRIVATE_EXTERN int
 if_link_length(interface_t * if_p)
 {
     return (if_p->link_address.length);
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 if_is_ethernet(interface_t * if_p)
 {
     return (if_ift_type(if_p) == IFT_ETHER && !if_is_wireless(if_p));
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 if_is_wireless(interface_t * if_p)
 {
     return ((if_p->type_flags & kInterfaceTypeFlagIsWireless) != 0);
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 if_is_awdl(interface_t * if_p)
 {
     return ((if_p->type_flags & kInterfaceTypeFlagIsAWDL) != 0);
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 if_is_tethered(interface_t * if_p)
 {
     return ((if_p->type_flags & kInterfaceTypeFlagIsTethered) != 0);
 }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 if_is_expensive(interface_t * if_p)
 {
     return ((if_p->type_flags & kInterfaceTypeFlagIsExpensive) != 0);
 }
 
-int
+PRIVATE_EXTERN int
 if_link_index(interface_t * if_p)
 {
     return (if_p->link_address.index);
 }
 
-link_status_t 
+PRIVATE_EXTERN link_status_t 
 if_get_link_status(interface_t * if_p)
 {
     return (if_p->link_status);
 }
 
-static int
+STATIC int
 siocgifmedia(int sockfd, struct ifmediareq * ifmr_p,
 	     const char * name)
 {
@@ -737,7 +744,7 @@ siocgifmedia(int sockfd, struct ifmediareq * ifmr_p,
     return (ioctl(sockfd, SIOCGIFMEDIA, (caddr_t)ifmr_p));
 }
 
-static boolean_t
+STATIC boolean_t
 S_get_ifmediareq(int s, const char * name, struct ifmediareq * ifmr_p)
 {
     boolean_t	ret;
@@ -758,13 +765,13 @@ S_get_ifmediareq(int s, const char * name, struct ifmediareq * ifmr_p)
     return (ret);
 }
 
-static boolean_t
+STATIC boolean_t
 S_ifmediareq_get_is_wireless(struct ifmediareq * ifmr_p)
 {
     return (IFM_TYPE(ifmr_p->ifm_current) == IFM_IEEE80211);
 }
 
-static link_status_t
+STATIC link_status_t
 S_ifmediareq_get_link_status(struct ifmediareq * ifmr_p)
 {
     link_status_t 	link;
@@ -781,7 +788,7 @@ S_ifmediareq_get_link_status(struct ifmediareq * ifmr_p)
     return (link);
 }
 
-static int
+STATIC int
 siocgifeflags(int sockfd, struct ifreq * ifr, const char * name)
 {
     (void)memset(ifr, 0, sizeof(*ifr));
@@ -789,7 +796,7 @@ siocgifeflags(int sockfd, struct ifreq * ifr, const char * name)
     return (ioctl(sockfd, SIOCGIFEFLAGS, (caddr_t)ifr));
 }
 
-static uint64_t
+STATIC uint64_t
 S_get_eflags(int sockfd, const char * name)
 {
     uint64_t		eflags = 0;
@@ -797,9 +804,9 @@ S_get_eflags(int sockfd, const char * name)
 
     if (siocgifeflags(sockfd, &ifr, name) == -1) {
 	if (errno != ENXIO && errno != EPWROFF && errno != EINVAL) {
-	    IPConfigLogFL(LOG_NOTICE,
-			  "%s: SIOCGIFEFLAGS failed status, %s",
-			  name, strerror(errno));
+	    my_log(LOG_NOTICE,
+		   "%s: SIOCGIFEFLAGS failed status, %s",
+		   name, strerror(errno));
 	}
     }
     else {
@@ -808,7 +815,7 @@ S_get_eflags(int sockfd, const char * name)
     return (eflags);
 }
 
-link_status_t
+PRIVATE_EXTERN link_status_t
 if_link_status_update(interface_t * if_p)
 {
     struct ifmediareq 	ifmr;
@@ -820,9 +827,9 @@ if_link_status_update(interface_t * if_p)
 
 	if (S_get_ifmediareq(s, if_name(if_p), &ifmr) == FALSE) {
 	    if (errno != ENXIO && errno != EPWROFF && errno != EINVAL) {
-		IPConfigLogFL(LOG_NOTICE,
-			      "%s: failed to get media status, %s",
-			      if_name(if_p), strerror(errno));
+		my_log(LOG_NOTICE,
+		       "%s: failed to get media status, %s",
+		       if_name(if_p), strerror(errno));
 	    }
 	}
 	else {
@@ -879,8 +886,8 @@ ifl_print(interface_list_t * list_p)
     int i;
     int count = 0;
     
-    printf("Interface count = %d\n", list_p->count);
-    for (i = 0; i < list_p->count; i++) {
+    printf("Interface count = %d\n", ifl_count(list_p));
+    for (i = 0; i < ifl_count(list_p); i++) {
 	interface_t * 	if_p = list_p->list + i;
 	int		j;
 	
@@ -894,10 +901,13 @@ ifl_print(interface_list_t * list_p)
 	    
 	    printf("inet: %s", inet_ntoa(info->addr));
 	    printf(" netmask %s", inet_ntoa(info->mask));
-	    if (if_flags(if_p) & IFF_BROADCAST)
-		printf(" %s\n", inet_ntoa(info->broadcast));
-	    else
+	    if (if_flags(if_p) & IFF_BROADCAST) {
+		printf(" broadcast %s", inet_ntoa(info->broadcast));
+		printf(" netaddr %s\n", inet_ntoa(info->netaddr));
+	    }
+	    else {
 		printf("\n");
+	    }
 	}
 	if (if_p->link_address.type != 0) {
 	    link_addr_print(&if_p->link_address);

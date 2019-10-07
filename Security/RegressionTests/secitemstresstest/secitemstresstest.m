@@ -40,7 +40,7 @@ Cleanup(void)
     query = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrAccessGroup : kAccessGroup1,
-        (id)kSecAttrNoLegacy : (id)kCFBooleanTrue,
+        (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
     };
     status = SecItemDelete((__bridge CFDictionaryRef)query);
     if (status != errSecSuccess || status == errSecItemNotFound)
@@ -49,7 +49,7 @@ Cleanup(void)
     query = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrAccessGroup : kAccessGroup2,
-        (id)kSecAttrNoLegacy : (id)kCFBooleanTrue,
+        (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
     };
     status = SecItemDelete((__bridge CFDictionaryRef)query);
     if (status != errSecSuccess || status != errSecItemNotFound)
@@ -84,7 +84,7 @@ CreateDeleteItem(NSString *account, NSString *accessGroup, bool ignorePedestrian
         (id)kSecAttrAccount : account,
         (id)kSecAttrAccessGroup : accessGroup,
         (id)kSecAttrAccessible : (id)kSecAttrAccessibleAfterFirstUnlock,
-        (id)kSecAttrNoLegacy : (id)kCFBooleanTrue,
+        (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
         (id)kSecValueData : [NSData dataWithBytes:"password" length: 8],
     };
     OSStatus status;
@@ -216,7 +216,8 @@ int main (int argc, const char * argv[])
     @autoreleasepool {
 
         Cleanup();
-        printf("[TEST] testing serial items\n");
+        printf("[TEST] secitemstresstest\n");
+        printf("[BEGIN] testing serial items\n");
 
         CreateDeleteItem(@"account1", kAccessGroup1, false);
         CreateDeleteItem(@"account2", kAccessGroup1, false);
@@ -225,19 +226,21 @@ int main (int argc, const char * argv[])
         printf("[PASS]\n");
 
         Cleanup();
-        printf("[TEST] testing concurrent items\n");
+        printf("[BEGIN] testing concurrent items\n");
 
         CreateDeleteConcurrentItems(2);
         CreateDeleteConcurrentItems(10);
         printf("[PASS]\n");
 
         Cleanup();
-        printf("[TEST] testing concurrent same item\n");
+        printf("[BEGIN] testing concurrent same item\n");
 
         CreateDeleteConcurrentSameItem(2);
         CreateDeleteConcurrentSameItem(10);
         printf("[PASS]\n");
 
+        printf("[SUMMARY]\n");
+        printf("test completed\n");
 
         return 0;
     }

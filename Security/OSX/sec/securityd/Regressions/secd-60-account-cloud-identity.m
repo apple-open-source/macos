@@ -29,12 +29,12 @@
 
 #include <CoreFoundation/CFDictionary.h>
 
-#include <Security/SecureObjectSync/SOSAccount.h>
+#include "keychain/SecureObjectSync/SOSAccount.h"
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
-#include <Security/SecureObjectSync/SOSInternal.h>
-#include <Security/SecureObjectSync/SOSUserKeygen.h>
-#include <Security/SecureObjectSync/SOSTransport.h>
-#include <Security/SecureObjectSync/SOSAccountTrustClassic+Circle.h>
+#include "keychain/SecureObjectSync/SOSInternal.h"
+#include "keychain/SecureObjectSync/SOSUserKeygen.h"
+#include "keychain/SecureObjectSync/SOSTransport.h"
+#include "keychain/SecureObjectSync/SOSAccountTrustClassic+Circle.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -52,7 +52,9 @@
 
 #include "SecdTestKeychainUtilities.h"
 
-static int kTestTestCount = 161;
+static int kTestTestCount = 111;
+
+#if FIX_ICLOUD_IDENTITY_AS_SET_CRED_SIDE_EFFECT
 
 static bool purgeICloudIdentity(SOSAccount* account) {
     bool retval = false;
@@ -62,6 +64,8 @@ static bool purgeICloudIdentity(SOSAccount* account) {
     CFReleaseNull(icfpi);
     return retval;
 }
+
+#endif
 
 static void tests(void)
 {
@@ -150,7 +154,8 @@ static void tests(void)
 
     accounts_agree_internal("Carole's in", bob_account, alice_account, false);
     accounts_agree_internal("Carole's in - 2", bob_account, carole_account, false);
-    
+
+#if FIX_ICLOUD_IDENTITY_AS_SET_CRED_SIDE_EFFECT
     /* Break iCloud identity FPI in all peers */
     
     ok(purgeICloudIdentity(alice_account), "remove iCloud private key");
@@ -184,14 +189,14 @@ static void tests(void)
     
     
     is(countApplicants(alice_account), 0, "See no applicants");
-    
+
     is(countPeers(carole_account), 3, "Carole sees 3 valid peers after sliding in");
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 1, "updates");
     
     accounts_agree_internal("Carole's in", bob_account, alice_account, false);
     accounts_agree_internal("Carole's in - 2", bob_account, carole_account, false);
-
+#endif
     //join after piggybacking the icloud identity??
     CFMutableArrayRef identityArray = SOSAccountCopyiCloudIdentities(alice_account);
 
@@ -209,7 +214,7 @@ static void tests(void)
 
         NSMutableDictionary* query = [@{
                                         (id)kSecClass : (id)kSecClassKey,
-                                        (id)kSecAttrNoLegacy : @YES,
+                                        (id)kSecUseDataProtectionKeychain : @YES,
                                         (id)kSecAttrAccessGroup: @"com.apple.security.sos",
                                         (id)kSecAttrLabel : @"Cloud Identity - piggy",
                                         (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
@@ -235,7 +240,7 @@ static void tests(void)
     //now grab this grom the keychain
     NSMutableDictionary* query2 = [@{
                                     (id)kSecClass : (id)kSecClassKey,
-                                    (id)kSecAttrNoLegacy : @YES,
+                                    (id)kSecUseDataProtectionKeychain : @YES,
                                     (id)kSecAttrAccessGroup: @"com.apple.security.sos",
                                     (id)kSecAttrLabel : @"Cloud Identity - piggy",
                                     (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,

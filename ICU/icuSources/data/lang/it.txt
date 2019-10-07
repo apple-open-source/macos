@@ -51,7 +51,7 @@ it{
         aro{"araona"}
         arp{"arapaho"}
         arq{"arabo algerino"}
-        ars{"arabo, najd"}
+        ars{"arabo najd"}
         arw{"aruaco"}
         ary{"arabo marocchino"}
         arz{"arabo egiziano"}
@@ -109,6 +109,7 @@ it{
         car{"caribico"}
         cay{"cayuga"}
         cch{"atsam"}
+        ccp{"chakma"}
         ce{"ceceno"}
         ceb{"cebuano"}
         cgg{"chiga"}
@@ -310,6 +311,7 @@ it{
         krl{"careliano"}
         kru{"kurukh"}
         ks{"kashmiri"}
+        ks_Arab{"kashmiri (naskh)"}
         ksb{"shambala"}
         ksf{"bafia"}
         ksh{"coloniese"}
@@ -318,7 +320,7 @@ it{
         kut{"kutenai"}
         kv{"komi"}
         kw{"cornico"}
-        ky{"chirghiso"}
+        ky{"kirghiso"}
         la{"latino"}
         lad{"giudeo-spagnolo"}
         lag{"langi"}
@@ -430,11 +432,12 @@ it{
         oc{"occitano"}
         oj{"ojibwa"}
         om{"oromo"}
-        or{"oriya"}
+        or{"odia"}
         os{"ossetico"}
         osa{"osage"}
         ota{"turco ottomano"}
         pa{"punjabi"}
+        pa_Arab{"punjabi (naskh)"}
         pag{"pangasinan"}
         pal{"pahlavi"}
         pam{"pampanga"}
@@ -588,6 +591,7 @@ it{
         umb{"mbundu"}
         und{"lingua imprecisata"}
         ur{"urdu"}
+        ur_Arab{"urdu (naskh)"}
         uz{"uzbeco"}
         vai{"vai"}
         ve{"venda"}
@@ -641,6 +645,7 @@ it{
     Scripts{
         Afak{"afaka"}
         Arab{"arabo"}
+        Aran{"nastaliq"}
         Armi{"aramaico imperiale"}
         Armn{"armeno"}
         Avst{"avestico"}
@@ -751,6 +756,7 @@ it{
         Phnx{"fenicio"}
         Plrd{"fonetica di pollard"}
         Prti{"partico delle iscrizioni"}
+        Qaag{"zawgyi"}
         Rjng{"rejang"}
         Roro{"rongorongo"}
         Runr{"runico"}
@@ -1020,7 +1026,7 @@ it{
         VALENCIA{"valenziano"}
         WADEGILE{"romanizzazione Wade-Giles"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.42"}
     characterLabelPattern{
         all{"{0} — Tutto"}
         category-list{"{0}: {1}"}

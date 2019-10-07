@@ -235,11 +235,12 @@ discard:
 int
 xdr_mntdump(XDR *xdrsp, struct mountlist **mlp)
 {
-	struct mountlist *mp, **otp, *tp;
+	struct mountlist *mp, **otp = NULL, *tp;
 	int bool, val, val2;
 	char *strp;
 
 	*mlp = (struct mountlist *)0;
+
 	if (!xdr_bool(xdrsp, &bool))
 		return (0);
 	while (bool) {

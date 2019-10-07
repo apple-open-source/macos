@@ -1,5 +1,4 @@
 SELF_DIR=$(cd "$(dirname "$0")" ; pwd -P)
-SELF_DIR=$1
 TARGET_DIR=${SELF_DIR}/../IOHIDFamily
 #EVENT_DATA_FILE=/tmp/hideventdata.json
 EVENT_DATA_FILE=${SELF_DIR}/hideventdata.plist
@@ -50,6 +49,7 @@ gen_file struct  IOHIDEventStructDefs.h
 gen_file macro   IOHIDEventMacroDefs.h
 gen_file fields  IOHIDEventFieldDefs.h
 
+
 cat > ${SELF_DIR}/hidutil/HIDEvent.h <<EOM
 //
 //  HIDEvent.h
@@ -58,10 +58,9 @@ cat > ${SELF_DIR}/hidutil/HIDEvent.h <<EOM
 
 #import <Foundation/Foundation.h>
 #import <IOKit/hid/IOHIDEvent.h>
+#import <HID/HIDEvent.h>
 
-@interface HIDEvent : NSObject {
-IOHIDEventRef eventRef;
-}
+@interface HIDEvent (HIDUtil)
 
 @property               NSNumber *timestamp;
 @property               NSNumber *sender;
@@ -70,11 +69,7 @@ IOHIDEventRef eventRef;
 @property               NSNumber *flags;
 @property (readonly)    NSString *typestr;
 
-- (id)initWithEvent:(IOHIDEventRef)event;
-
 @end
-
-HIDEvent *createHIDEvent(IOHIDEventRef event);
 
 EOM
 
@@ -85,195 +80,172 @@ cat > ${SELF_DIR}/hidutil/HIDEvent.m <<EOM
 //
 
 #import "HIDEvent.h"
+#import <IOKit/hid/AppleHIDUsageTables.h>
+#import <IOKit/hid/IOHIDLibPrivate.h>
 
-@implementation HIDEvent
-
-- (id)initWithEvent:(IOHIDEventRef)event {
-    self = [super init];
-    
-    if (self) {
-        self->eventRef = event;
-        CFRetain(self->eventRef);
-    }
-    
-    return self;
-}
-
-- (void)dealloc {
-    if (self->eventRef) {
-        CFRelease(self->eventRef);
-    }
-}
+@implementation HIDEvent (HIDUtil)
 
 -(void)setTimestamp:(NSNumber *)timestamp {
-    IOHIDEventSetTimeStamp(self->eventRef, timestamp.unsignedLongLongValue);
+    IOHIDEventSetTimeStamp((__bridge IOHIDEventRef)self, timestamp.unsignedLongLongValue);
 }
 
 - (NSNumber *)timestamp {
-    return [NSNumber numberWithUnsignedLongLong:IOHIDEventGetTimeStamp(self->eventRef)];
+    return [NSNumber numberWithUnsignedLongLong:IOHIDEventGetTimeStamp((__bridge IOHIDEventRef)self)];
 }
 
 - (void)setSender:(NSNumber *)sender {
-    IOHIDEventSetSenderID(self->eventRef, sender.unsignedLongLongValue);
+    IOHIDEventSetSenderID((__bridge IOHIDEventRef)self, sender.unsignedLongLongValue);
 }
 
 - (NSNumber *)sender {
-    return [NSNumber numberWithUnsignedLongLong:IOHIDEventGetSenderID(self->eventRef)];
+    return [NSNumber numberWithUnsignedLongLong:IOHIDEventGetSenderID((__bridge IOHIDEventRef)self)];
 }
 
 - (NSNumber *)typeval {
-    return [NSNumber numberWithInt:IOHIDEventGetType(self->eventRef)];
+    return [NSNumber numberWithInt:IOHIDEventGetType((__bridge IOHIDEventRef)self)];
 }
 
 - (NSNumber *)latency {
-    return [NSNumber numberWithUnsignedLongLong:IOHIDEventGetLatency(self->eventRef, kMicrosecondScale)];
+    return [NSNumber numberWithUnsignedLongLong:IOHIDEventGetLatency((__bridge IOHIDEventRef)self, kMicrosecondScale)];
 }
 
 - (void)setFlags:(NSNumber *)flags {
-    IOHIDEventSetEventFlags(self->eventRef, flags.unsignedIntValue);
+    IOHIDEventSetEventFlags((__bridge IOHIDEventRef)self, flags.unsignedIntValue);
 }
 
 - (NSNumber *)flags {
-    return [NSNumber numberWithInt:IOHIDEventGetEventFlags(self->eventRef)];
+    return [NSNumber numberWithInt:IOHIDEventGetEventFlags((__bridge IOHIDEventRef)self)];
 }
 
 - (NSString *)typestr {
-    return [[NSString stringWithUTF8String:IOHIDEventGetTypeString(IOHIDEventGetType(self->eventRef))] lowercaseString];
+    return [[NSString stringWithUTF8String:IOHIDEventGetTypeString(IOHIDEventGetType((__bridge IOHIDEventRef)self))] lowercaseString];
 }
 
 - (NSString *)description {
-    return [NSString stringWithFormat:@"timestamp:%llu sender:0x%llx typeval:%d typestr:%@ latency:%llu flags:0x%08x", self.timestamp.unsignedLongLongValue, self.sender.unsignedLongLongValue, self.typeval.unsignedIntValue, self.typestr, self.latency.unsignedLongLongValue, self.flags.unsignedIntValue];
+    NSMutableString *desc = [NSMutableString new];
+    
+    [desc appendString: [NSString stringWithFormat:@"timestamp:%llu sender:0x%llx typeval:%d typestr:%@ latency:%llu flags:0x%08x ", self.timestamp.unsignedLongLongValue, self.sender.unsignedLongLongValue, self.typeval.unsignedIntValue, self.typestr, self.latency.unsignedLongLongValue, self.flags.unsignedIntValue]];
+    
+    switch (self.typeval.unsignedIntValue) {
+        case kIOHIDEventTypeNULL:
+            [desc appendString:[self nullDescription]];
+            break;
+        case kIOHIDEventTypeVendorDefined:
+            [desc appendString:[self vendorDefinedDescription]];
+            break;
+        case kIOHIDEventTypeButton:
+            [desc appendString:[self buttonDescription]];
+            break;
+        case kIOHIDEventTypeKeyboard:
+            [desc appendString:[self keyboardDescription]];
+            break;
+        case kIOHIDEventTypeTranslation:
+            [desc appendString:[self translationDescription]];
+            break;
+        case kIOHIDEventTypeRotation:
+            [desc appendString:[self rotationDescription]];
+            break;
+        case kIOHIDEventTypeScroll:
+            [desc appendString:[self scrollDescription]];
+            break;
+        case kIOHIDEventTypeScale:
+            [desc appendString:[self scaleDescription]];
+            break;
+        case kIOHIDEventTypeVelocity:
+            [desc appendString:[self velocityDescription]];
+            break;
+        case kIOHIDEventTypeOrientation:
+            [desc appendString:[self orientationDescription]];
+            break;
+        case kIOHIDEventTypeDigitizer:
+            [desc appendString:[self digitizerDescription]];
+            break;
+        case kIOHIDEventTypeAmbientLightSensor:
+            [desc appendString:[self ambientLightSensorDescription]];
+            break;
+        case kIOHIDEventTypeAccelerometer:
+            [desc appendString:[self accelerometerDescription]];
+            break;
+        case kIOHIDEventTypeProximity:
+            [desc appendString:[self proximityDescription]];
+            break;
+        case kIOHIDEventTypeTemperature:
+            [desc appendString:[self temperatureDescription]];
+            break;
+        case kIOHIDEventTypeNavigationSwipe:
+            [desc appendString:[self navigationSwipeDescription]];
+            break;
+        case kIOHIDEventTypePointer:
+            [desc appendString:[self pointerDescription]];
+            break;
+        case kIOHIDEventTypeProgress:
+            [desc appendString:[self progressDescription]];
+            break;
+        case kIOHIDEventTypeMultiAxisPointer:
+            [desc appendString:[self multiAxisPointerDescription]];
+            break;
+        case kIOHIDEventTypeGyro:
+            [desc appendString:[self gyroDescription]];
+            break;
+        case kIOHIDEventTypeCompass:
+            [desc appendString:[self compassDescription]];
+            break;
+        case kIOHIDEventTypeDockSwipe:
+            [desc appendString:[self dockSwipeDescription]];
+            break;
+        case kIOHIDEventTypeSymbolicHotKey:
+            [desc appendString:[self symbolicHotKeyDescription]];
+            break;
+        case kIOHIDEventTypePower:
+            [desc appendString:[self powerDescription]];
+            break;
+        case kIOHIDEventTypeLED:
+            [desc appendString:[self ledDescription]];
+            break;
+        case kIOHIDEventTypeFluidTouchGesture:
+            [desc appendString:[self fluidTouchGestureDescription]];
+            break;
+        case kIOHIDEventTypeBoundaryScroll:
+            [desc appendString:[self boundaryScrollDescription]];
+            break;
+        case kIOHIDEventTypeBiometric:
+            [desc appendString:[self biometricDescription]];
+            break;
+        case kIOHIDEventTypeUnicode:
+            [desc appendString:[self unicodeDescription]];
+            break;
+        case kIOHIDEventTypeAtmosphericPressure:
+            [desc appendString:[self atmosphericPressureDescription]];
+            break;
+        case kIOHIDEventTypeForce:
+            [desc appendString:[self forceDescription]];
+            break;
+        case kIOHIDEventTypeMotionActivity:
+            [desc appendString:[self motionActivityDescription]];
+            break;
+        case kIOHIDEventTypeMotionGesture:
+            [desc appendString:[self motionGestureDescription]];
+            break;
+        case kIOHIDEventTypeGameController:
+            [desc appendString:[self gameControllerDescription]];
+            break;
+        case kIOHIDEventTypeHumidity:
+            [desc appendString:[self humidityDescription]];
+            break;
+        case kIOHIDEventTypeBrightness:
+            [desc appendString:[self brightnessDescription]];
+            break;
+        case kIOHIDEventTypeGenericGesture:
+            [desc appendString:[self genericGestureDescription]];
+            break;
+        default:
+            break;
+    }
+    
+    return desc;
 }
 
 @end
-
-
-HIDEvent *createHIDEvent(IOHIDEventRef event)
-{
-    HIDEvent *ev = NULL;
-    
-    if (!event) {
-        return ev;
-    }
-    
-    switch (IOHIDEventGetType(event)) {
-        case kIOHIDEventTypeNULL:
-            ev = [[HIDNULLEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeVendorDefined:
-            ev = [[HIDVendorDefinedEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeButton:
-            ev = [[HIDButtonEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeKeyboard:
-            ev = [[HIDKeyboardEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeTranslation:
-            ev = [[HIDTranslationEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeRotation:
-            ev = [[HIDRotationEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeScroll:
-            ev = [[HIDScrollEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeScale:
-            ev = [[HIDScaleEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeVelocity:
-            ev = [[HIDVelocityEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeOrientation:
-            ev = [[HIDOrientationEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeDigitizer:
-            ev = [[HIDDigitizerEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeAmbientLightSensor:
-            ev = [[HIDAmbientLightSensorEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeAccelerometer:
-            ev = [[HIDAccelerometerEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeProximity:
-            ev = [[HIDProximityEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeTemperature:
-            ev = [[HIDTemperatureEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeNavigationSwipe:
-            ev = [[HIDNavigationSwipeEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypePointer:
-            ev = [[HIDPointerEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeProgress:
-            ev = [[HIDProgressEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeMultiAxisPointer:
-            ev = [[HIDMultiAxisPointerEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeGyro:
-            ev = [[HIDGyroEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeCompass:
-            ev = [[HIDCompassEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeDockSwipe:
-            ev = [[HIDDockSwipeEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeSymbolicHotKey:
-            ev = [[HIDSymbolicHotKeyEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypePower:
-            ev = [[HIDPowerEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeLED:
-            ev = [[HIDLEDEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeFluidTouchGesture:
-            ev = [[HIDFluidTouchGestureEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeBoundaryScroll:
-            ev = [[HIDBoundaryScrollEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeBiometric:
-            ev = [[HIDBiometricEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeUnicode:
-            ev = [[HIDUnicodeEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeAtmosphericPressure:
-            ev = [[HIDAtmosphericPressureEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeForce:
-            ev = [[HIDForceEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeMotionActivity:
-            ev = [[HIDMotionActivityEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeMotionGesture:
-            ev = [[HIDMotionGestureEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeGameController:
-            ev = [[HIDGameControllerEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeHumidity:
-            ev = [[HIDHumidityEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeBrightness:
-            ev = [[HIDBrightnessEvent alloc] initWithEvent:event];
-            break;
-        case kIOHIDEventTypeGenericGesture:
-            ev = [[HIDGenericGestureEvent alloc] initWithEvent:event];
-            break;
-        default:
-            ev = [[HIDEvent alloc] initWithEvent:event];
-    }
-    
-    return ev;
-}
 
 EOM
 
@@ -281,4 +253,7 @@ EOM
 
 python ${SELF_DIR}/hideventdata.py  -t objects       -f ${EVENT_DATA_FILE}  >> ${SELF_DIR}/hidutil/HIDEvent.m
 python ${SELF_DIR}/hideventdata.py  -t objectHeaders -f ${EVENT_DATA_FILE}  >> ${SELF_DIR}/hidutil/HIDEvent.h
+python ${SELF_DIR}/hideventdata.py  -t fieldsDesc -f ${EVENT_DATA_FILE}  > ${SELF_DIR}/../HID/HIDEventFieldsPrivate.h
+python ${SELF_DIR}/hideventdata.py  -t fieldsDescHeader -f ${EVENT_DATA_FILE}  > ${SELF_DIR}/../HID/HIDEventFields.h
 
+sh ${SELF_DIR}/hidaccessorgen.sh

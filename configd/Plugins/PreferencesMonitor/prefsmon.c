@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010, 2012-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010, 2012-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -43,7 +43,7 @@
 #include <unistd.h>
 
 
-#define	SC_LOG_HANDLE		__log_PreferencesMonitor()
+#define	SC_LOG_HANDLE		__log_PreferencesMonitor
 #define SC_LOG_HANDLE_TYPE	static
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
@@ -467,6 +467,7 @@ findInterfaces(CFArrayRef interfaces, CFMutableArrayRef *matched_interfaces, CFM
 			CFRelease(interface);
 
 			updated = TRUE;
+			break;
 		}
 	}
 
@@ -718,28 +719,28 @@ static CF_RETURNS_RETAINED CFStringRef
 copyInterfaceUUID(CFStringRef bsdName)
 {
 	union {
-		unsigned char	sha1_bytes[CC_SHA1_DIGEST_LENGTH];
+		unsigned char	sha256_bytes[CC_SHA256_DIGEST_LENGTH];
 		CFUUIDBytes	uuid_bytes;
 	} bytes;
-	CC_SHA1_CTX	ctx;
+	CC_SHA256_CTX	ctx;
 	char		if_name[IF_NAMESIZE];
 	CFUUIDRef	uuid;
 	CFStringRef	uuid_str;
 
 	// start with interface name
-	bzero(&if_name, sizeof(if_name));
+	memset(&if_name, 0, sizeof(if_name));
 	(void) _SC_cfstring_to_cstring(bsdName,
 				       if_name,
 				       sizeof(if_name),
 				       kCFStringEncodingASCII);
 
-	// create SHA1 hash
-	bzero(&bytes, sizeof(bytes));
-	CC_SHA1_Init(&ctx);
-	CC_SHA1_Update(&ctx,
+	// create SHA256 hash
+	memset(&bytes, 0, sizeof(bytes));
+	CC_SHA256_Init(&ctx);
+	CC_SHA256_Update(&ctx,
 		       if_name,
 		       sizeof(if_name));
-	CC_SHA1_Final(bytes.sha1_bytes, &ctx);
+	CC_SHA256_Final(bytes.sha256_bytes, &ctx);
 
 	// create UUID string
 	uuid = CFUUIDCreateFromUUIDBytes(NULL, bytes.uuid_bytes);
@@ -805,7 +806,7 @@ excludeConfigurations(SCPreferencesRef prefs)
 			}
 
 			// remove [excluded] network service from the prefs
-			SC_log(LOG_NOTICE, "removing network service for %@", bsdName);
+			SC_log(LOG_NOTICE, "excluding network service for %@", bsdName);
 			ok = SCNetworkSetRemoveService(set, service);
 			if (!ok) {
 				SC_log(LOG_ERR, "SCNetworkSetRemoveService() failed: %s",
@@ -1162,13 +1163,6 @@ updateConfiguration(SCPreferencesRef		prefs,
 		    void			*info)
 {
 #pragma unused(info)
-	os_activity_t	activity;
-
-	activity = os_activity_create("processing [SC] preferences.plist changes",
-				      OS_ACTIVITY_CURRENT,
-				      OS_ACTIVITY_FLAG_DEFAULT);
-	os_activity_scope(activity);
-
 #if	!TARGET_OS_IPHONE
 	if ((notificationType & kSCPreferencesNotificationCommit) == kSCPreferencesNotificationCommit) {
 		SCNetworkSetRef	current;
@@ -1203,8 +1197,6 @@ updateConfiguration(SCPreferencesRef		prefs,
 	}
 
     done :
-
-	os_release(activity);
 
 	return;
 }

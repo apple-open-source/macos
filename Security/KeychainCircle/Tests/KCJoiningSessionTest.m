@@ -14,8 +14,8 @@
 #import <KeychainCircle/KCAESGCMDuplexSession.h>
 
 #include <Security/SecBase.h>
-#include <Security/SecureObjectSync/SOSFullPeerInfo.h>
-#include <Security/SecureObjectSync/SOSPeerInfoInternal.h>
+#include "keychain/SecureObjectSync/SOSFullPeerInfo.h"
+#include "keychain/SecureObjectSync/SOSPeerInfoInternal.h"
 
 #include <CommonCrypto/CommonRandomSPI.h>
 

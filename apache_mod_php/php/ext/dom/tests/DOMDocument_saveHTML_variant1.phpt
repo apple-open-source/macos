@@ -1,5 +1,5 @@
 --TEST--
-DOMDocument::saveHTML() optional parameters 
+DOMDocument::saveHTML() optional parameters
 --SKIPIF--
 <?php
 require_once dirname(__FILE__) .'/skipif.inc';
@@ -18,7 +18,7 @@ $text = $title->appendChild($text);
 echo $doc->saveHTML(NULL), "\n";
 echo $doc->saveHTML($title), "\n";
 ?>
---EXPECTF--
+--EXPECT--
 <html><head><title>This is the title</title></head></html>
 
 <title>This is the title</title>

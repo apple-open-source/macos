@@ -24,6 +24,7 @@
 #include <os/log.h>
 #include <mach/mach_time.h>
 #include <net/ntstat.h>
+#include <ifaddrs.h>
 
 enum
 {
@@ -83,8 +84,6 @@ static uint64_t			cache_timeout = 0ULL;
 static os_log_t			si_destination_log = OS_LOG_DEFAULT;
 static DestCompareSettings	si_compare_settings = {};
 
-static const uint32_t	kLoopbackIndex = 1;
-
 #ifndef TCP_RTT_SCALE
 #define TCP_RTT_SCALE 32 // see netinet/tcp_var.h
 #endif // defined(TCP_RTT_SCALE)
@@ -107,6 +106,8 @@ static void
 si_destination_compare_child_has_forked(void)
 {
 	cache_lock = OS_UNFAIR_LOCK_INIT;
+	// Cannot use os_log_t object from parent process in child process.
+	si_destination_log = OS_LOG_DEFAULT;
 }
 
 static void
@@ -297,12 +298,40 @@ si_destination_fill_netsrc(Destination *d)
 
 #pragma mark -- Statistics --
 
+static uint32_t	kLoopbackIndex = 1;
+
+// Only update kLoopbackIndex from the default value of 1 if an entry with the IFF_LOOPBACK flag set is found.
+void
+set_loopback_ifindex()
+{
+    struct ifaddrs *ifaddrs, *ifa;
+
+    if (getifaddrs(&ifaddrs) < 0)
+        return;
+
+    for (ifa = ifaddrs; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr &&
+            ifa->ifa_addr->sa_family == AF_LINK &&
+            (ifa->ifa_flags & IFF_LOOPBACK) != 0) {
+            kLoopbackIndex = (unsigned int)((struct sockaddr_dl*)ifa->ifa_addr)->sdl_index;
+            break;
+        }
+    }
+
+    freeifaddrs(ifaddrs);
+    return;
+}
+
 static int
 si_destination_compare_statistics(
 	Destination	*dst1,
 	Destination	*dst2)
 {
 	int slightPreference = kPrefer_Equal;
+	// Initialize kLoopbackIndex value
+	static pthread_once_t   once = PTHREAD_ONCE_INIT;
+	pthread_once(&once, set_loopback_ifindex);
+
 	// If we have min round trip times for both, use that
 	if (dst1->d_min_rtt && dst2->d_min_rtt)
 	{

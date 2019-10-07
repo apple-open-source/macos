@@ -85,6 +85,11 @@ process_fstab_mntopts(struct fstab *fs, char **mntops_outp, char **url)
 	char *optp;
         int error = 0;
 
+	if (url == NULL || mntops_outp == NULL)
+		return EINVAL;
+	*url = NULL;
+	*mntops_outp = NULL;
+
 	/*
 	 * Remove "net", "bg", and "fg" from the mount options;
 	 * "net" is irrelevant, and the automounter can't mount
@@ -113,7 +118,6 @@ process_fstab_mntopts(struct fstab *fs, char **mntops_outp, char **url)
 	 * "findervol" and "nofindervol"; we extract the URL from
 	 * "url==" and return it through "*url".
 	 */
-	*url = NULL;	/* haven't seen it yet */
 
 	/*
 	 * Copy option string, since it is about to be torn asunder ...
@@ -529,6 +533,8 @@ readfstab(void)
 			    fs->fs_spec);
 			free(localpath);
 			free(host);
+			if (url != NULL)
+				free(url);
 			continue;	/* give up on this */
 		}
 		if (err == ENOMEM) {

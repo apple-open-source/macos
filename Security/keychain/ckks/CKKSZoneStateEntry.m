@@ -167,18 +167,14 @@
              };
 }
 
-+ (instancetype) fromDatabaseRow: (NSDictionary*) row {
-    NSISO8601DateFormatter* dateFormat = [[NSISO8601DateFormatter alloc] init];
-
-    return [[CKKSZoneStateEntry alloc] initWithCKZone: row[@"ckzone"]
-                                          zoneCreated: [row[@"ckzonecreated"] boolValue]
-                                       zoneSubscribed: [row[@"ckzonesubscribed"] boolValue]
-                                          changeToken: ![row[@"changetoken"] isEqual: [NSNull null]] ?
-                                                   [[NSData alloc] initWithBase64EncodedString: row[@"changetoken"] options:0] :
-                                                   nil
-                                            lastFetch: [row[@"lastfetch"] isEqual: [NSNull null]] ? nil : [dateFormat dateFromString: row[@"lastfetch"]]
-                                            lastFixup:(CKKSFixup)[row[@"lastFixup"] integerValue]
-                                   encodedRateLimiter: [row[@"ratelimiter"] isEqual: [NSNull null]] ? nil : [[NSData alloc] initWithBase64EncodedString: row[@"ratelimiter"] options:0]
++ (instancetype)fromDatabaseRow:(NSDictionary<NSString*, CKKSSQLResult*>*)row {
+    return [[CKKSZoneStateEntry alloc] initWithCKZone:row[@"ckzone"].asString
+                                          zoneCreated:row[@"ckzonecreated"].asBOOL
+                                       zoneSubscribed:row[@"ckzonesubscribed"].asBOOL
+                                          changeToken:row[@"changetoken"].asBase64DecodedData
+                                            lastFetch:row[@"lastfetch"].asISO8601Date
+                                            lastFixup:(CKKSFixup)row[@"lastFixup"].asNSInteger
+                                   encodedRateLimiter:row[@"ratelimiter"].asBase64DecodedData
             ];
 }
 

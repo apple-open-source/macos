@@ -50,7 +50,8 @@ enum {
 #define kImmutableKernelKextFilter (kOSKextOSBundleRequiredRootFlag | \
                                     kOSKextOSBundleRequiredLocalRootFlag | \
                                     kOSKextOSBundleRequiredNetworkRootFlag | \
-                                    kOSKextOSBundleRequiredConsoleFlag)
+                                    kOSKextOSBundleRequiredConsoleFlag | \
+                                    kOSKextOSBundleRequiredDriverKitFlag)
 
 #pragma mark Command-line Option Definitions
 /*******************************************************************************
@@ -138,6 +139,7 @@ enum {
 #define kOptSafeBoot              's'
 #define kOptSafeBootAll           'S'
 #define kOptTests                 't'
+// 'T' in kext_tools_util.h
 #if !NO_BOOT_ROOT
 #define kOptUpdate                'u'
 #define kOptCheckUpdate           'U'
@@ -168,9 +170,9 @@ enum {
 #define kLongOptPruneStaging             (-20)
 
 #if !NO_BOOT_ROOT
-#define kOptChars                ":a:b:c:efFhi:kK:lLm:nNqrsStu:U:vXz"
+#define kOptChars                ":a:b:c:efFhi:kK:lLm:nNqrsStT:u:U:vXz"
 #else
-#define kOptChars                ":a:b:c:eFhkK:lLm:nNqrsStvXz"
+#define kOptChars                ":a:b:c:eFhkK:lLm:nNqrsStT:vXz"
 #endif /* !NO_BOOT_ROOT */
 /* Some options are now obsolete:
  *     -F (fork)
@@ -189,6 +191,7 @@ struct option sOptInfo[] = {
     { kOptNameUncompressed,          no_argument,        &longopt, kLongOptUncompressed },
 
     { kOptNameArch,                  required_argument,  NULL,     kOptArch },
+    { kOptNameTargetOverride,        required_argument,  NULL,     kOptTargetOverride },
 
     { kOptNameSystemMkext,           no_argument,        NULL,     kOptSystemMkext },
     { kOptNameVolumeRoot,            required_argument,  &longopt, kLongOptVolumeRoot },
@@ -268,7 +271,7 @@ typedef struct {
     CFURLRef  compressedPrelinkedKernelURL; // -uncompress option
 
     CFURLRef  updateVolumeURL;      // -u / -U OR -i / -invalidate options
-    
+
     // see BRUpdateOpts_t in bootroot_internal.h
     BRUpdateOpts_t updateOpts;      // -U, -f, -Installer, ...
 
@@ -282,6 +285,7 @@ typedef struct {
     CFMutableArrayRef  namedKextURLs;
     CFMutableArrayRef  targetArchs;
     Boolean            explicitArch;  // user-provided instead of inferred host arches
+    char             * targetForKextVariants;
 
     bool               buildImmutableKernel; // -X, -build-immutable-kernel
 
@@ -289,7 +293,7 @@ typedef struct {
     CFArrayRef         repositoryKexts;  // all from directories (may include named)
     CFArrayRef         namedKexts;
     CFArrayRef         loadedKexts;
-    
+
     struct timeval     kernelTimes[2];          // access and mod times of kernel file
     struct timeval     extensionsDirTimes[2];   // access and mod times of extensions directory with most recent change
     Boolean     compress;
@@ -389,7 +393,7 @@ ExitStatus getExpectedPrelinkedKernelModTime(
     struct timeval   cacheFileTimes[2],
     Boolean        * updateModTimeOut);
 ExitStatus compressPrelinkedKernel(
-    CFURLRef            volumeRootURL,  
+    CFURLRef            volumeRootURL,
     const char        * prelinkedKernelPath,
     Boolean             compress);
 

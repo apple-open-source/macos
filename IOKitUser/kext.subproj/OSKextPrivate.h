@@ -48,8 +48,9 @@
 #endif
 /*
  * We use "/System/Library/Extensions", "/Library/Extensions", and /AppleInternal/Library/Extensions - 11860417
+ * ... and /System/Library/DriverExtensions - 46043955, and /Library/Apple/System/Library/Extensions - 45895023
  */
-#define _kOSKextNumSystemExtensionsFolders (3)
+#define _kOSKextNumSystemExtensionsFolders (6)
 
 #define _kOSKextSystemLibraryExtensionsFolder           \
             "/System/Library/Extensions"
@@ -57,6 +58,12 @@
             "/Library/Extensions"
 #define _kOSKextAppleInternalLibraryExtensionsFolder    \
             "/AppleInternal/Library/Extensions"
+#define _kOSKextSystemLibraryDriverExtensionsFolder     \
+            "/System/Library/DriverExtensions"
+#define _kOSKextLibraryDriverExtensionsFolder           \
+            "/Library/DriverExtensions"
+#define _kOSKextLibraryAppleExtensionsFolder            \
+            "/Library/Apple/System/Library/Extensions"
 
 #if PRAGMA_MARK
 /********************************************************************/
@@ -76,12 +83,16 @@
 *     ID->URL Cache: KextIdentifiers.plist.gz (OSBundles?)
 *     Personalities Cache: IOKitPersonalities_<arch>.plist.gz
 *
-* System boot caches (prelinked kernel and mkext) are in the
+* System boot caches (prelinked kernel and mkext) are symlinked in the
 * com.apple.kext.caches folder. See the kext_tools project for more.
 *********************************************************************/
 #define _kOSKextCachesRootFolder                       \
     "/System/Library/Caches/com.apple.kext.caches"
-#define _kOSKextPrelinkedKernelsPath                       \
+#define _kOSKextDeferredBootcachesInstallScriptPath    \
+    "/private/var/install/shove_kernels"
+#define _kOSKextTemporaryPrelinkedKernelsPath          \
+    "/Library/Apple/System/Library/PrelinkedKernels"
+#define _kOSKextPrelinkedKernelsPath                   \
     "/System/Library/PrelinkedKernels"
 
 #define _kOSKextDirectoryCachesSubfolder   "Directories"
@@ -106,6 +117,8 @@
 #pragma mark Cache Functions
 /********************************************************************/
 #endif
+
+extern char OSKextExecutableVariant[];
 
 typedef enum {
     _kOSKextCacheFormatRaw,
@@ -141,7 +154,30 @@ OSReturn _OSKextSendResource(
     OSReturn        requestResult,
     CFDataRef       resource);
 CFURLRef OSKextGetExecutableURL(OSKextRef aKext);
+CFURLRef OSKextGetKernelExecutableURL(OSKextRef aKext);
+CFURLRef OSKextGetUserExecutableURL(OSKextRef aKext);
 CFStringRef OSKextCopyExecutableName(OSKextRef aKext);
+bool _OSKextIdentifierHasApplePrefix(OSKextRef aKext);
+
+/*!
+ * @function OSKextSetTargetString
+ * @abstract Set the name of the current running target.
+ *
+ * @result
+ * <code>true</code>, if the target is successfully set.
+ * <code>false</code>, otherwise.
+ */
+Boolean OSKextSetTargetString(const char * target);
+
+
+/*!
+ * @function OSKextSetTargetString
+ * @abstract Get the name of the current running target.
+ *
+ * @result
+ * A <code>CFStringRef</code> representation of the running target.
+ */
+CFStringRef OSKextGetTargetString(void);
 
 #if PRAGMA_MARK
 /********************************************************************/
@@ -187,6 +223,16 @@ void _OSKextSetAuthenticationFunction(OSKextAuthFnPtr authFn, void *context);
  */
 typedef Boolean (*OSKextLoadAuditFnPtr)(OSKextRef);
 void _OSKextSetLoadAuditFunction(OSKextLoadAuditFnPtr authFn);
+
+/* Used to enable clients to add arbitrary keys to personalities of kexts before
+ * they are returned from clients or sent to the kernel via
+ * OSKextSendPersonalitiesOfKextsToKernel. If this function returns false, then
+ * the personality will not be included. Clients should take special care not
+ * to call any functions in this callback that result in calls to
+ * OSKextCopyPersonalitiesOfKexts or OSKextCopyPersonalitiesArray.
+ */
+typedef Boolean (*OSKextPersonalityPatcherFnPtr)(OSKextRef, CFMutableDictionaryRef);
+void _OSKextSetPersonalityPatcherFunction(OSKextPersonalityPatcherFnPtr patcherFn);
 
 /* The basic filesystem authentication checks historically performed
  * by the OSKext API, exposed for use by custom authentication methods.

@@ -4,7 +4,7 @@ Test disk_total_space() function : basic functionality
 <?php
 /*
  *  Prototype: float disk_total_space( string $directory );
- *  Description: given a string containing a directory, this function will 
+ *  Description: given a string containing a directory, this function will
  *               return the total number of bytes on the corresponding filesyatem
  *               or disk partition.
  */
@@ -20,7 +20,7 @@ $dir = "/disk_total_space";
 mkdir($file_path.$dir);
 var_dump( disk_total_space($file_path.$dir) );
 $fh = fopen($file_path.$dir."/disk_total_space.tmp", "w");
-fwrite($fh, (binary)"Garbage Data Garbage Data Garbage Data Garbage Data Garbage Data Garbage Data Garbage Data");
+fwrite($fh, "Garbage Data Garbage Data Garbage Data Garbage Data Garbage Data Garbage Data Garbage Data");
 
 fclose($fh);
 
@@ -35,7 +35,6 @@ $file_path = dirname(__FILE__);
 unlink($file_path."/disk_total_space/disk_total_space.tmp");
 rmdir($file_path."/disk_total_space");
 ?>
-
 --EXPECTF--
 *** Testing with normal directory ***
 float(%d)

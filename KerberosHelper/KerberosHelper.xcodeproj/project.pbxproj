@@ -955,9 +955,9 @@
 				72C4B6460CB174FC0075E546 /* KRBCreateSession */,
 				7263B03B0CBADFFD0058A52B /* configureLocalKDC-LaunchDaemon.plist */,
 				745AE62F11DA7C0B000BAE71 /* checkLocalKDC-LaunchDaemon.plist */,
-				EB9CC38F0E1B8C54009B3162 /* lkdc_acl */,
 				EB1A3B810E76119F00D37DF1 /* dns-register */,
 				EBCD5AD111433FCE00B964AB /* KRBDecodeNegTokenInit */,
+				EB9CC38F0E1B8C54009B3162 /* lkdc_acl */,
 				EB8BFC7F11798BE80003BE65 /* test-na */,
 				727C12FE11F62134003772C6 /* migration-test */,
 				EB04AF02123EF7B400AA6C31 /* NSURLConnection */,
@@ -1368,12 +1368,12 @@
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				FRAMEWORK_VERSION = A;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";
 				INFOPLIST_FILE = "KerberosHelper-Info.plist";
 				INSTALL_PATH = "$(CONFIGURATION_BUILD_DIR)/";
+				IS_ZIPPERED = YES;
 				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.KerberosHelper;
 				PRODUCT_NAME = KerberosHelper;
@@ -1402,11 +1402,11 @@
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_3 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				FRAMEWORK_VERSION = A;
-				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";
 				INFOPLIST_FILE = "KerberosHelper-Info.plist";
 				INSTALL_PATH = /System/Library/PrivateFrameworks;
+				IS_ZIPPERED = YES;
 				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.KerberosHelper;
 				PRODUCT_NAME = KerberosHelper;

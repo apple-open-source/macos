@@ -1,14 +1,11 @@
 /*
  * Main header file for the CUPS scheduler.
  *
- * Copyright 2007-2016 by Apple Inc.
- * Copyright 1997-2007 by Easy Software Products, all rights reserved.
+ * Copyright © 2007-2018 by Apple Inc.
+ * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * "LICENSE" which should have been included with this file.  If this
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 
@@ -30,11 +27,11 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
-#ifdef WIN32
+#ifdef _WIN32
 #  include <direct.h>
 #else
 #  include <unistd.h>
-#endif /* WIN32 */
+#endif /* _WIN32 */
 
 #include "mime.h"
 
@@ -171,8 +168,7 @@ VAR int			OnDemand	VALUE(0);
 extern void		cupsdInitEnv(void);
 extern int		cupsdLoadEnv(char *envp[], int envmax);
 extern void		cupsdSetEnv(const char *name, const char *value);
-extern void		cupsdSetEnvf(const char *name, const char *value, ...)
-			__attribute__ ((__format__ (__printf__, 2, 3)));
+extern void		cupsdSetEnvf(const char *name, const char *value, ...) _CUPS_FORMAT(2, 3);
 extern void		cupsdUpdateEnv(void);
 
 /* file.c */

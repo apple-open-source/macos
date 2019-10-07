@@ -28,6 +28,10 @@ inline const UnicodeSet& plusSignSet() {
     return *unisets::get(unisets::PLUS_SIGN);
 }
 
+inline const UnicodeSet& ignorablesSet() { // <rdar://problem/39156484>
+    return *unisets::get(unisets::STRICT_IGNORABLES);
+}
+
 } // namespace
 
 
@@ -56,11 +60,17 @@ bool ScientificMatcher::match(StringSegment& segment, ParsedNumber& result, UErr
         return false;
     }
 
+    // Only accept one exponent per string.
+    if (0 != (result.flags & FLAG_HAS_EXPONENT)) {
+        return false;
+    }
+
     // First match the scientific separator, and then match another number after it.
     // NOTE: This is guarded by the smoke test; no need to check fExponentSeparatorString length again.
     int overlap1 = segment.getCommonPrefixLength(fExponentSeparatorString);
     if (overlap1 == fExponentSeparatorString.length()) {
         // Full exponent separator match.
+        int32_t exponentStart = segment.getOffset(); // <rdar://problem/39156484>
 
         // First attempt to get a code point, returning true if we can't get one.
         if (segment.length() == overlap1) {
@@ -69,6 +79,9 @@ bool ScientificMatcher::match(StringSegment& segment, ParsedNumber& result, UErr
         segment.adjustOffset(overlap1);
 
         // Allow a sign, and then try to match digits.
+        while (segment.length() > 0 && segment.startsWith(ignorablesSet())) { // <rdar://problem/39156484>
+            segment.adjustOffsetByCodePoint();
+        }
         int8_t exponentSign = 1;
         if (segment.startsWith(minusSignSet())) {
             exponentSign = -1;
@@ -80,7 +93,7 @@ bool ScientificMatcher::match(StringSegment& segment, ParsedNumber& result, UErr
             int32_t overlap2 = segment.getCommonPrefixLength(fCustomMinusSign);
             if (overlap2 != fCustomMinusSign.length()) {
                 // Partial custom sign match; un-match the exponent separator.
-                segment.adjustOffset(-overlap1);
+                segment.setOffset(exponentStart);
                 return true;
             }
             exponentSign = -1;
@@ -90,10 +103,13 @@ bool ScientificMatcher::match(StringSegment& segment, ParsedNumber& result, UErr
             int32_t overlap2 = segment.getCommonPrefixLength(fCustomPlusSign);
             if (overlap2 != fCustomPlusSign.length()) {
                 // Partial custom sign match; un-match the exponent separator.
-                segment.adjustOffset(-overlap1);
+                segment.setOffset(exponentStart);
                 return true;
             }
             segment.adjustOffset(overlap2);
+        }
+        while (segment.length() > 0 && segment.startsWith(ignorablesSet())) { // <rdar://problem/39156484>
+            segment.adjustOffsetByCodePoint();
         }
 
         // We are supposed to accept E0 after NaN, so we need to make sure result.quantity is available.
@@ -108,7 +124,7 @@ bool ScientificMatcher::match(StringSegment& segment, ParsedNumber& result, UErr
             result.flags |= FLAG_HAS_EXPONENT;
         } else {
             // No exponent digits were matched; un-match the exponent separator.
-            segment.adjustOffset(-overlap1);
+            segment.setOffset(exponentStart);
         }
         return digitsReturnValue;
 

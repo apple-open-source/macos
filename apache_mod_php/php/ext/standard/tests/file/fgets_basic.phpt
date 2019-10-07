@@ -29,7 +29,7 @@ foreach($file_modes as $file_mode) {
     }
 
     echo "-- fgets() with default length, file pointer at 0 --\n";
-    var_dump( fgets($file_handle) ); // with default length 
+    var_dump( fgets($file_handle) ); // with default length
     var_dump( ftell($file_handle) ); // ensure the file pointer position
     var_dump( feof($file_handle) );  // enusre if eof set
 
@@ -49,7 +49,7 @@ foreach($file_modes as $file_mode) {
 
 echo "Done\n";
 ?>
---EXPECTF--
+--EXPECT--
 *** Testing fgets() : basic functionality ***
 
 -- Testing fgets() with file opened using mode r --

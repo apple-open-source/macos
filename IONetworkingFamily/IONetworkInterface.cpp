@@ -164,7 +164,7 @@ enum {
 bool IONetworkInterface::init( IONetworkController * controller )
 {
     IONetworkData * nd;
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 	OSString *      networkType;
 #endif
 
@@ -262,11 +262,11 @@ bool IONetworkInterface::init( IONetworkController * controller )
 
     setProperty( kIOInterfaceNamePrefix, getNamePrefix() );
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     networkType = OSDynamicCast(OSString, controller->getProperty( "IONetworkRootType" ));
     if (networkType)
 		setProperty( "IONetworkRootType", networkType );
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 
     if (IOService *provider = controller->getProvider())
     {
@@ -1618,8 +1618,9 @@ bool IONetworkInterface::setInterfaceType(UInt8 type)
 	// once attached to dlil, we can't change the interface type
 	if (_backingIfnet)
 		return false;
-	else
-		_type = type;
+
+    _type = type;
+    setProperty(kIOInterfaceType, _type, 8);
 	return true;
 }
 
@@ -1696,7 +1697,6 @@ bool IONetworkInterface::serializeProperties( OSSerialize * s ) const
 {
     IONetworkInterface * self = (IONetworkInterface *) this;
 
-    self->setProperty( kIOInterfaceType,       getInterfaceType(),       8 );
     self->setProperty( kIOMaxTransferUnit,     getMaxTransferUnit(),    32 );
     self->setProperty( kIOInterfaceFlags,      getFlags(),              16 );
     self->setProperty( kIOInterfaceExtraFlags, getExtraFlags(),         32 );

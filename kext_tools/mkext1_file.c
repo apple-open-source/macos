@@ -2,14 +2,14 @@
  * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <fcntl.h>
@@ -106,10 +106,10 @@ CFDataRef createMkext1ForArch(const NXArchInfo * arch, CFArrayRef archiveKexts,
             CFDictionarySetValue(kextsByIdentifier, bundleIdentifier, theKext);
             continue;
         }
-        
+
         thisVersion = OSKextGetVersion(theKext);
         savedVersion = OSKextGetVersion(savedKext);
-        
+
         if (thisVersion > savedVersion) {
             CFDictionarySetValue(kextsByIdentifier, bundleIdentifier, theKext);
         }
@@ -166,7 +166,7 @@ void addToMkext1(
 {
     OSKextRef       aKext            = (OSKextRef)vValue;
     Mkext1Context * context          = (Mkext1Context *)vContext;
-    
+
     CFBundleRef     kextBundle       = NULL;  // must release
     CFURLRef        infoDictURL      = NULL;  // must release
     CFDataRef       rawInfoDict      = NULL;  // must release
@@ -176,7 +176,7 @@ void addToMkext1(
     if (context->fatal) {
         goto finish;
     }
-    
+
     if (!CFURLGetFileSystemRepresentation(OSKextGetURL(aKext),
         /* resolveToBase */ false, (UInt8 *)kextPath, sizeof(kextPath))) {
 
@@ -198,7 +198,7 @@ void addToMkext1(
         context->fatal = true;
         goto finish;
     }
-    
+
     infoDictURL = _CFBundleCopyInfoPlistURL(kextBundle);
     if (!infoDictURL) {
         OSKextLog(aKext,
@@ -207,11 +207,11 @@ void addToMkext1(
         context->fatal = true;
         goto finish;
     }
-    
-    /* create and fill infoDictPath 
+
+    /* create and fill infoDictPath
      */
     char            infoDictPath[PATH_MAX];
-    
+
     if (!CFURLGetFileSystemRepresentation(infoDictURL,
                                           true,
                                           (uint8_t *)infoDictPath,
@@ -230,12 +230,12 @@ void addToMkext1(
         context->fatal = true;
         goto finish;
     }
-    
+
     if (!addDataToMkext(rawInfoDict, context, kextPath, /* isInfoDict */ true)) {
         context->fatal = true;
         goto finish;
     }
-    
+
     executable = OSKextCopyExecutableForArchitecture(aKext, context->arch);
     if (executable) {
         if (!addDataToMkext(executable, context, kextPath, /* isInfoDict */ false)) {
@@ -284,7 +284,7 @@ Boolean addDataToMkext(
     uint32_t        compressedLength;
 
     uint8_t       * checkBuffer        = NULL;  // must free
-    
+
     mkext1_header * mkextHeader        = NULL;  // do not free
     mkext_kext    * mkextKextEntry     = NULL;  // do not free
     mkext_file    * mkextFileEntry     = NULL;  // do not free
@@ -303,7 +303,7 @@ Boolean addDataToMkext(
         goto finish;
     }
     mkextStart = CFDataGetBytePtr(context->mkext);
-    
+
     origCompressOffset = context->compressOffset;
     addedDataStart = (UInt8 *)mkextStart + origCompressOffset;
 
@@ -336,7 +336,7 @@ Boolean addDataToMkext(
             OSKextLogMemError();
             goto finish;
         }
-        
+
         checkLength = decompress_lzss(checkBuffer, addedDataFullLength,
             addedDataStart, compressedLength);
         if (checkLength != addedDataFullLength) {
@@ -364,7 +364,7 @@ Boolean addDataToMkext(
             addedDataFullLength, compressedLength,
             (100.0 * (float)compressedLength/(float)addedDataFullLength));
     }
-    
+
    /* Truncate the mkext to exactly fit the new total size.
     */
     CFDataSetLength(context->mkext, addedDataEnd - mkextStart);

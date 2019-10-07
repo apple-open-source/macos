@@ -151,6 +151,7 @@ static void SetReportAsync (
     CFTypeRef phisicalUUID =  IORegistryEntryCreateCFProperty(service, CFSTR (kIOHIDPhysicalDeviceUniqueIDKey) , kCFAllocatorDefault, 0);
     
     XCTAssertTrue(phisicalUUID && CFEqual(phisicalUUID, (__bridge CFStringRef)self.keyboardController.userDeviceUniqueID), "UUID does not match");
+    CFRelease(phisicalUUID);
     
     if (service) {
         IOObjectRelease(service);
@@ -160,9 +161,10 @@ static void SetReportAsync (
 
 
 - (void)testHIDUserDeviceHandleReport {
-    __block IOReturn status;
    
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        
+        IOReturn status = kIOReturnSuccess;
         
         HIDVendorDescriptorInputReport report;
 
@@ -171,17 +173,16 @@ static void SetReportAsync (
         report.VEN_VendorDefined0081 = 0x11111111;
         reportData = [[NSData alloc] initWithBytes: &report length:sizeof (report)];
         
-        status |= [self.elementController handleReport: reportData withInterval: 2000];
+        status = [self.elementController handleReport: reportData withInterval: 2000];
         XCTAssert (status == kIOReturnSuccess, "handleReport: 0x%x", status);
         
         report.VEN_VendorDefined0081 = 0x22222222;
         reportData = [[NSData alloc] initWithBytes: &report length:sizeof (report)];
         
-        status |= [self.elementController handleReportAsync: reportData Callback:UserDeviceHandleReportAsyncCallback Context:(__bridge void *)(self)];
+        status = [self.elementController handleReportAsync: reportData Callback:UserDeviceHandleReportAsyncCallback Context:(__bridge void *)(self)];
         XCTAssert (status == kIOReturnSuccess, "handleReportAsync: 0x%x", status);
     });
-                   
-    XCTAssert (status == kIOReturnSuccess, "handleReportAsync: 0x%x", status);
+    
     
     CFRunLoopRunInMode (kCFRunLoopDefaultMode, 2.0, false);
 
@@ -195,11 +196,11 @@ static void SetReportAsync (
 }
 
 - (void)testHIDUserDeviceHandleReportWithTimestamp {
-    __block IOReturn status = kIOReturnSuccess;
     
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         HIDVendorDescriptorInputReport report;
         
+        IOReturn status = kIOReturnSuccess;
         NSData * reprortData;
         
         timestamp = mach_absolute_time ();
@@ -207,12 +208,14 @@ static void SetReportAsync (
         report.VEN_VendorDefined0081 = 0x11111111;
         reprortData = [[NSData alloc] initWithBytes: &report length:sizeof (report)];
         
-        status |= [self.elementController handleReport: reprortData withTimestamp: timestamp];
+        status = [self.elementController handleReport: reprortData withTimestamp: timestamp];
+        XCTAssert (status == kIOReturnSuccess, "handleReport: 0x%x", status);
         
         report.VEN_VendorDefined0081 = 0x22222222;
         reprortData = [[NSData alloc] initWithBytes: &report length:sizeof (report)];
         
-        status |= [self.elementController handleReportAsync: reprortData withTimestamp: timestamp Callback:UserDeviceHandleReportAsyncCallback Context:(__bridge void *)(self)];
+        status = [self.elementController handleReportAsync: reprortData withTimestamp: timestamp Callback:UserDeviceHandleReportAsyncCallback Context:(__bridge void *)(self)];
+        XCTAssert (status == kIOReturnSuccess, "handleReport: 0x%x", status);
     });
     
     CFRunLoopRunInMode (kCFRunLoopDefaultMode, 2.0, false);
@@ -272,6 +275,7 @@ static void SetReportAsync (
     XCTAssert(elements && elements.count == 1);
     
     element = (__bridge IOHIDElementRef)elements[0];
+    XCTAssert(IOHIDElementGetTypeID() == CFGetTypeID(element));
     XCTAssert(IOHIDElementGetUsagePage (element) == kHIDPage_AppleVendor);
     XCTAssert(IOHIDElementGetUsage (element) == 0x83);
     XCTAssert(IOHIDElementGetType (element) == kIOHIDElementTypeFeature);
@@ -286,7 +290,7 @@ static void SetReportAsync (
     
     status = IOHIDDeviceSetValue(self.elementDeviceController.device, element, elementValue);
     XCTAssert(status == kIOReturnSuccess || status == kIOReturnUnsupported, "IOHIDDeviceSetValue: %x", status);
-    
+    CFRelease(elementValue);
 }
 
 - (void)testElementExponent {
@@ -332,7 +336,7 @@ static void SetReportAsync (
 }
 
 - (void)testHIDDeviceReport {
-    IOReturn status;
+    IOReturn status = kIOReturnSuccess;
     
     CFIndex reportLength;
 

@@ -87,6 +87,19 @@ HEIMCRED_CONST(CFTypeRef, kHEIMAttrDefaultCredential); /* BooleanRef */
 
 HEIMCRED_CONST(CFTypeRef, kHEIMAttrKerberosTicketGrantingTicket); /* BooleanRef */
 
+HEIMCRED_CONST(CFTypeRef, kHEIMAttrUserID); /* UserId for Shared iPad */
+
 /* NTLM */
 HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMUsername);
 HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMDomain);
+HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMChannelBinding);
+HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMChallenge);
+HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMType1Data);
+HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMType2Data);
+HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMType3Data);
+HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMClientTargetName);
+HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMClientFlags);
+HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMSessionKey);
+HEIMCRED_CONST(CFStringRef, kHEIMAttrNTLMKCMFlags);
+
+#define HEIMCRED_NTLM_FLAG_AV_GUEST 8

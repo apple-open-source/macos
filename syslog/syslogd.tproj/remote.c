@@ -23,7 +23,7 @@
 
 #include <TargetConditionals.h>
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 struct _not_empty;
 #else
 
@@ -932,4 +932,4 @@ remote_reset(void)
 	return remote_init();
 }
 
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */

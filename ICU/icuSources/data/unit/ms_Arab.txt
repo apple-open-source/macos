@@ -2,7 +2,7 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 ms_Arab{
     %%Parent{"root"}
-    Version{"2.1.35.71"}
+    Version{"2.1.48.13"}
     units{
         duration{
             day{

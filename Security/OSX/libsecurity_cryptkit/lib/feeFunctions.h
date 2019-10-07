@@ -25,11 +25,7 @@
 #ifndef	_CK_FEEFUNCTIONS_H_
 #define _CK_FEEFUNCTIONS_H_
 
-#ifdef	macintosh
-#include <feeTypes.h>
-#else
 #include <security_cryptkit/feeTypes.h>
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,18 +40,6 @@ void initCryptKit(void);
  * Shutdown.
  */
 void terminateCryptKit(void);
-
-#if	defined(NeXT) && !defined(WIN32)
-
-#define PHRASELEN 128
-
-/*
- * Prompt for password, get it in secure manner. Max password length is
- * PHRASELEN. NEXTSTEP only.
- */
-extern void getpassword(const char *prompt, char *pbuf);
-
-#endif /* NeXT */
 
 /*
  * obtain a string describing  a feeReturn.

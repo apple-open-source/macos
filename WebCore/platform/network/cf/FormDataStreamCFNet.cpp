@@ -30,11 +30,12 @@
 #include "FormDataStreamCFNet.h"
 
 #include "BlobData.h"
-#include "FileSystem.h"
+#include "BlobRegistry.h"
 #include "FormData.h"
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <wtf/Assertions.h>
+#include <wtf/FileSystem.h>
 #include <wtf/HashMap.h>
 #include <wtf/MainThread.h>
 #include <wtf/RetainPtr.h>
@@ -215,6 +216,10 @@ static void* formCreate(CFReadStreamRef stream, void* context)
     newInfo->formStream = stream; // Don't retain. That would create a reference cycle.
     newInfo->streamLength = formContext->streamLength;
     newInfo->bytesSent = 0;
+    
+    callOnMainThread([formContext] {
+        delete formContext;
+    });
 
     // Append in reverse order since we remove elements from the end.
     size_t size = newInfo->formData->elements().size();
@@ -372,16 +377,16 @@ static void formEventCallback(CFReadStreamRef stream, CFStreamEventType type, vo
 
 RetainPtr<CFReadStreamRef> createHTTPBodyCFReadStream(FormData& formData)
 {
-    auto resolvedFormData = formData.resolveBlobReferences();
+    auto resolvedFormData = formData.resolveBlobReferences(blobRegistry());
 
     // Precompute the content length so CFNetwork doesn't use chunked mode.
     unsigned long long length = 0;
     for (auto& element : resolvedFormData->elements())
         length += element.lengthInBytes();
 
-    FormCreationContext formContext = { WTFMove(resolvedFormData), length };
+    FormCreationContext* formContext = new FormCreationContext { WTFMove(resolvedFormData), length };
     CFReadStreamCallBacksV1 callBacks = { 1, formCreate, formFinalize, nullptr, formOpen, nullptr, formRead, nullptr, formCanRead, formClose, formCopyProperty, nullptr, nullptr, formSchedule, formUnschedule };
-    return adoptCF(CFReadStreamCreate(nullptr, static_cast<const void*>(&callBacks), &formContext));
+    return adoptCF(CFReadStreamCreate(nullptr, static_cast<const void*>(&callBacks), formContext));
 }
 
 void setHTTPBody(CFMutableURLRequestRef request, FormData* formData)

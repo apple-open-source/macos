@@ -39,6 +39,6 @@ com_apple_BootCache::stop(IOService *provider)
 {
 	if (BC_unload())
 		return;	// refuse unload?
-	provider->release();
 	IOService::stop(provider);
+	provider->release();
 }

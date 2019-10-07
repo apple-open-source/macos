@@ -1,15 +1,39 @@
+	
+OTHER_LDFLAGS_AOSKIT_FRAMEWORK[sdk=macosx*] = -weak_framework AOSAccounts -weak_framework AOSAccountsLite
 
-AOSKIT_FRAMEWORK[sdk=macosx*] = -weak_framework AOSAccounts -weak_framework AOSAccountsLite
-APPLE_AKS_LIBRARY[sdk=macosx*] = -L$(SDKROOT)/usr/local/lib -laks -framework MobileKeyBag
-APPLE_AKS_LIBRARY[sdk=iphoneos*] = -L$(SDKROOT)/usr/local/lib -laks -framework MobileKeyBag
-APPLE_AKS_LIBRARY[sdk=watchos*] = -L$(SDKROOT)/usr/local/lib -laks -framework MobileKeyBag
-APPLE_AKS_LIBRARY[sdk=appletvos*] = -L$(SDKROOT)/usr/local/lib -laks -framework MobileKeyBag
+OTHER_LDFLAGS_MOCK_AKS_LIBRARY = -laks_mock -framework SecurityFoundation
+OTHER_LDFLAGS_AKS_LIBRARY[sdk=macosx*] = -L$(SDKROOT)/usr/local/lib -laks -laks_real_witness
+OTHER_LDFLAGS_AKS_LIBRARY[sdk=iphoneos*] = -L$(SDKROOT)/usr/local/lib -laks -laks_real_witness
+OTHER_LDFLAGS_AKS_LIBRARY[sdk=watchos*] = -L$(SDKROOT)/usr/local/lib -laks -laks_real_witness
+OTHER_LDFLAGS_AKS_LIBRARY[sdk=appletvos*] = -L$(SDKROOT)/usr/local/lib -laks -laks_real_witness
+OTHER_LDFLAGS_AKS_LIBRARY[sdk=iphonesimulator*] = -laks_mock -Wl,-upward_framework,SecurityFoundation
+
+OTHER_LDFLAGS_MOBILE_KEYBAG[sdk=macosx*] = -framework MobileKeyBag
+OTHER_LDFLAGS_MOBILE_KEYBAG[sdk=iphoneos*] = -framework MobileKeyBag
+OTHER_LDFLAGS_MOBILE_KEYBAG[sdk=watchos*] = -framework MobileKeyBag
+OTHER_LDFLAGS_MOBILE_KEYBAG[sdk=appletvos*] = -framework MobileKeyBag
+
+OTHER_LDFLAGS_AKS_ACL_LIBRARY = -laks_acl
+
+OTHER_LDFLAGS_ACM_LIBRARY[sdk=macosx*] = -lACM
+OTHER_LDFLAGS_ACM_LIBRARY[sdk=iphoneos*] = -lACM
+OTHER_LDFLAGS_ACM_LIBRARY[sdk=watchos*] = -lACM
+OTHER_LDFLAGS_ACM_LIBRARY[sdk=appletvos*] = -lACM
+OTHER_LDFLAGS_ACM_LIBRARY[sdk=iphonesimulator*] =
+OTHER_LDFLAGS_ACM_LIBRARY[sdk=appletvsimulator*] =
+OTHER_LDFLAGS_ACM_LIBRARY[sdk=watchsimulator*] =
 
 OTHER_LDFLAGS_AGGREGATEDICTIONARY[sdk=embedded] = -framework AggregateDictionary
 OTHER_LDFLAGS_APPLESYSTEMINFO[sdk=macos*] = -framework AppleSystemInfo
 OTHER_LDFLAGS_DIAGNOSTICSMESSAGESCLIENT[sdk=macosx*] = -lDiagnosticMessagesClient
-OTHER_LDFLAGS_LIBCMS[sdk=embedded*] = -lCMS
 OTHER_LDFLAGS_MOBILEGESTALT[sdk=embedded*] = -lMobileGestalt
+OTHER_LDFLAGS_IMG4DECODE[sdk=embedded] = -lImg4Decode
+OTHER_LDFLAGS_UPWARD_FOUNDATION = -Wl,-upward_framework,Foundation
+OTHER_LDFLAGS_UPWARD_PROTOCOLBUFFER = -Wl,-upward_framework,ProtocolBuffer
+OTHER_LDFLAGS_UPWARD_SECURITY = -Wl,-upward_framework,Security
+OTHER_LDFLAGS_UPWARD_SECURITYFOUNDATION = -Wl,-upward_framework,SecurityFoundation
+
+OTHER_LDFLAGS_SECUREKEYVAULT[sdk=embedded] = -lSecureKeyVaultForiapd
 
 OTHER_LDFLAGS_CRASHREPORTER[sdk=embedded] = -framework CrashReporterSupport
 OTHER_LDFLAGS_CRASHREPORTER[sdk=macos*] = -framework CrashReporterSupport
@@ -17,66 +41,75 @@ OTHER_LDFLAGS_CRASHREPORTER[sdk=macos*] = -framework CrashReporterSupport
 OTHER_CODE_SIGN_FLAGS_LIBRARY_VALIDATION = -o library
 OTHER_CODE_SIGN_FLAGS_LIBRARY_VALIDATION[sdk=*simulator*] =
 
-//
-// Play games to avoid issues with bridge trains
-//
-BRIDGE_YES = YES
-BRIDGE_ = NO
-BRIDGE_NO = NO
-BRIDGE = $(BRIDGE_$(RC_BRIDGE))
+OTHER_LDFLAGS_APS = -framework ApplePushService
+OTHER_LDFLAGS_APS[sdk=bridgeos*] =
 
-OTHER_LDFLAGS_APS_BRIDGE_NO = -framework ApplePushService
-OTHER_LDFLAGS_APS_BRIDGE_YES =
-OTHER_LDFLAGS_APS = $(OTHER_LDFLAGS_APS_BRIDGE_$(BRIDGE))
+OTHER_LDFLAGS_CLOUDKIT = -framework CloudKit
+OTHER_LDFLAGS_CLOUDKIT[sdk=bridgeos*] =
 
-OTHER_LDFLAGS_CLOUDKIT_BRIDGE_NO = -framework CloudKit
-OTHER_LDFLAGS_CLOUDKIT_BRIDGE_YES =
-OTHER_LDFLAGS_CLOUDKIT = $(OTHER_LDFLAGS_CLOUDKIT_BRIDGE_$(BRIDGE))
+OTHER_LDFLAGS_PREQUELITE = -l prequelite
+OTHER_LDFLAGS_PREQUELITE[sdk=bridgeos*] =
 
-OTHER_LDFLAGS_PREQUELITE_BRIDGE_NO = -l prequelite
-OTHER_LDFLAGS_PREQUELITE_BRIDGE_YES =
-OTHER_LDFLAGS_PREQUELITE = $(OTHER_LDFLAGS_PREQUELITE_BRIDGE_$(BRIDGE))
+OTHER_LDFLAGS_ACCOUNTS = -framework Accounts
+OTHER_LDFLAGS_ACCOUNTS[sdk=bridgeos*] =
 
-OTHER_LDFLAGS_ACCOUNTS_BRIDGE_NO = -framework Accounts
-OTHER_LDFLAGS_ACCOUNTS_BRIDGE_YES =
-OTHER_LDFLAGS_ACCOUNTS = $(OTHER_LDFLAGS_ACCOUNTS_BRIDGE_$(BRIDGE))
+OTHER_LDFLAGS_APPLEACCOUNT[sdk=macos*] = -weak_framework AppleAccount
+OTHER_LDFLAGS_APPLEACCOUNT[sdk=iphone*] = -framework AppleAccount
+OTHER_LDFLAGS_APPLEACCOUNT[sdk=appletv*] = -framework AppleAccount
+OTHER_LDFLAGS_APPLEACCOUNT[sdk=watchos*] = -framework AppleAccount
+OTHER_LDFLAGS_APPLEACCOUNT[sdk=bridgeos*] =
 
-OTHER_LDFLAGS_APPLEACCOUNT_IOS_NO = -framework AppleAccount
-OTHER_LDFLAGS_APPLEACCOUNT_IOS_YES =
+OTHER_LDFLAGS_COREFOLLOWUP[sdk=macos*] = -weak_framework CoreFollowUp
+OTHER_LDFLAGS_COREFOLLOWUP[sdk=iphone*] = -framework CoreFollowUp
+OTHER_LDFLAGS_COREFOLLOWUP[sdk=appletv*] = -framework CoreFollowUp
+OTHER_LDFLAGS_COREFOLLOWUP[sdk=watchos*] =
+OTHER_LDFLAGS_COREFOLLOWUP[sdk=bridgeos*] =
+OTHER_LDFLAGS_COREFOLLOWUP[sdk=appletvsimulator*] =
+OTHER_LDFLAGS_COREFOLLOWUP[sdk=watchsimulator*] =
+OTHER_LDFLAGS_COREFOLLOWUP[sdk=appletvsimulator*] =
 
-OTHER_LDFLAGS_APPLEACCOUNT[sdk=iphoneos*] = $(OTHER_LDFLAGS_APPLEACCOUNT_IOS_$(BRIDGE))
-OTHER_LDFLAGS_APPLEACCOUNT[sdk=iphonesimulator*] = $(OTHER_LDFLAGS_APPLEACCOUNT_IOS_$(BRIDGE))
-OTHER_LDFLAGS_APPLEACCOUNT[sdk=appletv*] = $(OTHER_LDFLAGS_APPLEACCOUNT_IOS_$(BRIDGE))
-OTHER_LDFLAGS_APPLEACCOUNT[sdk=watchos*] = $(OTHER_LDFLAGS_APPLEACCOUNT_IOS_$(BRIDGE))
 
 // The bridge appears to support protocol buffers.
 OTHER_LDFLAGS_PROTOBUF = -framework ProtocolBuffer
 
-OTHER_LDFLAGS_SHAREDWEBCREDENTIALS_IOS_NO = -framework SharedWebCredentials
-OTHER_LDFLAGS_SHAREDWEBCREDENTIALS_IOS_YES =
-OTHER_LDFLAGS_SHAREDWEBCREDENTIALS[sdk=iphoneos*] = $(OTHER_LDFLAGS_SHAREDWEBCREDENTIALS_IOS_$(BRIDGE))
+OTHER_LDFLAGS_SHAREDWEBCREDENTIALS[sdk=iphoneos*] = -framework SharedWebCredentials
+OTHER_LDFLAGS_SHAREDWEBCREDENTIALS[sdk=bridgeos*] =
 OTHER_LDFLAGS_SHAREDWEBCREDENTIALS[sdk=watchos*] =
 OTHER_LDFLAGS_SHAREDWEBCREDENTIALS[sdk=appletvos*] =
 
-//OTHER_LDFLAGS_APPLEIDAUTHSUPPORT_BRIDGE_NO = -Wl,-upward_framework,AppleIDAuthSupport
-OTHER_LDFLAGS_APPLEIDAUTHSUPPORT_BRIDGE_NO =
-OTHER_LDFLAGS_APPLEIDAUTHSUPPORT_BRIDGE_YES =
-OTHER_LDFLAGS_APPLEIDAUTHSUPPORT = $(OTHER_LDFLAGS_APPLEIDAUTHSUPPORT_BRIDGE_$(BRIDGE))
+OTHER_LDFLAGS_APPLEIDAUTHSUPPORT =
+//OTHER_LDFLAGS_APPLEIDAUTHSUPPORT[sdk=bridgeos*] = -Wl,-upward_framework,AppleIDAuthSupport
 
-OTHER_LDFLAGS_WIRELESSDIAGNOSTICS_BRIDGE_NO = -framework WirelessDiagnostics
-OTHER_LDFLAGS_WIRELESSDIAGNOSTICS_BRIDGE_YES =
-OTHER_LDFLAGS_WIRELESSDIAGNOSTICS = $(OTHER_LDFLAGS_WIRELESSDIAGNOSTICS_BRIDGE_$(BRIDGE))
+OTHER_LDFLAGS_WIRELESSDIAGNOSTICS = -framework WirelessDiagnostics
+OTHER_LDFLAGS_WIRELESSDIAGNOSTICS[sdk=bridgeos*] =
 
-OTHER_LDFLAGS_MOBILEASSET_BRIDGE_NO = -framework MobileAsset
-OTHER_LDFLAGS_MOBILEASSET_BRIDGE_YES =
-OTHER_LDFLAGS_MOBILEASSET = $(OTHER_LDFLAGS_MOBILEASSET_BRIDGE_$(BRIDGE))
+OTHER_LDFLAGS_MOBILEASSET = -framework MobileAsset
+OTHER_LDFLAGS_MOBILEASSET[sdk=bridgeos*] =
 
-OTHER_LDFLAGS_SECURITYFOUNDATION_BRIDGE_NO = -framework SecurityFoundation
-OTHER_LDFLAGS_SECURITYFOUNDATION_BRIDGE_YES =
-OTHER_LDFLAGS_SECURITYFOUNDATION = $(OTHER_LDFLAGS_SECURITYFOUNDATION_BRIDGE_$(BRIDGE))
+OTHER_LDFLAGS_CORECDP = -weak_framework CoreCDP
+OTHER_LDFLAGS_CORECDP[sdk=bridgeos*] =
+
+OTHER_LDFLAGS_SECURITYFOUNDATION = -framework SecurityFoundation
+OTHER_LDFLAGS_SECURITYFOUNDATION[sdk=bridgeos*] =
 
 // Breaks the BaseSystem: fixing in <rdar://problem/36166435> Re-enable IMCore autosysdiagnose capture to securityd
-//OTHER_LDFLAGS_IMCORE_BRIDGE_NO = -framework IMCore
-//OTHER_LDFLAGS_IMCORE_BRIDGE_YES =
-OTHER_LDFLAGS_IMCORE = $(OTHER_LDFLAGS_IMCORE_BRIDGE_$(BRIDGE))
+OTHER_LDFLAGS_IMCORE = // -weak_framework IMCore
 OTHER_LDFLAGS_IMCORE[sdk=appletv*] =
+OTHER_LDFLAGS_IMCORE[sdk=bridgeos*] =
+
+OTHER_LDFLAGS_UserManagement[sdk=iphone*] = -framework UserManagement
+OTHER_LDFLAGS_UserManagement[sdk=macosx*] = -framework UserManagement
+OTHER_LDFLAGS_UserManagement[sdk=watch*] =
+OTHER_LDFLAGS_UserManagement[sdk=appletv*] =
+
+OTHER_LDFLAGS_CrashReporterSupport[sdk=iphoneos*] = -framework CrashReporterSupport
+OTHER_LDFLAGS_CrashReporterSupport[sdk=macosx*] =
+OTHER_LDFLAGS_CrashReporterSupport[sdk=watch*] =
+OTHER_LDFLAGS_CrashReporterSupport[sdk=appletv*] =
+
+OTHER_LDFLAGS_OCMOCK = -framework OCMock
+OTHER_LDFLAGS_OCMOCK[sdk=bridgeos*] =
+
+// NanoRegistry exists on other platforms, but in this case we only need it on watch
+OTHER_LDFLAGS_NANOREGISTRY_WATCH_ONLY[sdk=watchsimulator*] = -framework NanoRegistry
+OTHER_LDFLAGS_NANOREGISTRY_WATCH_ONLY[sdk=watchos*] = -framework NanoRegistry

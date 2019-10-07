@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -35,13 +35,14 @@
 #include <net/if.h>
 #include <net/if_types.h>
 #include <net/necp.h>
+#include <os/overflow.h>
 #include <sys/ioctl.h>
 #include <sys/kern_control.h>
 #include <sys/socket.h>
 #include <sys/sockio.h>
 #include <sys/sys_domain.h>
 
-#define	SC_LOG_HANDLE	__log_QoSMarking()
+#define	SC_LOG_HANDLE	__log_QoSMarking
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
@@ -132,7 +133,7 @@ supportsQoSMarking(int s, const char *ifname)
 {
 	struct ifreq	ifr;
 
-	bzero(&ifr, sizeof(ifr));
+	memset(&ifr, 0, sizeof(ifr));
 	strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
 	if (ioctl(s, SIOCGIFTYPE, (caddr_t)&ifr) == -1) {
 		SC_log(LOG_NOTICE, "%s: ioctl(SIOCGIFTYPE) failed: %s",
@@ -164,7 +165,7 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 	struct ifreq	ifr;
 	int		ret;
 
-	bzero(&ifr, sizeof(ifr));
+	memset(&ifr, 0, sizeof(ifr));
 	strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
 	ifr.ifr_qosmarking_enabled = enabled ? 1 : 0;
 	ret = ioctl(s, SIOCSQOSMARKINGENABLED, &ifr);
@@ -302,6 +303,7 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 
 - (NSUUID *)copyUUIDForSingleArch:(int)fd
 {
+	uint64_t		bytes	= 0;
 	struct mach_header	header;
 	NSUUID *		uuid	= nil;
 
@@ -315,6 +317,14 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 			SC_log(LOG_ERR, "could not lseek() past 64 bit header");
 			return nil;
 		}
+	}
+
+	if(os_mul_overflow((uint64_t)header.ncmds, sizeof(struct load_command), &bytes) ||
+	   (bytes > header.sizeofcmds)) {
+		SC_log(LOG_ERR, "mach_header error with \".ncmds\" (%llu), \".sizeofcmds\" (%llu)",
+		       (uint64_t)header.ncmds,
+		       (uint64_t)header.sizeofcmds);
+		return nil;
 	}
 
 	// Find LC_UUID in the load commands
@@ -359,7 +369,7 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 	NSMutableArray *	uuids		= nil;
 
 	// For a fat architecture, we need find the section that is closet to the host cpu
-	bzero(&hostinfo, sizeof(hostinfo));
+	memset(&hostinfo, 0, sizeof(hostinfo));
 	count = HOST_BASIC_INFO_COUNT;
 	kr = host_info(mach_host_self(), HOST_BASIC_INFO, (host_info_t)&hostinfo, &count);
 	if (kr != KERN_SUCCESS) {
@@ -1036,15 +1046,9 @@ static void
 qosMarkingConfigChangedCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *arg)
 {
 #pragma unused(arg)
-	os_activity_t		activity;
 	CFDictionaryRef		changes;
 	CFIndex			n;
 	static CFStringRef	prefix		= NULL;
-
-	activity = os_activity_create("processing QoS marking configuration changes",
-				      OS_ACTIVITY_CURRENT,
-				      OS_ACTIVITY_FLAG_DEFAULT);
-	os_activity_scope(activity);
 
 	if (prefix == NULL) {
 		prefix = SCDynamicStoreKeyCreate(NULL,
@@ -1107,6 +1111,16 @@ qosMarkingConfigChangedCallback(SCDynamicStoreRef store, CFArrayRef changedKeys,
 }
 
 
+static Boolean
+haveNetworkExtensionFramework()
+{
+	Boolean	haveFramework;
+
+	haveFramework = ([NEPolicy class] != nil);
+	return haveFramework;
+}
+
+
 __private_extern__
 void
 load_QoSMarking(CFBundleRef bundle, Boolean bundleVerbose)
@@ -1122,6 +1136,10 @@ load_QoSMarking(CFBundleRef bundle, Boolean bundleVerbose)
 
 	SC_log(LOG_DEBUG, "load() called");
 	SC_log(LOG_DEBUG, "  bundle ID = %@", CFBundleGetIdentifier(bundle));
+
+	if (!haveNetworkExtensionFramework()) {
+		return;
+	}
 
 	// initialize a few globals
 	interfacesKey = SCDynamicStoreKeyCreateNetworkInterface(NULL,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -366,7 +366,7 @@ chap_generate_challenge(struct chap_server_state *ss)
 	p += CHAP_HDRLEN;
 	ss->digest->generate_challenge(p);
 	clen = *p;
-	nlen = strlen(ss->name);
+	nlen = (int)strlen(ss->name);
 	memcpy(p + 1 + clen, ss->name, nlen);
 
 	len = CHAP_HDRLEN + 1 + clen + nlen;
@@ -438,7 +438,7 @@ chap_handle_response(struct chap_server_state *ss, int id,
 	/* send the response */
 	p = outpacket_buf;
 	MAKEHEADER(p, PPP_CHAP);
-	mlen = strlen((char*)ss->message);
+	mlen = (int)strlen((char*)ss->message);
 	len = CHAP_HDRLEN + mlen;
 	p[0] = ((ss->flags & AUTH_FAILED) || (ok == -1)) ? CHAP_FAILURE: CHAP_SUCCESS;
 	p[1] = id;
@@ -469,7 +469,7 @@ chap_handle_response(struct chap_server_state *ss, int id,
 		} else {
 			notice("CHAP peer authentication succeeded for %q", name);
 			auth_peer_success(0, PPP_CHAP, ss->digest->code,
-					  name, strlen((char*)name));
+					  name, (int)strlen((char*)name));
 			if (chap_rechallenge_time) {
 				ss->flags |= TIMEOUT_PENDING;
 				TIMEOUT(chap_timeout, ss,
@@ -516,7 +516,7 @@ chap_handle_default(struct chap_server_state *ss, int code, int id,
 	/* send the response */
 	p = outpacket_buf;
 	MAKEHEADER(p, PPP_CHAP);
-	mlen = strlen((char*)ss->message);
+	mlen = (int)strlen((char*)ss->message);
 	len = CHAP_HDRLEN + mlen;
 	p[0] = ((ss->flags & AUTH_FAILED) || (ok == -1)) ? CHAP_FAILURE: CHAP_SUCCESS;
 	p[1] = id;
@@ -537,7 +537,7 @@ chap_handle_default(struct chap_server_state *ss, int code, int id,
 		} else {
 			notice("CHAP peer authentication succeeded for %q", prev_name);
 			auth_peer_success(0, PPP_CHAP, ss->digest->code,
-					  (u_char*)prev_name, strlen(prev_name));
+					  (u_char*)prev_name, (int)strlen(prev_name));
 			if (chap_rechallenge_time) {
 				ss->flags |= TIMEOUT_PENDING;
 				TIMEOUT(chap_timeout, ss,
@@ -626,7 +626,7 @@ chap_respond(struct chap_client_state *cs, int id,
 	memset(secret, 0, secret_len);
 
 	clen = *p;
-	nlen = strlen(cs->name);
+	nlen = (int)strlen(cs->name);
 	memcpy(p + clen + 1, cs->name, nlen);
 
 	p = response + PPP_HDRLEN;
@@ -701,7 +701,7 @@ chap_wait_input_fd(void)
 
 		if (ask_password_mode == 1) {
 			err = cs->digest->make_change_password(p, cs->name, chap_saved_packet, 
-					  secret, secret_len, (u_char *)new_passwd, strlen(new_passwd),  cs->priv);
+					  secret, secret_len, (u_char *)new_passwd, (int)strlen(new_passwd),  cs->priv);
 			/* save new password if possible */
 			if (!err)
 				save_new_password();

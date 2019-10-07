@@ -1,49 +1,49 @@
 BAD_CONFIG_FILE
-	"nie mogê zrozumieæ zawarto¶ci pliku %s\n"
+	"nie mo¿na zrozumieæ zawarto¶ci pliku %s\n"
 CONFIG_OPEN_ERROR
-	"Ostrze¿enie: nie mogê otworzyæ pliku %s\n"
+	"Ostrze¿enie: nie mo¿na otworzyæ pliku konfiguracyjnego %s\n"
 PARSE_ERROR_IN_CONFIG
-	"B³±d przy interpretowaniu pliku konfiguracji\n"
+	"B³±d podczas interpretacji pliku konfiguracyjnego\n"
 INCOMPAT
-	"nie pasuj±ce wzajemnie opcje %s i %s\n"
+	"niepasuj±ce wzajemnie opcje %s i %s\n"
 NO_ALTERNATE
-	"Niestety - nie mam wkompilowanej mo¿liwo¶ci u¿ycia alternatywnych systemów\n"
+	"Niestety - brak wkompilowanej obs³ugi alternatywnych systemów\n"
 NO_COMPRESS
 	"Man zosta³ skompilowany z automatyczn± kompresj± stron cat,\n\
 ale plik konfiguracyjny nie definiuje COMPRESS.\n"
 NO_NAME_FROM_SECTION
-	"Jak± stronê w sekcji %s chcesz przeczytaæ?\n"
+	"Któr± stronê podrêcznika z sekcji %s chcesz przeczytaæ?\n"
 NO_NAME_NO_SECTION
-	"Jak± stronê chcesz przeczytaæ?\n"
+	"Któr± stronê podrêcznika chcesz przeczytaæ?\n"
 NO_SUCH_ENTRY_IN_SECTION
-	"Nie ma strony %s w sekcji %s manuala\n"
+	"Nie ma strony %s w sekcji %s podrêcznika\n"
 NO_SUCH_ENTRY
-	"Nie ma strony manuala dla %s\n"
+	"Nie ma strony podrêcznika dla %s\n"
 PAGER_IS
-	"\nu¿ywam %s jako pagera\n"
+	"\nu¿ywanie %s jako pagera\n"
 SYSTEM_FAILED
-	"B³±d w trakcie formatowania lub wy¶wietlania.\n\
-Komenda %s zwróci³a status %d.\n"
+	"B³±d podczas wykonywania polecenia formatowania lub wy¶wietlania.\n\
+Polecenie systemowe %s zwróci³o status %d.\n"
 VERSION
 	"%s, wersja %s\n\n"
 OUT_OF_MEMORY
-	"Brak pamiêci - nie mogê malloc %d bajtów\n"
+	"Brak pamiêci - nie mo¿na przydzieliæ %d bajtów pamiêci\n"
 ROFF_CMD_FROM_FILE_ERROR
-	"B³±d przetwarzania komendy *roff z plku %s\n"
+	"B³±d podczas przetwarzania polecenia *roff z pliku %s\n"
 MANROFFSEQ_ERROR
-	"B³±d przetwarzania MANROFFSEQ. Uzyjê systemowych warto¶ci domy¶lnych.\n"
+	"B³±d podczas przetwarzania MANROFFSEQ. U¿ywanie ustawieñ domy¶lnych systemu.\n"
 ROFF_CMD_FROM_COMMANDLINE_ERROR
-	"B³±d przetwarzania komendy *roff podanej w linii komend.\n"
+	"B³±d podczas przetwarzania polecenia *roff podanego w linii poleceñ.\n"
 UNRECOGNIZED_LINE
-	"Nierozpoznana linia w pliku konfiguracji (zignorowana)\n%s\n"
+	"Nierozpoznana linia w pliku konfiguracyjnym (zignorowana)\n%s\n"
 GETVAL_ERROR
-	"man-config.c: b³±d wewnêtrzny: nie ma ³añcucha %s\n"
+	"man-config.c: b³±d wewnêtrzny: nie znaleziono ³añcucha znaków %s\n"
 FOUND_MANDIR
-	"znaleziony katalog man %s\n"
+	"znaleziono katalog man %s\n"
 FOUND_MAP
-	"znaleziona mapa manpath %s --> %s\n"
+	"znaleziono mapê manpath %s --> %s\n"
 FOUND_CATDIR
-	"odpowiadaj±cy katalog cat: %s\n"
+	"odpowiadaj±cy katalog cat to %s\n"
 LINE_TOO_LONG
 	"Za d³uga linia w pliku konfiguracyjnym\n"
 SECTION
@@ -53,99 +53,99 @@ UNLINKED
 GLOBBING
 	"globbing %s\n"
 EXPANSION_FAILED
-	"Nieudane usi³owanie [%s] ekspansji strony manuala\n"
+	"Próba [%s] rozwiniêcia strony podrêcznika nie powiod³a siê\n"
 OPEN_ERROR
-	"Nie mogê otworzyæ strony manuala %s\n"
+	"Nie mo¿na otworzyæ strony podrêcznika %s\n"
 READ_ERROR
-	"B³±d czytania strony manuala %s\n"
+	"B³±d podczas odczytu strony podrêcznika %s\n"
 FOUND_EQN
-	"znaleziona dyrektywa eqn(1)\n"
+	"znaleziono dyrektywê eqn(1)\n"
 FOUND_GRAP
-	"znaleziona dyrektywa grap(1)\n"
+	"znaleziono dyrektywê grap(1)\n"
 FOUND_PIC
-	"znaleziona dyrektywa pic(1)\n"
+	"znaleziono dyrektywê pic(1)\n"
 FOUND_TBL
-	"znaleziona dyrektywa tbl(1)\n"
+	"znaleziono dyrektywê tbl(1)\n"
 FOUND_VGRIND
-	"znaleziona dyrektywa vgrind(1)\n"
+	"znaleziono dyrektywê vgrind(1)\n"
 FOUND_REFER
-	"znaleziona dyrektywa refer(1)\n"
+	"znaleziono dyrektywê refer(1)\n"
 ROFF_FROM_COMMAND_LINE
-	"przetwarzam dyrektywê podan± w linii komend\n"
+	"przetwarzanie dyrektywy podanej w linii poleceñ\n"
 ROFF_FROM_FILE
-	"przetwarzam dyrektywê z pliku %s\n"
+	"przetwarzanie dyrektywy z pliku %s\n"
 ROFF_FROM_ENV
-	"przetwarzam dyrektywê ze zmiennej ¶rodowiskowej\n"
+	"przetwarzanie dyrektywy ze zmiennej ¶rodowiskowej\n"
 USING_DEFAULT
-	"u¿ywam domy¶lnej sekwencji preprocesora\n"
+	"u¿ywanie domy¶lnej sekwencji preprocesora\n"
 PLEASE_WAIT
-	"Formatuje stronê, poczekaj...\n"
+	"Formatowanie strony, proszê czekaæ...\n"
 CHANGED_MODE
-	"uprawnienia %s zmienione na %o\n"
+	"zmieniono uprawnienia %s na %o\n"
 CAT_OPEN_ERROR
-	"Nie mogê otworzyæ %s do zapisu.\n"
+	"Nie mo¿na otworzyæ %s do zapisu.\n"
 PROPOSED_CATFILE
-	"bêdê próbowa³ wpisaæ do %s, je¿eli potrzebne\n"
+	"w razie potrzeby man bêdzie próbowa³ zapisaæ %s\n"
 IS_NEWER_RESULT
 	"status z is_newer() = %d\n"
 TRYING_SECTION
-	"próbujê sekcjê %s\n"
+	"próbowanie sekcji %s\n"
 SEARCHING
-	"\nszukam w %s\n"
+	"\nwyszukiwanie w %s\n"
 ALREADY_IN_MANPATH
 	"ale %s jest ju¿ w manpath\n"
 CANNOT_STAT
-	"Ostrze¿enie: nie mogê u¿yæ stat na pliku %s!\n"
+	"Ostrze¿enie: nie mo¿na u¿yæ stat na pliku %s!\n"
 IS_NO_DIR
 	"Ostrze¿enie: %s nie jest katalogiem!\n"
 ADDING_TO_MANPATH
-	"dodajê %s do manpath\n"
+	"dodawanie %s do manpath\n"
 PATH_DIR
-	"\nkatalog path %s "
+	"\n¶cie¿ka katalogu %s "
 IS_IN_CONFIG
 	"jest w pliku konfiguracyjnym\n"
 IS_NOT_IN_CONFIG
-	"nie jest obecny w pliku konfiguracyjnym\n"
+	"nie jest obecna w pliku konfiguracyjnym\n"
 MAN_NEARBY
 	"ale jest katalog man niedaleko\n"
 NO_MAN_NEARBY
 	"i nie ma katalogu man niedaleko\n"
 ADDING_MANDIRS
-	"\ndodajê obowi±zkowe katalogi man\n\n"
+	"\ndodawanie obowi±zkowych katalogów man\n\n"
 CATNAME_IS
 	"cat_name w convert_to_cat () jest: %s\n"
 NO_EXEC
-	"\nnie wykonujê komrndy:\n  %s\n"
+	"\nniewykonywanie polecenia:\n  %s\n"
 USAGE1
-	"u¿ycie: %s [-adfhktw] [sekcja] [-M ¶cie¿ka] [-P pager] [-S lista]\n\t"
+	"u¿ycie: %s [-adfhktwW] [sekcja] [-M ¶cie¿ka] [-P pager] [-S lista]\n\t"
 USAGE2
 	"[-m system] "
 USAGE3
 	"[-p ³añcuch_znaków] nazwa ...\n\n"
 USAGE4
-	"  a : (all) znajd¼ wszystkie pasuj±ce strony\n\
-  c : (no cat) nie u¿ywaj pliku cat\n\
-  d : (debug) wy¶wietlaj mnóstwo informacji o wykonywaniu\n\
-  D : jak -d, ale wy¶wietl te¿ strony man\n\
+	"  a : znajduje wszystkie pasuj±ce strony\n\
+  c : nie u¿ywa pliku cat\n\
+  d : wy¶wietla mnóstwo informacji debugowania\n\
+  D : jak -d, ale wy¶wietla te¿ strony\n\
   f : to samo co whatis(1)\n\
-  h : wy¶wietl ten help\n\
+  h : wy¶wietla ten komunikat pomocy\n\
   k : to samo co apropos(1)\n\
-  K : szukaj ³añcucha znaków we wszystkich stronach\n"
+  K : wyszukuje ³añcuch znaków na wszystkich stronach\n"
 USAGE5
-	"  t : u¿yj troff do formatowania stron do wydrukowania\n"
+	"  t : u¿ywa troff do formatowania stron do wydrukowania\n"
 USAGE6
 	"\
-  w : wy¶wietl po³o¿enie stron(y) man, która bylaby byla wy¶wietlona\n\
-      (je¿eli nie podana ¿adna nazwa: wy¶wietl przeszukiwane katalogi)\n\n\
-  W : tak jak -w, ale wypisz tylko nazwy plików\n\n\
-  C plik   : u¿yj `plik' jako plik konfiguracyjny\n\
-  M ¶cie¿ka: ustaw ¶cie¿kê poszukiwania stron jako `¶cie¿ka'\n\
-  P pager  : u¿yj programu `pager' do wyswietlania stron\n\
+  w : wy¶wietla po³o¿enie stron(y) podrêcznika, która by³aby wy¶wietlona\n\
+      (je¿eli nie podano ¿adnej nazwy: wy¶wietla przeszukiwane katalogi)\n\
+  W : tak jak -w, ale wy¶wietla tylko nazwy plików\n\n\
+  C plik   : u¿ywa `plik' jako plik konfiguracyjny\n\
+  M ¶cie¿ka: ustawia ¶cie¿kê wyszukiwania stron podrêcznika jako `¶cie¿ka'\n\
+  P pager  : u¿ywa programu `pager' do wy¶wietlania stron\n\
   S lista  : lista sekcji oddzielona dwukropkami\n"
 USAGE7
-	"  m system : szukaj stron man alternatywnego systemu\n"
+	"  m system : wyszukuje strony podrêcznika dla alternatywnego systemu\n"
 USAGE8
-	"  p ³añcuch : ³añcuch znaków podaj±cy, jakie u¿yæ preprocesory\n\
+	"  p ³añcuch znaków: ³añcuch znaków okre¶laj±cy, które preprocesory u¿yæ\n\
                e - [n]eqn(1)   p - pic(1)    t - tbl(1)\n\
                g - grap(1)     r - refer(1)  v - vgrind(1)\n"
 USER_CANNOT_OPEN_CAT
@@ -153,18 +153,36 @@ USER_CANNOT_OPEN_CAT
 USER_CAN_OPEN_CAT
 	"ale rzeczywisty u¿ytkownik mo¿e otworzyæ plik\n"
 CANNOT_FORK
-	"nieudana próba fork komendy _%s_\n"
+	"nieudana próba fork polecenia _%s_\n"
 WAIT_FAILED
-	"b³±d w trakcie czekania na proces potomny _%s_\n"
+	"b³±d podczas oczekiwania na proces potomny _%s_\n"
 GOT_WRONG_PID
-	"bardzo dziwne... z³y pid w trakcie czekania na mój proces potomny\n"
+	"bardzo dziwne..., otrzymano z³y pid podczas oczekiwania na proces potomny\n"
 CHILD_TERMINATED_ABNORMALLY
-	"b³±d krytyczny: komenda _%s_ zakoñczona nieprawid³owo\n"
+	"b³±d krytyczny: polecenie _%s_ zakoñczone nieprawid³owo\n"
 IDENTICAL
-	"Strona man %s jest identyczna jak %s\n"
+	"Strona podrêcznika %s jest identyczna jak %s\n"
 MAN_FOUND
-	"Znalaz³em stronê(y) manuala:\n"
+	"Znaleziono stronê(y) podrêcznika:\n"
 NO_TROFF
-	"b³±d: nie podana komenda TROFF w %s\n"
+	"b³±d: nie podano polecenia TROFF w %s\n"
 NO_CAT_FOR_NONSTD_LL
 	"strona cat nie zosta³a zapisana z powodu niestandardowej d³ugo¶ci linii\n"
+BROWSER_IS
+	"\nu¿ywanie %s jako przegl±darki\n"
+HTMLPAGER_IS
+	"\nu¿ywanie %s do zrzucania stron HTML jako tekst"
+FOUND_FILE
+	"manfile_from_sec_and_dir() znalaz³a %s\n"
+CALLTRACE1
+	"manfile_from_sec_and_dir(dir=%s, sec=%s, name=%s, flags=0x%0x)\n"
+CALLTRACE2
+	"glob_for_file(dir=%s, sec=%s, name=%s, type=0x%0x, ...)\n"
+NO_MATCH
+	"glob_for_file nie znalaz³a ¿adnych dopasowañ.\n"
+GLOB_FOR_FILE
+	"glob_for_file zwróci³a %s.\n"
+CALLTRACE3
+	"glob_for_file_ext_glob(dir=%s, sec=%s, name=%s, ext=%s, hpx=%s, glob=%d, type=0x%0x);\n"
+ABOUT_TO_GLOB
+	"glob_for_file_ext_glob rozwinie %s\n"

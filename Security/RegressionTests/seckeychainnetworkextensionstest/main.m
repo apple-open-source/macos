@@ -21,14 +21,14 @@ static void cleanupKeychain()
     attributes[(__bridge NSString*)kSecClass] = (__bridge NSString*)kSecClassGenericPassword;
     attributes[(__bridge NSString*)kSecAttrAccessGroup] = NetworkExtensionAccessGroup;
     attributes[(__bridge NSString*)kSecAttrAccount] = TestAccount;
-    attributes[(__bridge NSString*)kSecAttrNoLegacy] = @YES;
+    attributes[(__bridge NSString*)kSecUseDataProtectionKeychain] = @YES;
     SecItemDelete((__bridge CFDictionaryRef)attributes);
     
     attributes = [NSMutableDictionary dictionary];
     attributes[(__bridge NSString*)kSecClass] = (__bridge NSString*)kSecClassGenericPassword;
     attributes[(__bridge NSString*)kSecAttrAccessGroup] = NetworkExtensionPersistentRefSharingAccessGroup;
     attributes[(__bridge NSString*)kSecAttrAccount] = TestAccount;
-    attributes[(__bridge NSString*)kSecAttrNoLegacy] = @YES;
+    attributes[(__bridge NSString*)kSecUseDataProtectionKeychain] = @YES;
     SecItemDelete((__bridge CFDictionaryRef)attributes);
     
 }
@@ -44,7 +44,7 @@ int main(int argc, const char * argv[])
         attributes[(__bridge NSString*)kSecAttrAccount] = TestAccount;
         attributes[(__bridge NSString*)kSecValueData] = [NSData dataWithBytes:TestPassword.UTF8String length:TestPassword.length];
         attributes[(__bridge NSString*)kSecReturnPersistentRef] = @YES;
-        attributes[(__bridge NSString*)kSecAttrNoLegacy] = @YES;
+        attributes[(__bridge NSString*)kSecUseDataProtectionKeychain] = @YES;
 
         CFTypeRef returnData = NULL;
         OSStatus result = SecItemAdd((__bridge CFDictionaryRef)attributes, &returnData);
@@ -59,7 +59,7 @@ int main(int argc, const char * argv[])
             attributes[(__bridge NSString*)kSecAttrAccessGroup] = NetworkExtensionPersistentRefSharingAccessGroup;
             attributes[(__bridge NSString*)kSecAttrAccount] = TestAccount;
             attributes[(__bridge NSString*)kSecValueData] = (__bridge NSData*)returnData;
-            attributes[(__bridge NSString*)kSecAttrNoLegacy] = @YES;
+            attributes[(__bridge NSString*)kSecUseDataProtectionKeychain] = @YES;
 
             result = SecItemAdd((__bridge CFDictionaryRef)attributes, &returnData);
             if (result == 0) {

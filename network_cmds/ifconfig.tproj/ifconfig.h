@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -69,6 +69,7 @@ struct cmd;
 
 typedef	void c_func(const char *cmd, int arg, int s, const struct afswtch *afp);
 typedef	void c_func2(const char *arg1, const char *arg2, int s, const struct afswtch *afp);
+typedef	int c_funcv(int argc, char *const *argv, int s, const struct afswtch *afp);
 
 struct cmd {
 	const char *c_name;
@@ -76,9 +77,11 @@ struct cmd {
 #define	NEXTARG		0xffffff	/* has following arg */
 #define	NEXTARG2	0xfffffe	/* has 2 following args */
 #define	OPTARG		0xfffffd	/* has optional following arg */
+#define	VAARGS		0xfffffc	/* has variable following args */
 	union {
 		c_func	*c_func;
 		c_func2	*c_func2;
+		c_funcv *c_funcv;
 	} c_u;
 	int	c_iscloneop;
 	struct cmd *c_next;
@@ -100,6 +103,7 @@ void	callback_register(callback_func *, void *);
 #define	DEF_CMD_ARG(name, func)		{ name, NEXTARG, { .c_func = func } }
 #define	DEF_CMD_OPTARG(name, func)	{ name, OPTARG, { .c_func = func } }
 #define	DEF_CMD_ARG2(name, func)	{ name, NEXTARG2, { .c_func2 = func } }
+#define	DEF_CMD_VA(name, func)		{ name, VAARGS, { .c_funcv = func } }
 #define	DEF_CLONE_CMD(name, param, func) { name, param, { .c_func = func }, 1 }
 #define	DEF_CLONE_CMD_ARG(name, func)	{ name, NEXTARG, { .c_func = func }, 1 }
 

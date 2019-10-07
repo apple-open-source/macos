@@ -30,6 +30,7 @@
 #include "MessageSender.h"
 #include "NetworkConnectionToWebProcess.h"
 #include <WebCore/IDBConnectionToClient.h>
+#include <WebCore/IndexedDB.h>
 #include <pal/SessionID.h>
 
 namespace WebCore {
@@ -50,15 +51,17 @@ struct SecurityOriginData;
 
 namespace WebKit {
 
+class NetworkProcess;
+
 class WebIDBConnectionToClient final : public WebCore::IDBServer::IDBConnectionToClientDelegate, public IPC::MessageSender, public RefCounted<WebIDBConnectionToClient> {
 public:
-    static Ref<WebIDBConnectionToClient> create(IPC::Connection&, uint64_t serverConnectionIdentifier, PAL::SessionID);
+    static Ref<WebIDBConnectionToClient> create(NetworkProcess&, IPC::Connection&, uint64_t serverConnectionIdentifier, PAL::SessionID);
 
     virtual ~WebIDBConnectionToClient();
 
     WebCore::IDBServer::IDBConnectionToClient& connectionToClient();
     uint64_t identifier() const final { return m_identifier; }
-    uint64_t messageSenderDestinationID() final { return m_identifier; }
+    uint64_t messageSenderDestinationID() const final { return m_identifier; }
 
     // IDBConnectionToClientDelegate
     void didDeleteDatabase(const WebCore::IDBResultData&) final;
@@ -103,7 +106,7 @@ public:
     void createIndex(const WebCore::IDBRequestData&, const WebCore::IDBIndexInfo&);
     void deleteIndex(const WebCore::IDBRequestData&, uint64_t objectStoreIdentifier, const String& indexName);
     void renameIndex(const WebCore::IDBRequestData&, uint64_t objectStoreIdentifier, uint64_t indexIdentifier, const String& newName);
-    void putOrAdd(const WebCore::IDBRequestData&, const WebCore::IDBKeyData&, const WebCore::IDBValue&, unsigned overwriteMode);
+    void putOrAdd(const WebCore::IDBRequestData&, const WebCore::IDBKeyData&, const WebCore::IDBValue&, WebCore::IndexedDB::ObjectStoreOverwriteMode);
     void getRecord(const WebCore::IDBRequestData&, const WebCore::IDBGetRecordData&);
     void getAllRecords(const WebCore::IDBRequestData&, const WebCore::IDBGetAllRecordsData&);
     void getCount(const WebCore::IDBRequestData&, const WebCore::IDBKeyRangeData&);
@@ -126,13 +129,14 @@ public:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
 
 private:
-    WebIDBConnectionToClient(IPC::Connection&, uint64_t serverConnectionIdentifier, PAL::SessionID);
+    WebIDBConnectionToClient(NetworkProcess&, IPC::Connection&, uint64_t serverConnectionIdentifier, PAL::SessionID);
 
-    IPC::Connection* messageSenderConnection() final;
+    IPC::Connection* messageSenderConnection() const final;
 
     template<class MessageType> void handleGetResult(const WebCore::IDBResultData&);
 
     Ref<IPC::Connection> m_connection;
+    Ref<NetworkProcess> m_networkProcess;
 
     uint64_t m_identifier;
     PAL::SessionID m_sessionID;

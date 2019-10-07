@@ -1,26 +1,32 @@
+.\"
+.\" Generated automatically from man.conf.5.in by the
+.\" configure script.
+.\"
 .\" @(#)man.conf
 .\" Traducido del portugués por Pablo Saratxag <srtxg@f2219.n293.z2.fidonet.org>
 .\"
-.TH MAN.CONF 5 "25 Mayo 1996" "Manual Linux" "Comandos utilisador"
+.\" Traducción actualizada por Benjamín Albiñana <benalb@escomposlinux.org>
+.\"
+.TH MAN.CONF 5 "Septiembre 19, 2005" 
 .SH NOMBRE
 man.conf \- fichero de configuración para el comando man
 .SH DESCRIPCIÓN
 .LP
-Este ficheiro es leido por
+Este fichero es leido por
 .BR man (1)
-y contiene: (a) información de como construir el camino de búsqueda de las
+y contiene: (a) información  para obtener la ruta de búsqueda de las
 páginas (manpath); (b) nombres completos
-de vários programas como nroff, eqn, tbl, etc. usados por man; (c) una lista
-de descompresores de ficheros com determinadas extensions. Un fichero
-alternativo puede ser indicado con
+de varios  programas como nroff, eqn, tbl, etc. usados por man; (c) una lista
+de descompresores de ficheros con determinadas extensiones. Se puede indicar
+un fichero alternativo con 
 .LP
 .RS
 man -C fich_config ...
 .RE
 .LP
 Los nombres de comandos pueden ser indicados con opciones.
-Las opciones útiles para nroff podem se encuentran en grotty(1).
-Por ejemplo, en vez de la linea
+Las opciones útiles para nroff se pueden encontrar en grotty(1).
+Por ejemplo, en vez de la línea
 .LP
 .RS
 .nf
@@ -36,7 +42,14 @@ NROFF /usr/bin/groff -mandoc -Tlatin1 -P-u -P-b
 .fi
 .RE
 .LP
-para suprimir subrayados y carácteres grasos.
-.SH "VEA TAMBIÉN"
+para suprimir subrayados y carácteres en negrita.
+.SH AUTOR
+John W. Eaton fue el autor original de
+.BR "man" .
+Zeyd M. Ben-Halim lanzó man 1.2, y Andries Brouwer continuó con
+las versiones 1.3 a 1.5p.
+Federico Lucifredi <flucifredi@acm.org> es el encargado actual.
+.SH VÉASE TAMBIÉN
 col(1), (g)eqn(1), (g)pic(1), groff(1), grotty(1), (g)refer(1), (g)tbl(1),
 less(1), man (1) e compress(1), gzip(1).
+

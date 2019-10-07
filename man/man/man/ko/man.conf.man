@@ -1,7 +1,7 @@
 .\" @(#)man.conf
-.TH MAN.CONFIG 5 "30 Mar 1994"
+.TH MAN.CONF 5 "30 Mar 1994"
 .SH 이름
-man.config \- man을 위한 구성 자료 
+man.conf \- man을 위한 구성 자료 
 .SH 설명
 .LP
 이 파일은 

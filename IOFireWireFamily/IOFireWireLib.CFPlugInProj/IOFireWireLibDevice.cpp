@@ -23,7 +23,9 @@
 #import "IOFireWireLibVectorCommand.h"
 #import "IOFireWireLibPHYPacketListener.h"
 
+#if !defined(__LP64__)
 #import <IOKit/iokitmig.h>
+#endif
 #import <mach/mach.h>
 #import <System/libkern/OSCrossEndian.h>
 

@@ -108,7 +108,7 @@ std::unique_ptr<RemoteLayerTreeNode> RemoteLayerTreeHost::makeNode(const RemoteL
     case PlatformCALayer::LayerTypeShapeLayer:
         return makeAdoptingView([[WKShapeView alloc] init]);
 
-    case PlatformCALayer::LayerTypeScrollingLayer:
+    case PlatformCALayer::LayerTypeScrollContainerLayer:
         if (!m_isDebugLayerTreeHost)
             return makeAdoptingView([[WKChildScrollView alloc] init]);
         // The debug indicator parents views under layers, which can cause crashes with UIScrollView.
@@ -128,7 +128,7 @@ RetainPtr<WKEmbeddedView> RemoteLayerTreeHost::createEmbeddedView(const RemoteLa
     if (m_isDebugLayerTreeHost)
         return adoptNS([[UIView alloc] init]);
 
-    auto result = m_embeddedViews.ensure(properties.embeddedViewID, [&]() -> RetainPtr<UIView *> {
+    auto result = m_embeddedViews.ensure(properties.embeddedViewID, [&]() -> RetainPtr<UIView> {
         switch (properties.type) {
 #if HAVE(PENCILKIT)
         case PlatformCALayer::LayerTypeEditableImageLayer: {

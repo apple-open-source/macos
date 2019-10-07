@@ -102,7 +102,7 @@ suspend_builtin (list)
 
       if (login_shell)
 	{
-	  builtin_error (_("cannot suspend a login shell"));
+	  builtin_error ("%s", _("cannot suspend a login shell"));
 	  return (EXECUTION_FAILURE);
 	}
     }

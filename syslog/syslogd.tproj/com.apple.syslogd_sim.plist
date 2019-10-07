@@ -4,12 +4,14 @@
 <dict>
 	<key>Label</key>
 	<string>com.apple.syslogd</string>
-	<key>OnDemand</key>
-	<false/>
+	<key>KeepAlive</key>
+	<true/>
 	<key>EnableTransactions</key>
 	<true/>
-        <key>POSIXSpawnType</key>
-        <string>Interactive</string>
+	<key>EnablePressuredExit</key>
+	<false/>
+	<key>POSIXSpawnType</key>
+	<string>Interactive</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/usr/sbin/syslogd</string>

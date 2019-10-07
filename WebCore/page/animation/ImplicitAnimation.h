@@ -53,11 +53,13 @@ public:
     void pauseAnimation(double timeOffset) override;
     void endAnimation(bool fillingForwards = false) override;
 
-    bool animate(CompositeAnimation&, const RenderStyle& targetStyle, std::unique_ptr<RenderStyle>& animatedStyle, bool& didBlendStyle);
+    OptionSet<AnimateChange> animate(CompositeAnimation&, const RenderStyle& targetStyle, std::unique_ptr<RenderStyle>& animatedStyle);
     void getAnimatedStyle(std::unique_ptr<RenderStyle>& animatedStyle) override;
     void reset(const RenderStyle& to, CompositeAnimation&);
 
     bool computeExtentOfTransformAnimation(LayoutRect&) const override;
+
+    bool affectsAcceleratedProperty() const;
 
     void setOverridden(bool);
     bool overridden() const override { return m_overridden; }
@@ -77,9 +79,11 @@ public:
 
     const RenderStyle& unanimatedStyle() const override { return *m_fromStyle; }
 
+    void clear() override;
+
 protected:
     bool shouldSendEventForListener(Document::ListenerType) const;    
-    bool sendTransitionEvent(const AtomicString&, double elapsedTime);
+    bool sendTransitionEvent(const AtomString&, double elapsedTime);
 
     void validateTransformFunctionList();
     void checkForMatchingFilterFunctionLists();

@@ -1,6 +1,5 @@
 # frozen_string_literal: false
 require 'test/unit'
-require 'thread'
 require 'tempfile'
 
 class TestBacktrace < Test::Unit::TestCase
@@ -198,7 +197,7 @@ class TestBacktrace < Test::Unit::TestCase
 
   def test_caller_locations_base_label
     assert_equal("#{__method__}", caller_locations(0, 1)[0].base_label)
-    loc, = tap {|loc| break caller_locations(0, 1)}
+    loc, = tap {break caller_locations(0, 1)}
     assert_equal("#{__method__}", loc.base_label)
     begin
       raise
@@ -209,7 +208,7 @@ class TestBacktrace < Test::Unit::TestCase
 
   def test_caller_locations_label
     assert_equal("#{__method__}", caller_locations(0, 1)[0].label)
-    loc, = tap {|loc| break caller_locations(0, 1)}
+    loc, = tap {break caller_locations(0, 1)}
     assert_equal("block in #{__method__}", loc.label)
     begin
       raise
@@ -228,7 +227,7 @@ class TestBacktrace < Test::Unit::TestCase
 
   def test_thread_backtrace
     begin
-      q = Queue.new
+      q = Thread::Queue.new
       th = Thread.new{
         th_rec q
       }
@@ -256,7 +255,7 @@ class TestBacktrace < Test::Unit::TestCase
 
   def test_thread_backtrace_locations_with_range
     begin
-      q = Queue.new
+      q = Thread::Queue.new
       th = Thread.new{
         th_rec q
       }
@@ -297,5 +296,37 @@ class TestBacktrace < Test::Unit::TestCase
       {**nil}
     end
     assert_not_match(/\Acore#/, e.backtrace_locations[0].base_label)
+  end
+
+  def test_notty_backtrace
+    err = ["-:1:in `<main>': unhandled exception"]
+    assert_in_out_err([], "raise", [], err)
+
+    err = ["-:2:in `foo': foo! (RuntimeError)",
+           "\tfrom -:4:in `<main>'"]
+    assert_in_out_err([], <<-"end;", [], err)
+    def foo
+      raise "foo!"
+    end
+    foo
+    end;
+
+    err = ["-:7:in `rescue in bar': bar! (RuntimeError)",
+           "\tfrom -:4:in `bar'",
+           "\tfrom -:9:in `<main>'",
+           "-:2:in `foo': foo! (RuntimeError)",
+           "\tfrom -:5:in `bar'",
+           "\tfrom -:9:in `<main>'"]
+    assert_in_out_err([], <<-"end;", [], err)
+    def foo
+      raise "foo!"
+    end
+    def bar
+      foo
+    rescue
+      raise "bar!"
+    end
+    bar
+    end;
   end
 end

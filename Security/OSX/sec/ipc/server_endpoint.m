@@ -27,12 +27,12 @@
 #include <xpc/private.h>
 #include <xpc/xpc.h>
 
-#include <ipc/securityd_client.h>
-#include <ipc/server_security_helpers.h>
-#include <ipc/server_entitlement_helpers.h>
-#include <ipc/server_endpoint.h>
+#include "ipc/securityd_client.h"
+#include "ipc/server_security_helpers.h"
+#include "ipc/server_entitlement_helpers.h"
+#include "ipc/server_endpoint.h"
 
-#include <securityd/SecItemServer.h>
+#include "securityd/SecItemServer.h"
 #include <Security/SecEntitlements.h>
 
 #pragma mark - Securityd Server
@@ -45,7 +45,9 @@
     if ((self = [super init])) {
         _connection = connection;
 
-        fill_security_client(&self->_client, connection.effectiveUserIdentifier, connection.auditToken);
+        if (!fill_security_client(&self->_client, connection.effectiveUserIdentifier, connection.auditToken)) {
+            return nil;
+        }
     }
     return self;
 }
@@ -66,7 +68,7 @@
         self->_client.canAccessNetworkExtensionAccessGroups  = existingClient->canAccessNetworkExtensionAccessGroups;
         self->_client.uid                                    = existingClient->uid;
         self->_client.musr                                   = CFRetainSafe(existingClient->musr);
-#if TARGET_OS_EMBEDDED && TARGET_HAS_KEYSTORE
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) && TARGET_HAS_KEYSTORE
         self->_client.keybag                                 = existingClient->keybag;
 #endif
 #if TARGET_OS_IPHONE
@@ -173,7 +175,7 @@ id<SecuritydXPCProtocol> SecCreateLocalSecuritydXPCServer(void) {
 }
 
 CFTypeRef SecCreateLocalCFSecuritydXPCServer(void) {
-    return (CFTypeRef) CFBridgingRetain(SecCreateLocalSecuritydXPCServer());
+    return CFBridgingRetain(SecCreateLocalSecuritydXPCServer());
 }
 
 void SecResetLocalSecuritydXPCFakeEntitlements(void) {

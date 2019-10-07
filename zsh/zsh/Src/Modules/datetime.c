@@ -100,8 +100,8 @@ output_strftime(char *nam, char **argv, Options ops, UNUSED(int func))
 {
     int bufsize, x, len;
     char *endptr = NULL, *scalar = NULL, *buffer;
-    time_t secs;
-    struct tm *t;
+    struct tm *tm;
+    struct timespec ts;
 
     if (OPT_ISSET(ops,'s')) {
 	scalar = OPT_ARG(ops, 's');
@@ -110,34 +110,66 @@ output_strftime(char *nam, char **argv, Options ops, UNUSED(int func))
 	    return 1;
 	}
     }
-    if (OPT_ISSET(ops, 'r'))
+    if (OPT_ISSET(ops, 'r')) {
+	if (!argv[1]) {
+	    zwarnnam(nam, "timestring expected");
+	    return 1;
+	}
 	return reverse_strftime(nam, argv, scalar, OPT_ISSET(ops, 'q'));
-
-    errno = 0;
-    secs = (time_t)strtoul(argv[1], &endptr, 10);
-    if (errno != 0) {
-	zwarnnam(nam, "%s: %e", argv[1], errno);
-	return 1;
-    } else if (*endptr != '\0') {
-	zwarnnam(nam, "%s: invalid decimal number", argv[1]);
-	return 1;
     }
 
-    t = localtime(&secs);
-    if (!t) {
-	zwarnnam(nam, "%s: unable to convert to time", argv[1]);
-	return 1;
+    if (!argv[1]) {
+	zgettime(&ts);
+	tm = localtime(&ts.tv_sec);
+    } else {
+	errno = 0;
+
+	ts.tv_sec = (time_t)strtoul(argv[1], &endptr, 10);
+	if (errno != 0) {
+	    zwarnnam(nam, "%s: %e", argv[1], errno);
+	    return 1;
+	} else if (*argv[1] == '\0' || *endptr != '\0') {
+	    zwarnnam(nam, "%s: invalid decimal number", argv[1]);
+	    return 1;
+	}
+
+	tm = localtime(&ts.tv_sec);
+	if (!tm) {
+	    zwarnnam(nam, "%s: unable to convert to time", argv[1]);
+	    return 1;
+	}
+
+	ts.tv_nsec = 0L;
+	if (argv[2]) {
+	    ts.tv_nsec = (long)zstrtol(argv[2], &endptr, 10);
+	    if (errno != 0) {
+		zwarnnam(nam, "%s: %e", argv[2], errno);
+		return 1;
+	    } else if (*argv[2] == '\0' || *endptr != '\0') {
+		zwarnnam(nam, "%s: invalid decimal number", argv[2]);
+		return 1;
+	    } else if (ts.tv_nsec < 0 || ts.tv_nsec > 999999999) {
+		zwarnnam(nam, "%s: invalid nanosecond value", argv[2]);
+		return 1;
+	    }
+	}
     }
+
     bufsize = strlen(argv[0]) * 8;
     buffer = zalloc(bufsize);
 
     len = 0;
     for (x=0; x < 4; x++) {
-        if ((len = ztrftime(buffer, bufsize, argv[0], t, 0L)) >= 0)
+        if ((len = ztrftime(buffer, bufsize, argv[0], tm, ts.tv_nsec)) >= 0 ||
+	    x==3)
 	    break;
 	buffer = zrealloc(buffer, bufsize *= 2);
     }
-    DPUTS(len < 0, "bad output from ztrftime");
+    if (len < 0) {
+	zwarnnam(nam, "bad/unsupported format: '%s'", argv[0]);
+	zfree(buffer, bufsize);
+	return 1;
+    }
 
     if (scalar) {
 	setsparam(scalar, metafy(buffer, len, META_DUP));
@@ -176,70 +208,34 @@ getcurrentsecs(UNUSED(Param pm))
 }
 
 static double
-getcurrentrealtime(Param pm)
+getcurrentrealtime(UNUSED(Param pm))
 {
-#ifdef HAVE_CLOCK_GETTIME
     struct timespec now;
-
-    if (clock_gettime(CLOCK_REALTIME, &now) < 0) {
-	zwarn("%s: unable to retrieve time: %e", pm->node.nam, errno);
-	return (double)0.0;
-    }
-
+    zgettime(&now);
     return (double)now.tv_sec + (double)now.tv_nsec * 1e-9;
-#else
-    struct timeval now;
-    struct timezone dummy_tz;
-
-    (void)pm;
-    gettimeofday(&now, &dummy_tz);
-
-    return (double)now.tv_sec + (double)now.tv_usec * 1e-6;
-#endif
 }
 
 static char **
-getcurrenttime(Param pm)
+getcurrenttime(UNUSED(Param pm))
 {
     char **arr;
     char buf[DIGBUFSIZE];
-
-#ifdef HAVE_CLOCK_GETTIME
     struct timespec now;
 
-    if (clock_gettime(CLOCK_REALTIME, &now) < 0) {
-	zwarn("%s: unable to retrieve time: %e", pm->node.nam, errno);
-	return NULL;
-    }
+    zgettime(&now);
 
     arr = (char **)zhalloc(3 * sizeof(*arr));
     sprintf(buf, "%ld", (long)now.tv_sec);
     arr[0] = dupstring(buf);
-    sprintf(buf, "%ld", now.tv_nsec);
+    sprintf(buf, "%ld", (long)now.tv_nsec);
     arr[1] = dupstring(buf);
     arr[2] = NULL;
 
     return arr;
-#else
-    struct timeval now;
-    struct timezone dummy_tz;
-
-    (void)pm;
-    gettimeofday(&now, &dummy_tz);
-
-    arr = (char **)zhalloc(3 * sizeof(*arr));
-    sprintf(buf, "%ld", (long)now.tv_sec);
-    arr[0] = dupstring(buf);
-    sprintf(buf, "%ld", (long)now.tv_usec * 1000);
-    arr[1] = dupstring(buf);
-    arr[2] = NULL;
-
-    return arr;
-#endif
 }
 
 static struct builtin bintab[] = {
-    BUILTIN("strftime",    0, bin_strftime,    2,   2, 0, "qrs:", NULL),
+    BUILTIN("strftime",    0, bin_strftime,    1,   3, 0, "qrs:", NULL),
 };
 
 static const struct gsu_integer epochseconds_gsu =

@@ -30,16 +30,13 @@
 #include <security_utilities/daemon.h>
 #include <security_utilities/debugging.h>
 #include <security_utilities/debugsupport.h>
-#include <security_utilities/devrandom.h>
 #include <security_utilities/endian.h>
 #include <security_utilities/globalizer.h>
 #include <security_utilities/logging.h>
-#include <security_utilities/mach_notify.h>
 #include <security_utilities/memstreams.h>
 #include <security_utilities/memutils.h>
 #include <security_utilities/refcount.h>
 #include <security_utilities/seccfobject.h>
-#include <security_utilities/streams.h>
 #include <security_utilities/threading.h>
 #include <security_utilities/threading_internal.h>
 #include <security_utilities/timeflow.h>

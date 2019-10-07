@@ -54,7 +54,7 @@ typedef struct {
     CFStringRef        kextID;
     const char       * segmentName;
     const char       * sectionName;
-    
+
     const UInt8      * kernelcacheImageBytes;
     CFPropertyListRef  kernelcacheInfoPlist;
 

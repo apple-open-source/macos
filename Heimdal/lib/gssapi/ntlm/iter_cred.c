@@ -41,6 +41,7 @@ _gss_ntlm_iter_creds_f(OM_uint32 flags,
 		       void *userctx ,
 		       void (*cred_iter)(void *, gss_OID, gss_cred_id_t))
 {
+#ifdef HAVE_KCM
     krb5_error_code ret;
     krb5_context context = NULL;
     krb5_storage *request, *response;
@@ -105,4 +106,7 @@ _gss_ntlm_iter_creds_f(OM_uint32 flags,
     if (context)
 	krb5_free_context(context);
     (*cred_iter)(userctx, NULL, NULL);
+#else /* !HAVE_KCM */
+    _gss_mg_log(1, "_gss_ntlm_iter_creds_f -  GSS_S_UNAVAILABLE");
+#endif /* HAVE_KCM */
 }		 

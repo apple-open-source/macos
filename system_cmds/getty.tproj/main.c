@@ -260,7 +260,7 @@ main(int argc, char *argv[])
 		 */
 		dogettytab();
 
-#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
+#if defined(__APPLE__) && !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 		if (strncmp(ttyn, _PATH_CONSOLE, sizeof(ttyn)) == 0)
 			ttyopenmode |= O_POPUP;
 #endif

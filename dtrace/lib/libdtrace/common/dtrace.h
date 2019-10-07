@@ -37,17 +37,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <gelf.h>
-#else /* is Apple Mac OS X */
-
-#if defined(__LP64__)
-#if !defined(_LP64)
-#define _LP64 /* Solaris vs. Darwin */
-#endif
-#else
-#if !defined(_ILP32)
-#define _ILP32 /* Solaris vs. Darwin */
-#endif
-#endif
+#else /* !defined(__APPLE__) */
 
 #include <mach/machine.h>
 #include <sys/dtrace.h>
@@ -55,7 +45,7 @@
 #include <stdio.h>
 
 /*
- * In lieu of gelf.h. 
+ * In lieu of gelf.h.
  * dtrace.h is a publicly exported header.
  * It makes glancing reference to some GElf types.
  * Rather than haul in all the undelying Elf typing machinery, we'll
@@ -95,7 +85,16 @@ typedef struct {
 	uint32_t	st_arch_subinfo;/* Needed for arm function info */		
 } GElf_Sym;
 
+#include <TargetConditionals.h>
+
+#if TARGET_OS_OSX
+#define DTRACE_TARGET_APPLE_MAC 1
+#elif TARGET_OS_IPHONE
+#define DTRACE_TARGET_APPLE_EMBEDDED 1
+#endif
+
 extern char* demangleSymbolCString(const char*);
+extern char *ctf_type_name(ctf_file_t *, ctf_id_t, char *, size_t);
 
 #endif /* __APPLE__ */
 
@@ -117,7 +116,9 @@ extern "C" {
 #define	DTRACE_VERSION	3		/* library ABI interface version */
 
 struct ps_prochandle;
-struct dt_node;
+typedef struct pstatus pstatus_t;
+typedef struct prsyminfo prsyminfo_t;
+
 typedef struct dtrace_hdl dtrace_hdl_t;
 typedef struct dtrace_prog dtrace_prog_t;
 typedef struct dtrace_vector dtrace_vector_t;
@@ -189,9 +190,6 @@ extern dtrace_prog_t *dtrace_program_strcompile(dtrace_hdl_t *,
 extern dtrace_prog_t *dtrace_program_fcompile(dtrace_hdl_t *,
     FILE *, uint_t, int, char *const []);
 
-extern struct dt_node *dt_compile_sugar(dtrace_hdl_t *,
-	struct dt_node*);
-
 extern int dtrace_program_exec(dtrace_hdl_t *, dtrace_prog_t *,
     dtrace_proginfo_t *);
 extern void dtrace_program_info(dtrace_hdl_t *, dtrace_prog_t *,
@@ -201,8 +199,10 @@ extern void dtrace_program_info(dtrace_hdl_t *, dtrace_prog_t *,
 #define	DTRACE_D_PROBES	0x02	/* include provider and probe definitions */
 #define	DTRACE_D_MASK	0x03	/* mask of valid flags to dtrace_dof_create */
 
+#if !defined(__APPLE__)
 extern int dtrace_program_link(dtrace_hdl_t *, dtrace_prog_t *,
     uint_t, const char *, int, char *const []);
+#endif /* !defined(__APPLE__) */
 
 extern int dtrace_program_header(dtrace_hdl_t *, FILE *, const char *);
 
@@ -512,6 +512,10 @@ extern struct ps_prochandle *dtrace_proc_grab(dtrace_hdl_t *, pid_t, int);
 extern struct ps_prochandle *dtrace_proc_waitfor(dtrace_hdl_t *, char const *);
 extern void dtrace_proc_release(dtrace_hdl_t *, struct ps_prochandle *);
 extern void dtrace_proc_continue(dtrace_hdl_t *, struct ps_prochandle *);
+extern int dtrace_proc_state(dtrace_hdl_t *, struct ps_prochandle *);
+extern const pstatus_t* dtrace_proc_status(dtrace_hdl_t *, struct ps_prochandle *);
+extern int dtrace_proc_lookup_by_addr(dtrace_hdl_t *, struct ps_prochandle *,
+    mach_vm_address_t, char *, size_t, GElf_Sym *, prsyminfo_t *);
 
 /*
  * DTrace Object, Symbol, and Type Interfaces
@@ -574,7 +578,7 @@ extern int dtrace_lookup_by_addr(dtrace_hdl_t *dtp,
                                  GElf_Sym *symp,
                                  dtrace_syminfo_t *sip);
 #endif
-        
+
 typedef struct dtrace_typeinfo {
 	const char *dtt_object;			/* object containing type */
 	ctf_file_t *dtt_ctfp;			/* CTF container handle */
@@ -667,13 +671,14 @@ extern const char *dtrace_class_name(dtrace_class_t);
 
 extern int dtrace_provider_modules(dtrace_hdl_t *, const char **, int);
 
-extern const char *const _dtrace_version;
-extern int _dtrace_debug;
-#if defined(__APPLE__)
-extern int _dtrace_mangled;
+extern cpu_type_t dtrace_str2arch(const char*);
+
 extern int _dtrace_disallow_dsym;
-#endif /* __APPLE__ */
-	
+extern const char *const _dtrace_version;
+
+void* dtrace_ld_create_dof(cpu_type_t cpu, unsigned int, const char*[],
+    unsigned int, const char*[], const char*[], uint64_t[], size_t*);
+
 #ifdef	__cplusplus
 }
 #endif

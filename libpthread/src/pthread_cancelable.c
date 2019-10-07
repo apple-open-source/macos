@@ -191,8 +191,7 @@ void
 _pthread_markcancel_if_canceled(pthread_t thread, mach_port_t kport)
 {
 	const int flags = (PTHREAD_CANCEL_ENABLE|_PTHREAD_CANCEL_PENDING);
-	int state = os_atomic_or2o(thread, cancel_state,
-			_PTHREAD_CANCEL_INITIALIZED, relaxed);
+	int state = os_atomic_load2o(thread, cancel_state, relaxed);
 	if ((state & flags) == flags && __unix_conforming) {
 		__pthread_markcancel(kport);
 	}
@@ -353,9 +352,7 @@ _pthread_joiner_abort_wait(pthread_t thread, pthread_join_context_t ctx)
 		 * _pthread_joiner_prepost_wake() didn't happen
 		 * allow another thread to join
 		 */
-#if DEBUG
-		PTHREAD_ASSERT(thread->tl_join_ctx == ctx);
-#endif
+		PTHREAD_DEBUG_ASSERT(thread->tl_join_ctx == ctx);
 		thread->tl_join_ctx = NULL;
 		thread->tl_exit_gate = MACH_PORT_NULL;
 		aborted = true;
@@ -422,9 +419,7 @@ _pthread_joiner_wait(pthread_t thread, pthread_join_context_t ctx, int conformin
 	// If pthread_detach() was called, we can't safely dereference the thread,
 	// else, decide who gets to deallocate the thread (see _pthread_terminate).
 	if (!ctx->detached) {
-#if DEBUG
-		PTHREAD_ASSERT(thread->tl_join_ctx == ctx);
-#endif
+		PTHREAD_DEBUG_ASSERT(thread->tl_join_ctx == ctx);
 		thread->tl_join_ctx = NULL;
 		cleanup = thread->tl_joiner_cleans_up;
 	}
@@ -461,9 +456,7 @@ _pthread_join(pthread_t thread, void **value_ptr, int conforming)
 		res = EDEADLK;
 	} else if (thread->tl_exit_gate == MACH_PORT_DEAD) {
 		TAILQ_REMOVE(&__pthread_head, thread, tl_plist);
-#if DEBUG
-		PTHREAD_ASSERT(thread->tl_joiner_cleans_up);
-#endif
+		PTHREAD_DEBUG_ASSERT(thread->tl_joiner_cleans_up);
 		thread->tl_joinable = false;
 		if (value_ptr) *value_ptr = _pthread_get_exit_value(thread);
 	} else {

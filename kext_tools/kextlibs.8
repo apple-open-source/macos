@@ -38,7 +38,7 @@ and paste the library declarations over the OSBundleLibraries property.
 .Pp
 You can use
 .Nm
-to find libraries for older releases of Mac OS X
+to find libraries for older releases of macOS
 using the
 .Fl repository
 option to specify an extensions folder to search
@@ -100,7 +100,7 @@ for dependencies.
 This option may be specified multiple times.
 You can use this to get library declarations
 relative to a set of extensions other than those of the running system
-(such as for a different release of Mac OS X),
+(such as for a different release of macOS),
 or to include a side directory of library kexts.
 Note: If you specify a directory with this option,
 the system extensions folders are not implicitly searched.
@@ -171,7 +171,7 @@ and with another nonzero status on some other problem.
 uses a simple algorithm of string matching to resolve symbols,
 and does not apply any of the patching that the full link process does.
 This can cause it to fail when searching for symbols
-in a kext built against an SDK for a prior release of Mac OS X
+in a kext built against an SDK for a prior release of macOS
 than the one on which
 .Nm
 is being used.

@@ -24,7 +24,6 @@
 
 #include "ckconfig.h"
 
-#if	CRYPTKIT_DER_ENABLE
 
 #include <security_cryptkit/CryptKitDER.h>
 #include <security_cryptkit/falloc.h>
@@ -37,6 +36,7 @@
 #include <Security/keyTemplates.h>
 #include <Security/oidsalg.h>
 #include <Security/oidsattr.h>
+#include <Security/x509defs.h>
 
 #define PRINT_SIG_GIANTS		0
 #define PRINT_CURVE_PARAMS		0
@@ -1241,4 +1241,3 @@ feeReturn feeDERDecodePKCS8PrivateKey(
 	return frtn;
 }
 
-#endif	/* CRYPTKIT_DER_ENABLE */

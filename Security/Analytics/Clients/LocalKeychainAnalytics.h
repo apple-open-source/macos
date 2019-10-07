@@ -21,8 +21,19 @@ typedef enum {
     LKAKeychainUpgradeOutcomePhase2,
 } LKAKeychainUpgradeOutcome;
 
+typedef enum {
+    LKAKeychainBackupTypeNeither,
+    LKAKeychainBackupTypeBag,
+    LKAKeychainBackupTypeCode,
+    LKAKeychainBackupTypeBagAndCode,
+    LKAKeychainBackupTypeEMCS,
+} LKAKeychainBackupType;
+
 void LKAReportKeychainUpgradeOutcome(int fromversion, int toversion, LKAKeychainUpgradeOutcome outcome);
 void LKAReportKeychainUpgradeOutcomeWithError(int fromversion, int toversion, LKAKeychainUpgradeOutcome outcome, CFErrorRef error);
+
+void LKABackupReportStart(bool hasKeybag, bool hasPasscode, bool isEMCS);
+void LKABackupReportEnd(bool hasBackup, CFErrorRef error);
 
 #if __OBJC2__
 
@@ -30,6 +41,8 @@ void LKAReportKeychainUpgradeOutcomeWithError(int fromversion, int toversion, LK
 #import <Security/SFAnalytics.h>
 
 typedef NSString* LKAnalyticsFailableEvent NS_STRING_ENUM;
+typedef NSString* LKAnalyticsMetric NS_STRING_ENUM;
+
 extern LKAnalyticsFailableEvent const LKAEventUpgrade;
 
 @interface LocalKeychainAnalytics : SFAnalytics

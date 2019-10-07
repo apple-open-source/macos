@@ -48,9 +48,7 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
-#if !TARGET_OS_OSX
-
-typedef struct {
+typedef struct cssm_data {
     size_t Length;
     uint8_t * __nullable Data;
 } SecAsn1Item, SecAsn1Oid;
@@ -64,17 +62,6 @@ typedef struct {
     SecAsn1AlgId algorithm;
     SecAsn1Item subjectPublicKey;
 } SecAsn1PubKeyInfo;
-
-#else
-#include <Security/cssmtype.h>
-#include <Security/x509defs.h>
-
-typedef CSSM_DATA SecAsn1Item;
-typedef CSSM_OID SecAsn1Oid;
-typedef CSSM_X509_ALGORITHM_IDENTIFIER SecAsn1AlgId;
-typedef CSSM_X509_SUBJECT_PUBLIC_KEY_INFO SecAsn1PubKeyInfo;
-
-#endif          
 
 CF_ASSUME_NONNULL_BEGIN
 

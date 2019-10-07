@@ -48,22 +48,6 @@
 
 #include <tls_helpers.h>
 
-/*
- * Get algorithm id for a SSLPubKey object.
- */
-CFIndex sslPubKeyGetAlgorithmID(SecKeyRef pubKey)
-{
-	return SecKeyGetAlgorithmId(pubKey);
-}
-
-/*
- * Get algorithm id for a SSLPrivKey object.
- */
-CFIndex sslPrivKeyGetAlgorithmID(SecKeyRef privKey)
-{
-	return SecKeyGetAlgorithmId(privKey);
-}
-
 
 OSStatus
 sslCreateSecTrust(
@@ -213,37 +197,6 @@ errOut:
 	return status;
 }
 
-/* Convert cert in DER format into an CFArray of SecCertificateRef */
-CFArrayRef
-tls_get_peer_certs(const SSLCertificate *certs)
-{
-    const SSLCertificate *cert;
-
-    CFMutableArrayRef certArray = NULL;
-    CFDataRef certData = NULL;
-    SecCertificateRef cfCert = NULL;
-
-    certArray = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-    require(certArray, out);
-    cert = certs;
-    while(cert) {
-        require((certData = CFDataCreate(kCFAllocatorDefault, cert->derCert.data, cert->derCert.length)), out);
-        require((cfCert = SecCertificateCreateWithData(kCFAllocatorDefault, certData)), out);
-        CFArrayAppendValue(certArray, cfCert);
-        CFReleaseNull(cfCert);
-        CFReleaseNull(certData);
-        cert=cert->next;
-    }
-
-    return certArray;
-
-out:
-    CFReleaseNull(cfCert);
-    CFReleaseNull(certData);
-    CFReleaseNull(certArray);
-    return NULL;
-}
-
 int
 tls_verify_peer_cert(SSLContext *ctx)
 {
@@ -382,7 +335,7 @@ OSStatus sslVerifySelectedCipher(SSLContext *ctx)
     }
 
     /* Check the alg of our signing key. */
-    CFIndex keyAlg = sslPrivKeyGetAlgorithmID(ctx->signingPrivKeyRef);
+    CFIndex keyAlg = SecKeyGetAlgorithmId(ctx->signingPrivKeyRef);
     if (requireAlg != keyAlg) {
 	sslErrorLog("sslVerifySelectedCipher: signing key alg mismatch\n");
 	return errSSLBadConfiguration;

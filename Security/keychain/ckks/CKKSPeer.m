@@ -24,6 +24,7 @@
 #if OCTAGON
 
 #import "keychain/ckks/CKKSPeer.h"
+#import "keychain/ckks/CKKSViewManager.h"
 
 NSString* const CKKSSOSPeerPrefix = @"spid-";
 
@@ -48,22 +49,101 @@ NSString* const CKKSSOSPeerPrefix = @"spid-";
 
 @end
 
+#pragma mark - CKKSActualPeer
+
+@implementation CKKSActualPeer
+- (NSString*)description {
+    // Return the first 16 bytes of the public keys (for reading purposes)
+    return [NSString stringWithFormat:@"<CKKSActualPeer(%@): pubEnc:%@ pubSign:%@ views:%d>",
+           self.peerID,
+           [self.publicEncryptionKey.keyData subdataWithRange:NSMakeRange(0, MIN(16u,self.publicEncryptionKey.keyData.length))],
+           [self.publicSigningKey.keyData subdataWithRange:NSMakeRange(0, MIN(16u,self.publicSigningKey.keyData.length))],
+           (int)self.viewList.count];
+}
+
+- (instancetype)initWithPeerID:(NSString*)syncingPeerID
+           encryptionPublicKey:(SFECPublicKey*)encryptionKey
+              signingPublicKey:(SFECPublicKey*)signingKey
+                      viewList:(NSSet<NSString*>*)viewList
+{
+    if((self = [super init])) {
+        _peerID = syncingPeerID;
+
+        _publicEncryptionKey = encryptionKey;
+        _publicSigningKey = signingKey;
+        _viewList = viewList;
+    }
+    return self;
+}
+
+- (bool)matchesPeer:(id<CKKSPeer>)peer {
+    return (self.peerID == nil && peer.peerID == nil) ||
+            [self.peerID isEqualToString:peer.peerID];
+}
+
+- (BOOL)shouldHaveView:(NSString *)viewName
+{
+    return [self.viewList containsObject:viewName];
+}
+
++ (BOOL)supportsSecureCoding {
+    return YES;
+}
+
+- (void)encodeWithCoder:(nonnull NSCoder*)coder
+{
+    [coder encodeObject:self.peerID forKey:@"peerID"];
+    [coder encodeObject:self.publicEncryptionKey.encodeSubjectPublicKeyInfo forKey:@"encryptionKey"];
+    [coder encodeObject:self.publicSigningKey.encodeSubjectPublicKeyInfo forKey:@"signingKey"];
+    [coder encodeObject:self.viewList forKey:@"viewList"];
+}
+
+- (nullable instancetype)initWithCoder:(nonnull NSCoder*)decoder
+{
+    self = [super init];
+    if(self) {
+        _peerID = [decoder decodeObjectOfClass:[NSString class] forKey:@"peerID"];
+
+        NSData* encryptionSPKI = [decoder decodeObjectOfClass:[NSData class] forKey:@"encryptionKey"];
+        if(encryptionSPKI) {
+            _publicEncryptionKey = [SFECPublicKey keyWithSubjectPublicKeyInfo:encryptionSPKI];
+        }
+
+        NSData* signingSPKI = [decoder decodeObjectOfClass:[NSData class] forKey:@"signingKey"];
+        if(signingSPKI) {
+            _publicSigningKey = [SFECPublicKey keyWithSubjectPublicKeyInfo:signingSPKI];
+        }
+
+        _viewList = [decoder decodeObjectOfClasses:[NSSet setWithArray:@[[NSSet class], [NSString class]]] forKey:@"viewList"];
+    }
+    return self;
+}
+@end
+
+#pragma mark - CKKSSOSPeer
+
 @interface CKKSSOSPeer ()
 @property NSString* spid;
+@property NSSet<NSString*>* viewList;
 @end
 
 @implementation CKKSSOSPeer
+@synthesize publicEncryptionKey = _publicEncryptionKey;
+@synthesize publicSigningKey = _publicSigningKey;
+
 - (NSString*)description {
     // Return the first 16 bytes of the public keys (for reading purposes)
-    return [NSString stringWithFormat:@"<CKKSSOSPeer(%@): pubEnc:%@ pubSign:%@>",
+    return [NSString stringWithFormat:@"<CKKSSOSPeer(%@): pubEnc:%@ pubSign:%@ views:%d>",
            self.peerID,
            [self.publicEncryptionKey.keyData subdataWithRange:NSMakeRange(0, MIN(16u,self.publicEncryptionKey.keyData.length))],
-           [self.publicSigningKey.keyData subdataWithRange:NSMakeRange(0, MIN(16u,self.publicSigningKey.keyData.length))]];
+           [self.publicSigningKey.keyData subdataWithRange:NSMakeRange(0, MIN(16u,self.publicSigningKey.keyData.length))],
+           (int)self.viewList.count];
 }
 
 - (instancetype)initWithSOSPeerID:(NSString*)syncingPeerID
               encryptionPublicKey:(SFECPublicKey*)encryptionKey
                  signingPublicKey:(SFECPublicKey*)signingKey
+                         viewList:(NSSet<NSString*>* _Nullable)viewList
 {
     if((self = [super init])) {
         if([syncingPeerID hasPrefix:CKKSSOSPeerPrefix]) {
@@ -73,6 +153,7 @@ NSString* const CKKSSOSPeerPrefix = @"spid-";
         }
         _publicEncryptionKey = encryptionKey;
         _publicSigningKey = signingKey;
+        _viewList = viewList;
     }
     return self;
 }
@@ -85,6 +166,41 @@ NSString* const CKKSSOSPeerPrefix = @"spid-";
     return (self.peerID == nil && peer.peerID == nil) ||
             [self.peerID isEqualToString:peer.peerID];
 }
+
+- (BOOL)shouldHaveView:(NSString *)viewName
+{
+    return [self.viewList containsObject:viewName];
+}
+
++ (BOOL)supportsSecureCoding {
+    return YES;
+}
+
+- (void)encodeWithCoder:(nonnull NSCoder*)coder
+{
+    [coder encodeObject:self.spid forKey:@"spid"];
+    [coder encodeObject:self.publicEncryptionKey.encodeSubjectPublicKeyInfo forKey:@"encryptionKey"];
+    [coder encodeObject:self.publicSigningKey.encodeSubjectPublicKeyInfo forKey:@"signingKey"];
+}
+
+- (nullable instancetype)initWithCoder:(nonnull NSCoder*)decoder
+{
+    self = [super init];
+    if(self) {
+        _spid = [decoder decodeObjectOfClass:[NSString class] forKey:@"spid"];
+
+        NSData* encryptionSPKI = [decoder decodeObjectOfClass:[NSData class] forKey:@"encryptionKey"];
+        if(encryptionSPKI) {
+            _publicEncryptionKey = [SFECPublicKey keyWithSubjectPublicKeyInfo:encryptionSPKI];
+        }
+
+        NSData* signingSPKI = [decoder decodeObjectOfClass:[NSData class] forKey:@"signingKey"];
+        if(signingSPKI) {
+            _publicSigningKey = [SFECPublicKey keyWithSubjectPublicKeyInfo:signingSPKI];
+        }
+    }
+    return self;
+}
 @end
 
 @interface CKKSSOSSelfPeer ()
@@ -93,15 +209,17 @@ NSString* const CKKSSOSPeerPrefix = @"spid-";
 
 @implementation CKKSSOSSelfPeer
 - (NSString*)description {
-    return [NSString stringWithFormat:@"<CKKSSOSSelfPeer(%@): pubEnc:%@ pubSign:%@>",
+    return [NSString stringWithFormat:@"<CKKSSOSSelfPeer(%@): pubEnc:%@ pubSign:%@ views:%d>",
             self.peerID,
             [self.publicEncryptionKey.keyData subdataWithRange:NSMakeRange(0, MIN(16u,self.publicEncryptionKey.keyData.length))],
-            [self.publicSigningKey.keyData subdataWithRange:NSMakeRange(0, MIN(16u,self.publicSigningKey.keyData.length))]];
+            [self.publicSigningKey.keyData subdataWithRange:NSMakeRange(0, MIN(16u,self.publicSigningKey.keyData.length))],
+            (int)self.viewList.count];
 }
 
 - (instancetype)initWithSOSPeerID:(NSString*)syncingPeerID
                     encryptionKey:(SFECKeyPair*)encryptionKey
                        signingKey:(SFECKeyPair*)signingKey
+                         viewList:(NSSet<NSString*>* _Nullable)viewList
 {
     if((self = [super init])) {
         if([syncingPeerID hasPrefix:CKKSSOSPeerPrefix]) {
@@ -111,6 +229,7 @@ NSString* const CKKSSOSPeerPrefix = @"spid-";
         }
         _encryptionKey = encryptionKey;
         _signingKey = signingKey;
+        _viewList = viewList;
     }
     return self;
 }
@@ -129,6 +248,16 @@ NSString* const CKKSSOSPeerPrefix = @"spid-";
     return (self.peerID == nil && peer.peerID == nil) ||
     [self.peerID isEqualToString:peer.peerID];
 }
+
+- (BOOL)shouldHaveView:(NSString *)viewName
+{
+    return [self.viewList containsObject:viewName];
+}
 @end
+
+NSSet<Class>* CKKSPeerClasses(void)
+{
+    return [NSSet setWithArray:@[[CKKSSOSPeer class], [CKKSActualPeer class]]];
+}
 
 #endif // OCTAGON

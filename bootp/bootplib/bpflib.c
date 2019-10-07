@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,7 @@
 #include <errno.h>
 #include <net/if.h>
 #include <stdbool.h>
+#include "symbol_scope.h"
 
 #include "bpflib.h"
 
@@ -42,19 +43,19 @@
 #include "util.h"
 #endif /* TESTING */
 
-int
+PRIVATE_EXTERN int
 bpf_set_timeout(int fd, struct timeval * tv_p)
 {
     return (ioctl(fd, BIOCSRTIMEOUT, tv_p));
 }
 
-int 
+PRIVATE_EXTERN int 
 bpf_get_blen(int fd, int * blen)
 {
     return(ioctl(fd, BIOCGBLEN, blen));
 }
 
-int
+PRIVATE_EXTERN int
 bpf_dispose(int bpf_fd)
 {
     if (bpf_fd >= 0)
@@ -62,8 +63,8 @@ bpf_dispose(int bpf_fd)
     return (0);
 }
 
-int
-bpf_new()
+PRIVATE_EXTERN int
+bpf_new(void)
 {
     char bpfdev[256];
     int i;
@@ -86,7 +87,7 @@ bpf_new()
     return (fd);
 }
 
-int
+PRIVATE_EXTERN int
 bpf_setif(int fd, const char * en_name)
 {
     struct ifreq ifr;
@@ -95,13 +96,13 @@ bpf_setif(int fd, const char * en_name)
     return (ioctl(fd, BIOCSETIF, &ifr));
 }
 
-int
+PRIVATE_EXTERN int
 bpf_set_immediate(int fd, u_int value)
 {
     return (ioctl(fd, BIOCIMMEDIATE, &value));
 }
 
-int
+PRIVATE_EXTERN int
 bpf_filter_receive_none(int fd)
 {
     struct bpf_insn insns[] = {
@@ -114,7 +115,7 @@ bpf_filter_receive_none(int fd)
     return ioctl(fd, BIOCSETF, &prog);
 }
 
-int
+PRIVATE_EXTERN int
 bpf_arp_filter(int fd, int type_offset, int type, int pkt_size)
 {
     struct bpf_insn insns[] = {
@@ -130,7 +131,7 @@ bpf_arp_filter(int fd, int type_offset, int type, int pkt_size)
     return ioctl(fd, BIOCSETF, &prog);
 }
 
-int
+PRIVATE_EXTERN int
 bpf_write(int fd, void * pkt, int len)
 {
     return ((int)write(fd, pkt, len));

@@ -27,6 +27,8 @@
 #include "IOHIDEvent.h"
 #include "IOHIDPrivateKeys.h"
 #include "IOHIDDebug.h"
+#include <IOKit/IOMessage.h>
+#include <IOKit/IOKitKeys.h>
 #include <IOKit/hidsystem/IOHIDShared.h>
 #include <sys/proc.h>
 #include <stdatomic.h>
@@ -35,6 +37,29 @@
 #define kQueueSizeMax   16384
 
 #define kIOHIDSystemUserAccessFastPathEntitlement   "com.apple.hid.system.user-access-fast-path"
+
+
+#define dispatch_workloop_sync(b)            \
+if (!isInactive() && _commandGate) {         \
+    _commandGate->runActionBlock(^IOReturn{  \
+        if (isInactive()) {                  \
+            return kIOReturnOffline;         \
+        };                                   \
+        b                                    \
+        return kIOReturnSuccess;             \
+    });                                      \
+}
+
+
+static   void  OSDictionarySetInteger (OSDictionary * dict, const char * key, uint64_t value)
+{
+    OSNumber * _value = OSNumber::withNumber(value, 64);
+    if (_value) {
+        dict->setObject(key, _value);
+        _value->release();
+    }
+}
+
 
 //===========================================================================
 // IOHIDEventServiceFastPathUserClient class
@@ -190,27 +215,29 @@ exit:
 //==============================================================================
 // IOHIDEventServiceFastPathUserClient::initWithTask
 //==============================================================================
-bool IOHIDEventServiceFastPathUserClient::initWithTask(task_t owningTask __unused, void * security_id __unused, UInt32 type __unused)
+bool IOHIDEventServiceFastPathUserClient::initWithTask (task_t owningTask, void * security_id __unused, UInt32 type __unused)
 {
     OSObject *  entitlement = NULL;
     bool        result;
 
     result = super::init();
     require_action(result, exit, HIDLogError("failed"));
-
+    
+    
     entitlement = copyClientEntitlement(owningTask, kIOHIDSystemUserAccessFastPathEntitlement);
     if (entitlement == kOSBooleanTrue) {
         _fastPathEntitlement = true;
         OSSafeReleaseNULL(entitlement);
-    }
-    else {
+    } else {
         proc_t process = (proc_t)get_bsdtask_info(owningTask);
         char name[255];
         bzero(name, sizeof(name));
         proc_name(proc_pid(process), name, sizeof(name));
         HIDLogInfo("%s Does not have fast path entitlement", name);
     }
-
+    
+    _task = owningTask;
+    
 exit:
 
     return result;
@@ -219,13 +246,14 @@ exit:
 //==============================================================================
 // IOHIDEventServiceFastPathUserClient::start
 //==============================================================================
-bool IOHIDEventServiceFastPathUserClient::start( IOService * provider )
+bool IOHIDEventServiceFastPathUserClient::start (IOService * provider)
 {
-    IOWorkLoop *    workLoop;
     boolean_t       result = false;
     OSSerializer *  debugStateSerializer;
     
     require (super::start(provider), exit);
+    
+    setProperty (kIOUserClientMessageAppSuspendedKey, kOSBooleanTrue);
     
     _lock = IOLockAlloc();
     require (_lock, exit);
@@ -235,9 +263,11 @@ bool IOHIDEventServiceFastPathUserClient::start( IOService * provider )
     
     _owner->retain();
  
-    workLoop = getWorkLoop();
-    require(workLoop, exit);
+    _workloop = getWorkLoop();
+    require(_workloop, exit);
   
+    _workloop->retain();
+    
     _commandGate = IOCommandGate::commandGate(this);
     require(_commandGate, exit);
   
@@ -252,7 +282,7 @@ bool IOHIDEventServiceFastPathUserClient::start( IOService * provider )
         debugStateSerializer->release();
     }
 
-    require(workLoop->addEventSource(_commandGate) == kIOReturnSuccess, exit);
+    require(_workloop->addEventSource(_commandGate) == kIOReturnSuccess, exit);
 
     result = true;
 
@@ -268,10 +298,8 @@ void IOHIDEventServiceFastPathUserClient::stop( IOService * provider )
 {
     close();
     
-    IOWorkLoop * workLoop = getWorkLoop();
-  
-    if (workLoop && _commandGate) {
-        workLoop->removeEventSource(_commandGate);
+    if (_workloop && _commandGate) {
+        _workloop->removeEventSource(_commandGate);
     }
 
     super::stop(provider);
@@ -290,7 +318,7 @@ IOReturn IOHIDEventServiceFastPathUserClient::_open(
     OSObject * object = NULL;
     OSDictionary * property = NULL;
     if (arguments->structureInput && arguments->structureInputSize) {
-        object = OSUnserializeXML( (const char *) arguments->structureInput, arguments->structureInputSize);
+        object = OSUnserializeXML ((const char *) arguments->structureInput, arguments->structureInputSize);
         if (object) {
             property = OSDynamicCast (OSDictionary, object);
             if (!property) {
@@ -304,11 +332,17 @@ IOReturn IOHIDEventServiceFastPathUserClient::_open(
         property = OSDictionary::withCapacity(1);
         require_action(property, exit, result = kIOReturnNoMemory);
     }
+    
+    OSSafeReleaseNULL(target->_properties);
+    target->_properties = property;
 
     result = target->open((IOOptionBits)arguments->scalarInput[0], property);
 
+    if (result == kIOReturnSuccess) {
+        target->_openedByClient = true;
+    }
+    
 exit:
-    OSSafeReleaseNULL(property);
 
     return result;
 }
@@ -348,7 +382,11 @@ IOReturn IOHIDEventServiceFastPathUserClient::_close (
                                 void *                                  reference __unused,
                                 IOExternalMethodArguments *             arguments __unused)
 {
-    return target->close();
+    IOReturn ret  = target->close();
+    
+    target->_openedByClient = false;
+    
+    return ret;
 }
 
 //==============================================================================
@@ -389,6 +427,7 @@ IOReturn IOHIDEventServiceFastPathUserClient::_copyEvent (
         }
     }
     
+    ++target->_stats.copycount;
     ret = target->copyEvent(copySpec, (IOOptionBits)arguments->scalarInput[0]);
     
     if (copySpec) {
@@ -397,6 +436,7 @@ IOReturn IOHIDEventServiceFastPathUserClient::_copyEvent (
     
     if (ret) {
         HIDLogError("IOHIDEventServiceFastPathUserClient::_copyEvent: %x", ret);
+        ++target->_stats.errcount;
     }
     return ret;
 }
@@ -470,7 +510,9 @@ void IOHIDEventServiceFastPathUserClient::free()
     OSSafeReleaseNULL(_buffer);
     OSSafeReleaseNULL(_owner);
     OSSafeReleaseNULL(_commandGate);
-    
+    OSSafeReleaseNULL(_workloop);
+    OSSafeReleaseNULL(_properties);
+
     if (_lock) {
         IOLockFree(_lock);
     }
@@ -548,8 +590,15 @@ bool   IOHIDEventServiceFastPathUserClient::serializeDebugState(void * ref __unu
     
     require(debugDict, exit);
 
-    result = debugDict->setObject(kIOHIDFastPathHasEntitlementKey, (_fastPathEntitlement ? kOSBooleanTrue : kOSBooleanFalse));
-    require(result, exit);
+    debugDict->setObject ("opened" , _opened ? kOSBooleanTrue : kOSBooleanFalse);
+    debugDict->setObject ("openedByClient" , _openedByClient ? kOSBooleanTrue : kOSBooleanFalse);
+
+    OSDictionarySetInteger (debugDict, "copycount", _stats.copycount);
+    OSDictionarySetInteger (debugDict, "errcount",  _stats.errcount);
+    OSDictionarySetInteger (debugDict, "suspendcount", _stats.suspendcount);
+
+    
+    debugDict->setObject(kIOHIDFastPathHasEntitlementKey, (_fastPathEntitlement ? kOSBooleanTrue : kOSBooleanFalse));
 
     result = debugDict->serialize(serializer);
     debugDict->release();
@@ -578,4 +627,34 @@ uint32_t IOHIDEventServiceFastPathUserClient::getSharedMemorySize ()
     return size;
 }
 
+
+IOReturn IOHIDEventServiceFastPathUserClient::message(UInt32 type, IOService * provider,  void * argument)
+{
+    
+    if (type == kIOMessageTaskAppSuspendedChange) {
+        __block bool isSuspended = task_is_app_suspended (_task);
+        
+        if (isSuspended) {
+            ++_stats.suspendcount;
+        }
+        
+        HIDLog("IOHIDEventServiceFastPathUserClient suspended:%d", isSuspended);
+        
+        dispatch_workloop_sync({
+            if (!_openedByClient) {
+                return kIOReturnSuccess;
+            }
+            if (isSuspended) {
+                close ();
+            } else {
+                IOReturn status;
+                status = open (_options, _properties);
+                if (status) {
+                    HIDLog("IOHIDEventServiceFastPathUserClient::open:%x (task resume)", status);
+                }
+            }
+        });
+    }
+    return super::message(type, provider, argument);
+}
 

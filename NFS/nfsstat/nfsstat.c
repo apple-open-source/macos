@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,6 +65,7 @@
 #include <sys/sysctl.h>
 #include <sys/time.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <nfs/rpcv2.h>
 #include <nfs/nfsproto.h>
 #include <nfs/nfs.h>
@@ -90,6 +91,8 @@
 
 #define _NFS_XDR_SUBS_FUNCS_ /* define this to get xdrbuf function definitions */
 #include <nfs/xdr_subs.h>
+
+#define MAX_AF_LOCAL_PATH sizeof (((struct sockaddr_un *)0)->sun_path)
 
 int verbose = 0;
 
@@ -139,8 +142,8 @@ void do_exports_interval(u_int interval);
 void do_exports_normal(void);
 void do_active_users_interval(u_int interval, u_int flags);
 void do_active_users_normal(u_int flags);
-int  read_export_stats(char **buf, uint *buflen);
-int  read_active_user_stats(char **buf, uint *buflen);
+int  read_export_stats(char **buf, size_t *buflen);
+int  read_active_user_stats(char **buf, size_t *buflen);
 void display_export_diffs(char *newb, char *oldb);
 void display_active_user_diffs(char *newb, char *oldb, u_int flags);
 void displayActiveUserRec(struct nfs_user_stat_user_rec *rec, u_int flags);
@@ -264,7 +267,7 @@ readstats(struct nfsstats *stp)
  *  1	if not enough memory was available.  NULL buffer returned in buf,  buflen is undefined.
  */
 int
-read_export_stats(char **buf, uint *buflen)
+read_export_stats(char **buf, size_t *buflen)
 {
 	struct nfs_export_stat_desc *hdr;
 	int	name[3];
@@ -353,7 +356,7 @@ read_export_stats(char **buf, uint *buflen)
  *  1   if not enough memory was available.  NULL buffer returned in buf,  buflen is undefined.
  */
 int
-read_active_user_stats(char **buf, uint *buflen)
+read_active_user_stats(char **buf, size_t *buflen)
 {
 	struct nfs_user_stat_desc	*hdr;
 	int				name[3];
@@ -443,7 +446,7 @@ read_active_user_stats(char **buf, uint *buflen)
  *  1   if not enough memory was available.  NULL buffer returned in buf,  buflen is undefined.
  */
 int
-read_mountinfo(fsid_t *fsid, char **buf, uint *buflen)
+read_mountinfo(fsid_t *fsid, char **buf, size_t *buflen)
 {
 	uint32_t vers, *bufxdr;
 	int name[3];
@@ -757,8 +760,9 @@ struct mountargs {
 	struct nfs_sec	sec;					/* security flavors */
 	struct nfs_etype etype;					/* Supported kerberos encryption types */
 	uint32_t	maxgrouplist;				/* max AUTH_SYS groups */
-	char		sotype[6];				/* socket type */
+	char		sotype[16];				/* socket type */
 	uint32_t	nfs_port, mount_port;			/* port info */
+	char		*nfs_localport, *mount_localport;	/* AF_LOCAL address (port) info */
 	struct timespec	request_timeout;			/* NFS request timeout */
 	uint32_t	soft_retry_count;			/* soft retrans count */
 	struct timespec	dead_timeout;				/* dead timeout value */
@@ -766,6 +770,7 @@ struct mountargs {
 	uint32_t	numlocs;				/* # of fs locations */
 	struct nfs_fs_location *locs;				/* array of fs locations */
 	char *		mntfrom;				/* mntfrom mount arg */
+	uint32_t	owner;					/* mount owner's uid */
 };
 
 void
@@ -835,6 +840,14 @@ mountargs_cleanup(struct mountargs *margs)
 	if (margs->sprinc) {
 		free(margs->sprinc);
 		margs->sprinc = NULL;
+	}
+	if (margs->nfs_localport) {
+		free(margs->nfs_localport);
+		margs->nfs_localport = NULL;
+	}
+	if (margs->mount_localport) {
+		free(margs->mount_localport);
+		margs->mount_localport = NULL;
 	}
 }
 
@@ -1061,6 +1074,31 @@ parse_mountargs(struct xdrbuf *xb, int margslen, struct mountargs *margs)
 			error = xb_get_bytes(xb, margs->sprinc, val, 0);
 	}
 
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_LOCAL_NFS_PORT)) {
+		xb_get_32(error, xb, val);
+		if (!error && ((val < 1) || (val > MAX_AF_LOCAL_PATH)))
+			error = EINVAL;
+		margs->nfs_localport = calloc(val+1, sizeof(char));
+		if (!margs->nfs_localport)
+			error = ENOMEM;
+		if (!error)
+			error = xb_get_bytes(xb, margs->nfs_localport, val, 0);
+	}
+
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_LOCAL_MOUNT_PORT)) {
+		xb_get_32(error, xb, val);
+		if (!error && ((val < 1) || (val > MAX_AF_LOCAL_PATH)))
+			error = EINVAL;
+		margs->mount_localport = calloc(val+1, sizeof(char));
+		if (!margs->mount_localport)
+			error = ENOMEM;
+		if (!error)
+			error = xb_get_bytes(xb, margs->mount_localport, val, 0);
+	}
+
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SET_MOUNT_OWNER))
+		xb_get_32(error, xb, margs->owner);
+
 	if (error)
 		mountargs_cleanup(margs);
 	return (error);
@@ -1147,6 +1185,10 @@ socket_type(char *sotype)
 		return ("inet6");
 	if (!strcmp(sotype, "inet"))
 		return ("inet");
+	if (!strcmp(sotype, "ticlts"))
+		return ("ticlts");
+	if (!strcmp(sotype, "ticotsord"))
+		return ("ticotsord");
 	return (sotype);
 }
 
@@ -1202,34 +1244,70 @@ print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
 			printf(".%d", min);
 		SEP;
 	}
-	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SOCKET_TYPE))
-		printf("%c%s", sep, socket_type(margs->sotype)), SEP;
-	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_NFS_PORT))
-		printf("%cport=%d", sep, margs->nfs_port), SEP;
-	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_MOUNT_PORT))
-		printf("%cmountport=%d", sep, margs->mount_port), SEP;
-	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_MNTUDP))
-		printf("%c%smntudp", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_MNTUDP) ? "" : "no"), SEP;
-	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_SOFT))
-		printf("%c%s", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_SOFT) ? "soft" : "hard"), SEP;
-	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_INTR))
-		printf("%c%sintr", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_INTR) ? "" : "no"), SEP;
-	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_RESVPORT))
-		printf("%c%sresvport", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_RESVPORT) ? "" : "no"), SEP;
-	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NOCONNECT))
-		printf("%c%sconn", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NOCONNECT) ? "no" : ""), SEP;
-	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NOCALLBACK))
-		printf("%c%scallback", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NOCALLBACK) ? "no" : ""), SEP;
-	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NONEGNAMECACHE))
-		printf("%c%snegnamecache", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NONEGNAMECACHE) ? "no" : ""), SEP;
-	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NAMEDATTR))
-		printf("%c%snamedattr", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NAMEDATTR) ? "" : "no"), SEP;
-	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NOACL))
-		printf("%c%sacl", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NOACL) ? "no" : ""), SEP;
-	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_ACLONLY))
-		printf("%c%saclonly", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_ACLONLY) ? "" : "no"), SEP;
-	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_CALLUMNT))
-		printf("%c%scallumnt", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_CALLUMNT) ? "" : "no"), SEP;
+    if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SOCKET_TYPE)) {
+        printf("%c%s", sep, socket_type(margs->sotype));
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_NFS_PORT)) {
+        printf("%cport=%d", sep, margs->nfs_port);
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_LOCAL_NFS_PORT)) {
+        printf("%cport=%s", sep, margs->nfs_localport);
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_MOUNT_PORT)) {
+        printf("%cmountport=%d", sep, margs->mount_port);
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_LOCAL_MOUNT_PORT)) {
+        printf("%cmountport=%s", sep, margs->mount_localport);
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_MNTUDP)) {
+        printf("%c%smntudp", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_MNTUDP) ? "" : "no");
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_SOFT)) {
+        printf("%c%s", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_SOFT) ? "soft" : "hard");
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_INTR)) {
+        printf("%c%sintr", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_INTR) ? "" : "no");
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_RESVPORT)) {
+        printf("%c%sresvport", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_RESVPORT) ? "" : "no");
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NOCONNECT)) {
+        printf("%c%sconn", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NOCONNECT) ? "no" : "");
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NOCALLBACK)) {
+        printf("%c%scallback", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NOCALLBACK) ? "no" : "");
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NONEGNAMECACHE)) {
+        printf("%c%snegnamecache", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NONEGNAMECACHE) ? "no" : "");
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NAMEDATTR)) {
+        printf("%c%snamedattr", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NAMEDATTR) ? "" : "no");
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NOACL)) {
+        printf("%c%sacl", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NOACL) ? "no" : "");
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_ACLONLY)) {
+        printf("%c%saclonly", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_ACLONLY) ? "" : "no");
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_CALLUMNT)) {
+        printf("%c%scallumnt", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_CALLUMNT) ? "" : "no");
+        SEP;
+    }
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_LOCK_MODE))
 		switch(margs->lockmode) {
 		case NFS_LOCK_MODE_ENABLED:
@@ -1245,42 +1323,78 @@ print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
 			SEP;
 			break;
 		}
-	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NOQUOTA))
-		printf("%c%squota", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NOQUOTA) ? "no" : ""), SEP;
-	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_READ_SIZE))
-		printf("%crsize=%d", sep, margs->rsize), SEP;
-	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_WRITE_SIZE))
-		printf("%cwsize=%d", sep, margs->wsize), SEP;
-	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_READAHEAD))
-		printf("%creadahead=%d", sep, margs->readahead), SEP;
-	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_READDIR_SIZE))
-		printf("%cdsize=%d", sep, margs->readdirsize), SEP;
-	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_RDIRPLUS))
-		printf("%c%srdirplus", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_RDIRPLUS) ? "" : "no"), SEP;
-	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_DUMBTIMER))
-		printf("%c%sdumbtimr", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_DUMBTIMER) ? "" : "no"), SEP;
-	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_REQUEST_TIMEOUT))
-		printf("%ctimeo=%ld", sep, ((margs->request_timeout.tv_sec * 10) + (margs->request_timeout.tv_nsec % 100000000))), SEP;
-	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SOFT_RETRY_COUNT))
-		printf("%cretrans=%d", sep, margs->soft_retry_count), SEP;
-	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_MAX_GROUP_LIST))
-		printf("%cmaxgroups=%d", sep, margs->maxgrouplist), SEP;
-	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_ATTRCACHE_REG_MIN))
-		printf("%cacregmin=%ld", sep, margs->acregmin.tv_sec), SEP;
-	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_ATTRCACHE_REG_MAX))
-		printf("%cacregmax=%ld", sep, margs->acregmax.tv_sec), SEP;
-	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_ATTRCACHE_DIR_MIN))
-		printf("%cacdirmin=%ld", sep, margs->acdirmin.tv_sec), SEP;
-	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_ATTRCACHE_DIR_MAX))
-		printf("%cacdirmax=%ld", sep, margs->acdirmax.tv_sec), SEP;
-	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_DEAD_TIMEOUT))
-		printf("%cdeadtimeout=%ld", sep, margs->dead_timeout.tv_sec), SEP;
-	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_MUTEJUKEBOX))
-		printf("%c%smutejukebox", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_MUTEJUKEBOX) ? "" : "no"), SEP;
-	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_EPHEMERAL))
-		printf("%c%sephemeral", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_EPHEMERAL) ? "" : "no"), SEP;
-	if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NFC))
-		printf("%c%snfc", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NFC) ? "" : "no"), SEP;
+    if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NOQUOTA)) {
+        printf("%c%squota", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NOQUOTA) ? "no" : "");
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_READ_SIZE)) {
+        printf("%crsize=%d", sep, margs->rsize);
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_WRITE_SIZE)) {
+        printf("%cwsize=%d", sep, margs->wsize);
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_READAHEAD)) {
+        printf("%creadahead=%d", sep, margs->readahead);
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_READDIR_SIZE)) {
+        printf("%cdsize=%d", sep, margs->readdirsize);
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_RDIRPLUS)) {
+        printf("%c%srdirplus", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_RDIRPLUS) ? "" : "no");
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_DUMBTIMER)) {
+        printf("%c%sdumbtimr", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_DUMBTIMER) ? "" : "no");
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_REQUEST_TIMEOUT)) {
+        printf("%ctimeo=%ld", sep, ((margs->request_timeout.tv_sec * 10) + (margs->request_timeout.tv_nsec % 100000000)));
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SOFT_RETRY_COUNT)) {
+        printf("%cretrans=%d", sep, margs->soft_retry_count);
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_MAX_GROUP_LIST)) {
+        printf("%cmaxgroups=%d", sep, margs->maxgrouplist);
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_ATTRCACHE_REG_MIN)) {
+        printf("%cacregmin=%ld", sep, margs->acregmin.tv_sec);
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_ATTRCACHE_REG_MAX)) {
+        printf("%cacregmax=%ld", sep, margs->acregmax.tv_sec);
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_ATTRCACHE_DIR_MIN)) {
+        printf("%cacdirmin=%ld", sep, margs->acdirmin.tv_sec);
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_ATTRCACHE_DIR_MAX)) {
+        printf("%cacdirmax=%ld", sep, margs->acdirmax.tv_sec);
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_DEAD_TIMEOUT)) {
+        printf("%cdeadtimeout=%ld", sep, margs->dead_timeout.tv_sec);
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_MUTEJUKEBOX)) {
+        printf("%c%smutejukebox", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_MUTEJUKEBOX) ? "" : "no");
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_EPHEMERAL)) {
+        printf("%c%sephemeral", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_EPHEMERAL) ? "" : "no");
+        SEP;
+    }
+    if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NFC)) {
+        printf("%c%snfc", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NFC) ? "" : "no");
+        SEP;
+    }
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SECURITY)) {
 		printf("%csec=%s", sep, sec_flavor_name(margs->sec.flavors[0]));
 		for (i=1; i < margs->sec.count; i++)
@@ -1299,6 +1413,8 @@ print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
 		printf("%cprincipal=%s", sep, margs->principal);
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SVCPRINCIPAL))
 		printf("%csprincipalm=%s", sep, margs->sprinc);
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SET_MOUNT_OWNER))
+		printf("%cowner=%d", sep, margs->owner);
 	printf("\n");
 
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_FS_LOCATIONS)) {
@@ -1320,10 +1436,20 @@ print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
 					printf("/%s", margs->locs[loc].components[comp]);
 				printf(" @");
 				for (serv=0; serv < margs->locs[loc].servcount; serv++) {
-					printf(" %s (", margs->locs[loc].servers[serv].name);
-					for (addr=0; addr < margs->locs[loc].servers[serv].addrcount; addr++)
-						printf("%s%s", !addr ? "" : ",", margs->locs[loc].servers[serv].addrs[addr]);
-					printf(")");
+					if (margs->locs[loc].servers[serv].name == NULL)
+						printf(" <local domaim>");
+					else {
+						char *addrstr = NULL;
+						printf(" %s", margs->locs[loc].servers[serv].name);
+						for (addr=0; addr < margs->locs[loc].servers[serv].addrcount; addr++) {
+							addrstr = margs->locs[loc].servers[serv].addrs[addr];
+							if (addrstr == NULL)
+								break;
+							printf("%s%s", !addr ? " (" : ",", margs->locs[loc].servers[serv].addrs[addr]);
+						}
+						if (addrstr)
+							printf(")");
+					}
 				}
 				printf("\n");
 			}
@@ -1341,13 +1467,13 @@ print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
  * Print the given mount info.
  */
 void
-print_mountinfo(struct statfs *mnt, char *buf, uint buflen)
+print_mountinfo(struct statfs *mnt, char *buf, size_t buflen)
 {
 	struct xdrbuf xb;
-	uint32_t val, miattrs[NFS_MIATTR_BITMAP_LEN], miflags[NFS_MIFLAG_BITMAP_LEN];
+	uint32_t val = -1, miattrs[NFS_MIATTR_BITMAP_LEN], miflags[NFS_MIFLAG_BITMAP_LEN];
 	int error = 0, len;
 	struct mountargs origargs, curargs;
-	uint32_t flags, loc, serv, addr, comp;
+	uint32_t flags = 0, loc = 0, serv = 0, addr = 0, comp;
 
 	NFS_BITMAP_ZERO(miattrs, NFS_MIATTR_BITMAP_LEN);
 	NFS_BITMAP_ZERO(miflags, NFS_MIFLAG_BITMAP_LEN);
@@ -1366,7 +1492,7 @@ print_mountinfo(struct statfs *mnt, char *buf, uint buflen)
 	if (error)
 		goto out;
 	if (val > buflen) {
-		printf("%s bogus mount info length %d > %d\n\n", mnt->f_mntonname, val, buflen);
+		printf("%s bogus mount info length %u > %zu\n\n", mnt->f_mntonname, val, buflen);
 		return;
 	}
 	len = NFS_MIATTR_BITMAP_LEN;
@@ -1419,8 +1545,15 @@ print_mountinfo(struct statfs *mnt, char *buf, uint buflen)
 					printf("/");
 				for (comp=0; comp < curargs.locs[loc].compcount; comp++)
 					printf("/%s", curargs.locs[loc].components[comp]);
-				printf(" @ %s (%s)\n", curargs.locs[loc].servers[serv].name,
-					curargs.locs[loc].servers[serv].addrs[addr]);
+				if (curargs.locs[loc].servers[serv].name) {
+					char *addrstr = curargs.locs[loc].servers[serv].addrs[addr];
+					if (addrstr)
+						printf(" @ %s (%s)\n", curargs.locs[loc].servers[serv].name, addrstr);
+					else
+						printf(" @ %s\n", curargs.locs[loc].servers[serv].name);
+				} else {
+					printf(" @ <local domain>\n");
+				}
 			}
 		}
 	}
@@ -1451,7 +1584,7 @@ do_mountinfo(char *mountpath)
 	struct statfs *mntbuf;
 	int i, mntsize;
 	char *buf = NULL, *p;
-	uint buflen = 0;
+	size_t buflen = 0;
 
 	if (mountpath) {
 		/* be nice and strip any trailing slashes */
@@ -1497,7 +1630,8 @@ do_exports_normal(void)
 	struct nfs_export_stat_desc *stat_desc;
 	struct nfs_export_stat_rec  *rec;
 	char  *buf;
-	uint  bufLen, i, recs;
+	uint  i, recs;
+    size_t bufLen;
 
 	/* Read in export stats from the kernel */
 	buf = NULL;
@@ -1541,7 +1675,7 @@ void
 do_exports_interval(u_int interval)
 {
 	char *oldExportBuf, *newExportBuf, *tmpBuf;
-	uint oldLen, newLen, tmpLen;
+	size_t oldLen, newLen, tmpLen;
 	int hdrcnt;
 	sigset_t sigset, oldsigset;
 
@@ -1677,7 +1811,8 @@ do_active_users_normal(u_int flags)
 	struct nfs_export_node		*export_node;
 	struct nfs_active_user_node	*unode;
 	char				*buf;
-	uint				bufLen, recs;
+    size_t				bufLen;
+    uint                recs;
 
 	/* Read in user stats from the kernel */
 	buf = NULL;
@@ -1730,7 +1865,7 @@ void
 do_active_users_interval(u_int interval, u_int flags)
 {
 	char		*oldBuf, *newBuf, *tmpBuf;
-	uint		oldLen, newLen, tmpLen;
+	size_t		oldLen, newLen, tmpLen;
 	int		hdrcnt; 
 	sigset_t	sigset, oldsigset;
         
@@ -1903,8 +2038,8 @@ done:
 void
 displayActiveUserRec(struct nfs_user_stat_user_rec *rec, u_int flags)
 {
-	struct sockaddr_in	*in; 
-	struct sockaddr_in6	*in6;
+	struct sockaddr_in	in; 
+	struct sockaddr_in6	in6;
 	struct hostent		*hp = NULL;
 	struct passwd		*pw;
 	struct timeval		now;
@@ -1931,21 +2066,26 @@ displayActiveUserRec(struct nfs_user_stat_user_rec *rec, u_int flags)
 	/* setup ip address string */
 	if (rec->sock.ss_family == AF_INET) {
 		/* ipv4 */
-		in = (struct sockaddr_in *)&rec->sock;
+        /* copy out the data due to alignment issues */
+        memcpy(&in, &rec->sock, sizeof(struct sockaddr_in));
+        
 		if (!(flags & NUMERIC_NET))
-			hp = gethostbyaddr((char *)&in->sin_addr, sizeof(in->sin_addr), AF_INET);
+			hp = gethostbyaddr((char *)&in.sin_addr, sizeof(in.sin_addr), AF_INET);
 		if (hp && hp->h_name)
 			addr = hp->h_name;
-		else if (inet_ntop(AF_INET, &in->sin_addr, addrbuf, sizeof(addrbuf)))
+		else if (inet_ntop(AF_INET, &in.sin_addr, addrbuf, sizeof(addrbuf)))
 			addr = addrbuf;
+        
 	} else if (rec->sock.ss_family == AF_INET6) {
 		/* ipv6 */
-		in6 = (struct sockaddr_in6 *)&rec->sock;
+        /* copy out the data due to alignment issues */
+        memcpy(&in6, &rec->sock, sizeof(struct sockaddr_in6));
+
 		if (!(flags & NUMERIC_NET))
-			hp = gethostbyaddr((char *)&in6->sin6_addr, sizeof(in6->sin6_addr), AF_INET6);
+			hp = gethostbyaddr((char *)&in6.sin6_addr, sizeof(in6.sin6_addr), AF_INET6);
 		if (hp && hp->h_name)
 			addr = hp->h_name;
-		else if (inet_ntop(AF_INET6, &in6->sin6_addr, addrbuf, sizeof(addrbuf)))
+		else if (inet_ntop(AF_INET6, &in6.sin6_addr, addrbuf, sizeof(addrbuf)))
 			addr = addrbuf;
 	}
                                         
@@ -1966,8 +2106,8 @@ displayActiveUserRec(struct nfs_user_stat_user_rec *rec, u_int flags)
 int
 cmp_active_user(struct nfs_user_stat_user_rec *rec1, struct nfs_user_stat_user_rec *rec2)
 {
-	struct sockaddr_in	*ipv4_sock1, *ipv4_sock2;
-	struct sockaddr_in6	*ipv6_sock1, *ipv6_sock2;
+	struct sockaddr_in	ipv4_sock1, ipv4_sock2;
+	struct sockaddr_in6	ipv6_sock1, ipv6_sock2;
 	int			retVal = 1;
 
 	/* check uid */
@@ -1983,20 +2123,22 @@ cmp_active_user(struct nfs_user_stat_user_rec *rec1, struct nfs_user_stat_user_r
 		return retVal;
 
 	if (rec1->sock.ss_family == AF_INET) {
-		/* IPv4 */ 
-		ipv4_sock1 = (struct sockaddr_in *)&rec1->sock;
-		ipv4_sock2 = (struct sockaddr_in *)&rec2->sock;
-                
-		if (!bcmp(&ipv4_sock1->sin_addr, &ipv4_sock2->sin_addr, sizeof(struct in_addr)))
+		/* IPv4 */
+        /* Copy out the data due to alignment issues */
+        memcpy(&ipv4_sock1, &rec1->sock, sizeof(struct sockaddr_in));
+        memcpy(&ipv4_sock2, &rec2->sock, sizeof(struct sockaddr_in));
+
+		if (!bcmp(&ipv4_sock1.sin_addr, &ipv4_sock2.sin_addr, sizeof(struct in_addr)))
 			retVal = 0;
  
 	}
 	else {
 		/* IPv6 */
-		ipv6_sock1 = (struct sockaddr_in6 *)&rec1->sock;
-		ipv6_sock2 = (struct sockaddr_in6 *)&rec2->sock;
+        /* Copy out the data due to alignment issues */
+        memcpy(&ipv6_sock1, &rec1->sock, sizeof(struct sockaddr_in6));
+        memcpy(&ipv6_sock2, &rec2->sock, sizeof(struct sockaddr_in6));
 
-		if (!bcmp(&ipv6_sock1->sin6_addr, &ipv6_sock2->sin6_addr, sizeof(struct in6_addr)))
+		if (!bcmp(&ipv6_sock1.sin6_addr, &ipv6_sock2.sin6_addr, sizeof(struct in6_addr)))
 			retVal = 0;
 	}
 

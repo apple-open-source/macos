@@ -227,7 +227,7 @@ PUBLIC void sec_id_pac_pickle(pickle_handle_t  handle,
 		return;
 	}
 
-	*pickled_pac = (sec_id_pickled_pac_t *)data;
+    memcpy(pickled_pac, &data, sizeof(sec_id_pickled_pac_t *));
 }
 
 /* s e c _ i d _ p a c _ u n p i c k l e

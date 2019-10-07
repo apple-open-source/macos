@@ -52,6 +52,7 @@
 static void
 dt_pragma_apply(dt_idhash_t *dhp, dt_ident_t *idp)
 {
+#pragma unused(dhp)
 	dt_idhash_t *php;
 	dt_ident_t *pdp;
 
@@ -345,6 +346,7 @@ dt_pragma_error(const char *prname, dt_node_t *dnp)
 static void
 dt_pragma_ident(const char *prname, dt_node_t *dnp)
 {
+#pragma unused(prname, dnp)
 	/* ignore any #ident or #pragma ident lines */
 }
 

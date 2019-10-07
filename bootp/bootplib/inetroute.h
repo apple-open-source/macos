@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,11 @@
  * - created
  */
 
+#ifndef _S_BOOTPLIB_INETROUTE_H
+#define _S_BOOTPLIB_INETROUTE_H
+
+#include <CoreFoundation/CFString.h>
+
 typedef struct {
     struct in_addr		dest;
     struct in_addr		mask;
@@ -51,3 +56,6 @@ inetroute_list_t *	inetroute_list_init();
 void			inetroute_list_free(inetroute_list_t * * list);
 struct in_addr *	inetroute_default(inetroute_list_t * list_p);
 void			inetroute_list_print(inetroute_list_t * list_p);
+void			inetroute_list_print_cfstr(CFMutableStringRef str,
+						   inetroute_list_t * list_p);
+#endif /* _S_BOOTPLIB_INETROUTE_H */

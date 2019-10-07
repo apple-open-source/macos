@@ -4820,8 +4820,8 @@ static void type_name_len
 )
 {
     char const          *type_name;     /* Type name */
-    int                 type_len;       /* Length of type name */
-    int                 max_len;        /* Maximum identifier length */
+    size_t               type_len;       /* Length of type name */
+    size_t               max_len;        /* Maximum identifier length */
 
     if (!AST_LOCAL_SET(int_p)
         &&  top_type_p->name != NAMETABLE_NIL_ID

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_DECL_ENOFLOW.enoflow.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *	Define an enumerations with a overflow value.

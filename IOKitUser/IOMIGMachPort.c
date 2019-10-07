@@ -32,11 +32,13 @@
 #include <AssertMacros.h>
 #include <CoreFoundation/CFRuntime.h>
 
+#include <dispatch/private.h>
 #include <pthread.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 #include <servers/bootstrap.h>
 #include "IOMIGMachPort.h"
+#include <os/log.h>
 
 typedef struct __IOMIGMachPort {
     CFRuntimeBase                       cfBase;   // base CFType information
@@ -45,7 +47,7 @@ typedef struct __IOMIGMachPort {
     CFStringRef                         runLoopMode;
     
     dispatch_queue_t                    dispatchQueue;
-    dispatch_source_t                   dispatchSource;
+    dispatch_mach_t                     dispatchChannel;
     
     CFMachPortRef                       port;
     CFRunLoopSourceRef                  source;
@@ -56,16 +58,14 @@ typedef struct __IOMIGMachPort {
     
     IOMIGMachPortTerminationCallback    terminationCallback;
     void *                              terminationRefcon;
-    
-
 } __IOMIGMachPort, *__IOMIGMachPortRef;
 
 
 static void             __IOMIGMachPortRelease(CFTypeRef object);
 static void             __IOMIGMachPortRegister(void);
-static void             __IOMIGMachPortSourceCallback(void * info);
 static void             __IOMIGMachPortPortCallback(CFMachPortRef port, void *msg, CFIndex size __unused, void *info);
 static Boolean          __NoMoreSenders(mach_msg_header_t *request, mach_msg_header_t *reply);
+static os_log_t         __IOMIGMachPortLog();
 
 
 static const CFRuntimeClass __IOMIGMachPortClass = {
@@ -105,10 +105,14 @@ void __IOMIGMachPortRelease(CFTypeRef object)
     
     if ( migPort->port ) {
         CFMachPortInvalidate(migPort->port);
-        mach_port_mod_refs(mach_task_self(),
-                           CFMachPortGetPort(migPort->port),
-                           MACH_PORT_RIGHT_RECEIVE,
-                           -1);
+        kern_return_t kr =  mach_port_mod_refs(mach_task_self(),
+                                               CFMachPortGetPort(migPort->port),
+                                               MACH_PORT_RIGHT_RECEIVE,
+                                               -1);
+        if (kr != KERN_SUCCESS) {
+            os_log_error(__IOMIGMachPortLog(), "__IOMIGMachPortRelease mach_port_mod_refs:%s", mach_error_string(kr));
+        }
+
         CFRelease(migPort->port);
     }
     
@@ -116,8 +120,10 @@ void __IOMIGMachPortRelease(CFTypeRef object)
         CFRelease(migPort->source);
     }
     
-    if ( migPort->dispatchSource ) {
-        dispatch_release(migPort->dispatchSource);
+    if ( migPort->dispatchChannel ) {
+        dispatch_mach_cancel(migPort->dispatchChannel);
+        dispatch_release(migPort->dispatchChannel);
+        migPort->dispatchChannel = NULL;
     }
 }
 
@@ -137,7 +143,7 @@ CFTypeID IOMIGMachPortGetTypeID(void)
 //------------------------------------------------------------------------------
 IOMIGMachPortRef IOMIGMachPortCreate(CFAllocatorRef allocator, CFIndex maxMessageSize, mach_port_t port)
 {
-    IOMIGMachPortRef  migPort  = NULL;
+    IOMIGMachPortRef    migPort  = NULL;
     void *              offset  = NULL;
     uint32_t            size;
     
@@ -158,11 +164,16 @@ IOMIGMachPortRef IOMIGMachPortCreate(CFAllocatorRef allocator, CFIndex maxMessag
             CFMachPortCreate(allocator, __IOMIGMachPortPortCallback, &context, NULL);
     
     require(migPort->port, exit);
-    
+
+    // The following code was previously active. It's redundant, and in fact, will always result in error.
+    // Receive rights can only ever have user ref count of 1. Attempting to modify the ref count of
+    // a receive right by a delta other than 0 or -1 will result in KERN_INVALID_VALUE from ipc_right_delta().
+    /*
     mach_port_mod_refs(mach_task_self(),
                        CFMachPortGetPort(migPort->port),
                        MACH_PORT_RIGHT_RECEIVE,
                        1);
+     */
     
     migPort->maxMessageSize = maxMessageSize;
     
@@ -176,37 +187,29 @@ exit:
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// __IOMIGMachPortSourceCallback
+// __IOMIGMachPortChannelCallback
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-void __IOMIGMachPortSourceCallback(void * info)
+static void
+__IOMIGMachPortChannelCallback(void *info, dispatch_mach_reason_t reason,
+        dispatch_mach_msg_t msg, __unused mach_error_t error)
 {
-    IOMIGMachPortRef migPort = (IOMIGMachPortRef)info;
-    
-    CFRetain(migPort);
-    
-    mach_port_t         port    = CFMachPortGetPort(migPort->port);
-    mach_msg_size_t     size    = migPort->maxMessageSize + MAX_TRAILER_SIZE;
-    mach_msg_header_t * msg     = (mach_msg_header_t *)CFAllocatorAllocate(CFGetAllocator(migPort), size, 0);
-    
-    msg->msgh_size = size;
-    for (;;) {
-        msg->msgh_bits = 0;
-        msg->msgh_local_port = port;
-        msg->msgh_remote_port = MACH_PORT_NULL;
-        msg->msgh_id = 0;
-        kern_return_t ret = mach_msg(msg, MACH_RCV_MSG|MACH_RCV_LARGE|MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0)|MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AV), 0, msg->msgh_size, port, 0, MACH_PORT_NULL);
-        if (MACH_MSG_SUCCESS == ret) break;
-        if (MACH_RCV_TOO_LARGE != ret) goto inner_exit;
-        uint32_t newSize = round_msg(msg->msgh_size + MAX_TRAILER_SIZE);
-        msg = CFAllocatorReallocate(CFGetAllocator(migPort), msg, newSize, 0);
-        msg->msgh_size = newSize;
+    IOMIGMachPortRef   migPort = (IOMIGMachPortRef)info;
+    size_t             size;
+    mach_msg_header_t *hdr;
+
+    switch (reason) {
+        case DISPATCH_MACH_MESSAGE_RECEIVED:
+            hdr = dispatch_mach_msg_get_msg(msg, &size);
+            __IOMIGMachPortPortCallback(migPort->port, hdr, size, migPort);
+            break;
+
+        case DISPATCH_MACH_CANCELED:
+            CFRelease(migPort);
+            break;
+
+        default:
+            break;
     }
-
-    __IOMIGMachPortPortCallback(migPort->port, msg, msg->msgh_size, migPort);
-
-inner_exit:
-    CFAllocatorDeallocate(CFGetAllocator(migPort), msg);
-    CFRelease(migPort);
 }
 
 
@@ -223,27 +226,16 @@ void IOMIGMachPortScheduleWithDispatchQueue(IOMIGMachPortRef migPort, dispatch_q
     require(migPort->dispatchQueue, exit);
     
     // init the sources
-    if ( !migPort->dispatchSource ) {
-        dispatch_source_t ds = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV,
-                                                      port,
-                                                      0,
-                                                      migPort->dispatchQueue);
-        require(ds, exit);
+    if ( !migPort->dispatchChannel ) {
+        dispatch_mach_t dm = dispatch_mach_create_f(dispatch_queue_get_label(queue),
+                queue, migPort, __IOMIGMachPortChannelCallback);
+        require(dm, exit);
         
-        dispatch_set_context(ds, migPort);
-        dispatch_source_set_event_handler_f(ds, __IOMIGMachPortSourceCallback);
-        
+        migPort->dispatchChannel = dm;
         CFRetain(migPort);
-        dispatch_source_set_cancel_handler(ds, ^{
-            dispatch_release(ds);
-            CFRelease(migPort);
-        });
-        
-        dispatch_activate(ds);
-        migPort->dispatchSource = ds;
+        dispatch_mach_connect(dm, port, MACH_PORT_NULL, NULL);
     }
-    
-    
+
 exit:
     return;
 }
@@ -261,9 +253,10 @@ void IOMIGMachPortUnscheduleFromDispatchQueue(IOMIGMachPortRef migPort, dispatch
     
     migPort->dispatchQueue = NULL;
 
-    if ( migPort->dispatchSource ) {
-        dispatch_cancel(migPort->dispatchSource);
-        migPort->dispatchSource = NULL;
+    if ( migPort->dispatchChannel ) {
+        dispatch_mach_cancel(migPort->dispatchChannel);
+        dispatch_release(migPort->dispatchChannel);
+        migPort->dispatchChannel = NULL;
     }
 }
 
@@ -332,6 +325,21 @@ void IOMIGMachPortRegisterTerminationCallback(IOMIGMachPortRef migPort, IOMIGMac
 {
     migPort->terminationCallback = callback;
     migPort->terminationRefcon   = refcon;
+}
+
+static void
+__IOMIGMachConsumeUnsentMessage(mach_msg_header_t *hdr)
+{
+    mach_port_t port = hdr->msgh_local_port;
+    if (MACH_PORT_VALID(port)) {
+        switch (MACH_MSGH_BITS_LOCAL(hdr->msgh_bits)) {
+            case MACH_MSG_TYPE_MOVE_SEND:
+            case MACH_MSG_TYPE_MOVE_SEND_ONCE:
+                mach_port_deallocate(mach_task_self(), port);
+                break;
+        }
+    }
+    mach_msg_destroy(hdr);
 }
 
 //------------------------------------------------------------------------------
@@ -419,8 +427,7 @@ void __IOMIGMachPortPortCallback(CFMachPortRef port __unused, void *msg, CFIndex
     switch (mr) {
         case MACH_SEND_INVALID_DEST:
         case MACH_SEND_TIMED_OUT:
-            // the reply can't be delivered, so destroy it
-            mach_msg_destroy(&bufReply->Head);
+            __IOMIGMachConsumeUnsentMessage(&bufReply->Head);
             break;
 
         default :
@@ -511,5 +518,20 @@ CFTypeRef IOMIGMachPortCacheCopy(mach_port_t port)
     pthread_mutex_unlock(&__ioPortCacheLock);
     
     return server;
+}
+
+//------------------------------------------------------------------------------
+// __IOMIGMachPortLog
+//------------------------------------------------------------------------------
+os_log_t __IOMIGMachPortLog()
+{
+    static os_log_t log;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+
+        log = os_log_create("com.apple.iokit.iomigmachport", "default");
+
+    });
+    return log;
 }
 

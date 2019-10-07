@@ -1124,6 +1124,7 @@
 				DYLIB_CURRENT_VERSION = 3.0.0;
 				EXECUTABLE_PREFIX = lib;
 				INSTALL_PATH = /usr/lib;
+				IS_ZIPPERED = YES;
 				MACH_O_TYPE = mh_dylib;
 				PRODUCT_NAME = pam.2;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include/security;

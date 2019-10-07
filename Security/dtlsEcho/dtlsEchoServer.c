@@ -346,6 +346,9 @@ int main(int argc, char **argv)
 		return ortn;
 	}
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 	ortn = SSLSetIOFuncs(ctx, SocketRead, SocketWrite);
 	if(ortn) {
 		printSslErrStr("SSLSetIOFuncs", ortn);
@@ -431,6 +434,8 @@ int main(int argc, char **argv)
     }
 
     SSLDisposeContext(ctx);
+
+#pragma clang diagnostic pop
 
     return ortn;
 }

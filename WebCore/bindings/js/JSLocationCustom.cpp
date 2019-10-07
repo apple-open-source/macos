@@ -28,6 +28,7 @@
 #include "JSDOMExceptionHandling.h"
 #include "JSDOMWindowCustom.h"
 #include "RuntimeApplicationChecks.h"
+#include "WebCoreJSClientData.h"
 #include <JavaScriptCore/JSFunction.h>
 #include <JavaScriptCore/Lookup.h>
 
@@ -60,7 +61,7 @@ static bool getOwnPropertySlotCommon(JSLocation& thisObject, ExecState& state, P
 
     // Getting location.href cross origin needs to throw. However, getOwnPropertyDescriptor() needs to return
     // a descriptor that has a setter but no getter.
-    if (slot.internalMethodType() == PropertySlot::InternalMethodType::GetOwnProperty && propertyName == vm.propertyNames->href) {
+    if (slot.internalMethodType() == PropertySlot::InternalMethodType::GetOwnProperty && propertyName == static_cast<JSVMClientData*>(vm.clientData)->builtinNames().hrefPublicName()) {
         auto* entry = JSLocation::info()->staticPropHashTable->entry(propertyName);
         CustomGetterSetter* customGetterSetter = CustomGetterSetter::create(vm, nullptr, entry->propertyPutter());
         slot.setCustomGetterSetter(&thisObject, static_cast<unsigned>(JSC::PropertyAttribute::CustomAccessor | PropertyAttribute::DontEnum), customGetterSetter);
@@ -72,27 +73,37 @@ static bool getOwnPropertySlotCommon(JSLocation& thisObject, ExecState& state, P
 
     throwSecurityError(state, scope, message);
     slot.setUndefined();
-    return true;
+    return false;
 }
 
 bool JSLocation::getOwnPropertySlot(JSObject* object, ExecState* state, PropertyName propertyName, PropertySlot& slot)
 {
+    VM& vm = state->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
     auto* thisObject = jsCast<JSLocation*>(object);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
 
-    if (getOwnPropertySlotCommon(*thisObject, *state, propertyName, slot))
+    bool result = getOwnPropertySlotCommon(*thisObject, *state, propertyName, slot);
+    EXCEPTION_ASSERT(!scope.exception() || !result);
+    RETURN_IF_EXCEPTION(scope, false);
+    if (result)
         return true;
-    return JSObject::getOwnPropertySlot(object, state, propertyName, slot);
+    RELEASE_AND_RETURN(scope, JSObject::getOwnPropertySlot(object, state, propertyName, slot));
 }
 
 bool JSLocation::getOwnPropertySlotByIndex(JSObject* object, ExecState* state, unsigned index, PropertySlot& slot)
 {
+    VM& vm = state->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
     auto* thisObject = jsCast<JSLocation*>(object);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
 
-    if (getOwnPropertySlotCommon(*thisObject, *state, Identifier::from(state, index), slot))
+    bool result = getOwnPropertySlotCommon(*thisObject, *state, Identifier::from(state, index), slot);
+    EXCEPTION_ASSERT(!scope.exception() || !result);
+    RETURN_IF_EXCEPTION(scope, false);
+    if (result)
         return true;
-    return JSObject::getOwnPropertySlotByIndex(object, state, index, slot);
+    RELEASE_AND_RETURN(scope, JSObject::getOwnPropertySlotByIndex(object, state, index, slot));
 }
 
 static bool putCommon(JSLocation& thisObject, ExecState& state, PropertyName propertyName)
@@ -105,7 +116,7 @@ static bool putCommon(JSLocation& thisObject, ExecState& state, PropertyName pro
     // Always allow assigning to the whole location.
     // However, alllowing assigning of pieces might inadvertently disclose parts of the original location.
     // So fall through to the access check for those.
-    if (propertyName == vm.propertyNames->href)
+    if (propertyName == static_cast<JSVMClientData*>(vm.clientData)->builtinNames().hrefPublicName())
         return false;
 
     // Block access and throw if there is a security error.
@@ -113,6 +124,23 @@ static bool putCommon(JSLocation& thisObject, ExecState& state, PropertyName pro
         return true;
 
     return false;
+}
+
+void JSLocation::doPutPropertySecurityCheck(JSObject* object, ExecState* state, PropertyName propertyName, PutPropertySlot&)
+{
+    auto* thisObject = jsCast<JSLocation*>(object);
+    ASSERT_GC_OBJECT_INHERITS(thisObject, info());
+
+    VM& vm = state->vm();
+
+    // Always allow assigning to the whole location.
+    // However, alllowing assigning of pieces might inadvertently disclose parts of the original location.
+    // So fall through to the access check for those.
+    if (propertyName == static_cast<JSVMClientData*>(vm.clientData)->builtinNames().hrefPublicName())
+        return;
+
+    // Block access and throw if there is a security error.
+    BindingSecurity::shouldAllowAccessToDOMWindow(state, thisObject->wrapped().window(), ThrowSecurityError);
 }
 
 bool JSLocation::put(JSCell* cell, ExecState* state, PropertyName propertyName, JSValue value, PutPropertySlot& putPropertySlot)

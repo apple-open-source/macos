@@ -92,7 +92,6 @@ my @versions = (
     "watchos",  "4.2",
     "watchos",  "4.3",
     "bridgeos", "2.0",
-    "os_set",   "fall_2017",
     "macos",    "10.14",
     "ios",      "12.0",
     "tvos",     "12.0",
@@ -113,12 +112,19 @@ my @versions = (
     "os_set",   "spring_2019",
     "ios",      "12.3",
     "tvos",     "12.3",
+    "macos",    "10.14.5",
     "os_set",   "summer_2019",
     "macos",    "10.14.6",
     "ios",      "12.4",
     "tvos",     "12.4",
     "watchos",  "5.3",
     "os_set",   "late_summer_2019",
+    "macos",    "10.15",
+    "ios",      "13.0",
+    "tvos",     "13.0",
+    "watchos",  "6.0",
+    "bridgeos", "4.0",
+    "os_set",   "fall_2019",
 );
 
 my @macosx_versions = pairvalues pairgrep { $a eq "macos" } @versions;
@@ -144,7 +150,7 @@ sub print_sets {
             print $version->[1] . ":\n";
             keys %oses;
             while(my($k, $v) = each %oses) {
-                printf "\  " . $k . ":\  " . $v . "\n";
+                printf "\  " . $k . ":\  \"" . $v . "\"\n";
             }
         } else {
             $oses{$version->[0]} = $version->[1];

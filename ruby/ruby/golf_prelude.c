@@ -10,7 +10,15 @@
 
 
 static const char prelude_name0[] = "<internal:golf_prelude>";
-static const char prelude_code0[] =
+static const struct {
+    char L0[494]; /* 1..18 */
+    char L18[460]; /* 19..33 */
+    char L33[499]; /* 34..63 */
+    char L63[475]; /* 64..96 */
+    char L96[494]; /* 97..117 */
+    char L117[175]; /* 118..129 */
+} prelude_code0 = {
+#line 1 "golf_prelude.rb"
 "class Object\n"
 "  @@golf_hash = {}\n"
 "\n"
@@ -29,6 +37,8 @@ static const char prelude_code0[] =
 "  def matching_methods(s = '', m = callable_methods)\n"
 "    r = /^#{s.to_s.gsub(/./){\"(.*?)\" + Regexp.escape($&)}}/\n"
 "    m.grep(r).sort_by do |i|\n"
+,
+#line 19 "golf_prelude.rb"
 "      i.to_s.match(r).captures.map(&:size) << i\n"
 "    end\n"
 "  end\n"
@@ -44,6 +54,8 @@ static const char prelude_code0[] =
 "    our_case = (?A..?Z) === s[0]\n"
 "    if m.index(s.to_sym)\n"
 "      1.upto(s.size){|z| s.scan(/./).combination(z).map{|trial|\n"
+,
+#line 34 "golf_prelude.rb"
 "        next unless ((?A..?Z) === trial[0]) == our_case\n"
 "        trial *= ''\n"
 "        return trial if matching_methods(trial, m)[0].to_s == s\n"
@@ -63,12 +75,19 @@ static const char prelude_code0[] =
 "    puts \"#{a}ello, #{b}orld#{c}\"\n"
 "  end\n"
 "\n"
+"  def f(m = 100)\n"
+"    1.upto(m){|n|puts'FizzBuzz\n"
+"'[i=n**4%-15,i+13]||n}\n"
+"  end\n"
+"\n"
 "  alias say puts\n"
 "\n"
 "  def do_while\n"
 "    0 while yield\n"
 "  end\n"
 "\n"
+,
+#line 64 "golf_prelude.rb"
 "  def do_until\n"
 "    0 until yield\n"
 "  end\n"
@@ -98,10 +117,12 @@ static const char prelude_code0[] =
 "    split('')\n"
 "  end\n"
 "\n"
-"  (Array.instance_methods - instance_methods - [:to_ary, :transpose, :flatten, :flatten!, :compact, :compact!, :assoc, :rassoc]).each{|meth|\n"
+"  (Array.instance_methods - instance_methods - %i[to_ary transpose flatten flatten! compact compact! assoc rassoc]).each{|meth|\n"
 "    eval \"\n"
 "    def #{meth}(*args, &block)\n"
 "      a = to_a\n"
+,
+#line 97 "golf_prelude.rb"
 "      result = a.#{meth}(*args, &block)\n"
 "      replace(a.join)\n"
 "      if result.class == Array\n"
@@ -123,6 +144,8 @@ static const char prelude_code0[] =
 "      to_a.#{meth}(*args, &block)\n"
 "    end\"\n"
 "  }\n"
+,
+#line 118 "golf_prelude.rb"
 "  alias old_inspect inspect\n"
 "  alias inspect old_to_s\n"
 "end\n"
@@ -134,40 +157,50 @@ static const char prelude_code0[] =
 "    end\n"
 "  end\n"
 "end\n"
-;
+#line 161 "golf.c"
+};
 
 
+#define PRELUDE_NAME(n) rb_usascii_str_new_static(prelude_name##n, sizeof(prelude_name##n)-1)
+#define PRELUDE_CODE(n) rb_usascii_str_new_static(prelude_code##n.L0, sizeof(prelude_code##n))
+COMPILER_WARNING_PUSH
+#if GCC_VERSION_SINCE(4, 2, 0)
+COMPILER_WARNING_ERROR(-Wmissing-field-initializers)
+#endif
 static void
 prelude_eval(VALUE code, VALUE name, int line)
 {
     static const rb_compile_option_t optimization = {
 	TRUE, /* int inline_const_cache; */
 	TRUE, /* int peephole_optimization; */
-	TRUE, /* int tailcall_optimization */
+	FALSE,/* int tailcall_optimization; */
 	TRUE, /* int specialized_instruction; */
 	TRUE, /* int operands_unification; */
 	TRUE, /* int instructions_unification; */
 	TRUE, /* int stack_caching; */
-	FALSE, /* int trace_instruction */
-	TRUE,
-	FALSE,
+	TRUE, /* int frozen_string_literal; */
+	FALSE, /* int debug_frozen_string_literal; */
+	FALSE, /* unsigned int coverage_enabled; */
+	0, /* int debug_level; */
     };
 
-    NODE *node = rb_parser_compile_string_path(rb_parser_new(), name, code, line);
-    if (!node) rb_exc_raise(rb_errinfo());
-    rb_iseq_eval(rb_iseq_new_with_opt(node, name, name, Qnil, INT2FIX(line),
+    rb_ast_t *ast = rb_parser_compile_string_path(rb_parser_new(), name, code, line);
+    if (!ast->body.root) {
+	rb_ast_dispose(ast);
+	rb_exc_raise(rb_errinfo());
+    }
+    rb_iseq_eval(rb_iseq_new_with_opt(&ast->body, name, name, Qnil, INT2FIX(line),
 				      NULL, ISEQ_TYPE_TOP, &optimization));
+    rb_ast_dispose(ast);
 }
+COMPILER_WARNING_POP
 
 void
 Init_golf(void)
 {
-    prelude_eval(
-      rb_usascii_str_new(prelude_code0, sizeof(prelude_code0) - 1),
-      rb_usascii_str_new(prelude_name0, sizeof(prelude_name0) - 1),
-      INT2FIX(1));
+    prelude_eval(PRELUDE_CODE(0), PRELUDE_NAME(0), 1);
 
 #if 0
-    puts(prelude_code0);
+    printf("%.*s", (int)sizeof(prelude_code0), prelude_code0.L0);
 #endif
 }

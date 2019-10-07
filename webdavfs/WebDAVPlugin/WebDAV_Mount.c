@@ -164,7 +164,7 @@ ParsePathSegment(char *bytes, char **firstChar, char **lastChar)
 static char *
 CopySegment(char *start, char *endPlusOne)
 {
-    int		length;
+    size_t	length;
     char	*result;
     
     /* get length of segment and allocate space for string */
@@ -196,7 +196,7 @@ basename_from_path(const char *hostport_abs_path, char *name, size_t maxlength)
     char	*host;
     char	*firstPathSegment;
     char	*lastPathSegment;
-    int		length;
+    size_t	length;
     char	*colon;
     char	*slash;
     char	*firstChar;
@@ -431,7 +431,7 @@ FindActiveMountPointFromURL(const char* url, char* mountpoint, size_t mountpoint
 {
     struct statfs *buffer;
     int i, count, error;
-    unsigned int mntfromnameLength;
+    size_t mntfromnameLength;
     uid_t processUID;
     char  mntfromname[MNAMELEN];
     
@@ -659,11 +659,16 @@ WebDAVMountURL(struct webdav_ctx *session_ref,
 			CFIndex ssl_items;
 			if (session_ref->ct_sslproperties && (ssl_items = CFDictionaryGetCount(session_ref->ct_sslproperties))) {
 				syslog(LOG_DEBUG,"%s: SSL Properties (%ld)\n", __FUNCTION__, ssl_items);
-				CFErrorRef err;
+				CFErrorRef err = NULL;
 				CFArrayRef certArray = CFDictionaryGetValue(session_ref->ct_sslproperties, _kCFStreamSSLTrustedLeafCertificates);
-				CFArrayRef certs_data = SecCertificateArrayCreateCFDataArray(certArray);
-
-				CFDataRef data = CFPropertyListCreateData(kCFAllocatorDefault, certs_data, kCFPropertyListXMLFormat_v1_0, 0, &err);
+				CFArrayRef certs_data;
+				CFDataRef data = NULL;
+				
+				if (certArray != NULL) {
+					certs_data = SecCertificateArrayCreateCFDataArray(certArray);
+					data = CFPropertyListCreateData(kCFAllocatorDefault, certs_data, kCFPropertyListXMLFormat_v1_0, 0, &err);
+				}
+					
 				if (data) {
 					CFIndex length = CFDataGetLength(data);
 					if (length) {

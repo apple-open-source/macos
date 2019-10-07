@@ -31,6 +31,10 @@
     content: url(../Images/ScriptsInstrument.svg);
 }
 
+.cpu-icon .icon {
+    content: url(../Images/CPUInstrument.svg);
+}
+
 .memory-icon .icon {
     content: url(../Images/MemoryInstrument.svg);
 }
@@ -129,11 +133,11 @@
     content: url(../Images/DOMEventFullscreen.svg);
 }
 
-.low-power-record .icon {
-    content: url(../Images/LowPower.svg);
+.power-efficient-playback-state-changed-record .icon {
+    content: url(../Images/PowerEfficientPlaybackStateChanged.svg);
 }
 
-@media (prefers-dark-interface) {
+@media (prefers-color-scheme: dark) {
     .time-icon .icon {
         filter: invert();
     }

@@ -31,6 +31,7 @@
 #include "EditableImageReference.h"
 #include "Editor.h"
 #include "ElementIterator.h"
+#include "EventNames.h"
 #include "FrameView.h"
 #include "HTMLAnchorElement.h"
 #include "HTMLAttachmentElement.h"
@@ -45,7 +46,9 @@
 #include "MIMETypeRegistry.h"
 #include "MediaList.h"
 #include "MediaQueryEvaluator.h"
+#include "MouseEvent.h"
 #include "NodeTraversal.h"
+#include "PlatformMouseEvent.h"
 #include "RenderImage.h"
 #include "RenderView.h"
 #include "RuntimeEnabledFeatures.h"
@@ -65,19 +68,14 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLImageElement);
 
 using namespace HTMLNames;
 
-typedef HashMap<const HTMLImageElement*, WeakPtr<HTMLPictureElement>> PictureOwnerMap;
-static PictureOwnerMap* gPictureOwnerMap = nullptr;
-
 HTMLImageElement::HTMLImageElement(const QualifiedName& tagName, Document& document, HTMLFormElement* form)
     : HTMLElement(tagName, document)
     , m_imageLoader(*this)
     , m_form(nullptr)
-    , m_formSetByParser(form)
+    , m_formSetByParser(makeWeakPtr(form))
     , m_compositeOperator(CompositeSourceOver)
     , m_imageDevicePixelRatio(1.0f)
-#if ENABLE(SERVICE_CONTROLS)
     , m_experimentalImageMenuEnabled(false)
-#endif
 {
     ASSERT(hasTagName(imgTag));
     setHasCustomStyleResolveCallbacks();
@@ -112,12 +110,12 @@ Ref<HTMLImageElement> HTMLImageElement::createForJSConstructor(Document& documen
 
 bool HTMLImageElement::isPresentationAttribute(const QualifiedName& name) const
 {
-    if (name == widthAttr || name == heightAttr || name == borderAttr || name == vspaceAttr || name == hspaceAttr || name == alignAttr || name == valignAttr)
+    if (name == widthAttr || name == heightAttr || name == borderAttr || name == vspaceAttr || name == hspaceAttr || name == valignAttr)
         return true;
     return HTMLElement::isPresentationAttribute(name);
 }
 
-void HTMLImageElement::collectStyleForPresentationAttribute(const QualifiedName& name, const AtomicString& value, MutableStyleProperties& style)
+void HTMLImageElement::collectStyleForPresentationAttribute(const QualifiedName& name, const AtomString& value, MutableStyleProperties& style)
 {
     if (name == widthAttr)
         addHTMLLengthToStyle(style, CSSPropertyWidth, value);
@@ -139,15 +137,15 @@ void HTMLImageElement::collectStyleForPresentationAttribute(const QualifiedName&
         HTMLElement::collectStyleForPresentationAttribute(name, value, style);
 }
 
-const AtomicString& HTMLImageElement::imageSourceURL() const
+const AtomString& HTMLImageElement::imageSourceURL() const
 {
     return m_bestFitImageURL.isEmpty() ? attributeWithoutSynchronization(srcAttr) : m_bestFitImageURL;
 }
 
 void HTMLImageElement::setBestFitURLAndDPRFromImageCandidate(const ImageCandidate& candidate)
 {
-    m_bestFitImageURL = candidate.string.toAtomicString();
-    m_currentSrc = AtomicString(document().completeURL(imageSourceURL()).string());
+    m_bestFitImageURL = candidate.string.toAtomString();
+    m_currentSrc = AtomString(document().completeURL(imageSourceURL()).string());
     if (candidate.density >= 0)
         m_imageDevicePixelRatio = 1 / candidate.density;
     if (is<RenderImage>(renderer()))
@@ -217,7 +215,7 @@ void HTMLImageElement::selectImageSource()
     m_imageLoader.updateFromElementIgnoringPreviousError();
 }
 
-void HTMLImageElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
+void HTMLImageElement::parseAttribute(const QualifiedName& name, const AtomString& value)
 {
     if (name == altAttr) {
         if (is<RenderImage>(renderer()))
@@ -249,7 +247,7 @@ void HTMLImageElement::parseAttribute(const QualifiedName& name, const AtomicStr
             bool willHaveName = !value.isNull();
             if (m_hadNameBeforeAttributeChanged != willHaveName && isConnected() && !isInShadowTree() && is<HTMLDocument>(document())) {
                 HTMLDocument& document = downcast<HTMLDocument>(this->document());
-                const AtomicString& id = getIdAttribute();
+                const AtomString& id = getIdAttribute();
                 if (!id.isEmpty() && id != getNameAttribute()) {
                     if (willHaveName)
                         document.addDocumentNamedItem(*id.impl(), *this);
@@ -263,12 +261,12 @@ void HTMLImageElement::parseAttribute(const QualifiedName& name, const AtomicStr
     }
 }
 
-const AtomicString& HTMLImageElement::altText() const
+const AtomString& HTMLImageElement::altText() const
 {
     // lets figure out the alt text.. magic stuff
     // http://www.w3.org/TR/1998/REC-html40-19980424/appendix/notes.html#altgen
     // also heavily discussed by Hixie on bugzilla
-    const AtomicString& alt = attributeWithoutSynchronization(altAttr);
+    const AtomString& alt = attributeWithoutSynchronization(altAttr);
     if (!alt.isNull())
         return alt;
     // fall back to title attribute
@@ -331,8 +329,7 @@ void HTMLImageElement::didAttachRenderers()
 Node::InsertedIntoAncestorResult HTMLImageElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
 {
     if (m_formSetByParser) {
-        m_form = m_formSetByParser;
-        m_formSetByParser = nullptr;
+        m_form = WTFMove(m_formSetByParser);
         m_form->registerImgElement(this);
     }
 
@@ -342,9 +339,10 @@ Node::InsertedIntoAncestorResult HTMLImageElement::insertedIntoAncestor(Insertio
     }
 
     if (!m_form) {
-        m_form = HTMLFormElement::findClosestFormAncestor(*this);
-        if (m_form)
-            m_form->registerImgElement(this);
+        if (auto* newForm = HTMLFormElement::findClosestFormAncestor(*this)) {
+            m_form = makeWeakPtr(newForm);
+            newForm->registerImgElement(this);
+        }
     }
 
     // Insert needs to complete first, before we start updating the loader. Loader dispatches events which could result
@@ -452,25 +450,12 @@ void HTMLImageElement::updateEditableImage()
 
 HTMLPictureElement* HTMLImageElement::pictureElement() const
 {
-    if (!gPictureOwnerMap || !gPictureOwnerMap->contains(this))
-        return nullptr;
-    auto result = gPictureOwnerMap->get(this);
-    if (!result)
-        gPictureOwnerMap->remove(this);
-    return result.get();
+    return m_pictureElement.get();
 }
     
 void HTMLImageElement::setPictureElement(HTMLPictureElement* pictureElement)
 {
-    if (!pictureElement) {
-        if (gPictureOwnerMap)
-            gPictureOwnerMap->remove(this);
-        return;
-    }
-    
-    if (!gPictureOwnerMap)
-        gPictureOwnerMap = new PictureOwnerMap();
-    gPictureOwnerMap->add(this, makeWeakPtr(*pictureElement));
+    m_pictureElement = makeWeakPtr(pictureElement);
 }
     
 unsigned HTMLImageElement::width(bool ignorePendingStylesheets)
@@ -565,7 +550,7 @@ String HTMLImageElement::completeURLsInAttributeValue(const URL& base, const Att
             result.append(URL(base, candidate.string.toString()).string());
             if (candidate.density != UninitializedDescriptor) {
                 result.append(' ');
-                result.appendNumber(candidate.density);
+                result.appendFixedPrecisionNumber(candidate.density);
                 result.append('x');
             }
             if (candidate.resourceWidth != UninitializedDescriptor) {
@@ -579,7 +564,7 @@ String HTMLImageElement::completeURLsInAttributeValue(const URL& base, const Att
     return HTMLElement::completeURLsInAttributeValue(base, attribute);
 }
 
-bool HTMLImageElement::matchesUsemap(const AtomicStringImpl& name) const
+bool HTMLImageElement::matchesUsemap(const AtomStringImpl& name) const
 {
     return m_parsedUsemap.impl() == &name;
 }
@@ -589,7 +574,7 @@ HTMLMapElement* HTMLImageElement::associatedMapElement() const
     return treeScope().getImageMap(m_parsedUsemap);
 }
 
-const AtomicString& HTMLImageElement::alt() const
+const AtomString& HTMLImageElement::alt() const
 {
     return attributeWithoutSynchronization(altAttr);
 }
@@ -649,7 +634,7 @@ bool HTMLImageElement::complete() const
 
 DecodingMode HTMLImageElement::decodingMode() const
 {
-    const AtomicString& decodingMode = attributeWithoutSynchronization(decodingAttr);
+    const AtomString& decodingMode = attributeWithoutSynchronization(decodingAttr);
     if (equalLettersIgnoringASCIICase(decodingMode, "sync"))
         return DecodingMode::Synchronous;
     if (equalLettersIgnoringASCIICase(decodingMode, "async"))
@@ -682,7 +667,7 @@ bool HTMLImageElement::isServerMap() const
     if (!hasAttributeWithoutSynchronization(ismapAttr))
         return false;
 
-    const AtomicString& usemap = attributeWithoutSynchronization(usemapAttr);
+    const AtomString& usemap = attributeWithoutSynchronization(usemapAttr);
 
     // If the usemap attribute starts with '#', it refers to a map element in the document.
     if (usemap.string()[0] == '#')
@@ -691,7 +676,7 @@ bool HTMLImageElement::isServerMap() const
     return document().completeURL(stripLeadingAndTrailingHTMLSpaces(usemap)).isEmpty();
 }
 
-void HTMLImageElement::setCrossOrigin(const AtomicString& value)
+void HTMLImageElement::setCrossOrigin(const AtomString& value)
 {
     setAttributeWithoutSynchronization(crossoriginAttr, value);
 }
@@ -804,7 +789,7 @@ bool HTMLImageElement::childShouldCreateRenderer(const Node& child) const
 #endif // ENABLE(SERVICE_CONTROLS)
 
 #if PLATFORM(IOS_FAMILY)
-// FIXME: This is a workaround for <rdar://problem/7725158>. We should find a better place for the touchCalloutEnabled() logic.
+// FIXME: We should find a better place for the touch callout logic. See rdar://problem/48937767.
 bool HTMLImageElement::willRespondToMouseClickEvents()
 {
     auto renderer = this->renderer();
@@ -837,6 +822,16 @@ void HTMLImageElement::copyNonAttributePropertiesFromElement(const Element& sour
 #endif
     m_editableImage = sourceImage.m_editableImage;
     Element::copyNonAttributePropertiesFromElement(source);
+}
+
+void HTMLImageElement::defaultEventHandler(Event& event)
+{
+    if (hasEditableImageAttribute() && event.type() == eventNames().mousedownEvent && is<MouseEvent>(event) && downcast<MouseEvent>(event).button() == LeftButton) {
+        focus();
+        event.setDefaultHandled();
+        return;
+    }
+    HTMLElement::defaultEventHandler(event);
 }
 
 }

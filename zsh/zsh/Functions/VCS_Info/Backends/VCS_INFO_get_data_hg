@@ -13,7 +13,7 @@ local hgbase bmfile branchfile rebasefile dirstatefile mqseriesfile \
     hgbmstring hgmqstring applied_string unapplied_string guards_string
 
 local -a hgid_args defrevformat defbranchformat \
-    hgbmarks mqpatches mqseries mqguards mqunapplied hgmisc \
+    hgbmarks mqpatches mqguards mqunapplied hgmisc \
     i_patchguards i_negguards i_posguards
 
 local -A hook_com
@@ -55,8 +55,8 @@ if zstyle -t ":vcs_info:${vcs}:${usercontext}:${rrn}" get-revision ; then
         zstyle -t ":vcs_info:${vcs}:${usercontext}:${rrn}" \
             "check-for-changes" || hgid_args+=( -r. )
 
-        local HGRCPATH
-        HGRCPATH="/dev/null" ${vcs_comm[cmd]} ${(z)hgid_args} 2> /dev/null \
+        local HGPLAIN
+        HGPLAIN=1 ${vcs_comm[cmd]} ${(z)hgid_args} 2> /dev/null \
             | read -r r_csetid r_lrev r_branch
     fi
 fi
@@ -175,9 +175,6 @@ if zstyle -T ":vcs_info:${vcs}:${usercontext}:${rrn}" get-mq \
             # Skip commented lines
             [[ ${i_patch} == [[:space:]]#"#"* ]] && continue
 
-            # Keep list of all patches
-            mqseries+=( $i_patch )
-
             # Separate negative and positive guards to more easily find the
             # intersection of active guards with patch guards
             i_patchguards=( ${(s: :)i_patchguards} )
@@ -203,50 +200,21 @@ if zstyle -T ":vcs_info:${vcs}:${usercontext}:${rrn}" get-mq \
         done < ${mqseriesfile}
     fi
 
-    if VCS_INFO_hook 'gen-applied-string' "${mqpatches[@]}"; then
-        (( ${#mqpatches} )) && applied_string=${mqpatches[1]}
-    else
-        applied_string=${hook_com[applied-string]}
-    fi
-
-    hook_com=()
-
-    if VCS_INFO_hook 'gen-unapplied-string' "${mqunapplied[@]}"; then
-        unapplied_string=${#mqunapplied}
-    else
-        unapplied_string=${hook_com[unapplied-string]}
-    fi
-
-    hook_com=()
-
     if VCS_INFO_hook 'gen-mqguards-string' "${mqguards[@]}"; then
         guards_string=${(j:,:)mqguards}
+        # TODO: %-escape extra_zformats[g:...] value
     else
         guards_string=${hook_com[guards-string]}
     fi
 
-    if (( ${#mqpatches} )); then
-        zstyle -s ":vcs_info:${vcs}:${usercontext}:${rrn}" patch-format \
-            hgmqstring || hgmqstring="%p (%n applied)"
-    else
-        zstyle -s ":vcs_info:${vcs}:${usercontext}:${rrn}" nopatch-format \
-            hgmqstring || hgmqstring="no patch applied"
-    fi
+    local -A extra_hook_com=( guards "${guards_string}"   guards-n ${#mqguards} )
+    local -a extra_zformats=( "g:${extra_hook_com[guards]}" "G:${#mqguards}" )
 
-    hook_com=( applied "${applied_string}" unapplied "${unapplied_string}"
-               applied-n ${#mqpatches}     unapplied-n ${#mqunapplied}     all-n ${#mqseries}
-               guards "${guards_string}"   guards-n ${#mqguards} )
-
-    if VCS_INFO_hook 'set-patch-format' ${qstring}; then
-        zformat -f hgmqstring "${hgmqstring}" \
-            "p:${hook_com[applied]}" "u:${hook_com[unapplied]}" \
-            "n:${#mqpatches}" "c:${#mqunapplied}" "a:${#mqseries}" \
-            "g:${hook_com[guards]}" "G:${#mqguards}"
-    else
-        hgmqstring=${hook_com[patch-replace]}
-    fi
-
-    hook_com=()
+    VCS_INFO_set-patch-format 'mqpatches' 'applied_string' \
+                              'mqunapplied' 'unapplied_string' \
+                              ":vcs_info:${vcs}:${usercontext}:${rrn}" hgmqstring \
+                              extra_hook_com extra_zformats
+    hgmqstring=$REPLY
 fi
 
 

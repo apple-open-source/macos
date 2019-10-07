@@ -9,7 +9,6 @@
 
 #include "testbyteBuffer.h"
 #include <CommonCrypto/CommonRandomSPI.h>
-#include "../../lib/ccMemory.h"
 
 void printBytes(uint8_t *buff, size_t len, char *name)
 {
@@ -45,12 +44,10 @@ genRandomSize(size_t minSize, size_t maxSize)
     size_t randomInt;
     
     if(minSize == maxSize) return minSize;
-
     // make theSize > minSize < maxSize;
-    while(CCRandomCopyBytes(kCCRandomDefault, &randomInt, sizeof(uint32_t)) == -1) {
-        printf("got -1 from CCRandomCopyBytes\n");
+    while(CCRandomGenerateBytes(&randomInt, sizeof(uint32_t)) == -1) {
+        printf("got -1 from CCRandomGenerateBytes\n");
     }
-
     randomInt = (randomInt % (maxSize - minSize)) + minSize;
     return randomInt;
 }
@@ -68,10 +65,10 @@ genRandomByteBuffer(size_t minSize, size_t maxSize)
     if(retval == NULL) return NULL;
     
     if(retval->len != randomInt) return NULL;
-    CC_XZEROMEM(retval->bytes, retval->len);
-    
+    cc_clear(retval->len, retval->bytes);
+
     // fill bytes randomly
-    while((err = CCRandomCopyBytes(kCCRandomDefault, retval->bytes, retval->len)) != kCCSuccess) {
+    while((err = CCRandomGenerateBytes(retval->bytes, retval->len)) != kCCSuccess) {
         printf("got %d from CCRandomCopyBytes\n", err);
     }
     

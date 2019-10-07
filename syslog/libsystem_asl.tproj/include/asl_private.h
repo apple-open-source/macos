@@ -78,6 +78,7 @@
 #define EVAL_ASL_FILE     0x00100000
 #define EVAL_TUNNEL       0x00200000
 #define EVAL_QUOTA        0x00400000
+#define EVAL_MT_SHIM      0x00800000
 
 /*
  * Private types

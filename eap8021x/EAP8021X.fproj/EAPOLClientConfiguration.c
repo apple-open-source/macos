@@ -926,7 +926,7 @@ EAPOLClientConfigurationGetTypeID(void)
     return (__kEAPOLClientConfigurationTypeID);
 }
 
-EAPOLClientConfigurationRef
+STATIC EAPOLClientConfigurationRef
 EAPOLClientConfigurationCreateInternal(CFAllocatorRef allocator,
 				       AuthorizationRef auth)
 {

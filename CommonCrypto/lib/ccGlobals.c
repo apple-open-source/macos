@@ -33,40 +33,35 @@
 #include <corecrypto/ccsha1.h>
 #include <corecrypto/ccsha2.h>
 #include "basexx.h" 
-#include "ccMemory.h"
 
-#if defined (_WIN32) && !_LIBCOMMONCRYPTO_HAS_ALLOC_ONCE
+#if !_LIBCOMMONCRYPTO_HAS_ALLOC_ONCE
+struct cc_globals_s cc_globals_storage;
+
+#if defined(_MSC_VER)
 #include <windows.h>
-struct cc_globals_s cc_globals_storage = {
-                                       .crc_init = INIT_ONCE_STATIC_INIT,
-                                       .basexx_init = INIT_ONCE_STATIC_INIT,
-                                       .digest_info_init = INIT_ONCE_STATIC_INIT,
-                                       }; 
+dispatch_once_t cc_globals_init = INIT_ONCE_STATIC_INIT;
+#else
+#warning Please check init once static initializer
+dispatch_once_t cc_globals_init = 0;
+#endif
 #endif
 
 static void init_globals_digest(void *g){
     cc_globals_t globals = (cc_globals_t) g;
-    
-    globals->digest_info[kCCDigestNone] = NULL;
+
+    memset(globals->digest_info, 0, sizeof (globals->digest_info));
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     globals->digest_info[kCCDigestMD2] = &ccmd2_di;
     globals->digest_info[kCCDigestMD4] = &ccmd4_di;
     globals->digest_info[kCCDigestMD5] = ccmd5_di();
-    globals->digest_info[kCCDigestRMD128] = &ccrmd128_di;
     globals->digest_info[kCCDigestRMD160] = &ccrmd160_di;
-    globals->digest_info[kCCDigestRMD256] = &ccrmd256_di;
-    globals->digest_info[kCCDigestRMD320] = &ccrmd320_di;
     globals->digest_info[kCCDigestSHA1] = ccsha1_di();
     globals->digest_info[kCCDigestSHA224] = ccsha224_di();
     globals->digest_info[kCCDigestSHA256] = ccsha256_di();
     globals->digest_info[kCCDigestSHA384] = ccsha384_di();
     globals->digest_info[kCCDigestSHA512] = ccsha512_di();
-    globals->digest_info[kCCDigestSkein128] = NULL;
-    globals->digest_info[kCCDigestSkein160] = NULL;
-    globals->digest_info[15] = NULL; // gap
-    globals->digest_info[kCCDigestSkein224] = NULL;
-    globals->digest_info[kCCDigestSkein256] = NULL;
-    globals->digest_info[kCCDigestSkein384] = NULL;
-    globals->digest_info[kCCDigestSkein512] = NULL;
+#pragma clang diagnostic pop
 }
 
 static void init_globals_basexx(void *g){

@@ -80,6 +80,19 @@ Object.defineProperty(Object, "shallowEqual",
     }
 });
 
+Object.defineProperty(Object, "filter",
+{
+    value(object, callback)
+    {
+        let filtered = {};
+        for (let key in object) {
+            if (callback(key, object[key]))
+                filtered[key] = object[key];
+        }
+        return filtered;
+    }
+});
+
 Object.defineProperty(Object.prototype, "valueForCaseInsensitiveKey",
 {
     value(key)
@@ -112,9 +125,35 @@ Object.defineProperty(Map.prototype, "take",
 {
     value(key)
     {
-        var deletedValue = this.get(key);
+        let deletedValue = this.get(key);
         this.delete(key);
         return deletedValue;
+    }
+});
+
+Object.defineProperty(Map.prototype, "getOrInitialize",
+{
+    value(key, initialValue)
+    {
+        console.assert(initialValue !== undefined, "getOrInitialize should not be used with undefined.");
+
+        let value = this.get(key);
+        if (value)
+            return value;
+
+        this.set(key, initialValue);
+        return initialValue;
+    }
+});
+
+Object.defineProperty(Set.prototype, "take",
+{
+    value(key)
+    {
+        let exists = this.has(key);
+        if (exists)
+            this.delete(key);
+        return exists;
     }
 });
 
@@ -151,6 +190,14 @@ Object.defineProperty(Set.prototype, "firstValue",
     }
 });
 
+Object.defineProperty(Set.prototype, "lastValue",
+{
+    get()
+    {
+        return Array.from(this.values()).lastValue;
+    }
+});
+
 Object.defineProperty(Set.prototype, "intersects",
 {
     value(other)
@@ -177,44 +224,6 @@ Object.defineProperty(Set.prototype, "isSubsetOf",
         }
 
         return true;
-    }
-});
-
-Object.defineProperty(Node.prototype, "enclosingNodeOrSelfWithClass",
-{
-    value(className)
-    {
-        for (let node = this; node; node = node.parentElement) {
-            if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains(className))
-                return node;
-        }
-
-        return null;
-    }
-});
-
-Object.defineProperty(Node.prototype, "enclosingNodeOrSelfWithNodeNameInArray",
-{
-    value(nodeNames)
-    {
-        let upperCaseNodeNames = nodeNames.map((name) => name.toUpperCase());
-
-        for (let node = this; node; node = node.parentElement) {
-            for (let nodeName of upperCaseNodeNames) {
-                if (node.nodeName === nodeName)
-                    return node;
-            }
-        }
-
-        return null;
-    }
-});
-
-Object.defineProperty(Node.prototype, "enclosingNodeOrSelfWithNodeName",
-{
-    value(nodeName)
-    {
-        return this.enclosingNodeOrSelfWithNodeNameInArray([nodeName]);
     }
 });
 
@@ -390,6 +399,14 @@ Object.defineProperty(Element.prototype, "totalOffsetTop",
     }
 });
 
+Object.defineProperty(Element.prototype, "totalOffsetBottom",
+{
+    get()
+    {
+        return this.getBoundingClientRect().bottom;
+    }
+});
+
 Object.defineProperty(Element.prototype, "removeChildren",
 {
     value()
@@ -522,6 +539,91 @@ Object.defineProperty(Array, "shallowEqual",
     }
 });
 
+Object.defineProperty(Array, "diffArrays",
+{
+    value(initialArray, currentArray, onEach, comparator)
+    {
+        "use strict";
+
+        function defaultComparator(initial, current) {
+            return initial === current;
+        }
+        comparator = comparator || defaultComparator;
+
+        // Find the shortest prefix of matching items in both arrays.
+        //
+        //    initialArray = ["a", "b", "b", "c"]
+        //    currentArray = ["c", "b", "b", "a"]
+        //    findShortestEdit() // [1, 1]
+        //
+        function findShortestEdit() {
+            let deletionCount = initialArray.length;
+            let additionCount = currentArray.length;
+            let editCount = deletionCount + additionCount;
+            for (let i = 0; i < initialArray.length; ++i) {
+                if (i > editCount) {
+                    // Break since any possible edits at this point are going to be longer than the one already found.
+                    break;
+                }
+
+                for (let j = 0; j < currentArray.length; ++j) {
+                    let newEditCount = i + j;
+                    if (newEditCount > editCount) {
+                        // Break since any possible edits at this point are going to be longer than the one already found.
+                        break;
+                    }
+
+                    if (comparator(initialArray[i], currentArray[j])) {
+                        // A candidate for the shortest edit found.
+                        if (newEditCount < editCount) {
+                            editCount = newEditCount;
+                            deletionCount = i;
+                            additionCount = j;
+                        }
+                        break;
+                    }
+                }
+            }
+            return [deletionCount, additionCount];
+        }
+
+        function commonPrefixLength(listA, listB) {
+            let shorterListLength = Math.min(listA.length, listB.length);
+            let i = 0;
+            while (i < shorterListLength) {
+                if (!comparator(listA[i], listB[i]))
+                    break;
+                ++i;
+            }
+            return i;
+        }
+
+        function fireOnEach(count, diffAction, array) {
+            for (let i = 0; i < count; ++i)
+                onEach(array[i], diffAction);
+        }
+
+        while (initialArray.length || currentArray.length) {
+            // Remove common prefix.
+            let prefixLength = commonPrefixLength(initialArray, currentArray);
+            if (prefixLength) {
+                fireOnEach(prefixLength, 0, currentArray);
+                initialArray = initialArray.slice(prefixLength);
+                currentArray = currentArray.slice(prefixLength);
+            }
+
+            if (!initialArray.length && !currentArray.length)
+                break;
+
+            let [deletionCount, additionCount] = findShortestEdit();
+            fireOnEach(deletionCount, -1, initialArray);
+            fireOnEach(additionCount, 1, currentArray);
+            initialArray = initialArray.slice(deletionCount);
+            currentArray = currentArray.slice(additionCount);
+        }
+    }
+});
+
 Object.defineProperty(Array.prototype, "lastValue",
 {
     get()
@@ -547,9 +649,10 @@ Object.defineProperty(Array.prototype, "remove",
         for (let i = 0; i < this.length; ++i) {
             if (this[i] === value) {
                 this.splice(i, 1);
-                return;
+                return true;
             }
         }
+        return false;
     }
 });
 
@@ -1128,11 +1231,11 @@ Object.defineProperty(Number, "secondsToString",
 {
     value(seconds, higherResolution)
     {
-        let ms = seconds * 1000;
-        if (!ms)
-            return WI.UIString("%.0fms").format(0);
-
         const epsilon = 0.0001;
+
+        let ms = seconds * 1000;
+        if (ms < epsilon)
+            return WI.UIString("%.0fms").format(0);
 
         if (Math.abs(ms) < (10 + epsilon)) {
             if (higherResolution)
@@ -1458,155 +1561,6 @@ Object.defineProperty(Promise, "delay",
     }
 });
 
-(function() {
-    // The `debounce` function lets you call any function on an object with a delay
-    // and if the function keeps getting called, the delay gets reset. Since `debounce`
-    // returns a Proxy, you can cache it and call multiple functions with the same delay.
-
-    // Use: object.debounce(200).foo("Argument 1", "Argument 2")
-    // Note: The last call's arguments get used for the delayed call.
-
-    const debounceTimeoutSymbol = Symbol("debounce-timeout");
-    const debounceSoonProxySymbol = Symbol("debounce-soon-proxy");
-
-    Object.defineProperty(Object.prototype, "soon",
-    {
-        get()
-        {
-            if (!this[debounceSoonProxySymbol])
-                this[debounceSoonProxySymbol] = this.debounce(0);
-            return this[debounceSoonProxySymbol];
-        }
-    });
-
-    Object.defineProperty(Object.prototype, "debounce",
-    {
-        value(delay)
-        {
-            console.assert(delay >= 0);
-
-            return new Proxy(this, {
-                get(target, property, receiver) {
-                    return (...args) => {
-                        let original = target[property];
-                        console.assert(typeof original === "function");
-
-                        if (original[debounceTimeoutSymbol])
-                            clearTimeout(original[debounceTimeoutSymbol]);
-
-                        let performWork = () => {
-                            original[debounceTimeoutSymbol] = undefined;
-                            original.apply(target, args);
-                        };
-
-                        original[debounceTimeoutSymbol] = setTimeout(performWork, delay);
-                    };
-                }
-            });
-        }
-    });
-
-    Object.defineProperty(Function.prototype, "cancelDebounce",
-    {
-        value()
-        {
-            if (!this[debounceTimeoutSymbol])
-                return;
-
-            clearTimeout(this[debounceTimeoutSymbol]);
-            this[debounceTimeoutSymbol] = undefined;
-        }
-    });
-
-    const requestAnimationFrameSymbol = Symbol("peform-on-animation-frame");
-    const requestAnimationFrameProxySymbol = Symbol("perform-on-animation-frame-proxy");
-
-    Object.defineProperty(Object.prototype, "onNextFrame",
-    {
-        get()
-        {
-            if (!this[requestAnimationFrameProxySymbol]) {
-                this[requestAnimationFrameProxySymbol] = new Proxy(this, {
-                    get(target, property, receiver) {
-                        return (...args) => {
-                            let original = target[property];
-                            console.assert(typeof original === "function");
-
-                            if (original[requestAnimationFrameSymbol])
-                                return;
-
-                            let performWork = () => {
-                                original[requestAnimationFrameSymbol] = undefined;
-                                original.apply(target, args);
-                            };
-
-                            original[requestAnimationFrameSymbol] = requestAnimationFrame(performWork);
-                        };
-                    }
-                });
-            }
-
-            return this[requestAnimationFrameProxySymbol];
-        }
-    });
-
-    const throttleTimeoutSymbol = Symbol("throttle-timeout");
-
-    Object.defineProperty(Object.prototype, "throttle",
-    {
-        value(delay)
-        {
-            console.assert(delay >= 0);
-
-            let lastFireTime = NaN;
-            let mostRecentArguments = null;
-
-            return new Proxy(this, {
-                get(target, property, receiver) {
-                    return (...args) => {
-                        let original = target[property];
-                        console.assert(typeof original === "function");
-                        mostRecentArguments = args;
-
-                        function performWork() {
-                            lastFireTime = Date.now();
-                            original[throttleTimeoutSymbol] = undefined;
-                            original.apply(target, mostRecentArguments);
-                        }
-
-                        if (isNaN(lastFireTime)) {
-                            performWork();
-                            return;
-                        }
-
-                        let remaining = delay - (Date.now() - lastFireTime);
-                        if (remaining <= 0) {
-                            original.cancelThrottle();
-                            performWork();
-                            return;
-                        }
-
-                        if (!original[throttleTimeoutSymbol])
-                            original[throttleTimeoutSymbol] = setTimeout(performWork, remaining);
-                    };
-                }
-            });
-        }
-    });
-
-    Object.defineProperty(Function.prototype, "cancelThrottle",
-    {
-        value()
-        {
-            if (!this[throttleTimeoutSymbol])
-                return;
-
-            clearTimeout(this[throttleTimeoutSymbol]);
-            this[throttleTimeoutSymbol] = undefined;
-        }
-    });
-})();
-
 function appendWebInspectorSourceURL(string)
 {
     if (string.includes("//# sourceURL"))
@@ -1694,7 +1648,7 @@ function isTextLikelyMinified(content)
 
 function doubleQuotedString(str)
 {
-    return "\"" + str.replace(/\\/g, "\\\\").replace(/"/g, "\\\"") + "\"";
+    return JSON.stringify(str);
 }
 
 function insertionIndexForObjectInListSortedByFunction(object, list, comparator, insertionIndexAfter)
@@ -1746,11 +1700,4 @@ function blobAsText(blob, callback)
     let fileReader = new FileReader;
     fileReader.addEventListener("loadend", () => { callback(fileReader.result); });
     fileReader.readAsText(blob);
-}
-
-if (!window.handlePromiseException) {
-    window.handlePromiseException = function handlePromiseException(error)
-    {
-        console.error("Uncaught exception in Promise", error);
-    };
 }

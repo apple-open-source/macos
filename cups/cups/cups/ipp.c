@@ -1,16 +1,11 @@
 /*
  * Internet Printing Protocol functions for CUPS.
  *
- * Copyright © 2007-2018 by Apple Inc.
- * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
+ * Copyright © 2007-2019 by Apple Inc.
+ * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 /*
@@ -18,10 +13,11 @@
  */
 
 #include "cups-private.h"
+#include "debug-internal.h"
 #include <regex.h>
-#ifdef WIN32
+#ifdef _WIN32
 #  include <io.h>
-#endif /* WIN32 */
+#endif /* _WIN32 */
 
 
 /*
@@ -33,12 +29,8 @@ static ipp_attribute_t	*ipp_add_attr(ipp_t *ipp, const char *name,
 			              int num_values);
 static void		ipp_free_values(ipp_attribute_t *attr, int element,
 			                int count);
-static char		*ipp_get_code(const char *locale, char *buffer,
-			              size_t bufsize)
-			              __attribute__((nonnull(1,2)));
-static char		*ipp_lang_code(const char *locale, char *buffer,
-			               size_t bufsize)
-			               __attribute__((nonnull(1,2)));
+static char		*ipp_get_code(const char *locale, char *buffer, size_t bufsize) _CUPS_NONNULL(1,2);
+static char		*ipp_lang_code(const char *locale, char *buffer, size_t bufsize) _CUPS_NONNULL(1,2);
 static size_t		ipp_length(ipp_t *ipp, int collection);
 static ssize_t		ipp_read_http(http_t *http, ipp_uchar_t *buffer,
 			              size_t length);
@@ -3580,6 +3572,7 @@ ippReadIO(void       *src,		/* I - Data source */
 		DEBUG_printf(("2ippReadIO: member name=\"%s\"", attr->name));
 		break;
 
+            case IPP_TAG_STRING :
             default : /* Other unsupported values */
                 if (tag == IPP_TAG_STRING && n > IPP_MAX_LENGTH)
 		{
@@ -3756,8 +3749,7 @@ ippSetDate(ipp_t             *ipp,	/* I  - IPP message */
   * Range check input...
   */
 
-  if (!ipp || !attr || !*attr || (*attr)->value_tag != IPP_TAG_DATE ||
-      element < 0 || element > (*attr)->num_values || !datevalue)
+  if (!ipp || !attr || !*attr || ((*attr)->value_tag != IPP_TAG_DATE && (*attr)->value_tag != IPP_TAG_NOVALUE && (*attr)->value_tag != IPP_TAG_UNKNOWN) || element < 0 || element > (*attr)->num_values || !datevalue)
     return (0);
 
  /*
@@ -3840,9 +3832,7 @@ ippSetInteger(ipp_t           *ipp,	/* I  - IPP message */
   * Range check input...
   */
 
-  if (!ipp || !attr || !*attr ||
-      ((*attr)->value_tag != IPP_TAG_INTEGER && (*attr)->value_tag != IPP_TAG_ENUM) ||
-      element < 0 || element > (*attr)->num_values)
+  if (!ipp || !attr || !*attr || ((*attr)->value_tag != IPP_TAG_INTEGER && (*attr)->value_tag != IPP_TAG_ENUM && (*attr)->value_tag != IPP_TAG_NOVALUE && (*attr)->value_tag != IPP_TAG_UNKNOWN) || element < 0 || element > (*attr)->num_values)
     return (0);
 
  /*
@@ -3850,7 +3840,12 @@ ippSetInteger(ipp_t           *ipp,	/* I  - IPP message */
   */
 
   if ((value = ipp_set_value(ipp, attr, element)) != NULL)
+  {
+    if ((*attr)->value_tag != IPP_TAG_ENUM)
+      (*attr)->value_tag = IPP_TAG_INTEGER;
+
     value->integer = intvalue;
+  }
 
   return (value != NULL);
 }
@@ -3927,9 +3922,7 @@ ippSetOctetString(
   * Range check input...
   */
 
-  if (!ipp || !attr || !*attr || (*attr)->value_tag != IPP_TAG_STRING ||
-      element < 0 || element > (*attr)->num_values ||
-      datalen < 0 || datalen > IPP_MAX_LENGTH)
+  if (!ipp || !attr || !*attr || ((*attr)->value_tag != IPP_TAG_STRING && (*attr)->value_tag != IPP_TAG_NOVALUE && (*attr)->value_tag != IPP_TAG_UNKNOWN) || element < 0 || element > (*attr)->num_values || datalen < 0 || datalen > IPP_MAX_LENGTH)
     return (0);
 
  /*
@@ -3952,6 +3945,8 @@ ippSetOctetString(
      /*
       * Copy the data...
       */
+
+      (*attr)->value_tag = IPP_TAG_STRING;
 
       if (value->unknown.data)
       {
@@ -4044,8 +4039,7 @@ ippSetRange(ipp_t           *ipp,	/* I  - IPP message */
   * Range check input...
   */
 
-  if (!ipp || !attr || !*attr || (*attr)->value_tag != IPP_TAG_RANGE ||
-      element < 0 || element > (*attr)->num_values || lowervalue > uppervalue)
+  if (!ipp || !attr || !*attr || ((*attr)->value_tag != IPP_TAG_RANGE && (*attr)->value_tag != IPP_TAG_NOVALUE && (*attr)->value_tag != IPP_TAG_UNKNOWN) || element < 0 || element > (*attr)->num_values || lowervalue > uppervalue)
     return (0);
 
  /*
@@ -4054,6 +4048,7 @@ ippSetRange(ipp_t           *ipp,	/* I  - IPP message */
 
   if ((value = ipp_set_value(ipp, attr, element)) != NULL)
   {
+    (*attr)->value_tag = IPP_TAG_RANGE;
     value->range.lower = lowervalue;
     value->range.upper = uppervalue;
   }
@@ -4126,9 +4121,7 @@ ippSetResolution(
   * Range check input...
   */
 
-  if (!ipp || !attr || !*attr || (*attr)->value_tag != IPP_TAG_RESOLUTION ||
-      element < 0 || element > (*attr)->num_values || xresvalue <= 0 || yresvalue <= 0 ||
-      unitsvalue < IPP_RES_PER_INCH || unitsvalue > IPP_RES_PER_CM)
+  if (!ipp || !attr || !*attr || ((*attr)->value_tag != IPP_TAG_RESOLUTION && (*attr)->value_tag != IPP_TAG_NOVALUE && (*attr)->value_tag != IPP_TAG_UNKNOWN) || element < 0 || element > (*attr)->num_values || xresvalue <= 0 || yresvalue <= 0 || unitsvalue < IPP_RES_PER_INCH || unitsvalue > IPP_RES_PER_CM)
     return (0);
 
  /*
@@ -4137,6 +4130,7 @@ ippSetResolution(
 
   if ((value = ipp_set_value(ipp, attr, element)) != NULL)
   {
+    (*attr)->value_tag      = IPP_TAG_RESOLUTION;
     value->resolution.units = unitsvalue;
     value->resolution.xres  = xresvalue;
     value->resolution.yres  = yresvalue;
@@ -4238,10 +4232,7 @@ ippSetString(ipp_t           *ipp,	/* I  - IPP message */
   else
     value_tag = IPP_TAG_ZERO;
 
-  if (!ipp || !attr || !*attr ||
-      (value_tag < IPP_TAG_TEXT && value_tag != IPP_TAG_TEXTLANG &&
-       value_tag != IPP_TAG_NAMELANG) || value_tag > IPP_TAG_MIMETYPE ||
-      element < 0 || element > (*attr)->num_values || !strvalue)
+  if (!ipp || !attr || !*attr || (value_tag < IPP_TAG_TEXT && value_tag != IPP_TAG_TEXTLANG && value_tag != IPP_TAG_NAMELANG && value_tag != IPP_TAG_NOVALUE && value_tag != IPP_TAG_UNKNOWN) || value_tag > IPP_TAG_MIMETYPE || element < 0 || element > (*attr)->num_values || !strvalue)
     return (0);
 
  /*
@@ -4250,6 +4241,9 @@ ippSetString(ipp_t           *ipp,	/* I  - IPP message */
 
   if ((value = ipp_set_value(ipp, attr, element)) != NULL)
   {
+    if (value_tag == IPP_TAG_NOVALUE || value_tag == IPP_TAG_UNKNOWN)
+      (*attr)->value_tag = IPP_TAG_KEYWORD;
+
     if (element > 0)
       value->string.language = (*attr)->values[0].string.language;
 
@@ -4350,10 +4344,7 @@ ippSetStringfv(ipp_t           *ipp,	/* I  - IPP message */
   else
     value_tag = IPP_TAG_ZERO;
 
-  if (!ipp || !attr || !*attr ||
-      (value_tag < IPP_TAG_TEXT && value_tag != IPP_TAG_TEXTLANG &&
-       value_tag != IPP_TAG_NAMELANG) || value_tag > IPP_TAG_MIMETYPE ||
-      !format)
+  if (!ipp || !attr || !*attr || (value_tag < IPP_TAG_TEXT && value_tag != IPP_TAG_TEXTLANG && value_tag != IPP_TAG_NAMELANG && value_tag != IPP_TAG_NOVALUE && value_tag != IPP_TAG_UNKNOWN) || value_tag > IPP_TAG_MIMETYPE || !format)
     return (0);
 
  /*
@@ -4405,6 +4396,8 @@ ippSetStringfv(ipp_t           *ipp,	/* I  - IPP message */
         max_bytes = IPP_MAX_CHARSET;
         break;
 
+    case IPP_TAG_NOVALUE :
+    case IPP_TAG_UNKNOWN :
     case IPP_TAG_KEYWORD :
         max_bytes = IPP_MAX_KEYWORD;
         break;
@@ -4746,18 +4739,13 @@ ippValidateAttribute(
 
   if (*ptr || ptr == attr->name)
   {
-    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-                  _("\"%s\": Bad attribute name - invalid character "
-		    "(RFC 8011 section 5.1.4)."), attr->name);
+    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad attribute name - invalid character (RFC 8011 section 5.1.4)."), attr->name);
     return (0);
   }
 
   if ((ptr - attr->name) > 255)
   {
-    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-                  _("\"%s\": Bad attribute name - bad length %d "
-		    "(RFC 8011 section 5.1.4)."), attr->name,
-		  (int)(ptr - attr->name));
+    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad attribute name - bad length %d (RFC 8011 section 5.1.4)."), attr->name, (int)(ptr - attr->name));
     return (0);
   }
 
@@ -4772,10 +4760,7 @@ ippValidateAttribute(
 	  if (attr->values[i].boolean != 0 &&
 	      attr->values[i].boolean != 1)
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-                          _("\"%s\": Bad boolen value %d "
-			    "(RFC 8011 section 5.1.21)."), attr->name,
-			  attr->values[i].boolean);
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad boolean value %d (RFC 8011 section 5.1.21)."), attr->name, attr->values[i].boolean);
 	    return (0);
 	  }
 	}
@@ -4786,10 +4771,7 @@ ippValidateAttribute(
 	{
 	  if (attr->values[i].integer < 1)
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad enum value %d - out of range "
-			    "(RFC 8011 section 5.1.5)."), attr->name,
-			    attr->values[i].integer);
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad enum value %d - out of range (RFC 8011 section 5.1.5)."), attr->name, attr->values[i].integer);
             return (0);
 	  }
 	}
@@ -4800,10 +4782,7 @@ ippValidateAttribute(
 	{
 	  if (attr->values[i].unknown.length > IPP_MAX_OCTETSTRING)
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad octetString value - bad length %d "
-			    "(RFC 8011 section 5.1.20)."), attr->name,
-			    attr->values[i].unknown.length);
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad octetString value - bad length %d (RFC 8011 section 5.1.20)."), attr->name, attr->values[i].unknown.length);
 	    return (0);
 	  }
 	}
@@ -4816,73 +4795,55 @@ ippValidateAttribute(
 
           if (date[2] < 1 || date[2] > 12)
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad dateTime month %u "
-			    "(RFC 8011 section 5.1.15)."), attr->name, date[2]);
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad dateTime month %u (RFC 8011 section 5.1.15)."), attr->name, date[2]);
 	    return (0);
 	  }
 
           if (date[3] < 1 || date[3] > 31)
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad dateTime day %u "
-			    "(RFC 8011 section 5.1.15)."), attr->name, date[3]);
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad dateTime day %u (RFC 8011 section 5.1.15)."), attr->name, date[3]);
 	    return (0);
 	  }
 
           if (date[4] > 23)
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad dateTime hours %u "
-			    "(RFC 8011 section 5.1.15)."), attr->name, date[4]);
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad dateTime hours %u (RFC 8011 section 5.1.15)."), attr->name, date[4]);
 	    return (0);
 	  }
 
           if (date[5] > 59)
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad dateTime minutes %u "
-			    "(RFC 8011 section 5.1.15)."), attr->name, date[5]);
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad dateTime minutes %u (RFC 8011 section 5.1.15)."), attr->name, date[5]);
 	    return (0);
 	  }
 
           if (date[6] > 60)
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad dateTime seconds %u "
-			    "(RFC 8011 section 5.1.15)."), attr->name, date[6]);
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad dateTime seconds %u (RFC 8011 section 5.1.15)."), attr->name, date[6]);
 	    return (0);
 	  }
 
           if (date[7] > 9)
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad dateTime deciseconds %u "
-			    "(RFC 8011 section 5.1.15)."), attr->name, date[7]);
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad dateTime deciseconds %u (RFC 8011 section 5.1.15)."), attr->name, date[7]);
 	    return (0);
 	  }
 
           if (date[8] != '-' && date[8] != '+')
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad dateTime UTC sign '%c' "
-			    "(RFC 8011 section 5.1.15)."), attr->name, date[8]);
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad dateTime UTC sign '%c' (RFC 8011 section 5.1.15)."), attr->name, date[8]);
 	    return (0);
 	  }
 
           if (date[9] > 11)
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad dateTime UTC hours %u "
-			    "(RFC 8011 section 5.1.15)."), attr->name, date[9]);
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad dateTime UTC hours %u (RFC 8011 section 5.1.15)."), attr->name, date[9]);
 	    return (0);
 	  }
 
           if (date[10] > 59)
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad dateTime UTC minutes %u "
-			    "(RFC 8011 section 5.1.15)."), attr->name, date[10]);
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad dateTime UTC minutes %u (RFC 8011 section 5.1.15)."), attr->name, date[10]);
 	    return (0);
 	  }
 	}
@@ -4893,46 +4854,19 @@ ippValidateAttribute(
 	{
 	  if (attr->values[i].resolution.xres <= 0)
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad resolution value %dx%d%s - cross "
-			    "feed resolution must be positive "
-			    "(RFC 8011 section 5.1.16)."), attr->name,
-			  attr->values[i].resolution.xres,
-			  attr->values[i].resolution.yres,
-			  attr->values[i].resolution.units ==
-			      IPP_RES_PER_INCH ? "dpi" :
-			      attr->values[i].resolution.units ==
-				  IPP_RES_PER_CM ? "dpcm" : "unknown");
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad resolution value %dx%d%s - cross feed resolution must be positive (RFC 8011 section 5.1.16)."), attr->name, attr->values[i].resolution.xres, attr->values[i].resolution.yres, attr->values[i].resolution.units == IPP_RES_PER_INCH ? "dpi" : attr->values[i].resolution.units == IPP_RES_PER_CM ? "dpcm" : "unknown");
 	    return (0);
 	  }
 
 	  if (attr->values[i].resolution.yres <= 0)
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad resolution value %dx%d%s - feed "
-			    "resolution must be positive "
-			    "(RFC 8011 section 5.1.16)."), attr->name,
-			  attr->values[i].resolution.xres,
-			  attr->values[i].resolution.yres,
-			  attr->values[i].resolution.units ==
-			      IPP_RES_PER_INCH ? "dpi" :
-			      attr->values[i].resolution.units ==
-				  IPP_RES_PER_CM ? "dpcm" : "unknown");
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad resolution value %dx%d%s - feed resolution must be positive (RFC 8011 section 5.1.16)."), attr->name, attr->values[i].resolution.xres, attr->values[i].resolution.yres, attr->values[i].resolution.units == IPP_RES_PER_INCH ? "dpi" : attr->values[i].resolution.units == IPP_RES_PER_CM ? "dpcm" : "unknown");
             return (0);
 	  }
 
-	  if (attr->values[i].resolution.units != IPP_RES_PER_INCH &&
-	      attr->values[i].resolution.units != IPP_RES_PER_CM)
+	  if (attr->values[i].resolution.units != IPP_RES_PER_INCH && attr->values[i].resolution.units != IPP_RES_PER_CM)
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad resolution value %dx%d%s - bad "
-			    "units value (RFC 8011 section 5.1.16)."),
-			  attr->name, attr->values[i].resolution.xres,
-			  attr->values[i].resolution.yres,
-			  attr->values[i].resolution.units ==
-			      IPP_RES_PER_INCH ? "dpi" :
-			      attr->values[i].resolution.units ==
-				  IPP_RES_PER_CM ? "dpcm" : "unknown");
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad resolution value %dx%d%s - bad units value (RFC 8011 section 5.1.16)."), attr->name, attr->values[i].resolution.xres, attr->values[i].resolution.yres, attr->values[i].resolution.units == IPP_RES_PER_INCH ? "dpi" : attr->values[i].resolution.units == IPP_RES_PER_CM ? "dpcm" : "unknown");
 	    return (0);
 	  }
 	}
@@ -4943,11 +4877,7 @@ ippValidateAttribute(
 	{
 	  if (attr->values[i].range.lower > attr->values[i].range.upper)
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad rangeOfInteger value %d-%d - lower "
-			    "greater than upper (RFC 8011 section 5.1.14)."),
-			  attr->name, attr->values[i].range.lower,
-			  attr->values[i].range.upper);
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad rangeOfInteger value %d-%d - lower greater than upper (RFC 8011 section 5.1.14)."), attr->name, attr->values[i].range.lower, attr->values[i].range.upper);
 	    return (0);
 	  }
 	}
@@ -4974,30 +4904,24 @@ ippValidateAttribute(
 	  {
 	    if ((*ptr & 0xe0) == 0xc0)
 	    {
-	      ptr ++;
-	      if ((*ptr & 0xc0) != 0x80)
+	      if ((ptr[1] & 0xc0) != 0x80)
 	        break;
+
+	      ptr ++;
 	    }
 	    else if ((*ptr & 0xf0) == 0xe0)
 	    {
-	      ptr ++;
-	      if ((*ptr & 0xc0) != 0x80)
+	      if ((ptr[1] & 0xc0) != 0x80 || (ptr[2] & 0xc0) != 0x80)
 	        break;
-	      ptr ++;
-	      if ((*ptr & 0xc0) != 0x80)
-	        break;
+
+	      ptr += 2;
 	    }
 	    else if ((*ptr & 0xf8) == 0xf0)
 	    {
-	      ptr ++;
-	      if ((*ptr & 0xc0) != 0x80)
+	      if ((ptr[1] & 0xc0) != 0x80 || (ptr[2] & 0xc0) != 0x80 || (ptr[3] & 0xc0) != 0x80)
 	        break;
-	      ptr ++;
-	      if ((*ptr & 0xc0) != 0x80)
-	        break;
-	      ptr ++;
-	      if ((*ptr & 0xc0) != 0x80)
-	        break;
+
+	      ptr += 3;
 	    }
 	    else if (*ptr & 0x80)
 	      break;
@@ -5021,11 +4945,7 @@ ippValidateAttribute(
 
 	  if ((ptr - attr->values[i].string.text) > (IPP_MAX_TEXT - 1))
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad text value \"%s\" - bad length %d "
-			    "(RFC 8011 section 5.1.2)."), attr->name,
-			  attr->values[i].string.text,
-			  (int)(ptr - attr->values[i].string.text));
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad text value \"%s\" - bad length %d (RFC 8011 section 5.1.2)."), attr->name, attr->values[i].string.text, (int)(ptr - attr->values[i].string.text));
 	    return (0);
 	  }
 	}
@@ -5039,30 +4959,24 @@ ippValidateAttribute(
 	  {
 	    if ((*ptr & 0xe0) == 0xc0)
 	    {
-	      ptr ++;
-	      if ((*ptr & 0xc0) != 0x80)
+	      if ((ptr[1] & 0xc0) != 0x80)
 	        break;
+
+	      ptr ++;
 	    }
 	    else if ((*ptr & 0xf0) == 0xe0)
 	    {
-	      ptr ++;
-	      if ((*ptr & 0xc0) != 0x80)
+	      if ((ptr[1] & 0xc0) != 0x80 || (ptr[2] & 0xc0) != 0x80)
 	        break;
-	      ptr ++;
-	      if ((*ptr & 0xc0) != 0x80)
-	        break;
+
+	      ptr += 2;
 	    }
 	    else if ((*ptr & 0xf8) == 0xf0)
 	    {
-	      ptr ++;
-	      if ((*ptr & 0xc0) != 0x80)
+	      if ((ptr[1] & 0xc0) != 0x80 || (ptr[2] & 0xc0) != 0x80 || (ptr[3] & 0xc0) != 0x80)
 	        break;
-	      ptr ++;
-	      if ((*ptr & 0xc0) != 0x80)
-	        break;
-	      ptr ++;
-	      if ((*ptr & 0xc0) != 0x80)
-	        break;
+
+	      ptr += 3;
 	    }
 	    else if (*ptr & 0x80)
 	      break;
@@ -5086,11 +5000,7 @@ ippValidateAttribute(
 
 	  if ((ptr - attr->values[i].string.text) > (IPP_MAX_NAME - 1))
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad name value \"%s\" - bad length %d "
-			    "(RFC 8011 section 5.1.3)."), attr->name,
-			  attr->values[i].string.text,
-			  (int)(ptr - attr->values[i].string.text));
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad name value \"%s\" - bad length %d (RFC 8011 section 5.1.3)."), attr->name, attr->values[i].string.text, (int)(ptr - attr->values[i].string.text));
 	    return (0);
 	  }
 	}
@@ -5100,26 +5010,21 @@ ippValidateAttribute(
         for (i = 0; i < attr->num_values; i ++)
 	{
 	  for (ptr = attr->values[i].string.text; *ptr; ptr ++)
+	  {
 	    if (!isalnum(*ptr & 255) && *ptr != '-' && *ptr != '.' &&
 	        *ptr != '_')
 	      break;
+	  }
 
 	  if (*ptr || ptr == attr->values[i].string.text)
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad keyword value \"%s\" - invalid "
-			    "character (RFC 8011 section 5.1.4)."),
-			  attr->name, attr->values[i].string.text);
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad keyword value \"%s\" - invalid character (RFC 8011 section 5.1.4)."), attr->name, attr->values[i].string.text);
 	    return (0);
 	  }
 
 	  if ((ptr - attr->values[i].string.text) > (IPP_MAX_KEYWORD - 1))
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad keyword value \"%s\" - bad "
-			    "length %d (RFC 8011 section 5.1.4)."),
-			  attr->name, attr->values[i].string.text,
-			  (int)(ptr - attr->values[i].string.text));
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad keyword value \"%s\" - bad length %d (RFC 8011 section 5.1.4)."), attr->name, attr->values[i].string.text, (int)(ptr - attr->values[i].string.text));
 	    return (0);
 	  }
 	}
@@ -5128,12 +5033,7 @@ ippValidateAttribute(
     case IPP_TAG_URI :
         for (i = 0; i < attr->num_values; i ++)
 	{
-	  uri_status = httpSeparateURI(HTTP_URI_CODING_ALL,
-	                               attr->values[i].string.text,
-				       scheme, sizeof(scheme),
-				       userpass, sizeof(userpass),
-				       hostname, sizeof(hostname),
-				       &port, resource, sizeof(resource));
+	  uri_status = httpSeparateURI(HTTP_URI_CODING_ALL, attr->values[i].string.text, scheme, sizeof(scheme), userpass, sizeof(userpass), hostname, sizeof(hostname), &port, resource, sizeof(resource));
 
 	  if (uri_status < HTTP_URI_STATUS_OK)
 	  {
@@ -5143,11 +5043,7 @@ ippValidateAttribute(
 
 	  if (strlen(attr->values[i].string.text) > (IPP_MAX_URI - 1))
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad URI value \"%s\" - bad length %d "
-			    "(RFC 8011 section 5.1.6)."), attr->name,
-			  attr->values[i].string.text,
-			  (int)strlen(attr->values[i].string.text));
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad URI value \"%s\" - bad length %d (RFC 8011 section 5.1.6)."), attr->name, attr->values[i].string.text, (int)strlen(attr->values[i].string.text));
 	  }
 	}
         break;
@@ -5159,27 +5055,22 @@ ippValidateAttribute(
 	  if (islower(*ptr & 255))
 	  {
 	    for (ptr ++; *ptr; ptr ++)
+	    {
 	      if (!islower(*ptr & 255) && !isdigit(*ptr & 255) &&
 	          *ptr != '+' && *ptr != '-' && *ptr != '.')
                 break;
+	    }
 	  }
 
 	  if (*ptr || ptr == attr->values[i].string.text)
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad uriScheme value \"%s\" - bad "
-			    "characters (RFC 8011 section 5.1.7)."),
-			  attr->name, attr->values[i].string.text);
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad uriScheme value \"%s\" - bad characters (RFC 8011 section 5.1.7)."), attr->name, attr->values[i].string.text);
 	    return (0);
 	  }
 
 	  if ((ptr - attr->values[i].string.text) > (IPP_MAX_URISCHEME - 1))
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad uriScheme value \"%s\" - bad "
-			    "length %d (RFC 8011 section 5.1.7)."),
-			  attr->name, attr->values[i].string.text,
-			  (int)(ptr - attr->values[i].string.text));
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad uriScheme value \"%s\" - bad length %d (RFC 8011 section 5.1.7)."), attr->name, attr->values[i].string.text, (int)(ptr - attr->values[i].string.text));
 	    return (0);
 	  }
 	}
@@ -5189,26 +5080,21 @@ ippValidateAttribute(
         for (i = 0; i < attr->num_values; i ++)
 	{
 	  for (ptr = attr->values[i].string.text; *ptr; ptr ++)
+	  {
 	    if (!isprint(*ptr & 255) || isupper(*ptr & 255) ||
 	        isspace(*ptr & 255))
 	      break;
+	  }
 
 	  if (*ptr || ptr == attr->values[i].string.text)
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad charset value \"%s\" - bad "
-			    "characters (RFC 8011 section 5.1.8)."),
-			  attr->name, attr->values[i].string.text);
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad charset value \"%s\" - bad characters (RFC 8011 section 5.1.8)."), attr->name, attr->values[i].string.text);
 	    return (0);
 	  }
 
 	  if ((ptr - attr->values[i].string.text) > (IPP_MAX_CHARSET - 1))
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad charset value \"%s\" - bad "
-			    "length %d (RFC 8011 section 5.1.8)."),
-			  attr->name, attr->values[i].string.text,
-			  (int)(ptr - attr->values[i].string.text));
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad charset value \"%s\" - bad length %d (RFC 8011 section 5.1.8)."), attr->name, attr->values[i].string.text, (int)(ptr - attr->values[i].string.text));
 	    return (0);
 	  }
 	}
@@ -5240,9 +5126,7 @@ ippValidateAttribute(
           char	temp[256];		/* Temporary error string */
 
           regerror(i, &re, temp, sizeof(temp));
-	  ipp_set_error(IPP_STATUS_ERROR_INTERNAL,
-			_("Unable to compile naturalLanguage regular "
-			  "expression: %s."), temp);
+	  ipp_set_error(IPP_STATUS_ERROR_INTERNAL, _("Unable to compile naturalLanguage regular expression: %s."), temp);
 	  return (0);
         }
 
@@ -5250,21 +5134,14 @@ ippValidateAttribute(
 	{
 	  if (regexec(&re, attr->values[i].string.text, 0, NULL, 0))
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad naturalLanguage value \"%s\" - bad "
-			    "characters (RFC 8011 section 5.1.9)."),
-			  attr->name, attr->values[i].string.text);
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad naturalLanguage value \"%s\" - bad characters (RFC 8011 section 5.1.9)."), attr->name, attr->values[i].string.text);
 	    regfree(&re);
 	    return (0);
 	  }
 
 	  if (strlen(attr->values[i].string.text) > (IPP_MAX_LANGUAGE - 1))
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad naturalLanguage value \"%s\" - bad "
-			    "length %d (RFC 8011 section 5.1.9)."),
-			  attr->name, attr->values[i].string.text,
-			  (int)strlen(attr->values[i].string.text));
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad naturalLanguage value \"%s\" - bad length %d (RFC 8011 section 5.1.9)."), attr->name, attr->values[i].string.text, (int)strlen(attr->values[i].string.text));
 	    regfree(&re);
 	    return (0);
 	  }
@@ -5294,9 +5171,7 @@ ippValidateAttribute(
           char	temp[256];		/* Temporary error string */
 
           regerror(i, &re, temp, sizeof(temp));
-	  ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			_("Unable to compile mimeMediaType regular "
-			  "expression: %s."), temp);
+	  ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("Unable to compile mimeMediaType regular expression: %s."), temp);
 	  return (0);
         }
 
@@ -5304,21 +5179,14 @@ ippValidateAttribute(
 	{
 	  if (regexec(&re, attr->values[i].string.text, 0, NULL, 0))
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad mimeMediaType value \"%s\" - bad "
-			    "characters (RFC 8011 section 5.1.10)."),
-			  attr->name, attr->values[i].string.text);
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad mimeMediaType value \"%s\" - bad characters (RFC 8011 section 5.1.10)."), attr->name, attr->values[i].string.text);
 	    regfree(&re);
 	    return (0);
 	  }
 
 	  if (strlen(attr->values[i].string.text) > (IPP_MAX_MIMETYPE - 1))
 	  {
-	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST,
-			  _("\"%s\": Bad mimeMediaType value \"%s\" - bad "
-			    "length %d (RFC 8011 section 5.1.10)."),
-			  attr->name, attr->values[i].string.text,
-			  (int)strlen(attr->values[i].string.text));
+	    ipp_set_error(IPP_STATUS_ERROR_BAD_REQUEST, _("\"%s\": Bad mimeMediaType value \"%s\" - bad length %d (RFC 8011 section 5.1.10)."), attr->name, attr->values[i].string.text, (int)strlen(attr->values[i].string.text));
 	    regfree(&re);
 	    return (0);
 	  }
@@ -6757,14 +6625,14 @@ ipp_read_http(http_t      *http,	/* I - Client connection */
 
     if ((bytes = httpRead2(http, (char *)buffer, length - (size_t)tbytes)) < 0)
     {
-#ifdef WIN32
+#ifdef _WIN32
       break;
 #else
       if (errno != EAGAIN && errno != EINTR)
 	break;
 
       bytes = 0;
-#endif /* WIN32 */
+#endif /* _WIN32 */
     }
     else if (bytes == 0)
       break;
@@ -6792,11 +6660,11 @@ ipp_read_file(int         *fd,		/* I - File descriptor */
               ipp_uchar_t *buffer,	/* O - Read buffer */
 	      size_t      length)	/* I - Number of bytes to read */
 {
-#ifdef WIN32
+#ifdef _WIN32
   return ((ssize_t)read(*fd, buffer, (unsigned)length));
 #else
   return (read(*fd, buffer, length));
-#endif /* WIN32 */
+#endif /* _WIN32 */
 }
 
 
@@ -6895,7 +6763,9 @@ ipp_set_value(ipp_t           *ipp,	/* IO - IPP message */
     * Reset pointers in the list...
     */
 
+#ifndef __clang_analyzer__
     DEBUG_printf(("4debug_free: %p %s", (void *)*attr, temp->name));
+#endif /* !__clang_analyzer__ */
     DEBUG_printf(("4debug_alloc: %p %s %s%s (%d)", (void *)temp, temp->name, temp->num_values > 1 ? "1setOf " : "", ippTagString(temp->value_tag), temp->num_values));
 
     if (ipp->current == *attr && ipp->prev)
@@ -6964,9 +6834,9 @@ ipp_write_file(int         *fd,		/* I - File descriptor */
                ipp_uchar_t *buffer,	/* I - Data to write */
                size_t      length)	/* I - Number of bytes to write */
 {
-#ifdef WIN32
+#ifdef _WIN32
   return ((ssize_t)write(*fd, buffer, (unsigned)length));
 #else
   return (write(*fd, buffer, length));
-#endif /* WIN32 */
+#endif /* _WIN32 */
 }

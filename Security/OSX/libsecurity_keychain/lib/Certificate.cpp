@@ -35,7 +35,7 @@
 #include <security_keychain/KCCursor.h>
 #include <vector>
 #include <CommonCrypto/CommonDigestSPI.h>
-#include <SecBase.h>
+#include <Security/SecBase.h>
 #include <libDER/libDER.h>
 #include <libDER/DER_Decode.h>
 

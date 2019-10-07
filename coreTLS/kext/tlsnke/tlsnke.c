@@ -19,8 +19,7 @@
 
 #include <netinet/in.h>
 
-#include <libkern/libkern.h>
-#include <libkern/OSMalloc.h>
+#include <IOKit/IOLib.h>
 
 #include <stdint.h>
 
@@ -134,8 +133,9 @@ tls_dump(const unsigned char *p, size_t len)
     size_t i;
     for(i=0; i<len; i++) {
         tls_printf("%02x ", p[i]);
-        if((i&0x1F)==0x1F)
+        if((i&0x1F)==0x1F) {
             tls_printf("\n");
+        }
     }
     tls_printf("\n");
 #endif
@@ -144,9 +144,6 @@ tls_dump(const unsigned char *p, size_t len)
 
 
 /* =================================== */
-
-static OSMallocTag		gOSMallocTag;	// tag for use with OSMalloc calls which is used to associate memory
-                                        // allocations made with this kext. Preferred to using MALLOC and FREE
 
 #if TLS_TEST
 /* the PktQueueItem record is used to store packet information for queued packets. */
@@ -217,8 +214,9 @@ int DTLSIOWriteFunc (dtls_ctx_t dtls_ref, const void *data, size_t dataLength)
 
 fail:
     /* If we allocated an mbuf, and something failed, we have to free it */
-    if(out_mbuf)
+    if(out_mbuf) {
         mbuf_freem(out_mbuf);
+    }
 
     return ENOMEM;
 }
@@ -247,7 +245,7 @@ dtls_ctx_t dtls_create_context(socket_t so)
 {
     dtls_ctx_t dtls_ref;
     
-    dtls_ref = (dtls_ctx_t)OSMalloc(sizeof(struct dtls_ctx), gOSMallocTag);
+    dtls_ref = (dtls_ctx_t)IOMalloc(sizeof(struct dtls_ctx));
     require(dtls_ref, fail);
     memset(dtls_ref, 0, sizeof(struct dtls_ctx));
 
@@ -259,8 +257,9 @@ dtls_ctx_t dtls_create_context(socket_t so)
     return dtls_ref;
     
 fail:
-    if(dtls_ref)
-        OSFree(dtls_ref, sizeof(struct dtls_ctx), gOSMallocTag);
+    if(dtls_ref) {
+        IOFree(dtls_ref, sizeof(struct dtls_ctx));
+    }
     return NULL;
 }
 
@@ -275,7 +274,7 @@ void dtls_free_context(dtls_ctx_t dtls_ref)
 
     unregister_dtls_context(dtls_ref);
 
-    OSFree(dtls_ref, sizeof(struct dtls_ctx), gOSMallocTag);
+    IOFree(dtls_ref, sizeof(struct dtls_ctx));
     /* TODO: UNLOCK */
 }
 
@@ -286,23 +285,28 @@ tls_record_hdr_t dtls_get_header(mbuf_t *control)
     struct cmsghdr *cm;
     tls_record_hdr_t hdr;
 
-    if(control==NULL)
+    if(control==NULL) {
         return NULL;
+    }
     
-    if((*control)==NULL)
+    if((*control)==NULL) {
         return NULL;
+    }
 
     /* Needs to be in one mbuf */
-    if (mbuf_next(*control))
+    if (mbuf_next(*control)) {
         return NULL;
+    }
     /* Control mbuf needs to be big enough for the tls_record_hdr struct - <rdar://problem/11204421> */
-    if (mbuf_len(*control) < CMSG_LEN(sizeof(struct tls_record_hdr)))
+    if (mbuf_len(*control) < CMSG_LEN(sizeof(struct tls_record_hdr))) {
         return NULL;
+    }
     
     cm = mbuf_data(*control);
     
-    if(cm==NULL)
+    if(cm==NULL) {
         return NULL;
+    }
     
     hdr=(tls_record_hdr_t)CMSG_DATA(cm);
     
@@ -329,19 +333,17 @@ int dtls_process_output_packet(dtls_ctx_t dtls_ref, mbuf_t data,  tls_record_hdr
     out_data.data = NULL;
 
     /* If its not zero, lets set it the protocol version */
-    if(hdr->protocol_version)
+    if(hdr->protocol_version) {
         tls_record_set_protocol_version(dtls_ref->ssl_ctx, hdr->protocol_version);
+    }
 
     olen = tls_record_encrypted_size(dtls_ref->ssl_ctx, hdr->content_type, len);
 
-    out_data.length = olen;
-    require(olen<UINT32_MAX, out);
-
-    in_data.data = OSMalloc((uint32_t)len, gOSMallocTag);
+    in_data.data = IOMalloc(len);
     in_data.length = len;
     require(in_data.data, out);
 
-    out_data.data = OSMalloc((uint32_t)olen, gOSMallocTag);
+    out_data.data = IOMalloc(olen);
     out_data.length = olen;
     require(out_data.data, out);
 
@@ -358,10 +360,12 @@ int dtls_process_output_packet(dtls_ctx_t dtls_ref, mbuf_t data,  tls_record_hdr
 
 out:
 
-    if(in_data.data)
-        OSFree(in_data.data, (uint32_t)len, gOSMallocTag);
-    if(out_data.data)
-        OSFree(out_data.data, (uint32_t)olen, gOSMallocTag);
+    if(in_data.data) {
+        IOFree(in_data.data, len);
+    }
+    if(out_data.data) {
+        IOFree(out_data.data, olen);
+    }
 
     return err;
 }
@@ -385,7 +389,7 @@ static void dtls_process_one_record(dtls_ctx_t dtls_ref, tls_buffer record)
 
     size_t len = tls_record_decrypted_size(dtls_ref->ssl_ctx, record.length);
     decrypted.length = len;
-    decrypted.data = OSMalloc((uint32_t)len, gOSMallocTag);
+    decrypted.data = IOMalloc(len);
     require(decrypted.data, out);
 
     require_noerr(tls_record_decrypt(dtls_ref->ssl_ctx, record, &decrypted, &contentType), out);
@@ -415,10 +419,12 @@ static void dtls_process_one_record(dtls_ctx_t dtls_ref, tls_buffer record)
         dtls_ref->wait_for_key=true;
     }
 
-    if(dtls_ref->has_from)
+    if(dtls_ref->has_from) {
         from=&dtls_ref->from;
-    else
+    }
+    else {
         from=NULL;
+    }
 
     tls_printf("tlsnke(%p):%s injecting packet d=%p c=%p h=%p, from=%p, flags=0x%x\n", dtls_ref, __FUNCTION__, data, control, hdr, from, mbuf_flags(data));
 
@@ -431,8 +437,9 @@ static void dtls_process_one_record(dtls_ctx_t dtls_ref, tls_buffer record)
     }
 
 out:
-    if(decrypted.data)
-        OSFree(decrypted.data, (uint32_t)decrypted.length, gOSMallocTag);
+    if(decrypted.data) {
+        IOFree(decrypted.data, decrypted.length);
+    }
 
 }
 
@@ -446,9 +453,10 @@ static void dtls_process_incoming_queue(dtls_ctx_t dtls_ref)
         struct RecQueueItem *in_q = STAILQ_FIRST(&dtls_ref->in_queue);
         STAILQ_REMOVE_HEAD(&dtls_ref->in_queue, next);
         dtls_process_one_record(dtls_ref, in_q->record);
-        if(in_q->record.data)
-            OSFree(in_q->record.data, (uint32_t)in_q->record.length, gOSMallocTag);
-        OSFree(in_q, sizeof(*in_q), gOSMallocTag);
+        if(in_q->record.data) {
+            IOFree(in_q->record.data, in_q->record.length);
+        }
+        IOFree(in_q, sizeof(*in_q));
     }
 }
 
@@ -474,10 +482,12 @@ tls_attach_fn(void **cookie, socket_t so)
     
     *cookie=dtls_ref;
     
-    if(dtls_ref)
+    if(dtls_ref) {
         return 0;
-    else
+    }
+    else {
         return -1;
+    }
 }
 
 static void	
@@ -505,7 +515,7 @@ static struct RecQueueItem *dtls_parse_record(dtls_ctx_t dtls_ref, mbuf_t data, 
     /* FIXME: not sure what really happens when this fails */
     require_noerr(mbuf_pulldown(data, &offset, DTLS_RECORD_HEADER_SIZE, &location), fail);
 
-    require((tlq = (struct RecQueueItem *)OSMalloc(sizeof (struct RecQueueItem), gOSMallocTag)), fail);
+    require((tlq = (struct RecQueueItem *)IOMalloc(sizeof (struct RecQueueItem))), fail);
     memset(tlq, 0, sizeof (*tlq));
 
     tls_buffer header;
@@ -519,7 +529,7 @@ static struct RecQueueItem *dtls_parse_record(dtls_ctx_t dtls_ref, mbuf_t data, 
 
     require(tlq->record.length<=pkt_len, fail);
 
-    tlq->record.data = OSMalloc((uint32_t)tlq->record.length, gOSMallocTag);
+    tlq->record.data = IOMalloc(tlq->record.length);
     require(tlq->record.data, fail);
 
     require_noerr(mbuf_copydata(location, offset, tlq->record.length, tlq->record.data), fail);
@@ -528,9 +538,10 @@ static struct RecQueueItem *dtls_parse_record(dtls_ctx_t dtls_ref, mbuf_t data, 
 
 fail:
     if(tlq) {
-        if(tlq->record.data)
-            OSFree(tlq->record.data, (uint32_t)tlq->record.length, gOSMallocTag);
-        OSFree(tlq, sizeof (struct RecQueueItem), gOSMallocTag);
+        if(tlq->record.data) {
+            IOFree(tlq->record.data, tlq->record.length);
+        }
+        IOFree(tlq, sizeof (struct RecQueueItem));
     }
 
     return NULL;
@@ -686,8 +697,9 @@ tls_setoption_fn(void *cookie, socket_t so, sockopt_t opt)
     tls_printf("tlsnke(%p):%s - %x %x %d\n", cookie, __FUNCTION__, level, name, valsize);
 
     /* We only handle SOL_SOCKET level options */
-    if(level!=SOL_SOCKET)
+    if(level!=SOL_SOCKET) {
         return 0;
+    }
     
     switch (name) {
         case SO_TLS_INIT_CIPHER:
@@ -700,7 +712,7 @@ tls_setoption_fn(void *cookie, socket_t so, sockopt_t opt)
                 verify_action(valsize>=4, return EINVAL);
                 verify_action(valsize<=4096, return EINVAL);
             
-                buf=OSMalloc((uint32_t)valsize, gOSMallocTag);
+                buf=IOMalloc(valsize);
                 
                 verify_action(buf, return ENOMEM);
                 err=sockopt_copyin(opt, buf, valsize);
@@ -752,10 +764,12 @@ tls_setoption_fn(void *cookie, socket_t so, sockopt_t opt)
     
     /* Option was a valid filter specific option, return JUSTRETURN
        or the result from the call */
-    if(rc==0)
+    if(rc==0) {
         return EJUSTRETURN;
-    else    
+    }
+    else {
         return rc;
+    }
 }
 
 static	errno_t
@@ -770,8 +784,9 @@ tls_getoption_fn(void *cookie, socket_t so, sockopt_t opt)
     
     int handle;
     
-    if(level!=SOL_SOCKET)
+    if(level!=SOL_SOCKET) {
         return 0;
+    }
     
     switch (name) {
         case SO_TLS_HANDLE:
@@ -838,7 +853,7 @@ static lck_mtx_t *tlsnkedev_lock;
 
 static int tlsnkedev_queue(mbuf_t m)
 {
-    struct PktQueueItem	*tlq= (struct PktQueueItem *)OSMalloc(sizeof (struct PktQueueItem), gOSMallocTag);
+    struct PktQueueItem	*tlq= (struct PktQueueItem *)IOMalloc(sizeof (struct PktQueueItem));
 
     tls_printf("tlsnkedev:%s\n", __FUNCTION__);
 
@@ -918,16 +933,16 @@ static int tlsnkedev_read(dev_t dev, struct uio *uio, int ioflag)
 
     amnt = MIN((uint32_t)mlen, (uint32_t)ulen);
 
-    buffer=OSMalloc(amnt, gOSMallocTag);
+    buffer=IOMalloc(amnt);
     verify_action(buffer, return ENOMEM); // We drop the mbuf in that case too.
 
     require_noerr(err=mbuf_copydata(m, 0, amnt, buffer), out);
     require_noerr(err=uiomove(buffer, amnt, uio), out);
 
 out:
-    OSFree(in_q, sizeof (struct PktQueueItem), gOSMallocTag);
+    IOFree(in_q, sizeof (struct PktQueueItem));
     mbuf_freem(m);
-    OSFree(buffer, amnt, gOSMallocTag);
+    IOFree(buffer, amnt);
     return 0;
 }
 
@@ -942,7 +957,7 @@ static int tlsnkedev_write(dev_t dev, struct uio *uio, int ioflag)
 
     len=(int)uio_resid(uio);
 
-    buffer=OSMalloc(len, gOSMallocTag);
+    buffer=IOMalloc(len);
     verify_action(buffer, return ENOMEM);
 
     require_noerr(err=uiomove(buffer, len, uio), out);
@@ -953,7 +968,7 @@ static int tlsnkedev_write(dev_t dev, struct uio *uio, int ioflag)
     err=tls_utun_crypto_kpi_send_fn((caddr_t)get_dtls_context(0), &m);
 
 out:
-    OSFree(buffer, len, gOSMallocTag);
+    IOFree(buffer, len);
 
     return err;
 }

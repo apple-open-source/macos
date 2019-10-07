@@ -3,7 +3,7 @@
  Copyright © 2013-2014 Apple Inc. All rights reserved.
  */
 
-#include <asl.h>
+#import  <os/log.h>
 #include <assert.h>
 #include <errno.h>
 #include <notify.h>
@@ -19,12 +19,23 @@
 #include <sys/time.h>
 #include <sys/uio.h>
 #include <pthread.h>
-#include <UserFS/../PrivateHeaders/UserFS_Plugin.h>
-#include <UserFS/../PrivateHeaders/UserFS_XPC.h>
+#include <UserFS/UserFS_Plugin.h>
+#include <UserFS/UserFS_XPC.h>
 #include "bpb.h"
 #include "bootsect.h"
 #include "direntry.h"
 #include "fat.h"
+#include <err.h>
+#include <sysexits.h>
+
+os_log_t         msdosfs_log_default;      // Default log destination
+                                           // mildly redundant as UserFS has only one, but best practice
+os_log_type_t    msdosfs_log_Level       = OS_LOG_TYPE_DEBUG;        // Run-time default log level, can conceivably be raised by CL options
+os_log_type_t    msdosfs_log_Info_Level  = OS_LOG_TYPE_INFO;   // Run-time Info log level, can conceivably be raised by CL options
+
+#define MSDOSFS_LOG(LOG, ...)        os_log_with_type((LOG), msdosfs_log_Level, ##__VA_ARGS__)
+#define MSDOSFS_LOG_INFO(LOG, ...)   os_log_with_type((LOG), msdosfs_log_Info_Level, ##__VA_ARGS__)
+#define MSDOSFS_LOG_ERR(LOG, ...)    os_log_with_type((LOG), OS_LOG_TYPE_ERROR, ##__VA_ARGS__)
 
 struct _userfs_volume_s {
     userfs_device_t device;
@@ -144,8 +155,8 @@ static errno_t msdosfs_item_delete(userfs_volume_t volume, const char *path);
 /* Streams */
 static errno_t msdosfs_stream_open(userfs_volume_t volume, const char *path, userfs_stream_t *stream);
 static uint64_t msdosfs_stream_length(userfs_stream_t stream);
-static uint64_t stream_get_next_offset_to_cache(userfs_stream_t stream);
-static uint64_t stream_get_last_offset_in_cache(userfs_stream_t stream);
+//static uint64_t stream_get_next_offset_to_cache(userfs_stream_t stream);
+//static uint64_t stream_get_last_offset_in_cache(userfs_stream_t stream);
 void (*stream_increment_threadCount)(userfs_stream_t stream);
 static errno_t msdosfs_stream_read(userfs_stream_t stream, void *buffer, uint64_t offset, size_t length, bool readAheadOperation);
 static errno_t msdosfs_stream_close(userfs_stream_t stream);
@@ -285,7 +296,7 @@ static int fsck_msdos(int fd, const char *name)
                          environ);
     if (result)
     {
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: posix_spawn fsck_msdos: error=%d\n", name, result);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: posix_spawn fsck_msdos: error=%d\n", name, result);
         return -1;
     }
     
@@ -296,7 +307,7 @@ static int fsck_msdos(int fd, const char *name)
     
     if (child_found == -1)
     {
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: waitpid fsck_msdos: errno=%d\n", name, errno);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: waitpid fsck_msdos: errno=%d\n", name, errno);
         return -1;
     }
     if (WIFEXITED(child_status))
@@ -304,12 +315,12 @@ static int fsck_msdos(int fd, const char *name)
         result = WEXITSTATUS(child_status);
         if (result)
         {
-            asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: fsck_msdos: exited with status %d\n", name, result);
+            MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: fsck_msdos: exited with status %d\n", name, result);
         }
     }
     else
     {
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: fsck_msdos: terminated by signal %d\n", name, WTERMSIG(child_status));
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: fsck_msdos: terminated by signal %d\n", name, WTERMSIG(child_status));
         result = -1;
     }
     
@@ -463,7 +474,7 @@ static uint32_t contiguous_clusters_in_chain(userfs_volume_t v, uint32_t cluster
     
     if (cluster < CLUST_FIRST || cluster > v->maxCluster)
     {
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: invalid cluster number (%u) in contiguous_clusters_in_chain\n", device_name(v->device), cluster);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: invalid cluster number (%u) in contiguous_clusters_in_chain\n", device_name(v->device), cluster);
         *error = EIO;
         return 0;
     }
@@ -483,7 +494,7 @@ static uint32_t contiguous_clusters_in_chain(userfs_volume_t v, uint32_t cluster
     err = cache_get_buffer(v->device, v->fatOffset+blockOffset, blockSize, &buffer);
     if (err)
     {
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: unable to get FAT buffer for cluster=%lu (error %d)\n", device_name(v->device), (unsigned long)cluster, err);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: unable to get FAT buffer for cluster=%lu (error %d)\n", device_name(v->device), (unsigned long)cluster, err);
         *error = EIO;
         result = 0;
         goto done;
@@ -509,7 +520,7 @@ static uint32_t contiguous_clusters_in_chain(userfs_volume_t v, uint32_t cluster
             err = cache_get_buffer(v->device, v->fatOffset+blockOffset, blockSize, &buffer);
             if (err)
             {
-                asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: unable to get FAT buffer for cluster=%lu (error %d)\n", device_name(v->device), (unsigned long)cluster, err);
+                MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: unable to get FAT buffer for cluster=%lu (error %d)\n", device_name(v->device), (unsigned long)cluster, err);
                 *error = EIO;
                 result = 0;
                 goto done;
@@ -536,20 +547,20 @@ static errno_t chain_length(userfs_volume_t v, uint32_t cluster, uint32_t *lengt
         if (extentLength == 0)
         {
             /* There was an error reading from the FAT */
-            asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: Error %d reading cluster chain at %u\n", device_name(v->device), err, cluster);
+            MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: Error %d reading cluster chain at %u\n", device_name(v->device), err, cluster);
             return err;
         }
         numClusters += extentLength;
         if (numClusters >= v->maxCluster)
         {
-            asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: Cluster chain has a cycle.\n", device_name(v->device));
+            MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: Cluster chain has a cycle.\n", device_name(v->device));
             return EIO;
         }
     }
     if (cluster < (CLUST_EOFS & v->fatMask))
     {
         /* There was a bad cluster number in the chain. */
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: A cluster chain has an invalid cluster number (%u)\n", device_name(v->device), cluster);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: A cluster chain has an invalid cluster number (%u)\n", device_name(v->device), cluster);
         return EIO;
     }
     *length = numClusters;
@@ -597,7 +608,7 @@ static errno_t chain_free(userfs_volume_t volume, uint32_t cluster, uint32_t *nu
             error = cache_get_buffer(volume->device, volume->fatOffset+blockOffset, blockSize, &buffer);
             if (error)
             {
-                asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: unable to get FAT buffer for cluster=%lu (error %d)\n", device_name(volume->device), (unsigned long)cluster, error);
+                MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: unable to get FAT buffer for cluster=%lu (error %d)\n", device_name(volume->device), (unsigned long)cluster, error);
                 return EIO;
             }
             assert(buffer_size(buffer) == blockSize);
@@ -625,7 +636,7 @@ static errno_t chain_free(userfs_volume_t volume, uint32_t cluster, uint32_t *nu
     if (cluster < (CLUST_EOFS & volume->fatMask))
     {
         /* There was a bad cluster number in the chain. */
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: A cluster chain has an invalid cluster number (%u)\n", device_name(volume->device), cluster);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: A cluster chain has an invalid cluster number (%u)\n", device_name(volume->device), cluster);
         return EIO;
     }
     
@@ -640,7 +651,7 @@ static void volume_update_fsinfo(userfs_volume_t volume, uint32_t numFreed)
     if ((uint64_t) numFreed + volume->freeClusters >= volume->maxCluster)
     {
         /* Free cluster count would become too large, so ignore updates. */
-        asl_log(NULL, NULL, ASL_LEVEL_WARNING, "%s: Free cluster count would exceed cluster count; ignoring.\n", device_name(volume->device));
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: Free cluster count would exceed cluster count; ignoring.\n", device_name(volume->device));
         volume->fsInfoSector = 0;
         return;
     }
@@ -650,7 +661,7 @@ static void volume_update_fsinfo(userfs_volume_t volume, uint32_t numFreed)
     errno_t error = cache_get_buffer(volume->device, volume->fsInfoSector*volume->bytesPerSector, volume->bytesPerSector, &fsInfoBuffer);
     if (error)
     {
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: Error %d reading FSInfo sector; ignoring.\n", device_name(volume->device), error);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: Error %d reading FSInfo sector; ignoring.\n", device_name(volume->device), error);
         volume->fsInfoSector = 0;
         return;
     }
@@ -669,7 +680,7 @@ static uint64_t volume_offset_for_cluster(userfs_volume_t volume, uint32_t clust
 
 static errno_t volume_read(userfs_volume_t volume, void *buffer, size_t length, off_t offset)
 {
-    asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "vol_read    O=0x%016llx B=0x%08zx\n", offset, length);
+    MSDOSFS_LOG(msdosfs_log_default, "vol_read    O=0x%016llx B=0x%08zx\n", offset, length);
     
     char *tempBuffer = NULL;
     ssize_t actual;
@@ -1476,7 +1487,7 @@ static errno_t stream_get_physical_extent(userfs_stream_t stream, size_t logical
         stream->cachedPhysicalCluster > stream->volume->maxCluster ||
         stream->cachedClusterCount > stream->volume->maxCluster - stream->cachedPhysicalCluster)
     {
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: Invalid extent (start=%u, count=%u, max=%u)\n", device_name(stream->volume->device), stream->cachedPhysicalCluster, stream->cachedClusterCount, stream->volume->maxCluster);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: Invalid extent (start=%u, count=%u, max=%u)\n", device_name(stream->volume->device), stream->cachedPhysicalCluster, stream->cachedClusterCount, stream->volume->maxCluster);
         stream->cachedClusterCount = 0;
         error = EIO;
     }
@@ -1510,11 +1521,11 @@ static errno_t stream_get_physical_extent(userfs_stream_t stream, size_t logical
     /* If we get here, there wasn't enough cluster chain to map the given offset. */
     if (stream->cachedNextCluster >= (CLUST_EOFS & stream->volume->fatMask))
     {
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: Cluster chain is too short\n", device_name(stream->volume->device));
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: Cluster chain is too short\n", device_name(stream->volume->device));
     }
     else
     {
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: Invalid cluster number in chain (%u)\n", device_name(stream->volume->device), stream->cachedNextCluster);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: Invalid cluster number in chain (%u)\n", device_name(stream->volume->device), stream->cachedNextCluster);
     }
     
     return EIO;
@@ -1550,17 +1561,17 @@ static errno_t stream_get_buffer(userfs_stream_t stream, uint64_t offset, size_t
     
     if (offset > roundedLength)
     {
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: offset > self.length (%llu > %llu)\n", __PRETTY_FUNCTION__, offset, stream->length);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: offset > self.length (%llu > %llu)\n", __PRETTY_FUNCTION__, offset, stream->length);
         return EINVAL;
     }
     if (length > (roundedLength - offset))
     {
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: offset + length > self.length (%llu + %zu > %llu)\n", __PRETTY_FUNCTION__, offset, length, stream->length);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: offset + length > self.length (%llu + %zu > %llu)\n", __PRETTY_FUNCTION__, offset, length, stream->length);
         return EINVAL;
     }
     if (length == 0)
     {
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: length == 0\n", __PRETTY_FUNCTION__);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: length == 0\n", __PRETTY_FUNCTION__);
         return EINVAL;
     }
     
@@ -1571,7 +1582,7 @@ static errno_t stream_get_buffer(userfs_stream_t stream, uint64_t offset, size_t
     }
     if (physical_length != length)
     {
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: physical_length != length (%zu != %zu)\n", __PRETTY_FUNCTION__, physical_length, length);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: physical_length != length (%zu != %zu)\n", __PRETTY_FUNCTION__, physical_length, length);
         return EINVAL;
     }
     
@@ -1619,7 +1630,7 @@ static errno_t stream_get_read_data(userfs_stream_t stream, uint64_t offset, siz
             /* Its a cache hit, copy the data from the cache buffer. */
             if(buf == NULL)
             {
-                asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: buffer is null",__PRETTY_FUNCTION__);
+                MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: buffer is null",__PRETTY_FUNCTION__);
                 error = EIO;
                 goto done;
             }
@@ -1628,7 +1639,7 @@ static errno_t stream_get_read_data(userfs_stream_t stream, uint64_t offset, siz
 
             if (temp_buf == NULL)
             {
-                asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: temp_buf is null",__PRETTY_FUNCTION__);
+                MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: temp_buf is null",__PRETTY_FUNCTION__);
                 error = EIO;
                 goto done;
             }
@@ -1644,7 +1655,7 @@ static errno_t stream_get_read_data(userfs_stream_t stream, uint64_t offset, siz
         else
         {
             /* Its a cache miss, perform the actual io. */
-            asl_log(NULL, NULL, ASL_LEVEL_ERR, "cache-miss: offset <%llu> length %llu",offset, length);
+            MSDOSFS_LOG_ERR(msdosfs_log_default, "cache-miss: offset <%llu> length %zu",offset, length);
 			pthread_mutex_unlock(readahead_mutex);
 
             error = volume_read(stream->volume, buffer, physical_length, physical_offset);
@@ -1701,7 +1712,7 @@ static errno_t stream_get_read_ahead_data(userfs_stream_t stream, uint64_t offse
     if(stream->close_lazily)
     {
         error = EIO;
-        asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "close lazily, thread count is %d",stream->thread_count);
+        MSDOSFS_LOG(msdosfs_log_default, "close lazily, thread count is %d",stream->thread_count);
         if(!stream->thread_count)
         {
             pthread_mutex_unlock(readahead_mutex);
@@ -1748,7 +1759,7 @@ static errno_t stream_get_read_ahead_data(userfs_stream_t stream, uint64_t offse
 
 			if (!cache_get_content_buffer(stream->volume->device, &buf, cache_offset, true))
 			{
-				asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: could not get buffer from buffer pool",__PRETTY_FUNCTION__);
+				MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: could not get buffer from buffer pool",__PRETTY_FUNCTION__);
 				error = EIO;
 				goto done;
 			}
@@ -1765,14 +1776,14 @@ static errno_t stream_get_read_ahead_data(userfs_stream_t stream, uint64_t offse
             offset += MIN(tail_length, extent_size);
             physical_offset += tail_length;
 			length -= CONTENT_BUFFER_SIZE;
-			extent_size = (extent_size > tail_length ? extent_size - tail_length : 0);
+			extent_size = (extent_size > tail_length ? (size_t) (extent_size - tail_length) : 0);
 
         }
 
 		lseek(fd, read_physical_offset, SEEK_SET);
         if ((readv(fd, iov, iter)) == -1)
         {
-            asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: readv failed with errno: %d", __FUNCTION__, errno);
+            MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: readv failed with errno: %d", __FUNCTION__, errno);
         }
         else
         {
@@ -1829,13 +1840,13 @@ static errno_t msdosfs_volume_open(userfs_device_t device, bool locked, userfs_v
     if (ioctl(device_fd(device), DKIOCGETBLOCKSIZE, &bytesPerSector) < 0)
     {
         err = errno;
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: ioctl(DKIOCGETBLOCKSIZE) failed, %s\n", device_name(device), strerror(err));
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: ioctl(DKIOCGETBLOCKSIZE) failed, %s\n", device_name(device), strerror(err));
         goto fail;
     }
     if (bytesPerSector > MAX_BLOCK_SIZE)
     {
         err = EIO;
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: block size is too big (%lu)\n", device_name(device), (unsigned long) bytesPerSector);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: block size is too big (%lu)\n", device_name(device), (unsigned long) bytesPerSector);
         goto fail;
     }
     
@@ -1861,7 +1872,7 @@ read_boot_sector:
         boot->bs50.bsJump[0] != 0xEB)
     {
         err = EINVAL;
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: invalid jump signature (0x%02X)\n", device_name(device), boot->bs50.bsJump[0]);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: invalid jump signature (0x%02X)\n", device_name(device), boot->bs50.bsJump[0]);
         goto fail;
     }
     
@@ -1870,7 +1881,7 @@ read_boot_sector:
         boot->bs50.bsBootSectSig1 != BOOTSIG1)
     {
         err = EINVAL;
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: invalid boot signature (0x%02X 0x%02X)\n", device_name(device), boot->bs50.bsBootSectSig0, boot->bs50.bsBootSectSig1);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: invalid boot signature (0x%02X 0x%02X)\n", device_name(device), boot->bs50.bsBootSectSig0, boot->bs50.bsBootSectSig1);
     }
     
     /* Compute several useful quantities from the boot sector. */
@@ -1896,25 +1907,25 @@ read_boot_sector:
     if (v->bytesPerSector != bytesPerSector)
     {
         err = EINVAL;
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: logical sector size (%u) != physical sector size (%u)\n", device_name(device), v->bytesPerSector, bytesPerSector);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: logical sector size (%u) != physical sector size (%u)\n", device_name(device), v->bytesPerSector, bytesPerSector);
         goto fail;
     }
     if (sectorsPerCluster == 0 || (sectorsPerCluster & (sectorsPerCluster - 1)))
     {
         err = EINVAL;
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: invalid sectors per cluster (%u)\n", device_name(device), sectorsPerCluster);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: invalid sectors per cluster (%u)\n", device_name(device), sectorsPerCluster);
         goto fail;
     }
     if (totalSectors == 0)
     {
         err = EINVAL;
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: invalid total sectors (%u)\n", device_name(device), totalSectors);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: invalid total sectors (%u)\n", device_name(device), totalSectors);
         goto fail;
     }
     if (fatSectors == 0)
     {
         err = EINVAL;
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: invalid sectors per FAT (%u)\n", device_name(device), fatSectors);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: invalid sectors per FAT (%u)\n", device_name(device), fatSectors);
         goto fail;
     }
     
@@ -1933,7 +1944,7 @@ read_boot_sector:
     {
         /* We think there isn't room for even a single cluster. */
         err = EINVAL;
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: invalid configuration; no room for clusters\n", device_name(device));
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: invalid configuration; no room for clusters\n", device_name(device));
         goto fail;
     }
     
@@ -1970,7 +1981,7 @@ read_boot_sector:
     else
     {
         err = EINVAL;
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: number of clusters (0x%x) is too large\n", device_name(device), v->maxCluster + 1);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: number of clusters (0x%x) is too large\n", device_name(device), v->maxCluster + 1);
         goto fail;
     }
     
@@ -2004,7 +2015,7 @@ read_boot_sector:
             err = cache_get_buffer(v->device, v->fatOffset, blockSize, &fatBuffer);
             if (err)
             {
-                asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: Unable to read FAT[1] (error %d)\n", device_name(device), err);
+                MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: Unable to read FAT[1] (error %d)\n", device_name(device), err);
                 goto fail;
             }
             assert(buffer_size(fatBuffer) == blockSize);
@@ -2022,11 +2033,11 @@ read_boot_sector:
             tryRepair = false;
             if (v->locked)
             {
-                asl_log(NULL, NULL, ASL_LEVEL_WARNING, "%s: Volume is %s dirty and locked.  Will use read-only.\n", device_name(device), v->fatMask == FAT12_MASK ? "assumed" : "marked");
+                MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: Volume is %s dirty and locked.  Will use read-only.\n", device_name(device), v->fatMask == FAT12_MASK ? "assumed" : "marked");
             }
             else
             {
-                asl_log(NULL, NULL, ASL_LEVEL_INFO, "%s: Volume is %s dirty.  Attempting to repair.\n", device_name(device), v->fatMask == FAT12_MASK ? "assumed" : "marked");
+                MSDOSFS_LOG_INFO(msdosfs_log_default, "%s: Volume is %s dirty.  Attempting to repair.\n", device_name(device), v->fatMask == FAT12_MASK ? "assumed" : "marked");
                 
                 cache_release_buffer(device, bootSector);
                 bootSector = NULL;
@@ -2035,12 +2046,12 @@ read_boot_sector:
                 int repair_result = fsck_msdos(device_fd(device), device_name(device));
                 if (repair_result)
                 {
-                    asl_log(NULL, NULL, ASL_LEVEL_WARNING, "%s: Could not be repaired (status %d).  Will use read-only.\n", device_name(device), repair_result);
+                    MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: Could not be repaired (status %d).  Will use read-only.\n", device_name(device), repair_result);
                     v->locked = true;
                 }
                 else
                 {
-                    asl_log(NULL, NULL, ASL_LEVEL_INFO, "%s: Volume repaired.\n", device_name(device));
+                    MSDOSFS_LOG_INFO(msdosfs_log_default, "%s: Volume repaired.\n", device_name(device));
                 }
                 
                 goto read_boot_sector;
@@ -2059,32 +2070,32 @@ read_boot_sector:
         if (v->rootCluster < CLUST_FIRST || v->rootCluster > v->maxCluster)
         {
             err = EINVAL;
-            asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: FAT32 root starting cluster (%u) out of range (%u..%u)\n",
+            MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: FAT32 root starting cluster (%u) out of range (%u..%u)\n",
                     device_name(device), v->rootCluster, CLUST_FIRST, v->maxCluster);
             goto fail;
         }
         if (rootEntryCount)
         {
             err = EINVAL;
-            asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: FAT32 has non-zero root directory entry count\n", device_name(device));
+            MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: FAT32 has non-zero root directory entry count\n", device_name(device));
             goto fail;
         }
         if (getuint16(b710->bpbFSVers) != 0)
         {
             err = EINVAL;
-            asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: FAT32 has non-zero version\n", device_name(device));
+            MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: FAT32 has non-zero version\n", device_name(device));
             goto fail;
         }
         if (getuint16(b50->bpbSectors) != 0)
         {
             err = EINVAL;
-            asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: FAT32 has 16-bit total sectors\n", device_name(device));
+            MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: FAT32 has 16-bit total sectors\n", device_name(device));
             goto fail;
         }
         if (getuint16(b50->bpbFATsecs) != 0)
         {
             err = EINVAL;
-            asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: FAT32 has 16-bit FAT sectors\n", device_name(device));
+            MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: FAT32 has 16-bit FAT sectors\n", device_name(device));
             goto fail;
         }
     }
@@ -2093,16 +2104,16 @@ read_boot_sector:
         if (rootEntryCount == 0)
         {
             err = EINVAL;
-            asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: FAT12/16 has zero-length root directory\n", device_name(device));
+            MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: FAT12/16 has zero-length root directory\n", device_name(device));
             goto fail;
         }
         if (totalSectors < 0x10000 && getuint16(b50->bpbSectors) == 0)
         {
-            asl_log(NULL, NULL, ASL_LEVEL_WARNING, "%s: FAT12/16 total sectors (%u) fit in 16 bits, but stored in 32 bits\n", device_name(device), totalSectors);
+            MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: FAT12/16 total sectors (%u) fit in 16 bits, but stored in 32 bits\n", device_name(device), totalSectors);
         }
         if (getuint16(b50->bpbFATsecs) == 0)
         {
-            asl_log(NULL, NULL, ASL_LEVEL_WARNING, "%s: FAT12/16 has 32-bit FAT sectors\n", device_name(device));
+            MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: FAT12/16 has 32-bit FAT sectors\n", device_name(device));
         }
     }
     
@@ -2122,7 +2133,7 @@ read_boot_sector:
     else
         clusters = clusters * 2 / 3;                        /* FAT12: 3 bytes for every two FAT entries */
     if (v->maxCluster >= clusters) {
-        asl_log(NULL, NULL, ASL_LEVEL_WARNING, "%s: Number of clusters (%d) exceeds FAT capacity (%d)\n",
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: Number of clusters (%d) exceeds FAT capacity (%d)\n",
                 device_name(device), v->maxCluster + 1, clusters);
         v->maxCluster = clusters - 1;
     }
@@ -2139,20 +2150,20 @@ read_boot_sector:
         if (v->clusterOffset + sectorsPerCluster > blockCount)
         {
             err = EINVAL;
-            asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: device sector count (%llu) too small; no room for clusters\n", device_name(device), blockCount);
+            MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: device sector count (%llu) too small; no room for clusters\n", device_name(device), blockCount);
             goto fail;
         }
         
         uint32_t maxcluster = (uint32_t)((blockCount - v->clusterOffset) / sectorsPerCluster + 1);
         if (maxcluster < v->maxCluster)
         {
-            asl_log(NULL, NULL, ASL_LEVEL_WARNING, "%s: device sector count (%llu) is less than volume sector count (%u); limiting maximum cluster to %u (was %u)\n",
+            MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: device sector count (%llu) is less than volume sector count (%u); limiting maximum cluster to %u (was %u)\n",
                     device_name(device), blockCount, totalSectors, maxcluster, v->maxCluster);
             v->maxCluster = maxcluster;
         }
         else
         {
-            asl_log(NULL, NULL, ASL_LEVEL_WARNING, "msdosfs_mount: device sector count (%llu) is less than volume sector count (%u)\n",
+            MSDOSFS_LOG_ERR(msdosfs_log_default, "msdosfs_mount: device sector count (%llu) is less than volume sector count (%u)\n",
                     blockCount, totalSectors);
         }
     }
@@ -2190,7 +2201,7 @@ read_boot_sector:
         err = cache_get_buffer(device, v->fsInfoSector*v->bytesPerSector, v->bytesPerSector, &fsInfoBuffer);
         if (err)
         {
-            asl_log(NULL, NULL, ASL_LEVEL_WARNING, "%s: Error %d trying to read FSInfo sector; ignoring.\n", device_name(device), err);
+            MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: Error %d trying to read FSInfo sector; ignoring.\n", device_name(device), err);
             v->fsInfoSector = 0;
             err = 0;
         }
@@ -2212,7 +2223,7 @@ read_boot_sector:
             }
             else
             {
-                asl_log(NULL, NULL, ASL_LEVEL_WARNING, "%s: FSInfo sector has invalid signature(s); ignoring.\n", device_name(device));
+                MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: FSInfo sector has invalid signature(s); ignoring.\n", device_name(device));
                 v->fsInfoSector = 0;
             }
         }
@@ -2282,7 +2293,7 @@ static errno_t msdosfs_volume_mark_dirty(userfs_volume_t volume, bool dirty)
     error = cache_get_buffer(volume->device, volume->fatOffset, blockSize, &buffer);
     if (error)
     {
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: msdosfs_volume_mark_dirty: unable to get FAT buffer for cluster=1 (error %d)\n", device_name(volume->device), error);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: msdosfs_volume_mark_dirty: unable to get FAT buffer for cluster=1 (error %d)\n", device_name(volume->device), error);
         goto done;
     }
     
@@ -2303,19 +2314,19 @@ static errno_t msdosfs_volume_mark_dirty(userfs_volume_t volume, bool dirty)
     buffer = NULL;
     if (error)
     {
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: msdosfs_volume_mark_dirty: error %d writing FAT\n", device_name(volume->device), error);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: msdosfs_volume_mark_dirty: error %d writing FAT\n", device_name(volume->device), error);
         goto done;
     }
     if (fsync(device_fd(volume->device)))
     {
         error = errno;
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: msdosfs_volume_mark_dirty: error %d from fsync\n", device_name(volume->device), error);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: msdosfs_volume_mark_dirty: error %d from fsync\n", device_name(volume->device), error);
         goto done;
     }
     if (ioctl(device_fd(volume->device), DKIOCSYNCHRONIZECACHE) == -1)
     {
         error = errno;
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: msdosfs_volume_mark_dirty: error %d from DKIOCSYNCHRONIZECACHE\n", device_name(volume->device), error);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: msdosfs_volume_mark_dirty: error %d from DKIOCSYNCHRONIZECACHE\n", device_name(volume->device), error);
         goto done;
     }
     
@@ -2562,13 +2573,13 @@ static errno_t msdosfs_stream_read(userfs_stream_t stream, void *buffer, uint64_
 
     if (offset > stream->length)
     {
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: %s: Attempt to read offset beyond EOF (offset=%llu, EOF=%llu)\n", device_name(stream->volume->device), stream->name, offset, stream->length);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: %s: Attempt to read offset beyond EOF (offset=%llu, EOF=%llu)\n", device_name(stream->volume->device), stream->name, offset, stream->length);
         return EINVAL;
     }
 
     if (length > (stream->length - offset))
     {
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: %s: Attempt to read beyond EOF (offset=%llu, length=%lu, EOF=%llu)\n", device_name(stream->volume->device), stream->name, offset, (unsigned long)length, stream->length);
+        MSDOSFS_LOG_ERR(msdosfs_log_default, "%s: %s: Attempt to read beyond EOF (offset=%llu, length=%lu, EOF=%llu)\n", device_name(stream->volume->device), stream->name, offset, (unsigned long)length, stream->length);
         return EINVAL;
     }
 
@@ -2625,6 +2636,10 @@ static const char * msdosfs_stream_name(userfs_stream_t stream)    // For debugg
 __attribute__((visibility("default")))
 void userfs_plugin_init(struct userfs_plugin_operations *ops, const struct userfs_callbacks *callbacks)
 {
+    if ((msdosfs_log_default = os_log_create("com.apple.filesystems.msdosfs", "plugin")) == NULL) {
+        err(EX_CANTCREAT, "Creating default log");
+    }
+    
     /* Return the function pointers to our plug-in operations. */
     ops->volume_open      = msdosfs_volume_open;
     ops->volume_is_locked = msdosfs_volume_is_locked;

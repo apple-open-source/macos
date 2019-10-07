@@ -57,15 +57,15 @@
  *  put in alloc() routines that fail occasionally.
  */
 
-#include <config.h>
+#include "config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <sasl.h>
-#include <saslplug.h>
-#include <saslutil.h>
-#include <prop.h>
+#include "sasl.h"
+#include "saslplug.h"
+#include "saslutil.h"
+#include "prop.h"
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>

@@ -1,18 +1,18 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
 
-#include <Security/SecureObjectSync/SOSAccount.h>
-#include <Security/SecureObjectSync/SOSAccountPriv.h>
-#include <Security/SecureObjectSync/SOSTransport.h>
-#import <Security/SecureObjectSync/SOSTransportKeyParameter.h>
-#import <Security/SecureObjectSync/SOSTransportCircleKVS.h>
-#import <Security/SecureObjectSync/SOSTransportMessageKVS.h>
-#include <Security/SecureObjectSync/SOSKVSKeys.h>
-#include <Security/SecureObjectSync/SOSPeerCoder.h>
+#include "keychain/SecureObjectSync/SOSAccount.h"
+#include "keychain/SecureObjectSync/SOSAccountPriv.h"
+#include "keychain/SecureObjectSync/SOSTransport.h"
+#import "keychain/SecureObjectSync/SOSTransportKeyParameter.h"
+#import "keychain/SecureObjectSync/SOSTransportCircleKVS.h"
+#import "keychain/SecureObjectSync/SOSTransportMessageKVS.h"
+#include "keychain/SecureObjectSync/SOSKVSKeys.h"
+#include "keychain/SecureObjectSync/SOSPeerCoder.h"
 #include <utilities/SecCFWrappers.h>
-#include <Security/SecureObjectSync/SOSPeerInfoV2.h>
-#import <Security/SecureObjectSync/SOSAccountTrustClassic+Circle.h>
-#import <Security/SecureObjectSync/SOSAccountTrustClassic+Identity.h>
+#include "keychain/SecureObjectSync/SOSPeerInfoV2.h"
+#import "keychain/SecureObjectSync/SOSAccountTrustClassic+Circle.h"
+#import "keychain/SecureObjectSync/SOSAccountTrustClassic+Identity.h"
 
 #include "SOSTransportTestTransports.h"
 #include "SOSAccountTesting.h"

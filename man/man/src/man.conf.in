@@ -39,6 +39,7 @@
 MANPATH	/usr/share/man
 MANPATH	/usr/local/share/man
 MANPATH	/usr/X11/man
+MANPATH	/Library/Apple/usr/share/man
 #
 # Uncomment if you want to include one of these by default
 #
@@ -130,7 +131,9 @@ MANSECT		@sections@
 #
 .gz		@gunzip@
 .bz2		@bzip2@
+.lzma		@unlzma@
 .z		@pcat@
 .Z		@zcat@
 .F		@fcat@
 .Y		@unyabba@
+.xz		@unxz@

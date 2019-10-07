@@ -27,4 +27,6 @@
 - (void)getSysdiagnoseDumpWithReply:(void (^)(NSString*))reply;
 - (void)getLoggingJSON:(bool)pretty topic:(NSString *)topicName reply:(void (^)(NSData*, NSError*))reply;
 - (void)forceUploadWithReply:(void (^)(BOOL, NSError*))reply;
+- (void)setUploadDateWith:(NSDate *)date reply:(void (^)(BOOL, NSError*))reply;
+- (void)clientStatus:(void (^)(NSDictionary<NSString *, id> *, NSError *))reply;
 @end

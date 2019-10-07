@@ -54,8 +54,10 @@ extern void mp_rendezvous_no_intrs(
 
 __END_DECLS
 
-#define PFM64_SIZE    (2ULL*GB)
-#define MAX_BAR_SIZE  (1ULL*GB)
+#define PFM64_SIZE     (2ULL*GB)
+#define PFM64_MIN_SIZE (512*MB)
+#define PFM64_MAX_SIZE (16ULL*GB)
+#define MAX_BAR_SIZE   (1ULL*GB)
 // NPHYSMAP; unfortunately this is too low to decode to PCI on some machines
 // #define PFM64_MAX  (512LL*GB)
 // cap to 32b page number max address
@@ -143,10 +145,19 @@ OSDefineMetaClassAndStructors( IOPCIConfigurator, IOService )
 
 bool CLASS::init(IOWorkLoop * wl, uint32_t flags)
 {
+    uint64_t pfmSize;
+
     if (!super::init()) return false;
 
-    fWL    = wl;
-    fFlags = flags;
+    fWL        = wl;
+    fFlags     = flags;
+    fPFM64Size = PFM64_SIZE;
+
+    if (PE_parse_boot_argn("pci64", &pfmSize, sizeof(pfmSize)))
+    {
+        pfmSize *= MB;
+        if ((pfmSize <= PFM64_MAX_SIZE) && (pfmSize >= PFM64_MIN_SIZE)) fPFM64Size = pfmSize;
+    }
 
     // Fetch global resources
     if (!createRoot()) return false;
@@ -561,7 +572,7 @@ IOReturn CLASS::addHostBridge(IOPCIBridge * hostBridge)
 		uint32_t  cpuPhysBits;
 
 		cpuPhysBits = cpuid_info()->cpuid_address_bits_physical;
-		size  = PFM64_SIZE;
+		size  = fPFM64Size;
 		start = (1ULL << cpuPhysBits);
 		if (start > PFM64_MAX) start = PFM64_MAX;
 		start -= size;
@@ -1141,7 +1152,7 @@ void CLASS::bridgeFinishProbe(IOPCIConfigEntry * bridge)
 		{
 			if (kPCIHotPlugTunnelRoot == bridge->supportsHotPlug)
 			{
-				if (child == bridge->child)
+				if (bridge->space.s.busNum && (child == bridge->child))
 				{
 					// assume the first DSB of the TB root is for NHI
 					child->supportsHotPlug = kPCIStaticTunnel;
@@ -1207,6 +1218,11 @@ void CLASS::bridgeFinishProbe(IOPCIConfigEntry * bridge)
 				child->supportsHotPlug = kPCIStatic;
 		}
 		while (false);
+		if ((kPCIHotPlugTunnel != (kPCIHPTypeMask & child->supportsHotPlug))
+		  || (kPCIHotPlugTunnelRootParent == child->supportsHotPlug))
+		{
+			child->linkInterrupts  = false;
+		}
     }
 
 	bridge->countMaximize = 0;
@@ -1414,7 +1430,7 @@ bool CLASS::bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge)
                     DLOG_RANGE("short range", range);
                 }
             }
-            pciDevice->relocate(true);
+            pciDevice->relocate(false);
         }
         propTable->release();
     }
@@ -1849,8 +1865,8 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
 			linkControl = configRead16(child, child->expressCapBlock + 0x10);
 			if (0x100 & expressCaps) slotCaps = configRead32(child, child->expressCapBlock + 0x14);
 
-			if ((kPCIHotPlugTunnel == (kPCIHPTypeMask & bridge->supportsHotPlug))
-				&& (0x60 == (0xf0 & expressCaps))) // downstream port
+			if ((0x60 == (0xf0 & expressCaps))      // downstream port
+				 || (0x40 == (0xf0 & expressCaps))) // or root port
 			{
 				if ((kLinkCapDataLinkLayerActiveReportingCapable & linkCaps) 
 				 && (kSlotCapHotplug & slotCaps))
@@ -3443,6 +3459,16 @@ void CLASS::applyConfiguration(IOPCIConfigEntry * device, uint32_t typeMask, boo
                     break;
             }
             device->deviceState &= ~kPCIDeviceStatePropertiesDone;
+
+			IOPCIDevice *
+			pciDevice = OSDynamicCast(IOPCIDevice, device->dtNub);
+			if (pciDevice
+			  && (kPCIDeviceStatePaused & device->deviceState)
+				&& pciDevice->getProperty(kIOPCIResourcedKey))
+			{
+				// give up vtd sourceID
+				pciDevice->relocate(true);
+			}
         }
 		if (!(kPCIDeviceStatePropertiesDone & device->deviceState))
 			writeLatencyTimer(device);

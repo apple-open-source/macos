@@ -1,14 +1,15 @@
 //
-//  HIDDisplayPreset.h
+//  HIDDisplayPresetCAPI.h
 //  IOHIDFamily
 //
-//  Created by AB on 4/15/19.
+//  Created by AB on 4/22/19.
 //
 
-#ifndef HIDDisplayPreset_h
-#define HIDDisplayPreset_h
+#ifndef HIDDisplayPresetCAPI_h
+#define HIDDisplayPresetCAPI_h
 
 #import <CoreFoundation/CoreFoundation.h>
+#import <IOKit/IOKitLib.h>
 
 __BEGIN_DECLS
 
@@ -71,10 +72,11 @@ extern CFStringRef kHIDDisplayPresetFieldDataBlockTwoLengthKey;
  */
 extern CFStringRef kHIDDisplayPresetFieldDataBlockTwoKey;
 
+
 /*!
  @defined kHIDDisplayPresetUniqueIDKey
  @abstract preset field to query preset uniqueID.
- @discussion get current preset uniqueID. Return CFDataRef for preset uniqueID.
+ @discussion get current preset uniqueID. Return CFStringRef for preset uniqueID.
  */
 extern CFStringRef kHIDDisplayPresetUniqueIDKey;
 
@@ -87,6 +89,8 @@ typedef HIDDisplayPresetInterfaceRef HIDDisplayDeviceRef;
 HIDDisplayDeviceRef __nullable HIDDisplayCreateDeviceWithContainerID(CFStringRef containerID);
 
 /*** END - NEED TO REMOVE */
+
+
 
 /*!
  * HIDDisplayCreatePresetInterfaceWithContainerID
@@ -109,6 +113,41 @@ HIDDisplayDeviceRef __nullable HIDDisplayCreateDeviceWithContainerID(CFStringRef
  */
 HIDDisplayPresetInterfaceRef __nullable HIDDisplayCreatePresetInterfaceWithContainerID(CFStringRef containerID);
 
+
+/*!
+ * HIDDisplayCreatePresetInterfaceWithService
+ *
+ * @abstract
+ * Creates hidDisplayInterface ref with  io service object for hid preset device
+ *
+ * @discussion
+ * Create hidDisplayInterface object  for given hid device
+ * Caller is expected to create only single instance of HIDDisplayPresetIntereface per system for all HIDDisplayPreset APIs
+ * as these APIs are not thread safe.
+ *
+ * @param service
+ * IOKit object for HID preset device.
+ *
+ * @result
+ * Returns an instance of a hidDisplayInterface object on success which has to be released by caller.
+ */
+HIDDisplayPresetInterfaceRef __nullable HIDDisplayCreatePresetInterfaceWithService(io_service_t service);
+
+
+/*!
+ * HIDDisplayGetContainerID
+ *
+ * @abstract
+ * Get ContainerID for hid preset device
+ *
+ * @discussion
+ * get container id published on device interface or any of it's parent
+ *
+ * @result
+ * CFStringRef for containerID. Caller shouldn't release any returned CFString
+ */
+CFStringRef __nullable HIDDisplayGetContainerID(HIDDisplayPresetInterfaceRef hidDisplayInterface);
+
 /*!
  * HIDDisplayGetPresetCount
  *
@@ -122,7 +161,7 @@ HIDDisplayPresetInterfaceRef __nullable HIDDisplayCreatePresetInterfaceWithConta
  * hidDisplayInterface object returned from HIDDisplayCreatePresetInterfaceWithContainerID
  *
  * @result
- * Returns total number of display preset supported by device on success and -1 on failure.
+ * Returns total number of display preset supported by device.
  */
 CFIndex HIDDisplayGetPresetCount(HIDDisplayPresetInterfaceRef hidDisplayInterface);
 
@@ -144,7 +183,7 @@ CFIndex HIDDisplayGetPresetCount(HIDDisplayPresetInterfaceRef hidDisplayInterfac
  * @result
  * Returns factory default preset index of display device on success and -1 on failure.
  */
-CFIndex HIDDisplayGetFactoryDefaultPresetIndex(HIDDisplayPresetInterfaceRef hidDisplayInterface, CFErrorRef *error);
+CFIndex HIDDisplayGetFactoryDefaultPresetIndex(HIDDisplayPresetInterfaceRef hidDisplayInterface, CFErrorRef* error);
 
 /*!
  * HIDDisplayGetPresetCapabilities
@@ -335,7 +374,6 @@ CFDataRef __nullable HIDDisplayCopyPresetUniqueID(HIDDisplayPresetInterfaceRef h
 
 CF_ASSUME_NONNULL_END
 
-
 __END_DECLS
 
-#endif /* HIDDisplayPreset_h */
+#endif /* HIDDisplayPresetCAPI_h */

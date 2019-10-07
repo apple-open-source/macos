@@ -382,8 +382,8 @@ phpdbg_help_text_t phpdbg_help_text[] = {
 
 "Type **help <command>** or (**help alias**) to get detailed help on any of the above commands, "
 "for example **help list** or **h l**.  Note that help will also match partial commands if unique "
-"(and list out options if not unique), so **help clea** will give help on the **clean** command, "
-"but **help cl** will list the summary for **clean** and **clear**." CR CR
+"(and list out options if not unique), so **help exp** will give help on the **export** command, "
+"but **help ex** will list the summary for **exec** and **export**." CR CR
 
 "Type **help aliases** to show a full alias list, including any registered phpdginit functions" CR
 "Type **help syntax** for a general introduction to the command syntax." CR
@@ -544,8 +544,8 @@ phpdbg_help_text_t phpdbg_help_text[] = {
 "types:" CR CR
 
 "  **Target**   **Alias** **Purpose**" CR
-"  **at**       **A**     specify breakpoint by location and condition" CR
-"  **del**      **d**     delete breakpoint by breakpoint identifier number" CR CR
+"  **at**       **@**     specify breakpoint by location and condition" CR
+"  **del**      **~**     delete breakpoint by breakpoint identifier number" CR CR
 
 "**Break at** takes two arguments. The first is any valid target. The second "
 "is a valid PHP expression which will trigger the break in "
@@ -924,7 +924,7 @@ phpdbg_help_text_t phpdbg_help_text[] = {
 "     Enable refcount display when hitting watchpoints" CR CR
 
 "     $P S b 4 off" CR
-"     Temporarily disable breakpoint 4.  This can be subsequently reenabled by a **s b 4 on**." CR
+"     Temporarily disable breakpoint 4.  This can be subsequently reenabled by a **S b 4 on**." CR
 //*********** check oplog syntax
 },
 

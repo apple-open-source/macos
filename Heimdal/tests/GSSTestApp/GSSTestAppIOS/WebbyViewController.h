@@ -8,12 +8,11 @@
 #import <UIKit/UIKit.h>
 #import <WebKit/WebKit.h>
 
-@interface WebbyViewController : UIViewController <UITextFieldDelegate, UIWebViewDelegate, WKNavigationDelegate>
+@interface WebbyViewController : UIViewController <UITextFieldDelegate, WKNavigationDelegate>
 @property (weak, nonatomic) IBOutlet UITextField *urlTextField;
 @property (weak, nonatomic) IBOutlet UIView *webbyView;
 
 @property (strong, nonatomic) NSString *type;
-@property (strong, nonatomic) UIWebView *ui;
 @property (strong, nonatomic) WKWebView *wk;
 @property (weak, nonatomic) IBOutlet UIActivityIndicatorView *spinny;
 @property (weak, nonatomic) IBOutlet UIButton *reloadButton;

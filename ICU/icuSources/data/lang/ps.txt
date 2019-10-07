@@ -6,10 +6,6 @@ ps{
         cf{"اسعارو بڼه"}
         collation{"ترتيب"}
         currency{"اسعارو"}
-        hc{"hc"}
-        lb{"lb"}
-        ms{"ms"}
-        numbers{"numbers"}
     }
     Languages{
         aa{"افري"}
@@ -58,6 +54,7 @@ ps{
         bug{"بگنيايي"}
         byn{"بلین"}
         ca{"کټلاني"}
+        ccp{"چکما"}
         ce{"چيچيني"}
         ceb{"سیبوانوي"}
         cgg{"چيگايي"}
@@ -79,7 +76,7 @@ ps{
         dar{"درگوا"}
         dav{"ټایټا"}
         de{"الماني"}
-        de_AT{"آسترالیا آلمان"}
+        de_AT{"اتريشي آلماني"}
         de_CH{"سوئس لوی جرمن"}
         dgr{"داگرب"}
         dje{"زرما"}
@@ -95,15 +92,15 @@ ps{
         eka{"اکجک"}
         el{"یوناني"}
         en{"انګریزي"}
-        en_AU{"انګریزي (AU)"}
+        en_AU{"انګليسي (AU)"}
         en_CA{"کاناډايي انګلیسي"}
-        en_GB{"برتانوی انګلیسي"}
-        en_US{"انګریزي (US)"}
+        en_GB{"بريتانوی انګلیسي"}
+        en_US{"انګليسي (US)"}
         eo{"اسپرانتو"}
         es{"هسپانوي"}
-        es_419{"لاتیني امریکایي اسپانوی"}
-        es_ES{"اروپایی اسپانوی"}
-        es_MX{"مکسیکو اسپانوی"}
+        es_419{"لاتيني امريکايي هسپانوي"}
+        es_ES{"اروپايي هسپانوي"}
+        es_MX{"ميکسيکو هسپانوي"}
         et{"حبشي"}
         eu{"باسکي"}
         ewo{"اوونڊو"}
@@ -115,8 +112,8 @@ ps{
         fo{"فاروئې"}
         fon{"فان"}
         fr{"فرانسوي"}
-        fr_CA{"کاناډا فرانسي"}
-        fr_CH{"سویس فرانسي"}
+        fr_CA{"کاناډايي فرانسوي"}
+        fr_CH{"سويسي فرانسوي"}
         fur{"فرائیلیین"}
         fy{"فريزي"}
         ga{"ائيرلېنډي"}
@@ -145,6 +142,7 @@ ps{
         hup{"ھوپا"}
         hy{"ارمني"}
         hz{"هیرورو"}
+        ia{"انټرلنګوا"}
         iba{"ابن"}
         ibb{"ابیبیو"}
         id{"انډونېزي"}
@@ -255,6 +253,7 @@ ps{
         naq{"ناما"}
         nb{"ناروې بوکمال"}
         nd{"شمالي نديبل"}
+        nds{"کښته آلماني"}
         ne{"نېپالي"}
         new{"نيواري"}
         ng{"ندونگا"}
@@ -302,7 +301,6 @@ ps{
         ru{"روسي"}
         rup{"اروماني"}
         rw{"کینیارونډا"}
-        rwk{"Rwa"}
         sa{"سنسکریټ"}
         sad{"سنډاوی"}
         sah{"سخا"}
@@ -373,6 +371,7 @@ ps{
         uk{"اوکرانايي"}
         umb{"امبوندو"}
         und{"نامعلومه ژبه"}
+        ur{"اردو"}
         uz{"اوزبکي"}
         vai{"وای"}
         ve{"ویندا"}
@@ -403,8 +402,8 @@ ps{
     }
     Languages%short{
         az{"اذري"}
-        en_GB{"انګریزي (GB)"}
-        en_US{"انګریزي (US)"}
+        en_GB{"انګليسي (GB)"}
+        en_US{"انګليسي (US)"}
     }
     Scripts{
         Arab{"عربي"}
@@ -434,7 +433,7 @@ ps{
         Knda{"کناډا"}
         Kore{"کوریایی"}
         Laoo{"لاوو"}
-        Latn{"لاتین"}
+        Latn{"لاتين/لاتيني"}
         Mlym{"مالایالم"}
         Mong{"منګولیایي"}
         Mymr{"میانمار"}
@@ -448,7 +447,7 @@ ps{
         Zmth{"د ریاضیاتو نوټیشن"}
         Zsye{"ایموجي"}
         Zsym{"سمبولونه"}
-        Zxxx{"ناڅاپه"}
+        Zxxx{"ناليکلی"}
         Zyyy{"عام"}
         Zzzz{"نامعلومه سکرېپټ"}
     }
@@ -462,12 +461,12 @@ ps{
             chinese{"د چين جنتري"}
             dangi{"ډانګي جنتري"}
             ethiopic{"ایتوپيک جنتري"}
-            gregorian{"د ګریګوریا کښته"}
+            gregorian{"ګريګورين جنتري"}
             hebrew{"جورجویان جنتري"}
-            islamic{"د اسلامي جنتري"}
+            islamic{"اسلامي جنتري"}
             islamic-civil{"د اسلامي جنتري (جدولي، د مدني عصر)"}
-            islamic-tbla{"د اسلامي جنتري (جدولي، ستورپوهنيزه برخه)"}
-            iso8601{"ISO-8601 Calendar"}
+            islamic-tbla{"اسلامي جنتري (جدولي، ستورپوهنيز عصر)"}
+            iso8601{"ISO-8601 جنتري"}
             japanese{"د جاپاني جنتري"}
             persian{"د فارسي جنتري"}
             roc{"منگوو جنتري"}
@@ -479,72 +478,24 @@ ps{
         collation{
             ducet{"ڊفالٽ یونیکوډ ترتیب"}
             search{"عمومي موخو د لټون"}
-            standard{"معیاري ترتیب ترتیب"}
-        }
-        hc{
-            h11{"h11"}
-            h12{"h12"}
-            h23{"h23"}
-            h24{"h24"}
-        }
-        lb{
-            loose{"loose"}
-            normal{"normal"}
-            strict{"strict"}
-        }
-        ms{
-            metric{"metric"}
-            uksystem{"uksystem"}
-            ussystem{"ussystem"}
+            standard{"معياري د لټې ترتيب"}
         }
         numbers{
-            arab{"عربي - انډیک ډایټونه"}
-            arabext{"پراخ شوی عربي - هندیک ډایټونه"}
-            armn{"armn"}
-            armnlow{"armnlow"}
-            beng{"beng"}
-            deva{"deva"}
-            ethi{"ethi"}
-            fullwide{"fullwide"}
-            geor{"geor"}
-            grek{"grek"}
-            greklow{"greklow"}
-            gujr{"gujr"}
-            guru{"guru"}
-            hanidec{"hanidec"}
-            hans{"hans"}
-            hansfin{"hansfin"}
-            hant{"hant"}
-            hantfin{"hantfin"}
-            hebr{"hebr"}
-            jpan{"jpan"}
-            jpanfin{"jpanfin"}
-            khmr{"khmr"}
-            knda{"knda"}
-            laoo{"laoo"}
-            latn{"لویدیځ ډایټونه"}
-            mlym{"mlym"}
-            mymr{"mymr"}
-            orya{"orya"}
-            roman{"roman"}
-            romanlow{"romanlow"}
-            taml{"taml"}
-            tamldec{"tamldec"}
-            telu{"telu"}
-            thai{"thai"}
-            tibt{"tibt"}
+            arab{"عربي - انډیک عددونه"}
+            arabext{"غځېدلې عربي ۔ اينډيک عدد"}
+            latn{"لويديځ عددونه"}
         }
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
     characterLabelPattern{
         all{"{0} - ټول"}
         category-list{"{0}: {1}"}
         compatibility{"{0} - مطابقت"}
         enclosed{"{0} - منسلک"}
-        extended{"{0} - پراخ شوی"}
+        extended{"{0} - غځېدلی"}
         historic{"{0} - تاريخي"}
         miscellaneous{"{0} - متفرقه"}
-        other{"{0} - د نورو"}
+        other{"{0} - نورو"}
         scripts{"سکرېپټونه - {0}"}
         strokes{
             one{"{0} استروک"}

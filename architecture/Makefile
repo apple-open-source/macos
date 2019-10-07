@@ -21,16 +21,21 @@ CANONICAL_ARCH_x86_64 = i386
 SUPPORTED_ARCHS += arm
 
 CANONICAL_ARCH_arm64 = arm
+CANONICAL_ARCH_arm64e = arm
+CANONICAL_ARCH_arm64_32 = arm
 CANONICAL_ARCH_armv5 = arm
 CANONICAL_ARCH_armv6 = arm
 CANONICAL_ARCH_armv7 = arm
 CANONICAL_ARCH_armv7k = arm
 
-
 ARCHS = $(filter $(SUPPORTED_ARCHS),$(sort $(foreach x,$(RC_ARCHS),$(if $(CANONICAL_ARCH_$(x)),$(CANONICAL_ARCH_$(x)),$(x)))))
 
 # install machine-independent and per-arch headers
 DIRS = . $(ARCHS)
+
+ifeq ($(DRIVERKIT),1)
+    override DSTROOT := $(DSTROOT)/$(DRIVERKITROOT)/Runtime
+endif
 
 EXPORT_DSTDIR=/usr/include/architecture
 LOCAL_DSTDIR=/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/architecture

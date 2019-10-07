@@ -1,4 +1,4 @@
-# $FreeBSD: head/bin/sh/tests/errors/Makefile 299094 2016-05-04 23:20:53Z ngie $
+# $FreeBSD: head/bin/sh/tests/errors/Makefile 319575 2017-06-04 20:52:55Z jilles $
 
 PACKAGE=	tests
 
@@ -29,6 +29,7 @@ ${PACKAGE}FILES+=		redirection-error4.0
 ${PACKAGE}FILES+=		redirection-error5.0
 ${PACKAGE}FILES+=		redirection-error6.0
 ${PACKAGE}FILES+=		redirection-error7.0
+${PACKAGE}FILES+=		redirection-error8.0
 ${PACKAGE}FILES+=		write-error1.0
 
 .include <bsd.test.mk>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,8 +29,8 @@
 #include <sys/stat.h>
 #include <sys/syslog.h>
 #include <mach/message.h>
-#include <os/activity.h>
 #include <os/log.h>
+#include <os/variant_private.h>
 #include <sys/sysctl.h>
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -486,9 +486,9 @@ void		SCLog				(Boolean		condition,
     #ifndef	SC_LOG_HANDLE_TYPE
     #define SC_LOG_HANDLE_TYPE
     #endif	// SC_LOG_HANDLE_TYPE
-    SC_LOG_HANDLE_TYPE	os_log_t	SC_LOG_HANDLE;
+    SC_LOG_HANDLE_TYPE	os_log_t	SC_LOG_HANDLE(void);
   #else	// SC_LOG_HANDLE
-    #define	SC_LOG_HANDLE	_SC_LOG_DEFAULT()	// use [SC] default os_log handle
+    #define	SC_LOG_HANDLE	_SC_LOG_DEFAULT		// use [SC] default os_log handle
     #ifndef	SC_LOG_OR_PRINT
       #define	USE_SC_LOG_OR_PRINT	1		// and use '_sc_log' to control os_log, printf
     #endif	// !SC_LOG_OR_PRINT
@@ -497,7 +497,7 @@ void		SCLog				(Boolean		condition,
   #if	USE_SC_LOG_OR_PRINT
     #define	SC_log(__level, __format, ...)						\
 	do {										\
-		os_log_t	__handle = SC_LOG_HANDLE;				\
+		os_log_t	__handle = SC_LOG_HANDLE();				\
 		os_log_type_t	__type   = _SC_syslog_os_log_mapping(__level);		\
 											\
 		if (((_sc_log != 1) && ((__level > LOG_DEBUG) || _sc_debug)) ||		\
@@ -513,8 +513,10 @@ void		SCLog				(Boolean		condition,
   #else	// USE_SC_LOG_OR_PRINT
     #define	SC_log(__level, __format, ...)						\
 	do {										\
+		os_log_t	__handle = SC_LOG_HANDLE();				\
 		os_log_type_t	__type = _SC_syslog_os_log_mapping(__level);		\
-		os_log_with_type(SC_LOG_HANDLE, __type, __format, ## __VA_ARGS__);	\
+											\
+		os_log_with_type(__handle, __type, __format, ## __VA_ARGS__);		\
 	} while (0)
   #endif	// USE_SC_LOG_OR_PRINT
 #endif	// !SC_log
@@ -808,17 +810,14 @@ _SC_CFEqual(CFTypeRef val1, CFTypeRef val2)
 static __inline__ Boolean
 _SC_isAppleInternal()
 {
-	static int isInternal	= 0;
+	static Boolean		isInternal;
+	static dispatch_once_t	once;
 
-	if (isInternal == 0) {
-		int		ret;
-		struct stat	statbuf;
+	dispatch_once(&once, ^{
+		isInternal = os_variant_has_internal_content("com.apple.SystemConfiguration");
+	});
 
-		ret = stat("/AppleInternal", &statbuf);
-		isInternal = (ret == 0) ? 1 : 2;
-	}
-
-	return (isInternal == 1);
+	return isInternal;
 }
 
 Boolean
@@ -859,6 +858,18 @@ void
 _SC_crash					(const char		*crash_info,
 						 CFStringRef		notifyHeader,
 						 CFStringRef		notifyMessage);
+
+static __inline__ void
+_SC_crash_once					(const char		*crash_info,
+						 CFStringRef		notifyHeader,
+						 CFStringRef		notifyMessage)
+{
+	static dispatch_once_t	once;
+
+	_dispatch_once(&once, ^{
+		_SC_crash(crash_info, notifyHeader, notifyMessage);
+	});
+}
 
 Boolean
 _SC_getconninfo					(int				socket,

@@ -60,6 +60,7 @@ unsigned int			if_nametoindex(const char *ifname);
 extern const struct in6_addr	in6addr_any;
 extern const struct in6_addr	in6addr_linklocal_allnodes;
 extern const struct in6_addr	in6addr_linklocal_allrouters;
+extern const struct in6_addr	in6addr_linklocal_allv2routers;
 extern const struct in6_addr	in6addr_loopback;
 extern const struct in6_addr	in6addr_nodelocal_allnodes;
 

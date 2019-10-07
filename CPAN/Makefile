@@ -68,3 +68,9 @@ install:
 	done
 	rm -f $(EXTRASARCH)/perllocal.pod
 	find $(EXTRASARCH)/auto -name .packlist -print -delete
+	rm -f $(DSTROOT)/usr/share/man/man3/Test\:\:Tester\:\:CaptureRunner.3pm
+	rm -f $(DSTROOT)/usr/share/man/man3/Test\:\:Tester\:\:Capture.3pm
+	rm -f $(DSTROOT)/usr/share/man/man3/Test\:\:use\:\:ok.3pm
+	rm -f $(DSTROOT)/usr/share/man/man3/ok.3pm
+	rm -f $(DSTROOT)/usr/share/man/man3/Test\:\:Tester.3pm
+	rm -f $(DSTROOT)/usr/share/man/man3/Internals.3pm

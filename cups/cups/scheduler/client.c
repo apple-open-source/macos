@@ -1,17 +1,14 @@
 /*
  * Client routines for the CUPS scheduler.
  *
- * Copyright © 2007-2018 by Apple Inc.
+ * Copyright © 2007-2019 by Apple Inc.
  * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
  * This file contains Kerberos support code, copyright 2006 by
  * Jelmer Vernooij.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 /*
@@ -560,7 +557,6 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
   char			buf[1024];	/* Buffer for real filename */
   struct stat		filestats;	/* File information */
   mime_type_t		*type;		/* MIME type of file */
-  cupsd_printer_t	*p;		/* Printer */
   static unsigned	request_id = 0;	/* Request ID for temp files */
 
 
@@ -955,8 +951,6 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
       }
 
       httpClearFields(con->http);
-      httpSetField(con->http, HTTP_FIELD_ALLOW,
-		   "GET, HEAD, OPTIONS, POST, PUT");
       httpSetField(con->http, HTTP_FIELD_CONTENT_LENGTH, "0");
 
       if (!cupsdSendHeader(con, HTTP_STATUS_OK, NULL, CUPSD_AUTH_NONE))
@@ -1055,247 +1049,8 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	case HTTP_STATE_GET_SEND :
             cupsdLogClient(con, CUPSD_LOG_DEBUG, "Processing GET %s", con->uri);
 
-            if ((!strncmp(con->uri, "/ppd/", 5) ||
-		 !strncmp(con->uri, "/printers/", 10) ||
-		 !strncmp(con->uri, "/classes/", 9)) &&
-		!strcmp(con->uri + strlen(con->uri) - 4, ".ppd"))
-	    {
-	     /*
-	      * Send PPD file - get the real printer name since printer
-	      * names are not case sensitive but filenames can be...
-	      */
-
-              con->uri[strlen(con->uri) - 4] = '\0';	/* Drop ".ppd" */
-
-	      if (!strncmp(con->uri, "/ppd/", 5))
-		p = cupsdFindPrinter(con->uri + 5);
-	      else if (!strncmp(con->uri, "/printers/", 10))
-		p = cupsdFindPrinter(con->uri + 10);
-	      else
-	      {
-		p = cupsdFindClass(con->uri + 9);
-
-		if (p)
-		{
-		  int i;		/* Looping var */
-
-		  for (i = 0; i < p->num_printers; i ++)
-		  {
-		    if (!(p->printers[i]->type & CUPS_PRINTER_CLASS))
-		    {
-		      char ppdname[1024];/* PPD filename */
-
-		      snprintf(ppdname, sizeof(ppdname), "%s/ppd/%s.ppd",
-		               ServerRoot, p->printers[i]->name);
-		      if (!access(ppdname, 0))
-		      {
-		        p = p->printers[i];
-		        break;
-		      }
-		    }
-		  }
-
-                  if (i >= p->num_printers)
-                    p = NULL;
-		}
-	      }
-
-	      if (p)
-	      {
-		snprintf(con->uri, sizeof(con->uri), "/ppd/%s.ppd", p->name);
-	      }
-	      else
-	      {
-		if (!cupsdSendError(con, HTTP_STATUS_NOT_FOUND, CUPSD_AUTH_NONE))
-		{
-		  cupsdCloseClient(con);
-		  return;
-		}
-
-		break;
-	      }
-	    }
-            else if ((!strncmp(con->uri, "/icons/", 7) ||
-		      !strncmp(con->uri, "/printers/", 10) ||
-		      !strncmp(con->uri, "/classes/", 9)) &&
-		     !strcmp(con->uri + strlen(con->uri) - 4, ".png"))
-	    {
-	     /*
-	      * Send icon file - get the real queue name since queue names are
-	      * not case sensitive but filenames can be...
-	      */
-
-	      con->uri[strlen(con->uri) - 4] = '\0';	/* Drop ".png" */
-
-              if (!strncmp(con->uri, "/icons/", 7))
-                p = cupsdFindPrinter(con->uri + 7);
-              else if (!strncmp(con->uri, "/printers/", 10))
-                p = cupsdFindPrinter(con->uri + 10);
-              else
-              {
-		p = cupsdFindClass(con->uri + 9);
-
-		if (p)
-		{
-		  int i;		/* Looping var */
-
-		  for (i = 0; i < p->num_printers; i ++)
-		  {
-		    if (!(p->printers[i]->type & CUPS_PRINTER_CLASS))
-		    {
-		      char ppdname[1024];/* PPD filename */
-
-		      snprintf(ppdname, sizeof(ppdname), "%s/ppd/%s.ppd",
-		               ServerRoot, p->printers[i]->name);
-		      if (!access(ppdname, 0))
-		      {
-		        p = p->printers[i];
-		        break;
-		      }
-		    }
-		  }
-
-                  if (i >= p->num_printers)
-                    p = NULL;
-		}
-	      }
-
-              if (p)
-		snprintf(con->uri, sizeof(con->uri), "/icons/%s.png", p->name);
-	      else
-	      {
-		if (!cupsdSendError(con, HTTP_STATUS_NOT_FOUND, CUPSD_AUTH_NONE))
-		{
-		  cupsdCloseClient(con);
-		  return;
-		}
-
-		break;
-	      }
-	    }
-
-	    if ((!strncmp(con->uri, "/admin", 6) && strcmp(con->uri, "/admin/conf/cupsd.conf") && strncmp(con->uri, "/admin/log/", 11)) ||
-		 !strncmp(con->uri, "/printers", 9) ||
-		 !strncmp(con->uri, "/classes", 8) ||
-		 !strncmp(con->uri, "/help", 5) ||
-		 !strncmp(con->uri, "/jobs", 5))
-	    {
-	      if (!WebInterface)
-	      {
-	       /*
-		* Web interface is disabled. Show an appropriate message...
-		*/
-
-		if (!cupsdSendError(con, HTTP_STATUS_CUPS_WEBIF_DISABLED, CUPSD_AUTH_NONE))
-		{
-		  cupsdCloseClient(con);
-		  return;
-		}
-
-		break;
-	      }
-
-	     /*
-	      * Send CGI output...
-	      */
-
-              if (!strncmp(con->uri, "/admin", 6))
-	      {
-		cupsdSetStringf(&con->command, "%s/cgi-bin/admin.cgi",
-		                ServerBin);
-
-		cupsdSetString(&con->options, strchr(con->uri + 6, '?'));
-	      }
-              else if (!strncmp(con->uri, "/printers", 9))
-	      {
-		cupsdSetStringf(&con->command, "%s/cgi-bin/printers.cgi",
-		                ServerBin);
-
-                if (con->uri[9] && con->uri[10])
-		  cupsdSetString(&con->options, con->uri + 9);
-		else
-		  cupsdSetString(&con->options, NULL);
-	      }
-	      else if (!strncmp(con->uri, "/classes", 8))
-	      {
-		cupsdSetStringf(&con->command, "%s/cgi-bin/classes.cgi",
-		                ServerBin);
-
-                if (con->uri[8] && con->uri[9])
-		  cupsdSetString(&con->options, con->uri + 8);
-		else
-		  cupsdSetString(&con->options, NULL);
-	      }
-	      else if (!strncmp(con->uri, "/jobs", 5))
-	      {
-		cupsdSetStringf(&con->command, "%s/cgi-bin/jobs.cgi",
-		                ServerBin);
-
-                if (con->uri[5] && con->uri[6])
-		  cupsdSetString(&con->options, con->uri + 5);
-		else
-		  cupsdSetString(&con->options, NULL);
-	      }
-	      else
-	      {
-		cupsdSetStringf(&con->command, "%s/cgi-bin/help.cgi",
-		                ServerBin);
-
-                if (con->uri[5] && con->uri[6])
-		  cupsdSetString(&con->options, con->uri + 5);
-		else
-		  cupsdSetString(&con->options, NULL);
-	      }
-
-              if (!cupsdSendCommand(con, con->command, con->options, 0))
-	      {
-		if (!cupsdSendError(con, HTTP_STATUS_NOT_FOUND, CUPSD_AUTH_NONE))
-		{
-		  cupsdCloseClient(con);
-		  return;
-		}
-              }
-	      else
-        	cupsdLogRequest(con, HTTP_STATUS_OK);
-
-	      if (httpGetVersion(con->http) <= HTTP_VERSION_1_0)
-		httpSetKeepAlive(con->http, HTTP_KEEPALIVE_OFF);
-	    }
-            else if (!strncmp(con->uri, "/admin/log/", 11) && (strchr(con->uri + 11, '/') || strlen(con->uri) == 11))
-	    {
-	     /*
-	      * GET can only be done to configuration files directly under
-	      * /admin/conf...
-	      */
-
-	      cupsdLogClient(con, CUPSD_LOG_ERROR, "Request for subdirectory \"%s\".", con->uri);
-
-	      if (!cupsdSendError(con, HTTP_STATUS_FORBIDDEN, CUPSD_AUTH_NONE))
-	      {
-		cupsdCloseClient(con);
-		return;
-	      }
-
-	      break;
-	    }
-	    else
-	    {
-	     /*
-	      * Serve a file...
-	      */
-
-              if ((filename = get_file(con, &filestats, buf,
-	                               sizeof(buf))) == NULL)
-	      {
-		if (!cupsdSendError(con, HTTP_STATUS_NOT_FOUND, CUPSD_AUTH_NONE))
-		{
-		  cupsdCloseClient(con);
-		  return;
-		}
-
-		break;
-	      }
-
+            if ((filename = get_file(con, &filestats, buf, sizeof(buf))) != NULL)
+            {
 	      type = mimeFileType(MimeDatabase, filename, NULL, NULL);
 
               cupsdLogClient(con, CUPSD_LOG_DEBUG, "filename=\"%s\", type=%s/%s", filename, type ? type->super : "", type ? type->type : "");
@@ -1303,8 +1058,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
               if (is_cgi(con, filename, &filestats, type))
 	      {
 	       /*
-	        * Note: con->command and con->options were set by
-		* is_cgi()...
+	        * Note: con->command and con->options were set by is_cgi()...
 		*/
 
         	if (!cupsdSendCommand(con, con->command, con->options, 0))
@@ -1344,6 +1098,87 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 		  return;
 		}
 	      }
+            }
+            else if (!strncmp(con->uri, "/admin", 6) || !strncmp(con->uri, "/printers", 9) || !strncmp(con->uri, "/classes", 8) || !strncmp(con->uri, "/help", 5) || !strncmp(con->uri, "/jobs", 5))
+	    {
+	      if (!WebInterface)
+	      {
+	       /*
+		* Web interface is disabled. Show an appropriate message...
+		*/
+
+		if (!cupsdSendError(con, HTTP_STATUS_CUPS_WEBIF_DISABLED, CUPSD_AUTH_NONE))
+		{
+		  cupsdCloseClient(con);
+		  return;
+		}
+
+		break;
+	      }
+
+	     /*
+	      * Send CGI output...
+	      */
+
+              if (!strncmp(con->uri, "/admin", 6))
+	      {
+		cupsdSetStringf(&con->command, "%s/cgi-bin/admin.cgi", ServerBin);
+		cupsdSetString(&con->options, strchr(con->uri + 6, '?'));
+	      }
+              else if (!strncmp(con->uri, "/printers", 9))
+	      {
+		cupsdSetStringf(&con->command, "%s/cgi-bin/printers.cgi", ServerBin);
+                if (con->uri[9] && con->uri[10])
+		  cupsdSetString(&con->options, con->uri + 9);
+		else
+		  cupsdSetString(&con->options, NULL);
+	      }
+	      else if (!strncmp(con->uri, "/classes", 8))
+	      {
+		cupsdSetStringf(&con->command, "%s/cgi-bin/classes.cgi", ServerBin);
+                if (con->uri[8] && con->uri[9])
+		  cupsdSetString(&con->options, con->uri + 8);
+		else
+		  cupsdSetString(&con->options, NULL);
+	      }
+	      else if (!strncmp(con->uri, "/jobs", 5))
+	      {
+		cupsdSetStringf(&con->command, "%s/cgi-bin/jobs.cgi", ServerBin);
+                if (con->uri[5] && con->uri[6])
+		  cupsdSetString(&con->options, con->uri + 5);
+		else
+		  cupsdSetString(&con->options, NULL);
+	      }
+	      else
+	      {
+		cupsdSetStringf(&con->command, "%s/cgi-bin/help.cgi", ServerBin);
+                if (con->uri[5] && con->uri[6])
+		  cupsdSetString(&con->options, con->uri + 5);
+		else
+		  cupsdSetString(&con->options, NULL);
+	      }
+
+              if (!cupsdSendCommand(con, con->command, con->options, 0))
+	      {
+		if (!cupsdSendError(con, HTTP_STATUS_NOT_FOUND, CUPSD_AUTH_NONE))
+		{
+		  cupsdCloseClient(con);
+		  return;
+		}
+              }
+	      else
+        	cupsdLogRequest(con, HTTP_STATUS_OK);
+
+	      if (httpGetVersion(con->http) <= HTTP_VERSION_1_0)
+		httpSetKeepAlive(con->http, HTTP_KEEPALIVE_OFF);
+	    }
+	    else
+	    {
+	      if (!cupsdSendError(con, HTTP_STATUS_NOT_FOUND, CUPSD_AUTH_NONE))
+	      {
+		cupsdCloseClient(con);
+		return;
+	      }
 	    }
             break;
 
@@ -1353,9 +1188,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	    * so check the length against any limits that are set...
 	    */
 
-            if (httpGetField(con->http, HTTP_FIELD_CONTENT_LENGTH)[0] &&
-		MaxRequestSize > 0 &&
-		httpGetLength2(con->http) > MaxRequestSize)
+            if (httpGetField(con->http, HTTP_FIELD_CONTENT_LENGTH)[0] && MaxRequestSize > 0 && httpGetLength2(con->http) > MaxRequestSize)
 	    {
 	     /*
 	      * Request too large...
@@ -1389,9 +1222,11 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	    * content-type field will be "application/ipp"...
 	    */
 
-	    if (!strcmp(httpGetField(con->http, HTTP_FIELD_CONTENT_TYPE),
-	                "application/ipp"))
+	    if (!strcmp(httpGetField(con->http, HTTP_FIELD_CONTENT_TYPE), "application/ipp"))
+	    {
               con->request = ippNew();
+              break;
+            }
             else if (!WebInterface)
 	    {
 	     /*
@@ -1406,84 +1241,12 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 
 	      break;
 	    }
-	    else if ((!strncmp(con->uri, "/admin", 6) && strncmp(con->uri, "/admin/log/", 11)) ||
-	             !strncmp(con->uri, "/printers", 9) ||
-	             !strncmp(con->uri, "/classes", 8) ||
-	             !strncmp(con->uri, "/help", 5) ||
-	             !strncmp(con->uri, "/jobs", 5))
-	    {
-	     /*
-	      * CGI request...
-	      */
 
-              if (!strncmp(con->uri, "/admin", 6))
-	      {
-		cupsdSetStringf(&con->command, "%s/cgi-bin/admin.cgi",
-		                ServerBin);
-
-		cupsdSetString(&con->options, strchr(con->uri + 6, '?'));
-	      }
-              else if (!strncmp(con->uri, "/printers", 9))
-	      {
-		cupsdSetStringf(&con->command, "%s/cgi-bin/printers.cgi",
-		                ServerBin);
-
-                if (con->uri[9] && con->uri[10])
-		  cupsdSetString(&con->options, con->uri + 9);
-		else
-		  cupsdSetString(&con->options, NULL);
-	      }
-	      else if (!strncmp(con->uri, "/classes", 8))
-	      {
-		cupsdSetStringf(&con->command, "%s/cgi-bin/classes.cgi",
-		                ServerBin);
-
-                if (con->uri[8] && con->uri[9])
-		  cupsdSetString(&con->options, con->uri + 8);
-		else
-		  cupsdSetString(&con->options, NULL);
-	      }
-	      else if (!strncmp(con->uri, "/jobs", 5))
-	      {
-		cupsdSetStringf(&con->command, "%s/cgi-bin/jobs.cgi",
-		                ServerBin);
-
-                if (con->uri[5] && con->uri[6])
-		  cupsdSetString(&con->options, con->uri + 5);
-		else
-		  cupsdSetString(&con->options, NULL);
-	      }
-	      else
-	      {
-		cupsdSetStringf(&con->command, "%s/cgi-bin/help.cgi",
-		                ServerBin);
-
-                if (con->uri[5] && con->uri[6])
-		  cupsdSetString(&con->options, con->uri + 5);
-		else
-		  cupsdSetString(&con->options, NULL);
-	      }
-
-	      if (httpGetVersion(con->http) <= HTTP_VERSION_1_0)
-		httpSetKeepAlive(con->http, HTTP_KEEPALIVE_OFF);
-	    }
-	    else
-	    {
+	    if ((filename = get_file(con, &filestats, buf, sizeof(buf))) != NULL)
+            {
 	     /*
 	      * POST to a file...
 	      */
-
-              if ((filename = get_file(con, &filestats, buf,
-	                               sizeof(buf))) == NULL)
-	      {
-		if (!cupsdSendError(con, HTTP_STATUS_NOT_FOUND, CUPSD_AUTH_NONE))
-		{
-		  cupsdCloseClient(con);
-		  return;
-		}
-
-		break;
-	      }
 
 	      type = mimeFileType(MimeDatabase, filename, NULL, NULL);
 
@@ -1499,6 +1262,61 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 		  return;
 		}
 	      }
+            }
+	    else if (!strncmp(con->uri, "/admin", 6) || !strncmp(con->uri, "/printers", 9) ||  !strncmp(con->uri, "/classes", 8) || !strncmp(con->uri, "/help", 5) || !strncmp(con->uri, "/jobs", 5))
+	    {
+	     /*
+	      * CGI request...
+	      */
+
+              if (!strncmp(con->uri, "/admin", 6))
+	      {
+		cupsdSetStringf(&con->command, "%s/cgi-bin/admin.cgi", ServerBin);
+		cupsdSetString(&con->options, strchr(con->uri + 6, '?'));
+	      }
+              else if (!strncmp(con->uri, "/printers", 9))
+	      {
+		cupsdSetStringf(&con->command, "%s/cgi-bin/printers.cgi", ServerBin);
+                if (con->uri[9] && con->uri[10])
+		  cupsdSetString(&con->options, con->uri + 9);
+		else
+		  cupsdSetString(&con->options, NULL);
+	      }
+	      else if (!strncmp(con->uri, "/classes", 8))
+	      {
+		cupsdSetStringf(&con->command, "%s/cgi-bin/classes.cgi", ServerBin);
+                if (con->uri[8] && con->uri[9])
+		  cupsdSetString(&con->options, con->uri + 8);
+		else
+		  cupsdSetString(&con->options, NULL);
+	      }
+	      else if (!strncmp(con->uri, "/jobs", 5))
+	      {
+		cupsdSetStringf(&con->command, "%s/cgi-bin/jobs.cgi", ServerBin);
+                if (con->uri[5] && con->uri[6])
+		  cupsdSetString(&con->options, con->uri + 5);
+		else
+		  cupsdSetString(&con->options, NULL);
+	      }
+	      else
+	      {
+		cupsdSetStringf(&con->command, "%s/cgi-bin/help.cgi", ServerBin);
+                if (con->uri[5] && con->uri[6])
+		  cupsdSetString(&con->options, con->uri + 5);
+		else
+		  cupsdSetString(&con->options, NULL);
+	      }
+
+	      if (httpGetVersion(con->http) <= HTTP_VERSION_1_0)
+		httpSetKeepAlive(con->http, HTTP_KEEPALIVE_OFF);
+	    }
+	    else
+	    {
+	      if (!cupsdSendError(con, HTTP_STATUS_NOT_FOUND, CUPSD_AUTH_NONE))
+	      {
+		cupsdCloseClient(con);
+		return;
+	      }
 	    }
 	    break;
 
@@ -1513,8 +1331,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	      * PUT can only be done to the cupsd.conf file...
 	      */
 
-	      cupsdLogClient(con, CUPSD_LOG_ERROR,
-			     "Disallowed PUT request for \"%s\".", con->uri);
+	      cupsdLogClient(con, CUPSD_LOG_ERROR, "Disallowed PUT request for \"%s\".", con->uri);
 
 	      if (!cupsdSendError(con, HTTP_STATUS_FORBIDDEN, CUPSD_AUTH_NONE))
 	      {
@@ -1530,9 +1347,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	    * so check the length against any limits that are set...
 	    */
 
-            if (httpGetField(con->http, HTTP_FIELD_CONTENT_LENGTH)[0] &&
-		MaxRequestSize > 0 &&
-		httpGetLength2(con->http) > MaxRequestSize)
+            if (httpGetField(con->http, HTTP_FIELD_CONTENT_LENGTH)[0] && MaxRequestSize > 0 && httpGetLength2(con->http) > MaxRequestSize)
 	    {
 	     /*
 	      * Request too large...
@@ -1565,15 +1380,12 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	    * Open a temporary file to hold the request...
 	    */
 
-            cupsdSetStringf(&con->filename, "%s/%08x", RequestRoot,
-	                    request_id ++);
+            cupsdSetStringf(&con->filename, "%s/%08x", RequestRoot, request_id ++);
 	    con->file = open(con->filename, O_WRONLY | O_CREAT | O_TRUNC, 0640);
 
 	    if (con->file < 0)
 	    {
-	      cupsdLogClient(con, CUPSD_LOG_ERROR,
-	                     "Unable to create request file \"%s\": %s",
-                             con->filename, strerror(errno));
+	      cupsdLogClient(con, CUPSD_LOG_ERROR, "Unable to create request file \"%s\": %s", con->filename, strerror(errno));
 
 	      if (!cupsdSendError(con, HTTP_STATUS_REQUEST_TOO_LARGE, CUPSD_AUTH_NONE))
 	      {
@@ -1594,54 +1406,44 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	    return;
 
 	case HTTP_STATE_HEAD :
-            if (!strncmp(con->uri, "/printers/", 10) &&
-		!strcmp(con->uri + strlen(con->uri) - 4, ".ppd"))
-	    {
-	     /*
-	      * Send PPD file - get the real printer name since printer
-	      * names are not case sensitive but filenames can be...
-	      */
-
-              con->uri[strlen(con->uri) - 4] = '\0';	/* Drop ".ppd" */
-
-              if ((p = cupsdFindPrinter(con->uri + 10)) != NULL)
-		snprintf(con->uri, sizeof(con->uri), "/ppd/%s.ppd", p->name);
-	      else
+            if ((filename = get_file(con, &filestats, buf, sizeof(buf))) != NULL)
+            {
+	      if (!check_if_modified(con, &filestats))
 	      {
-		if (!cupsdSendError(con, HTTP_STATUS_NOT_FOUND, CUPSD_AUTH_NONE))
+		if (!cupsdSendError(con, HTTP_STATUS_NOT_MODIFIED, CUPSD_AUTH_NONE))
 		{
 		  cupsdCloseClient(con);
 		  return;
 		}
 
-		cupsdLogRequest(con, HTTP_STATUS_NOT_FOUND);
-		break;
+		cupsdLogRequest(con, HTTP_STATUS_NOT_MODIFIED);
 	      }
-	    }
-            else if (!strncmp(con->uri, "/printers/", 10) &&
-		     !strcmp(con->uri + strlen(con->uri) - 4, ".png"))
-	    {
-	     /*
-	      * Send PNG file - get the real printer name since printer
-	      * names are not case sensitive but filenames can be...
-	      */
-
-              con->uri[strlen(con->uri) - 4] = '\0';	/* Drop ".ppd" */
-
-              if ((p = cupsdFindPrinter(con->uri + 10)) != NULL)
-		snprintf(con->uri, sizeof(con->uri), "/icons/%s.png", p->name);
 	      else
 	      {
-		if (!cupsdSendError(con, HTTP_STATUS_NOT_FOUND, CUPSD_AUTH_NONE))
+	       /*
+		* Serve a file...
+		*/
+
+		type = mimeFileType(MimeDatabase, filename, NULL, NULL);
+		if (type == NULL)
+		  strlcpy(line, "text/plain", sizeof(line));
+		else
+		  snprintf(line, sizeof(line), "%s/%s", type->super, type->type);
+
+		httpClearFields(con->http);
+
+		httpSetField(con->http, HTTP_FIELD_LAST_MODIFIED, httpGetDateString(filestats.st_mtime));
+		httpSetLength(con->http, (size_t)filestats.st_size);
+
+		if (!cupsdSendHeader(con, HTTP_STATUS_OK, line, CUPSD_AUTH_NONE))
 		{
 		  cupsdCloseClient(con);
 		  return;
 		}
 
-		cupsdLogRequest(con, HTTP_STATUS_NOT_FOUND);
-		break;
+		cupsdLogRequest(con, HTTP_STATUS_OK);
 	      }
-	    }
+            }
 	    else if (!WebInterface)
 	    {
               httpClearFields(con->http);
@@ -1656,11 +1458,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	      break;
 	    }
 
-	    if ((!strncmp(con->uri, "/admin", 6) && strcmp(con->uri, "/admin/conf/cupsd.conf") && strncmp(con->uri, "/admin/log/", 11)) ||
-		!strncmp(con->uri, "/printers", 9) ||
-		!strncmp(con->uri, "/classes", 8) ||
-		!strncmp(con->uri, "/help", 5) ||
-		!strncmp(con->uri, "/jobs", 5))
+	    if (!strncmp(con->uri, "/admin", 6) || !strncmp(con->uri, "/printers", 9) || !strncmp(con->uri, "/classes", 8) || !strncmp(con->uri, "/help", 5) || !strncmp(con->uri, "/jobs", 5))
 	    {
 	     /*
 	      * CGI output...
@@ -1676,74 +1474,17 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 
               cupsdLogRequest(con, HTTP_STATUS_OK);
 	    }
-            else if (!strncmp(con->uri, "/admin/log/", 11) && (strchr(con->uri + 11, '/') || strlen(con->uri) == 11))
-	    {
-	     /*
-	      * HEAD can only be done to configuration files under
-	      * /admin/conf...
-	      */
-
-	      cupsdLogClient(con, CUPSD_LOG_ERROR,
-			     "Request for subdirectory \"%s\".", con->uri);
-
-	      if (!cupsdSendError(con, HTTP_STATUS_FORBIDDEN, CUPSD_AUTH_NONE))
-	      {
-		cupsdCloseClient(con);
-		return;
-	      }
-
-              cupsdLogRequest(con, HTTP_STATUS_FORBIDDEN);
-	      break;
-	    }
-	    else if ((filename = get_file(con, &filestats, buf,
-	                                  sizeof(buf))) == NULL)
+	    else
 	    {
               httpClearFields(con->http);
 
-	      if (!cupsdSendHeader(con, HTTP_STATUS_NOT_FOUND, "text/html",
-	                           CUPSD_AUTH_NONE))
+	      if (!cupsdSendHeader(con, HTTP_STATUS_NOT_FOUND, "text/html", CUPSD_AUTH_NONE))
 	      {
 		cupsdCloseClient(con);
 		return;
 	      }
 
               cupsdLogRequest(con, HTTP_STATUS_NOT_FOUND);
-	    }
-	    else if (!check_if_modified(con, &filestats))
-            {
-              if (!cupsdSendError(con, HTTP_STATUS_NOT_MODIFIED, CUPSD_AUTH_NONE))
-	      {
-		cupsdCloseClient(con);
-		return;
-	      }
-
-              cupsdLogRequest(con, HTTP_STATUS_NOT_MODIFIED);
-	    }
-	    else
-	    {
-	     /*
-	      * Serve a file...
-	      */
-
-	      type = mimeFileType(MimeDatabase, filename, NULL, NULL);
-	      if (type == NULL)
-		strlcpy(line, "text/plain", sizeof(line));
-	      else
-		snprintf(line, sizeof(line), "%s/%s", type->super, type->type);
-
-              httpClearFields(con->http);
-
-	      httpSetField(con->http, HTTP_FIELD_LAST_MODIFIED,
-			   httpGetDateString(filestats.st_mtime));
-	      httpSetLength(con->http, (size_t)filestats.st_size);
-
-              if (!cupsdSendHeader(con, HTTP_STATUS_OK, line, CUPSD_AUTH_NONE))
-	      {
-		cupsdCloseClient(con);
-		return;
-	      }
-
-              cupsdLogRequest(con, HTTP_STATUS_OK);
 	    }
             break;
 
@@ -2235,27 +1976,27 @@ cupsdSendError(cupsd_client_t *con,	/* I - Connection */
     redirect[0] = '\0';
 
     if (code == HTTP_STATUS_UNAUTHORIZED)
+    {
       text = _cupsLangString(con->language,
                              _("Enter your username and password or the "
 			       "root username and password to access this "
 			       "page. If you are using Kerberos authentication, "
 			       "make sure you have a valid Kerberos ticket."));
+    }
+    else if (code == HTTP_STATUS_FORBIDDEN)
+    {
+      if (con->username[0])
+        text = _cupsLangString(con->language, _("Your account does not have the necessary privileges."));
+      else
+        text = _cupsLangString(con->language, _("You cannot access this page."));
+    }
     else if (code == HTTP_STATUS_UPGRADE_REQUIRED)
     {
       text = urltext;
 
-      snprintf(urltext, sizeof(urltext),
-               _cupsLangString(con->language,
-                               _("You must access this page using the URL "
-			         "<A HREF=\"https://%s:%d%s\">"
-				 "https://%s:%d%s</A>.")),
-               con->servername, con->serverport, con->uri,
-	       con->servername, con->serverport, con->uri);
+      snprintf(urltext, sizeof(urltext), _cupsLangString(con->language, _("You must access this page using the URL https://%s:%d%s.")), con->servername, con->serverport, con->uri);
 
-      snprintf(redirect, sizeof(redirect),
-               "<META HTTP-EQUIV=\"Refresh\" "
-	       "CONTENT=\"3;URL=https://%s:%d%s\">\n",
-	       con->servername, con->serverport, con->uri);
+      snprintf(redirect, sizeof(redirect), "<META HTTP-EQUIV=\"Refresh\" CONTENT=\"3;URL=https://%s:%d%s\">\n", con->servername, con->serverport, con->uri);
     }
     else if (code == HTTP_STATUS_CUPS_WEBIF_DISABLED)
       text = _cupsLangString(con->language,
@@ -2376,8 +2117,7 @@ cupsdSendHeader(
       strlcpy(auth_str, "Negotiate", sizeof(auth_str));
     }
 
-    if (con->best && auth_type != CUPSD_AUTH_NEGOTIATE && !con->is_browser &&
-        !_cups_strcasecmp(httpGetHostname(con->http, NULL, 0), "localhost"))
+    if (con->best && auth_type != CUPSD_AUTH_NEGOTIATE && !con->is_browser && !_cups_strcasecmp(httpGetHostname(con->http, NULL, 0), "localhost"))
     {
      /*
       * Add a "trc" (try root certification) parameter for local non-Kerberos
@@ -2954,6 +2694,7 @@ get_file(cupsd_client_t *con,		/* I  - Client connection */
   char		language[7],		/* Language subdirectory, if any */
 		dest[1024];		/* Destination name */
   int		perm_check = 1;		/* Do permissions check? */
+  cupsd_printer_t *p;			/* Printer */
 
 
  /*
@@ -2962,47 +2703,84 @@ get_file(cupsd_client_t *con,		/* I  - Client connection */
 
   language[0] = '\0';
 
-  if (!strncmp(con->uri, "/ppd/", 5) && !strchr(con->uri + 5, '/'))
+  if (!strncmp(con->uri, "/help", 5) && (con->uri[5] == '/' || !con->uri[5]))
   {
-    strlcpy(dest, con->uri + 5, sizeof(dest));
-    ptr = dest + strlen(dest) - 4;
+   /*
+    * All help files are served by the help.cgi program...
+    */
 
-    if (ptr <= dest || strcmp(ptr, ".ppd"))
+    return (NULL);
+  }
+  else if ((!strncmp(con->uri, "/ppd/", 5) || !strncmp(con->uri, "/printers/", 10) || !strncmp(con->uri, "/classes/", 9)) && !strcmp(con->uri + strlen(con->uri) - 4, ".ppd"))
+  {
+    strlcpy(dest, strchr(con->uri + 1, '/') + 1, sizeof(dest));
+    dest[strlen(dest) - 4] = '\0'; /* Strip .ppd */
+
+    if ((p = cupsdFindDest(dest)) == NULL)
     {
-      cupsdLogClient(con, CUPSD_LOG_INFO, "Disallowed path \"%s\".", con->uri);
+      cupsdLogClient(con, CUPSD_LOG_INFO, "No destination \"%s\" found.", dest);
       return (NULL);
     }
 
-    *ptr = '\0';
-    if (!cupsdFindPrinter(dest))
+    if (p->type & CUPS_PRINTER_CLASS)
     {
-      cupsdLogClient(con, CUPSD_LOG_INFO, "No printer \"%s\" found.", dest);
-      return (NULL);
-    }
+      int i;				/* Looping var */
 
-    snprintf(filename, len, "%s%s", ServerRoot, con->uri);
+      for (i = 0; i < p->num_printers; i ++)
+      {
+	if (!(p->printers[i]->type & CUPS_PRINTER_CLASS))
+	{
+	  snprintf(filename, len, "%s/ppd/%s.ppd", ServerRoot, p->printers[i]->name);
+	  if (!access(filename, 0))
+	  {
+	    p = p->printers[i];
+	    break;
+	  }
+	}
+      }
+
+      if (i >= p->num_printers)
+	p = NULL;
+    }
+    else
+      snprintf(filename, len, "%s/ppd/%s.ppd", ServerRoot, p->name);
 
     perm_check = 0;
   }
-  else if (!strncmp(con->uri, "/icons/", 7) && !strchr(con->uri + 7, '/'))
+  else if ((!strncmp(con->uri, "/icons/", 7) || !strncmp(con->uri, "/printers/", 10) || !strncmp(con->uri, "/classes/", 9)) && !strcmp(con->uri + strlen(con->uri) - 4, ".png"))
   {
-    strlcpy(dest, con->uri + 7, sizeof(dest));
-    ptr = dest + strlen(dest) - 4;
+    strlcpy(dest, strchr(con->uri + 1, '/') + 1, sizeof(dest));
+    dest[strlen(dest) - 4] = '\0'; /* Strip .png */
 
-    if (ptr <= dest || strcmp(ptr, ".png"))
+    if ((p = cupsdFindDest(dest)) == NULL)
     {
-      cupsdLogClient(con, CUPSD_LOG_INFO, "Disallowed path \"%s\".", con->uri);
+      cupsdLogClient(con, CUPSD_LOG_INFO, "No destination \"%s\" found.", dest);
       return (NULL);
     }
 
-    *ptr = '\0';
-    if (!cupsdFindDest(dest))
+    if (p->type & CUPS_PRINTER_CLASS)
     {
-      cupsdLogClient(con, CUPSD_LOG_INFO, "No printer \"%s\" found.", dest);
-      return (NULL);
-    }
+      int i;				/* Looping var */
 
-    snprintf(filename, len, "%s/%s.png", CacheDir, dest);
+      for (i = 0; i < p->num_printers; i ++)
+      {
+	if (!(p->printers[i]->type & CUPS_PRINTER_CLASS))
+	{
+	  snprintf(filename, len, "%s/images/%s.png", CacheDir, p->printers[i]->name);
+	  if (!access(filename, 0))
+	  {
+	    p = p->printers[i];
+	    break;
+	  }
+	}
+      }
+
+      if (i >= p->num_printers)
+	p = NULL;
+    }
+    else
+      snprintf(filename, len, "%s/images/%s.png", CacheDir, p->name);
+
     if (access(filename, F_OK) < 0)
       snprintf(filename, len, "%s/images/generic.png", DocumentRoot);
 
@@ -3010,6 +2788,27 @@ get_file(cupsd_client_t *con,		/* I  - Client connection */
   }
   else if (!strncmp(con->uri, "/rss/", 5) && !strchr(con->uri + 5, '/'))
     snprintf(filename, len, "%s/rss/%s", CacheDir, con->uri + 5);
+  else if (!strncmp(con->uri, "/strings/", 9) && !strcmp(con->uri + strlen(con->uri) - 8, ".strings"))
+  {
+    strlcpy(dest, con->uri + 9, sizeof(dest));
+    dest[strlen(dest) - 8] = '\0';
+
+    if ((p = cupsdFindDest(dest)) == NULL)
+    {
+      cupsdLogClient(con, CUPSD_LOG_INFO, "No destination \"%s\" found.", dest);
+      return (NULL);
+    }
+
+    if (!p->strings)
+    {
+      cupsdLogClient(con, CUPSD_LOG_INFO, "No strings files for \"%s\".", dest);
+      return (NULL);
+    }
+
+    strlcpy(filename, p->strings, len);
+
+    perm_check = 0;
+  }
   else if (!strcmp(con->uri, "/admin/conf/cupsd.conf"))
   {
     strlcpy(filename, ConfigurationFile, len);
@@ -3049,6 +2848,7 @@ get_file(cupsd_client_t *con,		/* I  - Client connection */
       strncmp(con->uri, "/icons/", 7) &&
       strncmp(con->uri, "/ppd/", 5) &&
       strncmp(con->uri, "/rss/", 5) &&
+      strncmp(con->uri, "/strings/", 9) &&
       strncmp(con->uri, "/admin/conf/", 12) &&
       strncmp(con->uri, "/admin/log/", 11))
   {
@@ -3144,45 +2944,6 @@ get_file(cupsd_client_t *con,		/* I  - Client connection */
 
       strlcpy(ptr, "index.html", plen);
       status = lstat(filename, filestats);
-
-#ifdef HAVE_JAVA
-      if (status)
-      {
-	strlcpy(ptr, "index.class", plen);
-	status = lstat(filename, filestats);
-      }
-#endif /* HAVE_JAVA */
-
-#ifdef HAVE_PERL
-      if (status)
-      {
-	strlcpy(ptr, "index.pl", plen);
-	status = lstat(filename, filestats);
-      }
-#endif /* HAVE_PERL */
-
-#ifdef HAVE_PHP
-      if (status)
-      {
-	strlcpy(ptr, "index.php", plen);
-	status = lstat(filename, filestats);
-      }
-#endif /* HAVE_PHP */
-
-#ifdef HAVE_PYTHON
-      if (status)
-      {
-	strlcpy(ptr, "index.pyc", plen);
-	status = lstat(filename, filestats);
-      }
-
-      if (status)
-      {
-	strlcpy(ptr, "index.py", plen);
-	status = lstat(filename, filestats);
-      }
-#endif /* HAVE_PYTHON */
-
     }
     while (status && language[0]);
 
@@ -3365,78 +3126,6 @@ is_cgi(cupsd_client_t *con,		/* I - Client connection */
     cupsdLogClient(con, CUPSD_LOG_DEBUG2, "is_cgi: filename=\"%s\", filestats=%p, type=%s/%s, returning 1.", filename, filestats, type->super, type->type);
     return (1);
   }
-#ifdef HAVE_JAVA
-  else if (!_cups_strcasecmp(type->type, "x-httpd-java"))
-  {
-   /*
-    * "application/x-httpd-java" is a Java servlet.
-    */
-
-    cupsdSetString(&con->command, CUPS_JAVA);
-
-    if (options)
-      cupsdSetStringf(&con->options, " %s %s", filename, options);
-    else
-      cupsdSetStringf(&con->options, " %s", filename);
-
-    cupsdLogClient(con, CUPSD_LOG_DEBUG2, "is_cgi: filename=\"%s\", filestats=%p, type=%s/%s, returning 1.", filename, filestats, type->super, type->type);
-    return (1);
-  }
-#endif /* HAVE_JAVA */
-#ifdef HAVE_PERL
-  else if (!_cups_strcasecmp(type->type, "x-httpd-perl"))
-  {
-   /*
-    * "application/x-httpd-perl" is a Perl page.
-    */
-
-    cupsdSetString(&con->command, CUPS_PERL);
-
-    if (options)
-      cupsdSetStringf(&con->options, " %s %s", filename, options);
-    else
-      cupsdSetStringf(&con->options, " %s", filename);
-
-    cupsdLogClient(con, CUPSD_LOG_DEBUG2, "is_cgi: filename=\"%s\", filestats=%p, type=%s/%s, returning 1.", filename, filestats, type->super, type->type);
-    return (1);
-  }
-#endif /* HAVE_PERL */
-#ifdef HAVE_PHP
-  else if (!_cups_strcasecmp(type->type, "x-httpd-php"))
-  {
-   /*
-    * "application/x-httpd-php" is a PHP page.
-    */
-
-    cupsdSetString(&con->command, CUPS_PHP);
-
-    if (options)
-      cupsdSetStringf(&con->options, " %s %s", filename, options);
-    else
-      cupsdSetStringf(&con->options, " %s", filename);
-
-    cupsdLogClient(con, CUPSD_LOG_DEBUG2, "is_cgi: filename=\"%s\", filestats=%p, type=%s/%s, returning 1.", filename, filestats, type->super, type->type);
-    return (1);
-  }
-#endif /* HAVE_PHP */
-#ifdef HAVE_PYTHON
-  else if (!_cups_strcasecmp(type->type, "x-httpd-python"))
-  {
-   /*
-    * "application/x-httpd-python" is a Python page.
-    */
-
-    cupsdSetString(&con->command, CUPS_PYTHON);
-
-    if (options)
-      cupsdSetStringf(&con->options, " %s %s", filename, options);
-    else
-      cupsdSetStringf(&con->options, " %s", filename);
-
-    cupsdLogClient(con, CUPSD_LOG_DEBUG2, "is_cgi: filename=\"%s\", filestats=%p, type=%s/%s, returning 1.", filename, filestats, type->super, type->type);
-    return (1);
-  }
-#endif /* HAVE_PYTHON */
 
   cupsdLogClient(con, CUPSD_LOG_DEBUG2, "is_cgi: filename=\"%s\", filestats=%p, type=%s/%s, returning 0.", filename, filestats, type->super, type->type);
   return (0);

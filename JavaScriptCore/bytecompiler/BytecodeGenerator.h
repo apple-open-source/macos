@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2019 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Cameron Zwarich <cwzwarich@uwaterloo.ca>
  * Copyright (C) 2012 Igalia, S.L.
  *
@@ -49,6 +49,7 @@
 #include <functional>
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/HashFunctions.h>
+#include <wtf/Optional.h>
 #include <wtf/SegmentedVector.h>
 #include <wtf/SetForScope.h>
 #include <wtf/Vector.h>
@@ -98,11 +99,8 @@ namespace JSC {
     // Hence, there won't be any collision between jumpIDs and CompletionType enums.
     enum class CompletionType : int {
         Normal,
-        Break,
-        Continue,
-        Return,
         Throw,
-        
+        Return,
         NumberOfTypes
     };
 
@@ -125,17 +123,16 @@ namespace JSC {
         Ref<Label> targetLabel;
     };
 
-    struct FinallyContext {
+    class FinallyContext {
+    public:
         FinallyContext() { }
-        FinallyContext(FinallyContext* outerContext, Label& finallyLabel)
-            : m_outerContext(outerContext)
-            , m_finallyLabel(&finallyLabel)
-        {
-            ASSERT(m_jumps.isEmpty());
-        }
+        FinallyContext(BytecodeGenerator&, Label& finallyLabel);
 
         FinallyContext* outerContext() const { return m_outerContext; }
         Label* finallyLabel() const { return m_finallyLabel; }
+
+        RegisterID* completionTypeRegister() const { return m_completionRecord.typeRegister.get(); }
+        RegisterID* completionValueRegister() const { return m_completionRecord.valueRegister.get(); }
 
         uint32_t numberOfBreaksOrContinues() const { return m_numberOfBreaksOrContinues.unsafeGet(); }
         void incNumberOfBreaksOrContinues() { m_numberOfBreaksOrContinues++; }
@@ -157,6 +154,10 @@ namespace JSC {
         Checked<uint32_t, WTF::CrashOnOverflow> m_numberOfBreaksOrContinues;
         bool m_handlesReturns { false };
         Vector<FinallyJump> m_jumps;
+        struct {
+            RefPtr<RegisterID> typeRegister;
+            RefPtr<RegisterID> valueRegister;
+        } m_completionRecord;
     };
 
     struct ControlFlowScope {
@@ -165,10 +166,10 @@ namespace JSC {
             Label,
             Finally
         };
-        ControlFlowScope(Type type, int lexicalScopeIndex, FinallyContext&& finallyContext = FinallyContext())
+        ControlFlowScope(Type type, int lexicalScopeIndex, FinallyContext* finallyContext = nullptr)
             : type(type)
             , lexicalScopeIndex(lexicalScopeIndex)
-            , finallyContext(std::forward<FinallyContext>(finallyContext))
+            , finallyContext(finallyContext)
         { }
 
         bool isLabelScope() const { return type == Label; }
@@ -176,7 +177,7 @@ namespace JSC {
 
         Type type;
         int lexicalScopeIndex;
-        FinallyContext finallyContext;
+        FinallyContext* finallyContext;
     };
 
     class ForInContext : public RefCounted<ForInContext> {
@@ -364,16 +365,17 @@ namespace JSC {
         WTF_MAKE_NONCOPYABLE(BytecodeGenerator);
 
         friend class BoundLabel;
+        friend class FinallyContext;
         friend class Label;
         friend class IndexedForInContext;
         friend class StructureForInContext;
     public:
         typedef DeclarationStacks::FunctionStack FunctionStack;
 
-        BytecodeGenerator(VM&, ProgramNode*, UnlinkedProgramCodeBlock*, DebuggerMode, const VariableEnvironment*);
-        BytecodeGenerator(VM&, FunctionNode*, UnlinkedFunctionCodeBlock*, DebuggerMode, const VariableEnvironment*);
-        BytecodeGenerator(VM&, EvalNode*, UnlinkedEvalCodeBlock*, DebuggerMode, const VariableEnvironment*);
-        BytecodeGenerator(VM&, ModuleProgramNode*, UnlinkedModuleProgramCodeBlock*, DebuggerMode, const VariableEnvironment*);
+        BytecodeGenerator(VM&, ProgramNode*, UnlinkedProgramCodeBlock*, OptionSet<CodeGenerationMode>, const VariableEnvironment*);
+        BytecodeGenerator(VM&, FunctionNode*, UnlinkedFunctionCodeBlock*, OptionSet<CodeGenerationMode>, const VariableEnvironment*);
+        BytecodeGenerator(VM&, EvalNode*, UnlinkedEvalCodeBlock*, OptionSet<CodeGenerationMode>, const VariableEnvironment*);
+        BytecodeGenerator(VM&, ModuleProgramNode*, UnlinkedModuleProgramCodeBlock*, OptionSet<CodeGenerationMode>, const VariableEnvironment*);
 
         ~BytecodeGenerator();
         
@@ -392,14 +394,14 @@ namespace JSC {
         JSParserScriptMode scriptMode() const { return m_codeBlock->scriptMode(); }
 
         template<typename Node, typename UnlinkedCodeBlock>
-        static ParserError generate(VM& vm, Node* node, const SourceCode& sourceCode, UnlinkedCodeBlock* unlinkedCodeBlock, DebuggerMode debuggerMode, const VariableEnvironment* environment)
+        static ParserError generate(VM& vm, Node* node, const SourceCode& sourceCode, UnlinkedCodeBlock* unlinkedCodeBlock, OptionSet<CodeGenerationMode> codeGenerationMode, const VariableEnvironment* environment)
         {
             MonotonicTime before;
             if (UNLIKELY(Options::reportBytecodeCompileTimes()))
                 before = MonotonicTime::now();
 
             DeferGC deferGC(vm.heap);
-            auto bytecodeGenerator = std::make_unique<BytecodeGenerator>(vm, node, unlinkedCodeBlock, debuggerMode, environment);
+            auto bytecodeGenerator = std::make_unique<BytecodeGenerator>(vm, node, unlinkedCodeBlock, codeGenerationMode, environment);
             auto result = bytecodeGenerator->generate();
 
             if (UNLIKELY(Options::reportBytecodeCompileTimes())) {
@@ -671,7 +673,6 @@ namespace JSC {
         RegisterID* emitLoad(RegisterID* dst, const Identifier&);
         RegisterID* emitLoad(RegisterID* dst, JSValue, SourceCodeRepresentation = SourceCodeRepresentation::Other);
         RegisterID* emitLoad(RegisterID* dst, IdentifierSet& excludedList);
-        RegisterID* emitLoadGlobalObject(RegisterID* dst);
 
         template<typename UnaryOp, typename = std::enable_if_t<UnaryOp::opcodeID != op_negate>>
         RegisterID* emitUnaryOp(RegisterID* dst, RegisterID* src)
@@ -867,6 +868,7 @@ namespace JSC {
         RegisterID* emitIsObject(RegisterID* dst, RegisterID* src);
         RegisterID* emitIsNumber(RegisterID* dst, RegisterID* src);
         RegisterID* emitIsUndefined(RegisterID* dst, RegisterID* src);
+        RegisterID* emitIsUndefinedOrNull(RegisterID* dst, RegisterID* src);
         RegisterID* emitIsEmpty(RegisterID* dst, RegisterID* src);
         RegisterID* emitIsDerivedArray(RegisterID* dst, RegisterID* src) { return emitIsCellWithType(dst, src, DerivedArrayType); }
         void emitRequireObjectCoercible(RegisterID* value, const String& error);
@@ -883,7 +885,9 @@ namespace JSC {
         TryData* pushTry(Label& start, Label& handlerLabel, HandlerType);
         // End a try block. 'end' must have been emitted.
         void popTry(TryData*, Label& end);
-        void emitCatch(RegisterID* exceptionRegister, RegisterID* thrownValueRegister, TryData*);
+
+        void emitOutOfLineCatchHandler(RegisterID* thrownValueRegister, RegisterID* completionTypeRegister, TryData*);
+        void emitOutOfLineFinallyHandler(RegisterID* exceptionRegister, RegisterID* completionTypeRegister, TryData*);
 
     private:
         static const int CurrentLexicalScopeIndex = -2;
@@ -898,6 +902,8 @@ namespace JSC {
                 return OutermostLexicalScopeIndex;
             return size - 1;
         }
+
+        void emitOutOfLineExceptionHandler(RegisterID* exceptionRegister, RegisterID* thrownValueRegister, RegisterID* completionTypeRegister, TryData*);
 
     public:
         void restoreScopeRegister();
@@ -937,43 +943,9 @@ namespace JSC {
         void emitDebugHook(ExpressionNode*);
         void emitWillLeaveCallFrameDebugHook();
 
-        class CompletionRecordScope {
-        public:
-            CompletionRecordScope(BytecodeGenerator& generator, bool needCompletionRecordRegisters = true)
-                : m_generator(generator)
-            {
-                if (needCompletionRecordRegisters && m_generator.allocateCompletionRecordRegisters())
-                    m_needToReleaseOnDestruction = true;
-            }
-            ~CompletionRecordScope()
-            {
-                if (m_needToReleaseOnDestruction)
-                    m_generator.releaseCompletionRecordRegisters();
-            }
-
-        private:
-            BytecodeGenerator& m_generator;
-            bool m_needToReleaseOnDestruction { false };
-        };
-
-        RegisterID* completionTypeRegister() const
+        void emitLoad(RegisterID* completionTypeRegister, CompletionType type)
         {
-            ASSERT(m_completionTypeRegister);
-            return m_completionTypeRegister.get();
-        }
-        RegisterID* completionValueRegister() const
-        {
-            ASSERT(m_completionValueRegister);
-            return m_completionValueRegister.get();
-        }
-
-        void emitSetCompletionType(CompletionType type)
-        {
-            emitLoad(completionTypeRegister(), JSValue(static_cast<int>(type)));
-        }
-        void emitSetCompletionValue(RegisterID* reg)
-        {
-            move(completionValueRegister(), reg);
+            emitLoad(completionTypeRegister, JSValue(static_cast<int>(type)));
         }
 
         template<typename CompareOp>
@@ -981,15 +953,11 @@ namespace JSC {
 
         bool emitJumpViaFinallyIfNeeded(int targetLabelScopeDepth, Label& jumpTarget);
         bool emitReturnViaFinallyIfNeeded(RegisterID* returnRegister);
-        void emitFinallyCompletion(FinallyContext&, RegisterID* completionTypeRegister, Label& normalCompletionLabel);
-
-    private:
-        bool allocateCompletionRecordRegisters();
-        void releaseCompletionRecordRegisters();
+        void emitFinallyCompletion(FinallyContext&, Label& normalCompletionLabel);
 
     public:
-        FinallyContext* pushFinallyControlFlowScope(Label& finallyLabel);
-        FinallyContext popFinallyControlFlowScope();
+        void pushFinallyControlFlowScope(FinallyContext&);
+        void popFinallyControlFlowScope();
 
         void pushIndexedForInScope(RegisterID* local, RegisterID* index);
         void popIndexedForInScope(RegisterID* local);
@@ -1017,7 +985,9 @@ namespace JSC {
 
         bool shouldBeConcernedWithCompletionValue() const { return m_codeType != FunctionCode; }
 
-        bool shouldEmitDebugHooks() const { return m_shouldEmitDebugHooks; }
+        bool shouldEmitDebugHooks() const { return m_codeGenerationMode.contains(CodeGenerationMode::Debugger) && !m_isBuiltinFunction; }
+        bool shouldEmitTypeProfilerHooks() const { return m_codeGenerationMode.contains(CodeGenerationMode::TypeProfiler); }
+        bool shouldEmitControlFlowProfilerHooks() const { return m_codeGenerationMode.contains(CodeGenerationMode::ControlFlowProfiler); }
         
         bool isStrictMode() const { return m_codeBlock->isStrictMode(); }
 
@@ -1092,7 +1062,8 @@ namespace JSC {
         using NumberMap = HashMap<double, JSValue>;
         using IdentifierStringMap = HashMap<UniquedStringImpl*, JSString*, IdentifierRepHash>;
         using IdentifierBigIntMap = HashMap<BigIntMapEntry, JSBigInt*>;
-        using TemplateObjectDescriptorMap = HashMap<Ref<TemplateObjectDescriptor>, JSTemplateObjectDescriptor*>;
+        using TemplateObjectDescriptorSet = HashSet<Ref<TemplateObjectDescriptor>>;
+        using TemplateDescriptorMap = HashMap<uint64_t, JSTemplateObjectDescriptor*, WTF::IntHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>>;
 
         // Helper for emitCall() and emitConstruct(). This works because the set of
         // expected functions have identical behavior for both call and construct
@@ -1147,8 +1118,7 @@ namespace JSC {
                     newDerivedContextType = DerivedContextType::DerivedMethodContext;
             }
 
-            VariableEnvironment variablesUnderTDZ;
-            getVariablesUnderTDZ(variablesUnderTDZ);
+            Optional<CompactVariableMap::Handle> optionalVariablesUnderTDZ = getVariablesUnderTDZ();
 
             // FIXME: These flags, ParserModes and propagation to XXXCodeBlocks should be reorganized.
             // https://bugs.webkit.org/show_bug.cgi?id=151547
@@ -1157,10 +1127,10 @@ namespace JSC {
             if (parseMode == SourceParseMode::MethodMode && metadata->constructorKind() != ConstructorKind::None)
                 constructAbility = ConstructAbility::CanConstruct;
 
-            return UnlinkedFunctionExecutable::create(m_vm, m_scopeNode->source(), metadata, isBuiltinFunction() ? UnlinkedBuiltinFunction : UnlinkedNormalFunction, constructAbility, scriptMode(), variablesUnderTDZ, newDerivedContextType);
+            return UnlinkedFunctionExecutable::create(m_vm, m_scopeNode->source(), metadata, isBuiltinFunction() ? UnlinkedBuiltinFunction : UnlinkedNormalFunction, constructAbility, scriptMode(), WTFMove(optionalVariablesUnderTDZ), newDerivedContextType);
         }
 
-        void getVariablesUnderTDZ(VariableEnvironment&);
+        Optional<CompactVariableMap::Handle> getVariablesUnderTDZ();
 
         RegisterID* emitConstructVarargs(RegisterID* dst, RegisterID* func, RegisterID* thisRegister, RegisterID* arguments, RegisterID* firstFreeRegister, int32_t firstVarArgOffset, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd, DebuggableCall);
         template<typename CallOp>
@@ -1185,15 +1155,20 @@ namespace JSC {
     public:
         JSString* addStringConstant(const Identifier&);
         JSValue addBigIntConstant(const Identifier&, uint8_t radix, bool sign);
-        RegisterID* addTemplateObjectConstant(Ref<TemplateObjectDescriptor>&&);
+        RegisterID* addTemplateObjectConstant(Ref<TemplateObjectDescriptor>&&, int);
 
         const InstructionStream& instructions() const { return m_writer; }
 
         RegisterID* emitThrowExpressionTooDeepException();
 
         void write(uint8_t byte) { m_writer.write(byte); }
+        void write(uint16_t h) { m_writer.write(h); }
         void write(uint32_t i) { m_writer.write(i); }
-        void alignWideOpcode();
+        void write(int8_t byte) { m_writer.write(static_cast<uint8_t>(byte)); }
+        void write(int16_t h) { m_writer.write(static_cast<uint16_t>(h)); }
+        void write(int32_t i) { m_writer.write(static_cast<uint32_t>(i)); }
+        void alignWideOpcode16();
+        void alignWideOpcode32();
 
         class PreservedTDZStack {
         private:
@@ -1221,7 +1196,7 @@ namespace JSC {
     private:
         InstructionStreamWriter m_writer;
 
-        bool m_shouldEmitDebugHooks;
+        OptionSet<CodeGenerationMode> m_codeGenerationMode;
 
         struct LexicalScopeStackEntry {
             SymbolTable* m_symbolTable;
@@ -1250,15 +1225,11 @@ namespace JSC {
         RegisterID* m_lexicalEnvironmentRegister { nullptr };
         RegisterID* m_generatorRegister { nullptr };
         RegisterID* m_emptyValueRegister { nullptr };
-        RegisterID* m_globalObjectRegister { nullptr };
         RegisterID* m_newTargetRegister { nullptr };
         RegisterID* m_isDerivedConstuctor { nullptr };
         RegisterID* m_linkTimeConstantRegisters[LinkTimeConstantCount];
         RegisterID* m_arrowFunctionContextLexicalEnvironmentRegister { nullptr };
         RegisterID* m_promiseCapabilityRegister { nullptr };
-
-        RefPtr<RegisterID> m_completionTypeRegister;
-        RefPtr<RegisterID> m_completionValueRegister;
 
         FinallyContext* m_currentFinallyContext { nullptr };
 
@@ -1269,10 +1240,10 @@ namespace JSC {
         SegmentedVector<Label, 32> m_labels;
         SegmentedVector<LabelScope, 32> m_labelScopes;
         unsigned m_finallyDepth { 0 };
-        int m_localScopeDepth { 0 };
+        unsigned m_localScopeDepth { 0 };
         const CodeType m_codeType;
 
-        int localScopeDepth() const;
+        unsigned localScopeDepth() const;
         void pushLocalControlFlowScope();
         void popLocalControlFlowScope();
 
@@ -1307,7 +1278,8 @@ namespace JSC {
         JSValueMap m_jsValueMap;
         IdentifierStringMap m_stringMap;
         IdentifierBigIntMap m_bigIntMap;
-        TemplateObjectDescriptorMap m_templateObjectDescriptorMap;
+        TemplateObjectDescriptorSet m_templateObjectDescriptorSet;
+        TemplateDescriptorMap m_templateDescriptorMap;
 
         StaticPropertyAnalyzer m_staticPropertyAnalyzer;
 
@@ -1322,12 +1294,19 @@ namespace JSC {
         bool m_usesNonStrictEval { false };
         bool m_inTailPosition { false };
         bool m_needsToUpdateArrowFunctionContext;
+        bool m_hasCachedVariablesUnderTDZ { false };
         DerivedContextType m_derivedContextType { DerivedContextType::None };
 
-        using CatchEntry = std::tuple<TryData*, VirtualRegister, VirtualRegister>;
-        Vector<CatchEntry> m_catchesToEmit;
-    };
+        CompactVariableMap::Handle m_cachedVariablesUnderTDZ;
 
+        struct CatchEntry {
+            TryData* tryData;
+            VirtualRegister exceptionRegister;
+            VirtualRegister thrownValueRegister;
+            VirtualRegister completionTypeRegister;
+        };
+        Vector<CatchEntry> m_exceptionHandlersToEmit;
+    };
 
 } // namespace JSC
 

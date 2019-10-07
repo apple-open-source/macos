@@ -2780,8 +2780,8 @@ send_granted(fl, opcode)
 		res.alock.fh.n_bytes = fl->filehandle.n_bytes;
 		res.alock.oh = fl->client.oh;
 		res.alock.svid = fl->client.svid;
-		res.alock.l_offset = fl->client.l_offset;
-		res.alock.l_len = fl->client.l_len;
+		res.alock.l_offset = (u_int) fl->client.l_offset;
+		res.alock.l_len = (u_int) fl->client.l_len;
 		debuglog("sending v1 reply%s",
 			 (fl->flags & LOCK_ASYNC) ? " (async)":"");
 		if (fl->flags & LOCK_ASYNC) {

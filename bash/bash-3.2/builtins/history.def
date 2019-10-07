@@ -147,7 +147,7 @@ history_builtin (list)
   opt = flags & (AFLAG|RFLAG|WFLAG|NFLAG);
   if (opt && opt != AFLAG && opt != RFLAG && opt != WFLAG && opt != NFLAG)
     {
-      builtin_error (_("cannot use more than one of -anrw"));
+      builtin_error ("%s", _("cannot use more than one of -anrw"));
       return (EXECUTION_FAILURE);
     }
 

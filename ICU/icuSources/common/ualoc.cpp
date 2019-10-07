@@ -1,6 +1,6 @@
 /*
 *****************************************************************************************
-* Copyright (C) 2014-2017 Apple Inc. All Rights Reserved.
+* Copyright (C) 2014-2019 Apple Inc. All Rights Reserved.
 *****************************************************************************************
 */
 
@@ -57,24 +57,30 @@ static int compareLangEntries(const void * entry1, const void * entry2) {
 // must be sorted by language code
 static const char * langToDefaultScript[] = {
     "az",   "az_Latn",
+    "bm",   "bm_Latn",  // <rdar://problem/47494729> added
     "bs",   "bs_Latn",
+    "byn",  "byn_Ethi", // <rdar://problem/47494729> added
+    "cu",   "cu_Cyrl",  // <rdar://problem/47494729> added
+    "ff",   "ff_Latn",  // <rdar://problem/47494729> added
+    "ha",   "ha_Latn",  // <rdar://problem/47494729> added
     "iu",   "iu_Cans",
-    "kk",   "kk_Arab",
-    "ks",   "ks_Arab",
+    "kk",   "kk_Cyrl",  // <rdar://problem/47494729> changed from _Arab
+    "ks",   "ks_Arab",  // unnecessary?
     "ku",   "ku_Latn",
     "ky",   "ky_Cyrl",
     "mn",   "mn_Cyrl",
     "ms",   "ms_Latn",
     "pa",   "pa_Guru",
-    "rif",  "rif_Tfng",
+    "rif",  "rif_Tfng", // unnecessary? no locale support anyway
+    "sd",   "sd_Arab",  // <rdar://problem/47494729> added
     "shi",  "shi_Tfng",
     "sr",   "sr_Cyrl",
     "tg",   "tg_Cyrl",
-    "tk",   "tk_Latn",
+    "tk",   "tk_Latn",  // unnecessary?
     "ug",   "ug_Arab",
     "uz",   "uz_Latn",
     "vai",  "vai_Vaii",
-    "yue",  "yue_Hant",
+    "yue",  "yue_Hant", // to match CLDR data, not Apple default
     "zh",   "zh_Hans",
     NULL
 };
@@ -237,6 +243,7 @@ static const char * forceParent[] = {
     "en_IO",   "en_GB",
     "en_JE",   "en_GB",
     "en_JM",   "en_GB",
+    "en_LK",   "en_GB",
     "en_MO",   "en_GB",
     "en_MT",   "en_GB",
     "en_MV",   "en_GB",  // for Maldives
@@ -476,6 +483,7 @@ static const char * appleParentMap[][2] = {
     { "en_KN",      "en_GB"   },    // St. Kitts & Nevis
     { "en_KY",      "en_GB"   },    // Cayman Islands
     { "en_LC",      "en_GB"   },    // St. Lucia
+    { "en_LK",      "en_GB"   },    // Apple custom parent
     { "en_LS",      "en_GB"   },    // Lesotho
     { "en_LT",      "en_150"  },    // Apple locale addition
     { "en_LU",      "en_150"  },    // Apple locale addition
@@ -502,6 +510,7 @@ static const char * appleParentMap[][2] = {
     { "en_PN",      "en_GB"   },    // Pitcairn Islands
     { "en_PT",      "en_150"  },    // Apple locale addition
     { "en_RO",      "en_150"  },    // Apple locale addition
+    { "en_RS",      "en_150"  },    // Apple locale addition
     { "en_RU",      "en_150"  },    // Apple locale addition
     { "en_SB",      "en_GB"   },    // Solomon Islands
     { "en_SC",      "en_GB"   },    // Seychelles
@@ -519,6 +528,7 @@ static const char * appleParentMap[][2] = {
     { "en_TT",      "en_GB"   },    // Trinidad & Tobago
     { "en_TV",      "en_GB"   },    // Tuvalu
     { "en_TZ",      "en_GB"   },    // Tanzania
+    { "en_UA",      "en_150"  },    // Apple locale addition
     { "en_UG",      "en_GB"   },    // Uganda
     { "en_VC",      "en_GB"   },    // St. Vincent & Grenadines
     { "en_VG",      "en_GB"   },
@@ -541,6 +551,7 @@ static LocParentAndDistance locParentMap[] = {
     // normalized form (e.g. zh_CN -> zh_Hans_CN, etc.).
     // The distance is a rough measure of distance from
     // the localization to its parent, used as a weight.
+    { "de_DE",      "de",      0 },
     { "en_001",     "en",      2 },
     { "en_150",     "en_GB",   1 },
     { "en_AU",      "en_GB",   1 },
@@ -548,6 +559,8 @@ static LocParentAndDistance locParentMap[] = {
     { "en_US",      "en",      0 },
     { "es_419",     "es",      2 },
     { "es_MX",      "es_419",  0 },
+    { "fr_FR",      "fr",      0 },
+    { "it_IT",      "it",      0 },
     { "pt_PT",      "pt",      2 },
     { "yue_Hans_CN","yue_Hans",0 },
     { "yue_Hant_HK","yue_Hant",0 },
@@ -558,8 +571,8 @@ static LocParentAndDistance locParentMap[] = {
 enum { kLocParentMapCount = UPRV_LENGTHOF(locParentMap), kMaxParentDistance = 8 };
 
 enum {
-    kStringsAllocSize = 4480, // cannot expand; current actual usage 4150
-    kParentMapInitCount = 205 // can expand; current actual usage 205
+    kStringsAllocSize = 5248, // cannot expand; current actual usage 5102
+    kParentMapInitCount = 272 // can expand; current actual usage 251
 };
 
 U_CDECL_BEGIN
@@ -632,6 +645,11 @@ static void initializeMapData() {
     if (U_SUCCESS(status)) {
         for (entryIndex = 0; entryIndex < kAppleAliasMapCount && U_SUCCESS(status); entryIndex++) {
             uhash_put(gAliasMap, (void*)appleAliasMap[entryIndex][0], (void*)appleAliasMap[entryIndex][1], &status);
+#if DEBUG_UALOC
+            if (U_FAILURE(status)) {
+                printf("# uhash_put 1 fails %s\n", u_errorName(status));
+            }
+#endif
         }
         status = U_ZERO_ERROR;
         UResourceBundle * aliasMapBundle = NULL;
@@ -656,6 +674,11 @@ static void initializeMapData() {
             }
             stringsPtr[len] = 0;
             uhash_put(gAliasMap, inLocStr, stringsPtr, &status);
+#if DEBUG_UALOC
+            if (U_FAILURE(status)) {
+                printf("# uhash_put 2 fails %s\n", u_errorName(status));
+            }
+#endif
             stringsPtr += len + 1;
         }
         ures_close(aliasMapBundle);
@@ -773,6 +796,9 @@ static void ualoc_getParent(const char *locale, char *parent, int32_t parentCapa
             int32_t len = uprv_strlen(replacement);
             if (len < parentCapacity) { // allow for 0 termination
                 uprv_strcpy(parent, replacement);
+#if DEBUG_UALOC
+                printf("    # ualoc_getParent 1: locale %s -> parent %s\n", locale, parent);
+#endif
             } else {
                 *status = U_BUFFER_OVERFLOW_ERROR;
             }
@@ -780,6 +806,9 @@ static void ualoc_getParent(const char *locale, char *parent, int32_t parentCapa
         }
     }
     uloc_getParent(locale, parent, parentCapacity - 1, status);
+#if DEBUG_UALOC
+    printf("    # ualoc_getParent 2: locale %s -> parent %s\n", locale, parent);
+#endif
     parent[parentCapacity - 1] = 0; // ensure 0 termination in case of U_STRING_NOT_TERMINATED_WARNING
 }
 

@@ -1,4 +1,4 @@
-#compdef tar gtar star
+#compdef tar gtar star bsdtar
 
 # Tar completion.  Features:
 #  - Tries to collect tar commands from second position, single letter
@@ -21,7 +21,7 @@ local _tar_cmd tf tmp tmpb del index
 # from some of the possible long options, and from the second word if
 # that does not start with a hyphen.
 
-if _pick_variant gnu=GNU unix --version; then
+if _pick_variant gnu=GNU libarchive=libarchive unix --version; then
   case "$($service --version)" in
     ("tar (GNU tar) "(#b)([0-9.-]##)*)
     autoload -z is-at-least
@@ -99,10 +99,16 @@ if [[ "$PREFIX" = --* ]]; then
 
   # ...long options after `--'.
 
-  _arguments -- '--owner*:user:_users' \
+  _arguments -- -l '--owner=*:user:_users' \
+		 '--group=*:group:_groups' \
+		 '--atime-preserve*::method:(replace system)' \
+		 '--*-script=NAME:script file:_files' \
+		 '--format=*:format:(gnu oldgnu pax posix ustar v7)' \
+		 '--quoting-style=*:quoting style:(literal shell shell-always c c-maybe escape locale clocale)' \
+		 '--totals*=SIGNAL*::signal:(HUP QUIT INT USR1 USR2)' \
                  '*=(PROG|COMMAND)*:program:_command_names -e' \
 		 '*=ARCHIVE*:archive: _tar_archive' \
-		 '*=NAME*:file:_files' \
+		 '*=FILE*:file:_files' \
 		 '*=DIR*:directory:_files -/' \
 		 '*=CONTROL*::version control:(t numbered nil existing never simple)'
 

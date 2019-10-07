@@ -31,6 +31,7 @@
 
 @property (nonatomic) NSTimeInterval samplingInterval;
 @property (nonatomic, readonly) NSString* name;
+@property (nonatomic, readonly) BOOL oncePerReport;
 
 - (instancetype)init NS_UNAVAILABLE;
 - (NSDictionary<NSString*, NSNumber*>*)sampleNow;

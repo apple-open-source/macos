@@ -2,6 +2,31 @@ import os, sys, getopt, re, subprocess, random, time, json, plistlib
 from collections import OrderedDict
 
 
+copyright = """/*
+*
+* @APPLE_LICENSE_HEADER_START@
+*
+* Copyright (c) 2019 Apple Computer, Inc.  All Rights Reserved.
+*
+* This file contains Original Code and/or Modifications of Original Code
+* as defined in and that are subject to the Apple Public Source License
+* Version 2.0 (the 'License'). You may not use this file except in
+* compliance with the License. Please obtain a copy of the License at
+* http://www.opensource.apple.com/apsl/ and read it before using this
+* file.
+*
+* The Original Code and all software distributed under the License are
+* distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+* EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+* INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+* Please see the License for the specific language governing rights and
+* limitations under the License.
+*
+* @APPLE_LICENSE_HEADER_END@
+*/"""
+
+
 #
 # Return filed which is selector for given field
 #
@@ -597,14 +622,16 @@ def GetEventForName(events, name):
 # create variable name for field
 #
 def GetVarName(field, fieldName, eventName):
-    remStr = "kIOHIDEventField" + eventName
+    remStr = "kIOHIDEventField" #+ eventName
     nameString = ''
-    if remStr in fieldName and "Length" not in fieldName:
+    if remStr in fieldName:
         nameString = fieldName.replace(remStr, '')
-    else:
-        nameString = field['name']
-    
-    return nameString.lower()
+        if eventName.isupper() and eventName in fieldName:
+            nameString = nameString.replace(eventName, eventName.lower())
+        else:
+            nameString = nameString[0].lower() + nameString[1:]
+
+    return nameString
 
 def getVarType(field):
     if field['kind'] == "array":
@@ -628,13 +655,14 @@ def getNSProperties(field):
     return properties
 
 def GenHeader(fieldDict, eventName):
-    print "@interface HID%sEvent : HIDEvent\n" % (eventName)
+    print "@interface HIDEvent (HIDUtil%sEvent)\n" % (eventName)
+    descName = eventName
     
     for fieldName in fieldDict.keys():
         varName         = fieldDict[fieldName]['var_name']
         varType         = fieldDict[fieldName]['var_type']
         nsProperties    = fieldDict[fieldName]['ns_properties']
-        
+
         sys.stdout.write("@property ")
         if nsProperties:
             sys.stdout.write("(")
@@ -642,8 +670,67 @@ def GenHeader(fieldDict, eventName):
                 sys.stdout.write(property)
             sys.stdout.write(") ")
         print "%s *%s;" % (varType, varName)
+
+    if eventName.isupper():
+        eventName = eventName.replace(eventName, eventName.lower())
+    else:
+        eventName = eventName[0].lower() + eventName[1:]
+
+    print "\n- (NSString *)%sDescription;" % (eventName)
     
     print "\n@end\n\n"
+
+def hasMultipleSelectors(field):
+    ret = False
+    for key in field.keys():
+        if key == 'selector':
+            if isinstance(field[key], list):
+                ret = True
+            break
+
+    return ret
+def GetSelectorFieldData(event, fieldData, eventsWithSelector, selectorValueList, otherFieldData):
+    
+    fields = []
+    GetEventFieldsList(event, fields)
+    
+    for field in fields:
+        if hasDefinition(field):
+            continue
+        fieldDict = {}
+        fieldDict['name'] = GetEventFieldNameString(field)
+        fieldDict['type'] = field['type']
+        fieldDict['field_number'] = field['field_number']
+        fieldDict['base'] = field['base']
+        if field['kind'] == "array" or "immutable" in field.keys():
+            fieldDict['readonly'] = True
+        else:
+            fieldDict['readonly'] = False
+
+        if hasSelector(field):
+            multipleSelectors = hasMultipleSelectors(field)
+            if multipleSelectors:
+                print multipleSelectors
+                #future expansion
+            else:
+                selector = field['selector']
+                selectorName = selector['name']
+                selectorValue = selector['value']
+                selctorNameString = GetEventFieldNameString(selector)
+                fieldDict['selectorValue'] = selectorValue
+                eventsWithSelector.add(event['name'])
+                tmp = GetEventFieldSelector(field)
+                fieldDict['selectorName'] = GetEventFieldNameString(tmp)
+                fieldData.append(fieldDict)
+                if fieldDict['selectorName'] not in selectorValueList.keys():
+                    selectorValueList[fieldDict['selectorName']] = {}
+                
+                if selectorValue not in selectorValueList[fieldDict['selectorName']].keys():
+                    selectorValueList[fieldDict['selectorName']][selectorValue] = []
+                selectorValueList[fieldDict['selectorName']][selectorValue].append(fieldDict)
+        else:
+            otherFieldData.append(fieldDict)
+
 
 def GenObjectDescription(event):
     fields = []
@@ -651,8 +738,34 @@ def GenObjectDescription(event):
     GetEventFieldsList(event, fields)
     formatStr   = ""
     argumentStr = "" 
-    descriptionString  = "- (NSString *)description {\n"
+    eventName = event['name']
+    if eventName.isupper():
+        eventName = eventName.replace(eventName, eventName.lower())
+    else:
+        eventName = eventName[0].lower() + eventName[1:]
+
+    descriptionString  = "- (NSString *)%sDescription {\n" % (eventName)
     descriptionString += "    NSString * desc;\n"
+
+    # YUCK
+    if event['name'] == "VendorDefined":
+        descriptionString += "    if (self.vendorDefinedUsagePage.unsignedIntValue == kHIDPage_AppleVendor && self.vendorDefinedUsage.unsignedIntValue == kHIDUsage_AppleVendor_Perf) {\n"
+        descriptionString += "        IOHIDEventPerfData *perfData = (IOHIDEventPerfData *)self.vendorDefinedData;\n"
+        descriptionString += '        NSString *perfStr = [NSString stringWithFormat:@"driverDispatchTime:%llu eventSystemReceiveTime:%llu eventSystemDispatchTime:%llu eventSystemFilterTime:%llu eventSystemClientDispatchTime:%llu",\n'
+        descriptionString += "            perfData->driverDispatchTime ? _IOHIDGetTimestampDelta(perfData->driverDispatchTime, self.timestamp.unsignedLongLongValue, kMicrosecondScale) : 0,\n"
+        descriptionString += "            perfData->eventSystemReceiveTime ? _IOHIDGetTimestampDelta(perfData->eventSystemReceiveTime, self.timestamp.unsignedLongLongValue, kMicrosecondScale) : 0,\n"
+        descriptionString += "            perfData->eventSystemDispatchTime ? _IOHIDGetTimestampDelta(perfData->eventSystemDispatchTime, self.timestamp.unsignedLongLongValue, kMicrosecondScale) : 0,\n"
+        descriptionString += "            perfData->eventSystemFilterTime ? _IOHIDGetTimestampDelta(perfData->eventSystemFilterTime, self.timestamp.unsignedLongLongValue, kMicrosecondScale) : 0,\n"
+        descriptionString += "            perfData->eventSystemClientDispatchTime ? _IOHIDGetTimestampDelta(perfData->eventSystemClientDispatchTime, self.timestamp.unsignedLongLongValue, kMicrosecondScale) : 0];\n\n"
+        descriptionString += '        desc = [NSString stringWithFormat:@"vendorDefinedUsagePage:%@ vendorDefinedUsage:%@ vendorDefinedVersion:%@ vendorDefinedDataLength:%@ %@", self.vendorDefinedUsagePage, self.vendorDefinedUsage, self.vendorDefinedVersion, self.vendorDefinedDataLength, perfStr];\n'
+        descriptionString += "    } else {\n"
+        descriptionString += '        desc = [NSString stringWithFormat:@"vendorDefinedUsagePage:%@ vendorDefinedUsage:%@ vendorDefinedVersion:%@ vendorDefinedDataLength:%@ vendorDefinedDatastr:%@", self.vendorDefinedUsagePage, self.vendorDefinedUsage, self.vendorDefinedVersion, self.vendorDefinedDataLength, self.vendorDefinedDatastr];\n'
+        descriptionString += "    }\n"
+        descriptionString += "    return desc;\n"
+        descriptionString += "}\n"
+        descriptionString += "@end\n"
+        print descriptionString
+        return
 
     for field in fields:
         if hasDefinition(field):
@@ -674,10 +787,13 @@ def GenObjectDescription(event):
         if field['kind'] == "array":
             varName += 'str'
         formatStr   += " %s:%%@" % varName
-        argumentStr += ", self.%s" % varName
+        if field == fields[0]:
+            argumentStr += "self.%s" % varName
+        else:
+            argumentStr += ", self.%s" % varName
 
     ind = 4 * ' '    
-    descriptionString += ind + 'desc = [NSString stringWithFormat:@"%s %s", [super description]%s];\n' % ("%@", formatStr.lstrip(), argumentStr)
+    descriptionString += ind + 'desc = [NSString stringWithFormat:@"%s"%s];\n' % (formatStr.lstrip(), argumentStr)
     
     for selectorName in fieldsWithSelector.keys():
         fieldNameSet = set()
@@ -698,7 +814,7 @@ def GenObjectDescription(event):
                 eventTypeName = "__" + eventTypeName
 
             filedNameString = GetEventFieldNameString(selector)    
-            descriptionString += ind + "if (IOHIDEventGetIntegerValue(self->eventRef, %s) == %s) {\n" % (filedNameString, selectorValue)
+            descriptionString += ind + "if (IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, %s) == %s) {\n" % (filedNameString, selectorValue)
             formatStr = ""
             argumentStr = ""
             for field in fieldsWithSelector[selectorName][selectorValue]:
@@ -717,39 +833,11 @@ def GenObjectDescription(event):
     descriptionString += "@end\n" 
 
     print descriptionString 
-             
-
-    # print "- (NSString *)description {"
-    # print '    return [NSString stringWithFormat:@"%@ ',
-    # for fieldName in fieldDict.keys():
-    #     varName         = fieldDict[fieldName]['var_name']
-        
-    #     if fieldName == fieldDict.keys()[-1]:
-    #         sys.stdout.write("%s:%%@" % (varName))
-    #     else:
-    #         sys.stdout.write("%s:%%@ " % (varName))
-
-    # print '", [super description], ',
-    # for fieldName in fieldDict.keys():
-    #     varName         = fieldDict[fieldName]['var_name']
-    #     nsSubType       = fieldDict[fieldName]['ns_subtype']
-    #     arrayStr        = ''
-        
-    #     if nsSubType == "Array":
-    #         arrayStr = "str"
-        
-    #     if fieldName == fieldDict.keys()[-1]:
-    #         sys.stdout.write("self.%s%s" % (varName, arrayStr))
-    #     else:
-    #         sys.stdout.write("self.%s%s, " % (varName, arrayStr))
-    
-    # print "];\n}\n\n@end\n\n"
-
 
 def GenObject(fieldDict, event):
     eventName = event['name']
-    print "@implementation HID%sEvent\n" % (eventName)
-	
+    print "@implementation HIDEvent (HIDUtil%sEvent)\n" % (eventName)
+    
     for fieldName in fieldDict.keys():
         varName         = fieldDict[fieldName]['var_name']
         varType         = fieldDict[fieldName]['var_type']
@@ -762,9 +850,9 @@ def GenObject(fieldDict, event):
         
         print "- (%s *)%s {" % (varType, varName)
         if nsSubType == "Array":
-            print "    return IOHIDEventGetDataValue(self->eventRef, %s);" % (fieldName)
+            print "    return IOHIDEventGetDataValue((__bridge IOHIDEventRef)self, %s);" % (fieldName)
         else:
-            print "    return [NSNumber numberWith%s:IOHIDEventGet%sValue(self->eventRef, %s)];" % (
+            print "    return [NSNumber numberWith%s:IOHIDEventGet%sValue((__bridge IOHIDEventRef)self, %s)];" % (
                 nsSubType, nsSubType, fieldName)
         print "}\n"
         
@@ -772,7 +860,7 @@ def GenObject(fieldDict, event):
             print "- (NSString *)%sstr {" % (varName)
             print "    NSString *%sstr = [[NSString alloc] init];" % (varName)
             print "    uint8_t *%s = self.%s;\n" % (varName, varName)
-            print "    for (uint32_t i = 0; i < self.length.unsignedIntValue; i++) {"
+            print "    for (uint32_t i = 0; i < self.vendorDefinedDataLength.unsignedIntValue; i++) {"
             print '        %sstr = [%sstr stringByAppendingString:[NSString stringWithFormat:@"%%02x ", %s[i]]];' % (
                     varName, varName, varName)
             print "    }"
@@ -782,11 +870,19 @@ def GenObject(fieldDict, event):
         if "readonly" not in nsProperties:
             setName = varName[0].upper() + varName[1:]
             print "- (void)set%s:(%s *)%s {" % (setName, varType, varName)
-            print "    IOHIDEventSet%sValue(self->eventRef, %s, %s.%sValue);" % (
+            print "    IOHIDEventSet%sValue((__bridge IOHIDEventRef)self, %s, %s.%sValue);" % (
                 nsSubType, fieldName, varName, numType)
             print "}\n"
     
     GenObjectDescription(event)
+
+def GenObjectFields(fieldData, event):
+    eventName = event['name']
+    print "\nstatic HIDEventFieldInfo %sEventFields[] = {" % (eventName)
+    for fieldDict in fieldData:
+        print "\t{ %s, kEventFieldDataType_%s, %d, %d, \"%s\" }," % (fieldDict['name'], getFieldType(fieldDict['type']) , fieldDict['base'], fieldDict['readonly'], fieldDict['name'][len("kIOHIDEventField"):])
+    print "\t{ 0, kEventFieldDataType_None,  0, 0, NULL }"
+    print "};\n"
 
 def GenObjectData(event):
     fieldDict = {}
@@ -817,6 +913,35 @@ def GenObjectData(event):
     
     return fieldDict
 
+def GenFieldsData(event):
+    
+    fieldData = []
+    fields = []
+    GetEventFieldsList(event, fields)
+    
+    for field in fields:
+        if hasDefinition(field):
+            continue
+
+        fieldNameString = GetEventFieldNameString(field)
+        fieldDict = {}
+        fieldDict['name'] = fieldNameString
+        
+        if 'type' not in field.keys() or 'field_number' not in field.keys():
+            raise AssertionError()
+        
+        fieldDict['type'] = field['type']
+        fieldDict['field_number'] = field['field_number']
+        fieldDict['base'] = field['base']
+        fieldData.append(fieldDict)
+        if field['kind'] == "array" or "immutable" in field.keys():
+            fieldDict['readonly'] = True
+        else:
+            fieldDict['readonly'] = False
+
+    return fieldData
+
+
 def GenHeaders(events):
     for eventName,event in events.items():
         objData = GenObjectData(event)
@@ -828,6 +953,369 @@ def GenObjects(events):
         objData = GenObjectData(event)
         if objData:
             GenObject(objData, event)
+
+#
+# HIDEvent accessor header generation
+#
+
+supportedEventTypes = [ "VendorDefined", "Button", "Keyboard", "Scroll", "Orientation", 
+                        "Digitizer", "AmbientLightSensor", "Accelerometer", "Proximity", 
+                        "Temperature", "Pointer", "Gyro", "Compass", "Power", "LED", 
+                        "Biometric", "AtmosphericPressure", "Force", "MotionActivity", 
+                        "MotionGesture", "GameController", "Humidity", "Brightness", 
+                        "GenericGesture"]
+
+def getEventVarType(field):
+    if field['kind'] == "array":
+        return "uint8_t *"
+    elif field['type'] == "IOFixed" or field['type'] == "IOHIDDouble":
+        return "double"
+
+    return field['type']
+
+def GenEventObjectData(event):
+    fieldDict = {}
+
+    if hasDeclaration(event):
+        return
+
+    fields = []
+    GetEventFieldsList(event, fields)
+
+    for field in fields:
+        if hasDefinition(field):
+            continue
+
+        fieldName       = GetEventFieldNameString(field)
+        varName         = GetVarName(field, fieldName, event['name'])
+        varType         = getEventVarType(field)
+        nsProperties    = getNSProperties(field)
+        
+        if field['kind'] == "array":
+            nsProperties.append("readonly")
+
+        fieldDict[fieldName] = { "var_name": varName, 
+                                 "var_type": varType, 
+                                 "ns_properties": nsProperties }
+        fieldDict['base'] = field['base']
+    
+    return fieldDict
+
+def FieldForFieldName(event, fieldName):
+    result = {}
+    fields = []
+    GetEventFieldsList(event, fields)
+
+    for field in fields:
+        if field["name"] == fieldName:
+            result = field
+            break
+    return result
+
+def FieldForSelectorName(event, selectorName, fieldName):
+    result = {}
+    fields = []
+    GetEventFieldsList(event, fields)
+
+    for field in fields:
+        if "selector" in field:
+            if field["selector"]["value"] == selectorName:
+                if fieldName is None:
+                    result = field
+                    break
+                elif fieldName == field['name']:
+                    result = field
+                    break
+    return result
+
+def GenEventHeader(fieldDict, event, public):
+    eventName = event['name']
+
+    if eventName not in supportedEventTypes:
+        return
+
+    if public:
+        print "@interface HIDEvent (HID%sEvent)\n" % (eventName)
+    else:
+        print "@interface HIDEvent (HID%sEventPrivate)\n" % (eventName)
+    
+    descName = eventName
+
+    if eventName.isupper():
+        eventName = eventName.replace(eventName, eventName.lower())
+    else:
+        eventName = eventName[0].lower() + eventName[1:]
+
+    if "createFunctions" in event and public == True:
+        for function in event['createFunctions']:
+            if "name" in function:
+                setName = eventName[0].upper() + eventName[1:]
+                sys.stdout.write("+ (instancetype)%s%sEvent:(uint64_t)timestamp " % (function['name'], setName))
+            else:
+                sys.stdout.write("+ (instancetype)%sEvent:(uint64_t)timestamp " % (eventName))
+
+            for fieldName in function['fields']:
+                if "selector" in function:
+                    field = FieldForSelectorName(event, function["selector"], fieldName)
+                else:
+                    field = FieldForFieldName(event, fieldName)
+
+                varType = getEventVarType(field)
+                varName = field['name']
+
+                if "var_name" in field:
+                    varName = field["var_name"]
+
+                sys.stdout.write("%s:(%s)%s " % (varName, varType, varName))
+
+            print "options:(uint32_t)options;\n"
+
+    for fieldName in sorted(fieldDict.keys()):
+        if fieldName == "base" or public == True:
+            continue
+
+        varName         = fieldDict[fieldName]['var_name']
+        varType         = fieldDict[fieldName]['var_type']
+        nsProperties    = fieldDict[fieldName]['ns_properties']
+
+        sys.stdout.write("@property ")
+        if nsProperties:
+            sys.stdout.write("(")
+            for property in nsProperties:
+                sys.stdout.write(property)
+            sys.stdout.write(") ")
+        print "%s %s;" % (varType, varName)
+    
+    print "@end\n"
+
+def GenEventAccessor(fieldDict, event):
+    eventName = event['name']
+
+    if eventName not in supportedEventTypes:
+        return
+
+    if "createFunctions" in event:
+        print "@implementation HIDEvent (HID%sEvent)\n" % (eventName)
+
+        for function in event['createFunctions']:
+            if "name" in function:
+                setName = eventName[0].upper() + eventName[1:]
+                sys.stdout.write("+ (instancetype)%s%sEvent:(uint64_t)timestamp " % (function['name'], setName))
+            else:
+                setName = eventName[0].lower() + eventName[1:]
+                sys.stdout.write("+ (instancetype)%sEvent:(uint64_t)timestamp " % (setName))
+            
+            for fieldName in function['fields']:
+                if "selector" in function:
+                    field = FieldForSelectorName(event, function["selector"], fieldName)
+                else:
+                    field = FieldForFieldName(event, fieldName)
+
+                varType = getEventVarType(field)
+                varName = field['name']
+
+                if "var_name" in field:
+                    varName = field["var_name"]
+
+                sys.stdout.write("%s:(%s)%s " % (varName, varType, varName))
+
+            print "options:(uint32_t)options\n{"
+
+            eventDataStr = "IOHID"+ eventName + "EventData"
+
+            if fieldDict['base'] == False:
+                eventDataStr = "__" + eventDataStr
+
+            if eventName == "VendorDefined":
+                print "    CFIndex eventSize = sizeof(%s) + length;" % (eventDataStr)
+            else:
+                print "    CFIndex eventSize = sizeof(%s);" % (eventDataStr)
+
+            print "    HIDEvent *event = (__bridge_transfer HIDEvent *)_IOHIDEventCreate(kCFAllocatorDefault, eventSize, kIOHIDEventType%s, timestamp, options);" % (eventName)
+            print "    %s *eventData = (%s *)event->_event.eventData;\n" % (eventDataStr, eventDataStr)
+
+            if "selector" in function:
+                field = FieldForSelectorName(event, function["selector"], None)
+                if field:
+                    print "    eventData->%s = %s;" % (field["selector"]["name"], function["selector"])
+
+            for fieldName in function['fields']:
+                if "selector" in function:
+                    field = FieldForSelectorName(event, function["selector"], fieldName)
+                else:
+                    field = FieldForFieldName(event, fieldName)
+
+                varType = getEventVarType(field)
+                varName = field['name']
+                baseStr = ""
+
+                if "var_name" in field:
+                    varName = field["var_name"]
+
+                if fieldDict['base'] == False and field['base'] == True:
+                    baseStr = "base."
+
+                if field['kind'] == "array":
+                    print "    bcopy(%s, eventData->%s, length);" % (field['name'], field['name'])
+                elif field['type'] == "IOFixed":
+                    print "    eventData->%s%s = CAST_DOUBLE_TO_FIXED(%s);" % (baseStr, GetEventFieldAccessString(field), varName)
+                else:
+                    print "    eventData->%s%s = (%s)%s;" % (baseStr, GetEventFieldAccessString(field), field['type'], varName)
+
+            print "\n    return event;\n}\n"
+
+        print "@end\n"
+
+    print "@implementation HIDEvent (HID%sEventPrivate)\n" % (eventName)
+
+    for fieldName in sorted(fieldDict.keys()):
+        if fieldName == "base":
+            continue
+
+        varName         = fieldDict[fieldName]['var_name']
+        varType         = fieldDict[fieldName]['var_type']
+        nsProperties    = fieldDict[fieldName]['ns_properties']
+        numType         = "Integer"
+        setCast         = "CFIndex"
+        
+        if varType == "uint8_t *":
+            numType = "Data"
+        elif varType == "double":
+            numType = "Float"
+            setCast = "IOHIDFloat"
+        
+        print "- (%s)%s {" % (varType, varName)
+        print "    return (%s)IOHIDEventGet%sValue((__bridge IOHIDEventRef)self, %s);" % (varType, numType, fieldName)
+        print "}\n"
+        
+        if "readonly" not in nsProperties:
+            setName = varName[0].upper() + varName[1:]
+            print "- (void)set%s:(%s)%s {" % (setName, varType, varName)
+            print "    IOHIDEventSet%sValue((__bridge IOHIDEventRef)self, %s, (%s)%s);" % (
+                numType, fieldName, setCast, varName)
+            print "}\n"
+    print "@end\n"
+
+def GenEventAccessorHeaders(events, public):
+    for eventName,event in events.items():
+        objData = GenEventObjectData(event)
+        if objData:
+            GenEventHeader(objData, event, public)
+
+def GenEventAccessors(events):
+    for eventName,event in events.items():
+        objData = GenEventObjectData(event)
+        if objData:
+            GenEventAccessor(objData, event)
+
+def getFieldType(type):
+    dataTypeToNativeTypeMap = {"IOHIDGenericGestureType" : "Integer", "IOFixed" : "IOFixed", "uint8_t" : "Integer",
+        "IOHIDDouble" : "Double", "Boolean" : "Integer", "boolean_t" : "Integer", "uint32_t" : "Integer" , "IOHIDEventColorSpace" : "Integer" , "IOHIDGestureMotion" : "Integer" , "uint64_t" : "Integer" , "uint16_t" : "Integer", "IOHIDGestureFlavor" : "Integer", "IOHIDSwipeMask" : "Integer"
+        }
+    if type in dataTypeToNativeTypeMap.keys():
+        return dataTypeToNativeTypeMap[type]
+
+    return "*"
+
+def GenFieldsDescHeader(events):
+    print "%s" % (copyright)
+    print "//DO NOT EDIT THIS FILE. FILE AUTO-GENERATED\n\n"
+    print "#include <IOKit/hid/IOHIDEvent.h>"
+    print "#include <HID/HIDEvent.h>\n\n"
+    eventFieldDataTypes = ["None","Integer", "Double", "Float", "IOFixed"]
+    print "enum {\n"
+    for dataType in eventFieldDataTypes:
+        print "\tkEventFieldDataType_%s," % (dataType)
+    print "};\n"
+    print "typedef struct {"
+    print "\tIOHIDEventField field;"
+    print "\tuint8_t         fieldType:6;"
+    print "\tuint8_t         base:1;"
+    print "\tuint8_t         readonly:1;"
+    print "\tchar *          name;"
+    print "} HIDEventFieldInfo;\n"
+    print "typedef struct {"
+    print "\tIOHIDEventField    value;"
+    print "\tHIDEventFieldInfo *eventFieldDescTable;\n"
+    print "} HIDEventFieldDescSelectorTable;"
+    print "typedef struct  {"
+    print "\tIOHIDEventField                 value;"
+    print "\tHIDEventFieldDescSelectorTable *selectorTables;"
+    print "} HIDSelectorTable;\n"
+    print "typedef struct {"
+    print "\tIOHIDEventType     type;"
+    print "\tHIDEventFieldInfo *eventFieldDescTable;"
+    print "\tHIDSelectorTable  *selectors;"
+    print "} HIDEventFieldDescTableCollection;\n"
+
+def GenFieldsDesc(events):
+    print "%s" % (copyright)
+    print "//DO NOT EDIT THIS FILE. FILE AUTO-GENERATED\n\n"
+    print "#include <IOKit/hid/IOHIDEvent.h>"
+    print "#include <HID/HIDEvent.h>\n\n"
+    
+    #get selector events
+    eventsWithSelector = set([])
+    eventSelectorData = {}
+
+    for eventName,event in events.items():
+        if hasDeclaration(event):
+            continue
+        fieldData = []
+        selectorValueList = {}
+        otherFieldData = []
+        GetSelectorFieldData(event, fieldData, eventsWithSelector, selectorValueList, otherFieldData)
+        if len(selectorValueList) > 0:
+            if eventName not in eventSelectorData.keys() and len(fieldData) > 0:
+                tmp = {}
+                tmp['size'] = len(selectorValueList)
+                eventSelectorData[eventName] = tmp
+            for selector in selectorValueList.keys():
+                for selectorValueKey in selectorValueList[selector].keys():
+                    print "static HIDEventFieldInfo %s%s%sEventField[] = {" % (eventName, selector, selectorValueKey)
+                    for fieldDict in otherFieldData:
+                        print "\t{ %s, kEventFieldDataType_%s, %d, %d, \"%s\" }," % (fieldDict['name'], getFieldType(fieldDict['type']), fieldDict['base'], fieldDict['readonly'], fieldDict['name'][len("kIOHIDEventField"):])
+                    for fieldDict in selectorValueList[selector][selectorValueKey]:
+                        print "\t{ %s, kEventFieldDataType_%s, %d, %d,  \"%s\" }," % (fieldDict['name'], getFieldType(fieldDict['type']),  fieldDict['base'], fieldDict['readonly'], fieldDict['name'][len("kIOHIDEventField"):])
+                    print "\t{ 0, kEventFieldDataType_None, 0, 0, NULL }"
+                    print "};\n"
+
+            for selector in selectorValueList.keys():
+                print "static HIDEventFieldDescSelectorTable %s%sHIDEventFieldSelectorTable[] = {" % (eventName, selector)
+                for selectorValueKey in selectorValueList[selector].keys():
+                    print "\t{ %s, %s%s%sEventField }," % (selectorValueKey, eventName, selector, selectorValueKey)
+                print "\t{ 0, NULL }"
+                print "};\n"
+                
+            print "static HIDSelectorTable %sHIDSelectorTable[] = {" % (eventName)
+            for selector in selectorValueList.keys():
+                print "\t{ %s, %s%sHIDEventFieldSelectorTable }," % (selector, eventName, selector)
+            print "\t{ 0, NULL }"
+            print "};\n"
+
+    for eventName,event in events.items():
+        if hasDeclaration(event) or eventName in eventsWithSelector:
+            continue
+        
+        fieldData = GenFieldsData(event)
+        if fieldData:
+            GenObjectFields(fieldData,event)
+
+    count = 0
+    print "\nstatic HIDEventFieldDescTableCollection hidEventFieldDescTable[] = {"
+    for eventName,event in events.items():
+        if hasDeclaration(event):
+            continue
+        fieldData = GenFieldsData(event)
+        if fieldData:
+            if eventName in eventsWithSelector:
+                print "\t{ kIOHIDEventType%s, NULL, %sHIDSelectorTable }," % (eventName, eventName )
+            else:
+                print "\t{ kIOHIDEventType%s, %sEventFields, NULL }," % (eventName, eventName )
+            count = count + 1
+    print "\t{ kIOHIDEventTypeCount, NULL, NULL }"
+    print "};\n"
+
 
 def main(argv):
     file = None
@@ -865,6 +1353,16 @@ def main(argv):
             GenHeaders(events)
         elif type == "objects":
             GenObjects(events)
+        elif type == "eventAccessorHeaders":
+            GenEventAccessorHeaders(events, True)
+        elif type == "eventAccessorHeadersPrivate":
+            GenEventAccessorHeaders(events, False)
+        elif type == "eventAccessors":
+            GenEventAccessors(events)
+        elif type == "fieldsDescHeader":
+            GenFieldsDescHeader(events)
+        elif type == "fieldsDesc":
+            GenFieldsDesc(events)
 
 
 if __name__ == "__main__":

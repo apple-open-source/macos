@@ -27,8 +27,6 @@
 #import "WKWebViewConfigurationPrivate.h"
 #import <wtf/Ref.h>
 
-#if WK_API_ENABLED
-
 @class WKWebView;
 @class WKWebViewContentProviderRegistry;
 
@@ -37,9 +35,8 @@
 #if PLATFORM(IOS_FAMILY)
 @property (nonatomic, setter=_setContentProviderRegistry:) WKWebViewContentProviderRegistry *_contentProviderRegistry;
 #endif
+@property (nonatomic, readonly) NSString *_applicationNameForDesktopUserAgent;
 
 - (Ref<API::PageConfiguration>)copyPageConfiguration;
 
 @end
-
-#endif

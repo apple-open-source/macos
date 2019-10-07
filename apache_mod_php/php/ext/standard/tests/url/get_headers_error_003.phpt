@@ -22,10 +22,7 @@ echo $headers["X-Request-Method"]."\n";
 
 echo "Done";
 ?>
---EXPECTF--
+--EXPECT--
 HEAD
 HEAD
 Done
-
-
-

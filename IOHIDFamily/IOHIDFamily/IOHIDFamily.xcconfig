@@ -40,9 +40,28 @@ GCC_WARN_UNUSED_LABEL = YES
 GCC_WARN_UNUSED_PARAMETER = YES
 GCC_WARN_UNUSED_VALUE = YES
 GCC_WARN_UNUSED_VARIABLE = YES
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) APPLE_KEXT_ASSERTIONS=1 DISPATCH_MACH_SPI=1 OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE=1
 
+KEXT_CONTENTS_PATH =
+KEXT_CONTENTS_PATH[sdk=macosx*] = Contents
 
-OTHER_CFLAGS = -DOS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE
+SUPPORTED_PLATFORMS = macosx iphoneos appletvos watchos bridgeos
+
+OTHER_CFLAGS = $(inherited) -I$(SRCROOT) -Wno-missing-field-initializers -ftrivial-auto-var-init=pattern -Wno-four-char-constants
+OTHER_CPLUSPLUSFLAGS = -Wno-reorder -Wno-unused-parameter -ftrivial-auto-var-init=pattern
+
+DRIVERKIT[sdk=driverkit*] = 1
+DRIVERKITROOT[sdk=driverkit*] = /System/DriverKit
+DRIVERKITRUNTIMEROOT[sdk=driverkit*] = $(DRIVERKITROOT)/Runtime
+
+IIG_FRAMEWORK_NAME = HIDDriverKit
+OTHER_IIG_FLAGS = --framework $(IIG_FRAMEWORK_NAME) $(inherited)
+OTHER_IIG_CFLAGS[sdk=macos*] = -I$(SRCROOT) -std=gnu++1z
+OTHER_IIG_CFLAGS[sdk=iphoneos*] = -I$(SRCROOT) -arch $(CURRENT_ARCH) -std=gnu++1z
+OTHER_IIG_CFLAGS[sdk=watchos*] = -I$(SRCROOT) -arch $(CURRENT_ARCH) -std=gnu++1z
+OTHER_IIG_CFLAGS[sdk=appletvos*] = -I$(SRCROOT) -arch $(CURRENT_ARCH) -std=gnu++1z
+
+ALWAYS_SEARCH_USER_PATHS = NO
 
 //
 //RTKIT
@@ -51,7 +70,6 @@ OTHER_CFLAGS[sdk=rtkit*]  = $(inherited) -DRTKIT
 ARCHS[sdk=rtkit*] = armv7 armv7em
 VALID_ARCHS[sdk=rtkit*] = armv7 armv7em
 GCC_OPTIMIZATION_LEVEL[sdk=rtkit*] = z
-
 
 //
 //CodeCoverege
@@ -63,6 +81,7 @@ _OTHER_LDFLAGS_xctest = -fprofile-instr-generate
 
 OTHER_CFLAGS[config=Development*CodeCoverage]  = $(inherited) -fprofile-instr-generate -fcoverage-mapping
 OTHER_LDFLAGS[config=Development*CodeCoverage] = $(inherited) $(_OTHER_LDFLAGS_$(WRAPPER_EXTENSION))
+HID_CODE_COVERAGE = NO
 HID_CODE_COVERAGE[config=Development*CodeCoverage] = YES
 
 

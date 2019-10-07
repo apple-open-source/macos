@@ -73,6 +73,8 @@
 
 #include <sys/kdebug.h>
 #include <sys/proc.h>
+#include <string.h>
+#include <libkern/libkern.h>
 
 #ifdef __cplusplus
     extern "C"
@@ -88,6 +90,12 @@ extern "C" {
     #define CONFIG_MACF 1
     #include <security/mac_framework.h>
     #undef CONFIG_MACF
+};
+
+const char * IOHIDSystem::Diags::cursorStrings[] = {
+    "ShowCursor",
+    "HideCursor",
+    "MoveCursor"
 };
 
 bool displayWranglerUp( OSObject *, void *, IOService * );
@@ -565,13 +573,56 @@ bool IOHIDSystem::start(IOService * provider)
                                                       this,
                                                       (void *)&IOHIDSystem::handleTerminationNotification);
     require(_graphicsDeviceMatching, exit_early);
+
+    {
+        IOReturn ret;
+        IOHistogramSegmentConfig configs[] = {
+            {   // Segment for expected latencies, 0us to 1,000us (1ms)
+                .base_bucket_width = 100,
+                .scale_flag = 0,
+                .segment_idx = 0,
+                .segment_bucket_count = 10
+
+            },
+            {   // Segment for high latencies, 1,000us to 100,000us (100ms)
+                .base_bucket_width = 20000,
+                .scale_flag = 0,
+                .segment_idx = 1,
+                .segment_bucket_count = 5
+            }
+        };
+
+        _diags.cursorTotalHistReporter = IOHistogramReporter::with(this,
+                                                                   kIOReportCategoryPeripheral | kIOReportCategoryPerformance,
+                                                                   IOREPORT_MAKEID('C','u','r','s','o','r','T','o'),
+                                                                   "Cursor Total Latency",
+                                                                   kIOReportUnit_us,
+                                                                   sizeof(configs)/sizeof(configs[0]),
+                                                                   configs);
+        require(_diags.cursorTotalHistReporter, exit_early);
+
+        ret = IOReportLegend::addReporterLegend(this, _diags.cursorTotalHistReporter, "Cursor", "Total");
+        require(ret == kIOReturnSuccess, exit_early);
+
+        _diags.cursorGraphicsHistReporter = IOHistogramReporter::with(this,
+                                                              kIOReportCategoryPeripheral | kIOReportCategoryPerformance,
+                                                              IOREPORT_MAKEID('C','u','r','s','o','r','G','r'),
+                                                              "Cursor Graphics Latency",
+                                                              kIOReportUnit_us,
+                                                              sizeof(configs)/sizeof(configs[0]),
+                                                              configs);
+        require(_diags.cursorGraphicsHistReporter, exit_early);
+
+        ret = IOReportLegend::addReporterLegend(this, _diags.cursorGraphicsHistReporter, "Cursor", "Graphics");
+        require(ret == kIOReturnSuccess, exit_early);
+    }
     
     /*
      * IOHIDSystem serves both as a service and a nub (we lead a double
      * life).  Register ourselves as a nub to kick off matching.
      */
     
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     _hidActivityThread = thread_call_allocate(hidActivityThread_cb, (thread_call_param_t)this);
     _hidActivityIdle = true;
     require(_hidActivityThread, exit_early);
@@ -853,8 +904,52 @@ void IOHIDSystem::free()
     }
     
     OSSafeReleaseNULL(globalMemory);
+
+    OSSafeReleaseNULL(_diags.cursorTotalHistReporter);
+    OSSafeReleaseNULL(_diags.cursorGraphicsHistReporter);
     
     super::free();
+}
+
+
+IOReturn IOHIDSystem::configureReport(IOReportChannelList *channels,
+                                      IOReportConfigureAction action,
+                                      void *result,
+                                      void *destination)
+{
+    IOReturn ret;
+
+    ret = _diags.cursorTotalHistReporter->configureReport(channels, action, result, destination);
+    require(ret == kIOReturnSuccess, exit);
+
+    ret = _diags.cursorGraphicsHistReporter->configureReport(channels, action, result, destination);
+    require(ret == kIOReturnSuccess, exit);
+
+    ret = super::configureReport(channels, action, result, destination);
+    require(ret == kIOReturnSuccess, exit);
+
+exit:
+    return ret;
+}
+
+IOReturn IOHIDSystem::updateReport(IOReportChannelList *channels,
+                                   IOReportConfigureAction action,
+                                   void *result,
+                                   void *destination)
+{
+    IOReturn ret;
+
+    ret = _diags.cursorTotalHistReporter->updateReport(channels, action, result, destination);
+    require(ret == kIOReturnSuccess, exit);
+
+    ret = _diags.cursorGraphicsHistReporter->updateReport(channels, action, result, destination);
+    require(ret == kIOReturnSuccess, exit);
+
+    ret = super::updateReport(channels, action, result, destination);
+    require(ret == kIOReturnSuccess, exit);
+
+exit:
+    return ret;
 }
 
 
@@ -1497,7 +1592,7 @@ void IOHIDSystem::dispatchEvent(IOHIDEvent *event, IOOptionBits options __unused
 
 void IOHIDSystem::updateHidActivity()
 {
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     clock_get_uptime(&_lastTickleTime);
     _forceIdle = false;
     if (_hidActivityIdle)
@@ -1981,7 +2076,6 @@ void IOHIDSystem::animateWaitCursor()
 
 void IOHIDSystem::changeCursor(int frame)
 {
-    lastChangeCursorTime =  mach_continuous_time ();
     evg->frame = ((frame > (int)maxWaitCursorFrame) || (frame > evg->lastFrame)) ? firstWaitCursorFrame : frame;
     xpr_ev_cursor("changeCursor %d\n",evg->frame,2,3,4,5);
     moveCursor();
@@ -2013,18 +2107,24 @@ int IOHIDSystem::pointToScreen(IOGPoint * p)
 //
 inline void IOHIDSystem::showCursor()
 {
-    lastShowCursorTime =  mach_continuous_time ();
+    _diags.lastCursorActionsMask |=  (1 << Diags::kCursorActionShow);
+    _diags.lastActionTimes[Diags::kCursorActionShow] = mach_absolute_time();
+
     evDispatch(/* command */ EVSHOW);
 }
 inline void IOHIDSystem::hideCursor()
 {
-    lastHideCursorTime =  mach_continuous_time ();
+    _diags.lastCursorActionsMask |=  (1 << Diags::kCursorActionHide);
+    _diags.lastActionTimes[Diags::kCursorActionHide] = mach_absolute_time();
+
     evDispatch(/* command */ EVHIDE);
 }
 
 inline void IOHIDSystem::moveCursor()
 {
-    lastMoveCursorTime = mach_continuous_time ();
+    _diags.lastCursorActionsMask |=  (1 << Diags::kCursorActionMove);
+    _diags.lastActionTimes[Diags::kCursorActionMove] = mach_absolute_time();
+
     evDispatch(/* command */ EVMOVE);
 }
 
@@ -2528,10 +2628,6 @@ void IOHIDSystem::updateEventFlagsGated(unsigned flags, OSObject * sender __unus
     if ( eventsOpen ) {
         evg->eventFlags = (evg->eventFlags & ~KEYBOARD_FLAGSMASK)
                 | (flags & KEYBOARD_FLAGSMASK);
-
-            // RY: Reset the clickTime as well on modifier
-            // change to prevent double click from occuring
-            nanoseconds_to_absolutetime(0, &clickTime);
         }
 }
 
@@ -3021,11 +3117,14 @@ IOReturn IOHIDSystem::setEventsEnable(void*p1 __unused,void*,void*,void*,void*,v
 
 IOReturn IOHIDSystem::setCursorEnable(void*p1,void*,void*,void*,void*,void*)
 {                                                                    // IOMethod
+    IOReturn ret;
+
     if (mac_iokit_check_hid_control(kauth_cred_get()))
         return kIOReturnNotPermitted;
-    lastSetCursorTime = mach_continuous_time ();
-    return cmdGate->runAction((IOCommandGate::Action)doSetCursorEnable, p1);
 
+    ret = cmdGate->runAction((IOCommandGate::Action)doSetCursorEnable, p1);
+
+    return ret;
 }
 
 IOReturn IOHIDSystem::doSetCursorEnable(IOHIDSystem *self, void * arg0)
@@ -3321,14 +3420,18 @@ IOReturn IOHIDSystem::extPostEventGated(void *p1,void *p2 __unused, void *p3)
 
 IOReturn IOHIDSystem::extSetMouseLocation(void*p1,void*p2,void*,void*,void*,void*)
 {                                                                    // IOMethod
+    IOReturn ret;
+
     if (mac_iokit_check_hid_control(kauth_cred_get()))
         return kIOReturnNotPermitted;
-    if ((sizeof(int32_t)*3) != (intptr_t)p2) {
+    if (sizeof(SetFixedMouseLocData) != (intptr_t)p2) {
         HIDLogError("called with inappropriate data size: %d", (int)(intptr_t)p2);
         return kIOReturnBadArgument;
     }
 
-    return cmdGate->runAction((IOCommandGate::Action)doExtSetMouseLocation, p1);
+    ret = cmdGate->runAction((IOCommandGate::Action)doExtSetMouseLocation, p1);
+
+    return ret;
 }
 
 IOReturn IOHIDSystem::doExtSetMouseLocation(IOHIDSystem *self, void * arg0)
@@ -3339,22 +3442,32 @@ IOReturn IOHIDSystem::doExtSetMouseLocation(IOHIDSystem *self, void * arg0)
 
 IOReturn IOHIDSystem::extSetMouseLocationGated(void *p1)
 {
-    IOFixedPoint32 * loc = (IOFixedPoint32 *)p1;
-    
-    if (loc) {
-        IOHID_DEBUG(kIOHIDDebugCode_ExtSetLocation, loc ? loc->x : 0, loc ? loc->y : 0, loc, 0);
-        
-        //    setCursorPosition(loc, true);
-        if ( eventsOpen == true )
-        {
-            _cursorHelper.desktopLocationDelta() += *loc;
-            _cursorHelper.desktopLocationDelta() -= _cursorHelper.desktopLocation();
-            _cursorHelper.desktopLocation() = *loc;
-            _setCursorPosition(true);
-        }
-        
+    SetFixedMouseLocData    *data = (SetFixedMouseLocData *)p1;
+    IOFixedPoint32          loc;
+
+    require(data, exit);
+
+    _diags.cursorWorkloopTime = mach_absolute_time();
+    _diags.lastCursorActionsMask = 0;
+
+    loc.x = data->x;
+    loc.y = data->y;
+
+    IOHID_DEBUG(kIOHIDDebugCode_ExtSetLocation, loc.x, loc.y, &loc, 0);
+
+    if ( eventsOpen == true )
+    {
+        _cursorHelper.desktopLocationDelta() += loc;
+        _cursorHelper.desktopLocationDelta() -= _cursorHelper.desktopLocation();
+        _cursorHelper.desktopLocation() = loc;
+        _setCursorPosition(true);
     }
-    
+
+    if (data->origTs && data->callTs) {
+        _recordCursorAction(data->origTs, data->callTs);
+    }
+
+exit:
     return kIOReturnSuccess;
 }
 
@@ -3385,6 +3498,11 @@ IOReturn IOHIDSystem::doExtGetStateForSelector(IOHIDSystem *self, void *p1, void
         case kIOHIDActivityDisplayOn:
             *state_O = self->displayState & IOPMDeviceUsable ? 1 : 0;
             break;
+        case kIOHIDCapsLockState:
+            *state_O = (self->eventFlags() & NX_ALPHASHIFTMASK) ? 1 : 0;
+            break;
+        case kIOHIDNumLockState:
+            break;
         default:
             HIDLogError("recieved unexpected selector: %d", selector);
             result = kIOReturnBadArgument;
@@ -3393,24 +3511,13 @@ IOReturn IOHIDSystem::doExtGetStateForSelector(IOHIDSystem *self, void *p1, void
     return result;
 }
 
-IOReturn IOHIDSystem::doExtSetStateForSelector(IOHIDSystem *self, void *p1, void *p2)
+IOReturn IOHIDSystem::doExtSetStateForSelector(IOHIDSystem *self __unused, void *p1, void *p2 __unused)
 /* IOCommandGate::Action */
 {
     IOReturn result = kIOReturnSuccess;
     unsigned int selector = (unsigned int)(uintptr_t)p1;
-    unsigned int state_I = (unsigned int)(uintptr_t)p2;
     
     switch (selector) {
-        case kIOHIDActivityUserIdle:
-            if (state_I == 0) { //  activity report
-                clock_get_uptime(&self->lastUndimEvent);
-                self->_privateData->hidActivityIdle = false;
-            } else if (state_I == 1) {
-                self->_privateData->hidActivityIdle = true;
-            } else {
-                result = kIOReturnBadArgument;
-            }
-            break;
         case kIOHIDActivityDisplayOn:   // not settable
         default:
             HIDLogError("recieved unexpected selector: %d", selector);
@@ -3617,60 +3724,50 @@ bool IOHIDSystem::_idleTimeSerializerCallback(void * target, void * ref __unused
     return retValue;
 }
 
+static inline OSString * __newTimeDiffString(uint64_t absFirst, uint64_t absSecond)
+{
+    char        valBuf[128];
+    uint64_t    ns;
+    uint64_t    ns2;
+
+    if (absFirst == 0 || absSecond == 0) {
+        return NULL;
+    }
+
+    absolutetime_to_nanoseconds(absFirst, &ns);
+    absolutetime_to_nanoseconds(absSecond, &ns2);
+
+    ns = ns2 - ns;
+    snprintf(valBuf, sizeof(valBuf), "%u.%06u", (unsigned int)(ns/NSEC_PER_SEC), (unsigned int)((ns/NSEC_PER_USEC)%USEC_PER_SEC));
+
+    return OSString::withCString(valBuf);
+}
+
 bool IOHIDSystem::_cursorStateSerializerCallback(void * target, void * ref __unused, OSSerialize *s)
 {
     IOHIDSystem *   self = (IOHIDSystem *) target;
-    AbsoluteTime    currentTime, deltaTime;
-    OSNumber *      num;
-    UInt64          nanoTime = 0;
+    OSDictionary *  cursorDict = OSDictionary::withCapacity(3);
     bool            retValue = false;
-    OSDictionary    *cursorDict = OSDictionary::withCapacity(4);
     
     require(cursorDict, exit);
 
-    currentTime = mach_continuous_time ();
-    
-    deltaTime = AbsoluteTime_to_scalar(&currentTime) - AbsoluteTime_to_scalar(&(self->lastSetCursorTime));
-    absolutetime_to_nanoseconds(deltaTime, &nanoTime);
-    num = OSNumber::withNumber(nanoTime, 64);
-    if (num) {
-        cursorDict->setObject("SetCursorTime", num);
-        OSSafeReleaseNULL(num);
-    }
-    
-    deltaTime = AbsoluteTime_to_scalar(&currentTime) - AbsoluteTime_to_scalar(&(self->lastShowCursorTime));
-    absolutetime_to_nanoseconds(deltaTime, &nanoTime);
-    num = OSNumber::withNumber(nanoTime, 64);
-    if (num) {
-        cursorDict->setObject("ShowCursorTime", num);
-        OSSafeReleaseNULL(num);
-    }
-    
-    deltaTime = AbsoluteTime_to_scalar(&currentTime) - AbsoluteTime_to_scalar(&(self->lastHideCursorTime));
-    absolutetime_to_nanoseconds(deltaTime, &nanoTime);
-    num = OSNumber::withNumber(nanoTime, 64);
-    if (num) {
-        cursorDict->setObject("HideCursorTime", num);
-        OSSafeReleaseNULL(num);
-    }
-    
-    deltaTime = AbsoluteTime_to_scalar(&currentTime) - AbsoluteTime_to_scalar(&(self->lastChangeCursorTime));
-    absolutetime_to_nanoseconds(deltaTime, &nanoTime);
-    num = OSNumber::withNumber(nanoTime, 64);
-    if (num) {
-        cursorDict->setObject("ChangeCursorTime", num);
-        OSSafeReleaseNULL(num);
-    }
-    
-    deltaTime = AbsoluteTime_to_scalar(&currentTime) - AbsoluteTime_to_scalar(&(self->lastMoveCursorTime));
-    absolutetime_to_nanoseconds(deltaTime, &nanoTime);
-    num = OSNumber::withNumber(nanoTime, 64);
-    if (num) {
-        cursorDict->setObject("MoveCursorTime", num);
-        OSSafeReleaseNULL(num);
+    for (size_t i = 0; i < Diags::kCursorActionCount; i++) {
+        OSString *  string;
+        char        keyBuf[128];
+        uint64_t    absNow = mach_absolute_time();
+
+        string = __newTimeDiffString(self->_diags.lastActionTimes[i], absNow);
+        if (string) {
+            strlcpy(keyBuf, "Last", sizeof(keyBuf));
+            strlcat(keyBuf, Diags::cursorStrings[i], sizeof(keyBuf));
+            strlcat(keyBuf, " (Seconds ago)", sizeof(keyBuf));
+            cursorDict->setObject(keyBuf, string);
+            OSSafeReleaseNULL(string);
+        }
     }
     
     retValue = cursorDict->serialize(s);
+
 exit:
     OSSafeReleaseNULL(cursorDict);
     return retValue;
@@ -3744,6 +3841,59 @@ exit_early:
     return retValue;
 }
 
+IOReturn IOHIDSystem::_recordCursorAction(uint64_t origTs, uint64_t callTs)
+{
+    char actionBuf[128] = {0};
+    uint64_t nowNs;
+    uint64_t workloopNs;
+    // HID/WS latency
+    unsigned long long callDelta;
+    // Latency to get on IOHIDSystem workloop
+    unsigned long long workloopDelta;
+    // latency up to cursor actions
+    unsigned long long actionDeltas[Diags::kCursorActionCount] = {0};
+    // total latency
+    unsigned long long totalDelta;
+    IOReturn ret = kIOReturnBadArgument;
+
+
+    require(origTs && callTs > origTs, exit);
+
+    absolutetime_to_nanoseconds(origTs, &origTs);
+    absolutetime_to_nanoseconds(_diags.cursorWorkloopTime, &workloopNs);
+    absolutetime_to_nanoseconds(callTs, &callTs);
+    absolutetime_to_nanoseconds(mach_absolute_time(), &nowNs);
+
+    callDelta = (callTs - origTs) / NSEC_PER_USEC;
+    workloopDelta = (workloopNs - origTs) / NSEC_PER_USEC;
+    totalDelta = (nowNs - origTs) / NSEC_PER_USEC;
+
+    require(_diags.cursorTotalHistReporter->tallyValue((int64_t)totalDelta) != -1, exit);
+
+    for (size_t i = 0; i < Diags::kCursorActionCount; i++) {
+        if (_diags.lastCursorActionsMask & (1 << i)) {
+            int n;
+            uint64_t actionNs;
+            absolutetime_to_nanoseconds(_diags.lastActionTimes[i], &actionNs);
+            require(actionNs > origTs, exit);
+
+            actionDeltas[i] = (actionNs - origTs) / NSEC_PER_USEC;
+
+            require(_diags.cursorGraphicsHistReporter->tallyValue((int64_t)actionDeltas[i]) != -1, exit);
+
+            n = snprintf(actionBuf+strlen(actionBuf), sizeof(actionBuf)-strlen(actionBuf), "%s(us) %llu ", Diags::cursorStrings[i], actionDeltas[i]);
+            require_action(n > 0 && n < sizeof(actionBuf)-strlen(actionBuf), exit, ret = kIOReturnOverrun);
+        }
+    }
+
+    //HIDLogInfo("Cursor latency to call(us) %llu workloop(us) %llu %stotal(us) %llu", callDelta, workloopDelta, actionBuf, totalDelta);
+
+    ret = kIOReturnSuccess;
+
+exit:
+    return ret;
+}
+
 IOReturn IOHIDSystem::setProperties( OSObject * properties )
 {
     OSDictionary *  dict;
@@ -3751,6 +3901,28 @@ IOReturn IOHIDSystem::setProperties( OSObject * properties )
   
     dict = OSDynamicCast( OSDictionary, properties );
     if( dict) {
+        
+        OSObject *userIdleState = dict->getObject(kIOHIDActivityUserIdleKey);
+        if (userIdleState) {
+            OSNumber *  num;
+            uint32_t    state_I = IOHID_DEBUG_CODE(0);
+            
+            if ((num = OSDynamicCast( OSNumber, userIdleState))) {
+                state_I = num->unsigned32BitValue();
+                if (state_I == 0) { //  activity report
+                    clock_get_uptime(&lastUndimEvent);
+                    _privateData->hidActivityIdle = false;
+                } else if (state_I == 1) {
+                    _privateData->hidActivityIdle = true;
+                } else {
+                    ret = kIOReturnBadArgument;
+                }
+            } else {
+                ret = kIOReturnBadArgument;
+            }
+            return ret;
+        }
+
         OSObject *tickleType =  dict->getObject("DisplayTickle");
         if (tickleType) {
             OSNumber *  num;
@@ -3903,12 +4075,6 @@ IOReturn IOHIDSystem::setParamPropertiesPreGated( OSDictionary * dict, OSIterato
         cmdGate->commandSleep(&setParamPropertiesInProgress);
 
     setParamPropertiesInProgress = true;
-
-    if( (number = OSDynamicCast( OSNumber, dict->getObject(kIOHIDClickTimeKey))))
-    {
-        UInt64  nano = number->unsigned64BitValue();
-        nanoseconds_to_absolutetime(nano, &clickTimeThresh);
-    }
 
     // check the reset before setting the other parameters
     if (dict->getObject(kIOHIDScrollCountResetKey)) {
@@ -4068,8 +4234,14 @@ IOReturn IOHIDSystem::setParamPropertiesPostGated( OSDictionary * dict)
 
         event.data.compound.subType = NX_SUBTYPE_HIDPARAMETER_MODIFIED;
         clock_get_uptime(&ts);
-        postEvent(NX_SYSDEFINED, &_cursorHelper.desktopLocation(), ts, &(event.data));
-
+        postEvent(NX_SYSDEFINED,
+                  &_cursorHelper.desktopLocation(),
+                  ts,
+                  &(event.data),
+                  0,
+                  0,
+                  true,
+                  NX_EVENT_EXTENSION_LOCATION_INVALID);
     }
 
     // Wake any pending setParamProperties commands.  They

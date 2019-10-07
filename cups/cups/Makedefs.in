@@ -1,14 +1,11 @@
 #
 # Common makefile definitions for CUPS.
 #
-# Copyright 2007-2017 by Apple Inc.
-# Copyright 1997-2007 by Easy Software Products, all rights reserved.
+# Copyright © 2007-2019 by Apple Inc.
+# Copyright © 1997-2007 by Easy Software Products, all rights reserved.
 #
-# These coded instructions, statements, and computer programs are the
-# property of Apple Inc. and are protected by Federal copyright
-# law.  Distribution and use rights are outlined in the file "LICENSE.txt"
-# which should have been included with this file.  If this file is
-# missing or damaged, see the license at "http://www.cups.org/".
+# Licensed under Apache License v2.0.  See the file "LICENSE" for more
+# information.
 #
 
 #
@@ -29,7 +26,7 @@ CHMOD		=	@CHMOD@
 CXX		=	@LIBTOOL_CXX@ @CXX@
 DSO		=	@DSO@
 DSOXX		=	@DSOXX@
-GZIP		=	@GZIP@
+GZIPPROG	=	@GZIPPROG@
 INSTALL		=	@INSTALL@
 LD		=	@LD@
 LD_CC		=	@LD_CC@
@@ -95,14 +92,13 @@ LOCALTARGET     =       @LOCALTARGET@
 #
 
 LIBCUPS		=	@LIBCUPS@
-LIBCUPSCGI	=	@LIBCUPSCGI@
 LIBCUPSIMAGE	=	@LIBCUPSIMAGE@
-LIBCUPSMIME	=	@LIBCUPSMIME@
-LIBCUPSPPDC	=	@LIBCUPSPPDC@
+LIBCUPSOBJS	=	@LIBCUPSOBJS@
 LIBCUPSSTATIC	=	@LIBCUPSSTATIC@
 LIBGSSAPI	=	@LIBGSSAPI@
+LIBHEADERS	=	@LIBHEADERS@
+LIBHEADERSPRIV	=	@LIBHEADERSPRIV@
 LIBMALLOC	=	@LIBMALLOC@
-LIBMXML		=	@LIBMXML@
 LIBPAPER	=	@LIBPAPER@
 LIBUSB		=	@LIBUSB@
 LIBWRAP		=	@LIBWRAP@
@@ -120,11 +116,26 @@ INSTALLSTATIC	=	@INSTALLSTATIC@
 
 IPPALIASES	=	@IPPALIASES@
 
+
+#
+# ippeveprinter commands...
+#
+
+IPPEVECOMMANDS	=	@IPPEVECOMMANDS@
+
+
 #
 # Install XPC backends?
 #
 
 INSTALLXPC	=	@INSTALLXPC@
+
+#
+# Code signing...
+#
+
+CODE_SIGN	=	@CODE_SIGN@
+CODE_SIGN_IDENTITY = -
 
 #
 # Program options...
@@ -136,10 +147,15 @@ INSTALLXPC	=	@INSTALLXPC@
 #               for extra debug info)
 #
 
-ALL_CFLAGS	=	-I.. -D_CUPS_SOURCE $(CFLAGS) $(SSLFLAGS) \
-			@LARGEFILE@ @PTHREAD_FLAGS@ $(ONDEMANDFLAGS) $(OPTIONS)
-ALL_CXXFLAGS	=	-I.. -D_CUPS_SOURCE $(CXXFLAGS) $(SSLFLAGS) \
-			@LARGEFILE@ @PTHREAD_FLAGS@ $(ONDEMANDFLAGS) $(OPTIONS)
+ALL_CFLAGS	=	-I.. -D_CUPS_SOURCE $(CFLAGS) \
+			$(SSLFLAGS) @LARGEFILE@ @PTHREAD_FLAGS@ \
+			$(ONDEMANDFLAGS) $(OPTIONS)
+ALL_CXXFLAGS	=	-I.. -D_CUPS_SOURCE $(CXXFLAGS) \
+			$(SSLFLAGS) @LARGEFILE@ @PTHREAD_FLAGS@ \
+			$(ONDEMANDFLAGS) $(OPTIONS)
+ALL_DSOFLAGS	=	-L../cups @ARCHFLAGS@ @RELROFLAGS@ $(DSOFLAGS) $(OPTIM)
+ALL_LDFLAGS	=	-L../cups @LDARCHFLAGS@ @RELROFLAGS@ $(LDFLAGS)  \
+			@PIEFLAGS@ $(OPTIM)
 ARCHFLAGS	=	@ARCHFLAGS@
 ARFLAGS		=	@ARFLAGS@
 BACKLIBS	=	@BACKLIBS@
@@ -151,21 +167,18 @@ CXXLIBS		=	@CXXLIBS@
 DBUS_NOTIFIER	=	@DBUS_NOTIFIER@
 DBUS_NOTIFIERLIBS =	@DBUS_NOTIFIERLIBS@
 DNSSD_BACKEND	=	@DNSSD_BACKEND@
-DSOFLAGS	=	-L../cups @DSOFLAGS@
-DSOLIBS		=	@DSOLIBS@ $(COMMONLIBS)
+DSOFLAGS	=	@DSOFLAGS@
 DNSSDLIBS	=	@DNSSDLIBS@
 IPPFIND_BIN	=	@IPPFIND_BIN@
 IPPFIND_MAN	=	@IPPFIND_MAN@
-LDFLAGS		=	-L../cgi-bin -L../cups -L../filter -L../ppdc \
-			-L../scheduler @LDARCHFLAGS@ \
-			@LDFLAGS@ @RELROFLAGS@ @PIEFLAGS@ $(OPTIM)
-LINKCUPS	=	@LINKCUPS@ $(LIBGSSAPI) $(DNSSDLIBS) $(SSLLIBS) $(LIBZ)
-LINKCUPSIMAGE	=	@LINKCUPSIMAGE@
-LIBS		=	$(LINKCUPS) $(COMMONLIBS)
+LDFLAGS		=	@LDFLAGS@
+LINKCUPS	=	@LINKCUPS@
+LINKCUPSSTATIC	=	../cups/$(LIBCUPSSTATIC) $(LIBS)
+LIBS		=	$(LIBGSSAPI) $(DNSSDLIBS) $(SSLLIBS) $(LIBZ) $(COMMONLIBS)
 ONDEMANDFLAGS	=	@ONDEMANDFLAGS@
 ONDEMANDLIBS	=	@ONDEMANDLIBS@
 OPTIM		=	@OPTIM@
-OPTIONS		=
+OPTIONS		=	@WARNING_OPTIONS@
 PAMLIBS		=	@PAMLIBS@
 SERVERLIBS	=	@SERVERLIBS@
 SSLFLAGS	=	@SSLFLAGS@
@@ -207,9 +220,8 @@ srcdir		=	@srcdir@
 sysconfdir	=	@sysconfdir@
 top_srcdir	=	@top_srcdir@
 
-BUILDROOT	=	$(DSTROOT)
+BUILDROOT	=	$(DSTROOT)$(DESTDIR)
 
-AMANDIR		=	$(BUILDROOT)@AMANDIR@
 BINDIR		=	$(BUILDROOT)@bindir@
 BUNDLEDIR	=	@CUPS_BUNDLEDIR@
 CACHEDIR	=	$(BUILDROOT)@CUPS_CACHEDIR@
@@ -222,22 +234,16 @@ LOCALEDIR	= 	$(BUILDROOT)@CUPS_LOCALEDIR@
 LOGDIR		= 	$(BUILDROOT)@CUPS_LOGDIR@
 MANDIR		=	$(BUILDROOT)@mandir@
 MENUDIR		=	@MENUDIR@
-PMANDIR		=	$(BUILDROOT)@PMANDIR@
 PRIVATEINCLUDE	=	$(BUILDROOT)@PRIVATEINCLUDE@
 RCLEVELS	=	@RCLEVELS@
 RCSTART		=	@RCSTART@
 RCSTOP		=	@RCSTOP@
 REQUESTS	= 	$(BUILDROOT)@CUPS_REQUESTS@
+RESOURCEDIR	=	@CUPS_RESOURCEDIR@
 SBINDIR		=	$(BUILDROOT)@sbindir@
 SERVERBIN	= 	$(BUILDROOT)@CUPS_SERVERBIN@
 SERVERROOT	= 	$(BUILDROOT)@CUPS_SERVERROOT@
 STATEDIR	=	$(BUILDROOT)@CUPS_STATEDIR@
-
-MAN1EXT		=	@MAN1EXT@
-MAN5EXT		=	@MAN5EXT@
-MAN7EXT		=	@MAN7EXT@
-MAN8EXT		=	@MAN8EXT@
-MAN8DIR		=	@MAN8DIR@
 
 PAMDIR		=	@PAMDIR@
 PAMFILE		=	@PAMFILE@
@@ -258,7 +264,7 @@ USBQUIRKS	=	@USBQUIRKS@
 #
 
 .SILENT:
-.SUFFIXES:	.1 .1.gz .1m .1m.gz .3 .3.gz .5 .5.gz .7 .7.gz .8 .8.gz .a .c .cxx .h .man .o .gz
+.SUFFIXES:	.a .c .cxx .h .o
 
 .c.o:
 	echo Compiling $<...
@@ -267,13 +273,3 @@ USBQUIRKS	=	@USBQUIRKS@
 .cxx.o:
 	echo Compiling $<...
 	$(CXX) $(ARCHFLAGS) $(OPTIM) $(ALL_CXXFLAGS) -c -o $@ $<
-
-.man.1 .man.1m .man.3 .man.5 .man.7 .man.8:
-	echo Linking $<...
-	$(RM) $@
-	$(LN) $< $@
-
-.man.1.gz .man.1m.gz .man.3.gz .man.5.gz .man.7.gz .man.8.gz .man.gz:
-	echo -n Compressing $<...
-	$(RM) $@
-	gzip -v9 <$< >$@

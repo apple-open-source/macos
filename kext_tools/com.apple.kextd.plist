@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>POSIXSpawnType</key>
-	<string>Interactive</string>
+	<string>App</string>
 	<key>Label</key>
 	<string>com.apple.kextd</string>
 	<key>ProgramArguments</key>

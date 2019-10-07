@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008, 2011, 2015, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008, 2011. 2015, 2018-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -39,18 +39,20 @@
 #include <mach/mach.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+#define DISPATCH_MACH_SPI 1
+#import <dispatch/private.h>
+
 __BEGIN_DECLS
 
-void		configdCallback	(CFMachPortRef		port,
-				 void			*msg,
-				 CFIndex		size,
-				 void			*info);
+void			server_mach_channel_handler
+					(void			*context,	// serverSessionRef
+					 dispatch_mach_reason_t	reason,
+					 dispatch_mach_msg_t	message,
+					 mach_error_t		error);
 
-void		server_init	(void);
+void			server_init	(void);
 
-int		server_shutdown	(void);
-
-void		server_loop	(void);
+dispatch_workloop_t	server_queue	(void);
 
 kern_return_t	_snapshot	(mach_port_t		server,
 				 int			*sc_status,
@@ -166,12 +168,6 @@ kern_return_t	_notifyviaport	(mach_port_t		server,
 kern_return_t	_notifyviafd	(mach_port_t		server,
 				 fileport_t		fileport,
 				 int			identifier,
-				 int			*status);
-
-kern_return_t	_notifyviasignal
-				(mach_port_t		server,
-				 task_t			task,
-				 int			signal,
 				 int			*status);
 
 kern_return_t	_notifycancel	(mach_port_t		server,

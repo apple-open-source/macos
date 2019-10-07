@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 ru{
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
     zoneStrings{
         "Africa:Abidjan"{
             ec{"Абиджан"}
@@ -809,6 +809,9 @@ ru{
         }
         "Asia:Qatar"{
             ec{"Катар"}
+        }
+        "Asia:Qostanay"{
+            ec{"Костанай"}
         }
         "Asia:Qyzylorda"{
             ec{"Кызылорда"}
@@ -1881,9 +1884,9 @@ ru{
             ls{"Трук"}
         }
         "meta:Turkmenistan"{
-            ld{"Туркмения, летнее время"}
-            lg{"Туркмения"}
-            ls{"Туркмения, стандартное время"}
+            ld{"Туркменистан, летнее время"}
+            lg{"Туркменистан"}
+            ls{"Туркменистан, стандартное время"}
         }
         "meta:Tuvalu"{
             ls{"Тувалу"}

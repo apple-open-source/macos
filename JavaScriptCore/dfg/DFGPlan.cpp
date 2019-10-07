@@ -71,6 +71,7 @@
 #include "DFGTypeCheckHoistingPhase.h"
 #include "DFGUnificationPhase.h"
 #include "DFGValidate.h"
+#include "DFGValueRepReductionPhase.h"
 #include "DFGVarargsForwardingPhase.h"
 #include "DFGVirtualRegisterAllocationPhase.h"
 #include "DFGWatchpointCollectionPhase.h"
@@ -135,13 +136,13 @@ Profiler::CompilationKind profilerCompilationKindForMode(CompilationMode mode)
 
 Plan::Plan(CodeBlock* passedCodeBlock, CodeBlock* profiledDFGCodeBlock,
     CompilationMode mode, unsigned osrEntryBytecodeIndex,
-    const Operands<JSValue>& mustHandleValues)
-    : m_vm(passedCodeBlock->vm())
+    const Operands<Optional<JSValue>>& mustHandleValues)
+    : m_mode(mode)
+    , m_vm(passedCodeBlock->vm())
     , m_codeBlock(passedCodeBlock)
     , m_profiledDFGCodeBlock(profiledDFGCodeBlock)
-    , m_mode(mode)
-    , m_osrEntryBytecodeIndex(osrEntryBytecodeIndex)
     , m_mustHandleValues(mustHandleValues)
+    , m_osrEntryBytecodeIndex(osrEntryBytecodeIndex)
     , m_compilation(UNLIKELY(m_vm->m_perBytecodeProfiler) ? adoptRef(new Profiler::Compilation(m_vm->m_perBytecodeProfiler->ensureBytecodesFor(m_codeBlock), profilerCompilationKindForMode(mode))) : nullptr)
     , m_inlineCallFrames(adoptRef(new InlineCallFrameSet()))
     , m_identifiers(m_codeBlock)
@@ -183,7 +184,7 @@ void Plan::compileInThread(ThreadData* threadData)
     CompilationScope compilationScope;
 
     if (logCompilationChanges(m_mode) || Options::logPhaseTimes())
-        dataLog("DFG(Plan) compiling ", *m_codeBlock, " with ", m_mode, ", number of instructions = ", m_codeBlock->instructionCount(), "\n");
+        dataLog("DFG(Plan) compiling ", *m_codeBlock, " with ", m_mode, ", instructions size = ", m_codeBlock->instructionsSize(), "\n");
 
     CompilationPath path = compileInThreadImpl();
 
@@ -424,6 +425,8 @@ Plan::CompilationPath Plan::compileInThreadImpl()
             RUN_PHASE(performCriticalEdgeBreaking);
             RUN_PHASE(performObjectAllocationSinking);
         }
+        if (Options::useValueRepElimination())
+            RUN_PHASE(performValueRepReduction);
         if (changed) {
             // State-at-tail and state-at-head will be invalid if we did strength reduction since
             // it might increase live ranges.
@@ -578,49 +581,56 @@ bool Plan::isStillValidOnMainThread()
 
 CompilationResult Plan::finalizeWithoutNotifyingCallback()
 {
-    // We will establish new references from the code block to things. So, we need a barrier.
-    m_vm->heap.writeBarrier(m_codeBlock);
+    // We perform multiple stores before emitting a write-barrier. To ensure that no GC happens between store and write-barrier, we should ensure that
+    // GC is deferred when this function is called.
+    ASSERT(m_vm->heap.isDeferred());
 
-    if (!isStillValidOnMainThread() || !isStillValid()) {
-        CODEBLOCK_LOG_EVENT(m_codeBlock, "dfgFinalize", ("invalidated"));
-        return CompilationInvalidated;
-    }
-
-    bool result;
-    if (m_codeBlock->codeType() == FunctionCode)
-        result = m_finalizer->finalizeFunction();
-    else
-        result = m_finalizer->finalize();
-
-    if (!result) {
-        CODEBLOCK_LOG_EVENT(m_codeBlock, "dfgFinalize", ("failed"));
-        return CompilationFailed;
-    }
-
-    reallyAdd(m_codeBlock->jitCode()->dfgCommon());
-
-    if (validationEnabled()) {
-        TrackedReferences trackedReferences;
-
-        for (WriteBarrier<JSCell>& reference : m_codeBlock->jitCode()->dfgCommon()->weakReferences)
-            trackedReferences.add(reference.get());
-        for (WriteBarrier<Structure>& reference : m_codeBlock->jitCode()->dfgCommon()->weakStructureReferences)
-            trackedReferences.add(reference.get());
-        for (WriteBarrier<Unknown>& constant : m_codeBlock->constants())
-            trackedReferences.add(constant.get());
-
-        for (auto* inlineCallFrame : *m_inlineCallFrames) {
-            ASSERT(inlineCallFrame->baselineCodeBlock.get());
-            trackedReferences.add(inlineCallFrame->baselineCodeBlock.get());
+    CompilationResult result = [&] {
+        if (!isStillValidOnMainThread() || !isStillValid()) {
+            CODEBLOCK_LOG_EVENT(m_codeBlock, "dfgFinalize", ("invalidated"));
+            return CompilationInvalidated;
         }
 
-        // Check that any other references that we have anywhere in the JITCode are also
-        // tracked either strongly or weakly.
-        m_codeBlock->jitCode()->validateReferences(trackedReferences);
-    }
+        bool result;
+        if (m_codeBlock->codeType() == FunctionCode)
+            result = m_finalizer->finalizeFunction();
+        else
+            result = m_finalizer->finalize();
 
-    CODEBLOCK_LOG_EVENT(m_codeBlock, "dfgFinalize", ("succeeded"));
-    return CompilationSuccessful;
+        if (!result) {
+            CODEBLOCK_LOG_EVENT(m_codeBlock, "dfgFinalize", ("failed"));
+            return CompilationFailed;
+        }
+
+        reallyAdd(m_codeBlock->jitCode()->dfgCommon());
+
+        if (validationEnabled()) {
+            TrackedReferences trackedReferences;
+
+            for (WriteBarrier<JSCell>& reference : m_codeBlock->jitCode()->dfgCommon()->weakReferences)
+                trackedReferences.add(reference.get());
+            for (WriteBarrier<Structure>& reference : m_codeBlock->jitCode()->dfgCommon()->weakStructureReferences)
+                trackedReferences.add(reference.get());
+            for (WriteBarrier<Unknown>& constant : m_codeBlock->constants())
+                trackedReferences.add(constant.get());
+
+            for (auto* inlineCallFrame : *m_inlineCallFrames) {
+                ASSERT(inlineCallFrame->baselineCodeBlock.get());
+                trackedReferences.add(inlineCallFrame->baselineCodeBlock.get());
+            }
+
+            // Check that any other references that we have anywhere in the JITCode are also
+            // tracked either strongly or weakly.
+            m_codeBlock->jitCode()->validateReferences(trackedReferences);
+        }
+
+        CODEBLOCK_LOG_EVENT(m_codeBlock, "dfgFinalize", ("succeeded"));
+        return CompilationSuccessful;
+    }();
+
+    // We will establish new references from the code block to things. So, we need a barrier.
+    m_vm->heap.writeBarrier(m_codeBlock);
+    return result;
 }
 
 void Plan::finalizeAndNotifyCallback()
@@ -639,8 +649,11 @@ void Plan::checkLivenessAndVisitChildren(SlotVisitor& visitor)
         return;
 
     cleanMustHandleValuesIfNecessary();
-    for (unsigned i = m_mustHandleValues.size(); i--;)
-        visitor.appendUnbarriered(m_mustHandleValues[i]);
+    for (unsigned i = m_mustHandleValues.size(); i--;) {
+        Optional<JSValue> value = m_mustHandleValues[i];
+        if (value)
+            visitor.appendUnbarriered(value.value());
+    }
 
     m_recordedStatuses.markIfCheap(visitor);
 
@@ -661,18 +674,19 @@ void Plan::checkLivenessAndVisitChildren(SlotVisitor& visitor)
 
 void Plan::finalizeInGC()
 {
-    m_recordedStatuses.finalizeWithoutDeleting();
+    ASSERT(m_vm);
+    m_recordedStatuses.finalizeWithoutDeleting(*m_vm);
 }
 
 bool Plan::isKnownToBeLiveDuringGC()
 {
     if (m_stage == Cancelled)
         return false;
-    if (!Heap::isMarked(m_codeBlock->ownerExecutable()))
+    if (!m_vm->heap.isMarked(m_codeBlock->ownerExecutable()))
         return false;
-    if (!Heap::isMarked(m_codeBlock->alternative()))
+    if (!m_vm->heap.isMarked(m_codeBlock->alternative()))
         return false;
-    if (!!m_profiledDFGCodeBlock && !Heap::isMarked(m_profiledDFGCodeBlock))
+    if (!!m_profiledDFGCodeBlock && !m_vm->heap.isMarked(m_profiledDFGCodeBlock))
         return false;
     return true;
 }
@@ -715,7 +729,7 @@ void Plan::cleanMustHandleValuesIfNecessary()
 
     for (unsigned local = m_mustHandleValues.numberOfLocals(); local--;) {
         if (!liveness[local])
-            m_mustHandleValues.local(local) = jsUndefined();
+            m_mustHandleValues.local(local) = WTF::nullopt;
     }
 }
 

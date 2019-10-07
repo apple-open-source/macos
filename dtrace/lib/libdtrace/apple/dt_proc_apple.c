@@ -31,24 +31,11 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <string.h>
 
 #include "dt_impl.h"
 #include <dt_proc.h>
 #include <dt_pid.h>
-
-/*
- * These are functions in dt_proc.c. They used to be static, and so have no header decls
- */
-extern void dt_proc_notify(dtrace_hdl_t *dtp, dt_proc_hash_t *dph, dt_proc_t *dpr, const char *msg);
-extern void dt_proc_stop(dt_proc_t *dpr, uint8_t why);
-
-extern void dt_proc_bpmain(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *fname);
-extern dt_bkpt_t *dt_proc_bpcreate(dt_proc_t *dpr, uintptr_t addr, dt_bkpt_f *func, void *data);
-extern void dt_proc_bpdestroy(dt_proc_t *, int);
-
-extern dt_proc_rdwatch(dt_proc_t *dpr, rd_event_e event, const char *evname);
-
-extern Phandler_func_t dt_proc_control_activity_handler; // See libproc.m
 
 extern psaddr_t rd_event_mock_addr(struct ps_prochandle *); // See libproc.m
 
@@ -66,16 +53,15 @@ dt_proc_bpmatch(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 	}
 	
 	if (dbp == NULL) {
-		dt_dprintf("pid %d: spurious breakpoint wakeup for %lx\n",
+		dt_dprintf("pid %d: spurious breakpoint wakeup for %lx",
 			   (int)dpr->dpr_pid, rd_event_mock_addr(dpr->dpr_proc));
 		return;
 	}
 	
-	dt_dprintf("pid %d: hit breakpoint at %lx (%lu)\n",
+	dt_dprintf("pid %d: hit breakpoint at %lx (%lu)",
 		   (int)dpr->dpr_pid, (ulong_t)dbp->dbp_addr, ++dbp->dbp_hits);
 	
 	dbp->dbp_func(dtp, dpr, dbp->dbp_data);
-	(void) Pxecbkpt(dpr->dpr_proc, dbp->dbp_instr);
 }
 
 /*
@@ -85,6 +71,7 @@ dt_proc_bpmatch(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 static void
 dt_proc_attach(dt_proc_t *dpr, int exec)
 {
+#pragma unused(exec)
 	rd_err_e err;
 	
 	/* exec == B_FALSE coming from initial call in dt_proc_control()
@@ -96,25 +83,12 @@ dt_proc_attach(dt_proc_t *dpr, int exec)
 		dt_proc_rdwatch(dpr, RD_POSTINIT, "RD_POSTINIT");
 		dt_proc_rdwatch(dpr, RD_DLACTIVITY, "RD_DLACTIVITY");
 	} else {
-		dt_dprintf("pid %d: failed to enable rtld events: %s\n",
+		dt_dprintf("pid %d: failed to enable rtld events: %s",
 			   (int)dpr->dpr_pid, dpr->dpr_rtld ? rd_errstr(err) :
 			   "rtld_db agent initialization failed");
 	}
 	
 	Pupdate_maps(dpr->dpr_proc);
-	
-#if 0
-	if (Pxlookup_by_name(dpr->dpr_proc, LM_ID_BASE,
-			     "a.out", "main", &sym, NULL) == 0) {
-		(void) dt_proc_bpcreate(dpr, (uintptr_t)sym.st_value,
-					(dt_bkpt_f *)dt_proc_bpmain, "a.out`main");
-	} else {
-		dt_dprintf("pid %d: failed to find a.out`main: %s\n",
-			   (int)dpr->dpr_pid, strerror(errno));
-	}
-#else
-#warning Need mechanism for stop at a.out`main
-#endif
 }
 
 typedef struct dt_proc_control_data {
@@ -140,7 +114,7 @@ dt_proc_control(void *arg)
 	dt_proc_control_data_t *datap = arg;
 	dtrace_hdl_t *dtp = datap->dpcd_hdl;
 	dt_proc_t *dpr = datap->dpcd_proc;
-	dt_proc_hash_t *dph = dpr->dpr_hdl->dt_procs;
+	dt_proc_hash_t *dph = dtp->dt_procs;
 	struct ps_prochandle *P = dpr->dpr_proc;
 	
 	int pid = dpr->dpr_pid;
@@ -178,7 +152,7 @@ dt_proc_control(void *arg)
 		dt_proc_stop(dpr, DT_PROC_STOP_GRAB);
 
 	if (Psetrun(P, 0, 0) == -1) {
-		dt_dprintf("pid %d: failed to set running: %s\n",
+		dt_dprintf("pid %d: failed to set running: %s",
 			   (int)dpr->dpr_pid, strerror(errno));
 	}
 		
@@ -204,7 +178,7 @@ dt_proc_control(void *arg)
 			
 		switch (Pstate(P)) {
 			case PS_STOP:		
-				dt_dprintf("pid %d: proc stopped\n", pid);
+				dt_dprintf("pid %d: proc stopped", pid);
 				dt_proc_bpmatch(dtp, dpr);
 				break;
 				
@@ -217,21 +191,21 @@ dt_proc_control(void *arg)
 				break;
 				
 			case PS_LOST:
-				dt_dprintf("pid %d: proc lost\n", pid);
+				dt_dprintf("pid %d: proc lost", pid);
 				dpr->dpr_quit = B_TRUE;
 				notify = B_TRUE;
 				break;
 				
 			case PS_DEAD:
 			case PS_UNDEAD:
-				dt_dprintf("pid %d: proc died\n", pid);
+				dt_dprintf("pid %d: proc died", pid);
 				dpr->dpr_quit = B_TRUE;
 				notify = B_TRUE;
 				break;
 				
 			default:
 				assert(false);
-				dt_dprintf("pid %d: proc in unrecognized state, resuming\n", pid);
+				dt_dprintf("pid %d: proc in unrecognized state, resuming", pid);
 				break;		
 				
 		}

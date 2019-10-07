@@ -8,9 +8,13 @@
 
 #include "number_stringbuilder.h"
 #include "intltest.h"
+#include "itformat.h"
 #include "number_affixutils.h"
 #include "numparse_stringsegment.h"
+#include "numrange_impl.h"
 #include "unicode/locid.h"
+#include "unicode/numberformatter.h"
+#include "unicode/numberrangeformatter.h"
 
 using namespace icu::number;
 using namespace icu::number::impl;
@@ -40,7 +44,7 @@ class AffixUtilsTest : public IntlTest {
                                        UErrorCode &status);
 };
 
-class NumberFormatterApiTest : public IntlTest {
+class NumberFormatterApiTest : public IntlTestWithFieldPosition {
   public:
     NumberFormatterApiTest();
     NumberFormatterApiTest(UErrorCode &status);
@@ -52,6 +56,7 @@ class NumberFormatterApiTest : public IntlTest {
     void unitCompoundMeasure();
     void unitCurrency();
     void unitPercent();
+    void percentParity();
     void roundingFraction();
     void roundingFigures();
     void roundingFractionFigures();
@@ -67,12 +72,14 @@ class NumberFormatterApiTest : public IntlTest {
     void scale();
     void locale();
     void formatTypes();
-    void fieldPosition();
+    void fieldPositionLogic();
+    void fieldPositionCoverage();
     void toFormat();
     void errors();
     void validRanges();
     void copyMove();
     void localPointerCAPI();
+    void toObject();
 
     void runIndexedTest(int32_t index, UBool exec, const char *&name, char *par = 0);
 
@@ -83,6 +90,7 @@ class NumberFormatterApiTest : public IntlTest {
     CurrencyUnit CAD;
     CurrencyUnit ESP;
     CurrencyUnit PTE;
+    CurrencyUnit RON;
 
     MeasureUnit METER;
     MeasureUnit DAY;
@@ -108,11 +116,18 @@ class NumberFormatterApiTest : public IntlTest {
     void assertFormatDescendingBig(const char16_t* message, const char16_t* skeleton,
                                    const UnlocalizedNumberFormatter& f, Locale locale, ...);
 
-    void assertFormatSingle(const char16_t* message, const char16_t* skeleton,
-                            const UnlocalizedNumberFormatter& f, Locale locale, double input,
-                            const UnicodeString& expected);
+    FormattedNumber
+    assertFormatSingle(const char16_t* message, const char16_t* skeleton,
+                       const UnlocalizedNumberFormatter& f, Locale locale, double input,
+                       const UnicodeString& expected);
 
     void assertUndefinedSkeleton(const UnlocalizedNumberFormatter& f);
+
+    void assertNumberFieldPositions(
+      const char16_t* message,
+      const FormattedNumber& formattedNumber,
+      const UFieldPosition* expectedFieldPositions,
+      int32_t length);
 };
 
 class DecimalQuantityTest : public IntlTest {
@@ -126,6 +141,7 @@ class DecimalQuantityTest : public IntlTest {
     void testHardDoubleConversion();
     void testToDouble();
     void testMaxDigits();
+    void testNickelRounding();
 
     void runIndexedTest(int32_t index, UBool exec, const char *&name, char *par = 0);
 
@@ -223,6 +239,8 @@ class NumberParserTest : public IntlTest {
     void testAffixPatternMatcher();
     void testGroupingDisabled();
     void testCaseFolding();
+    void test20360_BidiOverflow();
+    void testInfiniteRecursion();
 
     void runIndexedTest(int32_t index, UBool exec, const char *&name, char *par = 0);
 };
@@ -242,6 +260,56 @@ class NumberSkeletonTest : public IntlTest {
 
   private:
     void expectedErrorSkeleton(const char16_t** cases, int32_t casesLen);
+};
+
+class NumberRangeFormatterTest : public IntlTestWithFieldPosition {
+  public:
+    NumberRangeFormatterTest();
+    NumberRangeFormatterTest(UErrorCode &status);
+
+    void testSanity();
+    void testBasic();
+    void testCollapse();
+    void testIdentity();
+    void testDifferentFormatters();
+    void testPlurals();
+    void testFieldPositions();
+    void testCopyMove();
+    void toObject();
+
+    void runIndexedTest(int32_t index, UBool exec, const char *&name, char *par = 0);
+
+  private:
+    CurrencyUnit USD;
+    CurrencyUnit GBP;
+    CurrencyUnit PTE;
+
+    MeasureUnit METER;
+    MeasureUnit KILOMETER;
+    MeasureUnit FAHRENHEIT;
+    MeasureUnit KELVIN;
+
+    void assertFormatRange(
+      const char16_t* message,
+      const UnlocalizedNumberRangeFormatter& f,
+      Locale locale,
+      const char16_t* expected_10_50,
+      const char16_t* expected_49_51,
+      const char16_t* expected_50_50,
+      const char16_t* expected_00_30,
+      const char16_t* expected_00_00,
+      const char16_t* expected_30_3K,
+      const char16_t* expected_30K_50K,
+      const char16_t* expected_49K_51K,
+      const char16_t* expected_50K_50K,
+      const char16_t* expected_50K_50M);
+    
+    FormattedNumberRange assertFormattedRangeEquals(
+      const char16_t* message,
+      const LocalizedNumberRangeFormatter& l,
+      double first,
+      double second,
+      const char16_t* expected);
 };
 
 
@@ -276,6 +344,7 @@ class NumberTest : public IntlTest {
         TESTCLASS(8, StringSegmentTest);
         TESTCLASS(9, NumberParserTest);
         TESTCLASS(10, NumberSkeletonTest);
+        TESTCLASS(11, NumberRangeFormatterTest);
         default: name = ""; break; // needed to end loop
         }
     }

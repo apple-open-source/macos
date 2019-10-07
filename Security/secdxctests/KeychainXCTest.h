@@ -29,7 +29,7 @@
 #import <OCMock/OCMock.h>
 
 #if USE_KEYSTORE
-#import <libaks.h>
+#include "OSX/utilities/SecAKSWrappers.h"
 
 typedef enum {
     LockStateUnlocked,
@@ -41,6 +41,7 @@ typedef enum {
 
 @property LockState lockState;
 @property id mockSecDbKeychainItemV7;
+@property id mockSecAKSObjCWrappers;
 @property bool allowDecryption;
 @property BOOL didAKSDecrypt;
 @property BOOL simulateRolledAKSKey;

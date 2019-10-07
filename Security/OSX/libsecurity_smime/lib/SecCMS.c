@@ -45,11 +45,12 @@
 #include "cmstpriv.h"
 #include "cmspriv.h"
 
-#include <SecCMS.h>
+#include <Security/SecCMS.h>
 
 CFTypeRef kSecCMSSignDigest = CFSTR("kSecCMSSignDigest");
 CFTypeRef kSecCMSSignDetached = CFSTR("kSecCMSSignDetached");
 CFTypeRef kSecCMSCertChainMode = CFSTR("kSecCMSCertChainMode");
+CFTypeRef kSecCMSCertChainModeNone = CFSTR("0");
 CFTypeRef kSecCMSAdditionalCerts = CFSTR("kSecCMSAdditionalCerts");
 CFTypeRef kSecCMSSignedAttributes = CFSTR("kSecCMSSignedAttributes");
 CFTypeRef kSecCMSSignDate = CFSTR("kSecCMSSignDate");
@@ -63,6 +64,7 @@ CFTypeRef kSecCMSEncryptionAlgorithmDESCBC = CFSTR("kSecCMSEncryptionAlgorithmDE
 CFTypeRef kSecCMSEncryptionAlgorithmAESCBC = CFSTR("kSecCMSEncryptionAlgorithmAESCBC");
 
 CFTypeRef kSecCMSSignHashAlgorithm = CFSTR("kSecCMSSignHashAlgorithm");
+CFTypeRef kSecCMSHashingAlgorithmMD5 = CFSTR("kSecCMSHashingAlgorithmMD5");
 CFTypeRef kSecCMSHashingAlgorithmSHA1 = CFSTR("kSecCMSHashingAlgorithmSHA1");
 CFTypeRef kSecCMSHashingAlgorithmSHA256 = CFSTR("kSecCMSHashingAlgorithmSHA256");
 CFTypeRef kSecCMSHashingAlgorithmSHA384 = CFSTR("kSecCMSHashingAlgorithmSHA384");
@@ -409,7 +411,7 @@ static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef det
             CFDateRef expiration_date = CFDateCreate(NULL, expiration_time);
             if (expiration_date) {
                 CFDictionarySetValue(attrs, kSecCMSExpirationDate, expiration_date);
-                CFRetainSafe(expiration_date);
+                CFReleaseSafe(expiration_date);
             }
         }
         

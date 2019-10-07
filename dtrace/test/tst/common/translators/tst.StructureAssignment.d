@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.StructureAssignment.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * If the entire output is copied by means of a structure assignment, any

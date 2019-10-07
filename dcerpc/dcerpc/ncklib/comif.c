@@ -370,7 +370,7 @@ PRIVATE void rpc__server_register_if_int
     unsigned32                  *status
 )
 {
-    rpc_if_rep_p_t              if_rep = (rpc_if_rep_p_t) ifspec_h;
+    rpc_if_rep_p_t              if_rep = (rpc_if_rep_p_t)(void *) ifspec_h;
     rpc_mgr_epv_t               mepv;
     rpc_if_rgy_entry_p_t        if_entry;
     unsigned32                  index;
@@ -666,7 +666,7 @@ PRIVATE void rpc__server_unregister_if_int
     unsigned32                  *status
 )
 {
-    rpc_if_rep_p_t              if_rep = (rpc_if_rep_p_t) ifspec_h;
+    rpc_if_rep_p_t              if_rep = (rpc_if_rep_p_t)(void *) ifspec_h;
     unsigned32                  index;
     rpc_if_rgy_entry_p_t        if_entry, next_if_entry;
     boolean                     found_mgr_type;
@@ -1323,7 +1323,7 @@ PRIVATE void rpc__if_lookup2
             *status = rpc_s_unknown_mgr_type;
             RPC_MUTEX_UNLOCK (if_mutex);
 
-            if (UUID_EQ (((rpc_if_rep_p_t) mgmt_v1_0_s_ifspec)->id, *if_uuid, &temp_status))
+            if (UUID_EQ (((rpc_if_rep_p_t)(void *) mgmt_v1_0_s_ifspec)->id, *if_uuid, &temp_status))
             {
                 rpc__if_lookup2 (if_uuid, if_vers, NULL, ihint, ifspec, sepv, mepv,
                                  flags, max_calls, max_rpc_size, if_callback, status);
@@ -1447,14 +1447,14 @@ PUBLIC void rpc_if_inq_id
     /*
      * copy the interface UUID from the if_spec
      */
-    if_id->uuid = ((rpc_if_rep_p_t) (ifspec_h))->id;
+    if_id->uuid = ((rpc_if_rep_p_t)(void *) (ifspec_h))->id;
 
     /*
      * convert the old form of the version number (single unsigned long)
      * into the new form (major and minor unsigned16's)
      */
-    if_id->vers_major = RPC_IF_VERS_MAJOR(((rpc_if_rep_p_t) ifspec_h)->vers);
-    if_id->vers_minor = RPC_IF_VERS_MINOR(((rpc_if_rep_p_t) (ifspec_h))->vers);
+    if_id->vers_major = RPC_IF_VERS_MAJOR(((rpc_if_rep_p_t)(void *) ifspec_h)->vers);
+    if_id->vers_minor = RPC_IF_VERS_MINOR(((rpc_if_rep_p_t)(void *) (ifspec_h))->vers);
 
     *status = rpc_s_ok;
 }

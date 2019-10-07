@@ -74,6 +74,8 @@ __RCSID("$FreeBSD: src/bin/ls/ls.c,v 1.66 2002/09/21 01:28:36 wollman Exp $");
 #include <sys/xattr.h>
 #include <sys/param.h>
 #include <get_compat.h>
+#include <sys/sysctl.h>
+#include <System/sys/fsctl.h>
 #else
 #define COMPAT_MODE(a,b) (1)
 #endif /* __APPLE__ */
@@ -131,6 +133,8 @@ static int f_whiteout;		/* show whiteout entries */
        int f_xattr;		/* show extended attributes in long listing */
        int f_group;		/* show group */
        int f_owner;		/* show owner */
+       int f_dataless;          /* distinguish dataless files in long listing,
+				   and don't materialize dataless directories. */
 #ifdef COLORLS
        int f_color;		/* add type in color for non-regular files */
 
@@ -182,7 +186,7 @@ main(int argc, char *argv[])
 		f_listdot = 1;
 
 	fts_options = FTS_PHYSICAL;
- 	while ((ch = getopt(argc, argv, "1@ABCFGHLOPRSTUWabcdefghiklmnopqrstuvwx")) 
+	while ((ch = getopt(argc, argv, "1@ABCFGHLOPRSTUWabcdefghiklmnopqrstuvwx%"))
 	    != -1) {
 		switch (ch) {
 		/*
@@ -364,6 +368,9 @@ main(int argc, char *argv[])
 		case 'O':
 			f_flags = 1;
 			break;
+		case '%':
+			f_dataless = 1;
+			break;
 		default:
 		case '?':
 			usage();
@@ -483,6 +490,17 @@ main(int argc, char *argv[])
 		printfcn = printstream;
 	else
 		printfcn = printcol;
+
+#ifdef __APPLE__
+	if (f_dataless) {
+		// don't materialize dataless directories from the cloud
+		// (particularly usefull when listing recursively)
+		int state = 1;
+		if (sysctlbyname("vfs.nspace.prevent_materialization", NULL, NULL, &state, sizeof(state)) < 0) {
+			err(1, "prevent_materialization");
+		}
+	}
+#endif /* __APPLE__ */
 
 	if (argc)
 		traverse(argc, argv, fts_options);
@@ -832,6 +850,9 @@ display(FTSENT *p, FTSENT *list)
 					np->mode_suffix = '+';
 				} else {
 					np->mode_suffix = ' ';
+				}
+				if (f_dataless && (sp->st_flags & SF_DATALESS)) {
+					np->mode_suffix = '%';
 				}
 				if (!f_acl) {
 					acl_free(np->acl);

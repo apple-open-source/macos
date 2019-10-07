@@ -1,9 +1,9 @@
 --TEST--
 Test function gzpassthru() by calling it with its expected arguments
 --SKIPIF--
-<?php 
+<?php
 if (!extension_loaded("zlib")) {
-	print "skip - ZLIB extension not loaded"; 
+	print "skip - ZLIB extension not loaded";
 }
 ?>
 --FILE--
@@ -20,7 +20,7 @@ gzclose($h);
 
 ?>
 ===DONE===
---EXPECTF--
+--EXPECT--
 When you're taught through feelings
 Destiny flying high above
 all I know is that you can realize it

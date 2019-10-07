@@ -3,14 +3,14 @@ Test getdate() function : usage variation - Passing unexpected values to first a
 --FILE--
 <?php
 /* Prototype  : array getdate([int timestamp])
- * Description: Get date/time information 
+ * Description: Get date/time information
  * Source code: ext/date/php_date.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing getdate() : usage variation ***\n";
 
-//Set the default time zone 
+//Set the default time zone
 date_default_timezone_set("Asia/Calcutta");
 
 //get an unset variable
@@ -175,22 +175,22 @@ array(11) {
 
 --empty array--
 
-Warning: getdate() expects parameter 1 to be integer, array given in %s on line %d
+Warning: getdate() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
 --int indexed array--
 
-Warning: getdate() expects parameter 1 to be integer, array given in %s on line %d
+Warning: getdate() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
 --associative array--
 
-Warning: getdate() expects parameter 1 to be integer, array given in %s on line %d
+Warning: getdate() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
 --nested arrays--
 
-Warning: getdate() expects parameter 1 to be integer, array given in %s on line %d
+Warning: getdate() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
 --uppercase NULL--
@@ -351,42 +351,42 @@ array(11) {
 
 --empty string DQ--
 
-Warning: getdate() expects parameter 1 to be integer, string given in %s on line %d
+Warning: getdate() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 --empty string SQ--
 
-Warning: getdate() expects parameter 1 to be integer, string given in %s on line %d
+Warning: getdate() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 --string DQ--
 
-Warning: getdate() expects parameter 1 to be integer, string given in %s on line %d
+Warning: getdate() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 --string SQ--
 
-Warning: getdate() expects parameter 1 to be integer, string given in %s on line %d
+Warning: getdate() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 --mixed case string--
 
-Warning: getdate() expects parameter 1 to be integer, string given in %s on line %d
+Warning: getdate() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 --heredoc--
 
-Warning: getdate() expects parameter 1 to be integer, string given in %s on line %d
+Warning: getdate() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 --instance of classWithToString--
 
-Warning: getdate() expects parameter 1 to be integer, object given in %s on line %d
+Warning: getdate() expects parameter 1 to be int, object given in %s on line %d
 bool(false)
 
 --instance of classWithoutToString--
 
-Warning: getdate() expects parameter 1 to be integer, object given in %s on line %d
+Warning: getdate() expects parameter 1 to be int, object given in %s on line %d
 bool(false)
 
 --undefined var--

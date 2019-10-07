@@ -29,34 +29,25 @@
 #define _SECURITYD_SECKEYBAGSUPPORT_H_
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <utilities/SecAKSWrappers.h>
+#include "utilities/SecAKSWrappers.h"
 #include <libaks_acl_cf_keys.h>
+#include <TargetConditionals.h>
 
 #ifndef USE_KEYSTORE
-#define USE_KEYSTORE TARGET_HAS_KEYSTORE
+// Use keystore (real or mock) on all platforms, except bridge
+#define USE_KEYSTORE !TARGET_OS_BRIDGE
+#endif
+
+#if __has_include(<Kernel/IOKit/crypto/AppleKeyStoreDefs.h>)
+#include <Kernel/IOKit/crypto/AppleKeyStoreDefs.h>
 #endif
 
 #if USE_KEYSTORE
-#include <Kernel/IOKit/crypto/AppleKeyStoreDefs.h>
 #include <Security/SecAccessControlPriv.h>
 #endif /* USE_KEYSTORE */
 
 __BEGIN_DECLS
 
-#if !USE_KEYSTORE
-/* TODO: this needs to be available in the sim! */
-typedef int32_t keyclass_t;
-typedef int32_t key_handle_t;
-enum key_classes {
-    key_class_ak = 6,
-    key_class_ck,
-    key_class_dk,
-    key_class_aku,
-    key_class_cku,
-    key_class_dku,
-    key_class_akpu
-};
-#endif /* !USE_KEYSTORE */
 
 /* KEYBAG_NONE is private to security and have special meaning.
  They should not collide with AppleKeyStore constants, but are only referenced
@@ -67,6 +58,7 @@ enum key_classes {
 extern keybag_handle_t g_keychain_keybag;
 
 bool use_hwaes(void);
+
 bool ks_crypt(CFTypeRef operation, keybag_handle_t keybag,
               keyclass_t keyclass, uint32_t textLength, const uint8_t *source, keyclass_t *actual_class,
               CFMutableDataRef dest, CFErrorRef *error);

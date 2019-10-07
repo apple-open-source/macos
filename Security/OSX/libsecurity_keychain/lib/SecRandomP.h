@@ -32,11 +32,8 @@
 #include <Security/SecBase.h>
 #include <stdint.h>
 #include <sys/types.h>
-#if SEC_BUILDER
-#include "SecRandom.h"
-#else
 #include <Security/SecRandom.h>
-#endif
+
 #if defined(__cplusplus)
 extern "C" {
 #endif

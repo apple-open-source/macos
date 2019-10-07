@@ -50,6 +50,7 @@
 #include "sstransit.h"
 #include <security_cdsa_client/cspclient.h>
 
+#include <CommonCrypto/CommonRandom.h>
 #include <securityd_client/xdr_auth.h>
 #include <securityd_client/xdr_cssm.h>
 #include <securityd_client/xdr_dldb.h>
@@ -481,12 +482,18 @@ uint32 ClientSession::getOutputSize(const Context &context, KeyHandle key,
 // a PRNG in its CSP. If you need a reproducible PRNG, attach a local CSP and use it.
 // Note that this function does not allocate a buffer; it always fills the buffer provided.
 //
+// As of macOS 10.15 this no longer fetches random data from the daemon but generates it in-process
+//
 void ClientSession::generateRandom(const Security::Context &context, CssmData &data, Allocator &alloc)
 {
-	CopyIn ctxcopy(&context, reinterpret_cast<xdrproc_t>(xdr_CSSM_CONTEXT));
-	DataOutput result(data, alloc);
-    
-	IPC(ucsp_client_generateRandom(UCSP_ARGS, 0, ctxcopy.data(), ctxcopy.length(), DATA_OUT(result)));
+    size_t count = context.getInt(CSSM_ATTRIBUTE_OUTPUT_SIZE);
+    if (data.length() < count) {
+        CssmError::throwMe(CSSM_ERRCODE_INVALID_DATA);
+    }
+    CCRNGStatus status = CCRandomGenerateBytes(data.data(), count);
+    if (status != kCCSuccess) {
+        CssmError::throwMe(status);
+    }
 }
 
 
@@ -842,63 +849,6 @@ void ClientSession::postNotification(NotificationDomain domain, NotificationEven
 	IPC(ucsp_client_postNotification(UCSP_ARGS, domain, event, DATA(data), seq));
 }
 
-
-//
-// Code Signing related
-//
-void ClientSession::registerHosting(mach_port_t hostingPort, SecCSFlags flags)
-{
-	IPC(ucsp_client_registerHosting(UCSP_ARGS, hostingPort, flags));
-}
-
-mach_port_t ClientSession::hostingPort(pid_t pid)
-{
-	mach_port_t result;
-	IPC(ucsp_client_hostingPort(UCSP_ARGS, pid, &result));
-	return result;
-}
-
-SecGuestRef ClientSession::createGuest(SecGuestRef host,
-		uint32_t status, const char *path, const CssmData &cdhash, const CssmData &attributes, SecCSFlags flags)
-{
-	SecGuestRef newGuest;
-	IPC(ucsp_client_createGuest(UCSP_ARGS, host, status, path, DATA(cdhash), DATA(attributes), flags, &newGuest));
-	if (flags & kSecCSDedicatedHost) {
-		secinfo("ssclient", "setting dedicated guest to 0x%x (was 0x%x)",
-			mDedicatedGuest, newGuest);
-		mDedicatedGuest = newGuest;
-	}
-	return newGuest;
-}
-
-void ClientSession::setGuestStatus(SecGuestRef guest, uint32 status, const CssmData &attributes)
-{
-	IPC(ucsp_client_setGuestStatus(UCSP_ARGS, guest, status, DATA(attributes)));
-}
-
-void ClientSession::removeGuest(SecGuestRef host, SecGuestRef guest)
-{
-	IPC(ucsp_client_removeGuest(UCSP_ARGS, host, guest));
-}
-
-void ClientSession::selectGuest(SecGuestRef newGuest)
-{
-	if (mDedicatedGuest) {
-		secinfo("ssclient", "ignoring selectGuest(0x%x) because dedicated guest=0x%x",
-			newGuest, mDedicatedGuest);
-	} else {
-		secinfo("ssclient", "switching to guest 0x%x", newGuest);
-		mGlobal().thread().currentGuest = newGuest;
-	}
-}
-
-SecGuestRef ClientSession::selectedGuest() const
-{
-	if (mDedicatedGuest)
-		return mDedicatedGuest;
-	else
-		return mGlobal().thread().currentGuest;
-}
 
 //
 // Testing related

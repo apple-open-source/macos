@@ -1,5 +1,5 @@
 --TEST--
-Test copy() function: usage variations - destination file access perms 
+Test copy() function: usage variations - destination file access perms
 --SKIPIF--
 <?php
 if(substr(PHP_OS, 0, 3) == 'WIN')
@@ -29,7 +29,7 @@ $file_path = dirname(__FILE__);
 echo "*** Test copy() function: destination with/without write permissions ***\n";
 $src_file_name = $file_path."/copy_variation9.tmp";
 $file_handle =  fopen($src_file_name, "w");
-fwrite($file_handle, str_repeat(b"Hello2world...\n", 100));
+fwrite($file_handle, str_repeat("Hello2world...\n", 100));
 fclose($file_handle);
 
 $dest_file_name =  $file_path."/copy_copy_variation9.tmp";
@@ -50,7 +50,6 @@ var_dump( filesize($dest_file_name) );
 
 echo "*** Done ***\n";
 ?>
-
 --CLEAN--
 <?php
 unlink(dirname(__FILE__)."/copy_copy_variation9.tmp");

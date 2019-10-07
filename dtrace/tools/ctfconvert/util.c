@@ -114,7 +114,7 @@ elf_ptrsz(Elf *elf)
 
 /*PRINTFLIKE2*/
 static void
-whine(char *type, char *format, va_list ap)
+whine(char *type, const char *format, va_list ap)
 {
 	int error = errno;
 
@@ -133,7 +133,7 @@ set_terminate_cleanup(void (*cleanup)())
 
 /*PRINTFLIKE1*/
 void
-terminate(char *format, ...)
+terminate(const char *format, ...)
 {
 	va_list ap;
 
@@ -248,5 +248,5 @@ elfterminate(const char *file, const char *fmt, ...)
 const char *
 tdesc_name(tdesc_t *tdp)
 {
-	return (tdp->t_name == NULL ? "(anon)" : tdp->t_name);
+	return atom_pretty(tdp->t_name, "(anon)");
 }

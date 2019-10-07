@@ -45,8 +45,10 @@
 #include <stdlib.h>
 #include <mach/mach_time.h>
 
-
 #import "STLegacyTests.h"
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 @implementation STLegacyTests (falsestart)
 
@@ -62,8 +64,7 @@ typedef struct {
 } ssl_test_handle;
 
 
-
-#if 0
+#if SECTRANS_VERBOSE_DEBUG
 static void hexdump(const uint8_t *bytes, size_t len) {
 	size_t ix;
     printf("socket write(%p, %lu)\n", bytes, len);
@@ -104,7 +105,7 @@ static int SocketConnect(const char *hostName, int port)
     addr.sin_family = AF_INET;
     err = connect(sock, (struct sockaddr *) &addr, sizeof(struct sockaddr_in));
 
-    if(err!=0)
+    if(err != 0)
     {
         perror("connect failed");
         return -1;
@@ -132,9 +133,9 @@ static OSStatus SocketWrite(SSLConnectionRef conn, const void *data, size_t *len
         if (ret > 0) {
             len -= ret;
             ptr += ret;
-        }
-        else
+        } else {
             return -36;
+        }
     } while (len > 0);
 
     *length = *length - len;
@@ -152,11 +153,10 @@ OSStatus SocketRead(
     
     len = read(fd, data, *dataLength);
    
-    if(len<0) {
+    if (len < 0) {
         int theErr = errno;
         switch(theErr) {
             case EAGAIN:
-                //printf("SocketRead: EAGAIN\n");
                 *dataLength=0;
                 /* nonblocking, no data */
                 return errSSLWouldBlock;
@@ -166,8 +166,8 @@ OSStatus SocketRead(
         }
     }
     
-    if(len<(ssize_t)*dataLength) {
-        *dataLength=len;
+    if (len < (ssize_t)*dataLength) {
+        *dataLength = len;
         return errSSLWouldBlock;
     }
     
@@ -193,8 +193,9 @@ static SSLContextRef make_ssl_ref(int sock, SSLProtocol maxprot, Boolean false_s
 
     return ctx;
 out:
-    if (ctx)
+    if (ctx) {
         SSLDisposeContext(ctx);
+    }
     return NULL;
 }
 
@@ -210,23 +211,22 @@ static OSStatus securetransport(ssl_test_handle * ssl)
 
     ortn = SSLHandshake(ctx);
 
-    require_action_quiet(ortn==errSSLWouldBlock, out, printf("SSLHandshake failed with err %ld\n", (long)ortn));
+    require_action_quiet(ortn == errSSLWouldBlock, out, printf("SSLHandshake failed with err %ld\n", (long)ortn));
 
     size_t sent, received;
-    const char *r=request;
-    size_t l=sizeof(request);
+    const char *r = request;
+    size_t l = sizeof(request);
 
     do {
         
         ortn = SSLWrite(ctx, r, l, &sent);
         
-        if(ortn == errSSLWouldBlock) {
-                r+=sent;
-                l-=sent;
+        if (ortn == errSSLWouldBlock) {
+                r += sent;
+                l -= sent;
         }
         
-        if (ortn == errSSLServerAuthCompleted)
-        {
+        if (ortn == errSSLServerAuthCompleted) {
             require_string(!got_server_auth, out, "second server auth");
             require_string(!got_client_cert_req, out, "got client cert req before server auth");
             got_server_auth = true;
@@ -237,9 +237,7 @@ static OSStatus securetransport(ssl_test_handle * ssl)
             /* this won't verify without setting up a trusted anchor */
             require_noerr(SecTrustEvaluate(trust, &trust_result), out);
         }
-    } while(ortn == errSSLWouldBlock || ortn == errSSLServerAuthCompleted);
-
-    //fprintf(stderr, "\nHTTP Request Sent\n");
+    } while (ortn == errSSLWouldBlock || ortn == errSSLServerAuthCompleted);
 
     require_noerr_action_quiet(ortn, out, printf("SSLWrite failed with err %ld\n", (long)ortn));
 
@@ -247,17 +245,11 @@ static OSStatus securetransport(ssl_test_handle * ssl)
 
     do {
         ortn = SSLRead(ctx, reply, sizeof(reply)-1, &received);
-        //fprintf(stderr, "r"); usleep(1000);
-    } while(ortn == errSSLWouldBlock);
-    
-    //fprintf(stderr, "\n");
+    } while (ortn == errSSLWouldBlock);
     
     require_noerr_action_quiet(ortn, out, printf("SSLRead failed with err %ld\n", (long)ortn));
 
-    reply[received]=0;
-
-    //fprintf(stderr, "HTTP reply:\n");
-    //fprintf(stderr, "%s\n",reply);
+    reply[received] = 0;
     
 out:
     SSLClose(ctx);
@@ -287,7 +279,6 @@ struct s_server {
     /* Good tls 1.2 servers */
     {"encrypted.google.com", 443, kTLSProtocol12 },
     {"www.amazon.com",443, kTLSProtocol12 },
-    //{"www.mikestoolbox.org",443, kTLSProtocol12 },
 };
 
 #define NSERVERS (int)(sizeof(servers)/sizeof(servers[0]))
@@ -299,32 +290,32 @@ struct s_server {
     int p;
     int fs;
     
-    for(p=0; p<NSERVERS;p++) {
-    for(int loops=0; loops<NLOOPS; loops++) {
-    for(fs=0;fs<2; fs++) {
+    for (p = 0; p < NSERVERS; p++) {
+        for (int loops = 0; loops < NLOOPS; loops++) {
+            for (fs = 0;fs < 2; fs++) {
 
-        ssl_test_handle *client;
-        OSStatus r;
-        int s = -1;
+                ssl_test_handle *client;
+                OSStatus r;
+                int s = -1;
 
-        for(int try = 0; s<0 && try<CONNECT_TRIES; try++) {
-            s=SocketConnect(servers[p].host, servers[p].port);
+                for (int try = 0; s < 0 && try < CONNECT_TRIES; try++) {
+                    s = SocketConnect(servers[p].host, servers[p].port);
+                }
+                if (s < 0) {
+                    break;
+                }
+                client = ssl_test_handle_create(s, servers[p].maxprot, fs);
+
+                r = securetransport(client);
+                XCTAssert(!r, "handshake failed with err=%ld - %s:%d (try %d), false start=%d", (long)r, servers[p].host, servers[p].port, loops, fs);
+
+                close(s);
+                free(client);
+            }
         }
-
-        if(s<0) {
-            XCTFail("connect failed with err=%d - %s:%d (try %d)", s, servers[p].host, servers[p].port, loops);
-            break;
-        }
-
-        client = ssl_test_handle_create(s, servers[p].maxprot, fs);
-
-        r=securetransport(client);
-        XCTAssert(!r, "handshake failed with err=%ld - %s:%d (try %d), false start=%d", (long)r, servers[p].host, servers[p].port, loops, fs);
-
-        close(s);
-        free(client);
-    } } }
+    }
 }
 
 @end
 
+#pragma clang diagnostic pop

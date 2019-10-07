@@ -430,6 +430,7 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				DefaultBuildSystemTypeForWorkspace = Latest;
 				TargetAttributes = {
 					EF6323D5202B6A3F003EC772 = {
 						CreatedOnToolsVersion = 9.3;

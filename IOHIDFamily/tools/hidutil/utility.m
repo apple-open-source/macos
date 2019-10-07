@@ -20,7 +20,7 @@
 static NSArray *matchingKeys(void) {
     return @[ @kIOHIDVendorIDKey, @kIOHIDProductIDKey, @kIOHIDTransportKey,
               @kIOHIDPrimaryUsageKey, @kIOHIDPrimaryUsagePageKey, @kIOHIDLocationIDKey,
-              @kIOHIDTransportKey, @kIOHIDProductKey, @kIOHIDManufacturerKey, @kIOClassKey ];
+              @kIOHIDTransportKey, @kIOHIDProductKey, @kIOHIDManufacturerKey, @kIOClassKey, @kIOHIDBuiltInKey, @"IOUserClass"];
 }
 
 NSDictionary *createServiceInfoDictionary(IOHIDServiceClientRef service) {

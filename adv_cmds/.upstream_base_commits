@@ -1,0 +1,3 @@
+#freebsd = https://github.com/freebsd/freebsd.git
+usr.bin/whois/whois.c	freebsd	whois/whois.c	872b698bd4a1bfc0bf008c09228e6fd238809c75
+usr.bin/whois/whois.1	freebsd	whois/whois.1	7e6cabd06e6caa6a02eeb86308dc0cb3f27e10da

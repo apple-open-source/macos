@@ -131,8 +131,6 @@ feeReturn feePubKeyInitFromKeyString(feePubKey pubKey,
 	const char *keyStr,
 	unsigned keyStrLen);
 
-#if CRYPTKIT_DER_ENABLE
-
 /* 
  * DER format support. 
  * Obtain portable public and private DER-encoded key blobs from a key.
@@ -196,8 +194,6 @@ feeReturn feePubKeyInitFromOpenSSLBlob(
 	unsigned char *keyBlob,
 	size_t keyBlobLen);
 
-#endif	/* CRYPTKIT_DER_ENABLE */
-
 /*
  * ANSI X9.62/Certicom key support.
  * Public key is 04 || x || y
@@ -246,69 +242,6 @@ int feePubKeyIsEqual(feePubKey key1,
  */
 int feePubKeyIsPrivate(feePubKey key);
 
-#if	CRYPTKIT_KEY_EXCHANGE
-
-/*
- * Generate a pad, for use with symmetric encryption, derived from two keys.
- * 'myKey' must be created with private data (via feePubKeyInitFromPrivData()
- * or feePubKeyInitFromKey().
- */
-feeReturn feePubKeyCreatePad(feePubKey myKey,
-	feePubKey theirKey,
-	unsigned char **padData,	/* fmalloc'd & RETURNED */
-	unsigned *padDataLen);		/* RETURNED padData length in bytes */
-
-#endif	/* CRYPTKIT_KEY_EXCHANGE */
-
-#if	CRYPTKIT_HIGH_LEVEL_SIG
-
-/*
- * The following two routines are implemented using primitives in the
- * feeHash and feeDigitalSignature objects.
- *
- * Generate digital signature, ElGamal style.
- */
-feeReturn feePubKeyCreateSignature(feePubKey pubKey,
-	const unsigned char *data,
-	unsigned dataLen,
-	unsigned char **signature,	/* fmalloc'd and RETURNED */
-	unsigned *signatureLen);	/* RETURNED */
-
-/*
- * Verify digital signature, ElGamal style.
- */
-feeReturn feePubKeyVerifySignature(feePubKey pubKey,
-	const unsigned char *data,
-	unsigned dataLen,
-	const unsigned char *signature,
-	unsigned signatureLen);
-	
-#if CRYPTKIT_ECDSA_ENABLE
-    
-/*
- * The following two routines are implemented using primitives in the
- * feeHash and feeECDSA objects.
- *
- * Generate digital signature, ECDSA style.
- */
-feeReturn feePubKeyCreateECDSASignature(feePubKey pubKey,
-	const unsigned char *data,
-	unsigned dataLen,
-	unsigned char **signature,		/* fmalloc'd and RETURNED */
-	unsigned *signatureLen);		/* RETURNED */
-
-/*
- * Verify digital signature, ECDSA style.
- */
-feeReturn feePubKeyVerifyECDSASignature(feePubKey pubKey,
-	const unsigned char *data,
-	unsigned dataLen,
-	const unsigned char *signature,
-	unsigned signatureLen);
-
-#endif	/* CRYPTKIT_ECDSA_ENABLE */
-
-#endif	/* CRYPTKIT_HIGH_LEVEL_SIG */
 
 /* 
  * Diffie-Hellman. Public key is specified either as a feePubKey or 

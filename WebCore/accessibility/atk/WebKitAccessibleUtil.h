@@ -21,7 +21,7 @@
 
 #pragma once
 
-#if HAVE(ACCESSIBILITY)
+#if ENABLE(ACCESSIBILITY)
 
 #include <atk/atk.h>
 #include <wtf/text/WTFString.h>
@@ -35,28 +35,26 @@ class VisibleSelection;
 // An existing accessibility object is considered to be invalid whether it's already
 // detached or if it's not but just updating the layout will detach it anyway.
 #define returnIfWebKitAccessibleIsInvalid(webkitAccessible) G_STMT_START { \
-    if (!webkitAccessible || webkitAccessibleIsDetached(webkitAccessible)) { \
+    if (!webkitAccessible || webkitAccessibleIsDetached(webkitAccessible)) \
         return; \
-    } else { \
-        AccessibilityObject* coreObject = webkitAccessibleGetAccessibilityObject(webkitAccessible); \
-        if (!coreObject || !coreObject->document()) \
-            return; \
-        coreObject->updateBackingStore(); \
-        if (webkitAccessibleIsDetached(webkitAccessible)) \
-            return; \
-    }; } G_STMT_END
+    auto& coreObject = webkitAccessibleGetAccessibilityObject(webkitAccessible); \
+    if (!coreObject.document())                                         \
+        return;                                                         \
+    coreObject.updateBackingStore();                                    \
+    if (webkitAccessibleIsDetached(webkitAccessible))                   \
+        return;                                                         \
+    ; } G_STMT_END
 
 #define returnValIfWebKitAccessibleIsInvalid(webkitAccessible, val) G_STMT_START { \
-    if (!webkitAccessible || webkitAccessibleIsDetached(webkitAccessible)) { \
-        return (val); \
-    } else { \
-        AccessibilityObject* coreObject = webkitAccessibleGetAccessibilityObject(webkitAccessible); \
-        if (!coreObject || !coreObject->document()) \
-            return (val); \
-        coreObject->updateBackingStore(); \
-        if (webkitAccessibleIsDetached(webkitAccessible)) \
-            return (val); \
-    }; } G_STMT_END
+    if (!webkitAccessible || webkitAccessibleIsDetached(webkitAccessible)) \
+        return (val);                                                   \
+    auto& coreObject = webkitAccessibleGetAccessibilityObject(webkitAccessible); \
+    if (!coreObject.document())                                         \
+        return (val);                                                   \
+    coreObject.updateBackingStore();                                    \
+    if (webkitAccessibleIsDetached(webkitAccessible))                   \
+        return (val);                                                   \
+    ; } G_STMT_END
 
 AtkAttributeSet* addToAtkAttributeSet(AtkAttributeSet*, const char* name, const char* value);
 
@@ -68,4 +66,6 @@ String accessibilityDescription(WebCore::AccessibilityObject*);
 
 bool selectionBelongsToObject(WebCore::AccessibilityObject*, WebCore::VisibleSelection&);
 
-#endif // HAVE(ACCESSIBILITY)
+WebCore::AccessibilityObject* objectFocusedAndCaretOffsetUnignored(WebCore::AccessibilityObject*, int& offset);
+
+#endif // ENABLE(ACCESSIBILITY)

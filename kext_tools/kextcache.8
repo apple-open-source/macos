@@ -45,7 +45,7 @@ update all necessary kext caches.
 can be used to wait for this process to complete.
 See
 .Dq "Apple Developer Technical Q&A QA1319: Installing an I/O Kit Kext Without Rebooting"
-for information on updating kext caches on prior releases of Mac OS X.
+for information on updating kext caches on prior releases of macOS.
 .Pp
 .Nm
 creates several kinds of kext caches.
@@ -121,7 +121,7 @@ See
 and
 .Fl force .
 .Pp
-Which caches are rebuilt depends on the Mac OS X release installed on
+Which caches are rebuilt depends on the macOS release installed on
 .Ar os_volume .
 If
 .Nm
@@ -190,7 +190,7 @@ containing an embedded cache
 for each of the specified architectures.
 If no architectures are specified,
 a default set of architectures supported
-by the current Mac OS X version is used (Mac OS X 10.6 and later).
+by the current macOS version is used (Mac OS X 10.6 and later).
 .It Fl b Ar identifier , Fl bundle-id Ar identifier
 Find the kext whose CFBundleIdentifier is
 .Ar identifier
@@ -393,13 +393,13 @@ The standard system repository of kernel extensions.
 .It Pa /Library/Extensions/
 The standard repository of non Apple kernel extensions.
 .It Pa /System/Library/Caches/com.apple.kext.caches/
-Contains system kext info caches for a Mac OS X system.
+Contains system kext info caches for a macOS system.
 .It Pa /System/Library/PrelinkedKernels/
-Contains prelinked kernel for a Mac OS X system.
+Contains prelinked kernel for a macOS system.
 .It Pa /System/Library/Kernels/kernel
 The default kernel file.
 .It Pa /usr/standalone/bootcaches.plist
-Describes specific kext cache files for a Mac OS X volume.
+Describes specific kext cache files for a macOS volume.
 .It Pa /System/Library/Caches/com.apple.bootstamps/
 Contains timestamp information about kext caches.
 .It Pa /Library/StagedExtensions/

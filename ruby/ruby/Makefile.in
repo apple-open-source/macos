@@ -16,12 +16,14 @@ top_srcdir = $(srcdir)
 hdrdir = $(srcdir)/include
 PLATFORM_DIR = @PLATFORM_DIR@
 
+CC_WRAPPER = @XCC_WRAPPER@
 CC = @CC@
 CPP = @CPP@
 LD = @LD@
 YACC = bison
 PURIFY =
 AUTOCONF = autoconf
+ACLOCAL = aclocal
 CONFIGURE = @CONFIGURE@
 @SET_MAKE@
 MKFILES = @MAKEFILES@
@@ -43,7 +45,17 @@ arch = @arch@
 sitearch = @sitearch@
 sitedir = @sitedir@
 archlibdir = @archlibdir@
+includedir = @includedir@
+archincludedir = @archincludedir@
+rubylibprefix = @rubylibprefix@
+rubylibdir = @rubylibdir@
+rubyarchprefix = @rubyarchprefix@
+rubyarchdir = @rubyarchdir@
+rubyhdrdir = @rubyhdrdir@
+rubyarchhdrdir = @rubyarchhdrdir@
 ruby_version = @ruby_version@
+RUBY_VERSION_NAME = @RUBY_VERSION_NAME@
+UNIVERSAL_ARCHNAMES = @UNIVERSAL_ARCHNAMES@
 
 TESTUI = console
 TESTS =
@@ -51,6 +63,7 @@ INSTALLDOC = @INSTALLDOC@
 DOCTARGETS = @RDOCTARGET@ @CAPITARGET@
 
 EXTOUT = @EXTOUT@
+TIMESTAMPDIR  = $(EXTOUT)/.timestamp
 arch_hdrdir = $(EXTOUT)/include/$(arch)
 VPATH = $(arch_hdrdir)/ruby:$(hdrdir)/ruby:$(srcdir):$(srcdir)/missing
 
@@ -58,6 +71,7 @@ empty =
 CC_VERSION = @CC_VERSION@
 OUTFLAG = @OUTFLAG@$(empty)
 COUTFLAG = @COUTFLAG@$(empty)
+CPPOUTFLAG = $(COUTFLAG)
 ARCH_FLAG = @ARCH_FLAG@
 CFLAGS_NO_ARCH = @CFLAGS@
 CFLAGS = $(CFLAGS_NO_ARCH) $(ARCH_FLAG)
@@ -66,18 +80,38 @@ optflags = @optflags@
 debugflags = @debugflags@
 warnflags = @warnflags@ @strict_warnflags@
 cppflags = @cppflags@
-INCFLAGS = -I. -I$(arch_hdrdir) -I$(hdrdir) -I$(srcdir)
-XCFLAGS = @XCFLAGS@
-CPPFLAGS = @CPPFLAGS@ $(INCFLAGS)
+MATHN = @MATHN@
+XCFLAGS = @XCFLAGS@ $(MATHN:yes=-DCANONICALIZATION_FOR_MATHN)
+USE_RUBYGEMS = @USE_RUBYGEMS@
+USE_RUBYGEMS_ = $(USE_RUBYGEMS:yes=)
+CPPFLAGS = @CPPFLAGS@ $(INCFLAGS) $(USE_RUBYGEMS_:no=-DDISABLE_RUBYGEMS=1)
+MJIT_SUPPORT = @MJIT_SUPPORT@
+MJIT_HEADER_FLAGS = @MJIT_HEADER_FLAGS@
+MJIT_HEADER_SUFFIX =
+MJIT_HEADER_ARCH =
+MJIT_HEADER_INSTALL_DIR = @MJIT_HEADER_INSTALL_DIR@
+MJIT_CC = @MJIT_CC@
+MJIT_CFLAGS = @MJIT_CFLAGS@
+MJIT_OPTFLAGS = @MJIT_OPTFLAGS@
+MJIT_DEBUGFLAGS = @MJIT_DEBUGFLAGS@
+MJIT_LDSHARED = @MJIT_LDSHARED@
+MJIT_DLDFLAGS = @DLDFLAGS@
+MJIT_HEADER   = rb_mjit_header.h
+MJIT_MIN_HEADER_NAME = rb_mjit_min_header-$(RUBY_PROGRAM_VERSION).h
+MJIT_MIN_HEADER = $(MJIT_HEADER_BUILD_DIR)/$(MJIT_MIN_HEADER_NAME)
+MJIT_HEADER_BUILD_DIR = $(EXTOUT)/include/$(arch)
 LDFLAGS = @STATIC@ $(CFLAGS) @LDFLAGS@
 EXTLDFLAGS = @EXTLDFLAGS@
 XLDFLAGS = @XLDFLAGS@ $(EXTLDFLAGS)
 EXTLIBS =
 LIBS = @LIBS@ $(EXTLIBS)
 MISSING = @LIBOBJS@ @ALLOCA@
+ENABLE_SHARED = @ENABLE_SHARED@
 LDSHARED = @LIBRUBY_LDSHARED@
+DLDSHARED = @DLDSHARED@
 DLDFLAGS = @LIBRUBY_DLDFLAGS@ $(XLDFLAGS) $(ARCH_FLAG)
 SOLIBS = @SOLIBS@
+ENABLE_DEBUG_ENV = @ENABLE_DEBUG_ENV@
 MAINLIBS = @MAINLIBS@
 ARCHMINIOBJS = @MINIOBJS@
 DLNOBJ = @DLNOBJ@
@@ -90,6 +124,7 @@ POSTLINK = @POSTLINK@
 
 RUBY_BASE_NAME=@RUBY_BASE_NAME@
 RUBY_PROGRAM_VERSION=@RUBY_PROGRAM_VERSION@
+RUBY_API_VERSION=@RUBY_API_VERSION@
 RUBY_INSTALL_NAME=@RUBY_INSTALL_NAME@
 RUBY_SO_NAME=@RUBY_SO_NAME@
 EXEEXT = @EXEEXT@
@@ -116,14 +151,19 @@ XRUBY_RUBYLIBDIR = @XRUBY_RUBYLIBDIR@
 XRUBY_RUBYHDRDIR = @XRUBY_RUBYHDRDIR@
 BOOTSTRAPRUBY = @BOOTSTRAPRUBY@
 
+COROUTINE_H = @X_FIBER_COROUTINE_H@
+COROUTINE_OBJ = $(COROUTINE_H:.h=.@OBJEXT@)
+
 #### End of system configuration section. ####
 
 MAJOR=	@MAJOR@
 MINOR=	@MINOR@
 TEENY=	@TEENY@
+RUBY_PROGRAM_VERSION = @RUBY_PROGRAM_VERSION@
 
 LIBRUBY_A     = @LIBRUBY_A@
 LIBRUBY_SO    = @LIBRUBY_SO@
+LIBRUBY_SONAME= @LIBRUBY_SONAME@
 LIBRUBY_ALIASES= @LIBRUBY_ALIASES@
 LIBRUBY	      = @LIBRUBY@
 LIBRUBYARG    = @LIBRUBYARG@
@@ -168,12 +208,13 @@ RANLIB        = @RANLIB@
 AS            = @AS@
 ASFLAGS       = @ASFLAGS@ $(INCFLAGS)
 IFCHANGE      = $(srcdir)/tool/ifchange
-SET_LC_MESSAGES = env LC_MESSAGES=C
 OBJDUMP       = @OBJDUMP@
 OBJCOPY       = @OBJCOPY@
+HAVE_GIT      = @HAVE_GIT@
+GIT           = @GIT@
 VCS           = @VCS@
 VCSUP         = @VCSUP@
-DTRACE        = @DTRACE@
+DTRACE        = @DTRACE@ @DTRACE_OPT@
 DTRACE_EXT    = @DTRACE_EXT@
 DTRACE_OBJ    = @DTRACE_OBJ@
 DTRACE_REBUILD= @DTRACE_REBUILD@
@@ -181,6 +222,7 @@ DTRACE_GLOMMED_OBJ = $(DTRACE_REBUILD:yes=ruby-glommed.$(OBJEXT))
 
 OBJEXT        = @OBJEXT@
 ASMEXT        = S
+SOEXT         = @SOEXT@
 DLEXT         = @DLEXT@
 MANTYPE	      = @MANTYPE@
 SYMBOL_PREFIX = @SYMBOL_PREFIX@
@@ -190,7 +232,10 @@ INSTALLED_LIST= .installed.list
 NEWLINE_C     = enc/trans/newline.c
 MINIPRELUDE_C = miniprelude.c
 PRELUDE_C     = prelude.c
+GOLF_PRELUDE_C= golf_prelude.c
 RBCONFIG      = .rbconfig.time
+
+MAINSRC = $(MAINOBJ:@OBJEXT@=c)
 
 SRC_FILE      = $<
 OS_SRC_FILE   = $<
@@ -207,7 +252,7 @@ DESTDIR       = @DESTDIR@
 configure_args = @configure_args@
 #### End of variables
 
-.SUFFIXES: .inc .h .c .y .i .$(DTRACE_EXT)
+.SUFFIXES: .inc .h .c .y .i .$(ASMEXT) .$(DTRACE_EXT)
 
 all:
 
@@ -218,6 +263,7 @@ miniruby$(EXEEXT):
 		@-if test -f $@; then $(MV) -f $@ $@.old; $(RM) $@.old; fi
 		$(ECHO) linking $@
 		$(Q) $(PURIFY) $(CC) $(LDFLAGS) $(XLDFLAGS) $(NORMALMAINOBJ) $(MINIOBJS) $(COMMONOBJS) $(MAINLIBS) $(LIBS) $(OUTFLAG)$@
+		$(Q) $(POSTLINK)
 
 $(PROGRAM):
 		@$(RM) $@
@@ -225,38 +271,44 @@ $(PROGRAM):
 		$(Q) $(PURIFY) $(CC) $(LDFLAGS) $(XLDFLAGS) $(MAINOBJ) $(EXTOBJS) $(LIBRUBYARG) $(MAINLIBS) $(LIBS) $(EXTLIBS) $(OUTFLAG)$@
 		$(Q) $(POSTLINK)
 
+PRE_LIBRUBY_UPDATE = [ -n "$(LIBRUBY_SO_UPDATE)" ] || $(exec) $(RM) $(LIBRUBY_EXTS)
+
 # We must `rm' the library each time this rule is invoked because "updating" a
 # MAB library on Apple/NeXT (see --enable-fat-binary in configure) is not
 # supported.
 $(LIBRUBY_A):
 		@$(RM) $@
+		@-[ -z "$(EXTSTATIC)" ] || $(PRE_LIBRUBY_UPDATE)
 		$(ECHO) linking static-library $@
 		$(Q) $(AR) $(ARFLAGS) $@ $(LIBRUBY_A_OBJS) $(INITOBJS)
 		@-$(RANLIB) $@ 2> /dev/null || true
+
+verify-static-library: $(LIBRUBY_A)
 		$(ECHO) verifying static-library $@
 		@$(PURIFY) $(CC) $(LDFLAGS) $(XLDFLAGS) $(MAINOBJ) $(LIBRUBY_A) $(MAINLIBS) $(EXTLIBS) $(LIBS) $(OUTFLAG)conftest$(EXEEXT)
-		@$(RM) conftest$(EXEEXT) conftest.c
+		@$(RMALL) conftest$(EXEEXT) conftest.c conftest.dSYM
 
 $(LIBRUBY_SO):
-		@-$(PRE_LIBRUBY_UPDATE)
+		@-[ -n "$(EXTSTATIC)" ] || $(PRE_LIBRUBY_UPDATE)
 		$(ECHO) linking shared-library $@
 		$(Q) $(LDSHARED) $(DLDFLAGS) $(OBJS) $(DLDOBJS) $(SOLIBS) $(EXTSOLIBS) $(OUTFLAG)$@
 		-$(Q) $(OBJCOPY) -w -L '$(SYMBOL_PREFIX)Init_*' -L '$(SYMBOL_PREFIX)ruby_static_id_*' \
-			-L '$(SYMBOL_PREFIX)*_threadptr_*' $@
+			-L '$(SYMBOL_PREFIX)*_threadptr_*' -L '$(SYMBOL_PREFIX)*_ec_*' $@
 		$(Q) $(POSTLINK)
-		@-$(MINIRUBY) -e 'ARGV.each{|link| File.delete link rescue nil; \
-						  File.symlink "$(LIBRUBY_SO)", link}' \
-				$(LIBRUBY_ALIASES) || true
+		@-$(MINIRUBY) -e 'so, *aliases = ARGV; aliases.uniq!; aliases.delete(File.basename(so)); \
+				  aliases.each { |link| File.delete link rescue nil; File.symlink so, link }' \
+				$(LIBRUBY_SO) $(LIBRUBY_ALIASES) || true
+
+LIBRUBY_WITH_EXT = @LIBRUBY_WITH_EXT@
+$(LIBRUBY_$(LIBRUBY_WITH_EXT)): $(LIBRUBY_SO_UPDATE)
 
 ruby_pc = @ruby_pc@
-$(ruby_pc):
+ruby.pc: $(ruby_pc)
+$(ruby_pc): config.status
 		@./config.status --file=$@:$(srcdir)/template/ruby.pc.in
 
-ruby-runner.c: template/ruby-runner.c.in
+ruby-runner.h: template/ruby-runner.h.in config.status
 		@./config.status --file=$@:$(srcdir)/template/$(@F).in
-
-ruby-runner$(EXEEXT): ruby-runner.c
-	$(Q) $(PURIFY) $(CC) $(CFLAGS) $(CPPFLAGS) -DRUBY_INSTALL_NAME=$(RUBY_INSTALL_NAME) $(LDFLAGS) $(LIBS) $(OUTFLAG)$@ ruby-runner.c
 
 $(RBCONFIG): $(PREP)
 
@@ -299,16 +351,24 @@ uncommon.mk: $(srcdir)/common.mk
 .PHONY: reconfig
 reconfig-args = $(srcdir)/$(CONFIGURE) $(configure_args)
 config.status-args = ./config.status --recheck
-reconfig-exec-0 = test -t 1 && { CONFIGURE_TTY=yes; export CONFIGURE_TTY; }; exec 3>&1; exit `exec 4>&1; { "$$@" 3>&- 4>&-; echo $$? 1>&4; } | fgrep -v '(cached)' 1>&3 3>&- 4>&-`
+reconfig-exec-0 = test -t 1 && { : $${CONFIGURE_TTY=yes}; export CONFIGURE_TTY; }; exec 3>&1; exit `exec 4>&1; { "$$@" 3>&- 4>&-; echo $$? 1>&4; } | fgrep -v '(cached)' 1>&3 3>&- 4>&-`
 reconfig-exec-1 = set -x; "$$@"
 
 reconfig config.status:	$(srcdir)/$(CONFIGURE) $(srcdir)/enc/Makefile.in \
 			$(srcdir)/include/ruby/version.h
 	@PWD= MINIRUBY="$(MINIRUBY)"; export MINIRUBY; \
+	warnflags="@warnflags@"; export warnflags; \
 	set $(SHELL) $($@-args); $(reconfig-exec-$(V))
 
-$(srcdir)/$(CONFIGURE): $(srcdir)/configure.in $(srcdir)/aclocal.m4
+$(srcdir)/$(CONFIGURE): $(srcdir)/configure.ac $(srcdir)/aclocal.m4
 	$(CHDIR) $(srcdir) && exec $(AUTOCONF) -o $(@F)
+
+$(srcdir)/aclocal.m4:
+	$(CHDIR) $(srcdir) && \
+	type $(ACLOCAL) >/dev/null 2>&1 && exec $(ACLOCAL); \
+	touch $(@F)
+
+prereq: $(srcdir)/$(CONFIGURE)
 
 incs: id.h
 all-incs: probes.h
@@ -328,35 +388,16 @@ lex.c: defs/keywords
 	else \
 	  [ $(Q) ] && echo generating $@ || set -x; \
 	  gperf -C -P -p -j1 -i 1 -g -o -t -N rb_reserved_word -k1,3,$$ $? \
-	  | sed 's/(long)&((\(struct stringpool_t\) *\*)0)->\(stringpool_[a-z0-9]*\)/offsetof(\1, \2)/g' \
+	  | sed -f $(srcdir)/tool/gperf.sed \
 	  > $@.tmp && \
 	  $(MV) $@.tmp $@ && \
 	  $(CP) $? $(srcdir)/defs/lex.c.src && \
 	  $(CP) $@ $(srcdir)/lex.c.blt; \
 	fi
 
-NAME2CTYPE_OPTIONS = -7 -c -j1 -i1 -t -C -P -T -H uniname2ctype_hash -Q uniname2ctype_pool -N uniname2ctype_p
-
-enc/unicode/name2ctype.h: enc/unicode/name2ctype.kwd
-	$(MAKEDIRS) $(@D)
-	@set +e; \
-	if cmp -s $(?:.kwd=.src) $?; then \
-	  set -x; \
-	  $(CP) $(?:.kwd=.h.blt) $@; \
-	else \
-	  trap '$(RM) $@-1.h $@-2.h' 0 && \
-	  set -x; \
-	  sed '/^#ifdef USE_UNICODE_PROPERTIES/,/^#endif/d' $? | gperf $(NAME2CTYPE_OPTIONS) > $@-1.h && \
-	  sed '/^#ifdef USE_UNICODE_PROPERTIES/d;/^#endif/d' $? | gperf $(NAME2CTYPE_OPTIONS) > $@-2.h && \
-	  diff -DUSE_UNICODE_PROPERTIES $@-1.h $@-2.h > $@.tmp || :; \
-	  $(MV) $@.tmp $@ && \
-	  $(CP) $? $(?:.kwd=.src) && \
-	  $(CP) $@ $(?:.kwd=.h.blt); \
-	fi
-
 JIS_PROPS_OPTIONS = -k1,3 -7 -c -j1 -i1 -t -C -P -t --ignore-case -H onig_jis_property_hash -Q onig_jis_property_pool -N onig_jis_property
 
-enc/jis/props.h: enc/jis/props.kwd
+$(srcdir)/enc/jis/props.h: enc/jis/props.kwd
 	$(MAKEDIRS) $(@D)
 	@set +e; \
 	if cmp -s $(?:.kwd=.src) $?; then \
@@ -365,7 +406,7 @@ enc/jis/props.h: enc/jis/props.kwd
 	else \
 	  set -x; \
 	  gperf $(JIS_PROPS_OPTIONS) $? | \
-	  sed 's/(int)(long)&((\([a-zA-Z_0-9 ]*[a-zA-Z_0-9]\) *\*)0)->\([a-zA-Z0-9_]*\),/(char)offsetof(\1, \2),/g' > $@ && \
+	  sed -f $(srcdir)/tool/gperf.sed > $@ && \
 	  $(CP) $? $(?:.kwd=.src) && \
 	  $(CP) $@ $(?:.kwd=.h.blt); \
 	fi
@@ -374,11 +415,11 @@ enc/jis/props.h: enc/jis/props.kwd
 	@$(ECHO) compiling $<
 	$(Q) $(CC) $(CFLAGS) $(XCFLAGS) $(CPPFLAGS) $(COUTFLAG)$@ -c $<
 
-.s.@OBJEXT@:
+.$(ASMEXT).@OBJEXT@:
 	@$(ECHO) assembling $<
-	$(Q) $(AS) $(ASFLAGS) -o $@ $<
+	$(Q) $(CC) $(ASFLAGS) -o $@ -c $<
 
-.c.S:
+.c.$(ASMEXT):
 	@$(ECHO) translating $<
 	$(Q) $(CC) $(CFLAGS) $(XCFLAGS) $(CPPFLAGS) $(COUTFLAG)$@ -S $<
 
@@ -393,8 +434,8 @@ enc/jis/props.h: enc/jis/props.kwd
 	$(Q) $(RM) $@.tmp
 
 .dmyh.h:
-	@$(ECHO) copying dummy $(DEST_FILE)
-	$(Q) $(CP) $(OS_SRC_FILE) $(OS_DEST_FILE)
+	@$(ECHO) making dummy $(DEST_FILE)
+	$(Q)echo '#include "$(*F).dmyh"' > $@
 
 probes.stamp: $(DTRACE_REBUILD_OBJS)
 	$(Q) if test -f $@ -o -f probes.$(OBJEXT); then \
@@ -404,10 +445,20 @@ probes.stamp: $(DTRACE_REBUILD_OBJS)
 	fi
 	$(Q) touch $@
 
-probes.@OBJEXT@: $(srcdir)/probes.d $(DTRACE_REBUILD:yes=probes.stamp)
+probes.$(OBJEXT): $(srcdir)/probes.d $(DTRACE_REBUILD:yes=probes.stamp)
 	@$(ECHO) processing probes in object files
 	$(Q) $(RM) $@
 	$(Q) $(DTRACE) -G -C $(INCFLAGS) -s $(srcdir)/probes.d -o $@ $(DTRACE_REBUILD_OBJS)
+
+main: mjit-headers
+yes-mjit-headers: $(MJIT_MIN_HEADER)
+clean-local::
+	$(Q)$(RM) $(MJIT_HEADER) $(MJIT_HEADER:.h=)$(MJIT_HEADER_SUFFIX:%=*).h
+	$(Q)$(RM) $(MJIT_MIN_HEADER) $(MJIT_MIN_HEADER:.h=)$(MJIT_HEADER_SUFFIX:%=*).h
+	$(Q)$(RM) $(MJIT_HEADER_INSTALL_DIR)/rb_mjit_min_header-*.h
+	$(Q)$(RM) $(TIMESTAMPDIR)/$(MJIT_HEADER:.h=)$(MJIT_HEADER_SUFFIX).time mjit_config.h
+	$(Q)$(RM) -r mjit_build_dir.*
+	-$(Q) $(RMDIRS) $(MJIT_HEADER_INSTALL_DIR) 2> $(NULL) || exit 0
 
 # DTrace static library hacks described here:
 # http://mail.opensolaris.org/pipermail/dtrace-discuss/2005-August/000207.html
@@ -419,6 +470,7 @@ clean-local::
 	$(Q)$(RM) ext/extinit.c ext/extinit.$(OBJEXT) ext/ripper/y.output \
 		enc/encinit.c enc/encinit.$(OBJEXT)
 	-$(Q)$(RM) $(pkgconfig_DATA)
+	-$(Q)$(RMALL) exe/ ruby-runner.$(OBJEXT) ruby-runner.h *.dSYM
 
 distclean-local::
 	$(Q)$(RM) ext/config.cache $(RBCONFIG) Doxyfile
@@ -426,33 +478,48 @@ distclean-local::
 	-$(Q)$(RM) $(INSTALLED_LIST) $(arch_hdrdir)/ruby/config.h verconf.h
 	-$(Q)$(RMDIRS) $(arch_hdrdir)/ruby 2> /dev/null || true
 
-clean-ext distclean-ext realclean-ext::
-	@cd ext 2>/dev/null || exit 0; set dummy `echo "${EXTS}" | tr , ' '`; shift; \
+ext/clean.sub gems/clean.sub:: ext/clean.mk
+ext/distclean.sub gems/distclean.sub:: ext/distclean.mk
+ext/realclean.sub gems/realclean.sub:: ext/realclean.mk
+
+ext/clean.mk ext/distclean.mk ext/realclean.mk::
+	-$(Q) if [ -f $(EXTS_MK) ]; then exec $(MAKE) -f $(EXTS_MK) $(@F:.mk=); fi
+
+ext/clean:: ext/clean.sub
+ext/distclean:: ext/distclean.sub
+ext/realclean:: ext/realclean.sub
+gems/clean:: gems/clean.sub
+gems/distclean:: gems/distclean.sub
+gems/realclean:: gems/realclean.sub
+
+ext/clean.sub ext/distclean.sub ext/realclean.sub \
+gems/clean.sub gems/distclean.sub gems/realclean.sub::
+	$(Q) set dummy `echo "${EXTS}" | tr , ' '`; shift; \
 	test "$$#" = 0 && set .; \
 	set dummy `\
-	    find "$$@" -name Makefile -print | sed 's:^\./::;s:/Makefile$$::' | sort; \
+	    cd $(@D) 2>/dev/null && \
+	    find "$$@" \( -name Makefile -o -name exts.mk \) -print | \
+	    sed -n 's:^\./::;s:^:$(@D)/:;s:/[^/][^/]*$$::p' | sort -u; \
 	`; shift; \
-	cd ..; \
 	for dir do \
-	    echo $(@:-ext=)ing "$$dir"; \
-	    (cd "ext/$$dir" && exec $(MAKE) $(MFLAGS) $(@:-ext=)) && \
-	    case "$@" in \
-	    *distclean-ext*|*realclean-ext*) \
-		$(RMDIRS) "ext/$$dir" 2> /dev/null || true;; \
-	    esac; \
-	done
-	-$(Q)$(RM) ext/extinit.$(OBJEXT)
+	    $(RM) "$$dir/exts.mk"; \
+	    if [ -f "$$dir/Makefile" ]; then \
+		echo $(@F:.sub=)ing "$$dir"; \
+		(cd "$$dir" && exec $(MAKE) $(mflags) $(@F:.sub=)); \
+	    fi; \
+	done || true
 
-distclean-ext realclean-ext::
-	-$(Q)$(RM) ext/extinit.c
-	-$(Q)$(RMDIR) ext 2> /dev/null || true
-
-clean-extout:
+ext/distclean ext/realclean gems/distclean gems/realclean::
+	$(Q) set dummy `echo "${EXTS}" | tr , ' '`; shift; \
+	test "$$#" = 0 && set .; \
+	cd $(@D) 2>/dev/null && \
+	find "$$@" -type d -empty -exec $(RMDIRS) {} + 2> /dev/null || true
+	$(Q) $(RMDIRS) $(@D) 2> /dev/null || true
 
 clean-enc distclean-enc realclean-enc:
 	@test -f "$(ENC_MK)" || exit 0; \
 	echo $(@:-enc=ing) encodings; \
-	exec $(MAKE) -f $(ENC_MK) $(MFLAGS) $(@:-enc=)
+	exec $(MAKE) $(MAKE_ENC) $(@:-enc=)
 
 ext/extinit.$(OBJEXT): ext/extinit.c $(SETUP)
 	$(ECHO) compiling $@
@@ -460,89 +527,59 @@ ext/extinit.$(OBJEXT): ext/extinit.c $(SETUP)
 
 enc/encinit.$(OBJEXT): enc/encinit.c $(SETUP)
 
-up::
+cont.$(OBJEXT): $(COROUTINE_H)
+
+test-bundled-gems-run:
+	$(Q) set -e; while read gem _; do \
+	  echo testing $$gem gem && \
+	  $(XRUBY) -C $(srcdir)/gems/src/$$gem -Ilib ../../../.bundle/bin/rake; \
+	done < $(srcdir)/gems/bundled_gems
+
+update-src::
 	@$(CHDIR) "$(srcdir)" && LC_TIME=C exec $(VCSUP)
 
-after-update:: update-config_files prereq
+update-download:: update-config_files
 
-update-mspec:
-	@$(CHDIR) $(srcdir); \
-	if [ -d spec/mspec ]; then \
-	  echo updating mspec ...; \
-	  $(Q1:0=:) set -x; \
-	  cd spec/mspec && \
-	  exec git pull; \
-	else \
-	  echo retrieving mspec ...; \
-	  $(Q1:0=:) set -x; \
-	  exec git clone $(MSPEC_GIT_URL) spec/mspec; \
-	fi
+after-update:: prereq
 
-update-rubyspec: update-mspec
-	@$(CHDIR) $(srcdir); \
-	if [ -d spec/rubyspec ]; then \
-	  echo updating rubyspec ...; \
-	  $(Q1:0=:) set -x; \
-	  cd spec/rubyspec && \
-	  exec git pull; \
-	else \
-	  echo retrieving rubyspec ...; \
-	  $(Q1:0=:) set -x; \
-	  exec git clone $(RUBYSPEC_GIT_URL) spec/rubyspec; \
-	fi
+gcov:
+	$(Q) $(BASERUBY) $(srcdir)/tool/run-gcov.rb
 
-test-rubyspec-precheck:
-	@if [ ! -d $(srcdir)/spec/rubyspec ]; then echo No rubyspec here.  make update-rubyspec first.; exit 1; fi
+lcov:
+	$(Q) $(BASERUBY) $(srcdir)/tool/run-lcov.rb
+
+update-benchmark-driver:
+	$(Q) $(srcdir)/tool/git-refresh -C $(srcdir)/benchmark $(Q1:0=-q) \
+		--branch $(BENCHMARK_DRIVER_GIT_REF) \
+		$(BENCHMARK_DRIVER_GIT_URL) benchmark-driver $(GIT_OPTS)
 
 update-doclie:
-	@$(CHDIR) $(srcdir); \
-	if [ -d coverage/doclie ]; then \
-	  echo updating doclie ...; \
-	  $(Q1:0=:) set -x; \
-	  cd coverage/doclie && \
-	  git fetch && \
-	  exec git checkout $(DOCLIE_GIT_REF); \
-	else \
-	  echo retrieving doclie ...; \
-	  $(Q1:0=:) set -x; \
-	  exec git clone --branch $(DOCLIE_GIT_REF) $(DOCLIE_GIT_URL) coverage/doclie; \
-	fi
+	$(Q) $(srcdir)/tool/git-refresh -C $(srcdir)/coverage $(Q1:0=-q) \
+		--branch $(DOCLIE_GIT_REF) \
+		$(DOCLIE_GIT_URL) doclie $(GIT_OPTS)
 
 update-simplecov-html:
-	@$(CHDIR) $(srcdir); \
-	if [ -d coverage/simplecov-html ]; then \
-	  echo updating simplecov-html ...; \
-	  $(Q1:0=:) set -x; \
-	  cd coverage/simplecov-html && \
-	  git fetch && \
-	  exec git checkout $(SIMPLECOV_HTML_GIT_REF); \
-	else \
-	  echo retrieving simplecov-html ...; \
-	  exec git clone --branch $(SIMPLECOV_HTML_GIT_REF) $(SIMPLECOV_HTML_GIT_URL) coverage/simplecov-html; \
-	fi
+	$(Q) $(srcdir)/tool/git-refresh -C $(srcdir)/coverage $(Q1:0=-q) \
+		--branch $(SIMPLECOV_HTML_GIT_REF) \
+		$(SIMPLECOV_HTML_GIT_URL) simplecov-html $(GIT_OPTS)
 
 update-simplecov:
-	@$(CHDIR) $(srcdir); \
-	if [ -d coverage/simplecov ]; then \
-	  echo updating simplecov ...; \
-	  $(Q1:0=:) set -x; \
-	  cd coverage/simplecov && \
-	  git fetch && \
-	  exec git checkout $(SIMPLECOV_GIT_REF); \
-	else \
-	  echo retrieving simplecov ...; \
-	  $(Q1:0=:) set -x; \
-	  exec git clone --branch $(SIMPLECOV_GIT_REF) $(SIMPLECOV_GIT_URL) coverage/simplecov; \
-	fi
+	$(Q) $(srcdir)/tool/git-refresh -C $(srcdir)/coverage $(Q1:0=-q) \
+		--branch $(SIMPLECOV_GIT_REF)  \
+		$(SIMPLECOV_GIT_URL) simplecov $(GIT_OPTS)
 
 update-coverage: update-simplecov update-simplecov-html update-doclie
 
+update-known-errors:
+	errno --list | cut -d' ' -f1 | sort -u - $(srcdir)/defs/known_errors.def | \
+	$(IFCHANGE) $(srcdir)/defs/known_errors.def -
+
 INSNS	= opt_sc.inc optinsn.inc optunifs.inc insns.inc insns_info.inc \
-	  vmtc.inc vm.inc
+	  vmtc.inc vm.inc mjit_compile.inc
 
 $(INSNS): $(srcdir)/insns.def vm_opts.h \
 	  $(srcdir)/defs/opt_operand.def $(srcdir)/defs/opt_insn_unif.def \
-	  $(srcdir)/tool/instruction.rb $(srcdir)/tool/insns2vm.rb
+	  $(srcdir)/tool/insns2vm.rb
 	$(ECHO) generating $@
 	$(Q) $(BASERUBY) -Ku $(srcdir)/tool/insns2vm.rb $(INSNS2VMOPT) $@
 
@@ -552,3 +589,45 @@ loadpath: verconf.h
 	@$(CPP) $(XCFLAGS) $(CPPFLAGS) $(srcdir)/loadpath.c | \
 	sed -e '1,/^const char ruby_initial_load_paths/d;/;/,$$d' \
 	    -e '/^ /!d;s/ *"\\0"$$//;s/" *"//g'
+
+un-runnable:
+	$(ECHO) cannot make runnable, configure with --enable-load-relative.
+	$(Q) exit 1
+
+mjit_config.h:
+	$(ECHO) making $@
+	@{ \
+	. $(srcdir)/tool/mjit_archflag.sh; \
+	parse_arch_flags "$(UNIVERSAL_ARCHNAMES)" $(ARCH_FLAG); \
+	test "$(Q)" = @ || set -x; \
+	echo '#ifndef RUBY_MJIT_CONFIG_H'; \
+	echo '#define RUBY_MJIT_CONFIG_H 1'; \
+	echo; \
+	sep=; \
+	echo '#ifdef LOAD_RELATIVE'; \
+	quote MJIT_HEADER_INSTALL_DIR "/$(MJIT_HEADER_INSTALL_DIR)"; \
+	echo '#else'; \
+	quote MJIT_HEADER_INSTALL_DIR "$(rubyarchhdrdir)"; \
+	echo '#endif'; \
+	quote MJIT_MIN_HEADER_NAME "$(MJIT_MIN_HEADER_NAME)"; \
+	sep=,; \
+	quote "MJIT_CC_COMMON  " $(MJIT_CC); \
+	quote "MJIT_CFLAGS      MJIT_ARCHFLAG" $(MJIT_CFLAGS); \
+	quote "MJIT_OPTFLAGS   " $(MJIT_OPTFLAGS); \
+	quote "MJIT_DEBUGFLAGS " $(MJIT_DEBUGFLAGS); \
+	quote "MJIT_LDSHARED   " $(MJIT_LDSHARED); \
+	quote "MJIT_DLDFLAGS    MJIT_ARCHFLAG" $(MJIT_DLDFLAGS); \
+	quote "MJIT_LIBS       " $(LIBRUBYARG_SHARED); \
+	quote 'PRELOADENV       "@PRELOADENV@"'; \
+	indent=$${archs:+'  '}; \
+	define_arch_flags; \
+	echo; \
+	echo '#endif /* RUBY_MJIT_CONFIG_H */'; \
+	} > $@
+
+yes-test-almost yes-test-all: mjit_build_dir.$(SOEXT)
+mjit_build_dir.$(SOEXT): $(MJIT_MIN_HEADER) $(srcdir)/ruby-runner.c ruby-runner.h
+	$(ECHO) making $@
+	$(Q) $(DLDSHARED) $(MJIT_DLDFLAGS) $(ARCH_FLAG) $(CFLAGS) $(CPPFLAGS) \
+		-DMAKE_MJIT_BUILD_DIR=1 -DMJIT_MIN_HEADER='"$(MJIT_MIN_HEADER)"' \
+		$(OUTFLAG)$@ $(srcdir)/ruby-runner.c

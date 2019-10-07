@@ -47,11 +47,11 @@ cs{
         ar{"arabština"}
         ar_001{"arabština (moderní standardní)"}
         arc{"aramejština"}
-        arn{"mapudungunština"}
+        arn{"mapudungun"}
         aro{"araonština"}
         arp{"arapažština"}
         arq{"arabština (alžírská)"}
-        ars{"arabština (nadžd)"}
+        ars{"arabština (Nadžd)"}
         arw{"arawacké jazyky"}
         ary{"arabština (marocká)"}
         arz{"arabština (egyptská)"}
@@ -109,6 +109,7 @@ cs{
         car{"karibština"}
         cay{"kajugština"}
         cch{"atsam"}
+        ccp{"čakma"}
         ce{"čečenština"}
         ceb{"cebuánština"}
         cgg{"kiga"}
@@ -307,6 +308,7 @@ cs{
         krl{"karelština"}
         kru{"kuruchština"}
         ks{"kašmírština"}
+        ks_Arab{"kašmírština (naskh)"}
         ksb{"šambala"}
         ksf{"bafia"}
         ksh{"kolínština"}
@@ -432,6 +434,7 @@ cs{
         osa{"osage"}
         ota{"turečtina (osmanská)"}
         pa{"paňdžábština"}
+        pa_Arab{"paňdžábština (naskh)"}
         pag{"pangasinanština"}
         pal{"pahlavština"}
         pam{"papangau"}
@@ -585,6 +588,7 @@ cs{
         umb{"umbundu"}
         und{"neznámý jazyk"}
         ur{"urdština"}
+        ur_Arab{"urdština (naskh)"}
         uz{"uzbečtina"}
         vai{"vai"}
         ve{"venda"}
@@ -639,6 +643,7 @@ cs{
         Afak{"afaka"}
         Aghb{"kavkazskoalbánské"}
         Arab{"arabské"}
+        Aran{"nastaliq"}
         Armi{"aramejské (imperiální)"}
         Armn{"arménské"}
         Avst{"avestánské"}
@@ -753,6 +758,7 @@ cs{
         Phnx{"fénické"}
         Plrd{"Pollardova fonetická abeceda"}
         Prti{"parthské klínové"}
+        Qaag{"zawgyi"}
         Rjng{"redžanské"}
         Roro{"rongorongo"}
         Runr{"runové"}
@@ -961,7 +967,7 @@ cs{
         SCOTLAND{"angličtina (Skotsko)"}
         WADEGILE{"Wade-Giles"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.44"}
     characterLabelPattern{
         all{"{0} – vše"}
         category-list{"{0}: {1}"}

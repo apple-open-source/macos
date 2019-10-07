@@ -41,10 +41,9 @@
 #include <errno.h>
 #include <fcntl.h>
 
+#include <dtrace.h>
 #include <dt_impl.h>
 #include <dt_string.h>
-
-#include "arch.h"
 
 static int
 dt_opt_agg(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
@@ -62,13 +61,14 @@ dt_opt_agg(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_amin(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	char str[DTRACE_ATTR2STR_MAX];
 	dtrace_attribute_t attr;
 
 	if (arg == NULL || dtrace_str2attr(arg, &attr) == -1)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
-	dt_dprintf("set compiler attribute minimum to %s\n",
+	dt_dprintf("set compiler attribute minimum to %s",
 	    dtrace_attr2str(attr, str, sizeof (str)));
 
 	if (dtp->dt_pcb != NULL) {
@@ -85,20 +85,14 @@ dt_opt_amin(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_arch(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
-	cpu_type_t arch = arch_for_string(arg);
+#pragma unused(option)
+	cpu_type_t arch = dtrace_str2arch(arg);
 
-	switch(arch) {
-	case CPU_TYPE_I386:
-	case CPU_TYPE_X86_64:
-	case CPU_TYPE_ARM:
-	case CPU_TYPE_ARM64:
-	case CPU_TYPE_POWERPC:
-	case CPU_TYPE_POWERPC64:
-		dtp->dt_arch = arch;
-		break;
-	default:
+	if (arch == 0) {
 		return dt_set_errno(dtp, EDT_BADOPTVAL);
 	}
+
+	dtp->dt_arch = arch;
 
 	return 0;
 }
@@ -130,6 +124,7 @@ dt_coredump(void)
 static int
 dt_opt_core(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	static int enabled = 0;
 
 	if (arg != NULL)
@@ -145,6 +140,7 @@ dt_opt_core(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_cpp_hdrs(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	if (arg != NULL)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
@@ -161,6 +157,7 @@ dt_opt_cpp_hdrs(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_cpp_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	char *cpp;
 
 	if (arg == NULL)
@@ -209,12 +206,13 @@ dt_opt_cpp_opts(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_ctypes(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	int fd;
 
 	if (arg == NULL)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
-	if ((fd = open64(arg, O_CREAT | O_WRONLY, 0666)) == -1)
+	if ((fd = open(arg, O_CREAT | O_WRONLY, 0666)) == -1)
 		return (dt_set_errno(dtp, errno));
 
 	(void) close(dtp->dt_cdefs_fd);
@@ -226,6 +224,7 @@ dt_opt_ctypes(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_droptags(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(arg, option)
 	dtp->dt_droptags = 1;
 	return (0);
 }
@@ -234,12 +233,13 @@ dt_opt_droptags(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_dtypes(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	int fd;
 
 	if (arg == NULL)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
-	if ((fd = open64(arg, O_CREAT | O_WRONLY, 0666)) == -1)
+	if ((fd = open(arg, O_CREAT | O_WRONLY, 0666)) == -1)
 		return (dt_set_errno(dtp, errno));
 
 	(void) close(dtp->dt_ddefs_fd);
@@ -251,10 +251,15 @@ dt_opt_dtypes(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_debug(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(arg, option)
+#if OS_LOG_SUPPORTED
+	return (dt_set_errno(dtp, EDT_USELOG));
+#else
 	if (arg != NULL)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
 	_dtrace_debug = 1;
+#endif /* OS_LOG_SUPPORTED */
 	return (0);
 }
 
@@ -262,6 +267,7 @@ dt_opt_debug(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_disallow_dsym(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	if (arg != NULL)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
@@ -272,6 +278,7 @@ dt_opt_disallow_dsym(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_nojtanalysis(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	if ((dtp == NULL) || (arg != NULL)) {
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 	}
@@ -285,6 +292,7 @@ dt_opt_nojtanalysis(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_noerror(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	if (arg != NULL)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
@@ -297,6 +305,7 @@ dt_opt_noerror(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_iregs(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	int n;
 
 	if (arg == NULL || (n = atoi(arg)) <= 0)
@@ -310,6 +319,7 @@ dt_opt_iregs(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_lazyload(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(arg, option)
 #if defined(__APPLE__)
 	return (dt_set_errno(dtp, EDT_OPTUNSUPPORTED));
 #else
@@ -323,6 +333,7 @@ dt_opt_lazyload(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_ld_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(arg, option)
 #if defined(__APPLE__)
 	return (dt_set_errno(dtp, EDT_OPTUNSUPPORTED));
 #else
@@ -348,6 +359,7 @@ dt_opt_ld_path(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_libdir(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	dt_dirpath_t *dp;
 
 	if (arg == NULL)
@@ -367,6 +379,7 @@ dt_opt_libdir(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_linkmode(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(arg, option)
 #if defined(__APPLE__)
 	return (dt_set_errno(dtp, EDT_OPTUNSUPPORTED));
 #else
@@ -392,6 +405,7 @@ dt_opt_linkmode(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_linktype(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(arg, option)
 #if defined(__APPLE__)
 	return (dt_set_errno(dtp, EDT_OPTUNSUPPORTED));
 #else
@@ -413,6 +427,7 @@ dt_opt_linktype(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_encoding(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	if (arg == NULL)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
@@ -430,6 +445,7 @@ dt_opt_encoding(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_evaltime(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	if (arg == NULL)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
@@ -459,6 +475,7 @@ dt_opt_evaltime(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_pgmax(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	int n;
 
 	if (arg == NULL || (n = atoi(arg)) < 0)
@@ -468,10 +485,67 @@ dt_opt_pgmax(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	return (0);
 }
 
+static int
+dt_opt_setenv(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	char **p;
+	char *var;
+	int nvars;
+
+	/*
+	 * We can't effectively set environment variables from #pragma lines
+	 * since the processes have already been spawned.
+	 */
+	if (dtp->dt_pcb != NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTCTX));
+
+	if (arg == NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	if (!option && strchr(arg, '=') != NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	for (nvars = 0, p = dtp->dt_proc_env; *p != NULL; nvars++, p++)
+		continue;
+
+	for (p = dtp->dt_proc_env; *p != NULL; p++) {
+		var = strchr(*p, '=');
+		if (var == NULL)
+			var = *p + strlen(*p);
+		if (strncmp(*p, arg, var - *p) == 0) {
+			dt_free(dtp, *p);
+			*p = dtp->dt_proc_env[nvars - 1];
+			dtp->dt_proc_env[nvars - 1] = NULL;
+			nvars--;
+		}
+	}
+	
+	if (option) {
+		if ((var = strdup(arg)) == NULL)
+			return (dt_set_errno(dtp, EDT_NOMEM));
+
+		nvars++;
+		if ((p = dt_alloc(dtp, sizeof (char *) * (nvars + 1))) == NULL) {
+			dt_free(dtp, var);
+			return (dt_set_errno(dtp, EDT_NOMEM));
+		}
+
+		bcopy(dtp->dt_proc_env, p, sizeof (char *) * nvars);
+		dt_free(dtp, dtp->dt_proc_env);
+		dtp->dt_proc_env = p;
+
+		dtp->dt_proc_env[nvars - 1] = var;
+		dtp->dt_proc_env[nvars] = NULL;
+	}
+
+	return (0);
+}
+
 /*ARGSUSED*/
 static int
 dt_opt_stdc(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(arg, option)
 #if defined(__APPLE__)
 	return (dt_set_errno(dtp, EDT_OPTUNSUPPORTED));
 #else
@@ -500,6 +574,7 @@ dt_opt_stdc(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_syslibdir(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	dt_dirpath_t *dp = dt_list_next(&dtp->dt_lib_path);
 	char *path;
 
@@ -520,6 +595,7 @@ dt_opt_syslibdir(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_tree(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	int m;
 
 	if (arg == NULL || (m = atoi(arg)) <= 0)
@@ -533,6 +609,7 @@ dt_opt_tree(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_tregs(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	int n;
 
 	if (arg == NULL || (n = atoi(arg)) <= 0)
@@ -546,6 +623,7 @@ dt_opt_tregs(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_xlate(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	if (arg == NULL)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
@@ -601,6 +679,7 @@ dt_opt_invcflags(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_notsup(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(arg, option)
 	return (dt_set_errno(dtp, EDT_OPTUNSUPPORTED));
 }
 
@@ -608,6 +687,7 @@ dt_opt_notsup(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 static int
 dt_opt_version(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	dt_version_t v;
 
 	if (arg == NULL)
@@ -675,6 +755,7 @@ out:
 static int
 dt_opt_mangled(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	if (arg != NULL)
 		return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
@@ -776,7 +857,7 @@ dt_opt_rate(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 			}
 		}
 
-		if (suffix[i].name == NULL && *end != '\0' || val < 0)
+		if ((suffix[i].name == NULL && *end != '\0') || val < 0)
 			return (dt_set_errno(dtp, EDT_BADOPTVAL));
 
 		if (mul == 0) {
@@ -867,6 +948,7 @@ static const struct {
 static int
 dt_opt_bufpolicy(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	dtrace_optval_t policy = DTRACEOPT_UNSET;
 	int i;
 
@@ -901,6 +983,7 @@ static const struct {
 static int
 dt_opt_bufresize(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	dtrace_optval_t policy = DTRACEOPT_UNSET;
 	int i;
 
@@ -983,6 +1066,7 @@ dt_options_load(dtrace_hdl_t *dtp)
 static int
 dt_opt_preallocate(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
+#pragma unused(option)
 	dtrace_optval_t size;
 	void *p;
 
@@ -1050,6 +1134,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "pgmax", dt_opt_pgmax },
 	{ "preallocate", dt_opt_preallocate },
 	{ "pspec", dt_opt_cflags, DTRACE_C_PSPEC },
+	{ "setenv", dt_opt_setenv, 1 },
 	{ "stdc", dt_opt_stdc },
 	{ "strip", dt_opt_dflags, DTRACE_D_STRIP },
 	{ "syslibdir", dt_opt_syslibdir },
@@ -1058,6 +1143,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "udefs", dt_opt_invcflags, DTRACE_C_UNODEF },
 	{ "undef", dt_opt_cpp_opts, (uintptr_t)"-U" },
 	{ "unodefs", dt_opt_cflags, DTRACE_C_UNODEF },
+	{ "unsetenv", dt_opt_setenv, 0 },
 	{ "verbose", dt_opt_cflags, DTRACE_C_DIFV },
 	{ "version", dt_opt_version },
 	{ "zdefs", dt_opt_cflags, DTRACE_C_ZDEFS },

@@ -428,32 +428,32 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
     return @{@"UUID": self.uuid, @"ckzone":self.zoneID.zoneName};
 }
 
-- (NSDictionary<NSString*,id>*)sqlValues {
+- (NSDictionary<NSString*,NSString*>*)sqlValues {
     return @{@"UUID": self.uuid,
              @"parentKeyUUID": self.parentKeyUUID,
              @"ckzone":  CKKSNilToNSNull(self.zoneID.zoneName),
              @"encitem": self.base64encitem,
              @"wrappedkey": [self.wrappedkey base64WrappedKey],
-             @"gencount": [NSNumber numberWithInteger:self.generationCount],
-             @"encver": [NSNumber numberWithInteger:self.encver],
+             @"gencount": [[NSNumber numberWithInteger:self.generationCount] stringValue],
+             @"encver": [[NSNumber numberWithInteger:self.encver] stringValue],
              @"ckrecord": CKKSNilToNSNull([self.encodedCKRecord base64EncodedStringWithOptions:0]),
              @"pcss": CKKSNilToNSNull(self.plaintextPCSServiceIdentifier),
              @"pcsk": CKKSNilToNSNull([self.plaintextPCSPublicKey base64EncodedStringWithOptions:0]),
              @"pcsi": CKKSNilToNSNull([self.plaintextPCSPublicIdentity base64EncodedStringWithOptions:0])};
 }
 
-+ (instancetype)fromDatabaseRow: (NSDictionary*) row {
-    return [[CKKSItem alloc] initWithUUID:row[@"UUID"]
-                            parentKeyUUID:row[@"parentKeyUUID"]
-                                   zoneID:[[CKRecordZoneID alloc] initWithZoneName: row[@"ckzone"] ownerName:CKCurrentUserDefaultName]
-                          encodedCKRecord:CKKSUnbase64NullableString(row[@"ckrecord"])
-                                  encItem:CKKSUnbase64NullableString(row[@"encitem"])
-                               wrappedkey:CKKSIsNull(row[@"wrappedkey"]) ? nil : [[CKKSWrappedAESSIVKey alloc] initWithBase64: row[@"wrappedkey"]]
-                          generationCount:[row[@"gencount"] integerValue]
-                                   encver:[row[@"encver"] integerValue]
-            plaintextPCSServiceIdentifier:CKKSIsNull(row[@"pcss"]) ? nil : [NSNumber numberWithInteger: [row[@"pcss"] integerValue]]
-                    plaintextPCSPublicKey:CKKSUnbase64NullableString(row[@"pcsk"])
-               plaintextPCSPublicIdentity:CKKSUnbase64NullableString(row[@"pcsi"])
++ (instancetype)fromDatabaseRow:(NSDictionary<NSString*, CKKSSQLResult*>*)row {
+    return [[CKKSItem alloc] initWithUUID:row[@"UUID"].asString
+                            parentKeyUUID:row[@"parentKeyUUID"].asString
+                                   zoneID:[[CKRecordZoneID alloc] initWithZoneName: row[@"ckzone"].asString ownerName:CKCurrentUserDefaultName]
+                          encodedCKRecord:row[@"ckrecord"].asBase64DecodedData
+                                  encItem:row[@"encitem"].asBase64DecodedData
+                               wrappedkey:row[@"wrappedkey"].asString == nil ? nil : [[CKKSWrappedAESSIVKey alloc] initWithBase64:row[@"wrappedkey"].asString]
+                          generationCount:row[@"gencount"].asNSInteger
+                                   encver:row[@"encver"].asNSInteger
+            plaintextPCSServiceIdentifier:row[@"pcss"].asNSNumberInteger
+                    plaintextPCSPublicKey:row[@"pcsk"].asBase64DecodedData
+               plaintextPCSPublicIdentity:row[@"pcsi"].asBase64DecodedData
             ];
 }
 
@@ -464,7 +464,7 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
 @implementation CKKSSQLDatabaseObject (CKKSZoneExtras)
 
 + (NSArray<NSString*>*)allUUIDs:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error {
-    __block NSMutableArray* uuids = [[NSMutableArray alloc] init];
+    __block NSMutableArray<NSString*>* uuids = [[NSMutableArray alloc] init];
 
     [CKKSSQLDatabaseObject queryDatabaseTable: [self sqlTable]
                                         where:@{@"ckzone": CKKSNilToNSNull(zoneID.zoneName)}
@@ -472,8 +472,8 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
                                       groupBy: nil
                                       orderBy:nil
                                         limit: -1
-                                   processRow: ^(NSDictionary* row) {
-                                       [uuids addObject: row[@"UUID"]];
+                                   processRow:^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       [uuids addObject: row[@"UUID"].asString];
                                    }
                                         error: error];
     return uuids;

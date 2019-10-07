@@ -23,8 +23,6 @@
 # Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-#pragma ident	"@(#)tst.signal.ksh	1.1	06/08/28 SMI"
-
 #
 # This script tests that the proc:::signal-send and proc:::signal-handle
 # probes fire correctly and with the correct arguments.

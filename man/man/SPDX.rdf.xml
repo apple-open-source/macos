@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl"?>
+<rdf:RDF xml:lang="en"
+         xmlns="http://spx.org/rdf/ns/sdpx#" 
+         xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  	<SPDXDoc rdf:about="http://spdx.org">
+		<SPDXVersion>SPDX-1.0</SPDXVersion>
+		<UniqueID>c97012607ed9d75a6eee7e66d257a99a8ed86918</UniqueID>
+		<CreatedBy>Man Maintainer (Federico Lucifredi)</CreatedBy>
+		<Created>2010-09-15T18:31:00Z</Created>
+	  <hasPackageOverview>
+		  <PackageOverview>
+			<DeclaredName>Man 1.6g</DeclaredName>
+			<FileName>man-1.6g.tar.gz</FileName>
+			<URL rdf:resource="http://primates.ximian.com/~flucifredi/man/man-1.6g.tar.gz" />
+			<DeclaredLicense rdf:resource="http://spdx.org/rdf/licenses/GPL-2.0" />
+			<DeclaredCopyright>Man Maintainers (Federico Lucifredi, Andries Brouwer, Zeyd M. Ben-Halim, and John Eaton) and Contributors (Richard Verhoeven, Eric S. Raymond, Michael Hamilton, and others)</DeclaredCopyright>
+			<CopyrightDate>2010</CopyrightDate>
+			<ShortDesc>The man suite: man, man2html, hman, whatis, apropos, man2dvi.</ShortDesc>
+			<Description>man is a man pager. It has support for compressed
+	        pages (both man pages and cat pages), and for locale
+	        ($LANG) and for message catalogs ($LC_MESSAGES). It
+	        will format files given explicitly (man ./foo.man.gz).
+	        It conforms to FSSTND or FHS, and handles stray cats.
+	        * man2html is a utility that converts man pages to html
+	        * hman is a man browser that uses your favorite browser.
+	        For use with lynx, no http daemon is required.
+	        Keywords: man manpath apropos whatis makewhatis
+	        man.conf man2html man2dvi hman manual pager browser
+	        keyword search.</Description>
+		  </PackageOverview>
+	  </hasPackageOverview>
+	</SPDXDoc>
+</rdf:RDF>
+

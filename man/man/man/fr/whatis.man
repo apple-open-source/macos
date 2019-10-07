@@ -1,7 +1,7 @@
 .\" Man page for whatis
 .\"
 .\" Copyright (c) 1990, 1991, John W. Eaton.
-.\" Traduction franÃ§aise RenÃ© Cougnenc - Mai 1995.
+.\" Traduction française René Cougnenc - Mai 1995.
 .\"
 .\" You may distribute under the terms of the GNU General Public
 .\" License as specified in the README file that comes with the man 1.0
@@ -16,17 +16,17 @@
 .TH WHATIS 1 "19 septembre 2005" "Manuel Linux" "Commandes utilisateur" 
 .LO 1
 .SH NOM
-whatis \- recherche de noms complets dans la base de donnÃ©es whatis.
+whatis \- recherche de noms complets dans la base de données whatis.
 .SH SYNOPSIS
 .BI whatis
-mot-clÃ© ...
+mot-clé ...
 .SH DESCRIPTION
-whatis effectue une recherche de mots-clÃ©s dans un ensemble de
-fichiers de donnÃ©es contenant de brÃ¨ves descriptions des commandes
-systÃ¨me, et affiche le rÃ©sultat sur la sortie standard. Seules les
-entrÃ©es contenant le mot-clÃ© complet sont affichÃ©es.
+whatis effectue une recherche de mots-clés dans un ensemble de
+fichiers de données contenant de brèves descriptions des commandes
+système, et affiche le résultat sur la sortie standard. Seules les
+entrées contenant le mot-clé complet sont affichées.
 .LP
-La base de donnÃ©es whatis est rÃ©alisÃ©e et mise Ã  jour par la commande
+La base de données whatis est réalisée et mise à jour par la commande
 @makewhatis@.
 
 .SH AUTEUR
@@ -39,11 +39,11 @@ Federico Lucifredi <flucifredi@acm.org> en assure aujourd'hui la maintenance.
 
 .SH TRADUCTION
 .PP
-Ce document est une traduction rÃ©alisÃ©e par RenÃ© Cougnenc en mai 1995 et mise
-Ã  jour par Alain Portal <aportal@univ-montp2.fr> le 7 novembre 2005.
+Ce document est une traduction réalisée par René Cougnenc en mai 1995 et mise
+à jour par Alain Portal <aportal@univ-montp2.fr> le 7 novembre 2005.
 .PP
-L'Ã©quipe de traduction a fait le maximum pour rÃ©aliser une adaptation
-franÃ§aise de qualitÃ©. La version anglaise la plus Ã  jour de ce document est
-toujours consultable via la commande\ : Â«\ \fBLANG=en\ man\ 1\ whatis\fR\ Â».
-N'hÃ©sitez pas Ã  signaler Ã  l'auteur ou au traducteur, selon le cas, toute
+L'équipe de traduction a fait le maximum pour réaliser une adaptation
+française de qualité. La version anglaise la plus à jour de ce document est
+toujours consultable via la commande\ : «\ \fBLANG=en\ man\ 1\ whatis\fR\ ».
+N'hésitez pas à signaler à l'auteur ou au traducteur, selon le cas, toute
 erreur dans cette page de manuel.

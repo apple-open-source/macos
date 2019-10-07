@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 gu{
-    Version{"2.1.41.97"}
+    Version{"2.1.48.42"}
     zoneStrings{
         "Africa:Abidjan"{
             ec{"આબિદ્જાન"}
@@ -810,6 +810,9 @@ gu{
         "Asia:Qatar"{
             ec{"કતાર"}
         }
+        "Asia:Qostanay"{
+            ec{"કોસ્ટાને"}
+        }
         "Asia:Qyzylorda"{
             ec{"કિઝિલોર્ડા"}
         }
@@ -1041,7 +1044,7 @@ gu{
             ec{"લક્ઝમબર્ગ"}
         }
         "Europe:Madrid"{
-            ec{"મૅડ્રીડ"}
+            ec{"મેડ્રિડ"}
         }
         "Europe:Malta"{
             ec{"માલ્ટા"}

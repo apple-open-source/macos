@@ -112,7 +112,6 @@ private:
     };
 
     StructureOrOffset* table() const { return m_table.get(); }
-    
     static Structure* decode(EncodedStructureBits, StructureID);
     static EncodedStructureBits encode(Structure*, StructureID);
 

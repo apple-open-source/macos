@@ -73,6 +73,7 @@
 #define kIOHIDKeyboardSupportedModifiersKey     "HIDKeyboardSupportedModifiers"
 #define kIOHIDKeyboardGlobalModifiersKey        "HIDKeyboardGlobalModifiers"
 
+
 //read only property that specify usage of clobal modifiers
 // Bit[0] -  Report modifiers to the service by setting kIOHIDKeyboardGlobalModifiersKey  with global modifiers
 // Bit[1] -  Update/translate events from service taking global modifiers state in consideration
@@ -189,6 +190,11 @@
 #define kIOHIDScrollCountZeroKey                        "HIDScrollCountZero"
 #define kIOHIDScrollCountBootDefaultKey                 "HIDScrollCountBootDefault"
 #define kIOHIDScrollCountResetKey                       "HIDScrollCountReset"
+
+// HIDSystem Property Key
+
+// Mark user activity state on HID System
+#define kIOHIDActivityUserIdleKey                       "IOHIDActivityUserIdle"
 
 // the following values are used in kIOHIDPointerButtonMode
 typedef enum {

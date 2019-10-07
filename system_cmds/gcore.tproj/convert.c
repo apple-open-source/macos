@@ -25,6 +25,13 @@
 #include <err.h>
 #include <sysexits.h>
 #include <time.h>
+#include <glob.h>
+#include <spawn.h>
+#include <signal.h>
+#include <xpc/xpc.h>
+#include <xpc/private.h>
+#include <sys/event.h>
+#include <sys/time.h>
 
 #if defined(CONFIG_GCORE_MAP) || defined(CONFIG_GCORE_CONV) || defined(CONFIG_GCORE_FREF)
 
@@ -390,6 +397,350 @@ convert_fileref_with_file(const char *filename, const native_mach_header_t *inmh
 }
 
 /*
+ * expanduser tries to expand the leading '~' (if there is any) in the given
+ * path and returns a copy of the expanded path; it returns NULL on failures.
+ * The caller is responsible for freeing the returned string.
+ */
+static char *
+expanduser(const char *path)
+{
+	if (path == NULL) {
+		return NULL;
+	}
+	if (path[0] != '~') {
+		/*
+		 * For consistency, still dup the string so that the caller always
+		 * needs to free the string.
+		 */
+		return strdup(path);
+	}
+
+	char *expanded = NULL;
+	glob_t globbuf = {};
+	if (OPTIONS_DEBUG(opt, 1)) {
+		printf("Expanding %s\n", path);
+	}
+	int rc = glob(path, GLOB_TILDE, NULL, &globbuf);
+	if (rc == 0) {
+		if (OPTIONS_DEBUG(opt, 3)) {
+			printf("expanduser - gl_pathc: %zu\n", globbuf.gl_pathc);
+			for (size_t i = 0; i < globbuf.gl_pathc; i++) {
+				printf("expanduser - gl_pathv[%zu]: %s\n", i, globbuf.gl_pathv[i]);
+			}
+		}
+		if (globbuf.gl_pathc == 1) {
+			expanded = strdup(globbuf.gl_pathv[0]);
+			if (OPTIONS_DEBUG(opt, 1)) {
+				printf("Expanded path: %s\n", expanded);
+			}
+		}
+		globfree(&globbuf);
+	}
+
+	return expanded;
+}
+
+#define RESPONSE_BUFF_SIZE	(2048)
+
+/*
+ * read_response dynamically allocates buffer for reading bytes from the given
+ * fd. Upon success, this function sets response to point to the buffer and
+ * returns bytes being read; otherwise, it returns -1. The caller is
+ * responsible for freeing the response buffer.
+ */
+static ssize_t
+read_response(int fd, char **response)
+{
+	if (response == NULL || *response) {
+		warnx("Invalid response buffer pointer");
+		return -1;
+	}
+
+	ssize_t bytes_read = 0;
+	size_t buff_size = RESPONSE_BUFF_SIZE;
+
+	if (OPTIONS_DEBUG(opt, 3)) {
+		printf("Allocating response buffer (%zu)\n", buff_size);
+	}
+	char *buff = malloc(buff_size);
+	if (buff == NULL) {
+		warn("Failed to allocate response buffer (%zu)", buff_size);
+		return -1;
+	}
+
+	size_t total = 0;
+	bool failed = false;
+
+	do {
+		bytes_read = read(fd, buff + total, buff_size - total);
+		if (bytes_read == -1) {
+			if (errno == EINTR) {
+				continue;
+			}
+			failed = true;
+			break;
+		}
+
+		total += (size_t)bytes_read;
+		if (total == buff_size) {
+			size_t new_buff_size = buff_size * 2;
+			if (OPTIONS_DEBUG(opt, 3)) {
+				printf("Reallocating response buffer (%zu)\n", new_buff_size);
+			}
+			char *new_buff = realloc(buff, new_buff_size);
+			if (new_buff == NULL) {
+				warn("Failed to reallocate response buffer (%zu)", new_buff_size);
+				failed = true;
+				break;
+			}
+			buff_size = new_buff_size;
+			buff = new_buff;
+		}
+	} while (bytes_read != 0);
+
+	if (failed) {
+		if (buff != NULL) {
+			free(buff);
+		}
+		return -1;
+	}
+
+	assert(total < buff_size);
+	buff[total] = '\0';
+	*response = buff;
+
+	return (ssize_t)total;
+}
+
+#define WAITPID_WTO_SIGALRM	(100)	/* alternative for SIGALRM for kevent timeout */
+#define WAITPID_WTO_SIGERR	(101)	/* sig for error when waiting for pid */
+
+/*
+ * waitpid_with_timeout returns true if the process exits successfully within
+ * timeout; otherwise, it returns false along with setting exitstatus and
+ * signal_no if the pointers are given.
+ */
+static bool
+waitpid_with_timeout(pid_t pid, int *exitstatus, int *signal_no, int timeout)
+{
+	int status;
+	int kq = -1;
+
+	if (timeout > 0) {
+		kq = kqueue();
+		struct kevent64_s event = {
+			.ident = (uint64_t)pid,
+			.filter = EVFILT_PROC,
+			.flags = EV_ADD | EV_ONESHOT,
+			.fflags = NOTE_EXIT
+		};
+		struct timespec tmout = {
+			.tv_sec = timeout
+		};
+		int ret = kevent64(kq, &event, 1, &event, 1, 0, &tmout);
+		int kevent64_errno = errno;
+
+		close(kq);
+		if (ret == 0) { /* timeout */
+			if (exitstatus) {
+				*exitstatus = 0;
+			}
+			if (signal_no) {
+				*signal_no = WAITPID_WTO_SIGALRM;
+			}
+			return false;
+		}
+
+		if (ret == -1) {
+			warnx("kevent64(): errno=%d (%s)\n", kevent64_errno, strerror(kevent64_errno));
+			goto waitpid_error;
+		}
+
+		if (event.flags == EV_ERROR && event.data != ESRCH) {
+			warnx("event.data (%lld) is not ESRCH when event.flags is EV_ERROR\n", event.data);
+			goto waitpid_error;
+		}
+
+		if (event.ident != (uint64_t)pid) {
+			warnx("event.ident is %lld (should be pid %d)\n", event.ident, pid);
+			goto waitpid_error;
+		}
+
+		if (event.filter != EVFILT_PROC) {
+			warnx("event.filter (%d) is not EVFILT_PROC\n", event.filter);
+			goto waitpid_error;
+		}
+	}
+
+	while (waitpid(pid, &status, 0) < 0) {
+		if (errno == EINTR) {
+			continue;
+		}
+		warnx("waitpid(): errno=%d (%s)\n", errno, strerror(errno));
+		goto waitpid_error;
+	}
+	if (WIFEXITED(status)) {
+		if (exitstatus) {
+			*exitstatus = WEXITSTATUS(status);
+		}
+		if (signal_no) {
+			*signal_no = 0;
+		}
+		return WEXITSTATUS(status) == 0;
+	}
+	if (WIFSIGNALED(status)) {
+		if (exitstatus) {
+			*exitstatus = 0;
+		}
+		if (signal_no) {
+			*signal_no = WTERMSIG(status);
+		}
+		return false;
+	}
+
+waitpid_error:
+	if (exitstatus) *exitstatus = 0;
+	if (signal_no) *signal_no = WAITPID_WTO_SIGERR;
+	return false;
+}
+
+#define DSYMFORUUID_PATH	"/usr/local/bin/dsymForUUID"
+
+/*
+ * exec_dsymForUUID spawns dsymForUUID to query dsym UUID info and responds the
+ * result plist. Upon success, this function sets response point to the buffer
+ * and returns bytes being read; otherwise, it returns -1. The caller is
+ * responsible for freeing the response buffer.
+ */
+static ssize_t
+exec_dsymForUUID(uuid_string_t id, char **response)
+{
+	int pipe_fds[2] = {-1, -1};
+	bool file_actions_inited = false;
+	ssize_t bytes_read = -1;
+	int rc;
+
+	rc = pipe(pipe_fds);
+	if (rc == -1) {
+		goto cleanup;
+	}
+
+	posix_spawn_file_actions_t file_actions;
+	rc = posix_spawn_file_actions_init(&file_actions);
+	if (rc) {
+		goto cleanup;
+	}
+	file_actions_inited = true;
+
+	rc = posix_spawn_file_actions_addclose(&file_actions, pipe_fds[0]);
+	if (rc) {
+		goto cleanup;
+	}
+
+	rc = posix_spawn_file_actions_adddup2(&file_actions, pipe_fds[1], STDOUT_FILENO);
+	if (rc) {
+		goto cleanup;
+	}
+
+	rc = posix_spawn_file_actions_addclose(&file_actions, pipe_fds[1]);
+	if (rc) {
+		goto cleanup;
+	}
+
+	char *command[] = {DSYMFORUUID_PATH, id, NULL};
+	pid_t child;
+	rc = posix_spawn(&child, command[0], &file_actions, NULL, command, NULL);
+	if (rc) {
+		goto cleanup;
+	}
+
+	close(pipe_fds[1]);
+	pipe_fds[1] = -1;
+
+	bytes_read = read_response(pipe_fds[0], response);
+
+	waitpid_with_timeout(child, NULL, NULL, 3);
+
+cleanup:
+	if (pipe_fds[1] != -1) {
+		close(pipe_fds[1]);
+	}
+	if (pipe_fds[0] != -1) {
+		close(pipe_fds[0]);
+	}
+	if (file_actions_inited) {
+		posix_spawn_file_actions_destroy(&file_actions);
+	}
+
+	return bytes_read;
+}
+
+/*
+ * get_symbol_rich_executable_path_via_dsymForUUID spawns dsymForUUID to query
+ * dsym uuid info for the given uuid and returns the string of
+ * DBGSymbolRichExecutable; otherwise, it returns NULL on failures. The caller
+ * is responsible for freeing the returned string.
+ */
+static char *
+get_symbol_rich_executable_path_via_dsymForUUID(const uuid_t uuid)
+{
+	char *response;
+	ssize_t size;
+	uuid_string_t uuid_str;
+	xpc_object_t plist = NULL;
+	xpc_object_t uuid_info = NULL;
+	xpc_object_t exec_path = NULL;
+	char *expanded_exec_path = NULL;
+
+	uuid_unparse_upper(uuid, uuid_str);
+
+	size = exec_dsymForUUID(uuid_str, &response);
+	if (size <= 0) {
+		goto cleanup;
+	}
+
+	if (OPTIONS_DEBUG(opt, 3)) {
+		printf("dsymForUUID response:\n%s\n", response);
+	}
+
+	plist = xpc_create_from_plist(response, (size_t)size);
+	if (plist == NULL) {
+		goto cleanup;
+	}
+	if (xpc_get_type(plist) != XPC_TYPE_DICTIONARY) {
+		goto cleanup;
+	}
+
+	uuid_info = xpc_dictionary_get_value(plist, uuid_str);
+	if (uuid_info == NULL) {
+		goto cleanup;
+	}
+	if (xpc_get_type(uuid_info) != XPC_TYPE_DICTIONARY) {
+		goto cleanup;
+	}
+
+	exec_path = xpc_dictionary_get_value(uuid_info, "DBGSymbolRichExecutable");
+	if (exec_path == NULL) {
+		goto cleanup;
+	}
+	if (xpc_get_type(exec_path) != XPC_TYPE_STRING) {
+		goto cleanup;
+	}
+
+	expanded_exec_path = expanduser(xpc_string_get_string_ptr(exec_path));
+
+cleanup:
+	if (plist) {
+		xpc_release(plist);
+	}
+	if (response) {
+		free(response);
+	}
+
+	return expanded_exec_path;
+}
+
+/*
  * bind the file reference into the output core file.
  * filename optionally prefixed with names from a ':'-separated PATH variable
  */
@@ -427,8 +778,25 @@ convert_fileref(const char *path, bool zf, const native_mach_header_t *inmh, con
 		printf("\n");
 	}
 
+	int ecode = 0;
+	if (opt->dsymforuuid && (FREF_ID_TYPE(infr->flags) == kFREF_ID_UUID)) {
+		/* Try to use dsymForUUID to get the symbol-rich executable */
+		char *symrich_filepath = get_symbol_rich_executable_path_via_dsymForUUID(infr->id);
+		if (symrich_filepath) {
+			if (opt->verbose) {
+				printf("\tTrying %s from dsymForUUID\n", symrich_filepath);
+			}
+			ecode = convert_fileref_with_file(symrich_filepath, inmh, infr, &invr, lc, oi);
+			free(symrich_filepath);
+			if (ecode == 0) {
+				return (ecode);
+			}
+			warnx("Failed to convert fileref with dsymForUUID. Fall back to local paths");
+		}
+	}
+
 	const size_t pathsize = path ? strlen(path) : 0;
-	int ecode = EX_DATAERR;
+	ecode = EX_DATAERR;
 	if (0 == pathsize)
 		ecode = convert_fileref_with_file(nm, inmh, infr, &invr, lc, oi);
 	else {

@@ -107,9 +107,9 @@ public:
 };
 
 WebFrameLoaderClient::WebFrameLoaderClient(WebFrame* webFrame)
-    : m_webFrame(webFrame)
+    : m_policyListenerPrivate(std::make_unique<WebFramePolicyListenerPrivate>())
+    , m_webFrame(webFrame)
     , m_manualLoader(0)
-    , m_policyListenerPrivate(std::make_unique<WebFramePolicyListenerPrivate>())
     , m_hasSentResponseToPlugin(false) 
 {
 }
@@ -122,7 +122,7 @@ void WebFrameLoaderClient::frameLoaderDestroyed()
 {
 }
 
-Optional<uint64_t> WebFrameLoaderClient::pageID() const
+Optional<WebCore::PageIdentifier> WebFrameLoaderClient::pageID() const
 {
     return WTF::nullopt;
 }
@@ -445,7 +445,7 @@ void WebFrameLoaderClient::dispatchDidCommitLoad(Optional<HasInsecureContent>)
         frameLoadDelegate->didCommitLoadForFrame(webView, m_webFrame);
 }
 
-void WebFrameLoaderClient::dispatchDidFailProvisionalLoad(const ResourceError& error)
+void WebFrameLoaderClient::dispatchDidFailProvisionalLoad(const ResourceError& error, WillContinueLoading)
 {
     WebView* webView = m_webFrame->webView();
     COMPtr<IWebFrameLoadDelegate> frameLoadDelegate;
@@ -529,7 +529,7 @@ void WebFrameLoaderClient::dispatchShow()
         ui->webViewShow(webView);
 }
 
-void WebFrameLoaderClient::dispatchDecidePolicyForResponse(const ResourceResponse& response, const ResourceRequest& request, WebCore::PolicyCheckIdentifier identifier, FramePolicyFunction&& function)
+void WebFrameLoaderClient::dispatchDecidePolicyForResponse(const ResourceResponse& response, const ResourceRequest& request, WebCore::PolicyCheckIdentifier identifier, const String&, FramePolicyFunction&& function)
 {
     WebView* webView = m_webFrame->webView();
     Frame* coreFrame = core(m_webFrame);
@@ -744,8 +744,6 @@ void WebFrameLoaderClient::updateGlobalHistoryRedirectLinks()
     WebView* webView = m_webFrame->webView();
     COMPtr<IWebHistoryDelegate> historyDelegate;
     webView->historyDelegate(&historyDelegate);
-
-    WebHistory* history = WebHistory::sharedHistory();
 
     DocumentLoader* loader = core(m_webFrame)->loader().documentLoader();
     ASSERT(loader->unreachableURL().isEmpty());
@@ -985,10 +983,12 @@ void WebFrameLoaderClient::transitionToCommittedForNewPage()
 
     RECT pixelRect;
     view->frameRect(&pixelRect);
-    bool transparent = view->transparent();
+    Optional<Color> backgroundColor;
+    if (view->transparent())
+        backgroundColor = Color(Color::transparent);
     FloatRect logicalFrame(pixelRect);
     logicalFrame.scale(1.0f / view->deviceScaleFactor());
-    core(m_webFrame)->createView(enclosingIntRect(logicalFrame).size(), transparent, /* fixedLayoutSize */ { }, /* fixedVisibleContentRect */ { });
+    core(m_webFrame)->createView(enclosingIntRect(logicalFrame).size(), backgroundColor, /* fixedLayoutSize */ { }, /* fixedVisibleContentRect */ { });
 }
 
 void WebFrameLoaderClient::didSaveToPageCache()

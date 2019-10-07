@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2008-2019 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -30,6 +30,7 @@
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecPolicyInternal.h>
 #include <Security/SecCertificateInternal.h>
+#include <Security/SecFramework.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecInternalReleasePriv.h>
 #include <wctype.h>
@@ -281,7 +282,7 @@ bool SecPolicyCheckCertSSLHostname(SecCertificateRef cert, CFTypeRef pvcValue) {
     }
 
     bool dnsMatch = false;
-    CFArrayRef dnsNames = SecCertificateCopyDNSNames(cert);
+    CFArrayRef dnsNames = SecCertificateCopyDNSNamesFromSAN(cert);
     if (dnsNames) {
         CFIndex ix, count = CFArrayGetCount(dnsNames);
         for (ix = 0; ix < count; ++ix) {
@@ -295,19 +296,25 @@ bool SecPolicyCheckCertSSLHostname(SecCertificateRef cert, CFTypeRef pvcValue) {
     }
 
     if (!dnsMatch) {
-        /* Maybe hostname is an IPv4 or IPv6 address, let's compare against
-         the values returned by SecCertificateCopyIPAddresses() instead. */
-        CFArrayRef ipAddresses = SecCertificateCopyIPAddresses(cert);
-        if (ipAddresses) {
-            CFIndex ix, count = CFArrayGetCount(ipAddresses);
-            for (ix = 0; ix < count; ++ix) {
+        /* Check whether hostname is an IPv4 or IPv6 address */
+        CFDataRef hostIPData = SecFrameworkCopyIPAddressData(hostName);
+        if (hostIPData) {
+            /* Check address against IP addresses in the SAN extension,
+               obtained by SecCertificateCopyIPAddresses. Comparisons
+               must always use the canonical data representation of the
+               address, since string notation may omit zeros, etc. */
+            CFArrayRef ipAddresses = SecCertificateCopyIPAddresses(cert);
+            CFIndex ix, count = (ipAddresses) ? CFArrayGetCount(ipAddresses) : 0;
+            for (ix = 0; ix < count && !dnsMatch; ++ix) {
                 CFStringRef ipAddress = (CFStringRef)CFArrayGetValueAtIndex(ipAddresses, ix);
-                if (!CFStringCompare(hostName, ipAddress, kCFCompareCaseInsensitive)) {
+                CFDataRef addrData = SecFrameworkCopyIPAddressData(ipAddress);
+                if (CFEqualSafe(hostIPData, addrData)) {
                     dnsMatch = true;
-                    break;
                 }
+                CFReleaseSafe(addrData);
             }
-            CFRelease(ipAddresses);
+            CFReleaseSafe(ipAddresses);
+            CFReleaseSafe(hostIPData);
         }
     }
 
@@ -631,13 +638,13 @@ bool SecPolicyCheckCertKeySize(SecCertificateRef cert, CFTypeRef pvcValue) {
 
 bool SecPolicyCheckCertWeakSignature(SecCertificateRef cert, CFTypeRef __unused pvcValue) {
     bool result = true;
-    CFMutableSetRef disallowedHashes = CFSetCreateMutable(NULL, 3, &kCFTypeSetCallBacks);
+    CFMutableArrayRef disallowedHashes = CFArrayCreateMutable(NULL, 3, &kCFTypeArrayCallBacks);
     if (!disallowedHashes) {
         return result;
     }
-    CFSetAddValue(disallowedHashes, kSecSignatureDigestAlgorithmMD2);
-    CFSetAddValue(disallowedHashes, kSecSignatureDigestAlgorithmMD4);
-    CFSetAddValue(disallowedHashes, kSecSignatureDigestAlgorithmMD5);
+    CFArrayAppendValue(disallowedHashes, kSecSignatureDigestAlgorithmMD2);
+    CFArrayAppendValue(disallowedHashes, kSecSignatureDigestAlgorithmMD4);
+    CFArrayAppendValue(disallowedHashes, kSecSignatureDigestAlgorithmMD5);
 
     /* Weak Signature failures only for non-self-signed certs */
     Boolean isSelfSigned = false;
@@ -664,9 +671,23 @@ static CFStringRef convertSignatureHashAlgorithm(SecSignatureHashAlgorithm algor
 }
 
 bool SecPolicyCheckCertSignatureHashAlgorithms(SecCertificateRef cert, CFTypeRef pvcValue) {
-    CFSetRef disallowedHashAlgorithms = pvcValue;
+    /* skip signature algorithm check on self-signed certs */
+    Boolean isSelfSigned = false;
+    OSStatus status = SecCertificateIsSelfSigned(cert, &isSelfSigned);
+    if ((status == errSecSuccess) && isSelfSigned) {
+        return true;
+    }
+
+    CFArrayRef disallowedHashAlgorithms = pvcValue;
     CFStringRef certAlg = convertSignatureHashAlgorithm(SecCertificateGetSignatureHashAlgorithm(cert));
-    if (CFSetContainsValue(disallowedHashAlgorithms, certAlg)) {
+    if (CFArrayContainsValue(disallowedHashAlgorithms, CFRangeMake(0,CFArrayGetCount(disallowedHashAlgorithms)), certAlg)) {
+        return false;
+    }
+    return true;
+}
+
+bool SecPolicyCheckCertUnparseableExtension(SecCertificateRef cert, CFTypeRef pvcValue) {
+    if (SecCertificateGetUnparseableKnownExtension(cert) != kCFNotFound) {
         return false;
     }
     return true;

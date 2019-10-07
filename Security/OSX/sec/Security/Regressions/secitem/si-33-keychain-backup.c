@@ -24,12 +24,7 @@
 
 #include <TargetConditionals.h>
 
-#if TARGET_IPHONE_SIMULATOR
-#define USE_KEYSTORE  0
-#else /* No AppleKeyStore.kext on this OS. */
-#define USE_KEYSTORE  1
-#endif
-
+#include "securityd/SecKeybagSupport.h"
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecBase.h>
@@ -41,7 +36,7 @@
 
 #if USE_KEYSTORE
 #include <AssertMacros.h>
-#include <libaks.h>
+#include "OSX/utilities/SecAKSWrappers.h"
 #endif
 
 #include <stdlib.h>
@@ -395,10 +390,16 @@ static CFDataRef create_keybag(keybag_handle_t bag_type, CFDataRef password)
     int bagLen = 0;
 
     keybag_handle_t handle = bad_keybag_handle;
-    require_noerr(aks_create_bag(DATA_ARG(password), bag_type, &handle), out);
-    require_noerr(aks_save_bag(handle, &bag, &bagLen), out);
+    kern_return_t bag_created = aks_create_bag(DATA_ARG(password), bag_type, &handle);
+    ok_status(bag_created, "Bag should have been created");
+    require_noerr(bag_created, out);
+
+    kern_return_t bag_saved = aks_save_bag(handle, &bag, &bagLen);
+    ok_status(bag_saved, "Bag should have been saved");
+    require_noerr(bag_saved, out);
 
     result = CFDataCreate(kCFAllocatorDefault, bag, bagLen);
+    isnt(result, NULL, "Result should not be null");
 out:
     return result;
 }
@@ -411,6 +412,16 @@ static void tests(void)
         CFMutableDictionaryRef lock_down_query = test_create_lockdown_identity_query();
         (void)SecItemDelete(lock_down_query);
         CFReleaseNull(lock_down_query);
+    }
+    {
+        CFMutableDictionaryRef sysbound_query = test_create_sysbound_query();
+        (void)SecItemDelete(sysbound_query);
+        CFReleaseNull(sysbound_query);
+    }
+    {
+        CFMutableDictionaryRef managed_configuration_query = test_create_managedconfiguration_query();
+        (void)SecItemDelete(managed_configuration_query);
+        CFReleaseNull(managed_configuration_query);
     }
 
     int v_eighty = 80;

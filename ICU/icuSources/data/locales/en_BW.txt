@@ -2,7 +2,7 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 en_BW{
     %%Parent{"en_001"}
-    Version{"2.1.38.69"}
+    Version{"2.1.47.69"}
     calendar{
         generic{
             DateTimePatterns{
@@ -25,6 +25,11 @@ en_BW{
                 GyMMMd{"dd MMM y G"}
                 MMMEd{"E, dd MMM"}
                 MMMd{"dd MMM"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                hmsv{"h:mm:ss a v"}
+                hmv{"h:mm a v"}
                 yyyyM{"MM/y G"}
                 yyyyMEd{"E, dd/MM/y G"}
                 yyyyMMMEd{"E, dd MMM y G"}

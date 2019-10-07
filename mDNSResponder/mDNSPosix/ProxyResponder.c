@@ -36,7 +36,7 @@
 
 //*************************************************************************************************************
 // Globals
-static mDNS mDNSStorage;       // mDNS core uses this to store its globals
+mDNS mDNSStorage;       // mDNS core uses this to store its globals
 static mDNS_PlatformSupport PlatformStorage;  // Stores this platform's globals
 mDNSexport const char ProgramName[] = "mDNSProxyResponderPosix";
 

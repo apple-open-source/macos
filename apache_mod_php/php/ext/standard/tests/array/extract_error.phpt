@@ -1,5 +1,5 @@
 --TEST--
-Test extract() function (error conditions) 
+Test extract() function (error conditions)
 --FILE--
 <?php
 
@@ -30,7 +30,6 @@ var_dump( extract($arr,EXTR_PREFIX_IF_EXISTS) );
 
 echo "Done\n";
 ?>
-
 --EXPECTF--
 *** Testing Error Conditions ***
 
@@ -45,7 +44,7 @@ NULL
 Warning: extract(): Invalid extract type in %s on line %d
 NULL
 
-Warning: extract() expects parameter 1 to be array, integer given in %s on line %d
+Warning: extract() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 Warning: extract() expects parameter 1 to be array, string given in %s on line %d

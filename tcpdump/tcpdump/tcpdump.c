@@ -230,6 +230,7 @@ static void info(int);
 static u_int packets_captured;
 #else /* __APPLE__ */
 
+static int truncation_mode = 0;
 static u_long packets_captured;
 static u_long max_packet_cnt = ULONG_MAX;
 static u_long skip_packet_cnt = 0;
@@ -602,7 +603,8 @@ show_devices_and_exit (void)
 #define OPTION_TSTAMP_PRECISION	129
 #define OPTION_IMMEDIATE_MODE	130
 #ifdef __APPLE__
-#define OPTION_TIME_ZONE_OFFSET	131
+#define OPTION_TIME_ZONE_OFFSET    131
+#define OPTION_APPLE_TRUNCATE    132
 #endif /* __APPLE__ */
 
 static const struct option longopts[] = {
@@ -646,6 +648,8 @@ static const struct option longopts[] = {
 	{ "version", no_argument, NULL, OPTION_VERSION },
 #ifdef __APPLE__
 	{ "time-zone-offset", required_argument, NULL, OPTION_TIME_ZONE_OFFSET },
+	{ "apple-tzo", required_argument, NULL, OPTION_TIME_ZONE_OFFSET },
+	{ "apple-truncate", no_argument, NULL, OPTION_APPLE_TRUNCATE },
 #endif /* __APPLE__ */
 	{ NULL, 0, NULL, 0 }
 };
@@ -1105,6 +1109,10 @@ open_interface(const char *device, netdissect_options *ndo, char *ebuf)
 	 * Must be called before pcap_activate()
 	 */
 	pcap_set_want_pktap(pc, 1);
+
+	if (truncation_mode != 0) {
+		pcap_set_truncation_mode(pc, 1);
+	}
 #endif /* __APPLE__ */
 
 	status = pcap_activate(pc);
@@ -1754,6 +1762,10 @@ main(int argc, char **argv)
 #ifdef __APPLE__
 		case OPTION_TIME_ZONE_OFFSET:
 			timezone_offset_arg = optarg;
+			break;
+
+		case OPTION_APPLE_TRUNCATE:
+			truncation_mode = 1;
 			break;
 #endif /* __APPLE__ */
 
@@ -2553,6 +2565,13 @@ main(int argc, char **argv)
 					if (pcap_setfilter(pd, &fcode) < 0)
 						error("%s", pcap_geterr(pd));
 				}
+				/*
+				 * Reinitialize the dumper view of the interface and process infos
+				 * with a new section
+				 */
+				if (WFileName != NULL) {
+					pcap_ng_dump_init_section_info(dumpinfo.p);
+				}
 #endif /* __APPLE__ */
 
 				/*
@@ -3202,7 +3221,10 @@ print_usage(void)
 	(void)fprintf(stderr,
 "\t\t[ -w file ] [ -W filecount ] [ -y datalinktype ] [ -z postrotate-command ]\n");
 #ifdef __APPLE__
-	(void)fprintf(stderr, "[ -g ] [ -k ] [ -o ] [ -P ] [ -Q met[ --time-zone-offset offset ]\n");
+	(void)fprintf(stderr,
+"\t\t[ -g ] [ -k ] [ -o ] [ -P ] [ -Q meta-data-expression]\n");
+	(void)fprintf(stderr,
+"\t\t[ --apple-tzo offset] [--apple-truncate]\n");
 #endif /* __APPLE__ */
 	(void)fprintf(stderr,
 "\t\t[ -Z user ] [ expression ]\n");
@@ -3317,8 +3339,8 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 				uint32_t pibindex;
 
 				if (pib_index_option_info.length != 4) {
-					error("%s: pib index option length %u != 4", __func__, pib_index_option_info.length);
-					abort();
+					warning("%s: pib index option length %u != 4", __func__, pib_index_option_info.length);
+					goto done;
 				}
 				pibindex = *(uint32_t *)(pib_index_option_info.value);
 				if (pcap_is_swapped(dump_info->pd))
@@ -3330,8 +3352,8 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 				uint32_t pibindex;
 
 				if (e_pib_index_option_info.length != 4) {
-					error("%s: e_pib index option length %u != 4", __func__, e_pib_index_option_info.length);
-					abort();
+					warning("%s: e_pib index option length %u != 4", __func__, e_pib_index_option_info.length);
+					goto done;
 				}
 				pibindex = *(uint32_t *)(e_pib_index_option_info.value);
 				if (pcap_is_swapped(dump_info->pd))
@@ -3341,8 +3363,8 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 			}
 			if (pcap_ng_block_get_option(block, PCAPNG_EPB_SVC, &option_info) == 1) {
 				if (option_info.length != 4) {
-					error("%s: svc option length %u != 4", __func__, option_info.length);
-					abort();
+					warning("%s: svc option length %u != 4", __func__, option_info.length);
+					goto done;
 				}
 				pkt_svc = *(uint32_t *)(option_info.value);
 				if (pcap_is_swapped(dump_info->pd))
@@ -3380,8 +3402,8 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 
 	if_info = pcap_find_if_info_by_id(dump_info->pd, src_if_id);
 	if (if_info == NULL) {
-		error("%s: unknown interface id %u", __func__, src_if_id);
-		abort();
+		warning("%s: unknown interface id %u", __func__, src_if_id);
+		goto done;
 	}
 
 	/*
@@ -3401,8 +3423,8 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 
 	if (pcap_ng_block_get_option(block, pack_flags_code, &option_info) == 1) {
 		if (option_info.length != 4) {
-			error("%s: pack_flags option length %u != 4", __func__, option_info.length);
-			abort();
+			warning("%s: pack_flags option length %u != 4", __func__, option_info.length);
+			goto done;
 		}
 		bcopy(option_info.value, &packet_flags, sizeof(packet_flags));
 
@@ -3455,8 +3477,8 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 				uint32_t pibindex;
 
 				if (pib_index_option_info.length != 4) {
-					error("%s: pib index option length %u != 4", __func__, pib_index_option_info.length);
-					abort();
+					warning("%s: pib index option length %u != 4", __func__, pib_index_option_info.length);
+					goto done;
 				}
 				pibindex = *(uint32_t *)(pib_index_option_info.value);
 				if (pcap_is_swapped(dump_info->pd))
@@ -3664,7 +3686,7 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 
 				ND_PRINT((ndo, "Process Information Block pid: %u proc_name: %s%s%s\n",
 						  proc_info->proc_pid, proc_info->proc_name,
-						  uu_null == 0 ? uu_str : " proc_uuid: ", uu_null == 0 ? uu_str : ""));
+                          uu_null == 0 ? " proc_uuid: " : "", uu_null == 0 ? uu_str : ""));
 			}
 			goto done;
 		}
@@ -3675,8 +3697,8 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 				uint32_t pibindex;
 
 				if (option_info.length != 4) {
-					error("%s: pib index option length %u != 4", __func__, option_info.length);
-					abort();
+					warning("%s: pib index option length %u != 4", __func__, option_info.length);
+					goto done;
 				}
 				pibindex = *(uint32_t *)(option_info.value);
 				if (pcap_is_swapped(ndo->ndo_pcap))
@@ -3688,8 +3710,8 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 				uint32_t pibindex;
 
 				if (option_info.length != 4) {
-					error("%s: e_pib index option length %u != 4", __func__, option_info.length);
-					abort();
+					warning("%s: e_pib index option length %u != 4", __func__, option_info.length);
+					goto done;
 				}
 				pibindex = *(uint32_t *)(option_info.value);
 				if (pcap_is_swapped(ndo->ndo_pcap))
@@ -3699,8 +3721,8 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 			}
 			if (pcap_ng_block_get_option(block, PCAPNG_EPB_SVC, &option_info) == 1) {
 				if (option_info.length != 4) {
-					error("%s: svc option length %u != 4", __func__, option_info.length);
-					abort();
+					warning("%s: svc option length %u != 4", __func__, option_info.length);
+					goto done;
 				}
 				pkt_svc = *(uint32_t *)(option_info.value);
 				if (pcap_is_swapped(ndo->ndo_pcap))
@@ -3780,8 +3802,8 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 
 	if_info = pcap_find_if_info_by_id(ndo->ndo_pcap, if_id);
 	if (if_info == NULL) {
-		error("%s: unknown interface id %u", __func__, if_id);
-		abort();
+		warning("%s: unknown interface id %u", __func__, if_id);
+		goto done;
 	}
 
 	/*
@@ -3793,8 +3815,8 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 
 	if (pcap_ng_block_get_option(block, pack_flags_code, &option_info) == 1) {
 		if (option_info.length != 4) {
-			error("%s: pack_flags option length %u != 4", __func__, option_info.length);
-			abort();
+			warning("%s: pack_flags option length %u != 4", __func__, option_info.length);
+			goto done;
 		}
 		bcopy(option_info.value, &packet_flags, sizeof(packet_flags));
 
@@ -3836,7 +3858,7 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 	/*
 	 * Packet metadata
 	 */
-	if (ndo->ndo_kflag != PRMD_NONE) {
+    if (ndo->ndo_kflag != PRMD_NONE && ndo->ndo_kflag != PRMD_VERBOSE) {
 		const char *prsep = "";
 
 		ND_PRINT((ndo, "("));
@@ -3863,7 +3885,7 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 		 * Service class
 		 */
 		if ((ndo->ndo_kflag & PRMD_SVC) && pkt_svc != -1) {
-			ND_PRINT((ndo, "%ssvc %s",
+			ND_PRINT((ndo, "%s" "svc %s",
 					  prsep,
 					  svc2str(pkt_svc)));
 			prsep = ", ";
@@ -3873,11 +3895,11 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 		 * Direction
 		 */
 		if ((ndo->ndo_kflag & PRMD_DIR) && (packet_flags & 3)) {
-			if ((packet_flags & 2) == 2)
-				ND_PRINT((ndo, "%sout",
+			if ((packet_flags & PCAPNG_PBF_DIR_MASK) == PCAPNG_PBF_DIR_OUTBOUND)
+				ND_PRINT((ndo, "%s" "out",
 						  prsep));
-			else if ((packet_flags & 1) == 1)
-				ND_PRINT((ndo, "%sin",
+			else if ((packet_flags & PCAPNG_PBF_DIR_MASK) == PCAPNG_PBF_DIR_INBOUND)
+				ND_PRINT((ndo, "%s" "in",
 						  prsep));
 			prsep = ", ";
 		}
@@ -3885,7 +3907,7 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 		/*
 		 * Custom packet medadata flags
 		 */
-		if (pmdflags != 0) {
+		if ((ndo->ndo_kflag & PRMD_FLAGS) && pmdflags != 0) {
 			if ((pmdflags & PCAPNG_EPB_PMDF_NEW_FLOW)) {
 				ND_PRINT((ndo, "%s" "nf",
 					  prsep));

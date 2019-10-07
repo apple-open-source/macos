@@ -14,8 +14,8 @@ endif
 # by the RC_* variables.  These values would normally be set by the default
 # python Makefile
 ##---------------------------------------------------------------------
-Extra_CC_Flags += -fno-common -fno-strict-aliasing -fwrapv -DENABLE_DTRACE -DMACOSX -DNDEBUG -Wall -Wstrict-prototypes -Wshorten-64-to-32
-Extra_LD_Flags += -Wl,-F.
+Extra_CC_Flags += -fno-common -fno-strict-aliasing -fwrapv -DENABLE_DTRACE -DMACOSX -DNDEBUG -Wall -Wstrict-prototypes -Wshorten-64-to-32 -iwithsysroot /usr/local/libressl/include
+Extra_LD_Flags += -Wl,-F. -L$(SDKROOT)/usr/local/libressl/lib
 Extra_Install_Flags   = DESTDIR='$(DSTROOT)'
 GnuAfterInstall       = fixup-after-install install-plist
 Extra_Environment     = CCSHARED='$(RC_CFLAGS)'

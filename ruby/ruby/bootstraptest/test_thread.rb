@@ -25,8 +25,9 @@ rescue ThreadError => e
   :ok if /can't create Thread/ =~ e.message
 end
 }
-assert_equal %q{5000}, %q{
-  5000.times{|e|
+assert_equal %q{ok}, %q{
+begin
+  :ok if 5000 == 5000.times{|e|
     (1..2).map{
       Thread.new{
       }
@@ -34,9 +35,13 @@ assert_equal %q{5000}, %q{
       e.join()
     }
   }
+rescue ThreadError => e
+  :ok if /can't create Thread/ =~ e.message
+end
 }
-assert_equal %q{5000}, %q{
-  5000.times{|e|
+assert_equal %q{ok}, %q{
+begin
+  :ok if 5000 == 5000.times{|e|
     (1..2).map{
       Thread.new{
       }
@@ -44,6 +49,9 @@ assert_equal %q{5000}, %q{
       e.join(1000000000)
     }
   }
+rescue ThreadError => e
+  :ok if /can't create Thread/ =~ e.message
+end
 }
 assert_equal %q{ok}, %q{
 begin
@@ -339,7 +347,7 @@ assert_equal 'ok', %q{
 
 assert_equal 'ok', %q{
   begin
-    m1, m2 = Mutex.new, Mutex.new
+    m1, m2 = Thread::Mutex.new, Thread::Mutex.new
     f1 = f2 = false
     Thread.new { m1.lock; f2 = true; sleep 0.001 until f1; m2.lock }
     m2.lock; f1 = true; sleep 0.001 until f2; m1.lock
@@ -350,32 +358,32 @@ assert_equal 'ok', %q{
 }
 
 assert_equal 'ok', %q{
-  m = Mutex.new
+  m = Thread::Mutex.new
   Thread.new { m.lock }; sleep 0.1; m.lock
   :ok
 }
 
 assert_equal 'ok', %q{
-  m = Mutex.new
+  m = Thread::Mutex.new
   Thread.new { m.lock }; m.lock
   :ok
 }
 
 assert_equal 'ok', %q{
-  m = Mutex.new
+  m = Thread::Mutex.new
   Thread.new { m.lock }.join; m.lock
   :ok
 }
 
 assert_equal 'ok', %q{
-  m = Mutex.new
+  m = Thread::Mutex.new
   Thread.new { m.lock; sleep 0.2 }
   sleep 0.1; m.lock
   :ok
 }
 
 assert_equal 'ok', %q{
-  m = Mutex.new
+  m = Thread::Mutex.new
   Thread.new { m.lock; sleep 0.2; m.unlock }
   sleep 0.1; m.lock
   :ok
@@ -401,7 +409,7 @@ assert_equal 'ok', %{
   open("zzz.rb", "w") do |f|
     f.puts <<-'end;' # do
       begin
-        m = Mutex.new
+        m = Thread::Mutex.new
         parent = Thread.current
         th1 = Thread.new { m.lock; sleep }
         sleep 0.01 until th1.stop?
@@ -429,8 +437,8 @@ assert_equal 'ok', %{
 assert_finish 3, %q{
   require 'thread'
 
-  lock = Mutex.new
-  cond = ConditionVariable.new
+  lock = Thread::Mutex.new
+  cond = Thread::ConditionVariable.new
   t = Thread.new do
     lock.synchronize do
       cond.wait(lock)

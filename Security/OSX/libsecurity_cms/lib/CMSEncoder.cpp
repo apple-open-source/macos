@@ -25,8 +25,8 @@
  * CMSEncoder.cpp - encode, sign, and/or encrypt CMS messages. 
  */
  
-#include "CMSEncoder.h"
-#include "CMSPrivate.h"
+#include <Security/CMSEncoder.h>
+#include <Security/CMSPrivate.h>
 #include "CMSUtils.h"
 #include <Security/SecBase.h>
 #include <Security/SecCmsEncoder.h>
@@ -467,6 +467,9 @@ static OSStatus cmsSetupForSignedData(
 			break;
 		case kCMSCertificateChainWithRoot:
 			chainMode = SecCmsCMCertChainWithRoot;
+			break;
+		case kCMSCertificateChainWithRootOrFail:
+			chainMode = SecCmsCMCertChainWithRootOrFail;
 			break;
 		default:
 			break;
@@ -1101,6 +1104,7 @@ OSStatus CMSEncoderSetCertificateChainMode(
 		case kCMSCertificateSignerOnly:
 		case kCMSCertificateChain:
 		case kCMSCertificateChainWithRoot:
+		case kCMSCertificateChainWithRootOrFail:
 			break;
 		default:
 			return errSecParam;

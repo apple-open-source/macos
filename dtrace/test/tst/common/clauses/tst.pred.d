@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.pred.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Test a clause that has a body and a predicate.
  * SECTION:   Program Structure / Probe Clauses and Declarations

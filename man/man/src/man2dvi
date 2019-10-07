@@ -1,7 +1,9 @@
 #! /bin/sh
 #
-# script to format manpages to dvi
+# Script to format manpages to dvi.
 # Copyright (c) 1997 Tobias Begalke (tb@lst.de)
+#
+# Part of release 1.6g of the man suite. 
 #
 
 groff="groff -Tdvi -mandoc"
@@ -23,6 +25,10 @@ case `file $location` in
     zcat $location | $groff  
     ;;
   
+  *bzip2* )
+    bzcat $location | $groff  
+    ;;
+
   *troff* )
     $groff $location
     ;;

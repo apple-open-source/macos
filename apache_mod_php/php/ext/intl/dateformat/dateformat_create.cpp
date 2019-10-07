@@ -74,7 +74,7 @@ static int datefmt_ctor(INTERNAL_FUNCTION_PARAMETERS, zend_bool is_constructor)
 	intl_error_reset(NULL);
 	object = return_value;
 	/* Parse parameters. */
-	if (zend_parse_parameters_ex(zpp_flags, ZEND_NUM_ARGS(), "sll|zzs",
+	if (zend_parse_parameters_ex(zpp_flags, ZEND_NUM_ARGS(), "s!ll|zzs",
 			&locale_str, &locale_len, &date_type, &time_type, &timezone_zv,
 			&calendar_zv, &pattern_str, &pattern_str_len) == FAILURE) {
 		intl_error_set( NULL, U_ILLEGAL_ARGUMENT_ERROR,	"datefmt_create: "
@@ -216,7 +216,9 @@ U_CFUNC PHP_METHOD( IntlDateFormatter, __construct )
 	return_value = getThis();
 	if (datefmt_ctor(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1) == FAILURE) {
 		if (!EG(exception)) {
-			zend_throw_exception(IntlException_ce_ptr, "Constructor failed", 0);
+			zend_string *err = intl_error_get_message(NULL);
+			zend_throw_exception(IntlException_ce_ptr, ZSTR_VAL(err), intl_error_get_code(NULL));
+			zend_string_release_ex(err, 0);
 		}
 	}
 	zend_restore_error_handling(&error_handling);

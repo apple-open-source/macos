@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -782,7 +782,7 @@ endswitch:
 	INCPTR(cilen, ucp);
     }
 
-    *len = ucp - inp;			/* Compute output length */
+    *len = (int)(ucp - inp);			/* Compute output length */
     ACSCPDEBUG(("acscp: returning Configure-%s", CODENAME(rc)));
     return (rc);			/* Return final code */
 }
@@ -939,7 +939,7 @@ acscp_printpkt(p, plen, printer, arg)
 	printer(arg, " %.2x", code);
     }
 
-    return p - pstart;
+    return (int)(p - pstart);
 }
 
 

@@ -33,7 +33,7 @@ class AppleEmbeddedHIDEventService: public IOHIDEventService
     OSDeclareAbstractStructors( AppleEmbeddedHIDEventService )
 
 public:
-    virtual bool handleStart(IOService * provider);
+    virtual bool handleStart(IOService * provider) APPLE_KEXT_OVERRIDE;
 
 protected:
     virtual void dispatchAccelerometerEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDMotionType type = 0, IOHIDMotionPath subType = 0, UInt32 sequence = 0, IOOptionBits options=0);
@@ -52,7 +52,7 @@ protected:
 
     virtual void dispatchVendorDefinedEvent(AbsoluteTime timeStamp, UInt32 usagePage, UInt32 usage, UInt32 version, UInt8 * data, UInt32 length, IOOptionBits options = 0);
     
-    virtual void dispatchBiometricEvent(AbsoluteTime timeStamp, IOFixed level, IOHIDBiometricEventType eventType, IOOptionBits options = 0);
+    virtual void dispatchBiometricEvent(AbsoluteTime timeStamp, IOFixed level, IOHIDBiometricEventType eventType, IOOptionBits options = 0) APPLE_KEXT_OVERRIDE;
 
     virtual void dispatchAtmosphericPressureEvent(AbsoluteTime timeStamp, IOFixed level, UInt32 sequence=0, IOOptionBits options=0);
 
@@ -60,7 +60,7 @@ protected:
 
     virtual IOHIDPlacementType getPlacement();
 
-    virtual UInt32          getReportInterval();
+    virtual UInt32          getReportInterval() APPLE_KEXT_OVERRIDE;
  
     virtual void dispatchAmbientLightSensorEvent(AbsoluteTime timestamp, UInt32 level, IOHIDEventColorSpace colorSpace, IOHIDDouble colorComponent0, IOHIDDouble colorComponent1, IOHIDDouble colorComponent2, IOOptionBits options);
 

@@ -309,7 +309,26 @@ namespace base {
     XCTAssert (value == kHIDUsage_AppleVendorMotion_DeviceOrientationTypePortrait);
 
     CFRelease (usageEvent);
-    
+
+    IOHIDEventRef quatEvent = IOHIDEventCreateQuaternionOrientationEvent(kCFAllocatorDefault, mach_absolute_time(), 1, 2, 3, 4, 0);
+    HIDXCTAssertAndThrowTrue (quatEvent != NULL);
+
+    value = IOHIDEventGetIntegerValue (quatEvent, kIOHIDEventFieldOrientationOrientationType);
+    XCTAssert (value == kIOHIDOrientationTypeQuaternion);
+
+    value = IOHIDEventGetIntegerValue (quatEvent, kIOHIDEventFieldOrientationQuatW);
+    XCTAssert (value == 1);
+
+    value = IOHIDEventGetIntegerValue (quatEvent, kIOHIDEventFieldOrientationQuatX);
+    XCTAssert (value == 2);
+
+    value = IOHIDEventGetIntegerValue (quatEvent, kIOHIDEventFieldOrientationQuatY);
+    XCTAssert (value == 3);
+
+    value = IOHIDEventGetIntegerValue (quatEvent, kIOHIDEventFieldOrientationQuatZ);
+    XCTAssert (value == 4);
+
+    CFRelease (quatEvent);
 }
 
 - (void)testGenericGestureEvent {
@@ -367,6 +386,7 @@ namespace base {
     IOHIDEventSetIntegerValue (gcEvent, kIOHIDEventFieldGameControllerThumbstickButtonLeft, 0);
     value = IOHIDEventGetIntegerValue (gcEvent, kIOHIDEventFieldGameControllerThumbstickButtonLeft);
     XCTAssert (value == 0);
+    CFRelease(gcEvent);
 
 }
 @end

@@ -812,7 +812,6 @@ typedef uint32_t IOHIDDigitizerTransducerType;
     @constant kIOHIDDigitizerEventSwipePending Issued to indicate that an edge swipe is pending 
     @constant kIOHIDDigitizerEventFromEdgeForcePending Issued to indicate that edge press is pending
     @constant kIOHIDDigitizerEventFromEdgeForceActive Issued to indicate that edge press is active
-    @constant kIOHIDDigitizerEventForcePopped Issued to indicate that a force pop was detected
     @constant kIOHIDDigitizerEventUpSwipe Issued when an up swipe has been detected.
     @constant kIOHIDDigitizerEventDownSwipe Issued when an down swipe has been detected.
     @constant kIOHIDDigitizerEventLeftSwipe Issued when an left swipe has been detected.
@@ -836,7 +835,6 @@ enum {
     kIOHIDDigitizerEventSwipePending                        = 1<<13,
     kIOHIDDigitizerEventFromEdgeForcePending                = 1<<14,
     kIOHIDDigitizerEventFromEdgeForceActive                 = 1<<15,
-    kIOHIDDigitizerEventForcePopped                         = 1<<16,
     kIOHIDDigitizerEventTap                                 = 1<<17,
     kIOHIDDigitizerEventSwipeLocked                         = 1<<18,
     kIOHIDDigitizerEventSwipeUp                             = 1<<24,

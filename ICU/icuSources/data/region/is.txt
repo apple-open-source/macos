@@ -77,7 +77,7 @@ is{
         CF{"Mið-Afríkulýðveldið"}
         CG{"Kongó-Brazzaville"}
         CH{"Sviss"}
-        CI{"Côte d’Ivoire"}
+        CI{"Fílabeinsströndin"}
         CK{"Cooks-eyjar"}
         CL{"Síle"}
         CM{"Kamerún"}
@@ -133,7 +133,7 @@ is{
         GU{"Gvam"}
         GW{"Gínea-Bissá"}
         GY{"Gvæjana"}
-        HK{"sérstjórnarsvæðið Hong Kong"}
+        HK{"Hong Kong"}
         HM{"Heard og McDonaldseyjar"}
         HN{"Hondúras"}
         HR{"Króatía"}
@@ -183,11 +183,11 @@ is{
         MF{"St. Martin"}
         MG{"Madagaskar"}
         MH{"Marshalleyjar"}
-        MK{"Makedónía"}
+        MK{"Norður-Makedónía"}
         ML{"Malí"}
         MM{"Mjanmar (Búrma)"}
         MN{"Mongólía"}
-        MO{"sérstjórnarsvæðið Makaó"}
+        MO{"Makaó"}
         MP{"Norður-Maríanaeyjar"}
         MQ{"Martiník"}
         MR{"Máritanía"}
@@ -297,8 +297,6 @@ is{
     }
     Countries%short{
         GB{"Bretland"}
-        HK{"Hong Kong"}
-        MO{"Makaó"}
         PS{"Palestína"}
         UN{"SÞ"}
         US{"BNA"}
@@ -306,10 +304,8 @@ is{
     Countries%variant{
         CD{"Kongó (Lýðstjórnarlýðveldið)"}
         CG{"Kongó (Lýðveldið)"}
-        CI{"Fílabeinsströndin"}
         FK{"Falklandseyjar (Malvinas)"}
-        MK{"Makedónía (Fyrrverandi lýðveldi Júgóslavíu)"}
         TL{"Austur-Tímor"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
 }

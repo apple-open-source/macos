@@ -1,0 +1,34 @@
+
+syntax = "proto2";
+
+option objc_class_naming = "extended";
+option objc_class_visibility = "hidden";
+
+message SecEscrowPendingRecord {
+    optional string uuid = 1;
+
+    // True if CloudServices has informed us that it's successfully cached a certificate for this request
+    optional bool certCached = 2;
+
+    // CloudServices is responsible for serialization and understanding what it has stored here.
+    // This is a shame, but allows knowledge of what's in a escrow record to live in CloudServices, not securityd.
+    optional bytes serializedPrerecord = 3;
+
+    // Holds the time, in milliseconds since 1970, that the last SBD trigger was attempted
+    optional uint64 lastCloudServicesTriggerTime = 4;
+
+    // Holds the time, in milliseconds since 1970, that the last escrow upload was attempted
+    optional uint64 lastEscrowAttemptTime = 5;
+
+    // If set to true, then this pending record is complete, and can be garbage collected
+    optional bool uploadCompleted = 6;
+
+    // Number of upload retries
+    optional uint64 uploadRetries = 7;
+
+    // altDSID for requesting user (will be used for cleanup)
+    optional string altDSID = 8;
+
+    // Request was generated at the time, ms since 1970
+    optional uint64 triggerRequestTime = 9;
+}

@@ -138,10 +138,15 @@ static bool findStringEndingNoCase(const char *path, const char * end)
 void ResourceBuilder::scan(Scanner next)
 {
 	bool first = true;
-    
+
 	while (FTSENT *ent = fts_read(mFTS)) {
 		static const char ds_store[] = ".DS_Store";
-		const char *relpath = ent->fts_path + mRoot.size() + 1;	// skip prefix + "/"
+		const char *relpath = ent->fts_path + mRoot.size(); // skip prefix
+
+		if (strlen(relpath) > 0) {
+			relpath += 1;	// skip "/"
+		}
+
 		std::string rp;
 		if (mRelBase != mRoot) {
 			assert(mRelBase == mRoot + "/Contents");
@@ -183,7 +188,7 @@ void ResourceBuilder::scan(Scanner next)
 			secinfo("rdirenum", "entering %s", ent->fts_path);
 			GKBIS_Num_dirs++;
 
-			if (!first) {	// skip root directory (relpath invalid)
+			if (!first) {	// skip root directory
 				if (Rule *rule = findRule(relpath)) {
 					if (rule->flags & nested) {
 						if (strchr(ent->fts_name, '.')) {	// nested, has extension -> treat as nested bundle

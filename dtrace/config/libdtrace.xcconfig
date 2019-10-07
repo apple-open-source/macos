@@ -1,0 +1,40 @@
+#include "base.xcconfig"
+
+LEXFLAGS = "-l"
+
+EXPORTED_SYMBOLS_FILE = $(SRCROOT)/lib/libdtrace/exports
+INSTALL_PATH = /usr/lib
+
+MACH_O_TYPE_dtrace = mh_dylib
+MACH_O_TYPE_dtrace_host = staticlib
+MACH_O_TYPE_ = mh_dylib
+MACH_O_TYPE = $(MACH_O_TYPE_$(RC_ProjectName))
+
+OTHER_CFLAGS_dtrace = -DDTRACE_USE_CORESYMBOLICATION
+OTHER_CFLAGS_ = -DDTRACE_USE_CORESYMBOLICATION
+OTHER_CFLAGS_dtrace_host =
+OTHER_CFLAGS = $(inherited) $(OTHER_CFLAGS_$(RC_ProjectName))
+
+OTHER_LDFLAGS_dtrace = -framework CoreSymbolication
+OTHER_LDFLAGS_ = -framework CoreSymbolication
+OTHER_LDFLAGS_dtrace_host =
+OTHER_LDFLAGS = $(OTHER_LDFLAGS_$(RC_ProjectName))
+
+SUPPORTS_TEXT_BASED_API_dtrace = YES
+SUPPORTS_TEXT_BASED_API_ = YES
+SUPPORTS_TEXT_BASED_API_dtrace_host = NO
+SUPPORTS_TEXT_BASED_API = $(SUPPORTS_TEXT_BASED_API_$(RC_ProjectName))
+
+PUBLIC_HEADERS_FOLDER_PATH_dtrace = /usr/include
+PUBLIC_HEADERS_FOLDER_PATH_ = /usr/include
+PUBLIC_HEADERS_FOLDER_PATH_dtrace_host = $(DT_TOOLCHAIN_DIR)/usr/local/include
+PUBLIC_HEADERS_FOLDER_PATH = $(PUBLIC_HEADERS_FOLDER_PATH_$(RC_ProjectName))
+
+SKIP_INSTALL_dtrace = NO
+SKIP_INSTALL_dtrace_host = YES
+SKIP_INSTALL_ = NO
+SKIP_INSTALL = $(SKIP_INSTALL_$(RC_ProjectName))
+
+APPLY_RULES_IN_COPY_FILES = YES
+PLIST_FILE_OUTPUT_FORMAT = binary
+

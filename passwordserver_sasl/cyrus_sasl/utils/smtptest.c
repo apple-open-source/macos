@@ -4,7 +4,7 @@
  *
  */
 
-#include <config.h>
+#include "config.h"
 
 #include <sfio.h>
 #include <sfio/stdio.h>
@@ -31,8 +31,8 @@
 #include <sys/select.h>
 #endif
 
-#include <sasl.h>
-#include <saslutil.h>
+#include "sasl.h"
+#include "saslutil.h"
 
 #include "sfsasl.h"
 

@@ -29,11 +29,6 @@
         id o = (obj);          \
         o ? o : [NSNull null]; \
     })
-#define CKKSNSNullToNil(obj)                   \
-    ({                                         \
-        id o = (obj);                          \
-        ([o isEqual:[NSNull null]]) ? nil : o; \
-    })
 
 #define CKKSIsNull(x)                                \
     ({                                               \
@@ -43,6 +38,20 @@
 #define CKKSUnbase64NullableString(x) (!CKKSIsNull(x) ? [[NSData alloc] initWithBase64EncodedString:x options:0] : nil)
 
 NS_ASSUME_NONNULL_BEGIN
+
+// A holder of a possibly-present string value.
+// Also includes some convenience methods for parsing the string in different manners.
+// If the value is nil, then the convenience methods return nil (or false/0).
+@interface CKKSSQLResult : NSObject
+- (instancetype)init:(NSString* _Nullable)value;
+
+- (BOOL)asBOOL;
+- (NSInteger)asNSInteger;
+- (NSString* _Nullable)asString;
+- (NSNumber* _Nullable)asNSNumberInteger;
+- (NSDate* _Nullable)asISO8601Date;
+- (NSData* _Nullable)asBase64DecodedData;
+@end
 
 @interface CKKSSQLDatabaseObject : NSObject <NSCopying>
 
@@ -90,23 +99,25 @@ NS_ASSUME_NONNULL_BEGIN
                    groupBy:(NSArray* _Nullable)groupColumns
                    orderBy:(NSArray* _Nullable)orderColumns
                      limit:(ssize_t)limit
-                processRow:(void (^)(NSDictionary*))processRow
+                processRow:(void (^)(NSDictionary<NSString*, CKKSSQLResult*>*))processRow
                      error:(NSError* _Nullable __autoreleasing* _Nullable)error;
 
 + (bool)queryMaxValueForField:(NSString*)maxField
                       inTable:(NSString*)table
                         where:(NSDictionary* _Nullable)whereDict
                       columns:(NSArray*)names
-                   processRow:(void (^)(NSDictionary*))processRow;
+                   processRow:(void (^)(NSDictionary<NSString*, CKKSSQLResult*>*))processRow;
 
 // Note: if you don't use the SQLDatabase methods of loading yourself,
 //  make sure you call this directly after loading.
 - (instancetype)memoizeOriginalSelfWhereClause;
 
++ (NSString *)quotedString:(NSString *)string;
+
 #pragma mark - Subclasses must implement the following:
 
 // Given a row from the database, make this object
-+ (instancetype _Nullable)fromDatabaseRow:(NSDictionary*)row;
++ (instancetype _Nullable)fromDatabaseRow:(NSDictionary<NSString *, CKKSSQLResult *>*)row;
 
 // Return the columns, in order, that this row wants to fetch
 + (NSArray<NSString*>*)sqlColumns;

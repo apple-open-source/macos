@@ -23,9 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if TARGET_OS_IPHONE
+
 #import <WebCore/AbstractPasteboard.h>
 
-#if TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000
 
 struct CGSize;
 
@@ -39,6 +41,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface NSItemProvider (WebCoreExtras)
 @property (nonatomic, readonly) BOOL web_containsFileURLAndFileUploadContent;
+@property (nonatomic, readonly) NSArray<NSString *> *web_fileUploadContentTypes;
 @end
 
 /*! A WebItemProviderRegistrar encapsulates a single call to register something to an item provider.
@@ -111,4 +114,5 @@ WEBCORE_EXPORT @interface WebItemProviderPasteboard : NSObject<AbstractPasteboar
 
 NS_ASSUME_NONNULL_END
 
-#endif // TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000
+#endif // __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000
+#endif // TARGET_OS_IPHONE

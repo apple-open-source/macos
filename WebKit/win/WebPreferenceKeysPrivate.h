@@ -206,3 +206,6 @@
 
 #define WebKitCSSOMViewScrollingAPIEnabledPreferenceKey "WebKitCSSOMViewScrollingAPIEnabled"
 
+#define WebKitResizeObserverEnabledPreferenceKey "WebKitResizeObserverEnabled"
+
+#define WebKitCoreMathMLEnabledPreferenceKey "WebKitCoreMathMLEnabled"

@@ -1,0 +1,16 @@
+/result = anIMP(aClass, aSel);/c
+	result = ((id (*)(Class, SEL))anIMP)(aClass, aSel);
+.
+g/(void)anIMP(aClass, aSel);/s/(void)anIMP(aClass, aSel);/((void (*)(Class, SEL))anIMP)(aClass, aSel);/
+/retval = anIMP(aClass, aSel);/c
+	retval = ((id (*)(Class, SEL))anIMP)(aClass, aSel);
+.
+1
+/result = objc_msgSendSuper(&spr, aSel);/c
+	result = ((id (*)(struct objc_super *, SEL))objc_msgSendSuper)(&spr, aSel);
+.
+g/(void)objc_msgSendSuper(\&spr, aSel);/s/(void)objc_msgSendSuper(\&spr, aSel);/((void (*)(struct objc_super *, SEL))objc_msgSendSuper)(\&spr, aSel);/
+/retval = objc_msgSendSuper(&spr, aSel);/c
+	retval = ((id (*)(struct objc_super *, SEL))objc_msgSendSuper)(&spr, aSel);
+.
+w

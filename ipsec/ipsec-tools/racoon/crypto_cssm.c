@@ -51,13 +51,13 @@
 #include <Security/SecPolicySearch.h>
 #endif
 #include <CoreFoundation/CoreFoundation.h>
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #include <Security/SecIdentitySearch.h>
 #include <Security/SecKeychain.h>
 #include <Security/SecKeychainItem.h>
 #include <Security/SecKeychainItemPriv.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
-#endif
+#endif // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #include "plog.h"
 #include "debug.h"
 #include "misc.h"
@@ -307,14 +307,14 @@ vchar_t* crypto_cssm_getsign(CFDataRef persistentCertRef, vchar_t* hash)
 
 	CFDictionaryRef		persistFind = NULL;
 	const void			*keys_persist[] = { kSecReturnRef, kSecValuePersistentRef, kSecClass,
-#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 							    kSecUseSystemKeychain,
-#endif
+#endif // (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 							  };
 	const void			*values_persist[] = { kCFBooleanTrue, persistentCertRef, kSecClassIdentity,
-#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 							      kCFBooleanTrue,
-#endif
+#endif // (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 							    };
     
 #define SIG_BUF_SIZE 1024
@@ -383,14 +383,14 @@ vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef,
 	CFDataRef               certData = NULL;
 	SecIdentityRef 			identityRef = NULL;
 	const void              *keys_persist[] = { kSecReturnRef, kSecValuePersistentRef, kSecClass,
-#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 						    kSecUseSystemKeychain,
-#endif
+#endif // (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 						  };
 	const void              *values_persist[] = { kCFBooleanTrue, persistentCertRef, kSecClassIdentity,
-#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 						      kCFBooleanTrue,
-#endif
+#endif // (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 						    };
 	
 	/* find identity by persistent ref */
@@ -568,14 +568,14 @@ GetSecurityErrorString(OSStatus err)
 		case errSecNotAvailable:
 			return "errSecNotAvailable";
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
         case memFullErr:
 			return "memFullErr";
 		case paramErr:
 			return "paramErr";
 		case unimpErr:
 			return "unimpErr";
-#endif
+#endif // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 #ifndef HAVE_OPENSSL
         /* SecBase.h: */

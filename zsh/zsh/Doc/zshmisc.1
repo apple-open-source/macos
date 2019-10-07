@@ -1,4 +1,4 @@
-.TH "ZSHMISC" "1" "December 11, 2016" "zsh 5\&.3"
+.TH "ZSHMISC" "1" "February 3, 2019" "zsh 5\&.7\&.1"
 .SH "NAME"
 zshmisc \- everything and then some
 .\" Yodl file: Zsh/grammar.yo
@@ -162,12 +162,15 @@ If each \fBelif\fP \fIlist\fP returns nonzero status, the \fBelse\fP \fIlist\fP
 is executed\&.
 .TP
 \fBfor\fP \fIname\fP \&.\&.\&. [ \fBin\fP \fIword\fP \&.\&.\&. ] \fIterm\fP \fBdo\fP \fIlist\fP \fBdone\fP
-where \fIterm\fP is at least one newline or \fB;\fP\&.
 Expand the list of \fIword\fPs, and set the parameter
-\fIname\fP to each of them in turn, executing
-\fIlist\fP each time\&.  If the \fBin\fP \fIword\fP is omitted,
+\fIname\fP to each of them in turn, executing \fIlist\fP
+each time\&.  If the `\fBin\fP \fIword\fP\&' is omitted,
 use the positional parameters instead of the \fIword\fPs\&.
 .RS
+.PP
+The \fIterm\fP consists of one or more newline or \fB;\fP
+which terminate the \fIword\fPs, and are optional when the
+`\fBin\fP \fIword\fP\&' is omitted\&.
 .PP
 More than one parameter \fIname\fP can appear before the list of
 \fIword\fPs\&.  If \fIN\fP \fIname\fPs are given, then on each execution of the
@@ -443,6 +446,9 @@ An alternative form of \fBcase\fP\&.
 \fBselect\fP \fIname\fP [ \fBin\fP \fIword\fP \&.\&.\&. \fIterm\fP ] \fIsublist\fP
 where \fIterm\fP is at least one newline or \fB;\fP\&.
 A short form of \fBselect\fP\&.
+.TP
+\fBfunction\fP \fIword\fP \&.\&.\&. [ \fB()\fP ] [ \fIterm\fP ] \fIsublist\fP
+This is a short form of \fBfunction\fP\&.
 .SH "RESERVED WORDS"
 The following words are recognized as reserved words when used as the first
 word of a command unless quoted or disabled using \fBdisable \-r\fP:
@@ -591,28 +597,48 @@ Any reserved word (\fBcase\fP, \fBdo\fP, \fBelse\fP, etc\&.)
 With global aliasing, any command separator, any redirection
 operator, and `\fB(\fP\&' or `\fB)\fP' when not part of a glob pattern
 .PP
-It is not presently possible to alias the `\fB((\fP\&' token that
-introduces arithmetic expressions, because until a full statement has been
-parsed, it cannot be distinguished from two consecutive `\fB(\fP\&'
-tokens introducing nested subshells\&.
-.PP
-When \fBPOSIX_ALIASES\fP is set, only plain unquoted strings are eligible
-for aliasing\&.  The \fBalias\fP builtin does not reject ineligible aliases,
-but they are not expanded\&.
-.PP
 Alias expansion is done on the shell input before any other expansion
 except history expansion\&.  Therefore, if an alias is defined for the
 word \fBfoo\fP, alias expansion may be avoided by quoting part of the
 word, e\&.g\&. \fB\efoo\fP\&.  Any form of quoting works, although there is
 nothing to prevent an alias being defined for the quoted form such as
-\fB\efoo\fP as well\&.  Also, if a separator such as \fB&&\fP is aliased,
-\fB\e&&\fP turns into the two tokens \fB\e&\fP and \fB&\fP, each of which may
-have been aliased separately\&.  Similarly for \fB\e<<\fP, \fB\e>|\fP, etc\&.
+\fB\efoo\fP as well\&.
+.PP
+When \fBPOSIX_ALIASES\fP is set, only plain unquoted strings are eligible
+for aliasing\&.  The \fBalias\fP builtin does not reject ineligible aliases,
+but they are not expanded\&.
 .PP
 For use with completion, which would remove an initial backslash followed
 by a character that isn\&'t special, it may be more convenient to quote the
 word by starting with a single quote, i\&.e\&. \fB\&'foo\fP; completion will
 automatically add the trailing single quote\&.
+.PP
+.SS "Alias difficulties"
+.PP
+Although aliases can be used in ways that bend normal shell syntax, not
+every string of non\-white\-space characters can be used as an alias\&.
+.PP
+Any set of characters not listed as a word above is not a word, hence no
+attempt is made to expand it as an alias, no matter how it is defined
+(i\&.e\&. via the builtin or the special parameter \fBaliases\fP described in
+the section THE ZSH/PARAMETER MODULE in \fIzshmodules\fP(1))\&.
+However, as noted in the case of \fBPOSIX_ALIASES\fP above, the shell does
+not attempt to deduce whether the string corresponds to a word at the
+time the alias is created\&.
+.PP
+For example, an expression containing an \fB=\fP at the start of
+a command line is an assignment and cannot be expanded as an alias;
+a lone \fB=\fP is not an assignment but can only be set as an alias
+using the parameter, as otherwise the \fB=\fP is taken part of the
+syntax of the builtin command\&.
+.PP
+It is not presently possible to alias the `\fB((\fP\&' token that
+introduces arithmetic expressions, because until a full statement has been
+parsed, it cannot be distinguished from two consecutive `\fB(\fP\&'
+tokens introducing nested subshells\&.
+Also, if a separator such as \fB&&\fP is aliased,
+\fB\e&&\fP turns into the two tokens \fB\e&\fP and \fB&\fP, each of which may
+have been aliased separately\&.  Similarly for \fB\e<<\fP, \fB\e>|\fP, etc\&.
 .PP
 There is a commonly encountered problem with aliases
 illustrated by the following code:
@@ -686,7 +712,8 @@ single quote if it is set\&.
 .PP
 Inside double quotes (\fB""\fP), parameter and
 command substitution occur, and `\fB\e\fP\&' quotes the characters
-`\fB\e\fP\&', `\fB`\fP', `\fB"\fP', and `\fB$\fP'\&.
+`\fB\e\fP\&', `\fB`\fP', `\fB"\fP', `\fB$\fP', and the first character
+of \fB$histchars\fP (default `\fB!\fP\&')\&.
 .\" Yodl file: Zsh/redirect.yo
 .SH "REDIRECTION"
 If a command is followed by \fB&\fP
@@ -711,6 +738,7 @@ separate filename in turn\&.
 .PD
 \fB<\fP \fIword\fP
 Open file \fIword\fP for reading as standard input\&.
+It is an error to open a file in this fashion if it does not exist\&.
 .TP
 \fB<>\fP \fIword\fP
 Open file \fIword\fP for reading and writing as standard input\&.
@@ -966,6 +994,9 @@ Note that a pipe is an implicit redirection; thus
 .PP
 writes the date to the file `\fBfoo\fP\&', and also pipes it to cat\&.
 .PP
+Note that the shell opens all the files to be used in the multio process
+immediately, not at the point they are about to be written\&.
+.PP
 Note also that redirections are always expanded in order\&.  This happens
 regardless of the setting of the \fBMULTIOS\fP option, but with the option
 in effect there are additional consequences\&. For example,
@@ -1016,9 +1047,13 @@ Similarly, you can do
 .PP
 If the user tries to open a file descriptor for reading more than once,
 the shell opens the file descriptor as a pipe to a process that copies
-all the specified inputs to its output in the order
-specified, similar to \fBcat\fP,
-provided the \fBMULTIOS\fP option is set\&.  Thus
+all the specified inputs to its output in the order specified, provided
+the \fBMULTIOS\fP option is set\&.  It should be noted that each file is
+opened immediately, not at the point where it is about to be read:
+this behaviour differs from \fBcat\fP, so if strictly standard behaviour
+is needed, \fBcat\fP should be used instead\&.
+.PP
+Thus
 .PP
 .RS
 .nf
@@ -1618,6 +1653,12 @@ in the parent shell\&.  Thus the behaviour is different from the case
 where the function was never suspended\&.  Zsh is different from many
 other shells in this regard\&.
 .PP
+One additional side effect is that use of \fBdisown\fP with a job
+created by suspending shell code in this fashion is delayed: the
+job can only be disowned once any process started from the parent
+shell has terminated\&.  At that point, the disowned job disappears
+silently from the job list\&.
+.PP
 The same behaviour is found when the shell is executing code as the
 right hand side of a pipeline or any complex shell construct such as
 \fBif\fP, \fBfor\fP, etc\&., in order that the entire block of code
@@ -2074,6 +2115,12 @@ true if length of \fIstring\fP is non\-zero\&.
 true if option named \fIoption\fP is on\&.  \fIoption\fP
 may be a single character, in which case it is a single letter option name\&.
 (See the section `Specifying Options\&'\&.)
+.RS
+.PP
+When no option named \fIoption\fP exists, and the \fBPOSIX_BUILTINS\fP option
+hasn\&'t been set, return 3 with a warning\&.  If that option is set, return 1
+with no warning\&.
+.RE
 .TP
 \fB\-p\fP \fIfile\fP
 true if \fIfile\fP exists and is a FIFO special file (named pipe)\&.
@@ -2502,11 +2549,15 @@ the hour of the day on the 12\-hour clock
 In addition, if the system supports the POSIX \fBgettimeofday\fP system
 call, \fB%\&.\fP provides decimal fractions of a second since the epoch with
 leading zeroes\&.  By default three decimal places are provided, but a
-number of digits up to 6 may be given following the \fB%\fP; hence \fB%6\&.\fP
-outputs microseconds\&.  A typical example of this is the format
-`\fB%D{%H:%M:%S\&.%\&.}\fP\&'\&.
+number of digits up to 9 may be given following the \fB%\fP; hence \fB%6\&.\fP
+outputs microseconds, and \fB%9\&.\fP outputs nanoseconds\&.  (The latter
+requires a nanosecond\-precision \fBclock_gettime\fP; systems lacking this
+will return a value multiplied by the appropriate power of 10\&.)  A typical
+example of this is the format `\fB%D{%H:%M:%S\&.%\&.}\fP\&'\&.
 .PP
-The GNU extension that a `\fB\-\fP\&' between the \fB%\fP and the
+The GNU extension \fB%N\fP is handled as a synonym for \fB%9\&.\fP\&.
+.PP
+Additionally, the GNU extension that a `\fB\-\fP\&' between the \fB%\fP and the
 format character causes a leading zero or space to be stripped
 is handled directly by the shell for the format characters \fBd\fP, \fBf\fP,
 \fBH\fP, \fBk\fP, \fBl\fP, \fBm\fP, \fBM\fP, \fBS\fP and \fBy\fP; any other format

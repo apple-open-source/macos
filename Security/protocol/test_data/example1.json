@@ -1,0 +1,50 @@
+{
+	"NSAllowsArbitraryLoads": false,
+	"NSAllowsArbitraryLoadsForMedia": false,
+	"NSAllowsArbitraryLoadsInWebContent": false,
+	"NSAllowsLocalNetworking": false,
+	"NSExceptionDomains": {
+		"apple.com": {
+			"NSIncludesSubdomains": true,
+			"NSExceptionAllowsInsecureHTTPLoads": true,
+			"NSExceptionMinimumTLSVersion": "TLSv1.2",
+			"NSExceptionRequiresForwardSecrecy": false
+		}, 
+		"ls.apple.com": {
+			"NSIncludesSubdomains": true,
+			"NSExceptionAllowsInsecureHTTPLoads": true,
+			"NSExceptionMinimumTLSVersion": "TLSv1.0",
+			"NSExceptionRequiresForwardSecrecy": false
+		}, 
+		"gs.apple.com": {
+			"NSIncludesSubdomains": true,
+			"NSExceptionAllowsInsecureHTTPLoads": true,
+			"NSExceptionMinimumTLSVersion": "TLSv1.0",
+			"NSExceptionRequiresForwardSecrecy": false
+		},
+		"geo.apple.com": {
+			"NSIncludesSubdomains": true,
+			"NSExceptionAllowsInsecureHTTPLoads": true,
+			"NSExceptionMinimumTLSVersion": "TLSv1.0",
+			"NSExceptionRequiresForwardSecrecy": false
+		},	
+		"is.autonavi.com": {
+			"NSIncludesSubdomains": true,
+			"NSExceptionAllowsInsecureHTTPLoads": true,
+			"NSExceptionMinimumTLSVersion": "TLSv1.0",
+			"NSExceptionRequiresForwardSecrecy": false
+		},
+		"apple-mapkit.com": {
+			"NSIncludesSubdomains": true,
+			"NSExceptionAllowsInsecureHTTPLoads": true,
+			"NSExceptionMinimumTLSVersion": "TLSv1.0",
+			"NSExceptionRequiresForwardSecrecy": false
+		},
+		"setup.icloud.com": {
+			"NSIncludesSubdomains": true,
+			"NSExceptionAllowsInsecureHTTPLoads": true,
+			"NSExceptionMinimumTLSVersion": "TLSv1.2",
+			"NSExceptionRequiresForwardSecrecy": false
+		}
+	}
+}

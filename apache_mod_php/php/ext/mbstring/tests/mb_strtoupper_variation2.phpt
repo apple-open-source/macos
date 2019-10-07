@@ -20,7 +20,7 @@ function_exists('mb_strtoupper') or die("skip mb_strtoupper() is not available i
 echo "*** Testing mb_strtoupper() : usage variations ***\n";
 
 // Initialise function arguments not being substituted
-$sourcestring = b'Hello, World';
+$sourcestring = 'Hello, World';
 
 //get an unset variable
 $unset_var = 10;
@@ -67,7 +67,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
@@ -76,7 +76,7 @@ $inputs = array(
 /*18*/ "UTF-8",
        'UTF-8',
        $heredoc,
-       
+
        // object data
 /*21*/ new classA(),
 
@@ -108,7 +108,6 @@ fclose($fp);
 
 echo "Done";
 ?>
-
 --EXPECTF--
 *** Testing mb_strtoupper() : usage variations ***
 
@@ -158,14 +157,10 @@ Warning: mb_strtoupper(): Unknown encoding "0.5" in %s on line %d
 bool(false)
 
 -- Iteration 10 --
-
-Warning: mb_strtoupper(): Unknown encoding "(null)" in %s on line %d
-bool(false)
+string(24) "48454c4c4f2c20574f524c44"
 
 -- Iteration 11 --
-
-Warning: mb_strtoupper(): Unknown encoding "(null)" in %s on line %d
-bool(false)
+string(24) "48454c4c4f2c20574f524c44"
 
 -- Iteration 12 --
 
@@ -210,14 +205,10 @@ string(24) "48454c4c4f2c20574f524c44"
 string(24) "48454c4c4f2c20574f524c44"
 
 -- Iteration 22 --
-
-Warning: mb_strtoupper(): Unknown encoding "(null)" in %s on line %d
-bool(false)
+string(24) "48454c4c4f2c20574f524c44"
 
 -- Iteration 23 --
-
-Warning: mb_strtoupper(): Unknown encoding "(null)" in %s on line %d
-bool(false)
+string(24) "48454c4c4f2c20574f524c44"
 
 -- Iteration 24 --
 

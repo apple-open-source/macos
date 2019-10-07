@@ -41,7 +41,7 @@ class AppleLanguageBreakFactory : public ICULanguageBreakFactory {
    * sought.
    * @return A DictionaryMatcher with the desired characteristics, or NULL.
    */
-  virtual DictionaryMatcher *loadDictionaryMatcherFor(UScriptCode script, int32_t breakType);
+  virtual DictionaryMatcher *loadDictionaryMatcherFor(UScriptCode script);
 
 };
 

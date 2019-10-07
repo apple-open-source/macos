@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,10 +72,7 @@ hltoip(in_addr_t l)
 INLINE boolean_t
 in_subnet(struct in_addr netaddr, struct in_addr netmask, struct in_addr ip)
 {
-    if ((iptohl(ip) & iptohl(netmask)) != iptohl(netaddr)) {
-	return (FALSE);
-    }
-    return (TRUE);
+    return ((ip.s_addr & netmask.s_addr) == netaddr.s_addr);
 }
 
 /*
@@ -176,5 +173,9 @@ fill_with_random(void * buf, uint32_t len);
 
 int
 rt_xaddrs(const char * cp, const char * cplim, struct rt_addrinfo * rtinfo);
+
+#ifndef countof
+#define countof(__an_array)	(sizeof(__an_array) / sizeof((__an_array)[0]))
+#endif
 
 #endif /* _S_UTIL_H */

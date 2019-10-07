@@ -37,42 +37,42 @@ extern "C" {
 #endif
 
 // added for OSX Extension 
-ALC_API ALvoid alcMacOSXRenderingQuality (ALint value);
-ALC_API ALvoid alMacOSXRenderChannelCount (ALint value);
-ALC_API ALvoid alcMacOSXMixerMaxiumumBusses (ALint value);
-ALC_API ALvoid alcMacOSXMixerOutputRate(ALdouble value);
+ALC_API ALvoid alcMacOSXRenderingQuality (ALint value) OPENAL_DEPRECATED;
+ALC_API ALvoid alMacOSXRenderChannelCount (ALint value) OPENAL_DEPRECATED;
+ALC_API ALvoid alcMacOSXMixerMaxiumumBusses (ALint value) OPENAL_DEPRECATED;
+ALC_API ALvoid alcMacOSXMixerOutputRate(ALdouble value) OPENAL_DEPRECATED;
 
-ALC_API ALint alcMacOSXGetRenderingQuality ();
-ALC_API ALint alMacOSXGetRenderChannelCount ();
-ALC_API ALint alcMacOSXGetMixerMaxiumumBusses ();
-ALC_API ALdouble alcMacOSXGetMixerOutputRate();
+ALC_API ALint alcMacOSXGetRenderingQuality () OPENAL_DEPRECATED;
+ALC_API ALint alMacOSXGetRenderChannelCount () OPENAL_DEPRECATED;
+ALC_API ALint alcMacOSXGetMixerMaxiumumBusses () OPENAL_DEPRECATED;
+ALC_API ALdouble alcMacOSXGetMixerOutputRate() OPENAL_DEPRECATED;
 
-AL_API ALvoid AL_APIENTRY alSetInteger (ALenum pname, ALint value);
-AL_API ALvoid AL_APIENTRY alSetDouble (ALenum pname, ALdouble value);
+AL_API ALvoid AL_APIENTRY alSetInteger (ALenum pname, ALint value) OPENAL_DEPRECATED;
+AL_API ALvoid AL_APIENTRY alSetDouble (ALenum pname, ALdouble value) OPENAL_DEPRECATED;
 
-AL_API ALvoid	AL_APIENTRY	alBufferDataStatic (ALint bid, ALenum format, const ALvoid* data, ALsizei size, ALsizei freq);
+AL_API ALvoid	AL_APIENTRY	alBufferDataStatic (ALint bid, ALenum format, const ALvoid* data, ALsizei size, ALsizei freq) OPENAL_DEPRECATED;
 
 // source notifications
-AL_API ALenum alSourceAddNotification (ALuint sid, ALuint notificationID, alSourceNotificationProc notifyProc, ALvoid* userData);
-AL_API ALvoid alSourceRemoveNotification (ALuint	sid, ALuint notificationID, alSourceNotificationProc notifyProc, ALvoid* userData);
+AL_API ALenum alSourceAddNotification (ALuint sid, ALuint notificationID, alSourceNotificationProc notifyProc, ALvoid* userData) OPENAL_DEPRECATED;
+AL_API ALvoid alSourceRemoveNotification (ALuint	sid, ALuint notificationID, alSourceNotificationProc notifyProc, ALvoid* userData) OPENAL_DEPRECATED;
     
 // source spatialization
-AL_API ALvoid alSourceRenderingQuality (ALuint sid, ALint value);
-AL_API ALint  alSourceGetRenderingQuality (ALuint sid);
+AL_API ALvoid alSourceRenderingQuality (ALuint sid, ALint value) OPENAL_DEPRECATED;
+AL_API ALint  alSourceGetRenderingQuality (ALuint sid) OPENAL_DEPRECATED;
 
 // added for ASA (Apple Environmental Audio) 
 
-ALC_API ALenum  alcASAGetSource(ALuint property, ALuint source, ALvoid *data, ALuint* dataSize);
-ALC_API ALenum  alcASASetSource(ALuint property, ALuint source, ALvoid *data, ALuint dataSize);
-ALC_API ALenum  alcASAGetListener(ALuint property, ALvoid *data, ALuint* dataSize);
-ALC_API ALenum  alcASASetListener(ALuint property, ALvoid *data, ALuint dataSize);
+ALC_API ALenum  alcASAGetSource(ALuint property, ALuint source, ALvoid *data, ALuint* dataSize) OPENAL_DEPRECATED;
+ALC_API ALenum  alcASASetSource(ALuint property, ALuint source, ALvoid *data, ALuint dataSize) OPENAL_DEPRECATED;
+ALC_API ALenum  alcASAGetListener(ALuint property, ALvoid *data, ALuint* dataSize) OPENAL_DEPRECATED;
+ALC_API ALenum  alcASASetListener(ALuint property, ALvoid *data, ALuint dataSize) OPENAL_DEPRECATED;
     
 // 3DMixer output capturer
-ALC_API ALvoid  alcOutputCapturerPrepare( ALCuint frequency, ALCenum format, ALCsizei buffersize );
-ALC_API ALvoid  alcOutputCapturerStart();
-ALC_API ALvoid  alcOutputCapturerStop();
-ALC_API ALint   alcOutputCapturerAvailableSamples();
-ALC_API ALvoid  alcOutputCapturerSamples( ALCvoid *buffer, ALCsizei samples );
+ALC_API ALvoid  alcOutputCapturerPrepare( ALCuint frequency, ALCenum format, ALCsizei buffersize ) OPENAL_DEPRECATED;
+ALC_API ALvoid  alcOutputCapturerStart() OPENAL_DEPRECATED;
+ALC_API ALvoid  alcOutputCapturerStop() OPENAL_DEPRECATED;
+ALC_API ALint   alcOutputCapturerAvailableSamples() OPENAL_DEPRECATED;
+ALC_API ALvoid  alcOutputCapturerSamples( ALCvoid *buffer, ALCsizei samples ) OPENAL_DEPRECATED;
 
 // Used internally but no longer available via a header file. Some OpenAL applications may have been built with a header
 // that defined these constants so keep defining them.

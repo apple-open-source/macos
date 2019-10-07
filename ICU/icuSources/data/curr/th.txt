@@ -923,7 +923,7 @@ th{
             "ลิลันเจนีสวาซิ",
         }
         THB{
-            "THB",
+            "฿",
             "บาท",
         }
         TJR{
@@ -1128,7 +1128,7 @@ th{
         }
         XXX{
             "XXX",
-            "สกุลเงินที่ไม่รู้จัก",
+            "ไม่ทราบชื่อสกุลเงิน",
         }
         YDD{
             "YDD",
@@ -1193,40 +1193,22 @@ th{
     }
     Currencies%narrow{
         AOA{"Kz"}
-        ARS{"$"}
-        AUD{"$"}
         BAM{"KM"}
-        BBD{"$"}
         BDT{"৳"}
-        BMD{"$"}
-        BND{"$"}
         BOB{"Bs"}
         BRL{"R$"}
-        BSD{"$"}
         BWP{"P"}
         BYN{"р."}
-        BZD{"$"}
-        CAD{"$"}
-        CLP{"$"}
-        CNY{"¥"}
-        COP{"$"}
         CRC{"₡"}
-        CUC{"$"}
-        CUP{"$"}
         CZK{"Kč"}
         DKK{"kr"}
-        DOP{"$"}
         EGP{"E£"}
         EUR{"€"}
-        FJD{"$"}
-        FKP{"£"}
         GBP{"£"}
         GEL{"₾"}
         GIP{"£"}
         GNF{"FG"}
         GTQ{"Q"}
-        GYD{"$"}
-        HKD{"$"}
         HNL{"L"}
         HRK{"kn"}
         HUF{"Ft"}
@@ -1234,13 +1216,11 @@ th{
         ILS{"₪"}
         INR{"₹"}
         ISK{"kr"}
-        JMD{"$"}
         JPY{"¥"}
         KHR{"៛"}
         KMF{"CF"}
         KPW{"₩"}
         KRW{"₩"}
-        KYD{"$"}
         KZT{"₸"}
         LAK{"₭"}
         LBP{"L£"}
@@ -1250,14 +1230,12 @@ th{
         MMK{"K"}
         MNT{"₮"}
         MUR{"Rs"}
-        MXN{"$"}
         MYR{"RM"}
         NAD{"$"}
         NGN{"₦"}
         NIO{"C$"}
         NOK{"kr"}
         NPR{"Rs"}
-        NZD{"$"}
         PHP{"₱"}
         PKR{"Rs"}
         PLN{"zł"}
@@ -1265,32 +1243,24 @@ th{
         RON{"lei"}
         RUB{"₽"}
         RWF{"RF"}
-        SBD{"$"}
         SEK{"kr"}
         SGD{"$"}
         SHP{"£"}
-        SRD{"$"}
         SSP{"£"}
-        STN{"Db"}
         SYP{"£"}
         THB{"฿"}
         TOP{"T$"}
-        TRY{"₺"}
-        TTD{"$"}
         TWD{"NT$"}
         UAH{"₴"}
         USD{"$"}
-        UYU{"$"}
         VEF{"Bs"}
         VND{"₫"}
-        XCD{"$"}
         ZAR{"R"}
         ZMW{"ZK"}
     }
     Currencies%variant{
         GEL{"₾"}
         RUB{"₽"}
-        TRY{"TL"}
     }
     CurrencyPlurals{
         AED{
@@ -1777,7 +1747,7 @@ th{
             other{"ฟรังก์ซีเอฟพี"}
         }
         XXX{
-            other{"(สกุลเงินที่ไม่รู้จัก)"}
+            other{"(ไม่ทราบชื่อสกุลเงิน)"}
         }
         YER{
             other{"เรียลเยเมน"}
@@ -1792,5 +1762,5 @@ th{
     CurrencyUnitPatterns{
         other{"{0} {1}"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
 }

@@ -8,11 +8,11 @@ function_exists('mb_strrichr') or die("skip mb_strrichr() is not available in th
 --FILE--
 <?php
 /* Prototype  : string mb_strrichr(string haystack, string needle[, bool part[, string encoding]])
- * Description: Finds the last occurrence of a character in a string within another, case insensitive 
+ * Description: Finds the last occurrence of a character in a string within another, case insensitive
  * Source code: ext/mbstring/mbstring.c
- * Alias to functions: 
+ * Alias to functions:
  */
- 
+
 echo "*** Testing mb_strrichr() : usage variation ***\n";
 
 // Define error handler
@@ -25,8 +25,8 @@ function test_error_handler($err_no, $err_msg, $filename, $linenum, $vars) {
 set_error_handler('test_error_handler');
 
 // Initialise function arguments not being substituted (if any)
-$haystack = b'string_val';
-$needle = b'_';
+$haystack = 'string_val';
+$needle = '_';
 $encoding = 'utf-8';
 
 //get an unset variable
@@ -108,9 +108,9 @@ $inputs = array(
 
       // unset data
       'unset var' => @$unset_var,
-      
+
       // resource variable
-      'resource' => $fp      
+      'resource' => $fp
 );
 
 // loop through each element of the array for part
@@ -123,7 +123,7 @@ foreach($inputs as $key =>$value) {
       }
       else {
          var_dump(bin2hex($res));
-      }         
+      }
 };
 
 fclose($fp);
@@ -161,19 +161,19 @@ string(12) "737472696e67"
 string(12) "737472696e67"
 
 --empty array--
-Error: 2 - mb_strrichr() expects parameter 3 to be boolean, array given, %s(%d)
+Error: 2 - mb_strrichr() expects parameter 3 to be bool, array given, %s(%d)
 NULL
 
 --int indexed array--
-Error: 2 - mb_strrichr() expects parameter 3 to be boolean, array given, %s(%d)
+Error: 2 - mb_strrichr() expects parameter 3 to be bool, array given, %s(%d)
 NULL
 
 --associative array--
-Error: 2 - mb_strrichr() expects parameter 3 to be boolean, array given, %s(%d)
+Error: 2 - mb_strrichr() expects parameter 3 to be bool, array given, %s(%d)
 NULL
 
 --nested arrays--
-Error: 2 - mb_strrichr() expects parameter 3 to be boolean, array given, %s(%d)
+Error: 2 - mb_strrichr() expects parameter 3 to be bool, array given, %s(%d)
 NULL
 
 --uppercase NULL--
@@ -213,11 +213,11 @@ string(12) "737472696e67"
 string(12) "737472696e67"
 
 --instance of classWithToString--
-Error: 2 - mb_strrichr() expects parameter 3 to be boolean, object given, %s(%d)
+Error: 2 - mb_strrichr() expects parameter 3 to be bool, object given, %s(%d)
 NULL
 
 --instance of classWithoutToString--
-Error: 2 - mb_strrichr() expects parameter 3 to be boolean, object given, %s(%d)
+Error: 2 - mb_strrichr() expects parameter 3 to be bool, object given, %s(%d)
 NULL
 
 --undefined var--
@@ -227,6 +227,6 @@ string(8) "5f76616c"
 string(8) "5f76616c"
 
 --resource--
-Error: 2 - mb_strrichr() expects parameter 3 to be boolean, resource given, %s(%d)
+Error: 2 - mb_strrichr() expects parameter 3 to be bool, resource given, %s(%d)
 NULL
 ===DONE===

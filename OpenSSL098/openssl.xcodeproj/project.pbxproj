@@ -1028,7 +1028,6 @@
 		3DBBE41D1E4E42A6005AD03A /* rsa.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 1C34387D0F71AB980045E860 /* rsa.h */; };
 		3DBBE41E1E4E42A6005AD03A /* safestack.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 1C3438B60F71AB980045E860 /* safestack.h */; };
 		3DBBE41F1E4E42A6005AD03A /* seed.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 1C3438940F71AB980045E860 /* seed.h */; };
-		3DBBE4201E4E42A6005AD03A /* kssl.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 1C6C3C170F783CBB005DE0AD /* kssl.h */; };
 		3DBBE4211E4E4311005AD03A /* tmdiff.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 1C6C3C4D0F783EEC005DE0AD /* tmdiff.h */; };
 		3DBBE4221E4E4311005AD03A /* symhacks.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 1C6C3C480F783EC2005DE0AD /* symhacks.h */; };
 		3DBBE4231E4E4311005AD03A /* stack.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 1C3438B80F71AB980045E860 /* stack.h */; };
@@ -2009,7 +2008,6 @@
 				3DBBE41D1E4E42A6005AD03A /* rsa.h in Copy Headers */,
 				3DBBE41E1E4E42A6005AD03A /* safestack.h in Copy Headers */,
 				3DBBE41F1E4E42A6005AD03A /* seed.h in Copy Headers */,
-				3DBBE4201E4E42A6005AD03A /* kssl.h in Copy Headers */,
 				3DBBE4211E4E4311005AD03A /* tmdiff.h in Copy Headers */,
 				3DBBE4221E4E4311005AD03A /* symhacks.h in Copy Headers */,
 				3DBBE4231E4E4311005AD03A /* stack.h in Copy Headers */,

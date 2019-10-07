@@ -1,17 +1,14 @@
 /*
  * Authorization routines for the CUPS scheduler.
  *
- * Copyright © 2007-2018 by Apple Inc.
- * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
+ * Copyright © 2007-2019 by Apple Inc.
+ * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
  * This file contains Kerberos support code, copyright 2006 by
  * Jelmer Vernooij.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 /*
@@ -38,11 +35,6 @@
 #endif /* HAVE_MEMBERSHIP_H */
 #ifdef HAVE_AUTHORIZATION_H
 #  include <Security/AuthorizationTags.h>
-#  ifdef HAVE_SECBASEPRIV_H
-#    include <Security/SecBasePriv.h>
-#  else
-extern const char *cssmErrorString(int error);
-#  endif /* HAVE_SECBASEPRIV_H */
 #endif /* HAVE_AUTHORIZATION_H */
 #ifdef HAVE_SYS_PARAM_H
 #  include <sys/param.h>
@@ -75,8 +67,6 @@ static void		free_authmask(cupsd_authmask_t *am, void *data);
 #if HAVE_LIBPAM
 static int		pam_func(int, const struct pam_message **,
 			         struct pam_response **, void *);
-#else
-static void		to64(char *s, unsigned long v, int n);
 #endif /* HAVE_LIBPAM */
 
 
@@ -347,7 +337,7 @@ cupsdAuthorize(cupsd_client_t *con)	/* I - Client connection */
 
     if ((status = AuthorizationCreateFromExternalForm((AuthorizationExternalForm *)authdata, &con->authref)) != 0)
     {
-      cupsdLogClient(con, CUPSD_LOG_ERROR, "AuthorizationCreateFromExternalForm returned %d (%s)", (int)status, cssmErrorString(status));
+      cupsdLogClient(con, CUPSD_LOG_ERROR, "AuthorizationCreateFromExternalForm returned %d", (int)status);
       return;
     }
 
@@ -1176,7 +1166,23 @@ cupsdCheckGroup(
 
     groupid = group->gr_gid;
 
+    for (i = 0; group->gr_mem[i]; i ++)
+    {
+     /*
+      * User appears in the group membership...
+      */
+
+      if (!_cups_strcasecmp(username, group->gr_mem[i]))
+	return (1);
+    }
+
 #ifdef HAVE_GETGROUPLIST
+   /*
+    * If the user isn't in the group membership list, try the results from
+    * getgrouplist() which is supposed to return the full list of groups a user
+    * belongs to...
+    */
+
     if (user)
     {
       int	ngroups;		/* Number of groups */
@@ -1196,13 +1202,6 @@ cupsdCheckGroup(
       for (i = 0; i < ngroups; i ++)
         if ((int)groupid == (int)groups[i])
 	  return (1);
-    }
-
-#else
-    for (i = 0; group->gr_mem[i]; i ++)
-    {
-      if (!_cups_strcasecmp(username, group->gr_mem[i]))
-	return (1);
     }
 #endif /* HAVE_GETGROUPLIST */
   }
@@ -1928,9 +1927,7 @@ check_authref(cupsd_client_t *con,	/* I - Connection */
 					kAuthorizationEmptyEnvironment,
 					authflags, NULL)) != 0)
   {
-    cupsdLogMessage(CUPSD_LOG_ERROR,
-		    "AuthorizationCopyRights(\"%s\") returned %d (%s)",
-		    authright.name, (int)status, cssmErrorString(status));
+    cupsdLogMessage(CUPSD_LOG_ERROR, "AuthorizationCopyRights(\"%s\") returned %d", authright.name, (int)status);
     return (0);
   }
 
@@ -2038,45 +2035,33 @@ pam_func(
   * Answer all of the messages...
   */
 
-  DEBUG_printf(("pam_func: appdata_ptr = %p\n", appdata_ptr));
-
   data = (cupsd_authdata_t *)appdata_ptr;
 
   for (i = 0; i < num_msg; i ++)
   {
-    DEBUG_printf(("pam_func: Message = \"%s\"\n", msg[i]->msg));
-
     switch (msg[i]->msg_style)
     {
       case PAM_PROMPT_ECHO_ON:
-          DEBUG_printf(("pam_func: PAM_PROMPT_ECHO_ON, returning \"%s\"...\n",
-	                data->username));
           replies[i].resp_retcode = PAM_SUCCESS;
           replies[i].resp         = strdup(data->username);
           break;
 
       case PAM_PROMPT_ECHO_OFF:
-          DEBUG_printf(("pam_func: PAM_PROMPT_ECHO_OFF, returning \"%s\"...\n",
-	                data->password));
           replies[i].resp_retcode = PAM_SUCCESS;
           replies[i].resp         = strdup(data->password);
           break;
 
       case PAM_TEXT_INFO:
-          DEBUG_puts("pam_func: PAM_TEXT_INFO...");
           replies[i].resp_retcode = PAM_SUCCESS;
           replies[i].resp         = NULL;
           break;
 
       case PAM_ERROR_MSG:
-          DEBUG_puts("pam_func: PAM_ERROR_MSG...");
           replies[i].resp_retcode = PAM_SUCCESS;
           replies[i].resp         = NULL;
           break;
 
       default:
-          DEBUG_printf(("pam_func: Unknown PAM message %d...\n",
-	                msg[i]->msg_style));
           free(replies);
           return (PAM_CONV_ERR);
     }
@@ -2089,25 +2074,5 @@ pam_func(
   *resp = replies;
 
   return (PAM_SUCCESS);
-}
-#else
-
-
-/*
- * 'to64()' - Base64-encode an integer value...
- */
-
-static void
-to64(char          *s,			/* O - Output string */
-     unsigned long v,			/* I - Value to encode */
-     int           n)			/* I - Number of digits */
-{
-  const char	*itoa64 = "./0123456789"
-                          "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                          "abcdefghijklmnopqrstuvwxyz";
-
-
-  for (; n > 0; n --, v >>= 6)
-    *s++ = itoa64[v & 0x3f];
 }
 #endif /* HAVE_LIBPAM */

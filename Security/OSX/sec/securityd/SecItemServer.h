@@ -31,9 +31,9 @@
 #define _SECURITYD_SECITEMSERVER_H_
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <Security/SecureObjectSync/SOSCircle.h>
-#include <securityd/SecDbQuery.h>
-#include <utilities/SecDb.h>
+#include "keychain/SecureObjectSync/SOSCircle.h"
+#include "securityd/SecDbQuery.h"
+#include "utilities/SecDb.h"
 #include <TargetConditionals.h>
 #include "sec/ipc/securityd_client.h"
 
@@ -114,14 +114,6 @@ bool _SecServerRollKeysGlue(bool force, CFErrorRef *error);
 
 CFArrayRef _SecServerCopyInitialSyncCredentials(uint32_t flags, CFErrorRef *error);
 bool _SecServerImportInitialSyncCredentials(CFArrayRef array, CFErrorRef *error);
-
-struct _SecServerKeyStats {
-    unsigned long items;
-    CFIndex maxDataSize;
-    CFIndex averageSize;
-};
-
-bool _SecServerGetKeyStats(const SecDbClass *qclass, struct _SecServerKeyStats *stats);
 
 CF_RETURNS_RETAINED CFArrayRef _SecItemCopyParentCertificates(CFDataRef normalizedIssuer, CFArrayRef accessGroups, CFErrorRef *error);
 bool _SecItemCertificateExists(CFDataRef normalizedIssuer, CFDataRef serialNumber, CFArrayRef accessGroups, CFErrorRef *error);

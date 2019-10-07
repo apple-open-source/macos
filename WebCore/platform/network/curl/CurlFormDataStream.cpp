@@ -34,6 +34,7 @@
 
 #if USE(CURL)
 
+#include "BlobRegistry.h"
 #include "CurlContext.h"
 #include "Logging.h"
 #include <wtf/MainThread.h>
@@ -50,7 +51,7 @@ CurlFormDataStream::CurlFormDataStream(const FormData* formData)
     m_formData = formData->isolatedCopy();
 
     // Resolve the blob elements so the formData can correctly report it's size.
-    m_formData = m_formData->resolveBlobReferences();
+    m_formData = m_formData->resolveBlobReferences(blobRegistry());
 }
 
 CurlFormDataStream::~CurlFormDataStream()
@@ -96,8 +97,6 @@ unsigned long long CurlFormDataStream::totalSize()
 
 void CurlFormDataStream::computeContentLength()
 {
-    static auto maxCurlOffT = CurlHandle::maxCurlOffT();
-
     if (!m_formData || m_isContentLengthUpdated)
         return;
 

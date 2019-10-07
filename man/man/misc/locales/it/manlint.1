@@ -1,0 +1,66 @@
+'\"
+.\" (C) Copyright 1999 David A. Wheeler (dwheeler@ida.org)
+.\"
+.\" Permission is granted to make and distribute verbatim copies of this
+.\" manual provided the copyright notice and this permission notice are
+.\" preserved on all copies.
+.\"
+.\" Permission is granted to copy and distribute modified versions of this
+.\" manual under the conditions for verbatim copying, provided that the
+.\" entire resulting derived work is distributed under the terms of a
+.\" permission notice identical to this one
+.\"
+.\" Since the Linux kernel and libraries are constantly changing, this
+.\" manual page may be incorrect or out-of-date.  The author(s) assume no
+.\" responsibility for errors or omissions, or for damages resulting from
+.\" the use of the information contained herein.  The author(s) may not
+.\" have taken the same level of care in the production of this manual,
+.\" which is licensed free of charge, as they might when working
+.\" professionally.
+.\"
+.\" Formatted or processed versions of this manual, if unaccompanied by
+.\" the source, must acknowledge the copyright and authors of this work.
+.\"
+.\" Modified Wed Jul 14 23:00:00 1999 by David A. Wheeler (dwheeler@ida.org)
+.\"
+.\" Traduzione da man-1.6d di Giulio Daprelà <giulio@pluto.it>
+.\" Revisione a cura di Vieri Giugni <v.giugni@gmail.com>
+.\" giugno 2006
+.\"
+.TH MANLINT 1 "14 luglio 1999" "Linux" "Linux Programmer's Manual"
+.SH NOME
+manlint \- programma per identificare errori di formattazione in pagine man o mdoc
+.SH SINTASSI
+.BR manlint " [ " options " ] [ " "list of files" " ] "
+.SH DESCRIZIONE
+manlint
+è un programma che identifica lint (errori) nella formattazione di pagine 
+man o mdoc page, in modo simile a quello di un controllo ortografico per un testo 
+ordinario. Manlint ha un elenco di macro e sequenze di escape ammesse,
+e segnala l'uso di qualunque macro o sequenza di escape che non sia 
+nell'elenco di riferimento.
+Questo elenco di riferimento include tutte le macro definite in
+.BR man (7),
+.BR mdoc (7),
+e un sottoinsieme sicuro di troff definito in
+.BR man (7).
+manlint inoltre verifica la conformità alle varie regole.
+.PP
+Se una man page supera la verifica di manlint, dovrebbe risultare 
+ampiamente portabile, anche con strumenti come
+.BR man2html (1)
+che non implementano completamente troff.
+.PP
+Se non viene indicato un elenco di file, viene letto lo standard input.
+Un file con il nome "-" viene interpretato come standard input.
+.SH BUG
+Attualmente il programma è alquanto incompleto.
+Non ha nessuna opzione, non verifica le sequenze di escape,
+e non è in grado di gestire il formato mdoc.
+Inoltre, è chiaro cosa deve fare, e anche nella sua forma attuale
+può trovare tantissimi problemi nei file man esistenti.
+.SH AUTORE
+David A. Wheeler (dwheeler@ida.org)
+.SH "VEDERE ANCHE"
+.BR man (7),
+.BR mdoc (7).

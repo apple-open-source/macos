@@ -26,8 +26,6 @@
 #import "config.h"
 #import "WKHTTPCookieStoreInternal.h"
 
-#if WK_API_ENABLED
-
 #import "HTTPCookieAcceptPolicy.h"
 #import <WebCore/Cookie.h>
 #import <pal/spi/cf/CFNetworkSPI.h>
@@ -47,6 +45,7 @@ static NSArray<NSHTTPCookie *> *coreCookiesToNSCookies(const Vector<WebCore::Coo
 }
 
 class WKHTTPCookieStoreObserver : public API::HTTPCookieStore::Observer {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit WKHTTPCookieStoreObserver(id<WKHTTPCookieStoreObserver> observer)
         : m_observer(observer)
@@ -86,7 +85,7 @@ private:
 
 - (void)setCookie:(NSHTTPCookie *)cookie completionHandler:(void (^)(void))completionHandler
 {
-    _cookieStore->setCookie(cookie, [handler = adoptNS([completionHandler copy])]() {
+    _cookieStore->setCookies({ cookie }, [handler = adoptNS([completionHandler copy])]() {
         auto rawHandler = (void (^)())handler.get();
         if (rawHandler)
             rawHandler();
@@ -130,5 +129,3 @@ private:
 }
 
 @end
-
-#endif

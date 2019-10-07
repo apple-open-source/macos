@@ -3,6 +3,8 @@
 <plist version="1.0">
 <array>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AST2</string>
 		<key>MinorTestName</key>
@@ -29,6 +31,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AST2</string>
 		<key>MinorTestName</key>
@@ -59,6 +63,8 @@
 		<string>AppleServerAuthenticationAllowUATAST2</string>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>EscrowProxy</string>
 		<key>MinorTestName</key>
@@ -89,6 +95,8 @@
 		<string>AppleServerAuthenticationAllowUATEscrow</string>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>EscrowProxy</string>
 		<key>MinorTestName</key>
@@ -115,6 +123,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>FMiP</string>
 		<key>MinorTestName</key>
@@ -145,6 +155,8 @@
 		<string>AppleServerAuthenticationAllowUATFMiP</string>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>FMiP</string>
 		<key>MinorTestName</key>
@@ -171,6 +183,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>HomeKit</string>
 		<key>MinorTestName</key>
@@ -199,6 +213,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>HomeKit</string>
 		<key>MinorTestName</key>
@@ -225,6 +241,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>SWUpdate</string>
 		<key>MinorTestName</key>
@@ -246,6 +264,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>SWUpdate</string>
 		<key>MinorTestName</key>
@@ -267,6 +287,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>SWUpdate</string>
 		<key>MinorTestName</key>
@@ -290,6 +312,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>SWUpdate</string>
 		<key>MinorTestName</key>
@@ -313,6 +337,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>ApplePinned</string>
 		<key>MinorTestName</key>
@@ -345,6 +371,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>ApplePinned</string>
 		<key>MinorTestName</key>
@@ -375,6 +403,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AppleSSLPinned</string>
 		<key>MinorTestName</key>
@@ -409,6 +439,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AppleSSLPinned</string>
 		<key>MinorTestName</key>
@@ -443,6 +475,8 @@
 		<string>ApplePinningAllowTestCertsTLSPinningTest</string>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AppleSSLPinned</string>
 		<key>MinorTestName</key>
@@ -473,6 +507,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AppleSSLPinned</string>
 		<key>MinorTestName</key>
@@ -507,6 +543,8 @@
 		<string>ApplePinningAllowTestCertsTestAST2ServerAuth</string>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>VPNProfile</string>
 		<key>MinorTestName</key>
@@ -532,6 +570,8 @@
 		<string>ApplePinningAllowTestCertsATVVPNProfile</string>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MinorTestName</key>
 		<string>NegativeTest</string>
 		<key>MajorTestName</key>
@@ -553,6 +593,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AppleTVOSAppSigning</string>
 		<key>MinorTestName</key>
@@ -576,6 +618,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AppleTVOSAppSigning</string>
 		<key>MinorTestName</key>
@@ -599,6 +643,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AppleTVOSAppSigning</string>
 		<key>MinorTestName</key>
@@ -620,6 +666,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>EAPTLS</string>
 		<key>MinorTestName</key>
@@ -641,6 +689,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AppleServerAuth</string>
 		<key>MinorTestName</key>
@@ -664,6 +714,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AppleCorporate</string>
 		<key>MinorTestName</key>
@@ -692,6 +744,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AppleCorporate</string>
 		<key>MinorTestName</key>
@@ -720,6 +774,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AppleCorporate</string>
 		<key>MinorTestName</key>
@@ -748,6 +804,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AppleCorporate</string>
 		<key>MinorTestName</key>
@@ -778,6 +836,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AppleCorporate</string>
 		<key>MinorTestName</key>
@@ -806,6 +866,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>TestSMP</string>
 		<key>MinorTestName</key>
@@ -829,6 +891,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>TestSMP</string>
 		<key>MinorTestName</key>
@@ -850,6 +914,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>SMP</string>
 		<key>MinorTestName</key>
@@ -873,6 +939,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>SMP</string>
 		<key>MinorTestName</key>
@@ -894,6 +962,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AppleIDRecordSigning</string>
 		<key>MinorTestName</key>
@@ -917,6 +987,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>iPhoneApplicationSigning</string>
 		<key>MinorTestName</key>
@@ -938,6 +1010,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>iPhoneApplicationSigning</string>
 		<key>MinorTestName</key>
@@ -963,6 +1037,8 @@
 		<string>ApplePinningAllowTestCertsiPhoneApplicationSigning</string>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>iPhoneApplicationSigning</string>
 		<key>MinorTestName</key>
@@ -986,6 +1062,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>iPhoneApplicationSigning</string>
 		<key>MinorTestName</key>
@@ -1007,6 +1085,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>iPhoneProfileSigning</string>
 		<key>MinorTestName</key>
@@ -1030,6 +1110,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>iPhoneProvisioningProfile</string>
 		<key>MinorTestName</key>
@@ -1053,6 +1135,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>iPhoneProvisioningProfile</string>
 		<key>MinorTestName</key>
@@ -1078,6 +1162,8 @@
 		<string>ApplePinningAllowTestCertsiPhoneProvisioningProfileSigning</string>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>ExternalDeveloper</string>
 		<key>MinorTestName</key>
@@ -1101,6 +1187,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>ExternalDeveloper</string>
 		<key>MinorTestName</key>
@@ -1124,6 +1212,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>ExternalDeveloper</string>
 		<key>MinorTestName</key>
@@ -1147,6 +1237,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>ExternalDeveloper</string>
 		<key>MinorTestName</key>
@@ -1168,6 +1260,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>SoftwareSigning</string>
 		<key>MinorTestName</key>
@@ -1191,6 +1285,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>SoftwareSigning</string>
 		<key>MinorTestName</key>
@@ -1212,6 +1308,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>GrandSlam</string>
 		<key>MinorTestName</key>
@@ -1240,6 +1338,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>IDS</string>
 		<key>MinorTestName</key>
@@ -1270,6 +1370,8 @@
 		<string>AppleServerAuthenticationAllowUATIDS</string>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>LegacyAPN</string>
 		<key>MinorTestName</key>
@@ -1299,6 +1401,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>IPSec</string>
 		<key>MinorTestName</key>
@@ -1327,6 +1431,8 @@
 		<integer>2</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>IPSec</string>
 		<key>MinorTestName</key>
@@ -1355,6 +1461,8 @@
 		<integer>2</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>IPSec</string>
 		<key>MinorTestName</key>
@@ -1383,6 +1491,8 @@
 		<integer>2</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>IPSec</string>
 		<key>MinorTestName</key>
@@ -1411,6 +1521,8 @@
 		<integer>2</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>EAP</string>
 		<key>MinorTestName</key>
@@ -1443,6 +1555,8 @@
 		<integer>2</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>IPSec</string>
 		<key>MinorTestName</key>
@@ -1471,6 +1585,8 @@
 		<integer>2</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>EAP</string>
 		<key>MinorTestName</key>
@@ -1500,6 +1616,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>Passbook</string>
 		<key>MinorTestName</key>
@@ -1529,6 +1647,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>Passbook</string>
 		<key>MinorTestName</key>
@@ -1555,6 +1675,8 @@
 		<integer>4</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>Passbook</string>
 		<key>MinorTestName</key>
@@ -1581,6 +1703,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>Passbook</string>
 		<key>MinorTestName</key>
@@ -1607,6 +1731,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>OTATasking</string>
 		<key>MinorTestName</key>
@@ -1628,6 +1754,8 @@
 		<integer>4</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>OTATasking</string>
 		<key>MinorTestName</key>
@@ -1649,6 +1777,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>MobileAsset</string>
 		<key>MinorTestName</key>
@@ -1670,6 +1800,8 @@
 		<integer>4</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>MobileAsset</string>
 		<key>MinorTestName</key>
@@ -1691,6 +1823,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AppleIDAuthority</string>
 		<key>MinorTestName</key>
@@ -1712,6 +1846,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>UniqueDeviceCert</string>
 		<key>MinorTestName</key>
@@ -1731,6 +1867,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>UniqueDeviceCert</string>
 		<key>MinorTestName</key>
@@ -1757,6 +1895,8 @@
 		<string>ApplePinningAllowTestCertsUCRT</string>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>iPhoneActivation</string>
 		<key>MinorTestName</key>
@@ -1776,6 +1916,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>iPhoneActivation</string>
 		<key>MinorTestName</key>
@@ -1797,6 +1939,8 @@
 		<integer>2</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>iPhoneDeviceCert</string>
 		<key>MinorTestName</key>
@@ -1819,6 +1963,8 @@
 		<date>2008-01-01T20:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>FactoryDeviceCert</string>
 		<key>MinorTestName</key>
@@ -1842,6 +1988,8 @@
 		<integer>2</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>LockdownPairing</string>
 		<key>MinorTestName</key>
@@ -1863,6 +2011,8 @@
 		<integer>2</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>LockdownPairing</string>
 		<key>MinorTestName</key>
@@ -1882,6 +2032,8 @@
 		<integer>2</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>LockdownPairing</string>
 		<key>MinorTestName</key>
@@ -1901,6 +2053,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>ConfigurationProfile</string>
 		<key>MinorTestName</key>
@@ -1924,6 +2078,8 @@
 		<date>2016-01-01T20:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>MacAppStoreReceipt</string>
 		<key>MinorTestName</key>
@@ -1947,6 +2103,8 @@
 		<date>2016-01-01T20:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>MacAppStoreReceipt</string>
 		<key>MinorTestName</key>
@@ -1968,6 +2126,8 @@
 		<date>2016-03-01T20:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>MacAppStoreReceipt</string>
 		<key>MinorTestName</key>
@@ -1989,6 +2149,8 @@
 		<date>2016-03-01T20:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>EscrowProxyCompatibility</string>
 		<key>MinorTestName</key>
@@ -2015,6 +2177,10 @@
 		<date>2016-10-04T19:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>BridgeOSDisable</key>
+		<true/>
 		<key>MajorTestName</key>
 		<string>EscrowProxy</string>
 		<key>MinorTestName</key>
@@ -2041,6 +2207,8 @@
 		<date>2016-10-04T19:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>EscrowProxyCompatibility</string>
 		<key>MinorTestName</key>
@@ -2070,6 +2238,8 @@
 		<date>2016-10-04T19:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>MMCSCompatibility</string>
 		<key>MinorTestName</key>
@@ -2096,6 +2266,10 @@
 		<date>2016-10-04T19:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>BridgeOSDisable</key>
+		<true/>
 		<key>MajorTestName</key>
 		<string>MMCSCompatibility</string>
 		<key>MinorTestName</key>
@@ -2124,6 +2298,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>TLDWildcard</string>
 		<key>MinorTestName</key>
@@ -2150,6 +2326,8 @@
 		<date>2018-04-14T19:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>LASecureStaticIOAssets</string>
 		<key>MinorTestName</key>
@@ -2169,6 +2347,8 @@
 		<integer>4</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>LASecureStaticIOAssets</string>
 		<key>MinorTestName</key>
@@ -2190,6 +2370,8 @@
 		<string>AllowAppleTestCertificatesSecureIOStaticAsset</string>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>FakeDOD</string>
 		<key>MinorTestName</key>
@@ -2221,6 +2403,8 @@
 		<date>2016-12-10T04:38:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>FakeDOD</string>
 		<key>MinorTestName</key>
@@ -2252,6 +2436,8 @@
 		<date>2016-12-10T04:38:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>FakeDOD</string>
 		<key>MinorTestName</key>
@@ -2283,6 +2469,8 @@
 		<date>2016-12-10T04:38:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>DOD</string>
 		<key>MinorTestName</key>
@@ -2314,6 +2502,8 @@
 		<date>2016-01-01T21:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>Systemwide-Baseline</string>
 		<key>MinorTestName</key>
@@ -2342,6 +2532,8 @@
 		<date>2019-02-08T21:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>Systemwide-Baseline</string>
 		<key>MinorTestName</key>
@@ -2370,6 +2562,8 @@
 		<date>2017-12-08T21:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>Systemwide-Hostname</string>
 		<key>MinorTestName</key>
@@ -2398,6 +2592,10 @@
 		<date>2019-02-08T21:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>BridgeOSDisable</key>
+		<true/>
 		<key>MajorTestName</key>
 		<string>Systemwide-Hostname</string>
 		<key>MinorTestName</key>
@@ -2424,6 +2622,8 @@
 		<date>2017-02-08T21:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>Systemwide-PolicyName</string>
 		<key>MinorTestName</key>
@@ -2454,6 +2654,8 @@
 		<date>2019-02-08T21:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>Systemwide-PolicyName</string>
 		<key>MinorTestName</key>
@@ -2482,6 +2684,8 @@
 		<date>2017-02-08T21:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>Systemwide-Both</string>
 		<key>MinorTestName</key>
@@ -2512,6 +2716,10 @@
 		<date>2019-02-08T21:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>BridgeOSDisable</key>
+		<true/>
 		<key>MajorTestName</key>
 		<string>Systemwide-Both</string>
 		<key>MinorTestName</key>
@@ -2540,6 +2748,10 @@
 		<date>2017-02-08T21:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>BridgeOSDisable</key>
+		<true/>
 		<key>MajorTestName</key>
 		<string>Systemwide</string>
 		<key>MinorTestName</key>
@@ -2566,6 +2778,8 @@
 		<date>2017-02-08T21:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>Systemwide</string>
 		<key>MinorTestName</key>
@@ -2592,6 +2806,8 @@
 		<date>2017-04-08T20:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>PPQSigning</string>
 		<key>MinorTestName</key>
@@ -2615,6 +2831,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>Systemwide</string>
 		<key>MinorTestName</key>
@@ -2641,6 +2859,10 @@
 		<date>2017-02-20T21:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>BridgeOSDisable</key>
+		<true/>
 		<key>MajorTestName</key>
 		<string>PCSEscrowService</string>
 		<key>MinorTestName</key>
@@ -2660,6 +2882,10 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>BridgeOSDisable</key>
+		<true/>
 		<key>MajorTestName</key>
 		<string>EscrowService</string>
 		<key>MinorTestName</key>
@@ -2679,6 +2905,10 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>BridgeOSDisable</key>
+		<true/>
 		<key>MajorTestName</key>
 		<string>EscrowService</string>
 		<key>MinorTestName</key>
@@ -2698,6 +2928,10 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>BridgeOSDisable</key>
+		<true/>
 		<key>MajorTestName</key>
 		<string>PCSEscrowService</string>
 		<key>MinorTestName</key>
@@ -2719,6 +2953,8 @@
 		<integer>2</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>macOSProfileSigning</string>
 		<key>MinorTestName</key>
@@ -2740,6 +2976,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>macOSProfileSigning</string>
 		<key>MinorTestName</key>
@@ -2761,6 +2999,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>macOSProfileSigning</string>
 		<key>MinorTestName</key>
@@ -2782,6 +3022,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>iPhoneVPNApplicationSigning</string>
 		<key>MinorTestName</key>
@@ -2805,6 +3047,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>iPhoneVPNApplicationSigning</string>
 		<key>MinorTestName</key>
@@ -2826,6 +3070,8 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>BAA_UCRT</string>
 		<key>MinorTestName</key>
@@ -2847,6 +3093,8 @@
 		<integer>4</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>BAA_SCRT</string>
 		<key>MinorTestName</key>
@@ -2868,6 +3116,8 @@
 		<integer>4</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AssetReceipt</string>
 		<key>MinorTestName</key>
@@ -2891,6 +3141,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AssetReceipt</string>
 		<key>MinorTestName</key>
@@ -2914,6 +3166,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>AssetReceipt</string>
 		<key>MinorTestName</key>
@@ -2935,6 +3189,68 @@
 		<integer>5</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>SSLClient</string>
+		<key>MinorTestName</key>
+		<string>NegativeTest</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.3</string>
+			<key>Properties</key>
+			<dict>
+				<key>SecPolicyName</key>
+				<string>content.googleapis.com</string>
+				<key>SecPolicyClient</key>
+				<true/>
+			</dict>
+		</dict>
+		<key>Leaf</key>
+		<string>googleapis</string>
+		<key>Intermediates</key>
+		<string>GoogleInternetAuthorityG3</string>
+		<key>Anchors</key>
+		<string>GlobalSignRootCAR2</string>
+		<key>ExpectedResult</key>
+		<integer>5</integer>
+		<key>VerifyDate</key>
+		<date>2018-04-14T19:00:00Z</date>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>IPSecServer</string>
+		<key>MinorTestName</key>
+		<string>PositiveTest</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.11</string>
+			<key>Properties</key>
+			<dict>
+				<key>SecPolicyName</key>
+				<string>content.googleapis.com</string>
+			</dict>
+		</dict>
+		<key>Leaf</key>
+		<string>googleapis</string>
+		<key>Intermediates</key>
+		<string>GoogleInternetAuthorityG3</string>
+		<key>Anchors</key>
+		<string>GlobalSignRootCAR2</string>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>VerifyDate</key>
+		<date>2018-04-14T19:00:00Z</date>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>BridgeOSDisable</key>
+		<true/>
 		<key>MajorTestName</key>
 		<string>ISTCrossSignPinning</string>
 		<key>MinorTestName</key>
@@ -2963,6 +3279,10 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>BridgeOSDisable</key>
+		<true/>
 		<key>MajorTestName</key>
 		<string>ISTCrossSignPinning</string>
 		<key>MinorTestName</key>
@@ -2994,6 +3314,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>ISTCrossSignPinning</string>
 		<key>MinorTestName</key>
@@ -3025,6 +3347,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>ISTCrossSign</string>
 		<key>MinorTestName</key>
@@ -3053,6 +3377,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>ISTCrossSignCA8Baltimore</string>
 		<key>MinorTestName</key>
@@ -3081,6 +3407,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>ISTCrossSignCA8DigiCert</string>
 		<key>MinorTestName</key>
@@ -3107,6 +3435,8 @@
 		<date>2019-10-04T19:00:00Z</date>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>ISTCrossSign</string>
 		<key>MinorTestName</key>
@@ -3138,6 +3468,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>ISTCrossSign</string>
 		<key>MinorTestName</key>
@@ -3169,6 +3501,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>ISTCrossSignOldPin</string>
 		<key>MinorTestName</key>
@@ -3202,6 +3536,8 @@
 		<integer>3</integer>
 	</dict>
 	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
 		<key>MajorTestName</key>
 		<string>ISTCrossSignOldPin</string>
 		<key>MinorTestName</key>
@@ -3231,6 +3567,70 @@
 		<integer>5</integer>
 		<key>VerifyDate</key>
 		<date>2019-10-04T19:00:00Z</date>
+		<key>ChainLength</key>
+		<integer>3</integer>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>ValidPolicyConstraints</string>
+		<key>MinorTestName</key>
+		<string>SmimeCA-SmimeLeaf</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.8</string>
+			<key>Properties</key>
+			<dict>
+				<key>SecPolicyName</key>
+				<string>test@validsmime.apple.geoffk.net</string>
+			</dict>
+		</dict>
+		<key>Leaf</key>
+		<string>Valid-leaf-serial+invalid+policysmime+complete-smime</string>
+		<key>Intermediates</key>
+		<array>
+			<string>Valid-ca-serial+invalid+policysmime+complete</string>
+		</array>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>Anchors</key>
+		<string>Valid-root</string>
+		<key>VerifyDate</key>
+		<date>2019-03-01T16:00:00Z</date>
+		<key>ChainLength</key>
+		<integer>3</integer>
+	</dict>
+	<dict>
+		<key>CertDirectory</key>
+		<string>si-20-sectrust-policies-data</string>
+		<key>MajorTestName</key>
+		<string>ValidPolicyConstraints</string>
+		<key>MinorTestName</key>
+		<string>SSLCA-SSLServerLeaf</string>
+		<key>Policies</key>
+		<dict>
+			<key>PolicyIdentifier</key>
+			<string>1.2.840.113635.100.1.3</string>
+			<key>Properties</key>
+			<dict>
+				<key>SecPolicyName</key>
+				<string>validssl.apple.geoffk.net</string>
+			</dict>
+		</dict>
+		<key>Leaf</key>
+		<string>Valid-leaf-serial+invalid+policyssl+complete-ssl</string>
+		<key>Intermediates</key>
+		<array>
+			<string>Valid-ca-serial+invalid+policyssl+complete</string>
+		</array>
+		<key>ExpectedResult</key>
+		<integer>4</integer>
+		<key>Anchors</key>
+		<string>Valid-root</string>
+		<key>VerifyDate</key>
+		<date>2019-03-01T16:00:00Z</date>
 		<key>ChainLength</key>
 		<integer>3</integer>
 	</dict>

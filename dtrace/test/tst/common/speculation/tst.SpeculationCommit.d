@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.SpeculationCommit.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Test the normal behavior of speculate() and commit().
  *

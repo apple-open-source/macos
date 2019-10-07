@@ -66,6 +66,27 @@
 			name = All_iOS;
 			productName = All_iOS;
 		};
+		9430FE92211658C1009CC8AF /* hfs_livefiles */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 9430FE96211658C2009CC8AF /* Build configuration list for PBXAggregateTarget "hfs_livefiles" */;
+			buildPhases = (
+			);
+			dependencies = (
+				9430FE98211658E7009CC8AF /* PBXTargetDependency */,
+			);
+			name = hfs_livefiles;
+			productName = hfs_livefiles;
+		};
+		DB1AAB7C20472D140036167F /* Swift_iOS */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = DB1AAB8020472D140036167F /* Build configuration list for PBXAggregateTarget "Swift_iOS" */;
+			buildPhases = (
+			);
+			dependencies = (
+			);
+			name = Swift_iOS;
+			productName = Swift_iOS;
+		};
 		FB55AE651B7D47B300701D03 /* ios-tests */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FB55AE701B7D47B300701D03 /* Build configuration list for PBXAggregateTarget "ios-tests" */;
@@ -147,6 +168,7 @@
 		0703A0541CD826160035BCFD /* test-defrag.c in Sources */ = {isa = PBXBuildFile; fileRef = 0703A0531CD826160035BCFD /* test-defrag.c */; };
 		07C2BF891CB43F5E00D8327D /* test-renamex.c in Sources */ = {isa = PBXBuildFile; fileRef = 07C2BF881CB43F5E00D8327D /* test-renamex.c */; };
 		09D6B7D71E317ED2003C20DC /* test_disklevel.c in Sources */ = {isa = PBXBuildFile; fileRef = 09D6B7D61E317ED2003C20DC /* test_disklevel.c */; };
+		18B450692104D958002052BF /* lf_hfs_journal.c in Sources */ = {isa = PBXBuildFile; fileRef = 18B450682104D958002052BF /* lf_hfs_journal.c */; };
 		2A386A3B1C22209C007FEDAC /* test-list-ids.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A386A3A1C221E67007FEDAC /* test-list-ids.c */; };
 		2A84DBD41D9E15F2007964B8 /* test-raw-dev-unaligned.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A84DBD31D9E1179007964B8 /* test-raw-dev-unaligned.c */; };
 		2A9399951BDFEB5200FB075B /* test-access.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A9399941BDFEA6E00FB075B /* test-access.c */; };
@@ -248,9 +270,85 @@
 		86CBF3831831876200A64A93 /* misc.c in Sources */ = {isa = PBXBuildFile; fileRef = FDD9FA4E14A1343D0043D4A9 /* misc.c */; };
 		86CBF3861831880F00A64A93 /* iterate_hfs_metadata.c in Sources */ = {isa = PBXBuildFile; fileRef = 86CBF3851831880F00A64A93 /* iterate_hfs_metadata.c */; };
 		86CBF3871831884600A64A93 /* Data.h in Headers */ = {isa = PBXBuildFile; fileRef = FDD9FA4714A1343D0043D4A9 /* Data.h */; };
+		900BDEE81FF91B8C002F7EC0 /* livefiles_hfs_tester.c in Sources */ = {isa = PBXBuildFile; fileRef = 900BDECF1FF9198E002F7EC0 /* livefiles_hfs_tester.c */; };
+		900BDEEB1FF91C2A002F7EC0 /* lf_hfs_fsops_handler.h in Headers */ = {isa = PBXBuildFile; fileRef = 900BDEE91FF91C2A002F7EC0 /* lf_hfs_fsops_handler.h */; };
+		900BDEEC1FF91C2A002F7EC0 /* lf_hfs_fsops_handler.c in Sources */ = {isa = PBXBuildFile; fileRef = 900BDEEA1FF91C2A002F7EC0 /* lf_hfs_fsops_handler.c */; };
+		900BDEEE1FF91C46002F7EC0 /* lf_hfs_common.h in Headers */ = {isa = PBXBuildFile; fileRef = 900BDEED1FF91C46002F7EC0 /* lf_hfs_common.h */; };
+		900BDEF51FF9202E002F7EC0 /* lf_hfs_dirops_handler.h in Headers */ = {isa = PBXBuildFile; fileRef = 900BDEF31FF9202E002F7EC0 /* lf_hfs_dirops_handler.h */; };
+		900BDEF61FF9202E002F7EC0 /* lf_hfs_dirops_handler.c in Sources */ = {isa = PBXBuildFile; fileRef = 900BDEF41FF9202E002F7EC0 /* lf_hfs_dirops_handler.c */; };
+		900BDEF91FF92170002F7EC0 /* lf_hfs_fileops_handler.h in Headers */ = {isa = PBXBuildFile; fileRef = 900BDEF71FF92170002F7EC0 /* lf_hfs_fileops_handler.h */; };
+		900BDEFA1FF92170002F7EC0 /* lf_hfs_fileops_handler.c in Sources */ = {isa = PBXBuildFile; fileRef = 900BDEF81FF92170002F7EC0 /* lf_hfs_fileops_handler.c */; };
+		900BDEFD1FF9246F002F7EC0 /* lf_hfs_logger.h in Headers */ = {isa = PBXBuildFile; fileRef = 900BDEFB1FF9246F002F7EC0 /* lf_hfs_logger.h */; };
+		900BDEFE1FF9246F002F7EC0 /* lf_hfs_logger.c in Sources */ = {isa = PBXBuildFile; fileRef = 900BDEFC1FF9246F002F7EC0 /* lf_hfs_logger.c */; };
+		9022D170205EC16900D9A2AE /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9022D16F205EC16900D9A2AE /* CoreFoundation.framework */; };
+		9022D171205EC18500D9A2AE /* livefiles_hfs.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 900BDED41FF919C2002F7EC0 /* livefiles_hfs.dylib */; };
+		9022D174205FE5FA00D9A2AE /* lf_hfs_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = 9022D172205FE5FA00D9A2AE /* lf_hfs_utils.h */; };
+		9022D175205FE5FA00D9A2AE /* lf_hfs_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 9022D173205FE5FA00D9A2AE /* lf_hfs_utils.c */; };
+		9022D18120600D9E00D9A2AE /* lf_hfs_rangelist.h in Headers */ = {isa = PBXBuildFile; fileRef = 9022D17F20600D9E00D9A2AE /* lf_hfs_rangelist.h */; };
+		9022D18220600D9E00D9A2AE /* lf_hfs_rangelist.c in Sources */ = {isa = PBXBuildFile; fileRef = 9022D18020600D9E00D9A2AE /* lf_hfs_rangelist.c */; };
+		9022D1842060FBBE00D9A2AE /* lf_hfs_vfsops.h in Headers */ = {isa = PBXBuildFile; fileRef = 9022D1832060FBBE00D9A2AE /* lf_hfs_vfsops.h */; };
+		9022D1862060FBD200D9A2AE /* lf_hfs_vfsutils.h in Headers */ = {isa = PBXBuildFile; fileRef = 9022D1852060FBD200D9A2AE /* lf_hfs_vfsutils.h */; };
+		906EBF722063DB6C00B21E94 /* lf_hfs_generic_buf.h in Headers */ = {isa = PBXBuildFile; fileRef = 906EBF702063DB6C00B21E94 /* lf_hfs_generic_buf.h */; };
+		906EBF732063DB6C00B21E94 /* lf_hfs_generic_buf.c in Sources */ = {isa = PBXBuildFile; fileRef = 906EBF712063DB6C00B21E94 /* lf_hfs_generic_buf.c */; };
+		906EBF762063E44900B21E94 /* lf_hfs_readwrite_ops.h in Headers */ = {isa = PBXBuildFile; fileRef = 906EBF742063E44900B21E94 /* lf_hfs_readwrite_ops.h */; };
+		906EBF772063E44900B21E94 /* lf_hfs_readwrite_ops.c in Sources */ = {isa = PBXBuildFile; fileRef = 906EBF752063E44900B21E94 /* lf_hfs_readwrite_ops.c */; };
+		906EBF792063E76D00B21E94 /* lf_hfs_endian.c in Sources */ = {isa = PBXBuildFile; fileRef = 906EBF782063E76D00B21E94 /* lf_hfs_endian.c */; };
+		906EBF7B2063F7CE00B21E94 /* lf_hfs_btree_node_reserve.c in Sources */ = {isa = PBXBuildFile; fileRef = 906EBF7A2063F7CE00B21E94 /* lf_hfs_btree_node_reserve.c */; };
+		906EBF7D2063FB4A00B21E94 /* lf_hfs_btrees_io.h in Headers */ = {isa = PBXBuildFile; fileRef = 90F5EBB22063AA77004397B2 /* lf_hfs_btrees_io.h */; };
+		906EBF7F2063FC0900B21E94 /* lf_hfs_file_mgr_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 906EBF7E2063FC0900B21E94 /* lf_hfs_file_mgr_internal.h */; };
+		906EBF812063FF2700B21E94 /* lf_hfs_file_extent_mapping.h in Headers */ = {isa = PBXBuildFile; fileRef = 906EBF802063FE3900B21E94 /* lf_hfs_file_extent_mapping.h */; };
+		906EBF8720640CDF00B21E94 /* lf_hfs_unicode_wrappers.h in Headers */ = {isa = PBXBuildFile; fileRef = 906EBF8520640CDF00B21E94 /* lf_hfs_unicode_wrappers.h */; };
+		906EBF8820640CDF00B21E94 /* lf_hfs_unicode_wrappers.c in Sources */ = {isa = PBXBuildFile; fileRef = 906EBF8620640CDF00B21E94 /* lf_hfs_unicode_wrappers.c */; };
+		906EBF8C2067884300B21E94 /* lf_hfs_lookup.h in Headers */ = {isa = PBXBuildFile; fileRef = 906EBF8A2067884300B21E94 /* lf_hfs_lookup.h */; };
+		906EBF8D2067884300B21E94 /* lf_hfs_lookup.c in Sources */ = {isa = PBXBuildFile; fileRef = 906EBF8B2067884300B21E94 /* lf_hfs_lookup.c */; };
+		90F5EBA62061476A004397B2 /* lf_hfs_btree.h in Headers */ = {isa = PBXBuildFile; fileRef = 90F5EBA42061476A004397B2 /* lf_hfs_btree.h */; };
+		90F5EBA72061476A004397B2 /* lf_hfs_btree.c in Sources */ = {isa = PBXBuildFile; fileRef = 90F5EBA52061476A004397B2 /* lf_hfs_btree.c */; };
+		90F5EBAC2063A089004397B2 /* lf_hfs_btrees_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 90F5EBAA2063A089004397B2 /* lf_hfs_btrees_private.h */; };
+		90F5EBAF2063A109004397B2 /* lf_hfs_btrees_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 90F5EBAE2063A109004397B2 /* lf_hfs_btrees_internal.h */; };
+		90F5EBB12063A929004397B2 /* lf_hfs_defs.h in Headers */ = {isa = PBXBuildFile; fileRef = 90F5EBB02063A929004397B2 /* lf_hfs_defs.h */; };
+		90F5EBB52063AA77004397B2 /* lf_hfs_btrees_io.c in Sources */ = {isa = PBXBuildFile; fileRef = 90F5EBB32063AA77004397B2 /* lf_hfs_btrees_io.c */; };
+		90F5EBB72063B212004397B2 /* lf_hfs_file_extent_mapping.c in Sources */ = {isa = PBXBuildFile; fileRef = 90F5EBB62063B212004397B2 /* lf_hfs_file_extent_mapping.c */; };
+		90F5EBB92063CC22004397B2 /* lf_hfs_btree_tree_ops.c in Sources */ = {isa = PBXBuildFile; fileRef = 90F5EBB82063CC22004397B2 /* lf_hfs_btree_tree_ops.c */; };
+		90F5EBBB2063CC3A004397B2 /* lf_hfs_btree_node_ops.c in Sources */ = {isa = PBXBuildFile; fileRef = 90F5EBBA2063CC3A004397B2 /* lf_hfs_btree_node_ops.c */; };
+		90F5EBBF2063CCE0004397B2 /* lf_hfs_btree_misc_ops.c in Sources */ = {isa = PBXBuildFile; fileRef = 90F5EBBD2063CCE0004397B2 /* lf_hfs_btree_misc_ops.c */; };
+		90F5EBC12063CE12004397B2 /* lf_hfs_btree_allocate.c in Sources */ = {isa = PBXBuildFile; fileRef = 90F5EBC02063CE12004397B2 /* lf_hfs_btree_allocate.c */; };
+		A6E6D74020909C72002125B0 /* test-get-volume-create-time.c in Sources */ = {isa = PBXBuildFile; fileRef = A6E6D73F20909C72002125B0 /* test-get-volume-create-time.c */; };
 		C1B6FA0810CC0A0A00778D48 /* hfsutil_jnl.c in Sources */ = {isa = PBXBuildFile; fileRef = C1B6FA0610CC0A0A00778D48 /* hfsutil_jnl.c */; };
 		C1B6FA0910CC0A0A00778D48 /* hfsutil_main.c in Sources */ = {isa = PBXBuildFile; fileRef = C1B6FA0710CC0A0A00778D48 /* hfsutil_main.c */; };
 		C1B6FA3010CC0B9500778D48 /* hfs.util.8 in Copy man8 */ = {isa = PBXBuildFile; fileRef = C1B6FA2F10CC0B8A00778D48 /* hfs.util.8 */; };
+		D759E27020AD75FC00792EDA /* lf_hfs_link.h in Headers */ = {isa = PBXBuildFile; fileRef = D759E26E20AD75FC00792EDA /* lf_hfs_link.h */; };
+		D759E27120AD75FC00792EDA /* lf_hfs_link.c in Sources */ = {isa = PBXBuildFile; fileRef = D759E26F20AD75FC00792EDA /* lf_hfs_link.c */; };
+		D769A1CC206107190022791F /* lf_hfs_vnode.c in Sources */ = {isa = PBXBuildFile; fileRef = D769A1CB206107190022791F /* lf_hfs_vnode.c */; };
+		D769A1CE206107DF0022791F /* lf_hfs_cnode.c in Sources */ = {isa = PBXBuildFile; fileRef = D769A1CD206107DF0022791F /* lf_hfs_cnode.c */; };
+		D769A1D0206118490022791F /* lf_hfs_chash.h in Headers */ = {isa = PBXBuildFile; fileRef = D769A1CF206118490022791F /* lf_hfs_chash.h */; };
+		D769A1D3206136420022791F /* lf_hfs_vnops.h in Headers */ = {isa = PBXBuildFile; fileRef = D769A1D1206136420022791F /* lf_hfs_vnops.h */; };
+		D769A1D4206136420022791F /* lf_hfs_vnops.c in Sources */ = {isa = PBXBuildFile; fileRef = D769A1D2206136420022791F /* lf_hfs_vnops.c */; };
+		D769A1E62063AD680022791F /* lf_hfs_volume_allocation.h in Headers */ = {isa = PBXBuildFile; fileRef = D769A1E42063AD680022791F /* lf_hfs_volume_allocation.h */; };
+		D769A1E72063AD680022791F /* lf_hfs_volume_allocation.c in Sources */ = {isa = PBXBuildFile; fileRef = D769A1E52063AD680022791F /* lf_hfs_volume_allocation.c */; };
+		D769A1E92063CEA50022791F /* lf_hfs_journal.h in Headers */ = {isa = PBXBuildFile; fileRef = D769A1E82063CEA50022791F /* lf_hfs_journal.h */; };
+		D769A1EC2067E6BB0022791F /* lf_hfs_attrlist.h in Headers */ = {isa = PBXBuildFile; fileRef = D769A1EA2067E6BB0022791F /* lf_hfs_attrlist.h */; };
+		D769A1ED2067E6BB0022791F /* lf_hfs_attrlist.c in Sources */ = {isa = PBXBuildFile; fileRef = D769A1EB2067E6BB0022791F /* lf_hfs_attrlist.c */; };
+		D7850549206B831000B9C5E4 /* lf_hfs_xattr.h in Headers */ = {isa = PBXBuildFile; fileRef = D7850547206B831000B9C5E4 /* lf_hfs_xattr.h */; };
+		D785054A206B831000B9C5E4 /* lf_hfs_xattr.c in Sources */ = {isa = PBXBuildFile; fileRef = D7850548206B831000B9C5E4 /* lf_hfs_xattr.c */; };
+		D79783FD205EC09000E93B37 /* lf_hfs_vnode.h in Headers */ = {isa = PBXBuildFile; fileRef = D79783FC205EC09000E93B37 /* lf_hfs_vnode.h */; };
+		D79783FF205EC0E000E93B37 /* lf_hfs.h in Headers */ = {isa = PBXBuildFile; fileRef = D79783FE205EC0E000E93B37 /* lf_hfs.h */; };
+		D7978402205EC12700E93B37 /* lf_hfs_locks.h in Headers */ = {isa = PBXBuildFile; fileRef = D7978400205EC12700E93B37 /* lf_hfs_locks.h */; };
+		D7978404205EC12700E93B37 /* lf_hfs_locks.c in Sources */ = {isa = PBXBuildFile; fileRef = D7978401205EC12700E93B37 /* lf_hfs_locks.c */; };
+		D7978406205EC25B00E93B37 /* lf_hfs_mount.h in Headers */ = {isa = PBXBuildFile; fileRef = D7978405205EC25B00E93B37 /* lf_hfs_mount.h */; };
+		D7978408205EC38900E93B37 /* lf_hfs_format.h in Headers */ = {isa = PBXBuildFile; fileRef = D7978407205EC38900E93B37 /* lf_hfs_format.h */; };
+		D797840A205EC43000E93B37 /* lf_hfs_catalog.h in Headers */ = {isa = PBXBuildFile; fileRef = D7978409205EC42C00E93B37 /* lf_hfs_catalog.h */; };
+		D7978410205EC76100E93B37 /* lf_hfs_cnode.h in Headers */ = {isa = PBXBuildFile; fileRef = D797840F205EC76100E93B37 /* lf_hfs_cnode.h */; };
+		D7978417205EC9C300E93B37 /* lf_hfs_vfsops.c in Sources */ = {isa = PBXBuildFile; fileRef = D7978414205EC9C300E93B37 /* lf_hfs_vfsops.c */; };
+		D7978420205ED7E600E93B37 /* lf_hfs_vfsutils.c in Sources */ = {isa = PBXBuildFile; fileRef = D797841E205ED7E600E93B37 /* lf_hfs_vfsutils.c */; };
+		D7978423205FB57600E93B37 /* lf_hfs_chash.c in Sources */ = {isa = PBXBuildFile; fileRef = D7978421205FB57600E93B37 /* lf_hfs_chash.c */; };
+		D7978426205FC09A00E93B37 /* lf_hfs_endian.h in Headers */ = {isa = PBXBuildFile; fileRef = D7978424205FC09A00E93B37 /* lf_hfs_endian.h */; };
+		D79784412060037400E93B37 /* lf_hfs_raw_read_write.h in Headers */ = {isa = PBXBuildFile; fileRef = D797843F2060037400E93B37 /* lf_hfs_raw_read_write.h */; };
+		D79784422060037400E93B37 /* lf_hfs_raw_read_write.c in Sources */ = {isa = PBXBuildFile; fileRef = D79784402060037400E93B37 /* lf_hfs_raw_read_write.c */; };
+		D7BD8F9C20AC388E00E93640 /* lf_hfs_catalog.c in Sources */ = {isa = PBXBuildFile; fileRef = 906EBF82206409B800B21E94 /* lf_hfs_catalog.c */; };
+		EE73740520644328004C2F0E /* lf_hfs_sbunicode.h in Headers */ = {isa = PBXBuildFile; fileRef = EE73740320644328004C2F0E /* lf_hfs_sbunicode.h */; };
+		EE73740620644328004C2F0E /* lf_hfs_sbunicode.c in Sources */ = {isa = PBXBuildFile; fileRef = EE73740420644328004C2F0E /* lf_hfs_sbunicode.c */; };
+		EE737408206443A1004C2F0E /* lf_hfs_utfconvdata.h in Headers */ = {isa = PBXBuildFile; fileRef = EE737407206443A1004C2F0E /* lf_hfs_utfconvdata.h */; };
+		F90E174921ADFFD100345EE3 /* test-cas-bsdflags.c in Sources */ = {isa = PBXBuildFile; fileRef = F90E174821ADFFD100345EE3 /* test-cas-bsdflags.c */; };
 		FB20E0E51AE950C200CEBE7B /* hfs_iokit.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FB20E0E41AE950C200CEBE7B /* hfs_iokit.cpp */; };
 		FB20E12D1AE9529400CEBE7B /* BTree.c in Sources */ = {isa = PBXBuildFile; fileRef = FB20E0E81AE9529400CEBE7B /* BTree.c */; };
 		FB20E12E1AE9529400CEBE7B /* BTreeAllocate.c in Sources */ = {isa = PBXBuildFile; fileRef = FB20E0E91AE9529400CEBE7B /* BTreeAllocate.c */; };
@@ -456,6 +554,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = 4DFD94BC15373C2C0039B6BA;
 			remoteInfo = fsck_makestrings;
+		};
+		900BDEE51FF919E7002F7EC0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 900BDED31FF919C2002F7EC0;
+			remoteInfo = livefiles_hfs;
+		};
+		9430FE97211658E7009CC8AF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 900BDED31FF919C2002F7EC0;
+			remoteInfo = livefiles_hfs;
 		};
 		FB48E4BB1BB30CC400523121 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -673,6 +785,15 @@
 			name = "Copy man8";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		900BDEDB1FF919DE002F7EC0 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		FB76B3D01B7A4BE600FA9F2B /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -738,6 +859,7 @@
 		0703A0531CD826160035BCFD /* test-defrag.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-defrag.c"; sourceTree = "<group>"; };
 		07C2BF881CB43F5E00D8327D /* test-renamex.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-renamex.c"; sourceTree = "<group>"; };
 		09D6B7D61E317ED2003C20DC /* test_disklevel.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_disklevel.c; sourceTree = "<group>"; };
+		18B450682104D958002052BF /* lf_hfs_journal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lf_hfs_journal.c; sourceTree = "<group>"; };
 		2A386A3A1C221E67007FEDAC /* test-list-ids.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-list-ids.c"; sourceTree = "<group>"; };
 		2A84DBD31D9E1179007964B8 /* test-raw-dev-unaligned.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-raw-dev-unaligned.c"; sourceTree = "<group>"; };
 		2A9399941BDFEA6E00FB075B /* test-access.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-access.c"; sourceTree = "<group>"; };
@@ -852,7 +974,7 @@
 		4DFD94AF153649070039B6BA /* newfs_hfs_debug */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = newfs_hfs_debug; sourceTree = BUILT_PRODUCTS_DIR; };
 		4DFD94E615373C2C0039B6BA /* fsck_makestrings */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = fsck_makestrings; sourceTree = BUILT_PRODUCTS_DIR; };
 		4DFD95121537402A0039B6BA /* hfs.fs */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = hfs.fs; sourceTree = BUILT_PRODUCTS_DIR; };
-		4DFD9537153746210039B6BA /* English */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		4DFD9537153746210039B6BA /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		4DFD9539153746B30039B6BA /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		4DFD953D15377C7D0039B6BA /* hfs.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = hfs.xcconfig; sourceTree = "<group>"; };
 		7204A9401BE94359007A9898 /* img-to-c.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "img-to-c.c"; sourceTree = "<group>"; };
@@ -863,14 +985,96 @@
 		863D03961820761900A4F0C4 /* util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = util.c; sourceTree = "<group>"; };
 		86CBF37F183186C300A64A93 /* libhfs_metadata.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libhfs_metadata.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		86CBF3851831880F00A64A93 /* iterate_hfs_metadata.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = iterate_hfs_metadata.c; path = libhfs_metadata/iterate_hfs_metadata.c; sourceTree = SOURCE_ROOT; };
+		900BDECE1FF9198E002F7EC0 /* livefiles_hfs_tester.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = livefiles_hfs_tester.h; sourceTree = "<group>"; };
+		900BDECF1FF9198E002F7EC0 /* livefiles_hfs_tester.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = livefiles_hfs_tester.c; sourceTree = "<group>"; };
+		900BDED41FF919C2002F7EC0 /* livefiles_hfs.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = livefiles_hfs.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		900BDEDD1FF919DE002F7EC0 /* livefiles_hfs_tester */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = livefiles_hfs_tester; sourceTree = BUILT_PRODUCTS_DIR; };
+		900BDEE71FF91ADF002F7EC0 /* livefiles_hfs_tester.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = livefiles_hfs_tester.entitlements; sourceTree = "<group>"; };
+		900BDEE91FF91C2A002F7EC0 /* lf_hfs_fsops_handler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_fsops_handler.h; sourceTree = "<group>"; };
+		900BDEEA1FF91C2A002F7EC0 /* lf_hfs_fsops_handler.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_fsops_handler.c; sourceTree = "<group>"; };
+		900BDEED1FF91C46002F7EC0 /* lf_hfs_common.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_common.h; sourceTree = "<group>"; };
+		900BDEF31FF9202E002F7EC0 /* lf_hfs_dirops_handler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_dirops_handler.h; sourceTree = "<group>"; };
+		900BDEF41FF9202E002F7EC0 /* lf_hfs_dirops_handler.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_dirops_handler.c; sourceTree = "<group>"; };
+		900BDEF71FF92170002F7EC0 /* lf_hfs_fileops_handler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_fileops_handler.h; sourceTree = "<group>"; };
+		900BDEF81FF92170002F7EC0 /* lf_hfs_fileops_handler.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_fileops_handler.c; sourceTree = "<group>"; usesTabs = 0; };
+		900BDEFB1FF9246F002F7EC0 /* lf_hfs_logger.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_logger.h; sourceTree = "<group>"; };
+		900BDEFC1FF9246F002F7EC0 /* lf_hfs_logger.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_logger.c; sourceTree = "<group>"; };
+		9022D16F205EC16900D9A2AE /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
+		9022D172205FE5FA00D9A2AE /* lf_hfs_utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_utils.h; sourceTree = "<group>"; };
+		9022D173205FE5FA00D9A2AE /* lf_hfs_utils.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_utils.c; sourceTree = "<group>"; };
+		9022D177205FEBE200D9A2AE /* lf_MacOSStubs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_MacOSStubs.c; sourceTree = "<group>"; };
+		9022D17F20600D9E00D9A2AE /* lf_hfs_rangelist.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_rangelist.h; sourceTree = "<group>"; };
+		9022D18020600D9E00D9A2AE /* lf_hfs_rangelist.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_rangelist.c; sourceTree = "<group>"; };
+		9022D1832060FBBE00D9A2AE /* lf_hfs_vfsops.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_vfsops.h; sourceTree = "<group>"; };
+		9022D1852060FBD200D9A2AE /* lf_hfs_vfsutils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_vfsutils.h; sourceTree = "<group>"; };
+		906EBF702063DB6C00B21E94 /* lf_hfs_generic_buf.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_generic_buf.h; sourceTree = "<group>"; };
+		906EBF712063DB6C00B21E94 /* lf_hfs_generic_buf.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_generic_buf.c; sourceTree = "<group>"; };
+		906EBF742063E44900B21E94 /* lf_hfs_readwrite_ops.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_readwrite_ops.h; sourceTree = "<group>"; };
+		906EBF752063E44900B21E94 /* lf_hfs_readwrite_ops.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_readwrite_ops.c; sourceTree = "<group>"; };
+		906EBF782063E76D00B21E94 /* lf_hfs_endian.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_endian.c; sourceTree = "<group>"; };
+		906EBF7A2063F7CE00B21E94 /* lf_hfs_btree_node_reserve.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_btree_node_reserve.c; sourceTree = "<group>"; };
+		906EBF7E2063FC0900B21E94 /* lf_hfs_file_mgr_internal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_file_mgr_internal.h; sourceTree = "<group>"; };
+		906EBF802063FE3900B21E94 /* lf_hfs_file_extent_mapping.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_file_extent_mapping.h; sourceTree = "<group>"; };
+		906EBF82206409B800B21E94 /* lf_hfs_catalog.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_catalog.c; sourceTree = "<group>"; };
+		906EBF8520640CDF00B21E94 /* lf_hfs_unicode_wrappers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_unicode_wrappers.h; sourceTree = "<group>"; };
+		906EBF8620640CDF00B21E94 /* lf_hfs_unicode_wrappers.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_unicode_wrappers.c; sourceTree = "<group>"; };
+		906EBF8920640D8200B21E94 /* lf_hfs_ucs_string_cmp_data.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_ucs_string_cmp_data.h; sourceTree = "<group>"; };
+		906EBF8A2067884300B21E94 /* lf_hfs_lookup.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_lookup.h; sourceTree = "<group>"; };
+		906EBF8B2067884300B21E94 /* lf_hfs_lookup.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_lookup.c; sourceTree = "<group>"; };
+		90F5EBA42061476A004397B2 /* lf_hfs_btree.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_btree.h; sourceTree = "<group>"; };
+		90F5EBA52061476A004397B2 /* lf_hfs_btree.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_btree.c; sourceTree = "<group>"; };
+		90F5EBAA2063A089004397B2 /* lf_hfs_btrees_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_btrees_private.h; sourceTree = "<group>"; };
+		90F5EBAE2063A109004397B2 /* lf_hfs_btrees_internal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_btrees_internal.h; sourceTree = "<group>"; };
+		90F5EBB02063A929004397B2 /* lf_hfs_defs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_defs.h; sourceTree = "<group>"; };
+		90F5EBB22063AA77004397B2 /* lf_hfs_btrees_io.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_btrees_io.h; sourceTree = "<group>"; };
+		90F5EBB32063AA77004397B2 /* lf_hfs_btrees_io.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_btrees_io.c; sourceTree = "<group>"; };
+		90F5EBB62063B212004397B2 /* lf_hfs_file_extent_mapping.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_file_extent_mapping.c; sourceTree = "<group>"; };
+		90F5EBB82063CC22004397B2 /* lf_hfs_btree_tree_ops.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_btree_tree_ops.c; sourceTree = "<group>"; };
+		90F5EBBA2063CC3A004397B2 /* lf_hfs_btree_node_ops.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_btree_node_ops.c; sourceTree = "<group>"; };
+		90F5EBBD2063CCE0004397B2 /* lf_hfs_btree_misc_ops.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_btree_misc_ops.c; sourceTree = "<group>"; };
+		90F5EBC02063CE12004397B2 /* lf_hfs_btree_allocate.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_btree_allocate.c; sourceTree = "<group>"; };
 		9D7AAC861B44874E0001F573 /* mount_hfs.osx.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = mount_hfs.osx.entitlements; sourceTree = "<group>"; };
 		9D7AAC871B44880B0001F573 /* hfs_util.osx.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = hfs_util.osx.entitlements; sourceTree = "<group>"; };
 		9D9067881B44633C003D2117 /* fsck_hfs.osx.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = fsck_hfs.osx.entitlements; sourceTree = "<group>"; };
+		A6E6D73F20909C72002125B0 /* test-get-volume-create-time.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "test-get-volume-create-time.c"; sourceTree = "<group>"; };
 		C1B6FA0610CC0A0A00778D48 /* hfsutil_jnl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hfsutil_jnl.c; sourceTree = "<group>"; };
 		C1B6FA0710CC0A0A00778D48 /* hfsutil_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hfsutil_main.c; sourceTree = "<group>"; };
 		C1B6FA2210CC0AF400778D48 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		C1B6FA2F10CC0B8A00778D48 /* hfs.util.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = hfs.util.8; sourceTree = "<group>"; };
 		C1B6FD2B10CC0DB200778D48 /* hfs.util */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = hfs.util; sourceTree = BUILT_PRODUCTS_DIR; };
+		D759E26E20AD75FC00792EDA /* lf_hfs_link.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_link.h; sourceTree = "<group>"; };
+		D759E26F20AD75FC00792EDA /* lf_hfs_link.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_link.c; sourceTree = "<group>"; };
+		D769A1CB206107190022791F /* lf_hfs_vnode.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_vnode.c; sourceTree = "<group>"; };
+		D769A1CD206107DF0022791F /* lf_hfs_cnode.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_cnode.c; sourceTree = "<group>"; };
+		D769A1CF206118490022791F /* lf_hfs_chash.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_chash.h; sourceTree = "<group>"; };
+		D769A1D1206136420022791F /* lf_hfs_vnops.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_vnops.h; sourceTree = "<group>"; };
+		D769A1D2206136420022791F /* lf_hfs_vnops.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_vnops.c; sourceTree = "<group>"; };
+		D769A1E42063AD680022791F /* lf_hfs_volume_allocation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_volume_allocation.h; sourceTree = "<group>"; };
+		D769A1E52063AD680022791F /* lf_hfs_volume_allocation.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_volume_allocation.c; sourceTree = "<group>"; };
+		D769A1E82063CEA50022791F /* lf_hfs_journal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_journal.h; sourceTree = "<group>"; };
+		D769A1EA2067E6BB0022791F /* lf_hfs_attrlist.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_attrlist.h; sourceTree = "<group>"; };
+		D769A1EB2067E6BB0022791F /* lf_hfs_attrlist.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_attrlist.c; sourceTree = "<group>"; };
+		D7850547206B831000B9C5E4 /* lf_hfs_xattr.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_xattr.h; sourceTree = "<group>"; };
+		D7850548206B831000B9C5E4 /* lf_hfs_xattr.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_xattr.c; sourceTree = "<group>"; };
+		D79783FC205EC09000E93B37 /* lf_hfs_vnode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_vnode.h; sourceTree = "<group>"; };
+		D79783FE205EC0E000E93B37 /* lf_hfs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs.h; sourceTree = "<group>"; };
+		D7978400205EC12700E93B37 /* lf_hfs_locks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_locks.h; sourceTree = "<group>"; };
+		D7978401205EC12700E93B37 /* lf_hfs_locks.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_locks.c; sourceTree = "<group>"; };
+		D7978405205EC25B00E93B37 /* lf_hfs_mount.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_mount.h; sourceTree = "<group>"; };
+		D7978407205EC38900E93B37 /* lf_hfs_format.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_format.h; sourceTree = "<group>"; };
+		D7978409205EC42C00E93B37 /* lf_hfs_catalog.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_catalog.h; sourceTree = "<group>"; };
+		D797840F205EC76100E93B37 /* lf_hfs_cnode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_cnode.h; sourceTree = "<group>"; };
+		D7978414205EC9C300E93B37 /* lf_hfs_vfsops.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_vfsops.c; sourceTree = "<group>"; usesTabs = 0; };
+		D797841E205ED7E600E93B37 /* lf_hfs_vfsutils.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_vfsutils.c; sourceTree = "<group>"; };
+		D7978421205FB57600E93B37 /* lf_hfs_chash.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_chash.c; sourceTree = "<group>"; };
+		D7978424205FC09A00E93B37 /* lf_hfs_endian.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_endian.h; sourceTree = "<group>"; };
+		D797843D206001F000E93B37 /* lf_MAcOSStubs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_MAcOSStubs.c; sourceTree = "<group>"; };
+		D797843F2060037400E93B37 /* lf_hfs_raw_read_write.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_raw_read_write.h; sourceTree = "<group>"; };
+		D79784402060037400E93B37 /* lf_hfs_raw_read_write.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_raw_read_write.c; sourceTree = "<group>"; };
+		EE73740320644328004C2F0E /* lf_hfs_sbunicode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_sbunicode.h; sourceTree = "<group>"; };
+		EE73740420644328004C2F0E /* lf_hfs_sbunicode.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = lf_hfs_sbunicode.c; sourceTree = "<group>"; };
+		EE737407206443A1004C2F0E /* lf_hfs_utfconvdata.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lf_hfs_utfconvdata.h; sourceTree = "<group>"; };
+		F90E174821ADFFD100345EE3 /* test-cas-bsdflags.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "test-cas-bsdflags.c"; sourceTree = "<group>"; };
 		FB02B8CE1B5ED0B50093DD47 /* make_opensource.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = make_opensource.sh; sourceTree = "<group>"; };
 		FB20E0E01AE950C200CEBE7B /* HFS.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HFS.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		FB20E0E31AE950C200CEBE7B /* macosx-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "macosx-Info.plist"; sourceTree = "<group>"; };
@@ -1069,6 +1273,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		900BDED11FF919C2002F7EC0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		900BDEDA1FF919DE002F7EC0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9022D171205EC18500D9A2AE /* livefiles_hfs.dylib in Frameworks */,
+				9022D170205EC16900D9A2AE /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FB20E0DC1AE950C200CEBE7B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -1133,6 +1353,7 @@
 		08FB7794FE84155DC02AAC07 /* hfs */ = {
 			isa = PBXGroup;
 			children = (
+				900BDECD1FF91960002F7EC0 /* livefiles_hfs_plugin */,
 				4DFD953D15377C7D0039B6BA /* hfs.xcconfig */,
 				FDD9FA4614A1343D0043D4A9 /* CopyHFSMeta */,
 				86CBF384183187D500A64A93 /* libhfs_metadata */,
@@ -1149,6 +1370,7 @@
 				FDD9FA4014A133A50043D4A9 /* Frameworks */,
 				C1B6FD2C10CC0DB200778D48 /* Products */,
 				FB02B8CE1B5ED0B50093DD47 /* make_opensource.sh */,
+				D7978444206006CC00E93B37 /* Recovered References */,
 			);
 			name = hfs;
 			sourceTree = "<group>";
@@ -1293,6 +1515,89 @@
 			path = CopyHFSMeta;
 			sourceTree = "<group>";
 		};
+		900BDECD1FF91960002F7EC0 /* livefiles_hfs_plugin */ = {
+			isa = PBXGroup;
+			children = (
+				18B450682104D958002052BF /* lf_hfs_journal.c */,
+				906EBF82206409B800B21E94 /* lf_hfs_catalog.c */,
+				D7978409205EC42C00E93B37 /* lf_hfs_catalog.h */,
+				D7978421205FB57600E93B37 /* lf_hfs_chash.c */,
+				D769A1CF206118490022791F /* lf_hfs_chash.h */,
+				D769A1CD206107DF0022791F /* lf_hfs_cnode.c */,
+				D797840F205EC76100E93B37 /* lf_hfs_cnode.h */,
+				900BDEED1FF91C46002F7EC0 /* lf_hfs_common.h */,
+				900BDEF41FF9202E002F7EC0 /* lf_hfs_dirops_handler.c */,
+				900BDEF31FF9202E002F7EC0 /* lf_hfs_dirops_handler.h */,
+				D7978424205FC09A00E93B37 /* lf_hfs_endian.h */,
+				900BDEF81FF92170002F7EC0 /* lf_hfs_fileops_handler.c */,
+				900BDEF71FF92170002F7EC0 /* lf_hfs_fileops_handler.h */,
+				D7978407205EC38900E93B37 /* lf_hfs_format.h */,
+				900BDEEA1FF91C2A002F7EC0 /* lf_hfs_fsops_handler.c */,
+				900BDEE91FF91C2A002F7EC0 /* lf_hfs_fsops_handler.h */,
+				D769A1E82063CEA50022791F /* lf_hfs_journal.h */,
+				D7978401205EC12700E93B37 /* lf_hfs_locks.c */,
+				D7978400205EC12700E93B37 /* lf_hfs_locks.h */,
+				900BDEFC1FF9246F002F7EC0 /* lf_hfs_logger.c */,
+				900BDEFB1FF9246F002F7EC0 /* lf_hfs_logger.h */,
+				D7978405205EC25B00E93B37 /* lf_hfs_mount.h */,
+				9022D18020600D9E00D9A2AE /* lf_hfs_rangelist.c */,
+				9022D17F20600D9E00D9A2AE /* lf_hfs_rangelist.h */,
+				D79784402060037400E93B37 /* lf_hfs_raw_read_write.c */,
+				D797843F2060037400E93B37 /* lf_hfs_raw_read_write.h */,
+				9022D173205FE5FA00D9A2AE /* lf_hfs_utils.c */,
+				9022D172205FE5FA00D9A2AE /* lf_hfs_utils.h */,
+				D7978414205EC9C300E93B37 /* lf_hfs_vfsops.c */,
+				9022D1832060FBBE00D9A2AE /* lf_hfs_vfsops.h */,
+				D797841E205ED7E600E93B37 /* lf_hfs_vfsutils.c */,
+				9022D1852060FBD200D9A2AE /* lf_hfs_vfsutils.h */,
+				D769A1CB206107190022791F /* lf_hfs_vnode.c */,
+				D79783FC205EC09000E93B37 /* lf_hfs_vnode.h */,
+				D769A1D2206136420022791F /* lf_hfs_vnops.c */,
+				D769A1D1206136420022791F /* lf_hfs_vnops.h */,
+				D769A1E52063AD680022791F /* lf_hfs_volume_allocation.c */,
+				D769A1E42063AD680022791F /* lf_hfs_volume_allocation.h */,
+				D79783FE205EC0E000E93B37 /* lf_hfs.h */,
+				900BDECF1FF9198E002F7EC0 /* livefiles_hfs_tester.c */,
+				900BDEE71FF91ADF002F7EC0 /* livefiles_hfs_tester.entitlements */,
+				900BDECE1FF9198E002F7EC0 /* livefiles_hfs_tester.h */,
+				90F5EBA42061476A004397B2 /* lf_hfs_btree.h */,
+				90F5EBA52061476A004397B2 /* lf_hfs_btree.c */,
+				90F5EBAA2063A089004397B2 /* lf_hfs_btrees_private.h */,
+				90F5EBAE2063A109004397B2 /* lf_hfs_btrees_internal.h */,
+				90F5EBB02063A929004397B2 /* lf_hfs_defs.h */,
+				90F5EBB22063AA77004397B2 /* lf_hfs_btrees_io.h */,
+				90F5EBB32063AA77004397B2 /* lf_hfs_btrees_io.c */,
+				90F5EBB62063B212004397B2 /* lf_hfs_file_extent_mapping.c */,
+				90F5EBB82063CC22004397B2 /* lf_hfs_btree_tree_ops.c */,
+				90F5EBBA2063CC3A004397B2 /* lf_hfs_btree_node_ops.c */,
+				90F5EBBD2063CCE0004397B2 /* lf_hfs_btree_misc_ops.c */,
+				90F5EBC02063CE12004397B2 /* lf_hfs_btree_allocate.c */,
+				906EBF702063DB6C00B21E94 /* lf_hfs_generic_buf.h */,
+				906EBF712063DB6C00B21E94 /* lf_hfs_generic_buf.c */,
+				906EBF742063E44900B21E94 /* lf_hfs_readwrite_ops.h */,
+				906EBF752063E44900B21E94 /* lf_hfs_readwrite_ops.c */,
+				906EBF782063E76D00B21E94 /* lf_hfs_endian.c */,
+				906EBF7A2063F7CE00B21E94 /* lf_hfs_btree_node_reserve.c */,
+				906EBF7E2063FC0900B21E94 /* lf_hfs_file_mgr_internal.h */,
+				906EBF802063FE3900B21E94 /* lf_hfs_file_extent_mapping.h */,
+				906EBF8520640CDF00B21E94 /* lf_hfs_unicode_wrappers.h */,
+				906EBF8620640CDF00B21E94 /* lf_hfs_unicode_wrappers.c */,
+				906EBF8920640D8200B21E94 /* lf_hfs_ucs_string_cmp_data.h */,
+				EE73740320644328004C2F0E /* lf_hfs_sbunicode.h */,
+				EE73740420644328004C2F0E /* lf_hfs_sbunicode.c */,
+				EE737407206443A1004C2F0E /* lf_hfs_utfconvdata.h */,
+				906EBF8A2067884300B21E94 /* lf_hfs_lookup.h */,
+				906EBF8B2067884300B21E94 /* lf_hfs_lookup.c */,
+				D769A1EA2067E6BB0022791F /* lf_hfs_attrlist.h */,
+				D769A1EB2067E6BB0022791F /* lf_hfs_attrlist.c */,
+				D7850547206B831000B9C5E4 /* lf_hfs_xattr.h */,
+				D7850548206B831000B9C5E4 /* lf_hfs_xattr.c */,
+				D759E26E20AD75FC00792EDA /* lf_hfs_link.h */,
+				D759E26F20AD75FC00792EDA /* lf_hfs_link.c */,
+			);
+			path = livefiles_hfs_plugin;
+			sourceTree = "<group>";
+		};
 		C1B6FD2C10CC0DB200778D48 /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -1316,8 +1621,19 @@
 				FBCC52FE1B852758008B752C /* hfs-alloc-trace */,
 				FB48E4A61BB3070500523121 /* Kernel.framework */,
 				FB48E5041BB3798500523121 /* Sim_Headers */,
+				900BDED41FF919C2002F7EC0 /* livefiles_hfs.dylib */,
+				900BDEDD1FF919DE002F7EC0 /* livefiles_hfs_tester */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		D7978444206006CC00E93B37 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				9022D177205FEBE200D9A2AE /* lf_MacOSStubs.c */,
+				D797843D206001F000E93B37 /* lf_MAcOSStubs.c */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 		FB20E0E11AE950C200CEBE7B /* core */ = {
@@ -1438,6 +1754,7 @@
 				2A93999C1BE0146000FB075B /* test-deep-rm.c */,
 				2A9399961BDFEF3900FB075B /* test-chflags.c */,
 				2A9399941BDFEA6E00FB075B /* test-access.c */,
+				F90E174821ADFFD100345EE3 /* test-cas-bsdflags.c */,
 				FB55AE521B7C271000701D03 /* test-doc-tombstone.c */,
 				FB76B3DA1B7A52BE00FA9F2B /* test-external-jnl.c */,
 				FB2B5C721B87A0BF00ACEDD9 /* test-getattrlist.c */,
@@ -1448,6 +1765,7 @@
 				FB2B5C551B87656900ACEDD9 /* test-transcode.m */,
 				FBD69AF81B91309C0022ECAD /* test-dateadded.c */,
 				09D6B7D61E317ED2003C20DC /* test_disklevel.c */,
+				A6E6D73F20909C72002125B0 /* test-get-volume-create-time.c */,
 			);
 			path = cases;
 			sourceTree = "<group>";
@@ -1514,6 +1832,7 @@
 			isa = PBXGroup;
 			children = (
 				C1B6FA2210CC0AF400778D48 /* CoreFoundation.framework */,
+				9022D16F205EC16900D9A2AE /* CoreFoundation.framework */,
 				4DE6C7461535012200C11066 /* IOKit.framework */,
 				FDD9FA5B14A135840043D4A9 /* libz.dylib */,
 				4DE6C74A1535018100C11066 /* libutil.dylib */,
@@ -1550,6 +1869,51 @@
 			files = (
 				862C904C1834311200BAD882 /* iterate_hfs_metadata.h in Headers */,
 				86CBF3871831884600A64A93 /* Data.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		900BDED21FF919C2002F7EC0 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				906EBF812063FF2700B21E94 /* lf_hfs_file_extent_mapping.h in Headers */,
+				900BDEF91FF92170002F7EC0 /* lf_hfs_fileops_handler.h in Headers */,
+				D7978410205EC76100E93B37 /* lf_hfs_cnode.h in Headers */,
+				D769A1EC2067E6BB0022791F /* lf_hfs_attrlist.h in Headers */,
+				906EBF8C2067884300B21E94 /* lf_hfs_lookup.h in Headers */,
+				D769A1E92063CEA50022791F /* lf_hfs_journal.h in Headers */,
+				900BDEF51FF9202E002F7EC0 /* lf_hfs_dirops_handler.h in Headers */,
+				D797840A205EC43000E93B37 /* lf_hfs_catalog.h in Headers */,
+				D7978426205FC09A00E93B37 /* lf_hfs_endian.h in Headers */,
+				D769A1D0206118490022791F /* lf_hfs_chash.h in Headers */,
+				D769A1E62063AD680022791F /* lf_hfs_volume_allocation.h in Headers */,
+				900BDEEB1FF91C2A002F7EC0 /* lf_hfs_fsops_handler.h in Headers */,
+				9022D18120600D9E00D9A2AE /* lf_hfs_rangelist.h in Headers */,
+				9022D1842060FBBE00D9A2AE /* lf_hfs_vfsops.h in Headers */,
+				D79783FF205EC0E000E93B37 /* lf_hfs.h in Headers */,
+				900BDEFD1FF9246F002F7EC0 /* lf_hfs_logger.h in Headers */,
+				90F5EBA62061476A004397B2 /* lf_hfs_btree.h in Headers */,
+				906EBF7F2063FC0900B21E94 /* lf_hfs_file_mgr_internal.h in Headers */,
+				EE737408206443A1004C2F0E /* lf_hfs_utfconvdata.h in Headers */,
+				90F5EBAC2063A089004397B2 /* lf_hfs_btrees_private.h in Headers */,
+				D769A1D3206136420022791F /* lf_hfs_vnops.h in Headers */,
+				9022D1862060FBD200D9A2AE /* lf_hfs_vfsutils.h in Headers */,
+				9022D174205FE5FA00D9A2AE /* lf_hfs_utils.h in Headers */,
+				EE73740520644328004C2F0E /* lf_hfs_sbunicode.h in Headers */,
+				D759E27020AD75FC00792EDA /* lf_hfs_link.h in Headers */,
+				90F5EBAF2063A109004397B2 /* lf_hfs_btrees_internal.h in Headers */,
+				D79784412060037400E93B37 /* lf_hfs_raw_read_write.h in Headers */,
+				D7978406205EC25B00E93B37 /* lf_hfs_mount.h in Headers */,
+				906EBF722063DB6C00B21E94 /* lf_hfs_generic_buf.h in Headers */,
+				906EBF7D2063FB4A00B21E94 /* lf_hfs_btrees_io.h in Headers */,
+				D7978408205EC38900E93B37 /* lf_hfs_format.h in Headers */,
+				D7850549206B831000B9C5E4 /* lf_hfs_xattr.h in Headers */,
+				906EBF8720640CDF00B21E94 /* lf_hfs_unicode_wrappers.h in Headers */,
+				90F5EBB12063A929004397B2 /* lf_hfs_defs.h in Headers */,
+				900BDEEE1FF91C46002F7EC0 /* lf_hfs_common.h in Headers */,
+				906EBF762063E44900B21E94 /* lf_hfs_readwrite_ops.h in Headers */,
+				D7978402205EC12700E93B37 /* lf_hfs_locks.h in Headers */,
+				D79783FD205EC09000E93B37 /* lf_hfs_vnode.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1653,7 +2017,6 @@
 				4D0E89981534FE65004CD678 /* Sources */,
 				4D0E89991534FE65004CD678 /* Frameworks */,
 				4D0E899A1534FE65004CD678 /* Copy man8 */,
-				4DFD953E153783DA0039B6BA /* Create symlink */,
 			);
 			buildRules = (
 			);
@@ -1671,7 +2034,6 @@
 				4DE6C757153504C100C11066 /* Sources */,
 				4DE6C758153504C100C11066 /* Frameworks */,
 				4DE6C759153504C100C11066 /* Copy man8 */,
-				4DFD953F1537841C0039B6BA /* Create symlink */,
 			);
 			buildRules = (
 			);
@@ -1690,7 +2052,6 @@
 				4DFD93F11535FF510039B6BA /* Frameworks */,
 				4DFD93F21535FF510039B6BA /* Copy man8 */,
 				4DFD953B15377BC60039B6BA /* Copy fsck_keys.h */,
-				4DFD95401537844E0039B6BA /* Create symlink */,
 			);
 			buildRules = (
 			);
@@ -1740,6 +2101,7 @@
 			buildPhases = (
 				4DFD95101537402A0039B6BA /* Resources */,
 				FB7B02E71B55634200BEE4BE /* CopyFiles */,
+				52C08E592179679300D1618E /* Create Symlink */,
 			);
 			buildRules = (
 			);
@@ -1788,6 +2150,41 @@
 			productInstallPath = "$(HOME)/bin";
 			productName = hfs;
 			productReference = C1B6FD2B10CC0DB200778D48 /* hfs.util */;
+			productType = "com.apple.product-type.tool";
+		};
+		900BDED31FF919C2002F7EC0 /* livefiles_hfs */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 900BDED51FF919C2002F7EC0 /* Build configuration list for PBXNativeTarget "livefiles_hfs" */;
+			buildPhases = (
+				900BDED01FF919C2002F7EC0 /* Sources */,
+				900BDED11FF919C2002F7EC0 /* Frameworks */,
+				900BDED21FF919C2002F7EC0 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = livefiles_hfs;
+			productName = livefiles_hfs;
+			productReference = 900BDED41FF919C2002F7EC0 /* livefiles_hfs.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		900BDEDC1FF919DE002F7EC0 /* livefiles_hfs_tester */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 900BDEE11FF919DE002F7EC0 /* Build configuration list for PBXNativeTarget "livefiles_hfs_tester" */;
+			buildPhases = (
+				900BDED91FF919DE002F7EC0 /* Sources */,
+				900BDEDA1FF919DE002F7EC0 /* Frameworks */,
+				900BDEDB1FF919DE002F7EC0 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				900BDEE61FF919E7002F7EC0 /* PBXTargetDependency */,
+			);
+			name = livefiles_hfs_tester;
+			productName = livefiles_hfs_tester;
+			productReference = 900BDEDD1FF919DE002F7EC0 /* livefiles_hfs_tester */;
 			productType = "com.apple.product-type.tool";
 		};
 		FB20E0DF1AE950C200CEBE7B /* kext */ = {
@@ -1988,6 +2385,22 @@
 						CreatedOnToolsVersion = 8.3;
 						ProvisioningStyle = Automatic;
 					};
+					900BDED31FF919C2002F7EC0 = {
+						CreatedOnToolsVersion = 9.3;
+						ProvisioningStyle = Automatic;
+					};
+					900BDEDC1FF919DE002F7EC0 = {
+						CreatedOnToolsVersion = 9.3;
+						ProvisioningStyle = Automatic;
+					};
+					9430FE92211658C1009CC8AF = {
+						CreatedOnToolsVersion = 10.0;
+						ProvisioningStyle = Automatic;
+					};
+					DB1AAB7C20472D140036167F = {
+						CreatedOnToolsVersion = 9.3;
+						ProvisioningStyle = Automatic;
+					};
 					FB20E0DF1AE950C200CEBE7B = {
 						CreatedOnToolsVersion = 6.3;
 					};
@@ -2028,11 +2441,10 @@
 			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "hfs" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				en,
-				English,
 			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* hfs */;
 			productRefGroup = C1B6FD2C10CC0DB200778D48 /* Products */;
@@ -2041,6 +2453,7 @@
 			targets = (
 				4DD302571538DB2700001AA0 /* All_MacOSX */,
 				4DD3025A1538DB3A00001AA0 /* All_iOS */,
+				DB1AAB7C20472D140036167F /* Swift_iOS */,
 				4DBD523B1548A488007AA736 /* Common */,
 				4DFD95111537402A0039B6BA /* hfs.fs */,
 				8DD76FA90486AB0100D96B5E /* hfs.util */,
@@ -2069,6 +2482,9 @@
 				FB48E5031BB3798500523121 /* Sim_Headers */,
 				FB7C140C1C2368E6004F8B2C /* kext-version */,
 				07828B591E3FDD25009D2106 /* hfs_libraries */,
+				900BDED31FF919C2002F7EC0 /* livefiles_hfs */,
+				900BDEDC1FF919DE002F7EC0 /* livefiles_hfs_tester */,
+				9430FE92211658C1009CC8AF /* hfs_livefiles */,
 			);
 		};
 /* End PBXProject section */
@@ -2109,56 +2525,29 @@
 			shellScript = "${BUILT_PRODUCTS_DIR}/fsck_makestrings | iconv -f UTF-8 -t UTF-16 > ${DSTROOT}${FS_BUNDLE_ENGLISH_PATH}/fsck.strings";
 			showEnvVarsInLog = 0;
 		};
-		4DFD953E153783DA0039B6BA /* Create symlink */ = {
+		52C08E592179679300D1618E /* Create Symlink */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
+			buildActionMask = 2147483647;
 			files = (
 			);
-			inputPaths = (
-				"$(DSTROOT)$(FS_BUNDLE_BIN_PATH)/mount_hfs",
-			);
-			name = "Create symlink";
-			outputPaths = (
-				"$(DSTROOT)/sbin/mount_hfs",
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_PATH}/mount_hfs ${DSTROOT}/sbin/mount_hfs\nif [[ $UID == 0 ]] ; then\n  chgrp -h wheel ${DSTROOT}/sbin/mount_hfs\nfi\n";
-			showEnvVarsInLog = 0;
-		};
-		4DFD953F1537841C0039B6BA /* Create symlink */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
+			inputFileListPaths = (
 			);
 			inputPaths = (
 				"$(DSTROOT)$(FS_BUNDLE_BIN_PATH)/newfs_hfs",
+				"$(DSTROOT)$(FS_BUNDLE_BIN_PATH)/fsck_hfs",
+				"$(DSTROOT)$(FS_BUNDLE_BIN_PATH)/mount_hfs",
 			);
-			name = "Create symlink";
+			name = "Create Symlink";
+			outputFileListPaths = (
+			);
 			outputPaths = (
 				"$(DSTROOT)/sbin/newfs_hfs",
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_PATH}/newfs_hfs ${DSTROOT}/sbin/newfs_hfs\nif [[ $UID == 0 ]] ; then\n  chgrp -h wheel ${DSTROOT}/sbin/newfs_hfs\nfi\n";
-			showEnvVarsInLog = 0;
-		};
-		4DFD95401537844E0039B6BA /* Create symlink */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-				"$(DSTROOT)$(FS_BUNDLE_BIN_PATH)/fsck_hfs",
-			);
-			name = "Create symlink";
-			outputPaths = (
 				"$(DSTROOT)/sbin/fsck_hfs",
+				"$(DSTROOT)/sbin/mount_hfs",
 			);
-			runOnlyForDeploymentPostprocessing = 1;
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_PATH}/fsck_hfs ${DSTROOT}/sbin/fsck_hfs\nif [[ $UID == 0 ]] ; then\n  chgrp -h wheel ${DSTROOT}/sbin/fsck_hfs\nfi\n";
-			showEnvVarsInLog = 0;
+			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_PATH}/newfs_hfs ${DSTROOT}/sbin/newfs_hfs\nif [[ $UID == 0 ]] ; then\nchgrp -h wheel ${DSTROOT}/sbin/newfs_hfs\nfi\n\nln -sfhv ${FS_BUNDLE_BIN_PATH}/fsck_hfs ${DSTROOT}/sbin/fsck_hfs\nif [[ $UID == 0 ]] ; then\nchgrp -h wheel ${DSTROOT}/sbin/fsck_hfs\nfi\n\nln -sfhv ${FS_BUNDLE_BIN_PATH}/mount_hfs ${DSTROOT}/sbin/mount_hfs\nif [[ $UID == 0 ]] ; then\nchgrp -h wheel ${DSTROOT}/sbin/mount_hfs\nfi\n";
 		};
 		FB48E5131BB385FF00523121 /* System.framework */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -2424,6 +2813,55 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		900BDED01FF919C2002F7EC0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D769A1ED2067E6BB0022791F /* lf_hfs_attrlist.c in Sources */,
+				EE73740620644328004C2F0E /* lf_hfs_sbunicode.c in Sources */,
+				90F5EBB52063AA77004397B2 /* lf_hfs_btrees_io.c in Sources */,
+				D769A1CC206107190022791F /* lf_hfs_vnode.c in Sources */,
+				90F5EBA72061476A004397B2 /* lf_hfs_btree.c in Sources */,
+				D7BD8F9C20AC388E00E93640 /* lf_hfs_catalog.c in Sources */,
+				90F5EBC12063CE12004397B2 /* lf_hfs_btree_allocate.c in Sources */,
+				90F5EBBF2063CCE0004397B2 /* lf_hfs_btree_misc_ops.c in Sources */,
+				D7978404205EC12700E93B37 /* lf_hfs_locks.c in Sources */,
+				D7978423205FB57600E93B37 /* lf_hfs_chash.c in Sources */,
+				D7978417205EC9C300E93B37 /* lf_hfs_vfsops.c in Sources */,
+				906EBF7B2063F7CE00B21E94 /* lf_hfs_btree_node_reserve.c in Sources */,
+				906EBF8D2067884300B21E94 /* lf_hfs_lookup.c in Sources */,
+				D79784422060037400E93B37 /* lf_hfs_raw_read_write.c in Sources */,
+				906EBF792063E76D00B21E94 /* lf_hfs_endian.c in Sources */,
+				906EBF732063DB6C00B21E94 /* lf_hfs_generic_buf.c in Sources */,
+				D785054A206B831000B9C5E4 /* lf_hfs_xattr.c in Sources */,
+				18B450692104D958002052BF /* lf_hfs_journal.c in Sources */,
+				D769A1CE206107DF0022791F /* lf_hfs_cnode.c in Sources */,
+				90F5EBB72063B212004397B2 /* lf_hfs_file_extent_mapping.c in Sources */,
+				9022D18220600D9E00D9A2AE /* lf_hfs_rangelist.c in Sources */,
+				906EBF8820640CDF00B21E94 /* lf_hfs_unicode_wrappers.c in Sources */,
+				900BDEF61FF9202E002F7EC0 /* lf_hfs_dirops_handler.c in Sources */,
+				D769A1E72063AD680022791F /* lf_hfs_volume_allocation.c in Sources */,
+				900BDEFA1FF92170002F7EC0 /* lf_hfs_fileops_handler.c in Sources */,
+				900BDEFE1FF9246F002F7EC0 /* lf_hfs_logger.c in Sources */,
+				9022D175205FE5FA00D9A2AE /* lf_hfs_utils.c in Sources */,
+				D7978420205ED7E600E93B37 /* lf_hfs_vfsutils.c in Sources */,
+				906EBF772063E44900B21E94 /* lf_hfs_readwrite_ops.c in Sources */,
+				90F5EBB92063CC22004397B2 /* lf_hfs_btree_tree_ops.c in Sources */,
+				90F5EBBB2063CC3A004397B2 /* lf_hfs_btree_node_ops.c in Sources */,
+				D769A1D4206136420022791F /* lf_hfs_vnops.c in Sources */,
+				D759E27120AD75FC00792EDA /* lf_hfs_link.c in Sources */,
+				900BDEEC1FF91C2A002F7EC0 /* lf_hfs_fsops_handler.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		900BDED91FF919DE002F7EC0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				900BDEE81FF91B8C002F7EC0 /* livefiles_hfs_tester.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FB20E0DB1AE950C200CEBE7B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2500,6 +2938,7 @@
 				2A9399C71BE172A400FB075B /* test-log2phys.m in Sources */,
 				2A9399BF1BE15F6800FB075B /* test-fsinfo-sig.c in Sources */,
 				2A9399C01BE15F6800FB075B /* test-key-roll.c in Sources */,
+				A6E6D74020909C72002125B0 /* test-get-volume-create-time.c in Sources */,
 				2A9399C11BE15F6800FB075B /* test-msync-16k.c in Sources */,
 				2A9399C21BE15F6800FB075B /* test-readdir.c in Sources */,
 				2A9399C31BE15F6800FB075B /* test-set-create-time.c in Sources */,
@@ -2526,6 +2965,7 @@
 				FB76B3D91B7A4BF000FA9F2B /* hfs-tests.mm in Sources */,
 				FB76B3EE1B7BE24B00FA9F2B /* disk-image.m in Sources */,
 				FB76B3F21B7BE79800FA9F2B /* systemx.c in Sources */,
+				F90E174921ADFFD100345EE3 /* test-cas-bsdflags.c in Sources */,
 				FB285C2A1B7E81180099B2ED /* test-sparse-dev.c in Sources */,
 				FB55AE541B7C271000701D03 /* test-doc-tombstone.c in Sources */,
 				FBD69AFA1B9132E40022ECAD /* test-dateadded.c in Sources */,
@@ -2649,6 +3089,16 @@
 			target = 4DFD94BC15373C2C0039B6BA /* fsck_makestrings */;
 			targetProxy = 4DBD52521548A4D4007AA736 /* PBXContainerItemProxy */;
 		};
+		900BDEE61FF919E7002F7EC0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 900BDED31FF919C2002F7EC0 /* livefiles_hfs */;
+			targetProxy = 900BDEE51FF919E7002F7EC0 /* PBXContainerItemProxy */;
+		};
+		9430FE98211658E7009CC8AF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 900BDED31FF919C2002F7EC0 /* livefiles_hfs */;
+			targetProxy = 9430FE97211658E7009CC8AF /* PBXContainerItemProxy */;
+		};
 		FB48E4BC1BB30CC400523121 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FB48E49B1BB3070400523121 /* OSX Kernel Framework Headers */;
@@ -2760,7 +3210,7 @@
 		4DFD9536153746210039B6BA /* InfoPlist.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
-				4DFD9537153746210039B6BA /* English */,
+				4DFD9537153746210039B6BA /* en */,
 			);
 			name = InfoPlist.strings;
 			sourceTree = "<group>";
@@ -2805,6 +3255,8 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 4DFD953D15377C7D0039B6BA /* hfs.xcconfig */;
 			buildSettings = {
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 			};
 			name = Release;
 		};
@@ -2966,6 +3418,426 @@
 				STRIP_STYLE = "non-global";
 			};
 			name = Release;
+		};
+		900BDED61FF919C2002F7EC0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_ANALYZER_OBJC_UNUSED_IVARS = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				EXECUTABLE_PREFIX = "";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = NO;
+				GCC_WARN_UNUSED_LABEL = NO;
+				GCC_WARN_UNUSED_PARAMETER = NO;
+				GCC_WARN_UNUSED_VALUE = NO;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "livefiles_hfs_plugin/**";
+				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTS_TEXT_BASED_API = NO;
+			};
+			name = Release;
+		};
+		900BDED71FF919C2002F7EC0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_ANALYZER_OBJC_UNUSED_IVARS = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				EXECUTABLE_PREFIX = "";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = NO;
+				GCC_WARN_UNUSED_LABEL = NO;
+				GCC_WARN_UNUSED_PARAMETER = NO;
+				GCC_WARN_UNUSED_VALUE = NO;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "livefiles_hfs_plugin/**";
+				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTS_TEXT_BASED_API = NO;
+			};
+			name = Debug;
+		};
+		900BDED81FF919C2002F7EC0 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_ANALYZER_OBJC_UNUSED_IVARS = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				EXECUTABLE_PREFIX = "";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = NO;
+				GCC_WARN_UNUSED_LABEL = NO;
+				GCC_WARN_UNUSED_PARAMETER = NO;
+				GCC_WARN_UNUSED_VALUE = NO;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "livefiles_hfs_plugin/**";
+				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTS_TEXT_BASED_API = NO;
+			};
+			name = Coverage;
+		};
+		900BDEE21FF919DE002F7EC0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = livefiles_hfs_plugin/livefiles_hfs_tester.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = livefiles_hfs_plugin/;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTS_TEXT_BASED_API = NO;
+			};
+			name = Release;
+		};
+		900BDEE31FF919DE002F7EC0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = livefiles_hfs_plugin/livefiles_hfs_tester.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = livefiles_hfs_plugin/;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTS_TEXT_BASED_API = NO;
+			};
+			name = Debug;
+		};
+		900BDEE41FF919DE002F7EC0 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = livefiles_hfs_plugin/livefiles_hfs_tester.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = livefiles_hfs_plugin/;
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTS_TEXT_BASED_API = NO;
+			};
+			name = Coverage;
+		};
+		9430FE93211658C2009CC8AF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SUPPORTS_TEXT_BASED_API = NO;
+			};
+			name = Release;
+		};
+		9430FE94211658C2009CC8AF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SUPPORTS_TEXT_BASED_API = NO;
+			};
+			name = Debug;
+		};
+		9430FE95211658C2009CC8AF /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SUPPORTS_TEXT_BASED_API = NO;
+			};
+			name = Coverage;
+		};
+		DB1AAB7D20472D140036167F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		DB1AAB7E20472D140036167F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		DB1AAB7F20472D140036167F /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Coverage;
 		};
 		FB20E0E71AE950C200CEBE7B /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -3867,6 +4739,8 @@
 			baseConfigurationReference = 4DFD953D15377C7D0039B6BA /* hfs.xcconfig */;
 			buildSettings = {
 				ENABLE_TESTABILITY = YES;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 			};
 			name = Debug;
 		};
@@ -4114,6 +4988,8 @@
 			baseConfigurationReference = 4DFD953D15377C7D0039B6BA /* hfs.xcconfig */;
 			buildSettings = {
 				ENABLE_TESTABILITY = YES;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
 			};
 			name = Coverage;
 		};
@@ -4858,6 +5734,46 @@
 				86CBF380183186C300A64A93 /* Release */,
 				FBD5C7E41B1D591800B4620E /* Debug */,
 				FBD69B231B94E9990022ECAD /* Coverage */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		900BDED51FF919C2002F7EC0 /* Build configuration list for PBXNativeTarget "livefiles_hfs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				900BDED61FF919C2002F7EC0 /* Release */,
+				900BDED71FF919C2002F7EC0 /* Debug */,
+				900BDED81FF919C2002F7EC0 /* Coverage */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		900BDEE11FF919DE002F7EC0 /* Build configuration list for PBXNativeTarget "livefiles_hfs_tester" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				900BDEE21FF919DE002F7EC0 /* Release */,
+				900BDEE31FF919DE002F7EC0 /* Debug */,
+				900BDEE41FF919DE002F7EC0 /* Coverage */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9430FE96211658C2009CC8AF /* Build configuration list for PBXAggregateTarget "hfs_livefiles" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9430FE93211658C2009CC8AF /* Release */,
+				9430FE94211658C2009CC8AF /* Debug */,
+				9430FE95211658C2009CC8AF /* Coverage */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DB1AAB8020472D140036167F /* Build configuration list for PBXAggregateTarget "Swift_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DB1AAB7D20472D140036167F /* Release */,
+				DB1AAB7E20472D140036167F /* Debug */,
+				DB1AAB7F20472D140036167F /* Coverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

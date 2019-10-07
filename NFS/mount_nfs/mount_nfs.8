@@ -241,6 +241,12 @@ is one of: krb5p, krb5i, krb5, or sys.  When this option is not given
 the security mechanism will be negotiated transparently with the remote
 server.
 .Pp
+.It Cm etype Ns = Ns Aq Ar encryption-type
+Use the specified encryption type for the mount, where
+.Ar encryption-type
+is one of: des3, des3-cbc-sha1, des3-cbc-sha1-kd, aes128, aes128-cts-hmac-sha1,
+aes128-cts-hmac-sha1-96, aes256-cts-hmac-sha1, or aes256-cts-hmac-sha1-96.
+.Pp
 .It Cm realm Ns = Ns Aq Ar realm
 Use the default credential for realm or security domain. For
 Kerberos realms are usually uppercase. If the realm specified

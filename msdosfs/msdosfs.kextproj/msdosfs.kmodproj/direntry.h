@@ -73,6 +73,10 @@
 /*
  * Structure of a dos directory entry.
  */
+
+#ifndef __direntry_h_
+#define __direntry_h_
+
 struct dosdirentry {
 	u_int8_t	deName[8];	/* filename, blank filled */
 #define	SLOT_EMPTY	0x00		/* slot has never been used */
@@ -178,3 +182,5 @@ u_char msdosfs_unicode2dos(u_int16_t uc);
 int msdosfs_fsync_internal(vnode_t vp, int sync, int do_dirs, vfs_context_t context);
 
 #endif	/* KERNEL */
+
+#endif /* __direntry_h_ */

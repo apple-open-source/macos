@@ -419,7 +419,7 @@
 /* Define to 1 if you have the `getuid' function. */
 #define HAVE_GETUID 1
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 /* Define to 1 if you have the <histedit.h> header file. */
 #define HAVE_HISTEDIT_H 1
 #endif
@@ -669,7 +669,7 @@
 /* Define to 1 if you have the <readline.h> header file. */
 /* #undef HAVE_READLINE_H */
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 #define HAVE_READLINE_HISTORY 1
 

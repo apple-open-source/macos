@@ -2,7 +2,7 @@
 
   class.c -
 
-  $Author: usa $
+  $Author: naruse $
   created at: Tue Aug 10 15:05:44 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -274,7 +274,7 @@ clone_method_i(ID key, VALUE value, void *data)
 
 struct clone_const_arg {
     VALUE klass;
-    st_table *tbl;
+    struct rb_id_table *tbl;
 };
 
 static int
@@ -285,14 +285,14 @@ clone_const(ID key, const rb_const_entry_t *ce, struct clone_const_arg *arg)
     RB_OBJ_WRITTEN(arg->klass, Qundef, ce->value);
     RB_OBJ_WRITTEN(arg->klass, Qundef, ce->file);
 
-    st_insert(arg->tbl, key, (st_data_t)nce);
-    return ST_CONTINUE;
+    rb_id_table_insert(arg->tbl, key, (VALUE)nce);
+    return ID_TABLE_CONTINUE;
 }
 
-static int
-clone_const_i(st_data_t key, st_data_t value, st_data_t data)
+static enum rb_id_table_iterator_result
+clone_const_i(ID key, VALUE value, void *data)
 {
-    return clone_const((ID)key, (const rb_const_entry_t *)value, (struct clone_const_arg *)data);
+    return clone_const(key, (const rb_const_entry_t *)value, data);
 }
 
 static void
@@ -346,10 +346,9 @@ rb_mod_init_copy(VALUE clone, VALUE orig)
     if (RCLASS_CONST_TBL(orig)) {
 	struct clone_const_arg arg;
 
-	RCLASS_CONST_TBL(clone) = st_init_numtable();
+	arg.tbl = RCLASS_CONST_TBL(clone) = rb_id_table_create(0);
 	arg.klass = clone;
-	arg.tbl = RCLASS_CONST_TBL(clone);
-	st_foreach(RCLASS_CONST_TBL(orig), clone_const_i, (st_data_t)&arg);
+	rb_id_table_foreach(RCLASS_CONST_TBL(orig), clone_const_i, &arg);
     }
     if (RCLASS_M_TBL(orig)) {
 	struct clone_method_arg arg;
@@ -393,10 +392,9 @@ rb_singleton_class_clone_and_attach(VALUE obj, VALUE attach)
 	}
 	if (RCLASS_CONST_TBL(klass)) {
 	    struct clone_const_arg arg;
-	    RCLASS_CONST_TBL(clone) = st_init_numtable();
+	    arg.tbl = RCLASS_CONST_TBL(clone) = rb_id_table_create(0);
 	    arg.klass = clone;
-	    arg.tbl = RCLASS_CONST_TBL(clone);
-	    st_foreach(RCLASS_CONST_TBL(klass), clone_const_i, (st_data_t)&arg);
+	    rb_id_table_foreach(RCLASS_CONST_TBL(klass), clone_const_i, &arg);
 	}
 	if (attach != Qundef) {
 	    rb_singleton_class_attached(clone, attach);
@@ -550,6 +548,10 @@ Init_class_hierarchy(void)
     rb_cBasicObject = boot_defclass("BasicObject", 0);
     rb_cObject = boot_defclass("Object", rb_cBasicObject);
     rb_gc_register_mark_object(rb_cObject);
+
+    /* resolve class name ASAP for order-independence */
+    rb_class_name(rb_cObject);
+
     rb_cModule = boot_defclass("Module", rb_cObject);
     rb_cClass =  boot_defclass("Class",  rb_cModule);
 
@@ -614,7 +616,7 @@ rb_define_class_id(ID id, VALUE super)
  * \return the value \c Class#inherited's returns
  * \pre Each of \a super and \a klass must be a \c Class object.
  */
-VALUE
+MJIT_FUNC_EXPORTED VALUE
 rb_class_inherited(VALUE super, VALUE klass)
 {
     ID inherited;
@@ -629,12 +631,12 @@ rb_class_inherited(VALUE super, VALUE klass)
  * Defines a top-level class.
  * \param name   name of the class
  * \param super  a class from which the new class will derive.
- *               NULL means \c Object class.
  * \return the created class
  * \throw TypeError if the constant name \a name is already taken but
  *                  the constant is not a \c Class.
- * \throw NameError if the class is already defined but the class can not
+ * \throw TypeError if the class is already defined but the class can not
  *                  be reopened because its superclass is not \a super.
+ * \throw ArgumentError if the \a super is NULL.
  * \post top-level constant named \a name refers the returned class.
  *
  * \note if a class named \a name is already defined and its superclass is
@@ -659,7 +661,7 @@ rb_define_class(const char *name, VALUE super)
 	return klass;
     }
     if (!super) {
-	rb_warn("no super class for `%s', Object assumed", name);
+	rb_raise(rb_eArgError, "no super class for `%s'", name);
     }
     klass = rb_define_class_id(id, super);
     rb_vm_add_root_module(id, klass);
@@ -731,8 +733,8 @@ rb_define_class_id_under(VALUE outer, ID id, VALUE super)
 	return klass;
     }
     if (!super) {
-	rb_warn("no super class for `%"PRIsVALUE"::%"PRIsVALUE"', Object assumed",
-		rb_class_path(outer), rb_id2str(id));
+	rb_raise(rb_eArgError, "no super class for `%"PRIsVALUE"::%"PRIsVALUE"'",
+		 rb_class_path(outer), rb_id2str(id));
     }
     klass = rb_define_class_id(id, super);
     rb_set_class_path_string(klass, outer, rb_id2str(id));
@@ -824,7 +826,7 @@ rb_include_class_new(VALUE module, VALUE super)
 	RCLASS_IV_TBL(module) = st_init_numtable();
     }
     if (!RCLASS_CONST_TBL(module)) {
-	RCLASS_CONST_TBL(module) = st_init_numtable();
+	RCLASS_CONST_TBL(module) = rb_id_table_create(0);
     }
     RCLASS_IV_TBL(klass) = RCLASS_IV_TBL(module);
     RCLASS_CONST_TBL(klass) = RCLASS_CONST_TBL(module);
@@ -850,7 +852,7 @@ static int include_modules_at(const VALUE klass, VALUE c, VALUE module, int sear
 static void
 ensure_includable(VALUE klass, VALUE module)
 {
-    rb_frozen_class_p(klass);
+    rb_class_modify_check(klass);
     Check_Type(module, T_MODULE);
     if (!NIL_P(rb_refinement_module_get_refined_class(module))) {
 	rb_raise(rb_eArgError, "refinement module is not allowed");
@@ -886,6 +888,7 @@ include_modules_at(const VALUE klass, VALUE c, VALUE module, int search_super)
 
     while (module) {
 	int superclass_seen = FALSE;
+	struct rb_id_table *tbl;
 
 	if (RCLASS_ORIGIN(module) != module)
 	    goto skip;
@@ -923,8 +926,12 @@ include_modules_at(const VALUE klass, VALUE c, VALUE module, int search_super)
 	    rb_id_table_foreach(RMODULE_M_TBL(module), add_refined_method_entry_i, (void *)refined_class);
 	    FL_SET(c, RMODULE_INCLUDED_INTO_REFINEMENT);
 	}
-	if (RMODULE_M_TBL(module) && rb_id_table_size(RMODULE_M_TBL(module))) method_changed = 1;
-	if (RMODULE_CONST_TBL(module) && RMODULE_CONST_TBL(module)->num_entries) constant_changed = 1;
+
+	tbl = RMODULE_M_TBL(module);
+	if (tbl && rb_id_table_size(tbl)) method_changed = 1;
+
+	tbl = RMODULE_CONST_TBL(module);
+	if (tbl && rb_id_table_size(tbl)) constant_changed = 1;
       skip:
 	module = RCLASS_SUPER(module);
     }
@@ -1090,46 +1097,51 @@ rb_mod_ancestors(VALUE mod)
     return ary;
 }
 
-static int
-ins_methods_push(ID name, rb_method_visibility_t visi, VALUE ary, rb_method_visibility_t expected_visi)
+static void
+ins_methods_push(st_data_t name, st_data_t ary)
 {
-    if (visi == METHOD_VISI_UNDEF) return ST_CONTINUE;
+    rb_ary_push((VALUE)ary, ID2SYM((ID)name));
+}
 
-    switch (expected_visi) {
+static int
+ins_methods_i(st_data_t name, st_data_t type, st_data_t ary)
+{
+    switch ((rb_method_visibility_t)type) {
       case METHOD_VISI_UNDEF:
-	if (visi != METHOD_VISI_PRIVATE) rb_ary_push(ary, ID2SYM(name));
-	break;
       case METHOD_VISI_PRIVATE:
-      case METHOD_VISI_PROTECTED:
-      case METHOD_VISI_PUBLIC:
-	if (visi == expected_visi) rb_ary_push(ary, ID2SYM(name));
+	break;
+      default: /* everything but private */
+	ins_methods_push(name, ary);
 	break;
     }
     return ST_CONTINUE;
 }
 
 static int
-ins_methods_i(st_data_t name, st_data_t type, st_data_t ary)
-{
-    return ins_methods_push((ID)name, (rb_method_visibility_t)type, (VALUE)ary, METHOD_VISI_UNDEF); /* everything but private */
-}
-
-static int
 ins_methods_prot_i(st_data_t name, st_data_t type, st_data_t ary)
 {
-    return ins_methods_push((ID)name, (rb_method_visibility_t)type, (VALUE)ary, METHOD_VISI_PROTECTED);
+    if ((rb_method_visibility_t)type == METHOD_VISI_PROTECTED) {
+	ins_methods_push(name, ary);
+    }
+    return ST_CONTINUE;
 }
 
 static int
 ins_methods_priv_i(st_data_t name, st_data_t type, st_data_t ary)
 {
-    return ins_methods_push((ID)name, (rb_method_visibility_t)type, (VALUE)ary, METHOD_VISI_PRIVATE);
+    if ((rb_method_visibility_t)type == METHOD_VISI_PRIVATE) {
+	ins_methods_push(name, ary);
+    }
+    return ST_CONTINUE;
 }
 
 static int
 ins_methods_pub_i(st_data_t name, st_data_t type, st_data_t ary)
 {
-    return ins_methods_push((ID)name, (rb_method_visibility_t)type, (VALUE)ary, METHOD_VISI_PUBLIC);
+    if ((rb_method_visibility_t)type == METHOD_VISI_PUBLIC) {
+	ins_methods_push(name, ary);
+    }
+    return ST_CONTINUE;
 }
 
 struct method_entry_arg {
@@ -1166,17 +1178,10 @@ static VALUE
 class_instance_method_list(int argc, const VALUE *argv, VALUE mod, int obj, int (*func) (st_data_t, st_data_t, st_data_t))
 {
     VALUE ary;
-    int recur, prepended = 0;
+    int recur = TRUE, prepended = 0;
     struct method_entry_arg me_arg;
 
-    if (argc == 0) {
-	recur = TRUE;
-    }
-    else {
-	VALUE r;
-	rb_scan_args(argc, argv, "01", &r);
-	recur = RTEST(r);
-    }
+    if (rb_check_arity(argc, 0, 1)) recur = RTEST(argv[0]);
 
     if (!recur && RCLASS_ORIGIN(mod) != mod) {
 	mod = RCLASS_ORIGIN(mod);
@@ -1405,25 +1410,21 @@ rb_obj_public_methods(int argc, const VALUE *argv, VALUE obj)
 VALUE
 rb_obj_singleton_methods(int argc, const VALUE *argv, VALUE obj)
 {
-    VALUE recur, ary, klass, origin;
+    VALUE ary, klass, origin;
     struct method_entry_arg me_arg;
     struct rb_id_table *mtbl;
+    int recur = TRUE;
 
-    if (argc == 0) {
-	recur = Qtrue;
-    }
-    else {
-	rb_scan_args(argc, argv, "01", &recur);
-    }
+    if (rb_check_arity(argc, 0, 1)) recur = RTEST(argv[0]);
     klass = CLASS_OF(obj);
     origin = RCLASS_ORIGIN(klass);
     me_arg.list = st_init_numtable();
-    me_arg.recur = RTEST(recur);
+    me_arg.recur = recur;
     if (klass && FL_TEST(klass, FL_SINGLETON)) {
 	if ((mtbl = RCLASS_M_TBL(origin)) != 0) rb_id_table_foreach(mtbl, method_entry_i, &me_arg);
 	klass = RCLASS_SUPER(klass);
     }
-    if (RTEST(recur)) {
+    if (recur) {
 	while (klass && (FL_TEST(klass, FL_SINGLETON) || RB_TYPE_P(klass, T_ICLASS))) {
 	    if (klass != origin && (mtbl = RCLASS_M_TBL(klass)) != 0) rb_id_table_foreach(mtbl, method_entry_i, &me_arg);
 	    klass = RCLASS_SUPER(klass);
@@ -1523,6 +1524,23 @@ rb_undef_method(VALUE klass, const char *name)
     rb_add_method(klass, rb_intern(name), VM_METHOD_TYPE_UNDEF, 0, METHOD_VISI_UNDEF);
 }
 
+static enum rb_id_table_iterator_result
+undef_method_i(ID name, VALUE value, void *data)
+{
+    VALUE klass = (VALUE)data;
+    rb_add_method(klass, name, VM_METHOD_TYPE_UNDEF, 0, METHOD_VISI_UNDEF);
+    return ID_TABLE_CONTINUE;
+}
+
+void
+rb_undef_methods_from(VALUE klass, VALUE super)
+{
+    struct rb_id_table *mtbl = RCLASS_M_TBL(super);
+    if (mtbl) {
+	rb_id_table_foreach(mtbl, undef_method_i, (void *)klass);
+    }
+}
+
 /*!
  * \}
  */
@@ -1589,7 +1607,9 @@ singleton_class_of(VALUE obj)
     klass = RBASIC(obj)->klass;
     if (!(FL_TEST(klass, FL_SINGLETON) &&
 	  rb_ivar_get(klass, id_attached) == obj)) {
+	rb_serial_t serial = RCLASS_SERIAL(klass);
 	klass = rb_make_metaclass(obj, klass);
+	RCLASS_SERIAL(klass) = serial;
     }
 
     if (OBJ_TAINTED(obj)) {
@@ -1598,7 +1618,7 @@ singleton_class_of(VALUE obj)
     else {
 	FL_UNSET(klass, FL_TAINT);
     }
-    if (OBJ_FROZEN(obj)) OBJ_FREEZE_RAW(klass);
+    RB_FL_SET_RAW(klass, RB_OBJ_FROZEN_RAW(obj));
 
     return klass;
 }
@@ -1641,7 +1661,7 @@ rb_singleton_class_get(VALUE obj)
  * Returns the singleton class of \a obj. Creates it if necessary.
  *
  * \param obj an arbitrary object.
- * \throw TypeError if \a obj is a Fixnum or a Symbol.
+ * \throw TypeError if \a obj is a Integer or a Symbol.
  * \return the singleton class.
  *
  * \post \a obj has its own singleton class.
@@ -1742,166 +1762,22 @@ rb_define_attr(VALUE klass, const char *name, int read, int write)
     rb_attr(klass, rb_intern(name), read, write, FALSE);
 }
 
-int
-rb_obj_basic_to_s_p(VALUE obj)
-{
-    const rb_method_entry_t *me = rb_method_entry(CLASS_OF(obj), rb_intern("to_s"));
-    if (me && me->def && me->def->type == VM_METHOD_TYPE_CFUNC &&
-	me->def->body.cfunc.func == rb_any_to_s)
-	return 1;
-    return 0;
-}
-
-#include <stdarg.h>
-
-int
-rb_scan_args(int argc, const VALUE *argv, const char *fmt, ...)
-{
-    int i;
-    const char *p = fmt;
-    VALUE *var;
-    va_list vargs;
-    int f_var = 0, f_hash = 0, f_block = 0;
-    int n_lead = 0, n_opt = 0, n_trail = 0, n_mand;
-    int argi = 0;
-    VALUE hash = Qnil;
-
-    if (ISDIGIT(*p)) {
-	n_lead = *p - '0';
-	p++;
-	if (ISDIGIT(*p)) {
-	    n_opt = *p - '0';
-	    p++;
-	    if (ISDIGIT(*p)) {
-		n_trail = *p - '0';
-		p++;
-		goto block_arg;
-	    }
-	}
-    }
-    if (*p == '*') {
-	f_var = 1;
-	p++;
-	if (ISDIGIT(*p)) {
-	    n_trail = *p - '0';
-	    p++;
-	}
-    }
-  block_arg:
-    if (*p == ':') {
-	f_hash = 1;
-	p++;
-    }
-    if (*p == '&') {
-	f_block = 1;
-	p++;
-    }
-    if (*p != '\0') {
-	rb_fatal("bad scan arg format: %s", fmt);
-    }
-    n_mand = n_lead + n_trail;
-
-    if (argc < n_mand)
-	goto argc_error;
-
-    va_start(vargs, fmt);
-
-    /* capture an option hash - phase 1: pop */
-    if (f_hash && n_mand < argc) {
-	VALUE last = argv[argc - 1];
-
-	if (NIL_P(last)) {
-	    /* nil is taken as an empty option hash only if it is not
-	       ambiguous; i.e. '*' is not specified and arguments are
-	       given more than sufficient */
-	    if (!f_var && n_mand + n_opt < argc)
-		argc--;
-	}
-	else {
-	    hash = rb_check_hash_type(last);
-	    if (!NIL_P(hash)) {
-		VALUE opts = rb_extract_keywords(&hash);
-		if (!hash) argc--;
-		hash = opts ? opts : Qnil;
-	    }
-	}
-    }
-    /* capture leading mandatory arguments */
-    for (i = n_lead; i-- > 0; ) {
-	var = va_arg(vargs, VALUE *);
-	if (var) *var = argv[argi];
-	argi++;
-    }
-    /* capture optional arguments */
-    for (i = n_opt; i-- > 0; ) {
-	var = va_arg(vargs, VALUE *);
-	if (argi < argc - n_trail) {
-	    if (var) *var = argv[argi];
-	    argi++;
-	}
-	else {
-	    if (var) *var = Qnil;
-	}
-    }
-    /* capture variable length arguments */
-    if (f_var) {
-	int n_var = argc - argi - n_trail;
-
-	var = va_arg(vargs, VALUE *);
-	if (0 < n_var) {
-	    if (var) *var = rb_ary_new4(n_var, &argv[argi]);
-	    argi += n_var;
-	}
-	else {
-	    if (var) *var = rb_ary_new();
-	}
-    }
-    /* capture trailing mandatory arguments */
-    for (i = n_trail; i-- > 0; ) {
-	var = va_arg(vargs, VALUE *);
-	if (var) *var = argv[argi];
-	argi++;
-    }
-    /* capture an option hash - phase 2: assignment */
-    if (f_hash) {
-	var = va_arg(vargs, VALUE *);
-	if (var) *var = hash;
-    }
-    /* capture iterator block */
-    if (f_block) {
-	var = va_arg(vargs, VALUE *);
-	if (rb_block_given_p()) {
-	    *var = rb_block_proc();
-	}
-	else {
-	    *var = Qnil;
-	}
-    }
-    va_end(vargs);
-
-    if (argi < argc) {
-      argc_error:
-	rb_error_arity(argc, n_mand, f_var ? UNLIMITED_ARGUMENTS : n_mand + n_opt);
-    }
-
-    return argc;
-}
-
-VALUE
+MJIT_FUNC_EXPORTED VALUE
 rb_keyword_error_new(const char *error, VALUE keys)
 {
-    const char *msg = "";
-    VALUE error_message;
+    long i = 0, len = RARRAY_LEN(keys);
+    VALUE error_message = rb_sprintf("%s keyword%.*s", error, len > 1, "s");
 
-    if (RARRAY_LEN(keys) == 1) {
-	keys = RARRAY_AREF(keys, 0);
+    if (len > 0) {
+	rb_str_cat_cstr(error_message, ": ");
+	while (1) {
+            const VALUE k = RARRAY_AREF(keys, i);
+	    Check_Type(k, T_SYMBOL); /* wrong hash is given to rb_get_kwargs */
+	    rb_str_append(error_message, rb_sym2str(k));
+	    if (++i >= len) break;
+	    rb_str_cat_cstr(error_message, ", ");
+	}
     }
-    else {
-	keys = rb_ary_join(keys, rb_usascii_str_new2(", "));
-	msg = "s";
-    }
-
-    error_message = rb_sprintf("%s keyword%s: %"PRIsVALUE, error, msg, keys);
 
     return rb_exc_new_str(rb_eArgError, error_message);
 }
@@ -1917,23 +1793,19 @@ NORETURN(static void unknown_keyword_error(VALUE hash, const ID *table, int keyw
 static void
 unknown_keyword_error(VALUE hash, const ID *table, int keywords)
 {
-    st_table *tbl = rb_hash_tbl_raw(hash);
-    VALUE keys;
     int i;
     for (i = 0; i < keywords; i++) {
 	st_data_t key = ID2SYM(table[i]);
-	st_delete(tbl, &key, NULL);
+        rb_hash_stlike_delete(hash, &key, NULL);
     }
-    keys = rb_funcallv(hash, rb_intern("keys"), 0, 0);
-    if (!RB_TYPE_P(keys, T_ARRAY)) rb_raise(rb_eArgError, "unknown keyword");
-    rb_keyword_error("unknown", keys);
+    rb_keyword_error("unknown", rb_hash_keys(hash));
 }
+
 
 static int
 separate_symbol(st_data_t key, st_data_t value, st_data_t arg)
 {
     VALUE *kwdhash = (VALUE *)arg;
-
     if (!SYMBOL_P(key)) kwdhash++;
     if (!*kwdhash) *kwdhash = rb_hash_new();
     rb_hash_aset(*kwdhash, (VALUE)key, (VALUE)value);
@@ -1950,7 +1822,7 @@ rb_extract_keywords(VALUE *orighash)
 	*orighash = 0;
 	return hash;
     }
-    st_foreach(rb_hash_tbl_raw(hash), separate_symbol, (st_data_t)&parthash);
+    rb_hash_foreach(hash, separate_symbol, (st_data_t)&parthash);
     *orighash = parthash[1];
     if (parthash[1] && RBASIC_CLASS(hash) != rb_cHash) {
 	RBASIC_SET_CLASS(parthash[1], RBASIC_CLASS(hash));
@@ -1968,8 +1840,8 @@ rb_get_kwargs(VALUE keyword_hash, const ID *table, int required, int optional, V
 
 #define extract_kwarg(keyword, val) \
     (key = (st_data_t)(keyword), values ? \
-     st_delete(rb_hash_tbl_raw(keyword_hash), &key, (val)) : \
-     st_lookup(rb_hash_tbl_raw(keyword_hash), key, (val)))
+     rb_hash_stlike_delete(keyword_hash, &key, (val)) : \
+     rb_hash_stlike_lookup(keyword_hash, key, (val)))
 
     if (NIL_P(keyword_hash)) keyword_hash = 0;
 
@@ -2016,6 +1888,139 @@ rb_get_kwargs(VALUE keyword_hash, const ID *table, int required, int optional, V
     }
     return j;
 #undef extract_kwarg
+}
+
+#undef rb_scan_args
+int
+rb_scan_args(int argc, const VALUE *argv, const char *fmt, ...)
+{
+    int i;
+    const char *p = fmt;
+    VALUE *var;
+    va_list vargs;
+    int f_var = 0, f_hash = 0, f_block = 0;
+    int n_lead = 0, n_opt = 0, n_trail = 0, n_mand;
+    int argi = 0, last_idx = -1;
+    VALUE hash = Qnil, last_hash = 0;
+
+    if (ISDIGIT(*p)) {
+	n_lead = *p - '0';
+	p++;
+	if (ISDIGIT(*p)) {
+	    n_opt = *p - '0';
+	    p++;
+	}
+    }
+    if (*p == '*') {
+	f_var = 1;
+	p++;
+    }
+    if (ISDIGIT(*p)) {
+	n_trail = *p - '0';
+	p++;
+    }
+    if (*p == ':') {
+	f_hash = 1;
+	p++;
+    }
+    if (*p == '&') {
+	f_block = 1;
+	p++;
+    }
+    if (*p != '\0') {
+	rb_fatal("bad scan arg format: %s", fmt);
+    }
+    n_mand = n_lead + n_trail;
+
+    if (argc < n_mand)
+	goto argc_error;
+
+    va_start(vargs, fmt);
+
+    /* capture an option hash - phase 1: pop */
+    if (f_hash && n_mand < argc) {
+	VALUE last = argv[argc - 1];
+
+	if (NIL_P(last)) {
+	    /* nil is taken as an empty option hash only if it is not
+	       ambiguous; i.e. '*' is not specified and arguments are
+	       given more than sufficient */
+	    if (!f_var && n_mand + n_opt < argc)
+		argc--;
+	}
+	else {
+	    hash = rb_check_hash_type(last);
+	    if (!NIL_P(hash)) {
+		VALUE opts = rb_extract_keywords(&hash);
+		if (!(last_hash = hash)) argc--;
+		else last_idx = argc - 1;
+		hash = opts ? opts : Qnil;
+	    }
+	}
+    }
+    /* capture leading mandatory arguments */
+    for (i = n_lead; i-- > 0; ) {
+	var = va_arg(vargs, VALUE *);
+	if (var) *var = (argi == last_idx) ? last_hash : argv[argi];
+	argi++;
+    }
+    /* capture optional arguments */
+    for (i = n_opt; i-- > 0; ) {
+	var = va_arg(vargs, VALUE *);
+	if (argi < argc - n_trail) {
+	    if (var) *var = (argi == last_idx) ? last_hash : argv[argi];
+	    argi++;
+	}
+	else {
+	    if (var) *var = Qnil;
+	}
+    }
+    /* capture variable length arguments */
+    if (f_var) {
+	int n_var = argc - argi - n_trail;
+
+	var = va_arg(vargs, VALUE *);
+	if (0 < n_var) {
+	    if (var) {
+		int f_last = (last_idx + 1 == argc - n_trail);
+		*var = rb_ary_new4(n_var-f_last, &argv[argi]);
+		if (f_last) rb_ary_push(*var, last_hash);
+	    }
+	    argi += n_var;
+	}
+	else {
+	    if (var) *var = rb_ary_new();
+	}
+    }
+    /* capture trailing mandatory arguments */
+    for (i = n_trail; i-- > 0; ) {
+	var = va_arg(vargs, VALUE *);
+	if (var) *var = (argi == last_idx) ? last_hash : argv[argi];
+	argi++;
+    }
+    /* capture an option hash - phase 2: assignment */
+    if (f_hash) {
+	var = va_arg(vargs, VALUE *);
+	if (var) *var = hash;
+    }
+    /* capture iterator block */
+    if (f_block) {
+	var = va_arg(vargs, VALUE *);
+	if (rb_block_given_p()) {
+	    *var = rb_block_proc();
+	}
+	else {
+	    *var = Qnil;
+	}
+    }
+    va_end(vargs);
+
+    if (argi < argc) {
+      argc_error:
+	rb_error_arity(argc, n_mand, f_var ? UNLIMITED_ARGUMENTS : n_mand + n_opt);
+    }
+
+    return argc;
 }
 
 int

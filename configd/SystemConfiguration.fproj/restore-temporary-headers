@@ -1,11 +1,11 @@
 #!/bin/sh
 
-if [ -z "${INSTALL_DIR}" -o -z "${PRIVATE_HEADERS_FOLDER_PATH}" ]; then
-	echo "Cannot update headers, missing ENV vars"
+if [ $# -lt 1 ]; then
+	echo "Cannot update headers, private header directory not specified"
 	exit 1
 fi
 
-SPI_BASE="${INSTALL_DIR}/${PRIVATE_HEADERS_FOLDER_PATH}"
+SPI_BASE="${1}"
 
 for H in				\
 	DHCPClientPreferences.h		\

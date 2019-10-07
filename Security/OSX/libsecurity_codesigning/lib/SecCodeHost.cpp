@@ -33,32 +33,13 @@
 using namespace CodeSigning;
 
 
-//
-// Munge a CFDictionary into a CssmData representing its plist
-//
-class DictData : public CFRef<CFDataRef> {
-public:
-	DictData(CFDictionaryRef dict) : CFRef<CFDataRef>(makeCFData(dict)) { }
-
-	operator CssmData() const
-	{
-		if (*this)
-			return CssmData::wrap(CFDataGetBytePtr(*this), CFDataGetLength(*this));
-		else
-			return CssmData();
-	}
-};
-
-
 OSStatus SecHostCreateGuest(SecGuestRef host,
 	uint32_t status, CFURLRef path, CFDictionaryRef attributes,
 	SecCSFlags flags, SecGuestRef *newGuest)
 {
 	BEGIN_CSAPI
 	
-	checkFlags(flags, kSecCSDedicatedHost | kSecCSGenerateGuestHash);
-	CodeSigning::Required(newGuest) = SecurityServer::ClientSession().createGuest(host,
-		status, cfString(path).c_str(), CssmData(), DictData(attributes), flags);
+	MacOSError::throwMe(errSecCSNotSupported);
 	
 	END_CSAPI
 }
@@ -67,9 +48,8 @@ OSStatus SecHostRemoveGuest(SecGuestRef host, SecGuestRef guest, SecCSFlags flag
 {
 	BEGIN_CSAPI
 
-	checkFlags(flags);
-	SecurityServer::ClientSession().removeGuest(host, guest);
-	
+	MacOSError::throwMe(errSecCSNotSupported);
+
 	END_CSAPI
 }
 
@@ -77,9 +57,8 @@ OSStatus SecHostSelectGuest(SecGuestRef guestRef, SecCSFlags flags)
 {
 	BEGIN_CSAPI
 
-	checkFlags(flags);
-	SecurityServer::ClientSession().selectGuest(guestRef);
-	
+	MacOSError::throwMe(errSecCSNotSupported);
+
 	END_CSAPI
 }
 
@@ -88,9 +67,8 @@ OSStatus SecHostSelectedGuest(SecCSFlags flags, SecGuestRef *guestRef)
 {
 	BEGIN_CSAPI
 	
-	checkFlags(flags);
-	CodeSigning::Required(guestRef) = SecurityServer::ClientSession().selectedGuest();
-	
+	MacOSError::throwMe(errSecCSNotSupported);
+
 	END_CSAPI
 }
 
@@ -100,9 +78,8 @@ OSStatus SecHostSetGuestStatus(SecGuestRef guestRef,
 {
 	BEGIN_CSAPI
 
-	checkFlags(flags);
-	SecurityServer::ClientSession().setGuestStatus(guestRef, status, DictData(attributes));
-		
+	MacOSError::throwMe(errSecCSNotSupported);
+
 	END_CSAPI
 }
 
@@ -110,8 +87,7 @@ OSStatus SecHostSetHostingPort(mach_port_t hostingPort, SecCSFlags flags)
 {
 	BEGIN_CSAPI
 
-	checkFlags(flags);
-	SecurityServer::ClientSession().registerHosting(hostingPort, flags);
-		
+	MacOSError::throwMe(errSecCSNotSupported);
+
 	END_CSAPI
 }

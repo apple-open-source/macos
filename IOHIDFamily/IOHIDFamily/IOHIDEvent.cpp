@@ -35,9 +35,9 @@
 #include "IOHIDPrivateKeys.h"
 #include <math.h>
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 #include "ev_keymap.h"
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 
 #define EXTERNAL ((unsigned int) -1)
 
@@ -73,6 +73,7 @@ bool IOHIDEvent::initWithCapacity(IOByteCount capacity)
     bzero(_data, _capacity);
     _data->size = (uint32_t)_capacity;
     _children = NULL;
+    (void)_parent;
     
     return true;
 }
@@ -1637,6 +1638,38 @@ IOByteCount IOHIDEvent::readBytes(void * bytes, IOByteCount withLength)
     withLength -= sizeof(IOHIDSystemQueueElement);
 
     return appendBytes((UInt8 *)queueElement->payload, withLength);
+}
+
+OSData *IOHIDEvent::createBytes()
+{
+    OSData *result = NULL;
+    IOHIDSystemQueueElement queueElement = { 0 };
+    
+    result = OSData::withCapacity((unsigned int)getLength());
+    require(result, exit);
+    
+    queueElement.timeStamp         = *((uint64_t *)&_timeStamp);
+    queueElement.options           = _options;
+    queueElement.eventCount        = _eventCount;
+    queueElement.senderID          = _senderID;
+    queueElement.attributeLength   = 0;
+    
+    result->appendBytes(&queueElement, sizeof(queueElement));
+    result->appendBytes(_data, _data->size);
+    
+    require_quiet(_children, exit);
+    
+    for (unsigned int i = 0; i < _children->getCount(); i++) {
+        IOHIDEvent *child = (IOHIDEvent *)_children->getObject(i);
+        if (!child) {
+            continue;
+        }
+        
+        result->appendBytes(child->_data, child->_data->size);
+    }
+    
+exit:
+    return result;
 }
 
 //==============================================================================

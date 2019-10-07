@@ -45,7 +45,7 @@ test -d /Heimdal || sudo mkdir /Heimdal
 (sudo rm -rf $ROOT && \
     time xcodebuild install \
 	-target HeimdalFrameworks \
-	-arch x86_64 -arch i386 \
+	-arch x86_64 \
 	-sdk macosx.internal \
         OBJROOT=build/frameworks \
     	TOOLCHAINS=$toolchain \
@@ -65,7 +65,7 @@ test -d /Heimdal || sudo mkdir /Heimdal
 (sudo rm -rf $ROOT && \
     time xcodebuild install \
 	-target HeimdalFrameworksFoundation \
-	-arch i386 -arch x86_64 \
+	-arch x86_64 \
 	-sdk macosx.internal \
         OBJROOT=build/foundation \
     	TOOLCHAINS=$toolchain \

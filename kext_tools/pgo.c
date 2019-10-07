@@ -166,27 +166,27 @@ void pgo_start_thread(OSKextRef kext)
 
 bool pgo_scan_kexts(CFArrayRef array)
 {
-    CFIndex i; 
-    bool found = false; 
-    
-    for (i = 0; i < CFArrayGetCount(array); i++) 
+    CFIndex i;
+    bool found = false;
+
+    for (i = 0; i < CFArrayGetCount(array); i++)
     {
         CFDictionaryRef dict = (CFDictionaryRef) CFArrayGetValueAtIndex(array, i);
 
         assert(CFGetTypeID(dict) == CFDictionaryGetTypeID());
-        
+
         CFStringRef id  = CFDictionaryGetValue(dict, CFSTR("CFBundleIdentifier"));
         CFStringRef ver = CFDictionaryGetValue(dict, CFSTR("CFBundleVersion"));
-        
+
         if (!id || !ver ||
             CFGetTypeID(id) != CFStringGetTypeID() ||
             CFGetTypeID(ver) != CFStringGetTypeID())
         {
             continue;
         }
-        
+
         OSKextRef kext = OSKextGetKextWithIdentifierAndVersion(id, OSKextParseVersionCFString(ver));
-        
+
         if (!kext) {
             continue;
         }
@@ -203,6 +203,6 @@ bool pgo_scan_kexts(CFArrayRef array)
         pgo_start_thread(kext);
         found = true;
     }
-    
+
     return found;
 }

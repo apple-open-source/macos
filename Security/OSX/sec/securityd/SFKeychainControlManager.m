@@ -92,7 +92,7 @@ XPC_RETURNS_RETAINED xpc_endpoint_t SecServerCreateKeychainControlEndpoint(void)
     CFTypeRef genericPasswords = NULL;
     NSDictionary* genericPasswordsQuery = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                                              (id)kSecReturnPersistentRef : @(YES),
-                                             (id)kSecAttrNoLegacy : @(YES),
+                                             (id)kSecUseDataProtectionKeychain : @(YES),
                                              (id)kSecMatchLimit : (id)kSecMatchLimitAll };
     OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)genericPasswordsQuery, &genericPasswords);
     CFErrorRef genericPasswordError = NULL;
@@ -106,7 +106,7 @@ XPC_RETURNS_RETAINED xpc_endpoint_t SecServerCreateKeychainControlEndpoint(void)
     CFTypeRef internetPasswords = NULL;
     NSDictionary* internetPasswordsQuery = @{ (id)kSecClass : (id)kSecClassInternetPassword,
                                               (id)kSecReturnPersistentRef : @(YES),
-                                              (id)kSecAttrNoLegacy : @(YES),
+                                              (id)kSecUseDataProtectionKeychain : @(YES),
                                               (id)kSecMatchLimit : (id)kSecMatchLimitAll };
     status = SecItemCopyMatching((__bridge CFDictionaryRef)internetPasswordsQuery, &internetPasswords);
     CFErrorRef internetPasswordError = NULL;
@@ -120,7 +120,7 @@ XPC_RETURNS_RETAINED xpc_endpoint_t SecServerCreateKeychainControlEndpoint(void)
     CFTypeRef keys = NULL;
     NSDictionary* keysQuery = @{ (id)kSecClass : (id)kSecClassKey,
                                  (id)kSecReturnPersistentRef : @(YES),
-                                 (id)kSecAttrNoLegacy : @(YES),
+                                 (id)kSecUseDataProtectionKeychain : @(YES),
                                  (id)kSecMatchLimit : (id)kSecMatchLimitAll };
     status = SecItemCopyMatching((__bridge CFDictionaryRef)keysQuery, &keys);
     CFErrorRef keyError = NULL;
@@ -133,7 +133,7 @@ XPC_RETURNS_RETAINED xpc_endpoint_t SecServerCreateKeychainControlEndpoint(void)
     CFTypeRef certificates = NULL;
     NSDictionary* certificateQuery = @{ (id)kSecClass : (id)kSecClassCertificate,
                                         (id)kSecReturnPersistentRef : @(YES),
-                                        (id)kSecAttrNoLegacy : @(YES),
+                                        (id)kSecUseDataProtectionKeychain : @(YES),
                                         (id)kSecMatchLimit : (id)kSecMatchLimitAll };
     status = SecItemCopyMatching((__bridge CFDictionaryRef)certificateQuery, &certificates);
     CFErrorRef certificateError = NULL;
@@ -151,7 +151,7 @@ XPC_RETURNS_RETAINED xpc_endpoint_t SecServerCreateKeychainControlEndpoint(void)
                 NSDictionary* itemQuery = @{ (id)kSecClass : class,
                                              (id)kSecValuePersistentRef : persistentRef,
                                              (id)kSecReturnAttributes : @(YES),
-                                             (id)kSecAttrNoLegacy : @(YES) };
+                                             (id)kSecUseDataProtectionKeychain : @(YES) };
                 CFTypeRef itemAttributes = NULL;
                 OSStatus copyStatus = SecItemCopyMatching((__bridge CFDictionaryRef)itemQuery, &itemAttributes);
                 if (copyStatus != errSecSuccess && status != errSecInteractionNotAllowed) {

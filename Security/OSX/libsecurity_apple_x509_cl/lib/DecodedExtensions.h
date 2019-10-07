@@ -28,6 +28,7 @@
 
 #include <security_asn1/SecNssCoder.h>
 #include <Security/X509Templates.h>
+#include <Security/x509defs.h>
 
 #include "cldebugging.h"
 

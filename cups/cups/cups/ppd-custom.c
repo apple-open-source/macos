@@ -4,22 +4,10 @@
  * Copyright 2007-2015 by Apple Inc.
  * Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  *
  * PostScript is a trademark of Adobe Systems, Inc.
- *
- * This code and any derivative of it may be used and distributed
- * freely under the terms of the GNU General Public License when
- * used with GNU Ghostscript or its derivatives.  Use of the code
- * (or any derivative of it) with software other than GNU
- * GhostScript (or its derivatives) is governed by the CUPS license
- * agreement.
- *
- * This file is subject to the Apple OS-Developed Software exception.
  */
 
 /*
@@ -28,6 +16,7 @@
 
 #include "cups-private.h"
 #include "ppd-private.h"
+#include "debug-internal.h"
 
 
 /*

@@ -65,7 +65,8 @@ ControllerRetry(if_name_t if_name, uid_t uid, gid_t gid);
 int
 ControllerStop(if_name_t if_name, uid_t uid, gid_t gid);
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
+
 int 
 ControllerCopyLoginWindowConfiguration(if_name_t if_name, 
 				       CFDictionaryRef * config_data_p);
@@ -75,7 +76,7 @@ ControllerCopyAutoDetectInformation(CFDictionaryRef * info_p);
 boolean_t
 ControllerDidUserCancel(if_name_t if_name);
 
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
 int
 ControllerClientAttach(pid_t pid, if_name_t if_name,
@@ -105,11 +106,11 @@ ControllerClientForceRenew(mach_port_t session_port);
 int
 ControllerClientPortDead(mach_port_t session_port);
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 
 int
 ControllerClientUserCancelled(mach_port_t session_port);
 
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
 #endif /* _S_CONTROLLER_H */

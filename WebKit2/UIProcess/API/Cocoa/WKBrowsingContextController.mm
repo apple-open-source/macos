@@ -26,8 +26,6 @@
 #import "config.h"
 #import "WKBrowsingContextControllerInternal.h"
 
-#if WK_API_ENABLED
-
 #import "APIData.h"
 #import "APINavigation.h"
 #import "ObjCObjectGraph.h"
@@ -72,9 +70,9 @@ NSString * const WKActionFrameNameKey = @"WKActionFrameNameKey";
 NSString * const WKActionOriginatingFrameURLKey = @"WKActionOriginatingFrameURLKey";
 NSString * const WKActionCanShowMIMETypeKey = @"WKActionCanShowMIMETypeKey";
 
-IGNORE_WARNINGS_BEGIN("deprecated-implementations")
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 @implementation WKBrowsingContextController {
-IGNORE_WARNINGS_END
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     RefPtr<WebKit::WebPageProxy> _page;
     std::unique_ptr<WebKit::PageLoadStateObserver> _pageLoadStateObserver;
 
@@ -201,6 +199,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (void)setApplicationNameForUserAgent:(NSString *)applicationNameForUserAgent
 {
+    _page->setApplicationNameForDesktopUserAgent(applicationNameForUserAgent);
     _page->setApplicationNameForUserAgent(applicationNameForUserAgent);
 }
 
@@ -620,9 +619,9 @@ static void setUpPagePolicyClient(WKBrowsingContextController *browsingContext, 
 @end
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-IGNORE_WARNINGS_BEGIN("deprecated-implementations")
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 @implementation WKBrowsingContextController (Private)
-IGNORE_WARNINGS_END
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (WKPageRef)_pageRef
 {
@@ -726,7 +725,7 @@ IGNORE_WARNINGS_END
 
 - (_WKRemoteObjectRegistry *)_remoteObjectRegistry
 {
-#if WK_API_ENABLED && !TARGET_OS_IPHONE
+#if PLATFORM(MAC)
     return _page->remoteObjectRegistry();
 #else
     return nil;
@@ -745,5 +744,3 @@ IGNORE_WARNINGS_END
 
 @end
 ALLOW_DEPRECATED_DECLARATIONS_END
-
-#endif // WK_API_ENABLED

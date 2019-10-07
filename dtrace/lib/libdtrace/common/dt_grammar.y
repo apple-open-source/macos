@@ -22,14 +22,15 @@
  *
  * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
- *
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ */
+
+/*
+ * Copyright (c) 2014, 2016 by Delphix. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  */
 
-#pragma ident	"@(#)dt_grammar.y	1.9	06/01/07 SMI"
-
 #include <dt_impl.h>
+#include <string.h>
 
 #define	OP1(op, c)	dt_node_op1(op, c)
 #define	OP2(op, l, r)	dt_node_op2(op, l, r)
@@ -37,7 +38,7 @@
 #define	LINK(l, r)	dt_node_link(l, r)
 #define	DUP(s)		strdup(s)
 
-static int yylex(void);
+int yylex(void);
 
 %}
 
@@ -107,11 +108,11 @@ static int yylex(void);
 %token	DT_KEY_TYPEDEF
 %token	DT_KEY_UNION
 %token	DT_KEY_UNSIGNED
+%token	DT_KEY_USERLAND
 %token	DT_KEY_VOID
 %token	DT_KEY_VOLATILE
 %token	DT_KEY_WHILE
 %token	DT_KEY_XLATOR
-%token	DT_KEY_USERLAND
 
 %token	DT_TOK_EPRED
 %token	DT_CTX_DEXPR
@@ -211,6 +212,8 @@ static int yylex(void);
 %type	<l_tok>		assignment_operator
 %type	<l_tok>		unary_operator
 %type	<l_tok>		struct_or_union
+
+%type	<l_str>		dtrace_keyword_ident
 
 %%
 
@@ -417,10 +420,16 @@ postfix_expression:
 	|	postfix_expression DT_TOK_DOT DT_TOK_TNAME {
 			$$ = OP2(DT_TOK_DOT, $1, dt_node_ident($3));
 		}
+	|	postfix_expression DT_TOK_DOT dtrace_keyword_ident {
+			$$ = OP2(DT_TOK_DOT, $1, dt_node_ident($3));
+		}
 	|	postfix_expression DT_TOK_PTR DT_TOK_IDENT {
 			$$ = OP2(DT_TOK_PTR, $1, dt_node_ident($3));
 		}
 	|	postfix_expression DT_TOK_PTR DT_TOK_TNAME {
+			$$ = OP2(DT_TOK_PTR, $1, dt_node_ident($3));
+		}
+	|	postfix_expression DT_TOK_PTR dtrace_keyword_ident {
 			$$ = OP2(DT_TOK_PTR, $1, dt_node_ident($3));
 		}
 	|	postfix_expression DT_TOK_ADDADD {
@@ -435,6 +444,10 @@ postfix_expression:
 		}
 	|	DT_TOK_OFFSETOF DT_TOK_LPAR type_name DT_TOK_COMMA 
 		    DT_TOK_TNAME DT_TOK_RPAR {
+			$$ = dt_node_offsetof($3, $5);
+		}
+	|	DT_TOK_OFFSETOF DT_TOK_LPAR type_name DT_TOK_COMMA
+		    dtrace_keyword_ident DT_TOK_RPAR {
 			$$ = dt_node_offsetof($3, $5);
 		}
 	|	DT_TOK_XLATE DT_TOK_LT type_name DT_TOK_GT
@@ -718,6 +731,10 @@ struct_declaration:
 		specifier_qualifier_list struct_declarator_list ';' {
 			dt_decl_free(dt_decl_pop());
 		}
+	|	struct_or_union_specifier ';' {
+			dt_decl_member(NULL);
+			dt_decl_free(dt_decl_pop());
+		}
 	;
 
 specifier_qualifier_list:
@@ -859,6 +876,17 @@ function:	DT_TOK_LPAR { dt_scope_push(NULL, CTF_ERR); }
 function_parameters:
 		/* empty */ 		{ $$ = NULL; }
 	|	parameter_type_list	{ $$ = $1; }
+	;
+
+dtrace_keyword_ident:
+	  DT_KEY_PROBE { $$ = DUP("probe"); }
+	| DT_KEY_PROVIDER { $$ = DUP("provider"); }
+	| DT_KEY_SELF { $$ = DUP("self"); }
+	| DT_KEY_STRING { $$ = DUP("string"); }
+	| DT_TOK_STRINGOF { $$ = DUP("stringof"); }
+	| DT_KEY_USERLAND { $$ = DUP("userland"); }
+	| DT_TOK_XLATE { $$ = DUP("xlate"); }
+	| DT_KEY_XLATOR { $$ = DUP("translator"); }
 	;
 
 %%

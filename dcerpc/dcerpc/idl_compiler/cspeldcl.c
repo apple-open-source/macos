@@ -106,6 +106,12 @@ void CSPELL_constant_val_to_string
 (
     AST_constant_n_t *cp,
     char *str
+);
+
+void CSPELL_constant_val_to_string
+(
+    AST_constant_n_t *cp,
+    char *str
 )
 {
     char const *str2;

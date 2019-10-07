@@ -1,12 +1,12 @@
 --TEST--
-SPL: Test ArrayObject::ksort() function : basic functionality with array based store 
+SPL: Test ArrayObject::ksort() function : basic functionality with array based store
 --FILE--
 <?php
 /* Prototype  : int ArrayObject::ksort()
  * Description: proto int ArrayIterator::ksort()
- * Sort the entries by key. 
+ * Sort the entries by key.
  * Source code: ext/spl/spl_array.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing ArrayObject::ksort() : basic functionality ***\n";
@@ -35,7 +35,7 @@ object(ArrayObject)#%d (1) {
   }
 }
 
-Warning: ksort() expects parameter 2 to be integer, string given in %sarrayObject_ksort_basic1.php on line %d
+Warning: ksort() expects parameter 2 to be int, string given in %sarrayObject_ksort_basic1.php on line %d
 bool(false)
 object(ArrayObject)#2 (1) {
   ["storage":"ArrayObject":private]=>

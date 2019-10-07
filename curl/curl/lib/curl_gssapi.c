@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 2011 - 2016, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 2011 - 2018, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -27,10 +27,15 @@
 #include "curl_gssapi.h"
 #include "sendf.h"
 
-static const char spnego_oid_bytes[] = "\x2b\x06\x01\x05\x05\x02";
-gss_OID_desc Curl_spnego_mech_oid = { 6, &spnego_oid_bytes };
-static const char krb5_oid_bytes[] = "\x2a\x86\x48\x86\xf7\x12\x01\x02\x02";
-gss_OID_desc Curl_krb5_mech_oid = { 9, &krb5_oid_bytes };
+/* The last 3 #include files should be in this order */
+#include "curl_printf.h"
+#include "curl_memory.h"
+#include "memdebug.h"
+
+static char spnego_oid_bytes[] = "\x2b\x06\x01\x05\x05\x02";
+gss_OID_desc Curl_spnego_mech_oid = { 6, NULL };
+static char krb5_oid_bytes[] = "\x2a\x86\x48\x86\xf7\x12\x01\x02\x02";
+gss_OID_desc Curl_krb5_mech_oid = { 9, NULL };
 
 OM_uint32 Curl_gss_init_sec_context(
     struct Curl_easy *data,
@@ -45,6 +50,10 @@ OM_uint32 Curl_gss_init_sec_context(
     OM_uint32 *ret_flags)
 {
   OM_uint32 req_flags = GSS_C_REPLAY_FLAG;
+
+  /* Assinged at runtime to address potential pointer alignment issues. */
+  Curl_spnego_mech_oid.elements = &spnego_oid_bytes;
+  Curl_krb5_mech_oid.elements = &krb5_oid_bytes;
 
   if(mutual_auth)
     req_flags |= GSS_C_MUTUAL_FLAG;
@@ -92,9 +101,9 @@ static size_t display_gss_error(OM_uint32 status, int type,
                                   &msg_ctx,
                                   &status_string);
     if(GSS_LOG_BUFFER_LEN > len + status_string.length + 3) {
-      len += snprintf(buf + len, GSS_LOG_BUFFER_LEN - len,
-                      "%.*s. ", (int)status_string.length,
-                      (char *)status_string.value);
+      len += msnprintf(buf + len, GSS_LOG_BUFFER_LEN - len,
+                       "%.*s. ", (int)status_string.length,
+                       (char *)status_string.value);
     }
     gss_release_buffer(&min_stat, &status_string);
   } while(!GSS_ERROR(maj_stat) && msg_ctx != 0);

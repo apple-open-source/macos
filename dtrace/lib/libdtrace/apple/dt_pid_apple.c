@@ -24,17 +24,14 @@
 // This must be done *after* any references to Foundation.h!
 #define uint_t  __Solaris_uint_t
 
+#include <string.h>
+
 #include <sys/dtrace.h>
 #include <dtrace.h>
 
 #include <dt_proc.h>
 #include <dt_pid.h>
-
-int strisglob(const char *s);
-void dt_proc_bpdisable(dt_proc_t *dpr);
-void dt_proc_bpenable(dt_proc_t *dpr);
-int dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func);
-int dt_pid_error(dtrace_hdl_t *dtp, dt_pcb_t *pcb, dt_proc_t *dpr, fasttrap_probe_spec_t *ftp, dt_errtag_t tag, const char *fmt, ...);
+#include <dt_string.h>
 
 /*
  * OBJC provider methods

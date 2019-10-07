@@ -32,7 +32,7 @@
 #include "ImplicitAnimation.h"
 #include "KeyframeAnimation.h"
 #include <wtf/HashMap.h>
-#include <wtf/text/AtomicString.h>
+#include <wtf/text/AtomString.h>
 
 namespace WebCore {
 
@@ -69,14 +69,14 @@ public:
     
     bool hasAnimations() const  { return !m_transitions.isEmpty() || !m_keyframeAnimations.isEmpty(); }
 
-    bool isAnimatingProperty(CSSPropertyID, bool acceleratedOnly, AnimationBase::RunningState) const;
+    bool isAnimatingProperty(CSSPropertyID, bool acceleratedOnly) const;
 
     KeyframeAnimation* animationForProperty(CSSPropertyID) const;
 
     void overrideImplicitAnimations(CSSPropertyID);
     void resumeOverriddenImplicitAnimations(CSSPropertyID);
 
-    bool pauseAnimationAtTime(const AtomicString& name, double t);
+    bool pauseAnimationAtTime(const AtomString& name, double t);
     bool pauseTransitionAtTime(CSSPropertyID, double);
     unsigned numberOfActiveAnimations() const;
 
@@ -89,7 +89,7 @@ private:
     void updateKeyframeAnimations(Element&, const RenderStyle* currentStyle, const RenderStyle& targetStyle);
     
     typedef HashMap<int, RefPtr<ImplicitAnimation>> CSSPropertyTransitionsMap;
-    typedef HashMap<AtomicStringImpl*, RefPtr<KeyframeAnimation>> AnimationNameMap;
+    typedef HashMap<AtomStringImpl*, RefPtr<KeyframeAnimation>> AnimationNameMap;
 
     bool m_suspended { false };
     bool m_hasAnimationThatDependsOnLayout { false };
@@ -97,7 +97,7 @@ private:
     CSSAnimationControllerPrivate& m_animationController;
     CSSPropertyTransitionsMap m_transitions;
     AnimationNameMap m_keyframeAnimations;
-    Vector<AtomicStringImpl*> m_keyframeAnimationOrderMap;
+    Vector<AtomStringImpl*> m_keyframeAnimationOrderMap;
 };
 
 } // namespace WebCore

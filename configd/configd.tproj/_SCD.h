@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2009, 2011, 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2009, 2011, 2015, 2016, 2018, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -59,26 +59,7 @@
 #define	kSCDSession	CFSTR("session")
 
 
-/*
- * keys in the "sessionData" dictionary
- */
-
-/*
- * the name of the calling application / plug-in
- */
-#define	kSCDName	CFSTR("name")
-/*
- * keys which have changed since last call to SCDNotifierGetChanges()
- */
-#define	kSCDChangedKeys	CFSTR("changedKeys")
-/*
- * keys which are to be removed when the session is closed
- */
-#define	kSCDSessionKeys	CFSTR("sessionKeys")
-
-
 extern CFMutableDictionaryRef	storeData;
-extern CFMutableDictionaryRef	sessionData;
 extern CFMutableDictionaryRef	patternData;
 extern CFMutableSetRef		changedKeys;
 extern CFMutableSetRef		deferredRemovals;
@@ -175,11 +156,6 @@ int
 __SCDynamicStoreNotifyFileDescriptor	(SCDynamicStoreRef	store);
 
 int
-__SCDynamicStoreNotifySignal		(SCDynamicStoreRef	store,
-					 pid_t			pid,
-					 int			sig);
-
-int
 __SCDynamicStoreNotifyCancel		(SCDynamicStoreRef	store);
 
 void
@@ -195,4 +171,4 @@ pushNotifications			(void);
 
 __END_DECLS
 
-#endif /* !_S_SCD_H */
+#endif	/* !_S_SCD_H */

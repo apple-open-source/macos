@@ -11,10 +11,10 @@ session.gc_probability=0
 
 ob_start();
 
-/* 
+/*
  * Prototype : bool session_set_save_handler(SessionHandler $handler [, bool $register_shutdown_function = true])
  * Description : Sets user-level session storage functions
- * Source code : ext/session/session.c 
+ * Source code : ext/session/session.c
  */
 
 echo "*** Testing session_set_save_handler() : incorrect arguments for existing handler open ***\n";
@@ -41,7 +41,6 @@ session_set_save_handler($handler);
 var_dump(session_start());
 
 var_dump(session_id(), $oldHandler, ini_get('session.save_handler'), $handler->i, $_SESSION);
-
 --EXPECTF--
 *** Testing session_set_save_handler() : incorrect arguments for existing handler open ***
 Open 
@@ -55,7 +54,7 @@ Warning: SessionHandler::close(): Parent session handler is not open in %s on li
 
 Warning: session_start(): Failed to read session data: user (%s) in %s on line %d
 bool(false)
-string(%d) "%s"
+string(0) ""
 string(5) "files"
 string(4) "user"
 int(2)

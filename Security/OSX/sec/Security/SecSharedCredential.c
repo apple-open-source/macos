@@ -37,7 +37,7 @@
 OSStatus SecAddSharedWebCredentialSync(CFStringRef fqdn, CFStringRef account, CFStringRef password, CFErrorRef *error);
 OSStatus SecCopySharedWebCredentialSync(CFStringRef fqdn, CFStringRef account, CFArrayRef *credentials, CFErrorRef *error);
 
-#if TARGET_OS_IOS
+#if SHAREDWEBCREDENTIALS
 
 OSStatus SecAddSharedWebCredentialSync(CFStringRef fqdn,
     CFStringRef account,
@@ -84,7 +84,7 @@ OSStatus SecAddSharedWebCredentialSync(CFStringRef fqdn,
 
     return status;
 }
-#endif /* TARGET_OS_IOS */
+#endif /* SHAREDWEBCREDENTIALS */
 
 void SecAddSharedWebCredential(CFStringRef fqdn,
     CFStringRef account,
@@ -93,7 +93,7 @@ void SecAddSharedWebCredential(CFStringRef fqdn,
 {
 	__block CFErrorRef error = NULL;
 	__block dispatch_queue_t dst_queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT,0);
-#if TARGET_OS_IOS
+#if SHAREDWEBCREDENTIALS
 
     /* sanity check input arguments */
 	CFStringRef errStr = NULL;
@@ -146,7 +146,7 @@ void SecAddSharedWebCredential(CFStringRef fqdn,
 #endif
 }
 
-#if TARGET_OS_IOS
+#if SHAREDWEBCREDENTIALS
 OSStatus SecCopySharedWebCredentialSync(CFStringRef fqdn,
     CFStringRef account,
     CFArrayRef *credentials,
@@ -192,7 +192,7 @@ OSStatus SecCopySharedWebCredentialSync(CFStringRef fqdn,
 
     return status;
 }
-#endif /* TARGET_OS_IOS */
+#endif /* SHAREDWEBCREDENTIALS */
 
 void SecRequestSharedWebCredential(CFStringRef fqdn,
     CFStringRef account,
@@ -200,7 +200,7 @@ void SecRequestSharedWebCredential(CFStringRef fqdn,
 {
 	__block CFErrorRef error = NULL;
 	__block dispatch_queue_t dst_queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT,0);
-#if TARGET_OS_IOS
+#if SHAREDWEBCREDENTIALS
     __block CFArrayRef result = NULL;
 
     /* sanity check input arguments, if provided */

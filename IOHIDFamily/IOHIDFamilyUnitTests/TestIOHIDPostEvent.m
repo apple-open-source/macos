@@ -16,30 +16,57 @@
 #include <IOKit/hidsystem/IOHIDShared.h>
 #import <IOKit/hidsystem/event_status_driver.h>
 #include "IOHIDUnitTestUtility.h"
+#include "IOHIDXCTestExpectation.h"
 #include <TargetConditionals.h>
 
 #define HIDPostEventTestThreshold 10
 
 @interface TestIOHIDPostEvent : XCTestCase
-#if TARGET_OS_OSX
+
 @property IOHIDEventSystemClientRef   eventSystem;
 @property NXEventHandle               eventDriver;
-@property UInt32                      eventCount;
+@property IOHIDXCTestExpectation      * testEventExpectation;
+
 -(void) handleIOHIDPostEvent:(IOHIDEventRef) event;
-#endif
+
 @end
 
 @implementation TestIOHIDPostEvent
-{}
+
 - (void)setUp {
     
     [super setUp];
+    
+    _eventSystem = IOHIDEventSystemClientCreateWithType(kCFAllocatorDefault, kIOHIDEventSystemClientTypeMonitor, NULL);
+
+    HIDXCTAssertAndThrowTrue(_eventSystem != NULL);
+    
+    IOHIDEventSystemClientRegisterEventBlock(_eventSystem, eventBlock, (__bridge void*)self, NULL);
+    
+    NSDictionary *matchingDict = @{@kIOHIDServiceDeviceUsagePageKey : @(kHIDPage_AppleVendor), @kIOHIDServiceDeviceUsageKey : @(kHIDUsage_AppleVendor_NXEvent)};
+    IOHIDEventSystemClientSetMatching(_eventSystem, (__bridge CFDictionaryRef)(matchingDict));
+    IOHIDEventSystemClientScheduleWithRunLoop(_eventSystem, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+    IOHIDEventSystemClientCopyProperty(_eventSystem, CFSTR (kIOHIDEventSystemClientIsUnresponsive));
+
+    self.testEventExpectation = [[IOHIDXCTestExpectation alloc] initWithDescription:@"expectation: Test HID event"];
+    self.testEventExpectation.expectedFulfillmentCount = 2;
+    
+    _eventDriver = NXOpenEventStatus();
 }
+
 - (void)tearDown {
 
     [super tearDown];
+    
+    if (_eventSystem) {
+        IOHIDEventSystemClientUnscheduleWithRunLoop(_eventSystem, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+        CFRelease(_eventSystem);
+    }
+    
+    if (_eventDriver) {
+        NXCloseEventStatus(_eventDriver);
+    }
 }
-#if TARGET_OS_OSX
 
 IOHIDEventBlock eventBlock = ^(void * target __unused, __unused void * refcon, void * sender __unused, IOHIDEventRef event)
 {
@@ -49,26 +76,12 @@ IOHIDEventBlock eventBlock = ^(void * target __unused, __unused void * refcon, v
 
 - (void) testIOHIDPostEvent {
     
-    kern_return_t  kr;
-    NXEventData  event;
-    IOGPoint  loc;
-    
-    _eventSystem = IOHIDEventSystemClientCreateWithType(kCFAllocatorDefault, kIOHIDEventSystemClientTypeMonitor, NULL);
-    
-    HIDXCTAssertAndThrowTrue(_eventSystem != NULL);
-    
-    IOHIDEventSystemClientRegisterEventBlock(_eventSystem, eventBlock, (__bridge void*)self, NULL);
-    
-    NSDictionary *matchingDict = @{@kIOHIDServiceDeviceUsagePageKey : @(kHIDPage_AppleVendor), @kIOHIDServiceDeviceUsageKey : @(kHIDUsage_AppleVendor_NXEvent)};
-    
-    IOHIDEventSystemClientSetMatching(_eventSystem, (__bridge CFDictionaryRef)(matchingDict));
-    
-    IOHIDEventSystemClientScheduleWithRunLoop(_eventSystem, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
-    IOHIDEventSystemClientCopyProperty(_eventSystem, CFSTR (kIOHIDEventSystemClientIsUnresponsive));
+    kern_return_t   kr;
+    NXEventData     event;
+    IOGPoint        loc;
+    XCTWaiterResult result;
 
-    _eventDriver = NXOpenEventStatus();
-    
-    XCTAssert( MACH_PORT_NULL != _eventDriver);
+    HIDXCTAssertWithParameters(RETURN_FROM_TEST,  MACH_PORT_NULL != _eventDriver);
     
     loc.x = 200;
     loc.y = 220;
@@ -82,27 +95,18 @@ IOHIDEventBlock eventBlock = ^(void * target __unused, __unused void * refcon, v
     event.key.origCharCode = event.key.charCode;
     
     kr = IOHIDPostEvent ( _eventDriver, NX_KEYUP, loc, &event, FALSE, 0, FALSE );
-    
     XCTAssert( KERN_SUCCESS == kr, "kr:%x", kr);
     
     kr = IOHIDPostEvent ( _eventDriver, NX_KEYDOWN, loc, &event, FALSE, 0, FALSE );
-    
     XCTAssert( KERN_SUCCESS == kr, "kr:%x", kr);
     
-    CFRunLoopRunInMode(kCFRunLoopDefaultMode, HIDPostEventTestThreshold, false);
-    
-    XCTAssert(_eventCount == 2);
-    
-    // release resouce
-    
-    IOHIDEventSystemClientUnscheduleWithRunLoop(_eventSystem, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
-    CFRelease(_eventSystem);
-    
-    NXCloseEventStatus(_eventDriver);
+    result = [XCTWaiter waitForExpectations:@[self.testEventExpectation] timeout:HIDPostEventTestThreshold];
+    HIDXCTAssertWithParameters(RETURN_FROM_TEST, result == XCTWaiterResultCompleted, "result:%ld %@", (long)result, self.testEventExpectation);
 }
+
 -(void) handleIOHIDPostEvent:(IOHIDEventRef) event
 {
-    _eventCount++;
+    NSLog(@"Event: %@", event);
     
     XCTAssert(IOHIDEventConformsTo (event, kIOHIDEventTypeVendorDefined));
     
@@ -127,8 +131,9 @@ IOHIDEventBlock eventBlock = ^(void * target __unused, __unused void * refcon, v
     XCTAssert(nxEvent->payload.data.key.charSet == NX_ASCIISET);
     
     //verify audit trailer (pid)
-    XCTAssert(nxEvent->extension.audit.val[5] == getpid(), "pid:%d", nxEvent->extension.audit.val[5]);
+    XCTAssert((pid_t)nxEvent->extension.audit.val[5] == getpid(), "pid:%d", nxEvent->extension.audit.val[5]);
     
+    [self.testEventExpectation fulfill];
 }
-#endif/*TARGET_OS_OSX*/
+
 @end

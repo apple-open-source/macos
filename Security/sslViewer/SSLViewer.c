@@ -23,7 +23,7 @@
 #include "utilities/fileIo.h"
 #include "utilities/SecCFWrappers.h"
 #include "utilities/SecIOFormat.h"
-#include "SecurityTool/print_cert.h"
+#include "SecurityTool/sharedTool/print_cert.h"
 
 #define DEFAULT_GETMSG  	"GET"
 #define DEFAULT_PATH		"/"
@@ -206,7 +206,7 @@ static OSStatus sslEvaluateTrust(
     }
 
 	SecTrustResultType	secTrustResult;
-	ortn = SecTrustEvaluate(secTrust, &secTrustResult);
+	ortn = SecTrustGetTrustResult(secTrust, &secTrustResult); // implicitly does trust evaluate
 	if(ortn) {
 		printf("\n***Error on SecTrustEvaluate: %d\n", (int)ortn);
 		return ortn;
@@ -426,7 +426,11 @@ static OSStatus sslPing(
 			}
 		}
 	} else {
-        SSLSetProtocolVersionMax(ctx, pargs->tryVersion);
+        ortn = SSLSetProtocolVersionMax(ctx, pargs->tryVersion);
+        if(ortn) {
+            printSslErrStr("SSLSetProtocolVersionMax", ortn);
+            goto cleanup;
+        }
 	}
 
 	if(pargs->resumableEnable) {
@@ -660,7 +664,10 @@ cleanup: ;
 	/*
 	 * always do close, even on error - to flush outgoing write queue
 	 */
-	OSStatus cerr = SSLClose(ctx);
+	OSStatus cerr = errSecParam;
+	if (ctx) {
+		cerr = SSLClose(ctx);
+	}
 	if(ortn == errSecSuccess) {
 		ortn = cerr;
 	}
@@ -878,10 +885,13 @@ static void showSSLResult(
 		sslGetProtocolVersionString(pargs->negVersion));
 	printf("   Negotiated CipherSuite : %s\n",
 		sslGetCipherSuiteString(pargs->negCipher));
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	if(pargs->certState != kSSLClientCertNone) {
 		printf("   Client Cert State      : %s\n",
 			sslGetClientCertStateString(pargs->certState));
 	}
+#pragma clang diagnostic pop
 	if(pargs->verbose) {
 		printf("   Resumed Session        : ");
 		if(pargs->sessionWasResumed) {
@@ -964,6 +974,8 @@ static SSLProtocol charToProt(
 	char c,			// 2, 3, t
 	char **argv)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	switch(c) {
 		case '2':
 			return kSSLProtocol2;
@@ -974,6 +986,7 @@ static SSLProtocol charToProt(
 		default:
 			usage(argv);
 	}
+#pragma clang diagnostic pop
 }
 
 int main(int argc, char **argv)
@@ -1003,15 +1016,17 @@ int main(int argc, char **argv)
 	bool			doPause = false;
 	bool			pauseFirstLoop = false;
 	bool			verifyProt = false;
-	SSLProtocol			maxProtocol = kTLSProtocol12;	// for verifying negotiated
-														// protocol
 	char				*acceptedProts = NULL;
 	char				*keyChainName = NULL;
 	char				*getMsgSpec = NULL;
 	bool			vfyCertState = false;
-	SSLClientCertificateState expectCertState = kSSLClientCertNone;
 	bool			displayHandshakeTimes = false;
 	bool			completeCertChain = false;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    SSLClientCertificateState expectCertState = kSSLClientCertNone;
+    SSLProtocol            maxProtocol = kTLSProtocol12;    // for verifying negotiated protocol
+#pragma clang diagnostic pop
 
 	/* special case - one arg of "h" or "-h" or "hv" */
 	if(argc == 2) {
@@ -1264,6 +1279,8 @@ int main(int argc, char **argv)
 					usage(argv);
 				}
 				vfyCertState = true;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 				switch(argp[2]) {
 					case 'n':
 						expectCertState = kSSLClientCertNone;
@@ -1280,6 +1297,7 @@ int main(int argc, char **argv)
 					default:
 						usage(argv);
 				}
+#pragma clang diagnostic pop
 				break;
 			case 'z':
 				pargs.password = &argp[2];
@@ -1352,6 +1370,8 @@ int main(int argc, char **argv)
         sigaction(SIGPIPE, &sa, NULL);
     }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	for(loop=0; loop<loopCount; loop++) {
 		/*
 		 * One pass for each protocol version, skipping any explicit version if
@@ -1634,6 +1654,8 @@ int main(int argc, char **argv)
 			}
 		}
     }	/* main loop */
+#pragma clang diagnostic pop
+    
 	if(displayHandshakeTimes) {
 		CFAbsoluteTime totalTime;
 		unsigned numHandshakes;

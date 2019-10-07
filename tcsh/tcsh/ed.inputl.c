@@ -1,4 +1,3 @@
-/* $Header: /p/tcsh/cvsroot/tcsh/ed.inputl.c,v 3.71 2010/12/22 17:26:04 christos Exp $ */
 /*
  * ed.inputl.c: Input line handling.
  */
@@ -31,9 +30,6 @@
  * SUCH DAMAGE.
  */
 #include "sh.h"
-
-RCSID("$tcsh: ed.inputl.c,v 3.71 2010/12/22 17:26:04 christos Exp $")
-
 #include "ed.h"
 #include "ed.defns.h"		/* for the function names */
 #include "tw.h"			/* for twenex stuff */
@@ -668,6 +664,17 @@ RunCommand(Char *str)
     Refresh();
 }
 
+int
+GetCmdChar(Char ch)
+{
+#ifndef WINNT_NATIVE // We use more than 256 for various extended keys 
+    wint_t c = ch & CHAR;
+#else
+    wint_t c = ch;
+#endif
+    return c < NT_NUM_KEYS ? CurrentKeyMap[c] : F_INSERT;
+}
+
 static int
 GetNextCommand(KEYCMD *cmdnum, Char *ch)
 {
@@ -683,7 +690,7 @@ GetNextCommand(KEYCMD *cmdnum, Char *ch)
 #ifdef DSPMBYTE
 	     _enable_mbdisp &&
 #else
-	     MB_CUR_MAX == 1 &&
+	     MB_LEN_MAX == 1 &&
 #endif
 	     !adrof(STRnokanji) && (*ch & META)) {
 	    MetaNext = 0;
@@ -696,17 +703,8 @@ GetNextCommand(KEYCMD *cmdnum, Char *ch)
 	    MetaNext = 0;
 	    *ch |= META;
 	}
-	/* XXX: This needs to be fixed so that we don't just truncate
-	 * the character, we unquote it.
-	 */
-	if (*ch < NT_NUM_KEYS)
-	    cmd = CurrentKeyMap[*ch];
-	else
-#ifdef WINNT_NATIVE
-	    cmd = CurrentKeyMap[(unsigned char) *ch];
-#else
-	    cmd = F_INSERT;
-#endif
+
+	cmd = GetCmdChar(*ch);
 	if (cmd == F_XKEY) {
 	    XmapVal val;
 	    CStr cstr;
@@ -800,7 +798,8 @@ GetNextChar(Char *cp)
 		return -1;
 	    }
 	}
-	if (AsciiOnly) {
+	if (cbp == 0 /* && *cbuf < NT_NUM_KEYS */
+	    && CurrentKeyMap[(unsigned char)*cbuf] == F_XKEY) {
 	    *cp = (unsigned char)*cbuf;
 	} else {
 	    cbp++;

@@ -216,9 +216,9 @@ parseIncomingCerts(
 
     sslFreePrivKey(sslPrivKey);
     size_t size = SecKeyGetBlockSize(privKey);
-    if(sslPrivKeyGetAlgorithmID(privKey) == kSecRSAAlgorithmID) {
+    if(SecKeyGetAlgorithmId(privKey) == kSecRSAAlgorithmID) {
         *sslPrivKey = tls_private_key_rsa_create(privKey, SecKeyGetBlockSize(privKey), mySSLPrivKeyRSA_sign, mySSLPrivKeyRSA_decrypt);
-    } else if (sslPrivKeyGetAlgorithmID(privKey) == kSecECDSAAlgorithmID) {
+    } else if (SecKeyGetAlgorithmId(privKey) == kSecECDSAAlgorithmID) {
 #if TARGET_OS_IPHONE
         /* Compute signature size from key size */
         size_t sigSize = 8+2*size;

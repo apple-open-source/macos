@@ -74,7 +74,6 @@ static  int         _minutesSpentOnUPSPower(void);
 static  int         _secondsSpentOnUPSPower(void);
 static  bool        _weManageUPSPower(void);
 static  void        _getUPSShutdownThresholdsFromDisk(threshold_struct *thresho);
-static  void        _itIsLaterNow(CFRunLoopTimerRef tmr, void *info);
 static  void        _reEvaluatePowerSourcesLater(int seconds);
 static  void        _doPowerEmergencyShutdown(CFNumberRef ups_id);
 
@@ -379,8 +378,7 @@ shutdown:
     } else {
         shutdown_argv[1] = NULL; 
     }
-    _SCDPluginExecCommand(0, 0, 0, 0, 
-                        "/usr/libexec/upsshutdown", shutdown_argv);
+    pluginExecCommand("/usr/libexec/upsshutdown", shutdown_argv, NULL, NULL);
 }
 
 
@@ -551,36 +549,13 @@ exit:
     return;    
 }
 
-
-static void
-_itIsLaterNow(CFRunLoopTimerRef tmr, void *info)
-{
-    UPSLowPowerPSChange();
-    return;
-}
-
-
 static void
 _reEvaluatePowerSourcesLater(int seconds)
 {
-    CFRunLoopTimerRef       later_tmr;
-    CFAbsoluteTime          when;
-    
-    when = CFAbsoluteTimeGetCurrent() + (CFTimeInterval)seconds;
-    
-    later_tmr = CFRunLoopTimerCreate(kCFAllocatorDefault,
-        when,   // fire date
-        0.0,    // interval
-        0,      // options
-        0,      // order
-        &_itIsLaterNow,     // callout
-        0);     // callout
-    
-    if(later_tmr) {
-        CFRunLoopAddTimer(CFRunLoopGetCurrent(), later_tmr, kCFRunLoopDefaultMode);
-        CFRelease(later_tmr);
-    }
-    return;
+    dispatch_time_t when = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC));
+    dispatch_after(when, _getPMMainQueue(), ^{
+        UPSLowPowerPSChange();
+    });
 }
 
 

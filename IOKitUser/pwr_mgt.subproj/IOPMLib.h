@@ -529,7 +529,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
  *
  *          <li> OPTIONAL: <code>kIOPMAssertionFrameworkIDKey</code> if the caller is a framework acting on behalf of a process.
  *
- *          <li> OPTIONAL: The caller may specify a timeout.
+ *          <li> OPTIONAL: <code>kIOPMAssertionTimeoutKey</code> The caller may specify a timeout.
  *      </ul>
  */
 IOReturn IOPMAssertionCreateWithProperties(

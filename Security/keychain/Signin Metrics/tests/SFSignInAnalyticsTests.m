@@ -103,7 +103,7 @@ static NSString* _path;
 
 - (void)testLogError
 {
-    NSError* error = [NSError errorWithDomain:octagonErrorDomain code:OTErrorBottleID userInfo:@{NSLocalizedDescriptionKey: @"Failed to deserialize bottle peer"}];
+    NSError* error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorBottleID userInfo:@{NSLocalizedDescriptionKey: @"Failed to deserialize bottle peer"}];
     [_metric logRecoverableError:error];
     NSArray* results = [[SFSIALoggerObject logger].database softFailures];
     XCTAssertEqual([results count], 1, @"should have 1 results");
@@ -493,7 +493,7 @@ static NSString* _path;
 
 - (void)testMultipleDBConnections
 {
-    NSError* error = [NSError errorWithDomain:octagonErrorDomain code:OTErrorBottleID userInfo:@{NSLocalizedDescriptionKey: @"Failed to deserialize bottle peer"}];
+    NSError* error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorBottleID userInfo:@{NSLocalizedDescriptionKey: @"Failed to deserialize bottle peer"}];
     dispatch_queue_t test_queue = dispatch_queue_create("com.apple.security.signin.tests", DISPATCH_QUEUE_CONCURRENT_WITH_AUTORELEASE_POOL);
 
     for(int i = 0; i < 1000; i++){

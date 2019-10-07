@@ -3,6 +3,10 @@
 es_US{
     %%Parent{"es_419"}
     Currencies{
+        AMD{
+            "AMD",
+            "dram",
+        }
         CAD{
             "CA$",
             "dólar canadiense",
@@ -53,11 +57,9 @@ es_US{
         RON{"lei"}
         SSP{"£"}
         SYP{"£"}
+        VEF{"Bs"}
     }
     CurrencyPlurals{
-        KGS{
-            one{"som"}
-        }
         MWK{
             one{"kwacha malauí"}
         }
@@ -89,5 +91,5 @@ es_US{
             other{"francos CFA de África Occidental"}
         }
     }
-    Version{"2.1.38.73"}
+    Version{"2.1.47.86"}
 }

@@ -35,15 +35,15 @@ namespace JSC {
 
 class JSPropertyNameEnumerator;
 class Structure;
-class ObjectToStringAdaptiveStructureWatchpoint;
 class ObjectToStringAdaptiveInferredPropertyValueWatchpoint;
+class ObjectToStringAdaptiveStructureWatchpoint;
 
 class StructureRareData final : public JSCell {
 public:
     typedef JSCell Base;
     static const unsigned StructureFlags = Base::StructureFlags | StructureIsImmortal;
 
-    template<typename CellType>
+    template<typename CellType, SubspaceAccess>
     static IsoSubspace* subspaceFor(VM& vm)
     {
         return &vm.structureRareDataSpace;
@@ -89,6 +89,8 @@ public:
     }
 
     DECLARE_EXPORT_INFO;
+
+    void finalizeUnconditionally(VM&);
 
 private:
     friend class Structure;

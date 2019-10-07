@@ -31,16 +31,18 @@
 
 #import "keychain/ckks/CKKSZone.h"
 #import "keychain/ckks/CloudKitDependencies.h"
+#import "keychain/ckks/CKKSCloudKitClassDependencies.h"
 #import "keychain/ckks/CKKSCondition.h"
 #import "keychain/ckks/CKKSZoneChangeFetcher.h"
 #import "keychain/ckks/CKKSNotifier.h"
 #import "keychain/ckks/CKKSSQLDatabaseObject.h"
 #import "keychain/ckks/CKKSRecordHolder.h"
+#import "keychain/ckks/CKKSZoneModifier.h"
 #import "OTBottledPeerRecord.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface OTCloudStore : CKKSZone <CKKSZoneUpdateReceiver, CKKSAccountStateListener>
+@interface OTCloudStore : CKKSZone <CKKSZoneUpdateReceiver>
 
 @property (nonatomic, readonly) NSString* contextID;
 @property (nonatomic, readonly) NSString* dsid;
@@ -53,17 +55,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype) initWithContainer:(CKContainer*) container
                           zoneName:(NSString*)zoneName
-                    accountTracker:(nullable CKKSCKAccountStateTracker*)tracker
+                    accountTracker:(nullable CKKSAccountStateTracker*)accountTracker
                reachabilityTracker:(nullable CKKSReachabilityTracker*)reachabilityTracker
                         localStore:(OTLocalStore*)localStore
                          contextID:(NSString*)contextID
                               dsid:(NSString*)dsid
-fetchRecordZoneChangesOperationClass:(Class<CKKSFetchRecordZoneChangesOperation>) fetchRecordZoneChangesOperationClass
-        fetchRecordsOperationClass:(Class<CKKSFetchRecordsOperation>)fetchRecordsOperationClass
-               queryOperationClass:(Class<CKKSQueryOperation>)queryOperationClass
- modifySubscriptionsOperationClass:(Class<CKKSModifySubscriptionsOperation>) modifySubscriptionsOperationClass
-   modifyRecordZonesOperationClass:(Class<CKKSModifyRecordZonesOperation>) modifyRecordZonesOperationClass
-                apsConnectionClass:(Class<CKKSAPSConnection>) apsConnectionClass
+                      zoneModifier:(CKKSZoneModifier*)zoneModifier
+         cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
                     operationQueue:(nullable NSOperationQueue *)operationQueue;
 
 

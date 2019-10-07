@@ -37,9 +37,11 @@
 #include <sys/random.h>
 
 #include <AssertMacros.h>
-#include <IOKit/audio/AudioTracepoints.h>
+// Unused macros in open source
+#define AudioTrace_Start(a, b, c, d, e, f)
+#define AudioTrace_End(a, b, c, d, e, f)
+#define AudioTrace(a, b, c, d, e, f)
 
-// <rdar://8518215>
 enum
 {
 	kCommandGateStatus_Normal				= 0,
@@ -47,7 +49,6 @@ enum
 	kCommandGateStatus_Invalid
 };
 
-// <rdar://15277619>
 enum
 {
     kLoopCountMaximumDifference             = 5
@@ -93,9 +94,6 @@ public:
 
 OSDefineMetaClassAndStructors(IOAudioClientBufferSet, OSObject)
 
-//	<rdar://8121989>	Restructured for single point of entry and single point of exit so that 
-//	the indentifier post processing tool can properly insert scope when post processing a log file
-//	obtained via fwkpfv.
 
 bool IOAudioClientBufferSet::init(UInt32 setID, IOAudioEngineUserClient *client)
 {
@@ -234,7 +232,7 @@ void IOAudioClientBufferSet::cancelWatchdogTimer()
 		userClient->release();
 	}
 	
-        AudioTrace_End(kAudioTIOAudioEngineUserClient, kTPIOAudioEngineUserClientCancelWatchdogTimer, (uintptr_t)this, timerPending, NULL, NULL);
+    AudioTrace_End(kAudioTIOAudioEngineUserClient, kTPIOAudioEngineUserClientCancelWatchdogTimer, (uintptr_t)this, timerPending, NULL, NULL);
 	return;
 }
 
@@ -414,7 +412,7 @@ IOReturn IOAudioEngineUserClient::safeRegisterClientBuffer(UInt32 audioStreamInd
 	
 	audioDebugIOLog(3, "+ IOAudioEngineUserClient::safeRegisterClientBuffer32 %p \n", sourceBuffer); 
 	
-	require_action_string(audioEngine != NULL, Exit, result = kIOReturnError, "audioEngine is NULL");
+	__Require_Action_String(audioEngine != NULL, Exit, result = kIOReturnError, "audioEngine is NULL");
 
 	audioStream = audioEngine->getStreamForID(audioStreamIndex);
 	if (!audioStream)
@@ -440,7 +438,7 @@ IOReturn IOAudioEngineUserClient::safeRegisterClientBuffer64(UInt32 audioStreamI
 	IOAudioStream *			audioStream;
 	audioDebugIOLog(3, "+ IOAudioEngineUserClient::safeRegisterClientBuffer64 %p \n", sourceBuffer); 
 	
-	require_action_string(audioEngine != NULL, Exit, retVal = kIOReturnError, "audioEngine is NULL");
+	__Require_Action_String(audioEngine != NULL, Exit, retVal = kIOReturnError, "audioEngine is NULL");
 
 	audioStream = audioEngine->getStreamForID(audioStreamIndex);
 	if (!audioStream) {
@@ -1007,7 +1005,7 @@ IOReturn IOAudioEngineUserClient::clientMemoryForType(UInt32 type, UInt32 *flags
     audioDebugIOLog(3, "+ IOAudioEngineUserClient[%p]::clientMemoryForType(0x%lx, 0x%lx, %p)\n", this, (long unsigned int)type, (long unsigned int)*flags, memory);
 
 	assert(audioEngine);
-	require_action_string(audioEngine != NULL, Exit, result = kIOReturnError, "audioEngine is NULL");
+	__Require_Action_String(audioEngine != NULL, Exit, result = kIOReturnError, "audioEngine is NULL");
 
     switch(type) {
         case kIOAudioStatusBuffer:
@@ -1184,7 +1182,7 @@ IOReturn IOAudioEngineUserClient::externalMethod ( uint32_t selector, IOExternal
 	if ((entitlement != NULL) && (entitlement == kOSBooleanTrue)) {
 		entitled = true;
 	}
-	require_action_string(entitled, Exit, result = kIOReturnNotPrivileged, "not entitled");
+	__Require_Action_String(entitled, Exit, result = kIOReturnNotPrivileged, "not entitled");
 
 	// Dispatch the method call
 	switch (selector)
@@ -1837,7 +1835,7 @@ IOReturn IOAudioEngineUserClient::performClientIO(UInt32 firstSampleFrame, UInt3
 						(long unsigned int)sampleIntervalHi, 
 						(long unsigned int)sampleIntervalLo ); 	
     assert(audioEngine);
-    require_action_string(audioEngine != NULL, Exit, result = kIOReturnError, "audioEngine is NULL");
+    __Require_Action_String(audioEngine != NULL, Exit, result = kIOReturnError, "audioEngine is NULL");
     
     if (!isInactive()) 
 	{
@@ -1945,7 +1943,7 @@ IOReturn IOAudioEngineUserClient::performClientOutput(UInt32 firstSampleFrame, U
 					(long int)sampleIntervalLo );
     
 	assert(audioEngine != NULL);
-	require_action_string(audioEngine != NULL, Exit, result = kIOReturnError, "audioEngine is NULL");
+	__Require_Action_String(audioEngine != NULL, Exit, result = kIOReturnError, "audioEngine is NULL");
 
     AudioTrace_Start(kAudioTIOAudioEngineUserClient, kTPIOAudioEngineUserClientPerformClientOutput, (uintptr_t)this, firstSampleFrame, loopCount, sampleIntervalHi);
     

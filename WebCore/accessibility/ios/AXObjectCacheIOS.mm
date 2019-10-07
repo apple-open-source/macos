@@ -26,7 +26,7 @@
 #import "config.h"
 #import "AXObjectCache.h"
 
-#if HAVE(ACCESSIBILITY) && PLATFORM(IOS_FAMILY)
+#if ENABLE(ACCESSIBILITY) && PLATFORM(IOS_FAMILY)
 
 #import "AccessibilityObject.h"
 #import "WebAccessibilityObjectWrapperIOS.h"
@@ -135,7 +135,11 @@ void AXObjectCache::platformHandleFocusedUIElementChanged(Node*, Node* newNode)
 void AXObjectCache::handleScrolledToAnchor(const Node*)
 {
 }
-    
+
+void AXObjectCache::platformPerformDeferredCacheUpdate()
+{
 }
 
-#endif // HAVE(ACCESSIBILITY) && PLATFORM(IOS_FAMILY)
+}
+
+#endif // ENABLE(ACCESSIBILITY) && PLATFORM(IOS_FAMILY)

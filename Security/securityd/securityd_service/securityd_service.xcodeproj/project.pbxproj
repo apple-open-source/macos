@@ -30,19 +30,19 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		189D4664166C166E001D8533 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 189D462D166AC95C001D8533 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 189D465A166C15C1001D8533;
-			remoteInfo = securitydservicectrl;
-		};
 		18F4809A174975FF009724DB /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 189D462D166AC95C001D8533 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 18F4808D17497521009724DB;
 			remoteInfo = KeyStore;
+		};
+		DCF19A6F21AE2CEE002E808F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 189D462D166AC95C001D8533 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1843240D1714797D00196B52;
+			remoteInfo = securitydservice_client;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -299,7 +299,6 @@
 			);
 			dependencies = (
 				18F4809B174975FF009724DB /* PBXTargetDependency */,
-				189D4665166C166E001D8533 /* PBXTargetDependency */,
 			);
 			name = securityd_service;
 			productName = securityd_service;
@@ -317,6 +316,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				DCF19A7021AE2CEE002E808F /* PBXTargetDependency */,
 			);
 			name = securitydservicectrl;
 			productName = securitydservicectrl;
@@ -416,15 +416,15 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		189D4665166C166E001D8533 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 189D465A166C15C1001D8533 /* securitydservicectrl */;
-			targetProxy = 189D4664166C166E001D8533 /* PBXContainerItemProxy */;
-		};
 		18F4809B174975FF009724DB /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 18F4808D17497521009724DB /* KeyStoreEvents */;
 			targetProxy = 18F4809A174975FF009724DB /* PBXContainerItemProxy */;
+		};
+		DCF19A7021AE2CEE002E808F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1843240D1714797D00196B52 /* securitydservice_client */;
+			targetProxy = DCF19A6F21AE2CEE002E808F /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 

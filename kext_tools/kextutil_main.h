@@ -83,10 +83,10 @@ enum {
 #define kOptNoCaches              'c'
 #define kOptNoLoadedCheck         'D'
 #define kOptNoSystemExtensions    'e'
-    
+
 #define kOptInteractive           'i'
 #define kOptInteractiveAll        'I'
-    
+
 #define kOptLoadOnly              'l'
 #define kOptMatchOnly             'm'
 #define kOptNoLoad                'n'
@@ -94,7 +94,7 @@ enum {
 #define kOptAddress               'a'
 #define kOptUseKernelAddresses    'A'
     // arch is down below
-    
+
 #define kOptTests                 't'
 #define kOptSafeBoot              'x'
 #define kOptNoAuthentication      'z'
@@ -147,7 +147,7 @@ typedef struct {
     int                    flag_n;  // used to sanity-check -n, -l, -m
     int                    flag_l;  // before setting behavior-changing
     int                    flag_m;  // variables doLoad & doStartMatching
-    
+
     Boolean                getAddressesFromKernel;          // -A
     Boolean                useRepositoryCaches;             // -c to turn off
     Boolean                useSystemExtensions;             // -e to turn off
@@ -212,7 +212,7 @@ ExitStatus loadKext(
     char         * kextPathCString,
     KextutilArgs * toolArgs,
     Boolean      * fatal);
-    
+
 void notifyNonsecureKextload(OSKextRef aKext);
 
 ExitStatus generateKextSymbols(

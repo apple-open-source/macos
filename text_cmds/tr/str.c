@@ -209,8 +209,8 @@ static void
 genequiv(s)
 	STR *s;
 {
-	int i, p, pri;
-	char src[2], dst[3];
+	int i, p;
+	char collelem[2], chk[2];
 	size_t clen;
 	wchar_t wc;
 
@@ -230,23 +230,15 @@ genequiv(s)
 	}
 
 	/*
-	 * Calculate the set of all characters in the same equivalence class
-	 * as the specified character (they will have the same primary
-	 * collation weights).
-	 * XXX Knows too much about how strxfrm() is implemented. Assumes
-	 * it fills the string with primary collation weight bytes. Only one-
-	 * to-one mappings are supported.
+	 * XXX Only supports locales in which primary & secondary orders match.
 	 * XXX Equivalence classes not supported in multibyte locales.
 	 */
-	src[0] = (char)s->equiv[0];
-	src[1] = '\0';
-	if (MB_CUR_MAX == 1 && strxfrm(dst, src, sizeof(dst)) == 1) {
-		pri = (unsigned char)*dst;
+	if (MB_CUR_MAX == 1) {
 		for (p = 1, i = 1; i < NCHARS_SB; i++) {
-			*src = i;
-			if (strxfrm(dst, src, sizeof(dst)) == 1 && pri &&
-			    pri == (unsigned char)*dst)
+			if (charcoll((const void *)s->equiv, (const void *)&i) == 0)
+			{
 				s->equiv[p++] = i;
+			}
 		}
 		s->equiv[p] = OOBCH;
 	}

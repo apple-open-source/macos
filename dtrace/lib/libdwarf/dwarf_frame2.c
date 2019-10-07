@@ -757,6 +757,7 @@ dwarf_create_fde_from_after_start(Dwarf_Debug dbg,
 	       Augmentation Data bytes themselves. */
 	}
 	break;
+	default:;
     }				/* End switch on augmentation type */
     new_fde = (Dwarf_Fde) _dwarf_get_alloc(dbg, DW_DLA_FDE, 1);
     if (new_fde == NULL) {
@@ -1226,6 +1227,7 @@ _dwarf_get_augmentation_type(Dwarf_Debug dbg,
 			     Dwarf_Small * augmentation_string,
 			     int is_gcc_eh_frame)
 {
+#pragma unused(dbg)
     enum Dwarf_augmentation_type t = aug_unknown;
     char *ag_string = (char *) augmentation_string;
 
@@ -1284,6 +1286,7 @@ get_gcc_eh_augmentation(Dwarf_Debug dbg, Dwarf_Small * frame_ptr,
 			Dwarf_Small * fde_eh_encoding_out,
 			char *augmentation)
 {
+#pragma unused(dbg, section_pointer, fde_eh_encoding_out)
     char *suffix = 0;
     unsigned long augdata_size = 0;
 

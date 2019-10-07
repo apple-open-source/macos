@@ -1,0 +1,51 @@
+#!/usr/bin/perl -T
+#
+# Copyright (c) 2018 Apple Inc. All Rights Reserved.
+#
+# IMPORTANT NOTE: This file is licensed only for use on Apple-branded
+# computers and is subject to the terms and conditions of the Apple Software
+# License Agreement accompanying the package this file is a part of.
+# You may not port this file to another platform without Apple's written consent.
+#
+
+# this code processes the paths in net-snmp-configure to remove internal B&I paths and
+# other things the user does not have access to, like the internal sdk, PrivateFrameworks & libressl
+# "--configure-options" suffers greatly from this. We may get bugs complaining about our obfuscation.
+# the NSC_LNETSNMPLIBS substitution is probably too simplistic, we just need to remove "-lcrypto.35"
+
+use strict;
+use warnings;
+
+{
+    open(my $text_fh, '<', $ARGV[0]) ;
+    while (<$text_fh>) {
+
+        if ($_ =~ /^NSC_LDFLAGS/) {
+            print "NSC_CC_PATH=`xcrun --find cc`\n";
+            print "NSC_SYSROOT_PATH=`xcrun --show-sdk-path --sdk macosx`\n";
+            print $_;
+        } elsif ($_ =~ /^NSC_LNETSNMPLIBS/) {
+            print "NSC_LNETSNMPLIBS=\" \"\n";
+        } elsif ($_ =~ /-F\//) {
+            my $line = $_;
+            $line =~ s/-F\/([0-9]*[A-Z]*[a-z]*\/*\.*)*/--sysroot \${NSC_SYSROOT_PATH} -iframeworkwithsysroot \/System\/Library\/Frameworks\//;
+            $line =~ s/-F\/([0-9]*[A-Z]*[a-z]*\/*\.*)*//;
+            $line =~ s/-I\/usr\/local\/libressl\/include//;
+            if ($line =~ /CC=/) {
+                $line =~ s/CC\=\/([0-9]*[A-Z]*[a-z]*\/*\.*)*/CC=\${NSC_CC_PATH}/;
+            }
+            if ($line =~ /cmd="/) {
+                $line =~ s/cmd="\/([0-9]*[A-Z]*[a-z]*\/*\.*)*/cmd="\${NSC_CC_PATH}/;
+            }
+            if ($line =~ /echo\ "\//) {
+                $line =~ s/echo\ "\/([0-9]*[A-Z]*[a-z]*\/*\.*)*cc/echo "\${NSC_CC_PATH}/;
+            }
+            if ($line =~ /--with-install-prefix=\//) {      # Lies, Damm Lies & Substitutions
+                $line =~ s/with-install-prefix=([0-9]*[A-Z]*[a-z]*\/*\.*_*)*/with-install-prefix=\/tmp\/net_snmp\/Root/
+            }
+            print $line;
+        } else {
+            print $_;
+        }
+    }
+}

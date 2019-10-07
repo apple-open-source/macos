@@ -27,14 +27,11 @@
 /*	Copyright (c) 1988 AT&T	*/
 /*	  All Rights Reserved  	*/
 
-#pragma ident	"@(#)input.c	1.19	08/05/31 SMI"
-
 #include <unistd.h>
 #include <stdlib.h>
 #include <memory.h>
 #include <errno.h>
 #include <sys/mman.h>
-#include <sys/param.h>
 #include <libelf.h>
 #include "decl.h"
 #include "msg.h"

@@ -97,6 +97,7 @@ private:
 };
 
 class WebVTTParser final {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     enum ParseState {
         Initial,
@@ -112,7 +113,7 @@ public:
 
     WebVTTParser(WebVTTParserClient*, ScriptExecutionContext*);
 
-    static inline bool isRecognizedTag(const AtomicString& tagName)
+    static inline bool isRecognizedTag(const AtomString& tagName)
     {
         return tagName == iTag
             || tagName == bTag

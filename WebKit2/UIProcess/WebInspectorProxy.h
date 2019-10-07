@@ -31,6 +31,7 @@
 #include "MessageReceiver.h"
 #include "WebInspectorUtilities.h"
 #include <JavaScriptCore/InspectorFrontendChannel.h>
+#include <WebCore/FloatRect.h>
 #include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/WTFString.h>
@@ -100,12 +101,14 @@ public:
     void close();
     void closeForCrash();
     void reopen();
+    void resetState();
 
     void reset();
     void updateForNewPageProcess(WebPageProxy*);
 
-#if PLATFORM(MAC) && WK_API_ENABLED
-    static RetainPtr<NSWindow> createFrontendWindow(NSRect savedWindowFrame);
+#if PLATFORM(MAC)
+    enum class InspectionTargetType { Local, Remote };
+    static RetainPtr<NSWindow> createFrontendWindow(NSRect savedWindowFrame, InspectionTargetType);
 
     void updateInspectorWindowTitle() const;
     void inspectedViewFrameDidChange(CGFloat = 0);
@@ -119,6 +122,8 @@ public:
     void attachmentViewDidChange(NSView *oldView, NSView *newView);
     void attachmentWillMoveFromWindow(NSWindow *oldWindow);
     void attachmentDidMoveToWindow(NSWindow *newWindow);
+
+    const WebCore::FloatRect& sheetRect() const { return m_sheetRect; }
 #endif
 
 #if PLATFORM(GTK)
@@ -141,6 +146,8 @@ public:
 
     void setAttachedWindowHeight(unsigned);
     void setAttachedWindowWidth(unsigned);
+
+    void setSheetRect(const WebCore::FloatRect&);
 
     void startWindowDrag();
 
@@ -183,6 +190,7 @@ private:
 
     void platformDidCloseForCrash();
     void platformInvalidate();
+    void platformResetState();
     void platformBringToFront();
     void platformBringInspectedPageToFront();
     void platformHide();
@@ -196,11 +204,12 @@ private:
     void platformDetach();
     void platformSetAttachedWindowHeight(unsigned);
     void platformSetAttachedWindowWidth(unsigned);
+    void platformSetSheetRect(const WebCore::FloatRect&);
     void platformStartWindowDrag();
     void platformSave(const String& filename, const String& content, bool base64Encoded, bool forceSaveAs);
     void platformAppend(const String& filename, const String& content);
 
-#if PLATFORM(MAC) && WK_API_ENABLED
+#if PLATFORM(MAC)
     bool platformCanAttach(bool webProcessCanAttach);
 #else
     bool platformCanAttach(bool webProcessCanAttach) { return webProcessCanAttach; }
@@ -218,6 +227,7 @@ private:
     void inspectedURLChanged(const String&);
     void showCertificate(const WebCore::CertificateInfo&);
     void elementSelectionChanged(bool);
+    void setMockCaptureDevicesEnabledOverride(Optional<bool>);
 
     void save(const String& filename, const String& content, bool base64Encoded, bool forceSaveAs);
     void append(const String& filename, const String& content);
@@ -258,13 +268,14 @@ private:
 
     AttachmentSide m_attachmentSide {AttachmentSide::Bottom};
 
-#if PLATFORM(MAC) && WK_API_ENABLED
+#if PLATFORM(MAC)
     RetainPtr<WKInspectorViewController> m_inspectorViewController;
     RetainPtr<NSWindow> m_inspectorWindow;
     RetainPtr<WKWebInspectorProxyObjCAdapter> m_objCAdapter;
     HashMap<String, RetainPtr<NSURL>> m_suggestedToActualURLMap;
     RunLoop::Timer<WebInspectorProxy> m_closeFrontendAfterInactivityTimer;
     String m_urlString;
+    WebCore::FloatRect m_sheetRect;
     bool m_isObservingContentLayoutRect { false };
 #elif PLATFORM(GTK)
     std::unique_ptr<WebInspectorProxyClient> m_client;

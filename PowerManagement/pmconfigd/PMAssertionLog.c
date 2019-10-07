@@ -36,7 +36,7 @@
 
 #define PERIODIC_LOG_INTERVAL                  (15*60)  // 15min
 
-#define AA_MAX_ENTRIES             512
+#define AA_MAX_ENTRIES             64
 
 extern os_log_t    assertions_log;
 #undef   LOG_STREAM
@@ -67,7 +67,7 @@ static  uint32_t        gActivityLogCnt = 0;  // Has to be explicity enabled on 
 
 
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-__private_extern__ bool isDisplayAsleep( );
+__private_extern__ bool isDisplayAsleep(void);
 
 static void logAssertionActivity(assertLogAction  action,
                                  assertion_t     *assertion)
@@ -122,6 +122,14 @@ static void logAssertionActivity(assertLogAction  action,
             return;
         }
         actionStr = CFSTR(kPMASLAssertionActionNameChange);
+        break;
+
+    case kAStateSuspend:
+        actionStr = CFSTR(kPMASLAssertionActionSuspend);
+        break;
+
+    case kAStateResume:
+        actionStr = CFSTR(kPMASLAssertionActionResume);
         break;
 
     default:
@@ -212,10 +220,10 @@ static void logAssertionActivity(assertLogAction  action,
 
 __private_extern__ void logASLAssertionTypeSummary( kerAssertionType type)
 {
-    applyToAllAssertionsSync(&gAssertionTypes[type], false, 
-                             ^(assertion_t *assertion) {
-                             logAssertionEvent(kASummaryLog, assertion);                    
-                             });
+    applyToAssertionsSync(&gAssertionTypes[type], kSelectActive,
+                          ^(assertion_t *assertion) {
+                              logAssertionEvent(kASummaryLog, assertion);
+                          });
 }
 
 static void printAssertionQualifiersToBuf(assertion_t *assertion, char *aBuf, int bufsize)
@@ -409,6 +417,13 @@ static void logAssertionToASL(assertLogAction  action,
         }
         assertionAction = kPMASLAssertionActionNameChange;
         break;
+    case kAStateSuspend:
+        assertionAction = kPMASLAssertionActionSuspend;
+        break;
+    case kAStateResume:
+        assertionAction = kPMASLAssertionActionResume;
+        break;
+
     default:
         return;
 
@@ -501,7 +516,7 @@ static void logAssertionToASL(assertLogAction  action,
 }
 
 
-void logASLAssertionsAggregate( )
+void logASLAssertionsAggregate(void)
 {
     char            aslMessageString[100];
     char            assertionsBuf[100];
@@ -551,13 +566,13 @@ void logASLAssertionsAggregate( )
     }
 }
 
-void logASLAllAssertions( )
+void logASLAllAssertions(void)
 {
     static dispatch_source_t periodicLogger = 0;
 
     if (periodicLogger == 0) {
 
-        periodicLogger = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+        periodicLogger = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _getPMMainQueue());
         dispatch_source_set_event_handler(periodicLogger, ^{
             logASLAllAssertions();
         });
@@ -580,7 +595,7 @@ void logASLAllAssertions( )
 
 
 void logAssertionEvent(assertLogAction  action,
-                          assertion_t     *assertion)
+                       assertion_t     *assertion)
 {
 
     if (gDebugFlags & (kIOPMDebugAssertionASLLog|kIOPMDebugLogAssertionActivity))

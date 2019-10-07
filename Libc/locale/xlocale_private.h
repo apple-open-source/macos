@@ -170,7 +170,7 @@ struct _xlocale {
 					(x) = &__global_locale; \
 				}
 
-#define NORMALIZE_LOCALE(x)	if ((x) == NULL) { \
+#define NORMALIZE_LOCALE(x)	if ((x) == LC_C_LOCALE) { \
 					(x) = _c_locale; \
 				} else if ((x) == LC_GLOBAL_LOCALE) { \
 					(x) = &__global_locale; \

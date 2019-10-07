@@ -17,11 +17,10 @@ es_US{
         154{"Europa septentrional"}
         155{"Europa occidental"}
         AC{"Isla de la Ascensión"}
-        CI{"Côte d’Ivoire"}
+        BA{"Bosnia y Herzegovina"}
         EZ{"zona euro"}
         GG{"Guernsey"}
         QO{"Territorios alejados de Oceanía"}
-        TL{"Timor-Leste"}
         UM{"Islas menores alejadas de EE. UU."}
         VI{"Islas Vírgenes de EE. UU."}
     }
@@ -32,5 +31,5 @@ es_US{
         CI{"CI"}
         TL{"TL"}
     }
-    Version{"2.1.38.73"}
+    Version{"2.1.47.86"}
 }

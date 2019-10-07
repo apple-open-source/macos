@@ -26,7 +26,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/usr.bin/sort/sort.c 289751 2015-10-22 10:57:15Z gabor $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/stat.h>
 #include <sys/sysctl.h>
@@ -103,6 +103,9 @@ struct sort_opts sort_opts_vals;
 
 bool debug_sort;
 bool need_hint;
+
+int (*isblank_f)(int c) = isblank;
+int (*iswblank_f)(wint_t c) = iswblank;
 
 #if defined(SORT_THREADS)
 unsigned int ncpu = 1;
@@ -211,14 +214,10 @@ sort_modifier_empty(struct sort_mods *sm)
 static void
 usage(bool opt_err)
 {
-	struct option *o;
 	FILE *out;
 
-	out = stdout;
-	o = &(long_options[0]);
+	out = opt_err ? stderr : stdout;
 
-	if (opt_err)
-		out = stderr;
 	fprintf(out, getstr(12), getprogname());
 	if (opt_err)
 		exit(2);
@@ -273,8 +272,6 @@ set_hw_params(void)
 {
 	long pages, psize;
 
-	pages = psize = 0;
-
 #if defined(SORT_THREADS)
 	ncpu = 1;
 #endif
@@ -282,7 +279,7 @@ set_hw_params(void)
 	pages = sysconf(_SC_PHYS_PAGES);
 	if (pages < 1) {
 		perror("sysconf pages");
-		psize = 1;
+		pages = 1;
 	}
 	psize = sysconf(_SC_PAGESIZE);
 	if (psize < 1) {
@@ -981,6 +978,11 @@ main(int argc, char **argv)
 	outfile = sort_strdup("-");
 	real_outfile = NULL;
 
+	if(getenv("GNUSORT_COMPATIBLE_BLANKS")) {
+	  isblank_f = isspace;
+	  iswblank_f = iswspace;
+	}
+
 	struct sort_mods *sm = &default_sort_mods_object;
 
 	init_tmp_files();
@@ -1149,11 +1151,7 @@ main(int argc, char **argv)
 			}
 				break;
 			case VERSION_OPT:
-#ifdef __APPLE__
-				printf("%s (%s)\n", VERSION, strlen(SORT_VERSION) ? SORT_VERSION : "0");
-#else
 				printf("%s\n", VERSION);
-#endif
 				exit(EXIT_SUCCESS);
 				/* NOTREACHED */
 				break;

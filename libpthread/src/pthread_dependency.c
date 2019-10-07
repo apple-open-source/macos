@@ -91,8 +91,9 @@ pthread_dependency_wait_np(pthread_dependency_t *pr)
 				pr->__pdep_owner, 0);
 		switch (-ret) {
 		case EFAULT:
-			if (pr->__pdep_opaque1 == pr->__pdep_owner) goto again;
+		case EINTR:
 		case 0:
+			if (pr->__pdep_opaque1 == pr->__pdep_owner) goto again;
 			break;
 		case EOWNERDEAD:
 			PTHREAD_CLIENT_CRASH(pr->__pdep_owner, "Waiting on orphaned dependency");

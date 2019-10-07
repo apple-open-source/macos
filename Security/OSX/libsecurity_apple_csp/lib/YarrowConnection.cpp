@@ -21,28 +21,16 @@
  */
 #include "YarrowConnection.h"
 #include <security_utilities/globalizer.h>
-#include <security_utilities/devrandom.h>
 #include <Security/cssmtype.h>
-
-/* instantiated by C++ runtime at library load/init time */
-class YarrowConnection : public DevRandomGenerator {
-public:
-    YarrowConnection() : DevRandomGenerator(getuid() == 0), writable(getuid() == 0) { }
-    const bool writable;
-};
-
-/* the single global thing */
-static ModuleNexus<YarrowConnection> yarrowConnection;
-
+#include <Security/SecRandom.h>
 
 /* and the exported functions */
 void cspGetRandomBytes(void *buf, unsigned len)
 {
-	yarrowConnection().random(buf, len);
+    MacOSError::check(SecRandomCopyBytes(kSecRandomDefault, len, buf));
 }
 
+/* Unused, since SecRandomCopyBytes returns from a suitable CSPRNG seeded elsewhere */
 void cspAddEntropy(const void *buf, unsigned len)
 {
-    if (yarrowConnection().writable)
-        yarrowConnection().addEntropy(buf, len);
 }

@@ -1,6 +1,2 @@
-build
-build.log
-build.html
-index.html
-contents.html
-cups.roots
+/*.html
+/cups.roots

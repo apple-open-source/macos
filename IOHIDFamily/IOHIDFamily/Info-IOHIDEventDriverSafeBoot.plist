@@ -64,6 +64,12 @@
 					<key>DeviceUsagePage</key>
 					<integer>32</integer>
 				</dict>
+				<dict>
+					<key>DeviceUsage</key>
+					<integer>51</integer>
+					<key>DeviceUsagePage</key>
+					<integer>32</integer>
+				</dict>
 			</array>
 			<key>HIDDefaultBehavior</key>
 			<string></string>
@@ -300,6 +306,8 @@
 			<string>IOHIDEventDriver</string>
 			<key>IOProviderClass</key>
 			<string>IOHIDInterface</string>
+			<key>IOMatchDefer</key>
+			<true/>
 		</dict>
 		<key>HID Repair Event Driver</key>
 		<dict>

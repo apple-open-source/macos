@@ -70,6 +70,7 @@ __FBSDID("$FreeBSD: src/usr.bin/du/du.c,v 1.38 2005/04/09 14:31:40 stefanf Exp $
 
 #ifdef __APPLE__
 #include <get_compat.h>
+#include <sys/sysctl.h>
 #else
 #define COMPAT_MODE(func, mode) (1)
 #endif
@@ -254,6 +255,13 @@ main(int argc, char *argv[])
 
 	(void) getbsize(&notused, &blocksize);
 	blocksize /= 512;
+
+#ifdef __APPLE__
+	// "du" should not have any side effect on disk usage,
+	// so prevent materializing dataless directories upon traversal
+	rval = 1;
+	(void) sysctlbyname("vfs.nspace.prevent_materialization", NULL, NULL, &rval, sizeof(rval));
+#endif /* __APPLE__ */
 
 	rval = 0;
 

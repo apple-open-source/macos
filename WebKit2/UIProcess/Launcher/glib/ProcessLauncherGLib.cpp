@@ -29,12 +29,11 @@
 
 #include "BubblewrapLauncher.h"
 #include "Connection.h"
-#include "FlatpakLauncher.h"
 #include "ProcessExecutablePath.h"
-#include <WebCore/FileSystem.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <glib.h>
+#include <wtf/FileSystem.h>
 #include <wtf/RunLoop.h>
 #include <wtf/UniStdExtras.h>
 #include <wtf/glib/GLibUtilities.h>
@@ -42,12 +41,7 @@
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
-#if PLATFORM(WPE)
-#include <wpe/wpe.h>
-#endif
-
 namespace WebKit {
-using namespace WebCore;
 
 static void childSetupFunction(gpointer userData)
 {
@@ -55,21 +49,14 @@ static void childSetupFunction(gpointer userData)
     close(socket);
 }
 
-#if OS(LINUX)
+#if ENABLE(BUBBLEWRAP_SANDBOX)
 static bool isInsideFlatpak()
 {
     static int ret = -1;
     if (ret != -1)
         return ret;
 
-    GUniquePtr<GKeyFile> infoFile(g_key_file_new());
-    if (!g_key_file_load_from_file(infoFile.get(), "/.flatpak-info", G_KEY_FILE_NONE, nullptr)) {
-        ret = false;
-        return ret;
-    }
-
-    // If we are in a `flatpak build` session we cannot launch ourselves since we aren't installed.
-    ret = !g_key_file_get_boolean(infoFile.get(), "Instance", "build", nullptr);
+    ret = g_file_test("/.flatpak-info", G_FILE_TEST_EXISTS);
     return ret;
 }
 #endif
@@ -92,10 +79,6 @@ void ProcessLauncher::launchProcess()
     case ProcessLauncher::ProcessType::Plugin64:
     case ProcessLauncher::ProcessType::Plugin32:
         executablePath = executablePathOfPluginProcess();
-#if ENABLE(PLUGIN_PROCESS_GTK2)
-        if (m_launchOptions.extraInitializationData.contains("requires-gtk2"))
-            executablePath.append('2');
-#endif
         pluginPath = m_launchOptions.extraInitializationData.get("plugin-path");
         realPluginPath = FileSystem::fileSystemRepresentation(pluginPath);
         break;
@@ -112,20 +95,6 @@ void ProcessLauncher::launchProcess()
     GUniquePtr<gchar> processIdentifier(g_strdup_printf("%" PRIu64, m_launchOptions.processIdentifier.toUInt64()));
     GUniquePtr<gchar> webkitSocket(g_strdup_printf("%d", socketPair.client));
     unsigned nargs = 5; // size of the argv array for g_spawn_async()
-
-#if PLATFORM(WPE)
-    GUniquePtr<gchar> wpeSocket;
-    CString wpeBackendLibraryParameter;
-    if (m_launchOptions.processType == ProcessLauncher::ProcessType::Web) {
-#if defined(WPE_BACKEND_CHECK_VERSION) && WPE_BACKEND_CHECK_VERSION(0, 2, 0)
-        wpeBackendLibraryParameter = FileSystem::fileSystemRepresentation(wpe_loader_get_loaded_implementation_library_name());
-#endif
-        nargs++;
-
-        wpeSocket = GUniquePtr<gchar>(g_strdup_printf("%d", wpe_renderer_host_create_client()));
-        nargs++;
-    }
-#endif
 
 #if ENABLE(DEVELOPER_MODE)
     Vector<CString> prefixArgs;
@@ -146,12 +115,6 @@ void ProcessLauncher::launchProcess()
     argv[i++] = const_cast<char*>(realExecutablePath.data());
     argv[i++] = processIdentifier.get();
     argv[i++] = webkitSocket.get();
-#if PLATFORM(WPE)
-    if (m_launchOptions.processType == ProcessLauncher::ProcessType::Web) {
-        argv[i++] = const_cast<char*>(wpeBackendLibraryParameter.isNull() ? "-" : wpeBackendLibraryParameter.data());
-        argv[i++] = wpeSocket.get();
-    }
-#endif
 #if ENABLE(NETSCAPE_PLUGIN_API)
     argv[i++] = const_cast<char*>(realPluginPath.data());
 #else
@@ -165,19 +128,17 @@ void ProcessLauncher::launchProcess()
 
     GUniqueOutPtr<GError> error;
     GRefPtr<GSubprocess> process;
-#if OS(LINUX)
+
+#if ENABLE(BUBBLEWRAP_SANDBOX)
     const char* sandboxEnv = g_getenv("WEBKIT_FORCE_SANDBOX");
     bool sandboxEnabled = m_launchOptions.extraInitializationData.get("enable-sandbox") == "true";
 
     if (sandboxEnv)
         sandboxEnabled = !strcmp(sandboxEnv, "1");
 
-    if (sandboxEnabled && isInsideFlatpak())
-        process = flatpakSpawn(launcher.get(), m_launchOptions, argv, socketPair.client, &error.outPtr());
-#if ENABLE(BUBBLEWRAP_SANDBOX)
-    else if (sandboxEnabled)
+    // You cannot use bubblewrap within Flatpak so lets ensure it never happens.
+    if (sandboxEnabled && !isInsideFlatpak())
         process = bubblewrapSpawn(launcher.get(), m_launchOptions, argv, &error.outPtr());
-#endif
     else
 #endif
         process = adoptGRef(g_subprocess_launcher_spawnv(launcher.get(), argv, &error.outPtr()));

@@ -14,7 +14,7 @@ _svccfg_properties() {
 	# Get all the property names for the FMRI
 	props=( ${${${(f)"$(svccfg -s $fmri describe)"}:# *}%% *} )
 
-	_multi_parts "$expl[@]" - / props
+	_multi_parts "$@" - / props
 }
 
 _svccfg() {
@@ -62,7 +62,7 @@ _svccfg() {
 		;;
 
 	(validate)
-		_alternative 'files:file:_files' 'fmris:fmri:_svc_fmri -c'
+		_alternative 'files:file:_files' 'fmris:fmri:_svcs_fmri -c'
 		;;
 
 	(export)

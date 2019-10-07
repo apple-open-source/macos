@@ -58,7 +58,9 @@ root{
         default{"latn"}
         latn{
             miscPatterns{
-                atLeast{"⩾{0}"}
+                approximately{"~{0}"}
+                atLeast{"≥{0}"}
+                atMost{"≤{0}"}
                 range{"{0}–{1}"}
             }
             patterns{
@@ -172,7 +174,7 @@ root{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.41.59"}
+    Version{"2.1.49.82"}
     calendar{
         buddhist{
             AmPmMarkers:alias{"/LOCALE/calendar/gregorian/AmPmMarkers"}
@@ -410,6 +412,15 @@ root{
             }
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h–h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm–h:mm B"}
+                    m{"h:mm–h:mm B"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -807,39 +818,48 @@ root{
                 wide:alias{"/LOCALE/calendar/generic/eras/abbreviated"}
             }
             intervalFormats{
-                Gy{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h–h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm–h:mm B"}
+                    m{"h:mm–h:mm B"}
+                }
+                Gyyyy{
                     G{"G y – G y"}
                     y{"G y–y"}
                 }
-                GyM{
+                GyyyyM{
                     G{"GGGGG y-MM – GGGGG y-MM"}
                     M{"GGGGG y-MM – y-MM"}
                     y{"GGGGG y-MM – y-MM"}
                 }
-                GyMEd{
+                GyyyyMEd{
                     G{"GGGGG y-MM-dd, E – GGGGG y-MM-dd, E"}
                     M{"GGGGG y-MM-dd, E – y-MM-dd, E"}
                     d{"GGGGG y-MM-dd, E – y-MM-dd, E"}
                     y{"GGGGG y-MM-dd, E – y-MM-dd, E"}
                 }
-                GyMMM{
+                GyyyyMMM{
                     G{"G y MMM – G y MMM"}
                     M{"G y MMM–MMM"}
                     y{"G y MMM – y MMM"}
                 }
-                GyMMMEd{
+                GyyyyMMMEd{
                     G{"G y MMM d, E – G y MMM d, E"}
                     M{"G y MMM d, E – MMM d, E"}
                     d{"G y MMM d, E – MMM d, E"}
                     y{"G y MMM d, E – y MMM d, E"}
                 }
-                GyMMMd{
+                GyyyyMMMd{
                     G{"G y MMM d – G y MMM d"}
                     M{"G y MMM d – MMM d"}
                     d{"G y MMM d–d"}
                     y{"G y MMM d – y MMM d"}
                 }
-                GyMd{
+                GyyyyMd{
                     G{"GGGGG y-MM-dd – GGGGG y-MM-dd"}
                     M{"GGGGG y-MM-dd – y-MM-dd"}
                     d{"GGGGG y-MM-dd – y-MM-dd"}
@@ -903,10 +923,10 @@ root{
                     a{"h a – h a v"}
                     h{"h–h a v"}
                 }
-                y{
+                yyyy{
                     y{"G y–y"}
                 }
-                yM{
+                yyyyM{
                     M{"GGGGG y-MM – y-MM"}
                     y{"GGGGG y-MM – y-MM"}
                 }
@@ -915,25 +935,25 @@ root{
                     d{"GGGGG y-MM-dd, E – y-MM-dd, E"}
                     y{"GGGGG y-MM-dd, E – y-MM-dd, E"}
                 }
-                yMMM{
+                yyyyMMM{
                     M{"G y MMM–MMM"}
                     y{"G y MMM – y MMM"}
                 }
-                yMMMEd{
+                yyyyMMMEd{
                     M{"G y MMM d, E – MMM d, E"}
                     d{"G y MMM d, E – MMM d, E"}
                     y{"G y MMM d, E – y MMM d, E"}
                 }
-                yMMMM{
+                yyyyMMMM{
                     M{"G y MMMM–MMMM"}
                     y{"G y MMMM – y MMMM"}
                 }
-                yMMMd{
+                yyyyMMMd{
                     M{"G y MMM d – MMM d"}
                     d{"G y MMM d–d"}
                     y{"G y MMM d – y MMM d"}
                 }
-                yMd{
+                yyyyMd{
                     M{"GGGGG y-MM-dd – y-MM-dd"}
                     d{"GGGGG y-MM-dd – y-MM-dd"}
                     y{"GGGGG y-MM-dd – y-MM-dd"}
@@ -1105,6 +1125,15 @@ root{
                 wide:alias{"/LOCALE/calendar/gregorian/eras/abbreviated"}
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h–h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm–h:mm B"}
+                    m{"h:mm–h:mm B"}
+                }
                 Gy{
                     G{"G y – G y"}
                     y{"G y–y"}
@@ -2515,11 +2544,29 @@ root{
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
+        or-narrow{
+            2:alias{"/LOCALE/listPattern/or-short/2"}
+            end:alias{"/LOCALE/listPattern/or-short/end"}
+            middle:alias{"/LOCALE/listPattern/or-short/middle"}
+            start:alias{"/LOCALE/listPattern/or-short/start"}
+        }
+        or-short{
+            2:alias{"/LOCALE/listPattern/or/2"}
+            end:alias{"/LOCALE/listPattern/or/end"}
+            middle:alias{"/LOCALE/listPattern/or/middle"}
+            start:alias{"/LOCALE/listPattern/or/start"}
+        }
         standard{
             2{"{0}, {1}"}
             end{"{0}, {1}"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
+        }
+        standard-narrow{
+            2:alias{"/LOCALE/listPattern/standard-short/2"}
+            end:alias{"/LOCALE/listPattern/standard-short/end"}
+            middle:alias{"/LOCALE/listPattern/standard-short/middle"}
+            start:alias{"/LOCALE/listPattern/standard-short/start"}
         }
         standard-short{
             2:alias{"/LOCALE/listPattern/standard/2"}
@@ -2555,20 +2602,25 @@ root{
         date{
             lenient{
                 "[\\--/]",
-                "[\\:∶]",
+                "[\\:∶︓﹕：]",
             }
         }
         general{
             lenient{
                 "[.․。︒﹒．｡]",
-                "[\$﹩＄$]",
-                "[£₤]",
+                "['ʼ՚᾽᾿’＇]",
+                "[%٪﹪％]",
+                "[؉‰]",
+                "[\$﹩＄]",
+                "[£₤￡]",
+                "[¥￥]",
+                "[₩￦]",
                 "[₨₹{Rp}{Rs}]",
             }
         }
         number{
             lenient{
-                "[\\-‒⁻₋−➖﹣－]",
+                "[\\-‐‒–⁻₋−➖﹣－]",
                 "[,،٫、︐︑﹐﹑，､]",
                 "[+⁺₊➕﬩﹢＋]",
             }

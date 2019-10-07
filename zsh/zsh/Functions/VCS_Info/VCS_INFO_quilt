@@ -1,5 +1,6 @@
 ## vim:ft=zsh:foldmethod=marker
 
+(( ${+functions[VCS_INFO_quilt-match]} )) ||
 function VCS_INFO_quilt-match() {
     emulate -L zsh
     setopt extendedglob
@@ -20,6 +21,7 @@ function VCS_INFO_quilt-match() {
     return 1
 }
 
+(( ${+functions[VCS_INFO_quilt-standalone-detect]} )) ||
 function VCS_INFO_quilt-standalone-detect() {
     emulate -L zsh
     setopt extendedglob
@@ -58,6 +60,7 @@ function VCS_INFO_quilt-standalone-detect() {
     return 1
 }
 
+(( ${+functions[VCS_INFO_quilt-dirfind]} )) ||
 function VCS_INFO_quilt-dirfind() {
     # This is a wrapper around VCS_INFO_bydir_detect(). It makes sure
     # that $vcs_comm[] is unchanged. Currently, changing anything in it
@@ -80,18 +83,19 @@ function VCS_INFO_quilt-dirfind() {
     return ${ret}
 }
 
+(( ${+functions[VCS_INFO_quilt-patch2subject]} )) ||
 function VCS_INFO_quilt-patch2subject() {
     VCS_INFO_patch2subject "$@"
 }
 
-function VCS_INFO_quilt() {
+{
     emulate -L zsh
     setopt extendedglob
     local mode="$1"
     local patches pc tmp qstring root
     local -i ret
     local context
-    local -a applied unapplied all applied_string unapplied_string quiltcommand quilt_env
+    local -a applied unapplied applied_string unapplied_string quiltcommand quilt_env
     local -A hook_com
 
     context=":vcs_info:${vcs}.quilt-${mode}:${usercontext}:${rrn}"
@@ -171,41 +175,15 @@ function VCS_INFO_quilt() {
       }
     fi
 
-    all=( ${(Oa)applied} ${unapplied} )
-
-    if VCS_INFO_hook 'gen-applied-string' "${applied[@]}"; then
-        if (( ${#applied} )); then
-            applied_string=${applied[1]}
-        else
-            applied_string=""
-        fi
-    else
-        applied_string=${hook_com[applied-string]}
-    fi
-    hook_com=()
-    if VCS_INFO_hook 'gen-unapplied-string' "${unapplied[@]}"; then
-        unapplied_string="${#unapplied}"
-    else
-        unapplied_string=${hook_com[unapplied-string]}
-    fi
-
-    if (( ${#applied} )); then
-        zstyle -s "${context}" patch-format qstring || qstring="%p (%n applied)"
-    else
-        zstyle -s "${context}" nopatch-format qstring || qstring="no patch applied"
-    fi
-    hook_com=( applied "${applied_string}" unapplied "${unapplied_string}"
-               applied-n ${#applied}       unapplied-n ${#unapplied}       all-n ${#all} )
-    if VCS_INFO_hook 'set-patch-format' ${qstring}; then
-        zformat -f qstring "${qstring}" "p:${hook_com[applied]}" "u:${hook_com[unapplied]}" \
-                                        "n:${#applied}" "c:${#unapplied}" "a:${#all}"
-    else
-        qstring=${hook_com[patch-replace]}
-    fi
-    hook_com=()
+    VCS_INFO_set-patch-format 'applied' 'applied_string' \
+                              'unapplied' 'unapplied_string' \
+                              ${context} qstring \
+                              '' ''
+    qstring=$REPLY
 
     case ${mode} in
     (standalone)
+        backend_misc[patches]=${qstring}
         VCS_INFO_formats '' '' "${root}" '' '' '' "${qstring}"
         VCS_INFO_set
         ;;
@@ -218,4 +196,3 @@ function VCS_INFO_quilt() {
 
     VCS_INFO_hook 'post-quilt' ${mode} ${patches} ${pc:-\\-nopc-}
 }
-VCS_INFO_quilt "$@"

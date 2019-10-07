@@ -1,0 +1,863 @@
+#!/usr/bin/python
+#
+# Copyright (c) 2019 Apple Inc. All rights reserved.
+#
+# This program tests BLESS(8) Command Line Interface.
+#
+# To add a new test case:
+#    (1) create a test_<testname> routine
+#    (2) update TestListDictionary with the new test information
+#
+import getopt
+import sys
+import os
+import logging
+import plistlib
+import uuid
+import re
+import collections
+from subprocess import Popen, PIPE, call
+from datetime import datetime
+
+Debug = False
+BootPlist = 'com.apple.Boot.plist'
+
+# LOG file for each test_bless program run on the system
+uuid = uuid.uuid1()
+LOGDIR = '/Library/Logs/test_bless/'
+TESTDIR = LOGDIR + str(uuid) + '/'
+LOGFILE = TESTDIR + 'test_bless.log'
+BATSLOG = LOGDIR + 'bats_bless_presubmit.log'
+
+SRCIMG = TESTDIR + 'bless_source.dmg'
+SRCVOL = 'test_bless_src' + str(os.getpid())
+SRCROSVDATAVOL = 'testbless_datavol' + str(os.getpid())
+SRCROSVSYSVOL = 'testbless_sysvol' + str(os.getpid())
+SRCVOLDIR = '/Volumes/'
+
+FOLDER1 = '/System/Library/CoreServices'
+
+TGTIMG = TESTDIR + 'asr_target.dmg'
+TGTVOLDIR = '/Volumes/'
+TGTVOL = 'testasr_tgt' + str(os.getpid())
+
+TYPE_SRC_NAME = 1         # Source is the given name/path
+TYPE_SRC_DUMMYROSVVOL = 2 # Source is a dummy ROSV volume-group to be created
+
+SIZE_SRCDATA = '4g'
+
+start_time4all = 0
+start_time4each = 0
+succeed_count = 0
+fail_count = 0
+known_fail_count = 0
+skip_count = 0
+unclean_count = 0
+
+#
+# /SWE macOS Images location. Also available in /SWE/Teams/MSQ/macOS/asr/macOSJazz
+#
+OSDIR = '/SWE/Teams/CoreOS/Images/prod/ASR/'
+OSJAZZDIR = OSDIR + 'macOSJazz/'
+
+#
+# test_bless program usage
+#
+def usage():
+    print 'Usage:'
+    print '    test_bless all | presubmit | remote (Run all or a subset of tests)'
+    print '    test_bless <testname>               (Run a given <testname>)'
+    print '    test_bless -d <testname>            (Exit right after bless command to debug)'
+    print '    test_bless -l                       (list all <testname>s)'
+    print '    test_bless -c                       (clean up all log directories)'
+    print ''
+
+
+#
+# docmd_common without printing out the command line
+#
+def docmd_common_noprint(cmd):
+    result = Popen(cmd, stdout=PIPE, stderr=PIPE)
+    try:
+        out, errmsg = result.communicate()
+    except:
+        print 'Command interrupted...'
+        exit(1)
+
+    err = result.returncode
+
+    # Log command output messages
+    if err and (cmd[0] != '/sbin/umount'):
+        logging.error(out)
+        logging.error(errmsg)
+    else:
+        logging.info(out)
+        logging.info(errmsg)
+
+    # Print result output messages
+    if (cmd[0] == '/usr/sbin/bless' and cmd[1] != '--version') or \
+       (err and (cmd[0] != '/sbin/umount' and cmd[0] != '/bin/rm' and \
+       cmd[0] != '/bin/ls')):
+        print out
+        print errmsg
+
+    return out, err
+
+
+#
+# Common routine for docmd*
+#
+def docmd_common(cmd):
+    logging.info('call: {}'.format(cmd))
+    print('call: {}'.format(cmd))
+    out, err = docmd_common_noprint(cmd)
+    return out, err
+
+
+#
+# Run cmd, return 0 for success, non-zero for failure
+#
+def docmd(cmd):
+    out, err = docmd_common(cmd)
+    return err
+
+
+#
+# Run cmd, return plist for success, error number for failure
+#
+def docmd_plist(cmd):
+    out, err = docmd_common(cmd)
+    if err == 0:
+        # Success, return plist
+        plist = plistlib.readPlistFromString(out)
+        return plist, 0
+    else:
+        return out, err
+
+
+#
+# Startup tasks before running all the tests
+#
+def Startup():
+    global start_time4all
+
+    cmd = ['/bin/mkdir', '-p', TESTDIR]
+    call(cmd)
+    # If to print out the function name
+    # logging.basicConfig(format='%(asctime)s %(levelname)s (%(funcName)s) %(message)s',
+    #    datefmt='%m/%d/%Y %H:%M:%S', filename=LOGFILE, level=logging.DEBUG)
+    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
+        datefmt='%m/%d/%Y %H:%M:%S', filename=LOGFILE, level=logging.DEBUG)
+    start_time4all = datetime.now()
+
+    logging.info('\nTESTING Begins at {}'.format(start_time4all))
+    print '\nTESTING Begins at {}'.format(start_time4all)
+    docmd_common_noprint(['/usr/bin/sw_vers'])
+    docmd_common_noprint(['/usr/sbin/bless', '--version'])
+
+
+#
+# Teardown tasks after running all the tests
+#
+def Teardown():
+    global succeed_count
+    global fail_count
+    global known_fail_count
+    global skip_count
+    global unclean_count
+    global check_performance
+
+    now = datetime.now()
+    time_elapsed = now - start_time4all
+
+    logging.info('TESTING Ends at {}'.format(now))
+    print 'TESTING Ends at {}'.format(now)
+
+    logging.info('---------------------------------------------------------------')
+    print '---------------------------------------------------------------'
+
+    if known_fail_count:
+        logging.info('Total number of tests SUCCEED=%d, FAIL=%d (KNOWN=%d), SKIP=%d',
+            succeed_count, fail_count, known_fail_count, skip_count)
+        print 'Total number of tests SUCCEED=%d, FAIL=%d (KNOWN=%d), SKIP=%d'%\
+            (succeed_count, fail_count, known_fail_count, skip_count)
+    else:
+        logging.info('Total number of tests SUCCEED=%d, FAIL=%d, SKIP=%d',
+            succeed_count, fail_count, skip_count)
+        print 'Total number of tests SUCCEED=%d, FAIL=%d, SKIP=%d'%\
+            (succeed_count, fail_count, skip_count)
+
+    if unclean_count > 0:
+        logging.info('Total number of tests UNCLEAN=%d (Please clean up manually) ',
+            unclean_count)
+        print 'Total number of tests UNCLEAN=%d (Please clean up manually)'\
+            %unclean_count
+    logging.info('Total running time {} (h:m:s.ms)'.format(time_elapsed))
+    print 'Total running time {} (h:m:s.ms)'.format(time_elapsed)
+    logging.info('Log information in %s\n', LOGFILE)
+    print 'Log information in %s'%LOGFILE
+    call(['/bin/cp', LOGFILE, BATSLOG])
+
+    if fail_count > 0:
+        exit(1)
+    else:
+        exit(0)
+
+
+#
+# Check access permission
+#
+def checkaccess(dir):
+    err = docmd(['/bin/ls', '-d', dir])
+    if err:
+        print 'Can not access ' + dir
+        return 1
+    return 0
+
+
+#
+# For each test case, begin wth this
+#
+def testBegin(testname):
+    global start_time4each
+    logging.info('\nTEST ' + testname + ' BEGIN...')
+    print '\nTESTING ' + testname + ' BEGIN...'
+    start_time4each = datetime.now()
+
+
+#
+# For each test case, end with this
+#
+def testEnd(testname, err):
+    global succeed_count
+    global fail_count
+    global known_fail_count
+    global start_time4each
+
+    time_elapsed = datetime.now() - start_time4each
+
+    if testname.startswith('neg_'):
+        if err:
+            err = 0
+        else:
+            err = 1
+
+    if err:
+        logging.info('TEST ' + testname + ' FAIL  ' +
+            '(elapsed-time {})'.format(time_elapsed) + '\n')
+        print 'TEST ' + testname + ' FAIL  ' + \
+            '(elapsed-time {})'.format(time_elapsed) + '\n'
+        fail_count = fail_count + 1
+        if 'bug-' in testname:
+            known_fail_count = known_fail_count + 1
+    else:
+        logging.info('TEST ' + testname + ' SUCCEED ' +
+            '(elapsed-time {})'.format(time_elapsed) + '\n')
+        print 'TEST ' + testname + ' SUCCEED ' + \
+            '(elapsed-time {})'.format(time_elapsed) + '\n'
+        succeed_count = succeed_count + 1
+
+
+#
+# Clean up all log directories in LOGDIR
+#
+def log_cleanup():
+    cmd = ['/bin/rm', '-rf', LOGDIR]
+    call(cmd)
+
+
+#
+# Get the current OS image name derived from the given dir name
+# % ls -lt <dir> | awk '/AppleInternal.dmg/ {print $9}' | awk 'NR==2 {print $1}'
+#
+def get_osimg_shortname(dir):
+    err = checkaccess(dir)
+    if err:
+        logging.error('Can not access ' + dir)
+        return ''
+    try:
+        cmd = ['/bin/ls', '-lt', dir]
+        ls = Popen(cmd, stdout=PIPE)
+        cmd = "/usr/bin/awk '/AppleInternal.dmg/ {print $9}'"
+        awk1 = Popen(cmd, stdin=ls.stdout, stdout=PIPE, shell=True)
+        cmd = "/usr/bin/awk 'NR==2 {print $1}'"
+        awk2 = Popen(cmd, stdin=awk1.stdout, stdout=PIPE, shell=True)
+        out, err = awk2.communicate()
+        if err:
+            return ''
+        out = out.strip('\n')
+        logging.info('get_osimg_shortname: ' + out)
+        return out
+    except:
+        logging.error('get_osimg_name Failed')
+        print 'get_osimg_name Failed'
+        return ''
+
+
+def get_osimg_name(dir):
+    name = get_osimg_shortname(dir)
+    if name != '':
+        logging.info('get_osimg_name: ' + dir + name)
+        return dir + name
+    else:
+        return ''
+
+
+#
+# Get Volume UUID for the given volume device name
+#
+def DeviceToUUID(dev):
+    cmd = ['/usr/sbin/diskutil', 'info', '-plist',  dev]
+    plist, err = docmd_plist(cmd)
+    try:
+        uuid = plist['VolumeUUID']
+    except:
+        logging.info('Unrecognized VolumeUUID plist format')
+        uuid = ''
+    return uuid
+
+
+#
+# Get the Preboot or Recovery device from the given Container.
+# Input 'Preboot' or 'Recovery' to identify the role for the volume
+#
+def SysCntToRoleVdev(Cdev, role):
+    # Log/List the apfs container information
+    docmd(['/usr/sbin/diskutil', 'apfs', 'list', Cdev])
+
+    # Find Preboot or Recovery device
+    plist, err = docmd_plist(['/usr/sbin/diskutil', 'apfs', 'list', '-plist', Cdev])
+    if err:
+        return ''
+    C_array = plist['Containers']
+    C_dict = C_array[0]
+    V_array = C_dict['Volumes']
+    for entry in V_array:
+        roles_array = entry['Roles']
+        if roles_array and roles_array[0] == role:
+            return '/dev/' + entry['DeviceIdentifier']
+    return ''
+
+
+#
+# Get device name for the given volume name
+#
+def MntptToDevice(volume):
+    cmd = ['/usr/sbin/diskutil', 'info', '-plist',  volume]
+    plist, err = docmd_plist(cmd)
+    try:
+        dev = plist['DeviceNode']
+    except:
+        logging.info('Unrecognized DeviceNode plist format')
+        dev = ''
+    return dev
+
+
+#
+# Get the volume name for the given device name
+#
+def DeviceToMntpt(device):
+    cmd = ['/usr/sbin/diskutil', 'info', '-plist',  device]
+    plist, err = docmd_plist(cmd)
+    try:
+        vol = plist['MountPoint']
+    except:
+        logging.info('Unrecognized MountPoint plist format')
+        vol = ''
+    return vol
+
+
+#
+# Get the APFS Container devname for the given dev
+#
+def DeviceToContainer(dev):
+    cmd = ['/usr/sbin/diskutil', 'info', '-plist', dev]
+    plist, err = docmd_plist(cmd)
+    try:
+        Cdev = plist['APFSContainerReference']
+    except:
+        logging.info('Unrecognized APFS Container plist format')
+        Cdev = ''
+    return '/dev/' + Cdev
+
+
+#
+# Print the device information associated with Source or Target
+#
+def print_dev_info(obj):
+    logging.info(obj.__class__.__name__ + ' Disk Image devname = ' + obj.diskimgdev)
+    logging.info(obj.__class__.__name__ + ' APFS Container devname (apfsCdev) = ' + obj.apfsCdev)
+    logging.info(obj.__class__.__name__ + ' APFS Volume devname (apfsVdev) = ' + obj.apfsVdev)
+    logging.info(obj.__class__.__name__ + ' APFS Volume mountpoint (apfsVmntpt) = ' + obj.apfsVmntpt)
+    logging.info('')
+
+
+#
+# Attach a disk image, and store the following information in obj:
+#    Disk Image devname, obj.diskimgdev (e.g. /dev/disk3)
+#    APFS Container vdevname, obj.apfsCdev (/dev/disk3s2 v.s./dev/disk4)
+#    APFS Volume devname, obj.apfsVdev (e.g. /dev/disk4s1)
+#    APFS Volume mountpoint, obj.apfsVmntpt (e.g. /Volumes/apfsvolume)
+#
+def do_attach(obj, dmg):
+    plist, err = docmd_plist(['/usr/bin/hdiutil', 'attach', '-plist', dmg])
+    if err:
+        return err
+
+    # log some information after the attach
+    docmd(['/usr/sbin/diskutil', 'list'])
+    docmd(['/sbin/mount'])
+
+    entity_array = plist['system-entities']
+    for entity in entity_array:
+        if 'mount-point' in entity :
+            obj.apfsVmntpt = entity['mount-point']
+            obj.apfsVdev = entity['dev-entry']
+        elif entity['content-hint'] == 'GUID_partition_scheme':
+            obj.diskimgdev = entity['dev-entry']
+        elif entity['content-hint'] == 'Apple_APFS':
+            obj.apfsCdev_phys = entity['dev-entry']
+            obj.apfsCdev = DeviceToContainer(obj.apfsCdev_phys)
+
+    print_dev_info(obj)
+    return err
+
+
+#=======================================
+#   MAKE DISKIMAGE/CONTAINER/VOLUME
+#=======================================
+
+#
+# Add Preboot and Recovery Volumes to a container with a System volume
+#
+def add_preb_recov_volumes(sysVdev):
+    err = docmd(['/usr/local/bin/dmtest', 'erb', sysVdev])
+
+    #
+    # Get a copy of com.apple.Boot.plist file from the root volume
+    #
+    root_dev = MntptToDevice('/')
+    root_Cdev = DeviceToContainer(root_dev)
+    root_recovdev = SysCntToRoleVdev(root_Cdev, 'Recovery')
+    err = docmd(['/usr/sbin/diskutil', 'mount', root_recovdev])
+    if err:
+        return err
+    root_recovmntpt = DeviceToMntpt(root_recovdev)
+    root_uuid = DeviceToUUID(root_dev)
+    file = root_recovmntpt + '/' + root_uuid + '/' + BootPlist
+    err = docmd(['/bin/cp', file, TESTDIR])
+    docmd(['/usr/sbin/diskutil', 'unmount', root_recovdev])
+
+    #
+    # Edit com.apple.Boot.plist file with the new sysVdev uuid
+    # to be used for the new Recovery volume created by 'dmtest erb'
+    #
+    sys_uuid = DeviceToUUID(sysVdev)
+    fromfile = TESTDIR + BootPlist
+    # replace root_uuid with sys_uuid in the BootPlist file
+    re = 's/' + root_uuid + '/' + sys_uuid + '/g'
+    err = docmd(['/usr/bin/sed', '-i', '-e', re, fromfile])
+    if err:
+        return err
+
+    # Copy the new BootPlist file to Recovery/sys_uuid/ directory
+    sysCdev = DeviceToContainer(sysVdev)
+    recovdev = SysCntToRoleVdev(sysCdev, 'Recovery')
+    err = docmd(['/usr/sbin/diskutil', 'mount', recovdev])
+    if err:
+        return err
+    recovmntpt = DeviceToMntpt(recovdev)
+    todir = recovmntpt + '/' + sys_uuid
+    err = docmd(['/bin/cp', fromfile, todir])
+
+    # Clean up
+    docmd(['/usr/sbin/diskutil', 'unmount', recovdev])
+    docmd(['/bin/rm', fromfile + '-e'])
+    docmd(['/bin/rm', fromfile])
+    return err
+
+
+#
+# Make a dummy APFS Container with a Read-Only System Volume (Role: System)
+# and a Data Volume (Role: Data)
+#
+def make_dummy_rosv(src):
+    #
+    # Create the Data Volume first because diskutil -groupWith works this way
+    #
+    err = docmd(['/usr/bin/hdiutil', 'create', '-size', SIZE_SRCDATA, '-fs', 'APFS',
+        '-volname', SRCROSVDATAVOL, '-ov', SRCIMG])
+    if err:
+        return err
+
+    err = do_attach(src, SRCIMG)
+    if err:
+        return err
+
+    # Set 'Data' role for the 'Data' volume to be in a volume-group
+    err = docmd(['/usr/sbin/diskutil', 'apfs', 'chrole', src.apfsVdev, 'D'])
+    if err:
+        return err
+
+    # Save the vdev and mountpoint information for the Data Volume
+    src.apfsDVdev = src.apfsVdev
+    src.apfsDVmntpt = src.apfsVmntpt
+
+    #
+    # Create a 'System' volume to be in the same volume-group as 'Data' volume
+    #
+    err = docmd(['/usr/sbin/diskutil', 'apfs', 'addVolume', src.apfsCdev, 'APFS',
+        SRCROSVSYSVOL, '-role', 'S', '-groupWith', src.apfsVdev])
+    if err:
+        return err
+
+    # Update the vdev and mountpoint information for the System Volume
+    src.apfsVmntpt = SRCVOLDIR + SRCROSVSYSVOL
+    src.apfsVdev = MntptToDevice(src.apfsVmntpt)
+    src.name = src.apfsVdev
+
+    #
+    # Fill in some data in System-Volume
+    # XXX Make System-Volume Read-only
+    #
+    dir386 = '/usr/standalone/i386'
+    dircs = '/System/Library/CoreServices'
+    dirvartmp = '/var/tmp'
+    docmd(['/usr/bin/ditto', dir386, src.apfsVmntpt + dir386])
+    docmd(['/usr/bin/ditto', dircs, src.apfsVmntpt + dircs])
+    docmd(['/usr/bin/ditto', dirvartmp, src.apfsVmntpt + dirvartmp])
+
+    # Fill in some data in Data-Volume
+    dirusers = '/Users'
+    docmd(['/bin/mkdir', '-p', src.apfsDVmntpt + dirusers])
+    docmd(['/bin/cp',  '/etc/passwd', src.apfsDVmntpt + dirusers])
+    docmd(['/bin/chmod', '600', src.apfsDVmntpt + dirusers + '/passwd'])
+
+    # Create the 'firmlinks' file in /usr/share on the System-Volume
+    docmd(['/bin/mkdir', '-p', src.apfsVmntpt + '/usr/share/'])
+    flnk_name = src.apfsVmntpt + '/usr/share/' + 'firmlinks'
+    newf = open(flnk_name, 'w+')
+    newf.write('/Users\t	Users\n')
+    newf.close()
+
+    #
+    # Create firmlinks from System-Volume directory to Data-Volume directory
+    # % sudo apfsctl firmlink -s 1 Users /Volumes/system-volume/Users
+    #        (target_path 'Users' is relative to data-volume root, e.g.
+    #         /Volumes/data-volume/ or /Volumes/system-volume/System/Volumes/Data/)
+    #
+    tgt_path = dirusers
+    src_path = src.apfsVmntpt + dirusers
+    docmd(['/bin/mkdir', '-p', src_path])
+    err = docmd(['/usr/local/bin/apfsctl', 'firmlink', '-s', '1', tgt_path, src_path])
+    if err:
+        return err
+
+    # Add Preboot and Recovery Volumes
+    err = add_preb_recov_volumes(src.apfsVdev)
+    if err:
+        return err
+    err = docmd(['/usr/sbin/bless', '--folder', src.apfsVmntpt + FOLDER1, '--bootefi'])
+    return err
+
+
+#
+# Make dummy volume as the target
+#
+def make_dummy_tgtvol(tgt):
+    err = docmd(['/usr/bin/hdiutil', 'create', '-size', tgt.size, '-fs', 'APFS',
+        '-volname', TGTVOL, '-ov', TGTIMG])
+    if err:
+        return err
+    # log the disk image information
+    docmd(['/usr/bin/hdiutil', 'imageinfo', TGTIMG])
+    # attach the target image
+    err = do_attach(tgt, TGTIMG)
+    tgt.name = tgt.apfsVmntpt
+    return err
+
+
+#======================================
+#    CLASSES: SOURCE, TEST
+#======================================
+
+#
+# SOURCE CLASS
+#    Source to be set as a bootable volume
+#    opts = (name, type, mntopt)
+#
+class Source:
+    diskimgdev = ''      # disk image device
+    apfsCdev = ''        # apfs container device
+    apfsVdev = ''        # apfs (System) volume device
+    apfsVmntpt = ''      # apfs (System) volume mountpoint
+    apfsDVdev = ''       # apfs Data volume device
+    apfsDVmntpt = ''     # apfs Data volume mountpoint
+
+    def __init__(self, opts):
+        self.name = opts[0]
+        self.type = opts[1]
+        self.mntopt = opts[2]
+
+    def setup(self):
+        if self.type == TYPE_SRC_NAME:
+            # Just use the given name, opts[0], as the source
+            return 0
+        elif self.type == TYPE_SRC_DUMMYROSVVOL:
+            err = make_dummy_rosv(self)
+            return err
+        else:
+            return 1  # Invalid source type: error out
+
+    def release(self):
+        if self.type == TYPE_SRC_NAME:
+            return
+        elif self.type == TYPE_SRC_DUMMYROSVVOL:
+            global unclean_count
+            err = docmd(['hdiutil', 'detach', self.diskimgdev])
+            if err:
+                logging.info('hdiutil detach ' + self.diskimgdev + ' FAIL UNCLEAN')
+                print 'hdiutil detach ' + self.diskimgdev + ' FAIL UNCLEAN'
+                unclean_count = unclean_count + 1
+        docmd(['/bin/rm', SRCIMG])
+
+
+#
+#  TEST CLASS
+#
+TESTFLAG_Folder = 1 << 1
+TESTFLAG_Info = 1 << 2
+
+class Test:
+    err = 0
+
+    def __init__(self, testname, testflag, srcopts):
+        self.testname = testname
+        self.testflag = testflag
+        self.srcopts = srcopts
+
+    def do_bless(self, src):
+        if (self.testflag & TESTFLAG_Info):
+            err = docmd(['/usr/sbin/bless', '--info', '--verbose', src.apfsVmntpt])
+            if err:
+                return err
+            err = docmd(['/usr/sbin/bless', '--info', src.apfsVmntpt, '--getBoot', '--verbose'])
+            if err:
+                return err
+            err = docmd(['/usr/sbin/bless', '--getBoot', '--verbose', src.apfsVmntpt])
+        elif self.testflag & TESTFLAG_Folder:
+            err = docmd(['/usr/sbin/bless', '--folder', src.apfsVmntpt])
+        return err
+
+    def run(self):
+        global Debug
+
+        testBegin(self.testname)
+        src = Source(self.srcopts)
+        err = src.setup()
+        if err:
+            testEnd(self.testname, err)
+            return err
+
+        err = self.do_bless(src)
+        if Debug:
+            exit(err)
+
+        src.release()
+        testEnd(self.testname, err)
+        return err
+
+
+#======================================
+#    FUNCTIONAL TEST CASES
+#======================================
+#
+# bless has 6 Modes of execution:
+#    Folder, Mount, Device, NetBoot, Info, Unbless
+#
+
+#
+# Folder Mode options to test:
+#    --folder <dir>
+#    --bootefi <file>
+#    --setBoot
+#      (XXX TBD save % nvram -p | grep \"efi-boot-device\\t\" ? to be reset back?)
+#
+def test_dummyrosv_folder(testname):
+    srcopts = ['', TYPE_SRC_DUMMYROSVVOL, '']
+    testflag = TESTFLAG_Folder
+    test = Test(testname, testflag, srcopts)
+    test.run()
+
+
+#
+# Infor Mode options to test:
+#    --info <dir>
+#       XXX % bless --info %s/System/Library/CoreServices --plist ?
+#    --getBoot
+#
+def test_dummyrosv_info(testname):
+    srcopts = ['', TYPE_SRC_DUMMYROSVVOL, '']
+    testflag = TESTFLAG_Info
+    test = Test(testname, testflag, srcopts)
+    test.run()
+
+
+#
+# bless the target volume from asr restoring the latest macOSJazz
+#
+def test_asr_jazz(testname):
+    print 'XXX TBD'
+
+
+#======================================
+#    MAIN
+#======================================
+
+#
+# The list of avaiable test cases/suite
+#
+#    key = <testname>
+#    value = (test function, flag, test description)
+#
+TestListDictionary = {
+    'dummyrosv_folder': (test_dummyrosv_folder, 'presubmit',
+        'Test bless Folder Mode on a dummy ROSV'),
+    'dummyrosv_info': (test_dummyrosv_info, 'presubmit',
+        'Test bless Info Mode on a dummy ROSV'),
+# XXX
+#    'asr_jazz': (test_asr_jazz, 'remote',
+#        'Check bless after asr restoring the latest macOSJazz'),
+}
+
+
+#
+# For 'test_asr -l' command
+#
+def list_tests():
+    print ''
+    print '<testname>'
+    count = 0
+    for key in sorted(TestListDictionary):
+        value = TestListDictionary[key]
+        print key + ' : ' + value[2] + ' (' + value[1] + ')'
+        count = count + 1
+    print ''
+    print 'Can use ending wildcard "*" to run a subset of tests'
+    print 'Total number of test cases : %d'%count
+    print ''
+
+
+#
+# Run test cases with wildcard
+#
+def run_wildcard(tname):
+    count = 0
+    match_dict = {}
+
+    tname_r = tname.replace("*", ".")
+    regex = re.compile(tname_r)
+    for key in TestListDictionary:
+        if re.match(regex, key):
+            match_dict[key] = TestListDictionary[key]
+            count = count + 1
+    if count == 0:
+        return count
+
+    Startup()
+    for key in match_dict:
+        func = match_dict[key][0]
+        func(key)
+    return count
+
+
+#
+# Run sub-group test cases
+#
+def run_subgroup(subgp):
+    for key in TestListDictionary:
+        value = TestListDictionary[key]
+        if value[1] == subgp:
+            func = value[0]
+            func(key)
+
+
+#
+# Run all test cases
+#
+def run_all():
+    for key in TestListDictionary:
+        func = TestListDictionary[key][0]
+        func(key)
+
+
+def main():
+    global TestListDictionary
+    global Debug
+
+    try:
+        options, args = getopt.getopt(sys.argv[1:], 'lcdh', ['debug', 'help'])
+    except:
+        usage()
+        exit(1)
+
+    for opt, val in options:
+        if opt == '-l':
+            list_tests()
+            exit(0)
+        elif opt == '-c':
+            if os.getuid() != 0:
+                print 'Need to run as a super user'
+                exit(1)
+            log_cleanup()
+            exit(0)
+        elif opt in ('-h', '--help'):
+            usage()
+            exit(0)
+        elif opt in ('-d', '--debug'):
+            Debug = True
+
+    if len(args) != 1:
+        usage()
+        exit(1)
+
+    if os.getuid() != 0:
+        print 'Need to run as a super user'
+        exit(1)
+
+    # Make sure logging is setup before using it
+    testname = args[0]
+
+    # Check file access permission
+    if testname == 'all' or testname == 'remote':
+        if checkaccess(OSDIR):
+            exit(1)
+
+    # Run tests
+    if testname == 'all':
+        Startup()
+        run_all()
+    elif testname == 'presubmit' or testname == 'remote':
+        Startup()
+        run_subgroup(testname)
+    elif testname in TestListDictionary:
+        Startup()
+        func = TestListDictionary[testname][0]
+        func(testname)
+    elif testname.endswith('*'):
+        # Startup() is in run_wildcard to start only if there is matched test
+        count = run_wildcard(testname)
+        if count == 0:
+            print 'No matched test name'
+            exit(1)
+    else:
+        print 'Unknown test name : ' + testname
+        exit(1)
+
+    Teardown()
+
+
+#
+# Run Program
+#
+main()

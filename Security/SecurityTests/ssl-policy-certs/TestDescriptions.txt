@@ -1,7 +1,5 @@
 This file describes the tests for the SSL Trust Policy.
 
-The password for the CA p12 is "Password4TestCA"
-
 Definitions
 ----------
 CN = Common Name
@@ -35,8 +33,8 @@ Certificate:	ValidHostnameTest3.cer
 Hostname:	test.apple.com
 CN:		test.apple.com
 SAN not present
-Expected Result:SUCCEED
-Notes:		https://www.niap-ccevs.org/pp/pp_md_v2.0.pdf, FCS_TLSC_EXT.2.2, Assurance Activity Test 3
+Expected Result:FAIL
+Notes:		<rdar://problem/31562470>, https://www.niap-ccevs.org/pp/pp_md_v2.0.pdf, FCS_TLSC_EXT.2.2, Assurance Activity Test 3
 
 Test 4
 ---------
@@ -291,8 +289,8 @@ Certificate:	ValidHostnameTest3.cer
 Hostname:	TEST.apple.com
 CN:		test.apple.com
 SAN not present
-Expected Result:SUCCEED
-Notes:      <rdar://problem/26555272>
+Expected Result:FAIL
+Notes:      <rdar://problem/26555272>, <rdar://problem/31562470>
 
 Test 30
 ---------

@@ -5,9 +5,9 @@ Dave Kelsey <d_kelsey@uk.ibm.com>
 --FILE--
 <?php
 /* Prototype  : bool mkdir(string pathname [, int mode [, bool recursive [, resource context]]])
- * Description: Create a directory 
+ * Description: Create a directory
  * Source code: ext/standard/file.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing mkdir() : usage variation ***\n";
@@ -104,7 +104,7 @@ $inputs = array(
 
       // unset data
       'unset var' => @$unset_var,
-      
+
       // non stream context resource
       'file resource' => $fileRes,
 );
@@ -128,16 +128,16 @@ fclose($fileRes);
 *** Testing mkdir() : usage variation ***
 
 --int 0--
-Error: 2 - mkdir() expects parameter 4 to be resource, integer given, %s(%d)
+Error: 2 - mkdir() expects parameter 4 to be resource, int given, %s(%d)
 
 --int 1--
-Error: 2 - mkdir() expects parameter 4 to be resource, integer given, %s(%d)
+Error: 2 - mkdir() expects parameter 4 to be resource, int given, %s(%d)
 
 --int 12345--
-Error: 2 - mkdir() expects parameter 4 to be resource, integer given, %s(%d)
+Error: 2 - mkdir() expects parameter 4 to be resource, int given, %s(%d)
 
 --int -12345--
-Error: 2 - mkdir() expects parameter 4 to be resource, integer given, %s(%d)
+Error: 2 - mkdir() expects parameter 4 to be resource, int given, %s(%d)
 
 --float 10.5--
 Error: 2 - mkdir() expects parameter 4 to be resource, float given, %s(%d)
@@ -167,22 +167,22 @@ Error: 2 - mkdir() expects parameter 4 to be resource, array given, %s(%d)
 Error: 2 - mkdir() expects parameter 4 to be resource, array given, %s(%d)
 
 --uppercase NULL--
-Error: 2 - mkdir() expects parameter 4 to be resource, null given, %s(%d)
+Directory created
 
 --lowercase null--
-Error: 2 - mkdir() expects parameter 4 to be resource, null given, %s(%d)
+Directory created
 
 --lowercase true--
-Error: 2 - mkdir() expects parameter 4 to be resource, boolean given, %s(%d)
+Error: 2 - mkdir() expects parameter 4 to be resource, bool given, %s(%d)
 
 --lowercase false--
-Error: 2 - mkdir() expects parameter 4 to be resource, boolean given, %s(%d)
+Error: 2 - mkdir() expects parameter 4 to be resource, bool given, %s(%d)
 
 --uppercase TRUE--
-Error: 2 - mkdir() expects parameter 4 to be resource, boolean given, %s(%d)
+Error: 2 - mkdir() expects parameter 4 to be resource, bool given, %s(%d)
 
 --uppercase FALSE--
-Error: 2 - mkdir() expects parameter 4 to be resource, boolean given, %s(%d)
+Error: 2 - mkdir() expects parameter 4 to be resource, bool given, %s(%d)
 
 --empty string DQ--
 Error: 2 - mkdir() expects parameter 4 to be resource, string given, %s(%d)
@@ -209,10 +209,10 @@ Error: 2 - mkdir() expects parameter 4 to be resource, object given, %s(%d)
 Error: 2 - mkdir() expects parameter 4 to be resource, object given, %s(%d)
 
 --undefined var--
-Error: 2 - mkdir() expects parameter 4 to be resource, null given, %s(%d)
+Directory created
 
 --unset var--
-Error: 2 - mkdir() expects parameter 4 to be resource, null given, %s(%d)
+Directory created
 
 --file resource--
 Error: 2 - mkdir(): supplied resource is not a valid Stream-Context resource, %s(%d)

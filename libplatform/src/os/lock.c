@@ -426,9 +426,13 @@ void _os_unfair_lock_corruption_abort(os_ulock_value_t current);
 
 _Static_assert(OS_UNFAIR_LOCK_DATA_SYNCHRONIZATION ==
 		ULF_WAIT_WORKQ_DATA_CONTENTION,
-		"check value for OS_UNFAIR_LOCK_OPTIONS_MASK");
+		"check value for OS_UNFAIR_LOCK_DATA_SYNCHRONIZATION");
+_Static_assert(OS_UNFAIR_LOCK_ADAPTIVE_SPIN ==
+		ULF_WAIT_ADAPTIVE_SPIN,
+		"check value for OS_UNFAIR_LOCK_ADAPTIVE_SPIN");
 #define OS_UNFAIR_LOCK_OPTIONS_MASK \
-		(os_unfair_lock_options_t)(OS_UNFAIR_LOCK_DATA_SYNCHRONIZATION)
+		(os_unfair_lock_options_t)(OS_UNFAIR_LOCK_DATA_SYNCHRONIZATION | \
+				OS_UNFAIR_LOCK_ADAPTIVE_SPIN)
 #define OS_UNFAIR_LOCK_ALLOW_ANONYMOUS_OWNER 0x01000000u
 
 
@@ -645,6 +649,9 @@ void os_unfair_recursive_lock_unlock(os_unfair_recursive_lock_t lock);
 OS_ATOMIC_EXPORT
 bool os_unfair_recursive_lock_tryunlock4objc(os_unfair_recursive_lock_t lock);
 
+OS_ATOMIC_EXPORT
+void os_unfair_recursive_lock_unlock_forked_child(os_unfair_recursive_lock_t lock);
+
 
 static inline os_lock_owner_t
 _os_unfair_lock_owner(os_unfair_lock_t lock)
@@ -652,6 +659,15 @@ _os_unfair_lock_owner(os_unfair_lock_t lock)
 	_os_unfair_lock_t l = (_os_unfair_lock_t)lock;
 	return OS_ULOCK_OWNER(os_atomic_load(&l->oul_value, relaxed));
 }
+
+
+bool
+os_unfair_recursive_lock_owned(os_unfair_recursive_lock_t lock)
+{
+	return _os_unfair_lock_owner(&lock->ourl_lock) ==
+			_os_lock_owner_get_self();
+}
+
 
 void
 os_unfair_recursive_lock_lock_with_options(os_unfair_recursive_lock_t lock,
@@ -731,6 +747,23 @@ os_unfair_recursive_lock_tryunlock4objc(os_unfair_recursive_lock_t lock)
 		return true;
 	}
 	return false;
+}
+
+void
+os_unfair_recursive_lock_unlock_forked_child(os_unfair_recursive_lock_t lock)
+{
+	_os_unfair_lock_t l = (_os_unfair_lock_t)&lock->ourl_lock;
+
+	if (os_atomic_load(&l->oul_value, relaxed) == OS_LOCK_NO_OWNER) {
+		__LIBPLATFORM_CLIENT_CRASH__(0, "Lock was not held");
+	}
+	if (lock->ourl_count) {
+		os_lock_owner_t self = _os_lock_owner_get_self();
+		lock->ourl_count--;
+		os_atomic_store(&l->oul_value, self, relaxed);
+	} else {
+		os_atomic_store(&l->oul_value, OS_LOCK_NO_OWNER, relaxed);
+	}
 }
 
 
@@ -1140,31 +1173,3 @@ _os_once(os_once_t *val, void *ctxt, os_function_t func)
 	return _os_once_gate_wait(og, ctxt, func, self);
 }
 
-
-#pragma mark -
-#pragma mark os_lock_eliding_t
-
-#if !TARGET_OS_IPHONE
-
-#define _os_lock_eliding_t _os_lock_spin_t
-#define _os_lock_eliding_lock _os_lock_spin_lock
-#define _os_lock_eliding_trylock _os_lock_spin_trylock
-#define _os_lock_eliding_unlock _os_lock_spin_unlock
-OS_LOCK_METHODS_DECL(eliding);
-OS_LOCK_TYPE_INSTANCE(eliding);
-
-#pragma mark -
-#pragma mark os_lock_transactional_t
-
-OS_LOCK_STRUCT_DECL_INTERNAL(transactional,
-	uintptr_t volatile osl_lock;
-);
-
-#define _os_lock_transactional_t _os_lock_eliding_t
-#define _os_lock_transactional_lock _os_lock_eliding_lock
-#define _os_lock_transactional_trylock _os_lock_eliding_trylock
-#define _os_lock_transactional_unlock _os_lock_eliding_unlock
-OS_LOCK_METHODS_DECL(transactional);
-OS_LOCK_TYPE_INSTANCE(transactional);
-
-#endif // !TARGET_OS_IPHONE

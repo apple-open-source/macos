@@ -15,6 +15,14 @@
 #ifndef _TKINTPLATDECLS
 #define _TKINTPLATDECLS
 
+#include <os/availability.h>
+
+/*
+ * The system version of Tk is deprecated.
+ * Please include your own version of the library in your project.
+ */
+API_DEPRECATED_BEGIN("Tk API deprecated.", macos(10.0, 10.15))
+
 #ifdef BUILD_tk
 #undef TCL_STORAGE_CLASS
 #define TCL_STORAGE_CLASS DLLEXPORT
@@ -1091,5 +1099,7 @@ extern TkIntPlatStubs *tkIntPlatStubsPtr;
 
 #undef TCL_STORAGE_CLASS
 #define TCL_STORAGE_CLASS DLLIMPORT
+
+API_DEPRECATED_END
 
 #endif /* _TKINTPLATDECLS */

@@ -28,6 +28,7 @@
 #import "CKKSScanLocalItemsOperation.h"
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
+#import "keychain/ot/ObjCImprovements.h"
 
 #if OCTAGON
 
@@ -49,7 +50,7 @@
 }
 
 - (void)groupStart {
-    __weak __typeof(self) weakSelf = self;
+    WEAKIFY(self);
 
     /*
      * Synchronizations (or resynchronizations) are complicated beasts. We will:
@@ -83,89 +84,67 @@
 
         ckks.lastSynchronizeOperation = self;
 
-        uint32_t steps = 7;
+        uint32_t steps = 5;
 
-        ckksinfo("ckksresync", ckks, "Beginning resynchronize (attempt %u)", self.restartCount);
+        ckksnotice("ckksresync", ckks, "Beginning resynchronize (attempt %u)", self.restartCount);
 
         CKOperationGroup* operationGroup = [CKOperationGroup CKKSGroupWithName:@"ckks-resync"];
 
         // Step 1
-        CKKSOutgoingQueueOperation* outgoingOp = [ckks processOutgoingQueue: operationGroup];
-        outgoingOp.name = [NSString stringWithFormat: @"resync-step%u-outgoing", self.restartCount * steps + 1];
-        [self dependOnBeforeGroupFinished:outgoingOp];
-
-        // Step 2
         CKKSFetchAllRecordZoneChangesOperation* fetchOp = [[CKKSFetchAllRecordZoneChangesOperation alloc] initWithContainer:ckks.container
-                                                                                                                 fetchClass:ckks.fetchRecordZoneChangesOperationClass
+                                                                                                                 fetchClass:ckks.cloudKitClassDependencies.fetchRecordZoneChangesOperationClass
                                                                                                                      clients:@[ckks]
                                                                                                                fetchReasons:[NSSet setWithObject:CKKSFetchBecauseResync]
                                                                                                                  apnsPushes:nil
                                                                                                                 forceResync:true
                                                                                                            ckoperationGroup:operationGroup];
-        fetchOp.name = [NSString stringWithFormat: @"resync-step%u-fetch", self.restartCount * steps + 2];
-        [fetchOp addSuccessDependency: outgoingOp];
+        fetchOp.name = [NSString stringWithFormat: @"resync-step%u-fetch", self.restartCount * steps + 1];
         [self runBeforeGroupFinished: fetchOp];
 
-        // Step 3
+        // Step 2
         CKKSIncomingQueueOperation* incomingOp = [[CKKSIncomingQueueOperation alloc] initWithCKKSKeychainView:ckks errorOnClassAFailure:true];
-        incomingOp.name = [NSString stringWithFormat: @"resync-step%u-incoming", self.restartCount * steps + 3];
+        incomingOp.name = [NSString stringWithFormat: @"resync-step%u-incoming", self.restartCount * steps + 2];
         [incomingOp addSuccessDependency:fetchOp];
         [self runBeforeGroupFinished:incomingOp];
 
-        // Now, get serious:
-
-        // Step 4
-        CKKSFetchAllRecordZoneChangesOperation* fetchAllOp = [[CKKSFetchAllRecordZoneChangesOperation alloc] initWithContainer:ckks.container
-                                                                                                                    fetchClass:ckks.fetchRecordZoneChangesOperationClass
-                                                                                                                        clients:@[ckks]
-                                                                                                                   fetchReasons:[NSSet setWithObject:CKKSFetchBecauseResync]
-                                                                                                                    apnsPushes:nil
-                                                                                                                   forceResync:true
-                                                                                                               ckoperationGroup:operationGroup];
-        fetchAllOp.resync = true;
-        fetchAllOp.name = [NSString stringWithFormat: @"resync-step%u-fetchAll", self.restartCount * steps + 4];
-        [fetchAllOp addSuccessDependency: incomingOp];
-        [self runBeforeGroupFinished: fetchAllOp];
-
-        // Step 5
-        CKKSIncomingQueueOperation* incomingResyncOp = [[CKKSIncomingQueueOperation alloc] initWithCKKSKeychainView:ckks errorOnClassAFailure:true];
-        incomingResyncOp.name = [NSString stringWithFormat: @"resync-step%u-incoming", self.restartCount * steps + 5];
-        [incomingResyncOp addSuccessDependency: fetchAllOp];
-        [self runBeforeGroupFinished:incomingResyncOp];
-
-        // Step 6
+        // Step 3
         CKKSScanLocalItemsOperation* scan = [[CKKSScanLocalItemsOperation alloc] initWithCKKSKeychainView:ckks ckoperationGroup:operationGroup];
-        scan.name = [NSString stringWithFormat: @"resync-step%u-scan", self.restartCount * steps + 6];
-        [scan addSuccessDependency: incomingResyncOp];
+        scan.name = [NSString stringWithFormat: @"resync-step%u-scan", self.restartCount * steps + 3];
+        [scan addSuccessDependency: incomingOp];
         [self runBeforeGroupFinished: scan];
 
-        // Step 7:
+        // Step 4
+        CKKSOutgoingQueueOperation* outgoingOp = [ckks processOutgoingQueue: operationGroup];
+        outgoingOp.name = [NSString stringWithFormat: @"resync-step%u-outgoing", self.restartCount * steps + 4];
+        [self dependOnBeforeGroupFinished:outgoingOp];
+
+        // Step 5:
         CKKSResultOperation* restart = [[CKKSResultOperation alloc] init];
-        restart.name = [NSString stringWithFormat: @"resync-step%u-consider-restart", self.restartCount * steps + 7];
+        restart.name = [NSString stringWithFormat: @"resync-step%u-consider-restart", self.restartCount * steps + 5];
         [restart addExecutionBlock:^{
-            __strong __typeof(weakSelf) strongSelf = weakSelf;
-            if(!strongSelf) {
+            STRONGIFY(self);
+            if(!self) {
                 secerror("ckksresync: received callback for released object");
                 return;
             }
 
             if(scan.recordsFound > 0) {
-                if(strongSelf.restartCount >= 3) {
+                if(self.restartCount >= 3) {
                     // we've restarted too many times. Fail and stop.
                     ckkserror("ckksresync", ckks, "restarted synchronization too often; Failing");
-                    strongSelf.error = [NSError errorWithDomain:@"securityd"
+                    self.error = [NSError errorWithDomain:@"securityd"
                                                          code:2
                                                      userInfo:@{NSLocalizedDescriptionKey: @"resynchronization restarted too many times; churn in database?"}];
                 } else {
                     // restart the sync operation.
-                    strongSelf.restartCount += 1;
+                    self.restartCount += 1;
                     ckkserror("ckksresync", ckks, "restarting synchronization operation due to new local items");
-                    [strongSelf groupStart];
+                    [self groupStart];
                 }
             }
         }];
 
-        [restart addSuccessDependency: scan];
+        [restart addSuccessDependency: outgoingOp];
         [self runBeforeGroupFinished: restart];
 
         return true;

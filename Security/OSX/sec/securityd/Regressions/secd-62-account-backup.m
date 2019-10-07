@@ -30,16 +30,16 @@
 
 #include <CoreFoundation/CFDictionary.h>
 
-#include <Security/SecureObjectSync/SOSAccount.h>
+#include "keychain/SecureObjectSync/SOSAccount.h"
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
-#include <Security/SecureObjectSync/SOSInternal.h>
-#include <Security/SecureObjectSync/SOSUserKeygen.h>
-#include <Security/SecureObjectSync/SOSTransport.h>
+#include "keychain/SecureObjectSync/SOSInternal.h"
+#include "keychain/SecureObjectSync/SOSUserKeygen.h"
+#include "keychain/SecureObjectSync/SOSTransport.h"
 #include <Security/SecureObjectSync/SOSViews.h>
 #include <Security/SecureObjectSync/SOSTypes.h>
 
-#import "Security/SecureObjectSync/SOSAccountTrustClassic.h"
-#import "Security/SecureObjectSync/SOSAccountTrustClassic+Expansion.h"
+#import "keychain/SecureObjectSync/SOSAccountTrustClassic.h"
+#import "keychain/SecureObjectSync/SOSAccountTrustClassic+Expansion.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -53,12 +53,12 @@
 
 #include <securityd/SOSCloudCircleServer.h>
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 #include "SOSAccountTesting.h"
 #endif
 #include "SecdTestKeychainUtilities.h"
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 
 static CFDataRef CopyBackupKeyForString(CFStringRef string, CFErrorRef *error)
 {
@@ -68,22 +68,17 @@ static CFDataRef CopyBackupKeyForString(CFStringRef string, CFErrorRef *error)
     });
     return result;
 }
-
-static int kTestTestCount = 129;
-#else
-static int kTestTestCount = 1;
 #endif
 
 static void tests(void)
 {
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
         
     __block CFErrorRef error = NULL;
     CFDataRef cfpassword = CFDataCreate(NULL, (uint8_t *) "FooFooFoo", 10);
     CFStringRef cfaccount = CFSTR("test@test.org");
 
-    secd_test_setup_testviews(); // for running this test solo
-    
+
     CFMutableDictionaryRef changes = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
     SOSAccount* alice_account = CreateAccountForLocalChanges(CFSTR("Alice"), CFSTR("TestSource"));
     SOSAccount* bob_account = CreateAccountForLocalChanges(CFSTR("Bob"), CFSTR("TestSource"));
@@ -216,12 +211,12 @@ static void tests(void)
 
     ok(!SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Bob isn't in the backup yet");
 
-    ok(!SOSAccountIsLastBackupPeer(alice_account, &error), "Alice is not last backup peer - Bob still registers as one");
+    ok(!SOSAccountIsLastBackupPeer(alice_account, &error), "Alice is the not the last backup peer - Bob still registers as one");
     CFReleaseNull(error);
 
-    ok(SOSAccountSetBackupPublicKey_wTxn(bob_account, bob_backup_key, &error), "Set backup public key, alice (%@)", error);
+    ok(SOSAccountSetBackupPublicKey_wTxn(bob_account, bob_backup_key, &error), "Set backup public key, bob (%@)", error);
 
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 1, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 3, "updates");
 
     ok(!SOSAccountIsLastBackupPeer(alice_account, &error), "Alice is not last backup peer");
     CFReleaseNull(error);
@@ -231,7 +226,7 @@ static void tests(void)
     //
     
     ok(SOSAccountRemoveBackupPublickey_wTxn(bob_account, &error), "Removing Bob's backup key (%@)", error);
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 3, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
 
     ok(!SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Bob's backup key is in the backup - should not be so!");
     ok(!SOSAccountIsPeerInBackupAndCurrentInView(alice_account, bobTrust.peerInfo, kTestView1), "Bob is up to date in the backup!");
@@ -240,12 +235,12 @@ static void tests(void)
     // Setting new backup public key for Bob
     //
     
-    ok(SOSAccountSetBackupPublicKey_wTxn(bob_account, bob_backup_key, &error), "Set backup public key, alice (%@)", error);
+    ok(SOSAccountSetBackupPublicKey_wTxn(bob_account, bob_backup_key, &error), "Set backup public key, bob (%@)", error);
     CFReleaseNull(error);
-    
+
     is([bob_account.trust updateView:bob_account name:kTestView1 code:kSOSCCViewEnable err:&error], kSOSCCViewMember, "Enable view (%@)", error);
     ok(SOSAccountNewBKSBForView(bob_account, kTestView1, &error), "Setting new backup public key for bob account failed: (%@)", error);
-    
+
     //bob is in his own backup
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Bob's backup key is not in the backup");
     //alice does not have bob in her backup
@@ -273,9 +268,14 @@ static void tests(void)
 
 int secd_62_account_backup(int argc, char *const *argv)
 {
-    plan_tests(kTestTestCount);
+#if !TARGET_OS_SIMULATOR
+    plan_tests(95);
+#else
+    plan_tests(1);
+#endif
 
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
+    secd_test_setup_testviews(); // for running this test solo
 
     tests();
     

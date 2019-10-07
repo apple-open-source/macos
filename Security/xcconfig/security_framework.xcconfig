@@ -1,0 +1,5 @@
+// This file is for configuration that should apply to Security.framework on all platforms
+
+// When doing TAPI, do all copy and script phases before TAPI occurs. This should remove the need to have OTHER_TAPI_FLAGS_SOS; I don't know why it doesn't.
+INSTALLHDRS_COPY_PHASE = YES
+INSTALLHDRS_SCRIPT_PHASE = YES

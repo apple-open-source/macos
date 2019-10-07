@@ -23,7 +23,10 @@
 #if OCTAGON
 
 #import "OTContext.h"
-#import "SFPublicKey+SPKI.h"
+#import <SecurityFoundation/SFKey_Private.h>
+
+#import "keychain/ot/OTConstants.h"
+#import "keychain/ot/OTDefines.h"
 
 #include <utilities/SecFileLocations.h>
 #include <Security/SecRandomP.h>
@@ -34,7 +37,6 @@
 
 #import <CoreCDP/CDPAccount.h>
 
-NSString* OTCKContainerName = @"com.apple.security.keychain";
 NSString* OTCKZoneName = @"OctagonTrust";
 static NSString* const kOTRampZoneName = @"metadata_zone";
 
@@ -55,7 +57,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 @property (nonatomic, strong) dispatch_queue_t queue;
 @property (nonatomic, weak) id <OTContextIdentityProvider> identityProvider;
 
-@property (nonatomic, strong) CKKSCKAccountStateTracker* accountTracker;
+@property (nonatomic, strong) CKKSAccountStateTracker* accountTracker;
 @property (nonatomic, strong) CKKSLockStateTracker* lockStateTracker;
 @property (nonatomic, strong) CKKSReachabilityTracker *reachabilityTracker;
 
@@ -116,12 +118,8 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
                                                       localStore:_localStore
                                                        contextID:contextID
                                                             dsid:dsid
-                            fetchRecordZoneChangesOperationClass:[CKFetchRecordZoneChangesOperation class]
-                                      fetchRecordsOperationClass:[CKFetchRecordsOperation class]
-                                             queryOperationClass:[CKQueryOperation class]
-                               modifySubscriptionsOperationClass:[CKModifySubscriptionsOperation class]
-                                 modifyRecordZonesOperationClass:[CKModifyRecordZonesOperation class]
-                                              apsConnectionClass:[APSConnection class]
+                                                    zoneModifier:[CKKSViewManager manager].zoneModifier
+                                       cloudKitClassDependencies:[CKKSCloudKitClassDependencies forLiveCloudKit]
                                                   operationQueue:nil];
         } else{
             _cloudStore = cloudStore;
@@ -252,7 +250,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     if (!identity.spID) {
         secerror("octagon: cannot enroll without a spID");
         if(error){
-            *error = [NSError errorWithDomain:octagonErrorDomain code:OTErrorNoIdentity userInfo:@{NSLocalizedDescriptionKey: @"OTIdentity does not have an SOS peer id"}];
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorNoIdentity userInfo:@{NSLocalizedDescriptionKey: @"OTIdentity does not have an SOS peer id"}];
         }
         return nil;
     }
@@ -262,7 +260,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 
     if(!info.escrowedSigningSPKI){
         if(error){
-            *error = [NSError errorWithDomain:octagonErrorDomain code:OTErrorEscrowSigningSPKI userInfo:@{NSLocalizedDescriptionKey: @"Escrowed spinging SPKI is nil"}];
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorEscrowSigningSPKI userInfo:@{NSLocalizedDescriptionKey: @"Escrowed spinging SPKI is nil"}];
         }
         secerror("octagon: Escrowed spinging SPKI is nil");
         return nil;
@@ -271,7 +269,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     info.bottleID = bprec.recordName;
     if(!info.bottleID){
         if(error){
-            *error = [NSError errorWithDomain:octagonErrorDomain code:OTErrorBottleID userInfo:@{NSLocalizedDescriptionKey: @"BottleID is nil"}];
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorBottleID userInfo:@{NSLocalizedDescriptionKey: @"BottleID is nil"}];
         }
         secerror("octagon: BottleID is nil");
         return nil;
@@ -344,7 +342,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         }
     }
     NSString* recordName = [OTBottledPeerRecord constructRecordID:escrowRecordID
-                                                escrowSigningSPKI:[escrowKeys.signingKey.publicKey asSPKI]];
+                                                escrowSigningSPKI:[escrowKeys.signingKey.publicKey encodeSubjectPublicKeyInfo]];
     OTBottledPeerRecord* rec = [self.localStore readLocalBottledPeerRecordWithRecordID:recordName error:&localError];
 
     if (!rec) {
@@ -369,17 +367,138 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     return bps;
 }
 
--(BOOL)bottleExistsLocallyForIdentity:(OTIdentity*)identity logger:(CKKSAnalytics*)logger error:(NSError**)error
+-(BOOL)updateBottleForPeerID:(NSString*)peerID
+               newSigningKey:(SFECKeyPair*)signingKey
+            newEncryptionKey:(SFECKeyPair*)encryptionKey
+                escrowKeySet:(OTEscrowKeys*)keySet
+                       error:(NSError**)error
+{
+    NSError* localError = nil;
+
+    //let's rebottle our bottles!
+    OTBottledPeer *bp = [[OTBottledPeer alloc] initWithPeerID:nil
+                                                         spID:peerID
+                                               peerSigningKey:signingKey
+                                            peerEncryptionKey:encryptionKey
+                                                   escrowKeys:keySet
+                                                        error:&localError];
+    if (!bp || localError !=nil) {
+        secerror("octagon: unable to create a bottled peer: %@", localError);
+        if (error) {
+            *error = localError;
+        }
+        return NO;
+    }
+    OTBottledPeerSigned* bpSigned = [[OTBottledPeerSigned alloc] initWithBottledPeer:bp
+                                                                  escrowedSigningKey:keySet.signingKey
+                                                                      peerSigningKey:signingKey
+                                                                               error:&localError];
+    if(!bpSigned || localError){
+        secerror("octagon: unable to create a signed bottled peer: %@", localError);
+        if (error) {
+            *error = localError;
+        }
+        return NO;
+    }
+
+    OTBottledPeerRecord *newRecord = [bpSigned asRecord:peerID];
+
+    BOOL uploaded = [self.cloudStore uploadBottledPeerRecord:newRecord escrowRecordID:peerID error:&localError];
+    if(!uploaded || localError){
+        secerror("octagon: unable to upload bottled peer: %@", localError);
+        if (error) {
+            *error = localError;
+        }
+        return NO;
+    }
+
+    return YES;
+}
+
+-(BOOL)updateAllBottlesForPeerID:(NSString*)peerID
+                   newSigningKey:(SFECKeyPair*)newSigningKey
+                newEncryptionKey:(SFECKeyPair*)newEncryptionKey
+                           error:(NSError**)error
+{
+    BOOL result = NO;
+    BOOL atLeastOneHasBeenUpdated = NO;
+
+    NSError* localError = nil;
+
+    SFECKeyPair *escrowSigningKey = nil;
+    SFECKeyPair *escrowEncryptionKey = nil;
+    SFAESKey *escrowSymmetricKey = nil;
+
+    result = [self.cloudStore downloadBottledPeerRecord:&localError];
+    if(!result || localError){
+        secnotice("octagon", "could not download bottles from cloudkit: %@", localError);
+    }
+
+    secnotice("octagon", "checking local store for downloaded bottles");
+
+    NSArray<OTBottledPeerRecord*>* bottles = [self.localStore readLocalBottledPeerRecordsWithMatchingPeerID:peerID error:&localError];
+    if(!bottles || localError){
+        secnotice("octagon", "peer %@ enrolled 0 bottles", peerID);
+        if (error) {
+            *error = localError;
+        }
+        return result;
+    }
+
+    //iterate through all the bottles and attempt to update all the bottles
+    for(OTBottledPeerRecord* bottle in bottles){
+
+        NSString* escrowSigningPubKeyHash = [OTEscrowKeys hashEscrowedSigningPublicKey:bottle.escrowedSigningSPKI];
+
+        BOOL foundKeys = [OTEscrowKeys findEscrowKeysForLabel:escrowSigningPubKeyHash
+                                              foundSigningKey:&escrowSigningKey
+                                           foundEncryptionKey:&escrowEncryptionKey
+                                            foundSymmetricKey:&escrowSymmetricKey
+                                                        error:&localError];
+        if(!foundKeys){
+            secnotice("octagon", "found 0 persisted escrow keys for label: %@", escrowSigningPubKeyHash);
+            continue;
+        }
+
+        OTEscrowKeys *retrievedKeySet = [[OTEscrowKeys alloc]initWithSigningKey:escrowSigningKey encryptionKey:escrowEncryptionKey symmetricKey:escrowSymmetricKey];
+
+        if(!retrievedKeySet){
+            secnotice("octagon", "failed to create escrow keys");
+            continue;
+        }
+
+        BOOL updated = [self updateBottleForPeerID:peerID newSigningKey:newSigningKey newEncryptionKey:newEncryptionKey escrowKeySet:retrievedKeySet error:&localError];
+
+        if(!updated || localError){
+            secnotice("octagon", "could not updated bottle for peerid: %@ for escrowed signing public key hash: %@", peerID, escrowSigningPubKeyHash);
+        }else{
+            atLeastOneHasBeenUpdated = YES;
+        }
+    }
+
+    if(!atLeastOneHasBeenUpdated){
+        secerror("octagon: no bottles were updated for : %@", peerID);
+        result = NO;
+
+        localError = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorBottleUpdate userInfo:@{NSLocalizedDescriptionKey: @"bottle update failed, 0 bottles updated."}];
+        if(error){
+            *error = localError;
+        }
+    }else{
+        result = YES;
+        secnotice("octagon", "bottles were updated for : %@", peerID);
+    }
+    return result;
+}
+
+-(BOOL)bottleExistsLocallyForIdentity:(OTIdentity*)identity
+                                error:(NSError**)error
 {
     NSError* localError = nil;
     //read all the local bp records
     NSArray<OTBottledPeerRecord*>* bottles = [self.localStore readLocalBottledPeerRecordsWithMatchingPeerID:identity.spID error:&localError];
     if(!bottles || [bottles count] == 0 || localError != nil){
         secerror("octagon: there are no eligible bottle peer records: %@", localError);
-        [logger logRecoverableError:localError
-                           forEvent:OctagonEventBottleCheck
-                           zoneName:kOTRampZoneName
-                     withAttributes:NULL];
         if(error){
             *error = localError;
         }
@@ -389,7 +508,7 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     BOOL hasBottle = NO;
     //if check all the records if the peer signing public key matches the bottled one!
     for(OTBottledPeerRecord* bottle in bottles){
-        NSData* bottledSigningSPKIData = [[SFECPublicKey fromSPKI:bottle.peerSigningSPKI] keyData];
+        NSData* bottledSigningSPKIData = [[SFECPublicKey keyWithSubjectPublicKeyInfo:bottle.peerSigningSPKI] keyData];
         NSData* currentIdentitySPKIData = [identity.peerSigningKey.publicKey keyData];
 
         //spIDs are the same AND check bottle signature
@@ -407,7 +526,8 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     return hasBottle;
 }
 
--(BOOL)queryCloudKitForBottle:(OTIdentity*)identity logger:(CKKSAnalytics*)logger error:(NSError**)error
+-(BOOL)queryCloudKitForBottle:(OTIdentity*)identity
+                        error:(NSError**)error
 {
     NSError* localError = nil;
     BOOL hasBottle = NO;
@@ -415,16 +535,12 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     BOOL fetched = [self.cloudStore downloadBottledPeerRecord:&localError];
     if(fetched == NO || localError != nil){ //couldn't download bottles
         secerror("octagon: 0 bottled peers downloaded: %@", localError);
-        [logger logRecoverableError:localError
-                           forEvent:OctagonEventBottleCheck
-                           zoneName:kOTRampZoneName
-                     withAttributes:NULL];
         if(error){
             *error = localError;
         }
         return NO;
     }else{ //downloaded bottles, let's check local store
-        hasBottle = [self bottleExistsLocallyForIdentity:identity logger:logger error:&localError];
+        hasBottle = [self bottleExistsLocallyForIdentity:identity error:&localError];
     }
 
     if(error){
@@ -445,9 +561,12 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
         return UNCLEAR;
     }
 
+    // Wait until the account tracker has had a chance to figure out the state
+    [self.accountTracker.ckAccountInfoInitialized wait:5*NSEC_PER_SEC];
+
     if(self.accountTracker.currentCKAccountInfo.accountStatus != CKAccountStatusAvailable){
         if(error){
-            *error = [NSError errorWithDomain:octagonErrorDomain
+            *error = [NSError errorWithDomain:OctagonErrorDomain
                                          code:OTErrorNotSignedIn
                                      userInfo:@{NSLocalizedDescriptionKey: @"iCloud account is logged out"}];
         }
@@ -457,9 +576,6 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 
     NSError* localError = nil;
     OctagonBottleCheckState bottleStatus = NOBOTTLE;
-    CKKSAnalytics* logger = [CKKSAnalytics logger];
-    SFAnalyticsActivityTracker *tracker = [logger logSystemMetricsForActivityNamed:CKKSActivityBottleCheck withAction:nil];
-    [tracker start];
 
     //get our current identity
     OTIdentity* identity = [self.identityProvider currentIdentity:&localError];
@@ -472,11 +588,6 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 
     if(!identity && localError != nil){
         secerror("octagon: do not have an identity: %@", localError);
-        [logger logRecoverableError:localError
-                           forEvent:OctagonEventBottleCheck
-                           zoneName:kOTRampZoneName
-                     withAttributes:NULL];
-        [tracker stop];
         if(error){
             *error = localError;
         }
@@ -484,22 +595,21 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     }
 
     //check locally first
-    BOOL bottleExistsLocally = [self bottleExistsLocallyForIdentity:identity logger:logger error:&localError];
+    BOOL bottleExistsLocally = [self bottleExistsLocallyForIdentity:identity error:&localError];
 
     //no bottle and we have no network
     if(!bottleExistsLocally && !self.reachabilityTracker.currentReachability){
         secnotice("octagon", "no network, can't query");
-        localError = [NSError errorWithDomain:octagonErrorDomain
+        localError = [NSError errorWithDomain:OctagonErrorDomain
                                          code:OTErrorNoNetwork
                                      userInfo:@{NSLocalizedDescriptionKey: @"no network"}];
-        [tracker stop];
         if(error){
             *error = localError;
         }
         return UNCLEAR;
     }
     else if(!bottleExistsLocally){
-        if([self queryCloudKitForBottle:identity logger:logger error:&localError]){
+        if([self queryCloudKitForBottle:identity error:&localError]){
             bottleStatus = BOTTLE;
         }
     }else if(bottleExistsLocally){
@@ -507,21 +617,14 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     }
 
     if(bottleStatus == NOBOTTLE){
-        localError = [NSError errorWithDomain:octagonErrorDomain code:OTErrorNoBottlePeerRecords userInfo:@{NSLocalizedDescriptionKey: @"Peer %@ does not have any bottled records"}];
+        localError = [NSError errorWithDomain:OctagonErrorDomain
+                                         code:OTErrorNoBottlePeerRecords
+                                     userInfo:@{NSLocalizedDescriptionKey: @"Peer does not have any bottled records"}];
         secerror("octagon: this device does not have any bottled peers: %@", localError);
-        [logger logRecoverableError:localError
-                           forEvent:OctagonEventBottleCheck
-                           zoneName:kOTRampZoneName
-                     withAttributes:@{ OctagonEventAttributeFailureReason : @"does not have bottle"}];
         if(error){
             *error = localError;
         }
     }
-    else{
-        [logger logSuccessForEventNamed:OctagonEventBottleCheck];
-    }
-
-    [tracker stop];
 
     return bottleStatus;
 }

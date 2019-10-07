@@ -1,10 +1,16 @@
 #include <TargetConditionals.h>
 
+#if __OBJC2__
+#define SEC_EXP_CLASS(_name) _OBJC_CLASS_$_##_name
+#else
+#define SEC_EXP_CLASS(_name) .objc_class_name_##_name
+#endif
+
 _kSecFrameworkBundleID
 
 #include "Security/SecExports.exp-in"
 #include "Security/SecAccessControlExports.exp-in"
-#include "Security/SecureObjectSync/SOSExports.exp-in"
+#include "keychain/SecureObjectSync/SOSExports.exp-in"
 
 #include "CSSMOID.exp-in"
 
@@ -31,6 +37,9 @@ _SSLSetALPNProtocols
 _SSLCopyALPNProtocols
 __SSLProtocolVersionToWireFormatValue
 _SSLSetECDSACurves
+_SSLCiphersuiteGetName
+_SSLProtocolGetVersionCodepoint
+_SSLProtocolFromVersionCodepoint
 
 #if TARGET_OS_IPHONE
 _SSLAddDistinguishedName
@@ -40,6 +49,10 @@ _SSLCopyDistinguishedNames
 _SSLCopyPeerTrust
 _SSLCreateContext
 _SSLCreateContextWithRecordFuncs
+_SSLCiphersuiteGroupToCiphersuiteList
+_SSLCiphersuiteGroupContainsCiphersuite
+_SSLCiphersuiteMaximumTLSVersion
+_SSLCiphersuiteMinimumTLSVersion
 _SSLGetAllowAnonymousCiphers
 _SSLGetBufferedReadSize
 _SSLGetCertificate
@@ -176,6 +189,10 @@ _SSLClose
 _SSLContextGetTypeID
 _SSLCreateContext
 _SSLCreateContextWithRecordFuncs
+_SSLCiphersuiteGroupToCiphersuiteList
+_SSLCiphersuiteGroupContainsCiphersuite
+_SSLCiphersuiteMaximumTLSVersion
+_SSLCiphersuiteMinimumTLSVersion
 _SSLDisposeContext
 _SSLGetAllowsAnyRoot
 _SSLGetAllowsExpiredCerts
@@ -310,27 +327,69 @@ _SecAbsoluteTimeFromDateContent
 
 /* Internal securityd RPC stuff */
 _CKKSSetupControlProtocol
-#if TARGET_OS_IPHONE || (TARGET_OS_OSX && __x86_64__)
-_OBJC_CLASS_$_CKKSControl
-_OBJC_CLASS_$_SecuritydXPCClient
-#else
-.objc_class_name_CKKSControl
-.objc_class_name_SecuritydXPCClient
+SEC_EXP_CLASS(CKKSControl)
+SEC_EXP_CLASS(SecuritydXPCClient)
+
+#if __OBJC2__
+SEC_EXP_CLASS(SFSignInAnalytics)
+SEC_EXP_CLASS(SecXPCHelper)
+SEC_EXP_CLASS(OTClique)
+SEC_EXP_CLASS(OTConfigurationContext)
+SEC_EXP_CLASS(OTBottleIDs)
+SEC_EXP_CLASS(OTOperationConfiguration)
+_kSecEntitlementPrivateOctagonEscrow
 #endif
 
-#if __OBJC2__ && (TARGET_OS_IPHONE || (TARGET_OS_OSX && __x86_64__))
-_OBJC_CLASS_$_SFSignInAnalytics
-#endif //__OBJC2__ && IPHONE || OSX
+_OTCliqueStatusToString
+_OTCliqueStatusFromString
+
+_OTCliqueCFTypeRepair
+_OTCliqueCFTypePasscode
+_OTCliqueCFTypeUpgrade
+_OTCliqueCDPContextTypeNone
+_OTCliqueCDPContextTypeSignIn
+_OTCliqueCDPContextTypeRepair
+_OTCliqueCDPContextTypeFinishPasscodeChange
+_OTCliqueCDPContextTypeRecoveryKeyGenerate
+_OTCliqueCDPContextTypeRecoveryKeyNew
+_OTCliqueCDPContextTypeUpdatePasscode
 
 _OTSetupControlProtocol
 _OTDefaultContext
-#if TARGET_OS_IPHONE || (TARGET_OS_OSX && __x86_64__)
-_OBJC_CLASS_$_OTControl
-_OBJC_CLASS_$_SecuritydXPCClient
-#else
-.objc_class_name_OTControl
-.objc_class_name_SecuritydXPCClient
-#endif
+_OctagonErrorDomain
+_OTProtocolPairing
+_OTProtocolPiggybacking
+_OTDefaultsDomain
+_OTDefaultsOctagonEnable
+_OTTrustStatusChangeNotification
+
+_OctagonEventAttributeZoneName
+_OctagonEventAttributeFailureReason
+_OctagonEventAttributeTimeSinceLastPostedFollowUp
+
+_SecEscrowRequestHavePrecord
+_SecEscrowRequestPendingPasscode
+_SecEscrowRequestPendingCertificate
+
+_OTCKContainerName
+_CuttlefishTrustZone
+_CuttlefishErrorDomain
+_TrustedPeersHelperErrorDomain
+
+_OctagonPlatformSupportsSOS
+_OctagonSetPlatformSupportsSOS
+_OctagonPerformSOSUpgrade
+_OctagonSetSOSUpgrade
+_OctagonIsEnabled
+_OctagonSetIsEnabled
+_OctagonRecoveryKeyIsEnabled
+_OctagonRecoveryKeySetIsEnabled
+_OctagonAuthoritativeTrustIsEnabled
+_OctagonAuthoritativeTrustSetIsEnabled
+
+SEC_EXP_CLASS(OTJoiningConfiguration)
+SEC_EXP_CLASS(OTControl)
+SEC_EXP_CLASS(SecuritydXPCClient)
 
 _SecAccessGroupsGetCurrent
 _SecAccessGroupsSetCurrent
@@ -342,16 +401,25 @@ _securityd_send_sync_and_do
 _securityd_send_async_and_do
 #if TARGET_OS_IOS
 _SecSecuritySetMusrMode
+_SecSecuritySetPersonaMusr
 #endif
+#if TARGET_OS_OSX
 __SecSetSecuritydTargetUID
+#endif
 
 _SecDERItemCopyOIDDecimalRepresentation
 _SecDigestCreate
-_SecFrameworkCopyResourceContents
 _SecFrameworkCopyResourceURL
 _SecCopyErrorMessageString
 
+_SecFrameworkCopyIPAddressData
+_SecFrameworkIsDNSName
+_SecFrameworkIsIPAddress
+
 _SecPKCS12Import
+#if TARGET_OS_OSX
+_SecPKCS12Import_ios
+#endif
 _SecRandomCopyBytes
 _SecSHA1DigestCreate
 _SecTaskCopySigningIdentifier
@@ -360,6 +428,7 @@ _SecTaskCopyValueForEntitlement
 _SecTaskCopyValuesForEntitlements
 _SecTaskCreateFromSelf
 _SecTaskCreateWithAuditToken
+_SecTaskCreateWithXPCMessage
 _SecTaskGetCodeSignStatus
 _SecTaskGetTypeID
 _SecTaskEntitlementsValidated
@@ -377,12 +446,6 @@ _SecSMIMEFindBulkAlgForRecipients
 
 //Localization
 _SecFrameworkCopyLocalizedString
-
-//
-// utilities
-//
-_readFileSizet
-_writeFileSizet
 
 #if TARGET_OS_OSX
 //
@@ -462,6 +525,8 @@ _AuthorizationCreateWithAuditToken
 _AuthorizationCreateFromExternalForm
 _AuthorizationExecuteWithPrivileges
 _AuthorizationExecuteWithPrivilegesExternalForm
+_AuthorizationExecuteWithPrivilegesInternal
+_AuthorizationExecuteWithPrivilegesExternalFormInternal
 _AuthorizationFree
 _AuthorizationFreeItemSet
 _AuthorizationMakeExternalForm
@@ -708,7 +773,6 @@ _kSecDigestHMACSHA2
 _SecExternalSourceTransformCreate
 _SecExternalSourceSetValue
 _kSecDecodeTypeAttribute
-_CreateSecTransformErrorRef
 _kSecTransformAbortOriginatorKey
 _SecGroupTransformHasMember
 _kSecDigestTypeAttribute
@@ -863,6 +927,9 @@ _SecIdentityUpdatePreferenceItem
 _SecInferLabelFromX509Name
 _SecItemAdd_ios
 _SecItemCopyMatching_ios
+_SecItemUpdateTokenItems_ios
+
+_SecKeyGeneratePair_ios
 
 _SecItemCopyParentCertificates_osx
 _SecItemParentCachePurge
@@ -1288,6 +1355,45 @@ _kSecAsn1OCSPSignatureTemplate
 _kSecAsn1OCSPSingleResponseTemplate
 _kSecAsn1OCSPTbsRequestTemplate
 
+_SecAsn1TaggedTemplateChooser
+
+_kSecAsn1ATVTemplate
+_kSecAsn1GeneralNameTemplate
+_kSecAsn1GenNameOtherNameTemplate
+_kSecAsn1NameTemplate
+_kSecAsn1OtherNameTemplate
+_kSecAsn1RDNTemplate
+
+_kSecAsn1CertExtensionTemplate
+_kSecAsn1RevokedCertTemplate
+_kSecAsn1SequenceOfCertExtensionTemplate
+_kSecAsn1SequenceOfRevokedCertTemplate
+_kSecAsn1SignedCertOrCRLTemplate
+_kSecAsn1SignedCertTemplate
+_kSecAsn1SignedCrlTemplate
+_kSecAsn1TBSCertificateTemplate
+_kSecAsn1TBSCrlTemplate
+_kSecAsn1ValidityTemplate
+
+_kSecAsn1AccessDescriptionTemplate
+_kSecAsn1AuthorityInfoAccessTemplate
+_kSecAsn1AuthorityKeyIdTemplate
+_kSecAsn1BasicConstraintsTemplate
+_kSecAsn1CRLDistributionPointsTemplate
+_kSecAsn1CertPoliciesTemplate
+_kSecAsn1DistPointFullNameTemplate
+_kSecAsn1DistPointRDNTemplate
+_kSecAsn1DistributionPointTemplate
+_kSecAsn1IssuingDistributionPointTemplate
+_kSecAsn1NameConstraintsTemplate
+_kSecAsn1PolicyConstraintsTemplate
+_kSecAsn1PolicyInformationTemplate
+_kSecAsn1PolicyMappingsTemplate
+_kSecAsn1PolicyQualifierTemplate
+_kSecAsn1QC_StatementTemplate
+_kSecAsn1QC_StatementsTemplate
+_kSecAsn1SemanticsInformationTemplate
+
 #elif TARGET_OS_OSX
 _PORT_FreeArena
 _PORT_NewArena
@@ -1601,6 +1707,8 @@ _kSecRequirementKeyEntitlements
 _kSecRequirementKeyIdentifier
 _kSecRequirementKeyPackageChecksum
 _kSecRequirementKeyChecksumAlgorithm
+_kSecRequirementKeySecureTimestamp
+_kSecRequirementKeyTeamIdentifier
 _kSecCFErrorArchitecture
 _kSecCFErrorPath
 _kSecCFErrorPattern
@@ -1621,6 +1729,7 @@ _SecAssessmentUpdate
 _SecAssessmentCopyUpdate
 _SecAssessmentControl
 _SecAssessmentGetTypeID
+_SecAssessmentLegacyCheck
 _SecAssessmentRegisterPackageTicket
 _SecAssessmentTicketLookup
 _SecAssessmentTicketRegister
@@ -1915,9 +2024,6 @@ _checkpw_internal
 //
 _secdebug_internal
 _secdebugfunc_internal
-_weak_os_log_impl
-_weak_os_log_create
-_weak_os_log_type_enabled
 _secLogEnable
 _secLogDisable
 
@@ -1973,6 +2079,7 @@ _OBJC_CLASS_$_SFAnalyticsActivityTracker
 _OBJC_CLASS_$_SFAnalyticsMultiSampler
 _OBJC_CLASS_$_SFAnalyticsSampler
 _OBJC_CLASS_$_SFAnalyticsSQLiteStore
+_OBJC_CLASS_$_SecCoreAnalytics
 _OBJC_METACLASS_$_SFSignInAnalytics
 _SFAnalyticsMaxEventsToReport
 _SFSQLiteJournalSuffixes
@@ -1981,7 +2088,7 @@ _SFAnalyticsTableSuccessCount
 _SFAnalyticsTableHardFailures
 _SFAnalyticsTableSoftFailures
 _SFAnalyticsTableSamples
-_SFAnalyticsTableAllEvents
+_SFAnalyticsTableNotes
 _SFAnalyticsColumnSuccessCount
 _SFAnalyticsColumnHardFailureCount
 _SFAnalyticsColumnSoftFailureCount
@@ -1989,6 +2096,8 @@ _SFAnalyticsColumnSampleValue
 _SFAnalyticsColumnSampleName
 _SFAnalyticsEventTime
 _SFAnalyticsEventType
+_SFAnalyticsEventTypeErrorEvent
+_SFAnalyticsEventErrorDestription
 _SFAnalyticsEventClassKey
 _SFAnalyticsUserDefaultsSuite
 _SFAnalyticsFireSamplersNotification
@@ -1996,8 +2105,11 @@ _SFAnalyticsTableSchema
 _SFAnalyticsAttributeErrorCode
 _SFAnalyticsAttributeErrorDomain
 _SFAnalyticsAttributeErrorUnderlyingChain
+_SFAnalyticsAttributeLastUploadTime
+_SFAnalyticsTopicCloudServices
 _SFAnalyticsTopicKeySync
-_SFAnaltyicsTopicTrust
+_SFAnalyticsTopicTransparency
+_SFAnalyticsTopicTrust
 _SFAnalyticsErrorDomain
 
 _OBJC_CLASS_$_SOSAnalytics
@@ -2016,11 +2128,24 @@ _LKAEventUpgrade
 
 _LKAReportKeychainUpgradeOutcome
 _LKAReportKeychainUpgradeOutcomeWithError
+_LKABackupReportStart
+_LKABackupReportEnd
 
 //
 // Padding
 //
 _SecPaddingCompute
+
+//
+// Escrow Request Support
+//
+#if __OBJC2__
+
+_OBJC_CLASS_$_SecEscrowRequest
+
+#endif // __OBJC2__
+
+_SecEscrowRequestSetupControlProtocol
 
 //
 // Code coverage support
@@ -2029,3 +2154,8 @@ _SecPaddingCompute
 _VPMergeHook*
 ___llvm_profile_*
 _lprofCurFilename*
+
+_SecCreateCFErrorWithXPCObject
+_SecCreateXPCObjectWithCFError
+
+_SecItemVerifyBackupIntegrity

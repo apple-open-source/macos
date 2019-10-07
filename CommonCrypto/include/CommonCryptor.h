@@ -85,7 +85,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+
+#if defined(_MSC_VER)
+#include <availability.h>
+#else
 #include <os/availability.h>
+#endif
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -636,7 +642,6 @@ CCCryptorStatus CCCrypt(
     @constant kCCModeCBC - Cipher Block Chaining Mode.
     @constant kCCModeCFB - Cipher Feedback Mode.
     @constant kCCModeOFB - Output Feedback Mode.
-    @constant kCCModeXTS - XEX-based Tweaked CodeBook Mode.
     @constant kCCModeRC4 - RC4 as a streaming cipher is handled internally as a mode.
     @constant kCCModeCFB8 - Cipher Feedback Mode producing 8 bits per round.
 */
@@ -647,10 +652,7 @@ enum {
 	kCCModeCBC		= 2,
 	kCCModeCFB		= 3,
 	kCCModeCTR		= 4,
-	kCCModeF8		= 5, // Unimplemented for now (not included)
-	kCCModeLRW		= 6, // Unimplemented for now (not included)
 	kCCModeOFB		= 7,
-	kCCModeXTS		= 8,
 	kCCModeRC4		= 9,
 	kCCModeCFB8		= 10,
 };
@@ -673,16 +675,14 @@ typedef uint32_t CCPadding;
 /*!
     @enum       Mode options - Not currently in use.
 
- @discussion Values used to specify options for modes. This was used for counter
-            mode operations in 10.8, now only Big Endian mode is supported.
+    @discussion Values used to specify options for modes. This was used for counter
+    mode operations in 10.8, now only Big Endian mode is supported.
 
-    @constant kCCModeOptionCTR_LE - CTR Mode Little Endian.
     @constant kCCModeOptionCTR_BE - CTR Mode Big Endian.
 */
 
 enum {
-	kCCModeOptionCTR_LE	= 0x0001, // Deprecated in iPhoneOS 6.0 and MacOSX10.9
-	kCCModeOptionCTR_BE = 0x0002
+    kCCModeOptionCTR_BE = 2
 };
 
 typedef uint32_t CCModeOptions;

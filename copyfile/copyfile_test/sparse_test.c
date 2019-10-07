@@ -17,11 +17,6 @@
 #include "test_utils.h"
 #include "systemx.h"
 
-#define OPEN_FLAGS	O_CREAT|O_TRUNC|O_RDWR
-#define OPEN_PERM	0666
-#define MKDIR_PERM	0777
-#define NAME_MOD	999
-
 /*
  * Copy the file pointed to by src_fd (and orig_name) to copy_name,
  * using copyfile()/fcopyfile() and COPYFILE_DATA. If do_sparse, also pass COPYFILE_DATA_SPARSE.
@@ -69,18 +64,18 @@ static bool test_copy(int src_fd, char* orig_name, char* copy_name, bool do_spar
 
 	// Next, verify fcopyfile().
 	// Make an fd for the destination.
-	assert_with_errno((copy_fd = open(copy_name, OPEN_FLAGS, OPEN_PERM)) > 0);
+	assert_with_errno((copy_fd = open(copy_name, DEFAULT_OPEN_FLAGS, DEFAULT_OPEN_PERM)) > 0);
 
 	// Call fcopyfile().
 	assert_with_errno((cpf_state = copyfile_state_alloc()) != NULL);
 	assert_no_err(fcopyfile(src_fd, copy_fd, cpf_state, flags));
 
-	// 1. The copy is a sparse file (if start_off is a multiple of the block size).
+	// 1. The copy is a sparse file (if start_off is 0).
 	// 2. The copyfile_state_t for the copy returns that all bytes were copied.
 	assert_no_err(fstat(src_fd, &orig_sb));
 	assert_no_err(fstat(copy_fd, &copy_sb));
 	result &= verify_copy_sizes(&orig_sb, &copy_sb, cpf_state,
-								start_off % copy_sb.st_blksize ? false : do_sparse, start_off);
+		start_off > 0 ? false : do_sparse, start_off);
 
 	// 3. The copy and the source have identical contents.
 	if (start_off == 0) {
@@ -217,13 +212,13 @@ bool do_sparse_test(const char* apfs_test_directory, size_t block_size) {
 		sub_test_success = false;
 
 		// Make new names for this file and its copies.
-		test_file_id = rand() % NAME_MOD;
+		test_file_id = rand() % DEFAULT_NAME_MOD;
 		create_test_file_name(apfs_test_directory, "sparse", test_file_id, out_name);
 		create_test_file_name(apfs_test_directory, "copy_sparse", test_file_id, sparse_copy_name);
 		create_test_file_name(apfs_test_directory, "copy_full", test_file_id, full_copy_name);
 
 		// Create the test file.
-		fd = open(out_name, OPEN_FLAGS, OPEN_PERM);
+		fd = open(out_name, DEFAULT_OPEN_FLAGS, DEFAULT_OPEN_PERM);
 		assert_with_errno(fd >= 0);
 
 		// Write to the test file, making it sparse.
@@ -277,19 +272,19 @@ bool do_sparse_recursive_test(const char *apfs_test_directory, size_t block_size
 	assert_with_errno(snprintf(exterior_dir_src, BSIZE_B, "%s/recursive_src", apfs_test_directory) > 0);
 	assert_with_errno(snprintf(interior_dir_src, BSIZE_B, "%s/interior", exterior_dir_src) > 0);
 
-	assert_no_err(mkdir(exterior_dir_src, MKDIR_PERM));
-	assert_no_err(mkdir(interior_dir_src, MKDIR_PERM));
+	assert_no_err(mkdir(exterior_dir_src, DEFAULT_MKDIR_PERM));
+	assert_no_err(mkdir(interior_dir_src, DEFAULT_MKDIR_PERM));
 
-	test_file_id = rand() % NAME_MOD;
+	test_file_id = rand() % DEFAULT_NAME_MOD;
 	create_test_file_name(exterior_dir_src, "exterior_sparse_file", test_file_id, exterior_file_src);
 	create_test_file_name(interior_dir_src, "interior_sparse_file", test_file_id, interior_file_src);
 
 	// Create the actual test files.
-	exterior_file_src_fd = open(exterior_file_src, OPEN_FLAGS, OPEN_PERM);
+	exterior_file_src_fd = open(exterior_file_src, DEFAULT_OPEN_FLAGS, DEFAULT_OPEN_PERM);
 	assert_with_errno(exterior_file_src_fd >= 0);
 	write_start_and_end_holes(exterior_file_src_fd, block_size);
 
-	interior_file_src_fd = open(interior_file_src, OPEN_FLAGS, OPEN_PERM);
+	interior_file_src_fd = open(interior_file_src, DEFAULT_OPEN_FLAGS, DEFAULT_OPEN_PERM);
 	assert_with_errno(interior_file_src_fd >= 0);
 	write_middle_hole(interior_file_src_fd, block_size);
 
@@ -344,20 +339,20 @@ bool do_fcopyfile_offset_test(const char *apfs_test_directory, size_t block_size
 	printf("START [fcopyfile_offset]\n");
 
 	// Make new names for this file and its copies.
-	test_file_id = rand() % NAME_MOD;
+	test_file_id = rand() % DEFAULT_NAME_MOD;
 
 	create_test_file_name(apfs_test_directory, "foff_sparse", test_file_id, out_name);
 	create_test_file_name(apfs_test_directory, "foff_copy_sparse", test_file_id, sparse_copy_name);
 	create_test_file_name(apfs_test_directory, "foff_copy_full", test_file_id, full_copy_name);
 
 	// Create the test file.
-	src_fd = open(out_name, OPEN_FLAGS, OPEN_PERM);
+	src_fd = open(out_name, DEFAULT_OPEN_FLAGS, DEFAULT_OPEN_PERM);
 	assert_with_errno(src_fd >= 0);
 	// This writes 5 * block_size bytes.
 	assert_with_errno(lseek(src_fd, write_middle_hole(src_fd, block_size), SEEK_SET) == 0);
 
 	// Create a sparse copy using fcopyfile().
-	sparse_copy_fd = open(sparse_copy_name, OPEN_FLAGS, OPEN_PERM);
+	sparse_copy_fd = open(sparse_copy_name, DEFAULT_OPEN_FLAGS, DEFAULT_OPEN_PERM);
 	assert_with_errno(sparse_copy_fd >= 0);
 
 	// Seek the sparse copy to a non-zero offset.
@@ -373,7 +368,7 @@ bool do_fcopyfile_offset_test(const char *apfs_test_directory, size_t block_size
 
 	// Now, repeat the same procedure with a full copy.
 	assert_with_errno(lseek(src_fd, 0, SEEK_SET) == 0);
-	full_copy_fd = open(full_copy_name, OPEN_FLAGS, OPEN_PERM);
+	full_copy_fd = open(full_copy_name, DEFAULT_OPEN_FLAGS, DEFAULT_OPEN_PERM);
 	assert_with_errno(full_copy_name >= 0);
 
 	assert_with_errno(lseek(full_copy_fd, block_size, SEEK_SET) == (off_t) block_size);

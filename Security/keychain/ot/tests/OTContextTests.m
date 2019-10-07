@@ -158,7 +158,7 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
     XCTAssertNil(error, @"error should be nil: %@", error);
     XCTAssertNotNil(self.escrowKeys, @"escrow keys should not be nil: %@", error);
 
-    NSString* recordName = [OTBottledPeerRecord constructRecordID:identity.spID escrowSigningSPKI:[self.escrowKeys.signingKey.publicKey asSPKI]];
+    NSString* recordName = [OTBottledPeerRecord constructRecordID:identity.spID escrowSigningSPKI:[self.escrowKeys.signingKey.publicKey encodeSubjectPublicKeyInfo]];
     
     OTBottledPeerRecord *rec = [self.localStore readLocalBottledPeerRecordWithRecordID:recordName error:&error];
     

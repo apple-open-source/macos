@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_ATTR_MIN.MinAttributes.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: If a program has a set of attributes less than the predefined
  * minimum a D_ATTR_MIN is thrown

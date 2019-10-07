@@ -12,12 +12,12 @@
  	$(srcdir)/create_Info_plist.pl $(srcdir)/../readers/supported_readers.txt $(srcdir)/Info.plist.src --target=$(CCID_LIB) --version=$(VERSION) $(NOCLASS) > Info.plist
  
  install_ccid: libccid.la Info.plist
--	$(mkinstalldirs) $(DESTDIR)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/
--	cp Info.plist $(DESTDIR)$(usbdropdir)/$(CCID_BUNDLE)/Contents/
--	cp .libs/$(CCID_LIB) $(DESTDIR)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/$(CCID_LIB)
-+	$(mkinstalldirs) $(DRIVER_DEST)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/
-+	cp Info.plist $(DRIVER_DEST)$(usbdropdir)/$(CCID_BUNDLE)/Contents/
-+	cp .libs/$(CCID_LIB) $(DRIVER_DEST)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/$(CCID_LIB)
+-	$(mkinstalldirs) "$(DESTDIR)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/"
+-	cp Info.plist "$(DESTDIR)$(usbdropdir)/$(CCID_BUNDLE)/Contents/"
+-	cp .libs/$(CCID_LIB) "$(DESTDIR)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/$(CCID_LIB)"
++	$(mkinstalldirs) "$(DRIVER_DEST)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/"
++	cp Info.plist "$(DRIVER_DEST)$(usbdropdir)/$(CCID_BUNDLE)/Contents/"
++	cp .libs/$(CCID_LIB) "$(DRIVER_DEST)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/$(CCID_LIB)"
  	$(INSTALL_UDEV_RULE_FILE)
  
  install_ccidtwin: libccidtwin.la

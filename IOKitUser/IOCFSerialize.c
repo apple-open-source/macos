@@ -2,14 +2,14 @@
  * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -38,7 +38,7 @@ typedef struct {
     CFMutableDataRef   data;
 
     int                idrefNumRefs;
-    
+
 /* For each CFType, we track whether a given plist value hasRefs,
  * and what the ids used for those refs are. 'hasRefs' is set to
  * kCFBooleanFalse the first time we see a given value, so we know
@@ -167,7 +167,7 @@ finish:
     return;
 }
 
-Boolean 
+Boolean
 previouslySerialized(
     CFTypeRef            object,
     IOCFSerializeState * state)
@@ -248,7 +248,7 @@ addStartTag(
     */
 	if (idRefEntry == kCFBooleanTrue) {
         int idInt = state->idrefNumRefs++;
-        
+
         idRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &idInt);
         assert(idRef);
 
@@ -323,7 +323,7 @@ DoCFSerializeNumber(CFNumberRef object, IOCFSerializeState * state)
 		size = 32;
 #endif
 		break;
-		
+
 	case kCFNumberSInt64Type:
 	case kCFNumberLongLongType:
 	default:
@@ -359,18 +359,18 @@ DoCFSerializeString(CFStringRef object, IOCFSerializeState * state)
 	char        c;
 	int         i;
     Boolean     succeeded = true;
-    
+
 	if (previouslySerialized(object, state)) return true;
-    
+
 	if (!addStartTag(object, 0, state)) return false;
-    
+
 	dataBuffer = CFStringCreateExternalRepresentation(kCFAllocatorDefault, object, kCFStringEncodingUTF8, '?');
-    
+
 	if (dataBuffer) {
 		length = CFDataGetLength(dataBuffer);
 		buffer = (char *) CFDataGetBytePtr(dataBuffer);
 	}
-	
+
 	// this works because all bytes in a multi-byte utf-8 character have the high order bit set
 	for (i = 0; (i < length) && succeeded; i++) {
 		c = buffer[i];
@@ -389,9 +389,9 @@ DoCFSerializeString(CFStringRef object, IOCFSerializeState * state)
                 break;
         }
 	}
-    
+
 	if (dataBuffer) CFRelease(dataBuffer);
-    
+
     if (succeeded)
         return addEndTag(object, state);
     else
@@ -404,47 +404,68 @@ DoCFSerializeKey(CFStringRef object, IOCFSerializeState * state)
 	CFDataRef   dataBuffer = 0;
 	const char  *buffer = "";
 	CFIndex     length = 0;
-    char        c;
+	char        c;
 	int         i;
-    Boolean     succeeded = true;
-    
+	Boolean     succeeded = true;
+
+	const char *getOffMyXMLawn = "<!-- \xf0\x9f\xa4\xa6 -->";
+	const char *classNames[] = { "AppleLSIFusionFC", "AppleLSIFusionSAS", "AppleLSIFusionSCSI",
+				     "AppleUSBXHCI", "ICH8 ATA/100", "Physical Interconnect Location",
+				     "IOPCITunnelCompatible" };
+	int         numClasses   = (sizeof(classNames) / sizeof(classNames[0]));
+	bool        matches      = false;
+
 	if (!addString("<key>", state)) return false;
-    
+
 	dataBuffer = CFStringCreateExternalRepresentation(kCFAllocatorDefault, object, kCFStringEncodingUTF8, '?');
-    
+
 	if (dataBuffer) {
 		length = CFDataGetLength(dataBuffer);
 		buffer = (char *) CFDataGetBytePtr(dataBuffer);
 	}
-	
+
+	for (i = 0; i < numClasses; i++) {
+		if (!strncmp(buffer, classNames[i], length)) {
+			matches = true;
+			break;
+		}
+	}
+
 	// this works because all bytes in a multi-byte utf-8 character have the high order bit set
 	for (i = 0; (i < length) && succeeded; i++) {
 		c = buffer[i];
-        switch (c) {
-            case '<':
-                succeeded = addString("&lt;", state);
-                break;
-            case '>':
-                succeeded = addString("&gt;", state);
-                break;
-            case '&':
-                succeeded = addString("&amp;", state);
-                break;
-            default:
-                succeeded = addChar(c, state);
-                break;
-        }
+
+		switch (c) {
+			case '<':
+				succeeded = addString("&lt;", state);
+				break;
+			case '>':
+				succeeded = addString("&gt;", state);
+				break;
+			case '&':
+				succeeded = addString("&amp;", state);
+				break;
+			default:
+				succeeded = addChar(c, state);
+			    break;
+		}
 	}
-    
+
 	if (dataBuffer) CFRelease(dataBuffer);
-    
-    if (succeeded)
-        return addString("</key>", state);
-    else
-        return false;
+
+    if (succeeded) {
+	    succeeded = addString("</key>", state);
+	    if (matches && succeeded) {
+		    return addString(getOffMyXMLawn, state);
+	    } else {
+		    return succeeded;
+	    }
+    } else {
+	    return false;
+    }
 }
 
-//this was taken from CFPropertyList.c 
+//this was taken from CFPropertyList.c
 static const char __CFPLDataEncodeTable[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 static Boolean
@@ -506,7 +527,7 @@ DoCFSerializeArray(CFArrayRef object, IOCFSerializeState * state)
 {
 	CFIndex	count, i;
 	Boolean	ok = true;
- 
+
 	if (previouslySerialized(object, state)) return true;
 
         if (!addStartTag(object, 0, state)) return false;
@@ -528,7 +549,7 @@ DoCFSerializeSet(CFSetRef object, IOCFSerializeState * state)
 	CFIndex	  count, i;
 	const void ** values;
 	Boolean	  ok = true;
- 
+
 	if (previouslySerialized(object, state)) return true;
 
         if (!addStartTag(object, 0, state)) return false;
@@ -562,7 +583,7 @@ DoCFSerializeDictionary(CFDictionaryRef object,
 	const void ** values;
 	const void ** keys;
 	Boolean	  ok = true;
- 
+
 	if (previouslySerialized(object, state)) return true;
 
         if (!addStartTag(object, 0, state)) return false;
@@ -699,7 +720,7 @@ DoCFSerialize(CFTypeRef object, IOCFSerializeState * state)
         } else {
             ok = false;
         }
-        
+
     }
 
     return ok;
@@ -820,7 +841,7 @@ IOCFSerializeBinaryAdd(IOCFSerializeBinaryState * state, const void * bits, size
 
 static Boolean
 IOCFSerializeBinaryAddObject(IOCFSerializeBinaryState * state,
-								  CFTypeRef o, uint32_t key, 
+								  CFTypeRef o, uint32_t key,
 								  const void * bits, size_t size, size_t zero)
 {
     // add to tag dictionary
@@ -837,7 +858,7 @@ IOCFSerializeBinaryAddObject(IOCFSerializeBinaryState * state,
 	CFDataAppendBytes(state->data, bits, size - zero);
     if (zero) CFDataIncreaseLength(state->data, zero);
     if (3 & size) CFDataIncreaseLength(state->data, 4 - (3 & size));
- 
+
 	return (true);
 }
 
@@ -853,7 +874,7 @@ typedef struct ApplierState ApplierState;
 static Boolean
 DoCFSerializeBinary(IOCFSerializeBinaryState * state, CFTypeRef o, Boolean isKey);
 
-static void 
+static void
 IOCFSerializeBinaryCFDictionaryFunction(const void *key, const void *value, void *context)
 {
     ApplierState * ctx = (typeof(ctx)) context;
@@ -864,7 +885,7 @@ IOCFSerializeBinaryCFDictionaryFunction(const void *key, const void *value, void
 	ctx->ok &= DoCFSerializeBinary(ctx->state, value, false);
 }
 
-static void 
+static void
 IOCFSerializeBinaryCFArraySetFunction(const void *value, void *context)
 {
     ApplierState * ctx = (typeof(ctx)) context;
@@ -973,7 +994,7 @@ DoCFSerializeBinary(IOCFSerializeBinaryState * state, CFTypeRef o, Boolean isKey
 				case kCFNumberLongType:
 					size = sizeof(long);
 					break;
-		
+
 				case kCFNumberSInt64Type:
 				case kCFNumberLongLongType:
 				default:
@@ -998,26 +1019,26 @@ DoCFSerializeBinary(IOCFSerializeBinaryState * state, CFTypeRef o, Boolean isKey
 		if ((buffer = CFStringGetCStringPtr(o, kCFStringEncodingUTF8))) len = CFStringGetLength(o);
 		else
 		{
-			dataBuffer = CFStringCreateExternalRepresentation(kCFAllocatorDefault, o, kCFStringEncodingUTF8, 0);	
+			dataBuffer = CFStringCreateExternalRepresentation(kCFAllocatorDefault, o, kCFStringEncodingUTF8, 0);
 			if (!dataBuffer)
 			{
 				dataBuffer = CFStringCreateExternalRepresentation(kCFAllocatorDefault, o, kCFStringEncodingUTF8, (UInt8)'?');
 				conversionFailed = true;
 			}
 
-			if (dataBuffer) 
+			if (dataBuffer)
 			{
 				len = CFDataGetLength(dataBuffer);
 				buffer = (char *) CFDataGetBytePtr(dataBuffer);
 			}
-			else 
+			else
 			{
 				len = 0;
 				buffer = "";
 				conversionFailed = true;
 			}
 		}
-	
+
 		if (conversionFailed)
 		{
 			char * tempBuffer;
@@ -1061,7 +1082,7 @@ DoCFSerializeBinary(IOCFSerializeBinaryState * state, CFTypeRef o, Boolean isKey
             CFRelease(temp);
         }
     }
-     
+
     return (ok);
 }
 
@@ -1084,7 +1105,7 @@ IOCFSerializeBinary(CFTypeRef object, CFOptionFlags options __unused)
 
     state.tags = CFDictionaryCreateMutable(
         kCFAllocatorDefault, 0,
-        &keyCallbacks, 
+        &keyCallbacks,
         (CFDictionaryValueCallBacks *) NULL);
 
     assert(state.tags);
@@ -1249,7 +1270,7 @@ IOCFUnserializeBinary(const char	* buffer,
 				if (!o)
 				{
 					o = CFStringCreateWithBytes(allocator, (const UInt8 *) next, len, kCFStringEncodingMacRoman, false);
-					syslog(LOG_ERR, "FIXME: IOUnserialize has detected a string that is not valid UTF-8, \"%s\".", 
+					syslog(LOG_ERR, "FIXME: IOUnserialize has detected a string that is not valid UTF-8, \"%s\".",
 									CFStringGetCStringPtr(o, kCFStringEncodingMacRoman));
 				}
 		        next += wordLen;
@@ -1290,7 +1311,7 @@ IOCFUnserializeBinary(const char	* buffer,
 				if (o != dict) CFDictionarySetValue(dict, sym, o);
 				sym = 0;
 			}
-			else 
+			else
 			{
 				assert(CFStringGetTypeID() == CFGetTypeID(o));
 				sym = o;
@@ -1331,8 +1352,8 @@ IOCFUnserializeBinary(const char	* buffer,
 			stackIdx--;
 
 			type = CFGetTypeID(parent);
-			set   = NULL; 
-			dict  = NULL; 
+			set   = NULL;
+			dict  = NULL;
 			array = NULL;
 			if (type == CFDictionaryGetTypeID()) dict  = (CFMutableDictionaryRef) parent;
 			else if (type == CFArrayGetTypeID()) array = (CFMutableArrayRef)      parent;
@@ -1373,7 +1394,7 @@ IOCFUnserializeWithSize(const char	  * buffer,
 
 #if IOKIT_SERVER_VERSION >= 20140421
     if (bufferSize < sizeof(kOSSerializeBinarySignature)) return (0);
-	if ((kIOCFSerializeToBinary & options) 
+	if ((kIOCFSerializeToBinary & options)
 		|| (!strcmp(kOSSerializeBinarySignature, buffer))) return (IOCFUnserializeBinary(buffer, bufferSize, allocator, options, errorString));
 #else
     if (!bufferSize) return (0);

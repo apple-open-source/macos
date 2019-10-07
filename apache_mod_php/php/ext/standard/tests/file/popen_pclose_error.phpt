@@ -5,7 +5,6 @@ Test popen() and pclose function: error conditions
 if(substr(PHP_OS, 0, 3) == 'WIN' || strtoupper( substr(PHP_OS, 0, 3) ) == 'SUN')
   die("skip Not Valid for Windows & Sun Solaris");
 ?>
-
 --FILE--
 <?php
 /*
@@ -50,7 +49,7 @@ bool(false)
 Warning: pclose() expects exactly 1 parameter, 2 given in %s on line %d
 bool(false)
 
-Warning: pclose() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: pclose() expects parameter 1 to be resource, int given in %s on line %d
 bool(false)
 
 --- Done ---

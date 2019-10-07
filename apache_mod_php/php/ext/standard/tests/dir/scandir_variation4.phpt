@@ -3,7 +3,7 @@ Test scandir() function : usage variations - different relative paths
 --FILE--
 <?php
 /* Prototype  : array scandir(string $dir [, int $sorting_order [, resource $context]])
- * Description: List files & directories inside the specified path 
+ * Description: List files & directories inside the specified path
  * Source code: ext/standard/dir.c
  */
 
@@ -65,7 +65,7 @@ $dir_path = dirname(__FILE__);
 rmdir("$dir_path/level_one/level_two");
 rmdir("$dir_path/level_one");
 ?>
---EXPECTF--
+--EXPECT--
 *** Testing scandir() : usage variations ***
 
 -- $path = './level_one': --

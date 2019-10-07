@@ -1,0 +1,11 @@
+--- configure.orig	2018-01-19 09:50:07.000000000 -0800
++++ configure	2018-01-19 09:50:37.000000000 -0800
+@@ -9815,7 +9815,7 @@
+     rhapsody* | darwin1.[012])
+       _lt_dar_allow_undefined='$wl-undefined ${wl}suppress' ;;
+     darwin1.*)
+-      _lt_dar_allow_undefined='$wl-flat_namespace $wl-undefined ${wl}suppress' ;;
++      _lt_dar_allow_undefined='$wl-undefined ${wl}suppress' ;;
+     darwin*) # darwin 5.x on
+       # if running on 10.5 or later, the deployment target defaults
+       # to the OS version, if on x86, and 10.4, the deployment

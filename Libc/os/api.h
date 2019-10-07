@@ -50,6 +50,7 @@
 #define __DARWIN_API_H
 
 #include <os/availability.h>
+#include <stdint.h>
 
 /*!
  * @const DARWIN_API_VERSION
@@ -70,9 +71,31 @@
  * individual preprocessor macros in this header that declare new behavior as
  * required.
  */
-#define DARWIN_API_VERSION 20170407lu
+#define DARWIN_API_VERSION 20181020u
 
+#if !DARWIN_BUILDING_LIBSYSTEM_DARWIN
 #define DARWIN_API_AVAILABLE_20170407 \
 		API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
+#define DARWIN_API_AVAILABLE_20180727 \
+		API_AVAILABLE(macos(10.15), ios(13.0), tvos(13.0), watchos(6.0))
+#define DARWIN_API_AVAILABLE_20181020 \
+		API_AVAILABLE(macos(10.15), ios(13.0), tvos(13.0), watchos(6.0))
+#else
+#define DARWIN_API_AVAILABLE_20170407
+#define DARWIN_API_AVAILABLE_20180727
+#define DARWIN_API_AVAILABLE_20181020
+#endif
+
+/*!
+ * @typedef os_struct_magic_t
+ * A type representing the magic number of a transparent structure.
+ */
+typedef uint32_t os_struct_magic_t;
+
+/*!
+ * @typedef os_struct_version_t
+ * A type representing the version of a transparent structure.
+ */
+typedef uint32_t os_struct_version_t;
 
 #endif // __DARWIN_API_H

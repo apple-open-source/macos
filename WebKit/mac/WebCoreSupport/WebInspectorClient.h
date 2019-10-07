@@ -27,6 +27,7 @@
  */
 
 #import <JavaScriptCore/InspectorFrontendChannel.h>
+#import <WebCore/FloatRect.h>
 #import <WebCore/InspectorClient.h>
 #import <WebCore/InspectorFrontendClientLocal.h>
 #import <wtf/Forward.h>
@@ -82,9 +83,11 @@ public:
 
     bool inspectorStartsAttached();
     void setInspectorStartsAttached(bool);
+    void deleteInspectorStartsAttached();
 
     bool inspectorAttachDisabled();
     void setInspectorAttachDisabled(bool);
+    void deleteInspectorAttachDisabled();
 
     void windowFullScreenDidChange();
 
@@ -118,12 +121,18 @@ public:
     void bringToFront() override;
     void closeWindow() override;
     void reopen() override;
+    void resetState() override;
 
     void attachWindow(DockSide) override;
     void detachWindow() override;
 
     void setAttachedWindowHeight(unsigned height) override;
     void setAttachedWindowWidth(unsigned height) override;
+
+#if !PLATFORM(IOS_FAMILY)
+    const WebCore::FloatRect& sheetRect() const { return m_sheetRect; }
+#endif
+    void setSheetRect(const WebCore::FloatRect&) override;
 
     void inspectedURLChanged(const String& newURL) override;
     void showCertificate(const WebCore::CertificateInfo&) override;
@@ -140,5 +149,6 @@ private:
     RetainPtr<WebInspectorWindowController> m_frontendWindowController;
     String m_inspectedURL;
     HashMap<String, RetainPtr<NSURL>> m_suggestedToActualURLMap;
+    WebCore::FloatRect m_sheetRect;
 #endif
 };

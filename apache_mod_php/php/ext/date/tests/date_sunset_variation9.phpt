@@ -5,9 +5,9 @@ Test date_sunset() function : usage variation - Passing high positive and negati
 --FILE--
 <?php
 /* Prototype  : mixed date_sunset(mixed time [, int format [, float latitude [, float longitude [, float zenith [, float gmt_offset]]]]])
- * Description: Returns time of sunset for a given day and location 
+ * Description: Returns time of sunset for a given day and location
  * Source code: ext/date/php_date.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing date_sunset() : usage variation ***\n";
@@ -39,23 +39,23 @@ var_dump( date_sunset($time, SUNFUNCS_RET_TIMESTAMP, $latitude, $longitude, $zen
 
 -- Testing date_sunset() function by passing float 12.3456789000e10 value to time --
 
-Warning: date_sunset() expects parameter 1 to be integer, float given in %s on line %d
+Warning: date_sunset() expects parameter 1 to be int, float given in %s on line %d
 bool(false)
 
-Warning: date_sunset() expects parameter 1 to be integer, float given in %s on line %d
+Warning: date_sunset() expects parameter 1 to be int, float given in %s on line %d
 bool(false)
 
-Warning: date_sunset() expects parameter 1 to be integer, float given in %s on line %d
+Warning: date_sunset() expects parameter 1 to be int, float given in %s on line %d
 bool(false)
 
 -- Testing date_sunset() function by passing float -12.3456789000e10 value to time --
 
-Warning: date_sunset() expects parameter 1 to be integer, float given in %s on line %d
+Warning: date_sunset() expects parameter 1 to be int, float given in %s on line %d
 bool(false)
 
-Warning: date_sunset() expects parameter 1 to be integer, float given in %s on line %d
+Warning: date_sunset() expects parameter 1 to be int, float given in %s on line %d
 bool(false)
 
-Warning: date_sunset() expects parameter 1 to be integer, float given in %s on line %d
+Warning: date_sunset() expects parameter 1 to be int, float given in %s on line %d
 bool(false)
 ===DONE===

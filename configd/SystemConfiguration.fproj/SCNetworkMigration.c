@@ -1526,7 +1526,8 @@ _SCNetworkConfigurationCheckValidityWithPreferences(SCPreferencesRef prefs,
 	 __SCNetworkInterfaceCreateMappingUsingBSDName(SCPreferencesRef prefs);
 	 */
 	interfaces = __SCNetworkInterfaceCopyStoredWithPreferences(ni_prefs);
-	if (isA_CFArray(interfaces) == NULL) {
+	if (!isA_CFArray(interfaces)) {
+		if (interfaces != NULL) CFRelease(interfaces);
 		SC_log(LOG_NOTICE, "No interfaces");
 		isValid = FALSE;
 		goto done;
@@ -1540,7 +1541,8 @@ _SCNetworkConfigurationCheckValidityWithPreferences(SCPreferencesRef prefs,
 	}
 
 	interfaces = __SCNetworkServiceCopyAllInterfaces(prefs);
-	if (isA_CFArray(interfaces) == NULL) {
+	if (!isA_CFArray(interfaces)) {
+		if (interfaces != NULL) CFRelease(interfaces);
 		isValid = FALSE;
 		SC_log(LOG_INFO, "No interfaces");
 		goto done;

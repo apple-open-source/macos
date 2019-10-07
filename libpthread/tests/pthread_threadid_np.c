@@ -8,7 +8,7 @@
 
 extern __uint64_t __thread_selfid( void );
 
-static void *do_test(void * __unused arg)
+static void *do_test(void * arg)
 {
 	uint64_t threadid = __thread_selfid();
 	T_ASSERT_NE(threadid, (uint64_t)0, "__thread_selfid()");
@@ -21,6 +21,9 @@ static void *do_test(void * __unused arg)
 	pth_threadid = _pthread_threadid_self_np_direct();
 	T_EXPECT_EQ(threadid, pth_threadid, "pthread_threadid_np_direct()");
 
+	if (arg) {
+		*(uint64_t *)arg = pth_threadid;
+	}
 	return NULL;
 }
 
@@ -31,9 +34,14 @@ T_DECL(pthread_threadid_np, "pthread_threadid_np",
 	do_test(NULL);
 
 	T_LOG("Pthread");
-	pthread_t pth;
-	T_ASSERT_POSIX_ZERO(pthread_create(&pth, NULL, do_test, NULL), NULL);
-	T_ASSERT_POSIX_ZERO(pthread_join(pth, NULL), NULL);
+	for (int i = 0; i < 100; i++) {
+		uint64_t tid1 = 0, tid2 = 0;
+		pthread_t pth;
+		T_ASSERT_POSIX_ZERO(pthread_create(&pth, NULL, do_test, &tid1), NULL);
+		T_EXPECT_POSIX_ZERO(pthread_threadid_np(pth, &tid2), NULL);
+		T_ASSERT_POSIX_ZERO(pthread_join(pth, NULL), NULL);
+		T_EXPECT_EQ(tid1, tid2, "parent and child agree");
+	}
 
 	T_LOG("Workqueue Thread");
 	dispatch_queue_t dq = dispatch_queue_create("myqueue", NULL);

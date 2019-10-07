@@ -73,12 +73,12 @@ mt{
         CD{"ir-Repubblika Demokratika tal-Kongo"}
         CF{"ir-Repubblika Ċentru-Afrikana"}
         CG{"il-Kongo - Brazzaville"}
-        CH{"Żvizzera"}
+        CH{"l-Iżvizzera"}
         CI{"il-Kosta tal-Avorju"}
         CK{"Gżejjer Cook"}
         CL{"iċ-Ċili"}
         CM{"il-Kamerun"}
-        CN{"CN"}
+        CN{"iċ-Ċina"}
         CO{"il-Kolombja"}
         CP{"il-Gżira Clipperton"}
         CR{"il-Costa Rica"}
@@ -129,10 +129,7 @@ mt{
         GU{"Guam"}
         GW{"il-Guinea-Bissau"}
         GY{"il-Guyana"}
-        HK{
-            "ir-Reġjun Amministrattiv Speċjali ta’ Hong Kong tar-Repubblika tal-Poplu"
-            " taċ-Ċina"
-        }
+        HK{"Hong Kong"}
         HM{"il-Gżejjer Heard u l-Gżejjer McDonald"}
         HN{"il-Honduras"}
         HR{"il-Kroazja"}
@@ -182,14 +179,11 @@ mt{
         MF{"Saint Martin"}
         MG{"Madagascar"}
         MH{"Gżejjer Marshall"}
-        MK{"l-Eks-Repubblika Jugoslava tal-Maċedonia"}
+        MK{"il-Maċedonja ta’ Fuq"}
         ML{"il-Mali"}
         MM{"il-Myanmar/Burma"}
         MN{"il-Mongolja"}
-        MO{
-            "ir-Reġjun Amministrattiv Speċjali tal-Macao tar-Repubblika tal-Poplu taċ"
-            "-Ċina"
-        }
+        MO{"il-Macao"}
         MP{"Ġżejjer Mariana tat-Tramuntana"}
         MQ{"Martinique"}
         MR{"il-Mauritania"}
@@ -287,7 +281,7 @@ mt{
         VU{"Vanuatu"}
         WF{"Wallis u Futuna"}
         WS{"Samoa"}
-        XK{"Kosovo"}
+        XK{"il-Kosovo"}
         YE{"il-Jemen"}
         YT{"Mayotte"}
         ZA{"l-Afrika t’Isfel"}
@@ -297,16 +291,15 @@ mt{
     }
     Countries%short{
         GB{"UK"}
-        HK{"Hong Kong"}
-        MO{"il-Macao"}
         PS{"il-Palestina"}
         US{"US"}
     }
     Countries%variant{
         CD{"Kongo (RDK)"}
         CG{"ir-Repubblika tal-Kongo"}
+        CZ{"Ir-Repubblika Ċeka"}
         FK{"Il-Gżejjer Falkland (il-Gżejjer Malvinas)"}
         TL{"Timor tal-Lvant"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
 }

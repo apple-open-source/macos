@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_DECL_PROTO_NAME.VoidName.d	1.1	06/08/28 SMI"
-
 /*
  * Assert that a void parameter in a declaration where void is permitted
  * may not have a parameter formal name associated with it.

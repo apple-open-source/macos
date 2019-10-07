@@ -161,7 +161,7 @@
 { \
     IDL_MARSH_ALIGN_MP( IDL_msp, size ); \
     rpc_ss_ndr_marsh_check_buffer( size, IDL_msp ); \
-    marshalling_macro(IDL_msp->IDL_mp, *(type *)(param_addr)); \
+    marshalling_macro(IDL_msp->IDL_mp, (param_addr)); \
     IDL_msp->IDL_mp += size; \
     IDL_msp->IDL_left_in_buff -= size; \
 }
@@ -223,7 +223,7 @@
 { \
     IDL_MARSH_ALIGN_MP( IDL_msp, 4 ); \
     rpc_ss_ndr_marsh_check_buffer( 4, IDL_msp ); \
-    rpc_marshall_ulong_int(IDL_msp->IDL_mp, *(idl_ulong_int *)(param_addr)); \
+    rpc_marshall_ulong_int(IDL_msp->IDL_mp, (param_addr)); \
     IDL_msp->IDL_mp += 4; \
     IDL_msp->IDL_left_in_buff -= 4; \
 }

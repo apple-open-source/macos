@@ -64,12 +64,15 @@ Connection::Connection(Process &proc, Port rPort)
 // When a Connection's destructor executes, the connection must already have been
 // terminated. All we have to do here is clean up a bit.
 //
-Connection::~Connection()
+Connection::~Connection() try
 {
+    mClientPort.deallocate();
     secinfo("SecServer", "releasing client connection %p", this);
 	assert(!agentWait);
+} catch (...) {
+    secerror("SecServer: Error deallocating connection port");
+    return;
 }
-
 
 //
 // Set the (last known) guest handle for this connection.
@@ -79,46 +82,6 @@ void Connection::guestRef(SecGuestRef newGuest, SecCSFlags flags)
 	secinfo("SecServer", "Connection %p switches to guest 0x%x", this, newGuest);
 	mGuestRef = newGuest;
 }
-
-
-//
-// Terminate a Connection normally.
-// This is assumed to be properly sequenced, so no thread races are possible.
-//
-void Connection::terminate()
-{
-	// cleanly discard port rights
-	assert(state == idle);
-	mClientPort.modRefs(MACH_PORT_RIGHT_SEND, -1);	// discard surplus send right
-	assert(mClientPort.getRefs(MACH_PORT_RIGHT_SEND) == 1);	// one left for final reply
-	secinfo("SecServer", "Connection %p terminated", this);
-}
-
-
-//
-// Abort a Connection.
-// This may be called from thread A while thread B is working a request for the Connection,
-// so we must be careful.
-//
-void Connection::abort(bool keepReplyPort)
-{
-	StLock<Mutex> _(*this);
-    if (!keepReplyPort)
-        mClientPort.destroy();		// dead as a doornail already
-	switch (state) {
-	case idle:
-		secinfo("SecServer", "Connection %p aborted", this);
-		break;
-	case busy:
-		state = dying;				// shoot me soon, please
-		secinfo("SecServer", "Connection %p abort deferred (busy)", this);
-		break;
-	default:
-		assert(false);				// impossible (we hope)
-		break;
-	}
-}
-
 
 //
 // Service request framing.

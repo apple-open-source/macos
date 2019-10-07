@@ -25,8 +25,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_ACT_SPEC.SpeculateWithBreakPoint.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Destructive actions may never be speculative.

@@ -14,7 +14,7 @@ zh_Hant{
         colStrength{"排序強度"}
         collation{"排序"}
         currency{"貨幣"}
-        hc{"時間週期（12 小時制與 24 小時制）"}
+        hc{"時間週期（12小時制與24小時制）"}
         lb{"換行樣式"}
         ms{"度量單位系統"}
         numbers{"數字"}
@@ -110,6 +110,7 @@ zh_Hant{
         car{"加勒比文"}
         cay{"卡尤加文"}
         cch{"阿燦文"}
+        ccp{"查克馬文"}
         ce{"車臣文"}
         ceb{"宿霧文"}
         cgg{"奇加文"}
@@ -252,7 +253,7 @@ zh_Hant{
         iba{"伊班文"}
         ibb{"伊比比奧文"}
         id{"印尼文"}
-        ie{"國際文（E）"}
+        ie{"國際文 (E)"}
         ig{"伊布文"}
         ii{"四川彝文"}
         ik{"依奴皮維克文"}
@@ -314,6 +315,7 @@ zh_Hant{
         krl{"卡累利阿文"}
         kru{"庫魯科文"}
         ks{"喀什米爾文"}
+        ks_Arab{"喀什米爾文（謄抄體）"}
         ksb{"尚巴拉文"}
         ksf{"巴菲亞文"}
         ksh{"科隆文"}
@@ -439,6 +441,7 @@ zh_Hant{
         osa{"歐塞奇文"}
         ota{"鄂圖曼土耳其文"}
         pa{"旁遮普文"}
+        pa_Arab{"旁遮普文（謄抄體）"}
         pag{"潘加辛文"}
         pal{"巴列維文"}
         pam{"潘帕嘉文"}
@@ -593,6 +596,7 @@ zh_Hant{
         umb{"姆本杜文"}
         und{"未知語言"}
         ur{"烏都文"}
+        ur_Arab{"烏都文（謄抄體）"}
         uz{"烏茲別克文"}
         vai{"瓦伊文"}
         ve{"溫達文"}
@@ -625,6 +629,8 @@ zh_Hant{
         yo{"約魯巴文"}
         yrl{"奈恩加圖文"}
         yue{"粵語"}
+        yue_Hans{"簡體粵語"}
+        yue_Hant{"繁體粵語"}
         za{"壯文"}
         zap{"薩波特克文"}
         zbl{"布列斯符號"}
@@ -648,6 +654,7 @@ zh_Hant{
         Aghb{"高加索阿爾巴尼亞文"}
         Ahom{"阿洪姆文"}
         Arab{"阿拉伯文"}
+        Aran{"波斯體"}
         Armi{"皇室亞美尼亞文"}
         Armn{"亞美尼亞文"}
         Avst{"阿維斯陀文"}
@@ -725,8 +732,8 @@ zh_Hant{
         Latn{"拉丁文"}
         Lepc{"雷布查文"}
         Limb{"林佈文"}
-        Lina{"線性文字（A）"}
-        Linb{"線性文字（B）"}
+        Lina{"線性文字 (A)"}
+        Linb{"線性文字 (B)"}
         Lisu{"栗僳文"}
         Loma{"洛馬文"}
         Lyci{"呂西亞語"}
@@ -769,6 +776,7 @@ zh_Hant{
         Phnx{"腓尼基文"}
         Plrd{"柏格理拼音符"}
         Prti{"帕提亞文（碑銘體）"}
+        Qaag{"佐基文"}
         Rjng{"拉讓文"}
         Roro{"朗格朗格象形文"}
         Runr{"古北歐文字"}
@@ -814,7 +822,7 @@ zh_Hant{
         Xsux{"蘇米魯亞甲文楔形文字"}
         Yiii{"彞文"}
         Zanb{"札那巴札爾文字"}
-        Zinh{"繼承文字（Unicode）"}
+        Zinh{"繼承文字 (Unicode)"}
         Zmth{"數學符號"}
         Zsye{"表情符號"}
         Zsym{"符號"}
@@ -845,7 +853,7 @@ zh_Hant{
             islamic-rgsa{"伊斯蘭新月曆"}
             islamic-tbla{"伊斯蘭天文曆"}
             islamic-umalqura{"烏姆庫拉曆"}
-            iso8601{"ISO 8601 國際曆法"}
+            iso8601{"ISO 8601國際曆法"}
             japanese{"日本曆"}
             persian{"波斯曆"}
             roc{"民國曆"}
@@ -873,7 +881,7 @@ zh_Hant{
         }
         colNormalization{
             no{"非正規化排序"}
-            yes{"依正規化排序 Unicode"}
+            yes{"依正規化排序Unicode"}
         }
         colNumeric{
             no{"個別排序數字"}
@@ -890,7 +898,7 @@ zh_Hant{
             big5han{"繁體中文排序 - Big5"}
             compat{"舊制排序"}
             dictionary{"字典排序"}
-            ducet{"預設 Unicode 排序"}
+            ducet{"預設Unicode排序"}
             emoji{"表情符號"}
             eor{"歐洲排序規則"}
             gb2312han{"簡體中文排序 - GB2312"}
@@ -1017,11 +1025,11 @@ zh_Hant{
         1901{"傳統德語拼字學"}
         1959ACAD{"白俄羅斯文（學術）"}
         1994{"標準雷西亞拼字"}
-        1996{"1996 年的德語拼字學"}
-        ABL1943{"1943 年拼字標準"}
+        1996{"1996年的德語拼字學"}
+        ABL1943{"1943年拼字標準"}
         ALALC97{"美國國會圖書館標準方案羅馬化（1997年版）"}
         ALUKU{"阿魯庫方言"}
-        AO1990{"1990 年葡語書寫協議的拼寫"}
+        AO1990{"1990年葡語書寫協議的拼寫"}
         AREVELA{"亞美尼亞東部"}
         AREVMDA{"亞美尼亞西部"}
         BAKU1926{"統一土耳其拉丁字母"}
@@ -1032,13 +1040,13 @@ zh_Hant{
         BISKE{"聖喬治/比拉方言"}
         BOHORIC{"波赫力字母"}
         BOONT{"布恩特林方言"}
-        COLB1945{"1945 年巴西葡萄牙文拼字標準"}
+        COLB1945{"1945年巴西葡萄牙文拼字標準"}
         DAJNKO{"謙柯字母"}
         EKAVSK{"易卡發音塞爾維亞文"}
         EMODENG{"早期現代英語"}
-        FONIPA{"IPA 拼音"}
-        FONUPA{"UPA 拼音"}
-        FONXSAMP{"X-SAMPA 音標"}
+        FONIPA{"IPA拼音"}
+        FONUPA{"UPA拼音"}
+        FONXSAMP{"X-SAMPA音標"}
         HEPBURN{"平文式羅馬字"}
         HOGNORSK{"高地挪威文"}
         IJEKAVSK{"耶卡發音塞爾維亞文"}
@@ -1059,7 +1067,7 @@ zh_Hant{
         OSOJS{"雷西亞歐西亞柯方言"}
         OXENDICT{"牛津英文字典拼音"}
         PAMAKA{"蘇利南帕馬卡方言"}
-        PETR1708{"俄羅斯文拼字（1708 年）"}
+        PETR1708{"俄羅斯文拼字（1708年）"}
         PINYIN{"漢語拼音"}
         POLYTON{"希臘文多調正字法"}
         POSIX{"電腦"}
@@ -1069,7 +1077,7 @@ zh_Hant{
         ROZAJ{"雷西亞方言"}
         RUMGR{"羅曼什文"}
         SAAHO{"薩霍文"}
-        SCOTLAND{"英文（蘇格蘭）"}
+        SCOTLAND{"蘇格蘭標準英文"}
         SCOUSE{"利物浦方言"}
         SOLBA{"雷西亞史托維薩方言"}
         SOTAV{"卡布佛得鲁背風群島方言"}
@@ -1085,7 +1093,7 @@ zh_Hant{
         VALLADER{"瑞士瓦勒德方言"}
         WADEGILE{"威妥瑪式拼音"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
     characterLabelPattern{
         all{"{0} — 全部"}
         category-list{"{0}: {1}"}

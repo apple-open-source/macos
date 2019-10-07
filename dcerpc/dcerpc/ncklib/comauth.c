@@ -1925,7 +1925,10 @@ PUBLIC void rpc_impersonate_named_pipe_client
         return;
     }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     ret = pthread_setugid_np(euid, egid);
+#pragma clang diagnostic pop
     if (ret != 0) {
         RPC_DBG_PRINTF(rpc_e_dbg_auth, 3, ("(rpc_impersonate_named_pipe_client): pthread_setugid_np failed %d for euid %d, egid %d\n", errno, euid, egid));
         *status = rpc_s_no_context_available;
@@ -1935,7 +1938,10 @@ PUBLIC void rpc_impersonate_named_pipe_client
     /* opt back into the dynamic group resolutions.
      For better performance, we only add in our egid instead of the
      entire group list. */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     ret = syscall(SYS_initgroups, 1, &egid, euid);
+#pragma clang diagnostic pop
     if (ret == -1)
     {
         RPC_DBG_PRINTF(rpc_e_dbg_auth, 3, ("(rpc_impersonate_named_pipe_client): SYS_initgroups failed %d for euid %d, egid %d\n", errno, euid, egid));
@@ -1950,7 +1956,10 @@ error:
     {
         /* error occurred, try to revert back to previous user/group ID */
         RPC_DBG_PRINTF(rpc_e_dbg_auth, 3, ("(rpc_impersonate_named_pipe_client): reverting credentials due to error %d\n", *status));
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         pthread_setugid_np(KAUTH_UID_NONE, KAUTH_GID_NONE);
+#pragma clang diagnostic pop
     }
 
 #else
@@ -2024,8 +2033,10 @@ PUBLIC void rpc_revert_to_self
         *status = rpc_s_wrong_kind_of_binding;
         return;
     }
-
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     ret = pthread_setugid_np(KAUTH_UID_NONE, KAUTH_GID_NONE);
+#pragma clang diagnostic pop
     if (ret != 0)
     {
         RPC_DBG_PRINTF(rpc_e_dbg_auth, 3, ("(rpc_revert_to_self): pthread_setugid_np failed %d\n", errno));

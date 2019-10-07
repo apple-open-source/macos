@@ -100,7 +100,14 @@ const CGFloat passwordEntryFieldPadding = 10;
     [_scrollView setMaximumZoomScale:1];
     [_scrollView setZoomScale:1];
     [_scrollView setContentSize:self.frame.size];
-    [_scrollView setBackgroundColor:[UIColor groupTableViewBackgroundColor]];
+
+#if HAVE(OS_DARK_MODE_SUPPORT)
+    [_scrollView setBackgroundColor:UIColor.systemGroupedBackgroundColor];
+#else
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    [_scrollView setBackgroundColor:UIColor.groupTableViewBackgroundColor];
+    ALLOW_DEPRECATED_DECLARATIONS_END
+#endif
 
     [scrollView addSubview:self];
 }

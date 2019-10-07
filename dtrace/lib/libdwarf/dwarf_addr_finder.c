@@ -39,7 +39,7 @@
 #include "config.h"
 #include "libdwarfdefs.h"
 #ifdef HAVE_ELF_H
-#include <elf.h>
+#include <sys/elf.h>
 #endif
 #include <dwarf.h>
 #include <libdwarf.h>

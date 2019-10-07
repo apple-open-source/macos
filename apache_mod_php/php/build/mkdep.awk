@@ -14,8 +14,6 @@
 #  | Author: Sascha Schumann <sascha@schumann.cx>                         |
 #  +----------------------------------------------------------------------+
 #
-# $Id$
-#
 # Usage:
 #
 # echo top_srcdir top_builddir srcdir CPP [CPP-ARGS] filenames | \
@@ -35,16 +33,16 @@
 	}
 
 	dif=i-1
-		
+
 	for (; i <= NF; i++)
 		filenames[i-dif]=$i
-	
+
 	no_files=NF-dif
-	
+
 	for(i = 1; i <= no_files; i++) {
 		if (system("test -r " filenames[i]) != 0)
 			continue
-		
+
 		target=filenames[i]
 		sub(srcdir "/", "", target)
 		target2=target
@@ -53,7 +51,7 @@
 
 		for (e in used)
 			delete used[e]
-		
+
 		cmdx=cmd " " filenames[i]
 		done=0
 		while ((cmdx | getline) > 0) {
@@ -66,10 +64,10 @@
 					done=1
 					printf(" \\\n\t" substr($3,2,length($3)-2))
 					used[$3] = 1;
-				}	
+				}
 			}
 		}
 		if (done == 1)
 			print "\n"
 	}
-} 
+}

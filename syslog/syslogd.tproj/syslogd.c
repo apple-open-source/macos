@@ -67,7 +67,7 @@
 
 extern int _malloc_no_asl_log;
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 const char *_path_pidfile;
 const char *_path_syslogd_log;
 #endif
@@ -75,7 +75,7 @@ const char *_path_syslogd_log;
 /* global */
 struct global_s global;
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 /* Input Modules */
 int klog_in_init(void);
 int klog_in_reset(void);
@@ -88,7 +88,7 @@ int bsd_in_reset(void);
 int bsd_in_close(void);
 static int activate_bsd_in = 1;
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 int udp_in_init(void);
 int udp_in_reset(void);
 int udp_in_close(void);
@@ -106,7 +106,7 @@ int asl_action_reset(void);
 int asl_action_close(void);
 static int activate_asl_action = 1;
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 /* Interactive Module */
 int remote_init(void);
 int remote_reset(void);
@@ -119,7 +119,7 @@ extern void database_server();
 static void
 init_modules()
 {
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	module_t *m_klog_in, *m_bsd_out, *m_udp_in, *m_remote;
 #endif
 	module_t *m_asl, *m_bsd_in;
@@ -141,7 +141,7 @@ init_modules()
 
 	if (m_asl->enabled) m_asl->init();
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	/* BSD output module (configured by /etc/syslog.conf) */
 	m_bsd_out = (module_t *)calloc(1, sizeof(module_t));
 	if (m_bsd_out == NULL)
@@ -195,7 +195,7 @@ init_modules()
 
 	if (m_bsd_in->enabled) m_bsd_in->init();
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	/* network (syslog protocol) input module */
 	m_udp_in = (module_t *)calloc(1, sizeof(module_t));
 	if (m_udp_in == NULL)
@@ -227,10 +227,10 @@ init_modules()
 	m_remote->close = remote_close;
 
 	if (m_remote->enabled) m_remote->init();
-#endif /* TARGET_IPHONE_SIMULATOR */
+#endif
 
 	/* save modules in global.module array */
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 	global.module_count = 2;
 #else
 	global.module_count = 6;
@@ -244,7 +244,7 @@ init_modules()
 
 	global.module[m++] = m_asl;
 	global.module[m++] = m_bsd_in;
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	global.module[m++] = m_bsd_out;
 	global.module[m++] = m_klog_in;
 	global.module[m++] = m_udp_in;
@@ -446,7 +446,7 @@ main(int argc, const char *argv[])
 {
 	int32_t i;
 	uint64_t master_val;
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	int network_change_token;
 #endif
 	int quota_file_token, asl_db_token, master_token;
@@ -454,7 +454,7 @@ main(int argc, const char *argv[])
 	time_t now;
 	int first_syslogd_start = 1;
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 	const char *sim_log_dir = getenv("SIMULATOR_LOG_ROOT");
 	const char *sim_resource_dir = getenv("SIMULATOR_SHARED_RESOURCES_DIRECTORY");
 	char *p;
@@ -534,7 +534,7 @@ main(int argc, const char *argv[])
 				}
 				else if (streq(argv[i], "iphone"))
 				{
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 					global.dbtype = DB_TYPE_FILE;
 					global.db_file_max = 25600000;
 #else
@@ -586,7 +586,7 @@ main(int argc, const char *argv[])
 		{
 			if ((i + 1) < argc) global.bsd_max_dup_time = atoll(argv[++i]);
 		}
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 		else if (streq(argv[i], "-klog_in"))
 		{
 			if ((i + 1) < argc) activate_klog_in = atoi(argv[++i]);
@@ -604,7 +604,7 @@ main(int argc, const char *argv[])
 		{
 			if ((i + 1) < argc) global.launchd_enabled = atoi(argv[++i]);
 		}
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 		else if (streq(argv[i], "-bsd_out"))
 		{
 			if ((i + 1) < argc) activate_bsd_out = atoi(argv[++i]);
@@ -648,7 +648,7 @@ main(int argc, const char *argv[])
 	asldebug("initializing modules\n");
 	init_modules();
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	asldebug("setting up network change notification handler\n");
 
 	/* network change notification resets UDP and BSD modules */

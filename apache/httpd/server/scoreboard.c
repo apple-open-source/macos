@@ -364,6 +364,18 @@ AP_DECLARE(int) ap_exists_scoreboard_image(void)
     return (ap_scoreboard_image ? 1 : 0);
 }
 
+AP_DECLARE(void) ap_set_conn_count(ap_sb_handle_t *sb, request_rec *r, 
+                                   unsigned short conn_count)
+{
+    worker_score *ws;
+
+    if (!sb)
+        return;
+
+    ws = &ap_scoreboard_image->servers[sb->child_num][sb->thread_num];
+    ws->conn_count = conn_count;
+}
+
 AP_DECLARE(void) ap_increment_counts(ap_sb_handle_t *sb, request_rec *r)
 {
     worker_score *ws;
@@ -494,6 +506,12 @@ static int update_child_status_internal(int child_num,
             if (status == SERVER_DEAD) {
                 ws->my_access_count = 0L;
                 ws->my_bytes_served = 0L;
+#ifdef HAVE_TIMES
+                ws->times.tms_utime = 0;
+                ws->times.tms_stime = 0;
+                ws->times.tms_cutime = 0;
+                ws->times.tms_cstime = 0;
+#endif
             }
             ws->conn_count = 0;
             ws->conn_bytes = 0;
@@ -511,17 +529,25 @@ static int update_child_status_internal(int child_num,
         }
 
         if (r && r->useragent_ip) {
-            if (!(val = ap_get_useragent_host(r, REMOTE_NOLOOKUP, NULL)))
-                apr_cpystrn(ws->client, r->useragent_ip, sizeof(ws->client));
-            else
-                apr_cpystrn(ws->client, val, sizeof(ws->client));
+            if (!(val = ap_get_useragent_host(r, REMOTE_NOLOOKUP, NULL))) {
+                apr_cpystrn(ws->client, r->useragent_ip, sizeof(ws->client)); /* DEPRECATE */
+                apr_cpystrn(ws->client64, r->useragent_ip, sizeof(ws->client64));
+            }
+            else {
+                apr_cpystrn(ws->client, val, sizeof(ws->client)); /* DEPRECATE */
+                apr_cpystrn(ws->client64, val, sizeof(ws->client64));
+            }
         }
         else if (c) {
             if (!(val = ap_get_remote_host(c, c->base_server->lookup_defaults,
-                                           REMOTE_NOLOOKUP, NULL)))
-                apr_cpystrn(ws->client, c->client_ip, sizeof(ws->client));
-            else
-                apr_cpystrn(ws->client, val, sizeof(ws->client));
+                                           REMOTE_NOLOOKUP, NULL))) {
+                apr_cpystrn(ws->client, c->client_ip, sizeof(ws->client)); /* DEPRECATE */
+                apr_cpystrn(ws->client64, c->client_ip, sizeof(ws->client64));
+            }
+            else {
+                apr_cpystrn(ws->client, val, sizeof(ws->client)); /* DEPRECATE */
+                apr_cpystrn(ws->client64, val, sizeof(ws->client64));
+            }
         }
 
         if (s) {
@@ -621,7 +647,21 @@ AP_DECLARE(void) ap_time_process_request(ap_sb_handle_t *sbh, int status)
     }
     else if (status == STOP_PREQUEST) {
         ws->stop_time = ws->last_used = apr_time_now();
+        if (ap_extended_status) {
+            ws->duration += ws->stop_time - ws->start_time;
+        }
     }
+}
+
+AP_DECLARE(int) ap_update_global_status()
+{
+#ifdef HAVE_TIMES
+    if (ap_scoreboard_image == NULL) {
+        return APR_SUCCESS;
+    }
+    times(&ap_scoreboard_image->global->times);
+#endif
+    return APR_SUCCESS;
 }
 
 AP_DECLARE(worker_score *) ap_get_scoreboard_worker_from_indexes(int x, int y)
@@ -653,6 +693,7 @@ AP_DECLARE(void) ap_copy_scoreboard_worker(worker_score *dest,
     /* For extra safety, NUL-terminate the strings returned, though it
      * should be true those last bytes are always zero anyway. */
     dest->client[sizeof(dest->client) - 1] = '\0';
+    dest->client64[sizeof(dest->client64) - 1] = '\0';
     dest->request[sizeof(dest->request) - 1] = '\0';
     dest->vhost[sizeof(dest->vhost) - 1] = '\0';
     dest->protocol[sizeof(dest->protocol) - 1] = '\0';

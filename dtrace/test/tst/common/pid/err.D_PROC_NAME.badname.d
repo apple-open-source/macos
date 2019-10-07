@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_PROC_NAME.badname.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Only entry, return and offsets are valid names
  *

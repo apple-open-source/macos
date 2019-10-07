@@ -44,17 +44,15 @@ public:
         return adoptRef(*new InbandTextTrackPrivateGStreamer(index, pad));
     }
 
-#if GST_CHECK_VERSION(1, 10, 0)
     static Ref<InbandTextTrackPrivateGStreamer> create(gint index, GRefPtr<GstStream> stream)
     {
         return adoptRef(*new InbandTextTrackPrivateGStreamer(index, stream));
     }
-#endif
 
     void disconnect() override;
 
-    AtomicString label() const override { return m_label; }
-    AtomicString language() const override { return m_language; }
+    AtomString label() const override { return m_label; }
+    AtomString language() const override { return m_language; }
 
     int trackIndex() const override { return m_index; }
     String streamId() const { return m_streamId; }
@@ -63,9 +61,7 @@ public:
 
 private:
     InbandTextTrackPrivateGStreamer(gint index, GRefPtr<GstPad>);
-#if GST_CHECK_VERSION(1, 10, 0)
     InbandTextTrackPrivateGStreamer(gint index, GRefPtr<GstStream>);
-#endif
 
     void streamChanged();
 

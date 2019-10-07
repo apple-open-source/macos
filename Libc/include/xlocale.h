@@ -50,6 +50,7 @@
 #define _LC_LAST_MASK			(1 << (_LC_NUM_MASK - 1))
 
 #define LC_GLOBAL_LOCALE		((locale_t)-1)
+#define LC_C_LOCALE				((locale_t)NULL)
 
 #ifdef MB_CUR_MAX
 #undef MB_CUR_MAX

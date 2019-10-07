@@ -196,7 +196,7 @@ void P12SafeBag::copyAllAttrs(
 
 
 /* getters in CF terms - result is created and returned */
-CFStringRef P12SafeBag::friendlyName()
+CFStringRef CF_RETURNS_RETAINED P12SafeBag::friendlyName()
 {
 	if(mFriendlyName.Data == NULL) {
 		/* not present, no error */
@@ -220,7 +220,7 @@ CFStringRef P12SafeBag::friendlyName()
 	return cstr;
 }
 
-CFDataRef P12SafeBag::localKeyId()
+CFDataRef CF_RETURNS_RETAINED P12SafeBag::localKeyId()
 {
 	if(mLocalKeyId.Data == NULL) {
 		/* not present, no error */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -104,9 +104,9 @@ static int configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, c
 static int configure_proposal(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionaryRef proposal_dict, char **errstr);
 
 //static void closeall();
-static int racoon_pid();
+static int racoon_pid(void);
 //static int racoon_is_started(char *filename);
-static int racoon_restart();
+static int racoon_restart(void);
 static service_route_t * get_service_route (struct service *serv, in_addr_t local_addr, in_addr_t dest_addr);
 
 /* -----------------------------------------------------------------------------
@@ -125,7 +125,7 @@ int makepath( char *path)
 	oldmask = umask(0);
 	newmask = S_IRWXU | S_IRGRP | S_IROTH | S_IXGRP | S_IXOTH; 
 
-	slen = strlen(path);
+	slen = (int)strlen(path);
 	if  ( !(thepath =  malloc( slen+1) ))
 		return -1;
 	strlcpy( thepath, path, slen+1);
@@ -220,7 +220,7 @@ static int EncodeDataUsingBase64(CFDataRef inputData, char *outputData, int maxO
     }
     
 	outp[pos] = 0;
-	return pos;
+	return (int)pos;
 }
 
 /* -----------------------------------------------------------------------------
@@ -269,7 +269,7 @@ racoon_pid()
         bzero(&info, sizeof(info));
         infolen = sizeof(info);
         
-        err = sysctl(name, namelen, &info, &infolen, 0, 0);
+        err = sysctl(name, (u_int)namelen, &info, &infolen, 0, 0);
 
         if (err == 0 && !strcmp("racoon", info.kp_proc.p_comm)) {
             /* process exist and is called racoon */
@@ -526,7 +526,8 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 		exchange mode is OPTIONAL, default will be main mode 
 	*/
 	{
-		int i, nb;
+		int i;
+		CFIndex nb;
 		CFArrayRef  modes;
 		CFStringRef mode;
 		
@@ -948,7 +949,7 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 		proposal records are OPTIONAL 
 	*/
 	{
-		int 	i = 0, nb = 0;
+		CFIndex 	i = 0, nb = 0;
 		CFArrayRef  proposals;
 		CFDictionaryRef proposal = NULL;
 
@@ -1008,7 +1009,7 @@ configure_sainfo(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionary
 	*/
 	{
 		CFArrayRef  algos;
-		int 	i, nb, found = 0;
+		CFIndex 	i, nb, found = 0;
 		
 		strlcpy(text, "encryption_algorithm ", sizeof(text));
 		
@@ -1059,7 +1060,7 @@ configure_sainfo(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionary
 	*/
 	{
 		CFArrayRef  algos;
-		int 	i, nb, found = 0;
+		CFIndex 	i, nb, found = 0;
 		
 		strlcpy(text, "authentication_algorithm ", sizeof(text));
 		
@@ -1110,7 +1111,7 @@ configure_sainfo(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionary
 	*/
 	{
 		CFArrayRef  algos;
-		int 	i, nb, found = 0;
+		CFIndex 	i, nb, found = 0;
 				
 		strlcpy(text, "compression_algorithm ", sizeof(text));
 		
@@ -1318,7 +1319,7 @@ racoon_configure(CFDictionaryRef ipsec_dict, char **errstr, int apply)
 	
 	{
 		CFArrayRef policies;
-		int i, nb;
+		CFIndex i, nb;
 
 		policies = CFDictionaryGetValue(ipsec_dict, kRASPropIPSecPolicies);
 		if (!isArray(policies)
@@ -1582,7 +1583,7 @@ IPSecCountPolicies(CFDictionaryRef ipsec_dict)
 
 	policies = CFDictionaryGetValue(ipsec_dict, kRASPropIPSecPolicies);
 	if (isArray(policies))
-		return CFArrayGetCount(policies);		
+		return (int)CFArrayGetCount(policies);
 		
     return 0;
 }
@@ -1649,7 +1650,8 @@ IPSecInstallPolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr)
 {
     int			nread, num_policies = 0, num_drained = 0;
     socklen_t	nread_size=sizeof(nread);
-    int			s = -1, err, seq = 0, i, nb;
+	int			s = -1, err, seq = 0;
+	CFIndex		i, nb;
     char		policystr_in[512], policystr_out[512], src_address[256], dst_address[256], str[256], *msg;
     caddr_t		policy_in = 0, policy_out = 0;
     u_int32_t	policylen_in, policylen_out, local_prefix, remote_prefix;
@@ -1752,11 +1754,11 @@ IPSecInstallPolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr)
 		else 
 			FAIL("incorrect policy level");
 		
-		policy_in = ipsec_set_policy(policystr_in, strlen(policystr_in));
+		policy_in = ipsec_set_policy(policystr_in, (int)strlen(policystr_in));
 		if (policy_in == 0)
 			FAIL("cannot set policy in");
 
-		policy_out = ipsec_set_policy(policystr_out, strlen(policystr_out));
+		policy_out = ipsec_set_policy(policystr_out, (int)strlen(policystr_out));
 		if (policy_out == 0)
 			FAIL("cannot set policy out");
 
@@ -1922,7 +1924,8 @@ netname(uint32_t in, uint32_t mask)
 static int
 install_remove_routes(struct service *serv, int cmd, CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr, struct in_addr gateway)
 {
-    int			s = -1, i, nb;
+    int			s = -1;
+	CFIndex		i, nb;
     char		src_address[256], dst_address[256], str[256];
     u_int32_t	remote_prefix;
 	CFArrayRef  policies;
@@ -2169,7 +2172,8 @@ Return code:
 int 
 IPSecRemovePolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr) 
 {
-    int			s = -1, err, seq = 0, nb, i;
+    int			s = -1, err, seq = 0;
+	CFIndex		nb, i;
     char		policystr_in[64], policystr_out[64], str[32];
     caddr_t		policy_in = 0, policy_out = 0;
     u_int32_t	policylen_in, policylen_out, local_prefix, remote_prefix;
@@ -2244,11 +2248,11 @@ IPSecRemovePolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr)
 		snprintf(policystr_out, sizeof(policystr_out), "out");
 		snprintf(policystr_in, sizeof(policystr_in), "in");
 		
-		policy_in = ipsec_set_policy(policystr_in, strlen(policystr_in));
+		policy_in = ipsec_set_policy(policystr_in, (int)strlen(policystr_in));
 		if (policy_in == 0)
 			FAIL("cannot set policy in");
 
-		policy_out = ipsec_set_policy(policystr_out, strlen(policystr_out));
+		policy_out = ipsec_set_policy(policystr_out, (int)strlen(policystr_out));
 		if (policy_out == 0)
 			FAIL("cannot set policy out");
 
@@ -2427,17 +2431,17 @@ sockaddr_to_string(const struct sockaddr_storage *address, char *buf, size_t buf
             (void)inet_ntop(((struct sockaddr_in *)address)->sin_family,
                             &((struct sockaddr_in *)address)->sin_addr,
                             buf,
-                            bufLen);
+                            (socklen_t)bufLen);
             break;
         case AF_INET6 : {
             (void)inet_ntop(((struct sockaddr_in6 *)address)->sin6_family,
                             &((struct sockaddr_in6 *)address)->sin6_addr,
                             buf,
-                            bufLen);
+                            (socklen_t)bufLen);
             if (((struct sockaddr_in6 *)address)->sin6_scope_id) {
                 int	n;
 
-                n = strlen(buf);
+                n = (int)strlen(buf);
                 if ((n+IF_NAMESIZE+1) <= bufLen) {
                     buf[n++] = '%';
                     if_indextoname(((struct sockaddr_in6 *)address)->sin6_scope_id, &buf[n]);
@@ -2578,7 +2582,7 @@ get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *ifscope,
     aligned_buf.rtm.rtm_msglen += sdl->sdl_len;
 
     do {
-        n = write(rsock, &aligned_buf, aligned_buf.rtm.rtm_msglen);
+        n = (int)write(rsock, &aligned_buf, aligned_buf.rtm.rtm_msglen);
         if (n == -1 && errno != EINTR) {
             close(rsock);
             return -1;
@@ -2586,7 +2590,7 @@ get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *ifscope,
     } while (n == -1); 
 
     do {
-        n = read(rsock, (void *)&aligned_buf, sizeof(aligned_buf));
+        n = (int)read(rsock, (void *)&aligned_buf, sizeof(aligned_buf));
         if (n == -1 && errno != EINTR) {
             close(rsock);
             return -1;

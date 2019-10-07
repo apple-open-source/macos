@@ -41,7 +41,6 @@ extern void _arc4_init(void);
 extern void __atexit_init(void);
 extern void __confstr_init(const struct _libc_functions *funcs);
 extern void _init_clock_port(void);
-extern void __chk_init(void);
 extern void __xlocale_init(void);
 extern void __guard_setup(const char *apple[]);
 
@@ -56,7 +55,6 @@ _libc_initializer(const struct _libc_functions *funcs,
 	__confstr_init(funcs);
 	__atexit_init();
 	_init_clock_port();
-	__chk_init();
 	__xlocale_init();
 	__guard_setup(apple);
 }

@@ -265,7 +265,19 @@ class IOMedia : public IOStorage
 
 protected:
 
+#ifdef KERNEL_PRIVATE
+    struct ExpansionData {
+        IOLock *    _lock;
+        OSArray *   _probeList;
+        bool        _needRegisterService;
+    };
+    #define mediaManagementLock         ( IOMedia::_expansionData->_lock )
+    #define mediaProbeList              ( IOMedia::_expansionData->_probeList )
+    #define mediaNeedRegisterService    ( IOMedia::_expansionData->_needRegisterService )
+#else /* KERNEL_PRIVATE */
     struct ExpansionData { /* */ };
+#endif /* KERNEL_PRIVATE */
+
     ExpansionData * _expansionData;
 
     UInt32          _attributes;
@@ -348,6 +360,32 @@ protected:
      */
 
     virtual void handleClose(IOService * client, IOOptionBits options) APPLE_KEXT_OVERRIDE;
+
+#ifdef KERNEL_PRIVATE
+private:
+
+    void scheduleProbe ( IOService * driver );
+    void scheduleRegisterService( void );
+
+public:
+
+    /*!
+     * @function close
+     * @abstract Releases active access to a provider.
+     * @discussion IOService provides generic open and close semantics to track
+     * clients of a provider that have established an active datapath.  The use
+     * of open and close, and rules regarding * ownership are  family  defined,
+     * and defined by the handleOpen and handleClose methods in the provider.
+     * @param client Designates the client of the provider requesting the
+     * close.
+     * @param options Options available for the close. The provider family  may
+     * implement options for close; IOService defines none.
+     */
+
+    virtual void close(  IOService *       client,
+                         IOOptionBits      options = 0 ) APPLE_KEXT_OVERRIDE;
+
+#endif /* KERNEL_PRIVATE */
 
 public:
 

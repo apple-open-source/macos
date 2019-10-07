@@ -490,6 +490,7 @@ static void *create_core_server_config(apr_pool_t *a, server_rec *s)
 
     conf->protocols = apr_array_make(a, 5, sizeof(const char *));
     conf->protocols_honor_order = -1;
+    conf->merge_slashes = AP_CORE_CONFIG_UNSET; 
     
     return (void *)conf;
 }
@@ -555,6 +556,7 @@ static void *merge_core_server_configs(apr_pool_t *p, void *basev, void *virtv)
     conf->protocols_honor_order = ((virt->protocols_honor_order < 0)?
                                        base->protocols_honor_order :
                                        virt->protocols_honor_order);
+    AP_CORE_MERGE_FLAG(merge_slashes, conf, base, virt);
     
     return conf;
 }
@@ -1361,7 +1363,7 @@ AP_DECLARE(const char *) ap_resolve_env(apr_pool_t *p, const char * word)
                 if (server_config_defined_vars)
                     word = apr_table_get(server_config_defined_vars, name);
                 if (!word)
-                    word = getenv(name);
+                    word = apr_pstrdup(p, getenv(name));
                 if (word) {
                     current->string = word;
                     current->len = strlen(word);
@@ -1518,7 +1520,7 @@ static const char *set_gprof_dir(cmd_parms *cmd, void *dummy, const char *arg)
         return err;
     }
 
-    conf->gprof_dir = arg;
+    conf->gprof_dir = apr_pstrdup(cmd->pool, arg);
     return NULL;
 }
 #endif /*GPROF*/
@@ -1861,6 +1863,13 @@ static const char *set_qualify_redirect_url(cmd_parms *cmd, void *d_, int flag)
     d->qualify_redirect_url = flag ? AP_CORE_CONFIG_ON : AP_CORE_CONFIG_OFF;
 
     return NULL;
+}
+
+static const char *set_core_server_flag(cmd_parms *cmd, void *s_, int flag)
+{
+    core_server_config *conf =
+        ap_get_core_module_config(cmd->server->module_config);
+    return ap_set_flag_slot(cmd, conf, flag);
 }
 
 static const char *set_override_list(cmd_parms *cmd, void *d_, int argc, char *const argv[])
@@ -2721,6 +2730,7 @@ static const char *start_cond_section(cmd_parms *cmd, void *mconfig, const char 
     const char *endp = ap_strrchr_c(arg, '>');
     int result, not = (arg[0] == '!');
     test_cond_section_fn testfn = (test_cond_section_fn)cmd->info;
+    const char *arg1;
 
     if (endp == NULL) {
         return unclosed_directive(cmd);
@@ -2732,11 +2742,13 @@ static const char *start_cond_section(cmd_parms *cmd, void *mconfig, const char 
         arg++;
     }
 
-    if (!arg[0]) {
+    arg1 = ap_getword_conf(cmd->temp_pool, &arg);
+
+    if (!arg1[0]) {
         return missing_container_arg(cmd);
     }
 
-    result = testfn(cmd, arg);
+    result = testfn(cmd, arg1);
 
     if ((!not && result) || (not && !result)) {
         ap_directive_t *parent = NULL;
@@ -4303,19 +4315,19 @@ AP_INIT_RAW_ARGS("<LimitExcept", ap_limit_section, (void*)1,
                  OR_LIMIT | OR_AUTHCFG,
   "Container for authentication directives to be applied when any HTTP "
   "method other than those specified is used to access the resource"),
-AP_INIT_TAKE1("<IfModule", start_cond_section, (void *)test_ifmod_section,
+AP_INIT_RAW_ARGS("<IfModule", start_cond_section, (void *)test_ifmod_section,
               EXEC_ON_READ | OR_ALL,
   "Container for directives based on existence of specified modules"),
-AP_INIT_TAKE1("<IfDefine", start_cond_section, (void *)test_ifdefine_section,
+AP_INIT_RAW_ARGS("<IfDefine", start_cond_section, (void *)test_ifdefine_section,
               EXEC_ON_READ | OR_ALL,
   "Container for directives based on existence of command line defines"),
-AP_INIT_TAKE1("<IfFile", start_cond_section, (void *)test_iffile_section,
+AP_INIT_RAW_ARGS("<IfFile", start_cond_section, (void *)test_iffile_section,
               EXEC_ON_READ | OR_ALL,
   "Container for directives based on existence of files on disk"),
-AP_INIT_TAKE1("<IfDirective", start_cond_section, (void *)test_ifdirective_section,
+AP_INIT_RAW_ARGS("<IfDirective", start_cond_section, (void *)test_ifdirective_section,
               EXEC_ON_READ | OR_ALL,
   "Container for directives based on existence of named directive"),
-AP_INIT_TAKE1("<IfSection", start_cond_section, (void *)test_ifsection_section,
+AP_INIT_RAW_ARGS("<IfSection", start_cond_section, (void *)test_ifsection_section,
               EXEC_ON_READ | OR_ALL,
   "Container for directives based on existence of named section"),
 AP_INIT_RAW_ARGS("<DirectoryMatch", dirsection, (void*)1, RSRC_CONF,
@@ -4559,6 +4571,10 @@ AP_INIT_ITERATE("HttpProtocolOptions", set_http_protocol_options, NULL, RSRC_CON
                 "'Unsafe' or 'Strict' (default). Sets HTTP acceptance rules"),
 AP_INIT_ITERATE("RegisterHttpMethod", set_http_method, NULL, RSRC_CONF,
                 "Registers non-standard HTTP methods"),
+AP_INIT_FLAG("MergeSlashes", set_core_server_flag, 
+             (void *)APR_OFFSETOF(core_server_config, merge_slashes),  
+             RSRC_CONF,
+             "Controls whether consecutive slashes in the URI path are merged"),
 { NULL }
 };
 

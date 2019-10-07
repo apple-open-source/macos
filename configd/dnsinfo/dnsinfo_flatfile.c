@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2011, 2012, 2014, 2015, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2009, 2011, 2012, 2014, 2015, 2017-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -466,7 +466,7 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 				long	number	= -1;
 
 				number = strtol(word, NULL, 0);
-				if (number < 0 || number > UINT32_MAX) break;
+				if (number < 0 || number > (long)UINT32_MAX) break;
 				_dns_resolver_set_order(&res, (uint32_t)number);
 				break;
 			}
@@ -490,13 +490,12 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 				long	number	= -1;
 
 				number = strtol(word, NULL, 0);
-				if (number < 0 || number > UINT32_MAX) break;
+				if (number < 0 || number > (long)UINT32_MAX) break;
 				_dns_resolver_set_timeout(&res, (uint32_t)number);
 				break;
 			}
 		}
 	}
-	if (line != NULL) free(line);
 
 	// set the domain to the basename of the path if not specified
 	if ((res != NULL) && (token_count[TOKEN_DOMAIN] == 0)) {
@@ -522,6 +521,7 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 
     done :
 
+	if (line != NULL) free(line);
 	fclose(f);
 	return res;
 }

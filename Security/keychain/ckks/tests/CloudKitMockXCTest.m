@@ -32,7 +32,7 @@
 #import <CloudKit/CKContainer_Private.h>
 #import <OCMock/OCMock.h>
 
-#include "OSX/sec/securityd/Regressions/SecdTestKeychainUtilities.h"
+#include "securityd/Regressions/SecdTestKeychainUtilities.h"
 #include <utilities/SecFileLocations.h>
 #include <securityd/SecItemServer.h>
 
@@ -54,6 +54,9 @@
 #include "keychain/ckks/CKKSLockStateTracker.h"
 #include "keychain/ckks/CKKSReachabilityTracker.h"
 
+#import "tests/secdmockaks/mockaks.h"
+#import "utilities/SecTapToRadar.h"
+
 #import "MockCloudKit.h"
 
 @interface BoolHolder : NSObject
@@ -70,9 +73,11 @@
 
 
 @implementation CloudKitMockXCTest
+@synthesize aksLockState = _aksLockState;
 
 + (void)setUp {
     // Turn on testing
+    SecCKKSEnable();
     SecCKKSTestsEnable();
     SecCKKSSetReduceRateLimiting(true);
     [super setUp];
@@ -80,6 +85,21 @@
 #if NO_SERVER
     securityd_init_local_spi();
 #endif
+}
+
+- (BOOL)isRateLimited:(SecTapToRadar *)ttrRequest
+{
+    return self.isTTRRatelimited;
+}
+
+- (BOOL)askUserIfTTR:(SecTapToRadar *)ttrRequest
+{
+    return YES;
+}
+
+- (void)triggerTapToRadar:(SecTapToRadar *)ttrRequest
+{
+    [self.ttrExpectation fulfill];
 }
 
 - (void)setUp {
@@ -125,11 +145,12 @@
     OCMStub([self.mockContainer fetchCurrentDeviceIDWithCompletionHandler: ([OCMArg invokeBlockWithArgs:self.ckDeviceID, [NSNull null], nil])]);
 
     self.accountStatus = CKAccountStatusAvailable;
-    self.supportsDeviceToDeviceEncryption = YES;
     self.iCloudHasValidCredentials = YES;
 
+    self.fakeHSA2AccountStatus = CKKSAccountStatusAvailable;
+
     // Inject a fake operation dependency so we won't respond with the CloudKit account status immediately
-    // The CKKSCKAccountStateTracker won't send any login/logout calls without that information, so this blocks all CKKS setup
+    // The CKKSAccountStateTracker won't send any login/logout calls without that information, so this blocks all CKKS setup
     self.ckaccountHoldOperation = [NSBlockOperation named:@"ckaccount-hold" withBlock:^{
         secnotice("ckks", "CKKS CK account status test hold released");
     }];
@@ -160,7 +181,6 @@
                 __strong __typeof(self) blockStrongSelf = weakSelf;
                 CKAccountInfo* account = [[CKAccountInfo alloc] init];
                 account.accountStatus = blockStrongSelf.accountStatus;
-                account.supportsDeviceToDeviceEncryption = blockStrongSelf.supportsDeviceToDeviceEncryption;
                 account.hasValidCredentials = blockStrongSelf.iCloudHasValidCredentials;
                 account.accountPartition = CKAccountPartitionTypeProduction;
                 passedBlock((CKAccountInfo*)account, nil);
@@ -173,19 +193,29 @@
         return NO;
     }]]);
 
-    self.circleStatus = [[SOSAccountStatus alloc] init:kSOSCCInCircle error:nil];
-    self.mockAccountStateTracker = OCMClassMock([CKKSCKAccountStateTracker class]);
+    self.mockAccountStateTracker = OCMClassMock([CKKSAccountStateTracker class]);
     OCMStub([self.mockAccountStateTracker getCircleStatus]).andCall(self, @selector(circleStatus));
 
+    // Fake out SOS peers
+    // One trusted non-self peer, but it doesn't have any Octagon keys. Your test can change this if it wants.
+    // However, note that [self putFakeDeviceStatusInCloudKit:] will likely not do what you want after you change this
+    CKKSSOSSelfPeer* currentSelfPeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"local-peer"
+                                                                    encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
+                                                                       signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
+                                                                         viewList:self.managedViewList];
+
+    self.mockSOSAdapter = [[CKKSMockSOSPresentAdapter alloc] initWithSelfPeer:currentSelfPeer
+                                                                 trustedPeers:[NSSet set]
+                                                                    essential:YES];
+
     // If we're in circle, come up with a fake circle id. Otherwise, return an error.
-    self.circlePeerID = [NSString stringWithFormat:@"fake-circle-id-%@", testName];
     OCMStub([self.mockAccountStateTracker fetchCirclePeerID:
              [OCMArg checkWithBlock:^BOOL(void (^passedBlock) (NSString* peerID,
                                                                NSError * error)) {
         __strong __typeof(self) strongSelf = weakSelf;
         if(passedBlock && strongSelf) {
-            if(strongSelf.circleStatus.status == kSOSCCInCircle) {
-                passedBlock(strongSelf.circlePeerID, nil);
+            if(strongSelf.mockSOSAdapter.circleStatus == kSOSCCInCircle) {
+                passedBlock(strongSelf.mockSOSAdapter.selfPeer.peerID, nil);
             } else {
                 passedBlock(nil, [NSError errorWithDomain:@"securityd" code:errSecInternalError userInfo:@{NSLocalizedDescriptionKey:@"no account, no circle id"}]);
             }
@@ -199,12 +229,16 @@
     self.mockLockStateTracker = OCMClassMock([CKKSLockStateTracker class]);
     OCMStub([self.mockLockStateTracker queryAKSLocked]).andCall(self, @selector(aksLockState));
 
-    self.reachabilityFlags = kSCNetworkReachabilityFlagsReachable; // Lie and say network is available
-    self.mockReachabilityTracker = OCMClassMock([CKKSReachabilityTracker class]);
-    OCMStub([self.mockReachabilityTracker getReachabilityFlags:[OCMArg anyPointer]]).andCall(self, @selector(reachabilityFlags));
+    self.mockTTR = OCMClassMock([SecTapToRadar class]);
+    OCMStub([self.mockTTR isRateLimited:[OCMArg any]]).andCall(self, @selector(isRateLimited:));
+    OCMStub([self.mockTTR askUserIfTTR:[OCMArg any]]).andCall(self, @selector(askUserIfTTR:));
+    OCMStub([self.mockTTR triggerTapToRadar:[OCMArg any]]).andCall(self, @selector(triggerTapToRadar:));
+    self.isTTRRatelimited = true;
 
     self.mockFakeCKModifyRecordZonesOperation = OCMClassMock([FakeCKModifyRecordZonesOperation class]);
     OCMStub([self.mockFakeCKModifyRecordZonesOperation ckdb]).andReturn(self.zones);
+    OCMStub([self.mockFakeCKModifyRecordZonesOperation shouldFailModifyRecordZonesOperation]).andCall(self, @selector(shouldFailModifyRecordZonesOperation));
+
     OCMStub([self.mockFakeCKModifyRecordZonesOperation ensureZoneDeletionAllowed:[OCMArg any]]).andCall(self, @selector(ensureZoneDeletionAllowed:));
 
     self.mockFakeCKModifySubscriptionsOperation = OCMClassMock([FakeCKModifySubscriptionsOperation class]);
@@ -212,6 +246,7 @@
 
     self.mockFakeCKFetchRecordZoneChangesOperation = OCMClassMock([FakeCKFetchRecordZoneChangesOperation class]);
     OCMStub([self.mockFakeCKFetchRecordZoneChangesOperation ckdb]).andReturn(self.zones);
+    OCMStub([self.mockFakeCKFetchRecordZoneChangesOperation isNetworkReachable]).andCall(self, @selector(isNetworkReachable));
 
     self.mockFakeCKFetchRecordsOperation = OCMClassMock([FakeCKFetchRecordsOperation class]);
     OCMStub([self.mockFakeCKFetchRecordsOperation ckdb]).andReturn(self.zones);
@@ -265,28 +300,34 @@
         return matches;
     }]]);
 
-
     self.testZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"testzone" ownerName:CKCurrentUserDefaultName];
 
     // We don't want to use class mocks here, because they don't play well with partial mocks
+    CKKSCloudKitClassDependencies* cloudKitClassDependencies = [[CKKSCloudKitClassDependencies alloc] initWithFetchRecordZoneChangesOperationClass:[FakeCKFetchRecordZoneChangesOperation class]
+                                                                                                                        fetchRecordsOperationClass:[FakeCKFetchRecordsOperation class]
+                                                                                                                               queryOperationClass:[FakeCKQueryOperation class]
+                                                                                                                 modifySubscriptionsOperationClass:[FakeCKModifySubscriptionsOperation class]
+                                                                                                                   modifyRecordZonesOperationClass:[FakeCKModifyRecordZonesOperation class]
+                                                                                                                                apsConnectionClass:[FakeAPSConnection class]
+                                                                                                                         nsnotificationCenterClass:[FakeNSNotificationCenter class]
+                                                                nsdistributednotificationCenterClass:[FakeNSDistributedNotificationCenter class]
+                                                                                                                                     notifierClass:[FakeCKKSNotifier class]];
+
     self.mockCKKSViewManager = OCMPartialMock(
         [[CKKSViewManager alloc] initWithContainerName:SecCKKSContainerName
                                                 usePCS:SecCKKSContainerUsePCS
-                  fetchRecordZoneChangesOperationClass:[FakeCKFetchRecordZoneChangesOperation class]
-                            fetchRecordsOperationClass:[FakeCKFetchRecordsOperation class]
-                                   queryOperationClass:[FakeCKQueryOperation class]
-                     modifySubscriptionsOperationClass:[FakeCKModifySubscriptionsOperation class]
-                       modifyRecordZonesOperationClass:[FakeCKModifyRecordZonesOperation class]
-                                    apsConnectionClass:[FakeAPSConnection class]
-                             nsnotificationCenterClass:[FakeNSNotificationCenter class]
-                                         notifierClass:[FakeCKKSNotifier class]]);
+                                            sosAdapter:self.mockSOSAdapter
+                             cloudKitClassDependencies:cloudKitClassDependencies]);
 
-    OCMStub([self.mockCKKSViewManager viewList]).andCall(self, @selector(managedViewList));
+    OCMStub([self.mockCKKSViewManager defaultViewList]).andCall(self, @selector(managedViewList));
     OCMStub([self.mockCKKSViewManager syncBackupAndNotifyAboutSync]);
 
     self.injectedManager = self.mockCKKSViewManager;
 
     [CKKSViewManager resetManager:false setTo:self.injectedManager];
+
+    // Lie and say network is available
+    [self.reachabilityTracker setNetworkReachability:true];
 
     // Make a new fake keychain
     NSString* tmp_dir = [NSString stringWithFormat: @"/tmp/%@.%X", testName, arc4random()];
@@ -297,6 +338,32 @@
 
     // Actually load the database.
     kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
+}
+
+- (SOSAccountStatus*)circleStatus {
+    NSError* error = nil;
+    SOSCCStatus status = [self.mockSOSAdapter circleStatus:&error];
+    return [[SOSAccountStatus alloc] init:status error:error];
+}
+
+- (bool)aksLockState
+{
+    return _aksLockState;
+}
+
+- (void)setAksLockState:(bool)aksLockState
+{
+
+    if(aksLockState) {
+        [SecMockAKS lockClassA];
+    } else {
+        [SecMockAKS unlockAllClasses];
+    }
+    _aksLockState = aksLockState;
+}
+
+- (bool)isNetworkReachable {
+    return self.reachabilityTracker.currentReachability;
 }
 
 - (void)ckcontainerSubmitEventMetric:(CKEventMetric*)metric {
@@ -315,12 +382,20 @@
     }
 }
 
+- (NSError* _Nullable)shouldFailModifyRecordZonesOperation {
+    NSError* error = self.nextModifyRecordZonesError;
+    if(error) {
+        self.nextModifyRecordZonesError = nil;
+        return error;
+    }
+    return nil;
+}
 
 - (void)ensureZoneDeletionAllowed:(FakeCKZone*)zone {
     XCTAssertTrue(self.silentZoneDeletesAllowed, "Should be allowing zone deletes");
 }
 
--(CKKSCKAccountStateTracker*)accountStateTracker {
+-(CKKSAccountStateTracker*)accountStateTracker {
     return self.injectedManager.accountTracker;
 }
 
@@ -341,6 +416,15 @@
 }
 
 -(void)expectCKFetchAndRunBeforeFinished: (void (^)(void))blockAfterFetch {
+    [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * op) {
+        return YES;
+    }
+                runBeforeFinished:blockAfterFetch];
+}
+
+- (void)expectCKFetchWithFilter:(BOOL (^)(FakeCKFetchRecordZoneChangesOperation*))operationMatch
+              runBeforeFinished:(void (^)(void))blockAfterFetch
+{
     // Create an object for the block to retain and modify
     BoolHolder* runAlready = [[BoolHolder alloc] init];
 
@@ -354,11 +438,11 @@
         secnotice("fakecloudkit", "Received an operation (%@), checking if it's a fetch changes", obj);
         BOOL matches = NO;
         if ([obj isKindOfClass: [FakeCKFetchRecordZoneChangesOperation class]]) {
-            matches = YES;
+            FakeCKFetchRecordZoneChangesOperation *frzco = (FakeCKFetchRecordZoneChangesOperation *)obj;
+            matches = operationMatch(frzco);
             runAlready.state = true;
 
             secnotice("fakecloudkit", "Running fetch changes: %@", obj);
-            FakeCKFetchRecordZoneChangesOperation *frzco = (FakeCKFetchRecordZoneChangesOperation *)obj;
             frzco.blockAfterFetch = blockAfterFetch;
             [frzco addNullableDependency: strongSelf.ckFetchHoldOperation];
             [strongSelf.operationQueue addOperation: frzco];
@@ -415,6 +499,9 @@
 }
 
 - (void)startCKKSSubsystem {
+    if(self.fakeHSA2AccountStatus != CKKSAccountStatusUnknown) {
+        [self.accountStateTracker setHSA2iCloudAccountStatus:self.fakeHSA2AccountStatus];
+    }
     [self startCKAccountStatusMock];
 }
 
@@ -425,6 +512,8 @@
     if([self.ckaccountHoldOperation isPending]) {
         [self.operationQueue addOperation: self.ckaccountHoldOperation];
     }
+
+    [self.accountStateTracker performInitialDispatches];
 }
 
 -(void)holdCloudKitModifications {
@@ -716,7 +805,11 @@
 - (void)failNextZoneCreation:(CKRecordZoneID*)zoneID {
     XCTAssertNil(self.zones[zoneID], "Zone does not exist yet");
     self.zones[zoneID] = [[FakeCKZone alloc] initZone: zoneID];
-    self.zones[zoneID].creationError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkUnavailable userInfo:@{}];
+    self.zones[zoneID].creationError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+                                                                        code:CKErrorNetworkUnavailable
+                                                                    userInfo:@{
+                                                                               CKErrorRetryAfterKey: @(0.5),
+                                                                               }];
 }
 
 // Report success, but don't actually create the zone.
@@ -928,13 +1021,13 @@
                 [statusReturned fulfill];
             }];
             [self waitForExpectations: @[statusReturned] timeout:20];
+
+            // Make sure this happens before teardown.
+            XCTAssertEqual(0, [self.accountStateTracker.finishedInitialDispatches wait:20*NSEC_PER_SEC], "Account state tracker initialized itself");
+
+            dispatch_group_t accountChangesDelivered = [self.accountStateTracker checkForAllDeliveries];
+            XCTAssertEqual(0, dispatch_group_wait(accountChangesDelivered, dispatch_time(DISPATCH_TIME_NOW, 10*NSEC_PER_SEC)), "Account state tracker finished delivering everything");
         }
-
-        // Make sure this happens before teardown.
-        XCTAssertEqual(0, [self.accountStateTracker.finishedInitialDispatches wait:20*NSEC_PER_SEC], "Account state tracker initialized itself");
-
-        dispatch_group_t accountChangesDelivered = [self.accountStateTracker checkForAllDeliveries];
-        XCTAssertEqual(0, dispatch_group_wait(accountChangesDelivered, dispatch_time(DISPATCH_TIME_NOW, 10*NSEC_PER_SEC)), "Account state tracker finished delivering everything");
     }
 
     [super tearDown];
@@ -950,9 +1043,6 @@
 
     [self.mockLockStateTracker stopMocking];
     self.mockLockStateTracker = nil;
-
-    [self.mockReachabilityTracker stopMocking];
-    self.mockReachabilityTracker = nil;
 
     [self.mockFakeCKModifyRecordZonesOperation stopMocking];
     self.mockFakeCKModifyRecordZonesOperation = nil;
@@ -978,9 +1068,15 @@
     [self.mockContainer stopMocking];
     self.mockContainer = nil;
 
+    [self.mockTTR stopMocking];
+    self.mockTTR = nil;
+    self.ttrExpectation = nil;
+    self.isTTRRatelimited = true;
+
     self.zones = nil;
 
-    self.operationQueue = nil;
+    _mockSOSAdapter = nil;
+    _mockOctagonAdapter = nil;
 
     SecCKKSTestResetFlags();
 }

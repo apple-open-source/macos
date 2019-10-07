@@ -1,5 +1,5 @@
 #!/bin/sh
-# Untar the apache archive, remove certain files, and re-archive
+# Untar the apache archive, remove certain files, and move to httpd folder 
 if [ $# -lt 1 ]
 then
         echo "Usage: $0 httpd-xxx.tar.bz2, from apache working directory"
@@ -12,6 +12,8 @@ then
         exit 1
 fi
 ARCHIVE=$1
+echo SHA256=$(shasum -a 256 $ARCHIVE) 
+echo OpenSourceSHA1=$(shasum -a 1 $ARCHIVE)
 ARCHIVE_DIR=$(basename $ARCHIVE .tar.bz2)
 TMP_DIR=$(mktemp -d /tmp/apacheXXXX)
 cp $ARCHIVE $TMP_DIR
@@ -32,19 +34,8 @@ rm -rf server/util_expr_parse.c
 rm -rf os/netware/apache.xdc
 #
 popd
-mv $ARCHIVE ${ARCHIVE}-old
-COPYFILE_DISABLE=1 tar cj -f $ARCHIVE $ARCHIVE_DIR
-if [ $? -ne 0 ]
-then
-        echo "Could not tar $ARCHIVE"
-        popd 
-        rm -rf "$TMP_DIR"
-        exit 1
-fi
-pwd
-ls -l
 popd
-mv $ARCHIVE ${ARCHIVE}-original
-cp ${TMP_DIR}/$ARCHIVE .
-#rm -rf "$TMP_DIR"
-
+mv httpd httpd-prev-$$
+ditto $TMP_DIR/$ARCHIVE_DIR httpd
+echo "Old httpd has been moved to httpd-prev-$$. $ARCHIVE has been cleaned up and placed in ./httpd"
+exit 0

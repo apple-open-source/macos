@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2016 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,6 +56,13 @@
 #include <uuid/uuid.h>
 #include <System/uuid/namespace.h>
 
+// This flags array is shared with the mount(8) tool. 
+#include "../mount_flags_dir/mount_flags.h"
+
+//from mount_flags_dir/mount_flags.c
+extern mountopt_t optnames[];
+
+
 /*
  * CommonCrypto is meant to be a more stable API than OpenSSL.
  * Defining COMMON_DIGEST_FOR_OPENSSL gives API-compatibility
@@ -68,6 +75,7 @@
 static char usage[] = "Usage: %s [-a path] | [-c path ] [-d path] [-i]\n";
 
 static char gHFSTypeName[] = "hfs";
+static char gAPFSTypeName[] = "apfs";
 
 /*****************************************************************************
  *
@@ -234,44 +242,62 @@ UpdateMountStatus(const char *path, u_int32_t volstatus) {
 	 * selectors to determine whether or not certain features 
 	 * should be re-enabled via mount -u 
 	 */
-	int nosuid;
-	int nodev;
-	int noexec;
-	int readonly;
-	int protect;
-	int quarantine;
-	int nobrowse;
-	int unionmnt;
+#ifndef MAXMOUNTLEN
+#define MAXMOUNTLEN 255
+#endif
 
-	char mountline[255];
+	char mountline[MAXMOUNTLEN];
+	char mountstring[MAXMOUNTLEN];
+
+	mountopt_t* opt = NULL;
+    uint64_t flags;
+    uint64_t flags_mask = (MNT_NOSUID | MNT_NODEV |
+                           MNT_NOEXEC | MNT_RDONLY |
+                           MNT_CPROTECT | MNT_QUARANTINE |
+                           MNT_UNION | MNT_DONTBROWSE);
 
 	result = statfs(path, &mntstat);
 	if (result != 0) {
 		warn("couldn't look up mount status for '%s'", path);
 		return errno;
-	};
+	}
 
-	nosuid = mntstat.f_flags & MNT_NOSUID;
-	nodev = mntstat.f_flags & MNT_NODEV;
-	noexec = mntstat.f_flags & MNT_NOEXEC;
-	readonly = mntstat.f_flags & MNT_RDONLY;
-	protect = mntstat.f_flags & MNT_CPROTECT;
-	quarantine = mntstat.f_flags & MNT_QUARANTINE;
-	unionmnt = mntstat.f_flags & MNT_UNION;
-	nobrowse = mntstat.f_flags & MNT_DONTBROWSE;
+	bzero (mountline, MAXMOUNTLEN);
+	bzero (mountstring, MAXMOUNTLEN);
 
+	/* first, check for permissions */
+	if (volstatus & VOLUME_USEPERMISSIONS) {
+		strlcpy(mountline, "perm", MAXMOUNTLEN);
+	}
+	else  {
+		strlcpy(mountline, "noperm", MAXMOUNTLEN);
+	}
 
-	//note: need 9 %s strings for each of the checks below
-	snprintf(mountline, sizeof(mountline), "%s%s%s%s%s%s%s%s%s", 
-			(volstatus & VOLUME_USEPERMISSIONS) ? "perm" : "noperm",
-			(nosuid) ? ",nosuid":"", 
-			(nodev)? ",nodev":"", 
-			(noexec) ? ",noexec":"",
-			(readonly) ? ",rdonly":"", 
-			(protect) ? ",protect":"",
-			(quarantine) ? ",quarantine" : "", 
-			(unionmnt) ? ",union":"",
-			(nobrowse) ? ",nobrowse":"");
+	/* check the flags */
+	flags = (mntstat.f_flags & flags_mask);
+
+	/* 
+	 * now iterate over all of the strings in the optname array and
+	 * add them into the "mount" string if the flag they represent is set.
+	 * The optnames array is extern'd (at the top of this file), and is defined
+	 * in a .c file within the mount_flags directory  
+	 */
+	for (opt = optnames; flags && opt->o_opt; opt++) {
+		if (flags & opt->o_opt) {
+			snprintf(mountstring, sizeof(mountstring), ",%s", opt->o_name);
+			result = strlcat(mountline, mountstring, MAXMOUNTLEN);
+			if (result >= MAXMOUNTLEN) {
+				// bail out, string is too long. 
+				return EINVAL;
+			}
+			flags &= ~opt->o_opt;
+			bzero (mountstring, MAXMOUNTLEN);
+		}
+	}
+
+#ifdef MAXMOUNTLEN
+#undef MAXMOUNTLEN
+#endif
 
 	pid = fork();
 	if (pid == 0) {
@@ -317,7 +343,8 @@ AdoptAllLocalVolumes(void) {
 	};
 	
 	while (fscount > 0) {
-		if (strcmp(mntstatptr->f_fstypename, gHFSTypeName) == 0) {
+		if ((strncmp(mntstatptr->f_fstypename, gHFSTypeName, MFSNAMELEN) == 0) ||
+            (strncmp(mntstatptr->f_fstypename, gAPFSTypeName, MFSNAMELEN) == 0)) {
 			(void)AdoptVolume(mntstatptr->f_mntonname);
 		};
 		
@@ -547,7 +574,7 @@ static int isVolumeHFS (const char* path) {
 
 	result = statfs (path, &statfs_buf);
 	if (result == 0) {
-		if (!strncmp(statfs_buf.f_fstypename, "hfs", 3)) {
+		if (!strncmp(statfs_buf.f_fstypename, gHFSTypeName, 3)) {
 			isHFS = 1;
 		}
 	}

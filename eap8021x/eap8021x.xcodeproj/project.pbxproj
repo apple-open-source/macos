@@ -86,10 +86,15 @@
 
 /* Begin PBXBuildFile section */
 		44217424207948F200646F75 /* SIMAccess.m in Sources */ = {isa = PBXBuildFile; fileRef = 44D554A12065727300681A0F /* SIMAccess.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
+		4423D5752187C7C90077D03D /* EAPClientPluginIntrospect.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 4423D5742187C7C90077D03D /* EAPClientPluginIntrospect.h */; };
+		4423D5762187C7C90077D03D /* EAPClientPluginIntrospect.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 4423D5742187C7C90077D03D /* EAPClientPluginIntrospect.h */; };
 		442403311DA86E6E0041C533 /* MobileWiFi.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 442403301DA86E6E0041C533 /* MobileWiFi.framework */; };
 		4434A3E42166B75B0067E1E3 /* EAPClientConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */; };
+		4461C8F92280B86B00CBCB24 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4461C8F82280B86A00CBCB24 /* libbsm.dylib */; };
+		4461C8FB2280B8AD00CBCB24 /* libbsm.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 4461C8FA2280B8AD00CBCB24 /* libbsm.tbd */; };
 		4474E8AA2166AD5A00CD7B6D /* EAPClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 4474E8A92166AD5A00CD7B6D /* EAPClientConfiguration.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4474E8AC2166AD8C00CD7B6D /* EAPClientConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */; };
+		447B2CCC21891FDC00DE73CF /* EAPClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 4474E8A92166AD5A00CD7B6D /* EAPClientConfiguration.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		447D07322076C867006B90C4 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 447D07312076C867006B90C4 /* Foundation.framework */; };
 		449213AC1D12062700D8FB30 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 449213AB1D12062700D8FB30 /* CoreTelephony.framework */; };
 		44951A3B1EBA79C6003614DE /* eapolcfg_auth.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 44951A3A1EBA79BE003614DE /* eapolcfg_auth.8 */; };
@@ -223,7 +228,7 @@
 		F960448810D1A528000D803D /* EAPOLClientConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = F960448510D1A528000D803D /* EAPOLClientConfiguration.c */; };
 		F960448910D1A528000D803D /* EAPOLClientItemID.c in Sources */ = {isa = PBXBuildFile; fileRef = F960448610D1A528000D803D /* EAPOLClientItemID.c */; };
 		F960448A10D1A528000D803D /* EAPOLClientProfile.c in Sources */ = {isa = PBXBuildFile; fileRef = F960448710D1A528000D803D /* EAPOLClientProfile.c */; };
-		F960448E10D1A54E000D803D /* EAPOLClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F960448B10D1A54E000D803D /* EAPOLClientConfiguration.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F960448E10D1A54E000D803D /* EAPOLClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F960448B10D1A54E000D803D /* EAPOLClientConfiguration.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F960448F10D1A54E000D803D /* EAPOLClientConfigurationInternal.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F960448C10D1A54E000D803D /* EAPOLClientConfigurationInternal.h */; };
 		F960449010D1A54E000D803D /* symbol_scope.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F960448D10D1A54E000D803D /* symbol_scope.h */; };
 		F960449110D1A58A000D803D /* symbol_scope.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F960448D10D1A54E000D803D /* symbol_scope.h */; };
@@ -492,8 +497,11 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4423D5742187C7C90077D03D /* EAPClientPluginIntrospect.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EAPClientPluginIntrospect.h; sourceTree = "<group>"; };
 		442403301DA86E6E0041C533 /* MobileWiFi.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileWiFi.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.2.Internal.sdk/System/Library/PrivateFrameworks/MobileWiFi.framework; sourceTree = DEVELOPER_DIR; };
 		4445AE4320659AD40051CCCD /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = System/Library/Frameworks/CoreTelephony.framework; sourceTree = SDKROOT; };
+		4461C8F82280B86A00CBCB24 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS13.0.Internal.sdk/usr/lib/libbsm.dylib; sourceTree = DEVELOPER_DIR; };
+		4461C8FA2280B8AD00CBCB24 /* libbsm.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbsm.tbd; path = usr/lib/libbsm.tbd; sourceTree = SDKROOT; };
 		4474E8A92166AD5A00CD7B6D /* EAPClientConfiguration.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EAPClientConfiguration.h; sourceTree = "<group>"; };
 		4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = EAPClientConfiguration.c; sourceTree = "<group>"; };
 		4478B6F71AE19D0100051F29 /* sim_simulator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sim_simulator.h; sourceTree = "<group>"; };
@@ -673,6 +681,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4461C8F92280B86B00CBCB24 /* libbsm.dylib in Frameworks */,
 				442403311DA86E6E0041C533 /* MobileWiFi.framework in Frameworks */,
 				449213AC1D12062700D8FB30 /* CoreTelephony.framework in Frameworks */,
 				F90FEE6F0CA3342D00A7B5A8 /* SystemConfiguration.framework in Frameworks */,
@@ -777,6 +786,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4461C8FB2280B8AD00CBCB24 /* libbsm.tbd in Frameworks */,
 				F9B0DFEF0C95BBB200323767 /* SystemConfiguration.framework in Frameworks */,
 				F9B0DFA50C95BB4E00323767 /* CoreFoundation.framework in Frameworks */,
 				F925AB3210F7FBEE002AC2E5 /* EAP8021X.framework in Frameworks */,
@@ -789,6 +799,8 @@
 		449213AA1D12062700D8FB30 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				4461C8FA2280B8AD00CBCB24 /* libbsm.tbd */,
+				4461C8F82280B86A00CBCB24 /* libbsm.dylib */,
 				44B2B61D20AE6A480060E361 /* libio80211.a */,
 				447D07312076C867006B90C4 /* Foundation.framework */,
 				4445AE4320659AD40051CCCD /* CoreTelephony.framework */,
@@ -915,6 +927,7 @@
 		F91F7B960C8F83AE000EA394 /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				4423D5742187C7C90077D03D /* EAPClientPluginIntrospect.h */,
 				44D554A3206573D400681A0F /* SIMAccessPrivate.h */,
 				F96E5840169E02E5001068C6 /* EAPOLControlPrefs.h */,
 				F9432122168BCB5E0092BF5A /* EAPLog.h */,
@@ -1140,6 +1153,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4423D5762187C7C90077D03D /* EAPClientPluginIntrospect.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F915472C0CD78FA7008D9897 /* EAPClientModule.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F915472D0CD78FA7008D9897 /* DiameterAVP.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F915472E0CD78FA7008D9897 /* EAPTLS.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
@@ -1196,6 +1210,7 @@
 				F97A1F520C90871D00D792C8 /* LinkAddresses.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F530C90872100D792C8 /* EAPOLControl.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F540C90872200D792C8 /* EAPUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				447B2CCC21891FDC00DE73CF /* EAPClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F550C90872300D792C8 /* SupplicantTypes.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F560C90872400D792C8 /* EAPOLClient.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F570C90872500D792C8 /* EAPSecurity.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
@@ -1207,16 +1222,17 @@
 				F97A1F5D0C90872B00D792C8 /* myCFUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F5F0C90872D00D792C8 /* EAPClientPlugin.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F600C90872E00D792C8 /* EAPOLControlTypes.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				F960448E10D1A54E000D803D /* EAPOLClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F610C90873100D792C8 /* EAPCertificateUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F620C90875100D792C8 /* DESSupport.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F630C90875900D792C8 /* EAPKeychainUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F640C90875900D792C8 /* printdata.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F650C90875B00D792C8 /* EAPOL.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				4423D5752187C7C90077D03D /* EAPClientPluginIntrospect.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F660C90875B00D792C8 /* mschap.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F90640410EF17BF8003227D9 /* fips186prf.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F90640420EF17BF8003227D9 /* fr_sha1.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F997F3B70F24F48800A9DC1F /* SIMAccess.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
-				F960448E10D1A54E000D803D /* EAPOLClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F960448F10D1A54E000D803D /* EAPOLClientConfigurationInternal.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F960449010D1A54E000D803D /* symbol_scope.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F925AAF610F7F74B002AC2E5 /* EAPOLClientConfigurationPrivate.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
@@ -2021,10 +2037,12 @@
 				HEADER_SEARCH_PATHS = ..;
 				INFOPLIST_FILE = EAP8021X.fproj/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				IS_ZIPPERED = YES;
 				LD_MAP_FILE_PATH = "$(TARGET_TEMP_DIR)/$(PRODUCT_NAME)-LinkMap-$(CURRENT_VARIANT)-$(CURRENT_ARCH).txt";
 				LIBRARY_SEARCH_PATHS = "$(SYMROOT)";
 				OTHER_CFLAGS = "-fconstant-cfstrings";
 				"OTHER_LDFLAGS[arch=armv6]" = "";
+				OTHER_TAPI_FLAGS = "--extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/SIMAccessPrivate.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPLog.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrefs.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/eapol_socket.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/SIMAccess.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLSIMPrefsManage.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPClientPluginIntrospect.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLUtil.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/printdata.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/mschap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/chap.h";
 				PRODUCT_NAME = EAP8021X;
 				SECTORDER_FLAGS = (
 					"-sectorder",
@@ -2034,6 +2052,9 @@
 				);
 				STRIPFLAGS = "-S";
 				SUPPORTED_PLATFORMS = "iphoneos watchos appletvos";
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
+				VERSION_INFO_EXPORT_DECL = "__attribute__((visibility(\"hidden\")))";
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-unknown-pragmas",
@@ -2060,10 +2081,12 @@
 				HEADER_SEARCH_PATHS = ..;
 				INFOPLIST_FILE = EAP8021X.fproj/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				IS_ZIPPERED = YES;
 				LD_MAP_FILE_PATH = "$(TARGET_TEMP_DIR)/$(PRODUCT_NAME)-LinkMap-$(CURRENT_VARIANT)-$(CURRENT_ARCH).txt";
 				LIBRARY_SEARCH_PATHS = "$(SYMROOT)";
 				OTHER_CFLAGS = "-fconstant-cfstrings";
 				"OTHER_LDFLAGS[arch=armv6]" = "";
+				OTHER_TAPI_FLAGS = "--extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/SIMAccessPrivate.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPLog.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrefs.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/eapol_socket.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/SIMAccess.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLSIMPrefsManage.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPClientPluginIntrospect.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLUtil.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/printdata.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/mschap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/chap.h";
 				PRODUCT_NAME = EAP8021X;
 				SECTORDER_FLAGS = (
 					"-sectorder",
@@ -2073,6 +2096,9 @@
 				);
 				STRIPFLAGS = "-S";
 				SUPPORTED_PLATFORMS = "iphoneos watchos appletvos";
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
+				VERSION_INFO_EXPORT_DECL = "__attribute__((visibility(\"hidden\")))";
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-unknown-pragmas",
@@ -2120,11 +2146,13 @@
 				HEADER_SEARCH_PATHS = ..;
 				INFOPLIST_FILE = EAP8021X.fproj/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				IS_ZIPPERED = YES;
 				LD_MAP_FILE_PATH = "$(TARGET_TEMP_DIR)/$(PRODUCT_NAME)-LinkMap-$(CURRENT_VARIANT)-$(CURRENT_ARCH).txt";
 				LIBRARY_SEARCH_PATHS = "$(SYMROOT)";
 				MODULEMAP_FILE = EAP8021X.fproj/eap8021x.modulemap;
 				OTHER_CFLAGS = "-fconstant-cfstrings";
 				"OTHER_LDFLAGS[arch=armv6]" = "";
+				OTHER_TAPI_FLAGS = "--verify-api-skip-external-headers --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/SIMAccess.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPLog.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/mschap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLUtil.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLSIMPrefsManage.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/chap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/printdata.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPClientPluginIntrospect.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/eapol_socket.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrefs.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrivate.h";
 				PRODUCT_NAME = EAP8021X;
 				SECTORDER_FLAGS = (
 					"-sectorder",
@@ -2133,6 +2161,9 @@
 					"$(SRCROOT)/EAP8021X.fproj/EAP8021X.order",
 				);
 				STRIPFLAGS = "-S";
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
+				VERSION_INFO_EXPORT_DECL = "__attribute__((visibility(\"hidden\")))";
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-unknown-pragmas",
@@ -2180,11 +2211,13 @@
 				HEADER_SEARCH_PATHS = ..;
 				INFOPLIST_FILE = EAP8021X.fproj/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				IS_ZIPPERED = YES;
 				LD_MAP_FILE_PATH = "$(TARGET_TEMP_DIR)/$(PRODUCT_NAME)-LinkMap-$(CURRENT_VARIANT)-$(CURRENT_ARCH).txt";
 				LIBRARY_SEARCH_PATHS = "$(SYMROOT)";
 				MODULEMAP_FILE = EAP8021X.fproj/eap8021x.modulemap;
 				OTHER_CFLAGS = "-fconstant-cfstrings";
 				"OTHER_LDFLAGS[arch=armv6]" = "";
+				OTHER_TAPI_FLAGS = "--verify-api-skip-external-headers --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/SIMAccess.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPLog.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/mschap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLUtil.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLSIMPrefsManage.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/chap.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/printdata.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPClientPluginIntrospect.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/eapol_socket.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrefs.h --extra-private-header=$(PROJECT_DIR)/EAP8021X.fproj/EAPOLControlPrivate.h";
 				PRODUCT_NAME = EAP8021X;
 				SECTORDER_FLAGS = (
 					"-sectorder",
@@ -2193,6 +2226,9 @@
 					"$(SRCROOT)/EAP8021X.fproj/EAP8021X.order",
 				);
 				STRIPFLAGS = "-S";
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = Pedantic;
+				VERSION_INFO_EXPORT_DECL = "__attribute__((visibility(\"hidden\")))";
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-unknown-pragmas",

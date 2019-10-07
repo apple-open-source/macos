@@ -269,7 +269,9 @@ uint8_t xar_signature_copy_signed_data(xar_signature_t sig, uint8_t **data, uint
 		if(data) {
 			*data = malloc(sizeof(char)*(*length));
 
-			_xar_signature_read_from_heap(x, offset, *length, *data);
+			// This function will either read all of length or return -1. Check and bubble up.
+			if (_xar_signature_read_from_heap(x, offset, *length, *data) != 0)
+				return -1;
 		}
 	}
 	
@@ -288,7 +290,9 @@ uint8_t xar_signature_copy_signed_data(xar_signature_t sig, uint8_t **data, uint
 		if(signed_data) {
 			*signed_data = malloc(sizeof(char)*(*signed_length));
 	
-			_xar_signature_read_from_heap(x, offset, *signed_length, *signed_data);
+			// This function will either read all of length or return -1. Check and bubble up.
+			if (_xar_signature_read_from_heap(x, offset, *signed_length, *signed_data) != 0)
+				return -1;
 		}
 	}
 				
@@ -338,6 +342,10 @@ xar_signature_t xar_signature_unserialize(xar_t x, xmlTextReaderPtr reader)
 		if (value) {
 			xmlFree((void*)value);
 			value = NULL;
+		}
+		
+		if (!name) { /* archive corruption */
+			return NULL;
 		}
 		
 		if( type == XML_READER_TYPE_ELEMENT ) {

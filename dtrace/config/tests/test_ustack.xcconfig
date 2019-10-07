@@ -1,0 +1,3 @@
+#include "../test_executable.xcconfig"
+INSTALL_PATH = $(COMMON_TEST_PATH)/ustack
+

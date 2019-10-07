@@ -66,12 +66,6 @@ public:
 
     const static unsigned StructureFlags = Base::StructureFlags;
 
-    template<typename CellType>
-    static IsoSubspace* subspaceFor(VM& vm)
-    {
-        return &vm.generatorFunctionSpace;
-    }
-
     DECLARE_EXPORT_INFO;
 
     static JSGeneratorFunction* create(VM&, FunctionExecutable*, JSScope*);
@@ -97,5 +91,6 @@ private:
 
     friend class LLIntOffsetsExtractor;
 };
+static_assert(sizeof(JSGeneratorFunction) == sizeof(JSFunction), "Some subclasses of JSFunction should be the same size to share IsoSubspace");
 
 } // namespace JSC

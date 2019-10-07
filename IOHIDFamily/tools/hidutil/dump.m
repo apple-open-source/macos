@@ -112,6 +112,7 @@ int dump (int argc, const char * argv[]) {
     void (*callFunc)(void) = NULL;
     void (*printFunc)(void) = &printXML;
     int  status = STATUS_SUCCESS;
+    NSDictionary * matching = @{@"Hidden":@"*"};
 
     // get options
     while ((arg = getopt_long(argc, (char **) argv, MAIN_OPTIONS_SHORT, MAIN_OPTIONS, NULL)) != -1) {
@@ -160,14 +161,20 @@ int dump (int argc, const char * argv[]) {
             goto exit;
         }
     }
-  
+#ifdef INTERNAL
     _eventSystemRef = IOHIDEventSystemClientCreateWithType(kCFAllocatorDefault, kIOHIDEventSystemClientTypeMonitor, NULL);
+#else
+    _eventSystemRef = IOHIDEventSystemClientCreateWithType(kCFAllocatorDefault, kIOHIDEventSystemClientTypeSimple, NULL);
+#endif
     if (!_eventSystemRef) {
         printf("Unable to create client\n");
         status = STATUS_ERROR;
         goto exit;
     }
     
+    
+    IOHIDEventSystemClientSetMatching(_eventSystemRef, (__bridge CFDictionaryRef)matching);
+
     _output = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     if (!_output) {
         status = STATUS_ERROR;

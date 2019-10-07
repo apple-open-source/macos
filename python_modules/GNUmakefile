@@ -13,7 +13,8 @@ DEFAULT := $(shell sed -n '/^DEFAULT = /s///p' $(PYTHONVERSIONS))
 KNOWNVERSIONS := $(filter-out $(INCOMPATIBLE), $(shell grep '^[0-9]' $(PYTHONVERSIONS)))
 BOOTSTRAPPYTHON =
 VERSIONS = $(sort $(KNOWNVERSIONS) $(BOOTSTRAPPYTHON))
-ORDEREDVERS := $(DEFAULT) $(filter-out $(DEFAULT),$(VERSIONS))
+OTHERVERSIONS = $(filter-out $(DEFAULT),$(VERSIONS))
+ORDEREDVERS := $(DEFAULT) $(OTHERVERSIONS)
 VERSIONERFLAGS = -std=gnu99 -Wall -mdynamic-no-pic -I$(VERSIONERDIR)/$(PYTHONPROJECT) -I$(MYFIX) -framework CoreFoundation
 OSV = OpenSourceVersions
 OSL = OpenSourceLicenses
@@ -45,7 +46,6 @@ build::
 	    (echo "######## Building $$vers:" `date` '########' > "$(SYMROOT)/$$vers/LOG" 2>&1 && \
 		PATH="$(TMPPREFIX)/bin:$$PATH" \
 		VERSIONER_PYTHON_VERSION=$$vers \
-		VERSIONER_PYTHON_PREFER_32_BIT=yes \
 		$(MAKE) -f Makefile install Project=$(Project) \
 		OBJROOT="$(OBJROOT)/$$vers" \
 		DSTROOT="$(OBJROOT)/$$vers/DSTROOT" \
@@ -90,6 +90,28 @@ mergebegin:
 	@echo ####### Merging #######
 
 MERGEBIN = /usr/bin
+
+# This causes us to replace the versioner stub with the default version of perl.
+# Since we are now only shipping one version (5.18) and one slice (x86_64), there
+# is no need for the re-exec stub.  We are leaving the infrastructure in place
+# in case we ever ship a new version or a new architecture in the future.
+ifeq ($(OTHERVERSIONS),)
+mergebin:
+	mkdir -p $(DSTROOT)$(MERGEBIN)
+	cd $(OBJROOT)/$(DEFAULT)/DSTROOT$(MERGEBIN) && \
+	for f in `find . -type f ! -name "*$(DEFAULT)*" | sed 's,^\./,,'`; do \
+	    fv=$$f-$(DEFAULT) && \
+	    ditto $$f $(DSTROOT)$(MERGEBIN)/$$fv && \
+	    sed -e 's/@SEP@/-/g' -e "s/@VERSION@/$(DEFAULT)/g" $(FIX)/scriptvers.ed | ed - $(DSTROOT)$(MERGEBIN)/$$fv && \
+	    if [ ! -e $(DSTROOT)$(MERGEBIN)/$$f ]; then \
+	        ln $(DSTROOT)$(MERGEBIN)/$$fv $(DSTROOT)$(MERGEBIN)/$$f; \
+	    fi || exit 1; \
+	done && \
+	cd $(DSTROOT)/System/Library/Frameworks/Python.framework/Versions/$(DEFAULT)/Extras/bin && \
+	for f in *; do \
+	    sed -e '/^1a/,/^\./d' -e "s/@VERSION@/$(DEFAULT)/g" $(FIX)/scriptvers.ed | ed - $$f || exit 1; \
+	done
+else
 DUMMY = dummy.py
 mergebin:
 	mkdir -p $(DSTROOT)$(MERGEBIN)
@@ -111,14 +133,15 @@ mergebin:
 	    done || exit 1; \
 	done
 	rm -f $(DSTROOT)$(MERGEBIN)/$(DUMMY)
+endif
 
-MERGEVERSIONS = \
-    System
+
 mergeversions:
 	@set -x && \
 	for vers in $(VERSIONS); do \
 	    cd $(OBJROOT)/$$vers/DSTROOT && \
-	    rsync -Ra $(MERGEVERSIONS) $(DSTROOT) || exit 1; \
+	    rsync -Ra System $(DSTROOT) || exit 1; \
+	    rsync -Ra AppleInternal/Library/Python $(DSTROOT) || exit 1; \
 	done
 
 MERGEMAN = usr/share/man

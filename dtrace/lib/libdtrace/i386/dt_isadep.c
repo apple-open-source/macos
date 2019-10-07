@@ -59,6 +59,7 @@ int
 dt_pid_create_entry_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
     fasttrap_probe_spec_t *ftp, const GElf_Sym *symp)
 {
+#pragma unused(P)
 	ftp->ftps_probe_type = DTFTP_ENTRY;
 	ftp->ftps_pc = symp->st_value; // Keep st_value as uint64_t
 	ftp->ftps_size = (size_t)symp->st_size;
@@ -66,7 +67,7 @@ dt_pid_create_entry_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	ftp->ftps_offs[0] = 0;
 
 	if (ioctl(dtp->dt_ftfd, FASTTRAPIOC_MAKEPROBE, ftp) != 0) {
-		dt_dprintf("fasttrap probe creation ioctl failed: %s\n",
+		dt_dprintf("fasttrap probe creation ioctl failed: %s",
 		    strerror(errno));
 		return (dt_set_errno(dtp, errno));
 	}
@@ -104,7 +105,7 @@ dt_pid_has_jump_table(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 		 * Assume the worst if we hit an illegal instruction.
 		 */
 		if (size <= 0) {
-			dt_dprintf("error at %#lx (assuming jump table)\n", i);
+			dt_dprintf("error at %#lx (assuming jump table)", i);
 			return (1);
 		}
 
@@ -116,7 +117,7 @@ dt_pid_has_jump_table(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 		if ((text[i] == 0xff && DT_MODRM_REG(text[i + 1]) == 4) ||
 		    (dmodel == PR_MODEL_LP64 && (text[i] & 0xf0) == 0x40 &&
 		    text[i + 1] == 0xff && DT_MODRM_REG(text[i + 2]) == 4)) {
-			dt_dprintf("found a suspected jump table at %s:%lx\n",
+			dt_dprintf("found a suspected jump table at %s:%lx",
 			    ftp->ftps_func, i);
 			return (1);
 		}
@@ -130,6 +131,7 @@ int
 dt_pid_create_return_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
     fasttrap_probe_spec_t *ftp, const GElf_Sym *symp, uint64_t *stret)
 {
+#pragma unused(stret)
 	uint8_t *text;
 	ulong_t i, end;
 	int size;
@@ -141,12 +143,12 @@ dt_pid_create_return_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	 * for overrunning the buffer.
 	 */
 	if ((text = calloc(1, symp->st_size + 4)) == NULL) {
-		dt_dprintf("mr sparkle: malloc() failed\n");
+		dt_dprintf("mr sparkle: malloc() failed");
 		return (DT_PROC_ERR);
 	}
 
 	if (Pread(P, text, symp->st_size, symp->st_value) != symp->st_size) {
-		dt_dprintf("mr sparkle: Pread() failed\n");
+		dt_dprintf("mr sparkle: Pread() failed");
 		free(text);
 		return (DT_PROC_ERR);
 	}
@@ -179,25 +181,25 @@ dt_pid_create_return_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 				break;
 
 			if (text[i] == DT_LEAVE && text[i + 1] == DT_RET) {
-				dt_dprintf("leave/ret at %lx\n", i + 1);
+				dt_dprintf("leave/ret at %lx", i + 1);
 				ftp->ftps_offs[ftp->ftps_noffs++] = i + 1;
 				size = 2;
 			} else if (text[i] == DT_LEAVE &&
 			    text[i + 1] == DT_REP && text[i + 2] == DT_RET) {
-				dt_dprintf("leave/rep ret at %lx\n", i + 1);
+				dt_dprintf("leave/rep ret at %lx", i + 1);
 				ftp->ftps_offs[ftp->ftps_noffs++] = i + 1;
 				size = 3;
 			} else if (*(uint16_t *)&text[i] == DT_MOVL_EBP_ESP &&
 			    text[i + 2] == DT_POPL_EBP &&
 			    text[i + 3] == DT_RET) {
-				dt_dprintf("movl/popl/ret at %lx\n", i + 3);
+				dt_dprintf("movl/popl/ret at %lx", i + 3);
 				ftp->ftps_offs[ftp->ftps_noffs++] = i + 3;
 				size = 4;
 			} else if (*(uint16_t *)&text[i] == DT_MOVL_EBP_ESP &&
 			    text[i + 2] == DT_POPL_EBP &&
 			    text[i + 3] == DT_REP &&
 			    text[i + 4] == DT_RET) {
-				dt_dprintf("movl/popl/rep ret at %lx\n", i + 3);
+				dt_dprintf("movl/popl/rep ret at %lx", i + 3);
 				ftp->ftps_offs[ftp->ftps_noffs++] = i + 3;
 				size = 5;
 			}
@@ -252,7 +254,7 @@ dt_pid_create_return_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 
 			continue;
 is_ret:
-			dt_dprintf("return at offset %lx\n", i);
+			dt_dprintf("return at offset %lx", i);
 			ftp->ftps_offs[ftp->ftps_noffs++] = i;
 		}
 	}
@@ -260,7 +262,7 @@ is_ret:
 	free(text);
 	if (ftp->ftps_noffs > 0) {
 		if (ioctl(dtp->dt_ftfd, FASTTRAPIOC_MAKEPROBE, ftp) != 0) {
-			dt_dprintf("fasttrap probe creation ioctl failed: %s\n",
+			dt_dprintf("fasttrap probe creation ioctl failed: %s",
 			    strerror(errno));
 			return (dt_set_errno(dtp, errno));
 		}
@@ -289,13 +291,13 @@ dt_pid_create_offset_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 		char dmodel = Pstatus(P)->pr_dmodel;
 
 		if ((text = malloc(symp->st_size)) == NULL) {
-			dt_dprintf("mr sparkle: malloc() failed\n");
+			dt_dprintf("mr sparkle: malloc() failed");
 			return (DT_PROC_ERR);
 		}
 
 		if (Pread(P, text, symp->st_size, symp->st_value) !=
 		    symp->st_size) {
-			dt_dprintf("mr sparkle: Pread() failed\n");
+			dt_dprintf("mr sparkle: Pread() failed");
 			free(text);
 			return (DT_PROC_ERR);
 		}
@@ -343,7 +345,7 @@ dt_pid_create_offset_probe(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	}
 
 	if (ioctl(dtp->dt_ftfd, FASTTRAPIOC_MAKEPROBE, ftp) != 0) {
-		dt_dprintf("fasttrap probe creation ioctl failed: %s\n",
+		dt_dprintf("fasttrap probe creation ioctl failed: %s",
 		    strerror(errno));
 		return (dt_set_errno(dtp, errno));
 	}
@@ -363,12 +365,12 @@ dt_pid_create_glob_offset_probes(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	char dmodel = Pstatus(P)->pr_dmodel;
 
 	if ((text = malloc(symp->st_size)) == NULL) {
-		dt_dprintf("mr sparkle: malloc() failed\n");
+		dt_dprintf("mr sparkle: malloc() faile");
 		return (DT_PROC_ERR);
 	}
 
 	if (Pread(P, text, symp->st_size, symp->st_value) != symp->st_size) {
-		dt_dprintf("mr sparkle: Pread() failed\n");
+		dt_dprintf("mr sparkle: Pread() failed");
 		free(text);
 		return (DT_PROC_ERR);
 	}
@@ -420,7 +422,7 @@ dt_pid_create_glob_offset_probes(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	free(text);
 	if (ftp->ftps_noffs > 0) {
 		if (ioctl(dtp->dt_ftfd, FASTTRAPIOC_MAKEPROBE, ftp) != 0) {
-			dt_dprintf("fasttrap probe creation ioctl failed: %s\n",
+			dt_dprintf("fasttrap probe creation ioctl failed: %s",
 			    strerror(errno));
 			return (dt_set_errno(dtp, errno));
 		}

@@ -43,16 +43,6 @@ extern void stPrintCdsaError(const char *op, OSStatus crtn);
 #endif
 
 /*
- * Get algorithm id for a SSLPubKey object.
- */
-CFIndex sslPubKeyGetAlgorithmID(SecKeyRef pubKey);
-
-/*
- * Get algorithm id for a SSLPrivKey object.
- */
-CFIndex sslPrivKeyGetAlgorithmID(SecKeyRef privKey);
-
-/*
  * Create a new SecTrust object and return it.
  */
 OSStatus
@@ -62,9 +52,6 @@ sslCreateSecTrust(
 
 OSStatus sslVerifySelectedCipher(
 	SSLContext 		*ctx);
-
-/* Convert DER certs to SecCertificateRefs */
-CFArrayRef tls_get_peer_certs(const SSLCertificate *certs);
 
 /*
  * Set the pubkey after receiving the certificate

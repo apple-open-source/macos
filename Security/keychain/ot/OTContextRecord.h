@@ -46,7 +46,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong)   NSData*         recoveryEncryptionSPKI;
 
 
--(BOOL)isEqual:(OTContextRecord*)record;
+-(BOOL)isEqual:(OTContextRecord* _Nullable)record;
 
 @end
 

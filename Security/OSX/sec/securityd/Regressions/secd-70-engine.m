@@ -24,13 +24,13 @@
 
 // Test syncing between SecItemDataSource and SOSTestDataSource
 
-#include <SOSCircle/Regressions/SOSTestDevice.h>
-#include <SOSCircle/Regressions/SOSTestDataSource.h>
+#include "keychain/SecureObjectSync/Regressions/SOSTestDevice.h"
+#include "keychain/SecureObjectSync/Regressions/SOSTestDataSource.h"
 #include "secd_regressions.h"
 #include "SecdTestKeychainUtilities.h"
 
-#include <Security/SecureObjectSync/SOSEngine.h>
-#include <Security/SecureObjectSync/SOSPeer.h>
+#include "keychain/SecureObjectSync/SOSEngine.h"
+#include "keychain/SecureObjectSync/SOSPeer.h"
 #include <Security/SecBase64.h>
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>
@@ -43,8 +43,6 @@
 
 #include <AssertMacros.h>
 #include <stdint.h>
-
-static int kTestTestCount = 2478;
 
 __unused static bool SOSCircleHandleCircleWithLock(SOSEngineRef engine, CFStringRef myID, CFDataRef message, CFErrorRef *error) {
 
@@ -303,7 +301,7 @@ SKIP:
 
         SecKeychainDbReset(NULL);
 #else
-        skip("Keychain not reset", kTestTestCount, false);
+        skip("Keychain not reset", 0, false);
 #endif
 
         testsync3("secd_70_engine3", test_directive, test_reason);
@@ -508,7 +506,7 @@ SKIP:
 
 int secd_70_engine(int argc, char *const *argv)
 {
-    plan_tests(kTestTestCount);
+    plan_tests(1172);
 
     /* custom keychain dir */
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);

@@ -1,5 +1,5 @@
 --TEST--
-assert() - variation  - test callback options using ini_get/ini_set/assert_options 
+assert() - variation  - test callback options using ini_get/ini_set/assert_options
 --INI--
 assert.active = 1
 assert.warning = 0
@@ -8,15 +8,15 @@ assert.bail = 0
 assert.quiet_eval = 0
 --FILE--
 <?php
-function f1() 
+function f1()
 {
 	echo "f1 called\n";
 }
-function f2() 
+function f2()
 {
 	echo "f2 called\n";
 }
-function f3() 
+function f3()
 {
 	echo "f3 called\n";
 }
@@ -69,10 +69,11 @@ var_dump($rao=assert_options(ASSERT_CALLBACK));
 echo "ini.get(\"assert.callback\") => [".ini_get("assert.callback")."]\n\n";
 var_dump($r2=assert($sa));
 echo"\n";
-
 --EXPECTF--
 Initial values: assert_options(ASSERT_CALLBACK) => [f1]
 Initial values: ini.get("assert.callback") => [f1]
+
+Deprecated: assert(): Calling assert() with a string argument is deprecated in %s on line %d
 f1 called
 bool(false)
 
@@ -80,6 +81,8 @@ Change callback function using ini.set and test return value
 string(2) "f1"
 assert_options(ASSERT_CALLBACK) => [f2]
 ini.get("assert.callback") => [f2]
+
+Deprecated: assert(): Calling assert() with a string argument is deprecated in %s on line %d
 f2 called
 bool(false)
 
@@ -87,6 +90,8 @@ Change callback function using assert_options and test return value
 string(2) "f2"
 assert_options(ASSERT_CALLBACK) => [f3]
 ini.get("assert.callback") => [f2]
+
+Deprecated: assert(): Calling assert() with a string argument is deprecated in %s on line %d
 f3 called
 bool(false)
 
@@ -94,6 +99,8 @@ Reset the name of the callback routine to a class method and check that it works
 string(2) "f3"
 assert_options(ASSERT_CALLBACK) => [c1]
 ini.get("assert.callback") => [f2]
+
+Deprecated: assert(): Calling assert() with a string argument is deprecated in %s on line %d
 bool(false)
 
 Reset callback options to use a class method 
@@ -106,6 +113,8 @@ array(2) {
 }
 ini.get("assert.callback") => [f2]
 
+
+Deprecated: assert(): Calling assert() with a string argument is deprecated in %s on line %d
 
 Deprecated: Non-static method c1::assert() should not be called statically in %s on line 53
 Class assertion failed 53, "0 != 0"
@@ -127,5 +136,7 @@ array(2) {
 }
 ini.get("assert.callback") => [f2]
 
+
+Deprecated: assert(): Calling assert() with a string argument is deprecated in %s on line %d
 Class assertion failed 61, "0 != 0"
 bool(false)

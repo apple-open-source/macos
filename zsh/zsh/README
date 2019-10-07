@@ -5,10 +5,11 @@ THE Z SHELL (ZSH)
 Version
 -------
 
-This is version 5.3 of the shell.  This is a stable release.  There are
-a few visible improvements since 5.2 as well as many bugfixes.  Note
-in particular the changs highlighted under "Incompatibilites
-between 5.2 and 5.3" below.  See NEWS for more information.
+This is version 5.7.1 of the shell.  This is a stable release.  There are
+a few visible improvements since 5.6 as well as many bugfixes.
+
+Note in particular the changes highlighted under "Incompatibilities since
+5.6.2" below.  See NEWS for more information.
 
 Installing Zsh
 --------------
@@ -29,8 +30,133 @@ Zsh is a shell with lots of features.  For a list of some of these, see the
 file FEATURES, and for the latest changes see NEWS.  For more
 details, see the documentation.
 
-Incompatibilities between 5.2 and 5.3
--------------------------------------
+Incompatibilities since 5.6.2
+-----------------------------
+
+1) vcs_info git: The gen-unapplied-string hook receives the patches in
+order (next to be applied first).  This is consistent with the hg
+backend and with one of two contradictory claims in the documentation
+(the other one has been corrected).  In zsh through 5.6.2, the patches
+were passed in reverse order, next to be applied being last in the
+array.
+
+The gen-applied-string hook is unaffected; it still receives the patches in
+reverse order, from last applied to first applied.
+
+2) The option NO_UNSET now also applies when reading values from
+variables without a preceding '$' sign in shell arithmetic expansion
+and in the double-parentheses and 'let' arithmetic commands.
+
+Incompatibilities between 5.5.1 and 5.6.2
+------------------------------------------
+
+The completion helper _remote_files, typically used after a hostname
+with scp-style completion, now uses remote-files instead of files as a
+tag.  This makes it easier to restrict completions with the tag-order
+style.
+
+Incompatibilities between 5.4.2 and 5.5.1
+-----------------------------------------
+
+1) The default build-time maximum nested function depth has been
+decreased from 1000 to 500 based on user experience.  However,
+it can now be changed at run time via the variable FUNCNEST.
+If you previously configured the shell to set a different value,
+or to remove the check, this is now reflected in the default
+value of the variable.
+
+2) The syntax
+
+foo=([key]=value)
+
+can be used to set elements of arrays and associative arrays.  In the
+unlikely event that you need to set an array by matching files using a
+pattern that starts with a character range followed by '=', you need to
+quote the '=', e.g.:
+
+foo=([aeiou]\=vowel)
+
+This is only required for array values contained within parentheses;
+command line expansion for normal arguments has not changed.
+
+3) The syntax
+
+[[ -o foo ]]
+
+where foo is not the name of a shell option (with optional underscores
+and optional "no" prefix) used to be treated as a syntax error, i.e.,
+the enclosing command line or file were aborted.  It now emits a warning
+and returns a non-zero exit code.  For further details, see the
+documentation of the -o switch in the chapter "Conditional Expressions"
+in the zshmisc(1) manual.
+
+
+Incompatibilities between 5.3.1 and 5.4.2
+-----------------------------------------
+
+1) The default behaviour of code like the following has changed:
+
+  alias foo='noglob foo'
+  foo() { print function body; }
+
+When this is encountered in a start-up file, or other place where input
+was read line by line, "foo" is in command position and is expanded as
+an alias before the function definition takes place.  In previous
+versions of the shell, this caused two functions "noglob" and "foo" to
+be defined.  Any expansion of an alias in a function definition is
+nearly always an unintended effect, as well as hard to detect, so has
+been made an error.  (The option setting NO_MULTI_FUNC_DEF turned this
+case into an error, but did not help with other cases and is off by
+default.)  The alternative, of not expanding the alias, was rejected as
+it was more difficult to achieve in the parser and also would silently
+change the shell's behaviur between versions.  A new option,
+ALIAS_FUNC_DEF, has been added, which can be set to make the shell
+behave as in previous versions.  It is in any case recommended to use
+the "function" keyword, as aliases are not expanded afterwards.
+
+2) It was an undocumented, and largely useless, feature that a function
+autoloaded with an absolute path was searched for along the normal fpath
+(as if the leading / was missing) and, if found, loaded under the full
+name including the leading slash.  This has been replaced with the more
+useful feature that the function is searched for only at the given
+absolute path; the name of the function is the base name of the file.
+Note that functions including a non-leading / behave as before,
+e.g. if `dir/name' is found anywhere under a directory in $fpath it is
+loaded as a function named `dir/name'.
+
+3) vcs_info: When neither a set-patch-format nor a gen-applied-string
+(resp. gen-unapplied-string) hook is set, vcs_info now '%'-escapes the
+applied-string (resp. unapplied-string) before interpolating it into the
+patch-format string, to prevent literal `%' signs in the interpolated
+value from being interpreted as prompt escape sequences.  If you use
+${vcs_info_msg_0_} in a context other than the shell prompt, you may need
+to undo the escaping with:
+
+    print -v vcs_info_msg_0_ -Pr -- "${vcs_info_msg_0_}"
+
+This is also needed if $vcs_info_msg_0_ is used to set $psvar.
+
+4) functions executed by ZLE widgets no longer have their standard input
+closed, but redirected from /dev/null instead. That still guards
+against user defined widgets inadvertently reading from the tty device,
+and addresses the antisocial behaviour of running a command with its
+stdin closed.
+
+5) [New between 5.4.1 and 5.4.2] In previous versions of the shell, the
+following code:
+
+    () { setopt err_return; false; echo 'oh no' } && true
+
+printed "oh no", as the ERR_RETURN behaviour was suppressed when
+a function was executed on the left hand side of an "&&" list.  This was
+undocumented and inconvenient as it is generally more useful to consider
+execution within a function in isolation from its environment.  The shell
+now returns from the function on executing `false'.  (This is general
+to all functions; an anonymous function is shown here for compactness.)
+
+
+Incompatibilities between 5.0.8 and 5.3
+----------------------------------------
 
 1) In character classes delimited by "[" and "]" within patterns, whether
 used for filename generation (globbing) or other forms of pattern
@@ -159,10 +285,6 @@ following example illustrates how this differs from past versions.
      4 4 => 1  |  4 4 => 0   **
      4 5 => 1  |  4 5 => 1
 
-
-Incompatibilities between 5.0.8 and 5.2
----------------------------------------
-
 The behaviour of the parameter flag (P) has changed when it appears
 in a nested parameter group, in order to make it more useful in
 such cases.  A (P) in the outermost parameter group behaves as
@@ -190,6 +312,17 @@ interface, exposing the builtin interface:
 This is also necessary in the unusual eventuality that the builtins are
 to be overridden by shell functions, since reserved words take
 precedence over functions.
+
+10) For compatilibity with other shells, the syntax
+
+array=([index]=value)
+
+can be used with both assoiative arrays and normal arrays.  In the
+unlikely event that you wish to create an array with an entry
+matching a file whose name consists of one of a range of characters
+matched as a [...] expression, followed by an equal sign, followed
+by arbitrary other charaters, it is now necessary to quote the equals
+sign.
 
 Incompatibilites between 5.0.7 and 5.0.8
 ----------------------------------------

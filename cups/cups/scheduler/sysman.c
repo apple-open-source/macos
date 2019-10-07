@@ -4,11 +4,7 @@
  * Copyright 2007-2018 by Apple Inc.
  * Copyright 2006 by Easy Software Products.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
  */
 
 
@@ -440,9 +436,6 @@ sysEventThreadEntry(void)
     powerRLS = IONotificationPortGetRunLoopSource(powerNotifierPort);
     CFRunLoopAddSource(CFRunLoopGetCurrent(), powerRLS, kCFRunLoopDefaultMode);
   }
-  else
-    DEBUG_puts("sysEventThreadEntry: error registering for system power "
-               "notifications");
 
  /*
   * Register for system configuration change notifications
@@ -527,17 +520,8 @@ sysEventThreadEntry(void)
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), storeRLS,
 	                   kCFRunLoopDefaultMode);
       }
-      else
-	DEBUG_printf(("sysEventThreadEntry: SCDynamicStoreCreateRunLoopSource "
-	              "failed: %s\n", SCErrorString(SCError())));
     }
-    else
-      DEBUG_printf(("sysEventThreadEntry: SCDynamicStoreSetNotificationKeys "
-                    "failed: %s\n", SCErrorString(SCError())));
   }
-  else
-    DEBUG_printf(("sysEventThreadEntry: SCDynamicStoreCreate failed: %s\n",
-                  SCErrorString(SCError())));
 
   if (keys)
     CFRelease(keys);

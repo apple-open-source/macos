@@ -31,12 +31,14 @@
 #import "CKKSAnalytics.h"
 #import "CKKSPowerCollection.h"
 #import "keychain/ckks/CKKSCurrentItemPointer.h"
+#import "keychain/ot/ObjCImprovements.h"
 
 #include <securityd/SecItemServer.h>
 #include <securityd/SecItemDb.h>
 #include <Security/SecItemPriv.h>
 
 #include <utilities/SecADWrapper.h>
+#import <utilities/SecCoreAnalytics.h>
 
 #if OCTAGON
 
@@ -68,13 +70,12 @@
         [self linearDependencies:ckks.incomingQueueOperations];
 
         if ([CKKSManifest shouldSyncManifests]) {
-            __weak __typeof(self) weakSelf = self;
-            __weak CKKSKeychainView* weakCKKS = ckks;
+            WEAKIFY(self);
             CKKSResultOperation* updateManifestOperation = [CKKSResultOperation operationWithBlock:^{
-                __strong __typeof(self) strongSelf = weakSelf;
-                __strong CKKSKeychainView* strongCKKS = weakCKKS;
+                STRONGIFY(self);
+                CKKSKeychainView* strongCKKS = self.ckks;
                 __block NSError* error = nil;
-                if (!strongCKKS || !strongSelf) {
+                if (!strongCKKS || !self) {
                     ckkserror("ckksincoming", strongCKKS, "update manifest operation fired for released object");
                     return;
                 }
@@ -82,7 +83,7 @@
                 [strongCKKS dispatchSyncWithAccountKeys:^bool{
                     strongCKKS.latestManifest = [CKKSManifest latestTrustedManifestForZone:strongCKKS.zoneName error:&error];
                     if (error) {
-                        strongSelf.error = error;
+                        self.error = error;
                         ckkserror("ckksincoming", strongCKKS, "failed to get latest manifest: %@", error);
                         return false;
                     }
@@ -159,7 +160,8 @@
             // Note that we currently unencrypt the item before deleting it, instead of just deleting it
             // This finds the class, which is necessary for the deletion process. We could just try to delete
             // across all classes, though...
-            NSMutableDictionary* attributes = [[CKKSItemEncrypter decryptItemToDictionary: iqe.item error:&error] mutableCopy];
+            NSDictionary* attributes = [CKKSIncomingQueueOperation decryptCKKSItemToAttributes:iqe.item error:&error];
+
             if(!attributes || error) {
                 if([ckks.lockStateTracker isLockedError:error]) {
                     NSError* localerror = nil;
@@ -186,23 +188,6 @@
                 continue;
             }
 
-            // Add the UUID (which isn't stored encrypted)
-            [attributes setValue: iqe.item.uuid forKey: (__bridge NSString*) kSecAttrUUID];
-
-            // Add the PCS plaintext fields, if they exist
-            if(iqe.item.plaintextPCSServiceIdentifier) {
-                [attributes setValue: iqe.item.plaintextPCSServiceIdentifier forKey: (__bridge NSString*) kSecAttrPCSPlaintextServiceIdentifier];
-            }
-            if(iqe.item.plaintextPCSPublicKey) {
-                [attributes setValue: iqe.item.plaintextPCSPublicKey forKey: (__bridge NSString*) kSecAttrPCSPlaintextPublicKey];
-            }
-            if(iqe.item.plaintextPCSPublicIdentity) {
-                [attributes setValue: iqe.item.plaintextPCSPublicIdentity forKey: (__bridge NSString*) kSecAttrPCSPlaintextPublicIdentity];
-            }
-
-            // This item is also synchronizable (by definition)
-            [attributes setValue: @(YES) forKey: (__bridge NSString*) kSecAttrSynchronizable];
-
             NSString* classStr = [attributes objectForKey: (__bridge NSString*) kSecClass];
             if(![classStr isKindOfClass: [NSString class]]) {
                 self.error = [NSError errorWithDomain:@"securityd"
@@ -224,23 +209,6 @@
                     self.error = error;
                 }
                 self.errorItemsProcessed += 1;
-                continue;
-            }
-
-
-            // Now, filter: if this item was added locally, would it go to this view?
-            // In this release, this is based solely on viewhint
-            NSString* viewHint = attributes[(id)kSecAttrSyncViewHint];
-            bool itemIsForView = [viewHint isEqualToString: ckks.zoneName];
-            if(!itemIsForView) {
-
-                ckkserror("ckksincoming", ckks, "ViewHint in decrypted item (%@) does not match (%@), skipping item", viewHint, ckks.zoneName);
-                iqe.state = SecCKKSStateZoneMismatch;
-                [iqe saveToDatabase:&error];
-                if(error) {
-                    ckkserror("ckksincoming", ckks, "Couldn't save zone mismatch IQE to database: %@", error);
-                    self.error = error;
-                }
                 continue;
             }
 
@@ -299,6 +267,33 @@
     return true;
 }
 
++ (NSDictionary* _Nullable)decryptCKKSItemToAttributes:(CKKSItem*)item error:(NSError**)error
+{
+    NSMutableDictionary* attributes = [[CKKSItemEncrypter decryptItemToDictionary:item error:error] mutableCopy];
+    if(!attributes) {
+        return nil;
+    }
+
+    // Add the UUID (which isn't stored encrypted)
+    attributes[(__bridge NSString*)kSecAttrUUID] = item.uuid;
+
+    // Add the PCS plaintext fields, if they exist
+    if(item.plaintextPCSServiceIdentifier) {
+        attributes[(__bridge NSString*)kSecAttrPCSPlaintextServiceIdentifier] = item.plaintextPCSServiceIdentifier;
+    }
+    if(item.plaintextPCSPublicKey) {
+        attributes[(__bridge NSString*)kSecAttrPCSPlaintextPublicKey] = item.plaintextPCSPublicKey;
+    }
+    if(item.plaintextPCSPublicIdentity) {
+        attributes[(__bridge NSString*)kSecAttrPCSPlaintextPublicIdentity] = item.plaintextPCSPublicIdentity;
+    }
+
+    // This item is also synchronizable (by definition)
+    [attributes setValue:@(YES) forKey:(__bridge NSString*)kSecAttrSynchronizable];
+
+    return attributes;
+}
+
 - (bool)_onqueueUpdateIQE:(CKKSIncomingQueueEntry*)iqe withState:(NSString*)newState error:(NSError**)error
 {
     if (![iqe.state isEqualToString:newState]) {
@@ -326,24 +321,24 @@
         return;
     }
 
-    __weak __typeof(self) weakSelf = self;
+    WEAKIFY(self);
     self.completionBlock = ^(void) {
-        __strong __typeof(self) strongSelf = weakSelf;
-        if (!strongSelf) {
+        STRONGIFY(self);
+        if (!self) {
             ckkserror("ckksincoming", ckks, "received callback for released object");
             return;
         }
 
         CKKSAnalytics* logger = [CKKSAnalytics logger];
 
-        if (!strongSelf.error) {
+        if (!self.error) {
             [logger logSuccessForEvent:CKKSEventProcessIncomingQueueClassC inView:ckks];
-            if (!strongSelf.pendingClassAEntries) {
+            if (!self.pendingClassAEntries) {
                 [logger logSuccessForEvent:CKKSEventProcessIncomingQueueClassA inView:ckks];
             }
         } else {
-            [logger logRecoverableError:strongSelf.error
-                               forEvent:strongSelf.errorOnClassAFailure ? CKKSEventProcessIncomingQueueClassA : CKKSEventProcessIncomingQueueClassC
+            [logger logRecoverableError:self.error
+                               forEvent:self.errorOnClassAFailure ? CKKSEventProcessIncomingQueueClassA : CKKSEventProcessIncomingQueueClassC
                                  inView:ckks
                          withAttributes:NULL];
         }
@@ -554,37 +549,26 @@
 
             CFComparisonResult compare = CFStringCompare(itemUUID, olditemUUID, 0);
             CKKSOutgoingQueueEntry* oqe = nil;
-            switch(compare) {
-                case kCFCompareLessThan:
-                    // item wins; delete olditem
-                    ckksnotice("ckksincoming", ckks, "Primary key conflict; replacing %@ with CK item %@", olditem, item);
-                    if(replace) {
-                        *replace = CFRetainSafe(item);
-                        moddate = (__bridge NSDate*) CFDictionaryGetValue(item->attributes, kSecAttrModificationDate);
-                    }
-
+            if (compare == kCFCompareGreaterThan) {
+                // olditem wins; don't change olditem; delete item
+                ckksnotice("ckksincoming", ckks, "Primary key conflict; dropping CK item %@", item);
+                oqe = [CKKSOutgoingQueueEntry withItem:item action:SecCKKSActionDelete ckks:ckks error:&error];
+                [oqe saveToDatabase: &error];
+                self.newOutgoingEntries = true;
+                moddate = nil;
+            } else {
+                // item wins
+                ckksnotice("ckksincoming", ckks, "Primary key conflict; replacing %@ with CK item %@", olditem, item);
+                if(replace) {
+                    *replace = CFRetainSafe(item);
+                    moddate = (__bridge NSDate*) CFDictionaryGetValue(item->attributes, kSecAttrModificationDate);
+                }
+                // delete olditem if UUID differs (same UUID is the normal update case)
+                if (compare != kCFCompareEqualTo) {
                     oqe = [CKKSOutgoingQueueEntry withItem:olditem action:SecCKKSActionDelete ckks:ckks error:&error];
                     [oqe saveToDatabase: &error];
                     self.newOutgoingEntries = true;
-                    break;
-                case kCFCompareGreaterThan:
-                    // olditem wins; don't change olditem; delete item
-                    ckksnotice("ckksincoming", ckks, "Primary key conflict; dropping CK item %@", item);
-
-                    oqe = [CKKSOutgoingQueueEntry withItem:item action:SecCKKSActionDelete ckks:ckks error:&error];
-                    [oqe saveToDatabase: &error];
-                    self.newOutgoingEntries = true;
-                    moddate = nil;
-                    break;
-
-                case kCFCompareEqualTo:
-                    // remote item wins; this is the normal update case
-                    ckksnotice("ckksincoming", ckks, "Primary key conflict; replacing %@ with CK item %@", olditem, item);
-                    if(replace) {
-                        *replace = CFRetainSafe(item);
-                        moddate = (__bridge NSDate*) CFDictionaryGetValue(item->attributes, kSecAttrModificationDate);
-                    }
-                    break;
+                }
             }
         });
 
@@ -631,9 +615,12 @@
         }
 
         if(moddate) {
-            // Log the number of seconds it took to propagate this change
-            uint64_t secondsDelay = (uint64_t) ([[NSDate date] timeIntervalSinceDate:moddate]);
-            SecADClientPushValueForDistributionKey((__bridge CFStringRef) SecCKKSAggdPropagationDelay, secondsDelay);
+            // Log the number of ms it took to propagate this change
+            uint64_t delayInMS = [[NSDate date] timeIntervalSinceDate:moddate] * 1000;
+            [SecCoreAnalytics sendEvent:@"com.apple.ckks.item.propagation" event:@{
+                @"time" : @(delayInMS)
+            }];
+
         }
 
     } else {

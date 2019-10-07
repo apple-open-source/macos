@@ -56,7 +56,7 @@
     HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_IOREG,
                                 result == XCTWaiterResultCompleted,
                                 "result:%ld %@",
-                                (long)result,
+                                result,
                                 self.testServiceExpectation);
 
     HIDLuminanceNotificationInputReport10 report;
@@ -101,7 +101,7 @@
     HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_IOREG,
                                 result == XCTWaiterResultCompleted,
                                 "result:%ld %@",
-                                (long)result,
+                                result,
                                 self.testServiceExpectation);
     
     __block IOHIDEventRef copyEvent = NULL;
@@ -110,6 +110,7 @@
         IOHIDEventRef matching  = IOHIDEventCreateVendorDefinedEvent(kCFAllocatorDefault, 0, kHIDPage_AppleVendorSensor, kHIDUsage_AppleVendorSensor_LuminanceData, 0, (uint8_t*)&payload, sizeof(uint32_t), 0);
         copyEvent = IOHIDServiceClientCopyEvent(self.eventService, kIOHIDEventTypeVendorDefined, matching, 0);
         [self.testCopyEventExpectation fulfill];
+        CFRelease(matching);
     });
     
     result = [XCTWaiter waitForExpectations:@[self.testCopyEventExpectation] timeout:10];
@@ -138,7 +139,7 @@
 
 -(IOReturn)userDeviceGetReportHandler: (IOHIDReportType)type :(uint32_t)reportID :(uint8_t *)report :(NSUInteger *) length
 {
-    NSLog(@"userDeviceGetReportHandler:%d :%d :%p :%ld", type, reportID, report, (unsigned long)*length);
+    NSLog(@"userDeviceGetReportHandler:%d :%d :%p :%ld", type, reportID, report, *length);
     
     if (*length < sizeof (HIDLuminanceNotificationInputReport10) || reportID != 0x10 || type != kIOHIDReportTypeInput) {
         return kIOReturnUnsupported;

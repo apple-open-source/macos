@@ -41,27 +41,8 @@
 #import <objc/runtime.h>
 #import <wtf/MainThread.h>
 #import <wtf/NeverDestroyed.h>
-#import <wtf/SoftLinking.h>
 
-typedef AVCaptureDevice AVCaptureDeviceTypedef;
-typedef AVCaptureSession AVCaptureSessionType;
-
-SOFT_LINK_FRAMEWORK_OPTIONAL(AVFoundation)
-
-SOFT_LINK_CLASS(AVFoundation, AVCaptureDevice)
-SOFT_LINK_CLASS(AVFoundation, AVCaptureSession)
-
-SOFT_LINK_CONSTANT(AVFoundation, AVMediaTypeAudio, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVMediaTypeMuxed, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVMediaTypeVideo, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVCaptureDeviceWasConnectedNotification, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVCaptureDeviceWasDisconnectedNotification, NSString *)
-
-#define AVMediaTypeAudio getAVMediaTypeAudio()
-#define AVMediaTypeMuxed getAVMediaTypeMuxed()
-#define AVMediaTypeVideo getAVMediaTypeVideo()
-#define AVCaptureDeviceWasConnectedNotification getAVCaptureDeviceWasConnectedNotification()
-#define AVCaptureDeviceWasDisconnectedNotification getAVCaptureDeviceWasDisconnectedNotification()
+#import <pal/cocoa/AVFoundationSoftLink.h>
 
 using namespace WebCore;
 
@@ -99,7 +80,7 @@ const Vector<CaptureDevice>& AVCaptureDeviceManager::captureDevices()
     return captureDevicesInternal();
 }
 
-inline static bool deviceIsAvailable(AVCaptureDeviceTypedef *device)
+inline static bool deviceIsAvailable(AVCaptureDevice *device)
 {
     if (![device isConnected])
         return false;
@@ -114,20 +95,20 @@ inline static bool deviceIsAvailable(AVCaptureDeviceTypedef *device)
 
 void AVCaptureDeviceManager::updateCachedAVCaptureDevices()
 {
-    auto* currentDevices = [getAVCaptureDeviceClass() devices];
+    auto* currentDevices = [PAL::getAVCaptureDeviceClass() devices];
     auto changedDevices = adoptNS([[NSMutableArray alloc] init]);
-    for (AVCaptureDeviceTypedef *cachedDevice in m_avCaptureDevices.get()) {
+    for (AVCaptureDevice *cachedDevice in m_avCaptureDevices.get()) {
         if (![currentDevices containsObject:cachedDevice])
             [changedDevices addObject:cachedDevice];
     }
 
     if ([changedDevices count]) {
-        for (AVCaptureDeviceTypedef *device in changedDevices.get())
+        for (AVCaptureDevice *device in changedDevices.get())
             [device removeObserver:m_objcObserver.get() forKeyPath:@"suspended"];
         [m_avCaptureDevices removeObjectsInArray:changedDevices.get()];
     }
 
-    for (AVCaptureDeviceTypedef *device in currentDevices) {
+    for (AVCaptureDevice *device in currentDevices) {
 
         if (![device hasMediaType:AVMediaTypeVideo] && ![device hasMediaType:AVMediaTypeMuxed])
             continue;
@@ -141,6 +122,34 @@ void AVCaptureDeviceManager::updateCachedAVCaptureDevices()
 
 }
 
+static inline CaptureDevice toCaptureDevice(AVCaptureDevice *device)
+{
+    CaptureDevice captureDevice { device.uniqueID, CaptureDevice::DeviceType::Camera, device.localizedName };
+    captureDevice.setEnabled(deviceIsAvailable(device));
+    return captureDevice;
+}
+
+bool AVCaptureDeviceManager::isMatchingExistingCaptureDevice(AVCaptureDevice *device)
+{
+    auto existingCaptureDevice = captureDeviceFromPersistentID(device.uniqueID);
+    if (!existingCaptureDevice)
+        return false;
+
+    return deviceIsAvailable(device) == existingCaptureDevice.enabled();
+}
+
+static inline bool isDefaultVideoCaptureDeviceFirst(const Vector<CaptureDevice>& devices, const String& defaultDeviceID)
+{
+    if (devices.isEmpty())
+        return false;
+    return devices[0].persistentId() == defaultDeviceID;
+}
+
+static inline bool isVideoDevice(AVCaptureDevice *device)
+{
+    return [device hasMediaType:AVMediaTypeVideo] || [device hasMediaType:AVMediaTypeMuxed];
+}
+
 void AVCaptureDeviceManager::refreshCaptureDevices()
 {
     if (!m_avCaptureDevices) {
@@ -150,22 +159,41 @@ void AVCaptureDeviceManager::refreshCaptureDevices()
 
     updateCachedAVCaptureDevices();
 
-    bool deviceHasChanged = false;
-    auto* currentDevices = [getAVCaptureDeviceClass() devices];
+    auto* currentDevices = [PAL::getAVCaptureDeviceClass() devices];
     Vector<CaptureDevice> deviceList;
-    for (AVCaptureDeviceTypedef *platformDevice in currentDevices) {
 
-        if (![platformDevice hasMediaType:AVMediaTypeVideo] && ![platformDevice hasMediaType:AVMediaTypeMuxed])
+    auto* defaultVideoDevice = [PAL::getAVCaptureDeviceClass() defaultDeviceWithMediaType: AVMediaTypeVideo];
+#if PLATFORM(IOS)
+    if ([defaultVideoDevice position] != AVCaptureDevicePositionFront) {
+        defaultVideoDevice = nullptr;
+        for (AVCaptureDevice *platformDevice in currentDevices) {
+            if (!isVideoDevice(platformDevice))
+                continue;
+
+            if ([platformDevice position] == AVCaptureDevicePositionFront) {
+                defaultVideoDevice = platformDevice;
+                break;
+            }
+        }
+    }
+#endif
+
+    bool deviceHasChanged = false;
+    if (defaultVideoDevice) {
+        deviceList.append(toCaptureDevice(defaultVideoDevice));
+        deviceHasChanged = !isDefaultVideoCaptureDeviceFirst(captureDevices(), defaultVideoDevice.uniqueID);
+    }
+    for (AVCaptureDevice *platformDevice in currentDevices) {
+        if (!isVideoDevice(platformDevice))
             continue;
 
-        CaptureDevice captureDevice(platformDevice.uniqueID, CaptureDevice::DeviceType::Camera, platformDevice.localizedName);
-        captureDevice.setEnabled(deviceIsAvailable(platformDevice));
-
-        CaptureDevice existingCaptureDevice = captureDeviceFromPersistentID(platformDevice.uniqueID);
-        if (!existingCaptureDevice || (existingCaptureDevice && existingCaptureDevice.type() == CaptureDevice::DeviceType::Camera && captureDevice.enabled() != existingCaptureDevice.enabled()))
+        if (!deviceHasChanged && !isMatchingExistingCaptureDevice(platformDevice))
             deviceHasChanged = true;
 
-        deviceList.append(WTFMove(captureDevice));
+        if (platformDevice.uniqueID == defaultVideoDevice.uniqueID)
+            continue;
+
+        deviceList.append(toCaptureDevice(platformDevice));
     }
 
     if (deviceHasChanged || m_devices.size() != deviceList.size()) {
@@ -179,7 +207,7 @@ void AVCaptureDeviceManager::refreshCaptureDevices()
 
 bool AVCaptureDeviceManager::isAvailable()
 {
-    return AVFoundationLibrary();
+    return PAL::isAVFoundationFrameworkAvailable();
 }
 
 AVCaptureDeviceManager& AVCaptureDeviceManager::singleton()
@@ -197,7 +225,7 @@ AVCaptureDeviceManager::~AVCaptureDeviceManager()
 {
     [[NSNotificationCenter defaultCenter] removeObserver:m_objcObserver.get()];
     [m_objcObserver disconnect];
-    for (AVCaptureDeviceTypedef *device in m_avCaptureDevices.get())
+    for (AVCaptureDevice *device in m_avCaptureDevices.get())
         [device removeObserver:m_objcObserver.get() forKeyPath:@"suspended"];
 }
 

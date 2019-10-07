@@ -4,7 +4,7 @@ Test jpeg2wbmp() function : wrong threshold value param
 Levi Fukumori <levi [at] fukumori [dot] com [dot] br>
 #testfest PHPSP on 2009-06-20
 --SKIPIF--
-<?php 
+<?php
 if(!extension_loaded('gd')) {
     die('skip gd extension is not loaded');
 }
@@ -32,7 +32,11 @@ jpeg2wbmp($file, $file2, 20, 120, 9);
 jpeg2wbmp($file, $file2, 20, 120, -1);
 ?>
 --EXPECTF--
+Deprecated: Function jpeg2wbmp() is deprecated in %s on line %d
+
 Warning: jpeg2wbmp(): Invalid threshold value '9' in %s on line %d
+
+Deprecated: Function jpeg2wbmp() is deprecated in %s on line %d
 
 Warning: jpeg2wbmp(): Invalid threshold value '-1' in %s on line %d
 --CLEAN--

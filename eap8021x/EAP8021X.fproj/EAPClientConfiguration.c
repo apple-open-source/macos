@@ -24,7 +24,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <Security/SecIdentity.h>
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>
 #include <Security/SecIdentityPriv.h>
@@ -35,6 +34,8 @@
 #include "EAPClientProperties.h"
 #include "EAPLog.h"
 #include "myCFUtil.h"
+#include "EAPTLSUtil.h"
+#include "EAPCertificateUtil.h"
 #include "EAPClientConfiguration.h"
 
 STATIC Boolean
@@ -119,7 +120,7 @@ copy_shareable_certificate_chain(SecIdentityRef identity,
 		  (int)status);
 	goto done;
     }
-    status = SecTrustEvaluate(trust, &trust_result);
+    status = EAPTLSSecTrustEvaluate(trust, &trust_result);
     if (status != errSecSuccess) {
 	EAPLOG_FL(LOG_NOTICE, "SecTrustEvaluate failed: (%d)",
 		  (int)status);
@@ -162,9 +163,7 @@ done:
 STATIC CFDictionaryRef
 copy_shareable_identity_info(CFDataRef identityHandle)
 {
-    CFDictionaryRef		query;
     OSStatus			status;
-    CFTypeRef 			returnData = NULL;
     SecIdentityRef 		identity = NULL;
     SecKeyRef 			privateKey = NULL;
     CFMutableDictionaryRef 	retDict = NULL;
@@ -173,34 +172,15 @@ copy_shareable_identity_info(CFDataRef identityHandle)
     CFDataRef 			keyData = NULL;
     CFArrayRef			trust_chain = NULL;
 
-    const void *	keys[] = {
-	kSecClass,
-	kSecValuePersistentRef,
-	kSecReturnRef,
-	kSecUseSystemKeychain
-    };
-    const void *	values[] = {
-	kSecClassIdentity,
-	identityHandle,
-	kCFBooleanTrue,
-	kCFBooleanTrue
-    };
-
-    query = CFDictionaryCreate(NULL, keys, values,
-			       sizeof(keys) / sizeof(*keys),
-			       &kCFTypeDictionaryKeyCallBacks,
-			       &kCFTypeDictionaryValueCallBacks);
-    status = SecItemCopyMatching(query, &returnData);
-    CFRelease(query);
+    status = EAPSecIdentityHandleCreateSecIdentity((EAPSecIdentityHandleRef)identityHandle, &identity);
     if (status != errSecSuccess) {
+	EAPLOG(LOG_ERR, "EAPSecIdentityHandleCreateSecIdentity() failed: (%d)", (int)status);
+	return NULL;
+    }
+    if (identity == NULL) {
 	EAPLOG(LOG_ERR, "Failed to find identity in the keychain: (%d)", (int)status);
 	return NULL;
     }
-    if (isA_CFType(returnData, SecIdentityGetTypeID()) == NULL) {
-	EAPLOG_FL(LOG_ERR, "Identity data with incorrect data type");
-	return NULL;
-    }
-    identity = (SecIdentityRef)returnData;
     status = copy_shareable_certificate_chain(identity, &trust_chain);
     if (status != errSecSuccess || trust_chain == NULL) {
 	EAPLOG(LOG_ERR, "Failed to get a certificate chain from identity: (%d)", (int)status);
@@ -243,9 +223,9 @@ copy_shareable_identity_info(CFDataRef identityHandle)
     CFDictionaryAddValue(retDict, kEAPShareablePropPrivKeyAttribs, attribDict);
 
 done:
+    my_CFRelease(&identity);
     my_CFRelease(&allAttribDict);
     my_CFRelease(&attribDict);
-    my_CFRelease(&returnData);
     my_CFRelease(&trust_chain);
     my_CFRelease(&privateKey);
     my_CFRelease(&trust_chain);
@@ -309,15 +289,14 @@ done:
 STATIC CFDataRef
 import_shareable_identity(CFDictionaryRef identityDict)
 {
-    CFMutableDictionaryRef 		query = NULL;
-    CFDataRef 				keyData = NULL;
-    CFArrayRef 				certDataArray = NULL;
-    SecCertificateRef 			leaf = NULL;
-    CFDictionaryRef 			attribs = NULL;
-    SecKeyRef 				key = NULL;
-    SecIdentityRef 			identity = NULL;
-    CFDataRef 				retPersist = NULL;
-    CFIndex 				count = 0;
+    CFDataRef 		keyData = NULL;
+    CFArrayRef 		certDataArray = NULL;
+    SecCertificateRef 	leaf = NULL;
+    CFDictionaryRef 	attribs = NULL;
+    SecKeyRef 		key = NULL;
+    SecIdentityRef 	identity = NULL;
+    CFDataRef 		retPersist = NULL;
+    CFIndex 		count = 0;
 
     certDataArray = isA_CFArray(CFDictionaryGetValue(identityDict, kEAPShareablePropCertificateChain));
     if (certDataArray == NULL) {
@@ -362,6 +341,7 @@ import_shareable_identity(CFDictionaryRef identityDict)
 #define kEAPAppleCertificatesKeychainGroup 	CFSTR("com.apple.certificates")
 
 	OSStatus 			status = errSecSuccess;
+	CFMutableDictionaryRef 		query = NULL;
 
 	/* first add identity in the keychain access group "com.apple.identities" */
 	query = CFDictionaryCreateMutable(NULL, 0,
@@ -376,7 +356,7 @@ import_shareable_identity(CFDictionaryRef identityDict)
 	switch(status) {
 	    case errSecDuplicateItem:
 		EAPLOG(LOG_DEBUG, "The identity already exists in keychain");
-		status = SecItemCopyMatching(query, &retPersist);
+		status = SecItemCopyMatching(query, (CFTypeRef *)&retPersist);
 		if (status != errSecSuccess) {
 		    EAPLOG(LOG_ERR, "Failed to get persistent reference for identity in keychain (%d)", (int)status);
 		    goto done;
@@ -411,10 +391,9 @@ import_shareable_identity(CFDictionaryRef identityDict)
 	    }
 	    my_CFRelease(&c);
 	}
+	my_CFRelease(&query);
     }
-
 done:
-    my_CFRelease(&query);
     my_CFRelease(&key);
     my_CFRelease(&leaf);
     my_CFRelease(&identity);

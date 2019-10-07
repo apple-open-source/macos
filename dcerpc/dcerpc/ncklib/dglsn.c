@@ -305,7 +305,7 @@ INTERNAL void swab_hdr
     rpc_dg_recvq_elt_p_t rqe
 )
 {
-    rpc_dg_pkt_hdr_p_t shdr = (rpc_dg_pkt_hdr_p_t) &rqe->pkt->hdr;
+    rpc_dg_pkt_hdr_p_t shdr = (rpc_dg_pkt_hdr_p_t)(void *) &rqe->pkt->hdr;
     rpc_dg_pkt_hdr_p_t dhdr = &rqe->hdr;
 
 #define SWAB_HDR_16(field) { \
@@ -383,9 +383,9 @@ INTERNAL void marshall_uuid
     uuid_p_t uuid
 )
 {
-    *((unsigned32 *) (p +  0)) = uuid->time_low;
-    *((unsigned16 *) (p +  4)) = uuid->time_mid;
-    *((unsigned16 *) (p +  6)) = uuid->time_hi_and_version;
+    memcpy((p +  0), &uuid->time_low, sizeof(unsigned32));
+    memcpy((p +  4), &uuid->time_mid, sizeof(unsigned16));
+    memcpy((p +  6), &uuid->time_hi_and_version, sizeof(unsigned16));
     *((unsigned8 *)  (p +  8)) = uuid->clock_seq_hi_and_reserved;
     *((unsigned8 *)  (p +  9)) = uuid->clock_seq_low;
     *((unsigned8 *)  (p + 10)) = uuid->node[0];
@@ -411,9 +411,9 @@ PRIVATE void rpc__dg_get_epkt_body_st
 {
     unsigned32 st_all;
     rpc_dg_pkt_hdr_p_t hdrp = rqe->hdrp;
-
+    
 #ifndef MISPACKED_HDR
-    st_all = ((rpc_dg_epkt_body_p_t) &rqe->pkt->body)->st;
+    st_all = ((rpc_dg_epkt_body_p_t)(void *) &rqe->pkt->body)->st;
     if (NDR_DREP_INT_REP(hdrp->drep) != ndr_g_local_drep.int_rep)
         SWAB_INPLACE_32(st_all);
 #else
@@ -645,7 +645,7 @@ PRIVATE void rpc__dg_conv_fork_handler
         rpc_fork_stage_id_t stage
 )
 {
-    error_status_t st;
+    long st;
     rpc_dg_recvq_elt_p_t rqe;
 
     switch((int)stage)
@@ -788,14 +788,14 @@ INTERNAL boolean32 handle_conv_int
 
 #define CONV_MIN_REQUEST_LEN 20
 
-    assert(hdrp->if_vers == ((rpc_if_rep_p_t) conv_v3_0_c_ifspec)->vers);
+    assert(hdrp->if_vers == ((rpc_if_rep_p_t)(void *) conv_v3_0_c_ifspec)->vers);
 
     /*
      * There are four types of conv callbacks that must be handled
      * (WAY, WAY2, "are_you_there", WAYauth, and WAYauthMore  callbacks).
      * The opnum field differentiates the operations.
      */
-    if (hdrp->if_vers != ((rpc_if_rep_p_t) conv_v3_0_c_ifspec)->vers
+    if (hdrp->if_vers != ((rpc_if_rep_p_t)(void *) conv_v3_0_c_ifspec)->vers
 /*        || hdrp->opnum < 0	 ??? */
         || hdrp->opnum > 5
         || hdrp->len < CONV_MIN_REQUEST_LEN)
@@ -807,8 +807,8 @@ INTERNAL boolean32 handle_conv_int
     }
 
 #ifndef MISPACKED_HDR
-    clt_actid1 = *((uuid_p_t) rawpkt->body.args);
-    clt_boot1 = *((unsigned32 *) ((char *) rawpkt->body.args + 16));
+    memcpy(&clt_actid1, rawpkt->body.args, sizeof(idl_uuid_t));
+    memcpy(&clt_boot1, ((char *) rawpkt->body.args + 16), sizeof(unsigned32));
 
     if (NDR_DREP_INT_REP(hdrp->drep) != ndr_g_local_drep.int_rep)
     {
@@ -1009,8 +1009,8 @@ INTERNAL void conv_stub_who_are_you
 #define WAY_RESPONSE_LEN  8
 
 #ifndef MISPACKED_HDR
-    *((unsigned32 *) &rawpkt->body.args[0]) = way_seq;
-    *((unsigned32 *) &rawpkt->body.args[4]) = way_status;
+    memcpy(&rawpkt->body.args[0], &way_seq, sizeof(unsigned32));
+    memcpy(&rawpkt->body.args[4], &way_status, sizeof(unsigned32));
 #else
 #error   "MISPACKED_HDR CODE NEEDED HERE" /* !!! */
 #endif
@@ -1074,9 +1074,9 @@ INTERNAL void conv_stub_who_are_you2
 #define WAY2_RESPONSE_LEN 24
 
 #ifndef MISPACKED_HDR
-    *((unsigned32 *) &rawpkt->body.args[0]) = way_seq;
+    memcpy(&rawpkt->body.args[0], &way_seq, sizeof(unsigned32));
+    memcpy(&rawpkt->body.args[20], &way_status, sizeof(unsigned32));
     marshall_uuid(&rawpkt->body.args[4], &way2_cas_uuid);
-    *((unsigned32 *) &rawpkt->body.args[20]) = way_status;
 #else
 #error    "MISPACKED_HDR CODE NEEDED HERE" /* !!! */
 #endif
@@ -1120,7 +1120,7 @@ INTERNAL void conv_stub_are_you_there
 #define AYT_RESPONSE_LEN  4
 
 #ifndef MISPACKED_HDR
-    *((unsigned32 *) &rawpkt->body.args[0]) = way_status;
+    memcpy(&rawpkt->body.args[0], &way_status, sizeof(unsigned32));
 #else
 #error    "MISPACKED_HDR_CODE NEEDED HERE" /* !!! */
 #endif
@@ -1136,7 +1136,10 @@ INTERNAL void conv_stub_are_you_there
 INTERNAL void conv_stub_who_are_you_auth
 (
     rpc_dg_recvq_elt_p_t rqe,
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
     rpc_dg_pkt_hdr_p_t resp_hdrp,
+#pragma clang diagnostic pop
     uuid_p_t clt_actid,
     unsigned32 clt_boot
 )
@@ -1165,7 +1168,7 @@ INTERNAL void conv_stub_who_are_you_auth
      *       +---------------------+
      */
 
-    in_len = *((signed32 *) &rawpkt->body.args[20]);
+    memcpy(&in_len, &rawpkt->body.args[20], sizeof(signed32));
     if (NDR_DREP_INT_REP(rqst_hdrp->drep) != ndr_g_local_drep.int_rep)
     {
         SWAB_INPLACE_32(in_len);
@@ -1180,7 +1183,7 @@ INTERNAL void conv_stub_who_are_you_auth
     }
 
     in_data = (ndr_byte *)(rawpkt->body.args+24);
-    out_max_len = *((signed32 *) &rawpkt->body.args[28 + in_len]);
+    memcpy(&out_max_len, &rawpkt->body.args[28 + in_len], sizeof(signed32));
 
     if (NDR_DREP_INT_REP(rqst_hdrp->drep) != ndr_g_local_drep.int_rep)
     {
@@ -1261,16 +1264,14 @@ INTERNAL void conv_stub_who_are_you_auth
      */
 
 #ifndef MISPACKED_HDR
-    *((unsigned32 *) rawpkt->body.args) = way_seq;
+    memcpy(rawpkt->body.args, &way_seq, sizeof(unsigned32));
     marshall_uuid(&rawpkt->body.args[4], &way2_cas_uuid);
-    *((unsigned32 *) &rawpkt->body.args[20]) = out_max_len;
-    *((unsigned32 *) &rawpkt->body.args[24]) = 0;
-    *((unsigned32 *) &rawpkt->body.args[28]) = out_len;
+    memcpy(&rawpkt->body.args[20], &out_max_len, sizeof(unsigned32));
+    memset(&rawpkt->body.args[24], 0, sizeof(unsigned32));
+    memcpy(&rawpkt->body.args[28], &out_len, sizeof(unsigned32));
     /* rawpkt->body.args[32 .. 32+(outlen-1)] filled in by stub */
-    *((unsigned32 *) &rawpkt->body.args[32 + out_round_len]) = out_len;
-    *((unsigned32 *) &rawpkt->body.args[36 + out_round_len]) = way_status;
-
-    resp_hdrp->len = 40 + out_round_len;
+    memcpy(&rawpkt->body.args[32 + out_round_len], &out_len, sizeof(unsigned32));
+    memcpy(&rawpkt->body.args[36 + out_round_len], &way_status, sizeof(unsigned32));
 #else
 #error    "MISPACKED_HDR_CODE NEEDED HERE" /* !!! */
 #endif
@@ -1305,13 +1306,13 @@ unsigned32 clt_boot;
      *       +---------------------+
      */
 
-    index = *((signed32 *) &rawpkt->body.args[20]);
+    memcpy(&index, &rawpkt->body.args[20], sizeof(signed32));
     if (NDR_DREP_INT_REP(rqst_hdrp->drep) != ndr_g_local_drep.int_rep)
     {
         SWAB_INPLACE_32(index);
     }
 
-    out_max_len = *((signed32 *) &rawpkt->body.args[24]);
+    memcpy(&out_max_len, &rawpkt->body.args[24], sizeof(signed32));
     if (NDR_DREP_INT_REP(rqst_hdrp->drep) != ndr_g_local_drep.int_rep)
     {
         SWAB_INPLACE_32(out_max_len);
@@ -1362,12 +1363,12 @@ unsigned32 clt_boot;
      */
 
 #ifndef MISPACKED_HDR
-    *((unsigned32 *) rawpkt->body.args) = out_max_len;
-    *((unsigned32 *) &rawpkt->body.args[4]) = 0;
-    *((unsigned32 *) &rawpkt->body.args[8]) = out_len;
+    memcpy(rawpkt->body.args, &out_max_len, sizeof(unsigned32));
+    memset(&rawpkt->body.args[4], 0, sizeof(unsigned32));
+    memcpy(&rawpkt->body.args[8], &out_len, sizeof(unsigned32));
     /* rawpkt->body.args[12 .. 12+(outlen-1)] filled in by stub */
-    *((unsigned32 *) &rawpkt->body.args[12 + out_round_len]) = out_len;
-    *((unsigned32 *) &rawpkt->body.args[16 + out_round_len]) = way_status;
+    memcpy(&rawpkt->body.args[12 + out_round_len], &out_len, sizeof(unsigned32));
+    memcpy(&rawpkt->body.args[16 + out_round_len], &way_status, sizeof(unsigned32));
 
     resp_hdrp->len = 20 + out_round_len;
 #else
@@ -1426,12 +1427,12 @@ PRIVATE void rpc__dg_handle_convc
 
 #define CONVC_MIN_REQUEST_LEN 16
 
-    assert(hdrp->if_vers == ((rpc_if_rep_p_t) convc_v1_0_c_ifspec)->vers);
+    assert(hdrp->if_vers == ((rpc_if_rep_p_t)(void *) convc_v1_0_c_ifspec)->vers);
 
     /*
      * Make sure the request looks sane.
      */
-    if (hdrp->if_vers != ((rpc_if_rep_p_t) convc_v1_0_c_ifspec)->vers
+    if (hdrp->if_vers != ((rpc_if_rep_p_t)(void *) convc_v1_0_c_ifspec)->vers
         || hdrp->opnum != 0
         || hdrp->len < CONVC_MIN_REQUEST_LEN)
     {
@@ -1442,7 +1443,7 @@ PRIVATE void rpc__dg_handle_convc
     }
 
 #ifndef MISPACKED_HDR
-    cas_uuid = *((uuid_p_t) rawpkt->body.args);
+    memcpy(&cas_uuid, rawpkt->body.args, sizeof(idl_uuid_t));
 
     if (NDR_DREP_INT_REP(hdrp->drep) != ndr_g_local_drep.int_rep)
     {
@@ -1582,7 +1583,7 @@ INTERNAL unsigned32 recv_pkt
      * checksumming), copy the header out if the boot time is zero.
      */
 
-    rqe->hdrp = (rpc_dg_pkt_hdr_p_t) &rqe->pkt->hdr;
+    rqe->hdrp = (rpc_dg_pkt_hdr_p_t)(void *) &rqe->pkt->hdr;
 
     if (NDR_DREP_INT_REP(rqe->hdrp->drep) != ndr_g_local_drep.int_rep)
     {
@@ -1660,7 +1661,7 @@ INTERNAL unsigned32 recv_pkt
 
         else
         {
-            rpc_dg_fpkt_p_t fpkt = (rpc_dg_fpkt_p_t) rqe->pkt;
+            rpc_dg_fpkt_p_t fpkt = (rpc_dg_fpkt_p_t)(void *) rqe->pkt;
             struct sockaddr *sp = (struct sockaddr *) &rqe->from.sa;
             unsigned16 i, j;
             unsigned16 fwd_len;
@@ -1872,7 +1873,7 @@ INTERNAL void do_selective_ack
     unsigned32 serial_cnt
 )
 {
-    rpc_dg_fackpkt_body_p_t bodyp = (rpc_dg_fackpkt_body_p_t) &rqe->pkt->body;
+    rpc_dg_fackpkt_body_p_t bodyp = (rpc_dg_fackpkt_body_p_t)(void *) &rqe->pkt->body;
     rpc_dg_xmitq_elt_p_t xq_curr, xq_prev, rexmitq_tail = NULL;
     rpc_dg_xmitq_p_t xq = &call->xq;
     unsigned32 mask, selack_fragnum, i, j, *selack;
@@ -2128,7 +2129,7 @@ INTERNAL void do_fack_body
     unsigned32 max_tsdu, max_frag_size, our_min;
     unsigned32 snd_frag_size;
 
-    rpc_dg_fackpkt_body_p_t bodyp = (rpc_dg_fackpkt_body_p_t) &rqe->pkt->body;
+    rpc_dg_fackpkt_body_p_t bodyp = (rpc_dg_fackpkt_body_p_t)(void *) &rqe->pkt->body;
 
     RPC_DG_CALL_LOCK_ASSERT(call);
 
@@ -2435,10 +2436,10 @@ PRIVATE void rpc__dg_fack_common
     rpc_dg_pkt_hdr_p_t hdrp = rqe->hdrp;
     rpc_dg_xmitq_p_t xq;
     rpc_dg_xmitq_elt_p_t next_xqe, temp;
-    rpc_dg_fackpkt_body_p_t bodyp = (rpc_dg_fackpkt_body_p_t) &rqe->pkt->body;
+    rpc_dg_fackpkt_body_p_t bodyp = (rpc_dg_fackpkt_body_p_t)(void *) &rqe->pkt->body;
     unsigned32 rexmit_cnt = 0, window_incr = 0, ready_to_go;
     unsigned32 curr_serial = 0;
-	 boolean curr_serial_initialized = false;
+    boolean curr_serial_initialized = false;
     signed32 blast_size;
     boolean using_selacks;
     boolean first_fack = false;
@@ -2496,7 +2497,7 @@ PRIVATE void rpc__dg_fack_common
         curr_serial = xq->last_fack_serial;
 		  curr_serial_initialized = true;
         xq->last_fack_serial =
-                ((rpc_dg_fackpkt_body_p_t) &rqe->pkt->body)->serial_num;
+                ((rpc_dg_fackpkt_body_p_t)(void *) &rqe->pkt->body)->serial_num;
 
         if (NDR_DREP_INT_REP(hdrp->drep) != ndr_g_local_drep.int_rep)
         {
@@ -2781,7 +2782,7 @@ INTERNAL unsigned32 recv_dispatch
     if ((rpc_g_fwd_fn != NULL) &&
         (sp->is_server) &&
         (! UUID_IS_NIL(&hdrp->if_id, &st)) &&
-        (! UUID_EQ(hdrp->if_id, ((rpc_if_rep_p_t) ept_v3_0_c_ifspec)->id, &st)))
+        (! UUID_EQ(hdrp->if_id, ((rpc_if_rep_p_t) (void *) ept_v3_0_c_ifspec)->id, &st)))
     {
         unsigned32 temp_ret = rpc__dg_fwd_pkt(sp, rqe);
 
@@ -2835,7 +2836,7 @@ INTERNAL unsigned32 recv_dispatch
          * been intended for some server that is not currently running, and we
          * should not handle the call locally.
          */
-        if ((UUID_EQ(hdrp->if_id, ((rpc_if_rep_p_t) mgmt_v1_0_s_ifspec)->id, &st)) &&
+        if ((UUID_EQ(hdrp->if_id, ((rpc_if_rep_p_t) (void *) mgmt_v1_0_s_ifspec)->id, &st)) &&
             (! UUID_IS_NIL(&hdrp->object, &st)))
         {
             /*
@@ -2922,7 +2923,7 @@ INTERNAL unsigned32 recv_dispatch
      * conv calls).
      */
     if (RPC_DG_SOCKET_IS_CLIENT(sp) && RPC_DG_PT_IS_CTOS(ptype)
-        && UUID_EQ(hdrp->if_id, ((rpc_if_rep_p_t) conv_v3_0_c_ifspec)->id, &st))
+        && UUID_EQ(hdrp->if_id, ((rpc_if_rep_p_t) (void *) conv_v3_0_c_ifspec)->id, &st))
     {
         boolean drop;
 

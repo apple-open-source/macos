@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,12 +32,12 @@
 #include <EAP8021X/EAP.h>
 #include <EAP8021X/EAPClientModule.h>
 #include <EAP8021X/EAPClientProperties.h>
-#if !TARGET_OS_EMBEDDED	// This file is not built for Embedded
+#if TARGET_OS_OSX	// This file is not built for Embedded
 #include <Security/SecKeychain.h>
 #include <Security/SecKeychainSearch.h>
 #include <Security/SecKeychainItem.h>
 #include <Security/SecIdentity.h>
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 #include <SystemConfiguration/SCNetworkConnection.h>
 
 #include "eaptls.h"
@@ -187,10 +187,10 @@ int Init (struct EAP_Input *eap_in, void **context)
 	close(fd);
 
     eapData.unique_id = eaptls_unique;  /* used for TLS session resumption */
-	*((uint32_t *)&eapData.unique_id_length) = strlen(eapData.unique_id);
+	*((uint32_t *)&eapData.unique_id_length) = (uint32_t)strlen(eapData.unique_id);
 
     eapData.username = (u_char*)eap_in->identity;
-	*((uint32_t *)&eapData.username_length) = strlen((char*)eapData.username);
+	*((uint32_t *)&eapData.username_length) = (uint32_t)strlen((char*)eapData.username);
 
     eapData.password = 0; 	/* may be NULL */
 	*((uint32_t *)&eapData.password_length) = 0;

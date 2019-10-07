@@ -5,8 +5,14 @@
 #ifndef PyObjC_CLOSURE_POOL
 #define PyObjC_CLOSURE_POOL
 
-extern ffi_closure* PyObjC_malloc_closure(void);
-extern int PyObjC_free_closure(ffi_closure* cl);
+typedef struct ffi_closure_wrapper {
+	ffi_closure* closure;
+	void* code_addr;
+} ffi_closure_wrapper;
+
+extern ffi_closure_wrapper* PyObjC_malloc_closure(void);
+extern int PyObjC_free_closure(ffi_closure_wrapper* cl);
+extern ffi_closure_wrapper* PyObjC_closure_from_code(void* code);
 
 
 #endif /* PyObjC_CLOSURE_POOL */

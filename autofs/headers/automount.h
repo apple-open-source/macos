@@ -172,6 +172,8 @@ struct mapent {
  */
 struct autodir {
 	char	*dir_name;		/* mount point */
+	char	*dir_linkname;		/* name of the ephemeral symlink, if needed */
+	char	*dir_linktarget;	/* ...and the target (when made) */
 	char	*dir_map;		/* name of map for dir */
 	char	*dir_opts;		/* default mount options */
 	int	dir_direct;		/* direct mountpoint ? */
@@ -297,6 +299,12 @@ extern int getword(char *, char *, char **, char **, char, int);
 extern int get_retry(const char *);
 extern int str_opt(struct mnttab *, char *, char **);
 extern void dirinit(char *, char *, char *, int, char **, char ***);
+extern const char *rosv_data_volume_prefix(size_t *);
+extern bool_t is_toplevel_dir(const char *);
+extern bool_t is_reserved_mountpoint(const char *);
+extern bool_t is_slash_network(const char *);
+extern char *automount_realpath(const char *, char *);
+extern int synthetic_symlink(const char *, const char *, bool_t);
 extern void pr_msg(int, const char *, ...) __printflike(2, 3);
 extern void trace_prt(int, char *, ...) __printflike(2, 3);
 extern void free_action_list_fields(action_list *);
@@ -473,7 +481,7 @@ extern int getnetmaskbynet(const struct in_addr, struct in_addr *);
 /*
  * Hidden rpc functions
  */
-extern int __nis_reset_state();
+extern int __nis_reset_state(void);
 extern int __rpc_negotiate_uid(int);
 extern int __rpc_get_local_uid(SVCXPRT *, uid_t *);
 

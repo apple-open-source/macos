@@ -24,6 +24,7 @@
 #include "WebKitScriptDialogImpl.h"
 #include "WebKitWebViewBasePrivate.h"
 #include "WebKitWebViewPrivate.h"
+#include <WebCore/Color.h>
 #include <WebCore/GtkUtilities.h>
 #include <WebCore/PlatformDisplay.h>
 #include <WebCore/PlatformScreen.h>
@@ -41,7 +42,9 @@ gboolean webkitWebViewAuthenticate(WebKitWebView* webView, WebKitAuthenticationR
 gboolean webkitWebViewScriptDialog(WebKitWebView* webView, WebKitScriptDialog* scriptDialog)
 {
     GUniquePtr<char> title(g_strdup_printf("JavaScript - %s", webkitWebViewGetPage(webView).pageLoadState().url().utf8().data()));
-    webkitWebViewBaseAddDialog(WEBKIT_WEB_VIEW_BASE(webView), webkitScriptDialogImplNew(scriptDialog, title.get()));
+    // Limit script dialog size to 80% of the web view size.
+    GtkRequisition maxSize = { static_cast<int>(gtk_widget_get_allocated_width(GTK_WIDGET(webView)) * 0.80), static_cast<int>(gtk_widget_get_allocated_height(GTK_WIDGET(webView)) * 0.80) };
+    webkitWebViewBaseAddDialog(WEBKIT_WEB_VIEW_BASE(webView), webkitScriptDialogImplNew(scriptDialog, title.get(), &maxSize));
 
     return TRUE;
 }
@@ -59,11 +62,7 @@ static void fileChooserDialogResponseCallback(GtkFileChooser* dialog, gint respo
     } else
         webkit_file_chooser_request_cancel(adoptedRequest.get());
 
-#if GTK_CHECK_VERSION(3, 20, 0)
     g_object_unref(dialog);
-#else
-    gtk_widget_destroy(GTK_WIDGET(dialog));
-#endif
 }
 
 gboolean webkitWebViewRunFileChooser(WebKitWebView* webView, WebKitFileChooserRequest* request)
@@ -74,21 +73,10 @@ gboolean webkitWebViewRunFileChooser(WebKitWebView* webView, WebKitFileChooserRe
 
     gboolean allowsMultipleSelection = webkit_file_chooser_request_get_select_multiple(request);
 
-#if GTK_CHECK_VERSION(3, 20, 0)
     GtkFileChooserNative* dialog = gtk_file_chooser_native_new(allowsMultipleSelection ? _("Select Files") : _("Select File"),
         toplevel ? GTK_WINDOW(toplevel) : nullptr, GTK_FILE_CHOOSER_ACTION_OPEN, nullptr, nullptr);
     if (toplevel)
         gtk_native_dialog_set_modal(GTK_NATIVE_DIALOG(dialog), TRUE);
-#else
-    GtkWidget* dialog = gtk_file_chooser_dialog_new(allowsMultipleSelection ? _("Select Files") : _("Select File"),
-        toplevel ? GTK_WINDOW(toplevel) : nullptr,
-        GTK_FILE_CHOOSER_ACTION_OPEN,
-        GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
-        GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT,
-        nullptr);
-    if (toplevel)
-        gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
-#endif
 
     if (GtkFileFilter* filter = webkit_file_chooser_request_get_mime_types_filter(request))
         gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(dialog), filter);
@@ -99,11 +87,7 @@ gboolean webkitWebViewRunFileChooser(WebKitWebView* webView, WebKitFileChooserRe
 
     g_signal_connect(dialog, "response", G_CALLBACK(fileChooserDialogResponseCallback), g_object_ref(request));
 
-#if GTK_CHECK_VERSION(3, 20, 0)
     gtk_native_dialog_show(GTK_NATIVE_DIALOG(dialog));
-#else
-    gtk_widget_show(dialog);
-#endif
 
     return TRUE;
 }
@@ -358,4 +342,66 @@ GtkWidget* webkit_web_view_new_with_user_content_manager(WebKitUserContentManage
     g_return_val_if_fail(WEBKIT_IS_USER_CONTENT_MANAGER(userContentManager), nullptr);
 
     return GTK_WIDGET(g_object_new(WEBKIT_TYPE_WEB_VIEW, "user-content-manager", userContentManager, nullptr));
+}
+
+/**
+ * webkit_web_view_set_background_color:
+ * @web_view: a #WebKitWebView
+ * @rgba: a #GdkRGBA
+ *
+ * Sets the color that will be used to draw the @web_view background before
+ * the actual contents are rendered. Note that if the web page loaded in @web_view
+ * specifies a background color, it will take precedence over the @rgba color.
+ * By default the @web_view background color is opaque white.
+ * Note that the parent window must have a RGBA visual and
+ * #GtkWidget:app-paintable property set to %TRUE for backgrounds colors to work.
+ *
+ * <informalexample><programlisting>
+ * static void browser_window_set_background_color (BrowserWindow *window,
+ *                                                  const GdkRGBA *rgba)
+ * {
+ *     WebKitWebView *web_view;
+ *     GdkScreen *screen = gtk_window_get_screen (GTK_WINDOW (window));
+ *     GdkVisual *rgba_visual = gdk_screen_get_rgba_visual (screen);
+ *
+ *     if (!rgba_visual)
+ *          return;
+ *
+ *     gtk_widget_set_visual (GTK_WIDGET (window), rgba_visual);
+ *     gtk_widget_set_app_paintable (GTK_WIDGET (window), TRUE);
+ *
+ *     web_view = browser_window_get_web_view (window);
+ *     webkit_web_view_set_background_color (web_view, rgba);
+ * }
+ * </programlisting></informalexample>
+ *
+ * Since: 2.8
+ */
+void webkit_web_view_set_background_color(WebKitWebView* webView, const GdkRGBA* rgba)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+    g_return_if_fail(rgba);
+
+    auto& page = *webkitWebViewBaseGetPage(reinterpret_cast<WebKitWebViewBase*>(webView));
+    page.setBackgroundColor(WebCore::Color(*rgba));
+}
+
+/**
+ * webkit_web_view_get_background_color:
+ * @web_view: a #WebKitWebView
+ * @rgba: (out): a #GdkRGBA to fill in with the background color
+ *
+ * Gets the color that is used to draw the @web_view background before
+ * the actual contents are rendered.
+ * For more information see also webkit_web_view_set_background_color()
+ *
+ * Since: 2.8
+ */
+void webkit_web_view_get_background_color(WebKitWebView* webView, GdkRGBA* rgba)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+    g_return_if_fail(rgba);
+
+    auto& page = *webkitWebViewBaseGetPage(reinterpret_cast<WebKitWebViewBase*>(webView));
+    *rgba = page.backgroundColor().valueOr(WebCore::Color::white);
 }

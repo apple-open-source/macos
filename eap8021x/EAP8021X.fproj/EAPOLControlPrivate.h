@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,7 +40,7 @@
 #include <CoreFoundation/CFDictionary.h>
 #include <TargetConditionals.h>
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 
 extern const CFStringRef	kEAPOLAutoDetectSecondsSinceLastPacket; /* CFNumber */
 extern const CFStringRef	kEAPOLAutoDetectAuthenticatorMACAddress; /* CFDataRef */
@@ -116,6 +116,6 @@ EAPOLControlSetItemIDForAuthenticator(CFDataRef authenticator,
  */
 extern const char * kEAPOLControlUserSettingsNotifyKey;
 
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
 #endif /* _EAP8021X_EAPOLCONTROLPRIVATE_H */

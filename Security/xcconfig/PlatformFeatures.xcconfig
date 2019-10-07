@@ -4,23 +4,39 @@
 PLATFORM_STR = "unknown"
 PLATFORM_STR[sdk=macosx*] = "macOS"
 PLATFORM_STR[sdk=iphoneos*] = "iphone"
+PLATFORM_STR[sdk=iphonesimulator*] = "iphone(sim)"
+PLATFORM_STR[sdk=bridgeos*] = "bridge"
 PLATFORM_STR[sdk=watchos*] = "watch"
+PLATFORM_STR[sdk=watchsimulator*] = "watch(sim)"
 PLATFORM_STR[sdk=appletvos*] = "tv"
+PLATFORM_STR[sdk=appletvsimulator*] = "tv(sim)"
 
-// Octagon is on for the mac and non-bridge non-horizon iphones
+// Octagon is on for all non-bridge platforms
 OCTAGON_ON=0
 OCTAGON_ON[sdk=macosx*]=1
+OCTAGON_ON[sdk=iphone*] = 1
+OCTAGON_ON[sdk=bridgeos*] = 0
+OCTAGON_ON[sdk=watch*] = 1
+OCTAGON_ON[sdk=appletv*] = 1
 
-// HORIZON Will be either "unset" (horizon on) or "0" (horizon off)
-HORIZON_INTERMEDIATE_ = 0
-HORIZON = $(HORIZON_INTERMEDIATE_$(RC_HORIZON))
+// TrustedPeers is on for macOS, iOS, watchOS and tvOS
+TRUSTEDPEERS_ON = 0
+TRUSTEDPEERS_ON[sdk=macosx*] = 1
+TRUSTEDPEERS_ON[sdk=iphone*] = 1
+TRUSTEDPEERS_ON[sdk=bridgeos*] = 1
+TRUSTEDPEERS_ON[sdk=watch*] = 1
+TRUSTEDPEERS_ON[sdk=appletv*] = 1
 
-// If horizon is off, OCTAGON should be ON
-OCTAGON_ON_IOS_HORIZON_0 = 1
-OCTAGON_ON_IOS_HORIZON_ = 0
+// SecureObject Sync should only be on on iOS and macOS, but until we have octagon, its on on watch and TV
+SECUREOBJECTSYNC_ON[sdk=iphone*] = 1
+SECUREOBJECTSYNC_ON[sdk=bridgeos*] = 1
+SECUREOBJECTSYNC_ON[sdk=watch*] = 1
+SECUREOBJECTSYNC_ON[sdk=appletv*] = 1
+SECUREOBJECTSYNC_ON[sdk=macos*] = 1
 
-OCTAGON_ON_IOS_BRIDGE_NO = $(OCTAGON_ON_IOS_HORIZON_$(HORIZON))
-OCTAGON_ON_IOS_BRIDGE_YES = 0
-OCTAGON_ON[sdk=iphone*] = $(OCTAGON_ON_IOS_BRIDGE_$(BRIDGE))
-OCTAGON_ON[sdk=watch*] = 0
-OCTAGON_ON[sdk=appletv*] = 0
+// Shared web credentials is only supported on iOS
+SHAREDWEBCREDENTIALS_ON[sdk=iphone*] = 1
+SHAREDWEBCREDENTIALS_ON[sdk=bridgeos*] = 0
+SHAREDWEBCREDENTIALS_ON[sdk=watch*] = 0
+SHAREDWEBCREDENTIALS_ON[sdk=appletv*] = 0
+SHAREDWEBCREDENTIALS_ON[sdk=macos*] = 0

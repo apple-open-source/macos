@@ -7,7 +7,7 @@ extension_loaded('imap') or die('skip imap extension not available in this build
 --FILE--
 <?php
 /* Prototype  : string imap_fetchheader(resource $stream_id, int $msg_no [, int $options])
- * Description: Get the full unfiltered header for a message 
+ * Description: Get the full unfiltered header for a message
  * Source code: ext/imap/php_imap.c
  */
 
@@ -69,7 +69,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
@@ -78,14 +78,14 @@ $inputs = array(
 /*18*/ "string",
        'string',
        $heredoc,
-       
+
        // array data
 /*21*/ array(),
        $index_array,
        $assoc_array,
        array('foo', $index_array, $assoc_array),
-       
-       
+
+
        // object data
 /*25*/ new classA(),
 
@@ -110,22 +110,22 @@ foreach($inputs as $input) {
 
 -- Iteration 1 --
 
-Warning: imap_fetchheader() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: imap_fetchheader() expects parameter 1 to be resource, int given in %s on line %d
 NULL
 
 -- Iteration 2 --
 
-Warning: imap_fetchheader() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: imap_fetchheader() expects parameter 1 to be resource, int given in %s on line %d
 NULL
 
 -- Iteration 3 --
 
-Warning: imap_fetchheader() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: imap_fetchheader() expects parameter 1 to be resource, int given in %s on line %d
 NULL
 
 -- Iteration 4 --
 
-Warning: imap_fetchheader() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: imap_fetchheader() expects parameter 1 to be resource, int given in %s on line %d
 NULL
 
 -- Iteration 5 --
@@ -165,47 +165,47 @@ NULL
 
 -- Iteration 12 --
 
-Warning: imap_fetchheader() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: imap_fetchheader() expects parameter 1 to be resource, bool given in %s on line %d
 NULL
 
 -- Iteration 13 --
 
-Warning: imap_fetchheader() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: imap_fetchheader() expects parameter 1 to be resource, bool given in %s on line %d
 NULL
 
 -- Iteration 14 --
 
-Warning: imap_fetchheader() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: imap_fetchheader() expects parameter 1 to be resource, bool given in %s on line %d
 NULL
 
 -- Iteration 15 --
 
-Warning: imap_fetchheader() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: imap_fetchheader() expects parameter 1 to be resource, bool given in %s on line %d
 NULL
 
 -- Iteration 16 --
 
-Warning: imap_fetchheader() expects parameter 1 to be resource, %unicode_string_optional% given in %s on line %d
+Warning: imap_fetchheader() expects parameter 1 to be resource, string given in %s on line %d
 NULL
 
 -- Iteration 17 --
 
-Warning: imap_fetchheader() expects parameter 1 to be resource, %unicode_string_optional% given in %s on line %d
+Warning: imap_fetchheader() expects parameter 1 to be resource, string given in %s on line %d
 NULL
 
 -- Iteration 18 --
 
-Warning: imap_fetchheader() expects parameter 1 to be resource, %unicode_string_optional% given in %s on line %d
+Warning: imap_fetchheader() expects parameter 1 to be resource, string given in %s on line %d
 NULL
 
 -- Iteration 19 --
 
-Warning: imap_fetchheader() expects parameter 1 to be resource, %unicode_string_optional% given in %s on line %d
+Warning: imap_fetchheader() expects parameter 1 to be resource, string given in %s on line %d
 NULL
 
 -- Iteration 20 --
 
-Warning: imap_fetchheader() expects parameter 1 to be resource, %unicode_string_optional% given in %s on line %d
+Warning: imap_fetchheader() expects parameter 1 to be resource, string given in %s on line %d
 NULL
 
 -- Iteration 21 --

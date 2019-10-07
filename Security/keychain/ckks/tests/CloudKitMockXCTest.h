@@ -30,7 +30,9 @@
 #import <Foundation/Foundation.h>
 #import <SystemConfiguration/SystemConfiguration.h>
 
-#import "keychain/ckks/CKKSCKAccountStateTracker.h"
+#import "keychain/ckks/tests/CKKSMockSOSPresentAdapter.h"
+#import "keychain/ckks/tests/CKKSMockOctagonAdapter.h"
+#import "keychain/ckks/CKKSAccountStateTracker.h"
 #import "keychain/ckks/tests/MockCloudKit.h"
 
 NS_ASSUME_NONNULL_BEGIN
@@ -42,6 +44,7 @@ NS_ASSUME_NONNULL_BEGIN
 @class FakeCKZone;
 @class CKKSLockStateTracker;
 @class CKKSReachabilityTracker;
+@class SOSCKKSPeerAdapter;
 
 @interface CloudKitMockXCTest : XCTestCase
 
@@ -59,28 +62,34 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nullable) id mockAccountStateTracker;
 
+@property (nullable) id mockTTR;
+@property BOOL isTTRRatelimited;
+@property (nullable) XCTestExpectation *ttrExpectation;
+
+// The CloudKit account status
 @property CKAccountStatus accountStatus;
-@property BOOL supportsDeviceToDeviceEncryption;
+
+// The current HSA2-ness of the world
+// Set to 'unknown' to not inject any answer into
+@property CKKSAccountStatus fakeHSA2AccountStatus;
+
 @property BOOL iCloudHasValidCredentials;
-@property SOSAccountStatus* circleStatus;
+
 @property (readonly) NSString* ckDeviceID;
-@property (readonly) CKKSCKAccountStateTracker* accountStateTracker;
+@property (readonly) CKKSAccountStateTracker* accountStateTracker;
+
 
 @property NSString* apsEnvironment;
-
-@property NSString* circlePeerID;
 
 @property bool aksLockState;  // The current 'AKS lock state'
 @property (readonly) CKKSLockStateTracker* lockStateTracker;
 @property (nullable) id mockLockStateTracker;
 
-@property SCNetworkReachabilityFlags reachabilityFlags;  // The current 'network reachability flags'
 @property (readonly) CKKSReachabilityTracker *reachabilityTracker;
-@property (nullable) id mockReachabilityTracker;
 
 @property (nullable) NSMutableDictionary<CKRecordZoneID*, FakeCKZone*>* zones;
 
-@property (nullable) NSOperationQueue* operationQueue;
+@property NSOperationQueue* operationQueue;
 @property (nullable) NSBlockOperation* ckaccountHoldOperation;
 
 @property (nullable) NSBlockOperation* ckModifyHoldOperation;
@@ -89,8 +98,15 @@ NS_ASSUME_NONNULL_BEGIN
 @property bool silentFetchesAllowed;
 @property bool silentZoneDeletesAllowed;
 
+@property CKKSMockSOSPresentAdapter* mockSOSAdapter;
+@property (nullable) CKKSMockOctagonAdapter *mockOctagonAdapter;
+
+-(NSSet*)managedViewList;
 @property (nullable) id mockCKKSViewManager;
 @property (nullable) CKKSViewManager* injectedManager;
+
+// Fill this in to fail the next modifyzones operation
+@property (nullable) NSError* nextModifyRecordZonesError;
 
 - (CKKSKey*)fakeTLK:(CKRecordZoneID*)zoneID;
 
@@ -139,12 +155,19 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)failNextZoneSubscription:(CKRecordZoneID*)zoneID;
 - (void)failNextZoneSubscription:(CKRecordZoneID*)zoneID withError:(NSError*)error;
 
+- (NSError* _Nullable)shouldFailModifyRecordZonesOperation;
+- (void)ensureZoneDeletionAllowed:(FakeCKZone*)zone;
+
 // Use this to assert that a fetch occurs (especially if silentFetchesAllowed = false)
 - (void)expectCKFetch;
 
 // Use this to 1) assert that a fetch occurs and 2) cause a block to run _after_ all changes have been delivered but _before_ the fetch 'completes'.
 // This way, you can modify the CK zone to cause later collisions.
 - (void)expectCKFetchAndRunBeforeFinished:(void (^_Nullable)(void))blockAfterFetch;
+
+// Introspect the fetch object before allowing it to proceed
+- (void)expectCKFetchWithFilter:(BOOL (^)(FakeCKFetchRecordZoneChangesOperation*))operationMatch
+              runBeforeFinished:(void (^)(void))blockAfterFetch;
 
 // Use this to assert that a FakeCKFetchRecordsOperation occurs.
 - (void)expectCKFetchByRecordID;

@@ -82,6 +82,8 @@ static CFArrayRef SecServerCopyAccessGroups(void) {
                                    CFSTR("sync"),
                                    CFSTR("com.apple.security.sos"),
                                    CFSTR("com.apple.security.ckks"),
+                                   CFSTR("com.apple.security.octagon"),
+                                   CFSTR("com.apple.security.egoIdentities"),
                                    CFSTR("com.apple.security.sos-usercredential"),
                                    CFSTR("com.apple.sbd"),
                                    CFSTR("com.apple.lakitu"),
@@ -100,6 +102,24 @@ SecSecuritySetMusrMode(bool mode, uid_t uid, int activeUser)
     gClient.uid = uid;
     gClient.activeUser = activeUser;
 }
+
+void
+SecSecuritySetPersonaMusr(CFStringRef uuid)
+{
+    if (gClient.inMultiUser) {
+        abort();
+    }
+    CFReleaseNull(gClient.musr);
+    if (uuid) {
+        CFUUIDRef u = CFUUIDCreateFromString(NULL, uuid);
+        if (u == NULL) {
+            abort();
+        }
+        CFUUIDBytes ubytes = CFUUIDGetUUIDBytes(u);
+        CFReleaseNull(u);
+        gClient.musr = CFDataCreate(NULL, (const void *)&ubytes, sizeof(ubytes));
+    }
+}
 #endif
 
 SecurityClient *
@@ -115,6 +135,7 @@ SecSecurityClientGet(void)
 #if TARGET_OS_IPHONE
         gClient.inMultiUser = false;
         gClient.activeUser = 501;
+        gClient.musr = NULL;
 #endif
     });
     return &gClient;
@@ -129,7 +150,8 @@ CFArrayRef SecAccessGroupsGetCurrent(void) {
 // Only for testing.
 void SecAccessGroupsSetCurrent(CFArrayRef accessGroups) {
     // Not thread safe at all, but OK because it is meant to be used only by tests.
-    gClient.accessGroups = accessGroups;
+    CFReleaseNull(gClient.accessGroups);
+    gClient.accessGroups = CFRetainSafe(accessGroups);
 }
 
 #if !TARGET_OS_IPHONE
@@ -183,19 +205,98 @@ static xpc_connection_t securityd_create_connection(const char *name, uid_t targ
     return connection;
 }
 
-static xpc_connection_t sSecuritydConnection;
-static xpc_connection_t sTrustdConnection;
-
-static xpc_connection_t securityd_connection(void) {
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        sSecuritydConnection = securityd_create_connection(kSecuritydXPCServiceName, securityd_target_uid, 0);
-    });
-    return sSecuritydConnection;
+static bool is_trust_operation(enum SecXPCOperation op) {
+    switch (op) {
+        case sec_trust_store_contains_id:
+        case sec_trust_store_set_trust_settings_id:
+        case sec_trust_store_remove_certificate_id:
+        case sec_trust_evaluate_id:
+        case sec_trust_store_copy_all_id:
+        case sec_trust_store_copy_usage_constraints_id:
+        case sec_ocsp_cache_flush_id:
+        case sec_ota_pki_trust_store_version_id:
+        case sec_ota_pki_asset_version_id:
+        case kSecXPCOpOTAGetEscrowCertificates:
+        case kSecXPCOpOTAPKIGetNewAsset:
+        case kSecXPCOpOTASecExperimentGetNewAsset:
+        case kSecXPCOpOTASecExperimentGetAsset:
+        case kSecXPCOpOTAPKICopyTrustedCTLogs:
+        case kSecXPCOpOTAPKICopyCTLogForKeyID:
+        case kSecXPCOpNetworkingAnalyticsReport:
+        case kSecXPCOpSetCTExceptions:
+        case kSecXPCOpCopyCTExceptions:
+        case sec_trust_get_exception_reset_count_id:
+        case sec_trust_increment_exception_reset_count_id:
+            return true;
+        default:
+            break;
+    }
+    return false;
 }
 
+// sSC* manage a pool of xpc_connection_t objects to securityd
+static dispatch_queue_t sSecuritydConnectionsQueue;
+static CFMutableArrayRef sSecuritydConnectionsPool;
+static unsigned sSecuritydConnectionsCount;     // connections in circulation
+#define MAX_SECURITYD_CONNECTIONS 5
+
+static xpc_connection_t _securityd_connection(void) {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sSecuritydConnectionsCount = 0;
+        sSecuritydConnectionsQueue = dispatch_queue_create("com.apple.security.securityd_connections", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
+        sSecuritydConnectionsPool = CFArrayCreateMutable(kCFAllocatorDefault, 0, NULL);
+    });
+
+    __block xpc_connection_t ret = NULL;
+    dispatch_sync(sSecuritydConnectionsQueue, ^{
+        if (CFArrayGetCount(sSecuritydConnectionsPool) > 0) {
+            ret = (xpc_connection_t)CFArrayGetValueAtIndex(sSecuritydConnectionsPool, 0);
+            CFArrayRemoveValueAtIndex(sSecuritydConnectionsPool, 0);
+        } else if (sSecuritydConnectionsCount < MAX_SECURITYD_CONNECTIONS) {
+            ret = securityd_create_connection(kSecuritydXPCServiceName, securityd_target_uid, 0);
+            ++sSecuritydConnectionsCount;
+            secnotice("xpc", "Adding securityd connection to pool, total now %d", sSecuritydConnectionsCount);
+        }   // No connection available and no room in the pool for a new one, touch luck!
+    });
+    return ret;
+}
+
+static xpc_connection_t securityd_connection(void) {
+    unsigned tries = 0;
+    xpc_connection_t ret = NULL;
+    do {
+        ret = _securityd_connection();
+        if (!ret) {
+            usleep(2500);
+        }
+        ++tries;
+        if (tries % 100 == 0) {  // 1/4 second is a long time to wait, but maybe you're overdoing it also?
+            secwarning("xpc: have been trying %d times to get a securityd connection", tries);
+        }
+    } while (!ret);
+    return ret;
+}
+
+static void return_securityd_connection_to_pool(enum SecXPCOperation op, xpc_connection_t conn) {
+    if (!is_trust_operation(op)) {
+        dispatch_sync(sSecuritydConnectionsQueue, ^{
+            if (CFArrayGetCount(sSecuritydConnectionsPool) >= MAX_SECURITYD_CONNECTIONS) {
+                xpc_connection_cancel(conn);
+                secerror("xpc: Unable to re-enqueue securityd connection because already at limit");
+                if (sSecuritydConnectionsCount < MAX_SECURITYD_CONNECTIONS) {
+                    secerror("xpc: connection pool full but tracker does not agree (%d vs %ld)", sSecuritydConnectionsCount, CFArrayGetCount(sSecuritydConnectionsPool));
+                }
+                abort();    // We've miscalculated?
+            }
+            CFArrayAppendValue(sSecuritydConnectionsPool, conn);
+        });
+    }
+}
+
+static xpc_connection_t sTrustdConnection;
 static xpc_connection_t trustd_connection(void) {
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR))
+#if TARGET_OS_OSX
 	static dispatch_once_t once;
 	dispatch_once(&once, ^{
         bool sysCtx = securityd_in_system_context();
@@ -211,29 +312,6 @@ static xpc_connection_t trustd_connection(void) {
     });
     return sTrustdConnection;
 #endif
-}
-
-static bool is_trust_operation(enum SecXPCOperation op) {
-    switch (op) {
-        case sec_trust_store_contains_id:
-        case sec_trust_store_set_trust_settings_id:
-        case sec_trust_store_remove_certificate_id:
-        case sec_trust_evaluate_id:
-        case sec_trust_store_copy_all_id:
-        case sec_trust_store_copy_usage_constraints_id:
-        case sec_ocsp_cache_flush_id:
-        case sec_ota_pki_trust_store_version_id:
-        case sec_ota_pki_asset_version_id:
-        case kSecXPCOpOTAGetEscrowCertificates:
-        case kSecXPCOpOTAPKIGetNewAsset:
-        case kSecXPCOpNetworkingAnalyticsReport:
-        case kSecXPCOpSetCTExceptions:
-        case kSecXPCOpCopyCTExceptions:
-            return true;
-        default:
-            break;
-    }
-    return false;
 }
 
 static xpc_connection_t securityd_connection_for_operation(enum SecXPCOperation op) {
@@ -318,6 +396,8 @@ securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error)
 
 	_securityd_process_message_reply(&reply, error, connection, operation);
 
+    return_securityd_connection_to_pool((enum SecXPCOperation)operation, connection);
+
     return reply;
 }
 
@@ -346,6 +426,7 @@ _securityd_message_with_reply_async_inner(xpc_object_t message,
 		dispatch_release(replyq);
 		Block_release(handlerCopy);
 	});
+    return_securityd_connection_to_pool((enum SecXPCOperation)operation, connection);
 }
 
 void

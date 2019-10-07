@@ -2,9 +2,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-extern int __pthread_chdir(char *path);
+extern int __pthread_chdir(const char *path);
 int
-pthread_chdir_np(char *path)
+pthread_chdir_np(const char *path)
 {
 	return __pthread_chdir(path);
 }

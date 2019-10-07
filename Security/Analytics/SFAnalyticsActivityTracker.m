@@ -29,14 +29,19 @@
 #import <mach/mach_time.h>
 #import "utilities/debugging.h"
 
+@interface SFAnalyticsActivityTracker ()
+@property (readwrite) NSNumber * measurement;
+@end
+
 @implementation SFAnalyticsActivityTracker {
     dispatch_queue_t _queue;
     NSString* _name;
     Class _clientClass;
-    NSNumber* _measurement;
     uint64_t _start;
     BOOL _canceled;
 }
+
+@synthesize measurement = _measurement;
 
 - (instancetype)initWithName:(NSString*)name clientClass:(Class)className {
     if (![name isKindOfClass:[NSString class]] || ![className isSubclassOfClass:[SFAnalytics class]] ) {
@@ -90,6 +95,14 @@
 
     _measurement = @([_measurement doubleValue] + (1.0f * (end - _start) * (1.0f * sTimebaseInfo.numer / sTimebaseInfo.denom)));
     _start = 0;
+}
+
+- (void)stopWithEvent:(NSString*)eventName
+               result:(NSError* _Nullable)eventResultError
+{
+    [self stop];
+
+    [[_clientClass logger] logResultForEvent:eventName hardFailure:false result:eventResultError];
 }
 
 - (void)cancel

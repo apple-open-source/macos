@@ -1,0 +1,8 @@
+# dyld:  file(1) for dyld shared cache
+#
+# At position 0, search for the string "dyld_vX   ARCH", where X is the file
+# format version and ARCH is the CPU architecture. The two tokens are separated
+# by a variable amount of whitespace.
+0       string		dyld_v		Dyld shared cache
+>6	byte		x		version %c
+>8	string/T	x		%s

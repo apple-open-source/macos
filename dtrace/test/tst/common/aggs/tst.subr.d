@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.subr.d	1.1	06/08/28 SMI"
-
 BEGIN { DIF_SUBR_MAX = 24; }      /* max subroutine value minus 10 Darwin omissions*/
 
 BEGIN { subr++; @[(long)rand()] = sum(1); }

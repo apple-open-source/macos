@@ -32,7 +32,7 @@ diff -Naur php-5.4.22/TSRM/buildconf php/TSRM/buildconf
 -}
 -
 -%destructor { zend_ast_destroy($$); } <ast>
--%destructor { if ($$) zend_string_release($$); } <str>
+-%destructor { if ($$) zend_string_release_ex($$, 0); } <str>
 -
  %left T_INCLUDE T_INCLUDE_ONCE T_EVAL T_REQUIRE T_REQUIRE_ONCE
  %left ','
@@ -59,12 +59,12 @@ diff -Naur php-5.4.22/TSRM/buildconf php/TSRM/buildconf
  %lex-param  { php_json_parser *parser  }
  %parse-param { php_json_parser *parser }
  
-@@ -80,14 +80,11 @@
+@@ -74,14 +74,11 @@
  %type <value> members member elements element
  %type <pair> pair
  
--%destructor { zval_dtor(&$$); } <value>
--%destructor { zend_string_release($$.key); zval_dtor(&$$.val); } <pair>
+-%destructor { zval_ptr_dtor_nogc(&$$); } <value>
+-%destructor { zend_string_release_ex($$.key, 0); zval_ptr_dtor_nogc(&$$.val); } <pair>
 -
 -%code {
 +%{
@@ -100,16 +100,6 @@ diff -Naur php-5.4.22/Zend/buildconf php/Zend/buildconf
  
  mv aclocal.m4 aclocal.m4.old 2>/dev/null
  aclocal
-diff -Naur php-5.4.22/ext/mbstring/libmbfl/buildconf php/ext/mbstring/libmbfl/buildconf
---- php-5.4.22/ext/mbstring/libmbfl/buildconf	2003-08-22 23:18:35.000000000 -0700
-+++ php/ext/mbstring/libmbfl/buildconf	2009-01-03 20:35:18.000000000 -0800
-@@ -1,5 +1,5 @@
- #!/bin/sh
--libtoolize -c -f --automake
-+glibtoolize -c -f --automake
- aclocal
- autoheader
- automake -a -c --foreign
 diff -Naur php-5.4.22/ext/mbstring/libmbfl/config.h php/ext/mbstring/libmbfl/config.h
 --- php-5.4.22/ext/mbstring/libmbfl/config.h	1969-12-31 16:00:00.000000000 -0800
 +++ php/ext/mbstring/libmbfl/config.h	2009-01-03 20:35:19.000000000 -0800

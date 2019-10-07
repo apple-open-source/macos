@@ -30,49 +30,9 @@
 #include <securityd/SecItemServer.h>
 #include <sys/stat.h>
 #include <string.h>
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
+#if TARGET_OS_OSX
 #include <pwd.h>
 #endif
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecTrace.h>
 
-
-static void
-TraceKeyClassItem(void *token, CFStringRef keyclass, CFStringRef name, int64_t num)
-{
-    CFStringRef key = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@.%@"), keyclass, name);
-    if (key) {
-	num = SecBucket2Significant(num);
-	AddKeyValuePairToKeychainLoggingTransaction(token, key, num);
-	CFReleaseNull(key);
-    }
-
-}
-
-static void
-TraceKeyClass(void *token, CFStringRef keyclass, const struct _SecServerKeyStats *stats)
-{
-    TraceKeyClassItem(token, keyclass, CFSTR("AverageSize"), stats->averageSize);
-    TraceKeyClassItem(token, keyclass, CFSTR("MaxSize"), stats->maxDataSize);
-    TraceKeyClassItem(token, keyclass, CFSTR("NumItems"), stats->items);
-}
-
-/* --------------------------------------------------------------------------
-	Function:		DoLogging
-	
-	Description:	If it has been determined that logging should be done
-					this function will perform the logging
-   -------------------------------------------------------------------------- */
-void CloudKeychainTrace(CFIndex num_peers, size_t num_items,
-                        const struct _SecServerKeyStats *genpStats,
-                        const struct _SecServerKeyStats *inetStats,
-                        const struct _SecServerKeyStats *keysStats)
-{
-	void *token = BeginCloudKeychainLoggingTransaction();
-    AddKeyValuePairToKeychainLoggingTransaction(token, kNumberOfiCloudKeychainPeers, (int64_t)num_peers);
-    AddKeyValuePairToKeychainLoggingTransaction(token, kNumberOfiCloudKeychainItemsBeingSynced, SecBucket1Significant((int64_t)num_items));
-    TraceKeyClass(token, CFSTR("genp"), genpStats);
-    TraceKeyClass(token, CFSTR("inet"), inetStats);
-    TraceKeyClass(token, CFSTR("keys"), keysStats);
-	CloseCloudKeychainLoggingTransaction(token);
-}

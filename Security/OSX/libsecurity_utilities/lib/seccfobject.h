@@ -46,7 +46,9 @@ operator APIPTR() const \
 \
 OBJTYPE *retain() \
 { SecCFObject::handle(true); return this; } \
-APIPTR handle(bool retain = true) \
+APIPTR CF_RETURNS_RETAINED handle() \
+{ return (APIPTR)SecCFObject::handle(true); } \
+APIPTR handle(bool retain) \
 { return (APIPTR)SecCFObject::handle(retain); }
 
 #define SECCFFUNCTIONS_CREATABLE(OBJTYPE, APIPTR, CFCLASS) \

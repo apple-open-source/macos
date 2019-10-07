@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_PROC_BADPID.badproc2.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Make sure we can't grab pid 0
  *

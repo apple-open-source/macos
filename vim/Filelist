@@ -1,23 +1,30 @@
 # List of distributed Vim files.
-# Used by Makefile and upload.aap.
+# Used by Makefile.
 
 # source files for all source archives
 SRC_ALL =	\
+		.gitignore \
 		.hgignore \
+		.lgtm.yml \
 		.travis.yml \
 		appveyor.yml \
-		src/appveyor.bat \
-		src/README.txt \
+		ci/appveyor.bat \
+		src/Make_all.mak \
+		src/README.md \
 		src/alloc.h \
 		src/arabic.c \
-		src/arabic.h \
 		src/ascii.h \
+		src/autocmd.c \
+		src/beval.c \
+		src/beval.h \
+		src/blob.c \
 		src/blowfish.c \
 		src/buffer.c \
 		src/channel.c \
 		src/charset.c \
 		src/crypt.c \
 		src/crypt_zip.c \
+		src/debugger.c \
 		src/dict.c \
 		src/diff.c \
 		src/digraph.c \
@@ -31,19 +38,19 @@ SRC_ALL =	\
 		src/ex_docmd.c \
 		src/ex_eval.c \
 		src/ex_getln.c \
-		src/farsi.c \
-		src/farsi.h \
 		src/feature.h \
 		src/fileio.c \
+		src/findfile.c \
 		src/fold.c \
 		src/getchar.c \
 		src/globals.h \
 		src/gui.c \
 		src/gui.h \
 		src/gui_beval.c \
-		src/gui_beval.h \
 		src/hardcopy.c \
 		src/hashtab.c \
+		src/indent.c \
+		src/insexpand.c \
 		src/json.c \
 		src/json_test.c \
 		src/kword_test.c \
@@ -78,18 +85,21 @@ SRC_ALL =	\
 		src/screen.c \
 		src/search.c \
 		src/sha256.c \
-		src/structs.h \
+		src/sign.c \
 		src/spell.c \
 		src/spell.h \
 		src/spellfile.c \
+		src/structs.h \
 		src/syntax.c \
 		src/tag.c \
 		src/term.c \
 		src/terminal.c \
 		src/term.h \
 		src/termlib.c \
+		src/textprop.c \
 		src/ui.c \
 		src/undo.c \
+		src/usercmd.c \
 		src/userfunc.c \
 		src/version.c \
 		src/version.h \
@@ -98,9 +108,7 @@ SRC_ALL =	\
 		src/window.c \
 		src/tee/tee.c \
 		src/xxd/xxd.c \
-		src/main.aap \
 		src/testdir/gen_opt_test.vim \
-		src/testdir/main.aap \
 		src/testdir/README.txt \
 		src/testdir/Make_all.mak \
 		src/testdir/*.in \
@@ -109,6 +117,7 @@ SRC_ALL =	\
 		src/testdir/sautest/autoload/*.vim \
 		src/testdir/runtest.vim \
 		src/testdir/shared.vim \
+		src/testdir/screendump.vim \
 		src/testdir/view_util.vim \
 		src/testdir/setup.vim \
 		src/testdir/gui_init.vim \
@@ -118,7 +127,6 @@ SRC_ALL =	\
 		src/testdir/test[0-9]*a.ok \
 		src/testdir/test_[a-z]*.ok \
 		src/testdir/test49.vim \
-		src/testdir/test60.vim \
 		src/testdir/test83-tags? \
 		src/testdir/test77a.com \
 		src/testdir/test_*.vim \
@@ -134,17 +142,24 @@ SRC_ALL =	\
 		src/testdir/pyxfile/*.py \
 		src/testdir/bench*.in \
 		src/testdir/bench*.vim \
+		src/testdir/dumps/*.dump \
 		src/testdir/samples/*.txt \
+		src/testdir/samples/test000 \
 		src/testdir/if_ver*.vim \
-		src/testdir/xterm_ramp.vim \
+		src/testdir/color_ramp.vim \
 		src/proto.h \
+		src/protodef.h \
 		src/proto/arabic.pro \
+		src/proto/autocmd.pro \
+		src/proto/beval.pro \
+		src/proto/blob.pro \
 		src/proto/blowfish.pro \
 		src/proto/buffer.pro \
 		src/proto/channel.pro \
 		src/proto/charset.pro \
 		src/proto/crypt.pro \
 		src/proto/crypt_zip.pro \
+		src/proto/debugger.pro \
 		src/proto/dict.pro \
 		src/proto/diff.pro \
 		src/proto/digraph.pro \
@@ -156,14 +171,16 @@ SRC_ALL =	\
 		src/proto/ex_docmd.pro \
 		src/proto/ex_eval.pro \
 		src/proto/ex_getln.pro \
-		src/proto/farsi.pro \
 		src/proto/fileio.pro \
+		src/proto/findfile.pro \
 		src/proto/fold.pro \
 		src/proto/getchar.pro \
 		src/proto/gui.pro \
 		src/proto/gui_beval.pro \
 		src/proto/hardcopy.pro \
 		src/proto/hashtab.pro \
+		src/proto/indent.pro \
+		src/proto/insexpand.pro \
 		src/proto/json.pro \
 		src/proto/list.pro \
 		src/proto/main.pro \
@@ -186,6 +203,7 @@ SRC_ALL =	\
 		src/proto/screen.pro \
 		src/proto/search.pro \
 		src/proto/sha256.pro \
+		src/proto/sign.pro \
 		src/proto/spell.pro \
 		src/proto/spellfile.pro \
 		src/proto/syntax.pro \
@@ -193,8 +211,10 @@ SRC_ALL =	\
 		src/proto/term.pro \
 		src/proto/terminal.pro \
 		src/proto/termlib.pro \
+		src/proto/textprop.pro \
 		src/proto/ui.pro \
 		src/proto/undo.pro \
+		src/proto/usercmd.pro \
 		src/proto/userfunc.pro \
 		src/proto/version.pro \
 		src/proto/winclip.pro \
@@ -223,7 +243,7 @@ SRC_ALL =	\
 		src/libvterm/src/parser.c \
 		src/libvterm/src/pen.c \
 		src/libvterm/src/rect.h \
-		src/libvterm/src/screen.c \
+		src/libvterm/src/termscreen.c \
 		src/libvterm/src/state.c \
 		src/libvterm/src/unicode.c \
 		src/libvterm/src/utf8.h \
@@ -270,7 +290,6 @@ SRC_ALL =	\
 		src/libvterm/t/harness.c \
 		src/libvterm/t/run-test.pl \
 
-
 # source files for Unix only
 SRC_UNIX =	\
 		Makefile \
@@ -285,7 +304,6 @@ SRC_UNIX =	\
 		src/INSTALLx.txt \
 		src/Makefile \
 		src/auto/configure \
-		src/config.aap.in \
 		src/config.h.in \
 		src/config.mk.dist \
 		src/config.mk.in \
@@ -310,8 +328,6 @@ SRC_UNIX =	\
 		src/gui_x11_pm.h \
 		src/hangulin.c \
 		src/if_xcmdsrv.c \
-		src/integration.c \
-		src/integration.h \
 		src/link.sh \
 		src/installman.sh \
 		src/installml.sh \
@@ -334,7 +350,6 @@ SRC_UNIX =	\
 		src/proto/if_xcmdsrv.pro \
 		src/proto/os_unix.pro \
 		src/proto/pty.pro \
-		src/proto/workshop.pro \
 		src/pty.c \
 		src/testdir/Makefile \
 		src/testdir/unix.vim \
@@ -344,10 +359,6 @@ SRC_UNIX =	\
 		src/vimtutor \
 		src/gvimtutor \
 		src/which.sh \
-		src/workshop.c \
-		src/workshop.h \
-		src/wsdebug.c \
-		src/wsdebug.h \
 		src/tee/Makefile \
 		src/xxd/Makefile \
 
@@ -393,11 +404,8 @@ SRC_DOS =	\
 		src/GvimExt/uninst.bat \
 		README_srcdos.txt \
 		src/INSTALLpc.txt \
-		src/Make_bc5.mak \
 		src/Make_cyg.mak \
 		src/Make_cyg_ming.mak \
-		src/Make_ivc.mak \
-		src/Make_dvc.mak \
 		src/Make_ming.mak \
 		src/Make_mvc.mak \
 		tools/rename.bat \
@@ -407,6 +415,8 @@ SRC_DOS =	\
 		src/msvc2008.bat \
 		src/msvc2010.bat \
 		src/msvc2015.bat \
+		src/msys32.bat \
+		src/msys64.bat \
 		src/dimm.idl \
 		src/dlldata.c \
 		src/dosinst.c \
@@ -446,13 +456,12 @@ SRC_DOS =	\
 		src/xpm_w32.c \
 		src/xpm_w32.h \
 		src/tee/Make_mvc.mak \
-		src/xxd/Make_bc5.mak \
 		src/xxd/Make_ming.mak \
 		src/xxd/Make_mvc.mak \
 		nsis/gvim.nsi \
 		nsis/gvim_version.nsh \
-		nsis/vimrc.ini \
 		nsis/README.txt \
+		nsis/lang/*.nsi \
 		uninstal.txt \
 		src/VisVim/Commands.cpp \
 		src/VisVim/Commands.h \
@@ -484,15 +493,15 @@ SRC_DOS_BIN =	\
 		src/vim.tlb \
 		src/xpm/COPYRIGHT \
 		src/xpm/README.txt \
+		src/xpm/arm64/lib-vc14/libXpm.lib \
 		src/xpm/include/*.h \
+		src/xpm/x64/lib-vc14/libXpm.lib \
 		src/xpm/x64/lib/libXpm.a \
 		src/xpm/x64/lib/libXpm.lib \
-		src/xpm/x64/lib-vc14/libXpm.lib \
+		src/xpm/x86/lib-vc14/libXpm.lib \
 		src/xpm/x86/lib/libXpm.a \
 		src/xpm/x86/lib/libXpm.lib \
-		src/xpm/x86/lib-vc14/libXpm.lib \
-		nsis/icons/*.bmp \
-		nsis/icons/*.ico \
+		nsis/icons.zip \
 
 # source files for Amiga, DOS, etc. (also in the extra archive)
 SRC_AMI_DOS =	\
@@ -582,6 +591,7 @@ RT_ALL =	\
 		runtime/doc/*.txt \
 		runtime/doc/Makefile \
 		runtime/doc/doctags.c \
+		runtime/doc/test_urls.vim \
 		runtime/doc/vim.1 \
 		runtime/doc/evim.1 \
 		runtime/doc/vimdiff.1 \
@@ -603,7 +613,6 @@ RT_ALL =	\
 		runtime/macros/matchit.vim \
 		runtime/macros/maze/README.txt \
 		runtime/macros/maze/[mM]akefile \
-		runtime/macros/maze/main.aap \
 		runtime/macros/maze/maze.c \
 		runtime/macros/maze/maze_5.78 \
 		runtime/macros/maze/maze_mac \
@@ -631,6 +640,7 @@ RT_ALL =	\
 		runtime/tutor/tutor \
 		runtime/tutor/tutor.vim \
 		runtime/vimrc_example.vim \
+		runtime/pack/dist/opt/cfilter/plugin/cfilter.vim \
 		runtime/pack/dist/opt/dvorak/plugin/dvorak.vim \
 		runtime/pack/dist/opt/dvorak/dvorak/enable.vim \
 		runtime/pack/dist/opt/dvorak/dvorak/disable.vim \
@@ -639,6 +649,7 @@ RT_ALL =	\
 		runtime/pack/dist/opt/matchit/plugin/matchit.vim \
 		runtime/pack/dist/opt/matchit/doc/matchit.txt \
 		runtime/pack/dist/opt/matchit/doc/tags \
+		runtime/pack/dist/opt/matchit/autoload/*.vim \
 		runtime/pack/dist/opt/shellmenu/plugin/shellmenu.vim \
 		runtime/pack/dist/opt/swapmouse/plugin/swapmouse.vim \
 		runtime/pack/dist/opt/termdebug/plugin/termdebug.vim \
@@ -659,13 +670,20 @@ RT_SCRIPTS =	\
 		runtime/makemenu.vim \
 		runtime/autoload/*.vim \
 		runtime/autoload/README.txt \
+		runtime/autoload/dist/*.vim \
 		runtime/autoload/xml/*.vim \
 		runtime/colors/*.vim \
 		runtime/colors/README.txt \
+		runtime/colors/tools/*.vim \
 		runtime/compiler/*.vim \
 		runtime/compiler/README.txt \
 		runtime/indent/*.vim \
 		runtime/indent/README.txt \
+		runtime/indent/Makefile \
+		runtime/indent/testdir/README.txt \
+		runtime/indent/testdir/*.vim \
+		runtime/indent/testdir/*.in \
+		runtime/indent/testdir/*.ok \
 		runtime/ftplugin/*.vim \
 		runtime/ftplugin/logtalk.dict \
 		runtime/ftplugin/README.txt \
@@ -699,6 +717,7 @@ RT_NO_UNIX =	\
 
 # runtime for Amiga (also in the extra archive)
 RT_AMI_DOS =	\
+		runtime/doc/evim.man \
 		runtime/doc/vim.man \
 		runtime/doc/vimdiff.man \
 		runtime/doc/vimtutor.man \
@@ -801,8 +820,6 @@ EXTRA =		\
 		$(SRC_EXTRA) \
 		README_extra.txt \
 		src/VisVim/VisVim.dll \
-		farsi/README.txt \
-		farsi/fonts/*/far-* \
 		runtime/vimlogo.xpm \
 		src/tee/Makefile \
 		src/tee/Make_mvc.mak \
@@ -839,6 +856,8 @@ IN_README_DIR = \
 
 # generic language files
 LANG_GEN = \
+		runtime/doc/*-da.1 \
+		runtime/doc/*-da.UTF-8.1 \
 		runtime/doc/*-de.1 \
 		runtime/doc/*-de.UTF-8.1 \
 		runtime/doc/*-fr.1 \
@@ -899,9 +918,12 @@ LANG_SRC = \
 		src/po/check.vim \
 		src/po/cleanup.vim \
 		src/po/Makefile \
+		src/po/Make_all.mak \
 		src/po/Make_cyg.mak \
 		src/po/Make_ming.mak \
 		src/po/Make_mvc.mak \
+		src/po/vim.desktop.in \
+		src/po/gvim.desktop.in \
 		src/po/sjiscorr.c \
 		src/po/*.po \
 

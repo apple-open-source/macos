@@ -42,7 +42,7 @@ void usage(int exval)
         //  hopefully disable will be implicit when "stealing" an Apple_Boot
         //  "       brtest disableHelperUpdates <[src]Vol> [<tgtVol>]\n"
             );
-    
+
     exit(exval);
 }
 
@@ -50,7 +50,7 @@ int
 update(CFURLRef volURL, int argc, char *argv[])
 {
     Boolean force = false;
-    
+
     if (argc == 2) {
         if (argv[1][0] == '-' && argv[1][1] == 'f') {
             force = true;
@@ -58,7 +58,7 @@ update(CFURLRef volURL, int argc, char *argv[])
             return EINVAL;
         }
     }
-    
+
     return BRUpdateBootFiles(volURL, force);
 }
 
@@ -69,9 +69,9 @@ listboots(char *volpath, CFURLRef volURL)
     int result;
     CFArrayRef boots;
     CFIndex i, bcount = 0;
-    
+
     boots = BRCopyActiveBootPartitions(volURL);
-    
+
     if (!boots) {
         printf("%s: no boot partitions\n", volpath);
         result = 0;
@@ -195,7 +195,7 @@ copyfiles(CFURLRef srcVol, int argc, char *argv[])
     default:
         usage(EX_USAGE);
     }
-    
+
     // extract any target directory from argument (e.g. disk0s3/mydir)
     if ((tdir = strchr(targetSpec, '/'))) {
         size_t tlen = tdir-targetSpec;
@@ -219,7 +219,7 @@ copyfiles(CFURLRef srcVol, int argc, char *argv[])
     // warn if hostVol requires Boot!=Root but bootDev isn't one of its helpers
     if (hostVol && (helpers = BRCopyActiveBootPartitions(hostVol))
         && CFArrayGetCount(helpers) > 0) {
-        CFRange searchRange = { 0, CFArrayGetCount(helpers) }; 
+        CFRange searchRange = { 0, CFArrayGetCount(helpers) };
         if (!CFArrayContainsValue(helpers, searchRange, bootDev)) {
             fprintf(stderr,"%s doesn't 'belong to' %s; CSFDE might not work\n",
                     helperName, hostpath);
@@ -266,7 +266,7 @@ CFShow(CFURLCopyLastPathComponent(targetDir));
     } else {
         result = BRCopyBootFiles(srcVol, hostVol, bootDev, plistOverrides);
     }
-    
+
 finish:
     if (pickerLabel)    CFRelease(pickerLabel);
     if (targetDir)      CFRelease(targetDir);
@@ -286,7 +286,7 @@ erasefiles(char *volpath, CFURLRef srcVol, char *devname, char *forceArg)
     CFStringRef bsdName = NULL;
     CFArrayRef helpers = NULL;
     Boolean force = false;
-    
+
     if (forceArg) {
         if (forceArg[0] == '-' && forceArg[1] == 'f') {
             force = true;
@@ -301,7 +301,7 @@ erasefiles(char *volpath, CFURLRef srcVol, char *devname, char *forceArg)
         usage(EX_USAGE);
     }
     bsdName = CFStringCreateWithFileSystemRepresentation(nil, devname);
-    
+
     // prevent user from erasing srcVol's Apple_Boot(s) (-f overrides)
     // X: doesn't prevent user from whacking another volume's Apple_Boot
     if (!force) {
@@ -318,7 +318,7 @@ erasefiles(char *volpath, CFURLRef srcVol, char *devname, char *forceArg)
     }
 
     result = BREraseBootFiles(srcVol, bsdName);
-    
+
 finish:
     if (helpers)        CFRelease(helpers);
     if (bsdName)        CFRelease(bsdName);
@@ -333,7 +333,7 @@ main(int argc, char *argv[])
     char *verb, *volpath;
     struct stat sb;
     CFURLRef volURL = NULL;
-    
+
     // check for -h or not enough args
     if (argc >= 2 && argv[1][0] == '-' && argv[1][1] == 'h')
         usage(EX_OK);
@@ -351,7 +351,7 @@ main(int argc, char *argv[])
                        kOSKextLogKextOrGlobalMask,
                        false);
 #endif
-    
+
     verb = argv[1];
     volpath = argv[2];
     if (stat(volpath, &sb) != 0) {
@@ -412,6 +412,6 @@ main(int argc, char *argv[])
 // fprintf(stderr, "check for leaks now\n");
 // pause()
     if (volURL)     CFRelease(volURL);
-    
+
     return exval;
 }

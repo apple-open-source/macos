@@ -31,8 +31,7 @@
 #include <security_cdsa_utilities/walkers.h>
 #include <security_keychain/TrustedApplication.h>
 #include <Security/SecTrustedApplication.h>
-#include <security_utilities/devrandom.h>
-#include <security_cdsa_utilities/uniformrandom.h>
+#include <Security/SecRandom.h>
 #include <memory>
 
 
@@ -108,7 +107,7 @@ ACL::ACL(Allocator &alloc)
 	mPromptSelector = defaultSelector;
 	
 	// randomize the CSSM handle
-	UniformRandomBlobs<DevRandomGenerator>().random(mCssmHandle);
+    MacOSError::check(SecRandomCopyBytes(kSecRandomDefault, sizeof(mCssmHandle), (void *)mCssmHandle));
 }
 
 
@@ -129,7 +128,7 @@ ACL::ACL(string description, const CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR &promptSele
 	mPromptSelector = promptSelector;
 	
 	// randomize the CSSM handle
-	UniformRandomBlobs<DevRandomGenerator>().random(mCssmHandle);
+    MacOSError::check(SecRandomCopyBytes(kSecRandomDefault, sizeof(mCssmHandle), &mCssmHandle));
 }
 
 
@@ -149,7 +148,7 @@ ACL::ACL(const CssmData &digest, Allocator &alloc)
     //mPromptSelector stays empty
 
     // randomize the CSSM handle
-    UniformRandomBlobs<DevRandomGenerator>().random(mCssmHandle);
+    MacOSError::check(SecRandomCopyBytes(kSecRandomDefault, sizeof(mCssmHandle), &mCssmHandle));
 }
 
 

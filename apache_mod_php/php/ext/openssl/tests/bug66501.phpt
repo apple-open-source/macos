@@ -1,7 +1,7 @@
 --TEST--
 Bug #66501: EC private key support in openssl_sign
 --SKIPIF--
-<?php 
+<?php
 if (!extension_loaded("openssl")) die("skip");
 if (!defined('OPENSSL_KEYTYPE_EC')) die("skip no EC available");
 ?>
@@ -20,5 +20,5 @@ $key = openssl_pkey_get_private($pkey);
 $res = openssl_sign($data ='alpha', $sign, $key, 'SHA1');
 var_dump($res);
 ?>
---EXPECTF--
+--EXPECT--
 bool(true)

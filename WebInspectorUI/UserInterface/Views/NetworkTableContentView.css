@@ -23,12 +23,21 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-.content-view.network .network-table {
-    --node-waterfall-dom-event-size: 8px; /* Keep this in sync with `domEventElementSize`. */
-}
-
 .content-view.network .navigation-bar .filter-bar {
     background: none;
+}
+
+.content-view.tab.network > .content-browser > .navigation-bar .hierarchical-path .icon {
+    -webkit-margin-start: 8px;
+    -webkit-margin-end: 4px;
+}
+
+.network-overview-icon > .icon {
+    content: url(../Images/NetworkOverview.svg);
+}
+
+.network-har-icon > .icon {
+    content: url(../Images/NetworkHAR.svg);
 }
 
 .content-view.network .network-table .icon {
@@ -118,14 +127,16 @@ body[dir=rtl] .network-table .cell.dom-node.name .disclosure {
     filter: invert();
 }
 
+.network-table .cell.name > .status {
+    -webkit-margin-start: 4px;
+}
+
 body[dir=ltr] .network-table .cell.name > .status {
     float: right;
-    margin-left: 4px;
 }
 
 body[dir=rtl] .network-table .cell.name > .status {
     float: left;
-    margin-right: 4px;
 }
 
 .network-table .cell.name > .status .indeterminate-progress-spinner {
@@ -173,14 +184,14 @@ body[dir=rtl] .network-table .cell.name > .status {
     top: calc(50% - (var(--node-waterfall-dom-event-size) / 2));
     min-width: var(--node-waterfall-dom-event-size);
     height: var(--node-waterfall-dom-event-size);
-    background-color: var(--selected-background-color);
+    background-color: var(--selected-background-color-active);
     border-radius: calc(var(--node-waterfall-dom-event-size) / 2);
 }
 
 .network-table :not(.header) .cell.waterfall .waterfall-container > .dom-activity {
     position: absolute;
     top: calc(50% - 0.5px);
-    border-top: 1px dashed var(--selected-background-color);
+    border-top: 1px dashed var(--selected-background-color-active);
 }
 
 .network-table :not(.header) .cell.waterfall .waterfall-container > .dom-activity.playing {
@@ -197,10 +208,10 @@ body[dir=rtl] .network-table .cell.name > .status {
 }
 
 .network-table :not(.header) .cell.waterfall .waterfall-container > .area.dom-fullscreen {
-    background-color: hsla(0, 0%, 75%, 0.75);
+    background-color: hsl(0, 0%, 40%);
 }
 
-.network-table :not(.header) .cell.waterfall .waterfall-container > .area.low-power {
+.network-table :not(.header) .cell.waterfall .waterfall-container > .area.power-efficient-playback {
     background-color: var(--network-request-color);
 }
 
@@ -304,7 +315,11 @@ body[dir=rtl] .waterfall .block {
     background-color: var(--network-response-color);
 }
 
-@media (prefers-dark-interface) {
+@media (prefers-color-scheme: dark) {
+    .content-view.tab.network > .content-browser > .navigation-bar .hierarchical-path .icon {
+        filter: invert(88%);
+    }
+
     .network-table .cell.domain > .lock {
         filter: var(--filter-invert);
     }

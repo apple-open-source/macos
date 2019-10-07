@@ -2390,8 +2390,9 @@ parse_codefile(const char *filename)
 
 	if (stat_buf.st_size != 0)
 	{
-		if ((file_addr = mmap(0, file_size, PROT_READ|PROT_WRITE,
-				      MAP_PRIVATE|MAP_FILE, fd, 0)) == (char*) -1)
+		file_addr = mmap(0, file_size, PROT_READ | PROT_WRITE,
+				MAP_PRIVATE | MAP_FILE, fd, 0);
+		if (file_addr == MAP_FAILED)
 		{
 			printf("Error: Can't map file: %s\n", filename);
 			close(fd);
@@ -2431,7 +2432,7 @@ parse_codefile(const char *filename)
 	 */
 	count++;
 
-	// Grow the size of codesc to store new entries.
+	/* Grow the size of codesc to store new entries. */
 	size_t total_count = codesc_idx + count;
 	code_type_t *new_codesc = (code_type_t *)realloc(codesc, (total_count) * sizeof(code_type_t));
 
@@ -2442,10 +2443,11 @@ parse_codefile(const char *filename)
 	codesc = new_codesc;
 	bzero((char *)(codesc + codesc_idx), count * sizeof(code_type_t));
 
-	for (line = 1, j = 0; j < file_size && codesc_idx < total_count; codesc_idx++)
+	for (line = 1, j = 0; j < file_size && codesc_idx < total_count;
+			codesc_idx++)
 	{
 		/* Skip blank lines */
-		while (file_addr[j] == '\n')
+		while (j < file_size && file_addr[j] == '\n')
 		{
 			j++;
 			line++;
@@ -2464,7 +2466,7 @@ parse_codefile(const char *filename)
 			/* We didn't find a debugid code - skip this line */
 			if (verbose_flag)
 				printf("Error: while parsing line %d, skip\n", line);
-			while (file_addr[j] != '\n' && j < file_size)
+			while (j < file_size && file_addr[j] != '\n')
 				j++;
 			codesc_idx--;
 			line++;
@@ -2472,15 +2474,25 @@ parse_codefile(const char *filename)
 		}
 
 		/* Skip whitespace */
-		while (file_addr[j] == ' ' || file_addr[j] == '\t')
+		while (j < file_size && (file_addr[j] == ' ' || file_addr[j] == '\t'))
+		{
 			j++;
+		}
+
+		if (j >= file_size)
+		{
+			break;
+		}
 
 		/* Get around old file that had count at the beginning */
 		if (file_addr[j] == '\n')
 		{
 			/* missing debugid string - skip */
 			if (verbose_flag)
-				printf("Error: while parsing line %d, (0x%x) skip\n", line, codesc[codesc_idx].debugid);
+			{
+				printf("Error: while parsing line %d, (0x%x) skip\n", line,
+						codesc[codesc_idx].debugid);
+			}
 
 			j++;
 			codesc_idx--;
@@ -2488,12 +2500,25 @@ parse_codefile(const char *filename)
 			continue;
 		}
 
+		if (j >= file_size)
+		{
+			break;
+		}
+
 		/* Next is the debugid string terminated by a newline */
 		codesc[codesc_idx].debug_string = &file_addr[j];
 
 		/* Null out the newline terminator */
-		while ((j < file_size) && (file_addr[j] != '\n'))
+		while (j < file_size && file_addr[j] != '\n')
+		{
 			j++;
+		}
+
+		if (j >= file_size)
+		{
+			break;
+		}
+
 		file_addr[j] = '\0'; /* File must be read-write */
 		j++;
 		line++;

@@ -51,7 +51,7 @@ OSArray* OSArray::withObjects(const OSObject* object[], int size)
         return NULL;
     }
     
-    for (uint32_t i=0 ;i < size; i++) {
+    for (uint32_t i = 0; i < (uint32_t)size; i++) {
         OSObject *ob = (OSObject*)object[i];
         ob->retain();
         me->_array.push_back(object[i]);
@@ -73,7 +73,7 @@ bool OSArray::setObject(void* object)
 }
 const OSObject* OSArray::getObject(int index)
 {
-    if (index >= _array.size()) {
+    if ((size_t)index >= _array.size()) {
         return NULL;
     }
     return _array[index];
@@ -88,3 +88,14 @@ void absolutetime_to_nanoseconds(uint64_t abstime, uint64_t *result)
         //DUMMY CODE
     }
 }
+
+OSData *OSData::withCapacity(unsigned int inCapacity __unused)
+{
+    return NULL;
+}
+
+bool OSData::appendBytes(const void *bytes __unused, unsigned int inLength __unused)
+{
+    return false;
+}
+

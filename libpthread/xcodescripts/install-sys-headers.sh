@@ -25,6 +25,8 @@ set -e
 
 if [ "$ACTION" = build ]; then exit 0; fi
 
+DSTROOT="${DSTROOT}/${SDK_INSTALL_HEADERS_ROOT}"
+
 DESTDIR="$DSTROOT/usr/include/sys"
 mkdir -p "$DESTDIR"
 for X in \

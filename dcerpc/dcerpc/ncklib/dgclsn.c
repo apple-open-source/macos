@@ -802,7 +802,7 @@ INTERNAL void do_quack_body
 
 #ifndef MISPACKED_HDR
 
-    rpc_dg_quackpkt_body_p_t bodyp = (rpc_dg_quackpkt_body_p_t) &rqe->pkt->body;
+    rpc_dg_quackpkt_body_p_t bodyp = (rpc_dg_quackpkt_body_p_t)(void *) &rqe->pkt->body;
 
     /*
      * Make sure we understand the quack packet body version.

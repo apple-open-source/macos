@@ -80,9 +80,9 @@
 #include "crypto_openssl.h"
 #include "vendorid.h"
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #include <sandbox.h>
-#endif // !TARGET_OS_EMBEDDED
+#endif // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -154,14 +154,14 @@ main(ac, av)
 {
 	int error;
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	char *errorbuf;
 	if (sandbox_init("racoon", SANDBOX_NAMED, &errorbuf) == -1) {
 		plog(ASL_LEVEL_ERR, "initializing sandbox failed %s", errorbuf);
 		sandbox_free_error(errorbuf);
 		return -1;
 	}
-#endif // !TARGET_OS_EMBEDDED
+#endif // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 	/*
 	 * Check IPSec plist

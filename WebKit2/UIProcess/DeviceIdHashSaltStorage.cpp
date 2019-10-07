@@ -28,9 +28,9 @@
 
 #include "PersistencyUtils.h"
 
-#include <WebCore/FileSystem.h>
 #include <WebCore/SharedBuffer.h>
 #include <wtf/CryptographicallyRandomNumber.h>
+#include <wtf/FileSystem.h>
 #include <wtf/HexNumber.h>
 #include <wtf/RunLoop.h>
 #include <wtf/text/StringBuilder.h>
@@ -215,7 +215,7 @@ void DeviceIdHashSaltStorage::completeDeviceIdHashSaltForOriginCall(SecurityOrig
         StringBuilder builder;
         builder.reserveCapacity(hashSaltSize);
         for (unsigned i = 0; i < randomDataSize; i++)
-            appendUnsigned64AsHex(randomData[i], builder);
+            appendUnsignedAsHex(randomData[i], builder);
 
         String deviceIdHashSalt = builder.toString();
 

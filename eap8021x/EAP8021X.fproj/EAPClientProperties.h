@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,8 +24,8 @@
 #ifndef _EAP8021X_EAPCLIENTPROPERTIES_H
 #define _EAP8021X_EAPCLIENTPROPERTIES_H
 
-#include <CoreFoundation/CFString.h>
 #include <TargetConditionals.h>
+#include <CoreFoundation/CFString.h>
 
 /*
  * The type of the value corresponding to the following keys are CFString's 
@@ -93,17 +93,18 @@
 	CFSTR("EAPSIMAKAEncryptedIdentityEnabled")
 
 /*
- * kEAPClientPropTLSTrustExceptionsDomain
+ * kEAPClientPropTLSTrustExceptionsDomain 
  * kEAPClientPropTLSTrustExceptionsID
  * - properties used to locate the appropriate trust exception for the
  *   current authentication session
  */
 #define kEAPClientPropTLSTrustExceptionsDomain \
-CFSTR("TLSTrustExceptionsDomain")
+	CFSTR("TLSTrustExceptionsDomain")
 #define kEAPClientPropTLSTrustExceptionsID \
-CFSTR("TLSTrustExceptionsID")
+	CFSTR("TLSTrustExceptionsID")
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
+
 /*
  * kEAPClientPropTLSSaveTrustExceptions
  * - tells the client to save trust exceptions for the current server
@@ -133,7 +134,8 @@ CFSTR("TLSTrustExceptionsID")
     	CFSTR("ProfileID")
 #define kEAPTLSTrustExceptionsDomainNetworkInterfaceName \
     	CFSTR("NetworkInterfaceName")
-#else /* TARGET_OS_EMBEDDED */
+
+#else /* TARGET_OS_IPHONE */
 
 /*
  * kEAPClientPropSaveCredentialsOnSuccessfulAuthentication
@@ -143,7 +145,7 @@ CFSTR("TLSTrustExceptionsID")
 #define kEAPClientPropSaveCredentialsOnSuccessfulAuthentication \
     CFSTR("SaveCredentialsOnSuccessfulAuthentication")
 
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 
 #define kEAPClientPropTLSVerifyServerCertificate \
 	CFSTR("TLSVerifyServerCertificate") 		/* boolean (true) */
@@ -248,7 +250,8 @@ CFSTR("TLSTrustExceptionsID")
 #define kEAPClientPropTLSAllowAnyRoot \
 	CFSTR("TLSAllowAnyRoot") 			/* boolean (false) */
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
+
 /*
  * kEAPClientPropTLSAllowTrustExceptions
  * - this property is no longer consulted
@@ -258,7 +261,8 @@ CFSTR("TLSTrustExceptionsID")
  */
 #define kEAPClientPropTLSAllowTrustExceptions \
 	CFSTR("TLSAllowTrustExceptions") 		/* boolean (see above) */
-#else /* TARGET_OS_EMBEDDED */
+
+#else /* TARGET_OS_IPHONE */
 /*
  * kEAPClientPropTLSAllowTrustDecisions
  * - this property is no longer consulted
@@ -268,6 +272,7 @@ CFSTR("TLSTrustExceptionsID")
  */
 #define kEAPClientPropTLSAllowTrustDecisions \
 	CFSTR("TLSAllowTrustDecisions")		/* boolean (see above) */
-#endif /* TARGET_OS_EMBEDDED */
+
+#endif /* TARGET_OS_IPHONE */
 
 #endif /* _EAP8021X_EAPCLIENTPROPERTIES_H */

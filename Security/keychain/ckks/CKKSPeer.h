@@ -40,6 +40,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (bool)matchesPeer:(id<CKKSPeer>)peer;
 @end
 
+@protocol CKKSRemotePeerProtocol <CKKSPeer>
+- (BOOL)shouldHaveView:(NSString*)viewName;
+@end
+
 @protocol CKKSSelfPeer <CKKSPeer>
 @property (readonly) SFECKeyPair* encryptionKey;
 @property (readonly) SFECKeyPair* signingKey;
@@ -58,34 +62,52 @@ NS_ASSUME_NONNULL_BEGIN
 @protocol CKKSPeerUpdateListener;
 
 @protocol CKKSPeerProvider <NSObject>
+@property (readonly) NSString* providerID;
+@property BOOL essential;
+
 - (CKKSSelves* _Nullable)fetchSelfPeers:(NSError* _Nullable __autoreleasing* _Nullable)error;
-- (NSSet<id<CKKSPeer>>* _Nullable)fetchTrustedPeers:(NSError* _Nullable __autoreleasing* _Nullable)error;
+- (NSSet<id<CKKSRemotePeerProtocol>>* _Nullable)fetchTrustedPeers:(NSError* _Nullable __autoreleasing* _Nullable)error;
 // Trusted peers should include self peers
 
 - (void)registerForPeerChangeUpdates:(id<CKKSPeerUpdateListener>)listener;
+- (void)sendSelfPeerChangedUpdate;
+- (void)sendTrustedPeerSetChangedUpdate;
 @end
 
 // A CKKSPeerUpdateListener wants to be notified when a CKKSPeerProvider has new information
 @protocol CKKSPeerUpdateListener <NSObject>
-- (void)selfPeerChanged;
-- (void)trustedPeerSetChanged;
+- (void)selfPeerChanged:(id<CKKSPeerProvider> _Nullable)provider;
+- (void)trustedPeerSetChanged:(id<CKKSPeerProvider> _Nullable)provider;
 @end
 
 extern NSString* const CKKSSOSPeerPrefix;
 
-// These should be replaced by Octagon peers, when those exist
-@interface CKKSSOSPeer : NSObject <CKKSPeer>
+@interface CKKSActualPeer : NSObject <CKKSPeer, CKKSRemotePeerProtocol, NSSecureCoding>
 @property (readonly) NSString* peerID;
 @property (nullable, readonly) SFECPublicKey* publicEncryptionKey;
 @property (nullable, readonly) SFECPublicKey* publicSigningKey;
+@property (nullable, readonly) NSSet<NSString*>* viewList;
 
-- (instancetype)initWithSOSPeerID:(NSString*)syncingPeerID
-              encryptionPublicKey:(SFECPublicKey* _Nullable)encryptionKey
-                 signingPublicKey:(SFECPublicKey* _Nullable)signingKey;
+- (instancetype)initWithPeerID:(NSString*)syncingPeerID
+           encryptionPublicKey:(SFECPublicKey* _Nullable)encryptionKey
+              signingPublicKey:(SFECPublicKey* _Nullable)signingKey
+                      viewList:(NSSet<NSString*>* _Nullable)viewList;
 @end
 
-@interface CKKSSOSSelfPeer : NSObject <CKKSPeer, CKKSSelfPeer>
+@protocol CKKSSOSPeerProtocol <NSObject, CKKSRemotePeerProtocol>
+@end
+
+@interface CKKSSOSPeer : NSObject <CKKSPeer, CKKSSOSPeerProtocol, CKKSRemotePeerProtocol, NSSecureCoding>
+- (instancetype)initWithSOSPeerID:(NSString*)syncingPeerID
+              encryptionPublicKey:(SFECPublicKey* _Nullable)encryptionKey
+                 signingPublicKey:(SFECPublicKey* _Nullable)signingKey
+                         viewList:(NSSet<NSString*>* _Nullable)viewList;
+@end
+
+@interface CKKSSOSSelfPeer : NSObject <CKKSPeer, CKKSSOSPeerProtocol, CKKSRemotePeerProtocol, CKKSSelfPeer>
 @property (readonly) NSString* peerID;
+@property (nullable, readonly) NSSet<NSString*>* viewList;
+
 @property (readonly) SFECPublicKey* publicEncryptionKey;
 @property (readonly) SFECPublicKey* publicSigningKey;
 
@@ -94,8 +116,11 @@ extern NSString* const CKKSSOSPeerPrefix;
 
 - (instancetype)initWithSOSPeerID:(NSString*)syncingPeerID
                     encryptionKey:(SFECKeyPair*)encryptionKey
-                       signingKey:(SFECKeyPair*)signingKey;
+                       signingKey:(SFECKeyPair*)signingKey
+                         viewList:(NSSet<NSString*>* _Nullable)viewList;
 @end
+
+NSSet<Class>* CKKSPeerClasses(void);
 
 NS_ASSUME_NONNULL_END
 #endif  // OCTAGON

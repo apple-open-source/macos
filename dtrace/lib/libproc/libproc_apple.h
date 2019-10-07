@@ -53,7 +53,9 @@ struct ps_proc_activity_event {
 	
 struct ps_prochandle {
 	pstatus_t status;
+#if DTRACE_USE_CORESYMBOLICATION
 	CSSymbolicatorRef symbolicator;
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 	uint32_t current_symbol_owner_generation;
 	rd_event_msg_t rd_event;
 	struct ps_proc_activity_event* proc_activity_queue;

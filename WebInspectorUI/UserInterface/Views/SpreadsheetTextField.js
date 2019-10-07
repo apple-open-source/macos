@@ -48,6 +48,8 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
 
         this._editing = false;
         this._valueBeforeEditing = "";
+        this._completionPrefix = "";
+        this._controlSpaceKeyboardShortcut = new WI.KeyboardShortcut(WI.KeyboardShortcut.Modifier.Control, WI.KeyboardShortcut.Key.Space);
     }
 
     // Public
@@ -138,10 +140,7 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
 
     completionSuggestionsSelectedCompletion(suggestionsView, selectedText = "")
     {
-        let prefix = this.valueWithoutSuggestion();
-        let completionPrefix = this._getCompletionPrefix(prefix);
-
-        this.suggestionHint = selectedText.slice(completionPrefix.length);
+        this.suggestionHint = selectedText.slice(this._completionPrefix.length);
 
         this._reAttachSuggestionHint();
 
@@ -164,8 +163,7 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
         //        newPrefix:  1px solid
         //     selectedText:            rosybrown
         let prefix = this.valueWithoutSuggestion();
-        let completionPrefix = this._getCompletionPrefix(prefix);
-        let newPrefix = prefix.slice(0, -completionPrefix.length);
+        let newPrefix = prefix.slice(0, -this._completionPrefix.length);
 
         this._element.textContent = newPrefix + selectedText;
 
@@ -281,6 +279,17 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
             }
         }
 
+        if (this._controlSpaceKeyboardShortcut.matchesEvent(event)) {
+            event.stop();
+            if (this._suggestionsView.visible)
+                this._suggestionsView.hide();
+            else {
+                const forceCompletions = true;
+                this._updateCompletions(forceCompletions);
+            }
+            return;
+        }
+
         if (event.key === "Escape") {
             event.stop();
             this._discardChange();
@@ -361,14 +370,14 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
             this._delegate.spreadsheetTextFieldDidChange(this);
     }
 
-    _updateCompletions()
+    _updateCompletions(forceCompletions = false)
     {
         if (!this._completionProvider)
             return;
 
-        let prefix = this.valueWithoutSuggestion();
-        let completionPrefix = this._getCompletionPrefix(prefix);
-        let completions = this._completionProvider(completionPrefix);
+        let valueWithoutSuggestion = this.valueWithoutSuggestion();
+        let {completions, prefix} = this._completionProvider(valueWithoutSuggestion, {allowEmptyPrefix: forceCompletions});
+        this._completionPrefix = prefix;
 
         if (!completions.length) {
             this.discardCompletion();
@@ -376,7 +385,7 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
         }
 
         // No need to show the completion popover with only one item that matches the entered value.
-        if (completions.length === 1 && completions[0] === prefix) {
+        if (completions.length === 1 && completions[0] === valueWithoutSuggestion) {
             this.discardCompletion();
             return;
         }
@@ -396,7 +405,7 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
             this._showSuggestionsView();
 
         this._suggestionsView.selectedIndex = NaN;
-        if (completionPrefix) {
+        if (this._completionPrefix) {
             // Select first item and call completionSuggestionsSelectedCompletion.
             this._suggestionsView.selectNext();
         } else
@@ -406,8 +415,7 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
     _showSuggestionsView()
     {
         let prefix = this.valueWithoutSuggestion();
-        let completionPrefix = this._getCompletionPrefix(prefix);
-        let startOffset = prefix.length - completionPrefix.length;
+        let startOffset = prefix.length - this._completionPrefix.length;
         let caretRect = this._getCaretRect(startOffset);
 
         // Hide completion popover when the anchor element is removed from the DOM.
@@ -445,16 +453,6 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
 
         const leftPadding = parseInt(getComputedStyle(this._element).paddingLeft) || 0;
         return new WI.Rect(clientRect.left + leftPadding, clientRect.top, clientRect.width, clientRect.height);
-    }
-
-    _getCompletionPrefix(prefix)
-    {
-        // For "border: 1px so|", we want to suggest "solid" based on "so" prefix.
-        let match = prefix.match(/[a-z0-9()-]+$/i);
-        if (match)
-            return match[0];
-
-        return prefix;
     }
 
     _applyCompletionHint()

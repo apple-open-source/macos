@@ -27,7 +27,7 @@
 #ifndef _H_CSPROCESS
 #define _H_CSPROCESS
 
-#include "csgeneric.h"
+#include "Code.h"
 #include "StaticCode.h"
 #include "piddiskrep.h"
 #include <security_utilities/utilities.h>
@@ -40,10 +40,7 @@ namespace CodeSigning {
 // A SecCode that represents a running UNIX process.
 // Processes are identified by pid and audit token.
 //
-// ProcessCode inherits GenericCode's access to the cshosting Mach protocol to
-// deal with guests.
-//
-class ProcessCode : public GenericCode {
+class ProcessCode : public SecCode {
 public:
 	ProcessCode(pid_t pid, const audit_token_t* token, PidDiskRep *pidDiskRep = NULL);
 	~ProcessCode() throw () { delete mAudit; }
@@ -54,8 +51,6 @@ public:
 	PidDiskRep *pidBased() const { return mPidBased; }
 	
 	int csops(unsigned int ops, void *addr, size_t size);
-
-	mach_port_t getHostingPort();
 
 private:
 	pid_t mPid;

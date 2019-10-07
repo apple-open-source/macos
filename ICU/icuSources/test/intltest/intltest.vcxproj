@@ -1,18 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <!-- The following import will include the 'default' configuration options for VS projects. -->
-  <Import Project="..\..\allinone\Build.Windows.ProjectConfiguration.props" />
-
   <PropertyGroup Label="Globals">
     <ProjectGuid>{73632960-B3A6-464D-83A3-4B43365F19B8}</ProjectGuid>
     <RootNamespace>intltest</RootNamespace>
   </PropertyGroup>
-  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <!-- The following import will include the 'default' configuration options for VS projects. -->
+  <Import Project="..\..\allinone\Build.Windows.ProjectConfiguration.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
@@ -257,6 +256,7 @@
     <ClCompile Include="numbertest_parse.cpp" />
     <ClCompile Include="numbertest_doubleconversion.cpp" />
     <ClCompile Include="numbertest_skeletons.cpp" />
+    <ClCompile Include="numbertest_range.cpp" />
     <ClCompile Include="numfmtst.cpp" />
     <ClCompile Include="numfmtdatadriventest.cpp" />
     <ClCompile Include="numrgts.cpp" />
@@ -363,6 +363,8 @@
     <ClCompile Include="csdetest.cpp" />
     <ClCompile Include="bidiconf.cpp" />
     <ClCompile Include="listformattertest.cpp" />
+    <ClCompile Include="formattedvaluetest.cpp" />
+    <ClCompile Include="localebuildertest.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="colldata.h" />
@@ -493,6 +495,7 @@
     <ClInclude Include="convtest.h" />
     <ClInclude Include="csdetest.h" />
     <ClInclude Include="listformattertest.h" />
+    <ClInclude Include="localebuildertest.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

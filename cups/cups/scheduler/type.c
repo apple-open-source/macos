@@ -1,14 +1,11 @@
 /*
  * MIME typing routines for CUPS.
  *
- * Copyright 2007-2016 by Apple Inc.
- * Copyright 1997-2006 by Easy Software Products, all rights reserved.
+ * Copyright © 2007-2019 by Apple Inc.
+ * Copyright © 1997-2006 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 /*
@@ -16,9 +13,16 @@
  */
 
 #include <cups/string-private.h>
-#include <cups/debug-private.h>
 #include <locale.h>
 #include "mime.h"
+
+
+/*
+ * Debug macros that used to be private API...
+ */
+
+#define DEBUG_puts(x)
+#define DEBUG_printf(...)
 
 
 /*
@@ -48,7 +52,7 @@ static int	mime_patmatch(const char *s, const char *pat);
  * Local globals...
  */
 
-#ifdef DEBUG
+#ifdef MIME_DEBUG
 static const char * const debug_ops[] =
 		{			/* Test names... */
 		  "NOP",		/* No operation */
@@ -447,6 +451,7 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
 	snprintf(value[0], sizeof(value[0]), "*.%s", name);
 	length[0]  = (int)strlen(value[0]);
 	op         = MIME_MAGIC_MATCH;
+	num_values = 1;
       }
 
      /*
@@ -524,14 +529,16 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
 	case MIME_MAGIC_STRING :
 	case MIME_MAGIC_ISTRING :
 	    temp->offset = strtol(value[0], NULL, 0);
-	    if ((size_t)length[1] > sizeof(temp->value.stringv))
+	    if (num_values < 2 || (size_t)length[1] > sizeof(temp->value.stringv))
 	      return (-1);
 	    temp->length = length[1];
 	    memcpy(temp->value.stringv, value[1], (size_t)length[1]);
 	    break;
 	case MIME_MAGIC_CHAR :
 	    temp->offset = strtol(value[0], NULL, 0);
-	    if (length[1] == 1)
+	    if (num_values < 2)
+	      return (-1);
+	    else if (length[1] == 1)
 	      temp->value.charv = (unsigned char)value[1][0];
 	    else
 	      temp->value.charv = (unsigned char)strtol(value[1], NULL, 0);
@@ -556,7 +563,7 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
 	case MIME_MAGIC_CONTAINS :
 	    temp->offset = strtol(value[0], NULL, 0);
 	    temp->region = strtol(value[1], NULL, 0);
-	    if ((size_t)length[2] > sizeof(temp->value.stringv))
+	    if (num_values < 3 || (size_t)length[2] > sizeof(temp->value.stringv))
 	      return (-1);
 	    temp->length = length[2];
 	    memcpy(temp->value.stringv, value[2], (size_t)length[2]);
@@ -1087,7 +1094,7 @@ mime_check_rules(
 	  break;
 
       case MIME_MAGIC_LOCALE :
-#if defined(WIN32) || defined(__EMX__) || defined(__APPLE__)
+#if defined(_WIN32) || defined(__EMX__) || defined(__APPLE__)
           result = !strcmp(rules->value.localev, setlocale(LC_ALL, ""));
 #else
           result = !strcmp(rules->value.localev, setlocale(LC_MESSAGES, ""));

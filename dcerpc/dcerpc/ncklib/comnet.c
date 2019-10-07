@@ -459,12 +459,12 @@ PUBLIC void rpc_server_listen
 
         for (;;)
         {
-	    unsigned32 timeo = rpc__server_inq_idle_timeout ();
+	    unsigned long long timeo = rpc__server_inq_idle_timeout ();
 
 	    if (timeo < rpc_s_server_idle_infinite_timeout)
 	    {
 		struct timespec wtime;
-		wtime.tv_sec = time(NULL) + timeo;
+		wtime.tv_sec = (long) (time(NULL) + timeo);
 		wtime.tv_nsec = 0;
 
 		RPC_COND_TIMED_WAIT (shutdown_cond, listener_state.mutex,
@@ -960,7 +960,7 @@ unsigned32              *status;
         return;
     }
 
-    rpc__if_inq_endpoint ((rpc_if_rep_p_t) ifspec_h, pseq_id, &endpoint, status);
+    rpc__if_inq_endpoint ((rpc_if_rep_p_t)(void *) ifspec_h, pseq_id, &endpoint, status);
 
     if (*status != rpc_s_ok)
     {
@@ -1053,7 +1053,7 @@ PUBLIC void rpc_server_use_all_protseqs_if
             break;
         }
 
-        rpc__if_inq_endpoint ((rpc_if_rep_p_t) ifspec_h, pseq_id,
+        rpc__if_inq_endpoint ((rpc_if_rep_p_t)(void *) ifspec_h, pseq_id,
             &endpoint, status);
 
         if (*status == rpc_s_endpoint_not_found)
@@ -2005,7 +2005,7 @@ PRIVATE void rpc__network_init
     RPC_COND_INIT (shutdown_cond, listener_state.mutex);
 
     RPC_MUTEX_INIT (active_clients_mutex);
-    rpc__server_set_idle_timeout(rpc_s_server_idle_default_timeout, status);
+    rpc__server_set_idle_timeout((unsigned32) rpc_s_server_idle_default_timeout, status);
 
     /*
      * Allocate a local protseq vector structure.

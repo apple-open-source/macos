@@ -139,3 +139,18 @@ routine kextmanager_load_kext(
     server                        : mach_port_t;
     ServerAuditToken remote_creds : audit_token_t;
     load_data                     : xmlDataIn);
+
+routine kextmanager_validate_ext(
+    server                        : mach_port_t;
+    ServerAuditToken remote_creds : audit_token_t;
+    dext_data                     : xmlDataIn);
+
+routine kextmanager_update_ext(
+    server                        : mach_port_t;
+    ServerAuditToken remote_creds : audit_token_t;
+    dext_data                     : xmlDataIn);
+
+routine kextmanager_stop_ext(
+    server                        : mach_port_t;
+    ServerAuditToken remote_creds : audit_token_t;
+    dext_data                     : xmlDataIn);

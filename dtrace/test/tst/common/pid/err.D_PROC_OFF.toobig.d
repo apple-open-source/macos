@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_PROC_OFF.toobig.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Can't have an offset that's outside of a function
  *

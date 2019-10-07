@@ -560,12 +560,9 @@ stopComplete(void *info)
 	CFDictionaryRemoveValue(exiting, bundle);
 
 	if (CFDictionaryGetCount(exiting) == 0) {
-		int	status;
-
 		// if all of the plugins are happy
-		status = server_shutdown();
 		SC_log(LOG_INFO, "server shutdown complete (%f)", CFAbsoluteTimeGetCurrent());
-		exit (status);
+		exit (EX_OK);
 	}
 
 	return;
@@ -580,7 +577,6 @@ stopDelayed(CFRunLoopTimerRef timer, void *info)
 	const void	**keys;
 	CFIndex		i;
 	CFIndex		n;
-	int		status;
 
 	SC_log(LOG_INFO, "server shutdown was delayed, unresponsive plugins:");
 
@@ -601,8 +597,7 @@ stopDelayed(CFRunLoopTimerRef timer, void *info)
 	}
 	CFAllocatorDeallocate(NULL, keys);
 
-	status = server_shutdown();
-	exit (status);
+	exit (EX_OK);
 }
 
 static CFStringRef
@@ -648,9 +643,8 @@ stopBundle(const void *value, void *context)
 	stopRls = CFRunLoopSourceCreate(NULL, 0, &stopContext);
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), stopRls, kCFRunLoopDefaultMode);
 	CFDictionaryAddValue(exiting, bundleInfo->bundle, stopRls);
-	CFRelease(stopRls);
-
 	(*bundleInfo->stop)(stopRls);
+	CFRelease(stopRls);
 
 	return;
 }
@@ -672,12 +666,9 @@ stopBundles()
 			     NULL);
 
 	if (CFDictionaryGetCount(exiting) == 0) {
-		int	status;
-
 		// if all of the plugins are happy
-		status = server_shutdown();
 		SC_log(LOG_INFO, "server shutdown complete (%f)", CFAbsoluteTimeGetCurrent());
-		exit (status);
+		exit (EX_OK);
 	} else {
 		CFRunLoopTimerRef	timer;
 

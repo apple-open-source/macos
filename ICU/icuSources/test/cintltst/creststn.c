@@ -1178,12 +1178,20 @@ static void TestErrorConditions(){
         log_err("ERROR: ures_openU() is supposed to fail path =%s with status != U_ZERO_ERROR\n", austrdup(utestdatapath));
         ures_close(teRes);
     }
-    /*Test ures_openFillIn with UResourceBundle = NULL*/
+    /*Test ures_openFillIn fails when input UResourceBundle parameter is NULL*/
     log_verbose("Testing ures_openFillIn with UResourceBundle = NULL.....\n");
     status=U_ZERO_ERROR;
     ures_openFillIn(NULL, testdatapath, "te", &status);
     if(status != U_ILLEGAL_ARGUMENT_ERROR){
         log_err("ERROR: ures_openFillIn with UResourceBundle= NULL should fail.  Expected U_ILLEGAL_ARGUMENT_ERROR, Got: %s\n",
+                        myErrorName(status));
+    }
+    /*Test ures_openDirectFillIn fails when input UResourceBundle parameter is NULL*/
+    log_verbose("Testing ures_openDirectFillIn with UResourceBundle = NULL.....\n");
+    status=U_ZERO_ERROR;
+    ures_openDirectFillIn(NULL, testdatapath, "te", &status);
+    if(status != U_ILLEGAL_ARGUMENT_ERROR){
+        log_err("ERROR: ures_openDirectFillIn with UResourceBundle= NULL should fail.  Expected U_ILLEGAL_ARGUMENT_ERROR, Got: %s\n",
                         myErrorName(status));
     }
     /*Test ures_getLocale() with status != U_ZERO_ERROR*/
@@ -2129,7 +2137,7 @@ static void TestFallback()
         UResourceBundle* tResB;
         UResourceBundle* zoneResource;
         const UChar* version = NULL;
-        static const UChar versionStr[] = { 0x0032, 0x002E, 0x0031, 0x002E, 0x0033, 0x0038, 0x002E, 0x0036, 0x0039, 0x0000}; // 2.1.38.69 in nn_NO
+        static const UChar versionStr[] = { 0x0032, 0x002E, 0x0031, 0x002E, 0x0034, 0x0037, 0x002E, 0x0038, 0x0032, 0x0000}; // 2.1.47.82 in nn_NO
 
         if(err != U_ZERO_ERROR){
             log_data_err("Expected U_ZERO_ERROR when trying to test no_NO_NY aliased to nn_NO for Version err=%s\n",u_errorName(err));
@@ -2624,29 +2632,30 @@ static void TestGetFunctionalEquivalent(void) {
 #if !UCONFIG_NO_COLLATION
     static const char * const collCases[] = {
         /* avail  locale                          equiv */
+        /* note: in ICU 64, empty locales are shown as available for collation */
         "f",    "sv_US_CALIFORNIA",               "sv",
         "f",    "zh_TW@collation=stroke",         "zh@collation=stroke", /* alias of zh_Hant_TW */
-        "f",    "zh_Hant_TW@collation=stroke",    "zh@collation=stroke",
+        "t",    "zh_Hant_TW@collation=stroke",    "zh@collation=stroke",
         "f",    "sv_CN@collation=pinyin",         "sv",
         "t",    "zh@collation=pinyin",            "zh",
         "f",    "zh_CN@collation=pinyin",         "zh", /* alias of zh_Hans_CN */
-        "f",    "zh_Hans_CN@collation=pinyin",    "zh",
+        "t",    "zh_Hans_CN@collation=pinyin",    "zh",
         "f",    "zh_HK@collation=pinyin",         "zh", /* alias of zh_Hant_HK */
-        "f",    "zh_Hant_HK@collation=pinyin",    "zh",
+        "t",    "zh_Hant_HK@collation=pinyin",    "zh",
         "f",    "zh_HK@collation=stroke",         "zh@collation=stroke", /* alias of zh_Hant_HK */
-        "f",    "zh_Hant_HK@collation=stroke",    "zh@collation=stroke",
+        "t",    "zh_Hant_HK@collation=stroke",    "zh@collation=stroke",
         "f",    "zh_HK",                          "zh@collation=stroke", /* alias of zh_Hant_HK */
-        "f",    "zh_Hant_HK",                     "zh@collation=stroke",
+        "t",    "zh_Hant_HK",                     "zh@collation=stroke",
         "f",    "zh_MO",                          "zh@collation=stroke", /* alias of zh_Hant_MO */
-        "f",    "zh_Hant_MO",                     "zh@collation=stroke",
+        "t",    "zh_Hant_MO",                     "zh@collation=stroke",
         "f",    "zh_TW_STROKE",                   "zh@collation=stroke",
         "f",    "zh_TW_STROKE@collation=pinyin",  "zh",
         "f",    "sv_CN@calendar=japanese",        "sv",
         "t",    "sv@calendar=japanese",           "sv",
         "f",    "zh_TW@collation=pinyin",         "zh", /* alias of zh_Hant_TW */
-        "f",    "zh_Hant_TW@collation=pinyin",    "zh",
+        "t",    "zh_Hant_TW@collation=pinyin",    "zh",
         "f",    "zh_CN@collation=stroke",         "zh@collation=stroke", /* alias of zh_Hans_CN */
-        "f",    "zh_Hans_CN@collation=stroke",    "zh@collation=stroke",
+        "t",    "zh_Hans_CN@collation=stroke",    "zh@collation=stroke",
         "t",    "de@collation=phonebook",         "de@collation=phonebook",
         "t",    "hi@collation=standard",          "hi",
         "f",    "hi_AU@collation=standard;currency=CHF;calendar=buddhist",    "hi",
@@ -2669,10 +2678,10 @@ static void TestGetFunctionalEquivalent(void) {
         "f",    "yue_Hans_CN",                    "zh",
         "f",    "yue_Hans@collation=pinyin",      "zh",
         "f",    "yue_Hans@collation=stroke",      "zh@collation=stroke",
-        "f",    "mo",                             "ro",
+        "f",    "mo",                             "mo", /* ? */
         "f",    "no",                             "no", /* ? */
         "f",    "ars",                            "ars", /* ? */
-        "f",    "wuu",                            "wuu", /* ? */
+        "t",    "wuu",                            "wuu", /* ? */
         /* Additions to test locales without resources */
         "f",    "en_CN",                          "root",
         "f",    "zh_Hant_CN",                     "zh@collation=stroke",
@@ -2818,7 +2827,7 @@ static void TestCLDRStyleAliases(void) {
       /* instead of sprintf(resource, "a%i", i); */
       a = ures_getByKeyWithFallback(alias, resource, a, &status);
       result = tres_getString(a, -1, NULL, &len, &status);
-      u_charsToUChars(expects[i], expected, strlen(expects[i])+1);
+      u_charsToUChars(expects[i], expected, (int32_t)strlen(expects[i])+1);
       if(U_FAILURE(status) || !result || u_strcmp(result, expected)) {
         log_err("CLDR style aliases failed resource with name \"%s\" resource, exp %s, got %S (%s)\n", resource, expects[i], result, myErrorName(status)); 
         status = U_ZERO_ERROR;

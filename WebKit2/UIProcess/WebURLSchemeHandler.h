@@ -44,7 +44,7 @@ namespace WebKit {
 class WebPageProxy;
 class WebProcessProxy;
 
-using SyncLoadCompletionHandler = CompletionHandler<void(const WebCore::ResourceResponse&, const WebCore::ResourceError&, const IPC::DataReference&)>;
+using SyncLoadCompletionHandler = CompletionHandler<void(const WebCore::ResourceResponse&, const WebCore::ResourceError&, const Vector<char>&)>;
 
 class WebURLSchemeHandler : public RefCounted<WebURLSchemeHandler> {
     WTF_MAKE_NONCOPYABLE(WebURLSchemeHandler);
@@ -55,7 +55,7 @@ public:
 
     void startTask(WebPageProxy&, WebProcessProxy&, uint64_t taskIdentifier, WebCore::ResourceRequest&&, SyncLoadCompletionHandler&&);
     void stopTask(WebPageProxy&, uint64_t taskIdentifier);
-    void stopAllTasksForPage(WebPageProxy&);
+    void stopAllTasksForPage(WebPageProxy&, WebProcessProxy*);
     void taskCompleted(WebURLSchemeTask&);
 
 protected:
@@ -66,12 +66,13 @@ private:
     virtual void platformStopTask(WebPageProxy&, WebURLSchemeTask&) = 0;
     virtual void platformTaskCompleted(WebURLSchemeTask&) = 0;
 
-    void removeTaskFromPageMap(uint64_t pageID, uint64_t taskID);
+    void removeTaskFromPageMap(WebCore::PageIdentifier, uint64_t taskID);
+    WebProcessProxy* processForTaskIdentifier(uint64_t) const;
 
     uint64_t m_identifier;
 
     HashMap<uint64_t, Ref<WebURLSchemeTask>> m_tasks;
-    HashMap<uint64_t, HashSet<uint64_t>> m_tasksByPageIdentifier;
+    HashMap<WebCore::PageIdentifier, HashSet<uint64_t>> m_tasksByPageIdentifier;
     
     SyncLoadCompletionHandler m_syncLoadCompletionHandler;
 

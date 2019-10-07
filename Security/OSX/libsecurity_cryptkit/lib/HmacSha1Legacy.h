@@ -30,8 +30,6 @@
 #include <security_cryptkit/ckconfig.h>
 #endif
 
-#if	CRYPTKIT_HMAC_LEGACY
-
 #include <MacTypes.h>
 
 #ifdef	__cplusplus
@@ -63,7 +61,5 @@ OSStatus hmacLegacyFinal(
 #ifdef	__cplusplus
 }
 #endif
-
-#endif	/* CRYPTKIT_HMAC_LEGACY */
 
 #endif	/* __HMAC_SHA1_LEGACY__ */

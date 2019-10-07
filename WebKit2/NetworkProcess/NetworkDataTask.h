@@ -65,6 +65,7 @@ public:
     virtual void didSendData(uint64_t totalBytesSent, uint64_t totalBytesExpectedToSend) = 0;
     virtual void wasBlocked() = 0;
     virtual void cannotShowURL() = 0;
+    virtual void wasBlockedByRestrictions() = 0;
 
     virtual bool shouldCaptureExtraNetworkLoadMetrics() const { return false; }
 
@@ -77,13 +78,12 @@ public:
     virtual ~NetworkDataTaskClient() { }
 };
 
-class NetworkDataTask : public RefCounted<NetworkDataTask> {
+class NetworkDataTask : public RefCounted<NetworkDataTask>, public CanMakeWeakPtr<NetworkDataTask> {
 public:
     static Ref<NetworkDataTask> create(NetworkSession&, NetworkDataTaskClient&, const NetworkLoadParameters&);
 
     virtual ~NetworkDataTask();
 
-    virtual void suspend() = 0;
     virtual void cancel() = 0;
     virtual void resume() = 0;
     virtual void invalidateAndCancel() = 0;
@@ -135,7 +135,8 @@ protected:
     enum FailureType {
         NoFailure,
         BlockedFailure,
-        InvalidURLFailure
+        InvalidURLFailure,
+        RestrictedURLFailure
     };
     void failureTimerFired();
     void scheduleFailure(FailureType);

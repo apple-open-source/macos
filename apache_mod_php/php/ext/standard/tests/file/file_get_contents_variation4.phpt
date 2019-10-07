@@ -5,9 +5,9 @@ Dave Kelsey <d_kelsey@uk.ibm.com>
 --FILE--
 <?php
 /* Prototype  : string file_get_contents(string filename [, bool use_include_path [, resource context [, long offset [, long maxlen]]]])
- * Description: Read the entire file into a string 
+ * Description: Read the entire file into a string
  * Source code: ext/standard/file.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing file_get_contents() : usage variation ***\n";
@@ -107,10 +107,10 @@ $inputs = array(
 
       // unset data
       'unset var' => @$unset_var,
-      
+
       //non context resource
       'file resource' => $fileRes,
-      
+
       //valid stream context
       'stream context' => $strContext,
 );
@@ -131,19 +131,19 @@ fclose($fileRes);
 *** Testing file_get_contents() : usage variation ***
 
 --int 0--
-Error: 2 - file_get_contents() expects parameter 3 to be resource, integer given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 3 to be resource, int given, %s(%d)
 NULL
 
 --int 1--
-Error: 2 - file_get_contents() expects parameter 3 to be resource, integer given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 3 to be resource, int given, %s(%d)
 NULL
 
 --int 12345--
-Error: 2 - file_get_contents() expects parameter 3 to be resource, integer given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 3 to be resource, int given, %s(%d)
 NULL
 
 --int -12345--
-Error: 2 - file_get_contents() expects parameter 3 to be resource, integer given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 3 to be resource, int given, %s(%d)
 NULL
 
 --float 10.5--
@@ -189,19 +189,19 @@ string(%d) "contents read"
 string(%d) "contents read"
 
 --lowercase true--
-Error: 2 - file_get_contents() expects parameter 3 to be resource, boolean given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 3 to be resource, bool given, %s(%d)
 NULL
 
 --lowercase false--
-Error: 2 - file_get_contents() expects parameter 3 to be resource, boolean given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 3 to be resource, bool given, %s(%d)
 NULL
 
 --uppercase TRUE--
-Error: 2 - file_get_contents() expects parameter 3 to be resource, boolean given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 3 to be resource, bool given, %s(%d)
 NULL
 
 --uppercase FALSE--
-Error: 2 - file_get_contents() expects parameter 3 to be resource, boolean given, %s(%d)
+Error: 2 - file_get_contents() expects parameter 3 to be resource, bool given, %s(%d)
 NULL
 
 --empty string DQ--

@@ -137,6 +137,10 @@ char *alloca _((size_t));
 #include <stddef.h>
 #endif
 
+#ifdef HAVE_STDINT_H
+# include <stdint.h>
+#endif
+
 #include <stdio.h>
 #include <ctype.h>
 #include <sys/stat.h>
@@ -247,6 +251,14 @@ char *alloca _((size_t));
 struct timezone {
     int tz_minuteswest;
     int tz_dsttime;
+};
+#endif
+
+/* Used to provide compatibility with clock_gettime() */
+#if !defined(HAVE_STRUCT_TIMESPEC) && !defined(ZSH_OOT_MODULE)
+struct timespec {
+    time_t tv_sec;
+    long tv_nsec;
 };
 #endif
 

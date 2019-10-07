@@ -52,7 +52,7 @@
 
 #ifdef	SC_LOG_HANDLE
 #include <os/log.h>
-os_log_t	SC_LOG_HANDLE;
+os_log_t	SC_LOG_HANDLE(void);
 #endif	//SC_LOG_HANDLE
 
 

@@ -38,22 +38,13 @@
 #import <wtf/MathExtras.h>
 
 #if PLATFORM(IOS_FAMILY)
+#import <pal/ios/UIKitSoftLink.h>
 #import <pal/spi/ios/CoreUISPI.h>
 #import <wtf/SoftLinking.h>
 
 SOFT_LINK_PRIVATE_FRAMEWORK(CoreUI)
 SOFT_LINK_CLASS(CoreUI, CUICatalog)
 SOFT_LINK_CLASS(CoreUI, CUIStyleEffectConfiguration)
-
-SOFT_LINK_FRAMEWORK(UIKit)
-SOFT_LINK(UIKit, _UIKitGetTextEffectsCatalog, CUICatalog *, (void), ())
-SOFT_LINK_CLASS(UIKit, UIColor)
-#endif
-
-#ifdef __LP64__
-#define URefCon void*
-#else
-#define URefCon UInt32
 #endif
 
 namespace WebCore {
@@ -107,7 +98,7 @@ static inline bool shouldUseLetterpressEffect(const GraphicsContext& context)
 #endif
 }
 
-static void showLetterpressedGlyphsWithAdvances(const FloatPoint& point, const Font& font, CGContextRef context, const CGGlyph* glyphs, const CGSize* advances, unsigned count)
+static void showLetterpressedGlyphsWithAdvances(const FloatPoint& point, const Font& font, GraphicsContext& coreContext, const CGGlyph* glyphs, const CGSize* advances, unsigned count)
 {
 #if ENABLE(LETTERPRESS)
     if (!count)
@@ -119,6 +110,8 @@ static void showLetterpressedGlyphsWithAdvances(const FloatPoint& point, const F
         return;
     }
 
+    CGContextRef context = coreContext.platformContext();
+
     CGContextSetTextPosition(context, point.x(), point.y());
     Vector<CGPoint, 256> positions(count);
     fillVectorWithHorizontalGlyphPositions(positions, context, advances, count);
@@ -126,7 +119,7 @@ static void showLetterpressedGlyphsWithAdvances(const FloatPoint& point, const F
     CTFontRef ctFont = platformData.ctFont();
     CGContextSetFontSize(context, CTFontGetSize(ctFont));
 
-    static CUICatalog *catalog = _UIKitGetTextEffectsCatalog();
+    static CUICatalog *catalog = PAL::softLink_UIKit__UIKitGetTextEffectsCatalog();
     if (!catalog)
         return;
 
@@ -135,6 +128,10 @@ static void showLetterpressedGlyphsWithAdvances(const FloatPoint& point, const F
         styleConfiguration = [allocCUIStyleEffectConfigurationInstance() init];
         styleConfiguration.useSimplifiedEffect = YES;
     }
+
+#if HAVE(OS_DARK_MODE_SUPPORT)
+    styleConfiguration.appearanceName = coreContext.useDarkAppearance() ? @"UIAppearanceDark" : @"UIAppearanceLight";
+#endif
 
     CGContextSetFont(context, adoptCF(CTFontCopyGraphicsFont(ctFont, nullptr)).get());
     CGContextSetFontSize(context, platformData.size());
@@ -146,7 +143,7 @@ static void showLetterpressedGlyphsWithAdvances(const FloatPoint& point, const F
 #else
     UNUSED_PARAM(point);
     UNUSED_PARAM(font);
-    UNUSED_PARAM(context);
+    UNUSED_PARAM(coreContext);
     UNUSED_PARAM(glyphs);
     UNUSED_PARAM(advances);
     UNUSED_PARAM(count);
@@ -285,8 +282,10 @@ void FontCascade::drawGlyphs(GraphicsContext& context, const Font& font, const G
     if (syntheticBoldOffset && !contextCTM.isIdentityOrTranslationOrFlipped()) {
         FloatSize horizontalUnitSizeInDevicePixels = contextCTM.mapSize(FloatSize(1, 0));
         float horizontalUnitLengthInDevicePixels = sqrtf(horizontalUnitSizeInDevicePixels.width() * horizontalUnitSizeInDevicePixels.width() + horizontalUnitSizeInDevicePixels.height() * horizontalUnitSizeInDevicePixels.height());
-        if (horizontalUnitLengthInDevicePixels)
-            syntheticBoldOffset /= horizontalUnitLengthInDevicePixels;
+        if (horizontalUnitLengthInDevicePixels) {
+            // Make sure that a scaled down context won't blow up the gap between the glyphs. 
+            syntheticBoldOffset = std::min(syntheticBoldOffset, syntheticBoldOffset / horizontalUnitLengthInDevicePixels);
+        }
     };
 
     bool hasSimpleShadow = context.textDrawingMode() == TextModeFill && shadowColor.isValid() && !shadowBlur && !platformData.isColorBitmapFont() && (!context.shadowsIgnoreTransforms() || contextCTM.isIdentityOrTranslationOrFlipped()) && !context.isInTransparencyLayer();
@@ -306,7 +305,7 @@ void FontCascade::drawGlyphs(GraphicsContext& context, const Font& font, const G
     }
 
     if (useLetterpressEffect)
-        showLetterpressedGlyphsWithAdvances(point, font, cgContext, glyphBuffer.glyphs(from), static_cast<const CGSize*>(glyphBuffer.advances(from)), numGlyphs);
+        showLetterpressedGlyphsWithAdvances(point, font, context, glyphBuffer.glyphs(from), static_cast<const CGSize*>(glyphBuffer.advances(from)), numGlyphs);
     else
         showGlyphsWithAdvances(point, font, cgContext, glyphBuffer.glyphs(from), static_cast<const CGSize*>(glyphBuffer.advances(from)), numGlyphs);
     if (syntheticBoldOffset)

@@ -162,7 +162,7 @@ char *
 blockcheck(char *origname)
 {
 	struct stat stslash, stblock, stchar;
-	char *newname, *raw;
+	char *newname, *raw = NULL;
 	int retried = 0;
 
 	hotroot = 0;
@@ -173,6 +173,13 @@ blockcheck(char *origname)
 	}
 	newname = origname;
 retry:
+    if (!strncmp(newname, "/dev/fd/", 8)) {
+        detonator_run = 1;
+        return (origname);
+    } else {
+        detonator_run = 0;
+    }
+    
 	if (stat(newname, &stblock) < 0) {
 		perror(newname);
 		plog("Can't stat %s\n", newname);
@@ -550,29 +557,29 @@ shutdown_logging(void)
 	    }
 
 	    for(i=0; i < 60; i++) {
-		log_file = safely_open_log_file(fname);
-		if (log_file) {
-		    fwrite(in_mem_log, cur_in_mem_log - in_mem_log, 1, log_file);
+            log_file = safely_open_log_file(fname);
+            if (log_file) {
+                fwrite(in_mem_log, cur_in_mem_log - in_mem_log, 1, log_file);
 
-		    fflush(log_file);
-		    fclose(log_file);
-		    log_file = NULL;
+                fflush(log_file);
+                fclose(log_file);
+                log_file = NULL;
 
-		    free(in_mem_log);
-		    in_mem_log = cur_in_mem_log = NULL;
-		    in_mem_log_size = 0;
+                free(in_mem_log);
+                in_mem_log = cur_in_mem_log = NULL;
+                in_mem_log_size = 0;
 
-		    break;
-		} else {
-			// hmmm, failed to open the output file so wait
-			// a while only if the fs is read-only and then 
-			// try again
-			if (errno == EROFS) {
-				sleep(1);
-			} else {
-				break;
-			} 
-		}
+                break;
+            } else {
+                // hmmm, failed to open the output file so wait
+                // a while only if the fs is read-only and then
+                // try again
+                if (errno == EROFS) {
+                    sleep(1);
+                } else {
+                    break;
+                }
+            }
 	    }
 	}
     }
@@ -601,6 +608,11 @@ setup_logging(void)
     if (guiControl) {
 	    setlinebuf(stdout);
 	    setlinebuf(stderr);
+    }
+    
+    if (detonator_run) {
+        // Do not create a log file 
+        return;
     }
 
     // our copy of this variable since we may

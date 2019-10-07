@@ -95,7 +95,8 @@ IOHIDNXEventTranslatorServiceFilter::IOHIDNXEventTranslatorServiceFilter(CFUUIDR
   _eventContext(NULL),
   _queue(NULL),
   _service(NULL),
-  _translator(NULL)
+  _translator(NULL),
+  _isTranslationEnabled(true)
 {
   HIDLogDebug("(%p)", this);
   if (factoryID) {
@@ -287,6 +288,8 @@ CFTypeRef IOHIDNXEventTranslatorServiceFilter::copyPropertyForClient(CFStringRef
         serialize(serializer);
         result = CFRetain(serializer.Reference());
       }
+  } else if (CFEqual(key, CFSTR(kIOHIDNXEventTranslation))) {
+      result = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &_isTranslationEnabled);
   }
 
   return result;
@@ -304,9 +307,9 @@ void IOHIDNXEventTranslatorServiceFilter::setPropertyForClient(CFStringRef key,C
 {
   if (CFEqual(key, CFSTR(kIOHIDServiceCapsLockStateKey))) {
       if (_queue && _translator) {
-          CFRetain(_service);
+          __block IOHIDServiceRef service = (IOHIDServiceRef)CFRetain(_service);
           dispatch_async(_queue, ^(){
-              CFBooleanRefWrap capsLockState ((CFBooleanRef)IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDServiceCapsLockStateKey)), true);
+              CFBooleanRefWrap capsLockState ((CFBooleanRef)IOHIDServiceCopyProperty(service, CFSTR(kIOHIDServiceCapsLockStateKey)), true);
               uint32_t translationFlags = capsLockState ? kTranslationFlagCapsLockOn : 0;
             
               if ((IOHIDKeyboardEventTranslatorGetModifierFlags (_translator) & NX_ALPHASHIFTMASK) != (capsLockState ? NX_ALPHASHIFTMASK : 0)) {
@@ -315,15 +318,23 @@ void IOHIDNXEventTranslatorServiceFilter::setPropertyForClient(CFStringRef key,C
                   if (collection) {
                       for (CFIndex index = 0; index < CFArrayGetCount(collection); index++) {
                           IOHIDEventRef translatedEvent = (IOHIDEventRef)CFArrayGetValueAtIndex(collection, index);
-                          if (translatedEvent) {
+                          
+                          if (translatedEvent && (_isTranslationEnabled || IOHIDEventGetIntegerValue (translatedEvent, kIOHIDEventFieldVendorDefinedUsage) != kHIDUsage_AppleVendor_NXEvent_Translated)) {
                             _eventCallback(_eventTarget, _eventContext, &_serviceInterface, translatedEvent, 0);
                           }
                       }
                       CFRelease(collection);
                   }
               }
-              CFRelease(_service);
+              CFRelease(service);
           });
+      }
+  } else if (CFEqual(key,CFSTR(kIOHIDNXEventTranslation))) {
+      
+      if (CFNumberGetTypeID() == CFGetTypeID(property)) {
+          uint8_t tmp = 0;
+          CFNumberGetValue((CFNumberRef)property, kCFNumberCharType, &tmp);
+          _isTranslationEnabled = tmp ? true : false;
       }
   }
   if (_translator) {
@@ -362,7 +373,7 @@ IOHIDEventRef IOHIDNXEventTranslatorServiceFilter::filter(void * self, IOHIDEven
 
 IOHIDEventRef IOHIDNXEventTranslatorServiceFilter::filter(IOHIDEventRef event)
 {
-  if (!event || !_translator) {
+  if (!event || !_translator || _isTranslationEnabled == false) {
       return event;
   }
   CFArrayRef collection;
@@ -390,4 +401,7 @@ void IOHIDNXEventTranslatorServiceFilter::serialize (CFMutableDictionaryRef dict
     CFMutableDictionaryRefWrap serializer (dict);
     serializer.SetValueForKey(CFSTR("Class"), CFSTR("IOHIDNXEventTranslatorServiceFilter"));
     serializer.SetValueForKey(CFSTR("MatchScore"), (uint64_t)_matchScore);
+    serializer.SetValueForKey(CFSTR(kIOHIDNXEventTranslation), _isTranslationEnabled);
+    
+    
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004, 2019 Apple Computer, Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -92,9 +92,9 @@ typedef struct {
 	float			loadavg[3];
 
 	/* Start time, previous sample time, and current sample time. */
-	struct timeval		time;
-	struct timeval		b_time;
-	struct timeval		p_time;
+	struct timeval time;
+	struct timeval b_time;
+	struct timeval p_time;
 
 	/* Total number of threads. */
 	uint32_t		threads;
@@ -182,6 +182,12 @@ typedef struct {
 	uint64_t		p_disk_wbytes;
 
 	uint64_t		pages_stolen;
+
+	/* Extended statistics. */
+
+	uint64_t timens;
+	uint64_t b_timens;
+	uint64_t p_timens;
 } libtop_tsamp_t;
 
 /*
@@ -244,9 +250,9 @@ struct libtop_psamp_s {
 	int			state; /* Process state. */
 
 	/* Total time consumed by process. */
-	struct timeval		total_time;
-	struct timeval		b_total_time;
-	struct timeval		p_total_time;
+	struct timeval total_time;
+	struct timeval b_total_time;
+	struct timeval p_total_time;
 
 	/* Performance counters. */
 	uint64_t instructions;
@@ -331,6 +337,11 @@ struct libtop_psamp_s {
 	task_power_info_data_t power;
 	task_power_info_data_t b_power;
 	task_power_info_data_t p_power;
+
+	/* Extended statistics. */
+	uint64_t total_timens;
+	uint64_t b_total_timens;
+	uint64_t p_total_timens;
 };
 
 /*

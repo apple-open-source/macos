@@ -63,6 +63,9 @@ WI.TimelineOverviewGraph = class TimelineOverviewGraph extends WI.View
         if (timelineType === WI.TimelineRecord.Type.RenderingFrame)
             return new WI.RenderingFrameTimelineOverviewGraph(timeline, timelineOverview);
 
+        if (timelineType === WI.TimelineRecord.Type.CPU)
+            return new WI.CPUTimelineOverviewGraph(timeline, timelineOverview);
+
         if (timelineType === WI.TimelineRecord.Type.Memory)
             return new WI.MemoryTimelineOverviewGraph(timeline, timelineOverview);
 
@@ -201,7 +204,10 @@ WI.TimelineOverviewGraph = class TimelineOverviewGraph extends WI.View
         return 36;
     }
 
-    get selected() { return this._selected; }
+    get selected()
+    {
+        return this._selected;
+    }
 
     set selected(x)
     {
@@ -248,6 +254,13 @@ WI.TimelineOverviewGraph = class TimelineOverviewGraph extends WI.View
             return;
 
         super.needsLayout();
+    }
+
+    didLayoutSubtree()
+    {
+        super.didLayoutSubtree();
+
+        this.updateSelectedRecord();
     }
 
     // TimelineRecordBar delegate

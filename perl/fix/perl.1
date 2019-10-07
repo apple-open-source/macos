@@ -76,31 +76,6 @@ version:
 .Dl % perl ...
 .Pp
 This environment variable takes precedence over the setting in any preference file.
-.Sh 64-BIT SUPPORT
-Both versions of perl
-support 64-bit execution (which is the default).
-Like the setting the version of Perl, the
-.Nm perl
-command can select between 32 and 64-bit execution.
-Use:
-.Pp
-.Dl % defaults write com.apple.versioner.perl Prefer-32-Bit -bool yes
-.Pp
-to make 32-bit execution the user default (using
-.Ql Li /Library/Preferences/com.apple.versioner.perl
-will set the system-wide default).
-The environment variable
-.Ev VERSIONER_PERL_PREFER_32_BIT
-can also be used (has precedence over the preference file):
-.Pp
-.D1 Li % export VERSIONER_PERL_PREFER_32_BIT=yes Em # Bourne-like shells
-.D1 Li "    " Sy or
-.D1 Li % setenv VERSIONER_PERL_PREFER_32_BIT yes Em # C-like shells
-.Pp
-Again, the preference setting and environmental variable applies to both
-.Nm perl
-and
-.Nm a2p .
 .Sh USING A SPECIFIC VERSION
 Rather than using the
 .Nm perl

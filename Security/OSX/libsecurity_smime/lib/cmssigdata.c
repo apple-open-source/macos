@@ -423,7 +423,7 @@ SecCmsSignedDataEncodeAfterData(SecCmsSignedDataRef sigd)
     SecCmsContentInfoRef cinfo;
     SECOidTag digestalgtag;
     OSStatus ret = SECFailure;
-    OSStatus rv;
+    OSStatus rv = errSecSuccess;
     CSSM_DATA_PTR contentType;
     int certcount;
     int i, ci, n, rci, si;
@@ -873,7 +873,7 @@ SecCmsSignedDataAddCertChain(SecCmsSignedDataRef sigd, SecCertificateRef cert)
     usage = certUsageEmailSigner;
 
     /* do not include root */
-    certlist = CERT_CertChainFromCert(cert, usage, PR_FALSE);
+    certlist = CERT_CertChainFromCert(cert, usage, PR_FALSE, PR_FALSE);
     if (certlist == NULL)
 	return SECFailure;
 

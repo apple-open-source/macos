@@ -1,8 +1,8 @@
 --TEST--
 Test function posix_seteuid() by substituting argument 1 with string values.
 --SKIPIF--
-<?php 
-        if(!extension_loaded("posix")) print "skip - POSIX extension not loaded"; 
+<?php
+        if(!extension_loaded("posix")) print "skip - POSIX extension not loaded";
 ?>
 --CREDITS--
 Marco Fabbri mrfabbri@gmail.com
@@ -35,14 +35,14 @@ foreach ( $variation_array as $var ) {
 --EXPECTF--
 *** Test substituting argument 1 with string values ***
 
-Warning: posix_seteuid() expects parameter 1 to be integer, string given in %s on line 21
+Warning: posix_seteuid() expects parameter 1 to be int, string given in %s on line 21
 bool(false)
 
-Warning: posix_seteuid() expects parameter 1 to be integer, string given in %s on line 21
+Warning: posix_seteuid() expects parameter 1 to be int, string given in %s on line 21
 bool(false)
 
-Warning: posix_seteuid() expects parameter 1 to be integer, string given in %s on line 21
+Warning: posix_seteuid() expects parameter 1 to be int, string given in %s on line 21
 bool(false)
 
-Warning: posix_seteuid() expects parameter 1 to be integer, string given in %s on line 21
+Warning: posix_seteuid() expects parameter 1 to be int, string given in %s on line 21
 bool(false)

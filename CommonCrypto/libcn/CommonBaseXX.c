@@ -23,7 +23,6 @@
 
 #include "basexx.h"
 #include <CommonNumerics/CommonBaseXX.h>
-#include "ccMemory.h"
 #include "CommonBufferingPriv.h"
 #include "ccGlobals.h"
 #include "cc_macros_priv.h"
@@ -171,9 +170,9 @@ deCode(void *ctx, const void *in, size_t srcLen, void *out, size_t *destLen)
         *dest = 0;
         return 0;
     }
-    
-    CC_XZEROMEM(dest, *destLen);
-    
+
+    cc_clear(*destLen, dest);
+
     for(i=0; i<srcLen; i++) {
         if(src[i] != coderRef->coderFrame->encoderRef->padding) {
             uint8_t srcByte = decodeFromBase(coderRef, src[i]);
@@ -219,11 +218,11 @@ enCode(void *ctx, const void *in, size_t srcLen, void *out, size_t *destLen)
         *destLen = needed;
         return -1;
     }
-    
-    *destLen = needed;    
-    
-    CC_XZEROMEM(dest, needed);
-    
+
+    *destLen = needed;
+
+    cc_clear(needed, dest);
+
     dPos = 0;
     for(i=0; i<srcLen; i++) {
         int dBit = (i*8) % destBits;
@@ -269,15 +268,15 @@ CNStatus CNEncoderCreate(CNEncodings encoding,
     *encoderRef = NULL;
     CoderFrame codeFrameOrigin = getCodeFrame (encoding);
     if(!codeFrameOrigin) return kCNParamError;
-    CNEncoder *coderRef = CC_XMALLOC(sizeof(CNEncoder));
+    CNEncoder *coderRef = malloc(sizeof(CNEncoder));
     if(!coderRef) return kCNMemoryFailure;
 
-    CoderFrame codeFrame = CC_XMALLOC(sizeof(BaseEncoderFrame));
+    CoderFrame codeFrame = malloc(sizeof(BaseEncoderFrame));
     if(!codeFrame) {
-        CC_XFREE(coderRef, sizeof(CNEncoder));
+        free(coderRef);
         return kCNMemoryFailure;
     }
-    CC_XMEMCPY(codeFrame, codeFrameOrigin,sizeof(BaseEncoderFrame));
+    memcpy(codeFrame, codeFrameOrigin,sizeof(BaseEncoderFrame));
 
     coderRef->direction = direction;
     coderRef->coderFrame = codeFrame;
@@ -288,7 +287,7 @@ CNStatus CNEncoderCreate(CNEncodings encoding,
     if(!coderRef->base256buffer || !coderRef->baseXXbuffer) {
         if(coderRef->base256buffer) CNBufferRelease(&coderRef->base256buffer);
         if(coderRef->baseXXbuffer) CNBufferRelease(&coderRef->baseXXbuffer);
-        CC_XFREE(coderRef, sizeof(CNEncoder));
+        free(coderRef);
         return kCNMemoryFailure;
     }
     *encoderRef = coderRef;
@@ -299,7 +298,7 @@ CNStatus CNEncoderCreate(CNEncodings encoding,
 void setReverseMap(CoderFrame frame)
 {
     int i;
-    CC_XMEMSET(frame->reverseMap, 0x80, CC_BASE_REVERSE_MAP_SIZE);
+    memset(frame->reverseMap, 0x80, CC_BASE_REVERSE_MAP_SIZE);
     for(i=0; i<frame->encoderRef->baseNum; i++) {
         int idx;
         idx = (unsigned char)frame->encoderRef->charMap[i];
@@ -318,10 +317,10 @@ CNStatus CNEncoderCreateCustom(const void *name,
     if(baseNum != 16 && baseNum != 32 && baseNum != 64) return kCNParamError;
     if(!encoderRef || !charMap) return kCNParamError;
     *encoderRef = NULL;
-    
-    CoderFrame codeFrame = CC_XMALLOC(sizeof(BaseEncoderFrame));
-    BaseEncoderRefCustom customEncoder = CC_XMALLOC(sizeof(BaseEncoder));
-    CNEncoder *coderRef = CC_XMALLOC(sizeof(CNEncoder));
+
+    CoderFrame codeFrame = malloc(sizeof(BaseEncoderFrame));
+    BaseEncoderRefCustom customEncoder = malloc(sizeof(BaseEncoder));
+    CNEncoder *coderRef = malloc(sizeof(CNEncoder));
 
     if(coderRef) {
         coderRef->base256buffer = NULL;
@@ -351,13 +350,13 @@ CNStatus CNEncoderCreateCustom(const void *name,
     return kCNSuccess;
     
 errOut:
-    CC_XFREE(codeFrame, sizeof(BaseEncoderFrame));
-    CC_XFREE(customEncoder, sizeof(BaseEncoder));
-    
+    free(codeFrame);
+    free(customEncoder);
+
     if(coderRef) {
         if(coderRef->base256buffer) CNBufferRelease(&coderRef->base256buffer);
         if(coderRef->baseXXbuffer) CNBufferRelease(&coderRef->baseXXbuffer);
-        CC_XFREE(coderRef, sizeof(CNEncoder));
+        free(coderRef);
     }
     return retval;
 
@@ -371,12 +370,12 @@ CNStatus CNEncoderRelease(CNEncoderRef *encoderRef)
         CoderFrame codeFrame = coderRef->coderFrame;
         if(codeFrame->encoderRef && kCNEncodingCustom == codeFrame->encoderRef->encoding) {
             BaseEncoderRefCustom customRef = (BaseEncoderRefCustom) codeFrame->encoderRef;
-            CC_XFREE((void *) customRef, sizeof(BaseEncoder));
+            free((void *) customRef);
         }
         if(coderRef->base256buffer) CNBufferRelease(&coderRef->base256buffer);
         if(coderRef->baseXXbuffer) CNBufferRelease(&coderRef->baseXXbuffer);
-        CC_XFREE(codeFrame, sizeof(BaseEncoderFrame));
-        CC_XFREE(coderRef, sizeof(CNEncoder));
+        free(codeFrame);
+        free(coderRef);
     }
     return kCNSuccess;
 }

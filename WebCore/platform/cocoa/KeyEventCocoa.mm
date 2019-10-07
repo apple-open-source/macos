@@ -30,14 +30,12 @@
 #import "PlatformKeyboardEvent.h"
 #import "WindowsKeyboardCodes.h"
 #import <wtf/ASCIICType.h>
+#import <wtf/HexNumber.h>
 #import <wtf/MainThread.h>
-#import <wtf/text/WTFString.h>
 
 #if PLATFORM(IOS_FAMILY)
 #import "KeyEventCodesIOS.h"
 #endif
-
-using namespace WTF;
 
 namespace WebCore {
 
@@ -50,7 +48,7 @@ void PlatformKeyboardEvent::getCurrentModifierState(bool& shiftKey, bool& ctrlKe
 {
     auto currentModifiers = currentStateOfModifierKeys();
     shiftKey = currentModifiers.contains(PlatformEvent::Modifier::ShiftKey);
-    ctrlKey = currentModifiers.contains(PlatformEvent::Modifier::CtrlKey);
+    ctrlKey = currentModifiers.contains(PlatformEvent::Modifier::ControlKey);
     altKey = currentModifiers.contains(PlatformEvent::Modifier::AltKey);
     metaKey = currentModifiers.contains(PlatformEvent::Modifier::MetaKey);
 }
@@ -496,7 +494,7 @@ String keyIdentifierForCharCode(unichar charCode)
             // FIXME: We should use something other than the vendor-area Unicode values for the above keys.
             // For now, just fall through to the default.
         default:
-            return String::format("U+%04X", toASCIIUpper(charCode));
+            return makeString("U+", hex(toASCIIUpper(charCode), 4));
     }
 }
 

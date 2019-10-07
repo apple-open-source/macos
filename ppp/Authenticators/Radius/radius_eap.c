@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -189,7 +189,8 @@ static int
 radius_eap_process (void *context, struct EAP_Input *eap_in, struct EAP_Output *eap_out)
 {
     struct EAP_Packet *pkt_in;
-	int	err = 0, attr_type, len, n;
+	int	err = 0, attr_type, n;
+	ssize_t len;
 	unsigned char *attr_value;
 	size_t attr_len;
 	unsigned char *p;
@@ -254,7 +255,7 @@ radius_eap_process (void *context, struct EAP_Input *eap_in, struct EAP_Output *
 				p = (unsigned char *)pkt_in;
 				len = ntohs(pkt_in->len);
 				while (len > 0) {
-					n = len > RAD_MAX_ATTR_LEN ? RAD_MAX_ATTR_LEN : len;
+					n = (int)(len > RAD_MAX_ATTR_LEN ? RAD_MAX_ATTR_LEN : len);
 					rad_put_attr(rad_handle, RAD_EAP_MESSAGE, p, n);
 					p += n;
 					len -= n;
@@ -330,7 +331,7 @@ radius_eap_process (void *context, struct EAP_Input *eap_in, struct EAP_Output *
 								
 							case RAD_STATE: 
 								/* memorize server state for next access request */
-								last_state_attr_len = attr_len;
+								last_state_attr_len = (int)attr_len;
 								bcopy(attr_value, last_state_attr, attr_len);
 								break;
 						}

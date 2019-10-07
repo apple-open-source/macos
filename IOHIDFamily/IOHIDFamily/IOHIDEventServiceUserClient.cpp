@@ -30,6 +30,7 @@
 #include <sys/proc.h>
 #include <IOKit/hidsystem/IOHIDShared.h>
 #include "IOHIDFamilyTrace.h"
+#include <pexpert/pexpert.h>
 
 #define kQueueSizeMin   0
 #define kQueueSizeFake  128
@@ -68,6 +69,11 @@ const IOExternalMethodDispatch IOHIDEventServiceUserClient::sMethods[kIOHIDEvent
 	3, 0,
     0, 0
     },
+    { //    kIOHIDEventServiceUserClientCopyMatchingEvent
+    (IOExternalMethodAction) &IOHIDEventServiceUserClient::_copyMatchingEvent,
+    0, kIOUCVariableStructureSize,
+    0, kIOUCVariableStructureSize
+    },
 };
 
 enum {
@@ -98,7 +104,7 @@ IOReturn IOHIDEventServiceUserClient::clientClose( void )
 //==============================================================================
 IOReturn IOHIDEventServiceUserClient::registerNotificationPort(
                             mach_port_t                 port, 
-                            UInt32                      type __unused,
+                            UInt32                      type,
                             UInt32                      refCon __unused )
 {
 
@@ -106,7 +112,7 @@ IOReturn IOHIDEventServiceUserClient::registerNotificationPort(
     
     require_action(!isInactive(), exit, result=kIOReturnOffline);
     
-    result = _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventServiceUserClient::registerNotificationPortGated), port);
+    result = _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventServiceUserClient::registerNotificationPortGated), port, (void *)(intptr_t)type);
     
 exit:
 
@@ -116,10 +122,8 @@ exit:
 
 IOReturn IOHIDEventServiceUserClient::registerNotificationPortGated(mach_port_t port, UInt32 type __unused, UInt32 refCon __unused)
 {
-    
-    releaseNotificationPort (_port);
-    
-     _port = port;
+    releaseNotificationPort(_queuePort);
+    _queuePort = port;
     
     if (_queue) {
         _queue->setNotificationPort(port);
@@ -228,11 +232,14 @@ exit:
 //==============================================================================
 // IOHIDEventServiceUserClient::initWithTask
 //==============================================================================
-bool IOHIDEventServiceUserClient::initWithTask(task_t owningTask, void * security_id __unused, UInt32 type __unused)
+bool IOHIDEventServiceUserClient::initWithTask(task_t owningTask, void * security_id, UInt32 type)
 {
     bool result = false;
+    OSObject* entitlement = NULL;
     
-    OSObject* entitlement = copyClientEntitlement(owningTask, kIOHIDSystemUserAccessServiceEntitlement);
+    require_action(super::initWithTask(owningTask, security_id, type), exit, HIDLogError("failed"));
+    
+    entitlement = copyClientEntitlement(owningTask, kIOHIDSystemUserAccessServiceEntitlement);
     if (entitlement) {
         result = (entitlement == kOSBooleanTrue);
         entitlement->release();
@@ -243,12 +250,9 @@ bool IOHIDEventServiceUserClient::initWithTask(task_t owningTask, void * securit
         char name[255];
         bzero(name, sizeof(name));
         proc_name(proc_pid(process), name, sizeof(name));
-        HIDLogError("%s is not entitled", name);
+        HIDServiceLogError("%s is not entitled", name);
         goto exit;
     }
-    
-    result = super::init();
-    require_action(result, exit, HIDLogError("failed"));
 
     _owner        = NULL;
     _commandGate  = NULL;
@@ -270,6 +274,9 @@ bool IOHIDEventServiceUserClient::start( IOService * provider )
     IOWorkLoop *  workLoop;
     boolean_t     result = false;
     OSSerializer * debugStateSerializer;
+    uint32_t      forceNotifyUsagePair = 0;
+    uint32_t      queueSizeOverride = 0;
+    uint32_t      qOptions = 0;
   
     require (super::start(provider), exit);
   
@@ -277,17 +284,33 @@ bool IOHIDEventServiceUserClient::start( IOService * provider )
     require (_owner, exit);
 
     _owner->retain();
-  
+
+    // If the provider's usage pair matches this boot arg, set force notify flag on queue.
+    if (PE_parse_boot_argn("hidq_force_usage_pair", &forceNotifyUsagePair, sizeof(forceNotifyUsagePair))) {
+        uint32_t usagePage  = (forceNotifyUsagePair >> 16) & 0xffff;
+        uint32_t usage      = forceNotifyUsagePair & 0xffff;
+
+        if (usagePage == _owner->getPrimaryUsagePage() && usage == _owner->getPrimaryUsage()) {
+            qOptions |= kIOHIDEventServiceQueueOptionNotificationForce;
+        }
+    }
+
+    // Use property for queue size, if it exists.
     object = provider->copyProperty(kIOHIDEventServiceQueueSize);
     num = OSDynamicCast(OSNumber, object);
     if ( num ) {
         queueSize = num->unsigned32BitValue();
-        queueSize = min(kQueueSizeMax, queueSize);
     }
     OSSafeReleaseNULL(object);
-    
+
+    // Use boot-arg for queue size - takes precedence over property.
+    if (PE_parse_boot_argn("hidq_size", &queueSizeOverride, sizeof(queueSizeOverride)) && queueSizeOverride) {
+        queueSize = queueSizeOverride;
+        provider->setProperty(kIOHIDEventServiceQueueSize, queueSizeOverride, 32);
+    }
+
     if ( queueSize ) {
-        _queue = IOHIDEventServiceQueue::withCapacity(this, queueSize);
+        _queue = IOHIDEventServiceQueue::withCapacity(this, queueSize, qOptions);
         require(_queue, exit);
     }
   
@@ -323,8 +346,7 @@ void IOHIDEventServiceUserClient::stop( IOService * provider )
     }
 
     
-    releaseNotificationPort (_port);
-    _port = MACH_PORT_NULL;
+    releaseNotificationPort(_queuePort);
 
     super::stop(provider);
 }
@@ -353,11 +375,10 @@ IOReturn IOHIDEventServiceUserClient::open(IOOptionBits options)
         return kIOReturnStillOpen;
     }
     
-    
     _options = options;
     
     if (!_owner->open(  this,
-                        options | kIOHIDOpenedByEventSystem,
+                        options,
                         NULL, 
                         OSMemberFunctionCast(IOHIDEventService::Action, 
                         this, &IOHIDEventServiceUserClient::eventServiceCallback)) ) {
@@ -408,18 +429,21 @@ IOReturn IOHIDEventServiceUserClient::_copyEvent(
     IOReturn        ret         = kIOReturnError;
     IOByteCount     length      = 0;
     
-    if ( arguments->structureInput && arguments->structureInputSize)
+    if ( arguments->structureInput && arguments->structureInputSize) {
         inEvent = IOHIDEvent::withBytes(arguments->structureInput, arguments->structureInputSize);
+    }
 
     do { 
-        outEvent = target->copyEvent((IOHIDEventType)arguments->scalarInput[0], inEvent, (IOOptionBits)arguments->scalarInput[1]);
+        ret = target->copyEvent((IOHIDEventType)arguments->scalarInput[0], inEvent, &outEvent, (IOOptionBits)arguments->scalarInput[1]);
         
-        if ( !outEvent )
+        if (ret) {
             break;
+        }
             
         length = outEvent->getLength();
         
         if ( length > arguments->structureOutputSize ) {
+            HIDLogError("event length:%d expected:%d", (unsigned int)length, arguments->structureOutputSize);
             ret = kIOReturnBadArgument;
             break;
         }
@@ -427,10 +451,9 @@ IOReturn IOHIDEventServiceUserClient::_copyEvent(
         outEvent->readBytes(arguments->structureOutput, length);
         arguments->structureOutputSize = (uint32_t)length;
 
-        ret = kIOReturnSuccess;
-    
     } while ( 0 );
 
+    
     if ( inEvent )
         inEvent->release();
     
@@ -443,12 +466,21 @@ IOReturn IOHIDEventServiceUserClient::_copyEvent(
 //==============================================================================
 // IOHIDEventServiceUserClient::copyEvent
 //==============================================================================
-IOHIDEvent * IOHIDEventServiceUserClient::copyEvent(IOHIDEventType type, IOHIDEvent * matching, IOOptionBits options)
+IOReturn IOHIDEventServiceUserClient::copyEvent(IOHIDEventType type, IOHIDEvent * matching, IOHIDEvent ** event, IOOptionBits options)
 {
-    if (_owner && _state == kUserClientStateOpen) {
-        return _owner->copyEvent(type, matching, options);
+    if (!event) {
+        return kIOReturnBadArgument;
     }
-    return NULL;
+    if (!_owner) {
+        return kIOReturnOffline;
+    }
+    if (_state != kUserClientStateOpen) {
+        return kIOReturnNotOpen;
+    }
+
+    *event = _owner->copyEvent(type, matching, options);
+   
+    return *event == NULL ? kIOReturnUnsupported : kIOReturnSuccess;
 }
 
 //==============================================================================
@@ -472,6 +504,67 @@ IOReturn IOHIDEventServiceUserClient::setElementValue(UInt32 usagePage, UInt32 u
         return _owner->setElementValue(usagePage, usage, value);
     }
     return kIOReturnNoDevice;
+}
+
+//==============================================================================
+// IOHIDEventServiceUserClient::_copyMatchingEvent
+//==============================================================================
+IOReturn IOHIDEventServiceUserClient::_copyMatchingEvent(
+                                                 IOHIDEventServiceUserClient *   target,
+                                                 void *                          reference __unused,
+                                                 IOExternalMethodArguments *     arguments)
+{
+    IOReturn ret = kIOReturnError;
+    OSObject *obj = NULL;
+    OSDictionary *matching = NULL;
+    OSData *result = NULL;
+    
+    require_action(arguments->structureVariableOutputData, exit, ret = kIOReturnBadArgument);
+    
+    if (arguments->structureInput && arguments->structureInputSize) {
+        obj = OSUnserializeXML((const char *)arguments->structureInput,
+                               arguments->structureInputSize);
+        require_action(obj, exit, ret = kIOReturnBadArgument);
+        
+        matching = OSDynamicCast(OSDictionary, obj);
+        require_action(matching, exit, ret = kIOReturnBadArgument);
+    }
+    
+    ret = target->copyMatchingEvent(matching, &result);
+    require(ret == kIOReturnSuccess && result, exit);
+    
+    // result will be released for us
+    *arguments->structureVariableOutputData = result;
+    
+exit:
+    OSSafeReleaseNULL(obj);
+    
+    return ret;
+}
+
+//==============================================================================
+// IOHIDEventServiceUserClient::copyMatchingEvent
+//==============================================================================
+IOReturn IOHIDEventServiceUserClient::copyMatchingEvent(OSDictionary *matching, OSData **eventData)
+{
+    IOReturn ret = kIOReturnError;
+    IOHIDEvent *event = NULL;
+    
+    require_action(eventData, exit, ret = kIOReturnBadArgument);
+    require_action(_owner && _state == kUserClientStateOpen, exit, ret = kIOReturnNotOpen);
+    
+    event = _owner->copyMatchingEvent(matching);
+    require_action(event, exit, ret = kIOReturnUnsupported);
+    
+    *eventData = event->createBytes();
+    require_action(*eventData, exit, ret = kIOReturnNoMemory);
+    
+    ret = kIOReturnSuccess;
+    
+exit:
+    OSSafeReleaseNULL(event);
+    
+    return ret;
 }
 
 //==============================================================================

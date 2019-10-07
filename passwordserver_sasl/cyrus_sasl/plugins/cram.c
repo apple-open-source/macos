@@ -43,7 +43,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <config.h>
+#include "config.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -53,9 +53,9 @@
 #endif
 #include <fcntl.h>
 
-#include <sasl.h>
-#include <saslplug.h>
-#include <saslutil.h>
+#include "sasl.h"
+#include "saslplug.h"
+#include "saslutil.h"
 
 #include "plugin_common.h"
 

@@ -335,9 +335,14 @@ IOReturn IOHIDNXEventRouter::start(CFDictionaryRef propertyTable __unused, io_se
     CFMutableDictionaryRef  serviceProps    = NULL;
   
     do {
+    
+        ret = IOObjectRetain(service);
+        if (ret != kIOReturnSuccess) {
+            HIDLogError("IOHIDNXEventRouter failed to retain service object err : 0x%x",ret);
+            break;
+        }
         _service = service;
-        IOObjectRetain(_service);
-
+        
         _serviceProperties = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
         
         if ( !_serviceProperties ) {

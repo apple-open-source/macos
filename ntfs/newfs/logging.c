@@ -217,8 +217,11 @@ void ntfs_log_set_handler(ntfs_log_handler *handler)
 	if (handler) {
 		ntfs_log.handler = handler;
 #ifdef HAVE_SYSLOG_H
-		if (handler == ntfs_log_handler_syslog)
-			openlog("ntfs-3g", LOG_PID, LOG_USER);
+		if (handler == ntfs_log_handler_syslog ||
+		    		handler == ntfs_log_handler_outerr_syslog)
+		{
+			openlog("BootCampFormatter", LOG_PID, LOG_USER);
+		}
 #endif
 	} else
 		ntfs_log.handler = ntfs_log_handler_null;
@@ -443,6 +446,47 @@ int ntfs_log_handler_outerr(const char *function, const char *file,
 		data = ntfs_log_get_stream(level);
 
 	return ntfs_log_handler_fprintf(function, file, line, level, data, format, args);
+}
+
+/**
+ * ntfs_log_handler_outerr_syslog - Logs go to stdout/stderr depending on level
+ *                                  and to syslog
+ * @function:	Function in which the log line occurred
+ * @file:	File in which the log line occurred
+ * @line:	Line number on which the log line occurred
+ * @level:	Level at which the line is logged
+ * @data:	User specified data, possibly specific to a handler
+ * @format:	printf-style formatting string
+ * @args:	Arguments to be formatted
+ *
+ * Display a log message.  The output stream will be determined by the log
+ * level.
+ *
+ * Note: For this handler, @data is a pointer to a FILE output stream.
+ *       If @data is NULL, the function ntfs_log_get_stream will be called
+ *
+ * Returns:  -1  Error occurred
+ *            0  Message wasn't logged
+ *          num  Number of output characters
+ */
+int ntfs_log_handler_outerr_syslog(const char *function, const char *file,
+	int line, u32 level, void *data, const char *format, va_list args)
+{
+	int ret1, ret2;
+	int err = 0;
+
+	ret1 = ntfs_log_handler_outerr(function, file, line, level, data,
+			format, args);
+	if (ret1 < 0) {
+		err = errno;
+	}
+	ret2 = ntfs_log_handler_syslog(function, file, line, level, NULL,
+			format, args);
+	if (ret1 < 0) {
+		errno = err;
+	}
+
+	return ret1 < 0 ? ret1 : ret2;
 }
 
 /**

@@ -24,6 +24,30 @@
  */
 
 WI.FileUtilities = class FileUtilities {
+    static screenshotString()
+    {
+        let date = new Date;
+        let values = [
+            date.getFullYear(),
+            Number.zeroPad(date.getMonth() + 1, 2),
+            Number.zeroPad(date.getDate(), 2),
+            Number.zeroPad(date.getHours(), 2),
+            Number.zeroPad(date.getMinutes(), 2),
+            Number.zeroPad(date.getSeconds(), 2),
+        ];
+        return WI.UIString("Screen Shot %s-%s-%s at %s.%s.%s").format(...values);
+    }
+
+    static sanitizeFilename(filename)
+    {
+        return filename.replace(/:+/g, "-");
+    }
+
+    static inspectorURLForFilename(filename)
+    {
+        return "web-inspector:///" + encodeURIComponent(FileUtilities.sanitizeFilename(filename));
+    }
+
     static save(saveData, forceSaveAs)
     {
         console.assert(saveData);
@@ -120,7 +144,7 @@ WI.FileUtilities = class FileUtilities {
             }
 
             let promise = callback(result);
-            if (promise)
+            if (promise instanceof Promise)
                 await promise;
         }
     }

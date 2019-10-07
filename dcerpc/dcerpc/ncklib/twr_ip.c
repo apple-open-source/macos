@@ -224,12 +224,12 @@ PUBLIC void twr_ip_lower_flrs_from_sa
     related_data_size[0] = TWR_C_IP_PORT_SIZE;
 
     related_data_ptr[0] =
-        (byte_p_t) (&((struct sockaddr_in *)sa)->sin_port);
+        (byte_p_t) (&((struct sockaddr_in *) (void *) sa)->sin_port);
 
     related_data_size[1] = TWR_C_IP_ADDR_SIZE;
 
     related_data_ptr[1] =
-        (byte_p_t) (&((struct sockaddr_in *)sa)->sin_addr.s_addr);
+        (byte_p_t) (&((struct sockaddr_in *) (void *) sa)->sin_addr.s_addr);
 
     /*
      * Calculate the length of the tower floors.
@@ -502,7 +502,7 @@ PUBLIC void twr_ip_lower_flrs_to_sa
     /*
      * define this as an internet family socket
      */
-    ((struct sockaddr_in *)(*sa))->sin_family = RPC_C_NAF_ID_IP;
+    ((struct sockaddr_in *)(void *)(*sa))->sin_family = RPC_C_NAF_ID_IP;
 
     /*
      * Get the length of in_port
@@ -514,7 +514,7 @@ PUBLIC void twr_ip_lower_flrs_to_sa
     /*
      * Copy the port number to the sockaddr.
      */
-    memcpy ( &((struct sockaddr_in *)(*sa))->sin_port, tower, addr_size);
+    memcpy ( &((struct sockaddr_in *)(void *)(*sa))->sin_port, tower, addr_size);
 
     tower += addr_size;
 
@@ -553,7 +553,7 @@ PUBLIC void twr_ip_lower_flrs_to_sa
     /*
      * Copy the host address to the sockaddr
      */
-    memcpy (&((struct sockaddr_in *)(*sa))->sin_addr.s_addr,
+    memcpy (&((struct sockaddr_in *)(void *)(*sa))->sin_addr.s_addr,
             (char *)tower, addr_size);
 
     *status = twr_s_ok;

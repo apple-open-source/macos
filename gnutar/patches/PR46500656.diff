@@ -1,0 +1,13 @@
+--- lib/argp-parse.c.orig	2019-03-20 18:20:46.000000000 -0700
++++ lib/argp-parse.c	2019-03-20 18:30:59.000000000 -0700
+@@ -155,8 +155,8 @@
+       else if (argp_program_version)
+ 	fprintf (state->out_stream, "%s\n", argp_program_version);
+       else
+-	__argp_error (state, dgettext (state->root_argp->argp_domain,
+-				       "(PROGRAM ERROR) No version known!?"));
++    __argp_error (state, "%s", dgettext (state->root_argp->argp_domain,
++                                         "(PROGRAM ERROR) No version known!?"));
+       if (! (state->flags & ARGP_NO_EXIT))
+ 	exit (0);
+       break;

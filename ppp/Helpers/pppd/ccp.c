@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -320,10 +320,10 @@ setbsdcomp(argv)
     char *str, *endp;
 
     str = *argv;
-    abits = rbits = strtol(str, &endp, 0);
+    abits = rbits = (int)strtol(str, &endp, 0);
     if (endp != str && *endp == ',') {
 	str = endp + 1;
-	abits = strtol(str, &endp, 0);
+	abits = (int)strtol(str, &endp, 0);
     }
     if (*endp != 0 || endp == str) {
 	option_error("invalid parameter '%s' for bsdcomp option", *argv);
@@ -359,10 +359,10 @@ setdeflate(argv)
     char *str, *endp;
 
     str = *argv;
-    abits = rbits = strtol(str, &endp, 0);
+    abits = rbits = (int)strtol(str, &endp, 0);
     if (endp != str && *endp == ',') {
 	str = endp + 1;
-	abits = strtol(str, &endp, 0);
+	abits = (int)strtol(str, &endp, 0);
     }
     if (*endp != 0 || endp == str) {
 	option_error("invalid parameter '%s' for deflate option", *argv);
@@ -864,7 +864,7 @@ ccp_addci(f, p, lenp)
 
     go->method = (p > p0)? p0[0]: -1;
 
-    *lenp = p - p0;
+    *lenp = (int)(p - p0);
 }
 
 /*
@@ -1435,7 +1435,7 @@ ccp_reqci(f, p, lenp, dont_nak)
 	if (ret == CONFREJ && *lenp == retp - p0)
 	    all_rejected[f->unit] = 1;
 	else
-	    *lenp = retp - p0;
+	    *lenp = (int)(retp - p0);
     }
 #ifdef MPPE
     if (ret == CONFREJ && ao->mppe && rej_for_ci_mppe) {
@@ -1464,20 +1464,20 @@ method_name(opt, opt2)
 	char *p = result;
 	char *q = result + sizeof(result); /* 1 past result */
 
-	slprintf(p, q - p, "MPPE ");
+	slprintf(p, (int)(q - p), "MPPE ");
 	p += 5;
 	if (opt->mppe & MPPE_OPT_128) {
-	    slprintf(p, q - p, "128-bit ");
+	    slprintf(p, (int)(q - p), "128-bit ");
 	    p += 8;
 	}
 	if (opt->mppe & MPPE_OPT_40) {
-	    slprintf(p, q - p, "40-bit ");
+	    slprintf(p, (int)(q - p), "40-bit ");
 	    p += 7;
 	}
 	if (opt->mppe & MPPE_OPT_STATEFUL)
-	    slprintf(p, q - p, "stateful");
+	    slprintf(p, (int)(q - p), "stateful");
 	else
-	    slprintf(p, q - p, "stateless");
+	    slprintf(p, (int)(q - p), "stateless");
 
 	break;
     }
@@ -1696,7 +1696,7 @@ ccp_printpkt(p, plen, printer, arg)
     while (--len >= 0)
 	printer(arg, " %.2x", *p++);
 
-    return p - p0;
+    return (int)(p - p0);
 }
 
 /*

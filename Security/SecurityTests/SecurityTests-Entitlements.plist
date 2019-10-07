@@ -16,6 +16,8 @@
 	<true/>
 	<key>com.apple.keystore.device</key>
 	<true/>
+	<key>com.apple.private.applecredentialmanager.allow</key>
+	<true/>
 	<key>restore-keychain</key>
 	<true/>
 	<key>migrate-keychain</key>
@@ -42,9 +44,9 @@
 		<string>123456.test.group2</string>
 		<string>com.apple.bluetooth</string>
 	</array>
-	<key>com.apple.developer.shared-web-credentials</key>
+	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>localhost</string>
+		<string>webcredentials:localhost</string>
 	</array>
 </dict>
 </plist>

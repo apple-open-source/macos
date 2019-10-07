@@ -68,9 +68,64 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
 
 }
 
+-(void) testBottleUpdateWithFeatureOnOn
+{
+    __block NSData* localEntropy = nil;
+    __block NSString* localBottleID = nil;
+
+    [self setUpRampRecordsInCloudKitWithFeatureOn];
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
+
+    [self startCKKSSubsystem];
+
+    //create a bottle
+    [self.otControl preflightBottledPeer:testContextID
+                                    dsid:testDSID
+                                   reply:^(NSData * _Nullable entropy, NSString * _Nullable bottleID, NSData * _Nullable signingPublicKey, NSError * _Nullable error) {
+                                       localEntropy = entropy;
+                                       localBottleID = bottleID;
+                                       XCTAssertNotNil(entropy, "entropy should not be nil");
+                                       XCTAssertNotNil(bottleID, "bottle id should not be nil");
+                                       XCTAssertNotNil(signingPublicKey, "signing pub key should not be nil");
+                                       XCTAssertNil(error, "error should be nil");
+                                   }];
+
+    NSMutableDictionary* recordDictionary = [NSMutableDictionary dictionaryWithObjectsAndKeys:[[NSNumber alloc] initWithInt:1], OTCKRecordBottledPeerType, nil];
+
+    [self expectAddedCKModifyRecords:recordDictionary holdFetch:NO];
+
+    //launch it
+    [self.otControl launchBottledPeer:testContextID bottleID:localBottleID reply:^(NSError * _Nullable error) {
+        XCTAssertNil(error, "error should be nil");
+    }];
+
+    [self waitForCKModifications];
+    OCMVerifyAllWithDelay(self.mockDatabase, 8);
+    [self releaseCloudKitFetchHold];
+
+    [self expectCKFetch];
+
+    SFECKeyPair* newSigningKey = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
+
+    SFECKeyPair* newEncryptionKey = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
+
+    [self expectAddedCKModifyRecords:recordDictionary holdFetch:NO];
+
+    //update bottle
+    [self.otControl handleIdentityChangeForSigningKey:newSigningKey
+                                     ForEncryptionKey:newEncryptionKey
+                                            ForPeerID:self.sosPeerID
+                                                reply:^(BOOL result, NSError* _Nullable error){
+                                                    XCTAssertNil(error, "error should be nil");
+                                                }];
+}
+
 -(void) testLaunchWithRampOn
 {
     [self setUpRampRecordsInCloudKitWithFeatureOn];
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
     [self startCKKSSubsystem];
     
     __block NSData* localEntropy = nil;
@@ -108,6 +163,8 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
 -(void) testRestoreWithRampOn
 {
     [self setUpRampRecordsInCloudKitWithFeatureOn];
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
     [self startCKKSSubsystem];
     
     __block NSData* localEntropy = nil;
@@ -156,6 +213,8 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
 -(void) testScrubWithRampOn
 {
     [self setUpRampRecordsInCloudKitWithFeatureOn];
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
     [self startCKKSSubsystem];
 
     __block NSString* localBottleID = nil;
@@ -192,7 +251,8 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
 -(void) testPreflightWithRampOff
 {
     [self setUpRampRecordsInCloudKitWithFeatureOff];
-    
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
     [self startCKKSSubsystem];
 
     self.spiBlockExpectation = [self expectationWithDescription:@"preflight bottled peer fired"];
@@ -204,15 +264,39 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
                                        XCTAssertNil(entropy, "shouldn't return any entropy");
                                        XCTAssertNil(bottleID, "shouldn't return a bottle ID");
                                        XCTAssertNil(signingPublicKey, "shouldn't return a signingPublicKey");
-                                       XCTAssertTrue(error.code == OTErrorFeatureNotEnabled, "should return a OTErrorFeatureNotEnabled error");
+                                       XCTAssertEqual(error.code, OTErrorFeatureNotEnabled, "should return a OTErrorFeatureNotEnabled error");
                                    }];
     [self waitForCKModifications];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
     [self waitForExpectationsWithTimeout:1.0 handler:nil];
 }
 
+-(void) testBottleUpdateWithFeatureOff
+{
+    [self setUpRampRecordsInCloudKitWithFeatureOff];
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
+    [self startCKKSSubsystem];
+
+    SFECKeyPair* newSigningKey = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
+
+    SFECKeyPair* newEncryptionKey = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
+
+    //update bottle
+    [self.otControl handleIdentityChangeForSigningKey:newSigningKey
+                                     ForEncryptionKey:newEncryptionKey
+                                            ForPeerID:self.sosPeerID
+                                                reply:^(BOOL result, NSError* _Nullable error){
+                                                    XCTAssertNotNil(error, "error should be nil");
+                                                    XCTAssertEqual(error.code, OTErrorFeatureNotEnabled, "should return a OTErrorFeatureNotEnabled error");
+                                                }];
+
+}
+
 -(void) testPreflightWithRecordNotThere
 {
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
     [self startCKKSSubsystem];
 
     self.spiBlockExpectation = [self expectationWithDescription:@"preflight bottled peer fired"];
@@ -234,7 +318,8 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
 -(void) testLaunchWithRampOff
 {
     [self setUpRampRecordsInCloudKitWithFeatureOff];
-    
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
     [self startCKKSSubsystem];
 
     self.spiBlockExpectation = [self expectationWithDescription:@"preflight bottled peer fired"];
@@ -246,7 +331,7 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
                                        XCTAssertNil(entropy, "shouldn't return any entropy");
                                        XCTAssertNil(bottleID, "shouldn't return a bottle ID");
                                        XCTAssertNil(signingPublicKey, "shouldn't return a signingPublicKey");
-                                       XCTAssertTrue(error.code == OTErrorFeatureNotEnabled, "should return a OTErrorFeatureNotEnabled error");
+                                       XCTAssertEqual(error.code, OTErrorFeatureNotEnabled, "should return a OTErrorFeatureNotEnabled error");
                                    }];
     [self waitForCKModifications];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
@@ -258,7 +343,7 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
     NSString* localBottleID = @"random bottle id";
     [self.otControl launchBottledPeer:testContextID bottleID:localBottleID reply:^(NSError * _Nullable error) {
         [self.spiBlockExpectation fulfill];
-        XCTAssertTrue(error.code == OTErrorFeatureNotEnabled, "should return a OTErrorFeatureNotEnabled error");
+        XCTAssertEqual(error.code, OTErrorFeatureNotEnabled, "should return a OTErrorFeatureNotEnabled error");
     }];
 
     [self waitForCKModifications];
@@ -268,6 +353,8 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
 -(void) testRestoreWithRampOff
 {
     [self setUpRampRecordsInCloudKitWithFeatureOff];
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
     [self startCKKSSubsystem];
 
     self.spiBlockExpectation = [self expectationWithDescription:@"restore SPI fired"];
@@ -280,7 +367,7 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
                           [self.spiBlockExpectation fulfill];
                           XCTAssertNil(signingKeyData, "Signing key data should be nil");
                           XCTAssertNil(encryptionKeyData, "encryption key data should be nil");
-                          XCTAssertTrue(error.code == OTErrorFeatureNotEnabled, "should return a OTErrorFeatureNotEnabled error");
+                          XCTAssertEqual(error.code, OTErrorFeatureNotEnabled, "should return a OTErrorFeatureNotEnabled error");
                       }];
     [self waitForCKModifications];
     OCMVerifyAllWithDelay(self.mockDatabase, 8);
@@ -290,6 +377,8 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
 -(void) testScrubWithRampOff
 {
     [self setUpRampRecordsInCloudKitWithFeatureOff];
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
     [self startCKKSSubsystem];
 
     self.spiBlockExpectation = [self expectationWithDescription:@"preflight bottled peer SPI fired"];
@@ -301,7 +390,7 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
                                        XCTAssertNil(entropy, "entropy should be nil");
                                        XCTAssertNil(bottleID, "bottle id should be nil");
                                        XCTAssertNil(signingPublicKey, "signing pub key should be nil");
-                                       XCTAssertTrue(error.code == OTErrorFeatureNotEnabled, "should return a OTErrorFeatureNotEnabled error");
+                                       XCTAssertEqual(error.code, OTErrorFeatureNotEnabled, "should return a OTErrorFeatureNotEnabled error");
                                    }];
 
     [self waitForExpectationsWithTimeout:1.0 handler:nil];
@@ -311,7 +400,7 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
 
     [self.otControl scrubBottledPeer:testContextID bottleID:localBottleID reply:^(NSError * _Nullable error) {
         [self.spiBlockExpectation fulfill];
-        XCTAssertTrue(error.code == OTErrorFeatureNotEnabled, "should return a OTErrorFeatureNotEnabled error");
+        XCTAssertEqual(error.code, OTErrorFeatureNotEnabled, "should return a OTErrorFeatureNotEnabled error");
     }];
     
     [self waitForCKModifications];
@@ -326,6 +415,8 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
 
 -(void) testRampFetchTimeout
 {
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
+    [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
     [self startCKKSSubsystem];
 
     __block NSError* localError = nil;
@@ -339,36 +430,42 @@ static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
                                        XCTAssertNil(entropy, "shouldn't return any entropy");
                                        XCTAssertNil(bottleID, "shouldn't return a bottle ID");
                                        XCTAssertNil(signingPublicKey, "shouldn't return a signingPublicKey");
-                                       XCTAssertTrue(error.code == OTErrorCKTimeOut, "should return a OTErrorCKTimeout error");
+                                       XCTAssertEqual(error.code, OTErrorCKTimeOut, "should return a OTErrorCKTimeout error");
                                    }];
 }
 
 -(void)testCFUWithRampOn
 {
     NSError* localError = nil;
-    NSInteger retryAfterInSeconds = 0;
 
     [self setUpRampRecordsInCloudKitWithFeatureOn];
 
-    XCTAssertTrue([self.cfu checkRampState:&retryAfterInSeconds networkBehavior:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary error:&localError], @"should be true");
+    [self startCKKSSubsystem];
+
+    XCTAssertTrue([self.cfu checkRampStateWithError:&localError], @"should be true");
+    XCTAssertNil(localError, "Should not have gotten an error checking ramp state (and getting true)");
 }
 
 -(void)testCFUWithRampOff
 {
     NSError* localError = nil;
-    NSInteger retryAfterInSeconds = 0;
     [self setUpRampRecordsInCloudKitWithFeatureOff];
 
-    XCTAssertTrue(![self.cfu checkRampState:&retryAfterInSeconds networkBehavior:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary error:&localError], @"should be false");
+    [self startCKKSSubsystem];
 
-    XCTAssertTrue(retryAfterInSeconds != 0, @"should be asked to retry later");
+    XCTAssertFalse([self.cfu checkRampStateWithError:&localError], @"should be false");
+    XCTAssertNil(localError, "Should not have gotten an error checking ramp state (and getting false)");
 }
 
 -(void)testCFUWithNonExistentRampRecord
 {
     NSError* localError = nil;
-    NSInteger retryAfterInSeconds = 0;
-    XCTAssertTrue(![self.cfu checkRampState:&retryAfterInSeconds networkBehavior:CKOperationDiscretionaryNetworkBehaviorNonDiscretionary error:&localError], @"should be false");
+
+    [self startCKKSSubsystem];
+
+    XCTAssertFalse([self.cfu checkRampStateWithError:&localError], @"should be false");
+    XCTAssertNotNil(localError, "Should have gotten an error checking ramp state (and getting false)");
+    XCTAssertEqual(localError.code, OTErrorRecordNotFound, "Error should be 'record not found'");
 }
 
 @end

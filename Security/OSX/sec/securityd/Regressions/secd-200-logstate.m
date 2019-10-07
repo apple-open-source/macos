@@ -35,11 +35,11 @@
 
 #include <CoreFoundation/CFDictionary.h>
 
-#include <Security/SecureObjectSync/SOSAccount.h>
+#include "keychain/SecureObjectSync/SOSAccount.h"
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
-#include <Security/SecureObjectSync/SOSInternal.h>
-#include <Security/SecureObjectSync/SOSUserKeygen.h>
-#include <Security/SecureObjectSync/SOSTransport.h>
+#include "keychain/SecureObjectSync/SOSInternal.h"
+#include "keychain/SecureObjectSync/SOSUserKeygen.h"
+#include "keychain/SecureObjectSync/SOSTransport.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -58,9 +58,6 @@
 #include "SecdTestKeychainUtilities.h"
 
 #define HOW_MANY_MINIONS 4
-
-static int kTestTestCount = ((HOW_MANY_MINIONS+1)*20);
-
 
 static bool SOSArrayForEachAccount(CFArrayRef accounts, bool (^operation)(SOSAccount* account)) {
     __block bool retval = true;
@@ -229,7 +226,7 @@ static void tests(void)
 
 int secd_200_logstate(int argc, char *const *argv)
 {
-    plan_tests(kTestTestCount);
+    plan_tests(((HOW_MANY_MINIONS+1)*10 + 1));
     
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     

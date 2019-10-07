@@ -20,6 +20,7 @@
  *
  * @APPLE_LICENSE_HEADER_END@
  */
+#if OCTAGON
 
 #import <Foundation/Foundation.h>
 
@@ -40,4 +41,4 @@
 + (NSString*) constructRecordID:(NSString*)escrowRecordID escrowSigningSPKI:(NSData*)escrowSigningSPKI;
 
 @end
-
+#endif

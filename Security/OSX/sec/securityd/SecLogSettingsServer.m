@@ -5,10 +5,10 @@
 //
 
 #include <securityd/SecLogSettingsServer.h>
-#import <Security/SecureObjectSync/SOSAccountPriv.h>
+#include "keychain/SecureObjectSync/SOSAccountPriv.h"
 #include <Security/SecBase.h>
 #include <Security/SecLogging.h>
-#include <Security/SecureObjectSync/SOSTransportCircle.h>
+#include "keychain/SecureObjectSync/SOSTransportCircle.h"
 #include <utilities/debugging.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCFError.h>

@@ -136,6 +136,7 @@ static void modssl_ctx_init(modssl_ctx_t *mctx, apr_pool_t *p)
     mctx->auth.cipher_suite   = NULL;
     mctx->auth.verify_depth   = UNSET;
     mctx->auth.verify_mode    = SSL_CVERIFY_UNSET;
+    mctx->auth.tls13_ciphers = NULL;
 
     mctx->ocsp_mask           = UNSET;
     mctx->ocsp_force_default  = UNSET;
@@ -222,7 +223,6 @@ static SSLSrvConfigRec *ssl_config_server_new(apr_pool_t *p)
 #ifdef HAVE_FIPS
     sc->fips                   = UNSET;
 #endif
-	sc->allow_empty_fragments  = UNSET;
 #ifndef OPENSSL_NO_COMP
     sc->compression            = UNSET;
 #endif
@@ -281,6 +281,7 @@ static void modssl_ctx_cfg_merge(apr_pool_t *p,
     cfgMergeString(auth.cipher_suite);
     cfgMergeInt(auth.verify_depth);
     cfgMerge(auth.verify_mode, SSL_CVERIFY_UNSET);
+    cfgMergeString(auth.tls13_ciphers);
 
     cfgMergeInt(ocsp_mask);
     cfgMergeBool(ocsp_force_default);
@@ -400,8 +401,6 @@ void *ssl_config_server_merge(apr_pool_t *p, void *basev, void *addv)
 #endif
     cfgMergeBool(session_tickets);
 
-    cfgMergeBool(allow_empty_fragments);
-
     modssl_ctx_cfg_merge_server(p, base->server, add->server, mrg->server);
 
     return mrg;
@@ -468,6 +467,8 @@ static void modssl_ctx_cfg_merge_proxy(apr_pool_t *p,
     cfgMergeString(pkp->cert_file);
     cfgMergeString(pkp->cert_path);
     cfgMergeString(pkp->ca_cert_file);
+    cfgMergeString(pkp->certs);
+    cfgMergeString(pkp->ca_certs);
 }
 
 void *ssl_config_perdir_merge(apr_pool_t *p, void *basev, void *addv)
@@ -762,40 +763,39 @@ const char *ssl_cmd_SSLFIPS(cmd_parms *cmd, void *dcfg, int flag)
     return NULL;
 }
 
-const char *ssl_cmd_SSLAllowEmptyFragments(cmd_parms *cmd, void *dcfg, int flag)
-{
-    SSLSrvConfigRec *sc = mySrvConfig(cmd->server);
-    const char *err;
-
-    if ((err = ap_check_cmd_context(cmd, GLOBAL_ONLY))) {
-        return err;
-    }
-
-    if ((sc->allow_empty_fragments != UNSET) && (sc->allow_empty_fragments != (BOOL)(flag ? TRUE : FALSE)))
-        return "Conflicting SSLAllowEmptyFragments options, cannot be both On and Off";
-    sc->allow_empty_fragments = flag ? TRUE : FALSE;
-
-    return NULL;
-}
-
 const char *ssl_cmd_SSLCipherSuite(cmd_parms *cmd,
                                    void *dcfg,
-                                   const char *arg)
+                                   const char *arg1, const char *arg2)
 {
     SSLSrvConfigRec *sc = mySrvConfig(cmd->server);
     SSLDirConfigRec *dc = (SSLDirConfigRec *)dcfg;
 
-    /* always disable null and export ciphers */
-    arg = apr_pstrcat(cmd->pool, arg, ":!aNULL:!eNULL:!EXP", NULL);
-
-    if (cmd->path) {
-        dc->szCipherSuite = arg;
+    if (arg2 == NULL) {
+        arg2 = arg1;
+        arg1 = "SSL";
     }
-    else {
-        sc->server->auth.cipher_suite = arg;
+    
+    if (!strcmp("SSL", arg1)) {
+        /* always disable null and export ciphers */
+        arg2 = apr_pstrcat(cmd->pool, arg2, ":!aNULL:!eNULL:!EXP", NULL);
+        if (cmd->path) {
+            dc->szCipherSuite = arg2;
+        }
+        else {
+            sc->server->auth.cipher_suite = arg2;
+        }
+        return NULL;
     }
-
-    return NULL;
+#if SSL_HAVE_PROTOCOL_TLSV1_3
+    else if (!strcmp("TLSv1.3", arg1)) {
+        if (cmd->path) {
+            return "TLSv1.3 ciphers cannot be set inside a directory context";
+        }
+        sc->server->auth.tls13_ciphers = arg2;
+        return NULL;
+    }
+#endif
+    return apr_pstrcat(cmd->pool, "procotol '", arg1, "' not supported", NULL);
 }
 
 #define SSL_FLAGS_CHECK_FILE \
@@ -1467,6 +1467,9 @@ static const char *ssl_cmd_protocol_parse(cmd_parms *parms,
         else if (strcEQ(w, "TLSv1.2")) {
             thisopt = SSL_PROTOCOL_TLSV1_2;
         }
+        else if (SSL_HAVE_PROTOCOL_TLSV1_3 && strcEQ(w, "TLSv1.3")) {
+            thisopt = SSL_PROTOCOL_TLSV1_3;
+        }
 #endif
         else if (strcEQ(w, "all")) {
             thisopt = SSL_PROTOCOL_ALL;
@@ -1528,16 +1531,28 @@ const char *ssl_cmd_SSLProxyProtocol(cmd_parms *cmd,
 
 const char *ssl_cmd_SSLProxyCipherSuite(cmd_parms *cmd,
                                         void *dcfg,
-                                        const char *arg)
+                                        const char *arg1, const char *arg2)
 {
     SSLDirConfigRec *dc = (SSLDirConfigRec *)dcfg;
-
-    /* always disable null and export ciphers */
-    arg = apr_pstrcat(cmd->pool, arg, ":!aNULL:!eNULL:!EXP", NULL);
-
-    dc->proxy->auth.cipher_suite = arg;
-
-    return NULL;
+    
+    if (arg2 == NULL) {
+        arg2 = arg1;
+        arg1 = "SSL";
+    }
+    
+    if (!strcmp("SSL", arg1)) {
+        /* always disable null and export ciphers */
+        arg2 = apr_pstrcat(cmd->pool, arg2, ":!aNULL:!eNULL:!EXP", NULL);
+        dc->proxy->auth.cipher_suite = arg2;
+        return NULL;
+    }
+#if SSL_HAVE_PROTOCOL_TLSV1_3
+    else if (!strcmp("TLSv1.3", arg1)) {
+        dc->proxy->auth.tls13_ciphers = arg2;
+        return NULL;
+    }
+#endif
+    return apr_pstrcat(cmd->pool, "procotol '", arg1, "' not supported", NULL);
 }
 
 const char *ssl_cmd_SSLProxyVerify(cmd_parms *cmd,

@@ -159,8 +159,9 @@ static int patchtestreg (FuncState *fs, int node, int reg) {
 
 
 static void removevalues (FuncState *fs, int list) {
-  for (; list != NO_JUMP; list = getjump(fs, list))
+    for (; list != NO_JUMP; list = getjump(fs, list)) {
       patchtestreg(fs, list, NO_REG);
+    }
 }
 
 

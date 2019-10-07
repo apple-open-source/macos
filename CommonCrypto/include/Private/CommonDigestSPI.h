@@ -26,7 +26,14 @@
 
 #include <stdint.h>
 #include <sys/types.h>
+
+#if defined(_MSC_VER)
+#include <availability.h>
+#else
 #include <os/availability.h>
+#endif
+
+#include <CommonCrypto/CommonDigest.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,44 +47,28 @@ extern "C" {
     @constant 	kCCDigestNone		Digest Selector for "no digest"
     @constant 	kCCDigestMD2		MD2 digest, Deprecated in iPhoneOS 11.0 and MacOSX10.13
     @constant 	kCCDigestMD4		MD4 digest, Deprecated in iPhoneOS 11.0 and MacOSX10.13
-    @constant 	kCCDigestMD5		MD5 digest
-    @constant 	kCCDigestRMD128		RMD 128 bit digest
-    @constant 	kCCDigestRMD160		RMD 160 bit digest
-    @constant 	kCCDigestRMD256		RMD 256 bit digest
-    @constant 	kCCDigestRMD320		RMD 320 bit digest
-    @constant 	kCCDigestSHA1		SHA-1 digest
+    @constant 	kCCDigestMD5		MD5 digest, Deprecated in iPhoneOS 13.0 and MacOSX10.15
+    @constant 	kCCDigestRMD160		RMD 160 bit digest, Deprecated in iPhoneOS 13.0 and MacOSX10.15
+    @constant 	kCCDigestSHA1		SHA-1 digest, Deprecated in iPhoneOS 13.0 and MacOSX10.15
     @constant 	kCCDigestSHA224		SHA-2 224 bit digest
     @constant 	kCCDigestSHA256		SHA-2 256 bit digest
     @constant 	kCCDigestSHA384		SHA-2 384 bit digest
     @constant 	kCCDigestSHA512		SHA-2 512 bit digest
-    @constant 	kCCDigestSkein128	Skein 128 bit digest, Deprecated in iPhoneOS 6.0 and MacOSX10.9
-    @constant 	kCCDigestSkein160	Skein 160 bit digest, Deprecated in iPhoneOS 6.0 and MacOSX10.9
-    @constant 	kCCDigestSkein224	Skein 224 bit digest, Deprecated in iPhoneOS 6.0 and MacOSX10.9
-    @constant 	kCCDigestSkein256	Skein 256 bit digest, Deprecated in iPhoneOS 6.0 and MacOSX10.9
-    @constant 	kCCDigestSkein384	Skein 384 bit digest, Deprecated in iPhoneOS 6.0 and MacOSX10.9
-    @constant 	kCCDigestSkein512	Skein 512 bit digest, Deprecated in iPhoneOS 6.0 and MacOSX10.9
  */
 
 enum {
     kCCDigestNone = 0,
-	kCCDigestMD2 API_DEPRECATED("No longer supported", macos(10.4, 10.13), ios(5.0, 11.0))      = 1,
-	kCCDigestMD4 API_DEPRECATED("No longer supported", macos(10.4, 10.13), ios(5.0, 11.0))      = 2,
-	kCCDigestMD5 				= 3,
-	kCCDigestRMD128				= 4,
-	kCCDigestRMD160				= 5,
-	kCCDigestRMD256				= 6,
-	kCCDigestRMD320				= 7,
-	kCCDigestSHA1				= 8,
-	kCCDigestSHA224				= 9,
-	kCCDigestSHA256				= 10,
-	kCCDigestSHA384				= 11,
-	kCCDigestSHA512				= 12,
-	kCCDigestSkein128 API_DEPRECATED("No longer supported", macos(10.4, 10.9), ios(5.0, 6.0))  = 13,
-	kCCDigestSkein160 API_DEPRECATED("No longer supported", macos(10.4, 10.9), ios(5.0, 6.0))  = 14,
-	kCCDigestSkein224 API_DEPRECATED("No longer supported", macos(10.4, 10.9), ios(5.0, 6.0))  = 16,
-	kCCDigestSkein256 API_DEPRECATED("No longer supported", macos(10.4, 10.9), ios(5.0, 6.0))  = 17,
-	kCCDigestSkein384 API_DEPRECATED("No longer supported", macos(10.4, 10.9), ios(5.0, 6.0))  = 18,
-	kCCDigestSkein512 API_DEPRECATED("No longer supported", macos(10.4, 10.9), ios(5.0, 6.0))  = 19,
+	kCCDigestMD2 API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.13), ios(5.0, 11.0)) = 1,
+	kCCDigestMD4 API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.13), ios(5.0, 11.0)) = 2,
+	kCCDigestMD5 API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(5.0, 13.0)) = 3,
+	kCCDigestRMD160 API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(5.0, 13.0)) = 5,
+	kCCDigestSHA1 API_DEPRECATED(CC_DIGEST_DEPRECATION_WARNING, macos(10.4, 10.15), ios(5.0, 13.0)) = 8,
+	kCCDigestSHA224 = 9,
+	kCCDigestSHA256 = 10,
+	kCCDigestSHA384 = 11,
+	kCCDigestSHA512 = 12,
+
+    kCCDigestMax
 };
 typedef uint32_t CCDigestAlgorithm;
 
@@ -94,22 +85,6 @@ typedef uint32_t CCDigestAlgorithm;
 typedef struct CCDigestCtx_t {
     uint8_t context[CC_DIGEST_SIZE];
 } CCDigestCtx, *CCDigestRef;
-
-#define CC_RMD128_DIGEST_LENGTH   16          /* digest length in bytes */
-#define CC_RMD128_BLOCK_BYTES     64          /* block size in bytes */
-#define CC_RMD128_BLOCK_LONG      (CC_RMD128_BLOCK_BYTES / sizeof(CC_LONG))
-
-#define CC_RMD160_DIGEST_LENGTH   20          /* digest length in bytes */
-#define CC_RMD160_BLOCK_BYTES     64          /* block size in bytes */
-#define CC_RMD160_BLOCK_LONG      (CC_RMD160_BLOCK_BYTES / sizeof(CC_LONG))
-
-#define CC_RMD256_DIGEST_LENGTH   32          /* digest length in bytes */
-#define CC_RMD256_BLOCK_BYTES     64          /* block size in bytes */
-#define CC_RMD256_BLOCK_LONG      (CC_RMD256_BLOCK_BYTES / sizeof(CC_LONG))
-
-#define CC_RMD320_DIGEST_LENGTH   40          /* digest length in bytes */
-#define CC_RMD320_BLOCK_BYTES     64          /* block size in bytes */
-#define CC_RMD320_BLOCK_LONG      (CC_RMD320_BLOCK_BYTES / sizeof(CC_LONG))
 
 /**************************************************************************/
 /* SPI Only                                                               */

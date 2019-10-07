@@ -81,6 +81,7 @@ struct _ntfs_volume {
 	u32 mft_record_size;		/* in bytes */
 	u32 mft_record_size_mask;	/* mft_record_size - 1 */
 	u8 mft_record_size_shift;	/* log2(mft_record_size) */
+	u64 mft_records_per_sector_mask;/* mft_records_per_sector - 1 */
 	u8 blocks_per_index_block;	/* This is used as the default for the
 					   corresponding value in the
 					   $INDEX_ROOT attribute when creating

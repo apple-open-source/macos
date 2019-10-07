@@ -829,7 +829,7 @@ PRIVATE unsigned32 rpc__cn_unpack_hdr
                     return (st);
                 }
             }
-            pconp = (rpc_cn_pres_cont_list_p_t)((unsigned8 *)(&RPC_CN_PKT_ASSOC_GROUP_ID (pkt_p)) + 4);
+            pconp = (rpc_cn_pres_cont_list_p_t)(void *)((unsigned8 *)(&RPC_CN_PKT_ASSOC_GROUP_ID (pkt_p)) + 4);
             authp = unpack_pres_context_list (pconp, swap, end_of_pkt, &st);
             if (st != rpc_s_ok)
             {
@@ -862,7 +862,7 @@ PRIVATE unsigned32 rpc__cn_unpack_hdr
                     return (st);
                 }
             }
-            secadrp = (rpc_cn_port_any_t *)
+            secadrp = (rpc_cn_port_any_t *)(void *)
                 ((unsigned8 *)(pkt_p) + RPC_CN_PKT_SIZEOF_BIND_ACK_HDR);
             presp = unpack_port_any (secadrp, drepp, end_of_pkt, &st);
             if (st != rpc_s_ok)
@@ -1019,7 +1019,7 @@ PRIVATE unsigned32 rpc__cn_unpack_hdr
 #endif
                 rpc_authn_protocol_id_t authn_protocol;
 
-                authp = RPC_CN_PKT_AUTH_TLR (pkt_p, RPC_CN_PKT_FRAG_LEN (pkt_p));
+                authp = (void *)RPC_CN_PKT_AUTH_TLR (pkt_p, RPC_CN_PKT_FRAG_LEN (pkt_p));
 #ifdef DEBUG
                 p = (char *)authp;
                 force_alignment(4, (unsigned8 **)&authp);

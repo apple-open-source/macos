@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,7 +52,7 @@ typedef struct {
  * Type: DHCPv6SocketReceiveFunc
  * Purpose:
  *   Called to deliver data to the client.  The first two args are
- *   supplied by the client, the third is a pointer to a DHCPv6Receive_data_t.
+ *   supplied by the client, the third is a DHCPv6ReceiveDataRef.
  */
 typedef void (DHCPv6SocketReceiveFunc)(void * arg1, void * arg2, void * arg3);
 typedef DHCPv6SocketReceiveFunc * DHCPv6SocketReceiveFuncPtr;

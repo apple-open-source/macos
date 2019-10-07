@@ -288,8 +288,13 @@ _gss_ntlm_accept_sec_context
 	    dispatch_once(&once, ^{
 		    krb5_init_context(&context);
 		});
-	    if (context)
+	    if (context) {
+#ifdef HAVE_KCM
 		krb5_kcm_ntlm_challenge(context, ctx->challenge);
+#else
+		_gss_mg_log(1, "krb5_kcm_ntlm_challenge -  GSS_S_UNAVAILABLE");
+#endif
+	    }
 	}
 
 	data.data = input_token_buffer->value;

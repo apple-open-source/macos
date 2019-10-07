@@ -25,8 +25,6 @@
 
 #import <WebKit/WKFoundation.h>
 
-#if WK_API_ENABLED
-
 #if PLATFORM(IOS_FAMILY)
 
 #import <WebKit/WKPageLoadTypes.h>
@@ -39,7 +37,12 @@
 @class WKWebView;
 @protocol NSObject;
 struct CGSize;
+
+#ifdef FOUNDATION_HAS_DIRECTIONAL_GEOMETRY
+typedef NSEdgeInsets UIEdgeInsets;
+#else
 struct UIEdgeInsets;
+#endif
 
 @protocol WKWebViewContentProvider <NSObject>
 
@@ -54,6 +57,7 @@ struct UIEdgeInsets;
 - (void)web_findString:(NSString *)string options:(_WKFindOptions)options maxCount:(NSUInteger)maxCount;
 - (void)web_hideFindUI;
 @property (nonatomic, readonly) UIView *web_contentView;
+@property (nonatomic, readonly, class) BOOL web_requiresCustomSnapshotting;
 
 @optional
 - (void)web_scrollViewDidScroll:(UIScrollView *)scrollView;
@@ -62,6 +66,7 @@ struct UIEdgeInsets;
 - (void)web_scrollViewDidZoom:(UIScrollView *)scrollView;
 - (void)web_beginAnimatedResizeWithUpdates:(void (^)(void))updateBlock;
 - (BOOL)web_handleKeyEvent:(UIEvent *)event;
+- (void)web_snapshotRectInContentViewCoordinates:(CGRect)contentViewCoordinates snapshotWidth:(CGFloat)snapshotWidth completionHandler:(void (^)(CGImageRef))completionHandler;
 @property (nonatomic, readonly) NSData *web_dataRepresentation;
 @property (nonatomic, readonly) NSString *web_suggestedFilename;
 @property (nonatomic, readonly) BOOL web_isBackground;
@@ -69,6 +74,4 @@ struct UIEdgeInsets;
 @end
 
 #endif // PLATFORM(IOS_FAMILY)
-
-#endif // WK_API_ENABLED
 

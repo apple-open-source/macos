@@ -24,6 +24,7 @@
 #if OCTAGON
 
 #import "CKKSGroupOperation.h"
+#import "keychain/ot/ObjCImprovements.h"
 #include <utilities/debugging.h>
 
 @interface CKKSGroupOperation()
@@ -39,7 +40,7 @@
 
 - (instancetype)init {
     if(self = [super init]) {
-        __weak __typeof(self) weakSelf = self;
+        WEAKIFY(self);
 
         _fillInError = true;
 
@@ -50,31 +51,31 @@
 
         // At start, we'll call this method (for subclasses)
         _startOperation = [NSBlockOperation blockOperationWithBlock:^{
-            __strong __typeof(weakSelf) strongSelf = weakSelf;
-            if(!strongSelf) {
+            STRONGIFY(self);
+            if(!self) {
                 secerror("ckks: received callback for released object");
                 return;
             }
 
-            if(![strongSelf allDependentsSuccessful]) {
-                secdebug("ckksgroup", "Not running due to some failed dependent: %@", strongSelf.error);
-                [strongSelf cancel];
+            if(![self allDependentsSuccessful]) {
+                secdebug("ckksgroup", "Not running due to some failed dependent: %@", self.error);
+                [self cancel];
                 return;
             }
 
-            [strongSelf groupStart];
+            [self groupStart];
         }];
         [self.startOperation removeDependenciesUponCompletion];
 
         // The finish operation will 'finish' us
         _finishOperation = [NSBlockOperation blockOperationWithBlock:^{
-            __strong __typeof(weakSelf) strongSelf = weakSelf;
-            if(!strongSelf) {
+            STRONGIFY(self);
+            if(!self) {
                 secerror("ckks: received callback for released object");
                 return;
             }
 
-            [strongSelf completeOperation];
+            [self completeOperation];
         }];
         [self.finishOperation removeDependenciesUponCompletion];
 
@@ -297,21 +298,21 @@
 }
 
 + (instancetype)operationWithBlock:(void (^)(void))block {
-    CKKSGroupOperation* op = [[CKKSGroupOperation alloc] init];
+    CKKSGroupOperation* op = [[self alloc] init];
     NSBlockOperation* blockOp = [NSBlockOperation blockOperationWithBlock:block];
     [op runBeforeGroupFinished:blockOp];
     return op;
 }
 
-+(instancetype)named:(NSString*)name withBlock:(void(^)(void)) block {
-    CKKSGroupOperation* blockOp = [CKKSGroupOperation operationWithBlock: block];
++ (instancetype)named:(NSString*)name withBlock:(void(^)(void)) block {
+    CKKSGroupOperation* blockOp = [self operationWithBlock: block];
     blockOp.name = name;
     return blockOp;
 }
 
 + (instancetype)named:(NSString*)name withBlockTakingSelf:(void(^)(CKKSGroupOperation* strongOp))block
 {
-    CKKSGroupOperation* op = [[CKKSGroupOperation alloc] init];
+    CKKSGroupOperation* op = [[self alloc] init];
     __weak __typeof(op) weakOp = op;
     [op runBeforeGroupFinished:[NSBlockOperation blockOperationWithBlock:^{
         __strong __typeof(op) strongOp = weakOp;

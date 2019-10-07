@@ -47,6 +47,27 @@ NSString* const CKKSAnalyticsLastUnlock = @"lastUnlock";
 NSString* const CKKSAnalyticsLastKeystateReady = @"lastKSR";
 NSString* const CKKSAnalyticsLastInCircle = @"lastInCircle";
 
+NSString* const OctagonAnalyticsStateMachineState = @"OASMState";
+NSString* const OctagonAnalyticIcloudAccountState = @"OAiC";
+NSString* const OctagonAnalyticsTrustState = @"OATrust";
+NSString* const OctagonAnalyticsLastHealthCheck = @"OAHealthCheck";
+NSString* const OctagonAnalyticsSOSStatus = @"OASOSStatus";
+NSString* const OctagonAnalyticsDateOfLastPreflightPreapprovedJoin = @"OALastPPJ";
+NSString* const OctagonAnalyticsLastKeystateReady = @"OALastKSR";
+NSString* const OctagonAnalyticsLastCoreFollowup = @"OALastCFU";
+NSString* const OctagonAnalyticsCoreFollowupStatus = @"OACFUStatus";
+NSString* const OctagonAnalyticsCoreFollowupFailureCount = @"OACFUTFailureCount";
+NSString* const OctagonAnalyticsCoreFollowupLastFailureTime = @"OACFULastFailureTime";
+NSString* const OctagonAnalyticsPrerecordPending = @"OAPrerecordPending";
+NSString* const OctagonAnalyticsCDPStateRun = @"OACDPStateRun";
+
+NSString* const OctagonAnalyticsKVSProvisioned = @"OADCKVSProvisioned";
+NSString* const OctagonAnalyticsKVSEnabled = @"OADCKVSEnabled";
+NSString* const OctagonAnalyticsKeychainSyncProvisioned = @"OADCKCSProvisioned";
+NSString* const OctagonAnalyticsKeychainSyncEnabled = @"OADCKCSEnabled";
+NSString* const OctagonAnalyticsCloudKitProvisioned = @"OADCCKProvisioned";
+NSString* const OctagonAnalyticsCloudKitEnabled = @"OADCCKEnabled";
+
 static NSString* const CKKSAnalyticsAttributeRecoverableError = @"recoverableError";
 static NSString* const CKKSAnalyticsAttributeZoneName = @"zone";
 static NSString* const CKKSAnalyticsAttributeErrorDomain = @"errorDomain";
@@ -59,6 +80,7 @@ CKKSAnalyticsFailableEvent* const CKKSEventProcessOutgoingQueue = (CKKSAnalytics
 CKKSAnalyticsFailableEvent* const CKKSEventUploadChanges = (CKKSAnalyticsFailableEvent*)@"CKKSEventUploadChanges";
 CKKSAnalyticsFailableEvent* const CKKSEventStateError = (CKKSAnalyticsFailableEvent*)@"CKKSEventStateError";
 CKKSAnalyticsFailableEvent* const CKKSEventProcessHealKeyHierarchy = (CKKSAnalyticsFailableEvent *)@"CKKSEventProcessHealKeyHierarchy";
+CKKSAnalyticsFailableEvent* const CKKSEventProcessReencryption = (CKKSAnalyticsFailableEvent *)@"CKKSEventProcessReencryption";
 
 NSString* const OctagonEventFailureReason = @"FailureReason";
 
@@ -71,19 +93,87 @@ CKKSAnalyticsFailableEvent* const OctagonEventSignOut = (CKKSAnalyticsFailableEv
 CKKSAnalyticsFailableEvent* const OctagonEventRamp = (CKKSAnalyticsFailableEvent *)@"OctagonEventRamp";
 CKKSAnalyticsFailableEvent* const OctagonEventBottleCheck = (CKKSAnalyticsFailableEvent *)@"OctagonEventBottleCheck";
 CKKSAnalyticsFailableEvent* const OctagonEventCoreFollowUp = (CKKSAnalyticsFailableEvent *)@"OctagonEventCoreFollowUp";
+CKKSAnalyticsFailableEvent* const OctagonEventUpdateBottle = (CKKSAnalyticsFailableEvent*)@"OctagonEventUpdateBottle";
+
+CKKSAnalyticsFailableEvent* const OctagonEventCheckTrustState = (CKKSAnalyticsFailableEvent *)@"OctagonEventCheckTrustState";
+
+CKKSAnalyticsFailableEvent* const OctagonEventBottledPeerRestore = (CKKSAnalyticsFailableEvent*)@"OctagonEventBottledPeerRestore";
+CKKSAnalyticsFailableEvent* const OctagonEventRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventRecoveryKey";
+
+CKKSAnalyticsFailableEvent* const OctagonEventFetchAllBottles = (CKKSAnalyticsFailableEvent*)@"OctagonEventFetchAllBottles";
+CKKSAnalyticsFailableEvent* const OctagonEventFetchEscrowContents = (CKKSAnalyticsFailableEvent*)@"OctagonEventFetchEscrowContents";
+CKKSAnalyticsFailableEvent* const OctagonEventResetAndEstablish = (CKKSAnalyticsFailableEvent*)@"OctagonEventResetAndEstablish";
+CKKSAnalyticsFailableEvent* const OctagonEventEstablish = (CKKSAnalyticsFailableEvent*)@"OctagonEventEstablish";
+CKKSAnalyticsFailableEvent* const OctagonEventLeaveClique = (CKKSAnalyticsFailableEvent*)@"OctagonEventLeaveClique";
+CKKSAnalyticsFailableEvent* const OctagonEventRemoveFriendsInClique = (CKKSAnalyticsFailableEvent*)@"OctagonEventRemoveFriendsInClique";
+
+CKKSAnalyticsFailableEvent* const OctagonEventUpgradeFetchDeviceIDs = (CKKSAnalyticsFailableEvent*)@"OctagonEventUpgradeFetchDeviceIDs";
+CKKSAnalyticsFailableEvent* const OctagonEventUpgradeSetAllowList = (CKKSAnalyticsFailableEvent*)@"OctagonEventUpgradeSetAllowList";
+CKKSAnalyticsFailableEvent* const OctagonEventUpgradeSilentEscrow = (CKKSAnalyticsFailableEvent*)@"OctagonEventUpgradeSilentEscrow";
+CKKSAnalyticsFailableEvent* const OctagonEventUpgradePreapprovedJoin = (CKKSAnalyticsFailableEvent*)@"OctagonEventUpgradePreapprovedJoin";
+CKKSAnalyticsFailableEvent* const OctagonEventUpgradePreflightPreapprovedJoin = (CKKSAnalyticsFailableEvent*)@"OctagonEventUpgradePreflightPreapprovedJoin";
+CKKSAnalyticsFailableEvent* const OctagonEventUpgradePreapprovedJoinAfterPairing = (CKKSAnalyticsFailableEvent*)@"OctagonEventUpgradePreapprovedJoinAfterPairing";
+CKKSAnalyticsFailableEvent* const OctagonEventUpgradePrepare = (CKKSAnalyticsFailableEvent*)@"OctagonEventUpgradePrepare";
+
+CKKSAnalyticsFailableEvent* const OctagonEventJoinWithVoucher = (CKKSAnalyticsFailableEvent*)@"OctagonEventJoinWithVoucher";
+
+CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithBottle = (CKKSAnalyticsFailableEvent*)@"OctagonEventVoucherWithBottle";
+
+CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventVoucherWithRecoveryKey";
+
+CKKSAnalyticsFailableEvent* const OctagonEventSetRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventSetRecoveryKey";
+
+CKKSAnalyticsFailableEvent* const OctagonEventSetRecoveryKeyValidationFailed = (CKKSAnalyticsFailableEvent*)@"OctagonEventSetRecoveryKeyValidationFailed";
+CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyValidationFailed = (CKKSAnalyticsFailableEvent*)@"OctagonEventJoinRecoveryKeyValidationFailed";
+CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyCircleReset = (CKKSAnalyticsFailableEvent*)@"OctagonEventJoinRecoveryKeyCircleReset";
+CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyCircleResetFailed = (CKKSAnalyticsFailableEvent*)@"OctagonEventJoinRecoveryKeyCircleResetFailed";
+CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyEnrollFailed = (CKKSAnalyticsFailableEvent*)@"OctagonEventJoinRecoveryKeyEnrollFailed";
+CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyFailed = (CKKSAnalyticsFailableEvent*)@"OctagonEventJoinRecoveryKeyFailed";
+
+CKKSAnalyticsFailableEvent* const OctagonEventReset = (CKKSAnalyticsFailableEvent*)@"OctagonEventReset";
+
+CKKSAnalyticsFailableEvent* const OctagonEventPrepareIdentity = (CKKSAnalyticsFailableEvent*)@"OctagonEventPrepareIdentity";
+
+CKKSAnalyticsFailableEvent* const OctagonEventEstablishIdentity = (CKKSAnalyticsFailableEvent*)@"OctagonEventEstablishIdentity";
+CKKSAnalyticsFailableEvent* const OctagonEventFetchViews = (CKKSAnalyticsFailableEvent*)@"OctagonEventFetchViews";
+
+CKKSAnalyticsFailableEvent* const OctagonEventStateTransition = (CKKSAnalyticsFailableEvent*)@"OctagonEventStateTransition";
+
+CKKSAnalyticsFailableEvent* const OctagonEventCompanionPairing = (CKKSAnalyticsFailableEvent*)@"OctagonEventCompanionPairing";
+
+CKKSAnalyticsFailableEvent* const OctagonEventCheckTrustForCFU = (CKKSAnalyticsFailableEvent*)@"OctagonEventCheckTrustForCFU";
 
 CKKSAnalyticsSignpostEvent* const CKKSEventPushNotificationReceived = (CKKSAnalyticsSignpostEvent*)@"CKKSEventPushNotificationReceived";
 CKKSAnalyticsSignpostEvent* const CKKSEventItemAddedToOutgoingQueue = (CKKSAnalyticsSignpostEvent*)@"CKKSEventItemAddedToOutgoingQueue";
 CKKSAnalyticsSignpostEvent* const CKKSEventMissingLocalItemsFound = (CKKSAnalyticsSignpostEvent*)@"CKKSEventMissingLocalItemsFound";
 CKKSAnalyticsSignpostEvent* const CKKSEventReachabilityTimerExpired = (CKKSAnalyticsSignpostEvent *)@"CKKSEventReachabilityTimerExpired";
 
+CKKSAnalyticsFailableEvent* const OctagonEventTPHHealthCheckStatus = (CKKSAnalyticsFailableEvent*)@"OctagonEventTPHHealthCheckStatus";
+
 CKKSAnalyticsActivity* const CKKSActivityOTFetchRampState = (CKKSAnalyticsActivity *)@"CKKSActivityOTFetchRampState";
-CKKSAnalyticsActivity* const CKKSActivityOctagonSignIn = (CKKSAnalyticsActivity *)@"CKKSActivityOctagonSignIn";
 CKKSAnalyticsActivity* const CKKSActivityOctagonPreflightBottle = (CKKSAnalyticsActivity *)@"CKKSActivityOctagonPreflightBottle";
 CKKSAnalyticsActivity* const CKKSActivityOctagonLaunchBottle = (CKKSAnalyticsActivity *)@"CKKSActivityOctagonLaunchBottle";
 CKKSAnalyticsActivity* const CKKSActivityOctagonRestore = (CKKSAnalyticsActivity *)@"CKKSActivityOctagonRestore";
 CKKSAnalyticsActivity* const CKKSActivityScrubBottle = (CKKSAnalyticsActivity *)@"CKKSActivityScrubBottle";
 CKKSAnalyticsActivity* const CKKSActivityBottleCheck = (CKKSAnalyticsActivity *)@"CKKSActivityBottleCheck";
+CKKSAnalyticsActivity* const CKKSActivityOctagonUpdateBottle = (CKKSAnalyticsActivity *)@"CKKSActivityOctagonUpdateBottle";
+
+CKKSAnalyticsActivity* const OctagonActivityAccountAvailable = (CKKSAnalyticsActivity *)@"OctagonActivityAccountAvailable";
+CKKSAnalyticsActivity* const OctagonActivityAccountNotAvailable = (CKKSAnalyticsActivity *)@"OctagonActivityAccountNotAvailable";
+CKKSAnalyticsActivity* const OctagonActivityResetAndEstablish = (CKKSAnalyticsActivity *)@"OctagonActivityResetAndEstablish";
+CKKSAnalyticsActivity* const OctagonActivityEstablish = (CKKSAnalyticsActivity *)@"OctagonActivityEstablish";
+CKKSAnalyticsActivity* const OctagonSOSAdapterUpdateKeys = (CKKSAnalyticsActivity*)@"OctagonSOSAdapterUpdateKeys";
+
+CKKSAnalyticsActivity* const OctagonActivityFetchAllViableBottles = (CKKSAnalyticsActivity *)@"OctagonActivityFetchAllViableBottles";
+CKKSAnalyticsActivity* const OctagonActivityFetchEscrowContents = (CKKSAnalyticsActivity *)@"OctagonActivityFetchEscrowContents";
+CKKSAnalyticsActivity* const OctagonActivityBottledPeerRestore = (CKKSAnalyticsActivity *)@"OctagonActivityBottledPeerRestore";
+CKKSAnalyticsActivity* const OctagonActivitySetRecoveryKey = (CKKSAnalyticsActivity *)@"OctagonActivitySetRecoveryKey";
+CKKSAnalyticsActivity* const OctagonActivityJoinWithRecoveryKey = (CKKSAnalyticsActivity *)@"OctagonActivityJoinWithRecoveryKey";
+
+CKKSAnalyticsActivity* const OctagonActivityLeaveClique = (CKKSAnalyticsActivity *)@"OctagonActivityLeaveClique";
+CKKSAnalyticsActivity* const OctagonActivityRemoveFriendsInClique = (CKKSAnalyticsActivity *)@"OctagonActivityRemoveFriendsInClique";
+
+
 
 @implementation CKKSAnalytics
 
@@ -163,6 +253,30 @@ CKKSAnalyticsActivity* const CKKSActivityBottleCheck = (CKKSAnalyticsActivity *)
 
     return errorDictionary;
 }
+
+- (NSDictionary *)createErrorAttributes:(NSError *)error
+                                  depth:(NSUInteger)depth
+                             attributes:(NSDictionary *)attributes
+{
+    NSMutableDictionary* eventAttributes = [NSMutableDictionary dictionary];
+
+    /* Don't allow caller to overwrite our attributes, lets merge them first */
+    if (attributes) {
+        [eventAttributes setValuesForKeysWithDictionary:attributes];
+    }
+
+    [eventAttributes setValuesForKeysWithDictionary:@{
+                                                      CKKSAnalyticsAttributeRecoverableError : @(YES),
+                                                      CKKSAnalyticsAttributeErrorDomain : error.domain,
+                                                      CKKSAnalyticsAttributeErrorCode : @(error.code)
+                                                      }];
+
+    eventAttributes[CKKSAnalyticsAttributeErrorChain] = [self errorChain:error.userInfo[NSUnderlyingErrorKey] depth:0];
+    [self addCKPartialError:eventAttributes error:error depth:0];
+
+    return eventAttributes;
+}
+
 - (void)logRecoverableError:(NSError*)error forEvent:(CKKSAnalyticsFailableEvent*)event zoneName:(NSString*)zoneName withAttributes:(NSDictionary *)attributes
 {
     if (error == nil){
@@ -187,6 +301,31 @@ CKKSAnalyticsActivity* const CKKSActivityBottleCheck = (CKKSAnalyticsActivity *)
     
     [super logSoftFailureForEventNamed:event withAttributes:eventAttributes];
 }
+
+- (void)logRecoverableError:(NSError*)error forEvent:(CKKSAnalyticsFailableEvent*)event withAttributes:(NSDictionary *)attributes
+{
+    if (error == nil){
+        return;
+    }
+    NSMutableDictionary* eventAttributes = [NSMutableDictionary dictionary];
+
+    /* Don't allow caller to overwrite our attributes, lets merge them first */
+    if (attributes) {
+        [eventAttributes setValuesForKeysWithDictionary:attributes];
+    }
+
+    [eventAttributes setValuesForKeysWithDictionary:@{
+                                                      CKKSAnalyticsAttributeRecoverableError : @(YES),
+                                                      CKKSAnalyticsAttributeErrorDomain : error.domain,
+                                                      CKKSAnalyticsAttributeErrorCode : @(error.code)
+                                                      }];
+
+    eventAttributes[CKKSAnalyticsAttributeErrorChain] = [self errorChain:error.userInfo[NSUnderlyingErrorKey] depth:0];
+    [self addCKPartialError:eventAttributes error:error depth:0];
+
+    [super logSoftFailureForEventNamed:event withAttributes:eventAttributes];
+}
+
 - (void)logRecoverableError:(NSError*)error forEvent:(CKKSAnalyticsFailableEvent*)event inView:(CKKSKeychainView*)view withAttributes:(NSDictionary *)attributes
 {
     if (error == nil){

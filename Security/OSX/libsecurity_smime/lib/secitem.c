@@ -38,6 +38,7 @@
 #include "secitem.h"
 #include <security_asn1/seccomon.h>
 #include <security_asn1/secerr.h>
+#include <Security/x509defs.h>
 
 SECItem *
 SECITEM_AllocItem(PRArenaPool *arena, SECItem *item, size_t len)

@@ -88,8 +88,6 @@ using JSC::JSValue;
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
 
-using namespace WTF;
-
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -211,7 +209,7 @@ bool PluginView::startOrAddToUnstartedList()
     // ourselves. Otherwise, the loader will try to deliver data before we've
     // started the plug-in.
     if (!m_loadManually && !m_parentFrame->page()->canStartMedia()) {
-        m_parentFrame->document()->addMediaCanStartListener(this);
+        m_parentFrame->document()->addMediaCanStartListener(*this);
         m_isWaitingToStart = true;
         return true;
     }
@@ -287,7 +285,7 @@ PluginView::~PluginView()
         instanceMap().remove(m_instance);
 
     if (m_isWaitingToStart)
-        m_parentFrame->document()->removeMediaCanStartListener(this);
+        m_parentFrame->document()->removeMediaCanStartListener(*this);
 
     stop();
 
@@ -1276,17 +1274,19 @@ NPError PluginView::getValueForURL(NPNURLVariable variable, const char* url, cha
         if (u.isValid()) {
             Frame* frame = getFrame(parentFrame(), m_element);
             if (frame && frame->document()) {
-                const CString cookieStr = cookies(*frame->document(), u).utf8();
-                if (!cookieStr.isNull()) {
-                    const int size = cookieStr.length();
-                    *value = static_cast<char*>(NPN_MemAlloc(size+1));
-                    if (*value) {
-                        memset(*value, 0, size+1);
-                        memcpy(*value, cookieStr.data(), size+1);
-                        if (len)
-                            *len = size;
-                    } else
-                        result = NPERR_OUT_OF_MEMORY_ERROR;
+                if (auto* page = frame->document()->page()) {
+                    const CString cookieStr = page->cookieJar().cookies(*frame->document(), u).utf8();
+                    if (!cookieStr.isNull()) {
+                        const int size = cookieStr.length();
+                        *value = static_cast<char*>(NPN_MemAlloc(size+1));
+                        if (*value) {
+                            memset(*value, 0, size+1);
+                            memcpy(*value, cookieStr.data(), size+1);
+                            if (len)
+                                *len = size;
+                        } else
+                            result = NPERR_OUT_OF_MEMORY_ERROR;
+                    }
                 }
             }
         } else
@@ -1334,8 +1334,10 @@ NPError PluginView::setValueForURL(NPNURLVariable variable, const char* url, con
         if (u.isValid()) {
             const String cookieStr = String::fromUTF8(value, len);
             Frame* frame = getFrame(parentFrame(), m_element);
-            if (frame && frame->document() && !cookieStr.isEmpty())
-                setCookies(*frame->document(), u, cookieStr);
+            if (frame && frame->document() && !cookieStr.isEmpty()) {
+                if (auto* page = frame->document()->page())
+                    page->cookieJar().setCookies(*frame->document(), u, cookieStr);
+            }
         } else
             result = NPERR_INVALID_URL;
         break;

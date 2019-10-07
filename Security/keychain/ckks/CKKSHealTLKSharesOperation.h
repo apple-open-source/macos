@@ -26,6 +26,8 @@
 
 #if OCTAGON
 
+NS_ASSUME_NONNULL_BEGIN
+
 @class CKKSKeychainView;
 
 @interface CKKSHealTLKSharesOperation : CKKSGroupOperation
@@ -35,4 +37,5 @@
 - (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 @end
 
+NS_ASSUME_NONNULL_END
 #endif  // OCTAGON

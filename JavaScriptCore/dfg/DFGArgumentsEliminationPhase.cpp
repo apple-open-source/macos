@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -525,7 +525,7 @@ private:
         for (Node* candidate : m_candidates) {
             auto& set = inlineCallFramesForCandidate.add(candidate, InlineCallFrames()).iterator->value;
             forEachDependentNode(candidate, [&](Node* dependent) {
-                set.add(dependent->origin.semantic.inlineCallFrame);
+                set.add(dependent->origin.semantic.inlineCallFrame());
             });
         }
 
@@ -604,7 +604,20 @@ private:
                         }
 
                         // This loop considers all nodes up to the nodeIndex, excluding the nodeIndex.
-                        while (nodeIndex--) {
+                        //
+                        // Note: nodeIndex here has a double meaning. Before entering this
+                        // while loop, it refers to the remaining number of nodes that have
+                        // yet to be processed. Inside the look, it refers to the index
+                        // of the current node to process (after we decrement it).
+                        //
+                        // If the remaining number of nodes is 0, we should not decrement nodeIndex.
+                        // Hence, we must only decrement nodeIndex inside the while loop instead of
+                        // in its condition statement. Note that this while loop is embedded in an
+                        // outer for loop. If we decrement nodeIndex in the condition statement, a
+                        // nodeIndex of 0 will become UINT_MAX, and the outer loop will wrongly
+                        // treat this as there being UINT_MAX remaining nodes to process.
+                        while (nodeIndex) {
+                            --nodeIndex;
                             Node* node = block->at(nodeIndex);
                             if (node == candidate)
                                 break;
@@ -689,6 +702,12 @@ private:
                 case CreateRest:
                     if (!m_candidates.contains(node))
                         break;
+
+                    ASSERT(node->origin.exitOK);
+                    ASSERT(node->child1().useKind() == Int32Use);
+                    insertionSet.insertNode(
+                        nodeIndex, SpecNone, Check, node->origin,
+                        node->child1()); 
 
                     node->setOpAndDefaultFlags(PhantomCreateRest);
                     // We don't need this parameter for OSR exit, we can find out all the information
@@ -782,7 +801,7 @@ private:
                     Node* result = nullptr;
                     if (m_graph.varArgChild(node, 1)->isInt32Constant()) {
                         unsigned index = m_graph.varArgChild(node, 1)->asUInt32();
-                        InlineCallFrame* inlineCallFrame = candidate->origin.semantic.inlineCallFrame;
+                        InlineCallFrame* inlineCallFrame = candidate->origin.semantic.inlineCallFrame();
                         index += numberOfArgumentsToSkip;
                         
                         bool safeToGetStack = index >= numberOfArgumentsToSkip;
@@ -842,6 +861,9 @@ private:
                             nodeIndex, node->origin.withExitOK(canExit),
                             jsNumber(argumentCountIncludingThis));
                         insertionSet.insertNode(
+                            nodeIndex, SpecNone, KillStack, node->origin.takeValidExit(canExit),
+                            OpInfo(varargsData->count.offset()));
+                        insertionSet.insertNode(
                             nodeIndex, SpecNone, MovHint, node->origin.takeValidExit(canExit),
                             OpInfo(varargsData->count.offset()), Edge(argumentCountIncludingThisNode));
                         insertionSet.insertNode(
@@ -855,6 +877,8 @@ private:
                         StackAccessData* data =
                             m_graph.m_stackAccessData.add(reg, FlushedJSValue);
                         
+                        insertionSet.insertNode(
+                            nodeIndex, SpecNone, KillStack, node->origin.takeValidExit(canExit), OpInfo(reg.offset()));
                         insertionSet.insertNode(
                             nodeIndex, SpecNone, MovHint, node->origin.takeValidExit(canExit),
                             OpInfo(reg.offset()), Edge(value));
@@ -884,7 +908,7 @@ private:
                                 return true;
 
                             ASSERT(candidate->op() == PhantomCreateRest);
-                            InlineCallFrame* inlineCallFrame = candidate->origin.semantic.inlineCallFrame;
+                            InlineCallFrame* inlineCallFrame = candidate->origin.semantic.inlineCallFrame();
                             return inlineCallFrame && !inlineCallFrame->isVarargs();
                         });
 
@@ -910,7 +934,7 @@ private:
 
                                 ASSERT(candidate->op() == PhantomCreateRest);
                                 unsigned numberOfArgumentsToSkip = candidate->numberOfArgumentsToSkip();
-                                InlineCallFrame* inlineCallFrame = candidate->origin.semantic.inlineCallFrame;
+                                InlineCallFrame* inlineCallFrame = candidate->origin.semantic.inlineCallFrame();
                                 unsigned frameArgumentCount = inlineCallFrame->argumentCountIncludingThis - 1;
                                 if (frameArgumentCount >= numberOfArgumentsToSkip)
                                     return frameArgumentCount - numberOfArgumentsToSkip;
@@ -958,7 +982,7 @@ private:
 
                                     ASSERT(candidate->op() == PhantomCreateRest);
                                     unsigned numberOfArgumentsToSkip = candidate->numberOfArgumentsToSkip();
-                                    InlineCallFrame* inlineCallFrame = candidate->origin.semantic.inlineCallFrame;
+                                    InlineCallFrame* inlineCallFrame = candidate->origin.semantic.inlineCallFrame();
                                     unsigned frameArgumentCount = inlineCallFrame->argumentCountIncludingThis - 1;
                                     for (unsigned loadIndex = numberOfArgumentsToSkip; loadIndex < frameArgumentCount; ++loadIndex) {
                                         VirtualRegister reg = virtualRegisterForArgument(loadIndex + 1) + inlineCallFrame->stackOffset;
@@ -993,7 +1017,7 @@ private:
                             numberOfArgumentsToSkip = candidate->numberOfArgumentsToSkip();
                         varargsData->offset += numberOfArgumentsToSkip;
 
-                        InlineCallFrame* inlineCallFrame = candidate->origin.semantic.inlineCallFrame;
+                        InlineCallFrame* inlineCallFrame = candidate->origin.semantic.inlineCallFrame();
 
                         if (inlineCallFrame
                             && !inlineCallFrame->isVarargs()) {
@@ -1134,7 +1158,7 @@ private:
                                 return true;
 
                             ASSERT(candidate->op() == PhantomCreateRest);
-                            InlineCallFrame* inlineCallFrame = candidate->origin.semantic.inlineCallFrame;
+                            InlineCallFrame* inlineCallFrame = candidate->origin.semantic.inlineCallFrame();
                             return inlineCallFrame && !inlineCallFrame->isVarargs();
                         });
 
@@ -1173,7 +1197,7 @@ private:
                                 }
 
                                 ASSERT(candidate->op() == PhantomCreateRest);
-                                InlineCallFrame* inlineCallFrame = candidate->origin.semantic.inlineCallFrame;
+                                InlineCallFrame* inlineCallFrame = candidate->origin.semantic.inlineCallFrame();
                                 unsigned numberOfArgumentsToSkip = candidate->numberOfArgumentsToSkip();
                                 for (unsigned i = 1 + numberOfArgumentsToSkip; i < inlineCallFrame->argumentCountIncludingThis; ++i) {
                                     StackAccessData* data = m_graph.m_stackAccessData.add(
@@ -1198,7 +1222,7 @@ private:
                         CallVarargsData* varargsData = node->callVarargsData();
                         varargsData->firstVarArgOffset += numberOfArgumentsToSkip;
 
-                        InlineCallFrame* inlineCallFrame = candidate->origin.semantic.inlineCallFrame;
+                        InlineCallFrame* inlineCallFrame = candidate->origin.semantic.inlineCallFrame();
                         if (inlineCallFrame && !inlineCallFrame->isVarargs()) {
                             Vector<Node*> arguments;
                             for (unsigned i = 1 + varargsData->firstVarArgOffset; i < inlineCallFrame->argumentCountIncludingThis; ++i) {

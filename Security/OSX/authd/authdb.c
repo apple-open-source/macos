@@ -511,7 +511,7 @@ authdb_connection_t authdb_connection_acquire(authdb_t db)
             dbconn = authdb_connection_create(db);
 #if DEBUG
             total++;
-            os_log_debug(AUTHD_LOG, "authdb: no handles available total: %i", total);
+            os_log_debug(AUTHD_LOG, "authdb: handles count: %i", total);
 #endif
         }
     });
@@ -873,7 +873,7 @@ bool authdb_step(authdb_connection_t dbconn, const char * sql, void (^bind_stmt)
                 break;
             default:
                 if (_is_busy(rc)) {
-                    os_log_debug(AUTHD_LOG, "authdb: %{public}s", sqlite3_errmsg(dbconn->handle));
+                    os_log(AUTHD_LOG, "authdb: %{public}s (will try to recover)", sqlite3_errmsg(dbconn->handle));
                     sleep(AUTHDB_BUSY_DELAY);
                     sqlite3_reset(stmt);
                 } else {
@@ -1123,6 +1123,8 @@ static sqlite3 * _create_handle(authdb_t db)
         chmod(db->db_path, S_IRUSR | S_IWUSR);
     }
     
+    // Let SQLite handle timeouts.
+    sqlite3_busy_timeout(handle, 5*1000);
 done:
     return handle;
 }

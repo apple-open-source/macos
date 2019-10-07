@@ -3,8 +3,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)procfs.d.in	1.9	04/09/27 SMI"
-
 /*
  * This file defines the standard set of inlines and translators to be made
  * available for all D programs to use to examine process model state.

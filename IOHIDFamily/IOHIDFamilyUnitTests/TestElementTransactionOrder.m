@@ -37,7 +37,7 @@ static uint8_t descriptor [] = {
 @end
 
 
-static IOReturn __getReportCallbackLength(void * _Nullable refcon, IOHIDReportType type, uint32_t reportID, uint8_t * report, CFIndex * pReportLength)
+static IOReturn __getReportCallbackLength(void * _Nullable refcon __unused, IOHIDReportType type, uint32_t reportID, uint8_t * report, CFIndex * pReportLength)
 {
     *pReportLength = 5;
     
@@ -87,7 +87,7 @@ static void HIDManagerDeviceAddedCallback(void * _Nullable context, IOReturn  re
     HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, transaction != NULL);
     
     IOHIDTransactionClear(transaction);
-
+    
     IOHIDTransactionSetDirection(transaction, kIOHIDTransactionDirectionTypeInput);
     
     for (id element in elements) {
@@ -180,7 +180,7 @@ static void HIDManagerDeviceAddedCallback(void * _Nullable context, IOReturn  re
 
 - (void) tearDown {
     
-
+    
     if (self.device) {
         IOHIDDeviceClose(self.device, 0);
     }
@@ -229,7 +229,7 @@ static void HIDManagerDeviceAddedCallback(void * _Nullable context, IOReturn  re
     
     HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, elementA != nil && elementB != nil && elementC != nil && elementD != nil);
     
-
+    
     [self checkElements:@[elementA, elementB, elementC, elementD]];
     [self checkElements:@[elementD, elementC, elementB, elementA]];
     [self checkElements:@[elementB, elementD, elementC, elementA]];

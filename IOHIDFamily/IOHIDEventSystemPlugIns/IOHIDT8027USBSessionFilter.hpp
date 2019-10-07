@@ -18,6 +18,14 @@
 #include <IOKit/hid/IOHIDSessionFilterPlugIn.h>
 #include "CF.h"
 
+//
+// IOHIDT8027USBSessionFilter's purpose is to mitigate a HW issue with T8027 SOC.
+// T8027's USB controller is not able to resume the state of devices when waking
+// from sleep. Instead, devices are immediately recreating. If a connected USB
+// device causes the wake, the associated data (and HID report) will be lost.
+// This plugin takes a power assertion when certain USB HID devices are attached
+// or interacted with to prevent full sleep from happening when they are in use.
+//
 
 class IOHIDT8027USBSessionFilter
 {
@@ -37,6 +45,7 @@ class IOHIDT8027USBSessionFilter
     IOPMAssertionID                     _assertionID;
     bool                                _hasT8027USB;
     bool                                _asserting;
+    bool                                _timedOut;
 
 public:
     IOHIDT8027USBSessionFilter(CFUUIDRef factoryID);

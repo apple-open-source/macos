@@ -30,7 +30,7 @@ extern NSString* const SFAnalyticsTableSuccessCount;
 extern NSString* const SFAnalyticsTableHardFailures;
 extern NSString* const SFAnalyticsTableSoftFailures;
 extern NSString* const SFAnalyticsTableSamples;
-extern NSString* const SFAnalyticsTableAllEvents;
+extern NSString* const SFAnalyticsTableNotes;
 
 extern NSString* const SFAnalyticsColumnSuccessCount;
 extern NSString* const SFAnalyticsColumnHardFailureCount;
@@ -40,6 +40,8 @@ extern NSString* const SFAnalyticsColumnSampleName;
 
 extern NSString* const SFAnalyticsEventTime;
 extern NSString* const SFAnalyticsEventType;
+extern NSString* const SFAnalyticsEventTypeErrorEvent;
+extern NSString* const SFAnalyticsEventErrorDestription;
 extern NSString* const SFAnalyticsEventClassKey;
 
 // Helpers for logging NSErrors
@@ -47,13 +49,17 @@ extern NSString* const SFAnalyticsAttributeErrorUnderlyingChain;
 extern NSString* const SFAnalyticsAttributeErrorDomain;
 extern NSString* const SFAnalyticsAttributeErrorCode;
 
+extern NSString* const SFAnalyticsAttributeLastUploadTime;
+
 extern NSString* const SFAnalyticsUserDefaultsSuite;
 
 extern char* const SFAnalyticsFireSamplersNotification;
 
 /* Internal Topic Names */
+extern NSString* const SFAnalyticsTopicCloudServices;
 extern NSString* const SFAnalyticsTopicKeySync;
-extern NSString* const SFAnaltyicsTopicTrust;
+extern NSString* const SFAnalyticsTopicTrust;
+extern NSString* const SFAnalyticsTopicTransparency;
 
 typedef NS_ENUM(NSInteger, SFAnalyticsEventClass) {
     SFAnalyticsEventClassSuccess,

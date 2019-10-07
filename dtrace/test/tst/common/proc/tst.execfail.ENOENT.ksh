@@ -23,8 +23,6 @@
 # Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-#pragma ident	"@(#)tst.execfail.ENOENT.ksh	1.1	06/08/28 SMI"
-
 #
 # This script is identical to tst.execfail.ksh -- but it additionally checks
 # that errno is set to ENOENT in the case that an interpreter can't be

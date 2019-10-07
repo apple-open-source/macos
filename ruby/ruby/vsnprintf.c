@@ -175,7 +175,9 @@ typedef	struct __sFILE {
 	short	_flags;		/* flags, below; this FILE is free if 0 */
 	short	_file;		/* fileno, if Unix descriptor, else -1 */
 	struct	__sbuf _bf;	/* the buffer (at least 1 byte, if !NULL) */
+#if 0
 	size_t	_lbfsize;	/* 0 or -_bf._size, for inline putc */
+#endif
 	int	(*vwrite)(/* struct __sFILE*, struct __suio * */);
 	const char *(*vextra)(/* struct __sFILE*, size_t, void*, long*, int */);
 } FILE;
@@ -536,6 +538,9 @@ static int exponent(char *, int, int);
 static ssize_t
 BSD_vfprintf(FILE *fp, const char *fmt0, va_list ap)
 {
+#ifdef PRI_EXTRA_MARK
+	const int PRI_EXTRA_MARK_LEN = rb_strlen_lit(PRI_EXTRA_MARK);
+#endif
 	register const char *fmt; /* format string */
 	register int ch;	/* character from fmt */
 	register int n;		/* handy integer (short term usage) */
@@ -555,9 +560,9 @@ BSD_vfprintf(FILE *fp, const char *fmt0, va_list ap)
 	int fprec = 0;		/* floating point precision */
 	char expstr[7];		/* buffer for exponent string */
 #endif
-	u_long UNINITIALIZED_VAR(ulval); /* integer arguments %[diouxX] */
+	u_long MAYBE_UNUSED(ulval); /* integer arguments %[diouxX] */
 #ifdef _HAVE_SANE_QUAD_
-	u_quad_t UNINITIALIZED_VAR(uqval); /* %q integers */
+	u_quad_t MAYBE_UNUSED(uqval); /* %q integers */
 #endif /* _HAVE_SANE_QUAD_ */
 	int base;		/* base for [diouxX] conversion */
 	int dprec;		/* a copy of prec if [diouxX], 0 otherwise */
@@ -813,7 +818,6 @@ reswitch:	switch (ch) {
 # define INTPTR_FLAG 0
 #endif
 #ifdef PRI_EXTRA_MARK
-# define PRI_EXTRA_MARK_LEN (sizeof(PRI_EXTRA_MARK)-1)
 # define IS_PRI_EXTRA_MARK(s) \
 	(PRI_EXTRA_MARK_LEN < 1 || \
 	 (*(s) == PRI_EXTRA_MARK[0] && \
@@ -1246,7 +1250,7 @@ cvt(double value, int ndigits, int flags, char *sign, int *decpt, int ch, int *l
 	if (value < 0) {
 		value = -value;
 		*sign = '-';
-	} else if (value == 0.0 && 1.0/value < 0) {
+	} else if (value == 0.0 && signbit(value)) {
 	    *sign = '-';
 	} else {
 	    *sign = '\000';

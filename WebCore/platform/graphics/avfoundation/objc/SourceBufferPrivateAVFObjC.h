@@ -32,13 +32,14 @@
 #include <wtf/Box.h>
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>
+#include <wtf/LoggerHelper.h>
 #include <wtf/MediaTime.h>
 #include <wtf/OSObjectPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
-#include <wtf/text/AtomicString.h>
+#include <wtf/text/AtomString.h>
 #include <wtf/threads/BinarySemaphore.h>
 
 OBJC_CLASS AVAsset;
@@ -77,7 +78,13 @@ public:
     ALLOW_NEW_API_WITHOUT_GUARDS_END
 };
 
-class SourceBufferPrivateAVFObjC final : public SourceBufferPrivate {
+class SourceBufferPrivateAVFObjC final
+    : public SourceBufferPrivate
+    , public CanMakeWeakPtr<SourceBufferPrivateAVFObjC>
+#if !RELEASE_LOG_DISABLED
+    , private LoggerHelper
+#endif
+{
 public:
     static Ref<SourceBufferPrivateAVFObjC> create(MediaSourcePrivateAVFObjC*);
     virtual ~SourceBufferPrivateAVFObjC();
@@ -126,6 +133,19 @@ public:
     void setDecompressionSession(WebCoreDecompressionSession*);
 
     void bufferWasConsumed();
+    
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
+    Uint8Array* initData() { return m_initData.get(); }
+#endif
+
+#if !RELEASE_LOG_DISABLED
+    const Logger& logger() const final { return m_logger.get(); }
+    const char* logClassName() const override { return "SourceBufferPrivateAVFObjC"; }
+    const void* logIdentifier() const final { return m_logIdentifier; }
+    WTFLogChannel& logChannel() const final;
+    const Logger& sourceBufferLogger() const final { return m_logger.get(); }
+    const void* sourceBufferLogIdentifier() final { return logIdentifier(); }
+#endif
 
 private:
     explicit SourceBufferPrivateAVFObjC(MediaSourcePrivateAVFObjC*);
@@ -138,11 +158,14 @@ private:
     void removedFromMediaSource() final;
     MediaPlayer::ReadyState readyState() const final;
     void setReadyState(MediaPlayer::ReadyState) final;
-    void flush(const AtomicString& trackID) final;
-    void enqueueSample(Ref<MediaSample>&&, const AtomicString& trackID) final;
-    bool isReadyForMoreSamples(const AtomicString& trackID) final;
+    void flush(const AtomString& trackID) final;
+    void enqueueSample(Ref<MediaSample>&&, const AtomString& trackID) final;
+    bool isReadyForMoreSamples(const AtomString& trackID) final;
     void setActive(bool) final;
-    void notifyClientWhenReadyForMoreSamples(const AtomicString& trackID) final;
+    void notifyClientWhenReadyForMoreSamples(const AtomString& trackID) final;
+    bool canSetMinimumUpcomingPresentationTime(const AtomString&) const override;
+    void setMinimumUpcomingPresentationTime(const AtomString&, const MediaTime&) override;
+    void clearMinimumUpcomingPresentationTime(const AtomString&) override;
     bool canSwitchToType(const ContentType&) final;
 
     void didBecomeReadyForMoreSamples(int trackID);
@@ -155,13 +178,10 @@ private:
     void flush(AVSampleBufferAudioRenderer *);
     ALLOW_NEW_API_WITHOUT_GUARDS_END
 
-    WeakPtr<SourceBufferPrivateAVFObjC> createWeakPtr() { return m_weakFactory.createWeakPtr(*this); }
-
     Vector<RefPtr<VideoTrackPrivateMediaSourceAVFObjC>> m_videoTracks;
     Vector<RefPtr<AudioTrackPrivateMediaSourceAVFObjC>> m_audioTracks;
     Vector<SourceBufferPrivateAVFObjCErrorClient*> m_errorClients;
 
-    WeakPtrFactory<SourceBufferPrivateAVFObjC> m_weakFactory;
     WeakPtrFactory<SourceBufferPrivateAVFObjC> m_appendWeakFactory;
 
     RetainPtr<AVStreamDataParser> m_parser;
@@ -180,6 +200,7 @@ private:
     MediaSourcePrivateAVFObjC* m_mediaSource;
     SourceBufferPrivateClient* m_client { nullptr };
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
+    RefPtr<Uint8Array> m_initData;
     WeakPtr<CDMSessionMediaSourceAVFObjC> m_session { nullptr };
 #endif
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
@@ -195,6 +216,12 @@ private:
     bool m_waitingForKey { true };
     int m_enabledVideoTrackID { -1 };
     int m_protectedTrackID { -1 };
+    uint64_t m_mapID;
+
+#if !RELEASE_LOG_DISABLED
+    Ref<const Logger> m_logger;
+    const void* m_logIdentifier;
+#endif
 };
 
 }

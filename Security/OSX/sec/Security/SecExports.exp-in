@@ -52,11 +52,17 @@ _SecIsInternalRelease
 // Policies
 // kSecPolicy constants
 #undef POLICYMACRO
+#define __P_DO_EXPORT_POLICY_(NAME)
+#define __P_DO_EXPORT_POLICY_E(NAME) _kSecPolicyApple##NAME
+#define __P_DO_EXPORT_POLICY_P(NAME) _kSecPolicyApple##NAME
+#define __P_DO_EXPORT_POLICY_I(NAME) _kSecPolicyApple##NAME
 #define POLICYMACRO(NAME, OID, ISPUBLIC, INTNAME, IN_NAME, IN_PROPERTIES, FUNCTION) \
-_kSecPolicyApple##NAME
+__P_DO_EXPORT_POLICY_##ISPUBLIC(NAME)
+
 #include "Security/SecPolicy.list"
 #undef POLICYMACRO
 #define __P_DO_EXPORT_(NAME)
+#define __P_DO_EXPORT_E(NAME)
 #define __P_DO_EXPORT_P(NAME) _kSecPolicyNameApple##NAME
 #define __P_DO_EXPORT_I(NAME) _kSecPolicyName##NAME
 #define POLICYMACRO(NAME, OID, ISPUBLIC, INTNAME, IN_NAME, IN_PROPERTIES, FUNCTION) \
@@ -68,6 +74,7 @@ _kSecPolicyAppleiChat
 _kSecPolicyAppleIDValidationRecordSigningPolicy
 _kSecPolicyMacAppStoreReceipt
 _kSecPolicyNameAppleAIDCService
+_kSecPolicyNameAppleAMPService
 _kSecPolicyNameAppleAST2Service
 _kSecPolicyNameAppleEscrowProxyService
 _kSecPolicyNameAppleFMiPService
@@ -81,6 +88,7 @@ _kSecPolicyNameAppleMMCSService
 _kSecPolicyNameAppleParsecService
 _kSecPolicyNameApplePPQService
 _kSecPolicyNameApplePushService
+_kSecPolicyNameAppleSiriService
 _kSecPolicyNameEAPClient
 _kSecPolicyNameEAPServer
 _kSecPolicyNameIPSecClient
@@ -138,7 +146,6 @@ __PC_DO_EXPORT_##LEAFONLY(NAME)
 _SecPolicyCheckCertSubjectCountry
 
 _SecPolicyCopyProperties
-_SecPolicyCreate
 _SecPolicyCreateiAPSWAuthWithExpiration
 _SecPolicyCreateWithProperties
 _SecPolicyGetName
@@ -175,9 +182,11 @@ _kSecPropertyKeyLabel
 _kSecPropertyKeyLocalizedLabel
 _kSecPropertyKeyType
 _kSecPropertyKeyValue
+_kSecPropertyTypeArray
 _kSecPropertyTypeData
 _kSecPropertyTypeDate
 _kSecPropertyTypeError
+_kSecPropertyTypeNumber
 _kSecPropertyTypeSection
 _kSecPropertyTypeString
 _kSecPropertyTypeSuccess
@@ -186,16 +195,6 @@ _kSecPropertyTypeURL
 _kSecPropertyTypeWarning
 
 _kSecSignatureDigestAlgorithmUnknown
-#if TARGET_OS_IPHONE
-_kSecSignatureDigestAlgorithmMD2
-_kSecSignatureDigestAlgorithmMD4
-_kSecSignatureDigestAlgorithmMD5
-_kSecSignatureDigestAlgorithmSHA1
-_kSecSignatureDigestAlgorithmSHA224
-_kSecSignatureDigestAlgorithmSHA256
-_kSecSignatureDigestAlgorithmSHA384
-_kSecSignatureDigestAlgorithmSHA512
-#endif
 
 _kSecTrustCertificateTransparency
 _kSecTrustCertificateTransparencyWhiteList
@@ -230,6 +229,7 @@ _SecTrustCreateWithCertificates
 _SecTrustDeserialize
 _SecTrustEvaluate
 _SecTrustEvaluateAsync
+_SecTrustEvaluateAsyncWithError
 _SecTrustEvaluateFastAsync
 _SecTrustEvaluateLeafOnly
 _SecTrustEvaluateWithError
@@ -247,6 +247,8 @@ _SecTrustGetVerifyTime
 _SecTrustGetTrustExceptionsArray
 _SecTrustIsExpiredOnly
 _SecTrustOTAPKIGetUpdatedAsset
+_SecTrustOTASecExperimentGetUpdatedAsset
+_SecTrustOTASecExperimentCopyAsset
 _SecTrustReportTLSAnalytics
 _SecTrustReportNetworkingAnalytics
 _SecTrustSerialize
@@ -275,8 +277,6 @@ _SecTrustGetResult
 _SecTrustGetTPHandle
 _SecTrustGetUserTrust
 _SecTrustLegacySourcesListenForKeychainEvents
-_SecTrustLegacyCRLFetch
-_SecTrustLegacyCRLStatus
 _SecTrustSetKeychains
 _SecTrustSetOptions
 _SecTrustSetParameters
@@ -325,6 +325,8 @@ _SecTrustStoreGetSettingsVersionNumber
 _SecTrustStoreGetSettingsAssetVersionNumber
 _SecTrustStoreRemoveCertificate
 _SecTrustStoreSetTrustSettings
+_SecTrustGetExceptionResetCount
+_SecTrustIncrementExceptionResetCount
 #endif
 _SecTrustStoreSetCTExceptions
 _SecTrustStoreCopyCTExceptions
@@ -355,8 +357,9 @@ _SecCertificateCopyAttributeDictionary
 _SecCertificateCopyCommonName
 _SecCertificateCopyCommonNames
 _SecCertificateCopyCompanyName
+_SecCertificateCopyComponentType
 _SecCertificateCopyCountry
-_SecCertificateGetDeveloperIDDate
+_SecCertificateCopyCTLogForKeyID
 _SecCertificateCopyDNSNames
 _SecCertificateCopyDNSNamesFromSAN
 _SecCertificateCopyDNSNamesFromSubject
@@ -398,6 +401,7 @@ _SecCertificateCopySubjectSequence
 _SecCertificateCopySubjectString
 _SecCertificateCopySubjectSummary
 _SecCertificateCopySummaryProperties
+_SecCertificateCopyTrustedCTLogs
 _SecCertificateCreateFromAttributeDictionary
 _SecCertificateCreateOidDataFromString
 _SecCertificateCreateWithBytes
@@ -410,6 +414,7 @@ _SecCertificateGetBytePtr
 _SecCertificateGetCAIssuers
 _SecCertificateGetCertificatePolicies
 _SecCertificateGetCRLDistributionPoints
+_SecCertificateGetDeveloperIDDate
 _SecCertificateGetExcludedSubtrees
 _SecCertificateGetExtensionValue
 _SecCertificateGetiAuthVersion
@@ -429,8 +434,10 @@ _SecCertificateGetSignatureHashAlgorithm
 _SecCertificateGetSubjectAltName
 _SecCertificateGetSubjectKeyID
 _SecCertificateGetTypeID
+_SecCertificateGetUnparseableKnownExtension
 _SecCertificateHasCriticalSubjectAltName
 _SecCertificateHasMarkerExtension
+_SecCertificateHasOCSPNoCheckMarkerExtension
 _SecCertificateHasSubject
 _SecCertificateHasUnknownCriticalExtension
 _SecCertificateIsAtLeastMinKeySize
@@ -597,30 +604,14 @@ _SecOTRAppendDHKeyMessage
 _SecOTRAppendDHMessage
 _SecOTRAppendRevealSignatureMessage
 _SecOTRAppendSignatureMessage
-_SecOTRCreateError
-_SecOTRFIAppendPublicHash
-_SecOTRFIAppendSignature
-_SecOTRFIComparePublicHash
-_SecOTRFICompareToPublicKey
-_SecOTRFISignatureSize
 _SecOTRFullDHKCreateFromBytes
-_SecOTRPIAppendHash
-_SecOTRPICompareHash
-_SecOTRPICompareToPublicKey
-_SecOTRPICopyHash
-_SecOTRPIEqual
-_SecOTRPIEqualToBytes
-_SecOTRPISignatureSize
-_SecOTRPIVerifySignature
 _SecOTRPrepareOutgoingBytes
 _SecOTRPublicDHKCreateFromBytes
 _SecOTRSetupInitialRemoteKey
 
-_kOTRSignatureAlgIDPtr
 _DeriveOTR128BitPairFromS
 _DeriveOTR256BitsFromS
 _DeriveOTR64BitsFromS
-_EnsureOTRAlgIDInited
 _AES_CTR_HighHalf_Transform
 _AES_CTR_IV0_Transform
 #endif
@@ -665,29 +656,7 @@ _SecDHGetMaxKeyLength
 _gSecurityd
 _gTrustd
 
-#if TARGET_OS_IPHONE
-//
-// XPC
-//
-
-_kSecXPCKeyPeerInfoArray
-_kSecXPCKeyPeerInfo
-_kSecXPCKeySignInAnalytics
-_kSecXPCKeyOperation
-_kSecXPCKeyResult
-_kSecXPCKeyEndpoint
-_kSecXPCKeyError
-_kSecXPCKeyClientToken
-_kSecXPCKeyUserLabel
-_kSecXPCKeyDSID
-_kSecXPCKeyUserPassword
 _sSecXPCErrorDomain
-_kSecXPCKeyOTAFileDirectory
-_kSecXPCKeyEscrowLabel
-_kSecXPCKeyTriesLabel
-_kSecXPCVersion
-#endif
-
 
 //
 // Logging
@@ -700,6 +669,26 @@ _SecSetLoggingInfoForCircleScope
 //
 // CMS
 //
+_kSecCMSAdditionalCerts
+_kSecCMSAllCerts
+_kSecCMSBulkEncryptionAlgorithm
+_kSecCMSCertChainMode
+_kSecCMSCertChainModeNone
+_kSecCMSEncryptionAlgorithmAESCBC
+_kSecCMSEncryptionAlgorithmDESCBC
+_kSecCMSExpirationDate
+_kSecCMSHashAgility
+_kSecCMSHashAgilityV2
+_kSecCMSHashingAlgorithmMD5
+_kSecCMSHashingAlgorithmSHA1
+_kSecCMSHashingAlgorithmSHA256
+_kSecCMSHashingAlgorithmSHA384
+_kSecCMSHashingAlgorithmSHA512
+_kSecCMSSignDate
+_kSecCMSSignDetached
+_kSecCMSSignDigest
+_kSecCMSSignHashAlgorithm
+_kSecCMSSignedAttributes
 
 #if TARGET_OS_IPHONE
 
@@ -783,7 +772,6 @@ _SecCmsDecoderFinish
 _SecCmsDecoderUpdate
 _SecCmsDigestContextCancel
 _SecCmsDigestContextDestroy
-_SecCmsDigestContextFinishMultiple
 _SecCmsDigestContextStartMultiple
 _SecCmsDigestContextUpdate
 _SecCmsDigestedDataCreate
@@ -858,26 +846,6 @@ _SecCmsSignerInfoIncludeCerts
 _SecCmsSignerInfoSaveSMIMEProfile
 _SecCmsSignerInfoCopyCertFromEncryptionKeyPreference
 _SecCmsUtilVerificationStatusToString
-_kSecCMSAdditionalCerts
-_kSecCMSAllCerts
-_kSecCMSBulkEncryptionAlgorithm
-_kSecCMSCertChainMode
-_kSecCMSCertChainModeNone
-_kSecCMSEncryptionAlgorithmAESCBC
-_kSecCMSEncryptionAlgorithmDESCBC
-_kSecCMSExpirationDate
-_kSecCMSHashAgility
-_kSecCMSHashAgilityV2
-_kSecCMSHashingAlgorithmMD5
-_kSecCMSHashingAlgorithmSHA1
-_kSecCMSHashingAlgorithmSHA256
-_kSecCMSHashingAlgorithmSHA384
-_kSecCMSHashingAlgorithmSHA512
-_kSecCMSSignDate
-_kSecCMSSignDetached
-_kSecCMSSignDigest
-_kSecCMSSignHashAlgorithm
-_kSecCMSSignedAttributes
 
 #elif TARGET_OS_OSX
 //
@@ -1008,24 +976,6 @@ _SecCmsSignerInfoVerifyUnAuthAttrsWithPolicy
 _SecCmsTSADefaultCallback
 _SecCmsTSAGetDefaultContext
 _SecCmsUtilVerificationStatusToString
-_kSecCMSAdditionalCerts
-_kSecCMSAllCerts
-_kSecCMSBulkEncryptionAlgorithm
-_kSecCMSCertChainMode
-_kSecCMSEncryptionAlgorithmAESCBC
-_kSecCMSEncryptionAlgorithmDESCBC
-_kSecCMSExpirationDate
-_kSecCMSHashAgility
-_kSecCMSHashAgilityV2
-_kSecCMSHashingAlgorithmSHA1
-_kSecCMSHashingAlgorithmSHA256
-_kSecCMSHashingAlgorithmSHA384
-_kSecCMSHashingAlgorithmSHA512
-_kSecCMSSignDate
-_kSecCMSSignDetached
-_kSecCMSSignDigest
-_kSecCMSSignHashAlgorithm
-_kSecCMSSignedAttributes
 _kTSAContextKeyNoCerts
 _kTSAContextKeyURL
 #endif // TARGET_OS_OSX
@@ -1104,6 +1054,9 @@ _SecKeyCreateRSAPrivateKey
 _SecKeyCreateRSAPublicKey
 _SecKeyCreateRSAPublicKey_ios
 _SecKeyCreateRandomKey
+#if TARGET_OS_OSX
+_SecKeyCreateRandomKey_ios
+#endif
 _SecKeyCreateSignature
 #if TARGET_OS_OSX
 _SecKeyCreateWithCSSMKey
@@ -1144,8 +1097,12 @@ _SecKeyImportPair
 #endif /* TARGET_OS_OSX */
 _SecKeyIsAlgorithmSupported
 _SecKeyRawSign
+#if TARGET_OS_OSX
+_SecKeyRawSign_macOS
+#endif /* TARGET_OS_OSX */
 _SecKeyRawVerify
 #if TARGET_OS_OSX
+_SecKeyRawVerify_macOS
 _SecKeyRawVerifyOSX
 #endif /* TARGET_OS_OSX */
 _SecKeySetParameter
@@ -1392,6 +1349,7 @@ _kSecAttrPersistantReference
 _kSecAttrPersistentReference
 _kSecAttrTokenID
 _kSecAttrTokenIDSecureEnclave
+_kSecAttrTokenIDSecureElement
 _kSecAttrTokenIDAppleKeyStore
 _kSecAttrTokenOID
 _kSecAttrTombstone
@@ -1544,6 +1502,7 @@ _kSecAttrPersistantReference
 _kSecAttrPersistentReference
 _kSecAttrTokenID
 _kSecAttrTokenIDSecureEnclave
+_kSecAttrTokenIDSecureElement
 _kSecAttrTokenIDAppleKeyStore
 _kSecAttrTokenOID
 _kSecAttrTombstone
@@ -1555,6 +1514,7 @@ _kSecAttrWasNeverExtractable
 _kSecAttrKeyTypeECSECPrimeRandomPKA
 _kSecAttrKeyTypeSecureEnclaveAttestation
 _kSecAttrSecureEnclaveKeyBlob
+_kSecUseCertificatesWithMatchIssuers
 #endif // TARGET_OS_OSX
 
 _kSecAttrDeriveSyncIDFromItemAttributes
@@ -1563,7 +1523,7 @@ _kSecAttrPCSPlaintextPublicKey
 _kSecAttrPCSPlaintextPublicIdentity
 _kSecAttrSHA1
 
-#include "Security/SecureObjectSync/SOSViews.exp-in"
+#include "keychain/SecureObjectSync/SOSViews.exp-in"
 
 _kSecClass
 _kSecClassAppleSharePassword
@@ -1581,6 +1541,7 @@ _kSecImportItemTrust
 _kSecUseItemList
 _kSecUseTombstones
 _kSecUseSystemKeychain
+_kSecUseDataProtectionKeychain
 _kSecValueData
 _kSecValuePersistentRef
 _kSecValueRef
@@ -1600,7 +1561,6 @@ _kSecReturnAttributes
 _kSecReturnData
 _kSecReturnPersistentRef
 _kSecReturnRef
-_kSecUseCertificatesWithMatchIssuers
 _SecItemAdd
 _SecItemCertificateExists
 _SecItemCopyDisplayNames
@@ -1616,6 +1576,7 @@ __SecItemAddAndNotifyOnSync
 _SecItemSetCurrentItemAcrossAllDevices
 _SecItemFetchCurrentItemAcrossAllDevices
 __SecItemFetchDigests
+__SecKeychainDeleteMultiUser
 
 __SecItemCreatePersistentRef
 __SecItemParsePersistentRef
@@ -1664,26 +1625,9 @@ __SecSecuritydCopyCKKSEndpoint
 __SecSecuritydCopySFKeychainEndpoint
 __SecSecuritydCopyKeychainControlEndpoint
 
-#if TARGET_OS_IPHONE
-_kSecXPCKeyAttributesToUpdate
-_kSecXPCKeyBackup
-_kSecXPCKeyCertificate
-_kSecXPCKeyDigest
-_kSecXPCKeyDomain
-_kSecXPCKeyKeybag
-_kSecXPCKeyQuery
-_kSecXPCKeySettings
-_kSecXPCPublicPeerId
-_kSecXPCOTRSession
-_kSecXPCData
-_kSecXPCOTRReady
-#endif
-
 _SecCertificateXPCArrayCopyArray
 _SecPolicyXPCArrayCopyArray
-#if TARGET_OS_IPHONE
 _SecServerSetTrustdMachServiceName
-#endif
 
 //
 // ServerEncryption
@@ -1703,13 +1647,6 @@ _der_encode_plist
 _der_decode_plist
 _CFPropertyListCreateDERData
 _CFPropertyListCreateWithDERData
-
-#if TARGET_OS_IPHONE
-//
-// DER
-//
-_DERDecodeItem
-#endif
 
 //
 // EMCS
@@ -1755,7 +1692,6 @@ _kSecCFErrorResourceMissing
 //
 _SecCFAllocatorZeroize
 
-
 //
 // SecProtocol
 //
@@ -1769,11 +1705,20 @@ _sec_identity_copy_ref
 _sec_identity_copy_certificates_ref
 _sec_identity_create
 _sec_identity_create_with_certificates
-_sec_tls_extension_create
-_sec_tls_extension_copy_add_block
-_sec_tls_extension_copy_free_block
-_sec_tls_extension_copy_parse_block
-_sec_tls_extension_get_type
+_sec_identity_copy_private_key_decrypt_block
+_sec_identity_copy_private_key_queue
+_sec_identity_copy_private_key_sign_block
+_sec_identity_create_with_certificates_and_external_private_key
+_sec_identity_access_certificates
+_sec_identity_has_certificates
+_sec_protocol_metadata_get_negotiated_tls_protocol_version
+_sec_protocol_metadata_get_handshake_rtt
+_sec_protocol_metadata_copy_quic_transport_parameters
+_sec_protocol_metadata_copy_sec_trust
+_sec_protocol_metadata_copy_sec_identity
+_sec_protocol_metadata_access_sent_certificates
+_sec_protocol_metadata_serialize_with_options
+_sec_protocol_metadata_copy_serialized_session
 _sec_protocol_metadata_create_secret
 _sec_protocol_metadata_create_secret_with_context
 _sec_protocol_metadata_access_distinguished_names
@@ -1782,6 +1727,7 @@ _sec_protocol_metadata_access_peer_certificate_chain
 _sec_protocol_metadata_copy_peer_public_key
 _sec_protocol_metadata_access_supported_signature_algorithms
 _sec_protocol_metadata_get_negotiated_ciphersuite
+_sec_protocol_metadata_get_negotiated_tls_ciphersuite
 _sec_protocol_metadata_get_negotiated_protocol
 _sec_protocol_metadata_get_negotiated_protocol_version
 _sec_protocol_metadata_get_early_data_accepted
@@ -1792,7 +1738,30 @@ _sec_protocol_metadata_get_session_resumed
 _sec_protocol_metadata_get_ticket_offered
 _sec_protocol_metadata_get_ticket_received
 _sec_protocol_metadata_get_tls_false_start_used
+_sec_protocol_metadata_get_connection_strength
+_sec_protocol_options_access_handle
+_sec_protocol_metadata_access_handle
+_sec_protocol_metadata_get_server_name
+_sec_protocol_options_set_output_handler_access_block
+_sec_protocol_options_set_tls_SIKE503_exchange_enabled
+_sec_protocol_options_set_tls_HRSS_exchange_enabled
+_sec_protocol_options_set_eddsa_enabled
+_sec_protocol_options_set_tls_grease_enabled
+_sec_protocol_options_set_tls_delegated_credentials_enabled
+_sec_protocol_options_set_tls_ticket_request_count
+_sec_protocol_options_set_local_certificates
+_sec_protocol_options_set_tls_certificate_compression_enabled
+_sec_protocol_options_tls_handshake_message_callback
+_sec_protocol_metadata_get_tls_certificate_compression_used
+_sec_protocol_metadata_get_tls_certificate_compression_algorithm
+_sec_protocol_metadata_get_tls_negotiated_group
+_sec_protocol_options_set_private_key_blocks
+_sec_protocol_options_set_quic_transport_parameters
+_sec_protocol_options_set_session_state
+_sec_protocol_options_set_session_update_block
 _sec_protocol_options_add_tls_application_protocol
+_sec_protocol_options_append_tls_ciphersuite
+_sec_protocol_options_append_tls_ciphersuite_group
 _sec_protocol_options_add_tls_ciphersuite
 _sec_protocol_options_add_tls_ciphersuite_group
 _sec_protocol_options_add_pre_shared_key
@@ -1802,7 +1771,9 @@ _sec_protocol_options_set_local_identity
 _sec_protocol_options_set_tls_early_data_enabled
 _sec_protocol_options_set_tls_false_start_enabled
 _sec_protocol_options_set_tls_max_version
+_sec_protocol_options_set_max_tls_protocol_version
 _sec_protocol_options_set_tls_min_version
+_sec_protocol_options_set_min_tls_protocol_version
 _sec_protocol_options_set_tls_ocsp_enabled
 _sec_protocol_options_set_tls_renegotiation_enabled
 _sec_protocol_options_set_tls_resumption_enabled
@@ -1815,11 +1786,57 @@ _sec_protocol_options_set_tls_is_fallback_attempt
 _sec_protocol_options_set_verify_block
 _sec_protocol_options_set_tls_diffie_hellman_parameters
 _sec_protocol_options_set_peer_authentication_required
-_sec_protocol_options_add_tls_extension
+_sec_protocol_options_create_config
+_sec_protocol_options_matches_config
+_sec_protocol_options_apply_config
+_sec_protocol_options_are_equal
+_sec_protocol_options_contents_are_equal
+_sec_protocol_options_get_default_max_dtls_protocol_version
+_sec_protocol_options_get_default_min_dtls_protocol_version
+_sec_protocol_options_get_default_max_tls_protocol_version
+_sec_protocol_options_get_default_min_tls_protocol_version
+_sec_protocol_options_set_pre_shared_key_selection_block
+_sec_protocol_options_set_tls_pre_shared_key_identity_hint
+_sec_protocol_configuration_copy_singleton
+_sec_protocol_configuration_set_ats_overrides
+_sec_protocol_configuration_copy_transformed_options
+_sec_protocol_configuration_copy_transformed_options_for_host
+_sec_protocol_configuration_tls_required
+_sec_protocol_configuration_create_with_builder
+_sec_protocol_configuration_tls_required_for_host
+_sec_protocol_configuration_tls_required_for_address
+_sec_protocol_configuration_builder_create
+_sec_protocol_configuration_create_with_builder
+_sec_protocol_options_set_tls_encryption_secret_update_block
+_sec_protocol_options_append_tls_key_exchange_group
+_sec_protocol_options_append_tls_key_exchange_group_set
+_sec_protocol_options_add_tls_key_exchange_group
+_sec_protocol_options_add_tls_key_exchange_group_set
+_sec_protocol_metadata_get_handshake_time_ms
+_sec_protocol_metadata_get_handshake_byte_count
+_sec_protocol_metadata_get_handshake_sent_byte_count
+_sec_protocol_metadata_get_handshake_received_byte_count
+_sec_protocol_metadata_get_handshake_read_stall_count
+_sec_protocol_metadata_get_handshake_write_stall_count
+_sec_protocol_metadata_get_handshake_async_call_count
+_sec_protocol_metadata_access_pre_shared_keys
+_sec_protocol_options_set_pre_shared_key_selection_block
+_sec_protocol_helper_ciphersuite_group_to_ciphersuite_list
 _sec_release
 _sec_retain
 _sec_trust_copy_ref
 _sec_trust_create
+
+//
+// SecExperiment
+//
+_kSecExperimentTLSMobileAssetConfig
+_kSecExperimentDefaultsDomain
+_sec_experiment_run
+_sec_experiment_create
+_sec_experiment_copy_configuration
+_sec_experiment_set_sampling_disabled
+_sec_experiment_get_identifier
 
 //
 // SecureTransport

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.rawfmt.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *  Test printf() with a fixed string and no actual tracing arguments.

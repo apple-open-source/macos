@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -218,7 +218,7 @@ static int 	pppserial_detach(struct ppp_link *link);
 static int 	pppserial_findfreeunit(u_int16_t *freeunit);
 
 static void 	pppisr_thread(void);
-static void 	pppserial_intr();
+static void 	pppserial_intr(void);
 
 /* -----------------------------------------------------------------------------
 Globals
@@ -409,7 +409,7 @@ int pppserial_attach(struct tty *ttyp, struct ppp_link **link)
     lk->lk_mru 		= PPP_MTU; //PPP_MAXMRU;
     lk->lk_type 	= PPP_TYPE_SERIAL;
     lk->lk_hdrlen 	= PPP_HDRLEN;
-    lk->lk_baudrate     = ttyp->t_ospeed;
+    lk->lk_baudrate     = (u_int32_t)ttyp->t_ospeed;
 	lk->lk_support = PPP_LINK_ASYNC + PPP_LINK_OOB_QUEUE + PPP_LINK_ERRORDETECT;
     lk->lk_ioctl 	= pppserial_lk_ioctl;
     lk->lk_output 	= pppserial_lk_output;
@@ -1015,12 +1015,12 @@ do that if not LCP
             }
 
             /* Calculate the FCS for the first mbuf's worth. */
-            ld->outfcs = pppserial_fcs(PPP_INITFCS, mbuf_data(m), mbuf_len(m));
+            ld->outfcs = pppserial_fcs(PPP_INITFCS, mbuf_data(m), (int)mbuf_len(m));
         }
 
         for (;;) {
             start = mbuf_data(m);
-            len = mbuf_len(m);
+            len = (int)mbuf_len(m);
             stop = start + len;
             while (len > 0) {
                 /*
@@ -1031,7 +1031,7 @@ do that if not LCP
                     if (ESCAPE_P(*cp))
                         break;
 
-                n = cp - start;
+                n = (int)(cp - start);
                 if (n) {
                     /* NetBSD (0.9 or later), 4.3-Reno or similar. */
                     ndone = n - b_to_q(start, n, &tp->t_outq);
@@ -1125,7 +1125,7 @@ do that if not LCP
                 /* Finished a packet */
                 break;
             }
-            ld->outfcs = pppserial_fcs(ld->outfcs, mbuf_data(m), mbuf_len(m));
+            ld->outfcs = pppserial_fcs(ld->outfcs, mbuf_data(m), (int)mbuf_len(m));
         }
 
         /*

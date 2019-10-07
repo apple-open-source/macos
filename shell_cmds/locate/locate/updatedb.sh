@@ -72,22 +72,27 @@ case X"$FILESYSTEMS" in
 excludes="! (" or=""
 for fstype in $FILESYSTEMS
 do
-       excludes="$excludes $or -fstype $fstype"
-       or="-or"
+	excludes="$excludes $or -fstype $fstype"
+	or="-or"
 done
 excludes="$excludes ) -prune"
 
 case X"$PRUNEPATHS" in
 	X) ;;
 	*) for path in $PRUNEPATHS
-           do 
+	do
 		excludes="$excludes -or -path $path -prune"
-	   done;;
+	done;;
 esac
+
+# Ignore the target of firmlinks
+while read firmlink; do
+	excludes="$excludes -or -path $firmlink -prune"
+done <<< "$(awk -F'\t' '{print "/System/Volumes/Data/" $2}' /usr/share/firmlinks)"
 
 tmp=$TMPDIR/_updatedb$$
 trap 'rm -f $tmp; rmdir $TMPDIR; exit' 0 1 2 3 5 10 15
-		
+
 # search locally
 # echo $find $SEARCHPATHS $excludes -or -print && exit
 if $find -s $SEARCHPATHS $excludes -or -print 2>/dev/null |

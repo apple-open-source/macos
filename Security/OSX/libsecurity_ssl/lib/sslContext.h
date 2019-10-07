@@ -262,12 +262,6 @@ OSStatus SSLUpdateNegotiatedClientAuthType(SSLContextRef ctx);
 
 Boolean sslIsSessionActive(const SSLContext *ctx);
 
-static inline bool sslVersionIsLikeTls12(SSLContext *ctx)
-{
-    check(ctx->negProtocolVersion!=SSL_Version_Undetermined);
-    return ctx->isDTLS ? ctx->negProtocolVersion > DTLS_Version_1_0 : ctx->negProtocolVersion >= TLS_Version_1_2;
-}
-
 OSStatus SSLGetSessionConfigurationIdentifier(SSLContext *ctx, SSLBuffer *buffer);
 
 /* This is implemented in tls_callbacks.c */

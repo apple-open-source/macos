@@ -39,6 +39,7 @@ class InstructionStream {
     using InstructionBuffer = Vector<uint8_t, 0, UnsafeVectorOverflow>;
 
     friend class InstructionStreamWriter;
+    friend class CachedInstructionStream;
 public:
     size_t sizeInBytes() const;
 
@@ -209,24 +210,33 @@ public:
             m_position++;
         }
     }
+
+    void write(uint16_t h)
+    {
+        ASSERT(!m_finalized);
+        uint8_t bytes[2];
+        std::memcpy(bytes, &h, sizeof(h));
+
+        // Though not always obvious, we don't have to invert the order of the
+        // bytes written here for CPU(BIG_ENDIAN). This is because the incoming
+        // i value is already ordered in big endian on CPU(BIG_EDNDIAN) platforms.
+        write(bytes[0]);
+        write(bytes[1]);
+    }
+
     void write(uint32_t i)
     {
         ASSERT(!m_finalized);
-        union {
-            uint32_t i;
-            uint8_t bytes[4];
-        } u { i };
-#if CPU(BIG_ENDIAN)
-        write(u.bytes[3]);
-        write(u.bytes[2]);
-        write(u.bytes[1]);
-        write(u.bytes[0]);
-#else // !CPU(BIG_ENDIAN)
-        write(u.bytes[0]);
-        write(u.bytes[1]);
-        write(u.bytes[2]);
-        write(u.bytes[3]);
-#endif // !CPU(BIG_ENDIAN)
+        uint8_t bytes[4];
+        std::memcpy(bytes, &i, sizeof(i));
+
+        // Though not always obvious, we don't have to invert the order of the
+        // bytes written here for CPU(BIG_ENDIAN). This is because the incoming
+        // i value is already ordered in big endian on CPU(BIG_EDNDIAN) platforms.
+        write(bytes[0]);
+        write(bytes[1]);
+        write(bytes[2]);
+        write(bytes[3]);
     }
 
     void rewind(MutableRef& ref)

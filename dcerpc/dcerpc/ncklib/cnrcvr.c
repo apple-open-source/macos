@@ -764,7 +764,7 @@ INTERNAL void receive_dispatch
                 SWAB_INPLACE_16 (auth_len);
             }
 
-            auth_tlr = (rpc_cn_auth_tlr_t *) ((unsigned8 *)(pktp) +
+            auth_tlr = (rpc_cn_auth_tlr_t *) (void *) ((unsigned8 *)(pktp) +
                 fragbuf_p->data_size -
                 (auth_len + RPC_CN_PKT_SIZEOF_COM_AUTH_TLR));
             if ( ((unsigned8 *)(auth_tlr) < (unsigned8 *)(pktp)) ||
@@ -859,7 +859,7 @@ INTERNAL void receive_dispatch
                             already_unpacked = true;
                         }
                         auth_len = RPC_CN_PKT_AUTH_LEN (pktp);
-                        auth_tlr = (rpc_cn_auth_tlr_t *) ((unsigned8 *)(pktp) +
+                        auth_tlr = (rpc_cn_auth_tlr_t *)(void *) ((unsigned8 *)(pktp) +
                                                           fragbuf_p->data_size -
                                                           (auth_len
                                                            +
@@ -945,7 +945,7 @@ INTERNAL void receive_dispatch
                              */
                             rpc_dce_svc_printf (
                                 __FILE__, __LINE__,
-                                "%s %x",
+                                "%s %s",
                                 rpc_svc_recv,
                                 svc_c_sev_error,
                                 rpc_m_call_failed_s,
@@ -1646,7 +1646,7 @@ INTERNAL void receive_packet
                      */
                     rpc_dce_svc_printf (
                         __FILE__, __LINE__,
-                        "%x %s %x %x",
+                        "%p %s %x %x",
                         rpc_svc_cn_pkt,
                         svc_c_sev_warning,
                         rpc_m_prot_mismatch,
@@ -1672,7 +1672,7 @@ INTERNAL void receive_packet
                  */
                 rpc_dce_svc_printf (
                     __FILE__, __LINE__,
-                    "%x %d %d",
+                    "%p %d %d",
                     rpc_svc_cn_pkt,
                     svc_c_sev_warning,
                     rpc_m_frag_toobig,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005, 2010, 2011, 2013, 2015, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2005, 2010, 2011, 2013, 2015, 2018, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -169,25 +169,6 @@ SCDynamicStoreNotifyFileDescriptor	(SCDynamicStoreRef		store,
 					 int				*fd);
 
 /*!
-	@function SCDynamicStoreNotifySignal
-	@discussion Requests that the specified BSD signal be sent to the process
-		with the indicated process id whenever a change has been detected
-		to one of the system configuration data entries associated with the
-		current session's notifier keys.
-
-		Note: this function is not valid for "configd" plug-ins.
-
-	@param store An SCDynamicStoreRef that should be used for communication with the server.
-	@param pid A UNIX process ID that should be signalled for any notifications.
-	@param sig A signal number to be used.
-	@result A boolean indicating the success (or failure) of the call.
- */
-Boolean
-SCDynamicStoreNotifySignal		(SCDynamicStoreRef		store,
-					 pid_t				pid,
-					 int				sig);
-
-/*!
 	@function SCDynamicStoreNotifyWait
 	@discussion Waits for a change to be made to a value in the
 		"dynamic store" that is being monitored.
@@ -229,6 +210,27 @@ SCDynamicStoreSetDisconnectCallBack	(
 
 Boolean
 SCDynamicStoreSnapshot			(SCDynamicStoreRef		store);
+
+
+Boolean
+_SCDynamicStoreCacheIsActive		(SCDynamicStoreRef		store)
+									API_AVAILABLE(macos(10.15)) SPI_AVAILABLE(ios(13.0), tvos(13.0), watchos(6.0), bridgeos(4.0));
+
+Boolean
+_SCDynamicStoreCacheOpen		(SCDynamicStoreRef		store)
+									API_AVAILABLE(macos(10.15)) SPI_AVAILABLE(ios(13.0), tvos(13.0), watchos(6.0), bridgeos(4.0));
+
+Boolean
+_SCDynamicStoreCacheCommitChanges	(SCDynamicStoreRef		store)
+									API_AVAILABLE(macos(10.15)) SPI_AVAILABLE(ios(13.0), tvos(13.0), watchos(6.0), bridgeos(4.0));
+
+Boolean
+_SCDynamicStoreCacheClose		(SCDynamicStoreRef		store)
+									API_AVAILABLE(macos(10.15)) SPI_AVAILABLE(ios(13.0), tvos(13.0), watchos(6.0), bridgeos(4.0));
+
+void
+_SCDynamicStoreSetSessionWatchLimit	(unsigned int			limit)
+									API_AVAILABLE(macos(10.15)) SPI_AVAILABLE(ios(13.0), tvos(13.0), watchos(6.0), bridgeos(4.0));
 
 __END_DECLS
 

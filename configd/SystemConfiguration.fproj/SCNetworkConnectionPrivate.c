@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2012, 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2012, 2015-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -602,6 +602,10 @@ copyNameCallout(CFStringRef	serviceID,
 	}
 
 	if (isMatchingPrefsID(current, matchID)) {
+		if (*name != NULL) {
+			CFRelease(*name);
+			*name = NULL;
+		}
 		*name = CFDictionaryGetValue(current, kSCPropUserDefinedName);
 
 		// for backwards compatibility, we also check for the name in the PPP entity
@@ -749,6 +753,10 @@ copyInterfaceConfigurationCallout(CFStringRef		serviceID,
 	}
 
 	if (isMatchingPrefsID(current, matchID)) {
+		if (*dict != NULL) {
+			CFRelease(*dict);
+			*dict = NULL;
+		}
 		*dict = CFDictionaryGetValue(current, interfaceType);
 		*dict = isA_CFDictionary(*dict);
 		if (*dict != NULL) {
@@ -1967,7 +1975,7 @@ SCUserPreferencesSetInterfacePassword(SCUserPreferencesRef		userPreferences,
 	CFDictionaryRef	config;
 	CFStringRef	description	= NULL;
 	CFStringRef	label		= NULL;
-	Boolean		ok	= FALSE;
+	Boolean		ok		= FALSE;
 
 	if (!checkUserPreferencesPassword(userPreferences, interface, passwordType)) {
 		return FALSE;

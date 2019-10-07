@@ -2,7 +2,7 @@
 #
 #   forwardable.rb -
 #       $Release Version: 1.1$
-#       $Revision: 62820 $
+#       $Revision: 66349 $
 #       by Keiju ISHITSUKA(keiju@ishitsuka.com)
 #       original definition by delegator.rb
 #       Revised by Daniel J. Berger with suggestions from Florian Gross.
@@ -110,8 +110,11 @@
 # +delegate.rb+.
 #
 module Forwardable
+  require 'forwardable/impl'
+
   # Version of +forwardable.rb+
-  FORWARDABLE_VERSION = "1.1.0"
+  VERSION = "1.2.0"
+  FORWARDABLE_VERSION = VERSION
 
   @debug = nil
   class << self
@@ -128,12 +131,13 @@ module Forwardable
   #    delegate [method, method, ...] => accessor
   #
   def instance_delegate(hash)
-    hash.each{ |methods, accessor|
-      methods = [methods] unless methods.respond_to?(:each)
-      methods.each{ |method|
-        def_instance_delegator(accessor, method)
-      }
-    }
+    hash.each do |methods, accessor|
+      unless defined?(methods.each)
+        def_instance_delegator(accessor, methods)
+      else
+        methods.each {|method| def_instance_delegator(accessor, method)}
+      end
+    end
   end
 
   #
@@ -185,6 +189,7 @@ module Forwardable
   alias def_delegators def_instance_delegators
   alias def_delegator def_instance_delegator
 
+  # :nodoc:
   def self._delegator_method(obj, accessor, method, ali)
     accessor = accessor.to_s unless Symbol === accessor
 
@@ -194,22 +199,33 @@ module Forwardable
       accessor = "#{accessor}()"
     end
 
-    line_no = __LINE__+1; str = "#{<<-"begin;"}\n#{<<-"end;"}"
+    method_call = ".__send__(:#{method}, *args, &block)"
+    if _valid_method?(method)
+      loc, = caller_locations(2,1)
+      pre = "_ ="
+      mesg = "#{Module === obj ? obj : obj.class}\##{ali} at #{loc.path}:#{loc.lineno} forwarding to private method "
+      method_call = "#{<<-"begin;"}\n#{<<-"end;".chomp}"
+        begin;
+          unless defined? _.#{method}
+            ::Kernel.warn #{mesg.dump}"\#{_.class}"'##{method}', uplevel: 1
+            _#{method_call}
+          else
+            _.#{method}(*args, &block)
+          end
+        end;
+    end
+
+    _compile_method("#{<<-"begin;"}\n#{<<-"end;"}", __FILE__, __LINE__+1)
     begin;
       proc do
         def #{ali}(*args, &block)
+          #{pre}
           begin
             #{accessor}
-          end.__send__ :#{method}, *args, &block
+          end#{method_call}
         end
       end
     end;
-
-    RubyVM::InstructionSequence
-      .compile(str, __FILE__, __FILE__, line_no,
-               trace_instruction: false,
-               tailcall_optimization: true)
-      .eval
   end
 end
 
@@ -247,12 +263,13 @@ module SingleForwardable
   #    delegate [method, method, ...] => accessor
   #
   def single_delegate(hash)
-    hash.each{ |methods, accessor|
-      methods = [methods] unless methods.respond_to?(:each)
-      methods.each{ |method|
-        def_single_delegator(accessor, method)
-      }
-    }
+    hash.each do |methods, accessor|
+      unless defined?(methods.each)
+        def_single_delegator(accessor, methods)
+      else
+        methods.each {|method| def_single_delegator(accessor, method)}
+      end
+    end
   end
 
   #

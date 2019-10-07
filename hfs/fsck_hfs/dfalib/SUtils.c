@@ -1597,7 +1597,7 @@ static void CompareVolHeaderBTreeSizes(	SGlobPtr GPtr,
 enum { WIDTH = 16, };
 
 void
-DumpData(const void *data, size_t len)
+DumpData(const void *data, size_t len, char *label)
 {
 	unsigned char *base = (unsigned char*)data;
 	unsigned char *end = base + len;
@@ -1629,8 +1629,12 @@ DumpData(const void *data, size_t len)
 			}
 		}
 		allzeroes = 1;
-
-		fprintf(stderr, "%04x:  ", (int)(cp - base));
+		if (label == NULL) {
+			fprintf(stderr, "%04x:  ", (int)(cp - base));
+		}
+		else {
+			fprintf(stderr, "%s %04x:  ", label, (int)(cp - base));
+		}
 		for (i = 0, tmp = cp; tmp < tend; tmp++) {
 			fprintf(stderr, "%02x", *tmp);
 			if (++i % 2 == 0)
@@ -1666,7 +1670,7 @@ DumpData(const void *data, size_t len)
 // 	Result:		returns true if volume is known volume type (i.e. HFS, HFS+)
 //				false otherwise.
 //******************************************************************************
-Boolean VolumeObjectIsValid(void)
+Boolean VolumeObjectIsValid(SGlobPtr gptr)
 {
 	VolumeObjectPtr	myVOPtr = GetVolumeObjectPtr();
 	Boolean retval = false;
@@ -1703,10 +1707,10 @@ done:
 		GetVolumeObjectBlockNum(&myBlockNum);
 		err = GetVolumeBlock(myVOPtr->vcbPtr, myBlockNum, kGetBlock, &theBlockDesc);
 		if (err != noErr) {
-			fprintf(stderr, "%s: Cannot GetVolumetBlock: %d\n", __FUNCTION__, err);
+			fprintf(stderr, "%s: Cannot GetVolumeBlock: %d\n", __FUNCTION__, err);
 		} else {
 			uint8_t *ptr = (uint8_t*)theBlockDesc.buffer;
-			DumpData(ptr, theBlockDesc.blockSize);
+			DumpData(ptr, theBlockDesc.blockSize, gptr->deviceNode);
 			ReleaseVolumeBlock(myVOPtr->vcbPtr, &theBlockDesc, kReleaseBlock);
 		}
 	}

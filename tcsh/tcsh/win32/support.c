@@ -1,4 +1,3 @@
-/*$Header: /p/tcsh/cvsroot/tcsh/win32/support.c,v 1.14 2008/08/31 14:09:01 amold Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -46,6 +45,7 @@
 #include "sh.h"
 #include "nt.const.h"
 
+#pragma warning(disable:6001)
 
 DWORD gdwPlatform,gdwVersion;
 unsigned short __nt_really_exec = 0,__nt_child_nohupped =0;
@@ -84,7 +84,6 @@ void nt_init(void) {
 		gcurr_drive=temp[0];
 	}
 #endif SECURE_CD
-
 	_set_invalid_parameter_handler(do_nothing);
 	init_stdio();
 	nt_init_signals();
@@ -92,15 +91,12 @@ void nt_init(void) {
 	init_hb_subst();
 	setlocale(LC_ALL,"");
 	init_shell_dll();
-	init_plister();
 	fork_init();
-	init_clipboard();
 	return;
 }
 void nt_cleanup(void){
 	nt_term_cleanup();
 	nt_cleanup_signals();
-	cleanup_netbios();
 }
 void caseify_pwd(char *curwd) {
 	char *sp, *dp, p,*s;
@@ -185,6 +181,7 @@ void getmachine (void) {
 
 	osver.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
 
+#pragma warning(suppress:4996 28159) //deprecated function
 	if (!GetVersionEx(&osver)) {
 		MessageBox(NULL,"GetVersionEx failed in getmachine",
 				"tcsh",MB_ICONHAND);
@@ -197,17 +194,18 @@ void getmachine (void) {
 		ostype = "WindowsNT";
 		ostr = "Windows NT";
 
-		(void)StringCbPrintf(temp,sizeof(temp),"%s %d.%d Build %d (%s)",
+		(void)StringCbPrintf(temp,(int)sizeof(temp),"%s %u.%u Build %u (%s)",
 							 ostr,
-							 osver.dwMajorVersion,osver.dwMinorVersion,
+							 osver.dwMajorVersion,
+                             osver.dwMinorVersion,
 							 osver.dwBuildNumber,
 							 osver.szCSDVersion[0]?osver.szCSDVersion:"");
 		tsetenv(STRHOSTTYPE,str2short(temp));
 	}
 	else if (osver.dwPlatformId == VER_PLATFORM_WIN32_WINDOWS) {
 		ostype = "Windows9x";
-		(void)StringCbPrintf(temp,sizeof(temp),
-							 "Win9x %d.%d:%d",osver.dwMajorVersion,osver.dwMinorVersion,
+		(void)StringCbPrintf(temp,(int)sizeof(temp),
+							 "Win9x %u.%u:%u",osver.dwMajorVersion,osver.dwMinorVersion,
 							 LOWORD(osver.dwBuildNumber));
 		tsetenv(STRHOSTTYPE,str2short(temp));
 	}
@@ -222,23 +220,23 @@ void getmachine (void) {
 					( sysinfo.wProcessorLevel > 9)  )
 				sysinfo.wProcessorLevel = 3;
 
-			(void)StringCbPrintf(temp,sizeof(temp),
-								 "i%d86",sysinfo.wProcessorLevel);
+			(void)StringCbPrintf(temp,(int)sizeof(temp),
+								 "i%u86",sysinfo.wProcessorLevel);
 			break;
 		case PROCESSOR_ARCHITECTURE_ALPHA:
-			(void)StringCbPrintf(temp,sizeof(temp),"Alpha");
+			(void)StringCbPrintf(temp,(int)sizeof(temp),"Alpha");
 			break;
 		case PROCESSOR_ARCHITECTURE_MIPS:
-			(void)StringCbPrintf(temp,sizeof(temp),"Mips");
+			(void)StringCbPrintf(temp,(int)sizeof(temp),"Mips");
 			break;
 		case PROCESSOR_ARCHITECTURE_PPC:
-			(void)StringCbPrintf(temp,sizeof(temp),"PPC");
+			(void)StringCbPrintf(temp,(int)sizeof(temp),"PPC");
 			break;
 		case PROCESSOR_ARCHITECTURE_AMD64:
-			(void)StringCbPrintf(temp,sizeof(temp),"AMD64");
+			(void)StringCbPrintf(temp,(int)sizeof(temp),"AMD64");
 			break;
 		default:
-			(void)StringCbPrintf(temp,sizeof(temp),"Unknown");
+			(void)StringCbPrintf(temp,(int)sizeof(temp),"Unknown");
 			break;
 	}
 	tsetenv(STRMACHTYPE,str2short(temp));
@@ -452,19 +450,6 @@ re_cp:
 			(void)GetExitCodeProcess(pi.hProcess,&exitcode);
 			CloseHandle(pi.hProcess);
 			CloseHandle(pi.hThread);
-			/*
-			 * If output was redirected to /dev/clipboard,
-			 * we need to close the pipe handles
-			 */
-			if (is_dev_clipboard_active) {
-				CloseHandle((HANDLE)_get_osfhandle(0));
-				CloseHandle((HANDLE)_get_osfhandle(1));
-				CloseHandle((HANDLE)_get_osfhandle(2));
-				CloseHandle(si.hStdInput);
-				CloseHandle(si.hStdOutput);
-				CloseHandle(si.hStdError);
-				WaitForSingleObject(ghdevclipthread,60*1000);
-			}
 			ExitProcess(exitcode);
 		}
 	}
@@ -542,6 +527,7 @@ void init_wow64(void) {
 		FreeLibrary(hlib);
 		return;
 	}
+#pragma warning(suppress:28278)
 	if (!pfnIsWow64(GetCurrentProcess(),&bIsWow64Process) )
 		bIsWow64Process = FALSE;
 
@@ -574,6 +560,7 @@ void silly_entry(void *peb) {
 
 	osver.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
 
+#pragma warning(suppress:4996 28159) //deprecated function
 	if (!GetVersionEx(&osver)) {
 		MessageBox(NULL,"GetVersionEx failed","tcsh",MB_ICONHAND);
 		ExitProcess(0xFF);
@@ -714,7 +701,7 @@ skippy:
 
 
 	rc = GetEnvironmentVariable("Path",path1,0);
-	if ( rc !=0) {
+	if ( rc !=0 && path1) {
 
 		path1 =heap_alloc(rc);
 
@@ -792,6 +779,9 @@ char *concat_args_and_quote(char **args, char **poriginalPtr,char **cstr,
 
 	dprintf("entering concat_args_and_quote\n");
 	tempquotedbuf = heap_alloc(tqlen);
+    if(!tempquotedbuf) {
+        return NULL;
+    }
 
 	noquoteprotect = (short)(varval(STRNTnoquoteprotect) != STRNULL);
 	/* 
@@ -830,7 +820,7 @@ char *concat_args_and_quote(char **args, char **poriginalPtr,char **cstr,
 		if (arglen + cmdlen +4 > *cmdsize) { // +4 is if we have to quote
 
 
-			tempptr = heap_realloc(*poriginalPtr,*cmdsize<<1);
+			tempptr = heap_realloc(*poriginalPtr,(long long)(*cmdsize)<<1LL);
 
 			if(!tempptr)
 				return NULL;
@@ -856,7 +846,7 @@ char *concat_args_and_quote(char **args, char **poriginalPtr,char **cstr,
 
 			while(rc == ERROR_BUFFER_OVERFLOW) {
 				char *tmp = tempquotedbuf;
-				tempquotedbuf = heap_realloc(tempquotedbuf,tqlen <<1);
+				tempquotedbuf = heap_realloc(tempquotedbuf,(long long)tqlen <<1);
 				if(!tempquotedbuf) {
 					heap_free(tmp);
 					return NULL;
@@ -914,8 +904,12 @@ char *fix_path_for_child(void) {
 
 		oldpath = heap_alloc(len+1);
 		pathstr = heap_alloc(len+1);
+        if(!oldpath || !pathstr) {
+            return NULL;
+        }
 
 		len = GetEnvironmentVariable("PATH",oldpath,len+1);
+#pragma warning(suppress:6102)
 		memcpy(pathstr,oldpath,len);
 
 		ptr = pathstr;

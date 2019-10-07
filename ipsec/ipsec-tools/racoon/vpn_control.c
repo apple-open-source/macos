@@ -51,9 +51,6 @@
  * SUCH DAMAGE.
  */
 
-//#define LION_TEST 1
-
-
 #include "config.h"
 
 #include <sys/types.h>
@@ -82,9 +79,6 @@
 #include <unistd.h>
 #endif
 #include <launch.h>
-#ifndef LION_TEST
-#include <launch_priv.h>
-#endif
 #include <fcntl.h>
 
 #include "var.h"
@@ -130,87 +124,25 @@ extern int vpn_xauth_reply (u_int32_t, void *, size_t);
 int
 checklaunchd()
 {
-	launch_data_t checkin_response = NULL;
-#ifdef LION_TEST
-    launch_data_t checkin_request = NULL;
-#endif
-	launch_data_t sockets_dict, listening_fd_array;
-	launch_data_t listening_fd;
-	struct sockaddr_storage fdsockaddr;
-	socklen_t fdsockaddrlen = sizeof(fdsockaddr);
-	int socketct;
-	int i;
-	int listenerct;
 	int returnval = 0;
-	int fd;
-	
-	/* check in with launchd */
-#ifdef LION_TEST
-    if ((checkin_request = launch_data_new_string(LAUNCH_KEY_CHECKIN)) == NULL) {
-#else
-	if ((checkin_response = launch_socket_service_check_in()) == NULL) {
-#endif
-		plog(ASL_LEVEL_ERR,
-			 "failed to launch_socket_service_check_in.\n");
-		goto done;
+	int *listening_fd_array = NULL;
+	size_t fd_count = 0;
+
+	int result = launch_activate_socket("Listeners", &listening_fd_array, &fd_count);
+	if (result != 0) {
+		plog(ASL_LEVEL_ERR, "failed to launch_activate_socket with error %s.\n", strerror(result));
+		return returnval;
 	}
-#ifdef LION_TEST
-    if ((checkin_response = launch_msg(checkin_request)) == NULL) {
-        plog(ASL_LEVEL_ERR, "failed to launch_msg.\n");
-        goto done;
-    }
-#endif
-	if (LAUNCH_DATA_ERRNO == launch_data_get_type(checkin_response)) {
-		plog(ASL_LEVEL_ERR,
-			 "launch_data_get_type error %d\n",
-			 launch_data_get_errno(checkin_response));
-		goto done;
-	}
-	if ( (sockets_dict = launch_data_dict_lookup(checkin_response, LAUNCH_JOBKEY_SOCKETS)) == NULL){
-		plog(ASL_LEVEL_ERR,
-			 "failed to launch_data_dict_lookup.\n");
-		goto done;
-	}
-	if ( !(socketct = launch_data_dict_get_count(sockets_dict))){
-		plog(ASL_LEVEL_ERR,
-			 "launch_data_dict_get_count returns no socket defined.\n");
-		goto done;
-	}
-	
-	if ( (listening_fd_array = launch_data_dict_lookup(sockets_dict, "Listeners")) == NULL ){
-		plog(ASL_LEVEL_ERR,
-			 "failed to launch_data_dict_lookup.\n");
-		goto done;
-	}
-	listenerct = launch_data_array_get_count(listening_fd_array);
-	for (i = 0; i < listenerct; i++) {
-		listening_fd = launch_data_array_get_index(listening_fd_array, i);
-		fd = launch_data_get_fd( listening_fd );
-		if ( getsockname( fd , (struct sockaddr *)&fdsockaddr, &fdsockaddrlen)){
-			continue;
+
+	if (listening_fd_array != NULL) {
+		if (fd_count > 0) {
+			returnval = listening_fd_array[0];
 		}
-		
-		/* Is this the VPN control socket? */
-		if ( fdsockaddr.ss_family == AF_UNIX &&
-				(!(strcmp(vpncontrolsock_path, ((struct sockaddr_un *)&fdsockaddr)->sun_path))))
-		{
-			plog(ASL_LEVEL_NOTICE,
-				 "found launchd socket.\n");
-			returnval = fd;
-			break;
-		}
+		free(listening_fd_array);
+		listening_fd_array = NULL;
 	}
-	// TODO: check if we have any leaked fd
-	if ( listenerct == i){
-		plog(ASL_LEVEL_ERR,
-			 "failed to find launchd socket\n");
-		returnval = 0;
-	}
-	
-done:
-	if (checkin_response)
-		launch_data_free(checkin_response);
-	return(returnval);
+
+	return returnval;
 }
 
 		

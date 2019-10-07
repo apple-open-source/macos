@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +32,7 @@
 #include "CachedRawResource.h"
 #include "CachedResourceLoader.h"
 #include "CrossOriginAccessControl.h"
+#include "CustomHeaderFields.h"
 #include "DiagnosticLoggingClient.h"
 #include "DiagnosticLoggingKeys.h"
 #include "Document.h"
@@ -63,6 +64,7 @@
 #endif
 
 #if USE(QUICK_LOOK)
+#include "PreviewConverter.h"
 #include "PreviewLoader.h"
 #endif
 
@@ -97,7 +99,7 @@ SubresourceLoader::SubresourceLoader(Frame& frame, CachedResource& resource, con
     subresourceLoaderCounter.increment();
 #endif
 #if ENABLE(CONTENT_EXTENSIONS)
-    m_resourceType = toResourceType(resource.type());
+    m_resourceType = ContentExtensions::toResourceType(resource.type());
 #endif
     m_canCrossOriginRequestsAskUserForCredentials = resource.type() == CachedResource::Type::MainResource || frame.settings().allowCrossOriginSubresourcesToAskForCredentials();
 }
@@ -162,6 +164,11 @@ void SubresourceLoader::init(ResourceRequest&& request, CompletionHandler<void(b
     ResourceLoader::init(WTFMove(request), [this, protectedThis = makeRef(*this), completionHandler = WTFMove(completionHandler)] (bool initialized) mutable {
         if (!initialized)
             return completionHandler(false);
+        if (!m_documentLoader) {
+            ASSERT_NOT_REACHED();
+            RELEASE_LOG_ERROR(ResourceLoading, "SubresourceLoader::init: resource load canceled because document loader is null (frame = %p, frameLoader = %p, resourceID = %lu)", frame(), frameLoader(), identifier());
+            return completionHandler(false);
+        }
         ASSERT(!reachedTerminalState());
         m_state = Initialized;
         m_documentLoader->addSubresourceLoader(this);
@@ -304,7 +311,7 @@ bool SubresourceLoader::shouldCreatePreviewLoaderForResponse(const ResourceRespo
     if (m_previewLoader)
         return false;
 
-    return PreviewLoader::shouldCreateForMIMEType(response.mimeType());
+    return PreviewConverter::supportsMIMEType(response.mimeType());
 }
 
 #endif
@@ -319,7 +326,8 @@ void SubresourceLoader::didReceiveResponse(const ResourceResponse& response, Com
 #if USE(QUICK_LOOK)
     if (shouldCreatePreviewLoaderForResponse(response)) {
         m_previewLoader = PreviewLoader::create(*this, response);
-        return;
+        if (m_previewLoader->didReceiveResponse(response))
+            return;
     }
 #endif
 #if ENABLE(SERVICE_WORKER)
@@ -516,8 +524,7 @@ static void logResourceLoaded(Frame* frame, CachedResource::Type type)
         resourceType = DiagnosticLoggingKeys::fontKey();
         break;
     case CachedResource::Type::Beacon:
-        ASSERT_NOT_REACHED();
-        break;
+    case CachedResource::Type::Ping:
     case CachedResource::Type::MediaResource:
     case CachedResource::Type::Icon:
     case CachedResource::Type::RawResource:
@@ -567,18 +574,17 @@ bool SubresourceLoader::checkRedirectionCrossOriginAccessControl(const ResourceR
 
     ASSERT(options().mode != FetchOptions::Mode::SameOrigin || !m_resource->isCrossOrigin());
 
-    if (options().mode != FetchOptions::Mode::Cors)
-        return true;
+    // Implementing https://fetch.spec.whatwg.org/#concept-http-redirect-fetch step 7 & 8.
+    if (options().mode == FetchOptions::Mode::Cors) {
+        if (m_resource->isCrossOrigin() && !isValidCrossOriginRedirectionURL(newRequest.url())) {
+            errorMessage = "URL is either a non-HTTP URL or contains credentials."_s;
+            return false;
+        }
 
-    // Implementing https://fetch.spec.whatwg.org/#concept-http-redirect-fetch step 8 & 9.
-    if (m_resource->isCrossOrigin() && !isValidCrossOriginRedirectionURL(newRequest.url())) {
-        errorMessage = "URL is either a non-HTTP URL or contains credentials."_s;
-        return false;
+        ASSERT(m_origin);
+        if (crossOriginFlag && !passesAccessControlCheck(redirectResponse, options().storedCredentialsPolicy, *m_origin, errorMessage))
+            return false;
     }
-
-    ASSERT(m_origin);
-    if (crossOriginFlag && !passesAccessControlCheck(redirectResponse, options().storedCredentialsPolicy, *m_origin, errorMessage))
-        return false;
 
     bool redirectingToNewOrigin = false;
     if (m_resource->isCrossOrigin()) {
@@ -592,9 +598,10 @@ bool SubresourceLoader::checkRedirectionCrossOriginAccessControl(const ResourceR
     if (crossOriginFlag && redirectingToNewOrigin)
         m_origin = SecurityOrigin::createUnique();
 
+    // Implementing https://fetch.spec.whatwg.org/#concept-http-redirect-fetch step 14.
     updateReferrerPolicy(redirectResponse.httpHeaderField(HTTPHeaderName::ReferrerPolicy));
     
-    if (redirectingToNewOrigin) {
+    if (options().mode == FetchOptions::Mode::Cors && redirectingToNewOrigin) {
         cleanHTTPRequestHeadersForAccessControl(newRequest, options().httpHeadersToKeep);
         updateRequestForAccessControl(newRequest, *m_origin, options().storedCredentialsPolicy);
     }
@@ -685,9 +692,8 @@ void SubresourceLoader::didFail(const ResourceError& error)
     ASSERT(!reachedTerminalState());
     LOG(ResourceLoading, "Failed to load '%s'.\n", m_resource->url().string().latin1().data());
 
-    if (m_frame->document() && error.isAccessControl())
+    if (m_frame->document() && error.isAccessControl() && m_resource->type() != CachedResource::Type::Ping)
         m_frame->document()->addConsoleMessage(MessageSource::Security, MessageLevel::Error, error.localizedDescription());
-
 
     Ref<SubresourceLoader> protectedThis(*this);
     CachedResourceHandle<CachedResource> protectResource(m_resource);

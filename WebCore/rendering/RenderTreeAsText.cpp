@@ -78,7 +78,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-static void writeLayers(TextStream&, const RenderLayer& rootLayer, RenderLayer&, const LayoutRect& paintDirtyRect, RenderAsTextBehavior = RenderAsTextBehaviorNormal);
+static void writeLayers(TextStream&, const RenderLayer& rootLayer, RenderLayer&, const LayoutRect& paintDirtyRect, OptionSet<RenderAsTextFlag>);
 
 static void printBorderStyle(TextStream& ts, const BorderStyle borderStyle)
 {
@@ -150,21 +150,17 @@ String quoteAndEscapeNonPrintables(StringView s)
     for (unsigned i = 0; i != s.length(); ++i) {
         UChar c = s[i];
         if (c == '\\') {
-            result.append('\\');
-            result.append('\\');
+            result.appendLiteral("\\\\");
         } else if (c == '"') {
-            result.append('\\');
-            result.append('"');
+            result.appendLiteral("\\\"");
         } else if (c == '\n' || c == noBreakSpace)
             result.append(' ');
         else {
             if (c >= 0x20 && c < 0x7F)
                 result.append(c);
             else {
-                result.append('\\');
-                result.append('x');
-                result.append('{');
-                appendUnsignedAsHex(c, result); 
+                result.appendLiteral("\\x{");
+                appendUnsignedAsHex(c, result);
                 result.append('}');
             }
         }
@@ -173,11 +169,11 @@ String quoteAndEscapeNonPrintables(StringView s)
     return result.toString();
 }
 
-void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, RenderAsTextBehavior behavior)
+void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, OptionSet<RenderAsTextFlag> behavior)
 {
     ts << o.renderName();
 
-    if (behavior & RenderAsTextShowAddresses)
+    if (behavior.contains(RenderAsTextFlag::ShowAddresses))
         ts << " " << static_cast<const void*>(&o);
 
     if (o.style().zIndex())
@@ -413,9 +409,9 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
     writeDebugInfo(ts, o, behavior);
 }
 
-void writeDebugInfo(TextStream& ts, const RenderObject& object, RenderAsTextBehavior behavior)
+void writeDebugInfo(TextStream& ts, const RenderObject& object, OptionSet<RenderAsTextFlag> behavior)
 {
-    if (behavior & RenderAsTextShowIDAndClass) {
+    if (behavior.contains(RenderAsTextFlag::ShowIDAndClass)) {
         if (Element* element = is<Element>(object.node()) ? downcast<Element>(object.node()) : nullptr) {
             if (element->hasID())
                 ts << " id=\"" + element->getIdAttribute() + "\"";
@@ -432,7 +428,7 @@ void writeDebugInfo(TextStream& ts, const RenderObject& object, RenderAsTextBeha
         }
     }
 
-    if (behavior & RenderAsTextShowLayoutState) {
+    if (behavior.contains(RenderAsTextFlag::ShowLayoutState)) {
         bool needsLayout = object.selfNeedsLayout() || object.needsPositionedMovementLayout() || object.posChildNeedsLayout() || object.normalChildNeedsLayout();
         if (needsLayout)
             ts << " (needs layout:";
@@ -467,7 +463,7 @@ void writeDebugInfo(TextStream& ts, const RenderObject& object, RenderAsTextBeha
             ts << ")";
     }
 
-    if (behavior & RenderAsTextShowOverflow && is<RenderBox>(object)) {
+    if (behavior.contains(RenderAsTextFlag::ShowOverflow) && is<RenderBox>(object)) {
         const auto& box = downcast<RenderBox>(object);
         if (box.hasRenderOverflow()) {
             LayoutRect layoutOverflow = box.layoutOverflowRect();
@@ -523,7 +519,7 @@ static void writeSimpleLine(TextStream& ts, const RenderText& renderText, const 
     ts << "\n";
 }
 
-void write(TextStream& ts, const RenderObject& o, RenderAsTextBehavior behavior)
+void write(TextStream& ts, const RenderObject& o, OptionSet<RenderAsTextFlag> behavior)
 {
     if (is<RenderSVGShape>(o)) {
         write(ts, downcast<RenderSVGShape>(o), behavior);
@@ -594,7 +590,7 @@ void write(TextStream& ts, const RenderObject& o, RenderAsTextBehavior behavior)
         if (is<FrameView>(widget)) {
             FrameView& view = downcast<FrameView>(*widget);
             if (RenderView* root = view.frame().contentRenderer()) {
-                if (!(behavior & RenderAsTextDontUpdateLayout))
+                if (!(behavior.contains(RenderAsTextFlag::DontUpdateLayout)))
                     view.layoutContext().layout();
                 if (RenderLayer* layer = root->layer())
                     writeLayers(ts, *layer, *layer, layer->rect(), behavior);
@@ -610,7 +606,7 @@ enum LayerPaintPhase {
 };
 
 static void writeLayer(TextStream& ts, const RenderLayer& layer, const LayoutRect& layerBounds, const LayoutRect& backgroundClipRect, const LayoutRect& clipRect,
-    LayerPaintPhase paintPhase = LayerPaintPhaseAll, RenderAsTextBehavior behavior = RenderAsTextBehaviorNormal)
+    LayerPaintPhase paintPhase = LayerPaintPhaseAll, OptionSet<RenderAsTextFlag> behavior = { })
 {
     IntRect adjustedLayoutBounds = snappedIntRect(layerBounds);
     IntRect adjustedBackgroundClipRect = snappedIntRect(backgroundClipRect);
@@ -618,7 +614,7 @@ static void writeLayer(TextStream& ts, const RenderLayer& layer, const LayoutRec
 
     ts << indent << "layer ";
     
-    if (behavior & RenderAsTextShowAddresses)
+    if (behavior.contains(RenderAsTextFlag::ShowAddresses))
         ts << static_cast<const void*>(&layer) << " ";
       
     ts << adjustedLayoutBounds;
@@ -654,11 +650,12 @@ static void writeLayer(TextStream& ts, const RenderLayer& layer, const LayoutRec
     else if (paintPhase == LayerPaintPhaseForeground)
         ts << " layerType: foreground only";
 
-    if (behavior & RenderAsTextShowCompositedLayers) {
+    if (behavior.contains(RenderAsTextFlag::ShowCompositedLayers)) {
         if (layer.isComposited()) {
             ts << " (composited, bounds=" << layer.backing()->compositedBounds() << ", drawsContent=" << layer.backing()->graphicsLayer()->drawsContent()
                 << ", paints into ancestor=" << layer.backing()->paintsIntoCompositedAncestor() << ")";
-        }
+        } else if (layer.paintsIntoProvidedBacking())
+            ts << " (shared backing of " << layer.backingProviderLayer() << ")";
     }
 
 #if ENABLE(CSS_COMPOSITING)
@@ -671,7 +668,7 @@ static void writeLayer(TextStream& ts, const RenderLayer& layer, const LayoutRec
     ts << "\n";
 }
 
-static void writeLayerRenderers(TextStream& ts, const RenderLayer& layer, LayerPaintPhase paintPhase, RenderAsTextBehavior behavior)
+static void writeLayerRenderers(TextStream& ts, const RenderLayer& layer, LayerPaintPhase paintPhase, OptionSet<RenderAsTextFlag> behavior)
 {
     if (paintPhase != LayerPaintPhaseBackground) {
         TextStream::IndentScope indentScope(ts);
@@ -685,7 +682,7 @@ static LayoutSize maxLayoutOverflow(const RenderBox* box)
     return LayoutSize(overflowRect.maxX(), overflowRect.maxY());
 }
 
-static void writeLayers(TextStream& ts, const RenderLayer& rootLayer, RenderLayer& layer, const LayoutRect& paintRect, RenderAsTextBehavior behavior)
+static void writeLayers(TextStream& ts, const RenderLayer& rootLayer, RenderLayer& layer, const LayoutRect& paintRect, OptionSet<RenderAsTextFlag> behavior)
 {
     // FIXME: Apply overflow to the root layer to not break every test. Complete hack. Sigh.
     LayoutRect paintDirtyRect(paintRect);
@@ -706,7 +703,7 @@ static void writeLayers(TextStream& ts, const RenderLayer& rootLayer, RenderLaye
     layer.updateLayerListsIfNeeded();
     layer.updateDescendantDependentFlags();
 
-    bool shouldPaint = (behavior & RenderAsTextShowAllLayers) ? true : layer.intersectsDamageRect(layerBounds, damageRect.rect(), &rootLayer, layer.offsetFromAncestor(&rootLayer));
+    bool shouldPaint = (behavior.contains(RenderAsTextFlag::ShowAllLayers)) ? true : layer.intersectsDamageRect(layerBounds, damageRect.rect(), &rootLayer, layer.offsetFromAncestor(&rootLayer));
     auto negativeZOrderLayers = layer.negativeZOrderLayers();
     bool paintsBackgroundSeparately = negativeZOrderLayers.size() > 0;
     if (shouldPaint && paintsBackgroundSeparately) {
@@ -715,22 +712,22 @@ static void writeLayers(TextStream& ts, const RenderLayer& rootLayer, RenderLaye
     }
         
     if (negativeZOrderLayers.size()) {
-        if (behavior & RenderAsTextShowLayerNesting) {
-            ts << indent << " negative z-order list(" << negativeZOrderLayers.size() << ")\n";
+        if (behavior.contains(RenderAsTextFlag::ShowLayerNesting)) {
+            ts << indent << " negative z-order list (" << negativeZOrderLayers.size() << ")\n";
             ts.increaseIndent();
         }
         
         for (auto* currLayer : negativeZOrderLayers)
             writeLayers(ts, rootLayer, *currLayer, paintDirtyRect, behavior);
 
-        if (behavior & RenderAsTextShowLayerNesting)
+        if (behavior.contains(RenderAsTextFlag::ShowLayerNesting))
             ts.decreaseIndent();
     }
 
     if (shouldPaint) {
         writeLayer(ts, layer, layerBounds, damageRect.rect(), clipRectToApply.rect(), paintsBackgroundSeparately ? LayerPaintPhaseForeground : LayerPaintPhaseAll, behavior);
         
-        if (behavior & RenderAsTextShowLayerFragments) {
+        if (behavior.contains(RenderAsTextFlag::ShowLayerFragments)) {
             LayerFragments layerFragments;
             layer.collectFragments(layerFragments, &rootLayer, paintDirtyRect, RenderLayer::PaginationInclusionMode::ExcludeCompositedPaginatedLayers, TemporaryClipRects, IgnoreOverlayScrollbarSize, RespectOverflowClip, offsetFromRoot);
             
@@ -748,15 +745,15 @@ static void writeLayers(TextStream& ts, const RenderLayer& rootLayer, RenderLaye
     
     auto normalFlowLayers = layer.normalFlowLayers();
     if (normalFlowLayers.size()) {
-        if (behavior & RenderAsTextShowLayerNesting) {
-            ts << indent << " normal flow list(" << normalFlowLayers.size() << ")\n";
+        if (behavior.contains(RenderAsTextFlag::ShowLayerNesting)) {
+            ts << indent << " normal flow list (" << normalFlowLayers.size() << ")\n";
             ts.increaseIndent();
         }
         
         for (auto* currLayer : normalFlowLayers)
             writeLayers(ts, rootLayer, *currLayer, paintDirtyRect, behavior);
 
-        if (behavior & RenderAsTextShowLayerNesting)
+        if (behavior.contains(RenderAsTextFlag::ShowLayerNesting))
             ts.decreaseIndent();
     }
 
@@ -765,15 +762,15 @@ static void writeLayers(TextStream& ts, const RenderLayer& rootLayer, RenderLaye
         size_t layerCount = positiveZOrderLayers.size();
 
         if (layerCount) {
-            if (behavior & RenderAsTextShowLayerNesting) {
-                ts << indent << " positive z-order list(" << layerCount << ")\n";
+            if (behavior.contains(RenderAsTextFlag::ShowLayerNesting)) {
+                ts << indent << " positive z-order list (" << layerCount << ")\n";
                 ts.increaseIndent();
             }
 
             for (auto* currLayer : positiveZOrderLayers)
                 writeLayers(ts, rootLayer, *currLayer, paintDirtyRect, behavior);
 
-            if (behavior & RenderAsTextShowLayerNesting)
+            if (behavior.contains(RenderAsTextFlag::ShowLayerNesting))
                 ts.decreaseIndent();
         }
     }
@@ -833,7 +830,7 @@ static void writeSelection(TextStream& ts, const RenderBox& renderer)
            << "selection end:   position " << selection.end().deprecatedEditingOffset() << " of " << nodePosition(selection.end().deprecatedNode()) << "\n";
 }
 
-static String externalRepresentation(RenderBox& renderer, RenderAsTextBehavior behavior)
+static String externalRepresentation(RenderBox& renderer, OptionSet<RenderAsTextFlag> behavior)
 {
     TextStream ts(TextStream::LineMode::MultipleLine, TextStream::Formatting::SVGStyleRect | TextStream::Formatting::LayoutUnitsAsIntegers);
     if (!renderer.hasLayer())
@@ -857,12 +854,12 @@ static void updateLayoutIgnoringPendingStylesheetsIncludingSubframes(Document& d
     }
 }
 
-String externalRepresentation(Frame* frame, RenderAsTextBehavior behavior)
+String externalRepresentation(Frame* frame, OptionSet<RenderAsTextFlag> behavior)
 {
     ASSERT(frame);
     ASSERT(frame->document());
 
-    if (!(behavior & RenderAsTextDontUpdateLayout))
+    if (!(behavior.contains(RenderAsTextFlag::DontUpdateLayout)))
         updateLayoutIgnoringPendingStylesheetsIncludingSubframes(*frame->document());
 
     auto* renderer = frame->contentRenderer();
@@ -870,27 +867,27 @@ String externalRepresentation(Frame* frame, RenderAsTextBehavior behavior)
         return String();
 
     PrintContext printContext(frame);
-    if (behavior & RenderAsTextPrintingMode)
+    if (behavior.contains(RenderAsTextFlag::PrintingMode))
         printContext.begin(renderer->width());
 
     return externalRepresentation(*renderer, behavior);
 }
 
-String externalRepresentation(Element* element, RenderAsTextBehavior behavior)
+String externalRepresentation(Element* element, OptionSet<RenderAsTextFlag> behavior)
 {
     ASSERT(element);
 
     // This function doesn't support printing mode.
-    ASSERT(!(behavior & RenderAsTextPrintingMode));
+    ASSERT(!(behavior.contains(RenderAsTextFlag::PrintingMode)));
 
-    if (!(behavior & RenderAsTextDontUpdateLayout))
+    if (!(behavior.contains(RenderAsTextFlag::DontUpdateLayout)))
         updateLayoutIgnoringPendingStylesheetsIncludingSubframes(element->document());
 
     auto* renderer = element->renderer();
     if (!is<RenderBox>(renderer))
         return String();
 
-    return externalRepresentation(downcast<RenderBox>(*renderer), behavior | RenderAsTextShowAllLayers);
+    return externalRepresentation(downcast<RenderBox>(*renderer), behavior | RenderAsTextFlag::ShowAllLayers);
 }
 
 static void writeCounterValuesFromChildren(TextStream& stream, const RenderElement* parent, bool& isFirstCounter)

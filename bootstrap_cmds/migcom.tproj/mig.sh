@@ -83,6 +83,11 @@ fi
 C=${MIGCC}
 M=${MIGCOM-${migcomPath}}
 
+if [ $# -eq 1 ] && [ "$1" = "-version" ] ; then
+	"$M" "$@"
+	exit $?
+fi
+
 cppflags="-D__MACH30__"
 
 files=
@@ -109,6 +114,7 @@ do
 	-iheader ) iheader="$2"; migflags=( "${migflags[@]}" "$1" "$2"); shift; shift;;
 	-dheader ) dheader="$2"; migflags=( "${migflags[@]}" "$1" "$2"); shift; shift;;
 	-arch ) arch="$2"; shift; shift;;
+	-target ) target=( "$1" "$2"); shift; shift;;
 	-maxonstack ) migflags=( "${migflags[@]}" "$1" "$2"); shift; shift;;
 	-split ) migflags=( "${migflags[@]}" "$1" ); shift;;
 	-novouchers ) migflags=( "${migflags[@]}" "$1" ); shift;;
@@ -135,6 +141,7 @@ do
 	-iheader ) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift; shift; continue;;
 	-dheader ) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift; shift; continue;;
 	-arch ) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift ; shift; continue;;
+	-target ) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift ; shift; continue;;
 	-maxonstack ) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift; shift; continue;;
 	-split ) echo "warning: option \"$1\" after filename(s) ignored"; shift; continue;;
 	-novouchers ) echo "warning: option \"$1\" after filename(s) ignored"; shift; continue;;
@@ -161,7 +168,7 @@ do
     fi
     rm -f "${temp}.c" "${temp}.d"
     (echo '#line 1 '\"${file}\" ; cat "${file}" ) > "${temp}.c"
-    "$C" -E -arch ${arch} "${cppflags[@]}" -I "${sourcedir}" "${iSysRootParm[@]}" "${temp}.c" | "$M" "${migflags[@]}"
+    "$C" -E -arch ${arch} "${target[@]}" "${cppflags[@]}" -I "${sourcedir}" "${iSysRootParm[@]}" "${temp}.c" | "$M" "${migflags[@]}"
     if [ $? -ne 0 ]
     then
       rm -rf "${temp}.c" "${temp}.d" "${WORKTMP}"

@@ -83,6 +83,8 @@ public:
 
     bool isUserObservable() const;
 
+    WEBCORE_EXPORT bool isBelowSizeThreshold() const;
+
     // Return whether or not the replacement content for blocked plugins is accessible to the user.
     WEBCORE_EXPORT bool setReplacement(RenderEmbeddedObject::PluginUnavailabilityReason, const String& unavailabilityDescription);
 
@@ -93,7 +95,7 @@ protected:
 
     void willDetachRenderers() override;
     bool isPresentationAttribute(const QualifiedName&) const override;
-    void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) override;
+    void collectStyleForPresentationAttribute(const QualifiedName&, const AtomString&, MutableStyleProperties&) override;
 
     virtual bool useFallbackContent() const { return false; }
 

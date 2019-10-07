@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,6 +35,7 @@
 #import "SafeBrowsingWarning.h"
 #import "WebPageMessages.h"
 #import "WebProcessProxy.h"
+#import "WebsiteDataStore.h"
 #import <WebCore/DragItem.h>
 #import <WebCore/NotImplemented.h>
 #import <WebCore/SearchPopupMenuCocoa.h>
@@ -62,14 +63,14 @@ void WebPageProxy::saveRecentSearches(const String& name, const Vector<WebCore::
     WebCore::saveRecentSearches(name, searchItems);
 }
 
-void WebPageProxy::loadRecentSearches(const String& name, Vector<WebCore::RecentSearch>& searchItems)
+void WebPageProxy::loadRecentSearches(const String& name, CompletionHandler<void(Vector<WebCore::RecentSearch>&&)>&& completionHandler)
 {
     if (!name) {
         // FIXME: This should be a message check.
-        return;
+        return completionHandler({ });
     }
 
-    searchItems = WebCore::loadRecentSearches(name);
+    completionHandler(WebCore::loadRecentSearches(name));
 }
 
 void WebPageProxy::beginSafeBrowsingCheck(const URL& url, bool forMainFrameNavigation, WebFramePolicyListenerProxy& listener)
@@ -102,7 +103,12 @@ void WebPageProxy::beginSafeBrowsingCheck(const URL& url, bool forMainFrameNavig
 #if ENABLE(CONTENT_FILTERING)
 void WebPageProxy::contentFilterDidBlockLoadForFrame(const WebCore::ContentFilterUnblockHandler& unblockHandler, uint64_t frameID)
 {
-    if (WebFrameProxy* frame = m_process->webFrame(frameID))
+    contentFilterDidBlockLoadForFrameShared(m_process.copyRef(), unblockHandler, frameID);
+}
+
+void WebPageProxy::contentFilterDidBlockLoadForFrameShared(Ref<WebProcessProxy>&& process, const WebCore::ContentFilterUnblockHandler& unblockHandler, uint64_t frameID)
+{
+    if (WebFrameProxy* frame = process->webFrame(frameID))
         frame->contentFilterDidBlockLoad(unblockHandler);
 }
 #endif
@@ -120,6 +126,9 @@ void WebPageProxy::createSandboxExtensionsIfNeeded(const Vector<String>& files, 
     if (files.size() == 1) {
         BOOL isDirectory;
         if ([[NSFileManager defaultManager] fileExistsAtPath:files[0] isDirectory:&isDirectory] && !isDirectory) {
+#if HAVE(SANDBOX_ISSUE_READ_EXTENSION_TO_PROCESS_BY_PID)
+            if (!SandboxExtension::createHandleForReadByPid("/", processIdentifier(), fileReadHandle))
+#endif
             SandboxExtension::createHandle("/", SandboxExtension::Type::ReadOnly, fileReadHandle);
             willAcquireUniversalFileReadSandboxExtension(m_process);
         }
@@ -132,6 +141,11 @@ void WebPageProxy::createSandboxExtensionsIfNeeded(const Vector<String>& files, 
             continue;
         SandboxExtension::createHandle(file, SandboxExtension::Type::ReadOnly, fileUploadHandles[i]);
     }
+}
+
+bool WebPageProxy::scrollingUpdatesDisabledForTesting()
+{
+    return pageClient().scrollingUpdatesDisabledForTesting();
 }
 
 #if ENABLE(DRAG_SUPPORT)
@@ -155,7 +169,7 @@ void WebPageProxy::setDragCaretRect(const IntRect& dragCaretRect)
 
     auto previousRect = m_currentDragCaretRect;
     m_currentDragCaretRect = dragCaretRect;
-    pageClient().didChangeDataInteractionCaretRect(previousRect, dragCaretRect);
+    pageClient().didChangeDragCaretRect(previousRect, dragCaretRect);
 }
 
 #endif // PLATFORM(IOS_FAMILY)
@@ -193,7 +207,7 @@ void WebPageProxy::platformCloneAttachment(Ref<API::Attachment>&& fromAttachment
     
 void WebPageProxy::performDictionaryLookupAtLocation(const WebCore::FloatPoint& point)
 {
-    if (!isValid())
+    if (!hasRunningProcess())
         return;
     
     process().send(Messages::WebPage::PerformDictionaryLookupAtLocation(point), m_pageID);
@@ -201,10 +215,96 @@ void WebPageProxy::performDictionaryLookupAtLocation(const WebCore::FloatPoint& 
 
 void WebPageProxy::performDictionaryLookupOfCurrentSelection()
 {
-    if (!isValid())
+    if (!hasRunningProcess())
         return;
     
     process().send(Messages::WebPage::PerformDictionaryLookupOfCurrentSelection(), m_pageID);
 }
+    
+#if ENABLE(APPLE_PAY)
+
+IPC::Connection* WebPageProxy::paymentCoordinatorConnection(const WebPaymentCoordinatorProxy&)
+{
+    return messageSenderConnection();
+}
+
+const String& WebPageProxy::paymentCoordinatorBoundInterfaceIdentifier(const WebPaymentCoordinatorProxy&, PAL::SessionID sessionID)
+{
+    ASSERT_UNUSED(sessionID, sessionID == websiteDataStore().sessionID());
+    return websiteDataStore().boundInterfaceIdentifier();
+}
+
+const String& WebPageProxy::paymentCoordinatorSourceApplicationBundleIdentifier(const WebPaymentCoordinatorProxy&, PAL::SessionID sessionID)
+{
+    ASSERT_UNUSED(sessionID, sessionID == websiteDataStore().sessionID());
+    return websiteDataStore().sourceApplicationBundleIdentifier();
+}
+
+const String& WebPageProxy::paymentCoordinatorSourceApplicationSecondaryIdentifier(const WebPaymentCoordinatorProxy&, PAL::SessionID sessionID)
+{
+    ASSERT_UNUSED(sessionID, sessionID == websiteDataStore().sessionID());
+    return websiteDataStore().sourceApplicationSecondaryIdentifier();
+}
+
+void WebPageProxy::paymentCoordinatorAddMessageReceiver(WebPaymentCoordinatorProxy&, const IPC::StringReference& messageReceiverName, IPC::MessageReceiver& messageReceiver)
+{
+    process().addMessageReceiver(messageReceiverName, m_pageID, messageReceiver);
+}
+
+void WebPageProxy::paymentCoordinatorRemoveMessageReceiver(WebPaymentCoordinatorProxy&, const IPC::StringReference& messageReceiverName)
+{
+    process().removeMessageReceiver(messageReceiverName, m_pageID);
+}
+
+#endif
+
+#if ENABLE(SPEECH_SYNTHESIS)
+void WebPageProxy::didStartSpeaking(WebCore::PlatformSpeechSynthesisUtterance&)
+{
+    if (speechSynthesisData().speakingStartedCompletionHandler)
+        speechSynthesisData().speakingStartedCompletionHandler();
+}
+
+void WebPageProxy::didFinishSpeaking(WebCore::PlatformSpeechSynthesisUtterance&)
+{
+    if (speechSynthesisData().speakingFinishedCompletionHandler)
+        speechSynthesisData().speakingFinishedCompletionHandler();
+}
+
+void WebPageProxy::didPauseSpeaking(WebCore::PlatformSpeechSynthesisUtterance&)
+{
+    if (speechSynthesisData().speakingPausedCompletionHandler)
+        speechSynthesisData().speakingPausedCompletionHandler();
+}
+
+void WebPageProxy::didResumeSpeaking(WebCore::PlatformSpeechSynthesisUtterance&)
+{
+    if (speechSynthesisData().speakingResumedCompletionHandler)
+        speechSynthesisData().speakingResumedCompletionHandler();
+}
+
+void WebPageProxy::speakingErrorOccurred(WebCore::PlatformSpeechSynthesisUtterance&)
+{
+    process().send(Messages::WebPage::SpeakingErrorOccurred(), m_pageID);
+}
+
+void WebPageProxy::boundaryEventOccurred(WebCore::PlatformSpeechSynthesisUtterance&, WebCore::SpeechBoundary speechBoundary, unsigned charIndex)
+{
+    process().send(Messages::WebPage::BoundaryEventOccurred(speechBoundary == WebCore::SpeechBoundary::SpeechWordBoundary, charIndex), m_pageID);
+}
+
+void WebPageProxy::voicesDidChange()
+{
+    process().send(Messages::WebPage::VoicesDidChange(), m_pageID);
+}
+#endif // ENABLE(SPEECH_SYNTHESIS)
+
+#if HAVE(VISIBILITY_PROPAGATION_VIEW)
+void WebPageProxy::didCreateContextForVisibilityPropagation(LayerHostingContextID contextID)
+{
+    m_contextIDForVisibilityPropagation = contextID;
+    pageClient().didCreateContextForVisibilityPropagation(contextID);
+}
+#endif
 
 } // namespace WebKit

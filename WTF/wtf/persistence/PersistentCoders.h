@@ -196,6 +196,7 @@ template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTrai
             return false;
 
         HashMapType tempHashMap;
+        tempHashMap.reserveInitialCapacity(hashMapSize);
         for (uint64_t i = 0; i < hashMapSize; ++i) {
             KeyArg key;
             MappedArg value;
@@ -282,9 +283,9 @@ template<> struct Coder<WallTime> {
     }
 };
 
-template<> struct Coder<AtomicString> {
-    WTF_EXPORT_PRIVATE static void encode(Encoder&, const AtomicString&);
-    WTF_EXPORT_PRIVATE static bool decode(Decoder&, AtomicString&);
+template<> struct Coder<AtomString> {
+    WTF_EXPORT_PRIVATE static void encode(Encoder&, const AtomString&);
+    WTF_EXPORT_PRIVATE static bool decode(Decoder&, AtomString&);
 };
 
 template<> struct Coder<CString> {

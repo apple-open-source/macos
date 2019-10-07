@@ -28,8 +28,6 @@
 #ifndef	_CTF_IMPL_H
 #define	_CTF_IMPL_H
 
-#pragma ident	"@(#)ctf_impl.h	1.9	06/01/07 SMI"
-
 #ifdef KERNEL
 #ifndef _KERNEL
 #define _KERNEL /* Solaris vs. Darwin */
@@ -38,8 +36,9 @@
 
 #include <sys/types.h>
 #include <sys/errno.h>
-#include "darwin_shim.h" /* In lieu of Solaris <sys/sysmacros.h> */
-#include "ctf_api.h" /* In lieu of Solaris <sys/ctf_api.h> */
+#include <darwin_shim.h> /* In lieu of Solaris <sys/sysmacros.h> */
+#include <sys/ctf_api.h>
+#include <sys/elf.h>
 
 #ifdef _KERNEL
 
@@ -69,17 +68,17 @@ extern "C" {
 #endif
 
 typedef struct ctf_helem {
-	uint_t h_name;		/* reference to name in string table */
-	ushort_t h_type;	/* corresponding type ID number */
-	ushort_t h_next;	/* index of next element in hash chain */
+	uint32_t h_name;		/* reference to name in string table */
+	uint16_t h_type;	/* corresponding type ID number */
+	uint16_t h_next;	/* index of next element in hash chain */
 } ctf_helem_t;
 
 typedef struct ctf_hash {
-	ushort_t *h_buckets;	/* hash bucket array (chain indices) */
+	uint16_t *h_buckets;	/* hash bucket array (chain indices) */
 	ctf_helem_t *h_chains;	/* hash chains buffer */
-	ushort_t h_nbuckets;	/* number of elements in bucket array */
-	ushort_t h_nelems;	/* number of elements in hash table */
-	uint_t h_free;		/* index of next free hash element */
+	uint16_t h_nbuckets;	/* number of elements in bucket array */
+	uint16_t h_nelems;	/* number of elements in hash table */
+	uint32_t h_free;		/* index of next free hash element */
 } ctf_hash_t;
 
 typedef struct ctf_strs {
@@ -104,9 +103,9 @@ typedef struct ctf_lookup {
 } ctf_lookup_t;
 
 typedef struct ctf_fileops {
-	ushort_t (*ctfo_get_kind)(ushort_t);
-	ushort_t (*ctfo_get_root)(ushort_t);
-	ushort_t (*ctfo_get_vlen)(ushort_t);
+	uint16_t (*ctfo_get_kind)(uint16_t);
+	uint16_t (*ctfo_get_root)(uint16_t);
+	uint16_t (*ctfo_get_vlen)(uint16_t);
 } ctf_fileops_t;
 
 typedef struct ctf_list {
@@ -125,8 +124,8 @@ typedef enum {
 typedef struct ctf_decl_node {
 	ctf_list_t cd_list;			/* linked list pointers */
 	ctf_id_t cd_type;			/* type identifier */
-	uint_t cd_kind;				/* type kind */
-	uint_t cd_n;				/* type dimension if array */
+	uint32_t cd_kind;				/* type kind */
+	uint32_t cd_n;				/* type dimension if array */
 } ctf_decl_node_t;
 
 typedef struct ctf_decl {
@@ -145,7 +144,7 @@ typedef struct ctf_dmdef {
 	ctf_list_t dmd_list;	/* list forward/back pointers */
 	char *dmd_name;		/* name of this member */
 	ctf_id_t dmd_type;	/* type of this member (for sou) */
-	ulong_t dmd_offset;	/* offset of this member in bits (for sou) */
+	unsigned long dmd_offset;	/* offset of this member in bits (for sou) */
 	int dmd_value;		/* value of this member (for enum) */
 } ctf_dmdef_t;
 
@@ -155,11 +154,13 @@ typedef struct ctf_dtdef {
 	char *dtd_name;		/* name associated with definition (if any) */
 	ctf_id_t dtd_type;	/* type identifier for this definition */
 	ctf_type_t dtd_data;	/* type node (see <sys/ctf.h>) */
+	int dtd_ref;		/* refcount for dynamic types */
 	union {
 		ctf_list_t dtu_members;	/* struct, union, or enum */
 		ctf_arinfo_t dtu_arr;	/* array */
 		ctf_encoding_t dtu_enc;	/* integer or float */
 		ctf_id_t *dtu_argv;	/* function */
+		ctf_ptrauth_t dtu_pta;	/* ptrauth */
 	} dtd_u;
 } ctf_dtdef_t;
 
@@ -192,28 +193,28 @@ struct ctf_file {
 	ctf_hash_t ctf_names;	/* hash table of remaining type names */
 	ctf_lookup_t ctf_lookups[5];	/* pointers to hashes for name lookup */
 	ctf_strs_t ctf_str[2];	/* array of string table base and bounds */
-	const uchar_t *ctf_base; /* base of CTF header + uncompressed buffer */
-	const uchar_t *ctf_buf;	/* uncompressed CTF data buffer */
+	const uint8_t *ctf_base; /* base of CTF header + uncompressed buffer */
+	const uint8_t *ctf_buf;	/* uncompressed CTF data buffer */
 	size_t ctf_size;	/* size of CTF header + uncompressed data */
-	uint_t *ctf_sxlate;	/* translation table for symtab entries */
-	ulong_t ctf_nsyms;	/* number of entries in symtab xlate table */
-	uint_t *ctf_txlate;	/* translation table for type IDs */
-	ushort_t *ctf_ptrtab;	/* translation table for pointer-to lookups */
-	ulong_t ctf_typemax;	/* maximum valid type ID number */
+	uint32_t *ctf_sxlate;	/* translation table for symtab entries */
+	unsigned long ctf_nsyms;	/* number of entries in symtab xlate table */
+	uint32_t *ctf_txlate;	/* translation table for type IDs */
+	uint16_t *ctf_ptrtab;	/* translation table for pointer-to lookups */
+	unsigned long ctf_typemax;	/* maximum valid type ID number */
 	const ctf_dmodel_t *ctf_dmodel;	/* data model pointer (see above) */
 	struct ctf_file *ctf_parent;	/* parent CTF container (if any) */
 	const char *ctf_parlabel;	/* label in parent container (if any) */
 	const char *ctf_parname;	/* basename of parent (if any) */
-	uint_t ctf_refcnt;	/* reference count (for parent links) */
-	uint_t ctf_flags;	/* libctf flags (see below) */
+	uint32_t ctf_refcnt;	/* reference count (for parent links) */
+	uint32_t ctf_flags;	/* libctf flags (see below) */
 	int ctf_errno;		/* error code for most recent error */
 	int ctf_version;	/* CTF data version */
 	ctf_dtdef_t **ctf_dthash; /* hash of dynamic type definitions */
-	ulong_t ctf_dthashlen;	/* size of dynamic type hash bucket array */
+	unsigned long ctf_dthashlen;	/* size of dynamic type hash bucket array */
 	ctf_list_t ctf_dtdefs;	/* list of dynamic type definitions */
 	size_t ctf_dtstrlen;	/* total length of dynamic type strings */
-	ulong_t ctf_dtnextid;	/* next dynamic type id to assign */
-	ulong_t ctf_dtoldid;	/* oldest id that has been committed */
+	unsigned long ctf_dtnextid;	/* next dynamic type id to assign */
+	unsigned long ctf_dtoldid;	/* oldest id that has been committed */
 	void *ctf_specific;	/* data for ctf_get/setspecific */
 };
 
@@ -275,7 +276,10 @@ enum {
 	ECTF_DTFULL,		/* CTF type is full (no more members allowed) */
 	ECTF_FULL,		/* CTF container is full */
 	ECTF_DUPMEMBER,		/* duplicate member name definition */
-	ECTF_CONFLICT		/* conflicting type definition present */
+	ECTF_CONFLICT,		/* conflicting type definition present */
+	ECTF_REFERENCED,	/* type has outstanding references */
+	ECTF_NOTDYN,		/* type is not a dynamic type */
+	ECTF_NOTPTRAUTH		/* type is not a ptrauth */
 };
 
 extern ssize_t ctf_get_ctt_size(const ctf_file_t *, const ctf_type_t *,
@@ -283,12 +287,12 @@ extern ssize_t ctf_get_ctt_size(const ctf_file_t *, const ctf_type_t *,
 
 extern const ctf_type_t *ctf_lookup_by_id(ctf_file_t **, ctf_id_t);
 
-extern int ctf_hash_create(ctf_hash_t *, ulong_t);
-extern int ctf_hash_insert(ctf_hash_t *, ctf_file_t *, ushort_t, uint_t);
-extern int ctf_hash_define(ctf_hash_t *, ctf_file_t *, ushort_t, uint_t);
+extern int ctf_hash_create(ctf_hash_t *, unsigned long);
+extern int ctf_hash_insert(ctf_hash_t *, ctf_file_t *, uint16_t, uint32_t);
+extern int ctf_hash_define(ctf_hash_t *, ctf_file_t *, uint16_t, uint32_t);
 extern ctf_helem_t *ctf_hash_lookup(ctf_hash_t *, ctf_file_t *,
     const char *, size_t);
-extern uint_t ctf_hash_size(const ctf_hash_t *);
+extern uint32_t ctf_hash_size(const ctf_hash_t *);
 extern void ctf_hash_destroy(ctf_hash_t *);
 
 #define	ctf_list_prev(elem)	((void *)(((ctf_list_t *)(elem))->l_prev))
@@ -307,8 +311,8 @@ extern void ctf_decl_fini(ctf_decl_t *);
 extern void ctf_decl_push(ctf_decl_t *, ctf_file_t *, ctf_id_t);
 extern void ctf_decl_sprintf(ctf_decl_t *, const char *, ...);
 
-extern const char *ctf_strraw(ctf_file_t *, uint_t);
-extern const char *ctf_strptr(ctf_file_t *, uint_t);
+extern const char *ctf_strraw(ctf_file_t *, uint32_t);
+extern const char *ctf_strptr(ctf_file_t *, uint32_t);
 
 extern ctf_file_t *ctf_set_open_errno(int *, int);
 extern long ctf_set_errno(ctf_file_t *, int);

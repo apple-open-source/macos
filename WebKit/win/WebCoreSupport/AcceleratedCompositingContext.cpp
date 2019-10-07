@@ -43,7 +43,6 @@
 #include <WebCore/TextureMapperLayer.h>
 
 #if USE(OPENGL_ES)
-#define GL_GLEXT_PROTOTYPES 1
 #include <GLES2/gl2.h>
 #else
 #include <GL/gl.h>
@@ -53,9 +52,9 @@ using namespace WebCore;
 
 AcceleratedCompositingContext::AcceleratedCompositingContext(WebView& webView)
     : m_webView(webView)
-    , m_layerFlushTimer(*this)
     , m_context(nullptr)
     , m_window(0)
+    , m_layerFlushTimer(*this)
 {
 }
 
@@ -401,7 +400,7 @@ void AcceleratedCompositingContext::layerFlushTimerFired()
         scheduleLayerFlush();
 }
 
-void AcceleratedCompositingContext::paintContents(const GraphicsLayer*, GraphicsContext& context, GraphicsLayerPaintingPhase, const FloatRect& rectToPaint, GraphicsLayerPaintBehavior)
+void AcceleratedCompositingContext::paintContents(const GraphicsLayer*, GraphicsContext& context, OptionSet<GraphicsLayerPaintingPhase>, const FloatRect& rectToPaint, GraphicsLayerPaintBehavior)
 {
     context.save();
     context.clip(rectToPaint);

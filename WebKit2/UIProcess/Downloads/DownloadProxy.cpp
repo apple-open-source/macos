@@ -36,8 +36,8 @@
 #include "WebProcessMessages.h"
 #include "WebProcessPool.h"
 #include "WebProtectionSpace.h"
-#include <WebCore/FileSystem.h>
 #include <WebCore/MIMETypeRegistry.h>
+#include <wtf/FileSystem.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
@@ -209,7 +209,7 @@ void DownloadProxy::didFinish()
     m_processPool->downloadClient().didFinish(*m_processPool, *this);
 
     // This can cause the DownloadProxy object to be deleted.
-    m_downloadProxyMap.downloadFinished(this);
+    m_downloadProxyMap.downloadFinished(*this);
 }
 
 static RefPtr<API::Data> createData(const IPC::DataReference& data)
@@ -230,7 +230,7 @@ void DownloadProxy::didFail(const ResourceError& error, const IPC::DataReference
     m_processPool->downloadClient().didFail(*m_processPool, *this, error);
 
     // This can cause the DownloadProxy object to be deleted.
-    m_downloadProxyMap.downloadFinished(this);
+    m_downloadProxyMap.downloadFinished(*this);
 }
 
 void DownloadProxy::didCancel(const IPC::DataReference& resumeData)
@@ -240,7 +240,7 @@ void DownloadProxy::didCancel(const IPC::DataReference& resumeData)
     m_processPool->downloadClient().didCancel(*m_processPool, *this);
 
     // This can cause the DownloadProxy object to be deleted.
-    m_downloadProxyMap.downloadFinished(this);
+    m_downloadProxyMap.downloadFinished(*this);
 }
 
 } // namespace WebKit

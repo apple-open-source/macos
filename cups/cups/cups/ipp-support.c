@@ -4,13 +4,8 @@
  * Copyright © 2007-2018 by Apple Inc.
  * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 /*
@@ -18,6 +13,7 @@
  */
 
 #include "cups-private.h"
+#include "debug-internal.h"
 
 
 /*
@@ -143,87 +139,117 @@ static const char * const ipp_std_ops[] =
 		  /* 0x0000 - 0x000f */
 		  "0x0000",
 		  "0x0001",
-		  "Print-Job",
-		  "Print-URI",
-		  "Validate-Job",
-		  "Create-Job",
-		  "Send-Document",
-		  "Send-URI",
-		  "Cancel-Job",
-		  "Get-Job-Attributes",
-		  "Get-Jobs",
-		  "Get-Printer-Attributes",
-		  "Hold-Job",
-		  "Release-Job",
-		  "Restart-Job",
+		  "Print-Job",					/* RFC 8011 */
+		  "Print-URI",					/* RFC 8011 */
+		  "Validate-Job",				/* RFC 8011 */
+		  "Create-Job",					/* RFC 8011 */
+		  "Send-Document",				/* RFC 8011 */
+		  "Send-URI",					/* RFC 8011 */
+		  "Cancel-Job",					/* RFC 8011 */
+		  "Get-Job-Attributes",				/* RFC 8011 */
+		  "Get-Jobs",					/* RFC 8011 */
+		  "Get-Printer-Attributes",			/* RFC 8011 */
+		  "Hold-Job",					/* RFC 8011 */
+		  "Release-Job",				/* RFC 8011 */
+		  "Restart-Job",				/* RFC 8011 */
 		  "0x000f",
 
 		  /* 0x0010 - 0x001f */
-		  "Pause-Printer",
-		  "Resume-Printer",
-		  "Purge-Jobs",
-		  "Set-Printer-Attributes",
-		  "Set-Job-Attributes",
-		  "Get-Printer-Supported-Values",
-		  "Create-Printer-Subscriptions",
-		  "Create-Job-Subscriptions",
-		  "Get-Subscription-Attributes",
-		  "Get-Subscriptions",
-		  "Renew-Subscription",
-		  "Cancel-Subscription",
-		  "Get-Notifications",
+		  "Pause-Printer",				/* RFC 8011 */
+		  "Resume-Printer",				/* RFC 8011 */
+		  "Purge-Jobs",					/* RFC 8011 */
+		  "Set-Printer-Attributes",			/* RFC 3380 */
+		  "Set-Job-Attributes",				/* RFC 3380 */
+		  "Get-Printer-Supported-Values",		/* RFC 3380 */
+		  "Create-Printer-Subscriptions",		/* RFC 3995 */
+		  "Create-Job-Subscriptions",			/* RFC 3995 */
+		  "Get-Subscription-Attributes",		/* RFC 3995 */
+		  "Get-Subscriptions",				/* RFC 3995 */
+		  "Renew-Subscription",				/* RFC 3995 */
+		  "Cancel-Subscription",			/* RFC 3995 */
+		  "Get-Notifications",				/* RFC 3996 */
 		  "(Send-Notifications)",
-		  "(Get-Resource-Attributes)",
+		  "Get-Resource-Attributes",			/* IPP System */
 		  "(Get-Resource-Data)",
 
 		  /* 0x0020 - 0x002f */
-		  "(Get-Resources)",
+		  "Get-Resources",				/* IPP System */
 		  "(Get-Printer-Support-Files)",
-		  "Enable-Printer",
-		  "Disable-Printer",
-		  "Pause-Printer-After-Current-Job",
-		  "Hold-New-Jobs",
-		  "Release-Held-New-Jobs",
-		  "Deactivate-Printer",
-		  "Activate-Printer",
-		  "Restart-Printer",
-		  "Shutdown-Printer",
-		  "Startup-Printer",
-		  "Reprocess-Job",
-		  "Cancel-Current-Job",
-		  "Suspend-Current-Job",
-		  "Resume-Job",
+		  "Enable-Printer",				/* RFC 3998 */
+		  "Disable-Printer",				/* RFC 3998 */
+		  "Pause-Printer-After-Current-Job",		/* RFC 3998 */
+		  "Hold-New-Jobs",				/* RFC 3998 */
+		  "Release-Held-New-Jobs",			/* RFC 3998 */
+		  "Deactivate-Printer",				/* RFC 3998 */
+		  "Activate-Printer",				/* RFC 3998 */
+		  "Restart-Printer",				/* RFC 3998 */
+		  "Shutdown-Printer",				/* RFC 3998 */
+		  "Startup-Printer",				/* RFC 3998 */
+		  "Reprocess-Job",				/* RFC 3998 */
+		  "Cancel-Current-Job",				/* RFC 3998 */
+		  "Suspend-Current-Job",			/* RFC 3998 */
+		  "Resume-Job",					/* RFC 3998 */
 
 		  /* 0x0030 - 0x003f */
-		  "Promote-Job",
-		  "Schedule-Job-After",
+		  "Promote-Job",				/* RFC 3998 */
+		  "Schedule-Job-After",				/* RFC 3998 */
 		  "0x0032",
-		  "Cancel-Document",
-		  "Get-Document-Attributes",
-		  "Get-Documents",
-		  "Delete-Document",
-		  "Set-Document-Attributes",
-		  "Cancel-Jobs",
-		  "Cancel-My-Jobs",
-		  "Resubmit-Job",
-		  "Close-Job",
-		  "Identify-Printer",
-		  "Validate-Document",
-		  "Add-Document-Images",
-		  "Acknowledge-Document",
+		  "Cancel-Document",				/* IPP DocObject */
+		  "Get-Document-Attributes",			/* IPP DocObject */
+		  "Get-Documents",				/* IPP DocObject */
+		  "Delete-Document",				/* IPP DocObject */
+		  "Set-Document-Attributes",			/* IPP DocObject */
+		  "Cancel-Jobs",				/* IPP JPS2 */
+		  "Cancel-My-Jobs",				/* IPP JPS2 */
+		  "Resubmit-Job",				/* IPP JPS2 */
+		  "Close-Job",					/* IPP JPS2 */
+		  "Identify-Printer",				/* IPP JPS3 */
+		  "Validate-Document",				/* IPP JPS3 */
+		  "Add-Document-Images",			/* IPP Scan */
+		  "Acknowledge-Document",			/* IPP INFRA */
 
-		  /* 0x0040 - 0x004a */
-		  "Acknowledge-Identify-Printer",
-		  "Acknowledge-Job",
-		  "Fetch-Document",
-		  "Fetch-Job",
-		  "Get-Output-Device-Attributes",
-		  "Update-Active-Jobs",
-		  "Deregister-Output-Device",
-		  "Update-Document-Status",
-		  "Update-Job-Status",
-		  "Update-Output-Device-Attributes",
-		  "Get-Next-Document-Data"
+		  /* 0x0040 - 0x004f */
+		  "Acknowledge-Identify-Printer",		/* IPP INFRA */
+		  "Acknowledge-Job",				/* IPP INFRA */
+		  "Fetch-Document",				/* IPP INFRA */
+		  "Fetch-Job",					/* IPP INFRA */
+		  "Get-Output-Device-Attributes",		/* IPP INFRA */
+		  "Update-Active-Jobs",				/* IPP INFRA */
+		  "Deregister-Output-Device",			/* IPP INFRA */
+		  "Update-Document-Status",			/* IPP INFRA */
+		  "Update-Job-Status",				/* IPP INFRA */
+		  "Update-Output-Device-Attributes",		/* IPP INFRA */
+		  "Get-Next-Document-Data",			/* IPP Scan */
+                  "Allocate-Printer-Resources",		/* IPP System */
+                  "Create-Printer",				/* IPP System */
+                  "Deallocate-Printer-Resources",		/* IPP System */
+                  "Delete-Printer",				/* IPP System */
+                  "Get-Printers",				/* IPP System */
+
+                  /* 0x0050 - 0x005f */
+                  "Shutdown-One-Printer",			/* IPP System */
+                  "Startup-One-Printer",			/* IPP System */
+                  "Cancel-Resource",				/* IPP System */
+                  "Create-Resource",				/* IPP System */
+                  "Install-Resource",				/* IPP System */
+                  "Send-Resource-Data",			/* IPP System */
+                  "Set-Resource-Attributes",			/* IPP System */
+                  "Create-Resource-Subscriptions",		/* IPP System */
+                  "Create-System-Subscriptions",		/* IPP System */
+                  "Disable-All-Printers",			/* IPP System */
+                  "Enable-All-Printers",			/* IPP System */
+                  "Get-System-Attributes",			/* IPP System */
+                  "Get-System-Supported-Values",		/* IPP System */
+                  "Pause-All-Printers",			/* IPP System */
+                  "Pause-All-Printers-After-Current-Job",	/* IPP System */
+                  "Register-Output-Device",			/* IPP System */
+
+                  /* 0x0060 - 0x0064 */
+                  "Restart-System",				/* IPP System */
+                  "Resume-All-Printers",			/* IPP System */
+                  "Set-System-Attributes",			/* IPP System */
+                  "Shutdown-All-Printers",			/* IPP System */
+                  "Startup-All-Printers"			/* IPP System */
 		},
 		* const ipp_cups_ops[] =
 		{
@@ -261,14 +287,15 @@ static const char * const ipp_std_ops[] =
 		  "unsupported-attributes-tag",
 					/* 0x05 */
 		  "subscription-attributes-tag",
-					/* 0x06 */
+					/* 0x06 - RFC 3995 */
 		  "event-notification-attributes-tag",
-					/* 0x07 */
-		  "(resource-attributes-tag)",
-		  			/* 0x08 */
+					/* 0x07 - RFC 3995 */
+		  "resource-attributes-tag",
+					/* 0x08 - IPP System */
 		  "document-attributes-tag",
-					/* 0x09 */
-		  "0x0a",		/* 0x0a */
+					/* 0x09 - IPP DocObject */
+		  "system-attributes-tag",
+					/* 0x0a - IPP System */
 		  "0x0b",		/* 0x0b */
 		  "0x0c",		/* 0x0c */
 		  "0x0d",		/* 0x0d */
@@ -279,9 +306,9 @@ static const char * const ipp_std_ops[] =
 		  "unknown",		/* 0x12 */
 		  "no-value",		/* 0x13 */
 		  "0x14",		/* 0x14 */
-		  "not-settable",	/* 0x15 */
-		  "delete-attribute",	/* 0x16 */
-		  "admin-define",	/* 0x17 */
+		  "not-settable",	/* 0x15 - RFC 3380 */
+		  "delete-attribute",	/* 0x16 - RFC 3380 */
+		  "admin-define",	/* 0x17 - RFC 3380 */
 		  "0x18",		/* 0x18 */
 		  "0x19",		/* 0x19 */
 		  "0x1a",		/* 0x1a */
@@ -339,7 +366,7 @@ static const char * const ipp_document_states[] =
 		  "pending",
 		  "4",
 		  "processing",
-		  "processing-stopped",	/* IPPSIX */
+		  "processing-stopped",	/* IPP INFRA */
 		  "canceled",
 		  "aborted",
 		  "completed"
@@ -358,8 +385,8 @@ static const char * const ipp_document_states[] =
 		  "bale",
 		  "booklet-maker",
 		  "jog-offset",
-		  "coat",		/* Finishings 2.0 */
-		  "laminate",		/* Finishings 2.0 */
+		  "coat",		/* IPP Finishings 2.0 */
+		  "laminate",		/* IPP Finishings 2.0 */
 		  "17",
 		  "18",
 		  "19",
@@ -375,10 +402,10 @@ static const char * const ipp_document_states[] =
 		  "staple-dual-top",
 		  "staple-dual-right",
 		  "staple-dual-bottom",
-		  "staple-triple-left",	/* Finishings 2.0 */
-		  "staple-triple-top",	/* Finishings 2.0 */
-		  "staple-triple-right",/* Finishings 2.0 */
-		  "staple-triple-bottom",/* Finishings 2.0 */
+		  "staple-triple-left",	/* IPP Finishings 2.0 */
+		  "staple-triple-top",	/* IPP Finishings 2.0 */
+		  "staple-triple-right",/* IPP Finishings 2.0 */
+		  "staple-triple-bottom",/* IPP Finishings 2.0 */
 		  "36",
 		  "37",
 		  "38",
@@ -413,38 +440,38 @@ static const char * const ipp_document_states[] =
 		  "67",
 		  "68",
 		  "69",
-		  "punch-top-left",	/* Finishings 2.0 */
-		  "punch-bottom-left",	/* Finishings 2.0 */
-		  "punch-top-right",	/* Finishings 2.0 */
-		  "punch-bottom-right",	/* Finishings 2.0 */
-		  "punch-dual-left",	/* Finishings 2.0 */
-		  "punch-dual-top",	/* Finishings 2.0 */
-		  "punch-dual-right",	/* Finishings 2.0 */
-		  "punch-dual-bottom",	/* Finishings 2.0 */
-		  "punch-triple-left",	/* Finishings 2.0 */
-		  "punch-triple-top",	/* Finishings 2.0 */
-		  "punch-triple-right",	/* Finishings 2.0 */
-		  "punch-triple-bottom",/* Finishings 2.0 */
-		  "punch-quad-left",	/* Finishings 2.0 */
-		  "punch-quad-top",	/* Finishings 2.0 */
-		  "punch-quad-right",	/* Finishings 2.0 */
-		  "punch-quad-bottom",	/* Finishings 2.0 */
-		  "punch-multiple-left",/* Finishings 2.1/Canon */
-		  "punch-multiple-top",	/* Finishings 2.1/Canon */
-		  "punch-multiple-right",/* Finishings 2.1/Canon */
-		  "punch-multiple-bottom",/* Finishings 2.1/Canon */
-		  "fold-accordian",	/* Finishings 2.0 */
-		  "fold-double-gate",	/* Finishings 2.0 */
-		  "fold-gate",		/* Finishings 2.0 */
-		  "fold-half",		/* Finishings 2.0 */
-		  "fold-half-z",	/* Finishings 2.0 */
-		  "fold-left-gate",	/* Finishings 2.0 */
-		  "fold-letter",	/* Finishings 2.0 */
-		  "fold-parallel",	/* Finishings 2.0 */
-		  "fold-poster",	/* Finishings 2.0 */
-		  "fold-right-gate",	/* Finishings 2.0 */
-		  "fold-z",		/* Finishings 2.0 */
-                  "fold-engineering-z"	/* Finishings 2.1 */
+		  "punch-top-left",	/* IPP Finishings 2.0 */
+		  "punch-bottom-left",	/* IPP Finishings 2.0 */
+		  "punch-top-right",	/* IPP Finishings 2.0 */
+		  "punch-bottom-right",	/* IPP Finishings 2.0 */
+		  "punch-dual-left",	/* IPP Finishings 2.0 */
+		  "punch-dual-top",	/* IPP Finishings 2.0 */
+		  "punch-dual-right",	/* IPP Finishings 2.0 */
+		  "punch-dual-bottom",	/* IPP Finishings 2.0 */
+		  "punch-triple-left",	/* IPP Finishings 2.0 */
+		  "punch-triple-top",	/* IPP Finishings 2.0 */
+		  "punch-triple-right",	/* IPP Finishings 2.0 */
+		  "punch-triple-bottom",/* IPP Finishings 2.0 */
+		  "punch-quad-left",	/* IPP Finishings 2.0 */
+		  "punch-quad-top",	/* IPP Finishings 2.0 */
+		  "punch-quad-right",	/* IPP Finishings 2.0 */
+		  "punch-quad-bottom",	/* IPP Finishings 2.0 */
+		  "punch-multiple-left",/* IPP Finishings 2.1/Canon */
+		  "punch-multiple-top",	/* IPP Finishings 2.1/Canon */
+		  "punch-multiple-right",/* IPP Finishings 2.1/Canon */
+		  "punch-multiple-bottom",/* IPP Finishings 2.1/Canon */
+		  "fold-accordian",	/* IPP Finishings 2.0 */
+		  "fold-double-gate",	/* IPP Finishings 2.0 */
+		  "fold-gate",		/* IPP Finishings 2.0 */
+		  "fold-half",		/* IPP Finishings 2.0 */
+		  "fold-half-z",	/* IPP Finishings 2.0 */
+		  "fold-left-gate",	/* IPP Finishings 2.0 */
+		  "fold-letter",	/* IPP Finishings 2.0 */
+		  "fold-parallel",	/* IPP Finishings 2.0 */
+		  "fold-poster",	/* IPP Finishings 2.0 */
+		  "fold-right-gate",	/* IPP Finishings 2.0 */
+		  "fold-z",		/* IPP Finishings 2.0 */
+                  "fold-engineering-z"	/* IPP Finishings 2.1 */
 		},
 		* const ipp_finishings_vendor[] =
 		{
@@ -591,7 +618,21 @@ static const char * const ipp_document_states[] =
 		{			/* printer-state enums */
 		  "idle",
 		  "processing",
-		  "stopped",
+		  "stopped"
+		},
+		* const ipp_resource_states[] =
+		{			/* resource-state enums */
+		  "pending",
+		  "available",
+		  "installed",
+		  "canceled",
+		  "aborted"
+		},
+		* const ipp_system_states[] =
+		{			/* system-state enums */
+		  "idle",
+		  "processing",
+		  "stopped"
 		};
 
 
@@ -849,6 +890,7 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
   int			i, j,		/* Looping vars */
 			count,		/* Number of values */
 			added;		/* Was name added? */
+  ipp_op_t		op;		/* IPP operation code */
   ipp_attribute_t	*requested;	/* requested-attributes attribute */
   cups_array_t		*ra;		/* Requested attributes array */
   const char		*value;		/* Current value */
@@ -884,14 +926,16 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "document-state-message",
     "document-state-reasons",
     "document-uri",
-    "document-uuid",
+    "document-uuid",			/* IPP JPS3 */
     "errors-count",
     "finishings-actual",
     "finishings-col-actual",
     "force-front-side-actual",
     "imposition-template-actual",
     "impressions",
+    "impressions-col",
     "impressions-completed",
+    "impressions-completed-col",
     "impressions-completed-current-copy",
     "insert-sheet-actual",
     "k-octets",
@@ -902,7 +946,9 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "media-col-actual",
     "media-input-tray-check-actual",
     "media-sheets",
+    "media-sheets-col",
     "media-sheets-completed",
+    "media-sheets-completed-col",
     "more-info",
     "multiple-object-handling-actual",	/* IPP 3D */
     "number-up-actual",
@@ -914,7 +960,9 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "page-order-received-actual",
     "page-ranges-actual",
     "pages",
+    "pages-col",
     "pages-completed",
+    "pages-completed-col",
     "pages-completed-current-copy",
     "platform-temperature-actual",	/* IPP 3D */
     "presentation-direction-number-up-actual",
@@ -946,6 +994,12 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
   };
   static const char * const document_template[] =
   {					/* document-template group */
+    "chamber-humidity",			/* IPP 3D */
+    "chamber-humidity-default",		/* IPP 3D */
+    "chamber-humidity-supported",	/* IPP 3D */
+    "chamber-temperature",		/* IPP 3D */
+    "chamber-temperature-default",	/* IPP 3D */
+    "chamber-temperature-supported",	/* IPP 3D */
     "copies",
     "copies-default",
     "copies-supported",
@@ -1137,6 +1191,8 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
   };
   static const char * const job_description[] =
   {					/* job-description group */
+    "chamber-humidity-actual",		/* IPP 3D */
+    "chamber-temperature-actual",	/* IPP 3D */
     "compression-supplied",
     "copies-actual",
     "cover-back-actual",
@@ -1180,27 +1236,34 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "job-hold-until-actual",
     "job-id",
     "job-impressions",
+    "job-impressions-col",
     "job-impressions-completed",
+    "job-impressions-completed-col",
     "job-k-octets",
     "job-k-octets-processed",
     "job-mandatory-attributes",
     "job-media-progress",		/* CUPS extension */
     "job-media-sheets",
+    "job-media-sheets-col",
     "job-media-sheets-completed",
+    "job-media-sheets-completed-col",
     "job-message-from-operator",
     "job-more-info",
     "job-name",
     "job-originating-host-name",	/* CUPS extension */
     "job-originating-user-name",
-    "job-originating-user-uri",
+    "job-originating-user-uri",		/* IPP JPS3 */
     "job-pages",
+    "job-pages-col",
     "job-pages-completed",
+    "job-pages-completed-col",
     "job-pages-completed-current-copy",
     "job-printer-state-message",	/* CUPS extension */
     "job-printer-state-reasons",	/* CUPS extension */
     "job-printer-up-time",
     "job-printer-uri",
     "job-priority-actual",
+    "job-resource-ids",			/* IPP System */
     "job-save-printer-make-and-model",
     "job-sheet-message-actual",
     "job-sheets-actual",
@@ -1209,7 +1272,7 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "job-state-message",
     "job-state-reasons",
     "job-uri",
-    "job-uuid",
+    "job-uuid",				/* IPP JPS3 */
     "materials-col-actual",		/* IPP 3D */
     "media-actual",
     "media-col-actual",
@@ -1223,6 +1286,10 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "original-requesting-user-name",
     "output-bin-actual",
     "output-device-assigned",
+    "output-device-job-state",		/* IPP INFRA */
+    "output-device-job-state-message",	/* IPP INFRA */
+    "output-device-job-state-reasons",	/* IPP INFRA */
+    "output-device-uuid-assigned",	/* IPP INFRA */
     "overrides-actual",
     "page-delivery-actual",
     "page-order-received-actual",
@@ -1260,6 +1327,12 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
   static const char * const job_template[] =
   {					/* job-template group */
     "accuracy-units-supported",		/* IPP 3D */
+    "chamber-humidity",			/* IPP 3D */
+    "chamber-humidity-default",		/* IPP 3D */
+    "chamber-humidity-supported",	/* IPP 3D */
+    "chamber-temperature",		/* IPP 3D */
+    "chamber-temperature-default",	/* IPP 3D */
+    "chamber-temperature-supported",	/* IPP 3D */
     "confirmation-sheet-print",		/* IPP FaxOut */
     "confirmation-sheet-print-default",
     "copies",
@@ -1435,8 +1508,8 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "output-bin-default",
     "output-bin-supported",
     "output-device",
-    "output-device-default",
     "output-device-supported",
+    "output-device-uuid-supported",	/* IPP INFRA */
     "output-mode",			/* CUPS extension */
     "output-mode-default",		/* CUPS extension */
     "output-mode-supported",		/* CUPS extension */
@@ -1550,6 +1623,8 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
   static const char * const printer_description[] =
   {					/* printer-description group */
     "auth-info-required",		/* CUPS extension */
+    "chamber-humidity-current",		/* IPP 3D */
+    "chamber-temperature-current",	/* IPP 3D */
     "charset-configured",
     "charset-supported",
     "color-supported",
@@ -1572,6 +1647,8 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "document-natural-language-default",
     "document-natural-language-supported",
     "document-password-supported",
+    "document-privacy-attributes",	/* IPP Privacy Attributes */
+    "document-privacy-scope",		/* IPP Privacy Attributes */
     "generated-natural-language-supported",
     "identify-actions-default",
     "identify-actions-supported",
@@ -1593,6 +1670,8 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "job-password-encryption-supported",
     "job-password-supported",
     "job-presets-supported",		/* IPP Presets */
+    "job-privacy-attributes",		/* IPP Privacy Attributes */
+    "job-privacy-scope",		/* IPP Privacy Attributes */
     "job-quota-period",			/* CUPS extension */
     "job-resolvers-supported",
     "job-settable-attributes-supported",
@@ -1625,16 +1704,20 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "pdf-features-supported",		/* IPP 3D */
     "pdf-versions-supported",		/* CUPS extension */
     "pdl-override-supported",
+    "platform-shape",			/* IPP 3D */
     "port-monitor",			/* CUPS extension */
     "port-monitor-supported",		/* CUPS extension */
     "preferred-attributes-supported",
     "printer-alert",
     "printer-alert-description",
+    "printer-camera-image-uri",		/* IPP 3D */
     "printer-charge-info",
     "printer-charge-info-uri",
     "printer-commands",			/* CUPS extension */
     "printer-config-change-date-time",
     "printer-config-change-time",
+    "printer-config-changes",		/* IPP System */
+    "printer-contact-col",		/* IPP System */
     "printer-current-time",
     "printer-detailed-status-messages",
     "printer-device-id",
@@ -1652,7 +1735,7 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "printer-get-attributes-supported",
     "printer-icc-profiles",
     "printer-icons",
-    "printer-id",               	/* CUPS extension */
+    "printer-id",			/* IPP System */
     "printer-info",
     "printer-input-tray",		/* IPP JPS3 */
     "printer-is-accepting-jobs",
@@ -1672,7 +1755,7 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "printer-organization",
     "printer-organizational-unit",
     "printer-output-tray",		/* IPP JPS3 */
-    "printer-queue-id",			/* CUPS extension */
+    "printer-service-type",		/* IPP System */
     "printer-settable-attributes-supported",
     "printer-state",
     "printer-state-change-date-time",
@@ -1696,7 +1779,15 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "requesting-user-name-allowed",	/* CUPS extension */
     "requesting-user-name-denied",	/* CUPS extension */
     "requesting-user-uri-supported",
+    "smi2699-auth-print-group",		/* PWG ippserver extension */
+    "smi2699-auth-proxy-group",		/* PWG ippserver extension */
+    "smi2699-device-command",		/* PWG ippserver extension */
+    "smi2699-device-format",		/* PWG ippserver extension */
+    "smi2699-device-name",		/* PWG ippserver extension */
+    "smi2699-device-uri",		/* PWG ippserver extension */
     "subordinate-printers-supported",
+    "subscription-privacy-attributes",	/* IPP Privacy Attributes */
+    "subscription-privacy-scope",	/* IPP Privacy Attributes */
     "urf-supported",			/* CUPS extension */
     "uri-authentication-supported",
     "uri-security-supported",
@@ -1706,17 +1797,54 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "xri-security-supported",
     "xri-uri-scheme-supported"
   };
+  static const char * const resource_description[] =
+  {					/* resource-description group - IPP System */
+    "resource-info",
+    "resource-name"
+  };
+  static const char * const resource_status[] =
+  {					/* resource-status group - IPP System */
+    "date-time-at-canceled",
+    "date-time-at-creation",
+    "date-time-at-installed",
+    "resource-data-uri",
+    "resource-format",
+    "resource-id",
+    "resource-k-octets",
+    "resource-state",
+    "resource-state-message",
+    "resource-state-reasons",
+    "resource-string-version",
+    "resource-type",
+    "resource-use-count",
+    "resource-uuid",
+    "resource-version",
+    "time-at-canceled",
+    "time-at-creation",
+    "time-at-installed"
+  };
+  static const char * const resource_template[] =
+  {					/* resource-template group - IPP System */
+    "resource-format",
+    "resource-format-supported",
+    "resource-info",
+    "resource-name",
+    "resource-type",
+    "resource-type-supported"
+  };
   static const char * const subscription_description[] =
   {					/* subscription-description group */
     "notify-job-id",
     "notify-lease-expiration-time",
     "notify-printer-up-time",
     "notify-printer-uri",
+    "notify-resource-id",		/* IPP System */
+    "notify-system-uri",		/* IPP System */
     "notify-sequence-number",
     "notify-subscriber-user-name",
     "notify-subscriber-user-uri",
     "notify-subscription-id",
-    "subscriptions-uuid"
+    "notify-subscription-uuid"		/* IPP JPS3 */
   };
   static const char * const subscription_template[] =
   {					/* subscription-template group */
@@ -1738,21 +1866,78 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "notify-time-interval",
     "notify-user-data"
   };
+  static const char * const system_description[] =
+  {					/* system-description group - IPP System */
+    "charset-configured",
+    "charset-supported",
+    "generated-natural-language-supported",
+    "ipp-features-supported",
+    "ipp-versions-supported",
+    "natural-language-configured",
+    "operations-supported",
+    "power-calendar-policy-col",
+    "power-event-policy-col",
+    "power-timeout-policy-col",
+    "printer-creation-attributes-supported",
+    "resource-settable-attributes-supported",
+    "smi2699-auth-group-supported",	/* PWG ippserver extension */
+    "smi2699-device-command-supported",	/* PWG ippserver extension */
+    "smi2699-device-format-format",	/* PWG ippserver extension */
+    "smi2699-device-uri-schemes-supported",
+					/* PWG ippserver extension */
+    "system-contact-col",
+    "system-current-time",
+    "system-default-printer-id",
+    "system-device-id",
+    "system-geo-location",
+    "system-info",
+    "system-location",
+    "system-mandatory-printer-attributes",
+    "system-make-and-model",
+    "system-message-from-operator",
+    "system-name",
+    "system-settable-attributes-supported",
+    "system-strings-languages-supported",
+    "system-strings-uri",
+    "system-xri-supported"
+  };
+  static const char * const system_status[] =
+  {					/* system-status group - IPP System */
+    "power-log-col",
+    "power-state-capabilities-col",
+    "power-state-counters-col",
+    "power-state-monitor-col",
+    "power-state-transitions-col",
+    "system-config-change-date-time",
+    "system-config-change-time",
+    "system-config-changes",
+    "system-configured-printers",
+    "system-configured-resources",
+    "system-serial-number",
+    "system-state",
+    "system-state-change-date-time",
+    "system-state-change-time",
+    "system-state-message",
+    "system-state-reasons",
+    "system-up-time",
+    "system-uuid"
+  };
 
 
  /*
   * Get the requested-attributes attribute...
   */
 
-  if ((requested = ippFindAttribute(request, "requested-attributes",
-                                    IPP_TAG_KEYWORD)) == NULL)
+  op = ippGetOperation(request);
+
+  if ((requested = ippFindAttribute(request, "requested-attributes", IPP_TAG_KEYWORD)) == NULL)
   {
    /*
     * The Get-Jobs operation defaults to "job-id" and "job-uri", all others
     * default to "all"...
     */
 
-    if (ippGetOperation(request) == IPP_OP_GET_JOBS)
+    if (op == IPP_OP_GET_JOBS)
     {
       ra = cupsArrayNew((cups_array_func_t)strcmp, NULL);
       cupsArrayAdd(ra, "job-id");
@@ -1783,12 +1968,9 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     added = 0;
     value = ippGetString(requested, i, NULL);
 
-    if (!strcmp(value, "document-description") || !strcmp(value, "all"))
+    if (!strcmp(value, "document-description") || (!strcmp(value, "all") && (op == IPP_OP_GET_JOB_ATTRIBUTES || op == IPP_OP_GET_JOBS || op == IPP_OP_GET_DOCUMENT_ATTRIBUTES || op == IPP_OP_GET_DOCUMENTS)))
     {
-      for (j = 0;
-           j < (int)(sizeof(document_description) /
-                     sizeof(document_description[0]));
-           j ++)
+      for (j = 0; j < (int)(sizeof(document_description) / sizeof(document_description[0])); j ++)
         cupsArrayAdd(ra, (void *)document_description[j]);
 
       added = 1;
@@ -1796,63 +1978,88 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
 
     if (!strcmp(value, "document-template") || !strcmp(value, "all"))
     {
-      for (j = 0;
-           j < (int)(sizeof(document_template) / sizeof(document_template[0]));
-           j ++)
+      for (j = 0; j < (int)(sizeof(document_template) / sizeof(document_template[0])); j ++)
         cupsArrayAdd(ra, (void *)document_template[j]);
 
       added = 1;
     }
 
-    if (!strcmp(value, "job-description") || !strcmp(value, "all"))
+    if (!strcmp(value, "job-description") || (!strcmp(value, "all") && (op == IPP_OP_GET_JOB_ATTRIBUTES || op == IPP_OP_GET_JOBS)))
     {
-      for (j = 0;
-           j < (int)(sizeof(job_description) / sizeof(job_description[0]));
-           j ++)
+      for (j = 0; j < (int)(sizeof(job_description) / sizeof(job_description[0])); j ++)
         cupsArrayAdd(ra, (void *)job_description[j]);
 
       added = 1;
     }
 
-    if (!strcmp(value, "job-template") || !strcmp(value, "all"))
+    if (!strcmp(value, "job-template") || (!strcmp(value, "all") && (op == IPP_OP_GET_JOB_ATTRIBUTES || op == IPP_OP_GET_JOBS || op == IPP_OP_GET_PRINTER_ATTRIBUTES)))
     {
-      for (j = 0;
-           j < (int)(sizeof(job_template) / sizeof(job_template[0]));
-           j ++)
+      for (j = 0; j < (int)(sizeof(job_template) / sizeof(job_template[0])); j ++)
         cupsArrayAdd(ra, (void *)job_template[j]);
 
       added = 1;
     }
 
-    if (!strcmp(value, "printer-description") || !strcmp(value, "all"))
+    if (!strcmp(value, "printer-description") || (!strcmp(value, "all") && (op == IPP_OP_GET_PRINTER_ATTRIBUTES || op == IPP_OP_GET_PRINTERS || op == IPP_OP_CUPS_GET_DEFAULT || op == IPP_OP_CUPS_GET_PRINTERS || op == IPP_OP_CUPS_GET_CLASSES)))
     {
-      for (j = 0;
-           j < (int)(sizeof(printer_description) /
-                     sizeof(printer_description[0]));
-           j ++)
+      for (j = 0; j < (int)(sizeof(printer_description) / sizeof(printer_description[0])); j ++)
         cupsArrayAdd(ra, (void *)printer_description[j]);
 
       added = 1;
     }
 
-    if (!strcmp(value, "subscription-description") || !strcmp(value, "all"))
+    if (!strcmp(value, "resource-description") || (!strcmp(value, "all") && (op == IPP_OP_GET_RESOURCE_ATTRIBUTES || op == IPP_OP_GET_RESOURCES)))
     {
-      for (j = 0;
-           j < (int)(sizeof(subscription_description) /
-                     sizeof(subscription_description[0]));
-           j ++)
+      for (j = 0; j < (int)(sizeof(resource_description) / sizeof(resource_description[0])); j ++)
+        cupsArrayAdd(ra, (void *)resource_description[j]);
+
+      added = 1;
+    }
+
+    if (!strcmp(value, "resource-status") || (!strcmp(value, "all") && (op == IPP_OP_GET_RESOURCE_ATTRIBUTES || op == IPP_OP_GET_RESOURCES)))
+    {
+      for (j = 0; j < (int)(sizeof(resource_status) / sizeof(resource_status[0])); j ++)
+        cupsArrayAdd(ra, (void *)resource_status[j]);
+
+      added = 1;
+    }
+
+    if (!strcmp(value, "resource-template") || (!strcmp(value, "all") && (op == IPP_OP_GET_RESOURCE_ATTRIBUTES || op == IPP_OP_GET_RESOURCES || op == IPP_OP_GET_SYSTEM_ATTRIBUTES)))
+    {
+      for (j = 0; j < (int)(sizeof(resource_template) / sizeof(resource_template[0])); j ++)
+        cupsArrayAdd(ra, (void *)resource_template[j]);
+
+      added = 1;
+    }
+
+    if (!strcmp(value, "subscription-description") || (!strcmp(value, "all") && (op == IPP_OP_GET_SUBSCRIPTION_ATTRIBUTES || op == IPP_OP_GET_SUBSCRIPTIONS)))
+    {
+      for (j = 0; j < (int)(sizeof(subscription_description) / sizeof(subscription_description[0])); j ++)
         cupsArrayAdd(ra, (void *)subscription_description[j]);
 
       added = 1;
     }
 
-    if (!strcmp(value, "subscription-template") || !strcmp(value, "all"))
+    if (!strcmp(value, "subscription-template") || (!strcmp(value, "all") && (op == IPP_OP_GET_SUBSCRIPTION_ATTRIBUTES || op == IPP_OP_GET_SUBSCRIPTIONS)))
     {
-      for (j = 0;
-           j < (int)(sizeof(subscription_template) /
-                     sizeof(subscription_template[0]));
-           j ++)
+      for (j = 0; j < (int)(sizeof(subscription_template) / sizeof(subscription_template[0])); j ++)
         cupsArrayAdd(ra, (void *)subscription_template[j]);
+
+      added = 1;
+    }
+
+    if (!strcmp(value, "system-description") || (!strcmp(value, "all") && op == IPP_OP_GET_SYSTEM_ATTRIBUTES))
+    {
+      for (j = 0; j < (int)(sizeof(system_description) / sizeof(system_description[0])); j ++)
+        cupsArrayAdd(ra, (void *)system_description[j]);
+
+      added = 1;
+    }
+
+    if (!strcmp(value, "system-status") || (!strcmp(value, "all") && op == IPP_OP_GET_SYSTEM_ATTRIBUTES))
+    {
+      for (j = 0; j < (int)(sizeof(system_status) / sizeof(system_status[0])); j ++)
+        cupsArrayAdd(ra, (void *)system_status[j]);
 
       added = 1;
     }
@@ -1880,59 +2087,31 @@ ippEnumString(const char *attrname,	/* I - Attribute name */
   * Check for standard enum values...
   */
 
-  if (!strcmp(attrname, "document-state") &&
-      enumvalue >= 3 &&
-      enumvalue < (3 + (int)(sizeof(ipp_document_states) /
-			     sizeof(ipp_document_states[0]))))
+  if (!strcmp(attrname, "document-state") && enumvalue >= 3 && enumvalue < (3 + (int)(sizeof(ipp_document_states) / sizeof(ipp_document_states[0]))))
     return (ipp_document_states[enumvalue - 3]);
-  else if (!strcmp(attrname, "finishings") ||
-	   !strcmp(attrname, "finishings-actual") ||
-	   !strcmp(attrname, "finishings-default") ||
-	   !strcmp(attrname, "finishings-ready") ||
-	   !strcmp(attrname, "finishings-supported") ||
-	   !strcmp(attrname, "job-finishings") ||
-	   !strcmp(attrname, "job-finishings-default") ||
-	   !strcmp(attrname, "job-finishings-supported"))
+  else if (!strcmp(attrname, "finishings") || !strcmp(attrname, "finishings-actual") || !strcmp(attrname, "finishings-default") || !strcmp(attrname, "finishings-ready") || !strcmp(attrname, "finishings-supported") || !strcmp(attrname, "job-finishings") || !strcmp(attrname, "job-finishings-default") || !strcmp(attrname, "job-finishings-supported"))
   {
-    if (enumvalue >= 3 &&
-        enumvalue < (3 + (int)(sizeof(ipp_finishings) /
-			       sizeof(ipp_finishings[0]))))
+    if (enumvalue >= 3 && enumvalue < (3 + (int)(sizeof(ipp_finishings) / sizeof(ipp_finishings[0]))))
       return (ipp_finishings[enumvalue - 3]);
-    else if (enumvalue >= 0x40000000 &&
-             enumvalue <= (0x40000000 + (int)(sizeof(ipp_finishings_vendor) /
-                                              sizeof(ipp_finishings_vendor[0]))))
+    else if (enumvalue >= 0x40000000 && enumvalue <= (0x40000000 + (int)(sizeof(ipp_finishings_vendor) / sizeof(ipp_finishings_vendor[0]))))
       return (ipp_finishings_vendor[enumvalue - 0x40000000]);
   }
-  else if ((!strcmp(attrname, "job-collation-type") ||
-            !strcmp(attrname, "job-collation-type-actual")) &&
-           enumvalue >= 3 &&
-           enumvalue < (3 + (int)(sizeof(ipp_job_collation_types) /
-				  sizeof(ipp_job_collation_types[0]))))
+  else if ((!strcmp(attrname, "job-collation-type") || !strcmp(attrname, "job-collation-type-actual")) && enumvalue >= 3 && enumvalue < (3 + (int)(sizeof(ipp_job_collation_types) / sizeof(ipp_job_collation_types[0]))))
     return (ipp_job_collation_types[enumvalue - 3]);
-  else if (!strcmp(attrname, "job-state") &&
-	   enumvalue >= IPP_JSTATE_PENDING && enumvalue <= IPP_JSTATE_COMPLETED)
+  else if (!strcmp(attrname, "job-state") && enumvalue >= IPP_JSTATE_PENDING && enumvalue <= IPP_JSTATE_COMPLETED)
     return (ipp_job_states[enumvalue - IPP_JSTATE_PENDING]);
   else if (!strcmp(attrname, "operations-supported"))
     return (ippOpString((ipp_op_t)enumvalue));
-  else if ((!strcmp(attrname, "orientation-requested") ||
-            !strcmp(attrname, "orientation-requested-actual") ||
-            !strcmp(attrname, "orientation-requested-default") ||
-            !strcmp(attrname, "orientation-requested-supported")) &&
-           enumvalue >= 3 &&
-           enumvalue < (3 + (int)(sizeof(ipp_orientation_requesteds) /
-				  sizeof(ipp_orientation_requesteds[0]))))
+  else if ((!strcmp(attrname, "orientation-requested") || !strcmp(attrname, "orientation-requested-actual") || !strcmp(attrname, "orientation-requested-default") || !strcmp(attrname, "orientation-requested-supported")) && enumvalue >= 3 && enumvalue < (3 + (int)(sizeof(ipp_orientation_requesteds) / sizeof(ipp_orientation_requesteds[0]))))
     return (ipp_orientation_requesteds[enumvalue - 3]);
-  else if ((!strcmp(attrname, "print-quality") ||
-            !strcmp(attrname, "print-quality-actual") ||
-            !strcmp(attrname, "print-quality-default") ||
-            !strcmp(attrname, "print-quality-supported")) &&
-           enumvalue >= 3 &&
-           enumvalue < (3 + (int)(sizeof(ipp_print_qualities) /
-				  sizeof(ipp_print_qualities[0]))))
+  else if ((!strcmp(attrname, "print-quality") || !strcmp(attrname, "print-quality-actual") || !strcmp(attrname, "print-quality-default") || !strcmp(attrname, "print-quality-supported")) && enumvalue >= 3 && enumvalue < (3 + (int)(sizeof(ipp_print_qualities) / sizeof(ipp_print_qualities[0]))))
     return (ipp_print_qualities[enumvalue - 3]);
-  else if (!strcmp(attrname, "printer-state") &&
-           enumvalue >= IPP_PSTATE_IDLE && enumvalue <= IPP_PSTATE_STOPPED)
+  else if (!strcmp(attrname, "printer-state") && enumvalue >= IPP_PSTATE_IDLE && enumvalue <= IPP_PSTATE_STOPPED)
     return (ipp_printer_states[enumvalue - IPP_PSTATE_IDLE]);
+  else if (!strcmp(attrname, "resource-state") && enumvalue >= IPP_RSTATE_PENDING && enumvalue <= IPP_RSTATE_ABORTED)
+    return (ipp_resource_states[enumvalue - IPP_RSTATE_PENDING]);
+  else if (!strcmp(attrname, "system-state") && enumvalue >= IPP_SSTATE_IDLE && enumvalue <= IPP_SSTATE_STOPPED)
+    return (ipp_system_states[enumvalue - IPP_SSTATE_IDLE]);
 
  /*
   * Not a standard enum value, just return the decimal equivalent...
@@ -2023,6 +2202,16 @@ ippEnumValue(const char *attrname,	/* I - Attribute name */
   {
     num_strings = (int)(sizeof(ipp_printer_states) / sizeof(ipp_printer_states[0]));
     strings     = ipp_printer_states;
+  }
+  else if (!strcmp(attrname, "resource-state"))
+  {
+    num_strings = (int)(sizeof(ipp_resource_states) / sizeof(ipp_resource_states[0]));
+    strings     = ipp_resource_states;
+  }
+  else if (!strcmp(attrname, "system-state"))
+  {
+    num_strings = (int)(sizeof(ipp_system_states) / sizeof(ipp_system_states[0]));
+    strings     = ipp_system_states;
   }
   else
     return (-1);

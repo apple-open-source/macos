@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -615,7 +615,7 @@ parse_dotted_ip(p, vp)
 
     v = 0;
     for (n = 3;; --n) {
-	b = strtoul(p, &endp, 0);
+	b = (int)strtoul(p, &endp, 0);
 	if (endp == p)
 	    return 0;
 	if (b > 255) {
@@ -623,7 +623,7 @@ parse_dotted_ip(p, vp)
 		return 0;
 	    /* accept e.g. 0xffffff00 */
 	    *vp = b;
-	    return endp - p0;
+	    return (int)(endp - p0);
 	}
 	v |= b << (n * 8);
 	p = endp;
@@ -634,7 +634,7 @@ parse_dotted_ip(p, vp)
 	++p;
     }
     *vp = v;
-    return p - p0;
+    return (int)(p - p0);
 }
 
 
@@ -1693,7 +1693,7 @@ endswitch:
 	PUTLONG(tl, ucp);
     }
 
-    *len = ucp - inp;			/* Compute output length */
+    *len = (int)(ucp - inp);			/* Compute output length */
     IPCPDEBUG(("ipcp: returning Configure-%s", CODENAME(rc)));
     return (rc);			/* Return final code */
 }
@@ -2337,7 +2337,7 @@ ipcp_printpkt(p, plen, printer, arg)
 	printer(arg, " %.2x", code);
     }
 
-    return p - pstart;
+    return (int)(p - pstart);
 }
 
 /*

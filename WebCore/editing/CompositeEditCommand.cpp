@@ -302,6 +302,11 @@ void EditCommandComposition::getNodesInCommand(HashSet<Node*>& nodes)
 }
 #endif
 
+String EditCommandComposition::label() const
+{
+    return undoRedoLabel(m_editAction);
+}
+
 CompositeEditCommand::CompositeEditCommand(Document& document, EditAction editingAction)
     : EditCommand(document, editingAction)
 {
@@ -337,7 +342,8 @@ void CompositeEditCommand::apply()
         case EditAction::TypingInsertFinalComposition:
         case EditAction::Paste:
         case EditAction::DeleteByDrag:
-        case EditAction::SetWritingDirection:
+        case EditAction::SetInlineWritingDirection:
+        case EditAction::SetBlockWritingDirection:
         case EditAction::Cut:
         case EditAction::Unspecified:
         case EditAction::Insert:
@@ -771,11 +777,23 @@ void CompositeEditCommand::replaceTextInNodePreservingMarkers(Text& node, unsign
     for (const auto& marker : markers) {
 #if PLATFORM(IOS_FAMILY)
         if (marker.isDictation()) {
-            markerController.addMarker(newRange.ptr(), marker.type(), marker.description(), marker.alternatives(), marker.metadata());
+            markerController.addMarker(newRange, marker.type(), marker.description(), marker.alternatives(), marker.metadata());
             continue;
         }
 #endif
-        markerController.addMarker(newRange.ptr(), marker.type(), marker.description());
+#if ENABLE(PLATFORM_DRIVEN_TEXT_CHECKING)
+        if (marker.type() == DocumentMarker::PlatformTextChecking) {
+            if (!WTF::holds_alternative<DocumentMarker::PlatformTextCheckingData>(marker.data())) {
+                ASSERT_NOT_REACHED();
+                continue;
+            }
+
+            auto& textCheckingData = WTF::get<DocumentMarker::PlatformTextCheckingData>(marker.data());
+            markerController.addPlatformTextCheckingMarker(newRange, textCheckingData.key, textCheckingData.value);
+            continue;
+        }
+#endif
+        markerController.addMarker(newRange, marker.type(), marker.description());
     }
 }
 
@@ -842,7 +860,7 @@ void CompositeEditCommand::removeNodeAttribute(Element& element, const Qualified
     setNodeAttribute(element, attribute, nullAtom());
 }
 
-void CompositeEditCommand::setNodeAttribute(Element& element, const QualifiedName& attribute, const AtomicString& value)
+void CompositeEditCommand::setNodeAttribute(Element& element, const QualifiedName& attribute, const AtomString& value)
 {
     applyCommandToComposite(SetNodeAttributeCommand::create(element, attribute, value));
 }
@@ -1102,7 +1120,7 @@ RefPtr<Node> CompositeEditCommand::insertBlockPlaceholder(const Position& pos)
 
     auto placeholder = createBlockPlaceholderElement(document());
     insertNodeAt(placeholder.copyRef(), pos);
-    return WTFMove(placeholder);
+    return placeholder;
 }
 
 RefPtr<Node> CompositeEditCommand::addBlockPlaceholderIfNeeded(Element* container)
@@ -1209,7 +1227,7 @@ RefPtr<Node> CompositeEditCommand::moveParagraphContentsToNewBlockIfNecessary(co
     if (newBlock->lastChild() && newBlock->lastChild()->hasTagName(brTag) && !endWasBr)
         removeNode(*newBlock->lastChild());
 
-    return WTFMove(newBlock);
+    return newBlock;
 }
 
 void CompositeEditCommand::pushAnchorElementDown(Element& anchorElement)
@@ -1486,9 +1504,12 @@ void CompositeEditCommand::moveParagraphs(const VisiblePosition& startOfParagrap
         document().updateLayoutIgnorePendingStylesheets();
     }
 
-    auto editableRoot = destination.rootEditableElement();
-    RefPtr<Range> startToDestinationRange(Range::create(document(), firstPositionInNode(editableRoot), destination.deepEquivalent().parentAnchoredEquivalent()));
-    destinationIndex = TextIterator::rangeLength(startToDestinationRange.get(), true);
+    RefPtr<ContainerNode> editableRoot = destination.rootEditableElement();
+    if (!editableRoot)
+        editableRoot = &document();
+
+    auto startToDestinationRange = Range::create(document(), firstPositionInNode(editableRoot.get()), destination.deepEquivalent().parentAnchoredEquivalent());
+    destinationIndex = TextIterator::rangeLength(startToDestinationRange.ptr(), true);
 
     setEndingSelection(VisibleSelection(destination, originalIsDirectional));
     ASSERT(endingSelection().isCaretOrRange());
@@ -1510,8 +1531,8 @@ void CompositeEditCommand::moveParagraphs(const VisiblePosition& startOfParagrap
         // causes spaces to be collapsed during the move operation.  This results
         // in a call to rangeFromLocationAndLength with a location past the end
         // of the document (which will return null).
-        RefPtr<Range> start = TextIterator::rangeFromLocationAndLength(editableRoot, destinationIndex + startIndex, 0, true);
-        RefPtr<Range> end = TextIterator::rangeFromLocationAndLength(editableRoot, destinationIndex + endIndex, 0, true);
+        RefPtr<Range> start = TextIterator::rangeFromLocationAndLength(editableRoot.get(), destinationIndex + startIndex, 0, true);
+        RefPtr<Range> end = TextIterator::rangeFromLocationAndLength(editableRoot.get(), destinationIndex + endIndex, 0, true);
         if (start && end)
             setEndingSelection(VisibleSelection(start->startPosition(), end->startPosition(), DOWNSTREAM, originalIsDirectional));
     }

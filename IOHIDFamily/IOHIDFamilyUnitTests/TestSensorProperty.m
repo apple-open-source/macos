@@ -13,19 +13,13 @@
 #import  "IOHIDDeviceTestController.h"
 #import  "IOHIDUnitTestDescriptors.h"
 #include <IOKit/hid/IOHIDServiceKeys.h>
-
-static uint8_t descriptor[] = {
-    HIDAccel
-};
+#import "IOHIDEventDriverTestCase.h"
 
 
-@interface TestSensorProperty : XCTestCase <IOHIDUserDeviceObserver>
+@interface TestSensorProperty : IOHIDEventDriverTestCase
 
-@property IOHIDEventSystemTestController *  eventController;
-@property IOHIDUserDeviceTestController *   sourceController;
-
-@property dispatch_queue_t                  queue;
-@property dispatch_queue_t                  rootQueue;
+@property XCTestExpectation                 * testReportExpectation;
+@property XCTestExpectation                 * testEventExpectation;
 @property uint32_t                          reportInterval;
 @property uint32_t                          reportLatency;
 
@@ -34,97 +28,132 @@ static uint8_t descriptor[] = {
 @implementation TestSensorProperty
 
 - (void)setUp {
-    [super setUp];
-    self.rootQueue = IOHIDUnitTestCreateRootQueue(31, 2);
     
-    self.queue = dispatch_queue_create_with_target ("IOHIDEventSystemTestController", DISPATCH_QUEUE_SERIAL, self.rootQueue);
-    HIDXCTAssertAndThrowTrue(self.queue != nil);
-    
-    NSData * descriptorData = [[NSData alloc] initWithBytes:descriptor length:sizeof(descriptor)];
-    NSString * uniqueID = [[[NSUUID alloc] init] UUIDString];
-    
-    self.sourceController = [[IOHIDUserDeviceTestController alloc] initWithDescriptor:descriptorData DeviceUniqueID:uniqueID andQueue:self.queue];
-    HIDXCTAssertAndThrowTrue(self.sourceController != nil);
-    
-    self.eventController = [[IOHIDEventSystemTestController alloc] initWithDeviceUniqueID:uniqueID :self.queue :kIOHIDEventSystemClientTypeRateControlled];
-    HIDXCTAssertAndThrowTrue(self.eventController != nil);
 
-    self.sourceController.userDeviceObserver = self;
+    static uint8_t descriptor [] = {
+        HIDAccel
+    };
+    
+    self.hidDeviceDescriptor = [NSData dataWithBytes:descriptor length:sizeof(descriptor)];
+
+    self.testReportExpectation = [[XCTestExpectation alloc] initWithDescription:@"Expectation: report"];
+    self.testReportExpectation.expectedFulfillmentCount = 2;
+    self.testEventExpectation = [[XCTestExpectation alloc] initWithDescription:@"Expectation: events"];
+    self.testEventExpectation.expectedFulfillmentCount = 100;
+
+    [super setUp];
 }
 
 - (void)tearDown {
 
-    [self.eventController  invalidate];
-    [self.sourceController invalidate];
-    
-    @autoreleasepool {
-        self.sourceController = nil;
-        self.eventController = nil;
-    }
 
     [super tearDown];
 }
 
 - (void)testSensorProperty {
-    id value;
+    id              value;
+    XCTWaiterResult result;
     
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, self.eventSystem != NULL);
     
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, self.userDevice != NULL, "User device description: %@", self.userDeviceDescription);
+
+    result = [XCTWaiter waitForExpectations:@[self.testServiceExpectation] timeout:10];
+    HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_IOREG,
+                                result == XCTWaiterResultCompleted,
+                                "result:%ld %@",
+                                result,
+                                self.testServiceExpectation);
+
     value = @(100000);
-    IOHIDServiceClientSetProperty(self.eventController.eventService, CFSTR(kIOHIDServiceReportIntervalKey), (CFTypeRef) value);
+    IOHIDServiceClientSetProperty(self.eventService, CFSTR(kIOHIDServiceReportIntervalKey), (CFTypeRef) value);
     value = @(1000000);
-    IOHIDServiceClientSetProperty(self.eventController.eventService, CFSTR(kIOHIDServiceBatchIntervalKey), (CFTypeRef) value);
+    IOHIDServiceClientSetProperty(self.eventService, CFSTR(kIOHIDServiceBatchIntervalKey), (CFTypeRef) value);
 
-   usleep(kDefaultReportDispatchCompletionTime);
+    result = [XCTWaiter waitForExpectations:@[self.testReportExpectation] timeout:10];
+    HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_IOREG,
+                                result == XCTWaiterResultCompleted,
+                                "result:%ld %@",
+                                result,
+                                self.testServiceExpectation);
 
-    XCTAssert (self.reportInterval == 100000, "reportInterval:%d", self.reportInterval);
-    XCTAssert (self.reportLatency == 1000000, "reportLatency:%d", self.reportLatency);
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE,
+                                self.reportInterval == 100000 && self.reportLatency == 1000000,
+                                "reportInterval:%d reportLatency:%d",
+                                self.reportInterval,
+                                self.reportLatency);
 }
 
 
 - (void)testSensorBatching {
-    id value;
+    IOReturn        status;
+    id              value;
+    XCTWaiterResult result;
+
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, self.eventSystem != NULL);
     
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, self.userDevice != NULL, "User device description: %@", self.userDeviceDescription);
+
+    result = [XCTWaiter waitForExpectations:@[self.testServiceExpectation] timeout:10];
+    HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_IOREG,
+                                result == XCTWaiterResultCompleted,
+                                "result:%d %@",
+                                (int)result,
+                                self.testServiceExpectation);
+
     value = @(100000);
-    IOHIDServiceClientSetProperty(self.eventController.eventService, CFSTR(kIOHIDServiceReportIntervalKey), (CFTypeRef) value);
+    IOHIDServiceClientSetProperty(self.eventService, CFSTR(kIOHIDServiceReportIntervalKey), (CFTypeRef) value);
     value = @(1000000);
-    IOHIDServiceClientSetProperty(self.eventController.eventService, CFSTR(kIOHIDServiceBatchIntervalKey), (CFTypeRef) value);
+    IOHIDServiceClientSetProperty(self.eventService, CFSTR(kIOHIDServiceBatchIntervalKey), (CFTypeRef) value);
 
-    HIDAccelInputReport01 report;
-    report.reportId = 1;
-    for (NSUInteger index = 0; index < 100; index++) {
-        report.MotionAccelerometer3D000B = index;
-        [self.sourceController handleReport:(uint8_t *) &report  Length:sizeof(report) andInterval:0];
-    }
+    dispatch_queue_t queue = dispatch_queue_create_with_target ("TestSensorProperty.reports", DISPATCH_QUEUE_SERIAL,dispatch_get_global_queue(0, 0));
     
-    usleep(kDefaultReportDispatchCompletionTime);
-    
-    // Make copy
-    NSArray *events = nil;
-    @synchronized (self.eventController.events) {
-        events = [self.eventController.events copy];
-    }
-    
-    EVENTS_STATS stats =  [IOHIDEventSystemTestController getEventsStats:events];
-    
-    XCTAssert (stats.counts[kIOHIDEventTypeAccelerometer] == 100, "Event count:%d", stats.counts[kIOHIDEventTypeAccelerometer]);
+    dispatch_async(queue, ^{
+        HIDAccelInputReport01 report;
+        report.reportId = 1;
+        for (NSUInteger index = 0; index < 100; index++) {
+            report.MotionAccelerometer3D000B = index;
+            IOReturn ret = IOHIDUserDeviceHandleReport(self.userDevice, (uint8_t *)&report, sizeof(report));
+            HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_HIDUTIL | COLLECT_IOREG | COLLECT_LOGARCHIVE,
+                                        ret == kIOReturnSuccess,
+                                        "IOHIDUserDeviceHandleReport:0x%x",
+                                        status);
+            
+        }
+    });
+
+    result = [XCTWaiter waitForExpectations:@[self.testEventExpectation] timeout:10];
+    HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_ALL,
+                                result == XCTWaiterResultCompleted,
+                                "result:%d %@ events:%@",
+                                (int)result,
+                                self.testEventExpectation,
+                                self.events
+                                );
 }
 
 
--(IOReturn) GetReportCallback: (IOHIDReportType __unused) type : (uint32_t __unused) reportID : (uint8_t * _Nonnull __unused) report : (CFIndex * _Nonnull __unused) reportLength
+-(void) handleEvent: (IOHIDEventRef) event fromService:(IOHIDServiceClientRef __unused) service
 {
-    return kIOReturnUnsupported;
+    
+    [super handleEvent:event fromService:service];
+    
+    if (IOHIDEventGetType(event) == kIOHIDEventTypeAccelerometer) {
+        [self.testEventExpectation fulfill];
+    }
 }
 
--(IOReturn) SetReportCallback: (IOHIDReportType) type : (uint32_t) reportID : (uint8_t *_Nonnull) report : (CFIndex) reportLength
-{
-    TestLog (@"report type:%d id:%d length:%d", (unsigned int) type, (unsigned int) reportID, (unsigned int)reportLength);
-    if (kIOHIDReportTypeFeature == type && reportLength >= 4) {
+-(IOReturn)userDeviceSetReportHandler: (IOHIDReportType )type :(uint32_t __unused)reportID :(uint8_t *)report :(NSUInteger) length {
+    TestLog (@"report type:%d id:%d report:%@", (unsigned int) type, (unsigned int) reportID, [NSData dataWithBytes:report length:length]);
+ 
+    if (kIOHIDReportTypeFeature == type && length >= 4) {
         if (reportID == 1 && kIOHIDReportTypeFeature == type) {
             self.reportInterval = *(uint32_t *)(report + 1);
         }
-        if (reportID == 2 && kIOHIDReportTypeFeature == type) {
+        if (reportID == 2 && kIOHIDReportTypeFeature == type && length >= 4) {
             self.reportLatency = *(uint32_t *) (report + 1);
         }
+        [self.testReportExpectation fulfill];
     }
     return  kIOReturnSuccess;
 }

@@ -7,6 +7,7 @@ _pick_variant -r variant elftoolchain=elftoolchain elfutils=elfutils binutils --
 
 args=(
   '(-a --all)'{-a,--all}'[show all tables]'
+  '(-g --section-groups)'{-g,--section-groups}'[show section groups]'
   '(-h --file-header)'{-h,--file-header}'[show file header]'
   '(-l --program-headers --segments)'{-l,--program-headers,--segments}'[show program headers]'
   '(-S --section-headers --sections)'{-S,--section-headers,--sections}'[show sections header]'
@@ -19,8 +20,8 @@ args=(
   '(-c --archive-index)'{-c,--archive-index}'[show symbol/file index in an archive]'
   \*{-x,--hex-dump=}"[dump contents of specified section as bytes]:section:($sections)"
   \*{-p,--string-dump=}"[dump contents of specified section as strings]:section:($sections)"
-  '-w+[show the contents of DWARF2 debug sections]::debug section:(l L i a p r m f F s o R t)'
-  '--debug-dump=[show the contents of DWARF2 debug sections]::section:(rawline decodedline info abbrev pubnames aranges macro frames frames-interp str loc Ranges pubtypes gdb_index trace_info trace_abbrev trace_aranges)'
+  '-w+[show the contents of DWARF2 debug sections]::debug section:(l L i a p r m f F s o R t U u T g A c k K)'
+  '--debug-dump=[show the contents of DWARF2 debug sections]::section:(rawline decodedline info abbrev pubnames aranges macro frames frames-interp str loc Ranges pubtypes gdb_index trace_info trace_abbrev trace_aranges addr cu_index links follow-links)'
   '(-I --histogram)'{-I,--histogram}'[show histogram of bucket list lengths]'
   '(-W --wide)'{-W,--wide}'[allow output width to exceed 80 characters]'
   '(- *)'{-H,--help}'[display help information]'
@@ -31,9 +32,9 @@ args=(
 case $variant in
   elftoolchain|binutils)
     args+=(
-      '(-g --section-groups)'{-g,--section-groups}'[show section groups]'
       '(-t --section-details)'{-t,--section-details}'[show section details]'
       '(-e --headers)'{-e,--headers}'[show file, program and sections headers]'
+      '(-s --syms --symbols)'{-s,--syms,--symbols}'[show symbol table]'
       '(-u --unwind)'{-u,--unwind}'[show unwind info (if present)]'
       '(-D --use-dynamic)'{-D,--use-dynamic}'[use dynamic section info when showing symbols]'
     )
@@ -48,10 +49,13 @@ case $variant in
   ;;
   elfutils)
     args+=(
+      '--dwarf-skeleton=[find skeleton compile units (with -w)]:file:_files'
       '--elf-section[used specified section as ELF input data]::section'
       '(-e --exception)'{-e,--exception}'[show sections for exception handling]'
       '(-N --numeric-addresses)'{-N,--numeric-addresses}"[don't find symbol names for addresses in DWARF data]"
       '(-z --decompress)'{-z,--decompress}'[show compression information; decompress before dumping data]'
+      '(--symbols)-s[show symbol table]'
+      '(-s)--symbols=-[show symbol table]::section:(.dynsym .symtab)'
     )
   ;;
 esac

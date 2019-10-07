@@ -153,7 +153,7 @@ typedef void *AuthorizationSessionId;
     @constant kAuthorizationResultUndefined the operation failed for some reason and should not be retried for this session.
     @constant kAuthorizationResultUserCanceled the user has requested that the evaluation be terminated.
 */
-typedef CF_ENUM(UInt32, AuthorizationResult) {
+typedef CF_CLOSED_ENUM(UInt32, AuthorizationResult) {
     kAuthorizationResultAllow,
     kAuthorizationResultDeny,
     kAuthorizationResultUndefined,
@@ -176,7 +176,7 @@ enum {
     interface.
 */
 enum {
-    kAuthorizationCallbacksVersion = 3
+    kAuthorizationCallbacksVersion = 4
 };
 
 
@@ -197,7 +197,10 @@ enum {
     @field GetLAContext     Returns LAContext which will have LACredentialCTKPIN credential set if PIN is available otherwise context without credentials is returned. LAContext can be used for operations with Tokens which would normally require PIN. Caller owns returned context and is responsible for release.
     @field GetTokenIdentities   Returns array of identities. Caller owns returned array and is reponsible for release.
     @field GetTKTokenWatcher    Returns TKTokenWatcher object. Caller owns returned context and is responsible for release.
-*/
+    @field RemoveContextValue   Removes value from context.
+    @field RemoveHintValue      Removes value from hints.
+
+ */
 typedef struct AuthorizationCallbacks {
 
     /* Engine callback version. */
@@ -273,6 +276,14 @@ typedef struct AuthorizationCallbacks {
      Caller is responsible for outValue release     */
     OSStatus (*GetTKTokenWatcher)(AuthorizationEngineRef inEngine,
         CFTypeRef __nullable * __nullable outValue)  __OSX_AVAILABLE_STARTING(__MAC_10_13_4, __IPHONE_NA);
+    
+    /* Remove value from hints. */
+    OSStatus (*RemoveHintValue)(AuthorizationEngineRef inEngine,
+                             AuthorizationString inKey);
+    
+    /* Write value to context.  */
+    OSStatus (*RemoveContextValue)(AuthorizationEngineRef inEngine,
+                                AuthorizationString inKey);
 
 } AuthorizationCallbacks;
 

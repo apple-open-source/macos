@@ -1,11 +1,11 @@
 --TEST--
-Test parse_url() function: Parse a load of URLs without specifying PHP_URL_SCHEME as the URL component 
+Test parse_url() function: Parse a load of URLs without specifying PHP_URL_SCHEME as the URL component
 --FILE--
 <?php
 /* Prototype  : proto mixed parse_url(string url, [int url_component])
- * Description: Parse a URL and return its components 
+ * Description: Parse a URL and return its components
  * Source code: ext/standard/url.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 /*
@@ -21,7 +21,7 @@ foreach ($urls as $url) {
 
 echo "Done";
 ?>
---EXPECTF--
+--EXPECT--
 --> 64.246.30.37   : NULL
 --> http://64.246.30.37   : string(4) "http"
 --> http://64.246.30.37/   : string(4) "http"

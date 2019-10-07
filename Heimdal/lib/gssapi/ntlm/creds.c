@@ -34,6 +34,7 @@
  */
 
 #include "ntlm.h"
+#include "heimcred.h"
 
 OM_uint32 _gss_ntlm_inquire_cred
            (OM_uint32 * minor_status,
@@ -90,11 +91,13 @@ _gss_ntlm_destroy_cred(OM_uint32 *minor_status,
 		       gss_cred_id_t *cred_handle)
 {
     krb5_error_code ret;
+#ifdef HAVE_KCM
     krb5_storage *request = NULL, *response = NULL;
     krb5_data response_data;
     krb5_context context;
-    ntlm_cred cred;
     ssize_t sret;
+#endif
+    ntlm_cred cred;
 
     if (cred_handle == NULL || *cred_handle == GSS_C_NO_CREDENTIAL)
 	return GSS_S_COMPLETE;
@@ -103,7 +106,7 @@ _gss_ntlm_destroy_cred(OM_uint32 *minor_status,
 
     if ((cred->flags & NTLM_UUID) == 0)
 	return _gss_ntlm_release_cred(minor_status, cred_handle);
-
+#ifdef HAVE_KCM
     ret = krb5_init_context(&context);
     if (ret) {
 	*minor_status = ret;
@@ -137,13 +140,29 @@ _gss_ntlm_destroy_cred(OM_uint32 *minor_status,
 	*minor_status = ret;
 	return GSS_S_FAILURE;
     }
+#else /* !HAVE_KCM */
+    CFUUIDBytes cfuuid;
+    CFUUIDRef uuid_cfuuid;
+    memcpy(&cfuuid, &cred->uuid, sizeof(cred->uuid));
+    uuid_cfuuid = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, cfuuid );
+    if (!uuid_cfuuid) {
+		ret = KRB5_CC_IO;
+		*minor_status = ret;
+		return GSS_S_FAILURE;
+	} else {
+		*minor_status = 0;
+	}
 
+	HeimCredDeleteByUUID(uuid_cfuuid);
+	CFRelease(uuid_cfuuid);
+#endif /* HAVE_KCM */
     return _gss_ntlm_release_cred(minor_status, cred_handle);
 }
 
 static OM_uint32
 change_hold(OM_uint32 *minor_status, ntlm_cred cred, int op)
 {
+#ifdef HAVE_KCM
     krb5_storage *request = NULL, *response = NULL;
     krb5_data response_data;
     krb5_context context;
@@ -192,6 +211,10 @@ change_hold(OM_uint32 *minor_status, ntlm_cred cred, int op)
 	*minor_status = ret;
 	return GSS_S_FAILURE;
     }
+#else /* GSSCred */
+	_gss_mg_log(1, "change_hold (NTLM)(GSSCred) -  GSS_S_UNAVAILABLE");
+	return GSS_S_UNAVAILABLE;
+#endif
 
     return GSS_S_COMPLETE;
 }
@@ -212,6 +235,7 @@ OM_uint32
 _gss_ntlm_cred_label_get(OM_uint32 *minor_status, gss_cred_id_t cred_handle,
 			const char *label, gss_buffer_t value)
 {
+#ifdef HAVE_KCM
     ntlm_cred cred = (ntlm_cred)cred_handle;
     krb5_storage *request = NULL, *response = NULL;
     krb5_data response_data, data;
@@ -272,7 +296,10 @@ _gss_ntlm_cred_label_get(OM_uint32 *minor_status, gss_cred_id_t cred_handle,
 	*minor_status = ret;
 	return GSS_S_FAILURE;
     }
-
+#else /* GSSCred */
+	_gss_mg_log(1, "_gss_ntlm_cred_label_get (GSSCred) -  GSS_S_UNAVAILABLE");
+	return GSS_S_UNAVAILABLE;
+#endif
     return GSS_S_COMPLETE;
 }
 
@@ -280,6 +307,7 @@ OM_uint32
 _gss_ntlm_cred_label_set(OM_uint32 *minor_status, gss_cred_id_t cred_handle,
 			 const char *label, gss_buffer_t value)
 {
+#ifdef HAVE_KCM
     ntlm_cred cred = (ntlm_cred)cred_handle;
     krb5_storage *request = NULL, *response = NULL;
     krb5_data response_data;
@@ -346,6 +374,10 @@ _gss_ntlm_cred_label_set(OM_uint32 *minor_status, gss_cred_id_t cred_handle,
 	*minor_status = ret;
 	return GSS_S_FAILURE;
     }
+#else /* GSSCred */
+	_gss_mg_log(1, "_gss_ntlm_cred_label_set (GSSCred) -  GSS_S_UNAVAILABLE");
+	return GSS_S_UNAVAILABLE;
+#endif
 
     return GSS_S_COMPLETE;
 }

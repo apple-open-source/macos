@@ -52,6 +52,7 @@
 #include <Security/secasn1t.h>
 #include <security_asn1/plarenas.h>
 #include <Security/keyTemplates.h>
+#include <utilities/SecCFWrappers.h>
 #include <CommonCrypto/CommonCryptor.h>
 #include <CommonCrypto/CommonRandomSPI.h>
 #include <CommonCrypto/CommonRandom.h>
@@ -117,6 +118,7 @@ SecCmsUtilEncryptSymKeyRSAPubKey(PLArenaPool *poolp,
 	goto loser;
 
     PORT_ArenaUnmark(poolp, mark);
+    CFReleaseNull(theirKeyAttrs);
     return SECSuccess;
 
 loser:
@@ -795,7 +797,7 @@ SecCmsUtilEncryptSymKeyECDH(
     }
 
     /* Generate ephemeral ECDH key */
-    const void *keys[] = { kSecAttrKeyType, kSecAttrKeySizeInBits, kSecAttrNoLegacy};
+    const void *keys[] = { kSecAttrKeyType, kSecAttrKeySizeInBits, kSecUseDataProtectionKeychain};
     const void *values[] = { keyType, keySizeNum, kCFBooleanTrue };
     ourKeyParams = CFDictionaryCreate(NULL, keys, values, 3,
                                       &kCFTypeDictionaryKeyCallBacks,
@@ -953,7 +955,7 @@ out:
     if (ourPubKey) { CFRelease(ourPubKey); }
     if (ourPrivKey) { CFRelease(ourPrivKey); }
     if (sharedInfoData) { CFRelease(sharedInfoData); }
-    if (kekLen) { CFRelease(kekLen); }
+    if (kekLen != NULL) { CFRelease(kekLen); }
     if (kekParams) { CFRelease(kekParams); }
     if (kekData) { CFRelease(kekData); }
     if (error) { CFRelease(error); }
@@ -1071,7 +1073,7 @@ SecCmsUtilDecryptSymKeyECDH(
     theirKeySizeInBits = pubKey->Length;
     pubKey->Length = (theirKeySizeInBits + 7) >> 3;
     theirPubData = CFDataCreate(NULL, pubKey->Data, pubKey->Length);
-    theirKeyLen = CFNumberCreate(NULL, kCFNumberSInt32Type, &theirKeySizeInBits);
+    theirKeyLen = CFNumberCreate(NULL, kCFNumberSInt64Type, &theirKeySizeInBits);
     const void *keys[] = { kSecAttrKeyType, kSecAttrKeyClass, kSecAttrKeySizeInBits };
     const void *values[] = { kSecAttrKeyTypeECSECPrimeRandom, kSecAttrKeyClassPublic, theirKeyLen};
     theirKeyAttrs = CFDictionaryCreate(NULL, keys, values, 3,
@@ -1145,11 +1147,11 @@ out:
         PORT_FreeArena(pool, PR_FALSE);
     }
     if (theirPubData) { CFRelease(theirPubData); }
-    if (theirKeyLen) { CFRelease(theirKeyLen); }
+    if (theirKeyLen != NULL) { CFRelease(theirKeyLen); }
     if (theirPubKey) { CFRelease(theirPubKey); }
     if (theirKeyAttrs) { CFRelease(theirKeyAttrs); }
     if (sharedInfoData) { CFRelease(sharedInfoData); }
-    if (kekLen) { CFRelease(kekLen); }
+    if (kekLen != NULL) { CFRelease(kekLen); }
     if (kekParams) { CFRelease(kekParams); }
     if (kekData) { CFRelease(kekData); }
     if (error) { CFRelease(error); }

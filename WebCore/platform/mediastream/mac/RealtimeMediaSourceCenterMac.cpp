@@ -38,6 +38,7 @@
 #include "DisplayCaptureManagerCocoa.h"
 #include "Logging.h"
 #include "MediaStreamPrivate.h"
+#include "RuntimeEnabledFeatures.h"
 #include "ScreenDisplayCaptureSourceMac.h"
 #include "WindowDisplayCaptureSourceMac.h"
 #include <wtf/MainThread.h>
@@ -81,8 +82,6 @@ public:
 #if PLATFORM(MAC)
             return WindowDisplayCaptureSourceMac::create(String { device.persistentId() }, constraints);
 #endif
-        case CaptureDevice::DeviceType::Application:
-        case CaptureDevice::DeviceType::Browser:
         case CaptureDevice::DeviceType::Microphone:
         case CaptureDevice::DeviceType::Camera:
         case CaptureDevice::DeviceType::Unknown:

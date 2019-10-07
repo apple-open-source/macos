@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -541,7 +541,7 @@ char* validate_ip_string(const char *inIPString, char *outIPString, size_t outSi
     if (hesp == NULL)
         return 0;
     // Convert the returned info to dotted decimal string.
-    outIP = (char*)inet_ntop(AF_INET, hesp->h_addr_list[0], outIPString, outSize);
+    outIP = (char*)inet_ntop(AF_INET, hesp->h_addr_list[0], outIPString, (socklen_t)outSize);
     freehostent (hesp);
     return outIP;
 }
@@ -552,7 +552,7 @@ char* validate_ip_string(const char *inIPString, char *outIPString, size_t outSi
 
 void addparam(char **arg, u_int32_t *argi, char *param)
 {
-    int len = strlen(param);
+    unsigned long len = strlen(param);
 
     if (len && (arg[*argi] = malloc(len + 1))) {
         strlcpy(arg[*argi], param, (len + 1));

@@ -31,7 +31,12 @@ NS_ASSUME_NONNULL_BEGIN
 CF_ASSUME_NONNULL_BEGIN
 #endif
 
-bool SecOTIsEnabled(void);
+void OctagonInitialize(void);
+
+// The octagon tests want to disable automatic initialization, for test bringup ordering reasons.
+bool OctagonShouldPerformInitialization(void);
+void OctagonSetShouldPerformInitialization(bool value);
+void SecOctagon24hrNotification(void);
 
 CF_ASSUME_NONNULL_END
 #endif /* OT_h */

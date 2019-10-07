@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_OP_ARRFUN.ArrayAssignment.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Arrays may not be assigned as a whole in D.
  *

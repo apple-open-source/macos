@@ -36,7 +36,7 @@
 
 #include "BatteryTimeRemaining.h"
 
-#define kMinIdleTimeout     10
+#define kMinIdleTimeout     5
 
 typedef struct clientInfo {
     LIST_ENTRY(clientInfo) link;
@@ -168,12 +168,12 @@ __private_extern__ bool userActiveRootDomain(void);
 __private_extern__ void userActiveHandleRootDomainActivity(void);
 __private_extern__ void userActiveHandleSleep(void);
 __private_extern__ void userActiveHandlePowerAssertionsChanged(void);
-__private_extern__ void resetSessionUserActivity();
+__private_extern__ void resetSessionUserActivity(void);
 __private_extern__ bool getSessionUserActivity(uint64_t *sessionLevels);
-__private_extern__ uint32_t getSystemThermalState();
+__private_extern__ uint32_t getSystemThermalState(void);
 
 __private_extern__ CFAbsoluteTime get_SleepFromUserWakeTime(void);
-__private_extern__ uint32_t getTimeSinceLastTickle( );
+__private_extern__ uint32_t getTimeSinceLastTickle(void);
 
 __private_extern__ void registerUserActivityClient(xpc_object_t peer, xpc_object_t msg);
 __private_extern__ void updateUserActivityTimeout(xpc_object_t connection, xpc_object_t msg);

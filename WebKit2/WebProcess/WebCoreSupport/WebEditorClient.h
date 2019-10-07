@@ -28,6 +28,10 @@
 #include <WebCore/EditorClient.h>
 #include <WebCore/TextCheckerClient.h>
 
+namespace WebCore {
+enum class DOMPasteAccessResponse : uint8_t;
+}
+
 namespace WebKit {
 
 class WebPage;
@@ -83,11 +87,12 @@ private:
     void willWriteSelectionToPasteboard(WebCore::Range*) final;
     void didWriteSelectionToPasteboard() final;
     void getClientPasteboardDataForRange(WebCore::Range*, Vector<String>& pasteboardTypes, Vector<RefPtr<WebCore::SharedBuffer>>& pasteboardData) final;
-    String replacementURLForResource(Ref<WebCore::SharedBuffer>&& resourceData, const String& mimeType) final;
     
     void registerUndoStep(WebCore::UndoStep&) final;
     void registerRedoStep(WebCore::UndoStep&) final;
     void clearUndoRedoOperations() final;
+
+    WebCore::DOMPasteAccessResponse requestDOMPasteAccess(const String& originIdentifier) final;
 
     bool canCopyCut(WebCore::Frame*, bool defaultValue) const final;
     bool canPaste(WebCore::Frame*, bool defaultValue) const final;
@@ -97,8 +102,8 @@ private:
     void undo() final;
     void redo() final;
 
-    void handleKeyboardEvent(WebCore::KeyboardEvent*) final;
-    void handleInputMethodKeydown(WebCore::KeyboardEvent*) final;
+    void handleKeyboardEvent(WebCore::KeyboardEvent&) final;
+    void handleInputMethodKeydown(WebCore::KeyboardEvent&) final;
     
     void textFieldDidBeginEditing(WebCore::Element*) final;
     void textFieldDidEndEditing(WebCore::Element*) final;
@@ -135,7 +140,8 @@ private:
 #endif
 
 #if PLATFORM(GTK)
-    bool executePendingEditorCommands(WebCore::Frame*, const Vector<WTF::String>&, bool);
+    bool executePendingEditorCommands(WebCore::Frame&, const Vector<WTF::String>&, bool);
+    bool handleGtkEditorCommand(WebCore::Frame&, const String& command, bool);
     void getEditorCommandsForKeyEvent(const WebCore::KeyboardEvent*, Vector<WTF::String>&);
     void updateGlobalSelection(WebCore::Frame*);
 #endif
@@ -174,10 +180,18 @@ private:
     RefPtr<WebCore::DocumentFragment> documentFragmentFromDelegate(int index) final;
     bool performsTwoStepPaste(WebCore::DocumentFragment*) final;
     void updateStringForFind(const String&) final;
+    bool shouldAllowSingleClickToChangeSelection(WebCore::Node&, const WebCore::VisibleSelection&) const final;
 #endif
 
     bool performTwoStepDrop(WebCore::DocumentFragment&, WebCore::Range&, bool isMove) final;
     bool supportsGlobalSelection() final;
+
+    bool canShowFontPanel() const final
+    {
+        // FIXME: Support for showing the system font panel (as well as other font styling controls) is
+        // tracked in <rdar://problem/21577518>.
+        return false;
+    }
 
     WebPage* m_page;
 };

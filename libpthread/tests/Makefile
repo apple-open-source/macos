@@ -33,6 +33,7 @@ TARGETS += once_cancel
 TARGETS += pthread_attr_setstacksize
 TARGETS += pthread_bulk_create
 TARGETS += pthread_cancel
+TARGETS += pthread_create_from_mach_thread
 TARGETS += pthread_cwd
 TARGETS += pthread_exit
 TARGETS += pthread_introspection
@@ -46,6 +47,7 @@ TARGETS += rdar_32848402
 #TARGETS += rwlock-signal
 #TARGETS += rwlock
 TARGETS += tsd
+TARGETS += setrlimit_sigsegv
 #TARGETS += wq_block_handoff
 #TARGETS += wq_event_manager
 #TARGETS += wq_kevent
@@ -53,6 +55,9 @@ TARGETS += tsd
 TARGETS += wq_limits
 TARGETS += add_timer_termination
 TARGETS += perf_contended_mutex_rwlock
+
+# this should be CUSTOM_TARGETS, see "Compatibility defines" in Makefile.targets
+OTHER_TARGETS := stackoverflow_crash
 
 OTHER_LTE_INCLUDE_FILES += \
 	/usr/local/lib/libdarwintest_utils.dylib
@@ -75,3 +80,12 @@ main_stack_custom: OTHER_CFLAGS += -DSTACKSIZE=0x124000
 bsdthread_set_self: OTHER_CFLAGS += -D_DARWIN_FEATURE_CLOCK_GETTIME
 
 include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.targets
+
+stackoverflow_crash: helpers/stackoverflow_crash.c
+	mkdir -p $(SYMROOT)/assets/
+	$(CC) -o $(SYMROOT)/assets/$@ $(CFLAGS) -D_POSIX_C_SOURCE=1 $(OTHER_CFLAGS) $(LDFLAGS) $(OTHER_LDFLAGS)  $<
+	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none $(SYMROOT)/assets/$@
+
+install-stackoverflow_crash: stackoverflow_crash
+	mkdir -p $(INSTALLDIR)/assets
+	@cp $(SYMROOT)/assets/stackoverflow_crash $(INSTALLDIR)/assets

@@ -16,7 +16,7 @@ var_dump( array_values(new stdclass) );  // object
 
 echo "Done\n";
 ?>
---EXPECTF--	
+--EXPECTF--
 *** Testing error conditions ***
 
 Warning: array_values() expects exactly 1 parameter, 0 given in %s on line %d
@@ -28,7 +28,7 @@ NULL
 Warning: array_values() expects parameter 1 to be array, string given in %s on line %d
 NULL
 
-Warning: array_values() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_values() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 Warning: array_values() expects parameter 1 to be array, object given in %s on line %d

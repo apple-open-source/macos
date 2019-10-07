@@ -7,8 +7,8 @@
 //
 
 #import <Foundation/Foundation.h>
-#include "SecureObjectSync/SOSCloudCircle.h"
-#include "SecureObjectSync/SOSPeerInfo.h"
+#include "keychain/SecureObjectSync/SOSCloudCircle.h"
+#include "keychain/SecureObjectSync/SOSPeerInfo.h"
 
 @interface PersistentState : NSObject
 +(instancetype)loadFromStorage;

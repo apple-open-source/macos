@@ -88,10 +88,9 @@
 #include <dt_proc.h>
 #include <dt_pid.h>
 
-extern void dt_proc_rdwatch(dt_proc_t *, rd_event_e, const char *);
-extern void *dt_proc_control(void *arg);
-
-void Pcheckpoint_syms(struct ps_prochandle *P);
+#if defined(__APPLE__)
+#include <crt_externs.h>
+#endif
 
 dt_bkpt_t *
 dt_proc_bpcreate(dt_proc_t *dpr, uintptr_t addr, dt_bkpt_f *func, void *data)
@@ -144,12 +143,14 @@ dt_proc_bpdestroy(dt_proc_t *dpr, int delbkpts)
 void
 dt_proc_bpenable(dt_proc_t *dpr)
 {
+#pragma unused(dpr)
 	/* NOOP */
 }
 
 void
 dt_proc_bpdisable(dt_proc_t *dpr)
 {
+#pragma unused(dpr)
 	/* NOOP */
 }
 
@@ -160,7 +161,7 @@ dt_proc_notify(dtrace_hdl_t *dtp, dt_proc_hash_t *dph, dt_proc_t *dpr,
 	dt_proc_notify_t *dprn = dt_alloc(dtp, sizeof (dt_proc_notify_t));
 
 	if (dprn == NULL) {
-		dt_dprintf("failed to allocate notification for %d %s\n",
+		dt_dprintf("failed to allocate notification for %d %s",
 		    (int)dpr->dpr_pid, msg);
 	} else {
 		dprn->dprn_dpr = dpr;
@@ -215,7 +216,8 @@ dt_proc_stop(dt_proc_t *dpr, uint8_t why)
 void
 dt_proc_bpmain(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *fname)
 {
-	dt_dprintf("pid %d: breakpoint at %s()\n", (int)dpr->dpr_pid, fname);
+#pragma unused(dtp)
+	dt_dprintf("pid %d: breakpoint at %s()", (int)dpr->dpr_pid, fname);
 	dt_proc_stop(dpr, DT_PROC_STOP_MAIN);
 }
 
@@ -226,12 +228,12 @@ dt_proc_rdevent(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *evname)
 	rd_err_e err;
 
 	if ((err = rd_event_getmsg(dpr->dpr_rtld, &rdm)) != RD_OK) {
-		dt_dprintf("pid %d: failed to get %s event message: %s\n",
+		dt_dprintf("pid %d: failed to get %s event message: %s",
 		    (int)dpr->dpr_pid, evname, rd_errstr(err));
 		return;
 	}
 
-	dt_dprintf("pid %d: rtld event %s type=%d state %d\n",
+	dt_dprintf("pid %d: rtld event %s type=%d state %d",
 	    (int)dpr->dpr_pid, evname, rdm.type, rdm.u.state);
 
 	switch (rdm.type) {
@@ -260,6 +262,7 @@ dt_proc_rdevent(dtrace_hdl_t *dtp, dt_proc_t *dpr, const char *evname)
 		Pupdate_syms(dpr->dpr_proc);
 		dt_proc_stop(dpr, DT_PROC_STOP_POSTINIT);
 		break;
+	default:;
 	}
 	
 }
@@ -271,13 +274,13 @@ dt_proc_rdwatch(dt_proc_t *dpr, rd_event_e event, const char *evname)
 	rd_err_e err;
 
 	if ((err = rd_event_addr(dpr->dpr_rtld, event, &rdn)) != RD_OK) {
-		dt_dprintf("pid %d: failed to get event address for %s: %s\n",
+		dt_dprintf("pid %d: failed to get event address for %s: %s",
 		    (int)dpr->dpr_pid, evname, rd_errstr(err));
 		return;
 	}
 
 	if (rdn.type != RD_NOTIFY_BPT) {
-		dt_dprintf("pid %d: event %s has unexpected type %d\n",
+		dt_dprintf("pid %d: event %s has unexpected type %d",
 		    (int)dpr->dpr_pid, evname, rdn.type);
 		return;
 	}
@@ -348,10 +351,10 @@ dt_proc_destroy(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 	 * Leave the process in this condition using PRELEASE_HANG.
 	 */
 	if (!(Pstatus(dpr->dpr_proc)->pr_flags & (PR_KLC | PR_RLC))) {
-		dt_dprintf("abandoning pid %d\n", (int)dpr->dpr_pid);
+		dt_dprintf("abandoning pid %d", (int)dpr->dpr_pid);
 		rflag = PRELEASE_HANG;
 	} else {
-		dt_dprintf("releasing pid %d\n", (int)dpr->dpr_pid);
+		dt_dprintf("releasing pid %d", (int)dpr->dpr_pid);
 		rflag = 0; /* apply kill or run-on-last-close */
 	}
 
@@ -510,7 +513,8 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
 
 	(void) pthread_mutex_init(&dpr->dpr_lock, NULL);
 	(void) pthread_cond_init(&dpr->dpr_cv, NULL);
-	if ((dpr->dpr_proc = Pcreate(file, argv, &err, NULL, 0, dtp->dt_arch)) == NULL) {
+	if ((dpr->dpr_proc = Pxcreate(file, argv, dtp->dt_proc_env, &err, NULL,
+	   0, dtp->dt_arch)) == NULL) {
 		return (dt_proc_error(dtp, dpr,
 		    "failed to execute %s: %s\n", file, Pcreate_error(err)));
 	}
@@ -528,7 +532,7 @@ dt_proc_create(dtrace_hdl_t *dtp, const char *file, char *const *argv)
 	dph->dph_hash[dpr->dpr_pid & (dph->dph_hashlen - 1)] = dpr;
 	dt_list_prepend(&dph->dph_lrulist, dpr);
 
-	dt_dprintf("created pid %d\n", (int)dpr->dpr_pid);
+	dt_dprintf("created pid %d", (int)dpr->dpr_pid);
 	dpr->dpr_refs++;
 
 	return (dpr->dpr_proc);
@@ -556,14 +560,14 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags, int nomonitor)
 			 * Since it's stale, unmark it as cacheable.
 			 */
 			if (dpr->dpr_rdonly && !(flags & PGRAB_RDONLY)) {
-				dt_dprintf("upgrading pid %d\n", (int)pid);
+				dt_dprintf("upgrading pid %d", (int)pid);
 				dpr->dpr_stale = B_TRUE;
 				dpr->dpr_cacheable = B_FALSE;
 				dph->dph_lrucnt--;
 				break;
 			}
 
-			dt_dprintf("grabbed pid %d (cached)\n", (int)pid);
+			dt_dprintf("grabbed pid %d (cached)", (int)pid);
 			dt_list_delete(&dph->dph_lrulist, dpr);
 			dt_list_prepend(&dph->dph_lrulist, dpr);
 			dpr->dpr_refs++;
@@ -622,7 +626,7 @@ dt_proc_grab(dtrace_hdl_t *dtp, pid_t pid, int flags, int nomonitor)
 	dph->dph_hash[h] = dpr;
 	dt_list_prepend(&dph->dph_lrulist, dpr);
 
-	dt_dprintf("grabbed pid %d\n", (int)pid);
+	dt_dprintf("grabbed pid %d", (int)pid);
 	dpr->dpr_refs++;
 
 	return (dpr->dpr_proc);
@@ -674,29 +678,71 @@ dt_proc_unlock(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 }
 
 void
-dt_proc_hash_create(dtrace_hdl_t *dtp)
+dt_proc_init(dtrace_hdl_t *dtp)
 {
+	char **p;
+	int i;
+
 	if ((dtp->dt_procs = dt_zalloc(dtp, sizeof (dt_proc_hash_t) +
-	    sizeof (dt_proc_t *) * _dtrace_pidbuckets - 1)) != NULL) {
+	    sizeof (dt_proc_t *) * _dtrace_pidbuckets - 1)) == NULL)
+		return;
 
-		(void) pthread_mutex_init(&dtp->dt_procs->dph_lock, NULL);
+	(void) pthread_mutex_init(&dtp->dt_procs->dph_lock, NULL);
 
-		dtp->dt_procs->dph_hashlen = _dtrace_pidbuckets;
-		dtp->dt_procs->dph_lrulim = _dtrace_pidlrulim;
+	dtp->dt_procs->dph_hashlen = _dtrace_pidbuckets;
+	dtp->dt_procs->dph_lrulim = _dtrace_pidlrulim;
+
+	/*
+	 * Count how big our environment needs to be.
+	 */
+#if defined(__APPLE__)
+	for (i = 1, p = *_NSGetEnviron(); *p != NULL; i++, p++)
+		continue;
+#else
+	for (i = 1, p = environ; *p != NULL; i++, p++)
+		continue;
+#endif
+
+	if ((dtp->dt_proc_env = dt_zalloc(dtp, sizeof (char *) * i)) == NULL)
+		return;
+
+#if defined(__APPLE__)
+	for (i = 0, p = *_NSGetEnviron(); *p != NULL; i++, p++) {
+#else
+	for (i = 0, p = environ; *p != NULL; i++, p++) {
+#endif
+		if ((dtp->dt_proc_env[i] = strdup(*p)) == NULL)
+			goto err;
 	}
+
+	return;
+
+err:
+	while (--i != 0) {
+		dt_free(dtp, dtp->dt_proc_env[i]);
+	}
+	dt_free(dtp, dtp->dt_proc_env);
+	dtp->dt_proc_env = NULL;
 }
 
 void
-dt_proc_hash_destroy(dtrace_hdl_t *dtp)
+dt_proc_fini(dtrace_hdl_t *dtp)
 {
 	dt_proc_hash_t *dph = dtp->dt_procs;
 	dt_proc_t *dpr;
+	char **p;
 
 	while ((dpr = dt_list_next(&dph->dph_lrulist)) != NULL)
 		dt_proc_destroy(dtp, dpr->dpr_proc);
 
 	dtp->dt_procs = NULL;
 	dt_free(dtp, dph);
+
+	for (p = dtp->dt_proc_env; *p != NULL; p++)
+		dt_free(dtp, *p);
+
+	dt_free(dtp, dtp->dt_proc_env);
+	dtp->dt_proc_env = NULL;
 }
 
 struct ps_prochandle *
@@ -761,7 +807,7 @@ dtrace_proc_waitfor(dtrace_hdl_t *dtp, char const *pname)
 
 	/* Waking-up a process can fail if there is another client waiting for the same process. */
 	if ((err = pid_resume(pdesc.p_pid)) != 0) {
-		dt_dprintf("Unable to resume the process (pid=%d), the process is still suspended\n",
+		dt_dprintf("Unable to resume the process (pid=%d), the process is still suspended",
 		           pdesc.p_pid);
 	}
 
@@ -781,4 +827,27 @@ void
 dtrace_proc_continue(dtrace_hdl_t *dtp, struct ps_prochandle *P)
 {
 	dt_proc_continue(dtp, P);
+}
+
+int
+dtrace_proc_state(dtrace_hdl_t *dtp, struct ps_prochandle *P)
+{
+#pragma unused(dtp)
+	return Pstate(P);
+}
+
+const pstatus_t*
+dtrace_proc_status(dtrace_hdl_t *dtp, struct ps_prochandle *P)
+{
+#pragma unused(dtp)
+	return Pstatus(P);
+}
+
+int
+dtrace_proc_lookup_by_addr(dtrace_hdl_t *dtp, struct ps_prochandle *P,
+    mach_vm_address_t addr, char *buf, size_t size, GElf_Sym *symp,
+    prsyminfo_t *sip)
+{
+#pragma unused(dtp)
+	return Pxlookup_by_addr(P, addr, buf, size, symp, sip);
 }

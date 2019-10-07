@@ -4,5 +4,9 @@
 <dict>
 	<key>com.apple.hid.manager.user-access-keyboard</key>
 	<true/>
+	<key>com.apple.private.tcc.allow</key>
+	<array>
+		<string>kTCCServiceListenEvent</string>
+	</array>
 </dict>
 </plist>

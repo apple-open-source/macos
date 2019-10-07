@@ -63,23 +63,43 @@ WI.RecordingAction = class RecordingAction extends WI.Object
         if (!Array.isArray(payload))
             payload = [];
 
-        if (isNaN(payload[0]))
+        if (typeof payload[0] !== "number") {
+            if (payload.length > 0)
+                WI.Recording.synthesizeWarning(WI.UIString("non-number %s").format(WI.unlocalizedString("name")));
+
             payload[0] = -1;
-
-        if (!Array.isArray(payload[1]))
-            payload[1] = [];
-
-        if (!Array.isArray(payload[2]))
-            payload[2] = [];
-
-        if (isNaN(payload[3]) || (!payload[3] && payload[3] !== 0)) {
-            // COMPATIBILITY (iOS 12.1): "trace" was sent as an array of call frames instead of a single call stack
-            if (!Array.isArray(payload[3]))
-                payload[3] = [];
         }
 
-        if (payload.length >= 5 && isNaN(payload[4]))
+        if (!Array.isArray(payload[1])) {
+            if (payload.length > 1)
+                WI.Recording.synthesizeWarning(WI.UIString("non-array %s").format(WI.unlocalizedString("parameters")));
+
+            payload[1] = [];
+        }
+
+        if (!Array.isArray(payload[2])) {
+            if (payload.length > 2)
+                WI.Recording.synthesizeWarning(WI.UIString("non-array %s").format(WI.unlocalizedString("swizzleTypes")));
+
+            payload[2] = [];
+        }
+
+        if (typeof payload[3] !== "number" || isNaN(payload[3]) || (!payload[3] && payload[3] !== 0)) {
+            // COMPATIBILITY (iOS 12.1): "trace" was sent as an array of call frames instead of a single call stack
+            if (!Array.isArray(payload[3])) {
+                if (payload.length > 3)
+                    WI.Recording.synthesizeWarning(WI.UIString("non-number %s").format(WI.unlocalizedString("trace")));
+
+                payload[3] = [];
+            }
+        }
+
+        if (typeof payload[4] !== "number" || isNaN(payload[4])) {
+            if (payload.length > 4)
+                WI.Recording.synthesizeWarning(WI.UIString("non-number %s").format(WI.unlocalizedString("snapshot")));
+
             payload[4] = -1;
+        }
 
         return new WI.RecordingAction(...payload);
     }
@@ -117,7 +137,7 @@ WI.RecordingAction = class RecordingAction extends WI.Object
                 return null;
         }
 
-        if (value === 0 && type === WI.Recording.Type.CanvasWebGL) {
+        if (value === 0 && (type === WI.Recording.Type.CanvasWebGL || type === WI.Recording.Type.CanvasWebGL2)) {
             if (name === "blendFunc" || name === "blendFuncSeparate")
                 return "ZERO";
             if (index === 0) {
@@ -129,10 +149,12 @@ WI.RecordingAction = class RecordingAction extends WI.Object
         }
 
         let prototype = WI.RecordingAction._prototypeForType(type);
-        for (let key in prototype) {
-            let descriptor = Object.getOwnPropertyDescriptor(prototype, key);
-            if (descriptor && descriptor.value === value)
-                return key;
+        if (prototype) {
+            for (let key in prototype) {
+                let descriptor = Object.getOwnPropertyDescriptor(prototype, key);
+                if (descriptor && descriptor.value === value)
+                    return key;
+            }
         }
 
         return null;
@@ -140,12 +162,24 @@ WI.RecordingAction = class RecordingAction extends WI.Object
 
     static _prototypeForType(type)
     {
-        if (type === WI.Recording.Type.Canvas2D)
+        switch (type) {
+        case WI.Recording.Type.Canvas2D:
             return CanvasRenderingContext2D.prototype;
-        if (type === WI.Recording.Type.CanvasBitmapRenderer)
-            return ImageBitmapRenderingContext.prototype;
-        if (type === WI.Recording.Type.CanvasWebGL)
-            return WebGLRenderingContext.prototype;
+        case WI.Recording.Type.CanvasBitmapRenderer:
+            if (window.ImageBitmapRenderingContext)
+                return ImageBitmapRenderingContext.prototype;
+            break;
+        case WI.Recording.Type.CanvasWebGL:
+            if (window.WebGLRenderingContext)
+                return WebGLRenderingContext.prototype;
+            break;
+        case WI.Recording.Type.CanvasWebGL2:
+            if (window.WebGL2RenderingContext)
+                return WebGL2RenderingContext.prototype;
+            break;
+        }
+
+        WI.reportInternalError("Unknown recording type: " + type);
         return null;
     }
 
@@ -177,7 +211,7 @@ WI.RecordingAction = class RecordingAction extends WI.Object
 
         this._processed = true;
 
-        if (recording.type === WI.Recording.Type.CanvasWebGL) {
+        if (recording.type === WI.Recording.Type.CanvasWebGL || recording.type === WI.Recording.Type.CanvasWebGL2) {
             // We add each RecordingAction to the list of visualActionIndexes after it is processed.
             if (this._valid && this._isVisual) {
                 let contentBefore = recording.visualActionIndexes.length ? recording.actions[recording.visualActionIndexes.lastValue].snapshot : recording.initialState.content;
@@ -191,7 +225,7 @@ WI.RecordingAction = class RecordingAction extends WI.Object
             if (context instanceof CanvasRenderingContext2D)
                 return context.getImageData(0, 0, context.canvas.width, context.canvas.height).data;
 
-            if (context instanceof WebGLRenderingContext || context instanceof WebGL2RenderingContext) {
+            if ((window.WebGLRenderingContext && context instanceof WebGLRenderingContext) || (window.WebGL2RenderingContext && context instanceof WebGL2RenderingContext)) {
                 let pixels = new Uint8Array(context.drawingBufferWidth * context.drawingBufferHeight * 4);
                 context.readPixels(0, 0, context.canvas.width, context.canvas.height, context.RGBA, context.UNSIGNED_BYTE, pixels);
                 return pixels;
@@ -231,20 +265,20 @@ WI.RecordingAction = class RecordingAction extends WI.Object
 
             let lastState = null;
             if (lastAction) {
-                let previousState = lastAction.states.lastValue;
+                lastState = lastAction.states.lastValue;
                 for (let [name, value] of currentState) {
-                    let previousValue = previousState.get(name);
+                    let previousValue = lastState.get(name);
                     if (value !== previousValue && !Object.shallowEqual(value, previousValue))
                         this._stateModifiers.add(name);
                 }
             }
 
             if (WI.ImageUtilities.supportsCanvasPathDebugging()) {
-                let currentX = currentState.currentX;
-                let invalidX = (currentX < 0 || currentX >= context.canvas.width) && (!lastState || currentX !== lastState.currentX);
+                let currentX = currentState.get("currentX");
+                let invalidX = (currentX < 0 || currentX >= context.canvas.width) && (!lastState || currentX !== lastState.get("currentX"));
 
-                let currentY = currentState.currentY;
-                let invalidY = (currentY < 0 || currentY >= context.canvas.height) && (!lastState || currentY !== lastState.currentY);
+                let currentY = currentState.get("currentY");
+                let invalidY = (currentY < 0 || currentY >= context.canvas.height) && (!lastState || currentY !== lastState.get("currentY"));
 
                 if (invalidX || invalidY)
                     this._warning = WI.UIString("This action moves the path outside the visible area");
@@ -287,7 +321,7 @@ WI.RecordingAction = class RecordingAction extends WI.Object
         if (this._payloadSnapshot >= 0)
             this._snapshot = snapshot;
 
-        if (recording.type === WI.Recording.Type.Canvas2D || recording.type === WI.Recording.Type.CanvasBitmapRenderer || recording.type === WI.Recording.Type.CanvasWebGL) {
+        if (recording.type === WI.Recording.Type.Canvas2D || recording.type === WI.Recording.Type.CanvasBitmapRenderer || recording.type === WI.Recording.Type.CanvasWebGL || recording.type === WI.Recording.Type.CanvasWebGL2) {
             if (this._name === "width" || this._name === "height") {
                 this._contextReplacer = "canvas";
                 this._isFunction = false;
@@ -302,15 +336,19 @@ WI.RecordingAction = class RecordingAction extends WI.Object
             this._isFunction = WI.RecordingAction.isFunctionForType(recording.type, this._name);
             this._isGetter = !this._isFunction && !this._parameters.length;
 
-            let visualNames = WI.RecordingAction._visualNames[recording.type];
-            this._isVisual = visualNames ? visualNames.has(this._name) : false;
+            if (this._snapshot)
+                this._isVisual = true;
+            else {
+                let visualNames = WI.RecordingAction._visualNames[recording.type];
+                this._isVisual = visualNames ? visualNames.has(this._name) : false;
+            }
 
             if (this._valid) {
                 let prototype = WI.RecordingAction._prototypeForType(recording.type);
                 if (prototype && !(name in prototype)) {
                     this.markInvalid();
 
-                    WI.Recording.synthesizeError(WI.UIString("\u0022%s\u0022 is invalid.").format(name));
+                    WI.Recording.synthesizeWarning(WI.UIString("\u0022%s\u0022 is not valid for %s").format(name, prototype.constructor.name));
                 }
             }
         }
@@ -360,7 +398,7 @@ WI.RecordingAction = class RecordingAction extends WI.Object
         } catch {
             this.markInvalid();
 
-            WI.Recording.synthesizeError(WI.UIString("\u0022%s\u0022 threw an error.").format(this._name));
+            WI.Recording.synthesizeWarning(WI.UIString("\u0022%s\u0022 threw an error").format(this._name));
         }
     }
 
@@ -502,6 +540,113 @@ WI.RecordingAction._constantIndexes = {
         },
         "vertexAttribPointer": [2],
     },
+    [WI.Recording.Type.CanvasWebGL2]: {
+        "activeTexture": true,
+        "beginQuery": [0],
+        "beginTransformFeedback": true,
+        "bindBuffer": true,
+        "bindBufferBase": [0],
+        "bindBufferRange": [0],
+        "bindFramebuffer": true,
+        "bindRenderbuffer": true,
+        "bindTexture": true,
+        "bindTransformFeedback": [0],
+        "blendEquation": true,
+        "blendEquationSeparate": true,
+        "blendFunc": true,
+        "blendFuncSeparate": true,
+        "blitFramebuffer": [10],
+        "bufferData": [0, 2],
+        "bufferSubData": [0],
+        "checkFramebufferStatus": true,
+        "clearBufferfi": [0],
+        "clearBufferfv": [0],
+        "clearBufferiv": [0],
+        "clearBufferuiv": [0],
+        "compressedTexImage2D": [0, 2],
+        "compressedTexSubImage2D": [0],
+        "compressedTexSubImage3D": [0],
+        "copyBufferSubData": [0, 1],
+        "copyTexImage2D": [0, 2],
+        "copyTexSubImage2D": [0],
+        "copyTexSubImage3D": [0],
+        "createShader": true,
+        "cullFace": true,
+        "depthFunc": true,
+        "disable": true,
+        "drawArrays": [0],
+        "drawArraysInstanced": [0],
+        "drawBuffers": true,
+        "drawElements": [0, 2],
+        "drawElementsInstanced": [0, 2],
+        "drawRangeElements": [0, 4],
+        "enable": true,
+        "endQuery": true,
+        "fenceSync": [0],
+        "framebufferRenderbuffer": true,
+        "framebufferTexture2D": [0, 1, 2],
+        "framebufferTextureLayer": [0, 1],
+        "frontFace": true,
+        "generateMipmap": true,
+        "getActiveUniformBlockParameter": [2],
+        "getActiveUniforms": [2],
+        "getBufferParameter": true,
+        "getBufferSubData": [0],
+        "getFramebufferAttachmentParameter": true,
+        "getIndexedParameter": [0],
+        "getInternalformatParameter": true,
+        "getParameter": true,
+        "getProgramParameter": true,
+        "getQuery": true,
+        "getQueryParameter": [1],
+        "getRenderbufferParameter": true,
+        "getSamplerParameter": [1],
+        "getShaderParameter": true,
+        "getShaderPrecisionFormat": true,
+        "getSyncParameter": [1],
+        "getTexParameter": true,
+        "getVertexAttrib": [1],
+        "getVertexAttribOffset": [1],
+        "hint": true,
+        "invalidateFramebuffer": [0, 1],
+        "invalidateSubFramebuffer": [0, 1],
+        "isEnabled": true,
+        "pixelStorei": [0],
+        "readBuffer": true,
+        "readPixels": [4, 5],
+        "renderbufferStorage": [0, 1],
+        "renderbufferStorageMultisample": [0, 2],
+        "samplerParameterf": [1],
+        "samplerParameteri": [1],
+        "stencilFunc": [0],
+        "stencilFuncSeparate": [0, 1],
+        "stencilMaskSeparate": [0],
+        "stencilOp": true,
+        "stencilOpSeparate": true,
+        "texImage2D": {
+            5: [0, 2, 3, 4],
+            6: [0, 2, 3, 4],
+            8: [0, 2, 6, 7],
+            9: [0, 2, 6, 7],
+            10: [0, 2, 6, 7],
+            11: [0, 2, 7, 8],
+        },
+        "texParameterf": [0, 1],
+        "texParameteri": [0, 1],
+        "texStorage2D":[0, 2],
+        "texSubImage2D": {
+            6: [0, 4, 5],
+            7: [0, 4, 5],
+            8: [0, 6, 7],
+            9: [0, 6, 7],
+            10: [0, 6, 7],
+            11: [0, 8, 9],
+            12: [0, 8, 9],
+        },
+        "transformFeedbackVaryings": [2],
+        "vertexAttribIPointer": [2],
+        "vertexAttribPointer": [2],
+    },
 };
 
 WI.RecordingAction._visualNames = {
@@ -525,6 +670,13 @@ WI.RecordingAction._visualNames = {
         "clear",
         "drawArrays",
         "drawElements",
+    ]),
+    [WI.Recording.Type.CanvasWebGL2]: new Set([
+        "clear",
+        "drawArrays",
+        "drawArraysInstanced",
+        "drawElements",
+        "drawElementsInstanced",
     ]),
 };
 

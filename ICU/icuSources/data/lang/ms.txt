@@ -78,6 +78,7 @@ ms{
         bo{"Tibet"}
         bpy{"Bishnupriya"}
         br{"Breton"}
+        bra{"Braj"}
         brh{"Brahui"}
         brx{"Bodo"}
         bs{"Bosnia"}
@@ -89,6 +90,7 @@ ms{
         byv{"Medumba"}
         ca{"Catalonia"}
         cay{"Cayuga"}
+        ccp{"Chakma"}
         ce{"Chechen"}
         ceb{"Cebuano"}
         cgg{"Chiga"}
@@ -167,6 +169,7 @@ ms{
         gl{"Galicia"}
         glk{"Gilaki"}
         gn{"Guarani"}
+        gon{"Gondi"}
         gor{"Gorontalo"}
         grc{"Greek Purba"}
         gsw{"Jerman Switzerland"}
@@ -240,6 +243,7 @@ ms{
         krl{"Karelian"}
         kru{"Kurukh"}
         ks{"Kashmir"}
+        ks_Arab{"Kashmir (Naskh)"}
         ksb{"Shambala"}
         ksf{"Bafia"}
         ksh{"Colognian"}
@@ -301,6 +305,7 @@ ms{
         mul{"Pelbagai Bahasa"}
         mus{"Creek"}
         mwl{"Mirandese"}
+        mwr{"Marwari"}
         my{"Burma"}
         mye{"Myene"}
         myv{"Erzya"}
@@ -337,11 +342,13 @@ ms{
         or{"Odia"}
         os{"Ossete"}
         pa{"Punjabi"}
+        pa_Arab{"Punjabi (Naskh)"}
         pag{"Pangasinan"}
         pam{"Pampanga"}
         pap{"Papiamento"}
         pau{"Palauan"}
         pcm{"Nigerian Pidgin"}
+        pi{"Pali"}
         pl{"Poland"}
         prg{"Prusia"}
         ps{"Pashto"}
@@ -440,6 +447,7 @@ ms{
         umb{"Umbundu"}
         und{"Bahasa Tidak Diketahui"}
         ur{"Urdu"}
+        ur_Arab{"Urdu (Naskh)"}
         uz{"Uzbekistan"}
         vai{"Vai"}
         ve{"Venda"}
@@ -481,13 +489,11 @@ ms{
     }
     Scripts{
         Arab{"Arab"}
+        Aran{"Nastaliq"}
         Armn{"Armenia"}
-        Bali{"Bali"}
-        Bamu{"Bamu"}
         Beng{"Benggala"}
         Bopo{"Bopomofo"}
         Brai{"Braille"}
-        Cans{"Cans"}
         Cyrl{"Cyril"}
         Deva{"Devanagari"}
         Ethi{"Ethiopia"}
@@ -513,8 +519,11 @@ ms{
         Latn{"Latin"}
         Mlym{"Malayalam"}
         Mong{"Mongolia"}
+        Mtei{"Meitei Mayek"}
         Mymr{"Myammar"}
+        Olck{"Ol Chiki"}
         Orya{"Oriya"}
+        Qaag{"Zawgyi"}
         Sinh{"Sinhala"}
         Taml{"Tamil"}
         Telu{"Telugu"}
@@ -719,8 +728,9 @@ ms{
     }
     Variants{
         POSIX{"Komputer"}
+        SCOTLAND{"Inggeris Standard Scotland"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.2"}
     characterLabelPattern{
         all{"{0} — Semua"}
         category-list{"{0}: {1}"}

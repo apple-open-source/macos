@@ -38,7 +38,8 @@ WI.RecordingActionTreeElement = class RecordingActionTreeElement extends WI.Gene
         this._index = index;
         this._copyText = copyText;
 
-        this.representedObject.addEventListener(WI.RecordingAction.Event.ValidityChanged, this._handleValidityChanged, this);
+        if (this.representedObject.valid)
+            this.representedObject.addEventListener(WI.RecordingAction.Event.ValidityChanged, this._handleValidityChanged, this);
     }
 
     // Static
@@ -89,6 +90,11 @@ WI.RecordingActionTreeElement = class RecordingActionTreeElement extends WI.Gene
             case WI.Recording.Swizzle.WebGLShader:
             case WI.Recording.Swizzle.WebGLProgram:
             case WI.Recording.Swizzle.WebGLUniformLocation:
+            case WI.Recording.Swizzle.WebGLQuery:
+            case WI.Recording.Swizzle.WebGLSampler:
+            case WI.Recording.Swizzle.WebGLSync:
+            case WI.Recording.Swizzle.WebGLTransformFeedback:
+            case WI.Recording.Swizzle.WebGLVertexArrayObject:
                 parameterElement.classList.add("swizzled");
                 parameterElement.textContent = WI.Recording.displayNameForSwizzleType(swizzleType);
                 break;
@@ -149,13 +155,7 @@ WI.RecordingActionTreeElement = class RecordingActionTreeElement extends WI.Gene
             let swatch = WI.RecordingActionTreeElement._createSwatchForColorParameters(colorParameters);
             if (swatch) {
                 let insertionIndex = recordingAction.parameters.indexOf(colorParameters[0]);
-                let parameterElement = parametersContainer.children[insertionIndex];
-                parametersContainer.insertBefore(swatch.element, parameterElement);
-
-                if (recordingAction.swizzleTypes[insertionIndex] === WI.Recording.Swizzle.String) {
-                    parameterElement.textContent = swatch.value.toString();
-                    parameterElement.classList.add("color");
-                }
+                parametersContainer.insertBefore(swatch.element, parametersContainer.children[insertionIndex]);
             }
         }
 
@@ -197,7 +197,7 @@ WI.RecordingActionTreeElement = class RecordingActionTreeElement extends WI.Gene
         case 1:
         case 2:
             if (typeof parameters[0] === "string")
-                color = WI.Color.fromString(parameters[0]);
+                color = WI.Color.fromString(parameters[0].trim());
             else if (!isNaN(parameters[0]))
                 rgb = WI.Color.normalized2rgb(parameters[0], parameters[0], parameters[0]);
             break;
@@ -231,7 +231,7 @@ WI.RecordingActionTreeElement = class RecordingActionTreeElement extends WI.Gene
 
     static _getClassNames(recordingAction)
     {
-        let classNames = ["action"];
+        let classNames = ["recording-action"];
 
         if (recordingAction instanceof WI.RecordingInitialStateAction) {
             classNames.push("initial-state");
@@ -259,130 +259,118 @@ WI.RecordingActionTreeElement = class RecordingActionTreeElement extends WI.Gene
         if (recordingAction.contextReplacer)
             return "has-context-replacer";
 
-        function classNameForActionName(name) {
-            switch (name) {
-            case "arc":
-            case "arcTo":
-                return "arc";
+        switch (recordingAction.name) {
+        case "arc":
+        case "arcTo":
+            return "arc";
 
-            case "globalAlpha":
-            case "globalCompositeOperation":
-            case "setAlpha":
-            case "setGlobalAlpha":
-            case "setCompositeOperation":
-            case "setGlobalCompositeOperation":
-                return "composite";
+        case "globalAlpha":
+        case "globalCompositeOperation":
+        case "setAlpha":
+        case "setGlobalAlpha":
+        case "setCompositeOperation":
+        case "setGlobalCompositeOperation":
+            return "composite";
 
-            case "bezierCurveTo":
-            case "quadraticCurveTo":
-                return "curve";
+        case "bezierCurveTo":
+        case "quadraticCurveTo":
+            return "curve";
 
-            case "clearRect":
-            case "fill":
-            case "fillRect":
-            case "fillText":
-                return "fill";
+        case "clearRect":
+        case "fill":
+        case "fillRect":
+        case "fillText":
+            return "fill";
 
-            case "createImageData":
-            case "drawFocusIfNeeded":
-            case "drawImage":
-            case "drawImageFromRect":
-            case "filter":
-            case "getImageData":
-            case "imageSmoothingEnabled":
-            case "imageSmoothingQuality":
-            case "putImageData":
-            case "transferFromImageBitmap":
-            case "webkitImageSmoothingEnabled":
-                return "image";
+        case "createImageData":
+        case "drawFocusIfNeeded":
+        case "drawImage":
+        case "drawImageFromRect":
+        case "filter":
+        case "getImageData":
+        case "imageSmoothingEnabled":
+        case "imageSmoothingQuality":
+        case "putImageData":
+        case "transferFromImageBitmap":
+        case "webkitImageSmoothingEnabled":
+            return "image";
 
-            case "getLineDash":
-            case "lineCap":
-            case "lineDashOffset":
-            case "lineJoin":
-            case "lineWidth":
-            case "miterLimit":
-            case "setLineCap":
-            case "setLineDash":
-            case "setLineJoin":
-            case "setLineWidth":
-            case "setMiterLimit":
-            case "webkitLineDash":
-            case "webkitLineDashOffset":
-                return "line-style";
+        case "getLineDash":
+        case "lineCap":
+        case "lineDashOffset":
+        case "lineJoin":
+        case "lineWidth":
+        case "miterLimit":
+        case "setLineCap":
+        case "setLineDash":
+        case "setLineJoin":
+        case "setLineWidth":
+        case "setMiterLimit":
+        case "webkitLineDash":
+        case "webkitLineDashOffset":
+            return "line-style";
 
-            case "closePath":
-            case "lineTo":
-                return "line-to";
+        case "closePath":
+        case "lineTo":
+            return "line-to";
 
-            case "beginPath":
-            case "moveTo":
-                return "move-to";
+        case "beginPath":
+        case "moveTo":
+            return "move-to";
 
-            case "isPointInPath":
-                return "point-in-path";
+        case "isPointInPath":
+            return "point-in-path";
 
-            case "isPointInStroke":
-                return "point-in-stroke";
+        case "isPointInStroke":
+            return "point-in-stroke";
 
-            case "clearShadow":
-            case "setShadow":
-            case "shadowBlur":
-            case "shadowColor":
-            case "shadowOffsetX":
-            case "shadowOffsetY":
-                return "shadow";
+        case "clearShadow":
+        case "setShadow":
+        case "shadowBlur":
+        case "shadowColor":
+        case "shadowOffsetX":
+        case "shadowOffsetY":
+            return "shadow";
 
-            case "createLinearGradient":
-            case "createPattern":
-            case "createRadialGradient":
-            case "fillStyle":
-            case "setFillColor":
-            case "setStrokeColor":
-            case "strokeStyle":
-                return "style";
+        case "createLinearGradient":
+        case "createPattern":
+        case "createRadialGradient":
+        case "fillStyle":
+        case "setFillColor":
+        case "setStrokeColor":
+        case "strokeStyle":
+            return "style";
 
-            case "stroke":
-            case "strokeRect":
-            case "strokeText":
-                return "stroke";
+        case "stroke":
+        case "strokeRect":
+        case "strokeText":
+            return "stroke";
 
-            case "direction":
-            case "font":
-            case "measureText":
-            case "textAlign":
-            case "textBaseline":
-                return "text";
+        case "direction":
+        case "font":
+        case "measureText":
+        case "textAlign":
+        case "textBaseline":
+            return "text";
 
-            case "getTransform":
-            case "resetTransform":
-            case "rotate":
-            case "scale":
-            case "setTransform":
-            case "transform":
-            case "translate":
-                return "transform";
+        case "getTransform":
+        case "resetTransform":
+        case "rotate":
+        case "scale":
+        case "setTransform":
+        case "transform":
+        case "translate":
+            return "transform";
 
-            case "clip":
-            case "ellipse":
-            case "rect":
-            case "restore":
-            case "save":
-                return name;
-            }
-
-            console.warn("No class name for action " + name);
-            return "";
+        case "clip":
+        case "ellipse":
+        case "rect":
+        case "restore":
+        case "save":
+            return recordingAction.name;
         }
 
-        const name = recordingAction.name;
-        let className = WI.RecordingActionTreeElement._memoizedActionClassNames.get(name);
-        if (!className) {
-            className = classNameForActionName(name);
-            WI.RecordingActionTreeElement._memoizedActionClassNames.set(name, className);
-        }
-
-        return className;
+        return "name-unknown";
     }
 
     // Public
@@ -433,10 +421,22 @@ WI.RecordingActionTreeElement = class RecordingActionTreeElement extends WI.Gene
 
         contextMenu.appendSeparator();
 
-        let callFrame = this.representedObject.trace[0];
-        if (callFrame) {
-            contextMenu.appendItem(WI.UIString("Reveal in Resources Tab"), () => {
-                WI.showSourceCodeLocation(callFrame.sourceCodeLocation, {
+        let sourceCodeLocation = null;
+        for (let callFrame of this.representedObject.trace) {
+            if (callFrame.sourceCodeLocation) {
+                sourceCodeLocation = callFrame.sourceCodeLocation;
+                break;
+            }
+        }
+
+        if (sourceCodeLocation) {
+            let label = null;
+            if (WI.settings.experimentalEnableSourcesTab.value)
+                label = WI.UIString("Reveal in Sources Tab");
+            else
+                label = WI.UIString("Reveal in Resources Tab");
+            contextMenu.appendItem(label, () => {
+                WI.showSourceCodeLocation(sourceCodeLocation, {
                     ignoreNetworkTab: true,
                     ignoreSearchTab: true,
                 });
@@ -453,7 +453,7 @@ WI.RecordingActionTreeElement = class RecordingActionTreeElement extends WI.Gene
     _handleValidityChanged(event)
     {
         this.addClassName("invalid");
+
+        this.representedObject.removeEventListener(null, null, this);
     }
 };
-
-WI.RecordingActionTreeElement._memoizedActionClassNames = new Map;

@@ -4,13 +4,7 @@
  * Copyright 2007-2014 by Apple Inc.
  * Copyright 1997-2006 by Easy Software Products.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
  */
 
 /*
@@ -234,8 +228,7 @@ main(void)
     puts("PASS");
   else
   {
-    printf("FAIL (returned %p with %d elements, expected pointer with 4 elements)\n",
-           dup_array, cupsArrayCount(dup_array));
+    printf("FAIL (returned %p with %d elements, expected pointer with 4 elements)\n", (void *)dup_array, cupsArrayCount(dup_array));
     status ++;
   }
 
@@ -494,7 +487,7 @@ main(void)
  * 'get_seconds()' - Get the current time in seconds...
  */
 
-#ifdef WIN32
+#ifdef _WIN32
 #  include <windows.h>
 
 
@@ -515,7 +508,7 @@ get_seconds(void)
   gettimeofday(&curtime, NULL);
   return (curtime.tv_sec + 0.000001 * curtime.tv_usec);
 }
-#endif /* WIN32 */
+#endif /* _WIN32 */
 
 
 /*

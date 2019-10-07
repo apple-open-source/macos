@@ -138,7 +138,7 @@ _muser_xpc_pipe(bool reset)
 	}
 
 	if (__muser_pipe == NULL) {
-		__muser_pipe = xpc_pipe_create(kLibinfoMultiuserPortName, 0);
+		__muser_pipe = xpc_pipe_create(kLibinfoMultiuserPortName, XPC_PIPE_USE_SYNC_IPC_OVERRIDE | XPC_PIPE_PROPAGATE_QOS);
 		if (!_si_muser_disabled) { _si_muser_disabled = _muser_xpc_pipe_disabled(__muser_pipe); }
 	}
 

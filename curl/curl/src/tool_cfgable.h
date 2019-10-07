@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2016, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2019, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -27,6 +27,14 @@
 
 #include "tool_metalink.h"
 
+#include "tool_formparse.h"
+
+typedef enum {
+  ERR_NONE,
+  ERR_BINARY_TERMINAL = 1, /* binary to terminal detected */
+  ERR_LAST
+} curl_error;
+
 struct GlobalConfig;
 
 struct OperationConfig {
@@ -38,6 +46,7 @@ struct OperationConfig {
   char *cookie;             /* single line with specified cookies */
   char *cookiejar;          /* write to this file */
   char *cookiefile;         /* read from this file */
+  char *altsvc;             /* alt-svc cache file name */
   bool cookiesession;       /* new session? */
   bool encoding;            /* Accept-Encoding please */
   bool tr_encoding;         /* Transfer-Encoding please */
@@ -63,8 +72,8 @@ struct OperationConfig {
   char *headerfile;
   char *ftpport;
   char *iface;
-  int localport;
-  int localportrange;
+  long localport;
+  long localportrange;
   unsigned short porttouse;
   char *range;
   long low_speed_limit;
@@ -94,7 +103,7 @@ struct OperationConfig {
   bool use_ascii;           /* select ascii or text transfer */
   bool autoreferer;         /* automatically set referer */
   bool failonerror;         /* fail on (HTTP) errors */
-  bool include_headers;     /* send headers to data output */
+  bool show_headers;        /* show headers to data output */
   bool no_body;             /* don't get the body */
   bool dirlistonly;         /* only get the FTP dir list */
   bool followlocation;      /* follow http redirects */
@@ -108,8 +117,12 @@ struct OperationConfig {
   struct getout *url_last;  /* point to the last/current node */
   struct getout *url_get;   /* point to the node to fill in URL */
   struct getout *url_out;   /* point to the node to fill in outfile */
+  struct getout *url_ul;    /* point to the node to fill in upload */
+  char *doh_url;
   char *cipher_list;
   char *proxy_cipher_list;
+  char *cipher13_list;
+  char *proxy_cipher13_list;
   char *cert;
   char *proxy_cert;
   char *cert_type;
@@ -121,6 +134,7 @@ struct OperationConfig {
   char *crlfile;
   char *proxy_crlfile;
   char *pinnedpubkey;
+  char *proxy_pinnedpubkey;
   char *key;
   char *proxy_key;
   char *key_type;
@@ -133,7 +147,9 @@ struct OperationConfig {
   bool crlf;
   char *customrequest;
   char *krblevel;
+  char *request_target;
   long httpversion;
+  bool http09_allowed;
   bool nobuffer;
   bool readbusy;            /* set when reading input returns EAGAIN */
   bool globoff;
@@ -141,6 +157,7 @@ struct OperationConfig {
   bool insecure_ok;         /* set TRUE to allow insecure SSL connects */
   bool proxy_insecure_ok;   /* set TRUE to allow insecure SSL connects
                                for proxy */
+  bool terminal_binary_ok;
   bool verifystatus;
   bool create_dirs;
   bool ftp_create_dirs;
@@ -151,7 +168,6 @@ struct OperationConfig {
   bool proxybasic;
   bool proxyanyauth;
   char *writeout;           /* %-styled format string to output */
-  bool writeenv;            /* write results to environment, if available */
   struct curl_slist *quote;
   struct curl_slist *postquote;
   struct curl_slist *prequote;
@@ -160,11 +176,12 @@ struct OperationConfig {
   long proxy_ssl_version;
   long ip_version;
   curl_TimeCond timecond;
-  time_t condtime;
+  curl_off_t condtime;
   struct curl_slist *headers;
   struct curl_slist *proxyheaders;
-  struct curl_httppost *httppost;
-  struct curl_httppost *last_post;
+  tool_mime *mimeroot;
+  tool_mime *mimecurrent;
+  curl_mime *mimepost;
   struct curl_slist *telnet_options;
   struct curl_slist *resolve;
   struct curl_slist *connect_to;
@@ -182,6 +199,7 @@ struct OperationConfig {
   char *preproxy;
   int socks5_gssapi_nec;    /* The NEC reference server does not protect the
                                encryption type exchange */
+  unsigned long socks5_auth;/* auth bitmask for socks5 proxies */
   char *proxy_service_name; /* set authentication service name for HTTP and
                                SOCKS5 proxies */
   char *service_name;       /* set authentication service name for DIGEST-MD5,
@@ -237,6 +255,13 @@ struct OperationConfig {
   double expect100timeout;
   bool suppress_connect_headers;  /* suppress proxy CONNECT response headers
                                      from user callbacks */
+  curl_error synthetic_error;     /* if non-zero, it overrides any libcurl
+                                     error */
+  bool ssh_compression;           /* enable/disable SSH compression */
+  long happy_eyeballs_timeout_ms; /* happy eyeballs timeout in milliseconds.
+                                     0 is valid. default: CURL_HET_DEFAULT. */
+  bool haproxy_protocol;          /* whether to send HAProxy protocol v1 */
+  bool disallow_username_in_url;  /* disallow usernames in URLs */
   struct GlobalConfig *global;
   struct OperationConfig *prev;
   struct OperationConfig *next;   /* Always last in the struct */
@@ -260,6 +285,7 @@ struct GlobalConfig {
   int progressmode;               /* CURL_PROGRESS_BAR / CURL_PROGRESS_STATS */
   char *libcurl;                  /* Output libcurl code to this file name */
   bool fail_early;                /* exit on first transfer error */
+  bool styled_output;             /* enable fancy output style detection */
   struct OperationConfig *first;
   struct OperationConfig *current;
   struct OperationConfig *last;   /* Always last in the struct */

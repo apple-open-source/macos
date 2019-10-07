@@ -7,7 +7,7 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 161
+Submission	= 166
 
 
 #
@@ -140,6 +140,9 @@ LIPO_SBINS = $(STRIPPED_SBINS)
 # Binary to patch
 CONFIGTOOL	= $(USRBINDIR)/net-snmp-config
 
+# fixup tool for the above
+FIXUP	= $(SRCROOT)/fixupConfig
+
 # MIB files to install
 MIBFILES	:= $(wildcard mibs/*.txt)
 MIBDIR		= $(SHAREDIR)/snmp/mibs
@@ -158,7 +161,7 @@ AEP_Patches    = diskio.patch IPv6.patch universal_builds.patch \
 			container.patch darwin-header.patch 10268440.patch \
 			host.patch CVE-2012-6151.patch CVE-2014-3565.patch \
 			lmsensors.patch darwin-sensors.patch sanitize.patch 34748495.patch 34782045.patch 34782700.patch \
-			34806284.patch warnings1.patch \
+			34806284.patch warnings1.patch crTest.patch \
 			darwin64.patch disk_label.patch 22291336.patch perl-cc.patch namespace.patch 
 AEP_LaunchdConfigs	= org.net-snmp.snmpd.plist
 AEP_ConfigDir	= $(ETCDIR)/snmp
@@ -188,7 +191,7 @@ install::
 
 # Include common makefile targets for B&I
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
-include $(MAKEFILEPATH)/CoreOS/ReleaseControl/AEP.make
+include ./AEP.make
 
 # Override settings from above include
 ifndef MACOSX_DEPLOYMENT_TARGET
@@ -281,20 +284,13 @@ install-macosx:
 		$(CP) $(DSTROOT)$(USRSBINDIR)/$${file} $(SYMROOT); \
 		$(STRIP) $(DSTROOT)$(USRSBINDIR)/$${file}; \
 	done
-#	$(_v) for file in $(STRIPPED_SNMPTRAPD); \
-#	do \
-#		$(CP) $(DSTROOT)$(USRSBINDIR)/$${file} $(SYMROOT); \
-#		echo "_SyslogTrap" > $(DSTROOT)$(USRSBINDIR)/snmptrapd.exp; \
-#		echo "_dropauth" >> $(DSTROOT)$(USRSBINDIR)/snmptrapd.exp; \
-#		$(STRIP) -s $(DSTROOT)$(USRSBINDIR)/snmptrapd.exp $(DSTROOT)$(USRSBINDIR)/$${file}; \
-#		$(RM) $(DSTROOT)$(USRSBINDIR)/snmptrapd.exp; \
-#	done
 	$(_v) for file in $(STRIPPED_LIBS); \
 	do \
 		$(CP) $(DSTROOT)$(USRLIBDIR)/$${file}*.dylib $(SYMROOT); \
 		$(STRIP) -x $(DSTROOT)$(USRLIBDIR)/$${file}.dylib; \
 	done
 	$(_v)- $(FIND) $(DSTROOT)$(NSLIBRARYSUBDIR)/Perl -type f -name '*.bundle' -print -exec strip -S {} \;
+ifeq "$(RC_i386)" "YES"
 	@echo "Removing 32-bit executable code from binaries..."
 	$(_v) for file in $(LIPO_BINS); \
 	do \
@@ -308,7 +304,7 @@ install-macosx:
 		$(RM) $(DSTROOT)$(USRSBINDIR)/$${file};\
 		$(MV) $(DSTROOT)$(USRSBINDIR)/$${file}.64 $(DSTROOT)$(USRSBINDIR)/$${file}; \
 	done
-
+endif
 	@echo "Copying sensor data"
 	$(_v) $(MKDIR) -p $(DSTROOT)$(SHAREDIR)/snmp
 	$(_v) $(INSTALL_FILE) $(SRCROOT)/SensorDat.xml $(DSTROOT)$(SHAREDIR)/snmp
@@ -325,12 +321,14 @@ install-macosx:
 	@echo "Removing perllocal.pod..."
 	$(_v) $(RM) -rf "$(DSTROOT)/System/Library/Perl"
 	@echo "Eliminating architecture flags from $(CONFIGTOOL)..."
-	$(MV) $(DSTROOT)$(CONFIGTOOL) $(DSTROOT)$(CONFIGTOOL).old
+	$(MV) $(DSTROOT)$(CONFIGTOOL) $(DSTROOT)$(CONFIGTOOL).1
 	$(SED) -Ee 's/-arch [-_a-z0-9]{3,10}//g' \
 		-e '/^NSC_INCLUDEDIR=/s/=.*/=\/usr\/local\/include/' \
-		-e '/^NSC_LIBDIR=/s/=.*/=" "/' $(DSTROOT)$(CONFIGTOOL).old > $(DSTROOT)$(CONFIGTOOL)
+		-e '/^NSC_LIBDIR=/s/=.*/=" "/' $(DSTROOT)$(CONFIGTOOL).1 > $(DSTROOT)$(CONFIGTOOL).2
+	$(FIXUP) $(DSTROOT)$(CONFIGTOOL).2 > $(DSTROOT)$(CONFIGTOOL)
 	$(CHMOD) 755 $(DSTROOT)$(CONFIGTOOL)
-	$(RM) $(DSTROOT)$(CONFIGTOOL).old
+	$(RM) $(DSTROOT)$(CONFIGTOOL).1
+	$(RM) $(DSTROOT)$(CONFIGTOOL).2
 
 install-mibs:
 	$(_v) for file in $(MIBFILES); \
@@ -338,14 +336,8 @@ install-mibs:
 		$(INSTALL_FILE) $${file} $(DSTROOT)$(MIBDIR); \
 	done
 
-install-compat:
-	$(_v) $(TAR) -C $(DSTROOT)$(USRLIBDIR) -xzf $(SRCROOT)/libs-5.2.1.tar.gz
-	@echo "Fixing privs on libnetsnmp.5.dylib ref bug# 6877106"
-	$(_v) $(CHMOD) -h 755 $(DSTROOT)$(USRLIBDIR)/libnetsnmp.5.dylib
-	$(_v) $(TAR) -C $(DSTROOT)$(USRLIBDIR) -xzf $(SRCROOT)/libs-5.4.2.1.tar.gz
-	$(_v) $(CHMOD) -h 755 $(DSTROOT)$(USRLIBDIR)/libnetsnmp.15.dylib
 
-stubify: install-macosx install-compat
+stubify: install-macosx
 	@echo "Generating TBD files ..."
 	$(_v) $(TAPI) stubify $(DSTROOT)
 

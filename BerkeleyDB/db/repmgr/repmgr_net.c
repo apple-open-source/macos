@@ -1134,7 +1134,7 @@ __repmgr_listen(env)
 	}
 
 	ret = net_errno;
-	__db_err(env, ret, why);
+	__db_err(env, ret,"%s",  why);
 clean:	if (s != INVALID_SOCKET)
 		(void)closesocket(s);
 	return (ret);

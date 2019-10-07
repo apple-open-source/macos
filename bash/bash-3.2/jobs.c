@@ -3586,7 +3586,7 @@ initialize_job_control (force)
 	    }
 	}
       if (job_control == 0)
-	internal_error (_("no job control in this shell"));
+	internal_error ("%s", _("no job control in this shell"));
     }
 
   if (shell_tty != fileno (stderr))

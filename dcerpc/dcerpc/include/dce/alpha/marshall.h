@@ -133,7 +133,7 @@
     *(ndr_short_int *)mp = (ndr_short_int)src
 
 #define rpc_unmarshall_enum(mp, dst)\
-    dst = *(ndr_short_int *)mp
+    memcpy(&dst, mp, sizeof(ndr_short_int))
 
 #define rpc_convert_enum(src_drep, dst_drep, mp, dst)\
     if (src_drep.int_rep == dst_drep.int_rep)\
@@ -319,7 +319,7 @@
     *(ndr_long_float *)mp = src
 
 #define rpc_unmarshall_long_float(mp, dst)\
-    dst = *(ndr_long_float *)mp
+    memcpy(dst, mp, sizeof(mp_long_float))
 
 #define rpc_convert_long_float(src_drep, dst_drep, mp, dst)\
     if ((src_drep.float_rep == dst_drep.float_rep) &&\
@@ -327,8 +327,8 @@
         rpc_unmarshall_long_float(mp, dst);\
     else\
         ndr_cvt_long_float (src_drep, dst_drep,\
-            (long_float_p_t)mp,\
-            (long_float_p_t)&dst)
+            mp,\
+            dst)
 
 #endif /* __alpha */
 #endif /* _MARSHALL_H */

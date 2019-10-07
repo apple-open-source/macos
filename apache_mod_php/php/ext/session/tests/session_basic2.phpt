@@ -64,13 +64,13 @@ string(0) ""
 string(6) "testid"
 bool(true)
 bool(true)
-NULL
+bool(true)
 string(32) "%s"
 *** With lazy_write ***
 string(32) "%s"
 bool(true)
 bool(true)
-NULL
+bool(true)
 string(32) "%s"
 *** Cleanup ***
 string(32) "%s"
@@ -79,5 +79,3 @@ bool(true)
 string(0) ""
 bool(true)
 bool(true)
-
-

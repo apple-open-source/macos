@@ -814,7 +814,7 @@ static initproc
 make_init(const char* typestr)
 {
 static 	ffi_cif* init_cif = NULL;
-	ffi_closure* cl = NULL;
+	ffi_closure_wrapper* cl = NULL;
 	ffi_status rv;
 
 	if (init_cif == NULL) {
@@ -832,7 +832,7 @@ static 	ffi_cif* init_cif = NULL;
 		return NULL;
 	}
 
-	rv = ffi_prep_closure(cl, init_cif, struct_init, (char*)typestr);
+	rv = ffi_prep_closure_loc(cl->closure, init_cif, struct_init, (char*)typestr, cl->code_addr);
 	if (rv != FFI_OK) {
 		PyObjC_free_closure(cl);
 		PyErr_Format(PyExc_RuntimeError,
@@ -840,7 +840,7 @@ static 	ffi_cif* init_cif = NULL;
 		return NULL;
 	}
 
-	return (initproc)cl;
+	return (initproc)cl->code_addr;
 }
 
 

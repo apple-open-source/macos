@@ -3,7 +3,7 @@ Test prev() function : usage variation - Pass different data types as $array_arg
 --FILE--
 <?php
 /* Prototype  : mixed prev(array $array_arg)
- * Description: Move array argument's internal pointer to the previous element and return it 
+ * Description: Move array argument's internal pointer to the previous element and return it
  * Source code: ext/standard/array.c
  */
 
@@ -58,7 +58,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
@@ -68,7 +68,7 @@ $inputs = array(
 /*19*/ "string",
        'string',
        $heredoc,
-       
+
        // object data
 /*22*/ new classA(),
 
@@ -98,22 +98,22 @@ fclose($fp);
 
 -- Iteration 1 --
 
-Warning: prev() expects parameter 1 to be array, integer given in %s on line %d
+Warning: prev() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 2 --
 
-Warning: prev() expects parameter 1 to be array, integer given in %s on line %d
+Warning: prev() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 3 --
 
-Warning: prev() expects parameter 1 to be array, integer given in %s on line %d
+Warning: prev() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 4 --
 
-Warning: prev() expects parameter 1 to be array, integer given in %s on line %d
+Warning: prev() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 5 --
@@ -153,22 +153,22 @@ NULL
 
 -- Iteration 12 --
 
-Warning: prev() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: prev() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 13 --
 
-Warning: prev() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: prev() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 14 --
 
-Warning: prev() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: prev() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 15 --
 
-Warning: prev() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: prev() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 16 --

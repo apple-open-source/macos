@@ -25,6 +25,10 @@
 
 #if USE(APPLE_INTERNAL_SDK)
 
+#if HAVE(ARKIT_QUICK_LOOK_PREVIEW_ITEM)
+#import <AssetViewer/ARQuickLookWebKitItem.h>
+#endif
+
 #import <AssetViewer/ASVThumbnailView.h>
 
 #else
@@ -45,5 +49,15 @@
 @property (nonatomic) CGSize maxThumbnailSize;
 @end
 
+#if HAVE(ARKIT_QUICK_LOOK_PREVIEW_ITEM)
+#import <ARKit/ARKit.h>
+
+@class ARQuickLookWebKitItem;
+
+@interface ARQuickLookWebKitItem : QLItem
+- (instancetype)initWithPreviewItemProvider:(NSItemProvider *)itemProvider contentType:(NSString *)contentType previewTitle:(NSString *)previewTitle fileSize:(NSNumber *)fileSize previewItem:(ARQuickLookPreviewItem *)previewItem;
+@end
+
 #endif
 
+#endif

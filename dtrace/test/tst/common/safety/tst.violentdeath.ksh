@@ -23,8 +23,6 @@
 # Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-#pragma ident	"@(#)tst.violentdeath.ksh	1.1	06/08/28 SMI"
-
 script()
 {
 	$dtrace -x bufpolicy=ring -x bufsize=1k -s /dev/stdin <<EOF

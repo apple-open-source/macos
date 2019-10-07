@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003-2017 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2019 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -44,6 +44,7 @@
 #include <wtf/Deque.h>
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashSet.h>
+#include <wtf/Markable.h>
 #include <wtf/ParallelHelperPool.h>
 #include <wtf/Threading.h>
 
@@ -85,7 +86,7 @@ class VM;
 class WeakGCMapBase;
 struct CurrentThreadState;
 
-#if USE(GLIB)
+#ifdef JSC_GLIB_API_ENABLED
 class JSCGLibWrapperObject;
 #endif
 
@@ -93,6 +94,13 @@ namespace DFG {
 class SpeculativeJIT;
 class Worklist;
 }
+
+#if !ASSERT_DISABLED
+#define ENABLE_DFG_DOES_GC_VALIDATION 1
+#else
+#define ENABLE_DFG_DOES_GC_VALIDATION 0
+#endif
+constexpr bool validateDFGDoesGC = ENABLE_DFG_DOES_GC_VALIDATION;
 
 typedef HashCountedSet<JSCell*> ProtectCountSet;
 typedef HashCountedSet<const char*> TypeCountSet;
@@ -115,7 +123,7 @@ public:
     // our scan to run faster. 
     static const unsigned s_timeCheckResolution = 16;
 
-    static bool isMarked(const void*);
+    bool isMarked(const void*);
     static bool testAndSetMarked(HeapVersion, const void*);
     
     static size_t cellSize(const void*);
@@ -271,7 +279,7 @@ public:
 #if USE(FOUNDATION)
     template<typename T> void releaseSoon(RetainPtr<T>&&);
 #endif
-#if USE(GLIB)
+#ifdef JSC_GLIB_API_ENABLED
     void releaseSoon(std::unique_ptr<JSCGLibWrapperObject>&&);
 #endif
 
@@ -292,6 +300,16 @@ public:
     
     unsigned barrierThreshold() const { return m_barrierThreshold; }
     const unsigned* addressOfBarrierThreshold() const { return &m_barrierThreshold; }
+
+#if ENABLE(DFG_DOES_GC_VALIDATION)
+    bool expectDoesGC() const { return m_expectDoesGC; }
+    void setExpectDoesGC(bool value) { m_expectDoesGC = value; }
+    bool* addressOfExpectDoesGC() { return &m_expectDoesGC; }
+#else
+    bool expectDoesGC() const { UNREACHABLE_FOR_PLATFORM(); return true; }
+    void setExpectDoesGC(bool) { UNREACHABLE_FOR_PLATFORM(); }
+    bool* addressOfExpectDoesGC() { UNREACHABLE_FOR_PLATFORM(); return nullptr; }
+#endif
 
     // If true, the GC believes that the mutator is currently messing with the heap. We call this
     // "having heap access". The GC may block if the mutator is in this state. If false, the GC may
@@ -407,8 +425,8 @@ private:
     friend class VM;
     friend class WeakSet;
 
-    class Thread;
-    friend class Thread;
+    class HeapThread;
+    friend class HeapThread;
 
     static const size_t minExtraMemory = 256;
     
@@ -554,36 +572,43 @@ private:
 
     void setBonusVisitorTask(RefPtr<SharedTask<void(SlotVisitor&)>>);
 
+    void dumpHeapStatisticsAtVMDestruction();
+
     static bool useGenerationalGC();
     static bool shouldSweepSynchronously();
     
     const HeapType m_heapType;
+    MutatorState m_mutatorState { MutatorState::Running };
     const size_t m_ramSize;
     const size_t m_minBytesPerCycle;
-    size_t m_sizeAfterLastCollect;
-    size_t m_sizeAfterLastFullCollect;
-    size_t m_sizeBeforeLastFullCollect;
-    size_t m_sizeAfterLastEdenCollect;
-    size_t m_sizeBeforeLastEdenCollect;
+    size_t m_sizeAfterLastCollect { 0 };
+    size_t m_sizeAfterLastFullCollect { 0 };
+    size_t m_sizeBeforeLastFullCollect { 0 };
+    size_t m_sizeAfterLastEdenCollect { 0 };
+    size_t m_sizeBeforeLastEdenCollect { 0 };
 
-    size_t m_bytesAllocatedThisCycle;
-    size_t m_bytesAbandonedSinceLastFullCollect;
+    size_t m_bytesAllocatedThisCycle { 0 };
+    size_t m_bytesAbandonedSinceLastFullCollect { 0 };
     size_t m_maxEdenSize;
     size_t m_maxEdenSizeWhenCritical;
     size_t m_maxHeapSize;
-    bool m_shouldDoFullCollection;
-    size_t m_totalBytesVisited;
-    size_t m_totalBytesVisitedThisCycle;
+    size_t m_totalBytesVisited { 0 };
+    size_t m_totalBytesVisitedThisCycle { 0 };
     double m_incrementBalance { 0 };
     
-    Optional<CollectionScope> m_collectionScope;
-    Optional<CollectionScope> m_lastCollectionScope;
-    MutatorState m_mutatorState { MutatorState::Running };
+    bool m_shouldDoFullCollection { false };
+    Markable<CollectionScope, EnumMarkableTraits<CollectionScope>> m_collectionScope;
+    Markable<CollectionScope, EnumMarkableTraits<CollectionScope>> m_lastCollectionScope;
+    Lock m_raceMarkStackLock;
+#if ENABLE(DFG_DOES_GC_VALIDATION)
+    bool m_expectDoesGC { true };
+#endif
+
     StructureIDTable m_structureIDTable;
     MarkedSpace m_objectSpace;
     GCIncomingRefCountedSet<ArrayBuffer> m_arrayBuffers;
-    size_t m_extraMemorySize;
-    size_t m_deprecatedExtraMemorySize;
+    size_t m_extraMemorySize { 0 };
+    size_t m_deprecatedExtraMemorySize { 0 };
 
     HashSet<const JSCell*> m_copyingRememberedSet;
 
@@ -595,10 +620,7 @@ private:
     std::unique_ptr<SlotVisitor> m_collectorSlotVisitor;
     std::unique_ptr<SlotVisitor> m_mutatorSlotVisitor;
     std::unique_ptr<MarkStackArray> m_mutatorMarkStack;
-
-    Lock m_raceMarkStackLock;
     std::unique_ptr<MarkStackArray> m_raceMarkStack;
-
     std::unique_ptr<MarkingConstraintSet> m_constraintSet;
 
     // We pool the slot visitors used by parallel marking threads. It's useful to be able to
@@ -607,22 +629,22 @@ private:
     // them at the end.
     Vector<std::unique_ptr<SlotVisitor>> m_parallelSlotVisitors;
     Vector<SlotVisitor*> m_availableParallelSlotVisitors;
-    Lock m_parallelSlotVisitorLock;
     
     HandleSet m_handleSet;
     std::unique_ptr<CodeBlockSet> m_codeBlocks;
     std::unique_ptr<JITStubRoutineSet> m_jitStubRoutines;
     FinalizerOwner m_finalizerOwner;
     
-    bool m_isSafeToCollect;
+    Lock m_parallelSlotVisitorLock;
+    bool m_isSafeToCollect { false };
     bool m_isShuttingDown { false };
-
     bool m_mutatorShouldBeFenced { Options::forceFencedBarrier() };
+
     unsigned m_barrierThreshold { Options::forceFencedBarrier() ? tautologicalThreshold : blackThreshold };
 
     VM* m_vm;
-    Seconds m_lastFullGCLength;
-    Seconds m_lastEdenGCLength;
+    Seconds m_lastFullGCLength { 10_ms };
+    Seconds m_lastEdenGCLength { 10_ms };
 
     Vector<WeakBlock*> m_logicallyEmptyWeakBlocks;
     size_t m_indexOfNextLogicallyEmptyWeakBlockToSweep { WTF::notFound };
@@ -636,34 +658,26 @@ private:
     
     Vector<HeapFinalizerCallback> m_heapFinalizerCallbacks;
     
-    unsigned m_deferralDepth;
-    bool m_didDeferGCWork { false };
-
     std::unique_ptr<HeapVerifier> m_verifier;
 
 #if USE(FOUNDATION)
     Vector<RetainPtr<CFTypeRef>> m_delayedReleaseObjects;
-    unsigned m_delayedReleaseRecursionCount;
+    unsigned m_delayedReleaseRecursionCount { 0 };
 #endif
-#if USE(GLIB)
+#ifdef JSC_GLIB_API_ENABLED
     Vector<std::unique_ptr<JSCGLibWrapperObject>> m_delayedReleaseObjects;
     unsigned m_delayedReleaseRecursionCount { 0 };
 #endif
+    unsigned m_deferralDepth { 0 };
 
     HashSet<WeakGCMapBase*> m_weakGCMaps;
     
-    Lock m_visitRaceLock;
-
-    Lock m_markingMutex;
-    Condition m_markingConditionVariable;
     std::unique_ptr<MarkStackArray> m_sharedCollectorMarkStack;
     std::unique_ptr<MarkStackArray> m_sharedMutatorMarkStack;
     unsigned m_numberOfActiveParallelMarkers { 0 };
     unsigned m_numberOfWaitingParallelMarkers { 0 };
-    bool m_parallelMarkersShouldExit { false };
 
     ConcurrentPtrHashSet m_opaqueRoots;
-
     static const size_t s_blockFragmentLength = 32;
 
     ParallelHelperClient m_helperClient;
@@ -684,6 +698,10 @@ private:
     static const unsigned mutatorWaitingBit = 1u << 5u; // Allows the mutator to use this as a condition variable.
     Atomic<unsigned> m_worldState;
     bool m_worldIsStopped { false };
+    Lock m_visitRaceLock;
+    Lock m_markingMutex;
+    Condition m_markingConditionVariable;
+
     MonotonicTime m_beforeGC;
     MonotonicTime m_afterGC;
     MonotonicTime m_stopTime;
@@ -692,27 +710,24 @@ private:
     GCRequest m_currentRequest;
     Ticket m_lastServedTicket { 0 };
     Ticket m_lastGrantedTicket { 0 };
+
     CollectorPhase m_lastPhase { CollectorPhase::NotRunning };
     CollectorPhase m_currentPhase { CollectorPhase::NotRunning };
     CollectorPhase m_nextPhase { CollectorPhase::NotRunning };
+    bool m_collectorThreadIsRunning { false };
     bool m_threadShouldStop { false };
     bool m_threadIsStopping { false };
     bool m_mutatorDidRun { true };
+    bool m_didDeferGCWork { false };
+    bool m_shouldStopCollectingContinuously { false };
+
     uint64_t m_mutatorExecutionVersion { 0 };
     uint64_t m_phaseVersion { 0 };
     Box<Lock> m_threadLock;
     Ref<AutomaticThreadCondition> m_threadCondition; // The mutator must not wait on this. It would cause a deadlock.
     RefPtr<AutomaticThread> m_thread;
 
-#if PLATFORM(IOS_FAMILY)
-    unsigned m_precentAvailableMemoryCachedCallCount;
-    bool m_overCriticalMemoryThreshold;
-#endif
-
-    Lock m_collectContinuouslyLock;
-    Condition m_collectContinuouslyCondition;
-    bool m_shouldStopCollectingContinuously { false };
-    RefPtr<WTF::Thread> m_collectContinuouslyThread { nullptr };
+    RefPtr<Thread> m_collectContinuouslyThread { nullptr };
     
     MonotonicTime m_lastGCStartTime;
     MonotonicTime m_lastGCEndTime;
@@ -722,7 +737,16 @@ private:
     uintptr_t m_barriersExecuted { 0 };
     
     CurrentThreadState* m_currentThreadState { nullptr };
-    WTF::Thread* m_currentThread { nullptr }; // It's OK if this becomes a dangling pointer.
+    Thread* m_currentThread { nullptr }; // It's OK if this becomes a dangling pointer.
+
+#if PLATFORM(IOS_FAMILY)
+    unsigned m_precentAvailableMemoryCachedCallCount;
+    bool m_overCriticalMemoryThreshold;
+#endif
+
+    bool m_parallelMarkersShouldExit { false };
+    Lock m_collectContinuouslyLock;
+    Condition m_collectContinuouslyCondition;
 };
 
 } // namespace JSC

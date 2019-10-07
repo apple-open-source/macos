@@ -2,17 +2,17 @@
         <key>OpenSourceProject</key>
         <string>libpng</string>
         <key>OpenSourceVersion</key>
-        <string>1.6.20</string>
+        <string>1.6.36</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://www.libpng.org/pub/png/libpng.html</string>
         <key>OpenSourceURL</key>
-        <string>ftp://ftp.simplesystems.org/pub/libpng/png/src/libpng16/libpng-1.6.20.tar.gz</string>
+        <string>https://download.sourceforge.net/libpng/libpng-1.6.36.tar.gz</string>
         <key>OpenSourceImportDate</key>
-        <string>2015-12-22</string>
+        <string>2019-04-05</string>
         <key>OpenSourceLicense</key>
         <string>libpng</string>
         <key>OpenSourceLicenseFile</key>
         <string>python_modules.txt</string>
-        <key>OpenSourceMD5</key>
-        <string>53166795d924950988a5513d3e605333</string>
+        <key>OpenSourceMDSHA256</key>
+        <string>ca13c548bde5fb6ff7117cc0bdab38808acb699c0eccb613f0e4697826e1fd7d</string>
 </dict>

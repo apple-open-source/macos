@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2012 Apple Inc. All rights reserved.
  *
@@ -25,7 +26,9 @@
 #ifndef IOKitUser_IOPLATFORMSUPPORTPRIVATE_h
 #define IOKitUser_IOPLATFORMSUPPORTPRIVATE_h
 
-#if !TARGET_OS_EMBEDDED
+#include <TargetConditionals.h>
+
+#if TARGET_OS_OSX
 #include <IOKit/IOReturn.h>
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -149,5 +152,5 @@ IOReturn IOPlatformGetDeviceColor(  CFStringRef whichColor,
 IOReturn  IOCopyModel(char** model, uint32_t *majorRev, uint32_t *minorRev);
 
 
-#endif
-#endif
+#endif /* TARGET_OS_OSX */
+#endif /* IOKitUser_IOPLATFORMSUPPORTPRIVATE_h */

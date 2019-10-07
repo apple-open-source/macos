@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>libarchive</string>
 	<key>OpenSourceVersion</key>
-	<string>2.8.3</string>
+	<string>3.3.2</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://code.google.com/p/libarchive/</string>
 	<key>OpenSourceURL</key>
-	<string>http://libarchive.googlecode.com/files/libarchive-2.8.3.tar.gz</string>
+	<string>https://www.libarchive.org/downloads/libarchive-3.3.2.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>e0634a326cce2b46c8dc637de84d7556257e59e0</string>
+	<string>580064227105e30322caa6c67b59e8c8e6060027</string>
 	<key>OpenSourceImportDate</key>
-	<string>2010-05-17</string>
+	<string>2018-02-26</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Added support for quarantine and copyfile.</string>
@@ -37,7 +37,15 @@
 		<string>libarchive/archive_read_support_format_mtree.c: 32125732</string>
 		<string>libarchive/archive_read_support_compression_uu.c: 30881365</string>
 		<string>libarchive/archive_read_support_format_cpio.c: 32125737</string>
-		<string>libarchive/archive_read_support_compression_uu.c 44406435</string>
+		<string>libarchive/archive_string.c: 38474146</string>
+		<string>tar/bsdtar.c: 38797702</string>
+		<string>libarchive/archive_write_set_format_pax.c: 38227380</string>
+		<string>libarchive/archive_read_support_format_tar.c: 37833015</string>
+		<string>libarchive/archive_ppmd7.c: 37829028</string>
+		<string>libarchive/archive_read_support_format_zip.c 46466175</string>
+		<string>libarchive/archive_read_support_format_zip.c 51855785</string>
+		<string>libarchive/archive_write_disk_posix.c 52273121</string>
+		<string>libarchive/archive_write_disk_posix.c 53392409</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

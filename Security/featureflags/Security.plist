@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>octagonTrust</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+	</dict>
+	<key>recoverykey</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+	</dict>
+	<key>octagonSOSupgrade</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+	</dict>
+	<key>octagon</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+	</dict>
+	<key>CKKSViewsFromPolicy</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+	</dict>
+	<key>securitydReportPolicy</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+	</dict>
+	<key>octagonUseDeviceName</key>
+        <dict>
+                <key>Enabled</key>
+                <false/>
+        </dict>
+</dict>
+</plist>

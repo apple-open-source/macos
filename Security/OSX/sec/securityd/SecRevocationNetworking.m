@@ -48,8 +48,6 @@
 #import "SecRevocationNetworking.h"
 
 /* MARK: Valid Update Networking */
-#define kSecRevocationBasePath          "/Library/Keychains/crls"
-
 static CFStringRef kSecPrefsDomain      = CFSTR("com.apple.security");
 static CFStringRef kUpdateWiFiOnlyKey   = CFSTR("ValidUpdateWiFiOnly");
 static CFStringRef kUpdateBackgroundKey = CFSTR("ValidUpdateBackground");

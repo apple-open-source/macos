@@ -75,7 +75,7 @@ __private_extern__ void setDisplaySleepFactor(unsigned int factor);
 __private_extern__ void setDisplayToDimTimer(io_connect_t connection, unsigned int minutesToDim);
 
 __private_extern__ void saveAlarmInfo(CFDictionaryRef info);
-__private_extern__ CFDictionaryRef copyAlarmInfo();
+__private_extern__ CFDictionaryRef copyAlarmInfo(void);
 
 __private_extern__ bool _DWBT_allowed(void);
 __private_extern__ bool _DWBT_enabled(void);

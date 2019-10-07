@@ -31,7 +31,7 @@
 #include <AssertMacros.h>
 
 #include <TargetConditionals.h>
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
+#if TARGET_OS_OSX
 #define ENABLE_CMS 0
 #else
 #define ENABLE_CMS 1
@@ -56,7 +56,7 @@
 #include <Security/SecBasePriv.h>
 #include <Security/SecCertificatePriv.h>
 
-#include "SecCMS.h"
+#include <Security/SecCMS.h>
 #include <Security/SecTrustPriv.h>
 
 

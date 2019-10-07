@@ -169,10 +169,10 @@ void SVGTRefElement::detachTarget()
     // Mark the referenced ID as pending.
     auto target = SVGURIReference::targetElementFromIRIString(href(), document());
     if (!target.identifier.isEmpty())
-        document().accessSVGExtensions().addPendingResource(target.identifier, this);
+        document().accessSVGExtensions().addPendingResource(target.identifier, *this);
 }
 
-void SVGTRefElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
+void SVGTRefElement::parseAttribute(const QualifiedName& name, const AtomString& value)
 {
     SVGTextPositioningElement::parseAttribute(name, value);
     SVGURIReference::parseAttribute(name, value);
@@ -235,7 +235,7 @@ void SVGTRefElement::buildPendingResource()
         if (target.identifier.isEmpty())
             return;
 
-        document().accessSVGExtensions().addPendingResource(target.identifier, this);
+        document().accessSVGExtensions().addPendingResource(target.identifier, *this);
         ASSERT(hasPendingResources());
         return;
     }

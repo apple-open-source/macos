@@ -36,6 +36,7 @@ namespace WebCore {
 class SerializedScriptValue;
 
 class IDBValue {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     WEBCORE_EXPORT IDBValue();
     IDBValue(const SerializedScriptValue&);
@@ -88,7 +89,7 @@ Optional<IDBValue> IDBValue::decode(Decoder& decoder)
     if (!decoder.decode(result.m_blobFilePaths))
         return WTF::nullopt;
 
-    return WTFMove(result);
+    return result;
 }
 
 } // namespace WebCore

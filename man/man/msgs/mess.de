@@ -1,34 +1,34 @@
 BAD_CONFIG_FILE
-	"Die Konfigurations-Datei %s ist fehlerhaft\n"
+	"Die Konfigurationsdatei %s ist fehlerhaft\n"
 CONFIG_OPEN_ERROR
-	"Warnung: Die Konfigurations-Datei %s kann nicht geöffnet werden\n"
+	"Warnung: Die Konfigurationsdatei %s kann nicht geÃ¶ffnet werden\n"
 PARSE_ERROR_IN_CONFIG
-	"Fehler beim Parsen der Konfigurations-Datei\n"
+	"Fehler beim Parsen der Konfigurationsdatei\n"
 INCOMPAT
-	"Unverträgliche Optionen %s und %s\n"
+	"UnvertrÃ¤gliche Optionen %s und %s\n"
 NO_ALTERNATE
-	"Sorry - Kein Support für alternative Systeme möglich\n"
+	"Sorry - Kein Support fÃ¼r alternative Systeme mÃ¶glich\n"
 NO_COMPRESS
 	"Das man-Programm ist mit automatischer Kompression der cat-Seiten\n\
-übersetzt worden, aber in der Konfigurations-Datei fehlt die Definition\n\
+Ã¼bersetzt worden, aber in der Konfigurationsdatei fehlt die Definition\n\
 von COMPRESS.\n"
 NO_NAME_FROM_SECTION
-	"Welche Handbuch-Seite aus der Sektion %s soll angezeigt werden ?\n"
+	"Welche Handbuchseite aus der Sektion %s soll angezeigt werden?\n"
 NO_NAME_NO_SECTION
-	"Welche Handbuch-Seite soll angezeigt werden ?\n"
+	"Welche Handbuchseite soll angezeigt werden?\n"
 NO_SUCH_ENTRY_IN_SECTION
-	"Keine Handbuch-Seite %s in der Sektion %s\n"
+	"Keine Handbuchseite %s in der Sektion %s\n"
 NO_SUCH_ENTRY
-	"Keine Handbuch-Seite für %s\n"
+	"Keine Handbuchseite fÃ¼r %s\n"
 PAGER_IS
-	"\nAls Anzeige-Programm wird %s benutzt\n"
+	"\nAls Anzeigeprogramm wird %s benutzt\n"
 SYSTEM_FAILED
-	"Fehler bei der Ausführung des Formattierungs- oder Anzeige-Programms.\n\
-Das Programm %s lieferte den Rückgabe-Wert %d.\n"
+	"Fehler bei der AusfÃ¼hrung des Formatierungs- oder Anzeigeprogramms.\n\
+Das Programm %s lieferte den RÃ¼ckgabe-Wert %d.\n"
 VERSION
 	"%s, Version %s\n\n"
 OUT_OF_MEMORY
-	"Nicht genügend Speicher verfügbar - %d Bytes können nicht bereitgestellt werden\n"
+	"Nicht genÃ¼gend Speicher verfÃ¼gbar - %d Bytes kÃ¶nnen nicht bereitgestellt werden\n"
 ROFF_CMD_FROM_FILE_ERROR
 	"Fehler beim Parsen des *roff Kommandos der Datei %s\n"
 MANROFFSEQ_ERROR
@@ -36,7 +36,7 @@ MANROFFSEQ_ERROR
 ROFF_CMD_FROM_COMMANDLINE_ERROR
 	"Fehler beim Parsen des *roff Kommandos aus der Kommando-Zeile.\n"
 UNRECOGNIZED_LINE
-	"Unbekannte Zeile in der Konfigurations-Datei (ignoriert)\n%s\n"
+	"Unbekannte Zeile in der Konfigurationsdatei (ignoriert)\n%s\n"
 GETVAL_ERROR
 	"man-config.c: Interner Fehler: String %s nicht gefunden\n"
 FOUND_MANDIR
@@ -44,7 +44,7 @@ FOUND_MANDIR
 FOUND_MAP
 	"manpath Zuordnung %s --> %s gefunden\n"
 FOUND_CATDIR
-	"Zugehöriges cat-Verzeichnis ist %s\n"
+	"ZugehÃ¶riges cat-Verzeichnis ist %s\n"
 LINE_TOO_LONG
 	"Zeile zu lang in der Konfigurationsdatei\n"
 SECTION
@@ -54,11 +54,11 @@ UNLINKED
 GLOBBING
 	"globbing %s\n"
 EXPANSION_FAILED
-	"Versuch [%s] die Handbuch-Seite zu expandieren schlug fehl.\n"
+	"Versuch [%s] die Handbuchseite zu expandieren schlug fehl.\n"
 OPEN_ERROR
-	"Die Handbuch-Seite %s kann nicht gelesen werden\n"
+	"Die Handbuchseite %s kann nicht gelesen werden\n"
 READ_ERROR
-	"Fehler beim Lesen der Handbuch-Seite %s\n"
+	"Fehler beim Lesen der Handbuchseite %s\n"
 FOUND_EQN
 	"eqn(1) Anweisung gefunden\n"
 FOUND_GRAP
@@ -72,27 +72,27 @@ FOUND_VGRIND
 FOUND_REFER
 	"refer(1) Anweisung gefunden\n"
 ROFF_FROM_COMMAND_LINE
-	"Parsen der Anweisungen aus der Kommando-Zeile\n"
+	"Parsen der Anweisungen aus der Kommandozeile\n"
 ROFF_FROM_FILE
 	"Parsen der Anweisungen aus der Datei %s\n"
 ROFF_FROM_ENV
 	"Parsen der Anweisung aus den Umgebungsvariablen\n"
 USING_DEFAULT
-	"Es wird die Standard-Abfolge der Präprozessoren benutzt\n"
+	"Es wird die Standard-Abfolge der PrÃ¤prozessoren benutzt\n"
 PLEASE_WAIT
-	"Die Handbuch-Seite wird formatiert, bitte warten Sie...\n"
+	"Die Handbuchseite wird formatiert, bitte warten Sie...\n"
 CHANGED_MODE
-	"Zugriffsschutz der Datei %s geändert zu %o\n"
+	"Zugriffsschutz der Datei %s geÃ¤ndert zu %o\n"
 CAT_OPEN_ERROR
-	"Die Datei %s kann nicht für Ausgaben geöffnet werden.\n"
+	"Die Datei %s kann nicht fÃ¼r Ausgaben geÃ¶ffnet werden.\n"
 PROPOSED_CATFILE
-	"Wenn nötig wird die Datei %s geschrieben\n"
+	"Wenn nÃ¶tig wird die Datei %s geschrieben\n"
 IS_NEWER_RESULT
-	"Status der Funktione is_newer() = %d\n"
+	"Status der Funktion is_newer() = %d\n"
 TRYING_SECTION
 	"Versuche Sektion %s\n"
 SEARCHING
-	"\nSuche in in %s\n"
+	"\nSuche in %s\n"
 ALREADY_IN_MANPATH
 	"%s ist bereits im man-Suchpfad\n"
 CANNOT_STAT
@@ -104,19 +104,19 @@ ADDING_TO_MANPATH
 PATH_DIR
 	"\nPfad-Verzeichnis %s "
 IS_IN_CONFIG
-	"ist in der Konfigurations-Datei\n"
+	"ist in der Konfigurationsdatei\n"
 IS_NOT_IN_CONFIG
-	"ist nicht in der Konfigurations-Datei\n"
+	"ist nicht in der Konfigurationsdatei\n"
 MAN_NEARBY
-	"Aber da ist ein man-Verzeichnis ganz in der Nähe\n"
+	"Aber da ist ein man-Verzeichnis ganz in der NÃ¤he\n"
 NO_MAN_NEARBY
-	"und kein man-Verzeichnis in der Nähe gefunden\n"
+	"und kein man-Verzeichnis in der NÃ¤he gefunden\n"
 ADDING_MANDIRS
-	"\nHinzufügen von notwendigen man-Verzeichnissen\n\n"
+	"\nHinzufÃ¼gen von notwendigen man-Verzeichnissen\n\n"
 CATNAME_IS
 	"cat_name in convert_to_cat () ist: %s\n"
 NO_EXEC
-	"\nFolgendes Kommando wird nicht ausgeführt:\n  %s\n"
+	"\nFolgendes Kommando wird nicht ausgefÃ¼hrt:\n  %s\n"
 USAGE1
 	"Aufruf: %s [-adfhktwW] [Sektion] [-M Pfad] [-P Pager] [-S Liste]\n\t"
 USAGE2
@@ -124,45 +124,63 @@ USAGE2
 USAGE3
 	"[-p String] Name ...\n\n"
 USAGE4
-	"  a : findet alle passenden Handbuch-Einträge\n\
+	"  a : findet alle passenden HandbucheintrÃ¤ge\n\
   d : Ausgabe von Meldungen zur Fehlersuche\n\
-  f : Ersatz für whatis(1)\n\
+  f : Ersatz fÃ¼r whatis(1)\n\
   h : Ausgabe dieser Hilfe\n\
-  k : Ersatz für apropos(1)\n"
+  k : Ersatz fÃ¼r apropos(1)\n"
 USAGE5
 	"  t : Verwende troff zum Formatieren der Seiten vor der Ausgabe\n"
 USAGE6
 	"\
-  w : Ausgabe der Fundorte der Handbuch-Seite(n), die angezeigt würde(n)\n\
+  w : Ausgabe der Fundorte der Handbuchseite(n), die angezeigt wÃ¼rde(n)\n\
       (Wenn kein Name angegeben wurde: die Verzeichnisse ausgeben, die\n\
-      durchsucht würden)\n\n\
-  M Pfad   : Verwende `Pfad' als Suchpfad nach Handbuch-Seiten\n\
-  P Pager  : Verwende das Programm `Pager' um Handbuch-Seiten anzuzeigen\n\
+      durchsucht wÃ¼rden)\n\n\
+  M Pfad   : Verwende `Pfad' als Suchpfad nach Handbuchseiten\n\
+  P Pager  : Verwende das Programm `Pager' um Handbuchseiten anzuzeigen\n\
   S List   : Durch Doppelpunkte getrennte Liste von Sektionen\n"
 USAGE7
-	"  m System : Suche nach alternativen Handbuch-Seiten\n"
+	"  m System : Suche nach alternativen Handbuchseiten\n"
 USAGE8
-	"  p String : Zeichenkette, die angibt welche Präprozessoren\n\
+	"  p String : Zeichenkette, die angibt welche PrÃ¤prozessoren\n\
          verwendet werden sollen\n\
                e - [n]eqn(1)   p - pic(1)    t - tbl(1)\n\
                g - grap(1)     r - refer(1)  v - vgrind(1)\n"
 USER_CANNOT_OPEN_CAT
-        ""
+	"und auch der reale User kann das cat File nicht Ã¶ffnen\n"
 USER_CAN_OPEN_CAT
-        ""
+	"aber der reale User kann das cat File Ã¶ffnen\n"
 CANNOT_FORK
-        ""
+	"Kann das Kommando _%s_ nicht starten\n"
 WAIT_FAILED
-        ""
+	"Fehler wÃ¤hrend des Wartens auf KindprozeÃŸ _%s_\n"
 GOT_WRONG_PID
-        ""
+	"Sehr seltsam ..., habe wÃ¤hrend des Wartens auf meinen KindprozeÃŸ die falsche pid bekommen\n"
 CHILD_TERMINATED_ABNORMALLY
-        ""
+	"Fataler Fehler: Das Kommando _%s_ terminierte abnormal\n"
 IDENTICAL
-        ""
+	"man Seite %s ist identisch zu %s\n"
 MAN_FOUND
-	""
+	"man Seite(n) gefunden:\n"
 NO_TROFF
-	""
+	"Fehler: Kein TROFF Kommando in %s spezifiziert\n"
 NO_CAT_FOR_NONSTD_LL
-	""
+	"Wegen nicht StandardzeilenlÃ¤nge keine cat Seite gespeichert\n"
+BROWSER_IS
+	"\Benutze %s als Browser\n"
+HTMLPAGER_IS
+	"\Benutze %s um HTML-Seiten als Text auszugeben"
+FOUND_FILE
+	"manfile_from_sec_and_dir() gefunden %s\n"
+CALLTRACE1
+	"manfile_from_sec_and_dir(dir=%s, sec=%s, name=%s, flags=0x%0x)\n"
+CALLTRACE2
+	"glob_for_file(dir=%s, sec=%s, name=%s, type=0x%0x, ...)\n"
+NO_MATCH
+	"glob_for_file fand keine Ãœbereinstimmungen.\n"
+GLOB_FOR_FILE
+	"glob_for_file gibt %s zurÃ¼ck.\n"
+CALLTRACE3
+	 "glob_for_file_ext_glob(dir=%s, sec=%s, name=%s, ext=%s, hpx=%s, glob=%d, type=0x%0x);\n"
+ABOUT_TO_GLOB
+	"glob_for_file_ext_glob will %s expandieren\n"

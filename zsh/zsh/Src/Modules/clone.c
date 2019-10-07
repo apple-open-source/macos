@@ -69,7 +69,7 @@ bin_clone(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 	dup2(ttyfd,2);
 	if (ttyfd > 2)
 	    close(ttyfd);
-	closem(0);
+	closem(FDT_UNUSED, 0);
 	close(coprocin);
 	close(coprocout);
 	/* Acquire a controlling terminal */
@@ -96,7 +96,8 @@ bin_clone(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 	init_io(NULL);
 	setsparam("TTY", ztrdup(ttystrname));
     }
-    close(ttyfd);
+    else
+	close(ttyfd);
     if (pid < 0) {
 	zerrnam(nam, "fork failed: %e", errno);
 	return 1;

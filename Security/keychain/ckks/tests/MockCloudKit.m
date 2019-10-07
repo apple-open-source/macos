@@ -32,7 +32,15 @@
 #import <CloudKit/CloudKit_Private.h>
 #include <security_utilities/debugging.h>
 #import <Foundation/Foundation.h>
+#import <Foundation/NSDistributedNotificationCenter.h>
 
+@implementation FakeCKOperation
+
+- (BOOL)isFinishingOnCallbackQueue
+{
+    return NO;
+}
+@end
 
 @implementation FakeCKModifyRecordZonesOperation
 @synthesize database = _database;
@@ -82,6 +90,12 @@
     // No error handling whatsoever
     FakeCKDatabase* ckdb = [FakeCKModifyRecordZonesOperation ckdb];
 
+    NSError* possibleError = [FakeCKModifyRecordZonesOperation shouldFailModifyRecordZonesOperation];
+    if(possibleError) {
+        self.creationError = possibleError;
+        return;
+    }
+
     for(CKRecordZone* zone in self.recordZonesToSave) {
         bool skipCreation = false;
         FakeCKZone* fakezone = ckdb[zone.zoneID];
@@ -101,7 +115,8 @@
             skipCreation = true;
 
         } else if(fakezone) {
-            continue;
+            // Don't remake the zone, but report to the client that it was created
+            skipCreation = true;
         }
 
         if(!skipCreation) {
@@ -120,18 +135,22 @@
         FakeCKZone* zone = ckdb[zoneID];
 
         if(zone) {
-            // The zone exists. Its deletion will succeed.
+            // The zone exists.
             [FakeCKModifyRecordZonesOperation ensureZoneDeletionAllowed:zone];
+
             ckdb[zoneID] = nil;
 
             if(!self.recordZoneIDsDeleted) {
                 self.recordZoneIDsDeleted = [[NSMutableArray alloc] init];
             }
             [self.recordZoneIDsDeleted addObject:zoneID];
+
         } else {
             // The zone does not exist! CloudKit will tell us that the deletion failed.
             if(!self.creationError) {
-                self.creationError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorPartialFailure userInfo:nil];
+                self.creationError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorPartialFailure userInfo:@{
+                                                                                                                               CKErrorRetryAfterKey: @(0.2),
+                                                                                                                               }];
             }
 
             // There really should be a better way to do this...
@@ -151,6 +170,12 @@
     @throw [NSException exceptionWithName:NSInternalInconsistencyException
                                    reason:[NSString stringWithFormat:@"+ckdb[] must be mocked out for use"]
                                  userInfo:nil];
+}
+
++ (NSError* _Nullable)shouldFailModifyRecordZonesOperation
+{
+    // Should be mocked out!
+    return nil;
 }
 
 +(void)ensureZoneDeletionAllowed:(FakeCKZone*)zone {
@@ -209,7 +234,9 @@
             // This is an error: the zone doesn't exist
             self.subscriptionError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
                                                                       code:CKErrorPartialFailure
-                                                                  userInfo:@{CKPartialErrorsByItemIDKey:
+                                                                  userInfo:@{
+                                                                             CKErrorRetryAfterKey: @(0.2),
+                                                                             CKPartialErrorsByItemIDKey:
                                                                                  @{subscription.zoneID:[[CKPrettyError alloc] initWithDomain:CKErrorDomain
                                                                                                                                         code:CKErrorZoneNotFound
                                                                                                                                     userInfo:@{}]}
@@ -286,6 +313,12 @@
     return self;
 }
 
++ (bool)isNetworkReachable
+{
+    // For mocking purposes.
+    return true;
+}
+
 - (void)main {
     // iterate through database, and return items that aren't in lastDatabase
     FakeCKDatabase* ckdb = [FakeCKFetchRecordZoneChangesOperation ckdb];
@@ -309,8 +342,11 @@
             return;
         }
 
-        SCNetworkReachabilityFlags reachabilityFlags = [CKKSReachabilityTracker getReachabilityFlags:NULL];
-        if ((reachabilityFlags & kSCNetworkReachabilityFlagsReachable) == 0) {
+        ++zone.fetchRecordZoneChangesOperationCount;
+        [zone.fetchRecordZoneChangesTimestamps addObject: [NSDate date]];
+
+        bool networkReachable = [FakeCKFetchRecordZoneChangesOperation isNetworkReachable];
+        if (!networkReachable) {
             NSError *networkError = [NSError errorWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:NULL];
             self.fetchRecordZoneChangesCompletionBlock(networkError);
             return;
@@ -328,6 +364,9 @@
         __block NSMutableDictionary<CKRecordID*, CKRecord*>* lastDatabase = nil;
         __block NSDictionary<CKRecordID*, CKRecord*>* currentDatabase = nil;
         __block CKServerChangeToken* currentChangeToken = nil;
+        __block bool moreComing = false;
+
+        __block NSError* opError = nil;
 
         dispatch_sync(zone.queue, ^{
             lastDatabase = fetchToken ? zone.pastDatabases[fetchToken] : nil;
@@ -339,6 +378,14 @@
 
             currentDatabase = zone.currentDatabase;
             currentChangeToken = zone.currentChangeToken;
+
+            if (zone.limitFetchTo != nil) {
+                currentDatabase = zone.pastDatabases[zone.limitFetchTo];
+                currentChangeToken = zone.limitFetchTo;
+                zone.limitFetchTo = nil;
+                opError = zone.limitFetchError;
+                moreComing = true;
+            }
         });
 
         ckksnotice("fakeck", zone.zoneID, "FakeCKFetchRecordZoneChangesOperation(%@): database is currently %@ change token %@ database then: %@", zone.zoneID, currentDatabase, fetchToken, lastDatabase);
@@ -370,7 +417,7 @@
         }];
 
         self.recordZoneChangeTokensUpdatedBlock(zoneID, currentChangeToken, nil);
-        self.recordZoneFetchCompletionBlock(zoneID, currentChangeToken, nil, NO, nil);
+        self.recordZoneFetchCompletionBlock(zoneID, currentChangeToken, nil, moreComing, opError);
 
         if(self.blockAfterFetch) {
             self.blockAfterFetch();
@@ -507,7 +554,9 @@
         // I'm really not sure if this is right, but...
         NSError* zoneNotFoundError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
                                                                       code:CKErrorZoneNotFound
-                                                                  userInfo:@{}];
+                                                                  userInfo:@{
+                                                                             CKErrorRetryAfterKey: @(0.2),
+                                                                             }];
         self.queryCompletionBlock(nil, zoneNotFoundError);
         return;
     }
@@ -551,12 +600,16 @@
     return self;
 }
 
-- (void)setEnabledTopics:(NSArray *)enabledTopics {
+- (void)setEnabledTopics:(NSArray<NSString *> *)enabledTopics {
+}
+
+- (void)setDarkWakeTopics:(NSArray<NSString *> *)darkWakeTopics {
 }
 
 @end
 
 // Do literally nothing
+
 @implementation FakeNSNotificationCenter
 + (instancetype)defaultCenter {
     return [[FakeNSNotificationCenter alloc] init];
@@ -566,6 +619,21 @@
 - (void)removeObserver:(id)observer {
 }
 @end
+
+@implementation FakeNSDistributedNotificationCenter
++ (instancetype)defaultCenter
+{
+    return [[FakeNSDistributedNotificationCenter alloc] init];
+}
+- (void)addObserver:(id)observer selector:(SEL)aSelector name:(nullable NSNotificationName)aName object:(nullable id)anObject {
+}
+- (void)removeObserver:(id)observer {
+}
+- (void)postNotificationName:(NSNotificationName)name object:(nullable NSString *)object userInfo:(nullable NSDictionary *)userInfo options:(NSDistributedNotificationOptions)options
+{
+}
+@end
+
 
 @interface FakeCKZone ()
 @property NSMutableArray<NSError*>* fetchErrors;
@@ -583,6 +651,9 @@
 
         _queue = dispatch_queue_create("fake-ckzone", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
 
+        _limitFetchTo = nil;
+        _fetchRecordZoneChangesOperationCount = 0;
+        _fetchRecordZoneChangesTimestamps = [[NSMutableArray alloc] init];
         dispatch_sync(_queue, ^{
             [self _onqueueRollChangeToken];
         });
@@ -603,7 +674,7 @@
     });
 }
 
-- (void)_onqueueAddToZone:(CKKSCKRecordHolder*)item zoneID:(CKRecordZoneID*)zoneID {
+- (CKRecord*)_onqueueAddToZone:(CKKSCKRecordHolder*)item zoneID:(CKRecordZoneID*)zoneID {
     dispatch_assert_queue(self.queue);
 
     CKRecord* record = [item CKRecordWithZoneID: zoneID];
@@ -611,6 +682,7 @@
 
     // Save off the etag
     item.storedCKRecord = record;
+    return record;
 }
 
 - (void)addToZone: (CKRecord*) record {
@@ -619,7 +691,7 @@
     });
 }
 
-- (void)_onqueueAddToZone:(CKRecord*)record {
+- (CKRecord*)_onqueueAddToZone:(CKRecord*)record {
     dispatch_assert_queue(self.queue);
 
     // Save off this current databse
@@ -631,6 +703,7 @@
     ckksnotice("fakeck", self.zoneID, "change tag: %@ %@", record.recordChangeTag, record.recordID);
     record.modificationDate = [NSDate date];
     self.currentDatabase[record.recordID] = record;
+    return record;
 }
 
 - (NSError * _Nullable)errorFromSavingRecord:(CKRecord*) record {

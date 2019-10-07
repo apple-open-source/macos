@@ -9,10 +9,11 @@
 // Initial messages are versioned and not typed for negotiation.
 NS_ASSUME_NONNULL_BEGIN
 
-NSData* extractStartFromInitialMessage(NSData* initialMessage, uint64_t* version, NSString* _Nullable * _Nullable uuidString, NSError** error);
+NSData* extractStartFromInitialMessage(NSData* initialMessage, uint64_t* version, NSString* _Nullable * _Nullable uuidString, NSData* _Nullable * _Nullable octagon, NSError** error);
 
 size_t sizeof_initialmessage(NSData*data);
 size_t sizeof_initialmessage_version1(NSData*data, uint64_t version1, NSData *uuid);
+size_t sizeof_initialmessage_version2(NSData*data, uint64_t version1, NSData *uuid, NSData* octagon);
 
 
 
@@ -21,11 +22,18 @@ uint8_t* _Nullable encode_initialmessage(NSData* data, NSError**error,
 uint8_t* _Nullable encode_initialmessage_version1(NSData* data, NSData* uuidData, uint64_t piggy_version, NSError**error,
                                                   const uint8_t *der, uint8_t *der_end);
 
+uint8_t*  encode_initialmessage_version2(NSData* data, NSData* uuidData, NSData* octagon_version, NSError**error,
+                                         const uint8_t *der, uint8_t *der_end);
+
 const uint8_t* _Nullable decode_initialmessage(NSData* _Nonnull * _Nonnull data, NSError** error,
                                      const uint8_t* der, const uint8_t *der_end);
 
 const uint8_t* _Nullable decode_version1(NSData* _Nonnull* _Nonnull data, NSData* _Nullable* _Nullable uuid, uint64_t * _Nullable piggy_version, NSError** error,
                                const uint8_t* der, const uint8_t *der_end);
+
+const uint8_t* _Nullable decode_version2(NSData* _Nonnull* _Nonnull data, NSData* _Nullable* _Nullable uuid, NSData* _Nullable* _Nullable octagon, uint64_t* _Nullable piggy_version, NSError** error,
+                               const uint8_t* der, const uint8_t *der_end);
+
 
 size_t sizeof_seq_data_data(NSData*data1, NSData*data2, NSError** error);
 uint8_t* _Nullable encode_seq_data_data(NSData* data, NSData*data2, NSError**error,
@@ -90,7 +98,6 @@ typedef enum {
 @property (readonly) KCJoiningMessageType type;
 @property (readonly) NSData* firstData;
 @property (nullable, readonly) NSData* secondData;
-
 @property (readonly) NSData* der;
 
 + (nullable instancetype) messageWithDER: (NSData*) message

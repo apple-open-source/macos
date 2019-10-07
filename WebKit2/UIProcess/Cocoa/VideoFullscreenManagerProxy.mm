@@ -343,11 +343,7 @@ void VideoFullscreenManagerProxy::invalidate()
     auto contextMap = WTFMove(m_contextMap);
     m_clientCounts.clear();
 
-    for (auto& tuple : contextMap.values()) {
-        RefPtr<VideoFullscreenModelContext> model;
-        RefPtr<PlatformVideoFullscreenInterface> interface;
-        std::tie(model, interface) = tuple;
-
+    for (auto& [model, interface] : contextMap.values()) {
         interface->invalidate();
         [model->layerHostView() removeFromSuperview];
         model->setLayerHostView(nullptr);
@@ -356,14 +352,14 @@ void VideoFullscreenManagerProxy::invalidate()
 
 void VideoFullscreenManagerProxy::requestHideAndExitFullscreen()
 {
-    for (auto& tuple : m_contextMap.values())
-        std::get<1>(tuple)->requestHideAndExitFullscreen();
+    for (auto& [model, interface] : m_contextMap.values())
+        interface->requestHideAndExitFullscreen();
 }
 
 bool VideoFullscreenManagerProxy::hasMode(HTMLMediaElementEnums::VideoFullscreenMode mode) const
 {
-    for (auto& tuple : m_contextMap.values()) {
-        if (std::get<1>(tuple)->hasMode(mode))
+    for (auto& [model, interface] : m_contextMap.values()) {
+        if (interface->hasMode(mode))
             return true;
     }
     return false;
@@ -371,8 +367,8 @@ bool VideoFullscreenManagerProxy::hasMode(HTMLMediaElementEnums::VideoFullscreen
 
 bool VideoFullscreenManagerProxy::mayAutomaticallyShowVideoPictureInPicture() const
 {
-    for (auto& tuple : m_contextMap.values()) {
-        if (std::get<1>(tuple)->mayAutomaticallyShowVideoPictureInPicture())
+    for (auto& [model, interface] : m_contextMap.values()) {
+        if (interface->mayAutomaticallyShowVideoPictureInPicture())
             return true;
     }
     return false;
@@ -381,8 +377,8 @@ bool VideoFullscreenManagerProxy::mayAutomaticallyShowVideoPictureInPicture() co
 #if ENABLE(VIDEO_PRESENTATION_MODE)
 bool VideoFullscreenManagerProxy::isPlayingVideoInEnhancedFullscreen() const
 {
-    for (auto& tuple : m_contextMap.values()) {
-        if (std::get<1>(tuple)->isPlayingVideoInEnhancedFullscreen())
+    for (auto& [model, interface] : m_contextMap.values()) {
+        if (interface->isPlayingVideoInEnhancedFullscreen())
             return true;
     }
     
@@ -399,8 +395,8 @@ PlatformVideoFullscreenInterface* VideoFullscreenManagerProxy::controlsManagerIn
 
 void VideoFullscreenManagerProxy::applicationDidBecomeActive()
 {
-    for (auto& tuple : m_contextMap.values())
-        std::get<1>(tuple)->applicationDidBecomeActive();
+    for (auto& [model, interface] : m_contextMap.values())
+        interface->applicationDidBecomeActive();
 }
 
 void VideoFullscreenManagerProxy::requestRouteSharingPolicyAndContextUID(uint64_t contextId, CompletionHandler<void(WebCore::RouteSharingPolicy, String)>&& callback)
@@ -466,6 +462,30 @@ void VideoFullscreenManagerProxy::removeClientForContext(uint64_t contextId)
     m_clientCounts.set(contextId, clientCount);
 }
 
+void VideoFullscreenManagerProxy::forEachSession(Function<void(VideoFullscreenModel&, PlatformVideoFullscreenInterface&)>&& callback)
+{
+    if (m_contextMap.isEmpty())
+        return;
+
+    Vector<ModelInterfaceTuple> values;
+    values.reserveInitialCapacity(m_contextMap.size());
+    for (auto& value : m_contextMap.values())
+        values.uncheckedAppend(value);
+
+    for (auto& value : values) {
+        RefPtr<VideoFullscreenModelContext> model;
+        RefPtr<PlatformVideoFullscreenInterface> interface;
+        std::tie(model, interface) = value;
+
+        ASSERT(model);
+        ASSERT(interface);
+        if (!model || !interface)
+            continue;
+
+        callback(*model, *interface);
+    }
+}
+
 #pragma mark Messages from VideoFullscreenManager
 
 void VideoFullscreenManagerProxy::setupFullscreenWithID(uint64_t contextId, uint32_t videoLayerID, const WebCore::IntRect& initialRect, float hostingDeviceScaleFactor, HTMLMediaElementEnums::VideoFullscreenMode videoFullscreenMode, bool allowsPictureInPicture, bool standby)
@@ -473,10 +493,8 @@ void VideoFullscreenManagerProxy::setupFullscreenWithID(uint64_t contextId, uint
     MESSAGE_CHECK_CONTEXTID(contextId);
 
     ASSERT(videoLayerID);
-    RefPtr<VideoFullscreenModelContext> model;
-    RefPtr<PlatformVideoFullscreenInterface> interface;
 
-    std::tie(model, interface) = ensureModelAndInterface(contextId);
+    auto& [model, interface] = ensureModelAndInterface(contextId);
     addClientForContext(contextId);
 
     RetainPtr<WKLayerHostView> view = static_cast<WKLayerHostView*>(model->layerHostView());
@@ -540,6 +558,10 @@ void VideoFullscreenManagerProxy::enterFullscreen(uint64_t contextId)
 void VideoFullscreenManagerProxy::exitFullscreen(uint64_t contextId, WebCore::IntRect finalRect)
 {
     MESSAGE_CHECK_CONTEXTID(contextId);
+
+    ASSERT(m_contextMap.contains(contextId));
+    if (!m_contextMap.contains(contextId))
+        return;
 
 #if PLATFORM(IOS_FAMILY)
     ensureInterface(contextId).exitFullscreen(finalRect);
@@ -616,57 +638,54 @@ void VideoFullscreenManagerProxy::preparedToExitFullscreen(uint64_t contextId)
 
 void VideoFullscreenManagerProxy::requestFullscreenMode(uint64_t contextId, WebCore::HTMLMediaElementEnums::VideoFullscreenMode mode, bool finishedWithMedia)
 {
-    m_page->send(Messages::VideoFullscreenManager::RequestFullscreenMode(contextId, mode, finishedWithMedia), m_page->pageID());
+    m_page->send(Messages::VideoFullscreenManager::RequestFullscreenMode(contextId, mode, finishedWithMedia));
 }
 
 void VideoFullscreenManagerProxy::requestUpdateInlineRect(uint64_t contextId)
 {
-    m_page->send(Messages::VideoFullscreenManager::RequestUpdateInlineRect(contextId), m_page->pageID());
+    m_page->send(Messages::VideoFullscreenManager::RequestUpdateInlineRect(contextId));
 }
 
 void VideoFullscreenManagerProxy::requestVideoContentLayer(uint64_t contextId)
 {
-    m_page->send(Messages::VideoFullscreenManager::RequestVideoContentLayer(contextId), m_page->pageID());
+    m_page->send(Messages::VideoFullscreenManager::RequestVideoContentLayer(contextId));
 }
 
 void VideoFullscreenManagerProxy::returnVideoContentLayer(uint64_t contextId)
 {
-    m_page->send(Messages::VideoFullscreenManager::ReturnVideoContentLayer(contextId), m_page->pageID());
+    m_page->send(Messages::VideoFullscreenManager::ReturnVideoContentLayer(contextId));
 }
 
 void VideoFullscreenManagerProxy::didSetupFullscreen(uint64_t contextId)
 {
-    m_page->send(Messages::VideoFullscreenManager::DidSetupFullscreen(contextId), m_page->pageID());
+    m_page->send(Messages::VideoFullscreenManager::DidSetupFullscreen(contextId));
 }
 
 void VideoFullscreenManagerProxy::willExitFullscreen(uint64_t contextId)
 {
-    m_page->send(Messages::VideoFullscreenManager::WillExitFullscreen(contextId), m_page->pageID());
+    m_page->send(Messages::VideoFullscreenManager::WillExitFullscreen(contextId));
 }
 
 void VideoFullscreenManagerProxy::didExitFullscreen(uint64_t contextId)
 {
-    m_page->send(Messages::VideoFullscreenManager::DidExitFullscreen(contextId), m_page->pageID());
+    m_page->send(Messages::VideoFullscreenManager::DidExitFullscreen(contextId));
     m_page->didExitFullscreen();
 }
 
 void VideoFullscreenManagerProxy::didEnterFullscreen(uint64_t contextId)
 {
-    m_page->send(Messages::VideoFullscreenManager::DidEnterFullscreen(contextId), m_page->pageID());
+    m_page->send(Messages::VideoFullscreenManager::DidEnterFullscreen(contextId));
     m_page->didEnterFullscreen();
 }
 
 void VideoFullscreenManagerProxy::didCleanupFullscreen(uint64_t contextId)
 {
-    RefPtr<VideoFullscreenModelContext> model;
-    RefPtr<PlatformVideoFullscreenInterface> interface;
-
-    std::tie(model, interface) = ensureModelAndInterface(contextId);
+    auto& [model, interface] = ensureModelAndInterface(contextId);
 
     [CATransaction flush];
     [model->layerHostView() removeFromSuperview];
     model->setLayerHostView(nullptr);
-    m_page->send(Messages::VideoFullscreenManager::DidCleanupFullscreen(contextId), m_page->pageID());
+    m_page->send(Messages::VideoFullscreenManager::DidCleanupFullscreen(contextId));
 
     interface->setMode(HTMLMediaElementEnums::VideoFullscreenModeNone);
     removeClientForContext(contextId);
@@ -684,25 +703,25 @@ void VideoFullscreenManagerProxy::setVideoLayerFrame(uint64_t contextId, WebCore
         mach_port_name_t fencePort = fenceSendRight.leakSendRight();
 #endif
 
-        m_page->send(Messages::VideoFullscreenManager::SetVideoLayerFrameFenced(contextId, frame, IPC::Attachment(fencePort, MACH_MSG_TYPE_MOVE_SEND)), m_page->pageID());
+        m_page->send(Messages::VideoFullscreenManager::SetVideoLayerFrameFenced(contextId, frame, IPC::Attachment(fencePort, MACH_MSG_TYPE_MOVE_SEND)));
     }
 }
 
 void VideoFullscreenManagerProxy::setVideoLayerGravity(uint64_t contextId, WebCore::MediaPlayerEnums::VideoGravity gravity)
 {
-    m_page->send(Messages::VideoFullscreenManager::SetVideoLayerGravityEnum(contextId, (unsigned)gravity), m_page->pageID());
+    m_page->send(Messages::VideoFullscreenManager::SetVideoLayerGravityEnum(contextId, (unsigned)gravity));
 }
 
 void VideoFullscreenManagerProxy::fullscreenModeChanged(uint64_t contextId, WebCore::HTMLMediaElementEnums::VideoFullscreenMode mode)
 {
     m_page->uiClient().hasVideoInPictureInPictureDidChange(m_page, mode & MediaPlayerEnums::VideoFullscreenModePictureInPicture);
-    m_page->send(Messages::VideoFullscreenManager::FullscreenModeChanged(contextId, mode), m_page->pageID());
+    m_page->send(Messages::VideoFullscreenManager::FullscreenModeChanged(contextId, mode));
 }
 
 void VideoFullscreenManagerProxy::fullscreenMayReturnToInline(uint64_t contextId)
 {
     bool isViewVisible = m_page->isViewVisible();
-    m_page->send(Messages::VideoFullscreenManager::FullscreenMayReturnToInline(contextId, isViewVisible), m_page->pageID());
+    m_page->send(Messages::VideoFullscreenManager::FullscreenMayReturnToInline(contextId, isViewVisible));
 }
 
 #endif

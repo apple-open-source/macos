@@ -194,15 +194,15 @@ void SETOFFSET (void *buffer, UInt16 btNodeSize, SInt16 recOffset, SInt16 vecOff
 
 #define ROUNDUP(x, u)	(((x) % (u) == 0) ? (x) : ((x)/(u) + 1) * (u))
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 #define ENCODING_TO_BIT(e)				 \
 	  ((e) < 48 ? (e) : 0)
-#else
+#else  // !TARGET_OS_IPHONE
 #define ENCODING_TO_BIT(e)                               \
           ((e) < 48 ? (e) :                              \
           ((e) == kCFStringEncodingMacUkrainian ? 48 :   \
           ((e) == kCFStringEncodingMacFarsi ? 49 : 0)))
-#endif
+#endif // TARGET_OS_IPHONE
 
 
 #ifdef DEBUG_BUILD
@@ -1371,7 +1371,7 @@ WriteAttributesFile(const DriveInfo *driveInfo, UInt64 startingSector,
 	WriteBuffer(driveInfo, startingSector, *bytesUsed, buffer);
 }
 
-#if !TARGET_OS_EMBEDDED
+#if !TARGET_OS_IPHONE
 static int
 get_dev_uuid(const char *disk_name, char *dev_uuid_str, int dev_uuid_len)
 {
@@ -1416,7 +1416,7 @@ clear_journal_dev(const char *dev_name)
     close(fd);
     return 0;
 }
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* !(TARGET_OS_IPHONE) */
 
 
 static int
@@ -1430,36 +1430,43 @@ WriteJournalInfo(const DriveInfo *driveInfo, UInt64 startingSector,
     memset(buffer, 0xdb, driveInfo->physSectorSize);
     memset(jibp, 0, sizeof(JournalInfoBlock));
     
-#if !TARGET_OS_EMBEDDED
-    if (dp->journalDevice) {
-	char uuid_str[64];
-
-	if (get_dev_uuid(dp->journalDevice, uuid_str, sizeof(uuid_str)) == 0) {
-	    strlcpy((char *)&jibp->reserved[0], uuid_str, sizeof(jibp->reserved));
-	    
-	    // we also need to blast out some zeros to the journal device
-	    // in case it had a file system on it previously.  that way
-	    // it's "initialized" in the sense that the previous contents
-	    // won't get mounted accidently.  if this fails we'll bail out.
-	    if (clear_journal_dev(dp->journalDevice) != 0) {
-		return -1;
-	    }
-	} else {
-	    printf("FAILED to get the device uuid for device %s\n", dp->journalDevice);
-	    strlcpy((char *)&jibp->reserved[0], "NO-DEV-UUID", sizeof(jibp->reserved));
-	    return -1;
-	}
-    } else {
-#endif
+	//initialize it to start in FS
 	jibp->flags = kJIJournalInFSMask;
-#if !TARGET_OS_EMBEDDED
-    }
-#endif
+
+#if TARGET_OS_OSX
+	if (dp->journalDevice) {
+		//if not in FS, then un-set flags
+		jibp->flags = 0;
+
+		char uuid_str[64];
+
+		if (get_dev_uuid(dp->journalDevice, uuid_str, sizeof(uuid_str)) == 0) {
+			strlcpy((char *)&jibp->reserved[0], uuid_str, sizeof(jibp->reserved));
+
+			// we also need to blast out some zeros to the journal device
+			// in case it had a file system on it previously.  that way
+			// it's "initialized" in the sense that the previous contents
+			// won't get mounted accidently.  if this fails we'll bail out.
+			if (clear_journal_dev(dp->journalDevice) != 0) {
+				return -1;
+			}
+		} else {
+			printf("FAILED to get the device uuid for device %s\n", dp->journalDevice);
+			strlcpy((char *)&jibp->reserved[0], "NO-DEV-UUID", sizeof(jibp->reserved));
+			return -1;
+		}
+	} 
+#endif // TARGET_OS_OSX
+
     jibp->flags  |= kJIJournalNeedInitMask;
-    if (NEWFS_HFS_DEBUG && dp->journalBlock)
+    
+	if (NEWFS_HFS_DEBUG && dp->journalBlock) {
 	    journalBlock = dp->journalBlock;
-    else
+	}
+    else {
 	    journalBlock = header->journalInfoBlock + 1;
+	}
+
     jibp->offset  = ((UInt64) journalBlock) * header->blockSize;
     jibp->size    = dp->journalSize;
 

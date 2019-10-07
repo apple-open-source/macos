@@ -234,9 +234,6 @@ static void _SecOCSPCacheReplaceResponse(SecOCSPCacheRef this,
                                            CFDataGetLength(uriData),
                                            SQLITE_TRANSIENT, &localError);
                         CFRelease(uriData);
-                    } else {
-                        // Since we use SecDbClearBindings this shouldn't be needed.
-                        //ok = SecDbBindNull(insertResponse, 2, &localError);
                     }
                 }
                 /* responses.expires */

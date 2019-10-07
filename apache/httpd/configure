@@ -819,6 +819,7 @@ MOD_WATCHDOG_LDADD
 MOD_SO_LDADD
 INSTALL_DSO
 MOD_SOCACHE_DC_LDADD
+MOD_SOCACHE_REDIS_LDADD
 MOD_SOCACHE_MEMCACHE_LDADD
 MOD_SOCACHE_DBM_LDADD
 MOD_SOCACHE_SHMCB_LDADD
@@ -945,6 +946,7 @@ infodir
 docdir
 oldincludedir
 includedir
+runstatedir
 localstatedir
 sharedstatedir
 sysconfdir
@@ -1012,6 +1014,7 @@ enable_cache_socache
 enable_socache_shmcb
 enable_socache_dbm
 enable_socache_memcache
+enable_socache_redis
 enable_socache_dc
 with_distcache
 enable_so
@@ -1203,6 +1206,7 @@ datadir='${datarootdir}'
 sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
 localstatedir='${prefix}/var'
+runstatedir='${localstatedir}/run'
 includedir='${prefix}/include'
 oldincludedir='/usr/include'
 docdir='${datarootdir}/doc/${PACKAGE}'
@@ -1455,6 +1459,15 @@ do
   | -silent | --silent | --silen | --sile | --sil)
     silent=yes ;;
 
+  -runstatedir | --runstatedir | --runstatedi | --runstated \
+  | --runstate | --runstat | --runsta | --runst | --runs \
+  | --run | --ru | --r)
+    ac_prev=runstatedir ;;
+  -runstatedir=* | --runstatedir=* | --runstatedi=* | --runstated=* \
+  | --runstate=* | --runstat=* | --runsta=* | --runst=* | --runs=* \
+  | --run=* | --ru=* | --r=*)
+    runstatedir=$ac_optarg ;;
+
   -sbindir | --sbindir | --sbindi | --sbind | --sbin | --sbi | --sb)
     ac_prev=sbindir ;;
   -sbindir=* | --sbindir=* | --sbindi=* | --sbind=* | --sbin=* \
@@ -1592,7 +1605,7 @@ fi
 for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
 		datadir sysconfdir sharedstatedir localstatedir includedir \
 		oldincludedir docdir infodir htmldir dvidir pdfdir psdir \
-		libdir localedir mandir
+		libdir localedir mandir runstatedir
 do
   eval ac_val=\$$ac_var
   # Remove trailing slashes.
@@ -1745,6 +1758,7 @@ Fine tuning of the installation directories:
   --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
   --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]
   --localstatedir=DIR     modifiable single-machine data [PREFIX/var]
+  --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
   --oldincludedir=DIR     C header files for non-gcc [/usr/include]
@@ -1831,6 +1845,7 @@ Optional Features:
   --enable-socache-dbm    dbm small object cache provider
   --enable-socache-memcache
                           memcache small object cache provider
+  --enable-socache-redis  redis small object cache provider
   --enable-socache-dc     distcache small object cache provider
   --enable-so             DSO capability. This module will be automatically
                           enabled unless you build all modules statically.
@@ -2930,6 +2945,8 @@ abs_builddir=`pwd`
 
 HTTPD_VERSION=`$abs_srcdir/build/get-version.sh all $abs_srcdir/include/ap_release.h AP_SERVER`
 HTTPD_MMN=`$abs_srcdir/build/get-version.sh mmn $abs_srcdir/include/ap_mmn.h MODULE_MAGIC_NUMBER`
+
+
 
 
 
@@ -13640,6 +13657,147 @@ EOF
 
 
   APACHE_VAR_SUBST="$APACHE_VAR_SUBST MOD_SOCACHE_MEMCACHE_LDADD"
+
+
+
+  fi
+
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to enable mod_socache_redis" >&5
+$as_echo_n "checking whether to enable mod_socache_redis... " >&6; }
+    # Check whether --enable-socache-redis was given.
+if test "${enable_socache_redis+set}" = set; then :
+  enableval=$enable_socache_redis; force_socache_redis=$enableval
+else
+  enable_socache_redis=most
+fi
+
+    _apmod_extra_msg=""
+      case "$enable_socache_redis" in
+    yes|static|shared)
+      _apmod_required="yes"
+      ;;
+    *)
+      _apmod_required="no"
+      ;;
+  esac
+  if test "$enable_socache_redis" = "static" -o "$enable_socache_redis" = "shared"; then
+    :
+  elif test "$enable_socache_redis" = "yes"; then
+    enable_socache_redis=$module_default
+  elif test "$enable_socache_redis" = "few"; then
+    if test "$module_selection" = "few" -o "$module_selection" = "most" -o \
+            "$module_selection" = "all" -o "$module_selection" = "reallyall"
+    then
+      enable_socache_redis=$module_default
+    else
+      enable_socache_redis=no
+    fi
+    _apmod_extra_msg=" ($module_selection)"
+  elif test "$enable_socache_redis" = "most"; then
+    if test "$module_selection" = "most" -o "$module_selection" = "all" -o \
+            "$module_selection" = "reallyall"
+    then
+      enable_socache_redis=$module_default
+    else
+      enable_socache_redis=no
+    fi
+    _apmod_extra_msg=" ($module_selection)"
+  elif test "$enable_socache_redis" = "all" -o "$enable_socache_redis" = "maybe-all"; then
+    if test "$module_selection" = "all" -o "$module_selection" = "reallyall"
+    then
+      enable_socache_redis=$module_default
+      _apmod_extra_msg=" ($module_selection)"
+    else
+      enable_socache_redis=no
+    fi
+  elif test "$enable_socache_redis" = "reallyall" -o "$enable_socache_redis" = "no" ; then
+    if test "$module_selection" = "reallyall" -a "$force_socache_redis" != "no" ; then
+      enable_socache_redis=$module_default
+      _apmod_extra_msg=" ($module_selection)"
+    else
+      enable_socache_redis=no
+    fi
+  else
+    enable_socache_redis=no
+  fi
+  if test "$enable_socache_redis" != "no"; then
+            :
+  fi
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_socache_redis$_apmod_extra_msg" >&5
+$as_echo "$enable_socache_redis$_apmod_extra_msg" >&6; }
+  if test "$enable_socache_redis" != "no"; then
+    case "$enable_socache_redis" in
+    static*)
+      MODLIST="$MODLIST socache_redis"
+      if test "socache_redis" = "so"; then
+          sharedobjs=yes
+      fi
+      shared="";;
+    *)
+      sharedobjs=yes
+      shared=yes
+      DSO_MODULES="$DSO_MODULES socache_redis"
+      if test "most" = "yes" ; then
+        ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},socache_redis"
+      fi
+      ;;
+    esac
+
+
+  if test -z ""; then
+    objects="mod_socache_redis.lo"
+  else
+    objects=""
+  fi
+
+  if test -z "$module_standalone"; then
+    if test -z "$shared"; then
+      # The filename of a convenience library must have a "lib" prefix:
+      libname="libmod_socache_redis.la"
+      BUILTIN_LIBS="$BUILTIN_LIBS $modpath_current/$libname"
+      modpath_static="$modpath_static $libname"
+      cat >>$modpath_current/modules.mk<<EOF
+$libname: $objects
+	\$(MOD_LINK) $objects \$(MOD_SOCACHE_REDIS_LDADD)
+EOF
+      if test ! -z "\$(MOD_SOCACHE_REDIS_LDADD)"; then
+
+  if test "x$AP_LIBS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting AP_LIBS to \"\$(MOD_SOCACHE_REDIS_LDADD)\""
+    AP_LIBS="\$(MOD_SOCACHE_REDIS_LDADD)"
+  else
+    apr_addto_bugger="\$(MOD_SOCACHE_REDIS_LDADD)"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $AP_LIBS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to AP_LIBS"
+        AP_LIBS="$AP_LIBS $i"
+      fi
+    done
+  fi
+
+      fi
+    else
+      apache_need_shared=yes
+      libname="mod_socache_redis.la"
+      shobjects=`echo $objects | sed 's/\.lo/.slo/g'`
+      modpath_shared="$modpath_shared $libname"
+      cat >>$modpath_current/modules.mk<<EOF
+$libname: $shobjects
+	\$(SH_LINK) -rpath \$(libexecdir) -module -avoid-version  $objects \$(MOD_SOCACHE_REDIS_LDADD)
+EOF
+    fi
+  fi
+
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST MOD_SOCACHE_REDIS_LDADD"
 
 
 
@@ -29495,7 +29653,7 @@ echo "checking ulimit for host ($host)... APACHECTL_ULIMIT=\"$APACHECTL_ULIMIT\"
   > $modpath_current/modules.mk
 
 
-http2_objs="mod_http2.lo h2_alt_svc.lo h2_bucket_beam.lo h2_bucket_eos.lo h2_config.lo h2_conn.lo h2_conn_io.lo h2_ctx.lo h2_filter.lo h2_from_h1.lo h2_h2.lo h2_headers.lo h2_mplx.lo h2_ngn_shed.lo h2_push.lo h2_request.lo h2_session.lo h2_stream.lo h2_switch.lo h2_task.lo h2_util.lo h2_workers.lo "
+http2_objs="mod_http2.lo h2_alt_svc.lo h2_bucket_beam.lo h2_bucket_eos.lo h2_config.lo h2_conn.lo h2_conn_io.lo h2_ctx.lo h2_filter.lo h2_from_h1.lo h2_h2.lo h2_headers.lo h2_mplx.lo h2_push.lo h2_request.lo h2_session.lo h2_stream.lo h2_switch.lo h2_task.lo h2_util.lo h2_workers.lo "
 
 
 
@@ -31618,7 +31776,7 @@ EOF
   > $modpath_current/modules.mk
 
 
-md_objs="md_acme.lo md_acme_acct.lo md_acme_authz.lo md_acme_drive.lo md_core.lo md_curl.lo md_crypt.lo md_http.lo md_json.lo md_jws.lo md_log.lo md_reg.lo md_store.lo md_store_fs.lo md_util.lo mod_md.lo mod_md_config.lo mod_md_os.lo "
+md_objs="md_acme.lo md_acme_acct.lo md_acme_authz.lo md_acme_drive.lo md_acmev1_drive.lo md_acmev2_drive.lo md_acme_order.lo md_core.lo md_curl.lo md_crypt.lo md_http.lo md_json.lo md_jws.lo md_log.lo md_result.lo md_reg.lo md_status.lo md_store.lo md_store_fs.lo md_time.lo md_util.lo mod_md.lo mod_md_config.lo mod_md_drive.lo mod_md_os.lo mod_md_status.lo "
 
 # Ensure that other modules can pick up mod_md.h
 
@@ -33147,6 +33305,29 @@ fi
 done
 
 
+    if test "x$enable_md" = "xshared"; then
+
+  if test "x$MOD_MD_LDADD" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_MD_LDADD to \"-export-symbols-regex md_module\""
+    MOD_MD_LDADD="-export-symbols-regex md_module"
+  else
+    apr_addto_bugger="-export-symbols-regex md_module"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_MD_LDADD; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_MD_LDADD"
+        MOD_MD_LDADD="$MOD_MD_LDADD $i"
+      fi
+    done
+  fi
+
+    fi
 
             :
             { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to enable mod_md" >&5

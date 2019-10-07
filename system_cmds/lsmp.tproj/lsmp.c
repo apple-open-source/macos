@@ -31,7 +31,7 @@
 #include "common.h"
 #include "json.h"
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #define TASK_FOR_PID_USAGE_MESG "\nPlease check your boot-args to ensure you have access to task_for_pid()."
 #else
 #define TASK_FOR_PID_USAGE_MESG ""

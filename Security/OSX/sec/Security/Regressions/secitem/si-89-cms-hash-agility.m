@@ -29,6 +29,7 @@
 #include <Security/SecCmsBase.h>
 #include <Security/CMSEncoder.h>
 #include <Security/CMSDecoder.h>
+#include <Security/CMSPrivate.h>
 #include <utilities/SecCFRelease.h>
 
 #if TARGET_OS_OSX

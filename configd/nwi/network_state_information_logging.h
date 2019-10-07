@@ -232,7 +232,7 @@ _nwi_ifstate_log(nwi_ifstate_t ifstate, boolean_t debug, my_log_context_type my_
 		uint32_t	rank_index;
 		const char	*rank_str;
 		const uint8_t	*signature;
-		int		signature_length;
+		int		signature_length	= 0;
 
 		// Rank
 		rank = ifstate->rank;
@@ -249,7 +249,7 @@ _nwi_ifstate_log(nwi_ifstate_t ifstate, boolean_t debug, my_log_context_type my_
 		if (signature != NULL) {
 			CFDataRef	digest;
 
-			digest = CFDataCreate(NULL, signature, CC_SHA1_DIGEST_LENGTH);
+			digest = CFDataCreate(NULL, signature, signature_length);
 			my_log(LOG_INFO, "           signature  : %@", digest);
 			CFRelease(digest);
 		}

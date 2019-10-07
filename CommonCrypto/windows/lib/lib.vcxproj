@@ -73,21 +73,21 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <TargetExt>.lib</TargetExt>
-    <TargetName>CommonCrypto</TargetName>
+    <TargetName>CommonCrypto2_debug</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <TargetName>CommonCrypto</TargetName>
+    <TargetName>CommonCrypto2_debug</TargetName>
     <TargetExt>.lib</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <TargetExt>.lib</TargetExt>
-    <TargetName>CommonCrypto</TargetName>
+    <TargetName>CommonCrypto2</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <TargetName>CommonCrypto</TargetName>
+    <TargetName>CommonCrypto2</TargetName>
     <TargetExt>.lib</TargetExt>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -97,8 +97,8 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(DSTROOT)\AppleInternal\include\CommonCrypto2;$(SRCROOT)\AppleInternal\include\CoreCrypto2;$(SRCROOT)\AppleInternal\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions> -fblocks %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(DSTROOT)\AppleInternal\include\CommonCrypto2;$(SRCROOT)\AppleInternal\include\CoreCrypto2;$(SRCROOT)\AppleInternal\include;..\..\lib;..\..\libcn;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions> -fblocks  %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -119,8 +119,13 @@ copy "$(ProjectDir)..\..\include\CommonCRC.h" "$(DSTROOT)\AppleInternal\include\
     </PreBuildEvent>
     <Lib>
       <AdditionalLibraryDirectories>$(AppleApplicationSupportSDK)/AppleInternal/Lib32</AdditionalLibraryDirectories>
-      <AdditionalDependencies>corecrypto2.lib</AdditionalDependencies>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
     </Lib>
+    <PostBuildEvent>
+      <Command>mkdir "$(DSTROOT)\AppleInternal\lib$(PlatformArchitecture)"
+copy "$(TargetPath)" "$(DSTROOT)\AppleInternal\lib$(PlatformArchitecture)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -129,8 +134,8 @@ copy "$(ProjectDir)..\..\include\CommonCRC.h" "$(DSTROOT)\AppleInternal\include\
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(DSTROOT)\AppleInternal\include\CommonCrypto2;$(SRCROOT)\AppleInternal\include\CoreCrypto2;$(SRCROOT)\AppleInternal\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions> -fblocks %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(DSTROOT)\AppleInternal\include\CommonCrypto2;$(SRCROOT)\AppleInternal\include\CoreCrypto2;$(SRCROOT)\AppleInternal\include;..\..\lib;..\..\libcn;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions> -fblocks  %(AdditionalOptions)</AdditionalOptions>
       <MSCompatibility>true</MSCompatibility>
     </ClCompile>
     <Link>
@@ -154,8 +159,13 @@ copy "$(ProjectDir)..\..\include\CommonCRC.h" "$(DSTROOT)\AppleInternal\include\
       <IgnoreAllDefaultLibraries>
       </IgnoreAllDefaultLibraries>
       <AdditionalLibraryDirectories>$(AppleApplicationSupportSDK)/AppleInternal/Lib32</AdditionalLibraryDirectories>
-      <AdditionalDependencies>corecrypto2.lib</AdditionalDependencies>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
     </Lib>
+    <PostBuildEvent>
+      <Command>mkdir "$(DSTROOT)\AppleInternal\lib$(PlatformArchitecture)"
+copy "$(TargetPath)" "$(DSTROOT)\AppleInternal\lib$(PlatformArchitecture)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -166,7 +176,7 @@ copy "$(ProjectDir)..\..\include\CommonCRC.h" "$(DSTROOT)\AppleInternal\include\
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(DSTROOT)\AppleInternal\include\CommonCrypto2;$(SRCROOT)\AppleInternal\include\CoreCrypto2;$(SRCROOT)\AppleInternal\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(DSTROOT)\AppleInternal\include\CommonCrypto2;$(SRCROOT)\AppleInternal\include\CoreCrypto2;$(SRCROOT)\AppleInternal\include;..\..\lib;..\..\libcn;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions> -fblocks %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -191,6 +201,10 @@ copy "$(ProjectDir)..\..\include\CommonCRC.h" "$(DSTROOT)\AppleInternal\include\
     <Lib>
       <AdditionalLibraryDirectories>$(AppleApplicationSupportSDK)/AppleInternal/Lib32</AdditionalLibraryDirectories>
     </Lib>
+    <PostBuildEvent>
+      <Command>mkdir "$(DSTROOT)\AppleInternal\lib$(PlatformArchitecture)"
+copy "$(TargetPath)" "$(DSTROOT)\AppleInternal\lib$(PlatformArchitecture)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -201,7 +215,7 @@ copy "$(ProjectDir)..\..\include\CommonCRC.h" "$(DSTROOT)\AppleInternal\include\
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(DSTROOT)\AppleInternal\include\CommonCrypto2;$(SRCROOT)\AppleInternal\include\CoreCrypto2;$(SRCROOT)\AppleInternal\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(DSTROOT)\AppleInternal\include\CommonCrypto2;$(SRCROOT)\AppleInternal\include\CoreCrypto2;$(SRCROOT)\AppleInternal\include;..\..\lib;..\..\libcn;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions> -fblocks %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -226,6 +240,10 @@ copy "$(ProjectDir)..\..\include\CommonCRC.h" "$(DSTROOT)\AppleInternal\include\
     <Lib>
       <AdditionalLibraryDirectories>$(AppleApplicationSupportSDK)/AppleInternal/Lib64</AdditionalLibraryDirectories>
     </Lib>
+    <PostBuildEvent>
+      <Command>mkdir "$(DSTROOT)\AppleInternal\lib$(PlatformArchitecture)"
+copy "$(TargetPath)" "$(DSTROOT)\AppleInternal\lib$(PlatformArchitecture)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\libcn\adler32.c" />

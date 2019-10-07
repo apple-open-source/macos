@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2013 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2013, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,7 +37,6 @@ includes
 #include <mach/mach_error.h>
 #include <CoreFoundation/CFMachPort.h>
 #include <SystemConfiguration/SCPrivate.h>      // for SCLog()
-#include <SystemConfiguration/VPNPrivate.h>      
 #include <SystemConfiguration/VPNTunnel.h>   
 #include <SystemConfiguration/SCValidation.h>
 #include <Security/SecItem.h>
@@ -53,10 +52,8 @@ includes
 #include "pppcontroller_types.h"
 #include "pppcontrollerServer.h"
 #include "scnc_mach_server.h"
-#include "app_layer.h"
-#include "flow_divert_controller.h"
-#include "network_detection.h"
 #include "controller_options.h"
+#include "ppp_option.h"
 
 /* -----------------------------------------------------------------------------
 definitions
@@ -65,7 +62,6 @@ definitions
 #ifndef kSCStatusConnectionNoService
 #define kSCStatusConnectionNoService 5001
 #endif
-
 
 #define	IPCSENDTIMEOUT	120				// timeout value for sending IPC message to client
 
@@ -135,12 +131,12 @@ _pppcontroller_attach_proxy(mach_port_t server,
     Boolean             has_machport_priv = FALSE;
 
     if ( server == gServer_machport_priv){
-        SCLog(TRUE, LOG_DEBUG, CFSTR("_pppcontroller_attach_proxy server is priv server gServer_machport_priv %p"),
+        SCLog(TRUE, LOG_DEBUG, CFSTR("_pppcontroller_attach_proxy server is priv server gServer_machport_priv %u"),
               gServer_machport_priv );
         has_machport_priv = TRUE;
     }
     else
-        SCLog(TRUE, LOG_DEBUG, CFSTR("_pppcontroller_attach_proxy server is norm %p"), gServer_machport);
+        SCLog(TRUE, LOG_DEBUG, CFSTR("_pppcontroller_attach_proxy server is norm %u"), gServer_machport);
     
 	*session = MACH_PORT_NULL;
     
@@ -562,21 +558,6 @@ failed:
 	return (KERN_SUCCESS);
 }
 
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-__private_extern__
-kern_return_t
-_pppcontroller_ondemand_refresh_state(mach_port_t session,
-				      int *result)
-{
-    *result = kSCStatusOK;
-    
-    check_network_refresh();
-    
-    return (KERN_SUCCESS);
-}
-
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 __private_extern__
@@ -698,7 +679,7 @@ _pppcontroller_bootstrap(mach_port_t server,
 	*bootstrap = serv->bootstrap;
 	*au_session = serv->au_session;
 
-#if !TARGET_OS_IPHONE
+#if TARGET_OS_OSX
 #endif
 
 	*result = kSCStatusOK;
@@ -804,7 +785,6 @@ _pppcontroller_iscontrolled(mach_port_t server,
     return (KERN_SUCCESS);
 }
 
-
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 static Boolean
@@ -864,7 +844,6 @@ hasEntitlement(audit_token_t audit_token, CFStringRef entitlement, CFStringRef v
 	return hasEntitlement;
 }
 
-
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 void mach_client_notify (mach_port_t port, CFStringRef serviceID, u_long event, u_long error)
@@ -886,10 +865,9 @@ void mach_client_notify (mach_port_t port, CFStringRef serviceID, u_long event, 
 			  0,						/* timeout */
 			  MACH_PORT_NULL);			/* notify */
 
-	if (status == MACH_SEND_TIMEOUT)
+	if (status == MACH_SEND_TIMEOUT || status == MACH_SEND_INVALID_DEST)
 		mach_msg_destroy(&msg.header);
 }
-
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
@@ -1026,7 +1004,7 @@ ppp_mach_start_server_priv()
 		SCLog(TRUE, LOG_ERR, CFSTR("PPPController: cannot create rls"));
 		CFRelease(gServer_cfport_priv);
 		gServer_cfport_priv = NULL;
-        gServer_machport_priv = NULL;
+        gServer_machport_priv = 0;
 		return -1;
 	}
     
@@ -1068,7 +1046,7 @@ ppp_mach_start_server()
 		SCLog(TRUE, LOG_ERR, CFSTR("PPPController: cannot create rls"));
 		CFRelease(gServer_cfport);
 		gServer_cfport = NULL;
-        gServer_machport = NULL;
+        gServer_machport = 0;
 		return -1;
 	}
 

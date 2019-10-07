@@ -442,7 +442,7 @@ PRIVATE void rpc__dg_maintain_fork_handler
     rpc_fork_stage_id_t stage
 )
 {
-    unsigned32 st;
+    long st;
 
     switch ((int)stage)
     {

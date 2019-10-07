@@ -19,7 +19,7 @@ if (substr(PHP_OS, 0, 3) == 'WIN') {
 $file_path = dirname(__FILE__);
 require "$file_path/file.inc";
 
-/* test the effects on stats with creating file/subdir in a dir 
+/* test the effects on stats with creating file/subdir in a dir
 */
 
 /* create temp file */
@@ -53,7 +53,7 @@ unlink("$file_path/lstat_stat_variation8/lstat_stat_variation8a.tmp");
 rmdir("$file_path/lstat_stat_variation8/lstat_stat_variation8_subdir/");
 rmdir("$file_path/lstat_stat_variation8");
 ?>
---EXPECTF--
+--EXPECT--
 *** Testing stat() on dir after subdir and file is created in it ***
 bool(true)
 bool(true)

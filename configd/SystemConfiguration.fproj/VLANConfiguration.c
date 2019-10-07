@@ -380,8 +380,8 @@ _SCVLANInterfaceCopyActive(void)
 			continue;
 		}
 
-		bzero(&ifr, sizeof(ifr));
-		bzero(&vreq, sizeof(vreq));
+		memset(&ifr, 0, sizeof(ifr));
+		memset(&vreq, 0, sizeof(vreq));
 		strlcpy(ifr.ifr_name, ifp->ifa_name, sizeof(ifr.ifr_name));
 		ifr.ifr_data = (caddr_t)&vreq;
 
@@ -857,8 +857,8 @@ __vlan_set(int s, CFStringRef interface_if, CFStringRef physical_if, CFNumberRef
 	int		tag_val;
 	struct vlanreq	vreq;
 
-	bzero(&ifr, sizeof(ifr));
-	bzero(&vreq, sizeof(vreq));
+	memset(&ifr, 0, sizeof(ifr));
+	memset(&vreq, 0, sizeof(vreq));
 
 	// interface
 	(void) _SC_cfstring_to_cstring(interface_if,
@@ -894,8 +894,8 @@ __vlan_clear(int s, CFStringRef interface_if)
 	struct ifreq	ifr;
 	struct vlanreq	vreq;
 
-	bzero(&ifr, sizeof(ifr));
-	bzero(&vreq, sizeof(vreq));
+	memset(&ifr, 0, sizeof(ifr));
+	memset(&vreq, 0, sizeof(vreq));
 
 	// interface
 	(void) _SC_cfstring_to_cstring(interface_if,
@@ -905,7 +905,7 @@ __vlan_clear(int s, CFStringRef interface_if)
 	ifr.ifr_data = (caddr_t)&vreq;
 
 	// clear physical interface
-	bzero(&vreq.vlr_parent, sizeof(vreq.vlr_parent));
+	memset(&vreq.vlr_parent, 0, sizeof(vreq.vlr_parent));
 
 	// clear tag
 	vreq.vlr_tag = 0;

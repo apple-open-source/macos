@@ -31,6 +31,7 @@
 #import "keychain/ckks/CKKSManifest.h"
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
+#import "keychain/ot/ObjCImprovements.h"
 
 #include <securityd/SecItemServer.h>
 #include <securityd/SecItemSchema.h>
@@ -98,7 +99,7 @@
         return;
     }
 
-    __weak __typeof(self) weakSelf = self;
+    WEAKIFY(self);
 
     [ckks dispatchSyncWithAccountKeys:^bool {
         if(self.cancelled) {
@@ -278,13 +279,14 @@
         // We're likely rolling a PCS identity, or creating a new one. User cares.
         self.modifyRecordsOperation.configuration.automaticallyRetryNetworkFailures = NO;
         self.modifyRecordsOperation.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
+        self.modifyRecordsOperation.configuration.isCloudKitSupportOperation = YES;
 
         self.modifyRecordsOperation.savePolicy = CKRecordSaveIfServerRecordUnchanged;
         self.modifyRecordsOperation.group = self.ckoperationGroup;
 
         self.modifyRecordsOperation.perRecordCompletionBlock = ^(CKRecord *record, NSError * _Nullable error) {
-            __strong __typeof(weakSelf) strongSelf = weakSelf;
-            __strong __typeof(strongSelf.ckks) blockCKKS = strongSelf.ckks;
+            STRONGIFY(self);
+            CKKSKeychainView* blockCKKS = self.ckks;
 
             if(!error) {
                 ckksnotice("ckkscurrent", blockCKKS, "Current pointer upload successful for %@: %@", record.recordID.recordName, record);
@@ -294,11 +296,11 @@
         };
 
         self.modifyRecordsOperation.modifyRecordsCompletionBlock = ^(NSArray<CKRecord *> *savedRecords, NSArray<CKRecordID *> *deletedRecordIDs, NSError *ckerror) {
-            __strong __typeof(weakSelf) strongSelf = weakSelf;
-            __strong __typeof(strongSelf.ckks) strongCKKS = strongSelf.ckks;
-            if(!strongSelf || !strongCKKS) {
+            STRONGIFY(self);
+            CKKSKeychainView* strongCKKS = self.ckks;
+            if(!self || !strongCKKS) {
                 ckkserror("ckkscurrent", strongCKKS, "received callback for released object");
-                strongSelf.error = [NSError errorWithDomain:CKKSErrorDomain
+                self.error = [NSError errorWithDomain:CKKSErrorDomain
                                                        code:errSecInternalError
                                                 description:@"no CKKS object"];
                 [strongCKKS scheduleOperation: modifyComplete];
@@ -307,7 +309,7 @@
 
             if(ckerror) {
                 ckkserror("ckkscurrent", strongCKKS, "CloudKit returned an error: %@", ckerror);
-                strongSelf.error = ckerror;
+                self.error = ckerror;
 
                 [strongCKKS dispatchSync:^bool {
                     return [strongCKKS _onqueueCKWriteFailed:ckerror attemptedRecordsChanged:recordsToSave];
@@ -338,7 +340,7 @@
                         [manifest saveToDatabase:&error];
                         if (error) {
                             ckkserror("ckkscurrent", strongCKKS, "Couldn't save %@ to manifest: %@", record.recordID.recordName, error);
-                            strongSelf.error = error;
+                            self.error = error;
                         }
                     }
 
@@ -348,7 +350,7 @@
                 return true;
             }];
 
-            strongSelf.error = error;
+            self.error = error;
             [strongCKKS scheduleOperation: modifyComplete];
         };
 

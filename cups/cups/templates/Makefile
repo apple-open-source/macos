@@ -4,11 +4,7 @@
 # Copyright 2007-2017 by Apple Inc.
 # Copyright 1993-2007 by Easy Software Products.
 #
-# These coded instructions, statements, and computer programs are the
-# property of Apple Inc. and are protected by Federal copyright
-# law.  Distribution and use rights are outlined in the file "LICENSE.txt"
-# which should have been included with this file.  If this file is
-# missing or damaged, see the license at "http://www.cups.org/".
+# Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
 #
 
 include ../Makedefs
@@ -20,7 +16,6 @@ include ../Makedefs
 FILES	=	\
 		add-class.tmpl \
 		add-printer.tmpl \
-		add-rss-subscription.tmpl \
 		admin.tmpl \
 		choose-device.tmpl \
 		choose-make.tmpl \
@@ -83,8 +78,6 @@ FILES	=	\
 		search.tmpl \
 		set-printer-options-header.tmpl \
 		set-printer-options-trailer.tmpl \
-		subscription-added.tmpl \
-		subscription-canceled.tmpl \
 		test-page.tmpl \
 		trailer.tmpl \
 		users.tmpl

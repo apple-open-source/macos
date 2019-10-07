@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.printT.d	1.1	06/08/28 SMI"
-
 #pragma D option quiet
 
 inline uint64_t NANOSEC = 1000000000;

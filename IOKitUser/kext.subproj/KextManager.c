@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -11,10 +11,10 @@
  * unlawful or unlicensed copies of an Apple operating system, or to
  * circumvent, violate, or enable the circumvention or violation of, any
  * terms of an Apple operating system software license agreement.
- * 
+ *
  * Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -22,7 +22,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 #include <mach/mach.h>
@@ -40,6 +40,8 @@
 #include "KextManager.h"
 #include "KextManagerPriv.h"
 #include "kextmanager_mig.h"
+
+#define ARRAY_COUNT(array) (sizeof((array)) / sizeof((array[0])))
 
 /*********************************************************************
 * IMPORTANT: All calls in this module should be simple RPCs to kextd
@@ -121,7 +123,7 @@ OSReturn __KextManagerSendLoadKextRequest(
     CFMutableArrayRef  dependencyPaths  = NULL;  // must release
     CFURLRef           dependencyAbsURL = NULL;  // must release
     CFStringRef        dependencyPath   = NULL;  // must release
-    CFErrorRef         error            = NULL;  // must release
+    CFErrorRef         err              = NULL;  // must release
 
     if (!requestDict) {
         result = kOSKextReturnInvalidArgument;
@@ -137,7 +139,7 @@ OSReturn __KextManagerSendLoadKextRequest(
         CFArrayGetCount(dependencyKextAndFolderURLs)) {
 
         CFIndex count, index;
-        
+
         dependencyPaths = CFArrayCreateMutable(kCFAllocatorDefault,
             /* capacity */ 0, &kCFTypeArrayCallBacks);
         if (!dependencyPaths) {
@@ -174,7 +176,7 @@ OSReturn __KextManagerSendLoadKextRequest(
     requestData = CFPropertyListCreateData(kCFAllocatorDefault,
          requestDict, kCFPropertyListBinaryFormat_v1_0,
          /* options */ 0,
-         &error);
+         &err);
     if (!requestData) {
         // any point in logging error reason here? nothing caller can do....
         result = kOSKextReturnSerialization;
@@ -190,7 +192,7 @@ finish:
     SAFE_RELEASE(dependencyPaths);
     SAFE_RELEASE(dependencyPath);
     SAFE_RELEASE(dependencyAbsURL);
-    SAFE_RELEASE(error);
+    SAFE_RELEASE(err);
 
     return result;
 }
@@ -216,7 +218,7 @@ OSReturn KextManagerLoadKextWithIdentifier(
         result = kOSKextReturnNoMemory;
         goto finish;
     }
-    
+
     CFDictionarySetValue(requestDict, kKextLoadIdentifierKey,
         kextIdentifier);
 
@@ -251,7 +253,7 @@ OSReturn KextManagerLoadKextWithURL(
         result = kOSKextReturnNoMemory;
         goto finish;
     }
-    
+
     absURL = CFURLCopyAbsoluteURL(kextURL);
     if (!absURL) {
         result = kOSKextReturnNoMemory;
@@ -361,7 +363,7 @@ CFArrayRef _KextManagerCreatePropertyValueArray(
 
     CFErrorRef error = NULL;  // must release
 
-    if (!propertyKey || PROPERTYKEY_LEN < 
+    if (!propertyKey || PROPERTYKEY_LEN <
 	    (CFStringGetMaximumSizeForEncoding(CFStringGetLength(propertyKey),
 	    kCFStringEncodingUTF8))) {
         goto finish;
@@ -414,13 +416,168 @@ finish:
     return valueArray;
 }
 
+/**********************************************************************
+* The following functions are called by sysextd within system extension
+* management routines and require including "KextManagerPriv.h".
+**********************************************************************/
+
+OSReturn _KextManagerValidateExtension(CFStringRef extPath)
+{
+    OSReturn        result      = kOSReturnError;
+    mach_port_t     kextd_port  = MACH_PORT_NULL;
+    CFDataRef       requestData = NULL;  // must release
+    CFDictionaryRef requestDict = NULL;  // must release
+    CFErrorRef      err         = NULL;  // must release
+
+    result = get_kextd_port(&kextd_port);
+    if (result != kOSReturnSuccess) {
+        goto error;
+    }
+
+    const void *keys[] = { kExtPathKey };
+    const void *vals[] = { extPath };
+    requestDict = CFDictionaryCreate(
+        kCFAllocatorDefault,
+        &keys[0],
+        &vals[0],
+        ARRAY_COUNT(keys),
+        &kCFTypeDictionaryKeyCallBacks,
+        &kCFTypeDictionaryValueCallBacks
+    );
+    if (!requestDict) {
+        result = kOSKextReturnNoMemory;
+        goto error;
+    }
+
+    requestData = CFPropertyListCreateData(kCFAllocatorDefault,
+         requestDict, kCFPropertyListBinaryFormat_v1_0,
+         /* options */ 0,
+         &err);
+    if (!requestData) {
+        goto error;
+    }
+
+    result = kextmanager_validate_ext(kextd_port,
+        (char *)CFDataGetBytePtr(requestData),
+        CFDataGetLength(requestData));
+    if (result != kOSReturnSuccess) {
+        goto error;
+    }
+
+error:
+    SAFE_RELEASE(requestDict);
+    SAFE_RELEASE(requestData);
+    SAFE_RELEASE(err);
+    return result;
+}
+
+OSReturn _KextManagerUpdateExtension(CFStringRef extPath, bool extIsEnabled)
+{
+    OSReturn        result      = kOSReturnError;
+    mach_port_t     kextd_port  = MACH_PORT_NULL;
+    CFDataRef       requestData = NULL;  // must release
+    CFDictionaryRef requestDict = NULL;  // must release
+    CFErrorRef      err         = NULL;  // must release
+
+    result = get_kextd_port(&kextd_port);
+    if (result != kOSReturnSuccess) {
+        goto error;
+    }
+
+    const void *keys[] = { kExtPathKey, kExtEnabledKey };
+    const void *vals[] = { extPath, extIsEnabled ? kCFBooleanTrue : kCFBooleanFalse };
+    requestDict = CFDictionaryCreate(
+        kCFAllocatorDefault,
+        &keys[0],
+        &vals[0],
+        ARRAY_COUNT(keys),
+        &kCFTypeDictionaryKeyCallBacks,
+        &kCFTypeDictionaryValueCallBacks
+    );
+    if (!requestDict) {
+        result = kOSKextReturnNoMemory;
+        goto error;
+    }
+
+    requestData = CFPropertyListCreateData(kCFAllocatorDefault,
+         requestDict, kCFPropertyListBinaryFormat_v1_0,
+         /* options */ 0,
+         &err);
+    if (!requestData) {
+        goto error;
+    }
+
+    result = kextmanager_update_ext(kextd_port,
+        (char *)CFDataGetBytePtr(requestData),
+        CFDataGetLength(requestData));
+    if (result != kOSReturnSuccess) {
+        goto error;
+    }
+
+error:
+    SAFE_RELEASE(requestDict);
+    SAFE_RELEASE(requestData);
+    SAFE_RELEASE(err);
+    return result;
+}
+
+OSReturn _KextManagerStopExtension(CFStringRef extPath)
+{
+    OSReturn        result      = kOSReturnError;
+    mach_port_t     kextd_port  = MACH_PORT_NULL;
+    CFDataRef       requestData = NULL;  // must release
+    CFDictionaryRef requestDict = NULL;  // must release
+    CFErrorRef      err         = NULL;  // must release
+
+    result = get_kextd_port(&kextd_port);
+    if (result != kOSReturnSuccess) {
+        goto error;
+    }
+
+    const void *keys[] = { kExtPathKey };
+    const void *vals[] = { extPath };
+    requestDict = CFDictionaryCreate(
+        kCFAllocatorDefault,
+        &keys[0],
+        &vals[0],
+        ARRAY_COUNT(keys),
+        &kCFTypeDictionaryKeyCallBacks,
+        &kCFTypeDictionaryValueCallBacks
+    );
+    if (!requestDict) {
+        result = kOSKextReturnNoMemory;
+        goto error;
+    }
+
+    requestData = CFPropertyListCreateData(kCFAllocatorDefault,
+         requestDict, kCFPropertyListBinaryFormat_v1_0,
+         /* options */ 0,
+         &err);
+    if (!requestData) {
+        goto error;
+    }
+
+    result = kextmanager_validate_ext(kextd_port,
+        (char *)CFDataGetBytePtr(requestData),
+        CFDataGetLength(requestData));
+    if (result != kOSReturnSuccess) {
+        goto error;
+    }
+
+error:
+    SAFE_RELEASE(requestDict);
+    SAFE_RELEASE(requestData);
+    SAFE_RELEASE(err);
+    return result;
+}
+
 /*********************************************************************
 *********************************************************************/
 static kern_return_t get_kextd_port(mach_port_t * kextd_port)
 {
     kern_return_t kern_result = kOSReturnError;
     mach_port_t   bootstrap_port = MACH_PORT_NULL;
-	
+
     kern_result = task_get_bootstrap_port(mach_task_self(), &bootstrap_port);
     if (kern_result == kOSReturnSuccess) {
         kern_result = bootstrap_look_up2(bootstrap_port,
@@ -429,6 +586,7 @@ static kern_return_t get_kextd_port(mach_port_t * kextd_port)
                                          0,
                                          BOOTSTRAP_PRIVILEGED_SERVER);
     }
-	
+
     return kern_result;
 }
+

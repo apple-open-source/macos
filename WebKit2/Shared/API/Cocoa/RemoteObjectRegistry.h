@@ -27,6 +27,7 @@
 
 #include "MessageReceiver.h"
 #include "ProcessThrottler.h"
+#include <WebCore/PageIdentifier.h>
 #include <wtf/Function.h>
 #include <wtf/WeakObjCPtr.h>
 #include <wtf/WeakPtr.h>
@@ -45,6 +46,7 @@ class WebPage;
 class WebPageProxy;
 
 class RemoteObjectRegistry final : public CanMakeWeakPtr<RemoteObjectRegistry>, public IPC::MessageReceiver {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     RemoteObjectRegistry(_WKRemoteObjectRegistry *, WebPage&);
     RemoteObjectRegistry(_WKRemoteObjectRegistry *, WebPageProxy&);
@@ -56,7 +58,7 @@ public:
     void sendUnusedReply(uint64_t replyID);
 
     void close();
-    
+
 private:
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
@@ -69,9 +71,10 @@ private:
     WeakObjCPtr<_WKRemoteObjectRegistry> m_remoteObjectRegistry;
     IPC::MessageSender& m_messageSender;
     Function<ProcessThrottler::BackgroundActivityToken()> m_takeBackgroundActivityToken;
+    Function<void()> m_launchInitialProcessIfNecessary;
     HashMap<uint64_t, ProcessThrottler::BackgroundActivityToken> m_pendingReplies;
     bool m_isRegisteredAsMessageReceiver { false };
-    uint64_t m_messageReceiverID { 0 };
+    WebCore::PageIdentifier m_messageReceiverID;
 };
 
 } // namespace WebKit

@@ -2,7 +2,7 @@
 #
 #   shell/command-controller.rb -
 #       $Release Version: 0.7 $
-#       $Revision: 53141 $
+#       $Revision: 65506 $
 #       by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
@@ -11,12 +11,11 @@
 #
 
 require "e2mmap"
-require "thread"
 
-require "shell/error"
-require "shell/filter"
-require "shell/system-command"
-require "shell/builtin-command"
+require_relative "error"
+require_relative "filter"
+require_relative "system-command"
+require_relative "builtin-command"
 
 class Shell
   # In order to execute a command on your OS, you need to define it as a
@@ -54,8 +53,9 @@ class Shell
     # include run file.
     #
     def self.run_config
+      rc = "~/.rb_shell"
       begin
-        load File.expand_path("~/.rb_shell") if ENV.key?("HOME")
+        load File.expand_path(rc) if ENV.key?("HOME")
       rescue LoadError, Errno::ENOENT
       rescue
         print "load error: #{rc}\n"

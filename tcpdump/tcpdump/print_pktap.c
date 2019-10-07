@@ -130,7 +130,7 @@ pktap_if_print(struct netdissect_options *ndo, const struct pcap_pkthdr *h,
 		print_pktap_header(ndo, pktp_hdr);
 #endif
 	
-	if (ndo->ndo_kflag != PRMD_NONE) {
+	if (ndo->ndo_kflag != PRMD_NONE && ndo->ndo_kflag != PRMD_VERBOSE) {
 		const char *prsep = "";
 		
 		ND_PRINT((ndo, "("));
@@ -146,18 +146,18 @@ pktap_if_print(struct netdissect_options *ndo, const struct pcap_pkthdr *h,
 
 
 		if ((ndo->ndo_kflag & PRMD_SVC) && pktp_hdr->pth_svc != -1) {
-			ND_PRINT((ndo, "%ssvc %s",
+			ND_PRINT((ndo, "%s" "svc %s",
 				  prsep,
 				  svc2str(pktp_hdr->pth_svc)));
 			prsep = ", ";
 		}
 		if (ndo->ndo_kflag & PRMD_DIR) {
 			if ((pktp_hdr->pth_flags & PTH_FLAG_DIR_IN)) {
-				ND_PRINT((ndo, "%sin",
+				ND_PRINT((ndo, "%s" "in",
 					  prsep));
 				prsep = ", ";
 			} else if ((pktp_hdr->pth_flags & PTH_FLAG_DIR_OUT)) {
-				ND_PRINT((ndo, "%sout",
+				ND_PRINT((ndo, "%s" "out",
 					  prsep));
 				prsep = ", ";
 			}

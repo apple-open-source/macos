@@ -23,16 +23,16 @@
 #ifndef _IOKIT_IOHIDEVENTSERVICEUSERCLIENT_H
 #define _IOKIT_IOHIDEVENTSERVICEUSERCLIENT_H
 
-#define kIOHIDEventServiceUserClientType 'HIDD'
+#define kIOHIDEventServiceUserClientType 'esuc'
 
 enum IOHIDEventServiceUserClientCommandCodes {
     kIOHIDEventServiceUserClientOpen,
     kIOHIDEventServiceUserClientClose,
     kIOHIDEventServiceUserClientCopyEvent,
     kIOHIDEventServiceUserClientSetElementValue,
+    kIOHIDEventServiceUserClientCopyMatchingEvent,
     kIOHIDEventServiceUserClientNumCommands
 };
-
 
 #ifdef KERNEL
 
@@ -69,7 +69,7 @@ private:
     uint32_t                    _droppedEventCount;
     uint64_t                    _lastDroppedEventTime;
     uint64_t                    _eventCount;
-    mach_port_t                 _port;
+    mach_port_t                 _queuePort;
   
     void eventServiceCallback(  IOHIDEventService *             sender,
                                 void *                          context,
@@ -93,6 +93,11 @@ private:
                                 IOHIDEventServiceUserClient *   target, 
                                 void *                          reference, 
                                 IOExternalMethodArguments *     arguments);
+    
+    static IOReturn _copyMatchingEvent(
+                               IOHIDEventServiceUserClient *   target,
+                               void *                          reference,
+                               IOExternalMethodArguments *     arguments);
 
     void enqueueEventGated( IOHIDEvent * event);
 
@@ -100,15 +105,15 @@ private:
 
 protected:
     // IOUserClient methods
-    virtual IOReturn clientClose( void );
-    virtual void stop( IOService * provider );
+    virtual IOReturn clientClose( void ) APPLE_KEXT_OVERRIDE;
+    virtual void stop( IOService * provider ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOService * getService( void );
+    virtual IOService * getService( void ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn registerNotificationPort(
                                 mach_port_t                     port, 
                                 UInt32                          type, 
-                                UInt32                          refCon );
+                                UInt32                          refCon ) APPLE_KEXT_OVERRIDE;
 
     IOReturn registerNotificationPortGated(mach_port_t          port,
                                            UInt32               type,
@@ -117,7 +122,7 @@ protected:
     virtual IOReturn clientMemoryForType(
                                 UInt32                          type,
                                 IOOptionBits *                  options,
-                                IOMemoryDescriptor **           memory );
+                                IOMemoryDescriptor **           memory ) APPLE_KEXT_OVERRIDE;
 
   
     IOReturn clientMemoryForTypeGated(
@@ -129,21 +134,22 @@ protected:
                                 IOExternalMethodArguments *     arguments,
                                 IOExternalMethodDispatch *      dispatch, 
                                 OSObject *                      target, 
-                                void *                          reference);
+                                void *                          reference) APPLE_KEXT_OVERRIDE;
 
     IOReturn externalMethodGated(ExternalMethodGatedArguments *arguments);
  
 public:
     // others
-    virtual bool initWithTask(task_t owningTask, void * security_id, UInt32 type);
-    virtual bool start( IOService * provider );
-    virtual bool didTerminate(IOService *provider, IOOptionBits options, bool *defer);
-    virtual void free();
-    virtual IOReturn setProperties( OSObject * properties );
+    virtual bool initWithTask(task_t owningTask, void * security_id, UInt32 type) APPLE_KEXT_OVERRIDE;
+    virtual bool start( IOService * provider ) APPLE_KEXT_OVERRIDE;
+    virtual bool didTerminate(IOService *provider, IOOptionBits options, bool *defer) APPLE_KEXT_OVERRIDE;
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn setProperties( OSObject * properties ) APPLE_KEXT_OVERRIDE;
     virtual IOReturn open(IOOptionBits options);
     virtual IOReturn close();
-    virtual IOHIDEvent * copyEvent(IOHIDEventType type, IOHIDEvent * matching, IOOptionBits options = 0);
+    virtual IOReturn copyEvent(IOHIDEventType type, IOHIDEvent * matching, IOHIDEvent ** event, IOOptionBits options = 0);
     virtual IOReturn setElementValue(UInt32 usagePage, UInt32 usage, UInt32 value);
+    virtual IOReturn copyMatchingEvent(OSDictionary *matching, OSData **eventData);
 };
 
 #endif /* KERNEL */

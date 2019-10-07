@@ -18,8 +18,6 @@
 
  */
 
-/* $Id$ */
-
 #ifndef ZEND_SIGNAL_H
 #define ZEND_SIGNAL_H
 
@@ -89,7 +87,7 @@ ZEND_API void zend_signal_handler_unblock(void);
 void zend_signal_activate(void);
 void zend_signal_deactivate(void);
 BEGIN_EXTERN_C()
-void zend_signal_startup(void);
+ZEND_API void zend_signal_startup(void);
 END_EXTERN_C()
 void zend_signal_init(void);
 
@@ -119,4 +117,6 @@ ZEND_API int zend_sigaction(int signo, const struct sigaction *act, struct sigac
  * c-basic-offset: 4
  * indent-tabs-mode: t
  * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

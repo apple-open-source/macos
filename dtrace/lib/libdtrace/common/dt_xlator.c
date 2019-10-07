@@ -47,6 +47,7 @@
 static int
 dt_xlator_create_member(const char *name, ctf_id_t type, ulong_t off, void *arg)
 {
+#pragma unused(off)
 	dt_xlator_t *dxp = arg;
 	dtrace_hdl_t *dtp = dxp->dx_hdl;
 	dt_node_t *enp, *mnp;
@@ -343,9 +344,11 @@ out:
 	src_dtt.dtt_ctfp = src_ctfp;
 	src_dtt.dtt_type = src_type;
 
-	dst_dtt.dtt_object = dt_module_lookup_by_ctf(dtp, dst_ctfp)->dm_name;
-	dst_dtt.dtt_ctfp = dst_ctfp;
-	dst_dtt.dtt_type = dst_type;
+	dst_dtt = (dtrace_typeinfo_t){
+		.dtt_object = dt_module_lookup_by_ctf(dtp, dst_ctfp)->dm_name,
+		.dtt_ctfp = dst_ctfp,
+		.dtt_type = dst_type,
+	};
 
 	return (dt_xlator_create(dtp, &src_dtt, &dst_dtt, NULL, NULL, NULL));
 }

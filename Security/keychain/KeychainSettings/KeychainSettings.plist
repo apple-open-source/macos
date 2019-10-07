@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>title</key>
+	<string>Keychain</string>
+	<key>items</key>
+	<array>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Octagon</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSTitleValueCell</string>
+			<key>label</key>
+			<string>State machine</string>
+			<key>get</key>
+			<string>octagonStateMachine:</string>
+			<key>id</key>
+			<string>OnDemandPresent</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSTitleValueCell</string>
+			<key>label</key>
+			<string>Trust state</string>
+			<key>get</key>
+			<string>octagonTrustState:</string>
+			<key>id</key>
+			<string>OnDemandPresent</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSTitleValueCell</string>
+			<key>label</key>
+			<string>Account state</string>
+			<key>get</key>
+			<string>octagonAccountState:</string>
+			<key>id</key>
+			<string>OnDemandPresent</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkListCell</string>
+			<key>label</key>
+			<string>Peers</string>
+			<key>detail</key>
+			<string>KeychainSettingsOctagonPeers</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>CloudKit Keychain Syncing</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSTitleValueCell</string>
+			<key>label</key>
+			<string>CKKS aggregate status</string>
+			<key>get</key>
+			<string>ckksAggregateStatus:</string>
+			<key>id</key>
+			<string>OnDemandPresent</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSLinkListCell</string>
+			<key>label</key>
+			<string>View information</string>
+			<key>detail</key>
+			<string>KeychainSettingsCKKSViews</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Tools</string>
+		</dict>
+		<dict>
+			<key>buttonAction</key>
+			<string>resetOctagon:</string>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>id</key>
+			<string>KEYCHAIN_RESET_BUTTON</string>
+			<key>label</key>
+			<string>Reset Octagon trust</string>
+		</dict>
+	</array>
+</dict>
+</plist>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>application-identifier</key>
+	<string>com.apple.security</string>
+	<key>com.apple.application-identifier</key>
+	<string>com.apple.security</string>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudKit</string>
+	</array>
+	<key>com.apple.private.keychain.keychaincontrol</key>
+	<true/>
+	<key>com.apple.private.syncbubble-keychain</key>
+	<true/>
+	<key>com.apple.private.system-keychain</key>
+	<true/>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>test</string>
+		<string>*</string>
+	</array>
+	<key>keychain-cloud-circle</key>
+	<true/>
+	<key>modify-anchor-certificates</key>
+	<true/>
+	<key>restore-keychain</key>
+	<true/>
+	<key>com.apple.CloudKeychainProxy.client</key>
+	<true/>
+</dict>
+</plist>

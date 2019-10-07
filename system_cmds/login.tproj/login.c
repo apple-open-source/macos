@@ -671,7 +671,7 @@ main(int argc, char *argv[])
 		bail(SLEEP_EXIT, 1);
 	}
 
-#if defined(__APPLE__) && TARGET_OS_EMBEDDED
+#if defined(__APPLE__) && (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	/* on embedded, allow a shell to live in /private/var/personalized_debug/bin/sh */
 #define _PATH_DEBUGSHELL		"/private/var/personalized_debug/bin/sh"
         if (stat(pwd->pw_shell, &st) != 0) {

@@ -29,36 +29,29 @@
 
 #include <sys/types.h>
 
+#include "atom.h"
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-typedef struct strhash {
-	const char *str_data;		/* pointer to actual string data */
-	ulong_t str_buf;		/* index of string data buffer */
-	size_t str_off;			/* offset in bytes of this string */
-	size_t str_len;			/* length in bytes of this string */
-	struct strhash *str_next;	/* next string in hash chain */
-} strhash_t;
+typedef struct strhash strhash_t;
 
 typedef struct strtab {
-	strhash_t **str_hash;		/* array of hash buckets */
-	ulong_t str_hashsz;		/* size of hash bucket array */
+	strhash_t *str_hash;		/* array of hash buckets */
 	char **str_bufs;		/* array of buffer pointers */
 	char *str_ptr;			/* pointer to current buffer location */
 	ulong_t str_nbufs;		/* size of buffer pointer array */
 	size_t str_bufsz;		/* size of individual buffer */
-	ulong_t str_nstrs;		/* total number of strings in strtab */
 	size_t str_size;		/* total size of strings in bytes */
 } strtab_t;
 
 extern void strtab_create(strtab_t *);
 extern void strtab_destroy(strtab_t *);
-extern size_t strtab_insert(strtab_t *, const char *);
+extern size_t strtab_insert(strtab_t *, atom_t *);
 extern size_t strtab_size(const strtab_t *);
 extern ssize_t strtab_write(const strtab_t *,
     ssize_t (*)(const void *, size_t, void *), void *);
-extern void strtab_print(const strtab_t *);
 
 #ifdef	__cplusplus
 }

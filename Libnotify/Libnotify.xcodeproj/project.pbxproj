@@ -34,6 +34,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		1886391920E1A2BF00C8BEA9 /* notify_bench.c in Sources */ = {isa = PBXBuildFile; fileRef = 727C90371B9A372700D5B754 /* notify_bench.c */; };
 		2D312B76102CA2E300F90022 /* libnotify.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B73102CA2E300F90022 /* libnotify.c */; };
 		2D312B77102CA2E300F90022 /* notify_client.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B74102CA2E300F90022 /* notify_client.c */; };
 		2D312B78102CA2E300F90022 /* table.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B75102CA2E300F90022 /* table.c */; };
@@ -66,6 +67,8 @@
 		3FA21AD8148AAABE00099D2F /* com.apple.notifyd.plist in Install launchd.plist */ = {isa = PBXBuildFile; fileRef = 3FA21A99148AA7FA00099D2F /* com.apple.notifyd.plist */; };
 		3FA21AE6148AAEAC00099D2F /* notify_ipc.defs in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B79102CA30200F90022 /* notify_ipc.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		3FD0DBAD148AB12000C50811 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 3FD0DBAC148AB12000C50811 /* libbsm.dylib */; };
+		6E8E6AD02282A7DA0084C085 /* notify.defs in Sources */ = {isa = PBXBuildFile; fileRef = 6E8E6ACD2282A7DA0084C085 /* notify.defs */; settings = {ATTRIBUTES = (Server, ); }; };
+		6EC91ED52178FF7100F11587 /* libCrashReporterClient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6EC91ED42178FF7100F11587 /* libCrashReporterClient.a */; };
 		94099C762087E7D50004B6BC /* RegisterTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 94099C752087E7D50004B6BC /* RegisterTests.m */; settings = {COMPILER_FLAGS = "-Wno-gnu-statement-expression -fobjc-exceptions"; }; };
 		9456B8522023CAB300CF7D27 /* libnotify.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B73102CA2E300F90022 /* libnotify.c */; };
 		9456B8532023CAB600CF7D27 /* table.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B75102CA2E300F90022 /* table.c */; };
@@ -73,6 +76,7 @@
 		9487BF2B2089A9E30043BF74 /* notify_ipc.defs in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B79102CA30200F90022 /* notify_ipc.defs */; };
 		9487BF2C2089BAA30043BF74 /* table.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B75102CA2E300F90022 /* table.c */; };
 		9487BF2D2089BAB20043BF74 /* libnotify.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B73102CA2E300F90022 /* libnotify.c */; };
+		E6481E7F2165785F00C04412 /* notify_probes.d in Sources */ = {isa = PBXBuildFile; fileRef = E6481E7E2165785F00C04412 /* notify_probes.d */; };
 		FC7B7A53155781930064D203 /* notify_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = FC7B7A52155781930064D203 /* notify_internal.h */; };
 /* End PBXBuildFile section */
 
@@ -101,6 +105,16 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		1886391220E1A22F00C8BEA9 /* Install man page */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			name = "Install man page";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		2D38AA09102CD87C00D3D622 /* Copy man3 Files */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -170,14 +184,21 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		2D312B73102CA2E300F90022 /* libnotify.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = libnotify.c; sourceTree = "<group>"; };
-		2D312B74102CA2E300F90022 /* notify_client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_client.c; sourceTree = "<group>"; };
+		180F8D3E21136EBF009A472B /* notify_pathwatch.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_pathwatch.c; sourceTree = "<group>"; };
+		182FD2C2210BB0F600BF263C /* notify_benchmark.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_benchmark.c; sourceTree = "<group>"; };
+		18314CC821FF867600FEB43D /* notifyutil_entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = notifyutil_entitlements.plist; sourceTree = "<group>"; };
+		18383C6720F909A300D5C465 /* notify_regenerate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_regenerate.c; sourceTree = "<group>"; };
+		18383C6820F909A300D5C465 /* notify_register_signal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_register_signal.c; sourceTree = "<group>"; };
+		18383C6920F909A300D5C465 /* notify_sigusr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_sigusr.c; sourceTree = "<group>"; };
+		1886391720E1A22F00C8BEA9 /* notifybench */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = notifybench; sourceTree = BUILT_PRODUCTS_DIR; };
+		2D312B73102CA2E300F90022 /* libnotify.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = libnotify.c; sourceTree = "<group>"; usesTabs = 1; };
+		2D312B74102CA2E300F90022 /* notify_client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_client.c; sourceTree = "<group>"; usesTabs = 1; };
 		2D312B75102CA2E300F90022 /* table.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = table.c; sourceTree = "<group>"; };
 		2D312B79102CA30200F90022 /* notify_ipc.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = notify_ipc.defs; sourceTree = "<group>"; };
 		2D312B7C102CA32500F90022 /* notify_keys.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 4; path = notify_keys.h; sourceTree = "<group>"; };
 		2D312B7D102CA32500F90022 /* notify.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = notify.h; sourceTree = "<group>"; };
-		2D312B81102CA34D00F90022 /* libnotify.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = libnotify.h; sourceTree = "<group>"; };
-		2D312B85102CA36C00F90022 /* table.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = table.h; sourceTree = "<group>"; };
+		2D312B81102CA34D00F90022 /* libnotify.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = libnotify.h; sourceTree = "<group>"; usesTabs = 1; };
+		2D312B85102CA36C00F90022 /* table.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = table.h; sourceTree = "<group>"; usesTabs = 1; };
 		2D312B88102CA38F00F90022 /* notify_cancel.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = notify_cancel.3; sourceTree = "<group>"; };
 		2D312B89102CA38F00F90022 /* notify_check.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = notify_check.3; sourceTree = "<group>"; };
 		2D312B8A102CA38F00F90022 /* notify_get_state.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = notify_get_state.3; sourceTree = "<group>"; };
@@ -203,13 +224,13 @@
 		3FA21A99148AA7FA00099D2F /* com.apple.notifyd.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.notifyd.plist; sourceTree = "<group>"; };
 		3FA21A9A148AA7FA00099D2F /* notify.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = notify.conf; sourceTree = "<group>"; };
 		3FA21A9B148AA7FA00099D2F /* notify.conf.iPhone */ = {isa = PBXFileReference; lastKnownFileType = text; name = notify.conf.iPhone; path = ../notify.conf.iPhone; sourceTree = "<group>"; };
-		3FA21A9C148AA7FA00099D2F /* notify_proc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_proc.c; sourceTree = "<group>"; };
+		3FA21A9C148AA7FA00099D2F /* notify_proc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_proc.c; sourceTree = "<group>"; usesTabs = 1; };
 		3FA21A9D148AA7FA00099D2F /* notifyd.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = notifyd.8; sourceTree = "<group>"; };
-		3FA21A9E148AA7FA00099D2F /* notifyd.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notifyd.c; sourceTree = "<group>"; };
-		3FA21A9F148AA7FA00099D2F /* notifyd.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = notifyd.h; sourceTree = "<group>"; };
+		3FA21A9E148AA7FA00099D2F /* notifyd.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notifyd.c; sourceTree = "<group>"; usesTabs = 1; };
+		3FA21A9F148AA7FA00099D2F /* notifyd.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = notifyd.h; sourceTree = "<group>"; usesTabs = 1; };
 		3FA21AA0148AA7FA00099D2F /* pathwatch.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pathwatch.c; sourceTree = "<group>"; };
 		3FA21AA1148AA7FA00099D2F /* pathwatch.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pathwatch.h; sourceTree = "<group>"; };
-		3FA21AA2148AA7FA00099D2F /* service.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = service.c; sourceTree = "<group>"; };
+		3FA21AA2148AA7FA00099D2F /* service.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = service.c; sourceTree = "<group>"; usesTabs = 1; };
 		3FA21AA3148AA7FA00099D2F /* service.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = service.h; sourceTree = "<group>"; };
 		3FA21AA5148AA7FA00099D2F /* timer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = timer.c; sourceTree = "<group>"; };
 		3FA21AA6148AA7FA00099D2F /* timer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = timer.h; sourceTree = "<group>"; };
@@ -220,6 +241,10 @@
 		3FA21ADD148AABA900099D2F /* mk_notify_conf.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = mk_notify_conf.sh; sourceTree = "<group>"; };
 		3FA21ADF148AACA000099D2F /* notify.conf.MacOSX */ = {isa = PBXFileReference; lastKnownFileType = text; name = notify.conf.MacOSX; path = notifyd/notify.conf.MacOSX; sourceTree = SOURCE_ROOT; };
 		3FD0DBAC148AB12000C50811 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = /usr/lib/libbsm.dylib; sourceTree = "<absolute>"; };
+		6E8DAA2E2184283500A90CEA /* table.in.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = table.in.c; sourceTree = "<group>"; usesTabs = 1; };
+		6E8E6ACC2282A7D30084C085 /* notify.defs */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.mig; name = notify.defs; path = usr/include/mach/notify.defs; sourceTree = SDKROOT; };
+		6E8E6ACD2282A7DA0084C085 /* notify.defs */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.mig; name = notify.defs; path = usr/include/mach/notify.defs; sourceTree = SDKROOT; };
+		6EC91ED42178FF7100F11587 /* libCrashReporterClient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libCrashReporterClient.a; path = /usr/local/lib/libCrashReporterClient.a; sourceTree = "<absolute>"; };
 		727C90301B9A372700D5B754 /* dispatch_cancel_in_block.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dispatch_cancel_in_block.c; sourceTree = "<group>"; };
 		727C90341B9A372700D5B754 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		727C90371B9A372700D5B754 /* notify_bench.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_bench.c; sourceTree = "<group>"; };
@@ -232,10 +257,18 @@
 		94099C772087E7D50004B6BC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9487BF2820882DAD0043BF74 /* parallel_register_cancel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = parallel_register_cancel.c; sourceTree = "<group>"; };
 		9B71D22F206AB52200BB9574 /* notify_qos.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_qos.c; sourceTree = "<group>"; };
-		FC7B7A52155781930064D203 /* notify_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = notify_internal.h; sourceTree = "<group>"; };
+		E6481E7E2165785F00C04412 /* notify_probes.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; path = notify_probes.d; sourceTree = "<group>"; };
+		FC7B7A52155781930064D203 /* notify_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = notify_internal.h; sourceTree = "<group>"; usesTabs = 1; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		1886391120E1A22F00C8BEA9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		3FA21AAD148AA8E300099D2F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -262,6 +295,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6EC91ED52178FF7100F11587 /* libCrashReporterClient.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -271,9 +305,11 @@
 		08FB7794FE84155DC02AAC07 /* Libnotify */ = {
 			isa = PBXGroup;
 			children = (
+				1886391820E1A24A00C8BEA9 /* notifybench */,
 				3F94777F191C322100A93E8E /* xcodescripts */,
 				3F999960185C474E00EAD3A0 /* xcodeconfig */,
 				2D312B79102CA30200F90022 /* notify_ipc.defs */,
+				6E8E6ACD2282A7DA0084C085 /* notify.defs */,
 				3FA21A97148AA7CD00099D2F /* libsystem_notify */,
 				3FA21AA7148AA82700099D2F /* notifyutil */,
 				3FA21A98148AA7FA00099D2F /* notifyd */,
@@ -282,16 +318,28 @@
 				3FA21ACE148AAA0D00099D2F /* Products */,
 				727C902F1B9A372700D5B754 /* tests */,
 				94099C732087E7D50004B6BC /* xctests.xctest */,
+				1886391720E1A22F00C8BEA9 /* notifybench */,
+				6EC91ED32178FF7100F11587 /* Frameworks */,
 			);
 			name = Libnotify;
+			sourceTree = "<group>";
+		};
+		1886391820E1A24A00C8BEA9 /* notifybench */ = {
+			isa = PBXGroup;
+			children = (
+				727C90371B9A372700D5B754 /* notify_bench.c */,
+			);
+			path = notifybench;
 			sourceTree = "<group>";
 		};
 		2D312B72102CA2C400F90022 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				E6481E7E2165785F00C04412 /* notify_probes.d */,
 				2D312B73102CA2E300F90022 /* libnotify.c */,
 				2D312B74102CA2E300F90022 /* notify_client.c */,
 				2D312B75102CA2E300F90022 /* table.c */,
+				6E8DAA2E2184283500A90CEA /* table.in.c */,
 			);
 			name = Source;
 			sourceTree = "<group>";
@@ -343,6 +391,7 @@
 		3F999960185C474E00EAD3A0 /* xcodeconfig */ = {
 			isa = PBXGroup;
 			children = (
+				6E8E6ACC2282A7D30084C085 /* notify.defs */,
 				3F999961185C474E00EAD3A0 /* base.xcconfig */,
 				3F82235D12B18551005DD509 /* libnotify.xcconfig */,
 				3F999963185C474E00EAD3A0 /* notifyd.xcconfig */,
@@ -382,6 +431,7 @@
 			children = (
 				3FA21AA8148AA82700099D2F /* notifyutil.1 */,
 				3FA21AA9148AA82700099D2F /* notifyutil.c */,
+				18314CC821FF867600FEB43D /* notifyutil_entitlements.plist */,
 			);
 			path = notifyutil;
 			sourceTree = "<group>";
@@ -431,18 +481,30 @@
 			path = xcodescripts;
 			sourceTree = "<group>";
 		};
+		6EC91ED32178FF7100F11587 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				6EC91ED42178FF7100F11587 /* libCrashReporterClient.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		727C902F1B9A372700D5B754 /* tests */ = {
 			isa = PBXGroup;
 			children = (
+				18383C6720F909A300D5C465 /* notify_regenerate.c */,
+				18383C6820F909A300D5C465 /* notify_register_signal.c */,
+				18383C6920F909A300D5C465 /* notify_sigusr.c */,
 				727C90341B9A372700D5B754 /* Makefile */,
 				9B71D22F206AB52200BB9574 /* notify_qos.c */,
 				727C90301B9A372700D5B754 /* dispatch_cancel_in_block.c */,
-				727C90371B9A372700D5B754 /* notify_bench.c */,
 				727C90381B9A372700D5B754 /* notify_control.c */,
 				727C90391B9A372700D5B754 /* notify_disable_test.c */,
 				727C903A1B9A372700D5B754 /* notify_many_dups.c */,
 				727C903B1B9A372700D5B754 /* random_test.c */,
 				9487BF2820882DAD0043BF74 /* parallel_register_cancel.c */,
+				182FD2C2210BB0F600BF263C /* notify_benchmark.c */,
+				180F8D3E21136EBF009A472B /* notify_pathwatch.c */,
 			);
 			path = tests;
 			sourceTree = "<group>";
@@ -510,6 +572,23 @@
 /* End PBXLegacyTarget section */
 
 /* Begin PBXNativeTarget section */
+		1886390E20E1A22F00C8BEA9 /* notifybench */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1886391420E1A22F00C8BEA9 /* Build configuration list for PBXNativeTarget "notifybench" */;
+			buildPhases = (
+				1886390F20E1A22F00C8BEA9 /* Sources */,
+				1886391120E1A22F00C8BEA9 /* Frameworks */,
+				1886391220E1A22F00C8BEA9 /* Install man page */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = notifybench;
+			productName = notifyutil;
+			productReference = 1886391720E1A22F00C8BEA9 /* notifybench */;
+			productType = "com.apple.product-type.tool";
+		};
 		3FA21AAF148AA8E300099D2F /* notifyd */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 3FA21AB8148AA8E300099D2F /* Build configuration list for PBXNativeTarget "notifyd" */;
@@ -620,6 +699,7 @@
 				D2AAC045055464E500DB518D /* libnotify */,
 				3FA21AAF148AA8E300099D2F /* notifyd */,
 				3FA21ABD148AA8F000099D2F /* notifyutil */,
+				1886390E20E1A22F00C8BEA9 /* notifybench */,
 				3FA21AC7148AA93000099D2F /* cli_apps */,
 				72FA84F61BD6E9DF00A4CC6F /* darwintests */,
 				72FA84FB1BD6EAB900A4CC6F /* tests */,
@@ -697,15 +777,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = "/bin/bash -e -x";
-			shellScript = "exec \"${SCRIPT_INPUT_FILE_0}\"";
+			shellScript = "if [ $(id -u) != 0 ]; then\n\tosascript -e \"do shell script quoted form of \\\"${SRCROOT}/notifyd/xcodescripts/mk_notify_conf.sh\\\" with administrator privileges\"\nelse\n\texec \"${SCRIPT_INPUT_FILE_0}\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		1886390F20E1A22F00C8BEA9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1886391920E1A2BF00C8BEA9 /* notify_bench.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		3FA21AAC148AA8E300099D2F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6E8E6AD02282A7DA0084C085 /* notify.defs in Sources */,
 				9456B8532023CAB600CF7D27 /* table.c in Sources */,
 				3FA21AE6148AAEAC00099D2F /* notify_ipc.defs in Sources */,
 				3FA21ACF148AAA5000099D2F /* notify_proc.c in Sources */,
@@ -744,6 +833,7 @@
 				2D312B7A102CA30200F90022 /* notify_ipc.defs in Sources */,
 				2D312B76102CA2E300F90022 /* libnotify.c in Sources */,
 				2D312B77102CA2E300F90022 /* notify_client.c in Sources */,
+				E6481E7F2165785F00C04412 /* notify_probes.d in Sources */,
 				2D312B78102CA2E300F90022 /* table.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -769,6 +859,24 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		1886391520E1A22F00C8BEA9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
+			buildSettings = {
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		1886391620E1A22F00C8BEA9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
+			buildSettings = {
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
 		1DEB91ED08733DB70010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F82235D12B18551005DD509 /* libnotify.xcconfig */;
@@ -791,7 +899,9 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				LLVM_LTO = YES;
 				SUPPORTED_PLATFORMS = "watchsimulator watchos iphonesimulator iphoneos macosx bridgeos appletvsimulator appletvos";
+				WARNING_CFLAGS = "-Wno-dollar-in-identifier-extension";
 			};
 			name = Release;
 		};
@@ -811,6 +921,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = notifyutil/notifyutil_entitlements.plist;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -917,7 +1028,9 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				LLVM_LTO = YES;
 				SUPPORTED_PLATFORMS = "watchsimulator watchos iphonesimulator iphoneos macosx bridgeos appletvsimulator appletvos";
+				WARNING_CFLAGS = "-Wno-dollar-in-identifier-extension";
 			};
 			name = Debug;
 		};
@@ -944,6 +1057,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = notifyutil/notifyutil_entitlements.plist;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -1040,6 +1154,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		1886391420E1A22F00C8BEA9 /* Build configuration list for PBXNativeTarget "notifybench" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1886391520E1A22F00C8BEA9 /* Release */,
+				1886391620E1A22F00C8BEA9 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		1DEB91EB08733DB70010E9CD /* Build configuration list for PBXNativeTarget "libnotify" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

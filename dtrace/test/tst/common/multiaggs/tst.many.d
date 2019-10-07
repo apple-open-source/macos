@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.many.d	1.1	06/08/28 SMI"
-
 #pragma D option destructive
 #pragma D option quiet
 

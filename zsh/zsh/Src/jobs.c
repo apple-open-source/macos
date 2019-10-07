@@ -30,6 +30,27 @@
 #include "zsh.mdh"
 #include "jobs.pro"
 
+/*
+ * Job control in zsh
+ * ==================
+ *
+ * A 'job' represents a pipeline; see the section JOBS in zshmisc(1)) for an
+ * introduction.  The 'struct job's are allocated in the array 'jobtab' which
+ * has 'jobtabsize' elements.  The job whose processes we are currently
+ * preparing to execute is identified by the global variable 'thisjob'.
+ *
+ * A 'superjob' is a job that represents a complex shell construct that has been
+ * backgrounded.  For example, if one runs '() { vi; echo }', a job is created
+ * for the pipeline 'vi'.  If one then backgrounds vi (with ^Z / SIGTSTP), 
+ * the shell forks; the parent shell returns to the interactive prompt and
+ * the child shell becomes a new job in the parent shell.  The job representing
+ * the child shell to the parent shell is a superjob (STAT_SUPERJOB); the 'vi'
+ * job is marked as a subjob (STAT_SUBJOB) in the parent shell.  When the child
+ * shell is resumed (with fg / SIGCONT), it forwards the signal to vi and,
+ * after vi exits, continues executing the remainder of the function.
+ * (See workers/43565.)
+ */
+
 /* the process group of the shell at startup (equal to mypgprp, except
    when we started without being process group leader */
 
@@ -40,18 +61,23 @@ mod_export pid_t origpgrp;
 
 /**/
 mod_export pid_t mypgrp;
+
+/* the last process group to attach to the terminal */
+
+/**/
+pid_t last_attached_pgrp;
  
-/* the job we are working on */
+/* the job we are working on, or -1 if none */
  
 /**/
 mod_export int thisjob;
 
-/* the current job (+) */
+/* the current job (%+) */
  
 /**/
 mod_export int curjob;
  
-/* the previous job (-) */
+/* the previous job (%-) */
  
 /**/
 mod_export int prevjob;
@@ -277,6 +303,10 @@ handle_sub(int job, int fg)
 		(!jn->procs->next || cp || jn->procs->pid != jn->gleader))
 		attachtty(jn->gleader);
 	    kill(sj->other, SIGCONT);
+	    if (jn->stat & STAT_DISOWN)
+	    {
+		deletejob(jn, 1);
+	    }
 	}
 	curjob = jn - jobtab;
     } else if (sj->stat & STAT_STOPPED) {
@@ -450,19 +480,42 @@ update_job(Job jn)
 	    jn->ty = (struct ttyinfo *) zalloc(sizeof(struct ttyinfo));
 	    gettyinfo(jn->ty);
 	}
-	if (jn->stat & STAT_STOPPED) {
-	    if (jn->stat & STAT_SUBJOB) {
-		/* If we have `cat foo|while read a; grep $a bar;done'
-		 * and have hit ^Z, the sub-job is stopped, but the
-		 * super-job may still be running, waiting to be stopped
-		 * or to exit. So we have to send it a SIGTSTP. */
-		int i;
+	if (jn->stat & STAT_SUBJOB) {
+	    /* If we have `cat foo|while read a; grep $a bar;done'
+	     * and have hit ^Z, the sub-job is stopped, but the
+	     * super-job may still be running, waiting to be stopped
+	     * or to exit. So we have to send it a SIGTSTP. */
+	    int i;
 
-		if ((i = super_job(job)))
-		    killpg(jobtab[i].gleader, SIGTSTP);
+	    jn->stat |= STAT_CHANGED | STAT_STOPPED;
+	    if ((i = super_job(job))) {
+		Job sjn = &jobtab[i];
+		killpg(sjn->gleader, SIGTSTP);
+		/*
+		 * Job may already be stopped if it consists of only the
+		 * forked shell waiting for the subjob -- so mark as
+		 * stopped immediately.  This ensures we send it (and,
+		 * crucially, the subjob, as the visible job used with
+		 * fg/bg is the superjob) a SIGCONT if we need it.
+		 */
+		sjn->stat |= STAT_CHANGED | STAT_STOPPED;
+		if (isset(NOTIFY) && (sjn->stat & STAT_LOCKED) &&
+		    !(sjn->stat & STAT_NOPRINT)) {
+		    /*
+		     * Print the subjob state, which we don't usually
+		     * do, so the user knows something has stopped.
+		     * So as not to be confusing, we actually output
+		     * the user-visible superjob.
+		     */
+		    if (printjob(sjn, !!isset(LONGLISTJOBS), 0) &&
+			zleactive)
+			zleentry(ZLE_CMD_REFRESH);
+		}
 	    }
 	    return;
 	}
+	if (jn->stat & STAT_STOPPED)
+	    return;
     }
     {                   /* job is done or stopped, remember return value */
 	lastval2 = val;
@@ -724,6 +777,40 @@ printtime(struct timeval *real, child_times_t *ti, char *desc)
 	    case 'S':
 		fprintf(stderr, "%4.2fs", system_time);
 		break;
+	    case 'm':
+		switch (*++s) {
+		case 'E':
+		    fprintf(stderr, "%0.fms", elapsed_time * 1000.0);
+		    break;
+		case 'U':
+		    fprintf(stderr, "%0.fms", user_time * 1000.0);
+		    break;
+		case 'S':
+		    fprintf(stderr, "%0.fms", system_time * 1000.0);
+		    break;
+		default:
+		    fprintf(stderr, "%%m");
+		    s--;
+		    break;
+		}
+		break;
+	    case 'u':
+		switch (*++s) {
+		case 'E':
+		    fprintf(stderr, "%0.fus", elapsed_time * 1000000.0);
+		    break;
+		case 'U':
+		    fprintf(stderr, "%0.fus", user_time * 1000000.0);
+		    break;
+		case 'S':
+		    fprintf(stderr, "%0.fus", system_time * 1000000.0);
+		    break;
+		default:
+		    fprintf(stderr, "%%u");
+		    s--;
+		    break;
+		}
+		break;
 	    case '*':
 		switch (*++s) {
 		case 'E':
@@ -887,6 +974,7 @@ should_report_time(Job j)
     struct value vbuf;
     Value v;
     char *s = "REPORTTIME";
+    int save_errflag = errflag;
     zlong reporttime = -1;
 #ifdef HAVE_GETRUSAGE
     char *sm = "REPORTMEMORY";
@@ -898,12 +986,14 @@ should_report_time(Job j)
 	return 1;
 
     queue_signals();
+    errflag = 0;
     if ((v = getvalue(&vbuf, &s, 0)))
 	reporttime = getintvalue(v);
 #ifdef HAVE_GETRUSAGE
     if ((v = getvalue(&vbuf, &sm, 0)))
 	reportmemory = getintvalue(v);
 #endif
+    errflag = save_errflag;
     unqueue_signals();
     if (reporttime < 0
 #ifdef HAVE_GETRUSAGE
@@ -979,13 +1069,28 @@ printjob(Job jn, int lng, int synch)
 	   "bogus job number, jn = %L, jobtab = %L, oldjobtab = %L",
 	   (long)jn, (long)jobtab, (long)oldjobtab);
 
-    if (jn->stat & STAT_NOPRINT) {
+    if (jn->stat & STAT_NOPRINT)
 	skip_print = 1;
-    }
 
     if (lng < 0) {
 	conted = 1;
 	lng = !!isset(LONGLISTJOBS);
+    }
+
+    if (jn->stat & STAT_SUPERJOB &&
+	jn->other)
+    {
+	Job sjn = &jobtab[jn->other];
+	if (sjn->procs || sjn->auxprocs)
+	{
+	    /*
+	     * A subjob still has process, which must finish before
+	     * further excution of the superjob, which the user wants to
+	     * know about.  So report the status of the subjob as if it
+	     * were the user-visible superjob.
+	     */
+	    jn = sjn;
+	}
     }
 
 /* find length of longest signame, check to see */
@@ -1217,11 +1322,7 @@ pipecleanfilelist(LinkList filelist, int proc_subst_only)
     while (node) {
 	Jobfile jf = (Jobfile)getdata(node);
 	if (jf->is_fd &&
-	    (!proc_subst_only
-#ifdef FDT_PROC_SUBST
-	     || fdtable[jf->u.fd] == FDT_PROC_SUBST
-#endif
-		)) {
+	    (!proc_subst_only || fdtable[jf->u.fd] == FDT_PROC_SUBST)) {
 	    LinkNode next = nextnode(node);
 	    zclose(jf->u.fd);
 	    (void)remnode(filelist, node);
@@ -1338,7 +1439,8 @@ deletejob(Job jn, int disowning)
 
 /**/
 void
-addproc(pid_t pid, char *text, int aux, struct timeval *bgtime)
+addproc(pid_t pid, char *text, int aux, struct timeval *bgtime,
+	int gleader, int list_pipe_job_used)
 {
     Process pn, *pnlist;
 
@@ -1355,10 +1457,25 @@ addproc(pid_t pid, char *text, int aux, struct timeval *bgtime)
     if (!aux)
     {
 	pn->bgtime = *bgtime;
-	/* if this is the first process we are adding to *
-	 * the job, then it's the group leader.          */
-	if (!jobtab[thisjob].gleader)
-	    jobtab[thisjob].gleader = pid;
+	/*
+	 * if this is the first process we are adding to
+	 * the job, then it's the group leader.
+	 *
+	 * Exception: if the forked subshell reported its own group
+	 * leader, set that.  If it reported the use of list_pipe_job,
+	 * set it for that, too.
+	 */
+	if (gleader != -1) {
+	    jobtab[thisjob].gleader = gleader;
+	    if (list_pipe_job_used != -1)
+		jobtab[list_pipe_job_used].gleader = gleader;
+	    /*
+	     * Record here this is the latest process group to grab the
+	     * terminal as attachtty() was run in the subshell.
+	     */
+	    last_attached_pgrp = gleader;
+	} else if (!jobtab[thisjob].gleader)
+		jobtab[thisjob].gleader = pid;
 	/* attach this process to end of process list of current job */
 	pnlist = &jobtab[thisjob].procs;
     }
@@ -1511,10 +1628,8 @@ zwaitjob(int job, int wait_cmd)
 
            errflag = 0; */
 
-	    if (subsh) {
+	    if (subsh)
 		killjb(jn, SIGCONT);
-		jn->stat &= ~STAT_STOPPED;
-	    }
 	    if (jn->stat & STAT_SUPERJOB)
 		if (handle_sub(jn - jobtab, 1))
 		    break;
@@ -1532,6 +1647,17 @@ zwaitjob(int job, int wait_cmd)
     return 0;
 }
 
+static void waitonejob(Job jn)
+{
+    if (jn->procs || jn->auxprocs)
+	zwaitjob(jn - jobtab, 0);
+    else {
+	deletejob(jn, 0);
+	pipestats[0] = lastval;
+	numpipestats = 1;
+    }
+}
+
 /* wait for running job to finish */
 
 /**/
@@ -1541,13 +1667,11 @@ waitjobs(void)
     Job jn = jobtab + thisjob;
     DPUTS(thisjob == -1, "No valid job in waitjobs.");
 
-    if (jn->procs || jn->auxprocs)
-	zwaitjob(thisjob, 0);
-    else {
-	deletejob(jn, 0);
-	pipestats[0] = lastval;
-	numpipestats = 1;
-    }
+    /* If there's a subjob, it should finish first. */
+    if (jn->stat & STAT_SUPERJOB)
+	waitonejob(jobtab + jn->other);
+    waitonejob(jn);
+
     thisjob = -1;
 }
 
@@ -1786,7 +1910,7 @@ getjob(const char *s, const char *prog)
     /* "%%", "%+" and "%" all represent the current job */
     if (*s == '%' || *s == '+' || !*s) {
 	if (curjob == -1) {
-	    if (prog)
+	    if (prog && !isset(POSIXBUILTINS))
 		zwarnnam(prog, "no current job");
 	    returnval = -1;
 	    goto done;
@@ -1797,7 +1921,7 @@ getjob(const char *s, const char *prog)
     /* "%-" represents the previous job */
     if (*s == '-') {
 	if (prevjob == -1) {
-	    if (prog)
+	    if (prog && !isset(POSIXBUILTINS))
 		zwarnnam(prog, "no previous job");
 	    returnval = -1;
 	    goto done;
@@ -1820,7 +1944,7 @@ getjob(const char *s, const char *prog)
 	    returnval = jobnum;
 	    goto done;
 	}
-	if (prog)
+	if (prog && !isset(POSIXBUILTINS))
 	    zwarnnam(prog, "%%%s: no such job", s);
 	returnval = -1;
 	goto done;
@@ -1838,7 +1962,7 @@ getjob(const char *s, const char *prog)
 			returnval = jobnum;
 			goto done;
 		    }
-	if (prog)
+	if (prog && !isset(POSIXBUILTINS))
 	    zwarnnam(prog, "job not found: %s", s);
 	returnval = -1;
 	goto done;
@@ -1852,7 +1976,8 @@ getjob(const char *s, const char *prog)
     }
     /* if we get here, it is because none of the above succeeded and went
     to done */
-    zwarnnam(prog, "job not found: %s", s);
+    if (!isset(POSIXBUILTINS))
+	zwarnnam(prog, "job not found: %s", s);
     returnval = -1;
   done:
     return returnval;
@@ -2213,7 +2338,8 @@ bin_fg(char *name, char **argv, Options ops, int func)
 	    return 0;
 	} else {   /* Must be BIN_WAIT, so wait for all jobs */
 	    for (job = 0; job <= maxjob; job++)
-		if (job != thisjob && jobtab[job].stat)
+		if (job != thisjob && jobtab[job].stat &&
+		    !(jobtab[job].stat & STAT_NOPRINT))
 		    retval = zwaitjob(job, 1);
 	    unqueue_signals();
 	    return retval;
@@ -2235,11 +2361,8 @@ bin_fg(char *name, char **argv, Options ops, int func)
 	    Process p;
 
 	    if (findproc(pid, &j, &p, 0)) {
-		if (j->stat & STAT_STOPPED) {
+		if (j->stat & STAT_STOPPED)
 		    retval = (killjb(j, SIGCONT) != 0);
-		    if (retval == 0)
-			makerunning(j);
-		}
 		if (retval == 0) {
 		    /*
 		     * returns 0 for normal exit, else signal+128
@@ -2247,12 +2370,16 @@ bin_fg(char *name, char **argv, Options ops, int func)
 		     */
 		    retval = waitforpid(pid, 1);
 		}
-		if (retval == 0)
-		    retval = lastval2;
+		if (retval == 0) {
+		    if ((retval = getbgstatus(pid)) < 0) {
+			retval = lastval2;
+		    }
+		}
 	    } else if ((retval = getbgstatus(pid)) < 0) {
-		zwarnnam(name, "pid %d is not a child of this shell", pid);
+		if (!isset(POSIXBUILTINS))
+		    zwarnnam(name, "pid %d is not a child of this shell", pid);
 		/* presumably lastval2 doesn't tell us a heck of a lot? */
-		retval = 1;
+		retval = 127;
 	    }
 	    thisjob = ocj;
 	    continue;
@@ -2266,15 +2393,16 @@ bin_fg(char *name, char **argv, Options ops, int func)
 	job = (*argv) ? getjob(*argv, name) : firstjob;
 	firstjob = -1;
 	if (job == -1) {
-	    retval = 1;
+	    retval = 127;
 	    break;
 	}
 	jstat = oldjobtab ? oldjobtab[job].stat : jobtab[job].stat;
 	if (!(jstat & STAT_INUSE) ||
 	    (jstat & STAT_NOPRINT)) {
-	    zwarnnam(name, "%s: no such job", *argv);
+	    if (!isset(POSIXBUILTINS))
+		zwarnnam(name, "%s: no such job", *argv);
 	    unqueue_signals();
-	    return 1;
+	    return 127;
 	}
         /* If AUTO_CONTINUE is set (automatically make stopped jobs running
          * on disown), we actually do a bg and then delete the job table entry. */
@@ -2288,8 +2416,10 @@ bin_fg(char *name, char **argv, Options ops, int func)
 	case BIN_FG:
 	case BIN_BG:
 	case BIN_WAIT:
-	    if (func == BIN_BG)
+	    if (func == BIN_BG) {
 		jobtab[job].stat |= STAT_NOSTTY;
+		jobtab[job].stat &= ~STAT_CURSH;
+	    }
 	    if ((stopped = (jobtab[job].stat & STAT_STOPPED))) {
 		makerunning(jobtab + job);
 		if (func == BIN_BG) {
@@ -2373,6 +2503,10 @@ bin_fg(char *name, char **argv, Options ops, int func)
 	    printjob(job + (oldjobtab ? oldjobtab : jobtab), lng, 2);
 	    break;
 	case BIN_DISOWN:
+	    if (jobtab[job].stat & STAT_SUPERJOB) {
+		jobtab[job].stat |= STAT_DISOWN;
+		continue;
+	    }
 	    if (jobtab[job].stat & STAT_STOPPED) {
 		char buf[20], *pids = "";
 

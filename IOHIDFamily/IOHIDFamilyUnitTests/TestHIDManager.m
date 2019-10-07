@@ -32,6 +32,10 @@ static void HIDManagerReportCallback (
                                      uint8_t *               report,
                                      CFIndex                 reportLength);
 
+void HIDManagerDeviceCallback (void * _Nullable         context,
+                               IOReturn                 result,
+                               void * _Nullable         sender,
+                               IOHIDDeviceRef           device);
 
 static uint8_t descriptorForVendor[] = {
     HIDVendorMessage32BitDescriptor
@@ -57,6 +61,7 @@ static uint8_t descriptorForDigitizer[] = {
 @property   CFRunLoopRef             runLoop;
 @property   NSInteger                valueCount;
 @property   NSInteger                reportCount;
+@property   XCTestExpectation *      testDeviceExpectation;
 
 @end
 
@@ -77,35 +82,46 @@ static uint8_t descriptorForDigitizer[] = {
     self.deviceDict = [[NSMutableDictionary alloc] init];
     HIDXCTAssertAndThrowTrue ( self.deviceDict != nil);
 
- 
+    self.testDeviceExpectation = [[XCTestExpectation alloc] initWithDescription: [NSString stringWithFormat:@"Expectation: Test devices"]];
+
     self.deviceManager = IOHIDManagerCreate (kCFAllocatorDefault, kIOHIDOptionsTypeNone);
 
-    IOHIDManagerSetDeviceMatching(self.deviceManager, NULL);
+    self.testDeviceExpectation.expectedFulfillmentCount = 3;
 
+    self.keyboardID = [[[NSUUID alloc] init] UUIDString];
+    self.vendorID = [[[NSUUID alloc] init] UUIDString];
+    self.digitizerID = [[[NSUUID alloc] init] UUIDString];
+
+    NSArray * matchingMultiple = @[
+                                   @{@kIOHIDPhysicalDeviceUniqueIDKey:self.digitizerID} ,
+                                   @{@kIOHIDPhysicalDeviceUniqueIDKey:self.vendorID} ,
+                                   @{@kIOHIDPhysicalDeviceUniqueIDKey:self.keyboardID}
+                                   ];
+
+    IOHIDManagerSetDeviceMatchingMultiple(self.deviceManager, (CFArrayRef)matchingMultiple);
+
+    IOHIDManagerRegisterDeviceMatchingCallback(self.deviceManager, HIDManagerDeviceCallback, (__bridge void * _Nullable) self);
+    
     IOHIDManagerRegisterInputValueCallback (self.deviceManager, HIDManagerValueCallback, (__bridge void * _Nullable)(self));
     IOHIDManagerRegisterInputReportCallback (self.deviceManager,  HIDManagerReportCallback, (__bridge void * _Nullable)(self));
     IOHIDManagerScheduleWithRunLoop(self.deviceManager, CFRunLoopGetCurrent() , kCFRunLoopDefaultMode);
     IOHIDManagerOpen(self.deviceManager, kIOHIDOptionsTypeNone);
     
-    self.keyboardID = [[[NSUUID alloc] init] UUIDString];
     descriptorData = [[NSData alloc] initWithBytes:descriptorForKeyboard length:sizeof(descriptorForKeyboard)];
     device = [[IOHIDUserDeviceTestController alloc] initWithDescriptor:descriptorData DeviceUniqueID:self.keyboardID andQueue:nil];
     HIDXCTAssertAndThrowTrue(device != nil);
     self.deviceDict [self.keyboardID] = device;
     
-    self.vendorID = [[[NSUUID alloc] init] UUIDString];
     descriptorData = [[NSData alloc] initWithBytes:descriptorForVendor length:sizeof(descriptorForVendor)];
     device = [[IOHIDUserDeviceTestController alloc] initWithDescriptor:descriptorData DeviceUniqueID:self.vendorID andQueue:nil];
     HIDXCTAssertAndThrowTrue(device != nil);
     self.deviceDict [self.vendorID] = device;
     
-    self.digitizerID = [[[NSUUID alloc] init] UUIDString];
     descriptorData = [[NSData alloc] initWithBytes:descriptorForDigitizer length:sizeof(descriptorForDigitizer)];
     device = [[IOHIDUserDeviceTestController alloc] initWithDescriptor:descriptorData DeviceUniqueID:self.digitizerID andQueue:nil];
     HIDXCTAssertAndThrowTrue(device != nil);
     self.deviceDict [self.digitizerID] = device;
     
-    sleep(kDeviceMatchingTimeout);
 }
 
 - (void)tearDown {
@@ -129,6 +145,14 @@ static uint8_t descriptorForDigitizer[] = {
     NSSet * devices;
     NSDictionary *matching;
     
+    XCTWaiterResult result;
+    result = [XCTWaiter waitForExpectations:@[self.testDeviceExpectation] timeout:10];
+    HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_IOREG,
+                                result == XCTWaiterResultCompleted,
+                                "result:%ld %@",
+                                result,
+                                self.testDeviceExpectation);
+
     NSMutableArray *matchingMultiple = [[NSMutableArray alloc ] initWithCapacity:3];
     HIDXCTAssertAndThrowTrue (matchingMultiple != nil);
     
@@ -165,15 +189,15 @@ static uint8_t descriptorForDigitizer[] = {
 - (void)testProperty {
     
     NSSet * devices;
-    NSArray * matchingMultiple = @[
-                                   @{@kIOHIDPhysicalDeviceUniqueIDKey:self.digitizerID} ,
-                                   @{@kIOHIDPhysicalDeviceUniqueIDKey:self.vendorID} ,
-                                   @{@kIOHIDPhysicalDeviceUniqueIDKey:self.keyboardID}
-                                   ];
-    
-    
-    IOHIDManagerSetDeviceMatchingMultiple(self.deviceManager, (CFArrayRef)matchingMultiple);
-    
+
+    XCTWaiterResult result;
+    result = [XCTWaiter waitForExpectations:@[self.testDeviceExpectation] timeout:10];
+    HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_IOREG,
+                                result == XCTWaiterResultCompleted,
+                                "result:%ld %@",
+                                result,
+                                self.testDeviceExpectation);
+
     devices = CFBridgingRelease(IOHIDManagerCopyDevices (self.deviceManager));
     
     // 35266200
@@ -183,6 +207,7 @@ static uint8_t descriptorForDigitizer[] = {
     
     for (id device in devices) {
         CFTypeRef value = IOHIDDeviceGetProperty ((IOHIDDeviceRef)device, CFSTR("TestKey"));
+        XCTAssert(IOHIDDeviceGetTypeID() == CFGetTypeID((IOHIDDeviceRef)device));
         XCTAssert (CFEqual (value, CFSTR("TestValue")) == true);
     }
 
@@ -195,6 +220,14 @@ static uint8_t descriptorForDigitizer[] = {
     self.valueCount     = 0;
     self.reportCount    = 0;
     
+    XCTWaiterResult result;
+    result = [XCTWaiter waitForExpectations:@[self.testDeviceExpectation] timeout:10];
+    HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_IOREG,
+                                result == XCTWaiterResultCompleted,
+                                "result:%ld %@",
+                                result,
+                                self.testDeviceExpectation);
+
     NSArray * elementMatching = @[
                                     @{
                                         @kIOHIDElementUsagePageKey:@(kHIDPage_AppleVendor),
@@ -214,26 +247,31 @@ static uint8_t descriptorForDigitizer[] = {
         memset (&digitizerReport, 00, sizeof(digitizerReport));
         
         digitizerReport.DIG_TouchPadFingerTouch = 1;
-        status |= [self.deviceDict[self.digitizerID] handleReport:(uint8_t*)&digitizerReport Length:sizeof(digitizerReport) andInterval:2000];
+        status = [self.deviceDict[self.digitizerID] handleReport:(uint8_t*)&digitizerReport Length:sizeof(digitizerReport) andInterval:2000];
+        XCTAssert (status == kIOReturnSuccess, "handleReport result:0x%x\n", status);
    
         digitizerReport.DIG_TouchPadFingerTouch = 0;
-        status |= [self.deviceDict[self.digitizerID] handleReport:(uint8_t*)&digitizerReport Length:sizeof(digitizerReport) andInterval:2000];
-        
+        status = [self.deviceDict[self.digitizerID] handleReport:(uint8_t*)&digitizerReport Length:sizeof(digitizerReport) andInterval:2000];
+        XCTAssert (status == kIOReturnSuccess, "handleReport result:0x%x\n", status);
+
         digitizerReport.DIG_TouchPadFingerUntouch = 1;
-        status |= [self.deviceDict[self.digitizerID] handleReport:(uint8_t*)&digitizerReport Length:sizeof(digitizerReport) andInterval:2000];
-   
+        status = [self.deviceDict[self.digitizerID] handleReport:(uint8_t*)&digitizerReport Length:sizeof(digitizerReport) andInterval:2000];
+        XCTAssert (status == kIOReturnSuccess, "handleReport result:0x%x\n", status);
+
         digitizerReport.DIG_TouchPadFingerUntouch = 0;
-        status |= [self.deviceDict[self.digitizerID] handleReport:(uint8_t*)&digitizerReport Length:sizeof(digitizerReport) andInterval:2000];
+        status = [self.deviceDict[self.digitizerID] handleReport:(uint8_t*)&digitizerReport Length:sizeof(digitizerReport) andInterval:2000];
+        XCTAssert (status == kIOReturnSuccess, "handleReport result:0x%x\n", status);
 
         HIDVendorMessage32BitDescriptorInputReport vendorReport;
         vendorReport.VEN_VendorDefined0023 = 1;
-        status |= [self.deviceDict[self.vendorID] handleReport:(uint8_t*)&vendorReport Length:sizeof(vendorReport) andInterval:2000];
-        
-        vendorReport.VEN_VendorDefined0023 = 2;
-        status |= [self.deviceDict[self.vendorID] handleReport:(uint8_t*)&vendorReport Length:sizeof(vendorReport) andInterval:2000];
+        status = [self.deviceDict[self.vendorID] handleReport:(uint8_t*)&vendorReport Length:sizeof(vendorReport) andInterval:2000];
+        XCTAssert (status == kIOReturnSuccess, "handleReport result:0x%x\n", status);
 
+        vendorReport.VEN_VendorDefined0023 = 2;
+        status = [self.deviceDict[self.vendorID] handleReport:(uint8_t*)&vendorReport Length:sizeof(vendorReport) andInterval:2000];
+        XCTAssert (status == kIOReturnSuccess, "handleReport result:0x%x\n", status);
     });
-    XCTAssert(status == kIOReturnSuccess);
+
     CFRunLoopRunInMode (kCFRunLoopDefaultMode, 5.0, false);
     
     XCTAssert(self.reportCount == 6 && self.valueCount == 4, "reportCount:%x && valueCount:%x", (int)self.reportCount, (int)self.valueCount);
@@ -244,9 +282,11 @@ static uint8_t descriptorForDigitizer[] = {
     ++self.valueCount;
     XCTAssert (result == kIOReturnSuccess, "managerValueCallback result: %x", result);
 }
+
 -(void) managerReportCallback: (IOHIDDeviceRef) __unused sender :(IOHIDReportType) __unused type :(uint32_t) __unused reportID : (uint8_t*) __unused report : (CFIndex) __unused reportLength : (IOReturn) __unused result {
     ++self.reportCount;
 }
+
 @end
 
 void HIDManagerValueCallback (void * _Nullable  context, IOReturn result, void * _Nullable  sender __unused, IOHIDValueRef value) {
@@ -255,8 +295,7 @@ void HIDManagerValueCallback (void * _Nullable  context, IOReturn result, void *
     [self managerValueCallback: (IOHIDDeviceRef) sender :value :result];
 }
 
-void HIDManagerReportCallback (
-                               void * _Nullable        context,
+void HIDManagerReportCallback (void * _Nullable        context,
                                IOReturn                result,
                                void * _Nullable        sender,
                                IOHIDReportType         type,
@@ -266,6 +305,16 @@ void HIDManagerReportCallback (
     TestHIDManager *self = (__bridge TestHIDManager *)context;
     TestLog("HIDManagerReportCallback sender:%@ result:0x%x\n", sender, result);
     [self managerReportCallback: (IOHIDDeviceRef) sender :type :reportID :report :reportLength :result];
+}
+
+void HIDManagerDeviceCallback (void * _Nullable         context,
+                                IOReturn                result __unused,
+                                void * _Nullable        sender __unused,
+                                IOHIDDeviceRef          device __unused)
+{
+    TestHIDManager * self = (__bridge TestHIDManager *)context;
+    TestLog("HIDManagerDeviceCallback device:%@ result:0x%x\n", device, result);
+    [self.testDeviceExpectation fulfill];
 }
 
     

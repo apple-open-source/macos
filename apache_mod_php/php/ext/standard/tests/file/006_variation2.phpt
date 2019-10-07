@@ -19,12 +19,12 @@ unlink($filename);
 ?>
 --FILE--
 <?php
-/* 
+/*
   Prototype: int fileperms ( string $filename );
   Description: Returns the permissions on the file, or FALSE in case of an error
 
   Prototype: bool chmod ( string $filename, int $mode );
-  Description: Attempts to change the mode of the file specified by 
+  Description: Attempts to change the mode of the file specified by
                filename to that given in mode
 */
 
@@ -72,7 +72,7 @@ foreach($perms_array as $permission) {
   printf("%o", fileperms($file_name) );
   echo "\n";
   clearstatcache();
- 
+
   var_dump( chmod($dir_name, $permission) );
   printf("%o", fileperms($dir_name) );
   echo "\n";
@@ -88,7 +88,7 @@ chmod(dirname(__FILE__)."/006_variation2", 0777);
 unlink(dirname(__FILE__)."/006_variation2.tmp");
 rmdir(dirname(__FILE__)."/006_variation2");
 ?>
---EXPECTF--	
+--EXPECTF--
 *** Testing fileperms() & chmod() : usage variations ***
 
 *** Testing fileperms(), chmod() with miscellaneous permissions ***
@@ -149,38 +149,38 @@ bool(true)
 43567
 -- Iteration 12 --
 
-Warning: chmod() expects parameter 2 to be integer, string given in %s on line %d
+Warning: chmod() expects parameter 2 to be int, string given in %s on line %d
 NULL
 103567
 
-Warning: chmod() expects parameter 2 to be integer, string given in %s on line %d
+Warning: chmod() expects parameter 2 to be int, string given in %s on line %d
 NULL
 43567
 -- Iteration 13 --
 
-Warning: chmod() expects parameter 2 to be integer, string given in %s on line %d
+Warning: chmod() expects parameter 2 to be int, string given in %s on line %d
 NULL
 103567
 
-Warning: chmod() expects parameter 2 to be integer, string given in %s on line %d
+Warning: chmod() expects parameter 2 to be int, string given in %s on line %d
 NULL
 43567
 -- Iteration 14 --
 
-Warning: chmod() expects parameter 2 to be integer, string given in %s on line %d
+Warning: chmod() expects parameter 2 to be int, string given in %s on line %d
 NULL
 103567
 
-Warning: chmod() expects parameter 2 to be integer, string given in %s on line %d
+Warning: chmod() expects parameter 2 to be int, string given in %s on line %d
 NULL
 43567
 -- Iteration 15 --
 
-Warning: chmod() expects parameter 2 to be integer, string given in %s on line %d
+Warning: chmod() expects parameter 2 to be int, string given in %s on line %d
 NULL
 103567
 
-Warning: chmod() expects parameter 2 to be integer, string given in %s on line %d
+Warning: chmod() expects parameter 2 to be int, string given in %s on line %d
 NULL
 43567
 *** Done ***

@@ -27,6 +27,8 @@
 #include <dispatch/dispatch.h>
 #import "keychain/ckks/CKKSResultOperation.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface CKKSGroupOperation : CKKSResultOperation
 {
     BOOL executing;
@@ -47,5 +49,7 @@
 - (void)runBeforeGroupFinished:(NSOperation*)suboperation;
 - (void)dependOnBeforeGroupFinished:(NSOperation*)suboperation;
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif  // OCTAGON

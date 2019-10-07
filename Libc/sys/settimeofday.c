@@ -21,9 +21,14 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <sys/time.h>
+#include <TargetConditionals.h>
+#if !TARGET_OS_DRIVERKIT
 #include <notify.h>
 #include <notify_keys.h>
+#else
+#define notify_post(...)
+#endif
+#include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "_simple.h"

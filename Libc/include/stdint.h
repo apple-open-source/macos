@@ -58,6 +58,25 @@ typedef uint64_t        uint_fast64_t;
 #include <_types/_intmax_t.h>
 #include <_types/_uintmax_t.h>
 
+/* 7.18.4 Macros for integer constants */
+#define INT8_C(v)    (v)
+#define INT16_C(v)   (v)
+#define INT32_C(v)   (v)
+#define INT64_C(v)   (v ## LL)
+
+#define UINT8_C(v)   (v)
+#define UINT16_C(v)  (v)
+#define UINT32_C(v)  (v ## U)
+#define UINT64_C(v)  (v ## ULL)
+
+#ifdef __LP64__
+#define INTMAX_C(v)  (v ## L)
+#define UINTMAX_C(v) (v ## UL)
+#else
+#define INTMAX_C(v)  (v ## LL)
+#define UINTMAX_C(v) (v ## ULL)
+#endif
+
 /* 7.18.2 Limits of specified-width integer types:
  *   These #defines specify the minimum and maximum limits
  *   of each of the types declared above.
@@ -138,15 +157,14 @@ typedef uint64_t        uint_fast64_t;
 #endif
 
 /* 7.18.2.5 Limits of greatest-width integer types */
-#define INTMAX_MIN        INT64_MIN
-#define INTMAX_MAX        INT64_MAX
-
-#define UINTMAX_MAX       UINT64_MAX
+#define INTMAX_MAX        INTMAX_C(9223372036854775807)
+#define UINTMAX_MAX       UINTMAX_C(18446744073709551615)
+#define INTMAX_MIN        (-INTMAX_MAX-1)
 
 /* 7.18.3 "Other" */
 #if __WORDSIZE == 64
-#define PTRDIFF_MIN	  INT64_MIN
-#define PTRDIFF_MAX	  INT64_MAX
+#define PTRDIFF_MIN	  INTMAX_MIN
+#define PTRDIFF_MAX	  INTMAX_MAX
 #else
 #define PTRDIFF_MIN       INT32_MIN
 #define PTRDIFF_MAX       INT32_MAX
@@ -183,24 +201,5 @@ typedef uint64_t        uint_fast64_t;
 
 #define SIG_ATOMIC_MIN	  INT32_MIN
 #define SIG_ATOMIC_MAX	  INT32_MAX
-
-/* 7.18.4 Macros for integer constants */
-#define INT8_C(v)    (v)
-#define INT16_C(v)   (v)
-#define INT32_C(v)   (v)
-#define INT64_C(v)   (v ## LL)
-
-#define UINT8_C(v)   (v)
-#define UINT16_C(v)  (v)
-#define UINT32_C(v)  (v ## U)
-#define UINT64_C(v)  (v ## ULL)
-
-#ifdef __LP64__
-#define INTMAX_C(v)  (v ## L)
-#define UINTMAX_C(v) (v ## UL)
-#else
-#define INTMAX_C(v)  (v ## LL)
-#define UINTMAX_C(v) (v ## ULL)
-#endif
 
 #endif /* _STDINT_H_ */

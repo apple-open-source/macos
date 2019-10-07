@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.signature.d	1.1	06/08/28 SMI"
-
 /*
  * This is a simple test to make sure that signature checking works properly
  * for the fake-o types.

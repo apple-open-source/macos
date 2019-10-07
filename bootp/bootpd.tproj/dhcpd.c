@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -198,10 +198,11 @@ dhcp_init()
     else {
 	DHCPLeases_t new_leases;
 
-	my_log(LOG_INFO, "dhcp: re-reading lease list");
 	if (DHCPLeases_init(&new_leases) == TRUE) {
 	    DHCPLeases_free(&S_leases);
 	    S_leases = new_leases;
+	    my_log(LOG_INFO, "dhcp: re-reading lease list (%d entries)",
+		   S_leases.list.count);
 	}
     }
     return;
@@ -284,6 +285,7 @@ make_dhcp_reply(struct dhcp * reply, int pkt_size,
 		struct dhcp * request, dhcpoa_t * options)
 {
     *reply = *request;
+    reply->dp_siaddr = server_id;
     reply->dp_hops = 0;
     reply->dp_secs = 0;
     reply->dp_op = BOOTREPLY;
@@ -318,8 +320,9 @@ make_dhcp_nak(struct dhcp * reply, int pkt_size,
 {
     struct dhcp * r;
 
-    if (debug)
-	printf("sending a NAK: '%s'\n", nak_msg);
+    if (debug) {
+	my_log(LOG_DEBUG, "sending a NAK: '%s'", nak_msg);
+    }
 
     r = make_dhcp_reply(reply, pkt_size, server_id, dhcp_msgtype_nak_e, 
 			request, options);
@@ -526,7 +529,7 @@ dhcp_bootp_allocate(char * idstr, char * hwstr, struct dhcp * rq,
     entry = PLCache_lookup_identifier(&S_leases.list, idstr,
 				      subnet_match, &match, &iaddr,
 				      NULL);
-    if (entry) {
+    if (entry != NULL) {
 	if (subnets != NULL) {
 	    subnet = SubnetListGetSubnetForAddress(subnets, iaddr, TRUE);
 	}
@@ -557,7 +560,7 @@ dhcp_bootp_allocate(char * idstr, char * hwstr, struct dhcp * rq,
 	}
 	if (subnet == NULL) {
 	    if (debug) {
-		printf("no ip addresses\n");
+		my_log(LOG_DEBUG, "no ip addresses");
 	    }
 	    if (modified) {
 		S_commit_mods();
@@ -768,6 +771,8 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 
     switch (msgtype) {
       case dhcp_msgtype_discover_e: {
+	  struct in_addr	our_ip;
+
 	  state = dhcp_cstate_init_e;
 
 	  { /* delete the pending host entry */
@@ -799,9 +804,7 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		      }
 		  }
 		  if (subnet == NULL) {
-		      if (debug) {
-			  printf("no ip addresses\n");
-		      }
+		      my_log(LOG_NOTICE, "no ip addresses");
 		      goto no_reply; /* out of ip addresses */
 		  }
 	      }
@@ -838,12 +841,15 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	      lease = dhcp_lease_hton(lease_prorate(lease));
 
 	  /* form a reply */
+	  our_ip = if_inet_addr_best_match(request->if_p, iaddr);
+	  reply_msgtype = dhcp_msgtype_offer_e;
 	  reply = make_dhcp_reply((struct dhcp *)txbuf, max_packet,
-				  if_inet_addr(request->if_p), 
-				  reply_msgtype = dhcp_msgtype_offer_e,
+				  our_ip,
+				  reply_msgtype,
 				  rq, &options);
-	  if (reply == NULL)
+	  if (reply == NULL) {
 	      goto no_reply;
+	  }
 	  reply->dp_ciaddr.s_addr = 0;
 	  reply->dp_yiaddr = iaddr;
 	  if (dhcpoa_add(&options, dhcptag_lease_time_e, sizeof(lease),
@@ -857,6 +863,7 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
       case dhcp_msgtype_request_e: {
 	  const char * 		nak = NULL;
 	  int			optlen;
+	  struct in_addr	our_ip;
 	  struct in_addr * 	req_ip;
 	  struct in_addr * 	server_id;
 
@@ -866,17 +873,23 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	  req_ip = (struct in_addr *)
 	      dhcpol_find(request->options_p, dhcptag_requested_ip_address_e,
 			  &optlen, NULL);
+	  if (req_ip != NULL) {
+	      iaddr = *req_ip;
+	  }
+	  our_ip = if_inet_addr_best_match(request->if_p, iaddr);
 	  if (server_id) { /* SELECT */
 	      struct hosts *	hp = hostbyaddr(S_pending_hosts, cid_type,
 						cid, cid_len,
 						NULL, FALSE);
-	      if (debug)
-		  printf("SELECT\n");
+	      if (debug) {
+		  my_log(LOG_DEBUG, "SELECT");
+	      }
 	      state = dhcp_cstate_select_e;
-
-	      if (server_id->s_addr != if_inet_addr(request->if_p).s_addr) {
-		  if (debug)
-		      printf("client selected %s\n", inet_ntoa(*server_id));
+	      if (server_id->s_addr != our_ip.s_addr) {
+		  if (debug) {
+		      my_log(LOG_DEBUG, "client selected %s",
+			     inet_ntoa(*server_id));
+		  }
 		  /* clean up */
 		  if (hp) {
 		      hostfree(&S_pending_hosts, hp);
@@ -934,12 +947,13 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		  }
 		  use_broadcast = TRUE;
 		  reply = make_dhcp_nak((struct dhcp *)txbuf, max_packet,
-					if_inet_addr(request->if_p), 
+					our_ip,
 					&reply_msgtype, 
 					"protocol error in SELECT state",
 					rq, &options);
-		  if (reply)
+		  if (reply != NULL) {
 		      goto reply;
+		  }
 		  goto no_reply;
 	      }
 	      if (binding != dhcp_binding_none_e) {
@@ -966,20 +980,22 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 				       lease_time_expiry) == FALSE) {
 		      reply = make_dhcp_nak((struct dhcp *)txbuf, 
 					    max_packet,
-					    if_inet_addr(request->if_p), 
+					    our_ip,
 					    &reply_msgtype, 
 					    "unexpected server failure",
 					    rq, &options);
-		      if (reply)
+		      if (reply != NULL) {
 			  goto reply;
+		      }
 		      goto no_reply;
 		  }
 	      }
 	  } /* select */
 	  else /* init-reboot/renew/rebind */ {
 	      if (req_ip) { /* init-reboot */
-		  if (debug) 
-		      printf("init-reboot\n");
+		  if (debug) {
+		      my_log(LOG_DEBUG, "init-reboot");
+		  }
 		  state = dhcp_cstate_init_reboot_e;
 		  if (binding == dhcp_binding_none_e) {
 		      if (orphan == FALSE) {
@@ -1000,20 +1016,24 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	      } /* init-reboot */
 	      else if (rq->dp_ciaddr.s_addr) { /* renew/rebind */
 		  if (debug) {
-		      if (request->dstaddr_p == NULL 
-			  || ntohl(request->dstaddr_p->s_addr) 
-			  == INADDR_BROADCAST)
-			  printf("rebind\n");
-		      else
-			  printf("renew\n");
+		      if (request->dstaddr_p == NULL
+			  || request->dstaddr_p->s_addr == INADDR_BROADCAST) {
+			  my_log(LOG_DEBUG, "rebind");
+		      }
+		      else {
+			  my_log(LOG_DEBUG, "renew");
+		      }
 		  }
 		  if (binding == dhcp_binding_none_e) {
 		      if (orphan == FALSE) {
 			  if (debug) {
-			      if (has_binding)
-				  printf("Client binding is not applicable\n");
-			      else
-				  printf("No binding for client\n");
+			      if (has_binding) {
+				  my_log(LOG_DEBUG,
+					 "Client binding is not applicable");
+			      }
+			      else {
+				  my_log(LOG_DEBUG, "No binding for client");
+			      }
 			  }
 			  goto no_reply;
 		      }
@@ -1022,15 +1042,16 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		      goto send_nak;
 		  }
 		  if (request->dstaddr_p == NULL
-		      || ntohl(request->dstaddr_p->s_addr) == INADDR_BROADCAST
+		      || request->dstaddr_p->s_addr == INADDR_BROADCAST
 		      || rq->dp_giaddr.s_addr) { /* REBIND */
 		      state = dhcp_cstate_rebind_e;
 		      if (rq->dp_ciaddr.s_addr != iaddr.s_addr) {
-			  if (debug)
-			      printf("Incorrect ciaddr " IP_FORMAT 
-				     " should be " IP_FORMAT "\n",
+			  if (debug) {
+			      my_log(LOG_DEBUG, "Incorrect ciaddr " IP_FORMAT 
+				     " should be " IP_FORMAT,
 				     IP_LIST(&rq->dp_ciaddr), 
 				     IP_LIST(&iaddr));
+			  }
 			  goto no_reply;
 		      }
 		  }
@@ -1099,11 +1120,12 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
       send_nak:
 	  if (nak) {
 	      reply = make_dhcp_nak((struct dhcp *)txbuf, max_packet,
-				    if_inet_addr(request->if_p), 
+				    our_ip,
 				    &reply_msgtype, nak,
 				    rq, &options);
-	      if (reply)
+	      if (reply != NULL) {
 		  goto reply;
+	      }
 	      goto no_reply;
 	  }
 	  /*
@@ -1115,9 +1137,10 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	  else
 	      lease = dhcp_lease_hton(lease_prorate(lease));
 
+	  reply_msgtype = dhcp_msgtype_ack_e;
 	  reply = make_dhcp_reply((struct dhcp *)txbuf, max_packet,
-				  if_inet_addr(request->if_p),
-				  reply_msgtype = dhcp_msgtype_ack_e,
+				  our_ip,
+				  reply_msgtype,
 				  rq, &options);
 	  reply->dp_yiaddr = iaddr;
 	  if (dhcpoa_add(&options, dhcptag_lease_time_e,
@@ -1130,6 +1153,7 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
       }
       case dhcp_msgtype_decline_e: {
 	  int			optlen;
+	  struct in_addr	our_ip;
 	  struct in_addr * 	req_ip;
 	  struct in_addr * 	server_id;
 
@@ -1142,7 +1166,8 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	  if (server_id == NULL || req_ip == NULL) {
 	      goto no_reply;
 	  }
-	  if (server_id->s_addr != if_inet_addr(request->if_p).s_addr) {
+	  our_ip = if_inet_addr_best_match(request->if_p, *req_ip);
+	  if (server_id->s_addr != our_ip.s_addr) {
 	      my_log(LOG_DEBUG, "dhcpd: host %s "
 		     "declines IP %s from server " IP_FORMAT,
 		     idstr, inet_ntoa(*req_ip), IP_LIST(server_id));
@@ -1160,7 +1185,8 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	      my_log(LOG_INFO, "dhcpd: IP %s declined by %s",
 		     inet_ntoa(iaddr), idstr);
 	      if (debug) {
-		  printf("marking host %s as declined\n", inet_ntoa(iaddr));
+		  my_log(LOG_DEBUG,
+			 "marking host %s as declined", inet_ntoa(iaddr));
 	      }
 	  }
 	  break;
@@ -1168,7 +1194,8 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
       case dhcp_msgtype_release_e: {
 	  if (binding == dhcp_binding_temporary_e) {
 	      if (debug) {
-		  printf("%s released by client, setting expiration to now\n", 
+		  my_log(LOG_DEBUG,
+			 "%s released by client, setting expiration to now", 
 			 inet_ntoa(iaddr));
 	      }
 	      /* set the lease expiration time to now */
@@ -1177,26 +1204,32 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	  break;
       }
       case dhcp_msgtype_inform_e: {
+	  struct in_addr	our_ip;
+
 	  iaddr = rq->dp_ciaddr;
+	  our_ip = if_inet_addr_best_match(request->if_p, iaddr);
+	  reply_msgtype = dhcp_msgtype_ack_e;
 	  reply = make_dhcp_reply((struct dhcp *)txbuf, max_packet,
-				  if_inet_addr(request->if_p),
-				  reply_msgtype = dhcp_msgtype_ack_e,
+				  our_ip,
+				  reply_msgtype,
 				  rq, &options);
-	  if (reply)
+	  if (reply != NULL) {
 	      goto reply;
+	  }
 	  goto no_reply;
       }
       default: {
 	  if (debug) {
-	      printf("unknown message ignored\n");
+	      my_log(LOG_DEBUG, "unknown message ignored");
 	  }
 	  break;
       }
     }
 
   reply:
-    if (debug)
-	printf("state=%s\n", dhcp_cstate_str(state));
+    if (debug) {
+	my_log(LOG_DEBUG, "state=%s", dhcp_cstate_str(state));
+    }
     if (binding == dhcp_binding_temporary_e && modified) {
 	if (S_commit_mods() == FALSE)
 	    goto no_reply;
@@ -1207,14 +1240,14 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	secs = (u_int16_t)ntohs(rq->dp_secs);
 	if (secs < reply_threshold_seconds) {
 	    if (debug) {
-		printf("rp->dp_secs %d < threshold %d\n",
+		my_log(LOG_DEBUG, "rp->dp_secs %d < threshold %d",
 		       secs, reply_threshold_seconds);
 	    }
 	    goto no_reply;
 	}
 	
     }
-    if (reply) {
+    if (reply != NULL) {
 	if (reply_msgtype == dhcp_msgtype_ack_e || 
 	    reply_msgtype == dhcp_msgtype_offer_e) {
 	    int			num_params;
@@ -1226,8 +1259,6 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 			    &num_params, NULL);
 
 	    bzero(reply->dp_file, sizeof(reply->dp_file));
-
-	    reply->dp_siaddr = if_inet_addr(request->if_p);
 	    strlcpy((char *)reply->dp_sname, server_name,
 		    sizeof(reply->dp_sname));
 
@@ -1253,7 +1284,7 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		size = sizeof(struct bootp);
 	    }
 	    if (debug) {
-		printf("\nSending: DHCP %s (size %d)\n", 
+		my_log(LOG_DEBUG, "Sending: DHCP %s (size %d)", 
 		       dhcp_msgtype_names(reply_msgtype), size);
 	    }
 	    if (sendreply(request->if_p, (struct bootp *)reply, size, 
@@ -1271,12 +1302,16 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 	    }
 	}
     }
+
  no_reply:
-    if (hostname != NULL)
+    if (hostname != NULL) {
 	free(hostname);
-    if (idstr != scratch_idstr)
+    }
+    if (idstr != scratch_idstr) {
 	free(idstr);
-    if (hwstr != NULL && hwstr != idstr && hwstr != scratch_hwstr)
+    }
+    if (hwstr != NULL && hwstr != idstr && hwstr != scratch_hwstr) {
 	free(hwstr);
+    }
     return;
 }

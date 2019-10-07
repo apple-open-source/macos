@@ -127,6 +127,12 @@ struct StringStats {
 
 #endif
 
+template<typename CharacterType> inline bool isLatin1(CharacterType character)
+{
+    using UnsignedCharacterType = typename std::make_unsigned<CharacterType>::type;
+    return static_cast<UnsignedCharacterType>(character) <= static_cast<UnsignedCharacterType>(0xFF);
+}
+
 class StringImplShape {
     WTF_MAKE_NONCOPYABLE(StringImplShape);
 public:
@@ -162,7 +168,7 @@ protected:
 class StringImpl : private StringImplShape {
     WTF_MAKE_NONCOPYABLE(StringImpl); WTF_MAKE_FAST_ALLOCATED;
 
-    friend class AtomicStringImpl;
+    friend class AtomStringImpl;
     friend class JSC::LLInt::Data;
     friend class JSC::LLIntOffsetsExtractor;
     friend class PrivateSymbolImpl;
@@ -191,16 +197,16 @@ private:
     static_assert(s_flagCount <= StringHasher::flagCount, "StringHasher reserves enough bits for StringImpl flags");
     static constexpr const unsigned s_flagStringKindCount = 4;
 
-    static constexpr const unsigned s_hashFlagStringKindIsAtomic = 1u << (s_flagStringKindCount);
+    static constexpr const unsigned s_hashFlagStringKindIsAtom = 1u << (s_flagStringKindCount);
     static constexpr const unsigned s_hashFlagStringKindIsSymbol = 1u << (s_flagStringKindCount + 1);
-    static constexpr const unsigned s_hashMaskStringKind = s_hashFlagStringKindIsAtomic | s_hashFlagStringKindIsSymbol;
-    static constexpr const unsigned s_hashFlag8BitBuffer = 1u << 3;
-    static constexpr const unsigned s_hashFlagDidReportCost = 1u << 2;
+    static constexpr const unsigned s_hashMaskStringKind = s_hashFlagStringKindIsAtom | s_hashFlagStringKindIsSymbol;
+    static constexpr const unsigned s_hashFlagDidReportCost = 1u << 3;
+    static constexpr const unsigned s_hashFlag8BitBuffer = 1u << 2;
     static constexpr const unsigned s_hashMaskBufferOwnership = (1u << 0) | (1u << 1);
 
     enum StringKind {
         StringNormal = 0u, // non-symbol, non-atomic
-        StringAtomic = s_hashFlagStringKindIsAtomic, // non-symbol, atomic
+        StringAtom = s_hashFlagStringKindIsAtom, // non-symbol, atomic
         StringSymbol = s_hashFlagStringKindIsSymbol, // symbol, non-atomic
     };
 
@@ -258,10 +264,10 @@ public:
     static Expected<Ref<StringImpl>, UTF8ConversionError> tryReallocate(Ref<StringImpl>&& originalString, unsigned length, UChar*& data);
 
     static unsigned flagsOffset() { return OBJECT_OFFSETOF(StringImpl, m_hashAndFlags); }
-    static unsigned flagIs8Bit() { return s_hashFlag8BitBuffer; }
-    static unsigned flagIsAtomic() { return s_hashFlagStringKindIsAtomic; }
-    static unsigned flagIsSymbol() { return s_hashFlagStringKindIsSymbol; }
-    static unsigned maskStringKind() { return s_hashMaskStringKind; }
+    static constexpr unsigned flagIs8Bit() { return s_hashFlag8BitBuffer; }
+    static constexpr unsigned flagIsAtom() { return s_hashFlagStringKindIsAtom; }
+    static constexpr unsigned flagIsSymbol() { return s_hashFlagStringKindIsSymbol; }
+    static constexpr unsigned maskStringKind() { return s_hashMaskStringKind; }
     static unsigned dataOffset() { return OBJECT_OFFSETOF(StringImpl, m_data8); }
 
     template<typename CharacterType, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity>
@@ -286,14 +292,12 @@ public:
     WTF_EXPORT_PRIVATE size_t sizeInBytes() const;
 
     bool isSymbol() const { return m_hashAndFlags & s_hashFlagStringKindIsSymbol; }
-    bool isAtomic() const { return m_hashAndFlags & s_hashFlagStringKindIsAtomic; }
-    void setIsAtomic(bool);
+    bool isAtom() const { return m_hashAndFlags & s_hashFlagStringKindIsAtom; }
+    void setIsAtom(bool);
     
     bool isExternal() const { return bufferOwnership() == BufferExternal; }
 
-#if STRING_STATS
     bool isSubString() const { return bufferOwnership() == BufferSubstring; }
-#endif
 
     static WTF_EXPORT_PRIVATE Expected<CString, UTF8ConversionError> utf8ForCharacters(const LChar* characters, unsigned length);
     static WTF_EXPORT_PRIVATE Expected<CString, UTF8ConversionError> utf8ForCharacters(const UChar* characters, unsigned length, ConversionMode = LenientConversion);
@@ -355,8 +359,8 @@ public:
         //       This means StaticStringImpl costs are not counted. But since there should only
         //       be a finite set of StaticStringImpls, their cost can be aggregated into a single
         //       system cost if needed.
-        //    b. setIsAtomic() is never called on a StaticStringImpl.
-        //       setIsAtomic() asserts !isStatic().
+        //    b. setIsAtom() is never called on a StaticStringImpl.
+        //       setIsAtom() asserts !isStatic().
         //    c. setHash() is never called on a StaticStringImpl.
         //       StaticStringImpl's constructor sets the hash on construction.
         //       StringImpl::hash() only sets a new hash iff !hasHash().
@@ -367,8 +371,8 @@ public:
         operator StringImpl&();
     };
 
-    WTF_EXPORT_PRIVATE static StaticStringImpl s_atomicEmptyString;
-    ALWAYS_INLINE static StringImpl* empty() { return reinterpret_cast<StringImpl*>(&s_atomicEmptyString); }
+    WTF_EXPORT_PRIVATE static StaticStringImpl s_emptyAtomString;
+    ALWAYS_INLINE static StringImpl* empty() { return reinterpret_cast<StringImpl*>(&s_emptyAtomString); }
 
     // FIXME: Does this really belong in StringImpl?
     template<typename CharacterType> static void copyCharacters(CharacterType* destination, const CharacterType* source, unsigned numCharacters);
@@ -408,8 +412,8 @@ public:
     WTF_EXPORT_PRIVATE Ref<StringImpl> convertToLowercaseWithoutLocale();
     WTF_EXPORT_PRIVATE Ref<StringImpl> convertToLowercaseWithoutLocaleStartingAtFailingIndex8Bit(unsigned);
     WTF_EXPORT_PRIVATE Ref<StringImpl> convertToUppercaseWithoutLocale();
-    WTF_EXPORT_PRIVATE Ref<StringImpl> convertToLowercaseWithLocale(const AtomicString& localeIdentifier);
-    WTF_EXPORT_PRIVATE Ref<StringImpl> convertToUppercaseWithLocale(const AtomicString& localeIdentifier);
+    WTF_EXPORT_PRIVATE Ref<StringImpl> convertToLowercaseWithLocale(const AtomString& localeIdentifier);
+    WTF_EXPORT_PRIVATE Ref<StringImpl> convertToUppercaseWithLocale(const AtomString& localeIdentifier);
 
     Ref<StringImpl> foldCase();
 
@@ -481,6 +485,8 @@ public:
 #endif
 
     BufferOwnership bufferOwnership() const { return static_cast<BufferOwnership>(m_hashAndFlags & s_hashMaskBufferOwnership); }
+
+    template<typename T> static size_t headerSize() { return tailOffset<T>(); }
     
 protected:
     ~StringImpl();
@@ -931,10 +937,20 @@ ALWAYS_INLINE Ref<StringImpl> StringImpl::createSubstringSharingImpl(StringImpl&
     if (!length)
         return *empty();
 
+    // Coyping the thing would save more memory sometimes, largely due to the size of pointer.
+    size_t substringSize = allocationSize<StringImpl*>(1);
+    if (rep.is8Bit()) {
+        if (substringSize >= allocationSize<LChar>(length))
+            return create(rep.m_data8 + offset, length);
+    } else {
+        if (substringSize >= allocationSize<UChar>(length))
+            return create(rep.m_data16 + offset, length);
+    }
+
     auto* ownerRep = ((rep.bufferOwnership() == BufferSubstring) ? rep.substringBuffer() : &rep);
 
     // We allocate a buffer that contains both the StringImpl struct as well as the pointer to the owner string.
-    auto* stringImpl = static_cast<StringImpl*>(fastMalloc(allocationSize<StringImpl*>(1)));
+    auto* stringImpl = static_cast<StringImpl*>(fastMalloc(substringSize));
     if (rep.is8Bit())
         return adoptRef(*new (NotNull, stringImpl) StringImpl(rep.m_data8 + offset, length, *ownerRep));
     return adoptRef(*new (NotNull, stringImpl) StringImpl(rep.m_data16 + offset, length, *ownerRep));
@@ -1015,14 +1031,14 @@ inline size_t StringImpl::costDuringGC()
     return divideRoundedUp(result, refCount());
 }
 
-inline void StringImpl::setIsAtomic(bool isAtomic)
+inline void StringImpl::setIsAtom(bool isAtom)
 {
     ASSERT(!isStatic());
     ASSERT(!isSymbol());
-    if (isAtomic)
-        m_hashAndFlags |= s_hashFlagStringKindIsAtomic;
+    if (isAtom)
+        m_hashAndFlags |= s_hashFlagStringKindIsAtom;
     else
-        m_hashAndFlags &= ~s_hashFlagStringKindIsAtomic;
+        m_hashAndFlags &= ~s_hashFlagStringKindIsAtom;
 }
 
 inline void StringImpl::setHash(unsigned hash) const
@@ -1226,3 +1242,4 @@ template<unsigned length> inline bool equalLettersIgnoringASCIICase(const String
 using WTF::StaticStringImpl;
 using WTF::StringImpl;
 using WTF::equal;
+using WTF::isLatin1;

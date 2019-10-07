@@ -12,10 +12,10 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Andi Gutmans <andi@zend.com>                                |
-   |          Zeev Suraski <zeev@zend.com>                                |
+   | Authors: Andi Gutmans <andi@php.net>                                 |
+   |          Zeev Suraski <zeev@php.net>                                 |
    |          Stanislav Malyshev <stas@zend.com>                          |
-   |          Dmitry Stogov <dmitry@zend.com>                             |
+   |          Dmitry Stogov <dmitry@php.net>                              |
    +----------------------------------------------------------------------+
 */
 
@@ -228,13 +228,14 @@ int zend_shared_alloc_startup(size_t requested_size)
 	p_tmp_shared_globals = (zend_smm_shared_globals *) zend_shared_alloc(sizeof(zend_smm_shared_globals));
 	if (!p_tmp_shared_globals) {
 		zend_accel_error(ACCEL_LOG_FATAL, "Insufficient shared memory!");
-		return ALLOC_FAILURE;;
+		return ALLOC_FAILURE;
 	}
+	memset(p_tmp_shared_globals, 0, sizeof(zend_smm_shared_globals));
 
 	tmp_shared_segments = zend_shared_alloc(shared_segments_array_size + ZSMMG(shared_segments_count) * sizeof(void *));
 	if (!tmp_shared_segments) {
 		zend_accel_error(ACCEL_LOG_FATAL, "Insufficient shared memory!");
-		return ALLOC_FAILURE;;
+		return ALLOC_FAILURE;
 	}
 
 	copy_shared_segments(tmp_shared_segments, ZSMMG(shared_segments)[0], ZSMMG(shared_segments_count), S_H(segment_type_size)());
@@ -248,7 +249,7 @@ int zend_shared_alloc_startup(size_t requested_size)
 	ZSMMG(shared_memory_state).positions = (int *)zend_shared_alloc(sizeof(int) * ZSMMG(shared_segments_count));
 	if (!ZSMMG(shared_memory_state).positions) {
 		zend_accel_error(ACCEL_LOG_FATAL, "Insufficient shared memory!");
-		return ALLOC_FAILURE;;
+		return ALLOC_FAILURE;
 	}
 
 	ZCG(locked) = 0;
@@ -325,7 +326,6 @@ void *zend_shared_alloc(size_t size)
 
 			ZSMMG(shared_segments)[i]->pos += block_size;
 			ZSMMG(shared_free) -= block_size;
-			memset(retval, 0, block_size);
 			ZEND_ASSERT(((zend_uintptr_t)retval & 0x7) == 0); /* should be 8 byte aligned */
 			return retval;
 		}
@@ -337,8 +337,10 @@ void *zend_shared_alloc(size_t size)
 int zend_shared_memdup_size(void *source, size_t size)
 {
 	void *old_p;
+	zend_ulong key = (zend_ulong)source;
 
-	if ((old_p = zend_hash_index_find_ptr(&ZCG(xlat_table), (zend_ulong)source)) != NULL) {
+	key = (key >> 3) | (key << ((sizeof(key) * 8) - 3)); /* key  = _rotr(key, 3);*/
+	if ((old_p = zend_hash_index_find_ptr(&ZCG(xlat_table), key)) != NULL) {
 		/* we already duplicated this pointer */
 		return 0;
 	}
@@ -349,8 +351,10 @@ int zend_shared_memdup_size(void *source, size_t size)
 void *_zend_shared_memdup(void *source, size_t size, zend_bool free_source)
 {
 	void *old_p, *retval;
+	zend_ulong key = (zend_ulong)source;
 
-	if ((old_p = zend_hash_index_find_ptr(&ZCG(xlat_table), (zend_ulong)source)) != NULL) {
+	key = (key >> 3) | (key << ((sizeof(key) * 8) - 3)); /* key  = _rotr(key, 3);*/
+	if ((old_p = zend_hash_index_find_ptr(&ZCG(xlat_table), key)) != NULL) {
 		/* we already duplicated this pointer */
 		return old_p;
 	}
@@ -371,15 +375,15 @@ void zend_shared_alloc_safe_unlock(void)
 	}
 }
 
-#ifndef ZEND_WIN32
-/* name l_type l_whence l_start l_len */
-static FLOCK_STRUCTURE(mem_write_lock, F_WRLCK, SEEK_SET, 0, 1);
-static FLOCK_STRUCTURE(mem_write_unlock, F_UNLCK, SEEK_SET, 0, 1);
-#endif
-
 void zend_shared_alloc_lock(void)
 {
 #ifndef ZEND_WIN32
+	struct flock mem_write_lock;
+
+	mem_write_lock.l_type = F_WRLCK;
+	mem_write_lock.l_whence = SEEK_SET;
+	mem_write_lock.l_start = 0;
+	mem_write_lock.l_len = 1;
 
 #ifdef ZTS
 	tsrm_mutex_lock(zts_lock);
@@ -410,6 +414,15 @@ void zend_shared_alloc_lock(void)
 
 void zend_shared_alloc_unlock(void)
 {
+#ifndef ZEND_WIN32
+	struct flock mem_write_unlock;
+
+	mem_write_unlock.l_type = F_UNLCK;
+	mem_write_unlock.l_whence = SEEK_SET;
+	mem_write_unlock.l_start = 0;
+	mem_write_unlock.l_len = 1;
+#endif
+
 	ZCG(locked) = 0;
 
 #ifndef ZEND_WIN32
@@ -426,14 +439,8 @@ void zend_shared_alloc_unlock(void)
 
 void zend_shared_alloc_init_xlat_table(void)
 {
-
-	/* Prepare translation table
-	 *
-	 * Make it persistent so that it uses malloc() and allocated blocks
-	 * won't be taken from space which is freed by efree in memdup.
-	 * Otherwise it leads to false matches in memdup check.
-	 */
-	zend_hash_init(&ZCG(xlat_table), 128, NULL, NULL, 1);
+	/* Prepare translation table */
+	zend_hash_init(&ZCG(xlat_table), 128, NULL, NULL, 0);
 }
 
 void zend_shared_alloc_destroy_xlat_table(void)
@@ -449,14 +456,19 @@ void zend_shared_alloc_clear_xlat_table(void)
 
 void zend_shared_alloc_register_xlat_entry(const void *old, const void *new)
 {
-	zend_hash_index_add_new_ptr(&ZCG(xlat_table), (zend_ulong)old, (void*)new);
+	zend_ulong key = (zend_ulong)old;
+
+	key = (key >> 3) | (key << ((sizeof(key) * 8) - 3)); /* key  = _rotr(key, 3);*/
+	zend_hash_index_add_new_ptr(&ZCG(xlat_table), key, (void*)new);
 }
 
 void *zend_shared_alloc_get_xlat_entry(const void *old)
 {
 	void *retval;
+	zend_ulong key = (zend_ulong)old;
 
-	if ((retval = zend_hash_index_find_ptr(&ZCG(xlat_table), (zend_ulong)old)) == NULL) {
+	key = (key >> 3) | (key << ((sizeof(key) * 8) - 3)); /* key  = _rotr(key, 3);*/
+	if ((retval = zend_hash_index_find_ptr(&ZCG(xlat_table), key)) == NULL) {
 		return NULL;
 	}
 	return retval;

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.TranslateSelf.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Test the translation of a struct to itself.

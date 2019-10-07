@@ -177,14 +177,14 @@ public:
 
     void add32(TrustedImm32 imm, RegisterID src, RegisterID dest)
     {
-        ARMThumbImmediate armImm = ARMThumbImmediate::makeUInt12OrEncodedImm(imm.m_value);
-
-        // For adds with stack pointer destination, moving the src first to sp is
-        // needed to avoid unpredictable instruction
+        // For adds with stack pointer destination avoid unpredictable instruction
         if (dest == ARMRegisters::sp && src != dest) {
-            move(src, ARMRegisters::sp);
-            src = ARMRegisters::sp;
+            add32(imm, src, dataTempRegister);
+            move(dataTempRegister, dest);
+            return;
         }
+
+        ARMThumbImmediate armImm = ARMThumbImmediate::makeUInt12OrEncodedImm(imm.m_value);
 
         if (armImm.isValid())
             m_assembler.add(dest, src, armImm);
@@ -1252,9 +1252,13 @@ public:
         m_assembler.vcvt_signedToFloatingPoint(fpTempRegister, fpTempRegisterAsSingle());
         failureCases.append(branchDouble(DoubleNotEqualOrUnordered, src, fpTempRegister));
 
-        // If the result is zero, it might have been -0.0, and the double comparison won't catch this!
-        if (negZeroCheck)
-            failureCases.append(branchTest32(Zero, dest));
+        // Test for negative zero.
+        if (negZeroCheck) {
+            Jump valueIsNonZero = branchTest32(NonZero, dest);
+            m_assembler.vmov(dataTempRegister, ARMRegisters::asSingleUpper(src));
+            failureCases.append(branch32(LessThan, dataTempRegister, TrustedImm32(0)));
+            valueIsNonZero.link(this);
+        }
     }
 
     Jump branchDoubleNonZero(FPRegisterID reg, FPRegisterID)

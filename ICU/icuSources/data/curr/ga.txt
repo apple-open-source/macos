@@ -54,10 +54,6 @@ ga{
             "ARA",
             "Austral Airgintíneach",
         }
-        ARL{
-            "ARL",
-            "ARL",
-        }
         ARM{
             "ARM",
             "Peso na hAirgintíne (1881–1970)",
@@ -97,10 +93,6 @@ ga{
         BAM{
             "BAM",
             "Marg Inmhalartaithe na Boisnia-Heirseagaivéine",
-        }
-        BAN{
-            "BAN",
-            "BAN",
         }
         BBD{
             "BBD",
@@ -153,10 +145,6 @@ ga{
         BOB{
             "BOB",
             "Boliviano",
-        }
-        BOL{
-            "BOL",
-            "BOL",
         }
         BOP{
             "BOP",
@@ -262,10 +250,6 @@ ga{
             "COP",
             "Peso na Colóime",
         }
-        COU{
-            "COU",
-            "COU",
-        }
         CRC{
             "CRC",
             "Colón Chósta Ríce",
@@ -341,14 +325,6 @@ ga{
         ERN{
             "ERN",
             "Nakfa na hEiritré",
-        }
-        ESA{
-            "ESA",
-            "ESA",
-        }
-        ESB{
-            "ESB",
-            "ESB",
         }
         ESP{
             "ESP",
@@ -530,14 +506,6 @@ ga{
             "KPW",
             "Won na Cóiré Thuaidh",
         }
-        KRH{
-            "KRH",
-            "KRH",
-        }
-        KRO{
-            "KRO",
-            "KRO",
-        }
         KRW{
             "₩",
             "Won na Cóiré Theas",
@@ -625,10 +593,6 @@ ga{
         MKD{
             "MKD",
             "Denar na Macadóine",
-        }
-        MKN{
-            "MKN",
-            "MKN",
         }
         MLF{
             "MLF",
@@ -1000,6 +964,10 @@ ga{
         }
         VEF{
             "VEF",
+            "Bolívar Veiniséala (2008–2018)",
+        }
+        VES{
+            "VES",
             "Bolívar Veiniséala",
         }
         VND{
@@ -1082,14 +1050,6 @@ ga{
             "XPT",
             "Platanam",
         }
-        XRE{
-            "XRE",
-            "XRE",
-        }
-        XSU{
-            "XSU",
-            "XSU",
-        }
         XXX{
             "XXX",
             "Airgeadra Anaithnid",
@@ -1113,10 +1073,6 @@ ga{
         YUN{
             "YUN",
             "YUN",
-        }
-        YUR{
-            "YUR",
-            "YUR",
         }
         ZAL{
             "ZAL",
@@ -1160,7 +1116,6 @@ ga{
         BRL{"R$"}
         BSD{"$"}
         BWP{"P"}
-        BYN{"р."}
         BZD{"$"}
         CAD{"$"}
         CLP{"$"}
@@ -1203,8 +1158,6 @@ ga{
         LBP{"L£"}
         LKR{"Rs"}
         LRD{"$"}
-        LTL{"Lt"}
-        LVL{"Ls"}
         MGA{"Ar"}
         MMK{"K"}
         MNT{"₮"}
@@ -2932,6 +2885,13 @@ ga{
             two{"bholívar Veiniséala (1871–2008)"}
         }
         VEF{
+            few{"bholívar Veiniséala (2008–2018)"}
+            many{"mbolívar Veiniséala (2008–2018)"}
+            one{"bholívar Veiniséala (2008–2018)"}
+            other{"bolívar Veiniséala (2008–2018)"}
+            two{"bholívar Veiniséala (2008–2018)"}
+        }
+        VES{
             few{"bholívar Veiniséala"}
             many{"mbolívar Veiniséala"}
             one{"bholívar Veiniséala"}
@@ -3177,5 +3137,5 @@ ga{
         other{"{0} {1}"}
         two{"{0} {1}"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
 }

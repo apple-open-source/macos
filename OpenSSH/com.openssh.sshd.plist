@@ -39,5 +39,7 @@
 	<string>system.preferences</string>
 	<key>POSIXSpawnType</key>
 	<string>Interactive</string>
+	<key>MaterializeDatalessFiles</key>
+	<true/>
 </dict>
 </plist>

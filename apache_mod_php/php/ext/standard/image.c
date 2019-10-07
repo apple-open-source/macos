@@ -17,8 +17,6 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id$ */
-
 #include "php.h"
 #include <stdio.h>
 #if HAVE_FCNTL_H
@@ -249,7 +247,7 @@ static struct gfxinfo *php_handle_swc(php_stream * stream)
 		} while ((status==Z_BUF_ERROR)&&(factor<maxfactor));
 
 		if (bufz) {
-			zend_string_release(bufz);
+			zend_string_release_ex(bufz, 0);
 		}
 
 		if (status == Z_OK) {
@@ -1186,7 +1184,7 @@ PHPAPI char * php_image_type_to_mime_type(int image_type)
 		case IMAGE_FILETYPE_PSD:
 			return "image/psd";
 		case IMAGE_FILETYPE_BMP:
-			return "image/x-ms-bmp";
+			return "image/bmp";
 		case IMAGE_FILETYPE_TIFF_II:
 		case IMAGE_FILETYPE_TIFF_MM:
 			return "image/tiff";
@@ -1217,9 +1215,9 @@ PHP_FUNCTION(image_type_to_mime_type)
 {
 	zend_long p_image_type;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "l", &p_image_type) == FAILURE) {
-		return;
-	}
+	ZEND_PARSE_PARAMETERS_START(1, 1)
+		Z_PARAM_LONG(p_image_type)
+	ZEND_PARSE_PARAMETERS_END();
 
 	ZVAL_STRING(return_value, (char*)php_image_type_to_mime_type(p_image_type));
 }
@@ -1231,45 +1229,67 @@ PHP_FUNCTION(image_type_to_extension)
 {
 	zend_long image_type;
 	zend_bool inc_dot=1;
+	const char *imgext = NULL;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "l|b", &image_type, &inc_dot) == FAILURE) {
-		RETURN_FALSE;
-	}
+	ZEND_PARSE_PARAMETERS_START(1, 2)
+		Z_PARAM_LONG(image_type)
+		Z_PARAM_OPTIONAL
+		Z_PARAM_BOOL(inc_dot)
+	ZEND_PARSE_PARAMETERS_END_EX(RETURN_FALSE);
 
 	switch (image_type) {
 		case IMAGE_FILETYPE_GIF:
-			RETURN_STRING(".gif" + !inc_dot);
+			imgext = ".gif";
+			break;
 		case IMAGE_FILETYPE_JPEG:
-			RETURN_STRING(".jpeg" + !inc_dot);
+			imgext = ".jpeg";
+			break;
 		case IMAGE_FILETYPE_PNG:
-			RETURN_STRING(".png" + !inc_dot);
+			imgext = ".png";
+			break;
 		case IMAGE_FILETYPE_SWF:
 		case IMAGE_FILETYPE_SWC:
-			RETURN_STRING(".swf" + !inc_dot);
+			imgext = ".swf";
+			break;
 		case IMAGE_FILETYPE_PSD:
-			RETURN_STRING(".psd" + !inc_dot);
+			imgext = ".psd";
+			break;
 		case IMAGE_FILETYPE_BMP:
 		case IMAGE_FILETYPE_WBMP:
-			RETURN_STRING(".bmp" + !inc_dot);
+			imgext = ".bmp";
+			break;
 		case IMAGE_FILETYPE_TIFF_II:
 		case IMAGE_FILETYPE_TIFF_MM:
-			RETURN_STRING(".tiff" + !inc_dot);
+			imgext = ".tiff";
+			break;
 		case IMAGE_FILETYPE_IFF:
-			RETURN_STRING(".iff" + !inc_dot);
+			imgext = ".iff";
+			break;
 		case IMAGE_FILETYPE_JPC:
-			RETURN_STRING(".jpc" + !inc_dot);
+			imgext = ".jpc";
+			break;
 		case IMAGE_FILETYPE_JP2:
-			RETURN_STRING(".jp2" + !inc_dot);
+			imgext = ".jp2";
+			break;
 		case IMAGE_FILETYPE_JPX:
-			RETURN_STRING(".jpx" + !inc_dot);
+			imgext = ".jpx";
+			break;
 		case IMAGE_FILETYPE_JB2:
-			RETURN_STRING(".jb2" + !inc_dot);
+			imgext = ".jb2";
+			break;
 		case IMAGE_FILETYPE_XBM:
-			RETURN_STRING(".xbm" + !inc_dot);
+			imgext = ".xbm";
+			break;
 		case IMAGE_FILETYPE_ICO:
-			RETURN_STRING(".ico" + !inc_dot);
+			imgext = ".ico";
+			break;
 		case IMAGE_FILETYPE_WEBP:
-			RETURN_STRING(".webp" + !inc_dot);
+			imgext = ".webp";
+			break;
+	}
+
+	if (imgext) {
+		RETURN_STRING(&imgext[!inc_dot]);
 	}
 
 	RETURN_FALSE;
@@ -1344,7 +1364,7 @@ PHPAPI int php_getimagetype(php_stream * stream, char *filetype)
 
     /* WBMP may be smaller than 12 bytes, so delay error */
 	twelve_bytes_read = (php_stream_read(stream, filetype+4, 8) == 8);
-    
+
 /* BYTES READ: 12 */
    	if (twelve_bytes_read && !memcmp(filetype, php_sig_jp2, 12)) {
 		return IMAGE_FILETYPE_JP2;
@@ -1470,12 +1490,14 @@ static void php_getimagesize_from_any(INTERNAL_FUNCTION_PARAMETERS, int mode) { 
 	size_t input_len;
 	const int argc = ZEND_NUM_ARGS();
 
-	if (zend_parse_parameters(argc, "s|z/", &input, &input_len, &info) == FAILURE) {
-			return;
-	}
+	ZEND_PARSE_PARAMETERS_START(1, 2)
+		Z_PARAM_STRING(input, input_len)
+		Z_PARAM_OPTIONAL
+		Z_PARAM_ZVAL_DEREF(info)
+	ZEND_PARSE_PARAMETERS_END();
 
 	if (argc == 2) {
-		zval_dtor(info);
+		zval_ptr_dtor(info);
 		array_init(info);
 	}
 
@@ -1508,6 +1530,7 @@ PHP_FUNCTION(getimagesizefromstring)
 {
 	php_getimagesize_from_any(INTERNAL_FUNCTION_PARAM_PASSTHRU, FROM_DATA);
 }
+/* }}} */
 
 /*
  * Local variables:

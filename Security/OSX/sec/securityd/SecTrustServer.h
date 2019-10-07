@@ -32,15 +32,11 @@
 
 #include <Security/SecTrust.h>
 #include <Security/SecBasePriv.h> /* For errSecWaitForCallback. */
-#include <securityd/SecCertificateServer.h>
-#include <securityd/SecCertificateSource.h>
+#include "securityd/SecCertificateServer.h"
+#include "securityd/SecCertificateSource.h"
 #include <mach/port.h>
 
 __BEGIN_DECLS
-
-/* CRLs only implemented for macOS for legacy compatibility purposes using
- * ocspd's (legacy) interfaces */
-#define ENABLE_CRLS TARGET_OS_OSX
 
 typedef struct SecPathBuilder *SecPathBuilderRef;
 
@@ -66,7 +62,7 @@ typedef void(*SecPathBuilderCompleted)(const void *userData,
     SecTrustResultType result);
 
 /* Returns a new trust path builder and policy evaluation engine instance. */
-SecPathBuilderRef SecPathBuilderCreate(CFDataRef clientAuditToken,
+SecPathBuilderRef SecPathBuilderCreate(dispatch_queue_t builderQueue, CFDataRef clientAuditToken,
     CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly,
     bool keychainsAllowed, CFArrayRef policies, CFArrayRef ocspResponse,
     CFArrayRef signedCertificateTimestamps, CFArrayRef trustedLogs,
@@ -83,7 +79,7 @@ void SecPathBuilderSetCanAccessNetwork(SecPathBuilderRef builder, bool allow);
 /* Get the stapled SCTs */
 CFArrayRef SecPathBuilderCopySignedCertificateTimestamps(SecPathBuilderRef builder);
 CFArrayRef SecPathBuilderCopyOCSPResponses(SecPathBuilderRef builder);
-CFArrayRef SecPathBuilderCopyTrustedLogs(SecPathBuilderRef builder);
+CFDictionaryRef SecPathBuilderCopyTrustedLogs(SecPathBuilderRef builder);
 
 CFSetRef SecPathBuilderGetAllPaths(SecPathBuilderRef builder);
 SecCertificatePathVCRef SecPathBuilderGetPath(SecPathBuilderRef builder);
@@ -144,7 +140,7 @@ dispatch_queue_t SecPathBuilderGetQueue(SecPathBuilderRef builder);
 CFDataRef SecPathBuilderCopyClientAuditToken(SecPathBuilderRef builder);
 
 /* Evaluate trust and call evaluated when done. */
-void SecTrustServerEvaluateBlock(CFDataRef clientAuditToken, CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, void (^evaluated)(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, CFArrayRef chain, CFErrorRef error));
+void SecTrustServerEvaluateBlock(dispatch_queue_t builderQueue, CFDataRef clientAuditToken, CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, void (^evaluated)(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, CFArrayRef chain, CFErrorRef error));
 
 /* Synchronously invoke SecTrustServerEvaluateBlock. */
 SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFArrayRef *details, CFDictionaryRef *info, CFArrayRef *chain, CFErrorRef *error);
@@ -171,12 +167,14 @@ typedef CF_ENUM(uint8_t, TA_CTFailureReason) {
 };
 
 typedef CF_OPTIONS(uint8_t, TAValidStatus) {
-    TAValidDefinitelyOK          = 1 << 0,
-    TAValidProbablyOK            = 1 << 1,
-    TAValidProbablyRevoked       = 1 << 2,
-    TAValidDefinitelyRevoked     = 1 << 3,
-    TAValidDateConstrainedOK     = 1 << 4,
-    TAValidDateContrainedRevoked = 1 << 5,
+    TAValidDefinitelyOK = 1 << 0,
+    TAValidProbablyOK = 1 << 1,
+    TAValidProbablyRevoked = 1 << 2,
+    TAValidDefinitelyRevoked = 1 << 3,
+    TAValidDateConstrainedOK = 1 << 4,
+    TAValidDateConstrainedRevoked = 1 << 5,
+    TAValidPolicyConstrainedOK = 1 << 6,
+    TAValidPolicyConstrainedDenied = 1 << 7,
 };
 
 typedef struct {
@@ -203,14 +201,6 @@ typedef struct {
     uint64_t ocsp_fetch_time;
     uint32_t ocsp_fetch_failed;
     bool ocsp_validation_failed;
-#if ENABLE_CRLS
-    // CRLs
-    bool crl_client;
-    bool crl_cert;
-    uint32_t crl_fetches;
-    uint64_t crl_fetch_time;
-    uint32_t crl_fetch_failed;
-#endif
     // Valid
     TAValidStatus valid_status;
     bool valid_trigger_ocsp;

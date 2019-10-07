@@ -1,5 +1,5 @@
-.\" $File: file.man,v 1.125 2017/01/03 11:24:46 christos Exp $
-.Dd October 19, 2016
+.\" $File: file.man,v 1.135 2019/03/03 02:32:40 christos Exp $
+.Dd February 18, 2019
 .Dt FILE __CSECTION__
 .Os
 .Sh NAME
@@ -150,7 +150,7 @@ two groups, so they are performed last.
 The language test routines also test for some miscellany
 (such as
 .Xr tar 1
-archives).
+archives, JSON files).
 .Pp
 Any file that cannot be identified as having been written
 in any of the character sets listed above is simply said to be
@@ -161,6 +161,8 @@ in any of the character sets listed above is simply said to be
 Causes the file command to output the file type and creator code as
 used by older MacOS versions. The code consists of eight letters,
 the first describing the file type, the latter the creator.
+This option works properly only for file formats that have the
+apple-style output defined.
 .It Fl b , Fl Fl brief
 Do not prepend filenames to output lines (brief mode).
 .It Fl C , Fl Fl compile
@@ -211,6 +213,8 @@ Checks for, and looks inside, compressed files.
 .It elf
 Prints ELF file details, provided soft magic tests are enabled and the
 elf magic is found.
+.It json
+Examines JSON (RFC-7159) files by parsing them for compliance.
 .It soft
 Consults magic files.
 .It tar
@@ -597,11 +601,11 @@ program, and are not covered by the above license.
 returns 0 on success, and non-zero on error.
 .Sh BUGS
 Please report bugs and send patches to the bug tracker at
-.Pa http://bugs.gw.com/
+.Pa https://bugs.astron.com/
 or the mailing list at
-.Aq file@mx.gw.com
+.Aq file@astron.com
 (visit
-.Pa http://mx.gw.com/mailman/listinfo/file
+.Pa https://mailman.astron.com/mailman/listinfo/file
 first to subscribe).
 .Sh TODO
 Fix output so that tests for MIME and APPLE flags are not needed all

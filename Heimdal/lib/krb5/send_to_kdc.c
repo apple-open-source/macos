@@ -274,9 +274,11 @@ krb5_sendto_set_delegated_app(krb5_context context,
 	type = "passed-in";
 	memcpy(ctx->delegated_uuid, uuid, sizeof(krb5_uuid));
     } else if (signingIdentity) {
-#if TARGET_OS_SIMULATOR
 	memset(ctx->delegated_uuid, 0, sizeof(krb5_uuid));
+#if TARGET_OS_SIMULATOR
 	type = "sim";
+#elif TARGET_OS_OSX
+	type = "osx";
 #else
 	xpc_object_t uuid_array = NEHelperCacheCopyAppUUIDMapping(signingIdentity, NULL);
 	if (uuid_array && xpc_get_type(uuid_array) == XPC_TYPE_ARRAY && xpc_array_get_count(uuid_array) > 0) {
@@ -284,7 +286,6 @@ krb5_sendto_set_delegated_app(krb5_context context,
 	    memcpy(ctx->delegated_uuid, neuuid, sizeof(krb5_uuid));
 	    type = "NEHelperCacheCopyAppUUIDMapping";
 	} else {
-	    memset(ctx->delegated_uuid, 0, sizeof(krb5_uuid));
 	    type = "NEHelperCacheCopyAppUUIDMapping-fail";
 	}
 	if (uuid_array) {
@@ -942,7 +943,7 @@ prepare_app_vpn(krb5_context context,
 		krb5_krbhst_info *hi,
 		int fd)
 {
-#if !TARGET_OS_SIMULATOR
+#if !TARGET_OS_SIMULATOR && !TARGET_OS_OSX
     const char *hostname = hi->hostname;
     nw_path_evaluator_t evaluator = NULL;
     nw_parameters_t parameters = NULL;
@@ -1097,7 +1098,7 @@ host_create(krb5_context context,
 	prepare_app_vpn(context, ctx, hi, host->fd);
     }
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR && !TARGET_OS_OSX
     /*
      * Hint to kernel what direction this connection is going
      */

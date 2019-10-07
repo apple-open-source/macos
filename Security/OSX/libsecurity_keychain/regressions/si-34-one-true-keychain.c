@@ -58,7 +58,7 @@ static void tests(void)
     CFMutableDictionaryRef syncAnyQuery = CFDictionaryCreateMutableCopy(NULL, 0, query);
     CFMutableDictionaryRef syncQuery = CFDictionaryCreateMutableCopy(NULL, 0, query);
 
-    CFDictionaryAddValue(noLegacyQuery, kSecAttrNoLegacy, kCFBooleanTrue);
+    CFDictionaryAddValue(noLegacyQuery, kSecUseDataProtectionKeychain, kCFBooleanTrue);
     CFDictionaryAddValue(syncAnyQuery, kSecAttrSynchronizable, kSecAttrSynchronizableAny);
     CFDictionaryAddValue(syncQuery, kSecAttrSynchronizable, kCFBooleanTrue);
 

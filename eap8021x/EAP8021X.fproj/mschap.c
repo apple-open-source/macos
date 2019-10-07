@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -63,7 +63,10 @@ static void
 NTPasswordHash(const uint8_t * password, uint32_t password_len, 
 	       uint8_t hash[NT_PASSWORD_HASH_SIZE])
 {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
     CC_MD4(password, password_len, hash);
+#pragma GCC diagnostic pop
     return;
 }
 
@@ -251,8 +254,10 @@ NTSessionKey16(const uint8_t * password, uint32_t password_len,
     /* compute the client response */
     NTChallengeResponse(server_challenge, unicode_password,
 			password_len, input + offset);
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
     CC_MD5(input, HASH_INPUT_SIZE, key);
+#pragma GCC diagnostic pop
     return;
 }
 

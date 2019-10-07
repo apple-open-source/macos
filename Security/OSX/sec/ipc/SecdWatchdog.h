@@ -31,10 +31,18 @@ extern NSString* const SecdWatchdogGracefulExitTime;
 
 @interface SecdWatchdog : NSObject
 
+@property (readonly) bool diskUsageHigh;
+
 + (instancetype)watchdog;
 
 - (NSDictionary*)watchdogParameters;
 - (BOOL)setWatchdogParameters:(NSDictionary*)parameters error:(NSError**)error;
+
+
+// for testing
+- (void)runWatchdog;
++ (bool)triggerOSFaults;
++ (bool)watchdogrusage:(rusage_info_current *)rusage;
 
 @end
 #endif

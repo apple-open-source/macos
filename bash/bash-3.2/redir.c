@@ -962,7 +962,7 @@ add_undo_redirect (fd, ri)
 
   if (new_fd < 0)
     {
-      sys_error (_("redirection error: cannot duplicate fd"));
+		sys_error ("%s", _("redirection error: cannot duplicate fd"));
       return (-1);
     }
 

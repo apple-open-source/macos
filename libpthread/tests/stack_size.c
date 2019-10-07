@@ -3,7 +3,11 @@
 #include <stdlib.h>
 #include "darwintest_defaults.h"
 
+#if defined(__arm64__)
+#define PTHREAD_T_OFFSET (12*1024)
+#else
 #define PTHREAD_T_OFFSET (0)
+#endif
 
 static void *
 function(void *arg)

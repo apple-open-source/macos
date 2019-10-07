@@ -28,6 +28,7 @@
 
 #include "DefaultDownloadDelegate.h"
 #include "MarshallingHelpers.h"
+#include "NetworkStorageSessionMap.h"
 #include "WebError.h"
 #include "WebKit.h"
 #include "WebKitLogging.h"
@@ -47,6 +48,7 @@
 #include <WebCore/CredentialStorage.h>
 #include <WebCore/DownloadBundle.h>
 #include <WebCore/LoaderRunLoopCF.h>
+#include <WebCore/NetworkStorageSession.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceHandle.h>
 #include <WebCore/ResourceRequest.h>
@@ -375,7 +377,7 @@ void WebDownload::didReceiveAuthenticationChallenge(CFURLAuthChallengeRef challe
 {
     // Try previously stored credential first.
     if (!CFURLAuthChallengeGetPreviousFailureCount(challenge)) {
-        Credential credential = CredentialStorage::defaultCredentialStorage().get(emptyString(), core(CFURLAuthChallengeGetProtectionSpace(challenge)));
+        Credential credential = NetworkStorageSessionMap::defaultStorageSession().credentialStorage().get(emptyString(), core(CFURLAuthChallengeGetProtectionSpace(challenge)));
         if (!credential.isEmpty()) {
             RetainPtr<CFURLCredentialRef> cfCredential = adoptCF(createCF(credential));
             CFURLDownloadUseCredential(m_download.get(), cfCredential.get(), challenge);
@@ -465,7 +467,7 @@ void WebDownload::didFinish()
 
     // We try to rename the bundle to the final file name.  If that fails, we give the delegate one more chance to chose
     // the final file name, then we just leave it
-    if (!MoveFileEx(m_bundlePath.charactersWithNullTermination().data(), m_destination.charactersWithNullTermination().data(), 0)) {
+    if (!MoveFileEx(m_bundlePath.wideCharacters().data(), m_destination.wideCharacters().data(), 0)) {
         LOG_ERROR("Failed to move bundle %s to %s on completion\nError - %i", m_bundlePath.ascii().data(), m_destination.ascii().data(), GetLastError());
         
         bool reportBundlePathAsFinalPath = true;
@@ -477,7 +479,7 @@ void WebDownload::didFinish()
         // The call to m_delegate->decideDestinationWithSuggestedFilename() should have changed our destination, so we'll try the move
         // one last time.
         if (!m_destination.isEmpty())
-            if (MoveFileEx(m_bundlePath.charactersWithNullTermination().data(), m_destination.charactersWithNullTermination().data(), 0))
+            if (MoveFileEx(m_bundlePath.wideCharacters().data(), m_destination.wideCharacters().data(), 0))
                 reportBundlePathAsFinalPath = false;
 
         // We either need to tell the delegate our final filename is the bundle filename, or is the file name they just told us to use

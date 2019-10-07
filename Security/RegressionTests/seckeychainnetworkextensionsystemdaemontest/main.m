@@ -21,7 +21,7 @@ int main(int argc, const char* argv[])
         attributes[(__bridge NSString*)kSecAttrAccessGroup] = NetworkExtensionPersistentRefSharingAccessGroup;
         attributes[(__bridge NSString*)kSecAttrAccount] = TestAccount;
         attributes[(__bridge NSString*)kSecReturnPersistentRef] = @YES;
-        attributes[(__bridge NSString*)kSecAttrNoLegacy] = @YES;
+        attributes[(__bridge NSString*)kSecUseDataProtectionKeychain] = @YES;
 
         CFTypeRef persistentRefData = NULL;
         OSStatus result = SecItemCopyMatching((__bridge CFDictionaryRef)attributes, &persistentRefData);
@@ -34,7 +34,7 @@ int main(int argc, const char* argv[])
         attributes[(__bridge NSString*)kSecClass] = (__bridge NSString*)kSecClassGenericPassword;
         attributes[(__bridge NSString*)kSecValuePersistentRef] = (__bridge NSData*)persistentRefData;
         attributes[(__bridge NSString*)kSecReturnData] = @YES;
-        attributes[(__bridge NSString*)kSecAttrNoLegacy] = @YES;
+        attributes[(__bridge NSString*)kSecUseDataProtectionKeychain] = @YES;
 
         CFTypeRef passwordData = NULL;
         result = SecItemCopyMatching((__bridge CFDictionaryRef)attributes, &passwordData);

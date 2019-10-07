@@ -42,22 +42,86 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/arc4random.c,v 1.25 2008/09/09 09:46:36 ach
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
+
+#include <TargetConditionals.h>
+#if !TARGET_OS_DRIVERKIT
+#define OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE 1
+#endif
 #include <os/assumes.h>
 #include <os/lock.h>
 
 #include "string.h"
 #include "libc_private.h"
 
-#define CACHE_LENGTH 64
-#define BUFFERSIZE 32
+#if defined(__APPLE__) && !defined(VARIANT_STATIC)
+#include <corecrypto/ccrng.h>
 
-#define INITIAL_COUNT 1600000
-#define MAX_BUF_COUNT 4096
+static struct ccrng_state *rng;
 
-static os_unfair_lock arc4_lock = OS_UNFAIR_LOCK_INIT;
-static int arc4_count;
+static void
+arc4_init(void)
+{
+	int err;
 
-uint64_t arc4random64(void);
+	if (rng != NULL) return;
+
+	rng = ccrng(&err);
+	if (rng == NULL) {
+#if OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE
+		os_crash("arc4random: unable to get ccrng() handle (%d)", err);
+#else
+		os_crash("arc4random: unable to get ccrng() handle");
+#endif
+	}
+}
+
+void
+arc4random_addrandom(__unused u_char *dat, __unused int datlen)
+{
+	/* NOP - deprecated */
+}
+
+uint32_t
+arc4random(void)
+{
+	uint32_t rand;
+
+	arc4random_buf(&rand, sizeof(rand));
+
+	return rand;
+}
+
+void
+arc4random_buf(void *buf, size_t buf_size)
+{
+	arc4_init();
+	ccrng_generate(rng, buf_size, buf);
+}
+
+void
+arc4random_stir(void)
+{
+	/* NOP */
+}
+
+uint32_t
+arc4random_uniform(uint32_t upper_bound)
+{
+	uint64_t rand;
+
+	arc4_init();
+	ccrng_uniform(rng, upper_bound, &rand);
+
+	return (uint32_t)rand;
+}
+
+__private_extern__ void
+_arc4_fork_child(void)
+{
+	/* NOP */
+}
+
+#else /* __APPLE__ && !VARIANT_STATIC */
 
 #define	RANDOMDEV	"/dev/random"
 
@@ -93,136 +157,6 @@ shortread:
 	}
 	(void)close(fd);
 }
-
-#if defined(__APPLE__) && !defined(VARIANT_STATIC)
-#include <corecrypto/ccdrbg.h>
-#include <corecrypto/ccaes.h>
-
-static struct ccdrbg_info rng_info;
-static struct ccdrbg_nistctr_custom rng_custom;
-static struct ccdrbg_state *rng_state;
-
-static int cache_pos = CACHE_LENGTH;
-static uint32_t rand_buffer[CACHE_LENGTH];
-
-static void
-arc4_init(void)
-{
-	if (rng_state != NULL) return;
-
-	uint8_t entropy[BUFFERSIZE];
-	int ret;
-	rng_custom.ctr_info = ccaes_ctr_crypt_mode();
-	rng_custom.keylen = 16;
-	rng_custom.strictFIPS = 0;
-	rng_custom.use_df = 1;
-	ccdrbg_factory_nistctr(&rng_info, &rng_custom);
-	rng_state = malloc(rng_info.size);
-	os_assert(rng_state != NULL);
-
-	_my_getentropy(entropy, BUFFERSIZE);
-
-	ret = ccdrbg_init(&rng_info, rng_state,
-				sizeof(entropy), entropy,
-				0, NULL, 0, NULL);
-	os_assert_zero(ret);
-
-	memset_s(entropy, sizeof(entropy), 0, sizeof(entropy));
-
-	arc4_count = INITIAL_COUNT;
-}
-
-static void
-arc4_stir(void)
-{
-	uint8_t entropy[BUFFERSIZE];
-	int ret;
-
-	arc4_init();
-
-	_my_getentropy(entropy, BUFFERSIZE);
-
-	ret = ccdrbg_reseed(&rng_info, rng_state,
-				sizeof(entropy), entropy,
-				0, NULL);
-	os_assert_zero(ret);
-
-	memset_s(entropy, sizeof(entropy), 0, sizeof(entropy));
-
-	arc4_count = INITIAL_COUNT;
-}
-
-void
-arc4random_addrandom(__unused u_char *dat, __unused int datlen)
-{
-    /* NOP - deprecated */
-}
-
-uint32_t
-arc4random(void)
-{
-	int ret;
-	os_unfair_lock_lock(&arc4_lock);
-	arc4_init();
-	if (arc4_count <= 0) {
-	    arc4_stir();
-	}
-	if (cache_pos >= CACHE_LENGTH) {
-		ret = ccdrbg_generate(&rng_info, rng_state, sizeof(rand_buffer), rand_buffer, 0, NULL);
-		os_assert_zero(ret);
-		cache_pos = 0;
-	}
-	uint32_t rand = rand_buffer[cache_pos];
-	// Delete the current random number from buffer
-	memset_s(rand_buffer+cache_pos, sizeof(rand_buffer[cache_pos]), 0, sizeof(rand_buffer[cache_pos]));
-	arc4_count--;
-	cache_pos++;
-	os_unfair_lock_unlock(&arc4_lock);
-	return rand;
-}
-
-void
-arc4random_buf(void *_buf, size_t buf_size)
-{
-	uint8_t *buf = _buf;
-	os_unfair_lock_lock(&arc4_lock);
-	arc4_init();
-	while (buf_size > 0) {
-		if (arc4_count <= 0 ) {
-			arc4_stir();
-		}
-		size_t n = MIN(buf_size, (size_t)MIN(MAX_BUF_COUNT, arc4_count) * sizeof(uint32_t));
-		int ret = ccdrbg_generate(&rng_info, rng_state, n, buf, 0, NULL);
-		os_assert_zero(ret);
-		buf_size -= n;
-		buf += n;
-		arc4_count -= n/sizeof(uint32_t);
-
-		if (buf_size > 0) {
-			os_unfair_lock_unlock(&arc4_lock);
-			// Give others a chance to get the lock
-			os_unfair_lock_lock(&arc4_lock);
-		}
-	}
-	os_unfair_lock_unlock(&arc4_lock);
-}
-
-__private_extern__ void
-_arc4_fork_child(void)
-{
-	arc4_lock = OS_UNFAIR_LOCK_INIT;
-	cache_pos = CACHE_LENGTH;
-	if (rng_state != NULL) {
-		arc4_count = 0;
-		memset_s(rand_buffer, sizeof(rand_buffer), 0, sizeof(rand_buffer));
-		memset_s(rng_state, rng_info.size, 0, rng_info.size);
-		free(rng_state); rng_state = NULL;
-		bzero(&rng_info, sizeof(rng_info));
-		bzero(&rng_custom, sizeof(rng_custom));
-	}
-}
-
-#else /* __APPLE__ && !VARIANT_STATIC */
 
 struct arc4_stream {
 	u_int8_t i;
@@ -288,6 +222,9 @@ arc4_fetch(void)
 {
 	_my_getentropy((uint8_t*)&rdat, KEYSIZE);
 }
+
+static os_unfair_lock arc4_lock = OS_UNFAIR_LOCK_INIT;
+static int arc4_count;
 
 static void
 arc4_stir(void)
@@ -425,8 +362,6 @@ arc4random_buf(void *_buf, size_t n)
 	}
 }
 
-#endif /* __APPLE__ */
-
 void
 arc4random_stir(void)
 {
@@ -475,3 +410,5 @@ arc4random_uniform(uint32_t upper_bound)
 		}
 	} while (1);
 }
+
+#endif /* __APPLE__ */

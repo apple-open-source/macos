@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_DECL_ENCONST.badeval.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *   Attempt a bogus enum declaration by assigning a non-constant expression

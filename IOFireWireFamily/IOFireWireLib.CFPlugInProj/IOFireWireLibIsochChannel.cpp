@@ -12,7 +12,9 @@
 #import "IOFireWireLibDevice.h"
 #import "IOFireWireLibPriv.h"
 
+#if !defined(__LP64__)
 #import <IOKit/iokitmig.h>
+#endif
 
 namespace IOFireWireLib {
 

@@ -35,12 +35,15 @@
 #include "MediaRecorderErrorEvent.h"
 #include "MediaRecorderPrivate.h"
 #include "SharedBuffer.h"
+#include <wtf/IsoMallocInlines.h>
 
 #if PLATFORM(COCOA)
 #include "MediaRecorderPrivateAVFImpl.h"
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(MediaRecorder);
 
 creatorFunction MediaRecorder::m_customCreator = nullptr;
 
@@ -51,7 +54,7 @@ ExceptionOr<Ref<MediaRecorder>> MediaRecorder::create(Document& document, Ref<Me
         return Exception { NotSupportedError, "The MediaRecorder is unsupported on this platform"_s };
     auto recorder = adoptRef(*new MediaRecorder(document, WTFMove(stream), WTFMove(privateInstance), WTFMove(options)));
     recorder->suspendIfNeeded();
-    return WTFMove(recorder);
+    return recorder;
 }
 
 void MediaRecorder::setCustomPrivateRecorderCreator(creatorFunction creator)

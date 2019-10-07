@@ -29,8 +29,8 @@
 #include <CoreFoundation/CFDictionary.h>
 #include <utilities/SecCFWrappers.h>
 
-#include <Security/SecureObjectSync/SOSAccount.h>
-#include <Security/SecureObjectSync/SOSAccountTrustClassic+Circle.h>
+#include "keychain/SecureObjectSync/SOSAccount.h"
+#include "keychain/SecureObjectSync/SOSAccountTrustClassic+Circle.h"
 
 #include "secd_regressions.h"
 #include "SOSAccountTesting.h"
@@ -45,6 +45,7 @@
  For phase 1 we expect the ghostfix to work with iOS devices, but not with MacOSX devices.
  */
 
+#if 0
 static void hauntedCircle(SOSPeerInfoDeviceClass devClass, bool expectGhostBusted)
 {
     CFErrorRef error = NULL;
@@ -195,13 +196,16 @@ static void iosICloudIdentity() {
     alice_account = nil;
     SOSTestCleanup();
 }
+#endif // 0
 
 int secd_68_ghosts(int argc, char *const *argv)
 {
-    plan_tests(573);
+    plan_tests(1);
     
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-    
+
+#if 0
+    // changing ghostbusting.  handleUpdateCircle version is going away.
     hauntedCircle(SOSPeerInfo_iOS, true);
     hauntedCircle(SOSPeerInfo_macOS, false);
     multiBob(SOSPeerInfo_iOS, true, false, false);
@@ -209,6 +213,6 @@ int secd_68_ghosts(int argc, char *const *argv)
     multiBob(SOSPeerInfo_iOS, false, false, true); // piggyback join case
 
     iosICloudIdentity();
-    
+#endif
     return 0;
 }

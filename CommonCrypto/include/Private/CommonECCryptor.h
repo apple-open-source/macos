@@ -24,7 +24,12 @@
 #ifndef _CC_ECCRYPTOR_H_
 #define _CC_ECCRYPTOR_H_
 
+#if defined(_MSC_VER)
+#include <availability.h>
+#else
 #include <os/availability.h>
+#endif
+
 
 #include <CommonCrypto/CommonCryptor.h>
 #include <CommonCrypto/CommonDigestSPI.h>
@@ -63,6 +68,7 @@ typedef uint32_t CCECKeyType;
 enum {
     kCCImportKeyBinary  = 0,
     kCCImportKeyDER		= 1,
+    kCCImportKeyCompact = 2,
 };
 typedef uint32_t CCECKeyExternalFormat;
 
@@ -124,7 +130,7 @@ API_AVAILABLE(macos(10.7), ios(5.0));
 */
 
 
-CCCryptorStatus CCECCryptorImportPublicKey( void *keyPackage,
+CCCryptorStatus CCECCryptorImportPublicKey( const void *keyPackage,
 											size_t keyPackageLen,
                                             CCECCryptorRef *key)
 API_AVAILABLE(macos(10.7), ios(5.0));
@@ -146,7 +152,7 @@ API_AVAILABLE(macos(10.7), ios(5.0));
      @result     Possible error returns are kCCParamError and kCCMemoryFailure.
  */
 
-CCCryptorStatus CCECCryptorImportKey(CCECKeyExternalFormat format, void *keyPackage, size_t keyPackageLen, CCECKeyType keyType, CCECCryptorRef *key)
+CCCryptorStatus CCECCryptorImportKey(CCECKeyExternalFormat format, const void *keyPackage, size_t keyPackageLen, CCECKeyType keyType, CCECCryptorRef *key)
 API_AVAILABLE(macos(10.7), ios(5.0));
 
 
@@ -360,6 +366,77 @@ CCECCryptorComputeSharedSecret( CCECCryptorRef privateKey,
                                 void *out,
                                 size_t *outLen)
 API_AVAILABLE(macos(10.7), ios(5.0));
+
+/*!
+    @function   CCECCryptorTwinDiversifyKey
+
+    @abstract   Diversifies a given EC key by deriving two scalars u,v from the
+                given entropy.
+
+    @discussion entropyLen must be a multiple of two, greater or equal to two
+                times the bitsize of the order of the chosen curve plus eight
+                bytes, e.g. 2 * (32 + 8) = 80 bytes for NIST P-256.
+
+                Use CCECCryptorTwinDiversifyEntropySize() to determine the
+                minimum entropy length that needs to be generated and passed.
+
+                entropy must be chosen from a uniform distribution, e.g.
+                random bytes, the output of a DRBG, or the output of a KDF.
+
+                u,v are computed by splitting the entropy into two parts of
+                equal size. For each part t (interpreted as a big-endian number),
+                a scalar s on the chosen curve will be computed via
+                s = (t mod (q-1)) + 1, where q is the order of curve's
+                generator G.
+
+                For a public key, this will compute u.P + v.G,
+                with G being the generator of the chosen curve.
+
+                For a private key, this will compute d' = (d * u + v) and
+                P = d' * G; G being the generator of the chosen curve.
+
+    @param      keyType      The type of key to be diversified (public or private).
+
+    @param      inKey        A CCECCryptorRef of type "keyType".
+
+    @param      entropy      The entropy data buffer.
+
+    @param      entropyLen   The entropy data buffer size.
+
+    @param      outKey       A pointer to a CCECCryptorRef of type "keyType".
+                             It's the caller's responsibility to call
+                             CCECCryptorRelease() on the key.
+
+    @result     Possible error returns are kCCParamError, kCCMemoryFailure
+                or kCCInvalidKey.
+
+*/
+
+CCCryptorStatus
+CCECCryptorTwinDiversifyKey(CCECKeyType keyType, CCECCryptorRef inKey,
+                            void *entropy, size_t entropyLen,
+                            CCECCryptorRef *outKey)
+API_AVAILABLE(macos(10.15), ios(13.0), tvos(13.0), watchos(6.0));
+
+/*!
+    @function   CCECCryptorTwinDiversifyEntropySize
+
+    @abstract   Returns the length of the entropy required by
+                CCECCryptorTwinDiversifyKey().
+
+    @discussion The return value is two times the bitsize of the order of the
+                chosen curve plus eight bytes, e.g. 2 * (32 + 8) = 80 bytes
+                for NIST P-256.
+
+    @param      key          A CCECCryptorRef.
+
+    @result     The entropy size.
+
+*/
+
+size_t
+CCECCryptorTwinDiversifyEntropySize(CCECCryptorRef key)
+API_AVAILABLE(macos(10.15), ios(13.0), tvos(13.0), watchos(6.0));
 
 /*======================================================================================*/
 /* Only for FIPS Testing                                                                */

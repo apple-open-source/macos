@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.PointerAssignment.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Pointers assignment simply copies over the pointer address in the
  * variable on the right hand side into the variable on the left hand side.

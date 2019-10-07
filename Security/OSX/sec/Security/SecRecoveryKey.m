@@ -16,7 +16,7 @@
 
 
 #import <Security/SecureObjectSync/SOSCloudCircle.h>
-#import <Security/SecureObjectSync/SOSInternal.h>
+#import "keychain/SecureObjectSync/SOSInternal.h"
 
 #if !TARGET_OS_BRIDGE
 #include <dlfcn.h>
@@ -33,7 +33,7 @@ typedef struct _CFSecRecoveryKey *CFSecRecoveryKeyRef;
 
 static uint8_t backupPublicKey[] = { 'B', 'a', 'c', 'k', 'u', ' ', 'P', 'u', 'b', 'l', 'i', 'c', 'k', 'e', 'y' };
 static uint8_t passwordInfoKey[] = { 'p', 'a', 's', 's', 'w', 'o', 'r', 'd', ' ', 's', 'e', 'c', 'r', 'e', 't' };
-#if !(defined(__i386__) || TARGET_IPHONE_SIMULATOR || TARGET_OS_BRIDGE)
+#if !(defined(__i386__) || TARGET_OS_SIMULATOR || TARGET_OS_BRIDGE)
 static uint8_t masterkeyIDSalt[] = { 'M', 'a', 's', 't', 'e', 'r', ' ', 'K', 'e', 'y', ' ', 'I', 'd', 'e', 't' };
 #endif
 
@@ -77,7 +77,6 @@ ValidateRecoveryKey(CFStringRef masterkey, NSError **error)
     return res;
 }
 
-
 NSString *
 SecRKCreateRecoveryKeyString(NSError **error)
 {
@@ -96,7 +95,6 @@ SecRKCreateRecoveryKeyString(NSError **error)
         CFRelease(recoveryKey);
         return NULL;
     }
-
     return (__bridge NSString *)recoveryKey;
 }
 
@@ -124,7 +122,6 @@ SecRKCreateRecoveryKeyWithError(NSString *masterKey, NSError **error)
         CFRelease(rk);
         return NULL;
     }
-
     return (SecRecoveryKey *) CFBridgingRelease(rk);
 }
 
@@ -208,7 +205,7 @@ CFDataRef (*localAppleIDauthSupportCreateVerifierPtr) (CFStringRef proto,
                                                 CFStringRef password,
                                                 CFErrorRef *error);
 
-#if !(defined(__i386__) || TARGET_IPHONE_SIMULATOR)
+#if !(defined(__i386__) || TARGET_OS_SIMULATOR)
 static CFStringRef getdlsymforString(void *framework, const char *symbol) {
     CFStringRef retval = NULL;
     void *tmpptr = dlsym(framework, symbol);
@@ -242,7 +239,7 @@ NSDictionary *
 SecRKCopyAccountRecoveryVerifier(NSString *recoveryKey,
                                  NSError **error) {
 
-#if defined(__i386__) || TARGET_IPHONE_SIMULATOR || TARGET_OS_BRIDGE
+#if defined(__i386__) || TARGET_OS_SIMULATOR || TARGET_OS_BRIDGE
     abort();
     return NULL;
 #else

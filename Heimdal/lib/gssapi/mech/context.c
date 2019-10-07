@@ -553,7 +553,7 @@ _gss_mg_log_cred(int level,
     free(str);
 }
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 #define PLUGIN_PREFIX "%{IPHONE_SIMULATOR_ROOT}"
 #else
 #define PLUGIN_PREFIX ""

@@ -15,6 +15,17 @@
 #include "test_utils.h"
 #include "systemx.h"
 
+bool verify_st_flags(struct stat *sb, uint32_t flags_to_expect) {
+	// Verify that sb's flags include flags_to_expect.
+	if (((sb->st_flags & flags_to_expect)) != flags_to_expect) {
+		printf("st_flags (%u) do not include expected flags (%u)\n",
+			sb->st_flags, flags_to_expect);
+		return false;
+	}
+
+	return true;
+}
+
 bool verify_fd_contents(int orig_fd, off_t orig_pos, int copy_fd, off_t copy_pos, size_t length) {
 	// Read *length* contents of the two fds and make sure they compare as equal.
 	// Don't alter the position of either fd.
@@ -39,7 +50,8 @@ bool verify_fd_contents(int orig_fd, off_t orig_pos, int copy_fd, off_t copy_pos
 		for (size_t bad_off = 0; bad_off < length; bad_off++) {
 			if (orig_contents[bad_off] != copy_contents[bad_off]) {
 				printf("first mismatch is at offset %zu, original 0x%llx COPY 0x%llx\n",
-					   bad_off, orig_contents[bad_off], copy_contents[bad_off]);
+					   bad_off, (unsigned long long)orig_contents[bad_off],
+					   (unsigned long long)copy_contents[bad_off]);
 				break;
 			}
 		}
@@ -68,14 +80,14 @@ bool verify_copy_sizes(struct stat *orig_sb, struct stat *copy_sb, copyfile_stat
 	// If requested, verify that the copy is a sparse file.
 	if (do_sparse) {
 		if (orig_sb->st_size - src_start != copy_sb->st_size) {
-			printf("original size - offset (%zd) != copy size (%zd)\n",
+			printf("original size - offset (%lld) != copy size (%lld)\n",
 				   orig_sb->st_size - src_start, copy_sb->st_size);
 			result = false;
 		}
 
-		blocks_offset = src_start / orig_sb->st_blksize;
+		blocks_offset = src_start / S_BLKSIZE;
 		if (orig_sb->st_blocks - blocks_offset < copy_sb->st_blocks) {
-			printf("original blocks - offset (%zd) < copy blocks (%zd)\n",
+			printf("original blocks - offset (%lld) < copy blocks (%lld)\n",
 				   orig_sb->st_blocks - blocks_offset, copy_sb->st_blocks);
 			result = false;
 		}
@@ -85,7 +97,7 @@ bool verify_copy_sizes(struct stat *orig_sb, struct stat *copy_sb, copyfile_stat
 	if (cpf_state) {
 		assert_no_err(copyfile_state_get(cpf_state, COPYFILE_STATE_COPIED, &cpf_bytes_copied));
 		if (orig_sb->st_size - src_start != cpf_bytes_copied) {
-			printf("original size - start (%zd) != copied bytes (%zd)\n",
+			printf("original size - start (%lld) != copied bytes (%lld)\n",
 				   orig_sb->st_size - src_start, cpf_bytes_copied);
 			result = false;
 		}

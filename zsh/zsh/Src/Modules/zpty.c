@@ -254,7 +254,12 @@ get_pty(int master, int *retfd)
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
     static char char1[] = "pqrsPQRS";
     static char char2[] = "0123456789abcdefghijklmnopqrstuv";
-#else /* __FreeBSD__ || __DragonFly__ */
+#elif defined(__OpenBSD__)
+    static char char1[] = "pqrstuvwxyzPQRST";
+    static char char2[] = "0123456789"
+                          "abcdefghijklmnopqrstuvwxyz"
+                          "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+#else /* __FreeBSD__ || __DragonFly__  || __OpenBSD*/
     static char char1[] = "pqrstuvwxyzPQRST";
     static char char2[] = "0123456789abcdef";
 #endif
@@ -331,6 +336,7 @@ newptycmd(char *nam, char *pname, char **args, int echo, int nblock)
 	/* This code copied from the clone module, except for getting *
 	 * the descriptor from get_pty() and duplicating it to 0/1/2. */
 
+	deletehookfunc("exit", ptyhook);
 	clearjobtab(0);
 	ppid = getppid();
 	mypid = getpid();
@@ -394,7 +400,7 @@ newptycmd(char *nam, char *pname, char **args, int echo, int nblock)
 	dup2(slave, 1);
 	dup2(slave, 2);
 
-	closem(0);
+	closem(FDT_UNUSED, 0);
 	close(slave);
 	close(master);
 	close(coprocin);
@@ -544,7 +550,8 @@ ptyread(char *nam, Ptycmd cmd, char **args, int noblock, int mustmatch)
 	p = dupstring(args[1]);
 	tokenize(p);
 	remnulargs(p);
-	if (!(prog = patcompile(p, PAT_STATIC, NULL))) {
+	/* Signals handlers might stomp PAT_STATIC */
+	if (!(prog = patcompile(p, PAT_ZDUP, NULL))) {
 	    zwarnnam(nam, "bad pattern: %s", args[1]);
 	    return 1;
 	}
@@ -682,9 +689,14 @@ ptyread(char *nam, Ptycmd cmd, char **args, int noblock, int mustmatch)
 	write_loop(1, buf, used);
     }
 
-    if (seen && (!prog || matchok || !mustmatch))
-	return 0;
-    return cmd->fin + 1;
+    {
+	int ret = cmd->fin + 1;
+	if (seen && (!prog || matchok || !mustmatch))
+	    ret = 0;
+	if (prog)
+	    freepatprog(prog);
+	return ret;
+    }
 }
 
 static int
@@ -846,6 +858,7 @@ bin_zpty(char *nam, char **args, Options ops, UNUSED(int func))
     }
 }
 
+/**/
 static int
 ptyhook(UNUSED(Hookdef d), UNUSED(void *dummy))
 {

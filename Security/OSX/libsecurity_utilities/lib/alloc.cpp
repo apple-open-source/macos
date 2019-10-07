@@ -137,8 +137,12 @@ void *SensitiveAllocator::realloc(void *addr, size_t newSize) throw(std::bad_all
 //
 void *CssmHeap::operator new (size_t size, Allocator *alloc) throw(std::bad_alloc)
 {
-	if (alloc == NULL)
+    if (size > SIZE_T_MAX / 2) {
+        throw std::bad_alloc();
+    }
+    if (alloc == NULL) {
 		alloc = &Allocator::standard();
+    }
 	size = alignUp(size, alignof_template<Allocator *>());
 	size_t totalSize = size + sizeof(Allocator *);
 	void *addr = alloc->malloc(totalSize);

@@ -30,7 +30,7 @@
 
 #import "PDFKitImports.h"
 #import "PDFLayerControllerSPI.h"
-#import <PDFKit/PDFKit.h>
+#import <Quartz/Quartz.h>
 #import <WebCore/CSSPrimitiveValue.h>
 #import <WebCore/CSSPropertyNames.h>
 #import <WebCore/ColorMac.h>
@@ -88,7 +88,7 @@ Ref<Element> PDFPluginChoiceAnnotation::createAnnotationElement()
         choiceOption->setTextContent(choice);
 
         if (choice == selectedChoice)
-            choiceOption->setAttributeWithoutSynchronization(selectedAttr, AtomicString("selected", AtomicString::ConstructFromLiteral));
+            choiceOption->setAttributeWithoutSynchronization(selectedAttr, AtomString("selected", AtomString::ConstructFromLiteral));
 
         styledElement.appendChild(choiceOption);
     }

@@ -23,6 +23,9 @@
 
 // Header exposed for unit testing only
 
+#ifndef SECURITY_SFSQL_H
+#define SECURITY_SFSQL_H 1
+
 #if __OBJC2__
 
 #import <Foundation/Foundation.h>
@@ -149,4 +152,5 @@ typedef NS_ENUM(NSInteger, SFSQLiteSynchronousMode) {
 
 @end
 
-#endif
+#endif /* __OBJC2__ */
+#endif /* SECURITY_SFSQL_H */

@@ -17,8 +17,6 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id$ */
-
 #include "php_hash.h"
 #include "php_hash_snefru.h"
 #include "php_hash_snefru_tables.h"
@@ -129,7 +127,7 @@ static inline void SnefruTransform(PHP_SNEFRU_CTX *context, const unsigned char 
 								((input[i+2] & 0xff) << 8) | (input[i+3] & 0xff);
 	}
 	Snefru(context->state);
-	memset(&context->state[8], 0, sizeof(uint32_t) * 8);
+	ZEND_SECURE_ZERO(&context->state[8], sizeof(uint32_t) * 8);
 }
 
 PHP_HASH_API void PHP_SNEFRUInit(PHP_SNEFRU_CTX *context)
@@ -151,7 +149,7 @@ PHP_HASH_API void PHP_SNEFRUUpdate(PHP_SNEFRU_CTX *context, const unsigned char 
 
 	if (context->length + len < 32) {
 		memcpy(&context->buffer[context->length], input, len);
-		context->length += len;
+		context->length += (unsigned char)len;
 	} else {
 		size_t i = 0, r = (context->length + len) % 32;
 
@@ -167,7 +165,7 @@ PHP_HASH_API void PHP_SNEFRUUpdate(PHP_SNEFRU_CTX *context, const unsigned char 
 
 		memcpy(context->buffer, input + i, r);
 		ZEND_SECURE_ZERO(&context->buffer[r], 32 - r);
-		context->length = r;
+		context->length = (unsigned char)r;
 	}
 }
 
@@ -200,7 +198,8 @@ const php_hash_ops php_hash_snefru_ops = {
 	(php_hash_copy_func_t) php_hash_copy,
 	32,
 	32,
-	sizeof(PHP_SNEFRU_CTX)
+	sizeof(PHP_SNEFRU_CTX),
+	1
 };
 
 /*

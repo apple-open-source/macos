@@ -67,19 +67,12 @@
 
 .content-view.resource.font .preview > .line > .metric {
     display: inline-block;
-
     width: 100%;
     height: 1px;
-
-    --margin-end: -100%; /* Causes this element to be zero width and draw behind the text. */
-}
-
-body[dir=ltr] .content-view.resource.font .preview > .line > .metric {
-    margin-right: var(--margin-end);
+    -webkit-margin-end: -100%; /* Causes this element to be zero width and draw behind the text. */
 }
 
 body[dir=rtl] .content-view.resource.font .preview > .line > .metric {
-    margin-left: var(--margin-end);
     position: relative;
     z-index: -1;
 }
@@ -109,7 +102,7 @@ body[dir=rtl] .content-view.resource.font .preview > .line > .metric {
     background-color: lightgrey;
 }
 
-@media (prefers-dark-interface) {
+@media (prefers-color-scheme: dark) {
     .content-view.resource.font .preview > .line {
         border-left-color: var(--text-color-quaternary);
         border-right-color: var(--text-color-quaternary);

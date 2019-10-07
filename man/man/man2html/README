@@ -89,6 +89,3 @@ must be all on one line):
       /usr/X11R6/man/man* /usr/local/man/man* /opt/man/man* ;
       chmod +r /var/man2html/.glimpse*
 --------------------------------------------------------------------------
-
-
-aeb@cwi.nl, 980119

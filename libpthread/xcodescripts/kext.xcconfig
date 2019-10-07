@@ -24,7 +24,7 @@ INFOPLIST_FILE = kern/pthread-Info.plist
 ALWAYS_SEARCH_USER_PATHS = NO
 SRCROOT_SEARCH_PATHS = $(SRCROOT) $(SRCROOT)/pthread $(SRCROOT)/private
 HEADER_SEARCH_PATHS = $(SDKROOT)/System/Library/Frameworks/Kernel.framework/PrivateHeaders $(SDKROOT)/System/Library/Frameworks/Kernel.framework/Headers $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/System/Library/Frameworks/System.framework/Headers $(SRCROOT_SEARCH_PATHS)
-GCC_C_LANGUAGE_STANDARD = gnu99
+GCC_C_LANGUAGE_STANDARD = gnu11
 CLANG_CXX_LANGUAGE_STANDARD = gnu++0x
 CLANG_CXX_LIBRARY = libc++
 GCC_PRECOMPILE_PREFIX_HEADER = YES
@@ -32,7 +32,7 @@ CODE_SIGN_IDENTITY = -
 DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
 
 GCC_OPTIMIZATION_LEVEL_normal = s
-GCC_OPTIMIZATION_LEVEL_development = 0
+GCC_OPTIMIZATION_LEVEL_development = s
 GCC_OPTIMIZATION_LEVEL = $(GCC_OPTIMIZATION_LEVEL_$(PTHREAD_VARIANT))
 
 DEAD_CODE_STRIPPING = NO

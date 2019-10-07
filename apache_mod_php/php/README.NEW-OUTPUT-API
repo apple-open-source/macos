@@ -1,9 +1,6 @@
-$Id: README.NEW-OUTPUT-API 219039 2006-08-30 07:39:09Z mike $
-
-
 API adjustment to the old output control code:
 
-	Everything now resides beneath the php_output namespace, 
+	Everything now resides beneath the php_output namespace,
 	and there's an API call for every output handler op.
 
 	Checking output control layers status:
@@ -18,7 +15,7 @@ API adjustment to the old output control code:
 		// php_start_ob_buffer(zhandler, chunk_size, erase);
 		php_output_start_user(zhandler, chunk_size, flags);
 
-	Starting an internal handler whithout context:
+	Starting an internal handler without context:
 		// php_ob_set_internal_handler(my_php_output_handler_func_t, buffer_size, "output handler name", erase);
 		php_output_start_internal(handler_name, handler_name_len, my_php_output_handler_func_t, chunk_size, flags);
 
@@ -134,7 +131,7 @@ Output handler hooks
 Open questions
 
 	Should the userland API be adjusted and unified?
-	
+
 	Many bits of the manual (and very first implementation) do not comply
 	with the behaviour of the current (to be obsoleted) code, thus should
 	the manual or the behaviour be adjusted?

@@ -45,7 +45,7 @@ namespace Layout {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(LayoutState);
 
-LayoutState::LayoutState(const Container& initialContainingBlock, const LayoutSize& containerSize)
+LayoutState::LayoutState(const Container& initialContainingBlock)
     : m_initialContainingBlock(makeWeakPtr(initialContainingBlock))
 {
     // LayoutState is always initiated with the ICB.
@@ -59,8 +59,8 @@ LayoutState::LayoutState(const Container& initialContainingBlock, const LayoutSi
     displayBox.setBorder({ });
     displayBox.setPadding({ });
     displayBox.setTopLeft({ });
-    displayBox.setContentBoxHeight(containerSize.height());
-    displayBox.setContentBoxWidth(containerSize.width());
+    displayBox.setContentBoxHeight(LayoutUnit(initialContainingBlock.style().logicalHeight().value()));
+    displayBox.setContentBoxWidth(LayoutUnit(initialContainingBlock.style().logicalWidth().value()));
 
     m_formattingContextRootListForLayout.add(&initialContainingBlock);
 }
@@ -76,8 +76,7 @@ void LayoutState::updateLayout()
 void LayoutState::layoutFormattingContextSubtree(const Box& layoutRoot)
 {
     RELEASE_ASSERT(layoutRoot.establishesFormattingContext());
-    auto& formattingState = createFormattingStateForFormattingRootIfNeeded(layoutRoot);
-    auto formattingContext = formattingState.createFormattingContext(layoutRoot);
+    auto formattingContext = createFormattingContext(layoutRoot);
     formattingContext->layout();
     formattingContext->layoutOutOfFlowDescendants(layoutRoot);
 }
@@ -146,6 +145,23 @@ FormattingState& LayoutState::createFormattingStateForFormattingRootIfNeeded(con
             // Block formatting context always establishes a new floating state.
             return std::make_unique<BlockFormattingState>(FloatingState::create(*this, formattingRoot), *this);
         }).iterator->value;
+    }
+
+    CRASH();
+}
+
+std::unique_ptr<FormattingContext> LayoutState::createFormattingContext(const Box& formattingContextRoot)
+{
+    ASSERT(formattingContextRoot.establishesFormattingContext());
+    if (formattingContextRoot.establishesInlineFormattingContext()) {
+        auto& inlineFormattingState = downcast<InlineFormattingState>(createFormattingStateForFormattingRootIfNeeded(formattingContextRoot));
+        return std::make_unique<InlineFormattingContext>(formattingContextRoot, inlineFormattingState);
+    }
+
+    if (formattingContextRoot.establishesBlockFormattingContext()) {
+        ASSERT(formattingContextRoot.establishesBlockFormattingContextOnly());
+        auto& blockFormattingState = downcast<BlockFormattingState>(createFormattingStateForFormattingRootIfNeeded(formattingContextRoot));
+        return std::make_unique<BlockFormattingContext>(formattingContextRoot, blockFormattingState);
     }
 
     CRASH();

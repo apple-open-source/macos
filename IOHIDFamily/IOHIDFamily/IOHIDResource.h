@@ -34,9 +34,9 @@ class IOHIDResource : public IOService
     IOWorkLoop * _workLoop;
 
 public:
-	bool start(IOService *provider);
-    void free();
-    IOWorkLoop * getWorkLoop() const;
+	bool start(IOService *provider) APPLE_KEXT_OVERRIDE;
+    void free(void) APPLE_KEXT_OVERRIDE;
+    IOWorkLoop * getWorkLoop() const APPLE_KEXT_OVERRIDE;
 };
 
 #endif /* !_IOHIDRESOURCE_H */

@@ -1,8 +1,8 @@
 #ifndef SEC_SOSTransportTestTransports_h
 #define SEC_SOSTransportTestTransports_h
 
-#import "Security/SecureObjectSync/SOSTransportCircleKVS.h"
-#import "Security/SecureObjectSync/SOSTransportMessageKVS.h"
+#import "keychain/SecureObjectSync/SOSTransportCircleKVS.h"
+#import "keychain/SecureObjectSync/SOSTransportMessageKVS.h"
 
 extern CFMutableArrayRef key_transports;
 extern CFMutableArrayRef circle_transports;

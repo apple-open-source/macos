@@ -153,7 +153,7 @@ urbtok_swapBinaryRules(const uint8_t *rules,
                UErrorCode       *status)
 {
     DataHeader *outH = NULL;
-    int32_t outLength = 0;
+    uint32_t outLength = 0;
     UDataSwapper *ds = udata_openSwapper(inIsBigEndian, U_CHARSET_FAMILY, outIsBigEndian, U_CHARSET_FAMILY, status);
     
     if (status == NULL || U_FAILURE(*status)){
@@ -193,7 +193,7 @@ urbtok_swapBinaryRules(const uint8_t *rules,
     dh->info.dataVersion[3] = 0;
     uprv_memcpy(((uint8_t*)dh) + sizeof(DataHeader), rules, length);
     
-    outLength = ubrk_swap(ds, dh, totalLength, outH, status);
+    outLength = (uint32_t)ubrk_swap(ds, dh, totalLength, outH, status);
     if (U_SUCCESS(*status) && outLength != totalLength)   // something went horribly wrong
     {
         *status = U_INVALID_FORMAT_ERROR;

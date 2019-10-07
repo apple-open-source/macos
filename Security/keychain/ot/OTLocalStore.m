@@ -28,6 +28,7 @@
 #import <SystemConfiguration/SystemConfiguration.h>
 #include <utilities/SecFileLocations.h>
 #import "keychain/ot/OTDefines.h"
+#import "keychain/ot/OTConstants.h"
 #if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
 #include <MobileGestalt.h>
 #else
@@ -86,7 +87,6 @@ static NSString* const bottledPeerTable = @"bp";
 static NSString* const octagonZoctagonErrorDomainoneName = @"OctagonTrustZone";
 
 /* Octagon Cloud Kit defines */
-static NSString* OTCKContainerName = @"com.apple.security.keychain";
 static NSString* OTCKZoneName = @"OctagonTrust";
 static NSString* OTCKRecordName = @"bp-";
 static NSString* OTCKRecordBottledPeerType = @"OTBottledPeer";
@@ -204,28 +204,28 @@ selectAll([db fetch:sql, ##__VA_ARGS__], [NSDictionary class])
     if(![_pDB execute:bottledPeerSchema]){
         secerror("octagon: could not create bottled peer schema");
         if(error){
-            *error = [NSError errorWithDomain:octagonErrorDomain code:OTErrorEntropyCreationFailure userInfo:@{NSLocalizedDescriptionKey: @"could not create bottled peer schema"}];
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorEntropyCreationFailure userInfo:@{NSLocalizedDescriptionKey: @"could not create bottled peer schema"}];
         }
         result = NO;
     }
     if(![_pDB execute:contextSchema]){
         secerror("octagon: could not create contextschema");
         if(error){
-            *error = [NSError errorWithDomain:octagonErrorDomain code:OTErrorOTLocalStore userInfo:@{NSLocalizedDescriptionKey: @"could not create context schema"}];
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorOTLocalStore userInfo:@{NSLocalizedDescriptionKey: @"could not create context schema"}];
         }
         result = NO;
     }
     if(![_pDB setupPragmas]){
         secerror("octagon: could not set up db pragmas");
         if(error){
-            *error = [NSError errorWithDomain:octagonErrorDomain code:OTErrorOTLocalStore userInfo:@{NSLocalizedDescriptionKey: @"could not set up db pragmas"}];
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorOTLocalStore userInfo:@{NSLocalizedDescriptionKey: @"could not set up db pragmas"}];
         }
         result = NO;
     }
     if(![_pDB setUserVersion:user_version]){
         secerror("octagon: could not set version");
         if(error){
-            *error = [NSError errorWithDomain:octagonErrorDomain code:OTErrorOTLocalStore userInfo:@{NSLocalizedDescriptionKey: @"could not set version"}];
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorOTLocalStore userInfo:@{NSLocalizedDescriptionKey: @"could not set version"}];
         }
         result = NO;
     }
@@ -369,7 +369,7 @@ selectAll([db fetch:sql, ##__VA_ARGS__], [NSDictionary class])
     else{
         secerror("octagon: no context attributes found");
         if(error){
-            *error = [NSError errorWithDomain:octagonErrorDomain code:OTErrorOTLocalStore userInfo:@{NSLocalizedDescriptionKey: @"no context attributes found"}];
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorOTLocalStore userInfo:@{NSLocalizedDescriptionKey: @"no context attributes found"}];
         }
     }
 
@@ -446,7 +446,7 @@ selectAll([db fetch:sql, ##__VA_ARGS__], [NSDictionary class])
         secerror("octagon: failed to update local context record: %@", _pDB.lastError);
 
         if(error != nil){
-            *error = [NSError errorWithDomain:octagonErrorDomain code:OTErrorNoColumn userInfo:nil];
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorNoColumn userInfo:nil];
         }
     }
     return result;
@@ -581,7 +581,7 @@ selectAll([db fetch:sql, ##__VA_ARGS__], [NSDictionary class])
     if ([selectArray count] > 1) {
         secerror("octagon: error multiple records exist in local store for %@", recordID);
         if(error){
-            *error = [NSError errorWithDomain:octagonErrorDomain code:OTErrorOTLocalStore userInfo:@{NSLocalizedDescriptionKey: @"error multiple records exist in local store"}];
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorOTLocalStore userInfo:@{NSLocalizedDescriptionKey: @"error multiple records exist in local store"}];
         }
         return nil;
     }
@@ -641,7 +641,7 @@ selectAll([db fetch:sql, ##__VA_ARGS__], [NSDictionary class])
     if ([selectArray count] == 0) {
         secerror("octagon: there are no bottled peer entries in local store");
         if(error){
-            *error = [NSError errorWithDomain:octagonErrorDomain code:OTErrorOTLocalStore userInfo:@{NSLocalizedDescriptionKey: @"there are no bottled peer entries in local store"}];
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorOTLocalStore userInfo:@{NSLocalizedDescriptionKey: @"there are no bottled peer entries in local store"}];
         }
         return nil;
     }
@@ -664,7 +664,7 @@ selectAll([db fetch:sql, ##__VA_ARGS__], [NSDictionary class])
     if ([selectArray count] == 0) {
         secerror("octagon: there are no bottled peer entries in local store");
         if(error){
-            *error = [NSError errorWithDomain:octagonErrorDomain code:OTErrorOTLocalStore userInfo:@{NSLocalizedDescriptionKey: @"there are no bottled peer entries in local store"}];
+            *error = [NSError errorWithDomain:OctagonErrorDomain code:OTErrorOTLocalStore userInfo:@{NSLocalizedDescriptionKey: @"there are no bottled peer entries in local store"}];
         }
         return nil;
     }

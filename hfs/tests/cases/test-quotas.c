@@ -8,6 +8,8 @@
 
 #include <TargetConditionals.h>
 
+#if !TARGET_OS_IPHONE
+
 #include <unistd.h>
 #include <stdio.h>
 #include <fcntl.h>
@@ -39,7 +41,7 @@ int run_quotas(__unused test_ctx_t *ctx)
 {
 	disk_image_t *di = disk_image_create(QUOTA_DMG,
 	                                     &(disk_image_opts_t) {
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	                                     	.mount_point = QUOTA_DMG_MOUNT_POINT,
 #endif
 	                                     	.size = 64 * 1024 * 1024,
@@ -112,3 +114,4 @@ int run_quotas(__unused test_ctx_t *ctx)
 
 	return 0;
 }
+#endif // !TARGET_OS_EMBEDDED

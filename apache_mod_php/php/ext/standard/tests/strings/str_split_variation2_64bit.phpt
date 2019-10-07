@@ -7,9 +7,9 @@ if (PHP_INT_SIZE != 8) die("skip this test is for 64bit platform only");
 --FILE--
 <?php
 /* Prototype  : array str_split(string $str [, int $split_length])
- * Description: Convert a string to an array. If split_length is 
-                specified, break the string down into chunks each 
-                split_length characters long. 
+ * Description: Convert a string to an array. If split_length is
+                specified, break the string down into chunks each
+                split_length characters long.
  * Source code: ext/standard/string.c
  * Alias to functions: none
 */
@@ -124,23 +124,23 @@ Warning: str_split(): The length of each segment must be greater than zero in %s
 bool(false)
 --Iteration 6 --
 
-Warning: str_split() expects parameter 2 to be integer, array given in %s on line %d
+Warning: str_split() expects parameter 2 to be int, array given in %s on line %d
 NULL
 --Iteration 7 --
 
-Warning: str_split() expects parameter 2 to be integer, array given in %s on line %d
+Warning: str_split() expects parameter 2 to be int, array given in %s on line %d
 NULL
 --Iteration 8 --
 
-Warning: str_split() expects parameter 2 to be integer, array given in %s on line %d
+Warning: str_split() expects parameter 2 to be int, array given in %s on line %d
 NULL
 --Iteration 9 --
 
-Warning: str_split() expects parameter 2 to be integer, array given in %s on line %d
+Warning: str_split() expects parameter 2 to be int, array given in %s on line %d
 NULL
 --Iteration 10 --
 
-Warning: str_split() expects parameter 2 to be integer, array given in %s on line %d
+Warning: str_split() expects parameter 2 to be int, array given in %s on line %d
 NULL
 --Iteration 11 --
 
@@ -258,23 +258,23 @@ Warning: str_split(): The length of each segment must be greater than zero in %s
 bool(false)
 --Iteration 17 --
 
-Warning: str_split() expects parameter 2 to be integer, string given in %s on line %d
+Warning: str_split() expects parameter 2 to be int, string given in %s on line %d
 NULL
 --Iteration 18 --
 
-Warning: str_split() expects parameter 2 to be integer, string given in %s on line %d
+Warning: str_split() expects parameter 2 to be int, string given in %s on line %d
 NULL
 --Iteration 19 --
 
-Warning: str_split() expects parameter 2 to be integer, string given in %s on line %d
+Warning: str_split() expects parameter 2 to be int, string given in %s on line %d
 NULL
 --Iteration 20 --
 
-Warning: str_split() expects parameter 2 to be integer, string given in %s on line %d
+Warning: str_split() expects parameter 2 to be int, string given in %s on line %d
 NULL
 --Iteration 21 --
 
-Warning: str_split() expects parameter 2 to be integer, object given in %s on line %d
+Warning: str_split() expects parameter 2 to be int, object given in %s on line %d
 NULL
 --Iteration 22 --
 
@@ -286,6 +286,6 @@ Warning: str_split(): The length of each segment must be greater than zero in %s
 bool(false)
 --Iteration 24 --
 
-Warning: str_split() expects parameter 2 to be integer, resource given in %s on line %d
+Warning: str_split() expects parameter 2 to be int, resource given in %s on line %d
 NULL
 Done

@@ -40,7 +40,6 @@
 #include <stdio.h>
 
 #include "heim.h"
-#include "heim-sym.h"
 
 static cc_time_t context_change_time = 0;
 

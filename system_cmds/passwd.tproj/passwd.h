@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -25,14 +25,16 @@
 #include <TargetConditionals.h>
 
 #define INFO_FILE 1
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #define INFO_NIS 2
 #define INFO_OPEN_DIRECTORY 3
 #define INFO_PAM 4
 #endif
 
 extern int file_passwd(char *, char *);
+#ifdef INFO_NIS
 extern int nis_passwd(char *, char *);
+#endif
 #ifdef INFO_OPEN_DIRECTORY
 extern int od_passwd(char *, char *, char*);
 #endif

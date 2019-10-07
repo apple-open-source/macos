@@ -160,8 +160,10 @@ static inline void __ntfs_inode_init(ntfs_volume *vol, ntfs_inode *ni)
 		.tv_nsec = 0,
 	};
 	ntfs_rl_init(&ni->rl);
+	lck_mtx_init(&ni->buf_lock, ntfs_lock_grp, ntfs_lock_attr);
 	ni->mft_ni = NULL;
 	ni->m_buf = NULL;
+	ni->m_dbuf = NULL;
 	ni->m = NULL;
 	ni->attr_list_size = 0;
 	ni->attr_list_alloc = 0;
@@ -4392,7 +4394,7 @@ try_next:
 	 */
 	if (name) {
 		name_size = MAXPATHLEN;
-		res_size = ntfs_to_utf8(ni->vol, (ntfschar*)&fn->filename,
+		res_size = ntfs_to_utf8(ni->vol, fn->filename,
 				fn->filename_length << NTFSCHAR_SIZE_SHIFT,
 				(u8**)&name, &name_size);
 		if (res_size < 0) {

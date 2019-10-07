@@ -16,8 +16,6 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id$ */
-
 /* Flags for stream_socket_client */
 #define PHP_STREAM_CLIENT_PERSISTENT	1
 #define PHP_STREAM_CLIENT_ASYNC_CONNECT	2
@@ -61,6 +59,10 @@ PHP_FUNCTION(stream_socket_shutdown);
 PHP_FUNCTION(stream_resolve_include_path);
 PHP_FUNCTION(stream_is_local);
 PHP_FUNCTION(stream_supports_lock);
+PHP_FUNCTION(stream_isatty);
+#ifdef PHP_WIN32
+PHP_FUNCTION(sapi_windows_vt100_support);
+#endif
 
 #if HAVE_SOCKETPAIR
 PHP_FUNCTION(stream_socket_pair);
@@ -74,4 +76,3 @@ PHP_FUNCTION(stream_socket_pair);
  * vim600: noet sw=4 ts=4 fdm=marker
  * vim<600: noet sw=4 ts=4
  */
-

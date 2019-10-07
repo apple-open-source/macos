@@ -9,4 +9,8 @@ sed -e 's/^\(Process:.*\[\)[0-9][0-9]*/\1XXXX/'			\
     -e '/Process [0-9][0-9]*: [0-9][0-9]* nodes malloced/d'	\
     -e 's/^\(Process \)[0-9][0-9]*:\(.*\)/\1XXXX\2/' 		\
     -e 's/^\(Path: \)\(.*$\)/\1XXXX/'				\
-    -e 's/^\(OS Version: \)\(.*$\)/\1XXXX/'
+    -e 's/^\(OS Version: \)\(.*$\)/\1XXXX/' 			\
+    -e '/^Load Address:.*/d'					\
+    -e '/^Launch Time:.*/d'					\
+    -e '/^Physical footprint:.*/d'				\
+    -e '/^Physical footprint (peak):.*/d'

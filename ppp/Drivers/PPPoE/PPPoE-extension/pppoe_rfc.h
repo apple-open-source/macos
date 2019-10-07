@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,8 +64,8 @@ enum {
 typedef void (*pppoe_rfc_event_callback)(void *data, u_int32_t event, u_int32_t msg);
 typedef int (*pppoe_rfc_input_callback)(void *data, mbuf_t m);
 
-u_int16_t pppoe_rfc_init();
-u_int16_t pppoe_rfc_dispose();
+u_int16_t pppoe_rfc_init(void);
+u_int16_t pppoe_rfc_dispose(void);
 int pppoe_rfc_attach(u_short unit, ifnet_t *ifpp);
 int pppoe_rfc_detach(u_short unit);
 u_int16_t pppoe_rfc_new_client(void *host, void **data,
@@ -83,7 +83,7 @@ u_int16_t pppoe_rfc_accept(void *data);
 void pppoe_rfc_clone(void *data1, void *data2);
 u_int16_t pppoe_rfc_command(void *userdata, u_int32_t cmd, void *cmddata);
 
-void pppoe_rfc_timer();
+void pppoe_rfc_timer(void);
 
 u_int16_t pppoe_rfc_output(void *data, mbuf_t m);
 

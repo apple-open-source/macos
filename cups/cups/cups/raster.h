@@ -1,18 +1,13 @@
 /*
  * Raster file definitions for CUPS.
  *
- * Copyright 2007-2016 by Apple Inc.
- * Copyright 1997-2006 by Easy Software Products.
+ * Copyright © 2007-2018 by Apple Inc.
+ * Copyright © 1997-2006 by Easy Software Products.
  *
  * This file is part of the CUPS Imaging library.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 #ifndef _CUPS_RASTER_H_
@@ -359,20 +354,6 @@ typedef struct cups_page_header2_s	/**** Version 2 page header @since CUPS 1.2/m
 typedef struct _cups_raster_s cups_raster_t;
 					/**** Raster stream data ****/
 
-typedef int (*cups_interpret_cb_t)(cups_page_header2_t *header, int preferred_bits);
-					/**** cupsRasterInterpretPPD callback function
-					 *
-					 * This function is called by
-					 * @link cupsRasterInterpretPPD@ to
-					 * validate (and update, as needed)
-					 * the page header attributes. The
-					 * "preferred_bits" argument provides
-					 * the value of the
-					 * @code cupsPreferredBitsPerColor@
-					 * key from the PostScript page device
-					 * dictionary and is 0 if undefined.
-					 ****/
-
 /**** New in CUPS 1.5 ****/
 typedef ssize_t (*cups_raster_iocb_t)(void *ctx, unsigned char *buffer, size_t length);
 					/**** cupsRasterOpenIO callback function
@@ -391,29 +372,22 @@ typedef ssize_t (*cups_raster_iocb_t)(void *ctx, unsigned char *buffer, size_t l
  * Prototypes...
  */
 
-extern void		cupsRasterClose(cups_raster_t *r);
-extern cups_raster_t	*cupsRasterOpen(int fd, cups_mode_t mode);
-extern unsigned		cupsRasterReadHeader(cups_raster_t *r,
-			                     cups_page_header_t *h) _CUPS_DEPRECATED_MSG("Use cupsRasterReadHeader2 instead.");
-extern unsigned		cupsRasterReadPixels(cups_raster_t *r,
-			                     unsigned char *p, unsigned len);
-extern unsigned		cupsRasterWriteHeader(cups_raster_t *r,
-			                      cups_page_header_t *h) _CUPS_DEPRECATED_MSG("Use cupsRasterWriteHeader2 instead.");
-extern unsigned		cupsRasterWritePixels(cups_raster_t *r,
-			                      unsigned char *p, unsigned len);
+extern void		cupsRasterClose(cups_raster_t *r) _CUPS_PUBLIC;
+extern cups_raster_t	*cupsRasterOpen(int fd, cups_mode_t mode) _CUPS_PUBLIC;
+extern unsigned		cupsRasterReadHeader(cups_raster_t *r, cups_page_header_t *h) _CUPS_DEPRECATED_MSG("Use cupsRasterReadHeader2 instead.") _CUPS_PUBLIC;
+extern unsigned		cupsRasterReadPixels(cups_raster_t *r, unsigned char *p, unsigned len) _CUPS_PUBLIC;
+extern unsigned		cupsRasterWriteHeader(cups_raster_t *r, cups_page_header_t *h) _CUPS_DEPRECATED_MSG("Use cupsRasterWriteHeader2 instead.") _CUPS_PUBLIC;
+extern unsigned		cupsRasterWritePixels(cups_raster_t *r, unsigned char *p, unsigned len) _CUPS_PUBLIC;
 
 /**** New in CUPS 1.2 ****/
-extern unsigned		cupsRasterReadHeader2(cups_raster_t *r,
-			                      cups_page_header2_t *h) _CUPS_API_1_2;
-extern unsigned		cupsRasterWriteHeader2(cups_raster_t *r,
-			                       cups_page_header2_t *h) _CUPS_API_1_2;
+extern unsigned		cupsRasterReadHeader2(cups_raster_t *r, cups_page_header2_t *h) _CUPS_API_1_2;
+extern unsigned		cupsRasterWriteHeader2(cups_raster_t *r, cups_page_header2_t *h) _CUPS_API_1_2;
 
 /**** New in CUPS 1.3 ****/
 extern const char	*cupsRasterErrorString(void) _CUPS_API_1_3;
 
 /**** New in CUPS 1.5 ****/
-extern cups_raster_t	*cupsRasterOpenIO(cups_raster_iocb_t iocb, void *ctx,
-			                  cups_mode_t mode);
+extern cups_raster_t	*cupsRasterOpenIO(cups_raster_iocb_t iocb, void *ctx, cups_mode_t mode) _CUPS_API_1_5;
 
 /**** New in CUPS 2.2/macOS 10.12 ****/
 extern int		cupsRasterInitPWGHeader(cups_page_header2_t *h, pwg_media_t *media, const char *type, int xdpi, int ydpi, const char *sides, const char *sheet_back) _CUPS_API_2_2;

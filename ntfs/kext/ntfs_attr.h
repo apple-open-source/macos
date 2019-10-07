@@ -54,7 +54,7 @@ typedef struct _ntfs_attr_search_ctx ntfs_attr_search_ctx;
  * when looking up attributes to specify that we want the unnamed attribute as
  * opposed to any attribute or a specific named attribute.
  */
-__private_extern__ ntfschar AT_UNNAMED[1];
+__attribute__((visibility("hidden"))) extern ntfschar AT_UNNAMED[1];
 
 __private_extern__ errno_t ntfs_attr_map_runlist(ntfs_inode *ni);
 

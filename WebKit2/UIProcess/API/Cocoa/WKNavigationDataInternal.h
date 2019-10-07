@@ -25,22 +25,16 @@
 
 #import "WKNavigationData.h"
 
-#if WK_API_ENABLED
-
 #import "APINavigationData.h"
 #import "WKObject.h"
 
 namespace WebKit {
 
 template<> struct WrapperTraits<API::NavigationData> {
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     using WrapperClass = WKNavigationData;
-    ALLOW_DEPRECATED_DECLARATIONS_END
 };
 
 }
 
 @interface WKNavigationData () <WKObject>
 @end
-
-#endif // WK_API_ENABLED

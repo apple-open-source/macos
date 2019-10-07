@@ -41,7 +41,7 @@ class JSFunction;
 enum OpcodeID : unsigned;
 struct CallFrameShuffleData;
 
-class CallLinkInfo : public BasicRawSentinelNode<CallLinkInfo> {
+class CallLinkInfo : public PackedRawSentinelNode<CallLinkInfo> {
 public:
     enum CallType {
         None,
@@ -146,7 +146,7 @@ public:
     
     NearCallMode nearCallMode() const
     {
-        return isTailCall() ? Tail : Regular;
+        return isTailCall() ? NearCallMode::Tail : NearCallMode::Regular;
     }
 
     bool isVarargs() const
@@ -342,6 +342,7 @@ public:
     }
 
 private:
+    uint32_t m_maxNumArguments { 0 }; // For varargs: the profiled maximum number of arguments. For direct: the number of stack slots allocated for arguments.
     CodeLocationLabel<JSInternalPtrTag> m_callReturnLocationOrPatchableJump;
     CodeLocationLabel<JSInternalPtrTag> m_hotPathBeginOrSlowPathStart;
     CodeLocationNearCall<JSInternalPtrTag> m_hotPathOther;
@@ -350,6 +351,7 @@ private:
     RefPtr<PolymorphicCallStubRoutine> m_stub;
     RefPtr<JITStubRoutine> m_slowStub;
     std::unique_ptr<CallFrameShuffleData> m_frameShuffleData;
+    CodeOrigin m_codeOrigin;
     bool m_hasSeenShouldRepatch : 1;
     bool m_hasSeenClosure : 1;
     bool m_clearedByGC : 1;
@@ -357,10 +359,8 @@ private:
     bool m_allowStubs : 1;
     bool m_clearedByJettison : 1;
     unsigned m_callType : 4; // CallType
-    uint32_t m_maxNumArguments; // For varargs: the profiled maximum number of arguments. For direct: the number of stack slots allocated for arguments.
-    uint32_t m_slowPathCount;
-    CodeOrigin m_codeOrigin;
     GPRReg m_calleeGPR { InvalidGPRReg };
+    uint32_t m_slowPathCount { 0 };
 };
 
 inline CodeOrigin getCallLinkInfoCodeOrigin(CallLinkInfo& callLinkInfo)

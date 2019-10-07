@@ -586,8 +586,16 @@ as{
             "UZS",
             "উজবেকিস্তানী ছোম",
         }
+        VEB{
+            "VEB",
+            "ভেনিজুৱেলান বলিভাৰ (1871–2008)",
+        }
         VEF{
             "VEF",
+            "ভেনিজুৱেলান বলিভাৰ (2008–2018)",
+        }
+        VES{
+            "VES",
             "ভেনিজুৱেলান বলিভাৰ",
         }
         VND{
@@ -619,7 +627,7 @@ as{
             "CFP ফ্ৰেংক",
         }
         XXX{
-            "XXX",
+            "¤",
             "অজ্ঞাত মুদ্ৰা",
         }
         YER{
@@ -636,103 +644,7 @@ as{
         }
     }
     Currencies%narrow{
-        AOA{"Kz"}
-        ARS{"$"}
-        AUD{"$"}
-        BAM{"KM"}
-        BBD{"$"}
-        BDT{"৳"}
-        BMD{"$"}
-        BND{"$"}
-        BOB{"Bs"}
-        BRL{"R$"}
-        BSD{"$"}
-        BWP{"P"}
-        BYN{"р."}
-        BZD{"$"}
-        CAD{"$"}
-        CLP{"$"}
-        CNY{"¥"}
-        COP{"$"}
-        CRC{"₡"}
-        CUC{"$"}
-        CUP{"$"}
-        CZK{"Kč"}
-        DKK{"kr"}
-        DOP{"$"}
-        EGP{"E£"}
-        EUR{"€"}
-        FJD{"$"}
-        FKP{"£"}
-        GBP{"£"}
-        GEL{"₾"}
-        GIP{"£"}
-        GNF{"FG"}
-        GTQ{"Q"}
-        GYD{"$"}
-        HKD{"$"}
-        HNL{"L"}
-        HRK{"kn"}
-        HUF{"Ft"}
-        IDR{"Rp"}
-        ILS{"₪"}
-        INR{"₹"}
-        ISK{"kr"}
-        JMD{"$"}
-        JPY{"¥"}
-        KHR{"៛"}
-        KMF{"CF"}
-        KPW{"₩"}
-        KRW{"₩"}
-        KYD{"$"}
-        KZT{"₸"}
-        LAK{"₭"}
-        LBP{"L£"}
-        LKR{"Rs"}
-        LRD{"$"}
-        MGA{"Ar"}
-        MMK{"K"}
-        MNT{"₮"}
-        MUR{"Rs"}
-        MXN{"$"}
-        MYR{"RM"}
-        NAD{"$"}
-        NGN{"₦"}
-        NIO{"C$"}
-        NOK{"kr"}
-        NPR{"Rs"}
-        NZD{"$"}
-        PHP{"₱"}
-        PKR{"Rs"}
-        PLN{"zł"}
-        PYG{"₲"}
-        RON{"lei"}
-        RUB{"₽"}
-        RWF{"RF"}
-        SBD{"$"}
-        SEK{"kr"}
-        SGD{"$"}
-        SHP{"£"}
-        SRD{"$"}
-        SSP{"£"}
         STN{"Db"}
-        SYP{"£"}
-        THB{"฿"}
-        TOP{"T$"}
-        TRY{"₺"}
-        TTD{"$"}
-        TWD{"$"}
-        UAH{"₴"}
-        USD{"$"}
-        UYU{"$"}
-        VEF{"Bs"}
-        VND{"₫"}
-        XCD{"$"}
-        ZAR{"R"}
-        ZMW{"ZK"}
-    }
-    Currencies%variant{
-        TRY{"TL"}
     }
     CurrencyPlurals{
         AED{
@@ -1319,9 +1231,17 @@ as{
             one{"উজবেকিস্তানী ছোম"}
             other{"উজবেকিস্তানী ছোম"}
         }
+        VEB{
+            one{"ভেনিজুৱেলান বলিভাৰ (1871–2008)"}
+            other{"ভেনিজুৱেলান বলিভাৰ (1871–2008)"}
+        }
         VEF{
-            one{"ভেনিজুৱেলান বলিভাৰ"}
-            other{"ভেনিজুৱেলান বলিভাৰ"}
+            one{"ভেনিজুৱেলান বলিভাৰ (2008–2018)"}
+            other{"ভেনিজুৱেলান বলিভাৰ (2008–2018)"}
+        }
+        VES{
+            one{"ভেনিজুৱেলান ব’লিভাৰ"}
+            other{"ভেনিজুৱেলান ব’লিভাৰছ্"}
         }
         VND{
             one{"ভিয়েটনামীজ ডং"}
@@ -1368,5 +1288,5 @@ as{
             other{"জাম্বিয়ান কোৱাচা"}
         }
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.17"}
 }

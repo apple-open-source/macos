@@ -48,10 +48,10 @@
 #include "ntfs_layout.h"
 #include "ntfs_volume.h"
 
-__private_extern__ SDS_ENTRY *ntfs_file_sds_entry;
-__private_extern__ SDS_ENTRY *ntfs_dir_sds_entry;
-__private_extern__ SDS_ENTRY *ntfs_file_sds_entry_old;
-__private_extern__ SDS_ENTRY *ntfs_dir_sds_entry_old;
+__attribute__((visibility("hidden"))) extern SDS_ENTRY *ntfs_file_sds_entry;
+__attribute__((visibility("hidden"))) extern SDS_ENTRY *ntfs_dir_sds_entry;
+__attribute__((visibility("hidden"))) extern SDS_ENTRY *ntfs_file_sds_entry_old;
+__attribute__((visibility("hidden"))) extern SDS_ENTRY *ntfs_dir_sds_entry_old;
 
 /**
  * ntfs_rol32 - rotate a value to the left

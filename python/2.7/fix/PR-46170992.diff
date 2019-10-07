@@ -1,0 +1,55 @@
+diff -urp Python-2.7.10/Include/stringobject.h Python-2.7.10-fix/Include/stringobject.h
+--- Python-2.7.10/Include/stringobject.h	2015-05-23 09:09:00.000000000 -0700
++++ Python-2.7.10-fix/Include/stringobject.h	2019-03-31 11:23:24.000000000 -0700
+@@ -170,9 +170,9 @@ PyAPI_FUNC(PyObject*) PyString_AsDecoded
+    cause an exception).  */
+ 
+ PyAPI_FUNC(int) PyString_AsStringAndSize(
+-    register PyObject *obj,	/* string or Unicode object */
+-    register char **s,		/* pointer to buffer variable */
+-    register Py_ssize_t *len	/* pointer to length variable or NULL
++    PyObject *obj,	/* string or Unicode object */
++    char **s,		/* pointer to buffer variable */
++    Py_ssize_t *len	/* pointer to length variable or NULL
+ 				   (only possible for 0-terminated
+ 				   strings) */
+     );
+diff -urp Python-2.7.10/Include/unicodeobject.h Python-2.7.10-fix/Include/unicodeobject.h
+--- Python-2.7.10/Include/unicodeobject.h	2015-05-23 09:09:00.000000000 -0700
++++ Python-2.7.10-fix/Include/unicodeobject.h	2019-03-31 11:23:04.000000000 -0700
+@@ -531,7 +531,7 @@ PyAPI_FUNC(int) PyUnicode_Resize(
+ */
+ 
+ PyAPI_FUNC(PyObject*) PyUnicode_FromEncodedObject(
+-    register PyObject *obj,     /* Object */
++    PyObject *obj,     /* Object */
+     const char *encoding,       /* encoding */
+     const char *errors          /* error handling */
+     );
+@@ -550,7 +550,7 @@ PyAPI_FUNC(PyObject*) PyUnicode_FromEnco
+ */
+ 
+ PyAPI_FUNC(PyObject*) PyUnicode_FromObject(
+-    register PyObject *obj      /* Object */
++    PyObject *obj      /* Object */
+     );
+ 
+ PyAPI_FUNC(PyObject *) PyUnicode_FromFormatV(const char*, va_list);
+@@ -572,7 +572,7 @@ PyAPI_FUNC(PyObject *) _PyUnicode_Format
+    The buffer is copied into the new object. */
+ 
+ PyAPI_FUNC(PyObject*) PyUnicode_FromWideChar(
+-    register const wchar_t *w,  /* wchar_t buffer */
++    const wchar_t *w,  /* wchar_t buffer */
+     Py_ssize_t size             /* size of buffer */
+     );
+ 
+@@ -590,7 +590,7 @@ PyAPI_FUNC(PyObject*) PyUnicode_FromWide
+ 
+ PyAPI_FUNC(Py_ssize_t) PyUnicode_AsWideChar(
+     PyUnicodeObject *unicode,   /* Unicode object */
+-    register wchar_t *w,        /* wchar_t buffer */
++    wchar_t *w,        /* wchar_t buffer */
+     Py_ssize_t size             /* size of buffer */
+     );
+ 

@@ -26,7 +26,7 @@
 
 WI.Resource = class Resource extends WI.SourceCode
 {
-    constructor(url, {mimeType, type, loaderIdentifier, targetId, requestIdentifier, requestMethod, requestHeaders, requestData, requestSentTimestamp, requestSentWalltime, initiatorSourceCodeLocation, initiatorNode, originalRequestWillBeSentTimestamp} = {})
+    constructor(url, {mimeType, type, loaderIdentifier, targetId, requestIdentifier, requestMethod, requestHeaders, requestData, requestSentTimestamp, requestSentWalltime, initiatorCallFrames, initiatorSourceCodeLocation, initiatorNode, originalRequestWillBeSentTimestamp} = {})
     {
         super();
 
@@ -52,6 +52,7 @@ WI.Resource = class Resource extends WI.SourceCode
         this._responseCookies = null;
         this._serverTimingEntries = null;
         this._parentFrame = null;
+        this._initiatorCallFrames = initiatorCallFrames || null;
         this._initiatorSourceCodeLocation = initiatorSourceCodeLocation || null;
         this._initiatorNode = initiatorNode || null;
         this._initiatedResources = [];
@@ -66,11 +67,12 @@ WI.Resource = class Resource extends WI.SourceCode
         this._statusText = null;
         this._cached = false;
         this._canceled = false;
+        this._finished = false;
         this._failed = false;
         this._failureReasonText = null;
         this._receivedNetworkLoadMetrics = false;
         this._responseSource = WI.Resource.ResponseSource.Unknown;
-        this._responseSecurity = null;
+        this._security = null;
         this._timingData = new WI.ResourceTimingData(this);
         this._protocol = null;
         this._priority = WI.Resource.NetworkPriority.Unknown;
@@ -154,8 +156,8 @@ WI.Resource = class Resource extends WI.SourceCode
             return WI.UIString("XHR");
         case WI.Resource.Type.Fetch:
             if (plural)
-                return WI.UIString("Fetches");
-            return WI.UIString("Fetch");
+                return WI.UIString("Fetches", "Resources loaded via 'fetch' method");
+            return WI.repeatedUIString.fetch();
         case WI.Resource.Type.Ping:
             if (plural)
                 return WI.UIString("Pings");
@@ -300,6 +302,7 @@ WI.Resource = class Resource extends WI.SourceCode
     get requestIdentifier() { return this._requestIdentifier; }
     get requestMethod() { return this._requestMethod; }
     get requestData() { return this._requestData; }
+    get initiatorCallFrames() { return this._initiatorCallFrames; }
     get initiatorSourceCodeLocation() { return this._initiatorSourceCodeLocation; }
     get initiatorNode() { return this._initiatorNode; }
     get initiatedResources() { return this._initiatedResources; }
@@ -307,7 +310,7 @@ WI.Resource = class Resource extends WI.SourceCode
     get statusCode() { return this._statusCode; }
     get statusText() { return this._statusText; }
     get responseSource() { return this._responseSource; }
-    get responseSecurity() { return this._responseSecurity; }
+    get security() { return this._security; }
     get timingData() { return this._timingData; }
     get protocol() { return this._protocol; }
     get priority() { return this._priority; }
@@ -715,8 +718,7 @@ WI.Resource = class Resource extends WI.SourceCode
         if (source)
             this._responseSource = WI.Resource.responseSourceFromPayload(source);
 
-        if (security)
-            this._responseSecurity = security;
+        this._security = security || {};
 
         const headerBaseSize = 12; // Length of "HTTP/1.1 ", " ", and "\r\n".
         const headerPad = 4; // Length of ": " and "\r\n".
@@ -789,8 +791,18 @@ WI.Resource = class Resource extends WI.SourceCode
             console.assert(this._responseBodyTransferSize >= 0);
             console.assert(this._responseBodySize >= 0);
 
+            // There may have been no size updates received during load if Content-Length was 0.
+            if (isNaN(this._estimatedSize))
+                this._estimatedSize = 0;
+
             this.dispatchEventToListeners(WI.Resource.Event.SizeDidChange, {previousSize: this._estimatedSize});
             this.dispatchEventToListeners(WI.Resource.Event.TransferSizeDidChange);
+        }
+
+        if (metrics.securityConnection) {
+            if (!this._security)
+                this._security = {};
+            this._security.connection = metrics.securityConnection;
         }
 
         this.dispatchEventToListeners(WI.Resource.Event.MetricsDidChange);
@@ -1056,14 +1068,57 @@ WI.Resource = class Resource extends WI.SourceCode
                 command.push("--data-binary " + escapeStringPosix(this.requestData));
         }
 
-        let curlCommand = command.join(" \\\n");
-        InspectorFrontendHost.copyText(curlCommand);
-        return curlCommand;
+        return command.join(" \\\n");
+    }
+
+    stringifyHTTPRequest()
+    {
+        let lines = [];
+
+        let protocol = this.protocol || "";
+        if (protocol === "h2") {
+            // HTTP/2 Request pseudo headers:
+            // https://tools.ietf.org/html/rfc7540#section-8.1.2.3
+            lines.push(`:method: ${this.requestMethod}`);
+            lines.push(`:scheme: ${this.urlComponents.scheme}`);
+            lines.push(`:authority: ${WI.h2Authority(this.urlComponents)}`);
+            lines.push(`:path: ${WI.h2Path(this.urlComponents)}`);
+        } else {
+            // HTTP/1.1 request line:
+            // https://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html#sec5.1
+            lines.push(`${this.requestMethod} ${this.urlComponents.path}${protocol ? " " + protocol.toUpperCase() : ""}`);
+        }
+
+        for (let key in this.requestHeaders)
+            lines.push(`${key}: ${this.requestHeaders[key]}`);
+
+        return lines.join("\n") + "\n";
+    }
+
+    stringifyHTTPResponse()
+    {
+        let lines = [];
+
+        let protocol = this.protocol || "";
+        if (protocol === "h2") {
+            // HTTP/2 Response pseudo headers:
+            // https://tools.ietf.org/html/rfc7540#section-8.1.2.4
+            lines.push(`:status: ${this.statusCode}`);
+        } else {
+            // HTTP/1.1 response status line:
+            // https://www.w3.org/Protocols/rfc2616/rfc2616-sec6.html#sec6.1
+            lines.push(`${protocol ? protocol.toUpperCase() + " " : ""}${this.statusCode} ${this.statusText}`);
+        }
+
+        for (let key in this.responseHeaders)
+            lines.push(`${key}: ${this.responseHeaders[key]}`);
+
+        return lines.join("\n") + "\n";
     }
 
     async showCertificate()
     {
-        let errorString = WI.UIString("Unable to show certificate for \u201C%s\u201C").format(this.url);
+        let errorString = WI.UIString("Unable to show certificate for \u201C%s\u201D").format(this.url);
 
         try {
             let {serializedCertificate} = await NetworkAgent.getSerializedCertificate(this._requestIdentifier);
@@ -1131,6 +1186,12 @@ WI.Resource.NetworkPriority = {
     Medium: Symbol("medium"),
     High: Symbol("high"),
 };
+
+WI.Resource.GroupingMode = {
+    Path: "group-resource-by-path",
+    Type: "group-resource-by-type",
+};
+WI.settings.resourceGroupingMode = new WI.Setting("resource-grouping-mode", WI.Resource.GroupingMode.Type);
 
 // This MIME Type map is private, use WI.Resource.typeFromMIMEType().
 WI.Resource._mimeTypeMap = {

@@ -288,6 +288,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		7C7F76CC2202351600155C33 /* xar.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = xar.xcconfig; sourceTree = "<group>"; };
 		98665C6E0EA83E36008193F1 /* ea.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ea.c; path = xar/lib/ea.c; sourceTree = "<group>"; };
 		98665C700EA83E44008193F1 /* lzmaxar.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = lzmaxar.c; path = xar/lib/lzmaxar.c; sourceTree = "<group>"; };
 		B41FC05F09F6B7C200006FAE /* libxar.1.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libxar.1.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -475,6 +476,7 @@
 				B41FC09809F6BC2C00006FAE /* util.h */,
 				B41FC09909F6BC2C00006FAE /* zxar.c */,
 				B41FC09A09F6BC2C00006FAE /* zxar.h */,
+				7C7F76CC2202351600155C33 /* xar.xcconfig */,
 			);
 			name = lib;
 			sourceTree = "<group>";
@@ -938,6 +940,7 @@
 		};
 		B41FC06209F6B7C300006FAE /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7C7F76CC2202351600155C33 /* xar.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
@@ -965,6 +968,7 @@
 		};
 		B41FC06309F6B7C300006FAE /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7C7F76CC2202351600155C33 /* xar.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;

@@ -28,6 +28,7 @@
 #include <sys/ioctl.h>
 #include <sys/disk.h>
 #include <sys/sysctl.h>
+#include <err.h>
 #include <setjmp.h>
 
 #include <hfs/hfs_mount.h>
@@ -72,7 +73,7 @@ char	quick;			/* quick check returns clean, dirty, or failure */
 char	debug;			/* output debugging info */
 char	disable_journal;	/* If debug, and set, do not simulate journal replay */
 char	scanflag;		/* Scan entire disk for bad blocks */
-#if	!TARGET_OS_EMBEDDED
+#if	!TARGET_OS_IPHONE
 char	embedded = 0;
 #else
 char	embedded = 1;
@@ -89,6 +90,7 @@ char	errorOnExit = 0;	/* Exit on first error */
 int		upgrading;		/* upgrading format */
 int		lostAndFoundMode = 0; /* octal mode used when creating "lost+found" directory */
 uint64_t reqCacheSize;	/* Cache size requested by the caller (may be specified by the user via -c) */
+int     detonator_run = 0;
 
 int	fsmodified;		/* 1 => write done to file system */
 int	fsreadfd;		/* file descriptor for reading file system */
@@ -309,8 +311,10 @@ main(argc, argv)
 	}
 
 	ret = 0;
-	while (argc-- > 0)
-		ret |= checkfilesys(blockcheck(*argv++));
+    while (argc-- > 0) {
+        char *pcBlkChk = blockcheck(*argv++);
+		ret |= checkfilesys(pcBlkChk);
+    }
 
 	exit(ret);
 }
@@ -335,6 +339,9 @@ mountpoint(const char *cdev)
 	char *unraw = NULL;
 	int result;
 	int i;
+    
+    if (detonator_run)
+        return NULL;
 
 	unraw = strdup(cdev);
 	unrawname(unraw);
@@ -388,7 +395,7 @@ checkfilesys(char * filesys)
 		mntonname = strdup("/");
 	}
 
-	if (lflag) {
+	if (lflag && !detonator_run) {
 		struct stat fs_stat;
 
 		/*
@@ -455,7 +462,7 @@ checkfilesys(char * filesys)
 	if (debug && preen)
 		pwarn("starting\n");
 	
-	if (setup( filesys, &canWrite ) == 0) {
+    if (setup( filesys, &canWrite ) == 0) {
 		if (preen)
 			pfatal("CAN'T CHECK FILE SYSTEM.");
 		result = EEXIT;
@@ -497,12 +504,13 @@ checkfilesys(char * filesys)
 		chkLev = kPartialCheck;
 		repLev = kForceRepairs;  // this will force rebuild of B-Tree file
 	}
-		
-	fsckSetVerbosity(context, logLev);
+
+    fsckSetVerbosity(context, logLev);
 	/* All of fsck_hfs' output should go thorugh logstring */
 	fsckSetOutput(context, NULL);
 	/* Setup writer that will output to standard out */
 	fsckSetWriter(context, &outstring);
+    
 	/* Setup logger that will write to log file */
 	fsckSetLogger(context, &logstring);
 	if (guiControl) {
@@ -541,7 +549,7 @@ checkfilesys(char * filesys)
 	result = CheckHFS( filesys, fsreadfd, fswritefd, chkLev, repLev, context,
 						lostAndFoundMode, canWrite, &fsmodified,
 						lflag, rebuildOptions );
-	if (debug)
+    if (debug)
 		plog("\tCheckHFS returned %d, fsmodified = %d\n", result, fsmodified);
 
 	if (!hotmount) {
@@ -645,41 +653,67 @@ setup( char *dev, int *canWritePtr )
 
 	fswritefd = -1;
 	*canWritePtr = 0;
+    
+    if (!detonator_run)
+    {
+        if (stat(dev, &statb) < 0) {
+            plog("Can't stat %s: %s\n", dev, strerror(errno));
+            return (0);
+        }
+        if ((statb.st_mode & S_IFMT) != S_IFCHR) {
+            pfatal("%s is not a character device", dev);
+            if (reply("CONTINUE") == 0)
+                return (0);
+        }
+        /* Always attempt to replay the journal */
+        if (!nflag && !quick) {
+            // We know we have a character device by now.
+            if (strncmp(dev, "/dev/rdisk", 10) == 0) {
+                char block_device[MAXPATHLEN+1];
+                int rv;
+                snprintf(block_device, sizeof(block_device), "/dev/%s", dev + 6);
+                rv = journal_replay(block_device);
+                if (debug)
+                    plog("journal_replay(%s) returned %d\n", block_device, rv);
+            }
+        }
+        /* attempt to get write access to the block device and if not check if volume is */
+        /* mounted read-only.  */
+        if (nflag == 0 && quick == 0) {
+            getWriteAccess( dev, canWritePtr );
+        }
 	
-	if (stat(dev, &statb) < 0) {
-		plog("Can't stat %s: %s\n", dev, strerror(errno));
-		return (0);
-	}
-	if ((statb.st_mode & S_IFMT) != S_IFCHR) {
-		pfatal("%s is not a character device", dev);
-		if (reply("CONTINUE") == 0)
-			return (0);
-	}
-	/* Always attempt to replay the journal */
-	if (!nflag && !quick) {
-		// We know we have a character device by now.
-		if (strncmp(dev, "/dev/rdisk", 10) == 0) {
-			char block_device[MAXPATHLEN+1];
-			int rv;
-			snprintf(block_device, sizeof(block_device), "/dev/%s", dev + 6);
-			rv = journal_replay(block_device);
-			if (debug)
-				plog("journal_replay(%s) returned %d\n", block_device, rv);
-		}
-	}
-	/* attempt to get write access to the block device and if not check if volume is */
-	/* mounted read-only.  */
-	if (nflag == 0 && quick == 0) {
-		getWriteAccess( dev, canWritePtr );
-	}
-	
-	if (nflag || quick || (fswritefd = open(dev, O_RDWR | (hotmount ? 0 : O_EXLOCK))) < 0) {
-		fswritefd = -1;
-		if (preen) {
-			pfatal("** %s (NO WRITE ACCESS)\n", dev);
-		}
-	}
+        if (nflag || quick || (fswritefd = open(dev, O_RDWR | (hotmount ? 0 : O_EXLOCK))) < 0) {
+            fswritefd = -1;
+            if (preen) {
+                pfatal("** %s (NO WRITE ACCESS)\n", dev);
+            }
+        }
+    } else { // detonator run
+        plog("fsck_hfs: detonator_run (%s).\n", dev);
+        char *end_ptr;
+        fswritefd = (int)strtol(dev+8, &end_ptr, 10);
+        if (*end_ptr)
+        {
+            err(1, "fsck_hfs: Invalid file descriptor path: %s", dev);
+        }
 
+        struct stat info;
+        int error = fstat(fswritefd, &info);
+        if (error)
+        {
+            err(1, "fsck_hfs: fstat %s", dev);
+        }
+        
+        error = lseek(fswritefd, 0, SEEK_SET);
+        if (error == -1)
+        {
+            err(1, "fsck_hfs: Could not seek %d for dev: %s, errorno %d", fswritefd, dev, errno);
+        }
+        
+        *canWritePtr = TRUE;
+    }
+    
 	if (preen == 0 && !guiControl) {
 		if (nflag || quick || fswritefd == -1) {
 			plog("** %s (NO WRITE)\n", dev);
@@ -701,7 +735,6 @@ setup( char *dev, int *canWritePtr )
 			return(0);
 		}
 	}
-
 
 	/* Get device block size to initialize cache */
 	if (ioctl(fsreadfd, DKIOCGETBLOCKSIZE, &devBlockSize) < 0) {
@@ -736,17 +769,19 @@ setup( char *dev, int *canWritePtr )
 		if (rv == -1) {
 			(void)fplog(stderr, "sysctlbyname failed, not auto-setting cache size\n");
 		} else {
-			int d = (hotroot && !lflag) ? 2 : 8;
-			int safeMode = 0;
-			dsize = sizeof(safeMode);
-			rv = sysctlbyname("kern.safeboot", &safeMode, &dsize, NULL, 0);
-			if (rv != -1 && safeMode != 0 && hotroot && !lflag) {
-#define kMaxSafeModeMem	((size_t)2 * 1024 * 1024 * 1024)	/* 2Gbytes, means cache will max out at 1gbyte */
-				if (debug) {
-					(void)fplog(stderr, "Safe mode and single-user, setting memsize to a maximum of 2gbytes\n");
-				}
-				memSize = (memSize < kMaxSafeModeMem) ? memSize : kMaxSafeModeMem;
-			}
+            int d = (hotroot && !lflag) ? 2 : 8;
+            if (!detonator_run) {
+                int safeMode = 0;
+                dsize = sizeof(safeMode);
+                rv = sysctlbyname("kern.safeboot", &safeMode, &dsize, NULL, 0);
+                if (rv != -1 && safeMode != 0 && hotroot && !lflag) {
+    #define kMaxSafeModeMem	((size_t)2 * 1024 * 1024 * 1024)	/* 2Gbytes, means cache will max out at 1gbyte */
+                    if (debug) {
+                        (void)fplog(stderr, "Safe mode and single-user, setting memsize to a maximum of 2gbytes\n");
+                    }
+                    memSize = (memSize < kMaxSafeModeMem) ? memSize : kMaxSafeModeMem;
+                }
+            }
 			reqCacheSize = memSize / d;
 		}
 	}
@@ -758,6 +793,7 @@ setup( char *dev, int *canWritePtr )
 	if (CacheInit (&fscache, fsreadfd, fswritefd, devBlockSize,
 			cacheBlockSize, cacheTotalBlocks, CacheHashSize, preTouchMem) != EOK) {
 		pfatal("Can't initialize disk cache\n");
+
 		return (0);
 	}	
 

@@ -264,6 +264,8 @@ primary[Maker &maker]
 			{ maker.platform(ident); }
 	|	"notarized"
 			{ maker.put(opNotarized); }
+	|	"legacy"
+			{ maker.put(opLegacyDevID); }
 	|	LPAREN { string name; } name=identifierString RPAREN
 			{ maker.put(opNamedCode); maker.put(name); }
 	;

@@ -71,9 +71,23 @@ bool IOHIDUserDevice::initWithProperties(OSDictionary * properties)
         
     _properties = properties;
     _properties->retain();
+    
+    
+    OSBoolean *nonVirtualUserDeviceCreateEntitlement = (OSBoolean*)getProperty("Privileged");
 
-    if (getProperty("HIDVirtualDevice") == NULL)
-        setProperty("HIDVirtualDevice", kOSBooleanTrue); 
+    // check if user has entitlements to create a non-virtual user device
+    // case user -> Valid Property , Valid Entitlements (OK -> user property value)
+    // case user -> Non Valid Property , Valid Entitlements (True)
+    // case user -> Non Valid Property , Non Valid Entitlements (True)
+    
+    if (!nonVirtualUserDeviceCreateEntitlement || (nonVirtualUserDeviceCreateEntitlement == kOSBooleanFalse)) {
+        setProperty("HIDVirtualDevice", kOSBooleanTrue);
+    }
+    
+    // still need to set , if you have entitlements but didn't set
+    if (getProperty("HIDVirtualDevice") == NULL) {
+        setProperty("HIDVirtualDevice", kOSBooleanTrue);
+    }
 
     setProperty("HIDDefaultBehavior", kOSBooleanTrue);
     

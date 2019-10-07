@@ -169,11 +169,11 @@ _setupReachability(int argc, char **argv, SCNetworkReachabilityContext *context)
 	struct sockaddr_in6		sin6;
 	SCNetworkReachabilityRef	target		= NULL;
 
-	bzero(&sin, sizeof(sin));
+	memset(&sin, 0, sizeof(sin));
 	sin.sin_len    = sizeof(sin);
 	sin.sin_family = AF_INET;
 
-	bzero(&sin6, sizeof(sin6));
+	memset(&sin6, 0, sizeof(sin6));
 	sin6.sin6_len    = sizeof(sin6);
 	sin6.sin6_family = AF_INET6;
 
@@ -201,7 +201,7 @@ _setupReachability(int argc, char **argv, SCNetworkReachabilityContext *context)
 		struct sockaddr_in	r_sin;
 
 		if (argc > 1) {
-			bzero(&r_sin, sizeof(r_sin));
+			memset(&r_sin, 0, sizeof(r_sin));
 			r_sin.sin_len    = sizeof(r_sin);
 			r_sin.sin_family = AF_INET;
 		}
@@ -290,7 +290,7 @@ _setupReachability(int argc, char **argv, SCNetworkReachabilityContext *context)
 		}
 
 		if (argc > 1) {
-			bzero(&r_sin6, sizeof(r_sin6));
+			memset(&r_sin6, 0, sizeof(r_sin6));
 			r_sin6.sin6_len    = sizeof(r_sin6);
 			r_sin6.sin6_family = AF_INET6;
 		}
@@ -1110,7 +1110,7 @@ do_wait(char *waitKey, int timeout)
 
 	if (timeout > 0) {
 		signal(SIGALRM, waitTimeout);
-		bzero(&itv, sizeof(itv));
+		memset(&itv, 0, sizeof(itv));
 		itv.it_value.tv_sec = timeout;
 		if (setitimer(ITIMER_REAL, &itv, NULL) == -1) {
 			SCPrint(TRUE, stderr,

@@ -566,7 +566,7 @@ typedef struct
  * macros assumes there is an authentication trailer on the PDU.
  */
 #define RPC_CN_PKT_AUTH_TLR(pkt_p, pkt_len)\
-    (rpc_cn_auth_tlr_t *) ((unsigned_char_p_t)(pkt_p) + pkt_len - RPC_CN_PKT_AUTH_TLR_LEN(pkt_p))
+    (void *) ((unsigned_char_p_t)(pkt_p) + pkt_len - RPC_CN_PKT_AUTH_TLR_LEN(pkt_p))
 
 /*
  *****************************************************************************

@@ -36,7 +36,7 @@
 #include <ctype.h>
 #include <syslog.h>
 #include <string.h>
-#include <deflt.h>
+#include "deflt.h"
 #include <sys/param.h>
 #include <sys/types.h>
 #include <sys/time.h>
@@ -1349,6 +1349,13 @@ pingnfs(
 			const char *proto_to_try;
 
 			proto_to_try =  (proto == NULL) ? "tcp" : proto;
+			if (proto_to_try && (strcmp(proto_to_try, "tcp") == 0)) {
+				/* Turn off portmap legacy behaviour, use TCP for the portmap call */
+				rpc_control(RPC_PORTMAP_NETID_SET, NULL);
+				if (trace > PINGNFS_DEBUG_LEVEL) {
+					trace_prt(1, "  pingnfs: RPC_PORTMAP_NETID_SET is set to NULL");
+				}
+			}
 			if ((cl = clnt_create_vers_timed(hostname, NFS_PROG,
 				&outvers, versmin, vers_to_try,
 				proto_to_try, &tv))

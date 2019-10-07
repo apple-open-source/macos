@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>ipaddress</string>
+        <key>OpenSourceVersion</key>
+        <string>1.0.22</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>https://github.com/phihag/ipaddress</string>
+        <key>OpenSourceURL</key>
+        <string>https://files.pythonhosted.org/packages/97/8d/77b8cedcfbf93676148518036c6b1ce7f8e14bf07e95d7fd4ddcb8cc052f/ipaddress-1.0.22.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2019-05-29</string>
+        <key>OpenSourceLicense</key>
+        <string>PSFL</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+        <key>OpenSourceSHA256</key>
+        <string>b146c751ea45cad6188dd6cf2d9b757f6f4f8d6ffb96a023e6f2e26eea02a72c</string>
+</dict>

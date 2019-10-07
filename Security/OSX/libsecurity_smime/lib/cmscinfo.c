@@ -254,9 +254,9 @@ SecCmsContentInfoSetContentOther(SecCmsMessageRef cmsg, SecCmsContentInfoRef cin
 void *
 SecCmsContentInfoGetContent(SecCmsContentInfoRef cinfo)
 {
-    SECOidTag tag = (cinfo && cinfo->contentTypeTag) 
-		     ? cinfo->contentTypeTag->offset 
-		     : cinfo->contentType.Data ? SEC_OID_OTHER : SEC_OID_UNKNOWN;
+    if (!cinfo) { return NULL; }
+    SECOidTag tag = (cinfo->contentTypeTag)  ? cinfo->contentTypeTag->offset
+		        : ( cinfo->contentType.Data ? SEC_OID_OTHER : SEC_OID_UNKNOWN);
     switch (tag) {
     case SEC_OID_PKCS7_DATA:
     case SEC_OID_PKCS7_SIGNED_DATA:

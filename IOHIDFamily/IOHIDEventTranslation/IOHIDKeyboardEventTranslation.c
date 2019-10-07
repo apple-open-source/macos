@@ -374,6 +374,17 @@ static uint8_t __IOHIDKeyboardEventTranslatorGetKeyboardKeyCode (uint32_t  usage
       if (usage == kHIDUsage_AV_TopCase_KeyboardFn) {
         keyCode = 0x3f;
       }
+      break;
+    case kHIDPage_Consumer:
+      switch (usage) {
+        case kHIDUsage_Csmr_ACDesktopShowAllWindows:
+          keyCode = 0xa0;
+          break;
+        case kHIDUsage_Csmr_ACDesktopShowAllApplications:
+          keyCode = 0x83;
+          break;
+      }
+      break;
   }
   return keyCode;
 }
@@ -913,7 +924,7 @@ void IOHIDKeyboardEventTranslatorUpdateWithCompanionModifiers (IOHIDEventRef nxE
 // IOHIDKeyboardEventTranslatorSetProperty
 //------------------------------------------------------------------------------
 void IOHIDKeyboardEventTranslatorSetProperty (IOHIDKeyboardEventTranslatorRef translator, CFStringRef key, CFTypeRef property) {
-  if (key && property && CFEqual(key, CFSTR(kIOHIDSubinterfaceIDKey))) {
+  if (key && property && CFEqual(key, CFSTR(kIOHIDSubinterfaceIDKey)) && CFGetTypeID(property) == CFNumberGetTypeID()) {
     CFNumberGetValue(property, kCFNumberSInt32Type, &translator->keyboardID);
     translator->isISO = __IOHIDKeyboardEventTranslatorIsISOKeyboard(translator->keyboardID);
   }

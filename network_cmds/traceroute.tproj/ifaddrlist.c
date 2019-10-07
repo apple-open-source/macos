@@ -154,7 +154,7 @@ ifaddrlist(register struct ifaddrlist **ipaddrp, register char *errbuf, size_t e
 		 * SIOCGIFFLAGS stomps over it because the requests
 		 * are returned in a union.)
 		 */
-		strncpy(ifr.ifr_name, ifrp->ifr_name, sizeof(ifr.ifr_name));
+		strlcpy(ifr.ifr_name, ifrp->ifr_name, sizeof(ifr.ifr_name));
 		if (ioctl(fd, SIOCGIFFLAGS, (char *)&ifr) < 0) {
 			if (errno == ENXIO)
 				continue;
@@ -170,8 +170,7 @@ ifaddrlist(register struct ifaddrlist **ipaddrp, register char *errbuf, size_t e
 			continue;
 
 
-		(void)strncpy(device, ifr.ifr_name, sizeof(ifr.ifr_name));
-		device[sizeof(device) - 1] = '\0';
+		(void)strlcpy(device, ifr.ifr_name, sizeof(device));
 #ifdef sun
 		/* Ignore sun virtual interfaces */
 		if (strchr(device, ':') != NULL)

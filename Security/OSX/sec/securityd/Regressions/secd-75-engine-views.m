@@ -22,11 +22,11 @@
  */
 
 
-#include <SOSCircle/Regressions/SOSTestDevice.h>
+#include "keychain/SecureObjectSync/Regressions/SOSTestDevice.h"
 #include "secd_regressions.h"
 #include "SecdTestKeychainUtilities.h"
 #include <utilities/SecCFWrappers.h>
-#include <Security/SecureObjectSync/SOSPeer.h>
+#include "keychain/SecureObjectSync/SOSPeer.h"
 
 static int kTestTestCount = 53;
 

@@ -23,10 +23,15 @@
 #include "IOHIDDescriptorParser.h"
 #include "HIDMacTypes.h"
 
-#if KERNEL
+#if KERNEL || TARGET_OS_DRIVERKIT
 
+#if TARGET_OS_DRIVERKIT
+#include <DriverKit/IOLib.h>
+#include <string.h>
+#else
 #include <IOKit/system.h>
 #include <IOKit/IOLib.h>
+#endif
 
 __private_extern__ void *PoolAllocateResident (vm_size_t size, unsigned char clear)
 {
@@ -60,7 +65,7 @@ void *PoolAllocateResident (vm_size_t size, unsigned char clear)
     return mem;
 }
 
-OSStatus PoolDeallocate (void *ptr, vm_size_t size)
+OSStatus PoolDeallocate (void *ptr, vm_size_t size __unused)
 {
     free(ptr);
     return 0;

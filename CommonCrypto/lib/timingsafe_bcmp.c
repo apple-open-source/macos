@@ -25,7 +25,7 @@
  *  timingsafe_bcmp.c
  */
 
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(__ANDROID__)
 #include <CommonCrypto/CommonCryptor.h>
 #include <CommonCrypto/CommonCryptorSPI.h>
 #include <corecrypto/cc_priv.h>

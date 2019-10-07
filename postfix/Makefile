@@ -70,13 +70,14 @@ build-postfix :
 		OPT=" -g -Os" \
 		CCARGS=" -DNO_NETINFO \
 			 -DUSE_TLS -I$(SDKROOT)/usr/local/libressl/include \
+			 -L$(SDKROOT)/usr/local/libressl/lib \
 			 -DUSE_CYRUS_SASL -DUSE_SASL_AUTH -I$(SDKROOT)/usr/include/sasl \
 			 -DEVENTS_STYLE=EVENTS_STYLE_KQUEUE \
 			 -DHAS_DEV_URANDOM -DUSE_SYSV_POLL -DHAS_PCRE -DHAS_LDAP \
 			 -F$(SDKROOT)/System/Library/Frameworks \
 			 -F$(SDKROOT)/System/Library/PrivateFrameworks \
 			 $(CFLAGS) $(WARN)" \
-		AUXLIBS="-lssl.35 -lcrypto.35 -lpcre -lsasl2.2.0.1 -lgssapi_krb5 -lldap -licucore"
+		AUXLIBS="-lssl -lcrypto -lpcre -lsasl2.2.0.1 -lgssapi_krb5 -lldap -licucore"
 	$(ENV) $(MAKE) -C $(BuildDirectory)/$(PROJECT)
 	@echo "*** building: smtpstone"
 	cd $(BuildDirectory)/postfix/src/smtpstone && make all

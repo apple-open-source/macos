@@ -2,7 +2,7 @@
  *  si-88-sectrust-valid.m
  *  Security
  *
- *  Copyright (c) 2017-2018 Apple Inc. All Rights Reserved.
+ *  Copyright (c) 2017-2019 Apple Inc. All Rights Reserved.
  *
  */
 
@@ -13,6 +13,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <utilities/SecCFWrappers.h>
+
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 
 #include "shared_regressions.h"
 
@@ -233,10 +239,67 @@ static void known_intermediate_tests()
     CFReleaseSafe(date_20180310);
 }
 
+static int ping_host(char *host_name)
+{
+    struct sockaddr_in pin;
+    struct hostent *nlp_host;
+    int sd = 0;
+    int port = 80;
+    int retries = 5; // we try 5 times, then give up
+
+    while ((nlp_host=gethostbyname(host_name))==0 && retries--) {
+        printf("Resolve Error! (%s) %d\n", host_name, h_errno);
+        sleep(1);
+    }
+    if (nlp_host==0) {
+        return 0;
+    }
+
+    bzero(&pin,sizeof(pin));
+    pin.sin_family=AF_INET;
+    pin.sin_addr.s_addr=htonl(INADDR_ANY);
+    pin.sin_addr.s_addr=((struct in_addr *)(nlp_host->h_addr))->s_addr;
+    pin.sin_port=htons(port);
+
+    sd=socket(AF_INET,SOCK_STREAM,0);
+
+    if (connect(sd,(struct sockaddr*)&pin,sizeof(pin))==-1) {
+        printf("connect error! (%s) %d\n", host_name, errno);
+        close(sd);
+        return 0;
+    }
+    close(sd);
+    return 1;
+}
+
+static int preflight_network()
+{
+    char *hosts[] = {
+        "EVSecure-ocsp.verisign.com",
+        "EVIntl-ocsp.verisign.com",
+        "EVIntl-aia.verisign.com",
+        "ocsp.comodoca.com",
+        "crt.comodoca.com",
+        "ocsp.entrust.net",
+        "ocsp.digicert.com",
+    };
+
+    for (unsigned host_cnt = 0; host_cnt < sizeof(hosts)/sizeof(hosts[0]); host_cnt ++) {
+        if (!ping_host(hosts[host_cnt])) {
+            printf("Accessing specific server (%s) failed, check the network!\n", hosts[host_cnt]);
+            return 0;
+        }
+    }
+    return 1;
+}
 
 int si_88_sectrust_valid(int argc, char *const *argv)
 {
     plan_tests(DC_COUNT+KI_COUNT);
+
+    if (!preflight_network()) {
+        return 0;
+    }
 
     date_constraints_tests();
     known_intermediate_tests();

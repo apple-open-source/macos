@@ -130,7 +130,7 @@ no_args (list)
 {
   if (list)
     {
-      builtin_error (_("too many arguments"));
+      builtin_error ("%s", _("too many arguments"));
       top_level_cleanup ();
       jump_to_top_level (DISCARD);
     }
@@ -248,7 +248,7 @@ sh_nojobs (s)
   if (s)
     builtin_error (_("%s: no job control"), s);
   else
-    builtin_error (_("no job control"));
+    builtin_error ("%s", _("no job control"));
 }
 #endif
 
@@ -260,7 +260,7 @@ sh_restricted (s)
   if (s)
     builtin_error (_("%s: restricted"), s);
   else
-    builtin_error (_("restricted"));
+    builtin_error ("%s", _("restricted"));
 }
 #endif
 

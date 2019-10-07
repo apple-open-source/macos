@@ -50,6 +50,7 @@ types [
     :StructureID,
     :StructureChain,
     :SymbolTable,
+    :SymbolTableOrScopeDepth,
     :ToThisStatus,
     :TypeLocation,
     :WatchpointSet,
@@ -81,7 +82,8 @@ begin_section :Bytecodes,
     asm_prefix: "llint_",
     op_prefix: "op_"
 
-op :wide
+op :wide16
+op :wide32
 
 op :enter
 
@@ -135,7 +137,7 @@ op :to_this,
         srcDst: VirtualRegister,
     },
     metadata: {
-        cachedStructure: WriteBarrierBase[Structure],
+        cachedStructureID: StructureID,
         toThisStatus: ToThisStatus,
         profile: ValueProfile,
     }
@@ -224,7 +226,6 @@ op_group :BinaryOp,
         :beloweq,
         :mod,
         :pow,
-        :lshift,
         :rshift,
         :urshift,
     ],
@@ -259,6 +260,7 @@ op_group :ValueProfiledBinaryOp,
         :bitand,
         :bitor,
         :bitxor,
+        :lshift,
     ],
     args: {
         dst: VirtualRegister,
@@ -286,6 +288,7 @@ op_group :UnaryOp,
         :unsigned,
         :is_empty,
         :is_undefined,
+        :is_undefined_or_null,
         :is_boolean,
         :is_number,
         :is_object,
@@ -412,8 +415,6 @@ op :get_by_id,
         property: unsigned,
     },
     metadata: {
-        mode: GetByIdMode,
-        hitCountForLLIntCaching: unsigned,
         modeMetadata: GetByIdModeMetadata,
         profile: ValueProfile,
     }
@@ -704,7 +705,6 @@ op :call,
     },
     metadata: {
         callLinkInfo: LLIntCallLinkInfo,
-        arrayProfile: ArrayProfile,
         profile: ValueProfile,
     }
 
@@ -717,7 +717,6 @@ op :tail_call,
     },
     metadata: {
         callLinkInfo: LLIntCallLinkInfo,
-        arrayProfile: ArrayProfile,
         profile: ValueProfile,
     }
 
@@ -730,7 +729,6 @@ op :call_eval,
     },
     metadata: {
         callLinkInfo: LLIntCallLinkInfo,
-        arrayProfile: ArrayProfile,
         profile: ValueProfile,
     }
 
@@ -785,7 +783,6 @@ op :construct,
     },
     metadata: {
         callLinkInfo: LLIntCallLinkInfo,
-        arrayProfile: ArrayProfile,
         profile: ValueProfile,
     }
 
@@ -844,8 +841,8 @@ op :resolve_scope,
              constantScope: WriteBarrierBase[JSScope],
 
              # written from the slow path
-             globalLexicalEnvironment: JSGlobalLexicalEnvironment.*,
-             globalObject: JSGlobalObject.*,
+             globalLexicalEnvironment: WriteBarrierBase[JSGlobalLexicalEnvironment],
+             globalObject: WriteBarrierBase[JSGlobalObject],
         },
     }
 
@@ -880,7 +877,7 @@ op :put_to_scope,
         value: VirtualRegister, # offset 3
         # $begin: :private,
         getPutInfo: GetPutInfo,
-        symbolTableOrScopeDepth: int,
+        symbolTableOrScopeDepth: SymbolTableOrScopeDepth,
         offset: unsigned,
     },
     metadata: {
@@ -928,6 +925,14 @@ op :create_lexical_environment,
         initialValue: VirtualRegister,
     }
 
+op :create_generator_frame_environment,
+    args: {
+        dst: VirtualRegister,
+        scope: VirtualRegister,
+        symbolTable: VirtualRegister,
+        initialValue: VirtualRegister,
+    }
+
 op :get_parent_scope,
     args: {
         dst: VirtualRegister,
@@ -968,7 +973,7 @@ op :end,
 op :profile_type,
     args: {
         targetVirtualRegister: VirtualRegister,
-        symbolTableOrScopeDepth: int,
+        symbolTableOrScopeDepth: SymbolTableOrScopeDepth,
         flag: ProfileTypeBytecodeFlag,
         identifier?: unsigned,
         resolveType: ResolveType,
@@ -1136,6 +1141,17 @@ op :llint_cloop_did_return_from_js_20
 op :llint_cloop_did_return_from_js_21
 op :llint_cloop_did_return_from_js_22
 op :llint_cloop_did_return_from_js_23
+op :llint_cloop_did_return_from_js_24
+op :llint_cloop_did_return_from_js_25
+op :llint_cloop_did_return_from_js_26
+op :llint_cloop_did_return_from_js_27
+op :llint_cloop_did_return_from_js_28
+op :llint_cloop_did_return_from_js_29
+op :llint_cloop_did_return_from_js_30
+op :llint_cloop_did_return_from_js_31
+op :llint_cloop_did_return_from_js_32
+op :llint_cloop_did_return_from_js_33
+op :llint_cloop_did_return_from_js_34
 
 end_section :CLoopHelpers
 

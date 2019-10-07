@@ -50,6 +50,7 @@ IGNORE_RETURN_TYPE_WARNINGS_BEGIN
 
 namespace Air {
 
+class GenerateAndAllocateRegisters;
 class BlockInsertionSet;
 class CCallSpecial;
 class CFG;
@@ -335,6 +336,10 @@ public:
     RegisterSet pinnedRegisters() const { return m_pinnedRegs; }
     
     WeakRandom& weakRandom() { return m_weakRandom; }
+
+    void emitDefaultPrologue(CCallHelpers&);
+
+    std::unique_ptr<GenerateAndAllocateRegisters> m_generateAndAllocateRegisters;
     
 private:
     friend class ::JSC::B3::Procedure;

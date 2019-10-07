@@ -45,10 +45,10 @@ static UBool U_CALLCONV locbund_cleanup(void) {
 }
 U_CDECL_END
 
-static UMutex gLock = U_MUTEX_INITIALIZER;
 static inline UNumberFormat * copyInvariantFormatter(ULocaleBundle *result, UNumberFormatStyle style) {
     U_NAMESPACE_USE
-    Mutex lock(&gLock);
+    static UMutex *gLock = STATIC_NEW(UMutex);
+    Mutex lock(gLock);
     if (result->fNumberFormat[style-1] == NULL) {
         if (gPosixNumberFormat[style-1] == NULL) {
             UErrorCode status = U_ZERO_ERROR;

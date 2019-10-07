@@ -30,6 +30,8 @@
 #import <SecurityFoundation/SFDigestOperation.h>
 #import <CloudKit/CloudKit.h>
 
+static NSString * const manifestLeafRecordNameDelimiter = @":-:";
+
 @interface CKKSManifestLeafRecord () {
     NSString* _uuid;
     NSMutableDictionary* _recordDigestDict;
@@ -79,7 +81,7 @@ static NSDictionary* RecordDigestDictFromDER(NSData* data, NSError** error)
 
 + (NSString*)leafUUIDForRecordID:(NSString*)recordID
 {
-    NSArray* components = [recordID componentsSeparatedByString:@":-:"];
+    NSArray* components = [recordID componentsSeparatedByString:manifestLeafRecordNameDelimiter];
     return components.count > 1 ? components[1] : recordID;
 }
 
@@ -99,19 +101,16 @@ static NSDictionary* RecordDigestDictFromDER(NSData* data, NSError** error)
     return [[self alloc] initWithUUID:pendingRecord.uuid digest:pendingRecord.digestValue recordDigestDict:pendingRecord.recordDigestDict zone:pendingRecord.zoneName encodedRecord:pendingRecord.encodedCKRecord];
 }
 
-+ (instancetype)fromDatabaseRow:(NSDictionary*)row
++ (instancetype)fromDatabaseRow:(NSDictionary<NSString*, CKKSSQLResult*>*)row
 {
-    NSString* zone = row[@"ckzone"];
-    NSString* uuid = row[@"UUID"];
+    NSString* zone = row[@"ckzone"].asString;
+    NSString* uuid = row[@"UUID"].asString;
     
-    NSString* digestBase64String = row[@"digest"];
-    NSData* digest = [digestBase64String isKindOfClass:[NSString class]] ? [[NSData alloc] initWithBase64EncodedString:digestBase64String options:0] : nil;
+    NSData* digest = row[@"digest"].asBase64DecodedData;
     
-    NSString* encodedRecordBase64String = row[@"ckrecord"];
-    NSData* encodedRecord = [encodedRecordBase64String isKindOfClass:[NSString class]] ? [[NSData alloc] initWithBase64EncodedString:encodedRecordBase64String options:0] : nil;
-    
-    NSString* entryDigestBase64String = row[@"entryDigests"];
-    NSData* entryDigestData = [entryDigestBase64String isKindOfClass:[NSString class]] ? [[NSData alloc] initWithBase64EncodedString:row[@"entryDigests"] options:0] : nil;
+    NSData* encodedRecord = row[@"ckrecord"].asBase64DecodedData;
+
+    NSData* entryDigestData = row[@"entryDigests"].asBase64DecodedData;
     NSDictionary* entryDigestsDict = entryDigestData ? RecordDigestDictFromDER(entryDigestData, nil) : @{};
     
     return [[self alloc] initWithUUID:uuid digest:digest recordDigestDict:entryDigestsDict zone:zone encodedRecord:encodedRecord];
@@ -148,6 +147,11 @@ static NSDictionary* RecordDigestDictFromDER(NSData* data, NSError** error)
 
 - (instancetype)initWithUUID:(NSString*)uuid digest:(NSData*)digest recordDigestDict:(NSDictionary<NSString*, NSData*>*)recordDigestDict zone:(NSString*)zone
 {
+    if ([uuid containsString:manifestLeafRecordNameDelimiter]) {
+        secerror("uuid contains delimiter: %@", uuid);
+        return nil;
+    }
+
     if (self = [super init]) {
         _uuid = uuid;
         _digestValue = digest;
@@ -196,7 +200,8 @@ static NSDictionary* RecordDigestDictFromDER(NSData* data, NSError** error)
 
 - (NSString*)CKRecordName
 {
-    return [NSString stringWithFormat:@"ManifestLeafRecord:-:%@", _uuid];
+    return [NSString stringWithFormat:@"ManifestLeafRecord%@%@",
+            manifestLeafRecordNameDelimiter, _uuid];
 }
 
 - (NSString*)ckRecordType

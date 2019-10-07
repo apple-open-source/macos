@@ -97,6 +97,5 @@ int process_dst(asl_out_dst_data_t *dst, asl_out_dst_data_t *opts);
 asl_msg_list_t * control_query(asl_msg_t *a);
 int checkpoint(const char *name);
 
-int cache_delete_task(bool query, size_t *size);
 void main_task(void);
 

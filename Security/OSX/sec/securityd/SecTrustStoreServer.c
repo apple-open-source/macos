@@ -43,7 +43,7 @@
 #include <CoreFoundation/CFURL.h>
 #include <AssertMacros.h>
 #include <utilities/debugging.h>
-#include "SecBasePriv.h"
+#include <Security/SecBasePriv.h>
 #include <Security/SecInternal.h>
 #include <ipc/securityd_client.h>
 #include <securityd/SecTrustStoreServer.h>

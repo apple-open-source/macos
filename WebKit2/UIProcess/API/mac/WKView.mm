@@ -38,6 +38,7 @@
 #import "WebBackForwardListItem.h"
 #import "WebKit2Initialize.h"
 #import "WebPageGroup.h"
+#import "WebPageProxy.h"
 #import "WebPreferencesKeys.h"
 #import "WebProcessPool.h"
 #import "WebViewImpl.h"
@@ -70,11 +71,9 @@
 
 #endif
 
-IGNORE_WARNINGS_BEGIN("deprecated-implementations")
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 @implementation WKView
-IGNORE_WARNINGS_END
-
-#if WK_API_ENABLED
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (id)initWithFrame:(NSRect)frame processGroup:(WKProcessGroup *)processGroup browsingContextGroup:(WKBrowsingContextGroup *)browsingContextGroup
 {
@@ -85,8 +84,6 @@ IGNORE_WARNINGS_END
 {
     return [self initWithFrame:frame contextRef:processGroup._contextRef pageGroupRef:browsingContextGroup._pageGroupRef relatedToPage:relatedView ? relatedView.pageRef : nil];
 }
-
-#endif // WK_API_ENABLED
 
 - (void)dealloc
 {
@@ -99,12 +96,10 @@ IGNORE_WARNINGS_END
     [super dealloc];
 }
 
-#if WK_API_ENABLED
 - (WKBrowsingContextController *)browsingContextController
 {
     return _data->_impl->browsingContextController();
 }
-#endif // WK_API_ENABLED
 
 - (void)setDrawsBackground:(BOOL)drawsBackground
 {
@@ -182,9 +177,9 @@ IGNORE_WARNINGS_END
     _data->_impl->setFrameSize(NSSizeToCGSize(size));
 }
 
-IGNORE_WARNINGS_BEGIN("deprecated-implementations")
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (void)renewGState
-IGNORE_WARNINGS_END
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     _data->_impl->renewGState();
     [super renewGState];
@@ -697,9 +692,9 @@ Some other editing-related methods still unimplemented:
 }
 
 #if ENABLE(DRAG_SUPPORT)
-IGNORE_WARNINGS_BEGIN("deprecated-implementations")
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (void)draggedImage:(NSImage *)image endedAt:(NSPoint)endPoint operation:(NSDragOperation)operation
-IGNORE_WARNINGS_END
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     _data->_impl->draggedImage(image, NSPointToCGPoint(endPoint), operation);
 }
@@ -790,9 +785,9 @@ IGNORE_WARNINGS_END
     return _data->_impl->accessibilityFocusedUIElement();
 }
 
-IGNORE_WARNINGS_BEGIN("deprecated-implementations")
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (BOOL)accessibilityIsIgnored
-IGNORE_WARNINGS_END
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     return _data->_impl->accessibilityIsIgnored();
 }
@@ -802,11 +797,26 @@ IGNORE_WARNINGS_END
     return _data->_impl->accessibilityHitTest(NSPointToCGPoint(point));
 }
 
-IGNORE_WARNINGS_BEGIN("deprecated-implementations")
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (id)accessibilityAttributeValue:(NSString *)attribute
-IGNORE_WARNINGS_END
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     return _data->_impl->accessibilityAttributeValue(attribute);
+}
+
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
+- (id)accessibilityAttributeValue:(NSString *)attribute forParameter:(id)parameter
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
+{
+    return _data->_impl->accessibilityAttributeValue(attribute, parameter);
+}
+
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
+- (NSArray<NSString *> *)accessibilityParameterizedAttributeNames
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
+{
+    NSArray<NSString *> *names = [super accessibilityParameterizedAttributeNames];
+    return [names arrayByAddingObject:@"AXConvertRelativeFrame"];
 }
 
 - (NSView *)hitTest:(NSPoint)point
@@ -874,16 +884,15 @@ IGNORE_WARNINGS_END
     _data->_impl->provideDataForPasteboard(pasteboard, type);
 }
 
-IGNORE_WARNINGS_BEGIN("deprecated-implementations")
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (NSArray *)namesOfPromisedFilesDroppedAtDestination:(NSURL *)dropDestination
-IGNORE_WARNINGS_END
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     return _data->_impl->namesOfPromisedFilesDroppedAtDestination(dropDestination);
 }
 
 - (void)maybeInstallIconLoadingClient
 {
-#if WK_API_ENABLED
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     class IconLoadingClient : public API::IconLoadingClient {
     public:
@@ -924,7 +933,6 @@ IGNORE_WARNINGS_END
 
     if ([self respondsToSelector:IconLoadingClient::delegateSelector()])
         _data->_impl->page().setIconLoadingClient(std::make_unique<IconLoadingClient>(self));
-#endif // WK_API_ENABLED
 }
 
 - (instancetype)initWithFrame:(NSRect)frame processPool:(WebKit::WebProcessPool&)processPool configuration:(Ref<API::PageConfiguration>&&)configuration
@@ -943,7 +951,6 @@ IGNORE_WARNINGS_END
     return self;
 }
 
-#if WK_API_ENABLED
 - (void)_setThumbnailView:(_WKThumbnailView *)thumbnailView
 {
     _data->_impl->setThumbnailView(thumbnailView);
@@ -955,7 +962,6 @@ IGNORE_WARNINGS_END
         return nil;
     return _data->_impl->thumbnailView();
 }
-#endif // WK_API_ENABLED
 
 - (NSTextInputContext *)_web_superInputContext
 {
@@ -1039,7 +1045,7 @@ IGNORE_WARNINGS_END
     [self _didChangeContentSize:newSize];
 }
 
-#if ENABLE(DRAG_SUPPORT) && WK_API_ENABLED
+#if ENABLE(DRAG_SUPPORT)
 
 - (void)_web_didPerformDragOperation:(BOOL)handled
 {
@@ -1133,9 +1139,9 @@ IGNORE_WARNINGS_END
 @end
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-IGNORE_WARNINGS_BEGIN("deprecated-implementations")
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 @implementation WKView (Private)
-IGNORE_WARNINGS_END
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (void)saveBackForwardSnapshotForCurrentItem
 {
@@ -1276,7 +1282,6 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(NSUs
     _data->_impl->setUnderlayColor(underlayColor);
 }
 
-#if WK_API_ENABLED
 - (NSView *)_inspectorAttachmentView
 {
     return _data->_impl->inspectorAttachmentView();
@@ -1286,7 +1291,6 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(NSUs
 {
     _data->_impl->setInspectorAttachmentView(newView);
 }
-#endif
 
 - (BOOL)_requiresUserActionForEditingControlsManager
 {

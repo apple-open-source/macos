@@ -26,7 +26,10 @@
 #include "IOAudioTypes.h"
 #include "IOAudioDefines.h"
 #include "IOAudioDebug.h"
-#include <IOKit/audio/AudioTracepoints.h>
+// Unused macros in open source
+#define AudioTrace_Start(a, b, c, d, e, f)
+#define AudioTrace_End(a, b, c, d, e, f)
+#define AudioTrace(a, b, c, d, e, f)
 
 #include <libkern/c++/OSSet.h>
 #include <libkern/c++/OSCollectionIterator.h>

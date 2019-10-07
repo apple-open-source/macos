@@ -16,8 +16,6 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id$ */
-
 #ifndef RFC1867_H
 #define RFC1867_H
 
@@ -89,3 +87,11 @@ SAPI_API void php_rfc1867_set_multibyte_callbacks(
 					php_rfc1867_basename_t basename);
 
 #endif /* RFC1867_H */
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
+ */

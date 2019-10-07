@@ -70,8 +70,6 @@
 
 #include "ckconfig.h"
 
-#if	CRYPTKIT_ECDSA_ENABLE
-
 #include "feeTypes.h"
 #include "feePublicKey.h"
 #include "feePublicKeyPrivate.h"
@@ -90,9 +88,7 @@
 #include "feeDigitalSignature.h"
 #include "ECDSA_Profile.h"
 #include "ellipticProj.h"
-#if	CRYPTKIT_DER_ENABLE
 #include "CryptKitDER.h"
-#endif
 
 #ifndef	ECDSA_VERIFY_ONLY
 static void ECDSA_encode(
@@ -613,22 +609,11 @@ static void ECDSA_encode(
 	unsigned char **sigData,		// malloc'd and RETURNED
 	unsigned *sigDataLen)			// RETURNED
 {
-	#if	CRYPTKIT_DER_ENABLE
     if (format==FSF_RAW) {
         feeRAWEncodeECDSASignature(groupBytesLen,c, d, sigData, sigDataLen);
     } else {
         feeDEREncodeECDSASignature(c, d, sigData, sigDataLen);
     }
-	#else
-	*sigDataLen = lengthOfByteRepSig(c, d);
-	*sigData = (unsigned char*) fmalloc(*sigDataLen);
-	sigToByteRep(FEE_ECDSA_MAGIC,
-		FEE_ECDSA_VERSION,
-		FEE_ECDSA_VERSION_MIN,
-		c,
-		d,
-		*sigData);
-	#endif
 }
 
 #endif	/* ECDSA_VERIFY_ONLY */
@@ -642,7 +627,6 @@ static feeReturn ECDSA_decode(
 	giant *d,						// alloc'd  & RETURNED
 	unsigned *sigVersion)			// RETURNED
 {
-	#if	CRYPTKIT_DER_ENABLE
     feeReturn frtn;
     if (format==FSF_RAW) {
         frtn = feeRAWDecodeECDSASignature(groupBytesLen, sigData, sigDataLen, c, d);
@@ -653,31 +637,6 @@ static feeReturn ECDSA_decode(
 		*sigVersion = FEE_ECDSA_VERSION;
 	}
 	return frtn;
-	#else
-	int		magic;
-	int		minVersion;
-	int		rtn;
-
-	rtn = byteRepToSig(sigData,
-		sigDataLen,
-		FEE_ECDSA_VERSION,
-		&magic,
-		(int *)sigVersion,
-		&minVersion,
-		c,
-		d);
-	if(rtn == 0) {
-		return FR_BadSignatureFormat;
-	}
-	switch(magic) {
-	    case FEE_ECDSA_MAGIC:
-		return FR_Success;
-	    case FEE_SIG_MAGIC:		// ElGamal sig!
-	    	return FR_WrongSignatureType;
-	    default:
-	    	return FR_BadSignatureFormat;
-	}
-	#endif
 }
 
 /*
@@ -696,13 +655,9 @@ feeReturn feeECDSASigSize(
 	if(cp == NULL) {
 		return FR_BadPubKey;
 	}
-	#if	CRYPTKIT_DER_ENABLE
+    
 	*maxSigLen = feeSizeOfDERSig(cp->basePrime, cp->basePrime);
-	#else
-	*maxSigLen = (unsigned)lengthOfByteRepSig(cp->basePrime, cp->basePrime);
-	#endif
 	return FR_Success;
 }
 
-#endif	/* CRYPTKIT_ECDSA_ENABLE */
 

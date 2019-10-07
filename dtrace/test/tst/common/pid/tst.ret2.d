@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.ret2.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: test that we get the right return value from leaf returns
  *

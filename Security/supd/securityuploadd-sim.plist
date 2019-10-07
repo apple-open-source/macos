@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ProcessType</key>
+	<string>Adaptive</string>
+	<key>Label</key>
+	<string>com.apple.securityuploadd</string>
+	<key>UserName</key>
+	<string>_securityd</string>
+	<key>GroupName</key>
+	<string>wheel</string>
+	<key>EnablePressuredExit</key>
+	<true/>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/securityuploadd</string>
+	</array>
+	<key>MachServices</key>
+	<dict>
+		<key>com.apple.securityuploadd</key>
+		<true/>
+	</dict>
+</dict>
+</plist>

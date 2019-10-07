@@ -50,7 +50,7 @@
 #include <CommonCrypto/CommonDigest.h>
 #endif
 
-#include "SecCmsDigestContext.h"
+#include <Security/SecCmsDigestContext.h>
 
 /* Return the maximum value between S and T (and U) */
 #define MAX(S, T) ({__typeof__(S) _max_s = S; __typeof__(T) _max_t = T; _max_s > _max_t ? _max_s : _max_t;})
@@ -320,7 +320,7 @@ SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx,
             case SEC_OID_SHA256: diglength = CC_SHA256_DIGEST_LENGTH; break;
             case SEC_OID_SHA384: diglength = CC_SHA384_DIGEST_LENGTH; break;
             case SEC_OID_SHA512: diglength = CC_SHA512_DIGEST_LENGTH; break;
-            default: goto loser; break;
+            default: goto loser;
         }
         
 	digobj = cmsdigcx->digobjs[i];
@@ -341,7 +341,7 @@ SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx,
                 case SEC_OID_SHA256: CC_SHA256_Final(digest->Data, digobj); break;
                 case SEC_OID_SHA384: CC_SHA384_Final(digest->Data, digobj); break;
                 case SEC_OID_SHA512: CC_SHA512_Final(digest->Data, digobj); break;
-                default: goto loser; break;
+                default: goto loser;
             }
 
             free(digobj);

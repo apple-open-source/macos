@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -183,10 +183,10 @@
 	 - So for a name, we would always have the same UUID.
 
 	 */
-	unsigned char hashValue[CC_MD5_DIGEST_LENGTH];
+	unsigned char hashValue[CC_SHA256_DIGEST_LENGTH];
 	const char *strForHash = [agentName UTF8String];
-	CC_MD5(strForHash, (CC_LONG)strlen(strForHash), hashValue);
-	
+	CC_SHA256(strForHash, (CC_LONG)strlen(strForHash), hashValue);
+
 	return [[NSUUID alloc] initWithUUIDBytes:hashValue];
 }
 

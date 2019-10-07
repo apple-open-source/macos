@@ -64,14 +64,14 @@ void CompositeAnimation::clearElement()
         // Clear the renderers from all running animations, in case we are in the middle of
         // an animation callback (see https://bugs.webkit.org/show_bug.cgi?id=22052)
         for (auto& transition : m_transitions.values()) {
-            animationController().animationWillBeRemoved(transition.get());
+            animationController().animationWillBeRemoved(*transition);
             transition->clear();
         }
     }
     if (!m_keyframeAnimations.isEmpty()) {
         m_keyframeAnimations.checkConsistency();
         for (auto& animation : m_keyframeAnimations.values()) {
-            animationController().animationWillBeRemoved(animation.get());
+            animationController().animationWillBeRemoved(*animation);
             animation->clear();
         }
     }
@@ -159,7 +159,7 @@ void CompositeAnimation::updateTransitions(Element& element, const RenderStyle* 
                             implAnim->blendPropertyValueInStyle(prop, modifiedCurrentStyle.get());
                         }
                         LOG(Animations, "Removing existing ImplicitAnimation %p for property %s", implAnim, getPropertyName(prop));
-                        animationController().animationWillBeRemoved(implAnim);
+                        animationController().animationWillBeRemoved(*implAnim);
                         m_transitions.remove(prop);
                         equal = false;
                     }
@@ -193,7 +193,7 @@ void CompositeAnimation::updateTransitions(Element& element, const RenderStyle* 
     Vector<int> toBeRemoved;
     for (auto& transition : m_transitions.values()) {
         if (!transition->active()) {
-            animationController().animationWillBeRemoved(transition.get());
+            animationController().animationWillBeRemoved(*transition);
             toBeRemoved.append(transition->animatingProperty());
             LOG(Animations, "Removing ImplicitAnimation %p from element %p for property %s", transition.get(), &element, getPropertyName(transition->animatingProperty()));
         }
@@ -220,14 +220,14 @@ void CompositeAnimation::updateKeyframeAnimations(Element& element, const Render
     // Toss the animation order map.
     m_keyframeAnimationOrderMap.clear();
 
-    static NeverDestroyed<const AtomicString> none("none", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<const AtomString> none("none", AtomString::ConstructFromLiteral);
     
     // Now mark any still active animations as active and add any new animations.
     if (targetStyle.animations()) {
         int numAnims = targetStyle.animations()->size();
         for (int i = 0; i < numAnims; ++i) {
             auto& animation = targetStyle.animations()->animation(i);
-            AtomicString animationName(animation.name());
+            AtomString animationName(animation.name());
 
             if (!animation.isValidAnimation())
                 continue;
@@ -270,7 +270,7 @@ void CompositeAnimation::updateKeyframeAnimations(Element& element, const Render
     // Make a list of animations to be removed.
     for (auto& animation : m_keyframeAnimations.values()) {
         if (!newAnimations.contains(animation->name().impl())) {
-            animationController().animationWillBeRemoved(animation.get());
+            animationController().animationWillBeRemoved(*animation);
             animation->clear();
             LOG(Animations, "Removing KeyframeAnimation %p from element %p", animation.get(), &element);
         }
@@ -286,7 +286,7 @@ AnimationUpdate CompositeAnimation::animate(Element& element, const RenderStyle*
     updateKeyframeAnimations(element, currentStyle, targetStyle);
     m_keyframeAnimations.checkConsistency();
 
-    bool animationStateChanged = false;
+    bool animationChangeRequiresRecomposite = false;
     bool forceStackingContext = false;
 
     std::unique_ptr<RenderStyle> animatedStyle;
@@ -296,12 +296,11 @@ AnimationUpdate CompositeAnimation::animate(Element& element, const RenderStyle*
         // to fill in a RenderStyle*& only if needed.
         bool checkForStackingContext = false;
         for (auto& transition : m_transitions.values()) {
-            bool didBlendStyle = false;
-            if (transition->animate(*this, targetStyle, animatedStyle, didBlendStyle))
-                animationStateChanged = true;
-
-            if (didBlendStyle)
+            auto changes = transition->animate(*this, targetStyle, animatedStyle);
+            if (changes.contains(AnimateChange::StyleBlended))
                 checkForStackingContext |= WillChangeData::propertyCreatesStackingContext(transition->animatingProperty());
+
+            animationChangeRequiresRecomposite = changes.contains(AnimateChange::RunningStateChange) && transition->affectsAcceleratedProperty();
         }
 
         if (animatedStyle && checkForStackingContext) {
@@ -326,11 +325,9 @@ AnimationUpdate CompositeAnimation::animate(Element& element, const RenderStyle*
     for (auto& name : m_keyframeAnimationOrderMap) {
         RefPtr<KeyframeAnimation> keyframeAnim = m_keyframeAnimations.get(name);
         if (keyframeAnim) {
-            bool didBlendStyle = false;
-            if (keyframeAnim->animate(*this, targetStyle, animatedStyle, didBlendStyle))
-                animationStateChanged = true;
-
-            forceStackingContext |= didBlendStyle && keyframeAnim->triggersStackingContext();
+            auto changes = keyframeAnim->animate(*this, targetStyle, animatedStyle);
+            animationChangeRequiresRecomposite = changes.contains(AnimateChange::RunningStateChange) && keyframeAnim->affectsAcceleratedProperty();
+            forceStackingContext |= changes.contains(AnimateChange::StyleBlended) && keyframeAnim->triggersStackingContext();
             m_hasAnimationThatDependsOnLayout |= keyframeAnim->dependsOnLayout();
         }
     }
@@ -344,7 +341,7 @@ AnimationUpdate CompositeAnimation::animate(Element& element, const RenderStyle*
             animatedStyle->setZIndex(0);
     }
 
-    return { WTFMove(animatedStyle), animationStateChanged };
+    return { WTFMove(animatedStyle), animationChangeRequiresRecomposite };
 }
 
 std::unique_ptr<RenderStyle> CompositeAnimation::getAnimatedStyle() const
@@ -510,26 +507,26 @@ void CompositeAnimation::resumeOverriddenImplicitAnimations(CSSPropertyID proper
     }
 }
 
-bool CompositeAnimation::isAnimatingProperty(CSSPropertyID property, bool acceleratedOnly, AnimationBase::RunningState runningState) const
+bool CompositeAnimation::isAnimatingProperty(CSSPropertyID property, bool acceleratedOnly) const
 {
     if (!m_keyframeAnimations.isEmpty()) {
         m_keyframeAnimations.checkConsistency();
         for (auto& animation : m_keyframeAnimations.values()) {
-            if (animation->isAnimatingProperty(property, acceleratedOnly, runningState))
+            if (animation->isAnimatingProperty(property, acceleratedOnly))
                 return true;
         }
     }
 
     if (!m_transitions.isEmpty()) {
         for (auto& transition : m_transitions.values()) {
-            if (transition->isAnimatingProperty(property, acceleratedOnly, runningState))
+            if (transition->isAnimatingProperty(property, acceleratedOnly))
                 return true;
         }
     }
     return false;
 }
 
-bool CompositeAnimation::pauseAnimationAtTime(const AtomicString& name, double t)
+bool CompositeAnimation::pauseAnimationAtTime(const AtomString& name, double t)
 {
     m_keyframeAnimations.checkConsistency();
 

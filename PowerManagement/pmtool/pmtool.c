@@ -39,7 +39,9 @@
 
 /*************************************************************************/
 
+#if TARGET_OS_OSX
 static bool gSleepWake = false;
+#endif
 
 struct args_struct {
     int     standardSleepIntervals; // Defines whether pmtool should accelerate btinternal and dwlinterval.
@@ -56,6 +58,8 @@ struct args_struct {
     long    inactivityWindowStart;
     long    inactivityWindowDuration;
     long    standbyAccelerationDelay;
+    char    *batteryPropsPath;
+    long    nccpUpdateDelta;
     
     /* If takeAssertionNamed != NULL; that implies our action is to take an assertion */
     CFStringRef         takeAssertionNamed;
@@ -84,11 +88,32 @@ static DTOption pmtool_options[] =
 {
     /* Actions
      */
+#if TARGET_OS_OSX
     { {kActionExitIfNotPushWake,
         no_argument, &args.doAction[kExitIfNextWakeIsNotPushIndex], 1}, kActionType,
         "Waits, and exits if the next wake returns false for IOPMAllowsPushService()",
         { NULL }, { NULL }},
+     { {kActionSetTCPKeepAliveExpirationTimeout,
+        required_argument, NULL, 0}, kActionType,
+        "Override the system default TCPKeepAliveExpiration override (in seconds). Please specify 1 second for fastest timeout (not 0). This setting does not persist across reboots.",
+        { NULL }, { NULL }},
+
+    { {kActionHibernateNow,
+        no_argument, &args.doAction[kActionHibernateNowIndex], 1}, kActionType,
+        "Puts the machine directly into hibernation.",
+        { NULL }, { NULL }},
     
+    { {kActionStandbyNow,
+        no_argument, &args.doAction[kActionStandbyNowIndex], 1}, kActionType,
+        "Puts the machine directly into standby.",
+        { NULL }, { NULL }},
+    
+    { {kActionPowerOffNow,
+        no_argument, &args.doAction[kActionPowerOffNowIndex], 1}, kActionType,
+        "Puts the machine directly into poweroff.",
+        { NULL }, { NULL }},
+ 
+#endif
     { {kActionCreateAssertion,
         required_argument, &args.doAction[kCreateAssertionIndex], 1}, kActionType,
         "Creates an IOKit assertion of the specified type.",
@@ -104,11 +129,6 @@ static DTOption pmtool_options[] =
     { {kActionBringTheHeat,
         no_argument, &args.doAction[kBringTheHeatIndex], 1}, kActionType,
         "Immediately launches several threads to saturate the CPU's and generate heat.",
-        { NULL }, { NULL }},
-    
-    { {kActionSetTCPKeepAliveExpirationTimeout,
-        required_argument, NULL, 0}, kActionType,
-        "Override the system default TCPKeepAliveExpiration override (in seconds). Please specify 1 second for fastest timeout (not 0). This setting does not persist across reboots.",
         { NULL }, { NULL }},
     
     { {kActionDoAckTimeout,
@@ -137,21 +157,7 @@ static DTOption pmtool_options[] =
         "For internal testing - creates a power source object with IOPSCreatePowerSource.",
         { NULL }, { NULL }},
     
-    { {kActionHibernateNow,
-        no_argument, &args.doAction[kActionHibernateNowIndex], 1}, kActionType,
-        "Puts the machine directly into hibernation.",
-        { NULL }, { NULL }},
-    
-    { {kActionStandbyNow,
-        no_argument, &args.doAction[kActionStandbyNowIndex], 1}, kActionType,
-        "Puts the machine directly into standby.",
-        { NULL }, { NULL }},
-    
-    { {kActionPowerOffNow,
-        no_argument, &args.doAction[kActionPowerOffNowIndex], 1}, kActionType,
-        "Puts the machine directly into poweroff.",
-        { NULL }, { NULL }},
-    
+   
     { {kActionSetBatt,
         required_argument, &args.doAction[kActionSetBattIndex], 1}, kActionType,
         "Sets the percent charge for the battery. To reset the battery warning level, apply AC. To reset the percentage, call --resetbatt.",
@@ -164,6 +170,7 @@ static DTOption pmtool_options[] =
     
     /* Options
      */
+#if TARGET_OS_OSX
     { {kActionRequestSleepServiceWake,
         required_argument, &args.doRequestWake[kIOPMConnectRequestSleepServiceIndex], 1}, kOptionType,
         "Use IOPMConnection API to emulate sleepservicesd",
@@ -173,6 +180,7 @@ static DTOption pmtool_options[] =
         required_argument, &args.doRequestWake[kIOPMConnectRequestMaintenanceIndex], 1}, kOptionType,
         "User IOPMConnection API to emulate mDNSResponder and SU Do It Later",
         { NULL }, { kOptionSleepInterval}},
+#endif
     { {kOptionSleepInterval,
         required_argument, NULL, 0}, kOptionType,
         "Specifies how long to stay asleep before entering a scheduled DarkWake. Takes an integer seconds argument.",
@@ -235,7 +243,19 @@ static DTOption pmtool_options[] =
         required_argument, &args.doAction[kOptionStandbyAccelerateDelayIndex], 1}, kActionType,
         "Sets the minimum duration spent in normal sleep before accelerating to Standby",
         { kActionSetUserInactivityStart }, { NULL } },
-
+    { {kActionSetBattProps,
+          required_argument, &args.doAction[kSetCustomBatteryPropertiesIndex], 1}, kActionType,
+        "Sets the internal battery properties in powerd from the specified plist file and triggers sending notifications based on those properties.\n\
+            Powerd ignores battery notifications from kernel until reset is called\n",
+        { NULL }, {NULL}},
+    { {kActionResetBattProps,
+          no_argument, &args.doAction[kResetCustomBatteryPropertiesIndex], 1}, kActionType,
+        "Ignores any previously set custom battery properties in powerd and allows powerd to listen to battery update notifications from kernel.\n",
+        { NULL }, {NULL}},
+    { {kActionSetBHUpdateDelta,
+          required_argument, &args.doAction[kSetBHUpdateDeltaIndex], 1}, kActionType,
+        "Set the minimum time delta required to change MaxCapacity in battery health. Not all devices require time delta between MaxCapacity updates.\n",
+        { NULL }, {NULL}},
     { {"help", no_argument, NULL, 'h'}, kNilType, NULL, { NULL }, { NULL } },
 
     { {NULL, 0, NULL, 0}, kNilType, NULL, { NULL }, { NULL } }
@@ -243,7 +263,6 @@ static DTOption pmtool_options[] =
 
 static void doCreatePowerSource(void);
 
-static void accelerate_sleep_intervals();
 static void init_args(args_struct *a);
 void init_globals(globals_struct *g2);
 /*************************************************************************/
@@ -274,12 +293,25 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    if (args.doAction[kSetCustomBatteryPropertiesIndex]) {
+        sendCustomBatteryProperties(args.batteryPropsPath);
+        exit(1);
+    }
+    if (args.doAction[kResetCustomBatteryPropertiesIndex]) {
+        sendCustomBatteryProperties(NULL);
+        exit(1);
+    }
+    if (args.doAction[kSetBHUpdateDeltaIndex]) {
+        sendBHUpdateTimeDelta(args.nccpUpdateDelta);
+        exit(1);
+    }
+#if TARGET_OS_OSX
+
     if (args.doAction[kActionInactivityWindowIndex]) {
         sendInactivityWindowCommand(args.inactivityWindowStart,
                                     args.inactivityWindowDuration, args.standbyAccelerationDelay);
         exit(1);
     }
-
     if (args.doAction[kActionHibernateNowIndex] ||
         args.doAction[kActionStandbyNowIndex] ||
         args.doAction[kActionPowerOffNowIndex]) {
@@ -313,6 +345,7 @@ int main(int argc, char *argv[])
         createPMConnectionListener();
     }
     
+#endif
     if (args.doItWhen & kDoItUponACAttach) {
         int out_token;
         int status;
@@ -452,6 +485,7 @@ static void usage(void)
         }
     }
     printf("\n");
+#if TARGET_OS_OSX
     printf("Examples: You can use pmtool to write sentences.\n");
     printf(" -> Do network maintenance wakes at 30 second intervals, staying awake for 10 seconds. Stop after 10 times.\n");
     printf("    pmtool --maintenancewake 30 \n\
@@ -462,6 +496,7 @@ static void usage(void)
     printf("    pmtool --sleepservicewake 60 \n\
            --createassertion applepushservice --assertiontimeout 120 --enterdarkwake \n\
            --sleepnow --iterations 1");
+#endif
     
     printf("\n");
     
@@ -472,7 +507,6 @@ static bool parse_it_all(int argc, char *argv[]) {
     char                ch = 0;
     struct option       *long_opts = NULL;
     int                 long_opts_count = 0;
-    long                temp_arg = 0;
     char                *arg;
     
     init_args(&args);
@@ -505,7 +539,7 @@ static bool parse_it_all(int argc, char *argv[]) {
             usage();
             exit(0);
         }
-        
+#if TARGET_OS_OSX 
         if (('g' == ch)
             || (arg && !strcmp(arg, kActionGet))) {
             print_everything_dark();
@@ -520,22 +554,26 @@ static bool parse_it_all(int argc, char *argv[]) {
             args.assertionTimeoutSec = strtol(optarg, NULL, 10);
         }
         else if (arg && !strcmp(arg, kActionSetTCPKeepAliveExpirationTimeout)) {
-            temp_arg = strtol(optarg, NULL, 10);
+            long temp_arg = strtol(optarg, NULL, 10);
             IOPMSetValueInt(kIOPMTCPKeepAliveExpirationOverride, (int)temp_arg);
             printf("Updated \"TCPKeepAliveExpiration\" to %lds\n", temp_arg);
             exit(0);
         }
-        else if (arg && !strcmp(arg, kActionSetBatt)) {
-            args.batteryLevel = (int)strtol(optarg, NULL, 10);
+        else if (arg && !strcmp(arg, kActionSetUserInactivityStart)) {
+            args.inactivityWindowStart = strtol(optarg, NULL, 0);
         }
-        else if (arg && !strcmp(arg, kOptionIterations)) {
-            args.iterationsCount = (int)strtol(optarg, NULL, 10);
-            strtol(optarg, NULL, 10);
+        else if (arg && !strcmp(arg, kOptionInactivityDuration)) {
+            args.inactivityWindowDuration = strtol(optarg, NULL, 0);
+        }
+        else if (arg && !strcmp(arg, kOptionStandbyAccelerateDelay)) {
+            args.standbyAccelerationDelay = strtol(optarg, NULL, 0);
         }
         else if (arg && !strcmp(arg, kOptionSleepServiceCapTimeout)) {
             args.sleepServiceCapTimeoutSec = strtol(optarg, NULL, 10);
         }
-        else if (arg && !strcmp(arg, kActionDoAckTimeout)) {
+        else
+#endif
+         if (arg && !strcmp(arg, kActionDoAckTimeout)) {
             args.doAction[kDoAckTimeoutIndex] = 1;
             if (!strcmp(kArgIOPMConnection, optarg)) {
                 args.ackIOPMConnection = false;
@@ -545,6 +583,13 @@ static bool parse_it_all(int argc, char *argv[]) {
                 printf("Unrecognized ackTimeout argument: %s", optarg);
                 exit(1);
             }
+        }
+        else if (arg && !strcmp(arg, kActionSetBatt)) {
+            args.batteryLevel = (int)strtol(optarg, NULL, 10);
+        }
+        else if (arg && !strcmp(arg, kOptionIterations)) {
+            args.iterationsCount = (int)strtol(optarg, NULL, 10);
+            strtol(optarg, NULL, 10);
         }
         else if (arg && !strcmp(arg, kActionCreateAssertion)) {
             for (int j=0; j<g.assertionsArgCount; j++) {
@@ -579,14 +624,11 @@ static bool parse_it_all(int argc, char *argv[]) {
                 exit(1);
             }
         }
-        else if (arg && !strcmp(arg, kActionSetUserInactivityStart)) {
-            args.inactivityWindowStart = strtol(optarg, NULL, 0);
+        else if (arg && !strcmp(arg, kActionSetBattProps)) {
+            args.batteryPropsPath = strdup(optarg);
         }
-        else if (arg && !strcmp(arg, kOptionInactivityDuration)) {
-            args.inactivityWindowDuration = strtol(optarg, NULL, 0);
-        }
-        else if (arg && !strcmp(arg, kOptionStandbyAccelerateDelay)) {
-            args.standbyAccelerationDelay = strtol(optarg, NULL, 0);
+        else if (arg && !strcmp(arg, kActionSetBHUpdateDelta)) {
+            args.nccpUpdateDelta = (int)strtol(optarg, NULL, 0);
         }
         
     } while (1);
@@ -608,6 +650,7 @@ static bool parse_it_all(int argc, char *argv[]) {
     return true;
 }
 
+#if TARGET_OS_OSX
 static void print_the_plan(void)
 {
     int actions_count = 0;
@@ -694,6 +737,7 @@ static void print_the_plan(void)
     
     
 }
+#endif
 
 static struct option *long_opts_from_pmtool_opts(int *count)
 {
@@ -899,10 +943,13 @@ static void execute_APICall(const char *callname)
         return;
     }
     
+#if TARGET_OS_OSX
     if (!strcmp(kCallDeclareNotificationEvent, callname))
     {
         ret = IOPMAssertionDeclareNotificationEvent(CFSTR("pmtool"), args.assertionTimeoutSec, &dontcare);
-    } else if (!strcmp(kCallDeclareSystemIsActive, callname))
+    } else
+#endif
+    if (!strcmp(kCallDeclareSystemIsActive, callname))
     {
         ret = IOPMAssertionDeclareSystemActivity(CFSTR("pmtool-system"), &dontcare, &systemstate);
         if (kIOReturnSuccess == ret) {
@@ -959,6 +1006,7 @@ static void print_pretty_date(bool newline)
     }
 }
 
+#if TARGET_OS_OSX
 static void createPMConnectionListener(void)
 {
     IOReturn            ret;
@@ -1202,6 +1250,7 @@ static void print_everything_dark(void)
     printf("  TCPKeepAlive Expiration = %ds\n", tcpKeepAliveExpires);
     printf("  TCPKeepAlive ConnectionsExist = %s\n", (tcpka_activeConnectionsExist) ? "yes" : "no");
 }
+#endif
 
 enum {
     kCurrentCapacity = 0,
@@ -1328,6 +1377,7 @@ static void bringTheHeat(void)
     dispatch_main();
 }
 
+#if TARGET_OS_OSX
 static void sleepHandler(int sleepType)
 {
     io_connect_t connect = IOPMFindPowerManagement(kIOMasterPortDefault);
@@ -1373,6 +1423,14 @@ static void wakeHandler(void)
     exit(1);
 }
 
+void accelerate_sleep_intervals(void)
+{
+    system("/usr/bin/pmset btinterval 0");
+    system("/usr/bin/pmset dwlinterval 0");
+}
+
+
+
 void _CFDictionarySetLong(CFMutableDictionaryRef d, CFStringRef k, long val)
 {
     CFNumberRef     num = NULL;
@@ -1383,12 +1441,6 @@ void _CFDictionarySetLong(CFMutableDictionaryRef d, CFStringRef k, long val)
         CFDictionarySetValue(d, k, num);
         CFRelease(num);
     }
-}
-
-void accelerate_sleep_intervals(void)
-{
-    system("/usr/bin/pmset btinterval 0");
-    system("/usr/bin/pmset dwlinterval 0");
 }
 
 
@@ -1403,6 +1455,7 @@ void _CFDictionarySetDate(CFMutableDictionaryRef d, CFStringRef k, CFAbsoluteTim
     }
 }
 
+#endif
 
 static void cacheArgvString(int argc, char *argv[])
 {
@@ -1534,7 +1587,7 @@ void processXpcEvent(xpc_object_t msg)
     }
 }
 
-
+#if TARGET_OS_OSX
 static void sendInactivityWindowCommand(long start, long duration, long delay)
 {
     xpc_object_t            desc = NULL;
@@ -1598,3 +1651,60 @@ static void sendInactivityWindowCommand(long start, long duration, long delay)
 
     xpc_release(connection);
 }
+#endif
+
+CFPropertyListRef createPlistLoadFile(const char* plistFilename)
+{
+	CFURLRef fileURL = NULL;
+    CFReadStreamRef stream = NULL;
+    CFPropertyListRef propertyListArray = NULL;
+    CFDictionaryRef propertyList = NULL;
+
+	CFStringRef filestr = CFStringCreateWithCString(kCFAllocatorDefault, plistFilename,
+													kCFStringEncodingMacRoman);
+    if (!filestr) {
+        printf("Internal failure: Failed to create cstring\n");
+        goto exit;
+    }
+	fileURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, filestr,
+											kCFURLPOSIXPathStyle, false);
+    if (!fileURL) {
+        printf("Internal failure: Failed to create URL for the specified file\n");
+        goto exit;
+    }
+
+	stream = CFReadStreamCreateWithFile(kCFAllocatorDefault, fileURL);
+    if (!stream) {
+        printf("Internal failure: Failed to create file stream\n");
+        goto exit;
+    }
+
+	if (!CFReadStreamOpen(stream)) {
+        printf("Internal failure: Failed to read file stream'%s'\n", plistFilename);
+        goto exit;
+    }
+	propertyListArray = CFPropertyListCreateWithStream(kCFAllocatorDefault, stream, 0,
+                                                kCFPropertyListMutableContainers, NULL, NULL);
+    if (!isA_CFArray(propertyListArray)) {
+        printf("Internal failure: Failed to create property list from file '%s'\n", plistFilename);
+        goto exit;
+    }
+    propertyList = CFArrayGetValueAtIndex(propertyListArray, 0);
+    if (!propertyList) {
+        printf("Internal failure: Failed to get property list from file '%s'\n", plistFilename);
+        goto exit;
+    }
+
+exit:
+    if (stream) {
+        CFReadStreamClose(stream);
+        CFRelease(stream);
+    }
+    if (fileURL) { CFRelease(fileURL); }
+	if (filestr) { CFRelease(filestr); }
+	return propertyList;
+}
+
+
+static void sendCustomBatteryProperties(char *path) {}
+static void sendBHUpdateTimeDelta(long timeDelta) {}

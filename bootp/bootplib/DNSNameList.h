@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2006 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,7 +44,7 @@
  * Function: DNSNameListBufferCreate
  *
  * Purpose:
- *   Convert the given list of DNS domain names into the compact form
+ *   Convert the given list of DNS domain names into either of two formats
  *   described in RFC 1035.  If "buffer" is NULL, this routine allocates
  *   a buffer of sufficient size and returns its size in "buffer_size".
  *   Use free() to release the memory.
@@ -52,13 +52,23 @@
  *   If "buffer" is not NULL, this routine places at most "buffer_size" 
  *   bytes into "buffer".  If "buffer" is too small, NULL is returned, and
  *   "buffer_size" reflects the number of bytes used in the partial conversion.
+ *
+ *   If "compact" is TRUE, generates the compact form (RFC 1035 section 4.1.4),
+ *   otherwise generates the non-compact form (RFC 1035 section 3.1).
  *   
  * Returns:
  *   NULL if the conversion failed, non-NULL otherwise.
  */
 uint8_t *
 DNSNameListBufferCreate(const char * names[], int names_count,
-			uint8_t * buffer, int * buffer_size);
+			uint8_t * buffer, int * buffer_size, Boolean compact);
+
+CFDataRef
+DNSNameListDataCreateWithString(CFStringRef cfstr);
+
+CFDataRef
+DNSNameListDataCreateWithArray(CFArrayRef list, Boolean compact);
+
 /* 
  * Function: DNSNameListCreate
  *

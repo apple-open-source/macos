@@ -102,8 +102,6 @@ body[dir=rtl] .data-grid :matches(th, td):not(:last-child) {
 
 .data-grid th:matches(.sort-ascending, .sort-descending) {
     background-color: hsl(0, 0%, 90%);
-
-    --data-grid-sort-div-first-child-padding-end: 12px;
 }
 
 .data-grid tr.filler {
@@ -189,12 +187,16 @@ body[dir=rtl] .data-grid :matches(th, td):not(:last-child) {
     pointer-events: none;
 }
 
+.data-grid:focus tr.selected td:not(:last-child) {
+    --border-end-color: hsla(0, 0%, var(--foreground-lightness), 0.05);
+}
+
 body[dir=ltr] .data-grid:focus tr.selected td:not(:last-child) {
-    border-right-color: hsl(210, 100%, 40%);
+    border-right-color: var(--border-end-color);
 }
 
 body[dir=rtl] .data-grid:focus tr.selected td:not(:last-child) {
-    border-left-color: hsl(210, 100%, 40%);
+    border-left-color: var(--border-end-color);
 }
 
 .data-grid :matches(th, td) > div {
@@ -220,12 +222,8 @@ body[dir=rtl] .data-grid:focus tr.selected td:not(:last-child) {
     position: relative;
 }
 
-body[dir=ltr] .data-grid th:matches(.sort-ascending, .sort-descending) > div:first-child {
-    padding-right: var(--data-grid-sort-div-first-child-padding-end);
-}
-
-body[dir=rtl] .data-grid th:matches(.sort-ascending, .sort-descending) > div:first-child {
-    padding-left: var(--data-grid-sort-div-first-child-padding-end);
+.data-grid th:matches(.sort-ascending, .sort-descending) > div:first-child {
+    -webkit-padding-end: 12px;
 }
 
 .data-grid th:matches(.sort-ascending, .sort-descending) > div:first-child::after {
@@ -333,33 +331,21 @@ body[dir=rtl] .data-grid tr.parent td.disclosure::before {
     display: inline-block;
     width: 16px;
     height: 16px;
+    -webkit-margin-end: 2px;
     vertical-align: top;
-
-    --data-grid-icon-margin-end: 2px;
-}
-
-body[dir=ltr] .data-grid td .icon {
-    margin-right: var(--data-grid-icon-margin-end);
-}
-
-body[dir=rtl] .data-grid td .icon {
-    margin-left: var(--data-grid-icon-margin-end);
 }
 
 .data-grid td .go-to-arrow {
     display: none;
-
-    --data-grid-go-to-arrow-margin-start: 2px;
+    -webkit-margin-start: 2px;
 }
 
 body[dir=ltr] .data-grid td .go-to-arrow {
     float: right;
-    margin-left: var(--data-grid-go-to-arrow-margin-start);
 }
 
 body[dir=rtl] .data-grid td .go-to-arrow {
     float: left;
-    margin-right: var(--data-grid-go-to-arrow-margin-start);
 }
 
 .data-grid tr:matches(.selected, :hover) .go-to-arrow {
@@ -368,7 +354,7 @@ body[dir=rtl] .data-grid td .go-to-arrow {
 
 .data-grid .resizer {
     z-index: var(--z-index-resizer);
-    
+
     --data-grid-resizer-translateX: -2.5px;
 }
 
@@ -383,16 +369,7 @@ body[dir=rtl] .data-grid .resizer {
 .data-grid table:matches(.header, .data) {
     /* Hide starting border from first hidden columns. */
     width: calc(100% + 1px);
-
-    --data-grid-table-margin-start: -1px;
-}
-
-body[dir=ltr] .data-grid table:matches(.header, .data) {
-    margin-left: var(--data-grid-table-margin-start);
-}
-
-body[dir=rtl] .data-grid table:matches(.header, .data) {
-    margin-right: var(--data-grid-table-margin-start);
+    -webkit-margin-start: -1px;
 }
 
 body[dir=ltr] .data-grid :matches(th, td):first-child {
@@ -406,8 +383,7 @@ body[dir=rtl] .data-grid :matches(th, td):first-child {
 @media (-webkit-min-device-pixel-ratio: 2) {
     .data-grid table:matches(.header, .data) {
         width: calc(100% + 0.5px);
-        
-        --data-grid-table-margin-start: -0.5px;
+        -webkit-margin-start: -0.5px;
     }
 
     .data-grid :matches(th, td):first-child {
@@ -429,7 +405,7 @@ body:not(.window-inactive, .window-docked-inactive) .data-grid:focus tr.editable
     color: var(--selected-foreground-color);
 }
 
-@media (prefers-dark-interface) {
+@media (prefers-color-scheme: dark) {
     .data-grid td .subtitle {
         color: var(--selected-secondary-text-color);
     }

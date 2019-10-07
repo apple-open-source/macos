@@ -119,14 +119,17 @@ WI.AuditTestGroupContentView = class AuditTestGroupContentView extends WI.AuditT
                     independent: true,
                 });
                 scopeBarItem.selected = true;
+
+                scopeBarItem.element.insertBefore(document.createElement("img"), scopeBarItem.element.firstChild);
+
                 scopeBarItems.push(scopeBarItem);
             };
 
-            addScopeBarItem(WI.AuditTestCaseResult.Level.Pass, WI.UIString("%d Passed"));
+            addScopeBarItem(WI.AuditTestCaseResult.Level.Pass, WI.UIString("%d Passed", "%d Passed (singular)", ""), WI.UIString("%d Passed", "%d Passed (plural)", ""));
             addScopeBarItem(WI.AuditTestCaseResult.Level.Warn, WI.UIString("%d Warning"), WI.UIString("%d Warnings"));
-            addScopeBarItem(WI.AuditTestCaseResult.Level.Fail, WI.UIString("%d Failed"));
+            addScopeBarItem(WI.AuditTestCaseResult.Level.Fail, WI.UIString("%d Failed", "%d Failed (singular)", ""), WI.UIString("%d Failed", "%d Failed (plural)", ""));
             addScopeBarItem(WI.AuditTestCaseResult.Level.Error, WI.UIString("%d Error"), WI.UIString("%d Errors"));
-            addScopeBarItem(WI.AuditTestCaseResult.Level.Unsupported, WI.UIString("%d Unsupported"));
+            addScopeBarItem(WI.AuditTestCaseResult.Level.Unsupported, WI.UIString("%d Unsupported", "%d Unsupported (singular)", ""), WI.UIString("%d Unsupported", "%d Unsupported (plural)", ""));
 
             this._levelScopeBar = new WI.ScopeBar(null, scopeBarItems);
             this._levelScopeBar.addEventListener(WI.ScopeBar.Event.SelectionChanged, this._handleLevelScopeBarSelectionChanged, this);
@@ -149,6 +152,9 @@ WI.AuditTestGroupContentView = class AuditTestGroupContentView extends WI.AuditT
         }
 
         for (let subobject of this._subobjects()) {
+            if (subobject instanceof WI.AuditTestBase && subobject.disabled)
+                continue;
+
             let view = WI.ContentView.contentViewForRepresentedObject(subobject);
             this.contentView.addSubview(view);
             view.shown();

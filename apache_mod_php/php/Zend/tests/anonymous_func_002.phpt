@@ -1,7 +1,7 @@
 --TEST--
 Testing anonymous function return as array key and accessing $GLOBALS
 --FILE--
-<?php 
+<?php
 
 $test = create_function('$v', 'return $v;');
 
@@ -11,6 +11,9 @@ var_dump($arr[$test(1)]);
 var_dump($arr[$test(0)]() == $arr);
 
 ?>
---EXPECT--
+--EXPECTF--
+Deprecated: Function create_function() is deprecated in %s on line %d
+
+Deprecated: Function create_function() is deprecated in %s on line %d
 int(2)
 bool(true)

@@ -22,5 +22,15 @@ T_DECL(parallel_register_cancel,
 		assert(notify_cancel(tokens[i]) == NOTIFY_STATUS_OK);
 		assert(notify_post("com.example.test") == NOTIFY_STATUS_OK);
 	});
+
+
+	dispatch_apply(100000, DISPATCH_APPLY_AUTO, ^(size_t i) {
+		assert(notify_register_check("self.example.test", &tokens[i]) == NOTIFY_STATUS_OK);
+		assert(notify_cancel(tokens[i]) == NOTIFY_STATUS_OK);
+		assert(notify_register_dispatch("self.example.test", &tokens[i], noteQueue, ^(int i){}) == NOTIFY_STATUS_OK);
+		assert(notify_cancel(tokens[i]) == NOTIFY_STATUS_OK);
+		assert(notify_post("self.example.test") == NOTIFY_STATUS_OK);
+	});
+
 	T_PASS("Success");
 }

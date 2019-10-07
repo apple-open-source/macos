@@ -11,7 +11,7 @@ Test fgets() function : usage variations - write only modes (Bug #42036)
     a, ab, at,
     x, xb, xt
 */
-// include the header for common test function 
+// include the header for common test function
 include ("file.inc");
 
 echo "*** Testing fgets() with file opened in write only mode ***\n";
@@ -30,8 +30,8 @@ foreach ($file_modes as $file_mode ) {
   fwrite($file_handle, $data);
 
   // rewind the file pointer to beginning of the file
-  var_dump( rewind($file_handle) ); 
-  var_dump( ftell($file_handle) ); 
+  var_dump( rewind($file_handle) );
+  var_dump( ftell($file_handle) );
   var_dump( feof($file_handle) );
 
   // read from file
@@ -43,12 +43,12 @@ foreach ($file_modes as $file_mode ) {
   fclose($file_handle);
 
   // delete the file
-  unlink($filename); 
+  unlink($filename);
 }
 
 echo "Done\n";
 ?>
---EXPECTF--
+--EXPECT--
 *** Testing fgets() with file opened in write only mode ***
 -- File opened in mode : w --
 bool(true)

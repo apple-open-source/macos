@@ -185,165 +185,12 @@ static void absg(giant g);  /* g := |g|. */
  * CryptKit without the giant stacks enabled.
  */
 
-#if	GIANTS_VIA_STACK
 
-#if	LOG_GIANT_STACK
-#define gstackDbg(x)		printf x
-#else	// LOG_GIANT_STACK
-#define gstackDbg(x)
-#endif	// LOG_GIANT_STACK
-
-typedef struct {
-	unsigned 	numDigits;	// capacity of giants in this stack
-	unsigned	numFree;	// number of free giants in stack
-	unsigned	totalGiants;	// total number in *stack
-	giant 		*stack;
-} gstack;
-
-static gstack *gstacks = NULL;		// array of stacks
-static unsigned numGstacks = 0;		// # of elements in gstacks
-static int gstackInitd = 0;		// this module has been init'd
-
-#define INIT_NUM_GIANTS		16	/* initial # of giants / stack */
-#define MIN_GIANT_SIZE		4	/* numDigits for gstack[0]  */
-#define GIANT_SIZE_INCR		2	/* in << bits */
-
-/*
- * Initialize giant stacks, with up to specified max giant size.
- */
-void initGiantStacks(unsigned maxDigits)
-{
-	unsigned curSize = MIN_GIANT_SIZE;
-	unsigned sz;
-	unsigned i;
-
-	dblog0("initGiantStacks\n");
-	
-	if(gstackInitd) {
-		/*
-		 * Shouldn't be called more than once...
-		 */
-		printf("multiple initGiantStacks calls\n");
-		return;
-	}
-	gstackDbg(("initGiantStacks(%d)\n", maxDigits));
-
-	/*
-	 * How many stacks?
-	 */
-	numGstacks = 1;
-	while(curSize<=maxDigits) {
-		curSize <<= GIANT_SIZE_INCR;
-		numGstacks++;
-	}
-
-	sz = sizeof(gstack) * numGstacks;
-	gstacks = (gstack*) fmalloc(sz);
-	bzero(gstacks, sz);
-
-	curSize = MIN_GIANT_SIZE;
-	for(i=0; i<numGstacks; i++) {
-		gstacks[i].numDigits = curSize;
-		curSize <<= GIANT_SIZE_INCR;
-	}
-
-	gstackInitd = 1;
-}
-
-/* called at shut down - free resources */ 
-void freeGiantStacks(void)
-{
-	int i;
-	int j;
-	gstack *gs;
-	
-	if(!gstackInitd) {
-		return;
-	}
-	for(i=0; i<numGstacks; i++) {
-		gs = &gstacks[i];
-		for(j=0; j<gs->numFree; j++) {
-			freeGiant(gs->stack[j]);
-			gs->stack[j] = NULL;
-		}
-		/* and the stack itself - may be null if this was never used */
-		if(gs->stack != NULL) {
-			ffree(gs->stack);
-			gs->stack = NULL;
-		}
-	}
-	ffree(gstacks);
-	gstacks = NULL;
-	gstackInitd = 0;
-}
-
-#endif	// GIANTS_VIA_STACK
 
 giant borrowGiant(unsigned numDigits)
 {
 	giant 		result;
-
-	#if	GIANTS_VIA_STACK
-
-	unsigned 	stackNum;
-	gstack 		*gs = gstacks;
-
-	#if 	WARN_ZERO_GIANT_SIZE
-	if(numDigits == 0) {
-		printf("borrowGiant(0)\n");
-		numDigits = gstacks[numGstacks-1].numDigits;
-	}
-	#endif	// WARN_ZERO_GIANT_SIZE
-
-	/*
-	 * Find appropriate stack
-	 */
-	if(numDigits <= MIN_GIANT_SIZE)
-	        stackNum = 0;
-	else if (numDigits <= (MIN_GIANT_SIZE << GIANT_SIZE_INCR))
-	        stackNum = 1;
-	else if (numDigits <= (MIN_GIANT_SIZE << (2 * GIANT_SIZE_INCR)))
-	        stackNum = 2;
-	else if (numDigits <= (MIN_GIANT_SIZE << (3 * GIANT_SIZE_INCR)))
-	        stackNum = 3;
-	else if (numDigits <= (MIN_GIANT_SIZE << (4 * GIANT_SIZE_INCR)))
-	        stackNum = 4;
-	else
-		stackNum = numGstacks;
-
-	if(stackNum >= numGstacks) {
-		/*
-		 * out of bounds; just malloc
-		 */
-		#if	LOG_GIANT_STACK_OVERFLOW
-		gstackDbg(("giantFromStack overflow; numDigits %d\n",
-			numDigits));
-		#endif	// LOG_GIANT_STACK_OVERFLOW
-		return newGiant(numDigits);
-	}
- 	gs = &gstacks[stackNum];
-
-	#if	GIANT_MAC_DEBUG
-	if((gs->numFree != 0) && (gs->stack == NULL)) {
-		dblog0("borrowGiant: null stack!\n");
-	}
-	#endif
- 
-   	if(gs->numFree != 0) {
-        	result = gs->stack[--gs->numFree];
-	}
-    	else {
-		/*
-		 * Stack empty; malloc
-		 */
-    		result = newGiant(gs->numDigits);
-	}
-
-	#else	/* GIANTS_VIA_STACK */
-
 	result = newGiant(numDigits);
-
-	#endif	/* GIANTS_VIA_STACK */
 
 	PROF_INCR(numBorrows);
 	return result;
@@ -351,94 +198,7 @@ giant borrowGiant(unsigned numDigits)
 
 void returnGiant(giant g)
 {
-
-	#if	GIANTS_VIA_STACK
-
-	unsigned 	stackNum;
-	gstack 		*gs;
-	unsigned 	cap = g->capacity;
-
-
-	#if	FEE_DEBUG
-	if(!gstackInitd) {
-		CKRaise("returnGiant before stacks initialized!");
-	}
-	#endif	// FEE_DEBUG
-
-	#if	GIANT_MAC_DEBUG
-	if(g == NULL) {
-		dblog0("returnGiant: null g!\n");
-	}
-	#endif
-
-	/*
-	 * Find appropriate stack. Note we expect exact match of
-	 * capacity and stack's giant size.
-	 */
-	/*
-	 * Optimized unrolled loop. Just make sure there are enough cases
-	 * to handle all of the stacks. Errors in this case will be flagged
-	 * via LOG_GIANT_STACK_OVERFLOW.
-	 */
-	switch(cap) {
-	    case MIN_GIANT_SIZE:
-	        stackNum = 0;
-		break;
-	    case MIN_GIANT_SIZE << GIANT_SIZE_INCR:
-	        stackNum = 1;
-		break;
-	    case MIN_GIANT_SIZE << (2 * GIANT_SIZE_INCR):
-	        stackNum = 2;
-		break;
-	    case MIN_GIANT_SIZE << (3 * GIANT_SIZE_INCR):
-	        stackNum = 3;
-		break;
-	    case MIN_GIANT_SIZE << (4 * GIANT_SIZE_INCR):
-	        stackNum = 4;
-		break;
-	    default:
-	        stackNum = numGstacks;
-		break;
-	}
-
-	if(stackNum >= numGstacks) {
-		/*
-		 * out of bounds; just free
-		 */
-		#if	LOG_GIANT_STACK_OVERFLOW
-		gstackDbg(("giantToStack overflow; numDigits %d\n", cap));
-		#endif	// LOG_GIANT_STACK_OVERFLOW
-		freeGiant(g);
-		return;
-	}
-	gs = &gstacks[stackNum];
-    	if(gs->numFree == gs->totalGiants) {
-	    	if(gs->totalGiants == 0) {
-			gstackDbg(("Initial alloc of gstack(%d)\n",
-				gs->numDigits));
-	    		gs->totalGiants = INIT_NUM_GIANTS;
-	    	}
-	    	else {
-			gs->totalGiants *= 2;
-			gstackDbg(("Bumping gstack(%d) to %d\n",
-				gs->numDigits, gs->totalGiants));
-		}
-	    	gs->stack = (giantstruct**) frealloc(gs->stack, gs->totalGiants*sizeof(giant));
-    	}
-   	g->sign = 0;		// not sure this is important...
-    	gs->stack[gs->numFree++] = g;
-
-	#if	GIANT_MAC_DEBUG
-	if((gs->numFree != 0) && (gs->stack == NULL)) {
-		dblog0("borrowGiant: null stack!\n");
-	}
-	#endif
-	
-	#else	/* GIANTS_VIA_STACK */
-
 	freeGiant(g);
-
-	#endif	/* GIANTS_VIA_STACK */
 }
 
 void freeGiant(giant x) {
@@ -453,12 +213,8 @@ giant newGiant(unsigned numDigits) {
     #if 	WARN_ZERO_GIANT_SIZE
     if(numDigits == 0) {
         printf("newGiant(0)\n");
-		#if	GIANTS_VIA_STACK
-        numDigits = gstacks[numGstacks-1].totalGiants;
-		#else
 		/* HACK */
 		numDigits = 20;
-		#endif
     }
     #endif	// WARN_ZERO_GIANT_SIZE
 
@@ -1528,18 +1284,6 @@ void clearGiant(giant g)
     }
     g->sign = 0;
 }
-
-#if	ENGINE_127_BITS
-/*
- * only used by engineNSA127.c, which is obsolete as of 16 Jan 1997
- */
-int
-scompg(int n, giant g) {
-    if((g->sign == 1) && (g->n[0] == n)) return(1);
-    return(0);
-}
-
-#endif	// ENGINE_127_BITS
 
 /*
  */

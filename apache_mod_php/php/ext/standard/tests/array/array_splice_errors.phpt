@@ -2,10 +2,10 @@
 Test array_splice() function : error conditions
 --FILE--
 <?php
-/* 
+/*
  * proto array array_splice(array input, int offset [, int length [, array replacement]])
  * Function is implemented in ext/standard/array.c
-*/ 
+*/
 
 echo "\n*** Testing error conditions of array_splice() ***\n";
 
@@ -21,7 +21,6 @@ echo "Done\n";
 
 ?>
 --EXPECTF--
-
 *** Testing error conditions of array_splice() ***
 
 Warning: array_splice() expects at least 2 parameters, 0 given in %s on line %d
@@ -33,7 +32,7 @@ NULL
 Warning: array_splice() expects at least 2 parameters, 1 given in %s on line %d
 NULL
 
-Warning: array_splice() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_splice() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 Warning: array_splice() expects parameter 1 to be array, object given in %s on line %d

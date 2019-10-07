@@ -77,7 +77,7 @@
     
     //return set of all usage key/ usagePage array for which we need to set filter
     if (_filterUsages && [key isEqualToString:@(kIOHIDServiceDeviceDebugUsageFilter)]) {
-     
+        
         NSMutableArray *ret = [[NSMutableArray alloc] init];
         
         for (NSNumber *usagePage in _filterUsages) {
@@ -124,7 +124,7 @@
         res = event;
     } else if ([_filterUsages objectForKey:@(usagePage)]) {
         for (NSNumber *usg in _filterUsages[@(usagePage)]) {
-            if (usage == [usg intValue]) {
+            if (usage == (UInt32)[usg intValue]) {
                 res = event;
                 break;
             }
@@ -134,9 +134,10 @@
     if (!res) {
         //dropped event
         //tracking only keyboard events
-        [_droppedEvents addObject:@{@usagePage : @usage}];
+        [_droppedEvents addObject:@{@(usagePage) : @(usage)}];
     }
     return res;
 }
 @end
+
 

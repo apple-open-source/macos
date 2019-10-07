@@ -49,11 +49,16 @@ SRC_HIERARCHY=hierarchy hierarchy.not_sim hierarchy.$(CONTENT_PLATFORM)
 endif
 
 install::
+
+	# The hierarchy files REQUIRE that their columns be TAB-SEPARATED. Using
+	# spaces will result in that line being SILENTLY IGNORED. This should be
+	# fixed at some point.
 	@echo "Installing for $(CONTENT_PLATFORM)"
 	$(_v) install -d -m 1775 -o root -g admin "$(Destination)"
 	$(_v) set -o pipefail && cat $(SRC_HIERARCHY) | \
 	awk -F '\t'  ' \
-	{	print sprintf("install -d -m %s -o %s -g %s \"$(Destination)/%s\";", $$1, $$2, $$3, $$4); \
+	{	if (NF!=4) { print sprintf("echo \"\033[0;31mMake sure to use tabs instead of spaces for: %s\033[0m\"; exit 1;", $$0); exit 1} \
+		print sprintf("install -d -m %s -o %s -g %s \"$(Destination)/%s\";", $$1, $$2, $$3, $$4); \
 		print sprintf("[ ! -f \"%s/Makefile\" ] || make -C \"%s\" CONTENT_PLATFORM=\"$(CONTENT_PLATFORM)\" Destination=\"$(Destination)/%s\" $@ ;", $$4, $$4, $$4); \
 	}' | sh -x -e
 
@@ -72,13 +77,14 @@ ifeq "$(CONTENT_PLATFORM)" "osx"
 	$(_v) $(INSTALL_FILE) -m 0644 -o root -g admin -c /dev/null "$(Destination)/.com.apple.timemachine.donotpresent"
 	#$(_v) $(INSTALL_FILE) -m 0644 -o root -g admin -c /dev/null "$(Destination)/.metadata_never_index"
 	$(_v) $(LN) -fs private/tmp "$(Destination)/tmp"
+
+	# Set up symlink for custom volume icons on the system volume.
+	#
+	# <rdar://problem/52896013>
+	$(_v) $(LN) -fs System/Volumes/Data/.VolumeIcon.icns "$(Destination)/.VolumeIcon.icns"
 	$(_v) $(INSTALL) -m 0664 -o root -g admin -c /dev/null "$(Destination)/.DS_Store"
 	$(_v) $(INSTALL) -m 0664 -o root -g admin -c /dev/null "$(Destination)/Applications/.DS_Store"
 	$(_v) $(INSTALL) -m 0664 -o root -g admin -c /dev/null "$(Destination)/Applications/Utilities/.DS_Store"
-	# rdar://problem/9596025
-	$(_v) $(LN) -fs ../../Applications/Motion.app/Contents/Frameworks/AEProfiling.framework "$(Destination)/Library/Frameworks"
-	$(_v) $(LN) -fs ../../Applications/Motion.app/Contents/Frameworks/AERegistration.framework "$(Destination)/Library/Frameworks"
-	$(_v) $(LN) -fs ../../Applications/Motion.app/Contents/Frameworks/AudioMixEngine.framework "$(Destination)/Library/Frameworks"
 endif
 ifneq "$(CONTENT_PLATFORM)" "ios_sim"
 	$(_v) $(CHOWN) -h root:wheel "$(Destination)/tmp"

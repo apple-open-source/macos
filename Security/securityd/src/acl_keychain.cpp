@@ -209,7 +209,9 @@ bool KeychainPromptAclSubject::validateExplicitly(const AclValidationContext &co
 		if (db && db->belongsToSystem() && !hasAuthorizedForSystemKeychain()) {
 			QueryKeychainAuth query;
 			query.inferHints(Server::process());
-			if (query(db ? db->dbName() : NULL, description.c_str(), context.authorization(), NULL) != SecurityAgent::noReason)
+            // This is okay because we're in the belongsToSystem case which is true iff KeychainDbCommon which is true iff KeychainDatabase
+            const KeychainDatabase& kcdb = dynamic_cast<const KeychainDatabase&>(*db);
+			if (query.performQuery(kcdb, description.c_str(), context.authorization(), NULL) != SecurityAgent::noReason)
 				return false;
 			return true;
 		} else {

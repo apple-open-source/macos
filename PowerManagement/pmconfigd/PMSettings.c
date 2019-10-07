@@ -108,7 +108,7 @@ static IOReturn activate_profiles(
         bool                            removeUnsupported);
 static IOReturn PMActivateSystemPowerSettings( void );
 
-static void  migrateSCPrefs();
+static void  migrateSCPrefs(void);
 static void updatePowerNapSetting(void);
 
 
@@ -536,17 +536,8 @@ __private_extern__ bool platformPluginLoaded(void)
     return (gPlatformPluginLoaded);
 }
 
-
-
-/* extern symbol defined in IOKit.framework
- * IOCFURLAccess.c
- */
-extern Boolean _IOReadBytesFromFile(CFAllocatorRef alloc, const char *path, void **bytes, CFIndex *length, CFIndex maxLength);
-
-
 static int ProcessHibernateSettings(CFDictionaryRef dict, bool standby, bool isDesktop, io_registry_entry_t rootDomain)
 {
-    IOReturn    ret;
     CFTypeRef   obj = NULL;
     CFNumberRef modeNum;
     CFNumberRef num;
@@ -689,65 +680,9 @@ static int ProcessHibernateSettings(CFDictionaryRef dict, bool standby, bool isD
                 }
             }
 
-            if (!haveFile)
-                break;
-
-#if defined (__i386__) || defined(__x86_64__)
-#define kBootXPath        "/System/Library/CoreServices/boot.efi"
-#define kBootXSignaturePath    "/System/Library/Caches/com.apple.bootefisignature"
-#else
-#define kBootXPath        "/System/Library/CoreServices/BootX"
-#define kBootXSignaturePath    "/System/Library/Caches/com.apple.bootxsignature"
-#endif
-#define kCachesPath        "/System/Library/Caches"
-#define kGenSignatureCommand    "/bin/cat " kBootXPath " | /usr/bin/openssl dgst -sha1 -hex -out " kBootXSignaturePath
-
-
-            struct stat bootx_stat_buf;
-            struct stat bootsignature_stat_buf;
-
-            if (0 != stat(kBootXPath, &bootx_stat_buf))
-                break;
-
-            if ((0 != stat(kBootXSignaturePath, &bootsignature_stat_buf))
-                || (bootsignature_stat_buf.st_mtime != bootx_stat_buf.st_mtime))
-            {
-                if (-1 == stat(kCachesPath, &bootsignature_stat_buf))
-                {
-                    mkdir(kCachesPath, 0777);
-                    chmod(kCachesPath, 0777);
-                }
-
-                // generate signature file
-                if (0 != system(kGenSignatureCommand))
-                    break;
-
-                // set mod time to that of source
-                struct timeval fileTimes[2];
-                TIMESPEC_TO_TIMEVAL(&fileTimes[0], &bootx_stat_buf.st_atimespec);
-                TIMESPEC_TO_TIMEVAL(&fileTimes[1], &bootx_stat_buf.st_mtimespec);
-                if ((0 != utimes(kBootXSignaturePath, fileTimes)))
-                    break;
+            if (haveFile) {
+                IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateFileKey), obj);
             }
-
-
-            // send signature to kernel
-            CFAllocatorRef alloc;
-            void *         sigBytes;
-            CFIndex        sigLen;
-
-            alloc = CFRetain(CFAllocatorGetDefault());
-            if (_IOReadBytesFromFile(alloc, kBootXSignaturePath, &sigBytes, &sigLen, 0))
-                ret = sysctlbyname("kern.bootsignature", NULL, NULL, sigBytes, sigLen);
-            else
-                ret = -1;
-            if (sigBytes)
-                CFAllocatorDeallocate(alloc, sigBytes);
-            CFRelease(alloc);
-            if (0 != ret)
-                break;
-
-            IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateFileKey), obj);
         } while (false);
 
 	if (haveFile && deleteFile) {
@@ -1026,6 +961,8 @@ exit:
     return;
 }
 
+static void sendEnergySettingsToIOPMPowerSource(CFDictionaryRef useSettings) { }
+
 __private_extern__ IOReturn ActivatePMSettings(
     CFDictionaryRef                 useSettings,
     bool                            removeUnsupportedSettings)
@@ -1041,6 +978,7 @@ __private_extern__ IOReturn ActivatePMSettings(
     getAggressivenessFactorsFromProfile(useSettings, &theFactors);
 
     sendEnergySettingsToKernel(useSettings, removeUnsupportedSettings, &theFactors);
+    sendEnergySettingsToIOPMPowerSource(useSettings);
 
     evalAllUserActivityAssertions(theFactors.fMinutesToDim);
     evalAllNetworkAccessAssertions();

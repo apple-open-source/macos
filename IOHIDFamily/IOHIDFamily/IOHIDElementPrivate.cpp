@@ -33,6 +33,8 @@
 #include "AppleHIDUsageTables.h"
 #include "IOHIDUsageTables.h"
 #include "IOHIDFamilyTrace.h"
+#include "IOHIDElementContainer.h"
+#include "IOHIDDevice.h"
 
 #define IsRange() \
             (_usageMin != _usageMax)
@@ -104,7 +106,7 @@ OSDefineMetaClassAndStructors( IOHIDElementPrivate, IOHIDElement )
 //---------------------------------------------------------------------------
 // 
  
-bool IOHIDElementPrivate::init( IOHIDDevice * owner, IOHIDElementType type )
+bool IOHIDElementPrivate::init( IOHIDElementContainer * owner, IOHIDElementType type )
 {
 	if ( ( super::init() != true ) || ( owner == 0 ) )
     {
@@ -132,7 +134,7 @@ bool IOHIDElementPrivate::init( IOHIDDevice * owner, IOHIDElementType type )
 // 
 
 IOHIDElementPrivate *
-IOHIDElementPrivate::buttonElement( IOHIDDevice *     owner,
+IOHIDElementPrivate::buttonElement( IOHIDElementContainer *     owner,
                              IOHIDElementType  type,
                              HIDButtonCapabilitiesPtr  button,
                              IOHIDElementPrivate *    parent )
@@ -204,6 +206,8 @@ IOHIDElementPrivate::buttonElement( IOHIDDevice *     owner,
         element->_units          = button->units;
         element->_unitExponent   = button->unitExponent;
     }
+    
+    element->_currentReportSizeBits = element->_reportBits * element->_reportCount;
 
     // Register with owner and parent, then spawn sub-elements.
     if ( ( parent && ( parent->addChildElement(element, IsArrayElement(element)) == true ) )
@@ -223,7 +227,7 @@ IOHIDElementPrivate::buttonElement( IOHIDDevice *     owner,
 // 
 
 IOHIDElementPrivate *
-IOHIDElementPrivate::valueElement( IOHIDDevice *     owner,
+IOHIDElementPrivate::valueElement( IOHIDElementContainer *     owner,
                             IOHIDElementType  type,
                             HIDValueCapabilitiesPtr   value,
                             IOHIDElementPrivate *    parent )
@@ -267,8 +271,6 @@ IOHIDElementPrivate::valueElement( IOHIDDevice *     owner,
     {
         element->_usageMin = value->u.notRange.usage;
         element->_usageMax = value->u.notRange.usage;
-		
-		element->setupResolution();
     }
     
     if (element->_reportCount > 1)
@@ -309,7 +311,7 @@ VALUE_ELEMENT_RELEASE:
 // 
 
 IOHIDElementPrivate *
-IOHIDElementPrivate::collectionElement( IOHIDDevice *         owner,
+IOHIDElementPrivate::collectionElement( IOHIDElementContainer *owner,
                                  IOHIDElementType      type,
                                  HIDCollectionExtendedNodePtr  collection,
                                  IOHIDElementPrivate *        parent )
@@ -347,11 +349,32 @@ IOHIDElementPrivate::collectionElement( IOHIDDevice *         owner,
     return element;
 }
 
+IOHIDElementPrivate *IOHIDElementPrivate::nullElement(IOHIDElementContainer *owner,
+                                                      UInt32 reportID,
+                                                      IOHIDElementPrivate *parent)
+{
+    IOHIDElementPrivate *element = new IOHIDElementPrivate;
+    
+    if (!element->init(owner, kIOHIDElementTypeInput_NULL)) {
+        element->release();
+        return NULL;
+    }
+    
+    element->_reportID = reportID;
+    owner->registerElement(element, &element->_cookie);
+    
+    if (parent) {
+        parent->addChildElement(element);
+    }
+    
+    return element;
+}
+
 //---------------------------------------------------------------------------
 // 
 
 IOHIDElementPrivate * IOHIDElementPrivate::reportHandlerElement(
-                                            IOHIDDevice *        owner,
+                                            IOHIDElementContainer *owner,
                                             IOHIDElementType     type,
                                             UInt32               reportID,
                                             UInt32               reportBits )
@@ -416,8 +439,7 @@ IOHIDElementPrivate * IOHIDElementPrivate::newSubElement( UInt16 rangeIndex ) co
     element->_physicalMax    		= _physicalMax;
     element->_units          		= _units;
     element->_unitExponent   		= _unitExponent;
-
-	element->setupResolution();
+    element->_currentReportSizeBits = element->_reportBits * element->_reportCount;
 	
     // RY: Special handling for array elements.
     // FYI, if this an array and button element, then we
@@ -607,7 +629,7 @@ bool IOHIDElementPrivate::addChildElement( IOHIDElementPrivate * child, bool arr
 }
 
 IOHIDElementPrivate * IOHIDElementPrivate::arrayHandlerElement(                                
-                                IOHIDDevice *    owner,
+                                IOHIDElementContainer *owner,
                                 IOHIDElementType type,
                                 IOHIDElementPrivate * child,
                                 IOHIDElementPrivate * parent)
@@ -677,51 +699,6 @@ ARRAY_HANDLER_ELEMENT_RELEASE:
     element = 0;
     
     return element;
-}
-
-void IOHIDElementPrivate::setupResolution()
-{
-    IOFixed resolution = 0;
-
-	if ((_usagePage != kHIDPage_GenericDesktop) || (getUsage() != kHIDUsage_GD_X))
-		return;
-    
-    if ((_physicalMin == _logicalMin) || (_physicalMax == _logicalMax))
-		return;
-
-	SInt32 logicalDiff = (_logicalMax - _logicalMin);
-	SInt32 physicalDiff = (_physicalMax - _physicalMin);
-	
-	// Since IOFixedDivide truncated fractional part and can't use floating point
-	// within the kernel, have to convert equation when using negative exponents:
-	// _resolution = ((logMax -logMin) * 10 **(-exp))/(physMax -physMin)
-
-	// Even though unitExponent is stored as SInt32, The real values are only
-	// a signed nibble that doesn't expand to the full 32 bits.
-	SInt32 resExponent = _unitExponent & 0x0F;
-	
-	if (resExponent < 8)
-	{
-		for (int i = resExponent; i > 0; i--)
-		{
-			physicalDiff *=  10;
-		}
-	}
-	else
-	{
-		for (int i = 0x10 - resExponent; i > 0; i--)
-		{
-			logicalDiff *= 10;
-		}
-	}
-	resolution = (logicalDiff / physicalDiff) << 16;
-
-	OSNumber *number = OSNumber::withNumber(resolution, 32);
-	if (number) {
-		_owner->setProperty(kIOHIDPointerResolutionKey, number);
-		number->release();
-	}
-
 }
 
 OSDictionary* IOHIDElementPrivate::createProperties() const
@@ -1071,6 +1048,30 @@ static void writeReportBits( const UInt32 * src,
     }
 }
 
+bool IOHIDElementPrivate::enqueueValue(void *value, UInt32 valueSize)
+{
+    bool result = false;
+    IOHIDEventQueue *queue = NULL;
+    
+    require(_queueArray, exit);
+    
+    for (UInt32 i = 0; i < _queueArray->getCount(); i++) {
+        queue = OSDynamicCast(IOHIDEventQueue, _queueArray->getObject(i));
+        if (!queue) {
+            continue;
+        }
+        
+        result = queue->enqueue(value, valueSize);
+        
+        if (!result) {
+            IOHID_DEBUG(kIOHIDDebugCode_HIDDeviceEnqueueFail, mach_continuous_time(), 0, 0, 0);
+        }
+    }
+    
+exit:
+    return result;
+}
+
 //---------------------------------------------------------------------------
 // 
 
@@ -1084,7 +1085,15 @@ bool IOHIDElementPrivate::processReport(
 {
     IOHIDEventQueue *   queue;
     bool				changed = false;
-  
+    
+    if (_type == kIOHIDElementTypeInput_NULL
+        && reportID == _reportID) {
+        _elementValue->timestamp = *timestamp;
+        enqueueValue((void *)_elementValue, _elementValue->totalSize);
+        *next = NULL;
+        goto exit;
+    }
+    
     // Set next pointer to the next report handler in the chain.
     // If this is an array, set the report handler to the one
     // the array.
@@ -1195,7 +1204,7 @@ bool IOHIDElementPrivate::processReport(
                 if ( shouldProcess || (queue->getOptions() & kIOHIDQueueOptionsTypeEnqueueAll)) {
                     bool result = queue->enqueue( (void *) _elementValue, enqueueSize);
                     if (!result) {
-                        IOHID_DEBUG(kIOHIDDebugCode_HIDDeviceEnqueueFail, mach_continuous_time(), _owner->getRegistryEntryID(), 0, 0);
+                        IOHID_DEBUG(kIOHIDDebugCode_HIDDeviceEnqueueFail, mach_continuous_time(), 0, 0, 0);
                     }
                 }
             }
@@ -1210,6 +1219,7 @@ bool IOHIDElementPrivate::processReport(
     }
     while ( false );
 
+exit:
     return changed;
 }
 
@@ -1222,6 +1232,12 @@ bool IOHIDElementPrivate::createReport( UInt8           reportID,
                                  IOHIDElementPrivate ** next )
 {
     bool handled = false;
+    
+    if (_type == kIOHIDElementTypeInput_NULL
+        && reportID == _reportID) {
+        *next = NULL;
+        goto exit;
+    }
 
     if (next)
         *next = _nextReportHandler;
@@ -1311,6 +1327,7 @@ bool IOHIDElementPrivate::createReport( UInt8           reportID,
     }
     while ( false );
 
+exit:
     return handled;
 }
 
@@ -1382,7 +1399,7 @@ void IOHIDElementPrivate::setRollOverElementPtr( IOHIDElementPrivate ** elementP
 
 bool IOHIDElementPrivate::getReportType( IOHIDReportType * reportType ) const
 {
-    if ( _type <= kIOHIDElementTypeInput_ScanCodes )
+    if ( _type <= kIOHIDElementTypeInput_NULL )
         *reportType = kIOHIDReportTypeInput;
     else if ( _type == kIOHIDElementTypeOutput )
         *reportType = kIOHIDReportTypeOutput;
@@ -1579,7 +1596,6 @@ bool IOHIDElementPrivate::createArrayReport(UInt8	reportID,
 void IOHIDElementPrivate::setArrayElementValue(UInt32 index, UInt32 value)
 {
     IOHIDElementPrivate 	*element;
-    IOHIDEventQueue	*queue;
     
     if ( !_arrayItems || (index > _arrayItems->getCount()))
         return;
@@ -1601,21 +1617,7 @@ void IOHIDElementPrivate::setArrayElementValue(UInt32 index, UInt32 value)
     
     element->_elementValue->generation ++;
 
-    if ( element->_queueArray )
-    {
-        for ( UInt32 i = 0;
-                (queue = (IOHIDEventQueue *) element->_queueArray->getObject(i));
-                i++ )
-        {
-            bool result = queue->enqueue( (void *) element->_elementValue,
-                                         element->_elementValue->totalSize );
-            if (!result) {
-                IOHID_DEBUG(kIOHIDDebugCode_HIDDeviceEnqueueFail, mach_continuous_time(), _owner->getRegistryEntryID(), 0, 0);
-            }
-        }
-    }
-        
-
+    element->enqueueValue((void *)element->_elementValue, element->_elementValue->totalSize);
 }
 
 bool IOHIDElementPrivate::processArrayReport(	UInt8			reportID,
@@ -1804,7 +1806,7 @@ OSData * IOHIDElementPrivate::getDataValue(IOOptionBits options)
     if (options & kIOHIDValueOptionsUpdateElementValues) {
         IOReturn status = _owner->updateElementValues(&_cookie, 1);
         if (status) {
-            HIDLogError ("Device:0x%llx updateElementValues(%lu):%x", _owner->getRegistryEntryID(), (uintptr_t)_cookie, status);
+            HIDLogError("getDataValue failed (%lu):%x", (uintptr_t)_cookie, status);
         }
     }
     return getDataValue();
@@ -1820,7 +1822,7 @@ void IOHIDElementPrivate::setValue(UInt32 value)
     _elementValue->value[0] = value;
     IOReturn status = _owner->postElementValues(&_cookie, 1);
     if (status) {
-         HIDLogError ("Device:0x%llx postElementValues(%lu):%x", _owner->getRegistryEntryID(), (uintptr_t)_cookie, status);
+         HIDLogError("setValue failed (%lu):%x", (uintptr_t)_cookie, status);
         _elementValue->value[0] = previousValue;
     } else {
         _previousValue = previousValue;
@@ -1839,7 +1841,7 @@ void IOHIDElementPrivate::setDataValue(OSData * value)
     
     IOReturn status = _owner->postElementValues(&_cookie, 1);
     if (status) {
-        HIDLogError ("Device:0x%llx postElementValues(%lu):%x", _owner->getRegistryEntryID(), (uintptr_t)_cookie, status);
+        HIDLogError("setDataValue failed (%lu):%x", (uintptr_t)_cookie, status);
         setDataBits(previousValue);
     }
 }
@@ -2084,7 +2086,7 @@ IOFixed IOHIDElementPrivate::getScaledFixedValue(IOHIDValueScaleType type, IOOpt
     if (options & kIOHIDValueOptionsUpdateElementValues) {
         IOReturn status = _owner->updateElementValues(&_cookie, 1);
         if (status) {
-            HIDLogError ("Device:0x%llx updateElementValues(%lu):%x", _owner->getRegistryEntryID(), (uintptr_t)_cookie, status);
+            HIDLogError("updateElementValues failed (%lu):%x", (uintptr_t)_cookie, status);
         }
     }
     return getScaledFixedValue (type);
@@ -2174,7 +2176,7 @@ UInt32 IOHIDElementPrivate::getValue(IOOptionBits options) {
         if (options & kIOHIDValueOptionsUpdateElementValues) {
             IOReturn status = _owner->updateElementValues(&_cookie, 1);
             if (status) {
-                HIDLogError ("Device:0x%llx updateElementValues(%lu):%x", _owner->getRegistryEntryID(), (uintptr_t)_cookie, status);
+                HIDLogError("updateElementValues failed (%lu):%x", (uintptr_t)_cookie, status);
             }
         }
         

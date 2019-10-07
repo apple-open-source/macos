@@ -29,7 +29,6 @@ WI.Script = class Script extends WI.SourceCode
     {
         super();
 
-        console.assert(id);
         console.assert(target instanceof WI.Target);
         console.assert(range instanceof WI.TextRange);
 
@@ -275,6 +274,13 @@ WI.Script = class Script extends WI.SourceCode
                     return resource;
             }
         } catch { }
+
+        if (!this.isMainResource()) {
+            for (let frame of WI.networkManager.frames) {
+                if (frame.mainResource.type === WI.Resource.Type.Document && frame.mainResource.url.startsWith(this._url))
+                    return frame.mainResource;
+            }
+        }
 
         return null;
     }

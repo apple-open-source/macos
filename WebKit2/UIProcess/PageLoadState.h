@@ -27,6 +27,7 @@
 #define PageLoadState_h
 
 #include "WebCertificateInfo.h"
+#include <wtf/URL.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
@@ -112,6 +113,11 @@ public:
         PageLoadState* m_pageLoadState;
     };
 
+    struct PendingAPIRequest {
+        uint64_t navigationID { 0 };
+        String url;
+    };
+
     void addObserver(Observer&);
     void removeObserver(Observer&);
 
@@ -121,6 +127,11 @@ public:
     void reset(const Transaction::Token&);
 
     bool isLoading() const;
+    bool isProvisional() const { return m_committedState.state == State::Provisional; }
+    bool isCommitted() const { return m_committedState.state == State::Committed; }
+    bool isFinished() const { return m_committedState.state == State::Finished; }
+
+    bool hasUncommittedLoad() const;
 
     const String& provisionalURL() const { return m_committedState.provisionalURL; }
     const String& url() const { return m_committedState.url; }
@@ -135,11 +146,15 @@ public:
 
     WebCertificateInfo* certificateInfo() const { return m_committedState.certificateInfo.get(); }
 
+    const URL& resourceDirectoryURL() const;
+
     const String& pendingAPIRequestURL() const;
-    void setPendingAPIRequestURL(const Transaction::Token&, const String&);
-    void clearPendingAPIRequestURL(const Transaction::Token&);
+    const PendingAPIRequest& pendingAPIRequest() const;
+    void setPendingAPIRequest(const Transaction::Token&, PendingAPIRequest&& pendingAPIRequest, const URL& resourceDirectoryPath = { });
+    void clearPendingAPIRequest(const Transaction::Token&);
 
     void didStartProvisionalLoad(const Transaction::Token&, const String& url, const String& unreachableURL);
+    void didExplicitOpen(const Transaction::Token&, const String& url);
     void didReceiveServerRedirectForProvisionalLoad(const Transaction::Token&, const String& url);
     void didFailProvisionalLoad(const Transaction::Token&);
 
@@ -198,7 +213,7 @@ private:
         State state;
         bool hasInsecureContent;
 
-        String pendingAPIRequestURL;
+        PendingAPIRequest pendingAPIRequest;
 
         String provisionalURL;
         String url;
@@ -206,6 +221,8 @@ private:
         String unreachableURL;
 
         String title;
+
+        URL resourceDirectoryURL;
 
         bool canGoBack;
         bool canGoForward;

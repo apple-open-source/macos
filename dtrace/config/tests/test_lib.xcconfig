@@ -1,0 +1,11 @@
+#include "../base.xcconfig"
+EXPORTED_SYMBOLS_FILE = test/tst/common/processcontrol/exports;
+INSTALL_PATH = $(COMMON_TEST_PATH)/processcontrol
+
+DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+GCC_OPTIMIZATION_LEVEL = 0;
+
+
+LIBRARY_STYLE = DYNAMIC;
+MACH_O_TYPE = mh_dylib;
+

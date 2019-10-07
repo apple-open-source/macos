@@ -51,7 +51,7 @@
 #include "TrustSettingsSchema.h"
 #include <security_cdsa_client/wrapkey.h>
 #include <securityd_client/ssblob.h>
-#include <SecBasePriv.h>
+#include <Security/SecBasePriv.h>
 #include "TokenLogin.h"
 
 //%%% add this to AuthorizationTagsPriv.h later
@@ -1573,7 +1573,9 @@ void StorageManager::login(UInt32 nameLength, const void *name,
 							}
 						}
 					}
-					AuthorizationFreeItemSet(returnedInfo);
+                    if(returnedInfo) {
+                        AuthorizationFreeItemSet(returnedInfo);
+                    }
 				}
 				AuthorizationFree(authRef, 0);
 			}

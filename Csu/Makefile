@@ -59,7 +59,7 @@ INSTALLSRC_FILES = Makefile crt.c icplusplus.c lazy_dylib_loader.c start.s dyld_
 
 INTERMEDIATE_FILES =	\
 			$(SYMROOT)/crt1.v1.o  $(SYMROOT)/crt1.v2.o $(SYMROOT)/crt1.v3.o $(SYMROOT)/crt1.v4.o \
-			$(SYMROOT)/gcrt1.o $(SYMROOT)/crt0.o \
+			$(SYMROOT)/crt0.o \
 			$(SYMROOT)/dylib1.v1.o $(SYMROOT)/dylib1.v2.o \
 			$(SYMROOT)/bundle1.v1.o \
 			$(SYMROOT)/lazydylib1.o
@@ -79,9 +79,6 @@ $(SYMROOT)/crt1.v3.o: start.s crt.c
 
 $(SYMROOT)/crt1.v4.o: start.s crt.c
 	$(CC) -r $(ARCH_CFLAGS) -Os $(OS_MIN_V4) -nostdlib -keep_private_externs $^ -o $@  -DADD_PROGRAM_VARS 
-
-$(SYMROOT)/gcrt1.o: start.s crt.c dyld_glue.s 
-	$(CC) -r $(ARCH_CFLAGS) -Os $(OS_MIN_V1) -nostdlib -keep_private_externs $^ -o $@  -DGCRT  -DOLD_LIBSYSTEM_SUPPORT
 
 
 $(SYMROOT)/crt0.o: start.s crt.c
@@ -116,7 +113,6 @@ install_iphone:
 	cp $(SYMROOT)/dylib1.v2.o	$(DSTROOT)$(USRLIBDIR)/dylib1.o
 	cp $(SYMROOT)/bundle1.v1.o	$(DSTROOT)$(USRLIBDIR)/bundle1.o
 	cp $(SYMROOT)/lazydylib1.o	$(DSTROOT)$(USRLIBDIR)/lazydylib1.o
-	cp $(SYMROOT)/gcrt1.o		$(DSTROOT)$(USRLIBDIR)/gcrt1.o
 	cp $(SYMROOT)/crt0.o		$(DSTROOT)$(LOCLIBDIR)/crt0.o
 
 
@@ -124,7 +120,6 @@ install_macosx:
 	cp $(SYMROOT)/crt1.v3.o		$(DSTROOT)$(USRLIBDIR)/crt1.10.6.o
 	cp $(SYMROOT)/crt1.v2.o		$(DSTROOT)$(USRLIBDIR)/crt1.10.5.o
 	cp $(SYMROOT)/crt1.v1.o		$(DSTROOT)$(USRLIBDIR)/crt1.o
-	cp $(SYMROOT)/gcrt1.o		$(DSTROOT)$(USRLIBDIR)/gcrt1.o
 	cp $(SYMROOT)/dylib1.v2.o	$(DSTROOT)$(USRLIBDIR)/dylib1.10.5.o
 	cp $(SYMROOT)/dylib1.v1.o 	$(DSTROOT)$(USRLIBDIR)/dylib1.o
 	cp $(SYMROOT)/bundle1.v1.o	$(DSTROOT)$(USRLIBDIR)/bundle1.o
@@ -133,13 +128,13 @@ install_macosx:
 
 install_ios_simulator:
 	rm -rf $(DSTROOT)
-	mkdir -p $(DSTROOT)/$(SDK_DIR)/$(USRLIBDIR)
-	cp $(SYMROOT)/crt1.v2.o		$(DSTROOT)/$(SDK_DIR)/$(USRLIBDIR)/crt1.10.5.o
-	cp $(SYMROOT)/crt1.v4.o		$(DSTROOT)/$(SDK_DIR)/$(USRLIBDIR)/crt1.10.6.o
-	cp $(SYMROOT)/lazydylib1.o	$(DSTROOT)/$(SDK_DIR)/$(USRLIBDIR)/lazydylib1.o
-	cp $(SYMROOT)/dylib1.v2.o	$(DSTROOT)/$(SDK_DIR)/$(USRLIBDIR)/dylib1.o
-	cp $(SYMROOT)/bundle1.v1.o	$(DSTROOT)/$(SDK_DIR)/$(USRLIBDIR)/bundle1.o
-	cd $(DSTROOT)/$(SDK_DIR)/$(USRLIBDIR); ln -s crt1.10.6.o crt1.o; ln -s crt1.10.5.o crt1.3.1.o
+	mkdir -p $(DSTROOT)/$(USRLIBDIR)
+	cp $(SYMROOT)/crt1.v2.o		$(DSTROOT)/$(USRLIBDIR)/crt1.10.5.o
+	cp $(SYMROOT)/crt1.v4.o		$(DSTROOT)/$(USRLIBDIR)/crt1.10.6.o
+	cp $(SYMROOT)/lazydylib1.o	$(DSTROOT)/$(USRLIBDIR)/lazydylib1.o
+	cp $(SYMROOT)/dylib1.v2.o	$(DSTROOT)/$(USRLIBDIR)/dylib1.o
+	cp $(SYMROOT)/bundle1.v1.o	$(DSTROOT)/$(USRLIBDIR)/bundle1.o
+	cd $(DSTROOT)/$(USRLIBDIR); ln -s crt1.10.6.o crt1.o; ln -s crt1.10.5.o crt1.3.1.o
 	
 	
 installhdrs:

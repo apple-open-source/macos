@@ -29,15 +29,16 @@ namespace WebCore {
 
 class PluginData;
 
-class DOMPluginArray : public ScriptWrappable, public RefCounted<DOMPluginArray>, public DOMWindowProperty {
+class DOMPluginArray final : public ScriptWrappable, public RefCounted<DOMPluginArray>, public DOMWindowProperty {
+    WTF_MAKE_ISO_ALLOCATED(DOMPluginArray);
 public:
     static Ref<DOMPluginArray> create(DOMWindow* window) { return adoptRef(*new DOMPluginArray(window)); }
     ~DOMPluginArray();
 
     unsigned length() const;
     RefPtr<DOMPlugin> item(unsigned index);
-    RefPtr<DOMPlugin> namedItem(const AtomicString& propertyName);
-    Vector<AtomicString> supportedPropertyNames();
+    RefPtr<DOMPlugin> namedItem(const AtomString& propertyName);
+    Vector<AtomString> supportedPropertyNames();
 
     void refresh(bool reloadPages);
 

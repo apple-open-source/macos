@@ -55,9 +55,7 @@ struct dt_libproc_fn dt_libproc_funcs[DT_PR_MAX] = {
 	}
 };
 
-void dt_proc_bpenable(dt_proc_t *dpr);
 void dt_proc_bpdisable(dt_proc_t *dpr);
-int dt_pid_create_objc_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb, dt_proc_t *dpr, dt_pr_t reason);
 
 /*
  * Compose the lmid and object name into the canonical representation. We
@@ -69,7 +67,7 @@ dt_pid_objname(char *buf, size_t len, Lmid_t lmid, const char *obj)
 	if (lmid == LM_ID_BASE)
 		(void) strncpy(buf, obj, len);
 	else
-		(void) snprintf(buf, len, "LM%lx`%s", lmid, obj);
+		(void) snprintf(buf, len, "LM%llx`%s", lmid, obj);
 }
 
 int
@@ -99,6 +97,21 @@ dt_pid_error(dtrace_hdl_t *dtp, dt_pcb_t *pcb, dt_proc_t *dpr,
 	return (1);
 }
 
+static char*
+dt_pid_provider(fasttrap_provider_type_t type)
+{
+	switch (type) {
+		case DTFTP_PROVIDER_PID:
+			return FASTTRAP_PID_NAME;
+		case DTFTP_PROVIDER_OBJC:
+			return FASTTRAP_OBJC_NAME;
+		case DTFTP_PROVIDER_ONESHOT:
+			return FASTTRAP_ONESHOT_NAME;
+		default:
+			return "";
+	}
+}
+
 int
 dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 {
@@ -116,14 +129,15 @@ dt_pid_per_sym(dt_pid_probe_t *pp, const GElf_Sym *symp, const char *func)
 
 	pid = Pstatus(pp->dpp_pr)->pr_pid;
 
-	dt_dprintf("creating probe pid%d:%s:%s:%s\n", (int)pid, pp->dpp_obj,
+	dt_dprintf_debug("creating probe %s%d:%s:%s:%s",
+	    dt_pid_provider(pp->dpp_provider_type), (int)pid, pp->dpp_obj,
 	    func, pp->dpp_name);
 
 	sz = sizeof (fasttrap_probe_spec_t) + (isdash ? 4 :
 	    (symp->st_size - 1) * sizeof (ftp->ftps_offs[0]));
 
 	if ((ftp = dt_alloc(dtp, sz)) == NULL) {
-		dt_dprintf("proc_per_sym: dt_alloc(%lu) failed\n", sz);
+		dt_dprintf("proc_per_sym: dt_alloc(%lu) failed", sz);
 		return (1); /* errno is set for us */
 	}
 
@@ -245,7 +259,7 @@ dt_pid_sym_filt(void *arg, const GElf_Sym *symp, const char *func)
 		return (0);
 
 	if (symp->st_size == 0) {
-		dt_dprintf("st_size of %s is zero\n", func);
+		dt_dprintf("st_size of %s is zero", func);
 		return (0);
 	}
 
@@ -608,7 +622,7 @@ dt_pid_usdt_mapping(void *data, const prmap_t *pmp, const char *oname)
 		else
 			mname++;
 
-		dt_dprintf("lookup of %s succeeded for %s\n", syms[i], mname);
+		dt_dprintf("lookup of %s succeeded for %s", syms[i], mname);
 
 		if (Pread(P, &e_type, sizeof (e_type), pmp->pr_vaddr +
 		    offsetof(Elf64_Ehdr, e_type)) != sizeof (e_type)) {
@@ -624,13 +638,13 @@ dt_pid_usdt_mapping(void *data, const prmap_t *pmp, const char *oname)
 
 		if (fd == -1 &&
 		    (fd = pr_open(P, "/dev/dtrace/helper", O_RDWR, 0)) < 0) {
-			dt_dprintf("pr_open of helper device failed: %s\n",
+			dt_dprintf("pr_open of helper device failed: %s",
 			    strerror(errno));
 			return (-1); /* errno is set for us */
 		}
 
 		if (pr_ioctl(P, fd, DTRACEHIOC_ADDDOF, &dh, sizeof (dh)) < 0)
-			dt_dprintf("DOF was rejected for %s\n", dh.dofhp_mod);
+			dt_dprintf("DOF was rejected for %s", dh.dofhp_mod);
 	}
 
 	if (fd != -1)

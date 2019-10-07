@@ -468,12 +468,12 @@ int ndr_ieee32_to_cray64(unsigned32 *ieee_flt, unsigned32 *cray_flt);
 )
 
 #define COPY_64(dst, src) ( \
-    *(long_float_p_t) (dst) = *(long_float_p_t) (src) \
+    memcpy(dst, src, sizeof(ndr_long_float)) \
 )
 
 #ifndef cray
 #define COPY_32(dst, src) ( \
-    *(short_float_p_t) (dst) = *(short_float_p_t) (src) \
+    memcpy(dst, src, sizeof(ndr_short_float)) \
 )
 #endif
 
@@ -2525,8 +2525,8 @@ PUBLIC void ndr_cvt_short_float
 (
     ndr_format_t source_drep,
     ndr_format_t dst_drep,
-    short_float_p_t srcp,
-    short_float_p_t dstp
+    byte_p_t srcp,
+    byte_p_t dstp
 )
 {
     cvt_float(source_drep, dst_drep,
@@ -2544,8 +2544,8 @@ PUBLIC void ndr_cvt_long_float
 (
     ndr_format_t source_drep,
     ndr_format_t dst_drep,
-    long_float_p_t srcp,
-    long_float_p_t dstp
+    byte_p_t srcp,
+    byte_p_t dstp
 )
 {
     cvt_float(source_drep, dst_drep,
@@ -2554,7 +2554,10 @@ PUBLIC void ndr_cvt_long_float
 }
 
 #ifdef DEBUG
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
 globaldef void (*cvt_vector[])() = {
+#pragma clang diagnostic pop
     cvt_vax_f_to_ieee_single,
     cvt_vax_g_to_ieee_double,
     cvt_cray_to_ieee_single,

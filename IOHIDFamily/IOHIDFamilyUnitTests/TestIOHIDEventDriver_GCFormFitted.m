@@ -51,8 +51,8 @@
     result = [XCTWaiter waitForExpectations:@[self.testServiceExpectation] timeout:10];
     HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_IOREG,
                                 result == XCTWaiterResultCompleted,
-                                "result:%ld %@",
-                                (long)result,
+                                "result:%d %@",
+                                (int)result,
                                 self.testServiceExpectation);
 
     id property = CFBridgingRelease(IOHIDServiceClientCopyProperty(self.eventService, CFSTR("GameControllerPointer")));

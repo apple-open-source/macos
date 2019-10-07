@@ -3027,7 +3027,7 @@ bash_execute_unix_command (count, key)
       else
 	{
 	  rl_crlf ();
-	  internal_error (_("bash_execute_unix_command: cannot find keymap for command"));
+	  internal_error ("%s", _("bash_execute_unix_command: cannot find keymap for command"));
 	  rl_forced_update_display ();
 	  return 1;
 	}

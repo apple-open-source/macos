@@ -28,6 +28,8 @@
 
 #import <CloudKit/CloudKit.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 @class CKKSKeychainView;
 
 
@@ -41,4 +43,6 @@
 - (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 
 @end
+
+NS_ASSUME_NONNULL_END
 #endif  // OCTAGON

@@ -145,15 +145,6 @@ ruby_getaddrinfo__darwin(const char *nodename, const char *servname,
 #define getaddrinfo(node,serv,hints,res) ruby_getaddrinfo__darwin((node),(serv),(hints),(res))
 #endif
 
-#ifndef GETADDRINFO_EMU
-struct getaddrinfo_arg
-{
-    const char *node;
-    const char *service;
-    const struct addrinfo *hints;
-    struct addrinfo **res;
-};
-
 #ifdef HAVE_INET_PTON
 static int
 parse_numeric_port(const char *service, int *portp)
@@ -181,6 +172,15 @@ parse_numeric_port(const char *service, int *portp)
     return 1;
 }
 #endif
+
+#ifndef GETADDRINFO_EMU
+struct getaddrinfo_arg
+{
+    const char *node;
+    const char *service;
+    const struct addrinfo *hints;
+    struct addrinfo **res;
+};
 
 static void *
 nogvl_getaddrinfo(void *arg)
@@ -426,6 +426,14 @@ str_is_number(const char *p)
        return 0;
 }
 
+#define str_equal(ptr, len, name) \
+    ((ptr)[0] == name[0] && \
+     rb_strlen_lit(name) == (len) && memcmp(ptr, name, len) == 0)
+#define SafeStringValueCStr(v) do {\
+    StringValueCStr(v);\
+    rb_check_safe_obj(v);\
+} while(0)
+
 static char*
 host_str(VALUE host, char *hbuf, size_t hbuflen, int *flags_ptr)
 {
@@ -440,24 +448,26 @@ host_str(VALUE host, char *hbuf, size_t hbuflen, int *flags_ptr)
         return hbuf;
     }
     else {
-        char *name;
+        const char *name;
+        size_t len;
 
-        SafeStringValue(host);
-        name = RSTRING_PTR(host);
-        if (!name || *name == 0 || (name[0] == '<' && strcmp(name, "<any>") == 0)) {
+        SafeStringValueCStr(host);
+        RSTRING_GETMEM(host, name, len);
+        if (!len || str_equal(name, len, "<any>")) {
             make_inetaddr(INADDR_ANY, hbuf, hbuflen);
             if (flags_ptr) *flags_ptr |= AI_NUMERICHOST;
         }
-        else if (name[0] == '<' && strcmp(name, "<broadcast>") == 0) {
+        else if (str_equal(name, len, "<broadcast>")) {
             make_inetaddr(INADDR_BROADCAST, hbuf, hbuflen);
             if (flags_ptr) *flags_ptr |= AI_NUMERICHOST;
         }
-        else if (strlen(name) >= hbuflen) {
+        else if (len >= hbuflen) {
             rb_raise(rb_eArgError, "hostname too long (%"PRIuSIZE")",
-                strlen(name));
+                     len);
         }
         else {
-            strcpy(hbuf, name);
+            memcpy(hbuf, name, len);
+            hbuf[len] = '\0';
         }
         return hbuf;
     }
@@ -477,15 +487,17 @@ port_str(VALUE port, char *pbuf, size_t pbuflen, int *flags_ptr)
         return pbuf;
     }
     else {
-        char *serv;
+        const char *serv;
+        size_t len;
 
-        SafeStringValue(port);
-        serv = RSTRING_PTR(port);
-        if (strlen(serv) >= pbuflen) {
+        SafeStringValueCStr(port);
+        RSTRING_GETMEM(port, serv, len);
+        if (len >= pbuflen) {
             rb_raise(rb_eArgError, "service name too long (%"PRIuSIZE")",
-                strlen(serv));
+                     len);
         }
-        strcpy(pbuf, serv);
+        memcpy(pbuf, serv, len);
+        pbuf[len] = '\0';
         return pbuf;
     }
 }
@@ -714,10 +726,8 @@ static void
 addrinfo_mark(void *ptr)
 {
     rb_addrinfo_t *rai = ptr;
-    if (rai) {
-        rb_gc_mark(rai->inspectname);
-        rb_gc_mark(rai->canonname);
-    }
+    rb_gc_mark(rai->inspectname);
+    rb_gc_mark(rai->canonname);
 }
 
 #define addrinfo_free RUBY_TYPED_DEFAULT_FREE
@@ -2540,7 +2550,7 @@ rsock_io_socket_addrinfo(VALUE io, struct sockaddr *addr, socklen_t len)
         rb_raise(rb_eTypeError, "neither IO nor file descriptor");
     }
 
-    UNREACHABLE;
+    UNREACHABLE_RETURN(Qnil);
 }
 
 /*

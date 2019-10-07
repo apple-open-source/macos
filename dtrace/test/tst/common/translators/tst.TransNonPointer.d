@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.TransNonPointer.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Translate the input expression to output struct type

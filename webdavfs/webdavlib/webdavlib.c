@@ -478,7 +478,6 @@ connectToServer(struct webdav_ctx *session_ref, CFURLRef a_url, CFDictionaryRef 
 	enum WEBDAVLIBAuthStatus finalStatus;
 	int result;
 	struct callback_ctx ctx;
-	CFStringRef cf_port;
 	
 	initContext(&ctx);
 	
@@ -1309,7 +1308,6 @@ static int updateNetworkProxies(struct callback_ctx *ctx)
 	CFNumberRef cf_enabled;
 	CFNumberRef cf_port;
 	int enabled;
-	int err;
 
 	if (ctx->proxyStore == NULL) {
 		ctx->proxyStore = SCDynamicStoreCreate(kCFAllocatorDefault, CFSTR("WebDAVFSPlugin"), NULL, NULL);
@@ -1409,6 +1407,9 @@ static int updateNetworkProxies(struct callback_ctx *ctx)
 	} else {
 		syslog(LOG_DEBUG, "%s: NO Proxy configured\n", __FUNCTION__);
 	}
+	
+	// everything is fine up to here
+	return 0;
 }
 
 static void initContext(struct callback_ctx *ctx)

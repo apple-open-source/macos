@@ -13,7 +13,6 @@
 			buildPhases = (
 			);
 			dependencies = (
-				603C882C08EC8117004474CD /* PBXTargetDependency */,
 				603C882E08EC8117004474CD /* PBXTargetDependency */,
 				603C883208EC8117004474CD /* PBXTargetDependency */,
 			);
@@ -109,13 +108,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		603C882B08EC8117004474CD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 603C87AD08EC8117004474CD;
-			remoteInfo = "autodiskmount (Upgraded)";
-		};
 		603C882D08EC8117004474CD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
@@ -812,11 +804,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		603C882C08EC8117004474CD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 603C87AD08EC8117004474CD /* autodiskmount */;
-			targetProxy = 603C882B08EC8117004474CD /* PBXContainerItemProxy */;
-		};
 		603C882E08EC8117004474CD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 603C87BF08EC8117004474CD /* diskarbitrationd */;
@@ -937,6 +924,7 @@
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = DiskArbitration/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				IS_ZIPPERED = YES;
 				"MODULEMAP_FILE[sdk=*]" = $SRCROOT/DiskArbitration.modulemap;
 				PRODUCT_NAME = DiskArbitration;
 				SECTORDER_FLAGS = (
@@ -964,6 +952,7 @@
 				"GCC_PREPROCESSOR_DEFINITIONS[arch=*]" = "";
 				INFOPLIST_FILE = DiskArbitration/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				IS_ZIPPERED = YES;
 				"MODULEMAP_FILE[sdk=*]" = $SRCROOT/DiskArbitration.modulemap;
 				PRODUCT_NAME = DiskArbitration;
 				SECTORDER_FLAGS = (

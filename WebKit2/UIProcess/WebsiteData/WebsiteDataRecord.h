@@ -36,6 +36,7 @@
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
+class RegistrableDomain;
 class SecurityOrigin;
 }
 
@@ -52,7 +53,6 @@ struct WebsiteDataRecord {
 #if ENABLE(NETSCAPE_PLUGIN_API)
     void addPluginDataHostName(const String& hostName);
 #endif
-    void addOriginWithCredential(const String&);
     void addHSTSCacheHostname(const String& hostName);
 
     String displayName;
@@ -69,10 +69,9 @@ struct WebsiteDataRecord {
 #if ENABLE(NETSCAPE_PLUGIN_API)
     HashSet<String> pluginDataHostNames;
 #endif
-    HashSet<String> originsWithCredentials;
     HashSet<String> HSTSCacheHostNames;
 
-    bool matchesTopPrivatelyControlledDomain(const String&) const;
+    bool matches(const WebCore::RegistrableDomain&) const;
     String topPrivatelyControlledDomain();
 };
 

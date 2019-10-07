@@ -27,6 +27,8 @@
 #import <CloudKit/CloudKit_Private.h>
 #import <Foundation/Foundation.h>
 
+#import "keychain/ot/OTDefines.h"
+
 NS_ASSUME_NONNULL_BEGIN
 
 @interface CKOperationGroup (CKKS)
@@ -38,6 +40,7 @@ NS_ASSUME_NONNULL_BEGIN
 // 1) An atomic write failed
 // 2) Every single suberror is either CKErrorServerRecordChanged or CKErrorUnknownItem
 - (bool)ckksIsCKErrorRecordChangedError;
+- (BOOL)isCuttlefishError:(CuttlefishErrorCode)cuttlefishError;
 @end
 // Ensure we don't print addresses
 @interface CKAccountInfo (CKKS)

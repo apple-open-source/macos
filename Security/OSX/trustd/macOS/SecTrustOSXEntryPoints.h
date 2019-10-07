@@ -36,19 +36,6 @@ __BEGIN_DECLS
 
 void SecTrustLegacySourcesListenForKeychainEvents(void);
 
-OSStatus SecTrustLegacyCRLStatus(SecCertificateRef cert, CFArrayRef chain, CFURLRef currCRLDP);
-
-typedef struct async_ocspd_s {
-    uint64_t start_time;
-    void (*completed)(struct async_ocspd_s *ocspd);
-    void *info;
-    OSStatus response;
-    dispatch_queue_t queue;
-} async_ocspd_t;
-
-bool SecTrustLegacyCRLFetch(async_ocspd_t *ocspd,
-                            CFURLRef currCRLDP, CFAbsoluteTime verifyTime,
-                            SecCertificateRef cert, CFArrayRef chain);
 __END_DECLS
 
 #endif /* _SECURITY_SECTRUST_OSX_ENTRY_POINTS_H_ */

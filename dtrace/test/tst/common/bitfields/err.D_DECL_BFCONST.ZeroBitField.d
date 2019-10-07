@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_DECL_BFCONST.ZeroBitField.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Bit-fields must be positive and non-zero.
  *

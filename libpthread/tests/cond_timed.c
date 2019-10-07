@@ -13,6 +13,7 @@
 #include "darwintest_defaults.h"
 
 #define NUM_THREADS 8
+#define RDAR_38144536 1
 
 struct context {
 	pthread_cond_t cond;
@@ -162,17 +163,29 @@ T_DECL(cond_timedwait_nulltimeout, "pthread_cond_timedwait() with NULL timeout, 
 
 T_DECL(cond_timedwait_zerotimeout, "pthread_cond_timedwait() with zero timeout, ensure mutex is unlocked")
 {
+#if RDAR_38144536
+	T_SKIP("skipped <rdar://38144536>");
+#else // RDAR_38144536
 	cond_timedwait_timeouts_internal(eZeroTimeout, false);
+#endif // RDAR_38144536
 }
 
 T_DECL(cond_timedwait_beforeepochtimeout, "pthread_cond_timedwait() with timeout before the epoch, ensure mutex is unlocked")
 {
+#if RDAR_38144536
+	T_SKIP("skipped <rdar://38144536>");
+#else // RDAR_38144536
 	cond_timedwait_timeouts_internal(eBeforeEpochTimeout, false);
+#endif // RDAR_38144536
 }
 
 T_DECL(cond_timedwait_pasttimeout, "pthread_cond_timedwait() with timeout in the past, ensure mutex is unlocked")
 {
+#if RDAR_38144536
+	T_SKIP("skipped <rdar://38144536>");
+#else // RDAR_38144536
 	cond_timedwait_timeouts_internal(eRecentPastTimeout, false);
+#endif // RDAR_38144536
 }
 
 T_DECL(cond_timedwait_relative_nulltimeout, "pthread_cond_timedwait_relative_np() with relative NULL timeout, ensure mutex is unlocked")

@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2006-2017 Apple Inc. All rights reserved.
+ *  Copyright (C) 2006-2019 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -25,6 +25,7 @@
 #include "CachedScriptFetcher.h"
 #include "CommonVM.h"
 #include "ContentSecurityPolicy.h"
+#include "CustomHeaderFields.h"
 #include "DocumentLoader.h"
 #include "Event.h"
 #include "Frame.h"
@@ -44,6 +45,7 @@
 #include "Page.h"
 #include "PageConsoleClient.h"
 #include "PageGroup.h"
+#include "PaymentCoordinator.h"
 #include "PluginViewBase.h"
 #include "RuntimeApplicationChecks.h"
 #include "ScriptDisallowedScope.h"
@@ -125,7 +127,7 @@ JSValue ScriptController::evaluateInWorld(const ScriptSourceCode& sourceCode, DO
 
     Ref<Frame> protector(m_frame);
 
-    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willEvaluateScript(m_frame, sourceURL, sourceCode.startLine());
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willEvaluateScript(m_frame, sourceURL, sourceCode.startLine(), sourceCode.startColumn());
 
     NakedPtr<JSC::Exception> evaluationException;
     JSValue returnValue = JSExecState::profiledEvaluate(&exec, JSC::ProfilingReason::Other, jsSourceCode, &proxy, evaluationException);
@@ -218,7 +220,7 @@ JSC::JSValue ScriptController::evaluateModule(const URL& sourceURL, JSModuleReco
 
     Ref<Frame> protector(m_frame);
 
-    auto cookie = InspectorInstrumentation::willEvaluateScript(m_frame, sourceURL, jsSourceCode.firstLine().oneBasedInt());
+    auto cookie = InspectorInstrumentation::willEvaluateScript(m_frame, sourceURL, jsSourceCode.firstLine().oneBasedInt(), jsSourceCode.startColumn().oneBasedInt());
 
     auto returnValue = moduleRecord.evaluate(&state);
     InspectorInstrumentation::didEvaluateScript(cookie, m_frame);
@@ -278,8 +280,11 @@ void ScriptController::setupModuleScriptHandlers(LoadableModuleScript& moduleScr
 
     RefPtr<LoadableModuleScript> moduleScript(&moduleScriptRef);
 
-    auto& fulfillHandler = *JSNativeStdFunction::create(state.vm(), proxy.window(), 1, String(), [moduleScript](ExecState* exec) {
+    auto& fulfillHandler = *JSNativeStdFunction::create(state.vm(), proxy.window(), 1, String(), [moduleScript](ExecState* exec) -> JSC::EncodedJSValue {
+        VM& vm = exec->vm();
+        auto scope = DECLARE_THROW_SCOPE(vm);
         Identifier moduleKey = jsValueToModuleKey(exec, exec->argument(0));
+        RETURN_IF_EXCEPTION(scope, { });
         moduleScript->notifyLoadCompleted(*moduleKey.impl());
         return JSValue::encode(jsUndefined());
     });
@@ -553,6 +558,27 @@ JSValue ScriptController::executeScriptInWorld(DOMWrapperWorld& world, const Str
     return evaluateInWorld(sourceCode, world, exceptionDetails);
 }
 
+JSValue ScriptController::executeUserAgentScriptInWorld(DOMWrapperWorld& world, const String& script, bool forceUserGesture, ExceptionDetails* exceptionDetails)
+{
+    auto& document = *m_frame.document();
+    if (!shouldAllowUserAgentScripts(document))
+        return { };
+
+    document.setHasEvaluatedUserAgentScripts();
+    return executeScriptInWorld(world, script, forceUserGesture, exceptionDetails);
+}
+
+bool ScriptController::shouldAllowUserAgentScripts(Document& document) const
+{
+#if ENABLE(APPLE_PAY)
+    if (auto page = m_frame.page())
+        return page->paymentCoordinator().shouldAllowUserAgentScripts(document);
+#else
+    UNUSED_PARAM(document);
+#endif
+    return true;
+}
+
 bool ScriptController::canExecuteScripts(ReasonForCallingCanExecuteScripts reason)
 {
     if (reason == AboutToExecuteScript)
@@ -622,8 +648,14 @@ bool ScriptController::executeIfJavaScriptURL(const URL& url, ShouldReplaceDocum
     if (shouldReplaceDocumentIfJavaScriptURL == ReplaceDocumentIfJavaScriptURL) {
         // We're still in a frame, so there should be a DocumentLoader.
         ASSERT(m_frame.document()->loader());
-        
-        // DocumentWriter::replaceDocument can cause the DocumentLoader to get deref'ed and possible destroyed,
+
+        // Signal to FrameLoader to disable navigations within this frame while replacing it with the result of executing javascript
+        // FIXME: https://bugs.webkit.org/show_bug.cgi?id=200523
+        // The only reason we do a nestable save/restore of this flag here is because we sometimes nest javascript: url loads as
+        // some will load synchronously. We'd like to remove those synchronous loads and then change this.
+        SetForScope<bool> willBeReplaced(m_willReplaceWithResultOfExecutingJavascriptURL, true);
+
+        // DocumentWriter::replaceDocumentWithResultOfExecutingJavascriptURL can cause the DocumentLoader to get deref'ed and possible destroyed,
         // so protect it with a RefPtr.
         if (RefPtr<DocumentLoader> loader = m_frame.document()->loader())
             loader->writer().replaceDocumentWithResultOfExecutingJavascriptURL(scriptResult, ownerDocument.get());

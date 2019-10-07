@@ -27,8 +27,6 @@
 
 #include <security_cryptkit/ckconfig.h>
 
-#if	CRYPTKIT_DER_ENABLE
-
 #include <security_cryptkit/feeTypes.h>
 #include <security_cryptkit/feePublicKey.h>
 #include <security_cryptkit/giantIntegers.h>
@@ -192,7 +190,6 @@ feeReturn feeDERDecodePKCS8PrivateKey(
 }
 #endif
 
-#endif	/* CRYPTKIT_DER_ENABLE */
 #endif	/* _CRYPTKIT_DER_H_ */
 
 

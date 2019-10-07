@@ -171,7 +171,9 @@ const char *sslGetCipherSuiteString(SSLCipherSuite cs)
 const char *sslGetProtocolVersionString(SSLProtocol prot)
 {
 	static char noProt[20];
-	
+    
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	switch(prot) {
 		case kSSLProtocolUnknown:
 			return "kSSLProtocolUnknown";
@@ -193,6 +195,7 @@ const char *sslGetProtocolVersionString(SSLProtocol prot)
 			sprintf(noProt, "Unknown (%d)", (unsigned)prot);
 			return noProt;	
 	}
+#pragma clang diagnostic pop
 }
 
 /* 
@@ -351,6 +354,8 @@ const char *sslGetClientCertStateString(SSLClientCertificateState state)
 {
 	static char noState[20];
 	
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	switch(state) {
 		case kSSLClientCertNone:
 			return "ClientCertNone";
@@ -364,7 +369,7 @@ const char *sslGetClientCertStateString(SSLClientCertificateState state)
 			sprintf(noState, "Unknown (%d)", (unsigned)state);
 			return noState;	
 	}
-
+#pragma clang diagnostic pop
 }
 
 /*
@@ -447,11 +452,11 @@ CFArrayRef getSslCerts(
 	CFArrayAppendValue(certificates, cert);
 	require_noerr(SecTrustCreateWithCertificates(certificates, NULL, &trust),
 		errOut);
-	SecTrustResultType tresult;
-	require_noerr(SecTrustEvaluate(trust, &tresult), errOut);
 
 	CFIndex certCount, ix;
 	// We need at least 1 certificate
+    // SecTrustGetCertificateCount implicitly does a trust evaluation to determine
+    // the number of certs in the chain.
 	require(certCount = SecTrustGetCertificateCount(trust), errOut);
 
 	// Build a result where element 0 is the identity and the other elements
@@ -1053,6 +1058,8 @@ OSStatus sslSetEnabledCiphers(
 	unsigned inDex = 0;			// index into ciphers
 	
 	/* first get all the supported ciphers */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	ortn = SSLGetNumberSupportedCiphers(ctx, &numSupported);
 	if(ortn) {
 		printSslErrStr("SSLGetNumberSupportedCiphers", ortn);
@@ -1090,6 +1097,7 @@ OSStatus sslSetEnabledCiphers(
 	if(ortn) {
 		printSslErrStr("SSLSetEnabledCiphers", ortn);
 	}
+#pragma clang diagnostic pop
 	free(enabled);
 	free(supported);
 	return ortn;

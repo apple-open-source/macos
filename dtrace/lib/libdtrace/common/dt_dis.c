@@ -37,6 +37,7 @@
 static void
 dt_dis_log(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
 {
+#pragma unused(dp)
 	(void) fprintf(fp, "%-4s %%r%u, %%r%u, %%r%u", name,
 	    DIF_INSTR_R1(in), DIF_INSTR_R2(in), DIF_INSTR_RD(in));
 }
@@ -46,6 +47,7 @@ static void
 dt_dis_branch(const dtrace_difo_t *dp, const char *name,
 	dif_instr_t in, FILE *fp)
 {
+#pragma unused(dp)
 	(void) fprintf(fp, "%-4s %u", name, DIF_INSTR_LABEL(in));
 }
 
@@ -53,6 +55,7 @@ dt_dis_branch(const dtrace_difo_t *dp, const char *name,
 static void
 dt_dis_load(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
 {
+#pragma unused(dp)
 	(void) fprintf(fp, "%-4s [%%r%u], %%r%u", name,
 	    DIF_INSTR_R1(in), DIF_INSTR_RD(in));
 }
@@ -62,6 +65,7 @@ static void
 dt_dis_store(const dtrace_difo_t *dp, const char *name,
 	dif_instr_t in, FILE *fp)
 {
+#pragma unused(dp)
 	(void) fprintf(fp, "%-4s %%r%u, [%%r%u]", name,
 	    DIF_INSTR_R1(in), DIF_INSTR_RD(in));
 }
@@ -70,6 +74,7 @@ dt_dis_store(const dtrace_difo_t *dp, const char *name,
 static void
 dt_dis_str(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
 {
+#pragma unused(dp, in)
 	(void) fprintf(fp, "%s", name);
 }
 
@@ -77,6 +82,7 @@ dt_dis_str(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
 static void
 dt_dis_r1rd(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
 {
+#pragma unused(dp)
 	(void) fprintf(fp, "%-4s %%r%u, %%r%u", name,
 	    DIF_INSTR_R1(in), DIF_INSTR_RD(in));
 }
@@ -85,6 +91,7 @@ dt_dis_r1rd(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
 static void
 dt_dis_cmp(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
 {
+#pragma unused(dp)
 	(void) fprintf(fp, "%-4s %%r%u, %%r%u", name,
 	    DIF_INSTR_R1(in), DIF_INSTR_R2(in));
 }
@@ -93,6 +100,7 @@ dt_dis_cmp(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
 static void
 dt_dis_tst(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
 {
+#pragma unused(dp)
 	(void) fprintf(fp, "%-4s %%r%u", name, DIF_INSTR_R1(in));
 }
 
@@ -193,6 +201,7 @@ dt_dis_sets(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
 static void
 dt_dis_ret(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
 {
+#pragma unused(dp)
 	(void) fprintf(fp, "%-4s %%r%u", name, DIF_INSTR_RD(in));
 }
 
@@ -200,6 +209,7 @@ dt_dis_ret(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
 static void
 dt_dis_call(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
 {
+#pragma unused(dp)
 	uint_t subr = DIF_INSTR_SUBR(in);
 
 	(void) fprintf(fp, "%-4s DIF_SUBR(%u), %%r%u\t\t! %s",
@@ -211,6 +221,7 @@ static void
 dt_dis_pushts(const dtrace_difo_t *dp,
     const char *name, dif_instr_t in, FILE *fp)
 {
+#pragma unused(dp)
 	static const char *const tnames[] = { "D type", "string" };
 	uint_t type = DIF_INSTR_TYPE(in);
 
@@ -236,6 +247,17 @@ dt_dis_xlate(const dtrace_difo_t *dp,
 		    dp->dtdo_xlmtab[xlr]->dn_membname);
 	}
 }
+
+#if defined(DIF_OP_STRIP)
+/*ARGSUSED*/
+static void
+dt_dis_strip(const dtrace_difo_t *dp, const char *name, dif_instr_t in, FILE *fp)
+{
+#pragma unused(dp)
+	(void) fprintf(fp, "%-4s %%r%u, %u, %%r%u", name,
+	    DIF_INSTR_R1(in), DIF_INSTR_IMM2(in), DIF_INSTR_RD(in));
+}
+#endif /* defined(DIF_OP_STRIP) */
 
 static char *
 dt_dis_typestr(const dtrace_diftype_t *t, char *buf, size_t len)
@@ -295,6 +317,9 @@ dt_dis_typestr(const dtrace_diftype_t *t, char *buf, size_t len)
 		break;
 	case CTF_K_RESTRICT:
 		(void) strcpy(ckind, "restrict");
+		break;
+	case CTF_K_PTRAUTH:
+		(void) strcpy(ckind, "ptrauth");
 		break;
 	default:
 		(void) snprintf(ckind, sizeof (ckind), "0x%x", t->dtdt_ckind);
@@ -415,6 +440,9 @@ dt_dis(const dtrace_difo_t *dp, FILE *fp)
 		{ "rldx", dt_dis_load },	/* DIF_OP_RLDX */
 		{ "xlate", dt_dis_xlate },	/* DIF_OP_XLATE */
 		{ "xlarg", dt_dis_xlate },	/* DIF_OP_XLARG */
+#if defined(DIF_OP_STRIP)
+		{ "strip", dt_dis_strip },	/* DIF_OP_STRIP */
+#endif /* defined(DIF_OP_STRIP) */
 	};
 
 	const struct opent *op;

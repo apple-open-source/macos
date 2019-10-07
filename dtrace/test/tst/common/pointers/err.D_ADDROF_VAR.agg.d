@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_ADDROF_VAR.agg.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *  Test that the & operator fails with D_ADDROF_VAR if its operand

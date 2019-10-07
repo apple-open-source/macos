@@ -31,13 +31,12 @@
 #include <securityd/SecItemSchema.h>
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>
+#include "OSX/sec/Security/SecItemShim.h"
 
 #include <CloudKit/CloudKit.h>
 #include <CloudKit/CloudKit_Private.h>
 
-@interface CKKSKey ()
-@property CKKSAESSIVKey* aessivkey;
-@end
+#import <Foundation/NSData_Private.h>
 
 @implementation CKKSKey
 
@@ -54,28 +53,20 @@
                            encodedCKRecord: (NSData*) encodedrecord
                                 currentkey: (NSInteger) currentkey
 {
-    if(self = [super initWithUUID: uuid
-                    parentKeyUUID: uuid
-                           zoneID: zoneID
-                  encodedCKRecord: encodedrecord
-                          encItem: nil
-                       wrappedkey: nil
-                  generationCount: 0
-                           encver: currentCKKSItemEncryptionVersion]) {
-        _keyclass = keyclass;
-        _currentkey = !!currentkey;
-        _aessivkey = aeskey;
-        _state = state;
+    if((self = [super initWithCKRecordType:SecCKRecordIntermediateKeyType
+                           encodedCKRecord:encodedrecord
+                                    zoneID:zoneID])) {
 
-        self.ckRecordType = SecCKRecordIntermediateKeyType;
-
-        // Wrap the key with the key. Not particularly useful, but there you go.
-        NSError* error = nil;
-        [self wrapUnder: self error:&error];
-        if(error != nil) {
-            secerror("CKKSKey: Couldn't self-wrap key: %@", error);
+        _keycore = [[CKKSKeychainBackedKey alloc] initSelfWrappedWithAESKey:aeskey
+                                                                       uuid:uuid
+                                                                   keyclass:keyclass
+                                                                     zoneID:zoneID];
+        if(!_keycore) {
             return nil;
         }
+
+        _currentkey = !!currentkey;
+        _state = state;
     }
     return self;
 }
@@ -89,28 +80,20 @@
                encodedCKRecord: (NSData*) encodedrecord
                     currentkey: (NSInteger) currentkey
 {
-    if(self = [super initWithUUID: uuid
-                    parentKeyUUID: wrappingKey.uuid
-                           zoneID: zoneID
-                  encodedCKRecord: encodedrecord
-                          encItem:nil
-                       wrappedkey:nil
-                  generationCount:0
-                           encver:
-               currentCKKSItemEncryptionVersion]) {
-        _keyclass = keyclass;
-        _currentkey = !!currentkey;
-        _aessivkey = aeskey;
-        _state = state;
-
-        self.ckRecordType = SecCKRecordIntermediateKeyType;
-
-        NSError* error = nil;
-        [self wrapUnder: wrappingKey error:&error];
-        if(error != nil) {
-            secerror("CKKSKey: Couldn't wrap key with key: %@", error);
+    if((self = [super initWithCKRecordType:SecCKRecordIntermediateKeyType
+                          encodedCKRecord:encodedrecord
+                                   zoneID:zoneID])) {
+        _keycore = [[CKKSKeychainBackedKey alloc] initWrappedBy:wrappingKey.keycore
+                                                         AESKey:aeskey
+                                                           uuid:uuid
+                                                       keyclass:keyclass
+                                                         zoneID:zoneID];
+        if(!_keycore) {
             return nil;
         }
+
+        _currentkey = !!currentkey;
+        _state = state;
     }
     return self;
 }
@@ -124,49 +107,100 @@
                        encodedCKRecord: (NSData*) encodedrecord
                             currentkey: (NSInteger) currentkey
 {
-    if(self = [super initWithUUID:uuid
-                    parentKeyUUID:parentKeyUUID
-                           zoneID:zoneID
-                  encodedCKRecord:encodedrecord
-                          encItem:nil
-                       wrappedkey:wrappedaeskey
-                  generationCount:0
-                           encver:currentCKKSItemEncryptionVersion]) {
-        _keyclass = keyclass;
-        _currentkey = !!currentkey;
-        _aessivkey = nil;
-        _state = state;
+    if((self = [super initWithCKRecordType:SecCKRecordIntermediateKeyType
+                           encodedCKRecord:encodedrecord
+                                    zoneID:zoneID])) {
 
-        self.ckRecordType = SecCKRecordIntermediateKeyType;
+        _keycore = [[CKKSKeychainBackedKey alloc] initWithWrappedAESKey:wrappedaeskey
+                                                                   uuid:uuid
+                                                          parentKeyUUID:parentKeyUUID
+                                                               keyclass:keyclass
+                                                                 zoneID:zoneID];
+
+        _currentkey = !!currentkey;
+        _state = state;
+    }
+    return self;
+}
+
+- (instancetype)initWithKeyCore:(CKKSKeychainBackedKey*)core
+{
+    if((self = [super initWithCKRecordType:SecCKRecordIntermediateKeyType
+                           encodedCKRecord:nil
+                                    zoneID:core.zoneID])) {
+        _keycore = core;
+        _currentkey = false;
+        _state = SecCKKSProcessedStateRemote;
     }
     return self;
 }
 
 - (void)dealloc {
-    [self zeroKeys];
 }
 
-- (void)zeroKeys {
-    [self.aessivkey zeroKey];
+- (BOOL)isEqual:(id)object {
+    if(![object isKindOfClass:[CKKSKey class]]) {
+        return NO;
+    }
+
+    CKKSKey* obj = (CKKSKey*)object;
+
+    // Equality ignores state, currentkey, and CK record differences. Be careful...
+    return [self.keycore isEqual:obj.keycore] ? YES : NO;
+}
+
+// These used to be properties on CKKSKey, but are now properties on the actual key inside
+- (NSString*)uuid
+{
+    return self.keycore.uuid;
+}
+
+- (void)setUuid:(NSString *)uuid
+{
+    self.keycore.uuid = uuid;
+}
+
+- (NSString*)parentKeyUUID
+{
+    return self.keycore.parentKeyUUID;
+}
+
+- (void)setParentKeyUUID:(NSString *)parentKeyUUID
+{
+    self.keycore.parentKeyUUID = parentKeyUUID;
+}
+
+- (CKKSKeyClass*)keyclass
+{
+    return self.keycore.keyclass;
+}
+
+- (void)setKeyclass:(CKKSKeyClass*)keyclass
+{
+    self.keycore.keyclass = keyclass;
+}
+
+- (CKKSWrappedAESSIVKey*)wrappedkey
+{
+    return self.keycore.wrappedkey;
+}
+
+- (void)setWrappedkey:(CKKSWrappedAESSIVKey*)wrappedkey
+{
+    self.keycore.wrappedkey = wrappedkey;
+}
+
+- (CKKSAESSIVKey*)aessivkey
+{
+    return self.keycore.aessivkey;
 }
 
 - (bool)wrapsSelf {
-    return [self.uuid isEqual: self.parentKeyUUID];
+    return [self.keycore wrapsSelf];
 }
 
 - (bool)wrapUnder: (CKKSKey*) wrappingKey error: (NSError * __autoreleasing *) error {
-    self.wrappedkey = [wrappingKey wrapAESKey: self.aessivkey error:error];
-    if(self.wrappedkey == nil) {
-        secerror("CKKSKey: couldn't wrap key: %@", error ? *error : @"unknown error");
-    } else {
-        self.parentKeyUUID = wrappingKey.uuid;
-    }
-    return (self.wrappedkey != nil);
-}
-
-- (bool)unwrapSelfWithAESKey: (CKKSAESSIVKey*) unwrappingKey error: (NSError * __autoreleasing *) error {
-    _aessivkey = [unwrappingKey unwrapAESKey:self.wrappedkey error:error];
-    return (_aessivkey != nil);
+    return [self.keycore wrapUnder:wrappingKey.keycore error:error];
 }
 
 + (instancetype) loadKeyWithUUID: (NSString*) uuid zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
@@ -184,7 +218,10 @@
 }
 
 + (CKKSKey*) randomKeyWrappedByParent: (CKKSKey*) parentKey keyclass:(CKKSKeyClass*)keyclass error: (NSError * __autoreleasing *) error {
-    CKKSAESSIVKey* aessivkey = [CKKSAESSIVKey randomKey];
+    CKKSAESSIVKey* aessivkey = [CKKSAESSIVKey randomKey:error];
+    if(aessivkey == nil) {
+        return nil;
+    }
 
     CKKSKey* key = [[CKKSKey alloc] initWrappedBy: parentKey
                                            AESKey: aessivkey
@@ -198,7 +235,11 @@
 }
 
 + (instancetype)randomKeyWrappedBySelf: (CKRecordZoneID*) zoneID error: (NSError * __autoreleasing *) error {
-    CKKSAESSIVKey* aessivkey = [CKKSAESSIVKey randomKey];
+    CKKSAESSIVKey* aessivkey = [CKKSAESSIVKey randomKey:error];
+    if(aessivkey == nil) {
+        return nil;
+    }
+
     NSString* uuid = [[NSUUID UUID] UUIDString];
 
     CKKSKey* key = [[CKKSKey alloc] initSelfWrappedWithAESKey: aessivkey
@@ -213,35 +254,46 @@
 }
 
 - (CKKSKey*)topKeyInAnyState: (NSError * __autoreleasing *) error {
-    // Recursively find the top-level key in the hierarchy, preferring 'remote' keys.
-    if([self wrapsSelf]) {
-        return self;
+    NSMutableSet<NSString*>* seenUUID = [[NSMutableSet alloc] init];
+    CKKSKey* key = self;
+
+    // Find the top-level key in the hierarchy.
+    while (key) {
+        if([key wrapsSelf]) {
+            return key;
+        }
+
+        // Check for circular references.
+        if([seenUUID containsObject:key.uuid]) {
+            *error = [NSError errorWithDomain:CKKSErrorDomain
+                                         code:CKKSCircularKeyReference
+                                  description:@"Circular reference in key hierarchy"];
+            return nil;
+        }
+
+        [seenUUID addObject:key.uuid];
+
+        // Prefer 'remote' parents.
+        CKKSKey* parent = [CKKSKey tryFromDatabaseWhere: @{@"UUID": key.parentKeyUUID, @"state": SecCKKSProcessedStateRemote} error: error];
+
+        // No remote parent. Fall back to anything.
+        if(parent == nil) {
+            parent = [CKKSKey fromDatabaseWhere: @{@"UUID": key.parentKeyUUID} error: error];
+        }
+
+        key = parent;
     }
 
-    CKKSKey* remoteParent = [CKKSKey tryFromDatabaseWhere: @{@"UUID": self.parentKeyUUID, @"state": SecCKKSProcessedStateRemote} error: error];
-    if(remoteParent) {
-        return [remoteParent topKeyInAnyState: error];
-    }
-
-    // No remote parent. Fall back to anything.
-    CKKSKey* parent = [CKKSKey fromDatabaseWhere: @{@"UUID": self.parentKeyUUID} error: error];
-    if(parent) {
-        return [parent topKeyInAnyState: error];
-    }
-
-    // No good. Error is already filled.
+    // Couldn't get the parent. Error is already filled.
     return nil;
 }
 
 - (CKKSAESSIVKey*)ensureKeyLoaded: (NSError * __autoreleasing *) error {
-    if(self.aessivkey) {
-        return self.aessivkey;
-    }
-
-    // Attempt to load this key from the keychain
     NSError* keychainError = nil;
-    if([self loadKeyMaterialFromKeychain:&keychainError]) {
-        return self.aessivkey;
+
+    CKKSAESSIVKey* sivkey = [self.keycore ensureKeyLoaded:&keychainError];
+    if(sivkey) {
+        return sivkey;
     }
 
     // Uhh, okay, if that didn't work, try to unwrap via the key hierarchy
@@ -264,7 +316,6 @@
     return nil;
 }
 
-
 - (CKKSAESSIVKey*)unwrapViaKeyHierarchy: (NSError * __autoreleasing *) error {
     if(self.aessivkey) {
         return self.aessivkey;
@@ -273,7 +324,7 @@
     NSError* localerror = nil;
 
     // Attempt to load this key from the keychain
-    if([self loadKeyMaterialFromKeychain:&localerror]) {
+    if([self.keycore loadKeyMaterialFromKeychain:&localerror]) {
         // Rad. Success!
         return self.aessivkey;
     }
@@ -297,396 +348,45 @@
         return nil;
     }
 
-    _aessivkey = [parent unwrapAESKey:self.wrappedkey error:error];
+    self.keycore.aessivkey = [parent unwrapAESKey:self.wrappedkey error:error];
     return self.aessivkey;
 }
 
 - (bool)trySelfWrappedKeyCandidate:(CKKSAESSIVKey*)candidate error:(NSError * __autoreleasing *) error {
-    if(![self wrapsSelf]) {
-        if(error) {
-            *error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSKeyNotSelfWrapped userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat: @"%@ is not self-wrapped", self]}];
-        }
-        return false;
-    }
-
-    CKKSAESSIVKey* unwrapped = [candidate unwrapAESKey:self.wrappedkey error:error];
-    if(unwrapped && [unwrapped isEqual: candidate]) {
-        _aessivkey = unwrapped;
-        return true;
-    }
-
-    return false;
+    return [self.keycore trySelfWrappedKeyCandidate:candidate error:error];
 }
 
 - (CKKSWrappedAESSIVKey*)wrapAESKey: (CKKSAESSIVKey*) keyToWrap error: (NSError * __autoreleasing *) error {
-    CKKSAESSIVKey* key = [self ensureKeyLoaded: error];
-    CKKSWrappedAESSIVKey* wrappedkey = [key wrapAESKey: keyToWrap error:error];
-    return wrappedkey;
+    return [self.keycore wrapAESKey:keyToWrap error:error];
 }
 
 - (CKKSAESSIVKey*)unwrapAESKey: (CKKSWrappedAESSIVKey*) keyToUnwrap error: (NSError * __autoreleasing *) error {
-    CKKSAESSIVKey* key = [self ensureKeyLoaded: error];
-    CKKSAESSIVKey* unwrappedkey = [key unwrapAESKey: keyToUnwrap error:error];
-    return unwrappedkey;
+    return [self.keycore unwrapAESKey:keyToUnwrap error:error];
 }
 
 - (NSData*)encryptData: (NSData*) plaintext authenticatedData: (NSDictionary<NSString*, NSData*>*) ad error: (NSError * __autoreleasing *) error {
-    CKKSAESSIVKey* key = [self ensureKeyLoaded: error];
-    NSData* data = [key encryptData: plaintext authenticatedData:ad error:error];
-    return data;
+    return [self.keycore encryptData:plaintext authenticatedData:ad error:error];
 }
 
 - (NSData*)decryptData: (NSData*) ciphertext authenticatedData: (NSDictionary<NSString*, NSData*>*) ad error: (NSError * __autoreleasing *) error {
-    CKKSAESSIVKey* key = [self ensureKeyLoaded: error];
-    NSData* data = [key decryptData: ciphertext authenticatedData:ad error:error];
-    return data;
+    return [self.keycore decryptData:ciphertext authenticatedData:ad error:error];
 }
 
 /* Functions to load and save keys from the keychain (where we get to store actual key material!) */
-- (bool)saveKeyMaterialToKeychain: (NSError * __autoreleasing *) error {
-    return [self saveKeyMaterialToKeychain: true error: error];
+- (BOOL)saveKeyMaterialToKeychain: (NSError * __autoreleasing *) error {
+    return [self.keycore saveKeyMaterialToKeychain:true error: error];
 }
 
-- (bool)saveKeyMaterialToKeychain: (bool)stashTLK error:(NSError * __autoreleasing *) error {
-
-    // Note that we only store the key class, view, UUID, parentKeyUUID, and key material in the keychain
-    // Any other metadata must be stored elsewhere and filled in at load time.
-
-    if(![self ensureKeyLoaded:error]) {
-        // No key material, nothing to save to keychain.
-        return false;
-    }
-
-    // iOS keychains can't store symmetric keys, so we're reduced to storing this key as a password
-    NSData* keydata = [[[NSData alloc] initWithBytes:self.aessivkey->key length:self.aessivkey->size] base64EncodedDataWithOptions:0];
-    NSMutableDictionary* query = [@{
-            (id)kSecClass : (id)kSecClassInternetPassword,
-            (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
-            (id)kSecAttrNoLegacy : @YES,
-            (id)kSecAttrAccessGroup: @"com.apple.security.ckks",
-            (id)kSecAttrDescription: self.keyclass,
-            (id)kSecAttrServer: self.zoneID.zoneName,
-            (id)kSecAttrAccount: self.uuid,
-            (id)kSecAttrPath: self.parentKeyUUID,
-            (id)kSecAttrIsInvisible: @YES,
-            (id)kSecValueData : keydata,
-        } mutableCopy];
-
-    // Only TLKs are synchronizable. Other keyclasses must synchronize via key hierarchy.
-    if([self.keyclass isEqualToString: SecCKKSKeyClassTLK]) {
-        // Use PCS-MasterKey view so they'll be initial-synced under SOS.
-        query[(id)kSecAttrSyncViewHint] = (id)kSecAttrViewHintPCSMasterKey;
-        query[(id)kSecAttrSynchronizable] = (id)kCFBooleanTrue;
-    }
-
-    // Class C keys are accessible after first unlock; TLKs and Class A keys are accessible only when unlocked
-    if([self.keyclass isEqualToString: SecCKKSKeyClassC]) {
-        query[(id)kSecAttrAccessible] = (id)kSecAttrAccessibleAfterFirstUnlock;
-    } else {
-        query[(id)kSecAttrAccessible] = (id)kSecAttrAccessibleWhenUnlocked;
-    }
-
-    NSError* localError = nil;
-    [CKKSKey setKeyMaterialInKeychain:query error:&localError];
-
-    if(localError && error) {
-        *error = [NSError errorWithDomain:@"securityd"
-                                    code:localError.code
-                                userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Couldn't save %@ to keychain: %d", self, (int)localError.code],
-                                           NSUnderlyingErrorKey: localError,
-                                           }];
-    }
-
-    // TLKs are synchronizable. Stash them nonsyncably nearby.
-    // Don't report errors here.
-    if(stashTLK && [self.keyclass isEqualToString: SecCKKSKeyClassTLK]) {
-        query = [@{
-                   (id)kSecClass : (id)kSecClassInternetPassword,
-                   (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
-                   (id)kSecAttrNoLegacy : @YES,
-                   (id)kSecAttrAccessGroup: @"com.apple.security.ckks",
-                   (id)kSecAttrDescription: [self.keyclass stringByAppendingString: @"-nonsync"],
-                   (id)kSecAttrServer: self.zoneID.zoneName,
-                   (id)kSecAttrAccount: self.uuid,
-                   (id)kSecAttrPath: self.parentKeyUUID,
-                   (id)kSecAttrIsInvisible: @YES,
-                   (id)kSecValueData : keydata,
-                   } mutableCopy];
-        query[(id)kSecAttrSynchronizable] = (id)kCFBooleanFalse;
-
-        NSError* stashError = nil;
-        [CKKSKey setKeyMaterialInKeychain:query error:&localError];
-
-        if(stashError) {
-            secerror("ckkskey: Couldn't stash %@ to keychain: %@", self, stashError);
-        }
-    }
-
-    return localError == nil;
+- (BOOL)saveKeyMaterialToKeychain: (bool)stashTLK error:(NSError * __autoreleasing *) error {
+    return [self.keycore saveKeyMaterialToKeychain:stashTLK error:error];
 }
 
-+ (NSDictionary*)setKeyMaterialInKeychain:(NSDictionary*)query error:(NSError* __autoreleasing *)error {
-    CFTypeRef result = NULL;
-    OSStatus status = SecItemAdd((__bridge CFDictionaryRef)query, &result);
-
-    NSError* localerror = nil;
-
-    // Did SecItemAdd fall over due to an existing item?
-    if(status == errSecDuplicateItem) {
-        // Add every primary key attribute to this find dictionary
-        NSMutableDictionary* findQuery = [[NSMutableDictionary alloc] init];
-        findQuery[(id)kSecClass]              = query[(id)kSecClass];
-        findQuery[(id)kSecAttrSynchronizable] = query[(id)kSecAttrSynchronizable];
-        findQuery[(id)kSecAttrSyncViewHint]   = query[(id)kSecAttrSyncViewHint];
-        findQuery[(id)kSecAttrAccessGroup]    = query[(id)kSecAttrAccessGroup];
-        findQuery[(id)kSecAttrAccount]        = query[(id)kSecAttrAccount];
-        findQuery[(id)kSecAttrServer]         = query[(id)kSecAttrServer];
-        findQuery[(id)kSecAttrPath]           = query[(id)kSecAttrPath];
-
-        NSMutableDictionary* updateQuery = [query mutableCopy];
-        updateQuery[(id)kSecClass] = nil;
-
-        status = SecItemUpdate((__bridge CFDictionaryRef)findQuery, (__bridge CFDictionaryRef)updateQuery);
-
-        if(status) {
-            localerror = [NSError errorWithDomain:@"securityd"
-                                             code:status
-                                      description:[NSString stringWithFormat:@"SecItemUpdate: %d", (int)status]];
-        }
-    } else {
-        localerror = [NSError errorWithDomain:@"securityd"
-                                         code:status
-                                  description: [NSString stringWithFormat:@"SecItemAdd: %d", (int)status]];
-    }
-
-    if(status) {
-        CFReleaseNull(result);
-
-        if(error) {
-            *error = localerror;
-        }
-        return false;
-    }
-
-    NSDictionary* resultDict = CFBridgingRelease(result);
-    return resultDict;
+- (BOOL)loadKeyMaterialFromKeychain: (NSError * __autoreleasing *) error {
+    return [self.keycore loadKeyMaterialFromKeychain:error];
 }
 
-+ (NSDictionary*)queryKeyMaterialInKeychain:(NSDictionary*)query  error:(NSError* __autoreleasing *)error {
-    CFTypeRef result = NULL;
-    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
-
-    if(status) {
-        CFReleaseNull(result);
-
-        if(error) {
-            *error = [NSError errorWithDomain:@"securityd"
-                                         code:status
-                                     userInfo:@{NSLocalizedDescriptionKey:
-                                                    [NSString stringWithFormat:@"SecItemCopyMatching: %d", (int)status]}];
-        }
-        return false;
-    }
-
-    NSDictionary* resultDict = CFBridgingRelease(result);
-    return resultDict;
-}
-
-+ (NSDictionary*)fetchKeyMaterialItemFromKeychain:(CKKSKey*)key resave:(bool*)resavePtr error:(NSError* __autoreleasing *)error {
-    NSMutableDictionary* query = [@{
-            (id)kSecClass : (id)kSecClassInternetPassword,
-            (id)kSecAttrNoLegacy : @YES,
-            (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
-            (id)kSecAttrDescription: key.keyclass,
-            (id)kSecAttrAccount: key.uuid,
-            (id)kSecAttrServer: key.zoneID.zoneName,
-            (id)kSecAttrPath: key.parentKeyUUID,
-            (id)kSecReturnAttributes: @YES,
-            (id)kSecReturnData: @YES,
-        } mutableCopy];
-
-    // Synchronizable items are only found if you request synchronizable items. Only TLKs are synchronizable.
-    if([key.keyclass isEqualToString: SecCKKSKeyClassTLK]) {
-        query[(id)kSecAttrSynchronizable] = (id)kCFBooleanTrue;
-    }
-
-    NSError* localError = nil;
-    NSDictionary* result = [self queryKeyMaterialInKeychain:query error:&localError];
-    NSError* originalError = localError;
-
-    // If we found the item or errored in some interesting way, return.
-    if(result) {
-        return result;
-    }
-    if(localError && localError.code != errSecItemNotFound) {
-        if(error) {
-            *error = [NSError errorWithDomain:@"securityd"
-                                         code:localError.code
-                                     userInfo:@{NSLocalizedDescriptionKey:
-                                                    [NSString stringWithFormat:@"Couldn't load %@ from keychain: %d", key, (int)localError.code],
-                                                NSUnderlyingErrorKey: localError,
-                                                }];
-        }
-        return result;
-    }
-    localError = nil;
-
-    if([key.keyclass isEqualToString: SecCKKSKeyClassTLK]) {
-        //didn't find a regular tlk?  how about a piggy?
-        query = [@{
-                   (id)kSecClass : (id)kSecClassInternetPassword,
-                   (id)kSecAttrNoLegacy : @YES,
-                   (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
-                   (id)kSecAttrDescription: [key.keyclass stringByAppendingString: @"-piggy"],
-                   (id)kSecAttrSynchronizable : (id)kSecAttrSynchronizableAny,
-                   (id)kSecAttrAccount: [NSString stringWithFormat: @"%@-piggy", key.uuid],
-                   (id)kSecAttrServer: key.zoneID.zoneName,
-                   (id)kSecReturnAttributes: @YES,
-                   (id)kSecReturnData: @YES,
-                   (id)kSecMatchLimit: (id)kSecMatchLimitOne,
-                   } mutableCopy];
-
-        result = [self queryKeyMaterialInKeychain:query error:&localError];
-        if(localError == nil) {
-            secnotice("ckkskey", "loaded a piggy TLK (%@)", key.uuid);
-
-            if(resavePtr) {
-                *resavePtr = true;
-            }
-
-            return result;
-        }
-
-        if(localError && localError.code != errSecItemNotFound) {
-            if(error) {
-                *error = [NSError errorWithDomain:@"securityd"
-                                             code:localError.code
-                                         userInfo:@{NSLocalizedDescriptionKey:
-                                                        [NSString stringWithFormat:@"Couldn't load %@ from keychain: %d", key, (int)localError.code],
-                                                    NSUnderlyingErrorKey: localError,
-                                                    }];
-            }
-            return nil;
-        }
-    }
-
-    localError = nil;
-
-    // Try to load a stashed TLK
-    if([key.keyclass isEqualToString: SecCKKSKeyClassTLK]) {
-        localError = nil;
-
-        // Try to look for the non-syncable stashed tlk and resurrect it.
-        query = [@{
-            (id)kSecClass : (id)kSecClassInternetPassword,
-            (id)kSecAttrNoLegacy : @YES,
-            (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
-            (id)kSecAttrDescription: [key.keyclass stringByAppendingString: @"-nonsync"],
-            (id)kSecAttrServer: key.zoneID.zoneName,
-            (id)kSecAttrAccount: key.uuid,
-            (id)kSecReturnAttributes: @YES,
-            (id)kSecReturnData: @YES,
-            (id)kSecAttrSynchronizable: @NO,
-        } mutableCopy];
-
-        result = [self queryKeyMaterialInKeychain:query error:&localError];
-        if(localError == nil) {
-            secnotice("ckkskey", "loaded a stashed TLK (%@)", key.uuid);
-
-            if(resavePtr) {
-                *resavePtr = true;
-            }
-
-            return result;
-        }
-
-        if(localError && localError.code != errSecItemNotFound) {
-            if(error) {
-                *error = [NSError errorWithDomain:@"securityd"
-                                             code:localError.code
-                                         userInfo:@{NSLocalizedDescriptionKey:
-                                                        [NSString stringWithFormat:@"Couldn't load %@ from keychain: %d", key, (int)localError.code],
-                                                    NSUnderlyingErrorKey: localError,
-                                                    }];
-            }
-            return nil;
-        }
-    }
-
-    // We didn't early-return. Use whatever error the original fetch produced.
-    if(error) {
-        *error = [NSError errorWithDomain:@"securityd"
-                                     code:originalError ? originalError.code : errSecParam
-                              description:[NSString stringWithFormat:@"Couldn't load %@ from keychain: %d", key, (int)originalError.code]
-                               underlying:originalError];
-    }
-
-    return result;
-}
-
-- (bool)loadKeyMaterialFromKeychain: (NSError * __autoreleasing *) error {
-    bool resave = false;
-    NSDictionary* result = [CKKSKey fetchKeyMaterialItemFromKeychain:self resave:&resave error:error];
-    if(!result) {
-        return false;
-    }
-
-    NSData* b64keymaterial = result[(id)kSecValueData];
-    NSData* keymaterial = [[NSData alloc] initWithBase64EncodedData:b64keymaterial options:0];
-    if(!keymaterial) {
-        secnotice("ckkskey", "Unable to unbase64 key: %@", self);
-        if(error) {
-            *error = [NSError errorWithDomain:CKKSErrorDomain
-                                         code:CKKSKeyUnknownFormat
-                                  description:[NSString stringWithFormat:@"unable to unbase64 key: %@", self]];
-        }
-        return false;
-    }
-
-    CKKSAESSIVKey* key = [[CKKSAESSIVKey alloc] initWithBytes: (uint8_t*) keymaterial.bytes len:keymaterial.length];
-    self.aessivkey = key;
-
-    if(resave) {
-        secnotice("ckkskey", "Resaving %@ as per request", self);
-        NSError* resaveError = nil;
-        [self saveKeyMaterialToKeychain:&resaveError];
-        if(resaveError) {
-            secnotice("ckkskey", "Resaving %@ failed: %@", self, resaveError);
-        }
-    }
-
-    return !!(self.aessivkey);
-}
-
-- (bool)deleteKeyMaterialFromKeychain: (NSError * __autoreleasing *) error {
-
-    NSMutableDictionary* query = [@{
-                                    (id)kSecClass : (id)kSecClassInternetPassword,
-                                    (id)kSecAttrNoLegacy : @YES,
-                                    (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
-                                    (id)kSecAttrDescription: self.keyclass,
-                                    (id)kSecAttrAccount: self.uuid,
-                                    (id)kSecAttrServer: self.zoneID.zoneName,
-                                    (id)kSecReturnData: @YES,
-                                    } mutableCopy];
-
-    // Synchronizable items are only found if you request synchronizable items. Only TLKs are synchronizable.
-    if([self.keyclass isEqualToString: SecCKKSKeyClassTLK]) {
-        query[(id)kSecAttrSynchronizable] = (id)kCFBooleanTrue;
-    }
-
-    OSStatus status = SecItemDelete((__bridge CFDictionaryRef) query);
-
-    if(status) {
-        if(error) {
-            *error = [NSError errorWithDomain:@"securityd"
-                                         code:status
-                                     userInfo:@{NSLocalizedDescriptionKey:
-                                                    [NSString stringWithFormat:@"Couldn't delete %@ from keychain: %d", self, (int)status]}];
-        }
-        return false;
-    }
-    return true;
+- (BOOL)deleteKeyMaterialFromKeychain: (NSError * __autoreleasing *) error {
+    return [self.keycore deleteKeyMaterialFromKeychain:error];
 }
 
 + (instancetype)keyFromKeychain: (NSString*) uuid
@@ -713,7 +413,7 @@
     return key;
 }
 
-+ (NSString*)isItemKeyForKeychainView: (SecDbItemRef) item {
++ (NSString* _Nullable)isItemKeyForKeychainView:(SecDbItemRef)item {
 
     NSString* accessgroup = (__bridge NSString*) SecDbItemGetCachedValueWithName(item, kSecAttrAccessGroup);
     NSString* description = (__bridge NSString*) SecDbItemGetCachedValueWithName(item, kSecAttrDescription);
@@ -762,7 +462,10 @@
     return [self allWhere: @{@"UUID": [CKKSSQLWhereObject op:@"=" string:@"parentKeyUUID"], @"state":  SecCKKSProcessedStateLocal, @"ckzone":zoneID.zoneName} error:error];
 }
 
-+ (instancetype) currentKeyForClass: (CKKSKeyClass*) keyclass zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
++ (instancetype _Nullable)currentKeyForClass:(CKKSKeyClass*)keyclass
+                                      zoneID:(CKRecordZoneID*)zoneID
+                                       error:(NSError *__autoreleasing*)error
+{
     // Load the CurrentKey record, and find the key for it
     CKKSCurrentKeyPointer* ckp = [CKKSCurrentKeyPointer fromDatabase:keyclass zoneID:zoneID error:error];
     if(!ckp) {
@@ -814,6 +517,11 @@
 
 #pragma mark - CKRecord handling
 
+- (NSString*)CKRecordName
+{
+    return self.keycore.uuid;
+}
+
 - (void) setFromCKRecord: (CKRecord*) record {
     if(![record.recordType isEqual: SecCKRecordIntermediateKeyType]) {
         @throw [NSException
@@ -824,16 +532,30 @@
 
     [self setStoredCKRecord: record];
 
-    self.uuid = [[record recordID] recordName];
+    NSString* uuid = record.recordID.recordName;
+    NSString* parentKeyUUID = nil;
+
     if(record[SecCKRecordParentKeyRefKey] != nil) {
-        self.parentKeyUUID = [record[SecCKRecordParentKeyRefKey] recordID].recordName;
+        parentKeyUUID = [record[SecCKRecordParentKeyRefKey] recordID].recordName;
     } else {
         // We wrap ourself.
-        self.parentKeyUUID = self.uuid;
+        parentKeyUUID = uuid;
     }
+
+    NSString* keyclass = record[SecCKRecordKeyClassKey];
+    CKKSWrappedAESSIVKey* wrappedkey =
+        [[CKKSWrappedAESSIVKey alloc] initWithBase64:record[SecCKRecordWrappedKeyKey]];
+
+    self.keycore = [[CKKSKeychainBackedKey alloc] initWithWrappedAESKey:wrappedkey
+                                                                   uuid:uuid
+                                                          parentKeyUUID:parentKeyUUID
+                                                               keyclass:(CKKSKeyClass *)keyclass
+                                                                 zoneID:record.recordID.zoneID];
 
     self.keyclass = record[SecCKRecordKeyClassKey];
     self.wrappedkey = [[CKKSWrappedAESSIVKey alloc] initWithBase64: record[SecCKRecordWrappedKeyKey]];
+
+    self.state = SecCKKSProcessedStateRemote;
 }
 
 - (CKRecord*) updateCKRecord: (CKRecord*) record zoneID: (CKRecordZoneID*) zoneID {
@@ -935,15 +657,15 @@
              @"currentkey": self.currentkey ? @"1" : @"0"};
 }
 
-+ (instancetype) fromDatabaseRow: (NSDictionary*) row {
-    return [[CKKSKey alloc] initWithWrappedAESKey: row[@"wrappedkey"] ? [[CKKSWrappedAESSIVKey alloc] initWithBase64: row[@"wrappedkey"]] : nil
-                                             uuid: row[@"UUID"]
-                                    parentKeyUUID: row[@"parentKeyUUID"]
-                                         keyclass: row[@"keyclass"]
-                                            state: row[@"state"]
-                                           zoneID: [[CKRecordZoneID alloc] initWithZoneName: row[@"ckzone"] ownerName:CKCurrentUserDefaultName]
-                                  encodedCKRecord: [[NSData alloc] initWithBase64EncodedString: row[@"ckrecord"] options:0]
-                                       currentkey: [row[@"currentkey"] integerValue]];
++ (instancetype)fromDatabaseRow:(NSDictionary<NSString*, CKKSSQLResult*>*)row {
+    return [[CKKSKey alloc] initWithWrappedAESKey:row[@"wrappedkey"].asString ? [[CKKSWrappedAESSIVKey alloc] initWithBase64: row[@"wrappedkey"].asString] : nil
+                                             uuid:row[@"UUID"].asString
+                                    parentKeyUUID:row[@"parentKeyUUID"].asString
+                                         keyclass:(CKKSKeyClass*)row[@"keyclass"].asString
+                                            state:(CKKSProcessedState*)row[@"state"].asString
+                                           zoneID:[[CKRecordZoneID alloc] initWithZoneName:row[@"ckzone"].asString ownerName:CKCurrentUserDefaultName]
+                                  encodedCKRecord:row[@"ckrecord"].asBase64DecodedData
+                                       currentkey:row[@"currentkey"].asNSInteger];
 
 }
 
@@ -956,9 +678,9 @@
                                       groupBy: @[@"keyclass", @"state"]
                                       orderBy:nil
                                         limit: -1
-                                   processRow: ^(NSDictionary* row) {
-                                       results[[NSString stringWithFormat: @"%@-%@", row[@"state"], row[@"keyclass"]]] =
-                                            [NSNumber numberWithInteger: [row[@"count(rowid)"] integerValue]];
+                                   processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       results[[NSString stringWithFormat: @"%@-%@", row[@"state"].asString, row[@"keyclass"].asString]] =
+                                            row[@"count(rowid)"].asNSNumberInteger;
                                    }
                                         error: error];
     return results;
@@ -966,9 +688,9 @@
 
 - (instancetype)copyWithZone:(NSZone *)zone {
     CKKSKey *keyCopy = [super copyWithZone:zone];
-    keyCopy->_aessivkey = _aessivkey;
+    keyCopy->_keycore = [_keycore copyWithZone:zone];
+
     keyCopy->_state = _state;
-    keyCopy->_keyclass = _keyclass;
     keyCopy->_currentkey = _currentkey;
     return keyCopy;
 }
@@ -982,7 +704,7 @@
     proto.uuid = self.uuid;
     proto.zoneName = self.zoneID.zoneName;
     proto.keyclass = self.keyclass;
-    proto.key = [[NSData alloc] initWithBytes:self.aessivkey->key length:self.aessivkey->size];
+    proto.key = [NSData _newZeroingDataWithBytes:self.aessivkey->key length:self.aessivkey->size];
 
     return proto.data;
 }

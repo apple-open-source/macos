@@ -25,8 +25,8 @@ disable [ -afmprs ] name ...
        "^"' has not been issued.  The list below indicates  any  option
        settings  that  restrict  the  use of the pattern.  It should be
        noted that setting SH_GLOB has a wider effect than  merely  dis-
-       abling  patterns  as  certain  expressions,  in particular those
-       involving parentheses, are parsed differently.
+       abling  patterns as certain expressions, in particular those in-
+       volving parentheses, are parsed differently.
 
        The following patterns may be disabled;  all  the  strings  need
        quoting  on  the  command line to prevent them from being inter-
@@ -36,8 +36,8 @@ disable [ -afmprs ] name ...
        '?'    The  pattern  character  ?  wherever it occurs, including
               when preceding a parenthesis with KSH_GLOB.
 
-       '*'    The pattern character *  wherever  it  occurs,  including
-              recursive  globbing and when preceding a parenthesis with
+       '*'    The pattern character * wherever it occurs, including re-
+              cursive  globbing  and  when preceding a parenthesis with
               KSH_GLOB.
 
        '['    Character classes.

@@ -48,14 +48,8 @@ static bool isQuirkContainer(const Box& layoutBox)
     return layoutBox.isBodyBox() || layoutBox.isDocumentBox() || layoutBox.isTableCell();
 }
 
-static bool hasMarginBeforeQuirkValue(const Box& layoutBox)
-{
-    return layoutBox.style().hasMarginBeforeQuirk();
-}
-
 bool BlockFormattingContext::Quirks::needsStretching(const LayoutState& layoutState, const Box& layoutBox)
 {
-    ASSERT(layoutBox.isInFlow());
     // In quirks mode, body stretches to html and html to the initial containing block (height: auto only).
     if (!layoutState.inQuirksMode())
         return false;
@@ -66,17 +60,17 @@ bool BlockFormattingContext::Quirks::needsStretching(const LayoutState& layoutSt
     return layoutBox.style().logicalHeight().isAuto();
 }
 
-HeightAndMargin BlockFormattingContext::Quirks::stretchedHeight(const LayoutState& layoutState, const Box& layoutBox, HeightAndMargin heightAndMargin)
+HeightAndMargin BlockFormattingContext::Quirks::stretchedInFlowHeight(const LayoutState& layoutState, const Box& layoutBox, HeightAndMargin heightAndMargin)
 {
+    ASSERT(layoutBox.isInFlow());
     ASSERT(layoutBox.isDocumentBox() || layoutBox.isBodyBox());
 
     auto& documentBox = layoutBox.isDocumentBox() ? layoutBox : *layoutBox.parent();
     auto& documentBoxDisplayBox = layoutState.displayBoxForLayoutBox(documentBox);
-    auto documentBoxVerticalBorders = documentBoxDisplayBox.borderTop() + documentBoxDisplayBox.borderBottom();
-    auto documentBoxVerticalPaddings = documentBoxDisplayBox.paddingTop().valueOr(0) + documentBoxDisplayBox.paddingBottom().valueOr(0);
 
-    auto strechedHeight = layoutState.displayBoxForLayoutBox(initialContainingBlock(layoutBox)).contentBoxHeight();
-    strechedHeight -= documentBoxVerticalBorders + documentBoxVerticalPaddings;
+    auto& initialContainingBlockDisplayBox = layoutState.displayBoxForLayoutBox(initialContainingBlock(layoutBox));
+    auto strechedHeight = initialContainingBlockDisplayBox.contentBoxHeight();
+    strechedHeight -= documentBoxDisplayBox.verticalBorder() + documentBoxDisplayBox.verticalPadding().valueOr(0);
 
     LayoutUnit totalVerticalMargin;
     if (layoutBox.isDocumentBox()) {
@@ -87,11 +81,16 @@ HeightAndMargin BlockFormattingContext::Quirks::stretchedHeight(const LayoutStat
         // Here is the quirky part for body box:
         // Stretch the body using the initial containing block's height and shrink it with document box's margin/border/padding.
         // This looks extremely odd when html has non-auto height.
-        auto verticalMargin = Geometry::estimatedMarginBefore(layoutState, documentBox) + Geometry::estimatedMarginAfter(layoutState, documentBox);
-        strechedHeight -= verticalMargin;
+        auto documentBoxVerticalMargin = Geometry::computedVerticalMargin(documentBox, UsedHorizontalValues { initialContainingBlockDisplayBox.contentBoxWidth() });
+        strechedHeight -= (documentBoxVerticalMargin.before.valueOr(0) + documentBoxVerticalMargin.after.valueOr(0));
 
-        auto nonCollapsedValues = heightAndMargin.nonCollapsedMargin;
-        totalVerticalMargin = nonCollapsedValues.before + nonCollapsedValues.after;
+        auto& bodyBoxDisplayBox = layoutState.displayBoxForLayoutBox(layoutBox);
+        strechedHeight -= bodyBoxDisplayBox.verticalBorder() + bodyBoxDisplayBox.verticalPadding().valueOr(0);
+
+        auto nonCollapsedMargin = heightAndMargin.nonCollapsedMargin;
+        auto collapsedMargin = MarginCollapse::collapsedVerticalValues(layoutState, layoutBox, nonCollapsedMargin);
+        totalVerticalMargin = collapsedMargin.before.valueOr(nonCollapsedMargin.before);
+        totalVerticalMargin += collapsedMargin.isCollapsedThrough ? nonCollapsedMargin.after : collapsedMargin.after.valueOr(nonCollapsedMargin.after);
     }
 
     // Stretch but never overstretch with the margins.
@@ -101,12 +100,9 @@ HeightAndMargin BlockFormattingContext::Quirks::stretchedHeight(const LayoutStat
     return heightAndMargin;
 }
 
-bool BlockFormattingContext::Quirks::shouldIgnoreMarginBefore(const LayoutState& layoutState, const Box& layoutBox)
+bool BlockFormattingContext::Quirks::shouldIgnoreCollapsedQuirkMargin(const LayoutState& layoutState, const Box& layoutBox)
 {
-    if (!layoutBox.parent())
-        return false;
-
-    return layoutState.inQuirksMode() && isQuirkContainer(*layoutBox.parent()) && hasMarginBeforeQuirkValue(layoutBox);
+    return layoutState.inQuirksMode() && isQuirkContainer(layoutBox);
 }
 
 }

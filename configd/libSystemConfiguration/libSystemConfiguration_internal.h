@@ -28,9 +28,6 @@
 #include <TargetConditionals.h>
 #include <sys/cdefs.h>
 
-extern const unsigned char *	libsystem_configurationVersionString;
-extern const double		libsystem_configurationVersionNumber;
-
 __BEGIN_DECLS
 
 void

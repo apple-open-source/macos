@@ -1,12 +1,12 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 zh_Hant_HK{
-    Version{"2.1.39.11"}
+    Version{"2.1.47.86"}
     units{
         acceleration{
             meter-per-second-squared{
                 dnam{"米/平方秒"}
-                other{"{0} 米/平方秒"}
+                other{"{0}米/平方秒"}
             }
         }
         angle{
@@ -15,40 +15,44 @@ zh_Hant_HK{
             }
             revolution{
                 dnam{"周"}
-                other{"{0} 周"}
+                other{"{0}周"}
             }
         }
         area{
             square-centimeter{
                 dnam{"平方厘米"}
-                other{"{0} 平方厘米"}
-                per{"{0} 每平方厘米"}
+                other{"{0}平方厘米"}
+                per{"{0}每平方厘米"}
             }
             square-foot{
                 dnam{"平方呎"}
-                other{"{0} 平方呎"}
+                other{"{0}平方呎"}
             }
             square-inch{
                 dnam{"平方吋"}
-                other{"{0} 平方吋"}
-                per{"{0} 每平方吋"}
+                other{"{0}平方吋"}
+                per{"{0}每平方吋"}
             }
             square-kilometer{
-                per{"{0} 每平方公里"}
+                per{"{0}每平方公里"}
             }
             square-meter{
                 dnam{"平方米"}
-                other{"{0} 平方米"}
-                per{"{0} 每平方米"}
+                other{"{0}平方米"}
+                per{"{0}每平方米"}
             }
             square-mile{
-                per{"{0} 每平方英里"}
+                per{"{0}每平方英里"}
             }
         }
         compound{
             per{"{0}每{1}"}
         }
         concentr{
+            millimole-per-liter{
+                dnam{"每公升毫摩爾"}
+                other{"每公升{0}毫摩爾"}
+            }
             part-per-million{
                 other{"{0} ppm"}
             }
@@ -56,162 +60,174 @@ zh_Hant_HK{
         consumption{
             liter-per-kilometer{
                 dnam{"公升/公里"}
-                other{"{0} 公升/公里"}
+                other{"{0}公升/公里"}
             }
             mile-per-gallon{
                 dnam{"英里每加侖"}
             }
         }
         coordinate{
-            east{"東經 {0}"}
-            north{"北緯 {0}"}
-            south{"南緯 {0}"}
-            west{"西經 {0}"}
+            east{"東經{0}"}
+            north{"北緯{0}"}
+            south{"南緯{0}"}
+            west{"西經{0}"}
         }
         digital{
             bit{
                 dnam{"位元"}
-                other{"{0} 個位元"}
+                other{"{0}個位元"}
             }
             byte{
                 dnam{"位元組"}
-                other{"{0} 位元組"}
+                other{"{0}位元組"}
             }
         }
         duration{
             century{
-                other{"{0} 世紀"}
+                other{"{0}世紀"}
             }
             day{
                 dnam{"日"}
-                other{"{0} 日"}
-                per{"{0} 每日"}
+                other{"{0}日"}
+                per{"{0}每日"}
             }
             hour{
-                per{"{0} 每小時"}
+                per{"{0}每小時"}
             }
             minute{
-                per{"{0} 每分鐘"}
+                per{"{0}每分鐘"}
             }
             month{
                 dnam{"個月"}
-                per{"{0} 每個月"}
+                per{"{0}每個月"}
             }
             nanosecond{
                 dnam{"納秒"}
-                other{"{0} 納秒"}
+                other{"{0}納秒"}
             }
             second{
                 per{"{0}每秒"}
             }
             week{
                 dnam{"星期"}
-                other{"{0} 星期"}
-                per{"{0} 每星期"}
+                other{"{0}星期"}
+                per{"{0}每星期"}
             }
             year{
-                per{"{0} 每年"}
+                per{"{0}每年"}
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"英制熱量單位"}
+                other{"{0}英制熱量單位"}
+            }
             foodcalorie{
-                other{"{0} 卡路里"}
+                other{"{0}卡路里"}
             }
             kilocalorie{
                 dnam{"千卡"}
-                other{"{0} 千卡"}
+                other{"{0}千卡"}
             }
         }
         length{
             centimeter{
                 dnam{"厘米"}
-                other{"{0} 厘米"}
-                per{"{0} 每厘米"}
+                other{"{0}厘米"}
+                per{"{0}每厘米"}
             }
             decimeter{
                 dnam{"分米"}
-                other{"{0} 分米"}
+                other{"{0}分米"}
             }
             foot{
                 dnam{"呎"}
-                other{"{0} 呎"}
-                per{"{0} 每呎"}
+                other{"{0}呎"}
+                per{"{0}每呎"}
             }
             inch{
                 dnam{"吋"}
-                other{"{0} 吋"}
-                per{"{0} 每吋"}
+                other{"{0}吋"}
+                per{"{0}每吋"}
             }
             kilometer{
-                per{"{0} 每公里"}
+                per{"{0}每公里"}
             }
             meter{
                 dnam{"米"}
-                other{"{0} 米"}
-                per{"{0} 每米"}
+                other{"{0}米"}
+                per{"{0}每米"}
             }
             millimeter{
                 dnam{"毫米"}
-                other{"{0} 毫米"}
+                other{"{0}毫米"}
             }
             nanometer{
                 dnam{"納米"}
-                other{"{0} 納米"}
+                other{"{0}納米"}
             }
             point{
                 other{"{0} pt"}
             }
         }
         mass{
+            dalton{
+                dnam{"道爾頓"}
+                other{"{0}道爾頓"}
+            }
             gram{
-                per{"{0} 每克"}
+                per{"{0}每克"}
             }
             kilogram{
-                per{"{0} 每公斤"}
+                per{"{0}每公斤"}
             }
             ounce{
                 dnam{"安士"}
-                other{"{0} 安士"}
-                per{"{0} 每安士"}
+                other{"{0}安士"}
+                per{"{0}每安士"}
             }
             ounce-troy{
                 dnam{"金衡安士"}
-                other{"{0} 金衡安士"}
+                other{"{0}金衡安士"}
             }
             pound{
-                per{"{0} 每磅"}
+                per{"{0}每磅"}
             }
         }
         power{
             horsepower{
                 dnam{"匹"}
-                other{"{0} 匹"}
+                other{"{0}匹"}
             }
             kilowatt{
                 dnam{"千瓦"}
-                other{"{0} 千瓦"}
+                other{"{0}千瓦"}
             }
             megawatt{
                 dnam{"兆瓦"}
-                other{"{0} 兆瓦"}
+                other{"{0}兆瓦"}
             }
             milliwatt{
                 dnam{"毫瓦"}
-                other{"{0} 毫瓦"}
+                other{"{0}毫瓦"}
             }
         }
         pressure{
             hectopascal{
                 dnam{"百帕斯卡"}
-                other{"{0} 百帕斯卡"}
+                other{"{0}百帕斯卡"}
             }
             inch-hg{
                 dnam{"英吋汞柱"}
-                other{"{0} 英吋汞柱"}
+                other{"{0}英吋汞柱"}
+            }
+            megapascal{
+                dnam{"兆帕斯卡"}
+                other{"{0}兆帕斯卡"}
             }
             pound-per-square-inch{
                 dnam{"磅/平方吋"}
-                other{"{0} 磅/平方吋"}
+                other{"{0}磅/平方吋"}
             }
         }
         speed{
@@ -220,7 +236,7 @@ zh_Hant_HK{
             }
             meter-per-second{
                 dnam{"米/秒"}
-                other{"{0} 米/秒"}
+                other{"{0}米/秒"}
             }
             mile-per-hour{
                 dnam{"英里每小時"}
@@ -235,51 +251,61 @@ zh_Hant_HK{
             }
             kelvin{
                 dnam{"開爾文"}
-                other{"{0} 開爾文"}
+                other{"{0}開爾文"}
+            }
+        }
+        torque{
+            pound-foot{
+                dnam{"磅尺"}
+                other{"{0}磅尺"}
             }
         }
         volume{
             acre-foot{
                 dnam{"英畝呎"}
-                other{"{0} 英畝呎"}
+                other{"{0}英畝呎"}
             }
             centiliter{
                 dnam{"厘升"}
-                other{"{0} 厘升"}
+                other{"{0}厘升"}
             }
             cubic-centimeter{
                 dnam{"立方厘米"}
-                other{"{0} 立方厘米"}
-                per{"{0} 每立方厘米"}
+                other{"{0}立方厘米"}
+                per{"{0}每立方厘米"}
             }
             cubic-foot{
                 dnam{"立方呎"}
-                other{"{0} 立方呎"}
+                other{"{0}立方呎"}
             }
             cubic-inch{
                 dnam{"立方吋"}
-                other{"{0} 立方吋"}
+                other{"{0}立方吋"}
             }
             cubic-meter{
                 dnam{"立方米"}
-                other{"{0} 立方米"}
-                per{"{0} 每立方米"}
+                other{"{0}立方米"}
+                per{"{0}每立方米"}
             }
             cup{
-                other{"{0} 量杯"}
+                other{"{0}量杯"}
             }
             cup-metric{
-                other{"{0} 公制量杯"}
+                other{"{0}公制量杯"}
             }
             fluid-ounce{
                 dnam{"液安士"}
-                other{"{0} 液安士"}
+                other{"{0}液安士"}
+            }
+            fluid-ounce-imperial{
+                dnam{"英制液安士"}
+                other{"{0}英制液安士"}
             }
             gallon{
-                per{"{0} 每加侖"}
+                per{"{0}每加侖"}
             }
             liter{
-                per{"{0} 每公升"}
+                per{"{0}每公升"}
             }
         }
     }
@@ -295,13 +321,13 @@ zh_Hant_HK{
             }
             revolution{
                 dnam{"周"}
-                other{"{0} 周"}
+                other{"{0}周"}
             }
         }
         area{
             square-centimeter{
                 dnam{"平方厘米"}
-                per{"{0} 每平方厘米"}
+                per{"{0}每平方厘米"}
             }
             square-foot{
                 dnam{"平方呎"}
@@ -309,21 +335,24 @@ zh_Hant_HK{
             }
             square-inch{
                 dnam{"平方吋"}
-                per{"{0} 每平方吋"}
+                per{"{0}每平方吋"}
             }
             square-kilometer{
-                per{"{0} 每平方公里"}
+                per{"{0}每平方公里"}
             }
             square-meter{
                 dnam{"平方米"}
-                per{"{0} 每平方米"}
+                per{"{0}每平方米"}
             }
             square-mile{
                 other{"{0}mi²"}
-                per{"{0} 每平方英里"}
+                per{"{0}每平方英里"}
             }
         }
         concentr{
+            millimole-per-liter{
+                dnam{"毫摩爾/公升"}
+            }
             part-per-million{
                 other{"{0} ppm"}
             }
@@ -340,22 +369,29 @@ zh_Hant_HK{
             west{"{0}W"}
         }
         duration{
+            century{
+                other{"{0}世紀"}
+            }
             day{
                 dnam{"日"}
                 other{"{0}日"}
+                per{"{0}每日"}
             }
             hour{
                 other{"{0}小時"}
+                per{"{0}每小時"}
             }
             millisecond{
                 other{"{0}毫秒"}
             }
             minute{
                 dnam{"分"}
-                per{"{0} 每分鐘"}
+                other{"{0}分"}
+                per{"{0}每分鐘"}
             }
             month{
                 other{"{0}個月"}
+                per{"{0}每月"}
             }
             nanosecond{
                 dnam{"納秒"}
@@ -365,9 +401,11 @@ zh_Hant_HK{
             }
             week{
                 other{"{0}週"}
+                per{"{0}每星期"}
             }
             year{
                 other{"{0}年"}
+                per{"{0}每年"}
             }
         }
         energy{
@@ -383,26 +421,26 @@ zh_Hant_HK{
             centimeter{
                 dnam{"厘米"}
                 other{"{0}厘米"}
-                per{"{0} 每厘米"}
+                per{"{0}每厘米"}
             }
             decimeter{
                 dnam{"分米"}
             }
             foot{
                 dnam{"呎"}
-                per{"{0} 每呎"}
+                per{"{0}每呎"}
             }
             inch{
                 dnam{"吋"}
-                per{"{0} 每吋"}
+                per{"{0}每吋"}
             }
             kilometer{
-                per{"{0} 每公里"}
+                per{"{0}每公里"}
             }
             meter{
                 dnam{"米"}
                 other{"{0}米"}
-                per{"{0} 每米"}
+                per{"{0}每米"}
             }
             mile{
                 dnam{"哩"}
@@ -423,12 +461,22 @@ zh_Hant_HK{
             }
         }
         mass{
+            gram{
+                per{"{0}每克"}
+            }
+            kilogram{
+                per{"{0}每公斤"}
+            }
             ounce{
                 dnam{"安士"}
-                other{"{0} 安士"}
+                other{"{0}安士"}
+                per{"{0}每安士"}
             }
             ounce-troy{
                 dnam{"金衡安士"}
+            }
+            pound{
+                per{"{0}每磅"}
             }
         }
         power{
@@ -471,9 +519,12 @@ zh_Hant_HK{
             acre-foot{
                 dnam{"英畝呎"}
             }
+            centiliter{
+                dnam{"厘升"}
+            }
             cubic-centimeter{
                 dnam{"立方厘米"}
-                per{"{0} 每立方厘米"}
+                per{"{0}每立方厘米"}
             }
             cubic-foot{
                 dnam{"立方呎"}
@@ -488,14 +539,14 @@ zh_Hant_HK{
                 other{"{0}mi³"}
             }
             cup-metric{
-                other{"{0} 量杯"}
+                other{"{0}量杯"}
             }
             gallon{
-                per{"{0} 每加侖"}
+                per{"{0}每加侖"}
             }
             liter{
                 dnam{"升"}
-                per{"{0} 每升"}
+                per{"{0}每升"}
             }
         }
     }
@@ -506,110 +557,114 @@ zh_Hant_HK{
             }
             meter-per-second-squared{
                 dnam{"米每平方秒"}
-                other{"{0} 米每平方秒"}
+                other{"{0}米每平方秒"}
             }
         }
         angle{
             arc-minute{
                 dnam{"分"}
-                other{"{0} 分"}
+                other{"{0}分"}
             }
             arc-second{
-                other{"{0} 秒"}
+                other{"{0}秒"}
             }
             degree{
                 dnam{"度"}
             }
             revolution{
                 dnam{"周"}
-                other{"{0} 周"}
+                other{"{0}周"}
             }
         }
         area{
             square-centimeter{
                 dnam{"平方厘米"}
-                other{"{0} 平方厘米"}
-                per{"{0} 每平方厘米"}
+                other{"{0}平方厘米"}
+                per{"{0}每平方厘米"}
             }
             square-foot{
                 dnam{"平方呎"}
-                other{"{0} 平方呎"}
+                other{"{0}平方呎"}
             }
             square-inch{
                 dnam{"平方吋"}
-                other{"{0} 平方吋"}
-                per{"{0} 每平方吋"}
+                other{"{0}平方吋"}
+                per{"{0}每平方吋"}
             }
             square-kilometer{
-                per{"{0} 每平方公里"}
+                per{"{0}每平方公里"}
             }
             square-meter{
                 dnam{"平方米"}
-                other{"{0} 平方米"}
-                per{"{0} 每平方米"}
+                other{"{0}平方米"}
+                per{"{0}每平方米"}
             }
             square-mile{
-                per{"{0} 每平方英里"}
+                per{"{0}每平方英里"}
             }
         }
         concentr{
+            millimole-per-liter{
+                dnam{"毫摩爾/公升"}
+                other{"{0}毫摩爾/公升"}
+            }
             part-per-million{
                 other{"{0} ppm"}
             }
         }
         consumption{
             liter-per-kilometer{
-                other{"{0} 升每公里"}
+                other{"{0}升每公里"}
             }
             mile-per-gallon{
-                other{"{0} 英里每加侖"}
+                other{"{0}英里每加侖"}
             }
         }
         coordinate{
-            east{"{0} 東"}
-            north{"{0} 北"}
-            south{"{0} 南"}
-            west{"{0} 西"}
+            east{"{0}東"}
+            north{"{0}北"}
+            south{"{0}南"}
+            west{"{0}西"}
         }
         duration{
             day{
                 dnam{"日"}
-                other{"{0} 日"}
-                per{"{0} 每日"}
+                other{"{0}日"}
+                per{"{0}每日"}
             }
             hour{
-                per{"{0} 每小時"}
+                per{"{0}每小時"}
             }
             minute{
-                per{"{0} 每分鐘"}
+                per{"{0}每分鐘"}
             }
             month{
                 dnam{"個月"}
-                per{"{0} 每月"}
+                per{"{0}每月"}
             }
             nanosecond{
                 dnam{"納秒"}
-                other{"{0} 納秒"}
+                other{"{0}納秒"}
             }
             second{
                 per{"{0}每秒"}
             }
             week{
                 dnam{"星期"}
-                other{"{0} 星期"}
-                per{"{0} 每週"}
+                other{"{0}星期"}
+                per{"{0}每週"}
             }
             year{
-                per{"{0} 每年"}
+                per{"{0}每年"}
             }
         }
         energy{
             foodcalorie{
                 dnam{"卡"}
-                other{"{0} 卡"}
+                other{"{0}卡"}
             }
             joule{
-                other{"{0} 焦耳"}
+                other{"{0}焦耳"}
             }
             kilojoule{
                 dnam{"千焦"}
@@ -618,44 +673,44 @@ zh_Hant_HK{
         length{
             centimeter{
                 dnam{"厘米"}
-                other{"{0} 厘米"}
-                per{"{0} 每厘米"}
+                other{"{0}厘米"}
+                per{"{0}每厘米"}
             }
             decimeter{
                 dnam{"分米"}
-                other{"{0} 分米"}
+                other{"{0}分米"}
             }
             foot{
                 dnam{"呎"}
-                per{"{0} 每呎"}
+                per{"{0}每呎"}
             }
             inch{
                 dnam{"吋"}
-                per{"{0} 每吋"}
+                per{"{0}每吋"}
             }
             kilometer{
-                per{"{0} 每公里"}
+                per{"{0}每公里"}
             }
             meter{
                 dnam{"米"}
-                other{"{0} 米"}
-                per{"{0} 每米"}
+                other{"{0}米"}
+                per{"{0}每米"}
             }
             mile{
                 dnam{"哩"}
-                other{"{0} 哩"}
+                other{"{0}哩"}
             }
             millimeter{
                 dnam{"毫米"}
-                other{"{0} 毫米"}
+                other{"{0}毫米"}
             }
             nanometer{
                 dnam{"納米"}
-                other{"{0} 納米"}
+                other{"{0}納米"}
             }
             nautical-mile{
                 dnam{"浬"}
-                other{"{0} 浬"}
+                other{"{0}浬"}
             }
             point{
                 other{"{0} pt"}
@@ -663,28 +718,28 @@ zh_Hant_HK{
         }
         mass{
             gram{
-                per{"{0} 每克"}
+                per{"{0}每克"}
             }
             kilogram{
-                per{"{0} 每公斤"}
+                per{"{0}每公斤"}
             }
             ounce{
                 dnam{"安士"}
-                other{"{0} 安士"}
-                per{"{0} 每安士"}
+                other{"{0}安士"}
+                per{"{0}每安士"}
             }
             ounce-troy{
                 dnam{"金衡安士"}
-                other{"{0} 金衡安士"}
+                other{"{0}金衡安士"}
             }
             pound{
-                per{"{0} 每磅"}
+                per{"{0}每磅"}
             }
         }
         power{
             megawatt{
                 dnam{"兆瓦"}
-                other{"{0} 兆瓦"}
+                other{"{0}兆瓦"}
             }
             watt{
                 dnam{"瓦"}
@@ -693,25 +748,25 @@ zh_Hant_HK{
         pressure{
             inch-hg{
                 dnam{"英吋汞柱"}
-                other{"{0} 英吋汞柱"}
+                other{"{0}英吋汞柱"}
             }
             pound-per-square-inch{
                 dnam{"磅每平方吋"}
-                other{"{0} 磅每平方吋"}
+                other{"{0}磅每平方吋"}
             }
         }
         speed{
             kilometer-per-hour{
                 dnam{"公里每小時"}
-                other{"{0} 公里每小時"}
+                other{"{0}公里每小時"}
             }
             meter-per-second{
                 dnam{"米每秒"}
-                other{"{0} 米/秒"}
+                other{"{0}米/秒"}
             }
             mile-per-hour{
                 dnam{"英里每小時"}
-                other{"{0} 英里每小時"}
+                other{"{0}英里每小時"}
             }
         }
         temperature{
@@ -725,46 +780,50 @@ zh_Hant_HK{
         volume{
             acre-foot{
                 dnam{"英畝呎"}
-                other{"{0} 英畝呎"}
+                other{"{0}英畝呎"}
             }
             centiliter{
                 dnam{"厘升"}
-                other{"{0} 厘升"}
+                other{"{0}厘升"}
             }
             cubic-centimeter{
                 dnam{"立方厘米"}
-                other{"{0} 立方厘米"}
-                per{"{0} 每立方厘米"}
+                other{"{0}立方厘米"}
+                per{"{0}每立方厘米"}
             }
             cubic-foot{
                 dnam{"立方呎"}
-                other{"{0} 立方呎"}
+                other{"{0}立方呎"}
             }
             cubic-inch{
                 dnam{"立方吋"}
-                other{"{0} 立方吋"}
+                other{"{0}立方吋"}
             }
             cubic-meter{
                 dnam{"立方米"}
-                other{"{0} 立方米"}
-                per{"{0} 每立方米"}
+                other{"{0}立方米"}
+                per{"{0}每立方米"}
             }
             cup{
-                other{"{0} 量杯"}
+                other{"{0}量杯"}
             }
             cup-metric{
-                other{"{0} 公制量杯"}
+                other{"{0}公制量杯"}
             }
             fluid-ounce{
                 dnam{"液安士"}
-                other{"{0} 液安士"}
+                other{"{0}液安士"}
+            }
+            fluid-ounce-imperial{
+                dnam{"英制液安士"}
+                other{"{0}英制液安士"}
             }
             gallon{
-                per{"{0} 每加侖"}
+                per{"{0}每加侖"}
             }
             liter{
                 dnam{"升"}
-                per{"{0} 每升"}
+                per{"{0}每升"}
             }
         }
     }

@@ -102,7 +102,7 @@ int run_getattrlist(__unused test_ctx_t *ctx)
 
 	uint32_t expected = al.commonattr ^ ATTR_CMN_EXTENDED_SECURITY;
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	if (hfs_root == true) {
 		assert(attrs.protection_class == 3);
 	}

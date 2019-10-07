@@ -25,10 +25,7 @@
 
 #pragma once
 
-#if PLATFORM(COCOA)
 #include "ViewSnapshotStore.h"
-#endif
-
 #include <WebCore/BackForwardItemIdentifier.h>
 #include <WebCore/FloatRect.h>
 #include <WebCore/FrameLoaderTypes.h>
@@ -114,6 +111,10 @@ struct FrameState {
 #endif
 
     Vector<FrameState> children;
+
+    // This is only used to help debug <rdar://problem/48634553>.
+    bool isDestructed { false };
+    ~FrameState() { isDestructed = true; }
 };
 
 struct PageState {
@@ -133,7 +134,7 @@ struct BackForwardListItemState {
     WebCore::BackForwardItemIdentifier identifier;
 
     PageState pageState;
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) || PLATFORM(GTK)
     RefPtr<ViewSnapshot> snapshot;
 #endif
 };

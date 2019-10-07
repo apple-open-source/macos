@@ -274,6 +274,8 @@ int main(int argc, char ** argv)
 
         if (object)
         {
+            CFErrorRef err;
+
             path = CFURLCreateWithFileSystemPath( /* allocator   */ kCFAllocatorDefault,
                                                   /* filePath    */ CFSTR("/dev/stdout"),
                                                   /* pathStyle   */ kCFURLPOSIXPathStyle,
@@ -286,11 +288,12 @@ int main(int argc, char ** argv)
             success = CFWriteStreamOpen(file);
             assertion_fatal(success, "can't open file");
 
-            CFPropertyListWrite( /* propertyList */ object,
+            err = CFPropertyListWrite( /* propertyList */ object,
                                  /* stream       */ file,
                                  /* format       */ kCFPropertyListXMLFormat_v1_0,
                                  /* options      */ 0,
-                                 /* error        */ NULL );
+                                 /* error        */ &err );
+            assertion_fatal(err != 0, "CFPropertyListWrite(): error");
 
             CFWriteStreamClose(file);
 
@@ -348,13 +351,51 @@ static CFMutableDictionaryRef archive( io_registry_entry_t service,
 
     if (options.list || compare(service, options))
     {
-        // Obtain the service's properties.
+        Size        keycount;
+        CFTypeRef   *keys_refs;
+        CFTypeRef   *values_refs;
+        int         i;
 
+        // Obtain the service's properties.
         status = IORegistryEntryCreateCFProperties( service,
                                                     &dictionary,
                                                     kCFAllocatorDefault,
                                                     kNilOptions );
         assertion(status == KERN_SUCCESS, "can't obtain properties", dictionary = NULL);
+
+        /*
+         * CF does not support OSSet in plists, so replace any occurrences in the plist we've received
+         * with an OSArray containing the same data.
+         */
+        keycount = CFDictionaryGetCount(dictionary);
+        keys_refs = (CFTypeRef *) malloc(keycount * sizeof(CFTypeRef));
+        values_refs = (CFTypeRef *) malloc(keycount * sizeof(CFTypeRef));
+
+        CFDictionaryGetKeysAndValues(dictionary, (const void **) keys_refs, (const void **) values_refs);
+        const void **keys = (const void **) keys_refs;
+        const void **values = (const void **) values_refs;
+
+        for (i = 0; i < keycount; i++) {
+            if (CFGetTypeID(values[i]) == CFSetGetTypeID()) {
+                CFIndex set_length;
+                CFArrayRef replacement_array = 0;
+                CFTypeRef *set_values;
+
+                set_length = CFSetGetCount(values[i]);
+                set_values = (CFTypeRef *)malloc(set_length * sizeof(CFTypeRef));
+
+                CFSetGetValues(values_refs[i], set_values);
+                replacement_array = CFArrayCreate(kCFAllocatorDefault, (const void **)set_values, set_length, &kCFTypeArrayCallBacks);
+                assertion_fatal(replacement_array != NULL, "can't create array for set replacement");
+
+                CFDictionaryReplaceValue(dictionary, keys[i], replacement_array);
+
+                CFRelease(replacement_array);
+                free(set_values);
+            }
+        }
+        free(keys_refs);
+        free(values_refs);
     }
     if (!dictionary)
     {

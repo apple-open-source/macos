@@ -166,7 +166,10 @@ bool DecimalMatcher::match(StringSegment& segment, ParsedNumber& result, int8_t 
                 if (str.isEmpty()) {
                     continue;
                 }
-                int32_t overlap = segment.getCommonPrefixLength(str);
+                // The following test is Apple-specific, for <rdar://7632623>;
+                // if \u3007 is treated as 0 for parsing, \u96F6 should be too.
+                int32_t overlap = (segment.startsWith(0x96F6) && fLocalDigitStrings[0].charAt(0)==0x3007)?
+                    1: segment.getCommonPrefixLength(str);
                 if (overlap == str.length()) {
                     segment.adjustOffset(overlap);
                     digit = static_cast<int8_t>(i);
@@ -407,7 +410,8 @@ bool DecimalMatcher::validateGroup(int32_t sepType, int32_t count, bool isPrimar
                 // No grouping separators is OK.
                 return true;
             } else {
-                return count != 0 && count <= grouping2;
+                // return count != 0 && count <= grouping2;
+                return count <= grouping2; // Apple <rdar://problem/38565910>, allow initial secondary group of 0
             }
         } else if (sepType == 1) {
             // Middle group.
@@ -441,6 +445,11 @@ bool DecimalMatcher::smokeTest(const StringSegment& segment) const {
     }
     if (fLocalDigitStrings.isNull()) {
         return false;
+    }
+    // The following test is Apple-specific, for <rdar://7632623>;
+    // if \u3007 is treated as 0 for parsing, \u96F6 should be too.
+    if (segment.startsWith(0x96F6) && fLocalDigitStrings[0].length()==1 && fLocalDigitStrings[0].charAt(0)==0x3007) {
+        return true;
     }
     for (int32_t i = 0; i < 10; i++) {
         if (segment.startsWith(fLocalDigitStrings[i])) {

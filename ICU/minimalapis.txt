@@ -6,6 +6,7 @@ putil.h
 stringoptions.h
 uchar.h
 uconfig.h
+ucpmap.h
 uiter.h
 umachine.h
 uregex.h

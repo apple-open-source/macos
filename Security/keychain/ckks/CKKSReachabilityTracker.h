@@ -24,23 +24,28 @@
 #if OCTAGON
 
 #import <Foundation/Foundation.h>
-#import <SystemConfiguration/SystemConfiguration.h>
+
+NS_ASSUME_NONNULL_BEGIN
 
 @class CKKSResultOperation;
 
 @interface CKKSReachabilityTracker : NSObject
-@property CKKSResultOperation* reachabilityDependency;
-@property (readonly) bool currentReachability; // get current reachability value w/o recheck
+@property (nullable) CKKSResultOperation* reachabilityDependency;
+@property (readonly) bool currentReachability; // get current reachability value
 
 - (instancetype)init;
-- (void)recheck;
-- (bool)isNetworkError:(NSError *)error;
 
-// only for testing override, the method will be call sync on an internal queue,
-// so take that into consideration when you mock this class method.
-+ (SCNetworkReachabilityFlags)getReachabilityFlags:(SCNetworkReachabilityRef)target;
+- (bool)isNetworkError:(NSError *)error;
++ (bool)isNetworkError:(NSError *)error;
++ (bool)isNetworkFailureError:(NSError *)error;
+
+// For testing only:
+- (void)setNetworkReachability:(bool)reachable;
 
 @end
+
+
+NS_ASSUME_NONNULL_END
 
 #endif  // OCTAGON
 

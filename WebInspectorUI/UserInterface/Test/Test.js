@@ -38,6 +38,7 @@ WI.loaded = function()
     InspectorBackend.registerMemoryDispatcher(new WI.MemoryObserver);
     InspectorBackend.registerDOMStorageDispatcher(new WI.DOMStorageObserver);
     InspectorBackend.registerScriptProfilerDispatcher(new WI.ScriptProfilerObserver);
+    InspectorBackend.registerCPUProfilerDispatcher(new WI.CPUProfilerObserver);
     InspectorBackend.registerTimelineDispatcher(new WI.TimelineObserver);
     InspectorBackend.registerCSSDispatcher(new WI.CSSObserver);
     InspectorBackend.registerLayerTreeDispatcher(new WI.LayerTreeObserver);
@@ -66,10 +67,7 @@ WI.loaded = function()
     ];
 
     // Register for events.
-    document.addEventListener("DOMContentLoaded", this.contentLoaded);
-
-    // Non-default global setting values for tests.
-    WI.settings.showShadowDOM.value = true;
+    document.addEventListener("DOMContentLoaded", WI.contentLoaded);
 
     // Targets.
     WI.backendTarget = null;
@@ -128,6 +126,9 @@ WI.redirectGlobalAgentsToConnection = function(connection)
 
 WI.contentLoaded = function()
 {
+    // Things that would normally get called by the UI, that we still want to do in tests.
+    WI.canvasManager.enable();
+
     // Signal that the frontend is now ready to receive messages.
     InspectorFrontendAPI.loadCompleted();
 
@@ -148,6 +149,10 @@ WI.performOneTimeFrontendInitializationsUsingTarget = function(target)
         WI.__didPerformCSSInitialization = true;
         WI.CSSCompletions.initializeCSSCompletions(target);
     }
+};
+
+WI.initializeTarget = function(target)
+{
 };
 
 Object.defineProperty(WI, "mainTarget",

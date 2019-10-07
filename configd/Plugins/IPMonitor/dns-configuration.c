@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -41,10 +41,8 @@
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
 #include <resolv.h>
-#if	!TARGET_OS_IPHONE
 #include <notify.h>
 extern uint32_t notify_monitor_file(int token, const char *name, int flags);
-#endif	// !TARGET_OS_IPHONE
 #include <CommonCrypto/CommonDigest.h>
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -97,13 +95,13 @@ dns_resolver_flags_service(CFDictionaryRef service, uint32_t resolver_flags)
 
 	// check if the service has v4 configured
 	if (((resolver_flags & DNS_RESOLVER_FLAGS_REQUEST_A_RECORDS) == 0) &&
-	    service_contains_protocol(service, AF_INET)) {
+	    service_is_routable(service, AF_INET)) {
 		resolver_flags |= DNS_RESOLVER_FLAGS_REQUEST_A_RECORDS;
 	}
 
 	// check if the service has v6 configured
 	if (((resolver_flags & DNS_RESOLVER_FLAGS_REQUEST_AAAA_RECORDS) == 0) &&
-	    service_contains_protocol(service, AF_INET6)) {
+	    service_is_routable(service, AF_INET6)) {
 		resolver_flags |= DNS_RESOLVER_FLAGS_REQUEST_AAAA_RECORDS;
 	}
 
@@ -1321,7 +1319,7 @@ create_resolver(CFDictionaryRef dns)
 				*slash = '\0';
 			}
 
-			bzero(&sortaddr, sizeof(sortaddr));
+			memset(&sortaddr, 0, sizeof(sortaddr));
 			if (inet_aton(buf, &sortaddr.address) != 1) {
 				/* if address not valid */
 				continue;
@@ -1564,8 +1562,8 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 	CFArrayRef		mySearchDomains		= NULL;
 	CFIndex			n_resolvers;
 	CFMutableArrayRef	resolvers;
-	unsigned char		signature[CC_SHA1_DIGEST_LENGTH];
-	static unsigned char	signature_last[CC_SHA1_DIGEST_LENGTH];
+	unsigned char		signature[CC_SHA256_DIGEST_LENGTH];
+	static unsigned char	signature_last[CC_SHA256_DIGEST_LENGTH];
 
 	// establish list of resolvers
 
@@ -1700,19 +1698,17 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 			}
 		}
 
-#if	!TARGET_OS_IPHONE
 		// add flatfile resolvers
 
 		_dnsinfo_flatfile_set_flags(default_resolver_flags);
 		_dnsinfo_flatfile_add_resolvers(&dns_create_config);
-#endif	// !TARGET_OS_IPHONE
 	}
 
 	// check if the configuration changed
 	_dns_configuration_signature(&dns_create_config, signature, sizeof(signature));
 	if (bcmp(signature, signature_last, sizeof(signature)) != 0) {
 		// save [new] signature
-		bcopy(signature, signature_last, sizeof(signature));
+		memcpy(signature_last, signature, sizeof(signature));
 
 		my_log(LOG_INFO, "Updating DNS configuration");
 		if (dns_create_config != NULL) {
@@ -1757,7 +1753,6 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 }
 
 
-#if	!TARGET_OS_IPHONE
 static SCDynamicStoreRef	dns_configuration_store;
 static SCDynamicStoreCallBack	dns_configuration_callout;
 
@@ -1768,24 +1763,18 @@ dns_configuration_changed(CFMachPortRef port, void *msg, CFIndex size, void *inf
 #pragma unused(msg)
 #pragma unused(size)
 #pragma unused(info)
-	os_activity_t			activity;
 	static const CFStringRef	key	= CFSTR(_PATH_RESOLVER_DIR);
 	CFArrayRef			keys;
 	Boolean				resolvers_now;
 	static Boolean			resolvers_save	= FALSE;
 	struct stat			statbuf;
 
-	activity = os_activity_create("processing DNS configuration change",
-				      OS_ACTIVITY_CURRENT,
-				      OS_ACTIVITY_FLAG_DEFAULT);
-	os_activity_scope(activity);
-
 	resolvers_now = (stat(_PATH_RESOLVER_DIR, &statbuf) == 0);
 	if (!resolvers_save && (resolvers_save == resolvers_now)) {
 		// if we did not (and still do not) have an "/etc/resolvers"
 		// directory than this notification is the result of a change
 		// to the "/etc" directory.
-		goto done;
+		return;
 	}
 	resolvers_save = resolvers_now;
 
@@ -1796,11 +1785,34 @@ dns_configuration_changed(CFMachPortRef port, void *msg, CFIndex size, void *inf
 	(*dns_configuration_callout)(dns_configuration_store, keys, NULL);
 	CFRelease(keys);
 
-    done :
-
-	os_release(activity);
-
 	return;
+}
+
+
+static Boolean
+normalize_path(const char *file_name, char resolved_name[PATH_MAX])
+{
+	char	*ch;
+	char	path[PATH_MAX];
+
+	strlcpy(path, file_name, sizeof(path));
+	if (realpath(path, resolved_name) != NULL) {
+		// if the path exists
+		return TRUE;
+	}
+
+	ch = strrchr(path, '/');
+	if (ch != NULL) {
+		*ch = '\0';
+		if (realpath(path, resolved_name) != NULL) {
+			// if a parent path exists
+			strlcat(resolved_name, "/", PATH_MAX);
+			strlcat(resolved_name, ch+1, PATH_MAX);
+			return TRUE;
+		}
+	}
+
+	return FALSE;
 }
 
 
@@ -1811,8 +1823,14 @@ dns_configuration_monitor(SCDynamicStoreRef store, SCDynamicStoreCallBack callou
 	CFMachPortRef		mp;
 	mach_port_t		notify_port;
 	int			notify_token;
+	char			resolver_directory_path[PATH_MAX];
 	CFRunLoopSourceRef	rls;
 	uint32_t		status;
+
+	if (!normalize_path(_PATH_RESOLVER_DIR, resolver_directory_path)) {
+		my_log(LOG_ERR, "Not monitoring \"%s\", could not resolve directory path", _PATH_RESOLVER_DIR);
+		return;
+	}
 
 	dns_configuration_store   = store;
 	dns_configuration_callout = callout;
@@ -1823,7 +1841,7 @@ dns_configuration_monitor(SCDynamicStoreRef store, SCDynamicStoreCallBack callou
 		return;
 	}
 
-	status = notify_monitor_file(notify_token, "/private" _PATH_RESOLVER_DIR, 0);
+	status = notify_monitor_file(notify_token, resolver_directory_path, 0);
 	if (status != NOTIFY_STATUS_OK) {
 		my_log(LOG_ERR, "notify_monitor_file() failed");
 		(void)notify_cancel(notify_token);
@@ -1848,7 +1866,6 @@ dns_configuration_monitor(SCDynamicStoreRef store, SCDynamicStoreCallBack callou
 	CFRelease(mp);
 	return;
 }
-#endif	// !TARGET_OS_IPHONE
 
 
 __private_extern__

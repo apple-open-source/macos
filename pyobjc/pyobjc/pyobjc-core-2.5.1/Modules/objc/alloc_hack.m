@@ -28,7 +28,7 @@ call_NSObject_alloc(PyObject* method,
 		aSel = PyObjCIMP_GetSelector(method);
 
 		PyObjC_DURING
-			result = anIMP(aClass, aSel);
+	result = ((id (*)(Class, SEL))anIMP)(aClass, aSel);
 
 		PyObjC_HANDLER
 			PyObjCErr_FromObjC(localException);
@@ -42,7 +42,7 @@ call_NSObject_alloc(PyObject* method,
 		aSel = PyObjCSelector_GetSelector(method);
 
 		PyObjC_DURING
-			result = objc_msgSendSuper(&spr, aSel); 
+	result = ((id (*)(struct objc_super *, SEL))objc_msgSendSuper)(&spr, aSel);
 
 		PyObjC_HANDLER
 			PyObjCErr_FromObjC(localException);
@@ -134,7 +134,7 @@ call_NSObject_dealloc(PyObject* method,
 		aSel = PyObjCIMP_GetSelector(method);
 
 		PyObjC_DURING
-			(void)anIMP(aClass, aSel);
+			((void (*)(Class, SEL))anIMP)(aClass, aSel);
 
 		PyObjC_HANDLER
 			PyObjCErr_FromObjC(localException);
@@ -147,7 +147,7 @@ call_NSObject_dealloc(PyObject* method,
 		aSel = PyObjCSelector_GetSelector(method);
 
 		PyObjC_DURING
-			(void)objc_msgSendSuper(&spr, aSel); 
+			((void (*)(struct objc_super *, SEL))objc_msgSendSuper)(&spr, aSel); 
 
 		PyObjC_HANDLER
 			PyObjCErr_FromObjC(localException);
@@ -239,7 +239,7 @@ call_NSObject_release(PyObject* method,
 		aSel = PyObjCIMP_GetSelector(method);
 
 		PyObjC_DURING
-			(void)anIMP(aClass, aSel);
+			((void (*)(Class, SEL))anIMP)(aClass, aSel);
 
 		PyObjC_HANDLER
 			PyObjCErr_FromObjC(localException);
@@ -252,7 +252,7 @@ call_NSObject_release(PyObject* method,
 		aSel = PyObjCSelector_GetSelector(method);
 
 		PyObjC_DURING
-			(void)objc_msgSendSuper(&spr, aSel); 
+			((void (*)(struct objc_super *, SEL))objc_msgSendSuper)(&spr, aSel); 
 
 		PyObjC_HANDLER
 			PyObjCErr_FromObjC(localException);
@@ -296,7 +296,7 @@ call_NSObject_retain(PyObject* method,
 		aSel = PyObjCIMP_GetSelector(method);
 
 		PyObjC_DURING
-			retval = anIMP(aClass, aSel);
+	retval = ((id (*)(Class, SEL))anIMP)(aClass, aSel);
 
 		PyObjC_HANDLER
 			PyObjCErr_FromObjC(localException);
@@ -309,7 +309,7 @@ call_NSObject_retain(PyObject* method,
 		aSel = PyObjCSelector_GetSelector(method);
 
 		PyObjC_DURING
-			retval = objc_msgSendSuper(&spr, aSel); 
+	retval = ((id (*)(struct objc_super *, SEL))objc_msgSendSuper)(&spr, aSel);
 
 		PyObjC_HANDLER
 			PyObjCErr_FromObjC(localException);

@@ -79,7 +79,11 @@
 #include <stdlib.h>
 #include "netstat.h"
 
-#if !TARGET_OS_EMBEDDED
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
+
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 static	void unixdomainpr __P((struct xunpcb64 *, struct xsocket64 *));
 #else
 static	void unixdomainpr __P((struct xunpcb *, struct xsocket *));
@@ -95,7 +99,7 @@ unixpr()
 	int	type;
 	size_t	len;
 	struct	xunpgen *xug, *oxug;
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	struct	xsocket64 *so;
 	struct	xunpcb64 *xunp;
 	char mibvar[sizeof "net.local.seqpacket.pcblist64"];
@@ -106,7 +110,7 @@ unixpr()
 #endif
 
 	for (type = SOCK_STREAM; type <= SOCK_RAW; type++) {
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 		snprintf(mibvar, sizeof(mibvar), "net.local.%s.pcblist64", socktype[type]);
 #else
 		snprintf(mibvar, sizeof(mibvar), "net.local.%s.pcblist", socktype[type]);
@@ -131,7 +135,7 @@ unixpr()
 		for (xug = (struct xunpgen *)((char *)xug + xug->xug_len);
 		     xug->xug_len > sizeof(struct xunpgen);
 		     xug = (struct xunpgen *)((char *)xug + xug->xug_len)) {
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 			xunp = (struct xunpcb64 *)xug;
 #else
 			xunp = (struct xunpcb *)xug;
@@ -139,7 +143,7 @@ unixpr()
 			so = &xunp->xu_socket;
 
 			/* Ignore PCBs which were freed during copyout. */
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 			if (xunp->xunp_gencnt > oxug->xug_gen)
 #else
 			if (xunp->xu_unp.unp_gencnt > oxug->xug_gen)
@@ -165,7 +169,7 @@ unixpr()
 
 static void
 unixdomainpr(xunp, so)
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	struct xunpcb64 *xunp;
 	struct xsocket64 *so;
 #else
@@ -173,13 +177,13 @@ unixdomainpr(xunp, so)
 	struct xsocket *so;
 #endif
 {
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	struct unpcb *unp;
 #endif
 	struct sockaddr_un *sa;
 	static int first = 1;
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	sa = &xunp->xu_addr;
 #else
 	unp = &xunp->xu_unp;
@@ -192,7 +196,7 @@ unixdomainpr(xunp, so)
 	if (first) {
 		printf("Active LOCAL (UNIX) domain sockets\n");
 		printf(
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 "%-16.16s %-6.6s %-6.6s %-6.6s %16.16s %16.16s %16.16s %16.16s Addr\n",
 #else
 "%-8.8s %-6.6s %-6.6s %-6.6s %8.8s %8.8s %8.8s %8.8s Addr\n",
@@ -201,7 +205,7 @@ unixdomainpr(xunp, so)
 		    "Inode", "Conn", "Refs", "Nextref");
 		first = 0;
 	}
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	printf("%16lx %-6.6s %6u %6u %16lx %16lx %16lx %16lx",
 	       (long)xunp->xu_unpp, socktype[so->so_type], so->so_rcv.sb_cc,
 	       so->so_snd.sb_cc,
@@ -215,7 +219,7 @@ unixdomainpr(xunp, so)
 	       (long)unp->unp_refs.lh_first, (long)unp->unp_reflink.le_next);
 #endif
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	if (sa->sun_len)
 #else
 	if (sa)

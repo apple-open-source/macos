@@ -46,12 +46,8 @@
 	  <USB1>	  3/5/99	BWS		first checked in
 */
 
-#include "HIDLib.h"
-
-OSStatus HIDGetCollectionExtendedNodes(HIDCollectionExtendedNodePtr ptLinkCollectionNodes,
-                                       UInt32 *piLinkCollectionNodesLength,
-                                       HIDPreparsedDataRef preparsedDataRef);
-
+#include "IOHIDDescriptorParser.h"
+#include "IOHIDDescriptorParserPrivate.h"
 
 /*
  *------------------------------------------------------------------------------

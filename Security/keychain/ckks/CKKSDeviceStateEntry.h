@@ -32,8 +32,10 @@
 #import <CloudKit/CloudKit.h>
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSRecordHolder.h"
-#import "keychain/ckks/CKKSCKAccountStateTracker.h"
+#import "keychain/ckks/CKKSAccountStateTracker.h"
 #import "keychain/ckks/CKKSSQLDatabaseObject.h"
+
+#import "keychain/ot/OTClique.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -73,7 +75,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (NSArray<CKKSDeviceStateEntry*>*)allInZone:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initForDevice:(NSString* _Nullable)device
+- (instancetype)initForDevice:(NSString*)device
                     osVersion:(NSString* _Nullable)osVersion
                lastUnlockTime:(NSDate* _Nullable)lastUnlockTime
                 octagonPeerID:(NSString* _Nullable)octagonPeerID

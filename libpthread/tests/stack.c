@@ -8,17 +8,14 @@
 #define call_chkstk(value) \
 		__asm__ volatile("orr x9, xzr, %0\t\n" \
 				"bl _thread_chkstk_darwin" : : "i"(value) : "x9")
-#define TRAPSIG SIGTRAP
 #elif defined(__x86_64__)
 #define call_chkstk(value) \
 		__asm__ volatile("movq %0, %%rax\t\n" \
 				"callq _thread_chkstk_darwin" : : "i"(value) : "rax")
-#define TRAPSIG SIGILL
 #elif defined(__i386__)
 #define call_chkstk(value) \
 		__asm__ volatile("movl %0, %%eax\t\n" \
 				"calll _thread_chkstk_darwin" : : "i"(value) : "eax")
-#define TRAPSIG SIGILL
 #endif
 
 static void
@@ -41,7 +38,17 @@ T_DECL(chkstk, "chkstk",
 	call_chkstk(1 << 16);
 	T_PASS("calling with 1 << 16");
 
-	signal(TRAPSIG, got_signal);
+	stack_t ss = {
+		.ss_sp    = malloc(MINSIGSTKSZ),
+		.ss_size  = MINSIGSTKSZ,
+	};
+	T_ASSERT_POSIX_SUCCESS(sigaltstack(&ss, NULL), "sigaltstack");
+
+	struct sigaction sa = {
+		.sa_handler = got_signal,
+		.sa_flags = SA_ONSTACK,
+	};
+	T_ASSERT_POSIX_SUCCESS(sigaction(SIGSEGV, &sa, NULL), "sigaction");
 
 	call_chkstk(1 << 24);
 	T_FAIL("should have crashed");

@@ -27,8 +27,8 @@
 
 #include "CryptoRandom.h"
 #include "Environment.h"
-#include "PerProcess.h"
 #include "ProcessCheck.h"
+#include "StaticPerProcess.h"
 #include "VMAllocate.h"
 #include "Vector.h"
 #include "bmalloc.h"
@@ -36,6 +36,35 @@
 #include <mutex>
 
 #if GIGACAGE_ENABLED
+
+namespace Gigacage {
+
+struct Callback {
+    Callback() { }
+    
+    Callback(void (*function)(void*), void *argument)
+        : function(function)
+        , argument(argument)
+    {
+    }
+    
+    void (*function)(void*) { nullptr };
+    void* argument { nullptr };
+};
+
+}
+
+namespace bmalloc {
+
+struct PrimitiveDisableCallbacks : public StaticPerProcess<PrimitiveDisableCallbacks> {
+    PrimitiveDisableCallbacks(std::lock_guard<Mutex>&) { }
+    
+    Vector<Gigacage::Callback> callbacks;
+};
+DECLARE_STATIC_PER_PROCESS_STORAGE(PrimitiveDisableCallbacks);
+DEFINE_STATIC_PER_PROCESS_STORAGE(PrimitiveDisableCallbacks);
+
+} // namespace bmalloc
 
 namespace Gigacage {
 
@@ -82,25 +111,6 @@ public:
     {
         protectGigacageBasePtrs();
     }
-};
-
-struct Callback {
-    Callback() { }
-    
-    Callback(void (*function)(void*), void *argument)
-        : function(function)
-        , argument(argument)
-    {
-    }
-    
-    void (*function)(void*) { nullptr };
-    void* argument { nullptr };
-};
-
-struct PrimitiveDisableCallbacks {
-    PrimitiveDisableCallbacks(std::lock_guard<Mutex>&) { }
-    
-    Vector<Callback> callbacks;
 };
 
 size_t runwaySize(Kind kind)
@@ -162,7 +172,7 @@ void ensureGigacage()
 
             // FIXME: Randomize where this goes.
             // https://bugs.webkit.org/show_bug.cgi?id=175245
-            void* base = tryVMAllocate(maxAlignment, totalSize);
+            void* base = tryVMAllocate(maxAlignment, totalSize, VMTag::JSGigacage);
             if (!base) {
                 if (GIGACAGE_ALLOCATION_CAN_FAIL)
                     return;
@@ -199,8 +209,8 @@ void disablePrimitiveGigacage()
         return;
     }
     
-    PrimitiveDisableCallbacks& callbacks = *PerProcess<PrimitiveDisableCallbacks>::get();
-    std::unique_lock<Mutex> lock(PerProcess<PrimitiveDisableCallbacks>::mutex());
+    PrimitiveDisableCallbacks& callbacks = *PrimitiveDisableCallbacks::get();
+    std::unique_lock<Mutex> lock(PrimitiveDisableCallbacks::mutex());
     for (Callback& callback : callbacks.callbacks)
         callback.function(callback.argument);
     callbacks.callbacks.shrink(0);
@@ -217,15 +227,15 @@ void addPrimitiveDisableCallback(void (*function)(void*), void* argument)
         return;
     }
     
-    PrimitiveDisableCallbacks& callbacks = *PerProcess<PrimitiveDisableCallbacks>::get();
-    std::unique_lock<Mutex> lock(PerProcess<PrimitiveDisableCallbacks>::mutex());
+    PrimitiveDisableCallbacks& callbacks = *PrimitiveDisableCallbacks::get();
+    std::unique_lock<Mutex> lock(PrimitiveDisableCallbacks::mutex());
     callbacks.callbacks.push(Callback(function, argument));
 }
 
 void removePrimitiveDisableCallback(void (*function)(void*), void* argument)
 {
-    PrimitiveDisableCallbacks& callbacks = *PerProcess<PrimitiveDisableCallbacks>::get();
-    std::unique_lock<Mutex> lock(PerProcess<PrimitiveDisableCallbacks>::mutex());
+    PrimitiveDisableCallbacks& callbacks = *PrimitiveDisableCallbacks::get();
+    std::unique_lock<Mutex> lock(PrimitiveDisableCallbacks::mutex());
     for (size_t i = 0; i < callbacks.callbacks.size(); ++i) {
         if (callbacks.callbacks[i].function == function
             && callbacks.callbacks[i].argument == argument) {
@@ -267,11 +277,11 @@ bool shouldBeEnabled()
     std::call_once(
         onceFlag,
         [] {
-            if (!gigacageEnabledForProcess())
+            bool debugHeapEnabled = Environment::get()->isDebugHeapEnabled();
+            if (debugHeapEnabled)
                 return;
 
-            bool result = !PerProcess<Environment>::get()->isDebugHeapEnabled();
-            if (!result)
+            if (!gigacageEnabledForProcess())
                 return;
             
             if (char* gigacageEnabled = getenv("GIGACAGE_ENABLED")) {

@@ -25,12 +25,11 @@
 #define SecProtocolOptions_h
 
 #include <Security/SecProtocolObject.h>
-#include <Security/SecBase.h>
-#include <Security/SecureTransport.h>
+#include <Security/SecProtocolTypes.h>
+#include <Security/SecProtocolMetadata.h>
 #include <Security/SecTrust.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecIdentity.h>
-#include <Security/SecProtocolMetadata.h>
 
 #include <dispatch/dispatch.h>
 #include <os/object.h>
@@ -69,6 +68,24 @@ __BEGIN_DECLS
 SEC_ASSUME_NONNULL_BEGIN
 
 /*!
+ * @function sec_protocol_options_are_equal
+ *
+ * @abstract
+ *      Compare two `sec_protocol_options_t` instances.
+ *
+ * @param optionsA
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param optionsB
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @return True if equal, and false otherwise.
+ */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+bool
+sec_protocol_options_are_equal(sec_protocol_options_t optionsA, sec_protocol_options_t optionsB);
+
+/*!
  * @function sec_protocol_options_set_local_identity
  *
  * @abstract
@@ -85,6 +102,22 @@ void
 sec_protocol_options_set_local_identity(sec_protocol_options_t options, sec_identity_t identity);
 
 /*!
+ * @function sec_protocol_options_append_tls_ciphersuite
+ *
+ * @abstract
+ *      Append a TLS ciphersuite to the set of enabled ciphersuites.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param ciphersuite
+ *      A `tls_ciphersuite_t` value.
+ */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+void
+sec_protocol_options_append_tls_ciphersuite(sec_protocol_options_t options, tls_ciphersuite_t ciphersuite);
+
+/*!
  * @function sec_protocol_options_add_tls_ciphersuite
  *
  * @abstract
@@ -96,9 +129,26 @@ sec_protocol_options_set_local_identity(sec_protocol_options_t options, sec_iden
  * @param ciphersuite
  *      A SSLCipherSuite value.
  */
-API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
+API_DEPRECATED("Use sec_protocol_options_append_tls_ciphersuite", macos(10.14, 10.15), ios(12.0, 13.0), watchos(5.0, 6.0), tvos(12.0, 13.0))
+API_UNAVAILABLE(iosmac)
 void
 sec_protocol_options_add_tls_ciphersuite(sec_protocol_options_t options, SSLCipherSuite ciphersuite);
+
+/*!
+ * @function sec_protocol_options_append_tls_ciphersuite_group
+ *
+ * @abstract
+ *      Append a TLS ciphersuite group to the set of enabled ciphersuites.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param group
+ *      A SSLCipherSuiteGroup value.
+ */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+void
+sec_protocol_options_append_tls_ciphersuite_group(sec_protocol_options_t options, tls_ciphersuite_group_t group);
 
 /*!
  * @function sec_protocol_options_add_tls_ciphersuite_group
@@ -112,7 +162,8 @@ sec_protocol_options_add_tls_ciphersuite(sec_protocol_options_t options, SSLCiph
  * @param group
  *      A SSLCipherSuiteGroup value.
  */
-API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
+API_DEPRECATED("Use sec_protocol_options_append_tls_ciphersuite_group", macos(10.14, 10.15), ios(12.0, 13.0), watchos(5.0, 6.0), tvos(12.0, 13.0))
+API_UNAVAILABLE(iosmac)
 void
 sec_protocol_options_add_tls_ciphersuite_group(sec_protocol_options_t options, SSLCiphersuiteGroup group);
 
@@ -128,9 +179,51 @@ sec_protocol_options_add_tls_ciphersuite_group(sec_protocol_options_t options, S
  * @param version
  *      A SSLProtocol enum value.
  */
-API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
+API_DEPRECATED_WITH_REPLACEMENT("sec_protocol_options_set_min_tls_protocol_version",
+                                macos(10.14, 10.15), ios(12.0, 13.0), watchos(5.0, 6.0), tvos(12.0, 13.0))
+API_UNAVAILABLE(iosmac)
 void
 sec_protocol_options_set_tls_min_version(sec_protocol_options_t options, SSLProtocol version);
+
+/*!
+ * @function sec_protocol_options_set_min_tls_protocol_version
+ *
+ * @abstract
+ *      Set the minimum support TLS version.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param version
+ *      A tls_protocol_version_t enum value.
+ */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+void
+sec_protocol_options_set_min_tls_protocol_version(sec_protocol_options_t options, tls_protocol_version_t version);
+
+/*!
+ * @function sec_protocol_options_get_default_min_tls_protocol_version
+ *
+ * @abstract
+ *      Get the system default minimum TLS protocol version.
+ *
+ * @return The default minimum TLS version.
+ */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+tls_protocol_version_t
+sec_protocol_options_get_default_min_tls_protocol_version(void);
+
+/*!
+ * @function sec_protocol_options_get_default_min_dtls_protocol_version
+ *
+ * @abstract
+ *      Get the system default minimum DTLS protocol version.
+ *
+ * @return The default minimum DTLS version.
+ */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+tls_protocol_version_t
+sec_protocol_options_get_default_min_dtls_protocol_version(void);
 
 /*!
  * @function sec_protocol_options_set_tls_max_version
@@ -144,9 +237,51 @@ sec_protocol_options_set_tls_min_version(sec_protocol_options_t options, SSLProt
  * @param version
  *      A SSLProtocol enum value.
  */
-API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
+API_DEPRECATED_WITH_REPLACEMENT("sec_protocol_options_set_max_tls_protocol_version",
+                                macos(10.14, 10.15), ios(12.0, 13.0), watchos(5.0, 6.0), tvos(12.0, 13.0))
+API_UNAVAILABLE(iosmac)
 void
 sec_protocol_options_set_tls_max_version(sec_protocol_options_t options, SSLProtocol version);
+
+/*!
+ * @function sec_protocol_options_set_max_tls_protocol_version
+ *
+ * @abstract
+ *      Set the maximum support TLS version.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param version
+ *      A tls_protocol_version_t enum value.
+ */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+void
+sec_protocol_options_set_max_tls_protocol_version(sec_protocol_options_t options, tls_protocol_version_t version);
+
+/*!
+ * @function sec_protocol_options_get_default_max_tls_protocol_version
+ *
+ * @abstract
+ *      Get the system default maximum TLS protocol version.
+ *
+ * @return The default maximum TLS version.
+ */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+tls_protocol_version_t
+sec_protocol_options_get_default_max_tls_protocol_version(void);
+
+/*!
+ * @function sec_protocol_options_get_default_max_tls_protocol_version
+ *
+ * @abstract
+ *      Get the system default maximum DTLS protocol version.
+ *
+ * @return The default maximum DTLS version.
+ */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+tls_protocol_version_t
+sec_protocol_options_get_default_max_dtls_protocol_version(void);
 
 /*!
  * @function sec_protocol_options_add_tls_application_protocol
@@ -193,7 +328,7 @@ sec_protocol_options_set_tls_server_name(sec_protocol_options_t options, const c
  * @param params
  *      A dispatch_data_t containing legacy Diffie-Hellman parameters.
  */
-API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
+API_DEPRECATED("DHE ciphersuites are no longer supported", macos(10.14, 10.15), ios(12.0, 13.0), watchos(5.0, 6.0), tvos(12.0, 13.0))
 void
 sec_protocol_options_set_tls_diffie_hellman_parameters(sec_protocol_options_t options, dispatch_data_t params);
 
@@ -215,6 +350,74 @@ sec_protocol_options_set_tls_diffie_hellman_parameters(sec_protocol_options_t op
 API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
 void
 sec_protocol_options_add_pre_shared_key(sec_protocol_options_t options, dispatch_data_t psk, dispatch_data_t psk_identity);
+
+/*!
+ * @function sec_protocol_options_set_tls_pre_shared_key_identity_hint
+ *
+ * @abstract
+ *      Set the PSK identity hint to use by servers when negotiating a PSK ciphersuite.
+ *      See https://tools.ietf.org/html/rfc4279 for more details.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param psk_identity_hint
+ *      A dispatch_data_t containing a PSK identity hint.
+ */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+void
+sec_protocol_options_set_tls_pre_shared_key_identity_hint(sec_protocol_options_t options, dispatch_data_t psk_identity_hint);
+
+#ifdef __BLOCKS__
+
+/*!
+ * @block sec_protocol_pre_shared_key_selection_complete_t
+ *
+ * @abstract
+ *      Block to be invoked when a PSK selection event is complete and a PSK identity is chosen.
+ *
+ * @param psk_identity
+ *      A `dispatch_data_t` instance carrying the chosen PSK identity, or nil if one does not match.
+ */
+typedef void (^sec_protocol_pre_shared_key_selection_complete_t)(dispatch_data_t _Nullable psk_identity);
+
+/*!
+ * @block sec_protocol_pre_shared_key_selection_t
+ *
+ * @abstract
+ *      Block to be invoked when the client must choose a PSK identity given a hint from its peer.
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @param psk_identity_hint
+ *      A `dispatch_data_t` object carrying the peer's (optional) PSK identity hint.
+ *
+ * @param complete
+ *      A `sec_protocol_pre_shared_key_selection_complete_t` block to be invoked when PSK selection is complete.
+ */
+typedef void (^sec_protocol_pre_shared_key_selection_t)(sec_protocol_metadata_t metadata, dispatch_data_t _Nullable psk_identity_hint, sec_protocol_pre_shared_key_selection_complete_t complete);
+
+/*!
+ * @function sec_protocol_options_set_pre_shared_key_selection_block
+ *
+ * @abstract
+ *      Set the PSK selection block.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param psk_selection_block
+ *      A `sec_protocol_pre_shared_key_selection_t` block.
+ *
+ * @params psk_selection_queue
+ *      A `dispatch_queue_t` on which the PSK selection block should be called.
+ */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+void
+sec_protocol_options_set_pre_shared_key_selection_block(sec_protocol_options_t options, sec_protocol_pre_shared_key_selection_t psk_selection_block, dispatch_queue_t psk_selection_queue);
+
+#endif // __BLOCKS__
 
 /*!
  * @function sec_protocol_options_set_tls_tickets_enabled
@@ -380,10 +583,13 @@ typedef void (^sec_protocol_key_update_t)(sec_protocol_metadata_t metadata, sec_
  * @abstract
  *      Block to be invoked when an identity (authentication) challenge is complete.
  *
+ *      Note: prior to macOS 10.15, iOS 13.0, watchOS 6.0, and tvOS 13.0, calling this
+ *      block with a NULL `identity` argument was prohibited.
+ *
  * @param identity
  *      A `sec_identity_t` containing the identity to use for this challenge.
  */
-typedef void (^sec_protocol_challenge_complete_t)(sec_identity_t identity);
+typedef void (^sec_protocol_challenge_complete_t)(sec_identity_t __nullable identity);
 
 /*!
  * @block sec_protocol_challenge_t

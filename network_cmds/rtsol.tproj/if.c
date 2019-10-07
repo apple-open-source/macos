@@ -126,7 +126,7 @@ interface_up(char *name)
 	struct ifreq ifr;
 	int llflag;
 
-	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 
 	if (ioctl(ifsock, SIOCGIFFLAGS, (caddr_t)&ifr) < 0) {
 		warnmsg(LOG_WARNING, __FUNCTION__, "ioctl(SIOCGIFFLAGS): %s",
@@ -182,7 +182,7 @@ interface_status(struct ifinfo *ifinfo)
 	
 	/* get interface flags */
 	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
 	if (ioctl(ifsock, SIOCGIFFLAGS, &ifr) < 0) {
 		warnmsg(LOG_ERR, __FUNCTION__, "ioctl(SIOCGIFFLAGS) on %s: %s",
 		       ifname, strerror(errno));
@@ -200,7 +200,7 @@ interface_status(struct ifinfo *ifinfo)
 	if (!ifinfo->mediareqok)
 		goto active;
 	memset(&ifmr, 0, sizeof(ifmr));
-	strncpy(ifmr.ifm_name, ifname, sizeof(ifmr.ifm_name));
+	strlcpy(ifmr.ifm_name, ifname, sizeof(ifmr.ifm_name));
 
 	if (ioctl(ifsock, SIOCGIFMEDIA, (caddr_t)&ifmr) < 0) {
 		if (errno != EINVAL) {

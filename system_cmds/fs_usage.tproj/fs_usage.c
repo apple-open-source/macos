@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -42,7 +42,7 @@
 
 #include <ktrace/session.h>
 #include <System/sys/kdebug.h>
-#include <assert.h>
+#include <os/assumes.h>
 
 #include <sys/disk.h>
 #include <sys/fcntl.h>
@@ -413,6 +413,7 @@ void cache_disk_names(void);
 #define BSC_msync_extended	0x040e0104
 #define BSC_pread_extended	0x040e0264
 #define BSC_pwrite_extended	0x040e0268
+#define BSC_guarded_pwrite_extended	0x040e0798
 #define BSC_mmap_extended	0x040e0314
 #define BSC_mmap_extended2	0x040f0314
 
@@ -558,7 +559,7 @@ const struct bsd_syscall bsd_syscalls[MAX_BSD_SYSCALL] = {
 	SYSCALL_WITH_NOCANCEL(read, FMT_FD_IO),
 	SYSCALL_WITH_NOCANCEL(write, FMT_FD_IO),
 	SYSCALL(guarded_write_np, FMT_FD_IO),
-	SYSCALL(guarded_pwrite_np, FMT_FD_IO),
+	SYSCALL(guarded_pwrite_np, FMT_PREAD),
 	SYSCALL(guarded_writev_np, FMT_FD_IO),
 	SYSCALL(fgetxattr, FMT_FD),
 	SYSCALL(fsetxattr, FMT_FD),
@@ -686,7 +687,7 @@ static uint64_t
 mach_to_nano(uint64_t mach)
 {
 	uint64_t nanoseconds = 0;
-	assert(ktrace_convert_timestamp_to_nanoseconds(s, mach, &nanoseconds) == 0);
+	os_assert(ktrace_convert_timestamp_to_nanoseconds(s, mach, &nanoseconds) == 0);
 
 	return nanoseconds;
 }
@@ -722,6 +723,15 @@ exit_usage(void)
 	exit(1);
 }
 
+static void fs_usage_cleanup(const char *message)
+{
+	if (s){
+		ktrace_session_destroy(s);
+	}
+
+	fprintf(stderr, "Cleaning up tracing state because of %s\n", message);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -730,10 +740,12 @@ main(int argc, char *argv[])
 	bool exclude_pids = false;
 	uint64_t time_limit_ns = 0;
 
+	os_set_crash_callback(&fs_usage_cleanup);
+
 	get_screenwidth();
 
 	s = ktrace_session_create();
-	assert(s != NULL);
+	os_assert(s != NULL);
 	(void)ktrace_ignore_process_filter_for_event(s, P_WrData);
 	(void)ktrace_ignore_process_filter_for_event(s, P_RdData);
 	(void)ktrace_ignore_process_filter_for_event(s, P_WrMeta);
@@ -840,9 +852,9 @@ main(int argc, char *argv[])
 			ktrace_exclude_process(s, "csh");
 			ktrace_exclude_process(s, "sh");
 			ktrace_exclude_process(s, "zsh");
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 			ktrace_exclude_process(s, "dropbear");
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) */
 		}
 	}
 
@@ -895,7 +907,7 @@ main(int argc, char *argv[])
 			fprintf(stderr, "ERROR: cannot both include and exclude simultaneously\n");
 			exit(1);
 		} else {
-			assert(!rv);
+			os_assert(!rv);
 		}
 
 		argc--;
@@ -1281,6 +1293,15 @@ setup_ktrace_callbacks(void)
 	});
 }
 
+static void
+extend_syscall_rw(th_info_t ti, ktrace_event_t event)
+{
+	ti->arg1 = event->arg1; /* the fd */
+	ti->arg2 = event->arg2; /* nbytes */
+	ti->arg3 = event->arg3; /* top half offset */
+	ti->arg4 = event->arg4; /* bottom half offset */
+}
+
 /*
  * Handle system call extended trace data.
  * pread and pwrite:
@@ -1295,8 +1316,9 @@ extend_syscall(uint64_t thread, int type, ktrace_event_t event)
 
 	switch (type) {
 		case BSC_mmap_extended:
-			if ((ti = event_find(thread, BSC_mmap)) == NULL)
+			if ((ti = event_find(thread, BSC_mmap)) == NULL) {
 				return;
+			}
 
 			ti->arg8   = ti->arg3;  /* save protection */
 			ti->arg1   = event->arg1;  /* the fd */
@@ -1316,8 +1338,9 @@ extend_syscall(uint64_t thread, int type, ktrace_event_t event)
 
 		case BSC_msync_extended:
 			if ((ti = event_find(thread, BSC_msync)) == NULL) {
-				if ((ti = event_find(thread, BSC_msync_nocancel)) == NULL)
+				if ((ti = event_find(thread, BSC_msync_nocancel)) == NULL) {
 					return;
+				}
 			}
 
 			ti->arg4   = event->arg1;  /* top half address */
@@ -1326,26 +1349,30 @@ extend_syscall(uint64_t thread, int type, ktrace_event_t event)
 
 		case BSC_pread_extended:
 			if ((ti = event_find(thread, BSC_pread)) == NULL) {
-				if ((ti = event_find(thread, BSC_pread_nocancel)) == NULL)
+				if ((ti = event_find(thread, BSC_pread_nocancel)) == NULL) {
 					return;
+				}
 			}
 
-			ti->arg1   = event->arg1;  /* the fd */
-			ti->arg2   = event->arg2;  /* nbytes */
-			ti->arg3   = event->arg3;  /* top half offset */
-			ti->arg4   = event->arg4;  /* bottom half offset */
+			extend_syscall_rw(ti, event);
 			break;
 
 		case BSC_pwrite_extended:
 			if ((ti = event_find(thread, BSC_pwrite)) == NULL) {
-				if ((ti = event_find(thread, BSC_pwrite_nocancel)) == NULL)
+				if ((ti = event_find(thread, BSC_pwrite_nocancel)) == NULL) {
 					return;
+				}
 			}
 
-			ti->arg1   = event->arg1;  /* the fd */
-			ti->arg2   = event->arg2;  /* nbytes */
-			ti->arg3   = event->arg3;  /* top half offset */
-			ti->arg4   = event->arg4;  /* bottom half offset */
+			extend_syscall_rw(ti, event);
+			break;
+
+		case BSC_guarded_pwrite_extended:
+			if ((ti = event_find(thread, BSC_guarded_pwrite_np)) == NULL) {
+				return;
+			}
+
+			extend_syscall_rw(ti, event);
 			break;
 	}
 }
@@ -1577,7 +1604,21 @@ check_filter_mode(pid_t pid, th_info_t ti, uint64_t type, int error, int retval,
 int
 print_open(ktrace_event_t event, uint64_t flags)
 {
-	char mode[] = "______";
+	char mode[] = {
+		'_',
+		'_',
+		(flags & O_CREAT) ? 'C' : '_',
+		(flags & O_APPEND) ? 'A' : '_',
+		(flags & O_TRUNC) ? 'T' : '_',
+		(flags & O_EXCL) ? 'E' : '_',
+		(flags & O_NONBLOCK) ? 'N' : '_',
+		(flags & O_SHLOCK) ? 'l' : (flags & O_EXLOCK) ? 'L' : '_',
+		(flags & O_NOFOLLOW) ? 'F' : '_',
+		(flags & O_SYMLINK) ? 'S' : '_',
+		(flags & O_EVTONLY) ? 'V' : '_',
+		(flags & O_CLOEXEC) ? 'X' : '_',
+		'\0',
+	};
 
 	if (flags & O_RDWR) {
 		mode[0] = 'R';
@@ -1586,19 +1627,6 @@ print_open(ktrace_event_t event, uint64_t flags)
 		mode[1] = 'W';
 	} else {
 		mode[0] = 'R';
-	}
-
-	if (flags & O_CREAT) {
-		mode[2] = 'C';
-	}
-	if (flags & O_APPEND) {
-		mode[3] = 'A';
-	}
-	if (flags & O_TRUNC) {
-		mode[4] = 'T';
-	}
-	if (flags & O_EXCL) {
-		mode[5] = 'E';
 	}
 
 	if (event->arg1) {
@@ -1647,12 +1675,12 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 		mach_time_of_first_event = now;
 
 	if (format == FMT_DISKIO || format == FMT_DISKIO_CS) {
-		assert(dio);
+		os_assert(dio);
 	} else {
-		assert(event);
+		os_assert(event);
 
 		if (format != FMT_UNMAP_INFO)
-			assert(ti);
+			os_assert(ti);
 	}
 
 	/* <rdar://problem/19852325> Filter out WindowServer/xcpm ioctls in fs_usage */
@@ -1696,7 +1724,7 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 	if (!command_name)
 		command_name = "";
 
-	assert(now_walltime.tv_sec || now_walltime.tv_usec);
+	os_assert(now_walltime.tv_sec || now_walltime.tv_usec);
 
 	/* try and reuse the timestamp string */
 	if (last_walltime_secs != now_walltime.tv_sec) {
@@ -2020,6 +2048,34 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 
 					case F_SETLKW:
 						p = "SETLKW";
+						break;
+
+					case F_SETLKWTIMEOUT:
+						p = "SETLKWTIMEOUT";
+						break;
+
+					case F_GETLKPID:
+						p = "GETLKPID";
+						break;
+
+					case F_OFD_GETLK:
+						p = "OFD_GETLK";
+						break;
+
+					case F_OFD_SETLK:
+						p = "OFD_SETLK";
+						break;
+
+					case F_OFD_SETLKW:
+						p = "OFD_SETLKW";
+						break;
+
+					case F_OFD_SETLKWTIMEOUT:
+						p = "OFD_SETLKWTIMEOUT";
+						break;
+
+					case F_OFD_GETLKPID:
+						p = "OFD_GETLKPID";
 						break;
 
 					case F_PREALLOCATE:
@@ -2883,7 +2939,7 @@ event_enter(int type, ktrace_event_t event)
 			found = true;
 	}
 
-	assert(found);
+	os_assert(found);
 #endif /* DEBUG */
 
 	if ((ti = add_event(event, type)) == NULL)
@@ -2956,7 +3012,7 @@ pfs_get(pid_t pid)
 	struct pid_fd_set *pfs;
 	int hashid;
 
-	assert(pid >= 0);
+	os_assert(pid >= 0);
 
 	hashid = pid & HASH_MASK;
 
@@ -3047,7 +3103,7 @@ fd_set_is_network(pid_t pid, uint64_t fd, bool set)
 
 		newsize = MAX(((size_t)fd + CHAR_BIT) / CHAR_BIT, 2 * pfs->setsize);
 		pfs->set = reallocf(pfs->set, newsize);
-		assert(pfs->set != NULL);
+		os_assert(pfs->set != NULL);
 
 		bzero(pfs->set + pfs->setsize, newsize - pfs->setsize);
 		pfs->setsize = newsize;

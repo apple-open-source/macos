@@ -24,14 +24,12 @@
 #if OCTAGON
 
 #import <Foundation/Foundation.h>
-
-#import "keychain/ckks/CKKS.h"
-#import "keychain/ckks/CKKSItem.h"
-#import "keychain/ckks/CKKSKey.h"
-#import "keychain/ckks/CKKSPeer.h"
-
 #import <SecurityFoundation/SFEncryptionOperation.h>
 #import <SecurityFoundation/SFKey.h>
+
+#import "keychain/ckks/CKKS.h"
+#import "keychain/ckks/CKKSKeychainBackedKey.h"
+#import "keychain/ckks/CKKSPeer.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -42,14 +40,19 @@ typedef NS_ENUM(NSUInteger, SecCKKSTLKShareVersion) {
 
 #define SecCKKSTLKShareCurrentVersion SecCKKSTLKShareVersion0
 
+// Note that a CKKSTLKShare attempts to be forward-compatible with newly-signed fields
+// To use this functionality, pass in a CKRecord to its interfaces. If it has extra data,
+// that data will be signed or its signature verified.
 
-@interface CKKSTLKShare : CKKSCKRecordHolder
+@interface CKKSTLKShare : NSObject <NSCopying, NSSecureCoding>
 @property SFEllipticCurve curve;
 @property SecCKKSTLKShareVersion version;
 
 @property NSString* tlkUUID;
 
-@property id<CKKSPeer> receiver;
+@property NSString* receiverPeerID;
+@property NSData* receiverPublicEncryptionKeySPKI;
+
 @property NSString* senderPeerID;
 
 @property NSInteger epoch;
@@ -58,46 +61,60 @@ typedef NS_ENUM(NSUInteger, SecCKKSTLKShareVersion) {
 @property (nullable) NSData* wrappedTLK;
 @property (nullable) NSData* signature;
 
+@property CKRecordZoneID* zoneID;
+
 - (instancetype)init NS_UNAVAILABLE;
+- (instancetype)init:(CKKSKeychainBackedKey*)key
+              sender:(id<CKKSSelfPeer>)sender
+            receiver:(id<CKKSPeer>)receiver
+               curve:(SFEllipticCurve)curve
+             version:(SecCKKSTLKShareVersion)version
+               epoch:(NSInteger)epoch
+            poisoned:(NSInteger)poisoned
+              zoneID:(CKRecordZoneID*)zoneID;
+- (instancetype)initForKey:(NSString*)tlkUUID
+              senderPeerID:(NSString*)senderPeerID
+            recieverPeerID:(NSString*)receiverPeerID
+  receiverEncPublicKeySPKI:(NSData*)publicKeySPKI
+                     curve:(SFEllipticCurve)curve
+                   version:(SecCKKSTLKShareVersion)version
+                     epoch:(NSInteger)epoch
+                  poisoned:(NSInteger)poisoned
+                wrappedKey:(NSData*)wrappedKey
+                 signature:(NSData*)signature
+                    zoneID:(CKRecordZoneID*)zoneID;
 
-- (CKKSKey* _Nullable)recoverTLK:(id<CKKSSelfPeer>)recoverer trustedPeers:(NSSet<id<CKKSPeer>>*)peers error:(NSError**)error;
+- (CKKSKeychainBackedKey* _Nullable)recoverTLK:(id<CKKSSelfPeer>)recoverer
+                                  trustedPeers:(NSSet<id<CKKSPeer>>*)peers
+                                      ckrecord:(CKRecord* _Nullable)ckrecord
+                                         error:(NSError* __autoreleasing*)error;
 
-+ (CKKSTLKShare* _Nullable)share:(CKKSKey*)key
++ (CKKSTLKShare* _Nullable)share:(CKKSKeychainBackedKey*)key
                               as:(id<CKKSSelfPeer>)sender
                               to:(id<CKKSPeer>)receiver
                            epoch:(NSInteger)epoch
                         poisoned:(NSInteger)poisoned
                            error:(NSError**)error;
 
-- (bool)signatureVerifiesWithPeerSet:(NSSet<id<CKKSPeer>>*)peerSet error:(NSError**)error;
-
-// Database loading
-+ (instancetype _Nullable)fromDatabase:(NSString*)uuid
-                        receiverPeerID:(NSString*)receiverPeerID
-                          senderPeerID:(NSString*)senderPeerID
-                                zoneID:(CKRecordZoneID*)zoneID
-                                 error:(NSError* __autoreleasing*)error;
-+ (instancetype _Nullable)tryFromDatabase:(NSString*)uuid
-                           receiverPeerID:(NSString*)receiverPeerID
-                             senderPeerID:(NSString*)senderPeerID
-                                   zoneID:(CKRecordZoneID*)zoneID
-                                    error:(NSError**)error;
-+ (NSArray<CKKSTLKShare*>*)allFor:(NSString*)receiverPeerID
-                          keyUUID:(NSString*)uuid
-                           zoneID:(CKRecordZoneID*)zoneID
-                            error:(NSError* __autoreleasing*)error;
-+ (NSArray<CKKSTLKShare*>*)allForUUID:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError**)error;
-+ (NSArray<CKKSTLKShare*>*)allInZone:(CKRecordZoneID*)zoneID error:(NSError**)error;
-+ (instancetype _Nullable)tryFromDatabaseFromCKRecordID:(CKRecordID*)recordID error:(NSError**)error;
-
-// Returns a prefix that all every CKKSTLKShare CKRecord will have
-+ (NSString*)ckrecordPrefix;
+- (bool)signatureVerifiesWithPeerSet:(NSSet<id<CKKSPeer>>*)peerSet
+                            ckrecord:(CKRecord* _Nullable)ckrecord
+                               error:(NSError**)error;
 
 // For tests
-- (CKKSKey* _Nullable)unwrapUsing:(id<CKKSSelfPeer>)localPeer error:(NSError**)error;
-- (NSData* _Nullable)signRecord:(SFECKeyPair*)signingKey error:(NSError**)error;
-- (bool)verifySignature:(NSData*)signature verifyingPeer:(id<CKKSPeer>)peer error:(NSError**)error;
-- (NSData*)dataForSigning;
+- (CKKSKeychainBackedKey* _Nullable)unwrapUsing:(id<CKKSSelfPeer>)localPeer
+                                          error:(NSError**)error;
+
+- (NSData* _Nullable)signRecord:(SFECKeyPair*)signingKey
+                       ckrecord:(CKRecord* _Nullable)ckrecord
+                          error:(NSError**)error;
+
+- (bool)verifySignature:(NSData*)signature
+          verifyingPeer:(id<CKKSPeer>)peer
+               ckrecord:(CKRecord* _Nullable)ckrecord
+                  error:(NSError**)error;
+
+// Pass in a CKRecord for forward-compatible signatures
+- (NSData*)dataForSigning:(CKRecord* _Nullable)record;
 @end
 
 NS_ASSUME_NONNULL_END

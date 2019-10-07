@@ -61,6 +61,9 @@ ifeq ($(AEP),YES)
 	ed - $(SRCROOT)/$(Project)/pyobjc-core-*/Lib/PyObjCTools/TestSupport.py < '$(SRCROOT)/patches/pyobjc-core_Lib_PyObjCTools_TestSupport.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-core-*/Lib/objc/_bridgesupport.py < '$(SRCROOT)/patches/pyobjc-core_Lib_objc__bridgesupport.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-core-*/Modules/objc/module.m < '$(SRCROOT)/patches/pyobjc-core_Modules_objc_module.m.ed'
+	ed - $(SRCROOT)/$(Project)/pyobjc-core-*/Modules/objc/alloc_hack.m < '$(SRCROOT)/patches/pyobjc-core_Modules_objc_alloc_hack.m.ed'
+	ed - $(SRCROOT)/$(Project)/pyobjc-core-*/Modules/objc/class-builder.m < '$(SRCROOT)/patches/pyobjc-core_Modules_objc_class-builder.m.ed'
+	ed - $(SRCROOT)/$(Project)/pyobjc-core-*/Modules/objc/method-imp.m < '$(SRCROOT)/patches/pyobjc-core_Modules_objc_method-imp.m.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-core-*/PyObjCTest/test_identity.py < '$(SRCROOT)/patches/pyobjc-core_PyObjCTest_test_identity.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-core-*/PyObjCTest/test_number_proxy.py < '$(SRCROOT)/patches/pyobjc-core_PyObjCTest_test_number_proxy.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-core-*/PyObjCTest/test_testsupport.py < '$(SRCROOT)/patches/pyobjc-core_PyObjCTest_test_testsupport.py.ed'
@@ -70,6 +73,8 @@ ifeq ($(AEP),YES)
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Cocoa-*/Lib/Foundation/_metadata.py < '$(SRCROOT)/patches/pyobjc-framework-Cocoa_Lib_Foundation__metadata.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Cocoa-*/Lib/PyObjCTools/Conversion.py < '$(SRCROOT)/patches/pyobjc-framework-Cocoa_Lib_PyObjCTools_Conversion.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Cocoa-*/PyObjCTest/test_cfmachport.py < '$(SRCROOT)/patches/pyobjc-framework-Cocoa_PyObjCTest_test_cfmachport.py.ed'
+	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Cocoa-*/Modules/_Foundation_NSDecimal.m < '$(SRCROOT)/patches/pyobjc-framework-Cocoa_Modules__Foundation_NSDecimal.m.ed'
+	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Cocoa-*/Modules/_Foundation_nscoder.m < '$(SRCROOT)/patches/pyobjc-framework-Cocoa_Modules__Foundation_nscoder.m.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-LaunchServices-*/PyObjCTest/test_lsinfo.py < '$(SRCROOT)/patches/pyobjc-framework-LaunchServices_PyObjCTest_test_lsinfo.py.ed'
 	(cd $(SRCROOT)/$(Project)/pyobjc-framework-LaunchServices-* && patch -F0 -p0 < $(SRCROOT)/patches/LaunchServices-metadata.py.diff)
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Quartz-*/Lib/Quartz/CoreGraphics/_metadata.py < '$(SRCROOT)/patches/pyobjc-framework-Quartz_Lib_Quartz_CoreGraphics__metadata.py.ed'
@@ -77,6 +82,8 @@ ifeq ($(AEP),YES)
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Quartz-*/PyObjCTest/test_cgdisplayconfiguration.py < '$(SRCROOT)/patches/pyobjc-framework-Quartz_PyObjCTest_test_cgdisplayconfiguration.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-SystemConfiguration-*/PyObjCTest/test_SCDynamicStoreCopyDHCPInfo.py < '$(SRCROOT)/patches/pyobjc-framework-SystemConfiguration_PyObjCTest_test_SCDynamicStoreCopyDHCPInfo.py.ed'
 	patch -F0 $(SRCROOT)/$(Project)/pyobjc-framework-ExceptionHandling-*/Lib/PyObjCTools/Debugging.py '$(SRCROOT)/patches/pyobjc-framework-ExceptionHandling_Lib_PyObjCTools__Debugging.py.diff'
+	(cd $(SRCROOT)/$(Project)/pyobjc-core-* && patch -F0 -p1 < $(SRCROOT)/patches/closure.diff)
+	rm -rf $(SRCROOT)/$(Project)/pyobjc-framework-PreferencePanes-2.5.1/Examples/EnvironmentPrefs/Dutch.lproj
 	@set -x && for z in `find $(SRCROOT)/$(Project) -name \*.py -size 0c`; do \
 	    echo '#' > $$z || exit 1; \
 	done
@@ -110,7 +117,7 @@ real-install:
 	cd '$(OBJROOT)/$(Project)' && \
 	for pkg in pyobjc-core* pyobjc-framework-Cocoa* `ls -d pyobjc-framework-* | grep -v pyobjc-framework-Cocoa`; do \
 	    cd "$(OBJROOT)/$(Project)/$$pkg" && \
-	    ARCHFLAGS="$(RC_CFLAGS) -D_FORTIFY_SOURCE=0" PYTHONPATH="$(DSTROOT)$(EXTRASPYOBJC)" \
+	    ARCHFLAGS="$(RC_CFLAGS) -DOBJC_OLD_DISPATCH_PROTOTYPES=0 -D_FORTIFY_SOURCE=0" PYTHONPATH="$(DSTROOT)$(EXTRASPYOBJC)" \
 	    python setup.py install --home="$(EXTRAS)" --root="$(DSTROOT)" || exit 1; \
 	done
 	@set -x && cd "$(DSTROOT)$(EXTRASLIBPYTHON)" && \

@@ -54,7 +54,10 @@ extern CKKSFetchBecause* const CKKSFetchBecauseResync;
 @protocol CKKSChangeFetcherClient <NSObject>
 - (CKRecordZoneID*)zoneID;
 - (CKKSCloudKitFetchRequest*)participateInFetch;
-- (bool)notifyFetchError:(NSError*)error;
+
+// Return false if this is a 'fatal' error and you don't want another fetch to be tried
+- (bool)shouldRetryAfterFetchError:(NSError*)error;
+
 - (void)changesFetched:(NSArray<CKRecord*>*)changedRecords
       deletedRecordIDs:(NSArray<CKKSCloudKitDeletion*>*)deleted
         oldChangeToken:(CKServerChangeToken* _Nullable)oldChangeToken
@@ -85,7 +88,7 @@ extern CKKSFetchBecause* const CKKSFetchBecauseResync;
 
 @property NSMutableDictionary<CKRecordID*, CKRecord*>* modifications;
 @property NSMutableDictionary<CKRecordID*, CKKSCloudKitDeletion*>* deletions;
-@property NSMutableDictionary<CKRecordID*, CKServerChangeToken*>* changeTokens;
+@property NSMutableDictionary<CKRecordZoneID*, CKServerChangeToken*>* changeTokens;
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithContainer:(CKContainer*)container

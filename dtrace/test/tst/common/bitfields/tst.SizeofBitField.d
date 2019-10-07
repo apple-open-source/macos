@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.SizeofBitField.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: C and D compilers try to pack bits as efficiently as possible.
  *

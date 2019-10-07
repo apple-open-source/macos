@@ -1,1 +1,1 @@
-.././../OSX/libsecurity_asn1/lib/nameTemplates.h
+../../OSX/libsecurity_asn1/lib/nameTemplates.h

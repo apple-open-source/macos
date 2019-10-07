@@ -45,9 +45,9 @@ static int32_t ncat(char *buffer, uint32_t buflen, ...) {
   }
 
   va_start(args, buflen);
-  while ((str = va_arg(args, char *))) {
+  while ((str = va_arg(args, char *)) != 0) {
     char c;
-    while (p != e && (c = *str++)) {
+    while (p != e && (c = *str++) != 0) {
       *p++ = c;
     }
   }
@@ -98,7 +98,7 @@ ICUDataTable::ICUDataTable(const char* path, const Locale& locale)
     : path(NULL), locale(Locale::getRoot())
 {
   if (path) {
-    int32_t len = uprv_strlen(path);
+    int32_t len = static_cast<int32_t>(uprv_strlen(path));
     this->path = (const char*) uprv_malloc(len + 1);
     if (this->path) {
       uprv_strcpy((char *)this->path, path);
@@ -286,11 +286,11 @@ class LocaleDisplayNamesImpl : public LocaleDisplayNames {
 #else
     UObject* capitalizationBrkIter;
 #endif
-    static UMutex  capitalizationBrkIterLock;
     UnicodeString formatOpenParen;
     UnicodeString formatReplaceOpenParen;
     UnicodeString formatCloseParen;
     UnicodeString formatReplaceCloseParen;
+    UnicodeString formatParenCloseOpen;
     UDisplayContext nameLength;
 
     // Constants for capitalization context usage types.
@@ -353,8 +353,6 @@ private:
 
     struct CapitalizationContextSink;
 };
-
-UMutex LocaleDisplayNamesImpl::capitalizationBrkIterLock = U_MUTEX_INITIALIZER;
 
 LocaleDisplayNamesImpl::LocaleDisplayNamesImpl(const Locale& locale,
                                                UDialectHandling dialectHandling)
@@ -474,11 +472,14 @@ LocaleDisplayNamesImpl::initialize(void) {
         formatReplaceOpenParen.setTo((UChar)0xFF3B);  // fullwidth [
         formatCloseParen.setTo((UChar)0xFF09);        // fullwidth )
         formatReplaceCloseParen.setTo((UChar)0xFF3D); // fullwidth ]
+        formatParenCloseOpen.setTo(u"）（", 2);        // fullwidth FF09 FF08 redundant parens
+
     } else {
         formatOpenParen.setTo((UChar)0x0028);         // (
         formatReplaceOpenParen.setTo((UChar)0x005B);  // [
         formatCloseParen.setTo((UChar)0x0029);        // )
         formatReplaceCloseParen.setTo((UChar)0x005D); // ]
+        formatParenCloseOpen.setTo(u") (", 3);        // halfwidth redundant parens
     }
 
     UnicodeString ktPattern;
@@ -559,7 +560,8 @@ LocaleDisplayNamesImpl::adjustForUsageAndContext(CapContextUsage usage,
     if ( result.length() > 0 && u_islower(result.char32At(0)) && capitalizationBrkIter!= NULL &&
           ( capitalizationContext==UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE || fCapitalization[usage] ) ) {
         // note fCapitalization[usage] won't be set unless capitalizationContext is UI_LIST_OR_MENU or STANDALONE
-        Mutex lock(&capitalizationBrkIterLock);
+        static UMutex *capitalizationBrkIterLock = STATIC_NEW(UMutex);
+        Mutex lock(capitalizationBrkIterLock);
         result.toTitle(capitalizationBrkIter, locale, U_TITLECASE_NO_LOWERCASE | U_TITLECASE_NO_BREAK_ADJUSTMENT);
     }
 #endif
@@ -567,27 +569,32 @@ LocaleDisplayNamesImpl::adjustForUsageAndContext(CapContextUsage usage,
 }
 
 UnicodeString&
-LocaleDisplayNamesImpl::localeDisplayName(const Locale& locale,
+LocaleDisplayNamesImpl::localeDisplayName(const Locale& loc,
                                           UnicodeString& result) const {
-  if (locale.isBogus()) {
+  if (loc.isBogus()) {
     result.setToBogus();
     return result;
   }
   UnicodeString resultName;
 
-  const char* lang = locale.getLanguage();
+  const char* lang = loc.getLanguage();
   if (uprv_strlen(lang) == 0) {
     lang = "root";
   }
-  const char* script = locale.getScript();
-  const char* country = locale.getCountry();
-  const char* variant = locale.getVariant();
+  const char* script = loc.getScript();
+  const char* country = loc.getCountry();
+  const char* variant = loc.getVariant();
 
   UBool hasScript = uprv_strlen(script) > 0;
   UBool hasCountry = uprv_strlen(country) > 0;
   UBool hasVariant = uprv_strlen(variant) > 0;
 
-  if (dialectHandling == ULDN_DIALECT_NAMES) {
+  // For stylistic reasons, always load dialect names for `zh` and `yue`. <rdar://50750364>
+  // Also for `ks`, 'pa, 'ur'. <rdar://50687287>
+  UBool forceDialect = (uprv_strcmp(lang, "zh") == 0 || uprv_strcmp(lang, "yue") == 0 ||
+      uprv_strcmp(lang, "ks") == 0 || uprv_strcmp(lang, "pa") == 0 || uprv_strcmp(lang, "ur") == 0);
+
+  if (forceDialect || dialectHandling == ULDN_DIALECT_NAMES) {
     char buffer[ULOC_FULLNAME_CAPACITY];
     do { // loop construct is so we can break early out of search
       if (hasScript && hasCountry) {
@@ -637,14 +644,14 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& locale,
   resultRemainder.findAndReplace(formatOpenParen, formatReplaceOpenParen);
   resultRemainder.findAndReplace(formatCloseParen, formatReplaceCloseParen);
 
-  LocalPointer<StringEnumeration> e(locale.createKeywords(status));
+  LocalPointer<StringEnumeration> e(loc.createKeywords(status));
   if (e.isValid() && U_SUCCESS(status)) {
     UnicodeString temp2;
     char value[ULOC_KEYWORD_AND_VALUES_CAPACITY]; // sigh, no ULOC_VALUE_CAPACITY
     const char* key;
     while ((key = e->next((int32_t *)0, status)) != NULL) {
       value[0] = 0;
-      locale.getKeywordValue(key, value, ULOC_KEYWORD_AND_VALUES_CAPACITY, status);
+      loc.getKeywordValue(key, value, ULOC_KEYWORD_AND_VALUES_CAPACITY, status);
       if (U_FAILURE(status) || status == U_STRING_NOT_TERMINATED_WARNING) {
         return result;
       }
@@ -670,6 +677,12 @@ LocaleDisplayNamesImpl::localeDisplayName(const Locale& locale,
 
   if (!resultRemainder.isEmpty()) {
     format.format(resultName, resultRemainder, result.remove(), status);
+    int32_t indexCloseOpen = result.indexOf(formatParenCloseOpen);
+    if (indexCloseOpen >= 0) { // replace redundant close-open parens with separator <rdar://problem/50687287>
+        UnicodeString tail(result, indexCloseOpen + formatParenCloseOpen.length()); // section after close-open
+        result.retainBetween(0, indexCloseOpen); // section before close-open
+        appendWithSep(result, tail); // combine using separator
+    }
     return adjustForUsageAndContext(kCapContextUsageLanguage, result);
   }
 

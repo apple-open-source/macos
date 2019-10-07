@@ -31,10 +31,7 @@ typedef struct DigestVector_t {
     char *sha256intr;
     char *sha384intr;
     char *sha512intr;
-    char *rmd128intr;
     char *rmd160intr;
-    char *rmd256intr;
-    char *rmd320intr;
     char *md2str;
     char *md4str;
     char *md5str;
@@ -43,10 +40,7 @@ typedef struct DigestVector_t {
     char *sha256str;
     char *sha384str;
     char *sha512str;
-    char *rmd128str;
     char *rmd160str;
-    char *rmd256str;
-    char *rmd320str;
 } DigestVector;
 
 static DigestVector dv[] = {
@@ -61,9 +55,6 @@ static DigestVector dv[] = {
         "d89e05c15d9dbbcb07d57c362a299a6217dd70305a01599139590ef7d8ec2f15310bc0ff6726336711155868874ab48e",
         "08c9bcf367e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319cde05b",
         NULL,
-        NULL,
-        NULL,
-        NULL,
         "8350e5a3e24c153df2275c9f80692773",
         "31d6cfe0d16ae931b73c59d7e0c089c0",
         "d41d8cd98f00b204e9800998ecf8427e",
@@ -72,10 +63,7 @@ static DigestVector dv[] = {
         "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b",
         "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e",
-        "cdf26213a150dc3ecb610f18f6b38b46",
         "9c1185a5c5e9fc54612808977ee8f548b2258d31",
-        "02ba4c4e5f8ecd1877fc52d64d30e37a2d9774fb1e5d026380ae0168e3c5522d",
-        "22d65d5661536cdc75c1fdf5c6de7b41b9f27325ebc61e8557177d705a0ec880151c3a32a00899b8",
     },
     {
         "",
@@ -88,9 +76,6 @@ static DigestVector dv[] = {
         "d89e05c15d9dbbcb07d57c362a299a6217dd70305a01599139590ef7d8ec2f15310bc0ff6726336711155868874ab48e",
         "08c9bcf367e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319cde05b",
         NULL,
-        NULL,
-        NULL,
-        NULL,
         "8350e5a3e24c153df2275c9f80692773",
         "31d6cfe0d16ae931b73c59d7e0c089c0",
         "d41d8cd98f00b204e9800998ecf8427e",
@@ -99,10 +84,7 @@ static DigestVector dv[] = {
         "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b",
         "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e",
-        "cdf26213a150dc3ecb610f18f6b38b46",
         "9c1185a5c5e9fc54612808977ee8f548b2258d31",
-        "02ba4c4e5f8ecd1877fc52d64d30e37a2d9774fb1e5d026380ae0168e3c5522d",
-        "22d65d5661536cdc75c1fdf5c6de7b41b9f27325ebc61e8557177d705a0ec880151c3a32a00899b8",
     },
     {
         "Test vector from febooti.com",
@@ -115,9 +97,6 @@ static DigestVector dv[] = {
         "d89e05c15d9dbbcb07d57c362a299a6217dd70305a01599139590ef7d8ec2f15310bc0ff6726336711155868874ab48e",
         "08c9bcf367e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319cde05b",
         NULL,
-        NULL,
-        NULL,
-        NULL,
         "db128d6e0d20a1192a6bd1fade401150",
         "6578f2664bc56e0b5b3f85ed26ecc67b",
         "500ab6613c6db7fbd30c62f5ff573d0f",
@@ -126,10 +105,7 @@ static DigestVector dv[] = {
         "077b18fe29036ada4890bdec192186e10678597a67880290521df70df4bac9ab",
         "388bb2d487de48740f45fcb44152b0b665428c49def1aaf7c7f09a40c10aff1cd7c3fe3325193c4dd35d4eaa032f49b0",
         "09fb898bc97319a243a63f6971747f8e102481fb8d5346c55cb44855adc2e0e98f304e552b0db1d4eeba8a5c8779f6a3010f0e1a2beb5b9547a13b6edca11e8a",
-        "ab076efaab01d30d16bb57f88d63c073",
         "4e1ff644ca9f6e86167ccb30ff27e0d84ceb2a61",
-        "3bcbe8d6c9cf2cff39fb53e0dcef37f1554223da45d941d95836e1f5f84677eb",
-        "7ae55f027f08f354a53515b9d6df00746ddeb1e7c8bbe8ee2c5ff8428aca0ad7d24eb64562b2e6c9",
     },
     { // Test from <rdar://problem/11285435> CC_SHA512_Init(),CC_SHA512_Update(),CC_SHA512_Final() gives wrong digest
         "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu",
@@ -142,9 +118,6 @@ static DigestVector dv[] = {
         "d89e05c15d9dbbcb07d57c362a299a6217dd70305a01599139590ef7d8ec2f15310bc0ff6726336711155868874ab48e",
         "08c9bcf367e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319cde05b",
         NULL,
-        NULL,
-        NULL,
-        NULL,
         "2c194d0376411dc0b8485d3abe2a4b6b",
         "2102d1d94bd58ebf5aa25c305bb783ad",
         "03dd8807a93175fb062dfb55dc7d359c",
@@ -153,10 +126,7 @@ static DigestVector dv[] = {
         "cf5b16a778af8380036ce59e7b0492370b249b11e8f07a51afac45037afee9d1",
         "09330c33f71147e83d192fc782cd1b4753111b173b3b05d22fa08086e3b0f712fcc7c71a557e2db966c3e9fa91746039",
         "8e959b75dae313da8cf4f72814fc143f8f7779c6eb9f7fa17299aeadb6889018501d289e4900f7e4331b99dec4b5433ac7d329eeb6dd26545e96e55b874be909",
-        "d4ecc913e1df776bf48de9d55b1f2546",
         "6f3fa39b6b503c384f919a49a7aa5c2c08bdfb45",
-        "9f111a4e8978e8bc37a87f320c5e8e92eb011dfc947caf69519909ffe093fbb7",
-        "1262ca0af08f9f7178f3252fa81d43dc1525d10d82bca7c52695ad2c8a3623711e4113b19df115b3",
     }
 };
 
@@ -174,10 +144,14 @@ static int testOriginalOneShotDigest(CCDigestAlgorithm alg, char *input, byteBuf
     CC_LONG inputLen = (input) ? (CC_LONG) strlen(input): 0;
     unsigned char* p;
     switch(alg) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
         case kCCDigestMD2:		p=CC_MD2(input, inputLen, computedMD->bytes); break;
         case kCCDigestMD4:		p=CC_MD4(input, inputLen, computedMD->bytes); break;
         case kCCDigestMD5:		p=CC_MD5(input, inputLen, computedMD->bytes); break;
         case kCCDigestSHA1:     p=CC_SHA1(input, inputLen, computedMD->bytes); break;
+#pragma clang diagnostic pop
         case kCCDigestSHA224:	p=CC_SHA224(input, inputLen, computedMD->bytes); break;
         case kCCDigestSHA256:	p=CC_SHA256(input, inputLen, computedMD->bytes); break;
         case kCCDigestSHA384:	p=CC_SHA384(input, inputLen, computedMD->bytes); break;
@@ -193,6 +167,8 @@ static int testOriginalOneShotDigest(CCDigestAlgorithm alg, char *input, byteBuf
     return status;
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 static byteBuffer cc_md2_discrete_legacy(char *input, CC_LONG len, void *out) {
     CC_MD2_CTX ctx;
     ok(CC_MD2_Init(&ctx) == 1, "Old Hash init should result in 1\n");
@@ -243,6 +219,7 @@ static byteBuffer cc_sha1_discrete_legacy(char *input, CC_LONG len, void *out) {
     ok(CC_SHA1_Final(out, &ctx) == 1, "Old Hash final should result in 1\n");
     return retval;
 }
+#pragma clang diagnostic pop
 
 static byteBuffer cc_sha224_discrete_legacy(char *input, CC_LONG len, void *out) {
     CC_SHA256_CTX ctx;
@@ -295,10 +272,13 @@ testOriginalDiscreteDigest(CCDigestAlgorithm alg, char *input, byteBuffer expect
     byteBuffer comp_intr;
 
     switch(alg) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         case kCCDigestMD2:		comp_intr = cc_md2_discrete_legacy(input, inputLen, computedMD->bytes); break;
         case kCCDigestMD4:		comp_intr = cc_md4_discrete_legacy(input, inputLen, computedMD->bytes); break;
         case kCCDigestMD5:		comp_intr = cc_md5_discrete_legacy(input, inputLen, computedMD->bytes); break;
         case kCCDigestSHA1:     comp_intr = cc_sha1_discrete_legacy(input, inputLen, computedMD->bytes); break;
+#pragma clang diagnostic pop
         case kCCDigestSHA224:	comp_intr = cc_sha224_discrete_legacy(input, inputLen, computedMD->bytes); break;
         case kCCDigestSHA256:	comp_intr = cc_sha256_discrete_legacy(input, inputLen, computedMD->bytes); break;
         case kCCDigestSHA384:	comp_intr = cc_sha384_discrete_legacy(input, inputLen, computedMD->bytes); break;
@@ -364,13 +344,14 @@ out:
     return status;
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 static int rfc1321Test(CCDigestAlgorithm alg, char *input, byteBuffer expected) {
     if(alg != kCCDigestMD5) return 1;
     CC_LONG inputLen = (input) ? (CC_LONG) strlen(input): 0;
     byteBuffer computedMD = mallocDigestByteBuffer(alg);
     int status = 0;
     MD5_CTX ctx;
-    
     MD5Init(&ctx);
     MD5Update(&ctx, input, inputLen);
     MD5Final(computedMD->bytes, &ctx);
@@ -378,7 +359,7 @@ static int rfc1321Test(CCDigestAlgorithm alg, char *input, byteBuffer expected) 
     free(computedMD);
     return status;
 }
-
+#pragma clang diagnostic pop
 
 static int testAllDigests(CCDigestAlgorithm alg, char *input, byteBuffer expected, byteBuffer expectedIntermediate) {
     int status = 0;
@@ -393,7 +374,8 @@ static int testAllDigests(CCDigestAlgorithm alg, char *input, byteBuffer expecte
 
 static int testDigests(DigestVector *dv) {
     int status = 0;
-    
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     byteBuffer expectedMD = hexStringToBytesIfNotNULL(dv->md2str);
     byteBuffer expectedIntermediate = hexStringToBytesIfNotNULL(dv->md2intr);
     ok(status = testAllDigests(kCCDigestMD2, dv->input, expectedMD, expectedIntermediate), "Testing all MD2 Implementations");
@@ -418,6 +400,13 @@ static int testDigests(DigestVector *dv) {
     free(expectedMD);
     free(expectedIntermediate);
     
+    expectedMD = hexStringToBytesIfNotNULL(dv->rmd160str);
+    expectedIntermediate = hexStringToBytesIfNotNULL(dv->rmd160intr);
+    ok(status &= testAllDigests(kCCDigestRMD160, dv->input, expectedMD, expectedIntermediate), "Testing all RMD160 Implementations");
+    free(expectedMD);
+    free(expectedIntermediate);
+#pragma clang diagnostic pop
+    
     expectedMD = hexStringToBytesIfNotNULL(dv->sha224str);
     expectedIntermediate = hexStringToBytesIfNotNULL(dv->sha224intr);
     ok(status &= testAllDigests(kCCDigestSHA224, dv->input, expectedMD, expectedIntermediate), "Testing all SHA224 Implementations");
@@ -441,35 +430,11 @@ static int testDigests(DigestVector *dv) {
     ok(status &= testAllDigests(kCCDigestSHA512, dv->input, expectedMD, expectedIntermediate), "Testing all SHA512 Implementations");
     free(expectedMD);
     free(expectedIntermediate);
-    
-    expectedMD = hexStringToBytesIfNotNULL(dv->rmd128str);
-    expectedIntermediate = hexStringToBytesIfNotNULL(dv->rmd128intr);
-    ok(status &= testAllDigests(kCCDigestRMD128, dv->input, expectedMD, expectedIntermediate), "Testing all RMD128 Implementations");
-    free(expectedMD);
-    free(expectedIntermediate);
-    
-    expectedMD = hexStringToBytesIfNotNULL(dv->rmd160str);
-    expectedIntermediate = hexStringToBytesIfNotNULL(dv->rmd160intr);
-    ok(status &= testAllDigests(kCCDigestRMD160, dv->input, expectedMD, expectedIntermediate), "Testing all RMD160 Implementations");
-    free(expectedMD);
-    free(expectedIntermediate);
-    
-    expectedMD = hexStringToBytesIfNotNULL(dv->rmd256str);
-    expectedIntermediate = hexStringToBytesIfNotNULL(dv->rmd256intr);
-    ok(status &= testAllDigests(kCCDigestRMD256, dv->input, expectedMD, expectedIntermediate), "Testing all RMD256 Implementations");
-    free(expectedMD);
-    free(expectedIntermediate);
-    
-    expectedMD = hexStringToBytesIfNotNULL(dv->rmd320str);
-    expectedIntermediate = hexStringToBytesIfNotNULL(dv->rmd320intr);
-    ok(status &= testAllDigests(kCCDigestRMD320, dv->input, expectedMD, expectedIntermediate), "Testing all RMD320 Implementations");
-    free(expectedMD);
-    free(expectedIntermediate);
-    
+
     return status;
 }
 
-static size_t testsPerVector = 286;
+static size_t testsPerVector = 229;
 
 int CommonDigest(int __unused argc, char *const * __unused argv) {
 

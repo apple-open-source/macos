@@ -26,7 +26,6 @@
 @protocol CKKSControlProtocol <NSObject>
 - (void)performanceCounters:(void(^)(NSDictionary <NSString *, NSNumber *> *))reply;
 - (void)rpcResetLocal:    (NSString*)viewName reply: (void(^)(NSError* result)) reply;
-- (void)rpcResetCloudKit: (NSString*)viewName reply: (void(^)(NSError* result)) reply __deprecated_msg("use rpcResetCloudKit:reason:reply");
 
 /**
  * Reset CloudKit zone with a caller provided reason, the reason will be logged in the operation group
@@ -47,6 +46,7 @@
 - (void)rpcFetchAndProcessClassAChanges:(NSString*)viewName reply: (void(^)(NSError* result)) reply;
 - (void)rpcPushOutgoingChanges:(NSString*)viewName reply: (void(^)(NSError* result)) reply;
 - (void)rpcGetCKDeviceIDWithReply: (void (^)(NSString* ckdeviceID))reply;
+- (void)rpcCKMetric:(NSString *)eventName attributes:(NSDictionary *)attributes reply:(void(^)(NSError* result)) reply;
 @end
 
 NSXPCInterface* CKKSSetupControlProtocol(NSXPCInterface* interface);

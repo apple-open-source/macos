@@ -44,7 +44,8 @@ void secd_test_setup_temp_keychain(const char* test_prefix, dispatch_block_t do_
     CFStringRef keychain_dir = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@Library/Keychains"), tmp_dir);
     
     CFStringPerformWithCString(keychain_dir, ^(const char *keychain_dir_string) {
-        ok_unix(mkpath_np(keychain_dir_string, 0755), "Create temp dir %s", keychain_dir_string);
+        errno_t err = mkpath_np(keychain_dir_string, 0755);
+        ok(err == 0 || err == EEXIST, "Create temp dir %s (%d)", keychain_dir_string, err);
     });
     
     
@@ -60,18 +61,17 @@ void secd_test_setup_temp_keychain(const char* test_prefix, dispatch_block_t do_
 CFStringRef kTestView1 = CFSTR("TestView1");
 CFStringRef kTestView2 = CFSTR("TestView2");
 
-void secd_test_setup_testviews(void) {
-    static dispatch_once_t onceToken = 0;
+void secd_test_setup_testviews(void) {    
+    CFMutableSetRef testViews = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
+    CFSetAddValue(testViews, kTestView1);
+    CFSetAddValue(testViews, kTestView2);
     
-    dispatch_once(&onceToken, ^{
-        CFMutableSetRef testViews = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
-        CFSetAddValue(testViews, kTestView1);
-        CFSetAddValue(testViews, kTestView2);
-        
-        SOSViewsSetTestViewsSet(testViews);
-        CFReleaseNull(testViews);
-    });
+    SOSViewsSetTestViewsSet(testViews);
+    CFReleaseNull(testViews);
 }
 
+void secd_test_clear_testviews(void) {
+    SOSViewsSetTestViewsSet(NULL);
+}
 
 

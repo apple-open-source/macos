@@ -25,6 +25,8 @@
 
 #include "bmalloc.h"
 
+#include "DebugHeap.h"
+#include "Environment.h"
 #include "PerProcess.h"
 
 namespace bmalloc { namespace api {
@@ -49,11 +51,13 @@ void* tryLargeZeroedMemalignVirtual(size_t requiredAlignment, size_t requestedSi
     RELEASE_BASSERT(alignment >= requiredAlignment);
     RELEASE_BASSERT(size >= requestedSize);
 
-    kind = mapToActiveHeapKind(kind);
-    Heap& heap = PerProcess<PerHeapKind<Heap>>::get()->at(kind);
-
     void* result;
-    {
+    if (auto* debugHeap = DebugHeap::tryGet())
+        result = debugHeap->memalignLarge(alignment, size);
+    else {
+        kind = mapToActiveHeapKind(kind);
+        Heap& heap = PerProcess<PerHeapKind<Heap>>::get()->at(kind);
+
         std::unique_lock<Mutex> lock(Heap::mutex());
         result = heap.tryAllocateLarge(lock, alignment, size);
         if (result) {
@@ -72,6 +76,10 @@ void* tryLargeZeroedMemalignVirtual(size_t requiredAlignment, size_t requestedSi
 
 void freeLargeVirtual(void* object, size_t size, HeapKind kind)
 {
+    if (auto* debugHeap = DebugHeap::tryGet()) {
+        debugHeap->freeLarge(object);
+        return;
+    }
     kind = mapToActiveHeapKind(kind);
     Heap& heap = PerProcess<PerHeapKind<Heap>>::get()->at(kind);
     std::unique_lock<Mutex> lock(Heap::mutex());
@@ -84,21 +92,24 @@ void scavenge()
 {
     scavengeThisThread();
 
-    PerProcess<Scavenger>::get()->scavenge();
+    if (DebugHeap* debugHeap = DebugHeap::tryGet())
+        debugHeap->scavenge();
+    else
+        Scavenger::get()->scavenge();
 }
 
-bool isEnabled(HeapKind kind)
+bool isEnabled(HeapKind)
 {
-    kind = mapToActiveHeapKind(kind);
-    std::unique_lock<Mutex> lock(Heap::mutex());
-    return !PerProcess<PerHeapKind<Heap>>::getFastCase()->at(kind).debugHeap();
+    return !Environment::get()->isDebugHeapEnabled();
 }
 
 #if BOS(DARWIN)
 void setScavengerThreadQOSClass(qos_class_t overrideClass)
 {
+    if (DebugHeap::tryGet())
+        return;
     std::unique_lock<Mutex> lock(Heap::mutex());
-    PerProcess<Scavenger>::get()->setScavengerThreadQOSClass(overrideClass);
+    Scavenger::get()->setScavengerThreadQOSClass(overrideClass);
 }
 #endif
 
@@ -106,21 +117,22 @@ void commitAlignedPhysical(void* object, size_t size, HeapKind kind)
 {
     vmValidatePhysical(object, size);
     vmAllocatePhysicalPages(object, size);
-    Heap& heap = PerProcess<PerHeapKind<Heap>>::get()->at(kind);
-    heap.externalCommit(object, size);
+    if (!DebugHeap::tryGet())
+        PerProcess<PerHeapKind<Heap>>::get()->at(kind).externalCommit(object, size);
 }
 
 void decommitAlignedPhysical(void* object, size_t size, HeapKind kind)
 {
     vmValidatePhysical(object, size);
     vmDeallocatePhysicalPages(object, size);
-    Heap& heap = PerProcess<PerHeapKind<Heap>>::get()->at(kind);
-    heap.externalDecommit(object, size);
+    if (!DebugHeap::tryGet())
+        PerProcess<PerHeapKind<Heap>>::get()->at(kind).externalDecommit(object, size);
 }
 
 void enableMiniMode()
 {
-    PerProcess<Scavenger>::get()->enableMiniMode();
+    if (!DebugHeap::tryGet())
+        Scavenger::get()->enableMiniMode();
 }
 
 } } // namespace bmalloc::api

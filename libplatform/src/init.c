@@ -61,7 +61,9 @@ __libplatform_init(void *future_use __unused, const char *envp[],
 #if !TARGET_OS_SIMULATOR
     __pfz_setup(apple);
 #endif
+#if !TARGET_OS_DRIVERKIT
     _simple_asl_init(envp, vars);
+#endif
 
 #if !VARIANT_STATIC
     __libkernel_platform_init(&_platform_string_functions);

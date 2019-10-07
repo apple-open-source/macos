@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2016, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -48,8 +48,6 @@
  */
 #include "curl.h"
 
-#include <Availability.h>
-
 #ifdef  __cplusplus
 extern "C" {
 #endif
@@ -72,6 +70,8 @@ typedef enum {
   CURLM_UNKNOWN_OPTION,  /* curl_multi_setopt() with unsupported option */
   CURLM_ADDED_ALREADY,   /* an easy handle already added to a multi handle was
                             attempted to get added - again */
+  CURLM_RECURSIVE_API_CALL, /* an api function was called from inside a
+                               callback */
   CURLM_LAST
 } CURLMcode;
 
@@ -167,7 +167,6 @@ CURL_EXTERN CURLMcode curl_multi_fdset(CURLM *multi_handle,
  *
  * Returns:  CURLMcode type, general multi error code.
  */
-__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0)
 CURL_EXTERN CURLMcode curl_multi_wait(CURLM *multi_handle,
                                       struct curl_waitfd extra_fds[],
                                       unsigned int extra_nfds,
@@ -187,8 +186,8 @@ CURL_EXTERN CURLMcode curl_multi_wait(CURLM *multi_handle,
   *
   * Returns: CURLMcode type, general multi error code. *NOTE* that this only
   *          returns errors etc regarding the whole multi stack. There might
-  *          still have occurred problems on invidual transfers even when this
-  *          returns OK.
+  *          still have occurred problems on individual transfers even when
+  *          this returns OK.
   */
 CURL_EXTERN CURLMcode curl_multi_perform(CURLM *multi_handle,
                                          int *running_handles);

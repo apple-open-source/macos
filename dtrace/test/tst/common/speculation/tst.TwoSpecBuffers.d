@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.TwoSpecBuffers.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Increasing the value of nspec to two should will increase the number of

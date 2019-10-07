@@ -35,6 +35,7 @@ extern CKKSPowerEvent* const kCKKSPowerEventIncommingQueue;
 extern CKKSPowerEvent* const kCKKSPowerEventTLKShareProcessing;
 extern CKKSPowerEvent* const kCKKSPowerEventScanLocalItems;
 extern CKKSPowerEvent* const kCKKSPowerEventFetchAllChanges;
+extern CKKSPowerEvent* const kCKKSPowerEventReencryptOutgoing;
 
 @protocol OTPowerEventType <NSObject>
 @end

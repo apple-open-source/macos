@@ -1,0 +1,20 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2019-05.29</string>
+	<key>OpenSourceLicense</key>
+	<string>MIT</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>python_modules.txt</string>
+	<key>OpenSourceSHA256</key>
+	<string>9d5c20441baf0cb60a4ac34cc447c6c189024b6b4c6cd7877034f4965c464e49</string>
+	<key>OpenSourceProject</key>
+	<string>asn1crypto</string>
+	<key>OpenSourceURL</key>
+	<string>https://files.pythonhosted.org/packages/fc/f1/8db7daa71f414ddabfa056c4ef792e1461ff655c2ae2928a2b675bfed6b4/asn1crypto-0.24.0.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>0.24.0</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://github.com/wbond/asn1crypto</string>
+</dict>
+</plist>

@@ -30,7 +30,7 @@
 #if (CCSYMCTR == 0)
 entryPoint(CommonCryptoSymCTR,"CommonCrypto Symmetric CTR Testing")
 #else
-static int kTestTestCount = 44;
+static int kTestTestCount = 43;
 
 static CCCryptorStatus doCrypt(char *in, char *out, CCCryptorRef cryptor) {
     byteBuffer inbb = hexStringToBytes(in);
@@ -102,13 +102,6 @@ int CommonCryptoSymCTR(int __unused argc, char *const * __unused argv)
     {
         key = hexStringToBytes("2b7e151628aed2a6abf7158809cf4f3c");
         counter = hexStringToBytes("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff");
-        
-        retval = CCCryptorCreateWithMode(kCCEncrypt, kCCModeCTR, kCCAlgorithmAES128, 
-                                         ccNoPadding, counter->bytes, key->bytes, key->len, 
-                                         NULL, 0, 0, kCCModeOptionCTR_LE, &cryptor);
-
-        
-        ok(retval == kCCUnimplemented, "CTR Mode Encrypt unavailable for kCCModeOptionCTR_LE");
 
         retval = CCCryptorCreateWithMode(kCCEncrypt, kCCModeCTR, kCCAlgorithmAES128, 
                                          ccNoPadding, counter->bytes, key->bytes, key->len, 

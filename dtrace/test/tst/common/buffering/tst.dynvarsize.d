@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.dynvarsize.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *   Positive test for dynamic variable size.

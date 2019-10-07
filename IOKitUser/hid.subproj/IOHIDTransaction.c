@@ -52,6 +52,7 @@ typedef struct __IOHIDTransaction
     IOHIDDeviceRef                          device;
     void *                                  context;
     IOHIDCallback                           callback;
+    IOOptionBits                            options;
 } __IOHIDTransaction, *__IOHIDTransactionRef;
 
 static const IOHIDObjectClass __IOHIDTransactionClass = {
@@ -119,7 +120,7 @@ void __IOHIDTransactionIntRelease( CFTypeRef object )
         transaction->transactionInterface = NULL;
     }
     
-    if ( transaction->device ) {
+    if ((transaction->options & kIOHIDTransactionOptionsWeakDevice) == 0 && transaction->device ) {
         CFRelease(transaction->device);
         transaction->device = NULL;
     }
@@ -190,7 +191,14 @@ IOHIDTransactionRef IOHIDTransactionCreate(
     }
 
     transaction->transactionInterface   = transactionInterface;
-    transaction->device                 = (IOHIDDeviceRef)CFRetain(device);
+    
+    transaction->options = options;
+    
+    if (options & kIOHIDTransactionOptionsWeakDevice) {
+        transaction->device = device;
+    } else {
+        transaction->device = (IOHIDDeviceRef)CFRetain(device);
+    }
     
     (*transaction->transactionInterface)->setDirection(
                             transaction->transactionInterface, 

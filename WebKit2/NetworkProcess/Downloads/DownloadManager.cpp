@@ -28,10 +28,10 @@
 
 #include "Download.h"
 #include "NetworkBlobRegistry.h"
+#include "NetworkConnectionToWebProcess.h"
 #include "NetworkLoad.h"
 #include "NetworkSession.h"
 #include "PendingDownload.h"
-#include "SessionTracker.h"
 #include <WebCore/NotImplemented.h>
 #include <pal/SessionID.h>
 #include <wtf/StdLibExtras.h>
@@ -44,9 +44,9 @@ DownloadManager::DownloadManager(Client& client)
 {
 }
 
-void DownloadManager::startDownload(NetworkConnectionToWebProcess* connection, PAL::SessionID sessionID, DownloadID downloadID, const ResourceRequest& request, const String& suggestedName)
+void DownloadManager::startDownload(PAL::SessionID sessionID, DownloadID downloadID, const ResourceRequest& request, const String& suggestedName)
 {
-    auto* networkSession = SessionTracker::networkSession(sessionID);
+    auto* networkSession = client().networkSession(sessionID);
     if (!networkSession)
         return;
 
@@ -54,11 +54,11 @@ void DownloadManager::startDownload(NetworkConnectionToWebProcess* connection, P
     parameters.sessionID = sessionID;
     parameters.request = request;
     parameters.clientCredentialPolicy = ClientCredentialPolicy::MayAskClientForCredentials;
-    if (request.url().protocolIsBlob() && connection)
-        parameters.blobFileReferences = NetworkBlobRegistry::singleton().filesInBlob(*connection, request.url());
+    if (request.url().protocolIsBlob())
+        parameters.blobFileReferences = client().networkBlobRegistry().filesInBlob(request.url());
     parameters.storedCredentialsPolicy = sessionID.isEphemeral() ? StoredCredentialsPolicy::DoNotUse : StoredCredentialsPolicy::Use;
 
-    m_pendingDownloads.add(downloadID, std::make_unique<PendingDownload>(WTFMove(parameters), downloadID, *networkSession, suggestedName));
+    m_pendingDownloads.add(downloadID, std::make_unique<PendingDownload>(m_client.parentProcessConnectionForDownloads(), WTFMove(parameters), downloadID, *networkSession, &client().networkBlobRegistry().blobRegistry(), suggestedName));
 }
 
 void DownloadManager::dataTaskBecameDownloadTask(DownloadID downloadID, std::unique_ptr<Download>&& download)
@@ -92,7 +92,7 @@ void DownloadManager::willDecidePendingDownloadDestination(NetworkDataTask& netw
 void DownloadManager::convertNetworkLoadToDownload(DownloadID downloadID, std::unique_ptr<NetworkLoad>&& networkLoad, ResponseCompletionHandler&& completionHandler, Vector<RefPtr<WebCore::BlobDataFileReference>>&& blobFileReferences, const ResourceRequest& request, const ResourceResponse& response)
 {
     ASSERT(!m_pendingDownloads.contains(downloadID));
-    m_pendingDownloads.add(downloadID, std::make_unique<PendingDownload>(WTFMove(networkLoad), WTFMove(completionHandler), downloadID, request, response));
+    m_pendingDownloads.add(downloadID, std::make_unique<PendingDownload>(m_client.parentProcessConnectionForDownloads(), WTFMove(networkLoad), WTFMove(completionHandler), downloadID, request, response));
 }
 
 void DownloadManager::continueDecidePendingDownloadDestination(DownloadID downloadID, String destination, SandboxExtension::Handle&& sandboxExtensionHandle, bool allowOverwrite)
@@ -169,10 +169,10 @@ void DownloadManager::publishDownloadProgress(DownloadID downloadID, const URL& 
 }
 #endif // PLATFORM(COCOA)
 
-void DownloadManager::downloadFinished(Download* download)
+void DownloadManager::downloadFinished(Download& download)
 {
-    ASSERT(m_downloads.contains(download->downloadID()));
-    m_downloads.remove(download->downloadID());
+    ASSERT(m_downloads.contains(download.downloadID()));
+    m_downloads.remove(download.downloadID());
 }
 
 void DownloadManager::didCreateDownload()
@@ -193,6 +193,18 @@ IPC::Connection* DownloadManager::downloadProxyConnection()
 AuthenticationManager& DownloadManager::downloadsAuthenticationManager()
 {
     return m_client.downloadsAuthenticationManager();
+}
+
+void DownloadManager::applicationDidEnterBackground()
+{
+    for (auto& download : m_downloads.values())
+        download->applicationDidEnterBackground();
+}
+
+void DownloadManager::applicationWillEnterForeground()
+{
+    for (auto& download : m_downloads.values())
+        download->applicationWillEnterForeground();
 }
 
 } // namespace WebKit

@@ -108,6 +108,9 @@ uatmufmt_format(const UATimeUnitFormat* mfmt,
         case UATIMEUNITFIELD_HOUR:    munit = MeasureUnit::createHour(*status);    break;
         case UATIMEUNITFIELD_MINUTE:  munit = MeasureUnit::createMinute(*status);  break;
         case UATIMEUNITFIELD_SECOND:  munit = MeasureUnit::createSecond(*status);  break;
+        case UATIMEUNITFIELD_MILLISECOND: munit = MeasureUnit::createMillisecond(*status); break;
+        case UATIMEUNITFIELD_MICROSECOND: munit = MeasureUnit::createMicrosecond(*status); break;
+        case UATIMEUNITFIELD_NANOSECOND:  munit = MeasureUnit::createNanosecond(*status);  break;
         default: *status = U_ILLEGAL_ARGUMENT_ERROR; break;
     }
     if (U_FAILURE(*status)) {
@@ -128,19 +131,17 @@ uatmufmt_format(const UATimeUnitFormat* mfmt,
 
 
 U_CAPI double U_EXPORT2
-uatmufmt_parse( const UATimeUnitFormat* mfmt,
-                const UChar*    text,
-                int32_t         textLength,
-                int32_t*        parsePos,
-                UATimeUnitField* field,
+uatmufmt_parse( const UATimeUnitFormat*,
+                const UChar*,
+                int32_t,
+                int32_t*,
+                UATimeUnitField*,
                 UErrorCode*     status)
 {
-    double doubleVal = 0.0;
-    if (U_FAILURE(*status)) {
-        return doubleVal;
+    if (!U_FAILURE(*status)) {
+        *status = U_UNSUPPORTED_ERROR;
     }
-    *status = U_UNSUPPORTED_ERROR;
-    return doubleVal;
+    return 0.0;
 }
 
 

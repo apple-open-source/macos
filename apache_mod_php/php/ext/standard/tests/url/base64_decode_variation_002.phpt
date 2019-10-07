@@ -3,9 +3,9 @@ Test base64_decode() function : usage variations   - unexpected types for arg 2
 --FILE--
 <?php
 /* Prototype  : proto string base64_decode(string str[, bool strict])
- * Description: Decodes string using MIME base64 algorithm 
+ * Description: Decodes string using MIME base64 algorithm
  * Source code: ext/standard/base64.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 function test_error_handler($err_no, $err_msg, $filename, $linenum, $vars) {
@@ -32,44 +32,44 @@ $values =  array (
 	"1" =>  1,
 	"12345" =>  12345,
 	"-2345"	=>  -2345,
-		
+
 	// float data
     "10.5" =>  10.5,
 	"-10.5" => -10.5,
 	"10.1234567e10" =>	10.1234567e10,
 	"10.7654321E-10" => 10.7654321E-10,
 	".5" => .5,
-		
+
     // array data
     "array()" =>   array(),
 	"array(0)" =>  array(0),
 	"array(1)" =>  array(1),
 	"array(1, 2)" => array(1, 2),
 	"array('color' => 'red', 'item' => 'pen'" => array('color' => 'red', 'item' => 'pen'),
-		
+
 	// null data
 	"NULL" => NULL,
 	"null" => null,
-		
+
 	// boolean data
 	"true" => true,
 	"false" => false,
 	"TRUE" => TRUE,
 	"FALSE" => FALSE,
-		
+
 	// empty data
 	"\"\"" => "",
 	"''" => '',
-		
+
 	// object data
 	"stdClass object" => new stdclass(),
-		
+
 	// undefined data
     "undefined variable" => $undefined_var,
-		
+
 	// unset data
 	"unset variable" => $unset_var,
-	
+
 	// resource data
 	"resource" => $file_handle
 );
@@ -116,23 +116,23 @@ bool(false)
 bool(false)
 
 -- Arg value array() --
-Error: 2 - base64_decode() expects parameter 2 to be boolean, array given, %s(%d)
+Error: 2 - base64_decode() expects parameter 2 to be bool, array given, %s(%d)
 NULL
 
 -- Arg value array(0) --
-Error: 2 - base64_decode() expects parameter 2 to be boolean, array given, %s(%d)
+Error: 2 - base64_decode() expects parameter 2 to be bool, array given, %s(%d)
 NULL
 
 -- Arg value array(1) --
-Error: 2 - base64_decode() expects parameter 2 to be boolean, array given, %s(%d)
+Error: 2 - base64_decode() expects parameter 2 to be bool, array given, %s(%d)
 NULL
 
 -- Arg value array(1, 2) --
-Error: 2 - base64_decode() expects parameter 2 to be boolean, array given, %s(%d)
+Error: 2 - base64_decode() expects parameter 2 to be bool, array given, %s(%d)
 NULL
 
 -- Arg value array('color' => 'red', 'item' => 'pen' --
-Error: 2 - base64_decode() expects parameter 2 to be boolean, array given, %s(%d)
+Error: 2 - base64_decode() expects parameter 2 to be bool, array given, %s(%d)
 NULL
 
 -- Arg value NULL --
@@ -160,7 +160,7 @@ string(12) "hello world!"
 string(12) "hello world!"
 
 -- Arg value stdClass object --
-Error: 2 - base64_decode() expects parameter 2 to be boolean, object given, %s(%d)
+Error: 2 - base64_decode() expects parameter 2 to be bool, object given, %s(%d)
 NULL
 
 -- Arg value undefined variable --
@@ -170,6 +170,6 @@ string(12) "hello world!"
 string(12) "hello world!"
 
 -- Arg value resource --
-Error: 2 - base64_decode() expects parameter 2 to be boolean, resource given, %s(%d)
+Error: 2 - base64_decode() expects parameter 2 to be bool, resource given, %s(%d)
 NULL
 ===Done===

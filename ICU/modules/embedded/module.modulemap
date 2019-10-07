@@ -6,6 +6,7 @@ module ICU [extern_c] [system] {
     header "putil.h"
     header "uchar.h"
     header "uconfig.h"
+    header "ucpmap.h"
     header "uiter.h"
     header "umachine.h"
     header "uregex.h"

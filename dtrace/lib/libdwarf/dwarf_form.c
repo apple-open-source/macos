@@ -246,7 +246,6 @@ dwarf_global_formref(Dwarf_Attribute attr,
   Dwarf_Debug dbg;
   Dwarf_Unsigned offset;
   Dwarf_Unsigned max_offset;
-  Dwarf_Addr ref_addr;
   Dwarf_CU_Context cu_context;
   Dwarf_Half context_version = 0;
 

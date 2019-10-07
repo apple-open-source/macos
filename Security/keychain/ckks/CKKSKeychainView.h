@@ -25,7 +25,8 @@
 #import <Foundation/Foundation.h>
 #include <dispatch/dispatch.h>
 
-#import "keychain/ckks/CKKSAPSReceiver.h"
+#import "keychain/analytics/CKKSLaunchSequence.h"
+#import "keychain/ckks/OctagonAPSReceiver.h"
 #import "keychain/ckks/CKKSLockStateTracker.h"
 #import "keychain/ckks/CKKSReachabilityTracker.h"
 #import "keychain/ckks/CloudKitDependencies.h"
@@ -45,12 +46,14 @@
 #import "keychain/ckks/CKKSProcessReceivedKeysOperation.h"
 #import "keychain/ckks/CKKSReencryptOutgoingItemsOperation.h"
 #import "keychain/ckks/CKKSScanLocalItemsOperation.h"
-#import "keychain/ckks/CKKSTLKShare.h"
+#import "keychain/ckks/CKKSTLKShareRecord.h"
 #import "keychain/ckks/CKKSUpdateDeviceStateOperation.h"
 #import "keychain/ckks/CKKSZone.h"
+#import "keychain/ckks/CKKSZoneModifier.h"
 #import "keychain/ckks/CKKSZoneChangeFetcher.h"
 #import "keychain/ckks/CKKSSynchronizeOperation.h"
 #import "keychain/ckks/CKKSLocalSynchronizeOperation.h"
+#import "keychain/ckks/CKKSProvideKeySetOperation.h"
 
 #include "CKKS.h"
 
@@ -64,8 +67,34 @@ NS_ASSUME_NONNULL_BEGIN
 @class CKKSEgoManifest;
 @class CKKSOutgoingQueueEntry;
 @class CKKSZoneChangeFetcher;
+@class CKKSCurrentKeySet;
 
-@interface CKKSKeychainView : CKKSZone <CKKSZoneUpdateReceiver, CKKSChangeFetcherClient, CKKSPeerUpdateListener>
+@interface CKKSPeerProviderState : NSObject
+@property NSString* peerProviderID;
+
+// The peer provider believes trust in this state is essential. Any subsystem using
+// a peer provider state should fail and pause if this is YES and there are trust errors.
+@property BOOL essential;
+
+@property (nonatomic, readonly, nullable) CKKSSelves* currentSelfPeers;
+@property (nonatomic, readonly, nullable) NSError* currentSelfPeersError;
+@property (nonatomic, readonly, nullable) NSSet<id<CKKSRemotePeerProtocol>>* currentTrustedPeers;
+@property (nonatomic, readonly, nullable) NSSet<NSString*>* currentTrustedPeerIDs;
+@property (nonatomic, readonly, nullable) NSError* currentTrustedPeersError;
+
+- (instancetype)initWithPeerProviderID:(NSString*)providerID
+                             essential:(BOOL)essential
+                             selfPeers:(CKKSSelves* _Nullable)selfPeers
+                        selfPeersError:(NSError* _Nullable)selfPeersError
+                          trustedPeers:(NSSet<id<CKKSPeer>>* _Nullable)currentTrustedPeers
+                     trustedPeersError:(NSError* _Nullable)trustedPeersError;
+
++ (CKKSPeerProviderState*)noPeersState:(id<CKKSPeerProvider>)provider;
+@end
+
+@interface CKKSKeychainView : CKKSZone <CKKSZoneUpdateReceiver,
+                                        CKKSChangeFetcherClient,
+                                        CKKSPeerUpdateListener>
 {
     CKKSZoneKeyState* _keyHierarchyState;
 }
@@ -73,6 +102,11 @@ NS_ASSUME_NONNULL_BEGIN
 @property CKKSCondition* loggedIn;
 @property CKKSCondition* loggedOut;
 @property CKKSCondition* accountStateKnown;
+
+@property CKKSAccountStatus trustStatus;
+@property (nullable) CKKSResultOperation* trustDependency;
+
+@property (nullable) CKKSLaunchSequence *launch;
 
 @property CKKSLockStateTracker* lockStateTracker;
 
@@ -88,7 +122,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) CKKSManifest* latestManifest;
 @property (nullable) CKKSResultOperation* keyStateReadyDependency;
 
-// Wait for the key state to become 'nontransient': no pending operation is expected to advance it (at least until user intervenes)
+// Wait for the key state to become 'nontransient': no pending operation is expected to advance it (at least until intervention)
 @property (nullable) CKKSResultOperation* keyStateNonTransientDependency;
 
 // True if we believe there's any items in the keychain which haven't been brought up in CKKS yet
@@ -102,6 +136,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property CKKSZoneChangeFetcher* zoneChangeFetcher;
 
 @property (weak) CKKSNearFutureScheduler* savedTLKNotifier;
+
+@property (nullable) CKKSNearFutureScheduler* suggestTLKUpload;
+
 
 /* Used for debugging: just what happened last time we ran this? */
 @property CKKSIncomingQueueOperation* lastIncomingQueueOperation;
@@ -123,31 +160,35 @@ NS_ASSUME_NONNULL_BEGIN
 /* Trigger this to tell the whole machine that this view has changed */
 @property CKKSNearFutureScheduler* notifyViewChangedScheduler;
 
+/* Trigger this to tell the whole machine that this view is more ready then before */
+@property CKKSNearFutureScheduler* notifyViewReadyScheduler;
+
 /* trigger this to request key state machine poking */
 @property CKKSNearFutureScheduler* pokeKeyStateMachineScheduler;
 
+// The current list of peer providers. If empty, CKKS will consider itself untrusted, and halt operation
+@property (readonly) NSArray<id<CKKSPeerProvider>>* currentPeerProviders;
+
 // These are available when you're in a dispatchSyncWithAccountKeys call, but at no other time
 // These must be pre-fetched before you get on the CKKS queue, otherwise we end up with CKKS<->SQLite<->SOSAccountQueue deadlocks
-@property (nonatomic, readonly) CKKSSelves* currentSelfPeers;
-@property (nonatomic, readonly) NSError* currentSelfPeersError;
-@property (nonatomic, readonly) NSSet<id<CKKSPeer>>* currentTrustedPeers;
-@property (nonatomic, readonly) NSError* currentTrustedPeersError;
+
+// They will be in a parallel array with currentPeerProviders above
+@property (readonly) NSArray<CKKSPeerProviderState*>* currentTrustStates;
 
 - (instancetype)initWithContainer:(CKContainer*)container
-                                zoneName:(NSString*)zoneName
-                          accountTracker:(CKKSCKAccountStateTracker*)accountTracker
-                        lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
-                     reachabilityTracker:(CKKSReachabilityTracker *)reachabilityTracker
-                        changeFetcher:(CKKSZoneChangeFetcher*)fetcher
-                        savedTLKNotifier:(CKKSNearFutureScheduler*)savedTLKNotifier
-                            peerProvider:(id<CKKSPeerProvider>)peerProvider
-    fetchRecordZoneChangesOperationClass:(Class<CKKSFetchRecordZoneChangesOperation>)fetchRecordZoneChangesOperationClass
-              fetchRecordsOperationClass:(Class<CKKSFetchRecordsOperation>)fetchRecordsOperationClass
-                     queryOperationClass:(Class<CKKSQueryOperation>)queryOperationClass
-       modifySubscriptionsOperationClass:(Class<CKKSModifySubscriptionsOperation>)modifySubscriptionsOperationClass
-         modifyRecordZonesOperationClass:(Class<CKKSModifyRecordZonesOperation>)modifyRecordZonesOperationClass
-                      apsConnectionClass:(Class<CKKSAPSConnection>)apsConnectionClass
-                           notifierClass:(Class<CKKSNotifier>)notifierClass;
+                         zoneName:(NSString*)zoneName
+                   accountTracker:(CKKSAccountStateTracker*)accountTracker
+                 lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
+              reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
+                    changeFetcher:(CKKSZoneChangeFetcher*)fetcher
+                     zoneModifier:(CKKSZoneModifier*)zoneModifier
+                 savedTLKNotifier:(CKKSNearFutureScheduler*)savedTLKNotifier
+        cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies;
+
+/* Trust state management */
+- (void)beginTrustedOperation:(NSArray<id<CKKSPeerProvider>>*)peerProviders
+             suggestTLKUpload:(CKKSNearFutureScheduler*)suggestTLKUpload;
+- (void)endTrustedOperation;
 
 /* Synchronous operations */
 
@@ -172,6 +213,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (bool)outgoingQueueEmpty:(NSError* __autoreleasing*)error;
 
+- (CKKSResultOperation<CKKSKeySetProviderOperationProtocol>*)findKeySet;
+- (void)receiveTLKUploadRecords:(NSArray<CKRecord*>*)records;
+
 - (CKKSResultOperation*)waitForFetchAndIncomingQueueProcessing;
 - (void)waitForKeyHierarchyReadiness;
 - (void)cancelAllOperations;
@@ -180,11 +224,18 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (bool)_onqueueWithAccountKeysCheckTLK:(CKKSKey*)proposedTLK error:(NSError* __autoreleasing*)error;
 
+- (BOOL)otherDevicesReportHavingTLKs:(CKKSCurrentKeySet*)keyset;
+
+- (NSSet<NSString*>*)_onqueuePriorityOutgoingQueueUUIDs;
+
 /* Asynchronous kickoffs */
 
 - (CKKSOutgoingQueueOperation*)processOutgoingQueue:(CKOperationGroup* _Nullable)ckoperationGroup;
 - (CKKSOutgoingQueueOperation*)processOutgoingQueueAfter:(CKKSResultOperation* _Nullable)after
                                         ckoperationGroup:(CKOperationGroup* _Nullable)ckoperationGroup;
+- (CKKSOutgoingQueueOperation*)processOutgoingQueueAfter:(CKKSResultOperation*)after
+                                           requiredDelay:(uint64_t)requiredDelay
+                                        ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 
 - (CKKSIncomingQueueOperation*)processIncomingQueue:(bool)failOnClassA;
 - (CKKSIncomingQueueOperation*)processIncomingQueue:(bool)failOnClassA after:(CKKSResultOperation* _Nullable)after;
@@ -251,10 +302,18 @@ NS_ASSUME_NONNULL_BEGIN
 // For this key, who doesn't yet have a CKKSTLKShare for it, shared to their current Octagon keys?
 // Note that we really want a record sharing the TLK to ourselves, so this function might return
 // a non-empty set even if all peers have the TLK: it wants us to make a record for ourself.
-- (NSSet<id<CKKSPeer>>* _Nullable)_onqueueFindPeersMissingShare:(CKKSKey*)key error:(NSError* __autoreleasing*)error;
+// If you pass in a non-empty set in afterUploading, those records will be included in the calculation.
+- (NSSet<id<CKKSPeer>>*)_onqueueFindPeers:(CKKSPeerProviderState*)trustState
+                             missingShare:(CKKSKey*)key
+                           afterUploading:(NSSet<CKKSTLKShareRecord*>* _Nullable)newShares
+                                    error:(NSError* __autoreleasing*)error;
+
+- (BOOL)_onqueueAreNewSharesSufficient:(NSSet<CKKSTLKShareRecord*>*)newShares
+                            currentTLK:(CKKSKey*)key
+                                 error:(NSError* __autoreleasing*)error;
 
 // For this key, share it to all trusted peers who don't have it yet
-- (NSSet<CKKSTLKShare*>* _Nullable)_onqueueCreateMissingKeyShares:(CKKSKey*)key error:(NSError* __autoreleasing*)error;
+- (NSSet<CKKSTLKShareRecord*>* _Nullable)_onqueueCreateMissingKeyShares:(CKKSKey*)key error:(NSError* __autoreleasing*)error;
 
 - (bool)_onqueueUpdateLatestManifestWithError:(NSError**)error;
 

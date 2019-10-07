@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)drp.DTRACEDROP_DBLERROR.d	1.1	06/08/28 SMI"
-
 BEGIN
 {
 	trace(*(int *)NULL);

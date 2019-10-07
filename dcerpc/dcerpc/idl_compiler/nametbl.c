@@ -169,7 +169,7 @@ static void find_first_set
     uint32_t * position
 )
 {
-    long n, m, tp;
+    uint32_t n, m, tp;
 
     tp = 31;
     n = n_arg;
@@ -499,7 +499,7 @@ NAMETABLE_id_t NAMETABLE_add_id
     cp = (char *) ++np;
 
     /* Copy the string into the buffer. */
-    strlcpy (cp, id, strlen (id) + 1);
+    strncpy (cp, id, strlen (id) + 1);
 
     /* Initialize the nametable node. */
     This -> left = NULL;
@@ -1010,7 +1010,10 @@ NAMETABLE_id_t NAMETABLE_add_derived_name
     char const *old_name_p;
 
     NAMETABLE_id_to_string (identifier, &old_name_p);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     sprintf (new_name, matrix, old_name_p);
+#pragma clang diagnostic pop
 
     return NAMETABLE_add_id (new_name);
 }
@@ -1032,8 +1035,11 @@ NAMETABLE_id_t NAMETABLE_add_derived_name2
 
     NAMETABLE_id_to_string (id1, &old_name1_p);
     NAMETABLE_id_to_string (id2, &old_name2_p);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     sprintf (new_name, matrix, old_name1_p, old_name2_p);
-
+#pragma clang diagnostic pop
+    
     return NAMETABLE_add_id (new_name);
 }
 

@@ -37,7 +37,6 @@
 #include "Counter.h"
 #include "CounterContent.h"
 #include "CursorList.h"
-#include "DashboardRegion.h"
 #include "ElementAncestorIterator.h"
 #include "FontVariantBuilder.h"
 #include "Frame.h"
@@ -129,9 +128,6 @@ public:
     static void applyValueVerticalAlign(StyleResolver&, CSSValue&);
     static void applyInitialTextAlign(StyleResolver&);
     static void applyValueTextAlign(StyleResolver&, CSSValue&);
-#if ENABLE(DASHBOARD_SUPPORT)
-    static void applyValueWebkitDashboardRegion(StyleResolver&, CSSValue&);
-#endif
     static void applyValueWebkitLocale(StyleResolver&, CSSValue&);
     static void applyValueWebkitTextOrientation(StyleResolver&, CSSValue&);
 #if ENABLE(TEXT_AUTOSIZING)
@@ -143,14 +139,14 @@ public:
     static void applyValueWillChange(StyleResolver&, CSSValue&);
 
 #if ENABLE(DARK_MODE_CSS)
-    static void applyValueSupportedColorSchemes(StyleResolver&, CSSValue&);
+    static void applyValueColorScheme(StyleResolver&, CSSValue&);
 #endif
 
     static void applyValueStrokeWidth(StyleResolver&, CSSValue&);
     static void applyValueStrokeColor(StyleResolver&, CSSValue&);
 
-    static void applyInitialCustomProperty(StyleResolver&, const CSSRegisteredCustomProperty*, const AtomicString& name);
-    static void applyInheritCustomProperty(StyleResolver&, const CSSRegisteredCustomProperty*, const AtomicString& name);
+    static void applyInitialCustomProperty(StyleResolver&, const CSSRegisteredCustomProperty*, const AtomString& name);
+    static void applyInheritCustomProperty(StyleResolver&, const CSSRegisteredCustomProperty*, const AtomString& name);
     static void applyValueCustomProperty(StyleResolver&, const CSSRegisteredCustomProperty*, CSSCustomPropertyValue&);
 
 private:
@@ -327,54 +323,6 @@ inline void StyleBuilderCustom::applyValueVerticalAlign(StyleResolver& styleReso
     else
         styleResolver.style()->setVerticalAlignLength(primitiveValue.convertToLength<FixedIntegerConversion | PercentConversion | CalculatedConversion>(styleResolver.state().cssToLengthConversionData()));
 }
-
-#if ENABLE(DASHBOARD_SUPPORT)
-
-static Length convertToIntLength(const CSSPrimitiveValue* primitiveValue, const CSSToLengthConversionData& conversionData)
-{
-    return primitiveValue ? primitiveValue->convertToLength<FixedIntegerConversion | PercentConversion | CalculatedConversion>(conversionData) : Length(Undefined);
-}
-
-inline void StyleBuilderCustom::applyValueWebkitDashboardRegion(StyleResolver& styleResolver, CSSValue& value)
-{
-    auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
-    if (primitiveValue.valueID() == CSSValueNone) {
-        styleResolver.style()->setDashboardRegions(RenderStyle::noneDashboardRegions());
-        return;
-    }
-
-    auto* region = primitiveValue.dashboardRegionValue();
-    if (!region)
-        return;
-
-    auto* first = region;
-    while (region) {
-        Length top = convertToIntLength(region->top(), styleResolver.state().cssToLengthConversionData().copyWithAdjustedZoom(1.0f));
-        Length right = convertToIntLength(region->right(), styleResolver.state().cssToLengthConversionData().copyWithAdjustedZoom(1.0f));
-        Length bottom = convertToIntLength(region->bottom(), styleResolver.state().cssToLengthConversionData().copyWithAdjustedZoom(1.0f));
-        Length left = convertToIntLength(region->left(), styleResolver.state().cssToLengthConversionData().copyWithAdjustedZoom(1.0f));
-
-        if (top.isUndefined())
-            top = Length();
-        if (right.isUndefined())
-            right = Length();
-        if (bottom.isUndefined())
-            bottom = Length();
-        if (left.isUndefined())
-            left = Length();
-
-        if (region->m_isCircle)
-            styleResolver.style()->setDashboardRegion(StyleDashboardRegion::Circle, region->m_label, WTFMove(top), WTFMove(right), WTFMove(bottom), WTFMove(left), region != first);
-        else if (region->m_isRectangle)
-            styleResolver.style()->setDashboardRegion(StyleDashboardRegion::Rectangle, region->m_label, WTFMove(top), WTFMove(right), WTFMove(bottom), WTFMove(left), region != first);
-
-        region = region->m_next.get();
-    }
-
-    styleResolver.document().setHasAnnotatedRegions(true);
-}
-
-#endif // ENABLE(DASHBOARD_SUPPORT)
 
 #if ENABLE(CSS_IMAGE_RESOLUTION)
 
@@ -669,7 +617,7 @@ static inline float computeBaseSpecifiedFontSize(const Document& document, const
     if (frame && style.textZoom() != TextZoom::Reset)
         result *= frame->textZoomFactor();
     result *= style.effectiveZoom();
-    if (percentageAutosizingEnabled)
+    if (percentageAutosizingEnabled && !document.settings().textAutosizingUsesIdempotentMode())
         result *= style.textSizeAdjust().multiplier();
     return result;
 }
@@ -701,7 +649,7 @@ static inline float computeLineHeightMultiplierDueToFontSize(const Document& doc
         }
     }
 
-    if (percentageAutosizingEnabled)
+    if (percentageAutosizingEnabled && !document.settings().textAutosizingUsesIdempotentMode())
         return style.textSizeAdjust().multiplier();
     return 1;
 }
@@ -832,10 +780,10 @@ inline void StyleBuilderCustom::applyValueWebkitTextZoom(StyleResolver& styleRes
 }
 
 #if ENABLE(DARK_MODE_CSS)
-inline void StyleBuilderCustom::applyValueSupportedColorSchemes(StyleResolver& styleResolver, CSSValue& value)
+inline void StyleBuilderCustom::applyValueColorScheme(StyleResolver& styleResolver, CSSValue& value)
 {
-    styleResolver.style()->setSupportedColorSchemes(StyleBuilderConverter::convertSupportedColorSchemes(styleResolver, value));
-    styleResolver.style()->setHasExplicitlySetSupportedColorSchemes(true);
+    styleResolver.style()->setColorScheme(StyleBuilderConverter::convertColorScheme(styleResolver, value));
+    styleResolver.style()->setHasExplicitlySetColorScheme(true);
 }
 #endif
 
@@ -953,12 +901,12 @@ inline void StyleBuilderCustom::applyValueFontFamily(StyleResolver& styleResolve
     // Before mapping in a new font-family property, we should reset the generic family.
     bool oldFamilyUsedFixedDefaultSize = fontDescription.useFixedDefaultSize();
 
-    Vector<AtomicString> families;
+    Vector<AtomString> families;
     families.reserveInitialCapacity(valueList.length());
 
     for (auto& item : valueList) {
         auto& contentValue = downcast<CSSPrimitiveValue>(item.get());
-        AtomicString family;
+        AtomString family;
         bool isGenericFamily = false;
         if (contentValue.isFontFamily()) {
             const CSSFontFamily& fontFamily = contentValue.fontFamily();
@@ -1187,7 +1135,7 @@ inline void StyleBuilderCustom::applyValueCounter(StyleResolver& styleResolver, 
 
     for (auto& item : downcast<CSSValueList>(value)) {
         Pair* pair = downcast<CSSPrimitiveValue>(item.get()).pairValue();
-        AtomicString identifier = pair->first()->stringValue();
+        AtomString identifier = pair->first()->stringValue();
         int value = pair->second()->intValue();
         auto& directives = map.add(identifier, CounterDirectives { }).iterator->value;
         if (counterBehavior == Reset)
@@ -1400,7 +1348,7 @@ inline void StyleBuilderCustom::applyValueContent(StyleResolver& styleResolver, 
             else
                 const_cast<RenderStyle*>(styleResolver.parentStyle())->setHasAttrContent();
             QualifiedName attr(nullAtom(), contentValue.stringValue().impl(), nullAtom());
-            const AtomicString& value = styleResolver.element()->getAttribute(attr);
+            const AtomString& value = styleResolver.element()->getAttribute(attr);
             styleResolver.style()->setContent(value.isNull() ? emptyAtom() : value.impl(), didSet);
             didSet = true;
             // Register the fact that the attribute value affects the style.
@@ -1797,7 +1745,7 @@ void StyleBuilderCustom::applyValueAlt(StyleResolver& styleResolver, CSSValue& v
             const_cast<RenderStyle*>(styleResolver.parentStyle())->setUnique();
 
         QualifiedName attr(nullAtom(), primitiveValue.stringValue(), nullAtom());
-        const AtomicString& value = styleResolver.element()->getAttribute(attr);
+        const AtomString& value = styleResolver.element()->getAttribute(attr);
         styleResolver.style()->setContentAltText(value.isNull() ? emptyAtom() : value);
 
         // Register the fact that the attribute value affects the style.
@@ -1851,7 +1799,7 @@ inline void StyleBuilderCustom::applyValueStrokeColor(StyleResolver& styleResolv
     styleResolver.style()->setHasExplicitlySetStrokeColor(true);
 }
 
-inline void StyleBuilderCustom::applyInitialCustomProperty(StyleResolver& styleResolver, const CSSRegisteredCustomProperty* registered, const AtomicString& name)
+inline void StyleBuilderCustom::applyInitialCustomProperty(StyleResolver& styleResolver, const CSSRegisteredCustomProperty* registered, const AtomString& name)
 {
     if (registered && registered->initialValue()) {
         auto initialValue = registered->initialValueCopy();
@@ -1863,7 +1811,7 @@ inline void StyleBuilderCustom::applyInitialCustomProperty(StyleResolver& styleR
     applyValueCustomProperty(styleResolver, registered, invalid.get());
 }
 
-inline void StyleBuilderCustom::applyInheritCustomProperty(StyleResolver& styleResolver, const CSSRegisteredCustomProperty* registered, const AtomicString& name)
+inline void StyleBuilderCustom::applyInheritCustomProperty(StyleResolver& styleResolver, const CSSRegisteredCustomProperty* registered, const AtomString& name)
 {
     auto* parentValue = styleResolver.parentStyle() ? styleResolver.parentStyle()->inheritedCustomProperties().get(name) : nullptr;
     if (parentValue && !(registered && !registered->inherits))

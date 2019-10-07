@@ -16,14 +16,13 @@ fa@php.net
     $s_w = socket_bind();
     var_dump($s_w);
     $s_w = socket_bind($s_c);
-    var_dump($s_w);    
+    var_dump($s_w);
     socket_close($s_c);
 
 ?>
 --EXPECTF--
-
-Warning: socket_bind() expects at least 2 parameters, 0 given in %s on line %i
+Warning: socket_bind() expects at least 2 parameters, 0 given in %s on line %d
 NULL
 
-Warning: socket_bind() expects at least 2 parameters, 1 given in %s on line %i
+Warning: socket_bind() expects at least 2 parameters, 1 given in %s on line %d
 NULL

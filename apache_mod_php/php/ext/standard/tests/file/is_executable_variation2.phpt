@@ -5,7 +5,7 @@ Test is_executable() function: usage variations - file/dir with diff. perms
 if (substr(PHP_OS, 0, 3) == 'WIN') {
     die('skip not for windows');
 }
-// Skip if being run by root 
+// Skip if being run by root
 $filename = dirname(__FILE__)."/is_readable_root_check.tmp";
 $fp = fopen($filename, 'w');
 fclose($fp);
@@ -80,7 +80,7 @@ echo "Done\n";
 <?php
 rmdir(dirname(__FILE__)."/is_executable_variation2/");
 ?>
---EXPECTF--
+--EXPECT--
 *** Testing is_executable(): usage variations ***
 
 *** Testing is_executable() on directory without execute permission ***

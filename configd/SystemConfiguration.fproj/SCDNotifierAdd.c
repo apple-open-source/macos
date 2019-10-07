@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009-2011, 2013, 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009-2011, 2013, 2016, 2017, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -74,10 +74,6 @@ SCDynamicStoreAddWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean is
 		_SCErrorSet(kSCStatusFailed);
 		return FALSE;
 	}
-
-#ifdef	VERBOSE_ACTIVITY_LOGGING
-	os_activity_scope(storePrivate->activity);
-#endif	// VERBOSE_ACTIVITY_LOGGING
 
     retry :
 

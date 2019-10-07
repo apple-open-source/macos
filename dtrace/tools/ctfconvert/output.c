@@ -141,8 +141,8 @@ gelf_getsym_macho_64(Elf_Data * data, int ndx, int nent, GElf_Sym * dst, const c
 typedef struct iidesc_match {
 	int iim_fuzzy;
 	iidesc_t *iim_ret;
-	char *iim_name;
-	char *iim_file;
+	atom_t *iim_name;
+	atom_t *iim_file;
 	uchar_t iim_bind;
 } iidesc_match_t;
 
@@ -183,7 +183,7 @@ save_type_by_id(tdesc_t *tdp, tdesc_t **tdpp, void *private)
 	if (tdp->t_id > iiburst->iib_maxtypeid)
 		iiburst->iib_maxtypeid = tdp->t_id;
 
-	slist_add(&iiburst->iib_types, tdp, tdesc_idcmp);
+	array_add(&iiburst->iib_types, tdp);
 
 	return (1);
 }
@@ -202,7 +202,8 @@ static tdtrav_cb_f burst_types_cbs[] = {
 	tdtrav_assert,		/* typedef_unres */
 	save_type_by_id,	/* volatile */
 	save_type_by_id,	/* const */
-	save_type_by_id		/* restrict */
+	save_type_by_id,	/* restrict */
+	save_type_by_id		/* ptrauth */
 };
 
 
@@ -236,7 +237,7 @@ iiburst_free(iiburst_t *iiburst)
 {
 	free(iiburst->iib_funcs);
 	free(iiburst->iib_objts);
-	list_free(iiburst->iib_types, NULL, NULL);
+	array_free(&iiburst->iib_types, NULL, NULL);
 	free(iiburst);
 }
 
@@ -253,7 +254,7 @@ iiburst_free(iiburst_t *iiburst)
 static int
 matching_iidesc(iidesc_t *iidesc, iidesc_match_t *match)
 {
-	if (streq(iidesc->ii_name, match->iim_name) == 0)
+	if (iidesc->ii_name != match->iim_name)
 		return (0);
 
 	switch (iidesc->ii_type) {
@@ -272,10 +273,12 @@ matching_iidesc(iidesc_t *iidesc, iidesc_match_t *match)
 	case II_SVAR:
 		if (match->iim_bind == STB_LOCAL &&
 		    match->iim_file != NULL &&
-		    streq(iidesc->ii_owner, match->iim_file)) {
+		    iidesc->ii_owner == match->iim_file) {
 			match->iim_ret = iidesc;
 			return (-1);
 		}
+		break;
+	default:
 		break;
 	}
 	return (0);
@@ -285,7 +288,7 @@ static iidesc_t *
 find_iidesc(tdata_t *td, iidesc_match_t *match)
 {
 	match->iim_ret = NULL;
-	iter_iidescs_by_name(td, match->iim_name,
+	iter_iidescs_by_name(td, match->iim_name->value,
 	    (int (*)())matching_iidesc, match);
 	return (match->iim_ret);
 }
@@ -328,7 +331,7 @@ find_iidesc(tdata_t *td, iidesc_match_t *match)
 static int
 check_for_weak(GElf_Sym *weak, char const *weakfile,
     Elf_Data *data, int nent, Elf_Data *strdata,
-    GElf_Sym *retsym, char **curfilep)
+    GElf_Sym *retsym, atom_t **atomp)
 {
 	char *curfile = NULL;
 	char *tmpfile;
@@ -373,13 +376,13 @@ check_for_weak(GElf_Sym *weak, char const *weakfile,
 			continue;
 		}
 
-		*curfilep = curfile;
+		*atomp = atom_get(curfile);
 		*retsym = sym;
 		return (1);
 	}
 
 	if (candidate) {
-		*curfilep = tmpfile;
+		*atomp = atom_get(tmpfile);
 		*retsym = tmpsym;
 		return (1);
 	}
@@ -432,7 +435,7 @@ sort_iidescs(Elf *elf, const char *file, tdata_t *td, int fuzzymatch,
 	iidesc_match_t match;
 
 	match.iim_fuzzy = fuzzymatch;
-	match.iim_file = NULL;
+	match.iim_file = ATOM_NULL;
 
 	if ((stidx = findelfsecidx(elf, file,
 	    dynsym ? ".dynsym" : ".symtab")) < 0)
@@ -479,7 +482,7 @@ sort_iidescs(Elf *elf, const char *file, tdata_t *td, int fuzzymatch,
 		if (gelf_getsym(data, i, &sym) == NULL)
 			elfterminate(file, "Couldn't read symbol %d", i);
 
-		match.iim_name = (char *)strdata->d_buf + sym.st_name;
+		match.iim_name = atom_get(strdata->d_buf + sym.st_name);
 		match.iim_bind = GELF_ST_BIND(sym.st_info);
 
 		switch (GELF_ST_TYPE(sym.st_info)) {
@@ -498,7 +501,7 @@ sort_iidescs(Elf *elf, const char *file, tdata_t *td, int fuzzymatch,
 			continue;
 		}
 
-		if (ignore_symbol(&sym, match.iim_name))
+		if (ignore_symbol(&sym, match.iim_name->value))
 			continue;
 
 		iidesc = find_iidesc(td, &match);
@@ -517,17 +520,17 @@ sort_iidescs(Elf *elf, const char *file, tdata_t *td, int fuzzymatch,
 		}
 
 		smatch.iim_fuzzy = fuzzymatch;
-		smatch.iim_name = (char *)strdata->d_buf + ssym.st_name;
+		smatch.iim_name = atom_get(strdata->d_buf + ssym.st_name);
 		smatch.iim_bind = GELF_ST_BIND(ssym.st_info);
 
-		debug(3, "Weak symbol %s resolved to %s\n", match.iim_name,
-		    smatch.iim_name);
+		debug(3, "Weak symbol %s resolved to %s\n", match.iim_name->value,
+		    smatch.iim_name->value);
 
 		iidesc = find_iidesc(td, &smatch);
 
 		if (iidesc != NULL) {
 			tolist[*curr] = copy_from_strong(td, &sym,
-			    iidesc, match.iim_name, match.iim_file);
+			    iidesc, match.iim_name->value, match.iim_file->value);
 			tolist[*curr]->ii_flags |= IIDESC_F_USED;
 		}
 
@@ -548,7 +551,7 @@ sort_iidescs(Elf *elf, const char *file, tdata_t *td, int fuzzymatch,
 				elfterminate(file, "Couldn't read symbol %d", i);
 		}
 
-		match.iim_name = (char *)strdata->d_buf + sym.st_name;
+		match.iim_name = atom_get(strdata->d_buf + sym.st_name);
 		match.iim_bind = GELF_ST_BIND(sym.st_info);
 		
 		switch (GELF_ST_TYPE(sym.st_info)) {
@@ -567,7 +570,7 @@ sort_iidescs(Elf *elf, const char *file, tdata_t *td, int fuzzymatch,
 			continue;
 		}
 
-		if (ignore_symbol(&sym, match.iim_name))
+		if (ignore_symbol(&sym, match.iim_name->value))
 			continue;
 
 		iidesc = find_iidesc(td, &match);
@@ -579,7 +582,7 @@ sort_iidescs(Elf *elf, const char *file, tdata_t *td, int fuzzymatch,
 			continue;
 		}
 
-		if (ignore_symbol(&sym, match.iim_name))
+		if (ignore_symbol(&sym, match.iim_name->value))
 			continue;
 
 #warning FIXME: deal with weak bindings.
@@ -611,237 +614,6 @@ sort_iidescs(Elf *elf, const char *file, tdata_t *td, int fuzzymatch,
 
 	return (iiburst);
 }
-
-#if !defined(__APPLE__)
-static void
-write_file(Elf *src, const char *srcname, Elf *dst, const char *dstname,
-    caddr_t ctfdata, size_t ctfsize, int flags)
-{
-	GElf_Ehdr sehdr, dehdr;
-	Elf_Scn *sscn, *dscn;
-	Elf_Data *sdata, *ddata;
-	GElf_Shdr shdr;
-	GElf_Word symtab_type;
-	int symtab_idx = -1;
-	off_t new_offset = 0;
-	off_t ctfnameoff = 0;
-	int dynsym = (flags & CTF_USE_DYNSYM);
-	int keep_stabs = (flags & CTF_KEEP_STABS);
-	int *secxlate;
-	int srcidx, dstidx;
-	int curnmoff = 0;
-	int changing = 0;
-	int pad;
-	int i;
-
-	if (gelf_newehdr(dst, gelf_getclass(src)) == NULL)
-		elfterminate(dstname, "Cannot copy ehdr to temp file");
-	gelf_getehdr(src, &sehdr);
-	memcpy(&dehdr, &sehdr, sizeof (GElf_Ehdr));
-	gelf_update_ehdr(dst, &dehdr);
-
-	symtab_type = dynsym ? SHT_DYNSYM : SHT_SYMTAB;
-
-	/*
-	 * Neither the existing stab sections nor the SUNW_ctf sections (new or
-	 * existing) are SHF_ALLOC'd, so they won't be in areas referenced by
-	 * program headers.  As such, we can just blindly copy the program
-	 * headers from the existing file to the new file.
-	 */
-	if (sehdr.e_phnum != 0) {
-		(void) elf_flagelf(dst, ELF_C_SET, ELF_F_LAYOUT);
-		if (gelf_newphdr(dst, sehdr.e_phnum) == NULL)
-			elfterminate(dstname, "Cannot make phdrs in temp file");
-
-		for (i = 0; i < sehdr.e_phnum; i++) {
-			GElf_Phdr phdr;
-
-			gelf_getphdr(src, i, &phdr);
-			gelf_update_phdr(dst, i, &phdr);
-		}
-	}
-
-	secxlate = xmalloc(sizeof (int) * sehdr.e_shnum);
-	for (srcidx = dstidx = 0; srcidx < sehdr.e_shnum; srcidx++) {
-		Elf_Scn *scn = elf_getscn(src, srcidx);
-		GElf_Shdr shdr;
-		char *sname;
-
-		gelf_getshdr(scn, &shdr);
-		sname = elf_strptr(src, sehdr.e_shstrndx, shdr.sh_name);
-		if (sname == NULL) {
-			elfterminate(srcname, "Can't find string at %u",
-			    shdr.sh_name);
-		}
-
-		if (strcmp(sname, CTF_ELF_SCN_NAME) == 0) {
-			secxlate[srcidx] = -1;
-		} else if (!keep_stabs &&
-		    (strncmp(sname, ".stab", 5) == 0 ||
-		    strncmp(sname, ".debug", 6) == 0 ||
-		    strncmp(sname, ".rel.debug", 10) == 0 ||
-		    strncmp(sname, ".rela.debug", 11) == 0)) {
-			secxlate[srcidx] = -1;
-		} else if (dynsym && shdr.sh_type == SHT_SYMTAB) {
-			/*
-			 * If we're building CTF against the dynsym,
-			 * we'll rip out the symtab so debuggers aren't
-			 * confused.
-			 */
-			secxlate[srcidx] = -1;
-		} else {
-			secxlate[srcidx] = dstidx++;
-			curnmoff += strlen(sname) + 1;
-		}
-
-		new_offset = (off_t)dehdr.e_phoff;
-	}
-
-	for (srcidx = 1; srcidx < sehdr.e_shnum; srcidx++) {
-		char *sname;
-
-		sscn = elf_getscn(src, srcidx);
-		gelf_getshdr(sscn, &shdr);
-
-		if (secxlate[srcidx] == -1) {
-			changing = 1;
-			continue;
-		}
-
-		dscn = elf_newscn(dst);
-
-		/*
-		 * If this file has program headers, we need to explicitly lay
-		 * out sections.  If none of the sections prior to this one have
-		 * been removed, then we can just use the existing location.  If
-		 * one or more sections have been changed, then we need to
-		 * adjust this one to avoid holes.
-		 */
-		if (changing && sehdr.e_phnum != 0) {
-			pad = new_offset % shdr.sh_addralign;
-
-			if (pad)
-				new_offset += shdr.sh_addralign - pad;
-			shdr.sh_offset = new_offset;
-		}
-
-		shdr.sh_link = secxlate[shdr.sh_link];
-
-		if (shdr.sh_type == SHT_REL || shdr.sh_type == SHT_RELA)
-			shdr.sh_info = secxlate[shdr.sh_info];
-
-		sname = elf_strptr(src, sehdr.e_shstrndx, shdr.sh_name);
-		if (sname == NULL) {
-			elfterminate(srcname, "Can't find string at %u",
-			    shdr.sh_name);
-		}
-		if ((sdata = elf_getdata(sscn, NULL)) == NULL)
-			elfterminate(srcname, "Cannot get sect %s data", sname);
-		if ((ddata = elf_newdata(dscn)) == NULL)
-			elfterminate(dstname, "Can't make sect %s data", sname);
-		bcopy(sdata, ddata, sizeof (Elf_Data));
-
-		if (srcidx == sehdr.e_shstrndx) {
-			char seclen = strlen(CTF_ELF_SCN_NAME);
-
-			ddata->d_buf = xmalloc(ddata->d_size + shdr.sh_size +
-			    seclen + 1);
-			bcopy(sdata->d_buf, ddata->d_buf, shdr.sh_size);
-			strcpy((caddr_t)ddata->d_buf + shdr.sh_size,
-			    CTF_ELF_SCN_NAME);
-			ctfnameoff = (off_t)shdr.sh_size;
-			shdr.sh_size += seclen + 1;
-			ddata->d_size += seclen + 1;
-
-			if (sehdr.e_phnum != 0)
-				changing = 1;
-		}
-
-		if (shdr.sh_type == symtab_type && shdr.sh_entsize != 0) {
-			int nsym = shdr.sh_size / shdr.sh_entsize;
-
-			symtab_idx = secxlate[srcidx];
-
-			ddata->d_buf = xmalloc(shdr.sh_size);
-			bcopy(sdata->d_buf, ddata->d_buf, shdr.sh_size);
-
-			for (i = 0; i < nsym; i++) {
-				GElf_Sym sym;
-				short newscn;
-
-				(void) gelf_getsym(ddata, i, &sym);
-
-				if (sym.st_shndx >= SHN_LORESERVE)
-					continue;
-
-				if ((newscn = secxlate[sym.st_shndx]) !=
-				    sym.st_shndx) {
-					sym.st_shndx =
-					    (newscn == -1 ? 1 : newscn);
-
-					gelf_update_sym(ddata, i, &sym);
-				}
-			}
-		}
-
-		if (gelf_update_shdr(dscn, &shdr) == NULL)
-			elfterminate(dstname, "Cannot update sect %s", sname);
-
-		new_offset = (off_t)shdr.sh_offset;
-		if (shdr.sh_type != SHT_NOBITS)
-			new_offset += shdr.sh_size;
-	}
-
-	if (symtab_idx == -1) {
-		terminate("%s: Cannot find %s section\n", srcname,
-		    dynsym ? "SHT_DYNSYM" : "SHT_SYMTAB");
-	}
-
-	/* Add the ctf section */
-	dscn = elf_newscn(dst);
-	gelf_getshdr(dscn, &shdr);
-	shdr.sh_name = ctfnameoff;
-	shdr.sh_type = SHT_PROGBITS;
-	shdr.sh_size = ctfsize;
-	shdr.sh_link = symtab_idx;
-	shdr.sh_addralign = 4;
-	if (changing && sehdr.e_phnum != 0) {
-		pad = new_offset % shdr.sh_addralign;
-
-		if (pad)
-			new_offset += shdr.sh_addralign - pad;
-
-		shdr.sh_offset = new_offset;
-		new_offset += shdr.sh_size;
-	}
-
-	ddata = elf_newdata(dscn);
-	ddata->d_buf = ctfdata;
-	ddata->d_size = ctfsize;
-	ddata->d_align = shdr.sh_addralign;
-
-	gelf_update_shdr(dscn, &shdr);
-
-	/* update the section header location */
-	if (sehdr.e_phnum != 0) {
-		size_t align = gelf_fsize(dst, ELF_T_ADDR, 1, EV_CURRENT);
-		size_t r = new_offset % align;
-
-		if (r)
-			new_offset += align - r;
-
-		dehdr.e_shoff = new_offset;
-	}
-
-	/* commit to disk */
-	dehdr.e_shstrndx = secxlate[sehdr.e_shstrndx];
-	gelf_update_ehdr(dst, &dehdr);
-	if (elf_update(dst, ELF_C_WRITE) < 0)
-		elfterminate(dstname, "Cannot finalize temp file");
-
-	free(secxlate);
-}
-#else
 #include "decl.h"
 static void
 write_file_64(Elf *src, const char *srcname, Elf *dst, const char *dstname,
@@ -1276,8 +1048,6 @@ write_file_64(Elf *src, const char *srcname, Elf *dst, const char *dstname,
 
 	return;
 }
-
-#endif /* __APPLE__ */
 
 static caddr_t
 make_ctf_data(tdata_t *td, Elf *elf, const char *file, size_t *lenp, int flags)

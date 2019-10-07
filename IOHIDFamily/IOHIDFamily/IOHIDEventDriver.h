@@ -40,7 +40,11 @@ class IOHIDEvent;
     @abstract
     @discussion
 */
-class IOHIDEventDriver: public IOHIDEventService
+#if defined(KERNEL) && !defined(KERNEL_PRIVATE)
+class __deprecated_msg("Use DriverKit") IOHIDEventDriver : public IOHIDEventService
+#else
+class IOHIDEventDriver : public IOHIDEventService
+#endif
 {
     OSDeclareDefaultStructors( IOHIDEventDriver )
 
@@ -77,6 +81,7 @@ private:
         
         struct {
             OSArray *           elements;
+            OSArray *           blessedUsagePairs;
             UInt8               bootMouseData[4];
             bool                appleVendorSupported;
         } keyboard;
@@ -178,6 +183,7 @@ private:
 
         struct {
             IOHIDElement *      reportInterval;
+            IOHIDElement *      maxFIFOEvents;
             IOHIDElement *      reportLatency;
             IOHIDElement *      sniffControl;
         } sensorProperty;
@@ -194,7 +200,8 @@ private:
     };
 
     ExpansionData *             _reserved;
-    
+
+    bool                    getBlessedUsagePairs();
     bool                    parseElements(OSArray * elementArray, UInt32 bootProtocol);
     bool                    parseRelativeElement(IOHIDElement * element);
     bool                    parseMultiAxisElement(IOHIDElement * element);
@@ -274,13 +281,13 @@ private:
 
 protected:
 
-    virtual void            free();
+    virtual void            free(void) APPLE_KEXT_OVERRIDE;
     
-    virtual OSArray *       getReportElements();
+    virtual OSArray *       getReportElements(void) APPLE_KEXT_OVERRIDE;
     
-    virtual bool            handleStart( IOService * provider );
+    virtual bool            handleStart( IOService * provider ) APPLE_KEXT_OVERRIDE;
 
-    virtual void            handleStop(  IOService * provider );
+    virtual void            handleStop(  IOService * provider ) APPLE_KEXT_OVERRIDE;
     
     virtual void            handleInterruptReport (
                                 AbsoluteTime                timeStamp,
@@ -288,53 +295,55 @@ protected:
                                 IOHIDReportType             reportType,
                                 UInt32                      reportID);
 
-    virtual OSString *      getTransport ();
+    virtual OSString *      getTransport (void) APPLE_KEXT_OVERRIDE;
 
-    virtual UInt32          getLocationID ();
+    virtual UInt32          getLocationID (void) APPLE_KEXT_OVERRIDE;
 
-    virtual UInt32          getVendorID ();
+    virtual UInt32          getVendorID (void) APPLE_KEXT_OVERRIDE;
 
-    virtual UInt32          getVendorIDSource ();
+    virtual UInt32          getVendorIDSource (void) APPLE_KEXT_OVERRIDE;
 
-    virtual UInt32          getProductID ();
+    virtual UInt32          getProductID (void) APPLE_KEXT_OVERRIDE;
 
-    virtual UInt32          getVersion ();
+    virtual UInt32          getVersion (void) APPLE_KEXT_OVERRIDE;
 
-    virtual UInt32          getCountryCode ();
+    virtual UInt32          getCountryCode (void) APPLE_KEXT_OVERRIDE;
 
-    virtual OSString *      getManufacturer ();
+    virtual OSString *      getManufacturer (void) APPLE_KEXT_OVERRIDE;
 
-    virtual OSString *      getProduct ();
+    virtual OSString *      getProduct (void) APPLE_KEXT_OVERRIDE;
 
-    virtual OSString *      getSerialNumber ();
+    virtual OSString *      getSerialNumber (void) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn        setElementValue (
                                 UInt32                      usagePage,
                                 UInt32                      usage,
-                                UInt32                      value );
+                                UInt32                      value ) APPLE_KEXT_OVERRIDE;
     
     virtual UInt32          getElementValue ( 
                                 UInt32                      usagePage,
-                                UInt32                      usage );
+                                UInt32                      usage ) APPLE_KEXT_OVERRIDE;
 
-    virtual void            dispatchEvent(IOHIDEvent * event, IOOptionBits options=0);
+    virtual void            dispatchEvent(IOHIDEvent * event, IOOptionBits options=0) APPLE_KEXT_OVERRIDE;
 
 public:
 
 
-    virtual bool            init( OSDictionary * dictionary = 0 );
+    virtual bool            init( OSDictionary * dictionary = 0 ) APPLE_KEXT_OVERRIDE;
 
     virtual bool            didTerminate(
                                 IOService *                 provider,
                                 IOOptionBits                options,
-                                bool *                      defer );
+                                bool *                      defer ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn        setProperties( OSObject * properties );
+    virtual IOReturn        setProperties( OSObject * properties ) APPLE_KEXT_OVERRIDE;
 
     virtual IOHIDEvent *    copyEvent(
                                 IOHIDEventType              type,
                                 IOHIDEvent *                matching = 0,
                                 IOOptionBits                options = 0) APPLE_KEXT_OVERRIDE;
+    
+    virtual IOHIDEvent *copyMatchingEvent(OSDictionary *matching) APPLE_KEXT_OVERRIDE;
   
   
     OSMetaClassDeclareReservedUnused(IOHIDEventDriver,  0);

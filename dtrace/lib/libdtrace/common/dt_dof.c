@@ -395,6 +395,7 @@ dof_add_translator(dt_dof_t *ddo, const dt_xlator_t *dxp, uint_t type)
 static int
 dof_add_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 {
+#pragma unused(dhp)
 	dt_dof_t *ddo = data;
 	dtrace_hdl_t *dtp = ddo->ddo_hdl;
 	dt_probe_t *prp = idp->di_data;
@@ -436,7 +437,7 @@ dof_add_probe(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 	dofpr.dofpr_pad2 = 0;
 
 	for (pip = prp->pr_inst; pip != NULL; pip = pip->pi_next) {
-		dt_dprintf("adding probe for %s:%s\n", pip->pi_fname,
+		dt_dprintf("adding probe for %s:%s", pip->pi_fname,
 		    prp->pr_name);
 
 		dofpr.dofpr_func = dof_add_string(ddo, pip->pi_fname);

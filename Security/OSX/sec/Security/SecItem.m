@@ -153,3 +153,35 @@ void _SecItemFetchDigests(NSString *itemClass, NSString *accessGroup, void (^com
     [rpc secItemDigest:itemClass accessGroup:accessGroup complete:complete];
 }
 
+void _SecKeychainDeleteMultiUser(NSString *musr, void (^complete)(bool, NSError *))
+{
+    os_activity_t activity = os_activity_create("_SecKeychainDeleteMultiUser", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+
+    NSUUID *uuid = [[NSUUID alloc] initWithUUIDString:musr];
+    if (uuid == NULL) {
+        complete(false, NULL);
+        return;
+    }
+
+    uuid_t musrUUID;
+    [uuid getUUIDBytes:musrUUID];
+
+    id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(^(NSError *error) {
+        complete(false, error);
+    });
+    [rpc secKeychainDeleteMultiuser:[NSData dataWithBytes:musrUUID length:sizeof(uuid_t)] complete:^(bool status, NSError *error) {
+        complete(status, error);
+    }];
+}
+
+void SecItemVerifyBackupIntegrity(BOOL lightweight,
+                                  void(^completion)(NSDictionary<NSString*, NSString*>* results, NSError* error))
+{
+    @autoreleasepool {
+        id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(^(NSError *error) {
+            completion(@{@"summary" : @"XPC Error"}, error);
+        });
+        [rpc secItemVerifyBackupIntegrity:lightweight completion:completion];
+    }
+}

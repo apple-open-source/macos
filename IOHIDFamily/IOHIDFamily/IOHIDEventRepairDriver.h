@@ -43,14 +43,14 @@ protected:
                                 UInt32                      usagePage,
                                 UInt32                      usage,
                                 UInt32                      value,
-                                IOOptionBits                options = 0 );
+                                IOOptionBits                options = 0 ) APPLE_KEXT_OVERRIDE;
 
     virtual void            dispatchScrollWheelEvent(
                                 AbsoluteTime                timeStamp,
                                 SInt32                      deltaAxis1,
                                 SInt32                      deltaAxis2,
                                 SInt32                      deltaAxis3,
-                                IOOptionBits                options = 0 );
+                                IOOptionBits                options = 0 ) APPLE_KEXT_OVERRIDE;
 };
 
 #endif /* !_IOKIT_HID_IOHIDEVENTREPAIRDRIVER_H */

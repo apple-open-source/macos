@@ -4,9 +4,11 @@
 ;;;
 ;;; C/C++ mode style for Ruby.
 ;;;
-;;;  $Author: knu $
+;;;  $Author$
 ;;;  created at: Thu Apr 26 13:54:01 JST 2007
 ;;;
+;;; Put this file under a directory contained in ``load-path'', and
+;;; then load it.
 ;;; To switch to the "ruby" style automatically if it looks like a
 ;;; source file of ruby, add ruby-style-c-mode to c-mode-hook:
 ;;;
@@ -17,7 +19,7 @@
 ;;; Customize the c-default-style variable to set the default style
 ;;; for each CC major mode.
 
-(defconst ruby-style-revision "$Revision: 42804 $"
+(defconst ruby-style-revision "$Revision$"
   "Ruby style revision string.")
 
 (defconst ruby-style-version
@@ -53,7 +55,7 @@
  '("bsd"
    (c-basic-offset . 4)
    (tab-width . 8)
-   (indent-tabs-mode . t)
+   (indent-tabs-mode . nil)
    (setq show-trailing-whitespace t)
    (c-offsets-alist
     (case-label . *)
@@ -73,7 +75,20 @@
             (let ((head (progn (forward-line 100) (point)))
                   (case-fold-search nil))
               (goto-char (point-min))
-              (re-search-forward "Copyright (C) .* Yukihiro Matsumoto" head t))))
+              (re-search-forward "Copyright (C) .* Yukihiro Matsumoto" head t)))
+	  (condition-case ()
+	      (with-temp-buffer
+		(when (= 0 (call-process "git" nil t nil "remote" "get-url" "origin"))
+		  (goto-char (point-min))
+		  (looking-at ".*/ruby\\(\\.git\\)?$")))
+	    (error))
+	  (condition-case ()
+	      (with-temp-buffer
+		(when (= 0 (call-process "svn" nil t nil "info" "--xml"))
+		  (goto-char (point-min))
+		  (search-forward-regexp "<root>.*/ruby</root>" nil)))
+	    (error))
+	  nil)
       (c-set-style "ruby")))
 
 (provide 'ruby-style)

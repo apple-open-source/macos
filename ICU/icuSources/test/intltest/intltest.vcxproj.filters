@@ -289,6 +289,9 @@
     <ClCompile Include="numbertest_skeletons.cpp">
       <Filter>formatting</Filter>
     </ClCompile>
+    <ClCompile Include="numbertest_range.cpp">
+      <Filter>formatting</Filter>
+    </ClCompile>
     <ClCompile Include="numfmtst.cpp">
       <Filter>formatting</Filter>
     </ClCompile>
@@ -534,6 +537,11 @@
     </ClCompile>
     <ClCompile Include="erarulestest.cpp">
       <Filter>formatting</Filter>
+    </ClCompile>
+    <ClCompile Include="formattedvaluetest.cpp">
+      <Filter>formatting</Filter>
+    <ClCompile Include="localebuildertest.cpp">
+      <Filter>locales &amp; resources</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -920,6 +928,9 @@
     </ClInclude>
     <ClInclude Include="erarulestest.h">
       <Filter>formatting</Filter>
+    </ClInclude>
+    <ClInclude Include="localebuildertest.h">
+      <Filter>locales &amp; resources</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

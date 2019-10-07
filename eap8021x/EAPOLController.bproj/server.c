@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,7 @@
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
 #include <syslog.h>
+#include <bsm/libbsm.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCDPlugin.h>
@@ -110,7 +111,8 @@ eapolcontroller_copy_status(mach_port_t server,
     return (KERN_SUCCESS);
 }
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
+
 kern_return_t
 eapolcontroller_copy_loginwindow_config(mach_port_t server,
 					if_name_t if_name,
@@ -163,7 +165,7 @@ eapolcontroller_did_user_cancel(mach_port_t server,
     return (KERN_SUCCESS);
 }
 
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
 kern_return_t
 eapolcontroller_start(mach_port_t server,
@@ -197,7 +199,8 @@ done:
     return (KERN_SUCCESS);
 }
 
-#if ! TARGET_OS_EMBEDDED 
+#if ! TARGET_OS_IPHONE
+
 kern_return_t
 eapolcontroller_start_system(mach_port_t server,
 			     if_name_t if_name, 
@@ -237,7 +240,7 @@ eapolcontroller_client_user_cancelled(mach_port_t server,
     return (KERN_SUCCESS);
 };
 
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
 kern_return_t
 eapolcontroller_stop(mach_port_t server,
@@ -308,49 +311,38 @@ eapolcontroller_retry(mach_port_t server,
 }
 
 kern_return_t
-eapolcontroller_client_get_session(mach_port_t server, task_t task,
+eapolcontroller_client_get_session(mach_port_t server,
 				   if_name_t if_name,
 				   mach_port_t * bootstrap,
-				   mach_port_t * au_session)
+				   mach_port_t * au_session,
+				   audit_token_t audit_token)
 {
     int			pid;
-    kern_return_t	status;
 
-    status = pid_for_task(task, &pid);
-    if (status != KERN_SUCCESS) {
-	goto done;
-    }
+    pid = audit_token_to_pid(audit_token);
     ControllerClientGetSession(pid, if_name,
 			     bootstrap,
 			     au_session);
-done:
-    if (task != TASK_NULL) {
-	(void)mach_port_deallocate(mach_task_self(), task);
-    }
     return (KERN_SUCCESS);
 }
 
 kern_return_t
-eapolcontroller_client_attach(mach_port_t server, task_t task,
+eapolcontroller_client_attach(mach_port_t server,
 			      if_name_t if_name, 
 			      mach_port_t notify_port, 
 			      mach_port_t * session,
 			      xmlDataOut_t * control, 
 			      mach_msg_type_number_t * control_len,
-			      int * ret_result)
+			      int * ret_result,
+			      audit_token_t audit_token)
 {
     int			pid;
     CFDictionaryRef	dict = NULL;
     int			result = EINVAL;
-    kern_return_t	status;
 
     *control = NULL;
     *control_len = 0;
-    status = pid_for_task(task, &pid);
-    if (status != KERN_SUCCESS) {
-	(void)mach_port_deallocate(mach_task_self(), notify_port);
-	goto done;
-    }
+    pid = audit_token_to_pid(audit_token);
     result = ControllerClientAttach(pid, if_name, notify_port, session,
 				    &dict);
     if (dict != NULL) {
@@ -361,11 +353,6 @@ eapolcontroller_client_attach(mach_port_t server, task_t task,
 	}
     }
     my_CFRelease(&dict);
-
- done:
-    if (task != TASK_NULL) {
-	(void)mach_port_deallocate(mach_task_self(), task);
-    }
     *ret_result = result;
     return (KERN_SUCCESS);
 }

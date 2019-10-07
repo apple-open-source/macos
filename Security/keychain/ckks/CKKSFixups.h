@@ -28,6 +28,8 @@
 #import "keychain/ckks/CKKSKeychainView.h"
 #import "keychain/ckks/CKKSResultOperation.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 // Sometimes things go wrong.
 // Sometimes you have to clean up after your past self.
 // This contains the fixes.
@@ -37,8 +39,9 @@ typedef NS_ENUM(NSUInteger, CKKSFixup) {
     CKKSFixupRefetchCurrentItemPointers,
     CKKSFixupFetchTLKShares,
     CKKSFixupLocalReload,
+    CKKSFixupResaveDeviceStateEntries,
 };
-#define CKKSCurrentFixupNumber (CKKSFixupLocalReload)
+#define CKKSCurrentFixupNumber (CKKSFixupResaveDeviceStateEntries)
 
 @interface CKKSFixups : NSObject
 +(CKKSGroupOperation*)fixup:(CKKSFixup)lastfixup for:(CKKSKeychainView*)keychainView;
@@ -60,5 +63,12 @@ typedef NS_ENUM(NSUInteger, CKKSFixup) {
 - (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)keychainView
                         ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 @end
+
+@interface CKKSFixupResaveDeviceStateEntriesOperation: CKKSGroupOperation
+@property (weak) CKKSKeychainView* ckks;
+- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)keychainView;
+@end
+
+NS_ASSUME_NONNULL_END
 
 #endif  // OCTAGON

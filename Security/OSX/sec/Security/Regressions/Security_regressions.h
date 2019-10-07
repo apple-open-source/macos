@@ -36,7 +36,7 @@ ONE_TEST(si_69_keydesc)
 ONE_TEST(si_72_syncableitems)
 ONE_TEST(si_73_secpasswordgenerate)
 #if TARGET_OS_IPHONE
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 OFF_ONE_TEST(si_76_shared_credentials)
 #else
 ONE_TEST(si_76_shared_credentials)

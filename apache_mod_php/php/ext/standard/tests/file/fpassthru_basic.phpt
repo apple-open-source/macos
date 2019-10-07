@@ -2,7 +2,7 @@
 Test fpassthru() function: Basic functionality
 --FILE--
 <?php
-/* 
+/*
 Prototype: int fpassthru ( resource $handle );
 Description: Reads to EOF on the given file pointer from the current position
   and writes the results to the output buffer.
@@ -62,7 +62,7 @@ echo "*** Done ***\n";
 <?php
 unlink(dirname(__FILE__)."/passthru.tmp");
 ?>
---EXPECTF--
+--EXPECT--
 *** Test basic functionality of fpassthru() function ***
 
 -- Before seek operation --

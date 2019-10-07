@@ -1,13 +1,12 @@
-.Dd July 20, 2007
+.Dd February 15, 2008
 .Dt FFI 3
-.Os Darwin
 .Sh NAME
 .Nm FFI
 .Nd Foreign Function Interface
 .Sh LIBRARY
 libffi, -lffi
 .Sh SYNOPSIS
-.In ffi/ffi.h
+.In ffi.h
 .Ft ffi_status
 .Fo ffi_prep_cif
 .Fa "ffi_cif *cif"
@@ -16,12 +15,14 @@ libffi, -lffi
 .Fa "ffi_type *rtype"
 .Fa "ffi_type **atypes"
 .Fc
-.Ft ffi_status
-.Fo ffi_prep_closure
-.Fa "ffi_closure *closure"
+.Ft void
+.Fo ffi_prep_cif_var
 .Fa "ffi_cif *cif"
-.Fa "void (*fun)(ffi_cif*,void*,void**,void*)"
-.Fa "void *user_data"
+.Fa "ffi_abi abi"
+.Fa "unsigned int nfixedargs"
+.Fa "unsigned int ntotalargs"
+.Fa "ffi_type *rtype"
+.Fa "ffi_type **atypes"
 .Fc
 .Ft void
 .Fo ffi_call
@@ -36,5 +37,5 @@ generate a call to another function at runtime without requiring knowledge of
 the called function's interface at compile time.
 .Sh SEE ALSO
 .Xr ffi_prep_cif 3 ,
-.Xr ffi_prep_closure 3 ,
+.Xr ffi_prep_cif_var 3 ,
 .Xr ffi_call 3

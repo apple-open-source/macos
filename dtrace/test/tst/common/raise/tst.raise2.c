@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.raise2.c	1.1	06/08/28 SMI"
-
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>

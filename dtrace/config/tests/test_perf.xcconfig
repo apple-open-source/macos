@@ -1,0 +1,4 @@
+#include "../test_executable.xcconfig"
+INSTALL_PATH = $(COMMON_TEST_PATH)/perf
+CODE_SIGN_ENTITLEMENTS = $(SRCROOT)/cmd/dtrace/dtrace-entitlements.plist
+

@@ -101,7 +101,8 @@
 #include <dce/rpc.h>
 #include <dce/idl_es.h>
 #include <dce/stubbase.h>
-
+#include <string.h>
+        
 /*
  * IDL general defines
  */
@@ -187,7 +188,7 @@ typedef enum {
                                marshalling before a "marshall by pointing at" */
 } IDL_stack_packet_use_k_t;
 
-typedef void (*IDL_rtn_func_t)  (rpc_void_p_t );
+typedef void (*IDL_rtn_func_t)  (rpc_void_p_t);
 
 /*
  *  Interpreter state block
@@ -273,11 +274,18 @@ void rpc_ss_ndr_clean_up  (
 
 /* type vector offsets */
 #define TVEC_INT_REP_OFFSET 4
-#define IDL_VERSION_NUMBER(versno_offset)\
-    (IDL_msp->IDL_type_vec[TVEC_INT_REP_OFFSET] != NDR_LOCAL_INT_REP) ? \
-       (((*(idl_byte *)(IDL_msp->IDL_type_vec+versno_offset+1)) << 8) | \
-       *(idl_byte *)(IDL_msp->IDL_type_vec+versno_offset)) : \
-       (*(idl_short_int *)(IDL_msp->IDL_type_vec+versno_offset))
+        
+#define IDL_VERSION_NUMBER(val, versno_offset)\
+    if (IDL_msp->IDL_type_vec[TVEC_INT_REP_OFFSET] != NDR_LOCAL_INT_REP)\
+    {\
+       val = (((*(idl_byte *)(IDL_msp->IDL_type_vec+versno_offset+1)) << 8) | \
+        *(idl_byte *)(IDL_msp->IDL_type_vec+versno_offset));\
+    }\
+    else\
+    {\
+        memcpy(&val, (IDL_msp->IDL_type_vec+versno_offset), sizeof(idl_short_int));\
+    }
+
 
 /* Interpreter machinery - values of type byte */
 
@@ -359,7 +367,7 @@ void rpc_ss_ndr_clean_up  (
     }\
     else{\
     address = (idl_byte *)(((address-(idl_byte *)0)+3) & (~3)); \
-    value = *(idl_ulong_int *)address; \
+    memcpy(&value, address, sizeof(idl_ulong_int));\
     address += 4; }
 
 /* Step over a long integer from the type/definition vector */
@@ -570,10 +578,10 @@ idl_ulong_int rpc_ss_arm_switch_value
     IDL_msp_t IDL_msp
 );
 
-#define IDL_ARM_SWITCH_VALUE(defn_vec_ptr, index)\
-   (IDL_msp->IDL_type_vec[TVEC_INT_REP_OFFSET] == NDR_LOCAL_INT_REP) ? \
-      (*(idl_ulong_int *)(defn_vec_ptr + index * IDL_UNION_ARM_DESC_WIDTH)) : \
-      rpc_ss_arm_switch_value(defn_vec_ptr, index, IDL_msp)
+#define IDL_ARM_SWITCH_VALUE(arm_switch_val, defn_vec_ptr, index)\
+   ((IDL_msp->IDL_type_vec[TVEC_INT_REP_OFFSET] == NDR_LOCAL_INT_REP) ? \
+      ((void) memcpy(&arm_switch_val, (defn_vec_ptr + index * IDL_UNION_ARM_DESC_WIDTH), sizeof(idl_ulong_int))), arm_switch_val : \
+      rpc_ss_arm_switch_value(defn_vec_ptr, index, IDL_msp))
 
 /*
  *  Alignment macros for NDR marshalling

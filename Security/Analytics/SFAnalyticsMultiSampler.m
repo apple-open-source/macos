@@ -43,6 +43,7 @@
 
 @synthesize name = _name;
 @synthesize samplingInterval = _samplingInterval;
+@synthesize oncePerReport = _oncePerReport;
 
 - (instancetype)initWithName:(NSString*)name interval:(NSTimeInterval)interval block:(MultiSamplerDictionary (^)(void))block clientClass:(Class)clientClass
 {

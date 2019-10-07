@@ -55,26 +55,26 @@
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFMachPort.h>
 #include <CoreFoundation/CFRunLoop.h>
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 #include <CoreTelephony/CTSimSupportStrings.h>
 #include <MobileWiFi/MobileWiFi.h>
 #include "SIMAccessPrivate.h"
-#endif
+#endif /* TARGET_OS_IPHONE */
 #include <SystemConfiguration/SCDPlugin.h>
 #include <TargetConditionals.h>
 #include <EAP8021X/myCFUtil.h>
 #include "controller.h"
 #include "server.h"
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 #include <CoreFoundation/CFSocket.h>
 #include "EAPOLClientConfiguration.h"
 #include "EAPOLClientConfigurationPrivate.h"
 #include "EAPOLControlPrivate.h"
 #include "EAPOLControlTypesPrivate.h"
-#endif /* ! TARGET_OS_EMBEDDED */
-#if TARGET_OS_EMBEDDED
+#endif /* ! TARGET_OS_IPHONE */
+#if TARGET_OS_IPHONE
 #include "EAPOLSIMPrefsManage.h"
-#endif
+#endif /* TARGET_OS_IPHONE */
 #include "ClientControlInterface.h"
 #include "EAPOLControlTypes.h"
 #include "EAPClientProperties.h"
@@ -134,7 +134,7 @@ typedef struct eapolClient_s {
     CFDictionaryRef		user_input_dict;
 
     CFDictionaryRef		status_dict;
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     CFDictionaryRef		loginwindow_config;
     CFSocketRef			eapol_sock;
     int				eapol_fd;
@@ -145,10 +145,11 @@ typedef struct eapolClient_s {
     struct ether_addr		authenticator_mac;
 
     bool			user_cancelled;	
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 } eapolClient, *eapolClientRef;
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
+
 static __inline__ boolean_t
 is_console_user(uid_t check_uid)
 {
@@ -158,7 +159,7 @@ is_console_user(uid_t check_uid)
 static CFTypeRef        S_SIMAccessConnection = NULL;
 static Boolean          S_wifi_power_state;
 
-#else /* TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_IPHONE */
 
 static void
 clear_loginwindow_config(eapolClientRef client)
@@ -249,7 +250,7 @@ S_profile_copy_itemID_dict(EAPOLClientProfileRef profile)
     CFRelease(itemID_dict);
     return (dict);
 }
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 
 static int
 get_ifm_type(const char * name)
@@ -261,6 +262,7 @@ get_ifm_type(const char * name)
     int			s;
     int			ifm_type = 0;
     bool		supports_full_duplex = FALSE;
+    bool 		ifm_ulist_allocated = FALSE;
 
     s = socket(AF_INET, SOCK_DGRAM, 0);
     if (s < 0) {
@@ -281,6 +283,7 @@ get_ifm_type(const char * name)
     }
     if (ifm.ifm_count > media_static_count) {
 	ifm.ifm_ulist = (int *)malloc(ifm.ifm_count * sizeof(int));
+	ifm_ulist_allocated = TRUE;
     }
     else {
 	ifm.ifm_ulist = media_static;
@@ -300,6 +303,9 @@ get_ifm_type(const char * name)
     }
 
  done:
+    if (ifm_ulist_allocated) {
+	free(ifm.ifm_ulist);
+    }
     if (s >= 0) {
 	close(s);
     }
@@ -391,11 +397,11 @@ eapolClientAdd(const char * if_name, boolean_t is_wifi)
 						   kCFStringEncodingASCII);
     client->is_wifi = is_wifi;
     client->pid = -1;
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     client->eapol_fd = -1;
     client->packet_identifier = BAD_IDENTIFIER;
     client->autodetect_can_start_system_mode = !is_wifi;
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
     LIST_INSERT_HEAD(S_clientHead_p, client, link);
     return (client);
 }
@@ -403,9 +409,9 @@ eapolClientAdd(const char * if_name, boolean_t is_wifi)
 void
 eapolClientRemove(eapolClientRef client)
 {
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     clear_loginwindow_config(client);
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
     my_CFRelease(&client->if_name_cf);
     LIST_REMOVE(client, link);
     free(client);
@@ -425,10 +431,10 @@ eapolClientInvalidate(eapolClientRef client)
     client->console_user = FALSE;
     client->user_input_provided = FALSE;
     client->ports_provided = FALSE;
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     client->packet_identifier = BAD_IDENTIFIER;
     client->using_global_system_profile = FALSE;
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
     my_CFRelease(&client->notification_key);
     my_CFRelease(&client->force_renew_key);
     if (client->notify_port != MACH_PORT_NULL) {
@@ -548,13 +554,15 @@ eapolClientForceRenew(eapolClientRef client)
 }
 
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
+
 static void
 eapolClientExited(eapolClientRef client, EAPOLControlMode mode)
 {
     return;
 }
-#else /* TARGET_OS_EMBEDDED */
+
+#else /* TARGET_OS_IPHONE */
 
 /**
  ** 802.1X socket monitoring routines
@@ -772,7 +780,7 @@ eapolClientExited(eapolClientRef client, EAPOLControlMode mode)
     return;
 }
 
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 
 /**
  ** fork/exec eapolclient routines
@@ -812,16 +820,16 @@ exec_setup(pid_t pid, void * context)
 
     if (pid != 0) {
 	/* parent: clean up file descriptors */
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 	close(ec_p->eapol_fd);
-#else /* TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_IPHONE */
 	if (ec_p->client->eapol_fd == ec_p->eapol_fd) {
 	    eapolClientStopMonitoring(ec_p->client);
 	}
 	else {
 	    close(ec_p->eapol_fd);
 	}
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 	return;
     }
 
@@ -847,11 +855,11 @@ exec_setup(pid_t pid, void * context)
 static int
 open_eapol_socket(eapolClientRef client)
 {
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     if (client->eapol_fd != -1) {
 	return (client->eapol_fd);
     }
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
     return (eapol_socket(client->if_name,
 			 (get_ifm_type(client->if_name) 
 			  == IFM_IEEE80211)));
@@ -875,9 +883,9 @@ eapolClientStart(eapolClientRef client, uid_t uid, gid_t gid,
     int				status = 0;
     char			uid_str[32];
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     client->user_cancelled = FALSE;
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
     bzero(&ec, sizeof(ec));
     ec.client = client;
@@ -912,10 +920,10 @@ eapolClientStart(eapolClientRef client, uid_t uid, gid_t gid,
 	    client->owner.uid = uid;
 	    client->owner.gid = gid;
 	    client->console_user = on_console;
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 	    client->mode = kEAPOLControlModeUser;
 	    client->bootstrap = bootstrap;
-#else /* TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_IPHONE */
 	    if (on_console == FALSE
 		&& uid == login_window_uid()) {
 		client->mode = kEAPOLControlModeLoginWindow;
@@ -925,7 +933,7 @@ eapolClientStart(eapolClientRef client, uid_t uid, gid_t gid,
 		client->bootstrap = bootstrap;
 		client->au_session = au_session;
 	    }
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 	}
 	else {
 	    client->mode = kEAPOLControlModeSystem;
@@ -1080,7 +1088,7 @@ ControllerStart(if_name_t if_name, uid_t uid, gid_t gid,
 	    goto done;
 	}
     }
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     /* automatically map all requests by root to the mobile user */
     if (uid == 0) {
 	static gid_t	mobile_gid = -1;
@@ -1107,7 +1115,7 @@ ControllerStart(if_name_t if_name, uid_t uid, gid_t gid,
 	    }
 	}
     }
-#endif /* TARGET_OS_EMBEDDED */    
+#endif /* TARGET_OS_IPHONE */
     status = eapolClientStart(client, uid, gid, config_dict, bootstrap,
 			      au_session);
  done:
@@ -1155,7 +1163,8 @@ eapolClientStop(eapolClientRef client)
 
 }
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
+
 static boolean_t
 S_get_plist_boolean(CFDictionaryRef plist, CFStringRef key, boolean_t def)
 {
@@ -1168,7 +1177,8 @@ S_get_plist_boolean(CFDictionaryRef plist, CFStringRef key, boolean_t def)
     }
     return (ret);
 }
-#endif /* ! TARGET_OS_EMBEDDED */
+
+#endif /* ! TARGET_OS_IPHONE */
 
 int
 ControllerStop(if_name_t if_name, uid_t uid, gid_t gid)
@@ -1181,12 +1191,12 @@ ControllerStop(if_name_t if_name, uid_t uid, gid_t gid)
 	status = ENOENT;
 	goto done;
     }
-#if TARGET_OS_EMBEDDED 
+#if TARGET_OS_IPHONE
     if (uid != 0 && uid != client->owner.uid) {
 	status = EPERM;
 	goto done;
     }
-#else /* TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_IPHONE */
     if (uid != 0) {
 	if (uid != client->owner.uid) {
 	    if (client->mode == kEAPOLControlModeSystem
@@ -1212,7 +1222,7 @@ ControllerStop(if_name_t if_name, uid_t uid, gid_t gid)
 	} 
     }
 
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
     status = eapolClientStop(client);
  done:
     return (status);
@@ -1297,7 +1307,7 @@ ControllerRetry(if_name_t if_name, uid_t uid, gid_t gid)
 
 }
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 
 static CFDictionaryRef
 system_eapol_copy(const char * if_name)
@@ -1480,7 +1490,7 @@ ControllerDidUserCancel(if_name_t if_name)
     return (cancelled);
 }
 
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
 void
 ControllerClientGetSession(pid_t pid, if_name_t if_name,
@@ -1560,7 +1570,7 @@ ControllerClientAttach(pid_t pid, if_name_t if_name,
 	CFDictionarySetValue(dict, kEAPOLClientControlMode,
 			     mode_cf);
 	CFRelease(mode_cf);
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 	/* provide the identifier from the EAP Request Identity packet */
 	if (client->packet_identifier != BAD_IDENTIFIER) {
 	    CFNumberRef			packet_id;
@@ -1570,7 +1580,7 @@ ControllerClientAttach(pid_t pid, if_name_t if_name,
 				 packet_id);
 	    CFRelease(packet_id);
 	}
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
     }
     else {
 	command_cf = make_number(kEAPOLClientControlCommandStop);
@@ -1579,11 +1589,11 @@ ControllerClientAttach(pid_t pid, if_name_t if_name,
     CFRelease(command_cf);
     *control_dict = dict;
     eapolClientSetState(client, kEAPOLControlStateRunning);
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     if (client->mode == kEAPOLControlModeLoginWindow) {
 	set_loginwindow_config(client);
     }
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
     return (result);
  failed:
     (void)mach_port_deallocate(mach_task_self(), notify_port);
@@ -1696,7 +1706,7 @@ ControllerClientForceRenew(mach_port_t session_port)
     return (result);
 }
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 int
 ControllerClientUserCancelled(mach_port_t session_port)
 {
@@ -1714,11 +1724,14 @@ ControllerClientUserCancelled(mach_port_t session_port)
  failed:
     return (result);
 }
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 
+/*
+ * SIM removal notification
+ */
 static Boolean
 accept_types_valid_aka_or_sim(CFArrayRef accept)
 {
@@ -1964,7 +1977,7 @@ ControllerThread(void * arg)
     return (arg);
 }
 
-#else /* TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_IPHONE */
 
 static void
 console_user_changed()
@@ -2772,7 +2785,7 @@ register_system_ethernet_prefs_change(void)
     SCPreferencesScheduleWithRunLoop(S_eap_prefs, CFRunLoopGetCurrent(), kCFRunLoopCommonModes);
 }
 
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 
 
 static void
@@ -2860,11 +2873,11 @@ start(const char *bundleName, const char *bundleDir)
     }
     LIST_INIT(S_clientHead_p);
     S_store = dynamic_store_create();
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     register_sim_removal();
-#else
+#else /* TARGET_OS_IPHONE */
     register_system_ethernet_prefs_change();
-#endif
+#endif /* TARGET_OS_IPHONE */
     return;
 }
 
@@ -2875,8 +2888,8 @@ prime()
 	return;
     }
     ControllerBegin();
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     initialize_wifi_power_notification();
-#endif
+#endif /* TARGET_OS_IPHONE */
     return;
 }

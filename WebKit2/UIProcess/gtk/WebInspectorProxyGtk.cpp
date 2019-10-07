@@ -42,9 +42,9 @@
 #include "WebProcessPool.h"
 #include "WebProcessProxy.h"
 #include <WebCore/CertificateInfo.h>
-#include <WebCore/FileSystem.h>
 #include <WebCore/GtkUtilities.h>
 #include <WebCore/NotImplemented.h>
+#include <wtf/FileSystem.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
@@ -302,6 +302,10 @@ void WebInspectorProxy::platformHide()
     notImplemented();
 }
 
+void WebInspectorProxy::platformResetState()
+{
+}
+
 void WebInspectorProxy::platformBringToFront()
 {
     if (m_isOpening)
@@ -338,7 +342,7 @@ void WebInspectorProxy::platformInspectedURLChanged(const String& url)
         updateInspectorWindowTitle();
 }
 
-void WebInspectorProxy::platformShowCertificate(const CertificateInfo&)
+void WebInspectorProxy::platformShowCertificate(const WebCore::CertificateInfo&)
 {
     notImplemented();
 }
@@ -399,7 +403,7 @@ void WebInspectorProxy::platformAttach()
 
 void WebInspectorProxy::platformDetach()
 {
-    if (!inspectedPage()->isValid())
+    if (!inspectedPage()->hasRunningProcess())
         return;
 
     GRefPtr<GtkWidget> inspectorView = m_inspectorView;
@@ -442,6 +446,11 @@ void WebInspectorProxy::platformSetAttachedWindowWidth(unsigned width)
     if (m_client)
         m_client->didChangeAttachedWidth(*this, width);
     webkitWebViewBaseSetInspectorViewSize(WEBKIT_WEB_VIEW_BASE(inspectedPage()->viewWidget()), width);
+}
+
+void WebInspectorProxy::platformSetSheetRect(const WebCore::FloatRect&)
+{
+    notImplemented();
 }
 
 void WebInspectorProxy::platformStartWindowDrag()

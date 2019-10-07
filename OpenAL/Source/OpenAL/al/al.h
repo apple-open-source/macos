@@ -1,6 +1,8 @@
 #ifndef AL_AL_H
 #define AL_AL_H
 
+#include <os/availability.h>
+
 #if defined(__cplusplus)
 extern "C" {
 #endif
@@ -29,6 +31,10 @@ extern "C" {
 #if defined(TARGET_OS_MAC) && TARGET_OS_MAC
  #pragma export on
 #endif
+
+#ifndef OPENAL_DEPRECATED
+#define OPENAL_DEPRECATED API_DEPRECATED("OpenAL is deprecated in favor of AVAudioEngine", macos(10.4, 10.15), ios(2.0, 13.0))
+#endif // OPENAL_DEPRECATED
 
 /*
  * The OPENAL, ALAPI, ALAPIENTRY, AL_INVALID, AL_ILLEGAL_ENUM, and
@@ -363,40 +369,40 @@ typedef void ALvoid;
 /*
  * Renderer State management
  */
-AL_API void AL_APIENTRY alEnable( ALenum capability );
+AL_API void AL_APIENTRY alEnable( ALenum capability ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alDisable( ALenum capability ); 
+AL_API void AL_APIENTRY alDisable( ALenum capability ) OPENAL_DEPRECATED;
 
-AL_API ALboolean AL_APIENTRY alIsEnabled( ALenum capability ); 
+AL_API ALboolean AL_APIENTRY alIsEnabled( ALenum capability ) OPENAL_DEPRECATED;
 
 
 /*
  * State retrieval
  */
-AL_API const ALchar* AL_APIENTRY alGetString( ALenum param );
+AL_API const ALchar* AL_APIENTRY alGetString( ALenum param ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetBooleanv( ALenum param, ALboolean* data );
+AL_API void AL_APIENTRY alGetBooleanv( ALenum param, ALboolean* data ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetIntegerv( ALenum param, ALint* data );
+AL_API void AL_APIENTRY alGetIntegerv( ALenum param, ALint* data ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetFloatv( ALenum param, ALfloat* data );
+AL_API void AL_APIENTRY alGetFloatv( ALenum param, ALfloat* data ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetDoublev( ALenum param, ALdouble* data );
+AL_API void AL_APIENTRY alGetDoublev( ALenum param, ALdouble* data ) OPENAL_DEPRECATED;
 
-AL_API ALboolean AL_APIENTRY alGetBoolean( ALenum param );
+AL_API ALboolean AL_APIENTRY alGetBoolean( ALenum param ) OPENAL_DEPRECATED;
 
-AL_API ALint AL_APIENTRY alGetInteger( ALenum param );
+AL_API ALint AL_APIENTRY alGetInteger( ALenum param ) OPENAL_DEPRECATED;
 
-AL_API ALfloat AL_APIENTRY alGetFloat( ALenum param );
+AL_API ALfloat AL_APIENTRY alGetFloat( ALenum param ) OPENAL_DEPRECATED;
 
-AL_API ALdouble AL_APIENTRY alGetDouble( ALenum param );
+AL_API ALdouble AL_APIENTRY alGetDouble( ALenum param ) OPENAL_DEPRECATED;
 
 
 /*
  * Error support.
  * Obtain the most recent error generated in the AL state machine.
  */
-AL_API ALenum AL_APIENTRY alGetError( void );
+AL_API ALenum AL_APIENTRY alGetError( void ) OPENAL_DEPRECATED;
 
 
 /* 
@@ -404,11 +410,11 @@ AL_API ALenum AL_APIENTRY alGetError( void );
  * Query for the presence of an extension, and obtain any appropriate
  * function pointers and enum values.
  */
-AL_API ALboolean AL_APIENTRY alIsExtensionPresent( const ALchar* extname );
+AL_API ALboolean AL_APIENTRY alIsExtensionPresent( const ALchar* extname ) OPENAL_DEPRECATED;
 
-AL_API void* AL_APIENTRY alGetProcAddress( const ALchar* fname );
+AL_API void* AL_APIENTRY alGetProcAddress( const ALchar* fname ) OPENAL_DEPRECATED;
 
-AL_API ALenum AL_APIENTRY alGetEnumValue( const ALchar* ename );
+AL_API ALenum AL_APIENTRY alGetEnumValue( const ALchar* ename ) OPENAL_DEPRECATED;
 
 
 /*
@@ -427,32 +433,32 @@ AL_API ALenum AL_APIENTRY alGetEnumValue( const ALchar* ename );
 /*
  * Set Listener parameters
  */
-AL_API void AL_APIENTRY alListenerf( ALenum param, ALfloat value );
+AL_API void AL_APIENTRY alListenerf( ALenum param, ALfloat value ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alListener3f( ALenum param, ALfloat value1, ALfloat value2, ALfloat value3 );
+AL_API void AL_APIENTRY alListener3f( ALenum param, ALfloat value1, ALfloat value2, ALfloat value3 ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alListenerfv( ALenum param, const ALfloat* values ); 
+AL_API void AL_APIENTRY alListenerfv( ALenum param, const ALfloat* values ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alListeneri( ALenum param, ALint value );
+AL_API void AL_APIENTRY alListeneri( ALenum param, ALint value ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alListener3i( ALenum param, ALint value1, ALint value2, ALint value3 );
+AL_API void AL_APIENTRY alListener3i( ALenum param, ALint value1, ALint value2, ALint value3 ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alListeneriv( ALenum param, const ALint* values );
+AL_API void AL_APIENTRY alListeneriv( ALenum param, const ALint* values ) OPENAL_DEPRECATED;
 
 /*
  * Get Listener parameters
  */
-AL_API void AL_APIENTRY alGetListenerf( ALenum param, ALfloat* value );
+AL_API void AL_APIENTRY alGetListenerf( ALenum param, ALfloat* value ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetListener3f( ALenum param, ALfloat *value1, ALfloat *value2, ALfloat *value3 );
+AL_API void AL_APIENTRY alGetListener3f( ALenum param, ALfloat *value1, ALfloat *value2, ALfloat *value3 ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetListenerfv( ALenum param, ALfloat* values );
+AL_API void AL_APIENTRY alGetListenerfv( ALenum param, ALfloat* values ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetListeneri( ALenum param, ALint* value );
+AL_API void AL_APIENTRY alGetListeneri( ALenum param, ALint* value ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetListener3i( ALenum param, ALint *value1, ALint *value2, ALint *value3 );
+AL_API void AL_APIENTRY alGetListener3i( ALenum param, ALint *value1, ALint *value2, ALint *value3 ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetListeneriv( ALenum param, ALint* values );
+AL_API void AL_APIENTRY alGetListeneriv( ALenum param, ALint* values ) OPENAL_DEPRECATED;
 
 
 /**
@@ -489,43 +495,43 @@ AL_API void AL_APIENTRY alGetListeneriv( ALenum param, ALint* values );
  */
 
 /* Create Source objects */
-AL_API void AL_APIENTRY alGenSources( ALsizei n, ALuint* sources ); 
+AL_API void AL_APIENTRY alGenSources( ALsizei n, ALuint* sources ) OPENAL_DEPRECATED;
 
 /* Delete Source objects */
-AL_API void AL_APIENTRY alDeleteSources( ALsizei n, const ALuint* sources );
+AL_API void AL_APIENTRY alDeleteSources( ALsizei n, const ALuint* sources ) OPENAL_DEPRECATED;
 
 /* Verify a handle is a valid Source */ 
-AL_API ALboolean AL_APIENTRY alIsSource( ALuint sid ); 
+AL_API ALboolean AL_APIENTRY alIsSource( ALuint sid ) OPENAL_DEPRECATED;
 
 /*
  * Set Source parameters
  */
-AL_API void AL_APIENTRY alSourcef( ALuint sid, ALenum param, ALfloat value ); 
+AL_API void AL_APIENTRY alSourcef( ALuint sid, ALenum param, ALfloat value ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alSource3f( ALuint sid, ALenum param, ALfloat value1, ALfloat value2, ALfloat value3 );
+AL_API void AL_APIENTRY alSource3f( ALuint sid, ALenum param, ALfloat value1, ALfloat value2, ALfloat value3 ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alSourcefv( ALuint sid, ALenum param, const ALfloat* values ); 
+AL_API void AL_APIENTRY alSourcefv( ALuint sid, ALenum param, const ALfloat* values ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alSourcei( ALuint sid, ALenum param, ALint value ); 
+AL_API void AL_APIENTRY alSourcei( ALuint sid, ALenum param, ALint value ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alSource3i( ALuint sid, ALenum param, ALint value1, ALint value2, ALint value3 );
+AL_API void AL_APIENTRY alSource3i( ALuint sid, ALenum param, ALint value1, ALint value2, ALint value3 ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alSourceiv( ALuint sid, ALenum param, const ALint* values );
+AL_API void AL_APIENTRY alSourceiv( ALuint sid, ALenum param, const ALint* values ) OPENAL_DEPRECATED;
 
 /*
  * Get Source parameters
  */
-AL_API void AL_APIENTRY alGetSourcef( ALuint sid, ALenum param, ALfloat* value );
+AL_API void AL_APIENTRY alGetSourcef( ALuint sid, ALenum param, ALfloat* value ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetSource3f( ALuint sid, ALenum param, ALfloat* value1, ALfloat* value2, ALfloat* value3);
+AL_API void AL_APIENTRY alGetSource3f( ALuint sid, ALenum param, ALfloat* value1, ALfloat* value2, ALfloat* value3) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetSourcefv( ALuint sid, ALenum param, ALfloat* values );
+AL_API void AL_APIENTRY alGetSourcefv( ALuint sid, ALenum param, ALfloat* values ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetSourcei( ALuint sid,  ALenum param, ALint* value );
+AL_API void AL_APIENTRY alGetSourcei( ALuint sid,  ALenum param, ALint* value ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetSource3i( ALuint sid, ALenum param, ALint* value1, ALint* value2, ALint* value3);
+AL_API void AL_APIENTRY alGetSource3i( ALuint sid, ALenum param, ALint* value1, ALint* value2, ALint* value3) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetSourceiv( ALuint sid,  ALenum param, ALint* values );
+AL_API void AL_APIENTRY alGetSourceiv( ALuint sid,  ALenum param, ALint* values ) OPENAL_DEPRECATED;
 
 
 /*
@@ -533,39 +539,39 @@ AL_API void AL_APIENTRY alGetSourceiv( ALuint sid,  ALenum param, ALint* values 
  */
 
 /* Play, replay, or resume (if paused) a list of Sources */
-AL_API void AL_APIENTRY alSourcePlayv( ALsizei ns, const ALuint *sids );
+AL_API void AL_APIENTRY alSourcePlayv( ALsizei ns, const ALuint *sids ) OPENAL_DEPRECATED;
 
 /* Stop a list of Sources */
-AL_API void AL_APIENTRY alSourceStopv( ALsizei ns, const ALuint *sids );
+AL_API void AL_APIENTRY alSourceStopv( ALsizei ns, const ALuint *sids ) OPENAL_DEPRECATED;
 
 /* Rewind a list of Sources */
-AL_API void AL_APIENTRY alSourceRewindv( ALsizei ns, const ALuint *sids );
+AL_API void AL_APIENTRY alSourceRewindv( ALsizei ns, const ALuint *sids ) OPENAL_DEPRECATED;
 
 /* Pause a list of Sources */
-AL_API void AL_APIENTRY alSourcePausev( ALsizei ns, const ALuint *sids );
+AL_API void AL_APIENTRY alSourcePausev( ALsizei ns, const ALuint *sids ) OPENAL_DEPRECATED;
 
 /*
  * Source based playback calls
  */
 
 /* Play, replay, or resume a Source */
-AL_API void AL_APIENTRY alSourcePlay( ALuint sid );
+AL_API void AL_APIENTRY alSourcePlay( ALuint sid ) OPENAL_DEPRECATED;
 
 /* Stop a Source */
-AL_API void AL_APIENTRY alSourceStop( ALuint sid );
+AL_API void AL_APIENTRY alSourceStop( ALuint sid ) OPENAL_DEPRECATED;
 
 /* Rewind a Source (set playback postiton to beginning) */
-AL_API void AL_APIENTRY alSourceRewind( ALuint sid );
+AL_API void AL_APIENTRY alSourceRewind( ALuint sid ) OPENAL_DEPRECATED;
 
 /* Pause a Source */
-AL_API void AL_APIENTRY alSourcePause( ALuint sid );
+AL_API void AL_APIENTRY alSourcePause( ALuint sid ) OPENAL_DEPRECATED;
 
 /*
  * Source Queuing 
  */
-AL_API void AL_APIENTRY alSourceQueueBuffers( ALuint sid, ALsizei numEntries, const ALuint *bids );
+AL_API void AL_APIENTRY alSourceQueueBuffers( ALuint sid, ALsizei numEntries, const ALuint *bids ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alSourceUnqueueBuffers( ALuint sid, ALsizei numEntries, ALuint *bids );
+AL_API void AL_APIENTRY alSourceUnqueueBuffers( ALuint sid, ALsizei numEntries, ALuint *bids ) OPENAL_DEPRECATED;
 
 
 /**
@@ -583,58 +589,58 @@ AL_API void AL_APIENTRY alSourceUnqueueBuffers( ALuint sid, ALsizei numEntries, 
  */
 
 /* Create Buffer objects */
-AL_API void AL_APIENTRY alGenBuffers( ALsizei n, ALuint* buffers );
+AL_API void AL_APIENTRY alGenBuffers( ALsizei n, ALuint* buffers ) OPENAL_DEPRECATED;
 
 /* Delete Buffer objects */
-AL_API void AL_APIENTRY alDeleteBuffers( ALsizei n, const ALuint* buffers );
+AL_API void AL_APIENTRY alDeleteBuffers( ALsizei n, const ALuint* buffers ) OPENAL_DEPRECATED;
 
 /* Verify a handle is a valid Buffer */
-AL_API ALboolean AL_APIENTRY alIsBuffer( ALuint bid );
+AL_API ALboolean AL_APIENTRY alIsBuffer( ALuint bid ) OPENAL_DEPRECATED;
 
 /* Specify the data to be copied into a buffer */
-AL_API void AL_APIENTRY alBufferData( ALuint bid, ALenum format, const ALvoid* data, ALsizei size, ALsizei freq );
+AL_API void AL_APIENTRY alBufferData( ALuint bid, ALenum format, const ALvoid* data, ALsizei size, ALsizei freq ) OPENAL_DEPRECATED;
 
 /*
  * Set Buffer parameters
  */
-AL_API void AL_APIENTRY alBufferf( ALuint bid, ALenum param, ALfloat value );
+AL_API void AL_APIENTRY alBufferf( ALuint bid, ALenum param, ALfloat value ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alBuffer3f( ALuint bid, ALenum param, ALfloat value1, ALfloat value2, ALfloat value3 );
+AL_API void AL_APIENTRY alBuffer3f( ALuint bid, ALenum param, ALfloat value1, ALfloat value2, ALfloat value3 ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alBufferfv( ALuint bid, ALenum param, const ALfloat* values );
+AL_API void AL_APIENTRY alBufferfv( ALuint bid, ALenum param, const ALfloat* values ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alBufferi( ALuint bid, ALenum param, ALint value );
+AL_API void AL_APIENTRY alBufferi( ALuint bid, ALenum param, ALint value ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alBuffer3i( ALuint bid, ALenum param, ALint value1, ALint value2, ALint value3 );
+AL_API void AL_APIENTRY alBuffer3i( ALuint bid, ALenum param, ALint value1, ALint value2, ALint value3 ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alBufferiv( ALuint bid, ALenum param, const ALint* values );
+AL_API void AL_APIENTRY alBufferiv( ALuint bid, ALenum param, const ALint* values ) OPENAL_DEPRECATED;
 
 /*
  * Get Buffer parameters
  */
-AL_API void AL_APIENTRY alGetBufferf( ALuint bid, ALenum param, ALfloat* value );
+AL_API void AL_APIENTRY alGetBufferf( ALuint bid, ALenum param, ALfloat* value ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetBuffer3f( ALuint bid, ALenum param, ALfloat* value1, ALfloat* value2, ALfloat* value3);
+AL_API void AL_APIENTRY alGetBuffer3f( ALuint bid, ALenum param, ALfloat* value1, ALfloat* value2, ALfloat* value3) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetBufferfv( ALuint bid, ALenum param, ALfloat* values );
+AL_API void AL_APIENTRY alGetBufferfv( ALuint bid, ALenum param, ALfloat* values ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetBufferi( ALuint bid, ALenum param, ALint* value );
+AL_API void AL_APIENTRY alGetBufferi( ALuint bid, ALenum param, ALint* value ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetBuffer3i( ALuint bid, ALenum param, ALint* value1, ALint* value2, ALint* value3);
+AL_API void AL_APIENTRY alGetBuffer3i( ALuint bid, ALenum param, ALint* value1, ALint* value2, ALint* value3) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alGetBufferiv( ALuint bid, ALenum param, ALint* values );
+AL_API void AL_APIENTRY alGetBufferiv( ALuint bid, ALenum param, ALint* values ) OPENAL_DEPRECATED;
 
 
 /*
  * Global Parameters
  */
-AL_API void AL_APIENTRY alDopplerFactor( ALfloat value );
+AL_API void AL_APIENTRY alDopplerFactor( ALfloat value ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alDopplerVelocity( ALfloat value );
+AL_API void AL_APIENTRY alDopplerVelocity( ALfloat value ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alSpeedOfSound( ALfloat value );
+AL_API void AL_APIENTRY alSpeedOfSound( ALfloat value ) OPENAL_DEPRECATED;
 
-AL_API void AL_APIENTRY alDistanceModel( ALenum distanceModel );
+AL_API void AL_APIENTRY alDistanceModel( ALenum distanceModel ) OPENAL_DEPRECATED;
 
 /*
  * Pointer-to-function types, useful for dynamically getting AL entry points.

@@ -17,7 +17,7 @@ public:
 
     virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type);   // not impl
     virtual IOReturn  connectClient(IOUserClient *client);
-    virtual IOExternalMethod *getExternalMethodForIndex(UInt32 index);
+    virtual IOExternalMethod *getTargetAndMethodForIndex(IOService **target, UInt32 index);
     virtual bool start(IOService *provider);
 
     IOReturn userPostCommand(void *pIn, void *pOut, IOByteCount inputSize, IOByteCount *outPutSize);
@@ -26,11 +26,9 @@ public:
     IOReturn setIrDAState(bool state);
     
 private:
+    static const IOExternalMethod sMethods[];
     AppleIrDASerial     *fDriver;
     task_t               fTask;
-
-    IOExternalMethod   fMethods[1];     // just one method
-
 };
 
 #endif  // __IrDAUser__

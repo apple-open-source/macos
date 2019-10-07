@@ -29,18 +29,23 @@
 #import "SFAnalyticsSampler+Internal.h"
 #import "SFAnalyticsMultiSampler+Internal.h"
 #import "SFAnalyticsSQLiteStore.h"
+#import "NSDate+SFAnalytics.h"
 #import "utilities/debugging.h"
 #import <utilities/SecFileLocations.h>
 #import <objc/runtime.h>
 #import <sys/stat.h>
 #import <CoreFoundation/CFPriv.h>
+#include <os/transaction_private.h>
+#include <os/variant_private.h>
+
+#import <utilities/SecCoreAnalytics.h>
 
 // SFAnalyticsDefines constants
 NSString* const SFAnalyticsTableSuccessCount = @"success_count";
 NSString* const SFAnalyticsTableHardFailures = @"hard_failures";
 NSString* const SFAnalyticsTableSoftFailures = @"soft_failures";
 NSString* const SFAnalyticsTableSamples = @"samples";
-NSString* const SFAnalyticsTableAllEvents = @"all_events";
+NSString* const SFAnalyticsTableNotes = @"notes";
 
 NSString* const SFAnalyticsColumnSuccessCount = @"success_count";
 NSString* const SFAnalyticsColumnHardFailureCount = @"hard_failure_count";
@@ -50,45 +55,54 @@ NSString* const SFAnalyticsColumnSampleName = @"name";
 
 NSString* const SFAnalyticsEventTime = @"eventTime";
 NSString* const SFAnalyticsEventType = @"eventType";
+NSString* const SFAnalyticsEventTypeErrorEvent = @"errorEvent";
+NSString* const SFAnalyticsEventErrorDestription = @"errorDescription";
 NSString* const SFAnalyticsEventClassKey = @"eventClass";
 
 NSString* const SFAnalyticsAttributeErrorUnderlyingChain = @"errorChain";
 NSString* const SFAnalyticsAttributeErrorDomain = @"errorDomain";
 NSString* const SFAnalyticsAttributeErrorCode = @"errorCode";
 
+NSString* const SFAnalyticsAttributeLastUploadTime = @"lastUploadTime";
+
 NSString* const SFAnalyticsUserDefaultsSuite = @"com.apple.security.analytics";
 
 char* const SFAnalyticsFireSamplersNotification = "com.apple.security.sfanalytics.samplers";
 
+NSString* const SFAnalyticsTopicCloudServices = @"CloudServicesTopic";
 NSString* const SFAnalyticsTopicKeySync = @"KeySyncTopic";
-NSString* const SFAnaltyicsTopicTrust = @"TrustTopic";
+NSString* const SFAnalyticsTopicTrust = @"TrustTopic";
+NSString* const SFAnalyticsTopicTransparency = @"TransparencyTopic";
 
 NSString* const SFAnalyticsTableSchema =    @"CREATE TABLE IF NOT EXISTS hard_failures (\n"
                                                 @"id INTEGER PRIMARY KEY AUTOINCREMENT,\n"
                                                 @"timestamp REAL,"
                                                 @"data BLOB\n"
                                             @");\n"
-                                            @"CREATE TRIGGER IF NOT EXISTS maintain_ring_buffer_hard_failures AFTER INSERT ON hard_failures\n"
+                                            @"DROP TRIGGER IF EXISTS maintain_ring_buffer_hard_failures;\n"
+                                            @"CREATE TRIGGER IF NOT EXISTS maintain_ring_buffer_hard_failures_v2 AFTER INSERT ON hard_failures\n"
                                             @"BEGIN\n"
-                                                @"DELETE FROM hard_failures WHERE id != NEW.id AND id % 1000 = NEW.id % 1000;\n"
+                                                @"DELETE FROM hard_failures WHERE id <= NEW.id - 1000;\n"
                                             @"END;\n"
                                             @"CREATE TABLE IF NOT EXISTS soft_failures (\n"
                                                 @"id INTEGER PRIMARY KEY AUTOINCREMENT,\n"
                                                 @"timestamp REAL,"
                                                 @"data BLOB\n"
                                             @");\n"
-                                            @"CREATE TRIGGER IF NOT EXISTS maintain_ring_buffer_soft_failures AFTER INSERT ON soft_failures\n"
+                                            @"DROP TRIGGER IF EXISTS maintain_ring_buffer_soft_failures;\n"
+                                            @"CREATE TRIGGER IF NOT EXISTS maintain_ring_buffer_soft_failures_v2 AFTER INSERT ON soft_failures\n"
                                             @"BEGIN\n"
-                                                @"DELETE FROM soft_failures WHERE id != NEW.id AND id % 1000 = NEW.id % 1000;\n"
+                                                @"DELETE FROM soft_failures WHERE id <= NEW.id - 1000;\n"
                                             @"END;\n"
-                                            @"CREATE TABLE IF NOT EXISTS all_events (\n"
+                                            @"CREATE TABLE IF NOT EXISTS notes (\n"
                                                 @"id INTEGER PRIMARY KEY AUTOINCREMENT,\n"
                                                 @"timestamp REAL,"
                                                 @"data BLOB\n"
                                             @");\n"
-                                            @"CREATE TRIGGER IF NOT EXISTS maintain_ring_buffer_all_events AFTER INSERT ON all_events\n"
+                                            @"DROP TRIGGER IF EXISTS maintain_ring_buffer_notes;\n"
+                                            @"CREATE TRIGGER IF NOT EXISTS maintain_ring_buffer_notes_v2 AFTER INSERT ON notes\n"
                                             @"BEGIN\n"
-                                                @"DELETE FROM all_events WHERE id != NEW.id AND id % 10000 = NEW.id % 10000;\n"
+                                                @"DELETE FROM notes WHERE id <= NEW.id - 1000;\n"
                                             @"END;\n"
                                             @"CREATE TABLE IF NOT EXISTS samples (\n"
                                                 @"id INTEGER PRIMARY KEY AUTOINCREMENT,\n"
@@ -96,16 +110,18 @@ NSString* const SFAnalyticsTableSchema =    @"CREATE TABLE IF NOT EXISTS hard_fa
                                                 @"name STRING,\n"
                                                 @"value REAL\n"
                                             @");\n"
-                                            @"CREATE TRIGGER IF NOT EXISTS maintain_ring_buffer_samples AFTER INSERT ON samples\n"
+                                            @"DROP TRIGGER IF EXISTS maintain_ring_buffer_samples;\n"
+                                            @"CREATE TRIGGER IF NOT EXISTS maintain_ring_buffer_samples_v2 AFTER INSERT ON samples\n"
                                             @"BEGIN\n"
-                                            @"DELETE FROM samples WHERE id != NEW.id AND id % 1000 = NEW.id % 1000;\n"
+                                                @"DELETE FROM samples WHERE id <= NEW.id - 1000;\n"
                                             @"END;\n"
                                             @"CREATE TABLE IF NOT EXISTS success_count (\n"
                                                 @"event_type STRING PRIMARY KEY,\n"
                                                 @"success_count INTEGER,\n"
                                                 @"hard_failure_count INTEGER,\n"
                                                 @"soft_failure_count INTEGER\n"
-                                            @");\n";
+                                            @");\n"
+                                            @"DROP TABLE IF EXISTS all_events;\n";
 
 NSUInteger const SFAnalyticsMaxEventsToReport = 1000;
 
@@ -114,6 +130,7 @@ NSString* const SFAnalyticsErrorDomain = @"com.apple.security.sfanalytics";
 // Local constants
 NSString* const SFAnalyticsEventBuild = @"build";
 NSString* const SFAnalyticsEventProduct = @"product";
+NSString* const SFAnalyticsEventInternal = @"internal";
 const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
 
 @interface SFAnalytics ()
@@ -131,10 +148,6 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
 
 + (instancetype)logger
 {
-#if TARGET_OS_SIMULATOR
-    return nil;
-#else
-    
     if (self == [SFAnalytics class]) {
         secerror("attempt to instatiate abstract class SFAnalytics");
         return nil;
@@ -151,7 +164,6 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
 
     [logger database];  // For unit testing so there's always a database. DB shouldn't be nilled in production though
     return logger;
-#endif
 }
 
 + (NSString*)databasePath
@@ -261,22 +273,69 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
     return result;
 }
 
+
+- (void)incrementIntegerPropertyForKey:(NSString*)key
+{
+    __weak __typeof(self) weakSelf = self;
+    dispatch_sync(_queue, ^{
+        __strong __typeof(self) strongSelf = weakSelf;
+        if (strongSelf == nil) {
+            return;
+        }
+        NSInteger integer = [[strongSelf.database propertyForKey:key] integerValue];
+        [strongSelf.database setProperty:[NSString stringWithFormat:@"%ld", (long)integer + 1] forKey:key];
+    });
+}
+
+- (void)setNumberProperty:(NSNumber* _Nullable)number forKey:(NSString*)key
+{
+    __weak __typeof(self) weakSelf = self;
+    dispatch_sync(_queue, ^{
+        __strong __typeof(self) strongSelf = weakSelf;
+        if (strongSelf) {
+            [strongSelf.database setProperty:[number stringValue] forKey:key];
+        }
+    });
+}
+
+- (NSNumber* _Nullable)numberPropertyForKey:(NSString*)key
+{
+    __block NSNumber* result = nil;
+    __weak __typeof(self) weakSelf = self;
+    dispatch_sync(_queue, ^{
+        __strong __typeof(self) strongSelf = weakSelf;
+        if (strongSelf) {
+            NSString *property = [strongSelf.database propertyForKey:key];
+            if (property) {
+                result = [NSNumber numberWithInteger:[property integerValue]];
+            }
+        }
+    });
+    return result;
+}
+
+
 + (void)addOSVersionToEvent:(NSMutableDictionary*)eventDict {
     static dispatch_once_t onceToken;
     static NSString *build = NULL;
     static NSString *product = NULL;
+    static BOOL internal = NO;
     dispatch_once(&onceToken, ^{
         NSDictionary *version = CFBridgingRelease(_CFCopySystemVersionDictionary());
         if (version == NULL)
             return;
         build = version[(__bridge NSString *)_kCFSystemVersionBuildVersionKey];
         product = version[(__bridge NSString *)_kCFSystemVersionProductNameKey];
+        internal = os_variant_has_internal_diagnostics("com.apple.security");
     });
     if (build) {
         eventDict[SFAnalyticsEventBuild] = build;
     }
     if (product) {
         eventDict[SFAnalyticsEventProduct] = product;
+    }
+    if (internal) {
+        eventDict[SFAnalyticsEventInternal] = @YES;
     }
 }
 
@@ -292,29 +351,93 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
     return self;
 }
 
+- (NSDictionary *)coreAnalyticsKeyFilter:(NSDictionary<NSString *, id> *)info
+{
+    NSMutableDictionary *filtered = [NSMutableDictionary dictionary];
+    [info enumerateKeysAndObjectsUsingBlock:^(NSString *_Nonnull key, id  _Nonnull obj, BOOL * _Nonnull stop) {
+        filtered[[key stringByReplacingOccurrencesOfString:@"-" withString:@"_"]] = obj;
+    }];
+    return filtered;
+}
+
+// Daily CoreAnalytics metrics
+// Call this once per say if you want to have the once per day sampler collect their data and submit it
+
+- (void)dailyCoreAnalyticsMetrics:(NSString *)eventName
+{
+    NSMutableDictionary<NSString*, NSNumber*> *dailyMetrics = [NSMutableDictionary dictionary];
+    __block NSDictionary<NSString*, SFAnalyticsMultiSampler*>* multisamplers;
+    __block NSDictionary<NSString*, SFAnalyticsSampler*>* samplers;
+
+    dispatch_sync(_queue, ^{
+        multisamplers = [self->_multisamplers copy];
+        samplers = [self->_samplers copy];
+    });
+
+    [multisamplers enumerateKeysAndObjectsUsingBlock:^(NSString * _Nonnull key, SFAnalyticsMultiSampler * _Nonnull obj, BOOL * _Nonnull stop) {
+        if (obj.oncePerReport == FALSE) {
+            return;
+        }
+        NSDictionary<NSString*, NSNumber*> *samples = [obj sampleNow];
+        if (samples == nil) {
+            return;
+        }
+        [dailyMetrics addEntriesFromDictionary:samples];
+    }];
+
+    [samplers enumerateKeysAndObjectsUsingBlock:^(NSString * _Nonnull key, SFAnalyticsSampler * _Nonnull obj, BOOL * _Nonnull stop) {
+        if (obj.oncePerReport == FALSE) {
+            return;
+        }
+        dailyMetrics[key] = [obj sampleNow];
+    }];
+
+    [SecCoreAnalytics sendEvent:eventName event:[self coreAnalyticsKeyFilter:dailyMetrics]];
+}
+
 // MARK: Event logging
+
+- (void)logSuccessForEventNamed:(NSString*)eventName timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket
+{
+    [self logEventNamed:eventName class:SFAnalyticsEventClassSuccess attributes:nil timestampBucket:timestampBucket];
+}
 
 - (void)logSuccessForEventNamed:(NSString*)eventName
 {
-    [self logEventNamed:eventName class:SFAnalyticsEventClassSuccess attributes:nil];
+    [self logSuccessForEventNamed:eventName timestampBucket:SFAnalyticsTimestampBucketSecond];
+}
+
+- (void)logHardFailureForEventNamed:(NSString*)eventName withAttributes:(NSDictionary*)attributes timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket
+{
+    [self logEventNamed:eventName class:SFAnalyticsEventClassHardFailure attributes:attributes timestampBucket:timestampBucket];
 }
 
 - (void)logHardFailureForEventNamed:(NSString*)eventName withAttributes:(NSDictionary*)attributes
 {
-    [self logEventNamed:eventName class:SFAnalyticsEventClassHardFailure attributes:attributes];
+    [self logHardFailureForEventNamed:eventName withAttributes:attributes timestampBucket:SFAnalyticsTimestampBucketSecond];
+}
+
+- (void)logSoftFailureForEventNamed:(NSString*)eventName withAttributes:(NSDictionary*)attributes timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket
+{
+    [self logEventNamed:eventName class:SFAnalyticsEventClassSoftFailure attributes:attributes timestampBucket:timestampBucket];
 }
 
 - (void)logSoftFailureForEventNamed:(NSString*)eventName withAttributes:(NSDictionary*)attributes
 {
-    [self logEventNamed:eventName class:SFAnalyticsEventClassSoftFailure attributes:attributes];
+    [self logSoftFailureForEventNamed:eventName withAttributes:attributes timestampBucket:SFAnalyticsTimestampBucketSecond];
+}
+
+- (void)logResultForEvent:(NSString*)eventName hardFailure:(bool)hardFailure result:(NSError*)eventResultError timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket
+{
+    [self logResultForEvent:eventName hardFailure:hardFailure result:eventResultError withAttributes:nil timestampBucket:SFAnalyticsTimestampBucketSecond];
 }
 
 - (void)logResultForEvent:(NSString*)eventName hardFailure:(bool)hardFailure result:(NSError*)eventResultError
 {
-    [self logResultForEvent:eventName hardFailure:hardFailure result:eventResultError withAttributes:nil];
+    [self logResultForEvent:eventName hardFailure:hardFailure result:eventResultError timestampBucket:SFAnalyticsTimestampBucketSecond];
 }
 
-- (void)logResultForEvent:(NSString*)eventName hardFailure:(bool)hardFailure result:(NSError*)eventResultError withAttributes:(NSDictionary*)attributes
+- (void)logResultForEvent:(NSString*)eventName hardFailure:(bool)hardFailure result:(NSError*)eventResultError withAttributes:(NSDictionary*)attributes timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket
 {
     if(!eventResultError) {
         [self logSuccessForEventNamed:eventName];
@@ -351,12 +474,22 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
     }
 }
 
-- (void)noteEventNamed:(NSString*)eventName
+- (void)logResultForEvent:(NSString*)eventName hardFailure:(bool)hardFailure result:(NSError*)eventResultError withAttributes:(NSDictionary*)attributes
 {
-    [self logEventNamed:eventName class:SFAnalyticsEventClassNote attributes:nil];
+    [self logResultForEvent:eventName hardFailure:hardFailure result:eventResultError withAttributes:attributes timestampBucket:SFAnalyticsTimestampBucketSecond];
 }
 
-- (void)logEventNamed:(NSString*)eventName class:(SFAnalyticsEventClass)class attributes:(NSDictionary*)attributes
+- (void)noteEventNamed:(NSString*)eventName timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket
+{
+    [self logEventNamed:eventName class:SFAnalyticsEventClassNote attributes:nil timestampBucket:timestampBucket];
+}
+
+- (void)noteEventNamed:(NSString*)eventName
+{
+    [self noteEventNamed:eventName timestampBucket:SFAnalyticsTimestampBucketSecond];
+}
+
+- (void)logEventNamed:(NSString*)eventName class:(SFAnalyticsEventClass)class attributes:(NSDictionary*)attributes timestampBucket:(SFAnalyticsTimestampBucket)timestampBucket
 {
     if (!eventName) {
         secerror("SFAnalytics: attempt to log an event with no name");
@@ -370,29 +503,44 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
             return;
         }
 
-        NSDictionary* eventDict = [self eventDictForEventName:eventName withAttributes:attributes eventClass:class];
-        [strongSelf.database addEventDict:eventDict toTable:SFAnalyticsTableAllEvents];
-        
+        [strongSelf.database begin];
+
+        NSDictionary* eventDict = [self eventDictForEventName:eventName withAttributes:attributes eventClass:class timestampBucket:timestampBucket];
+
         if (class == SFAnalyticsEventClassHardFailure) {
-            [strongSelf.database addEventDict:eventDict toTable:SFAnalyticsTableHardFailures];
+            [strongSelf.database addEventDict:eventDict toTable:SFAnalyticsTableHardFailures timestampBucket:timestampBucket];
             [strongSelf.database incrementHardFailureCountForEventType:eventName];
         }
         else if (class == SFAnalyticsEventClassSoftFailure) {
-            [strongSelf.database addEventDict:eventDict toTable:SFAnalyticsTableSoftFailures];
+            [strongSelf.database addEventDict:eventDict toTable:SFAnalyticsTableSoftFailures timestampBucket:timestampBucket];
             [strongSelf.database incrementSoftFailureCountForEventType:eventName];
         }
-        else if (class == SFAnalyticsEventClassSuccess || class == SFAnalyticsEventClassNote) {
+        else if (class == SFAnalyticsEventClassNote) {
+            [strongSelf.database addEventDict:eventDict toTable:SFAnalyticsTableNotes timestampBucket:timestampBucket];
             [strongSelf.database incrementSuccessCountForEventType:eventName];
         }
+        else if (class == SFAnalyticsEventClassSuccess) {
+            [strongSelf.database incrementSuccessCountForEventType:eventName];
+        }
+
+        [strongSelf.database end];
     });
 }
 
-- (NSDictionary*)eventDictForEventName:(NSString*)eventName withAttributes:(NSDictionary*)attributes eventClass:(SFAnalyticsEventClass)eventClass
+- (void)logEventNamed:(NSString*)eventName class:(SFAnalyticsEventClass)class attributes:(NSDictionary*)attributes
+{
+    [self logEventNamed:eventName class:class attributes:attributes timestampBucket:SFAnalyticsTimestampBucketSecond];
+}
+
+- (NSDictionary*) eventDictForEventName:(NSString*)eventName withAttributes:(NSDictionary*)attributes eventClass:(SFAnalyticsEventClass)eventClass timestampBucket:(NSTimeInterval)timestampBucket
 {
     NSMutableDictionary* eventDict = attributes ? attributes.mutableCopy : [NSMutableDictionary dictionary];
     eventDict[SFAnalyticsEventType] = eventName;
+
+    NSTimeInterval timestamp = [[NSDate date] timeIntervalSince1970WithBucket:timestampBucket];
+
     // our backend wants timestamps in milliseconds
-    eventDict[SFAnalyticsEventTime] = @([[NSDate date] timeIntervalSince1970] * 1000);
+    eventDict[SFAnalyticsEventTime] = @(timestamp * 1000);
     eventDict[SFAnalyticsEventClassKey] = @(eventClass);
     [SFAnalytics addOSVersionToEvent:eventDict];
 
@@ -500,11 +648,14 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
 
     __weak __typeof(self) weakSelf = self;
     dispatch_async(_queue, ^{
+        os_transaction_t transaction = os_transaction_create("com.apple.security.sfanalytics.samplerGC");
         __strong __typeof(self) strongSelf = weakSelf;
         if (strongSelf) {
             [strongSelf->_samplers[samplerName] pauseSampling];    // when dealloced it would also stop, but we're not sure when that is so let's stop it right away
             [strongSelf->_samplers removeObjectForKey:samplerName];
         }
+        (void)transaction;
+        transaction = nil;
     });
 }
 
@@ -517,11 +668,14 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
 
     __weak __typeof(self) weakSelf = self;
     dispatch_async(_queue, ^{
+        os_transaction_t transaction = os_transaction_create("com.apple.security.sfanalytics.samplerGC");
         __strong __typeof(self) strongSelf = weakSelf;
         if (strongSelf) {
             [strongSelf->_multisamplers[samplerName] pauseSampling];    // when dealloced it would also stop, but we're not sure when that is so let's stop it right away
             [strongSelf->_multisamplers removeObjectForKey:samplerName];
         }
+        (void)transaction;
+        transaction = nil;
     });
 }
 
@@ -535,6 +689,17 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
     if (action) {
         [tracker performAction:action];
     }
+    return tracker;
+}
+
+- (SFAnalyticsActivityTracker*)startLogSystemMetricsForActivityNamed:(NSString *)eventName
+{
+    if (![eventName isKindOfClass:[NSString class]]) {
+        secerror("Cannot log system metrics without name");
+        return nil;
+    }
+    SFAnalyticsActivityTracker* tracker = [[SFAnalyticsActivityTracker alloc] initWithName:eventName clientClass:[self class]];
+    [tracker start];
     return tracker;
 }
 
@@ -552,6 +717,7 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
 
     __weak __typeof(self) weakSelf = self;
     dispatch_async(_queue, ^{
+        os_transaction_t transaction = os_transaction_create("com.apple.security.sfanalytics.samplerGC");
         __strong __typeof(self) strongSelf = weakSelf;
         if (strongSelf && !strongSelf->_disableLogging) {
             if (once) {
@@ -559,6 +725,8 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
             }
             [strongSelf.database addSample:metric forName:metricName];
         }
+        (void)transaction;
+        transaction = nil;
     });
 }
 

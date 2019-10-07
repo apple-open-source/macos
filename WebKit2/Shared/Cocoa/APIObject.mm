@@ -26,8 +26,6 @@
 #import "config.h"
 #import "APIObject.h"
 
-#if WK_API_ENABLED
-
 #import "WKBackForwardListInternal.h"
 #import "WKBackForwardListItemInternal.h"
 #import "WKBrowsingContextControllerInternal.h"
@@ -35,6 +33,7 @@
 #import "WKConnectionInternal.h"
 #import "WKContentRuleListInternal.h"
 #import "WKContentRuleListStoreInternal.h"
+#import "WKContextMenuElementInfoInternal.h"
 #import "WKFrameInfoInternal.h"
 #import "WKHTTPCookieStoreInternal.h"
 #import "WKNSArray.h"
@@ -65,11 +64,14 @@
 #import "WKWebProcessPlugInPageGroupInternal.h"
 #import "WKWebProcessPlugInRangeHandleInternal.h"
 #import "WKWebProcessPlugInScriptWorldInternal.h"
+#import "WKWebpagePreferencesInternal.h"
 #import "WKWebsiteDataRecordInternal.h"
 #import "WKWebsiteDataStoreInternal.h"
 #import "WKWindowFeaturesInternal.h"
 #import "_WKAttachmentInternal.h"
 #import "_WKAutomationSessionInternal.h"
+#import "_WKContentRuleListActionInternal.h"
+#import "_WKCustomHeaderFieldsInternal.h"
 #import "_WKDownloadInternal.h"
 #import "_WKExperimentalFeatureInternal.h"
 #import "_WKFrameHandleInternal.h"
@@ -83,13 +85,12 @@
 #import "_WKUserStyleSheetInternal.h"
 #import "_WKVisitedLinkStoreInternal.h"
 #import "_WKWebsiteDataStoreConfigurationInternal.h"
-#import "_WKWebsitePoliciesInternal.h"
 
 #if ENABLE(APPLICATION_MANIFEST)
 #import "_WKApplicationManifestInternal.h"
 #endif
 
-static const size_t minimumObjectAlignment = 8;
+static const size_t minimumObjectAlignment = alignof(std::aligned_storage<std::numeric_limits<size_t>::max()>::type);
 static_assert(minimumObjectAlignment >= alignof(void*), "Objects should always be at least pointer-aligned.");
 static const size_t maximumExtraSpaceForAlignment = minimumObjectAlignment - alignof(void*);
 
@@ -164,6 +165,7 @@ void* Object::newObject(size_t size, Type type)
     case Type::Boolean:
     case Type::Double:
     case Type::UInt64:
+    case Type::Int64:
         wrapper = [WKNSNumber alloc];
         ((WKNSNumber *)wrapper)->_type = type;
         break;
@@ -257,9 +259,7 @@ void* Object::newObject(size_t size, Type type)
         break;
 
     case Type::NavigationData:
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         wrapper = [WKNavigationData alloc];
-        ALLOW_DEPRECATED_DECLARATIONS_END
         break;
 
     case Type::NavigationResponse:
@@ -306,8 +306,22 @@ void* Object::newObject(size_t size, Type type)
         wrapper = [WKContentRuleList alloc];
         break;
 
+    case Type::ContentRuleListAction:
+        wrapper = [_WKContentRuleListAction alloc];
+        break;
+
     case Type::ContentRuleListStore:
         wrapper = [WKContentRuleListStore alloc];
+        break;
+
+#if PLATFORM(IOS_FAMILY)
+    case Type::ContextMenuElementInfo:
+        wrapper = [WKContextMenuElementInfo alloc];
+        break;
+#endif
+
+    case Type::CustomHeaderFields:
+        wrapper = [_WKCustomHeaderFields alloc];
         break;
 
     case Type::UserContentWorld:
@@ -343,7 +357,7 @@ void* Object::newObject(size_t size, Type type)
         break;
 
     case Type::WebsitePolicies:
-        wrapper = [_WKWebsitePolicies alloc];
+        wrapper = [WKWebpagePreferences alloc];
         break;
 
     case Type::WindowFeatures:
@@ -402,5 +416,3 @@ API::Object* Object::unwrap(void* object)
 }
 
 } // namespace API
-
-#endif // WK_API_ENABLED

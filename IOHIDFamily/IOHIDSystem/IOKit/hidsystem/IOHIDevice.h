@@ -45,23 +45,27 @@ typedef enum {
   kHIRelativePointingDevice = 2
 } IOHIDKind;
 
+#if defined(KERNEL) && !defined(KERNEL_PRIVATE)
+class __deprecated_msg("Use DriverKit") IOHIDevice : public IOService
+#else
 class IOHIDevice : public IOService
+#endif
 {
   OSDeclareDefaultStructors(IOHIDevice);
 
 public:
-  virtual bool init(OSDictionary * properties = 0);
-  virtual void free();
-  virtual bool start(IOService * provider);
+  virtual bool init(OSDictionary * properties = 0) APPLE_KEXT_OVERRIDE;
+  virtual void free(void) APPLE_KEXT_OVERRIDE;
+  virtual bool start(IOService * provider) APPLE_KEXT_OVERRIDE;
   virtual bool open(  IOService *    forClient,
                       IOOptionBits   options = 0,
-                      void *         arg = 0 );
+                      void *         arg = 0 ) APPLE_KEXT_OVERRIDE;
 
   virtual UInt32    deviceType();
   virtual IOHIDKind hidKind();
   virtual UInt32    interfaceID();
   virtual bool 	    updateProperties(void);
-  virtual IOReturn  setProperties( OSObject * properties );
+  virtual IOReturn  setProperties( OSObject * properties ) APPLE_KEXT_OVERRIDE;
   virtual IOReturn  setParamProperties(OSDictionary * dict);
   virtual UInt64    getGUID();
   

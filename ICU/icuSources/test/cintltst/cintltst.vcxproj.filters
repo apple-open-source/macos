@@ -123,6 +123,9 @@
     <ClCompile Include="trietest.c">
       <Filter>collections</Filter>
     </ClCompile>
+    <ClCompile Include="ucptrietest.c">
+      <Filter>collections</Filter>
+    </ClCompile>
     <ClCompile Include="uenumtst.c">
       <Filter>collections</Filter>
     </ClCompile>
@@ -217,6 +220,9 @@
       <Filter>formatting</Filter>
     </ClCompile>
     <ClInclude Include="unumberformattertst.c">
+      <Filter>formatting</Filter>
+    </ClInclude>
+    <ClInclude Include="uformattedvaluetst.c">
       <Filter>formatting</Filter>
     </ClInclude>
     <ClCompile Include="cldrtest.c">

@@ -3,7 +3,7 @@
 tg{
     AuxExemplarCharacters{"[ц щ ы ь]"}
     ExemplarCharacters{"[а б в г ғ д е ё ж з и ӣ й к қ л м н о п р с т у ӯ ф х ҳ ч ҷ ш ъ э ю я]"}
-    ExemplarCharactersNumbers{"[  \\- , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersIndex{"[А Б В Г Ғ Д Е Ж З И Й К Қ Л М Н О П Р С Т У Ф Х Ҳ Ч Ҷ Ш Ъ Э Ю Я]"}
     NumberElements{
         default{"latn"}
         latn{
@@ -34,7 +34,7 @@ tg{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.38.71"}
+    Version{"2.1.49.82"}
     calendar{
         generic{
             DateTimePatterns{
@@ -85,8 +85,12 @@ tg{
         }
         gregorian{
             AmPmMarkers{
-                "пе. чо.",
-                "па. чо.",
+                "пе. чо.",
+                "па. чо.",
+            }
+            AmPmMarkersAbbr{
+                "пе. чо.",
+                "па. чо.",
             }
             DateTimePatterns{
                 "HH:mm:ss zzzz",
@@ -125,7 +129,7 @@ tg{
                 MMM{"LLL"}
                 MMMEd{"E, d MMM"}
                 MMMMW{
-                    other{"'ҳафтаи' W, MMM"}
+                    other{"'ҳафтаи' W, MMMM"}
                 }
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
@@ -143,7 +147,7 @@ tg{
                 yQQQ{"QQQ y"}
                 yQQQQ{"QQQQ y"}
                 yw{
-                    other{"'ҳафтаи' w, y"}
+                    other{"'ҳафтаи' w, Y"}
                 }
             }
             dayNames{
@@ -401,7 +405,7 @@ tg{
             dn{"рӯз"}
         }
         dayperiod{
-            dn{"пе. чо./па. чо."}
+            dn{"пе. чо./па. чо."}
         }
         era{
             dn{"мабдаи таърих"}

@@ -26,28 +26,16 @@
  * Framework.
  */
 
-#include "SecTrustOSXEntryPoints.h"
+#include "OSX/trustd/macOS/SecTrustOSXEntryPoints.h"
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <dispatch/dispatch.h>
-#include <AssertMacros.h>
 #include <notify.h>
-#include <mach/mach_time.h>
 
 #include <Security/Security.h>
-#include <Security/cssmtype.h>
-#include <Security/SecKeychain.h>
 #include <Security/SecItemPriv.h>
 #include <Security/SecTrustSettingsPriv.h>
-#include <Security/SecCertificate.h>
-#include <Security/SecImportExport.h>
-#include <security_keychain/SecImportExportPem.h>
-#include <security_utilities/debugging.h>
 #include <Security/SecItemInternal.h>
-
-#include <security_ocspd/ocspdClient.h>
-#include <security_ocspd/ocspdUtils.h>
-
 
 void SecTrustLegacySourcesListenForKeychainEvents(void) {
     /* Register for CertificateTrustNotification */
@@ -61,189 +49,4 @@ void SecTrustLegacySourcesListenForKeychainEvents(void) {
                                  SecTrustSettingsPurgeUserAdminCertsCache();
 
                              });
-}
-
-/*
- * MARK: ocspd CRL Interface
- */
-/* lengths of time strings without trailing NULL */
-#define CSSM_TIME_STRLEN			14		/* no trailing 'Z' */
-#define GENERALIZED_TIME_STRLEN		15
-
-OSStatus SecTrustLegacyCRLStatus(SecCertificateRef cert, CFArrayRef chain, CFURLRef currCRLDP);
-OSStatus SecTrustLegacyCRLFetch(CFURLRef currCRLDP, CFAbsoluteTime verifyTime);
-
-static OSStatus cssmReturnToOSStatus(CSSM_RETURN crtn) {
-    OSStatus status = errSecInternalComponent;
-
-    switch (crtn) {
-        case CSSM_OK:
-            status = errSecSuccess;
-            break;
-        case CSSMERR_TP_CERT_REVOKED:
-            status = errSecCertificateRevoked;
-            break;
-        case CSSMERR_APPLETP_NETWORK_FAILURE:
-            status = errSecNetworkFailure;
-            break;
-        case CSSMERR_APPLETP_CRL_NOT_FOUND:
-            status = errSecCRLNotFound;
-            break;
-        default:
-            status = errSecInternalComponent;
-    }
-    return status;
-}
-
-#define PEM_STRING_X509		"CERTIFICATE"
-static CFDataRef CF_RETURNS_RETAINED serializedPathToPemSequences(CFArrayRef certs) {
-    CFMutableDataRef result = NULL;
-    CFIndex certIX, certCount;
-    require_quiet(certs, out);
-    certCount = CFArrayGetCount(certs);
-    require_quiet(certCount > 0, out);
-    require_quiet(result = CFDataCreateMutable(NULL, 0), out);
-    for (certIX = 0; certIX < certCount; certIX++) {
-        CFDataRef certData = (CFDataRef)CFArrayGetValueAtIndex(certs, certIX);
-        require_noerr_quiet(impExpPemEncodeExportRep(certData, PEM_STRING_X509,
-                                                     NULL, result), out);
-    }
-out:
-    return result;
-}
-
-OSStatus SecTrustLegacyCRLStatus(SecCertificateRef cert, CFArrayRef chain, CFURLRef currCRLDP) {
-    OSStatus result = errSecParam;
-    CSSM_RETURN crtn = CSSMERR_TP_INTERNAL_ERROR;
-    CFDataRef serialData = NULL, pemIssuers = NULL, crlDP = NULL;
-    CFMutableArrayRef issuersArray = NULL;
-
-    if (!cert || !chain) {
-        return result;
-    }
-
-    /* serialNumber is a CSSM_DATA with the value from the TBS Certificate. */
-    CSSM_DATA serialNumber = { 0, NULL };
-    serialData = SecCertificateCopySerialNumberData(cert, NULL);
-    if (serialData) {
-        serialNumber.Data = (uint8_t *)CFDataGetBytePtr(serialData);
-        serialNumber.Length = CFDataGetLength(serialData);
-    }
-
-    /* issuers is CSSM_DATA containing pem sequence of all issuers in the chain */
-    CSSM_DATA issuers = { 0, NULL };
-    issuersArray = CFArrayCreateMutableCopy(NULL, 0, chain);
-    if (issuersArray) {
-        CFArrayRemoveValueAtIndex(issuersArray, 0);
-        pemIssuers = serializedPathToPemSequences(issuersArray);
-    }
-    if (pemIssuers) {
-        issuers.Data = (uint8_t *)CFDataGetBytePtr(pemIssuers);
-        issuers.Length = CFDataGetLength(pemIssuers);
-    }
-
-    /* crlUrl is CSSM_DATA with the CRLDP url*/
-    CSSM_DATA crlUrl = { 0, NULL };
-    crlDP = CFURLCreateData(NULL, currCRLDP, kCFStringEncodingASCII, true);
-    if (crlDP) {
-        crlUrl.Data = (uint8_t *)CFDataGetBytePtr(crlDP);
-        crlUrl.Length = CFDataGetLength(crlDP);
-    }
-
-    if (serialNumber.Data && issuers.Data && crlUrl.Data) {
-        crtn = ocspdCRLStatus(serialNumber, issuers, NULL, &crlUrl);
-    }
-
-    result = cssmReturnToOSStatus(crtn);
-
-    if (serialData) { CFRelease(serialData); }
-    if (issuersArray) { CFRelease(issuersArray); }
-    if (pemIssuers) { CFRelease(pemIssuers); }
-    if (crlDP) { CFRelease(crlDP); }
-    return result;
-}
-
-static CSSM_RETURN ocspdCRLFetchToCache(const CSSM_DATA		&crlURL,
-                                 CSSM_TIMESTRING 	verifyTime) {
-    Allocator &alloc(Allocator::standard(Allocator::normal));
-    CSSM_DATA crlData  = { 0, NULL };
-    CSSM_RETURN crtn;
-
-    crtn = ocspdCRLFetch(alloc, crlURL, NULL, true, true, verifyTime, crlData);
-    if (crlData.Data) { alloc.free(crlData.Data); }
-    return crtn;
-}
-
-static OSStatus fetchCRL(CFURLRef currCRLDP, CFAbsoluteTime verifyTime) {
-    OSStatus result = errSecParam;
-    CSSM_RETURN crtn = CSSMERR_TP_INTERNAL_ERROR;
-    CFDataRef crlDP = NULL;
-    char *cssmTime = NULL, *genTime = NULL;
-
-    if (!currCRLDP) {
-        return result;
-    }
-
-    /* crlUrl is CSSM_DATA with the CRLDP url*/
-    CSSM_DATA crlUrl = { 0, NULL };
-    crlDP = CFURLCreateData(NULL, currCRLDP, kCFStringEncodingASCII, true);
-    if (crlDP) {
-        crlUrl.Data = (uint8_t *)CFDataGetBytePtr(crlDP);
-        crlUrl.Length = CFDataGetLength(crlDP);
-    }
-
-    /* determine verification time */
-    cssmTime = (char *)malloc(CSSM_TIME_STRLEN + 1);
-    genTime = (char *)malloc(GENERAL_TIME_STRLEN + 1);
-    if (cssmTime && genTime) {
-        if (verifyTime != 0.0) {
-            cfAbsTimeToGgenTime(verifyTime, genTime);
-        } else {
-            cfAbsTimeToGgenTime(CFAbsoluteTimeGetCurrent(), genTime);
-        }
-        memmove(cssmTime, genTime, GENERAL_TIME_STRLEN - 1);    // don't copy the Z
-        cssmTime[CSSM_TIME_STRLEN] = '\0';
-    }
-
-    if (crlUrl.Data && cssmTime) {
-       crtn = ocspdCRLFetchToCache(crlUrl, (CSSM_TIMESTRING)cssmTime);
-    }
-
-    result = cssmReturnToOSStatus(crtn);
-
-    if (crlDP) { CFRelease(crlDP); }
-    if (cssmTime) { free(cssmTime); }
-    if (genTime) { free(genTime); }
-    return result;
-}
-
-/*
- * MARK: async_ocspd methods
- */
-static void async_ocspd_complete(async_ocspd_t *ocspd) {
-    if (ocspd->completed) {
-        ocspd->completed(ocspd);
-    }
-}
-
-/* Return true, iff we didn't schedule any work, return false if we did. */
-bool SecTrustLegacyCRLFetch(async_ocspd_t *ocspd,
-                       CFURLRef currCRLDP, CFAbsoluteTime verifyTime,
-                       SecCertificateRef cert, CFArrayRef chain) {
-    ocspd->start_time = mach_absolute_time();
-    dispatch_async(ocspd->queue, ^ {
-        OSStatus status = fetchCRL(currCRLDP, verifyTime);
-        switch (status) {
-            case errSecSuccess:
-                ocspd->response= SecTrustLegacyCRLStatus(cert, chain, currCRLDP);
-                break;
-            default:
-                ocspd->response = status;
-                break;
-        }
-        async_ocspd_complete(ocspd);
-        if (chain) { CFRelease(chain); }
-    });
-
-    return false; /* false -> something was scheduled. */
 }

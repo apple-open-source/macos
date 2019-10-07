@@ -101,7 +101,8 @@ reschedule_timer(void)
 	ts.tv_nsec = 0;
 	dispatch_source_set_timer(timer_source,
 				  dispatch_walltime(&ts, 0),
-				  0, 10ull * NSEC_PER_SEC);
+				  DISPATCH_TIME_FOREVER,
+				  10ull * NSEC_PER_SEC);
     }
 }
 

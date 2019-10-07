@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -569,7 +569,7 @@ int ppp_if_input(ifnet_t ifp, mbuf_t m, u_int16_t proto, u_int16_t hdrlen)
                 goto free;
             }
                 
-            inlen = mbuf_pkthdr_len(m);
+            inlen = (int)mbuf_pkthdr_len(m);
 
             /*
              * We should make sure the header is contiguous in the mbuf of the compress/decompress routines
@@ -596,7 +596,7 @@ int ppp_if_input(ifnet_t ifp, mbuf_t m, u_int16_t proto, u_int16_t hdrlen)
             }
             if (proto == PPP_VJC_COMP) {
 
-                vjlen = sl_uncompress_tcp_core(p, mbuf_len(m), inlen, TYPE_COMPRESSED_TCP,
+                vjlen = sl_uncompress_tcp_core(p, (int)mbuf_len(m), inlen, TYPE_COMPRESSED_TCP,
                     wan->vjcomp, &iphdr, &hlen);
 
                 if (vjlen <= 0) {
@@ -616,7 +616,7 @@ int ppp_if_input(ifnet_t ifp, mbuf_t m, u_int16_t proto, u_int16_t hdrlen)
                 mbuf_pkthdr_setlen(m, mbuf_pkthdr_len(m) + hlen - vjlen);
             }
             else {
-                vjlen = sl_uncompress_tcp_core(p, mbuf_len(m), inlen, TYPE_UNCOMPRESSED_TCP, 
+                vjlen = sl_uncompress_tcp_core(p, (int)mbuf_len(m), inlen, TYPE_UNCOMPRESSED_TCP,
                     wan->vjcomp, &iphdr, &hlen);
 
                 if (vjlen < 0) {
@@ -703,7 +703,7 @@ int ppp_if_input(ifnet_t ifp, mbuf_t m, u_int16_t proto, u_int16_t hdrlen)
 
 	bzero(&statsinc, sizeof(statsinc));
 	statsinc.packets_in = 1;
-	statsinc.bytes_in = mbuf_pkthdr_len(m);
+	statsinc.bytes_in = (u_int32_t)mbuf_pkthdr_len(m);
 	mbuf_pkthdr_setrcvif(m, ifp);
     nanouptime(&tv);
     wan->last_recv = tv.tv_sec;
@@ -824,9 +824,9 @@ int ppp_if_control(ifnet_t ifp, u_long cmd, void *data)
 	case PPPIOCGIDLE:
             LOGDBG(ifp, ("ppp_if_control: PPPIOCGIDLE\n"));
 			nanouptime(&tv);
-			t = tv.tv_sec;
-            ((struct ppp_idle *)data)->xmit_idle = t - wan->last_xmit;
-            ((struct ppp_idle *)data)->recv_idle = t - wan->last_recv;
+			t = (u_int32_t)tv.tv_sec;
+            ((struct ppp_idle *)data)->xmit_idle = (u_int32_t)(t - wan->last_xmit);
+            ((struct ppp_idle *)data)->recv_idle = (u_int32_t)(t - wan->last_recv);
             break;
 
         case PPPIOCSMAXCID:
@@ -964,12 +964,12 @@ errno_t ppp_if_ioctl(ifnet_t ifp, u_long cmd, void *data)
 				need to implement a second ioctl  
 				for 64 bits conters
 			*/
-            psp->p.ppp_ibytes = statspar.bytes_in;
-            psp->p.ppp_obytes = statspar.bytes_out;
-            psp->p.ppp_ipackets = statspar.packets_in;
-            psp->p.ppp_opackets = statspar.packets_out;
-            psp->p.ppp_ierrors = statspar.errors_in;
-            psp->p.ppp_oerrors = statspar.errors_out;
+            psp->p.ppp_ibytes = (uint32_t)statspar.bytes_in;
+            psp->p.ppp_obytes = (uint32_t)statspar.bytes_out;
+            psp->p.ppp_ipackets = (uint32_t)statspar.packets_in;
+            psp->p.ppp_opackets = (uint32_t)statspar.packets_out;
+            psp->p.ppp_ierrors = (uint32_t)statspar.errors_in;
+            psp->p.ppp_oerrors = (uint32_t)statspar.errors_out;
 
 #if 0
             if (sc->sc_comp) {
@@ -1116,7 +1116,7 @@ errno_t ppp_if_output(ifnet_t ifp, mbuf_t m)
 	nanouptime(&tv);
 	wan->last_xmit = tv.tv_sec;
 	bzero(&statsinc, sizeof(statsinc));
-	statsinc.bytes_out = mbuf_pkthdr_len(m) - 2; // don't count protocol header;
+	statsinc.bytes_out = (u_int32_t)(mbuf_pkthdr_len(m) - 2); // don't count protocol header;
 	statsinc.packets_out = 1;
 	ifnet_stat_increment(ifp, &statsinc);		
 
@@ -1182,7 +1182,7 @@ int ppp_if_demux(ifnet_t ifp, mbuf_t m, char *frame_header,
     u_int16_t 		proto;
 
     proto = frame_header[0];
-    if (!proto & 0x1) {  // lowest bit set for lowest byte of protocol
+    if ((!proto) & 0x1) {  // lowest bit set for lowest byte of protocol
         proto = (proto << 8) + frame_header[1];
     } 
 
@@ -1430,7 +1430,7 @@ int ppp_if_xmit(ifnet_t ifp, mbuf_t m)
 
         // get the len before we send the packet, 
         // we can not assume the state of the mbuf when we return
-        len = mbuf_len(m);
+        len = (int)mbuf_len(m);
 
         // since we tested the lk_flags, ppp_link_send should not failed
         // except if there is a dramatic error

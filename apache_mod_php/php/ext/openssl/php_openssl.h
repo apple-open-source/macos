@@ -17,8 +17,6 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id$ */
-
 #ifndef PHP_OPENSSL_H
 #define PHP_OPENSSL_H
 /* HAVE_OPENSSL would include SSL MySQL stuff */
@@ -117,6 +115,7 @@ PHP_FUNCTION(openssl_pkcs7_verify);
 PHP_FUNCTION(openssl_pkcs7_decrypt);
 PHP_FUNCTION(openssl_pkcs7_sign);
 PHP_FUNCTION(openssl_pkcs7_encrypt);
+PHP_FUNCTION(openssl_pkcs7_read);
 
 PHP_FUNCTION(openssl_error_string);
 

@@ -26,10 +26,12 @@
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSItem.h"
 #import "keychain/ckks/CKKSKey.h"
-#import "keychain/ckks/CKKSTLKShare.h"
-
+#import "keychain/ckks/CKKSTLKShareRecord.h"
+#import "keychain/ckks/CKKSResultOperation.h"
 
 #if OCTAGON
+
+NS_ASSUME_NONNULL_BEGIN
 
 @interface CKKSCurrentKeyPointer : CKKSCKRecordHolder
 
@@ -37,9 +39,9 @@
 @property NSString* currentKeyUUID;
 
 - (instancetype)initForClass:(CKKSKeyClass*)keyclass
-              currentKeyUUID:(NSString*)currentKeyUUID
+              currentKeyUUID:(NSString* _Nullable)currentKeyUUID
                       zoneID:(CKRecordZoneID*)zoneID
-             encodedCKRecord:(NSData*)encodedrecord;
+             encodedCKRecord:(NSData* _Nullable)encodedrecord;
 
 + (instancetype)fromDatabase:(CKKSKeyClass*)keyclass zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 + (instancetype)tryFromDatabase:(CKKSKeyClass*)keyclass zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
@@ -55,18 +57,32 @@
 @end
 
 @interface CKKSCurrentKeySet : NSObject
-@property NSError* error;
-@property CKKSKey* tlk;
-@property CKKSKey* classA;
-@property CKKSKey* classC;
-@property CKKSCurrentKeyPointer* currentTLKPointer;
-@property CKKSCurrentKeyPointer* currentClassAPointer;
-@property CKKSCurrentKeyPointer* currentClassCPointer;
 
-@property NSArray<CKKSTLKShare*>* tlkShares;
+@property NSString* viewName;
+@property (nullable) NSError* error;
+@property (nullable) CKKSKey* tlk;
+@property (nullable) CKKSKey* classA;
+@property (nullable) CKKSKey* classC;
+@property (nullable) CKKSCurrentKeyPointer* currentTLKPointer;
+@property (nullable) CKKSCurrentKeyPointer* currentClassAPointer;
+@property (nullable) CKKSCurrentKeyPointer* currentClassCPointer;
 
-- (instancetype)init;
-- (instancetype)initForZone:(CKRecordZoneID*)zoneID;
+// Set to true if this is a 'proposed' key set, i.e., not yet uploaded to CloudKit
+@property BOOL proposed;
+
+// The tlkShares property holds all existing tlkShares for this key
+@property NSArray<CKKSTLKShareRecord*>* tlkShares;
+
+// This array (if present) holds any new TLKShares that should be uploaded
+@property (nullable) NSArray<CKKSTLKShareRecord*>* pendingTLKShares;
+
+- (instancetype)initForZoneName:(NSString*)zoneName;
+
++ (CKKSCurrentKeySet*)loadForZone:(CKRecordZoneID*)zoneID;
+
+- (CKKSKeychainBackedKeySet* _Nullable)asKeychainBackedSet:(NSError**)error;
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif

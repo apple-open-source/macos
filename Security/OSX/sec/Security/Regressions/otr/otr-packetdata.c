@@ -27,7 +27,7 @@
 
 #include <corecrypto/ccn.h>
 
-#include "security_regressions.h"
+#include "Security_regressions.h"
 
 static bool CFDataMatches(CFDataRef data, size_t amount, const uint8_t* bytes)
 {

@@ -1621,8 +1621,7 @@ inetname(struct in_addr in)
 				domain[0] = '\0';
 			else {
 				++cp;
-				(void)strncpy(domain, cp, sizeof(domain) - 1);
-				domain[sizeof(domain) - 1] = '\0';
+				memmove(domain, cp, strlen(cp) + 1);
 			}
 		}
 	}
@@ -1632,8 +1631,7 @@ inetname(struct in_addr in)
 			if ((cp = strchr(hp->h_name, '.')) != NULL &&
 			    strcmp(cp + 1, domain) == 0)
 				*cp = '\0';
-			(void)strncpy(line, hp->h_name, sizeof(line) - 1);
-			line[sizeof(line) - 1] = '\0';
+			(void)strlcpy(line, hp->h_name, sizeof(line));
 			return (line);
 		}
 	}

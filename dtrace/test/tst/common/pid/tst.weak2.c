@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.weak2.c	1.1	06/08/28 SMI"
-
 #include <signal.h>
 #include <stdlib.h>
 

@@ -33,6 +33,7 @@
 #include <WebCore/DiagnosticLoggingClient.h>
 #include <WebCore/DiagnosticLoggingKeys.h>
 #include <wtf/DebugUtilities.h>
+#include <wtf/HexNumber.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebKit {
@@ -51,7 +52,7 @@ WebBackForwardList::~WebBackForwardList()
     LOG(BackForward, "(Back/Forward) Destroying WebBackForwardList %p", this);
 
     // A WebBackForwardList should never be destroyed unless it's associated page has been closed or is invalid.
-    ASSERT((!m_page && !m_currentIndex) || !m_page->isValid());
+    ASSERT((!m_page && !m_currentIndex) || !m_page->hasRunningProcess());
 }
 
 WebBackForwardListItem* WebBackForwardList::itemForID(const BackForwardItemIdentifier& identifier)
@@ -433,8 +434,9 @@ void WebBackForwardList::restoreFromState(BackForwardListState backForwardListSt
     Vector<Ref<WebBackForwardListItem>> items;
     items.reserveInitialCapacity(backForwardListState.items.size());
 
+    // FIXME: Enable restoring resourceDirectoryURL.
     for (auto& backForwardListItemState : backForwardListState.items) {
-        backForwardListItemState.identifier = { Process::identifier(), generateObjectIdentifier<BackForwardItemIdentifier::ItemIdentifierType>() };
+        backForwardListItemState.identifier = { Process::identifier(), ObjectIdentifier<BackForwardItemIdentifier::ItemIdentifierType>::generate() };
         items.uncheckedAppend(WebBackForwardListItem::create(WTFMove(backForwardListItemState), m_page->pageID()));
     }
     m_currentIndex = backForwardListState.currentIndex ? Optional<size_t>(*backForwardListState.currentIndex) : WTF::nullopt;
@@ -468,30 +470,39 @@ void WebBackForwardList::didRemoveItem(WebBackForwardListItem& backForwardListIt
     m_page->backForwardRemovedItem(backForwardListItem.itemID());
 
     backForwardListItem.setSuspendedPage(nullptr);
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) || PLATFORM(GTK)
     backForwardListItem.setSnapshot(nullptr);
 #endif
 }
 
-
 #if !LOG_DISABLED
+
 const char* WebBackForwardList::loggingString()
 {
     StringBuilder builder;
-    builder.append(String::format("WebBackForwardList %p - %zu entries, has current index %s (%zu)", this, m_entries.size(), m_currentIndex ? "YES" : "NO", m_currentIndex ? *m_currentIndex : 0));
+
+    builder.appendLiteral("WebBackForwardList 0x");
+    appendUnsignedAsHex(reinterpret_cast<uintptr_t>(this), builder);
+    builder.appendLiteral(" - ");
+    builder.appendNumber(m_entries.size());
+    builder.appendLiteral(" entries, has current index ");
+    builder.append(m_currentIndex ? "YES" : "NO");
+    builder.appendLiteral(" (");
+    builder.appendNumber(m_currentIndex ? *m_currentIndex : 0);
+    builder.append(')');
 
     for (size_t i = 0; i < m_entries.size(); ++i) {
-        builder.append("\n");
+        builder.append('\n');
         if (m_currentIndex && *m_currentIndex == i)
-            builder.append(" * ");
+            builder.appendLiteral(" * ");
         else
-            builder.append(" - ");
-
+            builder.appendLiteral(" - ");
         builder.append(m_entries[i]->loggingString());
     }
 
     return debugString("\n", builder.toString());
 }
+
 #endif // !LOG_DISABLED
 
 } // namespace WebKit

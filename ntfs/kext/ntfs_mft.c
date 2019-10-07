@@ -95,9 +95,13 @@ errno_t ntfs_mft_record_map_ext(ntfs_inode *ni, MFT_RECORD **mrec,
 {
 	ntfs_volume *vol;
 	ntfs_inode *mft_ni;
+	u8 *dbuf = NULL;
 	buf_t buf;
 	MFT_RECORD *m;
 	errno_t err;
+	ino64_t buf_mft_no;
+	ino64_t buf_mft_record;
+	u32 buf_read_size;
 
 	ntfs_debug("Entering for mft_no 0x%llx (mft is %slocked).",
 			(unsigned long long)ni->mft_no,
@@ -157,8 +161,34 @@ errno_t ntfs_mft_record_map_ext(ntfs_inode *ni, MFT_RECORD **mrec,
 	 * Similarly we know if the buffer was already dirty or not by checking
 	 * buf_flags(buf) & B_DELWRI.
 	 */
+	if (vol->mft_record_size < vol->sector_size) {
+		/* If the MFT record size is smaller than a sector, we must
+		 * align the buffer read to the sector size. */
+		buf_mft_no = ni->mft_no & ~vol->mft_records_per_sector_mask;
+		buf_mft_record = ni->mft_no & vol->mft_records_per_sector_mask;
+		buf_read_size = vol->sector_size;
+
+		dbuf = OSMalloc(vol->mft_record_size, ntfs_malloc_tag);
+		if (!dbuf) {
+			ntfs_error(vol->mp, "Error while allocating %lu bytes "
+					"for mft record double buffer.",
+					(unsigned long)vol->mft_record_size);
+			err = ENOMEM;
+			goto err;
+		}
+
+		/* Lock the inode's buffer for concurrent access until unmap
+		 * time since we cannot rely on the mapped buffer to provide
+		 * locking. */
+		lck_mtx_lock(&ni->buf_lock);
+	} else {
+		buf_mft_no = ni->mft_no;
+		buf_mft_record = 0;
+		buf_read_size = vol->mft_record_size;
+	}
+
 	ntfs_debug("Calling buf_meta_bread().");
-	err = buf_meta_bread(mft_ni->vn, ni->mft_no, vol->mft_record_size,
+	err = buf_meta_bread(mft_ni->vn, buf_mft_no, buf_read_size,
 			NOCRED, &buf);
 	ntfs_debug("After buf_meta_bread().");
 	if (err) {
@@ -176,15 +206,39 @@ errno_t ntfs_mft_record_map_ext(ntfs_inode *ni, MFT_RECORD **mrec,
 	}
 	if (!m)
 		panic("%s(): buf_map() returned NULL.\n", __FUNCTION__);
-	if (ni->m_buf || ni->m)
+	if (ni->m_buf || ni->m_dbuf || ni->m)
 		panic("%s(): Mft record 0x%llx is already mapped.\n",
 				__FUNCTION__, (unsigned long long)ni->mft_no);
+	if (dbuf) {
+		/* Copy the part of the sector containing our mft record to our
+		 * allocated buffer to avoid keeping a reference to a shared
+		 * sector's buffer. */
+		memcpy(dbuf,
+			&((char*) m)[buf_mft_record * vol->mft_record_size],
+			vol->mft_record_size);
+		m = (MFT_RECORD*) dbuf;
+	}
 	/* Catch multi sector transfer fixup errors. */
 	if ((ntfs_is_mft_record(m->magic)) && (le32_to_cpu(m->bytes_allocated) <= vol->mft_record_size)) {
+		if (dbuf) {
+			/* We are now finished with 'buf' as we have the content
+			 * that matters to us stored in 'dbuf'. */
+			err = buf_unmap(buf);
+			if (err) {
+				ntfs_error(vol->mp, "Failed to unmap buffer of "
+						"mft record 0x%llx (error %d).",
+						(unsigned long long)ni->mft_no,
+						err);
+				goto buf_err;
+			}
+			buf_brelse(buf);
+			buf = NULL;
+		}
 		if (!mft_is_locked)
 			lck_rw_unlock_shared(&mft_ni->lock);
 		ni->mft_ni = mft_ni;
 		ni->m_buf = buf;
+		ni->m_dbuf = dbuf;
 		ni->m = m;
 		*mrec = m;
 		ntfs_debug("Done.");
@@ -203,6 +257,10 @@ errno_t ntfs_mft_record_map_ext(ntfs_inode *ni, MFT_RECORD **mrec,
 buf_err:
 	buf_brelse(buf);
 err:
+	if (dbuf) {
+		lck_mtx_unlock(&ni->buf_lock);
+		OSFree(dbuf, vol->mft_record_size, ntfs_malloc_tag);
+	}
 	/*
 	 * Release the iocount reference on the $MFT vnode.  We can ignore the
 	 * return value as it always is zero.
@@ -221,36 +279,81 @@ err:
  */
 void ntfs_mft_record_unmap(ntfs_inode *ni)
 {
+	ntfs_volume *const vol = ni->vol;
+
 	ntfs_inode *mft_ni;
 	buf_t buf;
+	u8 *dbuf;
 	errno_t err;
 
 	ntfs_debug("Entering for mft_no 0x%llx.",
 			(unsigned long long)ni->mft_no);
 	mft_ni = ni->mft_ni;
 	buf = ni->m_buf;
-	if (!mft_ni || !buf || !ni->m)
+	dbuf = ni->m_dbuf;
+	if (!mft_ni || !(buf || dbuf) || (buf && dbuf) || !ni->m)
 		panic("%s(): Mft record 0x%llx is not mapped.\n", __FUNCTION__,
 				(unsigned long long)ni->mft_no);
+
+#if NTFS_SUB_SECTOR_MFT_RECORD_SIZE_RW
+	if (dbuf) {
+		const ino64_t buf_mft_no =
+				ni->mft_no & ~vol->mft_records_per_sector_mask;
+		const ino64_t buf_mft_record =
+				ni->mft_no & vol->mft_records_per_sector_mask;
+		const u32 buf_read_size = vol->sector_size;
+
+		MFT_RECORD *m_tmp = NULL;
+
+		err = buf_meta_bread(mft_ni->vn, buf_mft_no, buf_read_size,
+				NOCRED, &buf);
+		if (err) {
+			ntfs_error(vol->mp, "Failed to read buffer of mft "
+					"record 0x%llx (error %d, buf=%p).",
+					(unsigned long long)ni->mft_no, err,
+					buf);
+		} else if ((err = buf_map(buf, (caddr_t*)&m_tmp))) {
+			ntfs_error(vol->mp, "Failed to map buffer of mft "
+					"record 0x%llx (error %d).",
+					(unsigned long long)ni->mft_no, err);
+			buf_brelse(buf);
+			buf = NULL;
+		} else {
+			/* Transfer cached data to mapped buffer. */
+			memcpy(&((char*) m_tmp)[buf_mft_record *
+					vol->mft_record_size],
+					dbuf, vol->mft_record_size);
+		}
+	}
+#endif
+
 	ni->mft_ni = NULL;
 	ni->m_buf = NULL;
+	ni->m_dbuf = NULL;
 	ni->m = NULL;
-	err = buf_unmap(buf);
-	if (err)
-		ntfs_error(ni->vol->mp, "Failed to unmap buffer of mft record "
-				"0x%llx (error %d).",
-				(unsigned long long)ni->mft_no, err);
-	if (NInoTestClearMrecNeedsDirtying(ni)) {
-		err = buf_bdwrite(buf);
-		if (err) {
-			ntfs_error(ni->vol->mp, "Failed to write buffer of "
-					"mft record 0x%llx (error %d).  Run "
-					"chkdsk.",
+	if (buf) {
+		err = buf_unmap(buf);
+		if (err)
+			ntfs_error(vol->mp, "Failed to unmap buffer of mft "
+					"record 0x%llx (error %d).",
 					(unsigned long long)ni->mft_no, err);
-			NVolSetErrors(ni->vol);
-		}
-	} else
-		buf_brelse(buf);
+		if (NInoTestClearMrecNeedsDirtying(ni)) {
+			err = buf_bdwrite(buf);
+			if (err) {
+				ntfs_error(vol->mp, "Failed to write "
+						"buffer of mft record 0x%llx "
+						"(error %d).  Run chkdsk.",
+						(unsigned long long)ni->mft_no,
+						err);
+				NVolSetErrors(vol);
+			}
+		} else
+			buf_brelse(buf);
+	}
+	if (dbuf) {
+		OSFree(dbuf, vol->mft_record_size, ntfs_malloc_tag);
+		lck_mtx_unlock(&ni->buf_lock);
+	}
 	/*
 	 * Release the iocount reference on the $MFT vnode.  We can ignore the
 	 * return value as it always is zero.
@@ -438,6 +541,9 @@ errno_t ntfs_mft_record_sync(ntfs_inode *ni)
 {
 	ntfs_volume *vol;
 	ntfs_inode *mft_ni;
+	ino64_t buf_mft_no;
+	ino64_t buf_mft_record;
+	u32 buf_read_size;
 	buf_t buf;
 	errno_t err;
 
@@ -459,11 +565,26 @@ errno_t ntfs_mft_record_sync(ntfs_inode *ni)
 		return err;
 	}
 	lck_rw_lock_shared(&mft_ni->lock);
+#if NTFS_SUB_SECTOR_MFT_RECORD_SIZE_RW
+	if (vol->mft_record_size < vol->sector_size) {
+		/* If the MFT record size is smaller than a sector, we must
+		 * align the buffer read to the sector size. */
+		buf_mft_no = ni->mft_no & ~vol->mft_records_per_sector_mask;
+		buf_mft_record = ni->mft_no & vol->mft_records_per_sector_mask;
+		buf_read_size = vol->sector_size;
+	} else {
+#endif
+		buf_mft_no = ni->mft_no;
+		buf_mft_record = 0;
+		buf_read_size = vol->mft_record_size;
+#if NTFS_SUB_SECTOR_MFT_RECORD_SIZE_RW
+	}
+#endif
 	/*
 	 * Get the buffer if it is cached.  If it is not cached then it cannot
 	 * be dirty either thus we do not need to write it.
 	 */
-	buf = buf_getblk(mft_ni->vn, ni->mft_no, vol->mft_record_size, 0, 0,
+	buf = buf_getblk(mft_ni->vn, buf_mft_no, buf_read_size, 0, 0,
 			BLK_META | BLK_ONLYVALID);
 	lck_rw_unlock_shared(&mft_ni->lock);
 	(void)vnode_put(mft_ni->vn);
@@ -473,11 +594,50 @@ errno_t ntfs_mft_record_sync(ntfs_inode *ni)
 		return 0;
 	}
 	/* The buffer must be the right size. */
-	if (buf_size(buf) != vol->mft_record_size)
+	if (buf_size(buf) != buf_read_size)
 		panic("%s(): Buffer containing mft record 0x%llx has wrong "
 				"size (0x%x instead of 0x%x).", __FUNCTION__,
 				(unsigned long long)ni->mft_no,
-				buf_size(buf), vol->mft_record_size);
+				buf_size(buf), buf_read_size);
+#if NTFS_SUB_SECTOR_MFT_RECORD_SIZE_RW
+	if (ni->m_dbuf) {
+		/* Need to map buffer and transfer data from the double buffer
+		 * in order to update. */
+		/* Note: Not sure if this is necessary... do we ever sync in
+		 * between a map/unmap session? Actually we can't even get here
+		 * if we are between a map/unmap can we, as we wouldn't be able
+		 * to lock ni->buf_lock. So all this code is possibly
+		 * pointless. */
+		char *m_sec = NULL;
+		MFT_RECORD *m = NULL;
+
+		err = buf_map(buf, (caddr_t*)&m_sec);
+		if (err) {
+			ntfs_error(vol->mp, "Failed to map buffer of mft record "
+					"0x%llx (error %d).",
+					(unsigned long long)ni->mft_no, err);
+			buf_brelse(buf);
+			return err;
+		}
+		/* Transfer cached data to mapped buffer. */
+		m = (MFT_RECORD*)&m_sec[buf_mft_record * vol->mft_record_size];
+		if (memcmp(m, ni->m_dbuf, vol->mft_record_size)) {
+			memcpy(m, ni->m_dbuf, vol->mft_record_size);
+		}
+		err = buf_unmap(buf);
+		if (err) {
+			/* Not sure if it makes sense to catch this and error
+			 * out. The only way this can happen appears to be if
+			 * the buffer isn't mapped or if it's NULL, both of
+			 * which cannot happen if we are here. */
+			ntfs_error(vol->mp, "Failed to unmap buffer of mft "
+					"record 0x%llx (error %d).",
+					(unsigned long long)ni->mft_no, err);
+			buf_brelse(buf);
+			return err;
+		}
+	}
+#endif
 	/* If the buffer is clean there is nothing to do. */
 	if (!(buf_flags(buf) & B_DELWRI)) {
 		ntfs_debug("Mft record 0x%llx is in cache but not dirty, "
@@ -515,7 +675,11 @@ errno_t ntfs_mft_mirror_sync(ntfs_volume *vol, const s64 rec_no,
 	s64 data_size;
 	ntfs_inode *mirr_ni;
 	vnode_t mirr_vn;
+	ino64_t buf_mft_no;
+	ino64_t buf_mft_record;
+	u32 buf_read_size;
 	buf_t buf;
+	char *mirr_sec;
 	MFT_RECORD *mirr;
 	errno_t err;
 
@@ -554,16 +718,31 @@ errno_t ntfs_mft_mirror_sync(ntfs_volume *vol, const s64 rec_no,
 		goto put;
 	}
 	lck_spin_unlock(&mirr_ni->size_lock);
+#if NTFS_SUB_SECTOR_MFT_RECORD_SIZE_RW
+	if (vol->mft_record_size < vol->sector_size) {
+		/* If the MFT record size is smaller than a sector, we must
+		 * align the buffer read to the sector size. */
+		buf_mft_no = rec_no & ~vol->mft_records_per_sector_mask;
+		buf_mft_record = rec_no & vol->mft_records_per_sector_mask;
+		buf_read_size = vol->sector_size;
+	} else {
+#endif
+		buf_mft_no = rec_no;
+		buf_mft_record = 0;
+		buf_read_size = vol->mft_record_size;
+#if NTFS_SUB_SECTOR_MFT_RECORD_SIZE_RW
+	}
+#endif
 	/*
 	 * Map the buffer containing the mft mirror record.
 	 *
 	 * Note we use buf_getblk() as we do not care whether the record is
 	 * up-to-date in memory or not as we are about to overwrite it.
 	 */
-	buf = buf_getblk(mirr_vn, rec_no, vol->mft_record_size, 0, 0, BLK_META);
+	buf = buf_getblk(mirr_vn, buf_mft_no, buf_read_size, 0, 0, BLK_META);
 	if (!buf)
 		panic("%s(): buf_getblk() returned NULL.\n", __FUNCTION__);
-	err = buf_map(buf, (caddr_t*)&mirr);
+	err = buf_map(buf, (caddr_t*)&mirr_sec);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to map buffer of mft mirror "
 				"record %lld (error %d).",
@@ -571,6 +750,7 @@ errno_t ntfs_mft_mirror_sync(ntfs_volume *vol, const s64 rec_no,
 		buf_brelse(buf);
 		goto put;
 	}
+	mirr = (MFT_RECORD*)&mirr_sec[buf_mft_record * vol->mft_record_size];
 	memcpy(mirr, m, vol->mft_record_size);
 	err = buf_unmap(buf);
 	if (err)
@@ -1712,7 +1892,11 @@ static errno_t ntfs_mft_record_format(ntfs_volume *vol, const s64 mft_no,
 		const s64 new_initialized_size)
 {
 	ntfs_inode *mft_ni;
+	ino64_t buf_mft_no;
+	ino64_t buf_mft_record;
+	u32 buf_read_size;
 	buf_t buf;
+	char *m_sec;
 	MFT_RECORD *m;
 	errno_t err, err2;
 
@@ -1727,7 +1911,22 @@ static errno_t ntfs_mft_record_format(ntfs_volume *vol, const s64 mft_no,
 		return ENOENT;
 	}
 	/* Read and map the buffer containing the mft record. */
-	err = buf_meta_bread(mft_ni->vn, mft_no, vol->mft_record_size, NOCRED,
+#if NTFS_SUB_SECTOR_MFT_RECORD_SIZE_RW
+	if (vol->mft_record_size < vol->sector_size) {
+		/* If the MFT record size is smaller than a sector, we must
+		 * align the buffer read to the sector size. */
+		buf_mft_no = mft_no & ~vol->mft_records_per_sector_mask;
+		buf_mft_record = mft_no & vol->mft_records_per_sector_mask;
+		buf_read_size = vol->sector_size;
+	} else {
+#endif
+		buf_mft_no = mft_no;
+		buf_mft_record = 0;
+		buf_read_size = vol->mft_record_size;
+#if NTFS_SUB_SECTOR_MFT_RECORD_SIZE_RW
+	}
+#endif
+	err = buf_meta_bread(mft_ni->vn, buf_mft_no, buf_read_size, NOCRED,
 			&buf);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to read buffer of mft record "
@@ -1735,13 +1934,14 @@ static errno_t ntfs_mft_record_format(ntfs_volume *vol, const s64 mft_no,
 				(unsigned long long)mft_no, err);
 		goto brelse;
 	}
-	err = buf_map(buf, (caddr_t*)&m);
+	err = buf_map(buf, (caddr_t*)&m_sec);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to map buffer of mft record "
 				"0x%llx (error %d).",
 				(unsigned long long)mft_no, err);
 		goto brelse;
 	}
+	m = (MFT_RECORD*)&m_sec[buf_mft_record * vol->mft_record_size];
 	err = ntfs_mft_record_lay_out(vol, mft_no, m);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to lay out mft record 0x%llx "
@@ -2057,9 +2257,13 @@ errno_t ntfs_mft_record_alloc(ntfs_volume *vol, struct vnode_attr *va,
 	s64 bit, ll, old_data_initialized, old_data_size, old_mft_data_pos;
 	s64 nr_mft_records_added;
 	ntfs_inode *mft_ni, *mftbmp_ni, *ni;
+	char *m_sec;
 	MFT_RECORD *m;
 	ntfs_attr_search_ctx *ctx;
 	ATTR_RECORD *a;
+	ino64_t buf_mft_no;
+	ino64_t buf_mft_record;
+	u32 buf_read_size;
 	buf_t buf;
 	errno_t err, err2;
 	le16 seq_no, usn;
@@ -2438,7 +2642,22 @@ mft_rec_already_initialized:
 	 *
 	 * Read and map the buffer containing the mft record.
 	 */
-	err = buf_meta_bread(mft_ni->vn, bit, vol->mft_record_size, NOCRED,
+#if NTFS_SUB_SECTOR_MFT_RECORD_SIZE_RW
+	if (vol->mft_record_size < vol->sector_size) {
+		/* If the MFT record size is smaller than a sector, we must
+		 * align the buffer read to the sector size. */
+		buf_mft_no = bit & ~vol->mft_records_per_sector_mask;
+		buf_mft_record = bit & vol->mft_records_per_sector_mask;
+		buf_read_size = vol->sector_size;
+	} else {
+#endif
+		buf_mft_no = bit;
+		buf_mft_record = 0;
+		buf_read_size = vol->mft_record_size;
+#if NTFS_SUB_SECTOR_MFT_RECORD_SIZE_RW
+	}
+#endif
+	err = buf_meta_bread(mft_ni->vn, buf_mft_no, buf_read_size, NOCRED,
 			&buf);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to read buffer of mft record "
@@ -2446,13 +2665,14 @@ mft_rec_already_initialized:
 				err);
 		goto undo_mftbmp_alloc;
 	}
-	err = buf_map(buf, (caddr_t*)&m);
+	err = buf_map(buf, (caddr_t*)&m_sec);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to map buffer of mft record "
 				"0x%llx (error %d).", (unsigned long long)bit,
 				err);
 		goto undo_mftbmp_alloc;
 	}
+	m = (MFT_RECORD*)&m_sec[buf_mft_record * vol->mft_record_size];
 	/* If we just formatted the mft record no need to do it again. */
 	if (!record_formatted) {
 		/*
@@ -2950,7 +3170,7 @@ undo_data_init:
 	goto undo_mftbmp_alloc_locked;
 free_undo_mftbmp_alloc:
 	lck_rw_lock_shared(&mft_ni->lock);
-	err2 = buf_meta_bread(mft_ni->vn, bit, vol->mft_record_size, NOCRED,
+	err2 = buf_meta_bread(mft_ni->vn, buf_mft_no, buf_read_size, NOCRED,
 			&buf);
 	if (err2) {
 		ntfs_error(vol->mp, "Failed to re-read buffer of mft record "
@@ -2959,7 +3179,7 @@ free_undo_mftbmp_alloc:
 		NVolSetErrors(vol);
 		goto undo_mftbmp_alloc;
 	}
-	err2 = buf_map(buf, (caddr_t*)&m);
+	err2 = buf_map(buf, (caddr_t*)&m_sec);
 	if (err2) {
 		ntfs_error(vol->mp, "Failed to re-map buffer of mft record "
 				"0x%llx in error code path (error %d).%s",
@@ -2968,6 +3188,7 @@ free_undo_mftbmp_alloc:
 		goto undo_mftbmp_alloc;
 	}
 	/* Set the mft record itself not in use. */
+	m = (MFT_RECORD*)&m_sec[buf_mft_record * vol->mft_record_size];
 	m->flags &= ~MFT_RECORD_IN_USE;
 	dirty_buf = TRUE;
 unmap_undo_mftbmp_alloc:

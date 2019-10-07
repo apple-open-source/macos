@@ -18,25 +18,14 @@ the code should generally go to the mailing list.
 Availability
 ------------
 
-Zsh is available from the following anonymous FTP sites.  These mirror
-sites are kept frequently up to date.  The sites marked with (H) may be
-mirroring ftp.cs.elte.hu instead of the primary site.
+Zsh is available from the following HTTP and anonymous FTP site.
 
-      Primary site
-            ftp://ftp.zsh.org/pub/
-            http://www.zsh.org/pub/
-
-      Australia
-            ftp://ftp.zsh.org/pub/
-            http://www.zsh.org/pub/
-            http://mirror.dejanseo.com.au/pub/zsh/
-
-      Hungary
-            ftp://ftp.cs.elte.hu/pub/zsh/
-            http://www.cs.elte.hu/pub/zsh/
+ftp://ftp.zsh.org/pub/
+https://www.zsh.org/pub/
+)
 
 The up-to-date source code is available via Git from Sourceforge.  See
-http://sourceforge.net/projects/zsh/ for details.  A summary of
+https://sourceforge.net/projects/zsh/ for details.  A summary of
 instructions for the archive can be found at
 http://zsh.sourceforge.net/.
 
@@ -79,7 +68,7 @@ maintained by Karsten Thygesen <karthy@kom.auc.dk>.
 The mailing lists are archived; the archives can be accessed via the
 administrative addresses listed above.  There is also a hypertext
 archive, maintained by Geoff Wing <gcw@zsh.org>, available at
-http://www.zsh.org/mla/.
+https://www.zsh.org/mla/.
 
 The Zsh FAQ
 -----------
@@ -94,7 +83,7 @@ is <faqmaster@zsh.org>.
 The Zsh Web Page
 ----------------
 
-Zsh has a web page which is located at http://www.zsh.org/.  This is
+Zsh has a web page which is located at https://www.zsh.org/.  This is
 maintained by Karsten Thygesen <karthy@zsh.org>, of SunSITE Denmark.
 The contact address for web-related matters is <webmaster@zsh.org>.
 
@@ -108,10 +97,3 @@ cabbalistic, hierographic, or downright mystifying (for example, the word
 http://zsh.sourceforge.net/Guide/.  At the time of writing, chapters
 dealing with startup files and their contents and the new completion system
 were essentially complete.
-
-The Zsh Wiki
-------------
-
-A `wiki' website for zsh has been created at http://www.zshwiki.org/.
-This is a site which can be added to and modified directly by users without
-any special permission.  You can add your own zsh tips and configurations.

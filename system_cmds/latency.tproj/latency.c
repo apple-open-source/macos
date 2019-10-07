@@ -908,6 +908,12 @@ exit_usage(void)
 	exit(1);
 }
 
+static void
+resetscr(void)
+{
+	(void)endwin();
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1032,9 +1038,10 @@ main(int argc, char *argv[])
 
 	if (!RAW_flag) {
 		if (initscr() == NULL) {
-			printf("Unrecognized TERM type, try vt100\n");
+			fprintf(stderr, "Unrecognized TERM type, try vt100\n");
 			exit(1);
 		}
+		atexit(resetscr);
 		clear();
 		refresh();
 

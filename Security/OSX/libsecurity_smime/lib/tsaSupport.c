@@ -482,8 +482,12 @@ static OSStatus checkForNonDERResponse(const unsigned char *resp, size_t respLen
     strlcpy(respStr, (const char *)resp, respLen);
 
     for (ix = 0; ix < badResponseCount; ++ix)
-        if (strcmp(respStr, badResponses[ix])==0)
+        if (strcmp(respStr, badResponses[ix])==0) {
+            if(respStr) {
+                free(respStr);
+            }
             return errSecTimestampServiceNotAvailable;
+        }
 
 xit:
     if (respStr)
@@ -749,7 +753,7 @@ OSStatus SecCmsTSADefaultCallback(CFTypeRef context, void *messageImprintV, uint
         return paramErr;
 
     CFBooleanRef cfnocerts = (CFBooleanRef)CFDictionaryGetValue((CFDictionaryRef)context, kTSAContextKeyNoCerts);
-    if (cfnocerts)
+    if (cfnocerts != NULL)
     {
         tsaDebug("[TSA] Request noCerts\n");
         noCerts = CFBooleanGetValue(cfnocerts);

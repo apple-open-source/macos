@@ -14,6 +14,8 @@ gen/FreeBSD/raise3	freebsd	lib/libc/gen/raise.3	6b42c90c1ff5f7c35431eced41b62134
 gen/FreeBSD/readpassphrase.c	freebsd	lib/libc/gen/readpassphrase.c	1f19a8fc755a14865a5a5b67d5fa895c4b7cf622
 gen/FreeBSD/readpassphrase.3	freebsd	lib/libc/gen/readpassphrase.3	e0a2d4f15ed9e93fcb62544ed65f7a98e2339c3b
 gen/FreeBSD/times.3	freebsd	lib/libc/gen/times.3	5b882020081a138285227631c46a406c08e17bc8
+gen/FreeBSD/timespec_get.c	freebsd	lib/libc/gen/timespec_get.c	7cbaa4254c0f10f7c00014ce9591ca60abfa57fb
+gen/FreeBSD/timespec_get.3	freebsd	lib/libc/gen/timespec_get.3	7cbaa4254c0f10f7c00014ce9591ca60abfa57fb
 gen/FreeBSD/ttyname.3	freebsd	lib/libc/gen/ttyname.3	84be924362c6e5f469564d418c928c5b1b4a2457
 gen/FreeBSD/ttyslot.c	freebsd	lib/libc/gen/ttyslot.c	898928e8d0a0bab201c1ef232e01cafa27322dae
 gen/FreeBSD/unvis.c	freebsd	contrib/libc-vis/unvis.c	9e3e4b88576d01efe1f56469cac79e116bb62c67
@@ -23,6 +25,7 @@ gen/FreeBSD/vis.c	freebsd	contrib/libc-vis/unvis.c	9e3e4b88576d01efe1f56469cac79
 gen/FreeBSD/vis.3	freebsd	contrib/libc-vis/unvis.3	9e3e4b88576d01efe1f56469cac79e116bb62c67
 gen/FreeBSD/vis.h	freebsd	contrib/libc-vis/unvis.3	9e3e4b88576d01efe1f56469cac79e116bb62c67
 gen/NetBSD/rbtree.3	netbsd	share/man/man3/rbtree.3	a6d78d4a28be21d6006d3c609f31967c0e536779
+gen/directory.3	freebsd	lib/libc/gen/directory.3	7cbaa4254c0f10f7c00014ce9591ca60abfa57fb
 gen/fts.c	openbsd	gen/fts.c	9936a0e983044822375a0d5cdebec20c3623866c
 include/glob.h	freebsd	include/glob.h	ececcb3d95a00665500a1f799a118fc4eaf6750b
 include/readpassphrase.h	freebsd	include/readpassphrase.h	e0a2d4f15ed9e93fcb62544ed65f7a98e2339c3b
@@ -56,6 +59,8 @@ stdtime/FreeBSD/tzfile.h	freebsd	contrib/tzcode/stdtime/tzfile.h	000663e80955a04
 stdtime/FreeBSD/tzfile.5	freebsd	contrib/tzcode/stdtime/tzfile.5	000663e80955a044c229f9274011b828a788ee4b
 string/FreeBSD/bcmp.3	freebsd	lib/libc/string/bcmp.3	408f4a1ab49f89368c80edb4485895658fc81598
 string/FreeBSD/memcmp.3	freebsd	lib/libc/string/memcmp.3	3eb0ea4663f0ae19c4983e80963a121463224508
+string/FreeBSD/rpmatch.c	freebsd	lib/libc/locale/rpmatch.c	8919cfa0b0054509fb3e01f3b22e140645bc6407
+string/FreeBSD/rpmatch.3	freebsd	lib/libc/locale/rpmatch.3	8919cfa0b0054509fb3e01f3b22e140645bc6407
 string/FreeBSD/strcpy.3	freebsd	lib/libc/string/strcpy.3	cfc3df2b8f708ce8494d9d556e3472a5c8c21b8a
 string/FreeBSD/strlcpy.3	freebsd	lib/libc/string/strlcpy.3	e3c83e4556db162d5b54833d2e9974a1152394eb
 string/FreeBSD/strpbrk.3	freebsd	lib/libc/string/strpbrk.3	5b882020081a138285227631c46a406c08e17bc8
@@ -86,3 +91,4 @@ gen/FreeBSD/scandir.c	freebsd	lib/libc/gen/scandir.c	0127b103f27578fc7f9cc3389b2
 gen/FreeBSD/scandir_b.c	freebsd	lib/libc/gen/scandir_b.c	0127b103f27578fc7f9cc3389b299f221deb1d4c
 gen/FreeBSD/seekdir.c	freebsd	lib/libc/gen/seekdir.c	74c1506b3359ee725c9031331908b717460830dc
 gen/FreeBSD/telldir.c	freebsd	lib/libc/gen/telldir.c	74c1506b3359ee725c9031331908b717460830dc
+net/inet_ntop.c freebsd lib/libc/inet/inet_ntop.c f0171d33b464dee5ac308f1d13ede2ddd9d030a7

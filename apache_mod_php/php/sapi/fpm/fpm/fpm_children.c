@@ -1,5 +1,3 @@
-
-	/* $Id: fpm_children.c,v 1.32.2.2 2008/12/13 03:21:18 anight Exp $ */
 	/* (c) 2007,2008 Andrei Nigmatulin */
 
 #include "fpm_config.h"
@@ -58,6 +56,10 @@ static struct fpm_child_s *fpm_child_alloc() /* {{{ */
 
 static void fpm_child_free(struct fpm_child_s *child) /* {{{ */
 {
+	if (child->log_stream) {
+		zlog_stream_close(child->log_stream);
+		free(child->log_stream);
+	}
 	free(child);
 }
 /* }}} */
@@ -205,7 +207,11 @@ void fpm_children_bury() /* {{{ */
 
 		} else if (WIFSIGNALED(status)) {
 			const char *signame = fpm_signal_names[WTERMSIG(status)];
+#ifdef WCOREDUMP
 			const char *have_core = WCOREDUMP(status) ? " - core dumped" : "";
+#else
+			const char* have_core = "";
+#endif
 
 			if (signame == NULL) {
 				signame = "";
@@ -478,4 +484,3 @@ int fpm_children_init_main() /* {{{ */
 	return 0;
 }
 /* }}} */
-

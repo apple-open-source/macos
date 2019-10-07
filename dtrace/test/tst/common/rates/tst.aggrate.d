@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.aggrate.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *   If the aggregation rate is set properly, there should be no aggregation

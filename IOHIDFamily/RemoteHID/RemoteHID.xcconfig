@@ -35,3 +35,4 @@ _INSTALL_PATH_log_RemoteHID = /usr/local/lib/log
 INSTALL_PATH = $(_INSTALL_PATH_$(PRODUCT_NAME))
 SUPPORTS_TEXT_BASED_API = $(_SUPPORTS_TEXT_BASED_API_$(PRODUCT_NAME))
 TAPI_VERIFY_MODE = Pedantic
+OTHER_CFLAGS =  $(inherited) -ftrivial-auto-var-init=pattern

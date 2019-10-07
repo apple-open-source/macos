@@ -29,10 +29,6 @@ template<typename T> string tostr(T val) {
 }
 
 string quote(string s) {
-	if (s.length() == 0) {
-		return "";
-	}
-
 	return '"' + s + '"';
 }
 

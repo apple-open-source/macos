@@ -53,6 +53,8 @@ static NSString* const CKKSManifestEC384SignatureKey = @"CKKSManifestEC384Signat
 
 static NSString* const CKKSManifestErrorDomain = @"CKKSManifestErrorDomain";
 
+static NSString* const manifestRecordNameDelimiter = @":-:";
+
 #define NUM_MANIFEST_LEAF_RECORDS 72
 #define BITS_PER_UUID_CHAR 36
 
@@ -393,49 +395,47 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
     return [[self alloc] initWithDigestValue:pendingManifest.digestValue zone:pendingManifest.zoneName generationCount:pendingManifest.generationCount leafRecordIDs:pendingManifest.committedLeafRecordIDs peerManifestIDs:pendingManifest.peerManifestIDs currentItems:pendingManifest.currentItems futureData:pendingManifest.futureData signatures:pendingManifest.signatures signerID:pendingManifest.signerID schema:pendingManifest.schema encodedRecord:pendingManifest.encodedCKRecord];
 }
 
-+ (instancetype)fromDatabaseRow:(NSDictionary*)row
++ (instancetype)fromDatabaseRow:(NSDictionary<NSString*, CKKSSQLResult*>*)row
 {
-    NSString* digestBase64String = row[@"digest"];
-    NSData* digest = [digestBase64String isKindOfClass:[NSString class]] ? [[NSData alloc] initWithBase64EncodedString:digestBase64String options:0] : nil;
+    NSData* digest = row[@"digest"].asBase64DecodedData;
     
-    NSString* zone = row[@"ckzone"];
-    NSUInteger generationCount = [row[@"gencount"] integerValue];
-    NSString* signerID = row[@"signerID"];
+    NSString* zone = row[@"ckzone"].asString;
+    NSUInteger generationCount = row[@"gencount"].asNSInteger;
+    NSString* signerID = row[@"signerID"].asString;
     
-    NSString* encodedRecordBase64String = row[@"ckrecord"];
-    NSData* encodedRecord = [encodedRecordBase64String isKindOfClass:[NSString class]] ? [[NSData alloc] initWithBase64EncodedString:encodedRecordBase64String options:0] : nil;
+    NSData* encodedRecord = row[@"ckrecord"].asBase64DecodedData;
     
-    NSData* leafRecordIDData = [[NSData alloc] initWithBase64EncodedString:row[@"leafIDs"] options:0];
+    NSData* leafRecordIDData = row[@"leafIDs"].asBase64DecodedData;
     NSArray* leafRecordIDs = (__bridge_transfer NSArray*)CFPropertyListCreateWithDERData(NULL, (__bridge CFDataRef)leafRecordIDData, 0, NULL, NULL);
     if (![leafRecordIDs isKindOfClass:[NSArray class]]) {
         leafRecordIDs = [NSArray array];
     }
     
-    NSData* peerManifestIDData = [[NSData alloc] initWithBase64EncodedString:row[@"peerManifests"] options:0];
+    NSData* peerManifestIDData = row[@"peerManifests"].asBase64DecodedData;
     NSArray* peerManifestIDs = (__bridge_transfer NSArray*)CFPropertyListCreateWithDERData(NULL, (__bridge CFDataRef)peerManifestIDData, 0, NULL, NULL);
     if (![peerManifestIDs isKindOfClass:[NSArray class]]) {
         peerManifestIDs = [NSArray array];
     }
 
-    NSData* currentItemsData = [[NSData alloc] initWithBase64EncodedString:row[@"currentItems"] options:0];
+    NSData* currentItemsData = row[@"currentItems"].asBase64DecodedData;
     NSDictionary* currentItemsDict = (__bridge_transfer NSDictionary*)CFPropertyListCreateWithDERData(NULL, (__bridge CFDataRef)currentItemsData, 0, NULL, NULL);
     if (![currentItemsDict isKindOfClass:[NSDictionary class]]) {
         currentItemsDict = [NSDictionary dictionary];
     }
 
-    NSData* futureData = [[NSData alloc] initWithBase64EncodedString:row[@"futureData"] options:0];
+    NSData* futureData = row[@"futureData"].asBase64DecodedData;
     NSDictionary* futureDataDict = (__bridge_transfer NSDictionary*)CFPropertyListCreateWithDERData(NULL, (__bridge CFDataRef)futureData, 0, NULL, NULL);
     if (![futureDataDict isKindOfClass:[NSDictionary class]]) {
         futureDataDict = [NSDictionary dictionary];
     }
     
-    NSData* signaturesData = [[NSData alloc] initWithBase64EncodedString:row[@"signatures"] options:0];
+    NSData* signaturesData = row[@"signatures"].asBase64DecodedData;
     NSDictionary* signatures = (__bridge_transfer NSDictionary*)CFPropertyListCreateWithDERData(NULL, (__bridge CFDataRef)signaturesData, 0, NULL, NULL);
     if (![signatures isKindOfClass:[NSDictionary class]]) {
         signatures = [NSDictionary dictionary];
     }
 
-    NSData* schemaData = [[NSData alloc] initWithBase64EncodedString:row[@"schema"] options:0];
+    NSData* schemaData = row[@"schema"].asBase64DecodedData;
     NSDictionary* schemaDict = (__bridge_transfer NSDictionary*)CFPropertyListCreateWithDERData(NULL, (__bridge CFDataRef)schemaData, 0, NULL, NULL);
     if (![schemaDict isKindOfClass:[NSDictionary class]]) {
         schemaDict = __thisBuildsSchema;
@@ -457,8 +457,8 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
 + (NSUInteger)greatestKnownGenerationCount
 {
     __block NSUInteger result = 0;
-    [self queryMaxValueForField:@"gencount" inTable:self.sqlTable where:nil columns:@[@"gencount"] processRow:^(NSDictionary* row) {
-        result = [row[@"gencount"] integerValue];
+    [self queryMaxValueForField:@"gencount" inTable:self.sqlTable where:nil columns:@[@"gencount"] processRow:^(NSDictionary<NSString*,CKKSSQLResult*>* row) {
+        result = row[@"gencount"].asNSInteger;
     }];
     
     [CKKSPendingManifest queryMaxValueForField:@"gencount" inTable:[CKKSPendingManifest sqlTable] where:nil columns:@[@"gencount"] processRow:^(NSDictionary* row) {
@@ -470,6 +470,16 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
 
 - (instancetype)initWithDigestValue:(NSData*)digestValue zone:(NSString*)zone generationCount:(NSUInteger)generationCount leafRecordIDs:(NSArray<NSString*>*)leafRecordIDs peerManifestIDs:(NSArray<NSString*>*)peerManifestIDs currentItems:(NSDictionary*)currentItems futureData:(NSDictionary*)futureData signatures:(NSDictionary*)signatures signerID:(NSString*)signerID schema:(NSDictionary*)schema helper:(CKKSManifestInjectionPointHelper*)helper
 {
+    if ([zone containsString:manifestRecordNameDelimiter]) {
+        secerror("zone contains delimiter: %@", zone);
+        return nil;
+    }
+    if ([signerID containsString:manifestRecordNameDelimiter]) {
+        secerror("signerID contains delimiter: %@", signerID);
+        return nil;
+    }
+
+
     if (self = [super init]) {
         _digestValue = digestValue;
         _zoneName = zone;
@@ -708,12 +718,15 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
 
 - (NSString*)CKRecordName
 {
-    return [NSString stringWithFormat:@"Manifest:-:%@:-:%@:-:%lu", _zoneName, _signerID, (unsigned long)_generationCount];
+    return [NSString stringWithFormat:@"Manifest%@%@%@%@%@%lu",
+            manifestRecordNameDelimiter, _zoneName,
+            manifestRecordNameDelimiter, _signerID,
+            manifestRecordNameDelimiter, (unsigned long)_generationCount];
 }
 
 + (NSDictionary*)whereClauseForRecordName:(NSString*)recordName
 {
-    NSArray* components = [recordName componentsSeparatedByString:@":-:"];
+    NSArray* components = [recordName componentsSeparatedByString:manifestRecordNameDelimiter];
     if (components.count < 4) {
         secerror("CKKSManifest: could not parse components from record name: %@", recordName);
     }
@@ -726,7 +739,10 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
 - (CKRecord*)updateCKRecord:(CKRecord*)record zoneID:(CKRecordZoneID*)zoneID
 {
     if (![record.recordType isEqualToString:SecCKRecordManifestType]) {
-        @throw [NSException exceptionWithName:@"WrongCKRecordTypeException" reason:[NSString stringWithFormat:@"CKRecorType (%@) was not %@", record.recordType, SecCKRecordManifestType] userInfo:nil];
+        @throw [NSException
+                exceptionWithName:@"WrongCKRecordTypeException"
+                reason:[NSString stringWithFormat:@"CKRecordType (%@) was not %@", record.recordType, SecCKRecordManifestType]
+                userInfo:nil];
     }
     
     NSData* signatureDERData = [self derDataFromSignatureDict:self.signatures error:nil];

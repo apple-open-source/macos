@@ -200,17 +200,13 @@ static int bio_filter_out_write(BIO *bio, const char *in, int inl)
     apr_bucket *e;
     int need_flush;
 
+    BIO_clear_retry_flags(bio);
+
     /* Abort early if the client has initiated a renegotiation. */
     if (outctx->filter_ctx->config->reneg_state == RENEG_ABORT) {
         outctx->rc = APR_ECONNABORTED;
         return -1;
     }
-
-    /* when handshaking we'll have a small number of bytes.
-     * max size SSL will pass us here is about 16k.
-     * (16413 bytes to be exact)
-     */
-    BIO_clear_retry_flags(bio);
 
     /* Use a transient bucket for the output data - any downstream
      * filter must setaside if necessary. */
@@ -458,13 +454,13 @@ static int bio_filter_in_read(BIO *bio, char *in, int inlen)
     if (!in)
         return 0;
 
+    BIO_clear_retry_flags(bio);
+
     /* Abort early if the client has initiated a renegotiation. */
     if (inctx->filter_ctx->config->reneg_state == RENEG_ABORT) {
         inctx->rc = APR_ECONNABORTED;
         return -1;
     }
-
-    BIO_clear_retry_flags(bio);
 
     if (!inctx->bb) {
         inctx->rc = APR_EOF;
@@ -680,37 +676,36 @@ static apr_status_t ssl_io_input_read(bio_filter_in_ctx_t *inctx,
             }
             return inctx->rc;
         }
-        else if (rc == 0) {
-            /* If EAGAIN, we will loop given a blocking read,
-             * otherwise consider ourselves at EOF.
-             */
-            if (APR_STATUS_IS_EAGAIN(inctx->rc)
-                    || APR_STATUS_IS_EINTR(inctx->rc)) {
-                /* Already read something, return APR_SUCCESS instead.
-                 * On win32 in particular, but perhaps on other kernels,
-                 * a blocking call isn't 'always' blocking.
+        else /* (rc <= 0) */ {
+            int ssl_err;
+            conn_rec *c;
+            if (rc == 0) {
+                /* If EAGAIN, we will loop given a blocking read,
+                 * otherwise consider ourselves at EOF.
                  */
-                if (*len > 0) {
-                    inctx->rc = APR_SUCCESS;
-                    break;
-                }
-                if (inctx->block == APR_NONBLOCK_READ) {
-                    break;
-                }
-            }
-            else {
-                if (*len > 0) {
-                    inctx->rc = APR_SUCCESS;
+                if (APR_STATUS_IS_EAGAIN(inctx->rc)
+                        || APR_STATUS_IS_EINTR(inctx->rc)) {
+                    /* Already read something, return APR_SUCCESS instead.
+                     * On win32 in particular, but perhaps on other kernels,
+                     * a blocking call isn't 'always' blocking.
+                     */
+                    if (*len > 0) {
+                        inctx->rc = APR_SUCCESS;
+                        break;
+                    }
+                    if (inctx->block == APR_NONBLOCK_READ) {
+                        break;
+                    }
                 }
                 else {
-                    inctx->rc = APR_EOF;
+                    if (*len > 0) {
+                        inctx->rc = APR_SUCCESS;
+                        break;
+                    }
                 }
-                break;
             }
-        }
-        else /* (rc < 0) */ {
-            int ssl_err = SSL_get_error(inctx->filter_ctx->pssl, rc);
-            conn_rec *c = (conn_rec*)SSL_get_app_data(inctx->filter_ctx->pssl);
+            ssl_err = SSL_get_error(inctx->filter_ctx->pssl, rc);
+            c = (conn_rec*)SSL_get_app_data(inctx->filter_ctx->pssl);
 
             if (ssl_err == SSL_ERROR_WANT_READ) {
                 /*
@@ -754,6 +749,10 @@ static apr_status_t ssl_io_input_read(bio_filter_in_ctx_t *inctx,
                                   "SSL input filter read failed.");
                 }
             }
+            else if (rc == 0 && ssl_err == SSL_ERROR_ZERO_RETURN) {
+                inctx->rc = APR_EOF;
+                break;
+            }
             else /* if (ssl_err == SSL_ERROR_SSL) */ {
                 /*
                  * Log SSL errors and any unexpected conditions.
@@ -762,6 +761,10 @@ static apr_status_t ssl_io_input_read(bio_filter_in_ctx_t *inctx,
                               "SSL library error %d reading data", ssl_err);
                 ssl_log_ssl_error(SSLLOG_MARK, APLOG_INFO, mySrvFromConn(c));
 
+            }
+            if (rc == 0) {
+                inctx->rc = APR_EOF;
+                break;
             }
             if (inctx->rc == APR_SUCCESS) {
                 inctx->rc = APR_EGENERAL;
@@ -877,6 +880,8 @@ static apr_status_t ssl_filter_write(ap_filter_t *f,
              */
             outctx->c->cs->sense = CONN_SENSE_WANT_READ;
             outctx->rc = APR_EAGAIN;
+            ap_log_cerror(APLOG_MARK, APLOG_TRACE6, 0, outctx->c,
+                          "Want read during nonblocking write");
         }
         else if (ssl_err == SSL_ERROR_SYSCALL) {
             ap_log_cerror(APLOG_MARK, APLOG_INFO, outctx->rc, c, APLOGNO(01993)
@@ -977,12 +982,10 @@ static apr_status_t ssl_io_filter_error(bio_filter_in_ctx_t *inctx,
             break;
 
     case MODSSL_ERROR_BAD_GATEWAY:
-        bucket = ap_bucket_error_create(HTTP_BAD_REQUEST, NULL,
-                                        f->c->pool,
-                                        f->c->bucket_alloc);
         ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, f->c, APLOGNO(01997)
                       "SSL handshake failed: sending 502");
-        break;
+        f->c->aborted = 1;
+        return APR_EGENERAL;
 
     default:
         return status;
@@ -1235,7 +1238,7 @@ static apr_status_t ssl_io_filter_handshake(ssl_filter_ctx_t *filter_ctx)
                 ssl_log_ssl_error(SSLLOG_MARK, APLOG_WARNING, server);
             }
         }
-#endif
+#endif /* defined HAVE_TLSEXT */
 
         if ((n = SSL_connect(filter_ctx->pssl)) <= 0) {
             ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, c, APLOGNO(02003)
@@ -1264,7 +1267,6 @@ static apr_status_t ssl_io_filter_handshake(ssl_filter_ctx_t *filter_ctx)
             ((dc->proxy->ssl_check_peer_cn != FALSE) ||
              (dc->proxy->ssl_check_peer_name == TRUE)) &&
             hostname_note) {
-            apr_table_unset(c->notes, "proxy-request-hostname");
             if (!cert
                 || modssl_X509_match_name(c->pool, cert, hostname_note,
                                           TRUE, server) == FALSE) {
@@ -1281,7 +1283,6 @@ static apr_status_t ssl_io_filter_handshake(ssl_filter_ctx_t *filter_ctx)
 
             hostname = ssl_var_lookup(NULL, server, c, NULL,
                                       "SSL_CLIENT_S_DN_CN");
-            apr_table_unset(c->notes, "proxy-request-hostname");
 
             /* Do string match or simplest wildcard match if that
              * fails. */
@@ -1315,7 +1316,7 @@ static apr_status_t ssl_io_filter_handshake(ssl_filter_ctx_t *filter_ctx)
             /* ensure that the SSL structures etc are freed, etc: */
             ssl_filter_io_shutdown(filter_ctx, c, 1);
             apr_table_setn(c->notes, "SSL_connect_rv", "err");
-            return HTTP_BAD_GATEWAY;
+            return MODSSL_ERROR_BAD_GATEWAY;
         }
 
         apr_table_setn(c->notes, "SSL_connect_rv", "ok");
@@ -2071,6 +2072,8 @@ void ssl_io_filter_init(conn_rec *c, request_rec *r, SSL *ssl)
     /* write is non blocking for the benefit of async mpm */
     if (c->cs) {
         BIO_set_nbio(filter_ctx->pbioWrite, 1);
+        ap_log_cerror(APLOG_MARK, APLOG_TRACE6, 0, c,
+                      "Enabling non-blocking writes");
     }
 
     ssl_io_input_add_filter(filter_ctx, c, r, ssl);
@@ -2114,9 +2117,8 @@ void ssl_io_filter_register(apr_pool_t *p)
 
 #define DUMP_WIDTH 16
 
-static void ssl_io_data_dump(server_rec *s,
-                             const char *b,
-                             long len)
+static void ssl_io_data_dump(conn_rec *c, server_rec *s,
+                             const char *b, long len)
 {
     char buf[256];
     char tmp[64];
@@ -2129,7 +2131,7 @@ static void ssl_io_data_dump(server_rec *s,
     rows = (len / DUMP_WIDTH);
     if ((rows * DUMP_WIDTH) < len)
         rows++;
-    ap_log_error(APLOG_MARK, APLOG_TRACE7, 0, s,
+    ap_log_cserror(APLOG_MARK, APLOG_TRACE7, 0, c, s,
             "+-------------------------------------------------------------------------+");
     for(i = 0 ; i< rows; i++) {
 #if APR_CHARSET_EBCDIC
@@ -2168,12 +2170,12 @@ static void ssl_io_data_dump(server_rec *s,
             }
         }
         apr_cpystrn(buf+strlen(buf), " |", sizeof(buf)-strlen(buf));
-        ap_log_error(APLOG_MARK, APLOG_TRACE7, 0, s, "%s", buf);
+        ap_log_cserror(APLOG_MARK, APLOG_TRACE7, 0, c, s, "%s", buf);
     }
     if (trunc > 0)
-        ap_log_error(APLOG_MARK, APLOG_TRACE7, 0, s,
+        ap_log_cserror(APLOG_MARK, APLOG_TRACE7, 0, c, s,
                 "| %04ld - <SPACES/NULS>", len + trunc);
-    ap_log_error(APLOG_MARK, APLOG_TRACE7, 0, s,
+    ap_log_cserror(APLOG_MARK, APLOG_TRACE7, 0, c, s,
             "+-------------------------------------------------------------------------+");
     return;
 }
@@ -2195,15 +2197,21 @@ long ssl_io_data_cb(BIO *bio, int cmd,
     if (   cmd == (BIO_CB_WRITE|BIO_CB_RETURN)
         || cmd == (BIO_CB_READ |BIO_CB_RETURN) ) {
         if (rc >= 0) {
+            const char *dump = "";
+            if (APLOG_CS_IS_LEVEL(c, s, APLOG_TRACE7)) {
+                if (argp != NULL)
+                    dump = "(BIO dump follows)";
+                else
+                    dump = "(Oops, no memory buffer?)";
+            }
             ap_log_cserror(APLOG_MARK, APLOG_TRACE4, 0, c, s,
                     "%s: %s %ld/%d bytes %s BIO#%pp [mem: %pp] %s",
                     MODSSL_LIBRARY_NAME,
                     (cmd == (BIO_CB_WRITE|BIO_CB_RETURN) ? "write" : "read"),
                     rc, argi, (cmd == (BIO_CB_WRITE|BIO_CB_RETURN) ? "to" : "from"),
-                    bio, argp,
-                    (argp != NULL ? "(BIO dump follows)" : "(Oops, no memory buffer?)"));
-            if ((argp != NULL) && APLOG_CS_IS_LEVEL(c, s, APLOG_TRACE7))
-                ssl_io_data_dump(s, argp, rc);
+                    bio, argp, dump);
+            if (*dump != '\0' && argp != NULL)
+                ssl_io_data_dump(c, s, argp, rc);
         }
         else {
             ap_log_cserror(APLOG_MARK, APLOG_TRACE4, 0, c, s,

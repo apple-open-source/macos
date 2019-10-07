@@ -2,10 +2,10 @@
 Test wrong number of arguments for microtime()
 --FILE--
 <?php
-/* 
+/*
  * proto mixed microtime([bool get_as_float])
  * Function is implemented in ext/standard/microtime.c
-*/ 
+*/
 
 $opt_arg_0 = true;
 $extra_arg = 1;
@@ -31,7 +31,6 @@ foreach ($bad_args as $bad_arg) {
 ?>
 ===DONE===
 --EXPECTF--
-
 -- Too many arguments --
 
 Warning: microtime() expects at most 1 parameter, 2 given in %s on line 11
@@ -58,13 +57,13 @@ float(%s)
   }
 }
 
-Warning: microtime() expects parameter 1 to be boolean, array given in %s on line 25
+Warning: microtime() expects parameter 1 to be bool, array given in %s on line 25
 NULL
 
 --> bad arg: object(stdClass)#%d (0) {
 }
 
-Warning: microtime() expects parameter 1 to be boolean, object given in %s on line 25
+Warning: microtime() expects parameter 1 to be bool, object given in %s on line 25
 NULL
 
 --> bad arg: int(1)

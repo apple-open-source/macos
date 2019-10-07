@@ -162,6 +162,9 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
         this.addSubview(this._navigationBar);
 
         this._createGeneralSettingsView();
+        this._createElementsSettingsView();
+        this._createSourcesSettingsView();
+        this._createConsoleSettingsView();
         this._createExperimentalSettingsView();
 
         WI.notifications.addEventListener(WI.Notification.DebugUIEnabledDidChange, this._updateDebugSettingsViewVisibility, this);
@@ -177,7 +180,6 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
         let generalSettingsView = new WI.SettingsView("general", WI.UIString("General"));
 
         const indentValues = [WI.UIString("Tabs"), WI.UIString("Spaces")];
-
         let indentEditor = generalSettingsView.addGroupWithCustomSetting(WI.UIString("Prefer indent using:"), WI.SettingEditor.Type.Select, {values: indentValues});
         indentEditor.value = indentValues[WI.settings.indentWithTabs.value ? 0 : 1];
         indentEditor.addEventListener(WI.SettingEditor.Event.ValueDidChange, () => {
@@ -206,8 +208,9 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
 
         generalSettingsView.addSeparator();
 
-        generalSettingsView.addSetting(WI.UIString("Debugger:"), WI.settings.showScopeChainOnPause, WI.UIString("Show Scope Chain on pause"));
-        generalSettingsView.addSetting(WI.UIString("Source maps:"), WI.settings.sourceMapsEnabled, WI.UIString("Enable source maps"));
+        let searchGroup = generalSettingsView.addGroup(WI.UIString("Search:", "Search: @ Settings", "Settings tab label for search related settings"));
+        searchGroup.addSetting(WI.settings.searchCaseSensitive, WI.UIString("Case Sensitive", "Case Sensitive @ Settings", "Settings tab checkbox label for whether searches should be case sensitive."));
+        searchGroup.addSetting(WI.settings.searchRegularExpression, WI.UIString("Regular Expression", "Regular Expression @ Settings", "Settings tab checkbox label for whether searches should be treated as regular expressions."));
 
         generalSettingsView.addSeparator();
 
@@ -219,7 +222,49 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
         zoomEditor.addEventListener(WI.SettingEditor.Event.ValueDidChange, () => { WI.setZoomFactor(zoomEditor.value); });
         WI.settings.zoomFactor.addEventListener(WI.Setting.Event.Changed, () => { zoomEditor.value = WI.getZoomFactor().maxDecimals(2); });
 
+        this.addSettingsView(generalSettingsView);
+    }
+
+    _createElementsSettingsView()
+    {
+        if (!InspectorBackend.domains.DOM)
+            return;
+
+        let elementsSettingsView = new WI.SettingsView("elements", WI.UIString("Elements"));
+
+        if (InspectorBackend.domains.DOM.setInspectModeEnabled && InspectorBackend.domains.DOM.setInspectModeEnabled.supports("showRulers")) {
+            elementsSettingsView.addSetting(WI.UIString("Element Selection:"), WI.settings.showRulersDuringElementSelection, WI.UIString("Show page rulers and node border lines"));
+
+            elementsSettingsView.addSeparator();
+        }
+
+        elementsSettingsView.addSetting(WI.UIString("CSS Changes:"), WI.settings.cssChangesPerNode, WI.UIString("Show only for selected node"));
+
+        this.addSettingsView(elementsSettingsView);
+    }
+
+    _createSourcesSettingsView()
+    {
+        let sourcesSettingsView = new WI.SettingsView("sources", WI.UIString("Sources"));
+
+        sourcesSettingsView.addSetting(WI.UIString("Debugger:"), WI.settings.showScopeChainOnPause, WI.UIString("Show Scope Chain on pause"));
+
+        sourcesSettingsView.addSeparator();
+
+        sourcesSettingsView.addSetting(WI.UIString("Source Maps:"), WI.settings.sourceMapsEnabled, WI.UIString("Enable source maps"));
+
+        this.addSettingsView(sourcesSettingsView);
+    }
+
+    _createConsoleSettingsView()
+    {
+        let consoleSettingsView = new WI.SettingsView("console", WI.UIString("Console"));
+
+        consoleSettingsView.addSetting(WI.UIString("Traces:"), WI.settings.consoleAutoExpandTrace, WI.UIString("Auto-expand"));
+
         if (WI.ConsoleManager.supportsLogChannels()) {
+            consoleSettingsView.addSeparator();
+
             const logLevels = [
                 [WI.LoggingChannel.Level.Off, WI.UIString("Off")],
                 [WI.LoggingChannel.Level.Basic, WI.UIString("Basic")],
@@ -227,12 +272,13 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
             ];
             const editorLabels = {
                 media: WI.UIString("Media Logging:"),
+                mediasource: WI.UIString("MSE Logging:"),
                 webrtc: WI.UIString("WebRTC Logging:"),
             };
 
             let channels = WI.consoleManager.customLoggingChannels;
             for (let channel of channels) {
-                let logEditor = generalSettingsView.addGroupWithCustomSetting(editorLabels[channel.source], WI.SettingEditor.Type.Select, {values: logLevels});
+                let logEditor = consoleSettingsView.addGroupWithCustomSetting(editorLabels[channel.source], WI.SettingEditor.Type.Select, {values: logLevels});
                 logEditor.value = channel.level;
                 logEditor.addEventListener(WI.SettingEditor.Event.ValueDidChange, () => {
                     for (let target of WI.targets)
@@ -241,33 +287,27 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
             }
         }
 
-        this.addSettingsView(generalSettingsView);
+        this.addSettingsView(consoleSettingsView);
     }
 
     _createExperimentalSettingsView()
     {
-        if (!(window.CanvasAgent || window.NetworkAgent || window.LayerTreeAgent))
-            return;
-
         let experimentalSettingsView = new WI.SettingsView("experimental", WI.UIString("Experimental"));
 
         let initialValues = new Map;
 
-        if (window.CSSAgent) {
-            let group = experimentalSettingsView.addGroup(WI.UIString("Styles Sidebar:"));
-            group.addSetting(WI.settings.experimentalEnableComputedStyleCascades, WI.UIString("Enable Computed Style Cascades"));
-            experimentalSettingsView.addSeparator();
-        }
+        experimentalSettingsView.addSetting(WI.UIString("Sources:"), WI.settings.experimentalEnableSourcesTab, WI.UIString("Enable Sources Tab"));
+        experimentalSettingsView.addSeparator();
 
         if (window.LayerTreeAgent) {
             experimentalSettingsView.addSetting(WI.UIString("Layers:"), WI.settings.experimentalEnableLayersTab, WI.UIString("Enable Layers Tab"));
             experimentalSettingsView.addSeparator();
         }
 
-        experimentalSettingsView.addSetting(WI.UIString("Audit:"), WI.settings.experimentalEnableAuditTab, WI.UIString("Enable Audit Tab"));
+        experimentalSettingsView.addSetting(WI.UIString("User Interface:"), WI.settings.experimentalEnableNewTabBar, WI.UIString("Enable New Tab Bar"));
         experimentalSettingsView.addSeparator();
 
-        experimentalSettingsView.addSetting(WI.UIString("User Interface:"), WI.settings.experimentalEnableNewTabBar, WI.UIString("Enable New Tab Bar"));
+        experimentalSettingsView.addSetting(WI.UIString("Styles:"), WI.settings.experimentalEnableStylesJumpToEffective, WI.UIString("Show Jump to Effective Property Button"));
         experimentalSettingsView.addSeparator();
 
         let reloadInspectorButton = document.createElement("button");
@@ -275,10 +315,10 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
         reloadInspectorButton.addEventListener("click", (event) => {
             // Force a copy so that WI.Setting sees it as a new value.
             let newTabs = WI._openTabsSetting.value.slice();
+            if (!initialValues.get(WI.settings.experimentalEnableSourcesTab) && WI.settings.experimentalEnableSourcesTab.value)
+                newTabs.push(WI.SourcesTabContentView.Type);
             if (!initialValues.get(WI.settings.experimentalEnableLayersTab) && window.LayerTreeAgent && WI.settings.experimentalEnableLayersTab.value)
                 newTabs.push(WI.LayersTabContentView.Type);
-            if (!initialValues.get(WI.settings.experimentalEnableAuditTab) && WI.settings.experimentalEnableAuditTab.value)
-                newTabs.push(WI.AuditTabContentView.Type);
             WI._openTabsSetting.value = newTabs;
 
             InspectorFrontendHost.reopen();
@@ -294,10 +334,10 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
             });
         }
 
-        listenForChange(WI.settings.experimentalEnableComputedStyleCascades);
+        listenForChange(WI.settings.experimentalEnableSourcesTab);
         listenForChange(WI.settings.experimentalEnableLayersTab);
-        listenForChange(WI.settings.experimentalEnableAuditTab);
         listenForChange(WI.settings.experimentalEnableNewTabBar);
+        listenForChange(WI.settings.experimentalEnableStylesJumpToEffective);
 
         this.addSettingsView(experimentalSettingsView);
     }
@@ -330,6 +370,10 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
 
         this._debugSettingsView.addSeparator();
 
+        this._debugSettingsView.addSetting(WI.unlocalizedString("Heap Snapshot:"), WI.settings.debugShowInternalObjectsInHeapSnapshot, WI.unlocalizedString("Show Internal Objects"));
+
+        this._debugSettingsView.addSeparator();
+
         this._debugSettingsView.addSetting(WI.unlocalizedString("Debugging:"), WI.settings.pauseForInternalScripts, WI.unlocalizedString("Pause in WebKit-internal scripts"));
 
         this._debugSettingsView.addSetting(WI.unlocalizedString("Uncaught Exception Reporter:"), WI.settings.enableUncaughtExceptionReporter, WI.unlocalizedString("Enabled"));
@@ -345,6 +389,13 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
         let layoutDirectionEditor = this._debugSettingsView.addGroupWithCustomSetting(WI.unlocalizedString("Layout Direction:"), WI.SettingEditor.Type.Select, {values: layoutDirectionValues});
         layoutDirectionEditor.value = WI.settings.layoutDirection.value;
         layoutDirectionEditor.addEventListener(WI.SettingEditor.Event.ValueDidChange, () => { WI.setLayoutDirection(layoutDirectionEditor.value); });
+
+        let resetInspectorButton = document.createElement("button");
+        resetInspectorButton.textContent = WI.unlocalizedString("Reset Web Inspector");
+        resetInspectorButton.addEventListener("click", (event) => {
+            WI.reset();
+        });
+        this._debugSettingsView.addCenteredContainer(resetInspectorButton);
 
         this.addSettingsView(this._debugSettingsView);
     }

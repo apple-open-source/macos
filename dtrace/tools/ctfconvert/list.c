@@ -52,20 +52,6 @@ list_add(list_t **list, void *data)
 	*list = le;
 }
 
-/* Add an element to a sorted list */
-void
-slist_add(list_t **list, void *data, int (*cmp)(void *, void *))
-{
-	list_t **nextp;
-
-	for (nextp = list; *nextp; nextp = &((*nextp)->l_next)) {
-		if (cmp((*nextp)->l_data, data) > 0)
-			break;
-	}
-
-	list_add(nextp, data);
-}
-
 /*ARGSUSED2*/
 static int
 list_defcmp(void *d1, void *d2, void *private)
@@ -179,48 +165,4 @@ list_concat(list_t **list1, list_t *list2)
 		*list1 = list2;
 	else
 		last->l_next = list2;
-}
-
-/*
- * Merges two sorted lists.  Equal nodes (as determined by cmp) are retained.
- */
-void
-slist_merge(list_t **list1p, list_t *list2, int (*cmp)(void *, void *))
-{
-	list_t *list1, *next2;
-	list_t *last1 = NULL;
-
-	if (*list1p == NULL) {
-		*list1p = list2;
-		return;
-	}
-
-	list1 = *list1p;
-	while (list2 != NULL) {
-		if (cmp(list1->l_data, list2->l_data) > 0) {
-			next2 = list2->l_next;
-
-			if (last1 == NULL) {
-				/* Insert at beginning */
-				*list1p = last1 = list2;
-				list2->l_next = list1;
-			} else {
-				list2->l_next = list1;
-				last1->l_next = list2;
-				last1 = list2;
-			}
-
-			list2 = next2;
-		} else {
-
-			last1 = list1;
-			list1 = list1->l_next;
-
-			if (list1 == NULL) {
-				/* Add the rest to the end of list1 */
-				last1->l_next = list2;
-				list2 = NULL;
-			}
-		}
-	}
 }

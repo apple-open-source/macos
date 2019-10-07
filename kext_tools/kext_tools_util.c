@@ -2,14 +2,14 @@
  * Copyright (c) 2008 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,21 +17,22 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 #include <TargetConditionals.h>
 #if !TARGET_OS_EMBEDDED
     #include <bless.h>
-    #include <libgen.h>
     #include "bootcaches.h"
 #endif  // !TARGET_OS_EMBEDDED
 
 #include <libc.h>
+#include <libgen.h>
 #include <stdint.h>
 #include <sysexits.h>
 #include <asl.h>
+
 #include <syslog.h>
 #include <sys/resource.h>
 #include <IOKit/kext/OSKext.h>
@@ -43,6 +44,9 @@
 #include <sys/sysctl.h>
 
 #include "kext_tools_util.h"
+#ifndef EMBEDDED_HOST
+#include "signposts.h"
+#endif
 
 #if PRAGMA_MARK
 #pragma mark Basic Utility
@@ -131,7 +135,7 @@ void addToArrayIfAbsent(CFMutableArrayRef array, const void * value)
 {
     if (kCFNotFound == CFArrayGetFirstIndexOfValue(array, RANGE_ALL(array),
         value)) {
-        
+
         CFArrayAppendValue(array, value);
     }
     return;
@@ -143,17 +147,37 @@ void addToArrayIfAbsent(CFMutableArrayRef array, const void * value)
 Boolean createCFDataFromFile(CFDataRef  *dataRefOut,
                              const char *filePath)
 {
-    int             fd = -1;
-    Boolean         result = false;
-    struct stat     statBuf;
-    void            *buffer;
-    CFIndex         length;
-    
+    int     fd = -1;
+    Boolean result = false;
+
     *dataRefOut = NULL;
     fd = open(filePath, O_RDONLY, 0);
     if (fd < 0) {
         goto finish;
     }
+
+    result = createCFDataFromFD(fd, dataRefOut);
+
+finish:
+    if (fd != -1) {
+        close(fd);
+    }
+    return result;
+}
+
+
+/*******************************************************************************
+ * createCFDataFromFD()
+ *******************************************************************************/
+Boolean createCFDataFromFD(int fd, CFDataRef *dataRefOut)
+{
+    Boolean         result = false;
+    struct stat     statBuf;
+    void            *buffer;
+    CFIndex         length;
+
+    *dataRefOut = NULL;
+
     if (fstat(fd, &statBuf) != 0) {
         goto finish;
     }
@@ -163,14 +187,19 @@ Boolean createCFDataFromFile(CFDataRef  *dataRefOut,
     if (statBuf.st_size == 0) {
         goto finish;
     }
-    
+
     // fill buffer used for CFData passed to caller
     length = (CFIndex) statBuf.st_size;
     buffer = CFAllocatorAllocate(kCFAllocatorDefault, length, 0);
-    if (read(fd, buffer, length) < 0) {
-        goto finish;
+    ssize_t bytes_read = 0;
+    while (bytes_read < length) {
+        ssize_t bytes = read(fd, buffer + bytes_read, length - bytes_read);
+        if (bytes < 0) {
+            goto finish;
+        }
+        bytes_read += bytes;
     }
-    
+
     *dataRefOut = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
                                 (const UInt8 *)buffer,
                                 length,
@@ -180,18 +209,17 @@ Boolean createCFDataFromFile(CFDataRef  *dataRefOut,
         goto finish;
     }
     result = true;
+
 finish:
-    if (fd != -1) {
-        close(fd);
-    }
     if (result == false) {
+        char tmppath[PATH_MAX] = {};
+        (void)fcntl(fd, F_GETPATH, tmppath);
         OSKextLog(/* kext */ NULL,
                   kOSKextLogErrorLevel,
-                  "%s: failed for '%s'", __func__, filePath);
+                  "%s: failed for '%d' (%s)", __func__, fd, tmppath);
     }
     return result;
 }
-
 
 /*******************************************************************************
  *******************************************************************************/
@@ -203,7 +231,7 @@ ExitStatus writeToFile(
     ExitStatus result = EX_OSERR;
     ssize_t bytesWritten = 0;
     ssize_t totalBytesWritten = 0;
-    
+
     while (totalBytesWritten < length) {
         bytesWritten = write(fileDescriptor, data + totalBytesWritten,
                              length - totalBytesWritten);
@@ -215,7 +243,7 @@ ExitStatus writeToFile(
         }
         totalBytesWritten += bytesWritten;
     }
-    
+
     result = EX_OK;
 finish:
     return result;
@@ -227,12 +255,12 @@ finish:
 
 void postNoteAboutKexts( CFStringRef theNotificationCenterName,
                          CFMutableDictionaryRef theDict )
-{    
+{
     CFNotificationCenterRef     myCenter    = NULL;
-    
+
     if (theDict == NULL || theNotificationCenterName == NULL)
         return;
-    
+
     myCenter = CFNotificationCenterGetDistributedCenter();
     CFRetain(theDict);
 
@@ -242,16 +270,16 @@ void postNoteAboutKexts( CFStringRef theNotificationCenterName,
         NULL,
         theDict,
         kCFNotificationDeliverImmediately | kCFNotificationPostToAllSessions );
-    
+
     SAFE_RELEASE(theDict);
-    
+
     return;
 }
 
 /******************************************************************************
  * postNoteAboutKextLoadsMT will use CFNotificationCenter to post a notification.
  * The notification center is named by theNotificationCenterName.  This routine
- * is used to notify kextd about a kext that is getting loaded for message 
+ * is used to notify kextd about a kext that is getting loaded for message
  * tracing.
  ******************************************************************************/
 
@@ -260,21 +288,21 @@ void postNoteAboutKextLoadsMT(CFStringRef theNotificationCenterName,
 {
     CFMutableDictionaryRef      myInfoDict  = NULL; // must release
     CFNotificationCenterRef     myCenter    = NULL;
-    
+
     if (theKextPathArray == NULL || theNotificationCenterName == NULL)
         return;
- 
+
     myCenter = CFNotificationCenterGetDistributedCenter();
     myInfoDict = CFDictionaryCreateMutable(
                                            kCFAllocatorDefault, 0,
                                            &kCFCopyStringDictionaryKeyCallBacks,
                                            &kCFTypeDictionaryValueCallBacks);
-    
+
     if (myInfoDict && myCenter) {
         CFDictionaryAddValue(myInfoDict,
                              CFSTR("KextArrayKey"),
                              theKextPathArray);
-        
+
         CFNotificationCenterPostNotificationWithOptions(
                                                         myCenter,
                                                         theNotificationCenterName,
@@ -283,9 +311,9 @@ void postNoteAboutKextLoadsMT(CFStringRef theNotificationCenterName,
                                                         kCFNotificationDeliverImmediately |
                                                         kCFNotificationPostToAllSessions );
     }
-    
+
     SAFE_RELEASE(myInfoDict);
-   
+
     return;
 }
 
@@ -301,12 +329,12 @@ void addKextToAlertDict( CFMutableDictionaryRef *theDictPtr, OSKextRef theKext )
     CFMutableDictionaryRef  myKextInfoDict = NULL;  // must release
     CFMutableDictionaryRef  myAlertInfoDict = NULL; // do NOT release
     CFIndex                myCount, i;
-  
-    
+
+
     if ( theDictPtr == NULL || theKext == NULL ) {
         return;
     }
-    
+
     myAlertInfoDict = *theDictPtr;
     if (myAlertInfoDict == NULL) {
         /* caller wants us to create Alert Info Dictionary */
@@ -319,33 +347,33 @@ void addKextToAlertDict( CFMutableDictionaryRef *theDictPtr, OSKextRef theKext )
         }
         *theDictPtr = myAlertInfoDict;
     }
-        
+
     myBundleID = OSKextGetIdentifier(theKext);
     if ( myBundleID == NULL ) {
         goto finish;
     }
-    
+
     /* We never alert about Apple Kexts */
-    if ( CFStringHasPrefix(myBundleID, __kOSKextApplePrefix) == true) {
+    if (_OSKextIdentifierHasApplePrefix(theKext)) {
         goto finish;
     }
-    
+
     myBundleVersion = OSKextGetValueForInfoDictionaryKey(theKext,
                                                          kCFBundleVersionKey);
     if (myBundleVersion == NULL) {
         goto finish;
     }
-    
+
     myKextURL = CFURLCopyAbsoluteURL(OSKextGetURL(theKext));
     if (myKextURL == NULL) {
         goto finish;
     }
-    
+
     myKextPath = CFURLCopyFileSystemPath(myKextURL, kCFURLPOSIXPathStyle);
     if (myKextPath == NULL) {
         goto finish;
     }
-    
+
     /* add kext info to the Alert Dictionary.
      * We want BundleID, Version and full path to the kext
      */
@@ -363,7 +391,7 @@ void addKextToAlertDict( CFMutableDictionaryRef *theDictPtr, OSKextRef theKext )
                              CFSTR("KextInfoArrayKey"),
                              myKextArray);
     }
-    
+
     /* check for dup of this kext */
     myCount = CFArrayGetCount(myKextArray);
     if (myCount > 0) {
@@ -372,7 +400,7 @@ void addKextToAlertDict( CFMutableDictionaryRef *theDictPtr, OSKextRef theKext )
             myDict = (CFMutableDictionaryRef)
             CFArrayGetValueAtIndex(myKextArray, i);
             if (myDict == NULL)   continue;
-            
+
             if ( !CFDictionaryContainsValue(myDict, myBundleID) ) {
                 continue;
             }
@@ -384,7 +412,7 @@ void addKextToAlertDict( CFMutableDictionaryRef *theDictPtr, OSKextRef theKext )
             goto finish;
         }
     }
-    
+
     /* new kext info to add */
     myKextInfoDict = CFDictionaryCreateMutable(
                                         kCFAllocatorDefault, 0,
@@ -402,15 +430,15 @@ void addKextToAlertDict( CFMutableDictionaryRef *theDictPtr, OSKextRef theKext )
     CFDictionaryAddValue(myKextInfoDict,
                          CFSTR("KextPathKey"),
                          myKextPath);
-    
+
     CFArrayAppendValue(myKextArray,
                        myKextInfoDict);
-        
+
 finish:
     SAFE_RELEASE(myKextURL);
     SAFE_RELEASE(myKextPath);
     SAFE_RELEASE(myKextInfoDict);
-    
+
     return;
 }
 
@@ -421,35 +449,18 @@ finish:
  *******************************************************************************/
 Boolean isDebugSetInBootargs(void)
 {
-    static int          didOnce         = 0;
-    static Boolean      result          = false;
-    io_registry_entry_t optionsNode     = MACH_PORT_NULL;   // must release
-    CFStringRef         bootargsEntry   = NULL;             // must release
-    
+    static int     didOnce = 0;
+    static Boolean result  = false;
+    uint32_t       value   = 0;
+
     if (didOnce) {
         return(result);
     }
-    optionsNode = IORegistryEntryFromPath(kIOMasterPortDefault,
-                                          "IODeviceTree:/options");
-    if (optionsNode) {
-        bootargsEntry = (CFStringRef)
-        IORegistryEntryCreateCFProperty(optionsNode,
-                                        CFSTR("boot-args"),
-                                        kCFAllocatorDefault, 0);
-        if (bootargsEntry &&
-            (CFGetTypeID(bootargsEntry) == CFStringGetTypeID())) {
-            CFRange     findRange;
-            findRange = CFStringFind(bootargsEntry, CFSTR("debug"), 0);
-            
-            if (findRange.length != 0) {
-                result = true;
-            }
-        }
-    }
+
+    result = (get_bootarg_int("debug", &value) && value);
+
     didOnce++;
-    if (optionsNode)  IOObjectRelease(optionsNode);
-    SAFE_RELEASE(bootargsEntry);
-    
+
     return(result);
 }
 
@@ -519,6 +530,559 @@ Boolean createHexStringFromRawBytes(char *hexPtr, size_t hexLen, const char *byt
     return true;
 }
 
+
+#if PRAGMA_MARK
+#pragma mark Kext Allow List
+#endif /* PRAGMA_MARK */
+/*******************************************************************************
+*******************************************************************************/
+
+static void
+addWellKnownBundleIDs(CFMutableArrayRef *allowBundleIDs)
+{
+    static const char *const bundles[] = {
+        "com.ATTO.driver.ATTOExpressSASHBA2",
+        "com.Accusys.driver.Acxxx",
+        "com.softraid.driver.SoftRAID",
+        "com.highpoint-tech.kext.HighPointIOP",
+        "com.CalDigit.driver.HDPro",
+        "com.highpoint-tech.kext.HighPointRR",
+        "com.Areca.ArcMSR",
+        "com.ATTO.driver.ATTOCelerityFC8",
+        "com.promise.driver.stex",
+        "com.ATTO.driver.ATTOExpressSASRAID2",
+    };
+    static const int num_bundles = sizeof(bundles) / sizeof(bundles[0]);
+
+    if (!allowBundleIDs) {
+        return;
+    }
+
+    if (!*allowBundleIDs) {
+        *allowBundleIDs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+        if (!*allowBundleIDs) {
+            OSKextLogMemError();
+            return;
+        }
+    }
+
+    for (int i = 0; i < num_bundles; i++) {
+        CFStringRef str;
+        str = CFStringCreateWithCString(kCFAllocatorDefault, bundles[i], kCFStringEncodingUTF8);
+        if (!str) {
+            OSKextLogMemError();
+            return;
+        }
+        CFArrayAppendValue(*allowBundleIDs, str);
+        CFRelease(str);
+    }
+}
+
+#define kSyspolicyMigrationPlist "/var/db/SystemPolicyConfiguration/migration.plist"
+static void
+readMigrationPlistIntoBundleIDs(CFMutableArrayRef *allowBundleIDs)
+{
+    CFURLRef         migrationPlistURL = NULL; // must release
+    CFReadStreamRef  readStream        = NULL; // must release
+    bool             readStreamOpen    = false;
+    CFDictionaryRef  migrationPlist    = NULL; // must release
+    CFErrorRef       error             = NULL; // must release
+
+    CFDictionaryRef  kernelExtDict     = NULL; // do not release
+    CFArrayRef      *kernelExtArray    = NULL; // must free
+    CFIndex kernelExtCount = 0;
+
+    if (!allowBundleIDs) {
+        return;
+    }
+
+    migrationPlistURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
+                                                 CFSTR(kSyspolicyMigrationPlist),
+                                                 kCFURLPOSIXPathStyle, false);
+    if (!migrationPlistURL) {
+        OSKextLogMemError();
+        goto out;
+    }
+    if (!CFURLResourceIsReachable(migrationPlistURL, NULL)) {
+        /* if it's not there: no worries */
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
+                  "WARNING: Did not find migration.plist - some kexts may fail to load");
+        goto out;
+    }
+
+    readStream = CFReadStreamCreateWithFile(kCFAllocatorDefault, migrationPlistURL);
+    if (!readStream) {
+        OSKextLogMemError();
+        goto out;
+    }
+    if ((readStreamOpen = CFReadStreamOpen(readStream)) == false) {
+        OSKextLogMemError();
+        goto out;
+    }
+
+    migrationPlist = CFPropertyListCreateWithStream(kCFAllocatorDefault, readStream, 0, kCFPropertyListImmutable, NULL, &error);
+    if (!migrationPlist) {
+        OSKextLogCFString(/* kext */ NULL,
+                  kOSKextLogWarningLevel  | kOSKextLogGeneralFlag,
+                  CFSTR("Can't create migrationPlist from '%@': %@"), migrationPlistURL, error);
+        goto out;
+    }
+
+    kernelExtDict = (CFDictionaryRef)CFDictionaryGetValue(migrationPlist, CFSTR("SignedKernelExtensions"));
+    if (!kernelExtDict || CFGetTypeID(kernelExtDict) != CFDictionaryGetTypeID()) {
+        OSKextLogCFString(/* kext */ NULL,
+                  kOSKextLogWarningLevel  | kOSKextLogGeneralFlag,
+                  CFSTR("Can't find '%s' in %@"), "SignedKernelExtensions", migrationPlistURL);
+        goto out;
+    }
+
+    kernelExtCount = CFDictionaryGetCount(kernelExtDict);
+    if (kernelExtCount == 0) {
+        OSKextLogCFString(/* kext */ NULL,
+                  kOSKextLogBasicLevel | kOSKextLogGeneralFlag,
+                  CFSTR("Found 0 kexts in '%s' dictionary in %@"), "SignedKernelExtensions", migrationPlistURL);
+        goto out;
+    }
+    kernelExtArray = (CFArrayRef *)calloc(kernelExtCount, sizeof(CFArrayRef));
+    if (!kernelExtArray) {
+        OSKextLogMemError();
+        goto out;
+    }
+
+    if (!*allowBundleIDs) {
+        *allowBundleIDs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+        if (!*allowBundleIDs) {
+            OSKextLogMemError();
+            goto out;
+        }
+    }
+
+    CFDictionaryGetKeysAndValues(kernelExtDict, NULL, (const void **)kernelExtArray);
+    for (CFIndex i = 0; i < kernelExtCount; i++) {
+        /*
+         * each key is an array of arrays which have 2 elements, e.g.,
+         *
+         * "34JN824YNC" => [
+         *     0 => [
+         *         0 => "com.Areca.ArcMSR"
+         *         1 => "Areca Technology Corporation"
+         *     ]
+         * ]
+         */
+        CFArrayRef arr = (CFArrayRef)CFArrayGetValueAtIndex(kernelExtArray[i], 0);
+        if (!arr || (CFGetTypeID(arr) != CFArrayGetTypeID()) || CFArrayGetCount(arr) < 2) {
+            OSKextLogCFString(/* kext */ NULL,
+                              kOSKextLogBasicLevel | kOSKextLogGeneralFlag,
+                              CFSTR("Skipping unknown SignedKernelExtension:%@ in migration.plist"), arr ? arr : (CFArrayRef)kCFNull);
+            continue;
+        }
+        CFStringRef bundleID = (CFStringRef)CFArrayGetValueAtIndex(arr, 0);
+        if (bundleID && CFGetTypeID(bundleID) == CFStringGetTypeID()) {
+            /* add this string bundleID to the output array */
+            OSKextLogCFString(/* kext */ NULL,
+                              kOSKextLogBasicLevel | kOSKextLogGeneralFlag,
+                              CFSTR("Found bundleID:%@ in migration.plist"), bundleID);
+            CFArrayAppendValue(*allowBundleIDs, bundleID);
+        }
+    }
+
+out:
+    if (readStreamOpen) {
+        CFReadStreamClose(readStream);
+    }
+    SAFE_RELEASE(migrationPlistURL);
+    SAFE_RELEASE(readStream);
+    SAFE_RELEASE(migrationPlist);
+    SAFE_RELEASE(error);
+    if (kernelExtArray) {
+        free((void *)kernelExtArray);
+    }
+    return;
+}
+
+
+/*
+ * Read in the "allow" list of 3rd party kexts from the plist list found in
+ *     /S/L/Caches/.../kextallow
+ * This function also reads the migration.plist file from the system policy db dir.
+ * This file contains kexts that have been "grandfathered" into the allow list, and
+ * may not have cdhashes in the database yet.
+ */
+bool
+readKextHashAllowList(bool mustMatchCurrentBoot, CFStringRef *bootUUIDStr, CFArrayRef *allowedHashesRef,
+                      CFArrayRef *allowedBundleIDsRef, CFArrayRef *exceptionListBundlesRef)
+{
+    bool result = false;
+    char bootuuid[37] = {};
+    size_t len;
+    CFStringRef       bootuuid_cfstr   = NULL; // must release
+    CFURLRef          allowListURL     = NULL; // must release
+    CFReadStreamRef   readStream       = NULL; // must release
+    bool              readStreamOpen   = false;
+    CFDictionaryRef   allowPlist       = NULL; // must release
+    CFMutableArrayRef allowBundleIDs   = NULL; // must release
+    CFErrorRef        error            = NULL; // must release
+
+    CFStringRef       bootUUIDRef      = NULL; // do not release
+    CFArrayRef        cdhashArrayRef   = NULL; // do not release
+    CFArrayRef        bundleIDArrayRef = NULL; // do not release
+    CFArrayRef        exceptionListArrayRef = NULL; // do not release
+
+#ifndef EMBEDDED_HOST
+    os_signpost_id_t spid = generate_signpost_id();
+    os_signpost_interval_begin(get_signpost_log(), spid, SIGNPOST_KEXT_ALLOW_LIST_READ);
+#endif
+
+    len = sizeof(bootuuid);
+    if (sysctlbyname("kern.bootsessionuuid", bootuuid, &len, NULL, 0) < 0) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  "ERROR getting kern.bootsessionuuid");
+        goto out;
+    }
+    bootuuid[36] = 0; /* NULL-terminate (and remove newline character, if present) */
+    bootuuid_cfstr = CFStringCreateWithCString(kCFAllocatorDefault, bootuuid, kCFStringEncodingUTF8);
+    if (!bootuuid_cfstr) {
+        OSKextLogMemError();
+        goto out;
+    }
+
+    allowListURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
+                                                 CFSTR(_kOSKextCachesRootFolder "/" kThirdPartyKextAllowList),
+                                                 kCFURLPOSIXPathStyle, false);
+    if (!allowListURL) {
+        OSKextLogMemError();
+        goto out;
+    }
+    if (!CFURLResourceIsReachable(allowListURL, NULL)) {
+        OSKextLogCFString(/* kext */ NULL,
+                  kOSKextLogWarningLevel  | kOSKextLogGeneralFlag,
+                  CFSTR("Can't open allowList at '%@'"), allowListURL);
+        goto out;
+    }
+
+    readStream = CFReadStreamCreateWithFile(kCFAllocatorDefault, allowListURL);
+    if (!readStream) {
+        OSKextLogMemError();
+        goto out;
+    }
+    if ((readStreamOpen = CFReadStreamOpen(readStream)) == false) {
+        OSKextLogMemError();
+        goto out;
+    }
+
+    allowPlist = CFPropertyListCreateWithStream(kCFAllocatorDefault, readStream, 0, kCFPropertyListImmutable, NULL, &error);
+    if (!allowPlist) {
+        OSKextLogCFString(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  CFSTR("Can't create allowList from '%@': %@"), allowListURL, error);
+        goto out;
+    }
+
+    bootUUIDRef = (CFStringRef)CFDictionaryGetValue(allowPlist, CFSTR("BootSessionUUID"));
+    if (!bootUUIDRef || CFGetTypeID(bootUUIDRef) != CFStringGetTypeID()) {
+        OSKextLogCFString(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  CFSTR("BootSessionUUID key missing from allow list '%@'"), allowListURL);
+        goto out;
+    }
+
+    if (bootUUIDStr) {
+        *bootUUIDStr = CFStringCreateCopy(kCFAllocatorDefault, bootUUIDRef);
+    }
+
+    if (mustMatchCurrentBoot && CFStringCompare(bootUUIDRef, bootuuid_cfstr, kCFCompareCaseInsensitive) != kCFCompareEqualTo) {
+        OSKextLogCFString(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  CFSTR("bootsessionUUID mis-match (current:%@) != (file:%@)"), bootuuid_cfstr, bootUUIDRef);
+        goto out;
+    }
+
+    if (!allowedHashesRef && !allowedBundleIDsRef) {
+        result = true;
+        goto out;
+    }
+
+    cdhashArrayRef = (CFArrayRef)CFDictionaryGetValue(allowPlist, CFSTR("CDHashArray"));
+    if (!cdhashArrayRef || CFGetTypeID(cdhashArrayRef) != CFArrayGetTypeID()) {
+        OSKextLogCFString(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  CFSTR("Invalid CDHashArray in kextallow list: %@"), cdhashArrayRef);
+    }
+
+    if (allowedHashesRef) {
+        *allowedHashesRef = CFArrayCreateCopy(kCFAllocatorDefault, cdhashArrayRef);
+    }
+
+    bundleIDArrayRef = (CFArrayRef)CFDictionaryGetValue(allowPlist, CFSTR("NullHashBundles"));
+    if (bundleIDArrayRef && CFGetTypeID(bundleIDArrayRef) == CFArrayGetTypeID()) {
+        allowBundleIDs = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, bundleIDArrayRef);
+    } else {
+        allowBundleIDs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+    }
+
+    /*
+     * Read data from migration.plist in /var/db/SystemPolicyConfiguration if we didn't find
+     * anything in the database.
+     */
+    if (CFArrayGetCount(allowBundleIDs) == 0) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogBasicLevel  | kOSKextLogGeneralFlag,
+                  "Reading migration.plist (allowBundleIDs:%ld, cdhashArrayRef:%ld)",
+                  (long)CFArrayGetCount(allowBundleIDs), (long)CFArrayGetCount(cdhashArrayRef));
+        readMigrationPlistIntoBundleIDs(&allowBundleIDs);
+    } else {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogBasicLevel  | kOSKextLogGeneralFlag,
+                  "Skipping migration.plist import (allowBundleIDs:%ld, cdhashArrayRef:%ld)",
+                  (long)CFArrayGetCount(allowBundleIDs), (long)CFArrayGetCount(cdhashArrayRef));
+    }
+    addWellKnownBundleIDs(&allowBundleIDs);
+
+    if (allowBundleIDs && allowedBundleIDsRef) {
+        *allowedBundleIDsRef = CFRetain(allowBundleIDs);
+    }
+
+    exceptionListArrayRef = (CFArrayRef)CFDictionaryGetValue(allowPlist, CFSTR("ExceptionListBundles"));
+    if (exceptionListArrayRef && CFGetTypeID(exceptionListArrayRef) == CFArrayGetTypeID()) {
+        OSKextLogCFString(/* kext */ NULL,
+                  kOSKextLogBasicLevel  | kOSKextLogGeneralFlag,
+                  CFSTR("found kexts in exception list: %@"), exceptionListArrayRef);
+        if (exceptionListBundlesRef) {
+            *exceptionListBundlesRef = CFArrayCreateCopy(kCFAllocatorDefault, exceptionListArrayRef);
+        }
+    } else if (exceptionListBundlesRef != NULL) {
+        // If there were no exception list bundles, just make an empty array.
+        *exceptionListBundlesRef = CFArrayCreate(kCFAllocatorDefault, NULL, 0, &kCFTypeArrayCallBacks);
+    }
+
+    result = true;
+
+out:
+    if (readStreamOpen) {
+        CFReadStreamClose(readStream);
+    }
+    SAFE_RELEASE(bootuuid_cfstr);
+    SAFE_RELEASE(allowListURL);
+    SAFE_RELEASE(readStream);
+    SAFE_RELEASE(allowPlist);
+    SAFE_RELEASE(allowBundleIDs);
+    SAFE_RELEASE(error);
+
+#ifndef EMBEDDED_HOST
+    os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXT_ALLOW_LIST_READ);
+#endif
+
+    return result;
+}
+
+
+static bool
+validateCDHashDataForWriting(const char *current_bootuuid, CFDataRef cdhashData)
+{
+    bool result = false;
+    CFErrorRef        error           = NULL; // must release
+    CFPropertyListRef allowPlist      = NULL; // must release
+    CFStringRef       bootuuid_cfstr  = NULL; // must release
+
+    CFStringRef       bootUUIDRef     = NULL; // do not release
+    CFArrayRef        cdhashArrayRef  = NULL; // do not release
+
+    allowPlist = CFPropertyListCreateWithData(kCFAllocatorDefault, cdhashData, kCFPropertyListImmutable, NULL, &error);
+    if (!allowPlist) {
+        OSKextLogCFString(/* kext */ NULL,
+                          kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                          CFSTR("Error validating cdhashData: %@ :: data=%@"), error, cdhashData);
+        goto out;
+    }
+
+    bootuuid_cfstr = CFStringCreateWithCString(kCFAllocatorDefault, current_bootuuid, kCFStringEncodingUTF8);
+    if (!bootuuid_cfstr) {
+        OSKextLogMemError();
+        goto out;
+    }
+
+    bootUUIDRef = (CFStringRef)CFDictionaryGetValue(allowPlist, CFSTR("BootSessionUUID"));
+    if (!bootUUIDRef || CFGetTypeID(bootUUIDRef) != CFStringGetTypeID()) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  "Could not find BootSessionUUID in cdhashData!");
+        goto out;
+    }
+
+    if (CFStringCompare(bootUUIDRef, bootuuid_cfstr, kCFCompareCaseInsensitive) != kCFCompareEqualTo) {
+        OSKextLogCFString(/* kext */ NULL,
+                          kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                          CFSTR("Current bootuuid:%@ != bootuuid in cdhashData:%@"), bootuuid_cfstr, bootUUIDRef);
+        goto out;
+    }
+
+    cdhashArrayRef = (CFArrayRef)CFDictionaryGetValue(allowPlist, CFSTR("CDHashArray"));
+    if (!cdhashArrayRef || (CFGetTypeID(cdhashArrayRef) != CFArrayGetTypeID())) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  "Could not find (or invalid type of) CDHashArray key");
+        goto out;
+    }
+
+    /* everything seems OK! */
+    result = true;
+
+out:
+    SAFE_RELEASE(error);
+    SAFE_RELEASE(allowPlist);
+    SAFE_RELEASE(bootuuid_cfstr);
+    return result;
+}
+
+
+ExitStatus
+writeKextAllowList(const char *bootuuid, CFDataRef cdhashData, int to_dir_fd, const char *to_fname)
+{
+    char *tmpPath        = NULL; // must free
+    char *tmpBaseName    = NULL; // must free
+    char *tmpDirName     = NULL; // must free
+    char *tmpBaseNamePtr = NULL; // do not free
+    char *tmpDirNamePtr  = NULL; // do not free
+    int tmpfile_fd = -1;
+    int tmpfile_dir_fd = -1;
+    ExitStatus result = EX_OSERR;
+
+#ifndef EMBEDDED_HOST
+    os_signpost_id_t spid = generate_signpost_id();
+    os_signpost_interval_begin(get_signpost_log(), spid, SIGNPOST_KEXT_ALLOW_LIST_WRITE);
+#endif
+
+    if (!cdhashData || to_dir_fd < 0 || !to_fname) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  "Argument error in writeKextAllowList");
+        goto out;
+    }
+
+    if (!validateCDHashDataForWriting(bootuuid, cdhashData)) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  "Invalid cdhash data: refusing to write file '%s'", to_fname);
+        goto out;
+    }
+
+    tmpPath = (char *)calloc(1, PATH_MAX);
+    tmpBaseName = (char *)calloc(1, PATH_MAX);
+    tmpDirName = (char *)calloc(1, PATH_MAX);
+    if (tmpPath == NULL || tmpBaseName == NULL || tmpDirName == NULL) {
+        OSKextLogMemError();
+        goto out;
+    }
+
+    strlcpy(tmpPath, _kOSKextCachesRootFolder, PATH_MAX);
+    if (strlcat(tmpPath, "/.", PATH_MAX) >= PATH_MAX) {
+        goto out;
+    }
+    if (strlcat(tmpPath, to_fname, PATH_MAX) >= PATH_MAX) {
+        goto out;
+    }
+    if (strlcat(tmpPath, ".XXXXXX", PATH_MAX) >= PATH_MAX) {
+        goto out;
+    }
+
+    tmpfile_fd = mkstemp(tmpPath);
+    if (tmpfile_fd < 0) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  "Error creating tmpfile at %s", tmpPath);
+        result = EX_OSERR;
+        goto out;
+    }
+
+    if (fchmod(tmpfile_fd, 0600) < 0) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  "Error in fchmod(%d)", tmpfile_fd);
+        result = EX_OSERR;
+        goto out;
+    }
+
+    tmpBaseNamePtr = basename_r(tmpPath, tmpBaseName);
+    if (tmpBaseNamePtr == NULL) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  "Error in basename(%s)", tmpPath);
+        result = EX_OSERR;
+        goto out;
+    }
+
+    tmpDirNamePtr = dirname_r(tmpPath, tmpDirName);
+    if (tmpDirNamePtr == NULL) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  "Error in dirname(%s)", tmpPath);
+        result = EX_OSERR;
+        goto out;
+    }
+    tmpfile_dir_fd = open(tmpDirNamePtr, O_RDONLY | O_DIRECTORY);
+    if (tmpfile_dir_fd < 0) {
+        result = EX_NOPERM;
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  "Can't open tmpfile directory '%s/'", tmpDirNamePtr);
+        goto out;
+    }
+
+    /* write out the data */
+    result = writeToFile(tmpfile_fd, CFDataGetBytePtr(cdhashData), CFDataGetLength(cdhashData));
+    if (result != EX_OK) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  "Error writing %ld bytes to tmpfile at %s", (long)CFDataGetLength(cdhashData), tmpPath);
+        goto out;
+    }
+    close(tmpfile_fd);
+    tmpfile_fd = -1;
+
+    /*
+     * swap in the new file overtop of any old file
+     */
+    if (renameat(tmpfile_dir_fd, tmpBaseNamePtr, to_dir_fd, to_fname) < 0) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  "Error renaming %s to %s", tmpPath, to_fname);
+        result = EX_OSFILE;
+        goto out;
+    }
+
+    result = EX_OK;
+
+out:
+    if (tmpfile_fd >= 0) {
+        if (tmpPath != NULL) {
+            unlink(tmpPath);
+        }
+        close(tmpfile_fd);
+    }
+    if (tmpPath) {
+        free(tmpPath);
+    }
+    if (tmpBaseName) {
+        free(tmpBaseName);
+    }
+    if (tmpDirName) {
+        free(tmpDirName);
+    }
+    if (tmpfile_dir_fd >= 0) {
+        close(tmpfile_dir_fd);
+    }
+
+#ifndef EMBEDDED_HOST
+    os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXT_ALLOW_LIST_WRITE);
+#endif
+
+    return result;
+}
+
+
+
 #if PRAGMA_MARK
 #pragma mark Path & File
 #endif /* PRAGMA_MARK */
@@ -533,7 +1097,7 @@ ExitStatus checkPath(
     Boolean result  = EX_USAGE;
     Boolean nameBad = FALSE;
     struct  stat statBuffer;
-    
+
     if (!path) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
@@ -542,7 +1106,7 @@ ExitStatus checkPath(
         result = EX_SOFTWARE;
         goto finish;
     }
-    
+
     result = EX_USAGE;
     if (suffix) {
         size_t pathLength   = strlen(path);
@@ -592,7 +1156,7 @@ ExitStatus checkPath(
             strerror(errno));
         goto finish;
     }
-    
+
     if (directoryRequired && ((statBuffer.st_mode & S_IFMT) != S_IFDIR) ) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
@@ -609,7 +1173,7 @@ ExitStatus checkPath(
     }
 
     result = EX_OK;
-    
+
 finish:
     if (nameBad) {
         OSKextLog(/* kext */ NULL, kOSKextLogErrorLevel,
@@ -634,11 +1198,11 @@ saveFile(const void * vKey, const void * vValue, void * vContext)
     CFURLRef          saveURL = NULL;     // must release
     Boolean           fileExists = false;
     char              savePath[PATH_MAX];
-    
+
     if (context->fatal) {
         goto finish;
     }
-    
+
     saveURL = CFURLCreateCopyAppendingPathComponent(kCFAllocatorDefault,
         context->saveDirURL, key, /* isDirectory */ false);
     if (!saveURL) {
@@ -651,7 +1215,7 @@ saveFile(const void * vKey, const void * vValue, void * vContext)
         context->fatal = true;
         goto finish;
     }
-    
+
     if (!context->overwrite) {
         fileExists = CFURLResourceIsReachable(saveURL, NULL);
         if (fileExists) {
@@ -722,11 +1286,11 @@ CFStringRef copyKextPath(OSKextRef aKext)
 {
     CFStringRef result = NULL;
     CFURLRef    absURL = NULL;  // must release
-    
+
     if (!OSKextGetURL(aKext)) {
         goto finish;
     }
-    
+
     absURL = CFURLCopyAbsoluteURL(OSKextGetURL(aKext));
     if (!absURL) {
         goto finish;
@@ -754,12 +1318,12 @@ getLatestTimesFromCFURLArray(
     struct stat     myStatBuf;
     struct timeval  myTempModTime;
     struct timeval  myTempAccessTime;
-    
+
     if (dirURLArray == NULL) {
         goto finish;
     }
     bzero(dirTimeVals, (sizeof(struct timeval) * 2));
-    
+
     for (i = 0; i < CFArrayGetCount(dirURLArray); i++) {
         myURL = (CFURLRef) CFArrayGetValueAtIndex(dirURLArray, i);
         if (myURL == NULL) {
@@ -775,7 +1339,7 @@ getLatestTimesFromCFURLArray(
         }
         TIMESPEC_TO_TIMEVAL(&myTempAccessTime, &myStatBuf.st_atimespec);
         TIMESPEC_TO_TIMEVAL(&myTempModTime, &myStatBuf.st_mtimespec);
-       
+
         if (timercmp(&myTempModTime, &dirTimeVals[1], >)) {
             dirTimeVals[0].tv_sec = myTempAccessTime.tv_sec;
             dirTimeVals[0].tv_usec = myTempAccessTime.tv_usec;
@@ -783,14 +1347,14 @@ getLatestTimesFromCFURLArray(
             dirTimeVals[1].tv_usec = myTempModTime.tv_usec;
         }
     }
-    
+
     result = EX_OK;
 finish:
     return result;
 }
 
 /*******************************************************************************
- * Returns the access and mod times from the file in the given directory with 
+ * Returns the access and mod times from the file in the given directory with
  * the latest mod time.
  *******************************************************************************/
 ExitStatus
@@ -803,13 +1367,13 @@ getLatestTimesFromDirURL(
     struct stat         myStatBuf;
     struct timeval      myTempModTime;
     struct timeval      myTempAccessTime;
-    
+
     bzero(dirTimeVals, (sizeof(struct timeval) * 2));
-    
+
     if (dirURL == NULL) {
         goto finish;
     }
-   
+
     myEnumerator = CFURLEnumeratorCreateForDirectoryURL(
                                             NULL,
                                             dirURL,
@@ -829,7 +1393,7 @@ getLatestTimesFromDirURL(
         }
         TIMESPEC_TO_TIMEVAL(&myTempAccessTime, &myStatBuf.st_atimespec);
         TIMESPEC_TO_TIMEVAL(&myTempModTime, &myStatBuf.st_mtimespec);
-       
+
         if (timercmp(&myTempModTime, &dirTimeVals[1], >)) {
             dirTimeVals[0].tv_sec = myTempAccessTime.tv_sec;
             dirTimeVals[0].tv_usec = myTempAccessTime.tv_usec;
@@ -837,7 +1401,7 @@ getLatestTimesFromDirURL(
             dirTimeVals[1].tv_usec = myTempModTime.tv_usec;
         }
     } // while loop...
-   
+
     result = EX_OK;
 finish:
     if (myEnumerator)   CFRelease(myEnumerator);
@@ -855,11 +1419,11 @@ getLatestTimesFromDirPath(
 {
     ExitStatus          result              = EX_SOFTWARE;
     CFURLRef            kernURL             = NULL; // must release
-    
+
     if (dirPath == NULL) {
         goto finish;
     }
- 
+
     kernURL = CFURLCreateFromFileSystemRepresentation(
                                                       NULL,
                                                       (const UInt8 *)dirPath,
@@ -869,7 +1433,7 @@ getLatestTimesFromDirPath(
         OSKextLogMemError();
         goto finish;
     }
-   
+
     result = getLatestTimesFromDirURL(kernURL, dirTimeVals);
 finish:
     if (kernURL)        CFRelease(kernURL);
@@ -886,11 +1450,11 @@ getParentPathTimes(
     ExitStatus          result          = EX_SOFTWARE;
     char *              lastSlash       = NULL;
     char                myTempPath[PATH_MAX];
-   
+
     if (thePath == NULL) {
         goto finish;
     }
-    
+
     lastSlash = strrchr(thePath, '/');
     // bail if no '/' or if length is < 2 (shortest possible dir path "/a/")
     if (lastSlash == NULL || (lastSlash - thePath) < 2) {
@@ -902,7 +1466,7 @@ getParentPathTimes(
                 (lastSlash - thePath) + 1) >= PATH_MAX) {
         goto finish;
     }
-   
+
     result = getFilePathTimes(myTempPath, cacheFileTimes);
 finish:
     return result;
@@ -917,15 +1481,15 @@ getFileDescriptorTimes(
 {
     struct stat         statBuffer;
     ExitStatus          result          = EX_SOFTWARE;
-    
+
     result = fstat(the_fd, &statBuffer);
     if (result != EX_OK) {
         goto finish;
     }
-    
+
     TIMESPEC_TO_TIMEVAL(&cacheFileTimes[0], &statBuffer.st_atimespec);
     TIMESPEC_TO_TIMEVAL(&cacheFileTimes[1], &statBuffer.st_mtimespec);
-    
+
     result = EX_OK;
 finish:
     return result;
@@ -940,15 +1504,15 @@ getFilePathTimes(
 {
     struct stat         statBuffer;
     ExitStatus          result          = EX_SOFTWARE;
-    
+
     result = statPath(filePath, &statBuffer);
     if (result != EX_OK) {
         goto finish;
     }
-    
+
     TIMESPEC_TO_TIMEVAL(&cacheFileTimes[0], &statBuffer.st_atimespec);
     TIMESPEC_TO_TIMEVAL(&cacheFileTimes[1], &statBuffer.st_mtimespec);
-    
+
     result = EX_OK;
 finish:
     return result;
@@ -962,19 +1526,19 @@ statURL(CFURLRef anURL, struct stat * statBuffer)
 {
     ExitStatus result = EX_OSERR;
     char path[PATH_MAX];
-    
+
     if (!CFURLGetFileSystemRepresentation(anURL, /* resolveToBase */ true,
                                           (UInt8 *)path, sizeof(path)))
     {
         OSKextLogStringError(/* kext */ NULL);
         goto finish;
     }
-    
+
     result = statPath(path, statBuffer);
     if (!result) {
         goto finish;
     }
-    
+
     result = EX_OK;
 finish:
     return result;
@@ -986,16 +1550,16 @@ ExitStatus
 statPath(const char *path, struct stat *statBuffer)
 {
     ExitStatus result = EX_OSERR;
-    
+
     if (stat(path, statBuffer)) {
         OSKextLog(/* kext */ NULL,
                   kOSKextLogDebugLevel | kOSKextLogGeneralFlag,
                   "Can't stat %s - %s.", path, strerror(errno));
         goto finish;
     }
-    
+
     result = EX_OK;
-    
+
 finish:
     return result;
 }
@@ -1008,11 +1572,11 @@ statParentPath(const char *thePath, struct stat *statBuffer)
     ExitStatus          result          = EX_SOFTWARE;
     char *              lastSlash       = NULL;
     char                myTempPath[PATH_MAX];
-    
+
     if (thePath == NULL) {
         goto finish;
     }
-    
+
     lastSlash = strrchr(thePath, '/');
     // bail if no '/' or if length is < 2 (shortest possible dir path "/a/")
     if (lastSlash == NULL || (lastSlash - thePath) < 2) {
@@ -1024,7 +1588,7 @@ statParentPath(const char *thePath, struct stat *statBuffer)
                 (lastSlash - thePath) + 1) >= PATH_MAX) {
         goto finish;
     }
-    
+
     result = statPath(myTempPath, statBuffer);
 finish:
     return result;
@@ -1039,7 +1603,7 @@ getPathExtension(const char * pathPtr)
     char *              suffixPtr       = NULL; // caller must free
     CFURLRef            pathURL         = NULL; // must release
     CFStringRef         tmpCFString     = NULL; // must release
-    
+
     pathURL = CFURLCreateFromFileSystemRepresentation(
                                                       NULL,
                                                       (const UInt8 *)pathPtr,
@@ -1053,21 +1617,21 @@ getPathExtension(const char * pathPtr)
         goto finish;
     }
     suffixPtr = createUTF8CStringForCFString(tmpCFString);
-    
+
 finish:
     SAFE_RELEASE(pathURL);
     SAFE_RELEASE(tmpCFString);
-    
+
     return suffixPtr;
 }
 
 /*******************************************************************************
  *******************************************************************************/
-int getFileDevAndInoWith_fd(int the_fd, dev_t * the_dev_t, ino_t * the_ino_t)
+int getFileDevAndInoAndSizeWith_fd(int the_fd, dev_t * the_dev_t, ino_t * the_ino_t, size_t * the_size)
 {
     int             my_result = -1;
     struct stat     my_stat_buf;
-   
+
     if (fstat(the_fd, &my_stat_buf) == 0) {
         if (the_dev_t) {
             *the_dev_t = my_stat_buf.st_dev;
@@ -1075,13 +1639,23 @@ int getFileDevAndInoWith_fd(int the_fd, dev_t * the_dev_t, ino_t * the_ino_t)
         if (the_ino_t) {
             *the_ino_t = my_stat_buf.st_ino;
         }
+        if (the_size) {
+            *the_size = (size_t)my_stat_buf.st_size;
+        }
         my_result = 0;
     }
     else {
         my_result = errno;
     }
-    
+
     return(my_result);
+}
+
+/*******************************************************************************
+ *******************************************************************************/
+int getFileDevAndInoWith_fd(int the_fd, dev_t * the_dev_t, ino_t * the_ino_t)
+{
+    return getFileDevAndInoAndSizeWith_fd(the_fd, the_dev_t, the_ino_t, NULL);
 }
 
 /*******************************************************************************
@@ -1090,7 +1664,7 @@ int getFileDevAndIno(const char * thePath, dev_t * the_dev_t, ino_t * the_ino_t)
 {
     int             my_result = -1;
     struct stat     my_stat_buf;
-    
+
     if (stat(thePath, &my_stat_buf) == 0) {
         if (the_dev_t) {
             *the_dev_t = my_stat_buf.st_dev;
@@ -1103,7 +1677,7 @@ int getFileDevAndIno(const char * thePath, dev_t * the_dev_t, ino_t * the_ino_t)
     else {
         my_result = errno;
     }
-    
+
     return(my_result);
 }
 
@@ -1153,7 +1727,7 @@ Boolean isSameFileDevAndIno(int the_fd,
             my_result = TRUE;
         }
     }
-    
+
     return(my_result);
 }
 
@@ -1166,14 +1740,14 @@ Boolean isSameFileDevAndInoWith_fd(int      the_fd,
 {
     Boolean         my_result = FALSE;
     struct stat     my_stat_buf;
-    
+
     if (fstat(the_fd, &my_stat_buf) == 0) {
         if (the_dev_t == my_stat_buf.st_dev &&
             the_ino_t == my_stat_buf.st_ino) {
             my_result = TRUE;
         }
     }
-    
+
     return(my_result);
 }
 
@@ -1229,7 +1803,7 @@ ExitStatus setLogFilterForOpt(
     */
     if (!optarg && optind >= argc) {
         logFilter = _sLogSpecsForVerboseLevels[1];
-        
+
     } else {
 
         if (optarg) {
@@ -1247,7 +1821,7 @@ ExitStatus setLogFilterForOpt(
                 localOptarg);
             goto finish;
         }
-        
+
        /* Look for '-v0x####' with no space and advance to the 0x part.
         */
         if (localOptarg[0] == '-' && localOptarg[1] == kOptVerbose &&
@@ -1269,7 +1843,7 @@ ExitStatus setLogFilterForOpt(
                 goto finish;
             }
             logFilter = parsedFlags;
-            
+
             if (!optarg) {
                 optind++;
             }
@@ -1292,7 +1866,7 @@ ExitStatus setLogFilterForOpt(
     }
 
     logFilter = logFilter | forceOnFlags;
-    
+
     OSKextSetLogFilter(logFilter, /* kernel? */ false);
     OSKextSetLogFilter(logFilter, /* kernel? */ true);
 
@@ -1315,18 +1889,43 @@ void beQuiet(void)
     return;
 }
 
-bool
-get_kextlog(uint32_t *mode)
+/*
+ * get_bootarg: get the pointer to some substring of the kernel's boot args
+ * bootArgs buffer is static, so that we only ask the kernel for
+ * the boot args once.
+ */
+char *
+get_bootarg(char *bootArg)
 {
-    char bootargs[1024];
-    size_t size = sizeof(bootargs);
-    char *kextlog;
+    static char   bootArgs[1024] = {};
+    static size_t size  = sizeof(bootArgs);
+    static bool   gotIt = false;
+    if (!gotIt) {
+        if (sysctlbyname("kern.bootargs", bootArgs, &size, NULL, 0) != 0) {
+            return NULL;
+        }
+        gotIt = true;
+    }
 
-    if (sysctlbyname("kern.bootargs", bootargs, &size, NULL, 0) == 0 && (kextlog = strcasestr(bootargs, "kextlog=")) != NULL) {
+    return strcasestr(bootArgs, bootArg);
+}
+
+bool
+get_bootarg_int(char *bootArg, uint32_t *valuep)
+{
+    char argStr[64];
+    char *argStart;
+    size_t argLen = strlen(bootArg);
+
+    strncpy(argStr, bootArg, sizeof(argStr));
+    strncat(argStr, "=", sizeof(argStr) - argLen - 1);
+    argLen += 1;
+
+    if ((argStart = get_bootarg(argStr)) != NULL) {
         char *token = NULL;
-        uint32_t value = (uint32_t)strtoul(&kextlog[strlen("kextlog=")], &token, 16);
+        uint32_t value = (uint32_t)strtoul(&argStart[argLen], &token, 0);
         if (token == NULL || (*token) == '\0' || isspace(*token)) {
-            *mode = value;
+            *valuep = value;
             return true;
         }
     }
@@ -1346,7 +1945,7 @@ static os_log_t  sKextSignpostLog = NULL;
 void tool_initlog()
 {
     uint32_t kextlog_mode = 0;
-    if (get_kextlog(&kextlog_mode)) {
+    if (get_bootarg_int("kextlog", &kextlog_mode)) {
         os_log(OS_LOG_DEFAULT, "Setting kext log mode: 0x%x", kextlog_mode);
         OSKextSetLogFilter(kextlog_mode, /* kernel? */ false);
         OSKextSetLogFilter(kextlog_mode, /* kernel? */ true);
@@ -1372,7 +1971,7 @@ get_signpost_log(void)
 
 #if !TARGET_OS_EMBEDDED
 /*******************************************************************************
- * Check to see if this is an Apple internal build.  If apple internel then 
+ * Check to see if this is an Apple internal build.  If apple internel then
  * use development kernel if it exists.
  * /System/Library/Kernels/kernel.development
  *******************************************************************************/
@@ -1382,12 +1981,12 @@ Boolean useDevelopmentKernel(const char * theKernelPath)
     char *          tempPath = NULL;
     size_t          length = 0;
     Boolean         myResult = FALSE;
-    
+
     if (statPath(kAppleInternalPath, &statBuf) != EX_OK) {
         return(myResult);
     }
     tempPath = malloc(PATH_MAX);
-    
+
     while (tempPath) {
         length = strlcpy(tempPath, theKernelPath, PATH_MAX);
         if (length >= PATH_MAX)   break;
@@ -1401,9 +2000,9 @@ Boolean useDevelopmentKernel(const char * theKernelPath)
         }
         break;
     } // while...
-    
+
     if (tempPath)   free(tempPath);
-    
+
     return(myResult);
 }
 #endif  // !TARGET_OS_EMBEDDED
@@ -1478,7 +2077,7 @@ void log_CFError(
         SAFE_RELEASE_NULL(errorString);
         SAFE_FREE_NULL(cstring);
     }
-    
+
     errorString = CFErrorCopyFailureReason(error);
     if (errorString) {
         cstring = createUTF8CStringForCFString(errorString);
@@ -1487,7 +2086,7 @@ void log_CFError(
         SAFE_RELEASE_NULL(errorString);
         SAFE_FREE_NULL(cstring);
     }
-    
+
     return;
 }
 
@@ -1532,20 +2131,24 @@ Boolean getKernelPathForURL(CFURLRef    theVolRootURL,
     CFDictionaryRef postBootPathsDict   = NULL;     // do not release
     CFDictionaryRef kernelCacheDict     = NULL;     // do not release
     Boolean         myResult            = FALSE;
-   
+
     if (theBuffer) {
         *theBuffer = 0x00;
-        
+
         myDict = copyBootCachesDictForURL(theVolRootURL);
         if (myDict != NULL) {
             postBootPathsDict = (CFDictionaryRef)
                 CFDictionaryGetValue(myDict, kBCPostBootKey);
-            
+
             if (postBootPathsDict &&
                 CFGetTypeID(postBootPathsDict) == CFDictionaryGetTypeID()) {
-                
+
                 kernelCacheDict = (CFDictionaryRef)
-                    CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV4Key);
+                    CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV5Key);
+                if (!kernelCacheDict) {
+                    kernelCacheDict = (CFDictionaryRef)
+                        CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV4Key);
+                }
                 if (!kernelCacheDict) {
                     kernelCacheDict = (CFDictionaryRef)
                         CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV3Key);
@@ -1553,16 +2156,16 @@ Boolean getKernelPathForURL(CFURLRef    theVolRootURL,
             }
         }
     } // theBuffer
-    
+
     if (kernelCacheDict &&
         CFGetTypeID(kernelCacheDict) == CFDictionaryGetTypeID()) {
         CFStringRef     myTempStr;      // do not release
-        
+
         myTempStr = (CFStringRef) CFDictionaryGetValue(kernelCacheDict,
                                                        kBCKernelPathKey);
         if (myTempStr != NULL &&
             CFGetTypeID(myTempStr) == CFStringGetTypeID()) {
-            
+
             if (CFStringGetFileSystemRepresentation(myTempStr,
                                                     theBuffer,
                                                     theBufferSize)) {
@@ -1573,9 +2176,9 @@ Boolean getKernelPathForURL(CFURLRef    theVolRootURL,
             }
         }
     } // kernelCacheDict
-    
+
     SAFE_RELEASE(myDict);
-        
+
     return(myResult);
 }
 
@@ -1587,14 +2190,14 @@ Boolean getKernelPathForURL(CFURLRef    theVolRootURL,
  *
  * Caller must release returned CFDictionaryRef.
  *******************************************************************************/
-CFDictionaryRef copyBootCachesDictForURL(CFURLRef theVolRootURL) 
+CFDictionaryRef copyBootCachesDictForURL(CFURLRef theVolRootURL)
 {
     CFStringRef             myVolRoot = NULL;           // must release
     CFStringRef             myPath = NULL;              // must release
     CFURLRef                myURL = NULL;               // must release
     CFDictionaryRef         myBootCachesPlist = NULL;   // do not release
     char *                  myCString = NULL;           // must free
-    
+
     if (theVolRootURL) {
         myVolRoot = CFURLCopyFileSystemPath(theVolRootURL,
                                             kCFURLPOSIXPathStyle);
@@ -1617,7 +2220,7 @@ CFDictionaryRef copyBootCachesDictForURL(CFURLRef theVolRootURL)
     if (myPath == NULL) {
         goto finish;
     }
-    
+
     myCString = createUTF8CStringForCFString(myPath);
     if (myCString == NULL) {
         goto finish;
@@ -1629,7 +2232,7 @@ CFDictionaryRef copyBootCachesDictForURL(CFURLRef theVolRootURL)
                   myCString);
         goto finish;
     }
-    
+
     myURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
                                           myPath,
                                           kCFURLPOSIXPathStyle,
@@ -1638,7 +2241,7 @@ CFDictionaryRef copyBootCachesDictForURL(CFURLRef theVolRootURL)
         CFReadStreamRef         readStream      = NULL;  // must release
         struct stat             myStatBuf;
         ExitStatus              myExitStatus;
-        
+
         myExitStatus = statURL(myURL, &myStatBuf);
         if (myExitStatus != EX_OK) {
             goto finish;
@@ -1649,7 +2252,7 @@ CFDictionaryRef copyBootCachesDictForURL(CFURLRef theVolRootURL)
         if (myStatBuf.st_mode & S_IWGRP || myStatBuf.st_mode & S_IWOTH) {
             goto finish;
         }
-        
+
         readStream = CFReadStreamCreateWithFile(kCFAllocatorDefault, myURL);
         if (readStream) {
             if (CFReadStreamOpen(readStream)) {
@@ -1665,8 +2268,8 @@ CFDictionaryRef copyBootCachesDictForURL(CFURLRef theVolRootURL)
             SAFE_RELEASE(readStream);
         }
     }
-    
-finish:    
+
+finish:
     SAFE_RELEASE(myURL);
     SAFE_RELEASE(myPath);
     SAFE_RELEASE(myVolRoot);
@@ -1767,7 +2370,7 @@ int user_approve(Boolean ask_all, int default_answer, const char * format, ...)
     va_start(ap, format);
     vsnprintf(output_string, output_length + 1, format, ap);
     va_end(ap);
-    
+
     while ( 1 ) {
         fprintf(stderr, "%s [%s/%s", output_string,
             (default_answer == REPLY_YES) ? "Y" : "y",
@@ -2052,7 +2655,7 @@ setVariantSuffix(void)
         } else {
             OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel,
-                "kern.osbuildconfig failed after reporting return size of size %d",(int) len);
+                "kern.osbuildconfig failed after reporting return size of size %d", (int)len);
         }
         free(variant);
     } else {
@@ -2061,3 +2664,120 @@ setVariantSuffix(void)
             "Impossible to query kern.osbuildconfig");
     }
 }
+
+/*******************************************************************************
+*******************************************************************************/
+
+int findmnt(dev_t devid, char mntpt[MNAMELEN], bool getDevicePath)
+{
+    int rval = ELAST + 1;
+    int i, nmnts = getfsstat(NULL, 0, MNT_NOWAIT);
+    int bufsz;
+    struct statfs *mounts = NULL;
+
+    if (nmnts <= 0)     goto finish;
+
+    bufsz = nmnts * sizeof(struct statfs);
+    if (!(mounts = malloc(bufsz)))                  goto finish;
+    if (-1 == getfsstat(mounts, bufsz, MNT_NOWAIT)) goto finish;
+
+    // loop looking for dev_t in the statfs structs
+    for (i = 0; i < nmnts; i++) {
+        struct statfs *sfs = &mounts[i];
+
+        if (sfs->f_fsid.val[0] == devid) {
+            strlcpy(mntpt,
+                    getDevicePath ? sfs->f_mntfromname : sfs->f_mntonname,
+                    PATH_MAX);
+            rval = 0;
+            break;
+        }
+    }
+
+finish:
+    if (mounts)     free(mounts);
+    return rval;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+
+/*
+ * XXX Danger - Don't define ROSP_HACKS in kextd unless you love deadlocks,
+ * or at the very least check to see that the APFS kext is already loaded.
+ * This code will not compile in without both building against the APFS framework
+ * and defining ROSP_HACKS.
+ */
+#if defined(ROSP_HACKS) && __has_include(<APFS/APFS.h>)
+#include <APFS/APFS.h>
+/* otherRole should be one of APFS_VOL_ROLE_DATA or APFS_VOL_ROLE_SYSTEM, and expectedVolume
+ * should be the volume path that we expect to find. */
+bool correspondingVolume(const char *devicePath, uint8_t otherRole, CFStringRef expectedVolume)
+{
+    CFMutableArrayRef candidateVolumes      = NULL;
+    CFIndex           candidateVolumesCount = 0;
+    bool              result                = false;
+    /* Find the data volume(s?), and iterate over them to see if our candidate is in there */
+    if ((result = APFSVolumeRoleFind(
+                    devicePath,
+                    otherRole,
+                    &candidateVolumes)) != kIOReturnSuccess) {
+        OSKextLog(
+            NULL, kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Could not find volume group UUID for volume device path %s, error %d",
+            devicePath, result);
+        goto finish;
+    }
+
+    candidateVolumesCount = CFArrayGetCount(candidateVolumes);
+    for (CFIndex i = 0; i < candidateVolumesCount; i++) {
+        CFStringRef candidateVolume = CFArrayGetValueAtIndex(candidateVolumes, i);
+        if (CFEqual(candidateVolume, expectedVolume)) {
+            result = true;
+            goto finish;
+        }
+    }
+
+finish:
+    SAFE_RELEASE(candidateVolumes);
+    return result;
+}
+
+/* Device path should look something like /dev/disk0s1 */
+int isUserDataVolume(const char *systemVolumeDevicePath, const char *candidateMountPath) {
+    bool              result = false;
+
+#ifdef ROSP_SUPPORT_IN_KEXTD
+    if (!isAPFSLoaded()) {
+        OSKextLog(
+            NULL, kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
+            "APFS kext not loaded: bailing.");
+        goto finish;
+    }
+#endif /* ROSP_SUPPORT_IN_KEXTD */
+
+    CFStringRef candidateMountPathString = CFStringCreateWithCString(
+            kCFAllocatorDefault,
+            candidateMountPath,
+            kCFStringEncodingASCII);
+    if (!candidateMountPathString) {
+        OSKextLogStringError(NULL);
+        goto finish;
+    }
+
+    result = correspondingVolume(systemVolumeDevicePath, APFS_VOL_ROLE_DATA, candidateMountPathString);
+finish:
+    OSKextLog(
+        NULL, kOSKextLogBasicLevel | kOSKextLogGeneralFlag,
+        "Candidate device %s %s to be the corresponding user data volume for %s.",
+        candidateMountPath,
+        result ? "appears" : "does not appear",
+        systemVolumeDevicePath);
+    return result;
+}
+#else
+/* It would be unfortunate if everything had to link against APFS... */
+int isUserDataVolume(__unused const char *systemVolumeDevicePath, __unused const char *candidateMountPath) {
+    return 0;
+}
+#endif /* defined(ROSP_HACKS) && __has_include(<APFS/APFS.h>) */

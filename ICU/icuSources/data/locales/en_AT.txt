@@ -10,11 +10,13 @@ en_AT{
                 percentFormat{"#,##0 %"}
             }
             symbols{
+                decimal{","}
+                group{"."}
                 superscriptingExponent{"·"}
             }
         }
     }
-    Version{"2.1.38.69"}
+    Version{"2.1.47.69"}
     calendar{
         generic{
             DateTimePatterns{
@@ -43,6 +45,11 @@ en_AT{
                 MMMMd{"d. MMMM"}
                 MMMd{"d. MMM"}
                 Md{"d.M."}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                hmsv{"h:mm:ss a v"}
+                hmv{"h:mm a v"}
                 yyyyM{"M.y GGGGG"}
                 yyyyMEEEEd{"EEEE, d.M.y GGGGG"}
                 yyyyMEd{"E d.M.y GGGGG"}

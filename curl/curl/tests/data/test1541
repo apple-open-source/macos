@@ -1,22 +1,34 @@
 <testcase>
 <info>
 <keywords>
-typecheck
+HTTP
+HTTP GET
+multi-threaded
+connection-sharing
 </keywords>
 </info>
 
-#
+# Server-side
+<reply>
+</reply>
+
 # Client-side
 <client>
 <server>
-none
+http
 </server>
- <name>
-verify curl/system.h detection
- </name>
 <tool>
 lib1541
 </tool>
+ <name>
+connection sharing using 67 parallel threads for 7 seconds
+ </name>
+ <command>
+http://%HOSTIP:%HTTPPORT/1
+</command>
 </client>
 
+# Verify data after the test has been "shot"
+<verify>
+</verify>
 </testcase>

@@ -46,7 +46,7 @@
 #ifndef SASLINT_H
 #define SASLINT_H
 
-#include <config.h>
+#include "config.h"
 #include "sasl.h"
 #include "saslplug.h"
 #include "saslutil.h"

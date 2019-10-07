@@ -342,6 +342,8 @@ getmathparam(struct mathvalue *mptr)
 	mptr->pval = (Value)zhalloc(sizeof(struct value));
 	if (!getvalue(mptr->pval, &s, 1))
 	{
+	    if (unset(UNSET))
+		zerr("%s: parameter not set", mptr->lval);
 	    mptr->pval = NULL;
 	    if (isset(FORCEFLOAT)) {
 		result.type = MN_FLOAT;
@@ -463,7 +465,7 @@ lexconstant(void)
     char *nptr;
 
     nptr = ptr;
-    if (*nptr == '-')
+    if (IS_DASH(*nptr))
 	nptr++;
 
     if (*nptr == '0') {
@@ -527,7 +529,7 @@ lexconstant(void)
 	}
 	if (*nptr == 'e' || *nptr == 'E') {
 	    nptr++;
-	    if (*nptr == '+' || *nptr == '-')
+	    if (*nptr == '+' || IS_DASH(*nptr))
 		nptr++;
 	    while (idigit(*nptr) || *nptr == '_')
 		nptr++;
@@ -535,7 +537,7 @@ lexconstant(void)
 	for (ptr2 = ptr; ptr2 < nptr; ptr2++) {
 	    if (*ptr2 == '_') {
 		int len = nptr - ptr;
-		ptr = ztrdup(ptr);
+		ptr = dupstring(ptr);
 		for (ptr2 = ptr; len; len--) {
 		    if (*ptr2 == '_')
 			chuck(ptr2);
@@ -578,6 +580,36 @@ int outputradix;
 /**/
 int outputunderscore;
 
+#ifndef HAVE_ISINF
+/**/
+int
+isinf(double x)
+{
+    if ((-1.0 < x) && (x < 1.0))       /* x is small, and thus finite */
+       return (0);
+    else if ((x + x) == x)             /* only true if x == Infinity */
+       return (1);
+    else                               /* must be finite (normal or subnormal), or NaN */
+       return (0);
+}
+#endif
+
+#if !defined(HAVE_ISNAN)
+static double
+store(double *x)
+{
+    return (*x);
+}
+
+/**/
+int
+isnan(double x)
+{
+    /* (x != x) should be sufficient, but some compilers incorrectly optimize it away */
+    return (store(&x) != store(&x));
+}
+#endif
+
 /**/
 static int
 zzlex(void)
@@ -599,7 +631,8 @@ zzlex(void)
 	    }
 	    return (unary) ? UPLUS : PLUS;
 	case '-':
-	    if (*ptr == '-') {
+	case Dash:
+	    if (IS_DASH(*ptr)) {
 		ptr++;
 		return (unary) ? PREMINUS : POSTMINUS;
 	    }
@@ -609,8 +642,19 @@ zzlex(void)
 	    }
 	    if (unary) {
 		if (idigit(*ptr) || *ptr == '.') {
-		    ptr--;
-		    return lexconstant();
+		    int ctype = lexconstant();
+		    if (ctype == NUM)
+		    {
+			if (yyval.type == MN_FLOAT)
+			{
+			    yyval.u.d = -yyval.u.d;
+			}
+			else
+			{
+			    yyval.u.l = -yyval.u.l;
+			}
+		    }
+		    return ctype;
 		} else
 		    return UMINUS;
 	    } else
@@ -784,11 +828,10 @@ zzlex(void)
 		ptr++;
 		break;
 	    }
-	case ' ':
+	case ' ': /* Fall through! */
 	case '\t':
 	case '\n':
 	    break;
-	/* Fall through! */
 	default:
 	    if (idigit(*--ptr) || *ptr == '.')
 		return lexconstant();
@@ -813,6 +856,20 @@ zzlex(void)
 
 		p = ptr;
 		ptr = ie;
+		if (ie - p == 3) {
+		    if (strncasecmp(p, "NaN", 3) == 0) {
+			yyval.type = MN_FLOAT;
+			yyval.u.d = 0.0;
+			yyval.u.d /= yyval.u.d;
+			return NUM;
+		    }
+		    else if (strncasecmp(p, "Inf", 3) == 0) {
+			yyval.type = MN_FLOAT;
+			yyval.u.d = 0.0;
+			yyval.u.d = 1.0 / yyval.u.d;
+			return NUM;
+		    }
+		}
 		if (*ptr == '[' || (!cct && *ptr == '(')) {
 		    char op = *ptr, cp = ((*ptr == '[') ? ']' : ')');
 		    int l;
@@ -974,7 +1031,7 @@ callmathfunc(char *o)
     a[strlen(a) - 1] = '\0';
 
     if ((f = getmathfunc(n, 1))) {
-	if (f->flags & MFF_STR) {
+	if ((f->flags & (MFF_STR|MFF_USERFUNC)) == MFF_STR) {
 	    return f->sfunc(n, a, f->funcid);
 	} else {
 	    int argc = 0;
@@ -987,22 +1044,34 @@ callmathfunc(char *o)
 		addlinknode(l, n);
 	    }
 
-	    while (iblank(*a))
-		a++;
+	    if (f->flags & MFF_STR) {
+		if (!*a) {
+		    addlinknode(l, dupstring(""));
+		    argc++;
+		}
+	    } else {
+		while (iblank(*a))
+		    a++;
+	    }
 	    while (*a) {
 		if (*a) {
 		    argc++;
 		    if (f->flags & MFF_USERFUNC) {
 			/* need to pass strings */
 			char *str;
-			marg = mathevall(a, MPREC_ARG, &a);
-			if (marg.type & MN_FLOAT) {
-			    /* convfloat is off the heap */
-			    str = convfloat(marg.u.d, 0, 0, NULL);
+			if (f->flags & MFF_STR) {
+			    str = dupstring(a);
+			    a = "";
 			} else {
-			    char buf[BDIGBUFSIZE];
-			    convbase(buf, marg.u.l, 10);
-			    str = dupstring(buf);
+			    marg = mathevall(a, MPREC_ARG, &a);
+			    if (marg.type & MN_FLOAT) {
+				/* convfloat is off the heap */
+				str = convfloat(marg.u.d, 0, 0, NULL);
+			    } else {
+				char buf[BDIGBUFSIZE];
+				convbase(buf, marg.u.l, 10);
+				str = dupstring(buf);
+			    }
 			}
 			addlinknode(l, str);
 		    } else {
@@ -1055,9 +1124,9 @@ callmathfunc(char *o)
 static int
 notzero(mnumber a)
 {
-    if ((a.type & MN_INTEGER) ? a.u.l == 0 : a.u.d == 0.0) {
-	zerr("division by zero");
-	return 0;
+    if ((a.type & MN_INTEGER) && a.u.l == 0) {
+        zerr("division by zero");
+        return 0;
     }
     return 1;
 }
@@ -1293,8 +1362,6 @@ op(int what)
 	    spval->type = MN_INTEGER;
 	} else
 	    spval->u.l = !spval->u.l;
-	stack[sp].lval = NULL;
-	stack[sp].pval = NULL;
 	break;
     case COMP:
 	if (spval->type & MN_FLOAT) {
@@ -1302,8 +1369,6 @@ op(int what)
 	    spval->type = MN_INTEGER;
 	} else
 	    spval->u.l = ~spval->u.l;
-	stack[sp].lval = NULL;
-	stack[sp].pval = NULL;
 	break;
     case POSTPLUS:
 	a = *spval;
@@ -1322,16 +1387,12 @@ op(int what)
 	(void)setmathvar(stack + sp, a);
 	break;
     case UPLUS:
-	stack[sp].lval = NULL;
-	stack[sp].pval = NULL;
 	break;
     case UMINUS:
 	if (spval->type & MN_FLOAT)
 	    spval->u.d = -spval->u.d;
 	else
 	    spval->u.l = -spval->u.l;
-	stack[sp].lval = NULL;
-	stack[sp].pval = NULL;
 	break;
     case QUEST:
 	DPUTS(sp < 2, "BUG: math: three shall be the number of the counting.");
@@ -1364,6 +1425,8 @@ op(int what)
 	zerr("bad math expression: out of integers");
 	return;
     }
+    stack[sp].lval = NULL;
+    stack[sp].pval = NULL;
 }
 
 

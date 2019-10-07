@@ -27,27 +27,42 @@
 
 #if ENABLE(WEBGPU)
 
-#include "GPUInputStateDescriptor.h"
+#include "GPUColorStateDescriptor.h"
+#include "GPUDepthStencilStateDescriptor.h"
 #include "GPUPipelineDescriptorBase.h"
 #include "GPUPipelineStageDescriptor.h"
-
+#include "GPUVertexInputDescriptor.h"
+#include <wtf/Optional.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
-struct GPURenderPipelineDescriptor {
-    enum class PrimitiveTopology {
-        PointList,
-        LineList,
-        LineStrip,
-        TriangleList,
-        TriangleStrip
-    };
+enum class GPUPrimitiveTopology {
+    PointList,
+    LineList,
+    LineStrip,
+    TriangleList,
+    TriangleStrip
+};
+
+struct GPURenderPipelineDescriptorBase {
+    GPUPrimitiveTopology primitiveTopology;
+    Vector<GPUColorStateDescriptor> colorStates;
+    Optional<GPUDepthStencilStateDescriptor> depthStencilState;
+    GPUVertexInputDescriptor vertexInput;
+};
+
+struct GPURenderPipelineDescriptor : GPUPipelineDescriptorBase, GPURenderPipelineDescriptorBase {
+    GPURenderPipelineDescriptor(RefPtr<GPUPipelineLayout>&& layout, GPUPipelineStageDescriptor&& vertex, Optional<GPUPipelineStageDescriptor>&& fragment, const GPURenderPipelineDescriptorBase& base)
+        : GPUPipelineDescriptorBase { WTFMove(layout) }
+        , GPURenderPipelineDescriptorBase(base)
+        , vertexStage(WTFMove(vertex))
+        , fragmentStage(WTFMove(fragment))
+    {
+    }
 
     GPUPipelineStageDescriptor vertexStage;
-    GPUPipelineStageDescriptor fragmentStage;
-    PrimitiveTopology primitiveTopology;
-    GPUInputStateDescriptor inputState;
+    Optional<GPUPipelineStageDescriptor> fragmentStage;
 };
 
 } // namespace WebCore

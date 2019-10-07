@@ -7,7 +7,6 @@
 
 #include "ckconfig.h"
 
-#if CRYPTKIT_DER_ENABLE
 
 #include <Security/cssmtype.h>
 #include <Security/secasn1t.h>
@@ -132,7 +131,5 @@ extern const SecAsn1Template FEEPrivateKeyASN1Template[];
 #ifdef	__cplusplus
 }
 #endif
-
-#endif	/* CRYPTKIT_DER_ENABLE */
 
 #endif	/* _CRYPT_KIT_ASN1_H_ */

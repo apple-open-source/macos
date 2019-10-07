@@ -46,25 +46,6 @@
     return self;
 }
 
-- (instancetype)initWithPlistFromURL:(NSURL *)url {
-    self = [super init];
-    if (self) {
-        _config = [NSDictionary dictionaryWithContentsOfURL:url];
-        if (!_config) {
-            secerror("RateLimiter[?]: could not read config from %@", url);
-            return nil;
-        }
-        _assetType = nil;
-        [self reset];
-    }
-    return self;
-}
-
-// TODO implement MobileAsset loading
-- (instancetype)initWithAssetType:(NSString *)type {
-    return nil;
-}
-
 - (instancetype)initWithCoder:(NSCoder *)coder {
     if (!coder) {
         return nil;
@@ -94,7 +75,7 @@
     return self;
 }
 
-- (NSInteger)judge:(id _Nonnull)obj at:(NSDate * _Nonnull)time limitTime:(NSDate * _Nullable __autoreleasing * _Nonnull)limitTime {
+- (RateLimiterBadness)judge:(id _Nonnull)obj at:(NSDate * _Nonnull)time limitTime:(NSDate * _Nullable __autoreleasing * _Nonnull)limitTime {
     
     //sudo defaults write /Library/Preferences/com.apple.security DisableKeychainRateLimiting -bool YES
     NSNumber *disabled = CFBridgingRelease(CFPreferencesCopyValue(CFSTR("DisableKeychainRateLimiting"),
@@ -223,7 +204,7 @@
 
     if ([self stateSize] > [self.config[@"general"][@"maxStateSize"] unsignedIntegerValue]) {
         // Trimming did not reduce size (enough), we need to take measures
-        self.overloadUntil = [time dateByAddingTimeInterval:[self.config[@"general"][@"overloadDuration"] intValue]];
+        self.overloadUntil = [time dateByAddingTimeInterval:[self.config[@"general"][@"overloadDuration"] unsignedIntValue]];
         secerror("RateLimiter[%@] state size %lu exceeds max %lu, overloaded until %@",
                  self.config[@"general"][@"name"],
                  (unsigned long)[self stateSize],
@@ -278,21 +259,6 @@
 
 + (BOOL)supportsSecureCoding {
     return YES;
-}
-
-- (NSArray *)topOffenders:(int)num {
-    NSInteger idx = [self.config[@"general"][@"topOffendersPropertyIndex"] integerValue];
-    NSDate *now = [NSDate date];
-    NSSet *contenderkeys = [self.groups[idx] keysOfEntriesPassingTest:^BOOL(NSString *key, NSDate *obj, BOOL *stop) {
-        return [now timeIntervalSinceDate:obj] > 0 ? YES : NO;
-    }];
-    if ([contenderkeys count] == 0) {
-        return [NSArray new];
-    }
-    NSDictionary *contenders = [NSDictionary dictionaryWithObjects:[self.groups[idx] objectsForKeys:[contenderkeys allObjects]
-                                                                                     notFoundMarker:[NSDate date]]
-                                                           forKeys:[contenderkeys allObjects]];
-    return [[[contenders keysSortedByValueUsingSelector:@selector(compare:)] reverseObjectEnumerator] allObjects];
 }
 
 @end

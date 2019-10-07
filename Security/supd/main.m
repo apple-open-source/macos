@@ -21,6 +21,17 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <TargetConditionals.h>
+
+#if TARGET_OS_SIMULATOR
+
+int main(int argc, char** argv)
+{
+    return 0;
+}
+
+#else
+
 #import <Foundation/Foundation.h>
 #import "supd.h"
 #include "debugging.h"
@@ -71,3 +82,5 @@ int main(int argc, const char *argv[])
     [[NSRunLoop currentRunLoop] run];
     return 0;
 }
+
+#endif  // !TARGET_OS_SIMULATOR

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -157,7 +157,7 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
                     CFRelease(url);
                     strlcat(name, "/", sizeof(name));
                     strlcat(name, L2TP_NKE, sizeof(name));
-#if !TARGET_OS_EMBEDDED // This file is not built for Embedded
+#if TARGET_OS_OSX // This file is not built for Embedded
                     if (!load_kext(name, 0))
 #else
                     if (!load_kext(L2TP_NKE_ID, 1))
@@ -174,7 +174,7 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
         }
     }
     
-#if !TARGET_OS_EMBEDDED // This file is not built for Embedded
+#if TARGET_OS_OSX // This file is not built for Embedded
 	/* increase the number of threads for l2tp to nb cpus - 1 */
     len = sizeof(int); 
 	sysctlbyname("hw.ncpu", &nb_cpu, &len, NULL, 0);
@@ -605,7 +605,7 @@ int l2tpvpn_listen(void)
 		GetIntFromDict(ipsec_settings, kRASPropIPSecNattMultipleUsersEnabled, &natt_multiple_users, 1);
 			
 		ipsec_dict = IPSecCreateL2TPDefaultConfiguration(
-			&our_address, &any_address, NULL, 
+			(struct sockaddr *)&our_address, (struct sockaddr *)&any_address, NULL,
 			auth_method, 0, 0, natt_multiple_users, 0, 0);
 
 		/* set the authentication information */

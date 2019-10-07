@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2006, 2009-2011, 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2006, 2009-2011, 2015-2017, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -135,10 +135,6 @@ SCDynamicStoreNotifyWait(SCDynamicStoreRef store)
 		SC_log(LOG_NOTICE, "oldNotify != MACH_PORT_NULL");
 	}
 
-#ifdef	VERBOSE_ACTIVITY_LOGGING
-	os_activity_scope(storePrivate->activity);
-#endif	// VERBOSE_ACTIVITY_LOGGING
-
     retry :
 
 	status = notifyviaport(storePrivate->server,
@@ -194,10 +190,6 @@ SCDynamicStoreNotifyWait(SCDynamicStoreRef store)
 		_SCErrorSet(kSCStatusNoStoreServer);
 		return FALSE;
 	}
-
-#ifdef	VERBOSE_ACTIVITY_LOGGING
-	os_activity_scope(storePrivate->activity);
-#endif	// VERBOSE_ACTIVITY_LOGGING
 
 	// something changed, cancelling notification request
 	status = notifycancel(storePrivate->server,

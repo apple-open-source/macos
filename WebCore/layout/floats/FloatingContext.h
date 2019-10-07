@@ -51,13 +51,19 @@ public:
     FloatingState& floatingState() const { return m_floatingState; }
 
     Point positionForFloat(const Box&) const;
-    Optional<Point> positionForFloatAvoiding(const Box&) const;
-    Optional<Position> verticalPositionWithClearance(const Box&) const;
+    Optional<Point> positionForFormattingContextRoot(const Box&) const;
+
+    struct ClearancePosition {
+        Optional<Position> position;
+        Optional<LayoutUnit> clearance;
+    };
+    ClearancePosition verticalPositionWithClearance(const Box&) const;
 
 private:
     LayoutState& layoutState() const { return m_floatingState.layoutState(); }
 
-    void floatingPosition(FloatAvoider&) const;
+    void findPositionForFloatBox(FloatBox&) const;
+    void findPositionForFormattingContextRoot(FloatAvoider&) const;
 
     FloatingState& m_floatingState;
 };

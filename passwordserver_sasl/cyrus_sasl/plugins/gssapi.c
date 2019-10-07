@@ -43,7 +43,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <config.h>
+#include "config.h"
 
 #ifdef HAVE_GSSAPI_H
 #include <gssapi.h>
@@ -71,9 +71,9 @@
 #endif /* WIN32 */
 #include <fcntl.h>
 #include <stdio.h>
-#include <sasl.h>
-#include <saslutil.h>
-#include <saslplug.h>
+#include "sasl.h"
+#include "saslplug.h"
+#include "saslutil.h"
 
 #include "plugin_common.h"
 

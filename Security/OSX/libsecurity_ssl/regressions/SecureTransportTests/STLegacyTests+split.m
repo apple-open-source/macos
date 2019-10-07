@@ -18,6 +18,8 @@
 #include <Security/SecItem.h>
 #include <Security/SecRandom.h>
 
+#include <utilities/SecCFRelease.h>
+
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -33,6 +35,9 @@
 
 #include <tls_stream_parser.h>
 #import "STLegacyTests.h"
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 @implementation STLegacyTests (split)
 
@@ -50,7 +55,7 @@ typedef struct {
 #pragma mark -
 #pragma mark SecureTransport support
 
-#if 0
+#if SECTRANS_VERBOSE_DEBUG
 static void hexdump(const char *s, const uint8_t *bytes, size_t len) {
 	size_t ix;
     printf("socket %s(%p, %lu)\n", s, bytes, len);
@@ -148,12 +153,10 @@ static void *securetransport_ssl_thread(void *arg)
     SSLContextRef ctx = ssl->st;
     bool got_server_auth = false;
 
-    //uint64_t start = mach_absolute_time();
     do {
         ortn = SSLHandshake(ctx);
 
-        if (ortn == errSSLServerAuthCompleted)
-        {
+        if (ortn == errSSLServerAuthCompleted) {
             require_string(!got_server_auth, out, "second server auth");
             got_server_auth = true;
         }
@@ -167,7 +170,7 @@ static void *securetransport_ssl_thread(void *arg)
 
     if (ssl->is_server) {
         size_t len;
-        require_action(errSecSuccess==SecRandomCopyBytes(kSecRandomDefault, ssl->write_size, obuf), out, ortn = -1);
+        require_action(errSecSuccess == SecRandomCopyBytes(kSecRandomDefault, ssl->write_size, obuf), out, ortn = -1);
         require_noerr(ortn = SSLWrite(ctx, obuf, ssl->write_size, &len), out);
         require_action(len == ssl->write_size, out, ortn = -1);
         require_noerr(ortn = SSLWrite(ctx, obuf, ssl->write_size, &len), out);
@@ -194,8 +197,10 @@ out:
 static void
 ssl_test_handle_destroy(ssl_test_handle *handle)
 {
-    if(handle) {
-        if(handle->parser) tls_stream_parser_destroy(handle->parser);
+    if (handle) {
+        if (handle->parser) {
+            tls_stream_parser_destroy(handle->parser);
+        }
         free(handle);
     }
 }
@@ -213,8 +218,9 @@ ssl_test_handle_create(bool server, int comm, CFArrayRef certs)
                                 (SSLReadFunc)SocketRead, (SSLWriteFunc)SocketWrite), out);
     require_noerr(SSLSetConnection(ctx, (SSLConnectionRef)handle), out);
 
-    if (server)
+    if (server) {
         require_noerr(SSLSetCertificate(ctx, certs), out);
+    }
 
     require_noerr(SSLSetSessionOption(ctx,
                                       kSSLSessionOptionBreakOnServerAuth, true), out);
@@ -308,7 +314,6 @@ static int nwsizes = sizeof(wsizes)/sizeof(wsizes[0]);
             // s=2: expliciti disable
             require_noerr(SSLSetSessionOption(server->st, kSSLSessionOptionSendOneByteRecord, (s==1)?true:false), out);
         }
-        // printf("**** Test Case: i=%d, j=%d, k=%d (%zd), s=%d ****\n", i, j, k, wsizes[k][0], s);
 
         pthread_create(&client_thread, NULL, securetransport_ssl_thread, client);
         pthread_create(&server_thread, NULL, securetransport_ssl_thread, server);
@@ -326,7 +331,6 @@ static int nwsizes = sizeof(wsizes)/sizeof(wsizes[0]);
 
         XCTAssertEqual(server->write_counter, expected_count, "wrong number of data records");
 
-        // fprintf(stderr, "Server write counter = %d, expected %d\n", server->write_counter, expected_count);
 
 out:
         ssl_test_handle_destroy(client);
@@ -337,3 +341,5 @@ out:
 }
 
 @end
+
+#pragma clang diagnostic pop

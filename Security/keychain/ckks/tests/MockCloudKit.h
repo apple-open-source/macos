@@ -24,6 +24,7 @@
 #if OCTAGON
 
 #import <CloudKit/CloudKit.h>
+#import <CloudKit/CloudKit_Private.h>
 #import <Foundation/Foundation.h>
 
 #import "keychain/ckks/CKKSNotifier.h"
@@ -36,8 +37,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 
+@interface FakeCKOperation : NSBlockOperation
+@property (nonatomic, assign, readonly) BOOL isFinishingOnCallbackQueue;
+@end
 
-@interface FakeCKModifyRecordZonesOperation : NSBlockOperation <CKKSModifyRecordZonesOperation> {
+
+@interface FakeCKModifyRecordZonesOperation : FakeCKOperation <CKKSModifyRecordZonesOperation> {
     CKOperationConfiguration* _configuration;
 }
 @property (nullable) NSError* creationError;
@@ -46,10 +51,13 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 @property (nonatomic, copy, null_resettable) CKOperationConfiguration *configuration;
 
 + (FakeCKDatabase*)ckdb;
-+(void)ensureZoneDeletionAllowed:(FakeCKZone*)zone;
+
++ (NSError* _Nullable)shouldFailModifyRecordZonesOperation;
+
++ (void)ensureZoneDeletionAllowed:(FakeCKZone*)zone;
 @end
 
-@interface FakeCKModifySubscriptionsOperation : NSBlockOperation <CKKSModifySubscriptionsOperation> {
+@interface FakeCKModifySubscriptionsOperation : FakeCKOperation <CKKSModifySubscriptionsOperation> {
     CKOperationConfiguration* _configuration;
 }
 @property (nullable) NSError* subscriptionError;
@@ -59,7 +67,7 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 + (FakeCKDatabase*)ckdb;
 @end
 
-@interface FakeCKFetchRecordZoneChangesOperation : NSOperation <CKKSFetchRecordZoneChangesOperation> {
+@interface FakeCKFetchRecordZoneChangesOperation : FakeCKOperation <CKKSFetchRecordZoneChangesOperation> {
     CKOperationConfiguration* _configuration;
 }
 
@@ -69,20 +77,23 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 @property (nullable) void (^blockAfterFetch)(void);
 @end
 
-@interface FakeCKFetchRecordsOperation : NSBlockOperation <CKKSFetchRecordsOperation>
+@interface FakeCKFetchRecordsOperation : FakeCKOperation <CKKSFetchRecordsOperation>
 + (FakeCKDatabase*)ckdb;
 @end
 
-@interface FakeCKQueryOperation : NSBlockOperation <CKKSQueryOperation>
+@interface FakeCKQueryOperation : FakeCKOperation <CKKSQueryOperation>
 + (FakeCKDatabase*)ckdb;
 @end
 
-@interface FakeAPSConnection : NSObject <CKKSAPSConnection>
+@interface FakeAPSConnection : NSObject <OctagonAPSConnection>
 @end
 
 @interface FakeNSNotificationCenter : NSObject <CKKSNSNotificationCenter>
 + (instancetype)defaultCenter;
 - (void)addObserver:(id)observer selector:(SEL)aSelector name:(nullable NSNotificationName)aName object:(nullable id)anObject;
+@end
+
+@interface FakeNSDistributedNotificationCenter : NSObject <CKKSNSDistributedNotificationCenter>
 @end
 
 @interface FakeCKZone : NSObject
@@ -92,6 +103,10 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 @property NSMutableDictionary<CKRecordID*, CKRecord*>* currentDatabase;
 @property NSMutableDictionary<CKServerChangeToken*, NSMutableDictionary<CKRecordID*, CKRecord*>*>* pastDatabases;
 @property bool flag;  // used however you'd like in a test
+@property (nullable) CKServerChangeToken* limitFetchTo; // Only return partial results up until here (if asking for current change token)
+@property (nullable) NSError* limitFetchError; // If limitFetchTo fires, finish the operation with this error (likely a network timeout)
+@property int fetchRecordZoneChangesOperationCount;
+@property NSMutableArray<NSDate*>* fetchRecordZoneChangesTimestamps;
 
 // Usually nil. If set, trying to 'create' this zone should fail.
 @property (nullable) NSError* creationError;
@@ -112,8 +127,8 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 - (void)addToZone:(CKRecord*)record;
 
 // If you want a transaction of adding, use these
-- (void)_onqueueAddToZone:(CKKSCKRecordHolder*)item zoneID:(CKRecordZoneID*)zoneID;
-- (void)_onqueueAddToZone:(CKRecord*)record;
+- (CKRecord*)_onqueueAddToZone:(CKKSCKRecordHolder*)item zoneID:(CKRecordZoneID*)zoneID;
+- (CKRecord*)_onqueueAddToZone:(CKRecord*)record;
 
 // Removes this record from all versions of the CK database, without changing the change tag
 - (void)deleteFromHistory:(CKRecordID*)recordID;

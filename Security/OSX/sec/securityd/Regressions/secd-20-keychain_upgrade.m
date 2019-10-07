@@ -43,6 +43,7 @@
 
 #include "secd_regressions.h"
 #include "SecdTestKeychainUtilities.h"
+#include "server_security_helpers.h"
 
 static int ckmirror_row_exists = 0;
 static int ckmirror_row_callback(void* unused, int count, char **data, char **columns)
@@ -74,7 +75,7 @@ keychain_upgrade(bool musr, const char *dbname)
      * Check system keychain migration
      */
 
-    res = SecItemAdd((CFDictionaryRef)@{
+    res = SecItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccount :  @"system-label-me",
         (id)kSecUseSystemKeychain : (id)kCFBooleanTrue,
@@ -87,7 +88,7 @@ keychain_upgrade(bool musr, const char *dbname)
      * Check user keychain
      */
 
-    res = SecItemAdd((CFDictionaryRef)@{
+    res = SecItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccount :  @"user-label-me",
         (id)kSecValueData : [NSData dataWithBytes:"some data" length:9],
@@ -116,7 +117,7 @@ keychain_upgrade(bool musr, const char *dbname)
     });
 
 #if TARGET_OS_IPHONE
-    res = SecItemCopyMatching((CFDictionaryRef)@{
+    res = SecItemCopyMatching((__bridge CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccount :  @"system-label-me",
         (id)kSecUseSystemKeychain : (id)kCFBooleanTrue,
@@ -124,7 +125,7 @@ keychain_upgrade(bool musr, const char *dbname)
     is(res, 0, "SecItemCopyMatching(system)");
 #endif
 
-    res = SecItemCopyMatching((CFDictionaryRef)@{
+    res = SecItemCopyMatching((__bridge CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccount :  @"user-label-me",
     }, NULL);
@@ -143,9 +144,6 @@ keychain_upgrade(bool musr, const char *dbname)
 #endif
 }
 
-void SecAccessGroupsSetCurrent(CFArrayRef accessGroups);
-CFArrayRef SecAccessGroupsGetCurrent(void);
-
 int
 secd_20_keychain_upgrade(int argc, char *const *argv)
 {
@@ -157,7 +155,7 @@ secd_20_keychain_upgrade(int argc, char *const *argv)
 
     plan_tests((kSecdTestSetupTestCount + 5 + have_system_keychain_tests + 8) * 2);
 
-    CFArrayRef currentACL = SecAccessGroupsGetCurrent();
+    CFArrayRef currentACL = CFRetainSafe(SecAccessGroupsGetCurrent());
 
     NSMutableArray *newACL = [NSMutableArray arrayWithArray:(__bridge NSArray *)currentACL];
     [newACL addObjectsFromArray:@[
@@ -172,6 +170,7 @@ secd_20_keychain_upgrade(int argc, char *const *argv)
     keychain_upgrade(true,  "secd_20_keychain_upgrade-musr");
 
     SecAccessGroupsSetCurrent(currentACL);
+    CFReleaseNull(currentACL);
 
     return 0;
 }

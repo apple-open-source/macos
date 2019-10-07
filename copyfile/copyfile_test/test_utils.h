@@ -18,6 +18,11 @@
 #define BSIZE_B					128
 #define MAX_DISK_IMAGE_SIZE_MB	1024
 
+#define DEFAULT_NAME_MOD  		999
+#define DEFAULT_OPEN_FLAGS		O_CREAT|O_TRUNC|O_RDWR
+#define DEFAULT_OPEN_PERM		0666
+#define DEFAULT_MKDIR_PERM		0777
+
 #define DISK_IMAGE_PATH			"/tmp/copyfile_sparse.sparseimage"
 #define VOLUME_NAME				"apfs_sparse"
 #define DEFAULT_FSTYPE			"JHFS+"
@@ -30,6 +35,7 @@
 #define DIFF_PATH				"/usr/bin/diff"
 
 // Test routine helpers.
+bool verify_st_flags(struct stat *sb, uint32_t flags_to_expect);
 bool verify_fd_contents(int orig_fd, off_t orig_pos, int copy_fd, off_t copy_pos, size_t length);
 bool verify_copy_contents(const char *orig_name, const char *copy_name);
 bool verify_copy_sizes(struct stat *orig_sb, struct stat *copy_sb, copyfile_state_t cpf_state,

@@ -1,8 +1,8 @@
 --TEST--
 Test function posix_seteuid() by substituting argument 1 with object values.
 --SKIPIF--
-<?php 
-        if(!extension_loaded("posix")) print "skip - POSIX extension not loaded"; 
+<?php
+        if(!extension_loaded("posix")) print "skip - POSIX extension not loaded";
 ?>
 --CREDITS--
 Marco Fabbri mrfabbri@gmail.com
@@ -49,7 +49,7 @@ foreach ( $variation_array as $var ) {
 ?>
 --EXPECTF--
 *** Test substituting argument 1 with object values ***
-Error: 2 - posix_seteuid() expects parameter 1 to be integer, object given, %s
+Error: 2 - posix_seteuid() expects parameter 1 to be int, object given, %s
 bool(false)
-Error: 2 - posix_seteuid() expects parameter 1 to be integer, object given, %s
+Error: 2 - posix_seteuid() expects parameter 1 to be int, object given, %s
 bool(false)

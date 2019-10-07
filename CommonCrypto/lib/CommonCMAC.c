@@ -28,7 +28,6 @@
 #include  <CommonCrypto/CommonCMACSPI.h>
 #include "CommonCryptorPriv.h"
 #include "ccdebug.h"
-#include "ccMemory.h"
 
 #include <corecrypto/cccmac.h>
 #include <corecrypto/ccaes.h>
@@ -52,13 +51,13 @@ CCCmacContextPtr
 CCAESCmacCreate(const void *key, size_t keyLength)
 {
     // Allocations
-    CCCmacContextPtr retval = (CCCmacContextPtr) CC_XMALLOC(sizeof(struct CCCmacContext));
+    CCCmacContextPtr retval = (CCCmacContextPtr) malloc(sizeof(struct CCCmacContext));
     if(!retval) return NULL;
 
     const struct ccmode_cbc *cbc = ccaes_cbc_encrypt_mode();
-    retval->ctxptr = CC_XMALLOC(cccmac_ctx_size(cbc));
+    retval->ctxptr = malloc(cccmac_ctx_size(cbc));
     if(retval->ctxptr == NULL) {
-        CC_XFREE(retval, sizeof(struct CCCmacContext));
+        free(retval);
         return NULL;
     }
 
@@ -66,8 +65,8 @@ CCAESCmacCreate(const void *key, size_t keyLength)
     if (key==NULL
         || cccmac_init(cbc, retval->ctxptr,
                     keyLength, key)!=0) {
-        CC_XFREE(retval->ctxptr, sizeof(cccmac_ctx_size(cbc)));
-        CC_XFREE(retval, sizeof(struct CCCmacContext));
+        free(retval->ctxptr);
+        free(retval);
         return NULL;
     }
     
@@ -84,8 +83,8 @@ void CCAESCmacFinal(CCCmacContextPtr ctx, void *macOut) {
 
 void CCAESCmacDestroy(CCCmacContextPtr ctx) {
     if(ctx) {
-        CC_XFREE(ctx->ctxptr, cccmac_ctx_size(retval->cbc));
-        CC_XFREE(ctx, sizeof(struct CCCmacContext));
+        free(ctx->ctxptr);
+        free(ctx);
     }
 }
 

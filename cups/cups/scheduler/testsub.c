@@ -4,11 +4,7 @@
  * Copyright 2007-2014 by Apple Inc.
  * Copyright 2006-2007 by Easy Software Products.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
  */
 
 /*
@@ -35,7 +31,7 @@ static int	terminate = 0;
 
 static void	print_attributes(ipp_t *ipp, int indent);
 static void	sigterm_handler(int sig);
-static void	usage(void) __attribute__((noreturn));
+static void	usage(void) _CUPS_NORETURN;
 
 
 /*

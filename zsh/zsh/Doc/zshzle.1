@@ -1,4 +1,4 @@
-.TH "ZSHZLE" "1" "December 11, 2016" "zsh 5\&.3"
+.TH "ZSHZLE" "1" "February 3, 2019" "zsh 5\&.7\&.1"
 .SH "NAME"
 zshzle \- zsh command line editor
 .\" Yodl file: Zsh/zle.yo
@@ -40,9 +40,9 @@ by default be entered in emacs mode by holding the alt key and typing
 a number, or pressing escape before each digit, and in vi command mode
 by typing the number before entering a command\&.  Generally the numeric
 argument causes the next command entered to be repeated the specified
-number of times, unless otherwise noted below\&. See also
-the \fIArguments\fP subsection of the \fIWidgets\fP section for some other ways the numeric argument can be modified\&. The default
-bindings mentioned here use the \fBdigit\-argument\fP widget\&.
+number of times, unless otherwise noted below; this is implemented
+by the \fBdigit\-argument\fP widget\&. See also
+the \fIArguments\fP subsection of the \fIWidgets\fP section for some other ways the numeric argument can be modified\&.
 .PP
 .PP
 .SH "KEYMAPS"
@@ -391,7 +391,7 @@ by `\fBbindkey \-m\fP\&'\&.
 
 .TP
 .PD 0
-\fBvared \fP[ \fB\-Aache\fP ] [ \fB\-p\fP \fIprompt\fP ] [ \fB\-r\fP \fIrprompt\fP ]
+\fBvared \fP[ \fB\-Aacghe\fP ] [ \fB\-p\fP \fIprompt\fP ] [ \fB\-r\fP \fIrprompt\fP ]
 .TP
 .PD 0
 \fB      \fP[ \fB\-M\fP \fImain\-keymap\fP ] [ \fB\-m\fP \fIvicmd\-keymap\fP ]
@@ -408,7 +408,9 @@ When the \fB\-c\fP flag is given, the parameter is created if it doesn\&'t
 already exist\&.  The \fB\-a\fP flag may be given with \fB\-c\fP to create
 an array parameter, or the \fB\-A\fP flag to create an associative array\&.
 If the type of an existing parameter does not match the type to be
-created, the parameter is unset and recreated\&.
+created, the parameter is unset and recreated\&.  The \fB\-g\fP flag may
+be given to suppress warnings from the \fBWARN_CREATE_GLOBAL\fP
+and \fBWARN_NESTED_VAR\fP options\&.
 .RS
 .PP
 If an array or array slice is being edited, separator characters as defined
@@ -840,12 +842,12 @@ starting with `\fB\&.\fP\&'\&.
 .SH "USER\-DEFINED WIDGETS"
 User\-defined widgets, being implemented as shell functions,
 can execute any normal shell command\&.  They can also run other widgets
-(whether built\-in or user\-defined) using the \fBzle\fP builtin command\&.
-The standard input of the function is closed to prevent external commands
-from unintentionally blocking ZLE by reading from the terminal, but
-\fBread \-k\fP or \fBread \-q\fP can be used to read characters\&.  Finally,
-they can examine and edit the ZLE buffer being edited by
-reading and setting the special parameters described below\&.
+(whether built\-in or user\-defined) using the \fBzle\fP builtin command\&. The
+standard input of the function is redirected from /dev/null to prevent
+external commands from unintentionally blocking ZLE by reading from the
+terminal, but \fBread \-k\fP or \fBread \-q\fP can be used to read characters\&.
+Finally, they can examine and edit the ZLE buffer being edited by reading
+and setting the special parameters described below\&.
 .PP
 These special parameters are always available in widget functions, but
 are not in any way special outside ZLE\&.  If they have some normal value
@@ -956,6 +958,11 @@ The name of the currently selected keymap; read\-only\&.
 \fBKEYS\fP (scalar)
 The keys typed to invoke this widget, as a literal string; read\-only\&.
 .TP
+\fBKEYS_QUEUED_COUNT\fP (integer)
+The number of bytes pushed back to the input queue and therefore
+available for reading immediately before any I/O is done; read\-only\&.
+See also \fBPENDING\fP; the two values are distinct\&.
+.TP
 \fBkillring\fP (array)
 The array of previously killed items, with the most recently killed first\&.
 This gives the items that would be retrieved by a \fByank\-pop\fP in the
@@ -1005,7 +1012,8 @@ called behave as if no numeric argument was given\&.
 The number of bytes pending for input, i\&.e\&. the number of bytes which have
 already been typed and can immediately be read\&. On systems where the shell
 is not able to get this information, this parameter will always have a
-value of zero\&.  Read\-only\&.
+value of zero\&.  Read\-only\&.  See also \fBKEYS_QUEUED_COUNT\fP; the two
+values are distinct\&.
 .TP
 \fBPREBUFFER\fP (scalar)
 In a multi\-line input at the secondary prompt, this read\-only parameter
@@ -1173,6 +1181,14 @@ wrappers of \fBbracketed\-paste\fP\&.  See also \fBzle \-f\fP\&.
 .RS
 .PP
 \fBYANK_ACTIVE\fP is read\-only\&.
+.RE
+.TP
+\fBZLE_RECURSIVE\fP (integer)
+Usually zero, but incremented inside any instance of
+\fBrecursive\-edit\fP\&.  Hence indicates the current recursion level\&.
+.RS
+.PP
+\fBZLE_RECURSIVE\fP is read\-only\&.
 .RE
 .TP
 \fBZLE_STATE\fP (scalar)
@@ -2644,7 +2660,9 @@ defaults shown in parentheses are widely used\&.
 .PD
 \fBfg_start_code\fP (\fB\ee[3\fP)
 The start of the escape sequence for the foreground colour\&.
-This is followed by an ASCII digit representing the colour\&.
+This is followed by one to three ASCII digits representing the colour\&.
+Only used for palette colors, i\&.e\&. not 24\-bit colors specified via a
+color triplet\&.
 .TP
 \fBfg_default_code\fP (\fB9\fP)
 The number to use instead of the colour to reset the default foreground
@@ -2655,7 +2673,7 @@ The end of the escape sequence for the foreground colour\&.
 .TP
 \fBbg_start_code\fP (\fB\ee[4\fP)
 The start of the escape sequence for the background colour\&.
-This is followed by an ASCII digit representing the colour\&.
+See \fBfg_start_code\fP above\&.
 .TP
 \fBbg_default_code\fP (\fB9\fP)
 The number to use instead of the colour to reset the default
@@ -2676,8 +2694,9 @@ this to appear with other types of highlighting; it is used to override
 a default\&.
 .TP
 \fBfg=\fP\fIcolour\fP
-The foreground colour should be set to \fIcolour\fP, a decimal integer
-or the name of one of the eight most widely\-supported colours\&.
+The foreground colour should be set to \fIcolour\fP, a decimal integer,
+the name of one of the eight most widely\-supported colours or as a
+`\fB#\fP\&' followed by an RGB triplet in hexadecimal format\&.
 .RS
 .PP
 Not all terminals support this and, of those that do, not all provide
@@ -2694,6 +2713,13 @@ number of colours supported may be tested by the command `\fBechotc
 Co\fP\&'; if this succeeds, it indicates a limit on the number of colours which
 will be enforced by the line editor\&.  The number of colours is in any case
 limited to 256 (i\&.e\&. the range 0 to 255)\&.
+.PP
+Some modern terminal emulators have support for 24\-bit true colour (16
+million colours)\&. In this case, the hex triplet format can be used\&. This
+consists of either a three or six digit hexadecimal number describing
+the red, green and blue components of the colour\&. Hex triplets can also
+be used with 88 and 256 colour terminals via the \fBzsh/nearcolor\fP
+module (see \fIzshmodules\fP(1))\&.
 .PP
 Colour is also known as color\&.
 .RE

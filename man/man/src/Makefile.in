@@ -14,6 +14,7 @@
 CC = @CC@
 BUILD_CC = @BUILD_CC@
 INSTALL = @INSTALL@
+EXEEXT = @EXEEXT@
 
 pager = @pager@
 
@@ -25,17 +26,17 @@ CWARNNP = -Wall
 	$(CC) -c $(CWARN) $(CFLAGS) -I. $(DEFS) $<
 
 # LDFLAGS = -g
-LDFLAGS = -s
+LDFLAGS ?= -s
 
 LIBOBJS = @LIBOBJS@
 
-all: man man.conf apropos whatis
+all: man$(EXEEXT) man.conf apropos whatis
 
 MANOBJS = man.o manfile.o manpath.o man-config.o man-getopt.o \
 	man-iconv.o to_cat.o different.o gripes.o glob.o util.o msg.o
 
-man: $(MANOBJS) $(LIBOBJS)
-	$(CC) $(LDFLAGS) -o man $(MANOBJS) $(LIBOBJS) $(LIBS)
+man$(EXEEXT): $(MANOBJS) $(LIBOBJS)
+	$(CC) $(LDFLAGS) -o man$(EXEEXT) $(MANOBJS) $(LIBOBJS) $(LIBS)
 
 # CC may be a cross compiler, but BUILD_CC must compile for
 # the present machine.
@@ -93,15 +94,15 @@ whatis: apropos.sh Makefile
 
 makewhatis: makewhatis.sh Makefile
 	rm -f makewhatis
-	sed -e 's,%version%,@version@,' \
-	    -e 's,%awk%,@awk@,' makewhatis.sh > makewhatis
+	cp makewhatis.sh makewhatis.in
+	../conf_script makewhatis
 	chmod +x makewhatis
 
 MANCONFIG=$(DESTDIR)$(PREFIX)@man_config_file@
 
 install: all apropos whatis
 	mkdir -p $(DESTDIR)$(PREFIX)@bindir@
-	$(INSTALL) -c @man_install_flags@ man $(DESTDIR)$(PREFIX)@man@
+	$(INSTALL) -c @man_install_flags@ man$(EXEEXT) $(DESTDIR)$(PREFIX)@man@
 	$(INSTALL) -c -m 755 apropos $(DESTDIR)$(PREFIX)@apropos@
 	$(INSTALL) -c -m 755 whatis $(DESTDIR)$(PREFIX)@whatis@
 	mkdir -p $(DESTDIR)$(PREFIX)@man_config_dir@
@@ -109,7 +110,7 @@ install: all apropos whatis
 	$(INSTALL) -c -m 644 man.conf $(MANCONFIG)
 
 clean:
-	rm -f *.o *~ core man apropos whatis makewhatis makemsg
+	rm -f *.o *~ core man$(EXEEXT) apropos whatis makewhatis makemsg
 
 spotless: clean
 	rm -f Makefile config.status paths.h version.h man.conf

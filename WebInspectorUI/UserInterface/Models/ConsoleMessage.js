@@ -27,10 +27,11 @@ WI.ConsoleMessage = class ConsoleMessage
 {
     constructor(target, source, level, message, type, url, line, column, repeatCount, parameters, callFrames, request)
     {
+        console.assert(target instanceof WI.Target);
         console.assert(typeof source === "string");
         console.assert(typeof level === "string");
         console.assert(typeof message === "string");
-        console.assert(target instanceof WI.Target);
+        console.assert(!type || Object.values(WI.ConsoleMessage.MessageType).includes(type));
         console.assert(!parameters || parameters.every((x) => x instanceof WI.RemoteObject));
 
         this._target = target;
@@ -110,6 +111,7 @@ WI.ConsoleMessage.MessageSource = {
     Security: "security",
     Other: "other",
     Media: "media",
+    MediaSource: "mediasource",
     WebRTC: "webrtc",
 };
 
@@ -126,6 +128,7 @@ WI.ConsoleMessage.MessageType = {
     Timing: "timing",
     Profile: "profile",
     ProfileEnd: "profileEnd",
+    Image: "image",
     Result: "result", // Frontend Only.
 };
 

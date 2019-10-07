@@ -8,22 +8,6 @@
 	<array>
 		<dict>
 			<key>TestName</key>
-			<string>security-sysdiagnose</string>
-			<key>Command</key>
-			<array>
-				<string>/usr/libexec/security-sysdiagnose</string>
-			</array>
-		</dict>
-		<dict>
-			<key>TestName</key>
-			<string>BackupNegativeTest</string>
-			<key>Command</key>
-			<array>
-				<string>/AppleInternal/CoreOS/tests/Security/secbackupntest</string>
-			</array>
-		</dict>
-		<dict>
-			<key>TestName</key>
 			<string>keystorectl-get-lock-state</string>
 			<key>Command</key>
 			<array>
@@ -33,13 +17,11 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>BackupTest</string>
+			<string>security-sysdiagnose</string>
 			<key>Command</key>
 			<array>
-				<string>/AppleInternal/CoreOS/tests/Security/secbackuptest</string>
+				<string>/usr/libexec/security-sysdiagnose</string>
 			</array>
-			<key>EligibleResource</key>
-			<string>cpuArchitecture BEGINSWITH &apos;arm&apos;</string>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -64,42 +46,6 @@
 			<array>
 				<string>/AppleInternal/CoreOS/tests/Security/secitemnotifications</string>
 			</array>
-		</dict>
-		<dict>
-			<key>TestName</key>
-			<string>secitemfunctionality</string>
-			<key>EnableEasyperf</key>
-			<true/>
-			<key>EasyperfArgs</key>
-			<array>
-				<string>-p</string>
-				<string>secd</string>
-			</array>
-			<key>Command</key>
-			<array>
-				<string>/AppleInternal/CoreOS/tests/Security/secitemfunctionality</string>
-			</array>
-			<key>EligibleResource</key>
-			<string>type != &apos;CAMEmbeddedDeviceResource&apos;</string>
-		</dict>
-		<dict>
-			<key>TestName</key>
-			<string>secitemfunctionality</string>
-			<key>EnableEasyperf</key>
-			<true/>
-			<key>EasyperfArgs</key>
-			<array>
-				<string>-p</string>
-				<string>securityd</string>
-			</array>
-			<key>AsRoot</key>
-			<true/>
-			<key>Command</key>
-			<array>
-				<string>/AppleInternal/CoreOS/tests/Security/secitemfunctionality</string>
-			</array>
-			<key>EligibleResource</key>
-			<string>type == &apos;CAMEmbeddedDeviceResource&apos;</string>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -148,6 +94,8 @@
 		<dict>
 			<key>TestName</key>
 			<string>KCPairingTest</string>
+			<key>ShowSubtestResults</key>
+			<true/>
 			<key>Command</key>
 			<array>
 				<string>/AppleInternal/CoreOS/tests/Security/KeychainEntitledTestRunner</string>
@@ -168,6 +116,8 @@
 		<dict>
 			<key>TestName</key>
 			<string>KeychainAnalyticsTests</string>
+			<key>ShowSubtestResults</key>
+			<true/>
 			<key>Command</key>
 			<array>
 				<string>BATS_XCTEST_CMD</string>
@@ -177,6 +127,8 @@
 		<dict>
 			<key>TestName</key>
 			<string>KeychainMockAKSTests</string>
+			<key>ShowSubtestResults</key>
+			<true/>
 			<key>Command</key>
 			<array>
 				<string>BATS_XCTEST_CMD</string>
@@ -185,18 +137,9 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>MultiDeviceSimulatorTests</string>
-			<key>Command</key>
-			<array>
-				<string>BATS_XCTEST_CMD</string>
-				<string>/AppleInternal/XCTests/com.apple.security/MultiDeviceSimulatorTests.xctest</string>
-			</array>
-			<key>EligibleResource</key>
-			<string>type != &apos;CAMEmbeddedDeviceResource&apos;</string>
-		</dict>
-		<dict>
-			<key>TestName</key>
 			<string>KeychainSecd_macOS</string>
+			<key>ShowSubtestResults</key>
+			<true/>
 			<key>Command</key>
 			<array>
 				<string>BATS_XCTEST_CMD</string>
@@ -208,6 +151,8 @@
 		<dict>
 			<key>TestName</key>
 			<string>KeychainSecd_iOS</string>
+			<key>ShowSubtestResults</key>
+			<true/>
 			<key>Command</key>
 			<array>
 				<string>BATS_XCTEST_CMD</string>
@@ -215,6 +160,17 @@
 			</array>
 			<key>EligibleResource</key>
 			<string>type == &apos;CAMEmbeddedDeviceResource&apos;</string>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>SecurityUtiltitesTests</string>
+			<key>ShowSubtestResults</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>BATS_XCTEST_CMD</string>
+				<string>/AppleInternal/XCTests/com.apple.security/SecurityUtilitiesTests.xctest</string>
+			</array>
 		</dict>
 	</array>
 </dict>

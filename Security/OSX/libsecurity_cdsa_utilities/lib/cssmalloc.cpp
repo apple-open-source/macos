@@ -30,6 +30,7 @@
 #include <security_cdsa_utilities/cssmalloc.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <os/overflow.h>
 
 
 
@@ -73,8 +74,12 @@ void *CssmAllocatorMemoryFunctions::relayRealloc(void *mem, size_t size, void *r
 void *CssmAllocatorMemoryFunctions::relayCalloc(uint32 count, size_t size, void *ref) throw(std::bad_alloc)
 {
 	// Allocator doesn't have a calloc() method
-	void *mem = allocator(ref).malloc(size * count);
-	memset(mem, 0, size * count);
+	size_t alloc_size = 0;
+	if (os_mul_overflow(count, size, &alloc_size)) {
+		return NULL;
+	}
+	void *mem = allocator(ref).malloc(alloc_size);
+	memset(mem, 0, alloc_size);
 	return mem;
 }
 

@@ -29,6 +29,7 @@
 #include <os/log.h>
 #include <libkern/OSAtomic.h>
 #include <os/assumes.h>
+#include <os/lock.h>
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/storage/IOMedia.h>
@@ -76,9 +77,23 @@ do { \
 	} \
 } while (0)
 
+#define ASSERTF(check, fmt, args...) \
+do { \
+	if (__builtin_expect(!(check), 0)) { \
+		LOG("Assertion failed: '%s' "fmt, # check, ## args); \
+		if (bc_log_stream) fflush(bc_log_stream); \
+		os_assert(check); \
+	} \
+} while (0)
+
+/* Copied from APFS headers to keep track of optimization statistics */
+#ifndef FUSION_TIER2_DEVICE_BYTE_ADDR
+#define FUSION_TIER2_DEVICE_BYTE_ADDR 0x4000000000000000ULL
+#endif
+
 static void clear_apfs_mount_cache(void);
-static CFDictionaryRef get_apfs_mount_cache(void);
-static const struct statfs* apfs_mount_for_uuid(const uuid_t uuid);
+static CFDictionaryRef copy_apfs_mount_cache(void);
+static int apfs_mount_for_uuid(const uuid_t uuid, char** mountname_out, char** bsddisk_out); // returns 0 on success, non-0 and sets errno on failure. mountname and bsddisk must be freed
 static void get_volume_uuid(const char* volume, uuid_t uuid_out);
 static int apfs_flags_for_volume(const char* bsddisk, uint* fs_flags_out, uuid_t* container_uuid_out);
 
@@ -87,7 +102,7 @@ static int BC_tag_omap_recording_for_all_mounts(uint8_t batchNum);
 static int BC_stop_omap_recording_for_all_mounts(void);
 static int BC_fetch_omaps_for_all_mounts(struct BC_omap_history **);
 
-static int BC_sort_and_coalesce_playlist(struct BC_playlist *pc);
+static int BC_sort_and_coalesce_playlist_internal(struct BC_playlist *pc);
 
 static int _BC_start(const struct BC_playlist *pc, bool record);
 
@@ -225,13 +240,13 @@ BC_copy_playlist(const struct BC_playlist *pc)
 	if (npc == NULL) return NULL;
 
 	if (pc->p_nentries > 0)
-		memcpy(npc->p_entries, pc->p_entries, sizeof(*pc->p_entries) * pc->p_nentries);
+		memmove(npc->p_entries, pc->p_entries, sizeof(*pc->p_entries) * pc->p_nentries);
 
 	if (pc->p_nmounts > 0)
-		memcpy(npc->p_mounts, pc->p_mounts, sizeof(*pc->p_mounts) * pc->p_nmounts);
+		memmove(npc->p_mounts, pc->p_mounts, sizeof(*pc->p_mounts) * pc->p_nmounts);
 
 	if (pc->p_nomaps > 0)
-		memcpy(npc->p_omaps, pc->p_omaps, sizeof(*pc->p_omaps) * pc->p_nomaps);
+		memmove(npc->p_omaps, pc->p_omaps, sizeof(*pc->p_omaps) * pc->p_nomaps);
 
 	return npc;
 }
@@ -249,7 +264,7 @@ BC_copy_history(const struct BC_history *hc)
 	if (copy_hc->h_nentries > 0) {
 		size_t entriesSize = copy_hc->h_nentries * sizeof(*copy_hc->h_entries);
 		copy_hc->h_entries = malloc(entriesSize);
-		memcpy(copy_hc->h_entries, hc->h_entries, entriesSize);
+		memmove(copy_hc->h_entries, hc->h_entries, entriesSize);
 	} else {
 		copy_hc->h_entries = NULL;
 	}
@@ -258,12 +273,91 @@ BC_copy_history(const struct BC_history *hc)
 	if (copy_hc->h_nmounts > 0) {
 		size_t mountsSize = copy_hc->h_nmounts * sizeof(*copy_hc->h_mounts);
 		copy_hc->h_mounts = malloc(mountsSize);
-		memcpy(copy_hc->h_mounts, hc->h_mounts, mountsSize);
+		memmove(copy_hc->h_mounts, hc->h_mounts, mountsSize);
 	} else {
 		copy_hc->h_mounts = NULL;
 	}
 	
 	return copy_hc;
+}
+
+void
+BC_merge_history(struct BC_history *ha, const struct BC_history *hb)
+{
+	if (NULL == ha || NULL == hb) {
+		return;
+	}
+	
+	int* b_mount_idx_to_a_mount_idx = calloc(sizeof(*b_mount_idx_to_a_mount_idx), hb->h_nmounts);
+	bool* b_mount_idx_to_a_mount_idx_valid = calloc(sizeof(*b_mount_idx_to_a_mount_idx_valid), hb->h_nmounts);
+
+	for (u_int16_t b_mount_idx = 0; b_mount_idx < hb->h_nmounts; b_mount_idx++) {
+		struct BC_history_mount* hmb = hb->h_mounts + b_mount_idx;
+
+		u_int16_t a_mount_idx;
+		for (a_mount_idx = 0; a_mount_idx < ha->h_nmounts; a_mount_idx++) {
+			struct BC_history_mount* hma = ha->h_mounts + a_mount_idx;
+			
+			if (0 == uuid_compare(hma->hm_uuid, hmb->hm_uuid)) {
+				ASSERT(0 == uuid_compare(hmb->hm_group_uuid, hma->hm_group_uuid));
+				break;
+			}
+		}
+		
+		
+		bool can_merge_mount = true;
+		if (a_mount_idx >= ha->h_nmounts) {
+			ASSERT(a_mount_idx == ha->h_nmounts);
+			ha->h_nmounts++;
+			ha->h_mounts = realloc(ha->h_mounts, sizeof(*ha->h_mounts) * ha->h_nmounts);
+			ASSERT(ha->h_mounts);
+			
+			struct BC_history_mount* hma = ha->h_mounts + a_mount_idx;
+			hma->hm_fs_flags = hmb->hm_fs_flags;
+			uuid_copy(hma->hm_uuid, hmb->hm_uuid);
+			uuid_copy(hma->hm_group_uuid, hmb->hm_group_uuid);
+			hma->hm_nentries = 0;
+		} else {
+			if (hmb->hm_fs_flags != ha->h_mounts[a_mount_idx].hm_fs_flags) {
+				// Someone turned off/on encryption, or encryption rolling completed, can't merge mounts, so just give up
+				LOG("Unable to merge history for %s since flags changed: %#x -> %#x", uuid_string(hmb->hm_uuid), ha->h_mounts[a_mount_idx].hm_fs_flags, hmb->hm_fs_flags);
+				can_merge_mount = false;
+			}
+		}
+		
+		b_mount_idx_to_a_mount_idx[b_mount_idx] = a_mount_idx;
+		b_mount_idx_to_a_mount_idx_valid[b_mount_idx] = can_merge_mount;
+	}
+	
+	uint ha_orig_nentries = 1 + ha->h_nentries; // + 1 for tag
+	ha->h_nentries += 1 + hb->h_nentries; // + 1 for tag
+	ha->h_entries = realloc(ha->h_entries, sizeof(*ha->h_entries) * ha->h_nentries);
+	ASSERT(ha->h_nentries);
+	
+	// Create a tag to separate out the histories' batches
+	struct BC_history_entry* tag = ha->h_entries + ha_orig_nentries - 1;
+	bzero(tag, sizeof(*tag));
+	tag->he_flags |= BC_HE_TAG;
+	
+	memmove(ha->h_entries + ha_orig_nentries, hb->h_entries, sizeof(*hb->h_entries) * hb->h_nentries);
+	for (uint i = 0; i < hb->h_nentries; i++) {
+		struct BC_history_entry* he = ha->h_entries + ha_orig_nentries + i;
+		
+		u_int16_t b_mount_index = he->he_mount_idx;
+		u_int16_t a_mount_index = b_mount_idx_to_a_mount_idx[b_mount_index];
+		
+		// We need to keep our nentries accurate whether we can merge or not, but if we cannot merge then we mark the entry as length 0
+		
+		he->he_mount_idx = a_mount_index;
+		ha->h_mounts[a_mount_index].hm_nentries++;
+		
+		if (!b_mount_idx_to_a_mount_idx_valid[b_mount_index]) {
+			he->he_length = 0;
+		}
+	}
+	
+	free(b_mount_idx_to_a_mount_idx);
+	free(b_mount_idx_to_a_mount_idx_valid);
 }
 
 struct BC_omap_history *
@@ -279,7 +373,7 @@ BC_copy_omap_history(const struct BC_omap_history * oh)
 	if (copy_oh->oh_nmounts > 0) {
 		size_t mountsSize = copy_oh->oh_nmounts * sizeof(*copy_oh->oh_mounts);
 		copy_oh->oh_mounts = malloc(mountsSize);
-		memcpy(copy_oh->oh_mounts, oh->oh_mounts, mountsSize);
+		memmove(copy_oh->oh_mounts, oh->oh_mounts, mountsSize);
 		
 		// Fixup ohm_omaps
 		for (int i = 0; i < copy_oh->oh_nmounts; i++) {
@@ -288,7 +382,7 @@ BC_copy_omap_history(const struct BC_omap_history * oh)
 			
 			size_t omapsSize = copy_ohm->ohm_nomaps * sizeof(*copy_ohm->ohm_omaps);
 			copy_ohm->ohm_omaps = malloc(omapsSize);
-			memcpy(copy_ohm->ohm_omaps, ohm->ohm_omaps, omapsSize);
+			memmove(copy_ohm->ohm_omaps, ohm->ohm_omaps, omapsSize);
 		}
 		
 	} else {
@@ -298,6 +392,61 @@ BC_copy_omap_history(const struct BC_omap_history * oh)
 	return copy_oh;
 }
 
+void
+BC_merge_omap_history(struct BC_omap_history* oha, const struct BC_omap_history* ohb)
+{
+	if (NULL == oha || NULL == ohb) {
+		return;
+	}
+	
+	for (uint b_mount_idx = 0; b_mount_idx < ohb->oh_nmounts; b_mount_idx++) {
+		struct BC_omap_history_mount* ohmb = ohb->oh_mounts + b_mount_idx;
+		
+		uint a_mount_idx;
+		for (a_mount_idx = 0; a_mount_idx < oha->oh_nmounts; a_mount_idx++) {
+			struct BC_omap_history_mount* ohma = oha->oh_mounts + a_mount_idx;
+			
+			if (0 == uuid_compare(ohma->ohm_uuid, ohmb->ohm_uuid)) {
+				break;
+			}
+		}
+		
+		if (a_mount_idx >= oha->oh_nmounts) {
+			ASSERT(a_mount_idx == oha->oh_nmounts);
+			oha->oh_nmounts++;
+			oha->oh_mounts = realloc(oha->oh_mounts, sizeof(*oha->oh_mounts) * oha->oh_nmounts);
+			ASSERT(oha->oh_mounts);
+			
+			struct BC_omap_history_mount* ohma = oha->oh_mounts + a_mount_idx;
+			uuid_copy(ohma->ohm_uuid, ohmb->ohm_uuid);
+			ohma->ohm_nomaps = 0;
+			ohma->ohm_omaps = NULL;
+		}
+		
+		struct BC_omap_history_mount* ohma = oha->oh_mounts + a_mount_idx;
+
+		
+		uint ohma_orig_nentries = ohma->ohm_nomaps;
+		ohma->ohm_nomaps += ohmb->ohm_nomaps;
+		ohma->ohm_omaps = realloc(ohma->ohm_omaps, sizeof(*ohma->ohm_omaps) * ohma->ohm_nomaps);
+		ASSERT(ohma->ohm_omaps);
+		memmove(ohma->ohm_omaps + ohma_orig_nentries, ohmb->ohm_omaps, sizeof(*ohma->ohm_omaps) * ohmb->ohm_nomaps);
+		
+		if (ohma_orig_nentries > 0) {
+			uint8_t a_max_batch  = 0;
+			for (uint i = 0; i < ohma->ohm_nomaps; i++) {
+				apfs_omap_track_record_v2_t* omapa = ohma->ohm_omaps + i;
+				if (a_max_batch < omapa->otr_batch) {
+					a_max_batch = omapa->otr_batch;
+				}
+			}
+			for (uint i = 0; i < ohmb->ohm_nomaps; i++) {
+				apfs_omap_track_record_v2_t* omapb = ohmb->ohm_omaps + i;
+				omapb->otr_batch += a_max_batch + 1;
+			}
+		}
+	}
+}
 
 /*
  * Read the named playlist from disk into an allocated buffer.
@@ -515,6 +664,10 @@ out:
 int
 BC_merge_playlists(struct BC_playlist* pa, const struct BC_playlist* pb)
 {
+	if (!pb || pb->p_nmounts == 0 || (pb->p_nentries == 0 && pb->p_nomaps == 0)) {
+		return 0;
+	}
+	
 	int mount_idx_b, mount_idx_a, entry_idx, omap_idx;
 	if ((pa->p_mounts = reallocf(pa->p_mounts, sizeof(*pa->p_mounts) * (pa->p_nmounts + pb->p_nmounts))) == NULL)
 		return(errno ?: ENOMEM);
@@ -533,7 +686,7 @@ BC_merge_playlists(struct BC_playlist* pa, const struct BC_playlist* pb)
 			
 			struct BC_playlist_mount *pm = &pa->p_mounts[mount_idx_a];
 			struct BC_playlist_mount *new_mount = &pb->p_mounts[mount_idx_b];
-			memcpy(pm, new_mount, sizeof(*pm));
+			memmove(pm, new_mount, sizeof(*pm));
 		} else {
 			
 			// We found a matching mount in pa's existing list so we update the counts
@@ -543,52 +696,56 @@ BC_merge_playlists(struct BC_playlist* pa, const struct BC_playlist* pb)
 	}
 
 	/* merge the entries list */
-	if ((pa->p_entries = reallocf(pa->p_entries, sizeof(*pa->p_entries) * (pa->p_nentries + pb->p_nentries))) == NULL)
-		return(errno ?: ENOMEM);
-	memcpy(pa->p_entries + pa->p_nentries, pb->p_entries, pb->p_nentries * sizeof(*pb->p_entries));
-
-	/* fixup mount indexes for the new entries */
-	for (entry_idx = pa->p_nentries; entry_idx < (pa->p_nentries + pb->p_nentries); entry_idx++) {
-		mount_idx_b = pa->p_entries[entry_idx].pe_mount_idx;
-		for (mount_idx_a = 0; mount_idx_a < pa->p_nmounts; mount_idx_a++) {
-			if (0 == uuid_compare(pa->p_mounts[mount_idx_a].pm_uuid, pb->p_mounts[mount_idx_b].pm_uuid)) {
-				pa->p_entries[entry_idx].pe_mount_idx = mount_idx_a;
-				break;
+	if (pb->p_nentries > 0) {
+		if ((pa->p_entries = reallocf(pa->p_entries, sizeof(*pa->p_entries) * (pa->p_nentries + pb->p_nentries))) == NULL)
+			return(errno ?: ENOMEM);
+		memmove(pa->p_entries + pa->p_nentries, pb->p_entries, pb->p_nentries * sizeof(*pb->p_entries));
+		
+		/* fixup mount indexes for the new entries */
+		for (entry_idx = pa->p_nentries; entry_idx < (pa->p_nentries + pb->p_nentries); entry_idx++) {
+			mount_idx_b = pa->p_entries[entry_idx].pe_mount_idx;
+			for (mount_idx_a = 0; mount_idx_a < pa->p_nmounts; mount_idx_a++) {
+				if (0 == uuid_compare(pa->p_mounts[mount_idx_a].pm_uuid, pb->p_mounts[mount_idx_b].pm_uuid)) {
+					pa->p_entries[entry_idx].pe_mount_idx = mount_idx_a;
+					break;
+				}
+			}
+			if (mount_idx_a == pa->p_nmounts) {
+				LOG("Mounts not merged properly for entry %d (mount %d)", entry_idx, mount_idx_b);
+				return(1);
 			}
 		}
-		if (mount_idx_a == pa->p_nmounts) {
-			LOG("Mounts not merged properly for entry %d (mount %d)", entry_idx, mount_idx_b);
-			return(1);
-		}
+
+		pa->p_nentries += pb->p_nentries;
 	}
 
-	pa->p_nentries += pb->p_nentries;
-	
 	
 	/* merge the omaps list */
-	if ((pa->p_omaps = reallocf(pa->p_omaps, (pa->p_nomaps + pb->p_nomaps) * sizeof(*pa->p_omaps))) == NULL)
-		return(errno ?: ENOMEM);
-	memcpy(pa->p_omaps + pa->p_nomaps, pb->p_omaps, pb->p_nomaps * sizeof(*pb->p_omaps));
-	
-	/* fixup mount indices for the new omaps */
-	for (omap_idx = pa->p_nomaps; omap_idx < (pa->p_nomaps + pb->p_nomaps); omap_idx++) {
-		mount_idx_b = pa->p_omaps[omap_idx].po_mount_idx;
-		for (mount_idx_a = 0; mount_idx_a < pa->p_nmounts; mount_idx_a++) {
-			if (0 == uuid_compare(pa->p_mounts[mount_idx_a].pm_uuid, pb->p_mounts[mount_idx_b].pm_uuid)) {
-				pa->p_omaps[omap_idx].po_mount_idx = mount_idx_a;
-				break;
+	if (pb->p_nomaps > 0) {
+		if ((pa->p_omaps = reallocf(pa->p_omaps, (pa->p_nomaps + pb->p_nomaps) * sizeof(*pa->p_omaps))) == NULL)
+			return(errno ?: ENOMEM);
+		memmove(pa->p_omaps + pa->p_nomaps, pb->p_omaps, pb->p_nomaps * sizeof(*pb->p_omaps));
+		
+		/* fixup mount indices for the new omaps */
+		for (omap_idx = pa->p_nomaps; omap_idx < (pa->p_nomaps + pb->p_nomaps); omap_idx++) {
+			mount_idx_b = pa->p_omaps[omap_idx].po_mount_idx;
+			for (mount_idx_a = 0; mount_idx_a < pa->p_nmounts; mount_idx_a++) {
+				if (0 == uuid_compare(pa->p_mounts[mount_idx_a].pm_uuid, pb->p_mounts[mount_idx_b].pm_uuid)) {
+					pa->p_omaps[omap_idx].po_mount_idx = mount_idx_a;
+					break;
+				}
+			}
+			if (mount_idx_a == pa->p_nmounts) {
+				LOG("Mounts not merged properly for omap %d (mount %d)", omap_idx, mount_idx_b);
+				return(1);
 			}
 		}
-		if (mount_idx_a == pa->p_nmounts) {
-			LOG("Mounts not merged properly for omap %d (mount %d)", omap_idx, mount_idx_b);
-			return(1);
-		}
+		
+		pa->p_nomaps += pb->p_nomaps;
 	}
-	
-	pa->p_nomaps += pb->p_nomaps;
 
 
-	BC_sort_and_coalesce_playlist(pa);
+	BC_sort_and_coalesce_playlist_internal(pa);
 
 	int err = BC_verify_playlist(pa);
 	
@@ -712,7 +869,7 @@ typedef enum {
 	BC_COALESCE_LOWER_SHRINKS,   // Lower will shrink to not overlap higher
 	BC_COALESCE_MERGE,           // Merge into one entry
 	BC_COALESCE_LOWER_REMOVE,    // Lower to be removed and higher unmodified
-	BC_COALESCE_HIGHER_REMOVE,   // Higher to be removed and higher unmodified
+	BC_COALESCE_HIGHER_REMOVE,   // Higher to be removed and lower unmodified
 } coalesce_style_t;
 
 #ifdef DEBUG
@@ -854,13 +1011,23 @@ static coalesce_style_t BC_coalesce_style(const struct BC_playlist_entry* lower_
 
 }
 
+int BC_sort_and_coalesce_playlist(struct BC_playlist* pc) {
+	assert(pc);
+	
+	int error = BC_sort_and_coalesce_playlist_internal(pc);
+	if (error) {
+		return error;
+	}
+	
+	return BC_verify_playlist(pc);
+}
 
 /*
  * Coalesece a sorted playlist into the smallest set of contiguous
  * entries.  Sets the new size of the playlist and realloc's the buffer.
  */
 static int
-BC_sort_and_coalesce_playlist(struct BC_playlist *pc)
+BC_sort_and_coalesce_playlist_internal(struct BC_playlist *pc)
 {
 	// First, make sure the extents are sorted
 	BC_sort_playlist(pc);
@@ -1500,6 +1667,26 @@ BC_fetch_statistics(struct BC_statistics **pss)
  * Set cache userspace statistics.
  */
 int
+BC_set_userspace_oversize(const struct BC_userspace_oversize* oversize)
+{
+	struct BC_command bc;
+	int error;
+
+	bc.bc_magic = BC_MAGIC;
+	bc.bc_opcode = BC_OP_SET_USER_OVERSIZE;
+	bc.bc_data1 = (uintptr_t) oversize;
+	bc.bc_data1_size = (unsigned int) sizeof(*oversize);
+	error = sysctlbyname(BC_SYSCTL, NULL, NULL, &bc, sizeof(bc));
+	if (error != 0) {
+		return(errno);
+	}
+	return(0);
+}
+
+/*
+ * Set cache userspace statistics.
+ */
+int
 BC_set_userspace_timestamps(const struct BC_userspace_timestamps *userspace_timestamps)
 {
 	struct BC_command bc;
@@ -1517,15 +1704,49 @@ BC_set_userspace_timestamps(const struct BC_userspace_timestamps *userspace_time
 }
 
 int
-BC_add_userspace_optimizations(const struct BC_userspace_optimizations *userspace_optimizations)
+BC_set_userspace_fusion_optimization_stats(const struct BC_userspace_fusion_optimizations *userspace_fusion_optimizations)
 {
 	struct BC_command bc;
 	int error;
 	
 	bc.bc_magic = BC_MAGIC;
-	bc.bc_opcode = BC_OP_ADD_USER_OPTIMIZATIONS;
-	bc.bc_data1 = (uintptr_t) userspace_optimizations;
-	bc.bc_data1_size = (unsigned int) sizeof(*userspace_optimizations);
+	bc.bc_opcode = BC_OP_SET_FUSION_OPTIMIZATION_STATS;
+	bc.bc_data1 = (uintptr_t) userspace_fusion_optimizations;
+	bc.bc_data1_size = (unsigned int) sizeof(*userspace_fusion_optimizations);
+	error = sysctlbyname(BC_SYSCTL, NULL, NULL, &bc, sizeof(bc));
+	if (error != 0) {
+		return(errno);
+	}
+	return(0);
+}
+
+int
+BC_set_userspace_hdd_optimization_stats(const struct BC_userspace_hdd_optimizations *userspace_hdd_optimizations)
+{
+	struct BC_command bc;
+	int error;
+	
+	bc.bc_magic = BC_MAGIC;
+	bc.bc_opcode = BC_OP_SET_HDD_OPTIMIZATION_STATS;
+	bc.bc_data1 = (uintptr_t) userspace_hdd_optimizations;
+	bc.bc_data1_size = (unsigned int) sizeof(*userspace_hdd_optimizations);
+	error = sysctlbyname(BC_SYSCTL, NULL, NULL, &bc, sizeof(bc));
+	if (error != 0) {
+		return(errno);
+	}
+	return(0);
+}
+
+int
+BC_set_userspace_hdd_optimization_state(const struct BC_userspace_hdd_optimization_state *userspace_hdd_optimization_state)
+{
+	struct BC_command bc;
+	int error;
+	
+	bc.bc_magic = BC_MAGIC;
+	bc.bc_opcode = BC_OP_SET_HDD_OPTIMIZATION_STATE;
+	bc.bc_data1 = (uintptr_t) userspace_hdd_optimization_state;
+	bc.bc_data1_size = (unsigned int) sizeof(*userspace_hdd_optimization_state);
 	error = sysctlbyname(BC_SYSCTL, NULL, NULL, &bc, sizeof(bc));
 	if (error != 0) {
 		return(errno);
@@ -1545,12 +1766,12 @@ _BC_omap_tree_playlist(const struct BC_playlist* pc)
 			continue;
 		}
 		
-		const struct statfs *mountbuf = apfs_mount_for_uuid(mount->pm_uuid);
-		if (!mountbuf) {
-			LOG("Unable to get omap tree for %s: no mount found", uuid_string(mount->pm_uuid));
+		char *mount_name = NULL;
+		apfs_mount_for_uuid(mount->pm_uuid, &mount_name, NULL);
+		if (!mount_name) {
+			LOG_ERRNO("Unable to get omap tree for %s: no mount found", uuid_string(mount->pm_uuid));
 			continue;
 		}
-		const char *mount_name = mountbuf->f_mntonname;
 
 		// Pick up 128K omaps at a time
 #define omapcount (128*1024)
@@ -1561,6 +1782,7 @@ _BC_omap_tree_playlist(const struct BC_playlist* pc)
 		otlx.otlx_extents = calloc(omapcount, sizeof(*otlx.otlx_extents));
 		if (!otlx.otlx_extents) {
 			LOG("failed to allocate buffer for %u omaps", omapcount);
+			free(mount_name);
 			continue;
 		}
 		
@@ -1624,26 +1846,28 @@ _BC_omap_tree_playlist(const struct BC_playlist* pc)
 				}
 			}
 			
-			int newEntriesIndex = tree_playlist->p_nentries;
-			tree_playlist->p_nentries += otlx.otlx_extent_count;
-			tree_playlist->p_mounts[tree_playlist_mount_idx].pm_nentries += otlx.otlx_extent_count;
-			tree_playlist->p_entries = reallocf(tree_playlist->p_entries, tree_playlist->p_nentries * sizeof(*tree_playlist->p_entries));
-			if (!tree_playlist->p_entries) {
-				LOG("Unable to realloc for %d entries", tree_playlist->p_nentries);
-				PC_FREE_ZERO(tree_playlist);
-				free(otlx.otlx_extents);
-				return NULL;
+			if (otlx.otlx_extent_count > 0) {
+				int newEntriesIndex = tree_playlist->p_nentries;
+				tree_playlist->p_nentries += otlx.otlx_extent_count;
+				tree_playlist->p_mounts[tree_playlist_mount_idx].pm_nentries += otlx.otlx_extent_count;
+				tree_playlist->p_entries = reallocf(tree_playlist->p_entries, tree_playlist->p_nentries * sizeof(*tree_playlist->p_entries));
+				if (!tree_playlist->p_entries) {
+					LOG("Unable to realloc for %d entries", tree_playlist->p_nentries);
+					PC_FREE_ZERO(tree_playlist);
+					free(otlx.otlx_extents);
+					return NULL;
+				}
+				
+				for (int i = 0; i < otlx.otlx_extent_count; i++) {
+					tree_playlist->p_entries[newEntriesIndex + i].pe_mount_idx = tree_playlist_mount_idx;
+					tree_playlist->p_entries[newEntriesIndex + i].pe_offset = otlx.otlx_extents[i].otn_offset;
+					tree_playlist->p_entries[newEntriesIndex + i].pe_length = otlx.otlx_extents[i].otn_length;
+					tree_playlist->p_entries[newEntriesIndex + i].pe_crypto_offset = 0; // Containers are never encrypted
+					tree_playlist->p_entries[newEntriesIndex + i].pe_batch = 0;
+					tree_playlist->p_entries[newEntriesIndex + i].pe_flags = 0x0;
+				}
 			}
 
-			for (int i = 0; i < otlx.otlx_extent_count; i++) {
-				tree_playlist->p_entries[newEntriesIndex + i].pe_mount_idx = tree_playlist_mount_idx;
-				tree_playlist->p_entries[newEntriesIndex + i].pe_offset = otlx.otlx_extents[i].otn_offset;
-				tree_playlist->p_entries[newEntriesIndex + i].pe_length = otlx.otlx_extents[i].otn_length;
-				tree_playlist->p_entries[newEntriesIndex + i].pe_crypto_offset = 0; // Containers are never encrypted
-				tree_playlist->p_entries[newEntriesIndex + i].pe_batch = 0;
-				tree_playlist->p_entries[newEntriesIndex + i].pe_flags = 0x0;
-			}
-			
 			// repeat while it looks like there might be more extents to fetch
 			// (otlx.otlx_index tracks which omaps were already returned, so the next fsctl will start from there)
 		} while (otlx.otlx_extent_count == omapcount);
@@ -1653,11 +1877,13 @@ _BC_omap_tree_playlist(const struct BC_playlist* pc)
 		if (tree_playlist_mount_idx >= 0) {
 			DLOG("Added %d extents for leaf omaps for %s", tree_playlist->p_mounts[tree_playlist_mount_idx].pm_nentries, mount_name);
 		}
+		
+		free(mount_name);
 	}
 
 	if (tree_playlist) {
 		DLOG("Ended up with %d extents total for leaf omaps", tree_playlist->p_nentries);
-		BC_sort_and_coalesce_playlist(tree_playlist);
+		BC_sort_and_coalesce_playlist_internal(tree_playlist);
 	}
 
 	return tree_playlist;
@@ -1724,14 +1950,15 @@ BC_playlist_lookup_omaps(struct BC_playlist *pc)
 			continue;
 		
 		
-		const struct statfs *mountbuf = apfs_mount_for_uuid(pc->p_mounts[mount_idx].pm_uuid);
-		if (!mountbuf) {
-			LOG("No mount for %s", uuid_string(pc->p_mounts[mount_idx].pm_uuid));
+		char *mount_name = NULL;
+		char *bsd_disk = NULL;
+		apfs_mount_for_uuid(pc->p_mounts[mount_idx].pm_uuid, &mount_name, &bsd_disk);
+		if (!mount_name || !bsd_disk) {
+			LOG_ERRNO("No mount for %s", uuid_string(pc->p_mounts[mount_idx].pm_uuid));
+			if (mount_name) free(mount_name);
+			if (bsd_disk) free(bsd_disk);
 			continue;
 		}
-		
-		const char *mount_name = mountbuf->f_mntonname;
-		const char *bsd_disk = mountbuf->f_mntfromname;
 
 		uint8_t* batchNumbers = NULL;
 		
@@ -1801,7 +2028,7 @@ BC_playlist_lookup_omaps(struct BC_playlist *pc)
 		}
 
 		/* Fill up the single mount entry */
-		memcpy(&omap_pc->p_mounts[0], &pc->p_mounts[mount_idx], sizeof(*omap_pc->p_mounts));
+		memmove(&omap_pc->p_mounts[0], &pc->p_mounts[mount_idx], sizeof(*omap_pc->p_mounts));
 		omap_pc->p_mounts[0].pm_nentries = num_omaps_in_mount; /* Each omap becomes a new entry */
 		omap_pc->p_mounts[0].pm_nomaps = 0; /* No omaps (we are converting the omaps to entries) */
 		
@@ -1879,6 +2106,8 @@ error_loop:
 		if (ol.ol_results)
 			free(ol.ol_results);
 		PC_FREE_ZERO(omap_pc);
+		if (mount_name) free(mount_name);
+		if (bsd_disk) free(bsd_disk);
 
 		if (ret != 0)
 			break;
@@ -2029,7 +2258,7 @@ BC_convert_history_and_omaps(const struct BC_history *hc, const struct BC_omap_h
 
 	
 	pc->p_nomaps = 0;
-	if (oh != NULL) {
+	if (oh != NULL && total_omaps > 0) {
 
 	   /* Iterate through each omap record, create a BC_playlist_omap for each of them and
 		 * assign a mount index for it. */
@@ -2044,7 +2273,7 @@ BC_convert_history_and_omaps(const struct BC_history *hc, const struct BC_omap_h
 					break;
 				}
 			}
-			if (pc_mount_idx >= pc->p_nmounts) {
+			if (pc_mount_idx >= pc->p_nmounts && ohm->ohm_nomaps > 0) {
 				LOG("No recorded I/O for mount %s, ignoring %d omap records", uuid_string(ohm->ohm_uuid), ohm->ohm_nomaps);
 				continue;
 			}
@@ -2074,7 +2303,7 @@ BC_convert_history_and_omaps(const struct BC_history *hc, const struct BC_omap_h
 		if (pm->pm_nentries == 0 && pm->pm_nomaps == 0) {
 			pc->p_nmounts--;
 			if (mount_idx < pc->p_nmounts) {
-				memcpy(pm, pm + 1, sizeof(*pm) * (pc->p_nmounts - mount_idx));
+				memmove(pm, pm + 1, sizeof(*pm) * (pc->p_nmounts - mount_idx));
 				for (pe = pc->p_entries; pe < (pc->p_entries + pc->p_nentries); pe++)
 					if (pe->pe_mount_idx > mount_idx)
 						pe->pe_mount_idx--;
@@ -2090,7 +2319,7 @@ BC_convert_history_and_omaps(const struct BC_history *hc, const struct BC_omap_h
 	 * Sort the playlist into block order and coalesce into the smallest set
 	 * of read operations.
 	 */
-	BC_sort_and_coalesce_playlist(pc);
+	BC_sort_and_coalesce_playlist_internal(pc);
 
 	/* Verify new playlist */
 	if ((error = BC_verify_playlist(pc)) != 0) {
@@ -2111,6 +2340,7 @@ out:
 //#define DEBUG_OPTIMIZATION_FILE_TRANSLATION
 
 #ifdef DEBUG_OPTIMIZATION_FILE_TRANSLATION
+#warning DEBUG_OPTIMIZATION_FILE_TRANSLATION enabled!
 
 #define DLOG_OFT(fmt, args...) DLOG(fmt, ## args)
 
@@ -2278,15 +2508,16 @@ struct BC_history_inode {
  *
  * Partial success is possible, and any errors will be logged
  */
-struct BC_userspace_optimizations
+struct BC_userspace_fusion_optimizations
 BC_optimize_history_mount_fusion(struct BC_history * hc, int hm_index, const char *mount_name, struct BC_history_inode* historyInodes, uint numInodes)
 {
-	struct BC_userspace_optimizations userspace_optimizations = {
-		.ssup_num_inodes_optimized = 0,
+	struct BC_userspace_fusion_optimizations userspace_fusion_optimizations = {
+		.ssup_inodes_requested = numInodes,
+		.ssup_inodes_already_optimized = 0,
+		.ssup_inodes_optimized = 0,
+		.ssup_bytes_requested = 0,
 		.ssup_bytes_optimized = 0,
-		.ssup_hdd_num_reads_already_optimized = 0,
-		.ssup_hdd_bytes_already_optimized = 0,
-		.ssup_hdd_optimization_range_length = 0,
+		.ssup_reads_optimized = 0,
 	};
 	
 	struct BC_history_mount *hm = hc->h_mounts + hm_index;
@@ -2354,17 +2585,18 @@ BC_optimize_history_mount_fusion(struct BC_history * hc, int hm_index, const cha
 				last_successful_inode_index = optimize.out_inode_err - 1;
 			}
 			
-			userspace_optimizations.ssup_num_inodes_optimized += last_successful_inode_index;
+			userspace_fusion_optimizations.ssup_inodes_optimized += last_successful_inode_index;
 			
 			// Clear all the history entires from inodes that succeeded
-			// But if we have an extent where all this data moved, add that to our history (re-use the first entry for this inode)
 			for (uint inode_index = 0; inode_index <= last_successful_inode_index; inode_index++) {
 				struct BC_history_inode* historyInode = historyInodes + (numInodesAttempted + inode_index);
 				
 				for (int i = 0; i < historyInode->numEntries; i++) {
 					struct BC_history_entry* he = hc->h_entries + historyInode->entryIndexes[i];
 					
-					userspace_optimizations.ssup_bytes_optimized += he->he_length;
+					userspace_fusion_optimizations.ssup_bytes_optimized += he->he_length;
+					userspace_fusion_optimizations.ssup_reads_optimized++;
+
 					he->he_length = 0;
 				}
 			}
@@ -2390,94 +2622,183 @@ BC_optimize_history_mount_fusion(struct BC_history * hc, int hm_index, const cha
 		}
 	}
 	
+	// Add up how many bytes were not optimized, and count number of inodes already optimized
+	u_int64_t bytesNonoptimized = 0;
+	for (int historyInodeIndex = 0; historyInodeIndex < numInodes; historyInodeIndex++) {
+		struct BC_history_inode* historyInode = historyInodes + historyInodeIndex;
+		
+		bool sawOptimizedExtent = false;
+		for (int i = 0; i < historyInode->numEntries; i++) {
+			struct BC_history_entry* he = hc->h_entries + historyInode->entryIndexes[i];
+			
+			if (he->he_length > 0) {
+				// We zero'ed out anything that was optimized, so anything left wasn't optimized
+				bytesNonoptimized += he->he_length;
+			}
+			
+			if (!sawOptimizedExtent && !(he->he_offset & FUSION_TIER2_DEVICE_BYTE_ADDR)) {
+				sawOptimizedExtent = true;
+				userspace_fusion_optimizations.ssup_inodes_already_optimized++;
+			}
+		}
+	}
+	userspace_fusion_optimizations.ssup_bytes_requested = userspace_fusion_optimizations.ssup_bytes_optimized + bytesNonoptimized;
+	
 	LOG("Successfully optimized %d inodes on %s for boot (%d failures)", numInodesAttempted - numInodesFailed, uuid_string(hm->hm_uuid), numInodesFailed);
 	
 	free(inodeBuffer);
 
-	return userspace_optimizations;
+	return userspace_fusion_optimizations;
 }
 
+struct extent {
+	int64_t		offset; // in bytes
+	uint64_t	length; // in bytes
+						// TODO: Add batch number somehow?
+};
+
+struct dstream_file_map {
+	uint64_t dstreamID;
+	struct extent* fileRanges;
+	uint32_t numRanges;
+};
+
+struct inode_file_map {
+	uint64_t inode;
+	struct dstream_file_map* dstreamFileMaps;
+	uint32_t numDstreams;
+};
+
+struct bc_mount_optimization_info {
+	// Filled in by BC_mount_copy_file_relative_history
+	struct BC_history * hc;
+	int hm_index;
+	char *mount_name;
+	struct BC_history_inode* historyInodes;
+	struct inode_file_map* inodeFileMaps;
+	uint numInodes;
+	int blockSize;
+	bool completed;
+	
+	// Filled in by BC_optimize_inodes_hdd (range only if last volume)
+	int numInodesRequested;
+	uint64_t optimizedRangeStart;
+	uint64_t optimizedRangeLength;
+	
+	// Filled in by BC_mount_fixup_history_after_optimizations
+	uint64_t lowestOptimizedByteAddress;
+	uint64_t highestOptimizedByteAddress;
+	struct BC_userspace_hdd_optimizations hdd_stats;
+
+};
+
+static void
+BC_free_mount_optimization_info(struct bc_mount_optimization_info* mount_optimization_info)
+{
+	if (!mount_optimization_info) return;
+	
+	if (mount_optimization_info->historyInodes) {
+		for (int i = 0; i < mount_optimization_info->numInodes; i++) {
+			if (mount_optimization_info->historyInodes[i].entryIndexes) {
+				free(mount_optimization_info->historyInodes[i].entryIndexes);
+			}
+		}
+		free(mount_optimization_info->historyInodes);
+	}
+	
+	if (mount_optimization_info->inodeFileMaps) {
+		for (int inodeIdx = 0; inodeIdx < mount_optimization_info->numInodes; inodeIdx++) {
+			struct inode_file_map* inodeFileMap = mount_optimization_info->inodeFileMaps + inodeIdx;
+			if (inodeFileMap->dstreamFileMaps) {
+				for (int dstreamFileIndex = 0; dstreamFileIndex < inodeFileMap->numDstreams; dstreamFileIndex++) {
+					struct dstream_file_map* dstreamFileMap = inodeFileMap->dstreamFileMaps + dstreamFileIndex;
+					if (dstreamFileMap->fileRanges) free(dstreamFileMap->fileRanges);
+				}
+				free(inodeFileMap->dstreamFileMaps);
+			}
+		}
+		free(mount_optimization_info->inodeFileMaps);
+	}
+	
+	if (mount_optimization_info->mount_name) {
+		free(mount_optimization_info->mount_name);
+	}
+	free(mount_optimization_info);
+}
+
+struct bc_optimization_info {
+	int num_mount_optimization_infos;
+	struct bc_mount_optimization_info** mount_optimization_infos;
+	struct BC_history * hc;
+	struct BC_userspace_hdd_optimization_state userspace_hdd_optimization_state;
+};
+
+void BC_free_optimization_info(struct bc_optimization_info* optimization_info) {
+	if (!optimization_info) return;
+	
+	if (optimization_info->mount_optimization_infos) {
+		for (int mount_optimization_info_index = 0; mount_optimization_info_index < optimization_info->num_mount_optimization_infos; mount_optimization_info_index++) {
+			if (optimization_info->mount_optimization_infos[mount_optimization_info_index]) {
+				BC_free_mount_optimization_info(optimization_info->mount_optimization_infos[mount_optimization_info_index]);
+			}
+		}
+	}
+	free(optimization_info->mount_optimization_infos);
+	free(optimization_info);
+}
 
 /*
- * Optimize the history recording for this APFS pure HDD volume to provide better performance next boot
- * This will reorder blocks together and to a fast portion of disk.
- * The playlist's extents will be updated to the new locations for the files.
- *
- * Partial success is possible, and any errors will be logged
+ * Convert the mount's history recording, which uses disk addresses, to file-relative offsets for use in HDD optimizations
  */
-struct BC_userspace_optimizations
-BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *mount_name, struct BC_history_inode* historyInodes, uint numInodes)
+static struct bc_mount_optimization_info*
+BC_mount_copy_file_relative_history(struct BC_history * hc, int hm_index, const char *mount_name, struct BC_history_inode* historyInodes, uint numInodes)
 {
-	struct BC_userspace_optimizations userspace_optimizations = {
-		.ssup_num_inodes_optimized = 0,
-		.ssup_bytes_optimized = 0,
-		.ssup_hdd_num_reads_already_optimized = 0,
-		.ssup_hdd_bytes_already_optimized = 0,
-		.ssup_hdd_optimization_range_length = 0,
-	};
-	
 	struct BC_history_mount *hm = hc->h_mounts + hm_index;
 	ASSERT(!(hm->hm_fs_flags & BC_FS_APFS_FUSION));
 	
-	int err = 0;
-	
 	struct statfs statfs_buf;
 	if (0 != statfs(mount_name, &statfs_buf)) {
-		LOG_ERRNO("Unable to stafs %s", mount_name);
-		return userspace_optimizations;
+		LOG_ERRNO("Unable to stafs %s for mount %s", mount_name, uuid_string(hm->hm_uuid));
+		return NULL;
 	}
 	
 	int blockSize = statfs_buf.f_bsize;
 	
+	DLOG_OFT("Converting HDD mount %s to file/offset", uuid_string(hm->hm_uuid));
+	
 #define INODE_NUM_LIMIT 16384
 	if (numInodes > INODE_NUM_LIMIT) { // APFS limits us to 16K inodes
-		LOG("Only optimizing %d out of %d inodes read during boot", INODE_NUM_LIMIT, numInodes);
+		LOG("Only optimizing %d out of %d inodes read during boot for mount %s", INODE_NUM_LIMIT, numInodes, uuid_string(hm->hm_uuid));
 		numInodes = INODE_NUM_LIMIT;
 	}
-	
-	struct extent {
-		int64_t		offset; // in bytes
-		uint64_t	length; // in bytes
-							// TODO: Add batch number somehow?
-	};
-	
-	struct dstream_file_map {
-		uint64_t dstreamID;
-		struct extent* fileRanges;
-		uint32_t numRanges;
-	};
-	
-	struct inode_file_map {
-		uint64_t inode;
-		struct dstream_file_map* dstreamFileMaps;
-		uint32_t numDstreams;
-	};
 	
 	struct inode_file_map* inodeFileMaps = calloc(numInodes, sizeof(*inodeFileMaps));
 
 	for (int inodeIdx = 0; inodeIdx < numInodes; inodeIdx++) {
-		uint64_t inode = historyInodes[inodeIdx].inode;
+		struct BC_history_inode* historyInode = historyInodes + inodeIdx;
+
+		uint64_t inode = historyInode->inode;
 		struct inode_file_map* inodeFileMap = inodeFileMaps + inodeIdx;
 		inodeFileMap->inode = inode;
 		
 		struct inode_disk_map* inodeDiskMap = BC_inode_disk_map_create(mount_name, inode, blockSize, hm->hm_fs_flags & BC_FS_APFS_ENCRYPTED);
 		if (!inodeDiskMap) {
-			DLOG("No disk map for inode %llu", inode);
+			DLOG("No disk map for inode %llu for mount %s", inode, uuid_string(hm->hm_uuid));
 			// remove this inode from the list of ones to be optimized since we can't track where the file ends up
 			// Typical case here is the file was deleted.
 			// (the BootCache's recorded extents for this inode also get cleared later)
-			historyInodes[inodeIdx].inode = 0;
+			historyInode->inode = 0;
 			continue;
 		}
 		
 		DLOG_inode_disk_map(inodeDiskMap);
 
 		if (inodeDiskMap->numDstreams == 0) {
-			DLOG_OFT("No dstreams for inode %llu", inode);
+			DLOG_OFT("No dstreams for inode %llu for mount %s", inode, uuid_string(hm->hm_uuid));
 			BC_inode_disk_map_destroy(inodeDiskMap);
 			// remove this inode from the list of ones to be optimized since we can't track where the file ends up
 			// (the BootCache's recorded extents for this inode also get cleared later)
-			historyInodes[inodeIdx].inode = 0;
+			historyInode->inode = 0;
 			continue;
 		}
 
@@ -2492,8 +2813,8 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 		DLOG_OFT("inode %llu history:", inode);
 
 		bool exentsHaveSomeOverlap = false;
-		for (int historyInodeExtentEntryIndex = 0; historyInodeExtentEntryIndex < historyInodes[inodeIdx].numEntries; historyInodeExtentEntryIndex++) {
-			int he_index = historyInodes[inodeIdx].entryIndexes[historyInodeExtentEntryIndex];
+		for (int historyInodeExtentEntryIndex = 0; historyInodeExtentEntryIndex < historyInode->numEntries; historyInodeExtentEntryIndex++) {
+			int he_index = historyInode->entryIndexes[historyInodeExtentEntryIndex];
 			struct BC_history_entry* he = hc->h_entries + he_index;
 			uint64_t overlapBytes = 0;
 
@@ -2553,11 +2874,11 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 		}
 		
 		if (!exentsHaveSomeOverlap) {
-			DLOG("inode %llu no longer exists where BootCache recorded", inode);
+			DLOG("inode %llu no longer exists where BootCache recorded for mount %s", inode, uuid_string(hm->hm_uuid));
 			BC_inode_disk_map_destroy(inodeDiskMap);
 			// This file has moved to a completely new location on disk since the recording we're trying to optimize
 			// remove this inode from the list of ones to be optimized
-			historyInodes[inodeIdx].inode = 0;
+			historyInode->inode = 0;
 			continue;
 		}
 		
@@ -2598,11 +2919,13 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 				}
 				
 #ifdef DEBUG_OPTIMIZATION_FILE_TRANSLATION
+#ifdef DEBUG
 				DLOG_OFT("inode %llu dstream %llu coalesced/sorted to:", inode, dstreamFileMap->dstreamID);
 				for (int fileRangeIndex = 0; fileRangeIndex < dstreamFileMap->numRanges; fileRangeIndex++) {
 					struct extent* fileRange = dstreamFileMap->fileRanges + fileRangeIndex;
 					DLOG_OFT("  file range %#llx-%#llx (%#llx bytes)", fileRange->offset, fileRange->offset + fileRange->length, fileRange->length);
 				}
+#endif
 #endif
 			}
 		}
@@ -2611,73 +2934,220 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 		BC_inode_disk_map_destroy(inodeDiskMap);
 	}
 	
-	
-	// The range returned from the fsctl indicating the range on disk where the optimized data lives
-	uint64_t optimizedRangeStart = UINT64_MAX;
-	uint64_t optimizedRangeLength = UINT64_MAX;
-	
-	// The actual range we find by iterating the optimized inodes later, because the range apfs provides isn't a tight bounds
-	uint64_t lowestOptimizedByteAddress = UINT64_MAX;
-	uint64_t highestOptimizedByteAddress = UINT64_MAX;
-
-	int numOptimizedInodes = 0;
-	{
-		uint64_t* inodeBuffer = malloc(numInodes * sizeof(*inodeBuffer));
-		ASSERT(inodeBuffer);
-		for (int i = 0; i < numInodes; i++) {
-			if (0 != historyInodes[i].inode) {
-				inodeBuffer[numOptimizedInodes] = historyInodes[i].inode;
-				numOptimizedInodes++;
+	// Return NULL if we have no inodes to optimize
+	bool haveAnyInodes = false;
+	for (int inodeIdx = 0; inodeIdx < numInodes; inodeIdx++) {
+		if (historyInodes[inodeIdx].inode != 0) {
+			haveAnyInodes = true;
+			break;
+		}
+	}
+	if (! haveAnyInodes) {
+		
+		DLOG("Unable to optimize any of the %d inodes for mount %s", numInodes, uuid_string(hm->hm_uuid));
+		
+		if (inodeFileMaps) {
+			for (int inodeIdx = 0; inodeIdx < numInodes; inodeIdx++) {
+				struct inode_file_map* inodeFileMap = inodeFileMaps + inodeIdx;
+				if (inodeFileMap->dstreamFileMaps) {
+					for (int dstreamFileIndex = 0; dstreamFileIndex < inodeFileMap->numDstreams; dstreamFileIndex++) {
+						struct dstream_file_map* dstreamFileMap = inodeFileMap->dstreamFileMaps + dstreamFileIndex;
+						if (dstreamFileMap->fileRanges) free(dstreamFileMap->fileRanges);
+					}
+					free(inodeFileMap->dstreamFileMaps);
+				}
 			}
+			free(inodeFileMaps);
 		}
 		
-		if (numOptimizedInodes != numInodes) {
-			DLOG("Only optimizing %d out of %d inodes", numOptimizedInodes, numInodes);
+		return NULL;
+	}
+	
+	struct bc_mount_optimization_info *mount_optimization_info = calloc(1, sizeof(*mount_optimization_info));
+	mount_optimization_info->hc = hc;
+	mount_optimization_info->hm_index = hm_index;
+	mount_optimization_info->mount_name = strdup(mount_name);
+	mount_optimization_info->historyInodes = historyInodes;
+	mount_optimization_info->inodeFileMaps = inodeFileMaps;
+	mount_optimization_info->numInodes = numInodes;
+	mount_optimization_info->blockSize = blockSize;
+	
+	// Things to be filled in later
+	mount_optimization_info->optimizedRangeStart = UINT64_MAX;
+	mount_optimization_info->optimizedRangeLength = 0;
+	mount_optimization_info->numInodesRequested = 0;
+	mount_optimization_info->lowestOptimizedByteAddress = UINT64_MAX;
+	mount_optimization_info->highestOptimizedByteAddress = 0;
+	mount_optimization_info->completed = false;
+	// mount_optimization_info->stats cleared due to calloc
+	
+	return mount_optimization_info;
+}
+
+
+/*
+ * Optimize the inodes APFS pure HDD volume to provide better performance next boot.
+ * This will reorder blocks together and to a fast portion of disk.
+ *
+ * If isLastVolumeInContainer is false, provides the inodes to APFS but does not actually perform optimizations (mount_optimization_info->optimizedRange* will be unset)
+ * If isLastVolumeInContainer is true, provides the inodes to APFS and actually performs optimizations (mount_optimization_info->optimizedRange* will be set upon success)
+ */
+static int
+BC_optimize_inodes_hdd(struct bc_mount_optimization_info *mount_optimization_info, bool isLastVolumeInContainer)
+{
+	struct BC_history_mount *hm = mount_optimization_info->hc->h_mounts + mount_optimization_info->hm_index;
+	
+	int numInodesRequested = 0;
+	uint64_t* inodeBuffer = malloc(mount_optimization_info->numInodes * sizeof(*inodeBuffer));
+	ASSERT(inodeBuffer);
+	for (int i = 0; i < mount_optimization_info->numInodes; i++) {
+		if (0 != mount_optimization_info->historyInodes[i].inode) {
+			inodeBuffer[numInodesRequested] = mount_optimization_info->historyInodes[i].inode;
+			numInodesRequested++;
 		}
-		
-		apfs_bc_optimize_t optimize;
-		memset(&optimize, 0, sizeof(optimize));
-		optimize.out_paddr = 0;
-		optimize.out_length = 0;
-		optimize.out_error = 0;
-		optimize.inode_cnt = numOptimizedInodes;
-		optimize.inodes = inodeBuffer;
-		optimize.flags = 0;
-		
-		err = fsctl(mount_name, APFSIOC_BC_OPTIMIZE_INODES, &optimize, 0);
-		free(inodeBuffer);
-		if (err != 0) {
-			LOG_ERRNO("BootCache optimization for %s's %d inodes fsctl error", uuid_string(hm->hm_uuid), numOptimizedInodes);
-			return userspace_optimizations;
-		}
-		
-		if (optimize.out_error != 0) {
-			errno = optimize.out_error;
-			LOG_ERRNO("BootCache optimization for %s's %d inodes returned error", uuid_string(hm->hm_uuid), numOptimizedInodes);
+	}
+	
+	if (numInodesRequested != mount_optimization_info->numInodes) {
+		DLOG("Only requesting optimization for %d out of %d inodes for mount %s", numInodesRequested, mount_optimization_info->numInodes, uuid_string(hm->hm_uuid));
+	}
+	
+	apfs_bc_optimize_t optimize;
+	memset(&optimize, 0, sizeof(optimize));
+	optimize.out_paddr = 0;
+	optimize.out_length = 0;
+	optimize.out_error = 0;
+	optimize.inode_cnt = numInodesRequested;
+	optimize.inodes = inodeBuffer;
+	optimize.flags = isLastVolumeInContainer ? 0x0 : APFS_BC_OPTIMIZE_INODES_UPDATE_ONLY;
+	
+	int err = fsctl(mount_optimization_info->mount_name, APFSIOC_BC_OPTIMIZE_INODES, &optimize, 0);
+	free(inodeBuffer);
+	if (err != 0) {
+		LOG_ERRNO("BootCache optimization for %s's %d inodes fsctl error", uuid_string(hm->hm_uuid), numInodesRequested);
+		return errno ?: EINVAL;
+	}
+
+	bool optimizationPaused = false;
+
+	if (optimize.out_error != 0) {
+		errno = optimize.out_error;
+		if (optimize.out_error == ECANCELED) {
+			optimizationPaused = true;
+			DLOG_ERRNO("BootCache optimization for %s's %d inodes returned error", uuid_string(hm->hm_uuid), numInodesRequested);
+		} else {
+			LOG_ERRNO("BootCache optimization for %s's %d inodes returned error", uuid_string(hm->hm_uuid), numInodesRequested);
 			// Not necessarily fatal, lets see if we get a valid range...
 		}
-		
-		if (optimize.out_paddr == UINT64_MAX || optimize.out_length == UINT64_MAX || optimize.out_length == 0) {
-			LOG("BootCache optimization for %s's %d inodes returned invalid range", uuid_string(hm->hm_uuid), numOptimizedInodes);
-			return userspace_optimizations;
-		}
-
-		optimizedRangeStart = optimize.out_paddr;
-		optimizedRangeLength = optimize.out_length;
 	}
+
+	
+	// The range returned from the fsctl indicating the range on disk where the optimized data lives (only provided on last call)
+	if (isLastVolumeInContainer) {
+		if (optimize.out_paddr == UINT64_MAX || optimize.out_length == UINT64_MAX || optimize.out_length == 0) {
+			LOG("BootCache optimization for %s's %d inodes returned invalid range", uuid_string(hm->hm_uuid), numInodesRequested);
+			return EINVAL;
+		}
+		mount_optimization_info->optimizedRangeStart = optimize.out_paddr;
+		mount_optimization_info->optimizedRangeLength = optimize.out_length;
+	}
+	
+	mount_optimization_info->numInodesRequested = numInodesRequested;
+	
+	
+	return optimizationPaused ? ECANCELED : 0;
+}
+
+/*
+ * After optimizations have occurred, update the playlist with to the new locations for the files.
+ */
+static void
+BC_mount_fixup_history_after_optimizations(struct bc_mount_optimization_info *mount_optimization_info, bool resumedAfterPaused)
+{
+	struct BC_history * hc = mount_optimization_info->hc;
+	const int hm_index = mount_optimization_info->hm_index;
+	const char *mount_name = mount_optimization_info->mount_name;
+	struct BC_history_inode* historyInodes = mount_optimization_info->historyInodes;
+	const struct inode_file_map* inodeFileMaps = mount_optimization_info->inodeFileMaps;
+	const uint numInodes = mount_optimization_info->numInodes;
+	const int numInodesRequested = mount_optimization_info->numInodesRequested;
+	uint64_t optimizedRangeStart = mount_optimization_info->optimizedRangeStart;
+	uint64_t optimizedRangeLength = mount_optimization_info->optimizedRangeLength;
+	const int blockSize = mount_optimization_info->blockSize;
+	
+	if (resumedAfterPaused) {
+		mount_optimization_info->hdd_stats.ssup_inodes_requested = 0;
+		mount_optimization_info->hdd_stats.ssup_inodes_optimized = 0;
+		mount_optimization_info->hdd_stats.ssup_bytes_requested = 0;
+		mount_optimization_info->hdd_stats.ssup_bytes_optimized = 0;
+		mount_optimization_info->hdd_stats.ssup_bytes_surplus = 0;
+		mount_optimization_info->hdd_stats.ssup_bytes_nonoptimized = 0;
+		mount_optimization_info->hdd_stats.ssup_reads_optimized = 0;
+		mount_optimization_info->hdd_stats.ssup_optimization_range_length = 0;
+		
+		if (mount_optimization_info->hdd_stats.ssup_bytes_already_optimized == 0 &&
+			mount_optimization_info->hdd_stats.ssup_reads_already_optimized == 0 &&
+			mount_optimization_info->hdd_stats.ssup_inodes_already_optimized == 0) {
+			
+			// If we didn't see anything already optimized, then that was a fusion-only pass, and we can update the already* stats this time
+			resumedAfterPaused = false;
+		}
+		
+		// Don't update already_optimized stats if this a subsequent try to optimize this volume's inodes
+		// (inodes we optimized on the previous tries will look like they were already optimized, giving inflated numbers)
+	} else {
+		bzero(&mount_optimization_info->hdd_stats, sizeof(mount_optimization_info->hdd_stats));
+	}
+	
+	struct BC_history_mount *hm = hc->h_mounts + hm_index;
+	ASSERT(!(hm->hm_fs_flags & BC_FS_APFS_FUSION));
+
 	
 	// After the data has been optimized, use APFS_DEBUG_OP_GET_FILE_DSTREAMS and APFS_DEBUG_OP_GET_FILE_EXTS to see where the files ended up
 	// Some files may not have been optimized, so compare the extents returned to the original recording before adding to the playlist.
 	
-	DLOG("Optimized %d inodes to %#llx-%#llx (%llu length), checking where they ended up on disk...", numOptimizedInodes, optimizedRangeStart, optimizedRangeStart + optimizedRangeLength, optimizedRangeLength);
+	DLOG("Optimized %d inodes to %#llx-%#llx (%llu length) for mount %s, checking where they ended up on disk...", numInodesRequested, optimizedRangeStart, optimizedRangeStart + optimizedRangeLength, optimizedRangeLength, uuid_string(hm->hm_uuid));
 	
+	// The actual range we find by iterating the optimized inodes later, because the range apfs provides isn't a tight bounds
+	uint64_t lowestOptimizedByteAddress = UINT64_MAX;
+	uint64_t highestOptimizedByteAddress = 0;
+
 	uint64_t numBytesDropped = 0;
 	int numInodesDropped = 0;
 	
 	for (int inodeIdx = 0; inodeIdx < numInodes; inodeIdx++) {
-		uint64_t inode = historyInodes[inodeIdx].inode;
-		int historyInodeExtentEntryIndex = 0;
+		struct BC_history_inode* historyInode = historyInodes + inodeIdx;
+		uint64_t inode = historyInode->inode;
 		DLOG_OFT("inode %llu post-optimization:", inode);
+		
+		u_int64_t readBytes = 0;
+		u_int64_t optimizedBytes = 0;
+		u_int64_t optimizedReadBytes = 0;
+
+		bool sawOptimizedExtent = false;
+		for (int tempHistoryInodeExtentEntryIndex = 0; tempHistoryInodeExtentEntryIndex < historyInode->numEntries; tempHistoryInodeExtentEntryIndex++) {
+			int he_index = historyInode->entryIndexes[tempHistoryInodeExtentEntryIndex];
+			struct BC_history_entry* he = hc->h_entries + he_index;
+			
+			readBytes += he->he_length;
+			
+			// Don't update already_optimized stats if this a subsequent try to optimize this volume's inodes
+			// (inodes we optimized on the previous tries will look like they were already optimized, giving inflated numbers)
+			if (!resumedAfterPaused) {
+				uint64_t intersectionStart = MAX(optimizedRangeStart, he->he_offset);
+				uint64_t intersectionEnd = MIN(optimizedRangeStart + optimizedRangeLength, he->he_offset + he->he_length);
+				if (intersectionStart < intersectionEnd) {
+					mount_optimization_info->hdd_stats.ssup_reads_already_optimized++;
+					mount_optimization_info->hdd_stats.ssup_bytes_already_optimized += intersectionEnd - intersectionStart; // Bytes that were already in the optimized range, however they got there previously
+					if (!sawOptimizedExtent) {
+						sawOptimizedExtent = true;
+						mount_optimization_info->hdd_stats.ssup_inodes_already_optimized++;
+					}
+				}
+			}
+		}
+
+		
+		int historyInodeExtentEntryIndex = 0;
 		if (0 != inode) {
 			
 			struct inode_disk_map* inodeDiskMap = BC_inode_disk_map_create(mount_name, inode, blockSize, hm->hm_fs_flags & BC_FS_APFS_ENCRYPTED);
@@ -2686,7 +3156,6 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 				DLOG_inode_disk_map(inodeDiskMap);
 				
 				// Check how much data was optimized (this time and previously) for statistical purposes
-				uint64_t optimizedBytes = 0;
 				for (int dstreamDiskIndex = 0; dstreamDiskIndex < inodeDiskMap->numDstreams; dstreamDiskIndex++) {
 					struct dstream_disk_map* dstreamDiskMap = inodeDiskMap->dstreamDiskMaps + dstreamDiskIndex;
 					for (int diskExtentIndex = 0; diskExtentIndex < dstreamDiskMap->numExtents; diskExtentIndex++) {
@@ -2698,38 +3167,19 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 							DLOG_OFT("inode %llu dstream %llu extent %d not optimized:  %#-12llx %#-8llx", inode, dstreamDiskMap->dstreamID, diskExtentIndex, diskExtent->offset, diskExtent->length);
 						} else {
 							
-							if (lowestOptimizedByteAddress == UINT64_MAX ||
-								lowestOptimizedByteAddress > diskExtent->offset) {
+							if (lowestOptimizedByteAddress > diskExtent->offset) {
 								lowestOptimizedByteAddress = diskExtent->offset;
 							}
-							if (highestOptimizedByteAddress == UINT64_MAX ||
-								highestOptimizedByteAddress < diskExtent->offset + diskExtent->length) {
+							if (highestOptimizedByteAddress < diskExtent->offset + diskExtent->length) {
 								highestOptimizedByteAddress = diskExtent->offset + diskExtent->length;
 							}
 							optimizedBytes += diskExtent->length;
 						}
 					}
 				}
-				if (optimizedBytes > 0) {
-					userspace_optimizations.ssup_num_inodes_optimized++;
-					userspace_optimizations.ssup_bytes_optimized += optimizedBytes;
-				}
-				
-				for (int tempHistoryInodeExtentEntryIndex = 0; tempHistoryInodeExtentEntryIndex < historyInodes[inodeIdx].numEntries; tempHistoryInodeExtentEntryIndex++) {
-					int he_index = historyInodes[inodeIdx].entryIndexes[tempHistoryInodeExtentEntryIndex];
-					
-					uint64_t intersectionStart = MAX(optimizedRangeStart, hc->h_entries[he_index].he_offset);
-					uint64_t intersectionEnd = MIN(optimizedRangeStart + optimizedRangeLength, hc->h_entries[he_index].he_offset + hc->h_entries[he_index].he_length);
-					
-					if (intersectionStart < intersectionEnd) {
-						userspace_optimizations.ssup_hdd_num_reads_already_optimized++;
-						userspace_optimizations.ssup_hdd_bytes_already_optimized += intersectionEnd - intersectionStart; // Bytes that were already in the optimized range, however they got there previously
-					}
-				}
 				
 				// inodeFileMap contains the ranges of the file that we want to include in the playlist
-				struct inode_file_map* inodeFileMap = inodeFileMaps + inodeIdx;
-				historyInodeExtentEntryIndex = 0;
+				const struct inode_file_map* inodeFileMap = inodeFileMaps + inodeIdx;
 				
 				DLOG_OFT("inode %llu history post-optimization:", inode);
 				
@@ -2756,7 +3206,7 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 					
 					DLOG_OFT(" dstream %llu", dstreamFileMap->dstreamID);
 					
-					// Iterate over the disk extents, keeping track of what file offset we're at (dstreamOffset), and replace the entries to our history for this inode with the new locations of this file
+					// Iterate over the disk extents, keeping track of what file offset we're at (dstreamFileOffsetForDiskExtent), and replace the entries to our history for this inode with the new locations of this file
 					uint64_t dstreamFileOffsetForDiskExtent = 0;
 					int fileRangeIndex = 0;
 					struct extent* fileRange = NULL;
@@ -2780,9 +3230,8 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 							// We want part of this disk range in our playlist, use the next entry in our history for this inode
 							
 							int he_index;
-							if (historyInodeExtentEntryIndex < historyInodes[inodeIdx].numEntries) {
-								he_index = historyInodes[inodeIdx].entryIndexes[historyInodeExtentEntryIndex];
-								historyInodeExtentEntryIndex++;
+							if (historyInodeExtentEntryIndex < historyInode->numEntries) {
+								he_index = historyInode->entryIndexes[historyInodeExtentEntryIndex];
 							} else {
 								hc->h_nentries ++;
 								hm->hm_nentries ++;
@@ -2791,13 +3240,25 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 								
 								he_index = hc->h_nentries - 1;
 								
+								bzero(hc->h_entries + he_index, sizeof(*hc->h_entries));
+								
 								hc->h_entries[he_index].he_inode = inode;
 								hc->h_entries[he_index].he_mount_idx = hm_index;
+								
+								// Update our entryIndexes for this inode to point to the new history entry (needed in case we got paused and go through this again later)
+								ASSERT(historyInodeExtentEntryIndex == historyInode->numEntries);
+								historyInode->numEntries ++;
+								historyInode->entryIndexes = reallocf(historyInode->entryIndexes, historyInode->numEntries * sizeof(*historyInode->entryIndexes));
+								ASSERT(historyInode->entryIndexes);
+								historyInode->entryIndexes[historyInodeExtentEntryIndex] = he_index;
+								
+								DLOG_OFT("  Created new h_entry %d at dhistoryInodeExtentEntryIndex %d", he_index, historyInodeExtentEntryIndex);
 							}
+							historyInodeExtentEntryIndex++;
 							
 							struct BC_history_entry* he = hc->h_entries + he_index;
 							
-							ASSERT(he->he_inode == inode);
+							ASSERTF(he->he_inode == inode, "entry inode %llu != inode %llu", he->he_inode, inode);
 							ASSERT(he->he_mount_idx == hm_index);
 							
 							uint64_t fileRangeStart = MAX(dstreamFileOffsetForDiskExtent, fileRange->offset);
@@ -2809,7 +3270,13 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 							if (hm->hm_fs_flags & BC_FS_APFS_ENCRYPTED) {
 								he->he_crypto_offset = diskExtent->cpoff + offsetFromDiskExtentStart;
 							}
-							he->he_flags = BC_HE_OPTIMIZED;
+							
+							uint64_t intersectionStart = MAX(optimizedRangeStart, he->he_offset);
+							uint64_t intersectionEnd = MIN(optimizedRangeStart + optimizedRangeLength, he->he_offset + he->he_length);
+							if (intersectionStart < intersectionEnd) {
+								he->he_flags |= BC_HE_OPTIMIZED;
+								optimizedReadBytes += intersectionEnd - intersectionStart;
+							}
 							
 							DLOG_OFT("  entry %d: %#-12llx %#-8llx %#-12llx %5u%s%s from disk %#-12llx file %#-12llx %#-8llx %#-12llx (file range %#llx-%#llx (%#llx bytes) overlap %#llx-%#llx (%#llx bytes))",
 									 he_index,
@@ -2857,12 +3324,26 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 				DLOG("No disk map for inode %llu", inode);
 			}
 			
+			
+			mount_optimization_info->hdd_stats.ssup_bytes_requested += readBytes;
+			if (optimizedBytes > 0) {
+				mount_optimization_info->hdd_stats.ssup_inodes_optimized++;
+				mount_optimization_info->hdd_stats.ssup_bytes_optimized += optimizedBytes;
+			}
+			if (optimizedBytes > optimizedReadBytes) {
+				mount_optimization_info->hdd_stats.ssup_bytes_surplus += (optimizedBytes - optimizedReadBytes);
+			}
+			if (readBytes > optimizedReadBytes) {
+				mount_optimization_info->hdd_stats.ssup_bytes_nonoptimized += (readBytes - optimizedReadBytes);
+			}
+			mount_optimization_info->hdd_stats.ssup_reads_optimized += historyInode->numEntries;
+			
 		}
-		
+
 		// Zero-out any remaining history entries we no longer need for this inode
 		uint64_t bytesRemoved = 0;
-		for (int i = historyInodeExtentEntryIndex; i < historyInodes[inodeIdx].numEntries; i++) {
-			int he_index = historyInodes[inodeIdx].entryIndexes[i];
+		for (int i = historyInodeExtentEntryIndex; i < historyInode->numEntries; i++) {
+			int he_index = historyInode->entryIndexes[i];
 			bytesRemoved += hc->h_entries[he_index].he_length;
 			hc->h_entries[he_index].he_length = 0;
 			
@@ -2875,31 +3356,145 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
 	}
 	
 	if (numInodesDropped > 0) {
-		DLOG("%d inodes (%llu bytes) dropped from playlist due to file deleted/moved/error (%d after optimization occurred)", numInodesDropped, numBytesDropped, numInodesDropped - (numInodes - numOptimizedInodes));
+		DLOG("%d inodes (%llu bytes) dropped from playlist due to file deleted/moved/error (%d after optimization occurred) for mount %s", numInodesDropped, numBytesDropped, numInodesDropped - (numInodes - numInodesRequested), uuid_string(hm->hm_uuid));
 	}
 	
-	for (int inodeIdx = 0; inodeIdx < numInodes; inodeIdx++) {
-		struct inode_file_map* inodeFileMap = inodeFileMaps + inodeIdx;
-		if (inodeFileMap->dstreamFileMaps) {
-			for (int dstreamFileIndex = 0; dstreamFileIndex < inodeFileMap->numDstreams; dstreamFileIndex++) {
-				struct dstream_file_map* dstreamFileMap = inodeFileMap->dstreamFileMaps + dstreamFileIndex;
-				if (dstreamFileMap->fileRanges) free(dstreamFileMap->fileRanges);
-			}
-			free(inodeFileMap->dstreamFileMaps);
-		}
-	}
-	free(inodeFileMaps);
-	
-	
-	if (lowestOptimizedByteAddress != UINT64_MAX && highestOptimizedByteAddress != UINT64_MAX) {
-		userspace_optimizations.ssup_hdd_optimization_range_length = highestOptimizedByteAddress - lowestOptimizedByteAddress;
+	if (lowestOptimizedByteAddress != UINT64_MAX && highestOptimizedByteAddress != 0) {
+		mount_optimization_info->hdd_stats.ssup_optimization_range_length = highestOptimizedByteAddress - lowestOptimizedByteAddress;
 	}
 	
-	LOG("%llu inodes (%llu bytes) optimized on %s for boot into %#llx-%#llx (%llu bytes) (%.1f%% efficient) (out of %d inodes requested), this boot had %llu reads (%llu bytes) previously optimized", userspace_optimizations.ssup_num_inodes_optimized, userspace_optimizations.ssup_bytes_optimized, uuid_string(hm->hm_uuid), lowestOptimizedByteAddress, highestOptimizedByteAddress, userspace_optimizations.ssup_hdd_optimization_range_length, (userspace_optimizations.ssup_hdd_optimization_range_length != 0) ? ((double)userspace_optimizations.ssup_bytes_optimized / (double)userspace_optimizations.ssup_hdd_optimization_range_length * 100.0) : 0, numOptimizedInodes, userspace_optimizations.ssup_hdd_num_reads_already_optimized, userspace_optimizations.ssup_hdd_bytes_already_optimized);
+	mount_optimization_info->lowestOptimizedByteAddress = lowestOptimizedByteAddress;
+	mount_optimization_info->highestOptimizedByteAddress = highestOptimizedByteAddress;
+	mount_optimization_info->hdd_stats.ssup_inodes_requested = numInodesRequested;
+
+	DLOG("%llu reads, %llu inodes, %llu bytes optimized on %s for boot into %#llx-%#llx (%llu bytes) (%.1f%% efficient) (%.0f%% out of %llu inodes, %.0f%% out of %llu bytes, %llu bytes (%.0f%%) surplus, %llu bytes (%.0f%%) nonoptimized), this boot had %llu reads, %llu inodes, %llu bytes previously optimized",
+		 mount_optimization_info->hdd_stats.ssup_reads_optimized,
+		 mount_optimization_info->hdd_stats.ssup_inodes_optimized,
+		 mount_optimization_info->hdd_stats.ssup_bytes_optimized,
+		 uuid_string(hm->hm_uuid),
+		 lowestOptimizedByteAddress,
+		 highestOptimizedByteAddress,
+		 mount_optimization_info->hdd_stats.ssup_optimization_range_length,
+		 (mount_optimization_info->hdd_stats.ssup_optimization_range_length != 0) ? ((double)mount_optimization_info->hdd_stats.ssup_bytes_optimized / (double)mount_optimization_info->hdd_stats.ssup_optimization_range_length * 100.0) : 0,
+		 mount_optimization_info->hdd_stats.ssup_inodes_requested != 0 ? ((double)mount_optimization_info->hdd_stats.ssup_inodes_optimized / (double)mount_optimization_info->hdd_stats.ssup_inodes_requested * 100.0) : 0,
+		 mount_optimization_info->hdd_stats.ssup_inodes_requested,
+		 mount_optimization_info->hdd_stats.ssup_bytes_requested != 0 ? ((double)mount_optimization_info->hdd_stats.ssup_bytes_optimized / (double)mount_optimization_info->hdd_stats.ssup_bytes_requested * 100.0) : 0,
+		 mount_optimization_info->hdd_stats.ssup_bytes_requested,
+		 mount_optimization_info->hdd_stats.ssup_bytes_surplus,
+		 mount_optimization_info->hdd_stats.ssup_bytes_requested > 0 ? ((double)mount_optimization_info->hdd_stats.ssup_bytes_surplus / (double)mount_optimization_info->hdd_stats.ssup_bytes_requested * 100.0) : 0,
+		 mount_optimization_info->hdd_stats.ssup_bytes_nonoptimized,
+		 mount_optimization_info->hdd_stats.ssup_bytes_requested > 0 ? ((double)mount_optimization_info->hdd_stats.ssup_bytes_nonoptimized / (double)mount_optimization_info->hdd_stats.ssup_bytes_requested * 100.0) : 0,
+		 mount_optimization_info->hdd_stats.ssup_reads_already_optimized,
+		 mount_optimization_info->hdd_stats.ssup_inodes_already_optimized,
+		 mount_optimization_info->hdd_stats.ssup_bytes_already_optimized);
 	
-	return userspace_optimizations;
 }
 
+// <rdar://problem/41958867> Pause/continue BootCache APFS defragmentation based on user activity (and shutdown)
+static char* current_container_being_optimized = NULL;
+static os_unfair_lock current_container_lock = OS_UNFAIR_LOCK_INIT;
+
+int
+BC_pause_optimizations(void)
+{
+	int ret = 0;
+	
+	os_unfair_lock_lock(&current_container_lock);
+	
+	if (current_container_being_optimized) {
+		ret = APFSCancelContainerResize(current_container_being_optimized);
+		if (ret != 0) {
+			LOG("BC_pause_optimizations for %s failed: %#x", current_container_being_optimized, ret);
+		} else {
+			DLOG("BC_pause_optimizations for %s succeeded", current_container_being_optimized);
+		}
+	} else {
+		DLOG("BC_pause_optimizations no current containter being optimized");
+		ret = -1;
+	}
+	
+	os_unfair_lock_unlock(&current_container_lock);
+	
+	return ret;
+}
+
+static void
+_BC_update_current_container_being_optimized(uuid_t volume_uuid)
+{
+	
+	char *bsd_disk = NULL;
+	if (!uuid_is_null(volume_uuid)) {
+		apfs_mount_for_uuid(volume_uuid, NULL, &bsd_disk);
+		if (bsd_disk) {
+			char* temp = bsd_disk;
+			if (0 == strncmp("/dev/", temp, strlen("/dev/"))) {
+				temp += strlen("/dev/");
+			}
+			if (0 == strncmp("disk", temp, strlen("disk"))) {
+				char* s = strrchr(temp + 4, 's');
+				if (s) {
+					DLOG("Chopping %s at %s to get container", bsd_disk, s);
+					*s = '\0';
+				}
+			}
+		} else {
+			LOG_ERRNO("Unable to get bsd disk for container %s", uuid_string(volume_uuid));
+		}
+	}
+	
+	os_unfair_lock_lock(&current_container_lock);
+	
+	if (current_container_being_optimized) {
+		free(current_container_being_optimized);
+	}
+	current_container_being_optimized = bsd_disk;
+	
+	DLOG("Updated containter being optimized (volume %s) to %s", uuid_string(volume_uuid), bsd_disk);
+
+	os_unfair_lock_unlock(&current_container_lock);
+}
+
+static struct BC_userspace_hdd_optimizations
+_BC_get_hdd_container_stats(const struct bc_optimization_info* optimization_info, int container_start_index, int container_end_index, uint64_t* lowestOptimizedByteAddress_out, uint64_t* highestOptimizedByteAddress_out)
+{
+	struct BC_userspace_hdd_optimizations userspace_hdd_optimizations_container = {0};
+	uint64_t lowestOptimizedByteAddress_container = UINT64_MAX;
+	uint64_t highestOptimizedByteAddress_container = 0;
+	
+	for (int mount_optimization_info_index = container_start_index; mount_optimization_info_index <= container_end_index; mount_optimization_info_index++) {
+		
+		if (lowestOptimizedByteAddress_container > optimization_info->mount_optimization_infos[mount_optimization_info_index]->lowestOptimizedByteAddress) {
+			lowestOptimizedByteAddress_container = optimization_info->mount_optimization_infos[mount_optimization_info_index]->lowestOptimizedByteAddress;
+		}
+		if (highestOptimizedByteAddress_container < optimization_info->mount_optimization_infos[mount_optimization_info_index]->highestOptimizedByteAddress) {
+			highestOptimizedByteAddress_container = optimization_info->mount_optimization_infos[mount_optimization_info_index]->highestOptimizedByteAddress;
+		}
+		
+		userspace_hdd_optimizations_container.ssup_inodes_requested += optimization_info->mount_optimization_infos[mount_optimization_info_index]->hdd_stats.ssup_inodes_requested;
+		userspace_hdd_optimizations_container.ssup_inodes_optimized += optimization_info->mount_optimization_infos[mount_optimization_info_index]->hdd_stats.ssup_inodes_optimized;
+		userspace_hdd_optimizations_container.ssup_inodes_already_optimized += optimization_info->mount_optimization_infos[mount_optimization_info_index]->hdd_stats.ssup_inodes_already_optimized;
+		userspace_hdd_optimizations_container.ssup_bytes_requested += optimization_info->mount_optimization_infos[mount_optimization_info_index]->hdd_stats.ssup_bytes_requested;
+		userspace_hdd_optimizations_container.ssup_bytes_optimized += optimization_info->mount_optimization_infos[mount_optimization_info_index]->hdd_stats.ssup_bytes_optimized;
+		userspace_hdd_optimizations_container.ssup_bytes_surplus += optimization_info->mount_optimization_infos[mount_optimization_info_index]->hdd_stats.ssup_bytes_surplus;
+		userspace_hdd_optimizations_container.ssup_bytes_nonoptimized += optimization_info->mount_optimization_infos[mount_optimization_info_index]->hdd_stats.ssup_bytes_nonoptimized;
+		userspace_hdd_optimizations_container.ssup_bytes_already_optimized += optimization_info->mount_optimization_infos[mount_optimization_info_index]->hdd_stats.ssup_bytes_already_optimized;
+		userspace_hdd_optimizations_container.ssup_reads_optimized += optimization_info->mount_optimization_infos[mount_optimization_info_index]->hdd_stats.ssup_reads_optimized;
+		userspace_hdd_optimizations_container.ssup_reads_already_optimized += optimization_info->mount_optimization_infos[mount_optimization_info_index]->hdd_stats.ssup_reads_already_optimized;
+	}
+	
+	uint64_t optimizationRangeLength_container = highestOptimizedByteAddress_container != 0 ? (highestOptimizedByteAddress_container - lowestOptimizedByteAddress_container) : 0;
+	
+	userspace_hdd_optimizations_container.ssup_optimization_range_length = optimizationRangeLength_container;
+
+	if (lowestOptimizedByteAddress_out) {
+		*lowestOptimizedByteAddress_out = lowestOptimizedByteAddress_container;
+	}
+	if (highestOptimizedByteAddress_out) {
+		*highestOptimizedByteAddress_out = highestOptimizedByteAddress_container;
+	}
+	
+	return userspace_hdd_optimizations_container;
+}
 
 /*
  * Optimize the history recording to provide better performance next boot
@@ -2909,177 +3504,427 @@ BC_optimize_history_mount_hdd(struct BC_history * hc, int hm_index, const char *
  *    For any blocks that are moved, the history entries are updated to provide the new locations on disk
  *
  * Partial success is possible, and any errors will be logged
+ *
+ *
+ * PAUSING / CONTINUING
+ * The optimization operation can be paused by calling BC_pause_optimizations()
+ * from a separate thread. The BootCache playlist will be updated with any
+ * optimizations that have already completed. BC_optimize_history will return
+ * ECANCELED and *optimization_info_inout will be filled in, if provided.
+ *
+ * In order to continue the optimization later, the caller must pass in the same
+ * hc that was provided previously, and the *optimization_info_inout that was returned
+ * previously.
+ *
+ * If the caller does not wish to continue later, the *optimization_info_inout must be freed
+ * via BC_free_optimization_info().
+ *
+ *
+ * Returns 0 on success, ECANCELED on being paused, and other values for non-continuable errors
  */
-void
-BC_optimize_history(struct BC_history * hc)
+int
+BC_optimize_history(struct BC_history * hc, struct bc_optimization_info** optimization_info_inout, bool fusion_only)
 {
-	if (!hc) {
-		LOG("Unable to optimize BootCache: no history provided");
-		return;
-	}
+	ASSERT(hc);
+	ASSERT(!optimization_info_inout || !*optimization_info_inout || (*optimization_info_inout)->hc == hc);
 	
-	struct BC_userspace_optimizations userspace_optimizations = {
-		.ssup_num_inodes_optimized = 0,
+	bool optimizationPaused = false;
+	
+	struct BC_userspace_hdd_optimizations userspace_hdd_optimizations = {
+		.ssup_inodes_requested = 0,
+		.ssup_inodes_optimized = 0,
+		.ssup_bytes_requested = 0,
 		.ssup_bytes_optimized = 0,
-		.ssup_hdd_num_reads_already_optimized = 0,
-		.ssup_hdd_bytes_already_optimized = 0,
-		.ssup_hdd_optimization_range_length = 0,
+		.ssup_bytes_surplus = 0,
+		.ssup_bytes_nonoptimized = 0,
+		.ssup_reads_optimized = 0,
+		.ssup_reads_already_optimized = 0,
+		.ssup_inodes_already_optimized = 0,
+		.ssup_bytes_already_optimized = 0,
+		.ssup_optimization_range_length = 0,
 	};
 	
-	int numContainersOptimized = 0;
-	uuid_t* containersOptimized = calloc(hc->h_nmounts, sizeof(uuid_t)); // max number of containers we'll optimize is the number of mounts we have
-	if (!containersOptimized) {
-		LOG("Unable to optimize BootCache: unable to allocate buffer for %d UUIDs", hc->h_nmounts);
-		return;
-	}
+	struct BC_userspace_fusion_optimizations userspace_fusion_optimizations = {
+		.ssup_inodes_requested = 0,
+		.ssup_inodes_optimized = 0,
+		.ssup_bytes_requested = 0,
+		.ssup_bytes_optimized = 0,
+		.ssup_reads_optimized = 0,
+	};
 	
-	for (uint hm_index = 0; hm_index < hc->h_nmounts; hm_index++) {
-		struct BC_history_mount *hm = hc->h_mounts + hm_index;
-		if (uuid_is_null(hm->hm_uuid)) {
-			DLOG("Not optimizing BootCache recording for mount %d: NULL UUID", hm_index);
-			continue;
-		}
 
-		if (hm->hm_nentries == 0) {
-			DLOG("Not optimizing BootCache recording for %s: %d entries", uuid_string(hm->hm_uuid), hm->hm_nentries);
-			continue;
-		}
+	struct bc_optimization_info* optimization_info = NULL;
+	
+	bool resumedAfterPaused = false;
 
-		if (!(hm->hm_fs_flags & BC_FS_APFS)) {
-			DLOG("Not optimizing BootCache recording for %s with %d entries: non-APFS", uuid_string(hm->hm_uuid), hm->hm_nentries);
-			continue;
-		}
+	if (optimization_info_inout && *optimization_info_inout) {
+		// Already have the optimization_info from last time (before we were paused by BC_pause_optimizations)
+		// Don't need to go through the inode mapping work again, nor promote on fusion
+		optimization_info = *optimization_info_inout;
+		resumedAfterPaused = true;
+	} else {
+		// First time being called
 		
-		if (!(hm->hm_fs_flags & BC_FS_APFS_FUSION)) {
-			// <rdar://problem/42619983> Bootcache defrag is triggered multiple times by warmd
-			// On HDDs, the APFSIOC_BC_OPTIMIZE_INODES ioctl can only be called once per container, so only make the call for the root volume
-			// We're relying on the behavior that the root volume is always the first mount in our history list
-			// We're also assuming that the root volume is the best one to optimize, which isn't necessarily true if a user has their home directory in a different volume.
-			// For containers not containing the root volume we're picking the first volume seen in that container, because that's easy to implement
-			// Note that hm_group_uuid is the UUID of the container for any APFS volumes, and for any apfs containers or non-apfs volumes it's the same as the hm_uuid
-			uint containerIndex = 0;
-			for (containerIndex = 0; containerIndex < numContainersOptimized; containerIndex++) {
-				if  (0 == uuid_compare(containersOptimized[containerIndex], hm->hm_group_uuid)) {
-					break;
+		optimization_info = calloc(1, sizeof(*optimization_info));
+		if (!optimization_info) {
+			return ENOMEM;
+		}
+		optimization_info->hc = hc;
+		
+		for (uint hm_index = 0; hm_index < hc->h_nmounts; hm_index++) {
+			struct BC_history_mount *hm = hc->h_mounts + hm_index;
+			if (uuid_is_null(hm->hm_uuid)) {
+				DLOG("Not optimizing BootCache recording for mount %d: NULL UUID", hm_index);
+				continue;
+			}
+			
+			if (hm->hm_nentries == 0) {
+				DLOG("Not optimizing BootCache recording for %s: %d entries", uuid_string(hm->hm_uuid), hm->hm_nentries);
+				continue;
+			}
+			
+			if (!(hm->hm_fs_flags & BC_FS_APFS)) {
+				DLOG("Not optimizing BootCache recording for %s with %d entries: non-APFS", uuid_string(hm->hm_uuid), hm->hm_nentries);
+				continue;
+			}
+			
+			
+			
+			
+			char *mount_name = NULL;
+			apfs_mount_for_uuid(hm->hm_uuid, &mount_name, NULL);
+			if (!mount_name) {
+				DLOG_ERRNO("Unable to optimize BootCache for %s: no mount found", uuid_string(hm->hm_uuid));
+				continue;
+			}
+			
+			uint historyInodesCount = 0;
+			uint historyInodesCapacity = MIN(hm->hm_nentries, 4096);
+			struct BC_history_inode* historyInodes = calloc(historyInodesCapacity, sizeof(*historyInodes));
+			if (!historyInodes) {
+				LOG("Unable to optimize BootCache: unable to allocate buffer for %d inodes", historyInodesCapacity);
+				BC_free_optimization_info(optimization_info);
+				optimization_info = NULL;
+				free(mount_name);
+				return ENOMEM;
+			}
+			
+			// Keep the same ordering of inodes as the chronological order of I/O,
+			// so we prefer to promote the files read earlier in boot in the case we run out of space or get interrupted
+			// We need separate by mount, but the first mount is always the root one, and that's the one we want to prioritize, so... good enough.
+			
+			{ // for local variable scoping
+				for (uint he_index = 0; he_index < hc->h_nentries; he_index++) {
+					struct BC_history_entry *he = hc->h_entries + he_index;
+					if (he->he_mount_idx == hm_index && he->he_length != 0 && he->he_inode != 0 && !(he->he_flags & BC_HE_WRITE) && !(he->he_flags & BC_HE_SHARED)) {
+						
+						// De-dup inodes since we may get multiple entries for the same file
+						uint historyInodeIdx = 0;
+						for (historyInodeIdx = 0; historyInodeIdx < historyInodesCount; historyInodeIdx++) {
+							if (historyInodes[historyInodeIdx].inode == he->he_inode) {
+								break;
+							}
+						}
+						
+						if (historyInodeIdx >= historyInodesCount) {
+							ASSERT(historyInodeIdx == historyInodesCount);
+							// New inode
+							
+							if (historyInodesCount >= historyInodesCapacity) {
+								// Exceeding malloc'ed buffer size: grow buffer
+								historyInodesCapacity *= 2;
+								historyInodes = reallocf(historyInodes, historyInodesCapacity * sizeof(*historyInodes));
+								if (!historyInodes) {
+									LOG("Unable to optimize BootCache: unable to allocate buffer for %d inodes", historyInodesCapacity);
+									BC_free_optimization_info(optimization_info);
+									optimization_info = NULL;
+									free(mount_name);
+									return ENOMEM;
+								}
+							
+							}
+							historyInodesCount++;
+							
+							struct BC_history_inode* historyInode = historyInodes + historyInodeIdx;
+							
+							historyInode->inode = he->he_inode;
+							historyInode->entryIndexes = NULL;
+							historyInode->numEntries = 0;
+						}
+						
+						struct BC_history_inode* historyInode = historyInodes + historyInodeIdx;
+						historyInode->numEntries++;
+						historyInode->entryIndexes = reallocf(historyInode->entryIndexes, historyInode->numEntries * sizeof(*historyInode->entryIndexes));
+						ASSERT(historyInode->entryIndexes);
+						historyInode->entryIndexes[historyInode->numEntries - 1] = he_index;
+					}
+				}
+				
+#ifdef DEBUG_OPTIMIZATION_FILE_TRANSLATION
+#ifdef DEBUG
+				DLOG_OFT("%s: %d inodes for %d entries", uuid_string(hm->hm_uuid), historyInodesCount, hm->hm_nentries);
+				for (int historyInodeIdx = 0; historyInodeIdx < historyInodesCount; historyInodeIdx++) {
+					struct BC_history_inode* historyInode = historyInodes + historyInodeIdx;
+					DLOG_OFT(" inode %llu: %d entries", historyInode->inode, historyInode->numEntries);
+					for (int historyInodeEntryIdx = 0; historyInodeEntryIdx < historyInode->numEntries; historyInodeEntryIdx++) {
+						int he_index = historyInode->entryIndexes[historyInodeEntryIdx];
+						struct BC_history_entry *he = hc->h_entries + he_index;
+
+						DLOG_OFT("  entry %d: inode %llu %#-12llx %#-8llx %#-12llx %5u%s%s",
+								 he_index,
+								 he->he_inode,
+								 he->he_offset,
+								 he->he_length,
+								 he->he_crypto_offset,
+								 he->he_pid,
+								 he->he_flags & BC_HE_OPTIMIZED ? " optimized" :
+								 he->he_flags & BC_HE_HIT	 ? " hit"	 :
+								 he->he_flags & BC_HE_WRITE  ? " write"  :
+								 he->he_flags & BC_HE_TAG	 ? " tag"	 : " miss",
+								 he->he_flags & BC_HE_SHARED ? " shared" : "");
+					}
+				}
+#endif
+#endif
+
+			}
+			
+			if (hm->hm_fs_flags & BC_FS_APFS_FUSION) {
+				
+				// For Fusion volumes, we promote the inodes to the fast device, and then throw out our history (the BootCache doesn't cache anything on SSDs), so we don't need to keep track of where the files end up
+				
+				struct BC_userspace_fusion_optimizations userspace_fusion_optimizations_volume = BC_optimize_history_mount_fusion(hc, hm_index, mount_name, historyInodes, historyInodesCount);
+				
+				userspace_fusion_optimizations.ssup_inodes_requested += userspace_fusion_optimizations_volume.ssup_inodes_requested;
+				userspace_fusion_optimizations.ssup_inodes_optimized += userspace_fusion_optimizations_volume.ssup_inodes_optimized;
+				userspace_fusion_optimizations.ssup_bytes_requested += userspace_fusion_optimizations_volume.ssup_bytes_requested;
+				userspace_fusion_optimizations.ssup_bytes_optimized += userspace_fusion_optimizations_volume.ssup_bytes_optimized;
+				userspace_fusion_optimizations.ssup_reads_optimized += userspace_fusion_optimizations_volume.ssup_reads_optimized;
+
+				for (int i = 0; i < historyInodesCount; i++) {
+					if (historyInodes[i].entryIndexes) {
+						free(historyInodes[i].entryIndexes);
+					}
+				}
+				free(historyInodes);
+				
+			} else {
+				// For HDD machines, for all APFS containers, we need to do optimizations in three parts:
+				// 1. For all volumes in the container, translate our inode + disk offset/length playlist to inode + file offset/length
+				// 2. For all volumes in the container, make the apfs fsctl call to pass all the inodes to apfs to optimze (the last volume's fsctl will trigger the optimizations)
+				// 3. For all volumes in the container, translate back our inode + file offset/length into disk offset/length for the new locations of the files
+				// We can't just go through all the steps as we iterate over the volumes, because the optimization step can only be called once per container.
+				struct bc_mount_optimization_info* mount_optimization_info = BC_mount_copy_file_relative_history(hc, hm_index, mount_name, historyInodes, historyInodesCount);
+				if (mount_optimization_info) {
+					optimization_info->num_mount_optimization_infos++;
+					optimization_info->mount_optimization_infos = realloc(optimization_info->mount_optimization_infos, sizeof(*optimization_info->mount_optimization_infos) * optimization_info->num_mount_optimization_infos);
+					optimization_info->mount_optimization_infos[optimization_info->num_mount_optimization_infos - 1] = mount_optimization_info;
+				} else {
+					for (int i = 0; i < historyInodesCount; i++) {
+						if (historyInodes[i].entryIndexes) {
+							free(historyInodes[i].entryIndexes);
+						}
+					}
+					free(historyInodes);
 				}
 			}
-			if (containerIndex < numContainersOptimized) {
-				DLOG("Not optimizing BootCache recording for %s with %d entries: not the first volume in the container", uuid_string(hm->hm_uuid), hm->hm_nentries);
-				continue;
-			}
-		}
-
-		const struct statfs *mountbuf = apfs_mount_for_uuid(hm->hm_uuid);
-		if (!mountbuf) {
-			clear_apfs_mount_cache();
-			mountbuf = apfs_mount_for_uuid(hm->hm_uuid);
-			if (!mountbuf) {
-				DLOG("Unable to optimize BootCache for %s: no mount found", uuid_string(hm->hm_uuid));
-				continue;
-			}
-		}
-		const char *mount_name = mountbuf->f_mntonname;
-
-		uint historyInodesCount = 0;
-		uint historyInodesCapacity = MIN(hm->hm_nentries, 4096);
-		struct BC_history_inode* historyInodes = calloc(historyInodesCapacity, sizeof(*historyInodes));
-		if (!historyInodes) {
-			LOG("Unable to optimize BootCache: unable to allocate buffer for %d inodes", historyInodesCapacity);
-			free(containersOptimized);
-			return;
+			
+			free(mount_name);
 		}
 		
-		// Keep the same ordering of inodes as the chronological order of I/O,
-		// so we prefer to promote the files read earlier in boot in the case we run out of space or get interrupted
-		// We need separate by mount, but the first mount is always the root one, and that's the one we want to prioritize, so... good enough.
-
-		{ // for local variable scoping
-			for (uint he_index = 0; he_index < hc->h_nentries; he_index++) {
-				struct BC_history_entry *he = hc->h_entries + he_index;
-				if (he->he_mount_idx == hm_index && he->he_length != 0 && he->he_inode != 0 && !(he->he_flags & BC_HE_WRITE) && !(he->he_flags & BC_HE_SHARED)) {
+		// Done doing block -> inode/offset translation (and optimizing fusion)
+		
+		BC_set_userspace_fusion_optimization_stats(&userspace_fusion_optimizations);
+	}
+	
+	
+	// Now that we have the playlist in inode/offset form for all teh HDD volumes, optimize them
+	if (optimization_info->mount_optimization_infos) {
+		if (fusion_only) {
+			optimizationPaused = true;
+		} else {
+			
+			bool anyOptimizationAttempted = false;
+			
+			// Sort by container, so we do one container at a time
+			qsort_b(optimization_info->mount_optimization_infos, optimization_info->num_mount_optimization_infos, sizeof(*optimization_info->mount_optimization_infos), ^int(const void * m1, const void * m2) {
+				const struct bc_mount_optimization_info * const * mount_optimization_info1 = m1;
+				const struct bc_mount_optimization_info * const * mount_optimization_info2 = m2;
+				return uuid_compare((*mount_optimization_info1)->hc->h_mounts[(*mount_optimization_info1)->hm_index].hm_group_uuid, (*mount_optimization_info2)->hc->h_mounts[(*mount_optimization_info2)->hm_index].hm_group_uuid);
+			});
+			
+			int container_start_index = 0;
+			while (!optimizationPaused && container_start_index < optimization_info->num_mount_optimization_infos) { 		// Loop over all the containers (iterator at the end of the while loop jumps to the first volume outside this container)
+				
+				uuid_t* container_uuid = &(optimization_info->mount_optimization_infos[container_start_index]->hc->h_mounts[optimization_info->mount_optimization_infos[container_start_index]->hm_index].hm_group_uuid);
+				
+				int container_end_index = optimization_info->num_mount_optimization_infos - 1;
+				for (int mount_optimization_info_index = container_start_index + 1; mount_optimization_info_index < optimization_info->num_mount_optimization_infos; mount_optimization_info_index++) {
+					if (0 != uuid_compare(*container_uuid, optimization_info->mount_optimization_infos[mount_optimization_info_index]->hc->h_mounts[optimization_info->mount_optimization_infos[mount_optimization_info_index]->hm_index].hm_group_uuid)) {
+						container_end_index = mount_optimization_info_index - 1;
+						break;
+					}
+				}
+				
+				struct BC_userspace_hdd_optimizations userspace_hdd_optimizations_container;
+				bool alreadyCompletedOptimizationsForThisContainer = optimization_info->mount_optimization_infos[container_start_index]->completed;
+				
+				if (alreadyCompletedOptimizationsForThisContainer) {
+					// Already completed optimizations, just grab the saved statistics
+#if DEBUG
+					uuid_t* uuid = &(optimization_info->mount_optimization_infos[container_start_index]->hc->h_mounts[optimization_info->mount_optimization_infos[container_start_index]->hm_index].hm_uuid);
 					
-					// De-dup inodes since we may get multiple entires for the same file
-					uint i = 0;
-					for (i = 0; i < historyInodesCount; i++) {
-						if (historyInodes[i].inode == he->he_inode) {
+					DLOG("Already optimized container %s (for volume %s)", uuid_string(*container_uuid), uuid_string(*uuid));
+#endif
+					
+					userspace_hdd_optimizations_container = _BC_get_hdd_container_stats(optimization_info, container_start_index, container_end_index, NULL, NULL);
+					
+				} else {
+					// Haven't completed optimizations (either haven't started at all, or started and were interrupted by BC_pause_optimizations())
+					uuid_t* uuid = &(optimization_info->mount_optimization_infos[container_start_index]->hc->h_mounts[optimization_info->mount_optimization_infos[container_start_index]->hm_index].hm_uuid);
+					
+					DLOG("Optimizing container %s (for volume %s)", uuid_string(*container_uuid), uuid_string(*uuid));
+					_BC_update_current_container_being_optimized(*uuid);
+					
+					int numInodesRequested_container = 0;
+					bool containerOptimizationAttempted = false;
+					for (int mount_optimization_info_index = container_start_index; mount_optimization_info_index <= container_end_index; mount_optimization_info_index++) {
+						bool isLastVolumeInContainer = (mount_optimization_info_index == container_end_index);
+						
+						if (isLastVolumeInContainer) {
+							// The real optimization work only occurs for the last volume in the container.
+							// Before that we're just building up a queue of inodes, which we don't want to consider "optimization" because we rely on knowing the optimization range after the first optimixation attempt when printing statistics
+							
+							containerOptimizationAttempted = true;
+							if (!anyOptimizationAttempted) { // Treat optimizing multiple containers as a single optimization attempt
+								anyOptimizationAttempted = true;
+								optimization_info->userspace_hdd_optimization_state.ssup_num_optimizations_attempted++;
+								
+								optimization_info->userspace_hdd_optimization_state.ssup_optimization_state = BC_HDD_OPTIMIZATION_STATE_IN_PROGRESS;
+								BC_set_userspace_hdd_optimization_state(&optimization_info->userspace_hdd_optimization_state);
+							}
+							
+							LOG("Optimizing APFS container %s for boot performance", uuid_string(*container_uuid));
+						}
+						
+						int err = BC_optimize_inodes_hdd(optimization_info->mount_optimization_infos[mount_optimization_info_index], isLastVolumeInContainer);
+						
+						if (err == ECANCELED) {
+							optimizationPaused = true;
+						}
+						
+						numInodesRequested_container += optimization_info->mount_optimization_infos[mount_optimization_info_index]->numInodesRequested;
+						
+						if (isLastVolumeInContainer) {
+							
+							// Fill in the optimization range for all the other volumes in this container
+							for (int temp_index = container_start_index; temp_index < mount_optimization_info_index; temp_index++) {
+								optimization_info->mount_optimization_infos[temp_index]->optimizedRangeStart = optimization_info->mount_optimization_infos[mount_optimization_info_index]->optimizedRangeStart;
+								optimization_info->mount_optimization_infos[temp_index]->optimizedRangeLength = optimization_info->mount_optimization_infos[mount_optimization_info_index]->optimizedRangeLength;
+							}
+						}
+						
+						if (optimizationPaused) {
 							break;
 						}
 					}
 					
-					if (i >= historyInodesCount) {
-						ASSERT(i == historyInodesCount);
-						// New inode
-						
-						if (historyInodesCount >= historyInodesCapacity) {
-							// Exceeding malloc'ed buffer size: grow buffer
-							historyInodesCapacity *= 2;
-							historyInodes = reallocf(historyInodes, historyInodesCapacity * sizeof(*historyInodes));
-							if (!historyInodes) {
-								LOG("Unable to optimize BootCache: unable to allocate buffer for %d inodes", historyInodesCapacity);
-								free(containersOptimized);
-								return;
-							}
-						}
-						
-						historyInodesCount++;
-						historyInodes[i].inode = he->he_inode;
-						historyInodes[i].entryIndexes = NULL;
-						historyInodes[i].numEntries = 0;
+					if (!containerOptimizationAttempted) {
+						// We paused before getting to the last volume in a container, so didn't do any work and can short-circuit here
+						DLOG("Paused before optimization in container %s could start", uuid_string(*container_uuid));
+						ASSERT(optimizationPaused);
+						break;
 					}
 					
-					historyInodes[i].numEntries++;
-					historyInodes[i].entryIndexes = reallocf(historyInodes[i].entryIndexes, historyInodes[i].numEntries * sizeof(*historyInodes[i].entryIndexes));
-					ASSERT(historyInodes[i].entryIndexes);
-					historyInodes[i].entryIndexes[historyInodes[i].numEntries - 1] = he_index;
+					if (optimizationPaused) {
+						LOG("BootCache optimization paused");
+					}
+					
+					DLOG("Optimized %d inodes in container %s to %#llx-%#llx (%llu length), checking where they ended up on disk...", numInodesRequested_container, uuid_string(*container_uuid), optimization_info->mount_optimization_infos[container_start_index]->optimizedRangeStart, optimization_info->mount_optimization_infos[container_start_index]->optimizedRangeStart + optimization_info->mount_optimization_infos[container_start_index]->optimizedRangeLength, optimization_info->mount_optimization_infos[container_start_index]->optimizedRangeLength);
+					
+					for (int mount_optimization_info_index = container_start_index; mount_optimization_info_index <= container_end_index; mount_optimization_info_index++) {
+						ASSERT(! optimization_info->mount_optimization_infos[mount_optimization_info_index]->completed);
+						BC_mount_fixup_history_after_optimizations(optimization_info->mount_optimization_infos[mount_optimization_info_index], resumedAfterPaused);
+						if (!optimizationPaused) {
+							optimization_info->mount_optimization_infos[mount_optimization_info_index]->completed = true;
+						}
+					}
+					
+					uint64_t lowestOptimizedByteAddress_container = UINT64_MAX;
+					uint64_t highestOptimizedByteAddress_container = 0;
+					userspace_hdd_optimizations_container = _BC_get_hdd_container_stats(optimization_info, container_start_index, container_end_index, &lowestOptimizedByteAddress_container, &highestOptimizedByteAddress_container);
+					
+					LOG("%llu reads, %llu inodes, %llu bytes optimized in container %s for boot into %#llx-%#llx (%llu bytes) (%.1f%% efficient) (%.0f%% out of %llu inodes read, %.0f%% out of %llu bytes read, %llu bytes (%.0f%%) surplus, %llu bytes (%.0f%%) nonoptimized), this boot had %llu reads, %llu inodes, %llu bytes, previously optimized",
+						userspace_hdd_optimizations_container.ssup_reads_optimized,
+						userspace_hdd_optimizations_container.ssup_inodes_optimized,
+						userspace_hdd_optimizations_container.ssup_bytes_optimized,
+						uuid_string(*container_uuid),
+						lowestOptimizedByteAddress_container,
+						highestOptimizedByteAddress_container,
+						userspace_hdd_optimizations_container.ssup_optimization_range_length,
+						(userspace_hdd_optimizations_container.ssup_optimization_range_length != 0) ? ((double)userspace_hdd_optimizations_container.ssup_bytes_optimized / (double)userspace_hdd_optimizations_container.ssup_optimization_range_length * 100.0) : 0,
+						userspace_hdd_optimizations_container.ssup_inodes_requested != 0 ? ((double)userspace_hdd_optimizations_container.ssup_inodes_optimized / (double)userspace_hdd_optimizations_container.ssup_inodes_requested * 100.0) : 0,
+						userspace_hdd_optimizations_container.ssup_inodes_requested,
+						userspace_hdd_optimizations_container.ssup_bytes_requested != 0 ? ((double)userspace_hdd_optimizations_container.ssup_bytes_optimized / (double)userspace_hdd_optimizations_container.ssup_bytes_requested * 100.0) : 0,
+						userspace_hdd_optimizations_container.ssup_bytes_requested,
+						userspace_hdd_optimizations_container.ssup_bytes_surplus,
+						userspace_hdd_optimizations_container.ssup_bytes_requested > 0 ? ((double)userspace_hdd_optimizations_container.ssup_bytes_surplus / (double)userspace_hdd_optimizations_container.ssup_bytes_requested * 100.0) : 0,
+						userspace_hdd_optimizations_container.ssup_bytes_nonoptimized,
+						userspace_hdd_optimizations_container.ssup_bytes_requested > 0 ? ((double)userspace_hdd_optimizations_container.ssup_bytes_nonoptimized / (double)userspace_hdd_optimizations_container.ssup_bytes_requested * 100.0) : 0,
+						userspace_hdd_optimizations_container.ssup_reads_already_optimized,
+						userspace_hdd_optimizations_container.ssup_inodes_already_optimized,
+						userspace_hdd_optimizations_container.ssup_bytes_already_optimized);
+					
 				}
+				
+				// Sum up the stats across all the containers we optimized (including containers we already optimized)
+				userspace_hdd_optimizations.ssup_reads_optimized += userspace_hdd_optimizations_container.ssup_reads_optimized;
+				userspace_hdd_optimizations.ssup_reads_already_optimized += userspace_hdd_optimizations_container.ssup_reads_already_optimized;
+				userspace_hdd_optimizations.ssup_inodes_requested += userspace_hdd_optimizations_container.ssup_inodes_requested;
+				userspace_hdd_optimizations.ssup_inodes_optimized += userspace_hdd_optimizations_container.ssup_inodes_optimized;
+				userspace_hdd_optimizations.ssup_inodes_already_optimized += userspace_hdd_optimizations_container.ssup_inodes_already_optimized;
+				userspace_hdd_optimizations.ssup_bytes_requested += userspace_hdd_optimizations_container.ssup_bytes_requested;
+				userspace_hdd_optimizations.ssup_bytes_optimized += userspace_hdd_optimizations_container.ssup_bytes_optimized;
+				userspace_hdd_optimizations.ssup_bytes_surplus += userspace_hdd_optimizations_container.ssup_bytes_surplus;
+				userspace_hdd_optimizations.ssup_bytes_nonoptimized += userspace_hdd_optimizations_container.ssup_bytes_nonoptimized;
+				userspace_hdd_optimizations.ssup_bytes_already_optimized += userspace_hdd_optimizations_container.ssup_bytes_already_optimized;
+				userspace_hdd_optimizations.ssup_optimization_range_length += userspace_hdd_optimizations_container.ssup_optimization_range_length;
+				
+				container_start_index = container_end_index + 1;
 			}
 			
-			DLOG_OFT("%s: %d inodes for %d entries", uuid_string(hm->hm_uuid), historyInodesCount, hm->hm_nentries);
-			for (int i = 0; i < historyInodesCount; i++) {
-				DLOG_OFT(" inode %llu: %d entries", historyInodes[i].inode, historyInodes[i].numEntries);
-				for (int j = 0; j < historyInodes[i].numEntries; j++) {
-					DLOG_OFT("  entry %d: inode %llu %#-12llx %#-8llx %#-12llx %5u%s%s",
-						 historyInodes[i].entryIndexes[j],
-						 hc->h_entries[historyInodes[i].entryIndexes[j]].he_inode,
-						 hc->h_entries[historyInodes[i].entryIndexes[j]].he_offset, hc->h_entries[historyInodes[i].entryIndexes[j]].he_length,
-						 hc->h_entries[historyInodes[i].entryIndexes[j]].he_crypto_offset,
-						 hc->h_entries[historyInodes[i].entryIndexes[j]].he_pid,
-						 hc->h_entries[historyInodes[i].entryIndexes[j]].he_flags & BC_HE_OPTIMIZED ? " optimized" :
-						 hc->h_entries[historyInodes[i].entryIndexes[j]].he_flags & BC_HE_HIT	 ? " hit"	 :
-						 hc->h_entries[historyInodes[i].entryIndexes[j]].he_flags & BC_HE_WRITE  ? " write"  :
-						 hc->h_entries[historyInodes[i].entryIndexes[j]].he_flags & BC_HE_TAG	 ? " tag"	 : " miss",
-						 hc->h_entries[historyInodes[i].entryIndexes[j]].he_flags & BC_HE_SHARED ? " shared" : "");
-				}
-			}
+			// Done optimizing
+			
+			uuid_t null_uuid;
+			uuid_clear(null_uuid);
+			_BC_update_current_container_being_optimized(null_uuid);
 		}
-		
-		uuid_copy(containersOptimized[numContainersOptimized], hm->hm_group_uuid);
-		numContainersOptimized++;
-
-		struct BC_userspace_optimizations userspace_optimizations_mount;
-		if (hm->hm_fs_flags & BC_FS_APFS_FUSION) {
-			userspace_optimizations_mount = BC_optimize_history_mount_fusion(hc, hm_index, mount_name, historyInodes, historyInodesCount);
-		} else {
-			userspace_optimizations_mount = BC_optimize_history_mount_hdd(hc, hm_index, mount_name, historyInodes, historyInodesCount);
-		}
-		
-		userspace_optimizations.ssup_num_inodes_optimized += userspace_optimizations_mount.ssup_num_inodes_optimized;
-		userspace_optimizations.ssup_bytes_optimized += userspace_optimizations_mount.ssup_bytes_optimized;
-		userspace_optimizations.ssup_hdd_num_reads_already_optimized += userspace_optimizations_mount.ssup_hdd_num_reads_already_optimized;
-		userspace_optimizations.ssup_hdd_bytes_already_optimized += userspace_optimizations_mount.ssup_hdd_bytes_already_optimized;
-		userspace_optimizations.ssup_hdd_optimization_range_length += userspace_optimizations_mount.ssup_hdd_optimization_range_length;
-		
-		BC_add_userspace_optimizations(&userspace_optimizations);
-
-		for (int i = 0; i < historyInodesCount; i++) {
-			if (historyInodes[i].entryIndexes) {
-				free(historyInodes[i].entryIndexes);
-			}
-		}
-		free(historyInodes);
+	} else {
+		// No HDD volumes to optimize
 	}
 	
-	free(containersOptimized);
+	BC_set_userspace_hdd_optimization_stats(&userspace_hdd_optimizations);
+	
+	optimization_info->userspace_hdd_optimization_state.ssup_optimization_state = (optimizationPaused && optimization_info_inout) ? BC_HDD_OPTIMIZATION_STATE_PAUSED : BC_HDD_OPTIMIZATION_STATE_COMPLETE;
+	BC_set_userspace_hdd_optimization_state(&optimization_info->userspace_hdd_optimization_state);
+
+	if (optimizationPaused) {
+		if (optimization_info_inout) {
+			*optimization_info_inout = optimization_info;
+		} else {
+			LOG("BootCache optimization paused, but caller won't be able to resume");
+			BC_free_optimization_info(optimization_info);
+			optimization_info = NULL;
+		}
+		return ECANCELED;
+	} else {
+		if (optimization_info_inout) {
+			*optimization_info_inout = NULL;
+		}
+		BC_free_optimization_info(optimization_info);
+		optimization_info = NULL;
+		return 0;
+	}
 }
 
 /*
@@ -3153,13 +3998,16 @@ _BC_start(const struct BC_playlist *pc, bool record)
 	
 	int ret = sysctlbyname(BC_SYSCTL, NULL, NULL, &bc, sizeof(bc));
 	
-	if (ret) {
+	if (ret != 0 && errno != EALREADY) {
 		ret = errno;
 		LOG_ERRNO("Unable to enable BootCache");
 		return ret;
 	}
 	
-	if (record) {
+	if (record && ret != EALREADY) {
+		// We started recording (and weren't already recording), start omap recording
+		// (If we were already recording, this call resets the batches the omaps are tagged with to batch 0,
+		// and we wouldn't be able to playback any new mounts that this call finds anyway)
 		ret = BC_start_omap_recording_for_all_mounts();
 	}
 	
@@ -3323,8 +4171,6 @@ BC_start_omap_recording_for_mount(const char *mount)
 	return ret;
 }
 
-#if 0
-// Needs <rdar://problem/33557142> Use OID metadata cache for non-root mounts
 static void
 BC_start_omap_recording_for_mount_cache_entry(const void *key __unused, const void * __nonnull value, void * __nonnull context)
 {
@@ -3340,28 +4186,20 @@ BC_start_omap_recording_for_mount_cache_entry(const void *key __unused, const vo
 		*perror = error;
 	}
 }
-#endif
 
 static int
 BC_start_omap_recording_for_all_mounts(void)
 {
-	
-#if 0
-	// Needs <rdar://problem/33557142> Use OID metadata cache for non-root mounts
-
 	// Clear cache so we get whatever is current
 	clear_apfs_mount_cache();
-	CFDictionaryRef cache = get_apfs_mount_cache();
+	CFDictionaryRef cache = copy_apfs_mount_cache();
 	
 	int error = 0;
 	
 	CFDictionaryApplyFunction(cache, BC_start_omap_recording_for_mount_cache_entry, &error);
 	
+	CFRelease(cache);
 	return error;
-#else
-	return BC_start_omap_recording_for_mount("/");
-#endif
-	
 }
 
 
@@ -3388,12 +4226,10 @@ BC_tag_omap_recording_for_mount(const char *mount, uint8_t batchNum)
 	return ret;
 }
 
-#if 0
-// Needs <rdar://problem/33557142> Use OID metadata cache for non-root mounts
 struct BC_tag_omap_recording_for_mount_cache_entry_args {
 	uint8_t batchNum;
 	int error;
-}
+};
 
 static void
 BC_tag_omap_recording_for_mount_cache_entry(const void *key __unused, const void * __nonnull value, void * __nonnull context)
@@ -3410,32 +4246,25 @@ BC_tag_omap_recording_for_mount_cache_entry(const void *key __unused, const void
 		*perror = error;
 	}
 }
-#endif
 
 
 static int
 BC_tag_omap_recording_for_all_mounts(uint8_t batchNum)
 {
 	
-#if 0
-	// Needs <rdar://problem/33557142> Use OID metadata cache for non-root mounts
-	
 	// Clear cache so we get whatever is current
 	clear_apfs_mount_cache();
-	CFDictionaryRef cache = get_apfs_mount_cache();
+	CFDictionaryRef cache = copy_apfs_mount_cache();
 	
-	struct BC_tag_omap_recording_for_mount_cache_entry_args = {
+	struct BC_tag_omap_recording_for_mount_cache_entry_args args = {
 		.batchNum = batchNum,
 		.error = 0,
-	} args;
+	};
 	
 	CFDictionaryApplyFunction(cache, BC_tag_omap_recording_for_mount_cache_entry, &args);
 	
-	return error;
-#else
-	return BC_tag_omap_recording_for_mount("/", batchNum);
-#endif
-	
+	CFRelease(cache);
+	return args.error;
 }
 
 
@@ -3458,8 +4287,6 @@ BC_stop_omap_recording_for_mount(const char *mount)
 	return ret;
 }
 
-#if 0
-// Needs <rdar://problem/33557142> Use OID metadata cache for non-root mounts
 static void
 BC_stop_omap_recording_for_mount_cache_entry(const void *key __unused, const void * __nonnull value, void * __nonnull context)
 {
@@ -3475,26 +4302,20 @@ BC_stop_omap_recording_for_mount_cache_entry(const void *key __unused, const voi
 		*perror = error;
 	}
 }
-#endif
 
 static int
 BC_stop_omap_recording_for_all_mounts(void)
 {
-#if 0
-	// Needs <rdar://problem/33557142> Use OID metadata cache for non-root mounts
-	
 	// Clear cache so we get whatever is current (in case some other process started recording while we were running on a mount that appeeared since we last checked)
 	clear_apfs_mount_cache();
-	CFDictionaryRef cache = get_apfs_mount_cache();
+	CFDictionaryRef cache = copy_apfs_mount_cache();
 	
 	int error = 0;
 	
 	CFDictionaryApplyFunction(cache, BC_stop_omap_recording_for_mount_cache_entry, &error);
 	
+	CFRelease(cache);
 	return error;
-#else
-	return BC_stop_omap_recording_for_mount("/");
-#endif
 }
 
 static int
@@ -3534,21 +4355,23 @@ BC_fetch_omaps_for_mount(const char *mount, struct BC_omap_history_mount *ohm)
 
 		// DLOG("Received %d records from fsctl... %d remaining", otr.otr_record_count, otr.otr_records_remaining);
 
-		/* Expand array to accomodate the new otr records */
-		ohm->ohm_omaps = reallocf(ohm->ohm_omaps, (ohm->ohm_nomaps + otr.otr_record_count) * sizeof(*ohm->ohm_omaps));
-		if (ohm->ohm_omaps == NULL) {
-			ret = errno;
-			LOG("Unable to realloc more apfs_omap_record_ts");
-			goto out;
+		if (otr.otr_record_count > 0) {
+			/* Expand array to accomodate the new otr records */
+			ohm->ohm_omaps = reallocf(ohm->ohm_omaps, (ohm->ohm_nomaps + otr.otr_record_count) * sizeof(*ohm->ohm_omaps));
+			if (ohm->ohm_omaps == NULL) {
+				ret = errno;
+				LOG("Unable to realloc more apfs_omap_record_ts");
+				goto out;
+			}
+			
+			// TODO: why not memmove the entire thing?
+			for (int i = 0; i < otr.otr_record_count; i++) {
+				// DLOG("omap = (%#llx, %#llx) batch %d", otr.otr_records[i].otr_oid, otr.otr_records[i].otr_oxid), otr.otr_records[i].otr_batch;
+				ohm->ohm_omaps[i + ohm->ohm_nomaps] = ((apfs_omap_track_record_v2_t*)otr.otr_records)[i];
+			}
+			
+			ohm->ohm_nomaps += otr.otr_record_count;
 		}
-
-		// TODO: why not memcpy the entire thing?
-		for (int i = 0; i < otr.otr_record_count; i++) {
-			// DLOG("omap = (%#llx, %#llx) batch %d", otr.otr_records[i].otr_oid, otr.otr_records[i].otr_oxid), otr.otr_records[i].otr_batch;
-			ohm->ohm_omaps[i + ohm->ohm_nomaps] = ((apfs_omap_track_record_v2_t*)otr.otr_records)[i];
-		}
-
-		ohm->ohm_nomaps += otr.otr_record_count;
 
 	} while (otr.otr_records_remaining > 0);
 
@@ -3572,8 +4395,6 @@ out:
 	return ret;
 }
 
-#if 0
-// Needs <rdar://problem/33557142> Use OID metadata cache for non-root mounts
 typedef struct {
 	int error;
 	struct BC_omap_history* oh;
@@ -3613,7 +4434,6 @@ BC_fetch_omaps_for_mount_cache_entry(const void *key, const void * __nonnull val
 		*perror = error;
 	}
 }
-#endif
 
 static int
 BC_fetch_omaps_for_all_mounts(struct BC_omap_history** poh)
@@ -3622,12 +4442,9 @@ BC_fetch_omaps_for_all_mounts(struct BC_omap_history** poh)
 		*poh = NULL;
 	}
 
-#if 0
-	// Needs <rdar://problem/33557142> Use OID metadata cache for non-root mounts
-
 	// Clear cache so we get whatever is current (in case some other process started recording while we were running on a mount that appeeared since we last checked)
 	clear_apfs_mount_cache();
-	CFDictionaryRef cache = get_apfs_mount_cache();
+	CFDictionaryRef cache = copy_apfs_mount_cache();
 
 	BC_fetch_omaps_for_mount_cache_entry_args args = {
 		.error = 0,
@@ -3636,10 +4453,12 @@ BC_fetch_omaps_for_all_mounts(struct BC_omap_history** poh)
 	
 	if (args.oh == NULL) {
 		LOG_ERRNO("Failed to allocate BC_omap_history");
+		CFRelease(cache);
 		return errno ?: ENOMEM;
 	}
 	
 	CFDictionaryApplyFunction(cache, BC_fetch_omaps_for_mount_cache_entry, &args);
+	CFRelease(cache);
 	
 	if (poh) {
 		*poh = args.oh;
@@ -3649,37 +4468,6 @@ BC_fetch_omaps_for_all_mounts(struct BC_omap_history** poh)
 	
 	return args.error;
 
-#else
-	struct BC_omap_history* oh = calloc(1, sizeof(*oh));
-	oh->oh_nmounts = 1;
-	oh->oh_mounts = calloc(1, sizeof(*oh->oh_mounts));
-	if (oh->oh_mounts == NULL) {
-		OH_FREE_ZERO(oh);
-		LOG("Unable to alloc oh_mount");
-		return errno ?: ENOMEM;
-	}
-	
-	struct BC_omap_history_mount* ohm = &oh->oh_mounts[0];
-	
-	get_volume_uuid("/", ohm->ohm_uuid);
-	if (uuid_is_null(ohm->ohm_uuid)) {
-		LOG_ERRNO("Failed to find UUID for root mount");
-		OH_FREE_ZERO(oh);
-		return errno;
-	}
-	ohm->ohm_nomaps = 0;
-	ohm->ohm_omaps = NULL;
-	
-	int error = BC_fetch_omaps_for_mount("/", ohm);
-	
-	if (error == 0 && poh) {
-		*poh = oh;
-	} else {
-		OH_FREE_ZERO(oh);
-	}
-	
-	return error;
-#endif
 }
 
 
@@ -3812,8 +4600,10 @@ static int apfs_flags_for_volume(const char* bsddisk, uint* fs_flags_out, uuid_t
 
 static struct statfs* g_mountbufs;
 static CFMutableDictionaryRef g_apfs_mount_cache; // CFUUIDRef -> struct statfs* for APFS mounts
+static os_unfair_lock g_apfs_mount_cache_lock = OS_UNFAIR_LOCK_INIT;
 
-static void clear_apfs_mount_cache(void) {
+static void _clear_apfs_mount_cache_locked(void) {
+
 	if (g_mountbufs) {
 		free(g_mountbufs);
 		g_mountbufs = NULL;
@@ -3824,47 +4614,91 @@ static void clear_apfs_mount_cache(void) {
 	}
 }
 
-static CFDictionaryRef get_apfs_mount_cache(void) {
+static void clear_apfs_mount_cache(void) {
+	os_unfair_lock_lock(&g_apfs_mount_cache_lock);
 	
+	_clear_apfs_mount_cache_locked();
+	
+	os_unfair_lock_unlock(&g_apfs_mount_cache_lock);
+}
+
+static CFDictionaryRef copy_apfs_mount_cache(void) {
+	os_unfair_lock_lock(&g_apfs_mount_cache_lock);
+
 	if (g_mountbufs == NULL || g_apfs_mount_cache == NULL) {
-		clear_apfs_mount_cache(); // Make sure everything's released
+		_clear_apfs_mount_cache_locked(); // Make sure everything's released
 		
 		// Populate the cache
 		int num_mountbufs = getmntinfo_r_np(&g_mountbufs, MNT_NOWAIT);
 		
 		g_apfs_mount_cache = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, NULL);
 		
+		DLOG("%d mounts:", num_mountbufs);
 		for (int i = 0; i < num_mountbufs; i++) {
 			
 			if (0 == strncmp(g_mountbufs[i].f_fstypename, "apfs", sizeof("apfs")+1)) {
 				uuid_t mount_uuid;
 				get_volume_uuid(g_mountbufs[i].f_mntonname, mount_uuid);
 				if (!uuid_is_null(mount_uuid)) {
-					// DLOG("%s, %s, %s: %s", g_mountbufs[i].f_mntonname, g_mountbufs[i].f_mntfromname, g_mountbufs[i].f_fstypename, uuid_string(mount_uuid));
+					DLOG("%s, %s, %s: %s", g_mountbufs[i].f_mntonname, g_mountbufs[i].f_mntfromname, g_mountbufs[i].f_fstypename, uuid_string(mount_uuid));
 					CFUUIDRef uuid_cf = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, *(CFUUIDBytes*)mount_uuid);
 					CFDictionaryAddValue(g_apfs_mount_cache, uuid_cf, g_mountbufs + i);
 					CFRelease(uuid_cf);
 				} else {
 					DLOG("%s, %s, %s: no UUID", g_mountbufs[i].f_mntonname, g_mountbufs[i].f_mntfromname, g_mountbufs[i].f_fstypename);
 				}
+			} else {
+				DLOG("%s, %s, %s: not apfs", g_mountbufs[i].f_mntonname, g_mountbufs[i].f_mntfromname, g_mountbufs[i].f_fstypename);
 			}
 		}
 	}
 	
-	return g_apfs_mount_cache;
+	if (g_apfs_mount_cache) {
+		CFRetain(g_apfs_mount_cache);
+	}
+
+	CFDictionaryRef ret = g_apfs_mount_cache;
+
+	os_unfair_lock_unlock(&g_apfs_mount_cache_lock);
+
+	return ret;
 }
 
-static const struct statfs* apfs_mount_for_uuid(const uuid_t uuid) {
-
-	CFDictionaryRef cache = get_apfs_mount_cache();
+static int apfs_mount_for_uuid(const uuid_t uuid, char** mountname_out, char** bsddisk_out) {
+	int err = 0;
 	
+	if (mountname_out) *mountname_out = NULL;
+	if (bsddisk_out)   *bsddisk_out = NULL;
+
 	CFUUIDRef uuid_cf = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, *(CFUUIDBytes*)uuid);
 
+	CFDictionaryRef cache = copy_apfs_mount_cache();
 	const struct statfs* buf = (const struct statfs*)CFDictionaryGetValue(cache, uuid_cf);
+	if (!buf) {
+		// Didn't have the mount in our cache, clear the caache and try again
+		CFRelease(cache);
+		clear_apfs_mount_cache();
+		cache = copy_apfs_mount_cache();
+		buf = (const struct statfs*)CFDictionaryGetValue(cache, uuid_cf);
+	}
 	
+	if (buf) {
+		if (mountname_out) {
+			*mountname_out = strdup(buf->f_mntonname);
+		}
+		if (bsddisk_out) {
+			*bsddisk_out = strdup(buf->f_mntfromname);
+		}
+		err = 0;
+	} else {
+		err = ENOENT;
+	}
+	
+	CFRelease(cache);
 	CFRelease(uuid_cf);
-	
-	return buf;
+
+	errno = err;
+	return err ? 1 : 0;
 }
 
 
@@ -4010,7 +4844,7 @@ BC_playlist_for_file_extents(int fd, uint nextents, const struct bc_file_extent*
 		goto out;
 	}
 	
-	BC_sort_and_coalesce_playlist(pc);
+	BC_sort_and_coalesce_playlist_internal(pc);
 	
 	if ((error = BC_verify_playlist(pc)) != 0) {
 		goto out;
@@ -4124,10 +4958,12 @@ int
 BC_playlists_intersect(const struct BC_playlist* pa, const struct BC_playlist* pb)
 {
 	for (int a_mount_idx = 0; a_mount_idx < pa->p_nmounts; a_mount_idx++) {
+		struct BC_playlist_mount* pma = pa->p_mounts + a_mount_idx;
+
 		// Find matching mount in pb
 		int b_mount_idx;
 		for (b_mount_idx = 0; b_mount_idx < pb->p_nmounts; b_mount_idx++) {
-			if (0 == uuid_compare(pa->p_mounts[a_mount_idx].pm_uuid, pb->p_mounts[b_mount_idx].pm_uuid)) {
+			if (0 == uuid_compare(pma->pm_uuid, pb->p_mounts[b_mount_idx].pm_uuid)) {
 				break;
 			}
 		}
@@ -4135,6 +4971,10 @@ BC_playlists_intersect(const struct BC_playlist* pa, const struct BC_playlist* p
 			// Didn't find a matching mount, skip to the next a_mount_idx
 			continue;
 		}
+		
+		struct BC_playlist_mount* pmb = pb->p_mounts + b_mount_idx;
+
+		ASSERT(0 == uuid_compare(pma->pm_group_uuid, pmb->pm_group_uuid));
 		
 		// a_mount_idx is the same mount as b_mount_idx
 		
@@ -4145,8 +4985,8 @@ BC_playlists_intersect(const struct BC_playlist* pa, const struct BC_playlist* p
 				break;
 			}
 		}
-		if (a_idx == pa->p_nentries) {
-			DLOG("No entries in pa for mount %d %s", a_mount_idx, uuid_string(pa->p_mounts[a_mount_idx].pm_uuid));
+		if (a_idx >= pa->p_nentries) {
+			DLOG("No entries in pa for mount %d %s", a_mount_idx, uuid_string(pma->pm_uuid));
 			continue;
 		}
 		
@@ -4156,45 +4996,52 @@ BC_playlists_intersect(const struct BC_playlist* pa, const struct BC_playlist* p
 				break;
 			}
 		}
-		if (b_idx == pb->p_nentries) {
-			DLOG("No entries in pb for mount %d %s", b_mount_idx, uuid_string(pb->p_mounts[b_mount_idx].pm_uuid));
+		if (b_idx >= pb->p_nentries) {
+			DLOG("No entries in pb for mount %d %s", b_mount_idx, uuid_string(pmb->pm_uuid));
 			continue;
 		}
 		
 		// Zipper through the list to find matches (we only work on valid playlists that have no length 0 entries)
-		while (a_idx < pa->p_nentries && pa->p_entries[a_idx].pe_mount_idx == a_mount_idx &&
-			   b_idx < pb->p_nentries && pb->p_entries[b_idx].pe_mount_idx == b_mount_idx) {
+		while (a_idx < pa->p_nentries && b_idx < pb->p_nentries) {
 			const struct BC_playlist_entry* pae = pa->p_entries + a_idx;
 			const struct BC_playlist_entry* pbe = pb->p_entries + b_idx;
 			
 			if (pae->pe_offset == pbe->pe_offset) {
 				
 				DLOG("Found intersection:");
-				DLOG("%s "playlist_entry_format_str, uuid_string(pa->p_mounts[a_mount_idx].pm_uuid), playlist_entry_format_args(pae));
-				DLOG("%s "playlist_entry_format_str, uuid_string(pb->p_mounts[b_mount_idx].pm_uuid), playlist_entry_format_args(pbe));
+				DLOG("%s "playlist_entry_format_str, uuid_string(pma->pm_uuid), playlist_entry_format_args(pae));
+				DLOG("%s "playlist_entry_format_str, uuid_string(pmb->pm_uuid), playlist_entry_format_args(pbe));
 				
 				return true;
 			} else if (pae->pe_offset < pbe->pe_offset) {
 				if (pae->pe_offset + pae->pe_length > pbe->pe_offset) {
 					
 					DLOG("Found intersection:");
-					DLOG("%s "playlist_entry_format_str, uuid_string(pa->p_mounts[a_mount_idx].pm_uuid), playlist_entry_format_args(pae));
-					DLOG("%s "playlist_entry_format_str, uuid_string(pb->p_mounts[b_mount_idx].pm_uuid), playlist_entry_format_args(pbe));
+					DLOG("%s "playlist_entry_format_str, uuid_string(pma->pm_uuid), playlist_entry_format_args(pae));
+					DLOG("%s "playlist_entry_format_str, uuid_string(pmb->pm_uuid), playlist_entry_format_args(pbe));
 					
 					return true;
 				}
-				a_idx++;
+				
+				// Find the next entry for this mount
+				do {
+					a_idx++;
+				} while (a_idx < pa->p_nentries && pa->p_entries[a_idx].pe_mount_idx != a_mount_idx);
 			} else {
 				//pbe->pe_offset < pae->pe_offset
 				if (pbe->pe_offset + pbe->pe_length > pae->pe_offset) {
 					
 					DLOG("Found intersection:");
-					DLOG("%s "playlist_entry_format_str, uuid_string(pa->p_mounts[a_mount_idx].pm_uuid), playlist_entry_format_args(pae));
-					DLOG("%s "playlist_entry_format_str, uuid_string(pb->p_mounts[b_mount_idx].pm_uuid), playlist_entry_format_args(pbe));
+					DLOG("%s "playlist_entry_format_str, uuid_string(pma->pm_uuid), playlist_entry_format_args(pae));
+					DLOG("%s "playlist_entry_format_str, uuid_string(pmb->pm_uuid), playlist_entry_format_args(pbe));
 					
 					return true;
 				}
-				b_idx++;
+
+				// Find the next entry for this mount
+				do {
+					b_idx++;
+				} while (b_idx < pb->p_nentries && pb->p_entries[b_idx].pe_mount_idx == b_mount_idx);
 			}
 		}
 	}
@@ -4222,13 +5069,11 @@ BC_notify_mount(void)
 		return(errno);
 	}
 	
-	
-#if 0
-	// Need <rdar://problem/33557142> Use OID metadata cache for non-root mounts
-	return BC_start_omap_recording_for_all_mounts();
-#else
+
+	// Don't bother recording new mounts' omaps, since they won't be able to play back
+	// because they won't be around when BootCacheControl kicks off the BootCache early during boot
+	// See <rdar://problem/33557142> Use OID metadata cache for non-root mounts
 	return 0;
-#endif
 }
 
 /*
@@ -4339,6 +5184,8 @@ print_fp("%-26s %10llu", name, unknown_stat(stat))
 #define stat_print_manual___________________(name, stat) \
 print_fp("%-26s %10llu", name, stat)
 	
+#define stat_print_manual_nonshared_________(name, stat) \
+print_fp("%-26s                     %10llu", name, stat)
 
 #define stat_print_unknown_msec_____________(name, stat) \
 print_fp("%-26s %5llu.%03llus", name, \
@@ -4363,10 +5210,10 @@ _msec_total % 1000); \
 print_fp("%-26s %10llu  %3.0f%%", name, num, \
 safe_div((float)(num), (base)) * 100)
 
-#define stat_print_nonsharedcache_percent___(name, num, base) \
+#define stat_print_percent_bothmanual_nonsh_(name, num, base) \
 print_fp("%-26s                     %10llu  %3.0f%%", name, num, \
 safe_div((float)(num), (base)) * 100)
-
+	
 // Macros that print total, non-shared, and shared in a single line
 #define stat_print_split____________________(name, stat) \
 print_fp("%-26s %10llu          %10llu          %10llu", name, total_stat(stat), nonshared_stat(stat), shared_stat(stat))
@@ -4556,11 +5403,17 @@ stat_print_split_percent____________(" bytes unread due to threa", badreader_unr
 		if (unknown_stat(cache_size) > total_stat(cache_bytes)) {
 stat_print_percent_bothmanual_______("cache alignment growth", unknown_stat(cache_size) - total_stat(cache_bytes), total_stat(cache_bytes));
 		}
+		if (total_stat(cache_oversize) > 0) {
+stat_print_split_percent____________("cache oversize", cache_oversize, cache_bytes);
+		}
 	}
-	if (total_stat(cache_oversize) > 0) {
-stat_print_split____________________("cache oversize", cache_oversize);
+	if (ss->userspace_oversize.ssup_highpri_bytes_trimmed > 0) {
+print_formatted_____________________("high priority bytes trimme", "%llu", ss->userspace_oversize.ssup_highpri_bytes_trimmed);
 	}
-	
+	if (ss->userspace_oversize.ssup_lowpri_bytes_trimmed > 0) {
+print_formatted_____________________("low priority bytes trimmed", "%llu", ss->userspace_oversize.ssup_lowpri_bytes_trimmed);
+	}
+
 stat_print_split____________________("bytes requested", requested_bytes);
 	if (total_stat(requested_bytes) > 0) {
 stat_print_split_percent____________(" bytes hit", hit_bytes, requested_bytes);
@@ -4568,9 +5421,9 @@ stat_print_split_percent____________(" bytes hit", hit_bytes, requested_bytes);
 			if (total_stat(requested_bytes_m[m]) > 0 && total_stat(requested_bytes_m[m]) != total_stat(requested_bytes)) {
 				char mountstr[32];
 snprintf(mountstr, sizeof(mountstr), " mount %d bytes requested", m);
-				stat_print_split_percent____________(mountstr, requested_bytes_m[m], requested_bytes);
+stat_print_split_percent____________(mountstr, requested_bytes_m[m], requested_bytes);
 snprintf(mountstr, sizeof(mountstr), "  mount %d bytes hit", m);
-				stat_print_split_percent____________(mountstr, hit_bytes_m[m], requested_bytes_m[m]);
+stat_print_split_percent____________(mountstr, hit_bytes_m[m], requested_bytes_m[m]);
 			}
 		}
 		
@@ -4588,31 +5441,118 @@ stat_print_unknown_msec_____________("cache active time", cache_time);
 	} else {
 print_string________________________("cache active time", "(still active)");
 	}
+	
+	
+	
 
 	/* optimizations */
-	if (ss->userspace_optimizations.ssup_num_inodes_optimized > 0) {
+	if (total_stat(history_entries) > 0) {
 print_fp("");
-stat_print_split____________________("reads recorded", history_reads);
-		if (total_stat(history_optimized_reads) > 0) {
-stat_print_split_percent____________(" already fusion optimized", history_optimized_reads, history_reads);
+		const char* optimization_state = "unknown";
+		switch (ss->userspace_hdd_optimization_state.ssup_optimization_state) {
+			case BC_HDD_OPTIMIZATION_STATE_PENDING:
+				optimization_state = "pending";
+				break;
+				
+			case BC_HDD_OPTIMIZATION_STATE_IN_PROGRESS:
+				optimization_state = "in progress";
+				break;
+				
+			case BC_HDD_OPTIMIZATION_STATE_PAUSED:
+				optimization_state = "paused";
+				break;
+				
+			case BC_HDD_OPTIMIZATION_STATE_COMPLETE:
+				optimization_state = "completed";
+				break;
 		}
-		if (ss->userspace_optimizations.ssup_hdd_num_reads_already_optimized > 0) {
-stat_print_nonsharedcache_percent___(" already hdd optimized", ss->userspace_optimizations.ssup_hdd_num_reads_already_optimized, nonshared_stat(history_reads));
+		
+print_formatted_____________________("apfs optimizations", "%d attempt%s (%s)", ss->userspace_hdd_optimization_state.ssup_num_optimizations_attempted, ss->userspace_hdd_optimization_state.ssup_num_optimizations_attempted != 1 ? "s" : "", optimization_state);
+		
+		
+stat_print_split____________________("reads recorded", history_entries);
+		
+		u_int64_t fusion_history_reads_nonshared = nonshared_stat(fusion_history_already_optimized_reads) + nonshared_stat(fusion_history_not_already_optimized_reads);
+		u_int64_t fusion_history_reads_shared = shared_stat(fusion_history_already_optimized_reads) + shared_stat(fusion_history_not_already_optimized_reads);
+		u_int64_t fusion_history_reads_total = fusion_history_reads_nonshared + fusion_history_reads_shared;
+stat_print_split_percent_nummanual__(" fusion", fusion_history_reads, history_entries);
+		if (fusion_history_reads_total > 0) {
+stat_print_split_percent_basemanual_("  preoptimized", fusion_history_already_optimized_reads, fusion_history_reads);
+stat_print_split_percent_basemanual_("  nonpreoptimized", fusion_history_not_already_optimized_reads, fusion_history_reads);
+stat_print_percent_bothmanual_nonsh_("  optimized", ss->userspace_fusion_optimizations.ssup_reads_optimized, fusion_history_reads_nonshared);
+stat_print_percent_bothmanual_nonsh_("  nonoptimized", fusion_history_reads_nonshared - ss->userspace_fusion_optimizations.ssup_reads_optimized, fusion_history_reads_nonshared);
 		}
-stat_print_split____________________("bytes recorded", history_bytes);
-		if (total_stat(history_optimized_bytes) > 0) {
-stat_print_split_percent____________(" already fusion optimized", history_optimized_bytes, history_bytes);
+		
+stat_print_split_percent____________(" hdd", hdd_history_reads, history_entries);
+		// Only print stat if weve attempted optimization at least once and either paused or completed. ssup_reads_already_optimized won't be filled in otherwise
+		if (nonshared_stat(hdd_history_reads) > 0 && ss->userspace_hdd_optimization_state.ssup_num_optimizations_attempted > 0 && (ss->userspace_hdd_optimization_state.ssup_num_optimizations_attempted > 1 || ss->userspace_hdd_optimization_state.ssup_optimization_state > BC_HDD_OPTIMIZATION_STATE_IN_PROGRESS)) {
+stat_print_percent_bothmanual_nonsh_("  preoptimized", ss->userspace_hdd_optimizations.ssup_reads_already_optimized, nonshared_stat(hdd_history_reads));
+stat_print_percent_bothmanual_nonsh_("  nonpreoptimized", nonshared_stat(hdd_history_reads) - ss->userspace_hdd_optimizations.ssup_reads_already_optimized, nonshared_stat(hdd_history_reads));
+stat_print_percent_bothmanual_nonsh_("  optimized", ss->userspace_hdd_optimizations.ssup_reads_optimized, nonshared_stat(hdd_history_reads));
+stat_print_percent_bothmanual_nonsh_("  nonoptimized", nonshared_stat(hdd_history_reads) - ss->userspace_hdd_optimizations.ssup_reads_optimized, nonshared_stat(hdd_history_reads));
 		}
-		if (ss->userspace_optimizations.ssup_hdd_bytes_already_optimized > 0) {
-stat_print_nonsharedcache_percent___(" already hdd optimized", ss->userspace_optimizations.ssup_hdd_bytes_already_optimized, nonshared_stat(history_bytes));
+		
+		
+		u_int64_t numInodes = ss->userspace_hdd_optimizations.ssup_inodes_requested + ss->userspace_fusion_optimizations.ssup_inodes_requested;
+stat_print_manual_nonshared_________("inodes recorded", numInodes);
+		
+		if (ss->userspace_fusion_optimizations.ssup_inodes_requested > 0) {
+stat_print_percent_bothmanual_nonsh_(" fusion", ss->userspace_fusion_optimizations.ssup_inodes_requested, numInodes);
+stat_print_percent_bothmanual_nonsh_("  preoptimized", ss->userspace_fusion_optimizations.ssup_inodes_already_optimized, ss->userspace_fusion_optimizations.ssup_inodes_requested);
+stat_print_percent_bothmanual_nonsh_("  nonpreoptimized", ss->userspace_fusion_optimizations.ssup_inodes_requested - ss->userspace_fusion_optimizations.ssup_inodes_already_optimized, ss->userspace_fusion_optimizations.ssup_inodes_requested);
+stat_print_percent_bothmanual_nonsh_("  optimized", ss->userspace_fusion_optimizations.ssup_inodes_optimized, ss->userspace_fusion_optimizations.ssup_inodes_requested);
+stat_print_percent_bothmanual_nonsh_("  nonoptimized", ss->userspace_fusion_optimizations.ssup_inodes_requested - ss->userspace_fusion_optimizations.ssup_inodes_optimized, ss->userspace_fusion_optimizations.ssup_inodes_requested);
 		}
-stat_print_manual___________________("bytes optimized", ss->userspace_optimizations.ssup_bytes_optimized);
-		if (ss->userspace_optimizations.ssup_hdd_optimization_range_length > 0) {
-stat_print_manual___________________("optimization range size", ss->userspace_optimizations.ssup_hdd_optimization_range_length);
+
+		if (ss->userspace_hdd_optimizations.ssup_inodes_requested > 0) {
+stat_print_percent_bothmanual_nonsh_(" hdd", ss->userspace_hdd_optimizations.ssup_inodes_requested, numInodes);
+			u_int64_t history_inodes_nonpreoptimized = ss->userspace_hdd_optimizations.ssup_inodes_requested - ss->userspace_hdd_optimizations.ssup_inodes_already_optimized;
+stat_print_percent_bothmanual_nonsh_("  preoptimized", ss->userspace_hdd_optimizations.ssup_inodes_already_optimized, ss->userspace_hdd_optimizations.ssup_inodes_requested);
+stat_print_percent_bothmanual_nonsh_("  nonpreoptimized", history_inodes_nonpreoptimized, ss->userspace_hdd_optimizations.ssup_inodes_requested);
+stat_print_percent_bothmanual_nonsh_("  optimized", ss->userspace_hdd_optimizations.ssup_inodes_optimized, ss->userspace_hdd_optimizations.ssup_inodes_requested);
+stat_print_percent_bothmanual_nonsh_("  nonoptimized", ss->userspace_hdd_optimizations.ssup_inodes_requested - ss->userspace_hdd_optimizations.ssup_inodes_optimized, ss->userspace_hdd_optimizations.ssup_inodes_requested);
 		}
-stat_print_manual___________________("inodes optimized", ss->userspace_optimizations.ssup_num_inodes_optimized);
+		
+
+stat_print_split____________________("bytes recorded", history_entries_bytes);
+		
+		u_int64_t fusion_history_bytes_nonshared = nonshared_stat(fusion_history_already_optimized_bytes) + nonshared_stat(fusion_history_not_already_optimized_bytes);
+		u_int64_t fusion_history_bytes_shared = shared_stat(fusion_history_already_optimized_bytes) + shared_stat(fusion_history_not_already_optimized_bytes);
+stat_print_split_percent_nummanual__(" fusion", fusion_history_bytes, history_entries_bytes);
+		if (total_stat(fusion_history_already_optimized_reads) + total_stat(fusion_history_not_already_optimized_reads) > 0) {
+stat_print_split_percent_basemanual_("  preoptimized", fusion_history_already_optimized_bytes, fusion_history_bytes);
+stat_print_split_percent_basemanual_("  nonpreoptimized", fusion_history_not_already_optimized_bytes, fusion_history_bytes);
+			if (fusion_history_bytes_nonshared != ss->userspace_fusion_optimizations.ssup_bytes_requested) {
+stat_print_percent_bothmanual_nonsh_("  optimize attempted", ss->userspace_fusion_optimizations.ssup_bytes_requested, fusion_history_bytes_nonshared);
+			}
+stat_print_percent_bothmanual_nonsh_("  optimized", ss->userspace_fusion_optimizations.ssup_bytes_optimized, fusion_history_bytes_nonshared)
+stat_print_percent_bothmanual_nonsh_("  nonoptimized", ss->userspace_fusion_optimizations.ssup_bytes_requested - ss->userspace_fusion_optimizations.ssup_bytes_optimized, fusion_history_bytes_nonshared);
+		}
+		
+stat_print_split_percent____________(" hdd", hdd_history_bytes, history_entries_bytes);
+		// Only print stat if weve attempted optimization at least once and either paused or completed. ssup_bytes_already_optimized won't be filled in otherwise
+		if (nonshared_stat(hdd_history_bytes) > 0 && ss->userspace_hdd_optimization_state.ssup_num_optimizations_attempted > 0 && (ss->userspace_hdd_optimization_state.ssup_num_optimizations_attempted > 1 || ss->userspace_hdd_optimization_state.ssup_optimization_state > BC_HDD_OPTIMIZATION_STATE_IN_PROGRESS)) {
+			u_int64_t history_bytes_nonpreoptimized = nonshared_stat(hdd_history_bytes) - ss->userspace_hdd_optimizations.ssup_bytes_already_optimized;
+stat_print_percent_bothmanual_nonsh_("  preoptimized", ss->userspace_hdd_optimizations.ssup_bytes_already_optimized, nonshared_stat(hdd_history_bytes));
+stat_print_percent_bothmanual_nonsh_("  nonpreoptimized", history_bytes_nonpreoptimized, nonshared_stat(hdd_history_bytes));
+			if (nonshared_stat(hdd_history_bytes) != ss->userspace_hdd_optimizations.ssup_bytes_requested) {
+stat_print_percent_bothmanual_nonsh_("  optimize attempted", ss->userspace_hdd_optimizations.ssup_bytes_requested, nonshared_stat(hdd_history_bytes));
+stat_print_percent_bothmanual_nonsh_("   optimized", ss->userspace_hdd_optimizations.ssup_bytes_optimized, ss->userspace_hdd_optimizations.ssup_bytes_requested);
+stat_print_percent_bothmanual_nonsh_("    range size", ss->userspace_hdd_optimizations.ssup_optimization_range_length, ss->userspace_hdd_optimizations.ssup_bytes_optimized);
+stat_print_percent_bothmanual_nonsh_("   surplus", ss->userspace_hdd_optimizations.ssup_bytes_surplus, ss->userspace_hdd_optimizations.ssup_bytes_requested);
+stat_print_percent_bothmanual_nonsh_("   nonoptimized", ss->userspace_hdd_optimizations.ssup_bytes_nonoptimized, ss->userspace_hdd_optimizations.ssup_bytes_requested);
+			} else {
+stat_print_percent_bothmanual_nonsh_("  optimized", ss->userspace_hdd_optimizations.ssup_bytes_optimized, nonshared_stat(hdd_history_bytes));
+stat_print_percent_bothmanual_nonsh_("   range size", ss->userspace_hdd_optimizations.ssup_optimization_range_length, ss->userspace_hdd_optimizations.ssup_bytes_optimized);
+stat_print_percent_bothmanual_nonsh_("  surplus", ss->userspace_hdd_optimizations.ssup_bytes_surplus, nonshared_stat(hdd_history_bytes));
+stat_print_percent_bothmanual_nonsh_("  nonoptimized", ss->userspace_hdd_optimizations.ssup_bytes_nonoptimized, nonshared_stat(hdd_history_bytes));
+			}
+		}
+		
 	}
 
+	
+	
 	/* inbound strategy */
 print_fp("");
 stat_print_split____________________("total strategy calls", strategy_calls);
@@ -4719,16 +5659,16 @@ stat_print_unknown__________________("total readahead threads", readahead_thread
 			if (0 == disk_bytes_nonshared + disk_bytes_shared) continue; /* no reads for this disk */
 			
 			
+			snprintf(diskbuf, sizeof(diskbuf), "Disk %d time", d);
+stat_print_split_read_time_manual___(diskbuf, disk_machabstime);
+			snprintf(diskbuf, sizeof(diskbuf), "Disk %d bytes read", d);
+stat_print_split_manual_____________(diskbuf, disk_bytes);
 			if (disk_machabstime_total > 0) {
 				snprintf(diskbuf, sizeof(diskbuf), "Disk %d reader rate", d);
 stat_print_split_read_rate_manual___(diskbuf, disk_bytes, disk_num_reads, disk_machabstime);
 			}
 			
-			snprintf(diskbuf, sizeof(diskbuf), "Disk %d time", d);
-stat_print_split_read_time_manual___(diskbuf, disk_machabstime);
-			snprintf(diskbuf, sizeof(diskbuf), "Disk %d bytes read", d);
-stat_print_split_manual_____________(diskbuf, disk_bytes);
-			
+
 			for(int b = 0; b < STAT_BATCHMAX; b++) {
 				if (total_stat(batch_bytes[d][b]) > 0) {
 					snprintf(diskbuf, sizeof(diskbuf), " batch %d time", b);
@@ -4742,7 +5682,7 @@ stat_print_split_read_time__________(diskbuf, batch_time[d][b]);
 stat_print_split____________________(diskbuf, batch_bytes[d][b]);
 					if (total_stat(batch_late_bytes[d][b]) > 0) {
 						snprintf(diskbuf, sizeof(diskbuf), "  batch %d late bytes", b);
-						stat_print_split_percent____________(diskbuf, batch_late_bytes[d][b], batch_bytes[d][b]);
+stat_print_split_percent____________(diskbuf, batch_late_bytes[d][b], batch_bytes[d][b]);
 					}
 				}
 			}
@@ -4761,15 +5701,14 @@ stat_print_split_read_rate__________(diskbuf, batch_bytes[d][b], batch_initiated
 		for (int d = 0; d < STAT_DISKMAX; d++) {
 			if (0 == total_stat(batch_bytes_lowpri[d])) continue; /* no reads for this disk */
 			
+			snprintf(diskbuf, sizeof(diskbuf), "Disk %d lowpri time", d);
+stat_print_split_read_time__________(diskbuf, batch_time_lowpri[d]);
+			snprintf(diskbuf, sizeof(diskbuf), "Disk %d lowpri bytes read", d);
+stat_print_split____________________(diskbuf, batch_bytes_lowpri[d]);
 			if (unknown_stat(batch_time_lowpri[d]) > 0) {
 				snprintf(diskbuf, sizeof(diskbuf), "Disk %d lowpri reader rate", d);
 stat_print_split_read_rate__________(diskbuf, batch_bytes_lowpri[d], batch_initiated_reads_lowpri[d], batch_time_lowpri[d]);
 			}
-			
-			snprintf(diskbuf, sizeof(diskbuf), "Disk %d lowpri bytes read", d);
-stat_print_split____________________(diskbuf, batch_bytes_lowpri[d]);
-			snprintf(diskbuf, sizeof(diskbuf), "Disk %d lowpri time", d);
-stat_print_split_read_time__________(diskbuf, batch_time_lowpri[d]);
 		}
 	}
 	
@@ -4809,32 +5748,94 @@ stat_print_machabs_manual___________(" kext init time", unknown_stat(start_times
 	}
 	
 	if (unknown_stat(history_time) > 0 || total_stat(history_entries) == 0) {
-stat_print_unknown_msec_____________("history active time", history_time);
+stat_print_unknown_msec_____________("recording active time", history_time);
 		if (unknown_stat(history_time) > 0) {
 stat_print_split_readwrite_tps______("read/write IO rate", history_reads, history_writes, history_time);
 		}
 	} else {
-print_string________________________("history active time", "(still active)");
+print_string________________________("recording active time", "(still active)");
 	}
-stat_print_split____________________("history entries", history_entries);
-stat_print_split____________________("history bytes", history_bytes);
-stat_print_unknown__________________("history mounts", history_mounts);
+	
+	
+stat_print_split____________________("num writes during boot", history_writes);
+stat_print_split____________________("num reads during boot", history_reads);
+stat_print_split_percent____________(" bootcache entries", history_entries, history_reads);
+	if (total_stat(history_reads_truncated) > 0) {
+stat_print_split_percent____________(" truncated", history_reads_truncated, history_reads);
+	}
+	if (total_stat(history_reads_nomount) > 0) {
+stat_print_split_percent____________(" no mount", history_reads_nomount, history_reads);
+	}
+	if (total_stat(history_reads_unknown) > 0) {
+stat_print_split_percent____________(" unknown mount", history_reads_unknown, history_reads);
+	}
+	if (total_stat(history_reads_no_blocksize) > 0) {
+stat_print_split_percent____________(" no blocksize", history_reads_no_blocksize, history_reads);
+	}
+	if (total_stat(history_reads_nonroot) > 0) {
+stat_print_split_percent____________(" nonroot disk", history_reads_nonroot, history_reads);
+	}
+	if (total_stat(history_reads_ssd) > 0) {
+stat_print_split_percent____________(" ssd (noncached)", history_reads_ssd, history_reads);
+	}
+
+stat_print_split____________________("bytes written during boot", history_writes_bytes);
+stat_print_split____________________("bytes read during boot", history_reads_bytes);
+stat_print_split_percent____________(" bootcache bytes", history_entries_bytes, history_reads_bytes);
+	if (total_stat(history_reads_truncated) > 0) {
+stat_print_split_percent____________(" truncated bytes", history_reads_truncated_bytes, history_reads_bytes);
+	}
+	if (total_stat(history_reads_nomount) > 0) {
+stat_print_split_percent____________(" no mount bytes", history_reads_nomount_bytes, history_reads_bytes);
+	}
+	if (total_stat(history_reads_unknown) > 0) {
+stat_print_split_percent____________(" unknown mount bytes", history_reads_unknown_bytes, history_reads_bytes);
+	}
+	if (total_stat(history_reads_no_blocksize) > 0) {
+stat_print_split_percent____________(" no blocksize bytes", history_reads_no_blocksize_bytes, history_reads_bytes);
+	}
+	if (total_stat(history_reads_nonroot) > 0) {
+stat_print_split_percent____________(" nonroot bytes", history_reads_nonroot_bytes, history_reads_bytes);
+	}
+	if (total_stat(history_reads_ssd) > 0) {
+stat_print_split_percent____________(" ssd (noncached) bytes", history_reads_ssd_bytes, history_reads_bytes);
+	}
+
+stat_print_unknown__________________("recording num mounts", history_mounts);
 stat_print_unknown__________________("unidentifiable mounts", history_mount_no_uuid);
 stat_print_unknown__________________("mounts without blocksize", history_mount_no_blocksize);
-	if (total_stat(history_unknown) > 0) {
-stat_print_split____________________("history unknown calls", history_unknown);
-stat_print_split____________________("history unknown bytes", history_unknown_bytes);
-	}
-	if (total_stat(history_no_blocksize) > 0) {
-stat_print_split____________________("history 0 blocksize", history_no_blocksize);
-stat_print_split____________________("history 0 blocksize bytes", history_no_blocksize_bytes);
-	}
-stat_print_unknown__________________("number history recordings", history_num_recordings);
+stat_print_unknown__________________("num recordings", history_num_recordings);
 
 	/* flags */
 fprintf(fp, "\n");
-fprintf(fp, "current flags              0x%llx\n", ss->ss_cache_flags);
+fprintf(fp, "current flags              0x%llx", ss->ss_cache_flags);
+	if (ss->ss_cache_flags & BC_FLAG_SETUP) {
+		fprintf(fp, ", setup");
+	}
+	if (ss->ss_cache_flags & BC_FLAG_CACHEACTIVE) {
+		fprintf(fp, ", cache active");
+	}
+	if (ss->ss_cache_flags & BC_FLAG_HISTORYACTIVE) {
+		fprintf(fp, ", history active");
+	}
+	if (ss->ss_cache_flags & BC_FLAG_HTRUNCATED) {
+		fprintf(fp, ", truncated");
+	}
+	if (ss->ss_cache_flags & BC_FLAG_SHUTDOWN) {
+		fprintf(fp, ", shut down");
+	}
+	fprintf(fp, "\n");
 	
+	if (ss->ss_playback_end_reason[0] != '\0') {
+print_string________________________("Playback end reason", ss->ss_playback_end_reason);
+	}
+	if (ss->ss_history_end_reason[0] != '\0') {
+print_string________________________("History end reason", ss->ss_history_end_reason);
+	}
+	if (ss->ss_cache_end_reason[0] != '\0') {
+print_string________________________("Cache end reason", ss->ss_cache_end_reason);
+	}
+
 	if (fp == stdout) {
 		fflush(fp);
 	} else {

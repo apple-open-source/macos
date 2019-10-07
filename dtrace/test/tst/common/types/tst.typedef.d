@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.typedef.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *   Declares a dynamic type and then uses it to copyin the first three

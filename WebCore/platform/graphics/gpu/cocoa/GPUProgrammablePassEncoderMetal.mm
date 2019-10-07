@@ -28,17 +28,64 @@
 
 #if ENABLE(WEBGPU)
 
+#import "GPUBindGroup.h"
+#import "Logging.h"
 #import <Metal/Metal.h>
+#import <wtf/BlockObjCExceptions.h>
 
 namespace WebCore {
 
 void GPUProgrammablePassEncoder::endPass()
 {
-    if (!m_isEncoding)
+    if (!platformPassEncoder())
         return;
 
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
     [platformPassEncoder() endEncoding];
-    m_isEncoding = false;
+    END_BLOCK_OBJC_EXCEPTIONS;
+
+    invalidateEncoder();
+    m_commandBuffer->setIsEncodingPass(false);
+}
+
+void GPUProgrammablePassEncoder::setBindGroup(unsigned index, GPUBindGroup& bindGroup)
+{
+    if (!platformPassEncoder()) {
+        LOG(WebGPU, "GPUProgrammablePassEncoder::setBindGroup(): Invalid operation: Encoding is ended!");
+        return;
+    }
+    
+    if (bindGroup.vertexArgsBuffer())
+        setVertexBuffer(bindGroup.vertexArgsBuffer(), 0, index);
+    if (bindGroup.fragmentArgsBuffer())
+        setFragmentBuffer(bindGroup.fragmentArgsBuffer(), 0, index);
+    if (bindGroup.computeArgsBuffer())
+        setComputeBuffer(bindGroup.computeArgsBuffer(), 0, index);
+
+    for (auto& bufferRef : bindGroup.boundBuffers()) {
+        MTLResourceUsage usage = 0;
+        if (bufferRef->isUniform()) {
+            ASSERT(!bufferRef->isStorage());
+            usage = MTLResourceUsageRead;
+        } else if (bufferRef->isStorage()) {
+            ASSERT(!bufferRef->isUniform());
+            usage = MTLResourceUsageRead | MTLResourceUsageWrite;
+        }
+        useResource(bufferRef->platformBuffer(), usage);
+        m_commandBuffer->useBuffer(bufferRef.copyRef());
+    }
+    for (auto& textureRef : bindGroup.boundTextures()) {
+        MTLResourceUsage usage = 0;
+        if (textureRef->isSampled()) {
+            ASSERT(!textureRef->isStorage());
+            usage = MTLResourceUsageRead | MTLResourceUsageSample;
+        } else if (textureRef->isStorage()) {
+            ASSERT(!textureRef->isSampled());
+            usage = MTLResourceUsageRead | MTLResourceUsageWrite;
+        }
+        useResource(textureRef->platformTexture(), usage);
+        m_commandBuffer->useTexture(textureRef.copyRef());
+    }
 }
 
 } // namespace WebCore

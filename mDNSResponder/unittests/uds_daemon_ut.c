@@ -1,4 +1,5 @@
 #include "DNSCommon.h"                  // Defines general DNS utility routines
+#include "unittest_common.h"
 
 mDNSexport mStatus handle_client_request_ut(void *req)
 {
@@ -27,8 +28,8 @@ mDNSexport void LogCacheRecords_ut(mDNSs32 now, mDNSu32* retCacheUsed, mDNSu32* 
 					InterfaceID = cr->resrec.rDNSServer->interface;
 				ifname = InterfaceNameForID(&mDNSStorage, InterfaceID);
 				if (cr->CRActiveQuestion) CacheActive++;
-				PrintOneCacheRecord(cr, slot, remain, ifname, &CacheUsed);
-				PrintCachedRecords(cr, slot, remain, ifname, &CacheUsed);
+				PrintOneCacheRecordToFD(STDOUT_FILENO, cr, slot, remain, ifname, &CacheUsed);
+				PrintCachedRecordsToFD(STDOUT_FILENO, cr, slot, remain, ifname, &CacheUsed);
 			}
 		}
 	}
@@ -39,5 +40,5 @@ mDNSexport void LogCacheRecords_ut(mDNSs32 now, mDNSu32* retCacheUsed, mDNSu32* 
 
 mDNSexport int LogEtcHosts_ut(mDNS *const m)
 {
-	return LogEtcHosts(m);
+	return LogEtcHostsToFD(STDOUT_FILENO, m);
 }

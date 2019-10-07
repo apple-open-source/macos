@@ -4,13 +4,7 @@
  * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
  */
 
 /*
@@ -18,14 +12,15 @@
  */
 
 #include "cups-private.h"
+#include "debug-internal.h"
 #ifdef HAVE_LANGINFO_H
 #  include <langinfo.h>
 #endif /* HAVE_LANGINFO_H */
-#ifdef WIN32
+#ifdef _WIN32
 #  include <io.h>
 #else
 #  include <unistd.h>
-#endif /* WIN32 */
+#endif /* _WIN32 */
 #ifdef HAVE_COREFOUNDATION_H
 #  include <CoreFoundation/CoreFoundation.h>
 #endif /* HAVE_COREFOUNDATION_H */
@@ -146,16 +141,15 @@ static const char	*appleLangDefault(void);
 #        define CF_RETURNS_RETAINED
 #      endif /* __has_feature(attribute_cf_returns_retained) */
 #    endif /* !CF_RETURNED_RETAINED */
-static cups_array_t	*appleMessageLoad(const char *locale)
-			CF_RETURNS_RETAINED;
+static cups_array_t	*appleMessageLoad(const char *locale) CF_RETURNS_RETAINED;
 #  endif /* CUPS_BUNDLEDIR */
 #endif /* __APPLE__ */
-static cups_lang_t	*cups_cache_lookup(const char *name,
-			                   cups_encoding_t encoding);
-static int		cups_message_compare(_cups_message_t *m1,
-			                     _cups_message_t *m2);
+static cups_lang_t	*cups_cache_lookup(const char *name, cups_encoding_t encoding);
+static int		cups_message_compare(_cups_message_t *m1, _cups_message_t *m2);
 static void		cups_message_free(_cups_message_t *m);
 static void		cups_message_load(cups_lang_t *lang);
+static void		cups_message_puts(cups_file_t *fp, const char *s);
+static int		cups_read_strings(cups_file_t *fp, int flags, cups_array_t *a);
 static void		cups_unquote(char *d, const char *s);
 
 
@@ -912,12 +906,12 @@ _cupsMessageFree(cups_array_t *a)	/* I - Message array */
 
 
 /*
- * '_cupsMessageLoad()' - Load a .po file into a messages array.
+ * '_cupsMessageLoad()' - Load a .po or .strings file into a messages array.
  */
 
 cups_array_t *				/* O - New message array */
 _cupsMessageLoad(const char *filename,	/* I - Message catalog to load */
-                 int        unquote)	/* I - Unescape \foo in strings? */
+                 int        flags)	/* I - Load flags */
 {
   cups_file_t		*fp;		/* Message file */
   cups_array_t		*a;		/* Message array */
@@ -952,187 +946,189 @@ _cupsMessageLoad(const char *filename,	/* I - Message catalog to load */
     return (a);
   }
 
- /*
-  * Read messages from the catalog file until EOF...
-  *
-  * The format is the GNU gettext .po format, which is fairly simple:
-  *
-  *     msgid "some text"
-  *     msgstr "localized text"
-  *
-  * The ID and localized text can span multiple lines using the form:
-  *
-  *     msgid ""
-  *     "some long text"
-  *     msgstr ""
-  *     "localized text spanning "
-  *     "multiple lines"
-  */
-
-  m = NULL;
-
-  while (cupsFileGets(fp, s, sizeof(s)) != NULL)
+  if (flags & _CUPS_MESSAGE_STRINGS)
+  {
+    while (cups_read_strings(fp, flags, a));
+  }
+  else
   {
    /*
-    * Skip blank and comment lines...
+    * Read messages from the catalog file until EOF...
+    *
+    * The format is the GNU gettext .po format, which is fairly simple:
+    *
+    *     msgid "some text"
+    *     msgstr "localized text"
+    *
+    * The ID and localized text can span multiple lines using the form:
+    *
+    *     msgid ""
+    *     "some long text"
+    *     msgstr ""
+    *     "localized text spanning "
+    *     "multiple lines"
     */
 
-    if (s[0] == '#' || !s[0])
-      continue;
+    m = NULL;
 
-   /*
-    * Strip the trailing quote...
-    */
-
-    if ((ptr = strrchr(s, '\"')) == NULL)
-      continue;
-
-    *ptr = '\0';
-
-   /*
-    * Find start of value...
-    */
-
-    if ((ptr = strchr(s, '\"')) == NULL)
-      continue;
-
-    ptr ++;
-
-   /*
-    * Unquote the text...
-    */
-
-    if (unquote)
-      cups_unquote(ptr, ptr);
-
-   /*
-    * Create or add to a message...
-    */
-
-    if (!strncmp(s, "msgid", 5))
+    while (cupsFileGets(fp, s, sizeof(s)) != NULL)
     {
      /*
-      * Add previous message as needed...
+      * Skip blank and comment lines...
       */
 
-      if (m)
-      {
-        if (m->str && m->str[0])
-        {
-          cupsArrayAdd(a, m);
-        }
-        else
-        {
-         /*
-          * Translation is empty, don't add it... (STR #4033)
-          */
-
-          free(m->id);
-          if (m->str)
-            free(m->str);
-          free(m);
-        }
-      }
+      if (s[0] == '#' || !s[0])
+	continue;
 
      /*
-      * Create a new message with the given msgid string...
+      * Strip the trailing quote...
       */
 
-      if ((m = (_cups_message_t *)calloc(1, sizeof(_cups_message_t))) == NULL)
-      {
-        cupsFileClose(fp);
-	return (a);
-      }
+      if ((ptr = strrchr(s, '\"')) == NULL)
+	continue;
 
-      if ((m->id = strdup(ptr)) == NULL)
-      {
-        free(m);
-        cupsFileClose(fp);
-	return (a);
-      }
-    }
-    else if (s[0] == '\"' && m)
-    {
+      *ptr = '\0';
+
      /*
-      * Append to current string...
+      * Find start of value...
       */
 
-      length = strlen(m->str ? m->str : m->id);
-      ptrlen = strlen(ptr);
+      if ((ptr = strchr(s, '\"')) == NULL)
+	continue;
 
-      if ((temp = realloc(m->str ? m->str : m->id, length + ptrlen + 1)) == NULL)
-      {
-        if (m->str)
-	  free(m->str);
-	free(m->id);
-        free(m);
+      ptr ++;
 
-	cupsFileClose(fp);
-	return (a);
-      }
+     /*
+      * Unquote the text...
+      */
 
-      if (m->str)
+      if (flags & _CUPS_MESSAGE_UNQUOTE)
+	cups_unquote(ptr, ptr);
+
+     /*
+      * Create or add to a message...
+      */
+
+      if (!strncmp(s, "msgid", 5))
       {
        /*
-        * Copy the new portion to the end of the msgstr string - safe
-	* to use memcpy because the buffer is allocated to the correct
-	* size...
+	* Add previous message as needed...
 	*/
 
-        m->str = temp;
+	if (m)
+	{
+	  if (m->str && (m->str[0] || (flags & _CUPS_MESSAGE_EMPTY)))
+	  {
+	    cupsArrayAdd(a, m);
+	  }
+	  else
+	  {
+	   /*
+	    * Translation is empty, don't add it... (STR #4033)
+	    */
 
-	memcpy(m->str + length, ptr, ptrlen + 1);
+	    free(m->msg);
+	    if (m->str)
+	      free(m->str);
+	    free(m);
+	  }
+	}
+
+       /*
+	* Create a new message with the given msgid string...
+	*/
+
+	if ((m = (_cups_message_t *)calloc(1, sizeof(_cups_message_t))) == NULL)
+	  break;
+
+	if ((m->msg = strdup(ptr)) == NULL)
+	{
+	  free(m);
+	  m = NULL;
+	  break;
+	}
+      }
+      else if (s[0] == '\"' && m)
+      {
+       /*
+	* Append to current string...
+	*/
+
+	length = strlen(m->str ? m->str : m->msg);
+	ptrlen = strlen(ptr);
+
+	if ((temp = realloc(m->str ? m->str : m->msg, length + ptrlen + 1)) == NULL)
+	{
+	  if (m->str)
+	    free(m->str);
+	  free(m->msg);
+	  free(m);
+	  m = NULL;
+	  break;
+	}
+
+	if (m->str)
+	{
+	 /*
+	  * Copy the new portion to the end of the msgstr string - safe
+	  * to use memcpy because the buffer is allocated to the correct
+	  * size...
+	  */
+
+	  m->str = temp;
+
+	  memcpy(m->str + length, ptr, ptrlen + 1);
+	}
+	else
+	{
+	 /*
+	  * Copy the new portion to the end of the msgid string - safe
+	  * to use memcpy because the buffer is allocated to the correct
+	  * size...
+	  */
+
+	  m->msg = temp;
+
+	  memcpy(m->msg + length, ptr, ptrlen + 1);
+	}
+      }
+      else if (!strncmp(s, "msgstr", 6) && m)
+      {
+       /*
+	* Set the string...
+	*/
+
+	if ((m->str = strdup(ptr)) == NULL)
+	{
+	  free(m->msg);
+	  free(m);
+	  m = NULL;
+          break;
+	}
+      }
+    }
+
+   /*
+    * Add the last message string to the array as needed...
+    */
+
+    if (m)
+    {
+      if (m->str && (m->str[0] || (flags & _CUPS_MESSAGE_EMPTY)))
+      {
+	cupsArrayAdd(a, m);
       }
       else
       {
        /*
-        * Copy the new portion to the end of the msgid string - safe
-	* to use memcpy because the buffer is allocated to the correct
-	* size...
+	* Translation is empty, don't add it... (STR #4033)
 	*/
 
-        m->id = temp;
-
-	memcpy(m->id + length, ptr, ptrlen + 1);
+	free(m->msg);
+	if (m->str)
+	  free(m->str);
+	free(m);
       }
-    }
-    else if (!strncmp(s, "msgstr", 6) && m)
-    {
-     /*
-      * Set the string...
-      */
-
-      if ((m->str = strdup(ptr)) == NULL)
-      {
-	free(m->id);
-        free(m);
-
-        cupsFileClose(fp);
-	return (a);
-      }
-    }
-  }
-
- /*
-  * Add the last message string to the array as needed...
-  */
-
-  if (m)
-  {
-    if (m->str && m->str[0])
-    {
-      cupsArrayAdd(a, m);
-    }
-    else
-    {
-     /*
-      * Translation is empty, don't add it... (STR #4033)
-      */
-
-      free(m->id);
-      if (m->str)
-	free(m->str);
-      free(m);
     }
   }
 
@@ -1142,8 +1138,7 @@ _cupsMessageLoad(const char *filename,	/* I - Message catalog to load */
 
   cupsFileClose(fp);
 
-  DEBUG_printf(("5_cupsMessageLoad: Returning %d messages...",
-                cupsArrayCount(a)));
+  DEBUG_printf(("5_cupsMessageLoad: Returning %d messages...", cupsArrayCount(a)));
 
   return (a);
 }
@@ -1168,8 +1163,8 @@ _cupsMessageLookup(cups_array_t *a,	/* I - Message array */
   * then return the message that was passed to us...
   */
 
-  key.id = (char *)m;
-  match  = (_cups_message_t *)cupsArrayFind(a, &key);
+  key.msg = (char *)m;
+  match   = (_cups_message_t *)cupsArrayFind(a, &key);
 
 #if defined(__APPLE__) && defined(CUPS_BUNDLEDIR)
   if (!match && cupsArrayUserData(a))
@@ -1182,12 +1177,11 @@ _cupsMessageLookup(cups_array_t *a,	/* I - Message array */
     CFStringRef		cfm,		/* Message as a CF string */
 			cfstr;		/* Localized text as a CF string */
 
-    dict      = (CFDictionaryRef)cupsArrayUserData(a);
-    cfm       = CFStringCreateWithCString(kCFAllocatorDefault, m,
-                                          kCFStringEncodingUTF8);
-    match     = calloc(1, sizeof(_cups_message_t));
-    match->id = strdup(m);
-    cfstr     = cfm ? CFDictionaryGetValue(dict, cfm) : NULL;
+    dict       = (CFDictionaryRef)cupsArrayUserData(a);
+    cfm        = CFStringCreateWithCString(kCFAllocatorDefault, m, kCFStringEncodingUTF8);
+    match      = calloc(1, sizeof(_cups_message_t));
+    match->msg = strdup(m);
+    cfstr      = cfm ? CFDictionaryGetValue(dict, cfm) : NULL;
 
     if (cfstr)
     {
@@ -1196,8 +1190,7 @@ _cupsMessageLookup(cups_array_t *a,	/* I - Message array */
       CFStringGetCString(cfstr, buffer, sizeof(buffer), kCFStringEncodingUTF8);
       match->str = strdup(buffer);
 
-      DEBUG_printf(("1_cupsMessageLookup: Found \"%s\" as \"%s\"...",
-                    m, buffer));
+      DEBUG_printf(("1_cupsMessageLookup: Found \"%s\" as \"%s\"...", m, buffer));
     }
     else
     {
@@ -1231,6 +1224,57 @@ _cupsMessageNew(void *context)		/* I - User data */
                         (cups_ahash_func_t)NULL, 0,
 			(cups_acopy_func_t)NULL,
 			(cups_afree_func_t)cups_message_free));
+}
+
+
+/*
+ * '_cupsMessageSave()' - Save a message catalog array.
+ */
+
+int					/* O - 0 on success, -1 on failure */
+_cupsMessageSave(const char   *filename,/* I - Output filename */
+                 int          flags,	/* I - Format flags */
+                 cups_array_t *a)	/* I - Message array */
+{
+  cups_file_t		*fp;		/* Output file */
+  _cups_message_t	*m;		/* Current message */
+
+
+ /*
+  * Output message catalog file...
+  */
+
+  if ((fp = cupsFileOpen(filename, "w")) == NULL)
+    return (-1);
+
+ /*
+  * Write each message...
+  */
+
+  if (flags & _CUPS_MESSAGE_STRINGS)
+  {
+    for (m = (_cups_message_t *)cupsArrayFirst(a); m; m = (_cups_message_t *)cupsArrayNext(a))
+    {
+      cupsFilePuts(fp, "\"");
+      cups_message_puts(fp, m->msg);
+      cupsFilePuts(fp, "\" = \"");
+      cups_message_puts(fp, m->str);
+      cupsFilePuts(fp, "\";\n");
+    }
+  }
+  else
+  {
+    for (m = (_cups_message_t *)cupsArrayFirst(a); m; m = (_cups_message_t *)cupsArrayNext(a))
+    {
+      cupsFilePuts(fp, "msgid \"");
+      cups_message_puts(fp, m->msg);
+      cupsFilePuts(fp, "\"\nmsgstr \"");
+      cups_message_puts(fp, m->str);
+      cupsFilePuts(fp, "\"\n");
+    }
+  }
+
+  return (cupsFileClose(fp));
 }
 
 
@@ -1607,7 +1651,7 @@ cups_message_compare(
     _cups_message_t *m1,		/* I - First message */
     _cups_message_t *m2)		/* I - Second message */
 {
-  return (strcmp(m1->id, m2->id));
+  return (strcmp(m1->msg, m2->msg));
 }
 
 
@@ -1618,8 +1662,8 @@ cups_message_compare(
 static void
 cups_message_free(_cups_message_t *m)	/* I - Message */
 {
-  if (m->id)
-    free(m->id);
+  if (m->msg)
+    free(m->msg);
 
   if (m->str)
     free(m->str);
@@ -1673,8 +1717,163 @@ cups_message_load(cups_lang_t *lang)	/* I - Language */
   * Read the strings from the file...
   */
 
-  lang->strings = _cupsMessageLoad(filename, 1);
+  lang->strings = _cupsMessageLoad(filename, _CUPS_MESSAGE_UNQUOTE);
 #endif /* __APPLE__ && CUPS_BUNDLEDIR */
+}
+
+
+/*
+ * 'cups_message_puts()' - Write a message string with quoting.
+ */
+
+static void
+cups_message_puts(cups_file_t *fp,	/* I - File to write to */
+                  const char  *s)	/* I - String to write */
+{
+  const char	*start,			/* Start of substring */
+		*ptr;			/* Pointer into string */
+
+
+  for (start = s, ptr = s; *ptr; ptr ++)
+  {
+    if (strchr("\\\"\n\t", *ptr))
+    {
+      if (ptr > start)
+      {
+	cupsFileWrite(fp, start, (size_t)(ptr - start));
+	start = ptr + 1;
+      }
+
+      if (*ptr == '\\')
+        cupsFileWrite(fp, "\\\\", 2);
+      else if (*ptr == '\"')
+        cupsFileWrite(fp, "\\\"", 2);
+      else if (*ptr == '\n')
+        cupsFileWrite(fp, "\\n", 2);
+      else /* if (*ptr == '\t') */
+        cupsFileWrite(fp, "\\t", 2);
+    }
+  }
+
+  if (ptr > start)
+    cupsFileWrite(fp, start, (size_t)(ptr - start));
+}
+
+
+/*
+ * 'cups_read_strings()' - Read a pair of strings from a .strings file.
+ */
+
+static int				/* O - 1 on success, 0 on failure */
+cups_read_strings(cups_file_t  *fp,	/* I - .strings file */
+                  int          flags,	/* I - CUPS_MESSAGE_xxx flags */
+		  cups_array_t *a)	/* I - Message catalog array */
+{
+  char			buffer[8192],	/* Line buffer */
+			*bufptr,	/* Pointer into buffer */
+			*msg,		/* Pointer to start of message */
+			*str;		/* Pointer to start of translation string */
+  _cups_message_t	*m;		/* New message */
+
+
+  while (cupsFileGets(fp, buffer, sizeof(buffer)))
+  {
+   /*
+    * Skip any line (comments, blanks, etc.) that isn't:
+    *
+    *   "message" = "translation";
+    */
+
+    for (bufptr = buffer; *bufptr && isspace(*bufptr & 255); bufptr ++);
+
+    if (*bufptr != '\"')
+      continue;
+
+   /*
+    * Find the end of the message...
+    */
+
+    bufptr ++;
+    for (msg = bufptr; *bufptr && *bufptr != '\"'; bufptr ++)
+      if (*bufptr == '\\' && bufptr[1])
+        bufptr ++;
+
+    if (!*bufptr)
+      continue;
+
+    *bufptr++ = '\0';
+
+    if (flags & _CUPS_MESSAGE_UNQUOTE)
+      cups_unquote(msg, msg);
+
+   /*
+    * Find the start of the translation...
+    */
+
+    while (*bufptr && isspace(*bufptr & 255))
+      bufptr ++;
+
+    if (*bufptr != '=')
+      continue;
+
+    bufptr ++;
+    while (*bufptr && isspace(*bufptr & 255))
+      bufptr ++;
+
+    if (*bufptr != '\"')
+      continue;
+
+   /*
+    * Find the end of the translation...
+    */
+
+    bufptr ++;
+    for (str = bufptr; *bufptr && *bufptr != '\"'; bufptr ++)
+      if (*bufptr == '\\' && bufptr[1])
+        bufptr ++;
+
+    if (!*bufptr)
+      continue;
+
+    *bufptr++ = '\0';
+
+    if (flags & _CUPS_MESSAGE_UNQUOTE)
+      cups_unquote(str, str);
+
+   /*
+    * If we get this far we have a valid pair of strings, add them...
+    */
+
+    if ((m = malloc(sizeof(_cups_message_t))) == NULL)
+      break;
+
+    m->msg = strdup(msg);
+    m->str = strdup(str);
+
+    if (m->msg && m->str)
+    {
+      cupsArrayAdd(a, m);
+    }
+    else
+    {
+      if (m->msg)
+	free(m->msg);
+
+      if (m->str)
+	free(m->str);
+
+      free(m);
+      break;
+    }
+
+    return (1);
+  }
+
+ /*
+  * No more strings...
+  */
+
+  return (0);
 }
 
 

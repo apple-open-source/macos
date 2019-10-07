@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -280,8 +280,8 @@ put_password_attr(struct rad_handle *h, int type, const void *value, size_t len)
 	}
 	if (len > PASSSIZE)
 		len = PASSSIZE;
-	padded_len = len == 0 ? 16 : (len+15) & ~0xf;
-	pad_len = padded_len - len;
+	padded_len = (int)(len == 0 ? 16 : (len+15) & ~0xf);
+	pad_len = (int)(padded_len - len);
 
 	/*
 	 * Put in a place-holder attribute containing all zeros, and
@@ -293,7 +293,7 @@ put_password_attr(struct rad_handle *h, int type, const void *value, size_t len)
 
 	/* Save the cleartext password, padded as necessary */
 	memcpy(h->pass, value, len);
-	h->pass_len = len;
+	h->pass_len = (int)len;
 	memset(h->pass + len, 0, pad_len);
 	return 0;
 }
@@ -417,7 +417,7 @@ rad_config(struct rad_handle *h, const char *path)
 		int i;
 
 		linenum++;
-		len = strlen(buf);
+		len = (int)strlen(buf);
 		/* We know len > 0, else fgets would have returned NULL. */
 		if (buf[len - 1] != '\n') {
 			if (len == sizeof buf - 1)
@@ -481,7 +481,7 @@ rad_config(struct rad_handle *h, const char *path)
 		host = strsep(&res, ":");
 		port_str = strsep(&res, ":");
 		if (port_str != NULL) {
-			port = strtoul(port_str, &end, 10);
+			port = (int)strtoul(port_str, &end, 10);
 			if (*end != '\0') {
 				generr(h, "%s:%d: invalid port", path,
 				    linenum);
@@ -511,7 +511,7 @@ rad_config(struct rad_handle *h, const char *path)
 		} else
 			maxtries = MAXTRIES;
 
-		if (rad_add_server(h, host, port, secret, timeout, maxtries) ==
+		if (rad_add_server(h, host, port, secret, (int)timeout, (int)maxtries) ==
 		    -1) {
 			strlcpy(msg, h->errmsg, sizeof(msg));
 			generr(h, "%s:%d: %s", path, linenum, msg);
@@ -544,7 +544,7 @@ rad_continue_send_request(struct rad_handle *h, int selected, int *fd,
 		uint32_t fromlen;
 
 		fromlen = sizeof from;
-		h->resp_len = recvfrom(h->fd, h->response,
+		h->resp_len = (int)recvfrom(h->fd, h->response,
 		    MSGSIZE, MSG_WAITALL, (struct sockaddr *)&from, &fromlen);
 		if (h->resp_len == -1) {
 			generr(h, "recvfrom: %s", strerror(errno));
@@ -584,7 +584,7 @@ retry:
 	insert_message_authenticator(h, h->srv);
 
 	/* Send the request */
-	n = sendto(h->fd, h->request, h->req_len, 0,
+	n = (int)sendto(h->fd, h->request, h->req_len, 0,
 	    (const struct sockaddr *)&h->servers[h->srv].addr,
 	    sizeof h->servers[h->srv].addr);
 	if (n != h->req_len) {
@@ -1215,9 +1215,9 @@ rad_demangle_mppe_key(struct rad_handle *h, const void *mangled,
 
 	A = (const u_char *)mangled;      /* Salt comes first */
 	C = (const u_char *)mangled + SALT_LEN;  /* Then the ciphertext */
-	Clen = mlen - SALT_LEN;
+	Clen = (int)(mlen - SALT_LEN);
 	S = rad_server_secret(h);    /* We need the RADIUS secret */
-	Slen = strlen(S);
+	Slen = (int)strlen(S);
 	P = calloc(Clen, 1);        /* We derive our plaintext */
 	if (!P) {
 		generr(h, "Cannot obtain the RADIUS MPPE plaintext buffer");

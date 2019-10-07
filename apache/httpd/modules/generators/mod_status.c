@@ -193,8 +193,11 @@ static int status_handler(request_rec *r)
     apr_off_t bytes, my_bytes, conn_bytes;
     apr_off_t bcount, kbcount;
     long req_time;
+    apr_time_t duration_global;
+    apr_time_t duration_slot;
     int short_report;
     int no_table_report;
+    global_score *global_record;
     worker_score *ws_record;
     process_score *ps_record;
     char *stat_buffer;
@@ -202,6 +205,7 @@ static int status_handler(request_rec *r)
     int *thread_idle_buffer = NULL;
     int *thread_busy_buffer = NULL;
     clock_t tu, ts, tcu, tcs;
+    clock_t gu, gs, gcu, gcs;
     ap_generation_t mpm_generation, worker_generation;
 #ifdef HAVE_TIMES
     float tick;
@@ -232,8 +236,15 @@ static int status_handler(request_rec *r)
     count = 0;
     bcount = 0;
     kbcount = 0;
+    duration_global = 0;
     short_report = 0;
     no_table_report = 0;
+
+    if (!ap_exists_scoreboard_image()) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01237)
+                      "Server status unavailable in inetd mode");
+        return HTTP_INTERNAL_SERVER_ERROR;
+    }
 
     pid_buffer = apr_palloc(r->pool, server_limit * sizeof(pid_t));
     stat_buffer = apr_palloc(r->pool, server_limit * thread_limit * sizeof(char));
@@ -243,13 +254,16 @@ static int status_handler(request_rec *r)
     }
 
     nowtime = apr_time_now();
+#ifdef HAVE_TIMES
+    global_record = ap_get_scoreboard_global();
+    gu = global_record->times.tms_utime;
+    gs = global_record->times.tms_stime;
+    gcu = global_record->times.tms_cutime;
+    gcs = global_record->times.tms_cstime;
+#else
+    gu = gs = gcu = gcs = 0;
+#endif
     tu = ts = tcu = tcs = 0;
-
-    if (!ap_exists_scoreboard_image()) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(01237)
-                      "Server status unavailable in inetd mode");
-        return HTTP_INTERNAL_SERVER_ERROR;
-    }
 
     r->allowed = (AP_METHOD_BIT << M_GET);
     if (r->method_number != M_GET)
@@ -374,6 +388,7 @@ static int status_handler(request_rec *r)
 
                     count += lres;
                     bcount += bytes;
+                    duration_global += ws_record->duration;
 
                     if (bcount >= KBYTE) {
                         kbcount += (bcount >> 10);
@@ -459,19 +474,21 @@ static int status_handler(request_rec *r)
     }
 
     if (ap_extended_status) {
+        clock_t cpu = gu + gs + gcu + gcs + tu + ts + tcu + tcs;
         if (short_report) {
             ap_rprintf(r, "Total Accesses: %lu\nTotal kBytes: %"
-                       APR_OFF_T_FMT "\n",
-                       count, kbcount);
+                       APR_OFF_T_FMT "\nTotal Duration: %"
+                       APR_TIME_T_FMT "\n",
+                       count, kbcount, apr_time_as_msec(duration_global));
 
 #ifdef HAVE_TIMES
             /* Allow for OS/2 not having CPU stats */
             ap_rprintf(r, "CPUUser: %g\nCPUSystem: %g\nCPUChildrenUser: %g\nCPUChildrenSystem: %g\n",
-                       tu / tick, ts / tick, tcu / tick, tcs / tick);
+                       (gu + tu) / tick, (gs + ts) / tick, (gcu + tcu) / tick, (gcs + tcs) / tick);
 
-            if (ts || tu || tcu || tcs)
+            if (cpu)
                 ap_rprintf(r, "CPULoad: %g\n",
-                           (tu + ts + tcu + tcs) / tick / up_time * 100.);
+                           cpu / tick / up_time * 100.);
 #endif
 
             ap_rprintf(r, "Uptime: %ld\n", (long) (up_time));
@@ -482,38 +499,48 @@ static int status_handler(request_rec *r)
                 ap_rprintf(r, "BytesPerSec: %g\n",
                            KBYTE * (float) kbcount / (float) up_time);
             }
-            if (count > 0)
+            if (count > 0) {
                 ap_rprintf(r, "BytesPerReq: %g\n",
                            KBYTE * (float) kbcount / (float) count);
+                ap_rprintf(r, "DurationPerReq: %g\n",
+                           (float) apr_time_as_msec(duration_global) / (float) count);
+            }
         }
         else { /* !short_report */
             ap_rprintf(r, "<dt>Total accesses: %lu - Total Traffic: ", count);
             format_kbyte_out(r, kbcount);
-            ap_rputs("</dt>\n", r);
+            ap_rprintf(r, " - Total Duration: %" APR_TIME_T_FMT "</dt>\n",
+                       apr_time_as_msec(duration_global));
 
 #ifdef HAVE_TIMES
             /* Allow for OS/2 not having CPU stats */
             ap_rprintf(r, "<dt>CPU Usage: u%g s%g cu%g cs%g",
-                       tu / tick, ts / tick, tcu / tick, tcs / tick);
+                       (gu + tu) / tick, (gs + ts) / tick, (gcu + tcu) / tick, (gcs + tcs) / tick);
 
-            if (ts || tu || tcu || tcs)
+            if (cpu)
                 ap_rprintf(r, " - %.3g%% CPU load</dt>\n",
-                           (tu + ts + tcu + tcs) / tick / up_time * 100.);
+                           cpu / tick / up_time * 100.);
+            else
+                ap_rputs("</dt>\n", r);
 #endif
 
+            ap_rputs("<dt>", r);
             if (up_time > 0) {
-                ap_rprintf(r, "<dt>%.3g requests/sec - ",
+                ap_rprintf(r, "%.3g requests/sec - ",
                            (float) count / (float) up_time);
 
                 format_byte_out(r, (unsigned long)(KBYTE * (float) kbcount
                                                    / (float) up_time));
-                ap_rputs("/second - ", r);
+                ap_rputs("/second", r);
             }
 
             if (count > 0) {
+                if (up_time > 0)
+                    ap_rputs(" - ", r);
                 format_byte_out(r, (unsigned long)(KBYTE * (float) kbcount
                                                    / (float) count));
-                ap_rputs("/request", r);
+                ap_rprintf(r, "/request - %g ms/request",
+                (float) apr_time_as_msec(duration_global) / (float) count);
             }
 
             ap_rputs("</dt>\n", r);
@@ -557,16 +584,18 @@ static int status_handler(request_rec *r)
                 lingering_close  += ps_record->lingering_close;
                 busy_workers     += thread_busy_buffer[i];
                 idle_workers     += thread_idle_buffer[i];
+                procs++;
+                if (ps_record->quiescing) {
+                    stopping++;
+                }
                 if (!short_report) {
                     const char *dying = "no";
                     const char *old = "";
                     if (ps_record->quiescing) {
                         dying = "yes";
-                        stopping++;
                     }
                     if (ps_record->generation != mpm_generation)
                         old = " (old gen)";
-                    procs++;
                     ap_rprintf(r, "<tr><td>%u</td><td>%" APR_PID_T_FMT "</td>"
                                       "<td>%s%s</td>"
                                       "<td>%u</td><td>%s</td>"
@@ -598,12 +627,18 @@ static int status_handler(request_rec *r)
                           write_completion, keep_alive, lingering_close);
         }
         else {
-            ap_rprintf(r, "ConnsTotal: %d\n"
+            ap_rprintf(r, "Processes: %d\n"
+                          "Stopping: %d\n"
+                          "BusyWorkers: %d\n"
+                          "IdleWorkers: %d\n"
+                          "ConnsTotal: %d\n"
                           "ConnsAsyncWriting: %d\n"
                           "ConnsAsyncKeepAlive: %d\n"
                           "ConnsAsyncClosing: %d\n",
-                       connections, write_completion, keep_alive,
-                       lingering_close);
+                          procs, stopping,
+                          busy_workers, idle_workers,
+                          connections,
+                          write_completion, keep_alive, lingering_close);
         }
     }
 
@@ -683,7 +718,7 @@ static int status_handler(request_rec *r)
 #ifdef HAVE_TIMES
                      "<th>CPU\n</th>"
 #endif
-                     "<th>SS</th><th>Req</th>"
+                     "<th>SS</th><th>Req</th><th>Dur</th>"
                      "<th>Conn</th><th>Child</th><th>Slot</th>"
                      "<th>Client</th><th>Protocol</th><th>VHost</th>"
                      "<th>Request</th></tr>\n\n", r);
@@ -704,8 +739,8 @@ static int status_handler(request_rec *r)
                     req_time = 0L;
                 else
                     req_time = (long)
-                        ((ws_record->stop_time -
-                          ws_record->start_time) / 1000);
+                        apr_time_as_msec(ws_record->stop_time -
+                          ws_record->start_time);
                 if (req_time < 0L)
                     req_time = 0L;
 
@@ -715,6 +750,7 @@ static int status_handler(request_rec *r)
                 bytes = ws_record->bytes_served;
                 my_bytes = ws_record->my_bytes_served;
                 conn_bytes = ws_record->conn_bytes;
+                duration_slot = ws_record->duration;
                 if (ws_record->pid) { /* MPM sets per-worker pid and generation */
                     worker_pid = ws_record->pid;
                     worker_generation = ws_record->generation;
@@ -781,7 +817,7 @@ static int status_handler(request_rec *r)
 #ifdef HAVE_TIMES
                                "u%g s%g cu%g cs%g"
 #endif
-                               "\n %ld %ld (",
+                               "\n %ld %ld %" APR_TIME_T_FMT "(",
 #ifdef HAVE_TIMES
                                ws_record->times.tms_utime / tick,
                                ws_record->times.tms_stime / tick,
@@ -790,7 +826,7 @@ static int status_handler(request_rec *r)
 #endif
                                (long)apr_time_sec(nowtime -
                                                   ws_record->last_used),
-                               (long) req_time);
+                               (long) req_time, apr_time_as_msec(duration_slot));
 
                     format_byte_out(r, conn_bytes);
                     ap_rputs("|", r);
@@ -801,7 +837,7 @@ static int status_handler(request_rec *r)
                     ap_rprintf(r,
                                " <i>%s {%s}</i> <i>(%s)</i> <b>[%s]</b><br />\n\n",
                                ap_escape_html(r->pool,
-                                              ws_record->client),
+                                              ws_record->client64),
                                ap_escape_html(r->pool,
                                               ap_escape_logitem(r->pool,
                                                                 ws_record->request)),
@@ -870,7 +906,7 @@ static int status_handler(request_rec *r)
 #ifdef HAVE_TIMES
                                "<td>%.2f</td>"
 #endif
-                               "<td>%ld</td><td>%ld",
+                               "<td>%ld</td><td>%ld</td><td>%" APR_TIME_T_FMT,
 #ifdef HAVE_TIMES
                                (ws_record->times.tms_utime +
                                 ws_record->times.tms_stime +
@@ -879,7 +915,7 @@ static int status_handler(request_rec *r)
 #endif
                                (long)apr_time_sec(nowtime -
                                                   ws_record->last_used),
-                               (long)req_time);
+                               (long)req_time, apr_time_as_msec(duration_slot));
 
                     ap_rprintf(r, "</td><td>%-1.1f</td><td>%-2.2f</td><td>%-2.2f\n",
                                (float)conn_bytes / KBYTE, (float) my_bytes / MBYTE,
@@ -888,7 +924,7 @@ static int status_handler(request_rec *r)
                     ap_rprintf(r, "</td><td>%s</td><td>%s</td><td nowrap>%s</td>"
                                   "<td nowrap>%s</td></tr>\n\n",
                                ap_escape_html(r->pool,
-                                              ws_record->client),
+                                              ws_record->client64),
                                ap_escape_html(r->pool,
                                               ws_record->protocol),
                                ap_escape_html(r->pool,
@@ -915,6 +951,7 @@ static int status_handler(request_rec *r)
 
 "<tr><th>SS</th><td>Seconds since beginning of most recent request</td></tr>\n \
 <tr><th>Req</th><td>Milliseconds required to process most recent request</td></tr>\n \
+<tr><th>Dur</th><td>Sum of milliseconds required to process all requests</td></tr>\n \
 <tr><th>Conn</th><td>Kilobytes transferred this connection</td></tr>\n \
 <tr><th>Child</th><td>Megabytes transferred this child</td></tr>\n \
 <tr><th>Slot</th><td>Total megabytes transferred this slot</td></tr>\n \

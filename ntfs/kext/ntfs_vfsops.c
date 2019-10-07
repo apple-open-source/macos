@@ -461,12 +461,18 @@ static errno_t ntfs_boot_sector_parse(ntfs_volume *vol,
 		vol->mft_record_size = 1 << -clusters_per_mft_record;
 	vol->mft_record_size_mask = vol->mft_record_size - 1;
 	vol->mft_record_size_shift = ffs(vol->mft_record_size) - 1;
+	vol->mft_records_per_sector_mask =
+		(vol->mft_record_size >= vol->sector_size) ? 0U :
+		((((u64)1U) << (vol->sector_size_shift -
+		vol->mft_record_size_shift)) - 1);
 	ntfs_debug("vol->mft_record_size = %u (0x%x)", vol->mft_record_size,
 			vol->mft_record_size);
 	ntfs_debug("vol->mft_record_size_mask = 0x%x",
 			vol->mft_record_size_mask);
 	ntfs_debug("vol->mft_record_size_shift = %u)",
 			vol->mft_record_size_shift);
+	ntfs_debug("vol->mft_records_per_sector_mask = 0x%llx",
+			(unsigned long long)vol->mft_records_per_sector_mask);
 	/*
 	 * We cannot support mft record sizes above the PAGE_SIZE since we
 	 * store $MFT/$DATA, i.e. the table of mft records, in the unified
@@ -478,14 +484,18 @@ static errno_t ntfs_boot_sector_parse(ntfs_volume *vol,
 				"Sorry.", vol->mft_record_size, PAGE_SIZE);
 		return ENOTSUP;
 	}
-	/* We cannot support mft record sizes below the sector size. */
-	if (vol->mft_record_size < vol->sector_size) {
+#if !NTFS_SUB_SECTOR_MFT_RECORD_SIZE_RW
+	/* We cannot support mft record sizes below the sector size in
+	 * read/write mode. */
+	if (!NVolReadOnly(vol) && vol->mft_record_size < vol->sector_size) {
 		ntfs_error(mp, "Mft record size (%u) is smaller than the "
-				"sector size (%u).  This is not supported.  "
-				"Sorry.", vol->mft_record_size,
+				"sector size (%u).  This is not supported in "
+				"read/write mode.  Sorry.",
+				vol->mft_record_size,
 				vol->sector_size);
 		return ENOTSUP;
 	}
+#endif
 	clusters_per_index_block = b->clusters_per_index_block;
 	ntfs_debug("clusters_per_index_block = %d (0x%x)",
 			clusters_per_index_block, clusters_per_index_block);
@@ -701,6 +711,8 @@ static errno_t ntfs_mft_inode_get(ntfs_volume *vol)
 	ntfs_attr na;
 	char *es = "  $MFT is corrupt.  Run chkdsk.";
 	const u8 block_size_shift = vol->sector_size_shift;
+	int mft_bytes_per_block;
+	u8 mft_bytes_per_block_shift;
 
 	ntfs_debug("Entering.");
 	na = (ntfs_attr) {
@@ -743,8 +755,14 @@ static errno_t ntfs_mft_inode_get(ntfs_volume *vol)
 	/* Determine the first physical block of the $MFT/$DATA attribute. */
 	block = vol->mft_lcn << (vol->cluster_size_shift - block_size_shift);
 	nr_blocks = vol->mft_record_size >> block_size_shift;
-	if (!nr_blocks)
+	if (!nr_blocks) {
 		nr_blocks = 1;
+		mft_bytes_per_block = vol->mft_record_size;
+		mft_bytes_per_block_shift = vol->mft_record_size_shift;
+	} else {
+		mft_bytes_per_block = block_size;
+		mft_bytes_per_block_shift = block_size_shift;
+	}
 	/* Load $MFT/$DATA's first mft record, one block at a time. */
 	for (u = 0; u < nr_blocks; u++, block++) {
 		u8 *src;
@@ -774,7 +792,8 @@ static errno_t ntfs_mft_inode_get(ntfs_volume *vol)
 			buf_brelse(buf);
 			goto err;
 		}
-		memcpy((u8*)m + (u << block_size_shift), src, block_size);
+		memcpy((u8*)m + (u << mft_bytes_per_block_shift), src,
+				mft_bytes_per_block);
 		err = buf_unmap(buf);
 		if (err)
 			ntfs_error(vol->mp, "Failed to unmap buffer of mft "
@@ -1409,6 +1428,8 @@ static errno_t ntfs_mft_mirror_check(ntfs_volume *vol)
 	u8 *mirr_start;
 	MFT_RECORD *mirr, *m;
 	unsigned nr_mirr_recs, alloc_size, rec_size, i;
+	u32 buf_read_size;
+	u32 recs_per_buf;
 	errno_t err, err2;
 
 	ntfs_debug("Entering.");
@@ -1418,6 +1439,15 @@ static errno_t ntfs_mft_mirror_check(ntfs_volume *vol)
 	if (!nr_mirr_recs)
 		panic("%s(): !nr_mirr_recs\n", __FUNCTION__);
 	rec_size = vol->mft_record_size;
+	/* If the MFT record size is smaller than a sector, we must align the
+	 * buffer read to the sector size. */
+	if (rec_size < vol->sector_size) {
+		buf_read_size = vol->sector_size;
+		recs_per_buf = buf_read_size >> vol->mft_record_size_shift;
+	} else {
+		buf_read_size = rec_size;
+		recs_per_buf = 1;
+	}
 	/* Allocate a buffer and read all mft mirror records into it. */
 	alloc_size = nr_mirr_recs << vol->mft_record_size_shift;
 	mirr_start = OSMalloc(alloc_size, ntfs_malloc_tag);
@@ -1434,46 +1464,57 @@ static errno_t ntfs_mft_mirror_check(ntfs_volume *vol)
 		goto err;
 	}
 	lck_rw_lock_shared(&ni->lock);
-	for (i = 0; i < nr_mirr_recs; i++) {
+	for (i = 0; i < nr_mirr_recs; i += recs_per_buf) {
+		u32 recno;
+
 		/* Get the next $MFTMirr record. */
-		err = buf_meta_bread(ni->vn, i, rec_size, NOCRED, &buf);
+		err = buf_meta_bread(ni->vn, i, buf_read_size, NOCRED, &buf);
 		if (err) {
-			ntfs_error(vol->mp, "Failed to read $MFTMirr record "
-					"%d (error %d).", i, err);
+			ntfs_error(vol->mp, "Failed to read $MFTMirr records "
+					"%d-%d (error %d).",
+					i, i + recs_per_buf - 1, err);
 			goto brelse;
 		}
 		err = buf_map(buf, (caddr_t*)&m);
 		if (err) {
 			ntfs_error(vol->mp, "Failed to map buffer of $MFTMirr "
-					"record %d (error %d).", i, err);
+					"records %d-%d (error %d).",
+					i, i + recs_per_buf - 1, err);
 			goto brelse;
 		}
-		/*
-		 * Copy the mirror record, drop the buffer, and remove the MST
-		 * fixups.
-		 */
-		memcpy(mirr, m, rec_size);
+		for (recno = 0; recno < recs_per_buf; ++recno) {
+			/*
+			 * Copy the mirror record, drop the buffer, and remove
+			 * the MST fixups.
+			 */
+			memcpy(mirr, m, rec_size);
+			err = ntfs_mst_fixup_post_read((NTFS_RECORD*)mirr,
+				rec_size);
+			/* Do not check the mirror record if it is not in
+			 * use. */
+			if (mirr->flags & MFT_RECORD_IN_USE) {
+				if (err || ntfs_is_baad_record(mirr->magic)) {
+					ntfs_error(vol->mp, "Incomplete multi "
+							"sector transfer "
+							"detected in mft "
+							"mirror record %d.",
+							i + recno);
+					if (!err)
+						err = EIO;
+					goto unmap;
+				}
+			}
+			m = (MFT_RECORD*)((u8*)m + rec_size);
+			mirr = (MFT_RECORD*)((u8*)mirr + rec_size);
+		}
 		err = buf_unmap(buf);
 		if (err) {
 			ntfs_error(vol->mp, "Failed to unmap buffer of "
-					"$MFTMirr record %d (error %d).", i,
-					err);
+					"$MFTMirr records %d-%d (error %d).",
+					 i, i + recs_per_buf - 1, err);
 			goto brelse;
 		}
 		buf_brelse(buf);
-		err = ntfs_mst_fixup_post_read((NTFS_RECORD*)mirr, rec_size);
-		/* Do not check the mirror record if it is not in use. */
-		if (mirr->flags & MFT_RECORD_IN_USE) {
-			if (err || ntfs_is_baad_record(mirr->magic)) {
-				ntfs_error(vol->mp, "Incomplete multi sector "
-						"transfer detected in mft "
-						"mirror record %d.", i);
-				if (!err)
-					err = EIO;
-				goto unlock;
-			}
-		}
-		mirr = (MFT_RECORD*)((u8*)mirr + rec_size);
 	}
 	/*
 	 * Because we have just read at least the beginning of the mft mirror,
@@ -1516,55 +1557,67 @@ static errno_t ntfs_mft_mirror_check(ntfs_volume *vol)
 	}
 	lck_rw_lock_shared(&ni->lock);
 	mirr = (MFT_RECORD*)mirr_start;
-	for (i = 0; i < nr_mirr_recs; i++) {
-		unsigned bytes;
+	for (i = 0; i < nr_mirr_recs; i += recs_per_buf) {
+		u32 recno;
 
 		/* Get the current $MFT record. */
-		err = buf_meta_bread(ni->vn, i, rec_size, NOCRED, &buf);
+		err = buf_meta_bread(ni->vn, i, buf_read_size, NOCRED, &buf);
 		if (err) {
-			ntfs_error(vol->mp, "Failed to read $MFT record %d "
+			ntfs_error(vol->mp, "Failed to read $MFT records %d "
 					"(error %d).", i, err);
 			goto brelse;
 		}
 		err = buf_map(buf, (caddr_t*)&m);
 		if (err) {
 			ntfs_error(vol->mp, "Failed to map buffer of $MFT "
-					"record %d (error %d).", i, err);
+					"records %d-%d (error %d).",
+					i, i + recs_per_buf - 1, err);
 			goto brelse;
 		}
-		/* Do not check the mft record if it is not in use. */
-		if (m->flags & MFT_RECORD_IN_USE) {
-			/* Make sure the record is ok. */
-			if (ntfs_is_baad_record(m->magic)) {
-				ntfs_error(vol->mp, "Incomplete multi sector "
-						"transfer detected in mft "
-						"record %d.", i);
+		for (recno = 0; recno < recs_per_buf; ++recno) {
+			unsigned bytes;
+
+			/* Do not check the mft record if it is not in use. */
+			if (m->flags & MFT_RECORD_IN_USE) {
+				/* Make sure the record is ok. */
+				if (ntfs_is_baad_record(m->magic)) {
+					ntfs_error(vol->mp, "Incomplete multi "
+							"sector transfer "
+							"detected in mft "
+							"record %d.",
+							i + recno);
+					err = EIO;
+					goto unmap;
+				}
+			}
+			/* Get the amount of data in the current record. */
+			bytes = le32_to_cpu(m->bytes_in_use);
+			if (bytes < sizeof(MFT_RECORD_OLD) ||
+					bytes > rec_size ||
+					ntfs_is_baad_record(m->magic)) {
+				bytes = le32_to_cpu(mirr->bytes_in_use);
+				if (bytes < sizeof(MFT_RECORD_OLD) ||
+						bytes > rec_size ||
+						ntfs_is_baad_record(mirr->
+						magic))
+					bytes = rec_size;
+			}
+			/* Compare the two records. */
+			if (bcmp(m, mirr, bytes)) {
+				ntfs_error(vol->mp, "$MFT and $MFTMirr (record "
+						"%d) do not match.  Run "
+						"chkdsk.", i + recno);
 				err = EIO;
 				goto unmap;
 			}
+			m = (MFT_RECORD*)((u8*)m + rec_size);
+			mirr = (MFT_RECORD*)((u8*)mirr + rec_size);
 		}
-		/* Get the amount of data in the current record. */
-		bytes = le32_to_cpu(m->bytes_in_use);
-		if (bytes < sizeof(MFT_RECORD_OLD) || bytes > rec_size ||
-				ntfs_is_baad_record(m->magic)) {
-			bytes = le32_to_cpu(mirr->bytes_in_use);
-			if (bytes < sizeof(MFT_RECORD_OLD) ||
-					bytes > rec_size ||
-					ntfs_is_baad_record(mirr->magic))
-				bytes = rec_size;
-		}
-		/* Compare the two records. */
-		if (bcmp(m, mirr, bytes)) {
-			ntfs_error(vol->mp, "$MFT and $MFTMirr (record %d) do "
-					"not match.  Run chkdsk.", i);
-			err = EIO;
-			goto unmap;
-		}
-		mirr = (MFT_RECORD*)((u8*)mirr + rec_size);
 		err = buf_unmap(buf);
 		if (err) {
 			ntfs_error(vol->mp, "Failed to unmap buffer of $MFT "
-					"record %d (error %d).", i, err);
+					"records %d-%d (error %d).",
+					i, i + recs_per_buf - 1, err);
 			goto brelse;
 		}
 		buf_brelse(buf);
@@ -3879,7 +3932,8 @@ err:
  * Note this function is only called for r/w mounted volumes so no need to
  * check if the volume is read-only.
  */
-static int ntfs_sync(struct mount *mp, int waitfor, vfs_context_t context)
+static int ntfs_sync(struct mount *mp, int waitfor,
+		vfs_context_t context __attribute__((unused)))
 {
 	ntfs_volume *vol = NTFS_MP(mp);
 	struct ntfs_sync_args args;

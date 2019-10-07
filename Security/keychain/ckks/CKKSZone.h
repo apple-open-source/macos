@@ -24,15 +24,18 @@
 #import <Foundation/Foundation.h>
 
 #if OCTAGON
-#import "keychain/ckks/CKKSCKAccountStateTracker.h"
+#import "keychain/ckks/CKKSAccountStateTracker.h"
 #import "keychain/ckks/CKKSReachabilityTracker.h"
 #import "keychain/ckks/CloudKitDependencies.h"
-#import "keychain/ckks/CKKSAPSReceiver.h"
+#import "keychain/ckks/CKKSCloudKitClassDependencies.h"
+#import "keychain/ckks/OctagonAPSReceiver.h"
 #import "keychain/ckks/CKKSGroupOperation.h"
+#import "keychain/ckks/CKKSNearFutureScheduler.h"
+#import "keychain/ckks/CKKSZoneModifier.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface CKKSZone : NSObject <CKKSZoneUpdateReceiver, CKKSAccountStateListener>
+@interface CKKSZone : NSObject <CKKSZoneUpdateReceiver, CKKSCloudKitAccountStateListener>
 {
     CKContainer* _container;
     CKDatabase* _database;
@@ -57,32 +60,25 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) CKContainer* container;
 @property (readonly) CKDatabase* database;
 
-@property (weak) CKKSCKAccountStateTracker* accountTracker;
+@property (weak) CKKSAccountStateTracker* accountTracker;
 @property (weak) CKKSReachabilityTracker* reachabilityTracker;
 
 @property (readonly) CKRecordZone* zone;
 @property (readonly) CKRecordZoneID* zoneID;
 
+@property (readonly) CKKSZoneModifier* zoneModifier;
+
 // Dependencies (for injection)
-@property (readonly) Class<CKKSFetchRecordZoneChangesOperation> fetchRecordZoneChangesOperationClass;
-@property (readonly) Class<CKKSFetchRecordsOperation> fetchRecordsOperationClass;
-@property (readonly) Class<CKKSQueryOperation> queryOperationClass;
-@property (readonly) Class<CKKSModifySubscriptionsOperation> modifySubscriptionsOperationClass;
-@property (readonly) Class<CKKSModifyRecordZonesOperation> modifyRecordZonesOperationClass;
-@property (readonly) Class<CKKSAPSConnection> apsConnectionClass;
+@property (readonly) CKKSCloudKitClassDependencies* cloudKitClassDependencies;
 
 @property dispatch_queue_t queue;
 
 - (instancetype)initWithContainer:(CKContainer*)container
-                                zoneName:(NSString*)zoneName
-                          accountTracker:(CKKSCKAccountStateTracker*)accountTracker
-                     reachabilityTracker:(CKKSReachabilityTracker *)reachabilityTracker
-    fetchRecordZoneChangesOperationClass:(Class<CKKSFetchRecordZoneChangesOperation>)fetchRecordZoneChangesOperationClass
-              fetchRecordsOperationClass:(Class<CKKSFetchRecordsOperation>)fetchRecordsOperationClass
-                     queryOperationClass:(Class<CKKSQueryOperation>)queryOperationClass
-       modifySubscriptionsOperationClass:(Class<CKKSModifySubscriptionsOperation>)modifySubscriptionsOperationClass
-         modifyRecordZonesOperationClass:(Class<CKKSModifyRecordZonesOperation>)modifyRecordZonesOperationClass
-                      apsConnectionClass:(Class<CKKSAPSConnection>)apsConnectionClass;
+                         zoneName:(NSString*)zoneName
+                   accountTracker:(CKKSAccountStateTracker*)accountTracker
+              reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
+                     zoneModifier:(CKKSZoneModifier*)zoneModifier
+        cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies;
 
 
 - (CKKSResultOperation* _Nullable)deleteCloudKitZoneOperation:(CKOperationGroup* _Nullable)ckoperationGroup;
@@ -105,7 +101,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Call this when you're ready for this zone to kick off operations
 // based on iCloud account status
-- (void)initializeZone;
+- (void)beginCloudKitOperation;
 
 // Cancels all operations (no matter what they are).
 - (void)cancelAllOperations;

@@ -252,7 +252,9 @@ int report(int argc __unused, const char * argv[] __unused) {
                 
                 set = true;
                 reportID = strtol(optarg, NULL, 16);
-                tmpLength = optind;
+                // optind is incremented by 2 when arg is expected
+                // decrement by 1 to make sure first arg/byte (reportID) is counted
+                tmpLength = optind - 1;
                 
                 for(;tmpLength < argc && *argv[tmpLength] != '-'; tmpLength++) {
                     reportLength++;
@@ -264,8 +266,10 @@ int report(int argc __unused, const char * argv[] __unused) {
                 }
                 
                 reportData = malloc(reportLength);
-                
                 tmpLength = 0;
+                // Prepend reportID as it is skipped by optind
+                reportData[tmpLength++] = reportID;
+
                 for(;optind < argc && *argv[optind] != '-'; optind++) {
                     reportData[tmpLength++] = strtol(argv[optind], NULL, 16);
                 }

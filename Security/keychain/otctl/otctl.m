@@ -2,508 +2,231 @@
 //  Security
 //
 
+#import <TargetConditionals.h>
 #import <Foundation/Foundation.h>
-#import <Foundation/NSXPCConnection_Private.h>
+#import <Security/SecInternalReleasePriv.h>
 #import <Security/Security.h>
-#import <Security/SecItemPriv.h>
-#import <xpc/xpc.h>
 #import <err.h>
-#import "OT.h"
-#import <utilities/debugging.h>
-#import "keychain/ot/OTControl.h"
-#import "keychain/ot/OTConstants.h"
+
+#import "keychain/otctl/OTControlCLI.h"
+#import "keychain/otctl/EscrowRequestCLI.h"
+#import "keychain/escrowrequest/Framework/SecEscrowRequest.h"
 #include "lib/SecArgParse.h"
-#include <utilities/SecCFWrappers.h>
-#include <utilities/SecInternalReleasePriv.h>
+#include "utilities/debugging.h"
 
-@interface OTControlCLI : NSObject
-@property OTControl* control;
-@end
+#if TARGET_OS_WATCH
+#import "keychain/otpaird/OTPairingClient.h"
+#endif /* TARGET_OS_WATCH */
 
-@implementation OTControlCLI
+static int start = false;
+static int signIn = false;
+static int signOut = false;
+static int resetoctagon = false;
 
+static int fetchAllBottles = false;
+static int recover = false;
+static int depart = false;
 
-- (instancetype) initWithOTControl:(OTControl*)control {
-    if ((self = [super init])) {
-        _control = control;
-    }
-    
-    return self;
-}
+static int status = false;
 
-- (long)preflightBottledPeer:(NSString*)contextID dsid:(NSString*)dsid
-{
-    __block long ret = 0;
-    
-#if OCTAGON
-    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-    
-    [self.control preflightBottledPeer:contextID dsid:dsid reply:^(NSData * _Nullable entropy, NSString * _Nullable bottleID, NSData * _Nullable signingPublicKey, NSError * _Nullable error) {
-        if(error){
-            printf("Error pushing: %s\n", [[error description] UTF8String]);
-            ret = (error.code == 0 ? -1 : error.code);
-        }else if(entropy && bottleID && signingPublicKey){
-            printf("\nSuccessfully preflighted bottle ID: %s\n", [bottleID UTF8String]);
-            printf("\nEntropy used: %s\n", [[entropy base64EncodedStringWithOptions:0] UTF8String]);
-            printf("\nSigning Public Key: %s\n", [[signingPublicKey base64EncodedStringWithOptions:0] UTF8String]);
-            ret = 0;
-        }else{
-            printf("Failed to preflight bottle and no error was returned..");
-            ret = -1;
-        }
-        
-        dispatch_semaphore_signal(sema);
-    }];
-    
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 65)) != 0) {
-        printf("\n\nError: timed out waiting for response\n");
-        return -1;
-    }
-    return ret;
-#else
-    return -1;
-#endif
-}
+static int er_trigger = false;
+static int er_status = false;
+static int er_reset = false;
+static int er_store = false;
 
-- (long)launchBottledPeer:(NSString*)contextID bottleID:(NSString*)bottleID
-{
-    __block long ret = 0;
-    
-#if OCTAGON
-    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-    
-    [self.control launchBottledPeer:contextID bottleID:bottleID reply:^(NSError * _Nullable error) {
-        if(error)
-        {
-            printf("Error pushing: %s\n", [[error description] UTF8String]);
-            ret = (error.code == 0 ? -1 : error.code);
-        } else {
-            printf("\nSuccessfully launched bottleID: %s\n", [bottleID UTF8String]);
-            ret = 0;
-        }
-        
-        dispatch_semaphore_signal(sema);
-    }];
-    
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 65)) != 0) {
-        printf("\n\nError: timed out waiting for response\n");
-        return -1;
-    }
-    return ret;
-#else
-    return -1;
-#endif
-}
+static int ttr_flag = false;
 
-- (long)scrubBottledPeer:(NSString*)contextID bottleID:(NSString*)bottleID
-{
-    __block long ret = 0;
-    
-#if OCTAGON
-    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-    
-    [self.control scrubBottledPeer:contextID bottleID:bottleID reply:^(NSError * _Nullable error) {
-        if(error)
-        {
-            printf("Error pushing: %s\n", [[error description] UTF8String]);
-            ret = (error.code == 0 ? -1 : error.code);
-        } else {
-            printf("\nSuccessfully scrubbed bottle ID: %s\n", [bottleID UTF8String]);
-            ret = 0;
-        }
-        
-        dispatch_semaphore_signal(sema);
-    }];
-    
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 65)) != 0) {
-        printf("\n\nError: timed out waiting for response\n");
-        return -1;
-    }
-    return ret;
-#else
-    ret = -1;
-    return ret;
-#endif
-}
+static int health = false;
 
+#if TARGET_OS_WATCH
+static int pairme = false;
+#endif /* TARGET_OS_WATCH */
 
-- (long)enroll:(NSString*)contextID dsid:(NSString*)dsid
-{
-    __block long ret = 0;
-    
-#if OCTAGON
-    dispatch_semaphore_t semaForPreFlight = dispatch_semaphore_create(0);
-    dispatch_semaphore_t semaForLaunch = dispatch_semaphore_create(0);
-    __block NSString* bottleRecordID = nil;
-    __block NSError* localError = nil;
-
-    [self.control preflightBottledPeer:contextID dsid:dsid reply:^(NSData * _Nullable entropy, NSString * _Nullable bottleID, NSData * _Nullable signingPublicKey, NSError * _Nullable error) {
-        if(error)
-        {
-            localError = error;
-            printf("Error pushing: %s\n", [[error description] UTF8String]);
-            ret = (error.code == 0 ? -1 : error.code);
-        } else {
-            bottleRecordID = bottleID;
-            printf("\nSuccessfully preflighted bottle ID: %s\n", [bottleID UTF8String]);
-            printf("\nEntropy used: %s\n", [[entropy base64EncodedStringWithOptions:0] UTF8String]);
-            printf("\nSigning Public Key: %s\n", [[signingPublicKey base64EncodedStringWithOptions:0] UTF8String]);
-            ret = 0;
-        }
-        
-        dispatch_semaphore_signal(semaForPreFlight);
-    }];
-    
-    if(dispatch_semaphore_wait(semaForPreFlight, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 65)) != 0) {
-        printf("\n\nError: timed out waiting for response\n");
-        return -1;
-    }
-
-    if(localError == nil){
-        [self.control launchBottledPeer:contextID bottleID:bottleRecordID reply:^(NSError * _Nullable error) {
-            if(error)
-            {
-                printf("Error pushing: %s\n", [[error description] UTF8String]);
-                ret = (error.code == 0 ? -1 : error.code);
-            } else {
-                printf("\nSuccessfully launched bottleID: %s\n", [bottleRecordID UTF8String]);
-                ret = 0;
-            }
-
-            dispatch_semaphore_signal(semaForLaunch);
-        }];
-
-        if(dispatch_semaphore_wait(semaForLaunch, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 65)) != 0) {
-            printf("\n\nError: timed out waiting for response\n");
-            return -1;
-        }
-    }
-    printf("Complete.\n");
-    return ret;
-#else
-    return -1;
-#endif
-}
-
-
-- (long)restore:(NSString*)contextID dsid:(NSString*)dsid secret:(NSData*)secret escrowRecordID:(NSString*)escrowRecordID
-{
-    __block long ret = 0;
-
-#if OCTAGON
-    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-
-    [self.control restore:contextID dsid:dsid secret:secret escrowRecordID:escrowRecordID reply:^(NSData* signingKeyData, NSData* encryptionKeyData, NSError *error) {
-        if(error)
-        {
-            printf("Error pushing: %s\n", [[error description] UTF8String]);
-            ret = (error.code == 0 ? -1 : error.code);
-        } else {
-
-            printf("Complete.\n");
-            ret = 0;
-        }
-
-        NSString* signingKeyString = [signingKeyData base64EncodedStringWithOptions:0];
-        NSString* encryptionKeyString = [encryptionKeyData base64EncodedStringWithOptions:0];
-
-        printf("Signing Key:\n %s\n", [signingKeyString UTF8String]);
-        printf("Encryption Key:\n %s\n", [encryptionKeyString UTF8String]);
-        dispatch_semaphore_signal(sema);
-    }];
-
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 65)) != 0) {
-        printf("\n\nError: timed out waiting for response\n");
-        return -1;
-    }
-    return ret;
-#else
-    ret = -1;
-    return ret;
-#endif
-}
-
-- (long) reset
-{
-    __block long ret = 0;
-    
-#if OCTAGON
-    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-    [self.control reset:^(BOOL reset, NSError* error){
-        if(error)
-        {
-            printf("Error pushing: %s\n", [[error description] UTF8String]);
-            ret = (error.code == 0 ? -1 : error.code);
-        } else {
-            printf("success\n");
-        }
-        
-        dispatch_semaphore_signal(sema);
-    }];
-    
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 65)) != 0) {
-        printf("\n\nError: timed out waiting for response\n");
-        return -1;
-    }
-    
-    printf("Complete.\n");
-    return ret;
-#else
-    ret = -1;
-    return ret;
-#endif
-}
-
-- (long) listOfRecords
-{
-    __block long ret = 0;
-    
-#if OCTAGON
-    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-    [self.control listOfRecords:^(NSArray* list, NSError* error){
-        if(error)
-        {
-            printf("Error pushing: %s\n", [[error description] UTF8String]);
-            ret = (error.code == 0 ? -1 : error.code);
-        } else {
-            [list enumerateObjectsUsingBlock:^(NSString*  _Nonnull escrowRecordID, NSUInteger idx, BOOL * _Nonnull stop) {
-                printf("escrowRecordID: %s\n", [escrowRecordID UTF8String]);
-            }];
-            ret = 0;
-        }
-        
-        dispatch_semaphore_signal(sema);
-    }];
-
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 65)) != 0) {
-        printf("\n\nError: timed out waiting for response\n");
-        return -1;
-    }
-
-    printf("Complete.\n");
-    return ret;
-#else
-    ret = -1;
-    return ret;
-#endif
-}
-
-- (long)octagonKeys
-{
-    __block long ret = 0;
-
-#if OCTAGON
-    dispatch_semaphore_t semaForGettingEncryptionKey = dispatch_semaphore_create(0);
-    dispatch_semaphore_t semaForGettingSigningKey = dispatch_semaphore_create(0);
-    [self.control encryptionKey:^(NSData *encryptionKey, NSError * error) {
-        if(error)
-        {
-            printf("Error pushing: %s\n", [[error description] UTF8String]);
-            ret = (error.code == 0 ? -1 : error.code);
-        } else {
-            NSString* encryptionKeyString = [encryptionKey base64EncodedStringWithOptions:0];
-            printf("Encryption Key:\n %s\n", [encryptionKeyString UTF8String]);
-            ret = 0;
-        }
-
-        dispatch_semaphore_signal(semaForGettingEncryptionKey);
-    }];
-
-    [self.control signingKey:^(NSData *signingKey, NSError * error) {
-        if(error)
-        {
-            printf("Error pushing: %s\n", [[error description] UTF8String]);
-            ret = (error.code == 0 ? -1 : error.code);
-        } else {
-            NSString* signingKeyString = [signingKey base64EncodedStringWithOptions:0];
-            printf("Signing Key:\n %s\n", [signingKeyString UTF8String]);
-            ret = 0;
-        }
-
-        dispatch_semaphore_signal(semaForGettingSigningKey);
-    }];
-
-
-    if(dispatch_semaphore_wait(semaForGettingEncryptionKey, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 65)) != 0) {
-        printf("\n\nError: timed out waiting for response\n");
-        return -1;
-    }
-    if(dispatch_semaphore_wait(semaForGettingSigningKey, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 65)) != 0) {
-        printf("\n\nError: timed out waiting for response\n");
-        return -1;
-    }
-    printf("Complete.\n");
-    return ret;
-#else
-    ret = -1;
-    return ret;
-#endif
-}
-
-@end
-
-static int enroll = false;
-static int restore = false;
-static int octagonkeys = false;
-static int reset = false;
-
-static int prepbp = false;
-static int launch = false;
-static int scrub = false;
-
-static int listOfRecords = false;
 static char* bottleIDArg = NULL;
 static char* contextNameArg = NULL;
 static char* secretArg = NULL;
+static char* skipRateLimitingCheckArg = NULL;
+static int json = false;
 
-int main(int argc, char **argv)
+static char* altDSIDArg = NULL;
+static char* containerStr = NULL;
+static char* radarNumber = NULL;
+
+static void internalOnly(void)
 {
-    if(!SecIsInternalRelease())
-    {
+    if(!SecIsInternalRelease()) {
         secnotice("octagon", "Tool not available on non internal builds");
-        return -1;
+        errx(1, "Tool not available on non internal builds");
     }
+}
 
-    if(!SecOTIsEnabled())
-    {
-        printf("To use this tool, enable defaults write for EnableOTRestore\n defaults write (~)/Library/Preferences/com.apple.security EnableOTRestore -bool YES\n");
-        return -1;
-    }
+int main(int argc, char** argv)
+{
     static struct argument options[] = {
-        { .shortname='s', .longname="secret", .argument=&secretArg, .description="escrow secret"},
-        { .shortname='e', .longname="bottleID", .argument=&bottleIDArg, .description="bottle record id"},
-        { .shortname='c', .longname="context", .argument=&contextNameArg, .description="context name"},
+        {.shortname = 's', .longname = "secret", .argument = &secretArg, .description = "escrow secret"},
+        {.shortname = 'e', .longname = "bottleID", .argument = &bottleIDArg, .description = "bottle record id"},
+        {.shortname = 'r', .longname = "skipRateLimiting", .argument = &skipRateLimitingCheckArg, .description = " enter values YES or NO, option defaults to NO, This gives you the opportunity to skip the rate limiting check when performing the cuttlefish health check"},
+        {.shortname = 'j', .longname = "json", .flag = &json, .flagval = true, .description = "Output in JSON"},
 
-        { .command="restore", .flag=&restore, .flagval=true, .description="Restore fake bottled peer"},
-        { .command="enroll", .flag=&enroll, .flagval=true, .description="Enroll fake bottled peer"},
-        { .command="keys", .flag=&octagonkeys, .shortname='k', .flagval=true, .description="Octagon Signing + Encryption Keys"},
-        { .command="reset", .flag=&reset, .flagval=true, .description="Reset Octagon Trust Zone"},
-        { .command="list", .flag=&listOfRecords, .flagval=true, .description="List of current Bottled Peer Records IDs"},
-    
-        { .command="prepbp", .flag=&prepbp, .shortname='p', .flagval=true, .description="Preflights a bottled peer"},
-        { .command="launch", .flag=&launch, .flagval=true, .description="Launches a bottled peer"},
-        { .command="scrub", .flag=&scrub, .flagval=true, .description="Scrub bottled peer"},
+        {.longname = "altDSID", .argument = &altDSIDArg, .description = "altDSID (for sign-in/out)"},
+        {.longname = "entropy", .argument = &secretArg, .description = "escrowed entropy in JSON"},
 
-        {}
-    };
-    
+        {.longname = "container", .argument = &containerStr, .description = "CloudKit container name"},
+        {.longname = "radar", .argument = &radarNumber, .description = "Radar number"},
+
+        {.command = "start", .flag = &start, .flagval = true, .description = "Start Octagon state machine"},
+        {.command = "sign-in", .flag = &signIn, .flagval = true, .description = "Inform Cuttlefish container of sign in"},
+        {.command = "sign-out", .flag = &signOut, .flagval = true, .description = "Inform Cuttlefish container of sign out"},
+        {.command = "status", .flag = &status, .flagval = true, .description = "Report Octagon status"},
+        {.command = "resetoctagon", .flag = &resetoctagon, .flagval = true, .description = "Reset and establish new Octagon trust"},
+        {.command = "allBottles", .flag = &fetchAllBottles, .flagval = true, .description = "Fetch all viable bottles"},
+        {.command = "recover", .flag = &recover, .flagval = true, .description = "Recover using this bottle"},
+        {.command = "depart", .flag = &depart, .flagval = true, .description = "Depart from Octagon Trust"},
+
+        {.command = "er-trigger", .flag = &er_trigger, .flagval = true, .description = "Trigger an Escrow Request request"},
+        {.command = "er-status", .flag = &er_status, .flagval = true, .description = "Report status on any pending Escrow Request requests"},
+        {.command = "er-reset", .flag = &er_reset, .flagval = true, .description = "Delete all Escrow Request requests"},
+        {.command = "er-store", .flag = &er_store, .flagval = true, .description = "Store any pending Escrow Request prerecords"},
+
+        {.command = "health", .flag = &health, .flagval = true, .description = "Check Octagon Health status"},
+
+        {.command = "taptoradar", .flag = &ttr_flag, .flagval = true, .description = "Trigger a TapToRadar"},
+
+#if TARGET_OS_WATCH
+        {.command = "pairme", .flag = &pairme, .flagval = true, .description = "Perform pairing (watchOS only)"},
+#endif /* TARGET_OS_WATCH */
+        {}};
+
     static struct arguments args = {
-        .programname="otctl",
-        .description="Control and report on Octagon Trust",
+        .programname = "otctl",
+        .description = "Control and report on Octagon Trust",
         .arguments = options,
     };
-    
+
     if(!options_parse(argc, argv, &args)) {
         printf("\n");
         print_usage(&args);
         return -1;
     }
-    
+
     @autoreleasepool {
         NSError* error = nil;
-        
-        OTControl* rpc = [OTControl controlObject:&error];
+
+        // Use a synchronous control object
+        OTControl* rpc = [OTControl controlObject:true error:&error];
         if(error || !rpc) {
             errx(1, "no OTControl failed: %s", [[error description] UTF8String]);
         }
-        
+
+        NSString* context = contextNameArg ? [NSString stringWithCString:contextNameArg encoding:NSUTF8StringEncoding] : OTDefaultContext;
+        NSString* container = containerStr ? [NSString stringWithCString:containerStr encoding:NSUTF8StringEncoding] : nil;
+        NSString* altDSID = altDSIDArg ? [NSString stringWithCString:altDSIDArg encoding:NSUTF8StringEncoding] : nil;
+        NSString* skipRateLimitingCheck = skipRateLimitingCheckArg ? [NSString stringWithCString:skipRateLimitingCheckArg encoding:NSUTF8StringEncoding] : @"NO";
+
         OTControlCLI* ctl = [[OTControlCLI alloc] initWithOTControl:rpc];
 
-        if(enroll) {
-            long ret = 0;
-            NSString* context = contextNameArg ? [NSString stringWithCString: contextNameArg encoding: NSUTF8StringEncoding] : OTDefaultContext;
-            ret = [ctl enroll:context dsid:@"12345678"];
+        NSError* escrowRequestError = nil;
+        EscrowRequestCLI* escrowctl = [[EscrowRequestCLI alloc] initWithEscrowRequest:[SecEscrowRequest request:&escrowRequestError]];
+        if(escrowRequestError) {
+            errx(1, "SecEscrowRequest failed: %s", [[escrowRequestError description] UTF8String]);
+        }
+        if(resetoctagon) {
+            long ret = [ctl resetOctagon:container context:context altDSID:altDSID];
             return (int)ret;
         }
-        if(prepbp){
-            long ret = 0;           
-            NSString* context = contextNameArg ? [NSString stringWithCString: contextNameArg encoding: NSUTF8StringEncoding] : OTDefaultContext;
-           
-            //requires secret, context is optional
-            ret = [ctl preflightBottledPeer:context dsid:@"12345678"];
-            return (int)ret;
+        if(fetchAllBottles) {
+            return (int)[ctl fetchAllBottles:altDSID containerName:container context:context control:rpc];
         }
-        if(launch){
-            long ret = 0;
+        if(recover) {
+            NSString* entropyJSON = secretArg ? [NSString stringWithCString:secretArg encoding:NSUTF8StringEncoding] : nil;
+            NSString* bottleID = bottleIDArg ? [NSString stringWithCString:bottleIDArg encoding:NSUTF8StringEncoding] : nil;
 
-            NSString* bottleID = bottleIDArg ? [NSString stringWithCString: bottleIDArg encoding: NSUTF8StringEncoding] : nil;
-            NSString* context = contextNameArg ? [NSString stringWithCString: contextNameArg encoding: NSUTF8StringEncoding] : OTDefaultContext;
-            //requires bottleID, context is optional
-            if(bottleID && [bottleID length] > 0 && ![bottleID isEqualToString:@"(null)"]){
-                ret = [ctl launchBottledPeer:context bottleID:bottleID];
-            }
-            else{
+            if(!entropyJSON || !bottleID) {
                 print_usage(&args);
                 return -1;
             }
-            
-            return (int)ret;
-        }
-        if(scrub){
-            long ret = 0;
 
-            NSString* bottleID = bottleIDArg ? [NSString stringWithCString: bottleIDArg encoding: NSUTF8StringEncoding] : nil;
-            NSString* context = contextNameArg ? [NSString stringWithCString: contextNameArg encoding: NSUTF8StringEncoding] : OTDefaultContext;
-            
-            //requires bottle ID, context is optional
-            if(bottleID && [bottleID length] > 0 && ![bottleID isEqualToString:@"(null)"]){
-                ret = [ctl scrubBottledPeer:context bottleID:bottleID];
-            }
-            else{
+            NSData* entropy = [[NSData alloc] initWithBase64EncodedString:entropyJSON options:0];
+            if(!entropy) {
                 print_usage(&args);
                 return -1;
             }
-            return (int)ret;
-        }
-        
-        if(restore) {
-            long ret = 0;
-            NSData* secretData = nil;
-            NSString* secretString = secretArg ? [NSString stringWithCString: secretArg encoding: NSUTF8StringEncoding] : nil;
-            NSString* bottleID = bottleIDArg ? [NSString stringWithCString: bottleIDArg encoding: NSUTF8StringEncoding] : nil;
-            NSString* context = contextNameArg ? [NSString stringWithCString: contextNameArg encoding: NSUTF8StringEncoding] : OTDefaultContext;
 
-            //requires secret and bottle ID, context is optional
-            if(secretString && [secretString length] > 0){
-                secretData = [[NSData alloc] initWithBase64EncodedString:secretString options:0];;
-            }
-            else{
-                print_usage(&args);
-                return -1;
-            }
-            
-
-            if(bottleID && [bottleID length] > 0 && ![bottleID isEqualToString:@"(null)"]){
-                ret = [ctl restore:context dsid:@"12345678" secret:secretData escrowRecordID:bottleID];
-            }
-            else{
-                print_usage(&args);
-                return -1;
-            }
-            return (int)ret;
+            return (int)[ctl recoverUsingBottleID:bottleID
+                                          entropy:entropy
+                                          altDSID:altDSID
+                                    containerName:container
+                                          context:context
+                                          control:rpc];
         }
-        if(octagonkeys){
-            long ret = 0;
-            ret = [ctl octagonKeys];
-            return (int)ret;
+        if(depart) {
+            return (int)[ctl depart:container context:context];
         }
-        if(listOfRecords){
-            long ret = 0;
-            ret = [ctl listOfRecords];
-            return (int)ret;
+        if(start) {
+            internalOnly();
+            return (int)[ctl startOctagonStateMachine:container context:context];
         }
-        if(reset){
-            long ret = 0;
-            ret = [ctl reset];
-            return (int)ret;
+        if(signIn) {
+            internalOnly();
+            return (int)[ctl signIn:altDSID container:container context:context];
         }
-        else {
-            print_usage(&args);
-            return -1;
+        if(signOut) {
+            internalOnly();
+            return (int)[ctl signOut:container context:context];
         }
 
+        if(status) {
+            return (int)[ctl status:container context:context json:json];
+        }
 
+        if(health) {
+            BOOL skip = NO;
+            if([skipRateLimitingCheck isEqualToString:@"YES"]) {
+                skip = YES;
+            } else {
+                skip = NO;
+            }
+            return (int)[ctl healthCheck:container context:context skipRateLimitingCheck:skip];
+        }
+        if (ttr_flag) {
+            if (radarNumber == NULL) {
+                radarNumber = "1";
+            }
+            return (int)[ctl tapToRadar:@"action" description:@"description" radar:[NSString stringWithUTF8String:radarNumber]];
+        }
+        if(er_trigger) {
+            internalOnly();
+            return (int)[escrowctl trigger];
+        }
+        if(er_status) {
+            return (int)[escrowctl status];
+        }
+        if(er_reset) {
+            return (int)[escrowctl reset];
+        }
+        if(er_store) {
+            return (int)[escrowctl storePrerecordsInEscrow];
+        }
+
+
+#if TARGET_OS_WATCH
+        if (pairme) {
+            dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+            OTPairingInitiateWithCompletion(NULL, ^(bool success, NSError *pairingError) {
+                if (success) {
+                    printf("successfully paired with companion\n");
+                } else {
+                    printf("failed to pair with companion: %s\n", pairingError.description.UTF8String);
+                }
+                dispatch_semaphore_signal(sema);
+            });
+            dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+            return 0;
+        }
+#endif /* TARGET_OS_WATCH */
+
+        print_usage(&args);
+        return -1;
     }
     return 0;
 }
-

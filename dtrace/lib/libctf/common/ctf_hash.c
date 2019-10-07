@@ -25,14 +25,12 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)ctf_hash.c	1.5	06/01/07 SMI"
-
 #include <ctf_impl.h>
 
-static const ushort_t _CTF_EMPTY[1] = { 0 };
+static const uint16_t _CTF_EMPTY[1] = { 0 };
 
 int
-ctf_hash_create(ctf_hash_t *hp, ulong_t nelems)
+ctf_hash_create(ctf_hash_t *hp, unsigned long nelems)
 {
 	if (nelems > USHRT_MAX)
 		return (EOVERFLOW);
@@ -43,7 +41,7 @@ ctf_hash_create(ctf_hash_t *hp, ulong_t nelems)
 	 */
 	if (nelems == 0) {
 		bzero(hp, sizeof (ctf_hash_t));
-		hp->h_buckets = (ushort_t *)_CTF_EMPTY;
+		hp->h_buckets = (uint16_t *)_CTF_EMPTY;
 		hp->h_nbuckets = 1;
 		return (0);
 	}
@@ -52,7 +50,7 @@ ctf_hash_create(ctf_hash_t *hp, ulong_t nelems)
 	hp->h_nelems = nelems + 1;	/* we use index zero as a sentinel */
 	hp->h_free = 1;			/* first free element is index 1 */
 
-	hp->h_buckets = ctf_alloc(sizeof (ushort_t) * hp->h_nbuckets);
+	hp->h_buckets = ctf_alloc(sizeof (uint16_t) * hp->h_nbuckets);
 	hp->h_chains = ctf_alloc(sizeof (ctf_helem_t) * hp->h_nelems);
 
 	if (hp->h_buckets == NULL || hp->h_chains == NULL) {
@@ -60,22 +58,22 @@ ctf_hash_create(ctf_hash_t *hp, ulong_t nelems)
 		return (EAGAIN);
 	}
 
-	bzero(hp->h_buckets, sizeof (ushort_t) * hp->h_nbuckets);
+	bzero(hp->h_buckets, sizeof (uint16_t) * hp->h_nbuckets);
 	bzero(hp->h_chains, sizeof (ctf_helem_t) * hp->h_nelems);
 
 	return (0);
 }
 
-uint_t
+uint32_t
 ctf_hash_size(const ctf_hash_t *hp)
 {
 	return (hp->h_nelems ? hp->h_nelems - 1 : 0);
 }
 
-static ulong_t
+static unsigned long
 ctf_hash_compute(const char *key, size_t len)
 {
-	ulong_t g, h = 0;
+	unsigned long g, h = 0;
 	const char *p, *q = key + len;
 	size_t n = 0;
 
@@ -92,12 +90,12 @@ ctf_hash_compute(const char *key, size_t len)
 }
 
 int
-ctf_hash_insert(ctf_hash_t *hp, ctf_file_t *fp, ushort_t type, uint_t name)
+ctf_hash_insert(ctf_hash_t *hp, ctf_file_t *fp, uint16_t type, uint32_t name)
 {
 	ctf_strs_t *ctsp = &fp->ctf_str[CTF_NAME_STID(name)];
 	const char *str = ctsp->cts_strs + CTF_NAME_OFFSET(name);
 	ctf_helem_t *hep = &hp->h_chains[hp->h_free];
-	ulong_t h;
+	unsigned long h;
 
 	if (type == 0)
 		return (EINVAL);
@@ -129,7 +127,7 @@ ctf_hash_insert(ctf_hash_t *hp, ctf_file_t *fp, ushort_t type, uint_t name)
  * If the key is not present, then call ctf_hash_insert() and hash it in.
  */
 int
-ctf_hash_define(ctf_hash_t *hp, ctf_file_t *fp, ushort_t type, uint_t name)
+ctf_hash_define(ctf_hash_t *hp, ctf_file_t *fp, uint16_t type, uint32_t name)
 {
 	const char *str = ctf_strptr(fp, name);
 	ctf_helem_t *hep = ctf_hash_lookup(hp, fp, str, strlen(str));
@@ -147,9 +145,9 @@ ctf_hash_lookup(ctf_hash_t *hp, ctf_file_t *fp, const char *key, size_t len)
 	ctf_helem_t *hep;
 	ctf_strs_t *ctsp;
 	const char *str;
-	ushort_t i;
+	uint16_t i;
 
-	ulong_t h = ctf_hash_compute(key, len) % hp->h_nbuckets;
+	unsigned long h = ctf_hash_compute(key, len) % hp->h_nbuckets;
 
 	for (i = hp->h_buckets[h]; i != 0; i = hep->h_next) {
 		hep = &hp->h_chains[i];
@@ -167,7 +165,7 @@ void
 ctf_hash_destroy(ctf_hash_t *hp)
 {
 	if (hp->h_buckets != NULL && hp->h_nbuckets != 1) {
-		ctf_free(hp->h_buckets, sizeof (ushort_t) * hp->h_nbuckets);
+		ctf_free(hp->h_buckets, sizeof (uint16_t) * hp->h_nbuckets);
 		hp->h_buckets = NULL;
 	}
 

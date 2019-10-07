@@ -8,9 +8,9 @@ function_exists('mb_strripos') or die("skip mb_strripos() is not available in th
 --FILE--
 <?php
 /* Prototype  : int mb_strripos(string haystack, string needle [, int offset [, string encoding]])
- * Description: Finds position of last occurrence of a string within another, case insensitive 
+ * Description: Finds position of last occurrence of a string within another, case insensitive
  * Source code: ext/mbstring/mbstring.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 /*
@@ -20,7 +20,7 @@ function_exists('mb_strripos') or die("skip mb_strripos() is not available in th
 echo "*** Testing mb_strripos() : usage variations ***\n";
 
 // Initialise function arguments not being substituted
-$haystack = b'string_val';
+$haystack = 'string_val';
 $offset = 0;
 $encoding = 'utf-8';
 
@@ -32,12 +32,12 @@ unset ($unset_var);
 class classA
 {
   public function __toString() {
-    return b"Class A object";
+    return "Class A object";
   }
 }
 
 // heredoc string
-$heredoc = b<<<EOT
+$heredoc = <<<EOT
 hello world
 EOT;
 
@@ -69,16 +69,16 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
 
        // string data
-/*18*/ b"string",
-       b'string',
+/*18*/ "string",
+       'string',
        $heredoc,
-       
+
        // object data
 /*21*/ new classA(),
 

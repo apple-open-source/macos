@@ -33,7 +33,7 @@ EAPSecurityErrorString(OSStatus err)
     switch(err) {
     case noErr:
 	return "noErr";
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     case memFullErr:
 	return "memFullErr";
     case paramErr:
@@ -44,7 +44,7 @@ EAPSecurityErrorString(OSStatus err)
 	return "ioErr";
     case badReqErr:
 	return "badReqErr";
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
 	/* SecureTransport.h: */
     case errSSLProtocol:
@@ -136,7 +136,7 @@ EAPSecurityErrorString(OSStatus err)
 	return "errSecItemNotFound";
     case errSSLServerAuthCompleted:
 	return "errSSLServerAuthCompleted";
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     case errSecReadOnly:
 	return "errSecReadOnly";
     case errSecAuthFailed:
@@ -197,7 +197,7 @@ EAPSecurityErrorString(OSStatus err)
 	return "errSecNoAccessForItem";
     case errSecInvalidOwnerEdit:
 	return "errSecInvalidOwnerEdit";
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
     default:
 	return "<unknown>";
     }

@@ -43,6 +43,7 @@
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFNumber.h>
+#include <os/availability.h>
 
 struct BSDPClient_s;
 typedef struct BSDPClient_s * BSDPClientRef;
@@ -300,6 +301,13 @@ BSDPClientSelect(BSDPClientRef client,
 		 CFStringRef ServerAddress,
 		 CFNumberRef Identifier,
 		 BSDPClientSelectCallBack callback, void * info);
-		      
+
+BSDPClientStatus
+BSPPClientSelect(BSDPClientRef client, 
+		 CFStringRef ServerAddress,
+		 CFNumberRef Identifier,
+		 BSDPClientSelectCallBack callback, void * info)
+    API_DEPRECATED("Please use BSDPClientSelect", macos(10.2,10.14)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
+
 #endif /* _S_BSDPCLIENT_H */
 

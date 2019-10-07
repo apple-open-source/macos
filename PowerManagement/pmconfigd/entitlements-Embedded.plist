@@ -4,5 +4,13 @@
 <dict>
 	<key>com.apple.private.applesmc.user-access</key>
 	<true/>
+	<key>com.apple.security.system-groups</key>
+	<array>
+		<string>systemgroup.com.apple.powerlog</string>
+	</array>
+	<key>com.apple.private.hid.client.event-monitor</key>
+	<true/>
+	<key>com.apple.private.iokit.rootdomain-set-property</key>
+	<true/>
 </dict>
 </plist>

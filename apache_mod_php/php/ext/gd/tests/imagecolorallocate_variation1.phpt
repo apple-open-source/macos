@@ -5,7 +5,7 @@ Test imagecolorallocate() function : usage variations  - passing different data 
 if(!extension_loaded('gd')) {
     die('skip gd extension is not loaded');
 }
-?> 
+?>
 --FILE--
 <?php
 /* Prototype  : int imagecolorallocate(resource im, int red, int green, int blue)
@@ -70,7 +70,7 @@ $values = array(
       'int indexed array' => $index_array,
       'associative array' => $assoc_array,
 	  'nested arrays' => array('foo', $index_array, $assoc_array),
-      
+
       // null data
 	  'uppercase NULL' => NULL,
       'lowercase null' => null,
@@ -100,8 +100,8 @@ $values = array(
 
       // unset data
       'unset var' => @$unset_var,
-      
-      //resource 
+
+      //resource
       "file resource" => $fp
 );
 
@@ -117,22 +117,22 @@ foreach($values as $key => $value) {
 
 -- int 0 --
 
-Warning: imagecolorallocate() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: imagecolorallocate() expects parameter 1 to be resource, int given in %s on line %d
 NULL
 
 -- int 1 --
 
-Warning: imagecolorallocate() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: imagecolorallocate() expects parameter 1 to be resource, int given in %s on line %d
 NULL
 
 -- int 12345 --
 
-Warning: imagecolorallocate() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: imagecolorallocate() expects parameter 1 to be resource, int given in %s on line %d
 NULL
 
 -- int -12345 --
 
-Warning: imagecolorallocate() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: imagecolorallocate() expects parameter 1 to be resource, int given in %s on line %d
 NULL
 
 -- float 10.5 --
@@ -192,22 +192,22 @@ NULL
 
 -- lowercase true --
 
-Warning: imagecolorallocate() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: imagecolorallocate() expects parameter 1 to be resource, bool given in %s on line %d
 NULL
 
 -- lowercase false --
 
-Warning: imagecolorallocate() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: imagecolorallocate() expects parameter 1 to be resource, bool given in %s on line %d
 NULL
 
 -- uppercase TRUE --
 
-Warning: imagecolorallocate() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: imagecolorallocate() expects parameter 1 to be resource, bool given in %s on line %d
 NULL
 
 -- uppercase FALSE --
 
-Warning: imagecolorallocate() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: imagecolorallocate() expects parameter 1 to be resource, bool given in %s on line %d
 NULL
 
 -- empty string DQ --

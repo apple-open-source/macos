@@ -17,12 +17,32 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id$ */
+#include "zend_portability.h"
 
 #ifndef ZEND_MULTIPLY_H
 #define ZEND_MULTIPLY_H
 
-#if (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
+#if PHP_HAVE_BUILTIN_SMULL_OVERFLOW && SIZEOF_LONG == SIZEOF_ZEND_LONG
+
+#define ZEND_SIGNED_MULTIPLY_LONG(a, b, lval, dval, usedval) do {	\
+	long __tmpvar;		 											\
+	if (((usedval) = __builtin_smull_overflow((a), (b), &__tmpvar))) {	\
+		(dval) = (double) (a) * (double) (b);						\
+	}																\
+	else (lval) = __tmpvar;											\
+} while (0)
+
+#elif PHP_HAVE_BUILTIN_SMULLL_OVERFLOW && SIZEOF_LONG_LONG == SIZEOF_ZEND_LONG
+
+#define ZEND_SIGNED_MULTIPLY_LONG(a, b, lval, dval, usedval) do {	\
+	long long __tmpvar; 											\
+	if (((usedval) = __builtin_smulll_overflow((a), (b), &__tmpvar))) {	\
+		(dval) = (double) (a) * (double) (b);						\
+	}																\
+	else (lval) = __tmpvar;											\
+} while (0)
+
+#elif (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
 
 #define ZEND_SIGNED_MULTIPLY_LONG(a, b, lval, dval, usedval) do {	\
 	zend_long __tmpvar; 													\
@@ -61,7 +81,21 @@
 
 #elif defined(ZEND_WIN32)
 
-#define ZEND_SIGNED_MULTIPLY_LONG(a, b, lval, dval, usedval) do {	\
+# ifdef _M_X64
+#  pragma intrinsic(_mul128)
+#  define ZEND_SIGNED_MULTIPLY_LONG(a, b, lval, dval, usedval) do {       \
+	__int64 __high; \
+	__int64 __low = _mul128((a), (b), &__high); \
+	if ((__low >> 63I64) == __high) { \
+		(usedval) = 0; \
+		(lval) = __low; \
+	} else { \
+		(usedval) = 1; \
+		(dval) = (double)(a) * (double)(b); \
+	} \
+} while (0)
+# else
+#  define ZEND_SIGNED_MULTIPLY_LONG(a, b, lval, dval, usedval) do {	\
 	zend_long   __lres  = (a) * (b);										\
 	long double __dres  = (long double)(a) * (long double)(b);		\
 	long double __delta = (long double) __lres - __dres;			\
@@ -71,6 +105,7 @@
 		(lval) = __lres;											\
 	}																\
 } while (0)
+# endif
 
 #elif defined(__powerpc64__) && defined(__GNUC__)
 
@@ -124,11 +159,18 @@ static zend_always_inline size_t zend_safe_address(size_t nmemb, size_t size, si
 	size_t res = nmemb;
 	size_t m_overflow = 0;
 
-	__asm__ ("mull %3\n\taddl %4,%0\n\tadcl $0,%1"
+	if (ZEND_CONST_COND(offset == 0, 0)) {
+		__asm__ ("mull %3\n\tadcl $0,%1"
+	     : "=&a"(res), "=&d" (m_overflow)
+	     : "%0"(res),
+	       "rm"(size));
+	} else {
+		__asm__ ("mull %3\n\taddl %4,%0\n\tadcl $0,%1"
 	     : "=&a"(res), "=&d" (m_overflow)
 	     : "%0"(res),
 	       "rm"(size),
 	       "rm"(offset));
+	}
 
 	if (UNEXPECTED(m_overflow)) {
 		*overflow = 1;
@@ -151,14 +193,21 @@ static zend_always_inline size_t zend_safe_address(size_t nmemb, size_t size, si
 # define LP_SUFF "q"
 #endif
 
-	__asm__ ("mul" LP_SUFF  " %3\n\t"
-		"add %4,%0\n\t"
-		"adc $0,%1"
-		: "=&a"(res), "=&d" (m_overflow)
-		: "%0"(res),
-		  "rm"(size),
-		  "rm"(offset));
-
+	if (ZEND_CONST_COND(offset == 0, 0)) {
+		__asm__ ("mul" LP_SUFF  " %3\n\t"
+			"adc $0,%1"
+			: "=&a"(res), "=&d" (m_overflow)
+			: "%0"(res),
+			  "rm"(size));
+	} else {
+		__asm__ ("mul" LP_SUFF  " %3\n\t"
+			"add %4,%0\n\t"
+			"adc $0,%1"
+			: "=&a"(res), "=&d" (m_overflow)
+			: "%0"(res),
+			  "rm"(size),
+			  "rm"(offset));
+	}
 #undef LP_SUFF
 	if (UNEXPECTED(m_overflow)) {
 		*overflow = 1;
@@ -299,4 +348,6 @@ static zend_always_inline size_t zend_safe_addmult(size_t nmemb, size_t size, si
  * c-basic-offset: 4
  * indent-tabs-mode: t
  * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

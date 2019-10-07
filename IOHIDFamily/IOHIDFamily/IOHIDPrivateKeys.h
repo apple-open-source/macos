@@ -28,6 +28,7 @@
 #include <sys/cdefs.h>
 #include <IOKit/hid/IOHIDKeys.h>
 #include <IOKit/hid/IOHIDProperties.h>
+#include <IOKit/hid/IOHIDEventServiceKeys_Private.h>
 
 __BEGIN_DECLS
 
@@ -210,13 +211,29 @@ enum {
 };
 typedef uint32_t IOHIDGameControllerType;
 
-#define kIOHIDGameControllerTypeKey "GameControllerType"
+#define kIOHIDGameControllerTypeKey         "GameControllerType"
 
-#define kIOHIDGameControllerFormFittingKey "GameControllerFormFitting"
+#define kIOHIDGameControllerFormFittingKey  "GameControllerFormFitting"
 
 
-#define kIOHIDFastPathHasEntitlementKey    "FastPathHasEntitlement"
+#define kIOHIDFastPathHasEntitlementKey     "FastPathHasEntitlement"
 
+
+/*!
+    @typedef    IOHIDHomeButtonType
+    @abstract   Integer value that describes the type of home/menu button on the device.
+    @discussion For use with MobileGestalt key kMGQHomeButtonType. This query is
+                applicable to standard iOS. Use with other platforms or nonstandard
+                iOS devices could have unexpected results.
+    @constant   kIOHIDHomeButtonTypeMechanical  Mechanical home button.
+    @constant   kIOHIDHomeButtonTypeSSHB        "Solid-state" virtual home button.
+    @constant   kIOHIDHomeButtonTypeNone        No home button - e.g. on-screen virtual home bar.
+ */
+typedef enum {
+    kIOHIDHomeButtonTypeMechanical  = 0,
+    kIOHIDHomeButtonTypeSSHB        = 1,
+    kIOHIDHomeButtonTypeNone        = 2
+} IOHIDHomeButtonType;
 
 
 

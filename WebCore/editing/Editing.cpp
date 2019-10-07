@@ -888,7 +888,7 @@ Ref<HTMLElement> createHTMLElement(Document& document, const QualifiedName& name
     return HTMLElementFactory::createElement(name, document);
 }
 
-Ref<HTMLElement> createHTMLElement(Document& document, const AtomicString& tagName)
+Ref<HTMLElement> createHTMLElement(Document& document, const AtomString& tagName)
 {
     return createHTMLElement(document, QualifiedName(nullAtom(), tagName, xhtmlNamespaceURI));
 }
@@ -917,7 +917,7 @@ static Ref<Element> createTabSpanElement(Document& document, Text& tabTextNode)
 
     spanElement->appendChild(tabTextNode);
 
-    return WTFMove(spanElement);
+    return spanElement;
 }
 
 Ref<Element> createTabSpanElement(Document& document, const String& tabText)
@@ -1121,6 +1121,17 @@ VisiblePosition visiblePositionForIndexUsingCharacterIterator(Node& node, int in
     range->selectNodeContents(node);
     CharacterIterator it(range.get());
     it.advance(index - 1);
+
+    if (!it.atEnd() && it.text()[0] == '\n') {
+        // FIXME: workaround for collapsed range (where only start position is correct) emitted for some emitted newlines.
+        auto iteratorRange = it.range();
+        if (iteratorRange->startPosition() == iteratorRange->endPosition()) {
+            it.advance(1);
+            if (!it.atEnd())
+                return VisiblePosition(it.range()->startPosition());
+        }
+    }
+
     return { it.atEnd() ? range->endPosition() : it.range()->endPosition(), UPSTREAM };
 }
 
@@ -1165,7 +1176,7 @@ bool areIdenticalElements(const Node& first, const Node& second)
         return false;
     auto& firstElement = downcast<Element>(first);
     auto& secondElement = downcast<Element>(second);
-    return firstElement.hasTagName(secondElement.tagQName()) && firstElement.hasEquivalentAttributes(&secondElement);
+    return firstElement.hasTagName(secondElement.tagQName()) && firstElement.hasEquivalentAttributes(secondElement);
 }
 
 bool isNonTableCellHTMLBlockElement(const Node* node)

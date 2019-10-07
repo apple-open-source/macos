@@ -388,7 +388,7 @@ host_get_dns_service_id(krb5_context context,
 			DNSServiceFlags *flags)
 {
     int dns_service_id = 0;
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR && !TARGET_OS_OSX
     nw_path_evaluator_t evaluator = NULL;
     nw_parameters_t parameters = NULL;
     nw_interface_t iface = NULL;
@@ -479,7 +479,7 @@ host_get_dns_service_id(krb5_context context,
     if (lname)
 	free(lname);
 
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 
     return dns_service_id;
 }

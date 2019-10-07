@@ -1274,6 +1274,7 @@ private:
                     arg = tmp(value.value());
                 break;
             case ValueRep::SomeRegister:
+            case ValueRep::SomeLateRegister:
                 arg = tmp(value.value());
                 break;
             case ValueRep::SomeRegisterWithClobber: {
@@ -1438,7 +1439,7 @@ private:
         // we do need at least one iteration of it for Check.
         for (;;) {
             bool shouldInvert =
-                (value->opcode() == BitXor && value->child(1)->hasInt() && (value->child(1)->asInt() & 1) && value->child(0)->returnsBool())
+                (value->opcode() == BitXor && value->child(1)->hasInt() && (value->child(1)->asInt() == 1) && value->child(0)->returnsBool())
                 || (value->opcode() == Equal && value->child(1)->isInt(0));
             if (!shouldInvert)
                 break;
@@ -2601,6 +2602,27 @@ private:
         }
 
         case Mul: {
+            if (m_value->type() == Int64
+                && isValidForm(MultiplySignExtend32, Arg::Tmp, Arg::Tmp, Arg::Tmp)
+                && m_value->child(0)->opcode() == SExt32
+                && !m_locked.contains(m_value->child(0))) {
+                Value* opLeft = m_value->child(0);
+                Value* left = opLeft->child(0);
+                Value* opRight = m_value->child(1);
+                Value* right = nullptr;
+
+                if (opRight->opcode() == SExt32 && !m_locked.contains(opRight->child(0))) {
+                    right = opRight->child(0);
+                } else if (m_value->child(1)->isRepresentableAs<int32_t>() && !m_locked.contains(m_value->child(1))) {
+                    // We just use the 64-bit const int as a 32 bit const int directly
+                    right = opRight;
+                }
+
+                if (right) {
+                    append(MultiplySignExtend32, tmp(left), tmp(right), tmp(m_value));
+                    return;
+                }
+            }
             appendBinOp<Mul32, Mul64, MulDouble, MulFloat, Commutative>(
                 m_value->child(0), m_value->child(1));
             return;
@@ -3366,8 +3388,8 @@ private:
             Tmp returnValueFPR = Tmp(FPRInfo::returnValueFPR);
             switch (value->type()) {
             case Void:
-                // It's impossible for a void value to be used as a child. If we did want to have a
-                // void return, we'd introduce a different opcode, like ReturnVoid.
+                // It's impossible for a void value to be used as a child. We use RetVoid
+                // for void returns.
                 RELEASE_ASSERT_NOT_REACHED();
                 break;
             case Int32:

@@ -8,6 +8,8 @@
 	<true/>
 	<key>com.apple.keystore.device</key>
 	<true/>
+	<key>com.apple.private.applecredentialmanager.allow</key>
+	<true/>
 	<key>restore-keychain</key>
 	<true/>
 	<key>migrate-keychain</key>

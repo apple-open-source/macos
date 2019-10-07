@@ -176,7 +176,7 @@ nwi_state_make_copy(nwi_state_t src)
 	dest = (nwi_state_t)malloc(size);
 
 	if (dest != NULL) {
-		bcopy(src, dest, size);
+		memcpy(dest, src, size);
 	}
 	return dest;
 }
@@ -201,23 +201,23 @@ nwi_state_new(nwi_state_t old_state, int max_if_count)
 	}
 	size = nwi_state_compute_size(max_if_count);
 	state = (nwi_state_t)malloc(size);
-	bzero(state, size);
+	memset(state, 0, size);
 	state->max_if_count = max_if_count;
 	state->version = NWI_STATE_VERSION;
 
 	if (old_state != NULL) {
 		state->ipv6_count = old_state->ipv6_count;
 		if (state->ipv6_count > 0) {
-			bcopy((void *)&old_state->ifstate_list[old_state->max_if_count],
-			      (void *)&state->ifstate_list[state->max_if_count],
-			      old_state->ipv6_count * sizeof(nwi_ifstate));
+			memcpy((void *)&state->ifstate_list[state->max_if_count],
+			       (void *)&old_state->ifstate_list[old_state->max_if_count],
+			       old_state->ipv6_count * sizeof(nwi_ifstate));
 		}
 
 		state->ipv4_count = old_state->ipv4_count;
 		if (state->ipv4_count > 0) {
-			bcopy((void *)old_state->ifstate_list,
-			      (void *)state->ifstate_list,
-			      old_state->ipv4_count * sizeof(nwi_ifstate));
+			memcpy((void *)state->ifstate_list,
+			       (void *)old_state->ifstate_list,
+			       old_state->ipv4_count * sizeof(nwi_ifstate));
 		}
 		/* we grew the arrays so re-compute the offsets */
 		nwi_state_fix_af_aliases(state, old_state->max_if_count);
@@ -264,7 +264,7 @@ __private_extern__
 void
 nwi_ifstate_set_signature(nwi_ifstate_t ifstate, uint8_t * signature)
 {
-	bcopy(signature, ifstate->signature, sizeof(ifstate->signature));
+	memcpy(ifstate->signature, signature, sizeof(ifstate->signature));
 	ifstate->flags |= NWI_IFSTATE_FLAGS_HAS_SIGNATURE;
 	return;
 }
@@ -326,7 +326,7 @@ nwi_state_add_ifstate(nwi_state_t state,
 
 			prev->flags &= ~NWI_IFSTATE_FLAGS_LAST_ITEM;
 		}
-		bzero(ifstate, sizeof(*ifstate));
+		memset(ifstate, 0, sizeof(*ifstate));
 		strlcpy(ifstate->ifname, ifname, sizeof(ifstate->ifname));
 		ifstate->af = af;
 		/* this is the new last ifstate */
@@ -702,29 +702,30 @@ _nwi_state_update_interface_generations(nwi_state_t old_state, nwi_state_t state
 
 __private_extern__
 void
-_nwi_state_compute_sha1_hash(nwi_state_t state,
-			     unsigned char hash[CC_SHA1_DIGEST_LENGTH])
+_nwi_state_compute_sha256_hash(nwi_state_t state,
+			       unsigned char hash[CC_SHA256_DIGEST_LENGTH])
 {
+	CC_SHA256_CTX	ctx;
+	uint64_t	generation_save;
+
 	if (state == NULL) {
-		bzero(hash, CC_SHA1_DIGEST_LENGTH);
+		memset(hash, 0, CC_SHA256_DIGEST_LENGTH);
+		return;
 	}
-	else {
-		CC_SHA1_CTX	ctx;
-		uint64_t	generation_save;
 
-		generation_save = state->generation_count;
+	/* preserve generation */
+	generation_save = state->generation_count;
 
-		/* zero out the generation count before computing hash */
-		state->generation_count = 0;
+	/* zero out the generation count before computing hash */
+	state->generation_count = 0;
 
-		/* compute hash */
-		CC_SHA1_Init(&ctx);
-		CC_SHA1_Update(&ctx, state, (CC_LONG)nwi_state_size(state));
-		CC_SHA1_Final(hash, &ctx);
+	/* compute hash */
+	CC_SHA256_Init(&ctx);
+	CC_SHA256_Update(&ctx, state, (CC_LONG)nwi_state_size(state));
+	CC_SHA256_Final(hash, &ctx);
 
-		/* restore generation */
-		state->generation_count = generation_save;
-	}
+	/* restore generation */
+	state->generation_count = generation_save;
 
 	return;
 }

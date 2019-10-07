@@ -33,6 +33,7 @@
 #include "pcscmonitor.h"
 #include "auditevents.h"
 #include "self.h"
+#include "util.h"
 
 #include <security_utilities/daemon.h>
 #include <security_utilities/machserver.h>
@@ -58,6 +59,7 @@
 #include "acl_keychain.h"
 #include "acl_partition.h"
 
+#include <sandbox.h>
 
 //
 // Local functions of the main program driver
@@ -65,7 +67,7 @@
 static void usage(const char *me) __attribute__((noreturn));
 static void handleSignals(int sig);
 static PCSCMonitor::ServiceLevel scOptions(const char *optionString);
-
+static bool legacyTokensEnabled(void);
 
 static Port gMainServerPort;
 PCSCMonitor *gPCSC;
@@ -76,13 +78,27 @@ PCSCMonitor *gPCSC;
 //
 int main(int argc, char *argv[])
 {
+	DisableLocalization();
+
 	// clear the umask - we know what we're doing
 	secnotice("SecServer", "starting umask was 0%o", ::umask(0));
 	::umask(0);
 
 	// tell the keychain (client) layer to turn off the server interface
 	SecKeychainSetServerMode();
-	
+
+    const char *params[] = {"LEGACY_TOKENS_ENABLED", legacyTokensEnabled() ? "YES" : "NO", NULL};
+    char* errorbuf = NULL;
+    if (sandbox_init_with_parameters("com.apple.securityd", SANDBOX_NAMED, params, &errorbuf)) {
+        seccritical("SecServer: unable to enter sandbox: %{public}s", errorbuf);
+        if (errorbuf) {
+            sandbox_free_error(errorbuf);
+        }
+        exit(1);
+    } else {
+        secnotice("SecServer", "entered sandbox");
+    }
+
 	// program arguments (preset to defaults)
 	bool debugMode = false;
 	const char *bootstrapName = NULL;
@@ -307,13 +323,30 @@ static void usage(const char *me)
 	exit(2);
 }
 
+const CFStringRef kTKSmartCardPreferencesDomain = CFSTR("com.apple.security.smartcard");
+const CFStringRef kTKLegacyTokendPreferencesKey  = CFSTR("Legacy");
+
+static bool legacyTokensEnabled() {
+    bool result = false;
+    CFPropertyListRef value = CFPreferencesCopyValue(kTKLegacyTokendPreferencesKey, kTKSmartCardPreferencesDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+    if (value) {
+        if (CFEqual(value, kCFBooleanTrue)) {
+            result = true;
+        }
+        CFRelease(value);
+    }
+    return result;
+}
 
 //
 // Translate strings (e.g. "conservative") into PCSCMonitor service levels
 //
 static PCSCMonitor::ServiceLevel scOptions(const char *optionString)
 {
-	if (optionString)
+    if (!legacyTokensEnabled())
+        return PCSCMonitor::forcedOff;
+
+    if (optionString)
 		if (!strcmp(optionString, "off"))
 			return PCSCMonitor::forcedOff;
 		else if (!strcmp(optionString, "on"))

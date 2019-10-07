@@ -47,6 +47,10 @@ es_CA{
                 GyMMMMEd{"E, d 'de' MMMM 'de' y G"}
                 GyMMMMd{"d 'de' MMMM 'de' y G"}
                 GyMMMd{"MMM d, y G"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                Hmsv{"H:mm:ss v"}
                 MEd{"E, MM-dd"}
                 MMMEd{"E, MMM d"}
                 MMMMEd{"E, d 'de' MMMM"}

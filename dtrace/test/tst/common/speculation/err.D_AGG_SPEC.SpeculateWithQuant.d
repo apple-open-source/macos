@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_AGG_SPEC.SpeculateWithQuant.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Aggregating functions may never be speculative.

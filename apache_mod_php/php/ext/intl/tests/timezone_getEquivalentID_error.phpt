@@ -12,15 +12,13 @@ var_dump(IntlTimeZone::getEquivalentID('foo'));
 var_dump(IntlTimeZone::getEquivalentID('foo', 'bar'));
 var_dump(IntlTimeZone::getEquivalentID('Europe/Lisbon', 0, 1));
 var_dump(IntlTimeZone::getEquivalentID("foo\x80", 0));
-
 --EXPECTF--
-
 Warning: IntlTimeZone::getEquivalentID() expects exactly 2 parameters, 1 given in %s on line %d
 
 Warning: IntlTimeZone::getEquivalentID(): intltz_get_equivalent_id: bad arguments in %s on line %d
 bool(false)
 
-Warning: IntlTimeZone::getEquivalentID() expects parameter 2 to be integer, string given in %s on line %d
+Warning: IntlTimeZone::getEquivalentID() expects parameter 2 to be int, string given in %s on line %d
 
 Warning: IntlTimeZone::getEquivalentID(): intltz_get_equivalent_id: bad arguments in %s on line %d
 bool(false)

@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 2000-2001,2011-2012,2014 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2000-2001,2011-2012,2014-2019 Apple Inc. All Rights Reserved.
+ *
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
  * You may not use this file except in compliance with the License. Please obtain
  * a copy of the License at http://www.apple.com/publicsource and read it before
  * using this file.
- * 
+ *
  * This Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS
  * OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, INCLUDING WITHOUT
@@ -20,7 +20,7 @@
  * tpTime.c - cert related time functions
  *
  */
- 
+
 #include "tpTime.h"
 #include <string.h>
 #include <stdlib.h>
@@ -31,7 +31,7 @@
 /*
  * Given a string containing either a UTC-style or "generalized time"
  * time string, convert to a CFDateRef. Returns nonzero on
- * error. 
+ * error.
  */
 int timeStringToCfDate(
 	const char			*str,
@@ -49,11 +49,11 @@ int timeStringToCfDate(
 	CFGregorianDate		gd;
 	CFTimeZoneRef		timeZone;
 	CFTimeInterval		gmtOff = 0;
-	
+
 	if((str == NULL) || (len == 0) || (cfDate == NULL)) {
     	return 1;
   	}
-  	
+
   	/* tolerate NULL terminated or not */
   	if(str[len - 1] == '\0') {
   		len--;
@@ -77,12 +77,12 @@ int timeStringToCfDate(
 		case LOCALIZED_TIME_STRLEN:		// "YYYYMMDDhhmmssThhmm" (where T=[+,-])
 			isLocal = 1;
 			break;
- 		default:						// unknown format 
+ 		default:						// unknown format
   			return 1;
   	}
-  	
+
   	cp = (char *)str;
-  	
+
 	/* check that all characters except last (or timezone indicator, if localized) are digits */
 	for(i=0; i<(len - 1); i++) {
 		if ( !(isdigit(cp[i])) )
@@ -101,7 +101,7 @@ int timeStringToCfDate(
 			return 1;
 		}
 	}
-	
+
   	/* YEAR */
 	szTemp[0] = *cp++;
 	szTemp[1] = *cp++;
@@ -111,13 +111,13 @@ int timeStringToCfDate(
 		szTemp[3] = *cp++;
 		szTemp[4] = '\0';
 	}
-	else { 
+	else {
 		szTemp[2] = '\0';
 	}
 	x = atoi( szTemp );
 	if(isUtc) {
-		/* 
-		 * 2-digit year. 
+		/*
+		 * 2-digit year.
 		 *   0  <= year <  50 : assume century 21
 		 *   50 <= year <  70 : illegal per PKIX
 		 *   ...though we allow this as of 10/10/02...dmitch
@@ -133,7 +133,7 @@ int timeStringToCfDate(
 		*/
 		else {
 			/* century 20 */
-			x += 1900;			
+			x += 1900;
 		}
 	}
 	gd.year = x;
@@ -194,7 +194,7 @@ int timeStringToCfDate(
 		}
 		gd.second = x;
 	}
-	
+
 	if (isLocal) {
 		/* ZONE INDICATOR */
 		switch(*cp++) {
@@ -263,19 +263,19 @@ int compareTimes(
  * (UTC_TIME_STRLEN+1), (GENERALIZED_TIME_STRLEN+1), or (CSSM_TIME_STRLEN+1)
  * respectively. Caller must hold tpTimeLock.
  */
-void timeAtNowPlus(unsigned secFromNow, 
+void timeAtNowPlus(unsigned secFromNow,
 	TpTimeSpec timeSpec,
 	char *outStr)
 {
 	struct tm utc;
 	time_t baseTime;
-	
+
 	baseTime = time(NULL);
 	baseTime += (time_t)secFromNow;
 	utc = *gmtime(&baseTime);
-	
+
 	switch(timeSpec) {
-		case TIME_UTC:
+		case TP_TIME_UTC:
 			/* UTC - 2 year digits - code which parses this assumes that
 			 * (2-digit) years between 0 and 49 are in century 21 */
 			if(utc.tm_year >= 100) {
@@ -285,16 +285,16 @@ void timeAtNowPlus(unsigned secFromNow,
 				utc.tm_year /* + 1900 */, utc.tm_mon + 1,
 				utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec);
 			break;
-		case TIME_GEN:
+		case TP_TIME_GEN:
 			sprintf(outStr, "%04d%02d%02d%02d%02d%02dZ",
-				/* note year is relative to 1900, hopefully it'll have 
+				/* note year is relative to 1900, hopefully it'll have
 				* four valid digits! */
 				utc.tm_year + 1900, utc.tm_mon + 1,
 				utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec);
 			break;
-		case TIME_CSSM:
+		case TP_TIME_CSSM:
 			sprintf(outStr, "%04d%02d%02d%02d%02d%02d",
-				/* note year is relative to 1900, hopefully it'll have 
+				/* note year is relative to 1900, hopefully it'll have
 				* four valid digits! */
 				utc.tm_year + 1900, utc.tm_mon + 1,
 				utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec);
@@ -306,7 +306,7 @@ void timeAtNowPlus(unsigned secFromNow,
  * Convert a time string, which can be in any of three forms (UTC,
  * generalized, or CSSM_TIMESTRING) into a CSSM_TIMESTRING. Caller
  * mallocs the result, which must be at least (CSSM_TIME_STRLEN+1) bytes.
- * Returns nonzero if incoming time string is badly formed. 
+ * Returns nonzero if incoming time string is badly formed.
  */
 int tpTimeToCssmTimestring(
 	const char 	*inStr,			// not necessarily NULL terminated
@@ -327,8 +327,8 @@ int tpTimeToCssmTimestring(
 			tmp[1] = inStr[1];
 			tmp[2] = '\0';
 			year = atoi(tmp);
-			
-			/* 
+
+			/*
 			 *   0  <= year <  50 : assume century 21
 			 *   50 <= year <  70 : illegal per PKIX
 			 *   70 <  year <= 99 : assume century 20
@@ -353,7 +353,7 @@ int tpTimeToCssmTimestring(
 		case GENERALIZED_TIME_STRLEN:
 			memmove(outTime, inStr, inStrLen - 1);			// don't copy the Z
 			break;
-		
+
 		default:
 			return 1;
 	}

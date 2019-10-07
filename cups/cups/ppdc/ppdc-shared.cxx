@@ -4,11 +4,7 @@
 // Copyright 2007-2009 by Apple Inc.
 // Copyright 2002-2005 by Easy Software Products.
 //
-// These coded instructions, statements, and computer programs are the
-// property of Apple Inc. and are protected by Federal copyright
-// law.  Distribution and use rights are outlined in the file "LICENSE.txt"
-// which should have been included with this file.  If this file is
-// missing or damaged, see the license at "http://www.cups.org/".
+// Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
 //
 
 //
@@ -44,8 +40,6 @@ ppdcShared::~ppdcShared()
 void
 ppdcShared::release(void)
 {
-  DEBUG_printf(("%s: %p release use=%d", class_name(), this, use));
-
   use --;
 
 #ifdef DEBUG
@@ -69,6 +63,4 @@ void
 ppdcShared::retain()
 {
   use ++;
-
-  DEBUG_printf(("%s: %p retain use=%d", class_name(), this, use));
 }

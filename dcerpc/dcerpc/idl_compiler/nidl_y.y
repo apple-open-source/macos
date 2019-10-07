@@ -1077,7 +1077,7 @@ declarator1:
             {
                 $<y_declarator>$ = $<y_declarator>2;
                 AST_declarator_operation($<y_declarator>$, AST_pointer_k,
-                        (ASTP_node_t *)NULL, $<y_ptrlevels>1 );
+                        (ASTP_node_t *)NULL, (int) $<y_ptrlevels>1 );
             };
 
 pointer :
@@ -1402,7 +1402,7 @@ interface_attr:
         {
             if (the_interface->pointer_default != 0)
                     log_error(nidl_yylineno(nidl), NIDL_ATTRUSEMULT, NULL);
-            the_interface->pointer_default = $<y_ptrclass>3;
+            the_interface->pointer_default = (int) $<y_ptrclass>3;
         }
 	 /* extensions to osf */
 	 |	  OBJECT_KW
@@ -2018,8 +2018,11 @@ primary_expression:
 
 nidl_parser_p nidl_parser_alloc
 (
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
     boolean     *cmd_opt_arr,   /* [in] Array of command option flags */
     void        **cmd_val_arr,  /* [in] Array of command option values */
+#pragma clang diagnostic pop
     char        *nidl_file       /* [in] ACF file name */
 )
 {

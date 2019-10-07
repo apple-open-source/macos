@@ -25,7 +25,6 @@
 
 #include <strings.h>
 #include <dt_impl.h>
-#include <TargetConditionals.h>
 
 static const struct {
 	int err;
@@ -108,12 +107,13 @@ static const struct {
 	{ EDT_OVERSION,	"Client requested deprecated version of library" },
 	{ EDT_BADPID, "Unable to get symbols for pid" },
 	{ EDT_NOSYMBOLICATOR, "Could not symbolicate"},
-#if !TARGET_OS_EMBEDDED
-	{ EDT_PROBE_RESTRICTED, "System Integrity Protection is on"},
-#else
-#endif
+#if DTRACE_TARGET_APPLE_MAC
+	{ EDT_PROBERESTRICTED, "System Integrity Protection is on"},
+#elif DTRACE_TARGET_APPLE_EMBEDDED
+#endif /* DTRACE_TARGET_APPLE_MAC */
 	{EDT_BOOTARGS, "Could not retrieve boot-args"},
-	{EDT_OPTUNSUPPORTED, "Option value not supported on this OS"}
+	{EDT_OPTUNSUPPORTED, "Option value not supported on this OS"},
+	{EDT_USELOG, "Debug logs moved to system logs"}
 };
 
 static const int _dt_nerr = sizeof (_dt_errlist) / sizeof (_dt_errlist[0]);
@@ -197,6 +197,7 @@ dt_set_errmsg(dtrace_hdl_t *dtp, const char *errtag, const char *region,
 const char *
 dtrace_faultstr(dtrace_hdl_t *dtp, int fault)
 {
+#pragma unused(dtp)
 	int i;
 
 	static const struct {

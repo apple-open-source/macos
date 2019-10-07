@@ -234,7 +234,7 @@ void WKBundlePageInsertNewlineInQuotedContent(WKBundlePageRef pageRef)
 
 void* WKAccessibilityRootObject(WKBundlePageRef pageRef)
 {
-#if HAVE(ACCESSIBILITY)
+#if ENABLE(ACCESSIBILITY)
     if (!pageRef)
         return 0;
     
@@ -261,7 +261,7 @@ void* WKAccessibilityRootObject(WKBundlePageRef pageRef)
 
 void* WKAccessibilityFocusedObject(WKBundlePageRef pageRef)
 {
-#if HAVE(ACCESSIBILITY)
+#if ENABLE(ACCESSIBILITY)
     if (!pageRef)
         return 0;
     
@@ -284,14 +284,14 @@ void* WKAccessibilityFocusedObject(WKBundlePageRef pageRef)
 
 void WKAccessibilityEnableEnhancedAccessibility(bool enable)
 {
-#if HAVE(ACCESSIBILITY)
+#if ENABLE(ACCESSIBILITY)
     WebCore::AXObjectCache::setEnhancedUserInterfaceAccessibility(enable);
 #endif
 }
 
 bool WKAccessibilityEnhancedAccessibilityEnabled()
 {
-#if HAVE(ACCESSIBILITY)
+#if ENABLE(ACCESSIBILITY)
     return WebCore::AXObjectCache::accessibilityEnhancedUserInterfaceEnabled();
 #else
     return false;
@@ -303,14 +303,14 @@ void WKBundlePageStopLoading(WKBundlePageRef pageRef)
     WebKit::toImpl(pageRef)->stopLoading();
 }
 
-void WKBundlePageSetDefersLoading(WKBundlePageRef pageRef, bool defersLoading)
+void WKBundlePageSetDefersLoading(WKBundlePageRef, bool)
 {
-    WebKit::toImpl(pageRef)->setDefersLoading(defersLoading);
 }
 
-WKStringRef WKBundlePageCopyRenderTreeExternalRepresentation(WKBundlePageRef pageRef)
+WKStringRef WKBundlePageCopyRenderTreeExternalRepresentation(WKBundlePageRef pageRef, RenderTreeExternalRepresentationBehavior options)
 {
-    return WebKit::toCopiedAPI(WebKit::toImpl(pageRef)->renderTreeExternalRepresentation());
+    // Convert to webcore options.
+    return WebKit::toCopiedAPI(WebKit::toImpl(pageRef)->renderTreeExternalRepresentation(options));
 }
 
 WKStringRef WKBundlePageCopyRenderTreeExternalRepresentationForPrinting(WKBundlePageRef pageRef)
@@ -593,7 +593,7 @@ void WKBundlePageSetUseDarkAppearance(WKBundlePageRef pageRef, bool useDarkAppea
 {
     WebKit::WebPage* webPage = WebKit::toImpl(pageRef);
     if (WebCore::Page* page = webPage ? webPage->corePage() : nullptr)
-        page->setUseDarkAppearance(useDarkAppearance);
+        page->effectiveAppearanceDidChange(useDarkAppearance, page->useElevatedUserInterfaceLevel());
 }
 
 bool WKBundlePageIsUsingDarkAppearance(WKBundlePageRef pageRef)
@@ -647,19 +647,20 @@ void WKBundlePageStartMonitoringScrollOperations(WKBundlePageRef pageRef)
     page->ensureTestTrigger();
 }
 
-void WKBundlePageRegisterScrollOperationCompletionCallback(WKBundlePageRef pageRef, WKBundlePageTestNotificationCallback callback, void* context)
+bool WKBundlePageRegisterScrollOperationCompletionCallback(WKBundlePageRef pageRef, WKBundlePageTestNotificationCallback callback, void* context)
 {
     if (!callback)
-        return;
+        return false;
     
     WebKit::WebPage* webPage = WebKit::toImpl(pageRef);
     WebCore::Page* page = webPage ? webPage->corePage() : nullptr;
     if (!page || !page->expectsWheelEventTriggers())
-        return;
+        return false;
     
     page->ensureTestTrigger().setTestCallbackAndStartNotificationTimer([=]() {
         callback(context);
     });
+    return true;
 }
 
 void WKBundlePageCallAfterTasksAndTimers(WKBundlePageRef pageRef, WKBundlePageTestNotificationCallback callback, void* context)
@@ -802,21 +803,3 @@ void WKBundlePageSetEventThrottlingBehaviorOverride(WKBundlePageRef page, WKEven
 
     WebKit::toImpl(page)->corePage()->setEventThrottlingBehaviorOverride(behaviorValue);
 }
-
-void WKBundlePageSetCompositingPolicyOverride(WKBundlePageRef page, WKCompositingPolicy* policy)
-{
-    Optional<WebCore::CompositingPolicy> policyValue;
-    if (policy) {
-        switch (*policy) {
-        case kWKCompositingPolicyNormal:
-            policyValue = WebCore::CompositingPolicy::Normal;
-            break;
-        case kWKCompositingPolicyConservative:
-            policyValue = WebCore::CompositingPolicy::Conservative;
-            break;
-        }
-    }
-
-    WebKit::toImpl(page)->corePage()->setCompositingPolicyOverride(policyValue);
-}
-

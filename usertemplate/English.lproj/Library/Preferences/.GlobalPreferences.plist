@@ -4,9 +4,5 @@
 <dict>
 	<key>AppleAntiAliasingThreshold</key>
 	<integer>4</integer>
-	<key>AppleLanguages</key>
-	<array>
-		<string>en</string>
-	</array>
 </dict>
 </plist>

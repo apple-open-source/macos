@@ -50,9 +50,6 @@
 /* Define to 1 if tcsetpgrp() doesn't work, ie BeOS R4.51. */
 #undef BROKEN_TCSETPGRP
 
-/* Define to 1 if the wcwidth() function is present but broken. */
-#undef BROKEN_WCWIDTH
-
 /* Define to 1 if you use BSD style signal handling (and can block signals).
    */
 #undef BSD_SIGNALS
@@ -193,6 +190,9 @@
 /* Define to 1 if you have the <dl.h> header file. */
 #undef HAVE_DL_H
 
+/* Define to 1 if you have the `endutxent' function. */
+#undef HAVE_ENDUTXENT
+
 /* Define to 1 if you have the `erand48' function. */
 #undef HAVE_ERAND48
 
@@ -283,6 +283,12 @@
 /* Define to 1 if you have the `gettimeofday' function. */
 #undef HAVE_GETTIMEOFDAY
 
+/* Define to 1 if you have the `getutent' function. */
+#undef HAVE_GETUTENT
+
+/* Define to 1 if you have the `getutxent' function. */
+#undef HAVE_GETUTXENT
+
 /* Define to 1 if you have the `getxattr' function. */
 #undef HAVE_GETXATTR
 
@@ -321,6 +327,18 @@
 
 /* Define to 1 if there is a prototype defined for ioctl() on your system. */
 #undef HAVE_IOCTL_PROTO
+
+/* Define to 1 if you have the `isblank' function. */
+#undef HAVE_ISBLANK
+
+/* Define to 1 if you have the `isinf' macro or function. */
+#undef HAVE_ISINF
+
+/* Define to 1 if you have the `isnan' macro or function. */
+#undef HAVE_ISNAN
+
+/* Define to 1 if you have the `iswblank' function. */
+#undef HAVE_ISWBLANK
 
 /* Define to 1 if you have the `killpg' function. */
 #undef HAVE_KILLPG
@@ -369,6 +387,9 @@
 
 /* Define to 1 if you have the <locale.h> header file. */
 #undef HAVE_LOCALE_H
+
+/* Define to 1 if you have the `log2' function. */
+#undef HAVE_LOG2
 
 /* Define to 1 if you have the `lstat' function. */
 #undef HAVE_LSTAT
@@ -508,6 +529,9 @@
 /* Define to 1 if you have the `regfree' function. */
 #undef HAVE_REGFREE
 
+/* Define to 1 if you have the `resize_term' function. */
+#undef HAVE_RESIZE_TERM
+
 /* Define to 1 if RLIMIT_AIO_MEM is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_AIO_MEM
 
@@ -618,6 +642,9 @@
 
 /* Define to 1 if you have the `setupterm' function. */
 #undef HAVE_SETUPTERM
+
+/* Define to 1 if you have the `setutxent' function. */
+#undef HAVE_SETUTXENT
 
 /* Define to 1 if you have the `shl_findsym' function. */
 #undef HAVE_SHL_FINDSYM
@@ -782,6 +809,9 @@
 
 /* Define to 1 if `st_mtim.tv_nsec' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_MTIM_TV_NSEC
+
+/* Define to 1 if struct timespec is defined by a system header */
+#undef HAVE_STRUCT_TIMESPEC
 
 /* Define to 1 if struct timezone is defined by a system header */
 #undef HAVE_STRUCT_TIMEZONE
@@ -1058,9 +1088,6 @@
    exec'd with basename that starts with r. By default this is defined. */
 #undef RESTRICTED_R
 
-/* Define as the return type of signal handlers (`int' or `void'). */
-#undef RETSIGTYPE
-
 /* Define to 1 if RLIMIT_RSS and RLIMIT_AS both exist and are equal. */
 #undef RLIMIT_RSS_IS_AS
 
@@ -1081,9 +1108,6 @@
 
 /* Define to 1 if select() is defined in <sys/socket.h>, ie BeOS R4.51 */
 #undef SELECT_IN_SYS_SOCKET_H
-
-/* Define to 1 if /bin/sh does not interpret \ escape sequences. */
-#undef SH_USE_BSD_ECHO
 
 /* If using the C implementation of alloca, define if you know the
    direction of stack growth for your system; otherwise it will be

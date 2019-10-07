@@ -30,7 +30,7 @@
 #include <stdarg.h>
 
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)
-OS_FORMAT_PRINTF(1, 2)
+OS_FORMAT_PRINTF(1, 2) OS_COLD
 extern void
 _os_debug_log(const char *msg, ...);
 
@@ -61,6 +61,7 @@ _os_debug_log(const char *msg, ...);
  */
 #define os_debug_log_redirect(func) \
 	__attribute__((__used__)) \
+	__attribute__((__cold__)) \
 	__attribute__((__visibility__("default"))) \
 	bool _os_debug_log_redirect_func(const char *msg) { \
 		return func(msg); \
@@ -71,6 +72,7 @@ _os_debug_log(const char *msg, ...);
 
 // str must be modifiable (non-const)!
 __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_6_0)
+OS_COLD
 extern void
 _os_debug_log_error_str(char *str);
 

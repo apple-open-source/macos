@@ -127,7 +127,7 @@ rpc_ss_mr_hyper_int
   mp = NIDL_msp->mp;
   op = NIDL_msp->op;
   rpc_align_mop(mp, op, 8);
-  rpc_marshall_hyper_int(mp, (*p_node));
+  rpc_marshall_hyper_int(mp, (p_node));
   rpc_advance_mop(mp, op, 8);
   NIDL_msp->space_in_buff -= (op - NIDL_msp->op);
   NIDL_msp->mp = mp;
@@ -147,7 +147,7 @@ rpc_ss_ur_hyper_int
   long NIDL_already_unmarshalled = 0;
   unsigned long node_size;
   idl_ulong_int node_number = 0;
-
+    
   if ( NIDL_node_type == rpc_ss_unique_node_k )
   {
     if (*p_referred_to_by == NULL) return;
@@ -164,9 +164,11 @@ rpc_ss_ur_hyper_int
   {
     node_size =    sizeof(idl_hyper_int );
     if (NIDL_node_type == rpc_ss_mutable_node_k)
-      p_node = (idl_hyper_int *)rpc_ss_return_pointer_to_node(
+    {
+        p_node = (idl_hyper_int *) (void *) rpc_ss_return_pointer_to_node(
           p_unmar_params->node_table, node_number, node_size,
           &p_unmar_params->allocator, &NIDL_already_unmarshalled, (long *)NULL);
+    }
     else
     {
         p_node = (idl_hyper_int *)rpc_ss_mem_alloc(
@@ -181,6 +183,6 @@ rpc_ss_ur_hyper_int
   {
     rpc_ss_new_recv_buff(p_unmar_params->p_rcvd_data, p_unmar_params->call_h, &(p_unmar_params->mp), &(*p_unmar_params->p_st));
   }
-  rpc_convert_hyper_int(p_unmar_params->src_drep, ndr_g_local_drep, p_unmar_params->mp, (*p_node));
+  rpc_convert_hyper_int(p_unmar_params->src_drep, ndr_g_local_drep, p_unmar_params->mp, (p_node));
   rpc_advance_mop(p_unmar_params->mp, p_unmar_params->op, 8);
 }

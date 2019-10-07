@@ -1,6 +1,6 @@
 /*
  * (C) 1999 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2019 Apple Inc. All rights reserved.
  * Copyright (C) 2007-2009 Torch Mobile, Inc.
  *
  * This library is free software; you can redistribute it and/or
@@ -146,7 +146,7 @@ void String::append(UChar character)
         m_impl = StringImpl::create(&character, 1);
         return;
     }
-    if (character <= 0xFF && is8Bit()) {
+    if (isLatin1(character) && is8Bit()) {
         append(static_cast<LChar>(character));
         return;
     }
@@ -356,13 +356,13 @@ String String::convertToUppercaseWithoutLocale() const
     return m_impl ? m_impl->convertToUppercaseWithoutLocale() : String { };
 }
 
-String String::convertToLowercaseWithLocale(const AtomicString& localeIdentifier) const
+String String::convertToLowercaseWithLocale(const AtomString& localeIdentifier) const
 {
     // FIXME: Should this function, and the many others like it, be inlined?
     return m_impl ? m_impl->convertToLowercaseWithLocale(localeIdentifier) : String { };
 }
 
-String String::convertToUppercaseWithLocale(const AtomicString& localeIdentifier) const
+String String::convertToUppercaseWithLocale(const AtomString& localeIdentifier) const
 {
     // FIXME: Should this function, and the many others like it, be inlined?
     return m_impl ? m_impl->convertToUppercaseWithLocale(localeIdentifier) : String { };
@@ -449,67 +449,12 @@ Vector<UChar> String::charactersWithNullTermination() const
     return result;
 }
 
-WTF_ATTRIBUTE_PRINTF(1, 0) static String createWithFormatAndArguments(const char *format, va_list args)
-{
-    va_list argsCopy;
-    va_copy(argsCopy, args);
-
-    ALLOW_NONLITERAL_FORMAT_BEGIN
-
-#if USE(CF) && !OS(WINDOWS)
-    if (strstr(format, "%@")) {
-        auto cfFormat = adoptCF(CFStringCreateWithCString(kCFAllocatorDefault, format, kCFStringEncodingUTF8));
-        auto result = adoptCF(CFStringCreateWithFormatAndArguments(kCFAllocatorDefault, nullptr, cfFormat.get(), args));
-        va_end(argsCopy);
-        return result.get();
-    }
-#endif
-
-    // Do the format once to get the length.
-#if COMPILER(MSVC)
-    int result = _vscprintf(format, args);
-#else
-    char ch;
-    int result = vsnprintf(&ch, 1, format, args);
-#endif
-
-    if (!result) {
-        va_end(argsCopy);
-        return emptyString();
-    }
-    if (result < 0) {
-        va_end(argsCopy);
-        return String();
-    }
-
-    Vector<char, 256> buffer;
-    unsigned len = result;
-    buffer.grow(len + 1);
-
-    // Now do the formatting again, guaranteed to fit.
-    vsnprintf(buffer.data(), buffer.size(), format, argsCopy);
-    va_end(argsCopy);
-
-    ALLOW_NONLITERAL_FORMAT_END
-
-    return StringImpl::create(reinterpret_cast<const LChar*>(buffer.data()), len);
-}
-
-String String::format(const char *format, ...)
-{
-    va_list args;
-    va_start(args, format);
-    String result = createWithFormatAndArguments(format, args);
-    va_end(args);
-    return result;
-}
-
 String String::number(int number)
 {
     return numberToStringSigned<String>(number);
 }
 
-String String::number(unsigned int number)
+String String::number(unsigned number)
 {
     return numberToStringUnsigned<String>(number);
 }
@@ -534,22 +479,34 @@ String String::number(unsigned long long number)
     return numberToStringUnsigned<String>(number);
 }
 
-String String::number(double number, unsigned precision, TrailingZerosTruncatingPolicy trailingZerosTruncatingPolicy)
+String String::numberToStringFixedPrecision(float number, unsigned precision, TrailingZerosTruncatingPolicy trailingZerosTruncatingPolicy)
 {
     NumberToStringBuffer buffer;
-    return String(numberToFixedPrecisionString(number, precision, buffer, trailingZerosTruncatingPolicy == TruncateTrailingZeros));
+    return numberToFixedPrecisionString(number, precision, buffer, trailingZerosTruncatingPolicy == TruncateTrailingZeros);
 }
 
-String String::numberToStringECMAScript(double number)
+String String::numberToStringFixedPrecision(double number, unsigned precision, TrailingZerosTruncatingPolicy trailingZerosTruncatingPolicy)
 {
     NumberToStringBuffer buffer;
-    return String(numberToString(number, buffer));
+    return numberToFixedPrecisionString(number, precision, buffer, trailingZerosTruncatingPolicy == TruncateTrailingZeros);
+}
+
+String String::number(float number)
+{
+    NumberToStringBuffer buffer;
+    return numberToString(number, buffer);
+}
+
+String String::number(double number)
+{
+    NumberToStringBuffer buffer;
+    return numberToString(number, buffer);
 }
 
 String String::numberToStringFixedWidth(double number, unsigned decimalPlaces)
 {
     NumberToStringBuffer buffer;
-    return String(numberToFixedWidthString(number, decimalPlaces, buffer));
+    return numberToFixedWidthString(number, decimalPlaces, buffer);
 }
 
 int String::toIntStrict(bool* ok, int base) const
@@ -691,9 +648,9 @@ String String::isolatedCopy() &&
 
 bool String::isSafeToSendToAnotherThread() const
 {
-    // AtomicStrings are not safe to send between threads as ~StringImpl()
-    // will try to remove them from the wrong AtomicStringTable.
-    return isEmpty() || (m_impl->hasOneRef() && !m_impl->isAtomic());
+    // AtomStrings are not safe to send between threads, as ~StringImpl()
+    // will try to remove them from the wrong AtomStringTable.
+    return isEmpty() || (m_impl->hasOneRef() && !m_impl->isAtom());
 }
 
 template<bool allowEmptyEntries>
@@ -829,7 +786,7 @@ CString String::latin1() const
 
     for (unsigned i = 0; i < length; ++i) {
         UChar ch = characters[i];
-        characterBuffer[i] = ch > 0xff ? '?' : ch;
+        characterBuffer[i] = !isLatin1(ch) ? '?' : ch;
     }
 
     return result;
@@ -902,7 +859,7 @@ String String::fromUTF8(const LChar* stringStart, size_t length)
  
     UChar* bufferCurrent = bufferStart;
     const char* stringCurrent = reinterpret_cast<const char*>(stringStart);
-    if (convertUTF8ToUTF16(&stringCurrent, reinterpret_cast<const char *>(stringStart + length), &bufferCurrent, bufferCurrent + buffer.size()) != conversionOK)
+    if (!convertUTF8ToUTF16(stringCurrent, reinterpret_cast<const char *>(stringStart + length), &bufferCurrent, bufferCurrent + buffer.size()))
         return String();
 
     unsigned utf16Length = bufferCurrent - bufferStart;
@@ -1119,6 +1076,12 @@ const String& emptyString()
 {
     static NeverDestroyed<String> emptyString(StringImpl::empty());
     return emptyString;
+}
+
+const String& nullString()
+{
+    static NeverDestroyed<String> nullString;
+    return nullString;
 }
 
 } // namespace WTF

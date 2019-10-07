@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
- * Copyright (C) 2007, 2016 Apple Inc.
+ * Copyright (C) 2007-2019 Apple Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,11 +25,13 @@
 #include "GraphicsContext.h"
 #include "Frame.h"
 #include "FrameView.h"
+#include "LengthBox.h"
 #include "RenderView.h"
+#include "RuntimeEnabledFeatures.h"
 #include "StyleInheritedData.h"
 #include "StyleResolver.h"
 #include "StyleScope.h"
-#include <wtf/text/WTFString.h>
+#include <wtf/text/StringConcatenateNumbers.h>
 
 namespace WebCore {
 
@@ -76,6 +78,33 @@ void PrintContext::computePageRects(const FloatRect& printRect, float headerHeig
     }
 
     computePageRectsWithPageSizeInternal(FloatSize(pageWidth / userScaleFactor, pageHeight / userScaleFactor), allowHorizontalTiling);
+}
+
+FloatBoxExtent PrintContext::computedPageMargin(FloatBoxExtent printMargin)
+{
+    if (!frame() || !frame()->document())
+        return printMargin;
+    if (!RuntimeEnabledFeatures::sharedFeatures().pageAtRuleSupportEnabled())
+        return printMargin;
+    // FIXME Currently no pseudo class is supported.
+    auto style = frame()->document()->styleScope().resolver().styleForPage(0);
+
+    float pixelToPointScaleFactor = 1 / CSSPrimitiveValue::conversionToCanonicalUnitsScaleFactor(CSSPrimitiveValue::CSS_PT);
+    return { style->marginTop().isAuto() ? printMargin.top() : style->marginTop().value() * pixelToPointScaleFactor,
+        style->marginRight().isAuto() ? printMargin.right() : style->marginRight().value() * pixelToPointScaleFactor,
+        style->marginBottom().isAuto() ? printMargin.bottom() : style->marginBottom().value() * pixelToPointScaleFactor,
+        style->marginLeft().isAuto() ? printMargin.left() : style->marginLeft().value() * pixelToPointScaleFactor };
+}
+
+FloatSize PrintContext::computedPageSize(FloatSize pageSize, FloatBoxExtent printMargin)
+{
+    auto computedMargin = computedPageMargin(printMargin);
+    if (computedMargin == printMargin)
+        return pageSize;
+
+    auto horizontalMarginDelta = (printMargin.left() - computedMargin.left()) + (printMargin.right() - computedMargin.right()); 
+    auto verticalMarginDelta = (printMargin.top() - computedMargin.top()) + (printMargin.bottom() - computedMargin.bottom());
+    return { pageSize.width() + horizontalMarginDelta, pageSize.height() + verticalMarginDelta };
 }
 
 void PrintContext::computePageRectsWithPageSize(const FloatSize& pageSizeInPixels, bool allowHorizontalTiling)
@@ -316,6 +345,8 @@ String PrintContext::pageProperty(Frame* frame, const char* propertyName, int pa
     ASSERT(frame);
     ASSERT(frame->document());
 
+    Ref<Frame> protectedFrame(*frame);
+
     auto& document = *frame->document();
     PrintContext printContext(frame);
     printContext.begin(800); // Any width is OK here.
@@ -335,7 +366,7 @@ String PrintContext::pageProperty(Frame* frame, const char* propertyName, int pa
     if (!strcmp(propertyName, "font-family"))
         return style->fontDescription().firstFamily();
     if (!strcmp(propertyName, "size"))
-        return String::number(style->pageSize().width.value()) + ' ' + String::number(style->pageSize().height.value());
+        return makeString(style->pageSize().width.value(), ' ', style->pageSize().height.value());
 
     return makeString("pageProperty() unimplemented for: ", propertyName);
 }
@@ -350,8 +381,7 @@ String PrintContext::pageSizeAndMarginsInPixels(Frame* frame, int pageNumber, in
     IntSize pageSize(width, height);
     frame->document()->pageSizeAndMarginsInPixels(pageNumber, pageSize, marginTop, marginRight, marginBottom, marginLeft);
 
-    return "(" + String::number(pageSize.width()) + ", " + String::number(pageSize.height()) + ") " +
-           String::number(marginTop) + ' ' + String::number(marginRight) + ' ' + String::number(marginBottom) + ' ' + String::number(marginLeft);
+    return makeString('(', pageSize.width(), ", ", pageSize.height(), ") ", marginTop, ' ', marginRight, ' ', marginBottom, ' ', marginLeft);
 }
 
 bool PrintContext::beginAndComputePageRectsWithPageSize(Frame& frame, const FloatSize& pageSizeInPixels)
@@ -372,6 +402,8 @@ bool PrintContext::beginAndComputePageRectsWithPageSize(Frame& frame, const Floa
 
 int PrintContext::numberOfPages(Frame& frame, const FloatSize& pageSizeInPixels)
 {
+    Ref<Frame> protectedFrame(frame);
+
     PrintContext printContext(&frame);
     if (!printContext.beginAndComputePageRectsWithPageSize(frame, pageSizeInPixels))
         return -1;
@@ -381,6 +413,8 @@ int PrintContext::numberOfPages(Frame& frame, const FloatSize& pageSizeInPixels)
 
 void PrintContext::spoolAllPagesWithBoundaries(Frame& frame, GraphicsContext& graphicsContext, const FloatSize& pageSizeInPixels)
 {
+    Ref<Frame> protectedFrame(frame);
+
     PrintContext printContext(&frame);
     if (!printContext.beginAndComputePageRectsWithPageSize(frame, pageSizeInPixels))
         return;

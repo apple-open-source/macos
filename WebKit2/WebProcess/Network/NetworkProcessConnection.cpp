@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,8 +30,8 @@
 #include "LibWebRTCNetwork.h"
 #include "NetworkConnectionToWebProcessMessages.h"
 #include "ServiceWorkerClientFetchMessages.h"
-#include "WebCacheStorageConnection.h"
-#include "WebCacheStorageConnectionMessages.h"
+#include "StorageAreaMap.h"
+#include "StorageAreaMapMessages.h"
 #include "WebCacheStorageProvider.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebIDBConnectionToServerMessages.h"
@@ -39,6 +39,7 @@
 #include "WebMDNSRegisterMessages.h"
 #include "WebPage.h"
 #include "WebPageMessages.h"
+#include "WebPaymentCoordinator.h"
 #include "WebProcess.h"
 #include "WebRTCMonitor.h"
 #include "WebRTCMonitorMessages.h"
@@ -50,12 +51,18 @@
 #include "WebSWContextManagerConnection.h"
 #include "WebSWContextManagerConnectionMessages.h"
 #include "WebServiceWorkerProvider.h"
+#include "WebSocketChannel.h"
+#include "WebSocketChannelMessages.h"
 #include "WebSocketStream.h"
 #include "WebSocketStreamMessages.h"
 #include <WebCore/CachedResource.h>
 #include <WebCore/MemoryCache.h>
 #include <WebCore/SharedBuffer.h>
 #include <pal/SessionID.h>
+
+#if ENABLE(APPLE_PAY_REMOTE_UI)
+#include "WebPaymentCoordinatorMessages.h"
+#endif
 
 namespace WebKit {
 using namespace WebCore;
@@ -83,9 +90,18 @@ void NetworkProcessConnection::didReceiveMessage(IPC::Connection& connection, IP
             stream->didReceiveMessage(connection, decoder);
         return;
     }
+    if (decoder.messageReceiverName() == Messages::WebSocketChannel::messageReceiverName()) {
+        WebProcess::singleton().webSocketChannelManager().didReceiveMessage(connection, decoder);
+        return;
+    }
     if (decoder.messageReceiverName() == Messages::WebPage::messageReceiverName()) {
-        if (auto* webPage = WebProcess::singleton().webPage(decoder.destinationID()))
+        if (auto* webPage = WebProcess::singleton().webPage(makeObjectIdentifier<PageIdentifierType>(decoder.destinationID())))
             webPage->didReceiveWebPageMessage(connection, decoder);
+        return;
+    }
+    if (decoder.messageReceiverName() == Messages::StorageAreaMap::messageReceiverName()) {
+        if (auto* stoargeAreaMap = WebProcess::singleton().storageAreaMap(decoder.destinationID()))
+            stoargeAreaMap->didReceiveMessage(connection, decoder);
         return;
     }
 
@@ -109,10 +125,6 @@ void NetworkProcessConnection::didReceiveMessage(IPC::Connection& connection, IP
         return;
     }
 #endif
-    if (decoder.messageReceiverName() == Messages::WebCacheStorageConnection::messageReceiverName()) {
-        WebProcess::singleton().cacheStorageProvider().process(connection, decoder);
-        return;
-    }
 
 #if ENABLE(INDEXED_DATABASE)
     if (decoder.messageReceiverName() == Messages::WebIDBConnectionToServer::messageReceiverName()) {
@@ -141,6 +153,14 @@ void NetworkProcessConnection::didReceiveMessage(IPC::Connection& connection, IP
     }
 #endif
 
+#if ENABLE(APPLE_PAY_REMOTE_UI)
+    if (decoder.messageReceiverName() == Messages::WebPaymentCoordinator::messageReceiverName()) {
+        if (auto webPage = WebProcess::singleton().webPage(makeObjectIdentifier<PageIdentifierType>(decoder.destinationID())))
+            webPage->paymentCoordinator()->didReceiveMessage(connection, decoder);
+        return;
+    }
+#endif
+
     didReceiveNetworkProcessConnectionMessage(connection, decoder);
 }
 
@@ -151,6 +171,14 @@ void NetworkProcessConnection::didReceiveSyncMessage(IPC::Connection& connection
         ASSERT(SWContextManager::singleton().connection());
         if (auto* contextManagerConnection = SWContextManager::singleton().connection())
             static_cast<WebSWContextManagerConnection&>(*contextManagerConnection).didReceiveSyncMessage(connection, decoder, replyEncoder);
+        return;
+    }
+#endif
+
+#if ENABLE(APPLE_PAY_REMOTE_UI)
+    if (decoder.messageReceiverName() == Messages::WebPaymentCoordinator::messageReceiverName()) {
+        if (auto webPage = WebProcess::singleton().webPage(makeObjectIdentifier<PageIdentifierType>(decoder.destinationID())))
+            webPage->paymentCoordinator()->didReceiveSyncMessage(connection, decoder, replyEncoder);
         return;
     }
 #endif
@@ -173,11 +201,9 @@ void NetworkProcessConnection::didClose(IPC::Connection&)
 #endif
 
 #if ENABLE(SERVICE_WORKER)
-    for (auto& connection : m_swConnectionsBySession.values())
+    auto connections = std::exchange(m_swConnectionsByIdentifier, { });
+    for (auto& connection : connections.values())
         connection->connectionToServerLost();
-    
-    m_swConnectionsByIdentifier.clear();
-    m_swConnectionsBySession.clear();
 #endif
 }
 
@@ -240,14 +266,29 @@ WebIDBConnectionToServer& NetworkProcessConnection::idbConnectionToServerForSess
 WebSWClientConnection& NetworkProcessConnection::serviceWorkerConnectionForSession(PAL::SessionID sessionID)
 {
     ASSERT(sessionID.isValid());
-    return *m_swConnectionsBySession.ensure(sessionID, [&] {
-        auto connection = WebSWClientConnection::create(m_connection, sessionID);
-        
-        auto result = m_swConnectionsByIdentifier.add(connection->serverConnectionIdentifier(), connection.ptr());
-        ASSERT_UNUSED(result, result.isNewEntry);
-        
-        return connection;
+    return *m_swConnectionsBySession.ensure(sessionID, [sessionID] {
+        return WebSWClientConnection::create(sessionID);
     }).iterator->value;
 }
+
+void NetworkProcessConnection::removeSWClientConnection(WebSWClientConnection& connection)
+{
+    ASSERT(m_swConnectionsByIdentifier.contains(connection.serverConnectionIdentifier()));
+    m_swConnectionsByIdentifier.remove(connection.serverConnectionIdentifier());
+}
+
+SWServerConnectionIdentifier NetworkProcessConnection::initializeSWClientConnection(WebSWClientConnection& connection)
+{
+    ASSERT(connection.sessionID().isValid());
+    SWServerConnectionIdentifier identifier;
+    bool result = m_connection->sendSync(Messages::NetworkConnectionToWebProcess::EstablishSWServerConnection(connection.sessionID()), Messages::NetworkConnectionToWebProcess::EstablishSWServerConnection::Reply(identifier), 0);
+    ASSERT_UNUSED(result, result);
+
+    ASSERT(!m_swConnectionsByIdentifier.contains(identifier));
+    m_swConnectionsByIdentifier.add(identifier, &connection);
+
+    return identifier;
+}
+
 #endif
 } // namespace WebKit

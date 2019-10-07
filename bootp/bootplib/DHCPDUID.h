@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -155,7 +155,10 @@ DHCPDUID_LLSetHardwareType(DHCPDUID_LLRef ll, uint16_t hardware_type)
 bool
 DHCPDUIDIsValid(const DHCPDUIDRef duid, int duid_len);
 
-char *
-DHCPDUIDToString(const DHCPDUIDRef duid, int duid_len);
+CFDataRef
+DHCPDUID_LLDataCreate(const void * ll_addr, int ll_len, int ll_type);
+
+CFDataRef
+DHCPDUID_LLTDataCreate(const void * ll_addr, int ll_len, int ll_type);
 
 #endif /* _S_DHCPDUID_H */

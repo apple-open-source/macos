@@ -43,7 +43,7 @@ subsystem KernelUser autofs 666;
 #include "autofs_defs.h"
 #include "autofs_migtypes.h"
 
-import <autofs_types.h>;
+import "autofs_types.h";
 
 /*
  * AUTOFS routines.
@@ -72,7 +72,7 @@ routine autofs_mount(
 	out actions	: byte_buffer, dealloc;	/* variable number of entries */
 	out err		: int;
 	out mr_verbose	: boolean_t;
-	ServerSecToken token : security_token_t
+	ServerAuditToken atoken : audit_token_t
 );
 
 /*
@@ -89,7 +89,7 @@ routine autofs_unmount(
 	in fstype	: autofs_fstype;	/* filesystem type to unmount */
 	in mntopts	: autofs_opts;		/* mntpnt options */
 	out status	: int;
-	ServerSecToken token : security_token_t
+	ServerAuditToken atoken : audit_token_t
 );
 
 /*
@@ -107,7 +107,7 @@ routine autofs_readdir(
 	out rddir_eof		: boolean_t;	/* TRUE if last entry in result */
 	out rddir_entries	: byte_buffer, dealloc;
 						/* variable number of entries */
-	ServerSecToken token : security_token_t
+	ServerAuditToken atoken : audit_token_t
 );
 
 /*
@@ -130,7 +130,7 @@ routine autofs_readsubdir(
 	out rddir_eof		: boolean_t;		/* TRUE if last entry in result */
 	out rddir_entries	: byte_buffer, dealloc;
 							/* variable number of entries */
-	ServerSecToken token : security_token_t
+	ServerAuditToken atoken : audit_token_t
 );
 
 /*
@@ -149,7 +149,7 @@ routine autofs_lookup(
 	out err		: int;
 	out node_type	: int;
 	out lu_verbose	: boolean_t;
-	ServerSecToken token : security_token_t
+	ServerAuditToken atoken : audit_token_t
 );
 
 /*
@@ -172,7 +172,7 @@ routine autofs_mount_subtrigger(
 	out fsid	: fsid_t;		/* fsid of FS we mounted */
 	out top_level	: boolean_t;		/* true if submntpt empty */
 	out err		: int;
-	ServerSecToken token : security_token_t
+	ServerAuditToken atoken : audit_token_t
 );
 
 /*
@@ -191,7 +191,7 @@ routine autofs_mount_url(
 	out fsid	: fsid_t;		/* fsid of FS we mounted */
 	out retflags	: uint32_t;		/* assorted MOUNT_RETF_ flags */
 	out err		: int;
-	ServerSecToken token : security_token_t
+	ServerAuditToken atoken : audit_token_t
 );
 
 /*
@@ -203,5 +203,5 @@ simpleroutine autofs_smb_remount_server(
 	server		: mach_port_t;
 	in blob		: byte_buffer, dealloc;	/* opaque blob */
 	in asid		: int32_t;  /* Audit session id of caller */
-	ServerSecToken token : security_token_t
+	ServerAuditToken atoken : audit_token_t
 );

@@ -4,7 +4,7 @@ Test jpeg2wbmp() function : wrong destination filename param
 Levi Fukumori <levi [at] fukumori [dot] com [dot] br>
 #testfest PHPSP on 2009-06-20
 --SKIPIF--
-<?php 
+<?php
 if(!extension_loaded('gd')) {
     die('skip gd extension is not loaded');
 }
@@ -32,9 +32,15 @@ jpeg2wbmp($file, null, 20, 120, 8);
 jpeg2wbmp($file, false, 20, 120, 8);
 ?>
 --EXPECTF--
-Warning: jpeg2wbmp(): Unable to open '' for writing in %s on line %d
+Deprecated: Function jpeg2wbmp() is deprecated in %s on line %d
 
 Warning: jpeg2wbmp(): Unable to open '' for writing in %s on line %d
+
+Deprecated: Function jpeg2wbmp() is deprecated in %s on line %d
+
+Warning: jpeg2wbmp(): Unable to open '' for writing in %s on line %d
+
+Deprecated: Function jpeg2wbmp() is deprecated in %s on line %d
 
 Warning: jpeg2wbmp(): Unable to open '' for writing in %s on line %d
 --CLEAN--

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>application-identifier</key>
+	<string>com.apple.TrustedPeersHelper</string>
+	<key>com.apple.application-identifier</key>
+	<string>com.apple.TrustedPeersHelper</string>
+	<key>com.apple.developer.aps-environment</key>
+	<string>serverPreferred</string>
+	<key>aps-environment</key>
+	<string>serverPreferred</string>
+	<key>com.apple.developer.icloud-container-environment</key>
+	<string>Production</string>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudKit</string>
+	</array>
+	<key>com.apple.private.appleaccount.app-hidden-from-icloud-settings</key>
+	<true/>
+	<key>com.apple.private.cloudkit.allowUnverifiedAccount</key>
+	<true/>
+	<key>com.apple.private.cloudkit.buddyAccess</key>
+	<true/>
+	<key>com.apple.private.cloudkit.systemService</key>
+	<true/>
+	<key>com.apple.private.cloudkit.supportservice</key>
+	<true/>
+	<key>com.apple.private.cloudkit.prefix</key>
+	<string>com.apple.security.cuttlefish</string>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>com.apple.security.sos</string>
+		<string>com.apple.security.ckks</string>
+		<string>com.apple.security.octagon</string>
+		<string>com.apple.security.egoIdentities</string>
+	</array>
+</dict>
+</plist>

@@ -62,6 +62,8 @@
 #define BIN_UNHASH   28
 #define BIN_UNALIAS  29
 #define BIN_UNFUNCTION  30
+#define BIN_UNSET    31
+#define BIN_EXPORT   32
 
 /* These currently depend on being 0 and 1. */
 #define BIN_SETOPT    0

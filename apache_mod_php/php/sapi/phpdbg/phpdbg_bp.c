@@ -53,6 +53,7 @@ static inline void _phpdbg_break_mapping(int id, HashTable *table) /* {{{ */
 	zend_hash_index_del(&PHPDBG_G(bp)[PHPDBG_BREAK_MAP], (id))
 
 #define PHPDBG_BREAK_INIT(b, t) do {\
+	memset(&b, 0, sizeof(b)); \
 	b.id = PHPDBG_G(bp_count)++; \
 	b.type = t; \
 	b.disabled = 0;\
@@ -136,7 +137,7 @@ PHPDBG_API void phpdbg_export_breakpoints_to_string(char **str) /* {{{ */
 
 					switch (brake->type) {
 						case PHPDBG_BREAK_FILE: {
-							zend_string *filename = php_addcslashes(zend_string_init(((phpdbg_breakfile_t*)brake)->filename, strlen(((phpdbg_breakfile_t*)brake)->filename), 0), 1, "\\\"\n", 3);
+							zend_string *filename = php_addcslashes_str(((phpdbg_breakfile_t*)brake)->filename, strlen(((phpdbg_breakfile_t*)brake)->filename), "\\\"\n", 3);
 							phpdbg_asprintf(&new_str,
 								"%sbreak \"%s\":%lu\n", *str,
 								ZSTR_VAL(filename),
@@ -173,7 +174,7 @@ PHPDBG_API void phpdbg_export_breakpoints_to_string(char **str) /* {{{ */
 						} break;
 
 						case PHPDBG_BREAK_FILE_OPLINE: {
-							zend_string *filename = php_addcslashes(zend_string_init(((phpdbg_breakopline_t*)brake)->class_name, strlen(((phpdbg_breakopline_t*)brake)->class_name), 0), 1, "\\\"\n", 3);
+							zend_string *filename = php_addcslashes_str(((phpdbg_breakopline_t*)brake)->class_name, strlen(((phpdbg_breakopline_t*)brake)->class_name), "\\\"\n", 3);
 							phpdbg_asprintf(&new_str,
 								"%sbreak \"%s\":#%llu\n", *str,
 								ZSTR_VAL(filename),
@@ -192,6 +193,24 @@ PHPDBG_API void phpdbg_export_breakpoints_to_string(char **str) /* {{{ */
 
 							if (conditional->paramed) {
 								switch (conditional->param.type) {
+		                            case NUMERIC_FUNCTION_PARAM:
+		                                phpdbg_asprintf(&new_str,
+		                                    "%sbreak at %s#%ld if %s\n",
+		                                    *str, conditional->param.str, conditional->param.num, conditional->code);
+		                            break;
+		                            
+		                            case NUMERIC_METHOD_PARAM:
+		                                phpdbg_asprintf(&new_str,
+		                                    "%sbreak at %s::%s#%ld if %s\n",
+		                                    *str, conditional->param.method.class, conditional->param.method.name, conditional->param.num, conditional->code);
+		                            break;
+		                            
+		                            case ADDR_PARAM:
+		                                phpdbg_asprintf(&new_str,
+		                                    "%sbreak at 0X%lx if %s\n",
+		                                    *str, conditional->param.addr, conditional->code);
+		                            break;
+		                            
 									case STR_PARAM:
 										phpdbg_asprintf(&new_str,
 											"%sbreak at %s if %s\n", *str, conditional->param.str, conditional->code);
@@ -205,7 +224,7 @@ PHPDBG_API void phpdbg_export_breakpoints_to_string(char **str) /* {{{ */
 									break;
 
 									case FILE_PARAM: {
-										zend_string *filename = php_addcslashes(zend_string_init(conditional->param.file.name, strlen(conditional->param.file.name), 0), 1, "\\\"\n", 3);
+										zend_string *filename = php_addcslashes_str(conditional->param.file.name, strlen(conditional->param.file.name), "\\\"\n", 3);
 										phpdbg_asprintf(&new_str,
 											"%sbreak at \"%s\":%lu if %s\n", *str,
 											ZSTR_VAL(filename), conditional->param.file.line,
@@ -232,17 +251,12 @@ PHPDBG_API void phpdbg_export_breakpoints_to_string(char **str) /* {{{ */
 		} ZEND_HASH_FOREACH_END();
 	}
 
-	if (!(*str)[0]) {
+	if ((*str) && !(*str)[0]) {
 		*str = NULL;
 	}
 } /* }}} */
 
-PHPDBG_API void phpdbg_set_breakpoint_file(const char *path, long line_num) /* {{{ */
-{
-	phpdbg_set_breakpoint_file_ex(path, 0, line_num);
-} /* }}} */
-
-PHPDBG_API void phpdbg_set_breakpoint_file_ex(const char *path, size_t path_len, long line_num) /* {{{ */
+PHPDBG_API void phpdbg_set_breakpoint_file(const char *path, size_t path_len, long line_num) /* {{{ */
 {
 	php_stream_statbuf ssb;
 	char realpath[MAXPATHLEN];
@@ -329,7 +343,7 @@ PHPDBG_API void phpdbg_set_breakpoint_file_ex(const char *path, size_t path_len,
 	zend_string_release(path_str);
 } /* }}} */
 
-PHPDBG_API HashTable *phpdbg_resolve_pending_file_break_ex(const char *file, uint filelen, zend_string *cur, HashTable *fileht) /* {{{ */
+PHPDBG_API HashTable *phpdbg_resolve_pending_file_break_ex(const char *file, uint32_t filelen, zend_string *cur, HashTable *fileht) /* {{{ */
 {
 	phpdbg_debug("file: %s, filelen: %u, cur: %s, curlen %u, pos: %c, memcmp: %d\n", file, filelen, ZSTR_VAL(cur), ZSTR_LEN(cur), filelen > ZSTR_LEN(cur) ? file[filelen - ZSTR_LEN(cur) - 1] : '?', filelen > ZSTR_LEN(cur) ? memcmp(file + filelen - ZSTR_LEN(cur), ZSTR_VAL(cur), ZSTR_LEN(cur)) : 0);
 
@@ -378,7 +392,7 @@ PHPDBG_API HashTable *phpdbg_resolve_pending_file_break_ex(const char *file, uin
 PHPDBG_API void phpdbg_resolve_pending_file_break(const char *file) /* {{{ */
 {
 	HashTable *fileht;
-	uint filelen = strlen(file);
+	uint32_t filelen = strlen(file);
 	zend_string *cur;
 
 	phpdbg_debug("was compiled: %s\n", file);
@@ -818,6 +832,21 @@ static inline void phpdbg_create_conditional_break(phpdbg_breakcond_t *brake, co
 	uint32_t cops = CG(compiler_options);
 	zval pv;
 
+	switch (param->type) {
+	    case STR_PARAM:
+		case NUMERIC_FUNCTION_PARAM:
+		case METHOD_PARAM:
+		case NUMERIC_METHOD_PARAM:
+		case FILE_PARAM:
+		case ADDR_PARAM:
+		    /* do nothing */
+		break;
+		
+		default:
+			phpdbg_error("eval", "type=\"invalidparameter\"", "Invalid parameter type for conditional breakpoint");
+			return;
+	}
+
 	PHPDBG_BREAK_INIT(new_break, PHPDBG_BREAK_COND);
 	new_break.hash = hash;
 
@@ -825,6 +854,20 @@ static inline void phpdbg_create_conditional_break(phpdbg_breakcond_t *brake, co
 		new_break.paramed = 1;
 		phpdbg_copy_param(
 			param, &new_break.param);
+	    if (new_break.param.type == FILE_PARAM ||
+	        new_break.param.type == NUMERIC_FILE_PARAM) {
+	        char realpath[MAXPATHLEN];
+	        
+	        if (VCWD_REALPATH(new_break.param.file.name, realpath)) {
+	            efree(new_break.param.file.name);
+	            
+	            new_break.param.file.name = estrdup(realpath);
+	        } else {
+	            phpdbg_error("eval", "type=\"invalidparameter\"", "Invalid file for conditional break %s", new_break.param.file.name);
+	            phpdbg_clear_param(&new_break.param);
+	            return;
+	        }
+	    }
 	} else {
 		new_break.paramed = 0;
 	}
@@ -845,7 +888,7 @@ static inline void phpdbg_create_conditional_break(phpdbg_breakcond_t *brake, co
 
 	new_break.ops = zend_compile_string(&pv, "Conditional Breakpoint Code");
 
-	zval_dtor(&pv);
+	zval_ptr_dtor_str(&pv);
 
 	if (new_break.ops) {
 		brake = zend_hash_index_update_mem(&PHPDBG_G(bp)[PHPDBG_BREAK_COND], hash, &new_break, sizeof(phpdbg_breakcond_t));

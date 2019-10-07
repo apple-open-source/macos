@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import "keychain/ckks/NSOperationCategories.h"
+NS_ASSUME_NONNULL_BEGIN
 
 @interface NSOperation (CKKSUsefulPrintingOperation)
 - (NSString*)description;
@@ -31,7 +31,7 @@
 - (NSString*)selfname;
 
 // If op is nonnull, op becomes a dependency of this operation
-- (void)addNullableDependency:(NSOperation*)op;
+- (void)addNullableDependency:(NSOperation* _Nullable)op;
 
 // Add all operations in this collection as dependencies, then add yourself to the collection
 - (void)linearDependencies:(NSHashTable*)collection;
@@ -49,3 +49,5 @@
 @interface NSBlockOperation (CKKSUsefulConstructorOperation)
 + (instancetype)named:(NSString*)name withBlock:(void (^)(void))block;
 @end
+
+NS_ASSUME_NONNULL_END

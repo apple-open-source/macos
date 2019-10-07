@@ -33,6 +33,7 @@
 #include "unicode/gregocal.h"
 #include "unicode/smpdtfmt.h"
 
+#include "cmemory.h"
 #include "gregoimp.h"
 #include "umutex.h"
 
@@ -1077,19 +1078,19 @@ SimpleTimeZone::deleteTransitionRules(void) {
  *         allocate it in the constructors. This would be a more intrusive change, but doable
  *         if performance turns out to be an issue.
  */
-static UMutex gLock = U_MUTEX_INITIALIZER;
 
 void
 SimpleTimeZone::checkTransitionRules(UErrorCode& status) const {
     if (U_FAILURE(status)) {
         return;
     }
-    umtx_lock(&gLock);
+    static UMutex *gLock = STATIC_NEW(UMutex);
+    umtx_lock(gLock);
     if (!transitionRulesInitialized) {
         SimpleTimeZone *ncThis = const_cast<SimpleTimeZone*>(this);
         ncThis->initTransitionRules(status);
     }
-    umtx_unlock(&gLock);
+    umtx_unlock(gLock);
 }
 
 void

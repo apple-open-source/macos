@@ -31,13 +31,12 @@
 #include "TextCheckerState.h"
 #include "WebAutomationSession.h"
 #include "WebCertificateInfo.h"
-#include "WebGeolocationManagerProxy.h"
 #include "WebKitAutomationSessionPrivate.h"
 #include "WebKitCustomProtocolManagerClient.h"
 #include "WebKitDownloadClient.h"
 #include "WebKitDownloadPrivate.h"
 #include "WebKitFaviconDatabasePrivate.h"
-#include "WebKitGeolocationProvider.h"
+#include "WebKitGeolocationManagerPrivate.h"
 #include "WebKitInjectedBundleClient.h"
 #include "WebKitNetworkProxySettingsPrivate.h"
 #include "WebKitNotificationProvider.h"
@@ -54,10 +53,10 @@
 #include "WebNotificationManagerProxy.h"
 #include "WebsiteDataType.h"
 #include <JavaScriptCore/RemoteInspector.h>
-#include <WebCore/FileSystem.h>
 #include <glib/gi18n-lib.h>
 #include <libintl.h>
 #include <memory>
+#include <wtf/FileSystem.h>
 #include <wtf/HashMap.h>
 #include <wtf/Language.h>
 #include <wtf/NeverDestroyed.h>
@@ -170,9 +169,7 @@ struct _WebKitWebContextPrivate {
     GRefPtr<WebKitSecurityManager> securityManager;
     URISchemeHandlerMap uriSchemeHandlers;
     URISchemeRequestMap uriSchemeRequests;
-#if ENABLE(GEOLOCATION)
-    std::unique_ptr<WebKitGeolocationProvider> geolocationProvider;
-#endif
+    GRefPtr<WebKitGeolocationManager> geolocationManager;
     std::unique_ptr<WebKitNotificationProvider> notificationProvider;
     GRefPtr<WebKitWebsiteDataManager> websiteDataManager;
 
@@ -333,20 +330,21 @@ static void webkitWebContextConstructed(GObject* object)
     GUniquePtr<char> bundleFilename(g_build_filename(injectedBundleDirectory(), INJECTED_BUNDLE_FILENAME, nullptr));
 
     API::ProcessPoolConfiguration configuration;
-    configuration.setInjectedBundlePath(WebCore::FileSystem::stringFromFileSystemRepresentation(bundleFilename.get()));
-    configuration.setMaximumProcessCount(1);
+    configuration.setInjectedBundlePath(FileSystem::stringFromFileSystemRepresentation(bundleFilename.get()));
     configuration.setDiskCacheSpeculativeValidationEnabled(true);
 
     WebKitWebContext* webContext = WEBKIT_WEB_CONTEXT(object);
     WebKitWebContextPrivate* priv = webContext->priv;
     if (priv->websiteDataManager && !webkit_website_data_manager_is_ephemeral(priv->websiteDataManager.get())) {
-        configuration.setLocalStorageDirectory(WebCore::FileSystem::stringFromFileSystemRepresentation(webkit_website_data_manager_get_local_storage_directory(priv->websiteDataManager.get())));
-        configuration.setDiskCacheDirectory(WebCore::FileSystem::pathByAppendingComponent(WebCore::FileSystem::stringFromFileSystemRepresentation(webkit_website_data_manager_get_disk_cache_directory(priv->websiteDataManager.get())), networkCacheSubdirectory));
-        configuration.setApplicationCacheDirectory(WebCore::FileSystem::stringFromFileSystemRepresentation(webkit_website_data_manager_get_offline_application_cache_directory(priv->websiteDataManager.get())));
-        configuration.setIndexedDBDatabaseDirectory(WebCore::FileSystem::stringFromFileSystemRepresentation(webkit_website_data_manager_get_indexeddb_directory(priv->websiteDataManager.get())));
-        configuration.setWebSQLDatabaseDirectory(WebCore::FileSystem::stringFromFileSystemRepresentation(webkit_website_data_manager_get_websql_directory(priv->websiteDataManager.get())));
+        configuration.setLocalStorageDirectory(FileSystem::stringFromFileSystemRepresentation(webkit_website_data_manager_get_local_storage_directory(priv->websiteDataManager.get())));
+        configuration.setDiskCacheDirectory(FileSystem::pathByAppendingComponent(FileSystem::stringFromFileSystemRepresentation(webkit_website_data_manager_get_disk_cache_directory(priv->websiteDataManager.get())), networkCacheSubdirectory));
+        configuration.setApplicationCacheDirectory(FileSystem::stringFromFileSystemRepresentation(webkit_website_data_manager_get_offline_application_cache_directory(priv->websiteDataManager.get())));
+        configuration.setIndexedDBDatabaseDirectory(FileSystem::stringFromFileSystemRepresentation(webkit_website_data_manager_get_indexeddb_directory(priv->websiteDataManager.get())));
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+        configuration.setWebSQLDatabaseDirectory(FileSystem::stringFromFileSystemRepresentation(webkit_website_data_manager_get_websql_directory(priv->websiteDataManager.get())));
+ALLOW_DEPRECATED_DECLARATIONS_END
     } else if (!priv->localStorageDirectory.isNull())
-        configuration.setLocalStorageDirectory(WebCore::FileSystem::stringFromFileSystemRepresentation(priv->localStorageDirectory.data()));
+        configuration.setLocalStorageDirectory(FileSystem::stringFromFileSystemRepresentation(priv->localStorageDirectory.data()));
 
     priv->processPool = WebProcessPool::create(configuration);
 
@@ -368,9 +366,7 @@ static void webkitWebContextConstructed(GObject* object)
     attachDownloadClientToContext(webContext);
     attachCustomProtocolManagerClientToContext(webContext);
 
-#if ENABLE(GEOLOCATION)
-    priv->geolocationProvider = std::make_unique<WebKitGeolocationProvider>(priv->processPool->supplement<WebGeolocationManagerProxy>());
-#endif
+    priv->geolocationManager = adoptGRef(webkitGeolocationManagerCreate(priv->processPool->supplement<WebGeolocationManagerProxy>()));
     priv->notificationProvider = std::make_unique<WebKitNotificationProvider>(priv->processPool->supplement<WebNotificationManagerProxy>(), webContext);
 #if PLATFORM(GTK) && ENABLE(REMOTE_INSPECTOR)
     priv->remoteInspectorProtocolHandler = std::make_unique<RemoteInspectorProtocolHandler>(webContext);
@@ -868,6 +864,23 @@ WebKitCookieManager* webkit_web_context_get_cookie_manager(WebKitWebContext* con
     return webkit_website_data_manager_get_cookie_manager(context->priv->websiteDataManager.get());
 }
 
+/**
+ * webkit_web_context_get_geolocation_manager:
+ * @context: a #WebKitWebContext
+ *
+ * Get the #WebKitGeolocationManager of @context.
+ *
+ * Returns: (transfer none): the #WebKitGeolocationManager of @context.
+ *
+ * Since: 2.26
+ */
+WebKitGeolocationManager* webkit_web_context_get_geolocation_manager(WebKitWebContext* context)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_CONTEXT(context), nullptr);
+
+    return context->priv->geolocationManager.get();
+}
+
 static void ensureFaviconDatabase(WebKitWebContext* context)
 {
     WebKitWebContextPrivate* priv = context->priv;
@@ -924,7 +937,7 @@ void webkit_web_context_set_favicon_database_directory(WebKitWebContext* context
     WebKitWebContextPrivate* priv = context->priv;
     ensureFaviconDatabase(context);
 
-    String directoryPath = WebCore::FileSystem::stringFromFileSystemRepresentation(path);
+    String directoryPath = FileSystem::stringFromFileSystemRepresentation(path);
     // Use default if nullptr is passed as parameter.
     if (directoryPath.isEmpty()) {
 #if PLATFORM(GTK)
@@ -933,7 +946,7 @@ void webkit_web_context_set_favicon_database_directory(WebKitWebContext* context
         const char* portDirectory = "wpe";
 #endif
         GUniquePtr<gchar> databaseDirectory(g_build_filename(g_get_user_cache_dir(), portDirectory, "icondatabase", nullptr));
-        directoryPath = WebCore::FileSystem::stringFromFileSystemRepresentation(databaseDirectory.get());
+        directoryPath = FileSystem::stringFromFileSystemRepresentation(databaseDirectory.get());
     }
     priv->faviconDatabaseDirectory = directoryPath.utf8();
 
@@ -942,7 +955,7 @@ void webkit_web_context_set_favicon_database_directory(WebKitWebContext* context
         "WebpageIcons.db", nullptr));
 
     // Setting the path will cause the icon database to be opened.
-    webkitFaviconDatabaseOpen(priv->faviconDatabase.get(), WebCore::FileSystem::stringFromFileSystemRepresentation(faviconDatabasePath.get()));
+    webkitFaviconDatabaseOpen(priv->faviconDatabase.get(), FileSystem::stringFromFileSystemRepresentation(faviconDatabasePath.get()));
 
     if (webkit_web_context_is_ephemeral(context))
         webkitFaviconDatabaseSetPrivateBrowsingEnabled(priv->faviconDatabase.get(), true);
@@ -1026,7 +1039,7 @@ void webkit_web_context_set_additional_plugins_directory(WebKitWebContext* conte
     g_return_if_fail(directory);
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
-    context->priv->processPool->setAdditionalPluginsDirectory(WebCore::FileSystem::stringFromFileSystemRepresentation(directory));
+    context->priv->processPool->setAdditionalPluginsDirectory(FileSystem::stringFromFileSystemRepresentation(directory));
 #endif
 }
 
@@ -1160,11 +1173,7 @@ void webkit_web_context_register_uri_scheme(WebKitWebContext* context, const cha
  *
  * This is only implemented on Linux and is a no-op otherwise.
  *
- * The web process is granted read-only access to the subdirectory matching g_get_prgname()
- * in `$XDG_CONFIG_HOME`, `$XDG_CACHE_HOME`, and `$XDG_DATA_HOME` if it exists before the
- * process is created. This behavior may change in the future.
- *
- * Since: 2.24
+ * Since: 2.26
  */
 void webkit_web_context_set_sandbox_enabled(WebKitWebContext* context, gboolean enabled)
 {
@@ -1176,6 +1185,54 @@ void webkit_web_context_set_sandbox_enabled(WebKitWebContext* context, gboolean 
     context->priv->processPool->setSandboxEnabled(enabled);
 }
 
+static bool pathIsBlacklisted(const char* path)
+{
+    static const Vector<CString, 4> blacklistedPrefixes = {
+        // These are recreated by bwrap and it doesn't make sense to try and rebind them.
+        "sys", "proc", "dev",
+        "", // All of `/` isn't acceptable.
+    };
+
+    if (!g_path_is_absolute(path))
+        return true;
+
+    GUniquePtr<char*> splitPath(g_strsplit(path, G_DIR_SEPARATOR_S, 3));
+    return blacklistedPrefixes.contains(splitPath.get()[1]);
+}
+
+/**
+ * webkit_web_context_add_path_to_sandbox:
+ * @context: a #WebKitWebContext
+ * @path: (type filename): an absolute path to mount in the sandbox
+ * @read_only: if %TRUE the path will be read-only
+ *
+ * Adds a path to be mounted in the sandbox. @path must exist before any web process
+ * has been created otherwise it will be silently ignored. It is a fatal error to
+ * add paths after a web process has been spawned.
+ *
+ * Paths in directories such as `/sys`, `/proc`, and `/dev` or all of `/`
+ * are not valid.
+ *
+ * See also webkit_web_context_set_sandbox_enabled()
+ *
+ * Since: 2.26
+ */
+void webkit_web_context_add_path_to_sandbox(WebKitWebContext* context, const char* path, gboolean readOnly)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_CONTEXT(context));
+
+    if (pathIsBlacklisted(path)) {
+        g_critical("Attempted to add disallowed path to sandbox: %s", path);
+        return;
+    }
+
+    if (context->priv->processPool->processes().size())
+        g_error("Sandbox paths cannot be changed after subprocesses were spawned.");
+
+    auto permission = readOnly ? SandboxPermission::ReadOnly : SandboxPermission::ReadWrite;
+    context->priv->processPool->addSandboxPath(path, permission);
+}
+
 /**
  * webkit_web_context_get_sandbox_enabled:
  * @context: a #WebKitWebContext
@@ -1184,7 +1241,7 @@ void webkit_web_context_set_sandbox_enabled(WebKitWebContext* context, gboolean 
  *
  * Returns: %TRUE if sandboxing is enabled, or %FALSE otherwise.
  *
- * Since: 2.24
+ * Since: 2.26
  */
 gboolean webkit_web_context_get_sandbox_enabled(WebKitWebContext* context)
 {
@@ -1372,6 +1429,7 @@ void webkit_web_context_set_web_extensions_directory(WebKitWebContext* context, 
     g_return_if_fail(directory);
 
     context->priv->webExtensionsDirectory = directory;
+    context->priv->processPool->addSandboxPath(directory, SandboxPermission::ReadOnly);
 }
 
 /**
@@ -1418,7 +1476,7 @@ void webkit_web_context_set_disk_cache_directory(WebKitWebContext* context, cons
     g_return_if_fail(WEBKIT_IS_WEB_CONTEXT(context));
     g_return_if_fail(directory);
 
-    context->priv->processPool->configuration().setDiskCacheDirectory(WebCore::FileSystem::pathByAppendingComponent(WebCore::FileSystem::stringFromFileSystemRepresentation(directory), networkCacheSubdirectory));
+    context->priv->processPool->configuration().setDiskCacheDirectory(FileSystem::pathByAppendingComponent(FileSystem::stringFromFileSystemRepresentation(directory), networkCacheSubdirectory));
 }
 #endif
 
@@ -1495,14 +1553,6 @@ void webkit_web_context_set_process_model(WebKitWebContext* context, WebKitProce
         return;
 
     context->priv->processModel = processModel;
-    switch (context->priv->processModel) {
-    case WEBKIT_PROCESS_MODEL_SHARED_SECONDARY_PROCESS:
-        context->priv->processPool->setMaximumNumberOfProcesses(1);
-        break;
-    case WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES:
-        context->priv->processPool->setMaximumNumberOfProcesses(context->priv->processCountLimit);
-        break;
-    }
 }
 
 /**
@@ -1545,8 +1595,6 @@ void webkit_web_context_set_web_process_count_limit(WebKitWebContext* context, g
         return;
 
     context->priv->processCountLimit = limit;
-    if (context->priv->processModel != WEBKIT_PROCESS_MODEL_SHARED_SECONDARY_PROCESS)
-        context->priv->processPool->setMaximumNumberOfProcesses(limit);
 }
 
 /**
@@ -1628,7 +1676,7 @@ WebKitDownload* webkitWebContextGetOrCreateDownload(DownloadProxy* downloadProxy
 WebKitDownload* webkitWebContextStartDownload(WebKitWebContext* context, const char* uri, WebPageProxy* initiatingPage)
 {
     WebCore::ResourceRequest request(String::fromUTF8(uri));
-    return webkitWebContextGetOrCreateDownload(context->priv->processPool->download(initiatingPage, request));
+    return webkitWebContextGetOrCreateDownload(&context->priv->processPool->download(initiatingPage, request));
 }
 
 void webkitWebContextRemoveDownload(DownloadProxy* downloadProxy)
@@ -1726,5 +1774,5 @@ void webkitWebContextWebViewDestroyed(WebKitWebContext* context, WebKitWebView* 
 
 WebKitWebView* webkitWebContextGetWebViewForPage(WebKitWebContext* context, WebPageProxy* page)
 {
-    return page ? context->priv->webViews.get(page->pageID()) : 0;
+    return page ? context->priv->webViews.get(page->pageID().toUInt64()) : nullptr;
 }

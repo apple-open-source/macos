@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2015, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2018, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -77,6 +77,11 @@ size_t tool_write_cb(char *buffer, size_t sz, size_t nmemb, void *userdata)
   size_t rc;
   struct OutStruct *outs = userdata;
   struct OperationConfig *config = outs->config;
+  size_t bytes = sz * nmemb;
+  bool is_tty = config->global->isatty;
+#ifdef WIN32
+  CONSOLE_SCREEN_BUFFER_INFO console_info;
+#endif
 
   /*
    * Once that libcurl has called back tool_write_cb() the returned value
@@ -84,21 +89,26 @@ size_t tool_write_cb(char *buffer, size_t sz, size_t nmemb, void *userdata)
    * it does not match then it fails with CURLE_WRITE_ERROR. So at this
    * point returning a value different from sz*nmemb indicates failure.
    */
-  const size_t failure = (sz && nmemb) ? 0 : 1;
-
-  if(!config)
-    return failure;
+  const size_t failure = bytes ? 0 : 1;
 
 #ifdef DEBUGBUILD
-  if(config->include_headers) {
-    if(sz * nmemb > (size_t)CURL_MAX_HTTP_HEADER) {
+  {
+    char *tty = curlx_getenv("CURL_ISATTY");
+    if(tty) {
+      is_tty = TRUE;
+      curl_free(tty);
+    }
+  }
+
+  if(config->show_headers) {
+    if(bytes > (size_t)CURL_MAX_HTTP_HEADER) {
       warnf(config->global, "Header data size exceeds single call write "
             "limit!\n");
       return failure;
     }
   }
   else {
-    if(sz * nmemb > (size_t)CURL_MAX_WRITE_SIZE) {
+    if(bytes > (size_t)CURL_MAX_WRITE_SIZE) {
       warnf(config->global, "Data size exceeds single call write limit!\n");
       return failure;
     }
@@ -137,11 +147,60 @@ size_t tool_write_cb(char *buffer, size_t sz, size_t nmemb, void *userdata)
   if(!outs->stream && !tool_create_output_file(outs))
     return failure;
 
-  rc = fwrite(buffer, sz, nmemb, outs->stream);
+  if(is_tty && (outs->bytes < 2000) && !config->terminal_binary_ok) {
+    /* binary output to terminal? */
+    if(memchr(buffer, 0, bytes)) {
+      warnf(config->global, "Binary output can mess up your terminal. "
+            "Use \"--output -\" to tell curl to output it to your terminal "
+            "anyway, or consider \"--output <FILE>\" to save to a file.\n");
+      config->synthetic_error = ERR_BINARY_TERMINAL;
+      return failure;
+    }
+  }
 
-  if((sz * nmemb) == rc)
+#ifdef _WIN32
+  if(isatty(fileno(outs->stream)) &&
+     GetConsoleScreenBufferInfo(
+       (HANDLE)_get_osfhandle(fileno(outs->stream)), &console_info)) {
+    DWORD in_len = (DWORD)(sz * nmemb);
+    wchar_t* wc_buf;
+    DWORD wc_len;
+    intptr_t fhnd;
+
+    /* calculate buffer size for wide characters */
+    wc_len = MultiByteToWideChar(CP_UTF8, 0, buffer, in_len,  NULL, 0);
+    wc_buf = (wchar_t*) malloc(wc_len * sizeof(wchar_t));
+    if(!wc_buf)
+      return failure;
+
+    /* calculate buffer size for multi-byte characters */
+    wc_len = MultiByteToWideChar(CP_UTF8, 0, buffer, in_len, wc_buf, wc_len);
+    if(!wc_len) {
+      free(wc_buf);
+      return failure;
+    }
+
+    fhnd = _get_osfhandle(fileno(outs->stream));
+
+    if(!WriteConsoleW(
+        (HANDLE) fhnd,
+        wc_buf,
+        wc_len,
+        &wc_len,
+        NULL)) {
+      free(wc_buf);
+      return failure;
+    }
+    free(wc_buf);
+    rc = bytes;
+  }
+  else
+#endif
+    rc = fwrite(buffer, sz, nmemb, outs->stream);
+
+  if(bytes == rc)
     /* we added this amount of data to the output */
-    outs->bytes += (sz * nmemb);
+    outs->bytes += bytes;
 
   if(config->readbusy) {
     config->readbusy = FALSE;

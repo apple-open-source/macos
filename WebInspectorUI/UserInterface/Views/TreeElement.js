@@ -165,10 +165,8 @@ WI.TreeElement = class TreeElement extends WI.Object
             this._childrenListNode.hidden = this._hidden;
 
         if (this.treeOutline) {
-            let focusedTreeElement = null;
-            if (!this._hidden && this.selected)
-                focusedTreeElement = this;
-            this.treeOutline.soon.updateVirtualizedElements(focusedTreeElement);
+            if (this.treeOutline.virtualized)
+                this.treeOutline.updateVirtualizedElementsDebouncer.delayForFrame();
 
             this.treeOutline.dispatchEventToListeners(WI.TreeOutline.Event.ElementVisibilityDidChange, {element: this});
         }
@@ -184,6 +182,22 @@ WI.TreeElement = class TreeElement extends WI.Object
         this._shouldRefreshChildren = x;
         if (x && this.expanded)
             this.expand();
+    }
+
+    get previousSelectableSibling()
+    {
+        let treeElement = this.previousSibling;
+        while (treeElement && !treeElement.selectable)
+            treeElement = treeElement.previousSibling;
+        return treeElement;
+    }
+
+    get nextSelectableSibling()
+    {
+        let treeElement = this.nextSibling;
+        while (treeElement && !treeElement.selectable)
+            treeElement = treeElement.nextSibling;
+        return treeElement;
     }
 
     canSelectOnMouseDown(event)
@@ -203,7 +217,13 @@ WI.TreeElement = class TreeElement extends WI.Object
         if (!this.treeOutline)
             return;
 
-        this.onNextFrame._fireDidChange();
+        if (!this._fireDidChangeDebouncer) {
+            this._fireDidChangeDebouncer = new Debouncer(() => {
+                this._fireDidChange();
+            });
+        }
+
+        this._fireDidChangeDebouncer.delayForFrame();
     }
 
     _setListItemNodeContent()
@@ -261,9 +281,6 @@ WI.TreeElement = class TreeElement extends WI.Object
                 this.parent._childrenListNode.insertBefore(this._childrenListNode, this._listItemNode.nextSibling);
         }
 
-        if (this.treeOutline)
-            this.treeOutline.soon.updateVirtualizedElements();
-
         if (this.selected)
             this.select();
         if (this.expanded)
@@ -278,40 +295,36 @@ WI.TreeElement = class TreeElement extends WI.Object
             this._listItemNode.parentNode.removeChild(this._listItemNode);
         if (this._childrenListNode && this._childrenListNode.parentNode)
             this._childrenListNode.parentNode.removeChild(this._childrenListNode);
-
-        if (this.treeOutline)
-            this.treeOutline.soon.updateVirtualizedElements();
     }
 
     static treeElementToggled(event)
     {
         let element = event.currentTarget;
-        if (!element || !element.treeElement)
+        if (!element)
             return;
 
         let treeElement = element.treeElement;
-        if (!treeElement.treeOutline.selectable) {
-            treeElement.treeOutline.dispatchEventToListeners(WI.TreeOutline.Event.ElementClicked, {treeElement});
+        if (!treeElement)
             return;
-        }
 
         let toggleOnClick = treeElement.toggleOnClick && !treeElement.selectable;
-        let isInTriangle = treeElement.isEventWithinDisclosureTriangle(event);
-        if (!toggleOnClick && !isInTriangle)
-            return;
-
-        if (treeElement.expanded) {
-            if (event.altKey)
-                treeElement.collapseRecursively();
-            else
-                treeElement.collapse();
-        } else {
-            if (event.altKey)
-                treeElement.expandRecursively();
-            else
-                treeElement.expand();
+        if (toggleOnClick || treeElement.isEventWithinDisclosureTriangle(event)) {
+            if (treeElement.expanded) {
+                if (event.altKey)
+                    treeElement.collapseRecursively();
+                else
+                    treeElement.collapse();
+            } else {
+                if (event.altKey)
+                    treeElement.expandRecursively();
+                else
+                    treeElement.expand();
+            }
+            event.stopPropagation();
         }
-        event.stopPropagation();
+
+        if (!treeElement.treeOutline.selectable)
+            treeElement.treeOutline.dispatchEventToListeners(WI.TreeOutline.Event.ElementClicked, {treeElement});
     }
 
     static treeElementDoubleClicked(event)
@@ -347,7 +360,8 @@ WI.TreeElement = class TreeElement extends WI.Object
             this.oncollapse(this);
 
         if (this.treeOutline) {
-            this.treeOutline.soon.updateVirtualizedElements(this);
+            if (this.treeOutline.virtualized)
+                this.treeOutline.updateVirtualizedElementsDebouncer.delayForFrame();
 
             this.treeOutline.dispatchEventToListeners(WI.TreeOutline.Event.ElementDisclosureDidChanged, {element: this});
         }
@@ -414,7 +428,8 @@ WI.TreeElement = class TreeElement extends WI.Object
             this.onexpand(this);
 
         if (this.treeOutline) {
-            this.treeOutline.soon.updateVirtualizedElements(this);
+            if (this.treeOutline.virtualized)
+                this.treeOutline.updateVirtualizedElementsDebouncer.delayForFrame();
 
             this.treeOutline.dispatchEventToListeners(WI.TreeOutline.Event.ElementDisclosureDidChanged, {element: this});
         }
@@ -466,11 +481,14 @@ WI.TreeElement = class TreeElement extends WI.Object
 
         // This must be called before onreveal, as some subclasses will scrollIntoViewIfNeeded and
         // we should update the visible elements before attempting to scroll.
-        if (this.treeOutline)
-            this.treeOutline.updateVirtualizedElements(this);
+        if (this.treeOutline && this.treeOutline.virtualized)
+            this.treeOutline.updateVirtualizedElementsDebouncer.force(this);
 
         if (this.onreveal)
             this.onreveal(this);
+
+        if (this.treeOutline)
+            this.treeOutline.dispatchEventToListeners(WI.TreeOutline.Event.ElementRevealed, {element: this});
     }
 
     revealed(ignoreHidden)

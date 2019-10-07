@@ -3,7 +3,7 @@ Test getimagesize() function : basic functionality
 --FILE--
 <?php
 /* Prototype  : array getimagesize(string imagefile [, array info])
- * Description: Get the size of an image as 4-element array 
+ * Description: Get the size of an image as 4-element array
  * Source code: ext/standard/image.c
  */
 
@@ -16,13 +16,13 @@ $imagetype_filenames = array(
 
       //PNG file
       "PNG image file" => "200x100.png",
-    
+
       //SWF file
       "SWF image file" => "200x100.swf",
-      
+
       //BMP file
       "BMP image file" => "200x100.bmp",
-      
+
       //TIFF intel byte order
       "TIFF intel byte order image file" => "200x100.tif",
 
@@ -138,7 +138,7 @@ array(6) {
   ["bits"]=>
   int(24)
   ["mime"]=>
-  string(14) "image/x-ms-bmp"
+  string(9) "image/bmp"
 }
 array(0) {
 }

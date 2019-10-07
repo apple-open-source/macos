@@ -42,7 +42,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <config.h>
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef HAVE_UNISTD_H
@@ -56,9 +56,9 @@
 #include <openssl/evp.h>
 #include <openssl/md5.h> /* XXX hack for OpenBSD/OpenSSL cruftiness */
 
-#include <sasl.h>
+#include "sasl.h"
 #define MD5_H  /* suppress internal MD5 */
-#include <saslplug.h>
+#include "saslplug.h"
 
 #include "plugin_common.h"
 

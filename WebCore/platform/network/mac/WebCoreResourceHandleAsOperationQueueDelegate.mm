@@ -139,7 +139,14 @@ static bool scheduledWithCustomRunLoopMode(const Optional<SchedulePairHashSet>& 
             return;
         }
 
-        m_handle->willSendRequest(newRequest.get(), redirectResponse.get(), [self, protectedSelf = WTFMove(protectedSelf)](ResourceRequest&& request) {
+        ResourceRequest redirectRequest = newRequest.get();
+        if ([newRequest.get() HTTPBodyStream]) {
+            ASSERT(m_handle->firstRequest().httpBody());
+            redirectRequest.setHTTPBody(m_handle->firstRequest().httpBody());
+        }
+        if (m_handle->firstRequest().httpContentType().isEmpty())
+            redirectRequest.clearHTTPContentType();
+        m_handle->willSendRequest(WTFMove(redirectRequest), redirectResponse.get(), [self, protectedSelf = WTFMove(protectedSelf)](ResourceRequest&& request) {
             m_requestResult = request.nsURLRequest(HTTPBodyUpdatePolicy::UpdateHTTPBody);
             m_semaphore.signal();
         });
@@ -161,9 +168,9 @@ static bool scheduledWithCustomRunLoopMode(const Optional<SchedulePairHashSet>& 
     return requestResult.autorelease();
 }
 
-IGNORE_WARNINGS_BEGIN("deprecated-implementations")
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (void)connection:(NSURLConnection *)connection didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
-IGNORE_WARNINGS_END
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     ASSERT(!isMainThread());
     UNUSED_PARAM(connection);
@@ -181,9 +188,9 @@ IGNORE_WARNINGS_END
     [self callFunctionOnMainThread:WTFMove(work)];
 }
 
-IGNORE_WARNINGS_BEGIN("deprecated-implementations")
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (BOOL)connection:(NSURLConnection *)connection canAuthenticateAgainstProtectionSpace:(NSURLProtectionSpace *)protectionSpace
-IGNORE_WARNINGS_END
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     ASSERT(!isMainThread());
     UNUSED_PARAM(connection);

@@ -1227,7 +1227,12 @@ operations_error:
 	return NULL;
 }
 
-static const Listener dummy_list = { BER_BVC(""), BER_BVC("") };
+// This dummy gets set as the listener when connections are
+// initialized. Many of the callers then modify it in place,
+// which is a threading nightmare, but luckily they are all
+// adding the exact same hard-coded value, which is likely
+// why it works at all.
+static Listener dummy_list = { BER_BVC(""), BER_BVC("") };
 
 Connection *connection_client_setup(
 	ber_socket_t s,

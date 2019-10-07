@@ -2,7 +2,7 @@
 
   inits.c -
 
-  $Author: kosaki $
+  $Author: ko1 $
   created at: Tue Dec 28 16:01:58 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -16,6 +16,10 @@
 void
 rb_call_inits(void)
 {
+#if USE_TRANSIENT_HEAP
+    CALL(TransientHeap);
+#endif
+    CALL(vm_postponed_job);
     CALL(Method);
     CALL(RandomSeedCore);
     CALL(sym);
@@ -61,5 +65,7 @@ rb_call_inits(void)
     CALL(Complex);
     CALL(version);
     CALL(vm_trace);
+    CALL(vm_stack_canary);
+    CALL(ast);
 }
 #undef CALL

@@ -45,7 +45,7 @@
 
 /* local functions/structs don't start with sasl
  */
-#include <config.h>
+#include "config.h"
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>

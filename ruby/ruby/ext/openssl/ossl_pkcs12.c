@@ -17,11 +17,6 @@
     if(!(p12)) ossl_raise(rb_eRuntimeError, "PKCS12 wasn't initialized."); \
 } while (0)
 
-#define SafeGetPKCS12(obj, p12) do { \
-    OSSL_Check_Kind((obj), cPKCS12); \
-    GetPKCS12((obj), (p12)); \
-} while (0)
-
 #define ossl_pkcs12_set_key(o,v)      rb_iv_set((o), "@key", (v))
 #define ossl_pkcs12_set_cert(o,v)     rb_iv_set((o), "@certificate", (v))
 #define ossl_pkcs12_set_ca_certs(o,v) rb_iv_set((o), "@ca_certs", (v))
@@ -65,25 +60,44 @@ ossl_pkcs12_s_allocate(VALUE klass)
     return obj;
 }
 
+static VALUE
+ossl_pkcs12_initialize_copy(VALUE self, VALUE other)
+{
+    PKCS12 *p12, *p12_old, *p12_new;
+
+    rb_check_frozen(self);
+    GetPKCS12(self, p12_old);
+    GetPKCS12(other, p12);
+
+    p12_new = ASN1_dup((i2d_of_void *)i2d_PKCS12, (d2i_of_void *)d2i_PKCS12, (char *)p12);
+    if (!p12_new)
+	ossl_raise(ePKCS12Error, "ASN1_dup");
+
+    SetPKCS12(self, p12_new);
+    PKCS12_free(p12_old);
+
+    return self;
+}
+
 /*
  * call-seq:
  *    PKCS12.create(pass, name, key, cert [, ca, [, key_pbe [, cert_pbe [, key_iter [, mac_iter [, keytype]]]]]])
  *
  * === Parameters
- * * +pass+ - string
- * * +name+ - A string describing the key.
- * * +key+ - Any PKey.
- * * +cert+ - A X509::Certificate.
- * * * The public_key portion of the certificate must contain a valid public key.
- * * * The not_before and not_after fields must be filled in.
- * * +ca+ - An optional array of X509::Certificate's.
- * * +key_pbe+ - string
- * * +cert_pbe+ - string
- * * +key_iter+ - integer
- * * +mac_iter+ - integer
- * * +keytype+ - An integer representing an MSIE specific extension.
+ * * _pass_ - string
+ * * _name_ - A string describing the key.
+ * * _key_ - Any PKey.
+ * * _cert_ - A X509::Certificate.
+ *   * The public_key portion of the certificate must contain a valid public key.
+ *   * The not_before and not_after fields must be filled in.
+ * * _ca_ - An optional array of X509::Certificate's.
+ * * _key_pbe_ - string
+ * * _cert_pbe_ - string
+ * * _key_iter_ - integer
+ * * _mac_iter_ - integer
+ * * _keytype_ - An integer representing an MSIE specific extension.
  *
- * Any optional arguments may be supplied as nil to preserve the OpenSSL defaults.
+ * Any optional arguments may be supplied as +nil+ to preserve the OpenSSL defaults.
  *
  * See the OpenSSL documentation for PKCS12_create().
  */
@@ -100,18 +114,18 @@ ossl_pkcs12_s_create(int argc, VALUE *argv, VALUE self)
     PKCS12 *p12;
 
     rb_scan_args(argc, argv, "46", &pass, &name, &pkey, &cert, &ca, &key_nid, &cert_nid, &key_iter, &mac_iter, &keytype);
-    passphrase = NIL_P(pass) ? NULL : StringValuePtr(pass);
-    friendlyname = NIL_P(name) ? NULL : StringValuePtr(name);
+    passphrase = NIL_P(pass) ? NULL : StringValueCStr(pass);
+    friendlyname = NIL_P(name) ? NULL : StringValueCStr(name);
     key = GetPKeyPtr(pkey);
     x509 = GetX509CertPtr(cert);
 /* TODO: make a VALUE to nid function */
     if (!NIL_P(key_nid)) {
-        if ((nkey = OBJ_txt2nid(StringValuePtr(key_nid))) == NID_undef)
-            ossl_raise(rb_eArgError, "Unknown PBE algorithm %s", StringValuePtr(key_nid));
+        if ((nkey = OBJ_txt2nid(StringValueCStr(key_nid))) == NID_undef)
+	    ossl_raise(rb_eArgError, "Unknown PBE algorithm %"PRIsVALUE, key_nid);
     }
     if (!NIL_P(cert_nid)) {
-        if ((ncert = OBJ_txt2nid(StringValuePtr(cert_nid))) == NID_undef)
-            ossl_raise(rb_eArgError, "Unknown PBE algorithm %s", StringValuePtr(cert_nid));
+        if ((ncert = OBJ_txt2nid(StringValueCStr(cert_nid))) == NID_undef)
+	    ossl_raise(rb_eArgError, "Unknown PBE algorithm %"PRIsVALUE, cert_nid);
     }
     if (!NIL_P(key_iter))
         kiter = NUM2INT(key_iter);
@@ -142,8 +156,8 @@ ossl_pkcs12_s_create(int argc, VALUE *argv, VALUE self)
  *    PKCS12.new(str, pass) -> pkcs12
  *
  * === Parameters
- * * +str+ - Must be a DER encoded PKCS12 string.
- * * +pass+ - string
+ * * _str_ - Must be a DER encoded PKCS12 string.
+ * * _pass_ - string
  */
 static VALUE
 ossl_pkcs12_initialize(int argc, VALUE *argv, VALUE self)
@@ -158,7 +172,7 @@ ossl_pkcs12_initialize(int argc, VALUE *argv, VALUE self)
     PKCS12 *pkcs = DATA_PTR(self);
 
     if(rb_scan_args(argc, argv, "02", &arg, &pass) == 0) return self;
-    passphrase = NIL_P(pass) ? NULL : StringValuePtr(pass);
+    passphrase = NIL_P(pass) ? NULL : StringValueCStr(pass);
     in = ossl_obj2bio(&arg);
     d2i_PKCS12_bio(in, &pkcs);
     DATA_PTR(self) = pkcs;
@@ -171,15 +185,17 @@ ossl_pkcs12_initialize(int argc, VALUE *argv, VALUE self)
     if(!PKCS12_parse(pkcs, passphrase, &key, &x509, &x509s))
 	ossl_raise(ePKCS12Error, "PKCS12_parse");
     ERR_pop_to_mark();
-    pkey = rb_protect((VALUE(*)_((VALUE)))ossl_pkey_new, (VALUE)key,
-		      &st); /* NO DUP */
-    if(st) goto err;
-    cert = rb_protect((VALUE(*)_((VALUE)))ossl_x509_new, (VALUE)x509, &st);
-    if(st) goto err;
-    if(x509s){
-	ca =
-	    rb_protect((VALUE(*)_((VALUE)))ossl_x509_sk2ary, (VALUE)x509s, &st);
-	if(st) goto err;
+    if (key) {
+	pkey = rb_protect((VALUE (*)(VALUE))ossl_pkey_new, (VALUE)key, &st);
+	if (st) goto err;
+    }
+    if (x509) {
+	cert = rb_protect((VALUE (*)(VALUE))ossl_x509_new, (VALUE)x509, &st);
+	if (st) goto err;
+    }
+    if (x509s) {
+	ca = rb_protect((VALUE (*)(VALUE))ossl_x509_sk2ary, (VALUE)x509s, &st);
+	if (st) goto err;
     }
 
   err:
@@ -216,6 +232,12 @@ ossl_pkcs12_to_der(VALUE self)
 void
 Init_ossl_pkcs12(void)
 {
+#undef rb_intern
+#if 0
+    mOSSL = rb_define_module("OpenSSL");
+    eOSSLError = rb_define_class_under(mOSSL, "OpenSSLError", rb_eStandardError);
+#endif
+
     /*
      * Defines a file format commonly used to store private keys with
      * accompanying public key certificates, protected with a password-based
@@ -226,6 +248,7 @@ Init_ossl_pkcs12(void)
     rb_define_singleton_method(cPKCS12, "create", ossl_pkcs12_s_create, -1);
 
     rb_define_alloc_func(cPKCS12, ossl_pkcs12_s_allocate);
+    rb_define_method(cPKCS12, "initialize_copy", ossl_pkcs12_initialize_copy, 1);
     rb_attr(cPKCS12, rb_intern("key"), 1, 0, Qfalse);
     rb_attr(cPKCS12, rb_intern("certificate"), 1, 0, Qfalse);
     rb_attr(cPKCS12, rb_intern("ca_certs"), 1, 0, Qfalse);

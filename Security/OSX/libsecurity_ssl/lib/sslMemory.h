@@ -41,22 +41,17 @@ extern "C" {
  */
 void *sslMalloc(size_t length);
 void sslFree(void *p);
-void *sslRealloc(void *oldPtr, size_t oldLen, size_t newLen);
 
 /*
  * SSLBuffer-oriented allocators
  */
 int SSLAllocBuffer(SSLBuffer *buf, size_t length);
 int SSLFreeBuffer(SSLBuffer *buf);
-int SSLReallocBuffer(SSLBuffer *buf, size_t newSize);
 
 /*
  * Convenience routines
  */
 uint8_t *sslAllocCopy(const uint8_t *src, size_t len);
-int SSLAllocCopyBuffer(
-	const SSLBuffer *src, 
-	SSLBuffer **dst);		// buffer itself and data mallocd and returned 
 int SSLCopyBufferFromData(
 	const void *src,
 	size_t len,

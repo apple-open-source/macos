@@ -237,6 +237,32 @@ my_CFStringArrayToCStringArray(CFArrayRef arr, void * buffer, int * buffer_size,
     return (TRUE);
 }
 
+PRIVATE_EXTERN char * *
+my_CStringArrayCreate(CFArrayRef list, int * ret_count)
+{
+    char * *	strlist;
+    int		strlist_count;
+    int		strlist_size;
+
+    *ret_count = 0;
+
+    /* find out how much space to allocate */
+    if (my_CFStringArrayToCStringArray(list, NULL, &strlist_size,
+				       &strlist_count) == FALSE) {
+	return (NULL);
+    }
+    /* allocate and populate */
+    strlist = (char * *)malloc(strlist_size);
+    if (my_CFStringArrayToCStringArray(list,
+				       (void *)strlist, &strlist_size,
+				       &strlist_count) == FALSE) {
+	free(strlist);
+	return (NULL);
+    }
+    *ret_count = strlist_count;
+    return (strlist);
+}
+
 PRIVATE_EXTERN Boolean
 my_CFStringArrayToEtherArray(CFArrayRef array, char * buffer, int * buffer_size,
 			     int * ret_count)
@@ -336,6 +362,29 @@ my_CFStringToIPv6Address(CFStringRef str, struct in6_addr * ret_ip)
 	return (TRUE);
     }
     return (FALSE);
+}
+
+PRIVATE_EXTERN struct in6_addr *
+my_CFArrayToIPv6Addresses(CFArrayRef list, int * ret_ip_count)
+{
+    int			count;
+    struct in6_addr *	ip_list;
+
+    count = CFArrayGetCount(list);
+    if (count == 0) {
+	return (NULL);
+    }
+    ip_list = malloc(count * sizeof(*ip_list));
+    for (int i = 0; i < count; i++) {
+	CFStringRef	str = CFArrayGetValueAtIndex(list, i);
+	
+	if (!my_CFStringToIPv6Address(str, ip_list + i)) {
+	    free(ip_list);
+	    return (NULL);
+	}
+    }
+    *ret_ip_count = count;
+    return (ip_list);
 }
 
 PRIVATE_EXTERN bool
@@ -484,14 +533,14 @@ my_CFStringCopyComponent(CFStringRef path, CFStringRef separator,
 
 }
 
-CFStringRef
+PRIVATE_EXTERN CFStringRef
 my_CFStringCreateWithIPAddress(const struct in_addr ip)
 {
     return (CFStringCreateWithFormat(NULL, NULL, 
 				     CFSTR(IP_FORMAT), IP_LIST(&ip)));
 }
 
-CFStringRef
+PRIVATE_EXTERN CFStringRef
 my_CFStringCreateWithIPv6Address(const void * ip6_addr)
 {
     char 		ntopbuf[INET6_ADDRSTRLEN];
@@ -501,7 +550,7 @@ my_CFStringCreateWithIPv6Address(const void * ip6_addr)
     return (CFStringCreateWithCString(NULL, c_str, kCFStringEncodingASCII));
 }
 
-void
+PRIVATE_EXTERN void
 my_CFStringAppendBytesAsHex(CFMutableStringRef str, const uint8_t * bytes,
 			    int length, char separator)
 {
@@ -528,23 +577,31 @@ my_CFStringAppendBytesAsHex(CFMutableStringRef str, const uint8_t * bytes,
     return;
 }
 
-char *
-my_CFStringToCString(CFStringRef cfstr, CFStringEncoding encoding)
+PRIVATE_EXTERN char *
+my_CFStringToCStringWithRange(CFStringRef cfstr,
+			      CFRange range, CFStringEncoding encoding)
 {
-    CFIndex		l;
-    CFRange		range;
-    uint8_t *		str;
+    CFIndex	len = 0;
+    char *	str;
 
-    range = CFRangeMake(0, CFStringGetLength(cfstr));
-    CFStringGetBytes(cfstr, range, encoding,
-		     0, FALSE, NULL, 0, &l);
-    if (l <= 0) {
+    CFStringGetBytes(cfstr, range, encoding, 0, FALSE, NULL, 0, &len);
+    if (len == 0) {
 	return (NULL);
     }
-    str = (uint8_t *)malloc(l + 1);
-    CFStringGetBytes(cfstr, range, encoding, 0, FALSE, str, l, &l);
-    str[l] = '\0';
-    return ((char *)str);
+    str = malloc(len + 1);
+    CFStringGetBytes(cfstr, range, encoding, 0, FALSE, (UInt8 *)str, len, &len);
+    str[len] = '\0';
+    return (str);
+}
+
+
+PRIVATE_EXTERN char *
+my_CFStringToCString(CFStringRef cfstr, CFStringEncoding encoding)
+{
+    CFRange		range;
+
+    range = CFRangeMake(0, CFStringGetLength(cfstr));
+    return (my_CFStringToCStringWithRange(cfstr, range, encoding));
 }
 
 PRIVATE_EXTERN CFStringRef

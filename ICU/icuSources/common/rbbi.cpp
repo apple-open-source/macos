@@ -18,6 +18,8 @@
 
 #if !UCONFIG_NO_BREAK_ITERATION
 
+#include <cinttypes>
+
 #include "unicode/rbbi.h"
 #include "unicode/schriter.h"
 #include "unicode/uchriter.h"
@@ -28,20 +30,13 @@
 #include "ucln_cmn.h"
 #include "cmemory.h"
 #include "cstring.h"
+#include "localsvc.h"
 #include "rbbidata.h"
 #include "rbbi_cache.h"
 #include "rbbirb.h"
 #include "uassert.h"
 #include "umutex.h"
 #include "uvectr32.h"
-
-// if U_LOCAL_SERVICE_HOOK is defined, then localsvc.cpp is expected to be included.
-#if U_LOCAL_SERVICE_HOOK
-#include "localsvc.h"
-#endif
-
-// Apple specific
-//#include <os/log.h>
 
 #ifdef RBBI_DEBUG
 static UBool gTrace = FALSE;
@@ -648,7 +643,7 @@ int32_t RuleBasedBreakIterator::preceding(int32_t offset) {
     // or on a trail byte if the input is UTF-8.
 
     utext_setNativeIndex(&fText, offset);
-    int32_t adjustedOffset = utext_getNativeIndex(&fText);
+    int32_t adjustedOffset = static_cast<int32_t>(utext_getNativeIndex(&fText));
 
     UErrorCode status = U_ZERO_ERROR;
     fBreakCache->preceding(adjustedOffset, status);
@@ -675,7 +670,7 @@ UBool RuleBasedBreakIterator::isBoundary(int32_t offset) {
     // But we still need the side effect of leaving iteration at the following boundary.
 
     utext_setNativeIndex(&fText, offset);
-    int32_t adjustedOffset = utext_getNativeIndex(&fText);
+    int32_t adjustedOffset = static_cast<int32_t>(utext_getNativeIndex(&fText));
 
     bool result = false;
     UErrorCode status = U_ZERO_ERROR;
@@ -738,7 +733,7 @@ struct LookAheadResults {
     int32_t    fPositions[8];
     int16_t    fKeys[8];
 
-    LookAheadResults() : fUsedSlotLimit(0), fPositions(), fKeys() {};
+    LookAheadResults() : fUsedSlotLimit(0), fPositions(), fKeys() {}
 
     int32_t getPosition(int16_t key) {
         for (int32_t i=0; i<fUsedSlotLimit; ++i) {
@@ -748,7 +743,7 @@ struct LookAheadResults {
         }
         // with NLLT source rules, Latn sample and ubrk_next, we see a request for key 79 here
         // near the end of text, when setPosition has only ever set positions for key 80 or 82.
-        //U_ASSERT(FALSE);
+        //UPRV_UNREACHABLE;
         return -1;
     }
 
@@ -761,8 +756,8 @@ struct LookAheadResults {
             }
         }
         if (i >= kMaxLookaheads) {
-            U_ASSERT(FALSE);
-            i = kMaxLookaheads - 1;
+            UPRV_UNREACHABLE;
+            i = kMaxLookaheads - 1; // Apple addition
         }
         fKeys[i] = key;
         fPositions[i] = position;
@@ -899,7 +894,7 @@ int32_t RuleBasedBreakIterator::handleNextInternal() {
 
        #ifdef RBBI_DEBUG
             if (gTrace) {
-                RBBIDebugPrintf("             %4ld   ", utext_getNativeIndex(&fText));
+                RBBIDebugPrintf("             %4" PRId64 "   ", utext_getNativeIndex(&fText));
                 if (0x20<=c && c<0x7f) {
                     RBBIDebugPrintf("\"%c\"  ", c);
                 } else {
@@ -1116,14 +1111,12 @@ int32_t RuleBasedBreakIterator::getRuleStatusVec(
 // Apple custom addition
 int32_t RuleBasedBreakIterator::tokenize(int32_t maxTokens, RuleBasedTokenRange *outTokenRanges, unsigned long *outTokenFlags)
 {
-    //os_log(OS_LOG_DEFAULT, "# tokenize 0: maxT %d; txt idx %lld, len %lld", maxTokens, utext_getNativeIndex(fText), utext_nativeLength(fText));
     if (fDone) {
         return 0;
     }
     RuleBasedTokenRange *outTokenLimit = outTokenRanges + maxTokens;
     RuleBasedTokenRange *outTokenP = outTokenRanges;
     int32_t lastOffset = fPosition;
-    //os_log(OS_LOG_DEFAULT, "# tokenize 1");
     while (outTokenP < outTokenLimit) {
         // start portion from inlining populateFollowing()
         int32_t pos = 0;

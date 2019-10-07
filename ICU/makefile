@@ -396,45 +396,45 @@ $(error Cross-builds currently not allowed on Linux)
 endif
 endif
 
-MAC_OS_X_VERSION_MIN_REQUIRED=101300
-OSX_HOST_VERSION_MIN_STRING=10.13
+MAC_OS_X_VERSION_MIN_REQUIRED=101400
+OSX_HOST_VERSION_MIN_STRING=10.14
 
 ifndef IPHONEOS_DEPLOYMENT_TARGET
-	IOS_VERSION_TARGET_STRING=12.0
+	IOS_VERSION_TARGET_STRING=13.0
 else ifeq "$(IPHONEOS_DEPLOYMENT_TARGET)" ""
-	IOS_VERSION_TARGET_STRING=12.0
+	IOS_VERSION_TARGET_STRING=13.0
 else
 	IOS_VERSION_TARGET_STRING=$(IPHONEOS_DEPLOYMENT_TARGET)
 endif
 
 ifndef MACOSX_DEPLOYMENT_TARGET
-	OSX_VERSION_TARGET_STRING=10.14
+	OSX_VERSION_TARGET_STRING=10.15
 else ifeq "$(MACOSX_DEPLOYMENT_TARGET)" ""
-	OSX_VERSION_TARGET_STRING=10.14
+	OSX_VERSION_TARGET_STRING=10.15
 else
 	OSX_VERSION_TARGET_STRING=$(MACOSX_DEPLOYMENT_TARGET)
 endif
 
 ifndef WATCHOS_DEPLOYMENT_TARGET
-	WATCHOS_VERSION_TARGET_STRING=5.0
+	WATCHOS_VERSION_TARGET_STRING=6.0
 else ifeq "$(WATCHOS_DEPLOYMENT_TARGET)" ""
-	WATCHOS_VERSION_TARGET_STRING=5.0
+	WATCHOS_VERSION_TARGET_STRING=6.0
 else
 	WATCHOS_VERSION_TARGET_STRING=$(WATCHOS_DEPLOYMENT_TARGET)
 endif
 
 ifndef TVOS_DEPLOYMENT_TARGET
-	TVOS_VERSION_TARGET_STRING=12.0
+	TVOS_VERSION_TARGET_STRING=13.0
 else ifeq "$(TVOS_DEPLOYMENT_TARGET)" ""
-	TVOS_VERSION_TARGET_STRING=12.0
+	TVOS_VERSION_TARGET_STRING=13.0
 else
 	TVOS_VERSION_TARGET_STRING=$(TVOS_DEPLOYMENT_TARGET)
 endif
 
 ifndef BRIDGEOS_DEPLOYMENT_TARGET
-	BRIDGEOS_VERSION_TARGET_STRING=2.0
+	BRIDGEOS_VERSION_TARGET_STRING=3.0
 else ifeq "$(BRIDGEOS_DEPLOYMENT_TARGET)" ""
-	BRIDGEOS_VERSION_TARGET_STRING=2.0
+	BRIDGEOS_VERSION_TARGET_STRING=3.0
 else
 	BRIDGEOS_VERSION_TARGET_STRING=$(BRIDGEOS_DEPLOYMENT_TARGET)
 endif
@@ -499,9 +499,18 @@ $(info # buildhost=$(UNAME_PROCESSOR))
 # then it assumes a universal build (ac_cv_c_bigendian=universal) with
 # data file initially built big-endian.
 #
+# darwin releases
+# darwin 17.0.0 2017-Sep: macOS 10.13, iOS 11
+# darwin 17.5.0 2018-Mar: macOS 10.13.4
+# darwin 17.6.0 2018-Jun: macOS 10.13.5
+# darwin 17.7.0 2018-Jul: macOS 10.13.6, iOS 11.4.1
+# darwin 18.0.0 2018-Sep: macOS 10.14, iOS 12
+# darwin 18.2.0 2018-Oct: macOS 10.14.1, iOS 12.1
+# darwin 19.0.0 2019-fall: macOS 10.15, iOS 13
+#
 ifeq "$(CROSS_BUILD)" "YES"
 	RC_ARCHS_FIRST=$(shell echo $(RC_ARCHS) | cut -d' ' -f1)
-	TARGET_SPEC=$(RC_ARCHS_FIRST)-apple-darwin17.3.0
+	TARGET_SPEC=$(RC_ARCHS_FIRST)-apple-darwin19.0.0
 	ENV_CONFIGURE_ARCHS=-arch $(RC_ARCHS_FIRST)
 	ICUPKGTOOLIBS="$(CROSSHOST_OBJROOT)/lib:$(CROSSHOST_OBJROOT)/stubdata"
 	ICUPKGTOOL=$(CROSSHOST_OBJROOT)/bin/icupkg
@@ -517,7 +526,7 @@ else ifeq "$(LINUX)" "YES"
 	ICUPKGTOOL=$(OBJROOT_CURRENT)/bin/icupkg
 	FORCEENDIAN=
 else
-	TARGET_SPEC=$(UNAME_PROCESSOR)-apple-darwin17.3.0
+	TARGET_SPEC=$(UNAME_PROCESSOR)-apple-darwin19.0.0
 	ENV_CONFIGURE_ARCHS=
 	ICUPKGTOOLIBS="$(OBJROOT_CURRENT)/lib:$(OBJROOT_CURRENT)/stubdata"
 	ICUPKGTOOL=$(OBJROOT_CURRENT)/bin/icupkg
@@ -694,8 +703,8 @@ endif
 # The ICU version/subversion should reflect the actual ICU version.
 
 LIB_NAME = icucore
-ICU_VERS = 62
-ICU_SUBVERS = 1
+ICU_VERS = 64
+ICU_SUBVERS = 2
 CORE_VERS = A
 
 ifeq "$(WINDOWS)" "YES"
@@ -837,7 +846,7 @@ ZICTOOL_OBJS = ./tools/tzcode/zic.o ./tools/tzcode/localtime.o ./tools/tzcode/as
 
 RESTOOL = icugenrb
 RESTOOL_OBJS = ./tools/genrb/errmsg.o ./tools/genrb/genrb.o ./tools/genrb/parse.o ./tools/genrb/read.o ./tools/genrb/reslist.o ./tools/genrb/ustr.o \
-				./tools/genrb/rbutil.o ./tools/genrb/wrtjava.o ./tools/genrb/rle.o ./tools/genrb/wrtxml.o ./tools/genrb/prscmnts.o
+				./tools/genrb/rbutil.o ./tools/genrb/wrtjava.o ./tools/genrb/rle.o ./tools/genrb/wrtxml.o ./tools/genrb/prscmnts.o ./tools/genrb/filterrb.o
 
 # note there is also a symbol ICUPKGTOOL which refers to the one used
 # internally which is linked against the separate uc and i18n libs.
@@ -1435,7 +1444,7 @@ install : installhdrsint icu
 			$(INSTALL) -d -m 0755 $(DSTROOT)/$(DATA_INSTALL_DIR)/; \
 		fi; \
 		if test -f $(OBJROOT_CURRENT)/$(L_DATA_FILE); then \
-			$(INSTALL) -b -m 0644  $(OBJROOT_CURRENT)/$(L_DATA_FILE) $(DSTROOT)/$(DATA_INSTALL_DIR)$(L_DATA_FILE); \
+			$(INSTALL) -b -m 0444  $(OBJROOT_CURRENT)/$(L_DATA_FILE) $(DSTROOT)/$(DATA_INSTALL_DIR)$(L_DATA_FILE); \
 		fi; \
 		if test -f $(OBJROOT_CURRENT)/$(TZDATA_FORMAT_FILE); then \
 			$(INSTALL) -b -m 0644  $(OBJROOT_CURRENT)/$(TZDATA_FORMAT_FILE) $(DSTROOT)/$(DATA_INSTALL_DIR)$(TZDATA_FORMAT_FILE); \

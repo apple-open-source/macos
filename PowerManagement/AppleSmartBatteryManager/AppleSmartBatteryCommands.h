@@ -21,8 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifndef __AppleSmartBatteryKeys__
-#define __AppleSmartBatteryKeys__
+#ifndef __AppleSmartBatteryCommands__
+#define __AppleSmartBatteryCommands__
 
 
 /*
@@ -110,12 +110,10 @@ enum {
     kBManufacturerInfoCmd             = 0x70,     // READ BLOCK
     kBDesignCycleCount9CCmd           = 0x9C,     // READ WORD
     kBPackReserveCmd                  = 0x8B,     // READ WORD
+    kAdapterStatus                    = 0x0d00,
     kChargerDataCmd                   = 0x1100,
     kBatteryFCCDataCmd                = 0x1200,
     kBatteryDataCmd                   = 0x1300,
-#if TARGET_OS_WATCH
-    kSkinTemperatureCmd               = 0x1c00,
-#endif
 };
 
 
@@ -222,12 +220,14 @@ typedef struct {
 
 typedef struct {
     ASBMgrOpType    opType;
+#if TARGET_OS_OSX
     IOSMBusAddress	address;
     IOSMBusCommand	command;
+#endif
     IOByteCount     outSize;
     uint8_t         *outData;
     bool            fullyDischarged;
-    
+
     ASBMgrTransactionCompletion completionHandler;
 } ASBMgrRequest;
 

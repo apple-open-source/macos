@@ -16,14 +16,14 @@ set [ {+|-}options | {+|-}o [ option_name ] ] ... [ {+|-}A [ name ] ]
        the  given args; if no name is specified, all arrays are printed
        together with their values.
 
-       If +A is used and name is an array,  the  given  arguments  will
-       replace the initial elements of that array; if no name is speci-
+       If +A is used and name is an array, the given arguments will re-
+       place  the  initial elements of that array; if no name is speci-
        fied, all arrays are printed without their values.
 
        The behaviour of arguments after -A name or +A name  depends  on
-       whether  the  option  KSH_ARRAYS  is set.  If it is not set, all
-       arguments following name are treated as values  for  the  array,
-       regardless  of  their form.  If the option is set, normal option
+       whether the option KSH_ARRAYS is set.  If it is not set, all ar-
+       guments following name are treated as values for the array,  re-
+       gardless  of  their  form.   If the option is set, normal option
        processing continues at that point; only regular  arguments  are
        treated as values for the array.  This means that
 

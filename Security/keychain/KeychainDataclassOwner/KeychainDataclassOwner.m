@@ -23,11 +23,9 @@
 
 #import "KeychainDataclassOwner.h"
 #import "NSError+UsefulConstructors.h"
-#import "OTControl.h"
 #import "SecCFRelease.h"
 #import "SOSCloudCircle.h"
 #import "debugging.h"
-#import "OT.h"
 #import <Accounts/Accounts.h>
 #import <Accounts/ACDataclassAction.h>
 #import <Accounts/ACConstants.h>
@@ -71,7 +69,7 @@ static NSString* const KeychainDataclass = @"KeychainDataclass";
     if (action.type == ACDataclassActionDeleteSyncData) {
         NSDictionary* baseQuery = @{ (id)kSecAttrSynchronizable : @(YES),
                                      (id)kSecAttrAccessGroup : @"com.apple.cfnetwork",
-                                     (id)kSecAttrNoLegacy : @(YES),
+                                     (id)kSecUseDataProtectionKeychain : @(YES),
                                      (id)kSecAttrTombstone : @(NO),
                                      (id)kSecUseTombstones : @(NO) };
         NSMutableDictionary* inetQuery = baseQuery.mutableCopy;

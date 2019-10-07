@@ -6,7 +6,7 @@ case " $* " in
 *" -dumpmachine "*) echo $HOSTTYPE; exit ;;
 esac
 
-CC='/usr/bin/cc -m32'
+CC=/usr/bin/cc
 op=init
 for arg
 do	case $op in

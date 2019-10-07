@@ -71,6 +71,7 @@
 #import "UserAgentStyleSheets.h"
 #import <Carbon/Carbon.h>
 #import <Cocoa/Cocoa.h>
+#import <CoreServices/CoreServices.h>
 #import <math.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/cocoa/NSColorSPI.h>
@@ -87,13 +88,7 @@
 #import "HTMLMeterElement.h"
 #endif
 
-#if defined(__LP64__) && __LP64__
-#define HAVE_APPKIT_SERVICE_CONTROLS_SUPPORT 1
-#else
-#define HAVE_APPKIT_SERVICE_CONTROLS_SUPPORT 0
-#endif
-
-#if ENABLE(SERVICE_CONTROLS) && HAVE(APPKIT_SERVICE_CONTROLS_SUPPORT)
+#if ENABLE(SERVICE_CONTROLS)
 
 // FIXME: This should go into an SPI.h file in the spi directory.
 #if USE(APPLE_INTERNAL_SDK)
@@ -335,7 +330,6 @@ void RenderThemeMac::purgeCaches()
     m_mediaControlsScript.clearImplIfNotShared();
     m_legacyMediaControlsStyleSheet.clearImplIfNotShared();
     m_mediaControlsStyleSheet.clearImplIfNotShared();
-    m_darkColorCache = ColorCache();
 
     RenderTheme::purgeCaches();
 }
@@ -545,18 +539,18 @@ void RenderThemeMac::updateCachedSystemFontDescription(CSSValueID cssValueId, Fo
     // System-font-ness can't be encapsulated by simply a font name. Instead, we must use a token
     // which FontCache will look for.
     // Make sure we keep this list of possible tokens in sync with FontCascade::primaryFontIsSystemFont()
-    AtomicString fontName;
+    AtomString fontName;
     switch (cssValueId) {
         case CSSValueSmallCaption:
             font = [NSFont systemFontOfSize:[NSFont smallSystemFontSize]];
             break;
         case CSSValueMenu:
             font = [NSFont menuFontOfSize:[NSFont systemFontSize]];
-            fontName = AtomicString("-apple-menu", AtomicString::ConstructFromLiteral);
+            fontName = AtomString("-apple-menu", AtomString::ConstructFromLiteral);
             break;
         case CSSValueStatusBar:
             font = [NSFont labelFontOfSize:[NSFont labelFontSize]];
-            fontName = AtomicString("-apple-status-bar", AtomicString::ConstructFromLiteral);
+            fontName = AtomString("-apple-status-bar", AtomString::ConstructFromLiteral);
             break;
         case CSSValueWebkitMiniControl:
             font = [NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:NSControlSizeMini]];
@@ -575,7 +569,7 @@ void RenderThemeMac::updateCachedSystemFontDescription(CSSValueID cssValueId, Fo
         return;
 
     if (fontName.isNull())
-        fontName = AtomicString("system-ui", AtomicString::ConstructFromLiteral);
+        fontName = AtomString("system-ui", AtomString::ConstructFromLiteral);
 
     NSFontManager *fontManager = [NSFontManager sharedFontManager];
     fontDescription.setIsAbsoluteSize(true);
@@ -605,35 +599,19 @@ static RGBA32 menuBackgroundColor()
     return makeRGBA(pixel[0], pixel[1], pixel[2], pixel[3]);
 }
 
-void RenderThemeMac::platformColorsDidChange()
-{
-    m_darkColorCache = ColorCache();
-
-    RenderTheme::platformColorsDidChange();
-}
-
-auto RenderThemeMac::colorCache(OptionSet<StyleColor::Options> options) const -> ColorCache&
-{
-    LocalDefaultSystemAppearance localAppearance(options.contains(StyleColor::Options::UseDarkAppearance));
-    if (localAppearance.usingDarkAppearance())
-        return m_darkColorCache;
-    return RenderTheme::colorCache(options);
-}
-
 Color RenderThemeMac::systemColor(CSSValueID cssValueID, OptionSet<StyleColor::Options> options) const
 {
     const bool useSystemAppearance = options.contains(StyleColor::Options::UseSystemAppearance);
     const bool useDarkAppearance = options.contains(StyleColor::Options::UseDarkAppearance);
     const bool forVisitedLink = options.contains(StyleColor::Options::ForVisitedLink);
 
-    LocalDefaultSystemAppearance localAppearance(useDarkAppearance);
-
     auto& cache = colorCache(options);
 
     if (useSystemAppearance) {
         // Special handling for links and other system colors when the system appearance is desired.
-        auto systemAppearanceColor = [] (Color& color, SEL selector) -> Color {
+        auto systemAppearanceColor = [useDarkAppearance] (Color& color, SEL selector) -> Color {
             if (!color.isValid()) {
+                LocalDefaultSystemAppearance localAppearance(useDarkAppearance);
                 auto systemColor = wtfObjCMsgSend<NSColor *>([NSColor class], selector);
                 color = semanticColorFromNSColor(systemColor);
             }
@@ -684,7 +662,9 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueID, OptionSet<StyleColor::O
 
     ASSERT(!forVisitedLink);
 
-    return cache.systemStyleColors.ensure(cssValueID, [this, cssValueID, options, &localAppearance] () -> Color {
+    return cache.systemStyleColors.ensure(cssValueID, [this, cssValueID, options, useDarkAppearance] () -> Color {
+        LocalDefaultSystemAppearance localAppearance(useDarkAppearance);
+
         auto selectCocoaColor = [cssValueID] () -> SEL {
             switch (cssValueID) {
             case CSSValueActivecaption:
@@ -733,9 +713,18 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueID, OptionSet<StyleColor::O
                 return @selector(windowFrameTextColor);
             case CSSValueAppleSystemHeaderText:
                 return @selector(headerTextColor);
+            case CSSValueAppleSystemBackground:
+            case CSSValueAppleSystemSecondaryBackground:
+            case CSSValueAppleSystemTertiaryBackground:
+            case CSSValueAppleSystemGroupedBackground:
+            case CSSValueAppleSystemSecondaryGroupedBackground:
+            case CSSValueAppleSystemTertiaryGroupedBackground:
             case CSSValueAppleSystemTextBackground:
                 return @selector(textBackgroundColor);
             case CSSValueAppleSystemControlBackground:
+#if HAVE(OS_DARK_MODE_SUPPORT)
+            case CSSValueWebkitControlBackground:
+#endif
                 return @selector(controlBackgroundColor);
             case CSSValueAppleSystemAlternateSelectedText:
                 return @selector(alternateSelectedControlTextColor);
@@ -792,7 +781,6 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueID, OptionSet<StyleColor::O
                 return @selector(gridColor);
 #endif
             case CSSValueAppleWirelessPlaybackTargetActive:
-                return @selector(systemBlueColor);
             case CSSValueAppleSystemBlue:
                 return @selector(systemBlueColor);
             case CSSValueAppleSystemBrown:
@@ -1108,7 +1096,7 @@ void RenderThemeMac::setFontFromControlSize(StyleResolver&, RenderStyle& style, 
     fontDescription.setIsAbsoluteSize(true);
 
     NSFont* font = [NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:controlSize]];
-    fontDescription.setOneFamily(AtomicString("-apple-system", AtomicString::ConstructFromLiteral));
+    fontDescription.setOneFamily(AtomString("-apple-system", AtomString::ConstructFromLiteral));
     fontDescription.setComputedSize([font pointSize] * style.effectiveZoom());
     fontDescription.setSpecifiedSize([font pointSize] * style.effectiveZoom());
 
@@ -2436,7 +2424,6 @@ String RenderThemeMac::fileListNameForWidth(const FileList* fileList, const Font
 #if ENABLE(SERVICE_CONTROLS)
 NSServicesRolloverButtonCell* RenderThemeMac::servicesRolloverButtonCell() const
 {
-#if HAVE(APPKIT_SERVICE_CONTROLS_SUPPORT)
     if (!m_servicesRolloverButton) {
         m_servicesRolloverButton = [NSServicesRolloverButtonCell serviceRolloverButtonCellForStyle:NSSharingServicePickerStyleRollover];
         [m_servicesRolloverButton setBezelStyle:NSBezelStyleRoundedDisclosure];
@@ -2446,9 +2433,6 @@ NSServicesRolloverButtonCell* RenderThemeMac::servicesRolloverButtonCell() const
     }
 
     return m_servicesRolloverButton.get();
-#else
-    return nil;
-#endif
 }
 
 bool RenderThemeMac::paintImageControlsButton(const RenderObject& renderer, const PaintInfo& paintInfo, const IntRect& rect)
@@ -2456,7 +2440,6 @@ bool RenderThemeMac::paintImageControlsButton(const RenderObject& renderer, cons
     if (paintInfo.phase != PaintPhase::BlockBackground)
         return true;
 
-#if HAVE(APPKIT_SERVICE_CONTROLS_SUPPORT)
     NSServicesRolloverButtonCell *cell = servicesRolloverButtonCell();
 
     LocalCurrentGraphicsContext localContext(paintInfo.context());
@@ -2467,26 +2450,17 @@ bool RenderThemeMac::paintImageControlsButton(const RenderObject& renderer, cons
     IntRect innerFrame(IntPoint(), rect.size());
     [cell drawWithFrame:innerFrame inView:documentViewFor(renderer)];
     [cell setControlView:nil];
-#else
-    UNUSED_PARAM(renderer);
-    UNUSED_PARAM(rect);
-#endif
 
     return true;
 }
 
 IntSize RenderThemeMac::imageControlsButtonSize(const RenderObject&) const
 {
-#if HAVE(APPKIT_SERVICE_CONTROLS_SUPPORT)
     return IntSize(servicesRolloverButtonCell().cellSize);
-#else
-    return IntSize();
-#endif
 }
 
 IntSize RenderThemeMac::imageControlsButtonPositionOffset() const
 {
-#if HAVE(APPKIT_SERVICE_CONTROLS_SUPPORT)
     // FIXME: Currently the offsets will always be the same no matter what image rect you try with.
     // This may not always be true in the future.
     static const int dummyDimension = 100;
@@ -2494,9 +2468,6 @@ IntSize RenderThemeMac::imageControlsButtonPositionOffset() const
     NSRect bounds = [servicesRolloverButtonCell() rectForBounds:dummyImageRect preferredEdge:NSMinYEdge];
 
     return IntSize(dummyDimension - bounds.origin.x, bounds.origin.y);
-#else
-    return IntSize();
-#endif
 }
 #endif
 
@@ -2781,7 +2752,7 @@ static RefPtr<Icon> iconForAttachment(const RenderAttachment& attachment)
     
     if (!attachmentType.isEmpty()) {
         if (equalIgnoringASCIICase(attachmentType, "multipart/x-folder") || equalIgnoringASCIICase(attachmentType, "application/vnd.apple.folder")) {
-            if (auto icon = Icon::createIconForUTI("public.directory"))
+            if (auto icon = Icon::createIconForUTI(kUTTypeFolder))
                 return icon;
         } else {
             String UTI;
@@ -2955,7 +2926,7 @@ bool RenderThemeMac::paintAttachment(const RenderObject& renderer, const PaintIn
     GraphicsContextStateSaver saver(context);
 
     context.translate(toFloatSize(paintRect.location()));
-    context.translate(floorSizeToDevicePixels(LayoutSize((paintRect.width() - attachmentIconBackgroundSize) / 2, 0), renderer.document().deviceScaleFactor()));
+    context.translate(floorSizeToDevicePixels({ LayoutUnit((paintRect.width() - attachmentIconBackgroundSize) / 2), 0 }, renderer.document().deviceScaleFactor()));
 
     bool usePlaceholder = validProgress && !progress;
 

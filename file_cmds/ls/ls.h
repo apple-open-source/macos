@@ -97,7 +97,7 @@ typedef struct {
 	int	*xattr_sizes;
 	acl_t	acl;		/* f_acl */
         int	xattr_count;
-	char	mode_suffix;	/* @ | + | <space> */
+	char	mode_suffix;	/* @ | + | % | <space> */
 #endif /* __APPLE__ */
 	char data[1];
 } NAMES;

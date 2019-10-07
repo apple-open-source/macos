@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2008, 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2008, 2016-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -310,6 +310,7 @@ SCNetworkProtocolSetConfiguration(SCNetworkProtocolRef protocol, CFDictionaryRef
 	Boolean				ok;
 	CFStringRef			path;
 	SCNetworkProtocolPrivateRef	protocolPrivate	= (SCNetworkProtocolPrivateRef)protocol;
+	SCNetworkServiceRef		service;
 	SCNetworkServicePrivateRef	servicePrivate;
 
 	if (!isA_SCNetworkProtocol(protocol)) {
@@ -317,7 +318,17 @@ SCNetworkProtocolSetConfiguration(SCNetworkProtocolRef protocol, CFDictionaryRef
 		return FALSE;
 	}
 
-	servicePrivate = (SCNetworkServicePrivateRef)protocolPrivate->service;
+	service = protocolPrivate->service;
+	servicePrivate = (SCNetworkServicePrivateRef)service;
+	if (!__SCNetworkServiceExists(service)) {
+		SC_log(LOG_ERR, "SCNetworkProtocolSetConfiguration() w/removed service\n  protocol = %@\n  service = %@",
+		       protocolPrivate->entityID,
+		       servicePrivate);
+		_SC_crash_once("SCNetworkProtocolSetConfiguration() w/removed service", NULL, NULL);
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
 	path = copyProtocolConfigurationPath(protocolPrivate);
 	ok = __setPrefsConfiguration(servicePrivate->prefs, path, config, TRUE);
 	CFRelease(path);
@@ -338,6 +349,7 @@ SCNetworkProtocolSetEnabled(SCNetworkProtocolRef protocol, Boolean enabled)
 	Boolean				ok;
 	CFStringRef			path;
 	SCNetworkProtocolPrivateRef	protocolPrivate	= (SCNetworkProtocolPrivateRef)protocol;
+	SCNetworkServiceRef		service;
 	SCNetworkServicePrivateRef	servicePrivate;
 
 	if (!isA_SCNetworkProtocol(protocol)) {
@@ -345,7 +357,17 @@ SCNetworkProtocolSetEnabled(SCNetworkProtocolRef protocol, Boolean enabled)
 		return FALSE;
 	}
 
-	servicePrivate = (SCNetworkServicePrivateRef)protocolPrivate->service;
+	service = protocolPrivate->service;
+	servicePrivate = (SCNetworkServicePrivateRef)service;
+	if (!__SCNetworkServiceExists(service)) {
+		SC_log(LOG_ERR, "SCNetworkProtocolSetEnabled() w/removed service\n  protocol = %@\n  service = %@",
+		       protocolPrivate->entityID,
+		       servicePrivate);
+		_SC_crash_once("SCNetworkProtocolSetEnabled() w/removed service", NULL, NULL);
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
 	path = copyProtocolConfigurationPath(protocolPrivate);
 	ok = __setPrefsEnabled(servicePrivate->prefs, path, enabled);
 	CFRelease(path);

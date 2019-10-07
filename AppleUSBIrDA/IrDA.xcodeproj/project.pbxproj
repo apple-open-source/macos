@@ -933,9 +933,15 @@
 /* Begin PBXProject section */
 		523BE09600D540DC0ACE152D /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = FBFB81630AF0213C0059045E /* Build configuration list for PBXProject "IrDA" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 523BE09700D540DC0ACE152D;
 			productRefGroup = 523BE09800D541340ACE152D /* Products */;
 			projectDirPath = "";
@@ -1272,8 +1278,7 @@
 		FB126D0C0D4FA1FF00069EDE /* Standard */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_PREPROCESSOR_DEFINITIONS = "";
@@ -1288,7 +1293,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBIrDA;
-				MODULE_VERSION = 1.4.5b4;
+				MODULE_VERSION = 1.5.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "-twolevel_namespace";
 				OTHER_REZFLAGS = "";
@@ -1306,8 +1311,7 @@
 		FB126D7A0D4FA1FF00069EDE /* Standard */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				BUILD_SETTING = "";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;

@@ -42,7 +42,7 @@
 #include "EAPOLControl.h"
 #include "EAPOLControlTypes.h"
 #include "EAPOLControlTypesPrivate.h"
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 #include <CoreFoundation/CFPreferences.h>
 #include <notify.h>
 #include <net/ethernet.h>
@@ -50,7 +50,7 @@
 const CFStringRef	kEAPOLControlAutoDetectInformationNotifyKey = CFSTR("com.apple.network.eapolcontrol.autodetect");
 const CFStringRef	kEAPOLAutoDetectSecondsSinceLastPacket = CFSTR("SecondsSinceLastPacket");
 const CFStringRef	kEAPOLAutoDetectAuthenticatorMACAddress = CFSTR("AuthenticatorMACAddress");
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 #include "EAPClientProperties.h"
 
 #ifndef kSCEntNetEAPOL
@@ -142,7 +142,8 @@ EAPOLControlStart(const char * interface_name, CFDictionaryRef config_dict)
 }
 
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
+
 static Boolean
 EAPOLControlAuthInfoIsValid(CFDictionaryRef * dict_p)
 {
@@ -191,10 +192,8 @@ EAPOLControlAuthInfoIsValid(CFDictionaryRef * dict_p)
     return (TRUE);
 }
 
-const CFStringRef	kEAPOLControlStartOptionClientItemID = CFSTR("ClientItemID");
 const CFStringRef	kEAPOLControlStartOptionManagerName = CFSTR("ManagerName");
 const CFStringRef	kEAPOLControlStartOptionAuthenticationInfo = CFSTR("AuthenticationInfo");
-
 
 int
 EAPOLControlStartWithOptions(const char * if_name,
@@ -289,7 +288,7 @@ EAPOLControlStartWithClientItemID(const char * if_name,
     return (ret);
 }
 
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
 int
 EAPOLControlStop(const char * interface_name)
@@ -487,7 +486,8 @@ EAPOLControlKeyCreate(const char * interface_name)
     return (str);
 }
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
+
 int
 EAPOLControlStartSystem(const char * interface_name, CFDictionaryRef options)
 {
@@ -735,7 +735,7 @@ EAPOLControlCopyAutoDetectInformation(CFDictionaryRef * info_p)
     return (result);
 }
 
-boolean_t
+Boolean
 EAPOLControlDidUserCancel(const char * interface_name)
 {
     boolean_t			cancelled = FALSE;
@@ -836,7 +836,7 @@ EAPOLControlUserGetBooleanValue(CFStringRef key, Boolean def_value)
     return (result);
 }
 
-void
+static void
 EAPOLControlUserSetBooleanValue(CFStringRef key, Boolean enable)
 {
     CFPreferencesSetValue(key,
@@ -1024,7 +1024,7 @@ EAPOLControlSetItemIDForAuthenticator(CFDataRef authenticator,
     return;
 }
 
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
 CFStringRef
 EAPOLControlAnyInterfaceKeyCreate(void)

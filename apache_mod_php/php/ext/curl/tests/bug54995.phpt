@@ -1,7 +1,7 @@
 --TEST--
 Bug #54995 (Missing CURLINFO_RESPONSE_CODE support)
 --SKIPIF--
-<?php 
+<?php
 include 'skipif.inc';
 
 if ($curl_version['version_number'] > 0x070a08) {
@@ -22,5 +22,5 @@ curl_exec($ch);
 curl_close($ch);
 
 ?>
---EXPECTF--
+--EXPECT--
 bool(true)

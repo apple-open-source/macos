@@ -3,7 +3,7 @@ Test shuffle() function : usage variations  - unexpected values for 'array_arg' 
 --FILE--
 <?php
 /* Prototype  : bool shuffle(array $array_arg)
- * Description: Randomly shuffle the contents of an array 
+ * Description: Randomly shuffle the contents of an array
  * Source code: ext/standard/array.c
 */
 
@@ -98,22 +98,22 @@ echo "Done";
 
 -- Iteration 1 --
 
-Warning: shuffle() expects parameter 1 to be array, integer given in %s on line %d
+Warning: shuffle() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 
 -- Iteration 2 --
 
-Warning: shuffle() expects parameter 1 to be array, integer given in %s on line %d
+Warning: shuffle() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 
 -- Iteration 3 --
 
-Warning: shuffle() expects parameter 1 to be array, integer given in %s on line %d
+Warning: shuffle() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 
 -- Iteration 4 --
 
-Warning: shuffle() expects parameter 1 to be array, integer given in %s on line %d
+Warning: shuffle() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 
 -- Iteration 5 --
@@ -153,22 +153,22 @@ bool(false)
 
 -- Iteration 12 --
 
-Warning: shuffle() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: shuffle() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 
 -- Iteration 13 --
 
-Warning: shuffle() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: shuffle() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 
 -- Iteration 14 --
 
-Warning: shuffle() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: shuffle() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 
 -- Iteration 15 --
 
-Warning: shuffle() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: shuffle() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 
 -- Iteration 16 --
@@ -211,4 +211,3 @@ bool(false)
 Warning: shuffle() expects parameter 1 to be array, resource given in %s on line %d
 bool(false)
 Done
-

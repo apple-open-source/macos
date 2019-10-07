@@ -415,7 +415,7 @@ INTERNAL void init_once(void)
 		 */
 		rpc_dce_svc_printf (
             __FILE__, __LINE__,
-            "%s %x",
+            "%s %s",
             rpc_svc_general,
             svc_c_sev_fatal | svc_c_action_abort,
             rpc_m_call_failed,
@@ -440,7 +440,7 @@ INTERNAL void init_once(void)
 		 */
 		rpc_dce_svc_printf (
             __FILE__, __LINE__,
-            "%s %x",
+            "%s %s",
             rpc_svc_general,
             svc_c_sev_fatal | svc_c_action_abort,
             rpc_m_call_failed,
@@ -466,7 +466,7 @@ INTERNAL void init_once(void)
 		 */
 		rpc_dce_svc_printf (
             __FILE__, __LINE__,
-            "%s %x",
+            "%s %s",
             rpc_svc_general,
             svc_c_sev_fatal | svc_c_action_abort,
             rpc_m_call_failed,
@@ -565,7 +565,7 @@ INTERNAL void init_once(void)
 					 */
 					rpc_dce_svc_printf (
                         __FILE__, __LINE__,
-                        "%s %x",
+                        "%s %s",
                         rpc_svc_general,
                         svc_c_sev_fatal | svc_c_action_abort,
                         rpc_m_call_failed,
@@ -640,7 +640,7 @@ INTERNAL void init_once(void)
 		 */
 		rpc_dce_svc_printf (
             __FILE__, __LINE__,
-            "%s %x",
+            "%s %s",
             rpc_svc_general,
             svc_c_sev_fatal | svc_c_action_abort,
             rpc_m_call_failed,
@@ -766,7 +766,7 @@ INTERNAL void init_once(void)
 		 */
 		rpc_dce_svc_printf (
             __FILE__, __LINE__,
-            "%s %d",
+            "%s",
             rpc_svc_general,
             svc_c_sev_fatal | svc_c_action_abort,
             rpc_m_call_failed_no_status,
@@ -783,7 +783,7 @@ INTERNAL void init_once(void)
 		 */
 		rpc_dce_svc_printf (
             __FILE__, __LINE__,
-            "%s %d",
+            "%s",
             rpc_svc_general,
             svc_c_sev_fatal | svc_c_action_abort,
             rpc_m_call_failed_no_status,
@@ -805,7 +805,7 @@ INTERNAL void init_once(void)
 		 */
 		rpc_dce_svc_printf (
             __FILE__, __LINE__,
-            "%s %x",
+            "%s %s",
             rpc_svc_general,
             svc_c_sev_fatal | svc_c_action_abort,
             rpc_m_call_failed,
@@ -827,7 +827,7 @@ INTERNAL void init_once(void)
 		 */
 		rpc_dce_svc_printf (
             __FILE__, __LINE__,
-            "%s %x",
+            "%s %s",
             rpc_svc_general,
             svc_c_sev_fatal | svc_c_action_abort,
             rpc_m_call_failed,
@@ -1157,7 +1157,7 @@ INTERNAL void init_getenv_debug (void)
 	 */
 	rpc_dce_svc_printf (
         __FILE__, __LINE__,
-	    "%s %x",
+	    "%s %s",
 	    rpc_svc_general,
 	    svc_c_sev_error,
 	    rpc_m_call_failed,

@@ -45,4 +45,5 @@ LIBINFO_EXPORT const struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
 LIBINFO_EXPORT const struct in6_addr in6addr_nodelocal_allnodes = IN6ADDR_NODELOCAL_ALLNODES_INIT;
 LIBINFO_EXPORT const struct in6_addr in6addr_linklocal_allnodes = IN6ADDR_LINKLOCAL_ALLNODES_INIT;
 LIBINFO_EXPORT const struct in6_addr in6addr_linklocal_allrouters = IN6ADDR_LINKLOCAL_ALLROUTERS_INIT;
+LIBINFO_EXPORT const struct in6_addr in6addr_linklocal_allv2routers = IN6ADDR_LINKLOCAL_ALLV2ROUTERS_INIT;
 

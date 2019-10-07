@@ -344,7 +344,6 @@ OSStatus SocketRead(
 	UInt8			*currData = (UInt8 *)data;
 	int				sock = (int)((long)connection);
 	OSStatus		rtn = errSecSuccess;
-	size_t			bytesRead = 0;
 	ssize_t			rrtn;
 	
 	*dataLength = 0;
@@ -391,9 +390,8 @@ OSStatus SocketRead(
 			/* in any case, we're done with this call if rrtn <= 0 */
 			break;
 		}
-		bytesRead = rrtn;
-		bytesToGo -= bytesRead;
-		currData  += bytesRead;
+		bytesToGo -= rrtn;
+		currData  += rrtn;
 		
 		if(bytesToGo == 0) {
 			/* filled buffer with incoming data, done */

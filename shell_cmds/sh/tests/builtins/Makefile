@@ -1,4 +1,4 @@
-# $FreeBSD: head/bin/sh/tests/builtins/Makefile 305305 2016-09-02 21:13:46Z jilles $
+# $FreeBSD: head/bin/sh/tests/builtins/Makefile 320340 2017-06-25 21:53:08Z jilles $
 
 PACKAGE=	tests
 
@@ -40,6 +40,8 @@ ${PACKAGE}FILES+=		case17.0
 ${PACKAGE}FILES+=		case18.0
 ${PACKAGE}FILES+=		case19.0
 ${PACKAGE}FILES+=		case20.0
+${PACKAGE}FILES+=		case21.0
+${PACKAGE}FILES+=		case22.0
 ${PACKAGE}FILES+=		cd1.0
 ${PACKAGE}FILES+=		cd2.0
 ${PACKAGE}FILES+=		cd3.0
@@ -49,6 +51,7 @@ ${PACKAGE}FILES+=		cd6.0
 ${PACKAGE}FILES+=		cd7.0
 ${PACKAGE}FILES+=		cd8.0
 ${PACKAGE}FILES+=		cd9.0 cd9.0.stdout
+${PACKAGE}FILES+=		cd10.0
 ${PACKAGE}FILES+=		command1.0
 ${PACKAGE}FILES+=		command2.0
 ${PACKAGE}FILES+=		command3.0
@@ -120,6 +123,7 @@ ${PACKAGE}FILES+=		local7.0
 .if ${MK_NLS} != "no"
 ${PACKAGE}FILES+=		locale1.0
 .endif
+${PACKAGE}FILES+=		locale2.0
 ${PACKAGE}FILES+=		printf1.0
 ${PACKAGE}FILES+=		printf2.0
 ${PACKAGE}FILES+=		printf3.0

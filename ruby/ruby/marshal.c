@@ -2,19 +2,16 @@
 
   marshal.c -
 
-  $Author: usa $
+  $Author: shyouhei $
   created at: Thu Apr 27 16:30:01 JST 1995
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
 
 **********************************************************************/
 
-#if defined __GNUC__ && __GNUC__ < 3
-# error too old GCC
-#endif
-
-#include "internal.h"
+#include "ruby/ruby.h"
 #include "ruby/io.h"
+#include "internal.h"
 #include "ruby/st.h"
 #include "ruby/util.h"
 #include "encindex.h"
@@ -404,8 +401,8 @@ w_float(double d, struct dump_arg *arg)
 	w_cstr("nan", arg);
     }
     else if (d == 0.0) {
-	if (1.0/d < 0) w_cstr("-0", arg);
-	else           w_cstr("0", arg);
+        if (signbit(d)) w_cstr("-0", arg);
+        else            w_cstr("0", arg);
     }
     else {
 	int decpt, sign, digs, len = 0;
@@ -577,44 +574,51 @@ obj_count_ivars(st_data_t key, st_data_t val, st_data_t a)
 static VALUE
 encoding_name(VALUE obj, struct dump_arg *arg)
 {
-    int encidx = rb_enc_get_index(obj);
-    rb_encoding *enc = 0;
-    st_data_t name;
+    if (rb_enc_capable(obj)) {
+        int encidx = rb_enc_get_index(obj);
+        rb_encoding *enc = 0;
+        st_data_t name;
 
-    if (encidx <= 0 || !(enc = rb_enc_from_index(encidx))) {
-	return Qnil;
-    }
+        if (encidx <= 0 || !(enc = rb_enc_from_index(encidx))) {
+            return Qnil;
+        }
 
-    /* special treatment for US-ASCII and UTF-8 */
-    if (encidx == rb_usascii_encindex()) {
-	return Qfalse;
-    }
-    else if (encidx == rb_utf8_encindex()) {
-	return Qtrue;
-    }
+        /* special treatment for US-ASCII and UTF-8 */
+        if (encidx == rb_usascii_encindex()) {
+            return Qfalse;
+        }
+        else if (encidx == rb_utf8_encindex()) {
+            return Qtrue;
+        }
 
-    if (arg->encodings ?
-	!st_lookup(arg->encodings, (st_data_t)rb_enc_name(enc), &name) :
-	(arg->encodings = st_init_strcasetable(), 1)) {
-	name = (st_data_t)rb_str_new_cstr(rb_enc_name(enc));
-	st_insert(arg->encodings, (st_data_t)rb_enc_name(enc), name);
+        if (arg->encodings ?
+            !st_lookup(arg->encodings, (st_data_t)rb_enc_name(enc), &name) :
+            (arg->encodings = st_init_strcasetable(), 1)) {
+            name = (st_data_t)rb_str_new_cstr(rb_enc_name(enc));
+            st_insert(arg->encodings, (st_data_t)rb_enc_name(enc), name);
+        }
+        return (VALUE)name;
     }
-    return (VALUE)name;
+    else {
+        return Qnil;
+    }
 }
 
 static void
 w_encoding(VALUE encname, struct dump_call_arg *arg)
 {
+    int limit = arg->limit;
+    if (limit >= 0) ++limit;
     switch (encname) {
       case Qfalse:
       case Qtrue:
 	w_symbol(ID2SYM(rb_intern("E")), arg->arg);
-	w_object(encname, arg->arg, arg->limit + 1);
+	w_object(encname, arg->arg, limit);
       case Qnil:
 	return;
     }
     w_symbol(ID2SYM(rb_id_encoding()), arg->arg);
-    w_object(encname, arg->arg, arg->limit + 1);
+    w_object(encname, arg->arg, limit);
 }
 
 static st_index_t
@@ -673,7 +677,7 @@ w_object(VALUE obj, struct dump_arg *arg, int limit)
 	rb_raise(rb_eArgError, "exceed depth limit");
     }
 
-    limit--;
+    if (limit > 0) limit--;
     c_arg.limit = limit;
     c_arg.arg = arg;
 
@@ -813,6 +817,7 @@ w_object(VALUE obj, struct dump_arg *arg, int limit)
 		char sign = BIGNUM_SIGN(obj) ? '+' : '-';
 		size_t len = BIGNUM_LEN(obj);
 		size_t slen;
+                size_t j;
 		BDIGIT *d = BIGNUM_DIGITS(obj);
 
                 slen = SHORTLEN(len);
@@ -822,7 +827,7 @@ w_object(VALUE obj, struct dump_arg *arg, int limit)
 
 		w_byte(sign, arg);
 		w_long((long)slen, arg);
-		while (len--) {
+                for (j = 0; j < len; j++) {
 #if SIZEOF_BDIGIT > SIZEOF_SHORT
 		    BDIGIT num = *d;
 		    int i;
@@ -830,7 +835,7 @@ w_object(VALUE obj, struct dump_arg *arg, int limit)
 		    for (i=0; i<SIZEOF_BDIGIT; i+=SIZEOF_SHORT) {
 			w_short(num & SHORTMASK, arg);
 			num = SHORTDN(num);
-			if (len == 0 && num == 0) break;
+                        if (j == len - 1 && num == 0) break;
 		    }
 #else
 		    w_short(*d, arg);
@@ -883,7 +888,7 @@ w_object(VALUE obj, struct dump_arg *arg, int limit)
 	    else {
 		w_byte(TYPE_HASH_DEF, arg);
 	    }
-	    w_long(RHASH_SIZE(obj), arg);
+            w_long(rb_hash_size_num(obj), arg);
 	    rb_hash_foreach(obj, hash_each, (st_data_t)&c_arg);
 	    if (!NIL_P(RHASH_IFNONE(obj))) {
 		w_object(RHASH_IFNONE(obj), arg, limit);
@@ -1022,9 +1027,9 @@ VALUE
 rb_marshal_dump_limited(VALUE obj, VALUE port, int limit)
 {
     struct dump_arg *arg;
-    volatile VALUE wrapper; /* used to avoid memory leak in case of exception */
+    VALUE wrapper; /* used to avoid memory leak in case of exception */
 
-    wrapper = TypedData_Make_Struct(rb_cData, struct dump_arg, &dump_arg_data, arg);
+    wrapper = TypedData_Make_Struct(0, struct dump_arg, &dump_arg_data, arg);
     arg->dest = 0;
     arg->symbols = st_init_numtable();
     arg->data    = rb_init_identtable();
@@ -1181,6 +1186,8 @@ r_byte(struct load_arg *arg)
     return c;
 }
 
+NORETURN(static void long_toobig(int size));
+
 static void
 long_toobig(int size)
 {
@@ -1188,19 +1195,11 @@ long_toobig(int size)
 	     STRINGIZE(SIZEOF_LONG)", given %d)", size);
 }
 
-#undef SIGN_EXTEND_CHAR
-#if __STDC__
-# define SIGN_EXTEND_CHAR(c) ((signed char)(c))
-#else  /* not __STDC__ */
-/* As in Harbison and Steele.  */
-# define SIGN_EXTEND_CHAR(c) ((((unsigned char)(c)) ^ 128) - 128)
-#endif
-
 static long
 r_long(struct load_arg *arg)
 {
     register long x;
-    int c = SIGN_EXTEND_CHAR(r_byte(arg));
+    int c = (signed char)r_byte(arg);
     long i;
 
     if (c == 0) return 0;
@@ -1489,7 +1488,12 @@ r_ivar(VALUE obj, int *has_encoding, struct load_arg *arg)
 	    VALUE val = r_object(arg);
 	    int idx = sym2encidx(sym, val);
 	    if (idx >= 0) {
-		rb_enc_associate_index(obj, idx);
+                if (rb_enc_capable(obj)) {
+                    rb_enc_associate_index(obj, idx);
+                }
+                else {
+                    rb_raise(rb_eArgError, "%"PRIsVALUE" is not enc_capable", obj);
+                }
 		if (has_encoding) *has_encoding = TRUE;
 	    }
 	    else {
@@ -1681,13 +1685,13 @@ r_object0(struct load_arg *arg, int *ivp, VALUE extmod)
 	    const char *ptr = RSTRING_PTR(str);
 
 	    if (strcmp(ptr, "nan") == 0) {
-		d = NAN;
+		d = nan("");
 	    }
 	    else if (strcmp(ptr, "inf") == 0) {
-		d = INFINITY;
+		d = HUGE_VAL;
 	    }
 	    else if (strcmp(ptr, "-inf") == 0) {
-		d = -INFINITY;
+		d = -HUGE_VAL;
 	    }
 	    else {
 		char *e;
@@ -1778,7 +1782,7 @@ r_object0(struct load_arg *arg, int *ivp, VALUE extmod)
 	{
 	    long len = r_long(arg);
 
-	    v = rb_hash_new();
+	    v = rb_hash_new_with_size(len);
 	    v = r_entry(v, arg);
 	    arg->readable += (len - 1) * 2;
 	    while (len--) {
@@ -1817,17 +1821,30 @@ r_object0(struct load_arg *arg, int *ivp, VALUE extmod)
 	    arg->readable += (len - 1) * 2;
 	    v = r_entry0(v, idx, arg);
 	    values = rb_ary_new2(len);
-	    for (i=0; i<len; i++) {
-		VALUE n = rb_sym2str(RARRAY_AREF(mem, i));
-		slot = r_symbol(arg);
-
-		if (!rb_str_equal(n, slot)) {
-		    rb_raise(rb_eTypeError, "struct %"PRIsVALUE" not compatible (:%"PRIsVALUE" for :%"PRIsVALUE")",
-			     rb_class_name(klass),
-			     slot, n);
+	    {
+		VALUE keywords = Qfalse;
+		if (RTEST(rb_struct_s_keyword_init(klass))) {
+		    keywords = rb_hash_new();
+		    rb_ary_push(values, keywords);
 		}
-                rb_ary_push(values, r_object(arg));
-		arg->readable -= 2;
+
+		for (i=0; i<len; i++) {
+		    VALUE n = rb_sym2str(RARRAY_AREF(mem, i));
+		    slot = r_symbol(arg);
+
+		    if (!rb_str_equal(n, slot)) {
+			rb_raise(rb_eTypeError, "struct %"PRIsVALUE" not compatible (:%"PRIsVALUE" for :%"PRIsVALUE")",
+				 rb_class_name(klass),
+				 slot, n);
+		    }
+		    if (keywords) {
+			rb_hash_aset(keywords, RARRAY_AREF(mem, i), r_object(arg));
+		    }
+		    else {
+			rb_ary_push(values, r_object(arg));
+		    }
+		    arg->readable -= 2;
+		}
 	    }
             rb_struct_initialize(v, values);
             v = r_leave(v, arg);
@@ -2044,7 +2061,7 @@ rb_marshal_load_with_proc(VALUE port, VALUE proc)
 {
     int major, minor, infection = 0;
     VALUE v;
-    volatile VALUE wrapper; /* used to avoid memory leak in case of exception */
+    VALUE wrapper; /* used to avoid memory leak in case of exception */
     struct load_arg *arg;
 
     v = rb_check_string_type(port);
@@ -2059,7 +2076,7 @@ rb_marshal_load_with_proc(VALUE port, VALUE proc)
     else {
 	io_needed();
     }
-    wrapper = TypedData_Make_Struct(rb_cData, struct load_arg, &load_arg_data, arg);
+    wrapper = TypedData_Make_Struct(0, struct load_arg, &load_arg_data, arg);
     arg->infection = infection;
     arg->src = port;
     arg->offset = 0;
@@ -2246,7 +2263,7 @@ compat_allocator_table(void)
 #undef RUBY_UNTYPED_DATA_WARNING
 #define RUBY_UNTYPED_DATA_WARNING 0
     compat_allocator_tbl_wrapper =
-	Data_Wrap_Struct(rb_cData, mark_marshal_compat_t, 0, compat_allocator_tbl);
+	Data_Wrap_Struct(0, mark_marshal_compat_t, 0, compat_allocator_tbl);
     rb_gc_register_mark_object(compat_allocator_tbl_wrapper);
     return compat_allocator_tbl;
 }

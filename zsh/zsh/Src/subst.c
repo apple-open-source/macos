@@ -35,6 +35,50 @@
 /**/
 char nulstring[] = {Nularg, '\0'};
 
+/* Check for array assignent with entries like [key]=val.
+ *
+ * Insert Marker node, convert following nodes to list to alternate key
+ * / val form, perform appropriate substitution, and return last
+ * inserted (value) node if found.
+ *
+ * Caller to check errflag.
+ */
+
+/**/
+static LinkNode
+keyvalpairelement(LinkList list, LinkNode node)
+{
+    char *start, *end, *dat;
+
+    if ((start = (char *)getdata(node)) &&
+	start[0] == Inbrack &&
+	(end = strchr(start+1, Outbrack)) &&
+	/* ..]=value or ]+=Value */
+	(end[1] == Equals ||
+	 (end[1] == '+' && end[2] == Equals))) {
+	static char marker[2] = { Marker, '\0' };
+	static char marker_plus[3] = { Marker, '+', '\0' };
+	*end = '\0';
+
+	dat = start + 1;
+	singsub(&dat);
+	untokenize(dat);
+	if (end[1] == '+') {
+	    setdata(node, marker_plus);
+	    node = insertlinknode(list, node, dat);
+	    dat = end + 3;
+	} else {
+	    setdata(node, marker);
+	    node = insertlinknode(list, node, dat);
+	    dat = end + 2;
+	}
+	singsub(&dat);
+	untokenize(dat);
+	return insertlinknode(list, node, dat);
+    }
+    return NULL;
+}
+
 /* Do substitutions before fork. These are:
  *  - Process substitution: <(...), >(...), =(...)
  *  - Parameter substitution
@@ -46,24 +90,35 @@ char nulstring[] = {Nularg, '\0'};
  *
  * "flag"s contains PREFORK_* flags, defined in zsh.h.
  *
- * "ret_flags" is used to return values from nested parameter
- * substitions.  It may be NULL in which case PREFORK_SUBEXP
- * must not appear in flags; any return value from below
- * will be discarded.
+ * "ret_flags" is used to return PREFORK_* values from nested parameter
+ * substitions.  It may be NULL in which case PREFORK_SUBEXP must not
+ * appear in flags; any return value from below will be discarded.
  */
 
 /**/
 mod_export void
 prefork(LinkList list, int flags, int *ret_flags)
 {
-    LinkNode node, stop = 0;
+    LinkNode node, insnode, stop = 0;
     int keep = 0, asssub = (flags & PREFORK_TYPESET) && isset(KSHTYPESET);
     int ret_flags_local = 0;
     if (!ret_flags)
 	ret_flags = &ret_flags_local; /* will be discarded */
 
     queue_signals();
-    for (node = firstnode(list); node; incnode(node)) {
+    node = firstnode(list);
+    while (node) {
+	if ((flags & (PREFORK_SINGLE|PREFORK_ASSIGN)) == PREFORK_ASSIGN &&
+	    (insnode = keyvalpairelement(list, node))) {
+	    node = insnode;
+	    incnode(node);
+	    *ret_flags |= PREFORK_KEY_VALUE;
+	    continue;
+	}
+	if (errflag) {
+	    unqueue_signals();
+	    return;
+	}
 	if (isset(SHFILEEXPANSION)) {
 	    /*
 	     * Here and below we avoid taking the address
@@ -82,11 +137,29 @@ prefork(LinkList list, int flags, int *ret_flags)
 	     */
 	    setdata(node, cptr);
 	}
-	if (!(node = stringsubst(list, node,
-				 flags & ~(PREFORK_TYPESET|PREFORK_ASSIGN),
-				 ret_flags, asssub))) {
-	    unqueue_signals();
-	    return;
+	else
+	{
+	    if (!(node = stringsubst(list, node,
+				     flags & ~(PREFORK_TYPESET|PREFORK_ASSIGN),
+				     ret_flags, asssub))) {
+		unqueue_signals();
+		return;
+	    }
+	}
+	incnode(node);
+    }
+    if (isset(SHFILEEXPANSION)) {
+	/*
+	 * stringsubst() may insert new nodes, so doesn't work
+	 * well in the same loop as file expansion.
+	 */
+	for (node = firstnode(list); node; incnode(node)) {
+	    if (!(node = stringsubst(list, node,
+				     flags & ~(PREFORK_TYPESET|PREFORK_ASSIGN),
+				     ret_flags, asssub))) {
+		unqueue_signals();
+		return;
+	    }
 	}
     }
     for (node = firstnode(list); node; incnode(node)) {
@@ -107,7 +180,9 @@ prefork(LinkList list, int flags, int *ret_flags)
 		filesub(&cptr, flags & (PREFORK_TYPESET|PREFORK_ASSIGN));
 		setdata(node, cptr);
 	    }
-	} else if (!(flags & PREFORK_SINGLE) && !keep)
+	} else if (!(flags & PREFORK_SINGLE) &&
+		   !(*ret_flags & PREFORK_KEY_VALUE) &&
+		   !keep)
 	    uremnode(list, node);
 	if (errflag) {
 	    unqueue_signals();
@@ -400,16 +475,31 @@ quotesubst(char *str)
     return str;
 }
 
+/* Glob entries of a linked list.
+ *
+ * flags are from PREFORK_*, but only two are handled:
+ * - PREFORK_NO_UNTOK: pass into zglob() a flag saying do not untokenise.
+ * - PREFORK_KEY_VALUE: look out for Marker / Key / Value list triads
+ *   and don't glob them.  The key and value should already have
+ *   been untokenised as they are not subject to further expansion.
+ */
+
 /**/
 mod_export void
-globlist(LinkList list, int nountok)
+globlist(LinkList list, int flags)
 {
     LinkNode node, next;
 
     badcshglob = 0;
     for (node = firstnode(list); !errflag && node; node = next) {
 	next = nextnode(node);
-	zglob(list, node, nountok);
+	if ((flags & PREFORK_KEY_VALUE) &&
+	    *(char *)getdata(node) == Marker) {
+	    /* Skip key / value pair */
+	    next = nextnode(nextnode(next));
+	} else {
+	    zglob(list, node, (flags & PREFORK_NO_UNTOK) != 0);
+	}
     }
     if (noerrs)
 	badcshglob = 0;
@@ -446,7 +536,7 @@ singsub(char **s)
  * NULL to use IFS).  The return value is true iff the expansion resulted
  * in an empty list.
  *
- * *ms_flags is set to bits in the enum above as neeed.
+ * *ms_flags is set to bits in the enum above as needed.
  */
 
 /**/
@@ -481,6 +571,8 @@ multsub(char **s, int pf_flags, char ***a, int *isarr, char *sep,
 	for ( ; *x; x += l) {
 	    int rawc = -1;
 	    convchar_t c;
+	    if (*x == Dash)
+		*x = '-';
 	    if (itok(STOUC(*x))) {
 		/* token, can't be separator, must be single byte */
 		rawc = *x;
@@ -622,7 +714,7 @@ filesub(char **namptr, int assign)
 char *
 equalsubstr(char *str, int assign, int nomatch)
 {
-    char *pp, *cnam, *cmdstr, *ret;
+    char *pp, *cnam, *cmdstr;
 
     for (pp = str; !isend2(*pp); pp++)
 	;
@@ -634,10 +726,10 @@ equalsubstr(char *str, int assign, int nomatch)
 	    zerr("%s not found", cmdstr);
 	return NULL;
     }
-    ret = dupstring(cnam);
     if (*pp)
-	ret = dyncat(ret, pp);
-    return ret;
+	return dyncat(cnam, pp);
+    else
+	return cnam;		/* already duplicated */
 }
 
 /**/
@@ -1766,7 +1858,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
      */
     c = *s;
     if (itype_end(s, IIDENT, 1) == s && *s != '#' && c != Pound &&
-	c != '-' && c != '!' && c != '$' && c != String && c != Qstring &&
+	!IS_DASH(c) &&
+	c != '!' && c != '$' && c != String && c != Qstring &&
 	c != '?' && c != Quest &&
 	c != '*' && c != Star && c != '@' && c != '{' &&
 	c != Inbrace && c != '=' && c != Equals && c != Hat &&
@@ -1895,13 +1988,13 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 		    if (quotetype == QT_DOLLARS ||
 			quotetype == QT_BACKSLASH_PATTERN)
 			goto flagerr;
-		    if (s[1] == '-' || s[1] == '+') {
+		    if (IS_DASH(s[1]) || s[1] == '+') {
 			if (quotemod)
 			    goto flagerr;
 			s++;
 			quotemod = 1;
-			quotetype = (*s == '-') ? QT_SINGLE_OPTIONAL :
-			    QT_QUOTEDZPUTS;
+			quotetype = (*s == '+') ? QT_QUOTEDZPUTS :
+			    QT_SINGLE_OPTIONAL;
 		    } else {
 			if (quotetype == QT_SINGLE_OPTIONAL) {
 			    /* extra q's after '-' not allowed */
@@ -2208,9 +2301,9 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 		     * properly in the first place we wouldn't
 		     * have this nonsense.
 		     */
-		    || ((cc == '#' || cc == Pound) &&
-			s[2] == Outbrace)
-		    || cc == '-' || (cc == ':' && s[2] == '-')
+		    || ((cc == '#' || cc == Pound) && s[2] == Outbrace)
+		    || IS_DASH(cc)
+		    || (cc == ':' && IS_DASH(s[2]))
 		    || (isstring(cc) && (s[2] == Inbrace || s[2] == Inpar)))) {
 	    getlen = 1 + whichlen, s++;
 	    /*
@@ -2245,7 +2338,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 		zerr("bad substitution");
 		return NULL;
 	    }
-	} else if (inbrace && inull(*s)) {
+	} else if (inbrace && inull(*s) && *s != Bnull) {
 	    /*
 	     * Handles things like ${(f)"$(<file)"} by skipping 
 	     * the double quotes.  We don't need to know what was
@@ -2312,6 +2405,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 	    aspar = 0;
 	} else if (aspar)
 	    idbeg = val;
+	if (*val == Nularg)
+	    ++val;
 	*s = sav;
 	/*
 	 * This tests for the second double quote in an expression
@@ -2337,7 +2432,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 		val = aval[0];
 		isarr = 0;
 	    }
-	    s = dyncat(val, s);
+	    s = val ? dyncat(val, s) : dupstring(s);
 	    /* Now behave po-faced as if it was always like that... */
 	    subexp = 0;
 	    /*
@@ -2386,7 +2481,13 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
      */
     if (!subexp || aspar) {
 	char *ov = val;
-
+	int scanflags = hkeys | hvals;
+	if (arrasg)
+	    scanflags |= SCANPM_ASSIGNING;
+	if (qt)
+	    scanflags |= SCANPM_DQUOTED;
+	if (chkset)
+	    scanflags |= SCANPM_CHECKING;
 	/*
 	 * Second argument: decide whether to use the subexpression or
 	 *   the string next on the line as the parameter name.
@@ -2415,9 +2516,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 	if (!(v = fetchvalue(&vbuf, (subexp ? &ov : &s),
 			     (wantt ? -1 :
 			      ((unset(KSHARRAYS) || inbrace) ? 1 : -1)),
-			     hkeys|hvals|
-			     (arrasg ? SCANPM_ASSIGNING : 0)|
-			     (qt ? SCANPM_DQUOTED : 0))) ||
+			     scanflags)) ||
 	    (v->pm && (v->pm->node.flags & PM_UNSET)) ||
 	    (v->flags & VALFLAG_EMPTY))
 	    vunset = 1;
@@ -2455,8 +2554,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 		    val = dyncat(val, "-readonly");
 		if (f & PM_TAGGED)
 		    val = dyncat(val, "-tag");
-		if (f & PM_TAGGED_LOCAL)
-		    val = dyncat(val, "-tag_local");
+		if (f & PM_TIED)
+		    val = dyncat(val, "-tied");
 		if (f & PM_EXPORTED)
 		    val = dyncat(val, "-export");
 		if (f & PM_UNIQUE)
@@ -2605,14 +2704,17 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
      * Again, this duplicates tests for characters we're about to
      * examine properly later on.
      */
-    if (inbrace &&
-	(c = *s) != '-' && c != '+' && c != ':' && c != '%'  && c != '/' &&
-	c != '=' && c != Equals &&
-	c != '#' && c != Pound &&
-	c != '?' && c != Quest &&
-	c != '}' && c != Outbrace) {
-	zerr("bad substitution");
-	return NULL;
+    if (inbrace) {
+	c = *s;
+	if (!IS_DASH(c) &&
+	    c != '+' && c != ':' && c != '%'  && c != '/' &&
+	    c != '=' && c != Equals &&
+	    c != '#' && c != Pound &&
+	    c != '?' && c != Quest &&
+	    c != '}' && c != Outbrace) {
+	    zerr("bad substitution");
+	    return NULL;
+	}
     }
     /*
      * Join arrays up if we're in quotes and there isn't some
@@ -2690,8 +2792,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
     /* Check for ${..?..} or ${..=..} or one of those. *
      * Only works if the name is in braces.            */
 
-    if (inbrace && ((c = *s) == '-' ||
-		    c == '+' ||
+    if (inbrace && ((c = *s) == '+' ||
+		    IS_DASH(c) ||
 		    c == ':' ||	/* i.e. a doubled colon */
 		    c == '=' || c == Equals ||
 		    c == '%' ||
@@ -2802,6 +2904,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 	    vunset = 1;
 	/* Fall Through! */
 	case '-':
+	case Dash:
 	    if (vunset) {
 		int split_flags;
 		val = dupstring(s);
@@ -2902,6 +3005,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 		    } else
 			setaparam(idbeg, a);
 		    isarr = 1;
+		    arrasg = 0;
 		} else {
 		    untokenize(val);
 		    setsparam(idbeg, ztrdup(val));
@@ -3066,7 +3170,10 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 		if (sval)
 		    zip = hmkarray(sval);
 	    }
-	    if (!isarr) aval = mkarray(val);
+	    if (!isarr) {
+		aval = hmkarray(val);
+		isarr = 1;
+	    }
 	    if (zip) {
 		char **out;
 		int alen, ziplen, outlen, i = 0;
@@ -3089,7 +3196,6 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 		    out[i*2] = NULL;
 		    aval = out;
 		    copied = 1;
-		    isarr = 1;
 		}
 	    } else {
 		if (unset(UNSET)) {
@@ -3473,8 +3579,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 	    if (nojoin == 0 || sep) {
 		val = sepjoin(aval, sep, 1);
 		isarr = 0;
-		ms_flags = 0;
-	    } else if (force_split && (spsep || nojoin == 2)) {
+	    } else if (force_split &&
+		       (spsep || nojoin == 2 || (!ifs && isarr < 0))) {
 		/* Hack to simulate splitting individual elements:
 		 * forced joining as previously determined, or
 		 * join on what we later use to forcibly split
@@ -3482,6 +3588,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 		val = sepjoin(aval, (nojoin == 1 ? NULL : spsep), 1);
 		isarr = 0;
 	    }
+	    if (!isarr)
+		ms_flags = 0;
 	}
 	if (force_split && !isarr) {
 	    aval = sepsplit(val, spsep, 0, 1);
@@ -3735,11 +3843,15 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 
 	if (isarr) {
 	    char **ap;
-	    for (ap = aval; *ap; ap++)
+	    for (ap = aval; *ap; ap++) {
+		untokenize(*ap);
 		list = bufferwords(list, *ap, NULL, shsplit);
+	    }
 	    isarr = 0;
-	} else
+	} else {
+	    untokenize(val);
 	    list = bufferwords(NULL, val, NULL, shsplit);
+	}
 
 	if (!list || !firstnode(list))
 	    val = dupstring("");
@@ -3767,6 +3879,13 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
      * as a scalar.)
      */
 
+    if (isarr && ssub) {
+	/* prefork() wants a scalar, so join no matter what else */
+	val = sepjoin(aval, NULL, 1);
+	isarr = 0;
+	l->list.flags &= ~LF_ARRAY;
+    }
+
     /*
      * If a multsub result had whitespace at the start and we're
      * splitting and there's a previous string, now's the time to do so.
@@ -3779,6 +3898,16 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
     if ((ms_flags & MULTSUB_WS_AT_END) && *fstr) {
 	insertlinknode(l, n, dupstring(fstr)); /* appended, no incnode */
 	*fstr = '\0';
+    }
+    if (arrasg && !isarr) {
+	/*
+	 * Caller requested this be forced to an array even if scalar.
+	 * Any point in distinguishing arrasg == 2 (assoc array) here?
+	 */
+	l->list.flags |= LF_ARRAY;
+	aval = hmkarray(val);
+	isarr = 1;
+	DPUTS(!val, "value is NULL in paramsubst, empty array");
     }
     if (isarr) {
 	char *x;
@@ -4302,7 +4431,11 @@ modify(char **str, char **ptr)
 			break;
 		    case 'P':
 			if (*copy != '/') {
-			    copy = zhtricat(metafy(zgetcwd(), -1, META_HEAPDUP), "/", copy);
+			    char *here = zgetcwd();
+			    if (here[strlen(here)-1] != '/')
+				copy = zhtricat(metafy(here, -1, META_HEAPDUP), "/", copy);
+			    else
+				copy = dyncat(here, copy);
 			}
 			copy = xsymlink(copy, 1);
 			break;
@@ -4384,7 +4517,11 @@ modify(char **str, char **ptr)
 		    break;
 		case 'P':
 		    if (**str != '/') {
-			*str = zhtricat(metafy(zgetcwd(), -1, META_HEAPDUP), "/", *str);
+			char *here = zgetcwd();
+			if (here[strlen(here)-1] != '/')
+			    *str = zhtricat(metafy(here, -1, META_HEAPDUP), "/", *str);
+			else
+			    *str = dyncat(here, *str);
 		    }
 		    *str = xsymlink(*str, 1);
 		    break;

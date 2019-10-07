@@ -46,8 +46,7 @@
 
 namespace WebCore {
 
-AnimationTimeline::AnimationTimeline(ClassType classType)
-    : m_classType(classType)
+AnimationTimeline::AnimationTimeline()
 {
 }
 
@@ -57,13 +56,13 @@ AnimationTimeline::~AnimationTimeline()
 
 void AnimationTimeline::forgetAnimation(WebAnimation* animation)
 {
-    m_allAnimations.remove(animation);
+    m_allAnimations.removeFirst(animation);
 }
 
 void AnimationTimeline::animationTimingDidChange(WebAnimation& animation)
 {
     if (m_animations.add(&animation)) {
-        m_allAnimations.add(&animation);
+        m_allAnimations.append(makeWeakPtr(&animation));
         auto* timeline = animation.timeline();
         if (timeline && timeline != this)
             timeline->removeAnimation(animation);
@@ -459,8 +458,10 @@ void AnimationTimeline::updateCSSTransitionsForElement(Element& element, const R
                 //   - end value is the value of the property in the after-change style
                 auto& reversingAdjustedStartStyle = previouslyRunningTransition->targetStyle();
                 double transformedProgress = 1;
-                if (auto* effect = previouslyRunningTransition->effect())
-                    transformedProgress = effect->iterationProgress().valueOr(transformedProgress);
+                if (auto* effect = previouslyRunningTransition->effect()) {
+                    if (auto computedTimingProgress = effect->getComputedTiming().progress)
+                        transformedProgress = *computedTimingProgress;
+                }
                 auto reversingShorteningFactor = std::max(std::min(((transformedProgress * previouslyRunningTransition->reversingShorteningFactor()) + (1 - previouslyRunningTransition->reversingShorteningFactor())), 1.0), 0.0);
                 auto delay = matchingBackingAnimation->delay() < 0 ? Seconds(matchingBackingAnimation->delay()) * reversingShorteningFactor : Seconds(matchingBackingAnimation->delay());
                 auto duration = Seconds(matchingBackingAnimation->duration()) * reversingShorteningFactor;
@@ -491,7 +492,7 @@ void AnimationTimeline::cancelDeclarativeAnimation(DeclarativeAnimation& animati
 {
     animation.cancelFromStyle();
     removeAnimation(animation);
-    m_allAnimations.remove(&animation);
+    m_allAnimations.removeFirst(&animation);
 }
 
 } // namespace WebCore

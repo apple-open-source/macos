@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,7 +42,10 @@
 #include "symbol_scope.h"
 #include "DHCPv6.h"
 
-enum {
+typedef uint16_t DHCPv6OptionLength;
+
+typedef CF_ENUM(uint16_t, DHCPv6OptionCode) {
+    kDHCPv6OPTION_NONE			= 0,
     kDHCPv6OPTION_CLIENTID		= 1,
     kDHCPv6OPTION_SERVERID		= 2,
     kDHCPv6OPTION_IA_NA			= 3,
@@ -81,7 +84,7 @@ DHCPv6OptionGetLength(DHCPv6OptionRef option)
 }
 
 INLINE void
-DHCPv6OptionSetLength(DHCPv6OptionRef option, uint16_t len)
+DHCPv6OptionSetLength(DHCPv6OptionRef option, DHCPv6OptionLength len)
 {
     net_uint16_set(option->len, len);
     return;
@@ -94,7 +97,7 @@ DHCPv6OptionGetCode(DHCPv6OptionRef option)
 }
 
 INLINE void
-DHCPv6OptionSetCode(DHCPv6OptionRef option, uint16_t code)
+DHCPv6OptionSetCode(DHCPv6OptionRef option, DHCPv6OptionCode code)
 {
     net_uint16_set(option->code, code);
 }
@@ -106,9 +109,12 @@ DHCPv6OptionGetData(DHCPv6OptionRef option)
 }
 
 const char * 
-DHCPv6OptionCodeGetName(int option_code);
+DHCPv6OptionCodeGetName(DHCPv6OptionCode option_code);
 
-enum {
+DHCPv6OptionCode
+DHCPv6OptionNameGetCode(const char * name);
+
+typedef CF_ENUM(uint32_t, DHCPv6OptionType) {
     kDHCPv6OptionTypeNone = 0,
     kDHCPv6OptionTypeUnknown = 1,
     kDHCPv6OptionTypeDUID = 2,
@@ -121,10 +127,8 @@ enum {
     kDHCPv6OptionTypeStatusCode = 9,
 };
 
-typedef int	 DHCPv6OptionType;
-
 DHCPv6OptionType
-DHCPv6OptionCodeGetType(int option_code);
+DHCPv6OptionCodeGetType(DHCPv6OptionCode option_code);
 
 typedef struct {
     char	str[256];
@@ -146,12 +150,14 @@ int
 DHCPv6OptionAreaGetUsedLength(DHCPv6OptionAreaRef oa_p);
 
 bool
-DHCPv6OptionAreaAddOption(DHCPv6OptionAreaRef oa_p, int option_code, 
-			  int option_len, const void * option_data,
+DHCPv6OptionAreaAddOption(DHCPv6OptionAreaRef oa_p,
+			  DHCPv6OptionCode option_code, 
+			  DHCPv6OptionLength option_len,
+			  const void * option_data,
 			  DHCPv6OptionErrorStringRef err_p);
 bool
 DHCPv6OptionAreaAddOptionRequestOption(DHCPv6OptionAreaRef oa_p, 
-				       const uint16_t * requested_options, 
+				       const DHCPv6OptionCode * requested_opts,
 				       int count,
 				       DHCPv6OptionErrorStringRef err_p);
 /**
@@ -172,7 +178,7 @@ DHCPv6OptionListRelease(DHCPv6OptionListRef * dhcpol_p);
 
 const uint8_t *
 DHCPv6OptionListGetOptionDataAndLength(DHCPv6OptionListRef options,
-				       int option_code, int * ret_length,
+				       DHCPv6OptionCode option_code, int * ret_length,
 				       int * start_index);
 void
 DHCPv6OptionListFPrint(FILE * file, DHCPv6OptionListRef options);
@@ -187,6 +193,16 @@ DHCPv6OptionListGetCount(DHCPv6OptionListRef options);
 
 DHCPv6OptionRef
 DHCPv6OptionListGetOptionAtIndex(DHCPv6OptionListRef options, int i);
+
+/**
+ ** DHCPv6OptionsDictionary
+ **/
+CFDictionaryRef
+DHCPv6OptionsDictionaryCreate(CFDictionaryRef dict);
+
+CFDataRef
+DHCPv6OptionsDictionaryGetOption(CFDictionaryRef dict, DHCPv6OptionCode code);
+
 
 /**
  ** IA_NA option
@@ -308,7 +324,7 @@ typedef struct {
 
 #define DHCPv6OptionSTATUS_CODE_MIN_LENGTH	((int)offsetof(DHCPv6OptionSTATUS_CODE, message))
 
-enum {
+typedef CF_ENUM(int, DHCPv6StatusCode) {
     kDHCPv6StatusCodeSuccess		= 0,
     kDHCPv6StatusCodeFailure		= 1,
     kDHCPv6StatusCodeNoAddrsAvail	= 2,
@@ -316,12 +332,11 @@ enum {
     kDHCPv6StatusCodeNotOnLink		= 4,
     kDHCPv6StatusCodeUseMulticast	= 5
 };
-typedef int DHCPv6StatusCode;
 
 const char * 
-DHCPv6StatusCodeGetName(int option_code);
+DHCPv6StatusCodeGetName(int status_code);
 
-INLINE uint16_t
+INLINE DHCPv6OptionCode
 DHCPv6OptionSTATUS_CODEGetCode(DHCPv6OptionSTATUS_CODERef status_p)
 {
     return (net_uint16_get(status_p->code));
@@ -329,7 +344,7 @@ DHCPv6OptionSTATUS_CODEGetCode(DHCPv6OptionSTATUS_CODERef status_p)
 
 INLINE void 
 DHCPv6OptionSTATUS_CODESetCode(DHCPv6OptionSTATUS_CODERef status_p,
-			       uint16_t code)
+			       DHCPv6OptionCode code)
 {
     net_uint16_set(status_p->code, code);
     return;

@@ -1,0 +1,6 @@
+framework module HID {
+    umbrella header "HID.h"
+    
+    export *
+    module * { export * }
+}

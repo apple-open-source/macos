@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,32 +32,43 @@
  */
 #ifndef _S_DHCPSERVER_H
 #define _S_DHCPSERVER_H
-#include <TargetConditionals.h>
+#include <os/availability.h>
 #include <CoreFoundation/CoreFoundation.h>
 
 /**
  ** DHCP and NetBoot properties 
  **/
-extern const CFStringRef	kDHCPSPropIdentifier;
-extern const CFStringRef	kDHCPSPropName;
+extern const CFStringRef	kDHCPSPropIdentifier
+API_AVAILABLE(macos(10.3), ios(8.0));
+extern const CFStringRef	kDHCPSPropName
+API_AVAILABLE(macos(10.3), ios(8.0));
 
 /**
  ** DHCP lease dictionary properties 
  **/
-extern const CFStringRef	kDHCPSPropDHCPLease;
-extern const CFStringRef	kDHCPSPropDHCPIPAddress;
-extern const CFStringRef	kDHCPSPropDHCPHWAddress;
+extern const CFStringRef	kDHCPSPropDHCPLease
+API_AVAILABLE(macos(10.3), ios(8.0));
 
-#if ! TARGET_OS_EMBEDDED
+extern const CFStringRef	kDHCPSPropDHCPIPAddress
+API_AVAILABLE(macos(10.3), ios(8.0));
+
+extern const CFStringRef	kDHCPSPropDHCPHWAddress
+API_AVAILABLE(macos(10.3), ios(8.0));
 
 /** 
  ** NetBoot client dictionary properties 
  **/
+extern const CFStringRef	kDHCPSPropNetBootArch
+API_AVAILABLE(macos(10.3)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
-extern const CFStringRef	kDHCPSPropNetBootArch;
-extern const CFStringRef	kDHCPSPropNetBootSysid;
-extern const CFStringRef	kDHCPSPropNetBootLastBootTime;
-extern const CFStringRef	kDHCPSPropNetBootIPAddress;
+extern const CFStringRef	kDHCPSPropNetBootSysid
+API_AVAILABLE(macos(10.3)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
+
+extern const CFStringRef	kDHCPSPropNetBootLastBootTime
+API_AVAILABLE(macos(10.3)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
+
+extern const CFStringRef	kDHCPSPropNetBootIPAddress
+API_AVAILABLE(macos(10.3)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*
  * Key: kDHCPSPropNetBootImageIndex, kDHCPSPropNetBootImageKind, 
@@ -73,22 +84,24 @@ extern const CFStringRef	kDHCPSPropNetBootIPAddress;
  *                                       3 = Diagnostics
  *   kDHCPSPropNetBootImageIsInstall    CFBoolean
  */
-extern const CFStringRef	kDHCPSPropNetBootImageIndex;
-extern const CFStringRef	kDHCPSPropNetBootImageKind;
-extern const CFStringRef	kDHCPSPropNetBootImageIsInstall;
+extern const CFStringRef	kDHCPSPropNetBootImageIndex
+API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
+
+extern const CFStringRef	kDHCPSPropNetBootImageKind
+API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
+
+extern const CFStringRef	kDHCPSPropNetBootImageIsInstall
+API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
+
 
 /*
- * Key: kDHCPSPropNetBootImageID (deprecated)
+ * Key: kDHCPSPropNetBootImageID
  * Purpose:
  *   Gives a string representation of the 32-bit boot image ID, consisting
  *   of the index, kind, and install attributes.  
- * Notes:
- *   This attribute is deprecated in favor of kDHCPSPropNetBootImageIndex, 
- *   kDHCPSPropNetBootImageKind, and kDHCPSPropNetBootImageIsInstall defined 
- *   above.
  */
-extern const CFStringRef	kDHCPSPropNetBootImageID;
-#endif /* ! TARGET_OS_EMBEDDED */
+extern const CFStringRef	kDHCPSPropNetBootImageID
+API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 /*
  * Function: DHCPSDHCPLeaseListCreate
@@ -98,7 +111,8 @@ extern const CFStringRef	kDHCPSPropNetBootImageID;
  * Note:
  *   Returned array must be released using CFRelease().
  */
-extern CFArrayRef		DHCPSDHCPLeaseListCreate(void);
+extern CFArrayRef		DHCPSDHCPLeaseListCreate(void)
+API_AVAILABLE(macos(10.3), ios(8.0));
 
 
 /*
@@ -107,7 +121,9 @@ extern CFArrayRef		DHCPSDHCPLeaseListCreate(void);
  *   Use with notify(3) to be notified when the DHCP lease list
  *   adds or removes a client binding.
  */
-extern const char * 		DHCPSDHCPLeaseListNotificationKey;
+extern const char * 		DHCPSDHCPLeaseListNotificationKey
+API_AVAILABLE(macos(10.10), ios(8.0));
+
 
 /*
  * Function: DHCPSCopyDisabledInterfaces
@@ -121,7 +137,9 @@ extern const char * 		DHCPSDHCPLeaseListNotificationKey;
  *   NULL if DHCP hasn't been disabled on any interface,
  *   non-NULL array of string interface names otherwise.
  */
-extern CFArrayRef		DHCPSCopyDisabledInterfaces(void);
+extern CFArrayRef		DHCPSCopyDisabledInterfaces(void)
+API_AVAILABLE(macos(10.10), ios(8.0));
+
 
 /*
  * Const: DHCPSDisabledInterfacesNotificationKey
@@ -130,9 +148,9 @@ extern CFArrayRef		DHCPSCopyDisabledInterfaces(void);
  *   interfaces changes. Use DHCPSCopyDisabledInterfaces() to retrieve
  *   the current list.
  */
-extern const char *		DHCPSDisabledInterfacesNotificationKey;
+extern const char *		DHCPSDisabledInterfacesNotificationKey
+API_AVAILABLE(macos(10.10), ios(8.0));
 
-#if ! TARGET_OS_EMBEDDED
 /*
  * Function: DHCPSNetBootClientListCreate
  * Purpose:
@@ -141,7 +159,8 @@ extern const char *		DHCPSDisabledInterfacesNotificationKey;
  * Note:
  *   Returned array must be released using CFRelease().
  */
-extern CFArrayRef		DHCPSNetBootClientListCreate(void);
-#endif /* ! TARGET_OS_EMBEDDED */
+extern CFArrayRef		DHCPSNetBootClientListCreate(void)
+	API_AVAILABLE(macos(10.4))
+	API_UNAVAILABLE(ios, tvos, watchos, bridgeos);
 
 #endif /* _S_DHCPSERVER_H */

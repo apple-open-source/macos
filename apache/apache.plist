@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>apache</string>
 	<key>OpenSourceVersion</key>
-	<string>2.4.34</string>
+	<string>2.4.41</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://httpd.apache.org/</string>
 	<key>OriginalOpenSourceURL</key>
-	<string>http://www.apache.org/dist/httpd/httpd-2.4.34.tar.bz2</string>
+	<string>http://www.apache.org/dist/httpd/httpd-2.4.41.tar.bz2</string>
 	<key>OriginalOpenSourceSHA1</key>
-	<string>94d6e274273903ed153479c7701fa03761abf93d</string>
+	<string>b46a02237f03384fa50ddbde9be62092dc23e684</string>
 	<key>OpenSourceImportDate</key>
-	<string>2018-7-14</string>
+	<string>2019-8-15</string>
 	<key>OpenSourceModifications</key>
 	<array>
                <string>Removed GPLv3 bison-generated parsers</string>
@@ -21,9 +21,9 @@
                <string>Removed unneeded binary apache.xdc</string>
 	</array>
 	<key>OpenSourceSHA1</key>
- 	<string>93b3e2a803560b079234f63d27a14a8ac3425b7d</string>
+ 	<string>75695bb7bb589c308755bf496de8b34522133865</string>
 	<key>OpenSourceMD5</key>
- 	<string>0c599404ef6b69eee95bcd9fcd094407</string>
+ 	<string>930e217ba2d71e708a3f1521ecae7ec0</string>
 	<key>OpenSourceLicense</key>
 	<string>Apache</string>
 	<key>OpenSourceLicenseFile</key>

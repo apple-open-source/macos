@@ -50,7 +50,7 @@ man [\-acdfFhkKtwW] [\-m system] [\-p string] [\-C config_file] [\-M path]
 .B @man_config_file@
 이다.
 (
-.BR man.config (5) 보라.)
+.BR man.conf (5) 보라.)
 .TP
 .B \-\^M " path"
 맨 페이지 검색을 위한 디렉토리 리스트를 지정한다.

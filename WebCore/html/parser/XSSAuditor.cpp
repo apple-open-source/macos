@@ -28,6 +28,7 @@
 #include "config.h"
 #include "XSSAuditor.h"
 
+#include "CustomHeaderFields.h"
 #include "DecodeEscapeSequences.h"
 #include "Document.h"
 #include "DocumentLoader.h"
@@ -45,7 +46,7 @@
 #include <wtf/ASCIICType.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/text/StringView.h>
+#include <wtf/text/StringConcatenateNumbers.h>
 
 namespace WebCore {
 
@@ -332,7 +333,7 @@ void XSSAuditor::init(Document* document, XSSAuditorDelegate* auditorDelegate)
             }
         }
         if (m_xssProtection == XSSProtectionDisposition::Invalid) {
-            document->addConsoleMessage(MessageSource::Security, MessageLevel::Error, "Error parsing header X-XSS-Protection: " + headerValue + ": "  + errorDetails + " at character position " + String::format("%u", errorPosition) + ". The default protections will be applied.");
+            document->addConsoleMessage(MessageSource::Security, MessageLevel::Error, makeString("Error parsing header X-XSS-Protection: ", headerValue, ": ", errorDetails, " at character position ", errorPosition, ". The default protections will be applied."));
             m_xssProtection = XSSProtectionDisposition::Enabled;
         }
 

@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_ADDROF_LVAL.d	1.1	06/08/28 SMI" 
-
 /*
  * ASSERTION:
  *	& can not be applied to a non-lvalue

@@ -608,15 +608,12 @@ static void * getReportCharThread(void *arg)
                             
                             for ( int index=0; index<CFArrayGetCount(array) && reportIndex<sizeof(__report); index++) {
                                 CFStringRef substring = (CFStringRef)CFArrayGetValueAtIndex(array, index);
-                                const char * substr;
+                                char substr[3] = { 0 };
                                 
                                 if ( !substring )
                                     continue;
                                 
-                                substr = CFStringGetCStringPtr(substring, kCFStringEncodingMacRoman);
-                                if ( !substr )
-                                    continue;
-                                
+                                CFStringGetCString(substring, substr, sizeof(substr), kCFStringEncodingMacRoman);
                                 __report[reportIndex++] = strtoul(substr, NULL, 16);
                             }
                             

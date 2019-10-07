@@ -1,0 +1,26 @@
+#include "static.xcconfig"
+
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) CTF_OLD_VERSIONS
+
+// TOOLCHAIN_INSTALL_DIR is defined on the host targets and undefined for
+// non-host targets, thus when we are building a non-host variant, it will
+// install into the SDK (DSTROOT relative) and when we are building for the
+// host it will install in the toolchain
+INSTALL_PATH = $(TOOLCHAIN_INSTALL_DIR)/usr/local/lib
+CTF_HEADER_DIR = $(TOOLCHAIN_INSTALL_DIR)/usr/local/include/ctf
+
+// These configure if the libctf.a archive should be installed at INSTALL_PATH
+// in each alias
+SKIP_INSTALL_dtrace_ctf = NO
+SKIP_INSTALL_dtrace_ctf_Sim = NO
+SKIP_INSTALL_dtrace = YES
+SKIP_INSTALL_dtrace_host = NO
+SKIP_INSTALL = $(SKIP_INSTALL_$(RC_ProjectName))
+
+// These configure if the libctf headers are installed in each alias
+HEADERS_FOLDER_PATH_dtrace_ctf = $(CTF_HEADER_DIR)
+HEADERS_FOLDER_PATH_dtrace_ctf_Sim = $(CTF_HEADER_DIR)
+HEADERS_FOLDER_PATH_dtrace_host = $(CTF_HEADER_DIR)
+
+PUBLIC_HEADERS_FOLDER_PATH = $(HEADERS_FOLDER_PATH_$(RC_ProjectName))
+PRIVATE_HEADERS_FOLDER_PATH = $(HEADERS_FOLDER_PATH_$(RC_ProjectName))

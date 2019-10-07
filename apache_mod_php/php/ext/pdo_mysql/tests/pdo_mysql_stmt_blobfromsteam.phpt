@@ -132,7 +132,7 @@ unlink($file);
 		printf("[001] %s [%s] %s\n",
 			$e->getMessage(), $db->errorCode(), implode(' ', $db->errorInfo()));
 	}
-	
+
 	print "done!";
 ?>
 --CLEAN--
@@ -142,7 +142,7 @@ $db = MySQLPDOTest::factory();
 $db->exec('DROP TABLE IF EXISTS test');
 @unlink(MySQLPDOTest::getTempDir() . DIRECTORY_SEPARATOR . 'pdoblob.tst');
 ?>
---EXPECTF--
+--EXPECT--
 Emulated PS...
 Native PS...
 done!

@@ -32,6 +32,7 @@
 #include <IOKit/IOPlatformExpert.h>
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOUserClient.h>
+#include <IOKit/IOUserServer.h>
 
 #include <IOKit/IOLib.h>
 #include <IOKit/assert.h>
@@ -1177,6 +1178,22 @@ IOPCIDevice::setLatencyTolerance(IOOptionBits type, uint64_t nanoseconds)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+IOReturn IOPCIDevice::enableACS(IOPCIDevice * device, bool enable)
+{
+    uint16_t reg = 0;
+
+    if (!reserved->acsCapability)   return (kIOReturnUnsupported);
+    
+    if (enable) {
+        reg = extendedConfigRead16(reserved->acsCapability + 0x4);
+        reg &= kIOPCIExpressACSDefault;
+    }
+    extendedConfigWrite16(reserved->acsCapability + 0x6, reg);
+
+    return (kIOReturnSuccess);
+}
+
+
 IOReturn 
 IOPCIDevice::setASPMState(IOService * client, IOOptionBits state)
 {
@@ -1407,6 +1424,65 @@ void IOPCIDevice::copyAERErrorDescriptionForBit(bool uncorrectable, uint32_t bit
         }
         snprintf(string, maxLength, "IOPCICorrectableError(%d%s%s)", bit, desc ? ", " : "", desc ? desc : "");
     }
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#include "Gravity/Implementation/IOKitUser/IOPCIDevice.h"
+
+kern_return_t
+IMPL(IOPCIDevice, MemoryAccess)
+{
+	IOReturn  ret;
+
+	ret = kIOReturnUnsupported;
+    switch (operation)
+    {
+        case kIOPCIMemoryConfigAccessReadDevice | kIOPCIMemoryAccess32Bit:
+            *returnData = extendedConfigRead32(address);
+            ret = kIOReturnSuccess;
+            break;
+        case kIOPCIMemoryConfigAccessReadDevice | kIOPCIMemoryAccess16Bit:
+            *returnData = extendedConfigRead16(address);
+            ret = kIOReturnSuccess;
+            break;
+        case kIOPCIMemoryConfigAccessReadDevice | kIOPCIMemoryAccess8Bit:
+            *returnData = extendedConfigRead8(address);
+            ret = kIOReturnSuccess;
+            break;
+
+        case kIOPCIMemoryConfigAccessWriteDevice | kIOPCIMemoryAccess32Bit:
+            extendedConfigWrite32(address, data);
+            ret = kIOReturnSuccess;
+            break;
+        case kIOPCIMemoryConfigAccessWriteDevice | kIOPCIMemoryAccess16Bit:
+            extendedConfigWrite16(address, data);
+            ret = kIOReturnSuccess;
+            break;
+        case kIOPCIMemoryConfigAccessWriteDevice | kIOPCIMemoryAccess8Bit:
+            extendedConfigWrite8(address, data);
+            ret = kIOReturnSuccess;
+            break;
+    }
+
+	return ret;
+}
+
+kern_return_t
+IMPL(IOPCIDevice, CopyMemoryDescriptor)
+{
+	IOReturn ret = kIOReturnUnsupported;
+	IOMemoryDescriptor * md;
+
+	md = getDeviceMemoryWithIndex(index);
+	IOLog("IOPCIDevice_CopyMemoryDescriptor_Rpl %p\n", md);
+	if (md) {
+		md->retain();
+		*memory = md;
+		ret = kIOReturnSuccess;
+	}
+
+	return ret;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

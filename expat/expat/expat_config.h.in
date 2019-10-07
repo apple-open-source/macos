@@ -3,6 +3,9 @@
 /* 1234 = LIL_ENDIAN, 4321 = BIGENDIAN */
 #undef BYTEORDER
 
+/* Define to 1 if you have the `arc4random' function. */
+#undef HAVE_ARC4RANDOM
+
 /* Define to 1 if you have the `arc4random_buf' function. */
 #undef HAVE_ARC4RANDOM_BUF
 
@@ -66,6 +69,9 @@
 /* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR
 
+/* Name of package */
+#undef PACKAGE
+
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
 
@@ -87,6 +93,9 @@
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
+/* Version number of package */
+#undef VERSION
+
 /* whether byteorder is bigendian */
 #undef WORDS_BIGENDIAN
 
@@ -94,14 +103,14 @@
    point. */
 #undef XML_CONTEXT_BYTES
 
+/* Define to include code reading entropy from `/dev/urandom'. */
+#undef XML_DEV_URANDOM
+
 /* Define to make parameter entity parsing functionality available. */
 #undef XML_DTD
 
 /* Define to make XML Namespaces functionality available. */
 #undef XML_NS
-
-/* Define to __FUNCTION__ or "" if `__func__' does not conform to ANSI C. */
-#undef __func__
 
 /* Define to empty if `const' does not conform to ANSI C. */
 #undef const

@@ -1,19 +1,19 @@
 --TEST--
-Test array_fill() function : usage variations  - unexpected values for 'num' argument 
+Test array_fill() function : usage variations  - unexpected values for 'num' argument
 --FILE--
 <?php
 /* Prototype  : proto array array_fill(int start_key, int num, mixed val)
- * Description: Create an array containing num elements starting with index start_key each initialized to val 
+ * Description: Create an array containing num elements starting with index start_key each initialized to val
  * Source code: ext/standard/array.c
  */
 
 /*
- * testing array_fill() by passing different unexpected values for 'num' argument  
+ * testing array_fill() by passing different unexpected values for 'num' argument
  */
 
 echo "*** Testing array_fill() : usage variations ***\n";
 
-// Initialise function arguments not being substituted 
+// Initialise function arguments not being substituted
 $start_key = 0;
 $val = 100;
 
@@ -88,7 +88,7 @@ for($index = 0; $index < count($values); $index ++)
   $num = $values[$index];
 
   var_dump( array_fill($start_key,$num,$val) );
- 
+
   $counter ++;
 }
 
@@ -129,23 +129,23 @@ array(0) {
 }
 -- Iteration 6 --
 
-Warning: array_fill() expects parameter 2 to be integer, array given in %s on line %d
+Warning: array_fill() expects parameter 2 to be int, array given in %s on line %d
 NULL
 -- Iteration 7 --
 
-Warning: array_fill() expects parameter 2 to be integer, array given in %s on line %d
+Warning: array_fill() expects parameter 2 to be int, array given in %s on line %d
 NULL
 -- Iteration 8 --
 
-Warning: array_fill() expects parameter 2 to be integer, array given in %s on line %d
+Warning: array_fill() expects parameter 2 to be int, array given in %s on line %d
 NULL
 -- Iteration 9 --
 
-Warning: array_fill() expects parameter 2 to be integer, array given in %s on line %d
+Warning: array_fill() expects parameter 2 to be int, array given in %s on line %d
 NULL
 -- Iteration 10 --
 
-Warning: array_fill() expects parameter 2 to be integer, array given in %s on line %d
+Warning: array_fill() expects parameter 2 to be int, array given in %s on line %d
 NULL
 -- Iteration 11 --
 array(0) {
@@ -171,23 +171,23 @@ array(0) {
 }
 -- Iteration 17 --
 
-Warning: array_fill() expects parameter 2 to be integer, string given in %s on line %d
+Warning: array_fill() expects parameter 2 to be int, string given in %s on line %d
 NULL
 -- Iteration 18 --
 
-Warning: array_fill() expects parameter 2 to be integer, string given in %s on line %d
+Warning: array_fill() expects parameter 2 to be int, string given in %s on line %d
 NULL
 -- Iteration 19 --
 
-Warning: array_fill() expects parameter 2 to be integer, string given in %s on line %d
+Warning: array_fill() expects parameter 2 to be int, string given in %s on line %d
 NULL
 -- Iteration 20 --
 
-Warning: array_fill() expects parameter 2 to be integer, string given in %s on line %d
+Warning: array_fill() expects parameter 2 to be int, string given in %s on line %d
 NULL
 -- Iteration 21 --
 
-Warning: array_fill() expects parameter 2 to be integer, object given in %s on line %d
+Warning: array_fill() expects parameter 2 to be int, object given in %s on line %d
 NULL
 -- Iteration 22 --
 array(0) {

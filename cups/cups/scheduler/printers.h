@@ -4,11 +4,7 @@
  * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
  */
 
 #ifdef HAVE_DNSSD
@@ -58,6 +54,7 @@ typedef struct cupsd_job_s cupsd_job_t;
 struct cupsd_printer_s
 {
   _cups_rwlock_t lock;			/* Concurrency lock for background updates */
+  int		printer_id;		/* Printer ID */
   char		*uri,			/* Printer URI */
 		*uuid,			/* Printer UUID */
 		*hostname,		/* Host printer resides on */
@@ -68,6 +65,7 @@ struct cupsd_printer_s
 		*info,			/* Description */
 		*organization,		/* Organization name */
 		*organizational_unit,	/* Organizational unit (department, etc.) */
+		*strings,		/* Strings file, if any */
 		*op_policy,		/* Operation policy name */
 		*error_policy;		/* Error policy */
   cupsd_policy_t *op_policy_ptr;	/* Pointer to operation policy */
@@ -137,6 +135,8 @@ VAR ipp_t		*CommonData	VALUE(NULL);
 					/* Common printer object attrs */
 VAR cups_array_t	*CommonDefaults	VALUE(NULL);
 					/* Common -default option names */
+VAR int			NextPrinterId	VALUE(1);
+					/* Next printer-id value */
 VAR cups_array_t	*Printers	VALUE(NULL);
 					/* Printer list */
 VAR cupsd_printer_t	*DefaultPrinter	VALUE(NULL);

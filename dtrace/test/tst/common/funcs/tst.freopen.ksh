@@ -51,7 +51,7 @@ EOF
 
 cleanup()
 {
-	let i=0
+	i=0
 
 	if [ -f $tmpfile ]; then
 		rm $tmpfile
@@ -61,7 +61,7 @@ cleanup()
 		if [ -f $tmpfile.$i ]; then
 			rm $tmpfile.$i
 		fi
-		let i=i+1
+		i=$((i+1))
 	done
 }
 
@@ -72,7 +72,7 @@ iter=20
 script
 status=$?
 
-let i=0
+i=0
 
 if [ -f $tmpfile.$iter ]; then
 	echo "$0: did not expect to find file: $tmpfile.$iter"
@@ -81,7 +81,7 @@ if [ -f $tmpfile.$iter ]; then
 fi
 
 mv $tmpfile $tmpfile.$iter
-let iter=iter+1
+iter=$((iter+1))
 
 while [ "$i" -lt "$iter" ]; do
 	if [ ! -f $tmpfile.$i ]; then
@@ -100,7 +100,7 @@ while [ "$i" -lt "$iter" ]; do
 	fi
 
 	rm $tmpfile.$i
-	let i=i+1
+	i=$((i+1))
 done
 
 exit $status

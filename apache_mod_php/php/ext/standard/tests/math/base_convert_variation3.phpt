@@ -24,7 +24,7 @@ $inputs = array(
 /*1*/  0,
        1,
        -1,
-       -12,       
+       -12,
        2147483647,
 
        // float data
@@ -43,7 +43,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*17*/ "",
        '',
@@ -53,7 +53,7 @@ $inputs = array(
 /*20*/ "abcxyz",
        'abcxyz',
        $heredoc,
-       
+
        // undefined data
 /*23*/ @$undefined_var,
 
@@ -153,32 +153,32 @@ bool(false)
 
 -- Iteration 17 --
 
-Warning: base_convert() expects parameter 3 to be integer, string given in %s on line %d
+Warning: base_convert() expects parameter 3 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 18 --
 
-Warning: base_convert() expects parameter 3 to be integer, string given in %s on line %d
+Warning: base_convert() expects parameter 3 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 19 --
 
-Warning: base_convert() expects parameter 3 to be integer, array given in %s on line %d
+Warning: base_convert() expects parameter 3 to be int, array given in %s on line %d
 NULL
 
 -- Iteration 20 --
 
-Warning: base_convert() expects parameter 3 to be integer, string given in %s on line %d
+Warning: base_convert() expects parameter 3 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 21 --
 
-Warning: base_convert() expects parameter 3 to be integer, string given in %s on line %d
+Warning: base_convert() expects parameter 3 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 22 --
 
-Warning: base_convert() expects parameter 3 to be integer, string given in %s on line %d
+Warning: base_convert() expects parameter 3 to be int, string given in %s on line %d
 NULL
 
 -- Iteration 23 --

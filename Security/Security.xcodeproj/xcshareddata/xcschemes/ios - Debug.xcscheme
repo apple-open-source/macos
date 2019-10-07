@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
    LastUpgradeVersion = "1000"
-   version = "1.7">
+   version = "1.8">
    <BuildAction
       parallelizeBuildables = "NO"
       buildImplicitDependencies = "NO">
@@ -15,8 +15,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "4C91273D0ADBF46200AF202E"
-               BuildableName = "ios"
-               BlueprintName = "ios"
+               BuildableName = "Security_all_ios"
+               BlueprintName = "Security_all_ios"
                ReferencedContainer = "container:Security.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -41,6 +41,15 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "4C711D5813AFCD0900FE865D"
+            BuildableName = "SecurityDevTests.app"
+            BlueprintName = "SecurityDevTests"
+            ReferencedContainer = "container:Security.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
       <Testables>
          <TestableReference
             skipped = "NO">
@@ -82,18 +91,17 @@
                ReferencedContainer = "container:Security.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "6C39234421F13E4D00D018AD"
+               BuildableName = "SecDbBackupTests.xctest"
+               BlueprintName = "SecDbBackupTests"
+               ReferencedContainer = "container:Security.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "4C711D5813AFCD0900FE865D"
-            BuildableName = "SecurityDevTests.app"
-            BlueprintName = "SecurityDevTests"
-            ReferencedContainer = "container:Security.xcodeproj">
-         </BuildableReference>
-      </MacroExpansion>
-      <AdditionalOptions>
-      </AdditionalOptions>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -231,27 +239,7 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_15_certificate"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_16_ec_certificate"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
             argument = "si_17_item_system_bluetooth"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_18_certificate_parse"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_20_sectrust"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_20_sectrust_policies"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -268,10 +256,6 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "si_24_sectrust_itms"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_24_sectrust_nist"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -303,7 +287,7 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_29_sectrust_sha1_deprecation"
+            argument = "si_29_cms_chain_mode"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -447,27 +431,11 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_82_seccertificate_ct"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_82_sectrust_ct"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
             argument = "si_83_seccertificate_sighashalg"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "si_84_sectrust_allowlist"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_85_sectrust_ssl_policy"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_87_sectrust_name_constraints"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -484,10 +452,6 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "si_95_cms_basic"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_97_sectrust_path_scoring"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -744,8 +708,6 @@
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>
-      <AdditionalOptions>
-      </AdditionalOptions>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Debug"

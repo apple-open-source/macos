@@ -35,11 +35,11 @@
 #include <Security/SecBase.h>
 #include <Security/SecItem.h>
 
-#include <Security/SecureObjectSync/SOSAccount.h>
+#include "keychain/SecureObjectSync/SOSAccount.h"
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
-#include <Security/SecureObjectSync/SOSInternal.h>
-#include <Security/SecureObjectSync/SOSFullPeerInfo.h>
-#include <Security/SecureObjectSync/SOSUserKeygen.h>
+#include "keychain/SecureObjectSync/SOSInternal.h"
+#include "keychain/SecureObjectSync/SOSFullPeerInfo.h"
+#include "keychain/SecureObjectSync/SOSUserKeygen.h"
 #include <Security/SecureObjectSync/SOSViews.h>
 
 #include <stdlib.h>
@@ -84,7 +84,7 @@ static void testViewLists(void) {
 
     is(CFSetGetCount(allViews), 24, "make sure count of allViews is correct");
     is(CFSetGetCount(defaultViews), 20, "make sure count of defaultViews is correct");
-    is(CFSetGetCount(initialViews), 14, "make sure count of initialViews is correct");
+    is(CFSetGetCount(initialViews), 0, "make sure count of initialViews is correct");
     is(CFSetGetCount(alwaysOnViews), 20, "make sure count of alwaysOnViews is correct");
     is(CFSetGetCount(backupRequiredViews), 3, "make sure count of backupRequiredViews is correct");
     is(CFSetGetCount(V0Views), 6, "make sure count of V0Views is correct");
@@ -130,8 +130,8 @@ static void tests(void)
     
     testView(account, kSOSCCViewMember, kSOSViewPCSiCloudDrive, kSOSCCViewEnable, "Expected to enable kSOSViewPCSiCloudDrive");
     testView(account, kSOSCCViewMember, kSOSViewPCSiCloudDrive, kSOSCCViewQuery, "Expected view capability for kSOSViewPCSiCloudDrive");
-    testView(account, kSOSCCViewNotMember, kSOSViewPCSiCloudDrive, kSOSCCViewDisable, "Expected to disable kSOSViewPCSiCloudDrive");
-    testView(account, kSOSCCViewNotMember, kSOSViewPCSiCloudDrive, kSOSCCViewQuery, "Expected no view capability for kSOSViewPCSiCloudDrive");
+    testView(account, kSOSCCViewMember, kSOSViewPCSiCloudDrive, kSOSCCViewDisable, "Expected cannot disable kSOSViewPCSiCloudDrive");
+    testView(account, kSOSCCViewMember, kSOSViewPCSiCloudDrive, kSOSCCViewQuery, "Expected view capability for kSOSViewPCSiCloudDrive");
 
     testView(account, kSOSCCViewMember, kSOSViewPCSiCloudDrive, kSOSCCViewEnable, "Expected to enable kSOSViewPCSiCloudDrive");
     testView(account, kSOSCCViewMember, kSOSViewPCSiCloudDrive, kSOSCCViewQuery, "Expected view capability for kSOSViewPCSiCloudDrive");
@@ -143,10 +143,10 @@ static void tests(void)
     testView(account, kSOSCCViewNotMember, kSOSViewKeychainV0, kSOSCCViewQuery, "Expected view capability for kSOSViewKeychainV0");
     testView(account, kSOSCCViewMember, kSOSViewAppleTV, kSOSCCViewQuery, "Expected view capability for kSOSViewAppleTV");
 
-    ok([account.trust updateViewSets:account enabled:SOSViewsGetV0ViewSet() disabled:nullSet], "Expect not accepting kSOSKeychainV0");
+    ok([account.trust updateViewSetsWithAnalytics:account enabled:SOSViewsGetV0ViewSet() disabled:nullSet parentEvent: NULL], "Expect not accepting kSOSKeychainV0");
     testView(account, kSOSCCViewNotMember, kSOSViewKeychainV0, kSOSCCViewQuery, "Expected no addition of kSOSKeychainV0");
 
-    ok([account.trust updateViewSets:account enabled:SOSViewsGetV0ViewSet() disabled:nullSet], "Expect not accepting kSOSKeychainV0");
+    ok([account.trust updateViewSetsWithAnalytics:account enabled:SOSViewsGetV0ViewSet() disabled:nullSet parentEvent: NULL], "Expect not accepting kSOSKeychainV0");
     testView(account, kSOSCCViewNotMember, kSOSViewKeychainV0, kSOSCCViewQuery, "Expected no addition of kSOSKeychainV0");
 
     SOSPeerInfoRef pi = account.peerInfo;
@@ -155,10 +155,10 @@ static void tests(void)
     
     ok(vr == kSOSCCViewMember, "Set Virtual View manually");
     
-    ok(![account.trust updateViewSets:account enabled:nullSet disabled:SOSViewsGetV0ViewSet()], "Expect not removing kSOSKeychainV0");
+    ok(![account.trust updateViewSetsWithAnalytics:account enabled:nullSet disabled:SOSViewsGetV0ViewSet() parentEvent: NULL], "Expect not removing kSOSKeychainV0");
     testView(account, kSOSCCViewMember, kSOSViewKeychainV0, kSOSCCViewQuery, "Expected kSOSKeychainV0 is still there");
     
-    ok(![account.trust updateViewSets:account enabled:nullSet disabled:SOSViewsGetV0ViewSet()], "Expect not removing kSOSKeychainV0");
+    ok(![account.trust updateViewSetsWithAnalytics:account enabled:nullSet disabled:SOSViewsGetV0ViewSet() parentEvent: NULL], "Expect not removing kSOSKeychainV0");
     testView(account, kSOSCCViewMember, kSOSViewKeychainV0, kSOSCCViewQuery, "Expected kSOSKeychainV0 is still there");
    
     SOSDataSourceRelease(test_source, NULL);
@@ -172,7 +172,7 @@ int secd_80_views_basic(int argc, char *const *argv)
     plan_tests(kTestTestCount);
     
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-
+    secd_test_clear_testviews();
     testViewLists();
     tests();
     

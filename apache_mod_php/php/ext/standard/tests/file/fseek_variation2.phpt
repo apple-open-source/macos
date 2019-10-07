@@ -7,7 +7,7 @@ Dave Kelsey <d_kelsey@uk.ibm.com>
 --FILE--
 <?php
 /* Prototype  : proto int fseek(resource fp, int offset [, int whence])
- * Description: Seek on a file pointer 
+ * Description: Seek on a file pointer
  * Source code: ext/standard/file.c
  * Alias to functions: gzseek
  */
@@ -128,25 +128,25 @@ int(3)
 
 Arg value  
 
-Warning: fseek() expects parameter 3 to be integer, string given in %s on line %d
+Warning: fseek() expects parameter 3 to be int, string given in %s on line %d
 bool(false)
 int(3)
 
 Arg value  
 
-Warning: fseek() expects parameter 3 to be integer, string given in %s on line %d
+Warning: fseek() expects parameter 3 to be int, string given in %s on line %d
 bool(false)
 int(3)
 
 Arg value string 
 
-Warning: fseek() expects parameter 3 to be integer, string given in %s on line %d
+Warning: fseek() expects parameter 3 to be int, string given in %s on line %d
 bool(false)
 int(3)
 
 Arg value string 
 
-Warning: fseek() expects parameter 3 to be integer, string given in %s on line %d
+Warning: fseek() expects parameter 3 to be int, string given in %s on line %d
 bool(false)
 int(3)
 
@@ -158,4 +158,3 @@ Arg value
 int(0)
 int(3)
 Done
-

@@ -213,6 +213,8 @@
              [interactive removeController];
              [remote removeChessObservers];
              [self removeChessObservers];
+             [gameView setNeedsDisplay:NO];
+             [gameView removeFromSuperview];
          }]];
     if ([document needNewGameSheet]) {
         usleep(500000);
@@ -747,7 +749,25 @@ uint32_t sAttributesForSides[] = {
 
 - (NSSpeechSynthesizer *)copySpeechSynthesizerForKey:(NSString *)key
 {
-    return [[NSSpeechSynthesizer alloc] initWithVoice:[self voiceIDForKey:key]];
+    NSString *voiceID = [self voiceIDForKey:key];
+    NSSpeechSynthesizer *speechSynthesizer = [[NSSpeechSynthesizer alloc] initWithVoice:voiceID];
+    
+    // The following change is being done based on comments and suggestion in <rdar://problem/44522764>.
+    // The old default alternative voice "Vicky" has been deprecated and the closest match to it is "victoria".
+    // However, existing users who might have previously downloaded "Vicky" should still be able to use it since they have it on their machine and is set as a voice in their user defaults.
+    // The logic below allows that and if the synthesizer cannot be created for "Vicky", it tries it with the voice "Victoria".
+    if (!speechSynthesizer && [voiceID isEqualToString:@"com.apple.speech.synthesis.voice.Vicky"]) {
+        // For existing users who do not have the voice "Vicky" already downloaded, the above call will return nil as "Vicky" has been discontinued.
+        // Use the fallback voice instead.
+        NSLog(@"Voice 'Vicky' could not be synthesized. Retrying using voice 'Victoria'.");
+        speechSynthesizer = [[NSSpeechSynthesizer alloc] initWithVoice:@"com.apple.speech.synthesis.voice.Victoria"];
+        if (!speechSynthesizer) {
+            // If fallback voice also does not exist, we will return the default voice.
+            NSLog(@"Voice 'Victoria' could not be synthesized. Retrying using voice the default voice.");
+            speechSynthesizer = [[NSSpeechSynthesizer alloc] initWithVoice:nil];
+        }
+    }
+    return speechSynthesizer;
 }
 
 - (NSSpeechSynthesizer *)primarySynth

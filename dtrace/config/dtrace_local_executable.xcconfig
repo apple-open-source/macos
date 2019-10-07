@@ -1,0 +1,2 @@
+#include "dtrace_executable.xcconfig"
+INSTALL_PATH = /usr/local/bin

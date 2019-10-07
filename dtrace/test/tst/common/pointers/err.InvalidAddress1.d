@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.InvalidAddress1.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: D pointers do not allow invalid pointer accesses.
  *

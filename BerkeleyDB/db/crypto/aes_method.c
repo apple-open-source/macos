@@ -267,6 +267,6 @@ __aes_err(env, err)
 		errstr = "AES error unrecognized";
 		break;
 	}
-	__db_errx(env, errstr);
+	__db_errx(env, "%s", errstr);
 	return;
 }

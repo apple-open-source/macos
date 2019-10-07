@@ -37,25 +37,25 @@ WI.MediaTimelineView = class MediaTimelineView extends WI.TimelineView
         const columns = {
             name: {
                 title: WI.UIString("Name"),
-                width: "10%",
+                width: "200px",
                 icon: true,
                 sortable: true,
                 locked: true,
             },
             element: {
                 title: WI.UIString("Element"),
-                width: "10%",
+                width: "150px",
                 sortable: true,
             },
             time: {
                 title: WI.UIString("Time"),
-                width: "10%",
+                width: "80px",
                 sortable: true,
                 locked: true,
             },
             originator: {
                 title: WI.UIString("Originator"),
-                width: "10%",
+                width: "150px",
                 sortable: true,
                 hidden: true,
             },
@@ -79,6 +79,9 @@ WI.MediaTimelineView = class MediaTimelineView extends WI.TimelineView
         timeline.addEventListener(WI.Timeline.Event.RecordAdded, this._handleRecordAdded, this);
 
         this._pendingRecords = [];
+
+        for (let record of timeline.records)
+            this._processRecord(record);
     }
 
     // Public
@@ -183,7 +186,9 @@ WI.MediaTimelineView = class MediaTimelineView extends WI.TimelineView
             if (timelineRecord.domEvent && timelineRecord.domEvent.originator)
                 this._dataGrid.setColumnVisible("originator", true);
 
-            this._dataGrid.addRowInSortOrder(new WI.MediaTimelineDataGridNode(timelineRecord, this));
+            this._dataGrid.addRowInSortOrder(new WI.MediaTimelineDataGridNode(timelineRecord, {
+                graphDataSource: this,
+            }));
         }
 
         this._pendingRecords = [];
@@ -191,12 +196,17 @@ WI.MediaTimelineView = class MediaTimelineView extends WI.TimelineView
 
     _handleRecordAdded(event)
     {
-        let record = event.data.record;
-        console.assert(record instanceof WI.MediaTimelineRecord);
+        let mediaTimelineRecord = event.data.record;
+        console.assert(mediaTimelineRecord instanceof WI.MediaTimelineRecord);
 
-        this._pendingRecords.push(record);
+        this._processRecord(mediaTimelineRecord);
 
         this.needsLayout();
+    }
+
+    _processRecord(mediaTimelineRecord)
+    {
+        this._pendingRecords.push(mediaTimelineRecord);
     }
 
     _handleSelectionPathComponentSiblingSelected(event)

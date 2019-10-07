@@ -1,14 +1,11 @@
 dnl
 dnl Common configuration stuff for CUPS.
 dnl
-dnl Copyright 2007-2017 by Apple Inc.
-dnl Copyright 1997-2007 by Easy Software Products, all rights reserved.
+dnl Copyright © 2007-2019 by Apple Inc.
+dnl Copyright © 1997-2007 by Easy Software Products, all rights reserved.
 dnl
-dnl These coded instructions, statements, and computer programs are the
-dnl property of Apple Inc. and are protected by Federal copyright
-dnl law.  Distribution and use rights are outlined in the file "LICENSE.txt"
-dnl which should have been included with this file.  If this file is
-dnl missing or damaged, see the license at "http://www.cups.org/".
+dnl Licensed under Apache License v2.0.  See the file "LICENSE" for more
+dnl information.
 dnl
 
 dnl Set the name of the config header file...
@@ -42,7 +39,11 @@ AC_PROG_CXX(clang++ c++ g++)
 AC_PROG_RANLIB
 AC_PATH_PROG(AR,ar)
 AC_PATH_PROG(CHMOD,chmod)
-AC_PATH_PROG(GZIP,gzip)
+AC_PATH_PROG(GZIPPROG,gzip)
+AC_MSG_CHECKING(for install-sh script)
+INSTALL="`pwd`/install-sh"
+AC_SUBST(INSTALL)
+AC_MSG_RESULT(using $INSTALL)
 AC_PATH_PROG(LD,ld)
 AC_PATH_PROG(LN,ln)
 AC_PATH_PROG(MKDIR,mkdir)
@@ -51,17 +52,13 @@ AC_PATH_PROG(RM,rm)
 AC_PATH_PROG(RMDIR,rmdir)
 AC_PATH_PROG(SED,sed)
 AC_PATH_PROG(XDGOPEN,xdg-open)
+
 if test "x$XDGOPEN" = x; then
 	CUPS_HTMLVIEW="htmlview"
 else
 	CUPS_HTMLVIEW="$XDGOPEN"
 fi
 AC_SUBST(CUPS_HTMLVIEW)
-
-AC_MSG_CHECKING(for install-sh script)
-INSTALL="`pwd`/install-sh"
-AC_SUBST(INSTALL)
-AC_MSG_RESULT(using $INSTALL)
 
 if test "x$AR" = x; then
 	AC_MSG_ERROR([Unable to find required library archive command.])
@@ -142,16 +139,6 @@ AC_CHECK_HEADER(iconv.h,
 		AC_DEFINE(HAVE_ICONV_H)
 		SAVELIBS="$SAVELIBS $LIBS")
 	LIBS="$SAVELIBS")
-
-dnl Checks for Mini-XML (www.minixml.org)...
-LIBMXML=""
-AC_CHECK_HEADER(mxml.h,
-	SAVELIBS="$LIBS"
-	AC_SEARCH_LIBS(mmxlNewElement,mxml,
-		AC_DEFINE(HAVE_MXML_H)
-		LIBMXML="-lmxml")
-	LIBS="$SAVELIBS")
-AC_SUBST(LIBMXML)
 
 dnl Checks for statfs and its many headers...
 AC_CHECK_HEADER(sys/mount.h,AC_DEFINE(HAVE_SYS_MOUNT_H))
@@ -266,14 +253,14 @@ dnl ZLIB
 INSTALL_GZIP=""
 LIBZ=""
 AC_CHECK_HEADER(zlib.h,
-    AC_CHECK_LIB(z, gzgets,
+    AC_CHECK_LIB(z, gzgets,[
 	AC_DEFINE(HAVE_LIBZ)
 	LIBZ="-lz"
 	LIBS="$LIBS -lz"
 	AC_CHECK_LIB(z, inflateCopy, AC_DEFINE(HAVE_INFLATECOPY))
-	if test "x$GZIP" != z; then
+	if test "x$GZIPPROG" != x; then
 		INSTALL_GZIP="-z"
-	fi))
+	fi]))
 AC_SUBST(INSTALL_GZIP)
 AC_SUBST(LIBZ)
 
@@ -352,20 +339,21 @@ case $host_os_name in
         darwin*)
                 BACKLIBS="$BACKLIBS -framework IOKit"
                 SERVERLIBS="$SERVERLIBS -framework IOKit -weak_framework ApplicationServices"
-                LIBS="-framework SystemConfiguration -framework CoreFoundation -framework Security $LIBS"
+                LIBS="-framework CoreFoundation -framework Security $LIBS"
 
 		dnl Check for framework headers...
 		AC_CHECK_HEADER(ApplicationServices/ApplicationServices.h,AC_DEFINE(HAVE_APPLICATIONSERVICES_H))
 		AC_CHECK_HEADER(CoreFoundation/CoreFoundation.h,AC_DEFINE(HAVE_COREFOUNDATION_H))
-		AC_CHECK_HEADER(CoreFoundation/CFPriv.h,AC_DEFINE(HAVE_CFPRIV_H))
-		AC_CHECK_HEADER(CoreFoundation/CFBundlePriv.h,AC_DEFINE(HAVE_CFBUNDLEPRIV_H))
 
 		dnl Check for dynamic store function...
-		AC_CHECK_FUNCS(SCDynamicStoreCopyComputerName)
+		SAVELIBS="$LIBS"
+		LIBS="-framework SystemConfiguration $LIBS"
+		AC_CHECK_FUNCS(SCDynamicStoreCopyComputerName,[
+		    AC_DEFINE(HAVE_SCDYNAMICSTORECOPYCOMPUTERNAME)],[
+		    LIBS="$SAVELIBS"])
 
 		dnl Check for the new membership functions in MacOSX 10.4...
 		AC_CHECK_HEADER(membership.h,AC_DEFINE(HAVE_MEMBERSHIP_H))
-		AC_CHECK_HEADER(membershipPriv.h,AC_DEFINE(HAVE_MEMBERSHIPPRIV_H))
 		AC_CHECK_FUNCS(mbr_uid_to_uuid)
 
 		dnl Need <dlfcn.h> header...
@@ -399,7 +387,6 @@ case $host_os_name in
 			else
 				CUPS_DEFAULT_PRINTOPERATOR_AUTH="@AUTHKEY(system.print.operator) @admin @lpadmin"
 			fi])
-		AC_CHECK_HEADER(Security/SecBasePriv.h,AC_DEFINE(HAVE_SECBASEPRIV_H))
 
 		dnl Check for sandbox/Seatbelt support
 		if test $host_os_version -ge 100; then
@@ -420,8 +407,6 @@ case $host_os_name in
 		AC_CHECK_HEADER(xpc/xpc.h,
 			AC_DEFINE(HAVE_XPC)
 			INSTALLXPC="install-xpc")
-		AC_CHECK_HEADER(xpc/private.h,
-			AC_DEFINE(HAVE_XPC_PRIVATE_H))
                 ;;
 esac
 
@@ -436,16 +421,47 @@ COMPONENTS="all"
 
 AC_ARG_WITH(components, [  --with-components       set components to build:
 			    - "all" (default) builds everything
-			    - "core" builds libcups and ipptool],
+			    - "core" builds libcups and ipptool
+			    - "libcups" builds just libcups
+			    - "libcupslite" builds just libcups without driver support],
 	COMPONENTS="$withval")
+
+cupsimagebase="cupsimage"
+IPPEVECOMMANDS="ippevepcl ippeveps"
+LIBCUPSOBJS="\$(COREOBJS) \$(DRIVEROBJS)"
+LIBHEADERS="\$(COREHEADERS) \$(DRIVERHEADERS)"
+LIBHEADERSPRIV="\$(COREHEADERSPRIV) \$(DRIVERHEADERSPRIV)"
 
 case "$COMPONENTS" in
 	all)
-		BUILDDIRS="filter backend berkeley cgi-bin monitor notifier ppdc scheduler systemv conf data desktop locale man doc examples templates"
+		BUILDDIRS="tools filter backend berkeley cgi-bin monitor notifier ppdc scheduler systemv conf data desktop locale man doc examples templates"
 		;;
 
 	core)
-		BUILDDIRS="data locale"
+		BUILDDIRS="tools examples locale"
+		;;
+
+	corelite)
+		AC_DEFINE(CUPS_LITE)
+		BUILDDIRS="tools examples locale"
+		cupsimagebase=""
+		LIBCUPSOBJS="\$(COREOBJS)"
+		LIBHEADERS="\$(COREHEADERS)"
+		LIBHEADERSPRIV="\$(COREHEADERSPRIV)"
+		;;
+
+	libcups)
+		BUILDDIRS="locale"
+		cupsimagebase=""
+		;;
+
+	libcupslite)
+		AC_DEFINE(CUPS_LITE)
+		BUILDDIRS="locale"
+		cupsimagebase=""
+		LIBCUPSOBJS="\$(COREOBJS)"
+		LIBHEADERS="\$(COREHEADERS)"
+		LIBHEADERSPRIV="\$(COREHEADERSPRIV)"
 		;;
 
 	*)
@@ -454,3 +470,7 @@ case "$COMPONENTS" in
 esac
 
 AC_SUBST(BUILDDIRS)
+AC_SUBST(IPPEVECOMMANDS)
+AC_SUBST(LIBCUPSOBJS)
+AC_SUBST(LIBHEADERS)
+AC_SUBST(LIBHEADERSPRIV)

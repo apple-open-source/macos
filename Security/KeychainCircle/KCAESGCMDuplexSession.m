@@ -94,20 +94,29 @@ static bool derive_and_init(const struct ccmode_gcm *mode, ccgcm_ctx* ctx, NSDat
 static NSString* KCDSSender = @"asSender";
 static NSString* KCDSSecret = @"secret";
 static NSString* KCDSContext = @"context";
+static NSString* KCDSPairingUUID = @"uuid";
+static NSString* KCDSPiggybackingVersion = @"piggy";
+static NSString* KCDSEpoch= @"epoch";
 
 - (void)encodeWithCoder:(NSCoder *)aCoder {
     [aCoder encodeBool: self.asSender forKey:KCDSSender];
     [aCoder encodeObject: self.secret forKey:KCDSSecret];
     [aCoder encodeInt64: self.context forKey:KCDSContext];
+    [aCoder encodeObject: self.pairingUUID forKey:KCDSPairingUUID];
+    [aCoder encodeInt64: self.piggybackingVersion forKey:KCDSPiggybackingVersion];
+    [aCoder encodeInt64:self.epoch forKey:KCDSEpoch];
 }
 
 - (nullable instancetype)initWithCoder:(NSCoder *)aDecoder {
-
     bool asSender = [aDecoder decodeBoolForKey:KCDSSender];
     NSData* secret = [aDecoder decodeObjectOfClass:[NSData class] forKey:KCDSSecret];
     uint64_t context = [aDecoder decodeInt64ForKey:KCDSContext];
 
-    return [self initWithSecret:secret context:context as:asSender];
+    NSString* pairingUUID = [aDecoder decodeObjectOfClass:[NSString class] forKey:KCDSPairingUUID];
+    uint64_t piggybackingVersion = [aDecoder decodeInt64ForKey:KCDSPiggybackingVersion];
+    uint64_t epoch = [aDecoder decodeInt64ForKey:KCDSEpoch];
+
+    return [self initWithSecret:secret context:context as:asSender pairingUUID:pairingUUID piggybackingVersion:piggybackingVersion epoch:epoch];
 }
 
 + (BOOL)supportsSecureCoding {
@@ -127,6 +136,21 @@ static NSString* KCDSContext = @"context";
 - (nullable instancetype) initWithSecret: (NSData*) sharedSecret
                                  context: (uint64_t) context
                                       as: (bool) sender {
+    return [self initWithSecret:sharedSecret
+                        context:context
+                             as:sender
+                    pairingUUID:nil
+            piggybackingVersion:0
+                          epoch:1];
+}
+
+- (nullable instancetype)initWithSecret:(NSData*)sharedSecret
+                                context:(uint64_t)context
+                                     as:(bool) sender
+                            pairingUUID:(NSString* _Nullable)pairingUUID
+                    piggybackingVersion:(uint64_t)piggybackingVersion
+                                  epoch:(uint64_t)epoch
+{
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         kdfInfoSendToReceive = [NSData dataWithBytesNoCopy: kdfInfoForwardString
@@ -145,6 +169,10 @@ static NSString* KCDSContext = @"context";
     self.send = malloc(ccgcm_context_size(ccaes_gcm_encrypt_mode()));
     self.receive = malloc(ccgcm_context_size(ccaes_gcm_decrypt_mode()));
     self.context = context;
+
+    _pairingUUID = pairingUUID;
+    _piggybackingVersion = piggybackingVersion;
+    _epoch = epoch;
 
     if (self.send == nil || self.receive == nil) {
         return nil;

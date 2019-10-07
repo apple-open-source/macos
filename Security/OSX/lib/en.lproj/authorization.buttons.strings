@@ -142,3 +142,4 @@
 
 "com.apple.security.sudo" = "Allow";
 
+"com.apple.configurationprofiles.userenrollment.install" = "Enroll";

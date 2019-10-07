@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>file</string>
 	<key>OpenSourceVersion</key>
-	<string>5.33</string>
+	<string>5.37</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string></string>
 	<key>OpenSourceURL</key>
-	<string>ftp://ftp.astron.com/pub/file/file-5.33.tar.gz</string>
+	<string>ftp://ftp.astron.com/pub/file/file-5.37.tar.gz</string>
 	<key>OpenSourceSHA512256</key>
-	<string>fed224f5d653fd7dafb866e6ef73d131752bdc65fa88cb04f3e0d08a7911b384</string>
+	<string>82812eb61be1ccfa048130bae3c2c445efc2e60b9c5aa068b47c77dd4312c195</string>
 	<key>OpenSourceImportDate</key>
-	<string>2018-04-23</string>
+	<string>2019-05-24</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Correct error in sun magic file (2504403).</string>
@@ -27,10 +27,11 @@
 		<string>Archive (ar) format fix (4204136).</string>
 		<string>GNU catalog format fix (4695678).</string>
 		<string>LLVM bitcode magics (6867338).</string>
-		<string>softmagic.c: crash fix from upstream file 5.09</string>
-		<string>magic/Magdir/mach: support armv7s, x86_64h, arm64, arm64_32</string>
+		<string>magic/Magdir/mach: support armv7s, x86_64h, arm64, arm64_32 (23211618)</string>
 		<string>magic/Magdir/mach: tweak output order for historical reasons</string>
-		<string>CVE-2019-8905/CVE-2019-8907 (49230747)</string>
+		<string>magic/Magdir/dyld: support dyld shared chache (10701427)</string>
+		<string>magic/Magdir/mach: add arm64e (48022403)</string>
+		<string>magic/Magdir/apple: remove junk bytes (37293829)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

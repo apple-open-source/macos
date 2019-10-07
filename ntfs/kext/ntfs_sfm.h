@@ -315,13 +315,13 @@ static inline struct timespec ntfs_ad2utc(const sle32 time)
 	return ts;
 }
 
-__private_extern__ const FINDER_INFO ntfs_empty_finder_info;
+__attribute__((visibility("hidden"))) extern const FINDER_INFO ntfs_empty_finder_info;
 
-__private_extern__ ntfschar NTFS_SFM_AFPINFO_NAME[12];
-__private_extern__ ntfschar NTFS_SFM_DESKTOP_NAME[12];
-__private_extern__ ntfschar NTFS_SFM_IDINDEX_NAME[12];
-__private_extern__ ntfschar NTFS_SFM_RESOURCEFORK_NAME[13];
-__private_extern__ ntfschar NTFS_SFM_COMMENTS_NAME[9];
+__attribute__((visibility("hidden"))) extern ntfschar NTFS_SFM_AFPINFO_NAME[12];
+__attribute__((visibility("hidden"))) extern ntfschar NTFS_SFM_DESKTOP_NAME[12];
+__attribute__((visibility("hidden"))) extern ntfschar NTFS_SFM_IDINDEX_NAME[12];
+__attribute__((visibility("hidden"))) extern ntfschar NTFS_SFM_RESOURCEFORK_NAME[13];
+__attribute__((visibility("hidden"))) extern ntfschar NTFS_SFM_COMMENTS_NAME[9];
 
 __private_extern__ BOOL ntfs_is_sfm_name(ntfs_volume *vol,
 		const ntfschar *name, const unsigned len);

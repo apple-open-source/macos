@@ -122,6 +122,11 @@ bool CSSFontFace::setFamilies(CSSValue& family)
     return true;
 }
 
+FontFace* CSSFontFace::existingWrapper()
+{
+    return m_wrapper.get();
+}
+
 static FontSelectionRange calculateWeightRange(CSSValue& value)
 {
     if (value.isValueList()) {
@@ -587,6 +592,13 @@ AllowUserInstalledFonts CSSFontFace::allowUserInstalledFonts() const
     if (m_fontSelector && m_fontSelector->document())
         return m_fontSelector->document()->settings().shouldAllowUserInstalledFonts() ? AllowUserInstalledFonts::Yes : AllowUserInstalledFonts::No;
     return AllowUserInstalledFonts::Yes;
+}
+
+bool CSSFontFace::shouldAllowDesignSystemUIFonts() const
+{
+    if (m_fontSelector && m_fontSelector->document())
+        return m_fontSelector->document()->settings().shouldAllowDesignSystemUIFonts();
+    return false;
 }
 
 static Settings::FontLoadTimingOverride fontLoadTimingOverride(CSSFontSelector* fontSelector)

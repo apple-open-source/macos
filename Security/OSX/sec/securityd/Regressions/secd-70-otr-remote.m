@@ -34,11 +34,11 @@
 #include <Security/SecKeyPriv.h>
 
 #include <Security/SecureObjectSync/SOSPeerInfo.h>
-#include <Security/SecureObjectSync/SOSCircle.h>
+#include "keychain/SecureObjectSync/SOSCircle.h"
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
-#include <Security/SecureObjectSync/SOSInternal.h>
-#include <Security/SecureObjectSync/SOSUserKeygen.h>
-#include <Security/SecureObjectSync/SOSTransport.h>
+#include "keychain/SecureObjectSync/SOSInternal.h"
+#include "keychain/SecureObjectSync/SOSUserKeygen.h"
+#include "keychain/SecureObjectSync/SOSTransport.h"
 
 #include "SOSCircle_regressions.h"
 #include "SOSRegressionUtilities.h"

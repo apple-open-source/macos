@@ -5,7 +5,7 @@ When being called multiple times with a stringular function name only,
 registerPHPFunctions adds the new function to the allowed parameter
 list - it does not replace the old function.
 --SKIPIF--
-<?php 
+<?php
         if (!extension_loaded('xsl')) {
                 die("skip\n");
         }
@@ -23,7 +23,7 @@ $proc->importStylesheet($phpfuncxsl);
 var_dump($proc->registerPHPFunctions('ucwords'));
 var_dump($proc->registerPHPFunctions('strpos'));
 var_dump($proc->transformToXml($dom));
---EXPECTF--
+--EXPECT--
 NULL
 NULL
 string(18) "This Is An Example"

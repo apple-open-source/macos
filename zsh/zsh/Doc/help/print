@@ -49,14 +49,16 @@ print [ -abcDilmnNoOpPrsSz ] [ -u n ] [ -f format ] [ -C cols ]
 
        -p     Print the arguments to the input of the coprocess.
 
-       -P     Perform  prompt  expansion  (see  EXPANSION   OF   PROMPT
-              SEQUENCES in zshmisc(1)).
+       -P     Perform prompt expansion (see  EXPANSION  OF  PROMPT  SE-
+              QUENCES in zshmisc(1)).  In combination with `-f', prompt
+              escape sequences are parsed only within interpolated  ar-
+              guments, not within the format string.
 
        -r     Ignore the escape conventions of echo.
 
-       -R     Emulate  the  BSD  echo  command,  which does not process
-              escape sequences unless the -e flag  is  given.   The  -n
-              flag suppresses the trailing newline.  Only the -e and -n
+       -R     Emulate  the BSD echo command, which does not process es-
+              cape sequences unless the -e flag is given.  The -n  flag
+              suppresses  the  trailing  newline.   Only  the -e and -n
               flags are recognized after -R; all  other  arguments  and
               options are printed.
 
@@ -81,12 +83,12 @@ print [ -abcDilmnNoOpPrsSz ] [ -u n ] [ -f format ] [ -C cols ]
        -x tab-stop
               Expand leading tabs on each line of output in the printed
               string  assuming  a  tab  stop every tab-stop characters.
-              This is appropriate  for  formatting  code  that  may  be
-              indented  with tabs.  Note that leading tabs of any argu-
-              ment to print, not just the first, are expanded, even  if
-              print  is  using spaces to separate arguments (the column
-              count is maintained across arguments but may be incorrect
-              on output owing to previous unexpanded tabs).
+              This is appropriate for formatting code that may  be  in-
+              dented with tabs.  Note that leading tabs of any argument
+              to print, not just the first, are expanded, even if print
+              is  using  spaces to separate arguments (the column count
+              is maintained across arguments but may  be  incorrect  on
+              output owing to previous unexpanded tabs).
 
               The  start of the output of each print command is assumed
               to be aligned with a tab stop.  Widths of multibyte char-

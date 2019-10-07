@@ -470,6 +470,7 @@ _pthread_cond_wait(pthread_cond_t *ocond,
 	volatile uint32_t *c_lseqcnt, *c_useqcnt, *c_sseqcnt;
 	uint64_t oldval64, newval64, mugen, cvlsgen;
 	uint32_t *npmtx = NULL;
+	int timeout_elapsed = 0;
 
 	res = _pthread_cond_check_init(cond, NULL);
 	if (res != 0) {
@@ -488,45 +489,57 @@ _pthread_cond_wait(pthread_cond_t *ocond,
 
 	/* send relative time to kernel */
 	if (abstime) {
+		if (abstime->tv_nsec < 0 || abstime->tv_nsec >= NSEC_PER_SEC) {
+			return EINVAL;
+		}
+
 		if (isRelative == 0) {
 			struct timespec now;
 			struct timeval tv;
 			__gettimeofday(&tv, NULL);
 			TIMEVAL_TO_TIMESPEC(&tv, &now);
 
-			/* Compute relative time to sleep */
-			then.tv_nsec = abstime->tv_nsec - now.tv_nsec;
-			then.tv_sec = abstime->tv_sec - now.tv_sec;
-			if (then.tv_nsec < 0) {
-				then.tv_nsec += NSEC_PER_SEC;
-				then.tv_sec--;
-			}
-			if (then.tv_sec < 0 || (then.tv_sec == 0 && then.tv_nsec == 0)) {
-				return ETIMEDOUT;
-			}
-			if (conforming &&
-			    (abstime->tv_sec < 0 ||
-			     abstime->tv_nsec < 0 ||
-			     abstime->tv_nsec >= NSEC_PER_SEC)) {
-				return EINVAL;
+			if ((abstime->tv_sec == now.tv_sec) ?
+				(abstime->tv_nsec <= now.tv_nsec) :
+				(abstime->tv_sec < now.tv_sec)) {
+				timeout_elapsed = 1;
+			} else {
+				/* Compute relative time to sleep */
+				then.tv_nsec = abstime->tv_nsec - now.tv_nsec;
+				then.tv_sec = abstime->tv_sec - now.tv_sec;
+				if (then.tv_nsec < 0) {
+					then.tv_nsec += NSEC_PER_SEC;
+					then.tv_sec--;
+				}
 			}
 		} else {
 			then.tv_sec = abstime->tv_sec;
 			then.tv_nsec = abstime->tv_nsec;
 			if ((then.tv_sec == 0) && (then.tv_nsec == 0)) {
-				return ETIMEDOUT;
+				timeout_elapsed = 1;
 			}
-		}
-		if (conforming && (then.tv_sec < 0 || then.tv_nsec < 0)) {
-			return EINVAL;
-		}
-		if (then.tv_nsec >= NSEC_PER_SEC) {
-			return EINVAL;
 		}
 	}
 
 	if (cond->busy != NULL && cond->busy != mutex) {
 		return EINVAL;
+	}
+
+	/*
+	 * If timeout is known to have elapsed, we still need to unlock and
+	 * relock the mutex to allow other waiters to get in line and
+	 * modify the condition state.
+	 */
+	 if (timeout_elapsed) {
+		res = pthread_mutex_unlock(omutex);
+		if (res != 0) {
+			return res;
+		}
+		res = pthread_mutex_lock(omutex);
+		if (res != 0) {
+			return res;
+		}
+		return ETIMEDOUT;
 	}
 
 	COND_GETSEQ_ADDR(cond, &c_lsseqaddr, &c_lseqcnt, &c_useqcnt, &c_sseqcnt);

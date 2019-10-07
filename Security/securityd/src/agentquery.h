@@ -255,7 +255,7 @@ class QueryKeychainAuth : public SecurityAgentXPCQuery {
 public:
     QueryKeychainAuth()  { }
     // "prompt" can be NULL
-    Reason operator () (const char *database, const char *description, AclAuthorization action, const char *prompt);
+    Reason performQuery(const KeychainDatabase&, const char *description, AclAuthorization action, const char *prompt);
     Reason accept(string &username, string &passphrase);
 };
 

@@ -29,13 +29,6 @@
 #endif // PLATFORM(MAC)
 #import <wtf/SoftLinking.h>
 
-SOFT_LINK_PRIVATE_FRAMEWORK(Reveal)
-SOFT_LINK_PRIVATE_FRAMEWORK(RevealCore)
-SOFT_LINK_CLASS_OPTIONAL(Reveal, RVPresenter)
-SOFT_LINK_CLASS_OPTIONAL(Reveal, RVPresentingContext)
-SOFT_LINK_CLASS_OPTIONAL(RevealCore, RVItem)
-SOFT_LINK_CLASS_OPTIONAL(RevealCore, RVSelection)
-
 #if ENABLE(REVEAL)
 
 #if USE(APPLE_INTERNAL_SDK)
@@ -44,9 +37,9 @@ SOFT_LINK_CLASS_OPTIONAL(RevealCore, RVSelection)
 #import <Reveal/RVPresenter.h>
 #import <Reveal/Reveal.h>
 #endif // PLATFORM(MAC)
+#import <RevealCore/RVItem_Private.h>
 #import <RevealCore/RVSelection.h>
 #import <RevealCore/RevealCore.h>
-
 #else // USE(APPLE_INTERNAL_SDK)
 
 

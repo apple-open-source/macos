@@ -261,6 +261,29 @@ static void tests(void)
 		ok_status(SecTrustSetNetworkFetchAllowed(trust, allow));
 		ok_status(SecTrustGetNetworkFetchAllowed(trust, &curAllow));
 		is((allow == curAllow), true, "network fetch toggle");
+
+        /* <rdar://39514416> ensure trust with revocation policy returns the correct status */
+        SecPolicyRef revocation = SecPolicyCreateRevocation(kSecRevocationUseAnyAvailableMethod);
+        ok_status(SecTrustSetPolicies(trust, revocation));
+        ok_status(SecTrustGetNetworkFetchAllowed(trust, &curAllow));
+        is(curAllow, true, "network fetch set for revocation policy");
+
+        SecPolicyRef basic = SecPolicyCreateBasicX509();
+        CFMutableArrayRef policies = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+        CFArrayAppendValue(policies, basic);
+        CFArrayAppendValue(policies, revocation);
+        ok_status(SecTrustSetPolicies(trust, policies));
+        ok_status(SecTrustGetNetworkFetchAllowed(trust, &curAllow));
+        is(curAllow, true, "network fetch set for basic+revocation policy");
+        CFReleaseNull(revocation);
+        CFReleaseNull(basic);
+        CFReleaseNull(policies);
+
+        revocation = SecPolicyCreateRevocation(kSecRevocationNetworkAccessDisabled);
+        ok_status(SecTrustSetPolicies(trust, revocation));
+        ok_status(SecTrustGetNetworkFetchAllowed(trust, &curAllow));
+        is(curAllow, false, "network fetch not set for revocation policy");
+        CFReleaseNull(revocation);
 	}
 
 	/* Test setting OCSP response data */
@@ -336,7 +359,7 @@ errOut:
 
 int si_70_sectrust_unified(int argc, char *const *argv)
 {
-	plan_tests(27);
+	plan_tests(36);
 	tests();
 
 	return 0;

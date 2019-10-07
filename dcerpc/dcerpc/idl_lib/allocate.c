@@ -115,7 +115,7 @@ typedef struct memlink
     struct memlink *next;
 } memlink;
 
-byte_p_t
+rpc_void_p_t
 rpc_ss_mem_alloc(rpc_ss_mem_handle *handle, size_t bytes)
 {
 
@@ -130,7 +130,7 @@ rpc_ss_mem_alloc(rpc_ss_mem_handle *handle, size_t bytes)
     return result;
 }
 
-byte_p_t
+rpc_void_p_t
 rpc_sm_mem_alloc (rpc_ss_mem_handle *handle, size_t bytes, error_status_t *st)
 {
     memlink* l = (memlink*) handle->alloc(sizeof(memlink));
@@ -145,7 +145,7 @@ rpc_sm_mem_alloc (rpc_ss_mem_handle *handle, size_t bytes, error_status_t *st)
         return NULL;
     }
 
-    l->obj = handle->alloc(bytes);
+    l->obj = handle->alloc((idl_size_t) bytes);
 
     if (l->obj == NULL)
     {

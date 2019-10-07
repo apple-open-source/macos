@@ -1,7 +1,7 @@
 /*
 	File:		MBCController.mm
 	Contains:	The controller tying the various agents together
-	Copyright:	© 2002-2011 by Apple Inc., all rights reserved.
+	Copyright:	ï¿½ 2002-2011 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -382,13 +382,9 @@
 // didBecomeActive = The bool for the turn to become active
 // ============================
 
--(void)player:(GKPlayer *)player receivedTurnEventForMatch:(GKTurnBasedMatch *)match didBecomeActive:(BOOL)didBecomeActive
+- (void)player:(GKPlayer *)player receivedTurnEventForMatch:(GKTurnBasedMatch *)match didBecomeActive:(BOOL)didBecomeActive
 {
-    if (MBCDocument * doc = [self documentForMatch:match]) {
-        [doc showWindows];
-        [doc updateMatchForRemoteMove];
-    } else
-        [MBCDocument processNewMatch:match variant:kVarNormal side:kPlayEither document:nil];
+    [self processUpdatesForMatch:match];
 }
 
 // matchEnded
@@ -398,13 +394,23 @@
 // match = The match in question
 // ============================
 
--(void)player:(GKPlayer *)player matchEnded:(GKTurnBasedMatch *)match
+- (void)player:(GKPlayer *)player matchEnded:(GKTurnBasedMatch *)match
+{
+    [self processUpdatesForMatch:match];
+}
+
+- (void)processUpdatesForMatch:(GKTurnBasedMatch *)match
 {
     if (MBCDocument * doc = [self documentForMatch:match]) {
         [doc showWindows];
         [doc updateMatchForRemoteMove];
-    } else
-        [MBCDocument processNewMatch:match variant:kVarNormal side:kPlayEither document:nil];
+    }
+    else {
+        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+        MBCVariant variant = (MBCVariant)[defaults integerForKey:kMBCNewGameVariant];
+        MBCSideCode side = (MBCSideCode)[defaults integerForKey:kMBCNewGameSides];
+        [MBCDocument processNewMatch:match variant:variant side:side document:nil];
+    }
 }
 
 @end

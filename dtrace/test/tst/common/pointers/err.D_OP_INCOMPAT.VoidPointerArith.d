@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_OP_INCOMPAT.VoidPointerArith.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * May not apply pointer arithmetic to an object of type  void *

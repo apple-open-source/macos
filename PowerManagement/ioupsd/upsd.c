@@ -79,6 +79,7 @@ typedef enum DeviceType {
     kDeviceTypeUPS,
     kDeviceTypeAccessoryBattery,
     kDeviceTypeBatteryCase,
+    kDeviceTypeGameController,
 } DeviceType;
 
 typedef struct UPSData {
@@ -124,7 +125,7 @@ static UPSDataRef GetPrivateData( CFDictionaryRef properties );
 static IOReturn CreatePowerManagerUPSEntry(UPSDataRef upsDataRef,
                                            CFDictionaryRef properties,
                                            CFSetRef capabilities);
-static Boolean SetupMIGServer();
+static Boolean SetupMIGServer(void);
 
 //---------------------------------------------------------------------------
 // Battery case helper functions
@@ -176,9 +177,6 @@ void CleanupAndExit(void) {
         IOObjectRelease(gAddedIter);
         gAddedIter = 0;
     }
-    IOReturn disconnected = kIOPSFamilyCodeDisconnected;
-    CFNumberRef disconnectedFamilyRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &disconnected);
-    BatteryCaseHandleAdapterFamilyChange(NULL, disconnectedFamilyRef);
     exit(0);
 }
 
@@ -359,7 +357,7 @@ void ProcessUPSEventSource(CFTypeRef typeRef, CFRunLoopTimerRef * pTimer, CFRunL
 // its HID usages.
 //---------------------------------------------------------------------------
 
-DeviceType IdentifyDeviceType(io_object_t upsDevice)
+DeviceType IdentifyDeviceType(io_object_t upsDevice, CFDictionaryRef upsProperties)
 {
     DeviceType deviceTypeToReturn = kDeviceTypeUPS; // default to generic UPS
     CFArrayRef usagePairs = IORegistryEntrySearchCFProperty(upsDevice,
@@ -394,6 +392,14 @@ DeviceType IdentifyDeviceType(io_object_t upsDevice)
         }
 
         CFRelease(usagePairs);
+    }
+
+    // All game controllers are explicitly labelled as such by HID
+    if (upsProperties) {
+        CFStringRef categoryRef = CFDictionaryGetValue(upsProperties, CFSTR(kIOPSAccessoryCategoryKey));
+        if (categoryRef && CFEqual(categoryRef, CFSTR(kIOPSAccessoryCategoryGameController))) {
+            deviceTypeToReturn = kDeviceTypeGameController;
+        }
     }
 
     return deviceTypeToReturn;
@@ -520,7 +526,7 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
             upsDataRef->upsEventSource      = upsEventSource;
             upsDataRef->upsEventTimer       = upsEventTimer;
             upsDataRef->isPresent           = true;
-            upsDataRef->deviceType          = IdentifyDeviceType(upsDevice);
+            upsDataRef->deviceType          = IdentifyDeviceType(upsDevice, upsProperties);
             
             kr = (*upsPlugInInterface)->getCapabilities(upsPlugInInterface, &upsCapabilites);
             
@@ -650,11 +656,6 @@ void RemoveAndReleasePowerManagerUPSEntry(UPSDataRef upsDataRef) {
     
     upsDataRef->isPresent = FALSE;
 
-    if (upsDataRef->deviceType == kDeviceTypeBatteryCase) {
-        IOReturn disconnected = kIOPSFamilyCodeDisconnected;
-        CFNumberRef disconnectedFamilyRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &disconnected);
-        BatteryCaseHandleAdapterFamilyChange(upsDataRef, disconnectedFamilyRef);
-    }
     
     if (upsDataRef->upsEventSource) {
         CFRunLoopRemoveSource(CFRunLoopGetCurrent(),
@@ -1018,7 +1019,7 @@ IOReturn CreatePowerManagerUPSEntry(UPSDataRef upsDataRef,
         // rdar://problem/21817316 Initialize battery cases to a max capacity
         // of 0 so they don't show up in UI until we've received the correct
         // value from the device.
-        if (upsDataRef->deviceType == kDeviceTypeBatteryCase) {
+        if (upsDataRef->deviceType == kDeviceTypeBatteryCase || upsDataRef->deviceType == kDeviceTypeGameController) {
             elementValue = 0;
         } else {
             elementValue = 100;
@@ -1035,7 +1036,11 @@ IOReturn CreatePowerManagerUPSEntry(UPSDataRef upsDataRef,
             //  battery capacities, so we want a consistent measure. For now we
             // have settled on percentage of full capacity.
             //
-            elementValue = 100;
+            // rdar://problem/51062434 the HID layer will not report a key
+            // changing until it receives a value different from what it
+            // was initialized to. Since CurrentCapacity initializes to 0
+            // we have to inititialze to 0 as well.
+            elementValue = 0;
             number = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType,
                                     &elementValue);
             CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSCurrentCapacityKey),
@@ -1086,7 +1091,7 @@ IOReturn CreatePowerManagerUPSEntry(UPSDataRef upsDataRef,
             CFRelease(number);
         }
         
-        if (upsDataRef->deviceType == kDeviceTypeAccessoryBattery) {
+        if (upsDataRef->deviceType == kDeviceTypeAccessoryBattery || upsDataRef->deviceType == kDeviceTypeGameController) {
             // This is an accessory battery
             CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSTypeKey), CFSTR(kIOPSAccessoryType));
         }

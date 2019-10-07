@@ -35,6 +35,8 @@
 
 #include "ntlm.h"
 #include <gssapi_spi.h>
+#include "heimcred.h"
+#include "heimbase.h"
 
 OM_uint32
 _gss_ntlm_have_cred(OM_uint32 *minor,
@@ -43,19 +45,31 @@ _gss_ntlm_have_cred(OM_uint32 *minor,
 {
     krb5_context context;
     krb5_error_code ret;
-    krb5_storage *request, *response;
-    krb5_data response_data;
-    OM_uint32 major = GSS_S_FAILURE;
-    ntlm_name cred;
-    kcmuuid_t uuid;
-    ssize_t sret;
+#ifdef HAVE_KCM
+	krb5_storage *request, *response;
+	krb5_data response_data;
+	ssize_t sret;
+#else /* !HAVE_KCM */
+	CFDictionaryRef attrs = NULL;
+	CFMutableDictionaryRef query = NULL;
+	CFArrayRef query_result = NULL;
+	CFIndex query_count = 0;
+	CFDictionaryRef query_entry = NULL;
+	CFStringRef user_cfstr = NULL;
+	CFStringRef domain_cfstr = NULL;
+	CFUUIDRef uuid_cfuuid = NULL;
+	CFUUIDBytes uuid_bytes;
+#endif /* HAVE_KCM */
+	OM_uint32 major = GSS_S_FAILURE;
+	ntlm_name cred;
+	kcmuuid_t uuid;
 
     ret = krb5_init_context(&context);
     if (ret) {
 	*minor = ret;
 	return GSS_S_FAILURE;
     }
-
+#ifdef HAVE_KCM
     ret = krb5_kcm_storage_request(context, KCM_OP_HAVE_NTLM_CRED, &request);
     if (ret)
 	goto out;
@@ -83,7 +97,52 @@ _gss_ntlm_have_cred(OM_uint32 *minor,
 	ret = KRB5_CC_IO;
 	goto out;
     }
+#else /* !HAVE_KCM */
+	user_cfstr = CFStringCreateWithCString(kCFAllocatorDefault, target_name->user,kCFStringEncodingUTF8);
+	if (user_cfstr == NULL)
+		goto out;
+	domain_cfstr = CFStringCreateWithCString(kCFAllocatorDefault, target_name->domain,kCFStringEncodingUTF8);
+	if (domain_cfstr == NULL)
+		goto out;
 
+	const void *add_keys[] = {
+	(void *)kHEIMObjectType,
+		kHEIMAttrType,
+		kHEIMAttrNTLMUsername,
+		kHEIMAttrNTLMDomain
+	};
+	const void *add_values[] = {
+	(void *)kHEIMObjectNTLM,
+		kHEIMTypeNTLM,
+		user_cfstr,
+		domain_cfstr
+	};
+
+	attrs = CFDictionaryCreate(NULL, add_keys, add_values, sizeof(add_keys) / sizeof(add_keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	heim_assert(attrs != NULL, "Failed to create dictionary");
+
+
+	query_result = HeimCredCopyQuery(query);
+
+	if (query_result == NULL)
+		goto out;
+
+	query_count = CFArrayGetCount(query_result);
+	if (query_count == 0)
+		goto out;
+	query_entry = CFArrayGetValueAtIndex(query_result, 0);
+	if (query_entry == NULL)
+		goto out;
+	uuid_cfuuid = CFDictionaryGetValue( query_entry, kHEIMAttrUUID);
+	if (uuid_cfuuid == NULL)
+		goto out;
+	uuid_bytes = CFUUIDGetUUIDBytes(uuid_cfuuid);
+	memcpy(&uuid, &uuid_bytes, sizeof (uuid));
+	uuid_string_t uuid_cstr;
+	uuid_unparse(uuid, uuid_cstr);
+	_gss_mg_log(1, "_gss_ntlm_have_cred  UUID(%s)", uuid_cstr);
+
+#endif /* HAVE_KCM */
     major = _gss_ntlm_duplicate_name(minor, (gss_name_t)target_name,
 				     (gss_name_t *)&cred);
     if (major)
@@ -99,7 +158,16 @@ _gss_ntlm_have_cred(OM_uint32 *minor,
 	*minor = ret;
 	major = GSS_S_FAILURE;
     }
-
+#ifndef HAVE_KCM
+	if (user_cfstr)
+		CFRelease(user_cfstr);
+	if (domain_cfstr)
+		CFRelease(domain_cfstr);
+	if (uuid_cfuuid)
+		CFRelease(uuid_cfuuid);
+	if (query)
+		CFRelease(query);
+#endif /* HAVE_KCM */
     return major;
 }
 
@@ -170,16 +238,26 @@ _gss_ntlm_acquire_cred_ext(OM_uint32 * minor_status,
 {
     ntlm_name name = (ntlm_name) desired_name;
     OM_uint32 major = GSS_S_FAILURE;
-    krb5_storage *request, *response;
-    krb5_data response_data;
     krb5_context context;
     krb5_error_code ret;
     struct ntlm_buf buf;
     krb5_data data;
     ntlm_cred dn;
     kcmuuid_t uuid;
+#ifdef HAVE_KCM
+    krb5_storage *request, *response;
+    krb5_data response_data;
     ssize_t sret;
-
+#else /* !HAVE_KCM */
+	HeimCredRef cred = NULL;
+	CFErrorRef cferr = NULL;
+	CFStringRef user_cfstr = NULL;
+	CFStringRef domain_cfstr = NULL;
+	CFDataRef ntlmhash_cfdata = NULL;
+	CFUUIDRef uuid_cfuuid = NULL;
+	CFUUIDBytes uuid_bytes;
+	CFDictionaryRef attrs = NULL;
+#endif /* HAVE_KCM */
     if (credential_data == NULL)
 	return GSS_S_FAILURE;
 
@@ -213,7 +291,7 @@ _gss_ntlm_acquire_cred_ext(OM_uint32 * minor_status,
 
     data.data = buf.data;
     data.length = buf.length;
-	
+#ifdef HAVE_KCM
     krb5_kcm_storage_request(context, KCM_OP_ADD_NTLM_CRED, &request);
 	
     krb5_store_stringz(request, name->user);
@@ -235,6 +313,50 @@ _gss_ntlm_acquire_cred_ext(OM_uint32 * minor_status,
 	ret = KRB5_CC_IO;
 	goto out;
     }
+#else /* !HAVE_KCM */
+	/* store in NTLM credential  cache */
+	 /* username domain nthash <UUID> */
+	user_cfstr = CFStringCreateWithCString(kCFAllocatorDefault, name->user,kCFStringEncodingUTF8);
+	if (user_cfstr == NULL)
+		goto out;
+	domain_cfstr = CFStringCreateWithCString(kCFAllocatorDefault, name->domain,kCFStringEncodingUTF8);
+	if (domain_cfstr == NULL)
+		goto out;
+	ntlmhash_cfdata = CFDataCreate(kCFAllocatorDefault, data.data, data.length);
+	if (ntlmhash_cfdata == NULL)
+		goto out;
+
+	const void *add_keys[] = {
+	(void *)kHEIMObjectType,
+			kHEIMAttrType,
+			kHEIMAttrNTLMUsername,
+			kHEIMAttrNTLMDomain,
+			kHEIMAttrData
+	};
+	const void *add_values[] = {
+	(void *)kHEIMObjectNTLM,
+			kHEIMTypeNTLM,
+			user_cfstr,
+			domain_cfstr,
+			ntlmhash_cfdata
+	};
+
+	attrs = CFDictionaryCreate(NULL, add_keys, add_values, sizeof(add_keys) / sizeof(add_keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	heim_assert(attrs != NULL, "Failed to create dictionary");
+
+	// TODO check for duplicate in GSSCred? HeimCredCopyQuery <OR>  handled in _gss_ntlm_have_cred
+	cred = HeimCredCreate(attrs, &cferr);
+	if (cred == NULL)
+		goto out;
+	uuid_cfuuid = HeimCredGetUUID(cred);
+	if (uuid_cfuuid == NULL)
+		goto out;
+	uuid_bytes = CFUUIDGetUUIDBytes(uuid_cfuuid);
+	memcpy(&uuid, &uuid_bytes, sizeof (uuid));
+	uuid_string_t uuid_cstr;
+	uuid_unparse(uuid, uuid_cstr);
+	_gss_mg_log(1, "_gss_ntlm_acquire_cred_ext name(%s) domain(%s) UUID(%s)", name->user, name->domain, uuid_cstr);
+#endif /* HAVE_KCM */
 
     heim_ntlm_free_buf(&buf);
 
@@ -258,5 +380,19 @@ _gss_ntlm_acquire_cred_ext(OM_uint32 * minor_status,
     if (ret)
 	major = GSS_S_FAILURE;
 
+#ifndef HAVE_KCM /* GSSCred */
+	if (user_cfstr)
+		CFRelease(user_cfstr);
+	if (domain_cfstr)
+		CFRelease(domain_cfstr);
+	if (ntlmhash_cfdata)
+		CFRelease(ntlmhash_cfdata);
+	if (uuid_cfuuid)
+		CFRelease(uuid_cfuuid);
+	if (attrs)
+		CFRelease(attrs);
+	if (cred)
+		CFRelease(cred);
+#endif
     return major;
 }

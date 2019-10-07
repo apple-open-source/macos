@@ -64,7 +64,7 @@
 extern struct TcpSession session;
 
 void usage (char *name);
-int GetCannonicalInfo(char *string, u_int32_t *address);
+int GetCannonicalInfo(char *string, size_t str_size, u_int32_t *address);
 int BindTcpPort(int sockfd) ;
 
 void usage(char *name)
@@ -179,7 +179,7 @@ void SigHandle(int signo)
 	exit(-1);
 }
 
-int GetCannonicalInfo(char *string, u_int32_t *address)
+int GetCannonicalInfo(char *string, size_t str_size, u_int32_t *address)
 {
 	struct hostent *hp;
 	/* Is string in dotted decimal format? */
@@ -191,7 +191,7 @@ int GetCannonicalInfo(char *string, u_int32_t *address)
 			    "RETURN CODE: %d\n", string, FAIL);
 			return(-1);
 		} else {
-			strncpy(string, hp->h_name, MAXHOSTNAMELEN-1);
+			strlcpy(string, hp->h_name, str_size);
 			memcpy((void *)address, (void *)hp->h_addr,
 			    hp->h_length);
 		}
@@ -207,9 +207,9 @@ int GetCannonicalInfo(char *string, u_int32_t *address)
 				    " name for %s\nRETURN CODE: %d",
 				    string, NO_SRC_CANON_INFO);
       			}
-			/* strncpy(name, string, MAXHOSTNAMELEN - 1);*/
+			/* strlcpy(name, string, MAXHOSTNAMELEN);*/
 		} else {
-			/* strncpy(name, hp->h_name, MAXHOSTNAMELEN - 1);*/
+			/* strlcpy(name, hp->h_name, MAXHOSTNAMELEN);*/
 		}
 	}
 	return(0);
@@ -288,10 +288,10 @@ int main(int argc, char **argv)
 					printf("Target host name too long, max %u chars\n", MAXHOSTNAMELEN);
 					Quit(FAIL);
 				}
-				strncpy(session.targetHostName, optarg,
-					MAXHOSTNAMELEN);
-				strncpy(session.targetName, session.targetHostName,
-					MAXHOSTNAMELEN);
+				strlcpy(session.targetHostName, optarg,
+					sizeof(session.targetHostName));
+				strlcpy(session.targetName, session.targetHostName,
+					sizeof(session.targetName));
 				break;
 			case 'p':
 				targetPort = atoi(optarg);
@@ -310,7 +310,7 @@ int main(int argc, char **argv)
 					printf("Source host name too long, max %u chars\n", MAXHOSTNAMELEN);
 					Quit(FAIL);
 				}
-				strncpy(session.sourceHostName, optarg,
+				strlcpy(session.sourceHostName, optarg,
 					MAXHOSTNAMELEN);
 				break;
 			case 'd':
@@ -319,7 +319,7 @@ int main(int argc, char **argv)
 					Quit(FAIL);
 				}
 				bzero(dev, sizeof(dev));
-				strncpy(dev, optarg, (sizeof(dev) - 1));
+				strlcpy(dev, optarg, sizeof(dev));
 				usedev = 1;
 				break;
 			case 'f':
@@ -367,18 +367,12 @@ int main(int argc, char **argv)
 	signal(SIGINT, SigHandle);
 	signal(SIGHUP, SigHandle);
 
-	if (GetCannonicalInfo(session.targetHostName, &targetIpAddress) < 0)
+	if (GetCannonicalInfo(session.targetHostName, sizeof(session.targetHostName),
+			      &targetIpAddress) < 0)
 	{
 		printf("Failed to convert targetIP address\n");
 		Quit(NO_TARGET_CANON_INFO);
 	}
-	/*
-	 if (GetCannonicalInfo(session.sourceHostName, &sourceIpAddress) < 0)
-	 {
-		printf("Failed to convert source IP address\n");
-		Quit(NO_TARGET_CANON_INFO);
-	 }
-	 */
 	rc = getifaddrs(&ifap);
 	if (rc != 0 || ifap == NULL) {
 		printf("Failed to get source addresswith getifaddrs: %d\n", rc);
@@ -398,9 +392,9 @@ int main(int argc, char **argv)
 			if (strcmp(dev, tmp->ifa_name) == 0) {
 				sin = (struct sockaddr_in *)tmp->ifa_addr;
 				sourceIpAddress = sin->sin_addr.s_addr;
-				strncpy(session.sourceHostName,
+				strlcpy(session.sourceHostName,
 					inet_ntoa(sin->sin_addr),
-					MAXHOSTNAMELEN);
+					sizeof(session.sourceHostName));
 			} else {
 				continue;
 			}
@@ -409,10 +403,10 @@ int main(int argc, char **argv)
 			bzero(dev, sizeof(dev));
 			sin = (struct sockaddr_in *)tmp->ifa_addr;
 			sourceIpAddress = sin->sin_addr.s_addr;
-			strncpy(session.sourceHostName,
+			strlcpy(session.sourceHostName,
 				inet_ntoa(sin->sin_addr),
-				MAXHOSTNAMELEN);
-			strncpy(dev, tmp->ifa_name, sizeof(dev));
+				sizeof(session.sourceHostName));
+			strlcpy(dev, tmp->ifa_name, sizeof(dev));
 		}
 	}
 	freeifaddrs(ifap);

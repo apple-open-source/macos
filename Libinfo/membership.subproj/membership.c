@@ -283,6 +283,7 @@ mbr_identifier_translate(int id_type, const void *identifier, size_t identifier_
 					(*result) = tempRes;
 					return 0;
 				}
+				free(tempRes);
 			}
 			break;
 			
@@ -648,7 +649,10 @@ mbr_reset_cache()
 {
 #ifdef DS_AVAILABLE
 	MBR_OS_ACTIVITY("Membership API: Flush the membership cache");
-	_od_rpc_call("mbr_cache_flush", NULL, _mbr_xpc_pipe);
+	xpc_object_t result = _od_rpc_call("mbr_cache_flush", NULL, _mbr_xpc_pipe);
+	if (result) {
+		xpc_release(result);
+	}
 	return 0;
 #else
 	return EIO;

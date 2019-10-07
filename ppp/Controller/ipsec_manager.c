@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2014, 2017-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2014, 2017, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -148,7 +148,7 @@ struct isakmp_xauth {
 };
 
 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 // extra CFUserNotification keys
 static CFStringRef const SBUserNotificationTextAutocapitalizationType = CFSTR("SBUserNotificationTextAutocapitalizationType");
 static CFStringRef const SBUserNotificationTextAutocorrectionType = CFSTR("SBUserNotificationTextAutocorrectionType");
@@ -212,11 +212,11 @@ int ipsec_init_things()
     // TO DO: save each configuration and remove them upon configd restart, 
     // in case they are leftover after a crash.
     
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
     // currently only VPN uses IPSec on embedded
     // Do not flush SAs, so as to not interfere with other configurations
     //IPSecFlushAll();
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* !TARGET_OS_OSX */
 
     return 0;
 }
@@ -455,7 +455,7 @@ int ipsec_dispose_service(struct service *serv)
         return 1;
     free_service_routes(serv);
 	my_CFRelease(&serv->systemprefs);
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 	// serv->profileIdentifier is always retained.
 	my_CFRelease(&serv->profileIdentifier);
 #endif
@@ -544,7 +544,7 @@ int ipsec_setup_service(struct service *serv)
 	getNumber(serv->systemprefs, CFSTR("ConnectionPersist"), &lval);
 	if (lval) serv->flags |= FLAG_SETUP_PERSISTCONNECTION;
 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 	if (CFDictionaryContainsKey(serv->systemprefs, CFSTR("ProfileIdentifier"))) {
 		my_CFRelease(&serv->profileIdentifier);
 		serv->profileIdentifier = my_CFRetain(CFDictionaryGetValue(serv->systemprefs, CFSTR("ProfileIdentifier")));
@@ -590,11 +590,9 @@ void ipsec_user_notification_callback(struct service *serv, CFUserNotificationRe
 		switch (serv->u.ipsec.phase) {
 			case IPSEC_IDLE:
 				if (IPSEC_STATUS_IS_CLIENT_CERTIFICATE_INVALID(serv->u.ipsec.laststatus)) {
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 					if (serv->ne_sm_bridge) {
 						ne_sm_bridge_start_profile_janitor(serv->ne_sm_bridge, serv->profileIdentifier);
-					} else {
-						start_profile_janitor(serv);
 					}
 #endif
 				}
@@ -607,7 +605,7 @@ void ipsec_user_notification_callback(struct service *serv, CFUserNotificationRe
 		}
 	}
  
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 	if (serv->u.ipsec.phase != IPSEC_PHASE1AUTH)
 		return;
 #else
@@ -649,7 +647,7 @@ void ipsec_user_notification_callback(struct service *serv, CFUserNotificationRe
 	}
 	
 	// note: isakmp_nb can be 0. for exmple, sometime the server just pushes a message information, and we just need to acknowledge
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 	if (serv->u.ipsec.timerref) {
 		CFRunLoopTimerSetNextFireDate(serv->u.ipsec.timerref, CFAbsoluteTimeGetCurrent() + TIMEOUT_PHASE1);
 	}
@@ -661,7 +659,7 @@ void ipsec_user_notification_callback(struct service *serv, CFUserNotificationRe
 		}
 		ipsec_updatephase(serv, IPSEC_PHASE1);
 	}
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* !TARGET_OS_OSX */
 	racoon_send_cmd_xauthinfo(serv->u.ipsec.controlfd, serv->u.ipsec.peer_address.sin_addr.s_addr, isakmp_array, isakmp_nb);
 
 }
@@ -716,7 +714,7 @@ static boolean_t checkpassword(struct service *serv, int must_prompt)
  ----------------------------------------------------------------------------- */
 static CFStringRef copy_decrypted_password(struct service *serv)
 {
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 	SCNetworkInterfaceRef	interface = NULL;
 	SCNetworkServiceRef		service = NULL;
 	SCPreferencesRef		prefs = NULL;
@@ -728,7 +726,7 @@ static CFStringRef copy_decrypted_password(struct service *serv)
 	passwdencryption = isA_CFString(passwdencryption);
 	if (passwdencryption
 		&& CFStringCompare(passwdencryption, kSCValNetIPSecXAuthPasswordEncryptionKeychain, 0) == kCFCompareEqualTo) {
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 			// TO DO:
 			// currently, password is given inline in SCNetworkConnectionStart
 			// needs t implement keychain support later
@@ -772,7 +770,7 @@ static CFStringRef copy_decrypted_password(struct service *serv)
 			CFRetain(decryptedpasswd);
 	}
 	
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 done:
 	if (prefs != NULL) {
         CFRelease(prefs);
@@ -796,14 +794,14 @@ int ask_user_xauth(struct service *serv, char* message)
     CFMutableArrayRef 		array;
 	CFIndex  secure_field = 0;
 	int		ret = 0;
-#if TARGET_OS_EMBEDDED
-	int		nbfields = 0;
+#if !TARGET_OS_OSX
+	CFIndex		nbfields = 0;
 #endif
 
     if ((serv->flags & FLAG_ALERTPASSWORDS) == 0)
         return -1;
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     if (serv->flags & FLAG_DARKWAKE)
         return -1;
 #endif
@@ -861,7 +859,7 @@ int ask_user_xauth(struct service *serv, char* message)
 			}
 		}
 		
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 		nbfields = CFArrayGetCount(array);
 #endif
 		CFDictionaryAddValue(dict, kCFUserNotificationTextFieldTitlesKey, array);
@@ -886,7 +884,7 @@ int ask_user_xauth(struct service *serv, char* message)
 		}
 	}
 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 	if (nbfields > 0) {
 		CFMutableArrayRef autoCapsTypes = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 		CFMutableArrayRef autoCorrectionTypes = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
@@ -1078,7 +1076,7 @@ static int process_xauth_need_info(struct service *serv)
 					isakmp_nb++;
 				}
 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 				if (serv->u.ipsec.timerref) {
 					CFRunLoopTimerSetNextFireDate(serv->u.ipsec.timerref, CFAbsoluteTimeGetCurrent() + TIMEOUT_PHASE1);
 				}
@@ -1090,7 +1088,7 @@ static int process_xauth_need_info(struct service *serv)
 					}
 					ipsec_updatephase(serv, IPSEC_PHASE1);
 				}
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* !TARGET_OS_OSX */
 				racoon_send_cmd_xauthinfo(serv->u.ipsec.controlfd, serv->u.ipsec.peer_address.sin_addr.s_addr, isakmp_array, isakmp_nb);
 				if (password)
 					CFRelease(password);
@@ -1250,9 +1248,9 @@ static void print_racoon_msg(struct service *serv)
 				break;
 
 			case VPNCTL_STATUS_NEED_AUTHINFO:
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 			case VPNCTL_STATUS_NEED_REAUTHINFO:
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 				cmd_xauth_info = ALIGNED_CAST(struct vpnctl_cmd_xauth_info *)serv->u.ipsec.msg;
 				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	----------------------------"));
 				addr.s_addr = cmd_xauth_info->address;
@@ -1488,7 +1486,7 @@ static void process_racoon_msg(struct service *serv)
 				IPSECLOGASLMSG("IPSec Phase2 established.\n");
 				break;
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 			case VPNCTL_STATUS_NEED_REAUTHINFO:
 				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: REAUTHINFO. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
 				if (serv->u.ipsec.phase != IPSEC_RUNNING && !IPSEC_IS_ASSERTED_PHASE1(serv->u.ipsec))
@@ -1505,7 +1503,7 @@ static void process_racoon_msg(struct service *serv)
 					ipsec_stop(serv, 0);
 				}
 				break;
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 
 			case VPNCTL_STATUS_PEER_RESP:
 				ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: PEER RESP. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
@@ -1568,7 +1566,8 @@ static int
 racoon_trigger_phase2(char *ifname, struct in_addr *ping)
 {
 	struct icmp *icp;
-	int cc, i, j, nbping;    
+	int cc, j, nbping;
+	long i;
 	struct sockaddr_in whereto;	/* who to ping */
 	uint8_t data[256] __attribute__ ((aligned (4)));
 	int s, ifindex;
@@ -1605,7 +1604,7 @@ racoon_trigger_phase2(char *ifname, struct in_addr *ping)
 
 	for (j = 0; j <= nbping; j++) {
 		i = sendto(s, data, cc, 0, (struct sockaddr *)&whereto, sizeof(whereto));
-		ipsec_log(LOG_ERR, CFSTR("racoon_trigger_phase2 sent ping, wrote %d"), i);
+		ipsec_log(LOG_ERR, CFSTR("racoon_trigger_phase2 sent ping, wrote %ld"), i);
 		if (i < cc) {
 			close(s);
 			return -1;
@@ -1670,7 +1669,7 @@ static Boolean add_ipv4_route (CFMutableArrayRef routesArray, uint32_t address, 
 static CFArrayRef create_ipv4_route_array(struct service *serv, CFDictionaryRef ipsec_dict, struct in_addr gateway)
 {
 	CFMutableArrayRef routesArray = NULL;
-	int	i, nb;
+	CFIndex	i, nb;
 	CFArrayRef policies = NULL;
 	struct sockaddr_in remote_net;
 	char str[32];
@@ -1909,7 +1908,7 @@ static void install_mode_config(struct service *serv, Boolean installConfig, Boo
 	
 	u_int8_t *modecfg_msg = serv->u.ipsec.modecfg_msg;
 	u_int32_t modecfg_msglen = serv->u.ipsec.modecfg_msglen;
-	struct vpnctl_hdr *ctl_hdr = (struct vpnctl_hdr *)modecfg_msg;
+	struct vpnctl_hdr *ctl_hdr = ALIGNED_CAST(struct vpnctl_hdr *)modecfg_msg;
 	if (modecfg_msg == NULL) {
 		modecfg_msg = serv->u.ipsec.msg;
 		modecfg_msglen = serv->u.ipsec.msglen;
@@ -2297,7 +2296,7 @@ int racoon_send_cmd_reconnect(int fd, u_int32_t address)
 	cmd_reconnect->hdr.msg_type = htons(VPNCTL_CMD_RECONNECT);
 	cmd_reconnect->address = address;
 	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: sending RECONNECT to racoon control socket"));
-	write_packet(fd, cmd_reconnect, sizeof(*cmd_reconnect));
+	write_packet(fd, (const uint8_t *)cmd_reconnect, sizeof(*cmd_reconnect));
 	return 0;
 }
 
@@ -2398,7 +2397,7 @@ static u_int32_t get_interface_timeout (u_int32_t interface_media, uint32_t flag
 		scaled_interface_timeout = TIMEOUT_INTERFACE_CHANGE_FOR_ONDEMAND;
 	} else {
 		scaled_interface_timeout = TIMEOUT_INTERFACE_CHANGE;
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 		// increase the timeout if we're waiting for a wireless interface
 		if (IFM_TYPE(interface_media) == IFM_IEEE80211) {
 		    scaled_interface_timeout = (TIMEOUT_INTERFACE_CHANGE << 2);
@@ -3028,7 +3027,7 @@ void dns_start_query_callback(int32_t status, struct addrinfo *res, void *contex
 
 				for (i = 0; i < nat64_prefixes; i++) {
 					bzero(&extracted_ipv4_address, sizeof(struct in_addr));
-					if (nw_nat64_extract_v4(&prefixes[i], &(((struct sockaddr_in6 *)resP->ai_addr)->sin6_addr), &extracted_ipv4_address)) {
+					if (nw_nat64_extract_v4(&prefixes[i], &((ALIGNED_CAST(struct sockaddr_in6 *)resP->ai_addr)->sin6_addr), &extracted_ipv4_address)) {
 						break;
 					}
 				}
@@ -3237,7 +3236,7 @@ int racoon_send_cmd_connect(int fd, u_int32_t address)
 	cmd_connect->hdr.msg_type = htons(VPNCTL_CMD_CONNECT);
 	cmd_connect->address = address;
 	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: sending CONNECT to racoon control socket"));
-	write_packet(fd, cmd_connect, sizeof(struct vpnctl_cmd_connect));
+	write_packet(fd, (const uint8_t *)cmd_connect, sizeof(struct vpnctl_cmd_connect));
 	IPSECLOGASLMSG("IPSec Phase1 starting.\n"); // connect command triggers phase1
 	return 0;
 }
@@ -3254,7 +3253,7 @@ int racoon_send_cmd_disconnect(int fd, u_int32_t address)
 	cmd_connect->hdr.msg_type = htons(VPNCTL_CMD_DISCONNECT);
 	cmd_connect->address = address;
 	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: sending DISCONNECT to racoon control socket, address 0x%x"), ntohl(address));
-	write_packet(fd, cmd_connect, sizeof(struct vpnctl_cmd_connect));
+	write_packet(fd, (const uint8_t *)cmd_connect, sizeof(struct vpnctl_cmd_connect));
 	return 0;
 }
 
@@ -3270,7 +3269,7 @@ int racoon_send_cmd_start_dpd(int fd, u_int32_t address)
 	cmd_start_dpd->hdr.msg_type = htons(VPNCTL_CMD_START_DPD);
 	cmd_start_dpd->address = address;
 	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: sending START_DPD to racoon control socket"));
-	write_packet(fd, cmd_start_dpd, sizeof(struct vpnctl_cmd_start_dpd));
+	write_packet(fd, (const uint8_t *)cmd_start_dpd, sizeof(struct vpnctl_cmd_start_dpd));
 	return 0;
 }
 
@@ -3284,7 +3283,7 @@ int racoon_send_cmd_bind(int fd, u_int32_t address, char *version)
 	int vers_len = 0;
 	
 	if (version)
-		vers_len = strlen(version);
+		vers_len = (int)strlen(version);
 		
 	bzero(cmd_bind, sizeof(struct vpnctl_cmd_bind));
 	cmd_bind->hdr.len = htons(sizeof(struct vpnctl_cmd_bind) - sizeof(struct vpnctl_hdr) + vers_len);
@@ -3292,9 +3291,9 @@ int racoon_send_cmd_bind(int fd, u_int32_t address, char *version)
 	cmd_bind->address = address;
 	cmd_bind->vers_len = htons(vers_len);
 	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: sending BIND to racoon control socket"));
-	write_packet(fd, cmd_bind, sizeof(struct vpnctl_cmd_bind));
+	write_packet(fd, (const uint8_t *)cmd_bind, sizeof(struct vpnctl_cmd_bind));
 	if (vers_len)
-		write_packet(fd, version, vers_len);
+		write_packet(fd, (const uint8_t *)version, vers_len);
 	return 0;
 }
 
@@ -3310,7 +3309,7 @@ int racoon_send_cmd_set_nat64_prefix(int fd, nw_nat64_prefix_t *nat64_prefix)
 	cmd_nat64->hdr.msg_type = htons(VPNCTL_CMD_SET_NAT64_PREFIX);
 	memcpy(&cmd_nat64->nat64_prefix, nat64_prefix, sizeof(cmd_nat64->nat64_prefix));
 	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: sending SET_NAT64_PREFIX to racoon control socket"));
-	write_packet(fd, cmd_nat64, sizeof(struct vpnctl_cmd_set_nat64_prefix));
+	write_packet(fd, (const uint8_t *)cmd_nat64, sizeof(struct vpnctl_cmd_set_nat64_prefix));
 	return 0;
 }
 
@@ -3326,7 +3325,7 @@ int racoon_send_cmd_unbind(int fd, u_int32_t address)
 	cmd_unbind->hdr.msg_type = htons(VPNCTL_CMD_UNBIND);
 	cmd_unbind->address = address;
 	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: sending UNBIND to racoon control socket"));
-	write_packet(fd, cmd_unbind, sizeof(struct vpnctl_cmd_unbind));
+	write_packet(fd, (const uint8_t *)cmd_unbind, sizeof(struct vpnctl_cmd_unbind));
 	return 0;
 }
 
@@ -3339,14 +3338,14 @@ int racoon_send_cmd_start_ph2(int fd, u_int32_t address, CFDictionaryRef ipsec_d
 	struct		vpnctl_algo	*algo;
 	int			policy_count;
 	u_int16_t	selector_count = 0;
-	int			nb, i;
+	CFIndex		nb, i;
     char		src_address[256], dst_address[256], str[256];
 	CFArrayRef	policies;
 	CFIndex		start, end;
 	size_t		bufsiz, msglen;
-	char		*errstr = '\0';
+	char		*errstr = "";
 	
-#define NB_ALGOS 6
+#define NB_ALGOS 7
 	
 	policy_count = IPSecCountPolicies(ipsec_dict);
 	if (policy_count <= 0) {
@@ -3555,6 +3554,12 @@ int racoon_send_cmd_start_ph2(int fd, u_int32_t address, CFDictionaryRef ipsec_d
 	algo->algo_class = htons(algclass_ipsec_enc);
 	algo->algo = htons(algtype_3des);
 	algo->key_len = htons(0);
+
+	p += sizeof(struct vpnctl_algo);
+	algo = ALIGNED_CAST(struct vpnctl_algo *)p;
+	algo->algo_class = htons(algclass_ipsec_auth);
+	algo->algo = htons(algtype_hmac_sha2_256);
+	algo->key_len = htons(0);
 	
 	p += sizeof(struct vpnctl_algo);
 	algo = ALIGNED_CAST(struct vpnctl_algo *)p;
@@ -3580,7 +3585,7 @@ int racoon_send_cmd_start_ph2(int fd, u_int32_t address, CFDictionaryRef ipsec_d
 	cmd_start_ph2->hdr.len = htons(msglen - sizeof(struct vpnctl_hdr));
 
 	ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller: sending START_PH2 to racoon control socket"));
-	write_packet(fd, cmd_start_ph2, msglen);
+	write_packet(fd, (const uint8_t *)cmd_start_ph2, msglen);
 	IPSECLOGASLMSG("IPSec Phase2 starting.\n");
 
 	free(cmd_start_ph2);
@@ -3616,7 +3621,7 @@ write_barrier(int sock)
 
 	dispatch_activate(write_source);
 
-	int retval = dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 250 * NSEC_PER_MSEC));
+	int retval = (int)dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 250 * NSEC_PER_MSEC));
 	dispatch_source_cancel(write_source);
 	dispatch_release(write_source);
 	dispatch_release(sem);
@@ -3628,9 +3633,9 @@ write_barrier(int sock)
 static void
 write_packet(int sock, const uint8_t *buffer, size_t len)
 {
-	int total_sent = 0;
+	ssize_t total_sent = 0;
 	while (total_sent < len) {
-		int sent = write(sock, buffer + total_sent, len - total_sent);
+		ssize_t sent = write(sock, buffer + total_sent, len - total_sent);
 		if (sent > 0) {
 			total_sent += sent;
 		} else {
@@ -3657,7 +3662,7 @@ write_packet(int sock, const uint8_t *buffer, size_t len)
 		}
 	}
 
-	ipsec_log(LOG_NOTICE, CFSTR("Sent %d/%zu bytes"), total_sent, len);
+	ipsec_log(LOG_NOTICE, CFSTR("Sent %zd/%zu bytes"), total_sent, len);
 }
 
 /* -----------------------------------------------------------------------------
@@ -3675,7 +3680,7 @@ int racoon_send_cmd_assert (struct service *serv)
 	msg.dst_address = serv->u.ipsec.peer_address.sin_addr.s_addr;
 	msg.hdr.len = htons(sizeof(msg) - sizeof(msg.hdr));;
 
-	write_packet(serv->u.ipsec.controlfd, &msg, sizeof(msg));
+	write_packet(serv->u.ipsec.controlfd, (const uint8_t *)&msg, sizeof(msg));
 	serv->u.ipsec.ping_count = 0;
 
 	IPSEC_ASSERT_IDLE(serv->u.ipsec);
@@ -3791,7 +3796,7 @@ int racoon_restart_cisco_ipsec(struct service *serv, struct sockaddr_in *address
 			(struct sockaddr *)&serv->u.ipsec.lower_gateway, sizeof(serv->u.ipsec.lower_gateway));
 	}
 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 	if (serv->u.ipsec.lower_interface[0]) {
 		// Mark interface as cellular based on NWI
 		serv->u.ipsec.lower_interface_cellular = interface_is_cellular(serv->u.ipsec.lower_interface);
@@ -3818,7 +3823,7 @@ int racoon_restart_cisco_ipsec(struct service *serv, struct sockaddr_in *address
 		}
 	}
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     serv->u.ipsec.lower_interface_media = get_if_media(serv->u.ipsec.lower_interface);
     serv->u.ipsec.timeout_lower_interface_change = get_interface_timeout(serv->u.ipsec.lower_interface_media, serv->flags);
 #else
@@ -4082,7 +4087,7 @@ fail:
     return serv->u.ipsec.laststatus;
 }
 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 /* -----------------------------------------------------------------------------
  ----------------------------------------------------------------------------- */
 void ipsec_cellular_event(struct service *serv, int event)
@@ -4235,7 +4240,7 @@ int ipsec_start(struct service *serv, CFDictionaryRef options, uid_t uid, gid_t 
 		}
 	}
 	
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 	{
 		/* first, bring up Cellular */
 		int need_cellular = FALSE;
@@ -4355,7 +4360,7 @@ void ipsec_updatephase(struct service *serv, int phase)
 static void
 ipsec_check_for_disconnect_by_recoverable_error (struct service *serv, u_int32_t *flags)
 {
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 	if (serv->was_running &&
 		!serv->persist_connect &&
 		(serv->flags & (FLAG_FREE | FLAG_ONTRAFFIC | FLAG_ONDEMAND | FLAG_CONNECT | FLAG_SETUP_PERSISTCONNECTION)) == FLAG_SETUP_PERSISTCONNECTION &&
@@ -4374,7 +4379,7 @@ ipsec_check_for_disconnect_by_recoverable_error (struct service *serv, u_int32_t
 static int
 ipsec_persist_connection (struct service *serv, u_int32_t flags, int retry_dhgroup2)
 {
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 	if (serv->persist_connect || retry_dhgroup2)
 #else 
     if (retry_dhgroup2)
@@ -4421,7 +4426,7 @@ ipsec_persist_connection (struct service *serv, u_int32_t flags, int retry_dhgro
         if (retry_dhgroup2) {
 			racoon_restart_cisco_ipsec(serv, &serv->u.ipsec.peer_address, &serv->u.ipsec.nat64_prefix, 1);
         }
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
         else {
 			racoon_restart_cisco_ipsec(serv, &serv->u.ipsec.peer_address, &serv->u.ipsec.nat64_prefix, 0);
             serv->persist_connect = 0;
@@ -4595,7 +4600,7 @@ int ipsec_stop(struct service *serv, int signal)
 		my_CFRelease(&serv->u.ipsec.interface_timerref);
 	}
 
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 	if (gNattKeepAliveInterval != -1) {
 		int newval = gNattKeepAliveInterval;
 		sysctlbyname("net.key.natt_keepalive_interval", 0, 0, &newval, sizeof(newval));	
@@ -4610,7 +4615,7 @@ int ipsec_stop(struct service *serv, int signal)
 	my_CFRelease(&serv->u.ipsec.port_mapping_timerrun);
 
 	if (IPSEC_STATUS_IS_CLIENT_CERTIFICATE_INVALID(serv->u.ipsec.laststatus)) {
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 		if (serv->profileIdentifier) {
 			CFStringRef msg = CFStringCreateWithFormat(0, 0, CFSTR("IPSec Error %d, Re-enroll"), serv->u.ipsec.laststatus);
 			if (msg) {
@@ -4947,7 +4952,7 @@ void display_notification(struct service *serv, CFStringRef message, int errnum,
 				return;				
 			case IPSEC_NETWORKCHANGE_ERROR: /* IPSec Error 15 */
 				return;
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 			/* Errors 16, 17, 19 are not displayed on embedded os */
 			case IPSEC_PEERDISCONNECT_ERROR: /* IPSec Error 16 */
 			case IPSEC_PEERDEADETECTION_ERROR: /* IPSec Error 17 */

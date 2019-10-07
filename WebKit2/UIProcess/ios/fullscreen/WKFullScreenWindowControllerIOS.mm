@@ -132,7 +132,9 @@ struct WKWebViewState {
         _savedObscuredInsets = [webView _obscuredInsets];
         _savedEdgeInset = [[webView scrollView] contentInset];
         _savedContentOffset = [[webView scrollView] contentOffset];
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         _savedScrollIndicatorInsets = [[webView scrollView] scrollIndicatorInsets];
+ALLOW_DEPRECATED_DECLARATIONS_END
         if (auto* page = webView._page) {
             _savedTopContentInset = page->topContentInset();
             _savedForceAlwaysUserScalable = page->forceAlwaysUserScalable();
@@ -487,6 +489,15 @@ static const NSTimeInterval kAnimationDuration = 0.2;
 #pragma mark -
 #pragma mark External Interface
 
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WKFullScreenWindowControllerIOSAdditions.mm>
+#else
+static RetainPtr<UIWindow> makeWindowFromView(UIView *)
+{
+    return adoptNS([[UIWindow alloc] init]);
+}
+#endif
+
 - (void)enterFullScreen
 {
     if ([self isFullScreen])
@@ -502,7 +513,7 @@ static const NSTimeInterval kAnimationDuration = 0.2;
 
     _fullScreenState = WebKit::WaitingToEnterFullScreen;
 
-    _window = adoptNS([[UIWindow alloc] init]);
+    _window = makeWindowFromView(webView.get());
     [_window setBackgroundColor:[UIColor clearColor]];
     [_window setWindowLevel:UIWindowLevelNormal - 1];
     [_window setHidden:NO];
@@ -724,13 +735,14 @@ static const NSTimeInterval kAnimationDuration = 0.2;
 
     [CATransaction commit];
 
-    [_window setHidden:YES];
-    _window = nil;
-
     if (auto* manager = self._manager) {
+        manager->restoreScrollPosition();
         manager->setAnimatingFullScreen(false);
         manager->didExitFullScreen();
     }
+
+    [_window setHidden:YES];
+    _window = nil;
 
     if (_repaintCallback) {
         _repaintCallback->invalidate(WebKit::CallbackBase::Error::OwnerWasInvalidated);
@@ -862,10 +874,6 @@ static const NSTimeInterval kAnimationDuration = 0.2;
     WebKit::replaceViewWithView(_webViewPlaceholder.get(), webView.get());
     if (auto* page = [webView _page])
         page->setSuppressVisibilityUpdates(false);
-    if (manager) {
-        manager->didExitFullScreen();
-        manager->setAnimatingFullScreen(false);
-    }
     _webViewPlaceholder = nil;
 }
 

@@ -1,8 +1,8 @@
 --TEST--
 Test function posix_setgid() by substituting argument 1 with array values.
 --SKIPIF--
-<?php 
-        if(!extension_loaded("posix")) print "skip - POSIX extension not loaded"; 
+<?php
+        if(!extension_loaded("posix")) print "skip - POSIX extension not loaded";
 ?>
 --CREDITS--
 Marco Fabbri mrfabbri@gmail.com
@@ -33,15 +33,15 @@ foreach ( $variation_array as $var ) {
 --EXPECTF--
 *** Test substituting argument 1 with array values ***
 
-Warning: posix_setgid() expects parameter 1 to be integer, array given in %s on line %d
+Warning: posix_setgid() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
-Warning: posix_setgid() expects parameter 1 to be integer, array given in %s on line %d
+Warning: posix_setgid() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
-Warning: posix_setgid() expects parameter 1 to be integer, array given in %s on line %d
+Warning: posix_setgid() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
-Warning: posix_setgid() expects parameter 1 to be integer, array given in %s on line %d
+Warning: posix_setgid() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 ===DONE===

@@ -9,7 +9,7 @@ ifneq ($(wildcard $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.c
 
 include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.common
 
-TARGETS := notify_disable_test notify_many_dups dispatch_cancel_in_block notify_register_signal notify_qos parallel_register_cancel notify_regenerate notify_sigusr
+TARGETS := notify_benchmark notify_disable_test notify_many_dups dispatch_cancel_in_block notify_register_signal notify_qos parallel_register_cancel notify_regenerate notify_sigusr notify_pathwatch
 OTHER_TARGETS :=
 OTHER_LDFLAGS := -ldarwintest
 

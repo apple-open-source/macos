@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -89,8 +89,8 @@ struct ppp_if {
 			 |SC_COMP_TCP|SC_REJ_COMP_TCP)
 
 
-int ppp_if_init();
-int ppp_if_dispose();
+int ppp_if_init(void);
+int ppp_if_dispose(void);
 int ppp_if_attach(u_short *unit);
 int ppp_if_attachclient(u_short unit, void *host, ifnet_t *ifp);
 void ppp_if_detachclient(ifnet_t ifp, void *host);

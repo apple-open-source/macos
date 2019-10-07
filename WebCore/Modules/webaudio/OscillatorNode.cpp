@@ -32,10 +32,13 @@
 #include "AudioParam.h"
 #include "PeriodicWave.h"
 #include "VectorMath.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
 
 using namespace VectorMath;
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(OscillatorNode);
 
 PeriodicWave* OscillatorNode::s_periodicWaveSine = nullptr;
 PeriodicWave* OscillatorNode::s_periodicWaveSquare = nullptr;
@@ -78,6 +81,8 @@ OscillatorNode::~OscillatorNode()
 ExceptionOr<void> OscillatorNode::setType(Type type)
 {
     PeriodicWave* periodicWave = nullptr;
+
+    ALWAYS_LOG(LOGIDENTIFIER, type);
 
     switch (type) {
     case Type::Sine:
@@ -297,8 +302,9 @@ void OscillatorNode::reset()
 
 void OscillatorNode::setPeriodicWave(PeriodicWave* periodicWave)
 {
+    ALWAYS_LOG(LOGIDENTIFIER, "sample rate = ", periodicWave ? periodicWave->sampleRate() : 0, ", wave size = ", periodicWave ? periodicWave->periodicWaveSize() : 0, ", rate scale = ", periodicWave ? periodicWave->rateScale() : 0);
     ASSERT(isMainThread());
-
+    
     // This synchronizes with process().
     std::lock_guard<Lock> lock(m_processMutex);
     m_periodicWave = periodicWave;

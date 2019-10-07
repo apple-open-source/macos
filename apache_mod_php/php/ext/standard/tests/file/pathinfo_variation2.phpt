@@ -1,5 +1,5 @@
 --TEST--
-Test pathinfo() function : usage variation 
+Test pathinfo() function : usage variation
 --CREDITS--
 Dave Kelsey <d_kelsey@uk.ibm.com>
 --SKIPIF--
@@ -7,9 +7,9 @@ Dave Kelsey <d_kelsey@uk.ibm.com>
 --FILE--
 <?php
 /* Prototype  : array pathinfo(string path[, int options])
- * Description: Returns information about a certain string 
+ * Description: Returns information about a certain string
  * Source code: ext/standard/string.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing pathinfo() : usage variation ***\n";
@@ -126,19 +126,19 @@ string(%d) %s
 string(%d) %s
 
 --empty array--
-Error: 2 - pathinfo() expects parameter 2 to be integer, array given, %s(%d)
+Error: 2 - pathinfo() expects parameter 2 to be int, array given, %s(%d)
 NULL
 
 --int indexed array--
-Error: 2 - pathinfo() expects parameter 2 to be integer, array given, %s(%d)
+Error: 2 - pathinfo() expects parameter 2 to be int, array given, %s(%d)
 NULL
 
 --associative array--
-Error: 2 - pathinfo() expects parameter 2 to be integer, array given, %s(%d)
+Error: 2 - pathinfo() expects parameter 2 to be int, array given, %s(%d)
 NULL
 
 --nested arrays--
-Error: 2 - pathinfo() expects parameter 2 to be integer, array given, %s(%d)
+Error: 2 - pathinfo() expects parameter 2 to be int, array given, %s(%d)
 NULL
 
 --uppercase NULL--
@@ -160,35 +160,35 @@ string(17) "/usr/include/arpa"
 string(0) ""
 
 --empty string DQ--
-Error: 2 - pathinfo() expects parameter 2 to be integer, string given, %s(%d)
+Error: 2 - pathinfo() expects parameter 2 to be int, string given, %s(%d)
 NULL
 
 --empty string SQ--
-Error: 2 - pathinfo() expects parameter 2 to be integer, string given, %s(%d)
+Error: 2 - pathinfo() expects parameter 2 to be int, string given, %s(%d)
 NULL
 
 --string DQ--
-Error: 2 - pathinfo() expects parameter 2 to be integer, string given, %s(%d)
+Error: 2 - pathinfo() expects parameter 2 to be int, string given, %s(%d)
 NULL
 
 --string SQ--
-Error: 2 - pathinfo() expects parameter 2 to be integer, string given, %s(%d)
+Error: 2 - pathinfo() expects parameter 2 to be int, string given, %s(%d)
 NULL
 
 --mixed case string--
-Error: 2 - pathinfo() expects parameter 2 to be integer, string given, %s(%d)
+Error: 2 - pathinfo() expects parameter 2 to be int, string given, %s(%d)
 NULL
 
 --heredoc--
-Error: 2 - pathinfo() expects parameter 2 to be integer, string given, %s(%d)
+Error: 2 - pathinfo() expects parameter 2 to be int, string given, %s(%d)
 NULL
 
 --instance of classWithToString--
-Error: 2 - pathinfo() expects parameter 2 to be integer, object given, %s(%d)
+Error: 2 - pathinfo() expects parameter 2 to be int, object given, %s(%d)
 NULL
 
 --instance of classWithoutToString--
-Error: 2 - pathinfo() expects parameter 2 to be integer, object given, %s(%d)
+Error: 2 - pathinfo() expects parameter 2 to be int, object given, %s(%d)
 NULL
 
 --undefined var--

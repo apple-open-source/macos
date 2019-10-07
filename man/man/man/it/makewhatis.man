@@ -1,6 +1,8 @@
 .\" $Id: makewhatis.8,v 1.2 1999/05/24 14:40:26 otto Exp $
 .\" Copyright (c) 1999 Ottavio G. Rizzo <rizzo@pluto.linux.it>
 .\" Traduzione italiana del medesimo
+.\" Aggiornamento alla versione 1.6d di Giulio Daprelà <giulio@pluto.it>
+.\" Agosto 2006
 .\"
 .\" This is free documentation; you can redistribute it and/or
 .\" modify it under the terms of the GNU General Public License as
@@ -22,7 +24,7 @@
 .\" Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139,
 .\" USA.
 .\" 
-.TH MAKEWHATIS 8 "22 gennaio 1999" 
+.TH MAKEWHATIS 8 "19 settembre 2005"
 .SH NOME
 makewhatis \- Crea il database di whatis
 .SH SINTASSI
@@ -44,9 +46,9 @@ riconosce il termine equivalente in ceco, finlandese, francese,
 inglese, italiano, spagnolo e tedesco.
 .LP
 Se non viene passato nessun argomento
-.IR percorso_man ,
+.I percorso_man ,
 viene usato
-.IR /usr/man .
+.I /usr/man .
 .SH OPZIONI
 .TP
 .B -u
@@ -62,15 +64,15 @@ Ottiene il percorso da `man --path`
 Guarda nelle
 .I sezioni
 di
-.IR manpath " or " catpath .
-Se l'opzione manca, il suo valore posto a
+.IR percorso_man " or " percorso_cat .
+Se l'opzione manca, il suo valore viene posto a
 .I  \'1 2 3 4 5 6 7 8 9 n l\'
 .TP 
 .BI -c " percorso_cat"
 Vengono considerate le pagine preformattate che si trovano in
-.IR catpath .
+.I catpath .
 Se l'argomento è assente, viene usata la prima directory esistente fra
-.IR /usr/man/preformat " e " /usr/man .
+.I /usr/man/preformat " e " /usr/man .
 .SH ESEMPI
 .PP
 Per ricostruire solo
@@ -88,9 +90,14 @@ potrebbe non aprezzare molto le pagine scritte con macro Troff non
 standard, come quelle di Tcl/Tk.
 .PP
 .B makewhatis
-non funziona con le traduzione preformattate.
+non funziona con le traduzioni preformattate.
+.SH AUTORE
+John W. Eaton è l'autore originale di
+.BR "man" .
+Zeyd M. Ben-Halim ha rilasciato man 1.2, e Andries Brouwer le versioni da 
+1.3 a 1.5p.
+Federico Lucifredi <flucifredi@acm.org> è il maintainer attuale.
 .SH VEDERE ANCHE
 .BR apropos (1),
 .BR man (1),
 .BR whatis (1)
-

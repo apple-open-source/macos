@@ -28,7 +28,7 @@
 		<true/>
 		<key>com.apple.securityd.sos</key>
 		<true/>
-		<key>com.apple.security.sfkeychainserver</key>
+		<key>com.apple.security.escrow-update</key>
 		<true/>
 	</dict>
 	<key>ProgramArguments</key>

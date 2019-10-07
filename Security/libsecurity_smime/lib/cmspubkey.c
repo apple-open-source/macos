@@ -99,7 +99,7 @@ SecCmsUtilEncryptSymKeyRSAPubKey(PLArenaPool *poolp,
     }
 #endif
     /* allocate memory for the encrypted key */
-#if TARGET_OS_MAC && !TARGET_OS_IPHONE
+#if TARGET_OS_OSX
     rv = SecKeyGetStrengthInBits(publickey, NULL, &data_len);
     if (rv)
 	goto loser;
@@ -1053,7 +1053,6 @@ SecCmsUtilDecryptSymKeyECDH(
     sharedInfo.suppPubInfo.Data = keyLenAsBytes;
     if (!SEC_ASN1EncodeItem(pool, &sharedInfoEnc,
                             &sharedInfo, ECC_CMS_SharedInfoTemplate)) {
-        rv = errSecInternalComponent;
         goto out;
     }
     dumpBuf("receiver encoded SharedInfo", &sharedInfoEnc);
@@ -1065,7 +1064,7 @@ SecCmsUtilDecryptSymKeyECDH(
     theirKeySizeInBits = pubKey->Length;
     pubKey->Length = (theirKeySizeInBits + 7) >> 3;
     theirPubData = CFDataCreate(NULL, pubKey->Data, pubKey->Length);
-    theirKeyLen = CFNumberCreate(NULL, kCFNumberSInt32Type, &theirKeySizeInBits);
+    theirKeyLen = CFNumberCreate(NULL, kCFNumberSInt64Type, &theirKeySizeInBits);
     const void *keys[] = { kSecAttrKeyType, kSecAttrKeyClass, kSecAttrKeySizeInBits };
     const void *values[] = { kSecAttrKeyTypeECSECPrimeRandom, kSecAttrKeyClassPublic, theirKeyLen};
     theirKeyAttrs = CFDictionaryCreate(NULL, keys, values, 3,
@@ -1123,7 +1122,7 @@ SecCmsUtilDecryptSymKeyECDH(
     outKey = (SecSymmetricKeyRef)CFDataCreate(NULL, cek.Data, cek.Length);
 
 out:
-    if(pool != NULL) {
+    if (pool != NULL) {
         PORT_FreeArena(pool, PR_FALSE);
     }
     if (theirPubData) { CFRelease(theirPubData); }
@@ -1136,7 +1135,7 @@ out:
     if (kekData) { CFRelease(kekData); }
     if (error) { CFRelease(error); }
     if (ciphercc) { CCCryptorRelease(ciphercc); }
-    if(outKey == NULL) {
+    if (outKey == NULL) {
         PORT_SetError(SEC_ERROR_NO_KEY);
     }
     return outKey;

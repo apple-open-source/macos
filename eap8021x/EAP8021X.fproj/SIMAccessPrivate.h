@@ -28,7 +28,7 @@
 #include <CoreFoundation/CFRunLoop.h>
 #include "EAPSIMAKA.h"
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 
 CFStringRef
 _SIMCopyIMSI(CFDictionaryRef properties);
@@ -54,6 +54,6 @@ void
 _SIMAccessConnectionRegisterForNotification(CFTypeRef connection, SIMAccessConnectionCallback callback, void *info, CFRunLoopRef runLoop,
 					    CFStringRef runLoopMode);
 
-#endif
+#endif /* TARGET_OS_IPHONE */
 
 #endif /* _EAP8021X_SIMACCESS_PRIVATE_H */

@@ -12,6 +12,7 @@
 #include <SystemConfiguration/SCDynamicStorePrivate.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include "PMStore.h"
+#include "PrivateLib.h"
 
 
 /* TBD
@@ -35,19 +36,12 @@ __private_extern__ void dynamicStoreNotifyCallBack(
 
 void PMStoreLoad()
 {
-    CFRunLoopSourceRef      _storeRLS = NULL;
-
     gPMStore = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
     gSCDynamicStore = SCDynamicStoreCreate(0, CFSTR("powerd"), dynamicStoreNotifyCallBack, NULL);
 
     if (gSCDynamicStore) {
-        _storeRLS = SCDynamicStoreCreateRunLoopSource(0, gSCDynamicStore, 0);
-    }
-    
-    if (_storeRLS) {
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), _storeRLS, kCFRunLoopDefaultMode);
-        CFRelease(_storeRLS);
+        SCDynamicStoreSetDispatchQueue(gSCDynamicStore, _getPMMainQueue());
     }
     
     SCDynamicStoreSetDisconnectCallBack(gSCDynamicStore, PMDynamicStoreDisconnectCallBack);

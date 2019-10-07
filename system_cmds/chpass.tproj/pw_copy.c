@@ -63,7 +63,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <pw_util.h>
+#include "pw_util.h"
 #include "pw_copy.h"
 
 extern char *tempname;

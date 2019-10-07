@@ -52,7 +52,7 @@ writeFatFileWithValidation(
                            mode_t                      fileMode,
                            const struct timeval        fileTimes[2]);
 
-ExitStatus 
+ExitStatus
 writeFatFile(
     const char                * filePath,
     CFArrayRef                  fileSlices,
@@ -69,9 +69,9 @@ struct fat_arch * getNextFatArch(
     u_char *headerPage,
     struct fat_arch *lastArch);
 struct fat_arch * getFatArchForArchInfo(
-    u_char *headerPage, 
+    u_char *headerPage,
     const NXArchInfo *archInfo);
-const NXArchInfo * 
+const NXArchInfo *
 getThinHeaderPageArch(
     const void *headerPage);
 ExitStatus

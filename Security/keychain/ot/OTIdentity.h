@@ -42,7 +42,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (nullable instancetype) currentIdentityFromSOS:(NSError**)error;
 
--(BOOL)isEqual:(OTIdentity*)identity;
+-(BOOL)isEqual:(OTIdentity* _Nullable)identity;
 
 
 +(BOOL) storeOctagonIdentityIntoKeychain:(_SFECKeyPair *)restoredSigningKey

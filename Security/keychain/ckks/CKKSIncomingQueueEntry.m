@@ -119,10 +119,10 @@
 }
 
 
-+ (instancetype)fromDatabaseRow: (NSDictionary*) row {
++ (instancetype)fromDatabaseRow:(NSDictionary<NSString *, CKKSSQLResult*>*) row {
     return [[CKKSIncomingQueueEntry alloc] initWithCKKSItem: [CKKSItem fromDatabaseRow: row]
-                                                     action: row[@"action"]
-                                                      state: row[@"state"]];
+                                                     action:row[@"action"].asString
+                                                      state:row[@"state"].asString];
 }
 
 + (NSDictionary<NSString*,NSNumber*>*)countsByStateInZone:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
@@ -134,8 +134,8 @@
                                       groupBy: @[@"state"]
                                       orderBy:nil
                                         limit: -1
-                                   processRow: ^(NSDictionary* row) {
-                                       results[row[@"state"]] = [NSNumber numberWithInteger: [row[@"count(rowid)"] integerValue]];
+                                   processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       results[row[@"state"].asString] = row[@"count(rowid)"].asNSNumberInteger;
                                    }
                                         error: error];
     return results;
@@ -150,8 +150,8 @@
                                       groupBy: nil
                                       orderBy: nil
                                         limit: -1
-                                   processRow: ^(NSDictionary* row) {
-                                       result = [row[@"count(*)"] integerValue];
+                                   processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       result = row[@"count(*)"].asNSInteger;
                                    }
                                         error: error];
     return result;

@@ -67,8 +67,7 @@ IOHIDPostEvent( io_connect_t        connect,
                 IOOptionBits        options );
 
 extern kern_return_t
-IOHIDSetMouseLocation( io_connect_t connect,
-	int x, int y);
+IOHIDSetMouseLocation( io_connect_t connect, int x, int y);
 
 extern kern_return_t
 IOHIDGetButtonEventNum( io_connect_t connect,
@@ -139,6 +138,79 @@ IOHIDSetVirtualDisplayBounds( io_connect_t handle, UInt32 display_token, const I
 
 extern kern_return_t
 IOHIDGetActivityState( io_connect_t handle, bool *hidActivityIdle );
+
+/*
+ * @typedef IOHIDRequestType
+ *
+ * @abstract
+ * Request type passed in to IOHIDCheckAccess/IOHIDRequestAccess.
+ *
+ * @field kIOHIDRequestTypePostEvent
+ * Request to post event through IOHIDPostEvent API. Access must be granted
+ * by the user to use this API. If you do not request access through the
+ * IOHIDRequestAccess call, the request will be made on the process's behalf
+ * in the IOHIDPostEvent call.
+ *
+ * @field kIOHIDRequestTypeListenEvent
+ * Request to listen to event through IOHIDManager/IOHIDDevice API. Access must
+ * be granted by the user to use this API. If you do not request access through
+ * the IOHIDRequestAccess call, the request will be made on the process's behalf
+ * in IOHIDManagerOpen/IOHIDDeviceOpen calls.
+ *
+ */
+typedef enum {
+    kIOHIDRequestTypePostEvent,
+    kIOHIDRequestTypeListenEvent
+} IOHIDRequestType;
+
+/*
+ * @typedef IOHIDAccessType
+ *
+ * @abstract
+ * Enumerator of access types returned from IOHIDCheckAccess.
+ */
+typedef enum {
+    kIOHIDAccessTypeGranted,
+    kIOHIDAccessTypeDenied,
+    kIOHIDAccessTypeUnknown
+} IOHIDAccessType;
+
+/*!
+ * @function IOHIDCheckAccess
+ *
+ * @abstract
+ * Checks if the process has access to a specific IOHIDRequestType. A process
+ * may request access by calling the IOHIDRequestAccess function.
+ *
+ * @param requestType
+ * The request type defined in the IOHIDRequestType enumerator.
+ *
+ * @result
+ * Returns an access type defined in the IOHIDAccessType enumerator.
+ */
+IOHIDAccessType IOHIDCheckAccess(IOHIDRequestType requestType)
+__OSX_AVAILABLE(10.15) __IOS_AVAILABLE(13.0) __TVOS_AVAILABLE(13.0) __WATCHOS_AVAILABLE(6.0);
+
+/*!
+ * @function IOHIDRequestAccess
+ *
+ * @abstract
+ * Requests access from the user for a specific IOHIDRequestType.
+ *
+ * @discussion
+ * Processes that wish to post events through the IOHIDPostEvent API, or receive
+ * reports through the IOHIDManager/IOHIDDevice API must be granted access first
+ * by the user. If you do not call this API, it will be called on your behalf
+ * when the API are used.
+ *
+ * @param requestType
+ * The request type defined in the IOHIDRequestType enumerator.
+ *
+ * @result
+ * Returns true if access was granted.
+ */
+bool IOHIDRequestAccess(IOHIDRequestType requestType)
+__OSX_AVAILABLE(10.15) __IOS_AVAILABLE(13.0) __TVOS_AVAILABLE(13.0) __WATCHOS_AVAILABLE(6.0);
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

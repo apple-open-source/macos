@@ -10,8 +10,8 @@
 #define devices_h
 
 #import <Foundation/Foundation.h>
-#import <CoreUtils/CoreUtils.h>
-
+#import <CoreUtils/CommonServices.h>
+#import <os/log.h>
 #include <IOKit/hid/IOHIDEventSystemClient.h>
 #include <IOKit/hid/IOHIDLib.h>
 

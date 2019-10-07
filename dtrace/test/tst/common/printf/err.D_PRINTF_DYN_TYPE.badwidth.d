@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_PRINTF_DYN_TYPE.badwidth.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *  Tet dynamic width argument of non-integer type.

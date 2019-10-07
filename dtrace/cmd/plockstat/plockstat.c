@@ -480,20 +480,20 @@ dprog_compile(void)
 		dfatal("failed to enable probes");
 }
 
-void
+static void
 print_legend(void)
 {
 	(void) printf("%5s %8s %-28s %s\n", "Count", "nsec", "Lock", "Caller");
 }
 
-void
+static void
 print_bar(void)
 {
 	(void) printf("---------------------------------------"
 	    "----------------------------------------\n");
 }
 
-void
+static void
 print_histogram_header(void)
 {
 	(void) printf("\n%10s ---- Time Distribution --- %5s %s\n",
@@ -515,8 +515,8 @@ getsym(struct ps_prochandle *P, uintptr_t addr, char *buf, size_t size,
 	prsyminfo_t info;
 	size_t len;
 
-	if (P == NULL || Pxlookup_by_addr(P, addr, name, sizeof (name),
-	    &sym, &info) != 0) {
+	if (P == NULL || dtrace_proc_lookup_by_addr(g_dtp, P, addr, name,
+		sizeof (name), &sym, &info) != 0) {
 		(void) snprintf(buf, size, "%#lx", addr);
 		return (0);
 	}
@@ -669,14 +669,14 @@ prochandler(struct ps_prochandle *P, const char *msg, void *arg)
 #define proc_signame(x,y,z) "Unknown" /* Not referenced so long as prp just below is NULL. */
 	typedef struct psinfo { int pr_wstat; } psinfo_t;
 	const psinfo_t *prp = NULL;
-	int pid = Pstatus(P)->pr_pid;
+	int pid = dtrace_proc_status(g_dtp, P)->pr_pid;
 
 	if (msg != NULL) {
 		notice("pid %d: %s\n", pid, msg);
 		return;
 	}
 
-	switch (Pstate(P)) {
+	switch (dtrace_proc_state(g_dtp, P)) {
 	case PS_UNDEAD:
 		/*
 		 * Ideally we would like to always report pr_wstat here, but it
@@ -964,7 +964,7 @@ main(int argc, char **argv)
 
 	if (opt_v)
 		(void) printf("%s: tracing enabled for pid %d\n", g_pname,
-		    (int)Pstatus(g_pr)->pr_pid);
+		    (int)dtrace_proc_status(g_dtp, g_pr)->pr_pid);
 
 	do {
 		if (!g_intr && !done)

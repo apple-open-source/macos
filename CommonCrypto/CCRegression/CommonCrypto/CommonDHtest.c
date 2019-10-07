@@ -9,7 +9,7 @@ entryPoint(CommonDH,"Diffie-Hellman Key Agreement")
 #else
 
 #include <CommonCrypto/CommonDH.h>
-static int kTestTestCount = 1+2*6;
+static int kTestTestCount = 1+2*13*100;
 
 static int testDHgroup(CCDHParameters gp) {
     CCDHRef dh1, dh2;
@@ -25,20 +25,26 @@ static int testDHgroup(CCDHParameters gp) {
     size_t len1 = 4096, len2 = 4096;
     int ret1 = CCDHGenerateKey(dh1, pubkey1, &len1);
     int ret2 = CCDHGenerateKey(dh2, pubkey2, &len2);
+    ok(len1>10, "Sanity check on length");
+    ok(len2>10, "Sanity check on length");
+    
+    is(ret1,0, "pubkey1 generated");
+    is(ret2,0, "pubkey2 generated");
+    
+    uint8_t sharedsecret1[4096], sharedsecret2[4096];
+    size_t slen1 = sizeof(sharedsecret1), slen2 = sizeof(sharedsecret2);
 
-    ok(ret1 != -1 && ret2 != -1, "pubkeys generated");
+    int sret1 = CCDHComputeKey(sharedsecret1, &slen1, pubkey2, len2, dh1);
+    int sret2 = CCDHComputeKey(sharedsecret2, &slen2, pubkey1, len1, dh2);
 
-    uint8_t sharedkey1[4096], sharedkey2[4096];
-    size_t slen1 = 4096, slen2 = 4096;
+    is(sret1,0, "shared secret 1 generated");
+    is(sret2,0, "shared secret 2 generated");
+    isnt(slen1,0, "Length error");
+    ok(slen1>(len1-10),"shared secret is unexpectedly short");
+    isnt(sharedsecret1[0],0, "Leading zero not stripped out");
+    is(slen1,slen2, "shared secret lengths are equal");
 
-    int sret1 = CCDHComputeKey(sharedkey1, &slen1, pubkey2, len2, dh1);
-    int sret2 = CCDHComputeKey(sharedkey2, &slen2, pubkey1, len1, dh2);
-
-    ok(sret1 != -1 && sret2 != -1, "shared keys generated");
-
-    ok(slen1 == slen2, "shared key lengths are equal");
-
-    ok(memcmp(sharedkey1, sharedkey2, slen1) == 0, "shared keys are equal");
+    ok_memcmp(sharedsecret1, sharedsecret2, slen1, "shared secrets are equal");
 
     CCDHRelease(dh1);
     CCDHRelease(dh2);
@@ -49,10 +55,10 @@ static int testDHgroup(CCDHParameters gp) {
 int CommonDH(int __unused argc, char *const * __unused argv) {
 
     plan_tests(kTestTestCount);
-
-    testDHgroup(kCCDHRFC2409Group2);
-    testDHgroup(kCCDHRFC3526Group5);
-
+    for (int i = 0 ; i < 100 ; i++) {
+        testDHgroup(kCCDHRFC2409Group2);
+        testDHgroup(kCCDHRFC3526Group5);
+    }
     ok(1, "Didn't crash");
 
     return 0;

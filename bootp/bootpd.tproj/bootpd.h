@@ -30,10 +30,12 @@
 #include "netinfo.h"
 #include "mylog.h"
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
+
 #define NETBOOT_SERVER_SUPPORT	0
 #define USE_OPEN_DIRECTORY	0
-#else /* TARGET_OS_EMBEDDED */
+
+#else /* TARGET_OS_IPHONE */
 
 #if MINIMAL_DHCP_SERVER
 #define NETBOOT_SERVER_SUPPORT	0
@@ -43,7 +45,7 @@
 #define USE_OPEN_DIRECTORY	1
 #endif /* MINIMAL_DHCP_SERVER*/
 
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 
 
 typedef struct {

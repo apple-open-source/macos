@@ -1,0 +1,114 @@
+diff -Naur texinfo-4.8.orig/info/info.c texinfo-4.8/info/info.c
+--- info/info.c	2006-06-22 10:08:01.000000000 -0700
++++ info/info.c	2019-03-21 17:15:56.000000000 -0700
+@@ -272,7 +272,7 @@
+           break;
+ 
+         default:
+-          fprintf (stderr, _("Try --help for more information.\n"));
++          fprintf (stderr, "%s",  _("Try --help for more information.\n"));
+           xexit (1);
+         }
+     }
+@@ -292,7 +292,7 @@
+       printf ("%s (GNU %s) %s\n", program_name, PACKAGE, VERSION);
+       puts ("");
+       puts ("Copyright (C) 2004 Free Software Foundation, Inc.");
+-      printf (_("There is NO warranty.  You may redistribute this software\n\
++      printf ("%s", _("There is NO warranty.  You may redistribute this software\n\
+ under the terms of the GNU General Public License.\n\
+ For more information about these matters, see the files named COPYING.\n"));
+       xexit (0);
+diff -Naur texinfo-4.8.orig/info/infokey.c texinfo-4.8/info/infokey.c
+--- info/infokey.c	2004-12-13 16:15:36.000000000 -0800
++++ info/infokey.c	2019-03-21 17:16:27.000000000 -0700
+@@ -896,7 +896,7 @@
+ static void
+ suggest_help (void)
+ {
+-  fprintf (stderr, _("Try --help for more information.\n"));
++  fprintf (stderr, "%s", _("Try --help for more information.\n"));
+ }
+ 
+ /* Produce a scaled down description of the available options to Info. */
+diff -Naur texinfo-4.8.orig/info/makedoc.c texinfo-4.8/info/makedoc.c
+--- info/makedoc.c	2004-04-11 10:56:46.000000000 -0700
++++ info/makedoc.c	2019-03-21 17:15:12.000000000 -0700
+@@ -158,7 +158,7 @@
+       fprintf (doc_stream, "\n");
+     }
+ 
+-  fprintf (doc_stream,
++  fprintf (doc_stream, "%s",
+            _("   Source files groveled to make this file include:\n\n"));
+ 
+   for (i = 0; key_header[i]; i++)
+@@ -166,7 +166,7 @@
+       fprintf (key_stream, key_header[i], argv[0], argv[0]);
+       fprintf (key_stream, "\n");
+     }
+-  fprintf (key_stream,
++  fprintf (key_stream, "%s",
+            _("   Source files groveled to make this file include:\n\n"));
+ 
+   for (i = 1; i < argc; i++)
+diff -Naur texinfo-4.8.orig/makeinfo/makeinfo.c texinfo-4.8/makeinfo/makeinfo.c
+--- makeinfo/makeinfo.c	2004-12-19 09:15:42.000000000 -0800
++++ makeinfo/makeinfo.c	2019-03-21 17:17:16.000000000 -0700
+@@ -181,7 +181,7 @@
+   errors_printed++;
+   if (max_error_level && (errors_printed > max_error_level))
+     {
+-      fprintf (stderr, _("Too many errors!  Gave up.\n"));
++      fprintf (stderr, "%s", _("Too many errors!  Gave up.\n"));
+       flush_file_stack ();
+       if (errors_printed - max_error_level < 2)
+ 	cm_bye ();
+@@ -763,7 +763,7 @@
+           print_version_info ();
+           puts ("");
+           puts ("Copyright (C) 2004 Free Software Foundation, Inc.");
+-          printf (_("There is NO warranty.  You may redistribute this software\n\
++          printf ("%s", _("There is NO warranty.  You may redistribute this software\n\
+ under the terms of the GNU General Public License.\n\
+ For more information about these matters, see the files named COPYING.\n"));
+           xexit (0);
+diff -Naur texinfo-4.8.orig/util/install-info.c texinfo-4.8/util/install-info.c
+--- util/install-info.c	2004-04-11 10:56:47.000000000 -0700
++++ util/install-info.c	2019-03-21 17:18:22.000000000 -0700
+@@ -1263,7 +1263,7 @@
+           printf ("install-info (GNU %s) %s\n", PACKAGE, VERSION);
+           puts ("");
+           puts ("Copyright (C) 2004 Free Software Foundation, Inc.");
+-          printf (_("There is NO warranty.  You may redistribute this software\n\
++          printf ("%s", _("There is NO warranty.  You may redistribute this software\n\
+ under the terms of the GNU General Public License.\n\
+ For more information about these matters, see the files named COPYING.\n"));
+           xexit (0);
+diff -Naur texinfo-4.8.orig/util/texindex.c texinfo-4.8/util/texindex.c
+--- util/texindex.c	2004-04-11 10:56:47.000000000 -0700
++++ util/texindex.c	2019-03-21 17:19:16.000000000 -0700
+@@ -268,12 +268,12 @@
+   FILE *f = result_value ? stderr : stdout;
+ 
+   fprintf (f, _("Usage: %s [OPTION]... FILE...\n"), program_name);
+-  fprintf (f, _("Generate a sorted index for each TeX output FILE.\n"));
++  fprintf (f, "%s", _("Generate a sorted index for each TeX output FILE.\n"));
+   /* Avoid trigraph nonsense.  */
+   fprintf (f,
+ _("Usually FILE... is specified as `foo.%c%c\' for a document `foo.texi'.\n"),
+            '?', '?'); /* avoid trigraph in cat-id-tbl.c */
+-  fprintf (f, _("\nOptions:\n"));
++  fprintf (f, "%s", _("\nOptions:\n"));
+ 
+   for (i = 0; texindex_options[i].long_name; i++)
+     {
+@@ -340,7 +340,7 @@
+               printf ("texindex (GNU %s) %s\n", PACKAGE, VERSION);
+               puts ("");
+               puts ("Copyright (C) 2004 Free Software Foundation, Inc.");
+-              printf (_("There is NO warranty.  You may redistribute this software\n\
++              printf ("%s", _("There is NO warranty.  You may redistribute this software\n\
+ under the terms of the GNU General Public License.\n\
+ For more information about these matters, see the files named COPYING.\n"));
+               xexit (0);

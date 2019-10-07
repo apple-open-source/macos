@@ -163,7 +163,7 @@ if_getmtu(char *name)
 			return(0);
 
 		ifr.ifr_addr.sa_family = AF_INET6;
-		strncpy(ifr.ifr_name, name,
+		strlcpy(ifr.ifr_name, name,
 			sizeof(ifr.ifr_name));
 		if (ioctl(s, SIOCGIFMTU, (caddr_t)&ifr) < 0) {
 			close(s);

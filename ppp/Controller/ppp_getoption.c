@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -151,7 +151,7 @@ int get_str_option (struct service *serv, CFStringRef entity, CFStringRef proper
     if (serv->u.ppp.phase != PPP_IDLE
     	&& getStringFromEntity(gDynamicStore, kSCDynamicStoreDomainState, serv->serviceID, 
                 entity, property, opt, optsiz)) {
-        *outlen = strlen((char*)opt);
+        *outlen = (u_int32_t)strlen((char*)opt);
         return 1;
     }
 
@@ -160,7 +160,7 @@ int get_str_option (struct service *serv, CFStringRef entity, CFStringRef proper
         && (dict = CFDictionaryGetValue(options, entity))
     	&& (CFGetTypeID(dict) == CFDictionaryGetTypeID())
         && getString(dict, property, opt, optsiz)) {
-        *outlen = strlen((char*)opt);
+        *outlen = (u_int32_t)strlen((char*)opt);
         return 2;
     }
     // at last, search in the setup, only in lookinsetup flag is set
@@ -170,12 +170,12 @@ int get_str_option (struct service *serv, CFStringRef entity, CFStringRef proper
         && getString(dict, property, opt, optsiz))
         || (!setup && getStringFromEntity(gDynamicStore, kSCDynamicStoreDomainSetup, serv->serviceID, 
         entity, property, opt, optsiz))) {
-        *outlen = strlen((char*)opt);
+        *outlen = (u_int32_t)strlen((char*)opt);
         return 3;
     }
 
     strlcpy((char*)opt, (char*)defaultval, optsiz);
-    *outlen = strlen((char*)opt);
+    *outlen = (u_int32_t)strlen((char*)opt);
     return 0;
 }
 
@@ -241,7 +241,7 @@ int ppp_getoptval(struct service *serv, CFDictionaryRef opts, CFDictionaryRef se
 
                                 CFStringGetCString(path, (char *)popt, OPT_STR_LEN, kCFStringEncodingUTF8);
                                 CFRelease(path);
-                                *plen = strlen((const char *)popt);
+                                *plen = (u_int32_t)strlen((const char *)popt);
                                 break;
                             }
                         }
@@ -259,7 +259,6 @@ int ppp_getoptval(struct service *serv, CFDictionaryRef opts, CFDictionaryRef se
                     get_int_option(serv, kSCEntNetModem, kSCPropNetModemSpeed, opts, setup, lopt, OPT_DEV_SPEED_DEF);
                     break;
                 case PPP_TYPE_PPPoE:
-                case PPP_TYPE_PPTP:
                 case PPP_TYPE_L2TP:
                     break;
             }
@@ -294,7 +293,6 @@ int ppp_getoptval(struct service *serv, CFDictionaryRef opts, CFDictionaryRef se
                     get_int_option(serv, kSCEntNetModem, kSCPropNetModemConnectSpeed, opts, setup, lopt, 0);
                     break;
                 case PPP_TYPE_PPPoE:
-                case PPP_TYPE_PPTP:
                 case PPP_TYPE_L2TP:
                     break;
             }
@@ -349,9 +347,6 @@ int ppp_getoptval(struct service *serv, CFDictionaryRef opts, CFDictionaryRef se
                 case PPP_TYPE_PPPoE:
                     lval = OPT_LCP_MRU_PPPoE_DEF;
                     break;
-                case PPP_TYPE_PPTP:
-                    lval = OPT_LCP_MRU_PPTP_DEF;
-                    break;
                 case PPP_TYPE_L2TP:
                     lval = OPT_LCP_MRU_L2TP_DEF; 
 		    break;
@@ -364,9 +359,6 @@ int ppp_getoptval(struct service *serv, CFDictionaryRef opts, CFDictionaryRef se
             switch (serv->subtype) {
                 case PPP_TYPE_PPPoE:
                     lval = OPT_LCP_MTU_PPPoE_DEF;
-                    break;
-                case PPP_TYPE_PPTP:
-                    lval = OPT_LCP_MTU_PPTP_DEF;
                     break;
                 case PPP_TYPE_L2TP:
                     lval = OPT_LCP_MTU_L2TP_DEF;
@@ -451,11 +443,11 @@ int ppp_getoptval(struct service *serv, CFDictionaryRef opts, CFDictionaryRef se
         case PPP_OPT_SERVICEID:
             popt[0] = 0;
             CFStringGetCString(serv->serviceID, (char*)popt, 256, kCFStringEncodingUTF8);
-            *plen = strlen((char*)popt);
+            *plen = (u_int32_t)strlen((char*)popt);
             break;
         case PPP_OPT_IFNAME:
             strncpy((char*)popt, (char*)serv->if_name, sizeof(serv->if_name));
-            *plen = strlen((char*)popt);
+            *plen = (u_int32_t)strlen((char*)popt);
             break;
 
         default:

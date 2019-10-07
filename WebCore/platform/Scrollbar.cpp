@@ -59,24 +59,8 @@ Scrollbar::Scrollbar(ScrollableArea& scrollableArea, ScrollbarOrientation orient
     , m_orientation(orientation)
     , m_controlSize(controlSize)
     , m_theme(customTheme ? *customTheme : ScrollbarTheme::theme())
-    , m_visibleSize(0)
-    , m_totalSize(0)
-    , m_currentPos(0)
-    , m_dragOrigin(0)
-    , m_lineStep(0)
-    , m_pageStep(0)
-    , m_pixelStep(1)
-    , m_hoveredPart(NoPart)
-    , m_pressedPart(NoPart)
-    , m_pressedPos(0)
-    , m_scrollPos(0)
-    , m_draggingDocument(false)
-    , m_documentDragPos(0)
-    , m_enabled(true)
-    , m_scrollTimer(*this, &Scrollbar::autoscrollTimerFired)
-    , m_suppressInvalidation(false)
-    , m_isAlphaLocked(false)
     , m_isCustomScrollbar(isCustomScrollbar)
+    , m_scrollTimer(*this, &Scrollbar::autoscrollTimerFired)
 {
     theme().registerScrollbar(*this);
 
@@ -86,7 +70,7 @@ Scrollbar::Scrollbar(ScrollableArea& scrollableArea, ScrollbarOrientation orient
     int thickness = theme().scrollbarThickness(controlSize);
     Widget::setFrameRect(IntRect(0, 0, thickness, thickness));
 
-    m_currentPos = static_cast<float>(m_scrollableArea.scrollOffset(m_orientation));
+    m_currentPos = static_cast<float>(offsetForOrientation(m_scrollableArea.scrollOffset(), m_orientation));
 }
 
 Scrollbar::~Scrollbar()
@@ -108,7 +92,7 @@ int Scrollbar::occupiedHeight() const
 
 void Scrollbar::offsetDidChange()
 {
-    float position = static_cast<float>(m_scrollableArea.scrollOffset(m_orientation));
+    float position = static_cast<float>(offsetForOrientation(m_scrollableArea.scrollOffset(), m_orientation));
     if (position == m_currentPos)
         return;
 

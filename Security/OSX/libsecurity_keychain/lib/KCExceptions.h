@@ -29,7 +29,7 @@
 #define _SECURITY_KCEXCEPTIONS_H_
 
 #include <security_utilities/errors.h>
-#include <SecBase.h>
+#include <Security/SecBase.h>
 #ifdef lock
 #undef lock
 #endif

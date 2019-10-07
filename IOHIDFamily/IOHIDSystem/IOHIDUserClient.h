@@ -50,20 +50,20 @@ private:
 
 public:
     // IOUserClient methods
-    virtual IOReturn clientClose( void );
+    virtual IOReturn clientClose( void ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOService * getService( void );
+    virtual IOService * getService( void ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn registerNotificationPort(
-		mach_port_t port, UInt32 type, UInt32 refCon );
+		mach_port_t port, UInt32 type, UInt32 refCon ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn connectClient( IOUserClient * client );
+    virtual IOReturn connectClient( IOUserClient * client ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn clientMemoryForType( UInt32 type,
-        UInt32 * flags, IOMemoryDescriptor ** memory );
+        UInt32 * flags, IOMemoryDescriptor ** memory ) APPLE_KEXT_OVERRIDE;
 
     virtual IOExternalMethod * getTargetAndMethodForIndex(
-                        IOService ** targetP, UInt32 index );
+                        IOService ** targetP, UInt32 index ) APPLE_KEXT_OVERRIDE;
 
     // others
     virtual bool initWithTask(task_t owningTask, void * /* security_id */, UInt32 /* type */);
@@ -71,7 +71,7 @@ public:
     virtual void stop( IOService * provider ) APPLE_KEXT_OVERRIDE;
     virtual IOReturn close( void );
     
-    virtual IOReturn setProperties( OSObject * properties );
+    virtual IOReturn setProperties( OSObject * properties ) APPLE_KEXT_OVERRIDE;
     IOReturn extGetUserHidActivityState(void*,void*,void*,void*,void*,void*);
 };
 
@@ -87,15 +87,15 @@ private:
 public:
 
     // IOUserClient methods    
-    virtual IOService * getService( void );
+    virtual IOService * getService( void ) APPLE_KEXT_OVERRIDE;
 
     virtual IOExternalMethod * getTargetAndMethodForIndex(
-                        IOService ** targetP, UInt32 index );
+                        IOService ** targetP, UInt32 index ) APPLE_KEXT_OVERRIDE;
 
     // others
 
-    virtual bool start( IOService * provider );
-    virtual IOReturn setProperties( OSObject * properties );
+    virtual bool start( IOService * provider ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn setProperties( OSObject * properties ) APPLE_KEXT_OVERRIDE;
 
     IOReturn extGetUserHidActivityState(void*,void*,void*,void*,void*,void*);
 private:
@@ -116,27 +116,27 @@ private:
     IOReturn registerNotificationPortGated(mach_port_t port, UInt32 type, UInt32 refCon);
 
 public:
-    virtual bool initWithTask(task_t owningTask, void * security_id, UInt32 type );
-    void free();
+    virtual bool initWithTask(task_t owningTask, void * security_id, UInt32 type ) APPLE_KEXT_OVERRIDE;
+    void free(void) APPLE_KEXT_OVERRIDE;
 
     // IOUserClient methods    
-    virtual IOReturn clientClose( void );
+    virtual IOReturn clientClose( void ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOExternalMethod * getTargetAndMethodForIndex(IOService ** targetP, UInt32 index );
+    virtual IOExternalMethod * getTargetAndMethodForIndex(IOService ** targetP, UInt32 index ) APPLE_KEXT_OVERRIDE;
     virtual IOReturn createEventQueue(void*,void*,void*,void*,void*,void*);
     virtual IOReturn createEventQueueGated(void*p1,void*p2,void*p3, void*);
     virtual IOReturn destroyEventQueue(void*,void*,void*,void*,void*,void*);
     virtual IOReturn destroyEventQueueGated(void*,void*,void*,void*);
     virtual IOReturn tickle(void*,void*,void*,void*,void*,void*);
 
-    virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, UInt32 refCon );
-    virtual IOReturn clientMemoryForType( UInt32 type, UInt32 * flags, IOMemoryDescriptor ** memory );
+    virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, UInt32 refCon ) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn clientMemoryForType( UInt32 type, UInt32 * flags, IOMemoryDescriptor ** memory ) APPLE_KEXT_OVERRIDE;
     IOReturn clientMemoryForTypeGated( UInt32 type, UInt32 * flags, IOMemoryDescriptor ** memory );
 
-    virtual IOService * getService( void );
+    virtual IOService * getService( void ) APPLE_KEXT_OVERRIDE;
 
-    virtual bool start( IOService * provider );
-    virtual void stop ( IOService * provider );
+    virtual bool start( IOService * provider ) APPLE_KEXT_OVERRIDE;
+    virtual void stop ( IOService * provider ) APPLE_KEXT_OVERRIDE;
 };
 
 

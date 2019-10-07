@@ -31,13 +31,13 @@
 #include "AppleCSPUtils.h"
 #include "AppleCSPKeys.h"
 #include "RSA_DSA_keys.h"
+#include "SecRandom.h"
 #include "opensshCoding.h"
 #include "cspdebugging.h"
 #include <CommonCrypto/CommonDigest.h>
 #include <CommonCrypto/CommonCryptor.h>
 #include <openssl/rsa_legacy.h>
 #include <openssl/bn_legacy.h>
-#include <security_utilities/devrandom.h>
 #include <utilities/SecCFRelease.h>
 
 static const char *authfile_id_string = "SSH PRIVATE KEY FILE FORMAT 1.1\n";
@@ -376,8 +376,7 @@ CSSM_RETURN encodeOpenSSHv1PrivKey(
 	
 	/* [0..3] check bytes */
 	UInt8 checkBytes[4];
-	DevRandomGenerator rng = DevRandomGenerator();
-	rng.random(checkBytes, 2);
+    MacOSError::check(SecRandomCopyBytes(kSecRandomDefault, 2, checkBytes)) ;
 	checkBytes[2] = checkBytes[0];
 	checkBytes[3] = checkBytes[1];
 	CFDataAppendBytes(ptext, checkBytes, 4);

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>BATSConfigVersion</key>
+	<string>0.1.0</string>
+	<key>Project</key>
+	<string>libmalloc</string>
+	<key>Tests</key>
+	<array>
+		<dict>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/bin/bash</string>
+				<string>/AppleInternal/Tests/libmalloc/scripts/BenchBMallocToSystemV2</string>
+			</array>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>BATS_TMP_DIR/.*perfdata</string>
+				<string>BATS_TMP_DIR/dtres_.*</string>
+			</array>
+			<key>TestName</key>
+			<string>libmalloc.MallocBench</string>
+			<key>Timeout</key>
+			<integer>2400</integer>
+			<key>WorkingDirectory</key>
+			<string>/AppleInternal/Tests/libmalloc</string>
+			<key>Tags</key>
+			<array>
+				<string>perf</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

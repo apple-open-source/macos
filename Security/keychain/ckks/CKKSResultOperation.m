@@ -27,6 +27,7 @@
 #import "keychain/ckks/NSOperationCategories.h"
 #import "keychain/ckks/CKKSCondition.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
+#import "keychain/ot/ObjCImprovements.h"
 #include <utilities/debugging.h>
 
 @interface CKKSResultOperation()
@@ -39,15 +40,16 @@
 @implementation CKKSResultOperation
 - (instancetype)init {
     if(self = [super init]) {
+        WEAKIFY(self);
         _error = nil;
         _successDependencies = [[NSMutableArray alloc] init];
         _timeoutCanOccur = true;
         _timeoutQueue = dispatch_queue_create("result-operation-timeout", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
         _completionHandlerDidRunCondition = [[CKKSCondition alloc] init];
 
-        __weak __typeof(self) weakSelf = self;
         _finishingBlock = ^(void) {
-            weakSelf.finishDate = [NSDate dateWithTimeIntervalSinceNow:0];
+            STRONGIFY(self);
+            self.finishDate = [NSDate dateWithTimeIntervalSinceNow:0];
         };
         self.completionBlock = ^{}; // our _finishing block gets added in the method override
     }
@@ -62,14 +64,22 @@
             @"pending");
 }
 
-- (NSString*)description {
-    NSString* state = [self operationStateString];
 
-    if(self.error) {
-        return [NSString stringWithFormat: @"<%@: %@ error:%@>", [self selfname], state, self.error];
+- (NSString*)description {
+    static __thread unsigned __descriptionRecursion = 0;
+    NSString* state = [self operationStateString];
+    NSString *desc = NULL;
+
+    __descriptionRecursion++;
+    if(__descriptionRecursion > 10) {
+        desc = [NSString stringWithFormat: @"<%@: %@ recursion>", [self selfname], state];
+    } else if(self.error) {
+        desc = [NSString stringWithFormat: @"<%@: %@ error:%@>", [self selfname], state, self.error];
     } else {
-        return [NSString stringWithFormat: @"<%@: %@%@>", [self selfname], state, [self pendingDependenciesString:@" dep:"]];
+        desc = [NSString stringWithFormat: @"<%@: %@%@>", [self selfname], state, [self pendingDependenciesString:@" dep:"]];
     }
+    __descriptionRecursion--;
+    return desc;
 }
 
 - (NSString*)debugDescription {
@@ -78,21 +88,21 @@
 
 - (void)setCompletionBlock:(void (^)(void))completionBlock
 {
-    __weak __typeof(self) weakSelf = self;
+    WEAKIFY(self);
     [super setCompletionBlock:^(void) {
-        __strong __typeof(self) strongSelf = weakSelf;
-        if (!strongSelf) {
+        STRONGIFY(self);
+        if (!self) {
             secerror("ckksresultoperation: completion handler called on deallocated operation instance");
             completionBlock(); // go ahead and still behave as things would if this method override were not here
             return;
         }
 
-        strongSelf.finishingBlock();
+        self.finishingBlock();
         completionBlock();
-        [strongSelf.completionHandlerDidRunCondition fulfill];
+        [self.completionHandlerDidRunCondition fulfill];
 
-        for (NSOperation *op in strongSelf.dependencies) {
-            [strongSelf removeDependency:op];
+        for (NSOperation *op in self.dependencies) {
+            [self removeDependency:op];
         }
     }];
 }
@@ -163,13 +173,13 @@
 }
 
 - (instancetype)timeout:(dispatch_time_t)timeout {
-    __weak __typeof(self) weakSelf = self;
+    WEAKIFY(self);
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, timeout), self.timeoutQueue, ^{
-        __strong __typeof(self) strongSelf = weakSelf;
-        if(strongSelf.timeoutCanOccur) {
-            strongSelf.error = [self _onqueueTimeoutError];
-            strongSelf.timeoutCanOccur = false;
-            [strongSelf cancel];
+        STRONGIFY(self);
+        if(self.timeoutCanOccur) {
+            self.error = [self _onqueueTimeoutError];
+            self.timeoutCanOccur = false;
+            [self cancel];
         }
     });
 
@@ -236,20 +246,20 @@
 }
 
 + (CKKSResultOperation*)operationWithBlock:(void (^)(void))block {
-    CKKSResultOperation* op = [[CKKSResultOperation alloc] init];
+    CKKSResultOperation* op = [[self alloc] init];
     [op addExecutionBlock: block];
     return op;
 }
 
-+(instancetype)named:(NSString*)name withBlock:(void(^)(void)) block {
-    CKKSResultOperation* blockOp = [CKKSResultOperation operationWithBlock: block];
++ (instancetype)named:(NSString*)name withBlock:(void(^)(void)) block {
+    CKKSResultOperation* blockOp = [self operationWithBlock: block];
     blockOp.name = name;
     return blockOp;
 }
 
 + (instancetype)named:(NSString*)name withBlockTakingSelf:(void(^)(CKKSResultOperation* op))block
 {
-    CKKSResultOperation* op = [[CKKSResultOperation alloc] init];
+    CKKSResultOperation* op = [[self alloc] init];
     __weak __typeof(op) weakOp = op;
     [op addExecutionBlock:^{
         __strong __typeof(op) strongOp = weakOp;

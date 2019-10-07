@@ -607,6 +607,7 @@ again:
 				usb_interface = get_ccid_usb_interface(config_desc, &num);
 				if (usb_interface == NULL)
 				{
+					libusb_free_config_descriptor(config_desc);
 					(void)libusb_close(dev_handle);
 					if (0 == num)
 						DEBUG_CRITICAL3("Can't find a CCID interface on %d/%d",
@@ -618,6 +619,7 @@ again:
 				device_descriptor = get_ccid_device_descriptor(usb_interface);
 				if (NULL == device_descriptor)
 				{
+					libusb_free_config_descriptor(config_desc);
 					(void)libusb_close(dev_handle);
 					DEBUG_CRITICAL3("Unable to find the device descriptor for %d/%d",
 						bus_number, device_address);
@@ -628,6 +630,7 @@ again:
 				interface = usb_interface->altsetting->bInterfaceNumber;
 				if (interface_number >= 0 && interface != interface_number)
 				{
+					libusb_free_config_descriptor(config_desc);
 					/* an interface was specified and it is not the
 					 * current one */
 					DEBUG_INFO3("Found interface %d but expecting %d",
@@ -644,6 +647,7 @@ again:
 				r = libusb_claim_interface(dev_handle, interface);
 				if (r < 0)
 				{
+					libusb_free_config_descriptor(config_desc);
 					(void)libusb_close(dev_handle);
 					DEBUG_CRITICAL4("Can't claim interface %d/%d: %s",
 						bus_number, device_address, libusb_error_name(r));
@@ -660,6 +664,7 @@ again:
 				/* check for firmware bugs */
 				if (ccid_check_firmware(&desc))
 				{
+					libusb_free_config_descriptor(config_desc);
 					(void)libusb_close(dev_handle);
 					return_value = STATUS_UNSUCCESSFUL;
 					goto end2;
@@ -760,6 +765,7 @@ again:
 				else
 					usbDevice[reader_index].multislot_extension = NULL;
 
+				libusb_free_config_descriptor(config_desc);
 				goto end;
 			}
 		}
@@ -781,6 +787,10 @@ end:
 			goto again_libusb;
 		}
 #endif
+
+		/* free bundle list */
+		bundleRelease(&plist);
+
 		/* failed */
 		close_libusb_if_needed();
 
@@ -1293,7 +1303,7 @@ int InterruptRead(int reader_index, int timeout /* in ms */)
 	if (usbDevice[reader_index].multislot_extension != NULL)
 		return Multi_InterruptRead(reader_index, timeout);
 
-	DEBUG_PERIODIC2("before (%d)", reader_index);
+	DEBUG_PERIODIC3("before (%d), timeout: %d ms", reader_index, timeout);
 
 	transfer = libusb_alloc_transfer(0);
 	if (NULL == transfer)
@@ -1352,9 +1362,9 @@ int InterruptRead(int reader_index, int timeout /* in ms */)
 
 		default:
 			/* if libusb_interrupt_transfer() times out we get EILSEQ or EAGAIN */
-			DEBUG_COMM4("InterruptRead (%d/%d): %s",
+			DEBUG_COMM4("InterruptRead (%d/%d): %d",
 				usbDevice[reader_index].bus_number,
-				usbDevice[reader_index].device_address, libusb_error_name(ret));
+				usbDevice[reader_index].device_address, ret);
 			return_value = IFD_COMMUNICATION_ERROR;
 	}
 
@@ -1386,7 +1396,8 @@ void InterruptStop(int reader_index)
 
 		ret = libusb_cancel_transfer(transfer);
 		if (ret < 0)
-			DEBUG_CRITICAL2("libusb_cancel_transfer failed: %d", ret);
+			DEBUG_CRITICAL2("libusb_cancel_transfer failed: %s",
+				libusb_error_name(ret));
 	}
 } /* InterruptStop */
 

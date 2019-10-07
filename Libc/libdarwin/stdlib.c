@@ -24,7 +24,7 @@
 
 #pragma mark API
 void
-os_localtime_file(char buff[32])
+os_localtime_file(char buff[static 32])
 {
 	struct timeval tv;
 	struct tm curtime;
@@ -42,9 +42,8 @@ os_localtime_file(char buff[32])
 // MurmurHash2 was written by Austin Appleby, and is placed in the public
 // domain. The author hereby disclaims copyright to this source code.
 uint64_t
-os_simple_hash(const void *buff, size_t len)
+os_simple_hash_with_seed(const void *buff, size_t len, uint64_t seed)
 {
-	const uint64_t seed = 0;
 #ifdef __LP64__
 	// MurmurHash64A
 	const uint64_t m = 0xc6a4a7935bd1e995;
@@ -126,8 +125,36 @@ os_simple_hash(const void *buff, size_t len)
 }
 
 uint64_t
-os_simple_hash_string(const char *string)
+os_simple_hash(const void *buff, size_t len)
+{
+	return os_simple_hash_with_seed(buff, len, 0);
+}
+
+uint64_t
+os_simple_hash_string_with_seed(const char *string, uint64_t seed)
 {
 	size_t len = strlen(string);
-	return os_simple_hash(string, len);
+	return os_simple_hash_with_seed(string, len, seed);
+}
+
+uint64_t
+os_simple_hash_string(const char *string)
+{
+	return os_simple_hash_string_with_seed(string, 0);
+}
+
+errno_t
+realpath_np(os_fd_t fd, char buff[static PATH_MAX])
+{
+	errno_t error = -1;
+	int ret = -1;
+
+	ret = fcntl(fd, F_GETPATH, buff);
+	if (ret) {
+		error = errno;
+	} else {
+		error = 0;
+	}
+
+	return error;
 }

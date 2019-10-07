@@ -21,6 +21,9 @@
 
 #import "STLegacyTests.h"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 @implementation STLegacyTests (clientauth41)
 
 #define CFReleaseSafe(CF) { CFTypeRef _cf = (CF); if (_cf) {  CFRelease(_cf); } }
@@ -373,3 +376,5 @@ errOut:
     CFReleaseNull(trust_chain);
 }
 @end
+
+#pragma clang diagnostic pop

@@ -5,7 +5,6 @@ copyfile
 corecrypto
 dispatch
 dyld
-launch
 macho
 removefile
 system_asl

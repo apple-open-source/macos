@@ -1,11 +1,12 @@
 "exec" "${RUBY-ruby}" "-x" "$0" "$@" || true # -*- mode: ruby; coding: utf-8 -*-
 #!./ruby
-# $Id: runner.rb 53110 2015-12-14 08:04:28Z hsbt $
+# $Id: runner.rb 66344 2018-12-12 00:38:49Z k0kubun $
 
 # NOTE:
 # Never use optparse in this file.
 # Never use test/unit in this file.
 # Never use Ruby extensions in this file.
+# Maintain Ruby 1.8 compatibility for now
 
 begin
   require 'fileutils'
@@ -60,6 +61,7 @@ end
 def main
   @ruby = File.expand_path('miniruby')
   @verbose = false
+  $VERBOSE = false
   $stress = false
   @color = nil
   @tty = nil
@@ -253,30 +255,25 @@ def show_progress(message = '')
     end
   end
 rescue Interrupt
-  raise Interrupt
+  $stderr.puts "\##{@count} #{@location}"
+  raise
 rescue Exception => err
   $stderr.print 'E'
   $stderr.puts if @verbose
   error err.message, message
 end
 
-# NativeClient is special.  The binary is cross-compiled.  But runs on the build environment.
-# So RUBY_PLATFORM in this process is not useful to detect it.
-def nacl?
-  @ruby and File.basename(@ruby.split(/\s/).first)['sel_ldr']
-end
-
-def assert_check(testsrc, message = '', opt = '')
+def assert_check(testsrc, message = '', opt = '', **argh)
   show_progress(message) {
-    result = get_result_string(testsrc, opt)
+    result = get_result_string(testsrc, opt, **argh)
     check_coredump
     yield(result)
   }
 end
 
-def assert_equal(expected, testsrc, message = '')
+def assert_equal(expected, testsrc, message = '', opt = '', **argh)
   newtest
-  assert_check(testsrc, message) {|result|
+  assert_check(testsrc, message, opt, **argh) {|result|
     if expected == result
       nil
     else
@@ -317,13 +314,10 @@ def assert_valid_syntax(testsrc, message = '')
   }
 end
 
-def assert_normal_exit(testsrc, *rest)
+def assert_normal_exit(testsrc, *rest, timeout: nil, **opt)
   newtest
-  opt = {}
-  opt = rest.pop if Hash === rest.last
   message, ignore_signals = rest
   message ||= ''
-  timeout = opt[:timeout]
   show_progress(message) {
     faildesc = nil
     filename = make_srcfile(testsrc)
@@ -347,7 +341,7 @@ def assert_normal_exit(testsrc, *rest)
       $stderr.reopen(old_stderr)
       old_stderr.close
     end
-    if status&.signaled?
+    if status && status.signaled?
       signo = status.termsig
       signame = Signal.list.invert[signo]
       unless ignore_signals and ignore_signals.include?(signame)
@@ -373,6 +367,7 @@ def assert_normal_exit(testsrc, *rest)
 end
 
 def assert_finish(timeout_seconds, testsrc, message = '')
+  timeout_seconds *= 3 if RubyVM::MJIT.enabled? # for --jit-wait
   newtest
   show_progress(message) {
     faildesc = nil
@@ -381,12 +376,24 @@ def assert_finish(timeout_seconds, testsrc, message = '')
     pid = io.pid
     waited = false
     tlimit = Time.now + timeout_seconds
-    while Time.now < tlimit
+    diff = timeout_seconds
+    while diff > 0
       if Process.waitpid pid, Process::WNOHANG
         waited = true
         break
       end
-      sleep 0.1
+      if io.respond_to?(:read_nonblock)
+        if IO.select([io], nil, nil, diff)
+          begin
+            io.read_nonblock(1024)
+          rescue Errno::EAGAIN, IO::WaitReadable, EOFError
+            break
+          end while true
+        end
+      else
+        sleep 0.1
+      end
+      diff = tlimit - Time.now
     end
     if !waited
       Process.kill(:KILL, pid)
@@ -404,7 +411,7 @@ def flunk(message = '')
 end
 
 def pretty(src, desc, result)
-  src = src.sub(/\A.*\n/, '')
+  src = src.sub(/\A\s*\n/, '')
   (/\n/ =~ src ? "\n#{adjust_indent(src)}" : src) + "  #=> #{desc}"
 end
 
@@ -418,18 +425,19 @@ def untabify(str)
   str.gsub(/^\t+/) {' ' * (8 * $&.size) }
 end
 
-def make_srcfile(src)
+def make_srcfile(src, frozen_string_literal: nil)
   filename = 'bootstraptest.tmp.rb'
   File.open(filename, 'w') {|f|
+    f.puts "#frozen_string_literal:true" if frozen_string_literal
     f.puts "GC.stress = true" if $stress
     f.puts "print(begin; #{src}; end)"
   }
   filename
 end
 
-def get_result_string(src, opt = '')
+def get_result_string(src, opt = '', **argh)
   if @ruby
-    filename = make_srcfile(src)
+    filename = make_srcfile(src, **argh)
     begin
       `#{@ruby} -W0 #{opt} #{filename}`
     ensure

@@ -23,7 +23,7 @@
 #ifndef _SECURITYD_SPI_H_
 #define _SECURITYD_SPI_H_
 
-#include <utilities/SecCFError.h>
+#include "utilities/SecCFError.h"
 #include <xpc/xpc.h>
 #include <CoreFoundation/CFURL.h>
 

@@ -48,6 +48,9 @@ Access to external files via a special associative array.
 item(tt(zsh/mathfunc))(
 Standard scientific functions for use in mathematical evaluations.
 )
+item(tt(zsh/nearcolor))(
+Map colours to the nearest colour in the available palette.
+)
 item(tt(zsh/newuser))(
 Arrange for files for new users to be installed.
 )
@@ -153,10 +156,13 @@ includefile(Zsh/mod_langinfo.yo)
 texinode(The zsh/mapfile Module)(The zsh/mathfunc Module)(The zsh/langinfo Module)(Zsh Modules)
 sect(The zsh/mapfile Module)
 includefile(Zsh/mod_mapfile.yo)
-texinode(The zsh/mathfunc Module)(The zsh/newuser Module)(The zsh/mapfile Module)(Zsh Modules)
+texinode(The zsh/mathfunc Module)(The zsh/nearcolor Module)(The zsh/mapfile Module)(Zsh Modules)
 sect(The zsh/mathfunc Module)
 includefile(Zsh/mod_mathfunc.yo)
-texinode(The zsh/newuser Module)(The zsh/parameter Module)(The zsh/mathfunc Module)(Zsh Modules)
+texinode(The zsh/nearcolor Module)(The zsh/newuser Module)(The zsh/mathfunc Module)(Zsh Modules)
+sect(The zsh/nearcolor Module)
+includefile(Zsh/mod_nearcolor.yo)
+texinode(The zsh/newuser Module)(The zsh/parameter Module)(The zsh/nearcolor Module)(Zsh Modules)
 sect(The zsh/newuser Module)
 includefile(Zsh/mod_newuser.yo)
 texinode(The zsh/parameter Module)(The zsh/pcre Module)(The zsh/newuser Module)(Zsh Modules)

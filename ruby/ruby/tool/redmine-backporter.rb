@@ -205,7 +205,7 @@ class << Readline
   def readline(prompt = '')
     console = IO.console
     console.binmode
-    ly, lx = console.winsize
+    _, lx = console.winsize
     if /mswin|mingw/ =~ RUBY_PLATFORM or /^(?:vt\d\d\d|xterm)/i =~ ENV["TERM"]
       cls = "\r\e[2K"
     else
@@ -215,7 +215,7 @@ class << Readline
     console.print prompt
     console.flush
     line = ''
-    while 1
+    while true
       case c = console.getch
       when "\r", "\n"
         puts
@@ -299,6 +299,10 @@ def show_last_journal(http, uri)
   puts x["notes"]
 end
 
+def merger_path
+  RUBY_PLATFORM =~ /mswin|mingw/ ? 'merger' : File.expand_path('../merger.rb', __FILE__)
+end
+
 def backport_command_string
   unless @changesets.respond_to?(:validated)
     @changesets = @changesets.select do |c|
@@ -312,7 +316,7 @@ def backport_command_string
     end
     @changesets.define_singleton_method(:validated){true}
   end
-  " backport --ticket=#{@issue} #{@changesets.join(',')}"
+  " #{merger_path} --ticket=#{@issue} #{@changesets.sort.join(',')}"
 end
 
 def status_char(obj)
@@ -325,7 +329,7 @@ def status_char(obj)
 end
 
 console = IO.console
-row, col = console.winsize
+row, = console.winsize
 @query['limit'] = row - 2
 puts "Backporter #{VERSION}".color(bold: true) + " for #{TARGET_VERSION}"
 
@@ -348,10 +352,15 @@ commands = {
   },
 
   "show" => proc{|args|
-    raise CommandSyntaxError unless /\A(\d+)\z/ =~ args
-    id = $1.to_i
-    id = @issues[id]["id"] if @issues && id < @issues.size
-    @issue = id
+    if /\A(\d+)\z/ =~ args
+      id = $1.to_i
+      id = @issues[id]["id"] if @issues && id < @issues.size
+      @issue = id
+    elsif @issue
+      id = @issue
+    else
+      raise CommandSyntaxError
+    end
     uri = "#{REDMINE_BASE}/issues/#{id}"
     uri = URI(uri+".json?include=children,attachments,relations,changesets,journals")
     res = JSON(uri.read($openuri_options))
@@ -359,8 +368,14 @@ commands = {
     unless i["changesets"]
       abort "You don't have view_changesets permission"
     end
+    unless i["custom_fields"]
+      puts "The specified ticket \##{@issue} seems to be a feature ticket"
+      @issue = nil
+      next
+    end
     id = "##{i["id"]}".color(*PRIORITIES[i["priority"]["name"]])
     sio = StringIO.new
+    sio.set_encoding("utf-8")
     sio.puts <<eom
 #{i["subject"].color(bold: true, underscore: true)}
 #{i["project"]["name"]} [#{i["tracker"]["name"]} #{id}] #{i["status"]["name"]} (#{i["created_on"]})
@@ -397,17 +412,28 @@ eom
 
   "rel" => proc{|args|
     # this feature requires custom redmine which allows add_related_issue API
-    raise CommandSyntaxError unless /\A(\d+)\z/ =~ args
+    raise CommandSyntaxError unless /\Ar?(\d+)\z/ =~ args
     unless @issue
       puts "ticket not selected"
       next
     end
-    rev = $1.to_i
+    rev = $1
     uri = URI("#{REDMINE_BASE}/projects/ruby-trunk/repository/revisions/#{rev}/issues.json")
     Net::HTTP.start(uri.host, uri.port, http_options) do |http|
       res = http.post(uri.path, "issue_id=#@issue",
                      'X-Redmine-API-Key' => REDMINE_API_KEY)
+      begin
+        res.value
+      rescue
+        if $!.respond_to?(:response) && $!.response.is_a?(Net::HTTPConflict)
+          $stderr.puts "the revision has already related to the ticket"
+        else
+          $stderr.puts "deployed redmine doesn't have https://github.com/ruby/bugs.ruby-lang.org/commit/01fbba60d68cb916ddbccc8a8710e68c5217171d\nask naruse or hsbt"
+        end
+        next
+      end
       puts res.body
+      @changesets << rev
       class << @changesets
         remove_method(:validated) rescue nil
       end
@@ -416,7 +442,7 @@ eom
 
   "backport" => proc{|args|
     # this feature implies backport command which wraps tool/merger.rb
-    raise CommandSyntexError unless args.empty?
+    raise CommandSyntaxError unless args.empty?
     unless @issue
       puts "ticket not selected"
       next
@@ -459,7 +485,7 @@ eom
       res = http.get(uri.path)
       data = JSON(res.body)
       h = data["issue"]["custom_fields"].find{|x|x["id"]==5}
-      if h and val = h["value"]
+      if h and val = h["value"] and val != ""
         case val[/(?:\A|, )#{Regexp.quote TARGET_VERSION}: ([^,]+)/, 1]
         when 'REQUIRED', 'UNKNOWN', 'DONTNEED', 'WONTFIX'
           val[$~.offset(1)[0]...$~.offset(1)[1]] = 'DONE'
@@ -472,7 +498,7 @@ eom
           raise "unknown status '#$1'"
         end
       else
-        val = '#{TARGET_VERSION}: DONE'
+        val = "#{TARGET_VERSION}: DONE"
       end
 
       data = { "issue" => { "custom_fields" => [ {"id"=>5, "value" => val} ] } }
@@ -567,10 +593,10 @@ while true
     args = cmd
     cmd = "show"
   end
-  if commands[cmd].is_a? String
-    cmd = list[cmd]
-  end
   cmd = list[cmd]
+  if commands[cmd].is_a? String
+    cmd = list[commands[cmd]]
+  end
   begin
     if cmd
       commands[cmd].call(args)

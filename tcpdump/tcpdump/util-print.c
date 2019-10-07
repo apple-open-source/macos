@@ -153,7 +153,16 @@ fn_printztn(netdissect_options *ndo,
 		n--;
 		if (c == '\0') {
 			/* End of string */
+#ifdef __APPLE__
+			/*
+			 * rdar://33413692
+			 * Skip over NUL character but do not abort before
+			 * the loop reaches the end of the buffer
+			 */
+			continue;
+#else
 			break;
+#endif /* __APPLE__ */
 		}
 		if (!ND_ISASCII(c)) {
 			c = ND_TOASCII(c);

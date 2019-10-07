@@ -28,19 +28,16 @@
  */
 
 #include <securityd/SecKeybagSupport.h>
+#include <TargetConditionals.h>
 
 #include <securityd/SecItemServer.h>
 
 #if USE_KEYSTORE
 #include <IOKit/IOKitLib.h>
-#include <libaks.h>
 #include <libaks_acl_cf_keys.h>
 #include <utilities/der_plist.h>
 #include <corecrypto/ccder.h>
 #include <ACMLib.h>
-#if TARGET_OS_EMBEDDED
-#include <MobileKeyBag/MobileKeyBag.h>
-#endif
 #else /* !USE_KEYSTORE */
 #include <utilities/SecInternalReleasePriv.h>
 #endif /* USE_KEYSTORE */
@@ -48,11 +45,12 @@
 #include <CommonCrypto/CommonCryptor.h>
 #include <CommonCrypto/CommonCryptorSPI.h>
 
+#include "OSX/utilities/SecAKSWrappers.h"
 
 /* g_keychain_handle is the keybag handle used for encrypting item in the keychain.
  For testing purposes, it can be set to something other than the default, with SecItemServerSetKeychainKeybag */
 #if USE_KEYSTORE
-#if TARGET_OS_MAC && !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 keybag_handle_t g_keychain_keybag = session_keybag_handle;
 #else
 keybag_handle_t g_keychain_keybag = device_keybag_handle;
@@ -72,7 +70,7 @@ void SecItemServerSetKeychainKeybag(int32_t keybag)
 void SecItemServerResetKeychainKeybag(void)
 {
 #if USE_KEYSTORE
-#if TARGET_OS_MAC && !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     g_keychain_keybag = session_keybag_handle;
 #else
     g_keychain_keybag = device_keybag_handle;
@@ -81,41 +79,6 @@ void SecItemServerResetKeychainKeybag(void)
     g_keychain_keybag = 0; /* 0 == device_keybag_handle, constant dictated by AKS */
 #endif /* USE_KEYSTORE */
 }
-
-#if USE_KEYSTORE
-
-static bool hwaes_key_available(void)
-{
-    keybag_handle_t handle = bad_keybag_handle;
-    keybag_handle_t special_handle = bad_keybag_handle;
-#if TARGET_OS_OSX
-    special_handle = session_keybag_handle;
-#elif TARGET_OS_EMBEDDED
-    special_handle = device_keybag_handle;
-#else
-#error "supported keybag target"
-#endif
-
-    kern_return_t kr = aks_get_system(special_handle, &handle);
-    if (kr != kIOReturnSuccess) {
-#if TARGET_OS_EMBEDDED
-        /* TODO: Remove this once the kext runs the daemon on demand if
-         there is no system keybag. */
-        int kb_state = MKBGetDeviceLockState(NULL);
-        secinfo("aks", "AppleKeyStore lock state: %d", kb_state);
-#endif
-    }
-    return true;
-}
-
-#else /* !USE_KEYSTORE */
-
-static bool hwaes_key_available(void)
-{
-	return false;
-}
-
-#endif /* USE_KEYSTORE */
 
 /* Wrap takes a 128 - 256 bit key as input and returns output of
  inputsize + 64 bits.
@@ -126,7 +89,7 @@ static bool hwaes_key_available(void)
 bool ks_crypt(CFTypeRef operation, keybag_handle_t keybag,
               keyclass_t keyclass, uint32_t textLength, const uint8_t *source, keyclass_t *actual_class, CFMutableDataRef dest, CFErrorRef *error) {
 #if USE_KEYSTORE
-    kern_return_t kernResult = kIOReturnBadArgument;
+    kern_return_t kernResult = kAKSReturnBadArgument;
     
     int dest_len = (int)CFDataGetLength(dest);
     if (CFEqual(operation, kAKSKeyOpEncrypt)) {
@@ -136,16 +99,16 @@ bool ks_crypt(CFTypeRef operation, keybag_handle_t keybag,
     }
     
     if (kernResult != KERN_SUCCESS) {
-        if ((kernResult == kIOReturnNotPermitted) || (kernResult == kIOReturnNotPrivileged)) {
+        if ((kernResult == kAKSReturnNoPermission) || (kernResult == kAKSReturnNotPrivileged)) {
             const char *substatus = "";
             if (keyclass == key_class_ck || keyclass == key_class_cku)
                 substatus = " (hibernation?)";
             /* Access to item attempted while keychain is locked. */
             return SecError(errSecInteractionNotAllowed, error, CFSTR("ks_crypt: %x failed to '%@' item (class %"PRId32", bag: %"PRId32") Access to item attempted while keychain is locked%s."),
                             kernResult, operation, keyclass, keybag, substatus);
-        } else if (kernResult == kIOReturnNotFound) {
+        } else if (kernResult == kAKSReturnNotFound) {
             return SecError(errSecNotAvailable, error, CFSTR("ks_crypt: %x failed to '%@' item (class %"PRId32", bag: %"PRId32") No key available for class."), kernResult, operation, keyclass, keybag);
-        } else if (kernResult == kIOReturnError || kernResult == kAKSReturnDecodeError) {
+        } else if (kernResult == kAKSReturnError || kernResult == kAKSReturnDecodeError) {
             /* Item can't be decrypted on this device, ever, so drop the item. */
             return SecError(errSecDecode, error, CFSTR("ks_crypt: %x failed to '%@' item (class %"PRId32", bag: %"PRId32") Item can't be decrypted on this device, ever, so drop the item."),
                             kernResult, operation, keyclass, keybag);
@@ -300,7 +263,7 @@ bool create_cferror_from_aks(int aks_return, CFTypeRef operation, keybag_handle_
         SecError(errSecDecode, error, CFSTR("aks_ref_key: %x failed to '%s' item (class %"PRId32", bag: %"PRId32") Item can't be decrypted on this device, ever, so drop the item."),
                           aks_return, operation_string, keyclass, keybag);
 
-    } else if (aks_return == kIOReturnNotFound) {
+    } else if (aks_return == kAKSReturnNotFound) {
         return SecError(errSecNotAvailable, error, CFSTR("ks_crypt: %x failed to '%@' item (class %"PRId32", bag: %"PRId32") No key available for class."), aks_return, operation, keyclass, keybag);
     } else {
         SecError(errSecNotAvailable, error, CFSTR("aks_ref_key: %x failed to '%s' item (class %"PRId32", bag: %"PRId32")"),
@@ -443,6 +406,7 @@ out:
 #endif
 
 bool use_hwaes(void) {
+#if !TARGET_OS_BRIDGE
     static bool use_hwaes;
     static dispatch_once_t check_once;
     dispatch_once(&check_once, ^{
@@ -454,6 +418,9 @@ bool use_hwaes(void) {
         }
     });
     return use_hwaes;
+#else
+    return false;
+#endif // TARGET_OS_BRIDGE
 }
 
 bool ks_open_keybag(CFDataRef keybag, CFDataRef password, keybag_handle_t *handle, CFErrorRef *error) {

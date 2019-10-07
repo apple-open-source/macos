@@ -27,8 +27,10 @@
 #include <IOKit/IOService.h>
 #include <IOKit/pwr_mgt/IOPMPowerSource.h>
 #include <IOKit/IOReporter.h>
+#if TARGET_OS_OSX
 #include <IOKit/smbus/IOSMBusController.h>
 #include <IOKit/acpi/IOACPIPlatformDevice.h>
+#endif
 
 
 #include "AppleSmartBatteryCommands.h"
@@ -36,7 +38,6 @@
 
 #define kBatteryPollingDebugKey     "BatteryPollingPeriodOverride"
 
-class AppleBatteryAuth;
 class AppleSmartBatteryManager;
 
 typedef struct {
@@ -65,6 +66,7 @@ typedef struct {
     const OSSymbol    *regKey;
     SMCKey      key;
     int32_t     byteCnt;
+    int pathBits;
 } smcToRegistry;
 
 
@@ -100,7 +102,6 @@ protected:
     int                         fBatteryPresent;
     int                         fACConnected;
     int                         fInstantCurrent;
-    int                         fAvgCurrent;
     OSArray                     *fCellVoltages;
     uint64_t                    acAttach_ts; 
 
@@ -160,6 +161,8 @@ protected:
     bool    retryCurrentTransaction(uint32_t state);
     bool    handleSetItAndForgetIt(int state, int val16,
                                    const uint8_t *str32, IOByteCount len);
+    void                readAdapterInfo(void);
+    OSDictionary*       copySMCAdapterInfo(uint8_t port);
 
 public:
     static AppleSmartBattery *smartBattery(void);
@@ -177,7 +180,7 @@ public:
 
 
 protected:
-    void    logReadError( const char *error_type, 
+    void    logReadError( const char *error_type,
                           uint16_t additional_error,
                           uint32_t cmd);
 
@@ -205,12 +208,9 @@ protected:
                                    void *result, void *destination) APPLE_KEXT_OVERRIDE;
     IOReturn updateReport(IOReportChannelList *channels, IOReportUpdateAction action,
                                 void *result, void *destination) APPLE_KEXT_OVERRIDE;
-#if TARGET_OS_WATCH
-    void           updateSKTMData(void);
-#endif
-#if TARGET_OS_IOS || TARGET_OS_WATCH
-    uint16_t    _gasGaugeFirmwareVersion;
-#endif
+
+private:
+    void updateDictionaryInIOReg(const OSSymbol *sym, smcToRegistry *keys);
 };
 
 #endif

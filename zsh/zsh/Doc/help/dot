@@ -10,8 +10,8 @@
        form (created with the zcompile builtin) of file, then  commands
        are read from that file instead of file.
 
-       If  any  arguments  arg  are  given,  they become the positional
-       parameters; the old positional parameters are restored when  the
+       If  any  arguments arg are given, they become the positional pa-
+       rameters; the old positional parameters are  restored  when  the
        file is done executing.  However, if no arguments are given, the
        positional parameters remain those of the calling  context,  and
        no restoring is done.

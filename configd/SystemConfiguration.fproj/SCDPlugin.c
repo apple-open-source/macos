@@ -385,7 +385,7 @@ _SCDPluginExecCommand2(SCDPluginExecCallBack	callout,
 
 				// create child process info
 				child = CFAllocatorAllocate(NULL, sizeof(struct childInfo), 0);
-				bzero(child, sizeof(struct childInfo));
+				memset(child, 0, sizeof(struct childInfo));
 				child->pid     = pid;
 				child->callout = callout;
 				child->context = context;

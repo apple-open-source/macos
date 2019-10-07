@@ -1,0 +1,3 @@
+#include "dtrace_executable.xcconfig"
+PUBLIC_HEADERS_FOLDER_PATH = /usr/include
+INSTALL_PATH = $(DT_TOOLCHAIN_DIR)/usr/bin

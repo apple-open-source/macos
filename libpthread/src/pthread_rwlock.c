@@ -199,7 +199,16 @@ rwlock_seq_atomic_load_relaxed(rwlock_seq *seqaddr, rwlock_seq *oldseqval,
 	switch (seqfields) {
 	case RWLOCK_SEQ_LSU:
 #if RWLOCK_USE_INT128
+#if defined(__arm64__) && defined(__ARM_ARCH_8_2__)
+		// Workaround clang armv81 codegen bug for 128bit os_atomic_load
+		// rdar://problem/31213932
+		oldseqval->seq_LSU = seqaddr->seq_LSU;
+		while (!os_atomic_cmpxchgvw(&seqaddr->atomic_seq_LSU,
+				oldseqval->seq_LSU, oldseqval->seq_LSU, &oldseqval->seq_LSU,
+				relaxed));
+#else
 		oldseqval->seq_LSU = os_atomic_load(&seqaddr->atomic_seq_LSU, relaxed);
+#endif
 #else
 		oldseqval->seq_LS = os_atomic_load(&seqaddr->atomic_seq_LS, relaxed);
 		oldseqval->seq_U = os_atomic_load(&seqaddr->atomic_seq_U, relaxed);
@@ -673,8 +682,7 @@ _pthread_rwlock_lock_wait(pthread_rwlock_t *orwlock, bool readlock,
 		PLOCKSTAT_RW_BLOCKED(orwlock, plockstat, BLOCK_SUCCESS_PLOCKSTAT);
 	} else {
 		PLOCKSTAT_RW_BLOCKED(orwlock, plockstat, BLOCK_FAIL_PLOCKSTAT);
-		PTHREAD_ABORT("kernel rwlock returned unknown error %x: "
-				"tid %llx\n", res, _pthread_selfid_direct());
+		PTHREAD_INTERNAL_CRASH(res, "kernel rwlock returned unknown error");
 	}
 
 	return res;
@@ -930,8 +938,7 @@ _pthread_rwlock_unlock_drop(pthread_rwlock_t *orwlock, rwlock_seq oldseq,
 	} while (res == EINTR);
 
 	if (res != 0) {
-		PTHREAD_ABORT("kernel rwunlock returned unknown error %x: "
-				"tid %llx\n", res, _pthread_selfid_direct());
+		PTHREAD_INTERNAL_CRASH(res, "kernel rwunlock returned unknown error");
 	}
 
 	return res;

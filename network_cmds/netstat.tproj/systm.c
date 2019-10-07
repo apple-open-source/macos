@@ -367,7 +367,7 @@ kctl_stats(uint32_t off __unused, char *name, int af __unused)
 	p(kcs_tbl_size_too_big, "\t%llu register failure%s because of too many kern_ctl_ref\n");
 	p(kcs_enqdata_mb_alloc_fail, "\t%llu enqueuedata failure%s because could not allocate a packet\n");
 	p(kcs_enqdata_sbappend_fail, "\t%llu enqueuedata failure%s due to full socket buffers\n");
-	
+
 #undef STATDIFF
 #undef p
 #undef p1a

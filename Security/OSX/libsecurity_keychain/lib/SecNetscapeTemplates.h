@@ -32,6 +32,7 @@
 #include <Security/cssmtype.h>
 #include <Security/X509Templates.h>
 #include <Security/keyTemplates.h>
+#include <Security/x509defs.h>
 
 #ifdef __cplusplus
 extern "C" {

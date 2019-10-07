@@ -30,31 +30,31 @@
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
 #import "keychain/ckks/CloudKitDependencies.h"
 #import "keychain/ckks/CKKSLockStateTracker.h"
-#import "keychain/ckks/CKKSCKAccountStateTracker.h"
+#import "keychain/ckks/CKKSAccountStateTracker.h"
 #import "keychain/ckks/CKKSReachabilityTracker.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface OTRamp : NSObject <CKKSAccountStateListener>
+@interface OTRamp : NSObject
 
 @property (nonatomic, readonly) NSString* featureName;
-@property (nonatomic, readonly) CKKSCKAccountStateTracker *accountTracker;
+@property (nonatomic, readonly) CKKSAccountStateTracker *accountTracker;
 @property (nonatomic, readonly) CKKSLockStateTracker      *lockStateTracker;
 @property (nonatomic, readonly) CKKSReachabilityTracker   *reachabilityTracker;
 
--(instancetype) initWithRecordName:(NSString *) recordName
-                       featureName:(NSString*) featureName
+-(instancetype)initWithRecordName:(NSString *) recordName
+                 localSettingName:(NSString*) featureName
                          container:(CKContainer*) container
                           database:(CKDatabase*) database
                             zoneID:(CKRecordZoneID*) zoneID
-                    accountTracker:(CKKSCKAccountStateTracker*) accountTracker
+                    accountTracker:(CKKSAccountStateTracker*) accountTracker
                   lockStateTracker:(CKKSLockStateTracker*) lockStateTracker
                reachabilityTracker:(CKKSReachabilityTracker*) reachabilityTracker
   fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordRecordsOperationClass;
 
--(void) fetchRampRecord:(CKOperationDiscretionaryNetworkBehavior)networkBehavior
+-(void)fetchRampRecord:(CKOperationDiscretionaryNetworkBehavior)networkBehavior
                   reply:(void (^)(BOOL featureAllowed, BOOL featurePromoted, BOOL featureVisible, NSInteger retryAfter, NSError *rampStateFetchError))recordRampStateFetchCompletionBlock;
--(BOOL) checkRampState:(NSInteger*)retryAfter networkBehavior:(CKOperationDiscretionaryNetworkBehavior)networkBehavior error:(NSError**)error;
+-(BOOL)checkRampStateWithError:(NSError**)error;
 @end
 NS_ASSUME_NONNULL_END
 #endif /* OCTAGON */

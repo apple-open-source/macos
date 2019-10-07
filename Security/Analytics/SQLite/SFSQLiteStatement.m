@@ -27,7 +27,7 @@
 #import "SFSQLite.h"
 #import "SFSQLiteStatement.h"
 #import "SFObjCType.h"
-#import "debugging.h"
+#import "utilities/debugging.h"
 
 @interface SFSQLiteStatement ()
 @property (nonatomic, strong) NSMutableArray *temporaryBoundObjects;

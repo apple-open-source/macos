@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -144,7 +144,7 @@ static int dsauth_pap(char *user, char *passwd, char **msgp, struct wordlist **p
     int							authResult = 0;
     u_int32_t					userShortNameSize;
     
-    u_int32_t					passwordSize = strlen(passwd);
+    u_int32_t					passwordSize = (u_int32_t)strlen(passwd);
     u_int32_t					authDataSize;
 
     if ((dsResult = dsOpenDirService(&dirRef)) == eDSNoErr) {    
@@ -232,7 +232,7 @@ static int dsauth_chap(u_char *name, u_char *ourname, int id,
     char						*ptr;
     MS_Chap2Response			*resp;  
     u_int32_t					userShortNameSize;
-    u_int32_t					userNameSize = strlen((char*)name);
+    u_int32_t					userNameSize = (u_int32_t)strlen((char*)name);
     u_int32_t					authDataSize;
     int							challenge_len, response_len;
 	CFMutableDictionaryRef		serviceInfo = 0;
@@ -524,7 +524,7 @@ static int dsauth_set_mppe_keys(tDirReference dirRef, tDirNodeReference userNode
 		}
 
 		slotID = ptr + 1; // skip the ';' as well
-		slotIDSize = comma - slotID;
+		slotIDSize = (u_int32_t)(comma - slotID);
 	} else {
 	        error("DSAuth plugin: unsupported authen authority: recved %s, want %s\n", tagStart, kDSTagAuthAuthorityPasswordServer);
 		return (status);		// unsupported authentication authority - don't set the keys
@@ -618,9 +618,9 @@ cleanup:
 	}
     if (keyaccessPassword) {
 		bzero(keyaccessPassword, keyaccessPasswordSize);	// clear the admin password from memory
-#if !TARGET_OS_EMBEDDED // This file is not built for Embedded
+#if TARGET_OS_OSX // This file is not built for Embedded
         SecKeychainItemFreeContent(NULL, keyaccessPassword);
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
     }
     if (keyaccessName) {
         free(keyaccessName);
@@ -665,7 +665,7 @@ static void dsauth_get_admin_acct(u_int32_t *acctNameSize, char** acctName, u_in
                 namestr[0] = 0;
                 CFStringGetCString(acctNameRef, namestr, 256, kCFStringEncodingMacRoman);
                 if (namestr[0]) {
-                    namelen = strlen(namestr);
+                    namelen = (u_int32_t)strlen(namestr);
 
                     if (dsauth_get_admin_password(namelen, namestr, passwordSize, password) == 0) {
                         *acctNameSize = namelen;
@@ -686,13 +686,13 @@ static void dsauth_get_admin_acct(u_int32_t *acctNameSize, char** acctName, u_in
 //----------------------------------------------------------------------
 static int dsauth_get_admin_password(u_int32_t acctlen, char* acctname, u_int32_t *password_len, char **password)
 {
-#if !TARGET_OS_EMBEDDED // This file is not built for Embedded
+#if TARGET_OS_OSX // This file is not built for Embedded
     SecKeychainRef	keychain = 0;
     OSStatus		status;
     
     if ((status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem)) == noErr) {
     	if ((status = SecKeychainCopyDomainDefault(kSecPreferencesDomainSystem, &keychain)) == noErr) {
-            status = SecKeychainFindGenericPassword(keychain, strlen(serviceName), serviceName,
+            status = SecKeychainFindGenericPassword(keychain, (UInt32)strlen(serviceName), serviceName,
                         acctlen, acctname, (UInt32*)password_len, (void**)password, NULL); 
         }
     }
@@ -708,7 +708,7 @@ static int dsauth_get_admin_password(u_int32_t acctlen, char* acctname, u_int32_
 #else
 	error("System Keychain support not available");
 	return -1;
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* !TARGET_OS_IOS */
 }
     
 //----------------------------------------------------------------------

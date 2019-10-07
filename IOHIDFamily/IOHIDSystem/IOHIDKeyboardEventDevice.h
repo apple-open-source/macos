@@ -75,33 +75,33 @@ private:
 
 protected:
 
-    virtual void free();
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
   
-    virtual bool handleStart( IOService * provider );
+    virtual bool handleStart( IOService * provider ) APPLE_KEXT_OVERRIDE;
     
 public:
   
-    virtual bool start( IOService * provider );
+    virtual bool start( IOService * provider ) APPLE_KEXT_OVERRIDE;
   
     static IOHIDKeyboardEventDevice	* newKeyboardDeviceAndStart(IOService * owner, UInt32 location = 0);
     
-    virtual bool initWithLocation( UInt32 location = 0 );
+    virtual bool initWithLocation( UInt32 location = 0 ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn newReportDescriptor(IOMemoryDescriptor ** descriptor ) const;
+    virtual IOReturn newReportDescriptor(IOMemoryDescriptor ** descriptor ) const APPLE_KEXT_OVERRIDE;
                         
-    virtual OSString * newProductString() const;
+    virtual OSString * newProductString() const APPLE_KEXT_OVERRIDE;
     
-    virtual OSNumber * newVendorIDNumber() const;
-    virtual OSNumber * newProductIDNumber() const;
-    virtual OSString * newManufacturerString() const;
+    virtual OSNumber * newVendorIDNumber() const APPLE_KEXT_OVERRIDE;
+    virtual OSNumber * newProductIDNumber() const APPLE_KEXT_OVERRIDE;
+    virtual OSString * newManufacturerString() const APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn getReport( IOMemoryDescriptor * report,
                                  IOHIDReportType      reportType,
-                                 IOOptionBits         options );
+                                 IOOptionBits         options ) APPLE_KEXT_OVERRIDE;
                                  
     virtual IOReturn setReport( IOMemoryDescriptor * report,
                                 IOHIDReportType      reportType,
-                                IOOptionBits         options );
+                                IOOptionBits         options ) APPLE_KEXT_OVERRIDE;
                                                                 
     virtual void postKeyboardEvent(UInt8 key, bool keyDown);
     virtual void postConsumerEvent(UInt8 key, bool keyDown);
@@ -110,7 +110,7 @@ public:
     virtual void setCapsLockLEDElement(bool state);
     virtual void setNumLockLEDElement(bool state);
   
-    virtual IOReturn message(UInt32 type, IOService * provider, void * argument);
+    virtual IOReturn message(UInt32 type, IOService * provider, void * argument) APPLE_KEXT_OVERRIDE;
 };
 
 #endif /* !_IOKIT_HID_IOHIDKEYBOARDDEVICE_H */

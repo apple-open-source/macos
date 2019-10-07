@@ -298,14 +298,12 @@
 }
 
 
-+ (instancetype)fromDatabaseRow: (NSDictionary*) row {
-    NSISO8601DateFormatter* dateFormat = [[NSISO8601DateFormatter alloc] init];
-
++ (instancetype)fromDatabaseRow:(NSDictionary<NSString *, CKKSSQLResult*>*) row {
     return [[CKKSOutgoingQueueEntry alloc] initWithCKKSItem:[CKKSItem fromDatabaseRow: row]
-                                                     action:row[@"action"]
-                                                      state:row[@"state"]
-                                                  waitUntil:[row[@"waituntil"] isEqual: [NSNull null]] ? nil : [dateFormat dateFromString: row[@"waituntil"]]
-                                                accessGroup:row[@"accessgroup"]];
+                                                     action:row[@"action"].asString
+                                                      state:row[@"state"].asString
+                                                  waitUntil:row[@"waituntil"].asISO8601Date
+                                                accessGroup:row[@"accessgroup"].asString];
 }
 
 + (NSDictionary<NSString*,NSNumber*>*)countsByStateInZone:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
@@ -317,8 +315,8 @@
                                       groupBy: @[@"state"]
                                       orderBy:nil
                                         limit: -1
-                                   processRow: ^(NSDictionary* row) {
-                                       results[row[@"state"]] = [NSNumber numberWithInteger: [row[@"count(rowid)"] integerValue]];
+                                   processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       results[row[@"state"].asString] = row[@"count(rowid)"].asNSNumberInteger;
                                    }
                                         error: error];
     return results;
@@ -333,8 +331,8 @@
                                       groupBy: nil
                                       orderBy: nil
                                         limit: -1
-                                   processRow: ^(NSDictionary* row) {
-                                       result = [row[@"count(*)"] integerValue];
+                                   processRow: ^(NSDictionary<NSString*, CKKSSQLResult*>* row) {
+                                       result = row[@"count(*)"].asNSInteger;
                                    }
                                         error: error];
     return result;

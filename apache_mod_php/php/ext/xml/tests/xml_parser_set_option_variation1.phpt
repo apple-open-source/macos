@@ -1,17 +1,17 @@
 --TEST--
 Test xml_parser_set_option() function : usage variations
 --SKIPIF--
-<?php 
+<?php
 if (!extension_loaded("xml")) {
-	print "skip - XML extension not loaded"; 
-}	 
+	print "skip - XML extension not loaded";
+}
 ?>
 --FILE--
 <?php
 /* Prototype  : proto int xml_parser_set_option(resource parser, int option, mixed value)
- * Description: Set options in an XML parser 
+ * Description: Set options in an XML parser
  * Source code: ext/xml/xml.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing xml_parser_set_option() : usage variations ***\n";
@@ -74,9 +74,9 @@ $values = array(
 
       // object data
       new aClass(),
-      
+
       // resource data
-      $fp, 
+      $fp,
 
       // undefined data
       $undefined_var,
@@ -100,22 +100,22 @@ echo "Done";
 
 Arg value 0 
 
-Warning: xml_parser_set_option() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: xml_parser_set_option() expects parameter 1 to be resource, int given in %s on line %d
 NULL
 
 Arg value 1 
 
-Warning: xml_parser_set_option() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: xml_parser_set_option() expects parameter 1 to be resource, int given in %s on line %d
 NULL
 
 Arg value 12345 
 
-Warning: xml_parser_set_option() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: xml_parser_set_option() expects parameter 1 to be resource, int given in %s on line %d
 NULL
 
 Arg value -2345 
 
-Warning: xml_parser_set_option() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: xml_parser_set_option() expects parameter 1 to be resource, int given in %s on line %d
 NULL
 
 Arg value 10.5 
@@ -180,22 +180,22 @@ NULL
 
 Arg value 1 
 
-Warning: xml_parser_set_option() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: xml_parser_set_option() expects parameter 1 to be resource, bool given in %s on line %d
 NULL
 
 Arg value  
 
-Warning: xml_parser_set_option() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: xml_parser_set_option() expects parameter 1 to be resource, bool given in %s on line %d
 NULL
 
 Arg value 1 
 
-Warning: xml_parser_set_option() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: xml_parser_set_option() expects parameter 1 to be resource, bool given in %s on line %d
 NULL
 
 Arg value  
 
-Warning: xml_parser_set_option() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: xml_parser_set_option() expects parameter 1 to be resource, bool given in %s on line %d
 NULL
 
 Arg value  
@@ -238,4 +238,3 @@ Arg value
 Warning: xml_parser_set_option() expects parameter 1 to be resource, null given in %s on line %d
 NULL
 Done
-

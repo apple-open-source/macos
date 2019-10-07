@@ -103,9 +103,30 @@
 0:`exec' with -a option, no space
 >/bin/SPLOOSH
 
+  (exec -a foo* $ZTST_testdir/../Src/zsh -fc 'print -r -- ${(V)0}')
+  (exec -a "" $ZTST_testdir/../Src/zsh -fc 'print -r -- ${(V)0}')
+0:rationalisation of arguments to exec -a
+>foo*
+>
+
+  (
+    opts=(-a /bin/WHOOOSH)
+    exec $opts /bin/sh -c 'echo $0'
+  )
+0:`exec' with -a option from expansion
+>/bin/WHOOOSH
+
   (export FOO=bar; exec -c /bin/sh -c 'echo x${FOO}x')
 0:`exec' with -c option
 >xx
+
+  (\exec /bin/sh -c 'echo Test one'; print Not reached)
+  ('exec' /bin/sh -c 'echo Test two'; print Not reached)
+  (\exec -c /bin/sh -c 'echo Test three'; print Not reached)
+0:precommand modifiers with quotes
+>Test one
+>Test two
+>Test three
 
   cat() { echo Function cat executed; }
   command cat && unfunction cat
@@ -113,11 +134,34 @@
 <External command cat executed
 >External command cat executed
 
+  (command -p echo this is output)
+  (\command -p echo this is more output)
+  ('command' -p echo this is yet more output)
+0: command -p without -v or -V
+>this is output
+>this is more output
+>this is yet more output
+
   command -pv cat
   command -pv echo
   command -p -V cat
   command -p -V -- echo
 0:command -p in combination
+*>*/cat
+>echo
+>cat is /*/cat
+>echo is a shell builtin
+
+  args=(
+  'command -pv cat'
+  'command -pv echo'
+  'command -p -V cat'
+  'command -p -V -- echo'
+  )
+  for arg in $args; do
+    ${=arg}
+  done
+0:command -p in combination, using expansion
 *>*/cat
 >echo
 >cat is /*/cat
@@ -324,6 +368,10 @@
 
   (time cat) >&/dev/null
 0:`time' keyword (status only)
+
+  TIMEFMT='%E %mE %uE %* %m%mm %u%uu'; time (:)
+0:`time' keyword with custom TIMEFMT
+*?[0-9]##.[0-9](#c2)s [0-9]##ms [0-9]##us %\* %m%mm %u%uu
 
   if [[ -f foo && -d . && -n $ZTST_testdir ]]; then
     true
@@ -782,9 +830,56 @@
 0:case keeps exit status of last command executed in compound-list
 >37
 
+  case '' in
+    burble) print No.
+    ;;
+    spurble|) print Yes!
+    ;;
+    |burble) print Not quite.
+    ;;
+  esac
+  case '' in
+    burble) print No.
+    ;;
+    |burble) print Wow!
+    ;;
+    spurble|) print Sorry.
+    ;;
+  esac
+  case '' in
+    gurgle) print No.
+    ;;
+    wurgle||jurgle) print Yikes!
+    ;;
+    durgle|) print Hmm.
+    ;;
+    |zurgle) print Hah.
+    ;;
+  esac
+  case '' in
+    # Useless doubled empty string to check special case.
+    ||jurgle) print Ok.
+    ;;
+  esac
+0: case with no opening parentheses and empty string 
+>Yes!
+>Wow!
+>Yikes!
+>Ok.
+
   x=1
   x=2 | echo $x
   echo $x
 0:Assignment-only current shell commands in LHS of pipelin
 >1
 >1
+
+ echo pipe | ; sed s/pipe/PIPE/
+ true && ; echo and true
+ false && ; echo and false
+ true || ; echo or true
+ false || ; echo or false
+0:semicolon is equivalent to newline
+>PIPE
+>and true
+>or false

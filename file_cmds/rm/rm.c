@@ -60,12 +60,17 @@ __used static const char rcsid[] =
 #include <string.h>
 #include <sysexits.h>
 #include <unistd.h>
+#include <locale.h>
 
 #ifdef __APPLE__
 #include <removefile.h>
 #include <pwd.h>
 #include <grp.h>
 #include "get_compat.h"
+
+#ifndef AT_REMOVEDIR_DATALESS
+#define AT_REMOVEDIR_DATALESS   0x0100  /* Remove a dataless directory without materializing first */
+#endif
 #else
 #define COMPAT_MODE(func, mode) 1
 #endif
@@ -280,7 +285,15 @@ rm_tree(argv)
 			switch (p->fts_info) {
 			case FTS_DP:
 			case FTS_DNR:
+#if __APPLE__
+				if (p->fts_statp != NULL && (p->fts_statp->st_flags & SF_DATALESS) != 0)
+					rval = unlinkat(AT_FDCWD, p->fts_accpath, AT_REMOVEDIR_DATALESS);
+				else
+					rval = rmdir(p->fts_accpath);
+#else
+
 				rval = rmdir(p->fts_accpath);
+#endif
 				if (rval == 0 || (fflag && errno == ENOENT)) {
 					if (rval == 0 && vflag)
 						(void)printf("%s\n",
@@ -465,12 +478,21 @@ int
 yes_or_no()
 {
 	int ch, first;
+	char resp[] = {'\0', '\0'};
+
 	(void)fflush(stderr);
+
+	/* Load user specified locale */
+	setlocale(LC_MESSAGES, "");
 
 	first = ch = getchar();
 	while (ch != '\n' && ch != EOF)
 		ch = getchar();
-	return (first == 'y' || first == 'Y');
+
+	/* only care about the first character */
+	resp[0] = first;
+
+	return (rpmatch(resp) == 1);
 }
 
 int

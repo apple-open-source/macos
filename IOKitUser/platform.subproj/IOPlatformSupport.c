@@ -21,7 +21,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#if !TARGET_OS_EMBEDDED
+#include <TargetConditionals.h>
+
+#if TARGET_OS_OSX
 
 #include "IOPlatformSupportPrivate.h"
 #include <IOKit/IOKitLib.h>
@@ -390,4 +392,4 @@ IOReturn IOPlatformGetDeviceColor(
     return ret;
 }
 
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */

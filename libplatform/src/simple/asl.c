@@ -41,6 +41,16 @@
 #include <platform/string.h>
 #include <platform/compat.h>
 
+#if TARGET_OS_DRIVERKIT
+// DriverKit processes log directly to kernel log
+#include <sys/log_data.h>
+OS_ENUM(os_log_type, uint8_t,
+	OS_LOG_TYPE_DEFAULT = 0x00,
+	OS_LOG_TYPE_INFO    = 0x01,
+	OS_LOG_TYPE_DEBUG   = 0x02,
+);
+#else // !TARGET_OS_DRIVERKIT
+
 #define ASL_LOG_PATH _PATH_LOG
 
 extern ssize_t __sendto(int, const void *, size_t, int, const struct sockaddr *, socklen_t);
@@ -78,35 +88,6 @@ static int _simple_asl_get_fd(void);
  * requires knowledge of the format used by ASL.
  */
 
-static const char *
-_simple_asl_escape_key(unsigned char c)
-{
-	switch(c)
-	{
-		case '\\': return "\\\\";
-		case '[':  return "\\[";
-		case ']':  return "\\]";
-		case '\n': return "\\n";
-		case ' ':  return "\\s";
-	}
-
-	return NULL;
-}
-
-static const char *
-_simple_asl_escape_val(unsigned char c)
-{
-	switch(c)
-	{
-		case '\\': return "\\\\";
-		case '[':  return "\\[";
-		case ']':  return "\\]";
-		case '\n': return "\\n";
-	}
-
-	return NULL;
-}
-
 __attribute__((visibility("hidden")))
 void
 _simple_asl_init(const char *envp[], const struct ProgramVars *vars)
@@ -131,7 +112,7 @@ static int
 _simple_asl_connect(const char *log_path)
 {
 	int fd = socket(AF_UNIX, SOCK_DGRAM, 0);
-	if (fd == -1) return;
+	if (fd == -1) return -1;
 
 	fcntl(fd, F_SETFD, FD_CLOEXEC);
 
@@ -199,6 +180,36 @@ _simple_asl_get_fd(void)
 	return ctx->asl_fd;
 #endif
 }
+#endif // !TARGET_OS_DRIVERKIT
+
+static const char *
+_simple_asl_escape_key(unsigned char c)
+{
+	switch(c)
+	{
+		case '\\': return "\\\\";
+		case '[':  return "\\[";
+		case ']':  return "\\]";
+		case '\n': return "\\n";
+		case ' ':  return "\\s";
+	}
+
+	return NULL;
+}
+
+static const char *
+_simple_asl_escape_val(unsigned char c)
+{
+	switch(c)
+	{
+		case '\\': return "\\\\";
+		case '[':  return "\\[";
+		case ']':  return "\\]";
+		case '\n': return "\\n";
+	}
+
+	return NULL;
+}
 
 _SIMPLE_STRING
 _simple_asl_msg_new(void)
@@ -255,6 +266,7 @@ _simple_asl_msg_set(_SIMPLE_STRING __b, const char *__key, const char *__val)
 void
 _simple_asl_send(_SIMPLE_STRING __b)
 {
+#if !TARGET_OS_DRIVERKIT
 	struct timeval tv;
 	int asl_fd = _simple_asl_get_fd();
 	if (asl_fd < 0) return;
@@ -280,16 +292,21 @@ _simple_asl_send(_SIMPLE_STRING __b)
 		cp = _simple_string(__b);
 		__sendto(asl_fd, cp, strlen(cp), 0, NULL, 0);
     } while (0);
+#else // TARGET_OS_DRIVERKIT
+	char *cp;
+	cp = _simple_string(__b);
+	log_data_as_kernel(0, OS_LOG_TYPE_DEFAULT, cp, strlen(cp) + 1);
+#endif // TARGET_OS_DRIVERKIT
 }
 
 void
 _simple_asl_log_prog(int level, const char *facility, const char *message, const char *prog)
 {
-	char lstr[2];
-
 	_SIMPLE_STRING b = _simple_asl_msg_new();
 	if (b == NULL) return;
 
+#if !TARGET_OS_DRIVERKIT
+	char lstr[2];
 	if (level < 0) level = 0;
 	if (level > 7) level = 7;
 	lstr[0] = level + '0';
@@ -300,16 +317,33 @@ _simple_asl_log_prog(int level, const char *facility, const char *message, const
 	_simple_asl_msg_set(b, "Facility", facility);
 	_simple_asl_msg_set(b, "Message", message);
 	_simple_asl_send(b);
+#else // TARGET_OS_DRIVERKIT
+	if (prog) _simple_asl_msg_set(b, "Sender", prog);
+	_simple_asl_msg_set(b, "Facility", facility);
+	_simple_asl_msg_set(b, "Message", message);
+
+	os_log_type_t type = level > ASL_LEVEL_INFO ? OS_LOG_TYPE_DEFAULT :
+			(level > ASL_LEVEL_DEBUG ? OS_LOG_TYPE_INFO : OS_LOG_TYPE_DEBUG);
+
+	char *cp;
+	cp = _simple_string(b);
+	log_data_as_kernel(0, type, cp, strlen(cp) + 1);
+#endif // TARGET_OS_DRIVERKIT
 	_simple_sfree(b);
 }
 
 void
 _simple_asl_log(int level, const char *facility, const char *message)
 {
+#if !TARGET_OS_DRIVERKIT
 	_simple_asl_log_prog(level, facility, message,
 			_simple_asl_get_context()->progname);
+#else // TARGET_OS_DRIVERKIT
+	_simple_asl_log_prog(level, facility, message, NULL);
+#endif // TARGET_OS_DRIVERKIT
 }
 
+#if !TARGET_OS_DRIVERKIT
 static struct asl_context *
 _simple_asl_get_context(void)
 {
@@ -325,3 +359,4 @@ _simple_asl_init_context(void *arg)
 	ctx->progname = "unknown";
 	ctx->asl_fd = -1;
 }
+#endif // !TARGET_OS_DRIVERKIT

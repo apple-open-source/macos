@@ -8,28 +8,28 @@ hash [ -Ldfmrv ] [ name[=value] ] ...
        the  command  hash  table is used, and with the option the named
        directory hash table is used.
 
-       Given no arguments, and  neither  the  -r  or  -f  options,  the
-       selected hash table will be listed in full.
+       Given no arguments, and neither the -r or -f  options,  the  se-
+       lected hash table will be listed in full.
 
        The  -r option causes the selected hash table to be emptied.  It
-       will be subsequently rebuilt in  the  normal  fashion.   The  -f
-       option  causes the selected hash table to be fully rebuilt imme-
-       diately.  For the command hash table this hashes all  the  abso-
-       lute  directories  in the PATH, and for the named directory hash
-       table this adds all users' home directories.  These two  options
-       cannot be used with any arguments.
+       will be subsequently rebuilt in the normal fashion.  The -f  op-
+       tion  causes the selected hash table to be fully rebuilt immedi-
+       ately.  For the command hash table this hashes all the  absolute
+       directories  in the PATH, and for the named directory hash table
+       this adds all users' home directories.  These two options cannot
+       be used with any arguments.
 
        The  -m  option  causes  the  arguments  to be taken as patterns
        (which should be quoted) and the  elements  of  the  hash  table
        matching  those  patterns  are printed.  This is the only way to
        display a limited selection of hash table elements.
 
-       For each name with a corresponding  value,  put  `name'  in  the
-       selected  hash  table, associating it with the pathname `value'.
-       In the command hash table, this means that  whenever  `name'  is
-       used  as  a  command argument, the shell will try to execute the
-       file given by `value'.  In the named directory hash table,  this
-       means that `value' may be referred to as `~name'.
+       For each name with a corresponding value, put `name' in the  se-
+       lected hash table, associating it with the pathname `value'.  In
+       the command hash table, this means that whenever `name' is  used
+       as  a  command  argument, the shell will try to execute the file
+       given by `value'.  In the named directory hash table, this means
+       that `value' may be referred to as `~name'.
 
        For  each  name with no corresponding value, attempt to add name
        to the hash table, checking what the appropriate value is in the

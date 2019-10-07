@@ -98,6 +98,8 @@ class NumberFormatTest: public CalendarTimeZoneTest {
      **/
     //void TestDigitList(void);
 
+    void Test20186_SpacesAroundSemicolon(void);
+
     /**
      * Test localized currency patterns.
      */
@@ -150,6 +152,8 @@ class NumberFormatTest: public CalendarTimeZoneTest {
     void TestRegCurrency(void);
 
     void TestCurrencyNames(void);
+
+    void Test20484_NarrowSymbolFallback(void);
 
     void TestCurrencyAmount(void);
 
@@ -259,6 +263,11 @@ class NumberFormatTest: public CalendarTimeZoneTest {
     void TestFastFormatInt32();
     void Test11646_Equality();
     void TestParseNaN();
+    void TestFormatFailIfMoreThanMaxDigits();
+    void TestParseCaseSensitive();
+    void TestParseNoExponent();
+    void TestSignAlwaysShown();
+    void TestMinimumGroupingDigits();
     void Test11897_LocalizedPatternSeparator();
     void Test13055_PercentageRounding();
     void Test11839();
@@ -266,6 +275,7 @@ class NumberFormatTest: public CalendarTimeZoneTest {
     void Test11645_ApplyPatternEquality();
     void Test12567();
     void Test11626_CustomizeCurrencyPluralInfo();
+    void Test20073_StrictPercentParseErrorIndex();
     void Test13056_GroupingSize();
     void Test11025_CurrencyPadding();
     void Test11648_ExpDecFormatMalPattern();
@@ -279,7 +289,13 @@ class NumberFormatTest: public CalendarTimeZoneTest {
     void Test13763_FieldPositionIteratorOffset();
     void Test13777_ParseLongNameNonCurrencyMode();
     void Test13804_EmptyStringsWhenParsing();
+    void Test20037_ScientificIntegerOverflow();
     void Test13840_ParseLongStringCrash();
+    void Test13850_EmptyStringCurrency();
+    void Test20348_CurrencyPrefixOverride();
+    void Test20358_GroupingInPattern();
+    void Test13731_DefaultCurrency();
+    void Test20499_CurrencyVisibleDigitsPlural();
 
  private:
     UBool testFormattableAsUFormattable(const char *file, int line, Formattable &f);

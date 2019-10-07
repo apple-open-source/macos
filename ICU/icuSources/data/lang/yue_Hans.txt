@@ -109,6 +109,7 @@ yue_Hans{
         car{"加勒比文"}
         cay{"卡尤加文"}
         cch{"阿灿文"}
+        ccp{"查克马文"}
         ce{"车臣文"}
         ceb{"宿雾文"}
         cgg{"奇加文"}
@@ -304,6 +305,7 @@ yue_Hans{
         krl{"卡累利阿文"}
         kru{"库鲁科文"}
         ks{"喀什米尔文"}
+        ks_Arab{"喀什米尔文（誊抄体）"}
         ksb{"尚巴拉文"}
         ksf{"巴菲亚文"}
         ksh{"科隆文"}
@@ -428,6 +430,7 @@ yue_Hans{
         osa{"欧塞奇文"}
         ota{"鄂图曼土耳其文"}
         pa{"旁遮普文"}
+        pa_Arab{"旁遮普文（誊抄体）"}
         pag{"潘加辛文"}
         pal{"巴列维文"}
         pam{"潘帕嘉文"}
@@ -580,6 +583,7 @@ yue_Hans{
         umb{"姆本杜文"}
         und{"未知语言"}
         ur{"乌都文"}
+        ur_Arab{"乌都文（誊抄体）"}
         uz{"乌兹别克文"}
         vai{"瓦伊文"}
         ve{"温达文"}
@@ -612,6 +616,8 @@ yue_Hans{
         yo{"约鲁巴文"}
         yrl{"奈恩加图文"}
         yue{"粤语"}
+        yue_Hans{"简体粤语"}
+        yue_Hant{"繁体粤语"}
         za{"壮文"}
         zap{"萨波特克文"}
         zbl{"布列斯符号"}
@@ -633,6 +639,7 @@ yue_Hans{
         Afak{"阿法卡文字"}
         Aghb{"高加索阿尔巴尼亚文"}
         Arab{"阿拉伯文"}
+        Aran{"波斯体"}
         Armi{"皇室亚美尼亚文"}
         Armn{"亚美尼亚文"}
         Avst{"阿维斯陀文"}
@@ -744,6 +751,7 @@ yue_Hans{
         Phnx{"腓尼基文"}
         Plrd{"柏格理拼音符"}
         Prti{"帕提亚文（碑铭体）"}
+        Qaag{"Zawgyi"}
         Rjng{"拉让文"}
         Roro{"朗格朗格象形文"}
         Runr{"古北欧文字"}
@@ -1025,7 +1033,7 @@ yue_Hans{
         VALLADER{"瑞士瓦勒德方言"}
         WADEGILE{"威妥玛式拼音"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
     characterLabelPattern{
         all{"{0} — 全部"}
         category-list{"{0}: {1}"}

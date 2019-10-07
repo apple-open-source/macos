@@ -113,10 +113,10 @@ NOTE_SIGNAL
 NOTE_REAP
 .Pp
 .It EVFILT_TIMER:
-.It Sy s u n
-NOTE_SECONDS, NOTE_USECONDS, NOTE_NSECONDS
-.It Sy a
-NOTE_ABSOLUTE
+.It Sy s u n m
+NOTE_SECONDS, NOTE_USECONDS, NOTE_NSECONDS, NOTE_MACHTIME
+.It Sy a A
+NOTE_ABSOLUTE, NOTE_MACH_CONTINUOUS_TIME
 .It Sy c
 NOTE_CRITICAL
 .It Sy b
@@ -133,14 +133,16 @@ NOTE_FFAND
 NOTE_FFOR
 .Pp
 .It EVFILT_WORKLOOP:
-.It Sy t w
-NOTE_WL_THREAD_REQUEST, NOTE_WL_SYNC_WAIT
-.It Sy !
+.It Sy t w i
+NOTE_WL_THREAD_REQUEST, NOTE_WL_SYNC_WAIT, NOTE_WL_SYNC_IPC
+.It Sy W
 NOTE_WL_SYNC_WAKE
 .It Sy q
 NOTE_WL_UPDATE_QOS
-.It Sy O o
-NOTE_WL_UPDATE_OWNER, NOTE_WL_DISCOVER_OWNER
+.It Sy o
+NOTE_WL_DISCOVER_OWNER
+.It Sy e
+NOTE_WL_IGNORE_ESTALE
 .El
 .It flags
 kevent generic flags bitmask.
@@ -182,28 +184,23 @@ KN_ACTIVE (event has triggered)
 .It Sy q
 KN_QUEUED (event has been added to the active list)
 .It Sy d
-KN_DISABLED
+KN_DISABLED (knote is disabled)
+.It Sy p
+KN_SUPPRESSED (event delivery is in flight)
 .It Sy s
-KN_STAYQUEUED (event is marked as always-enqueued on the active list)
+KN_STAYACTIVE (event is marked as always-enqueued on the active list)
 .Pp
 .It Sy d
-KN_DROPPING
-.It Sy w
-KN_USEWAIT
-.It Sy c
-KN_ATTACHING
-.It Sy a
-KN_ATTACHED
+KN_DROPPING (knote is about to be dropped)
+.It Sy l
+KN_LOCKED (knote is locked)
+.It Sy P
+KN_POSTING (knote is being posted)
+.It Sy m
+KN_MERGE_QOS (knote is in override saturating mode)
 .Pp
-.It Sy s
-KN_DISPATCH
-.It Sy u
-KN_UDATA_SPECIFIC
-.It Sy p
-KN_SUPPRESSED
-.It Sy t
-KN_STOLENDROP
-.Pp
+.It Sy D
+KN_DEFERDELETE (knote is waiting for deferred-delete ack)
 .It Sy v
 KN_REQVANISH
 .It Sy n

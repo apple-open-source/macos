@@ -188,7 +188,7 @@ PUBLIC void rpc_call_start
         *call_handle = NULL;
         return;
     }
-    RPC_IF_VALIDATE((rpc_if_rep_p_t) ifspec_h, status);
+    RPC_IF_VALIDATE((rpc_if_rep_p_t)(void *) ifspec_h, status);
     if (*status != rpc_s_ok)
     {
         *call_handle = NULL;
@@ -201,7 +201,7 @@ PUBLIC void rpc_call_start
     assert(binding_rep != NULL);
     call_rep = (*rpc_g_protocol_id[binding_rep->protocol_id].call_epv
         ->call_start)
-            (binding_rep, flags, (rpc_if_rep_p_t) ifspec_h,
+            (binding_rep, flags, (rpc_if_rep_p_t)(void *) ifspec_h,
             opnum, xfer_syntax, status);
 
     if (*status == rpc_s_ok)
@@ -271,9 +271,9 @@ PUBLIC void rpc_call_transmit
     /*
      * dispatch to the appropriate protocol service
      */
-    (*rpc_g_protocol_id[((rpc_call_rep_p_t) (call_h))->protocol_id].call_epv
+    (*rpc_g_protocol_id[((rpc_call_rep_p_t)(void *) (call_h))->protocol_id].call_epv
         ->call_transmit)
-            ((rpc_call_rep_p_t) call_h, call_args, status);
+            ((rpc_call_rep_p_t)(void *) call_h, call_args, status);
 
     RPC_LOG_CALL_TRANSMIT_XIT;
 }
@@ -341,9 +341,9 @@ PUBLIC void rpc_call_transceive
     /*
      * dispatch to the appropriate protocol service
      */
-    (*rpc_g_protocol_id[((rpc_call_rep_p_t) (call_h))->protocol_id].call_epv
+    (*rpc_g_protocol_id[((rpc_call_rep_p_t)(void *) (call_h))->protocol_id].call_epv
         ->call_transceive)
-            ((rpc_call_rep_p_t) call_h, in_call_args,
+            ((rpc_call_rep_p_t)(void *) call_h, in_call_args,
             out_call_args, remote_ndr_fmt, status);
 
     RPC_LOG_CALL_TRANSCEIVE_XIT;
@@ -401,9 +401,9 @@ PUBLIC void rpc_call_receive
     /*
      * dispatch to the appropriate protocol service
      */
-    (*rpc_g_protocol_id[((rpc_call_rep_p_t) (call_h))->protocol_id].call_epv
+    (*rpc_g_protocol_id[((rpc_call_rep_p_t)(void *) (call_h))->protocol_id].call_epv
         ->call_receive)
-            ((rpc_call_rep_p_t) call_h, call_args, status);
+            ((rpc_call_rep_p_t)(void *) call_h, call_args, status);
 
     RPC_LOG_CALL_RECEIVE_XIT;
 }
@@ -564,7 +564,7 @@ PUBLIC void rpc_call_end
     /*
      * dispatch to the appropriate protocol service
      */
-    (*rpc_g_protocol_id[((rpc_call_rep_p_t) (*call_h))->protocol_id].call_epv
+    (*rpc_g_protocol_id[((rpc_call_rep_p_t)(void *) (*call_h))->protocol_id].call_epv
         ->call_end) ((rpc_call_rep_p_t *) call_h, status);
 
     RPC_LOG_CALL_END_XIT;
@@ -621,9 +621,9 @@ PUBLIC void rpc_call_transmit_fault
     /*
      * dispatch to the appropriate protocol service
      */
-    (*rpc_g_protocol_id[((rpc_call_rep_p_t) (call_h))->protocol_id].call_epv
+    (*rpc_g_protocol_id[((rpc_call_rep_p_t)(void *) (call_h))->protocol_id].call_epv
         ->call_transmit_fault)
-            ((rpc_call_rep_p_t) call_h, call_fault_info, status);
+            ((rpc_call_rep_p_t)(void *) call_h, call_fault_info, status);
 }
 
 /*
@@ -684,9 +684,9 @@ unsigned32              *status;
     /*
      * dispatch to the appropriate protocol service
      */
-    (*rpc_g_protocol_id[((rpc_call_rep_p_t) (call_h))->protocol_id].call_epv
+    (*rpc_g_protocol_id[((rpc_call_rep_p_t)(void *) (call_h))->protocol_id].call_epv
         ->call_receive_fault)
-            ((rpc_call_rep_p_t) call_h, fault_info, remote_ndr_fmt, status);
+            ((rpc_call_rep_p_t)(void *) call_h, fault_info, remote_ndr_fmt, status);
 }
 
 
@@ -740,7 +740,7 @@ PUBLIC boolean32 rpc_call_did_mgr_execute
     /*
      * dispatch to the appropriate protocol service
      */
-    return ((*rpc_g_protocol_id[((rpc_call_rep_p_t) (call_h))->protocol_id].call_epv
+    return ((*rpc_g_protocol_id[((rpc_call_rep_p_t)(void *) (call_h))->protocol_id].call_epv
              ->call_did_mgr_execute)
-            ((rpc_call_rep_p_t) call_h, status));
+            ((rpc_call_rep_p_t)(void *) call_h, status));
 }

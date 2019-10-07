@@ -1,0 +1,33 @@
+indentation: 4
+disabled_rules:
+    - file_length
+    - function_body_length
+    - function_parameter_count
+    - identifier_name
+    - line_length
+    - todo
+    - type_body_length
+opt_in_rules:
+    - anyobject_protocol
+    - array_init
+    - attributes
+      #- closure_end_indentation ## commented as --format removes option
+    - closure_spacing
+    - conditional_returns_on_newline
+    - empty_count
+    - explicit_init
+    - implicit_return
+    - joined_default_parameter
+      #- literal_expression_end_indentation  ## commented as --format removes option
+    - operator_usage_whitespace
+    - redundant_nil_coalescing
+    - redundant_type_annotation
+    - sorted_imports
+    - trailing_closure
+    - unneeded_parentheses_in_closure_argument
+    - untyped_error_in_catch
+trailing_comma:
+    mandatory_comma: true
+excluded:
+    - keychain/trust/cuttlefish/
+    - keychain/Trieste/OctagonTriesteTests/.build

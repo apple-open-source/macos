@@ -745,7 +745,7 @@ unset_builtin (list)
 
   if (unset_function && unset_variable)
     {
-      builtin_error (_("cannot simultaneously unset a function and a variable"));
+      builtin_error ("%s", _("cannot simultaneously unset a function and a variable"));
       return (EXECUTION_FAILURE);
     }
 

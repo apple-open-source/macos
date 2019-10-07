@@ -70,7 +70,8 @@ static unsigned long getFile(const string &path, unsigned long defaultValue)
 		AutoFileDesc fd(path, O_RDONLY, FileDesc::modeMissingOk);
 		if (fd) {
 			string s; fd.readAll(s);
-			unsigned long value; sscanf(s.c_str(), "%lu", &value);
+			unsigned long value = defaultValue;
+            sscanf(s.c_str(), "%lu", &value);
 			return value;
 		}
 	} catch (...) {

@@ -32,6 +32,7 @@
 #include "JSLock.h"
 #include "JSTypeInfo.h"
 #include "SlotVisitor.h"
+#include "SubspaceAccess.h"
 #include "TypedArrayType.h"
 #include "WriteBarrier.h"
 
@@ -88,7 +89,7 @@ public:
     // Don't call this directly. Call JSC::subspaceFor<Type>(vm) instead.
     // FIXME: Refer to Subspace by reference.
     // https://bugs.webkit.org/show_bug.cgi?id=166988
-    template<typename CellType>
+    template<typename CellType, SubspaceAccess>
     static CompleteSubspace* subspaceFor(VM&);
 
     static JSCell* seenMultipleCalleeObjects() { return bitwise_cast<JSCell*>(static_cast<uintptr_t>(1)); }
@@ -139,9 +140,6 @@ public:
 
     TypeInfo::InlineTypeFlags inlineTypeFlags() const { return m_flags; }
     
-    bool mayBePrototype() const;
-    void didBecomePrototype();
-
     const char* className(VM&) const;
 
     // Extracting the value.
@@ -239,6 +237,9 @@ public:
     }
     
     static const TypedArrayType TypedArrayStorageType = NotTypedArray;
+
+    void setPerCellBit(bool);
+    bool perCellBit() const;
 protected:
 
     void finishCreation(VM&);
@@ -264,6 +265,7 @@ protected:
     static bool defineOwnProperty(JSObject*, ExecState*, PropertyName, const PropertyDescriptor&, bool shouldThrow);
     static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
     static bool getOwnPropertySlotByIndex(JSObject*, ExecState*, unsigned propertyName, PropertySlot&);
+    static NO_RETURN_DUE_TO_CRASH void doPutPropertySecurityCheck(JSObject*, ExecState*, PropertyName, PutPropertySlot&);
 
 private:
     friend class LLIntOffsetsExtractor;
@@ -294,7 +296,13 @@ private:
 template<typename Type>
 inline auto subspaceFor(VM& vm)
 {
-    return Type::template subspaceFor<Type>(vm);
+    return Type::template subspaceFor<Type, SubspaceAccess::OnMainThread>(vm);
+}
+
+template<typename Type>
+inline auto subspaceForConcurrently(VM& vm)
+{
+    return Type::template subspaceFor<Type, SubspaceAccess::Concurrently>(vm);
 }
 
 } // namespace JSC

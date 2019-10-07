@@ -266,15 +266,73 @@ static void test_sw_auth_cert(void) {
     CFReleaseNull(data1);
 }
 
+static void test_component_type_cert(void) {
+    SecCertificateRef batteryCA = NULL, nonComponent = NULL;
+    isnt(batteryCA = SecCertificateCreateWithBytes(NULL, _componentCABattery, sizeof(_componentCABattery)),
+         NULL, "create battery component CA cert");
+    isnt(nonComponent = SecCertificateCreateWithBytes(NULL, _iAP2CA, sizeof(_iAP2CA)),
+         NULL, "create non-component cert");
+
+    CFStringRef componentType = NULL;
+    isnt(componentType = SecCertificateCopyComponentType(batteryCA), NULL, "Get component type");
+    ok(CFEqual(componentType, CFSTR("Battery")), "Got correct component type");
+    CFReleaseNull(componentType);
+
+    is(componentType = SecCertificateCopyComponentType(nonComponent), NULL, "Get component type");
+
+    CFReleaseNull(batteryCA);
+    CFReleaseNull(nonComponent);
+}
+
+static void test_component_type_trust(void) {
+    SecCertificateRef leaf = NULL, subCA = NULL, root = NULL;
+    SecPolicyRef policy = NULL;
+    SecTrustRef trust = NULL;
+    CFMutableArrayRef certs = NULL;
+    CFArrayRef anchors = NULL;
+    CFDateRef date = NULL;
+    SecTrustResultType trustResult;
+
+    isnt(leaf = SecCertificateCreateWithBytes(NULL, _batteryLeaf, sizeof(_batteryLeaf)),
+         NULL, "create battery leaf");
+    isnt(subCA = SecCertificateCreateWithBytes(NULL, _componentCABattery, sizeof(_componentCABattery)),
+         NULL, "create battery subCA");
+    isnt(root = SecCertificateCreateWithBytes(NULL, _componentRoot, sizeof(_componentRoot)),
+         NULL, "create component root");
+
+    /* Test Battery component certs meet component policy */
+    certs = CFArrayCreateMutable(NULL, 2, &kCFTypeArrayCallBacks);
+    CFArrayAppendValue(certs, leaf);
+    CFArrayAppendValue(certs, subCA);
+    anchors = CFArrayCreate(NULL, (const void **)&root, 1, &kCFTypeArrayCallBacks);
+    policy = SecPolicyCreateAppleComponentCertificate(NULL);
+    require_noerr(SecTrustCreateWithCertificates(certs, policy, &trust), trustFail);
+    require_noerr(SecTrustSetAnchorCertificates(trust, anchors), trustFail);
+    require(date = CFDateCreate(NULL, 576000000.0), trustFail);  /* April 3, 2019 at 9:00:00 AM PDT */
+    require_noerr(SecTrustSetVerifyDate(trust, date), trustFail);
+    require_noerr(SecTrustEvaluate(trust, &trustResult), trustFail);
+    is_status(trustResult, kSecTrustResultUnspecified, "trust is kSecTrustResultUnspecified");
+
+trustFail:
+    CFReleaseNull(leaf);
+    CFReleaseNull(subCA);
+    CFReleaseNull(root);
+    CFReleaseNull(date);
+    CFReleaseNull(policy);
+    CFReleaseNull(trust);
+}
+
 
 int si_22_sectrust_iap(int argc, char *const *argv)
 {
-	plan_tests(14+21+5+13);
+	plan_tests(14+21+5+13+5+4);
 
 	test_v1();
     test_v3();
     test_sw_auth_trust();
     test_sw_auth_cert();
+    test_component_type_cert();
+    test_component_type_trust();
 
 	return 0;
 }

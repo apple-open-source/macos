@@ -16,5 +16,7 @@
 	<true/>
 	<key>com.apple.private.securityd.stash</key>
 	<true/>
+	<key>com.apple.private.applecredentialmanager.allow</key>
+	<true/>
 </dict>
 </plist>

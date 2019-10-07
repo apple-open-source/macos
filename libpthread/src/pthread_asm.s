@@ -33,20 +33,23 @@
 	.globl _start_wqthread
 _start_wqthread:
 	// This routine is never called directly by user code, jumped from kernel
+	// Push a sentinel frame, so backtracers know when to stop.
+	push   $0
 	push   %rbp
 	mov    %rsp,%rbp
-	sub    $24,%rsp		// align the stack
+	sub    $16,%rsp      // align the stack
 	call   __pthread_wqthread
-	leave
-	ret
+	ud2 // never returns
 
 	.align 2, 0x90
 	.globl _thread_start
 _thread_start:
 	// This routine is never called directly by user code, jumped from kernel
+	// Push a sentinel frame, so backtracers know when to stop.
+	push   $0
 	push   %rbp
 	mov    %rsp,%rbp
-	sub    $24,%rsp		// align the stack
+	sub    $16,%rsp		// align the stack
 	call   __pthread_start
 	leave
 	ret
@@ -74,6 +77,14 @@ ____chkstk_darwin: // %rax == alloca size
 	popq   %rcx
 	retq
 
+Lcrash:
+	// POSIX mandates that stack overflow crashes with SIGSEGV
+	// so load an address in the guard page and dereference it
+	movq   %gs:_PTHREAD_STRUCT_DIRECT_STACKBOTTOM_OFFSET, %rcx
+	testq  %rcx, -8(%rcx)
+	// if main_thread caused stack growth with setrlimit()
+	// fall into Lprobe and eventually cause SIGSEGV.
+
 Lprobe:
 	// probe the stack when it's not ours (altstack or some shenanigan)
 	cmpq   $0x1000, %rax
@@ -93,9 +104,6 @@ Lend:
 	popq   %rcx
 	retq
 
-Lcrash:
-	ud2
-
 #endif
 
 #elif defined(__i386__)
@@ -108,9 +116,11 @@ Lcrash:
 	.globl _start_wqthread
 _start_wqthread:
 	// This routine is never called directly by user code, jumped from kernel
+	// Push a sentinel frame, so backtracers know when to stop.
+	push   $0
 	push   %ebp
 	mov    %esp,%ebp
-	sub    $28,%esp		// align the stack
+	sub    $24,%esp         // align the stack
 	mov    %esi,20(%esp)    //arg5
 	mov    %edi,16(%esp)    //arg5
 	mov    %edx,12(%esp)    //arg4
@@ -118,16 +128,17 @@ _start_wqthread:
 	mov    %ebx,4(%esp)             //arg2
 	mov    %eax,(%esp)              //arg1
 	call   __pthread_wqthread
-	leave
-	ret
+	ud2 // never returns
 
 	.align 2, 0x90
 	.globl _thread_start
 _thread_start:
 	// This routine is never called directly by user code, jumped from kernel
+	// Push a sentinel frame, so backtracers know when to stop.
+	push   $0
 	push   %ebp
 	mov    %esp,%ebp
-	sub    $28,%esp		// align the stack
+	sub    $24,%esp         // align the stack
 	mov    %esi,20(%esp)    //arg6
 	mov    %edi,16(%esp)    //arg5
 	mov    %edx,12(%esp)    //arg4
@@ -165,6 +176,15 @@ ____chkstk_darwin: // %eax == alloca size
 	popl   %ecx
 	retl
 
+Lcrash:
+	// POSIX mandates that stack overflow crashes with SIGSEGV
+	// so load an address in the guard page and dereference it
+	movl   %gs:0x0, %ecx    // pthread_self()
+	movl   _PTHREAD_STRUCT_DIRECT_STACKBOTTOM_OFFSET(%ecx), %ecx
+	testl  %ecx, -4(%ecx)
+	// if main_thread caused stack growth with setrlimit()
+	// fall into Lprobe and eventually cause SIGSEGV.
+
 Lprobe:
 	// probe the stack when it's not ours (altstack or some shenanigan)
 	cmpl   $0x1000, %eax
@@ -185,9 +205,6 @@ Lend:
 	popl   %ecx
 	retl
 
-Lcrash:
-	ud2
-
 #endif
 
 #elif defined(__arm__)
@@ -206,29 +223,121 @@ Lcrash:
 	.align 2
 	.globl _start_wqthread
 _start_wqthread:
-#if __ARM_ARCH_7K__
-	/* align stack to 16 bytes before calling C */
-	sub sp, sp, #8
-#endif
+// Push a sentinel frame, so backtracers know when to stop.
+	mov ip, #0
+	str ip, [sp, #-4]!
+	str ip, [sp, #-4]!
 	stmfd sp!, {r4, r5}
 	bl __pthread_wqthread
-// Stackshots will show the routine that happens to link immediately following
-// _start_wqthread.  So we add an extra instruction (nop) to make stackshots
-// more readable.
-	nop
+	trap // never returns
 
 	.text
 	.align 2
 	.globl _thread_start
 _thread_start:
-#if __ARM_ARCH_7K__
-	/* align stack to 16 bytes before calling C */
-	sub sp, sp, #8
-#endif
+// Push a sentinel frame, so backtracers know when to stop.
+	mov ip, #0
+	str ip, [sp, #-4]!
+	str ip, [sp, #-4]!
 	stmfd sp!, {r4, r5}
 	bl __pthread_start
-// See above
+// Stackshots will show the routine that happens to link immediately following
+// _start_wqthread.  So we add an extra instruction (nop) to make stackshots
+// more readable.
 	nop
+
+#endif
+
+#elif defined(__arm64__)
+
+#include <mach/arm/syscall_sw.h>
+
+#ifndef VARIANT_DYLD
+
+// This routine is never called directly by user code, jumped from kernel
+// args 0 to 5 in registers.
+	.text
+	.align 2
+	.globl _start_wqthread
+_start_wqthread:
+// Push a sentinel frame, so backtracers know when to stop.
+	stp xzr, xzr, [sp, #-16]!
+	bl __pthread_wqthread
+	brk #1 // never returns
+
+	.text
+	.align 2
+	.globl _thread_start
+_thread_start:
+// Push a sentinel frame, so backtracers know when to stop.
+	stp xzr, xzr, [sp, #-16]!
+	bl __pthread_start
+	nop
+
+	.text
+	.align 2
+	.globl _thread_chkstk_darwin
+_thread_chkstk_darwin:
+	.globl ____chkstk_darwin
+____chkstk_darwin: // %w9 == alloca size
+	stp     x10, x11, [sp, #-16]
+
+	// validate that the frame pointer is on our stack (no alt stack)
+	mrs     x10, TPIDRRO_EL0
+	and     x10, x10, #0xfffffffffffffff8
+
+	// (%sp - pthread_self()->stackaddr) > 0 ?
+#if defined(__ARM64_ARCH_8_32__)
+	ldur    w11, [x10, _PTHREAD_STRUCT_DIRECT_STACKADDR_OFFSET]
+#else
+	ldur    x11, [x10, _PTHREAD_STRUCT_DIRECT_STACKADDR_OFFSET]
+#endif
+	subs    x11, sp, x11
+	b.hs    Lprobe
+
+	// %sp <= pthread_self()->stackbottom ?
+#if defined(__ARM64_ARCH_8_32__)
+	ldur    w11, [x10, _PTHREAD_STRUCT_DIRECT_STACKBOTTOM_OFFSET]
+#else
+	ldur    x11, [x10, _PTHREAD_STRUCT_DIRECT_STACKBOTTOM_OFFSET]
+#endif
+	mov     x10, sp
+	cmp     x10, x11
+	b.ls    Lprobe
+
+	// %sp - (uintptr_t)%w9 < pthread_self()->stackbottom ?
+	subs    x10, x10, w9, uxtw
+	b.lo    Lcrash
+	cmp     x10, x11
+	b.lo    Lcrash
+
+Lexit:
+	ldp     x10, x11, [sp, #-16]
+	ret
+
+Lcrash:
+	// POSIX mandates that stack overflow crashes with SIGSEGV
+	// so load an address in the guard page and dereference it
+	//
+	// x11 contains pthread_self()->stackbottom already
+	ldr     x11, [x11, #-8]
+	// if main_thread caused stack growth with setrlimit()
+	// fall into Lprobe and eventually cause SIGSEGV.
+
+Lprobe:
+	mov     x10, sp
+	cmp     w9, #0x1000
+	b.lo    Lend
+Lloop:
+	sub     x10, x10, #0x1000
+	ldr     x11, [x10]
+	sub     w9, w9, #0x1000
+	cmp     w9, #0x1000
+	b.hi    Lloop
+Lend:
+	sub     x10, x10, x9
+	ldr     x11, [x10]
+	b       Lexit
 
 #endif
 

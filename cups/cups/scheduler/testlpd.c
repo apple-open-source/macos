@@ -4,11 +4,7 @@
  * Copyright 2007-2015 by Apple Inc.
  * Copyright 2006 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
  */
 
 /*
@@ -29,12 +25,12 @@
  */
 
 static int	do_command(int outfd, int infd, const char *command);
-static int	print_job(int outfd, int infd, char *dest, char **args) __attribute__((nonnull(4)));
+static int	print_job(int outfd, int infd, char *dest, char **args) _CUPS_NONNULL(4);
 static int	print_waiting(int outfd, int infd, char *dest);
-static int	remove_job(int outfd, int infd, char *dest, char **args) __attribute__((nonnull(4)));
-static int	status_long(int outfd, int infd, char *dest, char **args) __attribute__((nonnull(4)));
-static int	status_short(int outfd, int infd, char *dest, char **args) __attribute__((nonnull(4)));
-static void	usage(void) __attribute__((noreturn));
+static int	remove_job(int outfd, int infd, char *dest, char **args) _CUPS_NONNULL(4);
+static int	status_long(int outfd, int infd, char *dest, char **args) _CUPS_NONNULL(4);
+static int	status_short(int outfd, int infd, char *dest, char **args) _CUPS_NONNULL(4);
+static void	usage(void) _CUPS_NORETURN;
 
 
 /*

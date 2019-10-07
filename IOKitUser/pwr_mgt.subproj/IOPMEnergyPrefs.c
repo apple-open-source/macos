@@ -259,7 +259,10 @@ bool isA_GenericPref(CFStringRef key)
         CFSTR(kIOPMReduceBrightnessKey),
         CFSTR(kIOPMRestartOnPowerLossKey),
         CFSTR(kIOPMSystemSleepKey),
-        CFSTR(kIOPMWakeOnLANKey)
+        CFSTR(kIOPMWakeOnLANKey),
+        CFSTR(kIOPMCarrierMode),
+        CFSTR(kIOPMCarrierModeVh),
+        CFSTR(kIOPMCarrierModeVl),
     };
 
     static CFSetRef genericSet = NULL;
@@ -1067,6 +1070,16 @@ bool IOPMFeatureIsAvailableWithSupportedTable(
         goto exit;
     }
 
+#if TARGET_OS_IOS || TARGET_OS_WATCH
+    if (CFEqual(PMFeature, CFSTR(kIOPMCarrierMode))
+        || CFEqual(PMFeature, CFSTR(kIOPMCarrierModeVl))
+        || CFEqual(PMFeature, CFSTR(kIOPMCarrierModeVh)))
+    {
+        ret = true;
+        goto exit;
+    }
+#endif // TARGET_OS_IOS || TARGET_OS_WATCH
+
     // ***********************************
     // Generic code for all other settings
 
@@ -1177,6 +1190,15 @@ supportedNameForPMName( CFStringRef pm_name )
     if (CFEqual(pm_name, CFSTR(kIOPMProximityDarkWakeKey))) {
         return CFSTR("ProximityWake");
     }
+
+#if TARGET_OS_IOS || TARGET_OS_WATCH
+    if (CFEqual(pm_name, CFSTR(kIOPMCarrierMode))
+        || CFEqual(pm_name, CFSTR(kIOPMCarrierModeVh))
+        || CFEqual(pm_name, CFSTR(kIOPMCarrierModeVl)))
+    {
+        return CFSTR("CarrierChargingMode");
+    }
+#endif // TARGET_OS_IPHONE || TARGET_OS_WATCH
 
     return pm_name;
 }
@@ -1435,7 +1457,7 @@ CFDictionaryRef IOPMCopySystemPowerSettings(void)
 IOReturn IOPMSetSystemPowerSetting(CFStringRef key, CFTypeRef value)
 {
     IOReturn                rc = kIOReturnError;
-#if !TARGET_OS_EMBEDDED
+#if !TARGET_OS_IPHONE
     bool                    result = false;
     CFDictionaryRef         settings = NULL;
     CFMutableDictionaryRef  mutableSettings = NULL;

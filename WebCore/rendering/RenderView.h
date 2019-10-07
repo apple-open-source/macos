@@ -43,9 +43,6 @@ public:
     RenderView(Document&, RenderStyle&&);
     virtual ~RenderView();
 
-    WEBCORE_EXPORT bool hitTest(const HitTestRequest&, HitTestResult&);
-    bool hitTest(const HitTestRequest&, const HitTestLocation&, HitTestResult&);
-
     const char* renderName() const override { return "RenderView"; }
 
     bool requiresLayer() const override { return true; }
@@ -166,7 +163,7 @@ public:
     void updateVisibleViewportRect(const IntRect&);
     void registerForVisibleInViewportCallback(RenderElement&);
     void unregisterForVisibleInViewportCallback(RenderElement&);
-    void resumePausedImageAnimationsIfNeeded(IntRect visibleRect);
+    void resumePausedImageAnimationsIfNeeded(const IntRect& visibleRect);
     void addRendererWithPausedImageAnimations(RenderElement&, CachedImage&);
     void removeRendererWithPausedImageAnimations(RenderElement&);
     void removeRendererWithPausedImageAnimations(RenderElement&, CachedImage&);
@@ -192,10 +189,6 @@ public:
     void registerBoxWithScrollSnapPositions(const RenderBox&);
     void unregisterBoxWithScrollSnapPositions(const RenderBox&);
     const HashSet<const RenderBox*>& boxesWithScrollSnapPositions() { return m_boxesWithScrollSnapPositions; }
-#endif
-
-#if !ASSERT_DISABLED
-    bool inHitTesting() const { return m_inHitTesting; }
 #endif
 
 protected:
@@ -253,9 +246,6 @@ private:
     bool m_hasSoftwareFilters { false };
     bool m_usesFirstLineRules { false };
     bool m_usesFirstLetterRules { false };
-#if !ASSERT_DISABLED
-    bool m_inHitTesting { false };
-#endif
 
     HashMap<RenderElement*, Vector<CachedImage*>> m_renderersWithPausedImageAnimation;
     HashSet<RenderElement*> m_visibleInViewportRenderers;

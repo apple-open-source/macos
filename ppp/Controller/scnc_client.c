@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2011, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,7 +45,6 @@ includes
 #include "scnc_utils.h"
 #include "scnc_mach_server.h"
 #include "ppp_socket_server.h"
-
 
 /* -----------------------------------------------------------------------------
 definitions
@@ -289,5 +288,3 @@ struct client *client_findbymachport(mach_port_t port)
             
     return 0;
 }
-
-

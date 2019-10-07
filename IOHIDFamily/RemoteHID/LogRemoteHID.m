@@ -65,7 +65,16 @@ NSString * RemoteHIDCommandToString (HIDDeviceHeader * command)
         case HIDPacketTypeHandleReport:
         case HIDPacketTypeSetReport:
         case HIDPacketTypeGetReport:
-            [cmdStr appendFormat:@"type:%d, data:%@", ((HIDDeviceReport *)command)->reportType, RemoteHIDCommandDataToString(((HIDDeviceReport *)command)->data, command->length - sizeof(HIDDeviceReport))];
+            if (command->packetType == HIDPacketTypeHandleReport && command->hasTS ) {
+                [cmdStr appendFormat:@"type:%d, timestamp:0x%llx data:%@",
+                    ((HIDDeviceTimestampedReport *)command)->reportType,
+                    ((HIDDeviceTimestampedReport *)command)->timestamp,
+                    RemoteHIDCommandDataToString(((HIDDeviceTimestampedReport *)command)->data, command->length - sizeof(HIDDeviceTimestampedReport))];
+            } else {
+                [cmdStr appendFormat:@"type:%d, data:%@",
+                    ((HIDDeviceReport *)command)->reportType,
+                    RemoteHIDCommandDataToString(((HIDDeviceReport *)command)->data, command->length - sizeof(HIDDeviceReport))];
+            }
             break;
             
         default:

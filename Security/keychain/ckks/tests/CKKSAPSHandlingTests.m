@@ -33,10 +33,10 @@
 #import "keychain/ckks/tests/CloudKitMockXCTest.h"
 #import "keychain/ckks/tests/CloudKitKeychainSyncingMockXCTest.h"
 #import "keychain/ckks/CKKS.h"
-#import "keychain/ckks/CKKSAPSReceiver.h"
+#import "keychain/ckks/OctagonAPSReceiver.h"
 #import "keychain/ckks/CKKSKey.h"
 #import "keychain/ckks/CKKSPeer.h"
-#import "keychain/ckks/CKKSTLKShare.h"
+#import "keychain/ckks/CKKSTLKShareRecord.h"
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CloudKitCategories.h"
 
@@ -44,7 +44,7 @@
 #import "keychain/ckks/tests/CKKSTests.h"
 #import "keychain/ot/OTDefines.h"
 
-#import "keychain/ckks/tests/CKKSAPSReceiverTests.h"
+#import "keychain/ckks/tests/OctagonAPSReceiverTests.h"
 
 @interface CKKSAPSHandlingTests : CloudKitKeychainSyncingTestsBase
 @property CKRecordZoneID*      manateeZoneID;
@@ -70,9 +70,9 @@
     [self.ckksZones addObject:self.manateeZoneID];
     self.manateeZone = [[FakeCKZone alloc] initZone: self.manateeZoneID];
     self.zones[self.manateeZoneID] = self.manateeZone;
-    self.manateeView = [[CKKSViewManager manager] findView:@"Manatee"];
-    [self.ckksViews addObject:self.manateeView];
+    self.manateeView = [[CKKSViewManager manager] findOrCreateView:@"Manatee"];
     XCTAssertNotNil(self.manateeView, "CKKSViewManager created the Manatee view");
+    [self.ckksViews addObject:self.manateeView];
 }
 
 - (void)tearDown {
@@ -88,7 +88,7 @@
 }
 
 + (APSIncomingMessage*)messageWithTracingEnabledForZoneID:(CKRecordZoneID*)zoneID {
-    APSIncomingMessage* apsMessage = [CKKSAPSReceiverTests messageForZoneID:zoneID];
+    APSIncomingMessage* apsMessage = [OctagonAPSReceiverTests messageForZoneID:zoneID];
     NSUUID* nsuuid = [NSUUID UUID];
     uuid_t uuid = {0};
     [nsuuid getUUIDBytes:(unsigned char*)&uuid];
@@ -144,7 +144,7 @@
 
     // Inject a message at the APS layer
     // Because we can only make APS receivers once iCloud tells us the push environment after sign-in, we can't use our normal injection strategy, and fell back on global state.
-    CKKSAPSReceiver* apsReceiver = [CKKSAPSReceiver receiverForEnvironment:self.apsEnvironment
+    OctagonAPSReceiver* apsReceiver = [OctagonAPSReceiver receiverForEnvironment:self.apsEnvironment
                                                          namedDelegatePort:SecCKKSAPSNamedPort
                                                         apsConnectionClass:[FakeAPSConnection class]];
     XCTAssertNotNil(apsReceiver, "Should have gotten an APS receiver");
@@ -209,7 +209,7 @@
 
     // Inject a message at the APS layer
     // Because we can only make APS receivers once iCloud tells us the push environment after sign-in, we can't use our normal injection strategy, and fell back on global state.
-    CKKSAPSReceiver* apsReceiver = [CKKSAPSReceiver receiverForEnvironment:self.apsEnvironment
+    OctagonAPSReceiver* apsReceiver = [OctagonAPSReceiver receiverForEnvironment:self.apsEnvironment
                                                          namedDelegatePort:SecCKKSAPSNamedPort
                                                         apsConnectionClass:[FakeAPSConnection class]];
     XCTAssertNotNil(apsReceiver, "Should have gotten an APS receiver");
@@ -237,6 +237,14 @@
     [self.ckksZones addObject:pushTestZone];
     self.zones[pushTestZone] = [[FakeCKZone alloc] initZone: pushTestZone];
 
+    NSMutableSet* viewList = [self.mockSOSAdapter.selfPeer.viewList mutableCopy];
+    [viewList addObject:@"PushTestZone"];
+    CKKSSOSSelfPeer* newSelfPeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:self.mockSOSAdapter.selfPeer.peerID
+                                                                encryptionKey:self.mockSOSAdapter.selfPeer.encryptionKey
+                                                                   signingKey:self.mockSOSAdapter.selfPeer.signingKey
+                                                                     viewList:viewList];
+    self.mockSOSAdapter.selfPeer = newSelfPeer;
+
     for(CKRecordZoneID* zoneID in self.ckksZones) {
         [self putFakeKeyHierarchyInCloudKit:zoneID];
         [self saveTLKMaterialToKeychain:zoneID];
@@ -250,7 +258,7 @@
 
     // Inject a message at the APS layer
     // Because we can only make APS receivers once iCloud tells us the push environment after sign-in, we can't use our normal injection strategy, and fell back on global state.
-    CKKSAPSReceiver* apsReceiver = [CKKSAPSReceiver receiverForEnvironment:self.apsEnvironment
+    OctagonAPSReceiver* apsReceiver = [OctagonAPSReceiver receiverForEnvironment:self.apsEnvironment
                                                                namedDelegatePort:SecCKKSAPSNamedPort
                                                               apsConnectionClass:[FakeAPSConnection class]];
     XCTAssertNotNil(apsReceiver, "Should have gotten an APS receiver");
@@ -266,7 +274,8 @@
     OCMExpect([self.mockContainerExpectations submitEventMetric:[OCMArg any]]);
 
     // Launch!
-    [self.injectedManager findOrCreateView:pushTestZone.zoneName];
+    CKKSKeychainView* pushTestView = [self.injectedManager findOrCreateView:pushTestZone.zoneName];
+    [self.ckksViews addObject:pushTestView];
 
     [self startCKKSSubsystem];
 
@@ -275,6 +284,38 @@
     }
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
+
+- (int64_t)stalePushTimeoutShort
+{
+    return 10 * NSEC_PER_SEC;
+}
+
+- (void)testDropStalePushes {
+    CKRecordZoneID* pushTestZone = [[CKRecordZoneID alloc] initWithZoneName:@"PushTestZone" ownerName:CKCurrentUserDefaultName];
+
+    id nearFutureSchduler = OCMClassMock([OctagonAPSReceiver class]);
+    OCMStub([nearFutureSchduler stalePushTimeout]).andCall(self, @selector(stalePushTimeoutShort));
+
+    APSIncomingMessage* apsMessage = [CKKSAPSHandlingTests messageWithTracingEnabledForZoneID:pushTestZone];
+
+    OctagonAPSReceiver* apsReceiver = [OctagonAPSReceiver receiverForEnvironment:self.apsEnvironment
+                                                               namedDelegatePort:SecCKKSAPSNamedPort
+                                                              apsConnectionClass:[FakeAPSConnection class]];
+    XCTAssertNotNil(apsReceiver, "Should have gotten an APS receiver");
+
+    [apsReceiver connection:nil didReceiveIncomingMessage:apsMessage];
+
+    XCTAssertEqual(apsReceiver.haveStalePushes, YES, "should have stale pushes");
+
+    XCTestExpectation *expection = [self expectationWithDescription:@"no push"];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, [self stalePushTimeoutShort] + 2), dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+        XCTAssertEqual(apsReceiver.haveStalePushes, NO, "should have cleared out stale pushes");
+        [expection fulfill];
+    });
+
+    [self waitForExpectations: @[expection] timeout:([self stalePushTimeoutShort] * 4)/NSEC_PER_SEC];
+}
+
 
 @end
 

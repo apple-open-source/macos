@@ -12,8 +12,8 @@ _alGetIntegerv
 _alGetFloatv
 _alGetDoublev
 _alGetString
-_alSetInteger
-_alSetDouble
+#_alSetInteger
+#_alSetDouble
 _alGetError
 _alIsExtensionPresent
 _alGetProcAddress
@@ -75,7 +75,7 @@ _alDistanceModel
 _alDopplerFactor
 _alDopplerVelocity
 _alSpeedOfSound
-_alHint
+# _alHint
 
 # from alc.h
 _alcGetString
@@ -108,18 +108,18 @@ _alutLoadWAVMemory
 _alutUnloadWAV
 
 # from OSX_EXTENSION
-_alcMacOSXRenderingQuality
-_alMacOSXRenderChannelCount
-_alcMacOSXMixerMaxiumumBusses
-_alcMacOSXMixerOutputRate
-_alcMacOSXGetRenderingQuality
-_alMacOSXGetRenderChannelCount
-_alcMacOSXGetMixerMaxiumumBusses
-_alcMacOSXGetMixerOutputRate
-_alBufferDataStatic
+#_alcMacOSXRenderingQuality
+#_alMacOSXRenderChannelCount
+#_alcMacOSXMixerMaxiumumBusses
+#_alcMacOSXMixerOutputRate
+#_alcMacOSXGetRenderingQuality
+#_alMacOSXGetRenderChannelCount
+#_alcMacOSXGetMixerMaxiumumBusses
+#_alcMacOSXGetMixerOutputRate
+#_alBufferDataStatic
 
 # from APPLE_ENVIRONMENTAL_AUDIO_EXTENSION
-_alcASAGetSource
-_alcASASetSource
-_alcASAGetListener
-_alcASASetListener
+#_alcASAGetSource
+#_alcASASetSource
+#_alcASAGetListener
+#_alcASASetListener

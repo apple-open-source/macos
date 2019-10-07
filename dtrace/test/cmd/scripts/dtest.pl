@@ -50,8 +50,7 @@ $dtrace_path = '/usr/sbin/dtrace';
 
 $DEFAULT_TEST_LIST = $MACH eq 'arm' ? 'common/NoSafetyTests.arm' : 'common/NoSafetyTests';
 
-## $ksh_path = '/usr/bin/ksh';
-$ksh_path = '/bin/sh';
+$dash_path = '/bin/dash';
 
 @files = ();
 $errs = 0;
@@ -308,7 +307,7 @@ foreach $file (@files) {
 		}
 		elsif ($isksh) {
 			exit(123) unless open(STDIN, "<$name");
-			exec($ksh_path);
+			exec($dash_path);
 		}
 		else {
 			if ($tag == 0 && $status == $0 && $opt_a) {

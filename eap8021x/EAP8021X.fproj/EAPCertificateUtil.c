@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,11 +38,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <TargetConditionals.h>
-#if !TARGET_OS_OSX
+#if TARGET_OS_IPHONE
+#include <CommonCrypto/CommonDigest.h>
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>
-#endif
-#if ! TARGET_OS_EMBEDDED
+#else /* TARGET_OS_IPHONE */
 #include <Security/SecIdentitySearch.h>
 #include <Security/SecKeychain.h>
 #include <Security/SecKeychainItem.h>
@@ -58,7 +58,7 @@
 #include <Security/cssmtype.h>
 #include <Security/x509defs.h>
 #include <Security/SecCertificateOIDs.h>
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 #include <Security/SecIdentity.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
@@ -87,7 +87,45 @@ _EAPCFDataCreateSecCertificate(CFDataRef data_cf)
     return (SecCertificateCreateWithData(NULL, data_cf));
 }
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
+
+typedef struct IdentityHandle {
+    UInt8	cert_hash[CC_SHA256_DIGEST_LENGTH];
+    UInt8	public_key_hash[CC_SHA256_DIGEST_LENGTH];
+} IdentityHandle;
+
+typedef const struct IdentityHandle * IdentityHandleRef;
+
+#define kIdentityHandleSize		sizeof(IdentityHandle)
+
+static Boolean
+IdentityHandleMatchesCertificate(IdentityHandleRef handle,
+				 SecCertificateRef cert)
+{
+    CFDataRef	cert_hash;
+    Boolean	match = FALSE;
+
+    cert_hash = SecCertificateCopySHA256Digest(cert);
+    assert(CFDataGetLength(cert_hash) == CC_SHA256_DIGEST_LENGTH);
+    if (memcmp(CFDataGetBytePtr(cert_hash), handle->cert_hash,
+	       sizeof(handle->cert_hash)) == 0) {
+	CFDataRef	public_key_hash;
+
+	public_key_hash
+	    = SecCertificateCopySubjectPublicKeyInfoSHA256Digest(cert);
+	assert(CFDataGetLength(public_key_hash) == CC_SHA256_DIGEST_LENGTH);
+	if (memcmp(CFDataGetBytePtr(public_key_hash), handle->public_key_hash,
+		   sizeof(handle->public_key_hash)) == 0) {
+	    match = TRUE;
+	}
+	CFRelease(public_key_hash);
+    }
+    CFRelease(cert_hash);
+    return (match);
+}
+
+
+
 static __inline__ SecCertificateRef
 _EAPPersistRefCreateSecCertificate(CFDataRef data_cf)
 {
@@ -119,12 +157,17 @@ done:
     my_CFRelease(&query);
     return (SecCertificateRef)cert_ref;
 }
-#endif /* TARGET_OS_EMBEDDED */
+
+#endif /* TARGET_OS_IPHONE */
 
 OSStatus
 EAPSecIdentityListCreate(CFArrayRef * ret_array)
 {
     const void *		keys[] = {
+#if TARGET_OS_IPHONE
+	kSecUseSystemKeychain,
+	kSecAttrAccessGroup,
+#endif /* TARGET_OS_IPHONE */
 	kSecClass,
 	kSecReturnRef,
 	kSecMatchLimit
@@ -133,6 +176,10 @@ EAPSecIdentityListCreate(CFArrayRef * ret_array)
     CFTypeRef			results = NULL;
     OSStatus			status = noErr;
     const void *		values[] = {
+#if TARGET_OS_IPHONE
+	kCFBooleanTrue,
+	CFSTR("com.apple.identities"),
+#endif /* TARGET_OS_IPHONE */
 	kSecClassIdentity,
 	kCFBooleanTrue,
 	kSecMatchLimitAll
@@ -151,7 +198,8 @@ EAPSecIdentityListCreate(CFArrayRef * ret_array)
 }
 
 static OSStatus
-IdentityCreateFromIdentityData(CFDictionaryRef dict, SecIdentityRef * ret_identity)
+IdentityCreateFromIdentityData(CFDictionaryRef dict,
+			       SecIdentityRef * ret_identity)
 {
     OSStatus		status = errSecParam;
     CFDictionaryRef	query = NULL;
@@ -162,9 +210,11 @@ IdentityCreateFromIdentityData(CFDictionaryRef dict, SecIdentityRef * ret_identi
     }
 
     *ret_identity = NULL;
-    CFDataRef data = CFDictionaryGetValue(dict, kEAPClientPropTLSClientIdentityData);
+    CFDataRef data = CFDictionaryGetValue(dict,
+					  kEAPClientPropTLSClientIdentityData);
     if (isA_CFData(data) == NULL) {
-	EAPLOG_FL(LOG_NOTICE, "invalid data found in %@ property.", kEAPClientPropTLSClientIdentityData);
+	EAPLOG_FL(LOG_NOTICE, "invalid data found in %@ property.",
+		  kEAPClientPropTLSClientIdentityData);
 	return status;
     }
 
@@ -291,7 +341,7 @@ done:
     return (status);
 }
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 
 /*
  * Function: EAPSecIdentityCreateTrustChainWithPersistentCertificateRefs
@@ -360,7 +410,7 @@ done:
 }
 
 static OSStatus
-IdentityCreateFromData(CFDataRef data, SecIdentityRef * ret_identity)
+IdentityCreateWithPersistentRef(CFDataRef data, SecIdentityRef * ret_identity)
 {
     const void *		keys[] = {
 	kSecClass,
@@ -391,13 +441,72 @@ IdentityCreateFromData(CFDataRef data, SecIdentityRef * ret_identity)
     return (status);
 }
 
-#else /* TARGET_OS_EMBEDDED */
+static OSStatus
+IdentityCreateWithHandle(CFDataRef handle, SecIdentityRef * ret_identity)
+{
+    CFIndex			count;
+    IdentityHandleRef		identity_handle;
+    int				i;
+    CFArrayRef			identity_list;
+    OSStatus			status;
+
+    *ret_identity = NULL;
+    if (CFDataGetLength(handle) != kIdentityHandleSize) {
+	return (errSecParam);
+    }
+
+    status = EAPSecIdentityListCreate(&identity_list);
+    if (status != noErr) {
+	goto done;
+    }
+    identity_handle = (IdentityHandleRef)CFDataGetBytePtr(handle);
+    count = CFArrayGetCount(identity_list);
+    for (i = 0; *ret_identity == NULL && i < count; i++) {
+	SecCertificateRef	cert;
+	SecIdentityRef		identity;
+
+	identity = (SecIdentityRef)CFArrayGetValueAtIndex(identity_list, i);
+	status = SecIdentityCopyCertificate(identity, &cert);
+	if (status != noErr) {
+	    EAPLOG_FL(LOG_NOTICE,
+		      "SecIdentityCopyCertificate failed, %s (%d)",
+		      EAPSecurityErrorString(status), (int)status);
+	    break;
+	}
+	if (IdentityHandleMatchesCertificate(identity_handle, cert)) {
+	    CFRetain(identity);
+	    *ret_identity = identity;
+	}
+	CFRelease(cert);
+    }
+    CFRelease(identity_list);
+    if (*ret_identity == NULL) {
+	status = errSecItemNotFound;
+    }
+
+done:
+    return (status);
+}
 
 static OSStatus
 IdentityCreateFromData(CFDataRef data, SecIdentityRef * ret_identity)
 {
-    EAPSecKeychainItemRef	cert;
-    OSStatus			status;
+    OSStatus	status;
+
+    status = IdentityCreateWithHandle(data, ret_identity);
+    if (status == noErr) {
+	return (noErr);
+    }
+    return (IdentityCreateWithPersistentRef(data, ret_identity));
+}
+
+#else /* TARGET_OS_IPHONE */
+
+static OSStatus
+IdentityCreateFromData(CFDataRef data, SecIdentityRef * ret_identity)
+{
+    SecKeychainItemRef 		cert;
+    OSStatus 			status;
 
     status = SecKeychainItemCopyFromPersistentReference(data, &cert);
     if (status != noErr) {
@@ -410,7 +519,7 @@ IdentityCreateFromData(CFDataRef data, SecIdentityRef * ret_identity)
     return (status);
 }
     
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 
 /*
  * Function: EAPSecIdentityHandleCreateSecIdentity
@@ -471,7 +580,7 @@ EAPSecIdentityCreateCertificateTrustChain(SecIdentityRef identity,
 		  EAPSecurityErrorString(status), (int)status);
 	goto done;
     }
-    status = SecTrustEvaluate(trust, &trust_result);
+    status = EAPTLSSecTrustEvaluate(trust, &trust_result);
     if (status != noErr) {
 	EAPLOG_FL(LOG_NOTICE, "SecTrustEvaluate returned %s (%d)",
 		  EAPSecurityErrorString(status), (int)status);
@@ -572,44 +681,61 @@ EAPSecIdentityHandleCreateSecIdentityTrustChain(EAPSecIdentityHandleRef cert_id,
     return (status);
 }
 
+#if TARGET_OS_IPHONE
+
+/*
+ * Function: EAPSecIdentityHandleCreate
+ * Purpose:
+ *   Return an EAPSecIdentityHandleRef for the specified
+ *   SecIdentityRef.
+ *
+ *   The EAPSecIdentityHandleRef is a single CFDataRef containing
+ *   the concatenation of:
+ *	Certificate SHA256 Digest	CC_SHA256_DIGEST_LENGTH
+ *	Public Key SHA256 Digest	CC_SHA256_DIGEST_LENGTH
+ *
+ * Returns:
+ *   !NULL EAPSecIdentityHandleRef on success, NULL otherwise.
+ */
+EAPSecIdentityHandleRef
+EAPSecIdentityHandleCreate(SecIdentityRef identity)
+{
+    SecCertificateRef		cert;
+    CFDataRef			cert_hash;
+    CFMutableDataRef		handle;
+    CFDataRef			public_key_hash;
+    OSStatus			status;
+
+    status = SecIdentityCopyCertificate(identity, &cert);
+    if (status != noErr) {
+	EAPLOG_FL(LOG_NOTICE,
+		  "SecIdentityCopyCertificate failed, %s (%d)",
+		  EAPSecurityErrorString(status), (int)status);
+	return (NULL);
+    }
+    cert_hash = SecCertificateCopySHA256Digest(cert);
+    assert(CFDataGetLength(cert_hash) == CC_SHA256_DIGEST_LENGTH);
+    handle = CFDataCreateMutableCopy(NULL, kIdentityHandleSize, cert_hash);
+    CFRelease(cert_hash);
+    public_key_hash = SecCertificateCopySubjectPublicKeyInfoSHA256Digest(cert);
+    assert(CFDataGetLength(public_key_hash) == CC_SHA256_DIGEST_LENGTH);
+    CFDataAppendBytes(handle, CFDataGetBytePtr(public_key_hash),
+		      CFDataGetLength(public_key_hash));
+    CFRelease(public_key_hash);
+    CFRelease(cert);
+    return (handle);
+}
+
+#else /* TARGET_OS_IPHONE */
+
 /*
  * Function: EAPSecIdentityHandleCreate
  * Purpose:
  *   Return the persistent reference for a given SecIdentityRef.
  * Returns:
- *   !NULL SecIdentityRef on success, NULL otherwise.
+ *   !NULL EAPSecIdentityHandleRef on success, NULL otherwise.
  */
 
-#if TARGET_OS_EMBEDDED
-EAPSecIdentityHandleRef
-EAPSecIdentityHandleCreate(SecIdentityRef identity)
-{
-    const void *		keys[] = {
-	kSecReturnPersistentRef,
-	kSecValueRef
-    };
-    CFDictionaryRef		query;
-    CFTypeRef			results = NULL;
-    OSStatus			status = noErr;
-    const void *		values[] = {
-	kCFBooleanTrue,
-	identity
-    };
-
-    query = CFDictionaryCreate(NULL, keys, values,
-			       sizeof(keys) / sizeof(*keys),
-			       &kCFTypeDictionaryKeyCallBacks,
-			       &kCFTypeDictionaryValueCallBacks);
-    status = SecItemCopyMatching(query, &results);
-    if (status != noErr) {
-	results = NULL;
-	EAPLOG_FL(LOG_NOTICE, "EAPSecIdentityHandleCreate() failed, %d",
-		  (int)status);
-    }
-    CFRelease(query);
-    return (results);
-}
-#else /* TARGET_OS_EMBEDDED */
 EAPSecIdentityHandleRef
 EAPSecIdentityHandleCreate(SecIdentityRef identity)
 {
@@ -624,7 +750,7 @@ EAPSecIdentityHandleCreate(SecIdentityRef identity)
 		  EAPSecurityErrorString(status), (int)status);
 	return (NULL);
     }
-    status = SecKeychainItemCreatePersistentReference((EAPSecKeychainItemRef)cert,
+    status = SecKeychainItemCreatePersistentReference((SecKeychainItemRef)cert,
 						      &data);
     CFRelease(cert);
     if (status != noErr) {
@@ -635,7 +761,7 @@ EAPSecIdentityHandleCreate(SecIdentityRef identity)
     }
     return (data);
 }
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 
 /*
  * Function: EAPSecCertificateArrayCreateCFDataArray
@@ -692,15 +818,15 @@ EAPCFDataArrayCreateSecCertificateArray(CFArrayRef certs)
 	}
 	cert = _EAPCFDataCreateSecCertificate(data);
 	if (cert == NULL) {
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 	    /* try to treat the data as a persistent ref (hotspot configuration case) */
 	    cert = _EAPPersistRefCreateSecCertificate(data);
 	    if (cert == NULL) {
 		goto failed;
 	    }
-#else
+#else /* TARGET_OS_IPHONE */
 	    goto failed;
-#endif
+#endif /* TARGET_OS_IPHONE */
 	}
 	CFArrayAppendValue(array, cert);
 	my_CFRelease(&cert);
@@ -724,7 +850,8 @@ isA_SecIdentity(CFTypeRef obj)
     return (isA_CFType(obj, SecIdentityGetTypeID()));
 }
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
+
 typedef CFArrayRef (*cert_names_func_t)(SecCertificateRef cert);
 static void
 dict_insert_cert_name_attr(CFMutableDictionaryRef dict, CFStringRef key,
@@ -806,7 +933,7 @@ EAPSecCertificateCopySHA1DigestString(SecCertificateRef cert)
     return (str);
 }
 
-#else /* TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_IPHONE */
 
 static void
 dictSetValue(CFMutableDictionaryRef dict, CFStringRef key, CFTypeRef val,
@@ -915,7 +1042,7 @@ EAPSecCertificateCopyAttributesDictionary(const SecCertificateRef cert)
     CFRelease(cert_values);
     return (dict);
 }
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 
 CFStringRef
 EAPSecCertificateCopyUserNameString(SecCertificateRef cert)
@@ -956,7 +1083,8 @@ dump_as_xml(CFPropertyListRef p);
 static void
 dump_cert(SecCertificateRef cert);
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
+
 static CFArrayRef
 copyAllCerts(void)
 {
@@ -987,7 +1115,7 @@ copyAllCerts(void)
 }
 
 
-#else /* TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_IPHONE */
 
 static CFArrayRef
 copyAllCerts(void)
@@ -996,7 +1124,7 @@ copyAllCerts(void)
     SecKeychainAttributeList	attr_list;
     SecCertificateRef		cert = NULL;
     CSSM_DATA			data;
-    EAPSecKeychainItemRef		item = NULL;
+    SecKeychainItemRef		item = NULL;
     SecKeychainSearchRef	search = NULL;
     OSStatus 			status;
 
@@ -1054,7 +1182,7 @@ copyAllCerts(void)
     return (array);
 
 }
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 
 static void
 showAllCerts(void)
@@ -1118,7 +1246,7 @@ dump_cert(SecCertificateRef cert)
 	dump_as_xml(attrs);
 	CFRelease(attrs);
     }
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     else {
 	CFStringRef summary;
 
@@ -1129,7 +1257,7 @@ dump_cert(SecCertificateRef cert)
 	    CFRelease(summary);
 	}
     }
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
     {
 	CFStringRef	username;
 
@@ -1227,7 +1355,7 @@ get_identity(const char * filename)
     return;
 }
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 
 static OSStatus
 remove_identity(SecIdentityRef identity)
@@ -1287,16 +1415,17 @@ remove_all_identities(void)
     CFRelease(list);
     return;
 }
-#endif /* TARGET_OS_EMBEDDED */
+
+#endif /* TARGET_OS_IPHONE */
 
 static void
 usage(const char * progname)
 {
     fprintf(stderr, "%s: list\n", progname);
     fprintf(stderr, "%s: get <filename-containing-handle>\n", progname);
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     fprintf(stderr, "%s: remove\n", progname);
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
     exit(1);
     return;
 }
@@ -1322,11 +1451,11 @@ main(int argc, char * argv[])
 	    }
 	    command = kCommandGet;
 	}
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 	else if (strcmp(argv[1], "remove") == 0) {
 	    command = kCommandRemove;
 	}
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 	else {
 	    usage(argv[0]);
 	}
@@ -1339,11 +1468,11 @@ main(int argc, char * argv[])
     case kCommandGet:
 	get_identity(argv[2]);
 	break;
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     case kCommandRemove:
 	remove_all_identities();
 	break;
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
     }
     exit(0);
 }

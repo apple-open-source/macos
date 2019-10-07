@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_PRAGMA_MALFORM.NspecExpr.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Using an expression in the pragma for nspec throws a D_PRAGMA_MALFORM

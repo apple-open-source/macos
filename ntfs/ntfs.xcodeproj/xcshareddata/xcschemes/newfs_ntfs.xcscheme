@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "4DF954BC1BF12917004AE1B4"
-               BuildableName = "newfs_ntfs"
+               BuildableName = "BootCampFormatter"
                BlueprintName = "newfs_ntfs"
                ReferencedContainer = "container:ntfs.xcodeproj">
             </BuildableReference>
@@ -33,7 +33,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4DF954BC1BF12917004AE1B4"
-            BuildableName = "newfs_ntfs"
+            BuildableName = "BootCampFormatter"
             BlueprintName = "newfs_ntfs"
             ReferencedContainer = "container:ntfs.xcodeproj">
          </BuildableReference>
@@ -56,7 +56,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4DF954BC1BF12917004AE1B4"
-            BuildableName = "newfs_ntfs"
+            BuildableName = "BootCampFormatter"
             BlueprintName = "newfs_ntfs"
             ReferencedContainer = "container:ntfs.xcodeproj">
          </BuildableReference>
@@ -75,7 +75,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4DF954BC1BF12917004AE1B4"
-            BuildableName = "newfs_ntfs"
+            BuildableName = "BootCampFormatter"
             BlueprintName = "newfs_ntfs"
             ReferencedContainer = "container:ntfs.xcodeproj">
          </BuildableReference>

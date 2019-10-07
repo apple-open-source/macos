@@ -3,7 +3,7 @@ Test sort() function : usage variations - unexpected values for 'array_arg' argu
 --FILE--
 <?php
 /* Prototype  : bool sort(array &array_arg [, int $sort_flags])
- * Description: Sort an array 
+ * Description: Sort an array
  * Source code: ext/standard/array.c
 */
 
@@ -63,19 +63,19 @@ $unexpected_values = array (
 /*20*/ new stdclass(),
 
        // undefined data
-/*21*/ @undefined_var,
+/*21*/ @$undefined_var,
 
        // unset data
-/*22*/ @unset_var,
+/*22*/ @$unset_var,
 
        // resource variable
 /*23*/ $fp
 );
 
 // loop though each element of the array and check the working of sort()
-// when $array argument is supplied with different values from $unexpected_values 
+// when $array argument is supplied with different values from $unexpected_values
 echo "\n-- Testing sort() by supplying different unexpected values for 'array' argument --\n";
-echo "\n-- Flag values are defualt, SORT_REGULAR, SORT_NUMERIC, SORT_STRING --\n"; 
+echo "\n-- Flag values are defualt, SORT_REGULAR, SORT_NUMERIC, SORT_STRING --\n";
 
 $counter = 1;
 for($index = 0; $index < count($unexpected_values); $index ++) {
@@ -98,55 +98,55 @@ echo "Done";
 -- Flag values are defualt, SORT_REGULAR, SORT_NUMERIC, SORT_STRING --
 -- Iteration 1 --
 
-Warning: sort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: sort() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: sort() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: sort() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: sort() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 -- Iteration 2 --
 
-Warning: sort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: sort() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: sort() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: sort() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: sort() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 -- Iteration 3 --
 
-Warning: sort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: sort() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: sort() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: sort() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: sort() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 -- Iteration 4 --
 
-Warning: sort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: sort() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: sort() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: sort() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: sort() expects parameter 1 to be array, int given in %s on line %d
 bool(false)
 -- Iteration 5 --
 
@@ -241,55 +241,55 @@ Warning: sort() expects parameter 1 to be array, null given in %s on line %d
 bool(false)
 -- Iteration 12 --
 
-Warning: sort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: sort() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: sort() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: sort() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: sort() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 -- Iteration 13 --
 
-Warning: sort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: sort() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: sort() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: sort() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: sort() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 -- Iteration 14 --
 
-Warning: sort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: sort() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: sort() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: sort() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: sort() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 -- Iteration 15 --
 
-Warning: sort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: sort() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: sort() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: sort() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: sort() expects parameter 1 to be array, bool given in %s on line %d
 bool(false)
 -- Iteration 16 --
 
@@ -358,29 +358,29 @@ Warning: sort() expects parameter 1 to be array, object given in %s on line %d
 bool(false)
 -- Iteration 21 --
 
-Warning: sort() expects parameter 1 to be array, string given in %s on line %d
+Warning: sort() expects parameter 1 to be array, null given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, string given in %s on line %d
+Warning: sort() expects parameter 1 to be array, null given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, string given in %s on line %d
+Warning: sort() expects parameter 1 to be array, null given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, string given in %s on line %d
+Warning: sort() expects parameter 1 to be array, null given in %s on line %d
 bool(false)
 -- Iteration 22 --
 
-Warning: sort() expects parameter 1 to be array, string given in %s on line %d
+Warning: sort() expects parameter 1 to be array, null given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, string given in %s on line %d
+Warning: sort() expects parameter 1 to be array, null given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, string given in %s on line %d
+Warning: sort() expects parameter 1 to be array, null given in %s on line %d
 bool(false)
 
-Warning: sort() expects parameter 1 to be array, string given in %s on line %d
+Warning: sort() expects parameter 1 to be array, null given in %s on line %d
 bool(false)
 -- Iteration 23 --
 

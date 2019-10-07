@@ -65,7 +65,7 @@ void initializeAggdDailyReport(void)
         //read the kernel value and update the buffer
         initializeDailySample();
         
-        gAggdMonitor = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+        gAggdMonitor = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _getPMMainQueue());
         
         dispatch_source_set_event_handler(gAggdMonitor, ^{ submitAggdDailyReport(); });
         

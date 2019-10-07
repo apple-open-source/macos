@@ -1,4 +1,4 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 begin
   require 'ripper'
   require 'test/unit'
@@ -60,6 +60,56 @@ eot
     assert_equal clear_pos(sexp1), clear_pos(sexp2)
   end
 
+  def test_params_mlhs
+    sexp = Ripper.sexp("proc {|(w, *x, y), z|}")
+    _, ((mlhs, w, (rest, x), y), z) = search_sexp(:params, sexp)
+    assert_equal(:mlhs, mlhs)
+    assert_equal(:@ident, w[0])
+    assert_equal("w", w[1])
+    assert_equal(:rest_param, rest)
+    assert_equal(:@ident, x[0])
+    assert_equal("x", x[1])
+    assert_equal(:@ident, y[0])
+    assert_equal("y", y[1])
+    assert_equal(:@ident, z[0])
+    assert_equal("z", z[1])
+  end
+
+  def test_def_fname
+    sexp = Ripper.sexp("def t; end")
+    _, (type, fname,) = search_sexp(:def, sexp)
+    assert_equal(:@ident, type)
+    assert_equal("t", fname)
+
+    sexp = Ripper.sexp("def <<; end")
+    _, (type, fname,) = search_sexp(:def, sexp)
+    assert_equal(:@op, type)
+    assert_equal("<<", fname)
+  end
+
+  def test_defs_fname
+    sexp = Ripper.sexp("def self.t; end")
+    _, recv, _, (type, fname) = search_sexp(:defs, sexp)
+    assert_equal(:var_ref, recv[0], recv)
+    assert_equal([:@kw, "self", [1, 4]], recv[1], recv)
+    assert_equal(:@ident, type)
+    assert_equal("t", fname)
+  end
+
+  def test_named_with_default
+    sexp = Ripper.sexp("def hello(bln: true, int: 1, str: 'str', sym: :sym) end")
+    named = String.new
+    search_sexp(:params, sexp)[5].each { |i| named << "#{i}\n" }  # join flattens
+    exp = "#{<<-"{#"}#{<<~'};'}"
+    {#
+      [[:@label, "bln:", [1, 10]], [:var_ref, [:@kw, "true", [1, 15]]]]
+      [[:@label, "int:", [1, 21]], [:@int, "1", [1, 26]]]
+      [[:@label, "str:", [1, 29]], [:string_literal, [:string_content, [:@tstring_content, "str", [1, 35]]]]]
+      [[:@label, "sym:", [1, 41]], [:symbol_literal, [:symbol, [:@ident, "sym", [1, 47]]]]]
+    };
+    assert_equal(exp, named)
+  end
+
   def search_sexp(sym, sexp)
     return sexp if !sexp or sexp[0] == sym
     sexp.find do |e|
@@ -81,5 +131,13 @@ eot
         end
       end
     end
+  end
+
+  def test_dsym
+    bug15670 = '[ruby-core:91852]'
+    _, (_, _, s) = Ripper.sexp_raw(%q{:"sym"})
+    assert_equal([:dyna_symbol, [:string_add, [:string_content], [:@tstring_content, "sym", [1, 2]]]],
+                 s,
+                 bug15670)
   end
 end if ripper_test

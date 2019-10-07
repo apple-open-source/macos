@@ -154,8 +154,9 @@ static void correctstack (lua_State *L, TValue *oldstack) {
   CallInfo *ci;
   UpVal *up;
   L->top = (L->top - oldstack) + L->stack;
-  for (up = L->openupval; up != NULL; up = up->u.open.next)
+  for (up = L->openupval; up != NULL; up = up->u.open.next) {
     up->v = (up->v - oldstack) + L->stack;
+  }
   for (ci = L->ci; ci != NULL; ci = ci->previous) {
     ci->top = (ci->top - oldstack) + L->stack;
     ci->func = (ci->func - oldstack) + L->stack;
@@ -175,8 +176,9 @@ void luaD_reallocstack (lua_State *L, int newsize) {
   lua_assert(newsize <= LUAI_MAXSTACK || newsize == ERRORSTACKSIZE);
   lua_assert(L->stack_last - L->stack == L->stacksize - EXTRA_STACK);
   luaM_reallocvector(L, L->stack, L->stacksize, newsize, TValue);
-  for (; lim < newsize; lim++)
+  for (; lim < newsize; lim++) {
     setnilvalue(L->stack + lim); /* erase new segment */
+   }
   L->stacksize = newsize;
   L->stack_last = L->stack + newsize - EXTRA_STACK;
   correctstack(L, oldstack);
@@ -346,8 +348,9 @@ int luaD_precall (lua_State *L, StkId func, int nresults) {
       n = cast_int(L->top - func) - 1;  /* number of real arguments */
       luaC_checkGC(L);  /* stack grow uses memory */
       luaD_checkstack(L, p->maxstacksize);
-      for (; n < p->numparams; n++)
+      for (; n < p->numparams; n++) {
         setnilvalue(L->top++);  /* complete missing arguments */
+       }
       if (!p->is_vararg) {
         func = restorestack(L, funcr);
         base = func + 1;
@@ -395,10 +398,12 @@ int luaD_poscall (lua_State *L, StkId firstResult, int nres) {
   wanted = ci->nresults;
   L->ci = ci->previous;  /* back to caller */
   /* move results to correct place */
-  for (i = wanted; i != 0 && nres-- > 0; i--)
-    setobjs2s(L, res++, firstResult++);
-  while (i-- > 0)
-    setnilvalue(res++);
+   for (i = wanted; i != 0 && nres-- > 0; i--) {
+        setobjs2s(L, res++, firstResult++);
+   }
+    while (i-- > 0) {
+        setnilvalue(res++);
+    }
   L->top = res;
   return (wanted - LUA_MULTRET);  /* 0 iff wanted == LUA_MULTRET */
 }

@@ -27,12 +27,19 @@
 
 #if ENABLE(WEBGPU)
 
+#include "GPUBindGroupBinding.h"
+#include "GPUCommandBuffer.h"
 #include <wtf/RefCounted.h>
 
+#if USE(METAL)
+OBJC_PROTOCOL(MTLBuffer);
 OBJC_PROTOCOL(MTLCommandEncoder);
+OBJC_PROTOCOL(MTLResource);
+#endif
 
 namespace WebCore {
 
+class GPUBindGroup;
 class GPURenderPipeline;
 
 using PlatformProgrammablePassEncoder = MTLCommandEncoder;
@@ -42,14 +49,27 @@ public:
     virtual ~GPUProgrammablePassEncoder() = default;
 
     void endPass();
-
-    virtual void setPipeline(Ref<GPURenderPipeline>&&) = 0;
+    void setBindGroup(unsigned, GPUBindGroup&);
 
 protected:
-    virtual PlatformProgrammablePassEncoder* platformPassEncoder() const = 0;
+    GPUProgrammablePassEncoder(Ref<GPUCommandBuffer>&&);
+
+    GPUCommandBuffer& commandBuffer() const { return m_commandBuffer.get(); }
+    virtual const PlatformProgrammablePassEncoder* platformPassEncoder() const = 0;
 
 private:
-    bool m_isEncoding { true };
+    virtual void invalidateEncoder() = 0;
+#if USE(METAL)
+    virtual void useResource(const MTLResource *, unsigned) = 0;
+
+    // Render command encoder methods.
+    virtual void setVertexBuffer(const MTLBuffer *, unsigned, unsigned) { }
+    virtual void setFragmentBuffer(const MTLBuffer *, unsigned, unsigned) { }
+    // Compute.
+    virtual void setComputeBuffer(const MTLBuffer *, unsigned, unsigned) { }
+#endif // USE(METAL)
+
+    Ref<GPUCommandBuffer> m_commandBuffer;
 };
 
 } // namespace WebCore

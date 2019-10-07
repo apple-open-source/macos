@@ -104,7 +104,7 @@
  */
 
 #define RPC_DG_RECVQ_ELT_FROM_IOVECTOR_ELT(iove) \
-    ((rpc_dg_recvq_elt_p_t) (iove)->buff_addr)
+    ((iove)->buff_addr)
 
 /*
  * R P C _ D G _ R E C V Q _ R E I N I T

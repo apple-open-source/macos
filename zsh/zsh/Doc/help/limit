@@ -5,10 +5,10 @@ limit [ -hs ] [ resource [ limit ] ] ...
        rent  shell  is set to the previously set resource limits of the
        children.
 
-       If limit is not specified, print the  current  limit  placed  on
-       resource,  otherwise  set  the limit to the specified value.  If
-       the -h flag is given, use hard limits instead  of  soft  limits.
-       If no resource is given, print all limits.
+       If limit is not specified, print the current limit placed on re-
+       source,  otherwise set the limit to the specified value.  If the
+       -h flag is given, use hard limits instead of soft limits.  If no
+       resource is given, print all limits.
 
        When looping over multiple resources, the shell will abort imme-
        diately if it detects a badly formed argument.  However,  if  it

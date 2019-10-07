@@ -31,7 +31,8 @@
 #import "keychain/ckks/CKKSKey.h"
 #import "keychain/ckks/CKKSHealTLKSharesOperation.h"
 #import "keychain/ckks/CKKSGroupOperation.h"
-#import "keychain/ckks/CKKSTLKShare.h"
+#import "keychain/ckks/CKKSTLKShareRecord.h"
+#import "keychain/ot/ObjCImprovements.h"
 
 #import "CKKSPowerCollection.h"
 
@@ -60,7 +61,7 @@
      * Attempt to figure out what it is, and what we can do about it.
      */
 
-    __weak __typeof(self) weakSelf = self;
+    WEAKIFY(self);
 
     CKKSKeychainView* ckks = self.ckks;
     if(!ckks) {
@@ -81,7 +82,7 @@
 
         NSError* error = nil;
 
-        CKKSCurrentKeySet* keyset = [[CKKSCurrentKeySet alloc] initForZone:ckks.zoneID];
+        CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:ckks.zoneID];
 
         if(keyset.error) {
             self.error = keyset.error;
@@ -108,10 +109,11 @@
             return true;
         }
 
-        NSSet<CKKSTLKShare*>* newShares = [ckks _onqueueCreateMissingKeyShares:keyset.tlk
+        NSSet<CKKSTLKShareRecord*>* newShares = [ckks _onqueueCreateMissingKeyShares:keyset.tlk
                                                                          error:&error];
         if(error) {
             ckkserror("ckksshare", ckks, "Unable to create shares: %@", error);
+            [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateUnhealthy withError:nil];
             return false;
         }
 
@@ -121,13 +123,23 @@
             return true;
         }
 
+        // Let's double-check: if we upload these TLKShares, will the world be right?
+        BOOL newSharesSufficient = [ckks _onqueueAreNewSharesSufficient:newShares
+                                                             currentTLK:keyset.tlk
+                                                                  error:&error];
+        if(!newSharesSufficient || error) {
+            ckksnotice("ckksshare", ckks, "New shares won't resolve the share issue; erroring to avoid infinite loops");
+            [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError:error];
+            return true;
+        }
+
         // Fire up our CloudKit operation!
 
         NSMutableArray<CKRecord *>* recordsToSave = [[NSMutableArray alloc] init];
         NSMutableArray<CKRecordID *>* recordIDsToDelete = [[NSMutableArray alloc] init];
         NSMutableDictionary<CKRecordID*, CKRecord*>* attemptedRecords = [[NSMutableDictionary alloc] init];
 
-        for(CKKSTLKShare* share in newShares) {
+        for(CKKSTLKShareRecord* share in newShares) {
             CKRecord* record = [share CKRecordWithZoneID:ckks.zoneID];
             [recordsToSave addObject: record];
             attemptedRecords[record.recordID] = record;
@@ -147,26 +159,27 @@
         // very important: get the TLKShares off-device ASAP
         modifyRecordsOp.configuration.automaticallyRetryNetworkFailures = NO;
         modifyRecordsOp.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
+        modifyRecordsOp.configuration.isCloudKitSupportOperation = YES;
 
         modifyRecordsOp.group = self.ckoperationGroup;
         ckksnotice("ckksshare", ckks, "Operation group is %@", self.ckoperationGroup);
 
         modifyRecordsOp.perRecordCompletionBlock = ^(CKRecord *record, NSError * _Nullable error) {
-            __strong __typeof(weakSelf) strongSelf = weakSelf;
-            __strong __typeof(strongSelf.ckks) blockCKKS = strongSelf.ckks;
+            STRONGIFY(self);
+            CKKSKeychainView* blockCKKS = self.ckks;
 
             // These should all fail or succeed as one. Do the hard work in the records completion block.
             if(!error) {
-                ckksinfo("ckksshare", blockCKKS, "Successfully completed upload for record %@", record.recordID.recordName);
+                ckksnotice("ckksshare", blockCKKS, "Successfully completed upload for record %@", record.recordID.recordName);
             } else {
                 ckkserror("ckksshare", blockCKKS, "error on row: %@ %@", record.recordID, error);
             }
         };
 
         modifyRecordsOp.modifyRecordsCompletionBlock = ^(NSArray<CKRecord *> *savedRecords, NSArray<CKRecordID *> *deletedRecordIDs, NSError *error) {
-            __strong __typeof(weakSelf) strongSelf = weakSelf;
-            __strong __typeof(strongSelf.ckks) strongCKKS = strongSelf.ckks;
-            if(!strongSelf) {
+            STRONGIFY(self);
+            CKKSKeychainView* strongCKKS = self.ckks;
+            if(!self) {
                 secerror("ckks: received callback for released object");
                 return;
             }
@@ -179,13 +192,16 @@
 
                     // Save the new CKRecords to the database
                     for(CKRecord* record in savedRecords) {
-                        CKKSTLKShare* savedShare = [[CKKSTLKShare alloc] initWithCKRecord:record];
-                        [savedShare saveToDatabase:&localerror];
+                        CKKSTLKShareRecord* savedShare = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
+                        bool saved = [savedShare saveToDatabase:&localerror];
 
-                        if(localerror) {
+                        if(!saved || localerror != nil) {
+                            // erroring means we were unable to save the new TLKShare records to the database. This will cause us to try to reupload them. Fail.
                             // No recovery from this, really...
                             ckkserror("ckksshare", strongCKKS, "Couldn't save new TLKShare record to database: %@", localerror);
-                            localerror = nil;
+                            [strongCKKS _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError: localerror];
+                            return true;
+
                         } else {
                             ckksnotice("ckksshare", strongCKKS, "Successfully completed upload for %@", savedShare);
                         }
@@ -203,7 +219,7 @@
             }];
 
             // Notify that we're done
-            [strongSelf.operationQueue addOperation: strongSelf.cloudkitModifyOperationFinished];
+            [self.operationQueue addOperation: self.cloudkitModifyOperationFinished];
         };
 
         [ckks.database addOperation: modifyRecordsOp];

@@ -28,15 +28,13 @@
 #import <WebKit/WKFoundation.h>
 #import <WebKit/WKProcessGroup.h>
 
-#if WK_API_ENABLED
-
 @class WKBackForwardList;
 @class WKBackForwardListItem;
 @protocol WKBrowsingContextHistoryDelegate;
 @protocol WKBrowsingContextLoadDelegate;
 @protocol WKBrowsingContextPolicyDelegate;
 
-WK_CLASS_DEPRECATED_WITH_REPLACEMENT("WKWebView", macos(10.10, WK_MAC_TBA), ios(8.0, WK_IOS_TBA))
+WK_CLASS_DEPRECATED_WITH_REPLACEMENT("WKWebView", macos(10.10, 10.14.4), ios(8.0, 12.2))
 @interface WKBrowsingContextController : NSObject
 
 #pragma mark Delegates
@@ -47,8 +45,8 @@ WK_CLASS_DEPRECATED_WITH_REPLACEMENT("WKWebView", macos(10.10, WK_MAC_TBA), ios(
 
 #pragma mark Loading
 
-+ (void)registerSchemeForCustomProtocol:(NSString *)scheme WK_API_DEPRECATED_WITH_REPLACEMENT("WKURLSchemeHandler", macos(10.10, WK_MAC_TBA), ios(8.0, WK_IOS_TBA));
-+ (void)unregisterSchemeForCustomProtocol:(NSString *)scheme WK_API_DEPRECATED_WITH_REPLACEMENT("WKURLSchemeHandler", macos(10.10, WK_MAC_TBA), ios(8.0, WK_IOS_TBA));
++ (void)registerSchemeForCustomProtocol:(NSString *)scheme WK_API_DEPRECATED_WITH_REPLACEMENT("WKURLSchemeHandler", macos(10.10, 10.14.4), ios(8.0, 12.2));
++ (void)unregisterSchemeForCustomProtocol:(NSString *)scheme WK_API_DEPRECATED_WITH_REPLACEMENT("WKURLSchemeHandler", macos(10.10, 10.14.4), ios(8.0, 12.2));
 
 /* Load a request. This is only valid for requests of non-file: URLs. Passing a
    file: URL will throw an exception. */
@@ -136,5 +134,3 @@ WK_CLASS_DEPRECATED_WITH_REPLACEMENT("WKWebView", macos(10.10, WK_MAC_TBA), ios(
 @property CGFloat pageZoom;
 
 @end
-
-#endif // WK_API_ENABLED

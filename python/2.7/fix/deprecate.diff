@@ -1,0 +1,16 @@
+--- main.original.c	2019-05-02 14:34:09.000000000 -0700
++++ main.c	2019-05-03 12:26:34.000000000 -0700
+@@ -562,6 +562,13 @@
+ 
+     if (Py_VerboseFlag ||
+         (command == NULL && filename == NULL && module == NULL && stdin_is_interactive)) {
++        fprintf(stderr,
++                "\nWARNING: Python 2.7 is not recommended. "
++                "\nThis version is included in macOS "
++                "for compatibility with legacy software. "
++                "\nFuture versions of macOS will not include Python 2.7. "
++                "\nInstead, it is recommended that you transition to using "
++                "'python3' from within Terminal.\n\n");
+         fprintf(stderr, "Python %s on %s\n",
+             Py_GetVersion(), Py_GetPlatform());
+         if (!Py_NoSiteFlag)

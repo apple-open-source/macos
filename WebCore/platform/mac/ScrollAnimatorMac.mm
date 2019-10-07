@@ -535,9 +535,9 @@ enum FeatureToAnimate {
     if (!_scrollbar)
         return [NSAppearance currentAppearance];
 
-    // If dark appearance is used or the overlay style is light (because of a dark page background), return the dark apppearance.
     // Keep this in sync with FrameView::paintScrollCorner.
-    bool useDarkAppearance = _scrollbar->scrollableArea().useDarkAppearance() || _scrollbar->scrollableArea().scrollbarOverlayStyle() == WebCore::ScrollbarOverlayStyleLight;
+    // The base system does not support dark Aqua, so we might get a null result.
+    bool useDarkAppearance = _scrollbar->scrollableArea().useDarkAppearanceForScrollbars();
     if (auto *appearance = [NSAppearance appearanceNamed:useDarkAppearance ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua])
         return appearance;
     return [NSAppearance currentAppearance];
@@ -807,8 +807,8 @@ void ScrollAnimatorMac::adjustScrollPositionToBoundsIfNecessary()
     m_scrollableArea.setConstrainsScrollingToContentEdge(true);
 
     ScrollPosition currentScrollPosition = m_scrollableArea.scrollPosition();
-    ScrollPosition constainedPosition = m_scrollableArea.constrainScrollPosition(currentScrollPosition);
-    immediateScrollBy(constainedPosition - currentScrollPosition);
+    ScrollPosition constrainedPosition = m_scrollableArea.constrainScrollPosition(currentScrollPosition);
+    immediateScrollBy(constrainedPosition - currentScrollPosition);
 
     m_scrollableArea.setConstrainsScrollingToContentEdge(currentlyConstrainsToContentEdge);
 }
@@ -1126,9 +1126,6 @@ bool ScrollAnimatorMac::shouldScrollbarParticipateInHitTesting(Scrollbar* scroll
 {
     // Non-overlay scrollbars should always participate in hit testing.
     if (ScrollerStyle::recommendedScrollerStyle() != NSScrollerStyleOverlay)
-        return true;
-
-    if (scrollbar->isAlphaLocked())
         return true;
 
     // Overlay scrollbars should participate in hit testing whenever they are at all visible.

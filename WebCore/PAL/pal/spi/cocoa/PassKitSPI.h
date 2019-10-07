@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,12 +42,46 @@ WTF_EXTERN_C_END
 #import <PassKit/PassKit.h>
 #import <PassKit/PKPaymentAuthorizationViewController_Private.h>
 #import <PassKit/PKPaymentRequest_Private.h>
+#import <PassKitCore/PKPaymentRequest_WebKit.h>
+
+#if PLATFORM(IOS_FAMILY)
+#import <PassKit/PKPaymentAuthorizationController_Private.h>
+#endif
 
 #else
+
+#import <Foundation/Foundation.h>
+
+#if HAVE(PASSKIT_API_TYPE)
+typedef NS_ENUM(NSUInteger, PKPaymentRequestAPIType) {
+    PKPaymentRequestAPITypeInApp = 0,
+    PKPaymentRequestAPITypeWebJS,
+    PKPaymentRequestAPITypeWebPaymentRequest,
+};
+#endif
 
 #if PLATFORM(IOS_FAMILY)
 
 #import <PassKit/PassKit.h>
+
+@protocol PKPaymentAuthorizationControllerPrivateDelegate;
+
+NS_ASSUME_NONNULL_BEGIN
+
+@interface PKPaymentAuthorizationController ()
++ (void)paymentServicesMerchantURLForAPIType:(PKPaymentRequestAPIType)APIType completion:(void(^)(NSURL *merchantURL, NSError *error))completion;
+@property (nonatomic, assign, nullable) id<PKPaymentAuthorizationControllerPrivateDelegate> privateDelegate;
+@end
+
+@class PKPaymentMerchantSession;
+
+@protocol PKPaymentAuthorizationControllerPrivateDelegate <NSObject>
+@optional
+- (void)paymentAuthorizationController:(PKPaymentAuthorizationController *)controller willFinishWithError:(NSError *)error;
+- (void)paymentAuthorizationController:(PKPaymentAuthorizationController *)controller didRequestMerchantSession:(void(^)(PKPaymentMerchantSession *, NSError *))sessionBlock;
+@end
+
+NS_ASSUME_NONNULL_END
 
 #elif PLATFORM(MAC)
 
@@ -250,6 +284,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface PKPaymentAuthorizationViewController ()
 + (void)paymentServicesMerchantURL:(void(^)(NSURL *merchantURL, NSError *error))completion;
+#if HAVE(PASSKIT_API_TYPE)
++ (void)paymentServicesMerchantURLForAPIType:(PKPaymentRequestAPIType)APIType completion:(void(^)(NSURL *merchantURL, NSError *error))completion;
+#endif
 @property (nonatomic, assign, nullable) id<PKPaymentAuthorizationViewControllerPrivateDelegate> privateDelegate;
 @end
 
@@ -260,15 +297,24 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)paymentAuthorizationViewController:(PKPaymentAuthorizationViewController *)controller didRequestMerchantSession:(void(^)(PKPaymentMerchantSession *, NSError *))sessionBlock;
 @end
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101304) || PLATFORM(IOS_FAMILY)
-typedef NS_ENUM(NSUInteger, PKPaymentRequestAPIType) {
-    PKPaymentRequestAPITypeInApp = 0,
-    PKPaymentRequestAPITypeWebJS,
-    PKPaymentRequestAPITypeWebPaymentRequest,
-};
+@interface PKPaymentRequest ()
+@property (nonatomic, strong) NSArray *thumbnailURLs;
+@property (nonatomic, retain) NSURL *originatingURL;
+@property (nonatomic, assign) BOOL expectsMerchantSession;
+@property (nonatomic, strong) NSString *sourceApplicationBundleIdentifier;
+@property (nonatomic, strong) NSString *sourceApplicationSecondaryIdentifier;
+@property (nonatomic, strong) NSString *CTDataConnectionServiceType;
+@end
 
+#if HAVE(PASSKIT_API_TYPE)
 @interface PKPaymentRequest ()
 @property (nonatomic, assign) PKPaymentRequestAPIType APIType;
+@end
+#endif
+
+#if HAVE(PASSKIT_BOUND_INTERFACE_IDENTIFIER)
+@interface PKPaymentRequest ()
+@property (nonatomic, copy) NSString *boundInterfaceIdentifier;
 @end
 #endif
 
@@ -338,12 +384,6 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 @interface PKPaymentMethod () <NSSecureCoding>
-@end
-
-@interface PKPaymentRequest ()
-@property (nonatomic, strong) NSString *sourceApplicationBundleIdentifier;
-@property (nonatomic, strong) NSString *sourceApplicationSecondaryIdentifier;
-@property (nonatomic, strong) NSString *CTDataConnectionServiceType;
 @end
 
 typedef void(^PKCanMakePaymentsCompletion)(BOOL isValid, NSError *);

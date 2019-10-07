@@ -361,7 +361,7 @@ __createInterface(int s, CFStringRef interface)
 {
 	struct ifreq	ifr;
 
-	bzero(&ifr, sizeof(ifr));
+	memset(&ifr, 0, sizeof(ifr));
 	(void) _SC_cfstring_to_cstring(interface,
 				       ifr.ifr_name,
 				       sizeof(ifr.ifr_name),
@@ -383,7 +383,7 @@ __destroyInterface(int s, CFStringRef interface)
 {
 	struct ifreq	ifr;
 
-	bzero(&ifr, sizeof(ifr));
+	memset(&ifr, 0, sizeof(ifr));
 	(void) _SC_cfstring_to_cstring(interface,
 				       ifr.ifr_name,
 				       sizeof(ifr.ifr_name),

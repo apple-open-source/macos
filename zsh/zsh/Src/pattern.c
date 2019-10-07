@@ -668,15 +668,9 @@ patcompile(char *exp, int inflags, char **endexp)
 			    if (imeta(*mtest))
 				nmeta++;
 			if (nmeta) {
-			    char *oldpatout = patout;
-			    ptrdiff_t pd;
 			    patadd(NULL, 0, nmeta, 0);
-			    /*
-			     * Yuk.
-			     */
 			    p = (Patprog)patout;
-			    pd = patout - oldpatout;
-			    opnd += pd;
+			    opnd = dupstring_wlen(opnd, oplen);
 			    dst = patout + startoff;
 			}
 
@@ -1527,7 +1521,7 @@ patcomppiece(int *flagp, int paren)
 		patparse = nptr;
 		len |= 1;
 	    }
-	    DPUTS(*patparse != '-', "BUG: - missing from numeric glob");
+	    DPUTS(!IS_DASH(*patparse), "BUG: - missing from numeric glob");
 	    patparse++;
 	    if (idigit(*patparse)) {
 		to = (zrange_t) zstrtol((char *)patparse,
@@ -3611,7 +3605,15 @@ mb_patmatchrange(char *range, wchar_t ch, int zmb_ind, wint_t *indptr, int *mtp)
 		    return 1;
 		break;
 	    case PP_BLANK:
-		if (ch == L' ' || ch == L'\t')
+#if !defined(HAVE_ISWBLANK) && !defined(iswblank)
+/*
+ * iswblank() is GNU and C99. There's a remote chance that some
+ * systems still don't support it (but would support the other ones
+ * if MULTIBYTE_SUPPORT is enabled).
+ */
+#define iswblank(c) (c == L' ' || c == L'\t')
+#endif
+		if (iswblank(ch))
 		    return 1;
 		break;
 	    case PP_CNTRL:
@@ -3631,7 +3633,7 @@ mb_patmatchrange(char *range, wchar_t ch, int zmb_ind, wint_t *indptr, int *mtp)
 		    return 1;
 		break;
 	    case PP_PRINT:
-		if (iswprint(ch))
+		if (WC_ISPRINT(ch))
 		    return 1;
 		break;
 	    case PP_PUNCT:
@@ -3846,7 +3848,14 @@ patmatchrange(char *range, int ch, int *indptr, int *mtp)
 		    return 1;
 		break;
 	    case PP_BLANK:
-		if (ch == ' ' || ch == '\t')
+#if !defined(HAVE_ISBLANK) && !defined(isblank)
+/*
+ * isblank() is GNU and C99. There's a remote chance that some
+ * systems still don't support it.
+ */
+#define isblank(c) (c == ' ' || c == '\t')
+#endif
+		if (isblank(ch))
 		    return 1;
 		break;
 	    case PP_CNTRL:

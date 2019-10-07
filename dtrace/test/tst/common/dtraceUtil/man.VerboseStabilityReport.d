@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)man.VerboseStabilityReport.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Using -v option with dtrace utility produces a program stability report

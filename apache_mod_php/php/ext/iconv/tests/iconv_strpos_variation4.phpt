@@ -8,7 +8,7 @@ function_exists('iconv_strpos') or die("skip iconv_strpos() is not available in 
 --FILE--
 <?php
 /* Prototype  : int iconv_strpos(string haystack, string needle [, int offset [, string charset]])
- * Description: Find position of first occurrence of a string within another 
+ * Description: Find position of first occurrence of a string within another
  * Source code: ext/iconv/iconv.c
  */
 
@@ -21,8 +21,8 @@ function_exists('iconv_strpos') or die("skip iconv_strpos() is not available in 
 echo "*** Testing iconv_strpos() : usage variations ***\n";
 
 // Initialise function arguments not being substituted
-$haystack = b'string_val';
-$needle = b'val';
+$haystack = 'string_val';
+$needle = 'val';
 $offset = 0;
 
 //get an unset variable
@@ -70,7 +70,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
@@ -79,7 +79,7 @@ $inputs = array(
 /*18*/ "UTF-8",
        'UTF-8',
        $heredoc,
-       
+
        // object data
 /*21*/ new classA(),
 
@@ -105,7 +105,6 @@ fclose($fp);
 
 echo "Done";
 ?>
-
 --EXPECTF--
 *** Testing iconv_strpos() : usage variations ***
 

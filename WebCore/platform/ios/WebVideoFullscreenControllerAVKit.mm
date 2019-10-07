@@ -43,11 +43,8 @@
 #import <WebCore/HTMLVideoElement.h>
 #import <WebCore/RenderVideo.h>
 #import <WebCore/WebCoreThreadRun.h>
+#import <pal/ios/UIKitSoftLink.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
-#import <wtf/SoftLinking.h>
-
-SOFT_LINK_FRAMEWORK(UIKit)
-SOFT_LINK_CLASS(UIKit, UIView)
 
 using namespace WebCore;
 
@@ -111,6 +108,8 @@ public:
     {
         return adoptRef(*new VideoFullscreenControllerContext);
     }
+
+    ~VideoFullscreenControllerContext();
 
     void setController(WebVideoFullscreenController* controller) { m_controller = controller; }
     void setUpFullscreen(HTMLVideoElement&, UIView *, HTMLMediaElementEnums::VideoFullscreenMode);
@@ -218,6 +217,20 @@ private:
     RetainPtr<UIView> m_videoFullscreenView;
     RetainPtr<WebVideoFullscreenController> m_controller;
 };
+
+VideoFullscreenControllerContext::~VideoFullscreenControllerContext()
+{
+    auto notifyClientsModelWasDestroyed = [this] {
+        while (!m_playbackClients.isEmpty())
+            (*m_playbackClients.begin())->modelDestroyed();
+        while (!m_fullscreenClients.isEmpty())
+            (*m_fullscreenClients.begin())->modelDestroyed();
+    };
+    if (isUIThread())
+        notifyClientsModelWasDestroyed();
+    else
+        dispatch_sync(dispatch_get_main_queue(), WTFMove(notifyClientsModelWasDestroyed));
+}
 
 #pragma mark VideoFullscreenChangeObserver
 
@@ -546,12 +559,14 @@ void VideoFullscreenControllerContext::volumeChanged(double volume)
 
 void VideoFullscreenControllerContext::addClient(VideoFullscreenModelClient& client)
 {
+    ASSERT(isUIThread());
     ASSERT(!m_fullscreenClients.contains(&client));
     m_fullscreenClients.add(&client);
 }
 
 void VideoFullscreenControllerContext::removeClient(VideoFullscreenModelClient& client)
 {
+    ASSERT(isUIThread());
     ASSERT(m_fullscreenClients.contains(&client));
     m_fullscreenClients.remove(&client);
 }
@@ -969,7 +984,7 @@ void VideoFullscreenControllerContext::setUpFullscreen(HTMLVideoElement& videoEl
         m_interface->setVideoFullscreenModel(this);
         m_interface->setVideoFullscreenChangeObserver(this);
 
-        m_videoFullscreenView = adoptNS([allocUIViewInstance() init]);
+        m_videoFullscreenView = adoptNS([PAL::allocUIViewInstance() init]);
 
         m_interface->setupFullscreen(*m_videoFullscreenView.get(), videoElementClientRect, viewRef.get(), mode, allowsPictureInPicture, false);
     });

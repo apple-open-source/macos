@@ -31,6 +31,7 @@ gd{
         151{"An Roinn-Eòrpa an Ear"}
         154{"An Roinn-Eòrpa a Tuath"}
         155{"An Roinn-Eòrpa an Iar"}
+        202{"Afraga Deas air an t-Sathara"}
         419{"Aimeireaga Laidinneach"}
         AC{"Eilean na Deasgabhalach"}
         AD{"Andorra"}
@@ -132,7 +133,7 @@ gd{
         GU{"Guam"}
         GW{"Gini-Bioso"}
         GY{"Guidheàna"}
-        HK{"Hong Kong SAR na Sìne"}
+        HK{"Hong Kong"}
         HM{"Eilean Heard is MhicDhòmhnaill"}
         HN{"Hondùras"}
         HR{"A’ Chròthais"}
@@ -182,11 +183,11 @@ gd{
         MF{"Naomh Màrtainn"}
         MG{"Madagasgar"}
         MH{"Eileanan Mharshall"}
-        MK{"A’ Mhasadon"}
+        MK{"A’ Mhasadon a Tuath"}
         ML{"Màili"}
         MM{"Miànmar"}
         MN{"Dùthaich nam Mongol"}
-        MO{"Macàthu SAR na Sìne"}
+        MO{"Macàthu"}
         MP{"Na h-Eileanan Mairianach a Tuath"}
         MQ{"Mairtinic"}
         MR{"Moratàinea"}
@@ -221,7 +222,7 @@ gd{
         PM{"Saint Pierre agus Miquelon"}
         PN{"Eileanan Pheit a’ Chàirn"}
         PR{"Porto Rìceo"}
-        PS{"Na Ranntairean Palastaineach"}
+        PS{"Ùghdarras nam Palastaineach"}
         PT{"A’ Phortagail"}
         PW{"Palabh"}
         PY{"Paraguaidh"}
@@ -296,8 +297,6 @@ gd{
     }
     Countries%short{
         GB{"RA"}
-        HK{"Hong Kong"}
-        MO{"Macàthu"}
         PS{"Palastain"}
         US{"SA"}
     }
@@ -307,8 +306,7 @@ gd{
         CI{"An Costa Ìbhri"}
         CZ{"Poblachd na Seice"}
         FK{"Na h-Eileanan Fàclannach (Islas Malvinas)"}
-        MK{"A’ Mhasadon (FYROM)"}
         TL{"Tìomor an Ear"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
 }

@@ -26,10 +26,12 @@
 #import "supd/supdProtocol.h"
 #import <Foundation/NSXPCConnection_Private.h>
 #import <Security/SFAnalytics.h>
+#import "SecInternalReleasePriv.h"
 
 /* Internal Topic Names */
 NSString* const SFAnalyticsTopicKeySync = @"KeySyncTopic";
-NSString* const SFAnaltyicsTopicTrust = @"TrustTopic";
+NSString* const SFAnalyticsTopicTrust = @"TrustTopic";
+NSString* const SFAnalyticsTopicTransparency = @"TransparencyTopic";
 
 static void nsprintf(NSString *fmt, ...) NS_FORMAT_FUNCTION(1, 2);
 static void nsprintf(NSString *fmt, ...)
@@ -117,9 +119,58 @@ static void forceUploadAnalytics(void)
     [connection invalidate];
 }
 
+static void
+getInfoDump(void)
+{
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    NSXPCConnection* connection = getConnection();
+    [[connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
+        nsprintf(@"Could not communicate with supd: %@", error);
+        dispatch_semaphore_signal(sema);
+    }] clientStatus:^(NSDictionary<NSString *,id> *info, NSError *error) {
+        if (info) {
+            nsprintf(@"%@\n", info);
+        } else {
+            nsprintf(@"Supd reports failure: %@", error);
+        }
+        dispatch_semaphore_signal(sema);
+    }];
+
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 20)) != 0) {
+        printf("\n\nError: timed out waiting for response from supd\n");
+    }
+    [connection invalidate];
+}
+
+static void
+forceOldUploadDate(void)
+{
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    NSXPCConnection* connection = getConnection();
+
+    NSDate *date = [NSDate dateWithTimeIntervalSinceNow:(-7 * 24 * 3600.0)];
+
+    [[connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
+        nsprintf(@"Could not communicate with supd: %@", error);
+        dispatch_semaphore_signal(sema);
+    }] setUploadDateWith:date reply:^(BOOL success, NSError *error) {
+        if (!success && error) {
+            nsprintf(@"Supd reports failure: %@", error);
+        }
+        dispatch_semaphore_signal(sema);
+    }];
+
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 20)) != 0) {
+        printf("\n\nError: timed out waiting for response from supd\n");
+    }
+    [connection invalidate];
+}
+
 static int forceUpload = false;
 static int getJSON = false;
 static int getSysdiagnose = false;
+static int getInfo = false;
+static int setOldUploadDate = false;
 static char *topicName = nil;
 
 int main(int argc, char **argv)
@@ -130,6 +181,8 @@ int main(int argc, char **argv)
         { .command="sysdiagnose", .flag=&getSysdiagnose, .flagval=true, .description="Retrieve the current sysdiagnose dump for security analytics"},
         { .command="get", .flag=&getJSON, .flagval=true, .description="Get the JSON blob we would upload to the server if an upload were due"},
         { .command="upload", .flag=&forceUpload, .flagval=true, .description="Force an upload of analytics data to server (ignoring privacy settings)"},
+        { .command="info", .flag=&getInfo, .flagval=true, .description="Request info about clients"},
+        { .command="set-old-upload-date", .flag=&setOldUploadDate, .flagval=true, .description="Clear last upload date"},
         {}  // Need this!
     };
 
@@ -145,6 +198,10 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    if (!SecIsInternalRelease()) {
+        abort();
+    }
+
     @autoreleasepool {
         if (forceUpload) {
             forceUploadAnalytics();
@@ -152,6 +209,10 @@ int main(int argc, char **argv)
             getLoggingJSON(topicName);
         } else if (getSysdiagnose) {
             getSysdiagnoseDump();
+        } else if (getInfo) {
+            getInfoDump();
+        } else if (setOldUploadDate) {
+            forceOldUploadDate();
         } else {
             print_usage(&args);
             return -1;

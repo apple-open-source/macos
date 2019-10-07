@@ -15,11 +15,13 @@ using namespace icu::number::impl;
 
 namespace {
 
+alignas(DecimalFormatProperties)
 char kRawDefaultProperties[sizeof(DecimalFormatProperties)];
 
 icu::UInitOnce gDefaultPropertiesInitOnce = U_INITONCE_INITIALIZER;
 
 void U_CALLCONV initDefaultProperties(UErrorCode&) {
+    // can't fail, uses placement new into staticly allocated space.
     new(kRawDefaultProperties) DecimalFormatProperties(); // set to the default instance
 }
 
@@ -73,6 +75,7 @@ void DecimalFormatProperties::clear() {
     roundingMode.nullify();
     secondaryGroupingSize = -1;
     signAlwaysShown = false;
+    formatFullPrecision = false; // Apple addition for <rdar://problem/39240173>
 }
 
 bool
@@ -105,6 +108,7 @@ DecimalFormatProperties::_equals(const DecimalFormatProperties& other, bool igno
     eq = eq && roundingMode == other.roundingMode;
     eq = eq && secondaryGroupingSize == other.secondaryGroupingSize;
     eq = eq && signAlwaysShown == other.signAlwaysShown;
+    eq = eq && formatFullPrecision == other.formatFullPrecision; // Apple addition for <rdar://problem/39240173>
 
     if (ignoreForFastFormat) {
         return eq;
@@ -139,6 +143,12 @@ bool DecimalFormatProperties::equalsDefaultExceptFastFormat() const {
     UErrorCode localStatus = U_ZERO_ERROR;
     umtx_initOnce(gDefaultPropertiesInitOnce, &initDefaultProperties, localStatus);
     return _equals(*reinterpret_cast<DecimalFormatProperties*>(kRawDefaultProperties), true);
+}
+
+const DecimalFormatProperties& DecimalFormatProperties::getDefault() {
+    UErrorCode localStatus = U_ZERO_ERROR;
+    umtx_initOnce(gDefaultPropertiesInitOnce, &initDefaultProperties, localStatus);
+    return *reinterpret_cast<const DecimalFormatProperties*>(kRawDefaultProperties);
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

@@ -93,7 +93,7 @@ bool CFMunge::parameter()
 //
 // The top constructor.
 //
-CFTypeRef CFMake::make()
+CFTypeRef CF_RETURNS_RETAINED CFMake::make()
 {
 	while (next() == '@')
 		parameter();
@@ -126,7 +126,7 @@ CFTypeRef CFMake::make()
 }
 
 
-CFTypeRef CFMake::makeformat()
+CFTypeRef CF_RETURNS_RETAINED CFMake::makeformat()
 {
 	++format;
 	switch (*format++) {
@@ -184,7 +184,7 @@ CFTypeRef CFMake::makenumber()
 // Embedded strings can either be alphanumeric (only), or delimited with single quotes ''.
 // No escapes are processed within such quotes. If you want arbitrary string values, use %s.
 //
-CFTypeRef CFMake::makestring()
+CFTypeRef CF_RETURNS_RETAINED CFMake::makestring()
 {
 	const char *start, *end;
 	if (*format == '\'') {
@@ -208,7 +208,7 @@ CFTypeRef CFMake::makestring()
 //
 // Construct a CFDictionary
 //
-CFTypeRef CFMake::makedictionary()
+CFTypeRef CF_RETURNS_RETAINED CFMake::makedictionary()
 {
 	++format;	// next '{'
 	next('!');	// indicates mutable (currently always true)
@@ -272,7 +272,7 @@ CFDictionaryRef CFMake::addto(CFMutableDictionaryRef dict)
 //
 // Construct a CFArray
 //
-CFTypeRef CFMake::makearray()
+CFTypeRef CF_RETURNS_RETAINED CFMake::makearray()
 {
 	++format;	// next '['
 	next('!');	// indicates mutable (currently always)
@@ -538,7 +538,7 @@ CFTypeRef CFScan::dictpath(CFTypeRef obj)
 //
 // The public functions
 //
-CFTypeRef cfmake(const char *format, ...)
+CFTypeRef CF_RETURNS_RETAINED cfmake(const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
@@ -547,7 +547,7 @@ CFTypeRef cfmake(const char *format, ...)
 	return result;
 }
 
-CFTypeRef vcfmake(const char *format, va_list *args)
+CFTypeRef CF_RETURNS_RETAINED vcfmake(const char *format, va_list *args)
 {
 	return CFMake(format, args).make();
 }

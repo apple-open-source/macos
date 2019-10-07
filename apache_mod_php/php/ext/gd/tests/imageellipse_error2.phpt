@@ -4,7 +4,7 @@ Testing wrong param passing imageellipse() of GD library
 Ivan Rosolen <contato [at] ivanrosolen [dot] com>
 #testfest PHPSP on 2009-06-20
 --SKIPIF--
-<?php 
+<?php
 if (!extension_loaded("gd")) die("skip GD not present");
 ?>
 --FILE--
@@ -18,4 +18,4 @@ imageellipse($image, 'wrong param', 150, 300, 200, 16777215);
 
 ?>
 --EXPECTF--
-Warning: imageellipse() expects parameter 2 to be integer, %s given in %s on line %d
+Warning: imageellipse() expects parameter 2 to be int, %s given in %s on line %d

@@ -3,26 +3,27 @@
 //  CommonCrypto
 //
 
+#include <stdlib.h>
 #include <stdio.h>
-#include "ccMemory.h"
+#include <corecrypto/cc.h>
 #include "CommonBufferingPriv.h"
 #include "../lib/cc_macros_priv.h"
 
 CNBufferRef
 CNBufferCreate(size_t chunksize)
 {
-    CNBufferRef retval = CC_XMALLOC(sizeof(CNBuffer));
+    CNBufferRef retval = malloc(sizeof(CNBuffer));
     __Require_Quiet(NULL != retval, errOut);
     retval->chunksize = chunksize;
     retval->bufferPos = 0;
-    retval->buf = CC_XMALLOC(chunksize);
+    retval->buf = malloc(chunksize);
     __Require_Quiet(NULL != retval->buf, errOut);
     return retval;
     
 errOut:
     if(retval) {
-        if(retval->buf) CC_XFREE(retval->buf, chunksize);
-        CC_XFREE(retval, sizeof(CNBuffer));
+        if(retval->buf) free(retval->buf);
+        free(retval);
     }
     return NULL;
 }
@@ -35,8 +36,8 @@ CNBufferRelease(CNBufferRef *bufRef)
     __Require_Quiet(NULL != bufRef, out);
 
     ref = *bufRef;
-    if(ref->buf) CC_XFREE(ref->buf, chunksize);
-    if(ref) CC_XFREE(ref, sizeof(CNBuffer));
+    if(ref->buf) free(ref->buf);
+    if(ref) free(ref);
 out:
     return kCNSuccess;
 }
@@ -58,8 +59,8 @@ CNBufferProcessData(CNBufferRef bufRef,
     if(sizeFunc(ctx, bufRef->bufferPos + inLen) > outputAvailable) return  kCNBufferTooSmall;
     *outLen = 0;
     if(bufRef->bufferPos > 0) {
-        inputUsing = CC_XMIN(blocksize - bufRef->bufferPos, inputLen);
-        CC_XMEMCPY(&bufRef->buf[bufRef->bufferPos], in, inputUsing);
+        inputUsing = CC_MIN(blocksize - bufRef->bufferPos, inputLen);
+        memcpy(&bufRef->buf[bufRef->bufferPos], in, inputUsing);
         bufRef->bufferPos += inputUsing;
         if(bufRef->bufferPos < blocksize) {
             return kCNSuccess;
@@ -81,7 +82,7 @@ CNBufferProcessData(CNBufferRef bufRef,
     if(inputLen > blocksize) {
         return kCNAlignmentError;
     } else if(inputLen > 0) {
-        CC_XMEMCPY(bufRef->buf, input, inputLen);
+        memcpy(bufRef->buf, input, inputLen);
         bufRef->bufferPos = inputLen;
     }
     return kCNSuccess;

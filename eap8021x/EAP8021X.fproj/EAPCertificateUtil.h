@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,14 +37,15 @@
  * - created
  */
 
-#include <Security/SecCertificate.h>
-#include <Security/SecIdentity.h>
+#include <TargetConditionals.h>
+#include <os/availability.h>
 #include <CoreFoundation/CFBase.h>
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFPropertyList.h>
-#include <TargetConditionals.h>
+#include <Security/Security.h>
+#include <Security/SecCertificate.h>
 
 /*
  * Type: EAPSecIdentityHandleRef
@@ -58,7 +59,10 @@ typedef CFPropertyListRef	EAPSecIdentityHandleRef;
 /*
  * Function: EAPSecIdentityHandleCreate
  * Purpose:
- *   Creates an CFPropertyListRef type to represent a SecIdentity.
+ *   Returns an EAPSecIdentityHandleRef (CFPropertyListRef) to represent
+ *   the specified SecIdentityRef. The EAPSecIdentityHandleRef is a
+ *   CFPropertyListRef and therefore can be serialized and stored
+ *   externally.
  */
 EAPSecIdentityHandleRef
 EAPSecIdentityHandleCreate(SecIdentityRef identity);
@@ -147,7 +151,7 @@ isA_SecIdentity(CFTypeRef obj);
  *   by NEHotspotConfiguration application.
  */
 OSStatus
-EAPSecIdentityCreateTrustChainWithPersistentCertificateRefs(SecIdentityRef sec_identity, CFArrayRef chain, CFArrayRef * ret_array);
+EAPSecIdentityCreateTrustChainWithPersistentCertificateRefs(SecIdentityRef sec_identity, CFArrayRef chain, CFArrayRef * ret_array) API_AVAILABLE(ios(11.0), watchos(5.0), tvos(9.0)) API_UNAVAILABLE(macos, iosmac);
 
 /*
  * EAPSecCertificateAttribute dictionary keys:
@@ -185,15 +189,12 @@ EAPSecCertificateCopyAttributesDictionary(SecCertificateRef cert);
 CFStringRef
 EAPSecCertificateCopyUserNameString(SecCertificateRef cert);
 
-#if TARGET_OS_EMBEDDED
 /*
  * Function EAPSecCertificateCopySHA1DigestString
  * Purpose:
  *   Return the SHA1 digest for the given cert as a CFString.
  */
 CFStringRef
-EAPSecCertificateCopySHA1DigestString(SecCertificateRef cert);
-
-#endif /* TARGET_OS_EMBEDDED */
+EAPSecCertificateCopySHA1DigestString(SecCertificateRef cert) API_AVAILABLE(ios(8.0), watchos(5.0), tvos(9.0)) API_UNAVAILABLE(macos, iosmac);
 
 #endif /* _EAP8021X_EAPCERTIFICATE_UTIL_H */

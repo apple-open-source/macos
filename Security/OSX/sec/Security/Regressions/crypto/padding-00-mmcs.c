@@ -2,11 +2,11 @@
  * Copyright (c) 2017 Apple Inc. All Rights Reserved.
  */
 
-#include "testmore.h"
+#include "test/testmore.h"
 
-#include "SecPaddingConfigurationsPriv.h"
+#include <Security/SecPaddingConfigurationsPriv.h>
 #include "shared_regressions.h"
-#include "SecCFWrappers.h"
+#include <utilities/SecCFWrappers.h>
 
 #define kTestTestCount 67
 

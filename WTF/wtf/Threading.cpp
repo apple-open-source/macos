@@ -36,7 +36,7 @@
 #include <wtf/ThreadGroup.h>
 #include <wtf/ThreadMessage.h>
 #include <wtf/ThreadingPrimitives.h>
-#include <wtf/text/AtomicStringTable.h>
+#include <wtf/text/AtomStringTable.h>
 #include <wtf/text/StringView.h>
 
 #if HAVE(QOS_CLASSES)
@@ -54,17 +54,29 @@ public:
     {
     }
 
+    enum class Stage { Start, EstablishedHandle, Initialized };
+    Stage stage { Stage::Start };
     const char* name;
     Function<void()> entryPoint;
     Ref<Thread> thread;
     Mutex mutex;
-    enum class Stage { Start, EstablishedHandle, Initialized };
-    Stage stage { Stage::Start };
 
 #if !HAVE(STACK_BOUNDS_FOR_NEW_THREAD)
     ThreadCondition condition;
 #endif
 };
+
+HashSet<Thread*>& Thread::allThreads(const LockHolder&)
+{
+    static NeverDestroyed<HashSet<Thread*>> allThreads;
+    return allThreads;
+}
+
+Lock& Thread::allThreadsMutex()
+{
+    static Lock mutex;
+    return mutex;
+}
 
 const char* Thread::normalizeThreadName(const char* threadName)
 {
@@ -99,12 +111,12 @@ void Thread::initializeInThread()
         m_stack = StackBounds::currentThreadStackBounds();
     m_savedLastStackTop = stack().origin();
 
-    m_currentAtomicStringTable = &m_defaultAtomicStringTable;
+    m_currentAtomStringTable = &m_defaultAtomStringTable;
 #if USE(WEB_THREAD)
-    // On iOS, one AtomicStringTable is shared between the main UI thread and the WebThread.
+    // On iOS, one AtomStringTable is shared between the main UI thread and the WebThread.
     if (isWebThread() || isUIThread()) {
-        static NeverDestroyed<AtomicStringTable> sharedStringTable;
-        m_currentAtomicStringTable = &sharedStringTable.get();
+        static NeverDestroyed<AtomStringTable> sharedStringTable;
+        m_currentAtomStringTable = &sharedStringTable.get();
     }
 #endif
 }
@@ -164,6 +176,11 @@ Ref<Thread> Thread::create(const char* name, Function<void()>&& entryPoint)
 #endif
     }
 
+    {
+        LockHolder lock(allThreadsMutex());
+        allThreads(lock).add(&thread.get());
+    }
+
     ASSERT(!thread->stack().isEmpty());
     return thread;
 }
@@ -184,6 +201,11 @@ static bool shouldRemoveThreadFromThreadGroup()
 
 void Thread::didExit()
 {
+    {
+        LockHolder lock(allThreadsMutex());
+        allThreads(lock).remove(this);
+    }
+
     if (shouldRemoveThreadFromThreadGroup()) {
         {
             Vector<std::shared_ptr<ThreadGroup>> threadGroups;
@@ -235,6 +257,24 @@ void Thread::removeFromThreadGroup(const AbstractLocker& threadGroupLocker, Thre
             return sharedPtr.get() == &threadGroup;
         return false;
     });
+}
+
+bool Thread::exchangeIsCompilationThread(bool newValue)
+{
+    auto& thread = Thread::current();
+    bool oldValue = thread.m_isCompilationThread;
+    thread.m_isCompilationThread = newValue;
+    return oldValue;
+}
+
+void Thread::registerGCThread(GCThreadType gcThreadType)
+{
+    Thread::current().m_gcThreadType = static_cast<unsigned>(gcThreadType);
+}
+
+bool Thread::mayBeGCThread()
+{
+    return Thread::current().gcThreadType() != GCThreadType::None;
 }
 
 void Thread::setCurrentThreadIsUserInteractive(int relativePriority)

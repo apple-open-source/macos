@@ -258,12 +258,7 @@ test -n "$create$upgrade_conf$first_install_reminder" || {
 
 # Bootstrapping problem.
 
-if [ -n "$command_directory" ]
-then
-    POSTCONF="$command_directory/postconf"
-else
-    POSTCONF="postconf"
-fi
+POSTCONF="/usr/sbin/postconf"
 
 $POSTCONF -d mail_version >/dev/null 2>/dev/null || {
     echo $0: Error: no $POSTCONF command found. 1>&2
@@ -421,8 +416,6 @@ The following parameters were missing:
 EOF
     exit 1
 }
-
-POSTCONF="$command_directory/postconf"
 
 # Save settings, allowing command line/environment override.
 

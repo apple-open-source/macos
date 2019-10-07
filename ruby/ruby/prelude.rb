@@ -1,17 +1,15 @@
-class Thread
-  MUTEX_FOR_THREAD_EXCLUSIVE = Mutex.new # :nodoc:
-
+class << Thread
   # call-seq:
   #    Thread.exclusive { block }   => obj
   #
   # Wraps the block in a single, VM-global Mutex.synchronize, returning the
   # value of the block. A thread executing inside the exclusive section will
   # only block other threads which also use the Thread.exclusive mechanism.
-  def self.exclusive
-    warn "Thread.exclusive is deprecated, use Mutex", caller
-    MUTEX_FOR_THREAD_EXCLUSIVE.synchronize{
-      yield
-    }
+  def exclusive(&block) end if false
+  mutex = Mutex.new # :nodoc:
+  define_method(:exclusive) do |&block|
+    warn "Thread.exclusive is deprecated, use Thread::Mutex", caller
+    mutex.synchronize(&block)
   end
 end
 
@@ -67,9 +65,10 @@ class IO
   # Note that this method is identical to readpartial
   # except the non-blocking flag is set.
   #
-  # By specifying `exception: false`, the options hash allows you to indicate
+  # By specifying a keyword argument _exception_ to +false+, you can indicate
   # that read_nonblock should not raise an IO::WaitReadable exception, but
-  # return the symbol :wait_readable instead.
+  # return the symbol +:wait_readable+ instead. At EOF, it will return nil
+  # instead of raising EOFError.
   def read_nonblock(len, buf = nil, exception: true)
     __read_nonblock(len, buf, exception)
   end
@@ -98,7 +97,7 @@ class IO
   #
   #   # write_nonblock writes only 65536 bytes and return 65536.
   #   # (The pipe size is 65536 bytes on this environment.)
-  #   s = "a"  #100000
+  #   s = "a" * 100000
   #   p w.write_nonblock(s)     #=> 65536
   #
   #   # write_nonblock cannot write a byte and raise EWOULDBLOCK (EAGAIN).
@@ -125,10 +124,39 @@ class IO
   # according to the kind of the IO object.
   # In such cases, write_nonblock raises <code>Errno::EBADF</code>.
   #
-  # By specifying `exception: false`, the options hash allows you to indicate
+  # By specifying a keyword argument _exception_ to +false+, you can indicate
   # that write_nonblock should not raise an IO::WaitWritable exception, but
-  # return the symbol :wait_writable instead.
+  # return the symbol +:wait_writable+ instead.
   def write_nonblock(buf, exception: true)
     __write_nonblock(buf, exception)
   end
+end
+
+class TracePoint
+  def enable target: nil, target_line: nil, &blk
+    self.__enable target, target_line, &blk
+  end
+end
+
+class Binding
+  # :nodoc:
+  def irb
+    require 'irb'
+    irb
+  end
+
+  # suppress redefinition warning
+  alias irb irb # :nodoc:
+end
+
+module Kernel
+  def pp(*objs)
+    require 'pp'
+    pp(*objs)
+  end
+
+  # suppress redefinition warning
+  alias pp pp # :nodoc:
+
+  private :pp
 end

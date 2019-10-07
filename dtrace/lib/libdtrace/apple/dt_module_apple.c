@@ -7,9 +7,10 @@
  *
  */
 
-
+#if DTRACE_USE_CORESYMBOLICATION
 #include <CoreSymbolication/CoreSymbolication.h>
 #include <CoreSymbolication/CoreSymbolicationPrivate.h>
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 
 #include <libkern/OSAtomic.h>
 #include <sys/stat.h>
@@ -22,28 +23,6 @@
 #include <assert.h>
 
 extern int _dtrace_argmax; /* maximum probe arguments */
-
-/*
- * Check if the fbt providers is supposed to provide probes for the private
- * symbols (aka private probes).
- */
-int dtrace_private_probes_requested(void) {
-	int value = 0;
-	int err = 0;
-	size_t len = sizeof(value);
-
-	/*
-	 * In case of failure, warn and consider we're not supposed to provide
-	 * them.
-	 */
-	err = sysctlbyname("kern.dtrace.provide_private_probes", &value, &len, NULL, 0);
-	if (err < 0) {
-		fprintf(stderr, "Unable to retrieve the kern.dtrace.provide_private_probes state\n");
-		value = 0;
-	}
-
-	return value;
-}
 
 void
 dt_module_get_types(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
@@ -72,7 +51,7 @@ dt_module_get_types(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 		goto out;
 	}
 	if (ctf_func_info(dmp->dm_ctfp, id, &f) == CTF_ERR) {
-		dt_dprintf("failed to retrieve func info (ctf_errno: %d)\n", ctf_errno(dmp->dm_ctfp));
+		dt_dprintf("failed to retrieve func info (ctf_errno: %d)", ctf_errno(dmp->dm_ctfp));
 		goto out;
 	}
 
@@ -102,7 +81,7 @@ dt_module_get_types(dtrace_hdl_t *dtp, const dtrace_probedesc_t *pdp,
 	}
 	else {
 		if (ctf_func_args(dmp->dm_ctfp, id, argc, argv) == CTF_ERR) {
-			dt_dprintf("failed to retrieve func args (ctf_errno: %d)\n", ctf_errno(dmp->dm_ctfp));
+			dt_dprintf("failed to retrieve func args (ctf_errno: %d)", ctf_errno(dmp->dm_ctfp));
 			goto out;
 		}
 		args = MIN(args, f.ctc_argc);
@@ -124,7 +103,7 @@ out:
 	*nargs = 0;
 }
 
-
+#if DTRACE_USE_CORESYMBOLICATION
 /*
  * Create a symbolicator by using CoreSymbolication.
  *
@@ -133,7 +112,8 @@ out:
  * kernel slide requires to be root, otherwise calling this function with with_slide
  * will fail.
  */
-CSSymbolicatorRef dtrace_kernel_symbolicator(bool with_slide) {
+static CSSymbolicatorRef
+dtrace_kernel_symbolicator(bool with_slide) {
 	static pthread_mutex_t symbolicator_lock = PTHREAD_MUTEX_INITIALIZER;
 	static CSSymbolicatorRef symbolicator_slide   = { 0, 0 }; // kCSNull isn't considered constant?
 	static CSSymbolicatorRef symbolicator_noslide = { 0, 0 }; // kCSNull isn't considered constant?
@@ -164,11 +144,11 @@ CSSymbolicatorRef dtrace_kernel_symbolicator(bool with_slide) {
 
 	return *symbolicator_ptr;
 }
-
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 int
 dtrace_kernel_path(char *kernel_path, size_t max_length) {
 	assert(kernel_path);
-
+#if DTRACE_USE_CORESYMBOLICATION
 	char const* path = CSSymbolOwnerGetPath(CSSymbolicatorGetAOutSymbolOwner(dtrace_kernel_symbolicator(false)));
 	if (!path) {
 		path = CSSymbolOwnerGetPath(CSSymbolicatorGetSymbolOwner(dtrace_kernel_symbolicator(false)));
@@ -177,23 +157,28 @@ dtrace_kernel_path(char *kernel_path, size_t max_length) {
 		if (strlcpy(kernel_path, path, max_length) < max_length)
 			return 0;
 	}
-
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 	return -1;
 }
 
 char*
 demangleSymbolCString(const char *mangled)
 {
+#if DTRACE_USE_CORESYMBOLICATION
 	return (char*)CSDemangleSymbolName(mangled);
+#else
+	return NULL;
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 }
 
-static void filter_module_symbols(CSSymbolOwnerRef owner, int provide_private_probes, CSSymbolIterator valid_symbol)
+#if DTRACE_USE_CORESYMBOLICATION
+static void filter_module_symbols(CSSymbolOwnerRef owner, CSSymbolIterator valid_symbol)
 {
 	// See note at callsites, we want to always use __TEXT __text for now.
 	if (TRUE || (CSSymbolOwnerIsObject(owner) && !(CSSymbolOwnerGetDataFlags(owner) & kCSSymbolOwnerDataFoundDsym))) {				
 		void (^check_sym)(CSSymbolRef) = ^(CSSymbolRef symbol) {
 			// By default, the kernel team has requested minimal symbol info.
-			if ((CSSymbolIsUnnamed(symbol) == false) && (provide_private_probes || CSSymbolIsExternal(symbol))) {
+			if ((CSSymbolIsUnnamed(symbol) == false)) {
 				if (CSSymbolGetRange(symbol).length > 0) {
 					valid_symbol(symbol);
 				}
@@ -214,6 +199,7 @@ static void filter_module_symbols(CSSymbolOwnerRef owner, int provide_private_pr
 		});
 	}	
 }
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 
 /*
  * This method is used to update the kernel's symbol information.
@@ -228,8 +214,10 @@ static void filter_module_symbols(CSSymbolOwnerRef owner, int provide_private_pr
  *
  * NOTE... This function is called too early for -xdebug to enable dt_dprintf.
  */
-void dtrace_update_kernel_symbols(dtrace_hdl_t* dtp)
+void
+dtrace_update_kernel_symbols(dtrace_hdl_t* dtp)
 {
+#if DTRACE_USE_CORESYMBOLICATION
 	uint64_t count = 0;
 	
 	/* This call is expected to fail with EINVAL */
@@ -288,7 +276,7 @@ void dtrace_update_kernel_symbols(dtrace_hdl_t* dtp)
 			// APPLE NOTE! It turns out there are too many danger dont touch this points that get marked as
 			// functions. We're going to bail out to only instrumenting __TEXT __text for everything for now.
 			__block uint64_t module_symbols_count = 0;
-			filter_module_symbols(owner, dtrace_private_probes_requested(), ^(CSSymbolRef symbol) { module_symbols_count++; });
+			filter_module_symbols(owner, ^(CSSymbolRef symbol) { module_symbols_count++; });
 
 			if (module_symbols_count == 0) {
 				continue;
@@ -311,7 +299,7 @@ void dtrace_update_kernel_symbols(dtrace_hdl_t* dtp)
 			//
 			memcpy(module_symbols->dtmodsyms_uuid, uuid, sizeof(UUID));
 			module_symbols->dtmodsyms_count = module_symbols_count;
-			filter_module_symbols(owner, dtrace_private_probes_requested(), ^(CSSymbolRef symbol) {
+			filter_module_symbols(owner, ^(CSSymbolRef symbol) {
 				dtrace_symbol_t* dtrace_symbol = &module_symbols->dtmodsyms_symbols[module_symbol_index++];
 				CSRange range = CSSymbolGetRange(symbol);
 				dtrace_symbol->dtsym_addr = range.location;
@@ -337,6 +325,7 @@ void dtrace_update_kernel_symbols(dtrace_hdl_t* dtp)
 		if (uuids_list)
 			free(uuids_list);		
 	}
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 }
 
 /*
@@ -350,6 +339,7 @@ int dtrace_lookup_by_addr(dtrace_hdl_t *dtp,
                           GElf_Sym *symp,
                           dtrace_syminfo_t *sip)
 {
+#if DTRACE_USE_CORESYMBOLICATION
 	CSSymbolicatorRef kernelSymbolicator = dtrace_kernel_symbolicator(true);
 
 	if (CSIsNull(kernelSymbolicator))
@@ -414,4 +404,7 @@ int dtrace_lookup_by_addr(dtrace_hdl_t *dtp,
         }
 
         return (0);
+#else
+	return (dt_set_errno(dtp, EDT_NOSYMBOLICATOR));
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 }

@@ -1,11 +1,11 @@
 --TEST--
-Test array_product() function : usage variation 
+Test array_product() function : usage variation
 --FILE--
 <?php
 /* Prototype  : mixed array_product(array input)
- * Description: Returns the product of the array entries 
+ * Description: Returns the product of the array entries
  * Source code: ext/standard/array.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing array_product() : usage variation ***\n";
@@ -98,22 +98,22 @@ foreach($inputs as $key =>$value) {
 
 --int 0--
 
-Warning: array_product() expects parameter 1 to be array, integer given in %sarray_product_variation5.php on line %d
+Warning: array_product() expects parameter 1 to be array, int given in %sarray_product_variation5.php on line %d
 NULL
 
 --int 1--
 
-Warning: array_product() expects parameter 1 to be array, integer given in %sarray_product_variation5.php on line %d
+Warning: array_product() expects parameter 1 to be array, int given in %sarray_product_variation5.php on line %d
 NULL
 
 --int 12345--
 
-Warning: array_product() expects parameter 1 to be array, integer given in %sarray_product_variation5.php on line %d
+Warning: array_product() expects parameter 1 to be array, int given in %sarray_product_variation5.php on line %d
 NULL
 
 --int -12345--
 
-Warning: array_product() expects parameter 1 to be array, integer given in %sarray_product_variation5.php on line %d
+Warning: array_product() expects parameter 1 to be array, int given in %sarray_product_variation5.php on line %d
 NULL
 
 --float 10.5--
@@ -153,22 +153,22 @@ NULL
 
 --lowercase true--
 
-Warning: array_product() expects parameter 1 to be array, boolean given in %sarray_product_variation5.php on line %d
+Warning: array_product() expects parameter 1 to be array, bool given in %sarray_product_variation5.php on line %d
 NULL
 
 --lowercase false--
 
-Warning: array_product() expects parameter 1 to be array, boolean given in %sarray_product_variation5.php on line %d
+Warning: array_product() expects parameter 1 to be array, bool given in %sarray_product_variation5.php on line %d
 NULL
 
 --uppercase TRUE--
 
-Warning: array_product() expects parameter 1 to be array, boolean given in %sarray_product_variation5.php on line %d
+Warning: array_product() expects parameter 1 to be array, bool given in %sarray_product_variation5.php on line %d
 NULL
 
 --uppercase FALSE--
 
-Warning: array_product() expects parameter 1 to be array, boolean given in %sarray_product_variation5.php on line %d
+Warning: array_product() expects parameter 1 to be array, bool given in %sarray_product_variation5.php on line %d
 NULL
 
 --empty string DQ--

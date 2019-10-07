@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2009-2011, 2015, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2009-2011, 2015, 2018, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -44,7 +44,6 @@
 #define	SNAPSHOT_PATH_STATE	_PATH_VARTMP "configd-state"
 #define	SNAPSHOT_PATH_STORE	_PATH_VARTMP "configd-store.plist"
 #define	SNAPSHOT_PATH_PATTERN	_PATH_VARTMP "configd-pattern.plist"
-#define	SNAPSHOT_PATH_SESSION	_PATH_VARTMP "configd-session.plist"
 
 
 #define N_QUICK	100
@@ -70,7 +69,7 @@ _expandStore(CFDictionaryRef storeData)
 			oValues = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
 			nValues = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
 		}
-		bzero(nValues, nElements * sizeof(CFTypeRef));
+		memset(nValues, 0, nElements * sizeof(CFTypeRef));
 
 		CFDictionaryGetKeysAndValues(storeData, keys, oValues);
 		for (i = 0; i < nElements; i++) {
@@ -181,24 +180,6 @@ __SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 	}
 
 	xmlData = CFPropertyListCreateData(NULL, patternData, kCFPropertyListXMLFormat_v1_0, 0, NULL);
-	if (xmlData == NULL) {
-		SC_log(LOG_NOTICE, "CFPropertyListCreateData() failed");
-		close(fd);
-		return kSCStatusFailed;
-	}
-	(void) write(fd, CFDataGetBytePtr(xmlData), CFDataGetLength(xmlData));
-	(void) close(fd);
-	CFRelease(xmlData);
-
-	/* Save a snapshot of the "session" data */
-
-	(void) unlink(SNAPSHOT_PATH_SESSION);
-	fd = open(SNAPSHOT_PATH_SESSION, O_WRONLY|O_CREAT|O_TRUNC|O_EXCL, 0644);
-	if (fd == -1) {
-		return kSCStatusFailed;
-	}
-
-	xmlData = CFPropertyListCreateData(NULL, sessionData, kCFPropertyListXMLFormat_v1_0, 0, NULL);
 	if (xmlData == NULL) {
 		SC_log(LOG_NOTICE, "CFPropertyListCreateData() failed");
 		close(fd);

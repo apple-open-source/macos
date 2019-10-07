@@ -35,3 +35,6 @@ pruneStagingDirectory(void);
 
 Boolean
 clearStagingDirectory(void);
+
+CFURLRef
+copyUnstagedKextURL(CFURLRef kextURL);

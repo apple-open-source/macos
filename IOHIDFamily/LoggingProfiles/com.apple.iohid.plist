@@ -8,6 +8,13 @@
 		<true/>
 		<key>Default-Privacy-Setting</key>
 		<string>Public</string>
+		<key>Level</key>
+		<dict>
+			<key>Enable</key>
+			<string>Info</string>
+			<key>Persist</key>
+			<string>Info</string>
+		</dict>
 	</dict>
 </dict>
 </plist>

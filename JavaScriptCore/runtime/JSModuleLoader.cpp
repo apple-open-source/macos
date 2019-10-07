@@ -86,6 +86,7 @@ const ClassInfo JSModuleLoader::s_info = { "ModuleLoader", &Base::s_info, &modul
     loadModule                     JSBuiltin                                  DontEnum|Function 3
     linkAndEvaluateModule          JSBuiltin                                  DontEnum|Function 2
     requestImportModule            JSBuiltin                                  DontEnum|Function 3
+    dependencyKeysIfEvaluated      JSBuiltin                                  DontEnum|Function 1
     getModuleNamespaceObject       moduleLoaderGetModuleNamespaceObject       DontEnum|Function 1
     parseModule                    moduleLoaderParseModule                    DontEnum|Function 2
     requestedModules               moduleLoaderRequestedModules               DontEnum|Function 1
@@ -116,9 +117,33 @@ void JSModuleLoader::finishCreation(ExecState* exec, VM& vm, JSGlobalObject* glo
 static String printableModuleKey(ExecState* exec, JSValue key)
 {
     VM& vm = exec->vm();
-    if (key.isString() || key.isSymbol())
-        return key.toPropertyKey(exec).impl();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    if (key.isString() || key.isSymbol()) {
+        auto propertyName = key.toPropertyKey(exec);
+        scope.assertNoException(); // This is OK since this function is just for debugging purpose.
+        return propertyName.impl();
+    }
     return vm.propertyNames->emptyIdentifier.impl();
+}
+
+JSArray* JSModuleLoader::dependencyKeysIfEvaluated(ExecState* exec, JSValue key)
+{
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    JSObject* function = jsCast<JSObject*>(get(exec, vm.propertyNames->builtinNames().dependencyKeysIfEvaluatedPublicName()));
+    RETURN_IF_EXCEPTION(scope, nullptr);
+    CallData callData;
+    CallType callType = JSC::getCallData(vm, function, callData);
+    ASSERT(callType != CallType::None);
+
+    MarkedArgumentBuffer arguments;
+    arguments.append(key);
+
+    JSValue result = call(exec, function, callType, callData, this, arguments);
+    RETURN_IF_EXCEPTION(scope, nullptr);
+
+    return jsDynamicCast<JSArray*>(vm, result);
 }
 
 JSValue JSModuleLoader::provideFetch(ExecState* exec, JSValue key, const SourceCode& sourceCode)
@@ -336,6 +361,11 @@ JSValue JSModuleLoader::evaluate(ExecState* exec, JSValue key, JSValue moduleRec
     if (globalObject->globalObjectMethodTable()->moduleLoaderEvaluate)
         return globalObject->globalObjectMethodTable()->moduleLoaderEvaluate(globalObject, exec, this, key, moduleRecordValue, scriptFetcher);
 
+    return evaluateNonVirtual(exec, key, moduleRecordValue, scriptFetcher);
+}
+
+JSValue JSModuleLoader::evaluateNonVirtual(ExecState* exec, JSValue, JSValue moduleRecordValue, JSValue)
+{
     if (auto* moduleRecord = jsDynamicCast<AbstractModuleRecord*>(exec->vm(), moduleRecordValue))
         return moduleRecord->evaluate(exec);
     return jsUndefined();

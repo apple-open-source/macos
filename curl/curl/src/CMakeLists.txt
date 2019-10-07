@@ -9,16 +9,13 @@ if(USE_MANUAL)
     COMMAND ${CMAKE_COMMAND} -E echo "#ifndef HAVE_LIBZ" >> tool_hugehelp.c
     COMMAND env LC_ALL=C "${NROFF}" ${NROFF_MANOPT}
             "${CURL_BINARY_DIR}/docs/curl.1" |
-            "${PERL_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/mkhelp.pl"
-            "${CURL_SOURCE_DIR}/docs/MANUAL" >> tool_hugehelp.c
+            "${PERL_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/mkhelp.pl" >> tool_hugehelp.c
     COMMAND ${CMAKE_COMMAND} -E echo "#else" >> tool_hugehelp.c
     COMMAND env LC_ALL=C "${NROFF}" ${NROFF_MANOPT}
             "${CURL_BINARY_DIR}/docs/curl.1" |
-            "${PERL_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/mkhelp.pl" -c
-            "${CURL_SOURCE_DIR}/docs/MANUAL" >> tool_hugehelp.c
+            "${PERL_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/mkhelp.pl" -c >> tool_hugehelp.c
     COMMAND ${CMAKE_COMMAND} -E echo "#endif /* HAVE_LIBZ */" >> tool_hugehelp.c
     DEPENDS
-      "${CURL_SOURCE_DIR}/docs/MANUAL"
       generate-curl.1
       "${CURL_BINARY_DIR}/docs/curl.1"
       "${CMAKE_CURRENT_SOURCE_DIR}/mkhelp.pl"
@@ -40,7 +37,7 @@ transform_makefile_inc("Makefile.inc" "${CMAKE_CURRENT_BINARY_DIR}/Makefile.inc.
 include(${CMAKE_CURRENT_BINARY_DIR}/Makefile.inc.cmake)
 
 if(MSVC)
-  list(APPEND CURL_SOURCE curl.rc)
+  list(APPEND CURL_FILES curl.rc)
 endif()
 
 # CURL_FILES comes from Makefile.inc
@@ -56,13 +53,13 @@ source_group("curl header files" FILES ${CURL_HFILES})
 include_directories(
   ${CURL_SOURCE_DIR}/lib        # To be able to reach "curl_setup_once.h"
   ${CURL_BINARY_DIR}/lib        # To be able to reach "curl_config.h"
-  ${CURL_BINARY_DIR}/include    # To be able to reach "curl/curlbuild.h"
+  ${CURL_BINARY_DIR}/include    # To be able to reach "curl/curl.h"
   # This is needed as tool_hugehelp.c is generated in the binary dir
   ${CURL_SOURCE_DIR}/src        # To be able to reach "tool_hugehelp.h"
   )
 
 #Build curl executable
-target_link_libraries( ${EXE_NAME} libcurl ${CURL_LIBS})
+target_link_libraries(${EXE_NAME} libcurl ${CURL_LIBS})
 
 ################################################################################
 
@@ -70,10 +67,10 @@ target_link_libraries( ${EXE_NAME} libcurl ${CURL_LIBS})
 #SET_TARGET_PROPERTIES(${EXE_NAME} RUNTIME_OUTPUT_DIRECTORY "blah blah blah")
 #SET_TARGET_PROPERTIES(${EXE_NAME} LIBRARY_OUTPUT_DIRECTORY "blah blah blah")
 
-# Add the postfix to the executable since it is not added automatically as for modules and shared libraries
-set_target_properties(${EXE_NAME} PROPERTIES
-  DEBUG_POSTFIX "${CMAKE_DEBUG_POSTFIX}")
-
 #INCLUDE(ModuleInstall OPTIONAL)
 
-install(TARGETS ${EXE_NAME} DESTINATION bin)
+install(TARGETS ${EXE_NAME} EXPORT ${TARGETS_EXPORT_NAME} DESTINATION ${CMAKE_INSTALL_BINDIR})
+export(TARGETS ${EXE_NAME}
+       APPEND FILE ${PROJECT_BINARY_DIR}/curl-target.cmake
+       NAMESPACE CURL::
+)

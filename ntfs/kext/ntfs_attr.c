@@ -1449,7 +1449,9 @@ static errno_t ntfs_attr_can_be_non_resident(const ntfs_volume *vol,
  *	    check for this here as we do not know which inode's $Bitmap is
  *	    being asked about so the caller needs to special case this.
  */
-errno_t ntfs_attr_can_be_resident(const ntfs_volume *vol, const ATTR_TYPE type)
+errno_t ntfs_attr_can_be_resident(
+		const ntfs_volume *vol __attribute__((unused)),
+		const ATTR_TYPE type)
 {
 	if (type == AT_INDEX_ALLOCATION)
 		return EPERM;
@@ -4519,7 +4521,7 @@ err:
  * are invalid after this function returns.
  */
 static errno_t ntfs_attr_sparse_set(ntfs_inode *base_ni, ntfs_inode *ni,
-		ntfs_attr_search_ctx *ctx)
+		ntfs_attr_search_ctx *ctx __attribute__((unused)))
 {
 #if 0
 	VCN highest_vcn, stop_vcn;
@@ -5176,7 +5178,8 @@ static void ntfs_attr_sparse_clear(ntfs_inode *base_ni, ntfs_inode *ni,
  *	    - The runlist @ni must be unlocked as it is taken for writing.
  */
 errno_t ntfs_attr_instantiate_holes(ntfs_inode *ni, s64 start, s64 end,
-		s64 *new_end, BOOL atomic)
+		s64 *new_end __attribute__((unused)),
+		BOOL atomic __attribute__((unused)))
 {
 #if 0
 	VCN vcn, end_vcn;
@@ -5942,7 +5945,7 @@ undo1:
 errno_t ntfs_attr_extend_allocation(ntfs_inode *ni, s64 new_alloc_size,
 		const s64 new_data_size, const s64 data_start,
 		ntfs_index_context *ictx, s64 *dst_alloc_size,
-		const BOOL atomic)
+		const BOOL atomic __attribute__((unused)))
 {
 	VCN vcn, lowest_vcn, stop_vcn;
 	s64 start, ll, old_alloc_size, alloc_size, alloc_start, alloc_end;
@@ -7661,7 +7664,8 @@ trunc_err_out:
  *	      must not be locked / mapped or the ubc_setsize() call would
  *	      deadlock.
  */
-errno_t ntfs_attr_resize(ntfs_inode *ni, s64 new_size, int ioflags,
+errno_t ntfs_attr_resize(ntfs_inode *ni, s64 new_size,
+		int ioflags __attribute__((unused)),
 		ntfs_index_context *ictx)
 {
 	s64 old_size, nr_freed, new_alloc_size, old_alloc_size, compressed_size;

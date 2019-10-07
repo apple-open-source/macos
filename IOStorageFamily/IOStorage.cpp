@@ -54,6 +54,11 @@ public:
         IOSimpleLockInit( &_lock );
     }
 
+    inline ~IOStorageSyncerLock( )
+    {
+        IOSimpleLockDestroy( &_lock );
+    }
+
     inline void lock( )
     {
         IOSimpleLockLock( &_lock );

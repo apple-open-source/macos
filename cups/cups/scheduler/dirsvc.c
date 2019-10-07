@@ -4,11 +4,8 @@
  * Copyright © 2007-2018 by Apple Inc.
  * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 /*
@@ -1076,7 +1073,7 @@ dnssdRegisterInstance(
 
   *srv  = DNSSDMaster;
   error = DNSServiceRegister(srv, kDNSServiceFlagsShareConnection,
-			     0, name, temp, NULL, NULL, htons(port),
+			     0, name, temp, NULL, DNSSDHostName, htons(port),
 			     txt ? TXTRecordGetLength(txt) : 0,
 			     txt ? TXTRecordGetBytesPtr(txt) : NULL,
 			     dnssdRegisterCallback, p);
@@ -1091,7 +1088,7 @@ dnssdRegisterInstance(
 
   error = avahi_entry_group_add_service_strlst(*srv, AVAHI_IF_UNSPEC,
                                                AVAHI_PROTO_UNSPEC, 0, name,
-                                               type, NULL, NULL, port,
+                                               type, NULL, DNSSDHostName, port,
                                                txt ? *txt : NULL);
   if (error)
     cupsdLogMessage(CUPSD_LOG_DEBUG, "DNS-SD service add for \"%s\" failed.",
@@ -1457,23 +1454,29 @@ dnssdUpdateDNSSDName(int from_callback)	/* I - Called from callback? */
       cupsdSetString(&DNSSDComputerName, ServerName);
     }
 
-   /*
-    * Get the local hostname from the dynamic store...
-    */
-
-    cupsdClearString(&DNSSDHostName);
-
-    if ((nameRef = SCDynamicStoreCopyLocalHostName(sc)) != NULL)
+    if (!DNSSDHostName)
     {
-      if (CFStringGetCString(nameRef, nameBuffer, sizeof(nameBuffer),
-			     kCFStringEncodingUTF8))
-      {
-        cupsdLogMessage(CUPSD_LOG_DEBUG,
-	                "Dynamic store host name is \"%s\".", nameBuffer);
-	cupsdSetString(&DNSSDHostName, nameBuffer);
-      }
+     /*
+      * Get the local hostname from the dynamic store...
+      */
 
-      CFRelease(nameRef);
+      if ((nameRef = SCDynamicStoreCopyLocalHostName(sc)) != NULL)
+      {
+	if (CFStringGetCString(nameRef, nameBuffer, sizeof(nameBuffer),
+			       kCFStringEncodingUTF8))
+	{
+	  cupsdLogMessage(CUPSD_LOG_DEBUG, "Dynamic store host name is \"%s\".", nameBuffer);
+
+	  if (strchr(nameBuffer, '.'))
+	    cupsdSetString(&DNSSDHostName, nameBuffer);
+	  else
+	    cupsdSetStringf(&DNSSDHostName, "%s.local", nameBuffer);
+
+	  cupsdLogMessage(CUPSD_LOG_INFO, "Defaulting to \"DNSSDHostName %s\".", DNSSDHostName);
+	}
+
+	CFRelease(nameRef);
+      }
     }
 
     if (!DNSSDHostName)
@@ -1482,9 +1485,10 @@ dnssdUpdateDNSSDName(int from_callback)	/* I - Called from callback? */
       * Use the ServerName instead...
       */
 
-      cupsdLogMessage(CUPSD_LOG_DEBUG,
-                      "Using ServerName \"%s\" as host name.", ServerName);
+      cupsdLogMessage(CUPSD_LOG_DEBUG, "Using ServerName \"%s\" as host name.", ServerName);
       cupsdSetString(&DNSSDHostName, ServerName);
+
+      cupsdLogMessage(CUPSD_LOG_INFO, "Defaulting to \"DNSSDHostName %s\".", DNSSDHostName);
     }
 
    /*
@@ -1518,26 +1522,37 @@ dnssdUpdateDNSSDName(int from_callback)	/* I - Called from callback? */
   if (DNSSDClient)
   {
     const char	*host_name = avahi_client_get_host_name(DNSSDClient);
-    const char	*host_fqdn = avahi_client_get_host_name_fqdn(DNSSDClient);
 
     cupsdSetString(&DNSSDComputerName, host_name ? host_name : ServerName);
 
-    if (host_fqdn)
-      cupsdSetString(&DNSSDHostName, host_fqdn);
-    else if (strchr(ServerName, '.'))
-      cupsdSetString(&DNSSDHostName, ServerName);
-    else
-      cupsdSetStringf(&DNSSDHostName, "%s.local", ServerName);
+    if (!DNSSDHostName)
+    {
+      const char *host_fqdn = avahi_client_get_host_name_fqdn(DNSSDClient);
+
+      if (host_fqdn)
+	cupsdSetString(&DNSSDHostName, host_fqdn);
+      else if (strchr(ServerName, '.'))
+	cupsdSetString(&DNSSDHostName, ServerName);
+      else
+	cupsdSetStringf(&DNSSDHostName, "%s.local", ServerName);
+
+      cupsdLogMessage(CUPSD_LOG_INFO, "Defaulting to \"DNSSDHostName %s\".", DNSSDHostName);
+    }
   }
   else
 #  endif /* HAVE_AVAHI */
   {
     cupsdSetString(&DNSSDComputerName, ServerName);
 
-    if (strchr(ServerName, '.'))
-      cupsdSetString(&DNSSDHostName, ServerName);
-    else
-      cupsdSetStringf(&DNSSDHostName, "%s.local", ServerName);
+    if (!DNSSDHostName)
+    {
+      if (strchr(ServerName, '.'))
+	cupsdSetString(&DNSSDHostName, ServerName);
+      else
+	cupsdSetStringf(&DNSSDHostName, "%s.local", ServerName);
+
+      cupsdLogMessage(CUPSD_LOG_INFO, "Defaulting to \"DNSSDHostName %s\".", DNSSDHostName);
+    }
   }
 
  /*

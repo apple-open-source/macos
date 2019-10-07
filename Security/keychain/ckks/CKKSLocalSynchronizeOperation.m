@@ -30,6 +30,7 @@
 #import "keychain/ckks/CKKSIncomingQueueEntry.h"
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
+#import "keychain/ot/ObjCImprovements.h"
 
 #if OCTAGON
 
@@ -54,7 +55,7 @@
 }
 
 - (void)groupStart {
-    __weak __typeof(self) weakSelf = self;
+    WEAKIFY(self);
 
     /*
      * A local synchronize is very similar to a CloudKit synchronize, but it won't cause any (non-essential)
@@ -119,8 +120,8 @@
         CKKSResultOperation* restart = [[CKKSResultOperation alloc] init];
         restart.name = [NSString stringWithFormat: @"resync-step%u-consider-restart", self.restartCount * steps + 6];
         [restart addExecutionBlock:^{
-            __strong __typeof(weakSelf) strongSelf = weakSelf;
-            if(!strongSelf) {
+            STRONGIFY(self);
+            if(!self) {
                 secerror("ckksresync: received callback for released object");
                 return;
             }
@@ -132,17 +133,17 @@
             }
 
             if(scan.recordsFound > 0 || iqes.count > 0) {
-                if(strongSelf.restartCount >= 3) {
+                if(self.restartCount >= 3) {
                     // we've restarted too many times. Fail and stop.
                     ckkserror("ckksresync", ckks, "restarted synchronization too often; Failing");
-                    strongSelf.error = [NSError errorWithDomain:@"securityd"
+                    self.error = [NSError errorWithDomain:@"securityd"
                                                            code:2
                                                        userInfo:@{NSLocalizedDescriptionKey: @"resynchronization restarted too many times; churn in database?"}];
                 } else {
                     // restart the sync operation.
-                    strongSelf.restartCount += 1;
+                    self.restartCount += 1;
                     ckkserror("ckksresync", ckks, "restarting synchronization operation due to new local items");
-                    [strongSelf groupStart];
+                    [self groupStart];
                 }
             }
         }];

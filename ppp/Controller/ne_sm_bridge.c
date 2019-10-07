@@ -430,7 +430,7 @@ bridge_handle_sleep_time(ne_sm_bridge_t bridge, double sleep_time)
 	ne_sm_bridge_log(LOG_INFO, CFSTR("System slept for %f secs"), sleep_time);
 	if (bridge->serv.flags & FLAG_SETUP_DISCONNECTONWAKE) {
 		double wake_timeout = 0;
-#if !TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_OSX
 		wake_timeout = scnc_getsleepwaketimeout(&bridge->serv);
 #endif
 
@@ -484,7 +484,7 @@ bridge_get_security_session_info(ne_sm_bridge_t bridge, xpc_object_t request, ma
 	xpc_object_t entitlement = xpc_connection_copy_entitlement_value(connection, NESessionManagerPrivilegedEntitlement);
     
 	if ((bridge->type == NESMBridgeTypeL2TP || bridge->type == NESMBridgeTypePPTP) &&
-	    isa_xpc_bool(entitlement) && xpc_bool_get_value(entitlement))
+	    entitlement != NULL && xpc_get_type(entitlement) == XPC_TYPE_BOOL && xpc_bool_get_value(entitlement))
 	{
 		*bootstrap_port = bridge->serv.bootstrap;
 		*audit_session_port = bridge->serv.au_session;
@@ -510,7 +510,7 @@ bridge_copy_configuration(ne_sm_bridge_t bridge, xpc_object_t request)
 	if (bridge->type == NESMBridgeTypeL2TP || bridge->type == NESMBridgeTypePPTP) {
 		xpc_object_t entitlement = xpc_connection_copy_entitlement_value(connection, NESessionManagerPrivilegedEntitlement);
 
-		if (isa_xpc_bool(entitlement) && xpc_bool_get_value(entitlement))
+		if (entitlement != NULL && xpc_get_type(entitlement) == XPC_TYPE_BOOL && xpc_bool_get_value(entitlement))
 		{
 			error = ppp_getconnectdata(&bridge->serv, &userOptions, true);
 		} else {

@@ -32,7 +32,7 @@
 #include <CoreFoundation/CFData.h>
 #include <sqlite3.h>
 #include <ipc/securityd_client.h>
-#include <ctkclient.h>
+#include <ctkclient/ctkclient.h>
 
 __BEGIN_DECLS
 

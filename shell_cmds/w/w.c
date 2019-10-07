@@ -263,7 +263,7 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	if (!(_res.options & RES_INIT))
 		res_init();
 	_res.retrans = 2;	/* resolver timeout to 2 seconds per try */

@@ -1,5 +1,5 @@
 //
-//  TestHIDDisplaySessionFilterPlugin.m
+//  TestHIDDisplaySessionFilter.m
 //  IOHIDFamilyUnitTests
 //
 //  Created by AB on 1/25/19.
@@ -14,7 +14,7 @@
 #import <IOKit/hid/AppleHIDUsageTables.h>
 #import <IOKit/hid/IOHIDEventSystemClient.h>
 #import <IOKit/hid/IOHIDEventSystemKeys.h>
-#import <IOKit/hid/IOHIDUserDevice.h>
+#import <HID/HID.h>
 
 static NSString * deviceDescription =
 @"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
@@ -42,24 +42,200 @@ static uint8_t descriptor [] = {
 #define kTestDefaultFactoryPresetIndex 3
 #define kTestDefaultActivePresetIndex 5
 
-static AppleVendorDisplayFeatureReport03 presetData[kTestPresetCount];
-static AppleVendorDisplayFeatureReport02 featureReport2;
-static AppleVendorDisplayFeatureReport01 featureReport1;
+typedef AppleVendorDisplayFeatureReport03 AppleVendorDisplayFeatureReport17;
+typedef AppleVendorDisplayFeatureReport02 AppleVendorDisplayFeatureReport16;
+typedef AppleVendorDisplayFeatureReport01 AppleVendorDisplayFeatureReport15;
+
+static AppleVendorDisplayFeatureReport17 presetData[kTestPresetCount];
+static AppleVendorDisplayFeatureReport15 featureReport15;
+static AppleVendorDisplayFeatureReport16 featureReport16;
 static NSMutableArray<NSString*> *presetUUIDs;
 
-static void __initPresets()
-{
+@interface TestHIDDisplaySessionFilter : XCTestCase
+    @property HIDManager         * manager;
+    @property HIDUserDevice      * userDevice;
+    @property dispatch_queue_t   queue;
+    @property XCTestExpectation  * testUserDeviceExpectation;
+    @property XCTestExpectation  * testActivePresetExpectation;
+
+@end
+
+@implementation TestHIDDisplaySessionFilter
+
+- (void)setUp {
+    
+    self.testUserDeviceExpectation = [[XCTestExpectation alloc] initWithDescription:@"Expectation: user device"];
+    
+    self.testActivePresetExpectation = [[XCTestExpectation alloc] initWithDescription:@"Expectation: active preset device"];
+
+    [self initPresets];
+
+    NSMutableDictionary * deviceConfig = [NSPropertyListSerialization propertyListWithData:[deviceDescription dataUsingEncoding:NSUTF8StringEncoding] options:NSPropertyListMutableContainers format:NULL error:NULL];
+    
+    NSString * uniqueID = [[[NSUUID alloc] init] UUIDString];
+    
+    NSData * descriptorData = [[NSData alloc] initWithBytes:descriptor length:sizeof(descriptor)];
+    
+    deviceConfig [@kIOHIDReportDescriptorKey] = descriptorData;
+    deviceConfig [@kIOHIDUniqueIDKey] = uniqueID;
+    deviceConfig [kHIDUserDevicePropertyCreateInactiveKey] = @YES;
+    
+    self.userDevice = [[HIDUserDevice alloc] initWithProperties: deviceConfig];
+    
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, self.userDevice);
+ 
+    __weak TestHIDDisplaySessionFilter * _self  = self;
+
+    [self.userDevice setGetReportHandler: ^IOReturn(HIDReportType type,
+                                                NSInteger reportID,
+                                                void *report,
+                                                NSInteger  *reportLength){
+        
+        NSLog(@"getReportHandler type:%x reportID:%x reportLength:%d", (int)type, (int)reportID, (int)*reportLength);
+
+        switch (reportID) {
+            case 0x15:
+                *reportLength = sizeof(AppleVendorDisplayFeatureReport15);
+                bcopy(&featureReport15, report, sizeof(featureReport15));
+                break;
+            case 0x16:
+                *reportLength = sizeof(AppleVendorDisplayFeatureReport16);
+                bcopy(&featureReport16, report, sizeof(featureReport16));
+                break;
+            case 0x17: {
+                *reportLength = sizeof(AppleVendorDisplayFeatureReport17);
+                NSInteger currentIndex = featureReport16.AppleVendor_DisplayCurrentPresetIndex;
+                if (currentIndex < kTestPresetCount) {
+                    bcopy(&presetData[currentIndex], report, sizeof (presetData[currentIndex]));
+                     NSLog(@"Preset index:%d data:%@", (int)currentIndex, [NSData dataWithBytes:report length:sizeof (&presetData[currentIndex])]) ;
+                }
+                break;
+            }
+            default:
+                break;
+        }
+        
+        return kIOReturnSuccess;
+
+    }];
+
+    [self.userDevice setSetReportHandler: ^IOReturn(HIDReportType type,
+                                                    NSInteger reportID,
+                                                    const void *report,
+                                                    NSInteger reportLength){
+
+        NSLog(@"setReportHandler type:%x reportID:%x report:%@ reportLength:%d", (int)type, (int)reportID, [NSData dataWithBytes:report length:reportLength], (int)reportLength);
+        
+        switch (reportID) {
+            case 0x15:
+                bcopy(report, &featureReport15, reportLength);
+                if (featureReport15.AppleVendor_DisplayActivePresetIndex == featureReport15.AppleVendor_DisplayFactoryDefaultPresetIndex ) {
+                    [_self.testActivePresetExpectation fulfill];
+                }
+                break;
+            case 0x16:
+                bcopy(report, &featureReport16, reportLength);
+                break;
+            case 0x17: {
+                NSInteger currentIndex = featureReport16.AppleVendor_DisplayCurrentPresetIndex;
+                if (currentIndex < kTestPresetCount) {
+                    bcopy(report, &presetData[currentIndex], reportLength);
+                }
+                break;
+            }
+            default:
+                break;
+        }
+        return kIOReturnSuccess;
+
+    }];
+
+    self.queue = dispatch_queue_create("com.apple.user-device-test", NULL);
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, _queue != NULL);
+    
+    [self.userDevice setDispatchQueue:self.queue];
+    
+    [self.userDevice activate];
+    
+    self.manager = [[HIDManager alloc] init];
+
+    NSDictionary *matching = @{@kIOHIDDeviceUsagePairsKey : @[@{
+                                                     @kIOHIDDeviceUsagePageKey : @(kHIDPage_AppleVendor),
+                                                     @kIOHIDDeviceUsageKey: @(kHIDUsage_AppleVendor_Display)
+    }]};
+
+    [self.manager setDeviceMatching:matching];
+
+    [self.manager setDeviceNotificationHandler:^(HIDDevice * _Nonnull device, BOOL added) {
+        if (added) {
+            NSLog(@"HID device:%@", device);
+            [_self.testUserDeviceExpectation fulfill];
+        }
+    }];
+    
+    [self.manager setDispatchQueue: dispatch_get_main_queue()];
+    
+    [self.manager activate];
+}
+
+- (void)tearDown {
+    
+    [self.userDevice cancel];
+
+    [self.manager cancel];
+
+}
+
+- (void)testHIDDisplaySessionFilter {
+    
+    bool expectation = false;
+    
+    HIDEventSystemClient * eventSystemClient = [[HIDEventSystemClient alloc] initWithType:HIDEventSystemClientTypeMonitor];
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, eventSystemClient);
+    
+    XCTWaiterResult result = [XCTWaiter waitForExpectations:@[self.testUserDeviceExpectation] timeout:10];
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_IOREG | COLLECT_LOGARCHIVE,
+                                result == XCTWaiterResultCompleted,
+                                "result:%ld  %@",(long)result, self.testUserDeviceExpectation);
+
+    
+
+    result = [XCTWaiter waitForExpectations:@[self.testActivePresetExpectation] timeout:10];
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_IOREG | COLLECT_LOGARCHIVE,
+                                result == XCTWaiterResultCompleted,
+                                "result:%ld  %@",(long)result, self.testActivePresetExpectation);
+
+    
+    NSArray * filtersProperties =  (NSArray *) [eventSystemClient propertyForKey:@(kIOHIDSessionFilterDebugKey)];
+    
+    for (NSDictionary * filterProperties in filtersProperties) {
+        
+        NSDictionary * pluginProperties = filterProperties[@"plugin"];
+        
+        if (pluginProperties && pluginProperties[@"Class"] && [pluginProperties[@"Class"] isEqualToString:@"HIDDisplaySessionFilter"]) {
+            NSArray *status = pluginProperties[@"Status"];
+            expectation = status && status.count != 0;
+        }
+    }
+    
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_HIDUTIL | COLLECT_LOGARCHIVE | COLLECT_IOREG, expectation , "%s = %@", kIOHIDSessionFilterDebugKey, filtersProperties);
+    
+
+}
+
+- (void) initPresets {
+    
     presetUUIDs = [[NSMutableArray alloc] init];
     
-    for (NSInteger i=0; i < kTestPresetCount; i++) {
+    for (NSInteger i = 0; i < kTestPresetCount; i++) {
         
-        memset(&presetData[i], 0, sizeof(AppleVendorDisplayFeatureReport03));
+        memset(&presetData[i], 0, sizeof(AppleVendorDisplayFeatureReport17));
         presetData[i].reportId = 0x17;
-        presetData[i].AppleVendor_DisplayPresetWritable = (i%3 == 0);
-        presetData[i].AppleVendor_DisplayPresetValid =  (i%5 == 0);
+        presetData[i].AppleVendor_DisplayPresetWritable = 0;
+        presetData[i].AppleVendor_DisplayPresetValid    = 1;
         
-        NSString *testName = [NSString stringWithFormat:@"Test😀PresetName_%ld",i];
-        NSString *testDescription = [NSString stringWithFormat:@"Test😀PresetDescription_%ld",i];
+        NSString * testName = [NSString stringWithFormat:@"Test😀PresetName_%ld",i];
+        NSString * testDescription = [NSString stringWithFormat:@"Test😀PresetDescription_%ld",i];
         unichar testNameUnichar[256];
         unichar testDescriptionUnichar[512];
         
@@ -79,131 +255,14 @@ static void __initPresets()
         
     }
     
-    memset(&featureReport1, 0, sizeof(AppleVendorDisplayFeatureReport01));
-    memset(&featureReport2, 0, sizeof(AppleVendorDisplayFeatureReport02));
+    memset(&featureReport15, 0, sizeof(AppleVendorDisplayFeatureReport15));
+    memset(&featureReport16, 0, sizeof(AppleVendorDisplayFeatureReport16));
     
-    featureReport2.reportId = 0x16;
-    featureReport1.reportId = 0x15;
+    featureReport15.reportId = 0x15;
+    featureReport16.reportId = 0x16;
     
-    featureReport1.AppleVendor_DisplayFactoryDefaultPresetIndex = kTestDefaultFactoryPresetIndex;
-    featureReport1.AppleVendor_DisplayActivePresetIndex = kTestDefaultActivePresetIndex;
-    
-}
-
-
-@interface TestHIDDisplaySessionFilterPlugin : XCTestCase
-
-@end
-
-static IOReturn __setReportCallback(void * _Nullable __unused refcon, IOHIDReportType __unused type, uint32_t __unused reportID, uint8_t * report __unused, CFIndex reportLength __unused) {
-    
-    switch (reportID) {
-            
-        case 0x15:
-            bcopy(report, &featureReport1, sizeof(AppleVendorDisplayFeatureReport01));
-            break;
-        case 0x16:
-            bcopy(report, &featureReport2, sizeof(AppleVendorDisplayFeatureReport02));
-            break;
-        case 0x17: {
-            NSInteger currentIndex = featureReport2.AppleVendor_DisplayCurrentPresetIndex;
-            if (currentIndex < kTestPresetCount) {
-                bcopy(report, &presetData[currentIndex], sizeof(AppleVendorDisplayFeatureReport03));
-            }
-            break;
-        }
-        default:
-            break;
-    }
-    
-    return kIOReturnSuccess;
-}
-
-static IOReturn __getReportCallback(void * _Nullable __unused refcon __unused, IOHIDReportType type __unused, uint32_t reportID , uint8_t * report , CFIndex reportLength __unused) {
-    
-    switch (reportID) {
-        case 0x15:
-            bcopy(&featureReport1, report, reportLength);
-            break;
-        case 0x16:
-            bcopy(&featureReport2, report, reportLength);
-            break;
-        case 0x17: {
-            NSInteger currentIndex = featureReport2.AppleVendor_DisplayCurrentPresetIndex;
-            if (currentIndex < kTestPresetCount) {
-                bcopy(&presetData[currentIndex], report, reportLength);
-            }
-            break;
-        }
-        default:
-            break;
-    }
-    
-    return kIOReturnSuccess;
-}
-
-
-@implementation TestHIDDisplaySessionFilterPlugin
-{
-    IOHIDUserDeviceRef   _userDevice;
-    dispatch_queue_t _queue;
-}
-- (void)setUp {
-    
-    NSMutableDictionary* deviceConfig = [NSPropertyListSerialization propertyListWithData:[deviceDescription dataUsingEncoding:NSUTF8StringEncoding] options:NSPropertyListMutableContainers format:NULL error:NULL];
-    
-    NSData *descriptorData = [[NSData alloc] initWithBytes:descriptor length:sizeof(descriptor)];
-    
-    deviceConfig [@kIOHIDReportDescriptorKey] = descriptorData;
-    
-    _userDevice = IOHIDUserDeviceCreate(kCFAllocatorDefault, (CFDictionaryRef)deviceConfig);
-    
-    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, _userDevice != NULL);
-    
-    IOHIDUserDeviceRegisterSetReportCallback(_userDevice, __setReportCallback, NULL);
-    IOHIDUserDeviceRegisterGetReportCallback(_userDevice, __getReportCallback, NULL);
-    
-    _queue = dispatch_queue_create("com.apple.user-device-test", NULL);
-    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, _queue != NULL);
-    
-    IOHIDUserDeviceScheduleWithDispatchQueue (_userDevice, _queue);
-    
-    __initPresets();
-    
-}
-
-- (void)tearDown {
-    
-    if (_userDevice) {
-        IOHIDUserDeviceUnscheduleFromDispatchQueue (_userDevice, _queue);
-        CFRelease(_userDevice);
-    }
-}
-
-- (void)testHIDDisplaySessionFilterPlugin {
-    
-    bool expectation = false;
-    IOHIDEventSystemClientRef _eventSystemClient = IOHIDEventSystemClientCreate(kCFAllocatorDefault);
-    
-    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, _eventSystemClient != NULL);
-    
-    NSArray *properties = (__bridge_transfer NSArray*)IOHIDEventSystemClientCopyProperty(_eventSystemClient, CFSTR(kIOHIDSessionFilterDebugKey));
-    
-    for (NSDictionary *property in properties) {
-        
-        NSString *className = property[@"Class"];
-        
-        if (className && [className isEqualToString:@"HIDDisplaySessionFilter"]) {
-            
-            NSArray *status = property[@"Status"];
-            expectation = status && status.count != 0;
-        }
-    }
-    
-    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, expectation != false);
-    
-    CFRelease(_eventSystemClient);
-    
+    featureReport15.AppleVendor_DisplayFactoryDefaultPresetIndex = kTestDefaultFactoryPresetIndex;
+    featureReport15.AppleVendor_DisplayActivePresetIndex = kTestDefaultActivePresetIndex;
 }
 
 @end

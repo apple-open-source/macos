@@ -28,7 +28,11 @@
 #include "IOHIDEventService.h"
 #include "IOHIDevicePrivateKeys.h"
 
+#if defined(KERNEL) && !defined(KERNEL_PRIVATE)
+class __deprecated_msg("Use DriverKit") IOHIDPointing : public IOHITablet
+#else
 class IOHIDPointing : public IOHITablet
+#endif
 {
     OSDeclareDefaultStructors(IOHIDPointing);
 
@@ -56,8 +60,8 @@ public:
                                 IOFixed         scrollResolution,
                                 bool            isDispatcher);
 
-    virtual bool start(IOService * provider);
-    virtual void stop(IOService * provider);
+    virtual bool start(IOService * provider) APPLE_KEXT_OVERRIDE;
+    virtual void stop(IOService * provider) APPLE_KEXT_OVERRIDE;
 
 
     virtual void dispatchAbsolutePointerEvent(
@@ -87,15 +91,15 @@ public:
 
     virtual void dispatchTabletEvent(
                                     NXEventData *           tabletEvent,
-                                    AbsoluteTime            ts);
+                                    AbsoluteTime            ts) APPLE_KEXT_OVERRIDE;
 
     virtual void dispatchProximityEvent(
                                     NXEventData *           proximityEvent,
-                                    AbsoluteTime            ts);
+                                    AbsoluteTime            ts) APPLE_KEXT_OVERRIDE;
 
 protected:
-  virtual IOItemCount buttonCount();
-  virtual IOFixed     resolution();
+  virtual IOItemCount buttonCount(void) APPLE_KEXT_OVERRIDE;
+  virtual IOFixed     resolution(void) APPLE_KEXT_OVERRIDE;
 
 private:
   // This is needed to pass properties defined

@@ -68,7 +68,7 @@ static HEIMDAL_MUTEX plugin_mutex = HEIMDAL_MUTEX_INITIALIZER;
 static struct plugin *registered = NULL;
 static int plugins_needs_scan = 1;
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 #define PLUGIN_PREFIX "%{IPHONE_SIMULATOR_ROOT}"
 #else
 #define PLUGIN_PREFIX ""
@@ -300,7 +300,11 @@ load_plugins(krb5_context context)
 	    { /* support loading bundles on MacOS */
 		size_t len = strlen(n);
 		if (len > 7 && strcmp(&n[len - 7],  ".bundle") == 0) {
+#if TARGET_OS_OSX
 		    ret = asprintf(&path, "%s/%s/Contents/MacOS/%.*s", dir, n, (int)(len - 7), n);
+#else
+		    ret = asprintf(&path, "%s/%s/%.*s", dir, n, (int)(len - 7), n);
+#endif
 		    /*
 		     * Check if its a flat bundle
 		     */
@@ -510,7 +514,11 @@ krb5_load_plugins(krb5_context context, const char *name, const char **paths)
 	    { /* support loading bundles on MacOS */
 		size_t len = strlen(n);
 		if (len > 7 && strcmp(&n[len - 7],  ".bundle") == 0)
+#if TARGET_OS_OSX
 		    ret = asprintf(&path, "%s/%s/Contents/MacOS/%.*s", dir, n, (int)(len - 7), n);
+#else
+		    ret = asprintf(&path, "%s/%s/%.*s", dir, n, (int)(len - 7), n);
+#endif
 		    /*
 		     * Check if its a flat bundle
 		     */

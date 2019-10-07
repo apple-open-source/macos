@@ -1,7 +1,7 @@
 /*
  * gssClientSample.c - gssSample client program
  *
- * Copyright (c) 2004 Apple Computer Inc. All rights reserved.
+ * Copyright (c) 2004, 2018 Apple Inc. All rights reserved.
  *
  *`
  * Copyright 2004 Massachusetts Institute of Technology.

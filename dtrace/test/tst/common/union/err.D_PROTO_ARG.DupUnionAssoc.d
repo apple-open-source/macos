@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_PROTO_ARG.DupUnionAssoc.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Declaring an associative array with a union to be its key type and trying to

@@ -28,7 +28,10 @@ using namespace std;
 static void test_CCKeyDerivationHMac()
 {
     vector<char> okm(100);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     CCStatus status=CCKeyDerivationHMac(kCCKDFAlgorithmHKDF, kCCDigestSHA512, 0, ikm, sizeof ikm, NULL, 0, NULL, 0, NULL, 0, NULL, 0, okm.data(), sizeof exp_okm );
+#pragma clang diagnostic pop
     ok(status==kCCSuccess, "CPP interface");
     ok_memcmp(okm.data(), exp_okm, sizeof exp_okm, "CPP interface");
 }

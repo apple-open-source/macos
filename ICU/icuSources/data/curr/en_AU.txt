@@ -99,6 +99,10 @@ en_AU{
             "UYU",
             "Peso Uruguayo",
         }
+        VES{
+            "VES",
+            "VES",
+        }
         VND{
             "VND",
             "Vietnamese Dong",
@@ -129,10 +133,6 @@ en_AU{
         PYG{"Gs"}
         SEK{"Kr"}
         UYU{"$U"}
-    }
-    Currencies%variant{
-        GEL{"GEL"}
-        TRY{"TRY"}
     }
     CurrencyPlurals{
         BAM{
@@ -175,6 +175,9 @@ en_AU{
             one{"Laotian kip"}
             other{"Laotian kip"}
         }
+        MGA{
+            one{"Malagasy ariary"}
+        }
         MKD{
             one{"Macedonian denar"}
             other{"Macedonian denar"}
@@ -199,6 +202,14 @@ en_AU{
             one{"Uzbekistani som"}
             other{"Uzbekistani soms"}
         }
+        VEF{
+            one{"Venezuelan bolívar"}
+            other{"Venezuelan bolívars"}
+        }
+        VES{
+            one{"VES"}
+            other{"VES"}
+        }
         VND{
             one{"Vietnamese dong"}
             other{"Vietnamese dongs"}
@@ -207,6 +218,9 @@ en_AU{
             one{"Samoan tala"}
             other{"Samoan talas"}
         }
+        XXX{
+            other{"(unknown currency)"}
+        }
     }
-    Version{"2.1.38.73"}
+    Version{"2.1.48.43"}
 }

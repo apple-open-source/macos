@@ -26,6 +26,7 @@
 #pragma once
 
 #include "WebEvent.h"
+#include <WebCore/AdClickAttribution.h>
 #include <WebCore/BackForwardItemIdentifier.h>
 #include <WebCore/FloatPoint.h>
 #include <WebCore/FrameLoaderTypes.h>
@@ -43,7 +44,7 @@ struct NavigationActionData {
     static Optional<NavigationActionData> decode(IPC::Decoder&);
 
     WebCore::NavigationType navigationType { WebCore::NavigationType::Other };
-    WebEvent::Modifiers modifiers { };
+    OptionSet<WebEvent::Modifier> modifiers;
     WebMouseEvent::Button mouseButton { WebMouseEvent::NoButton };
     WebMouseEvent::SyntheticClickType syntheticClickType { WebMouseEvent::NoTap };
     uint64_t userGestureTokenIdentifier;
@@ -57,9 +58,11 @@ struct NavigationActionData {
     bool openedByDOMWithOpener { false };
     WebCore::SecurityOriginData requesterOrigin;
     Optional<WebCore::BackForwardItemIdentifier> targetBackForwardItemIdentifier;
+    Optional<WebCore::BackForwardItemIdentifier> sourceBackForwardItemIdentifier;
     WebCore::LockHistory lockHistory;
     WebCore::LockBackForwardList lockBackForwardList;
     WTF::String clientRedirectSourceForHistory;
+    Optional<WebCore::AdClickAttribution> adClickAttribution;
 };
 
 }

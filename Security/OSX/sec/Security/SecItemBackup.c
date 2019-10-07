@@ -33,7 +33,7 @@
 #include <Security/SecFramework.h>
 #include <securityd/SecItemServer.h>
 #include <ipc/securityd_client.h>
-#include <Security/SecureObjectSync/SOSBackupEvent.h>
+#include "keychain/SecureObjectSync/SOSBackupEvent.h"
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 #include <Security/SecureObjectSync/SOSViews.h>
 #include <corecrypto/ccsha1.h>

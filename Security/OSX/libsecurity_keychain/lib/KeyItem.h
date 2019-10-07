@@ -164,11 +164,12 @@ private:
 
 } // end namespace Security
 
-struct OpaqueSecKeyRef {
-    CFRuntimeBase _base;
-    const SecKeyDescriptor *key_class;
-    SecKeyRef cdsaKey;
-    Security::KeychainCore::KeyItem *key;
+class CDSASecKey : public __SecKey {
+public:
+    static Security::KeychainCore::KeyItem *keyItem(SecKeyRef key) {
+        CDSASecKey *cdsaKey = static_cast<CDSASecKey *>(key);
+        return static_cast<Security::KeychainCore::KeyItem *>(cdsaKey->key);
+    }
     SecCredentialType credentialType;
     Mutex *cdsaKeyMutex;
 };

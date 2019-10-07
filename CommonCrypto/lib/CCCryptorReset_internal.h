@@ -25,8 +25,11 @@
 #ifndef CCCryptorReset_internal_h
 #define CCCryptorReset_internal_h
 
+#if !defined (_MSC_VER) && !defined(__ANDROID__)
 #include <os/variant_private.h>
 #include <mach-o/dyld_priv.h>
+#endif
+
 #include <TargetConditionals.h>
 
 // refer to TargetConditionals.h for the target macro hierarchy
@@ -34,10 +37,15 @@
 #define CC_DYLOAD_PROGRAM_SDK_VERSION       DYLD_MACOSX_VERSION_10_13
 #elif TARGET_OS_IPHONE
 #define CC_DYLOAD_PROGRAM_SDK_VERSION       DYLD_IOS_VERSION_11_0
+#elif defined (_MSC_VER) || defined (__ANDROID__)
+#define CC_DYLOAD_PROGRAM_SDK_VERSION       0x01
 #else
 #error CC_DYLOAD_PROGRAM_SDK_VERSION undefined
 #endif
 
+#if defined (_MSC_VER) || defined(__ANDROID__)
+#define ProgramLinkedOnOrAfter_macOS1013_iOS11() true
+#else
 #define ProgramLinkedOnOrAfter_macOS1013_iOS11()  (dyld_get_program_sdk_version() >= CC_DYLOAD_PROGRAM_SDK_VERSION)
-
+#endif
 #endif /* CCCryptorReset_internal_h */

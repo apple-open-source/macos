@@ -45,11 +45,6 @@
 #include "SecCodePriv.h"
 #undef check // Macro! Yech.
 
-extern "C" {
-#include <OpenScriptingUtilPriv.h>
-}
-
-
 namespace Security {
 namespace CodeSigning {
 
@@ -64,7 +59,6 @@ enum {
 
 
 static void authorizeUpdate(SecAssessmentFlags flags, CFDictionaryRef context);
-static bool codeInvalidityExceptions(SecStaticCodeRef code, CFMutableDictionaryRef result);
 static CFTypeRef installerPolicy() CF_RETURNS_RETAINED;
 
 
@@ -403,15 +397,7 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 	// deal with a very special case (broken 10.6/10.7 Applet bundles)
 	OSStatus rc = SecStaticCodeCheckValidity(code, validationFlags | kSecCSBasicValidateOnly, NULL);
 	if (rc == errSecCSSignatureFailed) {
-		if (!codeInvalidityExceptions(code, result)) {	// invalidly signed, no exceptions -> error
-			if (SYSPOLICY_ASSESS_OUTCOME_BROKEN_ENABLED())
-				SYSPOLICY_ASSESS_OUTCOME_BROKEN(cfString(path).c_str(), type, false);
-			MacOSError::throwMe(rc);
-		}
-		// recognized exception - treat as unsigned
-		if (SYSPOLICY_ASSESS_OUTCOME_BROKEN_ENABLED())
-			SYSPOLICY_ASSESS_OUTCOME_BROKEN(cfString(path).c_str(), type, true);
-		rc = errSecCSUnsigned;
+		MacOSError::throwMe(rc);
 	}
 
 	// ad-hoc sign unsigned code
@@ -586,6 +572,7 @@ void PolicyEngine::evaluateInstall(CFURLRef path, SecAssessmentFlags flags, CFDi
 		CFRef<CFTypeRef> policy = installerPolicy();
 		CFRef<SecTrustRef> trust;
 		CFRef<CFDataRef> checksum;
+		CFRef<CFStringRef> teamID;
 		CFRef<CFMutableDictionaryRef> requirementContext = makeCFMutableDictionary();
 		MacOSError::check(SecTrustCreateWithCertificates(certs, policy, &trust.aref()));
 //		MacOSError::check(SecTrustSetAnchorCertificates(trust, cfEmptyArray())); // no anchors
@@ -623,10 +610,22 @@ void PolicyEngine::evaluateInstall(CFURLRef path, SecAssessmentFlags flags, CFDi
 				MacOSError::throwMe(errSecCSRevokedNotarization);
 			}
 
+			// Extract a team identifier from the certificates.  This isn't validated and could be spoofed,
+			// but since the 'legacy' keyword is only used in addition to the Developer ID requirement,
+			// this is still stafe for now.
+			SecCertificateRef leaf = SecCertificateRef(CFArrayGetValueAtIndex(certs, 0));
+			CFRef<CFArrayRef> orgUnits = SecCertificateCopyOrganizationalUnit(leaf);
+			if (orgUnits.get() && CFArrayGetCount(orgUnits) == 1) {
+				teamID = (CFStringRef)CFArrayGetValueAtIndex(orgUnits, 0);
+			}
+
 			// Create the appropriate requirement context entry to allow notarized requirement check.
 			CFRef<CFNumberRef> algorithm = makeCFNumber((uint32_t)xar.checksumDigestAlgorithm());
 			cfadd(requirementContext, "{%O=%O}", kSecRequirementKeyPackageChecksum, checksum.get());
 			cfadd(requirementContext, "{%O=%O}", kSecRequirementKeyChecksumAlgorithm, algorithm.get());
+			if (teamID.get()) {
+				cfadd(requirementContext, "{%O=%O}", kSecRequirementKeyTeamIdentifier, teamID.get());
+			}
 
 			if (!isnan(notarizationDate)) {
 				CFRef<CFDateRef> date = CFDateCreate(NULL, notarizationDate);
@@ -1187,17 +1186,6 @@ void PolicyEngine::normalizeTarget(CFRef<CFTypeRef> &target, AuthorityType type,
 			}
 			MacOSError::check(rc);
 		case errSecCSSignatureFailed:
-			// recover certain cases of broken signatures (well, try)
-			if (codeInvalidityExceptions(code, NULL)) {
-				// Ad-hoc sign the code in place (requiring a writable subject). This requires root privileges.
-				CFRef<SecCodeSignerRef> signer;
-				CFTemp<CFDictionaryRef> arguments("{%O=#N}", kSecCodeSignerIdentity);
-				MacOSError::check(SecCodeSignerCreate(arguments, kSecCSSignOpaque, &signer.aref()));
-				MacOSError::check(SecCodeSignerAddSignature(signer, code, kSecCSDefaultFlags));
-				MacOSError::check(SecCodeCopyDesignatedRequirement(code, kSecCSDefaultFlags, (SecRequirementRef *)&target.aref()));
-				break;
-			}
-			MacOSError::check(rc);
 		default:
 			MacOSError::check(rc);
 		}
@@ -1216,29 +1204,6 @@ void PolicyEngine::normalizeTarget(CFRef<CFTypeRef> &target, AuthorityType type,
 		}
 	}
 }
-
-
-//
-// Process special overrides for invalidly signed code.
-// This is the (hopefully minimal) concessions we make to keep hurting our customers
-// for our own prior mistakes...
-//
-static bool codeInvalidityExceptions(SecStaticCodeRef code, CFMutableDictionaryRef result)
-{
-	CFRef<CFDictionaryRef> info;
-	MacOSError::check(SecCodeCopySigningInformation(code, kSecCSDefaultFlags, &info.aref()));
-	if (CFURLRef executable = CFURLRef(CFDictionaryGetValue(info, kSecCodeInfoMainExecutable))) {
-		SInt32 error;
-		if (OSAIsRecognizedExecutableURL(executable, &error)) {
-			if (result)
-				CFDictionaryAddValue(result,
-					kSecAssessmentAssessmentAuthorityOverride, CFSTR("ignoring known invalid applet signature"));
-			return true;
-		}
-	}
-	return false;
-}
-
 
 } // end namespace CodeSigning
 } // end namespace Security

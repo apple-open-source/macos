@@ -15,7 +15,7 @@ af{
         018{"Suider-Afrika"}
         019{"Amerikas"}
         021{"Noordelike Amerika"}
-        029{"Karibies"}
+        029{"Karibiese streek"}
         030{"Oos-Asië"}
         034{"Suid-Asië"}
         035{"Suidoos-Asië"}
@@ -133,7 +133,7 @@ af{
         GU{"Guam"}
         GW{"Guinee-Bissau"}
         GY{"Guyana"}
-        HK{"Hongkong SAS Sjina"}
+        HK{"Hongkong"}
         HM{"Heardeiland en McDonaldeilande"}
         HN{"Honduras"}
         HR{"Kroasië"}
@@ -187,7 +187,7 @@ af{
         ML{"Mali"}
         MM{"Mianmar (Birma)"}
         MN{"Mongolië"}
-        MO{"Macau SAS Sjina"}
+        MO{"Macau"}
         MP{"Noord-Mariane-eilande"}
         MQ{"Martinique"}
         MR{"Mauritanië"}
@@ -227,7 +227,7 @@ af{
         PW{"Palau"}
         PY{"Paraguay"}
         QA{"Katar"}
-        QO{"Omliggende Oseanië"}
+        QO{"Afgeleë Oseanië"}
         RE{"Réunion"}
         RO{"Roemenië"}
         RS{"Serwië"}
@@ -297,8 +297,6 @@ af{
     }
     Countries%short{
         GB{"VK"}
-        HK{"Hongkong"}
-        MO{"Macau"}
         PS{"Palestina"}
         UN{"VN"}
         US{"VSA"}
@@ -310,5 +308,5 @@ af{
         FK{"Falklandeilande (Malvinas)"}
         MK{"Macedonië (VJRM)"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.17"}
 }

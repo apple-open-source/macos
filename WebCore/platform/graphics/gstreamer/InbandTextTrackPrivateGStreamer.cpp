@@ -58,7 +58,6 @@ InbandTextTrackPrivateGStreamer::InbandTextTrackPrivateGStreamer(gint index, GRe
     notifyTrackOfStreamChanged();
 }
 
-#if GST_CHECK_VERSION(1, 10, 0)
 InbandTextTrackPrivateGStreamer::InbandTextTrackPrivateGStreamer(gint index, GRefPtr<GstStream> stream)
     : InbandTextTrackPrivate(WebVTT)
     , TrackPrivateBaseGStreamer(this, index, stream)
@@ -66,7 +65,6 @@ InbandTextTrackPrivateGStreamer::InbandTextTrackPrivateGStreamer(gint index, GRe
     m_streamId = gst_stream_get_stream_id(stream.get());
     GST_INFO("Track %d got stream start for stream %s.", m_index, m_streamId.utf8().data());
 }
-#endif
 
 void InbandTextTrackPrivateGStreamer::disconnect()
 {
@@ -112,16 +110,16 @@ void InbandTextTrackPrivateGStreamer::notifyTrackOfSample()
             GST_WARNING("Track %d got sample with no buffer.", m_index);
             continue;
         }
-        GstMappedBuffer mappedBuffer(buffer, GST_MAP_READ);
+        auto mappedBuffer = GstMappedBuffer::create(buffer, GST_MAP_READ);
         ASSERT(mappedBuffer);
         if (!mappedBuffer) {
             GST_WARNING("Track %d unable to map buffer.", m_index);
             continue;
         }
 
-        GST_INFO("Track %d parsing sample: %.*s", m_index, static_cast<int>(mappedBuffer.size()),
-            reinterpret_cast<char*>(mappedBuffer.data()));
-        client()->parseWebVTTCueData(reinterpret_cast<char*>(mappedBuffer.data()), mappedBuffer.size());
+        GST_INFO("Track %d parsing sample: %.*s", m_index, static_cast<int>(mappedBuffer->size()),
+            reinterpret_cast<char*>(mappedBuffer->data()));
+        client()->parseWebVTTCueData(reinterpret_cast<char*>(mappedBuffer->data()), mappedBuffer->size());
     }
 }
 

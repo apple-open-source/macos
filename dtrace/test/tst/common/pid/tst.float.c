@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.float.c	1.1	06/08/28 SMI"
-
 #include <unistd.h>
 
 volatile double c = 1.2;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,7 +42,6 @@
 #include <syslog.h>
 #include <servers/bootstrap.h>
 #include <bootstrap_priv.h>
-#include <TargetConditionals.h>
 #include <CoreFoundation/CFString.h>
 #include <Security/SecIdentity.h>
 #include <Security/SecIdentityPriv.h>
@@ -218,7 +217,7 @@ EAPOLClientSetACLForIdentity(SecIdentityRef identity)
 	goto done;
     }
     status 
-	= EAPSecKeychainItemSetAccessForTrustedApplications((EAPSecKeychainItemRef)
+	= EAPSecKeychainItemSetAccessForTrustedApplications((SecKeychainItemRef)
 							    private_key,
 							    trusted_apps);
  done:
@@ -871,7 +870,7 @@ EAPOLClientItemIDCopyPasswordItem(EAPOLClientItemIDRef itemID,
 {
     CFDictionaryRef	attrs = NULL;
     int			count;
-    EAPSecKeychainRef	keychain = NULL;
+    SecKeychainRef	keychain = NULL;
     const void *	keys[2];
     CFArrayRef		req_props = NULL;
     OSStatus		status = errSecParam;
@@ -967,7 +966,7 @@ EAPOLClientItemIDSetPasswordItem(EAPOLClientItemIDRef itemID,
 {
     CFMutableDictionaryRef	attrs = NULL;
     CFDataRef			data;
-    EAPSecKeychainRef		keychain = NULL;
+    SecKeychainRef		keychain = NULL;
     CFDataRef			ssid;
     OSStatus			status = errSecParam;
     CFStringRef			unique_string;
@@ -1128,7 +1127,7 @@ Boolean
 EAPOLClientItemIDRemovePasswordItem(EAPOLClientItemIDRef itemID,
 				    EAPOLClientDomain domain)
 {
-    EAPSecKeychainRef		keychain = NULL;
+    SecKeychainRef		keychain = NULL;
     OSStatus			status = errSecParam;
     CFStringRef			unique_string;
 
@@ -1297,20 +1296,6 @@ EAPOLClientItemIDGetWLANSSID(EAPOLClientItemIDRef itemID)
     case kEAPOLClientItemIDTypeProfile:
 	return (EAPOLClientProfileGetWLANSSIDAndSecurityType(itemID->u.profile,
 							     NULL));
-    default:
-	break;
-    }
-    return (NULL);
-}
-
-CFStringRef
-EAPOLClientItemIDGetWLANDomain(EAPOLClientItemIDRef itemID)
-{
-    switch (itemID->type) {
-    case kEAPOLClientItemIDTypeWLANDomain:
-	return (itemID->u.domain);
-    case kEAPOLClientItemIDTypeProfile:
-	return (EAPOLClientProfileGetWLANDomain(itemID->u.profile));
     default:
 	break;
     }

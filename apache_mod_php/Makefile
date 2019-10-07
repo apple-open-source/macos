@@ -1,6 +1,6 @@
 #
 # Apple wrapper Makefile for PHP
-# Copyright (c) 2008-2016 Apple Inc. All Rights Reserved.
+# Copyright (c) 2008-2019 Apple Inc. All Rights Reserved.
 ##
 #
 
@@ -21,19 +21,17 @@ Environment	= YACC=$(shell xcrun -f bison) \
 			TMPDIR="$(TMPDIR)" TEMPDIR="$(TMPDIR)" 
 Extra_Make_Flags = -j $(shell sysctl -n hw.ncpu) $(Environment)
 
-#SDK variables for configure
-SDKROOT = $(shell xcrun --show-sdk-path --sdk macosx.internal)
-SDK = -isysroot $(SDKROOT)
 APXS = $(DT_TOOLCHAIN_DIR)/usr/local/bin/apxs
 SDKUSRDIR = $(SDKROOT)$(USRDIR)
 			
 # This allows extra variables to be passed _just_ to configure.
-Extra_Configure_Environment	= CFLAGS="$$RC_CFLAGS -Os -g $(SDK) -I$(SDKROOT)/usr/include -I$(SDKROOT)/usr/include/apache2" \
-					LDFLAGS="$$RC_CFLAGS -Os -g -L$(SDKROOT)/usr/lib" \
+Extra_Configure_Environment	= CFLAGS="$$RC_CFLAGS -Os -g -I$(SDKUSRDIR)/include -I$(SDKUSRDIR)/include/apache2" \
+					LDFLAGS="$$RC_CFLAGS -Os -g -L$(SDKROOT)/usr/local/libressl/lib -L$(SDKROOT)/usr/lib" \
 					EXTRA_LIBS="-lresolv" \
-					EXTRA_CFLAGS="-I$(SDKROOT)/usr/include/apache2" \
+					EXTRA_CFLAGS="-I$(SDKUSRDIR)/include/apache2" \
 					SDKROOT="$(SDKROOT)" \
-					EXTRA_LDFLAGS_PROGRAM="-mdynamic-no-pic"
+					EXTRA_LDFLAGS="-L$(SDKROOT)/usr/local/libressl/lib -L$(SDKROOT)/usr/lib" \
+					EXTRA_LDFLAGS_PROGRAM="-L$(SDKROOT)/usr/local/libressl/lib -L$(SDKROOT)/usr/lib -mdynamic-no-pic"
 
 
 build_host_target_alias=`$SHELL "$(Sources)/config.guess"`
@@ -69,10 +67,9 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 			--enable-mbstring \
 			--enable-mbregex \
 			--with-mysqli=mysqlnd \
-			--with-pcre-regex=$(SDKUSRDIR) \
 			--without-pcre-jit \
 			--with-pdo-pgsql=$(DT_TOOLCHAIN_DIR)/usr/local/bin \
-			--with-pgsql=$(DT_TOOLCHAIN_DIR)/local/bin \
+			--with-pgsql=$(DT_TOOLCHAIN_DIR)/usr/local/bin \
 			--without-pear \
 			--with-pear=no\
 			--with-pdo-mysql=mysqlnd \
@@ -89,17 +86,16 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 			--with-xmlrpc \
 			--with-iconv-dir=$(SDKUSRDIR) \
 			--with-xsl=$(SDKUSRDIR) \
-			--with-apxs2=$(APXS) \
-			--enable-zip
+			--with-apxs2=$(APXS) 
 
 
 # Additional project info used with AEP
 AEP		= NO
 AEP_LicenseFile	= $(Sources)/LICENSE
-AEP_Patches	=  \
+AEP_Patches	=  	configure.patch \
 			MacOSX_build.patch \
+			ldap.patch \
 			iconv.patch pear.patch phar.patch \
-			pcre_jit.patch \
 			libressl.patch dyld.patch
 AEP_ConfigDir	= $(ETCDIR)
 AEP_Binaries	= $(shell $(APXS) -q LIBEXECDIR)/*.so $(USRBINDIR)/php $(USRSBINDIR)/php-fpm
@@ -180,11 +176,6 @@ endif
 OSVDIR	= $(USRDIR)/local/OpenSourceVersions
 OSLDIR	= $(USRDIR)/local/OpenSourceLicenses
 
-# Launchd / startup item paths
-LAUNCHDDIR		= $(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/LaunchDaemons
-SYSTEM_STARTUP_DIR	= $(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/StartupItems
-
-
 #
 # AEP targets
 #
@@ -257,21 +248,6 @@ ifdef AEP_Binaries
 			echo "\tSkipped non-binary $${file}; type is $${_type}";\
 		fi	\
 	done
-endif
-
-install-startup-files::
-ifdef AEP_LaunchdConfigs
-	@echo "Installing launchd configuration files..."
-	$(INSTALL_DIRECTORY) $(DSTROOT)$(LAUNCHDDIR)
-	$(INSTALL_FILE) $(AEP_LaunchdConfigs) $(DSTROOT)$(LAUNCHDDIR)
-endif
-ifdef AEP_StartupItem
-	@echo "Installing StartupItem..."
-	$(INSTALL_DIRECTORY) $(DSTROOT)$(SYSTEM_STARTUP_DIR)/$(AEP_StartupItem)
-	$(INSTALL_SCRIPT) $(StartupItem) $(DSTROOT)$(SYSTEM_STARTUP_DIR)/$(AEP_StartupItem)
-	$(INSTALL_FILE) StartupParameters.plist $(DSTROOT)$(SYSTEM_STARTUP_DIR)/$(AEP_StartupItem)
-	$(INSTALL_DIRECTORY) $(DSTROOT)$(SYSTEM_STARTUP_DIR)/$(AEP_StartupItem)/Resources/English.lproj
-	$(INSTALL_FILE) Localizable.strings $(DSTROOT)$(SYSTEM_STARTUP_DIR)/$(AEP_StartupItem)/Resources/English.lproj
 endif
 
 install-open-source-files::
@@ -363,14 +339,17 @@ install-macosx:
 	-$(RMDIR) $(DSTROOT)$(ETCDIR)/apache2
 	$(CHOWN) -R root:wheel $(DSTROOT)/
 	$(INSTALL_FILE) $(Sources)/php.ini-production $(DSTROOT)$(AEP_ConfigDir)/php.ini.default
-	$(PERL) -i -pe 's|^extension_dir =.*|extension_dir = $(USRLIBDIR)/php/extensions/no-debug-non-zts-20160303|' $(DSTROOT)$(AEP_ConfigDir)/php.ini.default
-	$(INSTALL_DIRECTORY) $(DSTROOT)$(USRLIBDIR)/php/extensions/no-debug-non-zts-20160303
-	@echo "Removing references to DSTROOT in php-config and include files..."
+	$(INSTALL_DIRECTORY) $(DSTROOT)$(USRLIBDIR)/php/extensions/no-debug-non-zts-20180731
+	@echo "Removing internal references from  php-config and include files..."
 	$(CP) $(DSTROOT)$(USRBINDIR)/php-config $(SYMROOT)/php-config \
 		&& $(SED) -e 's=-L$(DSTROOT)$(USRDIR)/local/lib==' $(SYMROOT)/php-config \
+		| $(SED) -e 's@$(SDKROOT)@$$SDKROOT@g' \
+		| $(SED) -e 's@$(DT_TOOLCHAIN_DIR)@@g' \
 		| $(SED) -e 's@$(DSTROOT)@@g' > $(DSTROOT)$(USRBINDIR)/php-config
 	$(CP) $(DSTROOT)$(USRINCLUDEDIR)/$(Project)/main/build-defs.h $(SYMROOT) \
 		&& LANG=C $(SED) -e 's@$(DSTROOT)@@g' $(SYMROOT)/build-defs.h \
+		| $(SED) -e 's@$(SDKROOT)@$$(SDKROOT)@g' \
+		| $(SED) -e 's@$(DT_TOOLCHAIN_DIR)@@g' \
 			> $(DSTROOT)$(USRINCLUDEDIR)/$(Project)/main/build-defs.h
 	@echo "Archiving private static libraries..."
 	-$(MV) $(DSTROOT)$(USRDIR)/local/lib/* $(SYMROOT)
@@ -420,6 +399,3 @@ install-xdebug:
 
 $(DSTROOT)$(LIBEXECDIR)/apache2 $(TMPDIR):
 	$(MKDIR) $@
-
-refresh-pear:
-	curl -RO# http://pear2.php.net/pyrus.phar

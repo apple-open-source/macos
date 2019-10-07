@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2003, 2014, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1403,7 +1403,7 @@ struct protocol_list {
 /*
  * protocol_name - find a name for a PPP protocol.
  */
-const char *
+static const char *
 protocol_name(proto)
     int proto;
 {
@@ -1663,7 +1663,7 @@ update_link_stats(u)
     if (!get_ppp_stats(u, &link_stats)
 	|| gettimeofday(&now, NULL) < 0)
 	return;
-    link_connect_time = now.tv_sec - start_time.tv_sec;
+    link_connect_time = (unsigned int)(now.tv_sec - start_time.tv_sec);
     link_stats_valid = 1;
 
     slprintf(numbuf, sizeof(numbuf), "%u", link_connect_time);
@@ -2568,7 +2568,7 @@ script_setenv(var, value, iskey)
     *newstring++ = iskey;
 #endif
 
-    slprintf(newstring, vl, "%s=%s", var, value);
+    slprintf(newstring, (int)vl, "%s=%s", var, value);
 
     /* check if this variable is already set */
     if (script_env != 0) {
@@ -2633,7 +2633,7 @@ void
 script_unsetenv(var)
     char *var;
 {
-    int vl = strlen(var);
+    int vl = (int)strlen(var);
     int i;
     char *p;
 

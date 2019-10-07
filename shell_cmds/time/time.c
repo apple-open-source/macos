@@ -55,6 +55,8 @@ __RCSID("$NetBSD: time.c,v 1.9 1997/10/20 03:28:21 lukem Exp $");
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <langinfo.h>
+#include <locale.h>
 
 int lflag;
 int portableflag;
@@ -70,6 +72,7 @@ main(argc, argv)
 	int ch, status;
 	struct timeval before, after;
 	struct rusage ru;
+	char * radix = NULL;
 
 #ifdef __GNUC__		/* XXX: borken gcc */
 	(void)&argv;
@@ -116,14 +119,20 @@ main(argc, argv)
 	timersub(&after, &before, &after);
 
 	if (portableflag) {
-		fprintf (stderr, "real %9ld.%02ld\n", 
-			(long)after.tv_sec, (long)after.tv_usec/10000);
-		fprintf (stderr, "user %9ld.%02ld\n",
-			(long)ru.ru_utime.tv_sec, (long)ru.ru_utime.tv_usec/10000);
-		fprintf (stderr, "sys  %9ld.%02ld\n",
-			(long)ru.ru_stime.tv_sec, (long)ru.ru_stime.tv_usec/10000);
-	} else {
+		setlocale(LC_ALL, "");
 
+		radix = nl_langinfo(RADIXCHAR);
+		if (!radix || radix[0] == '\0') {
+			radix = ".";
+		}
+
+		fprintf (stderr, "real %9ld%s%02ld\n",
+			(long)after.tv_sec, radix, (long)after.tv_usec/10000);
+		fprintf (stderr, "user %9ld%s%02ld\n",
+			(long)ru.ru_utime.tv_sec, radix, (long)ru.ru_utime.tv_usec/10000);
+		fprintf (stderr, "sys  %9ld%s%02ld\n",
+			(long)ru.ru_stime.tv_sec, radix, (long)ru.ru_stime.tv_usec/10000);
+	} else {
 		fprintf(stderr, "%9ld.%02ld real ", 
 			(long)after.tv_sec, (long)after.tv_usec/10000);
 		fprintf(stderr, "%9ld.%02ld user ",

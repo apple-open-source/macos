@@ -70,7 +70,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <config.h>
+#include "config.h"
 #include <GSS/gssapi.h>
 #include <GSS/gssapi_spi.h>
 #include <GSS/gssapi_private.h> // for gss_inquire_saslname_for_mech, gss_indicate_mechs_by_attrs, gss_inquire_mech_for_saslname
@@ -83,9 +83,9 @@
 
 #include <fcntl.h>
 #include <stdio.h>
-#include <sasl.h>
-#include <saslutil.h>
-#include <saslplug.h>
+#include "sasl.h"
+#include "saslplug.h"
+#include "saslutil.h"
 
 #include "plugin_common.h"
 

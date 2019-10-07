@@ -1,4 +1,3 @@
-/* $Header: /p/tcsh/cvsroot/tcsh/sh.print.c,v 3.36 2011/05/25 20:17:20 christos Exp $ */
 /*
  * sh.print.c: Primitive Output routines.
  */
@@ -31,9 +30,6 @@
  * SUCH DAMAGE.
  */
 #include "sh.h"
-
-RCSID("$tcsh: sh.print.c,v 3.36 2011/05/25 20:17:20 christos Exp $")
-
 #include "ed.h"
 
 extern int Tty_eight_bit;
@@ -231,13 +227,13 @@ flush(void)
 	return;
     if (GettingInput && !Tty_raw_mode && linp < &linbuf[sizeof linbuf - 10])
 	return;
-    if (handle_intr)
-	exitset = 1;
+    if (handle_interrupt)
+       exitset = 1;
 
     if (interrupted) {
 	interrupted = 0;
 	linp = linbuf;		/* avoid recursion as stderror calls flush */
-	if (handle_intr)
+	if (handle_interrupt)
 	    fixerror();
 	else
 	    stderror(ERR_SILENT);
@@ -298,11 +294,11 @@ flush(void)
 	case EDQUOT:
 #endif
 	/* Nothing to do, but die */
-	    if (handle_intr == 0)
+	    if (handle_interrupt == 0)
 		xexit(1);
 	    /*FALLTHROUGH*/
 	default:
-	    if (handle_intr)
+	    if (handle_interrupt)
 		fixerror();
 	    else
 		stderror(ERR_SILENT);

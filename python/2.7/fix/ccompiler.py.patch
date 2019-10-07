@@ -1,0 +1,14 @@
+--- Python-2.7.16/Lib/distutils/ccompiler.py	2019-03-02 10:17:42.000000000 -0800
++++ Python-2.7.16-new/Lib/distutils/ccompiler.py	2019-04-23 14:12:46.000000000 -0700
+@@ -842,9 +842,9 @@ main (int argc, char **argv) {
+     def library_filename(self, libname, lib_type='static',     # or 'shared'
+                          strip_dir=0, output_dir=''):
+         assert output_dir is not None
+-        if lib_type not in ("static", "shared", "dylib", "xcode_stub"):
++        if lib_type not in ("static", "shared", "dylib", "xcode_stub", "tbd", "api", "spi"):
+             raise ValueError, ("""'lib_type' must be "static", "shared", """
+-                               """"dylib", or "xcode_stub".""")
++                               """"dylib", "xcode_stub". "tbd", "api", or "spi""")
+         fmt = getattr(self, lib_type + "_lib_format")
+         ext = getattr(self, lib_type + "_lib_extension")
+ 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,21 +54,31 @@ private:
 
     void displayWasReconfigured(CGDirectDisplayID, CGDisplayChangeSummaryFlags);
 
-    void frameAvailable(CGDisplayStreamFrameStatus, uint64_t, IOSurfaceRef, CGDisplayStreamUpdateRef);
-
     DisplayCaptureSourceCocoa::DisplayFrameType generateFrame() final;
     RealtimeMediaSourceSettings::DisplaySurfaceType surfaceType() const final { return RealtimeMediaSourceSettings::DisplaySurfaceType::Monitor; }
 
     void startProducingData() final;
     void stopProducingData() final;
     void commitConfiguration() final;
+    CaptureDevice::DeviceType deviceType() const final { return CaptureDevice::DeviceType::Screen; }
 
     bool createDisplayStream();
     void startDisplayStream();
-    
+
+#if !RELEASE_LOG_DISABLED
+    const char* logClassName() const override { return "ScreenDisplayCaptureSourceMac"; }
+#endif
+
     class DisplaySurface {
     public:
         DisplaySurface() = default;
+        explicit DisplaySurface(IOSurfaceRef surface)
+            : m_surface(surface)
+        {
+            if (m_surface)
+                IOSurfaceIncrementUseCount(m_surface.get());
+        }
+
         ~DisplaySurface()
         {
             if (m_surface)
@@ -91,7 +101,8 @@ private:
         RetainPtr<IOSurfaceRef> m_surface;
     };
 
-    mutable Lock m_currentFrameMutex;
+    void newFrame(CGDisplayStreamFrameStatus, DisplaySurface&&);
+
     DisplaySurface m_currentFrame;
     RetainPtr<CGDisplayStreamRef> m_displayStream;
     OSObjectPtr<dispatch_queue_t> m_captureQueue;

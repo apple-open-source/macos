@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2011, 2013-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2011, 2013-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,11 +29,12 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <os/log.h>
+#include <os/state_private.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
 
 #ifndef	SC_LOG_HANDLE
-#define	SC_LOG_HANDLE	__log_SCPreferences()
+#define	SC_LOG_HANDLE	__log_SCPreferences
 #endif	// SC_LOG_HANDLE
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
@@ -150,6 +151,10 @@ __SCPreferencesAddSession		(SCPreferencesRef       prefs);
 void
 __SCPreferencesRemoveSession		(SCPreferencesRef       prefs);
 
+void
+__SCPreferencesUpdateLockedState	(SCPreferencesRef       prefs,
+					 Boolean		locked);
+
 CF_RETURNS_RETAINED
 CFDataRef
 __SCPSignatureFromStatbuf		(const struct stat	*statBuf);
@@ -158,6 +163,9 @@ char *
 __SCPreferencesPath			(CFAllocatorRef		allocator,
 					 CFStringRef		prefsID,
 					 Boolean		useNewPrefs);
+
+off_t
+__SCPreferencesPrefsSize		(SCPreferencesRef	prefs);
 
 CF_RETURNS_RETAINED
 CFStringRef

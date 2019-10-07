@@ -255,5 +255,94 @@
 			</dict>
 		</array>
 	</dict>
+	<dict>
+		<key>Name</key>
+		<string>DriverKit</string>
+		<key>Children</key>
+		<array>
+			<dict>
+				<key>Name</key>
+				<string>kHIDDK_Dev_InputReport</string>
+				<key>Type</key>
+				<string>Impulse</string>
+				<key>KTraceCode</key>
+				<string>0x523c008</string>
+				<key>EventsMatchedBy</key>
+				<string>Arg1</string>
+			</dict>
+			<dict>
+				<key>Name</key>
+				<string>kIOHIDDebugCode_HandleReport</string>
+				<key>Type</key>
+				<string>Impulse</string>
+				<key>KTraceCode</key>
+				<string>0x523003c</string>
+				<key>EventsMatchedBy</key>
+				<string>Arg1</string>
+			</dict>
+			<dict>
+				<key>Name</key>
+				<string>kIOHIDDebugCode_DK_Intf_HandleReport</string>
+				<key>Type</key>
+				<string>Impulse</string>
+				<key>KTraceCode</key>
+				<string>0x5230084</string>
+				<key>EventsMatchedBy</key>
+				<string>Arg1</string>
+			</dict>
+			<dict>
+				<key>Name</key>
+				<string>kHIDDK_ES_HandleReportCB</string>
+				<key>Type</key>
+				<string>Interval</string>
+				<key>KTraceCodeBegin</key>
+				<string>0x523c005</string>
+				<key>KTraceCodeEnd</key>
+				<string>0x523c006</string>
+				<key>EventsMatchedBy</key>
+				<string>Arg1</string>
+			</dict>
+			<dict>
+				<key>Name</key>
+				<string>IOUserHIDDevice Start</string>
+				<key>Type</key>
+				<string>Impulse</string>
+				<key>KTraceCode</key>
+				<string>0x523c014</string>
+				<key>EventsMatchedBy</key>
+				<string>Arg1</string>
+			</dict>
+			<dict>
+				<key>Name</key>
+				<string>IOUserHIDDevice Stop</string>
+				<key>Type</key>
+				<string>Impulse</string>
+				<key>KTraceCode</key>
+				<string>0x523c018</string>
+				<key>EventsMatchedBy</key>
+				<string>Arg1</string>
+			</dict>
+			<dict>
+				<key>Name</key>
+				<string>IOUserHIDEventService Start</string>
+				<key>Type</key>
+				<string>Impulse</string>
+				<key>KTraceCode</key>
+				<string>0x523c00c</string>
+				<key>EventsMatchedBy</key>
+				<string>Arg1</string>
+			</dict>
+			<dict>
+				<key>Name</key>
+				<string>IOUserHIDEventService Stop</string>
+				<key>Type</key>
+				<string>Impulse</string>
+				<key>KTraceCode</key>
+				<string>0x523c010</string>
+				<key>EventsMatchedBy</key>
+				<string>Arg1</string>
+			</dict>
+		</array>
+	</dict>
 </array>
 </plist>

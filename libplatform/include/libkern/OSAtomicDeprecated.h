@@ -801,9 +801,9 @@ typedef int64_t OSAtomic_int64_aligned64_t;
 #endif
 
 #if __has_attribute(always_inline)
-#define OSATOMIC_INLINE static __inline
-#else
 #define OSATOMIC_INLINE static __inline __attribute__((__always_inline__))
+#else
+#define OSATOMIC_INLINE static __inline
 #endif
 
 OSATOMIC_INLINE

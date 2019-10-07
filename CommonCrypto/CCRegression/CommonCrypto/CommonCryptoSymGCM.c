@@ -33,7 +33,6 @@
 #include "CCCryptorTestFuncs.h"
 #include "testbyteBuffer.h"
 #include "testmore.h"
-#include "ccMemory.h"
 #include "CommonCryptorPriv.h"
 
 #if (CCSYMGCM == 0)
@@ -138,6 +137,9 @@ CCCryptorGCMTestCase(gcm_text_vector_t *v)
     size_t  dataLen;
     CCAlgorithm alg = kCCAlgorithmAES;
 
+    // A 33-byte key.
+    byteBuffer longKey = hexStringToBytes("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f00");
+
     key = hexStringToBytes(v->key);
     adata = ccConditionalTextBuffer(v->adata);
     tag = hexStringToBytes(v->tag);
@@ -149,51 +151,59 @@ CCCryptorGCMTestCase(gcm_text_vector_t *v)
     uint8_t zeros[pt->len];
     uint8_t tagOut[tag->len];
 
-    CC_XZEROMEM(zeros, sizeof (zeros));
+    cc_clear(sizeof (zeros), zeros);
 
     /* new one-shot API tests */
 
     /* encrypt */
     dataLen = pt->len;
     tagOutlen = tag->len;
-    CC_XZEROMEM(tagOut, 16);
+    cc_clear(16, tagOut);
     retval = CCCryptorGCMOneshotEncrypt(alg, key->bytes, key->len, iv->bytes, iv->len, adata->bytes, adata->len, pt->bytes, dataLen, cipherDataOut, tagOut, tagOutlen);
     ok_or_goto(retval == kCCSuccess, "CCCryptorGCMOneshotEncrypt encrypt", errOut);
     ok_memcmp(ct->bytes, cipherDataOut, ct->len, "CCCryptorGCMOneshotEncrypt encrypt");
 
     /* decrypt */
     tagOutlen = tag->len;
-    CC_XZEROMEM(plainDataOut, pt->len);
+    cc_clear(pt->len, plainDataOut);
     //use the output tag of encrypt as the tag input
     retval = CCCryptorGCMOneshotDecrypt(alg, key->bytes, key->len, iv->bytes, iv->len, adata->bytes, adata->len, cipherDataOut, dataLen, plainDataOut, tagOut, tagOutlen);
     ok_or_goto(retval == kCCSuccess, "CCCryptorGCMOneshotDecrypt decryption", errOut);
     ok_memcmp(pt->bytes, plainDataOut, pt->len, "CCCryptorGCMOneshotDecrypt decryption data out");
 
+    /* invalid AES key lengths */
+    retval = CCCryptorGCMOneshotEncrypt(alg, longKey->bytes, longKey->len, iv->bytes, iv->len, adata->bytes, adata->len, pt->bytes, dataLen, cipherDataOut, tagOut, tagOutlen);
+    ok_or_goto(retval == kCCKeySizeError, "CCCryptorGCMOneshotEncrypt with invalid key length", errOut);
+    retval = CCCryptorGCMOneshotDecrypt(alg, longKey->bytes, longKey->len, iv->bytes, iv->len, adata->bytes, adata->len, cipherDataOut, dataLen, plainDataOut, tagOut, tagOutlen);
+    ok_or_goto(retval == kCCKeySizeError, "CCCryptorGCMOneshotDecrypt with invalid key length", errOut);
+
     /* authentication failure */
     tagOut[0] ^= 1;
-    CC_XZEROMEM(plainDataOut, pt->len);
+    cc_clear(pt->len, plainDataOut);
     retval = CCCryptorGCMOneshotDecrypt(alg, key->bytes, key->len, iv->bytes, iv->len, adata->bytes, adata->len, cipherDataOut, dataLen, plainDataOut, tagOut, tagOutlen);
     ok_or_goto(retval != kCCSuccess, "CCCryptorGCMOneshotDecrypt decryption, negative test, return value", errOut);
     ok_memcmp(plainDataOut, zeros, pt->len, "CCCryptorGCMOneshotDecrypt decryption, negative test, release of unverified plaintext");
 
     /* legacy one-shot API tests */
-
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     /* encrypt */
     tagOutlen = tag->len;
-    CC_XZEROMEM(tagOut, 16);
+    cc_clear(16, tagOut);
     retval = CCCryptorGCM(kCCEncrypt, alg, key->bytes, key->len, iv->bytes, iv->len, adata->bytes, adata->len, pt->bytes, dataLen, cipherDataOut, tagOut, &tagOutlen);
     ok_or_goto(retval == kCCSuccess, "CCCryptorGCM encrypt", errOut);
     ok_memcmp(ct->bytes, cipherDataOut, ct->len, "CCCryptorGCM encrypt");
 
     /* decrypt */
     tagOutlen = tag->len;
-    CC_XZEROMEM(plainDataOut, pt->len);
-    CC_XZEROMEM(tagOut, 16);
+    cc_clear(pt->len, plainDataOut);
+    cc_clear(16, tagOut);
     retval = CCCryptorGCM(kCCDecrypt, alg, key->bytes, key->len, iv->bytes, iv->len, adata->bytes, adata->len, cipherDataOut, dataLen, plainDataOut, tagOut, &tagOutlen);
     ok_or_goto(retval == kCCSuccess, "CCCryptorGCM decryption", errOut);
     ok_memcmp(tagOut, tag->bytes, tag->len, "CCCryptorGCM tag comparison");
     ok_memcmp(pt->bytes, plainDataOut, pt->len, "CCCryptorGCM decryption data out");
-
+#pragma clang diagnostic pop
+    
     /* new discrete API tests */
 
     /* encrypt */
@@ -229,7 +239,7 @@ CCCryptorGCMTestCase(gcm_text_vector_t *v)
 
     /* authentication failure */
     tagOut[0] ^= 1;
-    CC_XZEROMEM(plainDataOut, pt->len);
+    cc_clear(pt->len, plainDataOut);
     retval = CCCryptorCreateWithMode(kCCDecrypt, kCCModeGCM, alg, ccNoPadding, NULL, key->bytes, key->len, NULL, 0, 0, 0, &cref);
     ok_or_goto(retval == kCCSuccess, "CCCryptorCreateWithMode (new auth)", errOut);
     retval = CCCryptorGCMSetIV(cref, iv->bytes, iv->len);
@@ -245,7 +255,8 @@ CCCryptorGCMTestCase(gcm_text_vector_t *v)
     CCCryptorRelease(cref);
 
     /* legacy discrete API tests */
-
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     /* encrypt */
     retval = CCCryptorCreateWithMode(kCCEncrypt, kCCModeGCM, alg, ccNoPadding, NULL, key->bytes, key->len, NULL, 0, 0, 0, &cref);
     ok_or_goto(retval == kCCSuccess, "CCCryptorCreateWithMode (legacy encrypt)", errOut);
@@ -277,7 +288,7 @@ CCCryptorGCMTestCase(gcm_text_vector_t *v)
     retval = CCCryptorGCMReset(cref);
     ok_or_goto(retval == kCCSuccess, "CCCryptorGCMReset (legacy decrypt)", errOut);
     CCCryptorRelease(cref);
-
+#pragma clang diagnostic pop
     rc = 0;
 
 errOut:
@@ -310,31 +321,35 @@ CallGCMFuncs(CCOperation op,
     if(call_api_with_null || ivLen!=0){
         if(test_new_api){
             retval = CCCryptorGCMSetIV(cref, NULL, ivLen);
-            ok_or_goto(retval == kCCParamError, "add NULL IV", out);
+            is_or_goto(retval, kCCParamError, "add NULL IV", out_unexpected_success);
             
             retval = CCCryptorGCMSetIV(cref, iv, AESGCM_MIN_IV_LEN-1);
-            ok_or_goto(retval == kCCParamError, "add small IV", out);
+            is_or_goto(retval, kCCParamError, "add small IV", out_unexpected_success);
 
             retval = CCCryptorGCMSetIV(cref, iv, ivLen);
         }
-        else
+        else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
             retval = CCCryptorGCMAddIV(cref, iv, ivLen);
-        ok_or_goto(retval == kCCSuccess, "add IV", out);
+#pragma clang diagnostic pop
+        }
+        is_or_goto(retval,kCCSuccess, "add IV", out);
     }
     
     if(call_api_with_null || aDataLen!=0){
         retval = CCCryptorGCMaddAAD(cref, aData, aDataLen);
-        ok_or_goto(retval == kCCSuccess, "add AAD", out);
+        is_or_goto(retval,kCCSuccess, "add AAD", out);
     }
     
     
     if(call_api_with_null || dataInLength!=0){
         if(kCCEncrypt == op) {
             retval = CCCryptorGCMEncrypt(cref, dataIn, dataInLength, dataOut);
-            ok_or_goto(retval == kCCSuccess, "Encrypt", out);
+            is_or_goto(retval, kCCSuccess, "Encrypt", out);
         } else {
             retval = CCCryptorGCMDecrypt(cref, dataIn, dataInLength, dataOut);
-            ok_or_goto(retval == kCCSuccess, "Decrypt", out);
+            is_or_goto(retval, kCCSuccess, "Decrypt", out);
         }
     }
     
@@ -343,22 +358,30 @@ CallGCMFuncs(CCOperation op,
             retval = CCCryptorGCMFinalize(cref, tag, tagLength);
         }else{
             char tagOut[tagLength];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
             retval = CCCryptorGCMFinal(cref, tagOut, &tagLength);
+#pragma clang diagnostic pop
             if (timingsafe_bcmp(tagOut, tag, tagLength)) {
                 diag("FAIL Tag on ciphertext is wrong\n");
                 retval=1;
                 goto out;
             }
         }
-        ok_or_goto(retval == kCCSuccess, "Finalize", out);
+        is_or_goto(retval,kCCSuccess, "Finalize", out);
     }else{
         char tagOut[tagLength];
-        if(test_new_api)
+        if(test_new_api) {
             retval = CCCryptorGCMFinalize(cref, tagOut, tagLength);
-        else
+        }
+        else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
             retval = CCCryptorGCMFinal(cref, tagOut, &tagLength);
+#pragma clang diagnostic pop
+        }
         
-        ok_or_goto(retval == kCCSuccess, "Finalize", out);
+        is_or_goto(retval,kCCSuccess, "Finalize", out);
         ok_memcmp(tagOut, tag, tagLength, "tag comparison");
     }
         
@@ -366,9 +389,12 @@ CallGCMFuncs(CCOperation op,
     ok_or_goto(retval == kCCSuccess, "Failed to Reset", out);
     
 out:
-    
     CCCryptorRelease(cref);
     return retval;
+    
+out_unexpected_success:
+    CCCryptorRelease(cref);
+    return kCCUnspecifiedError;
 }
 
 static int
@@ -376,7 +402,7 @@ GCMDiscreteTestCase(CCOperation op, gcm_text_vector_t *v)
 {
     byteBuffer key, iv, pt, ct, adata, tag;
     
-    CCCryptorStatus retval;
+    CCCryptorStatus retval=kCCParamError;
     CCAlgorithm alg = kCCAlgorithmAES;
     
     key = hexStringToBytes(v->key);
@@ -386,7 +412,8 @@ GCMDiscreteTestCase(CCOperation op, gcm_text_vector_t *v)
     ct = ccConditionalTextBuffer(v->cipherText);
     iv = ccConditionalTextBuffer(v->iv);
     char dataOut[pt->len];
-    
+    ok_or_goto(pt!=NULL,"empty plaintext",out);
+    ok_or_goto(ct!=NULL, "empty ciphertext",out);
     const void 		*dataIn;
     size_t 			dataInLength;
     if(op == kCCEncrypt){
@@ -399,7 +426,7 @@ GCMDiscreteTestCase(CCOperation op, gcm_text_vector_t *v)
     
     //tagOutlen = tag->len;
     retval = CallGCMFuncs(op, alg, key->bytes, key->len, iv->bytes, iv->len, adata->bytes, adata->len, dataIn, dataInLength, dataOut, tag->bytes, tag->len);
-    ok_or_goto(retval== kCCSuccess, "Encrypt Failed", out);
+    ok_or_goto(retval == kCCSuccess, "Encrypt Failed", out);
     
     if(op == kCCEncrypt){
         ok_memcmp(dataOut, ct->bytes, dataInLength, "GCM discrete encrypt");
@@ -453,7 +480,7 @@ AESGCMTests()
     return accum;
 }
 
-static int kTestTestCount = 548;
+static int kTestTestCount = 1112;
 
 int
 CommonCryptoSymGCM(int __unused argc, char *const * __unused argv)

@@ -27,12 +27,12 @@
 
 #include <Security/SecTask.h>
 #include <Security/SecTaskPriv.h>
-#include <ipc/securityd_client.h>
+#include "ipc/securityd_client.h"
 #include <Security/SecEntitlements.h>
 #include <Security/SecItem.h>
-#include <utilities/SecCFRelease.h>
-#include <utilities/SecCFWrappers.h>
-#include <utilities/debugging.h>
+#include "utilities/SecCFRelease.h"
+#include "utilities/SecCFWrappers.h"
+#include "utilities/debugging.h"
 
 CFStringRef SecTaskCopyStringForEntitlement(SecTaskRef task,
                                             CFStringRef entitlement)
@@ -85,15 +85,15 @@ CFArrayRef SecTaskCopyAccessGroups(SecTaskRef task)
 {
     CFMutableArrayRef groups = NULL;
 
-#if TARGET_SIMULATOR
-    groups = (CFMutableArrayRef)CFRetainSafe(SecAccessGroupsGetCurrent());
-#else
     CFArrayRef keychainAccessGroups, appleSecurityApplicationGroups;
     CFStringRef appID;
+    CFArrayRef associatedAppIDs;
 
     keychainAccessGroups = SecTaskCopyArrayOfStringsForEntitlement(task, kSecEntitlementKeychainAccessGroups);
     appleSecurityApplicationGroups = SecTaskCopyArrayOfStringsForEntitlement(task, kSecEntitlementAppleSecurityApplicationGroups);
     appID = SecTaskCopyApplicationIdentifier(task);
+    // Marzipan apps (may?) have this entitlement.
+    associatedAppIDs = SecTaskCopyArrayOfStringsForEntitlement(task, kSecEntitlementAssociatedApplicationIdentifier);
 
     groups = CFArrayCreateMutableForCFTypes(NULL);
 
@@ -110,7 +110,10 @@ CFArrayRef SecTaskCopyAccessGroups(SecTaskRef task)
     if (entitlementsValidated) {
         // If app-id or k-a-g are present but binary is not validated, just honor k-a-g.
         // Because AMFI would not allow client to run if it would have k-a-g entitlement
-        // and not being properly signed.
+        // and not being properly signed. Assoc-app-id behaves similarly.
+        if (associatedAppIDs) {
+            CFArrayAppendAll(groups, associatedAppIDs);
+        }
         if (appID) {
             CFArrayAppendValue(groups, appID);
         }
@@ -142,10 +145,10 @@ CFArrayRef SecTaskCopyAccessGroups(SecTaskRef task)
         CFArrayAppendValue(groups, kSecAttrAccessGroupToken);
     }
 
+    CFReleaseNull(associatedAppIDs);
     CFReleaseNull(appID);
     CFReleaseNull(keychainAccessGroups);
     CFReleaseNull(appleSecurityApplicationGroups);
-#endif
 
     return groups;
 }

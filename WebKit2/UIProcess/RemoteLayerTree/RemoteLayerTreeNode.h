@@ -27,6 +27,7 @@
 
 #include <WebCore/GraphicsLayer.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/Vector.h>
 
 OBJC_CLASS CALayer;
 #if PLATFORM(IOS_FAMILY)
@@ -34,6 +35,8 @@ OBJC_CLASS UIView;
 #endif
 
 namespace WebKit {
+
+class RemoteLayerTreeScrollbars;
 
 class RemoteLayerTreeNode {
     WTF_MAKE_FAST_ALLOCATED;
@@ -51,18 +54,40 @@ public:
     UIView *uiView() const { return m_uiView.get(); }
 #endif
 
+    WebCore::GraphicsLayer::PlatformLayerID layerID() const { return m_layerID; }
+
+    const WebCore::EventRegion& eventRegion() const { return m_eventRegion; }
+    void setEventRegion(const WebCore::EventRegion&);
+
+    // Non-ancestor scroller that controls positioning of the layer.
+    WebCore::GraphicsLayer::PlatformLayerID actingScrollContainerID() const { return m_actingScrollContainerID; }
+    // Ancestor scrollers that don't affect positioning of the layer.
+    const Vector<WebCore::GraphicsLayer::PlatformLayerID>& stationaryScrollContainerIDs() const { return m_stationaryScrollContainerIDs; }
+
+    void setActingScrollContainerID(WebCore::GraphicsLayer::PlatformLayerID value) { m_actingScrollContainerID = value; }
+    void setStationaryScrollContainerIDs(Vector<WebCore::GraphicsLayer::PlatformLayerID>&& value) { m_stationaryScrollContainerIDs = WTFMove(value); }
+
     void detachFromParent();
 
     static WebCore::GraphicsLayer::PlatformLayerID layerID(CALayer *);
+    static RemoteLayerTreeNode* forCALayer(CALayer *);
+
     static NSString *appendLayerDescription(NSString *description, CALayer *);
 
 private:
-    void setLayerID(WebCore::GraphicsLayer::PlatformLayerID);
+    void initializeLayer();
+
+    WebCore::GraphicsLayer::PlatformLayerID m_layerID;
 
     RetainPtr<CALayer> m_layer;
 #if PLATFORM(IOS_FAMILY)
     RetainPtr<UIView> m_uiView;
 #endif
+
+    WebCore::EventRegion m_eventRegion;
+
+    WebCore::GraphicsLayer::PlatformLayerID m_actingScrollContainerID { 0 };
+    Vector<WebCore::GraphicsLayer::PlatformLayerID> m_stationaryScrollContainerIDs;
 };
 
 }

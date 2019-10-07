@@ -89,7 +89,7 @@ char *setup_buffer1(int bufsz)
 		return NULL;
 
 	bzero(buf, bufsz);
-	strlcpy(buf, MSG_HDR, sizeof(MSG_HDR));
+	strlcpy(buf, MSG_HDR, bufsz);
 
 	for (i = sizeof(MSG_HDR); i < bufsz; i++) {
 		buf[i] = j;
@@ -111,7 +111,7 @@ char *setup_buffer2(int bufsz)
 		return NULL;
 
 	bzero(buf, bufsz);
-	strlcpy(buf, MSG_HDR, sizeof(MSG_HDR));
+	strlcpy(buf, MSG_HDR, bufsz);
 
 	for (i = sizeof(MSG_HDR); i < bufsz; i++) {
 		buf[i] = j;

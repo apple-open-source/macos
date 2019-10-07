@@ -1,6 +1,6 @@
 Project        = pcre
-ProjectVersion = 8.40
-Patches        = Makefile.in.diff no-programs.diff
+ProjectVersion = 8.42
+Patches        = Makefile.in.diff no-programs.diff configure.diff
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 

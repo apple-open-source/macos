@@ -449,6 +449,7 @@ dt_cpp_pop_arg(dtrace_hdl_t *dtp)
 	return (arg);
 }
 
+#if !OS_LOG_SUPPORTED
 /*PRINTFLIKE1*/
 void
 dt_dprintf(const char *format, ...)
@@ -459,9 +460,11 @@ dt_dprintf(const char *format, ...)
 		va_start(alist, format);
 		(void) fputs("libdtrace DEBUG: ", stderr);
 		(void) vfprintf(stderr, format, alist);
+		(void) fputs("\n", stderr);
 		va_end(alist);
 	}
 }
+#endif /* !OS_LOG_SUPPORTED */
 
 int
 dt_ioctl(dtrace_hdl_t *dtp, int val, void *arg)
@@ -950,4 +953,10 @@ dtrace_uaddr2str(dtrace_hdl_t *dtp, pid_t pid,
 	dt_proc_release(dtp, P);
 
 	return (dt_string2str(c, str, nbytes));
+}
+
+int
+dt_type_is_pointer(uint_t kind)
+{
+	return (kind == CTF_K_POINTER || kind == CTF_K_PTRAUTH);
 }

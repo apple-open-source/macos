@@ -65,6 +65,11 @@ en_TW{
                 "{1}, {0}",
             }
             availableFormats{
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                Hmsv{"HH:mm:ss v"}
+                Hmv{"HH:mm v"}
                 yyyyM{"GGGGG y/M"}
                 yyyyMEd{"GGGGG y/M/d, E"}
                 yyyyMd{"GGGGG y/M/d"}

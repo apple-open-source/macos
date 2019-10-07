@@ -16,8 +16,6 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id$ */
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -34,7 +32,7 @@
 #endif
 
 /* {{{ pdo_oci_functions[] */
-const zend_function_entry pdo_oci_functions[] = {
+static const zend_function_entry pdo_oci_functions[] = {
 	PHP_FE_END
 };
 /* }}} */
@@ -92,6 +90,11 @@ static MUTEX_T pdo_oci_env_mutex;
  */
 PHP_MINIT_FUNCTION(pdo_oci)
 {
+	REGISTER_PDO_CLASS_CONST_LONG("OCI_ATTR_ACTION", (zend_long)PDO_OCI_ATTR_ACTION);
+	REGISTER_PDO_CLASS_CONST_LONG("OCI_ATTR_CLIENT_INFO", (zend_long)PDO_OCI_ATTR_CLIENT_INFO);
+	REGISTER_PDO_CLASS_CONST_LONG("OCI_ATTR_CLIENT_IDENTIFIER", (zend_long)PDO_OCI_ATTR_CLIENT_IDENTIFIER);
+	REGISTER_PDO_CLASS_CONST_LONG("OCI_ATTR_MODULE", (zend_long)PDO_OCI_ATTR_MODULE);
+
 	php_pdo_register_driver(&pdo_oci_driver);
 
 	// Defer OCI init to PHP_RINIT_FUNCTION because with php-fpm,

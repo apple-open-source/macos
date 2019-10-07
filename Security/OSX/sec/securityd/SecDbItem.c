@@ -26,6 +26,12 @@
  * database items (certificates, keys, identities, and passwords.)
  */
 
+#if TARGET_DARWINOS
+#undef OCTAGON
+#undef SECUREOBJECTSYNC
+#undef SHAREDWEBCREDENTIALS
+#endif
+
 #include <securityd/SecDbItem.h>
 #include <securityd/SecDbKeychainItem.h>
 #include <securityd/SecItemDb.h>
@@ -405,8 +411,9 @@ bool SecDbItemEnsureDecrypted(SecDbItemRef item, bool decryptSecretData, CFError
 
 // Only called if cached value is not found.
 static CFTypeRef SecDbItemCopyValue(SecDbItemRef item, const SecDbAttr *attr, CFErrorRef *error) {
-    if (attr->copyValue)
+    if (attr->copyValue) {
         return attr->copyValue(item, attr, error);
+    }
 
     CFTypeRef value = NULL;
     switch (attr->kind) {
@@ -1616,6 +1623,16 @@ static bool SecDbItemDeleteTombstone(SecDbItemRef item, SecDbConnectionRef dbcon
 }
 #endif
 
+static bool
+isCKKSEnabled(void)
+{
+#if OCTAGON
+    return SecCKKSIsEnabled();
+#else
+    return false;
+#endif
+}
+
 // Replace old_item with new_item.  If primary keys are the same this does an update otherwise it does a delete + add
 bool SecDbItemUpdate(SecDbItemRef old_item, SecDbItemRef new_item, SecDbConnectionRef dbconn, CFBooleanRef makeTombstone, bool uuid_from_primary_key, CFErrorRef *error) {
     __block bool ok = true;
@@ -1629,7 +1646,7 @@ bool SecDbItemUpdate(SecDbItemRef old_item, SecDbItemRef new_item, SecDbConnecti
     bool pk_equal = ok && CFEqual(old_pk, new_pk);
     if (pk_equal) {
         ok = SecDbItemMakeYounger(new_item, old_item, error);
-    } else if(!CFEqualSafe(makeTombstone, kCFBooleanFalse) && SecCKKSIsEnabled()) {
+    } else if(!CFEqualSafe(makeTombstone, kCFBooleanFalse) && isCKKSEnabled()) {
         // The primary keys aren't equal, and we're going to make a tombstone.
         // Help CKKS out: the tombstone should have the existing item's UUID, and the newly updated item should have a new UUID.
 
@@ -1791,8 +1808,8 @@ bool SecDbItemSelectBind(SecDbQueryRef query, sqlite3_stmt *stmt, CFErrorRef *er
                         range.location++;
                     }
                 }
-                CFArrayApplyFunction(array, range, apply_block_1, (void (^)(const void *value)) ^(const void *value) {
-                    ok = SecDbItemSelectBindValue(query, stmt, param++, attr, value, error);
+                CFArrayApplyFunction(array, range, apply_block_1, (void (^)(const void *value)) ^(const void *arrayValue) {
+                    ok = SecDbItemSelectBindValue(query, stmt, param++, attr, arrayValue, error);
                 });
             } else {
                 ok = SecDbItemSelectBindValue(query, stmt, param++, attr, value, error);

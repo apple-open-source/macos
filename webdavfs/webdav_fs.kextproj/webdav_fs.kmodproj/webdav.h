@@ -802,7 +802,7 @@ extern void log_vnop_error(char *str, int error);
 #endif
 
 
-extern int( **webdav_vnodeop_p)();
+extern int( **webdav_vnodeop_p)(void *);
 extern void webdav_hashinit(void);
 extern void webdav_hashdestroy(void);
 extern void webdav_hashrem(struct webdavnode *);

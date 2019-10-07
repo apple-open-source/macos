@@ -54,11 +54,9 @@ void JSGlobalObjectConsoleClient::setLogToSystemConsole(bool shouldLog)
     sLogToSystemConsole = shouldLog;
 }
 
-JSGlobalObjectConsoleClient::JSGlobalObjectConsoleClient(InspectorConsoleAgent* consoleAgent, InspectorDebuggerAgent* debuggerAgent, InspectorScriptProfilerAgent* scriptProfilerAgent)
+JSGlobalObjectConsoleClient::JSGlobalObjectConsoleClient(InspectorConsoleAgent* consoleAgent)
     : ConsoleClient()
     , m_consoleAgent(consoleAgent)
-    , m_debuggerAgent(debuggerAgent)
-    , m_scriptProfilerAgent(scriptProfilerAgent)
 {
 }
 
@@ -72,9 +70,14 @@ void JSGlobalObjectConsoleClient::messageWithTypeAndLevel(MessageType type, Mess
     m_consoleAgent->addMessageToConsole(std::make_unique<ConsoleMessage>(MessageSource::ConsoleAPI, type, level, message, WTFMove(arguments), exec));
 }
 
-void JSGlobalObjectConsoleClient::count(ExecState* exec, Ref<ScriptArguments>&& arguments)
+void JSGlobalObjectConsoleClient::count(ExecState* exec, const String& label)
 {
-    m_consoleAgent->count(exec, WTFMove(arguments));
+    m_consoleAgent->count(exec, label);
+}
+
+void JSGlobalObjectConsoleClient::countReset(ExecState* exec, const String& label)
+{
+    m_consoleAgent->countReset(exec, label);
 }
 
 void JSGlobalObjectConsoleClient::profile(JSC::ExecState*, const String& title)
@@ -121,27 +124,28 @@ void JSGlobalObjectConsoleClient::profileEnd(JSC::ExecState*, const String& titl
 
 void JSGlobalObjectConsoleClient::startConsoleProfile()
 {
-    // FIXME: <https://webkit.org/b/158753> Generalize the concept of Instruments on the backend to work equally for JSContext and Web inspection
-    m_scriptProfilerAgent->programmaticCaptureStarted();
-
-    m_profileRestoreBreakpointActiveValue = m_debuggerAgent->breakpointsActive();
-
     ErrorString unused;
-    m_debuggerAgent->setBreakpointsActive(unused, false);
 
-    const bool includeSamples = true;
-    m_scriptProfilerAgent->startTracking(unused, &includeSamples);
+    if (m_debuggerAgent) {
+        m_profileRestoreBreakpointActiveValue = m_debuggerAgent->breakpointsActive();
+        m_debuggerAgent->setBreakpointsActive(unused, false);
+    }
+
+    if (m_scriptProfilerAgent) {
+        const bool includeSamples = true;
+        m_scriptProfilerAgent->startTracking(unused, &includeSamples);
+    }
 }
 
 void JSGlobalObjectConsoleClient::stopConsoleProfile()
 {
     ErrorString unused;
-    m_scriptProfilerAgent->stopTracking(unused);
 
-    m_debuggerAgent->setBreakpointsActive(unused, m_profileRestoreBreakpointActiveValue);
+    if (m_scriptProfilerAgent)
+        m_scriptProfilerAgent->stopTracking(unused);
 
-    // FIXME: <https://webkit.org/b/158753> Generalize the concept of Instruments on the backend to work equally for JSContext and Web inspection
-    m_scriptProfilerAgent->programmaticCaptureStopped();
+    if (m_debuggerAgent)
+        m_debuggerAgent->setBreakpointsActive(unused, m_profileRestoreBreakpointActiveValue);
 }
 
 void JSGlobalObjectConsoleClient::takeHeapSnapshot(JSC::ExecState*, const String& title)
@@ -149,14 +153,19 @@ void JSGlobalObjectConsoleClient::takeHeapSnapshot(JSC::ExecState*, const String
     m_consoleAgent->takeHeapSnapshot(title);
 }
 
-void JSGlobalObjectConsoleClient::time(ExecState*, const String& title)
+void JSGlobalObjectConsoleClient::time(ExecState* exec, const String& label)
 {
-    m_consoleAgent->startTiming(title);
+    m_consoleAgent->startTiming(exec, label);
 }
 
-void JSGlobalObjectConsoleClient::timeEnd(ExecState* exec, const String& title)
+void JSGlobalObjectConsoleClient::timeLog(ExecState* exec, const String& label, Ref<ScriptArguments>&& arguments)
 {
-    m_consoleAgent->stopTiming(title, createScriptCallStackForConsole(exec, 1));
+    m_consoleAgent->logTiming(exec, label, WTFMove(arguments));
+}
+
+void JSGlobalObjectConsoleClient::timeEnd(ExecState* exec, const String& label)
+{
+    m_consoleAgent->stopTiming(exec, label);
 }
 
 void JSGlobalObjectConsoleClient::timeStamp(ExecState*, Ref<ScriptArguments>&&)
@@ -167,6 +176,11 @@ void JSGlobalObjectConsoleClient::timeStamp(ExecState*, Ref<ScriptArguments>&&)
 
 void JSGlobalObjectConsoleClient::record(ExecState*, Ref<ScriptArguments>&&) { }
 void JSGlobalObjectConsoleClient::recordEnd(ExecState*, Ref<ScriptArguments>&&) { }
+
+void JSGlobalObjectConsoleClient::screenshot(ExecState*, Ref<ScriptArguments>&&)
+{
+    warnUnimplemented("console.screenshot"_s);
+}
 
 void JSGlobalObjectConsoleClient::warnUnimplemented(const String& method)
 {

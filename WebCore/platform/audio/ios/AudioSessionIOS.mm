@@ -34,29 +34,8 @@
 #import <pal/spi/mac/AVFoundationSPI.h>
 #import <wtf/OSObjectPtr.h>
 #import <wtf/RetainPtr.h>
-#import <wtf/SoftLinking.h>
 
-SOFT_LINK_FRAMEWORK(AVFoundation)
-SOFT_LINK_CLASS(AVFoundation, AVAudioSession)
-
-SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionCategoryAmbient, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionCategorySoloAmbient, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionCategoryPlayback, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionCategoryRecord, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionCategoryPlayAndRecord, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionCategoryAudioProcessing, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionModeDefault, NSString *)
-SOFT_LINK_CONSTANT(AVFoundation, AVAudioSessionModeVideoChat, NSString *)
-
-#define AVAudioSession getAVAudioSessionClass()
-#define AVAudioSessionCategoryAmbient getAVAudioSessionCategoryAmbient()
-#define AVAudioSessionCategorySoloAmbient getAVAudioSessionCategorySoloAmbient()
-#define AVAudioSessionCategoryPlayback getAVAudioSessionCategoryPlayback()
-#define AVAudioSessionCategoryRecord getAVAudioSessionCategoryRecord()
-#define AVAudioSessionCategoryPlayAndRecord getAVAudioSessionCategoryPlayAndRecord()
-#define AVAudioSessionCategoryAudioProcessing getAVAudioSessionCategoryAudioProcessing()
-#define AVAudioSessionModeDefault getAVAudioSessionModeDefault()
-#define AVAudioSessionModeVideoChat getAVAudioSessionModeVideoChat()
+#import <pal/cocoa/AVFoundationSoftLink.h>
 
 namespace WebCore {
 
@@ -100,8 +79,13 @@ AudioSession::~AudioSession()
 {
 }
 
-void AudioSession::setCategory(CategoryType newCategory)
+void AudioSession::setCategory(CategoryType newCategory, RouteSharingPolicy policy)
 {
+#if !HAVE(ROUTE_SHARING_POLICY_LONG_FORM_VIDEO)
+    if (policy == RouteSharingPolicy::LongFormVideo)
+        policy = RouteSharingPolicy::LongFormAudio;
+#endif
+
     LOG(Media, "AudioSession::setCategory() - category = %s", categoryName(newCategory));
 
     if (categoryOverride() && categoryOverride() != newCategory) {
@@ -112,7 +96,6 @@ void AudioSession::setCategory(CategoryType newCategory)
     NSString *categoryString;
     NSString *categoryMode = AVAudioSessionModeDefault;
     AVAudioSessionCategoryOptions options = 0;
-    AVAudioSessionRouteSharingPolicy policy = AVAudioSessionRouteSharingPolicyDefault;
 
     switch (newCategory) {
     case AmbientSound:
@@ -123,7 +106,6 @@ void AudioSession::setCategory(CategoryType newCategory)
         break;
     case MediaPlayback:
         categoryString = AVAudioSessionCategoryPlayback;
-        policy = AVAudioSessionRouteSharingPolicyLongForm;
         break;
     case RecordAudio:
         categoryString = AVAudioSessionCategoryRecord;
@@ -142,15 +124,15 @@ void AudioSession::setCategory(CategoryType newCategory)
     }
 
     NSError *error = nil;
-    [[AVAudioSession sharedInstance] setCategory:categoryString mode:categoryMode routeSharingPolicy:policy options:options error:&error];
-#if !PLATFORM(IOS_FAMILY_SIMULATOR) && !PLATFORM(IOSMAC)
+    [[PAL::getAVAudioSessionClass() sharedInstance] setCategory:categoryString mode:categoryMode routeSharingPolicy:static_cast<AVAudioSessionRouteSharingPolicy>(policy) options:options error:&error];
+#if !PLATFORM(IOS_FAMILY_SIMULATOR) && !PLATFORM(MACCATALYST)
     ASSERT(!error);
 #endif
 }
 
 AudioSession::CategoryType AudioSession::category() const
 {
-    NSString *categoryString = [[AVAudioSession sharedInstance] category];
+    NSString *categoryString = [[PAL::getAVAudioSessionClass() sharedInstance] category];
     if ([categoryString isEqual:AVAudioSessionCategoryAmbient])
         return AmbientSound;
     if ([categoryString isEqual:AVAudioSessionCategorySoloAmbient])
@@ -169,18 +151,25 @@ AudioSession::CategoryType AudioSession::category() const
 RouteSharingPolicy AudioSession::routeSharingPolicy() const
 {
     static_assert(static_cast<size_t>(RouteSharingPolicy::Default) == static_cast<size_t>(AVAudioSessionRouteSharingPolicyDefault), "RouteSharingPolicy::Default is not AVAudioSessionRouteSharingPolicyDefault as expected");
-    static_assert(static_cast<size_t>(RouteSharingPolicy::LongForm) == static_cast<size_t>(AVAudioSessionRouteSharingPolicyLongForm), "RouteSharingPolicy::LongForm is not AVAudioSessionRouteSharingPolicyLongForm as expected");
+#if HAVE(ROUTE_SHARING_POLICY_LONG_FORM_VIDEO)
+    static_assert(static_cast<size_t>(RouteSharingPolicy::LongFormAudio) == static_cast<size_t>(AVAudioSessionRouteSharingPolicyLongFormAudio), "RouteSharingPolicy::LongFormAudio is not AVAudioSessionRouteSharingPolicyLongFormAudio as expected");
+    static_assert(static_cast<size_t>(RouteSharingPolicy::LongFormVideo) == static_cast<size_t>(AVAudioSessionRouteSharingPolicyLongFormVideo), "RouteSharingPolicy::LongFormVideo is not AVAudioSessionRouteSharingPolicyLongFormVideo as expected");
+#else
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    static_assert(static_cast<size_t>(RouteSharingPolicy::LongFormAudio) == static_cast<size_t>(AVAudioSessionRouteSharingPolicyLongForm), "RouteSharingPolicy::LongFormAudio is not AVAudioSessionRouteSharingPolicyLongForm as expected");
+ALLOW_DEPRECATED_DECLARATIONS_END
+#endif
     static_assert(static_cast<size_t>(RouteSharingPolicy::Independent) == static_cast<size_t>(AVAudioSessionRouteSharingPolicyIndependent), "RouteSharingPolicy::Independent is not AVAudioSessionRouteSharingPolicyIndependent as expected");
 
-    AVAudioSessionRouteSharingPolicy policy = [[AVAudioSession sharedInstance] routeSharingPolicy];
-    ASSERT(static_cast<RouteSharingPolicy>(policy) <= RouteSharingPolicy::Independent);
+    AVAudioSessionRouteSharingPolicy policy = [[PAL::getAVAudioSessionClass() sharedInstance] routeSharingPolicy];
+    ASSERT(static_cast<RouteSharingPolicy>(policy) <= RouteSharingPolicy::LongFormVideo);
     return static_cast<RouteSharingPolicy>(policy);
 }
 
 String AudioSession::routingContextUID() const
 {
-#if !PLATFORM(IOS_FAMILY_SIMULATOR) && !PLATFORM(IOSMAC) && !PLATFORM(WATCHOS)
-    return [[AVAudioSession sharedInstance] routingContextUID];
+#if !PLATFORM(IOS_FAMILY_SIMULATOR) && !PLATFORM(MACCATALYST) && !PLATFORM(WATCHOS)
+    return [[PAL::getAVAudioSessionClass() sharedInstance] routingContextUID];
 #else
     return emptyString();
 #endif
@@ -192,7 +181,7 @@ void AudioSession::setCategoryOverride(CategoryType category)
         return;
 
     m_private->m_categoryOverride = category;
-    setCategory(category);
+    setCategory(category, RouteSharingPolicy::Default);
 }
 
 AudioSession::CategoryType AudioSession::categoryOverride() const
@@ -202,17 +191,17 @@ AudioSession::CategoryType AudioSession::categoryOverride() const
 
 float AudioSession::sampleRate() const
 {
-    return [[AVAudioSession sharedInstance] sampleRate];
+    return [[PAL::getAVAudioSessionClass() sharedInstance] sampleRate];
 }
 
 size_t AudioSession::bufferSize() const
 {
-    return [[AVAudioSession sharedInstance] IOBufferDuration] * sampleRate();
+    return [[PAL::getAVAudioSessionClass() sharedInstance] IOBufferDuration] * sampleRate();
 }
 
 size_t AudioSession::numberOfOutputChannels() const
 {
-    return [[AVAudioSession sharedInstance] outputNumberOfChannels];
+    return [[PAL::getAVAudioSessionClass() sharedInstance] outputNumberOfChannels];
 }
 
 bool AudioSession::tryToSetActiveInternal(bool active)
@@ -227,14 +216,14 @@ bool AudioSession::tryToSetActiveInternal(bool active)
     // returns, so do it synchronously on the same serial queue.
     if (active) {
         dispatch_sync(m_private->m_dispatchQueue.get(), ^{
-            [[AVAudioSession sharedInstance] setActive:YES withOptions:0 error:&error];
+            [[PAL::getAVAudioSessionClass() sharedInstance] setActive:YES withOptions:0 error:&error];
         });
 
         return !error;
     }
 
     dispatch_async(m_private->m_dispatchQueue.get(), ^{
-        [[AVAudioSession sharedInstance] setActive:NO withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:&error];
+        [[PAL::getAVAudioSessionClass() sharedInstance] setActive:NO withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:&error];
     });
 
     return true;
@@ -242,14 +231,14 @@ bool AudioSession::tryToSetActiveInternal(bool active)
 
 size_t AudioSession::preferredBufferSize() const
 {
-    return [[AVAudioSession sharedInstance] preferredIOBufferDuration] * sampleRate();
+    return [[PAL::getAVAudioSessionClass() sharedInstance] preferredIOBufferDuration] * sampleRate();
 }
 
 void AudioSession::setPreferredBufferSize(size_t bufferSize)
 {
     NSError *error = nil;
     float duration = bufferSize / sampleRate();
-    [[AVAudioSession sharedInstance] setPreferredIOBufferDuration:duration error:&error];
+    [[PAL::getAVAudioSessionClass() sharedInstance] setPreferredIOBufferDuration:duration error:&error];
     ASSERT(!error);
 }
 

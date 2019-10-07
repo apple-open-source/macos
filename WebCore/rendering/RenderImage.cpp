@@ -109,8 +109,8 @@ void RenderImage::collectSelectionRects(Vector<SelectionRect>& rects, unsigned, 
         isFirstOnLine = !inlineBox->previousOnLineExists();
         isLastOnLine = !inlineBox->nextOnLineExists();
         LogicalSelectionOffsetCaches cache(*containingBlock);
-        LayoutUnit leftOffset = containingBlock->logicalLeftSelectionOffset(*containingBlock, inlineBox->logicalTop(), cache);
-        LayoutUnit rightOffset = containingBlock->logicalRightSelectionOffset(*containingBlock, inlineBox->logicalTop(), cache);
+        LayoutUnit leftOffset = containingBlock->logicalLeftSelectionOffset(*containingBlock, LayoutUnit(inlineBox->logicalTop()), cache);
+        LayoutUnit rightOffset = containingBlock->logicalRightSelectionOffset(*containingBlock, LayoutUnit(inlineBox->logicalTop()), cache);
         lineExtentRect = IntRect(leftOffset - logicalLeft(), imageRect.y(), rightOffset - leftOffset, imageRect.height());
         if (!inlineBox->isHorizontal()) {
             imageRect = imageRect.transposedRect();
@@ -269,12 +269,9 @@ void RenderImage::imageChanged(WrappedImagePtr newImage, const IntRect* rect)
 
     if (newImage != imageResource().imagePtr() || !newImage)
         return;
-    
-    if (!m_didIncrementVisuallyNonEmptyPixelCount) {
-        // At a zoom level of 1 the image is guaranteed to have an integer size.
-        view().frameView().incrementVisuallyNonEmptyPixelCount(flooredIntSize(imageResource().imageSize(1.0f)));
-        m_didIncrementVisuallyNonEmptyPixelCount = true;
-    }
+
+    // At a zoom level of 1 the image is guaranteed to have an integer size.
+    incrementVisuallyNonEmptyPixelCountIfNeeded(flooredIntSize(imageResource().imageSize(1.0f)));
 
     ImageSizeChangeType imageSizeChange = ImageSizeChangeNone;
 
@@ -378,6 +375,9 @@ void RenderImage::notifyFinished(CachedResource& newImage)
         // that the image is done and they can reference it directly.
         contentChanged(ImageChanged);
     }
+
+    if (is<HTMLImageElement>(element()))
+        page().didFinishLoadingImageForElement(downcast<HTMLImageElement>(*element()));
 }
 
 bool RenderImage::isShowingMissingOrImageError() const
@@ -461,10 +461,10 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOf
                 FloatSize imageSize = image->size();
                 imageSize.scale(1 / brokenImageAndImageScaleFactor.second);
                 // Center the error image, accounting for border and padding.
-                LayoutUnit centerX = (usableSize.width() - imageSize.width()) / 2;
+                LayoutUnit centerX { (usableSize.width() - imageSize.width()) / 2 };
                 if (centerX < 0)
                     centerX = 0;
-                LayoutUnit centerY = (usableSize.height() - imageSize.height()) / 2;
+                LayoutUnit centerY { (usableSize.height() - imageSize.height()) / 2 };
                 if (centerY < 0)
                     centerY = 0;
                 imageOffset = LayoutSize(leftBorder + leftPad + centerX + missingImageBorderWidth, topBorder + topPad + centerY + missingImageBorderWidth);
@@ -489,7 +489,7 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOf
                 // Only draw the alt text if it'll fit within the content box,
                 // and only if it fits above the error image.
                 TextRun textRun = RenderBlock::constructTextRun(text, style());
-                LayoutUnit textWidth = font.width(textRun);
+                LayoutUnit textWidth { font.width(textRun) };
                 if (errorPictureDrawn) {
                     if (usableSize.width() >= textWidth && fontMetrics.height() <= imageOffset.height())
                         context.drawText(font, textRun, altTextOffset);
@@ -550,10 +550,7 @@ void RenderImage::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     
 void RenderImage::paintAreaElementFocusRing(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-#if PLATFORM(IOS_FAMILY)
-    UNUSED_PARAM(paintInfo);
-    UNUSED_PARAM(paintOffset);
-#else
+#if !PLATFORM(IOS_FAMILY) || ENABLE(FULL_KEYBOARD_ACCESS)
     if (document().printing() || !frame().selection().isFocusedAndActive())
         return;
     
@@ -597,8 +594,11 @@ void RenderImage::paintAreaElementFocusRing(PaintInfo& paintInfo, const LayoutPo
         page().focusController().setFocusedElementNeedsRepaint();
 #else
     paintInfo.context().drawFocusRing(path, outlineWidth, areaElementStyle->outlineOffset(), areaElementStyle->visitedDependentColorWithColorFilter(CSSPropertyOutlineColor));
-#endif
-#endif
+#endif // PLATFORM(MAC)
+#else
+    UNUSED_PARAM(paintInfo);
+    UNUSED_PARAM(paintOffset);
+#endif // ENABLE(FULL_KEYBOARD_ACCESS)
 }
 
 void RenderImage::areaElementFocusChanged(HTMLAreaElement* element)
@@ -845,6 +845,15 @@ RenderBox* RenderImage::embeddedContentBox() const
         return downcast<SVGImage>(*cachedImage->image()).embeddedContentBox();
 
     return nullptr;
+}
+
+void RenderImage::incrementVisuallyNonEmptyPixelCountIfNeeded(const IntSize& size)
+{
+    if (m_didIncrementVisuallyNonEmptyPixelCount)
+        return;
+
+    view().frameView().incrementVisuallyNonEmptyPixelCount(size);
+    m_didIncrementVisuallyNonEmptyPixelCount = true;
 }
 
 } // namespace WebCore

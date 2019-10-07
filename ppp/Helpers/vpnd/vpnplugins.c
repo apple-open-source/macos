@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -152,7 +152,7 @@ int add_address(char* ip_address)
     struct vpn_address *address_slot;
     int		size;
 
-    if ((size = strlen(ip_address) + 1) > 16)
+    if ((size = (int)strlen(ip_address) + 1) > 16)
         return -1;
     
     address_slot = (struct vpn_address*)malloc(sizeof(struct vpn_address));
@@ -313,7 +313,7 @@ int init_plugin(struct vpn_params *params)
         return err;
     }
 
-    len = strlen(params->plugin_path);
+    len = (int)strlen(params->plugin_path);
     if (len > 4 && !strcmp(&params->plugin_path[len - 4], ".ppp")) 
         isPPP = 1;
     else if (len > 4 && !strcmp(&params->plugin_path[len - 4], ".vpn")) 

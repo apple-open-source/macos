@@ -11,7 +11,7 @@ gencat.o genlib.o: gencat.h
 genlib.o: msgcat.h
 
 install: gencat
-	cp gencat $(PREFIX)/usr/bin
+	cp gencat$(EXEEXT) $(DESTDIR)$(PREFIX)/usr/bin
 
 clean:
 	rm -f *~ *.o gencat

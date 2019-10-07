@@ -14,6 +14,7 @@
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <unistd.h>
 #include <os/assumes.h>
+#include <os/variant_private.h>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -67,6 +68,7 @@ public:
       
       std::vector<uint8_t>  descriptor;
       std::string           properties;
+      uint32_t              options = 0;
       
       if (val.isString()) {
           properties = val.cast<std::string>();
@@ -78,8 +80,13 @@ public:
               descriptor.push_back(val[i].cast<uint8_t>());
           }
       }
-
-      createDevice (properties, descriptor);
+      
+      val = luabridge::LuaRef::fromStack(L, 4);
+      if (val.isNumber()) {
+          options = val.cast<uint32_t>();
+      }
+      
+      createDevice (properties, descriptor, options);
     
       LOG ("---------------------------------------------------------\n");
       LOG ("Create HIDUserDevice (%p) device Ref:%p\n", this,  device_);
@@ -105,21 +112,29 @@ public:
     void setSetReportCallback (lua_State* L) {
         setReportCallback_ = luabridge::LuaRef::fromStack(L, 2);
         os_assert(setReportCallback_.isFunction(), "setSetReportCallback: Lua object type:%d , expected function", setReportCallback_.type());
-        IOHIDUserDeviceRegisterSetReportCallback(device_, HandleSetReportCallbackStatic, this);
+        if (device_) {
+            IOHIDUserDeviceRegisterSetReportCallback(device_, HandleSetReportCallbackStatic, this);
+        }
     }
 
     void setGetReportCallback (lua_State* L) {
         getReportCallback_ = luabridge::LuaRef::fromStack(L, 2);
         os_assert(getReportCallback_.isFunction(), "setGetReportCallback: Lua object type:%d , expected function", getReportCallback_.type());
-        IOHIDUserDeviceRegisterGetReportWithReturnLengthCallback (device_, HandleGetReportCallbackStatic, this);
+        if (device_) {
+            IOHIDUserDeviceRegisterGetReportWithReturnLengthCallback (device_, HandleGetReportCallbackStatic, this);
+        }
     }
 
     void scheduleWithRunloop (lua_State* L __unused) {
-        IOHIDUserDeviceScheduleWithRunLoop(device_, CFRunLoopGetMain(), kCFRunLoopDefaultMode);
+        if (device_) {
+            IOHIDUserDeviceScheduleWithRunLoop(device_, CFRunLoopGetMain(), kCFRunLoopDefaultMode);
+        }
     }
 
     void unscheduleFromRunloop (lua_State* L __unused) {
-        IOHIDUserDeviceUnscheduleFromRunLoop(device_, CFRunLoopGetMain(), kCFRunLoopDefaultMode);
+        if (device_) {
+            IOHIDUserDeviceUnscheduleFromRunLoop(device_, CFRunLoopGetMain(), kCFRunLoopDefaultMode);
+        }
     }
 
     
@@ -191,6 +206,9 @@ public:
         if (!timeout.isNumber()) {
             return result;
         }
+        
+        require(device_, exit);
+        
         port = IONotificationPortCreate(kIOMasterPortDefault);
         require(port, exit);
         
@@ -222,6 +240,7 @@ public:
         
         value = IORegistryEntryCreateCFProperty(service, CFSTR (kIOHIDDeviceOpenedByEventSystemKey), kCFAllocatorDefault, 0);
         if (value && CFEqual(value, kCFBooleanTrue)) {
+            LOG("Device already opened by event system\n");
             dispatch_semaphore_signal(semphore);
         }
         
@@ -249,7 +268,7 @@ public:
         return result;
     }
     
-    void createDevice (std::string & properties, std::vector<uint8_t> & descriptor) {
+    void createDevice (std::string & properties, std::vector<uint8_t> & descriptor, uint32_t options) {
         CFDataRef   descriptorData    = NULL;
         CFPropertyListRef propertiesDict  = NULL;
         CFDataRef   propertyData = CFDataCreate(kCFAllocatorDefault, (const uint8_t*)properties.data(), properties.length());
@@ -265,7 +284,8 @@ public:
         CFDictionarySetValue((CFMutableDictionaryRef)propertiesDict, CFSTR(kIOHIDReportDescriptorKey), (const void*)descriptorData);
         CFRelease(descriptorData);
         
-        device_ = IOHIDUserDeviceCreate(kCFAllocatorDefault, (CFDictionaryRef)propertiesDict);
+        device_ = IOHIDUserDeviceCreateWithOptions(kCFAllocatorDefault, (CFDictionaryRef)propertiesDict, options);
+        require_action(device_, finish, printf ("ERROR!IOHIDUserDeviceCreate=NULL\n"));
 
     finish:
         
@@ -310,6 +330,12 @@ int main(int argc, const char * argv[]) {
     int status;
     char * scriptFile = NULL;
     int oc;
+    
+    if(!os_variant_allows_internal_security_policies(NULL)) {
+        std::cerr << argv[0] << " is not allowed to run with the current security policies."
+                  << std::endl;
+        return EXIT_FAILURE;
+    }
   
     while ((oc = getopt(argc, (char**)argv, "hvs:")) != -1) {
         switch (oc) {
@@ -336,7 +362,7 @@ int main(int argc, const char * argv[]) {
         usage ();
         exit(1);
     }
-     // create a Lua state
+    // create a Lua state
     lua_State* L = luaL_newstate();
 
     // load standard libs
@@ -366,7 +392,6 @@ int main(int argc, const char * argv[]) {
             .addFunction("UnscheduleFromRunloop", &HIDUserDevice::unscheduleFromRunloop)
             .addFunction("WaitForEventService", &HIDUserDevice::waitForEventService)
         .endClass();
-
     status = luaL_dofile(L, scriptFile);
     if (status) {
         lua_report_errors (L);

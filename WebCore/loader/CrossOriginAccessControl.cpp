@@ -38,7 +38,7 @@
 #include "SecurityPolicy.h"
 #include <mutex>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/text/AtomicString.h>
+#include <wtf/text/AtomString.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
@@ -207,8 +207,8 @@ bool validatePreflightResponse(const ResourceRequest& request, const ResourceRes
 
     auto result = std::make_unique<CrossOriginPreflightResultCacheItem>(storedCredentialsPolicy);
     if (!result->parse(response)
-        || !result->allowsCrossOriginMethod(request.httpMethod(), errorDescription)
-        || !result->allowsCrossOriginHeaders(request.httpHeaderFields(), errorDescription)) {
+        || !result->allowsCrossOriginMethod(request.httpMethod(), storedCredentialsPolicy, errorDescription)
+        || !result->allowsCrossOriginHeaders(request.httpHeaderFields(), storedCredentialsPolicy, errorDescription)) {
         return false;
     }
 
@@ -230,7 +230,7 @@ static inline bool shouldCrossOriginResourcePolicyCancelLoad(const SecurityOrigi
         if (origin.isUnique())
             return true;
 #if ENABLE(PUBLIC_SUFFIX_LIST)
-        if (!registrableDomainsAreEqual(response.url(), ResourceRequest::partitionName(origin.host())))
+        if (!RegistrableDomain::uncheckedCreateFromHost(origin.host()).matches(response.url()))
             return true;
 #endif
         if (origin.protocol() == "http" && response.url().protocol() == "https")

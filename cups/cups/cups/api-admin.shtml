@@ -1,20 +1,17 @@
 <!--
   Administrative API documentation for CUPS.
 
-  Copyright 2016 by Apple Inc.
+  Copyright © 2016 by Apple Inc.
 
-  These coded instructions, statements, and computer programs are the
-  property of Apple Inc. and are protected by Federal copyright
-  law.  Distribution and use rights are outlined in the file "LICENSE.txt"
-  which should have been included with this file.  If this file is
-  file is missing or damaged, see the license at "http://www.cups.org/".
+  Licensed under Apache License v2.0.  See the file "LICENSE" for more
+  information.
 -->
 
 <h2 class="title"><a name="OVERVIEW">Overview</a></h2>
 
 <p>The administrative APIs provide convenience functions to perform certain administrative functions with the CUPS scheduler.</p>
 
-<blockquote><b>Note:<b>
+<blockquote><b>Note:</b>
   <p>Administrative functions normally require administrative privileges to execute and must not be used in ordinary user applications!</p>
 </blockquote>
 

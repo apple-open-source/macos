@@ -248,7 +248,7 @@ doit()
     {
         struct ctl_info info;
         memset(&info, 0, sizeof(info));
-        strncpy(info.ctl_name, PACKET_MANGLER_CONTROL_NAME, sizeof(info.ctl_name));
+        strlcpy(info.ctl_name, PACKET_MANGLER_CONTROL_NAME, sizeof(info.ctl_name));
         if (ioctl(sf, CTLIOCGINFO, &info)) {
             perror("Could not get ID for kernel control.\n");
             exit(-1);

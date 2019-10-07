@@ -304,7 +304,8 @@
 
     [self.queue addOperation:operation];
     [self.queue waitUntilAllOperationsAreFinished];
-    sleep(0.1); // wait for the completion block to have time to fire
+
+    XCTAssertEqual([operation.completionHandlerDidRunCondition wait:4 * NSEC_PER_SEC], 0, "Completion block should fire in a reasonable amount of time");
     XCTAssertNotNil(operation.finishDate, "Result operation has a finish date after everything is done");
     NSTimeInterval timeIntervalSinceFinishDate = [[NSDate date] timeIntervalSinceDate:operation.finishDate];
     XCTAssertTrue(timeIntervalSinceFinishDate >= 0.0 && timeIntervalSinceFinishDate <= 10.0, "Result operation finish datelooks reasonable");

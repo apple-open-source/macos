@@ -48,11 +48,7 @@ bool WebProcessProxy::shouldAllowNonValidInjectedCode() const
 {
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
     static bool isSystemWebKit = [] {
-#if WK_API_ENABLED
         NSBundle *webkit2Bundle = [NSBundle bundleForClass:NSClassFromString(@"WKWebView")];
-#else
-        NSBundle *webkit2Bundle = [NSBundle bundleForClass:NSClassFromString(@"WKView")];
-#endif
         return [webkit2Bundle.bundlePath hasPrefix:@"/System/"];
     }();
 
@@ -74,29 +70,14 @@ bool WebProcessProxy::shouldAllowNonValidInjectedCode() const
 void WebProcessProxy::startDisplayLink(unsigned observerID, uint32_t displayID)
 {
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
-    for (auto& displayLink : m_displayLinks) {
-        if (displayLink->displayID() == displayID) {
-            displayLink->addObserver(observerID);
-            return;
-        }
-    }
-    auto displayLink = std::make_unique<DisplayLink>(displayID, *this);
-    displayLink->addObserver(observerID);
-    m_displayLinks.append(WTFMove(displayLink));
+    ASSERT(connection());
+    processPool().startDisplayLink(*connection(), observerID, displayID);
 }
 
 void WebProcessProxy::stopDisplayLink(unsigned observerID, uint32_t displayID)
 {
-    size_t pos = 0;
-    for (auto& displayLink : m_displayLinks) {
-        if (displayLink->displayID() == displayID) {
-            displayLink->removeObserver(observerID);
-            if (!displayLink->hasObservers())
-                m_displayLinks.remove(pos);
-            return;
-        }
-        pos++;
-    }
+    ASSERT(connection());
+    processPool().stopDisplayLink(*connection(), observerID, displayID);
 }
 #endif
 

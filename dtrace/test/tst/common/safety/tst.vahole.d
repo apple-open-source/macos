@@ -26,8 +26,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.vahole.d	1.1	06/08/28 SMI"
-
 /*
  * We set our buffer size absurdly low to prevent a flood of errors that we
  * don't care about.

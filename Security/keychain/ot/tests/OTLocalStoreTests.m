@@ -222,9 +222,9 @@ static NSString* const testDSID = @"123456789";
     record2.escrowRecordID = escrowRecordID2;
     record3.escrowRecordID = escrowRecordID3;
     
-    record.escrowedSigningSPKI = [@"escrowedSigingSPKI" dataUsingEncoding:kCFStringEncodingUTF8];
-    record2.escrowedSigningSPKI = [@"escrowedSigingSPI" dataUsingEncoding:kCFStringEncodingUTF8];
-    record3.escrowedSigningSPKI = [@"escrowedSigingSPKI" dataUsingEncoding:kCFStringEncodingUTF8];
+    record.escrowedSigningSPKI = [@"escrowedSigingSPKI" dataUsingEncoding:NSUTF8StringEncoding];
+    record2.escrowedSigningSPKI = [@"escrowedSigingSPI" dataUsingEncoding:NSUTF8StringEncoding];
+    record3.escrowedSigningSPKI = [@"escrowedSigingSPKI" dataUsingEncoding:NSUTF8StringEncoding];
 
     XCTAssertTrue([self.localStore insertBottledPeerRecord:record escrowRecordID:escrowRecordID error:&error]);
     XCTAssertNil(error, @"error should be nil:%@", error);

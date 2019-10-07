@@ -1,9 +1,9 @@
 --TEST--
-Test stream_set_timeout() function : error conditions 
+Test stream_set_timeout() function : error conditions
 --FILE--
 <?php
 /* Prototype  : proto bool stream_set_timeout(resource stream, int seconds, int microseconds)
- * Description: Set timeout on stream read to seconds + microseonds 
+ * Description: Set timeout on stream read to seconds + microseonds
  * Source code: ext/standard/streamsfuncs.c
  * Alias to functions: socket_set_timeout
  */
@@ -57,22 +57,22 @@ echo "Done";
 
 -- Testing stream_set_timeout() function with more than expected no. of arguments --
 
-Warning: stream_set_timeout() expects at most 3 parameters, 4 given in %s on line %i
+Warning: stream_set_timeout() expects at most 3 parameters, 4 given in %s on line %d
 NULL
 
 -- Testing stream_set_timeout() function with less than expected no. of arguments --
 
-Warning: stream_set_timeout() expects at least 2 parameters, 1 given in %s on line %i
+Warning: stream_set_timeout() expects at least 2 parameters, 1 given in %s on line %d
 NULL
 
 -- Testing stream_set_timeout() function with a closed socket --
 
-Warning: stream_set_timeout(): supplied resource is not a valid stream resource in %s on line %i
+Warning: stream_set_timeout(): supplied resource is not a valid stream resource in %s on line %d
 bool(false)
 
 -- Testing stream_set_timeout() function with an invalid stream --
 
-Warning: stream_set_timeout() expects parameter 1 to be resource, integer given in %s on line %i
+Warning: stream_set_timeout() expects parameter 1 to be resource, int given in %s on line %d
 NULL
 
 -- Testing stream_set_timeout() function with a stream that does not support timeouts --

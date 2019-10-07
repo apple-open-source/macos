@@ -605,6 +605,9 @@ static apr_status_t deflate_out_filter(ap_filter_t *f,
          * that are not a 204 response with no content
          * and are not tagged with the no-gzip env variable
          * and not a partial response to a Range request.
+         *
+         * Note that responding to 304 is handled separately to
+         * set the required headers (such as ETag) per RFC7232, 4.1.
          */
         if ((r->main != NULL) || (r->status == HTTP_NO_CONTENT) ||
             apr_table_get(r->subprocess_env, "no-gzip") ||
@@ -863,7 +866,7 @@ static apr_status_t deflate_out_filter(ap_filter_t *f,
 
             if (c->note_output_name) {
                 apr_table_setn(r->notes, c->note_output_name,
-                               (ctx->stream.total_in > 0)
+                               (ctx->stream.total_out > 0)
                                 ? apr_off_t_toa(r->pool,
                                                 ctx->stream.total_out)
                                 : "-");
@@ -1335,8 +1338,6 @@ static apr_status_t deflate_in_filter(ap_filter_t *f,
             ctx->stream.next_in = (unsigned char *)data;
             ctx->stream.avail_in = (int)len;
 
-            zRC = Z_OK;
-
             if (!ctx->validation_buffer) {
                 while (ctx->stream.avail_in != 0) {
                     if (ctx->stream.avail_out == 0) {
@@ -1527,6 +1528,9 @@ static apr_status_t inflate_out_filter(ap_filter_t *f,
          * that are not a 204 response with no content
          * and not a partial response to a Range request,
          * and only when Content-Encoding ends in gzip.
+         *
+         * Note that responding to 304 is handled separately to
+         * set the required headers (such as ETag) per RFC7232, 4.1.
          */
         if (!ap_is_initial_req(r) || (r->status == HTTP_NO_CONTENT) ||
             (apr_table_get(r->headers_out, "Content-Range") != NULL) ||

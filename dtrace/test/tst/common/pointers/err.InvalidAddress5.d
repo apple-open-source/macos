@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.InvalidAddress5.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Using integer arithmetic providing a non-aligned memory address will throw

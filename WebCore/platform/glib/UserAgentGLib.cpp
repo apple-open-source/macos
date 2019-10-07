@@ -58,7 +58,7 @@ static const String platformVersionForUAString()
 #if OS(UNIX)
     struct utsname name;
     uname(&name);
-    static NeverDestroyed<const String> uaOSVersion(String::format("%s %s", name.sysname, name.machine));
+    static NeverDestroyed<const String> uaOSVersion(makeString(name.sysname, ' ', name.machine));
     return uaOSVersion;
 #else
     // We will always claim to be Safari in Intel Mac OS X, since Safari without
@@ -103,7 +103,7 @@ static String buildUserAgentString(const UserAgentQuirks& quirks)
 
     // Version/X is mandatory *before* Safari/X to be a valid Safari UA. See
     // https://bugs.webkit.org/show_bug.cgi?id=133403 for details.
-    uaString.appendLiteral("Version/11.0 Safari/");
+    uaString.appendLiteral("Version/13.0 Safari/");
     uaString.append(versionForUAString());
 
     return uaString.toString();

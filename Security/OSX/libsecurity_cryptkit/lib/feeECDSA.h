@@ -35,8 +35,6 @@
  */
 #define FEE_ECDSA_MAGIC		0xfee00517
 
-#if	CRYPTKIT_ECDSA_ENABLE
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -78,7 +76,5 @@ feeReturn feeECDSASigSize(
 #ifdef __cplusplus
 }
 #endif
-
-#endif	/* CRYPTKIT_ECDSA_ENABLE */
 
 #endif	/*_CK_FEEECDSA_H_*/

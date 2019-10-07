@@ -31,8 +31,13 @@
 #include "ExceptionOr.h"
 #include "IDBActiveDOMObject.h"
 #include "IDBError.h"
+#include "IDBGetAllResult.h"
+#include "IDBGetResult.h"
+#include "IDBKeyData.h"
 #include "IDBResourceIdentifier.h"
+#include "IDBValue.h"
 #include "IndexedDB.h"
+#include "JSValueInWrappedObject.h"
 #include <JavaScriptCore/Strong.h>
 #include <wtf/Function.h>
 #include <wtf/Scope.h>
@@ -45,11 +50,9 @@ class Event;
 class IDBCursor;
 class IDBDatabase;
 class IDBIndex;
-class IDBKeyData;
 class IDBObjectStore;
 class IDBResultData;
 class IDBTransaction;
-class IDBValue;
 class ThreadSafeDataBuffer;
 
 namespace IDBClient {
@@ -58,7 +61,13 @@ class IDBConnectionToServer;
 }
 
 class IDBRequest : public EventTargetWithInlineData, public IDBActiveDOMObject, public RefCounted<IDBRequest>, public CanMakeWeakPtr<IDBRequest> {
+    WTF_MAKE_ISO_ALLOCATED(IDBRequest);
 public:
+    enum class NullResultType {
+        Empty,
+        Undefined
+    };
+
     static Ref<IDBRequest> create(ScriptExecutionContext&, IDBObjectStore&, IDBTransaction&);
     static Ref<IDBRequest> create(ScriptExecutionContext&, IDBCursor&, IDBTransaction&);
     static Ref<IDBRequest> create(ScriptExecutionContext&, IDBIndex&, IDBTransaction&);
@@ -69,10 +78,10 @@ public:
 
     virtual ~IDBRequest();
 
-    // FIXME: The following use of JSC::Strong is incorrect and can lead to storage leaks
-    // due to reference cycles; we should use JSValueInWrappedObject instead.
-    using Result = Variant<RefPtr<IDBCursor>, RefPtr<IDBDatabase>, JSC::Strong<JSC::Unknown>>;
-    ExceptionOr<Optional<Result>> result() const;
+    using Result = Variant<RefPtr<IDBCursor>, RefPtr<IDBDatabase>, IDBKeyData, Vector<IDBKeyData>, IDBGetResult, IDBGetAllResult, uint64_t, NullResultType>;
+    ExceptionOr<Result> result() const;
+    JSValueInWrappedObject& resultWrapper() { return m_resultWrapper; }
+    JSValueInWrappedObject& cursorWrapper() { return m_cursorWrapper; }
 
     using Source = Variant<RefPtr<IDBObjectStore>, RefPtr<IDBIndex>, RefPtr<IDBCursor>>;
     const Optional<Source>& source() const { return m_source; }
@@ -100,9 +109,9 @@ public:
 
     void setResult(const IDBKeyData&);
     void setResult(const Vector<IDBKeyData>&);
-    void setResult(const Vector<IDBValue>&);
+    void setResultToStructuredClone(const IDBGetResult&);
+    void setResult(const IDBGetAllResult&);
     void setResult(uint64_t);
-    void setResultToStructuredClone(const IDBValue&);
     void setResultToUndefined();
 
     void willIterateCursor(IDBCursor&);
@@ -160,12 +169,16 @@ private:
     void onError();
     void onSuccess();
 
+    void clearWrappers();
+
     IDBCursor* resultCursor();
 
     IDBError m_idbError;
     IDBResourceIdentifier m_resourceIdentifier;
 
-    Optional<Result> m_result;
+    JSValueInWrappedObject m_resultWrapper;
+    JSValueInWrappedObject m_cursorWrapper;
+    Result m_result;
     Optional<Source> m_source;
 
     bool m_hasPendingActivity { true };
@@ -175,6 +188,9 @@ private:
     RefPtr<IDBCursor> m_pendingCursor;
 
     Ref<IDBClient::IDBConnectionProxy> m_connectionProxy;
+
+    bool m_dispatchingEvent { false };
+    bool m_hasUncaughtException { false };
 };
 
 } // namespace WebCore

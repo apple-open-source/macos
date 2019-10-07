@@ -124,7 +124,6 @@ struct FocusedElementInformation {
     String title;
     bool acceptsAutofilledLoginCredentials { false };
     bool isAutofillableUsernameField { false };
-    bool elementIsTransparent { false };
     URL representingPageURL;
     WebCore::AutofillFieldName autofillFieldName { WebCore::AutofillFieldName::None };
     String placeholder;
@@ -137,6 +136,10 @@ struct FocusedElementInformation {
     Vector<WebCore::Color> suggestedColors;
 #endif
 #endif
+    bool shouldSynthesizeKeyEventsForEditing { false };
+    bool isSpellCheckingEnabled { true };
+    bool shouldAvoidResizingWhenInputViewBoundsChange { false };
+    bool shouldAvoidScrollingWhenFocusedContentIsVisible { false };
 
     FocusedElementIdentifier focusedElementIdentifier { 0 };
 

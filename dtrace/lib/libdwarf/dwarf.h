@@ -144,6 +144,10 @@ extern "C" {
 #define DW_TAG_GNU_BINCL                0x4104 /* GNU */
 #define DW_TAG_GNU_EINCL                0x4105 /* GNU */
 
+/* Apple extensions */
+#define DW_TAG_APPLE_property           0x4200
+#define DW_TAG_APPLE_ptrauth_type       0x4300
+
 /* ALTIUM extensions */
 	/* DSP-C/Starcore __circ qualifier */
 #define DW_TAG_ALTIUM_circ_type         0x5101 /* ALTIUM */
@@ -167,7 +171,6 @@ extern "C" {
 
 #define DW_children_no                  0
 #define DW_children_yes                 1
-
 
 
 #define DW_FORM_addr                    0x01
@@ -359,8 +362,13 @@ extern "C" {
 /* UPC extension */
 #define DW_AT_upc_threads_scaled                0x3210 /* UPC */
 
+/* Apple extension */
+#define DW_AT_APPLE_ptrauth_key                       0x3e03
+#define DW_AT_APPLE_ptrauth_address_discriminated     0x3e04
+#define DW_AT_APPLE_ptrauth_extra_discriminator       0x3e05
 
 #define DW_AT_hi_user                           0x3fff
+
 
 #define DW_OP_addr                      0x03
 #define DW_OP_deref                     0x06

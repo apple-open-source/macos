@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,12 @@
 #define DEFAULT_WEBKIT_TABSTOLINKS_ENABLED true
 #else
 #define DEFAULT_WEBKIT_TABSTOLINKS_ENABLED false
+#endif
+
+#if PLATFORM(GTK) || PLATFORM(WPE)
+#define DEFAULT_CORE_MATHML_ENABLED true
+#else
+#define DEFAULT_CORE_MATHML_ENABLED false
 #endif
 
 #if ENABLE(SMOOTH_SCROLLING)
@@ -75,6 +81,8 @@
 #define DEFAULT_TEMPORARY_TILE_COHORT_RETENTION_ENABLED false
 #define DEFAULT_REQUIRES_USER_GESTURE_FOR_AUDIO_PLAYBACK true
 #define DEFAULT_INTERACTIVE_MEDIA_CAPTURE_STREAM_REPROMPT_INTERVAL_IN_MINUTES 1
+#define DEFAULT_ASYNC_FRAME_SCROLLING_ENABLED true
+#define DEFAULT_ASYNC_OVERFLOW_SCROLLING_ENABLED true
 #define EXPERIMENTAL_FULLSCREEN_API_HIDDEN false
 #else
 #define DEFAULT_ALLOWS_PICTURE_IN_PICTURE_MEDIA_PLAYBACK false
@@ -94,6 +102,8 @@
 #define DEFAULT_TEMPORARY_TILE_COHORT_RETENTION_ENABLED true
 #define DEFAULT_REQUIRES_USER_GESTURE_FOR_AUDIO_PLAYBACK false
 #define DEFAULT_INTERACTIVE_MEDIA_CAPTURE_STREAM_REPROMPT_INTERVAL_IN_MINUTES 10
+#define DEFAULT_ASYNC_FRAME_SCROLLING_ENABLED false
+#define DEFAULT_ASYNC_OVERFLOW_SCROLLING_ENABLED false
 #define EXPERIMENTAL_FULLSCREEN_API_HIDDEN true
 #endif
 
@@ -208,7 +218,13 @@
 #define DEFAULT_SERVICE_WORKERS_ENABLED false
 #endif
 
-#if PLATFORM(MAC) || PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
+#define DEFAULT_POINTER_EVENTS_ENABLED true
+#else
+#define DEFAULT_POINTER_EVENTS_ENABLED false
+#endif
+
+#if PLATFORM(MAC) || PLATFORM(IOS) || PLATFORM(GTK) || PLATFORM(WPE)
 #define DEFAULT_PROCESS_SWAP_ON_CROSS_SITE_NAVIGATION_ENABLED true
 #else
 #define DEFAULT_PROCESS_SWAP_ON_CROSS_SITE_NAVIGATION_ENABLED false
@@ -219,9 +235,6 @@
 #else
 #define DEFAULT_CONIC_GRADIENT_ENABLED false
 #endif
-
-bool defaultPassiveTouchListenersAsDefaultOnDocument();
-bool defaultCustomPasteboardDataEnabled();
 
 #if PLATFORM(MAC)
 #define DEFAULT_CAPTURE_AUDIO_IN_UIPROCESS true
@@ -236,3 +249,41 @@ bool defaultCustomPasteboardDataEnabled();
 #define DEFAULT_INPUT_TYPE_COLOR_ENABLED true
 #define DEFAULT_DATALIST_ELEMENT_ENABLED true
 #endif
+
+#if PLATFORM(IOS)
+#define DEFAULT_DOM_PASTE_ACCESS_REQUESTS_ENABLED true
+#else
+#define DEFAULT_DOM_PASTE_ACCESS_REQUESTS_ENABLED false
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(WATCHOS)
+#define DEFAULT_FAST_CLICKS_EVERYWHERE false
+#else
+#define DEFAULT_FAST_CLICKS_EVERYWHERE true
+#endif
+#endif
+
+#if ENABLE(APPLE_PAY_REMOTE_UI)
+#define DEFAULT_APPLE_PAY_ENABLED true
+#else
+#define DEFAULT_APPLE_PAY_ENABLED false
+#endif
+
+#if PLATFORM(MAC)
+#define DEFAULT_WEB_AUTHENTICATION_ENABLED true
+#else
+#define DEFAULT_WEB_AUTHENTICATION_ENABLED false
+#endif
+
+namespace WebKit {
+
+bool defaultPassiveTouchListenersAsDefaultOnDocument();
+bool defaultCustomPasteboardDataEnabled();
+bool defaultCSSOMViewScrollingAPIEnabled();
+
+#if ENABLE(TEXT_AUTOSIZING)
+bool defaultTextAutosizingUsesIdempotentMode();
+#endif
+
+} // namespace WebKit

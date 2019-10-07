@@ -1,14 +1,14 @@
 --TEST--
-Test array_chunk() function : usage variations - unexpected values for 'preserve_keys' 
+Test array_chunk() function : usage variations - unexpected values for 'preserve_keys'
 --FILE--
 <?php
 /* Prototype  : array array_chunk(array $array, int $size [, bool $preserve_keys])
- * Description: Split array into chunks 
+ * Description: Split array into chunks
  * Source code: ext/standard/array.c
 */
 
 /*
-* Testing array_chunk() function with unexpected values for 'preserve_keys' 
+* Testing array_chunk() function with unexpected values for 'preserve_keys'
 */
 
 echo "*** Testing array_chunk() : usage variations ***\n";
@@ -53,10 +53,10 @@ $values = array(
 /*16*/  new stdclass(),
 
         // undefined data
-/*17*/  @undefined_var,
+/*17*/  @$undefined_var,
 
         // unset data
-/*18*/  @unset_var
+/*18*/  @$unset_var
 
 );
 
@@ -241,7 +241,7 @@ array(1) {
 
 -- Iteration 16 --
 
-Warning: array_chunk() expects parameter 3 to be boolean, object given in %s on line %d
+Warning: array_chunk() expects parameter 3 to be bool, object given in %s on line %d
 NULL
 
 -- Iteration 17 --

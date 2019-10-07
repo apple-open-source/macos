@@ -23,26 +23,7 @@
 #ifndef	_CK_CRYPT_H_
 #define _CK_CRYPT_H_
 
-#ifdef	macintosh
-
-#include <feePublicKey.h>
-#include <feeDES.h>
-#include <feeDigitalSignature.h>
-#include <feeECDSA.h>
-#include <feeHash.h>
-#include <ckSHA1.h>
-#include <feeRandom.h>
-#include <feeTypes.h>
-#include <feeFunctions.h>
-#include <feeFEED.h>
-#include <feeFEEDExp.h>
-#include <enc64.h>
-#include <falloc.h>
-
-#else
-
 #include <security_cryptkit/feePublicKey.h>
-#include <security_cryptkit/feeDES.h>
 #include <security_cryptkit/feeDigitalSignature.h>
 #include <security_cryptkit/feeECDSA.h>
 #include <security_cryptkit/feeHash.h>
@@ -54,7 +35,5 @@
 #include <security_cryptkit/feeFEEDExp.h>
 #include <security_cryptkit/enc64.h>
 #include <security_cryptkit/falloc.h>
-
-#endif
 
 #endif /* _CK_CRYPT_H_ */

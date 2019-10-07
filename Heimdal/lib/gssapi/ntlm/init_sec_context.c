@@ -33,6 +33,8 @@
 
 #include "ntlm.h"
 #include <fnmatch.h>
+#include "heimcred.h"
+#include "heimbase.h"
 
 static int
 validate_hostname(ntlm_name name)
@@ -166,7 +168,13 @@ _gss_ntlm_init_sec_context(OM_uint32 * minor_status,
 	    _gss_ntlm_delete_sec_context(&junk, context_handle, NULL);
 	    return major;
 	}
-
+#ifdef DEBUG
+	if (ctx->client->flags & NTLM_UUID) {
+		uuid_string_t uuid_cstr;
+		uuid_unparse(&ctx->client->uuid, uuid_cstr);
+		_gss_mg_log(1, "_gss_ntlm_init_sec_context  UUID(%s)", uuid_cstr);
+	}
+#endif
 	major = _gss_ntlm_duplicate_name(minor_status, (gss_name_t)name, &ctx->targetname);
 	if (major) {
 	    OM_uint32 junk;
@@ -300,10 +308,30 @@ _gss_ntlm_init_sec_context(OM_uint32 * minor_status,
 	_gss_mg_log(1, "ntlm-isc-type3: anonymous");
 
     } else {
+#ifdef HAVE_KCM
 	krb5_context context;
-	krb5_error_code ret;
 	krb5_storage *request, *response = NULL;
-	krb5_data response_data, data, cb;
+	krb5_data response_data;
+#else /* !HAVE_KCM */
+	HeimCredRef credential_cfcred = NULL;
+	CFDictionaryRef response_cfdict = NULL;
+	CFStringRef user_cfstr = NULL;
+	CFErrorRef cferr = NULL;
+	CFIndex errcode = 0;
+	CFStringRef domain_cfstr = NULL;
+	CFDataRef type1_cfdata = NULL;
+	CFDataRef type2_cfdata = NULL;
+	CFDataRef type3_cfdata = NULL;
+	CFDataRef sessionkey_cfdata = NULL;
+	CFDataRef channel_binding_cfdata = NULL;
+	CFStringRef client_target_name_cfstr = NULL;
+	CFNumberRef flags_cfnum = NULL;
+	CFNumberRef responseflags_cfnum = NULL;
+	CFDictionaryRef attrs = NULL;
+	CFUUIDRef uuid_cfuuid = NULL;
+#endif /* HAVE_KCM */
+	krb5_error_code ret;
+	krb5_data data, cb;
 	char *ruser = NULL, *rdomain = NULL;
 	uint8_t channelbinding[16];
 	
@@ -325,6 +353,7 @@ _gss_ntlm_init_sec_context(OM_uint32 * minor_status,
 	} else
 	    krb5_data_zero(&cb);
 	
+#ifdef HAVE_KCM
 	ret = krb5_init_context(&context);
 	if (ret) {
 	    _gss_ntlm_delete_sec_context(minor_status, context_handle, NULL);
@@ -401,7 +430,234 @@ _gss_ntlm_init_sec_context(OM_uint32 * minor_status,
 	    krb5_data_free(&data);
 	    return GSS_S_FAILURE;
 	}
+#else /* !HAVE_KCM */
+	_gss_mg_log(1, "NTLM: _gss_ntlm_init_sec_context (GSSCred)");
+	if (ctx->client->flags & NTLM_UUID) {
+		uuid_string_t uuid_cstr;
+		uuid_unparse(&ctx->client->uuid, uuid_cstr);
+		_gss_mg_log(1, "_gss_ntlm_init_sec_context  UUID(%s)", uuid_cstr);
 
+		CFUUIDBytes cfuuid;
+		memcpy(&cfuuid, &ctx->client->uuid, sizeof(ctx->client->uuid));
+		uuid_cfuuid = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, cfuuid );
+		credential_cfcred = HeimCredCopyFromUUID(uuid_cfuuid);
+		if (credential_cfcred ) {
+			ret = 0;
+			/* username */
+			user_cfstr = CFStringCreateWithCString(kCFAllocatorDefault, ctx->client->user,kCFStringEncodingUTF8);
+			if (user_cfstr == NULL) {
+				ret = KRB5_CC_IO;
+				goto request_err;
+			}
+			/* domain */
+			domain_cfstr = CFStringCreateWithCString(kCFAllocatorDefault, ctx->client->domain,kCFStringEncodingUTF8);
+			if (domain_cfstr == NULL) {
+				ret = KRB5_CC_IO;
+				goto request_err;
+			}
+			/* type2 data */
+			if (input_token->length == 0) {
+				ret = KRB5_CC_IO;
+				goto request_err;
+			}
+			type2_cfdata = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)input_token->value, input_token->length );
+			if (type2_cfdata == NULL) {
+				ret = KRB5_CC_IO;
+				goto request_err;
+			}
+			/* channel binding */
+			if (cb.length == 0)
+				_gss_mg_log(1, "_gss_ntlm_init_sec_context  UUID(%s) - no channel bindings", uuid_cstr);
+			channel_binding_cfdata = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)cb.data, cb.length );
+			if (channel_binding_cfdata  == NULL) {
+				ret = KRB5_CC_IO;
+				goto request_err;
+			}
+			/* type1 data */
+			if ( ctx->type1.length == 0) {
+				ret = KRB5_CC_IO;
+				goto request_err;
+			}
+			type1_cfdata = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)ctx->type1.data, ctx->type1.length );
+			if (type1_cfdata == 0) {
+				ret = KRB5_CC_IO;
+				goto request_err;
+			}
+			/* client target name */
+			client_target_name_cfstr = CFStringCreateWithCString(kCFAllocatorDefault, ctx->clientsuppliedtargetname,kCFStringEncodingUTF8);
+			if (client_target_name_cfstr == 0) {
+				ret = KRB5_CC_IO;
+				goto request_err;
+			}
+			/* request flags */
+			flags_cfnum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &ctx->flags);
+			if (!flags_cfnum) {
+				ret = KRB5_CC_IO;
+				goto request_err;
+			}
+
+			const void *add_keys[] = {
+			(void *)kHEIMObjectType,
+					kHEIMAttrType,
+					kHEIMAttrNTLMUsername,
+					kHEIMAttrNTLMDomain,
+					kHEIMAttrNTLMType2Data,
+					kHEIMAttrNTLMChannelBinding,
+					kHEIMAttrNTLMType1Data,
+					kHEIMAttrNTLMClientTargetName,
+					kHEIMAttrNTLMClientFlags
+			};
+			const void *add_values[] = {
+			(void *)kHEIMObjectNTLM,
+					kHEIMTypeNTLM,
+					user_cfstr,
+					domain_cfstr,
+					type2_cfdata,
+					channel_binding_cfdata,
+					type1_cfdata,
+					client_target_name_cfstr,
+					flags_cfnum
+			};
+
+			attrs = CFDictionaryCreate(kCFAllocatorDefault, add_keys, add_values, sizeof(add_keys) / sizeof(add_keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+request_err:
+			if (user_cfstr)
+				CFRelease(user_cfstr);
+			if (domain_cfstr)
+				CFRelease(domain_cfstr);
+			if (type2_cfdata)
+				CFRelease(type2_cfdata);
+			if (channel_binding_cfdata)
+				CFRelease(channel_binding_cfdata);
+			if (type1_cfdata)
+				CFRelease(type1_cfdata);
+			if (client_target_name_cfstr)
+				CFRelease(client_target_name_cfstr);
+			if (flags_cfnum)
+				CFRelease(flags_cfnum);
+
+			if (ret) {
+				CFRelease(attrs);
+				_gss_ntlm_delete_sec_context(minor_status, context_handle, NULL);
+				*minor_status = ret;
+				return gss_mg_set_error_string(GSS_NTLM_MECHANISM, GSS_S_FAILURE, ret,
+									"failed to create ntlm response");
+			}
+
+			// TODO - Do we need to (_gss_ntlm_cred_hold) during authentication?
+			response_cfdict = HeimCredDoAuth(credential_cfcred, attrs, &cferr);
+			if (response_cfdict) { /* NTLMAuthCallback */
+				_gss_mg_log(1, "ntlm-isc-type3: GSSCred returned");
+
+				/* type3 data */
+				type3_cfdata = CFDictionaryGetValue(response_cfdict, kHEIMAttrNTLMType3Data);
+				if(!type3_cfdata) {
+					ret = KRB5_CC_IO;
+					goto reply_err;
+				}
+				data.length = CFDataGetLength(type3_cfdata);
+				if (data.length == 0) {
+					ret = KRB5_CC_IO;
+				goto reply_err;
+				}
+				data.data  = calloc(1, data.length);
+				if (data.data == NULL) {
+					*minor_status = ENOMEM;
+					return gss_mg_set_error_string(GSS_NTLM_MECHANISM, GSS_S_FAILURE,
+									ENOMEM, "out of memory");
+				}
+				CFDataGetBytes(type3_cfdata, CFRangeMake(0,CFDataGetLength(type3_cfdata)), data.data);
+
+				/* kcmflags - response flags  */
+				responseflags_cfnum = CFDictionaryGetValue(response_cfdict, kHEIMAttrNTLMKCMFlags);
+				if(!responseflags_cfnum) {
+					ret = KRB5_CC_IO;
+					goto reply_err;
+				}
+				if(!CFNumberGetValue(responseflags_cfnum, kCFNumberSInt32Type, &ctx->kcmflags)) {
+					ret = KRB5_CC_IO;
+					goto reply_err;
+				}
+
+				/* sessionkey */
+				sessionkey_cfdata = CFDictionaryGetValue(response_cfdict, kHEIMAttrNTLMSessionKey);
+				if(!sessionkey_cfdata) {
+					ret = KRB5_CC_IO;
+					goto reply_err;
+				}
+				ctx->sessionkey.length = CFDataGetLength(sessionkey_cfdata);
+				if (ctx->sessionkey.length == 0) {
+					ret = KRB5_CC_IO;
+					goto reply_err;
+				}
+				ctx->sessionkey.data  = calloc(1, ctx->sessionkey.length);
+				if (ctx->sessionkey.data == NULL) {
+					*minor_status = ENOMEM;
+					return gss_mg_set_error_string(GSS_NTLM_MECHANISM, GSS_S_FAILURE,
+									ENOMEM, "out of memory");
+				}
+				CFDataGetBytes(sessionkey_cfdata, CFRangeMake(0,CFDataGetLength(sessionkey_cfdata)), ctx->sessionkey.data);
+
+				/* response (user) */
+				user_cfstr = CFDictionaryGetValue(response_cfdict, kHEIMAttrNTLMUsername);
+				if (!user_cfstr) {
+					ret = KRB5_CC_IO;
+					goto reply_err;
+				}
+				ruser = heim_string_copy_utf8(user_cfstr);
+
+				/* response (domain) */
+				domain_cfstr = CFDictionaryGetValue(response_cfdict, kHEIMAttrNTLMDomain);
+				if (!domain_cfstr) {
+					ret = KRB5_CC_IO;
+					goto reply_err;
+				}
+				rdomain = heim_string_copy_utf8(domain_cfstr);
+
+				/* client flags */
+				flags_cfnum = CFDictionaryGetValue(response_cfdict, kHEIMAttrNTLMClientFlags);
+				if(!CFNumberGetValue(flags_cfnum, kCFNumberSInt32Type, &ctx->flags))
+					ret = KRB5_CC_IO;
+	reply_err:
+				if (ret) {
+					CFRelease(attrs);
+					_gss_ntlm_delete_sec_context(minor_status, context_handle, NULL);
+					krb5_data_free(&data);
+					free(ruser);
+					free(rdomain);
+					*minor_status = ret;
+					return gss_mg_set_error_string(GSS_NTLM_MECHANISM, GSS_S_FAILURE, ret,
+									"failed parse GSSCred reply");
+				}
+
+				_gss_mg_log(1, "ntlm-isc-type3: %s\\%s", rdomain, ruser);
+
+				ctx->srcname = _gss_ntlm_create_name(minor_status, ruser, rdomain, 0);
+				free(ruser);
+				free(rdomain);
+				if (ctx->srcname == NULL) {
+					CFRelease(attrs);
+					_gss_ntlm_delete_sec_context(minor_status, context_handle, NULL);
+					krb5_data_free(&data);
+					return GSS_S_FAILURE;
+				}
+			} else { /* HeimCredDoAuth */
+				if (cferr)
+					errcode = CFErrorGetCode(cferr);
+				_gss_mg_log(1, "NTLM: HeimCredCreate failed error(%ld)", errcode);
+			}
+			CFRelease(attrs);
+			HeimCredDelete(credential_cfcred);
+		}
+		CFRelease(uuid_cfuuid);
+	} else {
+		_gss_mg_log(1, "NTLM: NTLM_UUID not available");
+		_gss_ntlm_delete_sec_context(minor_status, context_handle, NULL);
+		return gss_mg_set_error_string(GSS_NTLM_MECHANISM, GSS_S_NO_CRED, 0,
+						"no credentials available");
+	}
+#endif /* HAVE_KCM */
 	output_token->length = data.length;
 	output_token->value = data.data;
 

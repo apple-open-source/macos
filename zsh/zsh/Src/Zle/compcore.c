@@ -1610,9 +1610,11 @@ set_comp_sep(void)
     inpush(dupstrspace(tmp), 0, NULL);
     zlemetaline = tmp;
     /*
-     * Length of temporary string, calculated above.
+     * tl is the length of temporary string, calculated above.
+     * It seems zlemetall need not include the 'x' added at the cursor.
+     * addedx is taken care of in function gotword() (lex.c).
      */
-    zlemetall = tl;
+    zlemetall = tl - addedx;
     strinbeg(0);
     noaliases = 1;
     do {
@@ -1638,7 +1640,7 @@ set_comp_sep(void)
 		    p[-1] = '\0';
 	    }
 	}
-	if (tok == ENDINPUT || tok == LEXERR)
+	if (tok == ENDINPUT)
 	    break;
 	if (tokstr && *tokstr) {
             for (p = tokstr; dq && *p; p++) {
@@ -1667,9 +1669,9 @@ set_comp_sep(void)
 	if (!got && !lexflags) {
 	    DPUTS(!p, "no current word in substr");
 	    got = 1;
-	    cur = i;
-	    swb = wb - 1 - dq - sq - dolq;
-	    swe = we - 1 - dq - sq - dolq;
+	    cur = countlinknodes(foo) - 1;  /* cur is 0 offset */
+	    swb = wb - dq - sq - dolq;
+	    swe = we - dq - sq - dolq;
             sqq = lsq;
 	    soffs = zlemetacs - swb - css;
 	    DPUTS2(p[soffs] != 'x', "expecting 'x' at offset %d of \"%s\"",
@@ -1901,7 +1903,11 @@ set_comp_sep(void)
 	    p = compwords[i] = (char *) getdata(n);
 	    untokenize(p);
 	}
-	compcurrent = cur + 1;
+	/* The current position shouldn't exceed the new word count */
+	if ((compcurrent = cur + 1) > i) {
+	    DPUTS2(1, "compcurrent=%d > number_of_words=%d", compcurrent, i);
+	    compcurrent = i;
+	}
 	compwords[i] = NULL;
     }
     instring = ois;
@@ -3135,7 +3141,9 @@ matchcmp(Cmatch *a, Cmatch *b)
     if ((*b)->disp && !((*b)->flags & CMF_MORDER))
 	return 1;
 
-    return zstrbcmp((*a)->str, (*b)->str);
+    return zstrcmp((*a)->str, (*b)->str, (SORTIT_IGNORING_BACKSLASHES|
+					  (isset(NUMERICGLOBSORT) ?
+					   SORTIT_NUMERICALLY : 0)));
 }
 
 /* This tests whether two matches are equal (would produce the same
@@ -3152,9 +3160,7 @@ matcheq(Cmatch a, Cmatch b)
 	matchstreq(a->ppre, b->ppre) &&
 	matchstreq(a->psuf, b->psuf) &&
 	matchstreq(a->suf, b->suf) &&
-	((!a->disp && !b->disp && matchstreq(a->str, b->str)) ||
-	 (a->disp && b->disp && !strcmp(a->disp, b->disp) &&
-	  matchstreq(a->str, b->str)));
+	  matchstreq(a->str, b->str);
 }
 
 /* Make an array from a linked list. The second argument says whether *
@@ -3548,6 +3554,8 @@ freematches(Cmgroup g, int cm)
 	    }
 	    free(g->expls);
 	}
+	if (g->widths)
+	    free(g->widths);
 	zsfree(g->name);
 	free(g);
 

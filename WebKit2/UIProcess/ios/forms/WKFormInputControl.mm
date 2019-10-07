@@ -53,6 +53,7 @@ using namespace WebKit;
 }
 - (id)initWithView:(WKContentView *)view datePickerMode:(UIDatePickerMode)mode;
 - (WKDateTimePopoverViewController *)viewController;
+@property (nonatomic, readonly) NSString *calendarType;
 @end
 
 @interface WKDateTimePicker : NSObject<WKFormControl> {
@@ -105,7 +106,7 @@ static const NSTimeInterval kMillisecondsPerSecond = 1000;
         break;
    }
 
-    CGSize size = currentUserInterfaceIdiomIsPad() ? [UIPickerView defaultSizeForCurrentOrientation] : [UIKeyboard defaultSizeForInterfaceOrientation:[UIApp interfaceOrientation]];
+    auto size = currentUserInterfaceIdiomIsPad() ? [UIPickerView defaultSizeForCurrentOrientation] : [UIKeyboard defaultSizeForInterfaceOrientation:view.interfaceOrientation];
 
     _datePicker = adoptNS([[UIDatePicker alloc] initWithFrame:CGRectMake(0, 0, size.width, size.height)]);
     _datePicker.get().datePickerMode = mode;
@@ -238,72 +239,51 @@ static const NSTimeInterval kMillisecondsPerSecond = 1000;
 @end
 
 // WKFormInputControl
-@implementation WKFormInputControl {
-    RetainPtr<id<WKFormControl>> _control;
-}
+@implementation WKFormInputControl
 
 - (instancetype)initWithView:(WKContentView *)view
 {
-    if (!(self = [super init]))
-        return nil;
-
     UIDatePickerMode mode;
 
     switch (view.focusedElementInformation.elementType) {
     case InputType::Date:
         mode = UIDatePickerModeDate;
         break;
-
     case InputType::DateTimeLocal:
         mode = UIDatePickerModeDateAndTime;
         break;
-
     case InputType::Time:
         mode = UIDatePickerModeTime;
         break;
-
     case InputType::Month:
         mode = (UIDatePickerMode)UIDatePickerModeYearAndMonth;
         break;
-
     default:
         [self release];
         return nil;
     }
 
+    RetainPtr<NSObject <WKFormControl>> control;
     if (currentUserInterfaceIdiomIsPad())
-        _control = adoptNS([[WKDateTimePopover alloc] initWithView:view datePickerMode:mode]);
+        control = adoptNS([[WKDateTimePopover alloc] initWithView:view datePickerMode:mode]);
     else
-        _control = adoptNS([[WKDateTimePicker alloc] initWithView:view datePickerMode:mode]);
-
-    return self;
-
-}
-
-- (void)beginEditing
-{
-    [_control controlBeginEditing];
-}
-
-- (void)endEditing
-{
-    [_control controlEndEditing];
-}
-
-- (UIView *)assistantView
-{
-    return [_control controlView];
+        control = adoptNS([[WKDateTimePicker alloc] initWithView:view datePickerMode:mode]);
+    return [super initWithView:view control:WTFMove(control)];
 }
 
 @end
 
 @implementation WKFormInputControl (WKTesting)
+
 - (NSString *)dateTimePickerCalendarType
 {
-    if ([(NSObject *)_control.get() isKindOfClass:WKDateTimePicker.class])
-        return [(WKDateTimePicker *)_control.get() calendarType];
+    if ([self.control isKindOfClass:WKDateTimePicker.class])
+        return [(WKDateTimePicker *)self.control calendarType];
+    if ([self.control isKindOfClass:WKDateTimePopover.class])
+        return [(WKDateTimePopover *)self.control calendarType];
     return nil;
 }
+
 @end
 
 @implementation WKDateTimePopoverViewController
@@ -381,11 +361,19 @@ static const NSTimeInterval kMillisecondsPerSecond = 1000;
 
 - (void)controlEndEditing
 {
+    [self dismissPopoverAnimated:NO];
+    [_viewController.get().innerControl controlEndEditing];
 }
 
 - (UIView *)controlView
 {
     return nil;
+}
+
+- (NSString *)calendarType
+{
+    WKDateTimePicker *dateTimePicker = (WKDateTimePicker *)self.viewController.innerControl;
+    return dateTimePicker.datePicker.calendar.calendarIdentifier;
 }
 
 @end

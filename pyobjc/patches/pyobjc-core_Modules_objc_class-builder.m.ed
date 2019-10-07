@@ -1,0 +1,18 @@
+g/objc_msgSendSuper(\&spr, _meth);/s/objc_msgSendSuper(\&spr, _meth);/((void (*)(struct objc_super *, SEL))objc_msgSendSuper)(\&spr, _meth);/
+/copy = objc_msgSendSuper(\&spr, _meth, zone);/c
+	copy = ((id (*)(struct objc_super *, SEL, NSZone*))objc_msgSendSuper)(&spr, _meth, zone);
+.
+/\*presult = objc_msgSendSuper(\&spr, _meth, aSelector);/c
+	*presult = ((id (*)(struct objc_super *, SEL, SEL))objc_msgSendSuper)(&spr, _meth, aSelector);
+.
+/objc_msgSendSuper(\&spr, _meth, invocation);/c
+	((void (*)(struct objc_super *, SEL, NSInvocation*))objc_msgSendSuper)(&spr, _meth, invocation);
+.
+/\*((id \*)retval) = (id)objc_msgSendSuper(\&spr, _meth, key);/c
+	*((id *)retval) = ((id (*)(struct objc_super *, SEL, NSString*))objc_msgSendSuper)(&spr, _meth, key);
+.
+g/(void)objc_msgSendSuper(\&spr, _meth, key);/s/(void)objc_msgSendSuper(\&spr, _meth, key);/((void (*)(struct objc_super *, SEL, NSString*))objc_msgSendSuper)(&spr, _meth, key);/
+/(void)objc_msgSendSuper(\&spr, _meth, value, key);/c
+	 ((void (*)(struct objc_super *, SEL, id, NSString*))objc_msgSendSuper)(&spr, _meth, value, key);
+.
+w

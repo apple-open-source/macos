@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
+#if OCTAGON
 #import "OTBottledPeerRecord.h"
 #import <corecrypto/cchkdf.h>
 #import <corecrypto/ccsha2.h>
@@ -49,3 +49,4 @@ static NSString* OTCKRecordName = @"bp-";
 }
 
 @end
+#endif

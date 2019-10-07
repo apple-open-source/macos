@@ -43,22 +43,6 @@ hrtime_t gethrtime(void);
 
 typedef int processorid_t;
 
-typedef ulong_t Lmid_t; /* link map id. Required in dt_pid.c */
-
-typedef int lwpstatus_t; /* In lieu of Solaris <sys/procfs_isa.h>. Required in dt_proc.c */
-
-#define fork1		fork
-#define fseeko64	fseeko
-#define ftello64	ftello
-#define ftruncate64 ftruncate
-#define lseek64		lseek
-#define open64		open
-#define fstat64		fstat
-#define mmap64		mmap
-#define open64		open
-#define pread64		pread
-#define stat64		stat
-
 #define pthread_cond_reltimedwait_np pthread_cond_timedwait_relative_np
 
 /*

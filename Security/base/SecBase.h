@@ -26,7 +26,7 @@
 
 #include <TargetConditionals.h>
 #include <CoreFoundation/CFBase.h>
-#include <AvailabilityMacros.h>
+#include <Availability.h>
 
 // Truth table for following declarations:
 //
@@ -71,24 +71,25 @@
 #define SEC_DEPRECATED_ATTRIBUTE
 #endif
 
+#define CSSM_DEPRECATED API_DEPRECATED("CSSM is not supported", macos(10.0, 10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac)
+
 __BEGIN_DECLS
 
 CF_ASSUME_NONNULL_BEGIN
 CF_IMPLICIT_BRIDGING_ENABLED
 
-
-#if SEC_OS_IPHONE
-#define SECTYPE(a) __##a
-#elif SEC_OS_OSX
-#define SECTYPE(a) Opaque##a##Ref
-#endif
+#define SECURITY_TYPE_UNIFICATION 1
 
 /*!
     @typedef SecCertificateRef
     @abstract CFType representing a X.509 certificate.
     See SecCertificate.h for details.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecCertificate) *SecCertificateRef;
+typedef struct CF_BRIDGED_TYPE(id) __SecCertificate *SecCertificateRef;
+
+#if TARGET_OS_OSX
+typedef struct __SecCertificate OpaqueSecCertificateRef;
+#endif
 
 /*!
     @typedef SecIdentityRef
@@ -96,53 +97,61 @@ typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecCertificate) *SecCertificateRef;
     a SecKeyRef and an associated SecCertificateRef. See
     SecIdentity.h for details.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecIdentity) *SecIdentityRef;
+typedef struct CF_BRIDGED_TYPE(id) __SecIdentity *SecIdentityRef;
+
+#if TARGET_OS_OSX
+typedef struct __SecIdentity OpaqueSecIdentityRef;
+#endif
 
 /*!
     @typedef SecKeyRef
     @abstract CFType representing a cryptographic key. See
     SecKey.h for details.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecKey) *SecKeyRef;
+typedef struct CF_BRIDGED_TYPE(id) __SecKey *SecKeyRef;
+
+#if TARGET_OS_OSX
+typedef struct __SecKey OpaqueSecKeyRef;
+#endif
 
 /*!
     @typedef SecPolicyRef
     @abstract CFType representing a X.509 certificate trust policy.
     See SecPolicy.h for details.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecPolicy) *SecPolicyRef;
+typedef struct CF_BRIDGED_TYPE(id) __SecPolicy *SecPolicyRef;
 
 /*!
     @typedef SecAccessControl
     @abstract CFType representing access control for an item.
     SecAccessControl.h for details.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecAccessControl) *SecAccessControlRef;
+typedef struct CF_BRIDGED_TYPE(id) __SecAccessControl *SecAccessControlRef;
 
 /*!
     @typedef SecKeychainRef
     @abstract Contains information about a keychain.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecKeychain) *SecKeychainRef
+typedef struct CF_BRIDGED_TYPE(id) __SecKeychain *SecKeychainRef
     API_AVAILABLE(macos(10.0)) SPI_AVAILABLE(ios(1.0), tvos(9.0), watchos(1.0));
 
 /*!
     @typedef SecKeychainItemRef
     @abstract Contains information about a keychain item.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecKeychainItem) *SecKeychainItemRef API_UNAVAILABLE(ios);
+typedef struct CF_BRIDGED_TYPE(id) __SecKeychainItem *SecKeychainItemRef API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
     @typedef SecKeychainSearchRef
     @abstract Contains information about a keychain search.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecKeychainSearch) *SecKeychainSearchRef API_UNAVAILABLE(ios);
+typedef struct CF_BRIDGED_TYPE(id) __SecKeychainSearch *SecKeychainSearchRef API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
     @typedef SecKeychainAttrType
     @abstract Represents a keychain attribute type.
 */
-typedef OSType SecKeychainAttrType API_UNAVAILABLE(ios);
+typedef OSType SecKeychainAttrType API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
     @struct SecKeychainAttribute
@@ -151,19 +160,19 @@ typedef OSType SecKeychainAttrType API_UNAVAILABLE(ios);
     @field length The length of the buffer pointed to by data.
     @field data A pointer to the attribute data.
 */
-struct API_UNAVAILABLE(ios) SecKeychainAttribute
+struct API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac) SecKeychainAttribute
 {
     SecKeychainAttrType tag;
     UInt32 length;
     void * __nullable data;
 };
-typedef struct SecKeychainAttribute SecKeychainAttribute API_UNAVAILABLE(ios);
+typedef struct SecKeychainAttribute SecKeychainAttribute API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
     @typedef SecKeychainAttributePtr
     @abstract Represents a pointer to a keychain attribute structure.
 */
-typedef SecKeychainAttribute *SecKeychainAttributePtr API_UNAVAILABLE(ios);
+typedef SecKeychainAttribute *SecKeychainAttributePtr API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
     @typedef SecKeychainAttributeList
@@ -171,42 +180,46 @@ typedef SecKeychainAttribute *SecKeychainAttributePtr API_UNAVAILABLE(ios);
     @field count An unsigned 32-bit integer that represents the number of keychain attributes in the array.
     @field attr A pointer to the first keychain attribute in the array.
 */
-struct API_UNAVAILABLE(ios) SecKeychainAttributeList
+struct API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac) SecKeychainAttributeList
 {
     UInt32 count;
     SecKeychainAttribute * __nullable attr;
 };
-typedef struct SecKeychainAttributeList SecKeychainAttributeList API_UNAVAILABLE(ios);
+typedef struct SecKeychainAttributeList SecKeychainAttributeList API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
     @typedef SecKeychainStatus
     @abstract Represents the status of a keychain.
 */
-typedef UInt32 SecKeychainStatus API_UNAVAILABLE(ios);
+typedef UInt32 SecKeychainStatus API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
     @typedef SecTrustedApplicationRef
     @abstract Contains information about a trusted application.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecTrustedApplication) *SecTrustedApplicationRef API_UNAVAILABLE(ios);
+typedef struct CF_BRIDGED_TYPE(id) __SecTrustedApplication *SecTrustedApplicationRef API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
     @typedef SecAccessRef
     @abstract Contains information about an access.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecAccess) *SecAccessRef API_UNAVAILABLE(ios);
+typedef struct CF_BRIDGED_TYPE(id) __SecAccess *SecAccessRef API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+
+#if TARGET_OS_OSX
+typedef struct __SecAccess OpaqueSecAccessRef;
+#endif
 
 /*!
     @typedef SecACLRef
     @abstract Contains information about an access control list (ACL) entry.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecTrust) *SecACLRef API_UNAVAILABLE(ios);
+typedef struct CF_BRIDGED_TYPE(id) __SecACL *SecACLRef API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
     @typedef SecPasswordRef
     @abstract Contains information about a password.
 */
-typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecPassword) *SecPasswordRef API_UNAVAILABLE(ios);
+typedef struct CF_BRIDGED_TYPE(id) __SecPassword *SecPasswordRef API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
     @typedef SecKeychainAttributeInfo
@@ -216,13 +229,13 @@ typedef struct CF_BRIDGED_TYPE(id) SECTYPE(SecPassword) *SecPasswordRef API_UNAV
     @field format A pointer to the first CSSM_DB_ATTRIBUTE_FORMAT in the array.
     @discussion Each tag and format item form a pair.
 */
-struct API_UNAVAILABLE(ios) SecKeychainAttributeInfo
+struct API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac) SecKeychainAttributeInfo
 {
     UInt32 count;
     UInt32 *tag;
     UInt32 * __nullable format;
 };
-typedef struct SecKeychainAttributeInfo SecKeychainAttributeInfo API_UNAVAILABLE(ios);
+typedef struct SecKeychainAttributeInfo SecKeychainAttributeInfo API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 
 /*!
     @function SecCopyErrorMessageString
@@ -235,15 +248,13 @@ __nullable
 CFStringRef SecCopyErrorMessageString(OSStatus status, void * __nullable reserved)
     __OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_11_3);
 
-#undef SECTYPE
-
 
 /*!
 @enum Security Error Codes
 @abstract Result codes returned from Security framework functions.
 @constant errSecSuccess No error.
 @constant errSecUnimplemented Function or operation not implemented.
-@constant errSecDskFull Disk Full error.
+@constant errSecDiskFull Disk Full error.
 @constant errSecIO I/O error.
 @constant errSecParam One or more parameters passed to a function were not valid.
 @constant errSecWrPerm    Write permissions error.
@@ -312,7 +323,7 @@ CF_ENUM(OSStatus)
     errSecSuccess                            = 0,       /* No error. */
     errSecUnimplemented                      = -4,      /* Function or operation not implemented. */
     errSecDiskFull                           = -34,     /* The disk is full. */
-    errSecDskFull                            = -34,
+    errSecDskFull __attribute__((deprecated("use errSecDiskFull"))) = errSecDiskFull,
     errSecIO                                 = -36,     /* I/O error. */
     errSecOpWr                               = -49,     /* File already open with write permission. */
     errSecParam                              = -50,     /* One or more parameters passed to a function were not valid. */
@@ -690,8 +701,189 @@ CF_ENUM(OSStatus)
     errSecTimestampWaiting                   = -67896,    /* A timestamp transaction is waiting. */
     errSecTimestampRevocationWarning         = -67897,    /* A timestamp authority revocation warning was issued. */
     errSecTimestampRevocationNotification    = -67898,    /* A timestamp authority revocation notification was issued. */
+    errSecCertificatePolicyNotAllowed        = -67899,    /* The requested policy is not allowed for this certificate. */
+    errSecCertificateNameNotAllowed          = -67900,    /* The requested name is not allowed for this certificate. */
+    errSecCertificateValidityPeriodTooLong   = -67901,    /* The validity period in the certificate exceeds the maximum allowed. */
 };
 
+
+/*!
+ @enum SecureTransport Error Codes
+ @abstract Result codes returned from SecureTransport and SecProtocol functions. This is also the domain
+   for TLS errors in the network stack.
+
+ @constant errSSLProtocol SSL protocol error
+ @constant errSSLNegotiation Cipher Suite negotiation failure
+ @constant errSSLFatalAlert Fatal alert
+ @constant errSSLWouldBlock I/O would block (not fatal)
+ @constant errSSLSessionNotFound attempt to restore an unknown session
+ @constant errSSLClosedGraceful connection closed gracefully
+ @constant errSSLClosedAbort connection closed via error
+ @constant errSSLXCertChainInvalid invalid certificate chain
+ @constant errSSLBadCert bad certificate format
+ @constant errSSLCrypto underlying cryptographic error
+ @constant errSSLInternal Internal error
+ @constant errSSLModuleAttach module attach failure
+ @constant errSSLUnknownRootCert valid cert chain, untrusted root
+ @constant errSSLNoRootCert cert chain not verified by root
+ @constant errSSLCertExpired chain had an expired cert
+ @constant errSSLCertNotYetValid chain had a cert not yet valid
+ @constant errSSLClosedNoNotify server closed session with no notification
+ @constant errSSLBufferOverflow insufficient buffer provided
+ @constant errSSLBadCipherSuite bad SSLCipherSuite
+ @constant errSSLPeerUnexpectedMsg unexpected message received
+ @constant errSSLPeerBadRecordMac bad MAC
+ @constant errSSLPeerDecryptionFail decryption failed
+ @constant errSSLPeerRecordOverflow record overflow
+ @constant errSSLPeerDecompressFail decompression failure
+ @constant errSSLPeerHandshakeFail handshake failure
+ @constant errSSLPeerBadCert misc. bad certificate
+ @constant errSSLPeerUnsupportedCert bad unsupported cert format
+ @constant errSSLPeerCertRevoked certificate revoked
+ @constant errSSLPeerCertExpired certificate expired
+ @constant errSSLPeerCertUnknown unknown certificate
+ @constant errSSLIllegalParam illegal parameter
+ @constant errSSLPeerUnknownCA unknown Cert Authority
+ @constant errSSLPeerAccessDenied access denied
+ @constant errSSLPeerDecodeError decoding error
+ @constant errSSLPeerDecryptError decryption error
+ @constant errSSLPeerExportRestriction export restriction
+ @constant errSSLPeerProtocolVersion bad protocol version
+ @constant errSSLPeerInsufficientSecurity insufficient security
+ @constant errSSLPeerInternalError internal error
+ @constant errSSLPeerUserCancelled user canceled
+ @constant errSSLPeerNoRenegotiation no renegotiation allowed
+ @constant errSSLPeerAuthCompleted peer cert is valid, or was ignored if verification disabled
+ @constant errSSLClientCertRequested server has requested a client cert
+ @constant errSSLHostNameMismatch peer host name mismatch
+ @constant errSSLConnectionRefused peer dropped connection before responding
+ @constant errSSLDecryptionFail decryption failure
+ @constant errSSLBadRecordMac bad MAC
+ @constant errSSLRecordOverflow record overflow
+ @constant errSSLBadConfiguration configuration error
+ @constant errSSLUnexpectedRecord unexpected (skipped) record in DTLS
+ @constant errSSLWeakPeerEphemeralDHKey weak ephemeral dh key
+ @constant errSSLClientHelloReceived SNI
+ @constant errSSLTransportReset transport (socket) shutdown, e.g., TCP RST or FIN.
+ @constant errSSLNetworkTimeout network timeout triggered
+ @constant errSSLConfigurationFailed TLS configuration failed
+ @constant errSSLUnsupportedExtension unsupported TLS extension
+ @constant errSSLUnexpectedMessage peer rejected unexpected message
+ @constant errSSLDecompressFail decompression failed
+ @constant errSSLHandshakeFail handshake failed
+ @constant errSSLDecodeError decode failed
+ @constant errSSLInappropriateFallback inappropriate fallback
+ @constant errSSLMissingExtension missing extension
+ @constant errSSLBadCertificateStatusResponse bad OCSP response
+ @constant errSSLCertificateRequired certificate required
+ @constant errSSLUnknownPSKIdentity unknown PSK identity
+ @constant errSSLUnrecognizedName unknown or unrecognized name
+ @constant errSSLATSViolation ATS violation
+ @constant errSSLATSMinimumVersionViolation ATS violation: minimum protocol version is not ATS compliant
+ @constant errSSLATSCiphersuiteViolation ATS violation: selected ciphersuite is not ATS compliant
+ @constant errSSLATSMinimumKeySizeViolation ATS violation: peer key size is not ATS compliant
+ @constant errSSLATSLeafCertificateHashAlgorithmViolation ATS violation: peer leaf certificate hash algorithm is not ATS compliant
+ @constant errSSLATSCertificateHashAlgorithmViolation ATS violation: peer certificate hash algorithm is not ATS compliant
+ @constant errSSLATSCertificateTrustViolation ATS violation: peer certificate is not issued by trusted peer
+ */
+
+/*
+ Note: the comments that appear after these errors are used to create SecErrorMessages.strings.
+ The comments must not be multi-line, and should be in a form meaningful to an end user. If
+ a different or additional comment is needed, it can be put in the header doc format, or on a
+ line that does not start with errZZZ.
+ */
+CF_ENUM(OSStatus) {
+    errSSLProtocol                                  = -9800,    /* SSL protocol error */
+    errSSLNegotiation                               = -9801,    /* Cipher Suite negotiation failure */
+    errSSLFatalAlert                                = -9802,    /* Fatal alert */
+    errSSLWouldBlock                                = -9803,    /* I/O would block (not fatal) */
+    errSSLSessionNotFound                           = -9804,    /* attempt to restore an unknown session */
+    errSSLClosedGraceful                            = -9805,    /* connection closed gracefully */
+    errSSLClosedAbort                               = -9806,    /* connection closed via error */
+    errSSLXCertChainInvalid                         = -9807,    /* invalid certificate chain */
+    errSSLBadCert                                   = -9808,    /* bad certificate format */
+    errSSLCrypto                                    = -9809,    /* underlying cryptographic error */
+    errSSLInternal                                  = -9810,    /* Internal error */
+    errSSLModuleAttach                              = -9811,    /* module attach failure */
+    errSSLUnknownRootCert                           = -9812,    /* valid cert chain, untrusted root */
+    errSSLNoRootCert                                = -9813,    /* cert chain not verified by root */
+    errSSLCertExpired                               = -9814,    /* chain had an expired cert */
+    errSSLCertNotYetValid                           = -9815,    /* chain had a cert not yet valid */
+    errSSLClosedNoNotify                            = -9816,    /* server closed session with no notification */
+    errSSLBufferOverflow                            = -9817,    /* insufficient buffer provided */
+    errSSLBadCipherSuite                            = -9818,    /* bad SSLCipherSuite */
+
+    /* fatal errors detected by peer */
+    errSSLPeerUnexpectedMsg                         = -9819,    /* unexpected message received */
+    errSSLPeerBadRecordMac                          = -9820,    /* bad MAC */
+    errSSLPeerDecryptionFail                        = -9821,    /* decryption failed */
+    errSSLPeerRecordOverflow                        = -9822,    /* record overflow */
+    errSSLPeerDecompressFail                        = -9823,    /* decompression failure */
+    errSSLPeerHandshakeFail                         = -9824,    /* handshake failure */
+    errSSLPeerBadCert                               = -9825,    /* misc. bad certificate */
+    errSSLPeerUnsupportedCert                       = -9826,    /* bad unsupported cert format */
+    errSSLPeerCertRevoked                           = -9827,    /* certificate revoked */
+    errSSLPeerCertExpired                           = -9828,    /* certificate expired */
+    errSSLPeerCertUnknown                           = -9829,    /* unknown certificate */
+    errSSLIllegalParam                              = -9830,    /* illegal parameter */
+    errSSLPeerUnknownCA                             = -9831,    /* unknown Cert Authority */
+    errSSLPeerAccessDenied                          = -9832,    /* access denied */
+    errSSLPeerDecodeError                           = -9833,    /* decoding error */
+    errSSLPeerDecryptError                          = -9834,    /* decryption error */
+    errSSLPeerExportRestriction                     = -9835,    /* export restriction */
+    errSSLPeerProtocolVersion                       = -9836,    /* bad protocol version */
+    errSSLPeerInsufficientSecurity                  = -9837,    /* insufficient security */
+    errSSLPeerInternalError                         = -9838,    /* internal error */
+    errSSLPeerUserCancelled                         = -9839,    /* user canceled */
+    errSSLPeerNoRenegotiation                       = -9840,    /* no renegotiation allowed */
+
+    /* non-fatal result codes */
+    errSSLPeerAuthCompleted                         = -9841,    /* peer cert is valid, or was ignored if verification disabled */
+    errSSLClientCertRequested                       = -9842,    /* server has requested a client cert */
+
+    /* more errors detected by us */
+    errSSLHostNameMismatch                          = -9843,    /* peer host name mismatch */
+    errSSLConnectionRefused                         = -9844,    /* peer dropped connection before responding */
+    errSSLDecryptionFail                            = -9845,    /* decryption failure */
+    errSSLBadRecordMac                              = -9846,    /* bad MAC */
+    errSSLRecordOverflow                            = -9847,    /* record overflow */
+    errSSLBadConfiguration                          = -9848,    /* configuration error */
+    errSSLUnexpectedRecord                          = -9849,    /* unexpected (skipped) record in DTLS */
+    errSSLWeakPeerEphemeralDHKey                    = -9850,    /* weak ephemeral dh key  */
+
+    /* non-fatal result codes */
+    errSSLClientHelloReceived                       = -9851,    /* SNI */
+
+    /* fatal errors resulting from transport or networking errors */
+    errSSLTransportReset                            = -9852,    /* transport (socket) shutdown, e.g., TCP RST or FIN. */
+    errSSLNetworkTimeout                            = -9853,    /* network timeout triggered */
+
+    /* fatal errors resulting from software misconfiguration */
+    errSSLConfigurationFailed                       = -9854,    /* TLS configuration failed */
+
+    /* additional errors */
+    errSSLUnsupportedExtension                      = -9855,    /* unsupported TLS extension */
+    errSSLUnexpectedMessage                         = -9856,    /* peer rejected unexpected message */
+    errSSLDecompressFail                            = -9857,    /* decompression failed */
+    errSSLHandshakeFail                             = -9858,    /* handshake failed */
+    errSSLDecodeError                               = -9859,    /* decode failed */
+    errSSLInappropriateFallback                     = -9860,    /* inappropriate fallback */
+    errSSLMissingExtension                          = -9861,    /* missing extension */
+    errSSLBadCertificateStatusResponse              = -9862,    /* bad OCSP response */
+    errSSLCertificateRequired                       = -9863,    /* certificate required */
+    errSSLUnknownPSKIdentity                        = -9864,    /* unknown PSK identity */
+    errSSLUnrecognizedName                          = -9865,    /* unknown or unrecognized name */
+
+    /* ATS compliance violation errors */
+    errSSLATSViolation                              = -9880,    /* ATS violation */
+    errSSLATSMinimumVersionViolation                = -9881,    /* ATS violation: minimum protocol version is not ATS compliant */
+    errSSLATSCiphersuiteViolation                   = -9882,    /* ATS violation: selected ciphersuite is not ATS compliant */
+    errSSLATSMinimumKeySizeViolation                = -9883,    /* ATS violation: peer key size is not ATS compliant */
+    errSSLATSLeafCertificateHashAlgorithmViolation  = -9884,    /* ATS violation: peer leaf certificate hash algorithm is not ATS compliant */
+    errSSLATSCertificateHashAlgorithmViolation      = -9885,    /* ATS violation: peer certificate hash algorithm is not ATS compliant */
+    errSSLATSCertificateTrustViolation              = -9886,    /* ATS violation: peer certificate is not issued by trusted peer */
+};
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,11 +50,11 @@
 #include <EAP8021X/SupplicantTypes.h>
 #include <EAP8021X/EAPKeychainUtil.h>
 #include <TargetConditionals.h>
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 #include <EAP8021X/EAPOLClientConfiguration.h>
 #include <EAP8021X/EAPOLClientConfigurationPrivate.h>
 #include <notify.h>
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 #include <EAP8021X/EAPCertificateUtil.h>
 #include <EAP8021X/EAPSecurity.h>
 #include <CoreFoundation/CFString.h>
@@ -65,13 +65,13 @@
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 #include <Security/SecKeychain.h>
 #include <Security/SecKeychainItem.h>
 #include "Dialogue.h"
 #include <OpenDirectory/OpenDirectoryPriv.h>
 #include <opendirectory/adsupport.h>
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 #include <Security/SecureTransport.h>
 #include "symbol_scope.h"
 #include "Supplicant.h"
@@ -155,7 +155,7 @@ struct Supplicant_s {
 
     CFArrayRef			identity_attributes;
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     EAPOLClientItemIDRef	itemID;
     EAPOLClientConfigurationRef	eapolcfg;
     AlertDialogueRef		alert_prompt;
@@ -168,7 +168,7 @@ struct Supplicant_s {
 	int			token;
     } config_change;
     int				failure_count;
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
     int				start_count;
     int				auth_attempts_count;
@@ -449,7 +449,7 @@ eap_client_free_properties(SupplicantRef supp)
     my_CFRelease((CFDictionaryRef *)&supp->eap.plugin_data.properties);
 }
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 
 static void
 eap_client_set_properties(SupplicantRef supp)
@@ -505,7 +505,8 @@ eap_client_set_properties(SupplicantRef supp)
     }
     return;
 }
-#else /* TARGET_OS_EMBEDDED */
+
+#else /* TARGET_OS_IPHONE */
 
 static void
 eap_client_set_properties(SupplicantRef supp)
@@ -515,7 +516,8 @@ eap_client_set_properties(SupplicantRef supp)
 	= CFRetain(supp->config_dict);
     return;
 }
-#endif /* TARGET_OS_EMBEDDED */
+
+#endif /* TARGET_OS_IPHONE */
 
 static void
 eap_client_free(SupplicantRef supp)
@@ -836,7 +838,7 @@ EAPAcceptTypesRemoveTypeAtIndex(EAPAcceptTypesRef accept, int type_index)
     return;
 }
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 
 static boolean_t
 EAPAcceptTypesRequirePassword(EAPAcceptTypesRef accept)
@@ -859,13 +861,13 @@ EAPAcceptTypesRequirePassword(EAPAcceptTypesRef accept)
     return (FALSE);
 }
 
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
 /**
  ** Supplicant routines
  **/
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 
 #define CREDENTIALS_ACCESS_DELAY_SECS		2
 
@@ -895,7 +897,7 @@ S_check_for_updated_credentials(SupplicantRef supp)
     return (changed);
 }
 
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
 static void
 clear_password(SupplicantRef supp)
@@ -1208,7 +1210,7 @@ Supplicant_authenticated(SupplicantRef supp, SupplicantEvent event,
 		}
 	    }
 	}
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 	supp->failure_count = 0;
 	AlertDialogue_free(&supp->alert_prompt);
 	CredentialsDialogue_free(&supp->cred_prompt);
@@ -1269,7 +1271,7 @@ Supplicant_authenticated(SupplicantRef supp, SupplicantEvent event,
 	    my_CFRelease(&password_data);
 	}
 	supp->remember_information = FALSE;
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 	if (supp->one_time_password) {
 	    clear_password(supp);
 	}
@@ -1590,7 +1592,7 @@ Supplicant_acquired(SupplicantRef supp, SupplicantEvent event,
 	    eapolclient_log(kLogFlagBasic,
 			    "EAP Request Identity");
 	    supp->previous_identifier = req_p->identifier;
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 	    if (EAPOLSocketGetMode(supp->sock) == kEAPOLControlModeSystem) {
 #define MAX_AUTH_FAILURES	3
 		if (S_check_for_updated_credentials(supp) == FALSE
@@ -1603,7 +1605,7 @@ Supplicant_acquired(SupplicantRef supp, SupplicantEvent event,
 		    break;
 		}
 	    }
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
 	    if (respond_with_identity(supp, req_p->identifier)) {
 		supp->last_status = kEAPClientStatusOK;
@@ -2130,7 +2132,8 @@ create_ui_config_dict(SupplicantRef supp)
     return;
 }
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
+
 static Boolean
 dicts_compare_arrays(CFDictionaryRef dict1, CFDictionaryRef dict2,
 		     CFStringRef propname)
@@ -2470,19 +2473,19 @@ S_system_mode_use_od(CFDictionaryRef dict, CFStringRef * ret_nodename)
     return (use_od);
 }
 
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
 static void 
 Supplicant_report_status(SupplicantRef supp)
 {
     CFMutableDictionaryRef	dict;
     EAPOLControlMode		mode;
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     Boolean			need_username = FALSE;
     Boolean			need_password = FALSE;
     Boolean			need_new_password = FALSE;
     Boolean			need_trust = FALSE;
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
     CFDateRef			timestamp = NULL;
 
     dict = CFDictionaryCreateMutable(NULL, 0,
@@ -2495,7 +2498,7 @@ Supplicant_report_status(SupplicantRef supp)
 			     supp->config_id);
     }
     dictInsertSupplicantState(dict, supp->state);
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     dictInsertAuthenticatorMACAddress(dict, supp->sock);
     if (mode == kEAPOLControlModeUser) {
 	dictInsertNumber(dict, kEAPOLControlUID, getuid());
@@ -2504,7 +2507,7 @@ Supplicant_report_status(SupplicantRef supp)
 	CFDictionarySetValue(dict, kEAPOLControlManagerName,
 			     supp->manager_name);
     }
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
     if (supp->no_authenticator) {
 	/* don't report EAP type information if no auth was present */
 	dictInsertClientStatus(dict, kEAPClientStatusOK, 0);
@@ -2517,13 +2520,13 @@ Supplicant_report_status(SupplicantRef supp)
 	if (supp->last_status == kEAPClientStatusUserInputRequired) {
 	    if (supp->username == NULL) {
 		dictInsertRequiredProperties(dict, NULL);
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 		need_username = TRUE;
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 	    }
 	    else {
 		dictInsertRequiredProperties(dict, supp->eap.required_props);
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 		need_password 
 		    = my_CFArrayContainsValue(supp->eap.required_props,
 					      kEAPClientPropUserPassword);
@@ -2533,7 +2536,7 @@ Supplicant_report_status(SupplicantRef supp)
 		need_trust
 		    = my_CFArrayContainsValue(supp->eap.required_props,
 					      kEAPClientPropTLSUserTrustProceedCertificateChain);
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 	    }
 	}
 	dictInsertPublishedProperties(dict, supp->eap.published_props);
@@ -2602,7 +2605,7 @@ Supplicant_report_status(SupplicantRef supp)
     EAPOLSocketReportStatus(supp->sock, dict);
     my_CFRelease(&dict);
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     if (supp->no_ui) {
 	goto no_ui;
     }
@@ -2720,7 +2723,7 @@ Supplicant_report_status(SupplicantRef supp)
 	}
     }
  no_ui:
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
     return;
 }
@@ -2743,11 +2746,11 @@ Supplicant_held(SupplicantRef supp, SupplicantEvent event,
 	Supplicant_report_status(supp);
 	supp->previous_identifier = BAD_IDENTIFIER;
 	EAPAcceptTypesReset(&supp->eap_accept);
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 	present_alert_dialogue(supp);
 	CredentialsDialogue_free(&supp->cred_prompt);
 	TrustDialogue_free(&supp->trust_prompt);
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 	if ((supp->last_status == kEAPClientStatusFailed
 	     || (supp->last_status == kEAPClientStatusSecurityError
 		 && (supp->last_error == errSSLCrypto
@@ -2758,18 +2761,18 @@ Supplicant_held(SupplicantRef supp, SupplicantEvent event,
 		clear_sec_identity(supp);
 		clear_username(supp);
 		clear_password(supp);
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 		if (EAPOLSocketIsWireless(supp->sock)) {
 		    /* force re-association to immediately prompt the user */
 		    EAPOLSocketReassociate(supp->sock);
 		}
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 	    }
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 	    else {
 		supp->failure_count++;
 	    }
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 	}
 	supp->last_status = kEAPClientStatusOK;
 	supp->last_error = 0;
@@ -2954,12 +2957,12 @@ static char *
 S_copy_password_from_keychain(bool use_system_keychain,
 			      CFStringRef unique_id_str)
 {
-    EAPSecKeychainRef 	keychain = NULL;
+    SecKeychainRef 	keychain = NULL;
     char *		password = NULL;
     CFDataRef		password_data = NULL;
     OSStatus		status;
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     if (use_system_keychain) {
 	status =  SecKeychainCopyDomainDefault(kSecPreferencesDomainSystem,
 					       &keychain);
@@ -2967,7 +2970,7 @@ S_copy_password_from_keychain(bool use_system_keychain,
 	    goto done;
 	}
     }
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
     status = EAPSecKeychainPasswordItemCopy(keychain, unique_id_str,
 					    &password_data);
@@ -3059,10 +3062,10 @@ S_set_credentials(SupplicantRef supp)
     CFArrayRef			accept_types = NULL;
     bool			cert_required = FALSE;
     bool			change = FALSE;
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     EAPOLClientDomain		domain;
     CFStringRef			nodename = NULL;
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
     EAPSecIdentityHandleRef	id_handle = NULL;
     CFArrayRef			inner_accept_types;
     char *			name = NULL;
@@ -3094,10 +3097,10 @@ S_set_credentials(SupplicantRef supp)
     switch (EAPOLSocketGetMode(supp->sock)) {
     case kEAPOLControlModeSystem:
 	system_mode = TRUE;
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 	S_set_credentials_access_time(supp);
 	domain = kEAPOLClientDomainSystem;
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 	break;
     case kEAPOLControlModeUser:
 	/* check whether one-time use password */
@@ -3105,7 +3108,7 @@ S_set_credentials(SupplicantRef supp)
 	    = myCFDictionaryGetBooleanValue(supp->config_dict,
 					    kEAPClientPropOneTimeUserPassword,
 					    FALSE);
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 	domain = kEAPOLClientDomainUser;
 	if (supp->one_time_password == FALSE) {
 	    remember_information
@@ -3113,16 +3116,16 @@ S_set_credentials(SupplicantRef supp)
 						kEAPClientPropSaveCredentialsOnSuccessfulAuthentication,
 						FALSE);
 	}
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 	break;
     default:
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 	domain = 0;
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 	break;
     }
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     /* in system mode, check for OD password if so configured */
     if (system_mode
 	&& S_system_mode_use_od(supp->config_dict, &nodename)) {
@@ -3164,7 +3167,7 @@ S_set_credentials(SupplicantRef supp)
 	}
 	goto filter_eap_types;
     }
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
     /* extract the username */
     if (supp->ignore_username == FALSE) {
@@ -3207,7 +3210,7 @@ S_set_credentials(SupplicantRef supp)
 			  EAPOLSocketIfName(supp->sock, NULL));
 	    }
 	}
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 	else if (name == NULL && supp->itemID != NULL) {
 	    CFDataRef		name_data = NULL;
 	    CFDataRef		password_data = NULL;
@@ -3226,7 +3229,7 @@ S_set_credentials(SupplicantRef supp)
 		my_CFRelease(&password_data);
 	    }
 	}
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
     }
 
     /* check for a SecIdentity */
@@ -3257,12 +3260,12 @@ S_set_credentials(SupplicantRef supp)
 	    }
 	}
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 	/* grab itemID-based identity */
 	if (sec_identity == NULL && supp->itemID != NULL) {
 	    sec_identity = EAPOLClientItemIDCopyIdentity(supp->itemID, domain);
 	}
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 	my_CFRelease(&supp->sec_identity);
 	supp->sec_identity = sec_identity;
 
@@ -3274,9 +3277,9 @@ S_set_credentials(SupplicantRef supp)
 	}
     }
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
  filter_eap_types:
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
     /* update the list of protocols we accept */
     S_filter_eap_accept_types(supp, accept_types, (password != NULL),
@@ -3369,14 +3372,14 @@ PRIVATE_EXTERN bool
 Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 				bool * should_stop)
 {
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     EAPOLClientConfigurationRef	cfg = NULL;
     EAPOLClientItemIDRef	itemID = NULL;
     CFDictionaryRef		item_dict;
     CFStringRef			manager_name;
     EAPOLClientProfileRef	profile = NULL;
     CFDictionaryRef		password_info = NULL;
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
     bool			change = FALSE;
     CFStringRef			config_id = NULL;
     CFDictionaryRef		eap_config;
@@ -3387,7 +3390,7 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 	*should_stop = FALSE;
     }
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     /* check for a manager name */
     my_CFRelease(&supp->manager_name);
     manager_name = CFDictionaryGetValue(config_dict,
@@ -3455,7 +3458,7 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
     else {
 	my_CFRelease(&supp->itemID);
 	my_CFRelease(&supp->eapolcfg);
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
 	/* get the new configuration */
 	eap_config = CFDictionaryGetValue(config_dict,
@@ -3466,9 +3469,9 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 	config_id = CFDictionaryGetValue(config_dict,
 					 kEAPOLControlUniqueIdentifier);
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     }
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 
     /* keep a copy of the original around */
     my_CFRelease(&supp->orig_config_dict);
@@ -3486,10 +3489,10 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
     /* clean up empty username/password, add UI properties */
     if (empty_user || empty_password
 	|| supp->ui_config_dict != NULL
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 	|| password_info != NULL
 	|| profile != NULL
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 	|| CFDictionaryContainsKey(eap_config,
 				   kEAPClientPropProfileID)) {
 	CFMutableDictionaryRef		new_eap_config = NULL;
@@ -3503,7 +3506,7 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 	}
 	CFDictionaryRemoveValue(new_eap_config,
 				kEAPClientPropProfileID);
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 	if (password_info != NULL) {
 	    CFDictionaryApplyFunction(password_info, dict_set_key_value, 
 				      new_eap_config);
@@ -3513,7 +3516,7 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 				 kEAPClientPropProfileID,
 				 EAPOLClientProfileGetID(profile));
 	}
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 	if (supp->ui_config_dict != NULL) {
 	    CFDictionaryApplyFunction(supp->ui_config_dict, dict_set_key_value,
 				      new_eap_config);
@@ -3554,9 +3557,9 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
 	change = TRUE;
     }
 
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
  done:
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
     return (change);
 }
 
@@ -3665,6 +3668,7 @@ Supplicant_link_status_changed(SupplicantRef supp, bool active)
 	default:
 	    if (supp->state == kSupplicantStateAuthenticated
 		&& EAPOLSocketHasPMK(supp->sock)) {
+		Timer_cancel(supp->timer);
 		break;
 	    }
 	    /*
@@ -3737,12 +3741,12 @@ Supplicant_create_with_supplicant(EAPOLSocketRef sock, SupplicantRef main_supp)
 	return (NULL);
     }
     supp->generation = main_supp->generation;
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
     if (main_supp->itemID != NULL) {
 	CFRetain(main_supp->itemID);
 	supp->itemID = main_supp->itemID;
     }
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
     if (main_supp->sec_identity != NULL) {
 	CFRetain(main_supp->sec_identity);
 	supp->sec_identity = main_supp->sec_identity;
@@ -3780,18 +3784,18 @@ Supplicant_free(SupplicantRef * supp_p)
     }
     supp = *supp_p;
     if (supp != NULL) {
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 	AlertDialogue_free(&supp->alert_prompt);
 	CredentialsDialogue_free(&supp->cred_prompt);
 	TrustDialogue_free(&supp->trust_prompt);
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 	Timer_free(&supp->timer);
 	my_CFRelease(&supp->orig_config_dict);
 	my_CFRelease(&supp->config_dict);
 	my_CFRelease(&supp->ui_config_dict);
 	my_CFRelease(&supp->config_id);
 	my_CFRelease(&supp->identity_attributes);
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 	my_CFRelease(&supp->eapolcfg);
 	my_CFRelease(&supp->itemID);
 	my_CFRelease(&supp->manager_name);
@@ -3800,7 +3804,7 @@ Supplicant_free(SupplicantRef * supp_p)
 	    my_CFRelease(&supp->config_change.mp);
 	    (void)notify_cancel(supp->config_change.token);
 	}
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* ! TARGET_OS_IPHONE */
 	my_CFRelease(&supp->sec_identity);
 	if (supp->outer_identity != NULL) {
 	    free(supp->outer_identity);

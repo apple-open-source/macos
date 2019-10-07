@@ -25,30 +25,119 @@
 #import <Foundation/Foundation.h>
 
 #if OCTAGON
+#import "Analytics/SFAnalytics.h"
 #import "keychain/ot/OTManager.h"
 #import "keychain/ot/OTContext.h"
+#import "keychain/ot/OTFollowup.h"
 #import "keychain/ot/OTControlProtocol.h"
+#import "keychain/ot/OTSOSAdapter.h"
+#import "keychain/ot/OTAuthKitAdapter.h"
+#import "keychain/ot/OTDeviceInformationAdapter.h"
+#import "keychain/ot/OTCuttlefishAccountStateHolder.h"
+#import "keychain/escrowrequest/Framework/SecEscrowRequest.h"
+#import "keychain/ckks/CKKSAccountStateTracker.h"
 #include <securityd/SecDbItem.h>
-
+#import <CoreCDP/CDPAccount.h>
 NS_ASSUME_NONNULL_BEGIN
 
 @class OTContext;
+@class OTCuttlefishContext;
+@class OTClientStateMachine;
+@class CKKSLockStateTracker;
+@class CKKSAccountStateTracker;
 
 @interface OTManager : NSObject <OTControlProtocol>
 
 @property (nonatomic, readonly) NSDate *lastPostedCoreFollowUp;
+@property (nonatomic, readonly) CKKSLockStateTracker* lockStateTracker;
+@property id<CKKSCloudKitAccountStateTrackingProvider> accountStateTracker;
 
 -(instancetype)init;
 
--(instancetype) initWithContext:(OTContext* __nullable)context
-                     localStore:(OTLocalStore* __nullable)localStore
-                         enroll:(OTRamp*)enroll
-                        restore:(OTRamp*)restore
-                            cfu:(OTRamp*)cfu
-                   cfuScheduler:(CKKSNearFutureScheduler*)cfuScheduler;
+-(instancetype) initWithContext:(OTContext* _Nullable)context
+                     localStore:(OTLocalStore* _Nullable)localStore
+                         enroll:(OTRamp* _Nullable)enroll
+                        restore:(OTRamp* _Nullable)restore
+                            cfu:(OTRamp* _Nullable)cfu
+                   cfuScheduler:(CKKSNearFutureScheduler* _Nullable)cfuScheduler
+                     sosAdapter:(id<OTSOSAdapter>)sosAdapter
+                 authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
+       deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter
+             apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
+             escrowRequestClass:(Class<SecEscrowRequestable>)escrowRequestClass
+                    loggerClass:(Class<SFAnalyticsProtocol> _Nullable)loggerClass
+               lockStateTracker:(CKKSLockStateTracker* _Nullable)lockStateTracker
+            accountStateTracker:(id<CKKSCloudKitAccountStateTrackingProvider>)accountStateTracker
+        cuttlefishXPCConnection:(id<NSXPCProxyCreating> _Nullable)cuttlefishXPCConnection
+                           cdpd:(id<OctagonFollowUpControllerProtocol>)cdpd;
+
+// Call this to start up the state machinery
+- (void)initializeOctagon;
+- (void) moveToCheckTrustedStateForContainer:(NSString* _Nullable)containerName context:(NSString*)context;
 
 + (instancetype _Nullable)manager;
++ (instancetype _Nullable)resetManager:(bool)reset to:(OTManager* _Nullable)obj;
+- (void)xpc24HrNotification:(NSString* _Nullable)containerName context:(NSString*)context skipRateLimitingCheck:(BOOL)skipRateLimitingCheck reply:(void (^)(NSError *error))reply;
+
 -(BOOL)scheduledCloudKitRampCheck:(NSError**)error;
+
+- (OTCuttlefishContext*)contextForContainerName:(NSString* _Nullable)containerName
+                                      contextID:(NSString*)contextID
+                                     sosAdapter:(id<OTSOSAdapter>)sosAdapter
+                                 authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
+                               lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
+                            accountStateTracker:(id<CKKSCloudKitAccountStateTrackingProvider>)accountStateTracker
+                       deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter;
+
+- (OTCuttlefishContext*)contextForContainerName:(NSString* _Nullable)containerName
+                                      contextID:(NSString*)contextID;
+
+- (void)removeContextForContainerName:(NSString*)containerName
+                            contextID:(NSString*)contextID;
+
+- (OTClientStateMachine*)clientStateMachineForContainerName:(NSString* _Nullable)containerName
+                                                  contextID:(NSString*)contextID
+                                                 clientName:(NSString*)clientName;
+
+-(BOOL)ghostbustByMidEnabled;
+-(BOOL)ghostbustBySerialEnabled;
+-(BOOL)ghostbustByAgeEnabled;
+
+-(void)restore:(NSString* _Nullable)containerName
+     contextID:(NSString *)contextID
+    bottleSalt:(NSString *)bottleSalt
+       entropy:(NSData *)entropy
+      bottleID:(NSString *)bottleID
+         reply:(void (^)(NSError * _Nullable))reply;
+
+- (void)createRecoveryKey:(NSString* _Nullable)containerName
+                contextID:(NSString *)contextID
+              recoveryKey:(NSString *)recoveryKey
+                    reply:(void (^)( NSError * _Nullable))reply;
+
+- (void)joinWithRecoveryKey:(NSString* _Nullable)containerName
+                  contextID:(NSString *)contextID
+                recoveryKey:(NSString*)recoveryKey
+                      reply:(void (^)(NSError * _Nullable))reply;
+
+- (void)allContextsHalt;
+- (void)allContextsDisablePendingFlags;
+- (bool)allContextsPause:(uint64_t)within;
+
+- (void)waitForOctagonUpgrade:(NSString* _Nullable)container
+                      context:(NSString*)context
+                        reply:(void (^)(NSError* _Nullable error))reply;
+
+// Metrics and analytics
+- (void)postCDPFollowupResult:(BOOL)success
+                         type:(OTCliqueCDPContextType)type
+                        error:(NSError * _Nullable)error
+                containerName:(NSString* _Nullable)containerName
+                  contextName:(NSString *)contextName
+                        reply:(void (^)(NSError *error))reply;
+
+//test only
+- (void)setSOSEnabledForPlatformFlag:(bool) value;
 @end
 NS_ASSUME_NONNULL_END
 

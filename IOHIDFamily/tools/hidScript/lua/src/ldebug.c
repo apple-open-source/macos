@@ -232,8 +232,9 @@ static void collectvalidlines (lua_State *L, Closure *f) {
     sethvalue(L, L->top, t);  /* push it on stack */
     api_incr_top(L);
     setbvalue(&v, 1);  /* boolean 'true' to be the value of all indices */
-    for (i = 0; i < f->l.p->sizelineinfo; i++)  /* for all lines with code */
-      luaH_setint(L, t, lineinfo[i], &v);  /* table[line] = true */
+      for (i = 0; i < f->l.p->sizelineinfo; i++)  { /* for all lines with code */
+          luaH_setint(L, t, lineinfo[i], &v);  /* table[line] = true */
+      }
   }
 }
 

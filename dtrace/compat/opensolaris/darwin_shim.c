@@ -30,8 +30,6 @@
 #include <unistd.h>
 #include <fnmatch.h>
 
-#include "lwp.h" /* In lieu of Solaris <sys/lwp.h> */
-
 hrtime_t
 gethrtime(void)
 {
@@ -117,9 +115,27 @@ sysinfo(int command, char *buf, long count)
 }
 
 // The following are used only for "assert()"
-int _rw_read_held(struct _rwlock *l){ return 1; }
-int _rw_write_held(struct _rwlock *l){ return 1; }
-int _mutex_held(struct _lwp_mutex *m){ return 1; }
+int
+_rw_read_held(struct _rwlock *l)
+{
+#pragma unused(l)
+	return 1;
+
+}
+
+int
+_rw_write_held(struct _rwlock *l)
+{
+#pragma unused(l)
+	return 1;
+
+}
+
+int _mutex_held(struct _lwp_mutex *m)
+{
+#pragma unused(m)
+	return 1;
+}
 
 /*
  * p_online() is only used to identify valid processorid's and only by testing the
@@ -149,9 +165,3 @@ p_online(processorid_t processorid, int flag)
 	}
 	/* NOTREACHED */
 }
-
-#if defined(_elf_seterr)
-#undef _elf_seterr
-#endif
-void _elf_seterr(int lib_err, int sys_err);
-void _SHIM_elf_seterr(int x) { _elf_seterr( 0, x); }

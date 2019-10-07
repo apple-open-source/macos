@@ -51,6 +51,7 @@
 #include "unicode/utypes.h"
 #include "unicode/resbund.h"
 
+#include "cmemory.h"
 #include "mutex.h"
 #include "uassert.h"
 #include "umutex.h"
@@ -376,9 +377,9 @@ void ResourceBundle::getVersion(UVersionInfo versionInfo) const {
     ures_getVersion(fResource, versionInfo);
 }
 
-static UMutex gLocaleLock = U_MUTEX_INITIALIZER;
 const Locale &ResourceBundle::getLocale(void) const {
-    Mutex lock(&gLocaleLock);
+    static UMutex *gLocaleLock = STATIC_NEW(UMutex);
+    Mutex lock(gLocaleLock);
     if (fLocale != NULL) {
         return *fLocale;
     }

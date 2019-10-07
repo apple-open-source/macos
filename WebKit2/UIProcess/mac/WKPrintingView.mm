@@ -34,7 +34,7 @@
 #import "PrintInfo.h"
 #import "ShareableBitmap.h"
 #import "WebPageProxy.h"
-#import <PDFKit/PDFKit.h>
+#import <Quartz/Quartz.h>
 #import <WebCore/GraphicsContext.h>
 #import <WebCore/LocalDefaultSystemAppearance.h>
 #import <WebCore/WebCoreObjCExtras.h>
@@ -293,7 +293,7 @@ static void pageDidDrawToImage(const WebKit::ShareableBitmap::Handle& imageHandl
     _webFrame->page()->drawPagesToPDF(_webFrame.get(), printInfo, firstPage - 1, lastPage - firstPage + 1, WTFMove(callback));
 }
 
-static void pageDidComputePageRects(const Vector<WebCore::IntRect>& pageRects, double totalScaleFactorForPrinting, IPCCallbackContext* context)
+static void pageDidComputePageRects(const Vector<WebCore::IntRect>& pageRects, double totalScaleFactorForPrinting, const WebCore::FloatBoxExtent& computedPageMargin, IPCCallbackContext* context)
 {
     ASSERT(RunLoop::isMain());
 
@@ -323,6 +323,12 @@ static void pageDidComputePageRects(const Vector<WebCore::IntRect>& pageRects, d
             ceil(lastPrintingPageRect.maxY() * view->_totalScaleFactorForPrinting));
         LOG(Printing, "WKPrintingView setting frame size to x:%g y:%g width:%g height:%g", newFrameSize.origin.x, newFrameSize.origin.y, newFrameSize.size.width, newFrameSize.size.height);
         [view setFrame:newFrameSize];
+        // Set @page margin.
+        auto *printInfo = [view->_printOperation printInfo];
+        [printInfo setTopMargin:computedPageMargin.top()];
+        [printInfo setBottomMargin:computedPageMargin.bottom()];
+        [printInfo setLeftMargin:computedPageMargin.left()];
+        [printInfo setRightMargin:computedPageMargin.right()];
 
         if ([view _isPrintingPreview]) {
             // Show page count, and ask for an actual image to replace placeholder.
@@ -344,9 +350,9 @@ static void pageDidComputePageRects(const Vector<WebCore::IntRect>& pageRects, d
     ASSERT(!_expectedComputedPagesCallback);
 
     IPCCallbackContext* context = new IPCCallbackContext;
-    auto callback = WebKit::ComputedPagesCallback::create([context](const Vector<WebCore::IntRect>& pageRects, double totalScaleFactorForPrinting, WebKit::CallbackBase::Error) {
+    auto callback = WebKit::ComputedPagesCallback::create([context](const Vector<WebCore::IntRect>& pageRects, double totalScaleFactorForPrinting, const WebCore::FloatBoxExtent& computedPageMargin, WebKit::CallbackBase::Error) {
         std::unique_ptr<IPCCallbackContext> contextDeleter(context);
-        pageDidComputePageRects(pageRects, totalScaleFactorForPrinting, context);
+        pageDidComputePageRects(pageRects, totalScaleFactorForPrinting, computedPageMargin, context);
     });
     _expectedComputedPagesCallback = callback->callbackID().toInteger();
     context->view = self;
@@ -498,6 +504,9 @@ static NSString *linkDestinationName(PDFDocument *document, PDFDestination *dest
 - (void)_drawPreview:(NSRect)nsRect
 {
     ASSERT(RunLoop::isMain());
+    
+    if (!_webFrame || !_webFrame->page())
+        return;
 
     WebCore::IntRect scaledPrintingRect(nsRect);
     scaledPrintingRect.scale(1 / _totalScaleFactorForPrinting);
@@ -513,9 +522,6 @@ static NSString *linkDestinationName(PDFDocument *document, PDFDestination *dest
                 _latestExpectedPreviewCallback = existingCallback;
             } else {
                 // Preview isn't available yet, request it asynchronously.
-                if (!_webFrame->page())
-                    return;
-
                 // Return to printing mode if we're already back to screen (e.g. due to window resizing).
                 _webFrame->page()->beginPrinting(_webFrame.get(), WebKit::PrintInfo([_printOperation printInfo]));
 

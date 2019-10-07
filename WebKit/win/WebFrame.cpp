@@ -731,7 +731,7 @@ HRESULT WebFrame::findFrameNamed(_In_ BSTR name, _COM_Outptr_opt_ IWebFrame** fr
     if (!coreFrame)
         return E_UNEXPECTED;
 
-    Frame* foundFrame = coreFrame->tree().find(AtomicString(name, SysStringLen(name)), *coreFrame);
+    Frame* foundFrame = coreFrame->tree().find(AtomString(name, SysStringLen(name)), *coreFrame);
     if (!foundFrame)
         return S_OK;
 
@@ -856,7 +856,38 @@ HRESULT WebFrame::childFrames(_COM_Outptr_opt_ IEnumVARIANT** enumFrames)
 
 // IWebFramePrivate ------------------------------------------------------
 
-HRESULT WebFrame::renderTreeAsExternalRepresentation(BOOL forPrinting, _Deref_opt_out_ BSTR* result)
+enum WebRenderTreeAsTextOption {
+    WebRenderTreeAsTextShowAllLayers           = 1 << 0,
+    WebRenderTreeAsTextShowLayerNesting        = 1 << 1,
+    WebRenderTreeAsTextShowCompositedLayers    = 1 << 2,
+    WebRenderTreeAsTextShowOverflow            = 1 << 3,
+    WebRenderTreeAsTextShowSVGGeometry         = 1 << 4,
+    WebRenderTreeAsTextShowLayerFragments      = 1 << 5
+};
+
+typedef unsigned WebRenderTreeAsTextOptions;
+
+static OptionSet<RenderAsTextFlag> toRenderAsTextFlags(WebRenderTreeAsTextOptions options)
+{
+    OptionSet<RenderAsTextFlag> flags;
+
+    if (options & WebRenderTreeAsTextShowAllLayers)
+        flags.add(RenderAsTextFlag::ShowAllLayers);
+    if (options & WebRenderTreeAsTextShowLayerNesting)
+        flags.add(RenderAsTextFlag::ShowLayerNesting);
+    if (options & WebRenderTreeAsTextShowCompositedLayers)
+        flags.add(RenderAsTextFlag::ShowCompositedLayers);
+    if (options & WebRenderTreeAsTextShowOverflow)
+        flags.add(RenderAsTextFlag::ShowOverflow);
+    if (options & WebRenderTreeAsTextShowSVGGeometry)
+        flags.add(RenderAsTextFlag::ShowSVGGeometry);
+    if (options & WebRenderTreeAsTextShowLayerFragments)
+        flags.add(RenderAsTextFlag::ShowLayerFragments);
+
+    return flags;
+}
+
+HRESULT WebFrame::renderTreeAsExternalRepresentation(unsigned options, _Deref_opt_out_ BSTR* result)
 {
     if (!result)
         return E_POINTER;
@@ -865,7 +896,20 @@ HRESULT WebFrame::renderTreeAsExternalRepresentation(BOOL forPrinting, _Deref_op
     if (!coreFrame)
         return E_UNEXPECTED;
 
-    *result = BString(externalRepresentation(coreFrame, forPrinting ? RenderAsTextPrintingMode : RenderAsTextBehaviorNormal)).release();
+    *result = BString(externalRepresentation(coreFrame, toRenderAsTextFlags(options))).release();
+    return S_OK;
+}
+
+HRESULT WebFrame::renderTreeAsExternalRepresentationForPrinting(_Deref_opt_out_ BSTR* result)
+{
+    if (!result)
+        return E_POINTER;
+
+    Frame* coreFrame = core(this);
+    if (!coreFrame)
+        return E_UNEXPECTED;
+
+    *result = BString(externalRepresentation(coreFrame, { RenderAsTextFlag::PrintingMode })).release();
     return S_OK;
 }
 
@@ -1086,7 +1130,7 @@ HRESULT WebFrame::elementWithName(BSTR name, IDOMElement* form, IDOMElement** el
 
     HTMLFormElement* formElement = formElementFromDOMElement(form);
     if (formElement) {
-        AtomicString targetName((UChar*)name, SysStringLen(name));
+        AtomString targetName((UChar*)name, SysStringLen(name));
         for (auto& associatedElement : formElement->copyAssociatedElementsVector()) {
             if (!is<HTMLFormControlElement>(associatedElement.get()))
                 continue;
@@ -2019,7 +2063,7 @@ HRESULT WebFrame::stringByEvaluatingJavaScriptInScriptWorld(IWebScriptWorld* iWo
     // This bizarre set of rules matches behavior from WebKit for Safari 2.0.
     // If you don't like it, use -[WebScriptObject evaluateWebScript:] or 
     // JSEvaluateScript instead, since they have less surprising semantics.
-    if (!result || !result.isBoolean() && !result.isString() && !result.isNumber())
+    if (!result || (!result.isBoolean() && !result.isString() && !result.isNumber()))
         return S_OK;
 
     JSC::ExecState* exec = anyWorldGlobalObject->globalExec();
@@ -2089,7 +2133,10 @@ void WebFrame::updateBackground()
     if (!coreFrame || !coreFrame->view())
         return;
 
-    coreFrame->view()->updateBackgroundRecursively(webView()->transparent());
+    Optional<Color> backgroundColor;
+    if (webView()->transparent())
+        backgroundColor = Color(Color::transparent);
+    coreFrame->view()->updateBackgroundRecursively(backgroundColor);
 }
 
 // IWebFrame2

@@ -27,8 +27,8 @@
 @end iftex
 @titlepage
 @title The Z Shell Manual
-@subtitle Version 5.3
-@subtitle Updated December 11, 2016
+@subtitle Version 5.7.1
+@subtitle Updated February 3, 2019
 @author Original documentation by Paul Falstad
 @page
 This is a texinfo version of the documentation for the Z Shell, originally by 
@@ -63,7 +63,7 @@ POSIX shells, but its default mode is not POSIX compatible, either.
 
 @noindent
 @cindex version
-Version 5.3, last updated December 11, 2016.
+Version 5.7.1, last updated February 3, 2019.
 @end ifinfo
 
 @menu
@@ -233,6 +233,7 @@ Zsh Modules
 * The zsh/langinfo Module::
 * The zsh/mapfile Module::
 * The zsh/mathfunc Module::
+* The zsh/nearcolor Module::
 * The zsh/newuser Module::
 * The zsh/parameter Module::
 * The zsh/pcre Module::
@@ -350,8 +351,13 @@ is available from the zsh archive site or its mirrors, in the file
 @cindex introduction
 Zsh is a UNIX command interpreter (shell) usable as an interactive
 login shell and as a shell script command processor.  Of the standard shells,
-zsh most closely resembles @cite{ksh} but includes many enhancements.  Zsh
-has command line editing, builtin spelling correction, programmable
+zsh most closely resembles @cite{ksh} but includes many enhancements.  It
+does not provide compatibility with POSIX or other shells in its
+default operating mode:  see
+the section @ref{Compatibility}.
+
+@noindent
+Zsh has command line editing, builtin spelling correction, programmable
 command completion, shell functions (with autoloading), a history
 mechanism, and a host of other features.
 @c Yodl file: Zsh/metafaq.yo
@@ -379,33 +385,19 @@ the code should generally go to the mailing list.
 
 @section Availability
 @noindent
-Zsh is available from the following anonymous FTP sites.  These mirror
-sites are kept frequently up to date.  The sites marked with @emph{(H)} may be
-mirroring @t{ftp.cs.elte.hu} instead of the primary site.
+Zsh is available from the following HTTP and anonymous FTP site.
 
 @noindent
 @cindex FTP sites for zsh
 @cindex acquiring zsh by FTP
 @cindex availability of zsh
-@table @asis
-@item Primary site
 @t{@uref{ftp://ftp.zsh.org/pub/}}@*
-@t{@uref{http://www.zsh.org/pub/}}
-
-@item Australia
-@t{@uref{ftp://ftp.zsh.org/pub/}}@*
-@t{@uref{http://www.zsh.org/pub/}}@*
-@t{@uref{http://mirror.dejanseo.com.au/pub/zsh/}}
-
-@item Hungary
-@t{@uref{ftp://ftp.cs.elte.hu/pub/zsh/}}@*
-@t{@uref{http://www.cs.elte.hu/pub/zsh/}}
-
-@end table
+@t{@uref{https://www.zsh.org/pub/}}
+)
 
 @noindent
 The up-to-date source code is available via Git from Sourceforge.  See
-@t{@uref{http://sourceforge.net/projects/zsh/}} for details.  A summary of
+@t{@uref{https://sourceforge.net/projects/zsh/}} for details.  A summary of
 instructions for the archive can be found at
 @t{@uref{http://zsh.sourceforge.net/}}.
 
@@ -463,7 +455,7 @@ maintained by Karsten Thygesen @t{<karthy@@kom.auc.dk>}.
 The mailing lists are archived; the archives can be accessed via the
 administrative addresses listed above.  There is also a hypertext
 archive, maintained by Geoff Wing @t{<gcw@@zsh.org>}, available at
-@t{@uref{http://www.zsh.org/mla/}}.
+@t{@uref{https://www.zsh.org/mla/}}.
 @node The Zsh FAQ, The Zsh Web Page, Mailing Lists, Introduction
 
 @section The Zsh FAQ
@@ -478,7 +470,7 @@ is @t{<faqmaster@@zsh.org>}.
 
 @section The Zsh Web Page
 @noindent
-Zsh has a web page which is located at @t{@uref{http://www.zsh.org/}}.  This is
+Zsh has a web page which is located at @t{@uref{https://www.zsh.org/}}.  This is
 maintained by Karsten Thygesen @t{<karthy@@zsh.org>}, of SunSITE Denmark.
 The contact address for web-related matters is @t{<webmaster@@zsh.org>}.
 @node The Zsh Userguide, See Also, The Zsh Web Page, Introduction
@@ -492,12 +484,6 @@ cabbalistic, hierographic, or downright mystifying (for example, the word
 @t{@uref{http://zsh.sourceforge.net/Guide/}}.  At the time of writing, chapters
 dealing with startup files and their contents and the new completion system
 were essentially complete.
-
-@section The Zsh Wiki
-@noindent
-A `wiki' website for zsh has been created at @t{@uref{http://www.zshwiki.org/}}.
-This is a site which can be added to and modified directly by users without
-any special permission.  You can add your own zsh tips and configurations.
 @c (avoiding a yodl bug)
 @c Yodl file: Zsh/seealso.yo
 @node See Also, , The Zsh Userguide, Introduction
@@ -685,6 +671,9 @@ supported by other systems of pattern matching:
 @item @t{**}
 for matching over multiple directories
 
+@item @t{|}
+for matching either of two alternatives
+
 @item @t{~}, @t{^}
 the ability to exclude patterns from matching when the @t{EXTENDED_GLOB}
 option is set
@@ -807,6 +796,20 @@ the remaining arguments are assigned to the positional parameters.
 For further options, which are common to invocation and the @t{set}
 builtin, see
 @ref{Options}.
+
+@noindent
+The long option `@t{-}@t{-emulate}' followed (in a separate word) by an
+emulation mode may be passed to the shell.
+The emulation modes are those described for the @t{emulate} builtin,
+see
+@ref{Shell Builtin Commands}.
+The `@t{-}@t{-emulate}' option must precede any other options (which might
+otherwise be overridden), but following options are honoured, so
+may be used to modify the requested emulation mode.  Note that certain
+extra steps are taken to ensure a smooth emulation when this option
+is used compared with the @t{emulate} command within the shell: for
+example, variables that conflict with POSIX usage such as @t{path} are
+not defined within the shell.
 
 @noindent
 Options may be specified by name using the @t{-o} option.  @t{-o} acts like
@@ -1321,11 +1324,15 @@ is executed.
 @cindex for loops
 @cindex loops, for
 @item @t{for} @var{name} ... [ @t{in} @var{word} ... ] @var{term} @t{do} @var{list} @t{done}
-where @var{term} is at least one newline or @t{;}.
 Expand the list of @var{word}s, and set the parameter
-@var{name} to each of them in turn, executing
-@var{list} each time.  If the @t{in} @var{word} is omitted,
+@var{name} to each of them in turn, executing @var{list}
+each time.  If the `@t{in} @var{word}' is omitted,
 use the positional parameters instead of the @var{word}s.
+
+@noindent
+The @var{term} consists of one or more newline or @t{;}
+which terminate the @var{word}s, and are optional when the
+`@t{in} @var{word}' is omitted.
 
 @noindent
 More than one parameter @var{name} can appear before the list of
@@ -1631,6 +1638,9 @@ An alternative form of @t{case}.
 where @var{term} is at least one newline or @t{;}.
 A short form of @t{select}.
 
+@item @t{function} @var{word} ... [ @t{()} ] [ @var{term} ] @var{sublist}
+This is a short form of @t{function}.
+
 @end table
 @node Reserved Words, Errors, Alternate Forms For Complex Commands, Shell Grammar
 
@@ -1783,10 +1793,12 @@ operator, and `@t{(}' or `@t{)}' when not part of a glob pattern
 @end itemize
 
 @noindent
-It is not presently possible to alias the `@t{((}' token that
-introduces arithmetic expressions, because until a full statement has been
-parsed, it cannot be distinguished from two consecutive `@t{(}'
-tokens introducing nested subshells.
+Alias expansion is done on the shell input before any other expansion
+except history expansion.  Therefore, if an alias is defined for the
+word @t{foo}, alias expansion may be avoided by quoting part of the
+word, e.g. @t{\foo}.  Any form of quoting works, although there is
+nothing to prevent an alias being defined for the quoted form such as
+@t{\foo} as well.
 
 @noindent
 When @t{POSIX_ALIASES} is set, only plain unquoted strings are eligible
@@ -1794,20 +1806,44 @@ for aliasing.  The @t{alias} builtin does not reject ineligible aliases,
 but they are not expanded.
 
 @noindent
-Alias expansion is done on the shell input before any other expansion
-except history expansion.  Therefore, if an alias is defined for the
-word @t{foo}, alias expansion may be avoided by quoting part of the
-word, e.g. @t{\foo}.  Any form of quoting works, although there is
-nothing to prevent an alias being defined for the quoted form such as
-@t{\foo} as well.  Also, if a separator such as @t{&&} is aliased,
-@t{\&&} turns into the two tokens @t{\&} and @t{&}, each of which may
-have been aliased separately.  Similarly for @t{\<<}, @t{\>|}, etc.
-
-@noindent
 For use with completion, which would remove an initial backslash followed
 by a character that isn't special, it may be more convenient to quote the
 word by starting with a single quote, i.e. @t{'foo}; completion will
 automatically add the trailing single quote.
+
+@noindent
+
+@subsection Alias difficulties
+@noindent
+
+@noindent
+Although aliases can be used in ways that bend normal shell syntax, not
+every string of non-white-space characters can be used as an alias.
+
+@noindent
+Any set of characters not listed as a word above is not a word, hence no
+attempt is made to expand it as an alias, no matter how it is defined
+(i.e. via the builtin or the special parameter @t{aliases} described in
+@ref{The zsh/parameter Module}).
+However, as noted in the case of @t{POSIX_ALIASES} above, the shell does
+not attempt to deduce whether the string corresponds to a word at the
+time the alias is created.
+
+@noindent
+For example, an expression containing an @t{=} at the start of
+a command line is an assignment and cannot be expanded as an alias;
+a lone @t{=} is not an assignment but can only be set as an alias
+using the parameter, as otherwise the @t{=} is taken part of the
+syntax of the builtin command.
+
+@noindent
+It is not presently possible to alias the `@t{((}' token that
+introduces arithmetic expressions, because until a full statement has been
+parsed, it cannot be distinguished from two consecutive `@t{(}'
+tokens introducing nested subshells.
+Also, if a separator such as @t{&&} is aliased,
+@t{\&&} turns into the two tokens @t{\&} and @t{&}, each of which may
+have been aliased separately.  Similarly for @t{\<<}, @t{\>|}, etc.
 
 @noindent
 There is a commonly encountered problem with aliases
@@ -1892,7 +1928,8 @@ single quote if it is set.
 @noindent
 Inside double quotes (@t{""}), parameter and
 command substitution occur, and `@t{\}' quotes the characters
-`@t{\}', `@t{`}', `@t{"}', and `@t{$}'.
+`@t{\}', `@t{`}', `@t{"}', `@t{$}', and the first character
+of @t{$histchars} (default `@t{!}').
 @c (avoiding a yodl bug)
 @c Yodl file: Zsh/redirect.yo
 @node Redirection, Command Execution, Shell Grammar, Top
@@ -1924,6 +1961,7 @@ separate filename in turn.
 @table @asis
 @item @t{<} @var{word}
 Open file @var{word} for reading as standard input.
+It is an error to open a file in this fashion if it does not exist.
 
 @item @t{<>} @var{word}
 Open file @var{word} for reading and writing as standard input.
@@ -2165,6 +2203,10 @@ date >foo | cat
 writes the date to the file `@t{foo}', and also pipes it to cat.
 
 @noindent
+Note that the shell opens all the files to be used in the multio process
+immediately, not at the point they are about to be written.
+
+@noindent
 Note also that redirections are always expanded in order.  This happens
 regardless of the setting of the @t{MULTIOS} option, but with the option
 in effect there are additional consequences. For example,
@@ -2216,9 +2258,14 @@ echo exit 0 >> *.sh
 @noindent
 If the user tries to open a file descriptor for reading more than once,
 the shell opens the file descriptor as a pipe to a process that copies
-all the specified inputs to its output in the order
-specified, similar to @cite{cat},
-provided the @t{MULTIOS} option is set.  Thus
+all the specified inputs to its output in the order specified, provided
+the @t{MULTIOS} option is set.  It should be noted that each file is
+opened immediately, not at the point where it is about to be read:
+this behaviour differs from @t{cat}, so if strictly standard behaviour
+is needed, @t{cat} should be used instead.
+
+@noindent
+Thus
 
 @noindent
 @example
@@ -2940,6 +2987,13 @@ where the function was never suspended.  Zsh is different from many
 other shells in this regard.
 
 @noindent
+One additional side effect is that use of @t{disown} with a job
+created by suspending shell code in this fashion is delayed: the
+job can only be disowned once any process started from the parent
+shell has terminated.  At that point, the disowned job disappears
+silently from the job list.
+
+@noindent
 The same behaviour is found when the shell is executing code as the
 right hand side of a pipeline or any complex shell construct such as
 @t{if}, @t{for}, etc., in order that the entire block of code
@@ -3434,6 +3488,11 @@ true if option named @var{option} is on.  @var{option}
 may be a single character, in which case it is a single letter option name.
 (See @ref{Specifying Options}.)
 
+@noindent
+When no option named @var{option} exists, and the @t{POSIX_BUILTINS} option
+hasn't been set, return 3 with a warning.  If that option is set, return 1
+with no warning.
+
 @item @t{-p} @var{file}
 true if @var{file} exists and is a FIFO special file (named pipe).
 
@@ -3882,12 +3941,17 @@ the hour of the day on the 12-hour clock
 In addition, if the system supports the POSIX @t{gettimeofday} system
 call, @t{%.} provides decimal fractions of a second since the epoch with
 leading zeroes.  By default three decimal places are provided, but a
-number of digits up to 6 may be given following the @t{%}; hence @t{%6.}
-outputs microseconds.  A typical example of this is the format
-`@t{%D@{%H:%M:%S.%.@}}'.
+number of digits up to 9 may be given following the @t{%}; hence @t{%6.}
+outputs microseconds, and @t{%9.} outputs nanoseconds.  (The latter
+requires a nanosecond-precision @t{clock_gettime}; systems lacking this
+will return a value multiplied by the appropriate power of 10.)  A typical
+example of this is the format `@t{%D@{%H:%M:%S.%.@}}'.
 
 @noindent
-The GNU extension that a `@t{-}' between the @t{%} and the
+The GNU extension @t{%N} is handled as a synonym for @t{%9.}.
+
+@noindent
+Additionally, the GNU extension that a `@t{-}' between the @t{%} and the
 format character causes a leading zero or space to be stripped
 is handled directly by the shell for the format characters @t{d}, @t{f},
 @t{H}, @t{k}, @t{l}, @t{m}, @t{M}, @t{S} and @t{y}; any other format
@@ -4129,9 +4193,12 @@ in @ref{Aliasing}.
 @itemx @emph{Command Substitution}
 @itemx @emph{Arithmetic Expansion}
 @itemx @emph{Brace Expansion}
-These five are performed in one step in left-to-right fashion.  After
-these expansions, all unquoted occurrences of the characters `@t{\}',
-`@t{'}' and `@t{"}' are removed.
+These five are performed in left-to-right fashion.  On each argument,
+any of the five steps that are needed are performed one after the other.
+Hence, for example, all the parts of parameter expansion are completed
+before command substitution is started.  After these expansions, all
+unquoted occurrences of the characters `@t{\}',`@t{'}' and `@t{"}' are
+removed.
 
 @item @emph{Filename Expansion}
 If the @t{SH_FILE_EXPANSION} option is set, the order of expansion is
@@ -4194,10 +4261,11 @@ you may see in your prompt (see
 @vindex histchars, use of
 A history expansion begins with the first character of the @t{histchars}
 parameter, which is `@t{!}' by default, and may occur anywhere on the
-command line; history expansions do not nest.  The `@t{!}' can be escaped
-with `@t{\}' or can be enclosed between a pair of single quotes (@t{@value{dsq}})
-to suppress its special meaning.  Double quotes will @emph{not} work for
-this.  Following this history character is an optional event designator
+command line, including inside double quotes (but not inside single quotes
+@t{'...'} or C-style quotes @t{$'...'} nor when escaped with a backslash).  
+
+@noindent
+The first character is followed by an optional event designator
 (@ref{Event Designators}) and then an optional word
 designator (@ref{Word Designators}); if neither of these designators is
 present, no history expansion occurs.
@@ -4207,6 +4275,9 @@ Input lines containing history expansions are echoed after being expanded,
 but before any other expansions take place and before the command is
 executed.  It is this expanded form that is recorded as the history event
 for later references.
+
+@noindent
+History expansions do not nest.
 
 @noindent
 By default, a history reference with no event designator refers to the
@@ -5087,8 +5158,9 @@ all arguments to be removed.
 Internally, each such expansion is converted into the
 equivalent list for brace expansion.  E.g., @t{$@{^var@}} becomes
 @t{@{$var[1],$var[2],}...@t{@}}, and is processed as described in
-@ref{Brace Expansion} below.
-If word splitting is also in effect the
+@ref{Brace Expansion} below: note, however, the expansion
+happens immediately, with any explicit brace expansion
+happening later.  If word splitting is also in effect the
 @t{$var[}@var{N}@t{]} may themselves be split into different list
 elements.
 
@@ -5193,15 +5265,27 @@ This is distinct from @emph{field splitting} by the @t{f}, @t{s}
 or @t{z} flags, which still applies within each array element.
 
 @item @t{A}
-Create an array parameter with `@t{$@{}...@t{=}...@t{@}}',
+Convert the substitution into an array expression, even if it otherwise
+would be scalar.  This has lower precedence than subscripting, so one
+level of nested expansion is required in order that subscripts apply
+to array elements.  Thus @t{$@{$@{(A}@t{)}@var{name}@t{@}[1]@}}
+yields the full value of @var{name} when @var{name} is scalar.
+
+@noindent
+This assigns an array parameter with `@t{$@{}...@t{=}...@t{@}}',
 `@t{$@{}...@t{:=}...@t{@}}' or `@t{$@{}...@t{::=}...@t{@}}'.
-If this flag is repeated (as in `@t{AA}'), create an associative
+If this flag is repeated (as in `@t{AA}'), assigns an associative
 array parameter.  Assignment is made before sorting or padding;
 if field splitting is active, the @var{word} part is split before
 assignment.  The @var{name} part may be a subscripted range for
-ordinary arrays; the @var{word} part @emph{must} be converted to
-an array, for example by using `@t{$@{(AA)=}@var{name}@t{=}...@t{@}}'
-to activate field splitting, when creating an associative array.
+ordinary arrays; when assigning an associative array, the @var{word}
+part @emph{must} be converted to an array, for example by using
+`@t{$@{(AA)=}@var{name}@t{=}...@t{@}}' to activate field splitting.
+
+@noindent
+Surrounding context such as additional nesting or use of the value
+in a scalar assignment may cause the array to be joined back into
+a single string again.
 
 @item @t{a}
 Sort in array index order; when combined with `@t{O}' sort in reverse
@@ -5257,9 +5341,10 @@ argument.  This is the reverse of `@t{~}' substitution:  see
 @ref{Filename Expansion}.
 
 @item @t{e}
-Perform @emph{parameter expansion}, @emph{command substitution} and
-@emph{arithmetic expansion} on the result. Such expansions can be
-nested but too deep recursion may have unpredictable effects.
+Perform single word shell expansions, namely @emph{parameter expansion},
+@emph{command substitution} and @emph{arithmetic expansion}, on the
+result. Such expansions can be nested but too deep recursion may have
+unpredictable effects.
 
 @item @t{f}
 Split the result of the expansion at newlines. This is a shorthand
@@ -5285,7 +5370,9 @@ If @var{name} refers to an associative array, substitute the @emph{keys}
 (element names) rather than the values of the elements.  Used with
 subscripts (including ordinary arrays), force indices or keys to be
 substituted even if the subscript form refers to values.  However,
-this flag may not be combined with subscript ranges.
+this flag may not be combined with subscript ranges.  With the
+@t{KSH_ARRAYS} option a subscript `@t{[*]}' or `@t{[@@]}' is needed
+to operate on the whole array, as usual.
 
 @item @t{L}
 Convert all letters in the result to lower case.
@@ -5969,10 +6056,20 @@ any trailing newlines deleted.
 If the substitution is not enclosed in double quotes, the
 output is broken into words using the @t{IFS} parameter.
 @vindex IFS, use of
+
+@noindent
 The substitution `@t{$(cat} @var{foo}@t{)}' may be replaced
-by the equivalent but faster `@t{$(<}@var{foo}@t{)}'.
-In either case, if the option @t{GLOB_SUBST} is set,
-the output is eligible for filename generation.
+by the faster `@t{$(<}@var{foo}@t{)}'.  In this case @var{foo}
+undergoes single word shell expansions (@emph{parameter expansion},
+@emph{command substitution} and @emph{arithmetic expansion}), but not
+filename generation.
+
+@noindent
+If the option @t{GLOB_SUBST} is set, the result of any unquoted command
+substitution, including the special form just mentioned, is eligible for
+filename generation.
+
+@noindent
 @node Arithmetic Expansion, Brace Expansion, Command Substitution, Expansion
 
 @section Arithmetic Expansion
@@ -6340,7 +6437,7 @@ The character is 7-bit, i.e. is a single-byte character without
 the top bit set.
 
 @item @t{[:blank:]}
-The character is either space or tab
+The character is a blank character
 
 @item @t{[:cntrl:]}
 The character is a control character
@@ -6458,6 +6555,7 @@ Matches either @var{x} or @var{y}.
 This operator has lower precedence than any other.
 The `@t{|}' character
 must be within parentheses, to avoid interpretation as a pipeline.
+The alternatives are tried in order from left to right.
 
 @item @t{^}@var{x}
 (Requires @t{EXTENDED_GLOB} to be set.)
@@ -7471,16 +7569,85 @@ To assign an array value, write one of:
 @quotation
 @var{name}@t{=(}@var{value} ...@t{)}
 @end quotation
+@quotation
+@var{name}@t{=(}@t{[}@var{key}@t{]=}@var{value} ...@t{)}
+@end quotation
 
 @noindent
 If no parameter @var{name} exists, an ordinary array parameter is created.
 If the parameter @var{name} exists and is a scalar, it is replaced by a new
-array.  To append to an array without changing the existing values, use
-the syntax:
+array.
+
+@noindent
+In the third form, @var{key} is an expression that will be evaluated in
+arithmetic context (in its simplest form, an integer) that gives the
+index of the element to be assigned with @var{value}.  In this form any
+elements not explicitly mentioned that come before the largest index to
+which a value is assigned are assigned an empty string.  The indices
+may be in any order.  Note that this syntax is strict: @t{[} and @t{]=} must
+not be quoted, and @var{key} may not consist of the unquoted string
+@t{]=}, but is otherwise treated as a simple string.  The enhanced forms
+of subscript expression that may be used when directly subscripting a
+variable name, described in the section Array Subscripts below, are not
+available.
+
+@noindent
+The syntaxes with and without the explicit key may be mixed.  An implicit
+@var{key} is deduced by incrementing the index from the previously
+assigned element.  Note that it is not treated as an error
+if latter assignments in this form overwrite earlier assignments.
+
+@noindent
+For example, assuming the option @t{KSH_ARRAYS} is not set, the following:
+
+@noindent
+@example
+array=(one [3]=three four)
+@end example
+
+@noindent
+causes the array variable @t{array} to contain four elements @t{one},
+an empty string, @t{three} and @t{four}, in that order.
+
+@noindent
+In the forms where only @var{value} is specified, full command
+line expansion is performed.
+
+@noindent
+In the @t{[}@var{key}@t{]=}@var{value} form,
+both @var{key} and @var{value} undergo all forms of expansion
+allowed for single word shell expansions (this does not include filename
+generation); these are as performed by the parameter expansion flag
+@t{(e)} as described in
+@ref{Parameter Expansion}.
+Nested parentheses may surround @var{value} and are included as part of the
+value, which is joined into a plain string; this differs from ksh which
+allows the values themselves to be arrays.  A future version of zsh may
+support that.  To cause the brackets to be interpreted as a character
+class for filename generation, and therefore to treat the resulting list
+of files as a set of values, quote the equal sign using any form of quoting.
+Example:
+
+@quotation
+@var{name}@t{=(}@t{[a-z]'='*)}
+@end quotation
+
+@noindent
+To append to an array without changing the existing values, use
+one of the following:
 
 @quotation
 @var{name}@t{+=(}@var{value} ...@t{)}
 @end quotation
+@quotation
+@var{name}@t{+=(}@t{[}@var{key}@t{]=}@var{value} ...@t{)}
+@end quotation
+
+@noindent
+In the second form @var{key} may specify an existing index as well as an
+index off the end of the old array; any existing value is overwritten by
+@var{value}.  Also, it is possible to use @t{[}@var{key}@t{]+=}@var{value}
+to append to the existing value at that index.
 
 @noindent
 Within the parentheses on the right hand side of either form of the
@@ -7513,6 +7680,14 @@ is interpreted as alternating keys and values:
 @quotation
 @var{name}@t{=(}@var{key} @var{value} ...@t{)}
 @end quotation
+@quotation
+@var{name}@t{=(}@t{[}@var{key}@t{]=}@var{value} ...@t{)}
+@end quotation
+
+@noindent
+Note that only one of the two syntaxes above may be used in any
+given assignment; the forms may not be mixed.  This is unlike the case
+of numerically indexed arrays.
 
 @noindent
 Every @var{key} must have a @var{value} in this case.  Note that this
@@ -7522,10 +7697,17 @@ the list.  The append syntax may also be used with an associative array:
 @quotation
 @var{name}@t{+=(}@var{key} @var{value} ...@t{)}
 @end quotation
+@quotation
+@var{name}@t{+=(}@t{[}@var{key}@t{]=}@var{value} ...@t{)}
+@end quotation
 
 @noindent
 This adds a new key/value pair if the key is not already present, and
-replaces the value for the existing key if it is.
+replaces the value for the existing key if it is.  In the second
+form it is also possible to use @t{[}@var{key}@t{]+=}@var{value} to
+append to the existing value at that key.  Expansion is performed
+identically to the corresponding forms for normal arrays, as
+described above.
 
 @noindent
 To create an empty array (including associative arrays), use one of:
@@ -7701,8 +7883,10 @@ The flags currently understood are:
 @item @t{w}
 If the parameter subscripted is a scalar then this flag makes
 subscripting work on words instead of characters.  The default word
-separator is whitespace.  This flag may not be used with the @t{i} or
-@t{I} flag.
+separator is whitespace.  When combined with the @t{i} or @t{I} flag,
+the effect is to produce the index of the first character of the
+first/last word which matches the given pattern; note that a failed
+match in this case always yields 0.
 
 @item @t{s:}@var{string}@t{:}
 This gives the @var{string} that separates words (for use with the
@@ -8150,6 +8334,16 @@ This value is system dependent and is intended for debugging
 purposes.  It is also useful with the @t{zsh/system} module which
 allows the number to be turned into a name or message.
 
+@vindex FUNCNEST
+@item @t{FUNCNEST} <S>
+Integer.  If greater than or equal to zero, the maximum nesting depth of
+shell functions.  When it is exceeded, an error is raised at the point
+where a function is called.  The default value is determined when
+the shell is configured, but is typically 500.  Increasing
+the value increases the danger of a runaway function recursion
+causing the shell to crash.  Setting a negative value turns off
+the check.
+
 @vindex GID
 @item @t{GID} <S>
 The real group ID of the shell process.  If you have sufficient privileges,
@@ -8439,8 +8633,8 @@ of zsh.
 
 @vindex ZSH_PATCHLEVEL
 @item @t{ZSH_PATCHLEVEL}
-The revision string for the version number of the ChangeLog file
-in the zsh distribution.  This is most useful in order to keep
+The output of `@t{git describe --tags --long}' for the zsh repository
+used to build the shell.  This is most useful in order to keep
 track of versions of the shell during development between releases;
 hence most users should not use it and should instead rely on
 @t{$ZSH_VERSION}.
@@ -8892,7 +9086,7 @@ is specified with no command.  Defaults to @t{more}.
 @vindex REPORTMEMORY
 @item @t{REPORTMEMORY}
 If nonnegative, commands whose maximum resident set size (roughly
-speaking, main memory usage) in megabytes is greater than this
+speaking, main memory usage) in kilobytes is greater than this
 value have timing statistics reported.  The format used to output
 statistics is the value of the @t{TIMEFMT} parameter, which is the same
 as for the @t{REPORTTIME} variable and the @t{time} builtin; note that
@@ -9044,7 +9238,7 @@ kilobytes.
 The total space used (@t{%X}+@t{%D}) in kilobytes.
 @item @t{%M}
 The  maximum memory the process had in use at any time in
-megabytes.
+kilobytes.
 @item @t{%F}
 The number of major page faults (page needed to be brought
 from disk).
@@ -9069,10 +9263,12 @@ The name of this job.
 @end table
 
 @noindent
-A star may be inserted between the percent sign and flags printing time.
-This cause the time to be printed in
+A star may be inserted between the percent sign and flags printing time
+(e.g., `@t{%*E}'); this causes the time to be printed in
 `@var{hh}@t{:}@var{mm}@t{:}@var{ss}@t{.}@var{ttt}'
 format (hours and minutes are only printed if they are not zero).
+Alternatively, `@t{m}' or `@t{u}' may be used (e.g., `@t{%mE}') to produce
+time output in milliseconds or microseconds, respectively.
 
 @vindex TMOUT
 @item @t{TMOUT}
@@ -9761,8 +9957,9 @@ in the other direction. This option overrides @t{AUTO_MENU}.
 @pindex NORECEXACT
 @cindex completion, exact matches
 @item @t{REC_EXACT} (@t{-S})
-In completion, recognize exact matches even
-if they are ambiguous.
+If the string on the command line exactly matches one of the possible
+completions, it is accepted, even if there is another completion (i.e. that
+string with something else added) that also matches.
 
 @end table
 
@@ -10103,9 +10300,10 @@ all arguments to be removed.
 @pindex NOREMATCHPCRE
 @cindex regexp, PCRE
 @cindex PCRE, regexp
-@item @t{REMATCH_PCRE} <Z>
+@item @t{REMATCH_PCRE}
 If set, regular expression matching with the @t{=~} operator will use
-Perl-Compatible Regular Expressions from the PCRE library, if available.
+Perl-Compatible Regular Expressions from the PCRE library.
+(The @t{zsh/pcre} module must be available.)
 If not set, regular expressions will use the extended regexp syntax
 provided by the system libraries.
 
@@ -10132,7 +10330,9 @@ set by default if zsh is invoked as @t{sh} or @t{ksh}.
 @cindex parameters, substituting unset
 @cindex unset parameters, substituting
 @item @t{UNSET} (@t{+u}, ksh: @t{+u}) <K> <S> <Z>
-Treat unset parameters as if they were empty when substituting.
+Treat unset parameters as if they were empty when substituting, and as if
+they were zero when reading their values in arithmetic expansion and
+arithmetic commands.
 Otherwise they are treated as an error.
 
 @pindex WARN_CREATE_GLOBAL
@@ -10148,6 +10348,41 @@ declared local when it should have been.  Parameters explicitly declared
 global from within a function using @t{typeset -g} do not cause a warning.
 Note that there is no warning when a local parameter is assigned to in
 a nested function, which may also indicate an error.
+
+@pindex WARN_NESTED_VAR
+@pindex NO_WARN_NESTED_VAR
+@pindex WARNNESTEDVAR
+@pindex NO_WARNNESTEDVAR
+@cindex parameters, warning when setting in enclosing scope
+@item @t{WARN_NESTED_VAR}
+Print a warning message when an existing parameter from an
+enclosing function scope, or global, is set in a function
+by an assignment or in math context.  Assignment to shell
+special parameters does not cause a warning.  This is the companion
+to @t{WARN_CREATE_GLOBAL} as in this case the warning is only
+printed when a parameter is @emph{not} created.  Where possible,
+use of @t{typeset -g} to set the parameter suppresses the error,
+but note that this needs to be used every time the parameter is set.
+To restrict the effect of this option to a single function scope,
+use `@t{functions -W}'.
+
+@noindent
+For example, the following code produces a warning for the assignment
+inside the function @t{nested} as that overrides the value within
+@t{toplevel}
+
+@noindent
+@example
+toplevel() @{
+  local foo="in fn"
+  nested
+@}
+nested() @{
+     foo="in nested"
+@}
+setopt warn_nested_var
+toplevel
+@end example
 
 @end table
 
@@ -10168,7 +10403,7 @@ zsh sessions will all have the new entries from their history lists
 added to the history file, in the order that they exit.
 The file will still be periodically re-written to trim it when the
 number of lines grows 20% beyond the value specified by
-@t{$SAVEHIST} (see also the HIST_SAVE_BY_COPY option).
+@t{$SAVEHIST} (see also the @t{HIST_SAVE_BY_COPY} option).
 
 @pindex BANG_HIST
 @pindex NO_BANG_HIST
@@ -10369,7 +10604,7 @@ history expansion and reload the line into the editing buffer.
 @pindex NOINCAPPENDHISTORY
 @cindex history, incremental appending to a file
 @item @t{INC_APPEND_HISTORY}
-This options works like @t{APPEND_HISTORY} except that new history lines
+This option works like @t{APPEND_HISTORY} except that new history lines
 are added to the @t{$HISTFILE} incrementally (as soon as they are
 entered), rather than waiting until the shell exits.
 The file will still be periodically re-written to trim it when the
@@ -10800,6 +11035,20 @@ of the hook functions defined in
 the section Special Functions in @ref{Functions}
 is not counted for this purpose.
 
+@pindex CHECK_RUNNING_JOBS
+@pindex NO_CHECK_RUNNING_JOBS
+@pindex CHECKRUNNINGJOBS
+@pindex NOCHECKRUNNINGJOBS
+@cindex exiting, checking running jobs when
+@cindex logging out, checking running jobs when
+@item @t{CHECK_RUNNING_JOBS} <Z>
+Check for both running and suspended jobs when @t{CHECK_JOBS} is enabled.
+When this option is disabled, zsh checks only for suspended jobs, which
+matches the default behavior of bash.
+
+@noindent
+This option has no effect unless @t{CHECK_JOBS} is set.
+
 @pindex HUP
 @pindex NO_HUP
 @pindex NOHUP
@@ -10814,7 +11063,7 @@ shell exits.
 @pindex NOLONGLISTJOBS
 @cindex jobs, list format
 @item @t{LONG_LIST_JOBS} (@t{-R})
-List jobs in the long format by default.
+Print job notifications in the long format by default.
 
 @pindex MONITOR
 @pindex NO_MONITOR
@@ -10953,6 +11202,42 @@ line.  This may be useful with terminals with other cut/paste methods.
 @subsection Scripts and Functions
 @noindent
 @table @asis
+@pindex ALIAS_FUNC_DEF
+@pindex NO_ALIAS_FUNC_DEF
+@pindex ALIASFUNCDEF
+@pindex NOALIASFUNCDEF
+@cindex functions, defining with expanded aliases
+@cindex aliases, expanding in function definition
+@item @t{ALIAS_FUNC_DEF} <S>
+By default, zsh does not allow the definition of functions using
+the `@var{name} @t{()}' syntax if @var{name} was expanded as an
+alias: this causes an error.  This is usually the desired behaviour, as
+otherwise the combination of an alias and a function based on the same
+definition can easily cause problems.
+
+@noindent
+When this option is set, aliases can be used for defining functions.
+
+@noindent
+For example, consider the following definitions as they might
+occur in a startup file.
+
+@noindent
+@example
+alias foo=bar
+foo() @{
+  print This probably does not do what you expect.
+@}
+@end example
+
+@noindent
+Here, @t{foo} is expanded as an alias to @t{bar} before the
+@t{()} is encountered, so the function defined would be named
+@t{bar}.  By default this is instead an error in native mode.  Note that
+quoting any part of the function name, or using the keyword
+@t{function}, avoids the problem, so is recommended when the function
+name can also be an alias.
+
 @pindex C_BASES
 @pindex NO_C_BASES
 @pindex CBASES
@@ -11011,6 +11296,18 @@ on exit, then the command for which the @t{DEBUG} trap is being executed is
 skipped.  The option is restored after the trap exits.
 
 @noindent
+Non-zero status in a command list containing @t{&&} or @t{||} is ignored
+for commands not at the end of the list.  Hence
+
+@noindent
+@example
+false && true
+@end example
+
+@noindent
+does not trigger exit.
+
+@noindent
 Exiting due to @t{ERR_EXIT} has certain interactions with asynchronous
 jobs noted in
 @ref{Jobs & Signals}.
@@ -11023,10 +11320,31 @@ jobs noted in
 @cindex return from function, on error
 @item @t{ERR_RETURN}
 If a command has a non-zero exit status, return immediately from the
-enclosing function.  The logic is identical to that for @t{ERR_EXIT},
+enclosing function.  The logic is similar to that for @t{ERR_EXIT},
 except that an implicit @t{return} statement is executed instead of an
 @t{exit}.  This will trigger an exit at the outermost level of a
 non-interactive script.
+
+@noindent
+Normally this option inherits the behaviour of @t{ERR_EXIT} that
+code followed by `@t{&&}' `@t{||}' does not trigger a return.  Hence
+in the following:
+
+@noindent
+@example
+summit || true
+@end example
+
+@noindent
+no return is forced as the combined effect always has a zero return
+status.
+
+@noindent
+Note. however, that if @t{summit} in the above example is itself a
+function, code inside it is considered separately: it may force a return
+from @t{summit} (assuming the option remains set within @t{summit}), but
+not from the enclosing context.  This behaviour is different from
+@t{ERR_EXIT} which is unaffected by function scope.
 
 @pindex EVAL_LINENO
 @pindex NO_EVAL_LINENO
@@ -11515,9 +11833,18 @@ or @t{exec} cause a non-interactive shell to exit and an interactive
 shell to return to its top-level processing.
 
 @noindent
+Furthermore, functions and shell builtins are not executed after
+an @t{exec} prefix; the command to be executed must be an external
+command found in the path.
+
+@noindent
 Furthermore, the @t{getopts} builtin behaves in a POSIX-compatible
 fashion in that the associated variable @t{OPTIND} is not made
 local to functions.
+
+@noindent
+Moreover, the warning and special exit code from
+@t{[[ -o }@var{non_existent_option}@t{ ]]} are suppressed.
 
 @pindex POSIX_IDENTIFIERS
 @pindex NO_POSIX_IDENTIFIERS
@@ -12296,20 +12623,44 @@ For more on aliases, include common problems, see
 @findex autoload
 @cindex functions, autoloading
 @cindex autoloading functions
-@item @t{autoload} [ @{@t{+}|@t{-}@}@t{TUXkmtz} ] [ @t{-w} ] [ @var{name} ... ]
+@item @t{autoload} [ @{@t{+}|@t{-}@}@t{RTUXdkmrtWz} ] [ @t{-w} ] [ @var{name} ... ]
 @vindex fpath, searching
-Equivalent to @t{functions -u}, with the exception of @t{-X}/@t{+X} and
-@t{-w}.  See the section `Autoloading Functions' in @ref{Functions} for full details.  The @t{fpath} parameter
+See the section `Autoloading Functions' in @ref{Functions} for full details.  The @t{fpath} parameter
 will be searched to find the function definition when the function is
 first referenced.
 
 @noindent
-The flag @t{-X} may be used only inside a shell function, and may not be
-followed by a @var{name}.  It causes the calling function to be marked for
-autoloading and then immediately loaded and executed, with the current
-array of positional parameters as arguments.  This replaces the previous
-definition of the function.  If no function definition is found, an error
-is printed and the function remains undefined and marked for autoloading.
+If @var{name} consists of an absolute path, the function is defined to
+load from the file given (searching as usual for dump files in the given
+location).  The name of the function is the basename (non-directory
+part) of the file.  It is normally an error if the function is not found
+in the given location; however, if the option @t{-d} is given, searching
+for the function defaults to @t{$fpath}.  If a function is loaded by
+absolute path, any functions loaded from it that are marked for
+@t{autoload} without an absolute path have the load path of the parent
+function temporarily prepended to @t{$fpath}.
+
+@noindent
+If the option @t{-r} or @t{-R} is given, the function is searched for
+immediately and the location is recorded internally for use when the
+function is executed; a relative path is expanded using the value of
+@t{$PWD}.  This protects against a change to @t{$fpath} after the call
+to @t{autoload}.  With @t{-r}, if the function is not found, it is
+silently left unresolved until execution; with @t{-R}, an error message
+is printed and command processing aborted immediately the search fails,
+i.e. at the @t{autoload} command rather than at function execution..
+
+@noindent
+The flag @t{-X} may be used only inside a shell function.  It causes the
+calling function to be marked for autoloading and then immediately
+loaded and executed, with the current array of positional parameters as
+arguments.  This replaces the previous definition of the function.  If
+no function definition is found, an error is printed and the function
+remains undefined and marked for autoloading.  If an argument is given,
+it is used as a directory (i.e. it does not include the name of the
+function) in which the function is to be found; this may be combined
+with the @t{-d} option to allow the function search to default to @t{$fpath}
+if it is not in the given location.
 
 @noindent
 The flag @t{+X} attempts to load each @var{name} as an autoloaded function,
@@ -12325,6 +12676,15 @@ ksh autoloading behaviour on the first call to the function.
 If the @t{-m} flag is also given each @var{name} is treated as a
 pattern and all functions already marked for autoload that match the
 pattern are loaded.
+
+@noindent
+With the @t{-t} flag, turn on execution tracing; with @t{-T}, turn on
+execution tracing only for the current function, turning it off on entry
+to any called functions that do not also have tracing enabled.
+
+@noindent
+With the @t{-U} flag, alias expansion is suppressed when the function is
+loaded.
 
 @noindent
 With the @t{-w} flag, the @var{name}s are taken as names of files compiled
@@ -12350,6 +12710,11 @@ emulate zsh -c 'autoload -Uz @var{func}'
 @noindent
 arranges that when @var{func} is loaded the shell is in native @t{zsh}
 emulation, and this emulation is also applied when @var{func} is run.
+
+@noindent
+Some of the functions of @t{autoload} are also provided by @t{functions
+-u} or @t{functions -U}, but @t{autoload} is a more comprehensive
+interface.
 
 @findex bg
 @cindex jobs, backgrounding
@@ -12662,7 +13027,7 @@ bell character
 @item @t{\b}
 backspace
 @item @t{\c}
-suppress final newline
+suppress subsequent characters and final newline
 @item @t{\e}
 escape
 @item @t{\f}
@@ -12692,6 +13057,16 @@ unicode character code in hexadecimal
 The @t{-E} flag, or the @t{BSD_ECHO} option, can be used to disable
 these escape sequences.  In the latter case, @t{-e} flag can be used to
 enable them.
+
+@noindent
+Note that for standards compliance a double dash does not terminate
+option processing; instead, it is printed directly.  However, a
+single dash does terminate option processing, so the first dash,
+possibly following options, is not printed, but everything following it
+is printed as an argument.  The single dash behaviour is different
+from other shells.  For a more portable way of printing text, see
+@t{printf}, and for a more controllable way of printing text within zsh,
+see @t{print}.
 
 @item @t{echotc}
 See @ref{The zsh/termcap Module}.
@@ -12872,12 +13247,23 @@ if there are no @var{args} or they contain no commands (i.e. are
 an empty string or whitespace) the return status is zero.
 
 @item @t{exec} [ @t{-cl} ] [ @t{-a} @var{argv0} ] [ @var{command} [ @var{arg} ... ] ]
-Replace the current shell with an external @var{command} rather than forking.
+Replace the current shell with @var{command} rather than forking.
+If @var{command} is a shell builtin command or a shell function,
+the shell executes it, and exits when the command is complete.
+
+@noindent
 With @t{-c} clear the environment; with @t{-l} prepend @t{-} to the
 @t{argv[0]} string of the command executed (to simulate a login shell);
 with @t{-a} @var{argv0} set the @t{argv[0]} string of the command
 executed.
 See @ref{Precommand Modifiers}.
+
+@noindent
+If the option @t{POSIX_BUILTINS} is set, @var{command} is never
+interpreted as a shell builtin command or shell function.  This
+means further precommand modifiers such as @t{builtin} and
+@t{noglob} are also not interpreted within the shell.  Hence
+@var{command} is always found by searching the command path.
 
 @noindent
 @cindex redirection, current shell's I/O
@@ -13059,18 +13445,25 @@ Equivalent to @t{typeset -E}, except that options irrelevant to floating
 point numbers are not permitted.
 
 @findex functions
-@item @t{functions} [ @{@t{+}|@t{-}@}@t{UkmtTuz} ] [ @t{-x} @var{num} ] [ @var{name} ... ]
-@itemx @t{functions -M} @var{mathfn} [ @var{min} [ @var{max} [ @var{shellfn} ] ] ]
+@item @t{functions} [ @{@t{+}|@t{-}@}@t{UkmtTuWz} ] [ @t{-x} @var{num} ] [ @var{name} ... ]
+@itemx @t{functions -M} [@t{-s}] @var{mathfn} [ @var{min} [ @var{max} [ @var{shellfn} ] ] ]
 @itemx @t{functions -M} [ @t{-m} @var{pattern} ... ]
 @itemx @t{functions +M} [ @t{-m} ] @var{mathfn} ... 
-Equivalent to @t{typeset -f}, with the exception of the @t{-x} and
-@t{-M} options.
+Equivalent to @t{typeset -f}, with the exception of the @t{-x},
+@t{-M} and @t{-W} options.  For @t{functions -u} and @t{functions -U},
+see @t{autoload}, which provides additional options.
 
 @noindent
 The @t{-x} option indicates that any functions output will have
 each leading tab for indentation, added by the shell to show syntactic
 structure, expanded to the given number @var{num} of spaces.  @var{num}
 can also be 0 to suppress all indentation.
+
+@noindent
+The @t{-W} option turns on the option @t{WARN_NESTED_VAR} for the named
+function or functions only.  The option is turned off at the start of
+nested functions (apart from anonoymous functions) unless the called
+function also has the @t{-W} attribute.
 
 @noindent
 Use of the @t{-M} option may not be combined with any of the options
@@ -13099,6 +13492,14 @@ inside the shell function (even if it is a form that normally only returns
 a status) gives the result of the mathematical function.
 
 @noindent
+If the additional option @t{-s} is given to @t{functions -M}, the
+argument to the function is a single string: anything between the
+opening and matching closing parenthesis is passed to the function as a
+single argument, even if it includes commas or white space.  The minimum
+and maximum argument specifiers must therefore be 1 if given.  An empty
+argument list is passed as a zero-length string.
+
+@noindent
 @t{functions -M} with no arguments lists all such user-defined functions in
 the same form as a definition.  With the additional option @t{-m} and
 a list of arguments, all functions whose @var{mathfn} matches one of
@@ -13107,9 +13508,9 @@ the pattern arguments are listed.
 @noindent
 @t{function +M} removes the list of mathematical functions; with the
 additional option @t{-m} the arguments are treated as patterns and
-all functions whose @t{mathfn} matches the pattern are removed.  Note
+all functions whose @var{mathfn} matches the pattern are removed.  Note
 that the shell function implementing the behaviour is not removed
-(regardless of whether its name coincides with @t{mathfn}).
+(regardless of whether its name coincides with @var{mathfn}).
 
 @noindent
 For example, the following prints the cube of 3:
@@ -13119,6 +13520,17 @@ For example, the following prints the cube of 3:
 zmath_cube() @{ (( $1 * $1 * $1 )) @}
 functions -M cube 1 1 zmath_cube
 print $(( cube(3) ))
+@end example
+
+@noindent
+The following string function takes a single argument, including
+the commas, so prints 11:
+
+@noindent
+@example
+stringfn() @{ (( $#1 )) @}
+functions -Ms stringfn
+print $(( stringfn(foo,bar,rod) ))
 @end example
 
 @item @t{getcap}
@@ -13511,6 +13923,9 @@ Print the arguments to the input of the coprocess.
 @item @t{-P}
 Perform prompt expansion (see
 @ref{Prompt Expansion}).
+In combination with `@t{-f}',
+prompt escape sequences are parsed only within interpolated arguments,
+not within the format string.
 
 @item @t{-r}
 Ignore the escape conventions of @t{echo}.
@@ -13572,7 +13987,7 @@ If any of `@t{-m}', `@t{-o}' or `@t{-O}' are used in combination with
 case of `@t{-m}') then nothing is printed.
 
 @findex printf
-@item @t{printf} [ -v @var{name} ] @var{format} [ @var{arg} ... ]
+@item @t{printf} [ @t{-v} @var{name} ] @var{format} [ @var{arg} ... ]
 Print the arguments according to the format specification. Formatting
 rules are the same as used in C. The same escape sequences as for @t{echo}
 are recognised in the format. All C conversion specifications ending in
@@ -14118,9 +14533,9 @@ Equivalent to @t{whence -v}.
 @cindex parameters, setting
 @cindex parameters, declaring
 
-@item @t{typeset }[ @{@t{+}|@t{-}@}@t{AHUaghlmprtux} ] [ @{@t{+}|@t{-}@}@t{EFLRZi} [ @var{n} ] ]
+@item @t{typeset }[ @{@t{+}|@t{-}@}@t{AHUaghlmrtux} ] [ @{@t{+}|@t{-}@}@t{EFLRZip} [ @var{n} ] ]
 @itemx @t{@ @ @ @ @ @ @ @ }[ @t{+} ] [ @var{name}[@t{=}@var{value}] ... ]
-@itemx @t{typeset }@t{-T} [ @{@t{+}|@t{-}@}@t{Uglprux} ] [ @{@t{+}|@t{-}@}@t{LRZ} [ @var{n} ] ]
+@itemx @t{typeset }@t{-T} [ @{@t{+}|@t{-}@}@t{Uglrux} ] [ @{@t{+}|@t{-}@}@t{LRZp} [ @var{n} ] ]
 @itemx @t{@ @ @ @ @ @ @ @ }[ @t{+} | @var{SCALAR}[@t{=}@var{value}] @var{array}[@t{=(}@var{value} ...@t{)}] [ @var{sep} ] ]
 @itemx @t{typeset} @t{-f} [ @{@t{+}|@t{-}@}@t{TUkmtuz} ] [ @t{+} ] [ @var{name} ... ]
 Set or display attributes and values for shell parameters.
@@ -14316,11 +14731,17 @@ even inside a function.  Note that @t{-m} is ignored if no patterns are
 given, so `@t{typeset -m}' displays attributes but `@t{typeset -a +m}'
 does not.
 
-@item @t{-p}
+@item @t{-p} [ @var{n} ]
 If the @t{-p} option is given, parameters and values are printed in the
 form of a typeset command with an assignment, regardless of other flags
 and options.  Note that the @t{-H} flag on parameters is respected; no
 value will be shown for these parameters.
+
+@noindent
+@t{-p} may be followed by an optional integer argument.  Currently
+only the value @t{1} is supported.  In this case arrays and associative
+arrays are printed with newlines between indented elements for
+readability.
 
 @item @t{-T} [ @var{scalar}[@t{=}@var{value}] @var{array}[@t{=(}@var{value} ...@t{)}] [ @var{sep} ] ]
 This flag has a different meaning when used with @t{-f}; see below.
@@ -14354,6 +14775,10 @@ scalar version causes a split on all separators (which cannot be quoted).
 It is possible to apply @t{-T} to two previously tied variables but with a
 different separator character, in which case the variables remain joined
 as before but the separator is changed.
+
+@noindent
+When an existing scalar is tied to a new array, the value of the scalar
+is preserved but no attribute other than export will be preserved.
 
 @end table
 
@@ -14404,12 +14829,12 @@ flag.
 
 @item @t{-U}
 For arrays (but not for associative arrays), keep only the first
-occurrence of each duplicated value.  This may also be set for
-colon-separated special parameters like @t{PATH} or @t{FIGNORE}, etc.
-Note the flag takes effect on assignment, and the type of the
-variable being assigned to is determinative; for variables with
-shared values it is therefore recommended to set the flag for
-all interfaces, e.g. `@t{typeset -U PATH path}'.
+occurrence of each duplicated value.  This may also be set for tied
+parameters (see @t{-T}) or colon-separated special parameters like
+@t{PATH} or @t{FIGNORE}, etc.  Note the flag takes effect on assignment,
+and the type of the variable being assigned to is determinative; for
+variables with shared values it is therefore recommended to set the flag
+for all interfaces, e.g. `@t{typeset -U PATH path}'.
 
 @noindent
 This flag has a different meaning when used with @t{-f}; see below.
@@ -14443,7 +14868,9 @@ description of the `@t{autoload}' builtin for details.
 
 @noindent
 Note that the builtin @t{functions} provides the same basic capabilities
-as @t{typeset -f} but gives access to a few extra options.
+as @t{typeset -f} but gives access to a few extra options; @t{autoload}
+gives further additional options for the case @t{typeset -fu} and
+@t{typeset -fU}.
 
 @item @t{-h}
 Hide: only useful for special parameters (those marked `<S>' in the table in
@@ -14501,9 +14928,19 @@ be turned off.
 If the @t{POSIX_BUILTINS} option is set, the readonly attribute is
 more restrictive: unset variables can be marked readonly and cannot then
 be set; furthermore, the readonly attribute cannot be removed from any
-variable.  Note that in zsh (unlike other shells) it is still possible
-to create a local variable of the same name as this is considered a
-different variable (though this variable, too, can be marked readonly).
+variable.
+
+@noindent
+It is still possible to change other attributes of the variable though,
+some of which like @t{-U} or @t{-Z} would affect the value. More generally,
+the readonly attribute should not be relied on as a security mechanism.
+
+@noindent
+Note that in zsh (like in pdksh but unlike most other shells) it is
+still possible to create a local variable of the same name as this is
+considered a different variable (though this variable, too, can be marked
+readonly). Special variables that have been made readonly retain their value
+and readonly attribute when made local.
 
 @item @t{-t}
 Tags the named parameters.  Tags have no special meaning to the shell.
@@ -14715,6 +15152,8 @@ then all currently active child processes are waited for.
 Each @var{job} can be either a job specification or the process ID
 of a job in the job table.
 The exit status from this command is that of the job waited for.
+If @var{job} represents an unknown job or process ID, a warning is printed
+(unless the @t{POSIX_BUILTINS} option is set) and the exit status is 127.
 
 @noindent
 It is possible to wait for recent processes (specified by process ID,
@@ -14738,6 +15177,13 @@ to process IDs.
 @item @t{whence} [ @t{-vcwfpamsS} ] [ @t{-x} @var{num} ] @var{name} ...
 For each @var{name}, indicate how it would be interpreted if used as a
 command name.
+
+@noindent
+If @var{name} is not an alias, built-in command, external command, shell
+function, hashed command, or a reserved word, the exit status shall be
+non-zero, and --- if @t{-v}, @t{-c}, or @t{-w} was passed --- a message
+will be written to standard output.  (This is different from other shells that
+write that message to standard error.)
 
 @noindent
 @t{whence} is most useful when @var{name} is only the last path component
@@ -14965,7 +15411,7 @@ See @ref{Zle Builtins}.
 @findex zmodload
 @cindex modules, loading
 @cindex loading modules
-@item @t{zmodload} [ @t{-dL} ] [ ... ]
+@item @t{zmodload} [ @t{-dL} ] [ @t{-s} ] [ ... ]
 @itemx @t{zmodload -F} [ @t{-alLme} @t{-P} @var{param} ] @var{module} [ [@t{+-}]@var{feature} ... ]
 @itemx @t{zmodload -e} [ @t{-A} ] [ ... ]
 @itemx @t{zmodload} [ @t{-a} [ @t{-bcpf} [ @t{-I} ] ] ] [ @t{-iL} ] ...
@@ -14986,7 +15432,7 @@ series of @t{zmodload} commands.  Forms with arguments are:
 
 @noindent
 @table @asis
-@item @t{zmodload} [ @t{-i} ] @var{name} ... 
+@item @t{zmodload} [ @t{-is} ] @var{name} ... 
 @itemx @t{zmodload} @t{-u} [ @t{-i} ] @var{name} ...
 In the simplest case, @t{zmodload} loads a binary module.  The module must
 be in a file with a name consisting of the specified @var{name} followed by
@@ -14994,9 +15440,7 @@ a standard suffix, usually `@t{.so}' (`@t{.sl}' on HPUX).
 If the module to be loaded is already loaded the duplicate module is
 ignored.  If @t{zmodload} detects an inconsistency, such as an
 invalid module name or circular dependency list, the current code block is 
-aborted.   Hence `@t{zmodload} @var{module} @t{2>/dev/null}' is sufficient
-to test whether a module is available.
-If it is available, the module is loaded if necessary, while if it
+aborted.  If it is available, the module is loaded if necessary, while if it
 is not available, non-zero status is silently returned.  The option
 @t{-i} is accepted for compatibility but has no effect.
 
@@ -15010,6 +15454,12 @@ There is no way to prevent the path search.
 If the module supports features (see below), @t{zmodload} tries to
 enable all features when loading a module.  If the module was successfully
 loaded but not all features could be enabled, @t{zmodload} returns status 2.
+
+@noindent
+If the option @t{-s} is given, no error is printed if the module was not
+available (though other errors indicating a problem with the module are
+printed).  The return status indicates if the module was loaded.  This
+is appropriate if the caller considers the module optional.
 
 @noindent
 With @t{-u}, @t{zmodload} unloads modules.  The same @var{name}
@@ -15340,9 +15790,9 @@ by default be entered in emacs mode by holding the alt key and typing
 a number, or pressing escape before each digit, and in vi command mode
 by typing the number before entering a command.  Generally the numeric
 argument causes the next command entered to be repeated the specified
-number of times, unless otherwise noted below. See also
-@ref{Arguments} for some other ways the numeric argument can be modified. The default
-bindings mentioned here use the @t{digit-argument} widget.
+number of times, unless otherwise noted below; this is implemented
+by the @t{digit-argument} widget. See also
+@ref{Arguments} for some other ways the numeric argument can be modified.
 
 @noindent
 @menu
@@ -15701,7 +16151,7 @@ by `@t{bindkey -m}'.
 @cindex parameters, editing
 @cindex editing parameters
 
-@item @t{vared }[ @t{-Aache} ] [ @t{-p} @var{prompt} ] [ @t{-r} @var{rprompt} ]
+@item @t{vared }[ @t{-Aacghe} ] [ @t{-p} @var{prompt} ] [ @t{-r} @var{rprompt} ]
 @itemx @t{@ @ @ @ @ @ }[ @t{-M} @var{main-keymap} ] [ @t{-m} @var{vicmd-keymap} ]
 @itemx @t{@ @ @ @ @ @ }[ @t{-i} @var{init-widget} ] [ @t{-f} @var{finish-widget} ]
 @itemx @t{@ @ @ @ @ @ }[ @t{-t} @var{tty} ] @var{name}
@@ -15712,7 +16162,9 @@ When the @t{-c} flag is given, the parameter is created if it doesn't
 already exist.  The @t{-a} flag may be given with @t{-c} to create
 an array parameter, or the @t{-A} flag to create an associative array.
 If the type of an existing parameter does not match the type to be
-created, the parameter is unset and recreated.
+created, the parameter is unset and recreated.  The @t{-g} flag may
+be given to suppress warnings from the @t{WARN_CREATE_GLOBAL}
+and @t{WARN_NESTED_VAR} options.
 
 @noindent
 If an array or array slice is being edited, separator characters as defined
@@ -16159,12 +16611,12 @@ starting with `@t{.}'.
 @cindex widgets, user-defined
 User-defined widgets, being implemented as shell functions,
 can execute any normal shell command.  They can also run other widgets
-(whether built-in or user-defined) using the @t{zle} builtin command.
-The standard input of the function is closed to prevent external commands
-from unintentionally blocking ZLE by reading from the terminal, but
-@t{read -k} or @t{read -q} can be used to read characters.  Finally,
-they can examine and edit the ZLE buffer being edited by
-reading and setting the special parameters described below.
+(whether built-in or user-defined) using the @t{zle} builtin command. The
+standard input of the function is redirected from /dev/null to prevent
+external commands from unintentionally blocking ZLE by reading from the
+terminal, but @t{read -k} or @t{read -q} can be used to read characters.
+Finally, they can examine and edit the ZLE buffer being edited by reading
+and setting the special parameters described below.
 
 @noindent
 @cindex parameters, editor
@@ -16282,6 +16734,12 @@ The name of the currently selected keymap; read-only.
 @item @t{KEYS} (scalar)
 The keys typed to invoke this widget, as a literal string; read-only.
 
+@vindex KEYS_QUEUED_COUNT
+@item @t{KEYS_QUEUED_COUNT} (integer)
+The number of bytes pushed back to the input queue and therefore
+available for reading immediately before any I/O is done; read-only.
+See also @t{PENDING}; the two values are distinct.
+
 @vindex killring
 @item @t{killring} (array)
 The array of previously killed items, with the most recently killed first.
@@ -16338,7 +16796,8 @@ called behave as if no numeric argument was given.
 The number of bytes pending for input, i.e. the number of bytes which have
 already been typed and can immediately be read. On systems where the shell
 is not able to get this information, this parameter will always have a
-value of zero.  Read-only.
+value of zero.  Read-only.  See also @t{KEYS_QUEUED_COUNT}; the two
+values are distinct.
 
 @vindex PREBUFFER
 @item @t{PREBUFFER} (scalar)
@@ -16511,6 +16970,14 @@ wrappers of @t{bracketed-paste}.  See also @t{zle -f}.
 
 @noindent
 @t{YANK_ACTIVE} is read-only.
+
+@vindex ZLE_RECURSIVE
+@item @t{ZLE_RECURSIVE} (integer)
+Usually zero, but incremented inside any instance of
+@t{recursive-edit}.  Hence indicates the current recursion level.
+
+@noindent
+@t{ZLE_RECURSIVE} is read-only.
 
 @vindex ZLE_STATE
 @item @t{ZLE_STATE} (scalar)
@@ -18207,7 +18674,9 @@ defaults shown in parentheses are widely used.
 @cindex terminal escape sequences for highlighting
 @item @t{fg_start_code} (@t{\e[3})
 The start of the escape sequence for the foreground colour.
-This is followed by an ASCII digit representing the colour.
+This is followed by one to three ASCII digits representing the colour.
+Only used for palette colors, i.e. not 24-bit colors specified via a
+color triplet.
 
 @item @t{fg_default_code} (@t{9})
 The number to use instead of the colour to reset the default foreground
@@ -18218,7 +18687,7 @@ The end of the escape sequence for the foreground colour.
 
 @item @t{bg_start_code} (@t{\e[4})
 The start of the escape sequence for the background colour.
-This is followed by an ASCII digit representing the colour.
+See @t{fg_start_code} above.
 
 @item @t{bg_default_code} (@t{9})
 The number to use instead of the colour to reset the default
@@ -18241,8 +18710,9 @@ this to appear with other types of highlighting; it is used to override
 a default.
 
 @item @t{fg=}@var{colour}
-The foreground colour should be set to @var{colour}, a decimal integer
-or the name of one of the eight most widely-supported colours.
+The foreground colour should be set to @var{colour}, a decimal integer,
+the name of one of the eight most widely-supported colours or as a
+`@t{#}' followed by an RGB triplet in hexadecimal format.
 
 @noindent
 Not all terminals support this and, of those that do, not all provide
@@ -18260,6 +18730,14 @@ number of colours supported may be tested by the command `@t{echotc
 Co}'; if this succeeds, it indicates a limit on the number of colours which
 will be enforced by the line editor.  The number of colours is in any case
 limited to 256 (i.e. the range 0 to 255).
+
+@noindent
+Some modern terminal emulators have support for 24-bit true colour (16
+million colours). In this case, the hex triplet format can be used. This
+consists of either a three or six digit hexadecimal number describing
+the red, green and blue components of the colour. Hex triplets can also
+be used with 88 and 256 colour terminals via the @t{zsh/nearcolor}
+module (see @ref{The zsh/nearcolor Module}).
 
 @noindent
 Colour is also known as color.
@@ -20191,7 +20669,11 @@ The parameter @t{$_compskip} may be set by any function defined for a
 pattern context.  If it is set to a value containing the substring
 `@t{patterns}' none of the pattern-functions will be called; if it is
 set to a value containing the substring `@t{all}', no other function
-will be called.
+will be called.  Setting @t{$_compskip} in this manner is of particular
+utility when using the @t{-p} option, as otherwise the dispatcher will
+move on to additional functions (likely the default one) after calling
+the pattern-context one, which can mangle the display of completion
+possibilities if not handled properly.
 
 @noindent
 The form with @t{-k} defines a widget with the same name as the @var{function}
@@ -20929,6 +21411,13 @@ Hence, in the given example, the path @t{/usr/bin/} is accepted
 immediately and completion tried in that directory.
 
 @noindent
+This style is also useful when completing after directories that
+magically appear when referenced, such as ZFS @t{.zfs} directories
+or NetApp @t{.snapshot} directories.  When the style is set the
+shell does not check for the existence of the directory within the
+parent directory.
+
+@noindent
 If you wish to inhibit this behaviour entirely, set the @t{path-completion}
 style (see below) to `false'.
 
@@ -21218,9 +21707,10 @@ literally.
 
 @noindent
 This can be useful on systems that support special file systems whose
-top-level pathnames can not be listed or generated with glob patterns.
-It can also be used for directories for which one does not have read
-permission.
+top-level pathnames can not be listed or generated with glob patterns
+(but see @t{accept-exact-dirs} for a more general way of dealing
+with this problem).  It can also be used for directories for which one
+does not have read permission.
 
 @noindent
 The pattern form can be used to add a certain `magic' entry
@@ -21374,6 +21864,16 @@ sorted alphabetically by name.  If the value contains the string
 contains the string `@t{follow}', timestamps are associated with the
 targets of symbolic links; the default is to use the timestamps
 of the links themselves.
+
+@kindex file-split-chars, completion style
+@item @t{file-split-chars}
+A set of characters that will cause @emph{all} file completions for
+the given context to be split at the point where any of the characters
+occurs.  A typical use is to set the style to @t{:}; then everything
+up to and including the last @t{:} in the string so far is ignored when
+completing files.  As this is quite heavy-handed, it is usually
+preferable to update completion functions for contexts where this
+behaviour is useful.
 
 @kindex filter, completion style
 @item @t{filter}
@@ -22085,7 +22585,7 @@ matches does not fit on the screen by using the value
 only performs listing, use the value `@t{select=long-list}'.
 
 @noindent
-To turn on menu completion or menu selection when a there are a certain
+To turn on menu completion or menu selection when there are a certain
 number of matches @emph{or} the list of matches does not fit on the
 screen, both of `@t{yes=}' and `@t{select=}' may be given twice, once
 with a number and once with `@t{long}' or `@t{long-list}'.
@@ -23001,6 +23501,23 @@ case they are already so. The options @t{-M}, @t{-J}, @t{-V}, @t{-1}, @t{-2},
 @noindent
 See @t{_description} for a description of @var{tag} and @var{descr}.
 
+@findex _cmdambivalent
+@item @t{_cmdambivalent}
+Completes the remaining positional arguments as an external command.
+The external command and its arguments are completed as separate arguments
+(in a manner appropriate for completing @t{/usr/bin/env})
+if there are two or more remaining positional arguments on the command line,
+and as a quoted command string (in the manner of @t{system(...)}) otherwise.
+See also @t{_cmdstring} and @t{_precommand}.
+
+@noindent
+This function takes no arguments.
+
+@findex _cmdstring
+@item @t{_cmdstring}
+Completes an external command as a single argument, as for
+@t{system(...)}.
+
 @findex _complete
 @item @t{_complete}
 This completer generates all possible completions in a context-sensitive
@@ -23214,6 +23731,11 @@ It should appear in the list of completers before any of
 the widgets which generate matches.  It uses two styles: @t{old-list} and
 @t{old-menu}, see
 @ref{Completion System Configuration}.
+
+@findex _precommand
+@item @t{_precommand}
+Complete an external command in word-separated arguments, as for
+@t{exec} and @t{/usr/bin/env}.
 
 @findex _prefix
 @item @t{_prefix}
@@ -23638,20 +24160,19 @@ different name for the argument context field.
 
 @item @t{_arguments }[ @t{-nswWCRS} ] [ @t{-A} @var{pat} ] [ @t{-O} @var{name} ] [ @t{-M} @var{matchspec} ]
 @itemx @t{@ @ @ @ @ @ @ @ @ @ @ }[ @t{:} ] @var{spec} ...
-@itemx @t{_arguments} [ @var{opt} ... ] @t{-}@t{-} [ @t{-i} @var{pats} ] [ @t{-s} @var{pair} ] [ @var{helpspec} ... ]
+@itemx @t{_arguments }[ @var{opt} ... ] @t{-}@t{-} [ @t{-l} ] [ @t{-i} @var{pats} ] [ @t{-s} @var{pair} ]
+@itemx @t{@ @ @ @ @ @ @ @ @ @ @ }[ @var{helpspec} ...]
 This function can be used to give a complete specification for completion
 for a command whose arguments follow standard UNIX option and argument
 conventions.
 
 @noindent
-@emph{Options overview}
+@emph{Options Overview}
 
 @noindent
 Options to @t{_arguments} itself must be in separate words, i.e. @t{-s -w},
 not @t{-sw}.  The options are followed by @var{spec}s that describe options and
-arguments of the analyzed command.  @var{spec}s that describe option flags must
-precede @var{spec}s that describe non-option ("positional" or "normal")
-arguments of the analyzed line.  To avoid ambiguity, all
+arguments of the analyzed command.  To avoid ambiguity, all
 options to @t{_arguments} itself may be separated from the @var{spec} forms
 by a single colon.
 
@@ -24130,20 +24651,60 @@ This is useful where it is not possible for multiple states to be valid
 together.
 
 @noindent
-@emph{Specifying multiple sets of options}
+@emph{Grouping Options}
 
 @noindent
-It is possible to specify multiple sets of options and
-arguments with the sets separated by single hyphens.  The specifications
-before the first hyphen (if any) are shared by all the remaining sets.
-The first word in every other set provides a name for the
-set which may appear in exclusion lists in specifications,
-either alone or before one of the possible values described above.
-In the second case a `@t{-}' should appear between this name and the
-remainder.
+Options can be grouped to simplify exclusion lists. A group is
+introduced with `@t{+}' followed by a name for the group in the
+subsequent word. Whole groups can then be referenced in an exclusion
+list or a group name can be used to disambiguate between two forms of
+the same option. For example:
 
 @noindent
-For example:
+@example
+_arguments \ 
+    '(group2--x)-a' \ 
+  + group1 \ 
+    -m \ 
+    '(group2)-n' \ 
+  + group2 \ 
+    -x -y
+@end example
+
+@noindent
+If the name of a group is specified in the form
+`@t{(}@var{name}@t{)}' then only one value from that group
+will ever be completed; more formally, all specifications are mutually
+exclusive to all other specifications in that group. This is useful for
+defining options that are aliases for each other. For example:
+
+@noindent
+@example
+_arguments \ 
+    -a -b \ 
+  + '(operation)' \ 
+    @{-c,--compress@}'[compress]' \ 
+    @{-d,--decompress@}'[decompress]' \ 
+    @{-l,--list@}'[list]'
+@end example
+
+@noindent
+If an option in a group appears on the command line, it is stored in the
+associative array `@t{opt_args}' with '@var{group}@t{-}@var{option}'
+as a key.  In the example above, a key `@t{operation--c}' is used if the option
+`@t{-c}' is present on the command line.
+
+@noindent
+@emph{Specifying Multiple Sets of Arguments}
+
+@noindent
+It is possible to specify multiple sets of options and arguments with
+the sets separated by single hyphens. This differs from groups in that
+sets are considered to be mutually exclusive of each other.
+
+@noindent
+Specifications before the first set and from any group are common to
+all sets. For example:
 
 @noindent
 @example
@@ -24164,33 +24725,12 @@ option `@t{-c}' will not be considered.  However, after `@t{-a}'
 both sets will still be considered valid.
 
 @noindent
-If an option in a set appears on the command line, it is stored in the
-associative array `@t{opt_args}' with '@var{set}@t{-}@var{option}'
-as a key.  In the example above, a key `@t{set1--c}' is used if the option
-`@t{-c}' is on the command line.
+As for groups, the name of a set may appear in exclusion lists, either
+alone or preceding a normal option or argument specification.
 
 @noindent
-If the name given for one of the mutually exclusive sets is of the form
-`@t{(}@var{name}@t{)}' then only one value from each set will ever
-be completed; more formally, all specifications are mutually
-exclusive to all other specifications in the same set.  This is
-useful for defining multiple sets of options which are mutually
-exclusive and in which the options are aliases for each other.  For
-example:
-
-@noindent
-@example
-_arguments \ 
-    -a -b \ 
-  - '(compress)' \ 
-    @{-c,--compress@}'[compress]' \ 
-  - '(uncompress)' \ 
-    @{-d,--decompress@}'[decompress]'
-@end example
-
-@noindent
-As the completion code has to parse the command line separately for each
-set this form of argument is slow and should only be used when necessary.
+The completion code has to parse the command line separately for each
+set. This can be slow so sets should only be used when necessary.
 A useful alternative is often an option specification with rest-arguments
 (as in `@t{-foo:*:...}'); here the option @t{-foo} swallows up all
 remaining arguments as described by the @var{optarg} definitions.
@@ -24258,6 +24798,13 @@ If the @var{pattern} ends in `@t{(-)}', this will be removed from the
 pattern and the @var{action} will be used only directly after the
 `@t{=}', not in the next word.  This is the behaviour of a normal
 specification defined with the form `@t{=-}'.
+
+@noindent
+By default, the command (with the option `@t{--help}') is run after
+resetting all the locale categories (except for @t{LC_CTYPE}) to `@t{C}'.
+If the localized help output is known to work, the option `@t{-l}' can
+be specified after the `@t{_arguments -}@t{-}' so that the command is
+run in the current locale.
 
 @noindent
 The `@t{_arguments -}@t{-}' can be followed by the option `@t{-i}
@@ -24375,7 +24922,7 @@ The return status of @t{_call_function} itself is zero if the function
 @var{name} exists and was called and non-zero otherwise.
 
 @findex _call_program
-@item @t{_call_program} [ @t{-p} ] @var{tag} @var{string} ...
+@item @t{_call_program} [ @t{-l} ] [ @t{-p} ] @var{tag} @var{string} ...
 This function provides a mechanism for the user to override the use of an
 external command.  It looks up the @t{command} style with the supplied
 @var{tag}.  If the style is set, its value is used as the command to
@@ -24383,6 +24930,12 @@ execute.  The @var{string}s from the call to @t{_call_program}, or from the
 style if set, are concatenated with spaces between them and the resulting
 string is evaluated.  The return status is the return status of the command
 called.
+
+@noindent
+By default, the command is run in an environment where all the locale
+categories (except for @t{LC_CTYPE}) are reset to `@t{C}' by calling the
+utility function @t{_comp_locale} (see below). If the option `@t{-l}' is
+given, the command is run with the current locale.
 
 @noindent
 If the option `@t{-p}' is supplied it indicates that the command
@@ -24416,8 +24969,8 @@ for which completions should be generated (presumably not one of the
 @noindent
 The matches generated will be taken from the value of the style.  These
 should contain the possible values for the combinations in the appropriate
-order (users, hosts, ports in the example above).  The different fields
-the values for the different fields are separated by colons.  This
+order (users, hosts, ports in the example above).
+The values for the different fields are separated by colons.  This
 can be altered with the option @t{-s} to @t{_combination} which specifies a
 pattern.  Typically this is a character class, as for example
 `@t{-s "[:@@]"}' in the case of the @t{users-hosts} style.    Each
@@ -24450,6 +25003,19 @@ the functions for the fields if they are called.
 This function completes words that are valid at command position: names of
 aliases, builtins, hashed commands, functions, and so on.  With the @t{-e}
 flag, only hashed commands are completed.  The @t{-} flag is ignored.
+
+@findex _comp_locale
+@item @t{_comp_locale}
+This function resets all the locale categories other than @t{LC_CTYPE} to
+`@t{C}' so that the output from external commands can be easily analyzed by
+the completion system. @t{LC_CTYPE} retains the current value (taking
+@t{LC_ALL} and @t{LANG} into account), ensuring that non-ASCII characters
+in file names are still handled properly.
+
+@noindent
+This function should normally be run only in a subshell, because the new
+locale is exported to the environment. Typical usage would be
+`@t{$(_comp_locale; }@var{command} ...@t{)}'.
 
 @findex _completers
 @item @t{_completers} [ @t{-p} ]
@@ -26440,6 +27006,9 @@ Access to external files via a special associative array.
 @item @t{zsh/mathfunc}
 Standard scientific functions for use in mathematical evaluations.
 
+@item @t{zsh/nearcolor}
+Map colours to the nearest colour in the available palette.
+
 @item @t{zsh/newuser}
 Arrange for files for new users to be installed.
 
@@ -26517,6 +27086,7 @@ styles.
 * The zsh/langinfo Module::
 * The zsh/mapfile Module::
 * The zsh/mathfunc Module::
+* The zsh/nearcolor Module::
 * The zsh/newuser Module::
 * The zsh/parameter Module::
 * The zsh/pcre Module::
@@ -26857,7 +27427,10 @@ matches beginning with `@t{m}' in groups whose names  begin with
 @noindent
 Note also that all patterns are tried in the order in which they
 appear in the parameter value until the first one matches which is
-then used.
+then used.  Patterns may be matched against completions, descriptions
+(possibly with spaces appended for padding), or lines consisting of a
+completion followed by a description.  For consistent coloring it may be
+necessary to use more than one pattern or a pattern with backreferences.
 
 @noindent
 When printing a match, the code prints the value of @t{lc}, the value
@@ -27286,6 +27859,7 @@ various parameters.
 @itemx @t{zcurses} @t{mouse} [ @t{delay} @var{num} | [@t{+}|@t{-}]@t{motion} ]
 @itemx @t{zcurses} @t{timeout} @var{targetwin} @var{intval}
 @itemx @t{zcurses} @t{querychar} @var{targetwin} [ @var{param} ]
+@itemx @t{zcurses} @t{resize} @var{height} @var{width} [ @t{endwin} | @t{nosave} | @t{endwin_nosave} ]
 Manipulate curses windows.  All uses of this command should be
 bracketed by `@t{zcurses init}' to initialise use of curses, and
 `@t{zcurses end}' to end it; omitting `@t{zcurses end}' can cause
@@ -27501,6 +28075,22 @@ notation, or @t{0} if color is not supported.  Any attributes other than
 color that apply to the character, as set with the subcommand @t{attr},
 appear as additional elements.
 
+@noindent
+The subcommand @t{resize} resizes @t{stdscr} and all windows to given
+dimensions (windows that stick out from the new dimensions are resized
+down). The underlying curses extension (@t{resize_term call}) can be
+unavailable. To verify, zeroes can be used for @var{height} and
+@var{width}. If the result of the subcommand is @t{0}, resize_term is
+available (@t{2} otherwise). Tests show that resizing can be normally
+accomplished by calling @t{zcurses end} and @t{zcurses refresh}. The
+@t{resize} subcommand is provided for versatility. Multiple system
+configurations have been checked and @t{zcurses end} and @t{zcurses
+refresh} are still needed for correct terminal state after resize. To
+invoke them with @t{resize}, use @var{endwin} argument.  Using
+@var{nosave} argument will cause new terminal state to not be saved
+internally by @t{zcurses}. This is also provided for versatility and
+should normally be not needed.
+
 @end table
 
 @noindent
@@ -27562,9 +28152,13 @@ The @t{zsh/datetime} module makes available one builtin command:
 @table @asis
 @findex strftime
 @cindex date string, printing
-@item @t{strftime} [ @t{-s} @var{scalar} ] @var{format} @var{epochtime} 
+@item @t{strftime} [ @t{-s} @var{scalar} ] @var{format} [ @var{epochtime} [ @var{nanoseconds} ] ] 
 @itemx @t{strftime} @t{-r} [ @t{-q} ] [ @t{-s} @var{scalar} ] @var{format} @var{timestring} 
-Output the date denoted by @var{epochtime} in the @var{format} specified.
+Output the date in the @var{format} specified.  With no @var{epochtime}, the
+current system date/time is used; optionally, @var{epochtime} may be used to
+specify the number of seconds since the epoch, and @var{nanoseconds} may
+additionally be used to specify the number of nanoseconds past the second
+(otherwise that number is assumed to be 0).
 See man page strftime(3) for details.  The zsh extensions described in
 @ref{Prompt Expansion} are also available.
 
@@ -27705,6 +28299,17 @@ This happens automatically if the parameter is explicitly unset or its
 local scope (function) ends.  Note that a readonly parameter may not be
 explicitly unset, so the only way to unset a global parameter created with
 `@t{ztie -r}' is to use `@t{zuntie -u}'.
+
+@findex zgdbmpath
+@cindex database file path, reading
+@item @t{zgdbmpath} @var{parametername}
+Put path to database file assigned to @var{parametername} into @t{REPLY}
+scalar.
+
+@findex zgdbm_tied
+@cindex database tied arrays, enumerating
+@item @t{zgdbm_tied}
+Array holding names of all tied parameters.
 
 @end table
 
@@ -28078,7 +28683,7 @@ It is unfortunate that the mechanism for loading modules does not yet allow
 the user to specify the name of the shell parameter to be given the special
 behaviour.
 @c (avoiding a yodl bug)
-@node The zsh/mathfunc Module, The zsh/newuser Module, The zsh/mapfile Module, Zsh Modules
+@node The zsh/mathfunc Module, The zsh/nearcolor Module, The zsh/mapfile Module, Zsh Modules
 
 @section The zsh/mathfunc Module
 @noindent
@@ -28113,9 +28718,9 @@ The following functions take a single floating point argument: @t{acos},
 @t{acosh}, @t{asin}, @t{asinh}, @t{atan}, @t{atanh}, @t{cbrt}, @t{ceil},
 @t{cos}, @t{cosh}, @t{erf}, @t{erfc}, @t{exp}, @t{expm1}, @t{fabs},
 @t{floor}, @t{gamma}, @t{j0}, @t{j1}, @t{lgamma}, @t{log}, @t{log10},
-@t{log1p}, @t{logb}, @t{sin}, @t{sinh}, @t{sqrt}, @t{tan}, @t{tanh},
-@t{y0}, @t{y1}.  The @t{atan} function can optionally take a second
-argument, in which case it behaves like the C function @t{atan2}.
+@t{log1p}, @t{log2}, @t{logb}, @t{sin}, @t{sinh}, @t{sqrt}, @t{tan},
+@t{tanh}, @t{y0}, @t{y1}.  The @t{atan} function can optionally take a
+second argument, in which case it behaves like the C function @t{atan2}.
 The @t{ilogb} function takes a single floating point argument, but
 returns an integer.
 
@@ -28196,7 +28801,53 @@ should generate your own 12-byte seed.  The third call returns to the same
 sequence of random numbers used in the first call, unaffected by the
 intervening @t{rand48()}.
 @c (avoiding a yodl bug)
-@node The zsh/newuser Module, The zsh/parameter Module, The zsh/mathfunc Module, Zsh Modules
+@node The zsh/nearcolor Module, The zsh/newuser Module, The zsh/mathfunc Module, Zsh Modules
+
+@section The zsh/nearcolor Module
+@noindent
+@c Yodl file: Zsh/mod_nearcolor.yo
+
+The @t{zsh/nearcolor} module replaces colours specified as hex triplets
+with the nearest colour in the 88 or 256 colour palettes that are widely
+used by terminal emulators.  By default, 24-bit true colour escape codes
+are generated when colours are specified using hex triplets.  These are
+not supported by all terminals.  The purpose of this module is to make
+it easier to define colour preferences in a form that can work across a
+range of terminal emulators.
+
+@noindent
+Aside from the default colour, the ANSI standard for terminal escape
+codes provides for eight colours. The bright attribute brings this to
+sixteen. These basic colours are commonly used in terminal applications
+due to being widely supported. Expanded 88 and 256 colour palettes are
+also common and, while the first sixteen colours vary somewhat between
+terminals and configurations, these add a generally consistent and
+predictable set of colours.
+
+@noindent
+In order to use the @t{zsh/nearcolor} module, it only needs to be
+loaded. Thereafter, whenever a colour is specified using a hex triplet,
+it will be compared against each of the available colours and the
+closest will be selected. The first sixteen colours are never matched in
+this process due to being unpredictable.
+
+@noindent
+It isn't possible to reliably detect support for true colour in the
+terminal emulator. It is therefore recommended to be selective in
+loading the @t{zsh/nearcolor} module. For example, the following
+checks the @t{COLORTERM} environment variable:
+
+@noindent
+@example
+[[ $COLORTERM = *(24bit|truecolor)* ]] || zmodload zsh/nearcolor
+@end example
+
+@noindent
+Note that some terminals accept the true color escape codes but map
+them internally to a more limited palette in a similar manner to the
+@t{zsh/nearcolor} module.
+@c (avoiding a yodl bug)
+@node The zsh/newuser Module, The zsh/parameter Module, The zsh/nearcolor Module, Zsh Modules
 
 @section The zsh/newuser Module
 @noindent
@@ -28294,6 +28945,33 @@ removes the definition for the function named by the key.
 @vindex dis_functions
 @item @t{dis_functions}
 Like @t{functions} but for disabled functions.
+
+@vindex functions_source
+@item @t{functions_source}
+This readonly associative array maps names of enabled functions to the
+name of the file containing the source of the function.
+
+@noindent
+For an autoloaded function that has already been loaded, or marked for
+autoload with an absolute path, or that has had its path resolved with
+`@t{functions -r}', this is the file found for autoloading, resolved
+to an absolute path.
+
+@noindent
+For a function defined within the body of a script or sourced file,
+this is the name of that file.  In this case, this is the exact path
+originally used to that file, which may be a relative path.
+
+@noindent
+For any other function, including any defined at an interactive prompt or
+an autoload function whose path has not yet been resolved, this is
+the empty string.  However, the hash element is reported as defined
+just so long as the function is present:  the keys to this hash are
+the same as those to @t{$funcions}.
+
+@vindex dis_functions_source
+@item @t{dis_functions_source}
+Like @t{functions_source} but for disabled functions.
 
 @vindex builtins
 @item @t{builtins}
@@ -28459,10 +29137,14 @@ defined.  The line number is the line where the `@t{function} @var{name}'
 or `@var{name} @t{()}' started.  In the case of an autoloaded
 function  the line number is reported as zero.
 The format of each element is @var{filename}@t{:}@var{lineno}.
+
+@noindent
 For functions autoloaded from a file in native zsh format, where only the
 body of the function occurs in the file, or for files that have been
 executed by the @t{source} or `@t{.}' builtins, the trace information is
-shown as @var{filename}@t{:}@var{0}, since the entire file is the definition.
+shown as @var{filename}@t{:}@var{0}, since the entire file is the
+definition.  The source file name is resolved to an absolute path when
+the function is loaded or the path to it otherwise resolved.
 
 @noindent
 Most users will be interested in the information in the
@@ -29053,7 +29735,10 @@ named files; no list of file names is allowed in this case.
 
 @item @t{-F} @var{fmt}
 Supplies a @t{strftime} (see man page strftime(3)) string for the
-formatting of the time elements.  The @t{-s} option is implied.
+formatting of the time elements.  The format string supports all of the
+zsh extensions described in
+@ref{Prompt Expansion}.
+The @t{-s} option is implied.
 
 @item @t{-g}
 Show the time elements in the GMT time zone.  The
@@ -29062,7 +29747,7 @@ Show the time elements in the GMT time zone.  The
 @item @t{-l}
 List the names of the type elements (to standard
 output or an array as appropriate) and return immediately;
-options other than @t{-A} and arguments are ignored.
+arguments, and options other than @t{-A}, are ignored.
 
 @item @t{-L}
 Perform an @t{lstat} (see man page lstat(2)) rather than a @t{stat}
@@ -29404,6 +30089,11 @@ Returns the process ID of the current process, even in subshells.  Compare
 Returns the process ID of the parent of the current process, even in
 subshells.  Compare @t{$PPID}, which returns the process ID of the parent
 of the main shell process.
+
+@item @t{procsubstpid}
+Returns the process ID of the last process started for process
+substitution, i.e. the @t{<(}@var{...}@t{)} and
+@t{>(}@var{...}@t{)} expansions.
 
 @end table
 
@@ -30407,7 +31097,8 @@ The @t{-w} option can be used to send the to command @var{name} the given
 @noindent
 If no @var{string} is provided, the standard input is copied to the
 pseudo-terminal; this may stop before copying the full input if the
-pseudo-terminal is non-blocking.
+pseudo-terminal is non-blocking.  The exact input is always copied:
+the @t{-n} option is not applied.
 
 @noindent
 Note that the command under the pseudo-terminal sees this input as if it
@@ -30736,6 +31427,7 @@ printed below each other.  All strings without a colon are left
 unchanged and all strings with an empty @var{right} string have the
 trailing colon removed.  In both cases the lengths of the strings
 are not used to determine how the other strings are to be aligned.
+A colon in the @var{left} string can be escaped with a backslash.
 The resulting strings are stored in the @var{array}.
 
 @findex zregexparse
@@ -30743,7 +31435,7 @@ The resulting strings are stored in the @var{array}.
 This implements some internals of the @t{_regex_arguments} function.
 
 @findex zparseopts
-@item @t{zparseopts} [ @t{-D} @t{-K} @t{-M} @t{-E} ] [ @t{-a} @var{array} ] [ @t{-A} @var{assoc} ] @var{spec} ...
+@item @t{zparseopts} [ @t{-D} @t{-K} @t{-M} @t{-E} ] [ @t{-a} @var{array} ] [ @t{-A} @var{assoc} ] [ @t{-} ] @var{spec} ...
 This builtin simplifies the parsing of options in positional parameters,
 i.e. the set of arguments given by @t{$*}.  Each @var{spec} describes one
 option and must be of the form `@var{opt}[@t{=}@var{array}]'.  If an option
@@ -33840,7 +34532,7 @@ distribution in your home directory, you would use the commands:
 @noindent
 @example
 mkdir ~/zsh_help
-perl ~/zsh-5.3/Util/helpfiles ~/zsh_help
+perl ~/zsh-5.7.1/Util/helpfiles ~/zsh_help
 @end example
 
 @noindent
@@ -34001,7 +34693,7 @@ Run @t{zkbd} either as an autoloaded function, or as a shell script:
 
 @noindent
 @example
-zsh -f ~/zsh-5.3/Functions/Misc/zkbd
+zsh -f ~/zsh-5.7.1/Functions/Misc/zkbd
 @end example
 
 @noindent
@@ -34066,7 +34758,7 @@ command and redirect the output into a file:
 
 @noindent
 @example
-. ~/zsh-5.3/Util/reporter > zsh.report
+. ~/zsh-5.7.1/Util/reporter > zsh.report
 @end example
 
 @noindent
@@ -34838,34 +35530,35 @@ The following VCSs are supported, showing the abbreviated name by which
 they are referred to within the system:
 @table @asis
 @item Bazaar (@t{bzr})
-@t{@uref{http://bazaar.canonical.com/}}
+@t{@uref{https://bazaar.canonical.com/}}
 @item Codeville (@t{cdv})
 @t{@uref{http://freecode.com/projects/codeville/}}
 @item Concurrent Versioning System (@t{cvs})
-@t{@uref{http://www.nongnu.org/cvs/}}
+@t{@uref{https://www.nongnu.org/cvs/}}
 @item Darcs (@t{darcs})
 @t{@uref{http://darcs.net/}}
 @item Fossil (@t{fossil})
-@t{@uref{http://fossil-scm.org/}}
+@t{@uref{https://fossil-scm.org/}}
 @item Git (@t{git})
-@t{@uref{http://git-scm.com/}}
+@t{@uref{https://git-scm.com/}}
 @item GNU arch (@t{tla})
-@t{@uref{http://www.gnu.org/software/gnu-arch/}}
+@t{@uref{https://www.gnu.org/software/gnu-arch/}}
 @item Mercurial (@t{hg})
-@t{@uref{http://mercurial.selenic.com/}}
+@t{@uref{https://www.mercurial-scm.org/}}
 @item Monotone (@t{mtn})
-@t{@uref{http://monotone.ca/}}
+@t{@uref{https://monotone.ca/}}
 @item Perforce (@t{p4})
-@t{@uref{http://www.perforce.com/}}
+@t{@uref{https://www.perforce.com/}}
 @item Subversion (@t{svn})
-@t{@uref{http://subversion.apache.org/}}
+@t{@uref{https://subversion.apache.org/}}
 @item SVK (@t{svk})
-@t{@uref{http://svk.bestpractical.com/}}
+@t{@uref{https://svk.bestpractical.com/}}
 @end table
 
 @noindent
 There is also support for the patch management system @t{quilt}
-(@t{@uref{http://savannah.nongnu.org/projects/quilt}}). See @t{Quilt Support}
+(@t{@uref{https://savannah.nongnu.org/projects/quilt}}). See
+@ref{vcs_info Quilt Support}
 below for details.
 
 @noindent
@@ -34881,6 +35574,19 @@ It can be used in any existing prompt, because it does not require any
 specific @t{$psvar} entries to be available.
 
 @noindent
+@menu
+* vcs_info Quickstart::
+* vcs_info Configuration::
+* vcs_info Oddities::
+* vcs_info Quilt Support::
+* vcs_info API::
+* vcs_info Variables::
+* vcs_info Hooks::
+* vcs_info Examples::
+@end menu
+
+@noindent
+@node vcs_info Quickstart, vcs_info Configuration, , Version Control Information
 
 @subsection Quickstart
 @noindent
@@ -34965,6 +35671,7 @@ That means the detection of these systems is skipped @emph{completely}. No
 wasted time there.
 
 @noindent
+@node vcs_info Configuration, vcs_info Oddities, vcs_info Quickstart, Version Control Information
 
 @subsection Configuration
 @noindent
@@ -34981,11 +35688,18 @@ First, the context in which we are working:
 @noindent
 @table @asis
 @item @var{vcs-string}
-is one of: @cite{git}, @cite{git-svn}, @cite{git-p4}, @cite{hg}, @cite{hg-git},
-@cite{hg-hgsubversion}, @cite{hg-hgsvn}, @cite{darcs}, @cite{bzr}, @cite{cdv}, @cite{mtn},
-@cite{svn}, @cite{cvs}, @cite{svk}, @cite{tla}, @cite{p4} or @cite{fossil}. When hooks are
-active the hooks name is added after a `+'. (See @cite{Hooks in vcs_info}
-below.)
+is one of: @t{git}, @t{git-svn}, @t{git-p4}, @t{hg}, @t{hg-git},
+@t{hg-hgsubversion}, @t{hg-hgsvn}, @t{darcs}, @t{bzr}, @t{cdv}, @t{mtn},
+@t{svn}, @t{cvs}, @t{svk}, @t{tla}, @t{p4} or @t{fossil}.
+This is followed by `@t{.quilt-}@var{quilt-mode}' in Quilt mode
+(see @ref{vcs_info Quilt Support} for details)
+and by `@t{+}@var{hook-name}' while hooks are active
+(see @ref{vcs_info Hooks} for details).
+
+@noindent
+
+Currently, hooks in quilt mode don't add the `@t{.quilt-}@var{quilt-mode}' information.
+This may change in the future.
 
 @item @var{user-context}
 is a freely configurable string, assignable by
@@ -35104,17 +35818,17 @@ zstyle ':vcs_info:*' disable-patterns "$@{(b)HOME@}/.zsh(|/*)"
 @kindex use-quilt
 @item @t{use-quilt}
 If enabled, the @t{quilt} support code is active in `addon' mode.
-See @t{Quilt Support} for details.
+See @ref{vcs_info Quilt Support} for details.
 
 @kindex quilt-standalone
 @item @t{quilt-standalone}
 If enabled, `standalone' mode detection is attempted if no VCS is active
-in a given directory. See @t{Quilt Support} for details.
+in a given directory. See @ref{vcs_info Quilt Support} for details.
 
 @kindex quilt-patch-dir
 @item @t{quilt-patch-dir}
 Overwrite the value of the @t{$QUILT_PATCHES} environment variable. See
-@t{Quilt Support} for details.
+@ref{vcs_info Quilt Support} for details.
 
 @kindex quiltcommand
 @item @t{quiltcommand}
@@ -35257,7 +35971,7 @@ is only used by @t{vcs_info}'s hooks system.
 
 @kindex hooks
 @item @t{hooks}
-A list style that defines hook-function names. See @cite{Hooks in vcs_info}
+A list style that defines hook-function names. See @ref{vcs_info Hooks}
 below for details.
 
 @kindex patch-format
@@ -35267,6 +35981,8 @@ below for details.
 This pair of styles format the patch information used by the @t{%m} expando in
 formats and actionformats for the @t{git} and @t{hg} backends.  The value is
 subject to certain @t{%}-expansions described below.
+The expanded value is made available in the global @t{backend_misc} array as
+@t{$@{backend_misc[patches]@}} (also if a @t{set-patch-format} hook is used).
 
 @kindex get-unapplied
 @item @t{get-unapplied}
@@ -35381,8 +36097,8 @@ decide what this replacement expands to.
 
 @noindent
 The @t{hg} and @t{git} backends use this expando to display patch information.
-@t{hg} sources patch information from the @t{mq} extensions; @t{git} from the
-@t{rebase} command and from the and @t{stgit} extension.  The @t{patch-format}
+@t{hg} sources patch information from the @t{mq} extensions; @t{git} from in-progress
+@t{rebase} and @t{cherry-pick} operations and from the @t{stgit} extension.  The @t{patch-format}
 and @t{nopatch-format} styles control the generated string.  The former is used
 when at least one patch from the patch queue has been applied, and the latter
 otherwise.
@@ -35393,6 +36109,19 @@ to @t{mq} information).  See the @t{get-mq} and @t{get-bookmarks} styles.  Both
 of these styles may be enabled at the same time.  If both are enabled, both
 resulting strings will be shown separated by a semicolon (that cannot currently
 be customized).
+
+@noindent
+The @t{quilt} `standalone' backend sets this expando to the same value as the
+@t{%Q} expando.
+
+@item @t{%Q}
+Quilt series information.
+When quilt is used (either in `addon' mode or as a `standalone' backend),
+this expando is set to quilt series' @t{patch-format} string.
+The @t{set-patch-format} hook and @t{nopatch-format} style are honoured.
+
+@noindent
+See @ref{vcs_info Quilt Support} below for details.
 
 @end table
 
@@ -35445,6 +36174,7 @@ Not all VCS backends have to support all replacements. For @t{nvcsformats}
 no replacements are performed at all, it is just a string.
 
 @noindent
+@node vcs_info Oddities, vcs_info Quilt Support, vcs_info Configuration, Version Control Information
 
 @subsection Oddities
 @noindent
@@ -35459,6 +36189,15 @@ cannot be easily avoided. Luckily we do not clash with a lot of prompt
 expansions and this only needs to be done for those.
 
 @noindent
+When one of the @t{gen-applied-string}, @t{gen-unapplied-string}, and
+@t{set-patch-format} hooks is defined,
+applying @t{%}-escaping (`@t{foo=$@{foo//'%'/%%@}}') to the interpolated values
+for use in the prompt is the responsibility of those hooks (jointly);
+when neither of those hooks is defined, @t{vcs_info} handles escaping by itself.
+We regret this coupling, but it was required for backwards compatibility.
+
+@noindent
+@node vcs_info Quilt Support, vcs_info API, vcs_info Oddities, Version Control Information
 
 @subsection Quilt Support
 @noindent
@@ -35478,13 +36217,26 @@ having two slightly different modes of operation: `addon' mode and
 `standalone' mode).
 
 @noindent
+Quilt integration is off by default; to enable it, set the @t{use-quilt} style,
+and add @t{%Q} to your @t{formats} or @t{actionformats} style:
+@example
+zstyle ':vcs_info:*' use-quilt true
+@end example
+
+@noindent
+Styles looked up from the Quilt support code include `@t{.quilt-}@var{quilt-mode}'
+in the @var{vcs-string} part of the context, where @var{quilt-mode} is either
+@t{addon} or @t{standalone}.
+Example: @t{:vcs_info:git.quilt-addon:default:}@var{repo-root-name}.
+
+@noindent
 For `addon' mode to become active @t{vcs_info} must have already detected a
 real version control system controlling the directory. If that is the case,
 a directory that holds quilt's patches needs to be found. That directory is
 configurable via the `@t{QUILT_PATCHES}' environment variable. If that
 variable exists its value is used, otherwise the value `@t{patches}' is
 assumed. The value from @t{$QUILT_PATCHES} can be overwritten using the
-@t{`quilt-patches'} style. (Note: you can use @t{vcs_info} to keep the value
+`@t{quilt-patches}' style. (Note: you can use @t{vcs_info} to keep the value
 of @t{$QUILT_PATCHES} correct all the time via the @t{post-quilt} hook).
 
 @noindent
@@ -35501,8 +36253,9 @@ the @t{get-unapplied} style in the appropriate context.
 
 @noindent
 @t{vcs_info} allows for very detailed control over how the gathered
-information is presented (see the below sections, @cite{Styles} and @cite{Hooks in
-vcs_info}), all of which are documented below. Note there are a number of
+information is presented (see 
+@ref{vcs_info Configuration} and @ref{vcs_info Hooks}),
+all of which are documented below. Note there are a number of
 other patch tracking systems that work on top of a certain version control
 system (like @t{stgit} for @cite{git}, or @t{mq} for @cite{hg}); the configuration
 for systems like that are generally configured the same way as the @cite{quilt}
@@ -35565,6 +36318,7 @@ Note, if there is both a function and a variable by the name of
 @t{quilt-standalone}, the function will take precedence.
 
 @noindent
+@node vcs_info API, vcs_info Variables, vcs_info Quilt Support, Version Control Information
 
 @subsection Function Descriptions (Public API)
 @noindent
@@ -35576,7 +36330,8 @@ Note, if there is both a function and a variable by the name of
 The main function, that runs all backends and assembles all data into
 @t{$@{vcs_info_msg_*_@}}. This is the function you want to call from
 @t{precmd} if you want to include up-to-date information in your prompt (see
-@t{Variable description} below). If an argument is given, that string will be
+@ref{vcs_info Variables}
+below).  If an argument is given, that string will be
 used instead of @t{default} in the @var{user-context} field of the style
 context.
 
@@ -35585,7 +36340,8 @@ context.
 Statically registers a number of functions to a given hook. The hook needs
 to be given as the first argument; what follows is a list of hook-function
 names to register to the hook. The `@t{+vi-}' prefix needs to be left out
-here. See @cite{Hooks in vcs_info} below for details.
+here. See @ref{vcs_info Hooks}
+below for details.
 
 @findex vcs_info_hookdel
 @item @t{vcs_info_hookdel}
@@ -35594,8 +36350,9 @@ first non-option argument; what follows is a list of hook-function
 names to un-register from the hook. If `@t{-a}' is used as the first
 argument, @t{all} occurrences of the functions are unregistered. Otherwise
 only the last occurrence is removed (if a function was registered to a hook
-more than once) . The `@t{+vi-}' prefix needs to be left out here. See
-@cite{Hooks in vcs_info} below for details.
+more than once). The `@t{+vi-}' prefix needs to be left out here.
+See @ref{vcs_info Hooks}
+below for details.
 
 @findex vcs_info_lastmsg
 @item @t{vcs_info_lastmsg}
@@ -35622,6 +36379,7 @@ without restarting the shell.
 All functions named @t{VCS_INFO_*} are for internal use only.
 
 @noindent
+@node vcs_info Variables, vcs_info Hooks, vcs_info API, Version Control Information
 
 @subsection Variable Description
 @noindent
@@ -35644,6 +36402,7 @@ style above.)
 All variables named @t{VCS_INFO_*} are for internal use only.
 
 @noindent
+@node vcs_info Hooks, vcs_info Examples, vcs_info Variables, Version Control Information
 
 @subsection Hooks in vcs_info
 @noindent
@@ -35777,10 +36536,11 @@ top-most patch and so forth.
 
 @noindent
 When setting @t{ret} to non-zero, the string in
-@t{$@{hook_com[applied-string]@}} will be used in the @t{%m} escape in
-@t{formats} and @t{actionformats}; it will be available in the global
-@t{backend_misc} array as @t{$backend_misc[patches]@}}; and it will be
+@t{$@{hook_com[applied-string]@}} will be
 available as @t{%p} in the @t{patch-format} and @t{nopatch-format} styles.
+This hook is, in concert with @t{set-patch-format}, responsible for
+@t{%}-escaping that value for use in the prompt.
+(See @ref{vcs_info Oddities}.)
 
 @item @t{gen-unapplied-string}
 Called in the @t{git} (with @t{stgit} or during rebase), and @t{hg} (with
@@ -35789,13 +36549,16 @@ generated; the @t{get-unapplied} style must be true.
 
 @noindent
 This hook gets the names of all unapplied patches which @t{vcs_info}
-collected so far in the opposite order, which mean that the first argument is
+collected so far in order, which means that the first argument is
 the patch next-in-line to be applied and so forth.
 
 @noindent
 When setting @t{ret} to non-zero, the string in
 @t{$@{hook_com[unapplied-string]@}} will be available as @t{%u} in the
 @t{patch-format} and @t{nopatch-format} styles.
+This hook is, in concert with @t{set-patch-format}, responsible for
+@t{%}-escaping that value for use in the prompt.
+(See @ref{vcs_info Oddities}.)
 
 @item @t{gen-mqguards-string}
 Called in the @t{hg} backend when @t{guards-string} is generated; the
@@ -35887,6 +36650,12 @@ If @t{ret} is set to non-zero, the string in @t{$@{hook_com[patch-replace]@}}
 will be used unchanged instead of an expanded format from @t{patch-format} or
 @t{nopatch-format}.
 
+@noindent
+This hook is, in concert with the @t{gen-applied-string} or
+@t{gen-unapplied-string} hooks if they are defined, responsible for
+@t{%}-escaping the final @t{patch-format} value for use in the prompt.
+(See @ref{vcs_info Oddities}.)
+
 @item @t{set-message}
 Called each time before a `@t{vcs_info_msg_}@var{N}@t{_}' message is set.
 It takes two arguments; the first being the `@var{N}' in the message
@@ -35918,11 +36687,13 @@ If @t{ret} is set to non-zero, the string in
 @end table
 
 @noindent
-If all of this sounds rather confusing, take a look at the @cite{Examples}
-section below and also in the @t{Misc/vcs_info-examples} file in the Zsh source.
+If all of this sounds rather confusing, take a look at
+@ref{vcs_info Examples}
+and also in the @t{Misc/vcs_info-examples} file in the Zsh source.
 They contain some explanatory code.
 
 @noindent
+@node vcs_info Examples, , vcs_info Hooks, Version Control Information
 
 @subsection Examples
 @noindent
@@ -36109,8 +36880,9 @@ This concludes our guided tour through zsh's @t{vcs_info}.
 You should make sure all the functions from the @t{Functions/Prompts}
 directory of the source distribution are available; they all begin with
 the string `@t{prompt_}' except for the special function`@t{promptinit}'.
-You also need the `@t{colors}' function from @t{Functions/Misc}.  All of
-these functions may already have been installed on your system; if not,
+You also need the `@t{colors}' and `@t{add-zsh-hook}' functions from
+@t{Functions/Misc}.
+All these functions may already be installed on your system; if not,
 you will need to find them and copy them.  The directory should appear as
 one of the elements of the @t{fpath} array (this should already be the
 case if they were installed), and at least the function @t{promptinit}
@@ -36177,6 +36949,88 @@ Each available @var{theme} has a setup function which is called by the
 other functions as necessary to maintain the prompt, including functions
 used to preview the prompt or provide help for its use.  You should not
 normally call a theme's setup function directly.
+
+@end table
+
+@noindent
+
+@subsection Utility Themes
+@noindent
+
+@noindent
+@table @asis
+@item @t{prompt off}
+The theme `@t{off}' sets all the prompt variables to minimal values with
+no special effects.
+
+@item @t{prompt default}
+The theme `@t{default}' sets all prompt variables to the same state as
+if an interactive zsh was started with no initialization files.
+
+@item @t{prompt restore}
+The special theme `@t{restore}' erases all theme settings and sets prompt
+variables to their state before the first time the `@t{prompt}' function
+was run, provided each theme has properly defined its cleanup (see below).
+
+@noindent
+Note that you can undo `@t{prompt off}' and `@t{prompt default}' with
+`@t{prompt restore}', but a second restore does not undo the first.
+
+@end table
+
+@noindent
+
+@subsection Writing Themes
+@noindent
+
+@noindent
+The first step for adding your own theme is to choose a name for it,
+and create a file `@t{prompt_@var{name}_setup}' in a directory in your
+@t{fpath}, such as @t{~/myfns} in the example above.  The file should
+at minimum contain assignments for the prompt variables that your
+theme wishes to modify.  By convention, themes use @t{PS1}, @t{PS2},
+@t{RPS1}, etc., rather than the longer @t{PROMPT} and @t{RPROMPT}.
+
+@noindent
+The file is autoloaded as a function in the current shell context, so
+it may contain any necessary commands to customize your theme, including
+defining additional functions.  To make some complex tasks easier, your
+setup function may also do any of the following:
+
+@noindent
+@table @asis
+@item Assign @t{prompt_opts}
+The array @t{prompt_opts} may be assigned any of @t{"bang"}, @t{"cr"},
+@t{"percent"}, @t{"sp"}, and/or @t{"subst"} as values.  The corresponding
+setopts (@t{promptbang}, etc.) are turned on, all other prompt-related
+options are turned off.  The @t{prompt_opts} array preserves setopts even
+beyond the scope of @t{localoptions}, should your function need that.
+
+@item Modify precmd and preexec
+Use of @t{add-zsh-hook} is recommended.  The @t{precmd} and @t{preexec}
+hooks are automatically adjusted if the prompt theme changes or is
+disabled.
+
+@item Declare cleanup
+If your function makes any other changes that should be undone when the
+theme is disabled, your setup function may call
+@example
+prompt_cleanup @var{command}
+@end example
+where @var{command} should be suitably quoted.  If your theme is ever
+disabled or replaced by another, @var{command} is executed with @t{eval}.
+You may declare more than one such cleanup hook.
+
+@item Define preview
+Define or autoload a function @t{prompt_@var{name}_preview} to display
+a simulated version of your prompt.  A simple default previewer is
+defined by @t{promptinit} for themes that do not define their own.
+This preview function is called by `@t{prompt -p}'.
+
+@item Provide help
+Define or autoload a function @t{prompt_@var{name}_help} to display
+documentation or help text for your theme.
+This help function is called by `@t{prompt -h}'.
 
 @end table
 

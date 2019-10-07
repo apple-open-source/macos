@@ -32,7 +32,7 @@
 #ifndef _HFS_ENCODINGS_H_
 #define _HFS_ENCODINGS_H_
 
-#if !TARGET_OS_EMBEDDED
+#if !TARGET_OS_IPHONE
 
 #include <sys/appleapiopts.h>
 
@@ -84,6 +84,6 @@ __END_DECLS
 
 #endif /* __APPLE_API_UNSTABLE */
 
-#endif // !TARGET_OS_EMBEDDED
+#endif // !TARGET_OS_IPHONE
 
 #endif /* ! _HFS_ENCODINGS_H_ */

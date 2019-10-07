@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 - 2008, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,6 +51,7 @@
 #include <arpa/inet.h> /* has inet_ntoa, etc. */
 
 #include "inetroute.h"
+#include "cfutil.h"
 #include "util.h"
 
 #define INDEX_NONE	-1
@@ -206,7 +207,7 @@ inetroute_default(inetroute_list_t * list_p)
 }
 
 void
-inetroute_list_print(inetroute_list_t * list_p)
+inetroute_list_print_cfstr(CFMutableStringRef str, inetroute_list_t * list_p)
 {
     int i;
 
@@ -214,16 +215,27 @@ inetroute_list_print(inetroute_list_t * list_p)
 	inetroute_t * entry = list_p->list + i;
 
 	if (entry->gateway.link.sdl_family == AF_LINK) {
-	    printf("%s ==> link %d\n", 
-		   inet_nettoa(entry->dest, entry->mask),
-		   entry->gateway.link.sdl_index);
+	    STRING_APPEND(str, "%s ==> link %d\n", 
+			  inet_nettoa(entry->dest, entry->mask),
+			  entry->gateway.link.sdl_index);
 	}
 	else {
-	    printf("%s ==> %s\n", 
-		   inet_nettoa(entry->dest, entry->mask),
-		   inet_ntoa(entry->gateway.inet.sin_addr));
+	    STRING_APPEND(str, "%s ==> %s\n", 
+			  inet_nettoa(entry->dest, entry->mask),
+			  inet_ntoa(entry->gateway.inet.sin_addr));
 	}
     }
+}
+
+void
+inetroute_list_print(inetroute_list_t * list_p)
+{
+    CFMutableStringRef	str;
+
+    str = CFStringCreateMutable(NULL, 0);
+    inetroute_list_print_cfstr(str, list_p);
+    my_CFStringPrint(stdout, str);
+    CFRelease(str);
 }
 
 #ifdef TEST_INETROUTE

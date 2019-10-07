@@ -19,16 +19,16 @@ el{
     ExemplarCharactersPunctuation{"[\\- ‐ – — , ; \\: ! . … \u0022 « » ( ) \\[ \\] § @ * / \\\\ \\&]"}
     MoreInformation{";"}
     NumberElements{
-        default{"latn"}
         latn{
             miscPatterns{
+                approximately{"~{0}"}
                 atLeast{"{0}+"}
+                atMost{"≤{0}"}
                 range{"{0}–{1}"}
             }
             patterns{
                 accountingFormat{"#,##0.00 ¤"}
                 currencyFormat{"#,##0.00 ¤"}
-                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0%"}
                 scientificFormat{"#E0"}
             }
@@ -192,18 +192,16 @@ el{
                 group{"."}
                 infinity{"∞"}
                 list{";"}
-                minusSign{"-"}
                 nan{"NaN"}
                 perMille{"‰"}
                 percentSign{"%"}
-                plusSign{"+"}
                 superscriptingExponent{"×"}
                 timeSeparator{":"}
             }
         }
         minimalPairs{
             ordinal{
-                other{"Στρίψτε στην {0}η γωνία δεξιά."}
+                other{"Στρίψτε στην {0}η δεξιά."}
             }
             plural{
                 one{"{0} ημέρα"}
@@ -211,10 +209,9 @@ el{
             }
         }
         minimumGroupingDigits{"1"}
-        native{"latn"}
         traditional{"grek"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -233,21 +230,17 @@ el{
                 "{1}, {0}",
             }
             availableFormats{
-                E{"ccc"}
                 Ed{"E d"}
                 Gy{"y G"}
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMd{"d MMM y G"}
-                M{"L"}
                 MEd{"E, d/M"}
-                MMM{"LLL"}
                 MMMEd{"E, d MMM"}
                 MMMMEd{"E, d MMMM"}
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
                 Md{"d/M"}
-                d{"d"}
                 y{"y G"}
                 yyyy{"y G"}
                 yyyyM{"M/y GGGGG"}
@@ -257,8 +250,6 @@ el{
                 yyyyMMMM{"MMMM y G"}
                 yyyyMMMd{"d MMM y G"}
                 yyyyMd{"d/M/y GGGGG"}
-                yyyyQQQ{"G y QQQ"}
-                yyyyQQQQ{"G y QQQQ"}
             }
             eras{
                 abbreviated{
@@ -272,20 +263,6 @@ el{
                 }
             }
             intervalFormats{
-                H{
-                    H{"HH–HH"}
-                }
-                Hm{
-                    H{"HH:mm–HH:mm"}
-                    m{"HH:mm–HH:mm"}
-                }
-                Hmv{
-                    H{"HH:mm–HH:mm v"}
-                    m{"HH:mm–HH:mm v"}
-                }
-                Hv{
-                    H{"HH–HH v"}
-                }
                 M{
                     M{"M–M"}
                 }
@@ -308,28 +285,7 @@ el{
                     M{"dd/MM – dd/MM"}
                     d{"dd/MM – dd/MM"}
                 }
-                d{
-                    d{"d–d"}
-                }
                 fallback{"{0} - {1}"}
-                h{
-                    a{"h a – h a"}
-                    h{"h–h a"}
-                }
-                hm{
-                    a{"h:mm a – h:mm a"}
-                    h{"h:mm–h:mm a"}
-                    m{"h:mm–h:mm a"}
-                }
-                hmv{
-                    a{"h:mm a – h:mm a v"}
-                    h{"h:mm–h:mm a v"}
-                    m{"h:mm–h:mm a v"}
-                }
-                hv{
-                    a{"h a – h a v"}
-                    h{"h–h a v"}
-                }
                 y{
                     y{"y–y G"}
                 }
@@ -367,166 +323,87 @@ el{
                 }
             }
         }
-        coptic{
-            eras{
-                abbreviated{
-                    "ERA0",
-                    "ERA1",
-                }
-                narrow{
-                    "ERA0",
-                    "ERA1",
-                }
-                wide{
-                    "ERA0",
-                    "ERA1",
-                }
-            }
-            monthNames{
-                format{
-                    abbreviated{
-                        "Τουτ",
-                        "Μπάπα",
-                        "Χατούρ",
-                        "Κεγιάχκ",
-                        "Τούμπα",
-                        "Αμσίρ",
-                        "Μπαραμχάτ",
-                        "Μπαρμούντα",
-                        "Μπασάνς",
-                        "Μπαούνα",
-                        "Αμπίπ",
-                        "Μέσρα",
-                        "Νεσγ",
-                    }
-                    wide{
-                        "Τουτ",
-                        "Μπάπα",
-                        "Χατούρ",
-                        "Κεγιάχκ",
-                        "Τούμπα",
-                        "Αμσίρ",
-                        "Μπαραμχάτ",
-                        "Μπαρμούντα",
-                        "Μπασάνς",
-                        "Μπαούνα",
-                        "Αμπίπ",
-                        "Μέσρα",
-                        "Νεσγ",
-                    }
-                }
-                stand-alone{
-                    abbreviated{
-                        "Τουτ",
-                        "Μπάπα",
-                        "Χατούρ",
-                        "Κεγιάχκ",
-                        "Τούμπα",
-                        "Αμσίρ",
-                        "Μπαραμχάτ",
-                        "Μπαρμούντα",
-                        "Μπασάνς",
-                        "Μπαούνα",
-                        "Αμπίπ",
-                        "Μέσρα",
-                        "Νεσγ",
-                    }
-                    wide{
-                        "Τουτ",
-                        "Μπάπα",
-                        "Χατούρ",
-                        "Κεγιάχκ",
-                        "Τούμπα",
-                        "Αμσίρ",
-                        "Μπαραμχάτ",
-                        "Μπαρμούντα",
-                        "Μπασάνς",
-                        "Μπαούνα",
-                        "Αμπίπ",
-                        "Μέσρα",
-                        "Νεσγ",
-                    }
-                }
+        chinese{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "r(U) MMMM d, EEEE",
+                "r(U) MMMM d",
+                "r MMM d",
+                "r-MM-dd",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
             }
         }
-        ethiopic{
-            eras{
-                abbreviated{
-                    "ERA0",
-                    "ERA1",
-                }
-                narrow{
-                    "ERA0",
-                    "ERA1",
-                }
-                wide{
-                    "ERA0",
-                    "ERA1",
-                }
-            }
+        coptic{
             monthNames{
                 format{
                     abbreviated{
-                        "Meskerem",
-                        "Tekemt",
-                        "Hedar",
-                        "Tahsas",
-                        "Ter",
-                        "Yekatit",
-                        "Megabit",
-                        "Miazia",
-                        "Genbot",
-                        "Sene",
-                        "Hamle",
-                        "Nehasse",
-                        "Pagumen",
+                        "Τουτ",
+                        "Μπάπα",
+                        "Χατούρ",
+                        "Κεγιάχκ",
+                        "Τούμπα",
+                        "Αμσίρ",
+                        "Μπαραμχάτ",
+                        "Μπαρμούντα",
+                        "Μπασάνς",
+                        "Μπαούνα",
+                        "Αμπίπ",
+                        "Μέσρα",
+                        "Νεσγ",
                     }
                     wide{
-                        "Meskerem",
-                        "Tekemt",
-                        "Hedar",
-                        "Tahsas",
-                        "Ter",
-                        "Yekatit",
-                        "Megabit",
-                        "Miazia",
-                        "Genbot",
-                        "Sene",
-                        "Hamle",
-                        "Nehasse",
-                        "Pagumen",
+                        "Τουτ",
+                        "Μπάπα",
+                        "Χατούρ",
+                        "Κεγιάχκ",
+                        "Τούμπα",
+                        "Αμσίρ",
+                        "Μπαραμχάτ",
+                        "Μπαρμούντα",
+                        "Μπασάνς",
+                        "Μπαούνα",
+                        "Αμπίπ",
+                        "Μέσρα",
+                        "Νεσγ",
                     }
                 }
                 stand-alone{
                     abbreviated{
-                        "Meskerem",
-                        "Tekemt",
-                        "Hedar",
-                        "Tahsas",
-                        "Ter",
-                        "Yekatit",
-                        "Megabit",
-                        "Miazia",
-                        "Genbot",
-                        "Sene",
-                        "Hamle",
-                        "Nehasse",
-                        "Pagumen",
+                        "Τουτ",
+                        "Μπάπα",
+                        "Χατούρ",
+                        "Κεγιάχκ",
+                        "Τούμπα",
+                        "Αμσίρ",
+                        "Μπαραμχάτ",
+                        "Μπαρμούντα",
+                        "Μπασάνς",
+                        "Μπαούνα",
+                        "Αμπίπ",
+                        "Μέσρα",
+                        "Νεσγ",
                     }
                     wide{
-                        "Meskerem",
-                        "Tekemt",
-                        "Hedar",
-                        "Tahsas",
-                        "Ter",
-                        "Yekatit",
-                        "Megabit",
-                        "Miazia",
-                        "Genbot",
-                        "Sene",
-                        "Hamle",
-                        "Nehasse",
-                        "Pagumen",
+                        "Τουτ",
+                        "Μπάπα",
+                        "Χατούρ",
+                        "Κεγιάχκ",
+                        "Τούμπα",
+                        "Αμσίρ",
+                        "Μπαραμχάτ",
+                        "Μπαρμούντα",
+                        "Μπασάνς",
+                        "Μπαούνα",
+                        "Αμπίπ",
+                        "Μέσρα",
+                        "Νεσγ",
                     }
                 }
             }
@@ -592,6 +469,53 @@ el{
                 yyyyQQQQ{"G y QQQQ"}
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h – h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm – h:mm B"}
+                }
+                Gy{
+                    G{"y G – y G"}
+                    y{"y–y G"}
+                }
+                GyM{
+                    G{"MM-y GGGGG – MM-y GGGGG"}
+                    M{"MM-y – MM-y GGGGG"}
+                    y{"MM-y – MM-y GGGGG"}
+                }
+                GyMEd{
+                    G{"E dd-MM-y GGGGG – E dd-MM-y GGGGG"}
+                    M{"E dd-MM-y – E dd-MM-y GGGGG"}
+                    d{"E dd-MM-y – E dd-MM-y GGGGG"}
+                    y{"E dd-MM-y – E dd-MM-y GGGGG"}
+                }
+                GyMMM{
+                    G{"MMM y G – MMM y G"}
+                    M{"MMM – MMM y G"}
+                    y{"MMM y – MMM y G"}
+                }
+                GyMMMEd{
+                    G{"E d MMM y G – E d MMM y G"}
+                    M{"E d MMM – E d MMM y G"}
+                    d{"E d MMM – E d MMM y G"}
+                    y{"E d MMM y – E d MMM y G"}
+                }
+                GyMMMd{
+                    G{"d MMM y G – d MMM y G"}
+                    M{"d MMM – d MMM y G"}
+                    d{"d–d MMM y G"}
+                    y{"d MMM y – d MMM y G"}
+                }
+                GyMd{
+                    G{"dd-MM-y GGGGG – dd-MM-y GGGGG"}
+                    M{"dd-MM-y – dd-MM-y GGGGG"}
+                    d{"dd-MM-y – dd-MM-y GGGGG"}
+                    y{"dd-MM-y – dd-MM-y GGGGG"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -745,8 +669,8 @@ el{
                 MMMEd{"E, d MMM"}
                 MMMMEd{"E, d MMMM"}
                 MMMMW{
-                    one{"εβδομάδα W του MMM"}
-                    other{"εβδομάδα W του MMM"}
+                    one{"εβδομάδα W του MMMM"}
+                    other{"εβδομάδα W του MMMM"}
                 }
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
@@ -918,6 +842,53 @@ el{
                 }
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h – h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm – h:mm B"}
+                }
+                Gy{
+                    G{"y G – y G"}
+                    y{"y–y G"}
+                }
+                GyM{
+                    G{"MM-y GGGGG – MM-y GGGGG"}
+                    M{"MM-y – MM-y GGGGG"}
+                    y{"MM-y – MM-y GGGGG"}
+                }
+                GyMEd{
+                    G{"E dd-MM-y GGGGG – E dd-MM-y GGGGG"}
+                    M{"E dd-MM-y – E dd-MM-y GGGGG"}
+                    d{"E dd-MM-y – E dd-MM-y GGGGG"}
+                    y{"E dd-MM-y – E dd-MM-y GGGGG"}
+                }
+                GyMMM{
+                    G{"MMM y G – MMM y G"}
+                    M{"MMM – MMM y G"}
+                    y{"MMM y – MMM y G"}
+                }
+                GyMMMEd{
+                    G{"E d MMM y G – E d MMM y G"}
+                    M{"E d MMM – E d MMM y G"}
+                    d{"E d MMM – E d MMM y G"}
+                    y{"E d MMM y – E d MMM y G"}
+                }
+                GyMMMd{
+                    G{"d MMM y G – d MMM y G"}
+                    M{"d MMM – d MMM y G"}
+                    d{"d–d MMM y G"}
+                    y{"d MMM y – d MMM y G"}
+                }
+                GyMd{
+                    G{"dd-MM-y GGGGG – dd-MM-y GGGGG"}
+                    M{"dd-MM-y – dd-MM-y GGGGG"}
+                    d{"dd-MM-y – dd-MM-y GGGGG"}
+                    y{"dd-MM-y – dd-MM-y GGGGG"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -1146,17 +1117,6 @@ el{
             }
         }
         hebrew{
-            eras{
-                abbreviated{
-                    "AM",
-                }
-                narrow{
-                    "AM",
-                }
-                wide{
-                    "AM",
-                }
-            }
             monthNames{
                 format{
                     abbreviated{
@@ -1240,68 +1200,6 @@ el{
                     "Σάκα",
                 }
             }
-            monthNames{
-                format{
-                    abbreviated{
-                        "Chaitra",
-                        "Vaisakha",
-                        "Jyaistha",
-                        "Asadha",
-                        "Sravana",
-                        "Bhadra",
-                        "Asvina",
-                        "Kartika",
-                        "Agrahayana",
-                        "Pausa",
-                        "Magha",
-                        "Phalguna",
-                    }
-                    wide{
-                        "Chaitra",
-                        "Vaisakha",
-                        "Jyaistha",
-                        "Asadha",
-                        "Sravana",
-                        "Bhadra",
-                        "Asvina",
-                        "Kartika",
-                        "Agrahayana",
-                        "Pausa",
-                        "Magha",
-                        "Phalguna",
-                    }
-                }
-                stand-alone{
-                    abbreviated{
-                        "Chaitra",
-                        "Vaisakha",
-                        "Jyaistha",
-                        "Asadha",
-                        "Sravana",
-                        "Bhadra",
-                        "Asvina",
-                        "Kartika",
-                        "Agrahayana",
-                        "Pausa",
-                        "Magha",
-                        "Phalguna",
-                    }
-                    wide{
-                        "Chaitra",
-                        "Vaisakha",
-                        "Jyaistha",
-                        "Asadha",
-                        "Sravana",
-                        "Bhadra",
-                        "Asvina",
-                        "Kartika",
-                        "Agrahayana",
-                        "Pausa",
-                        "Magha",
-                        "Phalguna",
-                    }
-                }
-            }
         }
         islamic{
             eras{
@@ -1313,68 +1211,6 @@ el{
                 }
                 wide{
                     "Ε.Ε.",
-                }
-            }
-            monthNames{
-                format{
-                    abbreviated{
-                        "Muh.",
-                        "Saf.",
-                        "Rab. I",
-                        "Rab. II",
-                        "Jum. I",
-                        "Jum. II",
-                        "Raj.",
-                        "Sha.",
-                        "Ram.",
-                        "Shaw.",
-                        "Dhuʻl-Q.",
-                        "Dhuʻl-H.",
-                    }
-                    wide{
-                        "Muharram",
-                        "Safar",
-                        "Rabiʻ I",
-                        "Rabiʻ II",
-                        "Jumada I",
-                        "Jumada II",
-                        "Rajab",
-                        "Shaʻban",
-                        "Ramadan",
-                        "Shawwal",
-                        "Dhuʻl-Qiʻdah",
-                        "Dhuʻl-Hijjah",
-                    }
-                }
-                stand-alone{
-                    abbreviated{
-                        "Muh.",
-                        "Saf.",
-                        "Rab. I",
-                        "Rab. II",
-                        "Jum. I",
-                        "Jum. II",
-                        "Raj.",
-                        "Sha.",
-                        "Ram.",
-                        "Shaw.",
-                        "Dhuʻl-Q.",
-                        "Dhuʻl-H.",
-                    }
-                    wide{
-                        "Muharram",
-                        "Safar",
-                        "Rabiʻ I",
-                        "Rabiʻ II",
-                        "Jumada I",
-                        "Jumada II",
-                        "Rajab",
-                        "Shaʻban",
-                        "Ramadan",
-                        "Shawwal",
-                        "Dhuʻl-Qiʻdah",
-                        "Dhuʻl-Hijjah",
-                    }
                 }
             }
         }
@@ -1653,81 +1489,6 @@ el{
                 }
             }
         }
-        persian{
-            eras{
-                abbreviated{
-                    "AP",
-                }
-                narrow{
-                    "AP",
-                }
-                wide{
-                    "AP",
-                }
-            }
-            monthNames{
-                format{
-                    abbreviated{
-                        "Farvardin",
-                        "Ordibehesht",
-                        "Khordad",
-                        "Tir",
-                        "Mordad",
-                        "Shahrivar",
-                        "Mehr",
-                        "Aban",
-                        "Azar",
-                        "Dey",
-                        "Bahman",
-                        "Esfand",
-                    }
-                    wide{
-                        "Farvardin",
-                        "Ordibehesht",
-                        "Khordad",
-                        "Tir",
-                        "Mordad",
-                        "Shahrivar",
-                        "Mehr",
-                        "Aban",
-                        "Azar",
-                        "Dey",
-                        "Bahman",
-                        "Esfand",
-                    }
-                }
-                stand-alone{
-                    abbreviated{
-                        "Farvardin",
-                        "Ordibehesht",
-                        "Khordad",
-                        "Tir",
-                        "Mordad",
-                        "Shahrivar",
-                        "Mehr",
-                        "Aban",
-                        "Azar",
-                        "Dey",
-                        "Bahman",
-                        "Esfand",
-                    }
-                    wide{
-                        "Farvardin",
-                        "Ordibehesht",
-                        "Khordad",
-                        "Tir",
-                        "Mordad",
-                        "Shahrivar",
-                        "Mehr",
-                        "Aban",
-                        "Azar",
-                        "Dey",
-                        "Bahman",
-                        "Esfand",
-                    }
-                }
-            }
-        }
         roc{
             eras{
                 abbreviated{
@@ -1813,7 +1574,7 @@ el{
         plant{"φυτό"}
         punctuation{"στίξη"}
         rightwards_arrows{"βέλος δεξιά"}
-        sign_standard_symbols{"Σήματα / Τυπικά σύμβολα"}
+        sign_standard_symbols{"σήμα ή σύμβολο"}
         small_form_variant{"παραλλαγή μικρού μεγέθους"}
         smiley{"γελαστούλης"}
         smileys_people{"γελαστούλης ή άτομο"}
@@ -1868,6 +1629,11 @@ el{
         }
         day-narrow{
             dn{"ημ."}
+            relative{
+                "-1"{"χθες"}
+                "0"{"σήμερα"}
+                "1"{"αύριο"}
+            }
             relativeTime{
                 future{
                     one{"σε {0} ημ."}
@@ -1881,6 +1647,11 @@ el{
         }
         day-short{
             dn{"ημ."}
+            relative{
+                "-1"{"χθες"}
+                "0"{"σήμερα"}
+                "1"{"αύριο"}
+            }
             relativeTime{
                 future{
                     one{"σε {0} ημ."}
@@ -2651,6 +2422,12 @@ el{
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
+        standard-narrow{
+            2{"{0}, {1}"}
+            end{"{0}, {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
+        }
         standard-short{
             2{"{0} και {1}"}
             end{"{0} και {1}"}
@@ -2680,5 +2457,33 @@ el{
         UK{"Αγγλοσαξονικό"}
         US{"Αμερικανικό"}
         metric{"Μετρικό"}
+    }
+    parse{
+        date{
+            lenient{
+                "[\\--/]",
+                "[\\:∶]",
+            }
+        }
+        general{
+            lenient{
+                "[.․。︒﹒．｡]",
+                "['ʼ՚᾽᾿’＇]",
+                "[%٪﹪％]",
+                "[؉‰]",
+                "[\$﹩＄$]",
+                "[£₤]",
+                "[¥￥]",
+                "[₩￦]",
+                "[₨₹{Rp}{Rs}]",
+            }
+        }
+        number{
+            lenient{
+                "[\\-‒⁻₋−➖﹣－]",
+                "[,،٫、︐︑﹐﹑，､]",
+                "[+⁺₊➕﬩﹢＋]",
+            }
+        }
     }
 }

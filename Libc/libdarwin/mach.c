@@ -361,7 +361,7 @@ os_mach_port_copy_description(mach_port_t p)
 // libsystem_darwin. The long-term plan is to move assumes() and assert()
 // functionality into libdarwin anyway.
 void
-os_assert_mach(const char *op, kern_return_t kr)
+(os_assert_mach)(const char *op, kern_return_t kr)
 {
 	kern_return_t real_kr = (kern_return_t)(kr & (~MACH_MSG_MASK));
 	kern_return_t extra = (kern_return_t)(kr & MACH_MSG_MASK);

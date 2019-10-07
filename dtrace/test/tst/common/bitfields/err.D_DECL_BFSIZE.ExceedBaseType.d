@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_DECL_BFSIZE.ExceedBaseType.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Bit-field width must be of a number of bits not larger than
  * that of the corresponding base type.

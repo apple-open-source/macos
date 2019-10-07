@@ -9,7 +9,7 @@
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,9 +17,12 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#define __OS_EXPOSE_INTERNALS__ 1
+#include <os/internal/internal_shared.h>
 
 #include <dispatch/dispatch.h>
 #include <mach/mach.h>
@@ -29,6 +32,70 @@
 #include <TargetConditionals.h>
 
 #include "libnotify.h"
+
+#define NOTIFY_INTERNAL_CRASH(c, x) __extension__({ \
+		_os_set_crash_log_cause_and_message(c, "BUG IN LIBNOTIFY: " x); \
+		__builtin_trap(); \
+	})
+
+#define NOTIFY_CLIENT_CRASH(c, x) __extension__({ \
+		_os_set_crash_log_cause_and_message(c, \
+				"BUG IN CLIENT OF LIBNOTIFY: " x); \
+		__builtin_trap(); \
+	})
+
+#define NOTIFY_STATUS_SERVER_CHECKIN_FAILED 11
+// was  NOTIFY_STATUS_LIB_SELF_STATE_FAILED 12
+#define NOTIFY_STATUS_SERVER_REGEN_FAILED 13
+#define NOTIFY_STATUS_CLIENT_REG_FAILED 14
+#define NOTIFY_STATUS_SERVER_POST_4_FAILED 15
+#define NOTIFY_STATUS_SERVER_POST_2_FAILED 16
+#define NOTIFY_STATUS_SERVER_POST_3_FAILED 17
+#define NOTIFY_STATUS_TOKEN_NOT_FOUND 18
+#define NOTIFY_STATUS_COMMON_PORT_NULL 19
+#define NOTIFY_STATUS_SERVER_PORT_NULL 20
+#define NOTIFY_STATUS_REG_CHECK_2_FAILED 21
+#define NOTIFY_STATUS_SHM_ATTACH_FAILED 22
+#define NOTIFY_STATUS_SHM_BASE_REMAINS_NULL 23
+#define NOTIFY_STATUS_REG_PLAIN_2_FAILED 24
+#define NOTIFY_STATUS_REG_SIGNAL_2_FAILED 25
+#define NOTIFY_STATUS_MACH_PORT_ALLOC_FAILED 26
+#define NOTIFY_STATUS_MACH_PORT_INSERT_RIGHT_FAILED 27
+#define NOTIFY_STATUS_REG_MACH_PORT_2_FAILED 28
+#define NOTIFY_STATUS_PIPE_FAILED 29
+#define NOTIFY_STATUS_FILEPORT_MAKEPORT_FAILED 30
+#define NOTIFY_STATUS_REG_FD_2_FAILED 31
+#define NOTIFY_STATUS_SHM_BASE_NULL 32
+#define NOTIFY_STATUS_SERVER_CHECK_FAILED 33
+#define NOTIFY_STATUS_STRDUP_FAILED 34
+#define NOTIFY_STATUS_SERVER_MONITOR_FILE_2_FAILED 35
+#define NOTIFY_STATUS_SERVER_GET_STATE_2_FAILED 36
+#define NOTIFY_STATUS_SERVER_SET_STATE_2_FAILED 37
+#define NOTIFY_STATUS_SERVER_SUSPEND_FAILED 38
+#define NOTIFY_STATUS_SERVER_RESUME_FAILED 39
+#define NOTIFY_STATUS_SERVER_SUSPEND_PID_FAILED 40
+#define NOTIFY_STATUS_SERVER_RESUME_PID_FAILED 41
+#define NOTIFY_STATUS_ALLOC_FAILED 42
+#define NOTIFY_STATUS_KILL_FAILED 43
+#define NOTIFY_STATUS_WRITE_FAILED 44
+#define NOTIFY_STATUS_MACH_MSG_TIMEOUT 45
+#define NOTIFY_STATUS_MACH_MSG_FAILED 46
+#define NOTIFY_STATUS_NEW_NAME_FAILED 47
+#define NOTIFY_STATUS_NEW_CLIENT_FAILED 48
+#define NOTIFY_STATUS_STATE_NULL 49
+#define NOTIFY_STATUS_CLIENT_NOT_FOUND 50
+#define NOTIFY_STATUS_DUP_CLIENT 51
+#define NOTIFY_STATUS_TYPE_ISSUE 52
+#define NOTIFY_STATUS_PATH_NODE_CREATE_FAILED 53
+#define NOTIFY_STATUS_INVALID_TIME_EVENT 54
+#define NOTIFY_STATUS_TIMER_FAILED 55
+#define NOTIFY_STATUS_DOUBLE_REG 56
+#define NOTIFY_STATUS_NO_REGEN_NEEDED 57
+
+#define IS_INTERNAL_ERROR(X) (X >= 11)
+
+#define USER_PROTECTED_UID_PREFIX "user.uid."
+#define USER_PROTECTED_UID_PREFIX_LEN 9
 
 struct notify_globals_s
 {
@@ -42,24 +109,20 @@ struct notify_globals_s
 	atomic_uint_fast32_t client_opts;
 	uint32_t saved_opts;
 
-	/* last allocated name id */
-	uint64_t name_id;
-
-	dispatch_once_t self_state_once;
-	notify_state_t *self_state;
+	notify_state_t self_state;
 
 	dispatch_once_t notify_server_port_once;
 	mach_port_t notify_server_port;
 	mach_port_t saved_server_port;
-	
+
 	mach_port_t notify_common_port;
 	int notify_common_token;
 	dispatch_source_t notify_dispatch_source;
 	dispatch_source_t server_proc_source;
-	
+
 	dispatch_once_t internal_once;
-	table_t *registration_table;
-	table_t *name_table;
+	table_n_t registration_table;
+	table_t name_node_table;
 	atomic_uint_fast32_t token_id;
 
 	dispatch_once_t make_background_send_queue_once;
@@ -70,62 +133,21 @@ struct notify_globals_s
 	int *fd_clnt;
 	int *fd_srv;
 	int *fd_refcount;
-	
+
 	/* mach port list */
 	uint32_t mp_count;
-	mach_port_t *mp_list;
-	int *mp_refcount;
-	int *mp_mine;
-	
+	uint32_t mp_size;
+	struct mp_entry {
+		mach_port_t mpl_port_name;
+		int         mpl_refs;
+		bool        mpl_mine;
+	} *mp_list;
+
 	/* shared memory base address */
 	uint32_t *shm_base;
 };
 
 typedef struct notify_globals_s *notify_globals_t;
-
-// When building xctests we link in the client side framework code so we
-// simulate the server calls and can't use the libsystem initializer
-#ifdef BUILDING_TESTS
-extern kern_return_t _notify_server_register_mach_port_2(mach_port_t, caddr_t, int, mach_port_t);
-extern kern_return_t _notify_server_cancel_2(mach_port_t, int);
-extern kern_return_t _notify_server_post_2(mach_port_t, caddr_t, uint64_t *, int *, boolean_t);
-extern kern_return_t _notify_server_post_3(mach_port_t, uint64_t, boolean_t);
-extern kern_return_t _notify_server_post_4(mach_port_t, caddr_t, boolean_t);
-extern kern_return_t _notify_server_register_plain_2(mach_port_t, caddr_t, int);
-extern kern_return_t _notify_server_register_check_2(mach_port_t, caddr_t, int, int *, int *, uint64_t *, int *);
-extern kern_return_t _notify_server_register_signal_2(mach_port_t, caddr_t, int, int);
-extern kern_return_t _notify_server_register_file_descriptor_2(mach_port_t, caddr_t, int, mach_port_t);
-extern kern_return_t _notify_server_register_plain(mach_port_t, caddr_t, int *, int *);
-extern kern_return_t _notify_server_cancel(mach_port_t, int, int *);
-extern kern_return_t _notify_server_get_state(mach_port_t, int, uint64_t *, int *);
-extern kern_return_t _notify_server_checkin(mach_port_t, uint32_t *, uint32_t *, int *);
-#define _NOTIFY_HAS_ALLOC_ONCE 0
-#else
-#if __has_include(<os/alloc_once_private.h>)
-#include <os/alloc_once_private.h>
-#if defined(OS_ALLOC_ONCE_KEY_LIBSYSTEM_NOTIFY)
-#define _NOTIFY_HAS_ALLOC_ONCE 1
-#endif
-#endif
-#endif // BUILDING_TESTS
-
-__attribute__((visibility("hidden")))
-void _notify_init_globals(void * /* notify_globals_t */ globals);
-
-__attribute__((visibility("hidden")))
-notify_globals_t _notify_globals_impl(void);
-
-__attribute__((__pure__))
-static inline notify_globals_t
-_notify_globals(void)
-{
-#if _NOTIFY_HAS_ALLOC_ONCE
-	return (notify_globals_t)os_alloc_once(OS_ALLOC_ONCE_KEY_LIBSYSTEM_NOTIFY,
-		sizeof(struct notify_globals_s), &_notify_init_globals);
-#else
-	return _notify_globals_impl();
-#endif
-}
 
 __private_extern__ uint32_t _notify_lib_peek(notify_state_t *ns, pid_t pid, int token, int *val);
 

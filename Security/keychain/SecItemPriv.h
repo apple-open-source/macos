@@ -37,8 +37,12 @@
 #include <Security/SecBase.h>
 #include <xpc/xpc.h>
 
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
+#if TARGET_OS_OSX
 #include <Security/SecTask.h>
+#endif
+
+#if __OBJC__
+#import <Foundation/Foundation.h>
 #endif
 
 __BEGIN_DECLS
@@ -256,7 +260,8 @@ extern const CFStringRef kSecClassAppleSharePassword;
         a CFBooleanRef indicating that the item in question is a tombstone.
     @constant kSecAttrNoLegacy Specifies a dictionary key whose
         value is a CFBooleanRef indicating that the query must be run on the
-        syncable backend even for non syncable items.
+        syncable backend even for non syncable items. This attribute is deprecated
+        in favor of the kSecUseDataProtectionKeychain API attribute.
 */
 extern const CFStringRef kSecAttrScriptCode;
 extern const CFStringRef kSecAttrAlias;
@@ -279,7 +284,7 @@ extern const CFStringRef kSecAttrCanSignRecover;
 extern const CFStringRef kSecAttrCanVerifyRecover;
 extern const CFStringRef kSecAttrTombstone;
 extern const CFStringRef kSecAttrNoLegacy
-    __OSX_AVAILABLE(10.11) __IOS_AVAILABLE(9.3) __TVOS_AVAILABLE(9.3) __WATCHOS_AVAILABLE(2.3);
+    __API_DEPRECATED_WITH_REPLACEMENT("kSecUseDataProtectionKeychain", macos(10.11, 10.15), ios(9.3, 13.0), tvos(9.3, 13.0), watchos(2.3, 6.0));
 extern const CFStringRef kSecAttrSyncViewHint
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 extern const CFStringRef kSecAttrMultiUser
@@ -428,7 +433,7 @@ extern const CFStringRef kSecUseCallerName
 extern const CFStringRef kSecUseTokenRawItems
     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 extern const CFStringRef kSecUseCertificatesWithMatchIssuers
-    __OSX_AVAILABLE(10.14) __IOS_UNAVAILABLE __TVOS_UNAVAILABLE __WATCHOS_UNAVAILABLE;
+    __OSX_AVAILABLE(10.14) API_UNAVAILABLE(ios, tvos, watchos, bridgeos, iosmac);
 
 extern const CFStringRef kSOSInternalAccessGroup
     __OSX_AVAILABLE(10.9) __IOS_AVAILABLE(7.0) __TVOS_AVAILABLE(9.3) __WATCHOS_AVAILABLE(2.3);
@@ -516,9 +521,21 @@ void SecItemFetchCurrentItemAcrossAllDevices(CFStringRef accessGroup,
                                              bool fetchCloudValue,
                                              void (^complete)(CFDataRef persistentRef, CFErrorRef error));
 
-
 #if __OBJC__
+/*!
+    @function SecItemVerifyBackupIntegrity
+    @abstract Verifies the presence and integrity of all key material required
+        to restore a backup of the keychain.
+    @param lightweight Only verify the item keys wrapped by backup keys instead
+        of the default rigorous pass. This mode can be run in any
+        security class.
+    @param completion Called to indicate results: a dictionary containing information about the the infrastructure
+        and of the backup state of keychain items. Error is set when at least one failure occurred.
+ */
+void SecItemVerifyBackupIntegrity(BOOL lightweight,
+                                  void(^completion)(NSDictionary* resultsPerKeyclass, NSError* error));
 void _SecItemFetchDigests(NSString *itemClass, NSString *accessGroup, void (^complete)(NSArray *, NSError *));
+void _SecKeychainDeleteMultiUser(NSString *musrUUID, void (^complete)(bool, NSError *));
 #endif
 
 /*!
@@ -578,11 +595,7 @@ XPC_RETURNS_RETAINED xpc_endpoint_t _SecSecuritydCopyCKKSEndpoint(CFErrorRef *er
 XPC_RETURNS_RETAINED xpc_endpoint_t _SecSecuritydCopySFKeychainEndpoint(CFErrorRef* error);
 XPC_RETURNS_RETAINED xpc_endpoint_t _SecSecuritydCopyKeychainControlEndpoint(CFErrorRef* error);
 
-#if SEC_OS_IPHONE
 bool _SecSyncBubbleTransfer(CFArrayRef services, uid_t uid, CFErrorRef *error);
-#else /* SEC_OS_IPHONE */
-bool _SecSyncBubbleTransfer(CFArrayRef services, CFErrorRef *error);
-#endif /* SEC_OS_IPHONE */
 
 bool _SecSystemKeychainTransfer(CFErrorRef *error);
 bool _SecSyncDeleteUserViews(uid_t uid, CFErrorRef *error);
@@ -665,6 +678,22 @@ __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_NA);
 SecCertificateRef SecItemCopyStoredCertificate(SecCertificateRef certificate, void *context)
 __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_NA);
 #endif /* SEC_OS_OSX */
+
+/*!
+ @enum kSecAttrTokenID Value Constants
+ @discussion Predefined item attribute constant used to get or set values
+ in a dictionary. The kSecAttrTokenID constant is the key and its value
+ can be kSecAttrTokenIDSecureEnclave or kSecAttrTokenIDSecureElement.
+ @constant kSecAttrTokenIDSecureElement Specifies well-known identifier of the
+ token implemented using device's Secure Element. The only keychain items
+ supported by the Secure Element token are 256-bit elliptic curve keys
+ (kSecAttrKeyTypeECSecPrimeRandom). Keys must be generated on the secure element using
+ SecKeyCreateRandomKey call with kSecAttrTokenID set to
+ kSecAttrTokenIDSecureElement in the parameters dictionary, it is not
+ possible to import pregenerated keys to kSecAttrTokenIDSecureElement token.
+ */
+extern const CFStringRef kSecAttrTokenIDSecureElement
+SPI_AVAILABLE(ios(10.13));
 
 __END_DECLS
 

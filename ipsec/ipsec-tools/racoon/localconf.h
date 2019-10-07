@@ -32,9 +32,9 @@
 #ifndef _LOCALCONF_H
 #define _LOCALCONF_H
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #include <vproc.h>
-#endif
+#endif // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #include <dispatch/dispatch.h>
 #if __has_include(<nw/private.h>)
 #include <nw/private.h>
@@ -172,9 +172,9 @@ struct localconf {
 		 * is enable, racoon uses old format.
 		 */
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	vproc_transaction_t vt;	/* returned by vproc_transaction_begin */
-#endif
+#endif // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 };
 
 

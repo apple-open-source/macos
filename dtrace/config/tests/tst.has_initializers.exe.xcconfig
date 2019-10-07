@@ -1,0 +1,4 @@
+#include "test_processcontrol.xcconfig"
+
+OTHER_LDFLAGS = $(inherited) -bind_at_load
+

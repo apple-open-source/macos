@@ -36,6 +36,9 @@
 #include "unicode/putil.h"
 #include "unicode/smpdtfmt.h"
 #include "uassert.h"
+#include "unicode/numberformatter.h"
+#include "number_longnames.h"
+// Apple-specific
 #include "unicode/uameasureformat.h"
 #include "fphdlimp.h"
 
@@ -47,9 +50,6 @@
 
 U_NAMESPACE_BEGIN
 
-static constexpr int32_t PER_UNIT_INDEX = StandardPlural::COUNT;
-static constexpr int32_t PATTERN_COUNT = PER_UNIT_INDEX + 1;
-static constexpr int32_t MEAS_UNIT_COUNT = 138;  // see assertion in MeasureFormatCacheData constructor
 static constexpr int32_t WIDTH_INDEX_COUNT = UMEASFMT_WIDTH_NARROW + 1;
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(MeasureFormat)
@@ -93,6 +93,19 @@ static UMeasureFormatWidth getRegularWidth(UMeasureFormatWidth width) {
     return width;
 }
 
+static UNumberUnitWidth getUnitWidth(UMeasureFormatWidth width) {
+    switch (width) {
+    case UMEASFMT_WIDTH_WIDE:
+        return UNUM_UNIT_WIDTH_FULL_NAME;
+    case UMEASFMT_WIDTH_NARROW:
+    case UMEASFMT_WIDTH_NUMERIC:
+        return UNUM_UNIT_WIDTH_NARROW;
+    case UMEASFMT_WIDTH_SHORT:
+    default:
+        return UNUM_UNIT_WIDTH_SHORT;
+    }
+}
+
 /**
  * Instances contain all MeasureFormat specific data for a particular locale.
  * This data is cached. It is never copied, but is shared via shared pointers.
@@ -112,19 +125,9 @@ public:
      * - UMEASFMT_WIDTH_WIDE/SHORT/NARROW: sideways alias for missing data
      */
     UMeasureFormatWidth widthFallback[WIDTH_INDEX_COUNT];
-    /** Measure unit -> format width -> array of patterns ("{0} meters") (plurals + PER_UNIT_INDEX) */
-    SimpleFormatter* patterns[MEAS_UNIT_COUNT][WIDTH_INDEX_COUNT][PATTERN_COUNT];
-    const UChar* dnams[MEAS_UNIT_COUNT][WIDTH_INDEX_COUNT];
-    SimpleFormatter perFormatters[WIDTH_INDEX_COUNT];
 
     MeasureFormatCacheData();
     virtual ~MeasureFormatCacheData();
-
-    UBool hasPerFormatter(int32_t width) const {
-        // TODO: Create a more obvious way to test if the per-formatter has been set?
-        // Use pointers, check for NULL? Or add an isValid() method?
-        return perFormatters[width].getArgumentLimit() == 2;
-    }
 
     void adoptCurrencyFormat(int32_t widthIndex, NumberFormat *nfToAdopt) {
         delete currencyFormats[widthIndex];
@@ -159,27 +162,15 @@ private:
 
 MeasureFormatCacheData::MeasureFormatCacheData()
         : integerFormat(nullptr), numericDateFormatters(nullptr) {
-    // Please update MEAS_UNIT_COUNT if it gets out of sync with the true count!
-    U_ASSERT(MEAS_UNIT_COUNT == MeasureUnit::getIndexCount());
-
     for (int32_t i = 0; i < WIDTH_INDEX_COUNT; ++i) {
         widthFallback[i] = UMEASFMT_WIDTH_COUNT;
     }
-    memset(&patterns[0][0][0], 0, sizeof(patterns));
-    memset(&dnams[0][0], 0, sizeof(dnams));
     memset(currencyFormats, 0, sizeof(currencyFormats));
 }
 
 MeasureFormatCacheData::~MeasureFormatCacheData() {
     for (int32_t i = 0; i < UPRV_LENGTHOF(currencyFormats); ++i) {
         delete currencyFormats[i];
-    }
-    for (int32_t i = 0; i < MEAS_UNIT_COUNT; ++i) {
-        for (int32_t j = 0; j < WIDTH_INDEX_COUNT; ++j) {
-            for (int32_t k = 0; k < PATTERN_COUNT; ++k) {
-                delete patterns[i][j][k];
-            }
-        }
     }
     // Note: the contents of 'dnams' are pointers into the resource bundle
     delete integerFormat;
@@ -203,388 +194,195 @@ static UBool getString(
     return TRUE;
 }
 
-namespace {
-
-static const UChar g_LOCALE_units[] = {
-    0x2F, 0x4C, 0x4F, 0x43, 0x41, 0x4C, 0x45, 0x2F,
-    0x75, 0x6E, 0x69, 0x74, 0x73
-};
-static const UChar gShort[] = { 0x53, 0x68, 0x6F, 0x72, 0x74 };
-static const UChar gNarrow[] = { 0x4E, 0x61, 0x72, 0x72, 0x6F, 0x77 };
-
-/**
- * Sink for enumerating all of the measurement unit display names.
- * Contains inner sink classes, each one corresponding to a type of resource table.
- * The outer sink handles the top-level units, unitsNarrow, and unitsShort tables.
- *
- * More specific bundles (en_GB) are enumerated before their parents (en_001, en, root):
- * Only store a value if it is still missing, that is, it has not been overridden.
- *
- * C++: Each inner sink class has a reference to the main outer sink.
- * Java: Use non-static inner classes instead.
- */
-struct UnitDataSink : public ResourceSink {
-
-    // Output data.
-    MeasureFormatCacheData &cacheData;
-
-    // Path to current data.
-    UMeasureFormatWidth width;
-    const char *type;
-    int32_t unitIndex;
-
-    UnitDataSink(MeasureFormatCacheData &outputData)
-            : cacheData(outputData),
-              width(UMEASFMT_WIDTH_COUNT), type(NULL), unitIndex(0) {}
-    ~UnitDataSink();
-
-    void setFormatterIfAbsent(int32_t index, const ResourceValue &value,
-                                int32_t minPlaceholders, UErrorCode &errorCode) {
-        U_ASSERT(unitIndex < MEAS_UNIT_COUNT);
-        U_ASSERT(width < WIDTH_INDEX_COUNT);
-        U_ASSERT(index < PATTERN_COUNT);
-        SimpleFormatter **patterns = &cacheData.patterns[unitIndex][width][0];
-        if (U_SUCCESS(errorCode) && patterns[index] == NULL) {
-            if (minPlaceholders >= 0) {
-                patterns[index] = new SimpleFormatter(
-                        value.getUnicodeString(errorCode), minPlaceholders, 1, errorCode);
-            }
-            if (U_SUCCESS(errorCode) && patterns[index] == NULL) {
-                errorCode = U_MEMORY_ALLOCATION_ERROR;
-            }
-        }
-    }
-
-    void setDnamIfAbsent(const ResourceValue &value, UErrorCode& errorCode) {
-        U_ASSERT(unitIndex < MEAS_UNIT_COUNT);
-        U_ASSERT(width < WIDTH_INDEX_COUNT);
-        if (cacheData.dnams[unitIndex][width] == NULL) {
-            int32_t length;
-            cacheData.dnams[unitIndex][width] = value.getString(length, errorCode);
-        }
-    }
-
-    /**
-     * Consume a display pattern. For example,
-     * unitsShort/duration/hour contains other{"{0} hrs"}.
-     */
-    void consumePattern(const char *key, const ResourceValue &value, UErrorCode &errorCode) {
-        if (U_FAILURE(errorCode)) { return; }
-        if (uprv_strcmp(key, "dnam") == 0) {
-            // The display name for the unit in the current width.
-            setDnamIfAbsent(value, errorCode);
-        } else if (uprv_strcmp(key, "per") == 0) {
-            // For example, "{0}/h".
-            setFormatterIfAbsent(PER_UNIT_INDEX, value, 1, errorCode);
-        } else {
-            // The key must be one of the plural form strings. For example:
-            // one{"{0} hr"}
-            // other{"{0} hrs"}
-            setFormatterIfAbsent(StandardPlural::indexFromString(key, errorCode), value, 0,
-                                    errorCode);
-        }
-    }
-
-    /**
-     * Consume a table of per-unit tables. For example,
-     * unitsShort/duration contains tables for duration-unit subtypes day & hour.
-     */
-    void consumeSubtypeTable(const char *key, ResourceValue &value, UErrorCode &errorCode) {
-        if (U_FAILURE(errorCode)) { return; }
-        unitIndex = MeasureUnit::internalGetIndexForTypeAndSubtype(type, key);
-        if (unitIndex < 0) {
-            // TODO: How to handle unexpected data?
-            // See http://bugs.icu-project.org/trac/ticket/12597
-            return;
-        }
-
-        // We no longer handle units like "coordinate" here (which do not have plural variants)
-        if (value.getType() == URES_TABLE) {
-            // Units that have plural variants
-            ResourceTable patternTableTable = value.getTable(errorCode);
-            if (U_FAILURE(errorCode)) { return; }
-            for (int i = 0; patternTableTable.getKeyAndValue(i, key, value); ++i) {
-                consumePattern(key, value, errorCode);
-            }
-        } else {
-            // TODO: How to handle unexpected data?
-            // See http://bugs.icu-project.org/trac/ticket/12597
-            return;
-        }
-    }
-
-    /**
-     * Consume compound x-per-y display pattern. For example,
-     * unitsShort/compound/per may be "{0}/{1}".
-     */
-    void consumeCompoundPattern(const char *key, const ResourceValue &value, UErrorCode &errorCode) {
-        if (U_SUCCESS(errorCode) && uprv_strcmp(key, "per") == 0) {
-            cacheData.perFormatters[width].
-                    applyPatternMinMaxArguments(value.getUnicodeString(errorCode), 2, 2, errorCode);
-        }
-    }
-
-    /**
-     * Consume a table of unit type tables. For example,
-     * unitsShort contains tables for area & duration.
-     * It also contains a table for the compound/per pattern.
-     */
-    void consumeUnitTypesTable(const char *key, ResourceValue &value, UErrorCode &errorCode) {
-        if (U_FAILURE(errorCode)) { return; }
-        if (uprv_strcmp(key, "currency") == 0) {
-            // Skip.
-        } else if (uprv_strcmp(key, "compound") == 0) {
-            if (!cacheData.hasPerFormatter(width)) {
-                ResourceTable compoundTable = value.getTable(errorCode);
-                if (U_FAILURE(errorCode)) { return; }
-                for (int i = 0; compoundTable.getKeyAndValue(i, key, value); ++i) {
-                    consumeCompoundPattern(key, value, errorCode);
-                }
-            }
-        } else if (uprv_strcmp(key, "coordinate") == 0) {
-            // special handling but we need to determine what that is
-        } else {
-            type = key;
-            ResourceTable subtypeTable = value.getTable(errorCode);
-            if (U_FAILURE(errorCode)) { return; }
-            for (int i = 0; subtypeTable.getKeyAndValue(i, key, value); ++i) {
-                consumeSubtypeTable(key, value, errorCode);
-            }
-        }
-    }
-
-    void consumeAlias(const char *key, const ResourceValue &value, UErrorCode &errorCode) {
-        // Handle aliases like
-        // units:alias{"/LOCALE/unitsShort"}
-        // which should only occur in the root bundle.
-        UMeasureFormatWidth sourceWidth = widthFromKey(key);
-        if (sourceWidth == UMEASFMT_WIDTH_COUNT) {
-            // Alias from something we don't care about.
-            return;
-        }
-        UMeasureFormatWidth targetWidth = widthFromAlias(value, errorCode);
-        if (targetWidth == UMEASFMT_WIDTH_COUNT) {
-            // We do not recognize what to fall back to.
-            errorCode = U_INVALID_FORMAT_ERROR;
-            return;
-        }
-        // Check that we do not fall back to another fallback.
-        if (cacheData.widthFallback[targetWidth] != UMEASFMT_WIDTH_COUNT) {
-            errorCode = U_INVALID_FORMAT_ERROR;
-            return;
-        }
-        cacheData.widthFallback[sourceWidth] = targetWidth;
-    }
-
-    void consumeTable(const char *key, ResourceValue &value, UErrorCode &errorCode) {
-        if (U_SUCCESS(errorCode) && (width = widthFromKey(key)) != UMEASFMT_WIDTH_COUNT) {
-            ResourceTable unitTypesTable = value.getTable(errorCode);
-            if (U_FAILURE(errorCode)) { return; }
-            for (int i = 0; unitTypesTable.getKeyAndValue(i, key, value); ++i) {
-                consumeUnitTypesTable(key, value, errorCode);
-            }
-        }
-    }
-
-    static UMeasureFormatWidth widthFromKey(const char *key) {
-        if (uprv_strncmp(key, "units", 5) == 0) {
-            key += 5;
-            if (*key == 0) {
-                return UMEASFMT_WIDTH_WIDE;
-            } else if (uprv_strcmp(key, "Short") == 0) {
-                return UMEASFMT_WIDTH_SHORT;
-            } else if (uprv_strcmp(key, "Narrow") == 0) {
-                return UMEASFMT_WIDTH_NARROW;
-            }
-        }
-        return UMEASFMT_WIDTH_COUNT;
-    }
-
-    static UMeasureFormatWidth widthFromAlias(const ResourceValue &value, UErrorCode &errorCode) {
-        int32_t length;
-        const UChar *s = value.getAliasString(length, errorCode);
-        // For example: "/LOCALE/unitsShort"
-        if (U_SUCCESS(errorCode) && length >= 13 && u_memcmp(s, g_LOCALE_units, 13) == 0) {
-            s += 13;
-            length -= 13;
-            if (*s == 0) {
-                return UMEASFMT_WIDTH_WIDE;
-            } else if (u_strCompare(s, length, gShort, 5, FALSE) == 0) {
-                return UMEASFMT_WIDTH_SHORT;
-            } else if (u_strCompare(s, length, gNarrow, 6, FALSE) == 0) {
-                return UMEASFMT_WIDTH_NARROW;
-            }
-        }
-        return UMEASFMT_WIDTH_COUNT;
-    }
-
-    virtual void put(const char *key, ResourceValue &value, UBool /*noFallback*/,
-            UErrorCode &errorCode) {
-        // Main entry point to sink
-        ResourceTable widthsTable = value.getTable(errorCode);
-        if (U_FAILURE(errorCode)) { return; }
-        for (int i = 0; widthsTable.getKeyAndValue(i, key, value); ++i) {
-            if (value.getType() == URES_ALIAS) {
-                consumeAlias(key, value, errorCode);
-            } else {
-                consumeTable(key, value, errorCode);
-            }
-        }
-    }
-};
-
-// Virtual destructors must be defined out of line.
-UnitDataSink::~UnitDataSink() {}
-
-}  // namespace
-
 static const UAMeasureUnit indexToUAMsasUnit[] = {
-    // UAMeasureUnit                                 // UAMeasUnit vals  # MeasUnit.getIndex()
-    UAMEASUNIT_ACCELERATION_G_FORCE,                 // (0 << 8) + 0,    #    0
-    UAMEASUNIT_ACCELERATION_METER_PER_SECOND_SQUARED, // (0 << 8) + 1,   #    1
-    UAMEASUNIT_ANGLE_ARC_MINUTE,                     // (1 << 8) + 1,    #    2
-    UAMEASUNIT_ANGLE_ARC_SECOND,                     // (1 << 8) + 2,    #    3
-    UAMEASUNIT_ANGLE_DEGREE,                         // (1 << 8) + 0,    #    4
-    UAMEASUNIT_ANGLE_RADIAN,                         // (1 << 8) + 3,    #    5
-    UAMEASUNIT_ANGLE_REVOLUTION,                     // (1 << 8) + 4,    #    6
-    UAMEASUNIT_AREA_ACRE,                            // (2 << 8) + 4,    #    7
-    UAMEASUNIT_AREA_HECTARE,                         // (2 << 8) + 5,    #    8
-    UAMEASUNIT_AREA_SQUARE_CENTIMETER,               // (2 << 8) + 6,    #    9
-    UAMEASUNIT_AREA_SQUARE_FOOT,                     // (2 << 8) + 2,    #    10
-    UAMEASUNIT_AREA_SQUARE_INCH,                     // (2 << 8) + 7,    #    11
-    UAMEASUNIT_AREA_SQUARE_KILOMETER,                // (2 << 8) + 1,    #    12
-    UAMEASUNIT_AREA_SQUARE_METER,                    // (2 << 8) + 0,    #    13
-    UAMEASUNIT_AREA_SQUARE_MILE,                     // (2 << 8) + 3,    #    14
-    UAMEASUNIT_AREA_SQUARE_YARD,                     // (2 << 8) + 8,    #    15
-    UAMEASUNIT_CONCENTRATION_KARAT,                  // (18 << 8) + 0,   #    16
-    UAMEASUNIT_CONCENTRATION_MILLIGRAM_PER_DECILITER, // (18 << 8) + 1,  #    17
-    UAMEASUNIT_CONCENTRATION_MILLIMOLE_PER_LITER,    // (18 << 8) + 2,   #    18
-    UAMEASUNIT_CONCENTRATION_PART_PER_MILLION,       // (18 << 8) + 3,   #    19
-    UAMEASUNIT_CONSUMPTION_LITER_PER_100_KILOMETERs, // (13 << 8) + 2,   #    20
-    UAMEASUNIT_CONSUMPTION_LITER_PER_KILOMETER,      // (13 << 8) + 0,   #    21
-    UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON,          // (13 << 8) + 1,   #    22
-    UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON_IMPERIAL, // (13 << 8) + 3,   #    23
-    UAMEASUNIT_DIGITAL_BIT,                          // (14 << 8) + 0,   #    24
-    UAMEASUNIT_DIGITAL_BYTE,                         // (14 << 8) + 1,   #    25
-    UAMEASUNIT_DIGITAL_GIGABIT,                      // (14 << 8) + 2,   #    26
-    UAMEASUNIT_DIGITAL_GIGABYTE,                     // (14 << 8) + 3,   #    27
-    UAMEASUNIT_DIGITAL_KILOBIT,                      // (14 << 8) + 4,   #    28
-    UAMEASUNIT_DIGITAL_KILOBYTE,                     // (14 << 8) + 5,   #    29
-    UAMEASUNIT_DIGITAL_MEGABIT,                      // (14 << 8) + 6,   #    30
-    UAMEASUNIT_DIGITAL_MEGABYTE,                     // (14 << 8) + 7,   #    31
-    UAMEASUNIT_DIGITAL_TERABIT,                      // (14 << 8) + 8,   #    32
-    UAMEASUNIT_DIGITAL_TERABYTE,                     // (14 << 8) + 9,   #    33
-    UAMEASUNIT_DURATION_CENTURY,                     // (4 << 8) + 10,   #    34
-    UAMEASUNIT_DURATION_DAY,                         // (4 << 8) + 3,    #    35
-    UAMEASUNIT_DURATION_HOUR,                        // (4 << 8) + 4,    #    36
-    UAMEASUNIT_DURATION_MICROSECOND,                 // (4 << 8) + 8,    #    37
-    UAMEASUNIT_DURATION_MILLISECOND,                 // (4 << 8) + 7,    #    38
-    UAMEASUNIT_DURATION_MINUTE,                      // (4 << 8) + 5,    #    39
-    UAMEASUNIT_DURATION_MONTH,                       // (4 << 8) + 1,    #    40
-    UAMEASUNIT_DURATION_NANOSECOND,                  // (4 << 8) + 9,    #    41
-    UAMEASUNIT_DURATION_SECOND,                      // (4 << 8) + 6,    #    42
-    UAMEASUNIT_DURATION_WEEK,                        // (4 << 8) + 2,    #    43
-    UAMEASUNIT_DURATION_YEAR,                        // (4 << 8) + 0,    #    44
-    UAMEASUNIT_ELECTRIC_AMPERE,                      // (15 << 8) + 0,   #    45
-    UAMEASUNIT_ELECTRIC_MILLIAMPERE,                 // (15 << 8) + 1,   #    46
-    UAMEASUNIT_ELECTRIC_OHM,                         // (15 << 8) + 2,   #    47
-    UAMEASUNIT_ELECTRIC_VOLT,                        // (15 << 8) + 3,   #    48
-    UAMEASUNIT_ENERGY_CALORIE,                       // (12 << 8) + 0,   #    49
-    UAMEASUNIT_ENERGY_FOODCALORIE,                   // (12 << 8) + 1,   #    50
-    UAMEASUNIT_ENERGY_JOULE,                         // (12 << 8) + 2,   #    51
-    UAMEASUNIT_ENERGY_KILOCALORIE,                   // (12 << 8) + 3,   #    52
-    UAMEASUNIT_ENERGY_KILOJOULE,                     // (12 << 8) + 4,   #    53
-    UAMEASUNIT_ENERGY_KILOWATT_HOUR,                 // (12 << 8) + 5,   #    54
-    UAMEASUNIT_FREQUENCY_GIGAHERTZ,                  // (16 << 8) + 3,   #    55
-    UAMEASUNIT_FREQUENCY_HERTZ,                      // (16 << 8) + 0,   #    56
-    UAMEASUNIT_FREQUENCY_KILOHERTZ,                  // (16 << 8) + 1,   #    57
-    UAMEASUNIT_FREQUENCY_MEGAHERTZ,                  // (16 << 8) + 2,   #    58
-    UAMEASUNIT_LENGTH_ASTRONOMICAL_UNIT,             // (5 << 8) + 16,   #    59
-    UAMEASUNIT_LENGTH_CENTIMETER,                    // (5 << 8) + 1,    #    60
-    UAMEASUNIT_LENGTH_DECIMETER,                     // (5 << 8) + 10,   #    61
-    UAMEASUNIT_LENGTH_FATHOM,                        // (5 << 8) + 14,   #    62
-    UAMEASUNIT_LENGTH_FOOT,                          // (5 << 8) + 5,    #    63
-    UAMEASUNIT_LENGTH_FURLONG,                       // (5 << 8) + 15,   #    64
-    UAMEASUNIT_LENGTH_INCH,                          // (5 << 8) + 6,    #    65
-    UAMEASUNIT_LENGTH_KILOMETER,                     // (5 << 8) + 2,    #    66
-    UAMEASUNIT_LENGTH_LIGHT_YEAR,                    // (5 << 8) + 9,    #    67
-    UAMEASUNIT_LENGTH_METER,                         // (5 << 8) + 0,    #    68
-    UAMEASUNIT_LENGTH_MICROMETER,                    // (5 << 8) + 11,   #    69
-    UAMEASUNIT_LENGTH_MILE,                          // (5 << 8) + 7,    #    70
-    UAMEASUNIT_LENGTH_MILE_SCANDINAVIAN,             // (5 << 8) + 18,   #    71
-    UAMEASUNIT_LENGTH_MILLIMETER,                    // (5 << 8) + 3,    #    72
-    UAMEASUNIT_LENGTH_NANOMETER,                     // (5 << 8) + 12,   #    73
-    UAMEASUNIT_LENGTH_NAUTICAL_MILE,                 // (5 << 8) + 13,   #    74
-    UAMEASUNIT_LENGTH_PARSEC,                        // (5 << 8) + 17,   #    75
-    UAMEASUNIT_LENGTH_PICOMETER,                     // (5 << 8) + 4,    #    76
-    UAMEASUNIT_LENGTH_POINT,                         // (5 << 8) + 19,   #    77
-    UAMEASUNIT_LENGTH_YARD,                          // (5 << 8) + 8,    #    78
-    UAMEASUNIT_LIGHT_LUX,                            // (17 << 8) + 0,   #    79
-    UAMEASUNIT_MASS_CARAT,                           // (6 << 8) + 9,    #    80
-    UAMEASUNIT_MASS_GRAM,                            // (6 << 8) + 0,    #    81
-    UAMEASUNIT_MASS_KILOGRAM,                        // (6 << 8) + 1,    #    82
-    UAMEASUNIT_MASS_METRIC_TON,                      // (6 << 8) + 7,    #    83
-    UAMEASUNIT_MASS_MICROGRAM,                       // (6 << 8) + 5,    #    84
-    UAMEASUNIT_MASS_MILLIGRAM,                       // (6 << 8) + 6,    #    85
-    UAMEASUNIT_MASS_OUNCE,                           // (6 << 8) + 2,    #    86
-    UAMEASUNIT_MASS_OUNCE_TROY,                      // (6 << 8) + 10,   #    87
-    UAMEASUNIT_MASS_POUND,                           // (6 << 8) + 3,    #    88
-    UAMEASUNIT_MASS_STONE,                           // (6 << 8) + 4,    #    89
-    UAMEASUNIT_MASS_TON,                             // (6 << 8) + 8,    #    90
-    UAMEASUNIT_POWER_GIGAWATT,                       // (7 << 8) + 5,    #    91
-    UAMEASUNIT_POWER_HORSEPOWER,                     // (7 << 8) + 2,    #    92
-    UAMEASUNIT_POWER_KILOWATT,                       // (7 << 8) + 1,    #    93
-    UAMEASUNIT_POWER_MEGAWATT,                       // (7 << 8) + 4,    #    94
-    UAMEASUNIT_POWER_MILLIWATT,                      // (7 << 8) + 3,    #    95
-    UAMEASUNIT_POWER_WATT,                           // (7 << 8) + 0,    #    96
-    UAMEASUNIT_PRESSURE_HECTOPASCAL,                 // (8 << 8) + 0,    #    97
-    UAMEASUNIT_PRESSURE_INCH_HG,                     // (8 << 8) + 1,    #    98
-    UAMEASUNIT_PRESSURE_MILLIBAR,                    // (8 << 8) + 2,    #    99
-    UAMEASUNIT_PRESSURE_MILLIMETER_OF_MERCURY,       // (8 << 8) + 3,    #    100
-    UAMEASUNIT_PRESSURE_POUND_PER_SQUARE_INCH,       // (8 << 8) + 4,    #    101
-    UAMEASUNIT_SPEED_KILOMETER_PER_HOUR,             // (9 << 8) + 1,    #    102
-    UAMEASUNIT_SPEED_KNOT,                           // (9 << 8) + 3,    #    103
-    UAMEASUNIT_SPEED_METER_PER_SECOND,               // (9 << 8) + 0,    #    104
-    UAMEASUNIT_SPEED_MILE_PER_HOUR,                  // (9 << 8) + 2,    #    105
-    UAMEASUNIT_TEMPERATURE_CELSIUS,                  // (10 << 8) + 0,   #    106
-    UAMEASUNIT_TEMPERATURE_FAHRENHEIT,               // (10 << 8) + 1,   #    107
-    UAMEASUNIT_TEMPERATURE_GENERIC,                  // (10 << 8) + 3,   #    108
-    UAMEASUNIT_TEMPERATURE_KELVIN,                   // (10 << 8) + 2,   #    109
-    UAMEASUNIT_VOLUME_ACRE_FOOT,                     // (11 << 8) + 13,  #    110
-    UAMEASUNIT_VOLUME_BUSHEL,                        // (11 << 8) + 14,  #    111
-    UAMEASUNIT_VOLUME_CENTILITER,                    // (11 << 8) + 4,   #    112
-    UAMEASUNIT_VOLUME_CUBIC_CENTIMETER,              // (11 << 8) + 8,   #    113
-    UAMEASUNIT_VOLUME_CUBIC_FOOT,                    // (11 << 8) + 11,  #    114
-    UAMEASUNIT_VOLUME_CUBIC_INCH,                    // (11 << 8) + 10,  #    115
-    UAMEASUNIT_VOLUME_CUBIC_KILOMETER,               // (11 << 8) + 1,   #    116
-    UAMEASUNIT_VOLUME_CUBIC_METER,                   // (11 << 8) + 9,   #    117
-    UAMEASUNIT_VOLUME_CUBIC_MILE,                    // (11 << 8) + 2,   #    118
-    UAMEASUNIT_VOLUME_CUBIC_YARD,                    // (11 << 8) + 12,  #    119
-    UAMEASUNIT_VOLUME_CUP,                           // (11 << 8) + 18,  #    120
-    UAMEASUNIT_VOLUME_CUP_METRIC,                    // (11 << 8) + 22,  #    121
-    UAMEASUNIT_VOLUME_DECILITER,                     // (11 << 8) + 5,   #    122
-    UAMEASUNIT_VOLUME_FLUID_OUNCE,                   // (11 << 8) + 17,  #    123
-    UAMEASUNIT_VOLUME_GALLON,                        // (11 << 8) + 21,  #    124
-    UAMEASUNIT_VOLUME_GALLON_IMPERIAL,               // (11 << 8) + 24,  #    125
-    UAMEASUNIT_VOLUME_HECTOLITER,                    // (11 << 8) + 6,   #    126
-    UAMEASUNIT_VOLUME_LITER,                         // (11 << 8) + 0,   #    127
-    UAMEASUNIT_VOLUME_MEGALITER,                     // (11 << 8) + 7,   #    128
-    UAMEASUNIT_VOLUME_MILLILITER,                    // (11 << 8) + 3,   #    129
-    UAMEASUNIT_VOLUME_PINT,                          // (11 << 8) + 19,  #    130
-    UAMEASUNIT_VOLUME_PINT_METRIC,                   // (11 << 8) + 23,  #    131
-    UAMEASUNIT_VOLUME_QUART,                         // (11 << 8) + 20,  #    132
-    UAMEASUNIT_VOLUME_TABLESPOON,                    // (11 << 8) + 16,  #    133
-    UAMEASUNIT_VOLUME_TEASPOON,                      // (11 << 8) + 15,  #    134
+    // UAMeasureUnit                                  // UAMeasUnit vals # MeasUnit.getIndex()
+    //                                                                   # --- acceleration (0)
+    UAMEASUNIT_ACCELERATION_G_FORCE,                  // (0 << 8) + 0,   # 0   g-force
+    UAMEASUNIT_ACCELERATION_METER_PER_SECOND_SQUARED, // (0 << 8) + 1,   # 1   meter-per-second-squared
+    //                                                                   # --- angle (2)
+    UAMEASUNIT_ANGLE_ARC_MINUTE,                      // (1 << 8) + 1,   # 2   arc-minute
+    UAMEASUNIT_ANGLE_ARC_SECOND,                      // (1 << 8) + 2,   # 3   arc-second
+    UAMEASUNIT_ANGLE_DEGREE,                          // (1 << 8) + 0,   # 4   degree
+    UAMEASUNIT_ANGLE_RADIAN,                          // (1 << 8) + 3,   # 5   radian
+    UAMEASUNIT_ANGLE_REVOLUTION,                      // (1 << 8) + 4,   # 6   revolution
+    //                                                                   # --- area (7)
+    UAMEASUNIT_AREA_ACRE,                             // (2 << 8) + 4,   # 7   acre
+    UAMEASUNIT_AREA_DUNAM,                            // (2 << 8) + 9,   # 8   dunam
+    UAMEASUNIT_AREA_HECTARE,                          // (2 << 8) + 5,   # 9   hectare
+    UAMEASUNIT_AREA_SQUARE_CENTIMETER,                // (2 << 8) + 6,   # 10  square-centimeter
+    UAMEASUNIT_AREA_SQUARE_FOOT,                      // (2 << 8) + 2,   # 11  square-foot
+    UAMEASUNIT_AREA_SQUARE_INCH,                      // (2 << 8) + 7,   # 12  square-inch
+    UAMEASUNIT_AREA_SQUARE_KILOMETER,                 // (2 << 8) + 1,   # 13  square-kilometer
+    UAMEASUNIT_AREA_SQUARE_METER,                     // (2 << 8) + 0,   # 14  square-meter
+    UAMEASUNIT_AREA_SQUARE_MILE,                      // (2 << 8) + 3,   # 15  square-mile
+    UAMEASUNIT_AREA_SQUARE_YARD,                      // (2 << 8) + 8,   # 16  square-yard
+    //                                                                   # --- concentr (17)
+    UAMEASUNIT_CONCENTRATION_KARAT,                   // (18 << 8) + 0,  # 17  karat
+    UAMEASUNIT_CONCENTRATION_MILLIGRAM_PER_DECILITER, // (18 << 8) + 1,  # 18  milligram-per-deciliter
+    UAMEASUNIT_CONCENTRATION_MILLIMOLE_PER_LITER,     // (18 << 8) + 2,  # 19  millimole-per-liter
+    UAMEASUNIT_CONCENTRATION_MOLE,                    // (18 << 8) + 7,  # 20  mole
+    UAMEASUNIT_CONCENTRATION_PART_PER_MILLION,        // (18 << 8) + 3,  # 21  part-per-million
+    UAMEASUNIT_CONCENTRATION_PERCENT,                 // (18 << 8) + 4,  # 22  percent
+    UAMEASUNIT_CONCENTRATION_PERMILLE,                // (18 << 8) + 5,  # 23  permille
+    UAMEASUNIT_CONCENTRATION_PERMYRIAD,               // (18 << 8) + 6,  # 24  permyriad
+    //                                                                   # --- consumption (25)
+    UAMEASUNIT_CONSUMPTION_LITER_PER_100_KILOMETERs,  // (13 << 8) + 2,  # 25  liter-per-100kilometers
+    UAMEASUNIT_CONSUMPTION_LITER_PER_KILOMETER,       // (13 << 8) + 0,  # 26  liter-per-kilometer
+    UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON,           // (13 << 8) + 1,  # 27  mile-per-gallon
+    UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON_IMPERIAL,  // (13 << 8) + 3,  # 28  mile-per-gallon-imperial
+    //                                                                   # --- currency (29)
+    //                                                                   # --- digital (29)
+    UAMEASUNIT_DIGITAL_BIT,                           // (14 << 8) + 0,  # 29  bit
+    UAMEASUNIT_DIGITAL_BYTE,                          // (14 << 8) + 1,  # 30  byte
+    UAMEASUNIT_DIGITAL_GIGABIT,                       // (14 << 8) + 2,  # 31  gigabit
+    UAMEASUNIT_DIGITAL_GIGABYTE,                      // (14 << 8) + 3,  # 32  gigabyte
+    UAMEASUNIT_DIGITAL_KILOBIT,                       // (14 << 8) + 4,  # 33  kilobit
+    UAMEASUNIT_DIGITAL_KILOBYTE,                      // (14 << 8) + 5,  # 34  kilobyte
+    UAMEASUNIT_DIGITAL_MEGABIT,                       // (14 << 8) + 6,  # 35  megabit
+    UAMEASUNIT_DIGITAL_MEGABYTE,                      // (14 << 8) + 7,  # 36  megabyte
+    UAMEASUNIT_DIGITAL_PETABYTE,                      // (14 << 8) + 10, # 37  petabyte
+    UAMEASUNIT_DIGITAL_TERABIT,                       // (14 << 8) + 8,  # 38  terabit
+    UAMEASUNIT_DIGITAL_TERABYTE,                      // (14 << 8) + 9,  # 39  terabyte
+    //                                                                   # --- duration (40)
+    UAMEASUNIT_DURATION_CENTURY,                      // (4 << 8) + 10,  # 40  century
+    UAMEASUNIT_DURATION_DAY,                          // (4 << 8) + 3,   # 41  day
+    UAMEASUNIT_DURATION_DAY_PERSON,                   // (4 << 8) + 14,  # 42  day-person
+    UAMEASUNIT_DURATION_HOUR,                         // (4 << 8) + 4,   # 43  hour
+    UAMEASUNIT_DURATION_MICROSECOND,                  // (4 << 8) + 8,   # 44  microsecond
+    UAMEASUNIT_DURATION_MILLISECOND,                  // (4 << 8) + 7,   # 45  millisecond
+    UAMEASUNIT_DURATION_MINUTE,                       // (4 << 8) + 5,   # 46  minute
+    UAMEASUNIT_DURATION_MONTH,                        // (4 << 8) + 1,   # 47  month
+    UAMEASUNIT_DURATION_MONTH_PERSON,                 // (4 << 8) + 12,  # 48  month-person
+    UAMEASUNIT_DURATION_NANOSECOND,                   // (4 << 8) + 9,   # 49  nanosecond
+    UAMEASUNIT_DURATION_SECOND,                       // (4 << 8) + 6,   # 50  second
+    UAMEASUNIT_DURATION_WEEK,                         // (4 << 8) + 2,   # 51  week
+    UAMEASUNIT_DURATION_WEEK_PERSON,                  // (4 << 8) + 13,  # 52  week-person
+    UAMEASUNIT_DURATION_YEAR,                         // (4 << 8) + 0,   # 53  year
+    UAMEASUNIT_DURATION_YEAR_PERSON,                  // (4 << 8) + 11,  # 54  year-person
+    //                                                                   # --- electric (55)
+    UAMEASUNIT_ELECTRIC_AMPERE,                       // (15 << 8) + 0,  # 55  ampere
+    UAMEASUNIT_ELECTRIC_MILLIAMPERE,                  // (15 << 8) + 1,  # 56  milliampere
+    UAMEASUNIT_ELECTRIC_OHM,                          // (15 << 8) + 2,  # 57  ohm
+    UAMEASUNIT_ELECTRIC_VOLT,                         // (15 << 8) + 3,  # 58  volt
+    //                                                                   # --- energy (59)
+    UAMEASUNIT_ENERGY_BRITISH_THERMAL_UNIT,           // (12 << 8) + 7,  # 59  british-thermal-unit
+    UAMEASUNIT_ENERGY_CALORIE,                        // (12 << 8) + 0,  # 60  calorie
+    UAMEASUNIT_ENERGY_ELECTRONVOLT,                   // (12 << 8) + 6,  # 61  electronvolt
+    UAMEASUNIT_ENERGY_FOODCALORIE,                    // (12 << 8) + 1,  # 62  foodcalorie
+    UAMEASUNIT_ENERGY_JOULE,                          // (12 << 8) + 2,  # 63  joule
+    UAMEASUNIT_ENERGY_KILOCALORIE,                    // (12 << 8) + 3,  # 64  kilocalorie
+    UAMEASUNIT_ENERGY_KILOJOULE,                      // (12 << 8) + 4,  # 65  kilojoule
+    UAMEASUNIT_ENERGY_KILOWATT_HOUR,                  // (12 << 8) + 5,  # 66  kilowatt-hour
+    //                                                                   # --- force (67)
+    UAMEASUNIT_FORCE_NEWTON,                          // (19 << 8) + 0,  # 67  newton
+    UAMEASUNIT_FORCE_POUND_FORCE,                     // (19 << 8) + 1,  # 68  pound-force
+    //                                                                   # --- frequency (69)
+    UAMEASUNIT_FREQUENCY_GIGAHERTZ,                   // (16 << 8) + 3,  # 69  gigahertz
+    UAMEASUNIT_FREQUENCY_HERTZ,                       // (16 << 8) + 0,  # 70  hertz
+    UAMEASUNIT_FREQUENCY_KILOHERTZ,                   // (16 << 8) + 1,  # 71  kilohertz
+    UAMEASUNIT_FREQUENCY_MEGAHERTZ,                   // (16 << 8) + 2,  # 72  megahertz
+    //                                                                   # --- length (73)
+    UAMEASUNIT_LENGTH_ASTRONOMICAL_UNIT,              // (5 << 8) + 16,  # 73  astronomical-unit
+    UAMEASUNIT_LENGTH_CENTIMETER,                     // (5 << 8) + 1,   # 74  centimeter
+    UAMEASUNIT_LENGTH_DECIMETER,                      // (5 << 8) + 10,  # 75  decimeter
+    UAMEASUNIT_LENGTH_FATHOM,                         // (5 << 8) + 14,  # 76  fathom
+    UAMEASUNIT_LENGTH_FOOT,                           // (5 << 8) + 5,   # 77  foot
+    UAMEASUNIT_LENGTH_FURLONG,                        // (5 << 8) + 15,  # 78  furlong
+    UAMEASUNIT_LENGTH_INCH,                           // (5 << 8) + 6,   # 79  inch
+    UAMEASUNIT_LENGTH_KILOMETER,                      // (5 << 8) + 2,   # 80  kilometer
+    UAMEASUNIT_LENGTH_LIGHT_YEAR,                     // (5 << 8) + 9,   # 81  light-year
+    UAMEASUNIT_LENGTH_METER,                          // (5 << 8) + 0,   # 82  meter
+    UAMEASUNIT_LENGTH_MICROMETER,                     // (5 << 8) + 11,  # 83  micrometer
+    UAMEASUNIT_LENGTH_MILE,                           // (5 << 8) + 7,   # 84  mile
+    UAMEASUNIT_LENGTH_MILE_SCANDINAVIAN,              // (5 << 8) + 18,  # 85  mile-scandinavian
+    UAMEASUNIT_LENGTH_MILLIMETER,                     // (5 << 8) + 3,   # 86  millimeter
+    UAMEASUNIT_LENGTH_NANOMETER,                      // (5 << 8) + 12,  # 87  nanometer
+    UAMEASUNIT_LENGTH_NAUTICAL_MILE,                  // (5 << 8) + 13,  # 88  nautical-mile
+    UAMEASUNIT_LENGTH_PARSEC,                         // (5 << 8) + 17,  # 89  parsec
+    UAMEASUNIT_LENGTH_PICOMETER,                      // (5 << 8) + 4,   # 90  picometer
+    UAMEASUNIT_LENGTH_POINT,                          // (5 << 8) + 19,  # 91  point
+    UAMEASUNIT_LENGTH_SOLAR_RADIUS,                   // (5 << 8) + 20,  # 92  solar-radius
+    UAMEASUNIT_LENGTH_YARD,                           // (5 << 8) + 8,   # 93  yard
+    //                                                                   # --- light (94)
+    UAMEASUNIT_LIGHT_LUX,                             // (17 << 8) + 0,  # 94  lux
+    UAMEASUNIT_LIGHT_SOLAR_LUMINOSITY,                // (17 << 8) + 1,  # 95  solar-luminosity
+    //                                                                   # --- mass (96)
+    UAMEASUNIT_MASS_CARAT,                            // (6 << 8) + 9,   # 96  carat
+    UAMEASUNIT_MASS_DALTON,                           // (6 << 8) + 11,  # 97  dalton
+    UAMEASUNIT_MASS_EARTH_MASS,                       // (6 << 8) + 12,  # 98  earth-mass
+    UAMEASUNIT_MASS_GRAM,                             // (6 << 8) + 0,   # 99  gram
+    UAMEASUNIT_MASS_KILOGRAM,                         // (6 << 8) + 1,   # 100 kilogram
+    UAMEASUNIT_MASS_METRIC_TON,                       // (6 << 8) + 7,   # 101 metric-ton
+    UAMEASUNIT_MASS_MICROGRAM,                        // (6 << 8) + 5,   # 102 microgram
+    UAMEASUNIT_MASS_MILLIGRAM,                        // (6 << 8) + 6,   # 103 milligram
+    UAMEASUNIT_MASS_OUNCE,                            // (6 << 8) + 2,   # 104 ounce
+    UAMEASUNIT_MASS_OUNCE_TROY,                       // (6 << 8) + 10,  # 105 ounce-troy
+    UAMEASUNIT_MASS_POUND,                            // (6 << 8) + 3,   # 106 pound
+    UAMEASUNIT_MASS_SOLAR_MASS,                       // (6 << 8) + 13,  # 107 solar-mass
+    UAMEASUNIT_MASS_STONE,                            // (6 << 8) + 4,   # 108 stone
+    UAMEASUNIT_MASS_TON,                              // (6 << 8) + 8,   # 109 ton
+    //                                                                   # --- none (110)
+    UAMEASUNIT_CONCENTRATION_PERCENT,                 // BOGUS           # 110 base
+    UAMEASUNIT_CONCENTRATION_PERCENT,                 // BOGUS           # 111 percent
+    UAMEASUNIT_CONCENTRATION_PERMILLE,                // BOGUS           # 112 permille
+    //                                                                   # --- power (113)
+    UAMEASUNIT_POWER_GIGAWATT,                        // (7 << 8) + 5,   # 113 gigawatt
+    UAMEASUNIT_POWER_HORSEPOWER,                      // (7 << 8) + 2,   # 114 horsepower
+    UAMEASUNIT_POWER_KILOWATT,                        // (7 << 8) + 1,   # 115 kilowatt
+    UAMEASUNIT_POWER_MEGAWATT,                        // (7 << 8) + 4,   # 116 megawatt
+    UAMEASUNIT_POWER_MILLIWATT,                       // (7 << 8) + 3,   # 117 milliwatt
+    UAMEASUNIT_POWER_WATT,                            // (7 << 8) + 0,   # 118 watt
+    //                                                                   # --- pressure (119)
+    UAMEASUNIT_PRESSURE_ATMOSPHERE,                   // (8 << 8) + 5,   # 119 atmosphere
+    UAMEASUNIT_PRESSURE_HECTOPASCAL,                  // (8 << 8) + 0,   # 120 hectopascal
+    UAMEASUNIT_PRESSURE_INCH_HG,                      // (8 << 8) + 1,   # 121 inch-hg
+    UAMEASUNIT_PRESSURE_KILOPASCAL,                   // (8 << 8) + 6,   # 122 kilopascal
+    UAMEASUNIT_PRESSURE_MEGAPASCAL,                   // (8 << 8) + 7,   # 123 megapascal
+    UAMEASUNIT_PRESSURE_MILLIBAR,                     // (8 << 8) + 2,   # 124 millibar
+    UAMEASUNIT_PRESSURE_MILLIMETER_OF_MERCURY,        // (8 << 8) + 3,   # 125 millimeter-of-mercury
+    UAMEASUNIT_PRESSURE_POUND_PER_SQUARE_INCH,        // (8 << 8) + 4,   # 126 pound-per-square-inch
+    //                                                                   # --- speed (127)
+    UAMEASUNIT_SPEED_KILOMETER_PER_HOUR,              // (9 << 8) + 1,   # 127 kilometer-per-hour
+    UAMEASUNIT_SPEED_KNOT,                            // (9 << 8) + 3,   # 128 knot
+    UAMEASUNIT_SPEED_METER_PER_SECOND,                // (9 << 8) + 0,   # 129 meter-per-second
+    UAMEASUNIT_SPEED_MILE_PER_HOUR,                   // (9 << 8) + 2,   # 130 mile-per-hour
+    //                                                                   # --- temperature (131)
+    UAMEASUNIT_TEMPERATURE_CELSIUS,                   // (10 << 8) + 0,  # 131 celsius
+    UAMEASUNIT_TEMPERATURE_FAHRENHEIT,                // (10 << 8) + 1,  # 132 fahrenheit
+    UAMEASUNIT_TEMPERATURE_GENERIC,                   // (10 << 8) + 3,  # 133 generic
+    UAMEASUNIT_TEMPERATURE_KELVIN,                    // (10 << 8) + 2,  # 134 kelvin
+    //                                                                   # --- torque (135)
+    UAMEASUNIT_TORQUE_NEWTON_METER,                   // (20 << 8) + 0,  # 135 newton-meter
+    UAMEASUNIT_TORQUE_POUND_FOOT,                     // (20 << 8) + 1,  # 136 pound-foot
+    //                                                                   # --- volume (137)
+    UAMEASUNIT_VOLUME_ACRE_FOOT,                      // (11 << 8) + 13, # 137 acre-foot
+    UAMEASUNIT_VOLUME_BARREL,                         // (11 << 8) + 26, # 138 barrel
+    UAMEASUNIT_VOLUME_BUSHEL,                         // (11 << 8) + 14, # 139 bushel
+    UAMEASUNIT_VOLUME_CENTILITER,                     // (11 << 8) + 4,  # 140 centiliter
+    UAMEASUNIT_VOLUME_CUBIC_CENTIMETER,               // (11 << 8) + 8,  # 141 cubic-centimeter
+    UAMEASUNIT_VOLUME_CUBIC_FOOT,                     // (11 << 8) + 11, # 142 cubic-foot
+    UAMEASUNIT_VOLUME_CUBIC_INCH,                     // (11 << 8) + 10, # 143 cubic-inch
+    UAMEASUNIT_VOLUME_CUBIC_KILOMETER,                // (11 << 8) + 1,  # 144 cubic-kilometer
+    UAMEASUNIT_VOLUME_CUBIC_METER,                    // (11 << 8) + 9,  # 145 cubic-meter
+    UAMEASUNIT_VOLUME_CUBIC_MILE,                     // (11 << 8) + 2,  # 146 cubic-mile
+    UAMEASUNIT_VOLUME_CUBIC_YARD,                     // (11 << 8) + 12, # 147 cubic-yard
+    UAMEASUNIT_VOLUME_CUP,                            // (11 << 8) + 18, # 148 cup
+    UAMEASUNIT_VOLUME_CUP_METRIC,                     // (11 << 8) + 22, # 149 cup-metric
+    UAMEASUNIT_VOLUME_DECILITER,                      // (11 << 8) + 5,  # 150 deciliter
+    UAMEASUNIT_VOLUME_FLUID_OUNCE,                    // (11 << 8) + 17, # 151 fluid-ounce
+    UAMEASUNIT_VOLUME_FLUID_OUNCE_IMPERIAL,           // (11 << 8) + 25, # 152 fluid-ounce-imperial
+    UAMEASUNIT_VOLUME_GALLON,                         // (11 << 8) + 21, # 153 gallon
+    UAMEASUNIT_VOLUME_GALLON_IMPERIAL,                // (11 << 8) + 24, # 154 gallon-imperial
+    UAMEASUNIT_VOLUME_HECTOLITER,                     // (11 << 8) + 6,  # 155 hectoliter
+    UAMEASUNIT_VOLUME_LITER,                          // (11 << 8) + 0,  # 156 liter
+    UAMEASUNIT_VOLUME_MEGALITER,                      // (11 << 8) + 7,  # 157 megaliter
+    UAMEASUNIT_VOLUME_MILLILITER,                     // (11 << 8) + 3,  # 158 milliliter
+    UAMEASUNIT_VOLUME_PINT,                           // (11 << 8) + 19, # 159 pint
+    UAMEASUNIT_VOLUME_PINT_METRIC,                    // (11 << 8) + 23, # 160 pint-metric
+    UAMEASUNIT_VOLUME_QUART,                          // (11 << 8) + 20, # 161 quart
+    UAMEASUNIT_VOLUME_TABLESPOON,                     // (11 << 8) + 16, # 162 tablespoon
+    UAMEASUNIT_VOLUME_TEASPOON,                       // (11 << 8) + 15, # 163 teaspoon
 };
-
-static UBool loadMeasureUnitData(
-        const UResourceBundle *resource,
-        MeasureFormatCacheData &cacheData,
-        UErrorCode &status) {
-    UnitDataSink sink(cacheData);
-    ures_getAllItemsWithFallback(resource, "", sink, status);
-    return U_SUCCESS(status);
-}
 
 static UnicodeString loadNumericDateFormatterPattern(
         const UResourceBundle *resource,
@@ -646,12 +444,6 @@ const MeasureFormatCacheData *LocaleCacheKey<MeasureFormatCacheData>::createObje
             UNUM_CURRENCY_PLURAL, UNUM_CURRENCY_ISO, UNUM_CURRENCY};
     LocalPointer<MeasureFormatCacheData> result(new MeasureFormatCacheData(), status);
     if (U_FAILURE(status)) {
-        return NULL;
-    }
-    if (!loadMeasureUnitData(
-            unitsBundle.getAlias(),
-            *result,
-            status)) {
         return NULL;
     }
     result->adoptNumericDateFormatters(loadNumericDateFormatters(
@@ -759,7 +551,7 @@ MeasureFormat::MeasureFormat(
         : cache(NULL),
           numberFormat(NULL),
           pluralRules(NULL),
-          width((w==UMEASFMT_WIDTH_SHORTER)? UMEASFMT_WIDTH_SHORT: w),
+          fWidth((w==UMEASFMT_WIDTH_SHORTER)? UMEASFMT_WIDTH_SHORT: w),
           stripPatternSpaces(w==UMEASFMT_WIDTH_SHORTER),
           listFormatter(NULL),
           listFormatterStd(NULL) {
@@ -774,7 +566,7 @@ MeasureFormat::MeasureFormat(
         : cache(NULL),
           numberFormat(NULL),
           pluralRules(NULL),
-          width((w==UMEASFMT_WIDTH_SHORTER)? UMEASFMT_WIDTH_SHORT: w),
+          fWidth((w==UMEASFMT_WIDTH_SHORTER)? UMEASFMT_WIDTH_SHORT: w),
           stripPatternSpaces(w==UMEASFMT_WIDTH_SHORTER),
           listFormatter(NULL),
           listFormatterStd(NULL) {
@@ -786,7 +578,7 @@ MeasureFormat::MeasureFormat(const MeasureFormat &other) :
         cache(other.cache),
         numberFormat(other.numberFormat),
         pluralRules(other.pluralRules),
-        width(other.width),
+        fWidth(other.fWidth),
         stripPatternSpaces(other.stripPatternSpaces),
         listFormatter(NULL),
         listFormatterStd(NULL) {
@@ -809,7 +601,7 @@ MeasureFormat &MeasureFormat::operator=(const MeasureFormat &other) {
     SharedObject::copyPtr(other.cache, cache);
     SharedObject::copyPtr(other.numberFormat, numberFormat);
     SharedObject::copyPtr(other.pluralRules, pluralRules);
-    width = other.width;
+    fWidth = other.fWidth;
     stripPatternSpaces = other.stripPatternSpaces;
     delete listFormatter;
     if (other.listFormatter != NULL) {
@@ -830,7 +622,7 @@ MeasureFormat::MeasureFormat() :
         cache(NULL),
         numberFormat(NULL),
         pluralRules(NULL),
-        width(UMEASFMT_WIDTH_SHORT),
+        fWidth(UMEASFMT_WIDTH_SHORT),
         stripPatternSpaces(FALSE),
         listFormatter(NULL),
         listFormatterStd(NULL) {
@@ -863,7 +655,7 @@ UBool MeasureFormat::operator==(const Format &other) const {
     // don't have to check it here.
 
     // differing widths aren't equivalent
-    if (width != rhs.width || stripPatternSpaces != rhs.stripPatternSpaces) {
+    if (fWidth != rhs.fWidth || stripPatternSpaces != rhs.stripPatternSpaces) {
         return FALSE;
     }
     // Width the same check locales.
@@ -924,29 +716,21 @@ UnicodeString &MeasureFormat::formatMeasurePerUnit(
     if (U_FAILURE(status)) {
         return appendTo;
     }
-    bool isResolved = false;
-    MeasureUnit resolvedUnit =
-        MeasureUnit::resolveUnitPerUnit(measure.getUnit(), perUnit, &isResolved);
-    if (isResolved) {
-        Measure newMeasure(measure.getNumber(), new MeasureUnit(resolvedUnit), status);
-        return formatMeasure(
-                newMeasure, **numberFormat, appendTo, pos, status);
-    }
-    FieldPosition fpos(pos.getField());
-    UnicodeString result;
-    int32_t offset = withPerUnitAndAppend(
-            formatMeasure(
-                    measure, **numberFormat, result, fpos, status),
-            perUnit,
-            appendTo,
-            status);
-    if (U_FAILURE(status)) {
+    auto* df = dynamic_cast<const DecimalFormat*>(&getNumberFormatInternal());
+    if (df == nullptr) {
+        // Don't know how to handle other types of NumberFormat
+        status = U_UNSUPPORTED_ERROR;
         return appendTo;
     }
-    if (fpos.getBeginIndex() != 0 || fpos.getEndIndex() != 0) {
-        pos.setBeginIndex(fpos.getBeginIndex() + offset);
-        pos.setEndIndex(fpos.getEndIndex() + offset);
+    number::FormattedNumber result;
+    if (auto* lnf = df->toNumberFormatter(status)) {
+        result = lnf->unit(measure.getUnit())
+            .perUnit(perUnit)
+            .unitWidth(getUnitWidth(fWidth))
+            .formatDouble(measure.getNumber().getDouble(status), status);
     }
+    DecimalFormat::fieldPositionHelper(result, pos, appendTo.length(), status);
+    appendTo.append(result.toTempString(status));
     return appendTo;
 }
 
@@ -965,11 +749,11 @@ UnicodeString &MeasureFormat::formatMeasures(
     if (measureCount == 1) {
         return formatMeasure(measures[0], **numberFormat, appendTo, pos, status);
     }
-    if (width == UMEASFMT_WIDTH_NUMERIC) {
+    if (fWidth == UMEASFMT_WIDTH_NUMERIC) {
         Formattable hms[3];
         int32_t bitMap = toHMS(measures, measureCount, hms, status);
         if (bitMap > 0) {
-            FieldPositionIteratorHandler handler(NULL, status);
+            FieldPositionIteratorHandler handler((FieldPositionIterator*)NULL, status);
             return formatNumeric(hms, bitMap, appendTo, handler, status);
         }
     }
@@ -1023,7 +807,7 @@ UnicodeString &MeasureFormat::formatMeasures(
         handler.addAttribute(field | UAMEASFMT_NUMERIC_FIELD_FLAG, pos.getBeginIndex(), pos.getEndIndex());
         return appendTo;
     }
-    if (width == UMEASFMT_WIDTH_NUMERIC) {
+    if (fWidth == UMEASFMT_WIDTH_NUMERIC) {
         Formattable hms[3];
         int32_t bitMap = toHMS(measures, measureCount, hms, status);
         if (bitMap > 0) {
@@ -1073,23 +857,12 @@ UnicodeString &MeasureFormat::formatMeasures(
     return appendTo;
 }
 
-
-UnicodeString MeasureFormat::getUnitDisplayName(const MeasureUnit& unit, UErrorCode& /*status*/) const {
-    UMeasureFormatWidth width = getRegularWidth(this->width);
-    const UChar* const* styleToDnam = cache->dnams[unit.getIndex()];
-    const UChar* dnam = styleToDnam[width];
-    if (dnam == NULL) {
-        int32_t fallbackWidth = cache->widthFallback[width];
-        dnam = styleToDnam[fallbackWidth];
-    }
-
-    UnicodeString result;
-    if (dnam == NULL) {
-        result.setToBogus();
-    } else {
-        result.setTo(dnam, -1);
-    }
-    return result;
+UnicodeString MeasureFormat::getUnitDisplayName(const MeasureUnit& unit, UErrorCode& status) const {
+    return number::impl::LongNameHandler::getUnitDisplayName(
+        getLocale(status),
+        unit,
+        getUnitWidth(fWidth),
+        status);
 }
 
 void MeasureFormat::initMeasureFormat(
@@ -1118,6 +891,7 @@ void MeasureFormat::initMeasureFormat(
     SharedObject::copyPtr(pr, pluralRules);
     pr->removeRef();
     if (nf.isNull()) {
+        // TODO: Clean this up
         const SharedNumberFormat *shared = NumberFormat::createSharedInstance(
                 locale, UNUM_DECIMAL, status);
         if (U_FAILURE(status)) {
@@ -1131,7 +905,7 @@ void MeasureFormat::initMeasureFormat(
             return;
         }
     }
-    width = w;
+    fWidth = w;
     if (stripPatternSpaces) {
         w = UMEASFMT_WIDTH_NARROW;
     }
@@ -1166,17 +940,21 @@ UBool MeasureFormat::setMeasureFormatLocale(const Locale &locale, UErrorCode &st
     if (U_FAILURE(status) || locale == getLocale(status)) {
         return FALSE;
     }
-    initMeasureFormat(locale, width, NULL, status);
+    initMeasureFormat(locale, fWidth, NULL, status);
     return U_SUCCESS(status);
 } 
 
 // Apple-specific for now
 UMeasureFormatWidth MeasureFormat::getWidth() const {
-    return width;
+    return fWidth;
 }
 
-const NumberFormat &MeasureFormat::getNumberFormat() const {
+const NumberFormat &MeasureFormat::getNumberFormatInternal() const {
     return **numberFormat;
+}
+
+const NumberFormat &MeasureFormat::getCurrencyFormatInternal() const {
+    return *cache->getCurrencyFormat(UMEASFMT_WIDTH_NARROW);
 }
 
 const PluralRules &MeasureFormat::getPluralRules() const {
@@ -1248,35 +1026,90 @@ UnicodeString &MeasureFormat::formatMeasure(
     if (isCurrency(amtUnit)) {
         UChar isoCode[4];
         u_charsToUChars(amtUnit.getSubtype(), isoCode, 4);
-        return cache->getCurrencyFormat(width)->format(
+        return cache->getCurrencyFormat(fWidth)->format(
                 new CurrencyAmount(amtNumber, isoCode, status),
                 appendTo,
                 pos,
                 status);
     }
-    UnicodeString formattedNumber;
+    int32_t cur = appendTo.length();
     UBool posForFullNumericPart = (pos.getField() == UAMEASFMT_NUMERIC_FIELD_FLAG);
     if (posForFullNumericPart) {
         pos.setField(FieldPosition::DONT_CARE);
     }
-    StandardPlural::Form pluralForm = QuantityFormatter::selectPlural(
-            amtNumber, nf, **pluralRules, formattedNumber, pos, status);
-    if (posForFullNumericPart) {
-        pos.setField(UAMEASFMT_NUMERIC_FIELD_FLAG);
-        pos.setBeginIndex(0);
-        pos.setEndIndex(formattedNumber.length());
+
+    auto* df = dynamic_cast<const DecimalFormat*>(&nf);
+    if (df == nullptr) {
+        // Handle other types of NumberFormat using the old code, Apple restore for <rdar://problem/49131922>
+        UnicodeString formattedNumber;
+        StandardPlural::Form pluralForm = QuantityFormatter::selectPlural(
+                amtNumber, nf, **pluralRules, formattedNumber, pos, status);
+        if (posForFullNumericPart) {
+            pos.setField(UAMEASFMT_NUMERIC_FIELD_FLAG);
+            pos.setBeginIndex(0);
+            pos.setEndIndex(formattedNumber.length());
+        }
+        UnicodeString pattern = number::impl::LongNameHandler::getUnitPattern(getLocale(status),
+                amtUnit, getUnitWidth(fWidth), pluralForm, status);
+        // The above already handles fallback from other widths to short
+        if (pattern.isBogus() && pluralForm != StandardPlural::Form::OTHER) {
+            pattern = number::impl::LongNameHandler::getUnitPattern(getLocale(status),
+                amtUnit, getUnitWidth(fWidth), StandardPlural::Form::OTHER, status);
+        }
+        if (U_FAILURE(status)) {
+            return appendTo;
+        }
+        SimpleFormatter formatter(pattern, 0, 1, status);
+        QuantityFormatter::format(formatter, formattedNumber, appendTo, pos, status);
+    } else {
+        // This is the current code
+        number::FormattedNumber result;
+        if (auto* lnf = df->toNumberFormatter(status)) {
+            result = lnf->unit(amtUnit)
+                .unitWidth(getUnitWidth(fWidth))
+                .formatDouble(amtNumber.getDouble(status), status);
+        }
+        DecimalFormat::fieldPositionHelper(result, pos, appendTo.length(), status);
+        if (posForFullNumericPart) {
+            pos.setField(UNUM_INTEGER_FIELD);
+            DecimalFormat::fieldPositionHelper(result, pos, appendTo.length(), status);
+            int32_t intBegin = pos.getBeginIndex();
+            int32_t intEnd = pos.getEndIndex();
+            pos.setField(UNUM_FRACTION_FIELD);
+            DecimalFormat::fieldPositionHelper(result, pos, appendTo.length(), status);
+            int32_t fracBegin = pos.getBeginIndex();
+            int32_t fracEnd = pos.getEndIndex();
+            if (intBegin >= 0 && intEnd > intBegin) {
+                // we have an integer part
+                pos.setBeginIndex(intBegin);
+                if (fracBegin >= intEnd && fracEnd > fracBegin) {
+                    // we have a fraction part, include it too
+                    pos.setEndIndex(fracEnd);
+                } else {
+                    pos.setEndIndex(intEnd);
+                }
+            } else if (fracBegin >= 0 && fracEnd > fracBegin) {
+                // only a fract part, use it
+                pos.setBeginIndex(fracBegin);
+                pos.setEndIndex(fracEnd);
+            } else {
+                // no numeric part
+                pos.setBeginIndex(0);
+                pos.setEndIndex(0);
+            }
+            pos.setField(UAMEASFMT_NUMERIC_FIELD_FLAG);
+        }
+        appendTo.append(result.toTempString(status));
     }
-    const SimpleFormatter *formatter = getPluralFormatter(amtUnit, width, pluralForm, status);
-    int32_t cur = appendTo.length();
-    QuantityFormatter::format(*formatter, formattedNumber, appendTo, pos, status);
+
     if (stripPatternSpaces) {
-        const SimpleFormatter *narrowFormatter = getPluralFormatter(amtUnit, UMEASFMT_WIDTH_NARROW, pluralForm, status);
+        // Get the narrow pattern for OTHER.
+        // If there are spaces in that, then do not continue to strip spaces
+        // (i.e. even in the narrowest form this locale keeps spaces).
+        UnicodeString narrowPattern = number::impl::LongNameHandler::getUnitPattern(getLocale(status),
+                amtUnit, UNUM_UNIT_WIDTH_NARROW, StandardPlural::Form::OTHER, status); 
         if (U_SUCCESS(status)) {
-            // Get the narrow pattern with all {n} set to empty string.
-            // If there are spaces in that, then do not continue to strip spaces
-            // (i.e. even in the narrowest form this locale keeps spaces).
-            UnicodeString narrowPatternNoArgs = narrowFormatter->getTextWithNoArguments();
-            if (narrowPatternNoArgs.indexOf((UChar)0x0020) == -1 && narrowPatternNoArgs.indexOf((UChar)0x00A0) == -1) {
+            if (narrowPattern.indexOf((UChar)0x0020) == -1 && narrowPattern.indexOf((UChar)0x00A0) == -1) {
                 int32_t end = appendTo.length();
                 for (; cur < end; cur++) {
                     if (appendTo.charAt(cur) == 0x0020) {
@@ -1344,7 +1177,6 @@ UnicodeString &MeasureFormat::formatNumeric(
         return appendTo;
         break;
     }
-    return appendTo;
 }
 
 static void appendRange(
@@ -1394,10 +1226,10 @@ UnicodeString &MeasureFormat::formatNumeric(
     // #13606: DateFormat is not thread-safe, but MeasureFormat advertises itself as thread-safe.
     FieldPositionIterator posIter;
     UnicodeString draft;
-    static UMutex dateFmtMutex = U_MUTEX_INITIALIZER;
-    umtx_lock(&dateFmtMutex);
+    static UMutex *dateFmtMutex = STATIC_NEW(UMutex);
+    umtx_lock(dateFmtMutex);
     dateFmt.format(date, draft, &posIter, status);
-    umtx_unlock(&dateFmtMutex);
+    umtx_unlock(dateFmtMutex);
 
     int32_t start = appendTo.length();
     FieldPosition smallestFieldPosition(smallestField);
@@ -1464,108 +1296,6 @@ UnicodeString &MeasureFormat::formatNumeric(
     return appendTo;
 }
 
-const SimpleFormatter *MeasureFormat::getFormatterOrNull(
-        const MeasureUnit &unit, UMeasureFormatWidth width, int32_t index) const {
-    width = getRegularWidth(width);
-    SimpleFormatter *const (*unitPatterns)[PATTERN_COUNT] = &cache->patterns[unit.getIndex()][0];
-    if (unitPatterns[width][index] != NULL) {
-        return unitPatterns[width][index];
-    }
-    int32_t fallbackWidth = cache->widthFallback[width];
-    if (fallbackWidth != UMEASFMT_WIDTH_COUNT && unitPatterns[fallbackWidth][index] != NULL) {
-        return unitPatterns[fallbackWidth][index];
-    }
-    return NULL;
-}
-
-const SimpleFormatter *MeasureFormat::getFormatter(
-        const MeasureUnit &unit, UMeasureFormatWidth width, int32_t index,
-        UErrorCode &errorCode) const {
-    if (U_FAILURE(errorCode)) {
-        return NULL;
-    }
-    const SimpleFormatter *pattern = getFormatterOrNull(unit, width, index);
-    if (pattern == NULL) {
-        errorCode = U_MISSING_RESOURCE_ERROR;
-    }
-    return pattern;
-}
-
-const SimpleFormatter *MeasureFormat::getPluralFormatter(
-        const MeasureUnit &unit, UMeasureFormatWidth width, int32_t index,
-        UErrorCode &errorCode) const {
-    if (U_FAILURE(errorCode)) {
-        return NULL;
-    }
-    if (index != StandardPlural::OTHER) {
-        const SimpleFormatter *pattern = getFormatterOrNull(unit, width, index);
-        if (pattern != NULL) {
-            return pattern;
-        }
-    }
-    return getFormatter(unit, width, StandardPlural::OTHER, errorCode);
-}
-
-const SimpleFormatter *MeasureFormat::getPerFormatter(
-        UMeasureFormatWidth width,
-        UErrorCode &status) const {
-    if (U_FAILURE(status)) {
-        return NULL;
-    }
-    width = getRegularWidth(width);
-    const SimpleFormatter * perFormatters = cache->perFormatters;
-    if (perFormatters[width].getArgumentLimit() == 2) {
-        return &perFormatters[width];
-    }
-    int32_t fallbackWidth = cache->widthFallback[width];
-    if (fallbackWidth != UMEASFMT_WIDTH_COUNT &&
-            perFormatters[fallbackWidth].getArgumentLimit() == 2) {
-        return &perFormatters[fallbackWidth];
-    }
-    status = U_MISSING_RESOURCE_ERROR;
-    return NULL;
-}
-
-int32_t MeasureFormat::withPerUnitAndAppend(
-        const UnicodeString &formatted,
-        const MeasureUnit &perUnit,
-        UnicodeString &appendTo,
-        UErrorCode &status) const {
-    int32_t offset = -1;
-    if (U_FAILURE(status)) {
-        return offset;
-    }
-    const SimpleFormatter *perUnitFormatter = getFormatterOrNull(perUnit, width, PER_UNIT_INDEX);
-    if (perUnitFormatter != NULL) {
-        const UnicodeString *params[] = {&formatted};
-        perUnitFormatter->formatAndAppend(
-                params,
-                UPRV_LENGTHOF(params),
-                appendTo,
-                &offset,
-                1,
-                status);
-        return offset;
-    }
-    const SimpleFormatter *perFormatter = getPerFormatter(width, status);
-    const SimpleFormatter *pattern =
-            getPluralFormatter(perUnit, width, StandardPlural::ONE, status);
-    if (U_FAILURE(status)) {
-        return offset;
-    }
-    UnicodeString perUnitString = pattern->getTextWithNoArguments();
-    perUnitString.trim();
-    const UnicodeString *params[] = {&formatted, &perUnitString};
-    perFormatter->formatAndAppend(
-            params,
-            UPRV_LENGTHOF(params),
-            appendTo,
-            &offset,
-            1,
-            status);
-    return offset;
-}
-
 UnicodeString &MeasureFormat::formatMeasuresSlowTrack(
         const Measure *measures,
         int32_t measureCount,
@@ -1577,7 +1307,7 @@ UnicodeString &MeasureFormat::formatMeasuresSlowTrack(
     }
     FieldPosition dontCare(FieldPosition::DONT_CARE);
     FieldPosition fpos(pos.getField());
-    UnicodeString *results = new UnicodeString[measureCount];
+    LocalArray<UnicodeString> results(new UnicodeString[measureCount], status);
     int32_t fieldPositionFoundIndex = -1;
     for (int32_t i = 0; i < measureCount; ++i) {
         const NumberFormat *nf = cache->getIntegerFormat();
@@ -1587,7 +1317,6 @@ UnicodeString &MeasureFormat::formatMeasuresSlowTrack(
         if (fieldPositionFoundIndex == -1) {
             formatMeasure(measures[i], *nf, results[i], fpos, status);
             if (U_FAILURE(status)) {
-                delete [] results;
                 return appendTo;
             }
             if (fpos.getBeginIndex() != 0 || fpos.getEndIndex() != 0) {
@@ -1599,40 +1328,35 @@ UnicodeString &MeasureFormat::formatMeasuresSlowTrack(
     }
     int32_t offset;
     listFormatter->format(
-            results,
+            results.getAlias(),
             measureCount,
             appendTo,
             fieldPositionFoundIndex,
             offset,
             status);
     if (U_FAILURE(status)) {
-        delete [] results;
         return appendTo;
     }
+    // Fix up FieldPosition indexes if our field is found.
     if (offset != -1) {
         pos.setBeginIndex(fpos.getBeginIndex() + offset);
         pos.setEndIndex(fpos.getEndIndex() + offset);
     }
-    delete [] results;
     return appendTo;
 }
 
 MeasureFormat* U_EXPORT2 MeasureFormat::createCurrencyFormat(const Locale& locale,
                                                    UErrorCode& ec) {
-    CurrencyFormat* fmt = NULL;
-    if (U_SUCCESS(ec)) {
-        fmt = new CurrencyFormat(locale, ec);
-        if (U_FAILURE(ec)) {
-            delete fmt;
-            fmt = NULL;
-        }
+    if (U_FAILURE(ec)) {
+        return nullptr;
     }
-    return fmt;
+    LocalPointer<CurrencyFormat> fmt(new CurrencyFormat(locale, ec), ec);
+    return fmt.orphan();
 }
 
 MeasureFormat* U_EXPORT2 MeasureFormat::createCurrencyFormat(UErrorCode& ec) {
     if (U_FAILURE(ec)) {
-        return NULL;
+        return nullptr;
     }
     return MeasureFormat::createCurrencyFormat(Locale::getDefault(), ec);
 }

@@ -700,13 +700,20 @@ void log_warning
 
 void seek_for_line
 (
+   FILE *source_file,
+   int lineno,
+   char *source_line
+);
+
+void seek_for_line
+(
     FILE *source_file,
     int lineno,
     char *source_line
 )
 {
-    int lines_to_skip;
-    int i;
+    size_t lines_to_skip;
+    size_t i;
 
     /*
      * If the FILE is NULL then can't get the source
@@ -740,6 +747,14 @@ void seek_for_line
  *              log_rec_ptr - a pointer to the header log rec for the line
  *              source - source file name
  */
+
+void print_errors_for_line
+(
+    FILE *fd,
+    char const *source,
+    STRTAB_str_t    source_id,
+    error_log_rec_t *log_rec_ptr
+);
 
 void print_errors_for_line
 (
@@ -808,6 +823,14 @@ void print_errors_for_line
  *              source      - name of source file
  *              log_rec_ptr - root of error log tree
  */
+
+void print_error_messages
+(
+    FILE *fd,
+    char const *source,
+    STRTAB_str_t    source_id,
+    error_log_rec_t *log_rec_ptr
+);
 
 void print_error_messages
 (

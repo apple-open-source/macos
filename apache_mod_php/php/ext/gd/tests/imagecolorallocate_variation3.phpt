@@ -8,7 +8,7 @@ if(!extension_loaded('gd')) {
 if(!function_exists('imagecreatetruecolor')) {
     die('skip imagecreatetruecolor function is not available');
 }
-?> 
+?>
 --FILE--
 <?php
 /* Prototype  : imagecolorallocate(resource im, int red, int green, int blue)
@@ -64,7 +64,7 @@ $values = array(
       'int indexed array' => $index_array,
       'associative array' => $assoc_array,
 	  'nested arrays' => array('foo', $index_array, $assoc_array),
-      
+
       // null data
 	  'uppercase NULL' => NULL,
       'lowercase null' => null,
@@ -94,8 +94,8 @@ $values = array(
 
       // unset data
       'unset var' => @$unset_var,
-      
-      //resource 
+
+      //resource
       "file resource" => $fp
 );
 // loop through each element of the array for red
@@ -125,22 +125,22 @@ int(655370)
 
 --empty array--
 
-Warning: imagecolorallocate() expects parameter 3 to be integer, array given in %s on line %d
+Warning: imagecolorallocate() expects parameter 3 to be int, array given in %s on line %d
 NULL
 
 --int indexed array--
 
-Warning: imagecolorallocate() expects parameter 3 to be integer, array given in %s on line %d
+Warning: imagecolorallocate() expects parameter 3 to be int, array given in %s on line %d
 NULL
 
 --associative array--
 
-Warning: imagecolorallocate() expects parameter 3 to be integer, array given in %s on line %d
+Warning: imagecolorallocate() expects parameter 3 to be int, array given in %s on line %d
 NULL
 
 --nested arrays--
 
-Warning: imagecolorallocate() expects parameter 3 to be integer, array given in %s on line %d
+Warning: imagecolorallocate() expects parameter 3 to be int, array given in %s on line %d
 NULL
 
 --uppercase NULL--
@@ -163,42 +163,42 @@ int(655370)
 
 --empty string DQ--
 
-Warning: imagecolorallocate() expects parameter 3 to be integer, string given in %s on line %d
+Warning: imagecolorallocate() expects parameter 3 to be int, string given in %s on line %d
 NULL
 
 --empty string SQ--
 
-Warning: imagecolorallocate() expects parameter 3 to be integer, string given in %s on line %d
+Warning: imagecolorallocate() expects parameter 3 to be int, string given in %s on line %d
 NULL
 
 --string DQ--
 
-Warning: imagecolorallocate() expects parameter 3 to be integer, string given in %s on line %d
+Warning: imagecolorallocate() expects parameter 3 to be int, string given in %s on line %d
 NULL
 
 --string SQ--
 
-Warning: imagecolorallocate() expects parameter 3 to be integer, string given in %s on line %d
+Warning: imagecolorallocate() expects parameter 3 to be int, string given in %s on line %d
 NULL
 
 --mixed case string--
 
-Warning: imagecolorallocate() expects parameter 3 to be integer, string given in %s on line %d
+Warning: imagecolorallocate() expects parameter 3 to be int, string given in %s on line %d
 NULL
 
 --heredoc--
 
-Warning: imagecolorallocate() expects parameter 3 to be integer, string given in %s on line %d
+Warning: imagecolorallocate() expects parameter 3 to be int, string given in %s on line %d
 NULL
 
 --instance of classWithToString--
 
-Warning: imagecolorallocate() expects parameter 3 to be integer, object given in %s on line %d
+Warning: imagecolorallocate() expects parameter 3 to be int, object given in %s on line %d
 NULL
 
 --instance of classWithoutToString--
 
-Warning: imagecolorallocate() expects parameter 3 to be integer, object given in %s on line %d
+Warning: imagecolorallocate() expects parameter 3 to be int, object given in %s on line %d
 NULL
 
 --undefined var--
@@ -209,6 +209,6 @@ int(655370)
 
 --file resource--
 
-Warning: imagecolorallocate() expects parameter 3 to be integer, resource given in %s on line %d
+Warning: imagecolorallocate() expects parameter 3 to be int, resource given in %s on line %d
 NULL
 ===DONE===

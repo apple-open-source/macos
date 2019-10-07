@@ -33,7 +33,8 @@ namespace WebCore {
 
 class StorageArea;
 
-class Storage : public ScriptWrappable, public RefCounted<Storage>, public DOMWindowProperty {
+class Storage final : public ScriptWrappable, public RefCounted<Storage>, public DOMWindowProperty {
+    WTF_MAKE_ISO_ALLOCATED(Storage);
 public:
     static Ref<Storage> create(DOMWindow&, Ref<StorageArea>&&);
     ~Storage();
@@ -45,10 +46,11 @@ public:
     ExceptionOr<void> removeItem(const String& key);
     ExceptionOr<void> clear();
     bool contains(const String& key) const;
+    bool prewarm();
 
     // Bindings support functions.
     bool isSupportedPropertyName(const String&) const;
-    Vector<AtomicString> supportedPropertyNames() const;
+    Vector<AtomString> supportedPropertyNames() const;
 
     StorageArea& area() const { return m_storageArea.get(); }
 

@@ -1,4 +1,4 @@
-.TH "ZSHCOMPSYS" "1" "December 11, 2016" "zsh 5\&.3"
+.TH "ZSHCOMPSYS" "1" "February 3, 2019" "zsh 5\&.7\&.1"
 .SH "NAME"
 zshcompsys \- zsh completion system
 .\" Yodl file: Zsh/compsys.yo
@@ -487,7 +487,11 @@ The parameter \fB$_compskip\fP may be set by any function defined for a
 pattern context\&.  If it is set to a value containing the substring
 `\fBpatterns\fP\&' none of the pattern\-functions will be called; if it is
 set to a value containing the substring `\fBall\fP\&', no other function
-will be called\&.
+will be called\&.  Setting \fB$_compskip\fP in this manner is of particular
+utility when using the \fB\-p\fP option, as otherwise the dispatcher will
+move on to additional functions (likely the default one) after calling
+the pattern\-context one, which can mangle the display of completion
+possibilities if not handled properly\&.
 .PP
 The form with \fB\-k\fP defines a widget with the same name as the \fIfunction\fP
 that will be called for each of the \fIkey\-sequence\fPs; this is like the
@@ -1100,6 +1104,12 @@ directory is accepted without any attempt to complete it further\&.
 Hence, in the given example, the path \fB/usr/bin/\fP is accepted
 immediately and completion tried in that directory\&.
 .PP
+This style is also useful when completing after directories that
+magically appear when referenced, such as ZFS \fB\&.zfs\fP directories
+or NetApp \fB\&.snapshot\fP directories\&.  When the style is set the
+shell does not check for the existence of the directory within the
+parent directory\&.
+.PP
 If you wish to inhibit this behaviour entirely, set the \fBpath\-completion\fP
 style (see below) to `false\&'\&.
 .RE
@@ -1375,9 +1385,10 @@ literally\&.
 .RS
 .PP
 This can be useful on systems that support special file systems whose
-top\-level pathnames can not be listed or generated with glob patterns\&.
-It can also be used for directories for which one does not have read
-permission\&.
+top\-level pathnames can not be listed or generated with glob patterns
+(but see \fBaccept\-exact\-dirs\fP for a more general way of dealing
+with this problem)\&.  It can also be used for directories for which one
+does not have read permission\&.
 .PP
 The pattern form can be used to add a certain `magic\&' entry
 to all directories on a particular file system\&.
@@ -1524,6 +1535,15 @@ sorted alphabetically by name\&.  If the value contains the string
 contains the string `\fBfollow\fP\&', timestamps are associated with the
 targets of symbolic links; the default is to use the timestamps
 of the links themselves\&.
+.TP
+\fBfile\-split\-chars\fP
+A set of characters that will cause \fIall\fP file completions for
+the given context to be split at the point where any of the characters
+occurs\&.  A typical use is to set the style to \fB:\fP; then everything
+up to and including the last \fB:\fP in the string so far is ignored when
+completing files\&.  As this is quite heavy\-handed, it is usually
+preferable to update completion functions for contexts where this
+behaviour is useful\&.
 .TP
 \fBfilter\fP
 The \fBldap\fP plugin of email address completion (see \fB_email_addresses\fP) uses
@@ -2190,7 +2210,7 @@ matches does not fit on the screen by using the value
 `\fBselect=long\fP\&'\&.  To start menu selection even if the current widget
 only performs listing, use the value `\fBselect=long\-list\fP\&'\&.
 .PP
-To turn on menu completion or menu selection when a there are a certain
+To turn on menu completion or menu selection when there are a certain
 number of matches \fIor\fP the list of matches does not fit on the
 screen, both of `\fByes=\fP\&' and `\fBselect=\fP' may be given twice, once
 with a number and once with `\fBlong\fP\&' or `\fBlong\-list\fP'\&.
@@ -3045,6 +3065,22 @@ case they are already so\&. The options \fB\-M\fP, \fB\-J\fP, \fB\-V\fP, \fB\-1\
 See \fB_description\fP for a description of \fItag\fP and \fIdescr\fP\&.
 .RE
 .TP
+\fB_cmdambivalent\fP
+Completes the remaining positional arguments as an external command\&.
+The external command and its arguments are completed as separate arguments
+(in a manner appropriate for completing \fB/usr/bin/env\fP)
+if there are two or more remaining positional arguments on the command line,
+and as a quoted command string (in the manner of \fBsystem(\&.\&.\&.)\fP) otherwise\&.
+See also \fB_cmdstring\fP and \fB_precommand\fP\&.
+.RS
+.PP
+This function takes no arguments\&.
+.RE
+.TP
+\fB_cmdstring\fP
+Completes an external command as a single argument, as for
+\fBsystem(\&.\&.\&.)\fP\&.
+.TP
 \fB_complete\fP
 This completer generates all possible completions in a context\-sensitive
 manner, i\&.e\&. using the settings defined with the \fBcompdef\fP function
@@ -3243,6 +3279,10 @@ It should appear in the list of completers before any of
 the widgets which generate matches\&.  It uses two styles: \fBold\-list\fP and
 \fBold\-menu\fP, see
 the section `Completion System Configuration\&' above\&.
+.TP
+\fB_precommand\fP
+Complete an external command in word\-separated arguments, as for
+\fBexec\fP and \fB/usr/bin/env\fP\&.
 .TP
 \fB_prefix\fP
 This completer can be used to try completion with the suffix (everything
@@ -3637,20 +3677,21 @@ different name for the argument context field\&.
 .PD 0
 \fB           \fP[ \fB:\fP ] \fIspec\fP \&.\&.\&.
 .TP
+.PD 0
+\fB_arguments \fP[ \fIopt\fP \&.\&.\&. ] \fB\-\fP\fB\-\fP [ \fB\-l\fP ] [ \fB\-i\fP \fIpats\fP ] [ \fB\-s\fP \fIpair\fP ]
+.TP
 .PD
-\fB_arguments\fP [ \fIopt\fP \&.\&.\&. ] \fB\-\fP\fB\-\fP [ \fB\-i\fP \fIpats\fP ] [ \fB\-s\fP \fIpair\fP ] [ \fIhelpspec\fP \&.\&.\&. ]
+\fB           \fP[ \fIhelpspec\fP \&.\&.\&.]
 This function can be used to give a complete specification for completion
 for a command whose arguments follow standard UNIX option and argument
 conventions\&.
 .RS
 .PP
-\fIOptions overview\fP
+\fIOptions Overview\fP
 .PP
 Options to \fB_arguments\fP itself must be in separate words, i\&.e\&. \fB\-s \-w\fP,
 not \fB\-sw\fP\&.  The options are followed by \fIspec\fPs that describe options and
-arguments of the analyzed command\&.  \fIspec\fPs that describe option flags must
-precede \fIspec\fPs that describe non\-option ("positional" or "normal")
-arguments of the analyzed line\&.  To avoid ambiguity, all
+arguments of the analyzed command\&.  To avoid ambiguity, all
 options to \fB_arguments\fP itself may be separated from the \fIspec\fP forms
 by a single colon\&.
 .PP
@@ -4139,18 +4180,56 @@ initialised to the current value at the start of the function:
 This is useful where it is not possible for multiple states to be valid
 together\&.
 .PP
-\fISpecifying multiple sets of options\fP
+\fIGrouping Options\fP
 .PP
-It is possible to specify multiple sets of options and
-arguments with the sets separated by single hyphens\&.  The specifications
-before the first hyphen (if any) are shared by all the remaining sets\&.
-The first word in every other set provides a name for the
-set which may appear in exclusion lists in specifications,
-either alone or before one of the possible values described above\&.
-In the second case a `\fB\-\fP\&' should appear between this name and the
-remainder\&.
+Options can be grouped to simplify exclusion lists\&. A group is
+introduced with `\fB+\fP\&' followed by a name for the group in the
+subsequent word\&. Whole groups can then be referenced in an exclusion
+list or a group name can be used to disambiguate between two forms of
+the same option\&. For example:
 .PP
-For example:
+.RS
+.nf
+\fB_arguments \e 
+    \&'(group2\-\-x)\-a' \e 
+  + group1 \e 
+    \-m \e 
+    \&'(group2)\-n' \e 
+  + group2 \e 
+    \-x \-y\fP
+.fi
+.RE
+.PP
+If the name of a group is specified in the form
+`\fB(\fP\fIname\fP\fB)\fP\&' then only one value from that group
+will ever be completed; more formally, all specifications are mutually
+exclusive to all other specifications in that group\&. This is useful for
+defining options that are aliases for each other\&. For example:
+.PP
+.RS
+.nf
+\fB_arguments \e 
+    \-a \-b \e 
+  + \&'(operation)' \e 
+    {\-c,\-\-compress}\&'[compress]' \e 
+    {\-d,\-\-decompress}\&'[decompress]' \e 
+    {\-l,\-\-list}\&'[list]'\fP
+.fi
+.RE
+.PP
+If an option in a group appears on the command line, it is stored in the
+associative array `\fBopt_args\fP\&' with '\fIgroup\fP\fB\-\fP\fIoption\fP'
+as a key\&.  In the example above, a key `\fBoperation\-\-c\fP\&' is used if the option
+`\fB\-c\fP\&' is present on the command line\&.
+.PP
+\fISpecifying Multiple Sets of Arguments\fP
+.PP
+It is possible to specify multiple sets of options and arguments with
+the sets separated by single hyphens\&. This differs from groups in that
+sets are considered to be mutually exclusive of each other\&.
+.PP
+Specifications before the first set and from any group are common to
+all sets\&. For example:
 .PP
 .RS
 .nf
@@ -4170,32 +4249,11 @@ possible completions\&.  When it contains `\fB\-d\fP\&' or an argument, the
 option `\fB\-c\fP\&' will not be considered\&.  However, after `\fB\-a\fP'
 both sets will still be considered valid\&.
 .PP
-If an option in a set appears on the command line, it is stored in the
-associative array `\fBopt_args\fP\&' with '\fIset\fP\fB\-\fP\fIoption\fP'
-as a key\&.  In the example above, a key `\fBset1\-\-c\fP\&' is used if the option
-`\fB\-c\fP\&' is on the command line\&.
+As for groups, the name of a set may appear in exclusion lists, either
+alone or preceding a normal option or argument specification\&.
 .PP
-If the name given for one of the mutually exclusive sets is of the form
-`\fB(\fP\fIname\fP\fB)\fP\&' then only one value from each set will ever
-be completed; more formally, all specifications are mutually
-exclusive to all other specifications in the same set\&.  This is
-useful for defining multiple sets of options which are mutually
-exclusive and in which the options are aliases for each other\&.  For
-example:
-.PP
-.RS
-.nf
-\fB_arguments \e 
-    \-a \-b \e 
-  \- \&'(compress)' \e 
-    {\-c,\-\-compress}\&'[compress]' \e 
-  \- \&'(uncompress)' \e 
-    {\-d,\-\-decompress}\&'[decompress]'\fP
-.fi
-.RE
-.PP
-As the completion code has to parse the command line separately for each
-set this form of argument is slow and should only be used when necessary\&.
+The completion code has to parse the command line separately for each
+set\&. This can be slow so sets should only be used when necessary\&.
 A useful alternative is often an option specification with rest\-arguments
 (as in `\fB\-foo:*:\&.\&.\&.\fP\&'); here the option \fB\-foo\fP swallows up all
 remaining arguments as described by the \fIoptarg\fP definitions\&.
@@ -4257,6 +4315,12 @@ If the \fIpattern\fP ends in `\fB(\-)\fP\&', this will be removed from the
 pattern and the \fIaction\fP will be used only directly after the
 `\fB=\fP\&', not in the next word\&.  This is the behaviour of a normal
 specification defined with the form `\fB=\-\fP\&'\&.
+.PP
+By default, the command (with the option `\fB\-\-help\fP\&') is run after
+resetting all the locale categories (except for \fBLC_CTYPE\fP) to `\fBC\fP\&'\&.
+If the localized help output is known to work, the option `\fB\-l\fP\&' can
+be specified after the `\fB_arguments \-\fP\fB\-\fP\&' so that the command is
+run in the current locale\&.
 .PP
 The `\fB_arguments \-\fP\fB\-\fP\&' can be followed by the option `\fB\-i\fP
 \fIpatterns\fP\&' to give patterns for options which are not to be
@@ -4367,7 +4431,7 @@ The return status of \fB_call_function\fP itself is zero if the function
 \fIname\fP exists and was called and non\-zero otherwise\&.
 .RE
 .TP
-\fB_call_program\fP [ \fB\-p\fP ] \fItag\fP \fIstring\fP \&.\&.\&.
+\fB_call_program\fP [ \fB\-l\fP ] [ \fB\-p\fP ] \fItag\fP \fIstring\fP \&.\&.\&.
 This function provides a mechanism for the user to override the use of an
 external command\&.  It looks up the \fBcommand\fP style with the supplied
 \fItag\fP\&.  If the style is set, its value is used as the command to
@@ -4376,6 +4440,11 @@ style if set, are concatenated with spaces between them and the resulting
 string is evaluated\&.  The return status is the return status of the command
 called\&.
 .RS
+.PP
+By default, the command is run in an environment where all the locale
+categories (except for \fBLC_CTYPE\fP) are reset to `\fBC\fP\&' by calling the
+utility function \fB_comp_locale\fP (see below)\&. If the option `\fB\-l\fP\&' is
+given, the command is run with the current locale\&.
 .PP
 If the option `\fB\-p\fP\&' is supplied it indicates that the command
 output is influenced by the permissions it is run with\&. If the
@@ -4406,8 +4475,8 @@ for which completions should be generated (presumably not one of the
 .PP
 The matches generated will be taken from the value of the style\&.  These
 should contain the possible values for the combinations in the appropriate
-order (users, hosts, ports in the example above)\&.  The different fields
-the values for the different fields are separated by colons\&.  This
+order (users, hosts, ports in the example above)\&.
+The values for the different fields are separated by colons\&.  This
 can be altered with the option \fB\-s\fP to \fB_combination\fP which specifies a
 pattern\&.  Typically this is a character class, as for example
 `\fB\-s "[:@]"\fP\&' in the case of the \fBusers\-hosts\fP style\&.    Each
@@ -4437,6 +4506,19 @@ the functions for the fields if they are called\&.
 This function completes words that are valid at command position: names of
 aliases, builtins, hashed commands, functions, and so on\&.  With the \fB\-e\fP
 flag, only hashed commands are completed\&.  The \fB\-\fP flag is ignored\&.
+.TP
+\fB_comp_locale\fP
+This function resets all the locale categories other than \fBLC_CTYPE\fP to
+`\fBC\fP\&' so that the output from external commands can be easily analyzed by
+the completion system\&. \fBLC_CTYPE\fP retains the current value (taking
+\fBLC_ALL\fP and \fBLANG\fP into account), ensuring that non\-ASCII characters
+in file names are still handled properly\&.
+.RS
+.PP
+This function should normally be run only in a subshell, because the new
+locale is exported to the environment\&. Typical usage would be
+`\fB$(_comp_locale; \fP\fIcommand\fP \&.\&.\&.\fB)\fP\&'\&.
+.RE
 .TP
 \fB_completers\fP [ \fB\-p\fP ]
 This function completes names of completers\&.

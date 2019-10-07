@@ -23,7 +23,7 @@
 
 #include <TargetConditionals.h>
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 struct _not_empty;
 #else
 
@@ -219,4 +219,4 @@ udp_in_reset(void)
 	return udp_in_init();
 }
 
-#endif /* TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */

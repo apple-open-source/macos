@@ -34,8 +34,8 @@
 #include <securityd/SecItemSchema.h>
 #include <securityd/SecItemServer.h>
 #include <securityd/SOSCloudCircleServer.h>
-#include <Security/SecureObjectSync/SOSDigestVector.h>
-#include <Security/SecureObjectSync/SOSEngine.h>
+#include "keychain/SecureObjectSync/SOSDigestVector.h"
+#include "keychain/SecureObjectSync/SOSEngine.h"
 #include <Security/SecureObjectSync/SOSViews.h>
 #include <Security/SecBasePriv.h>
 #include <Security/SecItem.h>

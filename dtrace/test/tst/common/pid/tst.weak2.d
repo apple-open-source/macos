@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.weak2.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: check that we prefer weak symbols to local ones
  *

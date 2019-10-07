@@ -39,19 +39,23 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <Security/Authorization.h>
+#include <os/log.h>
 
 struct __DASession
 {
-    CFRuntimeBase      _base;
+    CFRuntimeBase           _base;
 
-    AuthorizationRef   _authorization;
-    CFMachPortRef      _client;
-    char *             _name;
-    pid_t              _pid;
-    mach_port_t        _server;
-    CFRunLoopSourceRef _source;
-    dispatch_source_t  _source2;
-    UInt32             _sourceCount;
+    AuthorizationRef        _authorization;
+    CFMachPortRef           _client;
+    char *                  _name;
+    pid_t                    _pid;
+    mach_port_t             _server;
+    CFRunLoopSourceRef      _source;
+    dispatch_source_t       _source2;
+    UInt32                  _sourceCount;
+    CFMutableDictionaryRef  _register;
+    SInt32                  _registerIndex;
+    pthread_mutex_t         _registerLock;
 };
 
 typedef struct __DASession __DASession;
@@ -132,6 +136,11 @@ static DASessionRef __DASessionCreate( CFAllocatorRef allocator )
         session->_source        = NULL;
         session->_source2       = NULL;
         session->_sourceCount   = 0;
+        session->_register      = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+        session->_registerIndex = 0;
+        pthread_mutex_init( &session->_registerLock, NULL );
+
+        assert( session->_register );
     }
 
     return session;
@@ -148,6 +157,8 @@ static void __DASessionDeallocate( CFTypeRef object )
     if ( session->_authorization )  AuthorizationFree( session->_authorization, kAuthorizationFlagDefaults );
     if ( session->_name          )  free( session->_name );
     if ( session->_server        )  mach_port_deallocate( mach_task_self( ), session->_server );
+    if ( session->_register )       CFRelease( session->_register );
+    pthread_mutex_destroy( &session->_registerLock );
 }
 
 static Boolean __DASessionEqual( CFTypeRef object1, CFTypeRef object2 )
@@ -622,3 +633,135 @@ void DASessionUnscheduleFromRunLoop( DASessionRef session, CFRunLoopRef runLoop,
         _DASessionUnscheduleFromRunLoop( session );
     }
 }
+
+CFMutableDictionaryRef DACallbackCreate( CFAllocatorRef   allocator,
+                                mach_vm_offset_t address,
+                                mach_vm_offset_t context)
+{
+    CFMutableDictionaryRef callback;
+
+    callback = CFDictionaryCreateMutable( allocator, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+
+    if ( callback )
+    {
+        ___CFDictionarySetIntegerValue( callback, _kDACallbackAddressKey, address );
+        ___CFDictionarySetIntegerValue( callback, _kDACallbackContextKey, context );
+    }
+
+    return  callback;
+}
+
+SInt32 DAAddCallbackToSession(DASessionRef session, CFMutableDictionaryRef callback)
+{
+    SInt32 currentIndex = 0;
+    
+    /*
+     * Add the callback dict object to the session's register queue
+     */
+    
+    if ( session )
+    { 
+        pthread_mutex_lock( &session->_registerLock );
+        currentIndex = ++session->_registerIndex;
+        CFNumberRef cfnumber = CFNumberCreate( NULL, kCFNumberSInt32Type, &currentIndex );
+
+        while (CFDictionaryContainsKey( session->_register, cfnumber ))
+        {
+            currentIndex = ++session->_registerIndex;
+            
+            /*
+             * skip 0 as key since it is being used as callback address to server and the server will disregard NULL values.
+             */
+            
+            if ( 0 == currentIndex )
+            {
+                currentIndex = ++session->_registerIndex;
+            }
+            CFRelease( cfnumber );
+            cfnumber = CFNumberCreate( NULL, kCFNumberSInt32Type, &currentIndex );
+        }
+
+        CFDictionarySetValue( session->_register, cfnumber, callback );
+        CFRelease( cfnumber );
+        pthread_mutex_unlock( &session->_registerLock );
+    }
+    return currentIndex;
+}
+
+void DARemoveCallbackFromSessionWithKey(DASessionRef session, SInt32 index)
+{
+    /*
+     * Remove the callback dict object from the session's register queue
+     */
+    
+    if ( session )
+    {
+        CFNumberRef number = CFNumberCreate( NULL, kCFNumberSInt32Type, &index );
+        pthread_mutex_lock( &session->_registerLock );
+        CFDictionaryRemoveValue( session->_register , number );
+        pthread_mutex_unlock( &session->_registerLock );
+        CFRelease( number );
+    }
+}
+
+SInt32 DARemoveCallbackFromSession(DASessionRef session, mach_vm_offset_t address,
+                                mach_vm_offset_t context)
+{
+    SInt32 matchingKey = 0;
+    
+    /*
+     * Remove the callback dict object from the session's register queue
+     * by matching the address and context
+     */
+    
+    if ( session )
+    {
+        pthread_mutex_lock( &session->_registerLock );
+        CFIndex count = CFDictionaryGetCount( session->_register );
+        const void** keys = ( const void** ) malloc( sizeof(void*)*count );
+        const void** values = ( const void** ) malloc( sizeof(void*)*count );
+        SInt32 queueIndex;
+
+        CFDictionaryGetKeysAndValues( session->_register, keys, values );
+        pthread_mutex_unlock( &session->_registerLock );
+        for ( queueIndex = 0; queueIndex < count; queueIndex++ )
+        {
+            CFMutableDictionaryRef callback = ( CFMutableDictionaryRef )( values[queueIndex] );
+            void *currentaddress = ( void * ) ( uintptr_t ) ___CFDictionaryGetIntegerValue( callback, _kDACallbackAddressKey );
+            void *currentcontext = ( void * ) ( uintptr_t ) ___CFDictionaryGetIntegerValue( callback, _kDACallbackContextKey );
+            if ( currentaddress == ( void * ) address && currentcontext ==(void *) context )
+            {
+                CFNumberRef cfnumber =  ( CFNumberRef )( keys[queueIndex] );
+                CFNumberGetValue( cfnumber, kCFNumberSInt32Type, &matchingKey );
+                pthread_mutex_lock( &session->_registerLock );
+                CFDictionaryRemoveValue( session->_register , cfnumber );
+                pthread_mutex_unlock( &session->_registerLock );
+                break;
+            }
+        }
+
+        free( keys );
+        free( values );
+    }
+    return matchingKey;
+}
+
+CFMutableDictionaryRef DAGetCallbackFromSession(DASessionRef session, SInt32 index)
+{
+    CFMutableDictionaryRef callback = 0;
+    
+    /*
+     * Get the callback object from the session's stored callback list
+     */
+    
+    if ( session )
+    {
+        CFNumberRef number = CFNumberCreate( NULL, kCFNumberSInt32Type, &index );
+        pthread_mutex_lock( &session->_registerLock );
+        callback =  CFDictionaryGetValue( session->_register , number );
+        pthread_mutex_unlock( &session->_registerLock );
+        CFRelease( number );
+    }
+    return callback;
+}
+

@@ -44,6 +44,7 @@
 #include <sys/mount.h>
 #include <sys/param.h>
 
+
 static Boolean
 __SCPreferencesLock_helper(SCPreferencesRef prefs, Boolean wait)
 {
@@ -75,7 +76,7 @@ __SCPreferencesLock_helper(SCPreferencesRef prefs, Boolean wait)
 		goto error;
 	}
 
-	prefsPrivate->locked = TRUE;
+	__SCPreferencesUpdateLockedState(prefs, TRUE);
 	return TRUE;
 
     fail :
@@ -223,10 +224,10 @@ has_O_EXLOCK(SCPreferencesPrivateRef prefsPrivate)
 		return FALSE;
 	}
 
-	bzero(&attrs, sizeof(attrs));
+	memset(&attrs, 0, sizeof(attrs));
 	attrs.bitmapcount = ATTR_BIT_MAP_COUNT;
 	attrs.volattr     = ATTR_VOL_INFO | ATTR_VOL_CAPABILITIES;
-	bzero(&attrbuf, sizeof(attrbuf));
+	memset(&attrbuf, 0, sizeof(attrbuf));
 	ret = getattrlist(statbuf.f_mntonname,	// path (of mount point)
 			  &attrs,		// attribute list
 			  &attrbuf,		// attribute buffer
@@ -480,7 +481,7 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 		 */
 		if (stat(prefsPrivate->path, &statBuf) == -1) {
 			if (errno == ENOENT) {
-				bzero(&statBuf, sizeof(statBuf));
+				memset(&statBuf, 0, sizeof(statBuf));
 			} else {
 				SC_log(LOG_INFO, "stat() failed: %s",
 				      strerror(errno));
@@ -515,7 +516,7 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 	SC_log(LOG_DEBUG, "SCPreferences() lock: %s",
 	       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
 
-	prefsPrivate->locked = TRUE;
+	__SCPreferencesUpdateLockedState(prefs, TRUE);
 	pthread_mutex_unlock(&prefsPrivate->lock);
 	return TRUE;
 

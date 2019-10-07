@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Project</key>
+	<string>bless</string>
+	<key>IgnoreOutput</key>
+	<true/>
+	<key>Tests</key>
+	<array>
+		<dict>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/bless/test_bless</string>
+				<string>presubmit</string>
+			</array>
+			<key>TestName</key>
+			<string>bless_presubmit</string>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>/Library/Logs/test_bless/bats_bless_presubmit.log</string>
+			</array>
+			<key>Timeout</key>
+			<integer>600</integer>
+		</dict>
+	</array>
+</dict>
+</plist>

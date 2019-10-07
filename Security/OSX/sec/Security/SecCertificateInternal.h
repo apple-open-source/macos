@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2007-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2007-2019 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -39,16 +39,53 @@
 // This file can only be included under the ios view of the headers.
 // If you're not under that view, we'll forward declare the things you need here.
 #if SECURITY_PROJECT_TAPI_HACKS && SEC_OS_OSX
-typedef enum {
-  NO_ENUM_VALUES,
-} SecCEGeneralNameType; // The real enum values are already declared.
+typedef struct {
+    bool                present;
+    bool                critical;
+    bool                isCA;
+    bool                pathLenConstraintPresent;
+    uint32_t            pathLenConstraint;
+} SecCEBasicConstraints;
 
-typedef struct {} SecCEBasicConstraints;
-typedef struct {} SecCEPolicyConstraints;
-typedef struct {} SecCEPolicyMapping;
-typedef struct {} SecCEPolicyMappings;
-typedef struct {} SecCECertificatePolicies;
-typedef struct {} SecCEInhibitAnyPolicy;
+typedef struct {
+    bool                present;
+    bool                critical;
+    bool                requireExplicitPolicyPresent;
+    uint32_t            requireExplicitPolicy;
+    bool                inhibitPolicyMappingPresent;
+    uint32_t            inhibitPolicyMapping;
+} SecCEPolicyConstraints;
+
+typedef struct {
+    DERItem policyIdentifier;
+    DERItem policyQualifiers;
+} SecCEPolicyInformation;
+
+typedef struct {
+    bool                    present;
+    bool                    critical;
+    size_t                  numPolicies;            // size of *policies;
+    SecCEPolicyInformation  *policies;
+} SecCECertificatePolicies;
+
+typedef struct {
+    DERItem issuerDomainPolicy;
+    DERItem subjectDomainPolicy;
+} SecCEPolicyMapping;
+
+typedef struct {
+    bool                present;
+    bool                critical;
+    size_t            numMappings;            // size of *mappings;
+    SecCEPolicyMapping  *mappings;
+} SecCEPolicyMappings;
+
+typedef struct {
+    bool             present;
+    bool             critical;
+    uint32_t         skipCerts;
+} SecCEInhibitAnyPolicy;
+
 #endif
 
 __BEGIN_DECLS
@@ -59,10 +96,6 @@ CFDataRef SecCertificateGetSubjectKeyID(SecCertificateRef certificate);
 /* Return an array of CFURLRefs each of which is an crl distribution point for
    this certificate. */
 CFArrayRef SecCertificateGetCRLDistributionPoints(SecCertificateRef certificate);
-
-/* Return an array of CFURLRefs each of which is an ocspResponder for this
-   certificate. */
-CFArrayRef SecCertificateGetOCSPResponders(SecCertificateRef certificate);
 
 /* Return an array of CFURLRefs each of which is an caIssuer for this
    certificate. */
@@ -175,6 +208,8 @@ CFAbsoluteTime SecAbsoluteTimeFromDateContent(DERTag tag, const uint8_t *bytes,
 
 bool SecCertificateHasMarkerExtension(SecCertificateRef certificate, CFTypeRef oid);
 
+bool SecCertificateHasOCSPNoCheckMarkerExtension(SecCertificateRef certificate);
+
 typedef OSStatus (*parseGeneralNameCallback)(void *context,
                                              SecCEGeneralNameType type, const DERItem *value);
 OSStatus SecCertificateParseGeneralNameContentProperty(DERTag tag,
@@ -215,6 +250,8 @@ CFArrayRef SecCertificateCopyIPAddressesFromSubject(SecCertificateRef certificat
 CFArrayRef SecCertificateCopyRFC822NamesFromSubject(SecCertificateRef certificate);
 
 CFArrayRef SecCertificateCopyDNSNamesFromSAN(SecCertificateRef certificate);
+
+CFIndex SecCertificateGetUnparseableKnownExtension(SecCertificateRef certificate);
 
 __END_DECLS
 

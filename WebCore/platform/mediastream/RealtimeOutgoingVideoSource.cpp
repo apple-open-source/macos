@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc.
+ * Copyright (C) 2017-2019 Apple Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted, provided that the following conditions
@@ -47,6 +47,10 @@ namespace WebCore {
 RealtimeOutgoingVideoSource::RealtimeOutgoingVideoSource(Ref<MediaStreamTrackPrivate>&& videoSource)
     : m_videoSource(WTFMove(videoSource))
     , m_blackFrameTimer(*this, &RealtimeOutgoingVideoSource::sendOneBlackFrame)
+#if !RELEASE_LOG_DISABLED
+    , m_logger(m_videoSource->logger())
+    , m_logIdentifier(m_videoSource->logIdentifier())
+#endif
 {
 }
 
@@ -186,7 +190,7 @@ void RealtimeOutgoingVideoSource::sendBlackFramesIfNeeded()
         m_blackFrame = createBlackFrame(width, height);
         ASSERT(m_blackFrame);
         if (!m_blackFrame) {
-            RELEASE_LOG(WebRTC, "RealtimeOutgoingVideoSource::sendBlackFramesIfNeeded unable to send black frames");
+            ALWAYS_LOG(LOGIDENTIFIER, "Unable to send black frames");
             return;
         }
     }
@@ -196,7 +200,7 @@ void RealtimeOutgoingVideoSource::sendBlackFramesIfNeeded()
 
 void RealtimeOutgoingVideoSource::sendOneBlackFrame()
 {
-    RELEASE_LOG(MediaStream, "RealtimeOutgoingVideoSource::sendOneBlackFrame");
+    ALWAYS_LOG(LOGIDENTIFIER);
     sendFrame(rtc::scoped_refptr<webrtc::VideoFrameBuffer>(m_blackFrame));
 }
 
@@ -205,10 +209,30 @@ void RealtimeOutgoingVideoSource::sendFrame(rtc::scoped_refptr<webrtc::VideoFram
     MonotonicTime timestamp = MonotonicTime::now();
     webrtc::VideoFrame frame(buffer, m_shouldApplyRotation ? webrtc::kVideoRotation_0 : m_currentRotation, static_cast<int64_t>(timestamp.secondsSinceEpoch().microseconds()));
 
+#if !RELEASE_LOG_DISABLED
+    ++m_frameCount;
+
+    auto delta = timestamp - m_lastFrameLogTime;
+    if (!m_lastFrameLogTime || delta >= 1_s) {
+        if (m_lastFrameLogTime) {
+            INFO_LOG(LOGIDENTIFIER, m_frameCount, " frames sent in ", delta.value(), " seconds");
+            m_frameCount = 0;
+        }
+        m_lastFrameLogTime = timestamp;
+    }
+#endif
+
     auto locker = holdLock(m_sinksLock);
     for (auto* sink : m_sinks)
         sink->OnFrame(frame);
 }
+
+#if !RELEASE_LOG_DISABLED
+WTFLogChannel& RealtimeOutgoingVideoSource::logChannel() const
+{
+    return LogWebRTC;
+}
+#endif
 
 } // namespace WebCore
 

@@ -4,11 +4,7 @@ dnl
 dnl Copyright 2007-2017 by Apple Inc.
 dnl Copyright 1997-2005 by Easy Software Products, all rights reserved.
 dnl
-dnl These coded instructions, statements, and computer programs are the
-dnl property of Apple Inc. and are protected by Federal copyright
-dnl law.  Distribution and use rights are outlined in the file "LICENSE.txt"
-dnl which should have been included with this file.  If this file is
-dnl missing or damaged, see the license at "http://www.cups.org/".
+dnl Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
 dnl
 
 AC_ARG_ENABLE(pam, [  --disable-pam           disable PAM support])
@@ -69,10 +65,22 @@ if test x$enable_pam != xno; then
 			# as Linux distributors move things around...
 			if test "x$with_pam_module" != x; then
 				PAMMOD="pam_${with_pam_module}.so"
-			elif test -f /lib/security/pam_unix2.so; then
-				PAMMOD="pam_unix2.so"
-			elif test -f /lib/security/pam_unix.so; then
-				PAMMOD="pam_unix.so"
+			elif test -f /etc/pam.d/common-auth; then
+				PAMFILE="pam.common"
+			else
+				moddir=""
+				for dir in /lib/security /lib64/security /lib/x86_64-linux-gnu/security /var/lib/pam; do
+					if test -d $dir; then
+						moddir=$dir
+						break;
+					fi
+				done
+
+				if test -f $moddir/pam_unix2.so; then
+					PAMMOD="pam_unix2.so"
+				elif test -f $moddir/pam_unix.so; then
+					PAMMOD="pam_unix.so"
+				fi
 			fi
 
 			if test "x$PAMMOD" = xpam_unix.so; then

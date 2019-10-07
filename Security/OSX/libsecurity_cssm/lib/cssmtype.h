@@ -27,6 +27,7 @@
 #define _CSSMTYPE_H_  1
 
 #include <Security/cssmconfig.h>
+#include <Security/SecAsn1Types.h>
 
 /* ==========================================================================
 	W A R N I N G : CDSA has been deprecated starting with 10.7.  While the
@@ -89,10 +90,8 @@ enum {
 };
 typedef char CSSM_STRING [CSSM_MODULE_STRING_SIZE + 4];
 
-typedef struct cssm_data {
-    CSSM_SIZE Length; /* in bytes */
-    uint8 *Data;
-} CSSM_DATA DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_DATA_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+#define CSSM_DATA SecAsn1Item
+typedef SecAsn1Item *CSSM_DATA_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 typedef struct cssm_guid {
     uint32 Data1;
@@ -1273,7 +1272,8 @@ typedef CSSM_RETURN (CSSMAPI * CSSM_TP_VERIFICATION_RESULTS_CALLBACK)
 	 CSSM_DATA_PTR VerifiedCert) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /* From CL */
-typedef CSSM_DATA CSSM_OID DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_OID_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+#define CSSM_OID SecAsn1Oid
+typedef SecAsn1Oid *CSSM_OID_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_field {
     CSSM_OID FieldOid;

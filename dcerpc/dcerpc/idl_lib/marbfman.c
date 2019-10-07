@@ -125,9 +125,9 @@ void rpc_ss_marsh_change_buff
     if (msp->p_iovec->elt[0].buff_addr != NULL)
     {
         /* Despatch buffer to the comm layer */
-        msp->p_iovec->elt[0].data_len = msp->p_iovec->elt[0].buff_len
+        msp->p_iovec->elt[0].data_len = (unsigned32) (msp->p_iovec->elt[0].buff_len
               - (msp->p_iovec->elt[0].data_addr - msp->p_iovec->elt[0].buff_addr)
-                                    - msp->space_in_buff;
+                                    - msp->space_in_buff);
         rpc_call_transmit ( msp->call_h, msp->p_iovec, msp->p_st );
 
 #ifdef NO_EXCEPTIONS
@@ -163,14 +163,15 @@ void rpc_ss_marsh_change_buff
     msp->p_iovec->elt[0].buff_dealloc = (rpc_ss_dealloc_t)free;
     msp->p_iovec->elt[0].flags = 0;
     msp->p_iovec->elt[0].buff_addr = wp_buff;
-    msp->p_iovec->elt[0].buff_len = req_buff_size;
+    msp->p_iovec->elt[0].buff_len = (unsigned32) req_buff_size;
     /* malloc may not deliver 8-byte aligned memory */
     wp_buff = (byte_p_t)(((wp_buff - (byte_p_t)0) + 7) & ~7);
     msp->p_iovec->elt[0].data_addr = wp_buff + preserved_offset;
     /* Output parameters */
     msp->mp = (rpc_mp_t)msp->p_iovec->elt[0].data_addr;
-    msp->space_in_buff = req_buff_size -
-                 (msp->p_iovec->elt[0].data_addr - msp->p_iovec->elt[0].buff_addr);
+    
+    msp->space_in_buff = (unsigned32) (req_buff_size -
+                  (msp->p_iovec->elt[0].data_addr - msp->p_iovec->elt[0].buff_addr));
 
 #ifdef PERFMON
     RPC_SS_MARSH_CHANGE_BUFF_X;

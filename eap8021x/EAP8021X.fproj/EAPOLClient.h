@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,12 +23,17 @@
 
 #ifndef _EAP8021X_EAPOLCLIENT_H
 #define _EAP8021X_EAPOLCLIENT_H
+
+#include <TargetConditionals.h>
+#include <os/availability.h>
 #include <CoreFoundation/CFBase.h>
 #include <CoreFoundation/CFDictionary.h>
 
 typedef struct EAPOLClient_s EAPOLClient, * EAPOLClientRef;
+
 typedef void (EAPOLClientCallBack) (EAPOLClientRef client, Boolean server_died,
 				    void * context);
+
 typedef EAPOLClientCallBack * EAPOLClientCallBackRef;
 
 Boolean
@@ -51,9 +56,7 @@ EAPOLClientReportStatus(EAPOLClientRef client, CFDictionaryRef status_dict);
 int
 EAPOLClientForceRenew(EAPOLClientRef client);
 
-#if ! TARGET_OS_EMBEDDED
 int
-EAPOLClientUserCancelled(EAPOLClientRef client);
-#endif /* ! TARGET_OS_EMBEDDED */
+EAPOLClientUserCancelled(EAPOLClientRef client) API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos);
 
 #endif /* _EAP8021X_EAPOLCONTROL_H */

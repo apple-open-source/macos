@@ -7,7 +7,7 @@
 #include <Foundation/Foundation.h>
 #include <Security/Security.h>
 
-#include "SecRecoveryKey.h"
+#include <Security/SecRecoveryKey.h>
 #include "shared_regressions.h"
 
 int rk_01_recoverykey(int argc, char *const *argv)
@@ -45,7 +45,7 @@ int rk_01_recoverykey(int argc, char *const *argv)
         NSString *knownPublicKey = obj[@"publicKey"];
         NSString *knownPrivateKey = obj[@"privateKey"];
         NSString *knownPassword = obj[@"password"];
-#if !(defined(__i386__) || TARGET_IPHONE_SIMULATOR || TARGET_OS_BRIDGE)
+#if !(defined(__i386__) || TARGET_OS_SIMULATOR || TARGET_OS_BRIDGE)
         NSString *knownMasterID = obj[@"masterID"];
 #endif
 
@@ -68,7 +68,7 @@ int rk_01_recoverykey(int argc, char *const *argv)
         ok(recoveryPassword, "got account recovery password");
 
         ok([recoveryPassword isEqualToString:knownPassword], "password same: %@", recoveryPassword);
-#if defined(__i386__) || TARGET_IPHONE_SIMULATOR || TARGET_OS_BRIDGE
+#if defined(__i386__) || TARGET_OS_SIMULATOR || TARGET_OS_BRIDGE
         ok(true, "skipping recovery verifier test for unsupported platform");
 #else
         NSDictionary *recoveryVerifier = SecRKCopyAccountRecoveryVerifier(recoveryKey, NULL);

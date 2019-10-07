@@ -36,17 +36,6 @@ namespace Display {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(Box);
 
-Box::Rect::Rect(LayoutUnit top, LayoutUnit left, LayoutUnit width, LayoutUnit height)
-    : m_rect(left, top, width, height)
-{
-#if !ASSERT_DISABLED
-    m_hasValidTop = true;
-    m_hasValidLeft = true;
-    m_hasValidWidth = true;
-    m_hasValidHeight = true;
-#endif
-}
-
 Box::Box(const RenderStyle& style)
     : m_style(style)
 {
@@ -60,7 +49,7 @@ Box::Box(const Box& other)
     , m_horizontalMargin(other.m_horizontalMargin)
     , m_verticalMargin(other.m_verticalMargin)
     , m_horizontalComputedMargin(other.m_horizontalComputedMargin)
-    , m_estimatedMarginBefore(other.m_estimatedMarginBefore)
+    , m_hasClearance(other.m_hasClearance)
     , m_border(other.m_border)
     , m_padding(other.m_padding)
 #if !ASSERT_DISABLED
@@ -74,6 +63,7 @@ Box::Box(const Box& other)
     , m_hasValidPadding(other.m_hasValidPadding)
     , m_hasValidContentHeight(other.m_hasValidContentHeight)
     , m_hasValidContentWidth(other.m_hasValidContentWidth)
+    , m_hasEstimatedMarginBefore(other.m_hasEstimatedMarginBefore)
 #endif
 {
 }
@@ -87,7 +77,7 @@ Box::Style::Style(const RenderStyle& style)
 {
 }
 
-Box::Rect Box::marginBox() const
+Rect Box::marginBox() const
 {
     auto borderBox = this->borderBox();
 
@@ -99,7 +89,7 @@ Box::Rect Box::marginBox() const
     return marginBox;
 }
 
-Box::Rect Box::nonCollapsedMarginBox() const
+Rect Box::nonCollapsedMarginBox() const
 {
     auto borderBox = this->borderBox();
 
@@ -111,7 +101,7 @@ Box::Rect Box::nonCollapsedMarginBox() const
     return marginBox;
 }
 
-Box::Rect Box::borderBox() const
+Rect Box::borderBox() const
 {
     Rect borderBox;
     borderBox.setTopLeft({ });
@@ -119,7 +109,7 @@ Box::Rect Box::borderBox() const
     return borderBox;
 }
 
-Box::Rect Box::paddingBox() const
+Rect Box::paddingBox() const
 {
     auto borderBox = this->borderBox();
 
@@ -131,7 +121,7 @@ Box::Rect Box::paddingBox() const
     return paddingBox;
 }
 
-Box::Rect Box::contentBox() const
+Rect Box::contentBox() const
 {
     Rect contentBox;
     contentBox.setTop(contentBoxTop());

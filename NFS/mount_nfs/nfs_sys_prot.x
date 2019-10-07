@@ -187,6 +187,10 @@ const NFS_MATTR_MNTFROM			= 23;	/* fixed string to use for "f_mntfromname" */
 const NFS_MATTR_REALM			= 24;	/* Kerberos realm to use for authentication */
 const NFS_MATTR_PRINCIPAL		= 25;	/* Principal to use for the mount */
 const NFS_MATTR_SVCPRINCIPAL		= 26;	/* Kerberos principal of the server */
+const NFS_MATTR_NFS_VERSION_RANGE	= 27;	/* Packed version range to try */
+const NFS_MATTR_KERB_ETYPE		= 28;	/* Enctype to use for kerberos mounts */
+const NFS_MATTR_LOCAL_NFS_PORT		= 29;	/* Local transport (socket) address for NFS protocol */
+const NFS_MATTR_LOCAL_MOUNT_PORT	= 30;	/* Local transport (socket) address for MOUNT protocol */
 
 /*
  * Mount flags

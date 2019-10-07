@@ -37,7 +37,6 @@
 #include "sessionTracer.h"
 #include "ppp_manager.h"
 #include "ppp_option.h"
-#include "../Drivers/PPTP/PPTP-plugin/pptp.h"
 #include "../Drivers/L2TP/L2TP-plugin/l2tp.h"
 #include "../Drivers/PPPoE/PPPoE-extension/PPPoE.h"
 #include "scnc_utils.h"
@@ -64,8 +63,6 @@ sessionGetType (struct service *serv)
 		case TYPE_PPP:
 			switch (serv->subtype) {
 				case PPP_TYPE_L2TP:
-					return nullString;
-				case PPP_TYPE_PPTP:
 					return nullString;
 				case PPP_TYPE_PPPoE:
 					return PPPOENONVPN;

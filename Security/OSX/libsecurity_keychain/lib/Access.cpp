@@ -27,11 +27,10 @@
 #include <security_keychain/Access.h>
 #include <Security/SecBase.h>
 #include "SecBridge.h"
-#include <security_utilities/devrandom.h>
-#include <security_cdsa_utilities/uniformrandom.h>
+#include <Security/SecRandom.h>
 #include <security_cdsa_client/aclclient.h>
 #include <vector>
-#include <SecBase.h>
+#include <Security/SecBase.h>
 using namespace KeychainCore;
 using namespace CssmClient;
 
@@ -364,8 +363,9 @@ Access::Maker::Maker(Allocator &alloc, MakerType makerType)
 	{
 		// generate random key
 		mKey.malloc(keySize);
-		UniformRandomBlobs<DevRandomGenerator>().random(mKey.get());
-		
+        CssmData data = mKey.get();
+        MacOSError::check(SecRandomCopyBytes(kSecRandomDefault, data.length(), data.data()));
+        
 		// create entry info for resource creation
 		mInput = AclEntryPrototype(TypedList(allocator, CSSM_ACL_SUBJECT_TYPE_PASSWORD,
 			new(allocator) ListElement(mKey.get())));

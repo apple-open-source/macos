@@ -51,6 +51,7 @@
 #include <vproc_priv.h>
 #include <libkern/OSAtomic.h>
 #include "daemon.h"
+#include "asl_ipc.h"
 
 /* global */
 extern bool dryrun;
@@ -61,21 +62,6 @@ extern dispatch_queue_t work_queue;
 static mach_port_t asl_server_port;
 static aslclient aslc;
 static int asl_aux_fd = -1;
-
-extern kern_return_t _asl_server_query
-(
- mach_port_t server,
- caddr_t request,
- mach_msg_type_number_t requestCnt,
- uint64_t startid,
- int count,
- int flags,
- caddr_t *reply,
- mach_msg_type_number_t *replyCnt,
- uint64_t *lastid,
- int *status,
- security_token_t *token
- );
 
 const char *
 keep_str(uint8_t mask)
@@ -1150,26 +1136,6 @@ process_asl_data_store(asl_out_dst_data_t *dst, asl_out_dst_data_t *opts)
 	return 0;
 }
 
-static asl_out_file_list_t *
-_remove_youngest_activity_tracing_file(asl_out_file_list_t *l)
-{
-	asl_out_file_list_t *f;
-
-	/* ignore youngest activity tracing file - it is the active file */
-	if (l->next == NULL)
-	{
-		debug_log(ASL_LEVEL_INFO, "    ignore youngest (only) activity tracing file %s\n", l->name);
-		asl_out_file_list_free(l);
-		return NULL;
-	}
-
-	for (f = l; f->next->next != NULL; f = f->next);
-	debug_log(ASL_LEVEL_INFO, "    ignore youngest activity tracing file %s\n", f->next->name);
-	asl_out_file_list_free(f->next);
-	f->next = NULL;
-	return l;
-}
-
 /* move sequenced source files to dst dir, renaming as we go */
 int
 module_copy_rename(asl_out_dst_data_t *dst)
@@ -1234,11 +1200,6 @@ module_copy_rename(asl_out_dst_data_t *dst)
 	}
 
 	dst_list = asl_list_dst_files(dst);
-
-	if ((dst_list != NULL) && (dst->flags & MODULE_FLAG_ACTIVITY))
-	{
-		dst_list = _remove_youngest_activity_tracing_file(dst_list);
-	}
 
 	dst_dir = dst->rotate_dir;
 	if (dst_dir == NULL) dst_dir = dst->dir;
@@ -1385,11 +1346,6 @@ module_expire(asl_out_dst_data_t *dst, asl_out_dst_data_t *opts)
 
 	dst_list = asl_list_dst_files(dst);
 
-	if ((dst_list != NULL) && (dst->flags & MODULE_FLAG_ACTIVITY))
-	{
-		dst_list = _remove_youngest_activity_tracing_file(dst_list);
-	}
-
 	*base = '\0';
 
 	dst_dir = dst->rotate_dir;
@@ -1449,12 +1405,6 @@ module_check_size(asl_out_dst_data_t *dst, asl_out_dst_data_t *opts, bool query,
 	if (all_max == 0) return 0;
 
 	dst_list = asl_list_dst_files(dst);
-
-	if ((dst_list != NULL) && (dst->flags & MODULE_FLAG_ACTIVITY))
-	{
-		dst_list = _remove_youngest_activity_tracing_file(dst_list);
-	}
-
 	if (dst_list == NULL)
 	{
 		debug_log(ASL_LEVEL_INFO, "    no dst files\n");
@@ -1512,7 +1462,7 @@ process_dst(asl_out_dst_data_t *dst, asl_out_dst_data_t *opts)
 
 		module_copy_rename(dst);
 
-		if (ttl > 0)
+		if ((ttl > 0) && !(dst->flags & MODULE_FLAG_SIZE_ONLY))
 		{
 			char tstr[150];
 
@@ -1560,57 +1510,6 @@ process_module(asl_out_module_t *mod, asl_out_dst_data_t *opts)
 	return 0;
 }
 
-int
-cache_delete_task(bool query, size_t *size)
-{
-	dispatch_sync(work_queue, ^{
-		asl_out_module_t *mod, *m;
-		asl_out_dst_data_t opts;
-		size_t total_size = 0;
-
-		memset(&opts, 0, sizeof(opts));
-		if ((!query) && (size != NULL)) opts.all_max = *size;
-
-		debug_log(ASL_LEVEL_NOTICE, "cache_delete_process%s size %lu\n", query ? " query" : "", opts.all_max);
-
-		mod = asl_out_module_init();
-
-		for (m = mod; m != NULL; m = m->next)
-		{
-			bool logged = false;
-			asl_out_rule_t *r;
-
-			for (r = m->ruleset; r != NULL; r = r->next)
-			{
-				if (r->action == ACTION_OUT_DEST)
-				{
-					if (r->dst->flags & MODULE_FLAG_ACTIVITY)
-					{
-						if (!logged)
-						{
-							debug_log(ASL_LEVEL_NOTICE, "----------------------------------------\n");
-							debug_log(ASL_LEVEL_NOTICE, "Processing activity module %s\n", (m->name == NULL) ? "asl.conf" : m->name);
-							logged = true;
-						}
-
-						size_t dsize = 0;
-						module_check_size(r->dst, &opts, false, &dsize);
-						total_size += dsize;
-					}
-				}
-			}
-
-			if (logged) debug_log(ASL_LEVEL_NOTICE, "Finished processing activity module %s\n", (m->name == NULL) ? "asl.conf" : m->name);
-		}
-
-		asl_out_module_free(mod);
-
-		if (size != NULL) *size = total_size;
-	});
-
-	return 0;
-}
-
 asl_msg_list_t *
 control_query(asl_msg_t *a)
 {
@@ -1620,7 +1519,6 @@ control_query(asl_msg_t *a)
 	uint64_t cmax, qmin;
 	kern_return_t kstatus;
 	caddr_t vmstr;
-	security_token_t sec;
 
 	if (asl_server_port == MACH_PORT_NULL)
 	{
@@ -1648,8 +1546,6 @@ control_query(asl_msg_t *a)
 	out = NULL;
 	qmin = 0;
 	cmax = 0;
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 
 	res = NULL;
 	reslen = 0;
@@ -1662,7 +1558,7 @@ control_query(asl_msg_t *a)
 	free(str);
 
 	status = 0;
-	kstatus = _asl_server_query(asl_server_port, vmstr, len, qmin, 1, 0, (caddr_t *)&res, &reslen, &cmax, (int *)&status, &sec);
+	kstatus = _asl_server_query_2(asl_server_port, vmstr, len, qmin, 1, 0, (caddr_t *)&res, &reslen, &cmax, (int *)&status);
 	if (kstatus != KERN_SUCCESS) return NULL;
 
 	if (res == NULL) return NULL;

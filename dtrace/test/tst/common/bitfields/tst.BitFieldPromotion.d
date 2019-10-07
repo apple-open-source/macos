@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.BitFieldPromotion.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Bit-field will be automatically promoted to the next largest
  * integer type for use in any expression and then the value assigned will

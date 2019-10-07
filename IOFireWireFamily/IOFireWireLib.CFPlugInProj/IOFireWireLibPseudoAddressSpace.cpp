@@ -31,7 +31,9 @@
 #import "IOFireWireLibPseudoAddressSpace.h"
 #import "IOFireWireLibDevice.h"
 
+#if !defined(__LP64__)
 #import <IOKit/iokitmig.h>
+#endif
 #import <System/libkern/OSCrossEndian.h>
 
 namespace IOFireWireLib {

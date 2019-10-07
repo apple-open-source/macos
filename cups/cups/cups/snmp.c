@@ -1,16 +1,11 @@
 /*
  * SNMP functions for CUPS.
  *
- * Copyright 2007-2014 by Apple Inc.
- * Copyright 2006-2007 by Easy Software Products, all rights reserved.
+ * Copyright © 2007-2014 by Apple Inc.
+ * Copyright © 2006-2007 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * "LICENSE" which should have been included with this file.  If this
- * file is missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 /*
@@ -19,6 +14,7 @@
 
 #include "cups-private.h"
 #include "snmp-private.h"
+#include "debug-internal.h"
 #ifdef HAVE_POLL
 #  include <poll.h>
 #endif /* HAVE_POLL */
@@ -133,9 +129,13 @@ _cupsSNMPDefaultCommunity(void)
     {
       linenum = 0;
       while (cupsFileGetConf(fp, line, sizeof(line), &value, &linenum))
-	if (!_cups_strcasecmp(line, "Community") && value)
+	if (!_cups_strcasecmp(line, "Community"))
 	{
-	  strlcpy(cg->snmp_community, value, sizeof(cg->snmp_community));
+	  if (value)
+	    strlcpy(cg->snmp_community, value, sizeof(cg->snmp_community));
+	  else
+	    cg->snmp_community[0] = '\0';
+
 	  break;
 	}
 
@@ -395,11 +395,11 @@ _cupsSNMPRead(int         fd,		/* I - SNMP socket file descriptor */
 
       ready = select(fd + 1, &input_set, NULL, NULL, &stimeout);
     }
-#  ifdef WIN32
+#  ifdef _WIN32
     while (ready < 0 && WSAGetLastError() == WSAEINTR);
 #  else
     while (ready < 0 && (errno == EINTR || errno == EAGAIN));
-#  endif /* WIN32 */
+#  endif /* _WIN32 */
 #endif /* HAVE_POLL */
 
    /*
@@ -1242,10 +1242,10 @@ asn1_get_integer(
     return (0);
   }
 
-  for (value = (**buffer & 0x80) ? -1 : 0;
+  for (value = (**buffer & 0x80) ? ~0 : 0;
        length > 0 && *buffer < bufend;
        length --, (*buffer) ++)
-    value = (value << 8) | **buffer;
+    value = ((value & 0xffffff) << 8) | **buffer;
 
   return (value);
 }
@@ -1635,7 +1635,7 @@ asn1_size_length(unsigned length)	/* I - Length value */
 
 
 /*
- * 'asn1_size_oid()' - Figure out the numebr of bytes needed for an
+ * 'asn1_size_oid()' - Figure out the number of bytes needed for an
  *                     OID value.
  */
 

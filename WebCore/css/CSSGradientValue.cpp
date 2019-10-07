@@ -64,7 +64,7 @@ RefPtr<Image> CSSGradientValue::image(RenderElement& renderer, const FloatSize& 
     auto newImage = GradientImage::create(createGradient(*this, renderer, size), size);
     if (cacheable)
         saveCachedImageForSize(size, newImage.get());
-    return WTFMove(newImage);
+    return newImage;
 }
 
 // Should only ever be called for deprecated gradients.
@@ -693,7 +693,7 @@ String CSSLinearGradientValue::customCSSText() const
                 result.append(')');
             } else {
                 result.appendLiteral("color-stop(");
-                result.appendNumber(position);
+                result.appendFixedPrecisionNumber(position);
                 result.appendLiteral(", ");
                 result.append(stop.m_color->cssText());
                 result.append(')');
@@ -974,7 +974,7 @@ String CSSRadialGradientValue::customCSSText() const
                 result.append(')');
             } else {
                 result.appendLiteral("color-stop(");
-                result.appendNumber(position);
+                result.appendFixedPrecisionNumber(position);
                 result.appendLiteral(", ");
                 result.append(stop.m_color->cssText());
                 result.append(')');

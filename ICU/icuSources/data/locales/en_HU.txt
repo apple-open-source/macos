@@ -10,6 +10,7 @@ en_HU{
     NumberElements{
         latn{
             symbols{
+                decimal{","}
                 group{" "}
             }
         }

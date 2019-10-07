@@ -146,6 +146,7 @@ static int tag_batch_num = 0;
 #include <mach/vm_param.h>	/* for max_mem */
 
 #include <vm/vm_kern.h>
+#include <vm/vm_pageout.h>
 
 #include <libkern/libkern.h>
 #include <libkern/OSAtomic.h>
@@ -400,13 +401,7 @@ struct BC_cache_control {
 	/* fields below are accessed atomically */
 	
 	/* flags */
-	u_int		c_flags;
-#define	BC_FLAG_SETUP			(1 << 0)	/* cache setup properly during mount */
-#define	BC_FLAG_CACHEACTIVE		(1 << 1)	/* cache is active, owns memory */
-#define	BC_FLAG_HISTORYACTIVE	(1 << 2)	/* currently recording history */
-#define	BC_FLAG_HTRUNCATED		(1 << 3)	/* history list truncated */
-#define	BC_FLAG_SHUTDOWN		(1 << 4)	/* readahead shut down */
-#define	BC_FLAG_OPTIMIZATION_COMPLETE (1 << 5)	/* APFS optimization based on BootCache data has completed */
+	u_int		c_flags; // See cache flags in private.h
 	u_int		c_strategycalls;	/* count of busy strategy calls in the cache */
 	
 	uint32_t  c_readahead_throttles_cutthroughs;
@@ -481,7 +476,7 @@ struct BC_cache_control {
 CB_MAPFIELDBITS))))
 
 /* Maximum size of the boot cache */
-#define BC_MAX_SIZE (max_mem / 2)
+#define BC_MAX_SIZE (max_mem)
 
 /*
  * Sanity macro, frees and zeroes a pointer if it is not already zeroed.
@@ -565,13 +560,13 @@ static int	BC_blocks_present(struct BC_cache_extent *ce, u_int64_t base, u_int64
 static void	BC_reader_thread(void *param0, wait_result_t param1);
 static int	BC_strategy(struct buf *bp);
 static int	BC_close(dev_t dev, int flags, int devtype, struct proc *p);
-static int	BC_terminate_readahead(void);
-static int	BC_terminate_cache(void);
-static int	BC_terminate_history(void);
-static void	BC_terminate_cache_async(void);
+static int	BC_terminate_readahead(const char* reason);
+static int	BC_terminate_cache(const char* reason);
+static int	BC_terminate_history(const char* reason);
+static void	BC_terminate_cache_async(const char* reason);
 static void	BC_check_handlers(void);
 static void	BC_next_valid_range(struct BC_cache_mount *cm, struct BC_cache_extent *ce, u_int64_t fromoffset,
-								u_int64_t *nextpage, u_int64_t *nextoffset, u_int64_t *nextlength);
+								u_int64_t *nextpage, u_int64_t *nextoffsetinpage, u_int64_t *nextlength);
 static int	BC_setup_disk(struct BC_cache_disk *cd, u_int64_t disk_id, int is_ssd);
 static void	BC_teardown_disk(struct BC_cache_disk *cd);
 static void	BC_mount_available(struct BC_cache_mount *cm);
@@ -1142,7 +1137,7 @@ BC_discard_bytes(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length)
  * Values are returned by out parameters:
  * 	'nextpage' takes the page containing the start of the next run, or
  * 		-1 if no more runs are to be found.
- * 	'nextoffset' takes the offset into that page that the run begins.
+ * 	'nextoffsetinpage' takes the offset into that page that the run begins.
  * 	'nextlength' takes the length in bytes of the range, capped at maxread.
  *
  * In other words, for this blockmap, if
@@ -1156,7 +1151,7 @@ BC_discard_bytes(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length)
  */
 static void 
 BC_next_valid_range(struct BC_cache_mount *cm, struct BC_cache_extent *ce, u_int64_t fromoffset,
-					u_int64_t *nextpage, u_int64_t *nextoffset, u_int64_t *nextlength)
+					u_int64_t *nextpage, u_int64_t *nextoffsetinpage, u_int64_t *nextlength)
 {
 	u_int64_t maxblks, i, nextblk = 0;
 	int found = 0;
@@ -1179,7 +1174,7 @@ BC_next_valid_range(struct BC_cache_mount *cm, struct BC_cache_extent *ce, u_int
 	if (found) {
 		/* found a valid range, so convert to (page, offset, length) */
 		*nextpage = CB_BLOCK_TO_PAGE(cm, nextblk);
-		*nextoffset = CB_BLOCK_TO_BYTE(cm, nextblk) % PAGE_SIZE;
+		*nextoffsetinpage = CB_BLOCK_TO_BYTE(cm, nextblk) % PAGE_SIZE;
 		*nextlength = MIN(CB_BLOCK_TO_BYTE(cm, found), cm->cm_maxread);
 	} else {
 		*nextpage = -1;
@@ -1216,6 +1211,8 @@ BC_blocks_present(struct BC_cache_extent *ce, u_int64_t base, u_int64_t nblk)
 static void
 BC_reader_thread(void *param0, wait_result_t param1)
 {
+	thread_set_thread_name(current_thread(), "BootCache reader");
+
 	struct BC_cache_disk *cd = NULL;
 	struct BC_cache_mount *cm = NULL;
 	struct BC_cache_extent *ce = NULL;
@@ -1232,9 +1229,13 @@ BC_reader_thread(void *param0, wait_result_t param1)
 	cd = (struct BC_cache_disk*) param0;
 	
 	num_mounts = cd->cd_nmounts;
+	
+	const char* termination_reason = NULL;
 		
-	if (BC_cache->c_flags & BC_FLAG_SHUTDOWN)
+	if (BC_cache->c_flags & BC_FLAG_SHUTDOWN) {
+		termination_reason = "shutdown before playback began";
 		goto out;
+	}
 	
 	for (;;) {
 				
@@ -1323,38 +1324,57 @@ BC_reader_thread(void *param0, wait_result_t param1)
 				
 				for (;;) {
 					u_int64_t nextpage;
-					u_int64_t nextoffset;
+					u_int64_t nextoffsetinpage;
 					u_int64_t nextlength;
 					
 					/* requested shutdown */
 					if (BC_cache->c_flags & BC_FLAG_SHUTDOWN) {
 						UNLOCK_MOUNT_R(cm);
+						// termination reason is set by whoever set the shutdown flag
 						goto out;
 					}
 					
+					
+					unsigned int pressure_level = kVMPressureNormal;
+					kern_return_t ret = mach_vm_pressure_level_monitor(false, &pressure_level);
+					if (ret == KERN_SUCCESS) {
+						if (pressure_level != kVMPressureNormal) {
+							UNLOCK_MOUNT_R(cm);
+							message("Stopping playback due to memory pressure level %d", pressure_level);
+							termination_reason = "memory pressure";
+							goto out;
+						}
+					} else {
+						static bool logged_pressure_err = false;
+						if (!logged_pressure_err) {
+							message("Got error checking memory pressure: %d", ret);
+							logged_pressure_err = true;
+						}
+					}
 					
 					/*
 					 * Find the next set of blocks that haven't been invalidated
 					 * for this extent.
 					 */
-					BC_next_valid_range(cm, ce, fromoffset, &nextpage, &nextoffset, &nextlength);
+					BC_next_valid_range(cm, ce, fromoffset, &nextpage, &nextoffsetinpage, &nextlength);
 					/* no more blocks to be read */
 					if (nextpage == -1)
 						break;
 					
 					/* set up fromoffset to read the next segment of the extent */
-					fromoffset = (nextpage * PAGE_SIZE) + nextoffset + nextlength;
+					fromoffset = (nextpage * PAGE_SIZE) + nextoffsetinpage + nextlength;
 					
 					kret = vnode_getwithvid(BC_cache->c_vp, BC_cache->c_vid);
 					if (kret != KERN_SUCCESS) {
 						UNLOCK_MOUNT_R(cm);
 						message("reader thread: vnode_getwithvid failed - %d\n", kret);
+						termination_reason = "vnode_getwithvid failed";
 						goto out;
 					}
 					
 					kret = ubc_create_upl(BC_cache->c_vp, 
 										  ce->ce_cacheoffset + (nextpage * PAGE_SIZE), 
-										  (int) roundup(nextoffset + nextlength, PAGE_SIZE), 
+										  (int) roundup(nextoffsetinpage + nextlength, PAGE_SIZE),
 										  &upl, 
 										  NULL, 
 										  UPL_SET_LITE|UPL_FILE_IO);
@@ -1362,6 +1382,7 @@ BC_reader_thread(void *param0, wait_result_t param1)
 						UNLOCK_MOUNT_R(cm);
 						message("ubc_create_upl returned %d\n", kret);
 						(void) vnode_put(BC_cache->c_vp);
+						termination_reason = "upl creation failed";
 						goto out;
 					}
 					
@@ -1370,15 +1391,15 @@ BC_reader_thread(void *param0, wait_result_t param1)
 					 * so we don't need the write lock to modify it */
 					
 					/* set buf to fill the requested subset of the upl */
-					buf_setblkno(cm->cm_bp, CB_BYTE_TO_BLOCK(cm, ce->ce_diskoffset + nextoffset) + CB_PAGE_TO_BLOCK(cm, nextpage));
+					buf_setblkno(cm->cm_bp, CB_BYTE_TO_BLOCK(cm, ce->ce_diskoffset + nextoffsetinpage) + CB_PAGE_TO_BLOCK(cm, nextpage));
 					buf_setcount(cm->cm_bp, (unsigned int) nextlength);
-					buf_setupl(cm->cm_bp, upl, (unsigned int) nextoffset);
+					buf_setupl(cm->cm_bp, upl, (unsigned int) nextoffsetinpage);
 					buf_setresid(cm->cm_bp, buf_count(cm->cm_bp));	/* ask for residual indication */
 					buf_reset(cm->cm_bp, B_READ);
 
 					if (cm->cm_fs_flags & BC_FS_APFS_ENCRYPTED) {
 						/* set bufattr crypto_offset */
-						bufattr_setcpoff(buf_attr(cm->cm_bp), ce->ce_crypto_offset + nextoffset + nextpage * PAGE_SIZE);
+						bufattr_setcpoff(buf_attr(cm->cm_bp), ce->ce_crypto_offset + nextoffsetinpage + (nextpage * PAGE_SIZE));
 					}
 
 					/* If this is regular readahead, make sure any throttled IO are throttled by the readahead thread rdar://8592635
@@ -1430,7 +1451,7 @@ BC_reader_thread(void *param0, wait_result_t param1)
 							  (long)buf_blkno(cm->cm_bp), (long)buf_count(cm->cm_bp),
 							  buf_flags(cm->cm_bp));
 						
-						count = BC_discard_bytes(ce, ce->ce_diskoffset + nextoffset, nextlength);
+						count = BC_discard_bytes(ce, ce->ce_diskoffset + (nextpage * PAGE_SIZE) + nextoffsetinpage, nextlength);
 						debug("read error: discarded %llu bytes", count);
 						BC_ADD_STAT(is_shared, read_errors, 1);
 						BC_ADD_STAT(is_shared, read_errors_bytes, count);
@@ -1565,6 +1586,7 @@ BC_reader_thread(void *param0, wait_result_t param1)
 						/* we're done */
 						cd->cd_flags &= (~CD_HAS_THREAD);
 						UNLOCK_DISK(cd);
+						termination_reason = "playback completed successfully";
 						goto out;
 					}
 				} else {
@@ -1642,7 +1664,10 @@ out:
 		UNLOCK_CACHE_R();
 	}
 	
-	
+	if (termination_reason) {
+		strncpy(BC_cache->c_stats.ss_playback_end_reason, termination_reason, sizeof(BC_cache->c_stats.ss_playback_end_reason));
+	}
+
 	debug("disk %d done", cd->cd_disk_num);
 	
 	/* wake up someone that might be waiting for this reader thread to exit */
@@ -1751,12 +1776,12 @@ BC_close(dev_t dev, int flags, int devtype, struct proc *p)
 					if (shrunkArray) {
 						
 						// Copy all noncached mounts before noncached_mount_idx
-						memcpy(shrunkArray, BC_cache->c_noncached_mounts, sizeof(*shrunkArray) * noncached_mount_idx);
+						memmove(shrunkArray, BC_cache->c_noncached_mounts, sizeof(*shrunkArray) * noncached_mount_idx);
 						
 						// Copy all noncached mounts after noncached_mount_idx
 						int numMountsAfterwards = BC_cache->c_noncached_nmounts - (noncached_mount_idx + 1);
 						if (numMountsAfterwards > 0) {
-							memcpy(shrunkArray + noncached_mount_idx, BC_cache->c_noncached_mounts + (noncached_mount_idx + 1), sizeof(*shrunkArray) * numMountsAfterwards);
+							memmove(shrunkArray + noncached_mount_idx, BC_cache->c_noncached_mounts + (noncached_mount_idx + 1), sizeof(*shrunkArray) * numMountsAfterwards);
 						}
 						
 						debug("Removed dev %#x -> group %s at index %d", BC_cache->c_noncached_mounts[noncached_mount_idx].nm_dev, uuid_string(BC_cache->c_noncached_mounts[noncached_mount_idx].nm_group_uuid), noncached_mount_idx);
@@ -1889,7 +1914,7 @@ BC_strategy(struct buf *bp)
 	int cm_idx = -1, ce_idx;
 	dev_t dev;
 	int32_t bufflags;
-	int during_cache = 0, during_io = 0, take_detailed_stats = 0, cache_hit = 0;
+	int in_flight = 0, cache_active = 0, during_io = 0, take_detailed_stats = 0, cache_hit = 0;
 	int cache_miss_due_to_crypto_mismatch = 0, cache_miss_with_intersection = 0;
 	int is_rejected, did_block, status;
 	int is_shared = 0, is_swap = 0;
@@ -1905,6 +1930,7 @@ BC_strategy(struct buf *bp)
 	bufattr_t bap = NULL;
 	u_int64_t crypto_offset = 0;
 	int is_encrypted = 0;
+	int is_read = 0;
 	
 	assert(bp != NULL);
 	
@@ -1922,10 +1948,18 @@ BC_strategy(struct buf *bp)
 		return 0;
 	}
 	
+	if (BC_cache->c_flags & BC_FLAG_CACHEACTIVE) {
+		cache_active = 1;
+	}
+
 	blkno = buf_blkno(bp);
 	bufflags = buf_flags(bp);
 	bap = buf_attr(bp);
 	vp = buf_vnode(bp);
+	
+	if (bufflags & B_READ) {
+		is_read = 1;
+	}
 	
 	if (vp) {
 		// We need to access vp after the buf_biodone / c_strategy call,
@@ -1946,11 +1980,6 @@ BC_strategy(struct buf *bp)
 		crypto_offset = bufattr_cpoff(bap); // Unused if mount isn't encrypted
 	}
 
-	if (vp && vnode_isswap(vp)) {
-		is_swap = 1;
-		goto bypass;
-	}
-	
 	if (BC_cache->c_flags & BC_FLAG_HISTORYACTIVE) {
 		pid = proc_selfpid();
 		
@@ -1959,12 +1988,32 @@ BC_strategy(struct buf *bp)
 	if (vp && (vnode_israge(vp))) {
 		dont_cache = 1;
 	}
+	
+	if (vp && vnode_isswap(vp)) {
+		is_swap = 1;
 		
+#ifdef BC_DEBUG
+		char procname[128];
+		proc_selfname(procname, sizeof(procname));
+		const char* filename = vp ? vnode_getname(vp) : NULL;
+		debug("%s swapfile from app %s for file %s (disk block 0x%llx)",
+			  is_read ? "read from" : "write to",
+			  procname,
+			  filename?:"unknown",
+			  blkno);
+		if (filename) {
+			vnode_putname(filename);
+		}
+#endif
+
+		goto bypass;
+	}
+
 	/*
 	 * If the cache is not active, bypass the request.  We may
 	 * not be able to fill it, but we still want to record it.
 	 */
-	if (!(BC_cache->c_flags & BC_FLAG_CACHEACTIVE)) {
+	if (!cache_active) {
 		goto bypass;
 	}
 		
@@ -1974,7 +2023,7 @@ BC_strategy(struct buf *bp)
 	 */
 	OSAddAtomic(1, &BC_cache->c_strategycalls);
 	LOCK_CACHE_R();
-	during_cache = 1; /* we're included in the in_flight count */
+	in_flight = 1; /* we're included in the in_flight count */
 	
 	/* Get cache mount asap for use in case we bypass */
 	cm_idx = BC_find_cache_mount(dev);
@@ -1999,7 +2048,7 @@ BC_strategy(struct buf *bp)
 //			char procname[128];
 //			proc_selfname(procname, sizeof(procname));
 //			const char* filename = vp ? vnode_getname(vp) : NULL;
-//			debug("not recording %s%s from app %s for file %s (disk block 0x%llx) which is%s throttled", (vp && vnode_israge(vp)) ? "rapid age " : "", (bufflags & B_READ) ? "read" : "write", procname, filename?:"unknown", blkno, (bufflags & B_THROTTLED_IO) ? "" : " not");
+//			debug("not recording %s%s from app %s for file %s (disk block 0x%llx) which is%s throttled", (vp && vnode_israge(vp)) ? "rapid age " : "", is_read ? "read" : "write", procname, filename?:"unknown", blkno, (bufflags & B_THROTTLED_IO) ? "" : " not");
 //			if (filename) {
 //				vnode_putname(filename);
 //			}
@@ -2049,7 +2098,7 @@ BC_strategy(struct buf *bp)
 	}
 		
 	/* if it's not a read, pass it off */
-	if ( !(bufflags & B_READ)) {
+	if (!is_read) {
 		UNLOCK_MOUNT_R(BC_cache->c_mounts + cm_idx);
 		if (take_detailed_stats)
 			BC_ADD_STAT(is_shared, strategy_nonread, 1);
@@ -2127,7 +2176,7 @@ BC_strategy(struct buf *bp)
 			BC_ADD_STAT(is_shared, hit_failure, 1);
 		goto bypass;
 	}
-	memcpy(pcontaining_extents, pce, num_extents * sizeof(*pcontaining_extents));
+	memmove(pcontaining_extents, pce, num_extents * sizeof(*pcontaining_extents));
 	
 	is_ssd = (BC_cache->c_mounts[cm_idx].cm_disk && 
 			 (BC_cache->c_mounts[cm_idx].cm_disk->cd_flags & CD_IS_SSD));
@@ -2494,7 +2543,7 @@ bypass:
 	bp = NULL;
 	
 	/* not really "bypassed" if the cache is not active */
-	if (during_cache) {
+	if (cache_active) {
 		u_int64_t unread = 0;
 		
 		if (cm_idx != -1 && uuid_is_null(BC_cache->c_mounts[cm_idx].cm_group_uuid)) {
@@ -2502,7 +2551,7 @@ bypass:
 			
 			LOCK_MOUNT_R(BC_cache->c_mounts + cm_idx);
 			if (BC_cache->c_mounts[cm_idx].cm_state == CM_READY) {
-				discards += BC_handle_discards(BC_cache->c_mounts + cm_idx, disk_offset, nbytes, !(bufflags & B_READ), &unread, is_shared);
+				discards += BC_handle_discards(BC_cache->c_mounts + cm_idx, disk_offset, nbytes, !is_read, &unread, is_shared);
 			}
 			
 			/* Check if we should throttle this IO */
@@ -2546,21 +2595,32 @@ bypass:
 						
 						u_int64_t unread_mount = 0;
 						u_int64_t discards_mount = 0;
-						discards_mount = BC_handle_discards(BC_cache->c_mounts + mount_idx, disk_offset_mount, nbytes, !(bufflags & B_READ), &unread_mount, is_shared);
+						discards_mount = BC_handle_discards(BC_cache->c_mounts + mount_idx, disk_offset_mount, nbytes, !is_read, &unread_mount, is_shared);
 						discards += discards_mount;
 						unread += unread_mount;
 						
 						if (mount_idx != cm_idx && discards_mount > 0) {
 							if (cm_idx != -1) {
-								debug("Discarded %#llx bytes due to %s from mount %s matching container %s from I/O to mount %s", discards_mount, (bufflags & B_READ) ? "read" : "write", uuid_string(BC_cache->c_mounts[mount_idx].cm_uuid), uuid_string(BC_cache->c_mounts[mount_idx].cm_group_uuid), uuid_string(BC_cache->c_mounts[cm_idx].cm_group_uuid));
+								debug("Discarded %#llx bytes due to %s from mount %s matching container %s from I/O to mount %s", discards_mount, is_read ? "read" : "write", uuid_string(BC_cache->c_mounts[mount_idx].cm_uuid), uuid_string(BC_cache->c_mounts[mount_idx].cm_group_uuid), uuid_string(BC_cache->c_mounts[cm_idx].cm_group_uuid));
 							} else {
-								debug("Discarded %#llx bytes due to %s from mount %s matching container %s from I/O to non-cached mount with device %#x", discards_mount, (bufflags & B_READ) ? "read" : "write", uuid_string(BC_cache->c_mounts[mount_idx].cm_uuid), uuid_string(BC_cache->c_mounts[mount_idx].cm_group_uuid), dev);
+								debug("Discarded %#llx bytes due to %s from mount %s matching container %s from I/O to non-cached mount with device %#x", discards_mount, is_read ? "read" : "write", uuid_string(BC_cache->c_mounts[mount_idx].cm_uuid), uuid_string(BC_cache->c_mounts[mount_idx].cm_group_uuid), dev);
 							}
 						}
 						
 						if (first_match) {
 							// Only need to check the disk state once, since anything sharing the same space on disk will have the same cm_disk
 							first_match = false;
+							
+							// If we don't have a cache mount for this I/O, we may still be during playback
+							if (cm_idx == -1 &&
+								BC_cache->c_mounts[mount_idx].cm_disk &&
+								(BC_cache->c_mounts[mount_idx].cm_disk->cd_flags & CD_HAS_THREAD) &&
+								!(BC_cache->c_mounts[mount_idx].cm_disk->cd_flags & CD_ISSUE_LOWPRI)) {
+								during_io = 1; /* for statistics */
+								if (take_detailed_stats) {
+									BC_ADD_STAT(is_shared, strategy_duringio, 1);
+								}
+							}
 
 							/* Check if we should throttle this IO */
 							if (bc_mount_should_throttle_cutthrough(mount_idx, is_swap)) {
@@ -2603,7 +2663,7 @@ bypass:
 			} else if (dont_cache) {
 				BC_ADD_STAT(is_shared, bypass_nocache_discards, discards);
 				BC_ADD_STAT(is_shared, bypass_nocache_unread, unread);
-			} else if (bufflags & B_READ) {
+			} else if (is_read) {
 				BC_ADD_STAT(is_shared, read_discards, discards);
 				BC_ADD_STAT(is_shared, read_unread, unread);
 			} else {
@@ -2615,14 +2675,14 @@ bypass:
 		}
 	}
 	
-	if (during_cache) {
+	if (in_flight) {
 		OSAddAtomic(-1, &BC_cache->c_strategycalls);
 		UNLOCK_CACHE_R();
 	}
 	
 	if (! is_swap) {
 		if (! dont_cache) {
-			is_rejected = BC_add_history(vp_is_owned ? vp : NULL, blkno, nbytes, pid, 0, ((bufflags & B_READ) ? 0 : 1), 0, is_shared, crypto_offset, dev);
+			is_rejected = BC_add_history(vp_is_owned ? vp : NULL, blkno, nbytes, pid, 0, (is_read ? 0 : 1), 0, is_shared, crypto_offset, dev);
 			
 			if (take_detailed_stats && during_io && !is_rejected) {
 				if (cache_hit) {
@@ -2631,7 +2691,7 @@ bypass:
 					} else {					
 						BC_ADD_STAT(is_shared, strategy_bypass_duringio_rootdisk_failure, 1);
 					}
-				} else if (bufflags & B_READ) {
+				} else if (is_read) {
 					BC_ADD_STAT(is_shared, strategy_bypass_duringio_rootdisk_read, 1);
 					if (cache_miss_due_to_crypto_mismatch) {
 						BC_ADD_STAT(is_shared, strategy_bypass_duringio_rootdisk_read_crypto_mismatch, 1);
@@ -2658,17 +2718,20 @@ bypass:
 	 */
 	
 	/* if this is a read, and we do have an active cache, and the read isn't throttled */
-	if (during_cache) {
+	if (cache_active) {
 		(void) is_stolen;
-		if (is_swap /*|| is_stolen*/) {  //rdar://10651288&10658086 seeing stolen pages early during boot
-			if (is_swap) {
-				debug("detected %s swap file, jettisoning cache", (bufflags & B_READ) ? "read from" : "write to");
+		if ((is_swap && !is_read) /*|| is_stolen*/) {  //rdar://10651288&10658086 seeing stolen pages early during boot
+			const char* reason = NULL;
+			if (is_swap && !is_read) {
+				debug("detected write to swap file, jettisoning cache");
+				reason = "write to swap file";
 			} else {
 				debug("detected stolen page, jettisoning cache");
+				reason = "cache page stolen";
 			}
 			//rdar://9858070 Do this asynchronously to avoid deadlocks
-			BC_terminate_cache_async();
-		} else if ((bufflags & B_READ) &&
+			BC_terminate_cache_async(reason);
+		} else if (is_read &&
 				   !(throttle_tier)) {
 			
 			// <rdar://problem/39985442> Ignore cache misses from warmd for jettison tracking
@@ -2697,20 +2760,23 @@ bypass:
 						debug("hit rate below threshold (0 hits in the last %u lookups), jettisoning cache",
 							  BC_cache->c_num_ios_since_last_hit);
 						//rdar://9858070 Do this asynchronously to avoid deadlocks
-						BC_terminate_cache_async();
+						BC_terminate_cache_async("low hit rate");
 					}
 				}
 			}
 		}
 	}
 	
-	if (is_swap && (! (BC_cache->c_flags & BC_FLAG_SHUTDOWN))) {
+	if (is_swap && !is_read && (! (BC_cache->c_flags & BC_FLAG_SHUTDOWN))) {
 		/* if we're swapping, stop readahead */
-		debug("Detected %s swap file. Terminating readahead", (bufflags & B_READ) ? "read from" : "write to");
+		debug("Detected write to swap file. Terminating readahead");
+		if (!(BC_cache->c_flags & BC_FLAG_SHUTDOWN) && BC_cache->c_num_reader_threads > 0) {
+			strncpy(BC_cache->c_stats.ss_cache_end_reason, "write to swap file", sizeof(BC_cache->c_stats.ss_cache_end_reason));
+		}
 		BC_set_flag(BC_FLAG_SHUTDOWN);
 	}
 	
-	if (during_cache) {
+	if (cache_active) {
 		KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, (should_throttle ? DBG_BC_IO_MISS_CUT_THROUGH : DBG_BC_IO_MISS)) | DBG_FUNC_NONE, buf_kernel_addrperm_addr(bp_void), 0, 0, 0, 0);
 	}
 	
@@ -2880,12 +2946,16 @@ BC_handle_discards(struct BC_cache_mount *cm, u_int64_t offset, u_int64_t length
  * Shut down readahead operations.
  */
 static int
-BC_terminate_readahead(void)
+BC_terminate_readahead(const char* reason)
 {
 	int error;
 	struct timespec timeout;
 	timeout.tv_sec = 10;
 	timeout.tv_nsec = 0;
+	
+	if (reason && !(BC_cache->c_flags & BC_FLAG_SHUTDOWN) && BC_cache->c_num_reader_threads > 0) {
+		strncpy(BC_cache->c_stats.ss_cache_end_reason, reason, sizeof(BC_cache->c_stats.ss_cache_end_reason));
+	}
 	
 	/*
 	 * Signal the readahead thread to terminate, and wait for
@@ -2939,14 +3009,17 @@ BC_terminate_readahead(void)
 static void
 BC_terminate_cache_thread(void *param0, wait_result_t param1)
 {
-	BC_terminate_cache();
+	thread_set_thread_name(current_thread(), "BootCache termination");
+	
+	const char* reason = param0;
+	BC_terminate_cache(reason);
 }
 
 /*
  * Start up an auxilliary thread to stop the cache so we avoid potential deadlocks
  */
 static void
-BC_terminate_cache_async(void)
+BC_terminate_cache_async(const char* reason)
 {
 	if (! (BC_cache->c_flags & BC_FLAG_CACHEACTIVE)) {
 		return;
@@ -2956,7 +3029,7 @@ BC_terminate_cache_async(void)
 	thread_t rthread;
 
 	debug("Kicking off thread to terminate cache");
-	if ((error = kernel_thread_start(BC_terminate_cache_thread, NULL, &rthread)) == KERN_SUCCESS) {
+	if ((error = kernel_thread_start(BC_terminate_cache_thread, (void*)reason, &rthread)) == KERN_SUCCESS) {
 		thread_deallocate(rthread);
 	} else {
 		message("Unable to start thread to terminate cache");
@@ -2972,11 +3045,11 @@ BC_terminate_cache_async(void)
  * Must be called with no locks held
  */
 static int
-BC_terminate_cache(void)
+BC_terminate_cache(const char* reason)
 {
 	int retry, cm_idx, j, ce_idx, cel_idx;
 
-	BC_terminate_readahead();
+	BC_terminate_readahead(reason);
 	
 	/* can't shut down if readahead is still active */
 	if (BC_cache->c_num_reader_threads > 0) {
@@ -3145,6 +3218,9 @@ BC_terminate_cache(void)
 			 &BC_cache->c_cache_starttime,
 			 &endtime);
 	BC_cache->c_stats.ss_cache_time += (u_int) endtime.tv_sec * 1000 + (u_int) endtime.tv_usec / 1000;
+	if (reason) {
+		strncpy(BC_cache->c_stats.ss_cache_end_reason, reason, sizeof(BC_cache->c_stats.ss_cache_end_reason));
+	}
 	return(0);
 }
 
@@ -3163,14 +3239,14 @@ BC_reset_cache(void)
 	 * (it may have stopped itself), that's OK.
 	 */
 	
-	error = BC_terminate_history();
+	error = BC_terminate_history(NULL);
 	if (error != 0 && error != EALREADY) {
 		message("Unable to terminate history: %d", error);
 		return error;
 	}
 	BC_cache->c_stats.ss_history_num_recordings = 0;
 	
-	error = BC_terminate_cache();
+	error = BC_terminate_cache(NULL);
 	if (error != 0 && error != EALREADY) {
 		message("Unable to terminate cache: %d", error);
 		return error;
@@ -3183,6 +3259,10 @@ BC_reset_cache(void)
 	BC_cache->c_num_ios_since_last_hit = 0;
 	BC_cache->c_stats.ss_bc_start_timestamp = 0;
 	BC_cache->c_stats.ss_start_timestamp = 0;
+	BC_cache->c_stats.ss_cache_time = 0;
+	bzero(BC_cache->c_stats.ss_cache_end_reason, sizeof(BC_cache->c_stats.ss_cache_end_reason));
+	bzero(BC_cache->c_stats.ss_history_end_reason, sizeof(BC_cache->c_stats.ss_history_end_reason));
+	bzero(BC_cache->c_stats.ss_playback_end_reason, sizeof(BC_cache->c_stats.ss_playback_end_reason));
 	BC_clear_flag(BC_FLAG_SHUTDOWN);
 	
 	return (0);
@@ -3194,7 +3274,7 @@ BC_reset_cache(void)
  * This stops us recording any further history events.
  */
 static int
-BC_terminate_history(void)
+BC_terminate_history(const char* reason)
 {
 	struct BC_history_mount_device  *hmd;
 	LOCK_HANDLERS();
@@ -3240,6 +3320,10 @@ BC_terminate_history(void)
 				 &BC_cache->c_history_starttime,
 				 &endtime);
 		BC_ADD_UNKNOWN_STAT(history_time, (u_int) endtime.tv_sec * 1000 + (u_int) endtime.tv_usec / 1000);
+		
+		if (reason) {
+			strncpy(BC_cache->c_stats.ss_history_end_reason, reason, sizeof(BC_cache->c_stats.ss_history_end_reason));
+		}
 	}
 	
 	BC_cache->c_take_detailed_stats = 0;
@@ -3640,7 +3724,7 @@ BC_get_noncached_mount(dev_t dev)
 	
 	if (extendedArray) {
 		if (BC_cache->c_noncached_mounts) {
-			memcpy(extendedArray, BC_cache->c_noncached_mounts, sizeof(*extendedArray) * BC_cache->c_noncached_nmounts);
+			memmove(extendedArray, BC_cache->c_noncached_mounts, sizeof(*extendedArray) * BC_cache->c_noncached_nmounts);
 			_FREE_ZERO(BC_cache->c_noncached_mounts, M_TEMP);
 		}
 		
@@ -3804,7 +3888,7 @@ BC_fill_in_cache_mount(struct BC_cache_mount *cm, mount_t mount, dev_t dev, vnod
 		
 		//rdar://11653286 disk image volumes (FileVault 1) are messing with this check, so we're going back to != rather than !( & )
 	} else if (BC_cache->c_root_disk_id != disk_id) {
-		debug("mount %s (disk 0x%llx) is not on the root disk (disk 0x%llx)", uuid_string(cm->cm_uuid), disk_id, BC_cache->c_root_disk_id);
+		message("mount %s (disk 0x%llx) is not on the root disk (disk 0x%llx)", uuid_string(cm->cm_uuid), disk_id, BC_cache->c_root_disk_id);
 		struct discards discards = BC_teardown_mount_and_extents(cm);
 		BC_ADD_SHARED_CACHE_STAT(nonroot_unread, discards.shared_discards);
 		BC_ADD_NON_SHARED_CACHE_STAT(nonroot_unread, discards.nonshared_discards);
@@ -4530,7 +4614,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 		error = ENOMEM;
 		goto out;
 	}
-	memcpy(cache_mounts, BC_cache->c_mounts, (old_ncache_mounts * sizeof(*BC_cache->c_mounts)));
+	memmove(cache_mounts, BC_cache->c_mounts, (old_ncache_mounts * sizeof(*BC_cache->c_mounts)));
 	
 	/* ncache_mounts is the current number of valid mounts in the mount array */
 	ncache_mounts = old_ncache_mounts;
@@ -4590,7 +4674,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 		error = ENOMEM;
 		goto out;
 	}
-	memcpy(cache_nextents, BC_cache->c_nextents, BC_cache->c_nextentlists * sizeof(*BC_cache->c_nextents));
+	memmove(cache_nextents, BC_cache->c_nextents, BC_cache->c_nextentlists * sizeof(*BC_cache->c_nextents));
 	
 	/* cache_extents_list is the array of extent lists. The extent list at the last index is for the new playlist's cache */
 	cache_extents_list  = BC_MALLOC((BC_cache->c_nextentlists + 1) * sizeof(*BC_cache->c_extentlists),  M_TEMP, M_WAITOK | M_ZERO);
@@ -4599,7 +4683,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 		error = ENOMEM;
 		goto out;
 	}
-	memcpy(cache_extents_list,  BC_cache->c_extentlists,  BC_cache->c_nextentlists * sizeof(*BC_cache->c_extentlists));
+	memmove(cache_extents_list,  BC_cache->c_extentlists,  BC_cache->c_nextentlists * sizeof(*BC_cache->c_extentlists));
 	
 	/* The extent list for this new playlist's cache */
 	cache_extents = BC_MALLOC(nplaylist_entries * sizeof(*cache_extents), M_TEMP, M_WAITOK | M_ZERO);
@@ -4796,7 +4880,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 		if (cm_idx < old_ncache_mounts) {
 			if (next_old_extent_idx[cm_idx] < BC_cache->c_mounts[cm_idx].cm_nextents) {
 				/* There are more extents in the old extent array, copy them over */
-				memcpy(cm->cm_pextents + cm->cm_nextents, BC_cache->c_mounts[cm_idx].cm_pextents + next_old_extent_idx[cm_idx], sizeof(*cm->cm_pextents) * (BC_cache->c_mounts[cm_idx].cm_nextents - next_old_extent_idx[cm_idx]));
+				memmove(cm->cm_pextents + cm->cm_nextents, BC_cache->c_mounts[cm_idx].cm_pextents + next_old_extent_idx[cm_idx], sizeof(*cm->cm_pextents) * (BC_cache->c_mounts[cm_idx].cm_nextents - next_old_extent_idx[cm_idx]));
 				cm->cm_nextents += BC_cache->c_mounts[cm_idx].cm_nextents - next_old_extent_idx[cm_idx];
 			}
 		}
@@ -5082,6 +5166,7 @@ BC_init_cache(size_t mounts_size, user_addr_t mounts, size_t entries_size, user_
 			debug("history recording already started, only one playlist will be returned");
 			BC_ADD_UNKNOWN_STAT(history_num_recordings, 1);
 			UNLOCK_HANDLERS();
+			error = EALREADY;
 		} else {
 			debug("starting history recording");
 			KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, DBG_BC_RECORDING_START), 0, 0, 0, 0, 0);
@@ -5243,7 +5328,7 @@ BC_timeout_history(void *junk)
 {
 	/* stop recording history */
 	debug("history recording timed out");
-	BC_terminate_history();
+	BC_terminate_history("timed out");
 }
 
 /*
@@ -5680,15 +5765,22 @@ BC_add_history(vnode_t vp, daddr64_t blkno, u_int64_t length, int pid, int hit, 
 		if (! tag) {
 			if (! write) {
 				BC_ADD_STAT(shared, history_reads, 1);
+				BC_ADD_STAT(shared, history_reads_bytes, length);
 			} else {
 				BC_ADD_STAT(shared, history_writes, 1);
+				BC_ADD_STAT(shared, history_writes_bytes, length);
 			}
 		}
 	}
 	
 	/* don't do anything if the history list has been truncated */
-	if (!tag && (BC_cache->c_flags & BC_FLAG_HTRUNCATED))
+	if (!tag && (BC_cache->c_flags & BC_FLAG_HTRUNCATED)) {
+		if (BC_cache->c_take_detailed_stats && !write && !tag) {
+			BC_ADD_STAT(shared, history_reads_truncated, 1);
+			BC_ADD_STAT(shared, history_reads_truncated_bytes, length);
+		}
 		goto out;
+	}
 	
 	/*
 	 * In order to avoid recording a playlist larger than we will
@@ -5703,12 +5795,20 @@ BC_add_history(vnode_t vp, daddr64_t blkno, u_int64_t length, int pid, int hit, 
 	if (!tag && (BC_cache->c_history_size + length) > BC_MAX_SIZE) {
 		debug("History recording too large, capping at %#llxMB", BC_MAX_SIZE / (1024 * 1024));
 		BC_set_flag(BC_FLAG_HTRUNCATED);
+		if (BC_cache->c_take_detailed_stats && !write && !tag) {
+			BC_ADD_STAT(shared, history_reads_truncated, 1);
+			BC_ADD_STAT(shared, history_reads_truncated_bytes, length);
+		}
 		goto out;
 	}
 	
 #ifdef NO_HISTORY
 	BC_set_flag(BC_FLAG_HTRUNCATED);
 	debug("history disabled, truncating");
+	if (BC_cache->c_take_detailed_stats && !write && !tag) {
+		BC_ADD_STAT(shared, history_reads_truncated, 1);
+		BC_ADD_STAT(shared, history_reads_truncated_bytes, length);
+	}
 	goto out;
 #endif
 	
@@ -5717,7 +5817,13 @@ BC_add_history(vnode_t vp, daddr64_t blkno, u_int64_t length, int pid, int hit, 
 	if (! tag) {
 		
 		hmd = BC_get_history_mount_device(dev, &mount_idx);
-		if (hmd == NULL) goto out;
+		if (hmd == NULL) {
+			if (BC_cache->c_take_detailed_stats && !write && !tag) {
+				BC_ADD_STAT(shared, history_reads_nomount, 1);
+				BC_ADD_STAT(shared, history_reads_nomount_bytes, length);
+			}
+			goto out;
+		}
 		
 		if (! (hmd->hmd_mount.hm_fs_flags & BC_FS_APFS_ENCRYPTED)) {
 			if (crypto_offset != 0) {
@@ -5739,9 +5845,9 @@ BC_add_history(vnode_t vp, daddr64_t blkno, u_int64_t length, int pid, int hit, 
 			/* Keep track of the number of IOs we've seen until the mount appears */
 			OSIncrementAtomic(&hmd->hmd_mount.hm_nentries);
 			
-			if (BC_cache->c_take_detailed_stats) {
-				BC_ADD_STAT(shared, history_unknown, 1);
-				BC_ADD_STAT(shared, history_unknown_bytes, length);
+			if (BC_cache->c_take_detailed_stats && !write && !tag) {
+				BC_ADD_STAT(shared, history_reads_unknown, 1);
+				BC_ADD_STAT(shared, history_reads_unknown_bytes, length);
 			}
 			goto out;
 		}
@@ -5749,9 +5855,9 @@ BC_add_history(vnode_t vp, daddr64_t blkno, u_int64_t length, int pid, int hit, 
 		if (hmd->hmd_blocksize == 0) {
 			// Couldn't get blocksize for the mount -> can't get accurate byte range
 			
-			if (BC_cache->c_take_detailed_stats) {
-				BC_ADD_STAT(shared, history_no_blocksize, 1);
-				BC_ADD_STAT(shared, history_no_blocksize_bytes, length);
+			if (BC_cache->c_take_detailed_stats && !write && !tag) {
+				BC_ADD_STAT(shared, history_reads_no_blocksize, 1);
+				BC_ADD_STAT(shared, history_reads_no_blocksize_bytes, length);
 			}
 			goto out;
 		}
@@ -5769,6 +5875,10 @@ BC_add_history(vnode_t vp, daddr64_t blkno, u_int64_t length, int pid, int hit, 
 #ifdef ROOT_DISK_ONLY
 		if (hmd->hmd_disk_id != BC_cache->c_root_disk_id) {
 			is_rejected = 1;
+			if (BC_cache->c_take_detailed_stats && !write && !tag) {
+				BC_ADD_STAT(shared, history_reads_nonroot, 1);
+				BC_ADD_STAT(shared, history_reads_nonroot_bytes, length);
+			}
 			goto out;
 		}
 #endif
@@ -5778,6 +5888,11 @@ BC_add_history(vnode_t vp, daddr64_t blkno, u_int64_t length, int pid, int hit, 
 			!(hmd->hmd_mount.hm_fs_flags & BC_FS_APFS_FUSION) &&
 			!(hmd->hmd_mount.hm_fs_flags & BC_FS_CS_FUSION)) {
 			
+			if (BC_cache->c_take_detailed_stats && !write && !tag) {
+				BC_ADD_STAT(shared, history_reads_ssd, 1);
+				BC_ADD_STAT(shared, history_reads_ssd_bytes, length);
+			}
+
 			is_rejected = 1;
 			goto out;
 		}
@@ -5803,6 +5918,10 @@ BC_add_history(vnode_t vp, daddr64_t blkno, u_int64_t length, int pid, int hit, 
 					BC_cache->c_history_num_clusters,
 					(long)BC_HISTORY_MAXCLUSTERS);
 			BC_set_flag(BC_FLAG_HTRUNCATED);
+			if (BC_cache->c_take_detailed_stats && !write && !tag) {
+				BC_ADD_STAT(shared, history_reads_truncated, 1);
+				BC_ADD_STAT(shared, history_reads_truncated_bytes, length);
+			}
 			goto out;
 		}
 		
@@ -5812,6 +5931,10 @@ BC_add_history(vnode_t vp, daddr64_t blkno, u_int64_t length, int pid, int hit, 
 				message("could not allocate %d bytes for history cluster",
 						BC_HISTORY_ALLOC);
 				BC_set_flag(BC_FLAG_HTRUNCATED);
+				if (BC_cache->c_take_detailed_stats && !write && !tag) {
+					BC_ADD_STAT(shared, history_reads_truncated, 1);
+					BC_ADD_STAT(shared, history_reads_truncated_bytes, length);
+				}
 				goto out;
 			}
 			
@@ -5858,14 +5981,22 @@ BC_add_history(vnode_t vp, daddr64_t blkno, u_int64_t length, int pid, int hit, 
 	if (!write && !tag) {
 		OSAddAtomic64(length, &BC_cache->c_history_size);
 		if (BC_cache->c_take_detailed_stats) {
-			BC_ADD_STAT(shared, history_bytes, length);
-			if (hmd && (hmd->hmd_mount.hm_fs_flags & BC_FS_APFS_FUSION)) {
-				if (!(he->he_offset & FUSION_TIER2_DEVICE_BYTE_ADDR)) {
-					BC_ADD_STAT(shared, history_optimized_reads, 1);
-					BC_ADD_STAT(shared, history_optimized_bytes, length);
+			BC_ADD_STAT(shared, history_entries, 1);
+			BC_ADD_STAT(shared, history_entries_bytes, length);
+			if (hmd) {
+				if (hmd->hmd_mount.hm_fs_flags & BC_FS_APFS_FUSION) {
+					if (!(he->he_offset & FUSION_TIER2_DEVICE_BYTE_ADDR)) {
+						BC_ADD_STAT(shared, fusion_history_already_optimized_reads, 1);
+						BC_ADD_STAT(shared, fusion_history_already_optimized_bytes, length);
+					} else {
+						BC_ADD_STAT(shared, fusion_history_not_already_optimized_reads, 1);
+						BC_ADD_STAT(shared, fusion_history_not_already_optimized_bytes, length);
+					}
+				} else if (hmd->hmd_mount.hm_fs_flags & BC_FS_APFS) {
+					BC_ADD_STAT(shared, hdd_history_reads, 1);
+					BC_ADD_STAT(shared, hdd_history_bytes, length);
 				}
 			}
-			BC_ADD_STAT(shared, history_entries, 1);
 		}
 	}
 out:
@@ -6113,8 +6244,8 @@ BC_root_unmount_hook(void)
 	 * If the cache is running, stop it.  If it's already stopped
 	 * (it may have stopped itself), that's OK.
 	 */
-	BC_terminate_cache();
-	BC_terminate_history();
+	BC_terminate_cache("root unmounted");
+	BC_terminate_history("root unmounted");
 	
 }
 
@@ -6148,7 +6279,7 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 		case BC_OP_START:
 			debug("BC_OP_START(%lu mounts, %lu extents) by %s [%d]", (bc.bc_data1_size / sizeof(struct BC_playlist_mount)), (bc.bc_data2_size / sizeof(struct BC_playlist_entry)), procname, proc_selfppid());
 			error = BC_init_cache(bc.bc_data1_size, (user_addr_t)bc.bc_data1, bc.bc_data2_size, (user_addr_t)bc.bc_data2, (bc.bc_opcode == BC_OP_START));
-			if (error != 0) {
+			if (error != 0 && error != EALREADY) {
 				message("cache init failed");
 			}
 			break;
@@ -6160,7 +6291,7 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 			 * If we're recording history, stop it.  If it's already stopped
 			 * (it may have stopped itself), that's OK.
 			 */
-			BC_terminate_history();
+			BC_terminate_history("stop sysctl");
 			
 			/* return the size of the history buffer */
 			LOCK_HISTORY_W();
@@ -6214,7 +6345,7 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 			 * Jettison the cache. If it's already jettisoned
 			 * (it may have jettisoned itself), that's OK.
 			 */
-			BC_terminate_cache();
+			BC_terminate_cache("jettison sysctl");
 			break;
 			
 		case BC_OP_RESET:
@@ -6239,41 +6370,81 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 			}
 			break;
 			
-		case BC_OP_SET_USER_TIMESTAMPS:
-			debug("BC_OP_SET_USER_TIMESTAMPS by %s [%d], ppid %d", procname, proc_selfpid(), proc_selfppid());
+		case BC_OP_SET_USER_OVERSIZE:
+			debug("BC_OP_SET_USER_OVERSIZE by %s [%d], ppid %d", procname, proc_selfpid(), proc_selfppid());
 			/* check buffer size and copy in */
-			if (bc.bc_data1_size != sizeof(BC_cache->c_stats.userspace_timestamps)) {
-				debug("userspace stats structure wrong size");
+			if (bc.bc_data1_size != sizeof(BC_cache->c_stats.userspace_oversize)) {
+				debug("userspace oversize structure wrong size");
 				error = ENOMEM;
 			} else {
-				if ((error = copyin(bc.bc_data1, &BC_cache->c_stats.userspace_timestamps, bc.bc_data1_size)) != 0)
+				if ((error = copyin(bc.bc_data1, &BC_cache->c_stats.userspace_oversize, bc.bc_data1_size)) != 0)
 					debug("could not copy in user statistics");
 			}
 			break;
 			
-		case BC_OP_ADD_USER_OPTIMIZATIONS:
-			debug("BC_OP_ADD_USER_OPTIMIZATIONS by %s [%d], ppid %d", procname, proc_selfpid(), proc_selfppid());
+		case BC_OP_SET_USER_TIMESTAMPS:
+			debug("BC_OP_SET_USER_TIMESTAMPS by %s [%d], ppid %d", procname, proc_selfpid(), proc_selfppid());
 			/* check buffer size and copy in */
-			if (bc.bc_data1_size != sizeof(BC_cache->c_stats.userspace_optimizations)) {
-				debug("userspace stats structure wrong size");
+			if (bc.bc_data1_size != sizeof(BC_cache->c_stats.userspace_timestamps)) {
+				debug("userspace timestamps structure wrong size");
 				error = ENOMEM;
 			} else {
-				BC_set_flag(BC_FLAG_OPTIMIZATION_COMPLETE);
-				
-				struct BC_userspace_optimizations userspace_optimizations = {0};
-				if ((error = copyin(bc.bc_data1, &userspace_optimizations, bc.bc_data1_size)) != 0) {
-					debug("could not copy in user statistics");
+				if ((error = copyin(bc.bc_data1, &BC_cache->c_stats.userspace_timestamps, bc.bc_data1_size)) != 0)
+					debug("could not copy in user timestamps");
+			}
+			break;
+			
+		case BC_OP_SET_FUSION_OPTIMIZATION_STATS:
+			debug("BC_OP_SET_FUSION_OPTIMIZATION_STATS by %s [%d], ppid %d", procname, proc_selfpid(), proc_selfppid());
+			/* check buffer size and copy in */
+			if (bc.bc_data1_size != sizeof(BC_cache->c_stats.userspace_fusion_optimizations)) {
+				debug("userspace fusion stats structure wrong size");
+				error = ENOMEM;
+			} else {
+				struct BC_userspace_fusion_optimizations userspace_fusion_optimizations = {0};
+				if ((error = copyin(bc.bc_data1, &userspace_fusion_optimizations, bc.bc_data1_size)) != 0) {
+					debug("could not copy in user fusion statistics");
 				} else {
-					BC_cache->c_stats.userspace_optimizations.ssup_num_inodes_optimized += userspace_optimizations.ssup_num_inodes_optimized;
-					BC_cache->c_stats.userspace_optimizations.ssup_bytes_optimized += userspace_optimizations.ssup_bytes_optimized;
-					BC_cache->c_stats.userspace_optimizations.ssup_hdd_num_reads_already_optimized += userspace_optimizations.ssup_hdd_num_reads_already_optimized;
-					BC_cache->c_stats.userspace_optimizations.ssup_hdd_bytes_already_optimized += userspace_optimizations.ssup_hdd_bytes_already_optimized;
-					BC_cache->c_stats.userspace_optimizations.ssup_hdd_optimization_range_length += userspace_optimizations.ssup_hdd_optimization_range_length;
+					BC_cache->c_stats.userspace_fusion_optimizations = userspace_fusion_optimizations;
 				}
 			}
 			
 			break;
 			
+		case BC_OP_SET_HDD_OPTIMIZATION_STATS:
+			debug("BC_OP_SET_HDD_OPTIMIZATION_STATS by %s [%d], ppid %d", procname, proc_selfpid(), proc_selfppid());
+			/* check buffer size and copy in */
+			if (bc.bc_data1_size != sizeof(BC_cache->c_stats.userspace_hdd_optimizations)) {
+				debug("userspace hdd stats structure wrong size");
+				error = ENOMEM;
+			} else {
+				struct BC_userspace_hdd_optimizations userspace_hdd_optimizations = {0};
+				if ((error = copyin(bc.bc_data1, &userspace_hdd_optimizations, bc.bc_data1_size)) != 0) {
+					debug("could not copy in user hdd statistics");
+				} else {
+					
+					BC_cache->c_stats.userspace_hdd_optimizations = userspace_hdd_optimizations;
+				}
+			}
+			break;
+
+		case BC_OP_SET_HDD_OPTIMIZATION_STATE:
+			debug("BC_OP_SET_HDD_OPTIMIZATION_STATE by %s [%d], ppid %d", procname, proc_selfpid(), proc_selfppid());
+			/* check buffer size and copy in */
+			if (bc.bc_data1_size != sizeof(BC_cache->c_stats.userspace_hdd_optimization_state)) {
+				debug("userspace hdd state structure wrong size");
+				error = ENOMEM;
+			} else {
+				struct BC_userspace_hdd_optimization_state userspace_hdd_optimization_state = {0};
+				if ((error = copyin(bc.bc_data1, &userspace_hdd_optimization_state, bc.bc_data1_size)) != 0) {
+					debug("could not copy in hdd state statistics");
+				} else {
+					
+					BC_cache->c_stats.userspace_hdd_optimization_state = userspace_hdd_optimization_state;
+				}
+			}
+			break;
+
 		case BC_OP_TAG:
 			debug("BC_OP_TAG by %s [%d], ppid %d", procname, proc_selfpid(), proc_selfppid());
 			KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, DBG_BC_TAG) |
@@ -6466,8 +6637,8 @@ BC_unload(void)
 	 * If the cache is running, stop it.  If it's already stopped
 	 * (it may have stopped itself), that's OK.
 	 */
-	BC_terminate_history();
-	if ((error = BC_terminate_cache()) != 0) {
+	BC_terminate_history("kext unload");
+	if ((error = BC_terminate_cache("kext unload")) != 0) {
 		if (error != EALREADY)
 			goto out;
 	}

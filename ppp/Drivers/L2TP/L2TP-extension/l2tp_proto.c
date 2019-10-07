@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,9 +56,9 @@ Definitions
 Declarations
 ----------------------------------------------------------------------------- */
 
-void l2tp_init();
+void l2tp_init(void);
 int l2tp_ctloutput(struct socket *so, struct sockopt *sopt);
-int l2tp_usrreq();
+int l2tp_usrreq(void);
 
 int l2tp_attach(struct socket *, int, struct proc *);
 int l2tp_detach(struct socket *);

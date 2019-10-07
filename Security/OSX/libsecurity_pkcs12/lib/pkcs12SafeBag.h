@@ -68,8 +68,8 @@ public:
 	~P12SafeBag();
 	
 	/* getters in CF terms - result is created and returned */
-	CFStringRef friendlyName();
-	CFDataRef 	localKeyId();
+	CFStringRef CF_RETURNS_RETAINED friendlyName();
+	CFDataRef CF_RETURNS_RETAINED localKeyId();
 
 	/* getters in CSSM_DATA terms - result is just a reference */
 	CSSM_DATA 	&friendlyNameCssm()		{ return mFriendlyName; }

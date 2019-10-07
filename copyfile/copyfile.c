@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2010 Apple, Inc. All rights reserved.
+ * Copyright (c) 2004-2019 Apple, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -61,16 +61,16 @@
 #define qtn_file_t void *
 #define QTN_SERIALIZED_DATA_MAX 0
 static void * qtn_file_alloc(void) { return NULL; }
-static int qtn_file_init_with_fd(void *x, int y) { return -1; }
-static int qtn_file_init_with_path(void *x, const char *path) { return -1; }
-static int qtn_file_init_with_data(void *x, const void *data, size_t len) { return -1; }
-static void qtn_file_free(void *x) { return; }
-static int qtn_file_apply_to_fd(void *x, int y) { return 0; }
-static char *qtn_error(int x) { return NULL; }
-static int qtn_file_to_data(void *x, char *y, size_t z) { return -1; }
-static void *qtn_file_clone(void *x) { return NULL; }
-static uint32_t qtn_file_get_flags(void *x) { return 0; }
-static int qtn_file_set_flags(void *x, uint32_t flags) { return 0; }
+static int qtn_file_init_with_fd(__unused void *x, __unused int y) { return -1; }
+static int qtn_file_init_with_path(__unused void *x, __unused const char *path) { return -1; }
+static int qtn_file_init_with_data(__unused void *x, __unused const void *data, __unused size_t len) { return -1; }
+static void qtn_file_free(__unused void *x) { return; }
+static int qtn_file_apply_to_fd(__unused void *x, __unused int y) { return 0; }
+static char *qtn_error(__unused int x) { return NULL; }
+static int qtn_file_to_data(__unused void *x, __unused char *y, __unused size_t *z) { return -1; }
+static void *qtn_file_clone(__unused void *x) { return NULL; }
+static uint32_t qtn_file_get_flags(__unused void *x) { return 0; }
+static int qtn_file_set_flags(__unused void *x, __unused uint32_t flags) { return 0; }
 #define	XATTR_QUARANTINE_NAME "figgledidiggledy"
 #define QTN_FLAG_DO_NOT_TRANSLOCATE 0
 #endif /* TARGET_OS_IPHONE */
@@ -237,7 +237,7 @@ sort_xattrname_list(void *start, size_t length)
 
 	tmp = ptrs[indx++] = (char*)start;
 
-	while (tmp = memchr(tmp, 0, ((char*)start + length) - tmp)) {
+	while ((tmp = memchr(tmp, 0, ((char*)start + length) - tmp))) {
 		if (indx == nel) {
 			nel += 10;
 			ptrs = realloc(ptrs, sizeof(char**) * nel);
@@ -645,7 +645,7 @@ copytree(copyfile_state_t s)
 		retval = -1;
 		goto done;
 	}
-	if (s->flags & (COPYFILE_MOVE | COPYFILE_UNLINK | COPYFILE_CHECK | COPYFILE_PACK | COPYFILE_UNPACK)) {
+	if (s->flags & (COPYFILE_MOVE | COPYFILE_UNLINK | COPYFILE_CHECK | COPYFILE_PACK | COPYFILE_UNPACK | COPYFILE_CLONE_FORCE)) {
 		errno = EINVAL;
 		retval = -1;
 		goto done;
@@ -2701,6 +2701,8 @@ error_exit:
 /*
  * Attempt to set the destination file's stat information -- including
  * flags and time-related fields -- to the source's.
+ * Note that we must set file flags *last*, as setting a flag like
+ * UF_IMMUTABLE can prevent us from setting other attributes.
  */
 static int copyfile_stat(copyfile_state_t s)
 {
@@ -2713,6 +2715,20 @@ static int copyfile_stat(copyfile_state_t s)
 		struct timespec acc_time;
 	} ma_times;
 
+	/* Try to set m/atimes using setattrlist(), for nanosecond precision. */
+	memset(&attrlist, 0, sizeof(attrlist));
+	attrlist.bitmapcount = ATTR_BIT_MAP_COUNT;
+	attrlist.commonattr = ATTR_CMN_MODTIME | ATTR_CMN_ACCTIME;
+	ma_times.mod_time = s->sb.st_mtimespec;
+	ma_times.acc_time = s->sb.st_atimespec;
+	(void)fsetattrlist(s->dst_fd, &attrlist, &ma_times, sizeof(ma_times), 0);
+
+	/* If this fails, we don't care */
+	(void)fchown(s->dst_fd, s->sb.st_uid, s->sb.st_gid);
+
+	/* This may have already been done in copyfile_security() */
+	(void)fchmod(s->dst_fd, s->sb.st_mode & ~S_IFMT);
+
 	/*
 	 * NFS doesn't support chflags; ignore errors as a result, since
 	 * we don't return failure for this.
@@ -2721,31 +2737,16 @@ static int copyfile_stat(copyfile_state_t s)
 		added_flags |= UF_HIDDEN;
 
 	/*
-	 * We need to check if SF_RESTRICTED was set on the destination
-	 * by the kernel.  If it was, don't drop it.
+	 * We need to check if certain flags were set on the destination
+	 * by the kernel.  If they were, don't drop them.
 	 */
 	if (fstat(s->dst_fd, &dst_sb))
 		return -1;
-	if (dst_sb.st_flags & SF_RESTRICTED)
-		added_flags |= SF_RESTRICTED;
+	added_flags |= (dst_sb.st_flags & COPYFILE_PRESERVE_FLAGS);
 
 	/* Copy file flags, masking out any we don't want to preserve */
 	dst_flags = (s->sb.st_flags & ~COPYFILE_OMIT_FLAGS) | added_flags;
 	(void)fchflags(s->dst_fd, dst_flags);
-
-	/* If this fails, we don't care */
-	(void)fchown(s->dst_fd, s->sb.st_uid, s->sb.st_gid);
-
-	/* This may have already been done in copyfile_security() */
-	(void)fchmod(s->dst_fd, s->sb.st_mode & ~S_IFMT);
-
-	/* Try to set m/atimes using setattrlist(), for nanosecond precision. */
-	memset(&attrlist, 0, sizeof(attrlist));
-	attrlist.bitmapcount = ATTR_BIT_MAP_COUNT;
-	attrlist.commonattr = ATTR_CMN_MODTIME | ATTR_CMN_ACCTIME;
-	ma_times.mod_time = s->sb.st_mtimespec;
-	ma_times.acc_time = s->sb.st_atimespec;
-	(void)fsetattrlist(s->dst_fd, &attrlist, &ma_times, sizeof(ma_times), 0);
 
 	return 0;
 }
@@ -3003,7 +3004,7 @@ static int copyfile_xattr(copyfile_state_t s)
 			{
 				errno = error;
 				ret = -1;
-				copyfile_warn("could not set attributes %s on destination file descriptor: %s", name, strerror(error));
+				copyfile_warn("could not set attributes %s on destination file descriptor", name);
 				continue;
 			}
 		}
@@ -3251,9 +3252,6 @@ int main(int c, char *v[])
  *
  * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
  */
-
-
-#define offsetof(type, member)	__builtin_offsetof(type, member)
 
 #define	XATTR_MAXATTRLEN   (16*1024*1024)
 
@@ -4425,10 +4423,10 @@ static int copyfile_pack(copyfile_state_t s)
 	filehdr->appledouble.version            = ADH_VERSION;
 	filehdr->appledouble.numEntries         = 2;
 	filehdr->appledouble.entries[0].type    = AD_FINDERINFO;
-	filehdr->appledouble.entries[0].offset  = (u_int32_t)offsetof(apple_double_header_t, finfo);
+	filehdr->appledouble.entries[0].offset  = (u_int32_t)__builtin_offsetof(apple_double_header_t, finfo);
 	filehdr->appledouble.entries[0].length  = FINDERINFOSIZE;
 	filehdr->appledouble.entries[1].type    = AD_RESOURCE;
-	filehdr->appledouble.entries[1].offset  = (u_int32_t)offsetof(apple_double_header_t, pad);
+	filehdr->appledouble.entries[1].offset  = (u_int32_t)__builtin_offsetof(apple_double_header_t, pad);
 	filehdr->appledouble.entries[1].length  = 0;
 	bcopy(ADH_MACOSX, filehdr->appledouble.filler, sizeof(filehdr->appledouble.filler));
 

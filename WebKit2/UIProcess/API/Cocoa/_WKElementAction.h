@@ -25,11 +25,16 @@
 
 #import <WebKit/WKFoundation.h>
 
-#if WK_API_ENABLED
-
 #if TARGET_OS_IPHONE
 
+#import <WebKit/WKBase.h>
 #import <WebKit/_WKActivatedElementInfo.h>
+
+@class UIAction;
+@class UIImage;
+
+typedef NSString *UIActionIdentifier;
+WK_EXPORT extern UIActionIdentifier const WKElementActionTypeToggleShowLinkPreviewsIdentifier;
 
 typedef void (^WKElementActionHandler)(_WKActivatedElementInfo *);
 typedef BOOL (^WKElementActionDismissalHandler)(void);
@@ -41,21 +46,29 @@ typedef NS_ENUM(NSInteger, _WKElementActionType) {
     _WKElementActionTypeSaveImage,
 #if !defined(TARGET_OS_IOS) || TARGET_OS_IOS
     _WKElementActionTypeAddToReadingList,
-    _WKElementActionTypeOpenInDefaultBrowser WK_API_AVAILABLE(ios(9_0)),
-    _WKElementActionTypeOpenInExternalApplication WK_API_AVAILABLE(ios(9_0)),
+    _WKElementActionTypeOpenInDefaultBrowser WK_API_AVAILABLE(ios(9.0)),
+    _WKElementActionTypeOpenInExternalApplication WK_API_AVAILABLE(ios(9.0)),
 #endif
-    _WKElementActionTypeShare WK_API_AVAILABLE(ios(10.0)),
-} WK_API_AVAILABLE(macosx(10.10), ios(8.0));
+    _WKElementActionTypeShare WK_API_AVAILABLE(macos(10.12), ios(10.0)),
+    _WKElementActionTypeOpenInNewTab WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA)),
+    _WKElementActionTypeOpenInNewWindow WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA)),
+    _WKElementActionTypeDownload WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA)),
+    _WKElementActionToggleShowLinkPreviews WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA)),
+} WK_API_AVAILABLE(macos(10.10), ios(8.0));
 
-WK_CLASS_AVAILABLE(macosx(10.10), ios(8.0))
+WK_CLASS_AVAILABLE(macos(10.10), ios(8.0))
 @interface _WKElementAction : NSObject
 
 + (instancetype)elementActionWithType:(_WKElementActionType)type;
++ (instancetype)elementActionWithType:(_WKElementActionType)type title:(NSString *)title actionHandler:(WKElementActionHandler)actionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 + (instancetype)elementActionWithType:(_WKElementActionType)type customTitle:(NSString *)title;
-
 + (instancetype)elementActionWithTitle:(NSString *)title actionHandler:(WKElementActionHandler)handler;
 
-- (void)runActionWithElementInfo:(_WKActivatedElementInfo *)info WK_API_AVAILABLE(ios(9_0));
++ (UIImage *)imageForElementActionType:(_WKElementActionType)actionType WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(13.0));
++ (_WKElementActionType)elementActionTypeForUIActionIdentifier:(UIActionIdentifier)identifier WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(13.0));
+- (UIAction *)uiActionForElementInfo:(_WKActivatedElementInfo *)elementInfo;
+
+- (void)runActionWithElementInfo:(_WKActivatedElementInfo *)info WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(9.0));
 
 @property (nonatomic, readonly) _WKElementActionType type;
 @property (nonatomic, readonly) NSString* title;
@@ -64,5 +77,3 @@ WK_CLASS_AVAILABLE(macosx(10.10), ios(8.0))
 @end
 
 #endif // TARGET_OS_IPHONE
-
-#endif // WK_API_ENABLED

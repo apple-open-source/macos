@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2009-2011, 2013, 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2009-2011, 2013, 2016-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -107,10 +107,6 @@ SCDynamicStoreSetMultiple(SCDynamicStoreRef	store,
 		}
 	}
 
-#ifdef	VERBOSE_ACTIVITY_LOGGING
-	os_activity_scope(storePrivate->activity);
-#endif	// VERBOSE_ACTIVITY_LOGGING
-
     retry :
 
 	/* send the keys and patterns, fetch the associated result from the server */
@@ -173,6 +169,29 @@ SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 		return FALSE;
 	}
 
+	if (storePrivate->cache_active) {
+		if (storePrivate->cached_removals != NULL) {
+			CFIndex	i;
+
+			i = CFArrayGetFirstIndexOfValue(storePrivate->cached_removals,
+							CFRangeMake(0, CFArrayGetCount(storePrivate->cached_removals)),
+							key);
+			if (i != kCFNotFound) {
+				// if previously "removed"
+				CFArrayRemoveValueAtIndex(storePrivate->cached_removals, i);
+			}
+		}
+
+		if (storePrivate->cached_set == NULL) {
+			storePrivate->cached_set = CFDictionaryCreateMutable(NULL,
+									     0,
+									     &kCFTypeDictionaryKeyCallBacks,
+									     &kCFTypeDictionaryValueCallBacks);
+		}
+		CFDictionarySetValue(storePrivate->cached_set, key, value);
+		return TRUE;
+	}
+
 	/* serialize the key */
 	if (!_SCSerializeString(key, &utfKey, (void **)&myKeyRef, &myKeyLen)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
@@ -185,10 +204,6 @@ SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
-
-#ifdef	VERBOSE_ACTIVITY_LOGGING
-	os_activity_scope(storePrivate->activity);
-#endif	// VERBOSE_ACTIVITY_LOGGING
 
     retry :
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2017-2019 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,10 +24,14 @@
  *
  */
 
+#include <Security/Security.h>
 #include <Security/SecTrustPriv.h>
+#include <Security/SecPolicyPriv.h>
+#include <Security/SecCertificatePriv.h>
 #include <Security/SecInternal.h>
 #include <Security/SecTrustStatusCodes.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <libDER/oids.h>
 
 struct resultmap_entry_s {
     const CFStringRef checkstr;
@@ -41,6 +45,70 @@ const resultmap_entry_t resultmap[] = {
 { CFSTR(#NAME), CSSMERR },
 #include "SecPolicyChecks.list"
 };
+
+static bool SecTrustDetailsHaveEKULeafErrorOnly(CFArrayRef details)
+{
+    CFIndex ix, count = (details) ? CFArrayGetCount(details) : 0;
+    bool hasDisqualifyingError = false;
+    for (ix = 0; ix < count; ix++) {
+        CFDictionaryRef detail = (CFDictionaryRef)CFArrayGetValueAtIndex(details, ix);
+        if (ix == 0) { // Leaf
+            if (CFDictionaryGetCount(detail) != 1 || // One error
+                CFDictionaryGetValue(detail, kSecPolicyCheckExtendedKeyUsage) != kCFBooleanFalse) {
+                hasDisqualifyingError = true;
+                break;
+            }
+        } else {
+            if (CFDictionaryGetCount(detail) > 0) { // No errors on other certs
+                hasDisqualifyingError = true;
+                break;
+            }
+        }
+    }
+    if (hasDisqualifyingError) {
+        return false;
+    }
+    return true;
+}
+
+// Returns true if both of the following are true:
+// - policy is Apple SW Update Signing
+// - leaf certificate has the oidAppleExtendedKeyUsageCodeSigningDev EKU purpose
+//
+static bool SecTrustIsDevelopmentUpdateSigning(SecTrustRef trust)
+{
+    bool result = false;
+    CFArrayRef policies = NULL; /* must release */
+    SecPolicyRef policy = NULL; /* must release */
+    SecCertificateRef cert = NULL;
+    CFArrayRef ekus = NULL; /* must release */
+    CFDataRef eku = NULL; /* must release */
+    const DERItem *oid = &oidAppleExtendedKeyUsageCodeSigningDev;
+
+    /* Apple SW Update Signing policy check */
+    if ((SecTrustCopyPolicies(trust, &policies) != errSecSuccess) ||
+        ((policy = SecPolicyCreateAppleSWUpdateSigning()) == NULL) ||
+        (!CFArrayContainsValue(policies, CFRangeMake(0, CFArrayGetCount(policies)), policy))) {
+        goto exit;
+    }
+
+    /* Apple Code Signing Dev EKU check */
+    if (((cert = SecTrustGetCertificateAtIndex(trust, 0)) == NULL) ||
+        ((ekus = SecCertificateCopyExtendedKeyUsage(cert)) == NULL) ||
+        ((eku = CFDataCreate(kCFAllocatorDefault, oid->data, oid->length)) == NULL) ||
+        (!CFArrayContainsValue(ekus, CFRangeMake(0, CFArrayGetCount(ekus)), eku))) {
+        goto exit;
+    }
+
+    result = true;
+
+exit:
+    CFReleaseSafe(eku);
+    CFReleaseSafe(ekus);
+    CFReleaseSafe(policies);
+    CFReleaseSafe(policy);
+    return result;
+}
 
 //
 // Returns a malloced array of SInt32 values, with the length in numStatusCodes,
@@ -87,7 +155,16 @@ SInt32 *SecTrustCopyStatusCodes(SecTrustRef trust,
                 break;
             }
         }
-        if (statusCode == (SInt32)0x8001210C) {  /* CSSMERR_TP_CERT_REVOKED */
+        if (statusCode == (SInt32)0x80012407) {  /* CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE */
+            // To match legacy behavior, we return a more specific result code if this is a
+            // development signing certificate being evaluated for Apple SW Update Signing.
+            // [27362805,41179903]
+            if (index == 0 &&
+                SecTrustIsDevelopmentUpdateSigning(trust) &&
+                SecTrustDetailsHaveEKULeafErrorOnly(details)) {
+                statusCode = (SInt32)0x80012433; /* CSSMERR_APPLETP_CODE_SIGN_DEVELOPMENT */
+            }
+        } else if (statusCode == (SInt32)0x8001210C) {  /* CSSMERR_TP_CERT_REVOKED */
             SInt32 reason;
             CFNumberRef number = (CFNumberRef)CFDictionaryGetValue(detail, key);
             if (number && CFNumberGetValue(number, kCFNumberSInt32Type, &reason)) {

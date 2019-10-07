@@ -76,6 +76,9 @@ void	usage(void);
 uid_t uid;
 gid_t gid;
 int ischown;
+#ifdef __APPLE__
+int isnumeric = 0;
+#endif
 const char *gname;
 
 int
@@ -96,7 +99,11 @@ main(int argc, char **argv)
 	ischown = (strcmp(cp, "chown") == 0);
 
 	Hflag = Lflag = Pflag = Rflag = fflag = hflag = vflag = 0;
+#ifdef __APPLE__
+	while ((ch = getopt(argc, argv, "HLPRfhnv")) != -1)
+#else
 	while ((ch = getopt(argc, argv, "HLPRfhv")) != -1)
+#endif
 		switch (ch) {
 		case 'H':
 			Hflag = 1;
@@ -119,6 +126,11 @@ main(int argc, char **argv)
 		case 'h':
 			hflag = 1;
 	 		break;
+#ifdef __APPLE__
+		case 'n':
+			isnumeric = 1;
+			break;
+#endif
 		case 'v':
 			vflag = 1;
 			break;
@@ -246,7 +258,11 @@ a_gid(const char *s)
 	if (*s == '\0')			/* Argument was "uid[:.]". */
 		return;
 	gname = s;
+#ifdef __APPLE__
+	gid = (!isnumeric && ((gr = getgrnam(s)) != NULL)) ? gr->gr_gid : id(s, "group");
+#else
 	gid = ((gr = getgrnam(s)) != NULL) ? gr->gr_gid : id(s, "group");
+#endif
 }
 
 void
@@ -256,7 +272,11 @@ a_uid(const char *s)
 
 	if (*s == '\0')			/* Argument was "[:.]gid". */
 		return;
+#ifdef __APPLE__
+	uid = (!isnumeric && ((pw = getpwnam(s)) != NULL)) ? pw->pw_uid : id(s, "user");
+#else
 	uid = ((pw = getpwnam(s)) != NULL) ? pw->pw_uid : id(s, "user");
+#endif
 }
 
 static uid_t
@@ -305,11 +325,21 @@ usage(void)
 
 	if (ischown)
 		(void)fprintf(stderr, "%s\n%s\n",
+#ifdef __APPLE__
+		    "usage: chown [-fhnv] [-R [-H | -L | -P]] owner[:group]"
+		    " file ...",
+		    "       chown [-fhnv] [-R [-H | -L | -P]] :group file ...");
+#else
 		    "usage: chown [-fhv] [-R [-H | -L | -P]] owner[:group]"
 		    " file ...",
 		    "       chown [-fhv] [-R [-H | -L | -P]] :group file ...");
+#endif
 	else
 		(void)fprintf(stderr, "%s\n",
+#ifdef __APPLE__
+		    "usage: chgrp [-fhnv] [-R [-H | -L | -P]] group file ...");
+#else
 		    "usage: chgrp [-fhv] [-R [-H | -L | -P]] group file ...");
+#endif
 	exit(1);
 }

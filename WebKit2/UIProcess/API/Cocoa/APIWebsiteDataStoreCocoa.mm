@@ -28,9 +28,8 @@
 
 #include "SandboxExtension.h"
 #include "SandboxUtilities.h"
-
 #include <Foundation/Foundation.h>
-#include <WebCore/FileSystem.h>
+#include <wtf/FileSystem.h>
 
 #if PLATFORM(IOS_FAMILY)
 #import <WebCore/RuntimeApplicationChecks.h>
@@ -93,12 +92,6 @@ WTF::String WebsiteDataStore::defaultLocalStorageDirectory()
 WTF::String WebsiteDataStore::defaultMediaKeysStorageDirectory()
 {
     return websiteDataDirectoryFileSystemRepresentation("MediaKeys");
-}
-
-WTF::String WebsiteDataStore::defaultDeviceIdHashSaltsStorageDirectory()
-{
-    // Not implemented.
-    return String();
 }
 
 WTF::String WebsiteDataStore::defaultWebSQLDatabaseDirectory()
@@ -169,7 +162,7 @@ WTF::String WebsiteDataStore::legacyDefaultIndexedDBDatabaseDirectory()
     // Currently, the top level of that directory contains entities related to WebSQL databases.
     // We should fix this, and move WebSQL into a subdirectory (https://bugs.webkit.org/show_bug.cgi?id=124807)
     // In the meantime, an entity name prefixed with three underscores will not conflict with any WebSQL entities.
-    return WebCore::FileSystem::pathByAppendingComponent(legacyDefaultWebSQLDatabaseDirectory(), "___IndexedDB");
+    return FileSystem::pathByAppendingComponent(legacyDefaultWebSQLDatabaseDirectory(), "___IndexedDB");
 }
 
 WTF::String WebsiteDataStore::legacyDefaultLocalStorageDirectory()
@@ -312,28 +305,6 @@ WTF::String WebsiteDataStore::websiteDataDirectoryFileSystemRepresentation(const
         LOG_ERROR("Failed to create directory %@", url);
 
     return url.absoluteURL.path.fileSystemRepresentation;
-}
-
-Ref<WebKit::WebsiteDataStoreConfiguration> WebsiteDataStore::defaultDataStoreConfiguration()
-{
-    auto configuration = WebKit::WebsiteDataStoreConfiguration::create();
-
-    configuration->setApplicationCacheDirectory(defaultApplicationCacheDirectory());
-    configuration->setApplicationCacheFlatFileSubdirectoryName("Files");
-    configuration->setCacheStorageDirectory(defaultCacheStorageDirectory());
-    configuration->setNetworkCacheDirectory(defaultNetworkCacheDirectory());
-    configuration->setMediaCacheDirectory(defaultMediaCacheDirectory());
-
-    configuration->setIndexedDBDatabaseDirectory(defaultIndexedDBDatabaseDirectory());
-    configuration->setServiceWorkerRegistrationDirectory(defaultServiceWorkerRegistrationDirectory());
-    configuration->setWebSQLDatabaseDirectory(defaultWebSQLDatabaseDirectory());
-    configuration->setLocalStorageDirectory(defaultLocalStorageDirectory());
-    configuration->setMediaKeysStorageDirectory(defaultMediaKeysStorageDirectory());
-    configuration->setResourceLoadStatisticsDirectory(defaultResourceLoadStatisticsDirectory());
-    
-    configuration->setJavaScriptConfigurationDirectory(defaultJavaScriptConfigurationDirectory());
-
-    return configuration;
 }
 
 } // namespace API

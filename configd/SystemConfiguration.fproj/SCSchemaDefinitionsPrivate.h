@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -39,11 +39,15 @@
  *
  * Network Entity Keys
  *
- *   kSCEntNetActiveDuringSleepRequested                "ActiveDuringSleepRequested"   CFDictionary
- *   kSCEntNetActiveDuringSleepSupported                "ActiveDuringSleepSupported"   CFDictionary
  *   kSCEntNetAppLayer                                  "AppLayer"                     CFDictionary
  *   kSCEntNetCommCenter                                "com.apple.CommCenter"         CFDictionary
  *   kSCEntNetEAPOL                                     "EAPOL"                        CFDictionary
+ *   kSCEntNetIdleRoute                                 "IdleRoute"
+ *   kSCEntNetInterfaceActiveDuringSleepRequested       "ActiveDuringSleepRequested"   CFDictionary
+ *   kSCEntNetInterfaceActiveDuringSleepSupported       "ActiveDuringSleepSupported"   CFDictionary
+ *   kSCEntNetInterfaceDelegation                       "InterfaceDelegation"
+ *   kSCEntNetIPv4ARPCollision                          "IPv4ARPCollision"
+ *   kSCEntNetIPv4PortInUse                             "PortInUse"
  *   kSCEntNetIPv4RouterARPFailure                      "IPv4RouterARPFailure"
  *   kSCEntNetIPv4RouterARPAlive                        "IPv4RouterARPAlive"
  *   kSCEntNetIPv6RouterExpired                         "IPv6RouterExpired"
@@ -54,6 +58,7 @@
  *   kSCEntNetNAT64PrefixRequest                        "NAT64PrefixRequest"
  *   kSCEntNetOnDemand                                  "OnDemand"                     CFDictionary
  *   kSCEntNetQoSMarkingPolicy                          "QoSMarkingPolicy"             CFDictionary
+ *   kSCEntNetRefreshConfiguration                      "RefreshConfiguration"
  *   kSCEntNetService                                   "__SERVICE__"                  CFDictionary
  *   kSCEntNetVPN                                       "VPN"                          CFDictionary
  *
@@ -125,6 +130,7 @@
  *   kSCPropNetIPv6EnableCGA                            "EnableCGA"                    CFNumber (0 or 1)
  *   kSCPropNetIPv6ExcludedRoutes                       "ExcludedRoutes"               CFArray[CFDictionary]
  *   kSCPropNetIPv6IncludedRoutes                       "IncludedRoutes"               CFArray[CFDictionary]
+ *   kSCPropNetIPv6LinkLocalAddress                     "LinkLocalAddress"             CFString
  *   kSCPropNetIPv6PerformPLATDiscovery                 "PerformPLATDiscovery"         CFBoolean
  *
  *   --- kSCPropNetIPv6AdditionalRoutes, kSCPropNetIPv6IncludedRoutes, kSCPropNetIPv6ExcludedRoutes [CFDictionary] keys ---
@@ -361,20 +367,6 @@ extern const CFStringRef kSCPrefVirtualNetworkInterfaces                    API_
  */
 
 /*!
-  @const kSCEntNetActiveDuringSleepRequested
-  @discussion Value is a CFDictionary
- */
-extern const CFStringRef kSCEntNetActiveDuringSleepRequested                API_AVAILABLE(macos(10.10)) SPI_AVAILABLE(ios(7.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
-#define kSCEntNetActiveDuringSleepRequested kSCEntNetActiveDuringSleepRequested
-
-/*!
-  @const kSCEntNetActiveDuringSleepSupported
-  @discussion Value is a CFDictionary
- */
-extern const CFStringRef kSCEntNetActiveDuringSleepSupported                API_AVAILABLE(macos(10.10)) SPI_AVAILABLE(ios(7.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
-#define kSCEntNetActiveDuringSleepSupported kSCEntNetActiveDuringSleepSupported
-
-/*!
   @const kSCEntNetAppLayer
   @discussion Value is a CFDictionary
  */
@@ -396,6 +388,44 @@ extern const CFStringRef kSCEntNetEAPOL                                     API_
 #define kSCEntNetEAPOL kSCEntNetEAPOL
 
 /*!
+  @const kSCEntNetIdleRoute
+ */
+extern const CFStringRef kSCEntNetIdleRoute                                 API_AVAILABLE(macos(10.7)) SPI_AVAILABLE(ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
+#define kSCEntNetIdleRoute kSCEntNetIdleRoute
+
+/*!
+  @const kSCEntNetInterfaceActiveDuringSleepRequested
+  @discussion Value is a CFDictionary
+ */
+extern const CFStringRef kSCEntNetInterfaceActiveDuringSleepRequested       API_AVAILABLE(macos(10.10)) SPI_AVAILABLE(ios(7.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
+#define kSCEntNetInterfaceActiveDuringSleepRequested kSCEntNetInterfaceActiveDuringSleepRequested
+
+/*!
+  @const kSCEntNetInterfaceActiveDuringSleepSupported
+  @discussion Value is a CFDictionary
+ */
+extern const CFStringRef kSCEntNetInterfaceActiveDuringSleepSupported       API_AVAILABLE(macos(10.10)) SPI_AVAILABLE(ios(7.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
+#define kSCEntNetInterfaceActiveDuringSleepSupported kSCEntNetInterfaceActiveDuringSleepSupported
+
+/*!
+  @const kSCEntNetInterfaceDelegation
+ */
+extern const CFStringRef kSCEntNetInterfaceDelegation                       API_AVAILABLE(macos(10.15)) SPI_AVAILABLE(ios(13.0), tvos(13.0), watchos(6.0), bridgeos(4.0));
+#define kSCEntNetInterfaceDelegation kSCEntNetInterfaceDelegation
+
+/*!
+  @const kSCEntNetIPv4ARPCollision
+ */
+extern const CFStringRef kSCEntNetIPv4ARPCollision                          API_AVAILABLE(macos(10.6)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
+#define kSCEntNetIPv4ARPCollision kSCEntNetIPv4ARPCollision
+
+/*!
+  @const kSCEntNetIPv4PortInUse
+ */
+extern const CFStringRef kSCEntNetIPv4PortInUse                             API_AVAILABLE(macos(10.6)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
+#define kSCEntNetIPv4PortInUse kSCEntNetIPv4PortInUse
+
+/*!
   @const kSCEntNetIPv4RouterARPFailure
  */
 extern const CFStringRef kSCEntNetIPv4RouterARPFailure                      API_AVAILABLE(macos(10.10)) SPI_AVAILABLE(ios(8.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
@@ -410,7 +440,7 @@ extern const CFStringRef kSCEntNetIPv4RouterARPAlive                        API_
 /*!
   @const kSCEntNetIPv6RouterExpired
  */
-extern const CFStringRef kSCEntNetIPv6RouterExpired                         API_AVAILABLE(macos(10.13)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), bridgeos(4.0));
+extern const CFStringRef kSCEntNetIPv6RouterExpired                         API_AVAILABLE(macos(10.13)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), bridgeos(2.0));
 #define kSCEntNetIPv6RouterExpired kSCEntNetIPv6RouterExpired
 
 /*!
@@ -438,13 +468,13 @@ extern const CFStringRef kSCEntNetLoopback                                  API_
   @const kSCEntNetNAT64
   @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetNAT64                                     API_AVAILABLE(macos(10.14)) SPI_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0), bridgeos(5.0));
+extern const CFStringRef kSCEntNetNAT64                                     API_AVAILABLE(macos(10.14)) SPI_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0), bridgeos(3.0));
 #define kSCEntNetNAT64 kSCEntNetNAT64
 
 /*!
   @const kSCEntNetNAT64PrefixRequest
  */
-extern const CFStringRef kSCEntNetNAT64PrefixRequest                        API_AVAILABLE(macos(10.13)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), bridgeos(4.0));
+extern const CFStringRef kSCEntNetNAT64PrefixRequest                        API_AVAILABLE(macos(10.13)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), bridgeos(2.0));
 #define kSCEntNetNAT64PrefixRequest kSCEntNetNAT64PrefixRequest
 
 /*!
@@ -458,8 +488,14 @@ extern const CFStringRef kSCEntNetOnDemand                                  API_
   @const kSCEntNetQoSMarkingPolicy
   @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetQoSMarkingPolicy                          API_AVAILABLE(macos(10.13)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(3.0));
+extern const CFStringRef kSCEntNetQoSMarkingPolicy                          API_AVAILABLE(macos(10.13)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(2.0));
 #define kSCEntNetQoSMarkingPolicy kSCEntNetQoSMarkingPolicy
+
+/*!
+  @const kSCEntNetRefreshConfiguration
+ */
+extern const CFStringRef kSCEntNetRefreshConfiguration                      API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
+#define kSCEntNetRefreshConfiguration kSCEntNetRefreshConfiguration
 
 /*!
   @const kSCEntNetService
@@ -682,7 +718,7 @@ extern const CFStringRef kSCPropNetIPv4AdditionalRoutes                     API_
   @const kSCPropNetIPv4CLAT46
   @discussion Value is a CFBoolean
  */
-extern const CFStringRef kSCPropNetIPv4CLAT46                               API_AVAILABLE(macos(10.14)) SPI_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0), bridgeos(5.0));
+extern const CFStringRef kSCPropNetIPv4CLAT46                               API_AVAILABLE(macos(10.14)) SPI_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0), bridgeos(3.0));
 #define kSCPropNetIPv4CLAT46 kSCPropNetIPv4CLAT46
 
 /*!
@@ -762,7 +798,7 @@ extern const CFStringRef kSCPropNetIPv6AdditionalRoutes                     API_
   @const kSCPropNetIPv6EnableCGA
   @discussion Value is a CFNumber (0 or 1)
  */
-extern const CFStringRef kSCPropNetIPv6EnableCGA                            API_AVAILABLE(macos(10.12)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(3.0));
+extern const CFStringRef kSCPropNetIPv6EnableCGA                            API_AVAILABLE(macos(10.12)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(2.0));
 #define kSCPropNetIPv6EnableCGA kSCPropNetIPv6EnableCGA
 
 /*!
@@ -780,10 +816,17 @@ extern const CFStringRef kSCPropNetIPv6IncludedRoutes                       API_
 #define kSCPropNetIPv6IncludedRoutes kSCPropNetIPv6IncludedRoutes
 
 /*!
+  @const kSCPropNetIPv6LinkLocalAddress
+  @discussion Value is a CFString
+ */
+extern const CFStringRef kSCPropNetIPv6LinkLocalAddress                     API_AVAILABLE(macos(10.12)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(2.0));
+#define kSCPropNetIPv6LinkLocalAddress kSCPropNetIPv6LinkLocalAddress
+
+/*!
   @const kSCPropNetIPv6PerformPLATDiscovery
   @discussion Value is a CFBoolean
  */
-extern const CFStringRef kSCPropNetIPv6PerformPLATDiscovery                 API_AVAILABLE(macos(10.14)) SPI_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0), bridgeos(5.0));
+extern const CFStringRef kSCPropNetIPv6PerformPLATDiscovery                 API_AVAILABLE(macos(10.14)) SPI_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0), bridgeos(3.0));
 #define kSCPropNetIPv6PerformPLATDiscovery kSCPropNetIPv6PerformPLATDiscovery
 
 /*!
@@ -979,21 +1022,21 @@ extern const CFStringRef kSCValNetPPPOnDemandPriorityLow                    API_
   @const kSCPropNetNAT64PrefixList
   @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetNAT64PrefixList                          API_AVAILABLE(macos(10.14)) SPI_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0), bridgeos(5.0));
+extern const CFStringRef kSCPropNetNAT64PrefixList                          API_AVAILABLE(macos(10.14)) SPI_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0), bridgeos(3.0));
 #define kSCPropNetNAT64PrefixList kSCPropNetNAT64PrefixList
 
 /*!
   @const kSCPropNetNAT64PLATDiscoveryStartTime
   @discussion Value is a CFDate
  */
-extern const CFStringRef kSCPropNetNAT64PLATDiscoveryStartTime              API_AVAILABLE(macos(10.14)) SPI_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0), bridgeos(5.0));
+extern const CFStringRef kSCPropNetNAT64PLATDiscoveryStartTime              API_AVAILABLE(macos(10.14)) SPI_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0), bridgeos(3.0));
 #define kSCPropNetNAT64PLATDiscoveryStartTime kSCPropNetNAT64PLATDiscoveryStartTime
 
 /*!
   @const kSCPropNetNAT64PLATDiscoveryCompletionTime
   @discussion Value is a CFDate
  */
-extern const CFStringRef kSCPropNetNAT64PLATDiscoveryCompletionTime         API_AVAILABLE(macos(10.14)) SPI_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0), bridgeos(5.0));
+extern const CFStringRef kSCPropNetNAT64PLATDiscoveryCompletionTime         API_AVAILABLE(macos(10.14)) SPI_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0), bridgeos(3.0));
 #define kSCPropNetNAT64PLATDiscoveryCompletionTime kSCPropNetNAT64PLATDiscoveryCompletionTime
 
 /*!
@@ -1071,21 +1114,21 @@ extern const CFStringRef kSCPropNetProxiesSupplementalMatchDomain           API_
   @const kSCPropNetQoSMarkingAppleAudioVideoCalls
   @discussion Value is a CFBoolean
  */
-extern const CFStringRef kSCPropNetQoSMarkingAppleAudioVideoCalls           API_AVAILABLE(macos(10.13)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(3.0));
+extern const CFStringRef kSCPropNetQoSMarkingAppleAudioVideoCalls           API_AVAILABLE(macos(10.13)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(2.0));
 #define kSCPropNetQoSMarkingAppleAudioVideoCalls kSCPropNetQoSMarkingAppleAudioVideoCalls
 
 /*!
   @const kSCPropNetQoSMarkingEnabled
   @discussion Value is a CFBoolean
  */
-extern const CFStringRef kSCPropNetQoSMarkingEnabled                        API_AVAILABLE(macos(10.13)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(3.0));
+extern const CFStringRef kSCPropNetQoSMarkingEnabled                        API_AVAILABLE(macos(10.13)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(2.0));
 #define kSCPropNetQoSMarkingEnabled kSCPropNetQoSMarkingEnabled
 
 /*!
   @const kSCPropNetQoSMarkingWhitelistedAppIdentifiers
   @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetQoSMarkingWhitelistedAppIdentifiers      API_AVAILABLE(macos(10.13)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(3.0));
+extern const CFStringRef kSCPropNetQoSMarkingWhitelistedAppIdentifiers      API_AVAILABLE(macos(10.13)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(2.0));
 #define kSCPropNetQoSMarkingWhitelistedAppIdentifiers kSCPropNetQoSMarkingWhitelistedAppIdentifiers
 
 /*!
@@ -1103,7 +1146,7 @@ extern const CFStringRef kSCPropNetServicePrimaryRank                       API_
   @const kSCPropNetServiceServiceIndex
   @discussion Value is a CFNumber
  */
-extern const CFStringRef kSCPropNetServiceServiceIndex                      API_AVAILABLE(macos(10.12)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(3.0));
+extern const CFStringRef kSCPropNetServiceServiceIndex                      API_AVAILABLE(macos(10.12)) SPI_AVAILABLE(ios(10.0), tvos(10.0), watchos(3.0), bridgeos(2.0));
 #define kSCPropNetServiceServiceIndex kSCPropNetServiceServiceIndex
 
 /*!

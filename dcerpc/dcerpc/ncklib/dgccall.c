@@ -364,12 +364,16 @@ INTERNAL void ccall_common_init
      */
     if (ccall->server_bound == false && h->c.c.addr_has_endpoint == false)
     {
+        rpc_if_rep_p_t ptr;
+        
         rpc__if_set_wk_endpoint(ifspec, &ccall->c.addr, st);
 
         if (*st != rpc_s_ok)
         {
+            memcpy(&ptr, &ept_v3_0_c_ifspec, sizeof(rpc_if_rep_p_t));
+            
             rpc__if_set_wk_endpoint
-                ((rpc_if_rep_p_t) ept_v3_0_c_ifspec, &ccall->c.addr, st);
+                (ptr, &ccall->c.addr, st);
             if (*st != rpc_s_ok)
                 return;
         }
@@ -607,7 +611,7 @@ INTERNAL rpc_dg_ccall_p_t ccall_alloc
 
     ccall->c.call_object    = h->c.c.obj;
     ccall->c.call_if_id     = ifspec->id;
-    ccall->c.call_if_vers   = ifspec->vers;
+    ccall->c.call_if_vers   = (unsigned32) ifspec->vers;
     ccall->c.call_ihint     = RPC_C_DG_NO_HINT;
 
     /*
@@ -775,7 +779,7 @@ INTERNAL rpc_dg_ccall_p_t ccall_reinit
     {
         ccall->c.call_ihint   = RPC_C_DG_NO_HINT;
         ccall->c.call_if_id   = ifspec->id;
-        ccall->c.call_if_vers = ifspec->vers;
+        ccall->c.call_if_vers = (unsigned32) ifspec->vers;
     }
 
     /*

@@ -61,7 +61,7 @@ Identity::Identity(const StorageManager::KeychainList &keychains, const SecPoint
                                                            kCFAllocatorNull);
     // First, try the new iOS keychain.
     {
-        const void *keys[] = { kSecClass, kSecAttrKeyClass, kSecAttrApplicationLabel, kSecReturnRef, kSecAttrNoLegacy };
+        const void *keys[] = { kSecClass, kSecAttrKeyClass, kSecAttrApplicationLabel, kSecReturnRef, kSecUseDataProtectionKeychain };
         const void *values[] = { kSecClassKey, kSecAttrKeyClassPrivate, keyHash, kCFBooleanTrue, kCFBooleanTrue };
         CFRef<CFDictionaryRef> query = CFDictionaryCreate(kCFAllocatorDefault, keys, values,
                                                           sizeof(keys) / sizeof(*keys),

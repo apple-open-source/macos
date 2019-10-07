@@ -35,7 +35,7 @@
 }
 
 .table > .header {
-    position: -webkit-sticky;
+    position: sticky;
     top: 0;
     height: var(--navigation-bar-height);
     line-height: calc(var(--navigation-bar-height) - 1px);
@@ -177,7 +177,7 @@ body[dir=rtl] .table .cell:first-child {
     text-align: center;
 }
 
-@media (prefers-dark-interface) {
+@media (prefers-color-scheme: dark) {
     .table > .header > .sortable:active {
         background-color: hsla(0, 0%, var(--foreground-lightness), 0.2);
     }

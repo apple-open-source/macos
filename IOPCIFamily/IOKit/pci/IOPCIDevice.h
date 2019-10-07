@@ -25,6 +25,7 @@
 #define _IOKIT_IOPCIDEVICE_H
 
 #include <IOKit/IOTypes.h>
+#include <IOKitUser/IOPCIDevice.h>
 
 /* Definitions of PCI Config Registers */
 enum {
@@ -82,6 +83,7 @@ enum {
     kIOPCIExpressVirtualChannelCapability            = -0x02UL,
     kIOPCIExpressDeviceSerialNumberCapability        = -0x03UL,
     kIOPCIExpressPowerBudgetCapability               = -0x04UL,
+    kIOPCIExpressAccessControlServicesCapability     = -0x0DUL,
     kIOPCIExpressLatencyTolerenceReportingCapability = -0x18UL,
     kIOPCIExpressL1PMSubstatesCapability             = -0x1EUL,
 };
@@ -479,7 +481,7 @@ Matches a device whose class code is 0x0200zz, an ethernet device.
 
 class IOPCIDevice : public IOService
 {
-    OSDeclareDefaultStructors(IOPCIDevice)
+    OSDeclareDefaultStructorsWithDispatch(IOPCIDevice)
 
     friend class IOPCIBridge;
     friend class IOPCI2PCIBridge;
@@ -547,6 +549,7 @@ private:
     IOReturn setPCIPowerState(uint8_t powerState, uint32_t options);
     void     updateWakeReason(uint16_t pmeState);
     IOReturn enableLTR(IOPCIDevice * device, bool enable);
+    IOReturn enableACS(IOPCIDevice * device, bool enable);
 
 public:
 

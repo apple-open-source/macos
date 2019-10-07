@@ -1,8 +1,8 @@
 --TEST--
 Test function posix_setuid() by substituting argument 1 with emptyUnsetUndefNull values.
 --SKIPIF--
-<?php 
-        if(!extension_loaded("posix")) print "skip - POSIX extension not loaded"; 
+<?php
+        if(!extension_loaded("posix")) print "skip - POSIX extension not loaded";
         if(posix_geteuid() == 0) print "skip - Cannot run test as root.";
 ?>
 --CREDITS--
@@ -39,10 +39,10 @@ foreach ( $variation_array as $var ) {
 bool(false)
 bool(false)
 
-Warning: posix_setuid() expects parameter 1 to be integer, string given in %s on line 22
+Warning: posix_setuid() expects parameter 1 to be int, string given in %s on line 22
 bool(false)
 
-Warning: posix_setuid() expects parameter 1 to be integer, string given in %s on line 22
+Warning: posix_setuid() expects parameter 1 to be int, string given in %s on line 22
 bool(false)
 bool(false)
 bool(false)

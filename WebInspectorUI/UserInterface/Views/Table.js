@@ -76,7 +76,6 @@ WI.Table = class Table extends WI.View
         this._resizersElement.className = "resizers";
 
         this._cachedRows = new Map;
-        this._cachedNumberOfRows = NaN;
 
         this._columnSpecs = new Map;
         this._columnOrder = [];
@@ -113,6 +112,7 @@ WI.Table = class Table extends WI.View
         this._visibleRowIndexStart = NaN;
         this._visibleRowIndexEnd = NaN;
 
+        console.assert(this._dataSource.tableNumberOfRows, "Table data source must implement tableNumberOfRows.");
         console.assert(this._dataSource.tableIndexForRepresentedObject, "Table data source must implement tableIndexForRepresentedObject.");
         console.assert(this._dataSource.tableRepresentedObjectForIndex, "Table data source must implement tableRepresentedObjectForIndex.");
 
@@ -145,10 +145,7 @@ WI.Table = class Table extends WI.View
 
     get numberOfRows()
     {
-        if (isNaN(this._cachedNumberOfRows))
-            this._cachedNumberOfRows = this._dataSource.tableNumberOfRows(this);
-
-        return this._cachedNumberOfRows;
+        return this._dataSource.tableNumberOfRows(this);
     }
 
     get sortOrder()
@@ -253,7 +250,6 @@ WI.Table = class Table extends WI.View
 
         this._selectionController.reset();
 
-        this._cachedNumberOfRows = NaN;
         this._previousRevealedRowCount = NaN;
         this.needsLayout();
     }
@@ -285,7 +281,8 @@ WI.Table = class Table extends WI.View
         if (columnIndex === -1)
             return;
 
-        for (let rowIndex = this._visibleRowIndexStart; rowIndex < this._visibleRowIndexEnd; ++rowIndex) {
+        let numberOfRows = Math.min(this._visibleRowIndexEnd, this.numberOfRows);
+        for (let rowIndex = this._visibleRowIndexStart; rowIndex < numberOfRows; ++rowIndex) {
             let row = this._cachedRows.get(rowIndex);
             if (!row)
                 continue;
@@ -368,18 +365,28 @@ WI.Table = class Table extends WI.View
         if (rowIndex < 0 || rowIndex >= this.numberOfRows)
             return;
 
-        // Force our own scroll update because we may have scrolled.
-        this._cachedScrollTop = NaN;
-
         if (this._isRowVisible(rowIndex)) {
             let row = this._cachedRows.get(rowIndex);
             console.assert(row, "Visible rows should always be in the cache.");
-            if (row)
+            if (row) {
                 row.scrollIntoViewIfNeeded(false);
-            this.needsLayout();
+                this._cachedScrollTop = NaN;
+                this.needsLayout();
+            }
         } else {
-            this._scrollContainerElement.scrollTop = rowIndex * this._rowHeight;
-            this.updateLayout();
+            let rowPosition = rowIndex * this._rowHeight;
+            let scrollableOffsetHeight = this._calculateOffsetHeight();
+            let scrollTop = this._calculateScrollTop();
+            let newScrollTop = NaN;
+            if (rowPosition + this._rowHeight < scrollTop)
+                newScrollTop = rowPosition;
+            else if (rowPosition > scrollTop + scrollableOffsetHeight)
+                newScrollTop = scrollTop + scrollableOffsetHeight - this._rowHeight;
+
+            if (!isNaN(newScrollTop)) {
+                this._scrollContainerElement.scrollTop = newScrollTop;
+                this.updateLayout();
+            }
         }
     }
 
@@ -491,12 +498,21 @@ WI.Table = class Table extends WI.View
         }
 
         // Re-layout all columns to make space.
+        this._widthGeneration++;
         this._columnWidths = null;
         this._resizeColumnsAndFiller();
 
         // Now populate only the new cells for this column.
         for (let cell of cellsToPopulate)
             this._delegate.tablePopulateCell(this, cell, column, cell.parentElement.__index);
+
+        // Now populate columns that may be sensitive to resizes.
+        for (let visibleColumn of this._visibleColumns) {
+            if (visibleColumn !== column) {
+                if (visibleColumn.needsReloadOnResize)
+                    this.reloadVisibleColumnCells(visibleColumn);
+            }
+        }
     }
 
     hideColumn(column)
@@ -541,14 +557,21 @@ WI.Table = class Table extends WI.View
         if (!this._columnWidths)
             return;
 
-        this._columnWidths.splice(columnIndex, 1);
-
         for (let row of this._listElement.children) {
             if (row !== this._fillerRow)
                 row.removeChild(row.children[columnIndex]);
         }
 
-        this.needsLayout();
+        // Re-layout all columns to make space.
+        this._widthGeneration++;
+        this._columnWidths = null;
+        this._resizeColumnsAndFiller();
+
+        // Now populate columns that may be sensitive to resizes.
+        for (let visibleColumn of this._visibleColumns) {
+            if (visibleColumn.needsReloadOnResize)
+                this.reloadVisibleColumnCells(visibleColumn);
+        }
     }
 
     restoreScrollPosition()
@@ -603,10 +626,9 @@ WI.Table = class Table extends WI.View
                 row.classList.toggle("selected", true);
         }
 
-        if (selectedItems.size === 1) {
-            let rowIndex = this._indexForRepresentedObject(selectedItems.firstValue);
-            if (!this._isRowVisible(rowIndex))
-                this.revealRow(rowIndex);
+        if (this._selectionController.lastSelectedItem) {
+            let rowIndex = this._indexForRepresentedObject(this._selectionController.lastSelectedItem);
+            this.revealRow(rowIndex);
         }
 
         if (this._delegate.tableSelectionDidChange)
@@ -843,7 +865,7 @@ WI.Table = class Table extends WI.View
     _resizeColumnsAndFiller()
     {
         if (isNaN(this._cachedWidth) || !this._cachedWidth)
-            this._cachedWidth = Math.floor(this._scrollContainerElement.getBoundingClientRect().width);
+            this._cachedWidth = this._scrollContainerElement.realOffsetWidth;
 
         // Not visible yet.
         if (!this._cachedWidth)
@@ -1052,14 +1074,8 @@ WI.Table = class Table extends WI.View
         let updateOffsetThreshold = rowHeight * 10;
         let overflowPadding = updateOffsetThreshold * 3;
 
-        if (isNaN(this._cachedScrollTop))
-            this._cachedScrollTop = this._scrollContainerElement.scrollTop;
-
-        if (isNaN(this._cachedHeight) || !this._cachedHeight)
-            this._cachedHeight = Math.floor(this._scrollContainerElement.getBoundingClientRect().height);
-
-        let scrollTop = this._cachedScrollTop;
-        let scrollableOffsetHeight = this._cachedHeight;
+        let scrollTop = this._calculateScrollTop();
+        let scrollableOffsetHeight = this._calculateOffsetHeight();
 
         let visibleRowCount = Math.ceil((scrollableOffsetHeight + (overflowPadding * 2)) / rowHeight);
         let currentTopMargin = this._topSpacerHeight;
@@ -1284,7 +1300,7 @@ WI.Table = class Table extends WI.View
 
     _handleMouseDown(event)
     {
-        let cell = event.target.enclosingNodeOrSelfWithClass("cell");
+        let cell = event.target.closest(".cell");
         if (!cell)
             return;
 
@@ -1308,7 +1324,7 @@ WI.Table = class Table extends WI.View
 
     _handleContextMenu(event)
     {
-        let cell = event.target.enclosingNodeOrSelfWithClass("cell");
+        let cell = event.target.closest(".cell");
         if (!cell)
             return;
 
@@ -1420,18 +1436,14 @@ WI.Table = class Table extends WI.View
         if (!removed)
             return;
 
-        for (let index = lastIndex + 1; index < this._cachedNumberOfRows; ++index)
+        for (let index = lastIndex + 1; index < this.numberOfRows; ++index)
             adjustRowAtIndex(index);
 
-        this._cachedNumberOfRows -= removed;
-        console.assert(this._cachedNumberOfRows >= 0);
 
         this._selectionController.didRemoveItems(representedObjects);
 
-        if (this._delegate.tableDidRemoveRows) {
+        if (this._delegate.tableDidRemoveRows)
             this._delegate.tableDidRemoveRows(this, rowIndexes);
-            console.assert(this._cachedNumberOfRows === this._dataSource.tableNumberOfRows(this), "Table data source should update after removing rows.");
-        }
     }
 
     _indexForRepresentedObject(object)
@@ -1442,6 +1454,20 @@ WI.Table = class Table extends WI.View
     _representedObjectForIndex(index)
     {
         return this.dataSource.tableRepresentedObjectForIndex(this, index);
+    }
+
+    _calculateOffsetHeight()
+    {
+        if (isNaN(this._cachedHeight))
+            this._cachedHeight = this._scrollContainerElement.realOffsetHeight;
+        return this._cachedHeight;
+    }
+
+    _calculateScrollTop()
+    {
+        if (isNaN(this._cachedScrollTop))
+            this._cachedScrollTop = this._scrollContainerElement.scrollTop;
+        return this._cachedScrollTop;
     }
 };
 

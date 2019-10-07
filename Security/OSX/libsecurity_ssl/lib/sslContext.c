@@ -1246,6 +1246,9 @@ _SSLProtocolVersionToWireFormatValue   (SSLProtocol protocol)
         case kDTLSProtocol1: {
             return tls_protocol_version_DTLS_1_0;
         }
+        case kDTLSProtocol12: {
+            return tls_protocol_version_DTLS_1_2;
+        }
         case kSSLProtocolUnknown: {
             return tls_protocol_version_Undertermined;
         }
@@ -1632,7 +1635,7 @@ SSLCopyTrustedRoots			(SSLContextRef 		ctx,
 		CFRetain(ctx->trustedCerts);
 		return errSecSuccess;
 	}
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
+#if TARGET_OS_OSX
 	/* use default system roots */
     return sslDefaultSystemRoots(ctx, trustedRoots);
 #else
@@ -2515,8 +2518,11 @@ OSStatus SSLGetECDSACurves(
 	if(*numCurves < ctx->ecdhNumCurves) {
 		return errSecParam;
 	}
-	memmove(namedCurves, ctx->ecdhCurves,
-		(ctx->ecdhNumCurves * sizeof(SSL_ECDSA_NamedCurve)));
+	static_assert(sizeof(*namedCurves) >= sizeof(*(ctx->ecdhCurves)),
+		"SSL_ECDSA_NamedCurve must be large enough for SSLContext ecdhCurves.");
+	for (unsigned i = 0; i < ctx->ecdhNumCurves; i++) {
+		namedCurves[i] = ctx->ecdhCurves[i];
+	}
 	*numCurves = ctx->ecdhNumCurves;
 	return errSecSuccess;
 }
@@ -2537,20 +2543,26 @@ OSStatus SSLSetECDSACurves(
 		return errSecBadReq;
 	}
 
-	size_t size = numCurves * sizeof(uint16_t);
-	ctx->ecdhCurves = (uint16_t *)sslMalloc(size);
+	if (SIZE_MAX / sizeof(*(ctx->ecdhCurves)) < (size_t)numCurves) {
+		return errSecParam;
+	}
+	ctx->ecdhCurves = sslMalloc((size_t)numCurves * sizeof(*(ctx->ecdhCurves)));
 	if(ctx->ecdhCurves == NULL) {
 		ctx->ecdhNumCurves = 0;
 		return errSecAllocate;
 	}
 
-    for (unsigned i=0; i<numCurves; i++) {
-        ctx->ecdhCurves[i] = namedCurves[i];
-    }
+	for (unsigned i=0; i<numCurves; i++) {
+		if (namedCurves[i] > UINT16_MAX - 1) {
+			ctx->ecdhCurves[i] = SSL_Curve_None;
+			continue;
+		}
+		ctx->ecdhCurves[i] = namedCurves[i];
+	}
 
 	ctx->ecdhNumCurves = numCurves;
 
-    tls_handshake_set_curves(ctx->hdsk, ctx->ecdhCurves, ctx->ecdhNumCurves);
+	tls_handshake_set_curves(ctx->hdsk, ctx->ecdhCurves, ctx->ecdhNumCurves);
 	return errSecSuccess;
 }
 

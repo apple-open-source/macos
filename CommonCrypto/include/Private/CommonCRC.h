@@ -24,7 +24,12 @@
 #ifndef _CC_COMMON_CRC_
 #define _CC_COMMON_CRC_
 
+#if defined(_MSC_VER)
+#include <availability.h>
+#else
 #include <os/availability.h>
+#endif
+
 
 #if !defined(COMMON_NUMERICS_H)
 #include <CommonNumerics/CommonNumerics.h>

@@ -31,9 +31,6 @@
 
 #include "ckconfig.h"
 
-#if	CRYPTKIT_MD5_ENABLE
-#if	CRYPTKIT_LIBMD_DIGEST
-
 /*
  * In this case we use the MD5 implementation in libSystem.
  */
@@ -47,44 +44,4 @@ typedef CC_MD5_CTX MD5Context;
 
 #define MD5_DIGEST_SIZE		CC_MD5_DIGEST_LENGTH
 
-#else	/* ! CRYPTKIT_LIBMD_DIGEST */
-
-/* Our own private implementation */
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#ifdef __alpha
-typedef unsigned int UINT32;
-#elif defined (macintosh) || defined (__ppc__)
-typedef unsigned int UINT32;
-#else
-typedef unsigned long UINT32;
-#endif
-
-typedef struct {
-	UINT32 buf[4];
-	UINT32 bits[2];			// bits[0] is low 32 bits of bit count
-	unsigned char in[64];
-} MD5Context;
-
-#define MD5_DIGEST_SIZE		16	/* in bytes */
-
-void MD5Init(MD5Context *context);
-void MD5Update(MD5Context *context, unsigned char const *buf,
-	       unsigned len);
-void MD5Final(MD5Context *context, unsigned char *digest);
-
-/*
- * This is needed to make RSAREF happy on some MS-DOS compilers.
- */
-typedef MD5Context MD5_CTX;
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif  /* CRYPTKIT_LIBMD_DIGEST */
-#endif	/* CRYPTKIT_MD5_ENABLE */
 #endif	/*_CK_MD5_H_*/

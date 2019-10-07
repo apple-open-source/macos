@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2016 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2016, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -180,8 +180,8 @@ int main (int argc, char *argv[])
     if (kill_orphans(params))		// check for and kill orphan pppd processes running with the same
         exit(EXIT_FATAL_ERROR);		// server id left over from a crashed vpnd process.
     
-    if (params->log_path)
-   	create_log_file(params->log_path);
+    if (strlen(params->log_path) > 0)
+		create_log_file(params->log_path);
     
     if (init_plugin(params)) {
         vpnlog(LOG_ERR, "Initialization of vpnd plugin failed\n");
@@ -261,7 +261,7 @@ static int spawn(struct vpn_params *params)
      
     if ((active_servers = get_active_servers(params)) == 0)
         return 0;       // no active servers
-    count = CFArrayGetCount(active_servers);
+    count = (int)CFArrayGetCount(active_servers);
     
     // find and launch active server ids
     for (j = 0; j < count; j++) {
@@ -311,7 +311,7 @@ static void close_file_descriptors(void)
     struct rlimit	lim;
 
     if (!getrlimit (RLIMIT_NOFILE, &lim))
-        i = lim.rlim_cur;
+        i = (int)lim.rlim_cur;
     else
         vpnlog(LOG_ERR, "close_file_descriptors() - getrlimit() failed\n");
 
@@ -543,9 +543,6 @@ static void dump_params(struct vpn_params *params)
 					break;
 				case PPP_TYPE_PPPoE:
 					subtype = "PPPoE";
-					break;
-				case PPP_TYPE_PPTP:
-					subtype = "PPTP";
 					break;
 				case PPP_TYPE_L2TP:
 					subtype = "L2TP";

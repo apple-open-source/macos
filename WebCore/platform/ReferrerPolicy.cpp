@@ -26,6 +26,7 @@
 #include "ReferrerPolicy.h"
 
 #include "HTTPParsers.h"
+#include <wtf/Optional.h>
 
 namespace WebCore {
 
@@ -81,6 +82,8 @@ Optional<ReferrerPolicy> parseReferrerPolicy(StringView policyString, ReferrerPo
     }
     case ReferrerPolicySource::MetaTag:
         return parseReferrerPolicyToken(policyString, ShouldParseLegacyKeywords::Yes);
+    case ReferrerPolicySource::ReferrerPolicyAttribute:
+        return parseReferrerPolicyToken(policyString, ShouldParseLegacyKeywords::No);
     }
     ASSERT_NOT_REACHED();
     return WTF::nullopt;

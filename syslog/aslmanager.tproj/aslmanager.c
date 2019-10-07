@@ -27,10 +27,10 @@
 #include <asl_store.h>
 #include <errno.h>
 #include <vproc_priv.h>
+#include <os/transaction_private.h>
 
 #include "asl_common.h"
 #include "daemon.h"
-#include "cache_delete.h"
 
 /* global */
 bool dryrun;
@@ -140,8 +140,6 @@ cli_main(int argc, char *argv[])
 	asl_out_dst_data_t store, opts, *asl_store_dst = NULL;
 	const char *mname = NULL;
 	bool quiet = false;
-	bool cache_delete = false;
-	bool cache_delete_query = false;
 
 #if !TARGET_OS_SIMULATOR
 	if (geteuid() != 0)
@@ -277,11 +275,6 @@ cli_main(int argc, char *argv[])
 		{
 			work |= DO_CHECKPT;
 		}
-		else if (!strcmp(argv[i], "-cache_delete"))
-		{
-			cache_delete = true;
-			if (((i + 1) < argc) && (argv[i + 1][0] == 'q')) cache_delete_query = true;
-		}
 		else if (!strcmp(argv[i], "-module"))
 		{
 			work &= ~DO_ASLDB;
@@ -313,42 +306,6 @@ cli_main(int argc, char *argv[])
 	if (asl_store_dst != NULL && asl_store_dst->path == NULL) asl_store_dst->path = strdup(PATH_ASL_STORE);
 
 	debug_log(ASL_LEVEL_ERR, "aslmanager starting%s\n", dryrun ? " dryrun" : "");
-
-	if (cache_delete)
-	{
-		size_t curr_size = 0;
-
-		if (cache_delete_task(true, &curr_size) != 0)
-		{
-			debug_log(ASL_LEVEL_NOTICE, "cache_delete_process failed - can't determine current size\n");
-		}
-		else
-		{
-			debug_log(ASL_LEVEL_NOTICE, "cache delete current size = %lu\n", curr_size);
-
-			if (!cache_delete_query)
-			{
-				size_t new_size = curr_size - opts.all_max;
-
-				if (cache_delete_task(false, &new_size) != 0)
-				{
-					debug_log(ASL_LEVEL_NOTICE, "cache_delete_process failed - delete failed\n");
-				}
-				else
-				{
-					debug_log(ASL_LEVEL_NOTICE, "cache delete new size = %lu\n", new_size);
-				}
-			}
-		}
-
-		asl_out_module_free(mod);
-
-		debug_log(ASL_LEVEL_NOTICE, "----------------------------------------\n");
-		debug_log(ASL_LEVEL_ERR, "aslmanager finished%s\n", dryrun ? " dryrun" : "");
-		debug_close();
-
-		return 0;
-	}
 
 	if (work & DO_ASLDB) process_asl_data_store(asl_store_dst, &opts);
 
@@ -389,7 +346,8 @@ main_task(void)
 	if (main_task_enqueued) return;
 
 	main_task_enqueued = true;
-	xpc_transaction_begin();
+
+	os_transaction_t transaction = os_transaction_create("com.apple.aslmanager");
 
 	if (initial_main_task)
 	{
@@ -399,7 +357,7 @@ main_task(void)
 		dispatch_after(delay, work_queue, ^{
 			cli_main(0, NULL);
 			main_task_enqueued = false;
-			xpc_transaction_end();
+			os_release(transaction);
 		});
 	}
 	else
@@ -407,7 +365,7 @@ main_task(void)
 		dispatch_async(work_queue, ^{
 			cli_main(0, NULL);
 			main_task_enqueued = false;
-			xpc_transaction_end();
+			os_release(transaction);
 		});
 	}
 }
@@ -422,8 +380,11 @@ accept_connection(xpc_connection_t peer)
 
 			/* send a reply immediately */
 			xpc_object_t reply = xpc_dictionary_create_reply(request);
-			xpc_connection_send_message(peer, reply);
-			xpc_release(reply);
+			if (reply != NULL)
+			{
+				xpc_connection_send_message(peer, reply);
+				xpc_release(reply);
+			}
 
 			/*
 			 * Some day, we may use the dictionary to pass parameters
@@ -477,8 +438,6 @@ main(int argc, char *argv[])
 		if (xpc_get_type(peer) == XPC_TYPE_CONNECTION) accept_connection(peer);
 	});
 	xpc_connection_resume(listener);
-
-	cache_delete_register();
 
 	dispatch_main();
 }

@@ -72,9 +72,7 @@ extern int	bflag;	/* show i/f total bytes in/out */
 extern int	cflag;	/* show specific classq */
 extern int	dflag;	/* show i/f dropped packets */
 extern int	Fflag;	/* show i/f forwarded packets */
-#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
 extern int	gflag;	/* show group (multicast) routing or stats */
-#endif
 extern int	iflag;	/* show interfaces */
 extern int	lflag;	/* show routing table with use and ref */
 extern int	Lflag;	/* show size of listen queues */

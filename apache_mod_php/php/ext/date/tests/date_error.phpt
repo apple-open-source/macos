@@ -1,5 +1,5 @@
 --TEST--
-Test date() function : error conditions 
+Test date() function : error conditions
 --FILE--
 <?php
 /* Prototype  : string date  ( string $format  [, int $timestamp  ] )
@@ -9,7 +9,7 @@ Test date() function : error conditions
 
 echo "*** Testing date() : error conditions ***\n";
 
-//Set the default time zone 
+//Set the default time zone
 date_default_timezone_set("America/Chicago");
 
 $format = "m.d.y";
@@ -23,7 +23,7 @@ $extra_arg = true;
 var_dump (checkdate($format, $timestamp, $extra_arg));
 
 ?>
-===DONE=== 
+===DONE===
 --EXPECTF--
 *** Testing date() : error conditions ***
 
@@ -34,6 +34,6 @@ bool(false)
 
 -- Testing date function with more than expected no. of arguments --
 
-Warning: checkdate() expects parameter 1 to be integer, string given in %s on line %d
+Warning: checkdate() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 ===DONE===

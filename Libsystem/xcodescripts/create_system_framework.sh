@@ -5,7 +5,7 @@ if [ $# -ne 5 ]; then
     exit 1
 fi
 
-DSTROOT="$1${INSTALL_PATH_PREFIX}"
+DSTROOT="$1${INSTALL_PATH_FRAMEWORK_PREFIX}"
 SRCROOT="$2"
 ACTION="$3"
 ARCHS="$4"
@@ -21,6 +21,8 @@ mkdir -p "${DSTROOT}/${FPATH}/Versions" || exit 1
 mkdir -p "${DSTROOT}/${FPATH}/Versions/B" || exit 1
 ln -sf "B" "${DSTROOT}/${FPATH}/Versions/Current" || exit 1
 ln -sf "Versions/Current/PrivateHeaders" "${DSTROOT}/${FPATH}/PrivateHeaders" || exit 1
+
+if [[ "${DRIVERKIT}" == "1" ]]; then exit 0; fi; # No compatibility symlinks in DriverKit SDK
 
 if [[ "${PLATFORM_NAME}" =~ macosx ]]; then
 	ln -sf "Versions/Current/Resources" "${DSTROOT}/${FPATH}/Resources" || exit 1

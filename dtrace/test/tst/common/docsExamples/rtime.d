@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)rtime.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *	Verify doc example 3-1

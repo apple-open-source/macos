@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)man.IncludedFilePath.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Using the -CH option with dtrace invocation displays the list of

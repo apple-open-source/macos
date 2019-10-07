@@ -36,6 +36,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
@@ -58,6 +59,7 @@ int blsustatfs(const char *path, struct statfs *buf)
 {
     int ret;
     struct stat sb;
+    int flag;
     char *dev = NULL;
     
     ret = statfs(path, buf);    
@@ -65,8 +67,13 @@ int blsustatfs(const char *path, struct statfs *buf)
         return ret;
 	
 	
-    ret = stat(path, &sb);
-    if(ret) 
+#ifdef AT_REALDEV
+    flag = AT_REALDEV;
+#else
+    flag = 0;
+#endif /* AT_REALDEV */
+    ret = fstatat(AT_FDCWD, path, &sb, flag);
+    if(ret)
         return ret;
     
     // figure out the true device we live on

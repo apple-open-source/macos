@@ -86,25 +86,25 @@ class AppleEmbeddedKeyboard: public IOHIDEventDriver
 
 protected:
         
-    virtual bool            handleStart( IOService * provider );
+    virtual bool            handleStart( IOService * provider ) APPLE_KEXT_OVERRIDE;
     
     virtual IOReturn        setElementValue (
                                 UInt32                      usagePage,
                                 UInt32                      usage,
-                                UInt32                      value );
+                                UInt32                      value ) APPLE_KEXT_OVERRIDE;
 
     virtual void            dispatchKeyboardEvent(
                                 AbsoluteTime                timeStamp,
                                 UInt32                      usagePage,
                                 UInt32                      usage,
                                 UInt32                      value,
-                                IOOptionBits                options = 0 );
+                                IOOptionBits                options = 0 ) APPLE_KEXT_OVERRIDE;
 
 public:
-    virtual bool            init(OSDictionary * properties = 0);
-    virtual void            free();
+    virtual bool            init(OSDictionary * properties = 0) APPLE_KEXT_OVERRIDE;
+    virtual void            free(void) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn        setSystemProperties( OSDictionary * properties );
+    virtual IOReturn        setSystemProperties( OSDictionary * properties ) APPLE_KEXT_OVERRIDE;
 
 };
 

@@ -17,8 +17,6 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id$ */
-
 #ifndef	_INCLUDED_FTP_H
 #define	_INCLUDED_FTP_H
 
@@ -54,11 +52,13 @@ PHP_FUNCTION(ftp_chmod);
 PHP_FUNCTION(ftp_alloc);
 PHP_FUNCTION(ftp_nlist);
 PHP_FUNCTION(ftp_rawlist);
+PHP_FUNCTION(ftp_mlsd);
 PHP_FUNCTION(ftp_systype);
 PHP_FUNCTION(ftp_pasv);
 PHP_FUNCTION(ftp_get);
 PHP_FUNCTION(ftp_fget);
 PHP_FUNCTION(ftp_put);
+PHP_FUNCTION(ftp_append);
 PHP_FUNCTION(ftp_fput);
 PHP_FUNCTION(ftp_size);
 PHP_FUNCTION(ftp_mdtm);

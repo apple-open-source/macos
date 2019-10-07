@@ -418,4 +418,6 @@ static inline errno_t ntfs_index_entry_add(ntfs_index_context *ictx,
 			data, data_len);
 }
 
+__private_extern__ boolean_t ntfs_is_index_entry_valid(const INDEX_ENTRY* ie, const void* indexStart, const void* indexEnd);
+
 #endif /* _OSX_NTFS_INDEX_H */

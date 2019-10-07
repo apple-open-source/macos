@@ -32,13 +32,15 @@
 #include "IOHIDEvent.h"
 #include "IOHIDDebug.h"
 #include <os/overflow.h>
+#include <pexpert/pexpert.h>
 
 #define super IOSharedDataQueue
 OSDefineMetaClassAndStructors( IOHIDEventServiceQueue, super )
 
-IOHIDEventServiceQueue *IOHIDEventServiceQueue::withCapacity(UInt32 size)
+IOHIDEventServiceQueue *IOHIDEventServiceQueue::withCapacity(UInt32 size, UInt32 options)
 {
     IOHIDEventServiceQueue *dataQueue = new IOHIDEventServiceQueue;
+    bool noFullMsg = false;
 
     if (dataQueue) {
         if  (!dataQueue->initWithCapacity(size)) {
@@ -47,12 +49,18 @@ IOHIDEventServiceQueue *IOHIDEventServiceQueue::withCapacity(UInt32 size)
         }
     }
 
+    dataQueue->_options = options;
+    dataQueue->_notificationCount = 0;
+
+    PE_parse_boot_argn("hidq_no_full_msg", &noFullMsg, sizeof(noFullMsg));
+    dataQueue->_options |= (noFullMsg ? kIOHIDEventServiceQueueOptionNoFullNotification : 0);
+
     return dataQueue;
 }
 
-IOHIDEventServiceQueue *IOHIDEventServiceQueue::withCapacity(OSObject *owner, UInt32 size)
+IOHIDEventServiceQueue *IOHIDEventServiceQueue::withCapacity(OSObject *owner, UInt32 size, UInt32 options)
 {
-    IOHIDEventServiceQueue *dataQueue = IOHIDEventServiceQueue::withCapacity(size);
+    IOHIDEventServiceQueue *dataQueue = IOHIDEventServiceQueue::withCapacity(size, options);
     
     if (dataQueue) {
         dataQueue->_owner = owner;
@@ -193,12 +201,20 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
     // Send notification (via mach message) that data is available if either the
     // queue was empty prior to enqueue() or queue was emptied during enqueue()
     if ( (event->getOptions() & kHIDDispatchOptionDeliveryNotificationSuppress) == 0) {
-        if ( (event->getOptions() & kHIDDispatchOptionDeliveryNotificationForce) || ( head == tail ) || queueFull) {
-            //if (queueFull) {
-            //    HIDLogError("IOHIDEventServiceQueue::enqueueEvent - Queue is full, notifying again 0xllx", _owner);
-            //}
+        if ( (_options & kIOHIDEventServiceQueueOptionNotificationForce)
+            || (event->getOptions() & kHIDDispatchOptionDeliveryNotificationForce)
+            || ( head == tail )) {
 
             sendDataAvailableNotification();
+
+        } else if (queueFull) {
+
+            if ( !(_options & kIOHIDEventServiceQueueOptionNoFullNotification) ) {
+                sendDataAvailableNotification();
+            }
+            else {
+                HIDLogError("IOHIDEventServiceQueue::enqueueEvent - Queue is full! %p", _owner);
+            }
         }
     }
     
@@ -214,6 +230,14 @@ void IOHIDEventServiceQueue::setNotificationPort(mach_port_t port) {
 
     if (dataQueue->head != dataQueue->tail)
         sendDataAvailableNotification();
+}
+
+//---------------------------------------------------------------------------
+
+void IOHIDEventServiceQueue::sendDataAvailableNotification()
+{
+    _notificationCount++;
+    super::sendDataAvailableNotification();
 }
 
 //---------------------------------------------------------------------------
@@ -247,6 +271,21 @@ bool IOHIDEventServiceQueue::serialize(OSSerialize * serializer) const {
         num = OSNumber::withNumber(dataQueue->tail, 32);
         if (num) {
             dict->setObject("tail", num);
+            num->release();
+        }
+        num = OSNumber::withNumber(_notificationCount, 64);
+        if (num) {
+            dict->setObject("NotificationCount", num);
+            num->release();
+        }
+        num = OSNumber::withNumber((_options & kIOHIDEventServiceQueueOptionNotificationForce), 32);
+        if (num) {
+            dict->setObject("NotificationForce", num);
+            num->release();
+        }
+        num = OSNumber::withNumber((_options & kIOHIDEventServiceQueueOptionNoFullNotification), 32);
+        if (num) {
+            dict->setObject("NoFullMsg", num);
             num->release();
         }
         ret = dict->serialize(serializer);

@@ -41,6 +41,9 @@
 #ifdef HAVE_LINUX_FD_H
 #include <linux/fd.h>
 #endif
+#ifdef HAVE_SYS_DISK_H
+#include <sys/disk.h>
+#endif
 
 #include "types.h"
 #include "mst.h"
@@ -64,7 +67,7 @@
  * was retrieved from:
  *   http://mirror.linux.org.au/pub/linux.conf.au/2007/video/talks/278.pdf
  */
-static int ntfs_fsync(int fildes)
+static int ntfs_fsync(int fildes, BOOL is_device)
 {
 	int ret = -1;
 #if defined(__APPLE__) || defined(__DARWIN__)
@@ -83,6 +86,21 @@ static int ntfs_fsync(int fildes)
 		 * then fall back to a plain fsync. 
 		 */
 		ret = fsync(fildes);
+		if (!ret && is_device) {
+			/* After fsync, try to synchronize disk cache.
+			 * F_FULLFSYNC implies DKIOCSYNCHRONIZECACHE but it's
+			 * unclear if fsync does. */
+			ret = ioctl(fildes, DKIOCSYNCHRONIZECACHE);
+			if (ret) {
+				ntfs_log_warning("DKIOCSYNCHRONIZECACHE "
+						"returned error: %d (%s)\n",
+						errno, strerror(errno));
+				/* Ignore return value from ioctl as it may have
+				 * been issued for a device that doesn't support
+				 * it. */
+				ret = 0;
+			}
+		}
 	}
 #else
 	ret = fsync(fildes);
@@ -177,7 +195,7 @@ static int ntfs_device_unix_io_close(struct ntfs_device *dev)
 		return -1;
 	}
 	if (NDevDirty(dev))
-		if (ntfs_fsync(DEV_FD(dev))) {
+		if (ntfs_fsync(DEV_FD(dev), NDevBlock(dev))) {
 			ntfs_log_perror("Failed to fsync device %s", dev->d_name);
 			return -1;
 		}
@@ -303,7 +321,7 @@ static int ntfs_device_unix_io_sync(struct ntfs_device *dev)
 	int res = 0;
 	
 	if (!NDevReadOnly(dev)) {
-		res = ntfs_fsync(DEV_FD(dev));
+		res = ntfs_fsync(DEV_FD(dev), NDevBlock(dev));
 		if (res)
 			ntfs_log_perror("Failed to sync device %s", dev->d_name);
 		else

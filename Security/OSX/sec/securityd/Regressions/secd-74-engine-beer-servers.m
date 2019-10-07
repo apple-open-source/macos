@@ -22,7 +22,7 @@
  */
 
 
-#include <SOSCircle/Regressions/SOSTestDevice.h>
+#include "keychain/SecureObjectSync/Regressions/SOSTestDevice.h"
 #include "secd_regressions.h"
 #include "SecdTestKeychainUtilities.h"
 

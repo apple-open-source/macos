@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2009 Apple Inc.  All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,6 +72,13 @@
 #define _PATH_NFSD_PLIST	"/System/Library/LaunchDaemons/com.apple.nfsd.plist"
 #define _PATH_LAUNCHCTL		"/bin/launchctl"
 #define _PATH_RQUOTAD		"/usr/libexec/rpc.rquotad"
+
+#define _PATH_NFSD_TICOTSORD_SOCK "/var/run/nfs.ticotsord"
+#define _PATH_MOUNTD_TICOTSORD_SOCK "/var/run/mount.ticotsord"
+#if 0
+#define _PATH_NFSD_TICLTS_SOCK "/var/run/nfs.ticlts"
+#define _PATH_MOUNTD_TICLTS_SOCK "/var/run/mount.ticlts"
+#endif
 
 /* not really pathnames, but... */
 #define _NFSD_SERVICE_LABEL		"com.apple.nfsd"

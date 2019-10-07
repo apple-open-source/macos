@@ -1,0 +1,326 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 50;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0F7A4EDD2242E6CC00D655AB /* AppleUserHIDEventDriver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0F7A4ED12242E6CB00D655AB /* AppleUserHIDEventDriver.cpp */; };
+		0F7A4EDE2242E6CC00D655AB /* AppleUserUSBHostHIDDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0F7A4ED32242E6CC00D655AB /* AppleUserUSBHostHIDDevice.cpp */; };
+		0F7A4EE22242EBA800D655AB /* HIDDriverKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0F7A4EE12242EBA800D655AB /* HIDDriverKit.framework */; };
+		0F7A4EE42242EBAC00D655AB /* USBDriverKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0F7A4EE32242EBAC00D655AB /* USBDriverKit.framework */; };
+		0F7A4EE62242EBB100D655AB /* DriverKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0F7A4EE52242EBB000D655AB /* DriverKit.framework */; };
+		48C68A6422692E0500E75E1B /* AppleUserUSBHostHIDDevice.iig in Sources */ = {isa = PBXBuildFile; fileRef = 0F7A4ECF2242E6CB00D655AB /* AppleUserUSBHostHIDDevice.iig */; };
+		48C68A6522692E0500E75E1B /* AppleUserHIDEventDriver.iig in Sources */ = {isa = PBXBuildFile; fileRef = 0F7A4ED02242E6CB00D655AB /* AppleUserHIDEventDriver.iig */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0F7A4EC42242E6AE00D655AB /* AppleUserHIDDrivers.dext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleUserHIDDrivers.dext; sourceTree = BUILT_PRODUCTS_DIR; };
+		0F7A4EC72242E6AE00D655AB /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		0F7A4ECF2242E6CB00D655AB /* AppleUserUSBHostHIDDevice.iig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.iig; path = AppleUserUSBHostHIDDevice.iig; sourceTree = "<group>"; };
+		0F7A4ED02242E6CB00D655AB /* AppleUserHIDEventDriver.iig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.iig; path = AppleUserHIDEventDriver.iig; sourceTree = "<group>"; };
+		0F7A4ED12242E6CB00D655AB /* AppleUserHIDEventDriver.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUserHIDEventDriver.cpp; sourceTree = "<group>"; };
+		0F7A4ED22242E6CB00D655AB /* IOUSBDescriptorDebug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOUSBDescriptorDebug.h; sourceTree = "<group>"; };
+		0F7A4ED32242E6CC00D655AB /* AppleUserUSBHostHIDDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUserUSBHostHIDDevice.cpp; sourceTree = "<group>"; };
+		0F7A4EDC2242E6CC00D655AB /* AppleUserHIDDrivers.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = AppleUserHIDDrivers.xcconfig; sourceTree = "<group>"; };
+		0F7A4EE12242EBA800D655AB /* HIDDriverKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HIDDriverKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/Frameworks/HIDDriverKit.framework; sourceTree = DEVELOPER_DIR; };
+		0F7A4EE32242EBAC00D655AB /* USBDriverKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = USBDriverKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/Frameworks/USBDriverKit.framework; sourceTree = DEVELOPER_DIR; };
+		0F7A4EE52242EBB000D655AB /* DriverKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DriverKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/Frameworks/DriverKit.framework; sourceTree = DEVELOPER_DIR; };
+		48D10DEA22C143FA00C9F758 /* AppleUserHIDDrivers-Entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "AppleUserHIDDrivers-Entitlements.plist"; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0F7A4EC12242E6AE00D655AB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0F7A4EE62242EBB100D655AB /* DriverKit.framework in Frameworks */,
+				0F7A4EE42242EBAC00D655AB /* USBDriverKit.framework in Frameworks */,
+				0F7A4EE22242EBA800D655AB /* HIDDriverKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0F7A4EBB2242E6AE00D655AB = {
+			isa = PBXGroup;
+			children = (
+				0F7A4EC62242E6AE00D655AB /* AppleUserHIDDrivers */,
+				0F7A4EC52242E6AE00D655AB /* Products */,
+				0F7A4EE02242EBA800D655AB /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		0F7A4EC52242E6AE00D655AB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0F7A4EC42242E6AE00D655AB /* AppleUserHIDDrivers.dext */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		0F7A4EC62242E6AE00D655AB /* AppleUserHIDDrivers */ = {
+			isa = PBXGroup;
+			children = (
+				48D10DEA22C143FA00C9F758 /* AppleUserHIDDrivers-Entitlements.plist */,
+				0F7A4ECF2242E6CB00D655AB /* AppleUserUSBHostHIDDevice.iig */,
+				0F7A4ED02242E6CB00D655AB /* AppleUserHIDEventDriver.iig */,
+				0F7A4ED22242E6CB00D655AB /* IOUSBDescriptorDebug.h */,
+				0F7A4ED12242E6CB00D655AB /* AppleUserHIDEventDriver.cpp */,
+				0F7A4ED32242E6CC00D655AB /* AppleUserUSBHostHIDDevice.cpp */,
+				0F7A4EC72242E6AE00D655AB /* Info.plist */,
+				0F7A4EDC2242E6CC00D655AB /* AppleUserHIDDrivers.xcconfig */,
+			);
+			path = AppleUserHIDDrivers;
+			sourceTree = "<group>";
+		};
+		0F7A4EE02242EBA800D655AB /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				0F7A4EE52242EBB000D655AB /* DriverKit.framework */,
+				0F7A4EE32242EBAC00D655AB /* USBDriverKit.framework */,
+				0F7A4EE12242EBA800D655AB /* HIDDriverKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0F7A4EC32242E6AE00D655AB /* AppleUserHIDDrivers */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0F7A4ECA2242E6AE00D655AB /* Build configuration list for PBXNativeTarget "AppleUserHIDDrivers" */;
+			buildPhases = (
+				0F7A4EC02242E6AE00D655AB /* Sources */,
+				0F7A4EC12242E6AE00D655AB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AppleUserHIDDrivers;
+			productName = AppleUserHIDDrivers;
+			productReference = 0F7A4EC42242E6AE00D655AB /* AppleUserHIDDrivers.dext */;
+			productType = "com.apple.product-type.bundle";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0F7A4EBC2242E6AE00D655AB /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1100;
+				ORGANIZATIONNAME = apple;
+				TargetAttributes = {
+					0F7A4EC32242E6AE00D655AB = {
+						CreatedOnToolsVersion = 11.0;
+					};
+				};
+			};
+			buildConfigurationList = 0F7A4EBF2242E6AE00D655AB /* Build configuration list for PBXProject "AppleUserHIDDrivers" */;
+			compatibilityVersion = "Xcode 9.3";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 0F7A4EBB2242E6AE00D655AB;
+			productRefGroup = 0F7A4EC52242E6AE00D655AB /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				0F7A4EC32242E6AE00D655AB /* AppleUserHIDDrivers */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0F7A4EC02242E6AE00D655AB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				48C68A6422692E0500E75E1B /* AppleUserUSBHostHIDDevice.iig in Sources */,
+				48C68A6522692E0500E75E1B /* AppleUserHIDEventDriver.iig in Sources */,
+				0F7A4EDE2242E6CC00D655AB /* AppleUserUSBHostHIDDevice.cpp in Sources */,
+				0F7A4EDD2242E6CC00D655AB /* AppleUserHIDEventDriver.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		0F7A4EC82242E6AE00D655AB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0F7A4EDC2242E6CC00D655AB /* AppleUserHIDDrivers.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "";
+				INSTALL_PATH = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "";
+				SDKROOT = macosx;
+				WRAPPER_EXTENSION = "";
+			};
+			name = Debug;
+		};
+		0F7A4EC92242E6AE00D655AB /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0F7A4EDC2242E6CC00D655AB /* AppleUserHIDDrivers.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = "";
+				INSTALL_PATH = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "";
+				SDKROOT = macosx;
+				WRAPPER_EXTENSION = "";
+			};
+			name = Release;
+		};
+		0F7A4ECB2242E6AE00D655AB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0F7A4EDC2242E6CC00D655AB /* AppleUserHIDDrivers.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "AppleUserHIDDrivers-Entitlements.plist";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = driverkit.internal;
+				SKIP_INSTALL = NO;
+			};
+			name = Debug;
+		};
+		0F7A4ECC2242E6AE00D655AB /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0F7A4EDC2242E6CC00D655AB /* AppleUserHIDDrivers.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "AppleUserHIDDrivers-Entitlements.plist";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = driverkit.internal;
+				SKIP_INSTALL = NO;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0F7A4EBF2242E6AE00D655AB /* Build configuration list for PBXProject "AppleUserHIDDrivers" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0F7A4EC82242E6AE00D655AB /* Debug */,
+				0F7A4EC92242E6AE00D655AB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0F7A4ECA2242E6AE00D655AB /* Build configuration list for PBXNativeTarget "AppleUserHIDDrivers" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0F7A4ECB2242E6AE00D655AB /* Debug */,
+				0F7A4ECC2242E6AE00D655AB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0F7A4EBC2242E6AE00D655AB /* Project object */;
+}

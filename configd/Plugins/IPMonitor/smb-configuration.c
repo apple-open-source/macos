@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -613,6 +613,7 @@ ptr_query_start(CFStringRef address)
 
 	my_log(LOG_INFO, "NetBIOS name: ptr query start");
 
+	(void) gettimeofday(&ptrQueryStart, NULL);
 	(void) SCNetworkReachabilitySetCallback(ptrTarget, ptr_query_callback, NULL);
 	(void) SCNetworkReachabilityScheduleWithRunLoop(ptrTarget, rl, kCFRunLoopDefaultMode);
 

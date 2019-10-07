@@ -1,7 +1,7 @@
 --TEST--
 Testing instanceof operator with several operators
 --FILE--
-<?php 
+<?php
 
 $a = new stdClass;
 var_dump($a instanceof stdClass);
@@ -22,6 +22,8 @@ var_dump("$a" instanceof stdClass);
 --EXPECTF--
 bool(true)
 bool(true)
+
+Deprecated: Function create_function() is deprecated in %s on line %d
 bool(true)
 bool(true)
 bool(false)

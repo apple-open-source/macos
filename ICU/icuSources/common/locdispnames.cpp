@@ -22,9 +22,12 @@
 #include "unicode/utypes.h"
 #include "unicode/brkiter.h"
 #include "unicode/locid.h"
+#include "unicode/uenum.h"
 #include "unicode/uloc.h"
 #include "unicode/ures.h"
 #include "unicode/ustring.h"
+#include "unicode/uldnames.h"
+#include "charstr.h"
 #include "cmemory.h"
 #include "cstring.h"
 #include "putilimp.h"
@@ -306,14 +309,11 @@ _getStringOrCopyKey(const char *path, const char *locale,
 
     if(itemKey==NULL) {
         /* top-level item: normal resource bundle access */
-        UResourceBundle *rb;
-
-        rb=ures_open(path, locale, pErrorCode);
+        icu::LocalUResourceBundlePointer rb(ures_open(path, locale, pErrorCode));
 
         if(U_SUCCESS(*pErrorCode)) {
-            s=ures_getStringByKey(rb, tableKey, &length, pErrorCode);
+            s=ures_getStringByKey(rb.getAlias(), tableKey, &length, pErrorCode);
             /* see comment about closing rb near "return item;" in _res_getTableStringWithFallback() */
-            ures_close(rb);
         }
     } else {
         /* Language code should not be a number. If it is, set the error code. */
@@ -508,17 +508,33 @@ uloc_getDisplayName(const char *locale,
         return 0;
     }
 
+    { // For select languages + script, route to uldn_localeDisplayName <rdar://problem/51418203>
+        char lang[ULOC_LANG_CAPACITY];
+        char script[ULOC_SCRIPT_CAPACITY ];
+        UErrorCode status = U_ZERO_ERROR;
+        int32_t langlen = uloc_getLanguage(locale, lang, ULOC_LANG_CAPACITY, &status);
+        int32_t scriptlen = uloc_getScript(locale, script, ULOC_SCRIPT_CAPACITY, &status);
+        if ( U_SUCCESS(status) && scriptlen>0 && (uprv_strcmp(lang, "zh") == 0 || uprv_strcmp(lang, "yue") == 0 ||
+                uprv_strcmp(lang, "ks") == 0 || uprv_strcmp(lang, "pa") == 0 || uprv_strcmp(lang, "ur") == 0) ) {
+            ULocaleDisplayNames* uldn = uldn_open(displayLocale, ULDN_STANDARD_NAMES, &status);
+            if ( U_SUCCESS(status) ) {
+                int32_t namelen = uldn_localeDisplayName(uldn, locale, dest, destCapacity, pErrorCode);
+                uldn_close(uldn);
+                return namelen;
+            }
+        }
+    }
+
     {
         UErrorCode status = U_ZERO_ERROR;
-        UResourceBundle* locbundle=ures_open(U_ICUDATA_LANG, displayLocale, &status);
-        UResourceBundle* dspbundle=ures_getByKeyWithFallback(locbundle, _kLocaleDisplayPattern,
-                                                             NULL, &status);
 
-        separator=ures_getStringByKeyWithFallback(dspbundle, _kSeparator, &sepLen, &status);
-        pattern=ures_getStringByKeyWithFallback(dspbundle, _kPattern, &patLen, &status);
+        icu::LocalUResourceBundlePointer locbundle(
+                ures_open(U_ICUDATA_LANG, displayLocale, &status));
+        icu::LocalUResourceBundlePointer dspbundle(
+                ures_getByKeyWithFallback(locbundle.getAlias(), _kLocaleDisplayPattern, NULL, &status));
 
-        ures_close(dspbundle);
-        ures_close(locbundle);
+        separator=ures_getStringByKeyWithFallback(dspbundle.getAlias(), _kSeparator, &sepLen, &status);
+        pattern=ures_getStringByKeyWithFallback(dspbundle.getAlias(), _kPattern, &patLen, &status);
     }
 
     /* If we couldn't find any data, then use the defaults */
@@ -586,7 +602,7 @@ uloc_getDisplayName(const char *locale,
         int32_t langPos=0; /* position in output of language substitution */
         int32_t restLen=0; /* length of 'everything else' substitution */
         int32_t restPos=0; /* position in output of 'everything else' substitution */
-        UEnumeration* kenum = NULL; /* keyword enumeration */
+        icu::LocalUEnumerationPointer kenum; /* keyword enumeration */
 
         /* prefix of pattern, extremely likely to be empty */
         if(sub0Pos) {
@@ -639,12 +655,11 @@ uloc_getDisplayName(const char *locale,
                             len=uloc_getDisplayVariant(locale, displayLocale, p, cap, pErrorCode);
                             break;
                         case 3:
-                            kenum = uloc_openKeywords(locale, pErrorCode);
+                            kenum.adoptInstead(uloc_openKeywords(locale, pErrorCode));
                             U_FALLTHROUGH;
                         default: {
-                            const char* kw=uenum_next(kenum, &len, pErrorCode);
+                            const char* kw=uenum_next(kenum.getAlias(), &len, pErrorCode);
                             if (kw == NULL) {
-                                uenum_close(kenum);
                                 len=0; /* mark that we didn't add a component */
                                 subdone=TRUE;
                             } else {
@@ -832,18 +847,16 @@ uloc_getDisplayKeywordValue(   const char* locale,
 
         int32_t dispNameLen = 0;
         const UChar *dispName = NULL;
-        
-        UResourceBundle *bundle     = ures_open(U_ICUDATA_CURR, displayLocale, status);
-        UResourceBundle *currencies = ures_getByKey(bundle, _kCurrencies, NULL, status);
-        UResourceBundle *currency   = ures_getByKeyWithFallback(currencies, keywordValue, NULL, status);
-        
-        dispName = ures_getStringByIndex(currency, UCURRENCY_DISPLAY_NAME_INDEX, &dispNameLen, status);
-        
-        /*close the bundles */
-        ures_close(currency);
-        ures_close(currencies);
-        ures_close(bundle);
-        
+
+        icu::LocalUResourceBundlePointer bundle(
+                ures_open(U_ICUDATA_CURR, displayLocale, status));
+        icu::LocalUResourceBundlePointer currencies(
+                ures_getByKey(bundle.getAlias(), _kCurrencies, NULL, status));
+        icu::LocalUResourceBundlePointer currency(
+                ures_getByKeyWithFallback(currencies.getAlias(), keywordValue, NULL, status));
+
+        dispName = ures_getStringByIndex(currency.getAlias(), UCURRENCY_DISPLAY_NAME_INDEX, &dispNameLen, status);
+
         if(U_FAILURE(*status)){
             if(*status == U_MISSING_RESOURCE_ERROR){
                 /* we just want to write the value over if nothing is available */

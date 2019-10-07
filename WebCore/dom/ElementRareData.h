@@ -29,6 +29,7 @@
 #include "NodeRareData.h"
 #include "PseudoElement.h"
 #include "RenderElement.h"
+#include "ResizeObserver.h"
 #include "ShadowRoot.h"
 #include "StylePropertyMap.h"
 
@@ -123,9 +124,17 @@ public:
     bool hasCSSAnimation() const { return m_hasCSSAnimation; }
     void setHasCSSAnimation(bool value) { m_hasCSSAnimation = value; }
 
+    bool hasElementIdentifier() const { return m_hasElementIdentifier; }
+    void setHasElementIdentifier(bool value) { m_hasElementIdentifier = value; }
+
 #if ENABLE(INTERSECTION_OBSERVER)
     IntersectionObserverData* intersectionObserverData() { return m_intersectionObserverData.get(); }
     void setIntersectionObserverData(std::unique_ptr<IntersectionObserverData>&& data) { m_intersectionObserverData = WTFMove(data); }
+#endif
+
+#if ENABLE(RESIZE_OBSERVER)
+    ResizeObserverData* resizeObserverData() { return m_resizeObserverData.get(); }
+    void setResizeObserverData(std::unique_ptr<ResizeObserverData>&& data) { m_resizeObserverData = WTFMove(data); }
 #endif
 
 #if ENABLE(CSS_TYPED_OM)
@@ -162,6 +171,10 @@ public:
             result.add(UseType::AttributeMap);
         if (m_intersectionObserverData)
             result.add(UseType::InteractionObserver);
+#if ENABLE(RESIZE_OBSERVER)
+        if (m_resizeObserverData)
+            result.add(UseType::ResizeObserver);
+#endif
         if (m_beforePseudoElement || m_afterPseudoElement)
             result.add(UseType::PseudoElements);
         return result;
@@ -180,6 +193,7 @@ private:
 #endif
     unsigned m_hasPendingResources : 1;
     unsigned m_hasCSSAnimation : 1;
+    unsigned m_hasElementIdentifier : 1;
     unsigned m_childrenAffectedByHover : 1;
     unsigned m_childrenAffectedByDrag : 1;
     // Bits for dynamic child matching.
@@ -205,6 +219,10 @@ private:
     std::unique_ptr<IntersectionObserverData> m_intersectionObserverData;
 #endif
 
+#if ENABLE(RESIZE_OBSERVER)
+    std::unique_ptr<ResizeObserverData> m_resizeObserverData;
+#endif
+
     RefPtr<PseudoElement> m_beforePseudoElement;
     RefPtr<PseudoElement> m_afterPseudoElement;
 
@@ -228,6 +246,7 @@ inline ElementRareData::ElementRareData(RenderElement* renderer)
 #endif
     , m_hasPendingResources(false)
     , m_hasCSSAnimation(false)
+    , m_hasElementIdentifier(false)
     , m_childrenAffectedByHover(false)
     , m_childrenAffectedByDrag(false)
     , m_childrenAffectedByLastChildRules(false)

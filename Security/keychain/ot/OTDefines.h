@@ -28,39 +28,58 @@
 #include <utilities/debugging.h>
 NS_ASSUME_NONNULL_BEGIN
 
-static NSString* const octagonErrorDomain = @"com.apple.security.octagon";
-static NSString* const OctagonEventAttributeZoneName = @"OTBottledPeer";
-static NSString* const OctagonEventAttributeFailureReason = @"OTFailureReason";
-static NSString* const OctagonEventAttributeTimeSinceLastPostedFollowUp = @"TimeSinceLastPostedFollowUp";
+extern NSString* const OctagonEventAttributeZoneName;
+extern NSString* const OctagonEventAttributeFailureReason;
+extern NSString* const OctagonEventAttributeTimeSinceLastPostedFollowUp;
 
+extern NSString* OTCKContainerName;
+extern NSString* const CuttlefishTrustZone;
+extern NSString* const CuttlefishErrorDomain;
+extern NSString* const TrustedPeersHelperErrorDomain;
 
 /* Octagon Errors */
-#define OTErrorNoColumn                         1
-#define OTErrorKeyGeneration                    2
-#define OTErrorEmptySecret                      3
-#define OTErrorEmptyDSID                        4
-#define OTErrorNoIdentity                       5
-#define OTErrorRestoreFailed                    6
-#define OTErrorRestoredPeerEncryptionKeyFailure 7
-#define OTErrorRestoredPeerSigningKeyFailure    8
-#define OTErrorEntropyCreationFailure           9
-#define OTErrorDeserializationFailure           10
-#define OTErrorDecryptFailure                   11
-#define OTErrorPrivateKeyFailure                12
-#define OTErrorEscrowSigningSPKI                13
-#define OTErrorBottleID                         14
-#define OTErrorOTLocalStore                     15
-#define OTErrorOTCloudStore                     16
-#define OTErrorEmptyEscrowRecordID              17
-#define OTErrorNoBottlePeerRecords              18
-#define OTErrorCoreFollowUp                     19
-#define OTErrorFeatureNotEnabled                20
-#define OTErrorCKCallback                       21
-#define OTErrorRampInit                         22
-#define OTErrorCKTimeOut                        23
-#define OTErrorNoNetwork                        24
-#define OTErrorNotSignedIn                      25
-#define OTErrorRecordNotFound                   26
+typedef enum {
+    OTErrorNoColumn                         = 1,
+    OTErrorKeyGeneration                    = 2,
+    OTErrorEmptySecret                      = 3,
+    OTErrorEmptyDSID                        = 4,
+    OTErrorNoIdentity                       = 5,
+    OTErrorRestoreFailed                    = 6,
+    OTErrorRestoredPeerEncryptionKeyFailure = 7,
+    OTErrorRestoredPeerSigningKeyFailure    = 8,
+    OTErrorEntropyCreationFailure           = 9,
+    OTErrorDeserializationFailure           = 10,
+    OTErrorDecryptFailure                   = 11,
+    OTErrorPrivateKeyFailure                = 12,
+    OTErrorEscrowSigningSPKI                = 13,
+    OTErrorBottleID                         = 14,
+    OTErrorOTLocalStore                     = 15,
+    OTErrorOTCloudStore                     = 16,
+    OTErrorEmptyEscrowRecordID              = 17,
+    OTErrorNoBottlePeerRecords              = 18,
+    OTErrorCoreFollowUp                     = 19,
+    OTErrorFeatureNotEnabled                = 20,
+    OTErrorCKCallback                       = 21,
+    OTErrorRampInit                         = 22,
+    OTErrorCKTimeOut                        = 23,
+    OTErrorNoNetwork                        = 24,
+    OTErrorNotSignedIn                      = 25,
+    OTErrorRecordNotFound                   = 26,
+    OTErrorNoEscrowKeys                     = 27,
+    OTErrorBottleUpdate                     = 28,
+    OTErrorNotSupported                     = 29,
+    OTErrorUnexpectedStateTransition        = 30,
+    OTErrorNoSuchContext                    = 31,
+    OTErrorTimeout                          = 32,
+    OTErrorMasterKey                        = 33,
+    OTErrorNotTrusted                       = 34,
+    OTErrorLimitedPeer                      = 35,
+    OTErrorNoOctagonKeysInSOS               = 36,
+    OTErrorNeedsAuthentication              = 37,
+    OTErrorOctagonAdapter                   = 38,
+    OTErrorSOSAdapter                       = 39,
+    OctagonErrorNoAccount                   = 40,
+} OctagonErrorCode;
 
 #define OTMasterSecretLength 72
 
@@ -74,6 +93,18 @@ typedef enum {
     BOTTLE =                    1,
     NOBOTTLE =                  2
 } OctagonBottleCheckState;
+
+typedef NS_ENUM(NSInteger, TrustedPeersHelperErrorCode) {
+    TrustedPeersHelperErrorNoPreparedIdentity = 1,
+    TrustedPeersHelperErrorNoPeersPreapprovePreparedIdentity = 14,
+    TrustedPeersHelperErrorCodeNotEnrolled   = 34,
+};
+
+typedef NS_ENUM(NSInteger, CuttlefishErrorCode) {
+    CuttlefishErrorResultGraphNotFullyReachable = 1007,
+    CuttlefishErrorTransactionalFailure = 1019,
+    CuttlefishErrorKeyHierarchyAlreadyExists = 1033,
+};
 
 NS_ASSUME_NONNULL_END
 #endif

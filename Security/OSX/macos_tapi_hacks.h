@@ -83,16 +83,10 @@ bool securityd_message_no_error(xpc_object_t message, CFErrorRef *error);
 void SecAccessGroupsSetCurrent(CFArrayRef accessGroups);
 CFArrayRef SecAccessGroupsGetCurrent(void);
 
+void SecServerSetTrustdMachServiceName(const char *name);
+
 // checkpw.c
 int checkpw_internal( const struct passwd* pw, const char* password );
-
-// SecFramework.h
-CFDataRef SecDigestCreate(CFAllocatorRef allocator,
-                          const SecAsn1Oid *algorithm, const SecAsn1Item *params,
-                          const UInt8 *data, CFIndex length);
-CFDataRef SecSHA256DigestCreateFromData(CFAllocatorRef allocator, CFDataRef data);
-CFStringRef SecFrameworkCopyLocalizedString(CFStringRef key,
-                                            CFStringRef tableName);
 
 #pragma clang diagnostic pop
 

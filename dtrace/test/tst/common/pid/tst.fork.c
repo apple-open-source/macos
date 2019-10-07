@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.fork.c	1.1	06/08/28 SMI"
-
 #include <unistd.h>
 
 int

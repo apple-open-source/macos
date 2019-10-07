@@ -76,9 +76,9 @@ void NetworkResourceLoadParameters::encode(IPC::Encoder& encoder) const
     encoder.encodeEnum(clientCredentialPolicy);
     encoder.encodeEnum(shouldPreconnectOnly);
     encoder << shouldClearReferrerOnHTTPSToHTTPRedirect;
-    encoder << defersLoading;
     encoder << needsCertificateInfo;
     encoder << isMainFrameNavigation;
+    encoder << isMainResourceNavigationForAnyFrame;
     encoder << maximumBufferingTime;
 
     encoder << static_cast<bool>(sourceOrigin);
@@ -108,8 +108,11 @@ bool NetworkResourceLoadParameters::decode(IPC::Decoder& decoder, NetworkResourc
     if (!decoder.decode(result.identifier))
         return false;
 
-    if (!decoder.decode(result.webPageID))
+    Optional<PageIdentifier> webPageID;
+    decoder >> webPageID;
+    if (!webPageID)
         return false;
+    result.webPageID = *webPageID;
 
     if (!decoder.decode(result.webFrameID))
         return false;
@@ -163,11 +166,11 @@ bool NetworkResourceLoadParameters::decode(IPC::Decoder& decoder, NetworkResourc
         return false;
     if (!decoder.decode(result.shouldClearReferrerOnHTTPSToHTTPRedirect))
         return false;
-    if (!decoder.decode(result.defersLoading))
-        return false;
     if (!decoder.decode(result.needsCertificateInfo))
         return false;
     if (!decoder.decode(result.isMainFrameNavigation))
+        return false;
+    if (!decoder.decode(result.isMainResourceNavigationForAnyFrame))
         return false;
     if (!decoder.decode(result.maximumBufferingTime))
         return false;

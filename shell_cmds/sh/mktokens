@@ -15,7 +15,7 @@
 # 2. Redistributions in binary form must reproduce the above copyright
 #    notice, this list of conditions and the following disclaimer in the
 #    documentation and/or other materials provided with the distribution.
-# 4. Neither the name of the University nor the names of its contributors
+# 3. Neither the name of the University nor the names of its contributors
 #    may be used to endorse or promote products derived from this software
 #    without specific prior written permission.
 #
@@ -32,13 +32,13 @@
 # SUCH DAMAGE.
 #
 #	@(#)mktokens	8.1 (Berkeley) 5/31/93
-# $FreeBSD: head/bin/sh/mktokens 279503 2015-03-01 21:46:55Z jilles $
+# $FreeBSD: head/bin/sh/mktokens 328934 2018-02-06 15:41:35Z arichardson $
 
 # The following is a list of tokens.  The second column is nonzero if the
 # token marks the end of a list.  The third column is the name to print in
 # error messages.
 
-temp=`/usr/bin/mktemp -t ka`
+temp=`mktemp -t ka`
 cat > $temp <<\!
 TEOF	1	end of file
 TNL	0	newline

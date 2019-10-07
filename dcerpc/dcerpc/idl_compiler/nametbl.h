@@ -210,4 +210,8 @@ NAMETABLE_id_t NAMETABLE_add_derived_name2(
     char *matrix
 );
 
+void NAMETABLE_delete_node(
+ NAMETABLE_id_t node
+);
+
 #endif

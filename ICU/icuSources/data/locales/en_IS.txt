@@ -12,6 +12,10 @@ en_IS{
             patterns{
                 accountingFormat{"#,##0.00 ¤"}
             }
+            symbols{
+                decimal{","}
+                group{"."}
+            }
         }
     }
     Version{"2.1.11.50"}

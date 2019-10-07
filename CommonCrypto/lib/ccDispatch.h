@@ -29,7 +29,7 @@
 #ifndef ccDispatch_h
 #define ccDispatch_h
 
-#if defined (_WIN32)   
+#if defined (_WIN32)
     #include <windows.h>
     #define dispatch_once_t  INIT_ONCE
     typedef void (*dispatch_function_t)(void *);

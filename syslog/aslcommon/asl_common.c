@@ -52,7 +52,7 @@
 #define PATH_LIBRARY_LOGS "/Library/Logs/"
 #define PATH_LIBRARY_LOGS_LEN 14
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 #define _PATH_ASL_CONF_LOCAL_DIR "/usr/local/etc/asl"
 #endif
 
@@ -554,7 +554,7 @@ _asl_common_make_dir_path(asl_out_module_t *mlist, uint32_t flags, const char *p
 		status = mkdir(tmp, mode);
 		umask(mask);
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 		uid_t u = 0;
 		gid_t g = 80;
 
@@ -819,7 +819,7 @@ asl_out_dst_data_release(asl_out_dst_data_t *dst)
 	free(dst->ext);
 	free(dst->rotate_dir);
 	free(dst->fmt);
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	free(dst->uid);
 	free(dst->gid);
 #endif
@@ -838,7 +838,7 @@ asl_out_dst_data_retain(asl_out_dst_data_t *dst)
 int
 asl_out_dst_set_access(int fd, asl_out_dst_data_t *dst)
 {
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	uid_t fuid = 0;
 	gid_t fgid = 80;
 #if !TARGET_OS_EMBEDDED
@@ -854,7 +854,7 @@ asl_out_dst_set_access(int fd, asl_out_dst_data_t *dst)
 	if (dst == NULL) return -1;
 	if (fd < 0) return -1;
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 	return fd;
 #else
 
@@ -946,7 +946,7 @@ asl_file_create_return:
 	acl_free(acl);
 	return fd;
 #endif /* !TARGET_OS_EMBEDDED */
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 }
 
 /* create a file with acls */
@@ -1204,7 +1204,7 @@ _asl_out_module_parse_set_param(asl_out_module_t *m, char *s)
 	return out;
 }
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 static void
 _dst_add_uid(asl_out_dst_data_t *dst, char *s)
 {
@@ -1278,7 +1278,7 @@ _dst_add_gid(asl_out_dst_data_t *dst, char *s)
 
 	dst->gid[dst->ngid++] = gid;
 }
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 
 static char *
 _dst_format_string(char *s)
@@ -1557,7 +1557,7 @@ _asl_out_module_parse_dst(asl_out_module_t *m, char *s, mode_t def_mode)
 		char *t = path;
 		const char *log_root = "/var/log";
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 		log_root = getenv("SIMULATOR_LOG_ROOT");
 		if (log_root == NULL) log_root = "/tmp/log";
 #endif
@@ -1630,7 +1630,7 @@ _asl_out_module_parse_dst(asl_out_module_t *m, char *s, mode_t def_mode)
 	while (NULL != (p = next_word_from_string(&opts)))
 	{
 		if (KEYMATCH(p, "mode=")) dst->mode = strtol(p+5, NULL, 0);
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 		else if (KEYMATCH(p, "uid=")) _dst_add_uid(dst, p+4);
 		else if (KEYMATCH(p, "gid=")) _dst_add_gid(dst, p+4);
 #endif
@@ -1645,7 +1645,6 @@ _asl_out_module_parse_dst(asl_out_module_t *m, char *s, mode_t def_mode)
 			else if (KEYMATCH(p+9, "false")) dst->flags &= ~MODULE_FLAG_COALESCE;
 		}
 		else if (KEYMATCH(p, "compress")) dst->flags |= MODULE_FLAG_COMPRESS;
-		else if (KEYMATCH(p, "activity")) dst->flags |= MODULE_FLAG_ACTIVITY;
 		else if (KEYMATCH(p, "extern")) dst->flags |= MODULE_FLAG_EXTERNAL;
 		else if (KEYMATCH(p, "truncate")) dst->flags |= MODULE_FLAG_TRUNCATE;
 		else if (KEYMATCH(p, "dir")) dst->flags |= MODULE_FLAG_TYPE_ASL_DIR;
@@ -1695,6 +1694,10 @@ _asl_out_module_parse_dst(asl_out_module_t *m, char *s, mode_t def_mode)
 				dst->ttl[x] = asl_core_str_to_time(p+5, SECONDS_PER_DAY);
 			}
 		}
+		else if (KEYMATCH(p, "size_only"))
+		{
+			dst->flags |= MODULE_FLAG_SIZE_ONLY;
+		}
 
 		free(p);
 		p = NULL;
@@ -1741,6 +1744,18 @@ _asl_out_module_parse_dst(asl_out_module_t *m, char *s, mode_t def_mode)
 
 	/* set file_max to all_max if it is zero */
 	if (dst->file_max == 0) dst->file_max = dst->all_max;
+
+	/* size_only option requires non-zero file_max and all_max settings */
+	if ((dst->flags & MODULE_FLAG_SIZE_ONLY) && (dst->file_max == 0 || dst->all_max == 0))
+	{
+		dst->flags &= ~MODULE_FLAG_SIZE_ONLY;
+	}
+
+	/* size_only option cannot be used with crashlog option */
+	if ((dst->flags & MODULE_FLAG_SIZE_ONLY) && (dst->flags & MODULE_FLAG_CRASHLOG))
+	{
+		dst->flags &= ~MODULE_FLAG_SIZE_ONLY;
+	}
 
 	out->action = ACTION_OUT_DEST;
 	out->dst = dst;
@@ -1891,7 +1906,7 @@ _asl_out_module_parse_query_action(asl_out_module_t *m, char *s)
 			out->dst->flags &= ~MODULE_FLAG_ROTATE;
 		}
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 		if (out->dst->nuid == 0) _dst_add_uid(out->dst, "0");
 		if (out->dst->ngid == 0) _dst_add_gid(out->dst, "80");
 #endif
@@ -2035,7 +2050,7 @@ asl_out_module_init(void)
 {
 	asl_out_module_t *out = NULL;
 
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 	char *sim_root_path, *sim_resources_path;
 	char *asl_conf, *asl_conf_dir, *asl_conf_local_dir;
 
@@ -2062,7 +2077,7 @@ asl_out_module_init(void)
 	if (_asl_out_module_find(out, ASL_MODULE_NAME) == NULL)
 	{
 		/* system just has old-style /etc/asl.conf */
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_OS_SIMULATOR
 		FILE *f = fopen(asl_conf, "r");
 		free(asl_conf);
 #else
@@ -2207,11 +2222,6 @@ asl_out_module_print(FILE *f, asl_out_module_t *m)
 						fprintf(f, "%cexternal", c);
 						c = ' ';
 					}
-					if (o->flags & MODULE_FLAG_ACTIVITY)
-					{
-						fprintf(f, "%cactivity", c);
-						c = ' ';
-					}
 					if (o->flags & MODULE_FLAG_CRASHLOG)
 					{
 						fprintf(f, "%ccrashlog", c);
@@ -2225,6 +2235,11 @@ asl_out_module_print(FILE *f, asl_out_module_t *m)
 					if (o->flags & MODULE_FLAG_TYPE_ASL_DIR)
 					{
 						fprintf(f, "%casl_directory", c);
+						c = ' ';
+					}
+					if (o->flags & MODULE_FLAG_SIZE_ONLY)
+					{
+						fprintf(f, "%csize_only", c);
 						c = ' ';
 					}
 					fprintf(f, ")");
@@ -2274,7 +2289,7 @@ asl_out_module_print(FILE *f, asl_out_module_t *m)
 				fprintf(f, "    mode: 0%o\n", o->mode);
 				fprintf(f, "    file_max: %lu\n", o->file_max);
 				fprintf(f, "    all_max: %lu\n", o->all_max);
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 				fprintf(f, "    uid:");
 				for (i = 0; i < o->nuid; i++) fprintf(f, " %d", o->uid[i]);
 				fprintf(f, "\n");

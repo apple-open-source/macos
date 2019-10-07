@@ -26,8 +26,7 @@
 
 #include <Security/SecProtocolObject.h>
 #include <Security/SecProtocolTypes.h>
-#include <Security/SecBase.h>
-#include <Security/SecureTransport.h>
+#include <Security/SecProtocolOptions.h>
 
 #include <dispatch/dispatch.h>
 #include <os/object.h>
@@ -95,6 +94,21 @@ SEC_RETURNS_RETAINED _Nullable dispatch_data_t
 sec_protocol_metadata_copy_peer_public_key(sec_protocol_metadata_t metadata);
 
 /*!
+ * @function sec_protocol_metadata_get_negotiated_tls_protocol_version
+ *
+ * @abstract
+ *      Get the negotiated TLS version.
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @return A `tls_protocol_version_t` value.
+ */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+tls_protocol_version_t
+sec_protocol_metadata_get_negotiated_tls_protocol_version(sec_protocol_metadata_t metadata);
+
+/*!
  * @function sec_protocol_metadata_get_negotiated_protocol_version
  *
  * @abstract
@@ -105,9 +119,25 @@ sec_protocol_metadata_copy_peer_public_key(sec_protocol_metadata_t metadata);
  *
  * @return A SSLProtocol enum of the TLS version.
  */
-API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
+API_DEPRECATED_WITH_REPLACEMENT("sec_protocol_metadata_get_negotiated_tls_protocol_version",
+                                macos(10.14, 10.15), ios(12.0, 13.0), watchos(5.0, 6.0), tvos(12.0, 13.0))
 SSLProtocol
 sec_protocol_metadata_get_negotiated_protocol_version(sec_protocol_metadata_t metadata);
+
+/*!
+ * @function sec_protocol_metadata_get_negotiated_tls_ciphersuite
+ *
+ * @abstract
+ *      Get the negotiated TLS ciphersuite.
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @return A `tls_ciphersuite_t`.
+ */
+API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
+tls_ciphersuite_t
+sec_protocol_metadata_get_negotiated_tls_ciphersuite(sec_protocol_metadata_t metadata);
 
 /*!
  * @function sec_protocol_metadata_get_negotiated_ciphersuite
@@ -120,7 +150,9 @@ sec_protocol_metadata_get_negotiated_protocol_version(sec_protocol_metadata_t me
  *
  * @return A SSLCipherSuite.
  */
-API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
+API_DEPRECATED_WITH_REPLACEMENT("sec_protocol_metadata_get_negotiated_tls_ciphersuite",
+                                macos(10.14, 10.15), ios(12.0, 13.0), watchos(5.0, 6.0), tvos(12.0, 13.0))
+API_UNAVAILABLE(iosmac)
 SSLCipherSuite
 sec_protocol_metadata_get_negotiated_ciphersuite(sec_protocol_metadata_t metadata);
 
@@ -216,7 +248,44 @@ API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
 bool
 sec_protocol_metadata_access_distinguished_names(sec_protocol_metadata_t metadata,
                                                  void (^handler)(dispatch_data_t distinguished_name));
+
+/*!
+ * @function sec_protocol_metadata_access_pre_shared_keys
+ *
+ * @abstract
+ *      Get the PSKs supported by the local instance.
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @param handler
+ *      A block to invoke one or more times with tuples of dispatch_data_t objects carrying PSKs and their corresponding identities.
+ *
+ * @return Returns true if the PSKs were accessible, false otherwise.
+ */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+bool
+sec_protocol_metadata_access_pre_shared_keys(sec_protocol_metadata_t metadata, void (^handler)(dispatch_data_t psk, dispatch_data_t psk_identity));
+
 #endif // __BLOCKS__
+
+/*!
+ * @function sec_protocol_metadata_get_server_name
+ *
+ * @abstract
+ *      Obtain the server name offered by a client or server during
+ *      connection establishmet. This is the value commonly carried
+ *      in the TLS SNI extesion.
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @return Returns A NULL-terminated string carrying the server name, or NULL
+ *      if none was provided.
+ */
+API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
+const char * _Nullable
+sec_protocol_metadata_get_server_name(sec_protocol_metadata_t metadata);
 
 /*!
  * @function sec_protocol_metadata_peers_are_equal

@@ -6,11 +6,12 @@
 #if !UCONFIG_NO_FORMATTING
 
 #include "numfmtst.h"
-#include "digitlst.h"
 #include "number_decimalquantity.h"
 #include "putilimp.h"
 #include "charstr.h"
 #include <cmath>
+
+using icu::number::impl::DecimalQuantity;
 
 void NumberFormatDataDrivenTest::runIndexedTest(int32_t index, UBool exec, const char*& name, char*) {
     if (exec) {
@@ -22,31 +23,31 @@ void NumberFormatDataDrivenTest::runIndexedTest(int32_t index, UBool exec, const
     TESTCASE_AUTO_END;
 }
 
-static DigitList&
-strToDigitList(const UnicodeString& str, DigitList& digitList, UErrorCode& status) {
+static DecimalQuantity&
+strToDigitList(const UnicodeString& str, DecimalQuantity& digitList, UErrorCode& status) {
     if (U_FAILURE(status)) {
         return digitList;
     }
     if (str == "NaN") {
-        digitList.set(uprv_getNaN());
+        digitList.setToDouble(uprv_getNaN());
         return digitList;
     }
     if (str == "-Inf") {
-        digitList.set(-1 * uprv_getInfinity());
+        digitList.setToDouble(-1 * uprv_getInfinity());
         return digitList;
     }
     if (str == "Inf") {
-        digitList.set(uprv_getInfinity());
+        digitList.setToDouble(uprv_getInfinity());
         return digitList;
     }
     CharString formatValue;
     formatValue.appendInvariantChars(str, status);
-    digitList.set({formatValue.data(), formatValue.length()}, status);
+    digitList.setToDecNumber({formatValue.data(), formatValue.length()}, status);
     return digitList;
 }
 
 static UnicodeString&
-format(const DecimalFormat& fmt, const DigitList& digitList, UnicodeString& appendTo,
+format(const DecimalFormat& fmt, const DecimalQuantity& digitList, UnicodeString& appendTo,
        UErrorCode& status) {
     if (U_FAILURE(status)) {
         return appendTo;
@@ -159,8 +160,8 @@ static void adjustDecimalFormat(const NumberFormatTestTuple& tuple, DecimalForma
     if (tuple.negativeSuffixFlag) {
         fmt.setNegativeSuffix(tuple.negativeSuffix);
     }
-    if (tuple.signAlwaysShownFlag) { // ICU 61 DecimalFormat does not have this, skip tests that need this
-        // fmt.setSignAlwaysShown(tuple.signAlwaysShown != 0);
+    if (tuple.signAlwaysShownFlag) {
+        fmt.setSignAlwaysShown(tuple.signAlwaysShown != 0);
     }
     if (tuple.localizedPatternFlag) {
         UErrorCode status = U_ZERO_ERROR;
@@ -185,8 +186,8 @@ static void adjustDecimalFormat(const NumberFormatTestTuple& tuple, DecimalForma
             appendErrorMessage.append("Error setting parse no exponent flag.");
         }
     }
-    if (tuple.parseCaseSensitiveFlag) { // ICU 61 DecimalFormat does not have this, skip tests that need this
-        // fmt.setParseCaseSensitive(tuple.parseCaseSensitive != 0);
+    if (tuple.parseCaseSensitiveFlag) {
+        fmt.setParseCaseSensitive(tuple.parseCaseSensitive != 0);
     }
 }
 
@@ -237,7 +238,7 @@ UBool NumberFormatDataDrivenTest::isFormatPass(const NumberFormatTestTuple& tupl
     if (appendErrorMessage.length() > 0) {
         return FALSE;
     }
-    DigitList digitList;
+    DecimalQuantity digitList;
     strToDigitList(tuple.format, digitList, status);
     {
         UnicodeString appendTo;
@@ -252,9 +253,9 @@ UBool NumberFormatDataDrivenTest::isFormatPass(const NumberFormatTestTuple& tupl
             return FALSE;
         }
     }
-    double doubleVal = digitList.getDouble();
-    DigitList doubleCheck;
-    doubleCheck.set(doubleVal);
+    double doubleVal = digitList.toDouble();
+    DecimalQuantity doubleCheck;
+    doubleCheck.setToDouble(doubleVal);
     if (digitList == doubleCheck) { // skip cases where the double does not round-trip
         UnicodeString appendTo;
         format(*fmtPtr, doubleVal, appendTo, status);
@@ -268,8 +269,8 @@ UBool NumberFormatDataDrivenTest::isFormatPass(const NumberFormatTestTuple& tupl
             return FALSE;
         }
     }
-    if (!uprv_isNaN(doubleVal) && !uprv_isInfinite(doubleVal) && digitList.fitsIntoInt64(FALSE)) {
-        int64_t intVal = digitList.getInt64();
+    if (!uprv_isNaN(doubleVal) && !uprv_isInfinite(doubleVal) && digitList.fitsInLong()) {
+        int64_t intVal = digitList.toLong();
         {
             UnicodeString appendTo;
             format(*fmtPtr, intVal, appendTo, status);
@@ -372,17 +373,23 @@ UBool NumberFormatDataDrivenTest::isParsePass(const NumberFormatTestTuple& tuple
         }
         return TRUE;
     }
-    // All other cases parse to a DigitList, not a double.
+    // All other cases parse to a DecimalQuantity, not a double.
 
-    DigitList expected;
-    strToDigitList(tuple.output, expected, status);
+    DecimalQuantity expectedQuantity;
+    strToDigitList(tuple.output, expectedQuantity, status);
+    UnicodeString expectedString = expectedQuantity.toScientificString();
     if (U_FAILURE(status)) {
         appendErrorMessage.append("[Error parsing decnumber] ");
-        return FALSE;
+        // If this happens, assume that tuple.output is exactly the same format as
+        // DecimalQuantity.toScientificString()
+        expectedString = tuple.output;
+        status = U_ZERO_ERROR;
     }
-    if (expected != *result.getDigitList()) {
-        UnicodeString resultStr(UnicodeString::fromUTF8(result.getDecimalNumber(status)));
-        appendErrorMessage.append(UnicodeString("Expected: ") + tuple.output + ", but got: " + resultStr + " (" + ppos.getIndex() + ":" + ppos.getErrorIndex() + ")");
+    UnicodeString actualString = result.getDecimalQuantity()->toScientificString();
+    if (expectedString != actualString) {
+        appendErrorMessage.append(
+                UnicodeString("Expected: ") + tuple.output + " (i.e., " + expectedString + "), but got: " +
+                actualString + " (" + ppos.getIndex() + ":" + ppos.getErrorIndex() + ")");
         return FALSE;
     }
 
@@ -413,27 +420,35 @@ UBool NumberFormatDataDrivenTest::isParseCurrencyPass(const NumberFormatTestTupl
         return FALSE;
     }
     UnicodeString currStr(currAmt->getISOCurrency());
-    Formattable resultFormattable(currAmt->getNumber());
-    UnicodeString resultStr(UnicodeString::fromUTF8(resultFormattable.getDecimalNumber(status)));
+    U_ASSERT(currAmt->getNumber().getDecimalQuantity() != nullptr); // no doubles in currency tests
+    UnicodeString resultStr = currAmt->getNumber().getDecimalQuantity()->toScientificString();
     if (tuple.output == "fail") {
-        appendErrorMessage.append(UnicodeString("Parse succeeded: ") + resultStr + ", but was expected to fail.");
+        appendErrorMessage.append(
+                UnicodeString("Parse succeeded: ") + resultStr + ", but was expected to fail.");
         return TRUE; // TRUE because failure handling is in the test suite
     }
 
-    DigitList expected;
-    strToDigitList(tuple.output, expected, status);
+    DecimalQuantity expectedQuantity;
+    strToDigitList(tuple.output, expectedQuantity, status);
+    UnicodeString expectedString = expectedQuantity.toScientificString();
     if (U_FAILURE(status)) {
         appendErrorMessage.append("Error parsing decnumber");
-        return FALSE;
+        // If this happens, assume that tuple.output is exactly the same format as
+        // DecimalQuantity.toNumberString()
+        expectedString = tuple.output;
+        status = U_ZERO_ERROR;
     }
-    if (expected != *currAmt->getNumber().getDigitList()) {
-        appendErrorMessage.append(UnicodeString("Expected: ") + tuple.output + ", but got: " + resultStr + " (" + ppos.getIndex() + ":" + ppos.getErrorIndex() + ")");
+    if (expectedString != resultStr) {
+        appendErrorMessage.append(
+                UnicodeString("Expected: ") + tuple.output + " (i.e., " + expectedString + "), but got: " +
+                resultStr + " (" + ppos.getIndex() + ":" + ppos.getErrorIndex() + ")");
         return FALSE;
     }
 
     if (currStr != tuple.outputCurrency) {
-        appendErrorMessage.append(UnicodeString(
-                "Expected currency: ") + tuple.outputCurrency + ", got: " + currStr + ". ");
+        appendErrorMessage.append(
+                UnicodeString(
+                        "Expected currency: ") + tuple.outputCurrency + ", got: " + currStr + ". ");
         return FALSE;
     }
     return TRUE;

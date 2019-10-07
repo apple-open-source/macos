@@ -23,6 +23,10 @@
 #include "ucln_in.h"
 #include "uassert.h"
 #include "ustr_imp.h"
+#if U_PLATFORM_IS_DARWIN_BASED
+// Add logging for error conditions as in <rdar://51554495>
+#include <os/log.h>
+#endif
 
 U_NAMESPACE_USE
 
@@ -498,7 +502,7 @@ inline void setShiftTable(int16_t   shift[], int16_t backshift[],
     for (count = 0; count < cesize; count ++) {
         // number of ces from right of array to the count
         int temp = defaultforward - count - 1;
-        shift[hashFromCE32(cetable[count])] = temp > 1 ? temp : 1;
+        shift[hashFromCE32(cetable[count])] = temp > 1 ? static_cast<int16_t>(temp) : 1;
     }
     shift[hashFromCE32(cetable[cesize])] = 1;
     // for ignorables we just shift by one. see test examples.
@@ -3544,6 +3548,9 @@ const CEI *CEIBuffer::get(int32_t index) {
     //   Verify that it is the next one in sequence, which is all
     //   that is allowed.
     if (index != limitIx) {
+#if U_PLATFORM_IS_DARWIN_BASED
+        os_log(OS_LOG_DEFAULT, "# CEIBuffer::get param err, index %d limitIx %d", index, limitIx); // <rdar://51554495> 
+#endif
         U_ASSERT(FALSE);
 
         return NULL;
@@ -3583,6 +3590,9 @@ const CEI *CEIBuffer::getPrevious(int32_t index) {
     //   Verify that it is the next one in sequence, which is all
     //   that is allowed.
     if (index != limitIx) {
+#if U_PLATFORM_IS_DARWIN_BASED
+        os_log(OS_LOG_DEFAULT, "# CEIBuffer::getPrevious param err, index %d limitIx %d", index, limitIx); // <rdar://51554495> 
+#endif
         U_ASSERT(FALSE);
 
         return NULL;

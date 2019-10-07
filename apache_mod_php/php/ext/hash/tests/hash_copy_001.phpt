@@ -10,7 +10,7 @@ $algos = hash_algos();
 foreach ($algos as $algo) {
 	var_dump($algo);
 	$orig = hash_init($algo);
-	hash_update($orig, b"I can't remember anything");
+	hash_update($orig, "I can't remember anything");
 	$copy = hash_copy($orig);
 	var_dump(hash_final($orig));
 
@@ -20,17 +20,17 @@ foreach ($algos as $algo) {
 foreach ($algos as $algo) {
 	var_dump($algo);
 	$orig = hash_init($algo);
-	hash_update($orig, b"I can't remember anything");
+	hash_update($orig, "I can't remember anything");
 	$copy = hash_copy($orig);
 	var_dump(hash_final($orig));
 
-	hash_update($copy, b"Can’t tell if this is true or dream");
+	hash_update($copy, "Can’t tell if this is true or dream");
 	var_dump(hash_final($copy));
 }
 
 echo "Done\n";
 ?>
---EXPECTF--	
+--EXPECT--
 string(3) "md2"
 string(32) "d5ac4ffd08f6a57b9bd402b8068392ff"
 string(32) "d5ac4ffd08f6a57b9bd402b8068392ff"

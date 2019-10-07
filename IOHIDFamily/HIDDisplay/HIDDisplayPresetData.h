@@ -25,15 +25,11 @@ NS_ASSUME_NONNULL_BEGIN
  kHIDDisplayPresetFieldValidKey : BOOL
  kHIDDisplayPresetFieldNameKey : NSString*
  kHIDDisplayPresetFieldDescriptionKey : NSString*
- kHIDDisplayPresetFieldDataBlockOneLengthKey : NSInteger
- kHIDDisplayPresetFieldDataBlockOneKey : NSData*
- kHIDDisplayPresetFieldDataBlockTwoLengthKey : NSInteger
- kHIDDisplayPresetFieldDataBlockTwoKey : NSData*
- kHIDDisplayPresetUniqueID : NSString*
- */
+ kHIDDisplayPresetFieldDataLengthKey : NSInteger
+ kHIDDisplayPresetFieldDataKey : NSData
+*/
 -(nullable NSDictionary*) get:(NSError**) error;
 -(BOOL) set:(NSDictionary*) info error:(NSError**) error;
-
 @end
 
 NS_ASSUME_NONNULL_END

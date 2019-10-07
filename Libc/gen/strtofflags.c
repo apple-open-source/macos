@@ -95,6 +95,7 @@ static struct {
 	{ "nohidden",		UF_HIDDEN,	0 },
 	{ "nocompressed",	UF_COMPRESSED,	0 },
 	{ "nodatavault",	UF_DATAVAULT,	0 },
+	{ "nodataless",		SF_DATALESS,	0 },
 };
 #define longestflaglen	12
 #define nmappings	(sizeof(mapping) / sizeof(mapping[0]))

@@ -12,10 +12,10 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Andi Gutmans <andi@zend.com>                                |
-   |          Zeev Suraski <zeev@zend.com>                                |
+   | Authors: Andi Gutmans <andi@php.net>                                 |
+   |          Zeev Suraski <zeev@php.net>                                 |
    |          Stanislav Malyshev <stas@zend.com>                          |
-   |          Dmitry Stogov <dmitry@zend.com>                             |
+   |          Dmitry Stogov <dmitry@php.net>                              |
    +----------------------------------------------------------------------+
 */
 
@@ -64,7 +64,7 @@
 #endif
 
 #ifndef ZEND_EXT_API
-# if WIN32|WINNT
+# ifdef ZEND_WIN32
 #  define ZEND_EXT_API __declspec(dllexport)
 # elif defined(__GNUC__) && __GNUC__ >= 4
 #  define ZEND_EXT_API __attribute__ ((visibility("default")))
@@ -89,33 +89,6 @@
 /*** file locking ***/
 #ifndef ZEND_WIN32
 extern int lock_file;
-
-# if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || (defined(__APPLE__) && defined(__MACH__)/* Darwin */) || defined(__OpenBSD__) || defined(__NetBSD__)
-#  define FLOCK_STRUCTURE(name, type, whence, start, len) \
-		struct flock name = {start, len, -1, type, whence}
-# elif defined(__svr4__)
-#  define FLOCK_STRUCTURE(name, type, whence, start, len) \
-		struct flock name = {type, whence, start, len}
-# elif defined(__linux__) || defined(__hpux) || defined(__GNU__)
-#  define FLOCK_STRUCTURE(name, type, whence, start, len) \
-		struct flock name = {type, whence, start, len, 0}
-# elif defined(_AIX)
-#  if defined(_LARGE_FILES) || defined(__64BIT__)
-#   define FLOCK_STRUCTURE(name, type, whence, start, len) \
-		struct flock name = {type, whence, 0, 0, 0, start, len }
-#  else
-#   define FLOCK_STRUCTURE(name, type, whence, start, len) \
-		struct flock name = {type, whence, start, len}
-#  endif
-# elif defined(HAVE_FLOCK_BSD)
-#  define FLOCK_STRUCTURE(name, type, whence, start, len) \
-		struct flock name = {start, len, -1, type, whence}
-# elif defined(HAVE_FLOCK_LINUX)
-#  define FLOCK_STRUCTURE(name, type, whence, start, len) \
-		struct flock name = {type, whence, start, len}
-# else
-#  error "Don't know how to define struct flock"
-# endif
 #endif
 
 #if defined(HAVE_OPCACHE_FILE_CACHE) && defined(ZEND_WIN32)
@@ -177,10 +150,8 @@ typedef struct _zend_accel_directives {
 	zend_bool      validate_timestamps;
 	zend_bool      revalidate_path;
 	zend_bool      save_comments;
-	zend_bool      fast_shutdown;
 	zend_bool      protect_memory;
 	zend_bool      file_override_enabled;
-	zend_bool      inherited_hack;
 	zend_bool      enable_cli;
 	zend_bool      validate_permission;
 #ifndef ZEND_WIN32
@@ -224,6 +195,8 @@ typedef struct _zend_accel_globals {
 	int                     counted;   /* the process uses shared memory */
 	zend_bool               enabled;
 	zend_bool               locked;    /* thread obtained exclusive lock */
+	zend_bool               accelerator_enabled; /* accelerator enabled for current request */
+	zend_bool               pcre_reseted;
 	HashTable               bind_hash; /* prototype and zval lookup table */
 	zend_accel_directives   accel_directives;
 	zend_string            *cwd;                  /* current working directory or NULL */
@@ -254,6 +227,15 @@ typedef struct _zend_accel_globals {
 	char                    key[MAXPATHLEN * 8];
 } zend_accel_globals;
 
+typedef struct _zend_string_table {
+	uint32_t     nTableMask;
+	uint32_t     nNumOfElements;
+	zend_string *start;
+	zend_string *top;
+	zend_string *end;
+	zend_string *saved_top;
+} zend_string_table;
+
 typedef struct _zend_accel_shared_globals {
 	/* Cache Data Structures */
 	zend_ulong   hits;
@@ -277,14 +259,12 @@ typedef struct _zend_accel_shared_globals {
 	LONGLONG   restart_in;
 #endif
 	zend_bool       restart_in_progress;
-	/* Interned Strings Support */
-	char           *interned_strings_start;
-	char           *interned_strings_top;
-	char           *interned_strings_end;
-	char           *interned_strings_saved_top;
-	HashTable       interned_strings;
+
 	/* uninitialized HashTable Support */
 	uint32_t uninitialized_bucket[-HT_MIN_MASK];
+
+	/* Interned Strings Support (must be the last element) */
+	zend_string_table interned_strings;
 } zend_accel_shared_globals;
 
 extern zend_bool accel_startup_ok;
@@ -318,16 +298,16 @@ void zend_accel_schedule_restart_if_necessary(zend_accel_restart_reason reason);
 accel_time_t zend_get_file_handle_timestamp(zend_file_handle *file_handle, size_t *size);
 int  validate_timestamp_and_record(zend_persistent_script *persistent_script, zend_file_handle *file_handle);
 int  validate_timestamp_and_record_ex(zend_persistent_script *persistent_script, zend_file_handle *file_handle);
-int  zend_accel_invalidate(const char *filename, int filename_len, zend_bool force);
+int  zend_accel_invalidate(const char *filename, size_t filename_len, zend_bool force);
 int  accelerator_shm_read_lock(void);
 void accelerator_shm_read_unlock(void);
 
-char *accel_make_persistent_key(const char *path, int path_length, int *key_len);
+char *accel_make_persistent_key(const char *path, size_t path_length, int *key_len);
 zend_op_array *persistent_compile_file(zend_file_handle *file_handle, int type);
 
 #define IS_ACCEL_INTERNED(str) \
-	((char*)(str) >= ZCSG(interned_strings_start) && (char*)(str) < ZCSG(interned_strings_end))
+	((char*)(str) >= (char*)ZCSG(interned_strings).start && (char*)(str) < (char*)ZCSG(interned_strings).top)
 
-zend_string *accel_new_interned_string(zend_string *str);
+zend_string* ZEND_FASTCALL accel_new_interned_string(zend_string *str);
 
 #endif /* ZEND_ACCELERATOR_H */

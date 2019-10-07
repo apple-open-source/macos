@@ -37,7 +37,7 @@
 
 namespace JSC {
 
-const ClassInfo JSAsyncGeneratorFunction    ::s_info = { "JSAsyncGeneratorFunction",  &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSAsyncGeneratorFunction) };
+const ClassInfo JSAsyncGeneratorFunction::s_info = { "JSAsyncGeneratorFunction",  &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSAsyncGeneratorFunction) };
 
 JSAsyncGeneratorFunction::JSAsyncGeneratorFunction(VM& vm, FunctionExecutable* executable, JSScope* scope, Structure* structure)
     : Base(vm, executable, scope, structure)
@@ -55,14 +55,14 @@ JSAsyncGeneratorFunction* JSAsyncGeneratorFunction::createImpl(VM& vm, FunctionE
 JSAsyncGeneratorFunction* JSAsyncGeneratorFunction::create(VM& vm, FunctionExecutable* executable, JSScope* scope)
 {
     JSAsyncGeneratorFunction* asyncGenerator = createImpl(vm, executable, scope, scope->globalObject(vm)->asyncGeneratorFunctionStructure());
-    executable->singletonFunction()->notifyWrite(vm, asyncGenerator, "Allocating an async generator");
+    executable->notifyCreation(vm, asyncGenerator, "Allocating an async generator");
     return asyncGenerator;
 }
 
 JSAsyncGeneratorFunction* JSAsyncGeneratorFunction::create(VM& vm, FunctionExecutable* executable, JSScope* scope, Structure* structure)
 {
     JSAsyncGeneratorFunction* asyncGenerator = createImpl(vm, executable, scope, structure);
-    executable->singletonFunction()->notifyWrite(vm, asyncGenerator, "Allocating an async generator");
+    executable->notifyCreation(vm, asyncGenerator, "Allocating an async generator");
     return asyncGenerator;
 }
 

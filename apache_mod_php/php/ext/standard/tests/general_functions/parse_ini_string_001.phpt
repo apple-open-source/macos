@@ -4,7 +4,7 @@ Test parse_ini_string() function
 <?php
 /* Prototype: array parse_ini_string(string $string [,bool $process_sections]);
    Description: parse_ini_string() loads in the ini file specified in filename,
-     and returns the settings in it in an associative array. 
+     and returns the settings in it in an associative array.
 */
 
 $parse_string = <<<EOD
@@ -207,7 +207,7 @@ print_r($ini_array);
 
 echo "*** Done **\n";
 ?>
---EXPECTF--
+--EXPECT--
 *** Test parse_ini_string() function:  with various keys and values given in string ***
 -- ini string without process_sections optional arg --
 Array

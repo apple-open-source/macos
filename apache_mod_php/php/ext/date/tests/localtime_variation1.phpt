@@ -3,10 +3,10 @@ Test localtime() function : usage variation - Passing unexpected values to first
 --FILE--
 <?php
 /* Prototype  : array localtime([int timestamp [, bool associative_array]])
- * Description: Returns the results of the C system call localtime as an associative array 
- * if the associative_array argument is set to 1 other wise it is a regular array 
+ * Description: Returns the results of the C system call localtime as an associative array
+ * if the associative_array argument is set to 1 other wise it is a regular array
  * Source code: ext/date/php_date.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing localtime() : usage variation ***\n";
@@ -226,34 +226,34 @@ array(9) {
 
 --empty array--
 
-Warning: localtime() expects parameter 1 to be integer, array given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
-Warning: localtime() expects parameter 1 to be integer, array given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
 --int indexed array--
 
-Warning: localtime() expects parameter 1 to be integer, array given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
-Warning: localtime() expects parameter 1 to be integer, array given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
 --associative array--
 
-Warning: localtime() expects parameter 1 to be integer, array given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
-Warning: localtime() expects parameter 1 to be integer, array given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
 --nested arrays--
 
-Warning: localtime() expects parameter 1 to be integer, array given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
-Warning: localtime() expects parameter 1 to be integer, array given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
 --uppercase NULL--
@@ -510,66 +510,66 @@ array(9) {
 
 --empty string DQ--
 
-Warning: localtime() expects parameter 1 to be integer, string given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
-Warning: localtime() expects parameter 1 to be integer, string given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 --empty string SQ--
 
-Warning: localtime() expects parameter 1 to be integer, string given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
-Warning: localtime() expects parameter 1 to be integer, string given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 --string DQ--
 
-Warning: localtime() expects parameter 1 to be integer, string given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
-Warning: localtime() expects parameter 1 to be integer, string given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 --string SQ--
 
-Warning: localtime() expects parameter 1 to be integer, string given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
-Warning: localtime() expects parameter 1 to be integer, string given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 --mixed case string--
 
-Warning: localtime() expects parameter 1 to be integer, string given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
-Warning: localtime() expects parameter 1 to be integer, string given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 --heredoc--
 
-Warning: localtime() expects parameter 1 to be integer, string given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
-Warning: localtime() expects parameter 1 to be integer, string given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 --instance of classWithToString--
 
-Warning: localtime() expects parameter 1 to be integer, object given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, object given in %s on line %d
 bool(false)
 
-Warning: localtime() expects parameter 1 to be integer, object given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, object given in %s on line %d
 bool(false)
 
 --instance of classWithoutToString--
 
-Warning: localtime() expects parameter 1 to be integer, object given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, object given in %s on line %d
 bool(false)
 
-Warning: localtime() expects parameter 1 to be integer, object given in %s on line %d
+Warning: localtime() expects parameter 1 to be int, object given in %s on line %d
 bool(false)
 
 --undefined var--

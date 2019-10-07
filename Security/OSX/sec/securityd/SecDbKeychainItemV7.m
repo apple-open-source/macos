@@ -29,77 +29,38 @@
 #import "SecDbKeychainSerializedAKSWrappedKey.h"
 #import "SecDbKeychainSerializedMetadata.h"
 #import "SecDbKeychainSerializedSecretData.h"
-#import <notify.h>
 #import <dispatch/dispatch.h>
 #import <utilities/SecAKSWrappers.h>
+#import "SecAKSObjCWrappers.h"
 #import <utilities/der_plist.h>
-#import "sec_action.h"
-#if !TARGET_OS_BRIDGE
 #import <SecurityFoundation/SFEncryptionOperation.h>
 #import <SecurityFoundation/SFKey_Private.h>
 #import <SecurityFoundation/SFCryptoServicesErrors.h>
-#endif
+
 #import <Foundation/NSKeyedArchiver_Private.h>
 
-#if USE_KEYSTORE
+#if USE_KEYSTORE && __has_include(<Kernel/IOKit/crypto/AppleKeyStoreDefs.h>)
 #import <Kernel/IOKit/crypto/AppleKeyStoreDefs.h>
 #endif
 
+#import "SecDbKeychainMetadataKeyStore.h"
+#import "SecDbBackupManager.h"
+
 #define KEYCHAIN_ITEM_PADDING_MODULUS 20
+
+// See corresponding "reasonable size" client-side limit(s) in SecItem.
+
+// Generally the secret data dictionary contains a single key
+// with the client's password/key NSData therein, so 4k feels extremely luxurious
+#define REASONABLE_SECRET_DATA_SIZE 4096
+
+// This feels similarly generous, but let's find out
+#define REASONABLE_METADATA_SIZE 2048
 
 NSString* const SecDbKeychainErrorDomain = @"SecDbKeychainErrorDomain";
 const NSInteger SecDbKeychainErrorDeserializationFailed = 1;
 
 static NSString* const SecDBTamperCheck = @"TamperCheck";
-
-#define BridgeCFErrorToNSErrorOut(nsErrorOut, CFErr) \
-{ \
-    if (nsErrorOut) { \
-        *nsErrorOut = CFBridgingRelease(CFErr); \
-        CFErr = NULL; \
-    } \
-    else { \
-        CFReleaseNull(CFErr); \
-    } \
-}
-
-#if TARGET_OS_BRIDGE
-
-@implementation SecDbKeychainItemV7
-
-- (instancetype)initWithData:(NSData*)data decryptionKeybag:(keybag_handle_t)decryptionKeybag error:(NSError**)error
-{
-    return nil;
-}
-
-- (instancetype)initWithSecretAttributes:(NSDictionary*)secretAttributes metadataAttributes:(NSDictionary*)metadataAttributes tamperCheck:(NSString*)tamperCheck keyclass:(keyclass_t)keyclass
-{
-    return nil;
-}
-
-- (NSDictionary*)metadataAttributesWithError:(NSError**)error
-{
-    return nil;
-}
-
-- (NSDictionary*)secretAttributesWithAcmContext:(NSData*)acmContext accessControl:(SecAccessControlRef)accessControl callerAccessGroups:(NSArray*)callerAccessGroups error:(NSError**)error
-{
-    return nil;
-}
-
-- (BOOL)deleteWithAcmContext:(NSData*)acmContext accessControl:(SecAccessControlRef)accessControl callerAccessGroups:(NSArray*)callerAccessGroups error:(NSError**)error
-{
-    return NO;
-}
-
-- (NSData*)encryptedBlobWithKeybag:(keybag_handle_t)keybag accessControl:(SecAccessControlRef)accessControl acmContext:(NSData*)acmContext error:(NSError**)error
-{
-    return nil;
-}
-
-@end
-
-#else
 
 static NSDictionary* dictionaryFromDERData(NSData* data)
 {
@@ -148,7 +109,7 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
 @property (readonly) NSData* serializedRepresentation;
 
 - (instancetype)initWithData:(NSData*)data;
-- (instancetype)initWithCiphertext:(SFAuthenticatedCiphertext*)ciphertext wrappedKey:(SecDbKeychainAKSWrappedKey*)wrappedKey tamperCheck:(NSString*)tamperCheck error:(NSError**)error;
+- (instancetype)initWithCiphertext:(SFAuthenticatedCiphertext*)ciphertext wrappedKey:(SecDbKeychainAKSWrappedKey*)wrappedKey tamperCheck:(NSString*)tamperCheck backupWrappedKey:(SecDbBackupWrappedItemKey*)backupWrappedKey error:(NSError**)error;
 
 @end
 
@@ -217,7 +178,10 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
     SecDbKeychainSerializedMetadata* _serializedHolder;
 }
 
-- (instancetype)initWithCiphertext:(SFAuthenticatedCiphertext*)ciphertext wrappedKey:(SFAuthenticatedCiphertext*)wrappedKey tamperCheck:(NSString*)tamperCheck error:(NSError**)error
+- (instancetype)initWithCiphertext:(SFAuthenticatedCiphertext*)ciphertext
+                        wrappedKey:(SFAuthenticatedCiphertext*)wrappedKey
+                       tamperCheck:(NSString*)tamperCheck
+                             error:(NSError**)error
 {
     if (self = [super init]) {
         _serializedHolder = [[SecDbKeychainSerializedMetadata alloc] init];
@@ -282,13 +246,18 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
     SecDbKeychainSerializedSecretData* _serializedHolder;
 }
 
-- (instancetype)initWithCiphertext:(SFAuthenticatedCiphertext*)ciphertext wrappedKey:(SecDbKeychainAKSWrappedKey*)wrappedKey tamperCheck:(NSString*)tamperCheck error:(NSError**)error
+- (instancetype)initWithCiphertext:(SFAuthenticatedCiphertext*)ciphertext
+                        wrappedKey:(SecDbKeychainAKSWrappedKey*)wrappedKey
+                       tamperCheck:(NSString*)tamperCheck
+                  backupWrappedKey:(SecDbBackupWrappedItemKey*)backupWrappedKey
+                             error:(NSError**)error
 {
     if (self = [super init]) {
         _serializedHolder = [[SecDbKeychainSerializedSecretData alloc] init];
         _serializedHolder.ciphertext = [NSKeyedArchiver archivedDataWithRootObject:ciphertext requiringSecureCoding:YES error:error];
         _serializedHolder.wrappedKey = wrappedKey.serializedRepresentation;
         _serializedHolder.tamperCheck = tamperCheck;
+        _serializedHolder.secDbBackupWrappedItemKey = backupWrappedKey ? [NSKeyedArchiver archivedDataWithRootObject:backupWrappedKey requiringSecureCoding:YES error:error] : nil;
         if (!_serializedHolder.ciphertext || !_serializedHolder.wrappedKey || !_serializedHolder.tamperCheck) {
             self = nil;
         }
@@ -337,364 +306,9 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
 
 @end
 
-//////  SecDbKeychainMetadataKeyStore
-
-@interface SecDbKeychainMetadataKeyStore ()
-- (SFAESKey*)keyForKeyclass:(keyclass_t)keyClass
-                     keybag:(keybag_handle_t)keybag
-               keySpecifier:(SFAESKeySpecifier*)keySpecifier
-         createKeyIfMissing:(bool)createIfMissing
-        overwriteCorruptKey:(bool)overwriteCorruptKey
-                      error:(NSError**)error;
-@end
-
-static SecDbKeychainMetadataKeyStore* sharedStore = nil;
-static dispatch_queue_t sharedMetadataStoreQueue;
-static void initializeSharedMetadataStoreQueue(void) {
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        sharedMetadataStoreQueue = dispatch_queue_create("metadata_store", DISPATCH_QUEUE_SERIAL);
-    });
-}
-
-@implementation SecDbKeychainMetadataKeyStore {
-    NSMutableDictionary* _keysDict;
-    dispatch_queue_t _queue;
-}
-
-+ (void)resetSharedStore
-{
-    initializeSharedMetadataStoreQueue();
-    dispatch_sync(sharedMetadataStoreQueue, ^{
-        if(sharedStore) {
-            dispatch_sync(sharedStore->_queue, ^{
-                [sharedStore _onQueueDropAllKeys];
-            });
-        }
-        sharedStore = nil;
-    });
-}
-
-+ (instancetype)sharedStore
-{
-    __block SecDbKeychainMetadataKeyStore* ret;
-    initializeSharedMetadataStoreQueue();
-    dispatch_sync(sharedMetadataStoreQueue, ^{
-        if(!sharedStore) {
-            sharedStore = [[self alloc] _init];
-        }
-
-        ret = sharedStore;
-    });
-
-    return ret;
-}
-
-+ (bool)cachingEnabled
-{
-    return true;
-}
-
-- (instancetype)_init
-{
-    if (self = [super init]) {
-        _keysDict = [[NSMutableDictionary alloc] init];
-        _queue = dispatch_queue_create("SecDbKeychainMetadataKeyStore", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
-        int token = 0;
-        __weak __typeof(self) weakSelf = self;
-        notify_register_dispatch(kUserKeybagStateChangeNotification, &token, _queue, ^(int inToken) {
-            bool locked = true;
-            CFErrorRef error = NULL;
-            if (!SecAKSGetIsLocked(&locked, &error)) {
-                secerror("SecDbKeychainMetadataKeyStore: error getting lock state: %@", error);
-                CFReleaseNull(error);
-            }
-
-            if (locked) {
-                [weakSelf _onQueueDropClassAKeys];
-            }
-        });
-    }
-
-    return self;
-}
-
-- (void)dropClassAKeys
-{
-    dispatch_sync(_queue, ^{
-        [self _onQueueDropClassAKeys];
-    });
-}
-
-- (void)_onQueueDropClassAKeys
-{
-    dispatch_assert_queue(_queue);
-
-    secnotice("SecDbKeychainMetadataKeyStore", "dropping class A metadata keys");
-    _keysDict[@(key_class_ak)] = nil;
-    _keysDict[@(key_class_aku)] = nil;
-    _keysDict[@(key_class_akpu)] = nil;
-}
-
-- (void)_onQueueDropAllKeys
-{
-    dispatch_assert_queue(_queue);
-
-    secnotice("SecDbKeychainMetadataKeyStore", "dropping all metadata keys");
-    [_keysDict removeAllObjects];
-}
-
-- (void)_updateActualKeyclassIfNeeded:(keyclass_t)actualKeyclassToWriteBackToDB keyclass:(keyclass_t)keyclass
-{
-    __block CFErrorRef cfError = NULL;
-
-    secnotice("SecDbKeychainItemV7", "saving actualKeyclass %d for metadata keyclass %d", actualKeyclassToWriteBackToDB, keyclass);
-
-    kc_with_dbt_non_item_tables(true, &cfError, ^bool(SecDbConnectionRef dbt) {
-        __block bool actualKeyWriteBackOk = true;
-
-        // we did not find an actualKeyclass entry in the db, so let's add one in now.
-        NSString *sql = @"UPDATE metadatakeys SET actualKeyclass = ? WHERE keyclass = ? AND actualKeyclass IS NULL";
-        __block CFErrorRef actualKeyWriteBackError = NULL;
-        actualKeyWriteBackOk &= SecDbPrepare(dbt, (__bridge CFStringRef)sql, &actualKeyWriteBackError, ^(sqlite3_stmt* stmt) {
-            actualKeyWriteBackOk &= SecDbBindInt(stmt, 1, actualKeyclassToWriteBackToDB, &actualKeyWriteBackError);
-            actualKeyWriteBackOk &= SecDbBindInt(stmt, 2, keyclass, &actualKeyWriteBackError);
-            actualKeyWriteBackOk &= SecDbStep(dbt, stmt, &actualKeyWriteBackError, ^(bool* stop) {
-                // woohoo
-            });
-        });
-
-        if (actualKeyWriteBackOk) {
-            secnotice("SecDbKeychainItemV7", "successfully saved actualKeyclass %d for metadata keyclass %d", actualKeyclassToWriteBackToDB, keyclass);
-
-        }
-        else {
-            // we can always try this again in the future if it failed
-            secerror("SecDbKeychainItemV7: failed to save actualKeyclass %d for metadata keyclass %d; error: %@", actualKeyclassToWriteBackToDB, keyclass, actualKeyWriteBackError);
-        }
-        return actualKeyWriteBackOk;
-    });
-}
-
-- (SFAESKey*)keyForKeyclass:(keyclass_t)keyclass
-                     keybag:(keybag_handle_t)keybag
-               keySpecifier:(SFAESKeySpecifier*)keySpecifier
-         createKeyIfMissing:(bool)createIfMissing
-        overwriteCorruptKey:(bool)overwriteCorruptKey
-                      error:(NSError**)error
-{
-    __block SFAESKey* key = nil;
-    __block NSError* nsErrorLocal = nil;
-    __block CFErrorRef cfError = NULL;
-    static __thread BOOL reentrant = NO;
-
-    NSAssert(!reentrant, @"re-entering -[%@ %@] - that shouldn't happen!", NSStringFromClass(self.class), NSStringFromSelector(_cmd));
-    reentrant = YES;
-
-#if USE_KEYSTORE
-    if (keyclass > key_class_last) {
-        // idea is that AKS may return a keyclass value with extra bits above key_class_last from aks_wrap_key, but we only keep metadata keys for the canonical key classes
-        // so just sanitize all our inputs to the canonical values
-        keyclass_t sanitizedKeyclass = keyclass & key_class_last;
-        secinfo("SecDbKeychainItemV7", "sanitizing request for metadata keyclass %d to keyclass %d", keyclass, sanitizedKeyclass);
-        keyclass = sanitizedKeyclass;
-    }
-#endif
-
-    dispatch_sync(_queue, ^{
-        // if we think we're locked, it's possible AKS will still give us access to keys, such as during backup,
-        // but we should force AKS to be the truth and not used cached class A keys while locked
-        bool allowKeyCaching = [SecDbKeychainMetadataKeyStore cachingEnabled];
-
-        // However, we must not cache a newly-created key, just in case someone above us in the stack rolls back our database transaction and the stored key is lost.
-        __block bool keyIsNewlyCreated = false;
-#if 0
-        // <rdar://problem/37523001> Fix keychain lock state check to be both secure and fast for EDU mode
-        if (![SecDbKeychainItemV7 isKeychainUnlocked]) {
-            [self _onQueueDropClassAKeys];
-            allowKeyCaching = !(keyclass == key_class_ak || keyclass == key_class_aku || keyclass == key_class_akpu);
-        }
-#endif
-
-        key = allowKeyCaching ? self->_keysDict[@(keyclass)] : nil;
-        if (!key) {
-            __block bool ok = true;
-            __block bool metadataKeyDoesntAuthenticate = false;
-            ok &= kc_with_dbt_non_item_tables(createIfMissing, &cfError, ^bool(SecDbConnectionRef dbt) {
-                __block NSString* sql = [NSString stringWithFormat:@"SELECT data, actualKeyclass FROM metadatakeys WHERE keyclass = %d", keyclass];
-                ok &= SecDbPrepare(dbt, (__bridge CFStringRef)sql, &cfError, ^(sqlite3_stmt *stmt) {
-                    ok &= SecDbStep(dbt, stmt, &cfError, ^(bool *stop) {
-                        NSData* wrappedKeyData = [[NSData alloc] initWithBytes:sqlite3_column_blob(stmt, 0) length:sqlite3_column_bytes(stmt, 0)];
-                        NSMutableData* unwrappedKeyData = [NSMutableData dataWithLength:wrappedKeyData.length];
-                        
-                        keyclass_t actualKeyclass = sqlite3_column_int(stmt, 1);
-                        
-                        keyclass_t actualKeyclassToWriteBackToDB = 0;
-                        keyclass_t keyclassForUnwrapping = actualKeyclass == 0 ? keyclass : actualKeyclass;
-                        ok &= [SecDbKeychainItemV7 aksDecryptWithKeybag:keybag keyclass:keyclassForUnwrapping wrappedKeyData:wrappedKeyData outKeyclass:NULL unwrappedKey:unwrappedKeyData error:&nsErrorLocal];
-                        if (ok) {
-                            key = [[SFAESKey alloc] initWithData:unwrappedKeyData specifier:keySpecifier error:&nsErrorLocal];
-
-                            if(!key) {
-                                os_log_fault(secLogObjForScope("SecDbKeychainItemV7"), "Metadata class key (%d) decrypted, but didn't become a key: %@", keyclass, nsErrorLocal);
-                            }
-                            
-                            if (actualKeyclass == 0) {
-                                actualKeyclassToWriteBackToDB = keyclassForUnwrapping;
-                            }
-                        }
-#if USE_KEYSTORE
-                        else if (actualKeyclass == 0 && keyclass <= key_class_last) {
-                            // in this case we might have luck decrypting with a key-rolled keyclass
-                            keyclass_t keyrolledKeyclass = keyclass | (key_class_last + 1);
-                            secerror("SecDbKeychainItemV7: failed to decrypt metadata key for class %d, but trying keyrolled keyclass (%d); error: %@", keyclass, keyrolledKeyclass, nsErrorLocal);
-                            
-                            // we don't want to pollute subsequent error-handling logic with what happens on our retry
-                            // we'll give it a shot, and if it works, great - if it doesn't work, we'll just report that error in the log and move on
-                            NSError* retryError = nil;
-                            ok = [SecDbKeychainItemV7 aksDecryptWithKeybag:keybag keyclass:keyrolledKeyclass wrappedKeyData:wrappedKeyData outKeyclass:NULL unwrappedKey:unwrappedKeyData error:&retryError];
-                            
-                            if (ok) {
-                                secerror("SecDbKeychainItemV7: successfully decrypted metadata key using keyrolled keyclass %d", keyrolledKeyclass);
-                                key = [[SFAESKey alloc] initWithData:unwrappedKeyData specifier:keySpecifier error:&retryError];
-
-                                if(!key) {
-                                    os_log_fault(secLogObjForScope("SecDbKeychainItemV7"), "Metadata class key (%d) decrypted using keyrolled keyclass %d, but didn't become a key: %@", keyclass, keyrolledKeyclass, retryError);
-                                    nsErrorLocal = retryError;
-                                }
-                            }
-                            else {
-                                secerror("SecDbKeychainItemV7: failed to decrypt metadata key with keyrolled keyclass %d; error: %@", keyrolledKeyclass, retryError);
-                            }
-                        }
-#endif
-                        
-                        if (ok && key) {
-                            if (actualKeyclassToWriteBackToDB > 0) {
-                                // check if we have updated this keyclass or not already
-                                static NSMutableDictionary* updated = NULL;
-                                if (!updated) {
-                                    updated = [NSMutableDictionary dictionary];
-                                }
-                                if (!updated[@(keyclass)]) {
-                                    updated[@(keyclass)] = @YES;
-                                    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
-                                        [self _updateActualKeyclassIfNeeded:actualKeyclassToWriteBackToDB keyclass:keyclass];
-                                    });
-                                }
-                            }
-                        }
-                        else {
-                            if (nsErrorLocal && [nsErrorLocal.domain isEqualToString:(__bridge NSString*)kSecErrorDomain] && nsErrorLocal.code == errSecInteractionNotAllowed) {
-                                static dispatch_once_t kclockedtoken;
-                                static sec_action_t kclockedaction;
-                                dispatch_once(&kclockedtoken, ^{
-                                    kclockedaction = sec_action_create("keychainlockedlogmessage", 1);
-                                    sec_action_set_handler(kclockedaction, ^{
-                                        secerror("SecDbKeychainItemV7: failed to decrypt metadata key because the keychain is locked (%d)", (int)errSecInteractionNotAllowed);
-                                    });
-                                });
-                                sec_action_perform(kclockedaction);
-                            } else {
-                                secerror("SecDbKeychainItemV7: failed to decrypt and create metadata key for class %d; error: %@", keyclass, nsErrorLocal);
-
-                                // If this error is errSecDecode, then it's failed authentication and likely will forever. Other errors are scary.                                
-                                metadataKeyDoesntAuthenticate = [nsErrorLocal.domain isEqualToString:NSOSStatusErrorDomain] && nsErrorLocal.code == errSecDecode;
-                                if(metadataKeyDoesntAuthenticate) {
-                                    os_log_fault(secLogObjForScope("SecDbKeychainItemV7"), "Metadata class key (%d) failed to decrypt: %@", keyclass, nsErrorLocal);
-                                }
-                            }
-                        }
-                    });
-                });
-
-                bool keyNotYetCreated = ok && !key;
-                bool forceOverwriteBadKey = !key && metadataKeyDoesntAuthenticate && overwriteCorruptKey;
-
-                if (createIfMissing && (keyNotYetCreated || forceOverwriteBadKey)) {
-                    // we completed the database query, but no key exists or it's broken - we should create one
-                    if(forceOverwriteBadKey) {
-                        secerror("SecDbKeychainItemV7: metadata key is irreparably corrupt; throwing away forever");
-                        // TODO: track this in LocalKeychainAnalytics
-                    }
-
-                    ok = true; // Reset 'ok': we have a second chance
-
-                    key = [[SFAESKey alloc] initRandomKeyWithSpecifier:keySpecifier error:&nsErrorLocal];
-                    keyIsNewlyCreated = true;
-
-                    if (key) {
-                        NSMutableData* wrappedKey = [NSMutableData dataWithLength:key.keyData.length + 40];
-                        keyclass_t outKeyclass = keyclass;
-                        ok &= [SecDbKeychainItemV7 aksEncryptWithKeybag:keybag keyclass:keyclass keyData:key.keyData outKeyclass:&outKeyclass wrappedKey:wrappedKey error:&nsErrorLocal];
-                        if (ok) {
-                            secinfo("SecDbKeychainItemV7", "attempting to save new metadata key for keyclass %d with actualKeyclass %d", keyclass, outKeyclass);
-                            NSString* insertString = forceOverwriteBadKey ? @"INSERT OR REPLACE" : @"INSERT";
-                            sql = [NSString stringWithFormat:@"%@ into metadatakeys (keyclass, actualKeyclass, data) VALUES (?, ?, ?)", insertString];
-                            ok &= SecDbPrepare(dbt, (__bridge CFStringRef)sql, &cfError, ^(sqlite3_stmt* stmt) {
-                                ok &= SecDbBindInt(stmt, 1, keyclass, &cfError);
-                                ok &= SecDbBindInt(stmt, 2, outKeyclass, &cfError);
-                                ok &= SecDbBindBlob(stmt, 3, wrappedKey.bytes, wrappedKey.length, SQLITE_TRANSIENT, NULL);
-                                ok &= SecDbStep(dbt, stmt, &cfError, ^(bool *stop) {
-                                    // woohoo
-                                });
-                            });
-
-                            if (ok) {
-                                secnotice("SecDbKeychainItemV7", "successfully saved new metadata key for keyclass %d", keyclass);
-                            }
-                            else {
-                                secerror("SecDbKeychainItemV7: failed to save new metadata key for keyclass %d - probably there is already one in the database: %@", keyclass, cfError);
-                            }
-                        } else {
-                            secerror("SecDbKeychainItemV7: unable to encrypt new metadata key(%d) with keybag(%d): %@", keyclass, keybag, nsErrorLocal);
-                        }
-                    }
-                    else {
-                        ok = false;
-                    }
-                } else if(!key) {
-                    // No key, but we're not supposed to make one. Make an error if one doesn't yet exist.
-                    ok = false;
-                    if(!nsErrorLocal) {
-                        nsErrorLocal = [NSError errorWithDomain:(id)kSecErrorDomain code:errSecDecode userInfo:@{NSLocalizedDescriptionKey: @"Unable to find or create a suitable metadata key"}];
-                    }
-                }
-
-                return ok;
-            });
-
-            if (ok && key) {
-                // We can't cache a newly-created key, just in case this db transaction is rolled back and we lose the persisted key.
-                // Don't worry, we'll cache it as soon as it's used again.
-                if (allowKeyCaching && !keyIsNewlyCreated) {
-                    self->_keysDict[@(keyclass)] = key;
-                    __weak __typeof(self) weakSelf = self;
-                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(60 * 5 * NSEC_PER_SEC)), self->_queue, ^{
-                        [weakSelf _onQueueDropClassAKeys];
-                    });
-                }
-            }
-            else {
-                key = nil;
-            }
-        }
-    });
-
-    reentrant = NO;
-
-    if (error && nsErrorLocal) {
-        *error = nsErrorLocal;
-        CFReleaseNull(cfError);
-    }
-    else {
-        BridgeCFErrorToNSErrorOut(error, cfError);
-    }
-
-    return key;
-}
-
-@end
+@interface SecDbKeychainItemV7 ()
+@property (nonatomic) NSData* backupUUID;
+@end;
 
 @implementation SecDbKeychainItemV7 {
     SecDbKeychainSecretData* _encryptedSecretData;
@@ -707,22 +321,6 @@ static void initializeSharedMetadataStoreQueue(void) {
 }
 
 @synthesize keyclass = _keyclass;
-
-+ (bool)aksEncryptWithKeybag:(keybag_handle_t)keybag keyclass:(keyclass_t)keyclass keyData:(NSData*)keyData outKeyclass:(keyclass_t*)outKeyclass wrappedKey:(NSMutableData*)wrappedKey error:(NSError**)error
-{
-    CFErrorRef cfError = NULL;
-    bool result = ks_crypt(kAKSKeyOpEncrypt, keybag, keyclass, (uint32_t)keyData.length, keyData.bytes, outKeyclass, (__bridge CFMutableDataRef)wrappedKey, &cfError);
-    BridgeCFErrorToNSErrorOut(error, cfError);
-    return result;
-}
-
-+ (bool)aksDecryptWithKeybag:(keybag_handle_t)keybag keyclass:(keyclass_t)keyclass wrappedKeyData:(NSData*)wrappedKeyData outKeyclass:(keyclass_t*)outKeyclass unwrappedKey:(NSMutableData*)unwrappedKey error:(NSError**)error
-{
-    CFErrorRef cfError = NULL;
-    bool result = ks_crypt(kAKSKeyOpDecrypt, keybag, keyclass, (uint32_t)wrappedKeyData.length, wrappedKeyData.bytes, outKeyclass, (__bridge CFMutableDataRef)unwrappedKey, &cfError);
-    BridgeCFErrorToNSErrorOut(error, cfError);
-    return result;
-}
 
 // bring back with <rdar://problem/37523001>
 #if 0
@@ -737,6 +335,12 @@ static void initializeSharedMetadataStoreQueue(void) {
     if (self = [super init]) {
         SecDbKeychainSerializedItemV7* serializedItem = [[SecDbKeychainSerializedItemV7 alloc] initWithData:data];
         if (serializedItem) {
+
+            // Add 10% for serializing overhead. We're trying to catch blatant overstuffing, not enforce hard limits
+            if (data.length > ((REASONABLE_SECRET_DATA_SIZE + REASONABLE_METADATA_SIZE) * 1.1)) {
+                secwarning("SecDbKeychainItemV7: serialized item exceeds reasonable size (%lu bytes)", (unsigned long)data.length);
+            }
+
             _keybag = decryptionKeybag;
             _encryptedSecretData = [[SecDbKeychainSecretData alloc] initWithData:serializedItem.encryptedSecretData];
             _encryptedMetadata = [[SecDbKeychainMetadata alloc] initWithData:serializedItem.encryptedMetadata];
@@ -956,6 +560,12 @@ static void initializeSharedMetadataStoreQueue(void) {
     NSMutableDictionary* attributesToEncrypt = _metadataAttributes.mutableCopy;
     attributesToEncrypt[SecDBTamperCheck] = _tamperCheck;
     NSData* metadata = (__bridge_transfer NSData*)CFPropertyListCreateDERData(NULL, (__bridge CFDictionaryRef)attributesToEncrypt, NULL);
+
+    if (metadata.length > REASONABLE_METADATA_SIZE) {
+        NSString *agrp = _metadataAttributes[(__bridge NSString *)kSecAttrAccessGroup];
+        secwarning("SecDbKeychainItemV7: item's metadata exceeds reasonable size (%lu bytes) (%@)", (unsigned long)metadata.length, agrp);
+    }
+
     SFAuthenticatedCiphertext* ciphertext = [encryptionOperation encrypt:metadata withKey:key error:error];
 
     SFAESKey* metadataClassKey = [self metadataClassKeyWithKeybag:keybag
@@ -982,6 +592,11 @@ static void initializeSharedMetadataStoreQueue(void) {
     attributesToEncrypt[SecDBTamperCheck] = _tamperCheck;
     NSMutableData* secretData = [(__bridge_transfer NSData*)CFPropertyListCreateDERData(NULL, (__bridge CFDictionaryRef)attributesToEncrypt, NULL) mutableCopy];
 
+    if (secretData.length > REASONABLE_SECRET_DATA_SIZE) {
+        NSString *agrp = _metadataAttributes[(__bridge NSString *)kSecAttrAccessGroup];
+        secwarning("SecDbKeychainItemV7: item's secret data exceeds reasonable size (%lu bytes) (%@)", (unsigned long)secretData.length, agrp);
+    }
+
     int8_t paddingLength = KEYCHAIN_ITEM_PADDING_MODULUS - (secretData.length % KEYCHAIN_ITEM_PADDING_MODULUS);
     int8_t paddingBytes[KEYCHAIN_ITEM_PADDING_MODULUS];
     for (int i = 0; i < KEYCHAIN_ITEM_PADDING_MODULUS; i++) {
@@ -992,7 +607,24 @@ static void initializeSharedMetadataStoreQueue(void) {
     SFAuthenticatedCiphertext* ciphertext = [encryptionOperation encrypt:secretData withKey:key error:error];
     SecDbKeychainAKSWrappedKey* wrappedKey = [self wrapToAKS:key withKeybag:keybag accessControl:accessControl acmContext:acmContext error:error];
 
-    _encryptedSecretData = [[SecDbKeychainSecretData alloc] initWithCiphertext:ciphertext wrappedKey:wrappedKey tamperCheck:_tamperCheck error:error];
+    SecDbBackupWrappedItemKey* backupWrappedKey;
+    if (checkV12DevEnabled()) {
+        backupWrappedKey = [[SecDbBackupManager manager] wrapItemKey:key forKeyclass:_keyclass error:error];
+        if (backupWrappedKey) {
+            _backupUUID = backupWrappedKey.baguuid;
+        } else {
+            secwarning("SecDbKeychainItemV7: backup manager didn't return wrapped key: %@", error ? *error : nil);
+            if (error) {
+                *error = nil;
+            }
+        }
+    }
+
+    _encryptedSecretData = [[SecDbKeychainSecretData alloc] initWithCiphertext:ciphertext
+                                                                    wrappedKey:wrappedKey
+                                                                   tamperCheck:_tamperCheck
+                                                              backupWrappedKey:backupWrappedKey
+                                                                         error:error];
     return _encryptedSecretData != nil;
 }
 
@@ -1072,12 +704,12 @@ static void initializeSharedMetadataStoreQueue(void) {
     }
     else {
         NSMutableData* wrappedKey = [[NSMutableData alloc] initWithLength:(size_t)keyData.length + 40];
-        bool success = [self.class aksEncryptWithKeybag:keybag keyclass:_keyclass keyData:keyData outKeyclass:&_keyclass wrappedKey:wrappedKey error:error];
+        bool success = [SecAKSObjCWrappers aksEncryptWithKeybag:keybag keyclass:_keyclass plaintext:keyData outKeyclass:&_keyclass ciphertext:wrappedKey error:error];
         return success ? [[SecDbKeychainAKSWrappedKey alloc] initRegularWrappedKeyWithData:wrappedKey] : nil;
     }
 #else
     NSMutableData* wrappedKey = [[NSMutableData alloc] initWithLength:(size_t)keyData.length + 40];
-    bool success = [self.class aksEncryptWithKeybag:keybag keyclass:_keyclass keyData:keyData outKeyclass:&_keyclass wrappedKey:wrappedKey error:error];
+    bool success = [SecAKSObjCWrappers aksEncryptWithKeybag:keybag keyclass:_keyclass plaintext:keyData outKeyclass:&_keyclass ciphertext:wrappedKey error:error];
     return success ? [[SecDbKeychainAKSWrappedKey alloc] initRegularWrappedKeyWithData:wrappedKey] : nil;
 #endif
 }
@@ -1089,7 +721,7 @@ static void initializeSharedMetadataStoreQueue(void) {
     if (wrappedKey.type == SecDbKeychainAKSWrappedKeyTypeRegular) {
         NSMutableData* unwrappedKey = [NSMutableData dataWithCapacity:wrappedKeyData.length + 40];
         unwrappedKey.length = wrappedKeyData.length + 40;
-        bool result = [self.class aksDecryptWithKeybag:_keybag keyclass:_keyclass wrappedKeyData:wrappedKeyData outKeyclass:&_keyclass unwrappedKey:unwrappedKey error:error];
+        bool result = [SecAKSObjCWrappers aksDecryptWithKeybag:_keybag keyclass:_keyclass ciphertext:wrappedKeyData outKeyclass:&_keyclass plaintext:unwrappedKey error:error];
         if (result) {
             return [[SFAESKey alloc] initWithData:unwrappedKey specifier:[self.class keySpecifier] error:error];
         }
@@ -1189,5 +821,3 @@ static void initializeSharedMetadataStoreQueue(void) {
 }
 
 @end
-
-#endif // TARGET_OS_BRIDGE

@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 fr{
-    AuxExemplarCharacters{"[á å ä ã ā ē í ì ī ñ ó ò ö ø ú ǔ]"}
+    AuxExemplarCharacters{"[á å ä ã ā ć ē í ì ī ĳ ñ ó ò ö õ ø ř š ſ ß ú ǔ]"}
     Ellipsis{
         final{"{0}…"}
         initial{"… {0}"}
@@ -15,20 +15,26 @@ fr{
         " x y ÿ z]"
     }
     ExemplarCharactersIndex{"[A B C D E F G H I J K L M N O P Q R S T U V W X Y Z]"}
-    ExemplarCharactersNumbers{"[  \\- , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersNumbers{"[  \\- , . % ‰ + − 0 1 2 ² 3 ³ 4 5 6 7 8 9 ᵈ ᵉ ʳ ˢ]"}
     ExemplarCharactersPunctuation{"[\\- ‐ – — , ; \\: ! ? . … ’ \u0022 “ ” « » ( ) \\[ \\] § @ * / \\& # † ‡]"}
     MoreInformation{"?"}
     NumberElements{
+        arab{
+            symbols{
+                plusSign{"‏+"}
+            }
+        }
         default{"latn"}
         latn{
             miscPatterns{
-                atLeast{"⩾{0}"}
+                approximately{"≈{0}"}
+                atLeast{"≥{0}"}
+                atMost{"≤{0}"}
                 range{"{0}–{1}"}
             }
             patterns{
                 accountingFormat{"#,##0.00 ¤;(#,##0.00 ¤)"}
                 currencyFormat{"#,##0.00 ¤"}
-                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
                 scientificFormat{"#E0"}
             }
@@ -189,14 +195,12 @@ fr{
             symbols{
                 decimal{","}
                 exponential{"E"}
-                group{" "}
+                group{" "}
                 infinity{"∞"}
                 list{";"}
-                minusSign{"-"}
                 nan{"NaN"}
                 perMille{"‰"}
                 percentSign{"%"}
-                plusSign{"+"}
                 superscriptingExponent{"×"}
                 timeSeparator{":"}
             }
@@ -214,7 +218,7 @@ fr{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -227,8 +231,8 @@ fr{
                 "d MMM y G",
                 "dd/MM/y GGGGG",
                 "{1} {0}",
-                "{1} 'à' {0}",
-                "{1} 'à' {0}",
+                "{1} à {0}",
+                "{1} à {0}",
                 "{1} {0}",
                 "{1} {0}",
             }
@@ -391,21 +395,6 @@ fr{
                         "mis.",
                         "al-n.",
                     }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                        "13",
-                    }
                     wide{
                         "tout",
                         "bâbâ",
@@ -437,21 +426,6 @@ fr{
                         "abî.",
                         "mis.",
                         "al-n.",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                        "13",
                     }
                     wide{
                         "tout",
@@ -582,21 +556,6 @@ fr{
                         "näh.",
                         "pag.",
                     }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                        "13",
-                    }
                     wide{
                         "mäskäräm",
                         "teqemt",
@@ -629,21 +588,6 @@ fr{
                         "näh.",
                         "pag.",
                     }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                        "13",
-                    }
                     wide{
                         "mäskäräm",
                         "teqemt",
@@ -673,8 +617,8 @@ fr{
                 "d MMM y G",
                 "dd/MM/y GGGGG",
                 "{1} {0}",
-                "{1} 'à' {0}",
-                "{1} 'à' {0}",
+                "{1} à {0}",
+                "{1} à {0}",
                 "{1} {0}",
                 "{1} {0}",
             }
@@ -722,6 +666,53 @@ fr{
                 yyyyQQQQ{"QQQQ y G"}
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h – h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm – h:mm B"}
+                }
+                Gy{
+                    G{"y G 'à' y G"}
+                    y{"y–y G"}
+                }
+                GyM{
+                    G{"M/y G 'à' M/y G"}
+                    M{"M–M/y G"}
+                    y{"M/y 'à' M/y G"}
+                }
+                GyMEd{
+                    G{"E d/M/y G 'à' E d/M/y G"}
+                    M{"E d/M 'à' E d/M/y G"}
+                    d{"E d 'à' E d/M/y G"}
+                    y{"E d/M/y 'à' E d/M/y G"}
+                }
+                GyMMM{
+                    G{"MMM y G 'à' MMM y G"}
+                    M{"MMM 'à' MMM y G"}
+                    y{"MMM y 'à' MMM y G"}
+                }
+                GyMMMEd{
+                    G{"E d MMM y G 'à' E d MMM y G"}
+                    M{"E d MMM 'à' E d MMM y G"}
+                    d{"E d 'à' E d MMM y G"}
+                    y{"E d MMM y 'à' E d MMM y G"}
+                }
+                GyMMMd{
+                    G{"d MMM y G 'à' d MMM y G"}
+                    M{"d MMM 'à' d MMM y G"}
+                    d{"d–d MMM y G"}
+                    y{"d MMM y 'à' d MMM y G"}
+                }
+                GyMd{
+                    G{"d/M/y G 'à' d/M/y G"}
+                    M{"d/M 'à' d/M/y G"}
+                    d{"d–d/M/y G"}
+                    y{"d/M/y 'à' d/M/y G"}
+                }
                 H{
                     H{"HH – HH"}
                 }
@@ -839,10 +830,10 @@ fr{
                 "d MMMM y",
                 "d MMM y",
                 "dd/MM/y",
-                "{1} 'à' {0}",
-                "{1} 'à' {0}",
-                "{1} 'à' {0}",
-                "{1} 'à' {0}",
+                "{1} à {0}",
+                "{1} à {0}",
+                "{1} à {0}",
+                "{1} à {0}",
                 "{1} {0}",
             }
             appendItems{
@@ -1067,6 +1058,53 @@ fr{
                 }
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h – h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm – h:mm B"}
+                }
+                Gy{
+                    G{"y G 'à' y G"}
+                    y{"y–y G"}
+                }
+                GyM{
+                    G{"M/y G 'à' M/y G"}
+                    M{"M–M/y G"}
+                    y{"M/y 'à' M/y G"}
+                }
+                GyMEd{
+                    G{"E d/M/y G 'à' E d/M/y G"}
+                    M{"E d/M 'à' E d/M/y G"}
+                    d{"E d 'à' E d/M/y G"}
+                    y{"E d/M/y 'à' E d/M/y G"}
+                }
+                GyMMM{
+                    G{"MMM y G 'à' MMM y G"}
+                    M{"MMM 'à' MMM y G"}
+                    y{"MMM y 'à' MMM y G"}
+                }
+                GyMMMEd{
+                    G{"E d MMM y G 'à' E d MMM y G"}
+                    M{"E d MMM 'à' E d MMM y G"}
+                    d{"E d 'à' E d MMM y G"}
+                    y{"E d MMM y 'à' E d MMM y G"}
+                }
+                GyMMMd{
+                    G{"d MMM y G 'à' d MMM y G"}
+                    M{"d MMM 'à' d MMM y G"}
+                    d{"d–d MMM y G"}
+                    y{"d MMM y 'à' d MMM y G"}
+                }
+                GyMd{
+                    G{"d/M/y G 'à' d/M/y G"}
+                    M{"d/M 'à' d/M/y G"}
+                    d{"d–d/M/y G"}
+                    y{"d/M/y 'à' d/M/y G"}
+                }
                 H{
                     H{"HH – HH"}
                 }
@@ -1305,17 +1343,14 @@ fr{
                 "d MMM y G",
                 "dd/MM/y GGGGG",
                 "{1} {0}",
-                "{1} 'à' {0}",
-                "{1} 'à' {0}",
+                "{1} à {0}",
+                "{1} à {0}",
                 "{1} {0}",
                 "{1} {0}",
             }
             eras{
                 abbreviated{
                     "A. M.",
-                }
-                narrow{
-                    "AM",
                 }
                 wide{
                     "Anno Mundi",
@@ -1338,22 +1373,6 @@ fr{
                         "av",
                         "él.",
                         "ad.II",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                        "13",
-                        "7",
                     }
                     wide{
                         "tichri",
@@ -1389,22 +1408,6 @@ fr{
                         "él.",
                         "ad.II",
                     }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                        "13",
-                        "7",
-                    }
                     wide{
                         "tichri",
                         "hèchvan",
@@ -1426,12 +1429,6 @@ fr{
         }
         indian{
             eras{
-                abbreviated{
-                    "Saka",
-                }
-                narrow{
-                    "Saka",
-                }
                 wide{
                     "ère Saka",
                 }
@@ -1451,20 +1448,6 @@ fr{
                         "pau.",
                         "māgh",
                         "phāl.",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
                     }
                     wide{
                         "chaitra",
@@ -1495,20 +1478,6 @@ fr{
                         "pau.",
                         "māgh",
                         "phāl.",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
                     }
                     wide{
                         "chaitra",
@@ -1678,9 +1647,6 @@ fr{
                 abbreviated{
                     "A. P.",
                 }
-                narrow{
-                    "AP",
-                }
                 wide{
                     "Anno Persico",
                 }
@@ -1700,20 +1666,6 @@ fr{
                         "dey",
                         "bah.",
                         "esf.",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
                     }
                     wide{
                         "farvardin",
@@ -1744,20 +1696,6 @@ fr{
                         "dey",
                         "bah.",
                         "esf.",
-                    }
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
                     }
                     wide{
                         "farvardin",
@@ -1797,14 +1735,14 @@ fr{
         activities{"activités"}
         african_scripts{"écritures africaines"}
         american_scripts{"écritures américaines"}
-        animal{"animal"}
+        animal{"animaux"}
         animals_nature{"animaux et nature"}
         arrows{"flèches"}
         body{"corps"}
-        box_drawing{"tracé de boîte"}
+        box_drawing{"filets"}
         braille{"écriture Braille"}
         building{"immeuble"}
-        bullets_stars{"puces / astérisques"}
+        bullets_stars{"étoiles et puces"}
         consonantal_jamo{"jamos consonnes"}
         currency_symbols{"symboles monétaires"}
         dash_connector{"tirets / connecteurs"}
@@ -1813,7 +1751,7 @@ fr{
         divination_symbols{"symboles divinatoires"}
         downwards_arrows{"flèches vers le bas"}
         downwards_upwards_arrows{"flèches vers le bas et le haut"}
-        east_asian_scripts{"écritures asiatiques orientales"}
+        east_asian_scripts{"écritures est-asiatiques"}
         emoji{"emojis"}
         european_scripts{"écritures européennes"}
         female{"féminin"}
@@ -1824,19 +1762,19 @@ fr{
         format_whitespace{"format et espacement"}
         full_width_form_variant{"variante de forme pleine-chasse"}
         geometric_shapes{"formes géométriques"}
-        half_width_form_variant{"variantes de forme en demi-largeur"}
+        half_width_form_variant{"variantes de forme demi-chasse"}
         han_characters{"caractères sinographiques"}
         han_radicals{"radicaux sinographiques"}
-        hanja{"sinogramme coréen hanja"}
-        hanzi_simplified{"sinogramme chinois simplifié"}
-        hanzi_traditional{"sinogramme chinois traditionnel"}
-        heart{"cœur"}
+        hanja{"sinogrammes coréens hanja"}
+        hanzi_simplified{"sinogrammes chinois simplifiés"}
+        hanzi_traditional{"sinogrammes chinois traditionnels"}
+        heart{"cœurs"}
         historic_scripts{"écritures historiques"}
         ideographic_desc_characters{"symboles de descript. sinographique"}
         japanese_kana{"syllabaire kana japonais"}
         kanbun{"kamboun"}
-        kanji{"sinogramme japonais kanji"}
-        keycap{"keycap"}
+        kanji{"sinogrammes japonais kanji"}
+        keycap{"touches"}
         leftwards_arrows{"flèches vers la gauche"}
         leftwards_rightwards_arrows{"flèches vers la gauche et la droite"}
         letterlike_symbols{"symboles de lettres"}
@@ -1852,33 +1790,33 @@ fr{
         nonspacing{"sans chasse"}
         numbers{"nombres"}
         objects{"objets"}
-        other{"autre"}
+        other{"autres"}
         paired{"en paire"}
-        person{"personne"}
+        person{"personnes"}
         phonetic_alphabet{"alphabet phonétique"}
         pictographs{"pictogrammes"}
-        place{"lieu"}
-        plant{"plante"}
+        place{"lieux"}
+        plant{"plantes"}
         punctuation{"ponctuation"}
         rightwards_arrows{"flèches vers la droite"}
-        sign_standard_symbols{"symboles de signe/norme"}
+        sign_standard_symbols{"signalisation"}
         small_form_variant{"petites variantes de forme"}
-        smiley{"smiley"}
+        smiley{"émoticône"}
         smileys_people{"émoticônes et personnes"}
-        south_asian_scripts{"écritures asiatiques du sud"}
-        southeast_asian_scripts{"écrtitures asiatiques du sud-est"}
+        south_asian_scripts{"écritures sud-asiatiques"}
+        southeast_asian_scripts{"écritures sud-est-asiatiques"}
         spacing{"avec chasse"}
         sport{"sport"}
         symbols{"symboles"}
         technical_symbols{"symboles techniques"}
-        tone_marks{"marques de ton"}
+        tone_marks{"marques tonales"}
         travel{"voyage"}
         travel_places{"voyage et lieux"}
         upwards_arrows{"flèches vers le haut"}
         variant_forms{"variantes de forme"}
         vocalic_jamo{"jamos voyelles"}
         weather{"météo"}
-        western_asian_scripts{"écritures asiatiques occidentales"}
+        western_asian_scripts{"écritures ouest-asiatiques"}
         whitespace{"espacement"}
     }
     contextTransforms{
@@ -1945,7 +1883,10 @@ fr{
         day-narrow{
             dn{"j"}
             relative{
+                "-1"{"hier"}
                 "-2"{"avant-hier"}
+                "0"{"aujourd’hui"}
+                "1"{"demain"}
                 "2"{"après-demain"}
             }
             relativeTime{
@@ -1962,7 +1903,10 @@ fr{
         day-short{
             dn{"j"}
             relative{
+                "-1"{"hier"}
                 "-2"{"avant-hier"}
+                "0"{"aujourd’hui"}
+                "1"{"demain"}
                 "2"{"après-demain"}
             }
             relativeTime{
@@ -2745,6 +2689,12 @@ fr{
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
+        standard-narrow{
+            2{"{0}, {1}"}
+            end{"{0}, {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
+        }
         standard-short{
             2{"{0} et {1}"}
             end{"{0} et {1}"}
@@ -2774,5 +2724,37 @@ fr{
         UK{"impérial"}
         US{"américain"}
         metric{"métrique"}
+    }
+    parse{
+        date{
+            lenient{
+                "[\\--/]",
+                "[\\:∶]",
+            }
+        }
+        general{
+            lenient{
+                "[.․。︒﹒．｡]",
+                "['ʼ՚ߴ᾽᾿’＇]",
+                "[%٪﹪％]",
+                "[؉‰]",
+                "[\$﹩＄$]",
+                "[£₤]",
+                "[¥￥]",
+                "[₩￦]",
+                "[₨₹{Rp}{Rs}]",
+            }
+        }
+        number{
+            lenient{
+                "[\\-‒⁻₋−➖﹣－]",
+                "[,،٫、︐︑﹐﹑，､]",
+                "[+⁺₊➕﬩﹢＋]",
+            }
+            stricter{
+                "[,٫︐﹐，]",
+                "[.․﹒．｡]",
+            }
+        }
     }
 }

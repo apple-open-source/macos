@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 ko{
-    Version{"2.1.41.97"}
+    Version{"2.1.49.82"}
     zoneStrings{
         "Africa:Abidjan"{
             ec{"아비장"}
@@ -810,6 +810,9 @@ ko{
         "Asia:Qatar"{
             ec{"카타르"}
         }
+        "Asia:Qostanay"{
+            ec{"코스타나이"}
+        }
         "Asia:Qyzylorda"{
             ec{"키질로르다"}
         }
@@ -1387,7 +1390,7 @@ ko{
             ls{"아르메니아 표준시"}
         }
         "meta:Atlantic"{
-            ld{"미 대서양 하계 표준시"}
+            ld{"대서양 하계 표준시"}
             lg{"대서양 시간"}
             ls{"대서양 표준시"}
         }

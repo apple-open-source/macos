@@ -27,9 +27,6 @@
 
 #include <Security/SecureTransport.h>
 
-#define CFReleaseSafe(CF) { CFTypeRef _cf = (CF); if (_cf) {  CFRelease(_cf); } }
-#define CFReleaseNull(CF) { CFTypeRef _cf = (CF); if (_cf) {  (CF) = NULL; CFRelease(_cf); } }
-
 CFArrayRef CF_RETURNS_RETAINED trusted_roots(void);
 CFArrayRef CF_RETURNS_RETAINED server_chain(void);
 CFArrayRef CF_RETURNS_RETAINED server_ec_chain(void);

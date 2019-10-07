@@ -49,9 +49,8 @@ extern const CFStringRef __nonnull kSecPropertyTypeData;
 extern const CFStringRef __nonnull kSecPropertyTypeString;
 extern const CFStringRef __nonnull kSecPropertyTypeURL;
 extern const CFStringRef __nonnull kSecPropertyTypeDate;
-
-CFStringRef kSecPropertyTypeArray             = CFSTR("array");
-CFStringRef kSecPropertyTypeNumber            = CFSTR("number");
+extern const CFStringRef __nonnull kSecPropertyTypeArray;
+extern const CFStringRef __nonnull kSecPropertyTypeNumber;
 
 
 #pragma mark ---------- CertificateValues Implementation ----------

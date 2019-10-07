@@ -127,6 +127,10 @@ void InspectorFrontendClientLocal::Settings::setProperty(const String&, const St
 {
 }
 
+void InspectorFrontendClientLocal::Settings::deleteProperty(const String&)
+{
+}
+
 InspectorFrontendClientLocal::InspectorFrontendClientLocal(InspectorController* inspectedPageController, Page* frontendPage, std::unique_ptr<Settings> settings)
     : m_inspectedPageController(inspectedPageController)
     , m_frontendPage(frontendPage)
@@ -144,6 +148,11 @@ InspectorFrontendClientLocal::~InspectorFrontendClientLocal()
     m_frontendPage = nullptr;
     m_inspectedPageController = nullptr;
     m_dispatchTask->reset();
+}
+
+void InspectorFrontendClientLocal::resetState()
+{
+    m_settings->deleteProperty(inspectorAttachedHeightSetting);
 }
 
 void InspectorFrontendClientLocal::windowObjectCleared()
@@ -205,7 +214,7 @@ bool InspectorFrontendClientLocal::canAttachWindow()
 
 void InspectorFrontendClientLocal::setDockingUnavailable(bool unavailable)
 {
-    evaluateOnLoad(String::format("[\"setDockingUnavailable\", %s]", unavailable ? "true" : "false"));
+    evaluateOnLoad(makeString("[\"setDockingUnavailable\", ", unavailable ? "true" : "false", ']'));
 }
 
 void InspectorFrontendClientLocal::changeAttachedWindowHeight(unsigned height)
@@ -221,6 +230,11 @@ void InspectorFrontendClientLocal::changeAttachedWindowWidth(unsigned width)
     unsigned totalWidth = m_frontendPage->mainFrame().view()->visibleWidth() + m_inspectedPageController->inspectedPage().mainFrame().view()->visibleWidth();
     unsigned attachedWidth = constrainedAttachedWindowWidth(width, totalWidth);
     setAttachedWindowWidth(attachedWidth);
+}
+
+void InspectorFrontendClientLocal::changeSheetRect(const FloatRect& rect)
+{
+    setSheetRect(rect);
 }
 
 void InspectorFrontendClientLocal::openInNewTab(const String& url)
@@ -270,7 +284,7 @@ void InspectorFrontendClientLocal::setAttachedWindow(DockSide dockSide)
 
     m_dockSide = dockSide;
 
-    evaluateOnLoad(String::format("[\"setDockSide\", \"%s\"]", side));
+    evaluateOnLoad(makeString("[\"setDockSide\", \"", side, "\"]"));
 }
 
 void InspectorFrontendClientLocal::restoreAttachedWindowHeight()
@@ -294,7 +308,7 @@ bool InspectorFrontendClientLocal::isDebuggingEnabled()
 
 void InspectorFrontendClientLocal::setDebuggingEnabled(bool enabled)
 {
-    evaluateOnLoad(String::format("[\"setDebuggingEnabled\", %s]", enabled ? "true" : "false"));
+    evaluateOnLoad(makeString("[\"setDebuggingEnabled\", ", enabled ? "true" : "false", ']'));
 }
 
 bool InspectorFrontendClientLocal::isTimelineProfilingEnabled()
@@ -306,7 +320,7 @@ bool InspectorFrontendClientLocal::isTimelineProfilingEnabled()
 
 void InspectorFrontendClientLocal::setTimelineProfilingEnabled(bool enabled)
 {
-    evaluateOnLoad(String::format("[\"setTimelineProfilingEnabled\", %s]", enabled ? "true" : "false"));
+    evaluateOnLoad(makeString("[\"setTimelineProfilingEnabled\", ", enabled ? "true" : "false", ']'));
 }
 
 bool InspectorFrontendClientLocal::isProfilingJavaScript()
@@ -338,8 +352,8 @@ void InspectorFrontendClientLocal::showResources()
 
 void InspectorFrontendClientLocal::showMainResourceForFrame(Frame* frame)
 {
-    String frameId = m_inspectedPageController->pageAgent()->frameId(frame);
-    evaluateOnLoad(String::format("[\"showMainResourceForFrame\", \"%s\"]", frameId.ascii().data()));
+    String frameId = m_inspectedPageController->ensurePageAgent().frameId(frame);
+    evaluateOnLoad(makeString("[\"showMainResourceForFrame\", \"", frameId, "\"]"));
 }
 
 unsigned InspectorFrontendClientLocal::constrainedAttachedWindowHeight(unsigned preferredHeight, unsigned totalWindowHeight)

@@ -26,13 +26,13 @@
 #import "config.h"
 #import "PointerEvent.h"
 
-#if ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY)
+#if ENABLE(POINTER_EVENTS) && ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY)
 
 #import "EventNames.h"
 
 namespace WebCore {
 
-static AtomicString eventType(PlatformTouchPoint::TouchPhaseType phase)
+static const AtomString& pointerEventType(PlatformTouchPoint::TouchPhaseType phase)
 {
     switch (phase) {
     case PlatformTouchPoint::TouchPhaseBegan:
@@ -50,29 +50,35 @@ static AtomicString eventType(PlatformTouchPoint::TouchPhaseType phase)
     return nullAtom();
 }
 
-static PointerEvent::IsCancelable phaseIsCancelable(PlatformTouchPoint::TouchPhaseType phase)
-{
-    if (phase == PlatformTouchPoint::TouchPhaseCancelled)
-        return PointerEvent::IsCancelable::No;
-    return PointerEvent::IsCancelable::Yes;
-}
-
 Ref<PointerEvent> PointerEvent::create(const PlatformTouchEvent& event, unsigned index, bool isPrimary, Ref<WindowProxy>&& view)
 {
-    auto phase = event.touchPhaseAtIndex(index);
-    return adoptRef(*new PointerEvent(eventType(phase), event, phaseIsCancelable(phase), index, isPrimary, WTFMove(view)));
+    const auto& type = pointerEventType(event.touchPhaseAtIndex(index));
+    return adoptRef(*new PointerEvent(type, event, typeIsCancelable(type), index, isPrimary, WTFMove(view)));
 }
 
-PointerEvent::PointerEvent(const AtomicString& type, const PlatformTouchEvent& event, IsCancelable isCancelable, unsigned index, bool isPrimary, Ref<WindowProxy>&& view)
-    : MouseEvent(type, CanBubble::Yes, isCancelable, IsComposed::Yes, event.timestamp().approximateMonotonicTime(), WTFMove(view), 0, event.touchLocationAtIndex(index), event.touchLocationAtIndex(index), { }, event.modifiers(), 0, 0, nullptr, 0, 0, nullptr, IsSimulated::No, IsTrusted::Yes)
+Ref<PointerEvent> PointerEvent::create(const String& type, const PlatformTouchEvent& event, unsigned index, bool isPrimary, Ref<WindowProxy>&& view)
+{
+    return adoptRef(*new PointerEvent(type, event, typeIsCancelable(type), index, isPrimary, WTFMove(view)));
+}
+
+PointerEvent::PointerEvent(const AtomString& type, const PlatformTouchEvent& event, IsCancelable isCancelable, unsigned index, bool isPrimary, Ref<WindowProxy>&& view)
+    : MouseEvent(type, typeCanBubble(type), isCancelable, typeIsComposed(type), event.timestamp().approximateMonotonicTime(), WTFMove(view), 0, event.touchLocationAtIndex(index), event.touchLocationAtIndex(index), { }, event.modifiers(), 0, 0, nullptr, 0, 0, nullptr, IsSimulated::No, IsTrusted::Yes)
     , m_pointerId(event.touchIdentifierAtIndex(index))
     , m_width(2 * event.radiusXAtIndex(index))
     , m_height(2 * event.radiusYAtIndex(index))
-    , m_pointerType(event.touchTypeAtIndex(index) == PlatformTouchPoint::TouchType::Stylus ? "pen"_s : "touch"_s)
+    , m_pressure(event.forceAtIndex(index))
+    , m_pointerType(event.touchTypeAtIndex(index) == PlatformTouchPoint::TouchType::Stylus ? PointerEvent::penPointerType() : PointerEvent::touchPointerType())
     , m_isPrimary(isPrimary)
 {
+    // See https://github.com/w3c/pointerevents/issues/274. We might expose the azimuth and altitude
+    // directly as well as the tilt.
+    double azimuthAngle = event.azimuthAngleAtIndex(index);
+    double altitudeAngle = event.altitudeAngleAtIndex(index);
+
+    m_tiltX = round(cos(azimuthAngle) * cos(altitudeAngle) * 90);
+    m_tiltY = round(sin(azimuthAngle) * cos(altitudeAngle) * 90);
 }
 
 } // namespace WebCore
 
-#endif // ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY)
+#endif // ENABLE(POINTER_EVENTS) && ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY)

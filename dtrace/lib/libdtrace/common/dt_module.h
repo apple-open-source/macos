@@ -48,10 +48,13 @@ extern dt_ident_t *dt_module_extern(dtrace_hdl_t *, dt_module_t *,
 extern const char *dt_module_modelname(dt_module_t *);
 
 #if defined(__APPLE__)
-extern void dt_module_get_types(dtrace_hdl_t *dtp,
-	const dtrace_probedesc_t *pdp,
-	dtrace_argdesc_t *adp, int *nargs);
-#endif
+extern void dt_module_get_types(dtrace_hdl_t *,
+	const dtrace_probedesc_t *,
+	dtrace_argdesc_t *, int *);
+
+
+extern void dtrace_update_kernel_symbols(dtrace_hdl_t *);
+#endif /* defined(__APPLE__) */
 
 #ifdef	__cplusplus
 }

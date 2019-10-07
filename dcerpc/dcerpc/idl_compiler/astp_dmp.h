@@ -133,7 +133,7 @@ void AST_dump_parameter
 
 void AST_dump_type(
     AST_type_n_t *type_n_p,
-    char *format,
+    const char *format,
     int indentation
 );
 

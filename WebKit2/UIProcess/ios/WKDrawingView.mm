@@ -29,7 +29,8 @@
 #if HAVE(PENCILKIT)
 
 #import "EditableImageController.h"
-#import "WKInkPickerView.h"
+#import "WKContentViewInteraction.h"
+#import "WKDrawingCoordinator.h"
 #import <wtf/OSObjectPtr.h>
 #import <wtf/RetainPtr.h>
 
@@ -114,7 +115,7 @@ static UIImage *emptyImage()
 
     __block RetainPtr<UIImage> resultImage;
 
-    [_renderer renderDrawing:[_pencilView drawing] completion:^(UIImage *image) {
+    [_renderer renderDrawing:[_pencilView nonNullDrawing] completion:^(UIImage *image) {
         resultImage = image;
     }];
 
@@ -132,7 +133,7 @@ static UIImage *emptyImage()
     RetainPtr<UIImage> image = [self renderedDrawing];
     RetainPtr<NSMutableData> PNGData = adoptNS([[NSMutableData alloc] init]);
     RetainPtr<CGImageDestinationRef> imageDestination = adoptCF(CGImageDestinationCreateWithData((__bridge CFMutableDataRef)PNGData.get(), kUTTypePNG, 1, nil));
-    NSString *base64Drawing = [[[_pencilView drawing] serialize] base64EncodedStringWithOptions:0];
+    NSString *base64Drawing = [[[_pencilView nonNullDrawing] serialize] base64EncodedStringWithOptions:0];
     NSDictionary *properties = nil;
     if (base64Drawing) {
         // FIXME: We should put this somewhere less user-facing than the EXIF User Comment field.
@@ -160,17 +161,19 @@ static UIImage *emptyImage()
         return;
     RetainPtr<NSData> drawingData = adoptNS([[NSData alloc] initWithBase64EncodedString:base64Drawing options:0]);
     RetainPtr<PKDrawing> drawing = adoptNS([WebKit::allocPKDrawingInstance() initWithData:drawingData.get() error:nil]);
-    [_pencilView setDrawing:drawing.get()];
+    [_pencilView setNonNullDrawing:drawing.get()];
 }
 
-- (void)drawingDidChange:(PKCanvasView *)canvasView
+- (void)canvasViewDrawingDidChange:(PKCanvasView *)canvasView
 {
     [self invalidateAttachment];
 }
 
 - (void)_canvasViewWillBeginDrawing:(PKCanvasView *)canvasView
 {
-    [_pencilView setInk:_contentView._drawingCoordinator.inkPicker.ink];
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    [_pencilView setInk:_contentView._drawingCoordinator.currentInk];
+ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 - (void)invalidateAttachment
@@ -189,7 +192,9 @@ static UIImage *emptyImage()
 
 - (void)didChangeInk:(PKInk *)ink
 {
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [_pencilView setInk:ink];
+ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 @end

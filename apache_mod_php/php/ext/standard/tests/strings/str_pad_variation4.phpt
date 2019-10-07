@@ -9,7 +9,7 @@ Test str_pad() function : usage variations - unexpected inputs for '$pad_type' a
  * Source code: ext/standard/string.c
 */
 
-/* Test str_pad() function: with unexpected inputs for '$pad_type' 
+/* Test str_pad() function: with unexpected inputs for '$pad_type'
  *  and expected type for '$input', '$pad_length' and '$pad_string'
 */
 
@@ -23,7 +23,7 @@ unset($unset_var);
 class sample  {
   public function __toString() {
     return "sample object";
-  } 
+  }
 }
 
 // array with different values for $input
@@ -33,43 +33,43 @@ $pad_types =  array (
 /*1*/	  0, // == STR_PAD_LEFT
 		  1, // == STR_PAD_RIGHT
 		  2, // == STR_PAD_BOTH
-		  -2, 
+		  -2,
 		  2147483647,
 		  -2147483648,
-		  	
+
 		  // float values
 /*7*/	  10.5,
 		  -20.5,
 		  10.1234567e10,
-		  
+
 		  // string data
 /*10*/	  "abc",
 		  "STR_PAD_LEFT",
 		  "2",
 		  "0x2",
 		  "02",
-		  
+
 		  // array values
 /*15*/	  array(),
 		  array(0),
 		  array(1, 2),
-		
+
 		  // boolean values
 /*18*/	  true,
 		  false,
 		  TRUE,
 		  FALSE,
-		
-		  // null vlaues
+
+		  // null values
 /*22*/	  NULL,
 		  null,
-		
+
 		  // objects
 /*24*/	  new sample(),
-		
+
 		  // undefined variable
 /*25*/	  @$undefined_var,
-		
+
 		  // unset variable
 /*26*/	  @$unset_var
 );
@@ -123,11 +123,11 @@ Warning: str_pad(): Padding type has to be STR_PAD_LEFT, STR_PAD_RIGHT, or STR_P
 NULL
 -- Iteration 10 --
 
-Warning: str_pad() expects parameter 4 to be integer, string given in %s on line %d
+Warning: str_pad() expects parameter 4 to be int, string given in %s on line %d
 NULL
 -- Iteration 11 --
 
-Warning: str_pad() expects parameter 4 to be integer, string given in %s on line %d
+Warning: str_pad() expects parameter 4 to be int, string given in %s on line %d
 NULL
 -- Iteration 12 --
 string(20) "****Test string*****"
@@ -139,15 +139,15 @@ string(20) "*********Test string"
 string(20) "****Test string*****"
 -- Iteration 15 --
 
-Warning: str_pad() expects parameter 4 to be integer, array given in %s on line %d
+Warning: str_pad() expects parameter 4 to be int, array given in %s on line %d
 NULL
 -- Iteration 16 --
 
-Warning: str_pad() expects parameter 4 to be integer, array given in %s on line %d
+Warning: str_pad() expects parameter 4 to be int, array given in %s on line %d
 NULL
 -- Iteration 17 --
 
-Warning: str_pad() expects parameter 4 to be integer, array given in %s on line %d
+Warning: str_pad() expects parameter 4 to be int, array given in %s on line %d
 NULL
 -- Iteration 18 --
 string(20) "Test string*********"
@@ -163,7 +163,7 @@ string(20) "*********Test string"
 string(20) "*********Test string"
 -- Iteration 24 --
 
-Warning: str_pad() expects parameter 4 to be integer, object given in %s on line %d
+Warning: str_pad() expects parameter 4 to be int, object given in %s on line %d
 NULL
 -- Iteration 25 --
 string(20) "*********Test string"

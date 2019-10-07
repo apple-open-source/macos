@@ -29,7 +29,6 @@ int checkpw_internal( const struct passwd *pw, const char* password );
 #include <coreauthd_spi.h>
 #include <ctkloginhelper.h>
 
-
 AUTHD_DEFINE_LOG
 
 static void _set_process_hints(auth_items_t, process_t);
@@ -423,7 +422,6 @@ _evaluate_builtin_mechanism(engine_t engine, mechanism_t mech)
     
     return result;
 }
-
 
 static bool
 _extract_password_from_la(engine_t engine)
@@ -872,7 +870,7 @@ _evaluate_class_user(engine_t engine, rule_t rule)
 			return errAuthorizationInteractionNotAllowed;
 		}
 
-		if (server_in_dark_wake()) {
+		if (server_in_dark_wake() && !(engine->flags & kAuthorizationFlagIgnoreDarkWake)) {
 			os_log_error(AUTHD_LOG, "Fatal: authorization denied (DW) (engine %lld)", engine->engine_index);
 			return errAuthorizationDenied;
 		}
@@ -952,7 +950,7 @@ _evaluate_class_mechanism(engine_t engine, rule_t rule)
     
     mechanisms = rule_get_mechanisms(rule);
     
-    if (server_in_dark_wake()) {
+    if (server_in_dark_wake() && !(engine->flags & kAuthorizationFlagIgnoreDarkWake)) {
         CFIndex count = CFArrayGetCount(mechanisms);
         for (CFIndex i = 0; i < count; i++) {
             if (!mechanism_is_privileged((mechanism_t)CFArrayGetValueAtIndex(mechanisms, i))) {
@@ -1005,22 +1003,6 @@ done:
     return status;
 }
 
-// TODO: Remove when all clients have adopted entitlement
-static bool
-enforced_entitlement(void)
-{
-	bool enforced_enabled = false;
-	//sudo defaults write /Library/Preferences/com.apple.authd enforceEntitlement -bool true
-	CFTypeRef enforce = (CFNumberRef)CFPreferencesCopyValue(CFSTR("enforceEntitlement"), CFSTR(SECURITY_AUTH_NAME), kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
-	if (enforce && CFGetTypeID(enforce) == CFBooleanGetTypeID()) {
-		enforced_enabled = CFBooleanGetValue((CFBooleanRef)enforce);
-		os_log_debug(AUTHD_LOG, "enforceEntitlement for extract password: %{public}s", enforced_enabled ? "enabled" : "disabled");
-	}
-	CFReleaseSafe(enforce);
-
-	return enforced_enabled;
-}
-
 static OSStatus
 _evaluate_rule(engine_t engine, rule_t rule, bool *save_pwd)
 {
@@ -1042,23 +1024,8 @@ _evaluate_rule(engine_t engine, rule_t rule, bool *save_pwd)
 #endif
         }
     }
-
-	if (rule_get_extract_password(rule)) {
-		// check if process is entitled to extract password
-		CFTypeRef extract_password_entitlement = auth_token_copy_entitlement_value(engine->auth, "com.apple.authorization.extract-password");
-		if (extract_password_entitlement && (CFGetTypeID(extract_password_entitlement) == CFBooleanGetTypeID()) && extract_password_entitlement == kCFBooleanTrue) {
-			*save_pwd = TRUE;
-			os_log_debug(AUTHD_LOG, "engine %lld: authorization allowed to extract password", engine->engine_index);
-		} else {
-			os_log_debug(AUTHD_LOG, "engine %lld: authorization NOT allowed to extract password", engine->engine_index);
-		}
-		CFReleaseSafe(extract_password_entitlement);
-	}
-
-	// TODO: Remove when all clients have adopted entitlement
-	if (!enforced_entitlement()) {
-		*save_pwd |= rule_get_extract_password(rule);
-	}
+    
+    *save_pwd |= rule_get_extract_password(rule);
 
 	switch (rule_get_class(rule)) {
         case RC_ALLOW:
@@ -1198,7 +1165,7 @@ done:
 static bool _verify_sandbox(engine_t engine, const char * right)
 {
     pid_t pid = process_get_pid(engine->proc);
-    if (sandbox_check(pid, "authorization-right-obtain", SANDBOX_FILTER_RIGHT_NAME, right)) {
+    if (sandbox_check_by_audit_token(process_get_audit_info(engine->proc)->opaqueToken, "authorization-right-obtain", SANDBOX_FILTER_RIGHT_NAME, right)) {
         os_log_error(AUTHD_LOG, "Sandbox denied authorizing right '%{public}s' by client '%{public}s' [%d] (engine %lld)", right, process_get_code_url(engine->proc), pid, engine->engine_index);
         return false;
     }
@@ -1221,19 +1188,6 @@ OSStatus engine_preauthorize(engine_t engine, auth_items_t credentials)
 
 	OSStatus status = errAuthorizationDenied;
 	bool save_password = false;
-	CFTypeRef extract_password_entitlement = auth_token_copy_entitlement_value(engine->auth, "com.apple.authorization.extract-password");
-	if (extract_password_entitlement && (CFGetTypeID(extract_password_entitlement) == CFBooleanGetTypeID()) && extract_password_entitlement == kCFBooleanTrue) {
-		save_password = true;
-		os_log_debug(AUTHD_LOG, "engine %lld: authorization allowed to extract password", engine->engine_index);
-	} else {
-		os_log_debug(AUTHD_LOG, "engine %lld: authorization NOT allowed to extract password", engine->engine_index);
-	}
-	CFReleaseSafe(extract_password_entitlement);
-
-	// TODO: Remove when all clients have adopted entitlement
-	if (!enforced_entitlement()) {
-		save_password = true;
-	}
 
 	engine->flags = kAuthorizationFlagExtendRights;
 	engine->preauthorizing = true;
@@ -1385,12 +1339,13 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
             return true;
         });
         
-        os_log_info(AUTHD_LOG, "Process %{public}s (PID %d) evaluates %ld rights (engine %lld): %{public}@", process_get_code_url(engine->proc), process_get_pid(engine->proc), (long)rights_count, engine->engine_index, rights_list);
+        os_log_info(AUTHD_LOG, "Process %{public}s (PID %d) evaluates %ld rights with flags %08x (engine %lld): %{public}@", process_get_code_url(engine->proc), process_get_pid(engine->proc), (long)rights_count, flags, engine->engine_index, rights_list);
         CFReleaseNull(rights_list);
     }
     
-	if (!auth_token_apple_signed(engine->auth)) {
+	if (!auth_token_apple_signed(engine->auth) && (flags & kAuthorizationFlagSheet)) {
 #ifdef NDEBUG
+        os_log_error(AUTHD_LOG, "engine %lld: extra flags are ommited as creator is not signed by Apple", engine->engine_index);
 		flags &= ~kAuthorizationFlagSheet;
 #else
 		os_log_debug(AUTHD_LOG, "engine %lld: in release mode, extra flags would be ommited as creator is not signed by Apple", engine->engine_index);
@@ -1413,20 +1368,6 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
     CFReleaseSafe(decrypted_items);
     
 	if (engine->flags & kAuthorizationFlagSheet) {
-		CFTypeRef extract_password_entitlement = auth_token_copy_entitlement_value(engine->auth, "com.apple.authorization.extract-password");
-		if (extract_password_entitlement && (CFGetTypeID(extract_password_entitlement) == CFBooleanGetTypeID()) && extract_password_entitlement == kCFBooleanTrue) {
-			save_password = true;
-			os_log_debug(AUTHD_LOG, "engine %lld: authorization allowed to extract password", engine->engine_index);
-		} else {
-			os_log_debug(AUTHD_LOG, "engine %lld: authorization NOT allowed to extract password", engine->engine_index);
-		}
-		CFReleaseSafe(extract_password_entitlement);
-
-		// TODO: Remove when all clients have adopted entitlement
-		if (!enforced_entitlement()) {
-			save_password = true;
-		}
-        
         // Try to use/update fresh context values from the environment
         require_action(environment, done, os_log_error(AUTHD_LOG, "Missing environment for sheet authorization (engine %lld)", engine->engine_index); status = errAuthorizationDenied);
             
@@ -1503,7 +1444,6 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
         if (!key)
             return true;
 
-
         if (!_verify_sandbox(engine, key)) { // _verify_sandbox is already logging failures
             status = errAuthorizationDenied;
             return false;
@@ -1520,7 +1460,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
         os_log_debug(AUTHD_LOG, "engine %lld: using rule %{public}s", engine->engine_index, rule_name);
 
         // only need the hints & mechanisms if we are going to show ui
-        if (engine->flags & kAuthorizationFlagInteractionAllowed) {
+        if (engine->flags & kAuthorizationFlagInteractionAllowed || engine->flags & kAuthorizationFlagSheet) {
             _set_right_hints(engine->hints, key);
             _set_localization_hints(dbconn, engine->hints, rule);
             if (!engine->authenticateRule) {
@@ -1539,7 +1479,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
         switch (status) {
             case errAuthorizationSuccess:
                 auth_rights_add(engine->grantedRights, key);
-                auth_rights_set_flags(engine->grantedRights, key, auth_rights_get_flags(rights,key));
+                auth_rights_set_flags(engine->grantedRights, key, auth_rights_get_flags(rights, key));
                 
                 if ((engine->flags & kAuthorizationFlagPreAuthorize) &&
                     (rule_get_class(engine->currentRule) == RC_USER) &&

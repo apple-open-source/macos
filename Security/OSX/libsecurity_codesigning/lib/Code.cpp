@@ -26,7 +26,6 @@
 //
 #include "Code.h"
 #include "StaticCode.h"
-#include <Security/SecCodeHost.h>
 #include "cskernel.h"
 #include <security_utilities/cfmunge.h>
 #include <security_utilities/debugging.h>
@@ -207,8 +206,11 @@ void SecCode::checkValidity(SecCSFlags flags)
 
 	// check my static state
 	myDisk->validateNonResourceComponents();	// also validates the CodeDirectory
-	if (flags & kSecCSStrictValidate)
+	if (flags & kSecCSStrictValidate) {
 		myDisk->diskRep()->strictValidate(myDisk->codeDirectory(), DiskRep::ToleratedErrors(), flags);
+	} else if (flags & kSecCSStrictValidateStructure) {
+		myDisk->diskRep()->strictValidateStructure(myDisk->codeDirectory(), DiskRep::ToleratedErrors(), flags);
+	}
 
 	// check my own dynamic state
 	SecCodeStatus dynamic_status = this->host()->getGuestStatus(this);

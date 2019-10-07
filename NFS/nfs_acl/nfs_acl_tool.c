@@ -72,7 +72,7 @@ void usage()
 	struct option *op;
 	struct opdesc *opdp;
 
-	fprintf(stderr, "%s: {-l | [-vqhks] [-a acl] path [ path ...]\n", getprogname());
+	fprintf(stderr, "%s: {-l | [-vqhkfs] [-a acl] path [ path ...]\n", getprogname());
 	for (op = longopts, opdp = opdesc; op && op->name; op++, opdp++) {
 		printf("-%c, --%-8s %-8s %s\n", op->val, op->name, opdp->arg, opdp->descp);
 	}
@@ -225,6 +225,8 @@ print_acl_from_path(const char *path, int isdir)
 	acl_free(acl);
 }
 
+int fflag = 0;
+
 int
 main(int argc, char *argv[])
 {
@@ -239,7 +241,7 @@ main(int argc, char *argv[])
 	acl_t merge_acl;
 	struct stat sbuf;
 
-	while ((opt = getopt_long(argc, argv, "a:skvqhl", longopts, &lindex)) != -1) {
+	while ((opt = getopt_long(argc, argv, "fa:skvqhl", longopts, &lindex)) != -1) {
 		switch (opt) {
 		case 'a': set_acl = parse_acl_argument(set_acl, optarg);
 			break;
@@ -252,6 +254,8 @@ main(int argc, char *argv[])
 		case 'q': verbose = 0;
 			break;
 		case 'l': list = 1;
+			break;
+		case 'f': fflag = 1;
 			break;
 		case 'h':
 		default:

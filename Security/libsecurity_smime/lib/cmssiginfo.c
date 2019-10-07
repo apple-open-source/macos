@@ -654,13 +654,13 @@ SecCmsSignerInfoVerify(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, Sec
     PLArenaPool *poolp;
 
     if (signerinfo == NULL)
-	return SECFailure;
+        return SECFailure;
 
     /* SecCmsSignerInfoGetSigningCertificate will fail if 2nd parm is NULL and */
     /* cert has not been verified */
     if ((cert = SecCmsSignerInfoGetSigningCertificate(signerinfo, NULL)) == NULL) {
-	vs = SecCmsVSSigningCertNotFound;
-	goto loser;
+        vs = SecCmsVSSigningCertNotFound;
+        goto loser;
     }
 
     publickey = SecCertificateCopyKey(cert);
@@ -668,77 +668,77 @@ SecCmsSignerInfoVerify(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, Sec
         goto loser;
 
     if (!SecCmsArrayIsEmpty((void **)signerinfo->authAttr)) {
-	if (contentType) {
-	    /*
-	     * Check content type
-	     *
-	     * RFC2630 sez that if there are any authenticated attributes,
-	     * then there must be one for content type which matches the
-	     * content type of the content being signed, and there must
-	     * be one for message digest which matches our message digest.
-	     * So check these things first.
-	     */
-	    if ((attr = SecCmsAttributeArrayFindAttrByOidTag(signerinfo->authAttr,
-					SEC_OID_PKCS9_CONTENT_TYPE, PR_TRUE)) == NULL)
-	    {
-		vs = SecCmsVSMalformedSignature;
-		goto loser;
-	    }
-		
-	    if (SecCmsAttributeCompareValue(attr, contentType) == PR_FALSE) {
-		vs = SecCmsVSMalformedSignature;
-		goto loser;
-	    }
-	}
+        if (contentType) {
+            /*
+             * Check content type
+             *
+             * RFC2630 sez that if there are any authenticated attributes,
+             * then there must be one for content type which matches the
+             * content type of the content being signed, and there must
+             * be one for message digest which matches our message digest.
+             * So check these things first.
+             */
+            if ((attr = SecCmsAttributeArrayFindAttrByOidTag(signerinfo->authAttr,
+                                                             SEC_OID_PKCS9_CONTENT_TYPE, PR_TRUE)) == NULL)
+            {
+                vs = SecCmsVSMalformedSignature;
+                goto loser;
+            }
 
-	/*
-	 * Check digest
-	 */
-	if ((attr = SecCmsAttributeArrayFindAttrByOidTag(signerinfo->authAttr, SEC_OID_PKCS9_MESSAGE_DIGEST, PR_TRUE)) == NULL)
-	{
-	    vs = SecCmsVSMalformedSignature;
-	    goto loser;
-	}
-	if (SecCmsAttributeCompareValue(attr, digest) == PR_FALSE) {
-	    vs = SecCmsVSDigestMismatch;
-	    goto loser;
-	}
+            if (SecCmsAttributeCompareValue(attr, contentType) == PR_FALSE) {
+                vs = SecCmsVSMalformedSignature;
+                goto loser;
+            }
+        }
 
-	if ((poolp = PORT_NewArena (1024)) == NULL) {
-	    vs = SecCmsVSProcessingError;
-	    goto loser;
-	}
+        /*
+         * Check digest
+         */
+        if ((attr = SecCmsAttributeArrayFindAttrByOidTag(signerinfo->authAttr, SEC_OID_PKCS9_MESSAGE_DIGEST, PR_TRUE)) == NULL)
+        {
+            vs = SecCmsVSMalformedSignature;
+            goto loser;
+        }
+        if (SecCmsAttributeCompareValue(attr, digest) == PR_FALSE) {
+            vs = SecCmsVSDigestMismatch;
+            goto loser;
+        }
 
-	/*
-	 * Check signature
-	 *
-	 * The signature is based on a digest of the DER-encoded authenticated
-	 * attributes.  So, first we encode and then we digest/verify.
-	 * we trust the decoder to have the attributes in the right (sorted) order
-	 */
-	encoded_attrs.Data = NULL;
-	encoded_attrs.Length = 0;
+        if ((poolp = PORT_NewArena (1024)) == NULL) {
+            vs = SecCmsVSProcessingError;
+            goto loser;
+        }
 
-	if (SecCmsAttributeArrayEncode(poolp, &(signerinfo->authAttr), &encoded_attrs) == NULL ||
-		encoded_attrs.Data == NULL || encoded_attrs.Length == 0)
-	{
-	    vs = SecCmsVSProcessingError;
-	    goto loser;
-	}
+        /*
+         * Check signature
+         *
+         * The signature is based on a digest of the DER-encoded authenticated
+         * attributes.  So, first we encode and then we digest/verify.
+         * we trust the decoder to have the attributes in the right (sorted) order
+         */
+        encoded_attrs.Data = NULL;
+        encoded_attrs.Length = 0;
+
+        if (SecCmsAttributeArrayEncode(poolp, &(signerinfo->authAttr), &encoded_attrs) == NULL ||
+            encoded_attrs.Data == NULL || encoded_attrs.Length == 0)
+        {
+            vs = SecCmsVSProcessingError;
+            goto loser;
+        }
         if (errSecSuccess == SecKeyDigestAndVerify(publickey, &signerinfo->digestAlg, encoded_attrs.Data, encoded_attrs.Length, signerinfo->encDigest.Data, signerinfo->encDigest.Length))
             vs = SecCmsVSGoodSignature;
         else
             vs = SecCmsVSBadSignature;
 
-	PORT_FreeArena(poolp, PR_FALSE);	/* awkward memory management :-( */
+        PORT_FreeArena(poolp, PR_FALSE);	/* awkward memory management :-( */
 
     } else {
-	SecAsn1Item * sig;
+        SecAsn1Item * sig;
 
-	/* No authenticated attributes. The signature is based on the plain message digest. */
-	sig = &(signerinfo->encDigest);
-	if (sig->Length == 0)
-	    goto loser;
+        /* No authenticated attributes. The signature is based on the plain message digest. */
+        sig = &(signerinfo->encDigest);
+        if (sig->Length == 0)
+            goto loser;
 
         if (SecKeyVerifyDigest(publickey, &signerinfo->digestAlg, digest->Data, digest->Length, sig->Data, sig->Length))
             vs = SecCmsVSBadSignature;
@@ -747,28 +747,28 @@ SecCmsSignerInfoVerify(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, Sec
     }
 
     if (vs == SecCmsVSBadSignature) {
-	/*
-	 * XXX Change the generic error into our specific one, because
-	 * in that case we get a better explanation out of the Security
-	 * Advisor.  This is really a bug in our error strings (the
-	 * "generic" error has a lousy/wrong message associated with it
-	 * which assumes the signature verification was done for the
-	 * purposes of checking the issuer signature on a certificate)
-	 * but this is at least an easy workaround and/or in the
-	 * Security Advisor, which specifically checks for the error
-	 * SEC_ERROR_PKCS7_BAD_SIGNATURE and gives more explanation
-	 * in that case but does not similarly check for
-	 * SEC_ERROR_BAD_SIGNATURE.  It probably should, but then would
-	 * probably say the wrong thing in the case that it *was* the
-	 * certificate signature check that failed during the cert
-	 * verification done above.  Our error handling is really a mess.
-	 */
-	if (PORT_GetError() == SEC_ERROR_BAD_SIGNATURE)
-	    PORT_SetError(SEC_ERROR_PKCS7_BAD_SIGNATURE);
+        /*
+         * XXX Change the generic error into our specific one, because
+         * in that case we get a better explanation out of the Security
+         * Advisor.  This is really a bug in our error strings (the
+         * "generic" error has a lousy/wrong message associated with it
+         * which assumes the signature verification was done for the
+         * purposes of checking the issuer signature on a certificate)
+         * but this is at least an easy workaround and/or in the
+         * Security Advisor, which specifically checks for the error
+         * SEC_ERROR_PKCS7_BAD_SIGNATURE and gives more explanation
+         * in that case but does not similarly check for
+         * SEC_ERROR_BAD_SIGNATURE.  It probably should, but then would
+         * probably say the wrong thing in the case that it *was* the
+         * certificate signature check that failed during the cert
+         * verification done above.  Our error handling is really a mess.
+         */
+        if (PORT_GetError() == SEC_ERROR_BAD_SIGNATURE)
+            PORT_SetError(SEC_ERROR_PKCS7_BAD_SIGNATURE);
     }
 
     if (publickey != NULL)
-	CFRelease(publickey);
+        CFRelease(publickey);
 
     signerinfo->verificationStatus = vs;
 
@@ -776,7 +776,7 @@ SecCmsSignerInfoVerify(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, Sec
 
 loser:
     if (publickey != NULL)
-	SECKEY_DestroyPublicKey (publickey);
+        SECKEY_DestroyPublicKey (publickey);
 
     signerinfo->verificationStatus = vs;
 
@@ -1651,35 +1651,40 @@ SecCmsSignerInfoSaveSMIMEProfile(SecCmsSignerInfoRef signerinfo)
 /*
  * SecCmsSignerInfoIncludeCerts - set cert chain inclusion mode for this signer
  */
-OSStatus
-SecCmsSignerInfoIncludeCerts(SecCmsSignerInfoRef signerinfo, SecCmsCertChainMode cm, SECCertUsage usage)
-{
-    if (signerinfo->cert == NULL)
-	return SECFailure;
+    OSStatus
+    SecCmsSignerInfoIncludeCerts(SecCmsSignerInfoRef signerinfo, SecCmsCertChainMode cm, SECCertUsage usage)
+    {
+        if (signerinfo->cert == NULL) {
+            return SECFailure;
+        }
 
-    /* don't leak if we get called twice */
-    if (signerinfo->certList != NULL) {
-	CFRelease(signerinfo->certList);
-	signerinfo->certList = NULL;
+        /* don't leak if we get called twice */
+        if (signerinfo->certList != NULL) {
+            CFRelease(signerinfo->certList);
+            signerinfo->certList = NULL;
+        }
+
+        switch (cm) {
+        case SecCmsCMNone:
+            signerinfo->certList = NULL;
+            break;
+        case SecCmsCMCertOnly:
+            signerinfo->certList = CERT_CertListFromCert(signerinfo->cert);
+            break;
+        case SecCmsCMCertChain:
+            signerinfo->certList = CERT_CertChainFromCert(signerinfo->cert, usage, PR_FALSE, PR_FALSE);
+            break;
+        case SecCmsCMCertChainWithRoot:
+            signerinfo->certList = CERT_CertChainFromCert(signerinfo->cert, usage, PR_TRUE, PR_FALSE);
+            break;
+        case SecCmsCMCertChainWithRootOrFail:
+            signerinfo->certList = CERT_CertChainFromCert(signerinfo->cert, usage, PR_TRUE, PR_TRUE);
+            break;
+        }
+
+        if (cm != SecCmsCMNone && signerinfo->certList == NULL) {
+            return SECFailure;
+        }
+
+        return SECSuccess;
     }
-
-    switch (cm) {
-    case SecCmsCMNone:
-	signerinfo->certList = NULL;
-	break;
-    case SecCmsCMCertOnly:
-	signerinfo->certList = CERT_CertListFromCert(signerinfo->cert);
-	break;
-    case SecCmsCMCertChain:
-	signerinfo->certList = CERT_CertChainFromCert(signerinfo->cert, usage, PR_FALSE);
-	break;
-    case SecCmsCMCertChainWithRoot:
-	signerinfo->certList = CERT_CertChainFromCert(signerinfo->cert, usage, PR_TRUE);
-	break;
-    }
-
-    if (cm != SecCmsCMNone && signerinfo->certList == NULL)
-	return SECFailure;
-    
-    return SECSuccess;
-}

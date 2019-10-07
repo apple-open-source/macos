@@ -25,6 +25,8 @@
 			<string>dgram</string>
 			<key>SockFamily</key>
 			<string>IPv4</string>
+			<key>ReceivePacketInfo</key>
+			<true/>
 		</dict>
 	</dict>
 </dict>

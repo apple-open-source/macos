@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -576,7 +576,7 @@ EapReceiveRequest(cstate, inpacket, packet_len, inp, id, len)
 
     switch (req) {
         case EAP_TYPE_IDENTITY:
-            outlen = EAP_HEADERLEN + sizeof(char) + strlen(cstate->our_identity);
+            outlen = (int)(EAP_HEADERLEN + sizeof(char) + strlen(cstate->our_identity));
             outp = outpacket_buf;
             MAKEHEADER(outp, PPP_EAP);
             PUTCHAR(EAP_RESPONSE, outp);	/* we are a response */
@@ -973,7 +973,7 @@ void EAPInput_fd(void)
  */
 void *EAPClientUIThread(void *arg)
 {
-    int 	unit = (uintptr_t)arg;
+    int 	unit = (int)arg;
     eap_state 	*cstate = &eap[unit];
     char	result = -1;
     int 	err;
@@ -1222,7 +1222,7 @@ EAPServerAction(cstate)
                     cstate->serverstate = EAPSS_OPEN;
                     if (old_state == EAPSS_INITIAL_CHAL) {
                         EAPServerGetAttributes(cstate);
-                        auth_peer_success(cstate->unit, PPP_EAP, 0, (u_char*)name, strlen(name));
+                        auth_peer_success(cstate->unit, PPP_EAP, 0, (u_char*)name, (int)strlen(name));
                     }
                     if (cstate->req_interval != 0)
                         TIMEOUT(EapRechallenge, cstate, cstate->req_interval);

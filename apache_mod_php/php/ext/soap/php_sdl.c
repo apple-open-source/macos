@@ -14,10 +14,9 @@
   +----------------------------------------------------------------------+
   | Authors: Brad Lafountain <rodif_bl@yahoo.com>                        |
   |          Shane Caraveo <shane@caraveo.com>                           |
-  |          Dmitry Stogov <dmitry@zend.com>                             |
+  |          Dmitry Stogov <dmitry@php.net>                              |
   +----------------------------------------------------------------------+
 */
-/* $Id$ */
 
 #include "php_soap.h"
 #include "ext/libxml/php_libxml.h"
@@ -1174,7 +1173,7 @@ static sdlPtr load_wsdl(zval *this_ptr, char *struri)
 	return ctx.sdl;
 }
 
-#define WSDL_CACHE_VERSION 0x0f
+#define WSDL_CACHE_VERSION 0x10
 
 #define WSDL_CACHE_GET(ret,type,buf)   memcpy(&ret,*buf,sizeof(type)); *buf += sizeof(type);
 #define WSDL_CACHE_GET_INT(ret,buf)    ret = ((unsigned char)(*buf)[0])|((unsigned char)(*buf)[1]<<8)|((unsigned char)(*buf)[2]<<16)|((int)(*buf)[3]<<24); *buf += 4;
@@ -1189,13 +1188,15 @@ static sdlPtr load_wsdl(zval *this_ptr, char *struri)
 #define WSDL_CACHE_PUT_1(val,buf)      smart_str_appendc(buf,val);
 #define WSDL_CACHE_PUT_N(val,n,buf)    smart_str_appendl(buf,(char*)val,n);
 
+#define WSDL_NO_STRING_MARKER 0x7fffffff
+
 static char* sdl_deserialize_string(char **in)
 {
 	char *s;
 	int len;
 
 	WSDL_CACHE_GET_INT(len, in);
-	if (len == 0x7fffffff) {
+	if (len == WSDL_NO_STRING_MARKER) {
 		return NULL;
 	} else {
 		s = emalloc(len+1);
@@ -1210,7 +1211,7 @@ static void sdl_deserialize_key(HashTable* ht, void* data, char **in)
 	int len;
 
 	WSDL_CACHE_GET_INT(len, in);
-	if (len == 0) {
+	if (len == WSDL_NO_STRING_MARKER) {
 		zend_hash_next_index_insert_ptr(ht, data);
 	} else {
 		zend_hash_str_add_ptr(ht, *in, len, data);
@@ -1533,7 +1534,7 @@ static sdlPtr get_sdl_from_cache(const char *fn, const char *uri, time_t t, time
 	sdlBindingPtr *bindings;
 	sdlTypePtr *types;
 	encodePtr *encoders;
-	encodePtr enc;
+	const encode *enc;
 
 	int f;
 	struct stat st;
@@ -1614,7 +1615,7 @@ static sdlPtr get_sdl_from_cache(const char *fn, const char *uri, time_t t, time
 	i = num_encoders;
 	enc = defaultEncoding;
 	while (enc->details.type != END_KNOWN_TYPES) {
-		encoders[++i] = enc++;
+		encoders[++i] = (encodePtr)enc++;
 	}
 
 	i = 1;
@@ -1778,16 +1779,14 @@ static sdlPtr get_sdl_from_cache(const char *fn, const char *uri, time_t t, time
 
 static void sdl_serialize_string(const char *str, smart_str *out)
 {
-	int i;
-
 	if (str) {
-		i = strlen(str);
+		int i = strlen(str);
 		WSDL_CACHE_PUT_INT(i, out);
 		if (i > 0) {
 			WSDL_CACHE_PUT_N(str, i, out);
 		}
 	} else {
-		WSDL_CACHE_PUT_INT(0x7fffffff, out);
+		WSDL_CACHE_PUT_INT(WSDL_NO_STRING_MARKER, out);
 	}
 }
 
@@ -1798,7 +1797,7 @@ static void sdl_serialize_key(zend_string *key, smart_str *out)
 		WSDL_CACHE_PUT_INT(ZSTR_LEN(key), out);
 		WSDL_CACHE_PUT_N(ZSTR_VAL(key), ZSTR_LEN(key), out);
 	} else {
-		WSDL_CACHE_PUT_INT(0, out);
+		WSDL_CACHE_PUT_INT(WSDL_NO_STRING_MARKER, out);
 	}
 }
 
@@ -2103,7 +2102,7 @@ static void add_sdl_to_cache(const char *fn, const char *uri, time_t t, sdlPtr s
 	int type_num = 1;
 	int encoder_num = 1;
 	int f;
-	encodePtr enc;
+	const encode *enc;
 	HashTable tmp_types;
 	HashTable tmp_encoders;
 	HashTable tmp_bindings;
@@ -2449,7 +2448,7 @@ static HashTable* make_persistent_sdl_function_headers(HashTable *headers, HashT
 			pheader->ns = strdup(pheader->ns);
 		}
 
-		if (pheader->encode->details.sdl_type) {
+		if (pheader->encode && pheader->encode->details.sdl_type) {
 			if ((penc = zend_hash_str_find_ptr(ptr_map, (char*)&pheader->encode, sizeof(encodePtr))) == NULL) {
 				assert(0);
 			}
@@ -3250,16 +3249,13 @@ sdlPtr get_sdl(zval *this_ptr, char *uri, zend_long cache_wsdl)
 	    Z_TYPE_P(proxy_host) == IS_STRING &&
 	    (proxy_port = zend_hash_str_find(Z_OBJPROP_P(this_ptr), "_proxy_port", sizeof("_proxy_port")-1)) != NULL &&
 	    Z_TYPE_P(proxy_port) == IS_LONG) {
-	    	zval str_port, str_proxy;
+	        zval str_proxy;
 	    	smart_str proxy = {0};
-		ZVAL_DUP(&str_port, proxy_port);
-		convert_to_string(&str_port);
 		smart_str_appends(&proxy,"tcp://");
 		smart_str_appends(&proxy,Z_STRVAL_P(proxy_host));
 		smart_str_appends(&proxy,":");
-		smart_str_appends(&proxy,Z_STRVAL(str_port));
+		smart_str_append_long(&proxy,Z_LVAL_P(proxy_port));
 		smart_str_0(&proxy);
-		zval_dtor(&str_port);
 		ZVAL_NEW_STR(&str_proxy, proxy.s);
 
 		if (!context) {
@@ -3363,18 +3359,12 @@ cache_in_memory:
 			p.time = t;
 			p.sdl = psdl;
 
-			if (NULL != zend_hash_str_update_mem(SOAP_GLOBAL(mem_cache), uri,
-											uri_len, &p, sizeof(sdl_cache_bucket))) {
-				/* remove non-persitent sdl structure */
-				delete_sdl_impl(sdl);
-				/* and replace it with persistent one */
-				sdl = psdl;
-			} else {
-				php_error_docref(NULL, E_WARNING, "Failed to register persistent entry");
-				/* clean up persistent sdl */
-				delete_psdl_int(&p);
-				/* keep non-persistent sdl and return it */
-			}
+			zend_hash_str_update_mem(SOAP_GLOBAL(mem_cache), uri,
+											uri_len, &p, sizeof(sdl_cache_bucket));
+			/* remove non-persitent sdl structure */
+			delete_sdl_impl(sdl);
+			/* and replace it with persistent one */
+			sdl = psdl;
 		}
 	}
 
@@ -3670,4 +3660,3 @@ static void delete_document(zval *zv)
 	xmlDocPtr doc = Z_PTR_P(zv);
 	xmlFreeDoc(doc);
 }
-

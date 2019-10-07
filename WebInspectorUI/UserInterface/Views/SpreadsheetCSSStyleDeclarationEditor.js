@@ -82,6 +82,9 @@ WI.SpreadsheetCSSStyleDeclarationEditor = class SpreadsheetCSSStyleDeclarationEd
 
         this.element.removeChildren();
 
+        if (this._style)
+            this._style.updatePropertiesModifiedState();
+
         let properties = this.propertiesToRender;
         this.element.classList.toggle("no-properties", !properties.length);
 
@@ -222,9 +225,9 @@ WI.SpreadsheetCSSStyleDeclarationEditor = class SpreadsheetCSSStyleDeclarationEd
             return properties;
 
         if (this._style._styleSheetTextRange)
-            properties = this._style.allVisibleProperties;
+            properties = this._style.visibleProperties;
         else
-            properties = this._style.allProperties;
+            properties = this._style.properties;
 
         if (this._sortPropertiesByName)
             properties.sort((a, b) => a.name.extendedLocaleCompare(b.name));
@@ -450,6 +453,17 @@ WI.SpreadsheetCSSStyleDeclarationEditor = class SpreadsheetCSSStyleDeclarationEd
         }
     }
 
+    spreadsheetStylePropertySelect(index)
+    {
+        this.selectProperties(index, index);
+    }
+
+    spreadsheetStylePropertySelectByProperty(property)
+    {
+        if (this._delegate && this._delegate.spreadsheetCSSStyleDeclarationEditorSelectProperty)
+            this._delegate.spreadsheetCSSStyleDeclarationEditorSelectProperty(property);
+    }
+
     spreadsheetStylePropertyAddBlankPropertySoon(propertyView, {index})
     {
         if (isNaN(index))
@@ -473,14 +487,16 @@ WI.SpreadsheetCSSStyleDeclarationEditor = class SpreadsheetCSSStyleDeclarationEd
         event.stop();
     }
 
-    spreadsheetStylePropertyRemoved(propertyView)
+    spreadsheetStylePropertyWillRemove(propertyView)
     {
         this._propertyViews.remove(propertyView);
 
         for (let index = 0; index < this._propertyViews.length; index++)
             this._propertyViews[index].index = index;
 
-        this.focused = false;
+        let wasFocused = document.activeElement && propertyView.element.contains(document.activeElement);
+        if (wasFocused)
+            this.focused = false;
     }
 
     spreadsheetStylePropertyShowProperty(propertyView, property)

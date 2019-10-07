@@ -34,6 +34,8 @@
 #include "FloatPoint3D.h"
 #include "FloatRect.h"
 #include "FloatSize.h"
+#include "NicosiaAnimatedBackingStoreClient.h"
+#include "NicosiaSceneIntegration.h"
 #include "TextureMapperAnimation.h"
 #include "TransformationMatrix.h"
 #include <wtf/Function.h>
@@ -53,6 +55,20 @@ public:
     using LayerID = uint64_t;
     LayerID id() const { return m_id; }
 
+    void setSceneIntegration(RefPtr<SceneIntegration>&& sceneIntegration)
+    {
+        LockHolder locker(m_state.lock);
+        m_state.sceneIntegration = WTFMove(sceneIntegration);
+    }
+
+    std::unique_ptr<SceneIntegration::UpdateScope> createUpdateScope()
+    {
+        LockHolder locker(m_state.lock);
+        if (m_state.sceneIntegration)
+            return m_state.sceneIntegration->createUpdateScope();
+        return nullptr;
+    }
+
 protected:
     explicit PlatformLayer(uint64_t);
 
@@ -60,6 +76,7 @@ protected:
 
     struct {
         Lock lock;
+        RefPtr<SceneIntegration> sceneIntegration;
     } m_state;
 };
 
@@ -110,6 +127,7 @@ public:
                     bool contentLayerChanged : 1;
                     bool backingStoreChanged : 1;
                     bool imageBackingChanged : 1;
+                    bool animatedBackingStoreClientChanged : 1;
                     bool repaintCounterChanged : 1;
                     bool debugBorderChanged : 1;
                 };
@@ -162,6 +180,7 @@ public:
         RefPtr<ContentLayer> contentLayer;
         RefPtr<BackingStore> backingStore;
         RefPtr<ImageBacking> imageBacking;
+        RefPtr<AnimatedBackingStoreClient> animatedBackingStoreClient;
 
         struct RepaintCounter {
             unsigned count { 0 };
@@ -240,6 +259,8 @@ public:
             staging.contentLayer = pending.contentLayer;
         if (pending.delta.imageBackingChanged)
             staging.imageBacking = pending.imageBacking;
+        if (pending.delta.animatedBackingStoreClientChanged)
+            staging.animatedBackingStoreClient = pending.animatedBackingStoreClient;
 
         pending.delta = { };
 

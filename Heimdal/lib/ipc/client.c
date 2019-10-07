@@ -89,7 +89,7 @@ mach_init(const char *service, void **ctx)
 
     ipc = malloc(sizeof(*ipc));
     if (ipc == NULL) {
-	mach_port_destroy(mach_task_self(), sport);
+	mach_port_mod_refs(mach_task_self(), sport, MACH_PORT_RIGHT_SEND, -1);
 	return ENOMEM;
     }
 

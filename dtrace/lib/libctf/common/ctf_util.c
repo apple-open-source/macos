@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)ctf_util.c	1.5	05/06/08 SMI"
-
 #include <ctf_impl.h>
 
 /*
@@ -96,7 +94,7 @@ ctf_list_delete(ctf_list_t *lp, void *existing)
  * up the appropriate string table buffer and then adding the offset.
  */
 const char *
-ctf_strraw(ctf_file_t *fp, uint_t name)
+ctf_strraw(ctf_file_t *fp, uint32_t name)
 {
 	ctf_strs_t *ctsp = &fp->ctf_str[CTF_NAME_STID(name)];
 
@@ -108,7 +106,7 @@ ctf_strraw(ctf_file_t *fp, uint_t name)
 }
 
 const char *
-ctf_strptr(ctf_file_t *fp, uint_t name)
+ctf_strptr(ctf_file_t *fp, uint32_t name)
 {
 	const char *s = ctf_strraw(fp, name);
 	return (s != NULL ? s : "(?)");

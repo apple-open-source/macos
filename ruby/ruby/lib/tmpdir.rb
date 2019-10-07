@@ -2,7 +2,7 @@
 #
 # tmpdir - retrieve temporary directory path
 #
-# $Id: tmpdir.rb 62995 2018-03-28 10:29:15Z usa $
+# $Id: tmpdir.rb 66941 2019-01-29 09:19:52Z naruse $
 #
 
 require 'fileutils'
@@ -82,15 +82,21 @@ class Dir
   #    FileUtils.remove_entry dir
   #  end
   #
-  def Dir.mktmpdir(prefix_suffix=nil, *rest)
-    path = Tmpname.create(prefix_suffix || "d", *rest) {|n| mkdir(n, 0700)}
+  def self.mktmpdir(prefix_suffix=nil, *rest)
+    base = nil
+    path = Tmpname.create(prefix_suffix || "d", *rest) {|path, _, _, d|
+      base = d
+      mkdir(path, 0700)
+    }
     if block_given?
       begin
         yield path
       ensure
-        stat = File.stat(File.dirname(path))
-        if stat.world_writable? and !stat.sticky?
-          raise ArgumentError, "parent directory is world writable but not sticky"
+        unless base
+          stat = File.stat(File.dirname(path))
+          if stat.world_writable? and !stat.sticky?
+            raise ArgumentError, "parent directory is world writable but not sticky"
+          end
         end
         FileUtils.remove_entry path
       end
@@ -106,30 +112,27 @@ class Dir
       Dir.tmpdir
     end
 
-    def make_tmpname((prefix, suffix), n)
+    def create(basename, tmpdir=nil, max_try: nil, **opts)
+      if $SAFE > 0 and tmpdir.tainted?
+        tmpdir = '/tmp'
+      else
+        origdir = tmpdir
+        tmpdir ||= tmpdir()
+      end
+      n = nil
+      prefix, suffix = basename
       prefix = (String.try_convert(prefix) or
                 raise ArgumentError, "unexpected prefix: #{prefix.inspect}")
       prefix = prefix.delete("#{File::SEPARATOR}#{File::ALT_SEPARATOR}")
       suffix &&= (String.try_convert(suffix) or
                   raise ArgumentError, "unexpected suffix: #{suffix.inspect}")
       suffix &&= suffix.delete("#{File::SEPARATOR}#{File::ALT_SEPARATOR}")
-      t = Time.now.strftime("%Y%m%d")
-      path = "#{prefix}#{t}-#{$$}-#{rand(0x100000000).to_s(36)}".dup
-      path << "-#{n}" if n
-      path << suffix if suffix
-      path
-    end
-
-    def create(basename, tmpdir=nil, max_try: nil, **opts)
-      if $SAFE > 0 and tmpdir.tainted?
-        tmpdir = '/tmp'
-      else
-        tmpdir ||= tmpdir()
-      end
-      n = nil
       begin
-        path = File.join(tmpdir, make_tmpname(basename, n))
-        yield(path, n, opts)
+        t = Time.now.strftime("%Y%m%d")
+        path = "#{prefix}#{t}-#{$$}-#{rand(0x100000000).to_s(36)}"\
+               "#{n ? %[-#{n}] : ''}#{suffix||''}"
+        path = File.join(tmpdir, path)
+        yield(path, n, opts, origdir)
       rescue Errno::EEXIST
         n ||= 0
         n += 1

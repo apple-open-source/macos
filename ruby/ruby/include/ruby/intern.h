@@ -2,7 +2,7 @@
 
   intern.h -
 
-  $Author: nagachika $
+  $Author: ko1 $
   created at: Thu Jun 10 14:22:17 JST 1993
 
   Copyright (C) 1993-2007 Yukihiro Matsumoto
@@ -33,6 +33,15 @@ extern "C" {
 #endif
 
 #include "ruby/st.h"
+
+/* On mswin, MJIT header transformation can't be used since cl.exe can't output
+   preprocessed output preserving macros. So this `MJIT_STATIC` is needed
+   to force non-static function to static on MJIT header to avoid symbol conflict. */
+#ifdef MJIT_HEADER
+# define MJIT_STATIC static
+#else
+# define MJIT_STATIC
+#endif
 
 RUBY_SYMBOL_EXPORT_BEGIN
 
@@ -131,7 +140,6 @@ VALUE rb_big_or(VALUE, VALUE);
 VALUE rb_big_xor(VALUE, VALUE);
 VALUE rb_big_lshift(VALUE, VALUE);
 VALUE rb_big_rshift(VALUE, VALUE);
-VALUE rb_big_hash(VALUE);
 
 /* For rb_integer_pack and rb_integer_unpack: */
 /* "MS" in MSWORD and MSBYTE means "most significant" */
@@ -180,27 +188,38 @@ VALUE rb_complex_raw(VALUE, VALUE);
 VALUE rb_complex_new(VALUE, VALUE);
 #define rb_complex_new1(x) rb_complex_new((x), INT2FIX(0))
 #define rb_complex_new2(x,y) rb_complex_new((x), (y))
-VALUE rb_complex_polar(VALUE, VALUE);
+VALUE rb_complex_new_polar(VALUE abs, VALUE arg);
+DEPRECATED_BY(rb_complex_new_polar, VALUE rb_complex_polar(VALUE abs, VALUE arg));
+VALUE rb_complex_real(VALUE z);
+VALUE rb_complex_imag(VALUE z);
+VALUE rb_complex_plus(VALUE x, VALUE y);
+VALUE rb_complex_minus(VALUE x, VALUE y);
+VALUE rb_complex_mul(VALUE x, VALUE y);
+VALUE rb_complex_div(VALUE x, VALUE y);
+VALUE rb_complex_uminus(VALUE z);
+VALUE rb_complex_conjugate(VALUE z);
+VALUE rb_complex_abs(VALUE z);
+VALUE rb_complex_arg(VALUE z);
+VALUE rb_complex_pow(VALUE base, VALUE exp);
+VALUE rb_dbl_complex_new(double real, double imag);
+#define rb_complex_add rb_complex_plus
+#define rb_complex_sub rb_complex_minus
+#define rb_complex_nagate rb_complex_uminus
+
 VALUE rb_Complex(VALUE, VALUE);
 #define rb_Complex1(x) rb_Complex((x), INT2FIX(0))
 #define rb_Complex2(x,y) rb_Complex((x), (y))
-DEPRECATED(VALUE rb_complex_set_real(VALUE, VALUE));
-DEPRECATED(VALUE rb_complex_set_imag(VALUE, VALUE));
 /* class.c */
-VALUE rb_class_boot(VALUE);
 VALUE rb_class_new(VALUE);
 VALUE rb_mod_init_copy(VALUE, VALUE);
 VALUE rb_singleton_class_clone(VALUE);
 void rb_singleton_class_attached(VALUE,VALUE);
-VALUE rb_make_metaclass(VALUE, VALUE);
 void rb_check_inheritable(VALUE);
-VALUE rb_class_inherited(VALUE, VALUE);
 VALUE rb_define_class_id(ID, VALUE);
 VALUE rb_define_class_id_under(VALUE, ID, VALUE);
 VALUE rb_module_new(void);
 VALUE rb_define_module_id(ID);
 VALUE rb_define_module_id_under(VALUE, ID);
-VALUE rb_include_class_new(VALUE, VALUE);
 VALUE rb_mod_included_modules(VALUE);
 VALUE rb_mod_include_p(VALUE, VALUE);
 VALUE rb_mod_ancestors(VALUE);
@@ -210,7 +229,6 @@ VALUE rb_class_protected_instance_methods(int, const VALUE*, VALUE);
 VALUE rb_class_private_instance_methods(int, const VALUE*, VALUE);
 VALUE rb_obj_singleton_methods(int, const VALUE*, VALUE);
 void rb_define_method_id(VALUE, ID, VALUE (*)(ANYARGS), int);
-void rb_frozen_class_p(VALUE);
 void rb_undef(VALUE, ID);
 void rb_define_protected_method(VALUE, const char*, VALUE (*)(ANYARGS), int);
 void rb_define_private_method(VALUE, const char*, VALUE (*)(ANYARGS), int);
@@ -243,6 +261,13 @@ VALUE rb_enumeratorize_with_size(VALUE, VALUE, int, const VALUE *, rb_enumerator
 	    return SIZED_ENUMERATOR(obj, argc, argv, size_fn);		\
     } while (0)
 #define RETURN_ENUMERATOR(obj, argc, argv) RETURN_SIZED_ENUMERATOR(obj, argc, argv, 0)
+typedef struct {
+    VALUE begin;
+    VALUE end;
+    VALUE step;
+    int exclude_end;
+} rb_arithmetic_sequence_components_t;
+int rb_arithmetic_sequence_extract(VALUE, rb_arithmetic_sequence_components_t *);
 /* error.c */
 VALUE rb_exc_new(VALUE, const char*, long);
 VALUE rb_exc_new_cstr(VALUE, const char*);
@@ -254,9 +279,6 @@ PRINTF_ARGS(NORETURN(void rb_loaderror_with_path(VALUE path, const char*, ...)),
 PRINTF_ARGS(NORETURN(void rb_name_error(ID, const char*, ...)), 2, 3);
 PRINTF_ARGS(NORETURN(void rb_name_error_str(VALUE, const char*, ...)), 2, 3);
 NORETURN(void rb_invalid_str(const char*, const char*));
-DEPRECATED(PRINTF_ARGS(void rb_compile_error(const char*, int, const char*, ...), 3, 4));
-DEPRECATED(PRINTF_ARGS(void rb_compile_error_with_enc(const char*, int, void *, const char*, ...), 4, 5));
-DEPRECATED(PRINTF_ARGS(void rb_compile_error_append(const char*, ...), 1, 2));
 NORETURN(void rb_error_frozen(const char*));
 NORETURN(void rb_error_frozen_object(VALUE));
 void rb_error_untrusted(VALUE);
@@ -264,7 +286,7 @@ void rb_check_frozen(VALUE);
 void rb_check_trusted(VALUE);
 #define rb_check_frozen_internal(obj) do { \
 	VALUE frozen_obj = (obj); \
-	if (OBJ_FROZEN(frozen_obj)) { \
+	if (RB_UNLIKELY(RB_OBJ_FROZEN(frozen_obj))) { \
 	    rb_error_frozen_object(frozen_obj); \
 	} \
     } while (0)
@@ -297,14 +319,15 @@ int rb_sourceline(void);
 const char *rb_sourcefile(void);
 VALUE rb_check_funcall(VALUE, ID, int, const VALUE*);
 
-NORETURN(void rb_error_arity(int, int, int));
-#define rb_check_arity rb_check_arity /* for ifdef */
-static inline void
+NORETURN(MJIT_STATIC void rb_error_arity(int, int, int));
+static inline int
 rb_check_arity(int argc, int min, int max)
 {
     if ((argc < min) || (max != UNLIMITED_ARGUMENTS && argc > max))
 	rb_error_arity(argc, min, max);
+    return argc;
 }
+#define rb_check_arity rb_check_arity /* for ifdef */
 
 #if defined(NFDBITS) && defined(HAVE_RB_FD_INIT)
 typedef struct {
@@ -344,7 +367,15 @@ void rb_fd_set(int, rb_fdset_t *);
 void rb_w32_fd_copy(rb_fdset_t *, const fd_set *, int);
 #define rb_fd_dup(d, s)	rb_w32_fd_dup((d), (s))
 void rb_w32_fd_dup(rb_fdset_t *dst, const rb_fdset_t *src);
-#define rb_fd_select(n, rfds, wfds, efds, timeout)	rb_w32_select((n), (rfds) ? ((rb_fdset_t*)(rfds))->fdset : NULL, (wfds) ? ((rb_fdset_t*)(wfds))->fdset : NULL, (efds) ? ((rb_fdset_t*)(efds))->fdset: NULL, (timeout))
+static inline int
+rb_fd_select(int n, rb_fdset_t *rfds, rb_fdset_t *wfds, rb_fdset_t *efds, struct timeval *timeout)
+{
+    return rb_w32_select(n,
+                         rfds ? rfds->fdset : NULL,
+                         wfds ? wfds->fdset : NULL,
+                         efds ? efds->fdset : NULL,
+                         timeout);
+}
 #define rb_fd_resize(n, f)	((void)(f))
 
 #define rb_fd_ptr(f)	((f)->fdset)
@@ -371,28 +402,15 @@ typedef fd_set rb_fdset_t;
 
 NORETURN(void rb_exc_raise(VALUE));
 NORETURN(void rb_exc_fatal(VALUE));
-VALUE rb_f_exit(int, const VALUE*);
-VALUE rb_f_abort(int, const VALUE*);
+NORETURN(VALUE rb_f_exit(int, const VALUE*));
+NORETURN(VALUE rb_f_abort(int, const VALUE*));
 void rb_remove_method(VALUE, const char*);
 void rb_remove_method_id(VALUE, ID);
-DEPRECATED(static inline void rb_disable_super(void));
-DEPRECATED(static inline void rb_enable_super(void));
-static inline void rb_disable_super(void)
-{
-    /* obsolete - no use */
-}
-static inline void rb_enable_super(void)
-{
-    rb_warning("rb_enable_super() is obsolete");
-}
-#define rb_disable_super(klass, name) rb_disable_super()
-#define rb_enable_super(klass, name) rb_enable_super()
 #define HAVE_RB_DEFINE_ALLOC_FUNC 1
 typedef VALUE (*rb_alloc_func_t)(VALUE);
 void rb_define_alloc_func(VALUE, rb_alloc_func_t);
 void rb_undef_alloc_func(VALUE);
 rb_alloc_func_t rb_get_alloc_func(VALUE);
-DEPRECATED(void rb_clear_cache(void));
 void rb_clear_constant_cache(void);
 void rb_clear_method_cache_by_class(VALUE);
 void rb_alias(VALUE, ID, ID);
@@ -402,12 +420,12 @@ int rb_method_basic_definition_p(VALUE, ID);
 VALUE rb_eval_cmd(VALUE, VALUE, int);
 int rb_obj_respond_to(VALUE, ID, int);
 int rb_respond_to(VALUE, ID);
-VALUE rb_f_notimplement(int argc, const VALUE *argv, VALUE obj);
+NORETURN(VALUE rb_f_notimplement(int argc, const VALUE *argv, VALUE obj));
 #if !defined(RUBY_EXPORT) && defined(_WIN32)
 RUBY_EXTERN VALUE (*const rb_f_notimplement_)(int, const VALUE *, VALUE);
 #define rb_f_notimplement (*rb_f_notimplement_)
 #endif
-void rb_interrupt(void);
+NORETURN(void rb_interrupt(void));
 VALUE rb_apply(VALUE, ID, VALUE);
 void rb_backtrace(void);
 ID rb_frame_this_func(void);
@@ -485,8 +503,8 @@ VALUE rb_file_directory_p(VALUE,VALUE);
 VALUE rb_str_encode_ospath(VALUE);
 int rb_is_absolute_path(const char *);
 /* gc.c */
-NORETURN(void rb_memerror(void));
-int rb_during_gc(void);
+COLDFUNC NORETURN(void rb_memerror(void));
+PUREFUNC(int rb_during_gc(void));
 void rb_gc_mark_locations(const VALUE*, const VALUE*);
 void rb_mark_tbl(struct st_table*);
 void rb_mark_set(struct st_table*);
@@ -506,6 +524,7 @@ VALUE rb_undefine_finalizer(VALUE);
 size_t rb_gc_count(void);
 size_t rb_gc_stat(VALUE);
 VALUE rb_gc_latest_gc_info(VALUE);
+void rb_gc_adjust_memory_usage(ssize_t);
 /* hash.c */
 void st_foreach_safe(struct st_table *, int (*)(ANYARGS), st_data_t);
 VALUE rb_check_hash_type(VALUE);
@@ -525,13 +544,12 @@ VALUE rb_hash_delete(VALUE,VALUE);
 VALUE rb_hash_set_ifnone(VALUE hash, VALUE ifnone);
 typedef VALUE rb_hash_update_func(VALUE newkey, VALUE oldkey, VALUE value);
 VALUE rb_hash_update_by(VALUE hash1, VALUE hash2, rb_hash_update_func *func);
-struct st_table *rb_hash_tbl(VALUE);
+struct st_table *rb_hash_tbl(VALUE, const char *file, int line);
 int rb_path_check(const char*);
 int rb_env_path_tainted(void);
 VALUE rb_env_clear(void);
 VALUE rb_hash_size(VALUE);
-DEPRECATED(int rb_hash_iter_lev(VALUE));
-DEPRECATED(VALUE rb_hash_ifnone(VALUE));
+void rb_hash_free(VALUE);
 /* io.c */
 #define rb_defout rb_stdout
 RUBY_EXTERN VALUE rb_fs;
@@ -584,7 +602,7 @@ VALUE rb_num_coerce_relop(VALUE, VALUE, ID);
 VALUE rb_num_coerce_bit(VALUE, VALUE, ID);
 VALUE rb_num2fix(VALUE);
 VALUE rb_fix2str(VALUE, int);
-VALUE rb_dbl_cmp(double, double);
+CONSTFUNC(VALUE rb_dbl_cmp(double, double));
 /* object.c */
 int rb_eql(VALUE, VALUE);
 VALUE rb_any_to_s(VALUE);
@@ -596,17 +614,17 @@ VALUE rb_obj_clone(VALUE);
 VALUE rb_obj_dup(VALUE);
 VALUE rb_obj_init_copy(VALUE,VALUE);
 VALUE rb_obj_taint(VALUE);
-VALUE rb_obj_tainted(VALUE);
+PUREFUNC(VALUE rb_obj_tainted(VALUE));
 VALUE rb_obj_untaint(VALUE);
 VALUE rb_obj_untrust(VALUE);
-VALUE rb_obj_untrusted(VALUE);
+PUREFUNC(VALUE rb_obj_untrusted(VALUE));
 VALUE rb_obj_trust(VALUE);
 VALUE rb_obj_freeze(VALUE);
-VALUE rb_obj_frozen_p(VALUE);
+PUREFUNC(VALUE rb_obj_frozen_p(VALUE));
 VALUE rb_obj_id(VALUE);
 VALUE rb_obj_class(VALUE);
-VALUE rb_class_real(VALUE);
-VALUE rb_class_inherited_p(VALUE, VALUE);
+PUREFUNC(VALUE rb_class_real(VALUE));
+PUREFUNC(VALUE rb_class_inherited_p(VALUE, VALUE));
 VALUE rb_class_superclass(VALUE);
 VALUE rb_class_get_superclass(VALUE);
 VALUE rb_convert_type(VALUE,int,const char*,const char*);
@@ -625,13 +643,13 @@ double rb_cstr_to_dbl(const char*, int);
 double rb_str_to_dbl(VALUE, int);
 /* parse.y */
 ID rb_id_attrset(ID);
-int rb_is_const_id(ID);
-int rb_is_global_id(ID);
-int rb_is_instance_id(ID);
-int rb_is_attrset_id(ID);
-int rb_is_class_id(ID);
-int rb_is_local_id(ID);
-int rb_is_junk_id(ID);
+CONSTFUNC(int rb_is_const_id(ID));
+CONSTFUNC(int rb_is_global_id(ID));
+CONSTFUNC(int rb_is_instance_id(ID));
+CONSTFUNC(int rb_is_attrset_id(ID));
+CONSTFUNC(int rb_is_class_id(ID));
+CONSTFUNC(int rb_is_local_id(ID));
+CONSTFUNC(int rb_is_junk_id(ID));
 int rb_symname_p(const char*);
 int rb_sym_interned_p(VALUE);
 VALUE rb_backref_get(void);
@@ -642,7 +660,7 @@ void rb_lastline_set(VALUE);
 void rb_last_status_set(int status, rb_pid_t pid);
 VALUE rb_last_status_get(void);
 int rb_proc_exec(const char*);
-VALUE rb_f_exec(int, const VALUE*);
+NORETURN(VALUE rb_f_exec(int, const VALUE*));
 rb_pid_t rb_waitpid(rb_pid_t pid, int *status, int flags);
 void rb_syswait(rb_pid_t pid);
 rb_pid_t rb_spawn(int, const VALUE*);
@@ -780,94 +798,80 @@ VALUE rb_str_replace(VALUE, VALUE);
 VALUE rb_str_inspect(VALUE);
 VALUE rb_str_dump(VALUE);
 VALUE rb_str_split(VALUE, const char*);
-DEPRECATED(void rb_str_associate(VALUE, VALUE));
-DEPRECATED(VALUE rb_str_associated(VALUE));
 void rb_str_setter(VALUE, ID, VALUE*);
 VALUE rb_str_intern(VALUE);
 VALUE rb_sym_to_s(VALUE);
 long rb_str_strlen(VALUE);
 VALUE rb_str_length(VALUE);
 long rb_str_offset(VALUE, long);
-size_t rb_str_capacity(VALUE);
+PUREFUNC(size_t rb_str_capacity(VALUE));
 VALUE rb_str_ellipsize(VALUE, long);
 VALUE rb_str_scrub(VALUE, VALUE);
 /* symbol.c */
 VALUE rb_sym_all_symbols(void);
 
-#if defined(__GNUC__) && !defined(__PCC__)
-#define rb_str_new(str, len) __extension__ (	\
-{						\
+#ifdef HAVE_BUILTIN___BUILTIN_CONSTANT_P
+#define rb_str_new(str, len) RB_GNUC_EXTENSION_BLOCK(	\
     (__builtin_constant_p(str) && __builtin_constant_p(len)) ? \
 	rb_str_new_static((str), (len)) : \
-	rb_str_new((str), (len));	  \
-})
-#define rb_str_new_cstr(str) __extension__ (	\
-{						\
+	rb_str_new((str), (len))	  \
+)
+#define rb_str_new_cstr(str) RB_GNUC_EXTENSION_BLOCK(	\
     (__builtin_constant_p(str)) ?		\
 	rb_str_new_static((str), (long)strlen(str)) : \
-	rb_str_new_cstr(str);			\
-})
-#define rb_usascii_str_new(str, len) __extension__ ( \
-{						\
+	rb_str_new_cstr(str)			\
+)
+#define rb_usascii_str_new(str, len) RB_GNUC_EXTENSION_BLOCK( \
     (__builtin_constant_p(str) && __builtin_constant_p(len)) ? \
 	rb_usascii_str_new_static((str), (len)) : \
-	rb_usascii_str_new((str), (len));	  \
-})
-#define rb_utf8_str_new(str, len) __extension__ ( \
-{						\
+	rb_usascii_str_new((str), (len))	  \
+)
+#define rb_utf8_str_new(str, len) RB_GNUC_EXTENSION_BLOCK( \
     (__builtin_constant_p(str) && __builtin_constant_p(len)) ? \
 	rb_utf8_str_new_static((str), (len)) : \
-	rb_utf8_str_new((str), (len));	  \
-})
-#define rb_tainted_str_new_cstr(str) __extension__ ( \
-{					       \
+	rb_utf8_str_new((str), (len))	  \
+)
+#define rb_tainted_str_new_cstr(str) RB_GNUC_EXTENSION_BLOCK( \
     (__builtin_constant_p(str)) ?	       \
 	rb_tainted_str_new((str), (long)strlen(str)) : \
-	rb_tainted_str_new_cstr(str);	       \
-})
-#define rb_usascii_str_new_cstr(str) __extension__ ( \
-{					       \
+	rb_tainted_str_new_cstr(str)	       \
+)
+#define rb_usascii_str_new_cstr(str) RB_GNUC_EXTENSION_BLOCK( \
     (__builtin_constant_p(str)) ?	       \
 	rb_usascii_str_new_static((str), (long)strlen(str)) : \
-	rb_usascii_str_new_cstr(str);	       \
-})
-#define rb_utf8_str_new_cstr(str) __extension__ ( \
-{						\
+	rb_usascii_str_new_cstr(str)	       \
+)
+#define rb_utf8_str_new_cstr(str) RB_GNUC_EXTENSION_BLOCK( \
     (__builtin_constant_p(str)) ?		\
 	rb_utf8_str_new_static((str), (long)strlen(str)) : \
-	rb_utf8_str_new_cstr(str);		\
-})
-#define rb_external_str_new_cstr(str) __extension__ ( \
-{						\
+	rb_utf8_str_new_cstr(str)		\
+)
+#define rb_external_str_new_cstr(str) RB_GNUC_EXTENSION_BLOCK( \
     (__builtin_constant_p(str)) ?		\
 	rb_external_str_new((str), (long)strlen(str)) : \
-	rb_external_str_new_cstr(str);		\
-})
-#define rb_locale_str_new_cstr(str) __extension__ ( \
-{					       \
+	rb_external_str_new_cstr(str)		\
+)
+#define rb_locale_str_new_cstr(str) RB_GNUC_EXTENSION_BLOCK( \
     (__builtin_constant_p(str)) ?	       \
 	rb_locale_str_new((str), (long)strlen(str)) :  \
-	rb_locale_str_new_cstr(str);	       \
-})
-#define rb_str_buf_new_cstr(str) __extension__ ( \
-{						\
+	rb_locale_str_new_cstr(str)	       \
+)
+#define rb_str_buf_new_cstr(str) RB_GNUC_EXTENSION_BLOCK( \
     (__builtin_constant_p(str)) ?		\
 	rb_str_buf_cat(rb_str_buf_new((long)strlen(str)), \
 		       (str), (long)strlen(str)) : \
-	rb_str_buf_new_cstr(str);		\
-})
-#define rb_str_cat_cstr(str, ptr) __extension__ ( \
-{						\
+	rb_str_buf_new_cstr(str)		\
+)
+#define rb_str_cat_cstr(str, ptr) RB_GNUC_EXTENSION_BLOCK( \
     (__builtin_constant_p(ptr)) ?	        \
 	rb_str_cat((str), (ptr), (long)strlen(ptr)) : \
-	rb_str_cat_cstr((str), (ptr));		\
-})
-#define rb_exc_new_cstr(klass, ptr) __extension__ ( \
-{						\
+	rb_str_cat_cstr((str), (ptr))		\
+)
+#define rb_exc_new_cstr(klass, ptr) RB_GNUC_EXTENSION_BLOCK( \
     (__builtin_constant_p(ptr)) ?	        \
 	rb_exc_new((klass), (ptr), (long)strlen(ptr)) : \
-	rb_exc_new_cstr((klass), (ptr));		\
-})
+	rb_exc_new_cstr((klass), (ptr))		\
+)
 #endif
 #define rb_str_new2 rb_str_new_cstr
 #define rb_str_new3 rb_str_new_shared
@@ -900,6 +904,7 @@ VALUE rb_struct_aset(VALUE, VALUE, VALUE);
 VALUE rb_struct_getmember(VALUE, ID);
 VALUE rb_struct_s_members(VALUE);
 VALUE rb_struct_members(VALUE);
+VALUE rb_struct_size(VALUE s);
 VALUE rb_struct_alloc_noinit(VALUE);
 VALUE rb_struct_define_without_accessor(const char *, VALUE, rb_alloc_func_t, ...);
 VALUE rb_struct_define_without_accessor_under(VALUE outer, const char *class_name, VALUE super, rb_alloc_func_t alloc, ...);
@@ -928,6 +933,7 @@ VALUE rb_time_num_new(VALUE, VALUE);
 struct timeval rb_time_interval(VALUE num);
 struct timeval rb_time_timeval(VALUE time);
 struct timespec rb_time_timespec(VALUE time);
+VALUE rb_time_utc_offset(VALUE time);
 /* variable.c */
 VALUE rb_mod_name(VALUE);
 VALUE rb_class_path(VALUE);
@@ -938,14 +944,12 @@ VALUE rb_path_to_class(VALUE);
 VALUE rb_path2class(const char*);
 void rb_name_class(VALUE, ID);
 VALUE rb_class_name(VALUE);
-DEPRECATED(void rb_autoload(VALUE, ID, const char*));
 VALUE rb_autoload_load(VALUE, ID);
 VALUE rb_autoload_p(VALUE, ID);
 VALUE rb_f_trace_var(int, const VALUE*);
 VALUE rb_f_untrace_var(int, const VALUE*);
 VALUE rb_f_global_variables(void);
 void rb_alias_variable(ID, ID);
-DEPRECATED(struct st_table* rb_generic_ivar_table(VALUE));
 void rb_copy_generic_ivar(VALUE,VALUE);
 void rb_free_generic_ivar(VALUE);
 VALUE rb_ivar_get(VALUE, ID);
@@ -969,7 +973,9 @@ VALUE rb_const_get_at(VALUE, ID);
 VALUE rb_const_get_from(VALUE, ID);
 void rb_const_set(VALUE, ID, VALUE);
 VALUE rb_const_remove(VALUE, ID);
-VALUE rb_mod_const_missing(VALUE,VALUE);
+#if 0 /* EXPERIMENTAL: remove if no problem */
+NORETURN(VALUE rb_mod_const_missing(VALUE,VALUE));
+#endif
 VALUE rb_cvar_defined(VALUE, ID);
 void rb_cvar_set(VALUE, ID, VALUE);
 VALUE rb_cvar_get(VALUE, ID);
@@ -980,15 +986,11 @@ VALUE rb_mod_class_variables(int, const VALUE*, VALUE);
 VALUE rb_mod_remove_cvar(VALUE, VALUE);
 
 ID rb_frame_callee(void);
+int rb_frame_method_id_and_class(ID *idp, VALUE *klassp);
 VALUE rb_str_succ(VALUE);
 VALUE rb_time_succ(VALUE);
-int rb_frame_method_id_and_class(ID *idp, VALUE *klassp);
 VALUE rb_make_backtrace(void);
 VALUE rb_make_exception(int, const VALUE*);
-
-/* deprecated */
-DEPRECATED(void rb_frame_pop(void));
-
 
 RUBY_SYMBOL_EXPORT_END
 

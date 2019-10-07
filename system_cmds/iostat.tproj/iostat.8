@@ -25,7 +25,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/usr.sbin/iostat/iostat.8,v 1.20 2001/08/07 13:59:48 ru Exp $
+.\" $FreeBSD$
 .\"
 .\" Copyright (c) 1985, 1991, 1993
 .\"	The Regents of the University of California.  All rights reserved.
@@ -38,11 +38,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -60,7 +56,7 @@
 .\"
 .\"	@(#)iostat.8	8.1 (Berkeley) 6/6/93
 .\"
-.Dd September 27, 2001
+.Dd May 22, 2015
 .Dt IOSTAT 8
 .Os
 .Sh NAME
@@ -69,15 +65,16 @@
 .Tn I/O
 statistics
 .Sh SYNOPSIS
-.Nm iostat
+.Nm
 .Op Fl CUdKIoT?\&
 .Op Fl c Ar count
 .Op Fl n Ar devs
 .Op Fl w Ar wait
 .Op Ar drives
 .Sh DESCRIPTION
-.Nm Iostat
-displays kernel
+The
+.Nm
+utility displays kernel
 .Tn I/O
 statistics on terminal, device and cpu operations.
 The first statistics that are printed are averaged over the system uptime.
@@ -87,16 +84,8 @@ averaged over that time.
 .Pp
 The options are as follows:
 .Bl -tag -width flag
-.\" ==========
 .It Fl ?\&
 Display a usage statement and exit.
-.\" ==========
-.It Fl C
-Display CPU statistics.
-This is on by default, unless
-.Fl d
-is specified.
-.\" ==========
 .It Fl c
 Repeat the display
 .Ar count
@@ -104,7 +93,11 @@ times.
 If no
 .Ar wait
 interval is specified, the default is 1 second.
-.\" ==========
+.It Fl C
+Display CPU statistics.
+This is on by default, unless
+.Fl d
+is specified.
 .It Fl d
 Display only device statistics.
 If this flag is turned on, only device statistics will be displayed, unless
@@ -113,48 +106,42 @@ or
 .Fl U
 or
 .Fl T
-is also specfied to enable the display of CPU, load average or TTY statistics.
-.\" ==========
+is also specified to enable the display of CPU, load average or TTY statistics.
 .It Fl I
-Display total statstics for a given time period, rather than average
+Display total statistics for a given time period, rather than average
 statistics for each second during that time period.
-.\" ==========
 .It Fl K
 In the blocks transferred display (-o), display block count in kilobytes rather
 then the device native block size.
-.\" ==========
 .It Fl n
 Display up to
 .Ar devs
 number of devices.
-.Nm iostat
-will display fewer devices if there aren't
+The
+.Nm
+utility will display fewer devices if there are not
 .Ar devs
 devices present.
-.\" ==========
 .It Fl o
 Display old-style
-.Nm iostat
+.Nm
 device statistics.
-Sectors per second, transfers per second, and miliseconds per seek are
+Sectors per second, transfers per second, and milliseconds per seek are
 displayed.
 If
 .Fl I
 is specified, total blocks/sectors, total transfers, and
-miliseconds per seek are displayed.
-.\" ==========
+milliseconds per seek are displayed.
 .It Fl T
 Display TTY statistics.
 This is on by default, unless
 .Fl d
 is specified.
-.\" ==========
 .It Fl U
 Display system load averages.
 This is on by default, unless
 .Fl d
 is specified.
-.\" ==========
 .It Fl w
 Pause
 .Ar wait
@@ -164,8 +151,9 @@ If no repeat
 is specified, the default is infinity.
 .El
 .Pp
-.Nm Iostat
-displays its information in the following format:
+The
+.Nm
+utility displays its information in the following format:
 .Bl -tag -width flag
 .It tty
 .Bl -tag -width indent -compact
@@ -177,20 +165,24 @@ characters written to terminals
 .It devices
 Device operations.
 The header of the field is the device name and unit number.
-.Nm iostat
+The
+.Nm
+utility
 will display as many devices as will fit in a standard 80 column screen, or
 the maximum number of devices in the system, whichever is smaller.
 If
 .Fl n
 is specified on the command line,
-.Nm iostat
+.Nm
 will display the smaller of the
 requested number of devices, and the maximum number of devices in the system.
 To force
-.Nm iostat
+.Nm
 to display specific drives, their names may be supplied on the command
 line.
-.Nm iostat
+The
+.Nm
+utility
 will not display more devices than will fit in an 80 column screen, unless
 the
 .Fl n
@@ -198,11 +190,11 @@ argument is given on the command line to specify a maximum number of
 devices to display, or the list of specified devices exceeds 80 columns.
 If fewer devices are specified on the command line than will fit in an 80
 column screen,
-.Nm iostat
+.Nm
 will show only the specified devices.
 .Pp
 The standard
-.Nm iostat
+.Nm
 device display shows the following statistics:
 .Pp
 .Bl -tag -width indent -compact
@@ -215,7 +207,7 @@ megabytes per second
 .El
 .Pp
 The standard
-.Nm iostat
+.Nm
 device display, with the
 .Fl I
 flag specified, shows the following statistics:
@@ -230,7 +222,7 @@ total number of megabytes transferred
 .El
 .Pp
 The old-style
-.Nm iostat
+.Nm
 display (using
 .Fl o )
 shows the following statistics:
@@ -245,7 +237,7 @@ average milliseconds per transaction
 .El
 .Pp
 The old-style
-.Nm iostat
+.Nm
 display, with the
 .Fl I
 flag specified, shows the following statistics:
@@ -295,16 +287,16 @@ and
 .Fl C
 flags are given, the TTY and CPU displays will be displayed.
 .Sh SEE ALSO
-.Xr fstat 1 ,
 .Xr netstat 1 ,
 .Xr nfsstat 1 ,
 .Xr ps 1 ,
-.Xr pstat 8
+.Xr top 1 ,
+.Xr vm_stat 1
 .Pp
 The sections starting with ``Interpreting system activity'' in
 .%T "Installing and Operating 4.3BSD" .
 .Sh HISTORY
 This version of
-.Nm iostat
+.Nm
 first appeared in
-.Nm FreeBSD 3.0 .
+.Fx 3.0 .

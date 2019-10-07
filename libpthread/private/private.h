@@ -63,6 +63,9 @@ struct _libpthread_functions {
  * If this is used on a workqueue (dispatch) thread, it MUST be unset with
  * pthread_fchdir_np(-1) before returning.
  *
+ * posix_spawn_file_actions_addchdir_np is a better approach if this call would
+ * only be used to spawn a new process with a given working directory.
+ *
  * @param path
  * The path of the new working directory.
  *
@@ -70,7 +73,7 @@ struct _libpthread_functions {
  * 0 upon success, -1 upon error and errno is set.
  */
 __API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0))
-int pthread_chdir_np(char *path);
+int pthread_chdir_np(const char *path);
 
 /*!
  * @function pthread_fchdir_np
@@ -82,6 +85,9 @@ int pthread_chdir_np(char *path);
  * This will set the per-thread current working directory to the provided
  * directory fd.  If this is used on a workqueue (dispatch) thread, it MUST be
  * unset with pthread_fchdir_np(-1) before returning.
+ *
+ * posix_spawn_file_actions_addfchdir_np is a better approach if this call would
+ * only be used to spawn a new process with a given working directory.
  *
  * @param fd
  * A file descriptor to the new working directory.  Pass -1 to unset the
@@ -95,6 +101,9 @@ int pthread_fchdir_np(int fd);
 
 __API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
 int pthread_attr_setcpupercent_np(pthread_attr_t * __restrict, int, unsigned long);
+
+__API_AVAILABLE(macos(10.15), ios(13.0), tvos(13.0), watchos(6.0))
+int pthread_current_stack_contains_np(const void *, size_t);
 
 #ifdef _os_tsd_get_base
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,7 +46,7 @@ typedef struct eaptls_ui_ctx
 
 
 int eaptls_ui_load(CFBundleRef bundle, void *logdebug, void *logerror);
-void eaptls_ui_dispose();
+void eaptls_ui_dispose(void);
 
 int eaptls_ui_trusteval(CFDictionaryRef publishedProperties, 
 					void *data_in, int data_in_len,

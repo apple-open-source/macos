@@ -59,102 +59,14 @@
 #import <WebCore/InspectorOverlay.h>
 #import <WebCore/NotImplemented.h>
 #import <WebCore/PlatformScreen.h>
+#import <WebCore/Quirks.h>
+#import <WebCore/RuntimeApplicationChecks.h>
+#import <WebCore/VelocityData.h>
+#import <objc/message.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/text/TextStream.h>
 
-
-namespace WebKit {
-using namespace WebCore;
-using namespace WebKit;
-
-class HistoricalVelocityData {
-public:
-    struct VelocityData {
-        VelocityData()
-            : horizontalVelocity(0)
-            , verticalVelocity(0)
-            , scaleChangeRate(0)
-        {
-        }
-
-        VelocityData(double horizontalVelocity, double verticalVelocity, double scaleChangeRate)
-            : horizontalVelocity(horizontalVelocity)
-            , verticalVelocity(verticalVelocity)
-            , scaleChangeRate(scaleChangeRate)
-        {
-        }
-
-        double horizontalVelocity;
-        double verticalVelocity;
-        double scaleChangeRate;
-    };
-
-    HistoricalVelocityData()
-        : m_historySize(0)
-        , m_latestDataIndex(0)
-    {
-    }
-
-    VelocityData velocityForNewData(CGPoint newPosition, double scale, MonotonicTime timestamp)
-    {
-        // Due to all the source of rect update, the input is very noisy. To smooth the output, we accumulate all changes
-        // within 1 frame as a single update. No speed computation is ever done on data within the same frame.
-        const Seconds filteringThreshold(1.0 / 60);
-
-        VelocityData velocityData;
-        if (m_historySize > 0) {
-            unsigned oldestDataIndex;
-            unsigned distanceToLastHistoricalData = m_historySize - 1;
-            if (distanceToLastHistoricalData <= m_latestDataIndex)
-                oldestDataIndex = m_latestDataIndex - distanceToLastHistoricalData;
-            else
-                oldestDataIndex = m_historySize - (distanceToLastHistoricalData - m_latestDataIndex);
-
-            Seconds timeDelta = timestamp - m_history[oldestDataIndex].timestamp;
-            if (timeDelta > filteringThreshold) {
-                Data& oldestData = m_history[oldestDataIndex];
-                velocityData = VelocityData((newPosition.x - oldestData.position.x) / timeDelta.seconds(), (newPosition.y - oldestData.position.y) / timeDelta.seconds(), (scale - oldestData.scale) / timeDelta.seconds());
-            }
-        }
-
-        Seconds timeSinceLastAppend = timestamp - m_lastAppendTimestamp;
-        if (timeSinceLastAppend > filteringThreshold)
-            append(newPosition, scale, timestamp);
-        else
-            m_history[m_latestDataIndex] = { timestamp, newPosition, scale };
-        return velocityData;
-    }
-
-    void clear() { m_historySize = 0; }
-
-private:
-    void append(CGPoint newPosition, double scale, MonotonicTime timestamp)
-    {
-        m_latestDataIndex = (m_latestDataIndex + 1) % maxHistoryDepth;
-        m_history[m_latestDataIndex] = { timestamp, newPosition, scale };
-
-        unsigned size = m_historySize + 1;
-        if (size <= maxHistoryDepth)
-            m_historySize = size;
-
-        m_lastAppendTimestamp = timestamp;
-    }
-
-
-    static const unsigned maxHistoryDepth = 3;
-
-    unsigned m_historySize;
-    unsigned m_latestDataIndex;
-    MonotonicTime m_lastAppendTimestamp;
-
-    struct Data {
-        MonotonicTime timestamp;
-        CGPoint position;
-        double scale;
-    } m_history[maxHistoryDepth];
-};
-} // namespace WebKit
 
 @interface WKInspectorIndicationView : UIView
 @end
@@ -172,6 +84,41 @@ private:
 
 @end
 
+@interface WKQuirkyNSUndoManager : NSUndoManager
+@property (readonly, weak) WKContentView *contentView;
+@end
+
+@implementation WKQuirkyNSUndoManager
+- (instancetype)initWithContentView:(WKContentView *)contentView
+{
+    if (!(self = [super init]))
+        return nil;
+    _contentView = contentView;
+    return self;
+}
+
+- (BOOL)canUndo 
+{
+    return YES;
+}
+
+- (BOOL)canRedo 
+{
+    return YES;
+}
+
+- (void)undo 
+{
+    [self.contentView generateSyntheticEditingCommand:WebKit::SyntheticEditingCommandType::Undo];
+}
+
+- (void)redo 
+{
+    [self.contentView generateSyntheticEditingCommand:WebKit::SyntheticEditingCommandType::Redo];
+}
+
+@end
+
 @implementation WKContentView {
     std::unique_ptr<WebKit::PageClientImpl> _pageClient;
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
@@ -183,13 +130,34 @@ private:
     RetainPtr<WKInspectorIndicationView> _inspectorIndicationView;
     RetainPtr<WKInspectorHighlightView> _inspectorHighlightView;
 
-    WebKit::HistoricalVelocityData _historicalKinematicData;
+#if HAVE(VISIBILITY_PROPAGATION_VIEW)
+    RetainPtr<_UILayerHostView> _visibilityPropagationView;
+#endif
+
+    WebCore::HistoricalVelocityData _historicalKinematicData;
 
     RetainPtr<NSUndoManager> _undoManager;
+    RetainPtr<WKQuirkyNSUndoManager> _quirkyUndoManager;
 
     BOOL _isPrintingToPDF;
     RetainPtr<CGPDFDocumentRef> _printedDocument;
 }
+
+#if USE(UIKIT_KEYBOARD_ADDITIONS)
+
+// Evernote expects to swizzle -keyCommands on WKContentView or they crash. Remove this hack
+// as soon as reasonably possible. See <rdar://problem/51759247>.
+static NSArray *keyCommandsPlaceholderHackForEvernote(id self, SEL _cmd)
+{
+    struct objc_super super { 0 };
+    super.receiver = self;
+    super.super_class = class_getSuperclass(object_getClass(self));
+
+    using SuperKeyCommandsFunction = NSArray *(*)(struct objc_super*, SEL);
+    return reinterpret_cast<SuperKeyCommandsFunction>(&objc_msgSendSuper)(&super, @selector(keyCommands));
+}
+
+#endif
 
 - (instancetype)_commonInitializationWithProcessPool:(WebKit::WebProcessPool&)processPool configuration:(Ref<API::PageConfiguration>&&)configuration
 {
@@ -201,7 +169,7 @@ private:
     _page->setUseFixedLayout(true);
     _page->setDelegatesScrolling(true);
 
-#if ENABLE(FULLSCREEN_API) && WK_API_ENABLED
+#if ENABLE(FULLSCREEN_API)
     _page->setFullscreenClient(std::make_unique<WebKit::FullscreenClient>(_webView));
 #endif
 
@@ -226,11 +194,46 @@ private:
 
     self.layer.hitTestsAsOpaque = YES;
 
+#if PLATFORM(MACCATALYST)
+    [self _setFocusRingType:UIFocusRingTypeNone];
+#endif
+
+#if HAVE(VISIBILITY_PROPAGATION_VIEW)
+    [self _setupVisibilityPropagationView];
+#endif
+
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_applicationWillResignActive:) name:UIApplicationWillResignActiveNotification object:[UIApplication sharedApplication]];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_applicationDidBecomeActive:) name:UIApplicationDidBecomeActiveNotification object:[UIApplication sharedApplication]];
 
+#if USE(UIKIT_KEYBOARD_ADDITIONS)
+    if (WebCore::IOSApplication::isEvernote() && !linkedOnOrAfter(WebKit::SDKVersion::FirstWhereWKContentViewDoesNotOverrideKeyCommands))
+        class_addMethod(self.class, @selector(keyCommands), reinterpret_cast<IMP>(&keyCommandsPlaceholderHackForEvernote), method_getTypeEncoding(class_getInstanceMethod(self.class, @selector(keyCommands))));
+#endif
+
     return self;
 }
+
+#if HAVE(VISIBILITY_PROPAGATION_VIEW)
+- (void)_setupVisibilityPropagationView
+{
+    auto processIdentifier = _page->process().processIdentifier();
+    auto contextID = _page->contextIDForVisibilityPropagation();
+    if (!processIdentifier || !contextID)
+        return;
+
+    ASSERT(!_visibilityPropagationView);
+    // Propagate the view's visibility state to the WebContent process so that it is marked as "Foreground Running" when necessary.
+    _visibilityPropagationView = adoptNS([[_UILayerHostView alloc] initWithFrame:CGRectZero pid:processIdentifier contextID:contextID]);
+    RELEASE_LOG(Process, "Created visibility propagation view %p for WebContent process with PID %d", _visibilityPropagationView.get(), processIdentifier);
+    [self addSubview:_visibilityPropagationView.get()];
+}
+
+- (void)_removeVisibilityPropagationView
+{
+    [_visibilityPropagationView removeFromSuperview];
+    _visibilityPropagationView = nullptr;
+}
+#endif
 
 - (instancetype)initWithFrame:(CGRect)frame processPool:(WebKit::WebProcessPool&)processPool configuration:(Ref<API::PageConfiguration>&&)configuration webView:(WKWebView *)webView
 {
@@ -365,6 +368,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [_textSelectionAssistant deactivateSelection];
 }
 
+static WebCore::FloatBoxExtent floatBoxExtent(UIEdgeInsets insets)
+{
+    return WebCore::FloatBoxExtent(insets.top, insets.right, insets.bottom, insets.left);
+}
+
 - (CGRect)_computeUnobscuredContentRectRespectingInputViewBounds:(CGRect)unobscuredContentRect inputViewBounds:(CGRect)inputViewBounds
 {
     // The input view bounds are in window coordinates, but the unobscured rect is in content coordinates. Account for this by converting input view bounds to content coordinates.
@@ -376,6 +384,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (void)didUpdateVisibleRect:(CGRect)visibleContentRect
     unobscuredRect:(CGRect)unobscuredContentRect
+    contentInsets:(UIEdgeInsets)contentInsets
     unobscuredRectInScrollViewCoordinates:(CGRect)unobscuredRectInScrollViewCoordinates
     obscuredInsets:(UIEdgeInsets)obscuredInsets
     unobscuredSafeAreaInsets:(UIEdgeInsets)unobscuredSafeAreaInsets
@@ -390,35 +399,35 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return;
 
     MonotonicTime timestamp = MonotonicTime::now();
-    WebKit::HistoricalVelocityData::VelocityData velocityData;
+    WebCore::VelocityData velocityData;
     if (!isStableState)
         velocityData = _historicalKinematicData.velocityForNewData(visibleContentRect.origin, zoomScale, timestamp);
-    else
+    else {
         _historicalKinematicData.clear();
+        velocityData = { 0, 0, 0, timestamp };
+    }
 
     WebKit::RemoteScrollingCoordinatorProxy* scrollingCoordinator = _page->scrollingCoordinatorProxy();
 
     CGRect unobscuredContentRectRespectingInputViewBounds = [self _computeUnobscuredContentRectRespectingInputViewBounds:unobscuredContentRect inputViewBounds:inputViewBounds];
-    WebCore::FloatRect fixedPositionRectForLayout = _page->computeCustomFixedPositionRect(unobscuredContentRect, unobscuredContentRectRespectingInputViewBounds, _page->customFixedPositionRect(), zoomScale, WebCore::FrameView::LayoutViewportConstraint::ConstrainedToDocumentRect, scrollingCoordinator->visualViewportEnabled());
+    WebCore::FloatRect fixedPositionRectForLayout = _page->computeCustomFixedPositionRect(unobscuredContentRect, unobscuredContentRectRespectingInputViewBounds, _page->customFixedPositionRect(), zoomScale, WebCore::FrameView::LayoutViewportConstraint::ConstrainedToDocumentRect);
 
     WebKit::VisibleContentRectUpdateInfo visibleContentRectUpdateInfo(
         visibleContentRect,
         unobscuredContentRect,
+        floatBoxExtent(contentInsets),
         unobscuredRectInScrollViewCoordinates,
         unobscuredContentRectRespectingInputViewBounds,
         fixedPositionRectForLayout,
-        WebCore::FloatBoxExtent(obscuredInsets.top, obscuredInsets.right, obscuredInsets.bottom, obscuredInsets.left),
-        WebCore::FloatBoxExtent(unobscuredSafeAreaInsets.top, unobscuredSafeAreaInsets.right, unobscuredSafeAreaInsets.bottom, unobscuredSafeAreaInsets.left),
+        floatBoxExtent(obscuredInsets),
+        floatBoxExtent(unobscuredSafeAreaInsets),
         zoomScale,
         isStableState,
         _sizeChangedSinceLastVisibleContentRectUpdate,
         isChangingObscuredInsetsInteractively,
         _webView._allowsViewportShrinkToFit,
         enclosedInScrollableAncestorView,
-        timestamp,
-        velocityData.horizontalVelocity,
-        velocityData.verticalVelocity,
-        velocityData.scaleChangeRate,
+        velocityData,
         downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*drawingArea).lastCommittedLayerTreeTransactionID());
 
     LOG_WITH_STREAM(VisibleRects, stream << "-[WKContentView didUpdateVisibleRect]" << visibleContentRectUpdateInfo.dump());
@@ -428,12 +437,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     _sizeChangedSinceLastVisibleContentRectUpdate = NO;
 
-    WebCore::FloatRect fixedPositionRect = _page->computeCustomFixedPositionRect(_page->unobscuredContentRect(), _page->unobscuredContentRectRespectingInputViewBounds(), _page->customFixedPositionRect(), zoomScale, WebCore::FrameView::LayoutViewportConstraint::Unconstrained, scrollingCoordinator->visualViewportEnabled());
-    scrollingCoordinator->viewportChangedViaDelegatedScrolling(scrollingCoordinator->rootScrollingNodeID(), fixedPositionRect, zoomScale);
+    WebCore::FloatRect layoutViewport = _page->computeCustomFixedPositionRect(_page->unobscuredContentRect(), _page->unobscuredContentRectRespectingInputViewBounds(), _page->customFixedPositionRect(), zoomScale, WebCore::FrameView::LayoutViewportConstraint::Unconstrained);
+    scrollingCoordinator->viewportChangedViaDelegatedScrolling(_page->unobscuredContentRect().location(), layoutViewport, zoomScale);
 
     drawingArea->updateDebugIndicator();
     
-    [self updateFixedClippingView:fixedPositionRect];
+    [self updateFixedClippingView:layoutViewport];
 
     if (wasStableState && !isStableState)
         [self _didExitStableState];
@@ -461,10 +470,23 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (NSUndoManager *)undoManager
 {
+    if (self.focusedElementInformation.shouldSynthesizeKeyEventsForEditing && self.hasHiddenContentEditable) {
+        if (!_quirkyUndoManager)
+            _quirkyUndoManager = adoptNS([[WKQuirkyNSUndoManager alloc] initWithContentView:self]);
+        return _quirkyUndoManager.get();
+    }
     if (!_undoManager)
         _undoManager = adoptNS([[NSUndoManager alloc] init]);
-
     return _undoManager.get();
+}
+
+- (UIInterfaceOrientation)interfaceOrientation
+{
+#if HAVE(UISCENE)
+    return self.window.windowScene.interfaceOrientation;
+#else
+    return UIApp.interfaceOrientation;
+#endif
 }
 
 #pragma mark Internal
@@ -531,6 +553,10 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 
     [self setShowingInspectorIndication:NO];
     [self _hideInspectorHighlight];
+
+#if HAVE(VISIBILITY_PROPAGATION_VIEW)
+    [self _removeVisibilityPropagationView];
+#endif
 }
 
 - (void)_processWillSwap
@@ -543,14 +569,17 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 {
     [self _accessibilityRegisterUIProcessTokens];
     [self setupInteraction];
+#if HAVE(VISIBILITY_PROPAGATION_VIEW)
+    [self _setupVisibilityPropagationView];
+#endif
 }
 
-- (void)_didCommitLoadForMainFrame
+#if HAVE(VISIBILITY_PROPAGATION_VIEW)
+- (void)_processDidCreateContextForVisibilityPropagation
 {
-    [self _elementDidBlur];
-    [self _cancelLongPressGestureRecognizer];
-    [_webView _didCommitLoadForMainFrame];
+    [self _setupVisibilityPropagationView];
 }
+#endif
 
 - (void)_didCommitLayerTree:(const WebKit::RemoteLayerTreeTransaction&)layerTreeTransaction
 {
@@ -634,6 +663,21 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
     return [_webView _zoomToInitialScaleWithOrigin:origin animated:YES];
 }
 
+- (double)_initialScaleFactor
+{
+    return [_webView _initialScaleFactor];
+}
+
+- (double)_contentZoomScale
+{
+    return [_webView _contentZoomScale];
+}
+
+- (double)_targetContentZoomScaleForRect:(const WebCore::FloatRect&)targetRect currentScale:(double)currentScale fitEntireRect:(BOOL)fitEntireRect minimumScale:(double)minimumScale maximumScale:(double)maximumScale
+{
+    return [_webView _targetContentZoomScaleForRect:targetRect currentScale:currentScale fitEntireRect:fitEntireRect minimumScale:minimumScale maximumScale:maximumScale];
+}
+
 - (void)_applicationWillResignActive:(NSNotification*)notification
 {
     _page->applicationWillResignActive();
@@ -648,7 +692,7 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 
 #pragma mark Printing
 
-#if !PLATFORM(IOSMAC)
+#if !PLATFORM(MACCATALYST)
 
 @interface WKContentView (_WKWebViewPrintFormatter) <_WKWebViewPrintProvider>
 @end
@@ -716,6 +760,6 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 
 @end
 
-#endif // !PLATFORM(IOSMAC)
+#endif // !PLATFORM(MACCATALYST)
 
 #endif // PLATFORM(IOS_FAMILY)

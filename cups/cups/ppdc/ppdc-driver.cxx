@@ -1,14 +1,11 @@
 //
 // PPD file compiler definitions for the CUPS PPD Compiler.
 //
-// Copyright 2007-2018 by Apple Inc.
-// Copyright 2002-2006 by Easy Software Products.
+// Copyright © 2007-2019 by Apple Inc.
+// Copyright © 2002-2006 by Easy Software Products.
 //
-// These coded instructions, statements, and computer programs are the
-// property of Apple Inc. and are protected by Federal copyright
-// law.  Distribution and use rights are outlined in the file "LICENSE.txt"
-// which should have been included with this file.  If this file is
-// missing or damaged, see the license at "http://www.cups.org/".
+// Licensed under Apache License v2.0.  See the file "LICENSE" for more
+// information.
 //
 
 //
@@ -709,6 +706,7 @@ ppdcDriver::write_ppd_file(
           _cupsLangPrintf(stderr,
 	                  _("ppdc: No message catalog provided for locale "
 			    "%s."), locale->value);
+          delete locatalog;
           continue;
 	}
 

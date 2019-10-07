@@ -10,12 +10,12 @@
 #define pmtool_h
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFXPCBridge.h>
 #include <IOKit/IOHibernatePrivate.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <IOKit/pwr_mgt/IOPMPrivate.h>
 #include <IOKit/pwr_mgt/powermanagement_mig.h>
-#include <IOKit/platform/IOPlatformSupportPrivate.h>
 #include <IOKit/IOReturn.h>
 #include <IOKit/ps/IOPowerSources.h>
 #include <IOKit/ps/IOPowerSourcesPrivate.h>
@@ -28,6 +28,12 @@
 #include <notify.h>
 #include <sysexits.h>
 #include <xpc/xpc.h>
+#include <IOKit/ps/IOPSKeysPrivate.h>
+#include <IOKit/ps/IOPSKeys.h>
+#include <SystemConfiguration/SCValidation.h>
+#if TARGET_OS_OSX
+#include <IOKit/platform/IOPlatformSupportPrivate.h>
+#endif
 
 #define PMTestLog(x...)  do {print_pretty_date(false); printf(x);} while(0);
 #define PMTestPass  printf
@@ -65,20 +71,22 @@ typedef struct DTAssertionOption DTAssertionOption;
 static void usage(void);
 static struct option *long_opts_from_pmtool_opts(int *);
 static bool parse_it_all(int argc, char *argv[]);
-static void print_the_plan(void);
 static void print_pretty_date(bool newline);
-static void print_everything_dark(void);
 
 static void bringTheHeat(void);
 static void executeTimedActions(const char *why);
 static void execute_Assertion(CFStringRef type, long timeout);
 static void execute_APICall(const char *callname);
 static void exec_exec(char* run_command);
-static void sleepHandler(int sleepType);
-static void wakeHandler(void);
 static DTAssertionOption *createAssertionOptions(int *);
 
 
+#if TARGET_OS_OSX
+static void print_everything_dark(void);
+static void print_the_plan(void);
+static void sleepHandler(int sleepType);
+static void accelerate_sleep_intervals(void);
+static void wakeHandler(void);
 static void createPMConnectionListener(void);
 static void myPMConnectionHandler(
                                   void *param, IOPMConnection,
@@ -90,6 +98,7 @@ static CFDictionaryRef HandleSleepServiceCapabilitiesChanged(
                                                              IOPMSystemPowerStateCapabilities cap);
 static CFDictionaryRef HandleMaintenanceCapabilitiesChanged(
                                                             IOPMSystemPowerStateCapabilities cap);
+static void sendInactivityWindowCommand(long start, long duration, long delay);
 
 static void _CFDictionarySetLong(
                                  CFMutableDictionaryRef d,
@@ -99,11 +108,13 @@ static void _CFDictionarySetDate(
                                  CFMutableDictionaryRef d,
                                  CFStringRef k,
                                  CFAbsoluteTime atime);
+#endif
 
 static void cacheArgvString(int argc, char *argv[]);
 
 static void sendSmartBatteryCommand(uint32_t which, uint32_t level);
-static void sendInactivityWindowCommand(long start, long duration, long delay);
+static void sendCustomBatteryProperties(char *path);
+static void sendBHUpdateTimeDelta(long timeDelta);
 
 /*************************************************************************/
 /*
@@ -150,6 +161,9 @@ typedef enum {
     kActionInactivityWindowIndex,
     kOptionInactivityWindowDurationIndex,
     kOptionStandbyAccelerateDelayIndex,
+    kSetCustomBatteryPropertiesIndex,
+    kResetCustomBatteryPropertiesIndex,
+    kSetBHUpdateDeltaIndex,
     kActionsCount   // kActionsCount must always be the last item in this list
 } pmtoolActions;
 
@@ -225,6 +239,9 @@ enum {
 #define kActionSetBatt                                  "setbatt"
 #define kActionResetBatt                                "resetbatt"
 #define kActionSetUserInactivityStart                   "inactivitystart"
+#define kActionSetBattProps                             "setbattprops"
+#define kActionResetBattProps                           "resetbattprops"
+#define kActionSetBHUpdateDelta                         "bhupdatedelta"
 
 #define kArgIOPMConnection                              "iopmconnection"
 #define kArgIORegisterForSystemPower                    "ioregisterforsystempower"

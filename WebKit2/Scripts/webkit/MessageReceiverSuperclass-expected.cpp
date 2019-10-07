@@ -49,6 +49,7 @@ void TestAsyncMessage::callReply(IPC::Decoder& decoder, CompletionHandler<void(u
     decoder >> result;
     if (!result) {
         ASSERT_NOT_REACHED();
+        cancelReply(WTFMove(completionHandler));
         return;
     }
     completionHandler(WTFMove(*result));
@@ -56,7 +57,7 @@ void TestAsyncMessage::callReply(IPC::Decoder& decoder, CompletionHandler<void(u
 
 void TestAsyncMessage::cancelReply(CompletionHandler<void(uint64_t&&)>&& completionHandler)
 {
-    completionHandler({ });
+    completionHandler(IPC::AsyncReplyError<uint64_t>::create());
 }
 
 void TestAsyncMessage::send(std::unique_ptr<IPC::Encoder>&& encoder, IPC::Connection& connection, uint64_t result)
@@ -94,12 +95,14 @@ void TestAsyncMessageWithMultipleArguments::callReply(IPC::Decoder& decoder, Com
     decoder >> flag;
     if (!flag) {
         ASSERT_NOT_REACHED();
+        cancelReply(WTFMove(completionHandler));
         return;
     }
     Optional<uint64_t> value;
     decoder >> value;
     if (!value) {
         ASSERT_NOT_REACHED();
+        cancelReply(WTFMove(completionHandler));
         return;
     }
     completionHandler(WTFMove(*flag), WTFMove(*value));
@@ -107,7 +110,7 @@ void TestAsyncMessageWithMultipleArguments::callReply(IPC::Decoder& decoder, Com
 
 void TestAsyncMessageWithMultipleArguments::cancelReply(CompletionHandler<void(bool&&, uint64_t&&)>&& completionHandler)
 {
-    completionHandler({ }, { });
+    completionHandler(IPC::AsyncReplyError<bool>::create(), IPC::AsyncReplyError<uint64_t>::create());
 }
 
 void TestAsyncMessageWithMultipleArguments::send(std::unique_ptr<IPC::Encoder>&& encoder, IPC::Connection& connection, bool flag, uint64_t value)
@@ -119,7 +122,13 @@ void TestAsyncMessageWithMultipleArguments::send(std::unique_ptr<IPC::Encoder>&&
 
 #endif
 
-void TestDelayedMessage::send(std::unique_ptr<IPC::Encoder>&& encoder, IPC::Connection& connection, const Optional<WebKit::TestClassName>& optionalReply)
+void TestSyncMessage::send(std::unique_ptr<IPC::Encoder>&& encoder, IPC::Connection& connection, uint8_t reply)
+{
+    *encoder << reply;
+    connection.sendSyncReply(WTFMove(encoder));
+}
+
+void TestSynchronousMessage::send(std::unique_ptr<IPC::Encoder>&& encoder, IPC::Connection& connection, const Optional<WebKit::TestClassName>& optionalReply)
 {
     *encoder << optionalReply;
     connection.sendSyncReply(WTFMove(encoder));
@@ -161,11 +170,11 @@ void WebPage::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decod
 void WebPage::didReceiveSyncMessage(IPC::Connection& connection, IPC::Decoder& decoder, std::unique_ptr<IPC::Encoder>& replyEncoder)
 {
     if (decoder.messageName() == Messages::WebPage::TestSyncMessage::name()) {
-        IPC::handleMessage<Messages::WebPage::TestSyncMessage>(decoder, *replyEncoder, this, &WebPage::testSyncMessage);
+        IPC::handleMessageSynchronous<Messages::WebPage::TestSyncMessage>(connection, decoder, replyEncoder, this, &WebPage::testSyncMessage);
         return;
     }
-    if (decoder.messageName() == Messages::WebPage::TestDelayedMessage::name()) {
-        IPC::handleMessageDelayed<Messages::WebPage::TestDelayedMessage>(connection, decoder, replyEncoder, this, &WebPage::testDelayedMessage);
+    if (decoder.messageName() == Messages::WebPage::TestSynchronousMessage::name()) {
+        IPC::handleMessageSynchronous<Messages::WebPage::TestSynchronousMessage>(connection, decoder, replyEncoder, this, &WebPage::testSynchronousMessage);
         return;
     }
     UNUSED_PARAM(connection);

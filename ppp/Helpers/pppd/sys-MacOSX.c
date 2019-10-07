@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2014, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2003, 2014, 2016, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -161,7 +161,7 @@ static int set_kdebugflag(int level);
 static int make_ppp_unit(void);
 /* Prototypes for procedures local to this file. */
 static int get_ether_addr __P((u_int32_t, struct sockaddr_dl *));
-static int connect_pfppp();
+static int connect_pfppp(void);
 //static void sys_pidchange(void *arg, int pid);
 static void sys_phasechange(void *arg, uintptr_t phase);
 static void sys_exitnotify(void *arg, uintptr_t exitcode);
@@ -184,8 +184,8 @@ int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m);
 int route_interface(int cmd, struct in_addr host, struct in_addr mask, char iftype, char *ifname, int is_host);
 int route_gateway(int cmd, struct in_addr dest, struct in_addr mask, struct in_addr gateway, int use_gway_flag);
 static void ppp_ip_probe_timeout (void *arg);
-static void republish_dict();
-static int commit_publish_dict();
+static void republish_dict(SCDynamicStoreRef store, void *info);
+static int commit_publish_dict(void);
 
 /* -----------------------------------------------------------------------------
  Globals
@@ -629,16 +629,11 @@ void CopyServerData()
     servers_list = SCPreferencesGetValue(prefs, kRASServers);
     if (servers_list == NULL) {
         fatal("No servers found in servers plist\n");
-        CFRelease(prefs);
-		return; 
     }
 
     systemOptions = CFDictionaryGetValue(servers_list, serveridRef);
     if (!systemOptions || CFGetTypeID(systemOptions) != CFDictionaryGetTypeID()) {
         fatal("Server ID '%s' not found in servers plist\n", serverid);
-		systemOptions = 0;
-        CFRelease(prefs);
-		return; 
     }
 	
 	CFRetain(systemOptions);
@@ -1030,7 +1025,7 @@ void sys_notify(u_int32_t message, uintptr_t code1, uintptr_t code2)
     if (statusfd == -1)
         return;
         
-    servlen = strlen(serviceid);
+    servlen = (int)strlen(serviceid);
     totlen = sizeof(struct ppp_msg_hdr) + servlen + 8;
 
     msg = malloc(totlen);
@@ -1113,7 +1108,7 @@ the steps detailed in the README.MacOSX file.\n";
     // if that works, the kernel extension is loaded.
     if ((s = socket(PF_PPP, SOCK_RAW, PPPPROTO_CTL)) < 0) {
     
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
         if (!noload && !load_kext(PPP_NKE_PATH, 0))
 #else
         if (!noload && !load_kext(PPP_NKE_ID, 1))
@@ -1477,7 +1472,7 @@ void set_up_tty(int fd, int local)
 	cfsetospeed(&tios, inspeed);
 	cfsetispeed(&tios, inspeed);
     } else {
-	inspeed = cfgetospeed(&tios);
+	inspeed = (int)cfgetospeed(&tios);
 	/*
 	 * We can't proceed if the serial port speed is 0,
 	 * since that implies that the serial port is disabled.
@@ -1705,7 +1700,7 @@ int read_packet(u_char *buf)
 
     // read first the socket attached to the link
     if (ppp_fd >= 0) {
-        if ((len = read(ppp_fd, buf, PPP_MRU + PPP_HDRLEN - 2)) < 0) {
+        if ((len = (int)read(ppp_fd, buf, PPP_MRU + PPP_HDRLEN - 2)) < 0) {
             if (errno != EWOULDBLOCK && errno != EINTR)
                 error("read from socket link: %m");
         }
@@ -1713,7 +1708,7 @@ int read_packet(u_char *buf)
     
     // then, if nothing, link the socket attached to the bundle
     if (len < 0 && ifunit >= 0) {
-        if ((len = read(ppp_sockfd, buf, PPP_MRU + PPP_HDRLEN - 2)) < 0) {
+        if ((len = (int)read(ppp_sockfd, buf, PPP_MRU + PPP_HDRLEN - 2)) < 0) {
             if (errno != EWOULDBLOCK && errno != EINTR)
                 error("read from socket bundle: %m");
         }
@@ -2653,13 +2648,11 @@ void ppp_create_ipv6_dummy_primary(Boolean uninstall)
                 }
                 
                 CFDictionarySetValue(ipv6_dict, kIsNULL, kCFBooleanTrue);
-                
-                if (ifname) {
-                    if ((str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), ifname))) {
-                        CFDictionarySetValue(ipv6_dict, kSCPropInterfaceName, str);
-                        CFRelease(str);
-                    }
-                }
+
+				if ((str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), ifname))) {
+					CFDictionarySetValue(ipv6_dict, kSCPropInterfaceName, str);
+					CFRelease(str);
+				}
                 
                 update_publish_dict(key, ipv6_dict);
                 CFRelease(ipv6_dict);
@@ -3075,7 +3068,7 @@ set wins information
 ----------------------------------------------------------------------------- */
 int sifwins(u_int32_t wins1, u_int32_t wins2)
 {    
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     CFStringRef		str1 = 0, str2 = 0;
     int				result = 0, clean = 1;
 
@@ -3348,7 +3341,7 @@ Use the hostid as part of the random number seed
 ----------------------------------------------------------------------------- */
 int get_host_seed()
 {
-    return gethostid();
+    return (int)gethostid();
 }
 
 
@@ -3617,7 +3610,7 @@ int publish_dictstrentry(CFStringRef dict, CFStringRef entry, char *str, int enc
 static void
 republish_dict(SCDynamicStoreRef store __unused, void *info  __unused)
 {
-	int count;
+	CFIndex count;
 	
     dbglog("DynamicStore Server has reconnected, republish keys");
 	if (publish_dict == NULL)
@@ -3728,7 +3721,7 @@ our new phase hook
 void sys_phasechange(void *arg, uintptr_t p)
 {
 
-    publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPStatus, p);
+    publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPStatus, (int)p);
 
     switch (p) {
     
@@ -3840,7 +3833,7 @@ void sys_exitnotify(void *arg, uintptr_t exitcode)
     unpublish_dict(kSCEntNetPPP);
     unpublish_dict(kSCEntNetDNS);
     unpublish_dict(kSCEntNetProxies);
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     unpublish_dict(kSCEntNetSMB);
 #endif
     unpublish_dict(kSCEntNetInterface);
@@ -3864,7 +3857,7 @@ add/remove a route via an interface
 int
 route_interface(int cmd, struct in_addr host, struct in_addr addr_mask, char iftype, char *ifname, int is_host)
 {
-    int 			len, iflen;
+	int 			len, iflen;
     int 			rtm_seq = 0;
     struct {
 	struct rt_msghdr	hdr;
@@ -3897,7 +3890,7 @@ route_interface(int cmd, struct in_addr host, struct in_addr addr_mask, char ift
     rtmsg.dst.sin_len = sizeof(rtmsg.dst);
     rtmsg.dst.sin_family = AF_INET;
     rtmsg.dst.sin_addr = host;
-    iflen = MIN(strlen(ifname), sizeof(rtmsg.iface.sdl_data));
+    iflen = (int)(MIN(strlen(ifname), sizeof(rtmsg.iface.sdl_data)));
     rtmsg.iface.sdl_len = sizeof(rtmsg.iface);
     rtmsg.iface.sdl_family = AF_LINK;
     rtmsg.iface.sdl_type = iftype;
@@ -4063,7 +4056,7 @@ ppp_scoped_ping (int                 s,
 	icp->icmp_seq = htons(ntransmit);
 	icp->icmp_id = getpid() & 0xFFFF;
 	icp->icmp_cksum = in_cksum((u_short *)icp, ICMP_MINLEN);
-	if ((i = sendto(s, (char *)packet, ICMP_MINLEN, 0, (struct sockaddr *)dst, sizeof(*dst))) != ICMP_MINLEN) {
+	if ((i = (int)sendto(s, (char *)packet, ICMP_MINLEN, 0, (struct sockaddr *)dst, sizeof(*dst))) != ICMP_MINLEN) {
 		close(s);
 		return -1;
 	}
@@ -4342,7 +4335,7 @@ ppp_process_auxiliary_probe_input (void)
 	}
 }
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 static void
 ppp_clear_one_nat_port_mapping (mdns_nat_mapping_t *mapping)
 {
@@ -4552,7 +4545,7 @@ ppp_unblock_public_nat_port_mapping_timer (void)
 	session->nat_mapping_timer_blocked = 0;
 }
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 
 static void ppp_clear_nat_port_mapping(void);
 
@@ -4847,7 +4840,7 @@ l2tp_ipsec_set_nat_port_mapping (void)
 void
 l2tp_set_nat_port_mapping (void)
 {
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 	if (!session || !session->valid) {
 		return;
 	}
@@ -4877,21 +4870,21 @@ l2tp_set_nat_port_mapping (void)
 		}
 #endif
 	}
-#endif // TARGET_OS_EMBEDDED
+#endif // TARGET_OS_OSX
 }
 
 void
 l2tp_clear_nat_port_mapping (void)
 {
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 	ppp_clear_nat_port_mapping();
-#endif // TARGET_OS_EMBEDDED
+#endif // TARGET_OS_OSX
 }
 
 void
 pptp_set_nat_port_mapping (void)
 {
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 	if (!session || !session->valid) {
 		return;
 	}
@@ -4916,21 +4909,21 @@ pptp_set_nat_port_mapping (void)
 		session->nat_mapping_cnt++;
 	}
 #endif
-#endif // TARGET_OS_EMBEDDED
+#endif // TARGET_OS_OSX
 }
 
 void
 pptp_clear_nat_port_mapping (void)
 {
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 	ppp_clear_nat_port_mapping();
-#endif // TARGET_OS_EMBEDDED
+#endif // TARGET_OS_OSX
 }
 
 void
 ppp_process_nat_port_mapping_events (void)
 {
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 	int i = 0;
 	DNSServiceErrorType ret;
 
@@ -4946,7 +4939,7 @@ ppp_process_nat_port_mapping_events (void)
 			// the connection may have been disconnected... hence session may be invalidated after DNSServiceProcessResult.
 		}
 	}
-#endif // TARGET_OS_EMBEDDED
+#endif // TARGET_OS_OSX
 }
 
 int

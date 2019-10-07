@@ -54,13 +54,13 @@ echo "\n*** Testing with various array inputs ***\n";
 
 $counter = 1;
 foreach( $mixed_array as $sub_array )
-{ 
+{
  echo "\n-- Input Array for Iteration $counter is --\n";
  print_r( $sub_array );
  echo "\nOutput after push is :\n";
  var_dump( array_push($sub_array, 22, "abc") );
  $counter++;
-} 
+}
 
 /* Checking for return value and the new array formed from push operation */
 echo "\n*** Checking for return value and the new array formed from push operation ***\n";
@@ -72,10 +72,10 @@ echo"\nDone";
 --EXPECTF--
 *** Testing Error Conditions ***
 
-Warning: array_push() expects at least 2 parameters, 0 given in %s on line %d
+Warning: array_push() expects at least 1 parameter, 0 given in %s on line %d
 NULL
 
-Warning: array_push() expects parameter 1 to be array, integer given in %s on line %d
+Warning: array_push() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 Warning: array_push() expects parameter 1 to be array, string given in %s on line %d

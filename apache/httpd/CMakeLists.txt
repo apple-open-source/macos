@@ -64,6 +64,18 @@ ELSE()
   SET(default_brotli_libraries)
 ENDIF()
 
+IF(EXISTS "${CMAKE_INSTALL_PREFIX}/lib/curl.lib")
+  SET(default_curl_libraries "${CMAKE_INSTALL_PREFIX}/lib/curl.lib")
+ELSE()
+  SET(default_curl_libraries)
+ENDIF()
+
+IF(EXISTS "${CMAKE_INSTALL_PREFIX}/lib/jansson.lib")
+  SET(default_jansson_libraries "${CMAKE_INSTALL_PREFIX}/lib/jansson.lib")
+ELSE()
+  SET(default_jansson_libraries)
+ENDIF()
+
 SET(APR_INCLUDE_DIR       "${CMAKE_INSTALL_PREFIX}/include" CACHE STRING "Directory with APR[-Util] include files")
 SET(APR_LIBRARIES         ${default_apr_libraries}       CACHE STRING "APR libraries to link with")
 SET(NGHTTP2_INCLUDE_DIR   "${CMAKE_INSTALL_PREFIX}/include" CACHE STRING "Directory with NGHTTP2 include files within nghttp2 subdirectory")
@@ -74,6 +86,8 @@ SET(LIBXML2_ICONV_INCLUDE_DIR     ""                     CACHE STRING "Directory
 SET(LIBXML2_ICONV_LIBRARIES       ""                     CACHE STRING "iconv libraries to link with for libxml2")
 SET(BROTLI_INCLUDE_DIR    "${CMAKE_INSTALL_PREFIX}/include" CACHE STRING "Directory with include files for Brotli")
 SET(BROTLI_LIBRARIES      ${default_brotli_libraries}    CACHE STRING "Brotli libraries to link with")
+SET(CURL_LIBRARIES        "${default_curl_libraries}"    CACHE STRING "Curl libraries to link with")
+SET(JANSSON_LIBRARIES     "${default_jansson_libraries}" CACHE STRING "Jansson libraries to link with")
 # end support library configuration
 
 # Misc. options
@@ -199,6 +213,19 @@ ELSE()
   SET(BROTLI_FOUND FALSE)
 ENDIF()
 
+# See if we have curl
+SET(CURL_FOUND TRUE)
+IF(EXISTS "${CURL_INCLUDE_DIR}/curl/curl.h")
+  FOREACH(onelib ${CURL_LIBRARIES})
+    IF(NOT EXISTS ${onelib})
+      SET(CURL_FOUND FALSE)
+    ENDIF()
+  ENDFOREACH()
+ELSE()
+  SET(CURL_FOUND FALSE)
+ENDIF()
+
+
 MESSAGE(STATUS "")
 MESSAGE(STATUS "Summary of feature detection:")
 MESSAGE(STATUS "")
@@ -208,6 +235,8 @@ MESSAGE(STATUS "NGHTTP2_FOUND ............ : ${NGHTTP2_FOUND}")
 MESSAGE(STATUS "OPENSSL_FOUND ............ : ${OPENSSL_FOUND}")
 MESSAGE(STATUS "ZLIB_FOUND ............... : ${ZLIB_FOUND}")
 MESSAGE(STATUS "BROTLI_FOUND ............. : ${BROTLI_FOUND}")
+MESSAGE(STATUS "CURL_FOUND ............... : ${CURL_FOUND}")
+MESSAGE(STATUS "JANSSON_FOUND ............ : ${JANSSON_FOUND}")
 MESSAGE(STATUS "APR_HAS_LDAP ............. : ${APR_HAS_LDAP}")
 MESSAGE(STATUS "APR_HAS_XLATE ............ : ${APR_HAS_XLATE}")
 MESSAGE(STATUS "APU_HAVE_CRYPTO .......... : ${APU_HAVE_CRYPTO}")
@@ -264,6 +293,7 @@ SET(MODULE_LIST
   "modules/cache/mod_socache_dc+O+distcache small object cache provider"
   "modules/cache/mod_socache_memcache+I+memcache small object cache provider"
   "modules/cache/mod_socache_shmcb+I+ shmcb small object cache provider"
+  "modules/cache/mod_socache_redis+I+redis small object cache provider"
   "modules/cluster/mod_heartbeat+I+Generates Heartbeats"
   "modules/cluster/mod_heartmonitor+I+Collects Heartbeats"
   "modules/core/mod_macro+I+Define and use macros in configuration files"
@@ -308,6 +338,7 @@ SET(MODULE_LIST
   "modules/loggers/mod_log_forensic+I+forensic logging"
   "modules/loggers/mod_logio+I+input and output logging"
   "modules/lua/mod_lua+i+Apache Lua Framework"
+  "modules/md/mod_md+i+Apache Managed Domains (Certificates)"
   "modules/mappers/mod_actions+I+Action triggering on requests"
   "modules/mappers/mod_alias+A+mapping of requests to different filesystem parts"
   "modules/mappers/mod_dir+A+directory request handling"
@@ -407,6 +438,7 @@ SET(mod_firehose_requires            SOMEONE_TO_MAKE_IT_COMPILE_ON_WINDOWS)
 SET(mod_heartbeat_extra_libs         mod_watchdog)
 SET(mod_http2_requires               NGHTTP2_FOUND)
 SET(mod_http2_extra_defines          ssize_t=long)
+SET(mod_http2_extra_includes         ${NGHTTP2_INCLUDE_DIR})
 SET(mod_http2_extra_libs             ${NGHTTP2_LIBRARIES})
 SET(mod_http2_extra_sources
   modules/http2/h2_alt_svc.c
@@ -418,7 +450,7 @@ SET(mod_http2_extra_sources
   modules/http2/h2_mplx.c            modules/http2/h2_push.c
   modules/http2/h2_request.c         modules/http2/h2_headers.c
   modules/http2/h2_session.c         modules/http2/h2_stream.c 
-  modules/http2/h2_switch.c          modules/http2/h2_ngn_shed.c 
+  modules/http2/h2_switch.c
   modules/http2/h2_task.c            modules/http2/h2_util.c
   modules/http2/h2_workers.c
 )
@@ -438,6 +470,24 @@ SET(mod_lua_extra_sources
   modules/lua/lua_vmprep.c           modules/lua/lua_dbd.c
 )
 SET(mod_lua_requires                 LUA51_FOUND)
+SET(mod_md_requires                  OPENSSL_FOUND CURL_FOUND JANSSON_FOUND HAVE_OPENSSL_102)
+SET(mod_md_extra_includes            ${OPENSSL_INCLUDE_DIR} ${CURL_INCLUDE_DIR} ${JANSSON_INCLUDE_DIR})
+SET(mod_md_extra_libs                ${OPENSSL_LIBRARIES} ${CURL_LIBRARIES} ${JANSSON_LIBRARIES} mod_watchdog)
+SET(mod_md_extra_sources
+  modules/md/md_acme.c               modules/md/md_acme_acct.c
+  modules/md/md_acme_authz.c         modules/md/md_acme_drive.c
+  modules/md/md_acmev1_drive.c       modules/md/md_acmev2_drive.c
+  modules/md/md_acme_order.c         modules/md/md_core.c
+  modules/md/md_curl.c               modules/md/md_crypt.c
+  modules/md/md_http.c               modules/md/md_json.c
+  modules/md/md_jws.c                modules/md/md_log.c
+  modules/md/md_result.c             modules/md/md_reg.c
+  modules/md/md_status.c             modules/md/md_store.c
+  modules/md/md_store_fs.c           modules/md/md_time.c
+  modules/md/md_util.c               
+  modules/md/mod_md_config.c         modules/md/mod_md_drive.c
+  modules/md/mod_md_os.c             modules/md/mod_md_status.c
+)
 SET(mod_optional_hook_export_extra_defines AP_DECLARE_EXPORT) # bogus reuse of core API prefix
 SET(mod_proxy_extra_defines          PROXY_DECLARE_EXPORT)
 SET(mod_proxy_extra_sources          modules/proxy/proxy_util.c)
@@ -955,6 +1005,8 @@ MESSAGE(STATUS "  libxml2 iconv prereq include dir. : ${LIBXML2_ICONV_INCLUDE_DI
 MESSAGE(STATUS "  libxml2 iconv prereq libraries .. : ${LIBXML2_ICONV_LIBRARIES}")
 MESSAGE(STATUS "  Brotli include directory......... : ${BROTLI_INCLUDE_DIR}")
 MESSAGE(STATUS "  Brotli libraries ................ : ${BROTLI_LIBRARIES}")
+MESSAGE(STATUS "  Curl include directory........... : ${CURL_INCLUDE_DIR}")
+MESSAGE(STATUS "  Jansson libraries ............... : ${JANSSON_LIBRARIES}")
 MESSAGE(STATUS "  Extra include directories ....... : ${EXTRA_INCLUDES}")
 MESSAGE(STATUS "  Extra compile flags ............. : ${EXTRA_COMPILE_FLAGS}")
 MESSAGE(STATUS "  Extra libraries ................. : ${EXTRA_LIBS}")

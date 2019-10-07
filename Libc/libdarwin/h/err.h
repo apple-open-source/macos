@@ -75,7 +75,7 @@ __BEGIN_DECLS;
  * error code using {@link darwin_sysexit} and pass it to exit(3).
  */
 DARWIN_API_AVAILABLE_20170407
-OS_EXPORT OS_NORETURN OS_NONNULL2 OS_FORMAT_PRINTF(2, 3)
+OS_EXPORT OS_NORETURN OS_COLD OS_NONNULL2 OS_FORMAT_PRINTF(2, 3)
 void
 err_np(errno_t code, const char *fmt, ...);
 
@@ -96,7 +96,7 @@ err_np(errno_t code, const char *fmt, ...);
  * The arguments corresponding to the format string.
  */
 DARWIN_API_AVAILABLE_20170407
-OS_EXPORT OS_NORETURN OS_NONNULL3 OS_FORMAT_PRINTF(3, 4)
+OS_EXPORT OS_NORETURN OS_COLD OS_NONNULL3 OS_FORMAT_PRINTF(3, 4)
 void
 errc_np(int eval, errno_t code, const char *fmt, ...);
 
@@ -114,7 +114,7 @@ errc_np(int eval, errno_t code, const char *fmt, ...);
  * The arguments corresponding to the format string.
  */
 DARWIN_API_AVAILABLE_20170407
-OS_EXPORT OS_NONNULL2 OS_FORMAT_PRINTF(2, 3)
+OS_EXPORT OS_COLD OS_NONNULL2 OS_FORMAT_PRINTF(2, 3)
 void
 warn_np(errno_t code, const char *fmt, ...);
 
@@ -136,7 +136,7 @@ warn_np(errno_t code, const char *fmt, ...);
  * error code using {@link darwin_sysexit} and pass it to exit(3).
  */
 DARWIN_API_AVAILABLE_20170407
-OS_EXPORT OS_NORETURN OS_NONNULL2 OS_NONNULL3
+OS_EXPORT OS_NORETURN OS_COLD OS_NONNULL2 OS_NONNULL3
 void
 verr_np(errno_t code, const char *fmt, va_list ap);
 
@@ -157,7 +157,7 @@ verr_np(errno_t code, const char *fmt, va_list ap);
  * The argument pointer corresponding to the format string.
  */
 DARWIN_API_AVAILABLE_20170407
-OS_EXPORT OS_NORETURN OS_NONNULL3 OS_NONNULL4
+OS_EXPORT OS_NORETURN OS_COLD OS_NONNULL3 OS_NONNULL4
 void
 verrc_np(int eval, errno_t code, const char *fmt, va_list ap);
 
@@ -175,7 +175,7 @@ verrc_np(int eval, errno_t code, const char *fmt, va_list ap);
  * The arguments corresponding to the format string.
  */
 DARWIN_API_AVAILABLE_20170407
-OS_EXPORT OS_NONNULL2 OS_NONNULL3
+OS_EXPORT OS_COLD OS_NONNULL2 OS_NONNULL3
 void
 vwarn_np(errno_t code, const char *fmt, va_list ap);
 

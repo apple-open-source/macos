@@ -6,7 +6,7 @@
 //  Copyright 2015 Apple, Inc. All rights reserved.
 //
 
-#import <SOSCCAuthPlugin.h>
+#import "SOSCCAuthPlugin.h"
 #import <Foundation/Foundation.h>
 #import <Accounts/Accounts.h>
 #import <Accounts/Accounts_Private.h>
@@ -15,6 +15,7 @@
 #import <AppleAccount/ACAccountStore+AppleAccount.h>
 #import <AuthKit/AuthKit.h>
 #import <AuthKit/AuthKit_Private.h>
+#import <SoftLinking/SoftLinking.h>
 #import <Security/SecureObjectSync/SOSCloudCircle.h>
 #import "utilities/SecCFRelease.h"
 #import "utilities/debugging.h"
@@ -37,11 +38,7 @@ static bool accountIsHSA2(ACAccount *account) {
 #if !TARGET_OS_SIMULATOR
     AKAccountManager *manager = [getAKAccountManagerClass() sharedInstance];
     if(manager != nil) {
-#if TARGET_OS_OSX
-        ACAccount *aka = [manager authKitAccountWithAltDSID:account.icaAltDSID];
-#else
         ACAccount *aka = [manager authKitAccountWithAltDSID:account.aa_altDSID];
-#endif
         if (aka) {
             AKAppleIDSecurityLevel securityLevel = [manager securityLevelForAccount: aka];
             if(securityLevel == AKAppleIDSecurityLevelHSA2) {
@@ -70,8 +67,8 @@ static bool accountIsHSA2(ACAccount *account) {
 		secinfo("accounts", "IDS account: iCloud %@ (personID %@)", icloud, icloud.aa_personID);
 		do_auth = icloud && icloud.aa_personID && [icloud.aa_personID isEqualToString:dsid];
 	} else if ([account.accountType.identifier isEqualToString:ACAccountTypeIdentifierAppleAccount]) {
-		secinfo("accounts", "AppleID account: primary %@", @([account aa_isPrimaryAccount]));
-		do_auth = [account aa_isPrimaryAccount];
+        do_auth = [account aa_isAccountClass:AAAccountClassPrimary];
+        secinfo("accounts", "AppleID account: primary %@", @(do_auth));
 	}
 
     if(do_auth && !accountIsHSA2(account)) {

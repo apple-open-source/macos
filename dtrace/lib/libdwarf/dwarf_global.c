@@ -575,6 +575,7 @@ dwarf_get_cu_die_offset_given_cu_header_offset(Dwarf_Debug dbg,
 					       out_cu_die_offset,
 					       Dwarf_Error * err)
 {
+#pragma unused(err)
     Dwarf_Off len =
 	_dwarf_length_of_cu_header(dbg, in_cu_header_offset);
 

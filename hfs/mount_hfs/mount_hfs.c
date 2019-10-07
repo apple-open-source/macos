@@ -54,9 +54,9 @@
 
 /* Sensible wrappers over the byte-swapping routines */
 #include "hfs_endian.h"
-#if !TARGET_OS_EMBEDDED
-#include "optical.h"
-#endif
+#if TARGET_OS_OSX  
+#include "optical.h"  //only include optical headers on Macs
+#endif //osx
 
 #include <mntopts.h>
 
@@ -456,11 +456,13 @@ main(argc, argv)
 
 	int do_rekey = 0;
 	int tmp_mntflags = 0;
-#if TARGET_OS_EMBEDDED
+
+#if TARGET_OS_IPHONE 
 	mntflags = MNT_NOATIME;
-#else
+#else // !TARGET_OS_IPHONE
 	mntflags = 0;
-#endif
+#endif // TARGET_OS_IPHONE
+
 	encp = NULL;
 	(void)memset(&args, '\0', sizeof(struct hfs_mount_args));
 
@@ -648,7 +650,7 @@ main(argc, argv)
 
 #endif
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     /*
      * We shouldn't really be calling up to other layers, but
      * an exception was made in this case to fix the situation

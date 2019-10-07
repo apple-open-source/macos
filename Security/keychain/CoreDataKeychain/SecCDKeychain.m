@@ -34,7 +34,7 @@
 #import "SecItemServer.h"
 #import "SecItem.h"
 #import "SecItemPriv.h"
-#import "SecBase.h"
+#import <Security/SecBase.h>
 #import "SFKeychainServer.h"
 #import "CloudKitCategories.h"
 #import "securityd_client.h"
@@ -47,7 +47,9 @@
 #import <SecurityFoundation/SFEncryptionOperation.h>
 #import <CoreData/NSPersistentStoreCoordinator_Private.h>
 #if USE_KEYSTORE
+#if __has_include(<libaks_ref_key.h>)
 #import <libaks_ref_key.h>
+#endif
 #endif
 #import <Foundation/NSData_Private.h>
 #import <notify.h>
@@ -304,7 +306,7 @@ SecCDKeychainLookupValueType* const SecCDKeychainLookupValueTypeDate = (SecCDKey
     NSDictionary* databaseKeyQuery = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                                         (id)kSecAttrAccessGroup : @"com.apple.security.securityd",
                                         (id)kSecAttrAccessible : (id)kSecAttrAccessibleWhenUnlocked,
-                                        (id)kSecAttrNoLegacy : @(YES),
+                                        (id)kSecUseDataProtectionKeychain : @(YES),
                                         (id)kSecAttrService : @"com.apple.security.keychain.ak",
                                         (id)kSecReturnData : @(YES) };
 
@@ -437,12 +439,12 @@ SecCDKeychainLookupValueType* const SecCDKeychainLookupValueTypeDate = (SecCDKey
 
         int token = 0;
         __weak __typeof(self) weakSelf = self;
-        notify_register_dispatch(kUserKeybagStateChangeNotification, &token, _queue, ^(int token) {
+        notify_register_dispatch(kUserKeybagStateChangeNotification, &token, _queue, ^(int t) {
             bool locked = true;
-            CFErrorRef error = NULL;
-            if (!SecAKSGetIsLocked(&locked, &error)) {
-                secerror("SecDbKeychainMetadataKeyStore: error getting lock state: %@", error);
-                CFReleaseNull(error);
+            CFErrorRef blockError = NULL;
+            if (!SecAKSGetIsLocked(&locked, &blockError)) {
+                secerror("SecDbKeychainMetadataKeyStore: error getting lock state: %@", blockError);
+                CFReleaseNull(blockError);
             }
 
             if (locked) {
@@ -929,12 +931,12 @@ SecCDKeychainLookupValueType* const SecCDKeychainLookupValueTypeDate = (SecCDKey
             _lookupAttributes = [NSSet setWithArray:lookupAttributes];
         }
         else {
-            NSMutableSet* lookupAttributes = [[NSMutableSet alloc] init];
+            NSMutableSet* newLookupAttributes = [[NSMutableSet alloc] init];
             [_attributes enumerateKeysAndObjectsUsingBlock:^(NSString* key, id value, BOOL* stop) {
                 SecCDKeychainLookupTuple* lookupTuple = [SecCDKeychainLookupTuple lookupTupleWithKey:key value:value];
-                [lookupAttributes addObject:lookupTuple];
+                [newLookupAttributes addObject:lookupTuple];
             }];
-            _lookupAttributes = lookupAttributes.copy;
+            _lookupAttributes = newLookupAttributes.copy;
         }
     }
     

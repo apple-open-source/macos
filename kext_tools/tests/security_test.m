@@ -382,7 +382,17 @@ test_staging_management_helpers(void)
     TEST_CASE("staging directory exists after clear", error == nil);
     TEST_CASE("staging directory is empty after clear", dirContents.count == 0);
 
-    // Second, create a basic pruning scenario:
+	// Create a pruning scenario where all kexts will be removed.
+	[fm createDirectoryAtURL:[testRootURL URLByAppendingPathComponent:@"Library/Extensions/Pineapple.kext"] withIntermediateDirectories:YES attributes:nil error:nil];
+	[fm createDirectoryAtURL:[testRootURL URLByAppendingPathComponent:@"Library/Extensions/Guava.kext"] withIntermediateDirectories:YES attributes:nil error:nil];
+	[fm createDirectoryAtURL:[testRootURL URLByAppendingPathComponent:@"Applications/Company/Mango.kext"] withIntermediateDirectories:YES attributes:nil error:nil];
+
+	pruneStagingDirectoryHelper(testRootURL.path);
+	dirContents = [fm contentsOfDirectoryAtPath:testRootURL.path error:&error];
+	TEST_CASE("staging directory exists after pruning all kexts", [fm fileExistsAtPath:testRootURL.path]);
+	TEST_CASE("staging directory is empty after pruning all kexts", error == nil && dirContents.count == 0);
+
+    // Create a basic pruning scenario:
     //   1. a kext that exists outside staging, which should persist
     //   2. a kext in the same directory as 1 that doesn't exist, to test cleanup and ensure the parent isn't removed
     //   3. a kext in a completely different directory that requires parent traversal for full path cleanup

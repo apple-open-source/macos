@@ -3,6 +3,13 @@
 fa{
     Version{"2.1.19.14"}
     collations{
+        search{
+            Sequence{
+                "[import und-u-co-search]"
+                "[import fa-u-co-standard]"
+            }
+            Version{"34"}
+        }
         standard{
             Sequence{
                 "[normalization on]"
@@ -16,7 +23,7 @@ fa{
                 "&ۏ<ه<<ە<<ہ<<ة<<ۃ<<ۀ<<ھ"
                 "&ی<<*ىےيېۑۍێ"
             }
-            Version{"33.1"}
+            Version{"35.1"}
         }
     }
 }

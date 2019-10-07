@@ -30,6 +30,7 @@
 #include "NetworkCacheCoders.h"
 #include "NetworkCacheIOChannel.h"
 #include <WebCore/SecurityOrigin.h>
+#include <WebCore/StorageQuotaManager.h>
 #include <wtf/RunLoop.h>
 #include <wtf/UUID.h>
 #include <wtf/text/StringBuilder.h>
@@ -42,23 +43,50 @@ using namespace NetworkCache;
 
 static inline String cachesListFilename(const String& cachesRootPath)
 {
-    return WebCore::FileSystem::pathByAppendingComponent(cachesRootPath, "cacheslist"_s);
+    return FileSystem::pathByAppendingComponent(cachesRootPath, "cacheslist"_s);
 }
 
 static inline String cachesOriginFilename(const String& cachesRootPath)
 {
-    return WebCore::FileSystem::pathByAppendingComponent(cachesRootPath, "origin"_s);
+    return FileSystem::pathByAppendingComponent(cachesRootPath, "origin"_s);
+}
+
+Ref<Caches> Caches::create(Engine& engine, WebCore::ClientOrigin&& origin, String&& rootPath, WebCore::StorageQuotaManager& quotaManager)
+{
+    auto caches = adoptRef(*new Caches { engine, WTFMove(origin), WTFMove(rootPath), quotaManager });
+    quotaManager.addUser(caches.get());
+    return caches;
+}
+
+Caches::Caches(Engine& engine, WebCore::ClientOrigin&& origin, String&& rootPath, WebCore::StorageQuotaManager& quotaManager)
+    : m_engine(&engine)
+    , m_origin(WTFMove(origin))
+    , m_rootPath(WTFMove(rootPath))
+    , m_quotaManager(makeWeakPtr(quotaManager))
+{
 }
 
 Caches::~Caches()
 {
     ASSERT(m_pendingWritingCachesToDiskCallbacks.isEmpty());
+
+    if (m_quotaManager)
+        m_quotaManager->removeUser(*this);
+}
+
+void Caches::whenInitialized(CompletionHandler<void()>&& callback)
+{
+    initialize([callback = WTFMove(callback)](auto&& error) mutable {
+        if (error)
+            RELEASE_LOG_ERROR(CacheStorage, "Caches::initialize failed, reported space used will be zero");
+        callback();
+    });
 }
 
 void Caches::retrieveOriginFromDirectory(const String& folderPath, WorkQueue& queue, WTF::CompletionHandler<void(Optional<WebCore::ClientOrigin>&&)>&& completionHandler)
 {
     queue.dispatch([completionHandler = WTFMove(completionHandler), filename = cachesOriginFilename(folderPath)]() mutable {
-        if (!WebCore::FileSystem::fileExists(filename)) {
+        if (!FileSystem::fileExists(filename)) {
             RunLoop::main().dispatch([completionHandler = WTFMove(completionHandler)]() mutable {
                 completionHandler(WTF::nullopt);
             });
@@ -76,14 +104,6 @@ void Caches::retrieveOriginFromDirectory(const String& folderPath, WorkQueue& qu
             completionHandler(readOrigin(data));
         });
     });
-}
-
-Caches::Caches(Engine& engine, WebCore::ClientOrigin&& origin, String&& rootPath, uint64_t quota)
-    : m_engine(&engine)
-    , m_origin(WTFMove(origin))
-    , m_rootPath(WTFMove(rootPath))
-    , m_quota(quota)
-{
 }
 
 void Caches::storeOrigin(CompletionCallback&& completionHandler)
@@ -240,11 +260,13 @@ void Caches::clear(CompletionHandler<void()>&& completionHandler)
         m_storage->clear(String { }, -WallTime::infinity(), [protectedThis = makeRef(*this), completionHandler = WTFMove(completionHandler)]() mutable {
             ASSERT(RunLoop::isMain());
             protectedThis->clearMemoryRepresentation();
+            protectedThis->resetSpaceUsed();
             completionHandler();
         });
         return;
     }
     clearMemoryRepresentation();
+    resetSpaceUsed();
     clearPendingWritingCachesToDiskCallbacks();
     completionHandler();
 }
@@ -343,6 +365,13 @@ void Caches::remove(uint64_t identifier, CacheIdentifierCallback&& callback)
     });
 }
 
+bool Caches::hasActiveCache() const
+{
+    if (m_removedCaches.size())
+        return true;
+    return m_caches.findMatching([](const auto& item) { return item.isActive(); }) != notFound;
+}
+
 void Caches::dispose(Cache& cache)
 {
     auto position = m_removedCaches.findMatching([&](const auto& item) { return item.identifier() == cache.identifier(); });
@@ -356,7 +385,7 @@ void Caches::dispose(Cache& cache)
     ASSERT(m_caches.findMatching([&](const auto& item) { return item.identifier() == cache.identifier(); }) != notFound);
     cache.clearMemoryRepresentation();
 
-    if (m_caches.findMatching([](const auto& item) { return item.isActive(); }) == notFound)
+    if (!hasActiveCache())
         clearMemoryRepresentation();
 }
 
@@ -408,7 +437,7 @@ void Caches::readCachesFromDisk(WTF::Function<void(Expected<Vector<Cache>, Error
     }
 
     auto filename = cachesListFilename(m_rootPath);
-    if (!WebCore::FileSystem::fileExists(filename)) {
+    if (!FileSystem::fileExists(filename)) {
         callback(Vector<Cache> { });
         return;
     }
@@ -481,9 +510,20 @@ void Caches::readRecordsList(Cache& cache, NetworkCache::Storage::TraverseHandle
 
 void Caches::requestSpace(uint64_t spaceRequired, WebCore::DOMCacheEngine::CompletionCallback&& callback)
 {
-    // FIXME: Implement quota increase request.
-    ASSERT(m_quota < m_size + spaceRequired);
-    callback(Error::QuotaExceeded);
+    if (!m_quotaManager) {
+        callback(Error::QuotaExceeded);
+        return;
+    }
+
+    m_quotaManager->requestSpace(spaceRequired, [callback = WTFMove(callback)](auto decision) mutable {
+        switch (decision) {
+        case WebCore::StorageQuotaManager::Decision::Deny:
+            callback(Error::QuotaExceeded);
+            return;
+        case WebCore::StorageQuotaManager::Decision::Grant:
+            callback({ });
+        };
+    });
 }
 
 void Caches::writeRecord(const Cache& cache, const RecordInformation& recordInformation, Record&& record, uint64_t previousRecordSize, CompletionCallback&& callback)
@@ -494,15 +534,13 @@ void Caches::writeRecord(const Cache& cache, const RecordInformation& recordInfo
     m_size += recordInformation.size;
     m_size -= previousRecordSize;
 
-    ASSERT(m_size <= m_quota);
-
     if (!shouldPersist()) {
         m_volatileStorage.set(recordInformation.key, WTFMove(record));
         callback(WTF::nullopt);
         return;
     }
 
-    m_storage->store(Cache::encode(recordInformation, record), { }, [protectedStorage = makeRef(*m_storage), callback = WTFMove(callback)](int error) {
+    m_storage->store(Cache::encode(recordInformation, record), { }, [protectedStorage = makeRef(*m_storage), callback = WTFMove(callback)](int error) mutable {
         if (error) {
             RELEASE_LOG_ERROR(CacheStorage, "Caches::writeRecord failed with error %d", error);
             callback(Error::WriteDisk);
@@ -565,10 +603,19 @@ void Caches::removeCacheEntry(const NetworkCache::Key& key)
     m_storage->remove(key);
 }
 
+void Caches::resetSpaceUsed()
+{
+    m_size = 0;
+    if (m_quotaManager) {
+        m_quotaManager->removeUser(*this);
+        m_quotaManager->addUser(*this);
+    }
+}
+
 void Caches::clearMemoryRepresentation()
 {
     if (!m_isInitialized) {
-        ASSERT(m_caches.isEmpty() || !m_pendingInitializationCallbacks.isEmpty());
+        ASSERT(!m_storage || !hasActiveCache() || !m_pendingInitializationCallbacks.isEmpty());
         // m_storage might not be null in case Caches is being initialized. This is fine as nullify it below is a memory optimization.
         m_caches.clear();
         return;

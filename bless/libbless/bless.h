@@ -42,6 +42,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <sys/cdefs.h>
+#include <uuid/uuid.h>
 
 __BEGIN_DECLS 
 
@@ -464,6 +465,54 @@ int BLIsMountAPFS(BLContextPtr context,
  * @param pointer to space big enough to hold bless data, currently two 64-bit words.
  */
 int BLGetAPFSBlessData(BLContextPtr context, const char *mountpoint, uint64_t *words);
+
+
+
+/*!
+ * @function BLGetAPFSSnapshotBlessData
+ * @abstract Retrieve the bless snapshot data for an APFS volume
+ * @discussion Make the necessary calls to
+ *    get blessed snapshot information
+ *    from the volume mounted at <b>mountpoint</b>.
+ * @param context Bless Library context
+ * @param mountpoint Mountpoint of volume
+ * @param snap_uuid Blessed snapshot uuid if the volume has a blessed snapshot,
+ *      zero filled otherwise.
+ */
+int BLGetAPFSSnapshotBlessData(BLContextPtr context, const char *mountpoint, uuid_string_t snap_uuid);
+
+
+
+/*!
+ * @function BLSetAPFSSnapshotBlessData
+ * @abstract Set the bless snapshot data for an APFS volume
+ * @discussion Make the necessary calls to
+ *    set blessed snapshot information
+ *    from the volume mounted at <b>mountpoint</b>.
+ * @param context Bless Library context
+ * @param mountpoint Mountpoint of volume
+ * @param snap_uuid UUID of snapshot to be blessed, or an empty
+ *      string to bless the live file system.
+ */
+int BLSetAPFSSnapshotBlessData(BLContextPtr context, const char *mountpoint, uuid_string_t snap_uuid);
+
+
+
+/*!
+ * @function BLGetAPFSBlessedVolumeBSDName
+ * @abstract Retrieve the bsd name of the blessed APFS volume
+ * @discussion Make the necessary calls to
+ *    obtain bsd name of blessed volume referenced
+ *    by the bleesed directory <b>bless_folder</b>.
+ * @param context Bless Library context
+ * @param mountpoint Mountpoint of volume containing blessFolder
+ * @param bless_folder Full path of blessed folder.
+ * @param vol_uuid UUID of blessed APFS volume obtained upon success,
+*      zero filled otherwise.
+ * @return bsd name of blessed APFS volume upon success, NULL otherwise.
+ *      Caller should release using CFRelease.
+ */
+CFStringRef BLGetAPFSBlessedVolumeBSDName(BLContextPtr context, const char *mountpoint, char *bless_folder, uuid_string_t vol_uuid);
 
 
 

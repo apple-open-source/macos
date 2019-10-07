@@ -7,7 +7,7 @@ Havard Eide <nucleuz@gmail.com>
 date.timezone=UTC
 --FILE--
 <?php
-$tz = date_timestamp_get(new DateTime()); 
+$tz = date_timestamp_get(new DateTime());
 var_dump(is_int($tz));
 echo "\n\n";
 $tz = date_timestamp_get(time());
@@ -17,4 +17,4 @@ bool(true)
 
 
 
-Warning: date_timestamp_get() expects parameter 1 to be DateTimeInterface, integer given in %s on line %d
+Warning: date_timestamp_get() expects parameter 1 to be DateTimeInterface, int given in %s on line %d

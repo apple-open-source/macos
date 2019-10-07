@@ -1,4 +1,4 @@
-.ds VN 4.89
+.ds VN 4.91
 .TH LSOF 8 Revision-\*(VN
 \" Register )P is used neither by this file nor any groff macro.  However,
 \" some versions of nroff require it.
@@ -10,7 +10,7 @@ lsof \- list open files
 .SH SYNOPSIS
 .B lsof
 [
-.B \-?abChKlnNOPRtUvVX
+.B \-?abChlnNOPRtUvVX
 ] [
 .BI -A " A"
 ] [
@@ -36,6 +36,8 @@ lsof \- list open files
 ] [
 .BI \-k " k"
 ] [
+.BI \-K " k"
+] [
 .BI +|\-L " [l]"
 ] [
 .BI +|\-m " m"
@@ -60,6 +62,8 @@ lsof \- list open files
 ] [
 .BI \-x " [fl]"
 ] [
+.B +|\-X
+] [
 .BI \-z " [z]"
 ] [
 .BI \-Z " [Z]"
@@ -73,7 +77,7 @@ opened by processes for the following UNIX dialects:
 .PP
 .nf
 	Apple Darwin 9 and Mac OS X 10.[567]
-	FreeBSD 8.[234], 9.0, 10.0 and 11.0 for AMD64-based systems
+	FreeBSD 8.[234], 9.0 and 1[012].0 for AMD64-based systems
 	Linux 2.1.72 and above for x86-based systems
 	Solaris 9, 10 and 11
 .fi
@@ -642,13 +646,13 @@ option.)
 .TP \w'names'u+4
 .B +|-E
 .B +E
-specifies that Linux pipe and Linux UNIX socket files should be displayed with
-endpoint information and the files of the endpoints should also be
-displayed.
-Note: UNIX socket file endpoint information is available only when the
+specifies that Linux pipe, Linux UNIX socket and Linux pseudoterminal files
+should be displayed with endpoint information and the files of the endpoints should also be displayed.
+Note: UNIX socket file endpoint information is only available when the
 compile flags line of
 .B \-v
-output contains HASUXSOCKEPT.
+output contains HASUXSOCKEPT, and psudoterminal endpoint information is only
+available when the compile flags line contains HASPTYEPT.
 .IP
 Pipe endpoint information is displayed in the NAME column in the
 form ``\fIPID,cmd,FDmode\fP'', where
@@ -661,6 +665,21 @@ is the endpoint file's descriptor; and
 .I mode
 is the endpoint file's access mode.
 .IP
+Pseudoterminal
+endpoint information is displayed in the NAME column as
+``->/dev/pts\fImin\fP\ \fIPID,cmd,FDmode\fP'' or ``\fIPID,cmd,FDmode\fP''.
+The first form is for a master device; the second, for a slave device.
+.I min
+is a slave device's minor device number; and
+.I "PID, cmd, FD"
+and
+.I mode
+are the same as with pipe endpoint information.
+Note: psudoterminal endpoint information is only available when the compile
+flags line of
+.B \-V
+output contains HASPTYEPT.
+.IP
 UNIX socket file endpoint information is displayed in the NAME column
 in the form
 .br
@@ -670,7 +689,7 @@ is the socket type;
 .I INODE
 is the i-node number of the connected socket;
 and
-.I "PID, cmd, FD,"
+.I "PID, cmd, FD"
 and
 .I mode
 are the same as with pipe endpoint information.
@@ -1019,7 +1038,7 @@ Here are some sample addresses:
 	:time \- either TCP, UDP or UDPLITE time service port
 .fi
 .TP \w'names'u+4
-.B \-K
+.BI \-K " k"
 selects the listing of tasks (threads) of processes, on dialects
 where task (thread) reporting is supported.
 (If help output \- i.e., the output of the
@@ -1028,6 +1047,15 @@ or
 .B \-?
 options \- shows this option, then task (thread) reporting is
 supported by the dialect.)
+.IP
+If
+.B \-K
+is followed by a value,
+.IR k ,
+it must be ``i''.  That causes
+.I lsof
+to ignore tasks, particularly in the default, list\-everything case
+when no other options are specified.
 .IP
 When
 .B \-K
@@ -1437,6 +1465,10 @@ the option causes open TCP and UDP files to be excluded if their
 state name(s) are in the list (\fIs\fP) preceded by a `^'; or
 included if their name(s) are not preceded by a `^'.
 .IP
+Dialects that support this option may support only one protocol.
+When an unsupported protocol is specified, a message will be
+displayed indicating state names for the protocol are unavailable.
+.IP
 When an inclusion list is defined, only network files with state
 names in the list will be present in the
 .I lsof
@@ -1814,6 +1846,13 @@ file of the
 distribution for a more complete description of the Stale Segment ID bug,
 its APAR, and methods for defining readx() use when compiling
 .IR lsof .
+.HP \w'names'u+4
+\ \ \ \ Darwin:
+.br
+This Darwin option requests that
+.I lsof
+reports exclusively information about files from the process file descriptor table
+and process file ports.
 .HP \w'names'u+4
 \ \ \ \ Linux:
 .br
@@ -2342,6 +2381,15 @@ supported by the dialect.)
 .IP
 A blank TID column in Linux indicates a process \- i.e., a non\-task.
 .TP
+TASKCMD
+is the task command name.
+Generally this will be the same as the process named in the COMMAND
+column, but some task implementations (e.g., Linux) permit a task to
+change its command name.
+.IP
+The TASKCMD column width is subject to the same size limitation as the
+COMMAND column.
+.TP
 ZONE
 is the Solaris 10 and higher zone name.
 This column must be selected with the
@@ -2678,6 +2726,10 @@ status file;
 or ``PSXSEM'' for a POSIX semaphore file;
 .IP
 or ``PSXSHM'' for a POSIX shared memory file;
+.IP
+or ``PTS'' for a
+.I /dev/pts
+file;
 .IP
 or ``PUSG'' for a
 .I /proc/usage
@@ -3211,6 +3263,7 @@ The single character listed first is the field identifier.
 	l	file's lock status
 	L	process login name
 	m	marker between repeated output
+	M	the task comMand name
 	n	file name, comment, Internet address
 	N	node identifier (ox<hexadecimal>
 	o	file's offset (decimal)
@@ -3766,8 +3819,8 @@ and be allowed to surrender setgid permission.
 	AIX 5.[12] and 5.3-ML1
 	Apple Darwin 7.x Power Macintosh systems
 	FreeBSD 4.x, 4.1x, 5.x and [6789].x for x86-based systems
-	FreeBSD 5.x and [6789].x for Alpha, AMD64 and Sparc64-based
-	    systems
+	FreeBSD 5.x, [6789].x and 1[012].8for Alpha, AMD64 and Sparc64
+	    based systems
 	HP\-UX 11.00
 	NetBSD 1.[456], 2.x and 3.x for Alpha, x86, and SPARC-based
 	    systems

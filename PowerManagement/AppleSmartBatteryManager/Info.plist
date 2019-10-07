@@ -41,6 +41,8 @@
 	</dict>
 	<key>OSBundleLibraries</key>
 	<dict>
+		<key>com.apple.driver.AppleSMC</key>
+		<string>3.1.9</string>
 		<key>com.apple.iokit.IOACPIFamily</key>
 		<string>1.2.0</string>
 		<key>com.apple.iokit.IOSMBusFamily</key>

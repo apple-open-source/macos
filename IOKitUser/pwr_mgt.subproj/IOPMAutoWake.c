@@ -419,11 +419,9 @@ IOReturn IOPMSchedulePowerEvent(
         diff_secs = CFNumberCreate(0, kCFNumberIntType, &diff);
         if(!diff_secs) goto exit;
         
-        _setRootDomainProperty( type, (CFTypeRef)diff_secs );
+        ret = _setRootDomainProperty( type, (CFTypeRef)diff_secs );
 
         CFRelease(diff_secs);
-
-        ret = kIOReturnSuccess;
         goto exit;
     }
 

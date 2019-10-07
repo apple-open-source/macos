@@ -2,14 +2,14 @@
  * Copyright (c) 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -161,7 +161,7 @@ CFArrayRef BRCopyActiveBootPartitions(CFURLRef volRoot);
  *              ?? kPOSIXErrorBase could be used to encode errno ??
  *
  *  @discussion
- *      BRCopyBootFiles() copies appropriate boot cache files from a 
+ *      BRCopyBootFiles() copies appropriate boot cache files from a
  *      source volume to a single target partition.  BRCopyBootFiles()
  *      updates any out of date caches before copying them to the target.
  *
@@ -183,10 +183,10 @@ CFArrayRef BRCopyActiveBootPartitions(CFURLRef volRoot);
  *      linked BRCopyBootFiles() is called on an older system when
  *      srcVol's caches are out of date and the older system can't
  *      properly update them.
- *      
+ *
  *      If [Boot!=Root has not been disabled and] srcVol and initialRoot
  *      refer to the same volume, its "boot stamps" will be updated to
- *      assure the system's Boot!=Root that everything is "up to date." 
+ *      assure the system's Boot!=Root that everything is "up to date."
  *
  *      BR*Update*BootFiles() can be used on a volume with the force
  *      argument to get all currently-active helper partition(s) back
@@ -249,7 +249,7 @@ OSStatus BRCopyBootFiles(CFURLRef srcVol,
  *      targetDir cannot be "/".  It is recommended to either provide
  *      an existing directory or use a subsystem identifier
  *      (like com.apple.AppleNetInstall.caches).
- *      
+ *
  *      While BRCopyBootFiles() can copy boot files to any volume or
  *      directory, CoreStorage-based FDE only unlocks properly if the
  *      the target partition is an Apple_Boot following an
@@ -339,7 +339,7 @@ OSStatus BREraseBootFiles(CFURLRef srcVolRoot, CFStringRef helperBSDName);
  *  @function   BRDisableSystemBootRoot
  *  @abstract   stop Boot!=Root from looking at a particular volume
  *
- *  @param  sysVolRoot - volume for which to disable Boot!=Root 
+ *  @param  sysVolRoot - volume for which to disable Boot!=Root
  *
  *  @result     0 if Boot!=Root could no long be watching this volume
  *
@@ -355,9 +355,9 @@ OSStatus BRDisableSystemBootRoot(CFURLRef sysVolRoot);
  *  @function   BRRestoreSystemBootRoot
  *  @abstract   re-enable Boot!=Root for a particular volume
  *
- *  @param  sysVolRoot - volume for which to re-enable Boot!=Root 
+ *  @param  sysVolRoot - volume for which to re-enable Boot!=Root
  *
- *  @result     0 if the system Boot!=Root files are back in place and 
+ *  @result     0 if the system Boot!=Root files are back in place and
  *              Boot!=Root is again watching the volume.
  *
  *  @discussion

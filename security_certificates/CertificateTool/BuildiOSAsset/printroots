@@ -12,6 +12,8 @@
 # Mon Jun 30 2014 (kcm) use "Blocked" instead of "Revoked"; code cleanup
 # Tue Feb 17 2015 (kcm) accept text, configDir, and tmpDir options
 # Thu Sep 01 2016 (kcm) replace redundant trust column with SHA-256 fingerprint
+# Tue Aug 06 2019 (kcm) use $DST instead of /tmp for all temporary files
+# Fri Aug 09 2019 (kcm) gracefully handle removal of openssl 'sha -sha256' syntax
 #
 
 usage()
@@ -46,6 +48,7 @@ SRC=
 DST=/tmp
 CONFIG=
 HTML=1
+ERROR=0
 while [ $# != 0 ]; do
 	case "$1" in
 		--config|-c)
@@ -181,6 +184,7 @@ export EVOID="$3"
 export EVLIST="$4"
 export HASH="$5"
 export HASHLIST="$6"
+export PLAIN="$7"
 
 FF=$'\x0C'
 SUMMARY=`certtool y k="$KC" | \
@@ -292,7 +296,7 @@ function format_certhash(name,issuer,serial,expires,hash,hashlist)
 			thisissuer=thiscert[2];
 			thisserial=thiscert[6];
 			thisexpires=thiscert[7];
-			thishash=thiscert[9]
+			thishash=thiscert[9];
 			if (name " " == thisname &&
 					" " issuer " " == thisissuer &&
 					" " serial " " == thisserial &&
@@ -301,11 +305,11 @@ function format_certhash(name,issuer,serial,expires,hash,hashlist)
 			}
 		}
 		if (certhash == "") {
-			certhash="n/a"
+			certhash="n/a";
 		}
 	}
 	else {
-		certhash="n/a"
+		certhash="n/a";
 	}
 }
 # process each record
@@ -417,7 +421,7 @@ END {
 	#print total
 }' - | \
 sort --ignore-case`
-if [ ! -z "$EVOID" ] || [ ! -z "$HASH" ] ; then
+if [ ! -z "$PLAIN"  ] && [ "$PLAIN" -eq 1 ] ; then
 	printf "$SUMMARY\n"
 elif [ ! -z "$HTML" ] && [ "$HTML" -eq 1 ] ; then
 	generate_html "$SUMMARY" "$TITLE"
@@ -454,7 +458,7 @@ build_ev_list()
 
 	_EV_CONFIG="$1"
 	_ROOTS_DIR="$2"
-	_EV_KC="/tmp/_tmp_ev.keychain"
+	_EV_KC="$DST/_tmp_ev.keychain"
 
 	TMPIFS=$IFS
 	IFS=$'\x0A'$'\x0D'
@@ -474,7 +478,7 @@ build_ev_list()
 		rm -f "$_EV_KC"
 		security create-keychain -p tmp "$_EV_KC"
 		security -q add-certificates -k "$_EV_KC" "$CERT_TO_ADD"
-		summarize_keychain "$_EV_KC" "" "$OIDKEY" "" "" ""
+		summarize_keychain "$_EV_KC" "" "$OIDKEY" "" "" "" "1"
 	done
 	IFS=$'\x0A'$'\x0D'
 	done
@@ -487,23 +491,37 @@ build_hash_list()
 # building an in-memory list of cert fields matched to a hash of the cert.
 #
 # Output is produced by calling summarize_keychain with a temporary
-# keychain containing a single certificate.
+# keychain containing a single certificate, along with the cert hash.
+# The last parameter forces plain text output.
 
 	_CERTS_DIR="$1"
-	_TMP_KC="/tmp/_tmp_.keychain"
+	_TMP_KC="$DST/_tmp_.keychain"
 
 	TMPIFS=$IFS
 	IFS=$'\x0A'$'\x0D'
 	for CERTFILE in `ls -1 "$_CERTS_DIR"`; do
-		if [ "$CERTFILE" == "" ]; then continue; fi
+		# skip files beginning with a dot
+		if [ -z "$CERTFILE" ] ; then CERTFILE="." ; fi
+		C=`printf "$CERTFILE" | head -c 1`
+		if [ "$C" == "." ] ; then continue ; fi
+		# use full path to cert file
 		CERT_TO_HASH="$_CERTS_DIR/$CERTFILE"
 		rm -f "$_TMP_KC"
 		security create-keychain -p tmp "$_TMP_KC"
 		security -q add-certificates -k "$_TMP_KC" "$CERT_TO_HASH"
-		CERTHASH=`openssl sha -sha256 "$CERT_TO_HASH" | tr -d ' ' | \
-			awk -F= '{print $2}' | tr "[:lower:]" "[:upper:]" | \
-			sed 's/.\{2\}/& /g'`
-		summarize_keychain "$_TMP_KC" "" "" "" "$CERTHASH" ""
+		# some openssl versions only understand sha256, not sha -sha256
+		CERTHASH=`openssl sha256 -sha256 "$CERT_TO_HASH" 2>/dev/null`
+		if [ -z "$CERTHASH" ] ; then
+			CERTHASH=`openssl sha -sha256 "$CERT_TO_HASH" 2>/dev/null`
+		fi
+		CERTHASH=`printf "$CERTHASH" | tr -d ' ' | awk -F= '{print $2}' | \
+			tr "[:lower:]" "[:upper:]" | sed 's/.\{2\}/& /g'`
+		if [ -z "$CERTHASH" ] ; then
+			ERROR=1
+			printf "Error: $CERTFILE had hash=\"$CERTHASH\"\n" >> "$DST"/errors.txt
+		else
+			summarize_keychain "$_TMP_KC" "" "" "" "$CERTHASH" "" "1"
+		fi
 	done
 	IFS="$TMPIFS"
 }
@@ -555,10 +573,18 @@ generate_keychain "$ROOTS_KC" "$ROOTS_DIR"
 generate_keychain "$REVOKED_KC" "$REVOKED_DIR"
 generate_keychain "$DISTRUSTED_KC" "$DISTRUSTED_DIR"
 
+echo "$ROOTS_HASHLIST" > "$DST/roots_hashlist.txt"
+echo "$REVOKED_HASHLIST" > "$DST/revoked_hashlist.txt"
+echo "$DISTRUSTED_HASHLIST" > "$DST/distrusted_hashlist.txt"
+
 start_output "$TRUST_STORE_VERSION"
 summarize_keychain "$ROOTS_KC" "Trusted Certificates" "" "$EVLIST" "" "$ROOTS_HASHLIST"
 summarize_keychain "$DISTRUSTED_KC" "Untrusted Certificates" "" "$EVLIST" "" "$DISTRUSTED_HASHLIST"
 summarize_keychain "$REVOKED_KC" "Blocked Certificates" "" "$EVLIST" "" "$REVOKED_HASHLIST"
 end_output
 
+if [ ! -z "$ERROR" ] && [ "$ERROR" -ne 0 ] ; then
+	printf "ERROR: $ERROR\n"
+	exit 1
+fi
 exit 0

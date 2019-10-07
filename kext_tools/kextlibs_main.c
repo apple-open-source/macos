@@ -2,14 +2,14 @@
  * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <CoreFoundation/CoreFoundation.h>
@@ -43,7 +43,7 @@ int main(int argc, char * const * argv)
 
     KextlibsArgs        toolArgs;
     CFArrayRef          kexts               = NULL;  // must release
-    
+
     const NXArchInfo ** arches              = NULL;  // must free
     KextlibsInfo      * libInfo             = NULL;  // must release contents & free
     Boolean             libsAreArchSpecific = FALSE;
@@ -111,7 +111,7 @@ int main(int argc, char * const * argv)
             "Can't read kexts from folders.");
         goto finish;
     }
-    
+
     toolArgs.kextURL = CFURLCreateFromFileSystemRepresentation(
         kCFAllocatorDefault, (u_char *)toolArgs.kextName,
         strlen(toolArgs.kextName), /* isDirectory */ true);
@@ -140,7 +140,7 @@ int main(int argc, char * const * argv)
         } else {
             CFDictionaryRef libs = OSKextGetValueForInfoDictionaryKey(toolArgs.theKext,
                 CFSTR(kOSBundleLibrariesKey));
-                
+
             if (libs &&
                 CFDictionaryGetTypeID() == CFGetTypeID(libs) &&
                 CFDictionaryGetCount(libs)) {
@@ -150,7 +150,7 @@ int main(int argc, char * const * argv)
                     "%s has no executable and should not declare OSBundleLibraries.",
                     toolArgs.kextName);
             } else {
-            
+
                /* In this one case, the exit status will be EX_OK.
                 */
                 OSKextLog(/* kext */ NULL,
@@ -160,7 +160,7 @@ int main(int argc, char * const * argv)
                 result = EX_OK;
             }
         }
-        
+
         goto finish;
     }
 
@@ -172,13 +172,13 @@ int main(int argc, char * const * argv)
             toolArgs.kextName);
         goto finish;
     }
-    
+
     result = EX_OK;
 
     for (numArches = 0; arches[numArches]; numArches++) {
         /* just counting */
     }
-    
+
     libInfo = (KextlibsInfo *)malloc(numArches * sizeof(KextlibsInfo));
     if (!libInfo) {
         OSKextLogMemError();
@@ -189,7 +189,7 @@ int main(int argc, char * const * argv)
     */
     for (i = 0; i < numArches; i++) {
         OSKextSetArchitecture(arches[i]);
-        
+
         libInfo[i].libKexts = OSKextFindLinkDependencies(toolArgs.theKext,
             toolArgs.flagNonKPI, toolArgs.flagAllowUnsupported,
             &libInfo[i].undefSymbols, &libInfo[i].onedefSymbols,
@@ -201,7 +201,7 @@ int main(int argc, char * const * argv)
             goto finish;
         }
     }
-    
+
    /* If there's more than 1 arch, see if we have to print arch-specific
     * results.
     */
@@ -400,7 +400,7 @@ ExitStatus readArgs(
 
                 }
                 break;
-            
+
             default:
                 usage(kUsageLevelBrief);
                 goto finish;
@@ -435,7 +435,7 @@ ExitStatus readArgs(
         usage(kUsageLevelBrief);
         goto finish;
     }
-    
+
     result = EX_OK;
 finish:
     return result;
@@ -503,7 +503,7 @@ ExitStatus printLibs(
     }
 
     count = CFArrayGetCount(libKexts);
-    
+
    /* For XML output, don't print anything if we found no libraries;
     * an empty OSBundleLibraries might look like good output to somebody.
     */
@@ -562,7 +562,7 @@ ExitStatus printLibs(
     if (trailingNewlineFlag) {
         fprintf(stderr, "\n");
     }
-    
+
     result = kKextlibsExitOK;
 finish:
     SAFE_FREE(libIdentifier);
@@ -692,7 +692,7 @@ void printOnedefSymbol(const void * key, const void * value, void * context)
 
     libKextURL = OSKextGetURL(libKext);
     if (!CFURLGetFileSystemRepresentation(libKextURL,
-        /* resolveToBase */ false, 
+        /* resolveToBase */ false,
         (u_char *)libKextName, PATH_MAX)) {
 
         OSKextLogStringError(/* kext */ NULL);
@@ -749,7 +749,7 @@ void printMultdefSymbol(const void * key, const void * value, void * context)
 
         libKextURL = OSKextGetURL(libKext);
         if (!CFURLGetFileSystemRepresentation(libKextURL,
-            /* resolveToBase */ true, 
+            /* resolveToBase */ true,
             (u_char *)libKextName, PATH_MAX)) {
 
             fprintf(stderr, "string/url conversion error\n");
@@ -810,7 +810,7 @@ static void usage(UsageLevel usageLevel)
         "        specified with %s)\n",kOptNameRepository);
     fprintf(stderr, "-%s <directory> (-%c):\n", kOptNameRepository, kOptRepository);
     fprintf(stderr, "        look in <directory> for library kexts\n");
-    
+
     fprintf(stderr, "%s", "\n");
 
     fprintf(stderr, "-%s:\n", kOptNameAllSymbols);

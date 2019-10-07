@@ -28,7 +28,7 @@
 			<key>Persist</key>
 			<string>True</string>
 			<key>TTL</key>
-			<string>2d</string>
+			<string>2</string>
 		</dict>
 	</dict>
 	<key>circleOps</key>
@@ -58,6 +58,26 @@
 			<string>True</string>
 			<key>TTL</key>
 			<string>14</string>
+		</dict>
+	</dict>
+	<key>item</key>
+	<dict>
+		<key>Default-Privacy-Setting</key>
+		<string>Public</string>
+		<key>Enabled</key>
+		<string>True</string>
+		<key>Persist</key>
+		<string>True</string>
+		<key>TTL</key>
+		<string>30</string>
+		<key>Development</key>
+		<dict>
+			<key>Enabled</key>
+			<string>True</string>
+			<key>Persist</key>
+			<string>True</string>
+			<key>TTL</key>
+			<string>30</string>
 		</dict>
 	</dict>
 </dict>

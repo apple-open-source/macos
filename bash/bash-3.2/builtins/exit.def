@@ -80,7 +80,7 @@ logout_builtin (list)
 {
   if (login_shell == 0 /* && interactive */)
     {
-      builtin_error (_("not login shell: use `exit'"));
+      builtin_error ("%s", _("not login shell: use `exit'"));
       return (EXECUTION_FAILURE);
     }
   else
@@ -108,7 +108,7 @@ exit_or_logout (list)
       for (i = 0; i < js.j_jobslots; i++)
 	if (jobs[i] && STOPPED (i))
 	  {
-	    fprintf (stderr, _("There are stopped jobs.\n"));
+	    fprintf (stderr, "%s", _("There are stopped jobs.\n"));
 
 	    /* This is NOT superfluous because EOF can get here without
 	       going through the command parser.  Set both last and this

@@ -15,7 +15,7 @@ Test basic date_parse()
     var_dump(date_parse(array()));
     echo "Done\n";
 ?>
---EXPECTF--	
+--EXPECTF--
 array(12) {
   ["year"]=>
   int(2006)
@@ -104,7 +104,7 @@ array(15) {
   ["zone_type"]=>
   int(1)
   ["zone"]=>
-  int(720)
+  int(-43200)
   ["is_dst"]=>
   bool(false)
 }
@@ -228,7 +228,7 @@ array(15) {
   ["zone_type"]=>
   int(1)
   ["zone"]=>
-  int(180)
+  int(-10800)
   ["is_dst"]=>
   bool(false)
 }

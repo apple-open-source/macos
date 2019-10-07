@@ -142,6 +142,7 @@ _comp_options=(
     NO_cshnullglob
     NO_cshjunkiequotes
     NO_errexit
+    NO_errreturn
     NO_globassign
     NO_globsubst
     NO_histsubstpattern
@@ -153,8 +154,10 @@ _comp_options=(
     NO_markdirs
     NO_octalzeroes
     NO_posixbuiltins
+    NO_posixidentifiers
     NO_shwordsplit
     NO_shglob
+    NO_warnnestedvar
     NO_warncreateglobal
 )
 
@@ -168,11 +171,13 @@ typeset -gH _comp_setup='local -A _comp_caller_options;
              _comp_caller_options=(${(kv)options[@]});
              setopt localoptions localtraps localpatterns ${_comp_options[@]};
              local IFS=$'\'\ \\t\\r\\n\\0\'';
-             builtin enable -p \| \~ \( \? \* \[ \< \^ \# 2>/dev/null;
+             builtin enable -p \| \~ \( \? \* \[ \< \^ \# 2>&-;
              exec </dev/null;
              trap - ZERR;
              local -a reply;
-             local REPLY'
+             local REPLY;
+             local REPORTTIME;
+             unset REPORTTIME'
 
 # These can hold names of functions that are to be called before/after all
 # matches have been generated.

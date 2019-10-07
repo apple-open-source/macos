@@ -53,34 +53,35 @@ RequirementLexer::RequirementLexer(const antlr::LexerSharedInputState& state)
 
 void RequirementLexer::initLiterals()
 {
-	literals["certificate"] = 26;
+	literals["certificate"] = 27;
 	literals["always"] = 15;
 	literals["host"] = 6;
 	literals["guest"] = 5;
 	literals["cdhash"] = 20;
-	literals["entitlement"] = 30;
+	literals["entitlement"] = 31;
 	literals["library"] = 8;
-	literals["timestamp"] = 52;
+	literals["timestamp"] = 53;
+	literals["legacy"] = 23;
 	literals["never"] = 17;
-	literals["cert"] = 27;
+	literals["cert"] = 28;
 	literals["plugin"] = 9;
-	literals["absent"] = 32;
+	literals["absent"] = 33;
 	literals["or"] = 10;
-	literals["leaf"] = 44;
-	literals["info"] = 29;
+	literals["leaf"] = 45;
+	literals["info"] = 30;
 	literals["designated"] = 7;
-	literals["apple"] = 24;
-	literals["trusted"] = 28;
+	literals["apple"] = 25;
+	literals["trusted"] = 29;
 	literals["true"] = 16;
 	literals["notarized"] = 22;
 	literals["and"] = 11;
-	literals["root"] = 45;
+	literals["root"] = 46;
 	literals["platform"] = 21;
-	literals["anchor"] = 23;
+	literals["anchor"] = 24;
 	literals["false"] = 18;
-	literals["generic"] = 25;
+	literals["generic"] = 26;
 	literals["identifier"] = 19;
-	literals["exists"] = 31;
+	literals["exists"] = 32;
 }
 
 antlr::RefToken RequirementLexer::nextToken()
@@ -1134,22 +1135,22 @@ const antlr::BitSet RequirementLexer::_tokenSet_1(_tokenSet_1_data_,10);
 const unsigned long RequirementLexer::_tokenSet_2_data_[] = { 4294967295UL, 4294967291UL, 4026531839UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967292UL, 2097151UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf 0x10 
 // 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 
-// 0x1f   ! # $ % & \' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < 
+// 0x1f   ! # $ % & \' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < = 
 const antlr::BitSet RequirementLexer::_tokenSet_2(_tokenSet_2_data_,16);
 const unsigned long RequirementLexer::_tokenSet_3_data_[] = { 4294966271UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967292UL, 2097151UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xb 0xc 0xd 0xe 0xf 0x10 0x11 
 // 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 0x1f 
-//   ! \" # $ % & \' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < 
+//   ! \" # $ % & \' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < = 
 const antlr::BitSet RequirementLexer::_tokenSet_3(_tokenSet_3_data_,16);
 const unsigned long RequirementLexer::_tokenSet_4_data_[] = { 4294967295UL, 4294934527UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967292UL, 2097151UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf 0x10 
 // 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 
-// 0x1f   ! \" # $ % & \' ( ) * + , - . 0 1 2 3 4 5 6 7 8 9 : ; < 
+// 0x1f   ! \" # $ % & \' ( ) * + , - . 0 1 2 3 4 5 6 7 8 9 : ; < = 
 const antlr::BitSet RequirementLexer::_tokenSet_4(_tokenSet_4_data_,16);
 const unsigned long RequirementLexer::_tokenSet_5_data_[] = { 4294967295UL, 4294966271UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967295UL, 4294967292UL, 2097151UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL, 0UL };
 // 0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf 0x10 
 // 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 
-// 0x1f   ! \" # $ % & \' ( ) + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < 
+// 0x1f   ! \" # $ % & \' ( ) + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < = 
 const antlr::BitSet RequirementLexer::_tokenSet_5(_tokenSet_5_data_,16);
 
 ANTLR_END_NAMESPACE

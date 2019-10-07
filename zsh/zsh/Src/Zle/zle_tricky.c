@@ -456,6 +456,7 @@ checkparams(char *p)
 static int
 cmphaswilds(char *str)
 {
+    char *ptr;
     if ((*str == Inbrack || *str == Outbrack) && !str[1])
 	return 0;
 
@@ -464,6 +465,14 @@ cmphaswilds(char *str)
      * to escape job references such as %?foo.                 */
     if (str[0] == '%' && str[1] ==Quest)
 	str += 2;
+
+    /*
+     * In ~[foo], the square brackets are not wild cards.
+     * This test matches the master one in filesubstr().
+     */
+    if (*str == Tilde && str[1] == Inbrack &&
+	(ptr = strchr(str+2, Outbrack)))
+	str = ptr + 1;
 
     for (; *str;) {
 	if (*str == String || *str == Qstring) {
@@ -2268,7 +2277,7 @@ doexpansion(char *s, int lst, int olst, int explincmd)
 	int ng = opts[NULLGLOB];
 
 	opts[NULLGLOB] = 1;
-	globlist(vl, 1);
+	globlist(vl, PREFORK_NO_UNTOK);
 	opts[NULLGLOB] = ng;
     }
     if (errflag)
@@ -2407,53 +2416,6 @@ sfxlen(char *s, char *t)
 }
 #endif
 
-/* This is zstrcmp with ignoring backslashes. */
-
-/**/
-mod_export int
-zstrbcmp(const char *a, const char *b)
-{
-    const char *astart = a;
-
-    while (*a && *b) {
-	if (*a == '\\')
-	    a++;
-	if (*b == '\\')
-	    b++;
-	if (*a != *b || !*a)
-	    break;
-	a++;
-	b++;
-    }
-    if (isset(NUMERICGLOBSORT) && (idigit(*a) || idigit(*b))) {
-	for (; a > astart && idigit(a[-1]); a--, b--);
-	if (idigit(*a) && idigit(*b)) {
-	    while (*a == '0')
-		a++;
-	    while (*b == '0')
-		b++;
-	    for (; idigit(*a) && *a == *b; a++, b++);
-	    if (idigit(*a) || idigit(*b)) {
-		int cmp = (int) STOUC(*a) - (int) STOUC(*b);
-
-		while (idigit(*a) && idigit(*b))
-		    a++, b++;
-		if (idigit(*a) && !idigit(*b))
-		    return 1;
-		if (idigit(*b) && !idigit(*a))
-		    return -1;
-
-		return cmp;
-	    }
-	}
-    }
-#ifndef HAVE_STRCOLL
-    return (int)(*a - *b);
-#else
-    return strcoll(a,b);
-#endif
-}
-
 /* This is used to print the strings (e.g. explanations). *
  * It returns the number of lines printed.       */
 
@@ -2469,6 +2431,7 @@ printfmt(char *fmt, int n, int dopr, int doesc)
 	/* Handle the `%' stuff (%% == %, %n == <number of matches>). */
 	if (doesc && *p == '%') {
 	    int arg = 0, is_fg;
+	    zattr atr;
 	    if (idigit(*++p))
 		arg = zstrtol(p, &p, 10);
 	    if (*p) {
@@ -2520,13 +2483,13 @@ printfmt(char *fmt, int n, int dopr, int doesc)
 		    is_fg = (*p == 'F');
 		    if (p[1] == '{') {
 			p += 2;
-			arg = match_colour((const char **)&p, is_fg, 0);
+			atr = match_colour((const char **)&p, is_fg, 0);
 			if (*p != '}')
 			    p--;
 		    } else
-			arg = match_colour(NULL, is_fg, arg);
-		    if (arg >= 0)
-			set_colour_attribute(arg, is_fg ? COL_SEQ_FG :
+			atr = match_colour(NULL, is_fg, arg);
+		    if (atr != TXT_ERROR)
+			set_colour_attribute(atr, is_fg ? COL_SEQ_FG :
 					     COL_SEQ_BG, 0);
 		    break;
 		case 'f':

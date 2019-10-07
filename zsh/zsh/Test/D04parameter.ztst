@@ -640,6 +640,11 @@
 >echo
 >$(|||) bar
 
+  foo=$'\x06ZUI\x1f text-field example: \x1azuitfieldtfield1_1\x1a\'\'\x1a\'\'\x1a1\x1aZUI\\[my_tfield1_width\\]\x1aZUI\\[my_tfield1_start\\]\x1aZUI\\[my_tfield1_data\\]\x1c'
+  print "${#${(z@)foo}}"
+0:Test real-world data that once seemed to fail
+>4
+
   psvar=(dog)
   setopt promptsubst
   foo='It shouldn'\''t $(happen) to a %1v.'
@@ -778,16 +783,36 @@
 0:${(R)...}
 >is the , 
 
+  # Although there's no reliance on multibyte here, the
+  # code exercised is different, so test both paths in the following group.
+  # If the shell isn't multibyte capable the tests are the same;
+  # that's not a problem.
   # This (1) doesn't work with // or /
   #      (2) perhaps ought to be 18, to be consistent with normal zsh
   #          substring indexing and with backreferences.
   print ${(BES)string##white}
+  (unsetopt multibyte; print ${(BES)string##white})
 0:${(BE...)...}
+>14 19
 >14 19
 
   print ${(NS)string##white}
+  (unsetopt multibyte; print ${(NS)string##white})
 0:${(N)...}
 >5
+>5
+
+  fn() {
+    emulate -L zsh
+    local a=abcdef
+    print ${(SNBE)a#abcd}
+    unsetopt multibyte
+    print ${(SNBE)a#abcd}
+  }
+  fn
+0:${(BEN)...} again, with match
+>1 5 4
+>1 5 4
 
   string='abcdefghijklmnopqrstuvwxyz'
   print ${${string%[aeiou]*}/(#m)?(#e)/${(U)MATCH}}
@@ -2055,4 +2080,368 @@
   a='~-/'; echo $~a
 0:Regression: "-" became Dash in workers/37689, breaking ~- expansion
 *>*
-F:We do not care what $OLDPWD is, as long as it doesn't cause an error
+F:We do not care what $OLDPWD is, as long as it does not cause an error
+
+  (
+  set -- one 'two three' four
+  for ifs in default null unset; do
+    for wordsplit in native sh; do
+      print -r -- "--- $ifs IFS, $wordsplit splitting ---"
+      case $ifs in
+      default) IFS=$' \t\n\00' ;;
+      null)    IFS= ;;
+      unset)   unset -v IFS ;;
+      esac
+      case $wordsplit in
+      native)  unsetopt shwordsplit ;;
+      sh)      setopt shwordsplit ;;
+      esac
+      for testcmd in 'var=$@' 'var=$*' 'var="$@"' 'var="$*"'; do
+	print -r -- "> $testcmd"
+        eval "$testcmd"
+	printf '[%s]\n' "${var[@]}"
+      done
+    done
+  done
+  )
+0:Assigning $@, $*, "$@", "$*" to var with various shwordsplit/IFS settings
+>--- default IFS, native splitting ---
+>> var=$@
+>[one two three four]
+>> var=$*
+>[one two three four]
+>> var="$@"
+>[one two three four]
+>> var="$*"
+>[one two three four]
+>--- default IFS, sh splitting ---
+>> var=$@
+>[one two three four]
+>> var=$*
+>[one two three four]
+>> var="$@"
+>[one two three four]
+>> var="$*"
+>[one two three four]
+>--- null IFS, native splitting ---
+>> var=$@
+>[onetwo threefour]
+>> var=$*
+>[onetwo threefour]
+>> var="$@"
+>[onetwo threefour]
+>> var="$*"
+>[onetwo threefour]
+>--- null IFS, sh splitting ---
+>> var=$@
+>[onetwo threefour]
+>> var=$*
+>[onetwo threefour]
+>> var="$@"
+>[onetwo threefour]
+>> var="$*"
+>[onetwo threefour]
+>--- unset IFS, native splitting ---
+>> var=$@
+>[one two three four]
+>> var=$*
+>[one two three four]
+>> var="$@"
+>[one two three four]
+>> var="$*"
+>[one two three four]
+>--- unset IFS, sh splitting ---
+>> var=$@
+>[one two three four]
+>> var=$*
+>[one two three four]
+>> var="$@"
+>[one two three four]
+>> var="$*"
+>[one two three four]
+F:As of this writing, var=$@ and var="$@" with null IFS have unspecified
+F:behavior, see http://austingroupbugs.net/view.php?id=888
+
+  () {
+    setopt localoptions extendedglob
+    [[ $- = [[:alnum:]]## ]] || print Failed 1
+    [[ ${-} = [[:alnum:]]## ]] || print Failed 2
+  }
+0:$- expansion correctly handles Dash token
+
+  a=(1 "" 3)
+  print -rl -- "${(@)a//*/x}"
+  a=""
+  print -rl -- "${(@)a//*/y}"
+0:Zero-length string match in parameter substitution
+>x
+>x
+>x
+>y
+
+  a=(1 "" 3)
+  print -rl -- "${(@)a//#%*/x}"
+  a=""
+  print -rl -- "${(@)a//#%*/y}"
+0:Zero-length string match at end
+>x
+>x
+>x
+>y
+
+  my_width=6
+  my_index=1
+  my_options=Option1
+  hyperlink=$'\034'"MYID"$'\034'"DATA1"$'\034'"DATA2"$'\034'"DATA3"$'\034'"my_width"$'\034'"my_index"$'\034'"my_options"$'\02'
+  array=( $hyperlink "Regular text" $hyperlink )
+  array=( "${array[@]//(#b)$'\034'[^$'\034']#$'\034'[^$'\034']#$'\034'[^$'\034']#$'\034'[^$'\034']#$'\034'([^$'\034']#)$'\034'([^$'\034']#)$'\034'([^$'\02']#)$'\02'/${(mr:${(P)${(Q)match[1]}}:: :)${(As:;:)${(P)${(Q)match[3]}}}[${(P)${(Q)match[2]}}]}}" )
+  print -rl -- "${array[@]}"
+0:Test substitution that uses P,Q,A,s,r,m flags
+>Option
+>Regular text
+>Option
+
+ (setopt nonomatch
+  print ${(z):-foo-bar*thingy?}
+ )
+0:(z) splitting with remaining tokens
+>foo-bar*thingy?
+ 
+ typeset -A keyvalhash
+ keyvalhash=([one]=eins [two]=zwei)
+ keyvalhash+=([three]=drei)
+ for key in ${(ok)keyvalhash}; do
+   print $key $keyvalhash[$key]
+ done
+0:[key]=val for hashes
+>one eins
+>three drei
+>two zwei
+
+  local keyvalarray
+  keyvalarray=([1]=one [3]=three)
+  print -l "${keyvalarray[@]}"
+  keyvalarray+=([2]=two)
+  print -l "${keyvalarray[@]}"
+0:[key]=val for normal arrays
+>one
+>
+>three
+>one
+>two
+>three
+
+  (setopt KSH_ARRAYS
+  local keyvalarray
+  keyvalarray=([0]=one [2]=three)
+  print -l "${keyvalarray[@]}"
+  keyvalarray+=([1]=two)
+  print -l "${keyvalarray[@]}")
+0:[key]=val for normal arrays with KSH_ARRAYS
+>one
+>
+>three
+>one
+>two
+>three
+
+ typeset -A keyvalhash
+ touch foo Xnot_globbedX
+ key="another key" val="another value"
+ keyvalhash=([$(echo the key)]=$(echo the value)
+             [$key]=$val
+	     [*]=?not_globbed?)
+ for key in ${(ok)keyvalhash}; do
+   print -l $key $keyvalhash[$key]
+ done
+0:Substitution in [key]=val syntax
+>*
+>?not_globbed?
+>another key
+>another value
+>the key
+>the value
+
+ local keyvalarray
+ keyvalarray=(1 2 3)
+ keyvalarray+=([5]=5 [7]=7)
+ keyvalarray+=([4]=4 [6]=6)
+ print $#keyvalarray
+ print $keyvalarray
+0:append to normal array using [key]=val
+>7
+>1 2 3 4 5 6 7
+
+ (setopt KSH_ARRAYS
+ local keyvalarray
+ keyvalarray=(1 2 3)
+ keyvalarray+=([4]=5 [6]=7)
+ keyvalarray+=([3]=4 [5]=6)
+ print ${#keyvalarray[*]}
+ print ${keyvalarray[*]})
+0:append to normal array using [key]=val with KSH_ARRAYS
+>7
+>1 2 3 4 5 6 7
+
+ local -A keyvalhash
+ keyvalhash=(['1first element!']=first' 'value
+	     ["2second element?"]=second" "value
+	     [$'3third element#']=third$' 'value
+	     [\4\f\o\u\r\t\h\ \e\l\e\m\e\n\t\\]=fourth\ value)
+ for key in ${(ok)keyvalhash}; do
+   print -rl -- $key $keyvalhash[$key]
+ done
+0:quoting in [key]=value syntax
+>1first element!
+>first value
+>2second element?
+>second value
+>3third element#
+>third value
+>4fourth element\
+>fourth value
+
+  local keyvalarray
+  keyvalarray=(first [2]=second third [6]=sixth seventh [5]=fifth new_sixth)
+  print -l "${keyvalarray[@]}"
+0:mixed syntax [key]=val with normal arrays
+>first
+>second
+>third
+>
+>fifth
+>new_sixth
+>seventh
+
+  (setopt KSH_ARRAYS
+  local keyvalarray
+  keyvalarray=(first [1]=second third [5]=sixth seventh [4]=fifth new_sixth)
+  print -l "${keyvalarray[@]}")
+0:mixed syntax [key]=val with normal arrays with KSH_ARRAYS
+>first
+>second
+>third
+>
+>fifth
+>new_sixth
+>seventh
+
+  local -A keyvalhash
+  keyvalhash=(1 one [2]=two 3 three)
+1:Mixed syntax with [key]=val not allowed for hash.
+?(eval):2: bad [key]=value syntax for associative array
+
+  touch KVA1one KVA2two KVA3three
+  local keyvalarray
+  keyvalarray=(KVA* [4]=*)
+  print -l "${keyvalarray[@]}"
+0:Globbing in non-[key]=val parts of mixed syntax.
+>KVA1one
+>KVA2two
+>KVA3three
+>*
+
+  (setopt KSH_ARRAYS
+  touch KVA1one KVA2two KVA3three
+  local keyvalarray
+  keyvalarray=(KVA* [3]=*)
+  print -l "${keyvalarray[@]}")
+0:Globbing in non-[key]=val parts of mixed syntax with KSH_ARRAYS
+>KVA1one
+>KVA2two
+>KVA3three
+>*
+
+  local -a keyvalarray
+  keyvalarray=(1 2 3)
+  keyvalarray+=([1]+=a [2]=b)
+  print $keyvalarray
+0:Append to element(s) of array
+>1a b 3
+
+  (setopt KSH_ARRAYS
+  local -a keyvalarray
+  keyvalarray=(1 2 3)
+  keyvalarray+=([0]+=a [1]=b)
+  print ${keyvalarray[*]})
+0:Append to element(s) of array with KSH_ARRAYS
+>1a b 3
+
+  local -A keyvalhash
+  keyvalhash=([a]=a [b]=b [c]=c)
+  keyvalhash+=([a]+=yee [b]=ee)
+  local key val
+  for key in "${(ok)keyvalhash[@]}"; do
+    val=${keyvalhash[$key]}
+    print -r -- $key $val
+  done
+0:Append to element(s) of associative array
+>a ayee
+>b ee
+>c c
+
+  local -a keyvalarray
+  keyvalarray=([1]=who [2]=anyway [1]+=is [1]+=that [1]+=mysterious [1]+=man)
+  print -rl -- "${keyvalarray[@]}"
+0:Append to element of array on creation
+>whoisthatmysteriousman
+>anyway
+
+  (setopt KSH_ARRAYS
+  local -a keyvalarray
+  keyvalarray=([0]=who [1]=anyway [0]+=is [0]+=that [0]+=mysterious [0]+=man)
+  print -rl -- "${keyvalarray[@]}")
+0:Append to element of array on creation with KSH_ARRAYS
+>whoisthatmysteriousman
+>anyway
+
+  local -A keyvalhash
+  keyvalhash=([one]=hows [one]+=your [one]+=father [one]+=today)
+  print -rl -- ${(kv)keyvalhash}
+0:Append to element of associative array on creation
+>one
+>howsyourfathertoday
+
+  local b=$'a+=(${(o)$(ls -1 \'.*\' | perl -alne \'\nEND{ print " "; }\'\n)})'
+  printf ': %s\n' "${(@Z+cn+)b}"
+0:(Z) flag splitting with $( closed after embedded newline
+>: a+=(
+>: ${(o)$(ls -1 '.*' | perl -alne '
+>END{ print " "; }'
+>)}
+>: )
+
+  local b=$'# \' single\n# \" double\n# ` backtick\nword'
+  (setopt CSH_JUNKIE_QUOTES
+  printf ': %s\n' "${(@Z+n+)b}")
+0:(z) flag with CSH_JUNKIE_QUOTES
+>: #
+>: ' single
+>: #
+>: " double
+>: #
+>: ` backtick
+>: word
+
+#' (to deconfuse emacs shell script mode)
+
+  (
+    setopt KSH_ARRAYS
+    typeset -A ksh_assoc
+    print ${+assoc[unset]}
+  )
+0:Use of parameter subst + to test element of hash with KSH_ARRAYS.
+>0
+
+ for baz in "" "inga"; do
+   echo ${#${baz}} "${#${baz}}" ${#baz} "${#baz}"
+ done
+0:double-quoted nested evaluation of empty string
+>0 0 0 0
+>4 4 4 4
+
+  () {
+    local -a x
+    : <<< ${(F)x/y}
+  }
+0:Separation / join logic regresssion test

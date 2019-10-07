@@ -93,8 +93,6 @@ NSXPCInterface* CKKSSetupControlProtocol(NSXPCInterface* interface) {
     });
 
     @try {
-        [interface setClasses:errClasses forSelector:@selector(rpcResetLocal:reply:)                   argumentIndex:0 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(rpcResetCloudKit:reply:)                argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(rpcResetCloudKit:reason:reply:)                argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(rpcResync:reply:)                       argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(rpcStatus:reply:)                       argumentIndex:0 ofReply:YES];

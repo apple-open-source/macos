@@ -10,16 +10,19 @@
 
 
 #import <Foundation/Foundation.h>
+#import <IOKit/IOKitLib.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface HIDDisplayInterface : NSObject
 
 @property(readonly) NSString* containerID;
+@property(readonly) uint64_t  registryID;
 
 @property(readonly,nullable) NSArray<NSString*> *capabilities;
 
 -(nullable instancetype) initWithContainerID:(NSString*) containerID;
+-(nullable instancetype) initWithService:(io_service_t) service;
 
 @end
 

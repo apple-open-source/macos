@@ -67,36 +67,36 @@ protected:
     SInt16   vscroll;
   } GenericReport;
 
-  virtual void free();
+  virtual void free(void) APPLE_KEXT_OVERRIDE;
   
-  virtual bool handleStart( IOService * provider );
+  virtual bool handleStart( IOService * provider ) APPLE_KEXT_OVERRIDE;
 
-  virtual bool start( IOService * provider );
+  virtual bool start( IOService * provider ) APPLE_KEXT_OVERRIDE;
 
 public:
   static IOHIDPointingEventDevice	* newPointingDeviceAndStart(IOService * owner);
   
-  virtual bool initWithLocation( UInt32 location = 0 );
+  virtual bool initWithLocation( UInt32 location = 0 ) APPLE_KEXT_OVERRIDE;
   
-  virtual IOReturn newReportDescriptor(IOMemoryDescriptor ** descriptor ) const;
+  virtual IOReturn newReportDescriptor(IOMemoryDescriptor ** descriptor ) const APPLE_KEXT_OVERRIDE;
   
-  virtual OSString * newProductString() const;
+  virtual OSString * newProductString(void) const APPLE_KEXT_OVERRIDE;
     
-  virtual OSNumber * newVendorIDNumber() const;
-  virtual OSNumber * newProductIDNumber() const;
-  virtual OSString * newManufacturerString() const;
+  virtual OSNumber * newVendorIDNumber(void) const APPLE_KEXT_OVERRIDE;
+  virtual OSNumber * newProductIDNumber(void) const APPLE_KEXT_OVERRIDE;
+  virtual OSString * newManufacturerString(void) const APPLE_KEXT_OVERRIDE;
   
   virtual IOReturn getReport( IOMemoryDescriptor * report,
                              IOHIDReportType      reportType,
-                             IOOptionBits         options );
+                             IOOptionBits         options ) APPLE_KEXT_OVERRIDE;
   
   virtual void postMouseEvent(UInt8 buttons, SInt16 x, SInt16 y, SInt16 vscroll=0, SInt16 hscroll=0);
 
-  virtual IOReturn message(UInt32 type, IOService * provider, void * argument);
+  virtual IOReturn message(UInt32 type, IOService * provider, void * argument) APPLE_KEXT_OVERRIDE;
 
   virtual bool matchPropertyTable(
                                   OSDictionary *              table,
-                                  SInt32 *                    score);
+                                  SInt32 *                    score) APPLE_KEXT_OVERRIDE;
 
 };
 

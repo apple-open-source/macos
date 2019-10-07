@@ -16,8 +16,6 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id$ */
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -30,6 +28,7 @@
 #include "php_com_dotnet.h"
 #include "php_com_dotnet_internal.h"
 #include "Zend/zend_exceptions.h"
+#include "Zend/zend_interfaces.h"
 
 ZEND_DECLARE_MODULE_GLOBALS(com_dotnet)
 static PHP_GINIT_FUNCTION(com_dotnet);
@@ -47,67 +46,7 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_variant_set, 0, 0, 2)
 	ZEND_ARG_INFO(0, value)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_variant_add, 0, 0, 2)
-	ZEND_ARG_INFO(0, left)
-	ZEND_ARG_INFO(0, right)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_variant_cat, 0, 0, 2)
-	ZEND_ARG_INFO(0, left)
-	ZEND_ARG_INFO(0, right)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_variant_sub, 0, 0, 2)
-	ZEND_ARG_INFO(0, left)
-	ZEND_ARG_INFO(0, right)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_variant_mul, 0, 0, 2)
-	ZEND_ARG_INFO(0, left)
-	ZEND_ARG_INFO(0, right)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_variant_and, 0, 0, 2)
-	ZEND_ARG_INFO(0, left)
-	ZEND_ARG_INFO(0, right)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_variant_div, 0, 0, 2)
-	ZEND_ARG_INFO(0, left)
-	ZEND_ARG_INFO(0, right)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_variant_eqv, 0, 0, 2)
-	ZEND_ARG_INFO(0, left)
-	ZEND_ARG_INFO(0, right)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_variant_idiv, 0, 0, 2)
-	ZEND_ARG_INFO(0, left)
-	ZEND_ARG_INFO(0, right)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_variant_imp, 0, 0, 2)
-	ZEND_ARG_INFO(0, left)
-	ZEND_ARG_INFO(0, right)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_variant_mod, 0, 0, 2)
-	ZEND_ARG_INFO(0, left)
-	ZEND_ARG_INFO(0, right)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_variant_or, 0, 0, 2)
-	ZEND_ARG_INFO(0, left)
-	ZEND_ARG_INFO(0, right)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_variant_pow, 0, 0, 2)
-	ZEND_ARG_INFO(0, left)
-	ZEND_ARG_INFO(0, right)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_variant_xor, 0, 0, 2)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_left_right, 0, 0, 2)
 	ZEND_ARG_INFO(0, left)
 	ZEND_ARG_INFO(0, right)
 ZEND_END_ARG_INFO()
@@ -196,21 +135,21 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_com_load_typelib, 0, 0, 1)
 ZEND_END_ARG_INFO()
 /* }}} */
 
-const zend_function_entry com_dotnet_functions[] = {
+static const zend_function_entry com_dotnet_functions[] = {
 	PHP_FE(variant_set, arginfo_variant_set)
-	PHP_FE(variant_add, arginfo_variant_add)
-	PHP_FE(variant_cat, arginfo_variant_cat)
-	PHP_FE(variant_sub, arginfo_variant_sub)
-	PHP_FE(variant_mul, arginfo_variant_mul)
-	PHP_FE(variant_and, arginfo_variant_and)
-	PHP_FE(variant_div, arginfo_variant_div)
-	PHP_FE(variant_eqv, arginfo_variant_eqv)
-	PHP_FE(variant_idiv, arginfo_variant_idiv)
-	PHP_FE(variant_imp, arginfo_variant_imp)
-	PHP_FE(variant_mod, arginfo_variant_mod)
-	PHP_FE(variant_or, arginfo_variant_or)
-	PHP_FE(variant_pow, arginfo_variant_pow)
-	PHP_FE(variant_xor, arginfo_variant_xor)
+	PHP_FE(variant_add, arginfo_left_right)
+	PHP_FE(variant_cat, arginfo_left_right)
+	PHP_FE(variant_sub, arginfo_left_right)
+	PHP_FE(variant_mul, arginfo_left_right)
+	PHP_FE(variant_and, arginfo_left_right)
+	PHP_FE(variant_div, arginfo_left_right)
+	PHP_FE(variant_eqv, arginfo_left_right)
+	PHP_FE(variant_idiv, arginfo_left_right)
+	PHP_FE(variant_imp, arginfo_left_right)
+	PHP_FE(variant_mod, arginfo_left_right)
+	PHP_FE(variant_or, arginfo_left_right)
+	PHP_FE(variant_pow, arginfo_left_right)
+	PHP_FE(variant_xor, arginfo_left_right)
 	PHP_FE(variant_abs, arginfo_variant_abs)
 	PHP_FE(variant_fix, arginfo_variant_fix)
 	PHP_FE(variant_int, arginfo_variant_int)
@@ -372,11 +311,15 @@ PHP_MINIT_FUNCTION(com_dotnet)
 	ce.create_object = php_com_object_new;
 	php_com_variant_class_entry = zend_register_internal_class(&ce);
 	php_com_variant_class_entry->get_iterator = php_com_iter_get;
+	php_com_variant_class_entry->serialize = zend_class_serialize_deny;
+	php_com_variant_class_entry->unserialize = zend_class_unserialize_deny;
 
 	INIT_CLASS_ENTRY(ce, "com", NULL);
 	ce.create_object = php_com_object_new;
 	tmp = zend_register_internal_class_ex(&ce, php_com_variant_class_entry);
 	tmp->get_iterator = php_com_iter_get;
+	tmp->serialize = zend_class_serialize_deny;
+	tmp->unserialize = zend_class_unserialize_deny;
 
 	zend_ts_hash_init(&php_com_typelibraries, 0, NULL, php_com_typelibrary_dtor, 1);
 
@@ -385,6 +328,8 @@ PHP_MINIT_FUNCTION(com_dotnet)
 	ce.create_object = php_com_object_new;
 	tmp = zend_register_internal_class_ex(&ce, php_com_variant_class_entry);
 	tmp->get_iterator = php_com_iter_get;
+	tmp->serialize = zend_class_serialize_deny;
+	tmp->unserialize = zend_class_unserialize_deny;
 #endif
 
 	REGISTER_INI_ENTRIES();

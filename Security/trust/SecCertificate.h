@@ -150,6 +150,7 @@ CFDataRef SecCertificateCopyNormalizedSubjectSequence(SecCertificateRef certific
  @abstract Retrieves the public key for a given certificate.
  @param certificate A reference to the certificate from which to retrieve the public key.
  @result A reference to the public key for the specified certificate. Your code must release this reference by calling the CFRelease function. If the public key has an encoding issue or uses an unsupported algorithm, the returned reference will be null.
+ @discussion RSA and ECDSA public keys are supported. All other public key algorithms are unsupported.
  */
 __nullable CF_RETURNS_RETAINED
 SecKeyRef SecCertificateCopyKey(SecCertificateRef certificate)
@@ -165,7 +166,7 @@ SecKeyRef SecCertificateCopyKey(SecCertificateRef certificate)
  */
 __nullable
 SecKeyRef SecCertificateCopyPublicKey(SecCertificateRef certificate)
-    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopyKey", ios(10.3, 12.0)) API_UNAVAILABLE(macos);
+    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopyKey", ios(10.3, 12.0)) API_UNAVAILABLE(macos, iosmac);
 #endif
 
 #if TARGET_OS_OSX
@@ -178,7 +179,7 @@ SecKeyRef SecCertificateCopyPublicKey(SecCertificateRef certificate)
  @discussion NOTE: Deprecated in macOS 10.14; use SecCertificateCopyKey instead for cross-platform availability.
  */
 OSStatus SecCertificateCopyPublicKey(SecCertificateRef certificate, SecKeyRef * __nonnull CF_RETURNS_RETAINED key)
-    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopyKey", macos(10.3, 10.14)) API_UNAVAILABLE(ios);
+    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopyKey", macos(10.3, 10.14)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos, iosmac);
 #endif
 
 /*!
@@ -201,7 +202,7 @@ CFDataRef SecCertificateCopySerialNumberData(SecCertificateRef certificate, CFEr
  */
 __nullable
 CFDataRef SecCertificateCopySerialNumber(SecCertificateRef certificate)
-    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopySerialNumberData", ios(10.3, 11.0)) API_UNAVAILABLE(macos);
+    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopySerialNumberData", ios(10.3, 11.0)) API_UNAVAILABLE(macos, iosmac);
 #endif
 
 #if TARGET_OS_OSX
@@ -214,7 +215,7 @@ CFDataRef SecCertificateCopySerialNumber(SecCertificateRef certificate)
  */
 __nullable
 CFDataRef SecCertificateCopySerialNumber(SecCertificateRef certificate, CFErrorRef *error)
-    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopySerialNumberData", macos(10.7, 10.13)) API_UNAVAILABLE(ios);
+    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopySerialNumberData", macos(10.7, 10.13)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos, iosmac);
 #endif
 
 /*
@@ -462,6 +463,8 @@ extern const CFStringRef kSecPropertyTypeData __OSX_AVAILABLE_STARTING(__MAC_10_
 extern const CFStringRef kSecPropertyTypeString __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 extern const CFStringRef kSecPropertyTypeURL __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 extern const CFStringRef kSecPropertyTypeDate __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+extern const CFStringRef kSecPropertyTypeArray API_AVAILABLE(macos(10.15)) SPI_AVAILABLE(ios(13.0), watchos(6.0), tvos(13.0), iosmac(13.0));
+extern const CFStringRef kSecPropertyTypeNumber API_AVAILABLE(macos(10.15)) SPI_AVAILABLE(ios(13.0), watchos(6.0), tvos(13.0), iosmac(13.0));
 
 /*!
     @function SecCertificateCopyValues

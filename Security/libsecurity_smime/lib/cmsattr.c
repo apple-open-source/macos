@@ -130,6 +130,8 @@ SecCmsAttributeAddValue(PLArenaPool *poolp, SecCmsAttribute *attr, SecAsn1Item *
 
         if (SecCmsArrayAdd(poolp, (void ***)&(attr->values), (void *)copiedvalue) != SECSuccess)
             goto loser;
+
+        SecCmsArraySort((void **)(attr->values), SecCmsUtilDERCompare, NULL, NULL);
     }
 
     PORT_ArenaUnmark(poolp, mark);

@@ -27,7 +27,7 @@ enum {
     kKextlibsExitOK          = EX_OK,
     kKextlibsExitUndefineds  = 1,
     kKextlibsExitMultiples   = 2,
-    
+
     // don't actually exit with this, it's just a sentinel value
     kKextlibsExitHelp        = 33
 };

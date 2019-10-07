@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)chkargs.c	1.1	06/08/28 SMI"
-
 #include <strings.h>
 #include <unistd.h>
 #include <dtrace.h>

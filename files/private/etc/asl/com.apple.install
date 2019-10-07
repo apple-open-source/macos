@@ -1,3 +1,3 @@
 # install messages get saved only in /var/log/install.log
 ? [= Facility install] claim only
-* file /var/log/install.log format='$((Time)(JZ)) $Host $(Sender)[$(PID)]: $Message'
+* file /var/log/install.log format='$((Time)(JZ)) $Host $(Sender)[$(PID)]: $Message' rotate=seq compress file_max=50M all_max=150M size_only

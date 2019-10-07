@@ -38,9 +38,8 @@ static const struct option MAIN_OPTIONS[] =
 const char monitorUsage[] =
 "\nMonitor HID Event System events\n"
 "\nUsage:\n\n"
-"  hidutil monitor [ --info <eventType | eventName> ][ --predicate <predicate> ][ --show <varibles> ][ --type <event type> ][ --matching <matching> ][ --children ]\n"
+"  hidutil monitor [ --predicate <predicate> ][ --show <varibles> ][ --type <event type> ][ --matching <matching> ][ --children ]\n"
 "\nFlags:\n\n"
-"  -i  --info..................print predicate info for an event type\n"
 "  -p  --predicate.............filter events output based on predicate\n"
 "  -s  --show..................show only specified variables\n"
 "  -t  --type..................filter by event type, takes integer or string\n"
@@ -66,56 +65,6 @@ static char *                _clientTypeStr;
 static FILE *                _file;
 static const NSArray        *_debugKeys;
 
-static void printClassInfo(Class cls) {
-    objc_property_t *properties = NULL;
-    unsigned int outCount, i;
-    
-    properties = class_copyPropertyList(cls, &outCount);
-    
-    for(i = 0; i < outCount; i++) {
-        objc_property_t property = properties[i];
-        printf("    %s\n", property_getName(property));
-    }
-    
-    free(properties);
-}
-
-static void printEventInfo(char *arg) {
-    NSString *eventString       = [NSString stringWithUTF8String:arg];
-    NSNumberFormatter *nf       = [[NSNumberFormatter alloc] init];
-    BOOL isNum                  = [nf numberFromString:eventString] != nil;
-    IOHIDEventRef dummyEvent    = NULL;
-    HIDEvent *event             = [[HIDEvent alloc] init];
-    IOHIDEventType eventType    = kIOHIDEventTypeCount;
-    
-    // get event type from string
-    if (isNum) {
-        eventType = [eventString intValue];
-    } else {
-        for (uint32_t i = 0; i < kIOHIDEventTypeCount; i++) {
-            NSString *eventTypeString = [NSString stringWithUTF8String:IOHIDEventGetTypeString(i)];
-            
-            if ([[eventTypeString lowercaseString] containsString:eventString]) {
-                eventType = i;
-                break;
-            }
-        }
-    }
-    
-    dummyEvent = IOHIDEventCreate(kCFAllocatorDefault, eventType, 0, 0);
-    
-    printf("base event predicates:\n");
-    printClassInfo([event class]);
-    
-    if (eventType < kIOHIDEventTypeCount) {
-        event = createHIDEvent(dummyEvent);
-        printf("\n%s event predicates:\n", IOHIDEventGetTypeString(eventType));
-        printClassInfo([event class]);
-    }
-    
-    CFRelease(dummyEvent);
-}
-
 static void printEventVariables(HIDEvent *event) {
     NSString *eventString = [[NSString alloc] init];
     
@@ -139,36 +88,38 @@ static void printEventVariables(HIDEvent *event) {
 
 static void eventCallback(void *target __unused, void *refcon __unused, void *sender __unused, IOHIDEventRef event) {
     bool        predicated  = false;
-    HIDEvent    *hidEvent   = createHIDEvent(event);
+    HIDEvent    *hidEvent   = (__bridge HIDEvent *)event;
     
-    if (_predicate) {
-        @try {
-            if (![_predicate evaluateWithObject:hidEvent]) {
+    @autoreleasepool {
+        if (_predicate) {
+            @try {
+                if (![_predicate evaluateWithObject:hidEvent]) {
+                    predicated = true;
+                }
+            } @ catch(...) {
                 predicated = true;
             }
-        } @ catch(...) {
-            predicated = true;
-        }
-    }
-    
-    if (!predicated) {
-        if (_variables) {
-            printEventVariables(hidEvent);
-        } else {
-           fprintf(_file, "%s\n", [[hidEvent description] UTF8String]);
         }
         
-        if (_children) {
-            CFArrayRef children = IOHIDEventGetChildren(event);
-            for (CFIndex index = 0, count = children ? CFArrayGetCount(children) : 0; index < count; index++) {
-                IOHIDEventRef child = (IOHIDEventRef)CFArrayGetValueAtIndex(children, index);
-                HIDEvent *childHIDEvent = createHIDEvent(child);
-                
-                if (_variables) {
-                    fprintf(_file, "    ");
-                    printEventVariables(childHIDEvent);
-                } else {
-                    fprintf(_file,"    %s\n", [[childHIDEvent description] UTF8String]);
+        if (!predicated) {
+            if (_variables) {
+                printEventVariables(hidEvent);
+            } else {
+               fprintf(_file, "%s\n", [[hidEvent description] UTF8String]);
+            }
+            
+            if (_children) {
+                CFArrayRef children = IOHIDEventGetChildren(event);
+                for (CFIndex index = 0, count = children ? CFArrayGetCount(children) : 0; index < count; index++) {
+                    IOHIDEventRef child = (IOHIDEventRef)CFArrayGetValueAtIndex(children, index);
+                    HIDEvent *childHIDEvent = (__bridge HIDEvent *)child;
+                    
+                    if (_variables) {
+                        fprintf(_file, "    ");
+                        printEventVariables(childHIDEvent);
+                    } else {
+                        fprintf(_file,"    %s\n", [[childHIDEvent description] UTF8String]);
+                    }
                 }
             }
         }
@@ -216,7 +167,7 @@ Boolean clientTypeForString (NSString * string, IOHIDEventSystemClientType * typ
         },
     };
 
-    for (int index = 0 ; index < sizeof(table) / sizeof (table[0]); index++) {
+    for (size_t index = 0 ; index < sizeof(table) / sizeof (table[0]); index++) {
         if ([table[index].str containsString:string]) {
             *type = table[index].type;
             return true;
@@ -259,10 +210,14 @@ static void _serviceAddedCallback(void *target __unused,
         regID = [serviceID unsignedLongLongValue];
     }
     
-    printf("service added:0x%llx ", regID);
+    printf("service added:0x%llx, ", regID);
     for (NSString *key in _debugKeys) {
+        NSString *formatStr = @"%@:%@,";
+        if ([key isEqualToString:_debugKeys.lastObject]) {
+            formatStr = @"%@:%@";
+        } 
         id val = CFBridgingRelease(IOHIDServiceClientCopyProperty(service, (__bridge CFStringRef)key));
-        printf("%s ", [[NSString stringWithFormat:@"%@:%@", key, val] UTF8String]);
+        printf("%s ", [[NSString stringWithFormat:formatStr, key, val] UTF8String]);
     }
     printf("\n");
 }
@@ -319,11 +274,6 @@ int monitor(int argc __unused, const char * argv[] __unused) {
                 // --matching
             case 'm':
                 matchingStr = optarg;
-                break;
-                // --info
-            case 'i':
-                printEventInfo(optarg);
-                goto exit;
                 break;
                 // --show
             case 's':

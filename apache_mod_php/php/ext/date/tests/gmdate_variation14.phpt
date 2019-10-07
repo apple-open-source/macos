@@ -5,7 +5,7 @@ Test gmdate() function : usage variation - Passing high positive and negetive fl
 --FILE--
 <?php
 /* Prototype  : string gmdate(string format [, long timestamp])
- * Description: Format a GMT date/time 
+ * Description: Format a GMT date/time
  * Source code: ext/date/php_date.c
  */
 
@@ -30,11 +30,11 @@ var_dump( gmdate($format, $timestamp) );
 
 -- Testing gmdate() function with float 12.3456789000e10 to timestamp --
 
-Warning: gmdate() expects parameter 2 to be integer, float given in %s on line %d
+Warning: gmdate() expects parameter 2 to be int, float given in %s on line %d
 bool(false)
 
 -- Testing gmdate() function with float -12.3456789000e10 to timestamp --
 
-Warning: gmdate() expects parameter 2 to be integer, float given in %s on line %d
+Warning: gmdate() expects parameter 2 to be int, float given in %s on line %d
 bool(false)
 ===DONE===

@@ -29,12 +29,171 @@
 
 #include <wtf/Optional.h>
 #include <wtf/Vector.h>
+#include <wtf/text/StringConcatenate.h>
+#include <wtf/text/StringConcatenateNumbers.h>
 #include <wtf/text/StringView.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 namespace WHLSL {
+
+struct Token;
+
+namespace AST {
+
+class CodeLocation {
+public:
+    CodeLocation() = default;
+    CodeLocation(unsigned startOffset, unsigned endOffset)
+        : m_startOffset(startOffset)
+        , m_endOffset(endOffset)
+    { }
+    inline CodeLocation(const Token&);
+    CodeLocation(const CodeLocation& location1, const CodeLocation& location2)
+        : m_startOffset(location1.startOffset())
+        , m_endOffset(location2.endOffset())
+    { }
+
+    unsigned startOffset() const { return m_startOffset; }
+    unsigned endOffset() const { return m_endOffset; }
+
+private:
+    unsigned m_startOffset { 0 };
+    unsigned m_endOffset { 0 };
+};
+
+} // namespace AST
+
+class Lexer;
+
+struct Token {
+    AST::CodeLocation codeLocation;
+    enum class Type : uint8_t {
+        IntLiteral,
+        UintLiteral,
+        FloatLiteral,
+        Struct,
+        Typedef,
+        Enum,
+        Operator,
+        If,
+        Else,
+        Continue,
+        Break,
+        Switch,
+        Case,
+        Default,
+        Fallthrough,
+        For,
+        While,
+        Do,
+        Return,
+        Trap,
+        Null,
+        True,
+        False,
+        Constant,
+        Device,
+        Threadgroup,
+        Thread,
+        Space,
+        Vertex,
+        Fragment,
+        Compute,
+        NumThreads,
+        SVInstanceID,
+        SVVertexID,
+        PSize,
+        SVPosition,
+        SVIsFrontFace,
+        SVSampleIndex,
+        SVInnerCoverage,
+        SVTarget,
+        SVDepth,
+        SVCoverage,
+        SVDispatchThreadID,
+        SVGroupID,
+        SVGroupIndex,
+        SVGroupThreadID,
+        Attribute,
+        Register,
+        Specialized,
+        Native,
+        Restricted,
+        Underscore,
+        Auto,
+        Protocol,
+        Const,
+        Static,
+        Qualifier,
+        Identifier,
+        OperatorName,
+        EqualsSign,
+        Semicolon,
+        LeftCurlyBracket,
+        RightCurlyBracket,
+        Colon,
+        Comma,
+        LeftParenthesis,
+        RightParenthesis,
+        SquareBracketPair,
+        LeftSquareBracket,
+        RightSquareBracket,
+        Star,
+        LessThanSign,
+        GreaterThanSign,
+        FullStop,
+        PlusEquals,
+        MinusEquals,
+        TimesEquals,
+        DivideEquals,
+        ModEquals,
+        XorEquals,
+        AndEquals,
+        OrEquals,
+        RightShiftEquals,
+        LeftShiftEquals,
+        PlusPlus,
+        MinusMinus,
+        Arrow,
+        QuestionMark,
+        OrOr,
+        AndAnd,
+        Or,
+        Xor,
+        And,
+        LessThanOrEqualTo,
+        GreaterThanOrEqualTo,
+        EqualComparison,
+        NotEqual,
+        RightShift,
+        LeftShift,
+        Plus,
+        Minus,
+        Divide,
+        Mod,
+        Tilde,
+        ExclamationPoint,
+        At,
+        EndOfFile,
+        Invalid
+    } type {Type::Invalid};
+
+    static const char* typeName(Type);
+
+    inline StringView stringView(const Lexer&) const;
+
+    unsigned startOffset() const
+    {
+        return codeLocation.startOffset();
+    }
+};
+
+AST::CodeLocation::CodeLocation(const Token& token)
+    : m_startOffset(token.codeLocation.startOffset())
+    , m_endOffset(token.codeLocation.endOffset())
+{ }
 
 class Lexer {
 public:
@@ -44,6 +203,8 @@ public:
         : m_stringView(stringView)
     {
         skipWhitespaceAndComments();
+        m_ringBuffer[0] = consumeTokenFromStream();
+        m_ringBuffer[1] = consumeTokenFromStream();
     }
 
     Lexer(const Lexer&) = delete;
@@ -52,181 +213,77 @@ public:
     Lexer& operator=(const Lexer&) = delete;
     Lexer& operator=(Lexer&&) = default;
 
-    struct Token {
-        Token() = delete;
-        Token(const Token&) = default;
-        Token(Token&&) = default;
-        Token& operator=(const Token&) = default;
-        Token& operator=(Token&&) = default;
 
-        StringView stringView;
-        unsigned lineNumber;
-        enum class Type {
-            IntLiteral,
-            UintLiteral,
-            FloatLiteral,
-            Struct,
-            Typedef,
-            Enum,
-            Operator,
-            If,
-            Else,
-            Continue,
-            Break,
-            Switch,
-            Case,
-            Default,
-            Fallthrough,
-            For,
-            While,
-            Do,
-            Return,
-            Trap,
-            Null,
-            True,
-            False,
-            Constant,
-            Device,
-            Threadgroup,
-            Thread,
-            Space,
-            Vertex,
-            Fragment,
-            Compute,
-            NumThreads,
-            SVInstanceID,
-            SVVertexID,
-            PSize,
-            SVPosition,
-            SVIsFrontFace,
-            SVSampleIndex,
-            SVInnerCoverage,
-            SVTarget,
-            SVDepth,
-            SVCoverage,
-            SVDispatchThreadID,
-            SVGroupID,
-            SVGroupIndex,
-            SVGroupThreadID,
-            Attribute,
-            Register,
-            Specialized,
-            Native,
-            Restricted,
-            Underscore,
-            Auto,
-            Protocol,
-            Const,
-            Static,
-            Qualifier,
-            Identifier,
-            OperatorName,
-            EqualsSign,
-            Semicolon,
-            LeftCurlyBracket,
-            RightCurlyBracket,
-            Colon,
-            Comma,
-            LeftParenthesis,
-            RightParenthesis,
-            SquareBracketPair,
-            LeftSquareBracket,
-            RightSquareBracket,
-            Star,
-            LessThanSign,
-            GreaterThanSign,
-            FullStop,
-            PlusEquals,
-            MinusEquals,
-            TimesEquals,
-            DivideEquals,
-            ModEquals,
-            XorEquals,
-            AndEquals,
-            OrEquals,
-            RightShiftEquals,
-            LeftShiftEquals,
-            PlusPlus,
-            MinusMinus,
-            Arrow,
-            QuestionMark,
-            OrOr,
-            AndAnd,
-            Or,
-            Xor,
-            And,
-            LessThanOrEqualTo,
-            GreaterThanOrEqualTo,
-            EqualComparison,
-            NotEqual,
-            RightShift,
-            LeftShift,
-            Plus,
-            Minus,
-            Divide,
-            Mod,
-            Tilde,
-            ExclamationPoint,
-            At,
-        } type;
-
-        static const char* typeName(Type);
-    };
-
-    Optional<Token> consumeToken()
+    Token consumeToken()
     {
-        if (!m_stack.isEmpty())
-            return m_stack.takeLast();
-        return consumeTokenFromStream();
+        auto result = m_ringBuffer[m_ringBufferIndex];
+        m_ringBuffer[m_ringBufferIndex] = consumeTokenFromStream();
+        m_ringBufferIndex = (m_ringBufferIndex + 1) % 2;
+        return result;
     }
 
-    void unconsumeToken(Token&& token)
+    Token peek() const
     {
-        m_stack.append(WTFMove(token));
+        return m_ringBuffer[m_ringBufferIndex];
     }
 
+    Token peekFurther() const
+    {
+        return m_ringBuffer[(m_ringBufferIndex + 1) % 2];
+    }
+
+    // FIXME: We should not need this
+    // https://bugs.webkit.org/show_bug.cgi?id=198357
     struct State {
-        Vector<Token> stack;
+        Token ringBuffer[2];
+        unsigned ringBufferIndex;
         unsigned offset;
-        unsigned lineNumber;
     };
 
     State state() const
     {
-        return { m_stack, m_offset, m_lineNumber };
+        State state;
+        state.ringBuffer[0] = m_ringBuffer[0];
+        state.ringBuffer[1] = m_ringBuffer[1];
+        state.ringBufferIndex = m_ringBufferIndex;
+        state.offset = m_offset;
+        return state;
     }
 
     void setState(const State& state)
     {
-        m_stack = state.stack;
+        m_ringBuffer[0] = state.ringBuffer[0];
+        m_ringBuffer[1] = state.ringBuffer[1];
+        m_ringBufferIndex = state.ringBufferIndex;
         m_offset = state.offset;
-        m_lineNumber = state.lineNumber;
+
     }
 
     void setState(State&& state)
     {
-        m_stack = WTFMove(state.stack);
+        m_ringBuffer[0] = WTFMove(state.ringBuffer[0]);
+        m_ringBuffer[1] = WTFMove(state.ringBuffer[1]);
+        m_ringBufferIndex = WTFMove(state.ringBufferIndex);
         m_offset = WTFMove(state.offset);
-        m_lineNumber = WTFMove(state.lineNumber);
     }
 
     bool isFullyConsumed() const
     {
-        return m_offset == m_stringView.length();
+        return peek().type == Token::Type::EndOfFile;
     }
 
     String errorString(const Token& token, const String& message)
     {
-        return String::format("Parse error at line %u: %s", token.lineNumber, message.utf8().data());
+        return makeString("Parse error at line ", lineNumberFromOffset(token.startOffset()), ": ", message);
     }
 
 private:
-    Optional<Token> consumeTokenFromStream();
+    friend struct Token;
+    Token consumeTokenFromStream();
 
     void skipWhitespaceAndComments();
-    void skipWhitespace();
-    void skipLineComment();
-    void skipLongComment();
+
+    unsigned lineNumberFromOffset(unsigned offset);
 
     Optional<Token::Type> recognizeKeyword(unsigned end);
 
@@ -241,43 +298,38 @@ private:
     Optional<unsigned> digit(unsigned) const;
     unsigned digitStar(unsigned) const;
     Optional<unsigned> character(char, unsigned) const;
-    template<unsigned length> Optional<unsigned> anyCharacter(const char (&string)[length], unsigned) const;
     Optional<unsigned> coreFloatLiteralType1(unsigned) const;
     Optional<unsigned> coreFloatLiteral(unsigned) const;
     Optional<unsigned> floatLiteral(unsigned) const;
     template<unsigned length> Optional<unsigned> string(const char (&string)[length], unsigned) const;
     Optional<unsigned> validIdentifier(unsigned) const;
     Optional<unsigned> identifier(unsigned) const;
-    Optional<unsigned> operatorName(unsigned) const;
+    Optional<unsigned> completeOperatorName(unsigned) const;
 
     StringView m_stringView;
-    Vector<Token> m_stack;
+    Token m_ringBuffer[2];
+    unsigned m_ringBufferIndex { 0 };
     unsigned m_offset { 0 };
-    unsigned m_lineNumber { 0 };
 };
 
 template<unsigned length> Optional<unsigned> Lexer::string(const char (&string)[length], unsigned offset) const
 {
+    if (offset + length > m_stringView.length())
+        return WTF::nullopt;
     for (unsigned i = 0; i < length - 1; ++i) {
-        if (offset + i >= m_stringView.length() || m_stringView[offset + i] != string[i])
+        if (m_stringView[offset + i] != string[i])
             return WTF::nullopt;
     }
     return offset + length - 1;
 }
 
-template<unsigned length> Optional<unsigned> Lexer::anyCharacter(const char (&string)[length], unsigned offset) const
+StringView Token::stringView(const Lexer& lexer) const
 {
-    if (offset >= m_stringView.length())
-        return WTF::nullopt;
-    for (unsigned i = 0; i < length - 1; ++i) {
-        if (m_stringView[offset] == string[i])
-            return offset + 1;
-    }
-    return WTF::nullopt;
+    return lexer.m_stringView.substring(codeLocation.startOffset(), codeLocation.endOffset() - codeLocation.startOffset());
 }
 
-}
+} // namespace WHLSL
 
-}
+} // namespace WebCore
 
-#endif
+#endif // ENABLE(WEBGPU)

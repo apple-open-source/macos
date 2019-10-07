@@ -10,7 +10,7 @@ class testfilter extends php_user_filter {
       $consumed += strlen($bucket->data);
       stream_bucket_append($out, $bucket);
     }
-    return PSFS_PASS_ON;    
+    return PSFS_PASS_ON;
   }
 
   function oncreate() {
@@ -20,7 +20,7 @@ class testfilter extends php_user_filter {
 
 stream_filter_register('testfilter','testfilter');
 
-$text = b"Hello There!";
+$text = "Hello There!";
 
 $fp = tmpfile();
 fwrite($fp, $text);

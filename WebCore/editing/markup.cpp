@@ -38,6 +38,7 @@
 #include "ChildListMutationScope.h"
 #include "Comment.h"
 #include "ComposedTreeIterator.h"
+#include "CustomHeaderFields.h"
 #include "DocumentFragment.h"
 #include "DocumentLoader.h"
 #include "DocumentType.h"
@@ -66,6 +67,7 @@
 #include "NodeList.h"
 #include "Page.h"
 #include "PageConfiguration.h"
+#include "PasteboardItemInfo.h"
 #include "Range.h"
 #include "RenderBlock.h"
 #include "RuntimeEnabledFeatures.h"
@@ -129,7 +131,7 @@ static void completeURLs(DocumentFragment* fragment, const String& baseURL)
         change.apply();
 }
 
-void replaceSubresourceURLs(Ref<DocumentFragment>&& fragment, HashMap<AtomicString, AtomicString>&& replacementMap)
+void replaceSubresourceURLs(Ref<DocumentFragment>&& fragment, HashMap<AtomString, AtomString>&& replacementMap)
 {
     Vector<AttributeChange> changes;
     for (auto& element : descendantsOfType<Element>(fragment)) {
@@ -177,13 +179,14 @@ std::unique_ptr<Page> createPageForSanitizingWebContent()
     auto pageConfiguration = pageConfigurationWithEmptyClients();
     
     auto page = std::make_unique<Page>(WTFMove(pageConfiguration));
+    page->setIsForSanitizingWebContent();
     page->settings().setMediaEnabled(false);
     page->settings().setScriptEnabled(false);
     page->settings().setPluginsEnabled(false);
     page->settings().setAcceleratedCompositingEnabled(false);
 
     Frame& frame = page->mainFrame();
-    frame.setView(FrameView::create(frame));
+    frame.setView(FrameView::create(frame, IntSize { 800, 600 }));
     frame.init();
 
     FrameLoader& loader = frame.loader();
@@ -766,7 +769,7 @@ static RefPtr<EditingStyle> styleFromMatchedRulesAndInlineDecl(Node& node)
     auto& element = downcast<HTMLElement>(node);
     auto style = EditingStyle::create(element.inlineStyle());
     style->mergeStyleFromRules(element);
-    return WTFMove(style);
+    return style;
 }
 
 static bool isElementPresentational(const Node* node)
@@ -1114,12 +1117,16 @@ Ref<DocumentFragment> createFragmentFromText(Range& context, const String& text)
     string.replace("\r\n", "\n");
     string.replace('\r', '\n');
 
+    auto createHTMLBRElement = [&document]() {
+        auto element = HTMLBRElement::create(document);
+        element->setAttributeWithoutSynchronization(classAttr, AppleInterchangeNewline);
+        return element;
+    };
+
     if (contextPreservesNewline(context)) {
         fragment->appendChild(document.createTextNode(string));
         if (string.endsWith('\n')) {
-            auto element = HTMLBRElement::create(document);
-            element->setAttributeWithoutSynchronization(classAttr, AppleInterchangeNewline);
-            fragment->appendChild(element);
+            fragment->appendChild(createHTMLBRElement());
         }
         return fragment;
     }
@@ -1127,6 +1134,12 @@ Ref<DocumentFragment> createFragmentFromText(Range& context, const String& text)
     // A string with no newlines gets added inline, rather than being put into a paragraph.
     if (string.find('\n') == notFound) {
         fillContainerFromString(fragment, string);
+        return fragment;
+    }
+
+    if (string.length() == 1 && string[0] == '\n') {
+        // This is a single newline char, thus just create one HTMLBRElement.
+        fragment->appendChild(createHTMLBRElement());
         return fragment;
     }
 
@@ -1148,8 +1161,7 @@ Ref<DocumentFragment> createFragmentFromText(Range& context, const String& text)
         RefPtr<Element> element;
         if (s.isEmpty() && i + 1 == numLines) {
             // For last line, use the "magic BR" rather than a P.
-            element = HTMLBRElement::create(document);
-            element->setAttributeWithoutSynchronization(classAttr, AppleInterchangeNewline);
+            element = createHTMLBRElement();
         } else if (useLineBreak) {
             element = HTMLBRElement::create(document);
             fillContainerFromString(fragment, s);
@@ -1193,13 +1205,13 @@ ExceptionOr<Ref<DocumentFragment>> createFragmentForInnerOuterHTML(Element& cont
 
     if (document->isHTMLDocument()) {
         fragment->parseHTML(markup, &contextElement, parserContentPolicy);
-        return WTFMove(fragment);
+        return fragment;
     }
 
     bool wasValid = fragment->parseXML(markup, &contextElement, parserContentPolicy);
     if (!wasValid)
         return Exception { SyntaxError };
-    return WTFMove(fragment);
+    return fragment;
 }
 
 RefPtr<DocumentFragment> createFragmentForTransformToFragment(Document& outputDoc, const String& sourceString, const String& sourceMIMEType)
@@ -1226,11 +1238,14 @@ RefPtr<DocumentFragment> createFragmentForTransformToFragment(Document& outputDo
     return fragment;
 }
 
-Ref<DocumentFragment> createFragmentForImageAndURL(Document& document, const String& url)
+Ref<DocumentFragment> createFragmentForImageAndURL(Document& document, const String& url, PresentationSize preferredSize)
 {
     auto imageElement = HTMLImageElement::create(document);
     imageElement->setAttributeWithoutSynchronization(HTMLNames::srcAttr, url);
-
+    if (preferredSize.width)
+        imageElement->setAttributeWithoutSynchronization(HTMLNames::widthAttr, AtomString::number(*preferredSize.width));
+    if (preferredSize.height)
+        imageElement->setAttributeWithoutSynchronization(HTMLNames::heightAttr, AtomString::number(*preferredSize.height));
     auto fragment = document.createDocumentFragment();
     fragment->appendChild(imageElement);
 
@@ -1278,7 +1293,7 @@ ExceptionOr<Ref<DocumentFragment>> createContextualFragment(Element& element, co
     for (auto& element : toRemove)
         removeElementFromFragmentPreservingChildren(fragment, element);
 
-    return WTFMove(fragment);
+    return fragment;
 }
 
 static inline bool hasOneChild(ContainerNode& node)

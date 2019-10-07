@@ -41,12 +41,17 @@ up-to-date.  Many thanks.
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #ifdef SYSV
 #include <sys/fcntl.h>
 #include <string.h>
 #else
 #include <strings.h>
+#endif
+#ifdef __linux__
+#include <string.h>
+#include <unistd.h>
 #endif
 #include <sys/file.h>
 #include <sys/stat.h>

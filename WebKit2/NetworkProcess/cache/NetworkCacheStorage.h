@@ -78,7 +78,7 @@ public:
     };
 
     // This may call completion handler synchronously on failure.
-    using RetrieveCompletionHandler = Function<bool (std::unique_ptr<Record>, const Timings&)>;
+    using RetrieveCompletionHandler = CompletionHandler<bool(std::unique_ptr<Record>, const Timings&)>;
     void retrieve(const Key&, unsigned priority, RetrieveCompletionHandler&&);
 
     using MappedBodyHandler = Function<void (const Data& mappedBody)>;
@@ -169,7 +169,6 @@ private:
     
     const Mode m_mode;
     const Salt m_salt;
-    const bool m_canUseBlobsForForBodyData;
 
     size_t m_capacity { std::numeric_limits<size_t>::max() };
     size_t m_approximateRecordsSize { 0 };
@@ -208,10 +207,6 @@ private:
     // Completing writes will dispatch more writes without delay.
     Seconds m_initialWriteDelay { 1_s };
 };
-
-// FIXME: Remove, used by NetworkCacheStatistics only.
-using RecordFileTraverseFunction = Function<void (const String& fileName, const String& hashString, const String& type, bool isBlob, const String& recordDirectoryPath)>;
-void traverseRecordsFiles(const String& recordsPath, const String& type, const RecordFileTraverseFunction&);
 
 }
 }

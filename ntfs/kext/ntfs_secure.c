@@ -276,13 +276,9 @@ errno_t ntfs_next_security_id_init(ntfs_volume *vol, le32 *next_security_id)
 	for (;; prev_ie = ie, ie = (INDEX_ENTRY*)((u8*)ie +
 			le16_to_cpu(ie->length))) {
 		/* Bounds checks. */
-		if ((u8*)ie < (u8*)&ir->index || (u8*)ie +
-				sizeof(INDEX_ENTRY_HEADER) > index_end ||
-				(u8*)ie + le16_to_cpu(ie->length) > index_end ||
-				(u32)sizeof(INDEX_ENTRY_HEADER) +
-				le16_to_cpu(ie->key_length) >
-				le16_to_cpu(ie->length))
+        if (!ntfs_is_index_entry_valid(ie, &ir->index, index_end)) {
 			goto idx_err;
+        }
 		/*
 		 * The last entry cannot contain a key.  It can however contain
 		 * a pointer to a child node in the B+tree so we just break out.
@@ -414,12 +410,7 @@ fast_descend_into_child_node:
 	for (;; prev_ie = ie, ie = (INDEX_ENTRY*)((u8*)ie +
 			le16_to_cpu(ie->length))) {
 		/* Bounds checks. */
-		if ((u8*)ie < (u8*)&ia->index || (u8*)ie +
-				sizeof(INDEX_ENTRY_HEADER) > index_end ||
-				(u8*)ie + le16_to_cpu(ie->length) > index_end ||
-				(u32)sizeof(INDEX_ENTRY_HEADER) +
-				le16_to_cpu(ie->key_length) >
-				le16_to_cpu(ie->length)) {
+        if (!ntfs_is_index_entry_valid(ie, &ia->index, index_end)) {
 			ntfs_error(vol->mp, "Index entry out of bounds in "
 					"$Secure.");
 			goto page_err;

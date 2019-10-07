@@ -49,6 +49,21 @@
     return self;
 }
 
+-(nullable instancetype) initWithService:(io_service_t) service
+{
+    self = [super initWithService:service];
+    
+    if (!self) {
+        return nil;
+    }
+    
+    if (![self setupPresets]) {
+        return nil;
+    }
+    
+    return self;
+}
+
 -(BOOL) setupPresets
 {
     NSDictionary *matching = @{@kIOHIDElementUsagePageKey: @(kHIDPage_AppleVendorDisplayPreset)};
@@ -68,10 +83,10 @@
 
 -(NSArray*) getHIDDevices
 {
-   NSDictionary *matching = @{@kIOHIDDeviceUsagePairsKey : @[@{
-                                                    @kIOHIDDeviceUsagePageKey : @(kHIDPage_AppleVendor),
-                                                    @kIOHIDDeviceUsageKey: @(kHIDUsage_AppleVendor_Display)
-                                                    }]};
+    NSDictionary *matching = @{@kIOHIDDeviceUsagePairsKey : @[@{
+                                                                  @kIOHIDDeviceUsagePageKey : @(kHIDPage_AppleVendor),
+                                                                  @kIOHIDDeviceUsageKey: @(kHIDUsage_AppleVendor_Display)
+                                                                  }]};
     return [self getHIDDevicesForMatching:matching];
     
 }
@@ -117,6 +132,8 @@
         if ([self extract:@[factoryDefaultIndexElement] error:error]) {
             index = factoryDefaultIndexElement.integerValue;
         }
+    } else {
+        os_log_error(HIDDisplayLog(),"%@ getFactoryDefaultPresetIndex no associated element",self);
     }
     
     return index;
@@ -132,6 +149,8 @@
         if ([self extract:@[activePresetIndexElement] error:error]) {
             index = activePresetIndexElement.integerValue;
         }
+    } else {
+        os_log_error(HIDDisplayLog(),"%@ getActivePresetIndex no associated element",self);
     }
     
     return index;
@@ -141,9 +160,12 @@
 {
     BOOL ret = YES;
     
+    //This is important action and don't expect this to be too frequent
+    os_log(HIDDisplayLog(),"%@ setActivePresetIndex on preset index : %ld",self, index);
+    
     if (index < 0 || (NSUInteger)index >= _presets.count) {
         if (error) {
-            *error = [[NSError alloc] initWithDomain:NSOSStatusErrorDomain code:kIOReturnInvalid userInfo:nil];
+            *error = [[NSError alloc] initWithDomain:NSOSStatusErrorDomain code:kIOReturnBadArgument userInfo:@{ NSLocalizedDescriptionKey:NSLocalizedString(@"Preset index out of range.", nil)}];
         }
         return NO;
     }
@@ -152,11 +174,10 @@
     
     // check if preset can be set as active preset
     if (preset.valid == 0) {
-        
         if (error) {
-            *error = [[NSError alloc] initWithDomain:NSOSStatusErrorDomain code:kIOReturnInvalid userInfo:nil];
+            *error = [[NSError alloc] initWithDomain:NSOSStatusErrorDomain code:kIOReturnError userInfo:@{ NSLocalizedDescriptionKey:NSLocalizedString(@"Preset is not valid.", nil)}];
         }
-        os_log_error(HIDDisplayLog(),"[containerID:%@] setActivePresetIndex on invalid  preset index : %ld",self.containerID, index);
+        os_log_error(HIDDisplayLog(),"%@ setActivePresetIndex on invalid  preset index : %ld",self, index);
         return NO;
     }
     
@@ -166,7 +187,7 @@
         activePresetIndexElement.integerValue = index;
         ret = [self commit:@[activePresetIndexElement] error:error];
     } else {
-        os_log_error(HIDDisplayLog(),"[containerID:%@] setActivePresetIndex no associated element",self.containerID);
+        os_log_error(HIDDisplayLog(),"%@ setActivePresetIndex no associated element",self);
     }
     
     return ret;
@@ -181,6 +202,8 @@
     if (currentPresetIndexElement) {
         currentPresetIndexElement.integerValue = index;
         ret = [self commit:@[currentPresetIndexElement] error:error];
+    } else {
+        os_log_error(HIDDisplayLog(),"%@ setCurrentPresetIndex no associated element",self);
     }
     return ret;
 }
@@ -195,6 +218,8 @@
         if ([self extract:@[currentPresetIndexElement] error:error]) {
             index = currentPresetIndexElement.integerValue;
         }
+    } else {
+        os_log_error(HIDDisplayLog(),"%@ getCurrentPresetIndex no associated element",self);
     }
     
     return index;

@@ -28,15 +28,15 @@
 #define _LIBPROC_H
 
 #include "rtld_db.h"
-#include <string.h>
 #include <sys/utsname.h>
-#include "bitmap.h"
+#include <sys/bitmap.h>
 #include <dlfcn.h>
-
 #include <gelf.h>
+
 #include "procfs.h"
 
 #ifdef	__cplusplus
+
 extern "C" {
 #endif
 
@@ -44,16 +44,11 @@ extern "C" {
 #define LM_ID_BASE              0x00
 
 /*
- * APPLE NOTE: This is a cut down copy of Sun's libproc.h. KEEP IT IN ORDER!
- * We want to be able to diff this file against newer versions of libproc.h
- * and see where changes have been made.
- */
-
-/*
  * Opaque structure tag reference to a process control structure.
  * Clients of libproc cannot look inside the process control structure.
  * The implementation of struct ps_prochandle can change w/o affecting clients.
  */
+
 struct ps_prochandle;
 
 /* State values returned by Pstate() */
@@ -71,7 +66,6 @@ struct ps_prochandle;
 #define PGRAB_NOSTOP    0x08    /* Open the process but do not stop it */
 
 /* Flags accepted by Prelease */
-#define PRELEASE_CLEAR  0x10    /* Clear all tracing flags */
 #define PRELEASE_RETAIN 0x20    /* Retain final tracing flags */
 #define PRELEASE_HANG   0x40    /* Leave the process stopped */
 #define PRELEASE_KILL   0x80    /* Terminate the process */
@@ -79,14 +73,14 @@ struct ps_prochandle;
 /*
  * Function prototypes for routines in the process control package.
  */
-extern struct ps_prochandle *Pcreate(const char *, char *const *,
-                                     int *, char *, size_t, cpu_type_t);
+extern struct ps_prochandle *Pxcreate(const char *, char *const *,
+                                     char *const *, int *, char *,
+                                     size_t, cpu_type_t);
 extern const char *Pcreate_error(int);
 
 extern struct ps_prochandle *Pgrab(pid_t, int, int *);
 extern const char *Pgrab_error(int);
 
-extern  int     Preopen(struct ps_prochandle *);
 extern  void    Prelease(struct ps_prochandle *, int);
 
 extern  int     Pstate(struct ps_prochandle *);
@@ -95,16 +89,8 @@ extern	int		Psetrun(struct ps_prochandle *, int, int);
 extern  ssize_t Pread(struct ps_prochandle *, void *, size_t, mach_vm_address_t);
 extern  int     Psetbkpt(struct ps_prochandle *, uintptr_t, ulong_t *);
 extern  int     Pdelbkpt(struct ps_prochandle *, uintptr_t, ulong_t);
-extern	int		Pxecbkpt(struct ps_prochandle *, ulong_t);
 extern  int     Psetflags(struct ps_prochandle *, long);
 extern  int     Punsetflags(struct ps_prochandle *, long);
-
-/*
- * Function prototypes for system calls forced on the victim process.
- */
-extern  int     pr_open(struct ps_prochandle *, const char *, int, mode_t);
-extern  int     pr_close(struct ps_prochandle *, int);
-extern  int     pr_ioctl(struct ps_prochandle *, int, int, void *, size_t);
 
 /*
  * Symbol table interfaces.
@@ -112,8 +98,6 @@ extern  int     pr_ioctl(struct ps_prochandle *, int, int, void *, size_t);
 
 /*
  * Pseudo-names passed to Plookup_by_name() for well-known load objects.
- * NOTE: It is required that PR_OBJ_EXEC and PR_OBJ_LDSO exactly match
- * the definitions of PS_OBJ_EXEC and PS_OBJ_LDSO from <proc_service.h>.
  */
 #define PR_OBJ_EXEC     ((const char *)0)       /* search the executable file */
 #define PR_OBJ_LDSO     ((const char *)1)       /* search ld.so.1 */
@@ -143,8 +127,6 @@ typedef struct prsyminfo {
           const char      *prs_object;            /* object name */
           const char      *prs_name;              /* symbol name */
           Lmid_t          prs_lmid;               /* link map id */
-//        uint_t          prs_id;                 /* symbol id */
-//        uint_t          prs_table;              /* symbol table id */
 } prsyminfo_t;
 
 #define PLOOKUP_NOT_FOUND	-1
@@ -175,6 +157,7 @@ extern const prmap_t *Plmid_to_map(struct ps_prochandle *, Lmid_t, const char *,
 extern char *Pobjname(struct ps_prochandle *, mach_vm_address_t, char *, size_t);
 extern int Plmid(struct ps_prochandle *, mach_vm_address_t, Lmid_t *);
 
+extern void Pcheckpoint_syms(struct ps_prochandle *);
 
 /*
  * Apple only objc iteration interface
@@ -183,8 +166,6 @@ extern int Plmid(struct ps_prochandle *, mach_vm_address_t, Lmid_t *);
 typedef int proc_objc_f(void *, const GElf_Sym *, const char *, const char *);
 extern int Pobjc_method_iter(struct ps_prochandle *, proc_objc_f* , void *);
 extern int Pobjc_method_iter_new_syms(struct ps_prochandle *, proc_objc_f* , void *);
-
-typedef void Phandler_func_t(void *);
 
 /*
  * Symbol table iteration interface.  The special lmid constants LM_ID_BASE,
@@ -234,24 +215,10 @@ extern void Pupdate_maps(struct ps_prochandle *);
 extern void Pupdate_syms(struct ps_prochandle *);
 
 /*
- * This must be called after the victim process performs a successful
- * exec() if any of the symbol table interface functions have been called
- * prior to that point.  This is essential because an exec() invalidates
- * all previous symbol table and address space mapping information.
- * It is always safe to call, but if it is called other than after an
- * exec() by the victim process it just causes unnecessary overhead.
- *
- * The rtld_db agent handle obtained from a previous call to Prd_agent() is
- * made invalid by Preset_maps() and Prd_agent() must be called again to get
- * the new handle.
- */
-extern void Preset_maps(struct ps_prochandle *);
-
-/*
  * Given an address, Ppltdest() determines if this is part of a PLT, and if
  * so returns a pointer to the symbol name that will be used for resolution.
  * If the specified address is not part of a PLT, the function returns NULL.
- */
+*/
 extern const char *Ppltdest(struct ps_prochandle *, mach_vm_address_t);
 
 /*

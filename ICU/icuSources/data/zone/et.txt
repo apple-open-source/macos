@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 et{
-    Version{"2.1.41.97"}
+    Version{"2.1.48.42"}
     zoneStrings{
         "Africa:Abidjan"{
             ec{"Abidjan"}
@@ -809,6 +809,9 @@ et{
         }
         "Asia:Qatar"{
             ec{"Katar"}
+        }
+        "Asia:Qostanay"{
+            ec{"Kostanaj"}
         }
         "Asia:Qyzylorda"{
             ec{"Kõzõlorda"}
@@ -1931,8 +1934,8 @@ et{
             ls{"Jakutski standardaeg"}
         }
         "meta:Yekaterinburg"{
-            ld{"Jakaterinburgi suveaeg"}
-            lg{"Jakaterinburgi aeg"}
+            ld{"Jekaterinburgi suveaeg"}
+            lg{"Jekaterinburgi aeg"}
             ls{"Jekaterinburgi standardaeg"}
         }
         fallbackFormat{"{1} ({0})"}

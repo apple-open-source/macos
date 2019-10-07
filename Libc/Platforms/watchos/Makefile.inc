@@ -43,3 +43,6 @@ FEATURE_SMALL_STDIOBUF = 1
 
 # Disable registration of specific signals (<rdar://problem/21952708>)
 FEATURE_SIGNAL_RESTRICTION = 1
+
+# Enable 32-bit compilation in unistd.h (<rdar://problem/51818745>)
+FEATURE_POSIX_ILP32_ALLOW = 1

@@ -184,7 +184,7 @@ add_links(char *c)
 		    char t,te,tg,*e;
 		    e=h+1;
 		    while (h>c && (isalnum(h[-1]) || h[-1]=='_' ||
-				    h[-1]=='-' || h[-1]=='.'))
+				    h[-1]=='-' || h[-1]=='.' || h[-1]==':'))
 			h--;
 		    t=*h; *h=0;
 		    printf("%s", c);
@@ -765,7 +765,15 @@ static char *scan_format(char *c, TABLEROW **result, int *maxcol)
 	    break;
 	case 'v': case 'V':
 	case 'w': case 'W':
-	    c=scan_expression(c+2,&curfield->width);
+//	    c=scan_expression(c+2,&curfield->width);
+             c++;
+	     if (*c == '(') {
+	        c=scan_expression(c+1,&curfield->width);
+	     } else {
+	     	i=0;
+	     	while (isdigit(*c)) i=i*10+(*c++)-'0';
+	        curfield->width=i;
+	     }
 	    break;
 	case '|':
 	    if (curfield->align) curfield->vleft++;
@@ -3080,7 +3088,7 @@ main(int argc, char **argv) {
     int l, c;
     char *buf, *filename, *fnam = NULL;
 
-#ifdef __CYGWIN32__
+#ifdef __CYGWIN__
     int opterr;
 
     extern int optind;

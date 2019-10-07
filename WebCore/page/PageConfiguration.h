@@ -41,6 +41,7 @@ class ApplicationCacheStorage;
 class AuthenticatorCoordinatorClient;
 class BackForwardClient;
 class CacheStorageProvider;
+class CookieJar;
 class ChromeClient;
 class ContextMenuClient;
 class DatabaseProvider;
@@ -61,11 +62,12 @@ class UserContentProvider;
 class ValidationMessageClient;
 class VisitedLinkStore;
 class WebGLStateTracker;
+class SpeechSynthesisClient;
 
 class PageConfiguration {
     WTF_MAKE_NONCOPYABLE(PageConfiguration); WTF_MAKE_FAST_ALLOCATED;
 public:
-    WEBCORE_EXPORT PageConfiguration(UniqueRef<EditorClient>&&, Ref<SocketProvider>&&, UniqueRef<LibWebRTCProvider>&&, Ref<CacheStorageProvider>&&, Ref<BackForwardClient>&&);
+    WEBCORE_EXPORT PageConfiguration(UniqueRef<EditorClient>&&, Ref<SocketProvider>&&, UniqueRef<LibWebRTCProvider>&&, Ref<CacheStorageProvider>&&, Ref<BackForwardClient>&&, Ref<CookieJar>&&);
     WEBCORE_EXPORT ~PageConfiguration();
     PageConfiguration(PageConfiguration&&);
 
@@ -95,11 +97,15 @@ public:
     PlugInClient* plugInClient { nullptr };
     ProgressTrackerClient* progressTrackerClient { nullptr };
     Ref<BackForwardClient> backForwardClient;
+    Ref<CookieJar> cookieJar;
     std::unique_ptr<ValidationMessageClient> validationMessageClient;
     FrameLoaderClient* loaderClientForMainFrame { nullptr };
     std::unique_ptr<DiagnosticLoggingClient> diagnosticLoggingClient;
     std::unique_ptr<PerformanceLoggingClient> performanceLoggingClient;
     std::unique_ptr<WebGLStateTracker> webGLStateTracker;
+#if ENABLE(SPEECH_SYNTHESIS)
+    std::unique_ptr<SpeechSynthesisClient> speechSynthesisClient;
+#endif
 
     RefPtr<ApplicationCacheStorage> applicationCacheStorage;
     RefPtr<DatabaseProvider> databaseProvider;

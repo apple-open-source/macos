@@ -731,7 +731,7 @@ next_eap_type(EAPTTLSPluginDataRef context)
     return (inner_auth_types[context->last_eap_type_index++]);
 }
 
-bool
+static bool
 eapttls_eap_start(EAPClientPluginDataRef plugin, int identifier)
 {
     DiameterAVP *	avp;
@@ -796,7 +796,7 @@ eapttls_eap_start(EAPClientPluginDataRef plugin, int identifier)
     return (ret);
 }
 
-EAPResponsePacketRef
+static EAPResponsePacketRef
 eapttls_eap_process(EAPClientPluginDataRef plugin, EAPRequestPacketRef in_pkt_p,
 		    char * out_buf, int * out_buf_size, 
 		    EAPClientStatus * client_status,

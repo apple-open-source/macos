@@ -25,7 +25,6 @@
 #import <Foundation/Foundation.h>
 #import "OTBottledPeer.h"
 #import "OTBottledPeerSigned.h"
-#import "SFPublicKey+SPKI.h"
 #import "OTIdentity.h"
 
 #import <SecurityFoundation/SFEncryptionOperation.h>
@@ -58,7 +57,7 @@
     self = [super init];
     if (self) {
         _bp = bp;
-        _escrowSigningSPKI = [escrowedSigningKey.publicKey asSPKI];
+        _escrowSigningSPKI = [escrowedSigningKey.publicKey encodeSubjectPublicKeyInfo];
         SFEC_X962SigningOperation* xso = [OTBottledPeerSigned signingOperation];
         _signatureUsingEscrowKey = [xso sign:bp.data withKey:escrowedSigningKey error:error].signature;
         if (!_signatureUsingEscrowKey) {
@@ -92,7 +91,7 @@
     self = [super init];
     if (self) {
         _bp = bp;
-        _escrowSigningSPKI = [escrowedSigningPubKey asSPKI];
+        _escrowSigningSPKI = [escrowedSigningPubKey encodeSubjectPublicKeyInfo];
         _signatureUsingPeerKey = signatureUsingPeerKey;
         _signatureUsingEscrowKey = signatureUsingEscrow;
         _escrowSigningPublicKey = [escrowedSigningPubKey keyData];
@@ -152,7 +151,7 @@
     OTBottledPeerRecord *rec = [[OTBottledPeerRecord alloc] init];
     rec.spID = self.bp.spID;
     rec.escrowRecordID = [escrowRecordID copy];
-    rec.peerSigningSPKI = [self.bp.peerSigningKey.publicKey asSPKI];
+    rec.peerSigningSPKI = [self.bp.peerSigningKey.publicKey encodeSubjectPublicKeyInfo];
     rec.escrowedSigningSPKI = self.escrowSigningSPKI;
     rec.bottle = self.bp.data;
     rec.signatureUsingPeerKey = self.signatureUsingPeerKey;

@@ -10,7 +10,7 @@ Test date_timezone_get() function : usage variation - Passing unexpected values 
 
 echo "*** Testing date_timezone_get() : usage variation -  unexpected values to first argument \$object***\n";
 
-//Set the default time zone 
+//Set the default time zone
 date_default_timezone_set("Europe/London");
 
 //get an unset variable
@@ -90,8 +90,8 @@ $inputs = array(
 
       // unset data
       'unset var' => @$unset_var,
-      
-      // resource 
+
+      // resource
       'resource' => $file_handle
 );
 
@@ -110,22 +110,22 @@ fclose( $file_handle );
 
 -- int 0 --
 
-Warning: date_timezone_get() expects parameter 1 to be DateTimeInterface, integer given in %s on line %d
+Warning: date_timezone_get() expects parameter 1 to be DateTimeInterface, int given in %s on line %d
 bool(false)
 
 -- int 1 --
 
-Warning: date_timezone_get() expects parameter 1 to be DateTimeInterface, integer given in %s on line %d
+Warning: date_timezone_get() expects parameter 1 to be DateTimeInterface, int given in %s on line %d
 bool(false)
 
 -- int 12345 --
 
-Warning: date_timezone_get() expects parameter 1 to be DateTimeInterface, integer given in %s on line %d
+Warning: date_timezone_get() expects parameter 1 to be DateTimeInterface, int given in %s on line %d
 bool(false)
 
 -- int -12345 --
 
-Warning: date_timezone_get() expects parameter 1 to be DateTimeInterface, integer given in %s on line %d
+Warning: date_timezone_get() expects parameter 1 to be DateTimeInterface, int given in %s on line %d
 bool(false)
 
 -- float 10.5 --
@@ -175,22 +175,22 @@ bool(false)
 
 -- lowercase true --
 
-Warning: date_timezone_get() expects parameter 1 to be DateTimeInterface, boolean given in %s on line %d
+Warning: date_timezone_get() expects parameter 1 to be DateTimeInterface, bool given in %s on line %d
 bool(false)
 
 -- lowercase false --
 
-Warning: date_timezone_get() expects parameter 1 to be DateTimeInterface, boolean given in %s on line %d
+Warning: date_timezone_get() expects parameter 1 to be DateTimeInterface, bool given in %s on line %d
 bool(false)
 
 -- uppercase TRUE --
 
-Warning: date_timezone_get() expects parameter 1 to be DateTimeInterface, boolean given in %s on line %d
+Warning: date_timezone_get() expects parameter 1 to be DateTimeInterface, bool given in %s on line %d
 bool(false)
 
 -- uppercase FALSE --
 
-Warning: date_timezone_get() expects parameter 1 to be DateTimeInterface, boolean given in %s on line %d
+Warning: date_timezone_get() expects parameter 1 to be DateTimeInterface, bool given in %s on line %d
 bool(false)
 
 -- empty string DQ --

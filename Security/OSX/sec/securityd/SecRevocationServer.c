@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2018 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2008-2019 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -99,12 +99,9 @@ static bool SecOCSPSingleResponseProcess(SecOCSPSingleResponseRef this,
             CFNumberRef cfreason = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &reason);
             SecPathBuilderSetResultInPVCs(rvc->builder, kSecPolicyCheckRevocation, rvc->certIX,
                                   cfreason, true);
-            if (rvc->builder) {
-                CFMutableDictionaryRef info = SecPathBuilderGetInfo(rvc->builder);
-                if (info) {
-                    /* make the revocation reason available in the trust result */
-                    CFDictionarySetValue(info, kSecTrustRevocationReason, cfreason);
-                }
+            SecCertificatePathVCRef path = SecPathBuilderGetPath(rvc->builder);
+            if (path) {
+                SecCertificatePathVCSetRevocationReasonForCertificateAtIndex(path, rvc->certIX, cfreason);
             }
             CFRelease(cfreason);
             processed = true;
@@ -165,11 +162,14 @@ static bool SecOCSPResponseEvaluateSigner(SecORVCRef rvc, CFArrayRef signers, CF
     });
 
     CFDataRef clientAuditToken = SecPathBuilderCopyClientAuditToken(rvc->builder);
-    SecPathBuilderRef oBuilder = SecPathBuilderCreate(clientAuditToken,
+    SecPathBuilderRef oBuilder = SecPathBuilderCreate(NULL, clientAuditToken,
                                                       signers, issuers, true, false,
                                                       policies, NULL, NULL,  NULL,
                                                       verifyTime, NULL, NULL,
                                                       SecOCSPEvaluateCompleted, completed);
+    /* disable network access to avoid recursion */
+    SecPathBuilderSetCanAccessNetwork(oBuilder, false);
+
     /* Build the chain(s), evaluate them, call the completed block, free the block and builder */
     SecPathBuilderStep(oBuilder);
     CFReleaseNull(clientAuditToken);
@@ -349,235 +349,6 @@ static void SecORVCProcessStapledResponses(SecORVCRef rvc) {
     }
 }
 
-// MARK: SecCRVCRef
-/********************************************************
- ******************* CRL RVC Functions ******************
- ********************************************************/
-#if ENABLE_CRLS
-#include <../trustd/macOS/SecTrustOSXEntryPoints.h>
-#define kSecDefaultCRLTTL kSecDefaultOCSPResponseTTL
-
-/* CRL Revocation verification context. */
-struct OpaqueSecCRVC {
-    /* Response data from ocspd. Yes, ocspd does CRLs, but not OCSP... */
-    async_ocspd_t async_ocspd;
-
-    /* Pointer to the builder for this revocation check. */
-    SecPathBuilderRef builder;
-
-    /* Pointer to the generic rvc for this revocation check */
-    SecRVCRef rvc;
-
-    /* The current CRL status from ocspd. */
-    OSStatus status;
-
-    /* Index of cert in builder that this RVC is for 0 = leaf, etc. */
-    CFIndex certIX;
-
-    /* Index in array returned by SecCertificateGetCRLDistributionPoints() for
-     current distribution point. */
-    CFIndex distributionPointIX;
-
-    /* URL of current distribution point. */
-    CFURLRef distributionPoint;
-
-    /* Date until which this revocation status is valid. */
-    CFAbsoluteTime nextUpdate;
-
-    bool done;
-};
-
-static void SecCRVCFinish(SecCRVCRef crvc) {
-    // nothing yet
-}
-
-#define MAX_CRL_DPS 3
-#define CRL_REQUEST_THRESHOLD 10
-
-static CFURLRef SecCRVCGetNextDistributionPoint(SecCRVCRef rvc) {
-    SecCertificateRef cert = SecPathBuilderGetCertificateAtIndex(rvc->builder, rvc->certIX);
-    CFArrayRef crlDPs = SecCertificateGetCRLDistributionPoints(cert);
-    if (crlDPs) {
-        CFIndex crlDPCount = CFArrayGetCount(crlDPs);
-        if (crlDPCount >= CRL_REQUEST_THRESHOLD) {
-            secnotice("rvc", "too many CRL DP entries (%ld)", (long)crlDPCount);
-            return NULL;
-        }
-        while (rvc->distributionPointIX < crlDPCount && rvc->distributionPointIX < MAX_CRL_DPS) {
-            CFURLRef distributionPoint = CFArrayGetValueAtIndex(crlDPs, rvc->distributionPointIX);
-            rvc->distributionPointIX++;
-            CFStringRef scheme = CFURLCopyScheme(distributionPoint);
-            if (scheme) {
-                /* We only support http and https responders currently. */
-                bool valid_DP = (CFEqual(CFSTR("http"), scheme) ||
-                                 CFEqual(CFSTR("https"), scheme) ||
-                                 CFEqual(CFSTR("ldap"), scheme));
-                CFRelease(scheme);
-                if (valid_DP)
-                    return distributionPoint;
-            }
-        }
-    }
-    return NULL;
-}
-
-static void SecCRVCGetCRLStatus(SecCRVCRef rvc) {
-    SecCertificateRef cert = SecPathBuilderGetCertificateAtIndex(rvc->builder, rvc->certIX);
-    SecCertificatePathVCRef path = SecPathBuilderGetPath(rvc->builder);
-    CFArrayRef serializedCertPath = SecCertificatePathVCCreateSerialized(path);
-    secdebug("rvc", "searching CRL cache for cert: %ld", rvc->certIX);
-    rvc->status = SecTrustLegacyCRLStatus(cert, serializedCertPath, rvc->distributionPoint);
-    CFReleaseNull(serializedCertPath);
-    /* we got a response indicating that the CRL was checked */
-    if (rvc->status == errSecSuccess || rvc->status == errSecCertificateRevoked) {
-        rvc->done = true;
-        /* ocspd doesn't give us the nextUpdate time, so set to default */
-        rvc->nextUpdate = SecPathBuilderGetVerifyTime(rvc->builder) + kSecDefaultCRLTTL;
-    }
-}
-
-static void SecCRVCCheckRevocationCache(SecCRVCRef rvc) {
-    while ((rvc->distributionPoint = SecCRVCGetNextDistributionPoint(rvc))) {
-        SecCRVCGetCRLStatus(rvc);
-        if (rvc->status == errSecCertificateRevoked) {
-            return;
-        }
-    }
-}
-
-/* Fire off an async http request for this certs revocation status, return
- false if request was queued, true if we're done. */
-static bool SecCRVCFetchNext(SecCRVCRef rvc) {
-    while ((rvc->distributionPoint = SecCRVCGetNextDistributionPoint(rvc))) {
-        SecCertificateRef cert = SecPathBuilderGetCertificateAtIndex(rvc->builder, rvc->certIX);
-        SecCertificatePathVCRef path = SecPathBuilderGetPath(rvc->builder);
-        CFArrayRef serializedCertPath = SecCertificatePathVCCreateSerialized(path);
-        secinfo("rvc", "fetching CRL for cert: %ld", rvc->certIX);
-        if (!SecTrustLegacyCRLFetch(&rvc->async_ocspd, rvc->distributionPoint,
-                                    CFAbsoluteTimeGetCurrent(), cert, serializedCertPath)) {
-            CFDataRef clientAuditToken = NULL;
-            SecTaskRef task = NULL;
-            audit_token_t auditToken = {};
-            clientAuditToken = SecPathBuilderCopyClientAuditToken(rvc->builder);
-            require(clientAuditToken, out);
-            require(sizeof(auditToken) == CFDataGetLength(clientAuditToken), out);
-            CFDataGetBytes(clientAuditToken, CFRangeMake(0, sizeof(auditToken)), (uint8_t *)&auditToken);
-            require(task = SecTaskCreateWithAuditToken(NULL, auditToken), out);
-            secnotice("rvc", "asynchronously fetching CRL (%@) for client (%@)",
-                      rvc->distributionPoint, task);
-
-        out:
-            CFReleaseNull(clientAuditToken);
-            CFReleaseNull(task);
-            /* Async request was posted, wait for reply. */
-            return false;
-        }
-    }
-    rvc->done = true;
-    return true;
-}
-
-static void SecCRVCUpdatePVC(SecCRVCRef rvc) {
-    if (rvc->status == errSecCertificateRevoked) {
-        secdebug("rvc", "CRL revoked cert %" PRIdCFIndex, rvc->certIX);
-        SInt32 reason = 0; // unspecified, since ocspd didn't tell us
-        CFNumberRef cfreason = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &reason);
-        SecPathBuilderSetResultInPVCs(rvc->builder, kSecPolicyCheckRevocation, rvc->certIX,
-                              cfreason, true);
-        if (rvc->builder) {
-            CFMutableDictionaryRef info = SecPathBuilderGetInfo(rvc->builder);
-            if (info) {
-                /* make the revocation reason available in the trust result */
-                CFDictionarySetValue(info, kSecTrustRevocationReason, cfreason);
-            }
-        }
-        CFReleaseNull(cfreason);
-    }
-}
-
-static void SecCRVCFetchCompleted(async_ocspd_t *ocspd) {
-    SecCRVCRef rvc = ocspd->info;
-    SecPathBuilderRef builder = rvc->builder;
-    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(builder);
-    if (analytics) {
-        /* Add the time this fetch took to complete to the total time */
-        analytics->crl_fetch_time += (mach_absolute_time() - ocspd->start_time);
-    }
-    /* we got a response indicating that the CRL was checked */
-    if (ocspd->response == errSecSuccess || ocspd->response == errSecCertificateRevoked) {
-        rvc->status = ocspd->response;
-        rvc->done = true;
-        /* ocspd doesn't give us the nextUpdate time, so set to default */
-        rvc->nextUpdate = SecPathBuilderGetVerifyTime(rvc->builder) + kSecDefaultCRLTTL;
-        secdebug("rvc", "got CRL response for cert: %ld", rvc->certIX);
-        SecCRVCUpdatePVC(rvc);
-        if (!SecPathBuilderDecrementAsyncJobCount(builder)) {
-            secdebug("rvc", "done with all async jobs");
-            SecPathBuilderStep(builder);
-        }
-    } else {
-        if (analytics) {
-            /* We didn't get any data back, so the fetch failed */
-            analytics->crl_fetch_failed++;
-        }
-        if(SecCRVCFetchNext(rvc)) {
-            if (!SecPathBuilderDecrementAsyncJobCount(builder)) {
-                secdebug("rvc", "done with all async jobs");
-                SecPathBuilderStep(builder);
-            }
-        }
-    }
-}
-
-static SecCRVCRef SecCRVCCreate(SecRVCRef rvc, SecPathBuilderRef builder, CFIndex certIX) {
-    SecCRVCRef crvc = NULL;
-    crvc = malloc(sizeof(struct OpaqueSecCRVC));
-    if (crvc) {
-        memset(crvc, 0, sizeof(struct OpaqueSecCRVC));
-        crvc->builder = builder;
-        crvc->rvc = rvc;
-        crvc->certIX = certIX;
-        crvc->status = errSecInternal;
-        crvc->distributionPointIX = 0;
-        crvc->distributionPoint = NULL;
-        crvc->nextUpdate = NULL_TIME;
-        crvc->async_ocspd.queue = SecPathBuilderGetQueue(builder);
-        crvc->async_ocspd.completed = SecCRVCFetchCompleted;
-        crvc->async_ocspd.response = errSecInternal;
-        crvc->async_ocspd.info = crvc;
-        crvc->done = false;
-    }
-    return crvc;
-}
-
-static bool SecRVCShouldCheckCRL(SecRVCRef rvc) {
-    CFStringRef revocation_method = SecPathBuilderGetRevocationMethod(rvc->builder);
-    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(rvc->builder);
-    if (revocation_method &&
-        CFEqual(kSecPolicyCheckRevocationCRL, revocation_method)) {
-        /* Our client insists on CRLs */
-        secinfo("rvc", "client told us to check CRL");
-        if (analytics) {
-            analytics->crl_client = true;
-        }
-        return true;
-    }
-    SecCertificateRef cert = SecPathBuilderGetCertificateAtIndex(rvc->builder, rvc->certIX);
-    CFArrayRef ocspResponders = SecCertificateGetOCSPResponders(cert);
-    if ((!ocspResponders || CFArrayGetCount(ocspResponders) == 0) &&
-        (revocation_method && !CFEqual(kSecPolicyCheckRevocationOCSP, revocation_method))) {
-        /* The cert doesn't have OCSP responders and the client didn't specifically ask for OCSP.
-         * This logic will skip the CRL cache check if the client didn't ask for revocation checking */
-        secinfo("rvc", "client told us to check revocation and CRL is only option for cert: %ld", rvc->certIX);
-        if (analytics) {
-            analytics->crl_cert = true;
-        }
-        return true;
-    }
-    return false;
-}
-#endif /* ENABLE_CRLS */
-
 void SecRVCDelete(SecRVCRef rvc) {
     secdebug("alloc", "delete rvc %p", rvc);
     if (rvc->orvc) {
@@ -585,13 +356,6 @@ void SecRVCDelete(SecRVCRef rvc) {
         free(rvc->orvc);
         rvc->orvc = NULL;
     }
-#if ENABLE_CRLS
-    if (rvc->crvc) {
-        SecCRVCFinish(rvc->crvc);
-        free(rvc->crvc);
-        rvc->crvc = NULL;
-    }
-#endif
     if (rvc->valid_info) {
         CFReleaseNull(rvc->valid_info);
     }
@@ -605,14 +369,7 @@ static void SecRVCInit(SecRVCRef rvc, SecPathBuilderRef builder, CFIndex certIX)
     rvc->builder = builder;
     rvc->certIX = certIX;
     rvc->orvc = SecORVCCreate(rvc, builder, certIX);
-#if ENABLE_CRLS
-    rvc->crvc = SecCRVCCreate(rvc, builder, certIX);
-#endif
-    if (!rvc->orvc
-#if ENABLE_CRLS
-        || !rvc->crvc
-#endif
-        ) {
+    if (!rvc->orvc) {
         SecRVCDelete(rvc);
         SecRVCSetFinishedWithoutNetwork(rvc);
     } else {
@@ -620,20 +377,125 @@ static void SecRVCInit(SecRVCRef rvc, SecPathBuilderRef builder, CFIndex certIX)
     }
 }
 
-#if ENABLE_CRLS
-static bool SecRVCShouldCheckOCSP(SecRVCRef rvc) {
-    CFStringRef revocation_method = SecPathBuilderGetRevocationMethod(rvc->builder);
-    if (!revocation_method
-        || !CFEqual(revocation_method, kSecPolicyCheckRevocationCRL)) {
-        return true;
-    }
-    return false;
-}
-#else
 static bool SecRVCShouldCheckOCSP(SecRVCRef rvc) {
     return true;
 }
-#endif
+
+static bool SecRVCPolicyConstraintsPermitPolicy(SecValidPolicy *constraints, CFIndex count, SecPolicyRef policy) {
+    if (!constraints || !policy) {
+        return true; /* nothing to constrain */
+    }
+    SecValidPolicy policyType = kSecValidPolicyAny;
+    CFStringRef policyName = SecPolicyGetName(policy);
+    /* determine if the policy is a candidate for being constrained */
+    if (CFEqualSafe(policyName, kSecPolicyNameSSLServer) ||
+               CFEqualSafe(policyName, kSecPolicyNameEAPServer) ||
+               CFEqualSafe(policyName, kSecPolicyNameIPSecServer)) {
+        policyType = kSecValidPolicyServerAuthentication;
+    } else if (CFEqualSafe(policyName, kSecPolicyNameSSLClient) ||
+               CFEqualSafe(policyName, kSecPolicyNameEAPClient) ||
+               CFEqualSafe(policyName, kSecPolicyNameIPSecClient)) {
+        policyType = kSecValidPolicyClientAuthentication;
+    } else if (CFEqualSafe(policyName, kSecPolicyNameSMIME)) {
+        policyType = kSecValidPolicyEmailProtection;
+    } else if (CFEqualSafe(policyName, kSecPolicyNameCodeSigning)) {
+        policyType = kSecValidPolicyCodeSigning;
+    } else if (CFEqualSafe(policyName, kSecPolicyNameTimeStamping)) {
+        policyType = kSecValidPolicyTimeStamping;
+    }
+    if (policyType == kSecValidPolicyAny) {
+        return true; /* policy not subject to constraint */
+    }
+    /* policy is subject to constraint; do the constraints allow it? */
+    bool result = false;
+    for (CFIndex ix = 0; ix < count; ix++) {
+        SecValidPolicy allowedPolicy = constraints[ix];
+        if (allowedPolicy == kSecValidPolicyAny ||
+            allowedPolicy == policyType) {
+            result = true;
+            break;
+        }
+    }
+    if (!result) {
+        secnotice("rvc", "%@ not allowed by policy constraints on issuing CA", policyName);
+    }
+    return result;
+}
+
+static bool SecRVCGetPolicyConstraints(CFDataRef data, SecValidPolicy **constraints, CFIndex *count) {
+    /* Sanity-check the input policy constraints data, returning pointer and
+     * count values in output arguments. Function result is true if successful.
+     *
+     * The first byte of the policy constraints data contains the number of entries,
+     * followed by an array of 0..n policy constraint values of type SecValidPolicy.
+     * The maximum number of defined policies is not expected to approach 127, i.e.
+     * the largest value which can be expressed in a signed byte.
+     */
+    bool result = false;
+    CFIndex length = 0;
+    SecValidPolicy *p = NULL;
+    if (data) {
+        length = CFDataGetLength(data);
+        p = (SecValidPolicy *)CFDataGetBytePtr(data);
+    }
+    /* Verify that count is 0 or greater, and equal to remaining number of bytes */
+    CFIndex c = (length > 0) ? *p++ : -1;
+    if (c < 0 || c != (length - 1)) {
+        secerror("invalid policy constraints array");
+    } else {
+        if (constraints) {
+            *constraints = p;
+        }
+        if (count) {
+            *count = c;
+        }
+        result = true;
+    }
+    return result;
+}
+
+static void SecRVCProcessValidPolicyConstraints(SecRVCRef rvc) {
+    if (!rvc || !rvc->valid_info || !rvc->builder) {
+        return;
+    }
+    if (!rvc->valid_info->hasPolicyConstraints) {
+        return;
+    }
+    CFIndex count = 0;
+    SecValidPolicy *constraints = NULL;
+    if (!SecRVCGetPolicyConstraints(rvc->valid_info->policyConstraints, &constraints, &count)) {
+        return;
+    }
+    secdebug("rvc", "found policy constraints for cert at index %ld", rvc->certIX);
+
+    /* check that policies being verified are permitted by the policy constraints */
+    bool policyDeniedByConstraints = false;
+    CFIndex ix, initialPVCCount = SecPathBuilderGetPVCCount(rvc->builder);
+    for (ix = 0; ix < initialPVCCount; ix++) {
+        SecPVCRef pvc = SecPathBuilderGetPVCAtIndex(rvc->builder, ix);
+        CFArrayRef policies = CFRetainSafe(pvc->policies);
+        CFIndex policyCount = (policies) ? CFArrayGetCount(policies) : 0;
+        for (CFIndex policyIX = 0; policyIX < policyCount; policyIX++) {
+            SecPolicyRef policy = (SecPolicyRef)CFArrayGetValueAtIndex(policies, policyIX);
+            if (!SecRVCPolicyConstraintsPermitPolicy(constraints, count, policy)) {
+                policyDeniedByConstraints = true;
+                SecPVCSetResultForced(pvc, kSecPolicyCheckIssuerPolicyConstraints, rvc->certIX,
+                                      kCFBooleanFalse, true);
+                pvc->result = kSecTrustResultRecoverableTrustFailure;
+                if (!rvc->valid_info->overridable) {
+                    /* error for this check should be non-recoverable */
+                    pvc->result = kSecTrustResultFatalTrustFailure;
+                }
+            }
+        }
+        CFReleaseSafe(policies);
+    }
+    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(rvc->builder);
+    if (analytics) {
+        TAValidStatus status = (policyDeniedByConstraints) ? TAValidPolicyConstrainedDenied : TAValidPolicyConstrainedOK;
+        analytics->valid_status |= status;
+    }
+}
 
 static void SecRVCProcessValidDateConstraints(SecRVCRef rvc) {
     if (!rvc || !rvc->valid_info || !rvc->builder) {
@@ -671,7 +533,7 @@ static void SecRVCProcessValidDateConstraints(SecRVCRef rvc) {
         secnotice("rvc", "certificate issuance date not within the allowed range for this CA%s",
                   (rvc->valid_info->overridable) ? "" : " (non-recoverable error)");
         if (analytics) {
-            analytics->valid_status |= TAValidDateContrainedRevoked;
+            analytics->valid_status |= TAValidDateConstrainedRevoked;
         }
         if (rvc->valid_info->overridable) {
             /* error is recoverable, treat certificate as untrusted
@@ -684,10 +546,9 @@ static void SecRVCProcessValidDateConstraints(SecRVCRef rvc) {
             CFNumberRef cfreason = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &reason);
             SecPathBuilderSetResultInPVCs(rvc->builder, kSecPolicyCheckRevocation, rvc->certIX,
                                           cfreason, true);
-            CFMutableDictionaryRef info = SecPathBuilderGetInfo(rvc->builder);
-            if (info) {
-                /* make the revocation reason available in the trust result */
-                CFDictionarySetValue(info, kSecTrustRevocationReason, cfreason);
+            SecCertificatePathVCRef path = SecPathBuilderGetPath(rvc->builder);
+            if (path) {
+                SecCertificatePathVCSetRevocationReasonForCertificateAtIndex(path, rvc->certIX, cfreason);
             }
             CFReleaseNull(cfreason);
         }
@@ -746,10 +607,9 @@ void SecRVCSetValidDeterminedErrorResult(SecRVCRef rvc) {
     CFNumberRef cfreason = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &reason);
     SecPathBuilderSetResultInPVCs(rvc->builder, kSecPolicyCheckRevocation, rvc->certIX,
                                   cfreason, true);
-    CFMutableDictionaryRef info = SecPathBuilderGetInfo(rvc->builder);
-    if (info) {
-        /* make the revocation reason available in the trust result */
-        CFDictionarySetValue(info, kSecTrustRevocationReason, cfreason);
+    SecCertificatePathVCRef path = SecPathBuilderGetPath(rvc->builder);
+    if (path) {
+        SecCertificatePathVCSetRevocationReasonForCertificateAtIndex(path, rvc->certIX, cfreason);
     }
     CFReleaseNull(cfreason);
 }
@@ -792,6 +652,9 @@ static void SecRVCProcessValidInfoResults(SecRVCRef rvc) {
         rvc->done = true;
         return;
     }
+
+    /* Handle policy constraints, if present. */
+    SecRVCProcessValidPolicyConstraints(rvc);
 
     /* Handle date constraints, if present.
      * Note: a not-after date may set the CT requirement,
@@ -902,29 +765,17 @@ static void SecRVCCheckRevocationCaches(SecRVCRef rvc) {
             analytics->ocsp_cache_hit = true;
         }
     }
-#if ENABLE_CRLS
-    /* Don't check CRL cache if policy requested OCSP only */
-    if (SecRVCShouldCheckCRL(rvc)) {
-        SecCRVCCheckRevocationCache(rvc->crvc);
-    }
-#endif
 }
 
 static void SecRVCUpdatePVC(SecRVCRef rvc) {
     SecRVCProcessValidInfoResults(rvc); /* restore the results we got from Valid */
     if (rvc->orvc) { SecORVCUpdatePVC(rvc->orvc); }
-#if ENABLE_CRLS
-    if (rvc->crvc) { SecCRVCUpdatePVC(rvc->crvc); }
-#endif
 }
 
 static void SecRVCSetFinishedWithoutNetwork(SecRVCRef rvc) {
     rvc->done = true;
     SecRVCUpdatePVC(rvc);
     (void)SecPathBuilderDecrementAsyncJobCount(rvc->builder);
-#if ENABLE_CRLS
-    (void)SecPathBuilderDecrementAsyncJobCount(rvc->builder);
-#endif
 }
 
 static bool SecRVCFetchNext(SecRVCRef rvc) {
@@ -944,26 +795,6 @@ static bool SecRVCFetchNext(SecRVCRef rvc) {
         /* we didn't start an OCSP background job for this cert */
         (void)SecPathBuilderDecrementAsyncJobCount(rvc->builder);
     }
-
-#if ENABLE_CRLS
-    bool CRL_fetch_finished = true;
-    /* Don't check CRL cache if policy requested OCSP only */
-    if (SecRVCShouldCheckCRL(rvc)) {
-        /* reset the distributionPointIX because we already iterated through the CRLDPs
-         * in SecCRVCCheckRevocationCache */
-        rvc->crvc->distributionPointIX = 0;
-        CRL_fetch_finished &= SecCRVCFetchNext(rvc->crvc);
-    }
-    if (CRL_fetch_finished) {
-        /* we didn't start a CRL background job for this cert */
-        (void)SecPathBuilderDecrementAsyncJobCount(rvc->builder);
-    } else if (analytics) {
-        /* We did a CRL fetch */
-        analytics->crl_fetches++;
-    }
-    OCSP_fetch_finished &= CRL_fetch_finished;
-#endif
-
     return OCSP_fetch_finished;
 }
 
@@ -1110,14 +941,7 @@ bool SecPathBuilderCheckRevocation(SecPathBuilderRef builder) {
      and decrement pvc->asyncJobCount for each cert that we don't start a
      background fetch for. We include the root, even though we'll never start
      an async job for it so that we count all active threads for this eval. */
-#if !ENABLE_CRLS
     SecPathBuilderSetAsyncJobCount(builder, (unsigned int)(certCount));
-#else
-    /* If we enable CRLS, we may end up with two async jobs per cert: one
-     * for OCSP and one for fetching the CRL. Except the root, which only
-     * needs to track this thread. */
-    SecPathBuilderSetAsyncJobCount(builder, 2 * (unsigned int)(certCount) - 1);
-#endif
 
     /* Loop though certificates again and issue an ocsp fetch if the
      revocation status checking isn't done yet (and we have an issuer!) */
@@ -1130,9 +954,8 @@ bool SecPathBuilderCheckRevocation(SecPathBuilderRef builder) {
 
         SecRVCInit(rvc, builder, certIX);
 
-        /* RFC 6960: OCSP No-Check extension says that we shouldn't check revocation. */
-        if (SecCertificateHasMarkerExtension(SecCertificatePathVCGetCertificateAtIndex(path, certIX),
-                                             CFSTR("1.3.6.1.5.5.7.48.1.5"))) // id-pkix-ocsp-nocheck
+        /* RFC 6960: id-pkix-ocsp-nocheck extension says that we shouldn't check revocation. */
+        if (SecCertificateHasOCSPNoCheckMarkerExtension(SecCertificatePathVCGetCertificateAtIndex(path, certIX)))
         {
             secdebug("rvc", "skipping revocation checks for no-check cert: %ld", certIX);
             TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(builder);
@@ -1171,17 +994,12 @@ bool SecPathBuilderCheckRevocation(SecPathBuilderRef builder) {
          * do here. */
         SecRVCSetFinishedWithoutNetwork(rvc);
         continue;
-#endif
-
+#else // !TARGET_OS_BRIDGE
         /* Then check the caches for revocation results. */
         SecRVCCheckRevocationCaches(rvc);
 
         /* The check is done if we found cached responses from either method. */
-        if (rvc->done || rvc->orvc->done
-#if ENABLE_CRLS
-            || rvc->crvc->done
-#endif
-            ) {
+        if (rvc->done || rvc->orvc->done) {
             secdebug("rvc", "found cached response for cert: %ld", certIX);
             SecRVCSetFinishedWithoutNetwork(rvc);
             continue;
@@ -1203,12 +1021,10 @@ bool SecPathBuilderCheckRevocation(SecPathBuilderRef builder) {
             SecRVCUpdatePVC(rvc);
             /* We didn't really start any background jobs for this cert. */
             (void)SecPathBuilderDecrementAsyncJobCount(builder);
-#if ENABLE_CRLS
-            (void)SecPathBuilderDecrementAsyncJobCount(builder);
-#endif
         } else {
             (void)SecRVCFetchNext(rvc);
         }
+#endif // !TARGET_OS_BRIDGE
     }
 
     /* Return false if there are still async jobs running. */
@@ -1222,13 +1038,5 @@ CFAbsoluteTime SecRVCGetEarliestNextUpdate(SecRVCRef rvc) {
     CFAbsoluteTime enu = NULL_TIME;
     if (!rvc || !rvc->orvc) { return enu; }
     enu = rvc->orvc->nextUpdate;
-#if ENABLE_CRLS
-    CFAbsoluteTime crlNextUpdate = rvc->crvc->nextUpdate;
-    if (enu == NULL_TIME ||
-        ((crlNextUpdate > NULL_TIME) && (enu > crlNextUpdate))) {
-        /* We didn't check OCSP or CRL next update time was sooner */
-        enu = crlNextUpdate;
-    }
-#endif
     return enu;
 }

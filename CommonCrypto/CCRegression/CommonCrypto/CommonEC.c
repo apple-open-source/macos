@@ -8,19 +8,25 @@ entryPoint(CommonEC,"Elliptic Curve Cryptography")
 #else
 
 #include <CommonCrypto/CommonECCryptor.h>
+#include <CommonCrypto/CommonRandomSPI.h>
 
-static int kTestTestCount = 12;
+static int kTestTestCount = 22;
 
 int CommonEC(int __unused argc, char *const * __unused argv) {
 	CCCryptorStatus retval;
     size_t keysize;
-    CCECCryptorRef publicKey, privateKey;
+    CCECCryptorRef privateKey;
+    CCECCryptorRef privateKey2;
+    CCECCryptorRef publicKey;
     CCECCryptorRef publicKey2;
+    CCECCryptorRef publicKey3;
+    CCECCryptorRef publicKey4;
     CCECCryptorRef badPublicKey, badPrivateKey;
     CCECCryptorRef privateKey224;
     // byteBuffer keydata, dekeydata;
     byteBuffer hash;
-    byteBuffer badPublicKeyBytes, badPrivateKeyBytes;
+    byteBuffer badPublicKeyBytes, badPublicKeyBytes2;
+    byteBuffer badPrivateKeyBytes;
     byteBuffer privateKey224Bytes;
     char encryptedKey[8192];
     size_t encryptedKeyLen = 8192;
@@ -128,14 +134,68 @@ int CommonEC(int __unused argc, char *const * __unused argv) {
     retval = CCECCryptorImportKey(kCCImportKeyBinary, privateKey224Bytes->bytes, privateKey224Bytes->len, ccECKeyPrivate, &privateKey224);
     is(retval, 0, "Import P-224 Private Key");
 
+    // Test exporting a compact public key.
+    retval = CCECCryptorExportKey(kCCImportKeyCompact, importexport, &importexportLen, ccECKeyPublic, publicKey);
+    is(retval, 0, "EC Export Compact Public Key");
+    accum |= retval;
+
+    // An exported compact key is just the x-coordinate.
+    is(importexportLen, 32, "EC Export Compact Public Key Length");
+
+    // Test importing a compact public key.
+    retval = CCECCryptorImportKey(kCCImportKeyCompact, importexport, importexportLen, ccECKeyPublic, &publicKey3);
+    is(retval, 0, "EC Import Compact Public Key");
+    accum |= retval;
+
+    // Test importing an x-coordinate that has no matching point on the curve.
+    badPublicKeyBytes2 = hexStringToBytes("886e2f97ace46e55ba9dd7242579f2993b64e16ef3dcab95afd497333d8fa12d");
+    retval = CCECCryptorImportKey(kCCImportKeyCompact, badPublicKeyBytes2->bytes, badPublicKeyBytes2->len, ccECKeyPublic, &badPublicKey);
+    is(retval, kCCInvalidKey, "Reject Invalid Compact Public Key");
+
+    // Generate entropy for diversification.
+    byteBuffer entropyBytes = mallocByteBuffer(CCECCryptorTwinDiversifyEntropySize(publicKey));
+    retval = CCRandomGenerateBytes(entropyBytes->bytes, entropyBytes->len);
+    is(retval, 0, "Generate Entropy");
+    accum |= retval;
+
+    // Diversify a public key.
+    retval = CCECCryptorTwinDiversifyKey(ccECKeyPublic, publicKey, entropyBytes->bytes, entropyBytes->len, &publicKey4);
+    is(retval, 0, "EC Twin Diversify Public Key");
+    accum |= retval;
+
+    // Diversify a private key.
+    retval = CCECCryptorTwinDiversifyKey(ccECKeyPrivate, privateKey, entropyBytes->bytes, entropyBytes->len, &privateKey2);
+    is(retval, 0, "EC Twin Diversify Private Key");
+    accum |= retval;
+
+    // Check that both x-coordinates match.
+    char x1[32], x2[32];
+    size_t x1_len = sizeof(x1);
+    size_t x2_len = sizeof(x2);
+
+    retval = CCECCryptorExportKey(kCCImportKeyCompact, x1, &x1_len, ccECKeyPublic, publicKey4);
+    is(retval, 0, "EC Export Compact Public Key");
+    accum |= retval;
+
+    retval = CCECCryptorExportKey(kCCImportKeyCompact, x2, &x2_len, ccECKeyPublic, privateKey2);
+    is(retval, 0, "EC Export Compact Public Key");
+    accum |= retval;
+
+    ok(x1_len == x2_len && memcmp(x1, x2, x1_len) == 0, "Diversified keys match");
+
     CCECCryptorRelease(publicKey);
     CCECCryptorRelease(publicKey2);
+    CCECCryptorRelease(publicKey3);
+    CCECCryptorRelease(publicKey4);
     CCECCryptorRelease(privateKey);
+    CCECCryptorRelease(privateKey2);
     CCECCryptorRelease(privateKey224);
     free(hash);
     free(badPublicKeyBytes);
+    free(badPublicKeyBytes2);
     free(badPrivateKeyBytes);
     free(privateKey224Bytes);
+    free(entropyBytes);
     return accum;
 }
 #endif /* CCEC */

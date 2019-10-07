@@ -32,9 +32,7 @@
 #include "session.h"
 #include <security_utilities/refcount.h>
 #include <security_utilities/ccaudit.h>
-#include <security_utilities/vproc++.h>
 #include "clientid.h"
-#include "csproxy.h"
 #include "localkey.h"
 #include "notifications.h"
 #include <string>
@@ -53,23 +51,12 @@ class AuthorizationToken;
 // the process nature of the client. Individual threads in the client are tracked by
 // Connection objects.
 //
-// Code Signing-style Guest identities are managed in two of our mix-ins. The two play
-// distinct but related roles:
-// * CodeSigningHost manages the public identity of guests within the client.
-//   In this relationship, securityd provides registry and proxy services to the client.
-// * ClientIdentification tracks the identity of guests in the client *as securityd clients*.
-//   It is concerned with which guest is asking for securityd services, and whether this
-//   should be granted.
-// Often, the two form a loop: ClientIdentification uses CodeSigningHost to determine
-// the guest client identity, but it does so through public (Mach IPC) interfaces, because
-// clients may implement their own proxy (though currently not registry) services.
-// We could short-circuit the IPC leg in those cases where securityd serves itself,
-// but there's no evidence (yet) that this is worth the trouble.
+// ClientIdentification tracks the identity of guests in the client *as securityd clients*.
+// It is concerned with which guest is asking for securityd services, and whether this
+// should be granted.
 //
 class Process : public PerProcess,
-				public CodeSigningHost,
-				public ClientIdentification,
-				private VProc::Transaction {
+				public ClientIdentification{
 public:
 	Process(TaskPort tPort, const ClientSetupInfo *info, const CommonCriteria::AuditToken &audit);
 	virtual ~Process();
@@ -111,6 +98,7 @@ private:
     pid_t mPid;							// process id
     uid_t mUid;							// UNIX uid credential
     gid_t mGid;							// primary UNIX gid credential
+
     Security::CommonCriteria::AuditToken const mAudit; // audit token
 
 	// canonical local (transient) key store

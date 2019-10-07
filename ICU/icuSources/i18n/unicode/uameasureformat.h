@@ -97,6 +97,7 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_AREA_SQUARE_CENTIMETER = (2 << 8) + 6,   // (CLDR 26, ICU-541)
     UAMEASUNIT_AREA_SQUARE_INCH      = (2 << 8) + 7,    // (CLDR 26, ICU-541)
     UAMEASUNIT_AREA_SQUARE_YARD      = (2 << 8) + 8,    // (CLDR 26, ICU-541)
+    UAMEASUNIT_AREA_DUNAM            = (2 << 8) + 9,    // (CLDR 35, ICU-641)
     //
     // (3 reserved for currency, handled separately)
     //
@@ -111,6 +112,10 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_DURATION_MICROSECOND = (4 << 8) + 8,     // (CLDR 26, ICU-541)
     UAMEASUNIT_DURATION_NANOSECOND  = (4 << 8) + 9,     // (CLDR 26, ICU-541)
     UAMEASUNIT_DURATION_CENTURY     = (4 << 8) + 10,    // (CLDR 28, ICU-561.3)
+    UAMEASUNIT_DURATION_YEAR_PERSON = (4 << 8) + 11,    // (CLDR 35, ICU-641)
+    UAMEASUNIT_DURATION_MONTH_PERSON = (4 << 8) + 12,   // (CLDR 35, ICU-641)
+    UAMEASUNIT_DURATION_WEEK_PERSON = (4 << 8) + 13,    // (CLDR 35, ICU-641)
+    UAMEASUNIT_DURATION_DAY_PERSON  = (4 << 8) + 14,    // (CLDR 35, ICU-641)
     //
     UAMEASUNIT_LENGTH_METER         = (5 << 8) + 0,
     UAMEASUNIT_LENGTH_CENTIMETER    = (5 << 8) + 1,
@@ -132,6 +137,7 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_LENGTH_PARSEC        = (5 << 8) + 17,    // (CLDR 26, ICU-541)
     UAMEASUNIT_LENGTH_MILE_SCANDINAVIAN = (5 << 8) + 18, // (CLDR 28, ICU-561.3)
     UAMEASUNIT_LENGTH_POINT         = (5 << 8) + 19,    // (CLDR 31, ICU-590)
+    UAMEASUNIT_LENGTH_SOLAR_RADIUS  = (5 << 8) + 20,    // (CLDR 35, ICU-641)
     //
     UAMEASUNIT_MASS_GRAM            = (6 << 8) + 0,
     UAMEASUNIT_MASS_KILOGRAM        = (6 << 8) + 1,
@@ -144,6 +150,9 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_MASS_TON             = (6 << 8) + 8,     // = "short ton", U.S. ton (CLDR 26, ICU-541)
     UAMEASUNIT_MASS_CARAT           = (6 << 8) + 9,     // (CLDR 26, ICU-541)
     UAMEASUNIT_MASS_OUNCE_TROY      = (6 << 8) + 10,    // (CLDR 26, ICU-541)
+    UAMEASUNIT_MASS_DALTON          = (6 << 8) + 11,    // (CLDR 35, ICU-641)
+    UAMEASUNIT_MASS_EARTH_MASS      = (6 << 8) + 12,    // (CLDR 35, ICU-641)
+    UAMEASUNIT_MASS_SOLAR_MASS      = (6 << 8) + 13,    // (CLDR 35, ICU-641)
     //
     UAMEASUNIT_POWER_WATT           = (7 << 8) + 0,
     UAMEASUNIT_POWER_KILOWATT       = (7 << 8) + 1,
@@ -157,6 +166,9 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_PRESSURE_MILLIBAR    = (8 << 8) + 2,
     UAMEASUNIT_PRESSURE_MILLIMETER_OF_MERCURY = (8 << 8) + 3, // (CLDR 26, ICU-541)
     UAMEASUNIT_PRESSURE_POUND_PER_SQUARE_INCH = (8 << 8) + 4, // (CLDR 26, ICU-541)
+    UAMEASUNIT_PRESSURE_ATMOSPHERE      = (8 << 8) + 5,     // (CLDR 34, ICU-631)
+    UAMEASUNIT_PRESSURE_KILOPASCAL      = (8 << 8) + 6,     // (CLDR 35, ICU-641)
+    UAMEASUNIT_PRESSURE_MEGAPASCAL      = (8 << 8) + 7,     // (CLDR 35, ICU-641)
     //
     UAMEASUNIT_SPEED_METER_PER_SECOND   = (9 << 8) + 0,
     UAMEASUNIT_SPEED_KILOMETER_PER_HOUR = (9 << 8) + 1,
@@ -193,6 +205,8 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_VOLUME_CUP_METRIC        = (11 << 8) + 22,   // (CLDR 28, ICU-561.3)
     UAMEASUNIT_VOLUME_PINT_METRIC       = (11 << 8) + 23,   // (CLDR 28, ICU-561.3)
     UAMEASUNIT_VOLUME_GALLON_IMPERIAL   = (11 << 8) + 24,   // (CLDR 29, ICU-561.8+)
+    UAMEASUNIT_VOLUME_FLUID_OUNCE_IMPERIAL = (11 << 8) + 25, // (CLDR 35, ICU-641)
+    UAMEASUNIT_VOLUME_BARREL            = (11 << 8) + 26,   // (CLDR 35, ICU-641)
     //
     // new categories/values in CLDR 26
     //
@@ -202,6 +216,8 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_ENERGY_KILOCALORIE       = (12 << 8) + 3,    // kilocalories in general (chemistry, food), abbr "kcal"
     UAMEASUNIT_ENERGY_FOODCALORIE       = (12 << 8) + 1,    // kilocalories specifically for food; in US/UK/? "Calories" abbr "C", elsewhere same as "kcal"
     UAMEASUNIT_ENERGY_KILOWATT_HOUR     = (12 << 8) + 5,    // (ICU-541)
+    UAMEASUNIT_ENERGY_ELECTRONVOLT      = (12 << 8) + 6,    // (CLDR 35, ICU-641)
+    UAMEASUNIT_ENERGY_BRITISH_THERMAL_UNIT = (12 << 8) + 7, // (CLDR 35, ICU-641)
     //
     // new categories/values in CLDR 26 & ICU-541
     //
@@ -220,6 +236,7 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_DIGITAL_MEGABYTE         = (14 << 8) + 7,
     UAMEASUNIT_DIGITAL_TERABIT          = (14 << 8) + 8,
     UAMEASUNIT_DIGITAL_TERABYTE         = (14 << 8) + 9,
+    UAMEASUNIT_DIGITAL_PETABYTE         = (14 << 8) + 10,   // (CLDR 34, ICU-631)
     //
     UAMEASUNIT_ELECTRIC_AMPERE          = (15 << 8) + 0,
     UAMEASUNIT_ELECTRIC_MILLIAMPERE     = (15 << 8) + 1,
@@ -232,6 +249,7 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_FREQUENCY_GIGAHERTZ      = (16 << 8) + 3,
     //
     UAMEASUNIT_LIGHT_LUX                = (17 << 8) + 0,
+    UAMEASUNIT_LIGHT_SOLAR_LUMINOSITY   = (17 << 8) + 1,    // (CLDR 35, ICU-641)
     //
     // new categories/values in CLDR 29, ICU-561.8+
     //
@@ -239,6 +257,18 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_CONCENTRATION_MILLIGRAM_PER_DECILITER = (18 << 8) + 1, // (CLDR 29, ICU-561.8+)
     UAMEASUNIT_CONCENTRATION_MILLIMOLE_PER_LITER = (18 << 8) + 2, // (CLDR 29, ICU-561.8+)
     UAMEASUNIT_CONCENTRATION_PART_PER_MILLION = (18 << 8) + 3, // (CLDR 29, ICU-561.8+)
+    UAMEASUNIT_CONCENTRATION_PERCENT    = (18 << 8) + 4,    // (CLDR 34, ICU-631nn)
+    UAMEASUNIT_CONCENTRATION_PERMILLE   = (18 << 8) + 5,    // (CLDR 34, ICU-631nn)
+    UAMEASUNIT_CONCENTRATION_PERMYRIAD  = (18 << 8) + 6,    // (CLDR 35, ICU-641)
+    UAMEASUNIT_CONCENTRATION_MOLE       = (18 << 8) + 7,    // (CLDR 35, ICU-641)
+    //
+    // new categories/values in CLDR 35, ICU-641+
+    //
+    UAMEASUNIT_FORCE_NEWTON             = (19 << 8) + 0,    // (CLDR 35, ICU-641)
+    UAMEASUNIT_FORCE_POUND_FORCE        = (19 << 8) + 1,    // (CLDR 35, ICU-641)
+    //
+    UAMEASUNIT_TORQUE_NEWTON_METER      = (20 << 8) + 0,    // (CLDR 35, ICU-641)
+    UAMEASUNIT_TORQUE_POUND_FOOT        = (20 << 8) + 1,    // (CLDR 35, ICU-641)
     //
 } UAMeasureUnit;
 

@@ -31,6 +31,9 @@ WI.CSSProperty = class CSSProperty extends WI.Object
 
         this._ownerStyle = null;
         this._index = index;
+        this._overridingProperty = null;
+        this._initialState = null;
+        this._modified = false;
 
         this.update(text, name, value, priority, enabled, overridden, implicit, anonymous, valid, styleSheetTextRange, true);
     }
@@ -99,6 +102,9 @@ WI.CSSProperty = class CSSProperty extends WI.Object
         else
             this._overridden = overridden;
 
+        if (!overridden)
+            this._overridingProperty = null;
+
         this._text = text;
         this._name = name;
         this._rawValue = value;
@@ -125,6 +131,8 @@ WI.CSSProperty = class CSSProperty extends WI.Object
 
     remove()
     {
+        this._markModified();
+
         // Setting name or value to an empty string removes the entire CSSProperty.
         this._name = "";
         const forceRemove = true;
@@ -133,15 +141,17 @@ WI.CSSProperty = class CSSProperty extends WI.Object
 
     replaceWithText(text)
     {
+        this._markModified();
+
         this._updateOwnerStyleText(this._text, text, true);
     }
 
     commentOut(disabled)
     {
-        console.assert(this._enabled === disabled, "CSS property is already " + (disabled ? "disabled" : "enabled"));
         if (this._enabled === !disabled)
             return;
 
+        this._markModified();
         this._enabled = !disabled;
 
         if (disabled)
@@ -160,6 +170,7 @@ WI.CSSProperty = class CSSProperty extends WI.Object
         if (this._text === newText)
             return;
 
+        this._markModified();
         this._updateOwnerStyleText(this._text, newText);
         this._text = newText;
     }
@@ -172,6 +183,20 @@ WI.CSSProperty = class CSSProperty extends WI.Object
         return `${this._name}: ${this._rawValue};`;
     }
 
+    get modified()
+    {
+        return this._modified;
+    }
+
+    set modified(value)
+    {
+        if (this._modified === value)
+            return;
+
+        this._modified = value;
+        this.dispatchEventToListeners(WI.CSSProperty.Event.ModifiedChanged);
+    }
+
     get name()
     {
         return this._name;
@@ -182,6 +207,7 @@ WI.CSSProperty = class CSSProperty extends WI.Object
         if (name === this._name)
             return;
 
+        this._markModified();
         this._name = name;
         this._updateStyleText();
     }
@@ -215,6 +241,12 @@ WI.CSSProperty = class CSSProperty extends WI.Object
         if (value === this._rawValue)
             return;
 
+        this._markModified();
+
+        let suffix = WI.CSSCompletions.completeUnbalancedValue(value);
+        if (suffix)
+            value += suffix;
+
         this._rawValue = value;
         this._value = undefined;
         this._updateStyleText();
@@ -243,6 +275,9 @@ WI.CSSProperty = class CSSProperty extends WI.Object
         if (this._overridden === overridden)
             return;
 
+        if (!overridden)
+            this._overridingProperty = null;
+
         var previousOverridden = this._overridden;
 
         this._overridden = overridden;
@@ -263,6 +298,21 @@ WI.CSSProperty = class CSSProperty extends WI.Object
         this._overriddenStatusChangedTimeout = setTimeout(delayed.bind(this), 0);
     }
 
+    get overridingProperty()
+    {
+        console.assert(this._overridden);
+        return this._overridingProperty;
+    }
+
+    set overridingProperty(effectiveProperty)
+    {
+        if (!WI.settings.experimentalEnableStylesJumpToEffective.value)
+            return;
+
+        console.assert(this !== effectiveProperty, `Property "${this.formattedText}" can't override itself.`, this);
+        this._overridingProperty = effectiveProperty || null;
+    }
+
     get implicit() { return this._implicit; }
     set implicit(implicit) { this._implicit = implicit; }
 
@@ -271,6 +321,11 @@ WI.CSSProperty = class CSSProperty extends WI.Object
     get valid() { return this._valid; }
     get variable() { return this._variable; }
     get styleSheetTextRange() { return this._styleSheetTextRange; }
+
+    get initialState()
+    {
+        return this._initialState;
+    }
 
     get editable()
     {
@@ -333,6 +388,37 @@ WI.CSSProperty = class CSSProperty extends WI.Object
         return this._hasOtherVendorNameOrKeyword;
     }
 
+    equals(property)
+    {
+        if (property === this)
+            return true;
+
+        if (!property)
+            return false;
+
+        return this._name === property.name && this._rawValue === property.rawValue && this._enabled === property.enabled;
+    }
+
+    clone()
+    {
+        let cssProperty = new WI.CSSProperty(
+            this._index,
+            this._text,
+            this._name,
+            this._rawValue,
+            this._priority,
+            this._enabled,
+            this._overridden,
+            this._implicit,
+            this._anonymous,
+            this._valid,
+            this._styleSheetTextRange);
+
+        cssProperty.ownerStyle = this._ownerStyle;
+
+        return cssProperty;
+    }
+
     // Private
 
     _updateStyleText(forceRemove = false)
@@ -354,6 +440,7 @@ WI.CSSProperty = class CSSProperty extends WI.Object
                 const lineDelta = 0;
                 const columnDelta = 0;
                 this._ownerStyle.shiftPropertiesAfter(this, lineDelta, columnDelta, forceRemove);
+                this._ownerStyle.updatePropertiesModifiedState();
             }
             return;
         }
@@ -391,12 +478,13 @@ WI.CSSProperty = class CSSProperty extends WI.Object
 
         let propertyWasRemoved = !newText;
         this._ownerStyle.shiftPropertiesAfter(this, lineDelta, columnDelta, propertyWasRemoved);
+        this._ownerStyle.updatePropertiesModifiedState();
     }
 
     _prependSemicolonIfNeeded()
     {
         for (let i = this.index - 1; i >= 0; --i) {
-            let property = this._ownerStyle.allProperties[i];
+            let property = this._ownerStyle.properties[i];
             if (!property.enabled)
                 continue;
 
@@ -407,9 +495,16 @@ WI.CSSProperty = class CSSProperty extends WI.Object
             break;
         }
     }
+
+    _markModified()
+    {
+        if (this._ownerStyle)
+            this._ownerStyle.markModified();
+    }
 };
 
 WI.CSSProperty.Event = {
     Changed: "css-property-changed",
+    ModifiedChanged: "css-property-modified-changed",
     OverriddenStatusChanged: "css-property-overridden-status-changed"
 };

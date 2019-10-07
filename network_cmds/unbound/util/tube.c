@@ -38,6 +38,7 @@
  *
  * This file contains pipe service functions.
  */
+#include <sys/time.h>
 #include "config.h"
 #include "util/tube.h"
 #include "util/log.h"

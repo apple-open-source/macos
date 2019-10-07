@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -527,48 +527,48 @@ static int
 setupapfile(argv)
     char **argv;
 {
-    FILE *ufile;
-    int l;
-    char u[MAXNAMELEN], p[MAXSECRETLEN];
-    char *fname;
+	FILE *ufile;
+	unsigned long l;
+	char u[MAXNAMELEN], p[MAXSECRETLEN];
+	char *fname;
 
-    lcp_allowoptions[0].neg_upap = 1;
+	lcp_allowoptions[0].neg_upap = 1;
 
-    /* open user info file */
-    fname = strdup(*argv);
-    if (fname == NULL)
-	novm("+ua file name");
-    seteuid(getuid());
-    ufile = fopen(fname, "r");
-    seteuid(0);
-    if (ufile == NULL) {
-	option_error("unable to open user login data file %s", fname);
-	return 0;
-    }
-    check_access(ufile, fname);
-    uafname = fname;
+	/* open user info file */
+	fname = strdup(*argv);
+	if (fname == NULL)
+		novm("+ua file name");
+	seteuid(getuid());
+	ufile = fopen(fname, "r");
+	seteuid(0);
+	if (ufile == NULL) {
+		option_error("unable to open user login data file %s", fname);
+		return 0;
+	}
+	check_access(ufile, fname);
+	uafname = fname;
 
-    /* get username */
-    if (fgets(u, MAXNAMELEN - 1, ufile) == NULL
-	|| fgets(p, MAXSECRETLEN - 1, ufile) == NULL) {
+	/* get username */
+	if (fgets(u, MAXNAMELEN - 1, ufile) == NULL
+		|| fgets(p, MAXSECRETLEN - 1, ufile) == NULL) {
+		fclose(ufile);
+		option_error("unable to read user login data file %s", fname);
+		return 0;
+	}
 	fclose(ufile);
-	option_error("unable to read user login data file %s", fname);
-	return 0;
-    }
-    fclose(ufile);
 
-    /* get rid of newlines */
-    l = strlen(u);
-    if (l > 0 && u[l-1] == '\n')
-	u[l-1] = 0;
-    l = strlen(p);
-    if (l > 0 && p[l-1] == '\n')
-	p[l-1] = 0;
+	/* get rid of newlines */
+	l = strlen(u);
+	if (l > 0 && u[l-1] == '\n')
+		u[l-1] = 0;
+	l = strlen(p);
+	if (l > 0 && p[l-1] == '\n')
+		p[l-1] = 0;
 
-    if (override_value("user", option_priority, fname))
-	strlcpy(user, u, sizeof(user));
-    if (override_value("passwd", option_priority, fname))
-	strlcpy(passwd, p, sizeof(passwd));
+	if (override_value("user", option_priority, fname))
+		strlcpy(user, u, sizeof(user));
+	if (override_value("passwd", option_priority, fname))
+		strlcpy(passwd, p, sizeof(passwd));
 
     return (1);
 }
@@ -608,12 +608,12 @@ set_noauth_addr(argv)
     char **argv;
 {
     char *addr = *argv;
-    int l = strlen(addr) + 1;
+    unsigned long l = strlen(addr) + 1;
     struct wordlist *wp;
 
     wp = (struct wordlist *) malloc(sizeof(struct wordlist) + l);
     if (wp == NULL)
-	novm("allow-ip argument");
+		novm("allow-ip argument");
     wp->word = (char *) (wp + 1);
     wp->next = noauth_addrs;
     BCOPY(addr, wp->word, l);
@@ -630,7 +630,7 @@ set_permitted_number(argv)
     char **argv;
 {
     char *number = *argv;
-    int l = strlen(number) + 1;
+    unsigned long l = strlen(number) + 1;
     struct wordlist *wp;
 
     wp = (struct wordlist *) malloc(sizeof(struct wordlist) + l);
@@ -1311,9 +1311,9 @@ check_idle(arg)
     int tlim;
 
     if (!get_idle_time(0, &idle))
-	return;
+		return;
     if (idle_time_hook != 0) {
-	tlim = idle_time_hook(&idle);
+		tlim = idle_time_hook(&idle);
     } else {
         if (noidlerecv)
             itime = idle.xmit_idle;
@@ -1321,17 +1321,17 @@ check_idle(arg)
             itime = idle.recv_idle;
         else
             itime = MIN(idle.xmit_idle, idle.recv_idle);
-	tlim = idle_time_limit - itime;
+		tlim = (int)(idle_time_limit - itime);
     }
-    if (tlim <= 0) {
-	/* link is idle: shut it down. */
-	notice("Terminating connection due to lack of activity.");
-	lcp_close(0, "Link inactive");
-	need_holdoff = 0;
-	status = EXIT_IDLE_TIMEOUT;
-    } else {
-	TIMEOUT(check_idle, NULL, tlim);
-    }
+	if (tlim <= 0) {
+		/* link is idle: shut it down. */
+		notice("Terminating connection due to lack of activity.");
+		lcp_close(0, "Link inactive");
+		need_holdoff = 0;
+		status = EXIT_IDLE_TIMEOUT;
+	} else {
+		TIMEOUT(check_idle, NULL, tlim);
+	}
 }
 
 /*
@@ -1836,7 +1836,7 @@ plogin(user, passwd, msg)
 	 * This will automatically create a lastlog entry, as well as
 	 * creating a utmpx and wtmpx entry.
 	 */
-	utx.ut_type = UTMPX_AUTOFILL_MASK | LOGIN_PROCESS;
+	utx.ut_type = (short)(UTMPX_AUTOFILL_MASK | LOGIN_PROCESS);
 	(void)strncpy(utx.ut_line, tty, sizeof(utx.ut_line));
 	(void)pututxline(&utx);
     }
@@ -1897,8 +1897,8 @@ plogout()
 	 * This will clear out the utmpx and wtmpx entries, provided
 	 * the plogin pututxline succeeded
 	 */
-	utx.ut_type = UTMPX_AUTOFILL_MASK | UTMPX_DEAD_IF_CORRESPONDING_MASK
-			| DEAD_PROCESS;
+	utx.ut_type = (short)(UTMPX_AUTOFILL_MASK | UTMPX_DEAD_IF_CORRESPONDING_MASK
+			| DEAD_PROCESS);
 	(void)strncpy(utx.ut_line, tty, sizeof(utx.ut_line));
 	(void)pututxline(&utx);
     }
@@ -2153,47 +2153,47 @@ get_secret(unit, client, server, secret, secret_len, am_server)
     struct wordlist *addrs, *opts;
     char secbuf[MAXWORDLEN];
 
-    if (!am_server && passwd[0] != 0) {
-	strlcpy(secbuf, passwd, sizeof(secbuf));
-    } else if (!am_server && chap_passwd_hook) {
-	if ( (*chap_passwd_hook)((char*)client, secbuf) < 0) {
-	    error("Unable to obtain CHAP password for %s on %s from plugin",
-		  client, server);
-	    return 0;
+	if (!am_server && passwd[0] != 0) {
+		strlcpy(secbuf, passwd, sizeof(secbuf));
+	} else if (!am_server && chap_passwd_hook) {
+		if ( (*chap_passwd_hook)((char*)client, secbuf) < 0) {
+			error("Unable to obtain CHAP password for %s on %s from plugin",
+				  client, server);
+			return 0;
+		}
+	} else {
+		filename = _PATH_CHAPFILE;
+		addrs = NULL;
+		secbuf[0] = 0;
+
+		f = fopen(filename, "r");
+		if (f == NULL) {
+			error("Can't open chap secret file %s: %m", filename);
+			return 0;
+		}
+		check_access(f, filename);
+
+		ret = scan_authfile(f, (char*)client, (char*)server, secbuf, &addrs, &opts, filename, 0);
+		fclose(f);
+		if (ret < 0)
+			return 0;
+
+		if (am_server)
+			set_allowed_addrs(unit, addrs, opts);
+		else if (opts != 0)
+			free_wordlist(opts);
+		if (addrs != 0)
+			free_wordlist(addrs);
 	}
-    } else {
-	filename = _PATH_CHAPFILE;
-	addrs = NULL;
-	secbuf[0] = 0;
 
-	f = fopen(filename, "r");
-	if (f == NULL) {
-	    error("Can't open chap secret file %s: %m", filename);
-	    return 0;
+	len = (int)strlen(secbuf);
+	if (len > MAXSECRETLEN) {
+		error("Secret for %s on %s is too long", client, server);
+		len = MAXSECRETLEN;
 	}
-	check_access(f, filename);
-
-	ret = scan_authfile(f, (char*)client, (char*)server, secbuf, &addrs, &opts, filename, 0);
-	fclose(f);
-	if (ret < 0)
-	    return 0;
-
-	if (am_server)
-	    set_allowed_addrs(unit, addrs, opts);
-	else if (opts != 0)
-	    free_wordlist(opts);
-	if (addrs != 0)
-	    free_wordlist(addrs);
-    }
-
-    len = strlen(secbuf);
-    if (len > MAXSECRETLEN) {
-	error("Secret for %s on %s is too long", client, server);
-	len = MAXSECRETLEN;
-    }
-    BCOPY(secbuf, secret, len);
-    BZERO(secbuf, sizeof(secbuf));
-    *secret_len = len;
+	BCOPY(secbuf, secret, len);
+	BZERO(secbuf, sizeof(secbuf));
+	*secret_len = len;
 
     return 1;
 }
@@ -2500,25 +2500,25 @@ some_ip_ok(addrs)
 int
 auth_number()
 {
-    struct wordlist *wp = permitted_numbers;
-    int l;
+	struct wordlist *wp = permitted_numbers;
+	int l;
 
-    /* Allow all if no authorization list. */
-    if (!wp)
-	return 1;
+	/* Allow all if no authorization list. */
+	if (!wp)
+		return 1;
 
-    /* Allow if we have a match in the authorization list. */
-    while (wp) {
-	/* trailing '*' wildcard */
-	l = strlen(wp->word);
-	if ((wp->word)[l - 1] == '*')
-	    l--;
-	if (!strncasecmp(wp->word, remote_number, l))
-	    return 1;
-	wp = wp->next;
-    }
+	/* Allow if we have a match in the authorization list. */
+	while (wp) {
+		/* trailing '*' wildcard */
+		l = (int)strlen(wp->word);
+		if ((wp->word)[l - 1] == '*')
+			l--;
+		if (!strncasecmp(wp->word, remote_number, l))
+			return 1;
+		wp = wp->next;
+	}
 
-    return 0;
+	return 0;
 }
 
 /*
@@ -2667,7 +2667,7 @@ scan_authfile(f, client, server, secret, addrs, opts, filename, flags)
 	for (;;) {
 	    if (!getword(f, word, &newline, filename) || newline)
 		break;
-		int	len = strlen(word) + 1;
+		int	len = (int)strlen(word) + 1;
 	    ap = (struct wordlist *)
 		    malloc(sizeof(struct wordlist) + len);
 	    if (ap == NULL)
@@ -2808,7 +2808,7 @@ auth_script(script)
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/Security.h>
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 static int read_keychainpassword __P((SecPreferencesDomain , char *, char *, char *, int));
 static int write_keychainpassword __P((SecPreferencesDomain , char *, char *, char *));
 #endif
@@ -2820,7 +2820,7 @@ static int
 keychainpassword(argv)
     char **argv;
 {
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 	if (read_keychainpassword(kSecPreferencesDomainSystem, *argv, 0, passwd, MAXSECRETLEN)) {
 		strlcpy(passwdkey, *argv, sizeof(passwdkey));
 		passwdfrom = PASSWDFROM_KEYCHAIN;
@@ -2840,7 +2840,7 @@ static int
 userkeychainpassword(argv)
     char **argv;
 {
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 	if (read_keychainpassword(kSecPreferencesDomainUser, *argv, 0, passwd, MAXSECRETLEN)) {
 		strlcpy(passwdkey, *argv, sizeof(passwdkey));
 		passwdfrom = PASSWDFROM_USERKEYCHAIN;
@@ -2859,7 +2859,7 @@ int
 save_new_password()
 {
 	int ret = 0;
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 	switch (passwdfrom) {
 		case PASSWDFROM_KEYCHAIN:
 			ret = write_keychainpassword(kSecPreferencesDomainSystem, passwdkey, 0, new_passwd);
@@ -2873,7 +2873,7 @@ save_new_password()
 	return ret;
 }
 
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 
 /*
  * read password from keyChain.
@@ -2905,8 +2905,8 @@ read_keychainpassword(SecPreferencesDomain domain, char *service, char *account,
 	}
 	
 	status = SecKeychainFindGenericPassword(keychain,
-					        service ? strlen(service) : 0, service,
-					        account ? strlen(account) : 0, account,
+					        service ? (UInt32)strlen(service) : 0, service,
+					        account ? (UInt32)strlen(account) : 0, account,
 					        &cur_password_len, &cur_password,
 					        NULL);
 	
@@ -2986,14 +2986,14 @@ write_keychainpassword(SecPreferencesDomain domain, char *service, char *account
 	}
 
 	status = SecKeychainFindGenericPassword(keychain,
-					        service ? strlen(service) : 0, service,
-					        account ? strlen(account) : 0, account,
+					        service ? (UInt32)strlen(service) : 0, service,
+					        account ? (UInt32)strlen(account) : 0, account,
 					        &cur_password_len, &cur_password,
 					        &itemRef);
 	switch (status) {
 
 	    case noErr :
-			status = SecKeychainItemModifyContent(itemRef, NULL, strlen(password), password);
+			status = SecKeychainItemModifyContent(itemRef, NULL, (UInt32)strlen(password), password);
 			switch (status) {
 				case noErr :
 					ret = 1;
@@ -3027,5 +3027,5 @@ end:
 
 	return ret;
 }
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* !TARGET_OS_OSX */
 #endif

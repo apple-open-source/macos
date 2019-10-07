@@ -24,8 +24,6 @@
 
 #include "ckconfig.h"
 
-#if	CRYPTKIT_HMAC_LEGACY
-
 #include "HmacSha1Legacy.h"
 #include "ckSHA1.h"
 #include <string.h>
@@ -162,4 +160,3 @@ OSStatus hmacLegacyFinal(
 	return errSecSuccess;
 }
 
-#endif	/* CRYPTKIT_HMAC_LEGACY */

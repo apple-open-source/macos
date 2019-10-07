@@ -66,6 +66,7 @@ Ref<WebsiteDataStore> WebsiteDataStore::createNonPersistentDataStore()
 
 Ref<WebsiteDataStore> WebsiteDataStore::createLegacy(Ref<WebKit::WebsiteDataStoreConfiguration>&& configuration)
 {
+    configuration->setIndexedDBDatabaseDirectory(legacyDefaultIndexedDBDatabaseDirectory());
     return adoptRef(*new WebsiteDataStore(WTFMove(configuration), PAL::SessionID::defaultSessionID()));
 }
 
@@ -85,10 +86,12 @@ WebsiteDataStore::~WebsiteDataStore()
 
 HTTPCookieStore& WebsiteDataStore::httpCookieStore()
 {
-    if (!m_apiHTTPCookieStore)
-        m_apiHTTPCookieStore = HTTPCookieStore::create(*this);
+    return m_websiteDataStore->cookieStore();
+}
 
-    return *m_apiHTTPCookieStore;
+WTF::String WebsiteDataStore:: indexedDBDatabaseDirectory()
+{
+    return m_websiteDataStore->configuration().indexedDBDatabaseDirectory();
 }
 
 bool WebsiteDataStore::isPersistent()
@@ -129,6 +132,39 @@ WTF::String WebsiteDataStore::defaultJavaScriptConfigurationDirectory()
     return WTF::String();
 }
 #endif
+
+#if !USE(GLIB)
+WTF::String WebsiteDataStore::defaultDeviceIdHashSaltsStorageDirectory()
+{
+    // Not implemented.
+    return WTF::String();
+}
+#endif
+
+Ref<WebKit::WebsiteDataStoreConfiguration> WebsiteDataStore::defaultDataStoreConfiguration()
+{
+    auto configuration = WebKit::WebsiteDataStoreConfiguration::create();
+
+    configuration->setPersistent(true);
+
+    configuration->setApplicationCacheDirectory(defaultApplicationCacheDirectory());
+    configuration->setApplicationCacheFlatFileSubdirectoryName("Files");
+    configuration->setCacheStorageDirectory(defaultCacheStorageDirectory());
+    configuration->setNetworkCacheDirectory(defaultNetworkCacheDirectory());
+    configuration->setMediaCacheDirectory(defaultMediaCacheDirectory());
+
+    configuration->setIndexedDBDatabaseDirectory(defaultIndexedDBDatabaseDirectory());
+    configuration->setServiceWorkerRegistrationDirectory(defaultServiceWorkerRegistrationDirectory());
+    configuration->setWebSQLDatabaseDirectory(defaultWebSQLDatabaseDirectory());
+    configuration->setLocalStorageDirectory(defaultLocalStorageDirectory());
+    configuration->setMediaKeysStorageDirectory(defaultMediaKeysStorageDirectory());
+    configuration->setResourceLoadStatisticsDirectory(defaultResourceLoadStatisticsDirectory());
+    configuration->setDeviceIdHashSaltsStorageDirectory(defaultDeviceIdHashSaltsStorageDirectory());
+
+    configuration->setJavaScriptConfigurationDirectory(defaultJavaScriptConfigurationDirectory());
+
+    return configuration;
+}
 
 Ref<WebKit::WebsiteDataStoreConfiguration> WebsiteDataStore::legacyDefaultDataStoreConfiguration()
 {

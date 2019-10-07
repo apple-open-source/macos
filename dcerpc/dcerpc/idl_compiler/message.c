@@ -197,10 +197,13 @@ void message_open
           version_text = catgets(cat_handle,CAT_SET,MESSAGE_VERSION,NULL);
           if (version_text != NULL && atoi(version_text) != MESSAGE_VERSION_USED)
           {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
               fprintf(stderr, def_message(NLSCATVER),
                   msg_prefix, cat_name, MESSAGE_VERSION_USED, version_text);
               fprintf(stderr, "\n");
               fprintf(stderr, def_message(NLSWRONG), msg_prefix);
+#pragma clang diagnostic pop
               fprintf(stderr, "\n");
           }
     }
@@ -263,12 +266,15 @@ void vmessage_print
             strlcpy(format, msg_prefix, sizeof (format));
     }
 
-    strlcat(format,catgets(cat_handle, CAT_SET, msgid, def_message(msgid)), sizeof(format));
+    strlcat(format,catgets(cat_handle, CAT_SET, (int) msgid, def_message(msgid)), sizeof(format));
     strlcat(format,"\n", sizeof(format));
 #else
     snprintf(format, sizeof(format), "%s%s\n", msg_prefix, def_message(msgid));
 #endif /* HAVE_NL_TYPES_H */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     NL_VFPRINTF(stderr, format, arglist);
+#pragma clang diagnostic pop
 }
 
 void message_print
@@ -301,6 +307,18 @@ void message_print
 
 void message_sprint
 (
+ char *str,
+ size_t str_len,
+ long msgid,
+ char *arg1,
+ char *arg2,
+ char *arg3,
+ char *arg4,
+ char *arg5
+);
+
+void message_sprint
+(
     char *str,
 	size_t str_len,
     long msgid,
@@ -314,7 +332,7 @@ void message_sprint
     char *msg_text;     /* Ptr to message text (storage owned by catgets) */
 
 #ifdef HAVE_NL_TYPES_H
-    msg_text = catgets(cat_handle, CAT_SET, msgid, def_message(msgid));
+    msg_text = catgets(cat_handle, CAT_SET, (int) msgid, def_message(msgid));
 #else
     msg_text = def_message(msgid);
 #endif /* HAVE_NL_TYPES_H */
@@ -333,7 +351,10 @@ void message_sprint
             break;
     }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     NL_SPRINTF(str, msg_text, arg1, arg2, arg3, arg4, arg5);
+#pragma clang diagnostic pop
 }
 
 /*
@@ -352,6 +373,17 @@ void message_sprint
 
 void message_fprint
 (
+ FILE *fid,
+ long msgid,
+ char *arg1,
+ char *arg2,
+ char *arg3,
+ char *arg4,
+ char *arg5
+);
+
+void message_fprint
+(
     FILE *fid,
     long msgid,
     char *arg1,
@@ -365,11 +397,14 @@ void message_fprint
     char *msg_text;     /* Ptr to message text (storage owned by catgets) */
 
 #ifdef HAVE_NL_TYPES_H
-    msg_text = catgets(cat_handle, CAT_SET, msgid, def_message(msgid));
+    msg_text = catgets(cat_handle, CAT_SET, (int) msgid, def_message(msgid));
 #else
     msg_text = def_message(msgid);
 #endif /* HAVE_NL_TYPES_H */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     NL_SPRINTF(str, msg_text, arg1, arg2, arg3, arg4, arg5);
+#pragma clang diagnostic pop
     fprintf(fid, "%s\n", str);
 }
 

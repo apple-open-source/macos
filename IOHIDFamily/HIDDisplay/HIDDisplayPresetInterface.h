@@ -20,7 +20,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property(readonly) NSArray<HIDDisplayPresetData*> *presets;
 
 -(nullable instancetype) init NS_UNAVAILABLE;
-
 -(BOOL) setActivePresetIndex:(NSInteger) index error:(NSError**) error;
 -(NSInteger) getActivePresetIndex:(NSError**) error;
 -(NSInteger) getFactoryDefaultPresetIndex:(NSError**) error;

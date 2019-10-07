@@ -49,6 +49,7 @@
 #include <webkit2/WebKitFileChooserRequest.h>
 #include <webkit2/WebKitFindController.h>
 #include <webkit2/WebKitFormSubmissionRequest.h>
+#include <webkit2/WebKitGeolocationManager.h>
 #include <webkit2/WebKitGeolocationPermissionRequest.h>
 #include <webkit2/WebKitHitTestResult.h>
 #include <webkit2/WebKitInstallMissingMediaPluginsPermissionRequest.h>
@@ -73,7 +74,9 @@
 #include <webkit2/WebKitURIRequest.h>
 #include <webkit2/WebKitURIResponse.h>
 #include <webkit2/WebKitURISchemeRequest.h>
+#include <webkit2/WebKitURIUtilities.h>
 #include <webkit2/WebKitUserContent.h>
+#include <webkit2/WebKitUserContentFilterStore.h>
 #include <webkit2/WebKitUserContentManager.h>
 #include <webkit2/WebKitUserMediaPermissionRequest.h>
 #include <webkit2/WebKitVersion.h>

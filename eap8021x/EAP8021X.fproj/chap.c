@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,11 +50,14 @@ chap_md5(uint8_t identifier, const uint8_t * password, int password_len,
 {
     CC_MD5_CTX			ctx;
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
     /* MD5 hash over the identifier + password + challenge */
     CC_MD5_Init(&ctx);
     CC_MD5_Update(&ctx, &identifier, sizeof(identifier));
     CC_MD5_Update(&ctx, password, password_len);
     CC_MD5_Update(&ctx, challenge, challenge_len);
     CC_MD5_Final(hash, &ctx);
+#pragma GCC diagnostic pop
     return;
 }

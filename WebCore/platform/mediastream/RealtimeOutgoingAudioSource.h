@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc.
+ * Copyright (C) 2017-2019 Apple Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted, provided that the following conditions
@@ -41,6 +41,7 @@ ALLOW_UNUSED_PARAMETERS_BEGIN
 
 ALLOW_UNUSED_PARAMETERS_END
 
+#include <wtf/LoggerHelper.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
 namespace webrtc {
@@ -50,7 +51,14 @@ class AudioTrackSinkInterface;
 
 namespace WebCore {
 
-class RealtimeOutgoingAudioSource : public ThreadSafeRefCounted<RealtimeOutgoingAudioSource, WTF::DestructionThread::Main>, public webrtc::AudioSourceInterface, private MediaStreamTrackPrivate::Observer {
+class RealtimeOutgoingAudioSource
+    : public ThreadSafeRefCounted<RealtimeOutgoingAudioSource, WTF::DestructionThread::Main>
+    , public webrtc::AudioSourceInterface
+    , private MediaStreamTrackPrivate::Observer
+#if !RELEASE_LOG_DISABLED
+    , private LoggerHelper
+#endif
+{
 public:
     static Ref<RealtimeOutgoingAudioSource> create(Ref<MediaStreamTrackPrivate>&& audioSource);
 
@@ -71,6 +79,14 @@ protected:
     bool isSilenced() const { return m_muted || !m_enabled; }
 
     void sendAudioFrames(const void* audioData, int bitsPerSample, int sampleRate, size_t numberOfChannels, size_t numberOfFrames);
+
+#if !RELEASE_LOG_DISABLED
+    // LoggerHelper API
+    const Logger& logger() const final { return m_logger.get(); }
+    const void* logIdentifier() const final { return m_logIdentifier; }
+    const char* logClassName() const final { return "RealtimeOutgoingAudioSource"; }
+    WTFLogChannel& logChannel() const final;
+#endif
 
 private:
     // webrtc::AudioSourceInterface API
@@ -115,6 +131,12 @@ private:
 
     mutable RecursiveLock m_sinksLock;
     HashSet<webrtc::AudioTrackSinkInterface*> m_sinks;
+
+#if !RELEASE_LOG_DISABLED
+    mutable Ref<const Logger> m_logger;
+    const void* m_logIdentifier;
+    size_t m_chunksSent { 0 };
+#endif
 };
 
 } // namespace WebCore

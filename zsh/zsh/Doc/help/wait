@@ -3,7 +3,9 @@ wait [ job ... ]
        then  all currently active child processes are waited for.  Each
        job can be either a job specification or the process ID of a job
        in  the job table.  The exit status from this command is that of
-       the job waited for.
+       the job waited for.  If job represents an unknown job or process
+       ID,  a  warning  is printed (unless the POSIX_BUILTINS option is
+       set) and the exit status is 127.
 
        It is possible  to  wait  for  recent  processes  (specified  by
        process ID, not by job) that were running in the background even

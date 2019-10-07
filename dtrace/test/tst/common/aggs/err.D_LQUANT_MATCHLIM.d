@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_LQUANT_MATCHLIM.d	1.1	06/08/28 SMI"
-
 BEGIN
 {
 	@ = lquantize(0, 10, 20, 1);

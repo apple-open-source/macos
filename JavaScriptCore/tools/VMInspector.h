@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,6 +34,9 @@
 namespace JSC {
 
 class VMInspector {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_NONCOPYABLE(VMInspector);
+    VMInspector() = default;
 public:
     enum class Error {
         None,
@@ -75,6 +78,7 @@ public:
     JS_EXPORT_PRIVATE static void dumpValue(JSValue);
     JS_EXPORT_PRIVATE static void dumpCellMemory(JSCell*);
     JS_EXPORT_PRIVATE static void dumpCellMemoryToStream(JSCell*, PrintStream&);
+    JS_EXPORT_PRIVATE static void dumpSubspaceHashes(VM*);
 
 private:
     template <typename Functor> void iterate(const Functor& functor)

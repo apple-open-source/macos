@@ -3,15 +3,15 @@ Test xml_parser_get_option() function : usage variations
 --SKIPIF--
 <?php if (PHP_INT_SIZE != 8) die("skip this test is for 64-bit only");
 if (!extension_loaded("xml")) {
-	print "skip - XML extension not loaded"; 
-}	 
+	print "skip - XML extension not loaded";
+}
 ?>
 --FILE--
 <?php
 /* Prototype  : proto int xml_parser_get_option(resource parser, int option)
- * Description: Get options from an XML parser 
+ * Description: Get options from an XML parser
  * Source code: ext/xml/xml.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing xml_parser_get_option() : usage variations ***\n";
@@ -74,7 +74,7 @@ $values = array(
       new aClass(),
 
       // resource data
-      $fp, 
+      $fp,
 
       // undefined data
       $undefined_var,
@@ -134,27 +134,27 @@ bool(false)
 
 Arg value Array 
 
-Warning: xml_parser_get_option() expects parameter 2 to be integer, array given in %s on line %d
+Warning: xml_parser_get_option() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
 Arg value Array 
 
-Warning: xml_parser_get_option() expects parameter 2 to be integer, array given in %s on line %d
+Warning: xml_parser_get_option() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
 Arg value Array 
 
-Warning: xml_parser_get_option() expects parameter 2 to be integer, array given in %s on line %d
+Warning: xml_parser_get_option() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
 Arg value Array 
 
-Warning: xml_parser_get_option() expects parameter 2 to be integer, array given in %s on line %d
+Warning: xml_parser_get_option() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
 Arg value Array 
 
-Warning: xml_parser_get_option() expects parameter 2 to be integer, array given in %s on line %d
+Warning: xml_parser_get_option() expects parameter 2 to be int, array given in %s on line %d
 NULL
 
 Arg value  
@@ -185,32 +185,32 @@ bool(false)
 
 Arg value  
 
-Warning: xml_parser_get_option() expects parameter 2 to be integer, string given in %s on line %d
+Warning: xml_parser_get_option() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 Arg value  
 
-Warning: xml_parser_get_option() expects parameter 2 to be integer, string given in %s on line %d
+Warning: xml_parser_get_option() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 Arg value string 
 
-Warning: xml_parser_get_option() expects parameter 2 to be integer, string given in %s on line %d
+Warning: xml_parser_get_option() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 Arg value string 
 
-Warning: xml_parser_get_option() expects parameter 2 to be integer, string given in %s on line %d
+Warning: xml_parser_get_option() expects parameter 2 to be int, string given in %s on line %d
 NULL
 
 Arg value Some Ascii Data 
 
-Warning: xml_parser_get_option() expects parameter 2 to be integer, object given in %s on line %d
+Warning: xml_parser_get_option() expects parameter 2 to be int, object given in %s on line %d
 NULL
 
 Arg value Resource id %s
 
-Warning: xml_parser_get_option() expects parameter 2 to be integer, resource given in %s on line %d
+Warning: xml_parser_get_option() expects parameter 2 to be int, resource given in %s on line %d
 NULL
 
 Arg value  
@@ -223,4 +223,3 @@ Arg value
 Warning: xml_parser_get_option(): Unknown option in %s on line %d
 bool(false)
 Done
-

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,13 +23,17 @@
 
 #ifndef _EAP8021X_EAPOLCONTROL_H
 #define _EAP8021X_EAPOLCONTROL_H
+
+#include <TargetConditionals.h>
+#include <os/availability.h>
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFString.h>
-#include <TargetConditionals.h>
 #include <EAP8021X/EAPOLControlTypes.h>
-#if ! TARGET_OS_EMBEDDED
+#if ! TARGET_OS_IPHONE
 #include <EAP8021X/EAPOLClientConfiguration.h>
-#endif /* ! TARGET_OS_EMBEDDED */
+#else /* ! TARGET_OS_IPHONE */
+typedef struct __EAPOLClientItemID * EAPOLClientItemIDRef;
+#endif /* ! TARGET_OS_IPHONE */
 
 /*
  * Function: EAPOLControlKeyCreate
@@ -38,7 +42,7 @@
  *   interface, and/or use for notification for a specific interface.
  */
 CFStringRef
-EAPOLControlKeyCreate(const char * interface_name);
+EAPOLControlKeyCreate(const char * interface_name) API_AVAILABLE(macos(10.10), ios(8.0), watchos(5.0), tvos(9.0));
 
 /*
  * Function: EAPOLControlAnyInterfaceKeyCreate
@@ -47,7 +51,7 @@ EAPOLControlKeyCreate(const char * interface_name);
  *   any interface's EAPOL information changing.
  */
 CFStringRef
-EAPOLControlAnyInterfaceKeyCreate(void);
+EAPOLControlAnyInterfaceKeyCreate(void) API_AVAILABLE(macos(10.10), ios(8.0), watchos(5.0), tvos(9.0));
 
 /*
  * Function: EAPOLControlKeyCopyInterface
@@ -56,7 +60,7 @@ EAPOLControlAnyInterfaceKeyCreate(void);
  *   NULL if the key is invalid.
  */
 CFStringRef
-EAPOLControlKeyCopyInterface(CFStringRef key);
+EAPOLControlKeyCopyInterface(CFStringRef key) API_AVAILABLE(macos(10.10), ios(8.0), watchos(5.0), tvos(9.0));
 
 
 /*
@@ -80,9 +84,8 @@ EAPOLControlKeyCopyInterface(CFStringRef key);
  *   backwards compatibility.
  */
 int
-EAPOLControlStart(const char * interface_name, CFDictionaryRef config);
+EAPOLControlStart(const char * interface_name, CFDictionaryRef config) API_AVAILABLE(macos(10.10), ios(8.0), watchos(5.0), tvos(9.0));
 
-#if ! TARGET_OS_EMBEDDED
 /*
  * Function: EAPOLControlStartWithClientItemID
  *
@@ -105,8 +108,7 @@ EAPOLControlStart(const char * interface_name, CFDictionaryRef config);
 int
 EAPOLControlStartWithClientItemID(const char * if_name,
 				  EAPOLClientItemIDRef itemID,
-				  CFDictionaryRef auth_info);
-#endif /* ! TARGET_OS_EMBEDDED */
+				  CFDictionaryRef auth_info) API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos);
 
 /*
  * Function: EAPOLControlUpdate
@@ -119,7 +121,7 @@ EAPOLControlStartWithClientItemID(const char * if_name,
  *   0 if successful, non-zero errno value otherwise.
  */
 int
-EAPOLControlUpdate(const char * interface_name, CFDictionaryRef config);
+EAPOLControlUpdate(const char * interface_name, CFDictionaryRef config) API_AVAILABLE(macos(10.10), ios(8.0), watchos(5.0), tvos(9.0));
 
 /*
  * Function: EAPOLControlStop
@@ -130,7 +132,7 @@ EAPOLControlUpdate(const char * interface_name, CFDictionaryRef config);
  *   0 if successful, non-zero errno value otherwise.
  */
 int
-EAPOLControlStop(const char * interface_name);
+EAPOLControlStop(const char * interface_name) API_AVAILABLE(macos(10.10), ios(8.0), watchos(5.0), tvos(9.0));
 
 /*
  * Function: EAPOLControlRetry
@@ -147,7 +149,7 @@ EAPOLControlStop(const char * interface_name);
  *   testing/debugging.
  */
 int
-EAPOLControlRetry(const char * interface_name);
+EAPOLControlRetry(const char * interface_name) API_AVAILABLE(macos(10.10), ios(8.0), watchos(5.0), tvos(9.0));
 
 /*
  * Function: EAPOLControlProvideUserInput
@@ -170,7 +172,7 @@ EAPOLControlRetry(const char * interface_name);
  */
 int
 EAPOLControlProvideUserInput(const char * interface_name,
-			     CFDictionaryRef user_input);
+			     CFDictionaryRef user_input) API_AVAILABLE(macos(10.10), ios(8.0), watchos(5.0), tvos(9.0));
 
 /* 
  * Function: EAPOLControlCopyStateAndStatus
@@ -186,7 +188,7 @@ EAPOLControlProvideUserInput(const char * interface_name,
 int
 EAPOLControlCopyStateAndStatus(const char * interface_name, 
 			       EAPOLControlState * state,
-			       CFDictionaryRef * status_dict_p);
+			       CFDictionaryRef * status_dict_p) API_AVAILABLE(macos(10.10), ios(8.0), watchos(5.0), tvos(9.0));
 
 /*
  * Function: EAPOLControlSetLogLevel
@@ -194,9 +196,8 @@ EAPOLControlCopyStateAndStatus(const char * interface_name,
  *   Deprecated.
  */
 int
-EAPOLControlSetLogLevel(const char * interface_name, int32_t level);
+EAPOLControlSetLogLevel(const char * interface_name, int32_t level) API_AVAILABLE(macos(10.10), ios(8.0), watchos(5.0), tvos(9.0));
 
-#if ! TARGET_OS_EMBEDDED
 /*
  * Function: EAPOLControlDidUserCancel
  *
@@ -207,8 +208,8 @@ EAPOLControlSetLogLevel(const char * interface_name, int32_t level);
  *    EAPOLMonitor uses it to avoid prompting the user again if the user
  *    cancels the authentication over Ethernet.
  */
-boolean_t
-EAPOLControlDidUserCancel(const char * if_name);
+Boolean
+EAPOLControlDidUserCancel(const char * if_name) API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos);
 
 /*
  * Function: EAPOLControlStartSystem
@@ -222,7 +223,7 @@ EAPOLControlDidUserCancel(const char * if_name);
  *   Currently the 'options' parameter is not used, pass NULL.
  */
 int
-EAPOLControlStartSystem(const char * interface_name, CFDictionaryRef options);
+EAPOLControlStartSystem(const char * interface_name, CFDictionaryRef options) API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos);
 
 /*
  * Function: EAPOLControlStartSystemWithClientItemID
@@ -235,7 +236,7 @@ EAPOLControlStartSystem(const char * interface_name, CFDictionaryRef options);
  */
 int
 EAPOLControlStartSystemWithClientItemID(const char * interface_name,
-					EAPOLClientItemIDRef itemID);
+					EAPOLClientItemIDRef itemID) API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos);
 
 /*
  * Function: EAPOLControlCopyLoginWindowConfiguration
@@ -249,7 +250,7 @@ EAPOLControlStartSystemWithClientItemID(const char * interface_name,
  */
 int
 EAPOLControlCopyLoginWindowConfiguration(const char * interface_name,
-					 CFDictionaryRef * config_p);
+					 CFDictionaryRef * config_p) API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos);
 /*
  * Function: EAPOLControlCopyLoginWindowClientItemID
  *
@@ -264,7 +265,7 @@ EAPOLControlCopyLoginWindowConfiguration(const char * interface_name,
  */
 int
 EAPOLControlCopyLoginWindowClientItemID(const char * if_name,
-					EAPOLClientItemIDRef * itemID_p);
+					EAPOLClientItemIDRef * itemID_p) API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos);
 
 /*
  * Function: EAPOLControlSetUserAutoConnectEnabled
@@ -276,7 +277,7 @@ EAPOLControlCopyLoginWindowClientItemID(const char * if_name,
  *    If "enable" is FALSE, no connection attempts will be made automatically.
  */
 void
-EAPOLControlSetUserAutoConnectEnabled(Boolean enable);
+EAPOLControlSetUserAutoConnectEnabled(Boolean enable) API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos);
 
 /*
  * Function: EAPOLControlIsUserAutoConnectEnabled
@@ -288,8 +289,6 @@ EAPOLControlSetUserAutoConnectEnabled(Boolean enable);
  *   TRUE if auto-connect is enabled, FALSE otherwise.
  */
 Boolean
-EAPOLControlIsUserAutoConnectEnabled(void);
-
-#endif /* ! TARGET_OS_EMBEDDED */
+EAPOLControlIsUserAutoConnectEnabled(void) API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos);
 
 #endif /* _EAP8021X_EAPOLCONTROL_H */

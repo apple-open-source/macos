@@ -23,6 +23,16 @@
 
 #include <platform/string.h>
 
+#if !VARIANT_STATIC
+// to satisfy compiler-generated memset inside libplatform (e.g. makecontext)
+__attribute__((visibility("hidden")))
+void *
+memset(void *b, int c, size_t len)
+{
+	return _platform_memset(b, c, len);
+}
+#endif
+
 #if !_PLATFORM_OPTIMIZED_MEMSET
 
 void *

@@ -133,7 +133,7 @@ et{
         GU{"Guam"}
         GW{"Guinea-Bissau"}
         GY{"Guyana"}
-        HK{"Hongkongi erihalduspiirkond"}
+        HK{"Hongkong"}
         HM{"Heardi ja McDonaldi saared"}
         HN{"Honduras"}
         HR{"Horvaatia"}
@@ -183,11 +183,11 @@ et{
         MF{"Saint-Martin"}
         MG{"Madagaskar"}
         MH{"Marshalli Saared"}
-        MK{"Makedoonia"}
+        MK{"Põhja-Makedoonia"}
         ML{"Mali"}
         MM{"Myanmar (Birma)"}
         MN{"Mongoolia"}
-        MO{"Macau erihalduspiirkond"}
+        MO{"Macau"}
         MP{"Põhja-Mariaanid"}
         MQ{"Martinique"}
         MR{"Mauritaania"}
@@ -287,6 +287,8 @@ et{
         VU{"Vanuatu"}
         WF{"Wallis ja Futuna"}
         WS{"Samoa"}
+        XA{"pseudo-aktsent"}
+        XB{"pseudo-Bidi"}
         XK{"Kosovo"}
         YE{"Jeemen"}
         YT{"Mayotte"}
@@ -297,8 +299,6 @@ et{
     }
     Countries%short{
         GB{"ÜK"}
-        HK{"Hongkong"}
-        MO{"Macau"}
         PS{"Palestiina"}
         UN{"ÜRO"}
         US{"USA"}
@@ -309,8 +309,8 @@ et{
         CI{"Elevandiluurannik"}
         CZ{"Tšehhia"}
         FK{"Malviini saared"}
-        MK{"Makedoonia Vabariik"}
+        SZ{"eSwatini"}
         TL{"Timor-Leste"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.42"}
 }

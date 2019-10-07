@@ -33,8 +33,14 @@ from string import Template
 from builtins_generator import BuiltinsGenerator
 from builtins_templates import BuiltinsGeneratorTemplates as Templates
 
-log = logging.getLogger('global')
 
+def get_var_name(function):
+    var_name = function.function_name
+    if function.is_constructor:
+        return var_name[:1].lower() + var_name[1:] + 'Constructor'
+    return var_name
+
+log = logging.getLogger('global')
 
 class BuiltinsCombinedHeaderGenerator(BuiltinsGenerator):
     def __init__(self, model):
@@ -55,6 +61,8 @@ class BuiltinsCombinedHeaderGenerator(BuiltinsGenerator):
         sections.append(Template(Templates.HeaderIncludeGuard).substitute(args))
         sections.append(self.generate_forward_declarations())
         sections.append(Template(Templates.NamespaceTop).substitute(args))
+        sections.append("extern const char s_%(namespace)sCombinedCode[];" % args);
+        sections.append("extern const unsigned s_%(namespace)sCombinedCodeLength;" % args);
         for object in self.model().objects:
             sections.append(self.generate_section_for_object(object))
         sections.append(self.generate_section_for_code_table_macro())
@@ -89,7 +97,7 @@ enum class ConstructAbility : unsigned;
                 'codeName': BuiltinsGenerator.mangledNameForFunction(function) + 'Code',
             }
 
-            lines.append("""extern const char* s_%(codeName)s;
+            lines.append("""extern const char* const s_%(codeName)s;
 extern const int s_%(codeName)sLength;
 extern const JSC::ConstructAbility s_%(codeName)sConstructAbility;""" % function_args)
 
@@ -162,10 +170,11 @@ extern const JSC::ConstructAbility s_%(codeName)sConstructAbility;""" % function
         functions.sort(key=lambda x: x.function_name)
         for function in functions:
             function_args = {
+                'varName': get_var_name(function),
                 'funcName': function.function_name,
                 'codeName': BuiltinsGenerator.mangledNameForFunction(function),
             }
 
-            lines.append("    macro(%(funcName)s, %(codeName)s) \\" % function_args)
+            lines.append("    macro(%(varName)s, %(funcName)s, %(codeName)s) \\" % function_args)
 
         return '\n'.join(lines)

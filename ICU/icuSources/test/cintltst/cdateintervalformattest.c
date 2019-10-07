@@ -14,11 +14,14 @@
 #include "unicode/udat.h"
 #include "unicode/ucal.h"
 #include "unicode/ustring.h"
+#include "unicode/udisplaycontext.h"
 #include "cintltst.h"
 #include "cmemory.h"
+#include "cformtst.h"
 
 static void TestDateIntervalFormat(void);
 static void TestFPos_SkelWithSeconds(void);
+static void TestFormatToResult(void);
 static void TestOpen(void);
 
 void addDateIntervalFormatTest(TestNode** root);
@@ -29,23 +32,33 @@ void addDateIntervalFormatTest(TestNode** root)
 {
     TESTCASE(TestDateIntervalFormat);
     TESTCASE(TestFPos_SkelWithSeconds);
+    TESTCASE(TestFormatToResult);
     TESTCASE(TestOpen);
 }
 
 static const char tzUSPacific[] = "US/Pacific";
 static const char tzAsiaTokyo[] = "Asia/Tokyo";
-#define Date201103021030 1299090600000.0 /* 2011-Mar-02 1030 in US/Pacific, 2011-Mar-03 0330 in Asia/Tokyo */
-#define Date201009270800 1285599629000.0 /* 2010-Sep-27 0800 in US/Pacific */
-#define Date201712300900 1514653200000.0 /* 2017-Dec-30 0900 in US/Pacific */
+#define Date201103021030 1299090600000.0 /* 2011-Mar-02 Wed 1030 in US/Pacific, 2011-Mar-03 0330 in Asia/Tokyo */
+#define Date201009270800 1285599629000.0 /* 2010-Sep-27 Mon 0800 in US/Pacific */
+#define Date201712300900 1514653200000.0 /* 2017-Dec-30 Sat 0900 in US/Pacific */
 #define _MINUTE (60.0*1000.0)
 #define _HOUR   (60.0*60.0*1000.0)
 #define _DAY    (24.0*60.0*60.0*1000.0)
+#define MIN_NONE   UDTITVFMT_MINIMIZE_NONE
+#define MIN_MONTHS UDTITVFMT_MINIMIZE_ADJACENT_MONTHS
+#define MIN_DAYS   UDTITVFMT_MINIMIZE_ADJACENT_DAYS
+#define C_NONE  UDISPCTX_CAPITALIZATION_NONE
+#define C_MID   UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE
+#define C_BEGIN UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE
+#define C_MENU  UDISPCTX_CAPITALIZATION_FOR_UI_LIST_OR_MENU
+#define C_ALONE UDISPCTX_CAPITALIZATION_FOR_STANDALONE
 
 typedef struct {
     const char * locale;
     const char * skeleton;
     const char * tzid;
     UDateIntervalFormatAttributeValue minimizeType;
+    UDisplayContext context;
     const UDate  from;
     const UDate  to;
     const char * resultExpected;
@@ -53,50 +66,62 @@ typedef struct {
 
 /* Just a small set of tests for now, the real functionality is tested in the C++ tests */
 static const DateIntervalFormatTestItem testItems[] = {
-    { "en", "MMMdHHmm", tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 7.0*_HOUR,  "Mar 2, 10:30\\u2009\\u2013\\u200917:30" },
-    { "en", "MMMdHHmm", tzAsiaTokyo, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 7.0*_HOUR,  "Mar 3, 03:30\\u2009\\u2013\\u200910:30" },
-    { "en", "yMMMEd",   tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 12.0*_HOUR, "Mon, Sep 27, 2010" },
-    { "en", "yMMMEd",   tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 31.0*_DAY,  "Mon, Sep 27\\u2009\\u2013\\u2009Thu, Oct 28, 2010" },
-    { "en", "yMMMEd",   tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 410.0*_DAY, "Mon, Sep 27, 2010\\u2009\\u2013\\u2009Fri, Nov 11, 2011" },
-    { "de", "Hm",       tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 12.0*_HOUR, "08:00\\u201320:00 Uhr" },
-    { "de", "Hm",       tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 31.0*_DAY,  "27.9.2010, 08:00\\u2009\\u2013\\u200928.10.2010, 08:00" },
-    { "ja", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 1.0*_DAY,   "9\\u670827\\u65E5\\uFF5E28\\u65E5" },
-    { "en", "jm",       tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 1.0*_HOUR,  "10:30 AM\\u2009\\u2013\\u200911:30 AM" },
-    { "en", "jm",       tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 12.0*_HOUR, "10:30 AM\\u2009\\u2013\\u200910:30 PM" },
-    { "it", "yMMMMd",   tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 15.0*_DAY,  "2\\u201317 marzo 2011" },
-    { "en_SA", "MMMd",  tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 6.0*_DAY,   "18\\u2009\\u2013\\u200924 Shaw." },
-    { "en@calendar=islamic-umalqura", "MMMd", tzUSPacific, UDTITVFMT_MINIMIZE_NONE, Date201009270800, Date201009270800 + 6.0*_DAY, "Shaw. 18\\u2009\\u2013\\u200924" },
+    { "en", "MMMdHHmm", tzUSPacific, MIN_NONE,   C_NONE,  Date201103021030, Date201103021030 + 7.0*_HOUR,  "Mar 2, 10:30\\u2009\\u2013\\u200917:30" },
+    { "en", "MMMdHHmm", tzAsiaTokyo, MIN_NONE,   C_NONE,  Date201103021030, Date201103021030 + 7.0*_HOUR,  "Mar 3, 03:30\\u2009\\u2013\\u200910:30" },
+    { "en", "yMMMEd",   tzUSPacific, MIN_NONE,   C_NONE,  Date201009270800, Date201009270800 + 12.0*_HOUR, "Mon, Sep 27, 2010" },
+    { "en", "yMMMEd",   tzUSPacific, MIN_NONE,   C_NONE,  Date201009270800, Date201009270800 + 31.0*_DAY,  "Mon, Sep 27\\u2009\\u2013\\u2009Thu, Oct 28, 2010" },
+    { "en", "yMMMEd",   tzUSPacific, MIN_NONE,   C_NONE,  Date201009270800, Date201009270800 + 410.0*_DAY, "Mon, Sep 27, 2010\\u2009\\u2013\\u2009Fri, Nov 11, 2011" },
+    { "de", "Hm",       tzUSPacific, MIN_NONE,   C_NONE,  Date201009270800, Date201009270800 + 12.0*_HOUR, "08:00\\u201320:00 Uhr" },
+    { "de", "Hm",       tzUSPacific, MIN_NONE,   C_NONE,  Date201009270800, Date201009270800 + 31.0*_DAY,  "27.9.2010, 08:00\\u2009\\u2013\\u200928.10.2010, 08:00" },
+    { "ja", "MMMd",     tzUSPacific, MIN_NONE,   C_NONE,  Date201009270800, Date201009270800 + 1.0*_DAY,   "9\\u670827\\u65E5\\uFF5E28\\u65E5" },
+    { "en", "jm",       tzUSPacific, MIN_NONE,   C_NONE,  Date201103021030, Date201103021030 + 1.0*_HOUR,  "10:30 AM\\u2009\\u2013\\u200911:30 AM" },
+    { "en", "jm",       tzUSPacific, MIN_NONE,   C_NONE,  Date201103021030, Date201103021030 + 12.0*_HOUR, "10:30 AM\\u2009\\u2013\\u200910:30 PM" },
+    { "it", "yMMMMd",   tzUSPacific, MIN_NONE,   C_NONE,  Date201103021030, Date201103021030 + 15.0*_DAY,  "2\\u201317 marzo 2011" },
+    { "en_SA", "MMMd",  tzUSPacific, MIN_NONE,   C_NONE,  Date201009270800, Date201009270800 + 6.0*_DAY,   "18\\u2009\\u2013\\u200924 Shaw." },
+    { "en@calendar=islamic-umalqura", "MMMd", tzUSPacific, MIN_NONE, C_NONE, Date201009270800, Date201009270800 + 6.0*_DAY, "Shaw. 18\\u2009\\u2013\\u200924" },
+    { "fr", "E",        tzUSPacific, MIN_NONE,   C_NONE,  Date201103021030, Date201103021030 + 3.0*_DAY,   "mer.\\u2009\\u2013\\u2009sam." },
+    { "fr", "E",        tzUSPacific, MIN_NONE,   C_BEGIN, Date201103021030, Date201103021030 + 3.0*_DAY,   "Mer.\\u2009\\u2013\\u2009sam." },
+    { "fr", "E",        tzUSPacific, MIN_NONE,   C_MENU,  Date201103021030, Date201103021030 + 3.0*_DAY,   "mer.\\u2009\\u2013\\u2009sam." },
+    { "fr", "E",        tzUSPacific, MIN_NONE,   C_ALONE, Date201103021030, Date201103021030 + 3.0*_DAY,   "Mer.\\u2009\\u2013\\u2009sam." },
+    { "fr", "yMMMM",    tzUSPacific, MIN_NONE,   C_NONE,  Date201103021030, Date201103021030 + 3.0*_DAY,   "mars 2011" },
+    { "fr", "yMMMM",    tzUSPacific, MIN_NONE,   C_BEGIN, Date201103021030, Date201103021030 + 3.0*_DAY,   "Mars 2011" },
+    { "fr", "yMMMM",    tzUSPacific, MIN_NONE,   C_MENU,  Date201103021030, Date201103021030 + 3.0*_DAY,   "mars 2011" },
+    { "fr", "yMMMM",    tzUSPacific, MIN_NONE,   C_ALONE, Date201103021030, Date201103021030 + 3.0*_DAY,   "Mars 2011" },
+    { "fr", "yMMMM",    tzUSPacific, MIN_NONE,   C_NONE,  Date201103021030, Date201103021030 + 40.0*_DAY,  "mars\\u2009\\u2013\\u2009avril 2011" },
+    { "fr", "yMMMM",    tzUSPacific, MIN_NONE,   C_BEGIN, Date201103021030, Date201103021030 + 40.0*_DAY,  "Mars\\u2009\\u2013\\u2009avril 2011" },
+    { "fr", "yMMMM",    tzUSPacific, MIN_NONE,   C_MENU,  Date201103021030, Date201103021030 + 40.0*_DAY,  "mars\\u2009\\u2013\\u2009avril 2011" },
+    { "fr", "yMMMM",    tzUSPacific, MIN_NONE,   C_ALONE, Date201103021030, Date201103021030 + 40.0*_DAY,  "Mars\\u2009\\u2013\\u2009avril 2011" },
     // Apple-specific
-    { "en", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 6.0*_DAY,   "Sep 27\\u2009\\u2013\\u20093" },
-    { "en", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 32.0*_DAY,  "Sep 27\\u2009\\u2013\\u2009Oct 29" },
-    { "en", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 6.0*_DAY,   "Dec 30\\u2009\\u2013\\u20095" }, // across year boundary
-    { "en", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 32.0*_DAY,  "Dec 30, 2017\\u2009\\u2013\\u2009Jan 31, 2018" }, // across year boundary but > 1 month
-    { "fr", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 6.0*_DAY,   "27\\u20133 oct." },
-    { "fr", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 32.0*_DAY,  "27 sept.\\u2009\\u2013\\u200929 oct." },
-    { "fr", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 6.0*_DAY,   "30\\u20135 janv." }, // across year boundary
-    { "fr", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 32.0*_DAY,  "30 d\\u00E9c. 2017\\u2009\\u2013\\u200931 janv. 2018" }, // across year boundary but > 1 month
+    { "en", "MMMd",     tzUSPacific, MIN_MONTHS, C_NONE,  Date201009270800, Date201009270800 + 6.0*_DAY,   "Sep 27\\u2009\\u2013\\u20093" },
+    { "en", "MMMd",     tzUSPacific, MIN_MONTHS, C_NONE,  Date201009270800, Date201009270800 + 32.0*_DAY,  "Sep 27\\u2009\\u2013\\u2009Oct 29" },
+    { "en", "MMMd",     tzUSPacific, MIN_MONTHS, C_NONE,  Date201712300900, Date201712300900 + 6.0*_DAY,   "Dec 30\\u2009\\u2013\\u20095" }, // across year boundary
+    { "en", "MMMd",     tzUSPacific, MIN_MONTHS, C_NONE,  Date201712300900, Date201712300900 + 32.0*_DAY,  "Dec 30, 2017\\u2009\\u2013\\u2009Jan 31, 2018" }, // across year boundary but > 1 month
+    { "fr", "MMMd",     tzUSPacific, MIN_MONTHS, C_NONE,  Date201009270800, Date201009270800 + 6.0*_DAY,   "27\\u20133 oct." },
+    { "fr", "MMMd",     tzUSPacific, MIN_MONTHS, C_NONE,  Date201009270800, Date201009270800 + 32.0*_DAY,  "27 sept.\\u2009\\u2013\\u200929 oct." },
+    { "fr", "MMMd",     tzUSPacific, MIN_MONTHS, C_NONE,  Date201712300900, Date201712300900 + 6.0*_DAY,   "30\\u20135 janv." }, // across year boundary
+    { "fr", "MMMd",     tzUSPacific, MIN_MONTHS, C_NONE,  Date201712300900, Date201712300900 + 32.0*_DAY,  "30 d\\u00E9c. 2017\\u2009\\u2013\\u200931 janv. 2018" }, // across year boundary but > 1 month
 
-    { "en", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 6.0*_DAY,   "Sep 27\\u2009\\u2013\\u20093, 2010" },
-    { "en", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 32.0*_DAY,  "Sep 27\\u2009\\u2013\\u2009Oct 29, 2010" },
-    { "en", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 6.0*_DAY,   "Dec 30, 2017\\u2009\\u2013\\u2009Jan 5, 2018" }, // across year boundary
-    { "en", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 32.0*_DAY,  "Dec 30, 2017\\u2009\\u2013\\u2009Jan 31, 2018" }, // across year boundary but > 1 month
-    { "fr", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 6.0*_DAY,   "27\\u20133 oct. 2010" },
-    { "fr", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 32.0*_DAY,  "27 sept.\\u2009\\u2013\\u200929 oct. 2010" },
-    { "fr", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 6.0*_DAY,   "30 d\\u00E9c. 2017\\u2009\\u2013\\u20095 janv. 2018" }, // across year boundary
-    { "fr", "yMMMd",    tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201712300900, Date201712300900 + 32.0*_DAY,  "30 d\\u00E9c. 2017\\u2009\\u2013\\u200931 janv. 2018" }, // across year boundary but > 1 month
+    { "en", "yMMMd",    tzUSPacific, MIN_MONTHS, C_NONE,  Date201009270800, Date201009270800 + 6.0*_DAY,   "Sep 27\\u2009\\u2013\\u20093, 2010" },
+    { "en", "yMMMd",    tzUSPacific, MIN_MONTHS, C_NONE,  Date201009270800, Date201009270800 + 32.0*_DAY,  "Sep 27\\u2009\\u2013\\u2009Oct 29, 2010" },
+    { "en", "yMMMd",    tzUSPacific, MIN_MONTHS, C_NONE,  Date201712300900, Date201712300900 + 6.0*_DAY,   "Dec 30, 2017\\u2009\\u2013\\u2009Jan 5, 2018" }, // across year boundary
+    { "en", "yMMMd",    tzUSPacific, MIN_MONTHS, C_NONE,  Date201712300900, Date201712300900 + 32.0*_DAY,  "Dec 30, 2017\\u2009\\u2013\\u2009Jan 31, 2018" }, // across year boundary but > 1 month
+    { "fr", "yMMMd",    tzUSPacific, MIN_MONTHS, C_NONE,  Date201009270800, Date201009270800 + 6.0*_DAY,   "27\\u20133 oct. 2010" },
+    { "fr", "yMMMd",    tzUSPacific, MIN_MONTHS, C_NONE,  Date201009270800, Date201009270800 + 32.0*_DAY,  "27 sept.\\u2009\\u2013\\u200929 oct. 2010" },
+    { "fr", "yMMMd",    tzUSPacific, MIN_MONTHS, C_NONE,  Date201712300900, Date201712300900 + 6.0*_DAY,   "30 d\\u00E9c. 2017\\u2009\\u2013\\u20095 janv. 2018" }, // across year boundary
+    { "fr", "yMMMd",    tzUSPacific, MIN_MONTHS, C_NONE,  Date201712300900, Date201712300900 + 32.0*_DAY,  "30 d\\u00E9c. 2017\\u2009\\u2013\\u200931 janv. 2018" }, // across year boundary but > 1 month
 
-    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800, Date201009270800 + 10.0*_HOUR, "Sep 27, 8:00 AM\\u2009\\u2013\\u20096:00 PM" },
-    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800, Date201009270800 + 17.0*_HOUR, "Sep 27, 8:00 AM\\u2009\\u2013\\u2009Sep 28, 1:00 AM" },
-    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "Sep 27, 8:00 PM\\u2009\\u2013\\u20091:00 AM" },
-    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 26.0*_HOUR, "Sep 27, 8:00 PM\\u2009\\u2013\\u2009Sep 28, 10:00 AM" },
-    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 35.0*_HOUR, "Sep 27, 8:00 PM\\u2009\\u2013\\u2009Sep 28, 7:00 PM" },
-    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800, Date201009270800 + 10.0*_HOUR, "27 sept. \\u00E0 08:00\\u2009\\u2013\\u200918:00" },
-    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800, Date201009270800 + 17.0*_HOUR, "27 sept. \\u00E0 08:00\\u2009\\u2013\\u200928 sept. \\u00E0 01:00" },
-    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "27 sept. \\u00E0 20:00\\u2009\\u2013\\u200901:00" },
-    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 26.0*_HOUR, "27 sept. \\u00E0 20:00\\u2009\\u2013\\u200928 sept. \\u00E0 10:00" },
-    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 35.0*_HOUR, "27 sept. \\u00E0 20:00\\u2009\\u2013\\u200928 sept. \\u00E0 19:00" },
+    { "en", "MMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800, Date201009270800 + 10.0*_HOUR, "Sep 27, 8:00 AM\\u2009\\u2013\\u20096:00 PM" },
+    { "en", "MMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800, Date201009270800 + 17.0*_HOUR, "Sep 27, 8:00 AM\\u2009\\u2013\\u2009Sep 28, 1:00 AM" },
+    { "en", "MMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "Sep 27, 8:00 PM\\u2009\\u2013\\u20091:00 AM" },
+    { "en", "MMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800 + 12.0*_HOUR, Date201009270800 + 26.0*_HOUR, "Sep 27, 8:00 PM\\u2009\\u2013\\u2009Sep 28, 10:00 AM" },
+    { "en", "MMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800 + 12.0*_HOUR, Date201009270800 + 35.0*_HOUR, "Sep 27, 8:00 PM\\u2009\\u2013\\u2009Sep 28, 7:00 PM" },
+    { "fr", "MMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800, Date201009270800 + 10.0*_HOUR, "27 sept. \\u00E0 08:00\\u2009\\u2013\\u200918:00" },
+    { "fr", "MMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800, Date201009270800 + 17.0*_HOUR, "27 sept. \\u00E0 08:00\\u2009\\u2013\\u200928 sept. \\u00E0 01:00" },
+    { "fr", "MMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "27 sept. \\u00E0 20:00\\u2009\\u2013\\u200901:00" },
+    { "fr", "MMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800 + 12.0*_HOUR, Date201009270800 + 26.0*_HOUR, "27 sept. \\u00E0 20:00\\u2009\\u2013\\u200928 sept. \\u00E0 10:00" },
+    { "fr", "MMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800 + 12.0*_HOUR, Date201009270800 + 35.0*_HOUR, "27 sept. \\u00E0 20:00\\u2009\\u2013\\u200928 sept. \\u00E0 19:00" },
 
-   { NULL, NULL,       NULL,        UDTITVFMT_MINIMIZE_NONE,            0,                0,                             NULL }
+    { NULL, NULL,       NULL,        MIN_NONE,   C_NONE,  0, 0, NULL }
 };
 
 enum {
@@ -134,7 +159,25 @@ static void TestDateIntervalFormat()
             if ( U_FAILURE(status) ) {
                 log_err("FAIL: udtitvfmt_setAttribute for locale %s, skeleton %s, tzid %s, minimizeType %d: %s\n",
                         testItemPtr->locale, testItemPtr->skeleton, tzidForLog, (int)testItemPtr->minimizeType, myErrorName(status) );
+                continue;
             }
+            udtitvfmt_setContext(udtitvfmt, testItemPtr->context, &status);
+            if ( U_FAILURE(status) ) {
+                log_err("FAIL: udtitvfmt_setContext for locale %s, skeleton %s, tzid %s, context %04X: %s\n",
+                        testItemPtr->locale, testItemPtr->skeleton, tzidForLog, (int)testItemPtr->context, myErrorName(status) );
+                continue;
+            }
+            UDisplayContext getContext = udtitvfmt_getContext(udtitvfmt, UDISPCTX_TYPE_CAPITALIZATION, &status);
+            if ( U_FAILURE(status) ) {
+                log_err("FAIL: udtitvfmt_getContext for locale %s, skeleton %s, tzid %s, context %04X: %s\n",
+                        testItemPtr->locale, testItemPtr->skeleton, tzidForLog, (int)testItemPtr->context, myErrorName(status) );
+                continue;
+            } else if (getContext != testItemPtr->context) {
+                log_err("FAIL: udtitvfmt_getContext for locale %s, skeleton %s, tzid %s, set context %04X but got %04X\n",
+                        testItemPtr->locale, testItemPtr->skeleton, tzidForLog, (int)testItemPtr->context, getContext );
+                continue;
+            }
+
             int32_t fmtLen = udtitvfmt_format(udtitvfmt, testItemPtr->from, testItemPtr->to, result, kFormatBufLen, NULL, &status);
             if (fmtLen >= kFormatBufLen) {
                 result[kFormatBufLen-1] = 0;
@@ -152,8 +195,8 @@ static void TestDateIntervalFormat()
                     char bexpbuf[kFormatBufLen];
                     u_strToUTF8(bexpbuf, kFormatBufLen, NULL, resultExpected, -1, &status);
                     u_strToUTF8(bcharBuf, kFormatBufLen, NULL, result, fmtLen, &status);
-                    log_err("ERROR: udtitvfmt_format for locale %s, skeleton %s, tzid %s, minimizeType %d, from %.1f, to %.1f: expect %s, get %s\n",
-                             testItemPtr->locale, testItemPtr->skeleton, tzidForLog, (int)testItemPtr->minimizeType,
+                    log_err("ERROR: udtitvfmt_format for locale %s, skeleton %s, tzid %s, minimizeType %d, context %04X, from %.1f, to %.1f: expect %s, get %s\n",
+                             testItemPtr->locale, testItemPtr->skeleton, tzidForLog, (int)testItemPtr->minimizeType, (int)testItemPtr->context,
                              testItemPtr->from, testItemPtr->to, bexpbuf, bcharBuf );
 #endif
                 }
@@ -369,6 +412,67 @@ static void TestFPos_SkelWithSeconds()
 	        udtitvfmt_close(udifmt);
 	    }
     }
+}
+
+static void TestFormatToResult() {
+    UErrorCode ec = U_ZERO_ERROR;
+    UDateIntervalFormat* fmt = udtitvfmt_open("de", u"dMMMMyHHmm", -1, zoneGMT, -1, &ec);
+    UFormattedDateInterval* fdi = udtitvfmt_openResult(&ec);
+    assertSuccess("Opening", &ec);
+
+    {
+        const char* message = "Field position test 1";
+        const UChar* expectedString = u"27. September 2010, 15:00\u2009–\u20092. März 2011, 18:30";
+        udtitvfmt_formatToResult(fmt, fdi, Date201009270800, Date201103021030, &ec);
+        assertSuccess("Formatting", &ec);
+        static const UFieldPositionWithCategory expectedFieldPositions[] = {
+            // category, field, begin index, end index
+            {UFIELD_CATEGORY_DATE_INTERVAL_SPAN, 0, 0, 25},
+            {UFIELD_CATEGORY_DATE, UDAT_DATE_FIELD, 0, 2},
+            {UFIELD_CATEGORY_DATE, UDAT_MONTH_FIELD, 4, 13},
+            {UFIELD_CATEGORY_DATE, UDAT_YEAR_FIELD, 14, 18},
+            {UFIELD_CATEGORY_DATE, UDAT_HOUR_OF_DAY0_FIELD, 20, 22},
+            {UFIELD_CATEGORY_DATE, UDAT_MINUTE_FIELD, 23, 25},
+            {UFIELD_CATEGORY_DATE_INTERVAL_SPAN, 1, 28, 47},
+            {UFIELD_CATEGORY_DATE, UDAT_DATE_FIELD, 28, 29},
+            {UFIELD_CATEGORY_DATE, UDAT_MONTH_FIELD, 31, 35},
+            {UFIELD_CATEGORY_DATE, UDAT_YEAR_FIELD, 36, 40},
+            {UFIELD_CATEGORY_DATE, UDAT_HOUR_OF_DAY0_FIELD, 42, 44},
+            {UFIELD_CATEGORY_DATE, UDAT_MINUTE_FIELD, 45, 47}};
+        checkMixedFormattedValue(
+            message,
+            udtitvfmt_resultAsValue(fdi, &ec),
+            expectedString,
+            expectedFieldPositions,
+            UPRV_LENGTHOF(expectedFieldPositions));
+    }
+    {
+        const char* message = "Field position test 1";
+        const UChar* expectedString = u"27. September 2010, 15:00–22:00 Uhr";
+        udtitvfmt_formatToResult(fmt, fdi, Date201009270800, Date201009270800 + 7*_HOUR, &ec);
+        assertSuccess("Formatting", &ec);
+        static const UFieldPositionWithCategory expectedFieldPositions[] = {
+            // category, field, begin index, end index
+            {UFIELD_CATEGORY_DATE, UDAT_DATE_FIELD, 0, 2},
+            {UFIELD_CATEGORY_DATE, UDAT_MONTH_FIELD, 4, 13},
+            {UFIELD_CATEGORY_DATE, UDAT_YEAR_FIELD, 14, 18},
+            {UFIELD_CATEGORY_DATE_INTERVAL_SPAN, 0, 20, 25},
+            {UFIELD_CATEGORY_DATE, UDAT_HOUR_OF_DAY0_FIELD, 20, 22},
+            {UFIELD_CATEGORY_DATE, UDAT_MINUTE_FIELD, 23, 25},
+            {UFIELD_CATEGORY_DATE_INTERVAL_SPAN, 1, 26, 31},
+            {UFIELD_CATEGORY_DATE, UDAT_HOUR_OF_DAY0_FIELD, 26, 28},
+            {UFIELD_CATEGORY_DATE, UDAT_MINUTE_FIELD, 29, 31},
+            {UFIELD_CATEGORY_DATE, UDAT_AM_PM_FIELD, 32, 35}};
+        checkMixedFormattedValue(
+            message,
+            udtitvfmt_resultAsValue(fdi, &ec),
+            expectedString,
+            expectedFieldPositions,
+            UPRV_LENGTHOF(expectedFieldPositions));
+    }
+
+    udtitvfmt_close(fmt);
+    udtitvfmt_closeResult(fdi);
 }
 
 static const char* openLocales[] = {

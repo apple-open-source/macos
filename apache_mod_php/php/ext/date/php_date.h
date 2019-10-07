@@ -16,8 +16,6 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id$ */
-
 #ifndef PHP_DATE_H
 #define PHP_DATE_H
 
@@ -53,6 +51,7 @@ PHP_FUNCTION(getdate);
 PHP_METHOD(DateTime, __construct);
 PHP_METHOD(DateTime, __wakeup);
 PHP_METHOD(DateTime, __set_state);
+PHP_METHOD(DateTime, createFromImmutable);
 PHP_FUNCTION(date_create);
 PHP_FUNCTION(date_create_immutable);
 PHP_FUNCTION(date_create_from_format);
@@ -112,6 +111,7 @@ PHP_METHOD(DatePeriod, __set_state);
 PHP_METHOD(DatePeriod, getStartDate);
 PHP_METHOD(DatePeriod, getEndDate);
 PHP_METHOD(DatePeriod, getDateInterval);
+PHP_METHOD(DatePeriod, getRecurrences);
 
 /* Options and Configuration */
 PHP_FUNCTION(date_default_timezone_set);
@@ -204,6 +204,8 @@ ZEND_END_MODULE_GLOBALS(date)
 
 #define DATEG(v) ZEND_MODULE_GLOBALS_ACCESSOR(date, v)
 
+PHPAPI time_t php_time();
+
 /* Backwards compatibility wrapper */
 PHPAPI zend_long php_parse_date(char *string, zend_long *now);
 PHPAPI void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gmt);
@@ -223,6 +225,8 @@ PHPAPI zend_class_entry *php_date_get_date_ce(void);
 PHPAPI zend_class_entry *php_date_get_immutable_ce(void);
 PHPAPI zend_class_entry *php_date_get_interface_ce(void);
 PHPAPI zend_class_entry *php_date_get_timezone_ce(void);
+PHPAPI zend_class_entry *php_date_get_interval_ce(void);
+PHPAPI zend_class_entry *php_date_get_period_ce(void);
 
 /* Functions for creating DateTime objects, and initializing them from a string */
 PHPAPI zval *php_date_instantiate(zend_class_entry *pce, zval *object);

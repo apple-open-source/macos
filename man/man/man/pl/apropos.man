@@ -14,16 +14,22 @@
 .\"
 .\" T³umaczenie: 950322 Rafa³ Maszkowski <rzm@pdi.net>
 .\"
-.TH apropos 1 "15 stycznia 1991"
+.TH apropos 1 "19 wrze¶nia 2005"
 .LO 1
 .SH NAZWA
-apropos \- szuka ³añcuchów znakow w bazie whatis
+apropos \- wyszukuje ³añcuchy znaków w bazie whatis
 .SH SK£ADNIA
 .BI apropos
 s³owo_kluczowe ...
 .SH OPIS
-apropos szuka s³ów kluczowych w plikach bazy danych, które
-zawieraj± krótkie opisy komend systemowych i wy¶wietla wynik
-u¿ywaj±c standardowego wyj¶cia.
+apropos wyszukuje s³owa kluczowe w plikach bazy danych, które
+zawieraj± krótkie opisy poleceñ systemowych i wy¶wietla wynik
+na standardowe wyj¶cie.
+.SH AUTOR
+Pierwotnym autorem programu
+.BR "man"
+jest John W. Eaton.
+Zeyd M. Ben-Halim opublikowa³ man w wersji 1.2, a Andries Brouwer wersje od 1.3 do 1.5p.
+Aktualnym opiekunem jest Federico Lucifredi <flucifredi@acm.org>.
 .SH "ZOBACZ TAK¯E"
 whatis(1), man(1).

@@ -51,7 +51,7 @@
  *
  * Used for COLLATION_BINARY and COLLATION_NTOFS_SID.
  */
-static int ntfs_collate_binary(ntfs_volume *vol,
+static int ntfs_collate_binary(ntfs_volume *vol __attribute__((unused)),
 		const void *data1, const int data1_len,
 		const void *data2, const int data2_len)
 {
@@ -109,13 +109,13 @@ static int ntfs_collate_filename(ntfs_volume *vol,
 	 * upcased characters will not necessarily collate in the same order as
 	 * the non-upcased ones.
 	 */
-	rc = ntfs_collate_names((ntfschar*)&fn1->filename,
-			fn1->filename_length, (ntfschar*)&fn2->filename,
+	rc = ntfs_collate_names(fn1->filename,
+			fn1->filename_length, fn2->filename,
 			fn2->filename_length, 1, FALSE, vol->upcase,
 			vol->upcase_len);
 	if (!rc)
-		rc = ntfs_collate_names((ntfschar*)&fn1->filename,
-				fn1->filename_length, (ntfschar*)&fn2->filename,
+		rc = ntfs_collate_names(fn1->filename,
+				fn1->filename_length, fn2->filename,
 				fn2->filename_length, 1, TRUE,
 				vol->upcase, vol->upcase_len);
 	ntfs_debug("Done (returning %d).", rc);
@@ -128,7 +128,7 @@ static int ntfs_collate_filename(ntfs_volume *vol,
  * Used for COLLATION_NTOFS_ULONG, COLLATION_NTOFS_ULONGS, and
  * COLLATION_NTOFS_SECURITY_HASH.
  */
-static int ntfs_collate_ntofs_ulongs(ntfs_volume *vol,
+static int ntfs_collate_ntofs_ulongs(ntfs_volume *vol __attribute__((unused)),
 		const void *data1, const int data1_len,
 		const void *data2, const int data2_len)
 {

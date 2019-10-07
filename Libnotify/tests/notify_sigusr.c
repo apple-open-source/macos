@@ -62,4 +62,6 @@ T_DECL(notify_sigusr, "Make sure SIGUSR{1,2} dumps status",
 		}
 		T_ASSERT_POSIX_SUCCESS(rc, "unlink(%s)", status_file);
 	}
+
+	free(status_file);
 }

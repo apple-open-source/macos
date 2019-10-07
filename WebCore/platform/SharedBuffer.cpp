@@ -54,6 +54,20 @@ SharedBuffer::SharedBuffer(Vector<char>&& data)
     append(WTFMove(data));
 }
 
+#if USE(GSTREAMER)
+Ref<SharedBuffer> SharedBuffer::create(GstMappedBuffer& mappedBuffer)
+{
+    ASSERT(mappedBuffer.isSharable());
+    return adoptRef(*new SharedBuffer(mappedBuffer));
+}
+
+SharedBuffer::SharedBuffer(GstMappedBuffer& mappedBuffer)
+    : m_size(mappedBuffer.size())
+{
+    m_segments.append({0, DataSegment::create(&mappedBuffer)});
+}
+#endif
+
 RefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String& filePath)
 {
     bool mappingSuccess;
@@ -121,7 +135,7 @@ RefPtr<ArrayBuffer> SharedBuffer::tryCreateArrayBuffer() const
 {
     auto arrayBuffer = ArrayBuffer::tryCreateUninitialized(static_cast<unsigned>(size()), sizeof(char));
     if (!arrayBuffer) {
-        WTFLogAlways("SharedBuffer::tryCreateArrayBuffer Unable to create buffer. Requested size was %zu x %lu\n", size(), sizeof(char));
+        WTFLogAlways("SharedBuffer::tryCreateArrayBuffer Unable to create buffer. Requested size was %zu\n", size());
         return nullptr;
     }
 
@@ -211,6 +225,9 @@ const char* SharedBuffer::DataSegment::data() const
 #if USE(GLIB)
         [](const GRefPtr<GBytes>& data) { return reinterpret_cast<const char*>(g_bytes_get_data(data.get(), nullptr)); },
 #endif
+#if USE(GSTREAMER)
+        [](const RefPtr<GstMappedBuffer>& data) { return reinterpret_cast<const char*>(data->data()); },
+#endif
         [](const FileSystem::MappedFileData& data) { return reinterpret_cast<const char*>(data.data()); }
     );
     return WTF::visit(visitor, m_immutableData);
@@ -284,6 +301,9 @@ size_t SharedBuffer::DataSegment::size() const
 #if USE(GLIB)
         [](const GRefPtr<GBytes>& data) { return g_bytes_get_size(data.get()); },
 #endif
+#if USE(GSTREAMER)
+        [](const RefPtr<GstMappedBuffer>& data) { return data->size(); },
+#endif
         [](const FileSystem::MappedFileData& data) { return data.size(); }
     );
     return WTF::visit(visitor, m_immutableData);
@@ -314,17 +334,16 @@ RefPtr<SharedBuffer> utf8Buffer(const String& string)
 
     // Convert to runs of 8-bit characters.
     char* p = buffer.data();
-    WTF::Unicode::ConversionResult result;
     if (length) {
         if (string.is8Bit()) {
             const LChar* d = string.characters8();
-            result = WTF::Unicode::convertLatin1ToUTF8(&d, d + length, &p, p + buffer.size());
+            if (!WTF::Unicode::convertLatin1ToUTF8(&d, d + length, &p, p + buffer.size()))
+                return nullptr;
         } else {
             const UChar* d = string.characters16();
-            result = WTF::Unicode::convertUTF16ToUTF8(&d, d + length, &p, p + buffer.size(), true);
+            if (WTF::Unicode::convertUTF16ToUTF8(&d, d + length, &p, p + buffer.size()) != WTF::Unicode::ConversionOK)
+                return nullptr;
         }
-        if (result != WTF::Unicode::conversionOK)
-            return nullptr;
     }
 
     buffer.shrink(p - buffer.data());

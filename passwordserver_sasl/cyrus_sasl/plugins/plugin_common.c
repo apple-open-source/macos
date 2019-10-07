@@ -42,7 +42,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <config.h>
+#include "config.h"
 #ifndef macintosh
 #ifdef WIN32
 # include <winsock2.h>
@@ -58,9 +58,9 @@
 #include <unistd.h>
 #endif
 #include <fcntl.h>
-#include <sasl.h>
-#include <saslutil.h>
-#include <saslplug.h>
+#include "sasl.h"
+#include "saslplug.h"
+#include "saslutil.h"
 
 #include <errno.h>
 #include <ctype.h>

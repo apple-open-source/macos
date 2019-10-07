@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,7 +37,7 @@
 #define EXIT_L2TP_NETWORKCHANGED 	6
 #define EXIT_L2TP_NOSHAREDSECRET 	7
 #define EXIT_L2TP_NOCERTIFICATE 	8
-#if TARGET_OS_EMBEDDED
+#if !TARGET_OS_OSX
 #define EXIT_L2TP_NOEDGE			9
 #endif
 

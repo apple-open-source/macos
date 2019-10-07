@@ -95,7 +95,7 @@ main(int argc, char *argv[])
 
 	(void)signal(SIGHUP, SIG_IGN);
 
-#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
+#if defined(__APPLE__) && !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	if (_vprocmgr_detach_from_console(0) != NULL)
 		err(EXIT_MISC, "can't detach from console");
 #endif

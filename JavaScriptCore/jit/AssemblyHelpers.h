@@ -57,7 +57,7 @@ public:
         if (m_codeBlock) {
             ASSERT(m_baselineCodeBlock);
             ASSERT(!m_baselineCodeBlock->alternative());
-            ASSERT(m_baselineCodeBlock->jitType() == JITCode::None || JITCode::isBaselineCode(m_baselineCodeBlock->jitType()));
+            ASSERT(m_baselineCodeBlock->jitType() == JITType::None || JITCode::isBaselineCode(m_baselineCodeBlock->jitType()));
         }
     }
 
@@ -261,7 +261,7 @@ public:
     {
         ASSERT(codeBlock);
 
-        RegisterAtOffsetList* calleeSaves = codeBlock->calleeSaveRegisters();
+        const RegisterAtOffsetList* calleeSaves = codeBlock->calleeSaveRegisters();
         RegisterSet dontSaveRegisters = RegisterSet(RegisterSet::stackRegisters(), RegisterSet::allFPRs());
         unsigned registerCount = calleeSaves->size();
 
@@ -279,7 +279,7 @@ public:
     {
         ASSERT(codeBlock);
         
-        RegisterAtOffsetList* calleeSaves = codeBlock->calleeSaveRegisters();
+        const RegisterAtOffsetList* calleeSaves = codeBlock->calleeSaveRegisters();
         RegisterSet dontSaveRegisters = RegisterSet(RegisterSet::stackRegisters(), RegisterSet::allFPRs());
         unsigned registerCount = calleeSaves->size();
 
@@ -313,7 +313,7 @@ public:
     {
         ASSERT(codeBlock);
 
-        RegisterAtOffsetList* calleeSaves = codeBlock->calleeSaveRegisters();
+        const RegisterAtOffsetList* calleeSaves = codeBlock->calleeSaveRegisters();
         RegisterSet dontRestoreRegisters = RegisterSet(RegisterSet::stackRegisters(), RegisterSet::allFPRs());
         unsigned registerCount = calleeSaves->size();
         
@@ -409,7 +409,7 @@ public:
         addPtr(TrustedImm32(EntryFrame::calleeSaveRegistersBufferOffset()), temp1);
 
         RegisterAtOffsetList* allCalleeSaves = RegisterSet::vmCalleeSaveRegisterOffsets();
-        RegisterAtOffsetList* currentCalleeSaves = codeBlock()->calleeSaveRegisters();
+        const RegisterAtOffsetList* currentCalleeSaves = codeBlock()->calleeSaveRegisters();
         RegisterSet dontCopyRegisters = RegisterSet::stackRegisters();
         unsigned registerCount = allCalleeSaves->size();
 
@@ -1075,6 +1075,16 @@ public:
         return branchDouble(DoubleEqual, fpr, fpr);
     }
 
+    Jump branchIfRopeStringImpl(GPRReg stringImplGPR)
+    {
+        return branchTestPtr(NonZero, stringImplGPR, TrustedImm32(JSString::isRopeInPointer));
+    }
+
+    Jump branchIfNotRopeStringImpl(GPRReg stringImplGPR)
+    {
+        return branchTestPtr(Zero, stringImplGPR, TrustedImm32(JSString::isRopeInPointer));
+    }
+
     static Address addressForByteOffset(ptrdiff_t byteOffset)
     {
         return Address(GPRInfo::callFrameRegister, byteOffset);
@@ -1422,9 +1432,10 @@ public:
     
     bool isStrictModeFor(CodeOrigin codeOrigin)
     {
-        if (!codeOrigin.inlineCallFrame)
+        auto* inlineCallFrame = codeOrigin.inlineCallFrame();
+        if (!inlineCallFrame)
             return codeBlock()->isStrictMode();
-        return codeOrigin.inlineCallFrame->isStrictMode();
+        return inlineCallFrame->isStrictMode();
     }
     
     ECMAMode ecmaModeFor(CodeOrigin codeOrigin)
@@ -1464,7 +1475,7 @@ public:
     
     static VirtualRegister argumentsStart(const CodeOrigin& codeOrigin)
     {
-        return argumentsStart(codeOrigin.inlineCallFrame);
+        return argumentsStart(codeOrigin.inlineCallFrame());
     }
 
     static VirtualRegister argumentCount(InlineCallFrame* inlineCallFrame)
@@ -1477,7 +1488,7 @@ public:
 
     static VirtualRegister argumentCount(const CodeOrigin& codeOrigin)
     {
-        return argumentCount(codeOrigin.inlineCallFrame);
+        return argumentCount(codeOrigin.inlineCallFrame());
     }
     
     void emitLoadStructure(VM&, RegisterID source, RegisterID dest, RegisterID scratch);
@@ -1530,8 +1541,6 @@ public:
     
     void barrierStoreLoadFence(VM& vm)
     {
-        if (!Options::useConcurrentBarriers())
-            return;
         Jump ok = jumpIfMutatorFenceNotNeeded(vm);
         memoryFence();
         ok.link(this);
@@ -1545,40 +1554,73 @@ public:
         storeFence();
         ok.link(this);
     }
-    
-    void cage(Gigacage::Kind kind, GPRReg storage)
+
+    void cageWithoutUntagging(Gigacage::Kind kind, GPRReg storage)
     {
 #if GIGACAGE_ENABLED
         if (!Gigacage::isEnabled(kind))
             return;
-        
+
+#if CPU(ARM64E)
+        RegisterID tempReg = InvalidGPRReg;
+        if (kind == Gigacage::Primitive) {
+            tempReg = getCachedMemoryTempRegisterIDAndInvalidate();
+            move(storage, tempReg);
+            // Flip the registers since bitFieldInsert only inserts into the low bits.
+            std::swap(storage, tempReg);
+        }
+#endif
         andPtr(TrustedImmPtr(Gigacage::mask(kind)), storage);
         addPtr(TrustedImmPtr(Gigacage::basePtr(kind)), storage);
+#if CPU(ARM64E)
+        if (kind == Gigacage::Primitive)
+            bitFieldInsert64(storage, 0, 64 - numberOfPACBits, tempReg);
+#endif
+
 #else
         UNUSED_PARAM(kind);
         UNUSED_PARAM(storage);
 #endif
     }
-    
-    void cageConditionally(Gigacage::Kind kind, GPRReg storage, GPRReg scratch)
+
+    // length may be the same register as scratch.
+    void cageConditionally(Gigacage::Kind kind, GPRReg storage, GPRReg length, GPRReg scratch)
     {
 #if GIGACAGE_ENABLED
-        if (!Gigacage::isEnabled(kind))
-            return;
-        
-        if (kind != Gigacage::Primitive || Gigacage::isDisablingPrimitiveGigacageDisabled())
-            return cage(kind, storage);
-        
-        loadPtr(&Gigacage::basePtr(kind), scratch);
-        Jump done = branchTestPtr(Zero, scratch);
-        andPtr(TrustedImmPtr(Gigacage::mask(kind)), storage);
-        addPtr(scratch, storage);
-        done.link(this);
+        if (Gigacage::isEnabled(kind)) {
+            if (kind != Gigacage::Primitive || Gigacage::isDisablingPrimitiveGigacageDisabled())
+                cageWithoutUntagging(kind, storage);
+            else {
+#if CPU(ARM64E)
+                if (length == scratch)
+                    scratch = getCachedMemoryTempRegisterIDAndInvalidate();
+#endif
+                loadPtr(&Gigacage::basePtr(kind), scratch);
+                Jump done = branchTest64(Zero, scratch);
+#if CPU(ARM64E)
+                GPRReg tempReg = getCachedDataTempRegisterIDAndInvalidate();
+                move(storage, tempReg);
+                ASSERT(LogicalImmediate::create64(Gigacage::mask(kind)).isValid());
+                andPtr(TrustedImmPtr(Gigacage::mask(kind)), tempReg);
+                addPtr(scratch, tempReg);
+                bitFieldInsert64(tempReg, 0, 64 - numberOfPACBits, storage);
 #else
+                andPtr(TrustedImmPtr(Gigacage::mask(kind)), storage);
+                addPtr(scratch, storage);
+#endif // CPU(ARM64E)
+                done.link(this);
+            }
+        }
+#endif
+
+#if CPU(ARM64E)
+        if (kind == Gigacage::Primitive)
+            untagArrayPtr(length, storage);
+#endif
         UNUSED_PARAM(kind);
         UNUSED_PARAM(storage);
+        UNUSED_PARAM(length);
         UNUSED_PARAM(scratch);
-#endif
     }
 
     void emitComputeButterflyIndexingMask(GPRReg vectorLengthGPR, GPRReg scratchGPR, GPRReg resultGPR)
@@ -1752,7 +1794,7 @@ public:
         VM& vm, GPRReg resultGPR, StructureType structure, StorageType storage, GPRReg scratchGPR1,
         GPRReg scratchGPR2, JumpList& slowPath, size_t size)
     {
-        Allocator allocator = subspaceFor<ClassType>(vm)->allocatorForNonVirtual(size, AllocatorForMode::AllocatorIfExists);
+        Allocator allocator = allocatorForNonVirtualConcurrently<ClassType>(vm, size, AllocatorForMode::AllocatorIfExists);
         emitAllocateJSObject(resultGPR, JITAllocator::constant(allocator), scratchGPR1, structure, storage, scratchGPR2, slowPath);
     }
     
@@ -1769,8 +1811,9 @@ public:
     template<typename ClassType, typename StructureType>
     void emitAllocateVariableSizedCell(VM& vm, GPRReg resultGPR, StructureType structure, GPRReg allocationSize, GPRReg scratchGPR1, GPRReg scratchGPR2, JumpList& slowPath)
     {
-        CompleteSubspace& subspace = *subspaceFor<ClassType>(vm);
-        emitAllocateVariableSized(resultGPR, subspace, allocationSize, scratchGPR1, scratchGPR2, slowPath);
+        CompleteSubspace* subspace = subspaceForConcurrently<ClassType>(vm);
+        RELEASE_ASSERT_WITH_MESSAGE(subspace, "CompleteSubspace is always allocated");
+        emitAllocateVariableSized(resultGPR, *subspace, allocationSize, scratchGPR1, scratchGPR2, slowPath);
         emitStoreStructureWithTypeInfo(structure, resultGPR, scratchGPR2);
     }
 
@@ -1797,7 +1840,7 @@ public:
     {
         auto butterfly = TrustedImmPtr(nullptr);
         emitAllocateJSObject<ClassType>(vm, resultGPR, TrustedImmPtr(structure), butterfly, scratchGPR1, scratchGPR2, slowPath);
-        storePtr(TrustedImmPtr(PoisonedClassInfoPtr(structure->classInfo()).bits()), Address(resultGPR, JSDestructibleObject::classInfoOffset()));
+        storePtr(TrustedImmPtr(structure->classInfo()), Address(resultGPR, JSDestructibleObject::classInfoOffset()));
     }
     
     void emitInitializeInlineStorage(GPRReg baseGPR, unsigned inlineCapacity)
@@ -1830,10 +1873,6 @@ public:
     // zero-extended. Also this does not clobber index, which is useful in the baseline JIT. This
     // permits length and result to be in the same register.
     void emitPreparePreciseIndexMask32(GPRReg index, GPRReg length, GPRReg result);
-    
-    void emitDynamicPoison(GPRReg base, GPRReg poisonValue);
-    void emitDynamicPoisonOnLoadedType(GPRReg base, GPRReg actualType, JSType expectedType);
-    void emitDynamicPoisonOnType(GPRReg base, GPRReg scratch, JSType expectedType);
 
 #if ENABLE(WEBASSEMBLY)
     void loadWasmContextInstance(GPRReg dst);

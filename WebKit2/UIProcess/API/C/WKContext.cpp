@@ -212,7 +212,7 @@ void WKContextSetDownloadClient(WKContextRef contextRef, const WKContextDownload
                 return completionHandler(WebKit::AllowOverwrite::No, { });
 
             bool allowOverwrite = false;
-            WKRetainPtr<WKStringRef> destination(AdoptWK, m_client.decideDestinationWithSuggestedFilename(WebKit::toAPI(&processPool), WebKit::toAPI(&downloadProxy), WebKit::toAPI(filename.impl()), &allowOverwrite, m_client.base.clientInfo));
+            auto destination = adoptWK(m_client.decideDestinationWithSuggestedFilename(WebKit::toAPI(&processPool), WebKit::toAPI(&downloadProxy), WebKit::toAPI(filename.impl()), &allowOverwrite, m_client.base.clientInfo));
             completionHandler(allowOverwrite ? WebKit::AllowOverwrite::Yes : WebKit::AllowOverwrite::No, WebKit::toWTFString(destination.get()));
         }
 
@@ -275,12 +275,12 @@ void WKContextSetConnectionClient(WKContextRef contextRef, const WKContextConnec
 
 WKDownloadRef WKContextDownloadURLRequest(WKContextRef contextRef, WKURLRequestRef requestRef)
 {
-    return WebKit::toAPI(WebKit::toImpl(contextRef)->download(0, WebKit::toImpl(requestRef)->resourceRequest()));
+    return WebKit::toAPI(&WebKit::toImpl(contextRef)->download(0, WebKit::toImpl(requestRef)->resourceRequest()));
 }
 
 WKDownloadRef WKContextResumeDownload(WKContextRef contextRef, WKDataRef resumeData, WKStringRef path)
 {
-    return WebKit::toAPI(WebKit::toImpl(contextRef)->resumeDownload(nullptr, WebKit::toImpl(resumeData), WebKit::toWTFString(path)));
+    return WebKit::toAPI(&WebKit::toImpl(contextRef)->resumeDownload(nullptr, WebKit::toImpl(resumeData), WebKit::toWTFString(path)));
 }
 
 void WKContextSetInitializationUserDataForInjectedBundle(WKContextRef contextRef,  WKTypeRef userDataRef)
@@ -326,14 +326,15 @@ WKCacheModel WKContextGetCacheModel(WKContextRef contextRef)
     return WebKit::toAPI(WebKit::toImpl(contextRef)->cacheModel());
 }
 
-void WKContextSetMaximumNumberOfProcesses(WKContextRef contextRef, unsigned numberOfProcesses)
+void WKContextSetMaximumNumberOfProcesses(WKContextRef, unsigned)
 {
-    WebKit::toImpl(contextRef)->setMaximumNumberOfProcesses(numberOfProcesses);
+    // Deprecated.
 }
 
-unsigned WKContextGetMaximumNumberOfProcesses(WKContextRef contextRef)
+unsigned WKContextGetMaximumNumberOfProcesses(WKContextRef)
 {
-    return WebKit::toImpl(contextRef)->maximumNumberOfProcesses();
+    // Deprecated.
+    return std::numeric_limits<unsigned>::max();
 }
 
 void WKContextSetAlwaysUsesComplexTextCodePath(WKContextRef contextRef, bool alwaysUseComplexTextCodePath)
@@ -403,6 +404,16 @@ void WKContextSetCanHandleHTTPSServerTrustEvaluation(WKContextRef contextRef, bo
 void WKContextSetPrewarmsProcessesAutomatically(WKContextRef contextRef, bool value)
 {
     WebKit::toImpl(contextRef)->configuration().setIsAutomaticProcessWarmingEnabled(value);
+}
+
+void WKContextSetUsesSingleWebProcess(WKContextRef contextRef, bool value)
+{
+    WebKit::toImpl(contextRef)->configuration().setUsesSingleWebProcess(value);
+}
+
+bool WKContextGetUsesSingleWebProcess(WKContextRef contextRef)
+{
+    return WebKit::toImpl(contextRef)->configuration().usesSingleWebProcess();
 }
 
 void WKContextSetCustomWebContentServiceBundleIdentifier(WKContextRef contextRef, WKStringRef name)
@@ -513,7 +524,7 @@ void WKContextSetHTTPPipeliningEnabled(WKContextRef contextRef, bool enabled)
 
 void WKContextWarmInitialProcess(WKContextRef contextRef)
 {
-    WebKit::toImpl(contextRef)->prewarmProcess(WebKit::WebProcessPool::MayCreateDefaultDataStore::Yes);
+    WebKit::toImpl(contextRef)->prewarmProcess();
 }
 
 void WKContextGetStatistics(WKContextRef contextRef, void* context, WKContextGetStatisticsFunction callback)

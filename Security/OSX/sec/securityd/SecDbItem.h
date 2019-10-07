@@ -34,10 +34,10 @@
 #include <TargetConditionals.h>
 #include <corecrypto/ccsha1.h> // For CCSHA1_OUTPUT_SIZE
 #include <sqlite3.h>
-#include <utilities/SecCFError.h>
-#include <utilities/SecCFWrappers.h>
-#include <utilities/SecDb.h>
-#include <securityd/SecKeybagSupport.h>
+#include "utilities/SecCFError.h"
+#include "utilities/SecCFWrappers.h"
+#include "utilities/SecDb.h"
+#include "securityd/SecKeybagSupport.h"
 #include <Security/SecAccessControl.h>
 #include <Security/SecBasePriv.h>
 

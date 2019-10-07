@@ -12,6 +12,15 @@ const CFArrayCallBacks kIOHIDFilterPluginArrayCallBacks;
 CF_EXPORT
 CFArrayRef _IOHIDLoadBundles();
 
+CF_EXPORT
+CFArrayRef _IOHIDLoadSessionFilterBundles();
+
+CF_EXPORT
+CFArrayRef _IOHIDLoadServiceFilterBundles();
+
+CF_EXPORT
+CFArrayRef _IOHIDLoadServicePluginBundles();
+
 void _IOHIDPlugInInstanceCacheAdd (CFUUIDRef factory, const void *value);
 
 void _IOHIDPlugInInstanceCacheClear ();

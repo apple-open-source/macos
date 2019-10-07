@@ -26,8 +26,9 @@
 #import "config.h"
 #import "AXObjectCache.h"
 
-#if HAVE(ACCESSIBILITY) && PLATFORM(MAC)
+#if ENABLE(ACCESSIBILITY) && PLATFORM(MAC)
 
+#import "AXIsolatedTreeNode.h"
 #import "AccessibilityObject.h"
 #import "AccessibilityTable.h"
 #import "RenderObject.h"
@@ -35,7 +36,7 @@
 #import <pal/spi/mac/NSAccessibilitySPI.h>
 
 #if USE(APPLE_INTERNAL_SDK)
-#include <HIServices/AccessibilityPriv.h>
+#include <ApplicationServices/ApplicationServicesPriv.h>
 #endif
 
 #ifndef NSAccessibilityLiveRegionChangedNotification
@@ -237,6 +238,16 @@ void AXObjectCache::detachWrapper(AccessibilityObject* obj, AccessibilityDetachm
     obj->setWrapper(nullptr);
 }
 
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+void AXObjectCache::associateIsolatedTreeNode(AccessibilityObject& object, AXIsolatedTreeNode& node, AXIsolatedTreeID treeID)
+{
+    auto wrapper = object.wrapper();
+    ASSERT(wrapper);
+    wrapper.isolatedTreeIdentifier = treeID;
+    node.setWrapper(wrapper);
+}
+#endif
+
 void AXObjectCache::attachWrapper(AccessibilityObject* obj)
 {
     RetainPtr<WebAccessibilityObjectWrapper> wrapper = adoptNS([[WebAccessibilityObjectWrapper alloc] initWithAccessibilityObject:obj]);
@@ -346,6 +357,12 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotific
             break;
         case AXMenuListItemSelected:
             macNotification = (id)kAXMenuItemSelectedNotification;
+            break;
+        case AXPressDidSucceed:
+            macNotification = @"AXPressDidSucceed";
+            break;
+        case AXPressDidFail:
+            macNotification = @"AXPressDidFail";
             break;
         case AXMenuOpened:
             macNotification = (id)kAXMenuOpenedNotification;
@@ -522,14 +539,24 @@ void AXObjectCache::platformHandleFocusedUIElementChanged(Node*, Node*)
 {
     NSAccessibilityHandleFocusChanged();
     // AXFocusChanged is a test specific notification name and not something a real AT will be listening for
-    if (UNLIKELY(axShouldRepostNotificationsForTests))
-        [rootWebArea()->wrapper() accessibilityPostedNotification:@"AXFocusChanged" userInfo:nil];
+    if (UNLIKELY(!axShouldRepostNotificationsForTests))
+        return;
+
+    auto* rootWebArea = this->rootWebArea();
+    if (!rootWebArea)
+        return;
+
+    [rootWebArea->wrapper() accessibilityPostedNotification:@"AXFocusChanged" userInfo:nil];
 }
 
 void AXObjectCache::handleScrolledToAnchor(const Node*)
 {
 }
 
+void AXObjectCache::platformPerformDeferredCacheUpdate()
+{
 }
 
-#endif // HAVE(ACCESSIBILITY) && PLATFORM(MAC)
+}
+
+#endif // ENABLE(ACCESSIBILITY) && PLATFORM(MAC)

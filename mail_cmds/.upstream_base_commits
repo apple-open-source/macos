@@ -1,0 +1,6 @@
+#freebsd = https://github.com/freebsd/freebsd.git
+msgs/msgs.c	freebsd	usr.bin/msgs/msgs.c	2fdc0e9691ce76512700ab8f2746e5e99475061c
+msgs/msgs.1	freebsd	usr.bin/msgs/msgs.1	dae9290985bb9d4f94b0f0f00c3a070c89f9bc3c
+msgs/pathname.h	freebsd	usr.bin/msgs/pathname.h	dae9290985bb9d4f94b0f0f00c3a070c89f9bc3c
+comsat/comsat.8	freebsd	libexec/comsat/comsat.8	73e479882993de792ed571ea4d1265cfab1c34a8
+comsat/comsat.c	freebsd	libexec/comsat/comsat.c	872b698bd4a1bfc0bf008c09228e6fd238809c75

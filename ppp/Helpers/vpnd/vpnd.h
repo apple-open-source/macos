@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2016 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2016, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,7 +29,7 @@
  * Procedures exported from sys-*.c
  */
 int  ppp_available __P((void));		/* Test whether ppp kernel support exists */
-CFStringRef CopyDefaultIPAddress(); 	/* Copy the IPAddress of the default interface */
+CFStringRef CopyDefaultIPAddress(void); 	/* Copy the IPAddress of the default interface */
 int get_route_interface(struct sockaddr *src, const struct sockaddr *dst, char *if_name); /* get the interface for a given address */
 int find_address(const struct sockaddr_in *address, char *interface); /* check if an interface has a given address */
 

@@ -51,10 +51,11 @@ WI.ObjectTreeView = class ObjectTreeView extends WI.Object
             forceExpanding = true;
 
         this._element = document.createElement("div");
+        this._element.__objectTree = this;
         this._element.className = "object-tree";
 
         if (this._object.preview) {
-            this._previewView = new WI.ObjectPreviewView(this._object.preview);
+            this._previewView = new WI.ObjectPreviewView(this._object, this._object.preview);
             this._previewView.setOriginatingObjectInfo(this._object, providedPropertyPath ? propertyPath : null);
             this._previewView.element.addEventListener("click", this._handlePreviewOrTitleElementClick.bind(this));
             this._element.appendChild(this._previewView.element);
@@ -219,6 +220,13 @@ WI.ObjectTreeView = class ObjectTreeView extends WI.Object
         this._element.classList.add("properties-only");
 
         this._includeProtoProperty = false;
+    }
+
+    showOnlyJSON()
+    {
+        this.showOnlyProperties();
+
+        this._element.classList.add("json-only");
     }
 
     appendTitleSuffix(suffixElement)

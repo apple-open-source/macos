@@ -20,33 +20,9 @@
 #include <stdio.h>
 #include "feeDebug.h"
 
-#ifdef	NeXT
+#import "feeDebug.h"
 
-/*
- * OpenStep....
- */
-void CKRaise(const char *reason) {
-	#if	FEE_DEBUG
-	printf("CryptKit fatal error: %s\n", reason);
-	#endif
-    abort();
-}
-
-#elif	WIN32
-
-/*
- * OpenStep on Windows.
- */
-
-void CKRaise(const char *reason) {
-	#if	FEE_DEBUG
-	printf("CryptKit fatal error: %s\n", reason);
-	#endif
-    abort();
-}
-
-#elif	__MAC_BUILD__
-
+#if __MAC_BUILD__
 /*
  * Macintosh, all flavors.
  */
@@ -63,17 +39,6 @@ void CKRaise(const char *reason) {
     } else {
         CRSetCrashLogMessage("CryptKit fatal error");
     }
-    abort();
-}
-
-#elif unix
-
-/* try for generic UNIX */
-
-void CKRaise(const char *reason) {
-	#if	FEE_DEBUG
-	printf("CryptKit fatal error: %s\n", reason);
-	#endif
     abort();
 }
 

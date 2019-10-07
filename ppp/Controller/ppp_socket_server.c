@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -123,7 +123,7 @@ int ppp_socket_start_server ()
     addr.sun_family = AF_LOCAL;
     strlcpy(addr.sun_path, PPP_PATH, sizeof(addr.sun_path));
     mask = umask(0);
-    error = bind(s, (struct sockaddr *)&addr, SUN_LEN(&addr));
+    error = bind(s, (struct sockaddr *)&addr, (socklen_t)SUN_LEN(&addr));
     umask(mask);
     if (error) 
         goto fail;
@@ -223,7 +223,7 @@ int readn(int ref, void *data, int len)
 #define MAXSLEEPTIME   40000    /* 1/25 of a second */
 #define MAXRETRY       10       
     
-    int 	n, left = len;
+    ssize_t n, left = len;
     void 	*p = data;
     int     retry = MAXRETRY;
     
@@ -235,7 +235,7 @@ int readn(int ref, void *data, int len)
                     if (!usleep(MAXSLEEPTIME))
                         continue;
                 }else 
-                    return (len-left);
+                    return (int)(len-left);
            }
             if (errno != EINTR) 
                 return -1;
@@ -247,7 +247,7 @@ int readn(int ref, void *data, int len)
         left -= n;
         p += n;
     }
-    return (len - left);
+    return (int)(len - left);
 }        
 
 /* -----------------------------------------------------------------------------
@@ -257,7 +257,7 @@ int writen(int ref, void *data, int len)
 {	
 #define MAXSLEEPTIME   40000    /* 1/25 of a second */
 #define MAXRETRY       10
-    int 	n, left = len;
+    ssize_t n, left = len;
     void 	*p = data;
     int     retry = MAXRETRY;
     
@@ -269,7 +269,7 @@ int writen(int ref, void *data, int len)
                     if (!usleep(MAXSLEEPTIME))
                         continue;
                 }else 
-                    return(len-left);
+                    return (int)(len-left);
                 }
             if (errno != EINTR)
                 return -1;
@@ -278,7 +278,7 @@ int writen(int ref, void *data, int len)
         left -= n;
         p += n;
     }
-    return len;
+    return (int)len;
 }        
 
 typedef void (*msg_function)(struct client *client, struct msg *msg, void **reply);
@@ -953,12 +953,12 @@ void socket_getlinkbyifname(struct client *client, struct msg *msg, void **reply
         if (!strncmp((char*)serv->if_name, (char*)&msg->data[0], sizeof(serv->if_name))) {
             
             if (msg->hdr.m_flags & USE_SERVICEID) {
-                *reply = my_Allocate(strlen((char*)serv->sid));
+                *reply = my_Allocate((int)strlen((char*)serv->sid));
                 if (*reply == 0)
                     err = ENOMEM;
                 else {
                     err = 0;
-                    len = strlen((char*)serv->sid);
+                    len = (int)strlen((char*)serv->sid);
                     bcopy(serv->sid, *reply, len);
                 }
             }
@@ -1463,11 +1463,11 @@ void socket_client_notify (CFSocketRef ref, u_char *sid, u_int32_t link, u_long 
 	bzero(&msg, sizeof(msg));
 	msg.m_type = PPP_EVENT;
 	msg.m_link = link;
-	msg.m_result = event;
-	msg.m_cookie = error;
+	msg.m_result = (u_int32_t)event;
+	msg.m_cookie = (u_int32_t)error;
 	if (sid) {
 		msg.m_flags |= USE_SERVICEID;
-		msg.m_link = strlen((char*)sid);
+		msg.m_link = (u_int32_t)strlen((char*)sid);
 		link_len = msg.m_link; /* save len */
 	}
 	

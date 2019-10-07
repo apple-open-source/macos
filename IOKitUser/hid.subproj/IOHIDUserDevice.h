@@ -28,27 +28,18 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/hid/IOHIDKeys.h>
+#include <IOKit/hidsystem/IOHIDUserDevice.h>
 
 __BEGIN_DECLS
 
 CF_ASSUME_NONNULL_BEGIN
 CF_IMPLICIT_BRIDGING_ENABLED
 
-typedef struct CF_BRIDGED_TYPE(id) __IOHIDUserDevice * IOHIDUserDeviceRef;
-
-
 typedef IOReturn (*IOHIDUserDeviceReportCallback)(void * _Nullable refcon, IOHIDReportType type, uint32_t reportID, uint8_t * report, CFIndex reportLength);
 typedef IOReturn (*IOHIDUserDeviceReportWithReturnLengthCallback)(void * _Nullable refcon, IOHIDReportType type, uint32_t reportID, uint8_t * report, CFIndex * pReportLength);
 typedef IOReturn (*IOHIDUserDeviceHandleReportAsyncCallback)(void * _Nullable refcon, IOReturn result);
 
 static const IOOptionBits kIOHIDUserDeviceCreateOptionStartWhenScheduled = (1<<0);
-
-/*!
-    @function   IOHIDUserDeviceGetTypeID
-    @abstract   Returns the type identifier of all IOHIDUserDevice instances.
-*/
-CF_EXPORT
-CFTypeID IOHIDUserDeviceGetTypeID(void);
 
 /*!
     @function   IOHIDUserDeviceCreate
@@ -112,20 +103,56 @@ CF_EXPORT
 void IOHIDUserDeviceUnscheduleFromRunLoop(IOHIDUserDeviceRef device, CFRunLoopRef runLoop, CFStringRef runLoopMode);
 
 /*!
- @function   IOHIDUserDeviceScheduleWithDispatchQueue
- @abstract   Schedules the IOHIDUserDevice with a dispatch queue
- @discussion This is necessary to receive asynchronous events from the kernel
- @param      device Reference to IOHIDUserDevice
- @param      queue Dispatch queue to be registered with
+ * @function IOHIDUserDeviceScheduleWithDispatchQueue
+ *
+ * @abstract
+ * Schedules the IOHIDUserDevice with a dispatch queue in order to receive
+ * asynchronous events from the kernel.
+ *
+ * @discussion
+ * After calling IOHIDUserDeviceScheduleWithDispatchQueue, the queue is
+ * considered active. All "Register" functions should be called before
+ * scheduling with a dispatch queue.
+ *
+ * An IOHIDUserDevice should not be scheduled with both a run loop
+ * and dispatch queue. IOHIDUserDeviceScheduleWithDispatchQueue should
+ * not be called more than once.
+ *
+ * A call to IOHIDUserDeviceScheduleWithDispatchQueue should be balanced
+ * with a call to IOHIDUserDeviceUnscheduleFromDispatchQueue.
+ *
+ * @param device
+ * Reference to an IOHIDUserDevice.
+ *
+ * @param queue
+ * The dispatch queue to which the event handler block will be submitted.
  */
 CF_EXPORT
 void IOHIDUserDeviceScheduleWithDispatchQueue(IOHIDUserDeviceRef device, dispatch_queue_t queue);
 
 /*!
- @function   IOHIDUserDeviceUnscheduleFromDispatchQueue
- @abstract   Unschedules the IOHIDUserDevice from a dispatch queue
- @param      device Reference to IOHIDUserDevice
- @param      queue Dispatch queue to be unregistered from
+ * @function IOHIDUserDeviceUnscheduleFromDispatchQueue
+ *
+ * @abstract
+ * Unschedules the dispatch queue, preventing any further invocation
+ * of its event handler block.
+ *
+ * @discussion
+ * Unscheduling prevents any further invocation of the event handler block for
+ * the specified dispatch queue, but does not interrupt an event handler
+ * block that is already in progress.
+ *
+ * Explicit unschesduling of the dispatch queue is required, no implicit
+ * unscheduling takes place.
+ *
+ * Calling IOHIDUserDeviceUnscheduleFromDispatchQueue on an already unscheduled
+ * device has no effect.
+ *
+ * @param device
+ * Reference to an IOHIDUserDevice.
+ *
+ * @param queue
+ * The dispatch queue to unschedule from.
  */
 CF_EXPORT
 void IOHIDUserDeviceUnscheduleFromDispatchQueue(IOHIDUserDeviceRef device, dispatch_queue_t queue);
@@ -133,6 +160,9 @@ void IOHIDUserDeviceUnscheduleFromDispatchQueue(IOHIDUserDeviceRef device, dispa
 /*!
     @function   IOHIDUserDeviceRegisterGetReportCallback
     @abstract   Register a callback to receive get report requests
+    @discussion The call to IOHIDUserDeviceRegisterGetReportCallback
+                should be made before the device is scheduled with
+                a dispatch queue.
     @param      device Reference to IOHIDUserDevice 
     @param      callback Callback of type IOHIDUserDeviceReportCallback to be used
     @param      refcon pointer to a reference object of your choosing
@@ -143,7 +173,10 @@ void IOHIDUserDeviceRegisterGetReportCallback(IOHIDUserDeviceRef device, IOHIDUs
 /*!
  @function   IOHIDUserDeviceRegisterGetReportWithLegthCallback
  @abstract   Register a callback to receive get report requests
- @discussion Unlike the callback specified in IOHIDUserDeviceRegisterGetReportCallback, the callback passed here allows the callee to return the actual bytes read. 
+ @discussion Unlike the callback specified in IOHIDUserDeviceRegisterGetReportCallback,
+             the callback passed here allows the callee to return the actual bytes read.
+             The call to IOHIDUserDeviceRegisterGetReportWithReturnLengthCallback should
+             be made before the device is scheduled with a dispatch queue.
  @param      device Reference to IOHIDUserDevice
  @param      callback Callback of type IOHIDUserDeviceReportWithReturnLengthCallback to be used
  @param      refcon pointer to a reference object of your choosing
@@ -154,6 +187,9 @@ void IOHIDUserDeviceRegisterGetReportWithReturnLengthCallback(IOHIDUserDeviceRef
 /*!
     @function   IOHIDUserDeviceRegisterSetReportCallback
     @abstract   Register a callback to receive set report requests
+    @discussion The call to IOHIDUserDeviceRegisterSetReportCallback
+                should be made before the device is scheduled with
+                a dispatch queue.
     @param      device Reference to IOHIDUserDevice 
     @param      callback Callback to be used
     @param      refcon pointer to a reference object of your choosing
@@ -170,7 +206,7 @@ void IOHIDUserDeviceRegisterSetReportCallback(IOHIDUserDeviceRef device, IOHIDUs
     @result     Returns kIOReturnSuccess when report is handled successfully.
 */
 CF_EXPORT
-IOReturn IOHIDUserDeviceHandleReport(IOHIDUserDeviceRef device, uint8_t * report, CFIndex reportLength);
+IOReturn IOHIDUserDeviceHandleReport(IOHIDUserDeviceRef device, const uint8_t * report, CFIndex reportLength);
 
 /*!
     @function   IOHIDUserDeviceHandleReportAsync
@@ -183,19 +219,7 @@ IOReturn IOHIDUserDeviceHandleReport(IOHIDUserDeviceRef device, uint8_t * report
     @result     Returns kIOReturnSuccess when report is handled successfully.
  */
 CF_EXPORT
-IOReturn IOHIDUserDeviceHandleReportAsync(IOHIDUserDeviceRef device, uint8_t *report, CFIndex reportLength, IOHIDUserDeviceHandleReportAsyncCallback _Nullable callback, void * _Nullable refcon);
-
-/*!
-    @function   IOHIDUserDeviceHandleReportWithTimeStamp
-    @abstract   Dispatch a report to the IOHIDUserDevice.
-    @param      device Reference to IOHIDUserDevice
-    @param      timestamp mach_absolute_time() based timestamp
-    @param      report Buffer containing formated report being issued to HID stack
-    @param      reportLength Report buffer length
-    @result     Returns kIOReturnSuccess when report is handled successfully.
- */
-CF_EXPORT
-IOReturn IOHIDUserDeviceHandleReportWithTimeStamp(IOHIDUserDeviceRef device, uint64_t timestamp, uint8_t * report, CFIndex reportLength);
+IOReturn IOHIDUserDeviceHandleReportAsync(IOHIDUserDeviceRef device, const uint8_t *report, CFIndex reportLength, IOHIDUserDeviceHandleReportAsyncCallback _Nullable callback, void * _Nullable refcon);
 
 /*!
     @function   IOHIDUserDeviceHandleReportAsync
@@ -209,7 +233,7 @@ IOReturn IOHIDUserDeviceHandleReportWithTimeStamp(IOHIDUserDeviceRef device, uin
     @result     Returns kIOReturnSuccess when report is handled successfully.
  */
 CF_EXPORT
-IOReturn IOHIDUserDeviceHandleReportAsyncWithTimeStamp(IOHIDUserDeviceRef device, uint64_t timestamp, uint8_t *report, CFIndex reportLength, IOHIDUserDeviceHandleReportAsyncCallback _Nullable callback, void * _Nullable refcon);
+IOReturn IOHIDUserDeviceHandleReportAsyncWithTimeStamp(IOHIDUserDeviceRef device, uint64_t timestamp, const uint8_t *report, CFIndex reportLength, IOHIDUserDeviceHandleReportAsyncCallback _Nullable callback, void * _Nullable refcon);
 
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END

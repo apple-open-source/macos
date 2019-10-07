@@ -387,7 +387,7 @@ insert(char *s, int checked)
 	    qn = qn->next;
 	}
     } else if (!checked) {
-	if (statfullpath(s, NULL, 1)) {
+	if (statfullpath(s, &buf, 1)) {
 	    unqueue_signals();
 	    return;
 	}
@@ -1314,6 +1314,7 @@ zglob(LinkList list, LinkNode np, int nountok)
 		    sense ^= 1;
 		    break;
 		case '-':
+		case Dash:
 		    /* Toggle matching of symbolic links */
 		    sense ^= 2;
 		    break;
@@ -1454,13 +1455,15 @@ zglob(LinkList list, LinkNode np, int nountok)
 			    if ((pw = getpwnam(s + arglen)))
 				data = pw->pw_uid;
 			    else {
-				zerr("unknown user");
+				zerr("unknown username '%s'", s + arglen);
 				data = 0;
 			    }
 			    *tt = sav;
 #else /* !USE_GETPWNAM */
 			    sav = *tt;
-			    zerr("unknown user");
+			    *tt = '\0';
+			    zerr("unable to resolve non-numeric username '%s'", s + arglen);
+			    *tt = sav;
 			    data = 0;
 #endif /* !USE_GETPWNAM */
 			    if (sav)
@@ -1608,7 +1611,7 @@ zglob(LinkList list, LinkNode np, int nountok)
 			    ++s;
 		    }
 		    /* See if it's greater than, equal to, or less than */
-		    if ((g_range = *s == '+' ? 1 : *s == '-' ? -1 : 0))
+		    if ((g_range = *s == '+' ? 1 : IS_DASH(*s) ? -1 : 0))
 			++s;
 		    data = qgetnum(&s);
 		    break;
@@ -2025,13 +2028,13 @@ hasbraces(char *str)
 		if (bracechardots(str-1, NULL, NULL))
 		    return 1;
 		lbr = str - 1;
-		if (*str == '-')
+		if (IS_DASH(*str))
 		    str++;
 		while (idigit(*str))
 		    str++;
 		if (*str == '.' && str[1] == '.') {
 		    str++; str++;
-		    if (*str == '-')
+		    if (IS_DASH(*str))
 			str++;
 		    while (idigit(*str))
 			str++;
@@ -2040,7 +2043,7 @@ hasbraces(char *str)
 			return 1;
 		    else if (*str == '.' && str[1] == '.') {
 			str++; str++;
-			if (*str == '-')
+			if (IS_DASH(*str))
 			    str++;
 			while (idigit(*str))
 			    str++;
@@ -2123,7 +2126,7 @@ xpandredir(struct redir *fn, LinkList redirtab)
 	fn->name = s;
 	untokenize(s);
 	if (fn->type == REDIR_MERGEIN || fn->type == REDIR_MERGEOUT) {
-	    if (s[0] == '-' && !s[1])
+	    if (IS_DASH(s[0]) && !s[1])
 		fn->type = REDIR_CLOSE;
 	    else if (s[0] == 'p' && !s[1])
 		fn->fd2 = -2;
@@ -2193,6 +2196,8 @@ bracechardots(char *str, convchar_t *c1p, convchar_t *c2p)
 	pnext[0] != '.' || pnext[1] != '.')
 	return 0;
     pnext += 2;
+    if (!*pnext)
+	return 0;
     if (itok(*pnext)) {
 	if (*pnext == Inbrace)
 	    return 0;
@@ -2329,12 +2334,14 @@ xpandbraces(LinkList list, LinkNode *np)
 	     * str+1 is the first number in the range, dots+2 the last,
 	     * and dots2+2 is the increment if that's given. */
 	    /* TODO: sorry about this */
-	    int minw = (str[1] == '0' || (str[1] == '-' && str[2] == '0'))
+	    int minw = (str[1] == '0' ||
+			(IS_DASH(str[1]) && str[2] == '0'))
 		       ? wid1
-		       : (dots[2] == '0' || (dots[2] == '-' && dots[3] == '0'))
+		       : (dots[2] == '0' ||
+			  (IS_DASH(dots[2]) && dots[3] == '0'))
 		       ? wid2
 		       : (dots2 && (dots2[2] == '0' ||
-				    (dots2[2] == '-' && dots2[3] == '0')))
+				    (IS_DASH(dots2[2]) && dots2[3] == '0')))
 		       ? wid3
 		       : 0;
 	    if (rincr < 0) {
@@ -2392,7 +2399,8 @@ xpandbraces(LinkList list, LinkNode *np)
 		c2 = ztokens[c2 - STOUC(Pound)];
 	    if ((char) c2 == Meta)
 		c2 = 32 ^ p[1];
-	    if (c1 == '-' && lastch >= 0 && p < str2 && lastch <= (int)c2) {
+	    if (IS_DASH((char)c1) && lastch >= 0 &&
+		p < str2 && lastch <= (int)c2) {
 		while (lastch < (int)c2)
 		    ccl[lastch++] = 1;
 		lastch = -1;
@@ -2462,13 +2470,20 @@ xpandbraces(LinkList list, LinkNode *np)
 int
 matchpat(char *a, char *b)
 {
-    Patprog p = patcompile(b, PAT_STATIC, NULL);
+    Patprog p;
+    int ret;
 
-    if (!p) {
+    queue_signals();	/* Protect PAT_STATIC */
+
+    if (!(p = patcompile(b, PAT_STATIC, NULL))) {
 	zerr("bad pattern: %s", b);
-	return 0;
-    }
-    return pattry(p, a);
+	ret = 0;
+    } else
+      ret = pattry(p, a);
+
+    unqueue_signals();
+
+    return ret;
 }
 
 /* do the ${foo%%bar}, ${foo#bar} stuff */
@@ -2918,13 +2933,15 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr,
 	     * move forward along string until we get a match. *
 	     * Again there's no optimisation.                  */
 	    mb_charinit();
-	    for (ioff = 0, t = s, umlen = umltot; t < send ; ioff++) {
+	    for (ioff = 0, t = s, umlen = umltot; t <= send ; ioff++) {
 		set_pat_start(p, t-s);
 		if (pattrylen(p, t, umlen, 0, &patstralloc, ioff)) {
 		    *sp = get_match_ret(&imd, t-s, umltot);
 		    return 1;
 		}
 		if (fl & SUB_START)
+		    break;
+		if (t == send)
 		    break;
 		umlen -= iincchar(&t, send - t);
 	    }
@@ -2958,7 +2975,7 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr,
 	    do {
 		/* loop over all matches for global substitution */
 		matched = 0;
-		for (; t < send; ioff++) {
+		for (; t <= send; ioff++) {
 		    /* Find the longest match from this position. */
 		    set_pat_start(p, t-s);
 		    if (pattrylen(p, t, umlen, 0, &patstralloc, ioff)) {
@@ -3007,15 +3024,19 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr,
 			 * which is already marked for replacement.
 			 */
 			matched = 1;
+			if (t == send)
+			    break;
 			while (t < mpos) {
 			    ioff++;
 			    umlen -= iincchar(&t, send - t);
 			}
 			break;
 		    }
+		    if (t == send)
+			break;
 		    umlen -= iincchar(&t, send - t);
 		}
-	    } while (matched);
+	    } while (matched && t < send);
 	    /*
 	     * check if we can match a blank string, if so do it
 	     * at the start.  Goodness knows if this is a good idea
@@ -3521,7 +3542,7 @@ zshtokenize(char *s, int flags)
 	    }
 	    t = s;
 	    while (idigit(*++s));
-	    if (*s != '-')
+	    if (!IS_DASH(*s))
 		goto cont;
 	    while (idigit(*++s));
 	    if (*s != '>')

@@ -114,10 +114,12 @@
 #define __QOS_ENUM(name, type, ...) enum { __VA_ARGS__ }; typedef type name##_t
 #define __QOS_CLASS_AVAILABLE(...)
 
+#if defined(__cplusplus) || defined(__OBJC__) || __LP64__
 #if defined(__has_feature) && defined(__has_extension)
 #if __has_feature(objc_fixed_enum) || __has_extension(cxx_strong_enums)
 #undef __QOS_ENUM
 #define __QOS_ENUM(name, type, ...) typedef enum : type { __VA_ARGS__ } name##_t
+#endif
 #endif
 #if __has_feature(enumerator_attributes)
 #undef __QOS_CLASS_AVAILABLE

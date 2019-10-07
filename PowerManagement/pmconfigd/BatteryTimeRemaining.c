@@ -40,6 +40,12 @@
 #include <sys/time.h>
 #include <IOKit/ps/IOPowerSourcesPrivate.h>
 
+#if TARGET_OS_IPHONE || POWERD_IOS_XCTEST
+#include <MobileKeyBag/MobileKeyBag.h>
+#include <CoreFoundation/CFPreferences_Private.h>
+#endif
+
+
 #include "pmconfigd.h"
 #include "powermanagementServer.h" // mig generated
 #include "BatteryTimeRemaining.h"
@@ -100,6 +106,7 @@ SlewStruct *slew = NULL;
 // static global variables for tracking battery state
 typedef struct {
     CFAbsoluteTime   lastDiscontinuity;
+    bool             percentageDiscontinuity;
     int              systemWarningLevel;
     bool             warningsShouldResetForSleep;
     bool             readACAdapterAgain;
@@ -113,6 +120,21 @@ typedef struct {
 static BatteryControl   control;
 static CFDictionaryRef  adapterDetails = NULL;
 
+#if TARGET_OS_IPHONE || POWERD_IOS_XCTEST
+#define kBatteryHealthPrefsAppName          "com.apple.batteryhealthdata"
+#define kBatteryHealthPrefsContainer        "/var/MobileSoftwareUpdate/Hardware/Battery/"
+
+bool smcBasedDevice = false;
+bool nccp_cc_filtering = true;  // Support for NCCP filtering using CycleCount
+uint64_t batteryHealthP0Threshold = 0;
+uint64_t batteryHealthUPOAware = 0;
+uint32_t battReadTimeDelta = kMinTimeDeltaForBattRead; // Time delta between reading battery data for battery health evaluation
+
+void removeKeyFromBatteryHealthDataPrefs(CFStringRef key);
+void saveBatteryHealthDataToPrefs(CFDictionaryRef bhData);
+CFDictionaryRef copyBatteryHealthDataFromPrefs(void);
+CFDictionaryRef copyPowerlogBatteryHealthData(void);
+#endif
 
 
 // forward declarations
@@ -130,6 +152,7 @@ static bool             publish_IOPSGetTimeRemainingEstimate(int timeRemaining,
                                                              bool timeRemainingUnknown,
                                                              bool isCharging,
                                                              bool showChargingUI,
+                                                             bool playChargingChime,
                                                              bool noPoll);
 static void             publish_IOPSGetPercentRemaining(int percent,
                                                         bool external,
@@ -140,6 +163,8 @@ static void             publish_IOPSGetPercentRemaining(int percent,
 static void             HandlePublishAllPowerSources(void);
 static IOReturn         HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update);
 static CFDictionaryRef  getPSByType(CFStringRef type);
+void initBatteryHealthData(void);
+void _setBatteryHealthData( CFMutableDictionaryRef  outDict, IOPMBattery  *b);
 
 
 
@@ -150,9 +175,6 @@ typedef enum {
 } PollCommand;
 static bool             startBatteryPoll(PollCommand x);
 
-#if TARGET_OS_IOS || TARGET_OS_WATCH
-static dispatch_source_t batteryDataUpdateTimer = NULL;
-#endif // TARGET_OS_IOS || TARGET_OS_WATCH
 
 
 __private_extern__ void
@@ -172,21 +194,6 @@ BatteryTimeRemaining_prime(void)
      recordFDREvent(kFDRInit, false, NULL);
 
 
-#if TARGET_OS_IOS || TARGET_OS_WATCH
-    /* kick off timer to collect battery data */
-    batteryDataUpdateTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
-    dispatch_source_set_timer(batteryDataUpdateTimer, dispatch_walltime(NULL, 0), kBatteryDataSaveInterval * NSEC_PER_SEC, 0);
-    dispatch_source_set_event_handler(batteryDataUpdateTimer, ^{
-        IOPMBattery **b = _batteries();
-        if (b && b[0] && isA_CFDictionary(b[0]->properties)) {
-            updateBatteryData(b[0]->properties);
-        }
-    });
-
-# if !XCTEST
-    dispatch_resume(batteryDataUpdateTimer);
-# endif
-#endif // TARGET_OS_IOS || TARGET_OS_WATCH
 
     /* Do initial full poll and kick of the polling timer */
     startBatteryPoll(kImmediateFullPoll);
@@ -197,8 +204,27 @@ __private_extern__ void BatteryTimeRemaining_finish(void)
 {
     /* don't wait for notification if we already have battery info */
     IOPMBattery **b = _batteries();
-    if (b && b[0]) {
-        ioregBatteryProcess(b[0], b[0]->me);
+    io_iterator_t       iter = MACH_PORT_NULL;
+    kern_return_t       kr;
+    io_registry_entry_t next;
+
+
+    if (!b || (b[0] == NULL)) {
+        // No batteries found yet.
+        return;
+    }
+
+    kr = IOServiceGetMatchingServices(kIOMasterPortDefault, 
+            IOServiceMatching("IOPMPowerSource"), &iter);
+    if ((kIOReturnSuccess != kr) || (MACH_PORT_NULL == iter)) {
+        ERROR_LOG("Failed to find IOPMPowerSource object\n")
+    }
+    else {
+        if ((next = IOIteratorNext(iter))) {
+            ioregBatteryProcess(b[0], next);
+            IOObjectRelease(next);
+        }
+        IOObjectRelease(iter);
     }
 }
 
@@ -235,7 +261,8 @@ static void _discontinuityOccurred(void)
         bzero(slew, sizeof(SlewStruct));
     }
     control.lastDiscontinuity = CFAbsoluteTimeGetCurrent();
-    
+    control.percentageDiscontinuity = true;
+
     // Kick off a battery poll now,
     // and schedule the next poll in exactly 60 seconds.
     startBatteryPoll(kImmediateFullPoll);
@@ -409,7 +436,7 @@ static bool startBatteryPoll(PollCommand doCommand)
     }
 
     if (!batteryPollingTimer) {
-        batteryPollingTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+        batteryPollingTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _getPMMainQueue());
         dispatch_source_set_event_handler(batteryPollingTimer, ^() { startBatteryPoll(kPeriodicPoll); });
         dispatch_resume(batteryPollingTimer);
     }
@@ -472,8 +499,6 @@ __private_extern__ void BatterySetNoPoll(bool noPoll)
         if (!noPoll) {
             startBatteryPoll(kImmediateFullPoll);
         } else {
-            // Announce the cessation of polling to the world
-            // (by publishing 55% 5:55 to BatteryMonitor)
             kernelPowerSourcesDidChange(kInternalBattery);
         }
     
@@ -498,13 +523,12 @@ static void publish_IOPSBatteryGetWarningLevel(
      * Final Warning == On Battery with < 10 Minutes
      *
      */
-    
+
     static CFStringRef lowBatteryKey = NULL;
     static int prevLoggedLevel = kIOPSLowBatteryWarningNone;
     int newWarningLevel = kIOPSLowBatteryWarningNone;
-    
-    if (control.warningsShouldResetForSleep || b->externalConnected)
-    {
+
+    if (control.warningsShouldResetForSleep || b->externalConnected) {
         // We reset the warning level upon system sleep or when external
         // power source is connected
 
@@ -514,17 +538,13 @@ static void publish_IOPSBatteryGetWarningLevel(
             newWarningLevel = kIOPSLowBatteryWarningNone;
         }
     }
-    else if (percent <= kPercentThresholdFinal)
-    {
+    else if (percent <= kPercentThresholdFinal) {
         newWarningLevel = kIOPSLowBatteryWarningFinal;
     }
-    else if (combinedTime > 0)
-    {
-        if (combinedTime < kTimeThresholdFinal)
-        {
-            newWarningLevel = kIOPSLowBatteryWarningFinal;       
-        } else if (combinedTime < kTimeThresholdEarly)
-        {
+    else if (combinedTime > 0) {
+        if (combinedTime < kTimeThresholdFinal) {
+            newWarningLevel = kIOPSLowBatteryWarningFinal;
+        } else if (combinedTime < kTimeThresholdEarly) {
             newWarningLevel = kIOPSLowBatteryWarningEarly;
         }
     }
@@ -544,30 +564,27 @@ static void publish_IOPSBatteryGetWarningLevel(
 
         newWarningLevel = control.systemWarningLevel;
     }
-            
+
     if ( (newWarningLevel != control.systemWarningLevel)
-        && (0 != newWarningLevel) )
-    {
+        && (0 != newWarningLevel) ) {
         CFNumberRef newlevel = CFNumberCreate(0, kCFNumberIntType, &newWarningLevel);
-        
-        if (newlevel)
-        {
+
+        if (newlevel) {
             if (!lowBatteryKey) {
                 lowBatteryKey = SCDynamicStoreKeyCreate(
                         kCFAllocatorDefault, CFSTR("%@%@"),
                         kSCDynamicStoreDomainState, CFSTR(kIOPSDynamicStoreLowBattPathKey));
             }
-            
+
             PMStoreSetValue(lowBatteryKey, newlevel );
             CFRelease(newlevel);
-            
+
             notify_post(kIOPSNotifyLowBattery);
             if (newWarningLevel != prevLoggedLevel) {
                 logASLLowBatteryWarning(newWarningLevel, combinedTime, b->currentCap);
                 prevLoggedLevel = newWarningLevel;
             }
         }
-        
         control.systemWarningLevel = newWarningLevel;
     }
 
@@ -581,6 +598,7 @@ static bool publish_IOPSGetTimeRemainingEstimate(
     bool timeRemainingUnknown,
     bool isCharging,
     bool showChargingUI,
+    bool playChargingChime,
     bool noPoll)
 {
     uint64_t            powerSourcesBitsForNotify = (uint64_t)(timeRemaining & 0xFFFF);
@@ -688,6 +706,7 @@ __private_extern__ void
 kernelPowerSourcesDidChange(IOPMBattery *b)
 {
     static int                  _lastExternalConnected = -1;
+    static int                  _lastPercentRemaining = 100;
     int                         _nowExternalConnected = 0;
     int                         percentRemaining = 0;
     IOPMBattery               **_batts = _batteries();
@@ -729,8 +748,23 @@ kernelPowerSourcesDidChange(IOPMBattery *b)
         if (percentRemaining > 100)
             percentRemaining = 100;
     }
+
+    // never show 0 to the user
+    if (percentRemaining < 1) {
+        percentRemaining = 1;
+    }
+
+    // prevent percentage to increase when discharging
+    if (!control.percentageDiscontinuity && !_lastExternalConnected &&
+        !_nowExternalConnected && (percentRemaining > _lastPercentRemaining)) {
+        percentRemaining = _lastPercentRemaining;
+    } else if (CFAbsoluteTimeGetCurrent() >= (control.lastDiscontinuity + kDiscontinuitySettle)) {
+        control.percentageDiscontinuity = false;
+    }
+
     // b->swCalculatedPR is used by packageKernelPowerSource()
     b->swCalculatedPR = percentRemaining;
+    _lastPercentRemaining = percentRemaining;
     _lastExternalConnected = _nowExternalConnected;
 
     /************************************************************************
@@ -763,6 +797,7 @@ static void HandlePublishAllPowerSources(void)
     bool                        externalConnected, tr_unknown, is_charging, fully_charged;
     bool                        rawExternalConnected = false;
     bool                        showChargingUI = false;
+    bool                        playChargingChime = false;
     CFDictionaryRef             ups = NULL;
     int                         ups_tr = -1;
     bool                        battcase_change = false;
@@ -820,6 +855,7 @@ static void HandlePublishAllPowerSources(void)
             }
             rawExternalConnected = b->rawExternalConnected;
             showChargingUI = b->showChargingUI;
+            playChargingChime = b->playChargingChime;
     }
     else {
         int mcap = 0, ccap = 0;
@@ -859,6 +895,7 @@ static void HandlePublishAllPowerSources(void)
                                          tr_unknown,
                                          is_charging,
                                          showChargingUI,
+                                         playChargingChime,
                                          control.noPoll);
     
     if (b) {
@@ -963,8 +1000,762 @@ static void checkTimeRemainingValid(IOPMBattery **batts)
 
 }
 
+#if TARGET_OS_IPHONE || POWERD_IOS_XCTEST
+//
+// migrateSvcFlags - This function migrates powerlog's version of
+// service flags(version 0 & 1) to version 2, as managed by powerd.
+//
+uint32_t migrateSvcFlags(IOPSBatteryHealthServiceState oldSvcState, IOPSBatteryHealthServiceFlags oldSvcFlags)
+{
+    IOPSBatteryHealthServiceFlags newFlags = kBatteryHealthCurrentVersion;
+
+    if ((oldSvcFlags & kBHSvcVersionMask) == kBHSvcFlagsVerison0) {
+        // Version 0 doesn't have any flags set. Flags are set based
+        // on the Service state
+        switch (oldSvcState) {
+            case kBHSvcStateUnknown:
+                // State was previously unknown. Ignore setting flags for now
+                // and set them after re-calculating the state.
+                newFlags |= 0;
+                break;
+
+            case kBHSvcStateNone:
+                newFlags |= 0;
+                break;
+
+            case kBHSvcStateNominalChargeCapacity:
+                newFlags |= kBHSvcFlagNCC;
+                break;
+
+            case kBHSvcStatePeakPowerCapacity:
+                newFlags |= kBHSvcFlagUPOPrime|kBHSvcFlagWRa;
+                break;
+
+            case kBHSvcStateNominalChargeAndPeakPower:
+                newFlags |= kBHSvcFlagNCC|kBHSvcFlagUPOPrime|kBHSvcFlagWRa;
+                break;
+
+            case kBHSvcStateRBATT:
+                newFlags |= kBHSvcStateRBATT;
+                break;
+
+            case kBHSvcStateNotDeterminable:
+                // State was previously non-determinable. Ignore setting flags for now
+                // and set them after re-calculating the state.
+                newFlags |= 0;
+                break;
+
+            case kBHSvcStateBCDC:
+                newFlags |= kBHSvcFlagBCDC;
+                break;
+
+            default:
+                ERROR_LOG("Unexpected Service state %d\n", oldSvcState);
+                break;
+        }
+    }
+    else if ((oldSvcFlags & kBHSvcVersionMask) == kBHSvcFlagsVersion1) {
+        // Remove version number, un-used flags and flags indicating non-determinable condition
+        newFlags |= oldSvcFlags & (kBHSvcFlagRBATT|kBHSvcFlagUPOPrime|kBHSvcFlagNCC|kBHSvcFlagWRa|kBHSvcFlagBCDC);
+    }
+    else {
+        ERROR_LOG("Powerlog Service Flags 0x%x with version 0x%x is unexpected\n",
+                  oldSvcFlags, oldSvcFlags & kBHSvcVersionMask);
+        // Reset flags to 0
+        newFlags = kBatteryHealthCurrentVersion;
+    }
+    return newFlags;
+}
+
+#if !POWERD_IOS_XCTEST
+void saveBatteryHealthKeyValueToPrefs(const void *key, const void *value, void *context __unused)
+{
+    _CFPreferencesSetValueWithContainer(key, value, CFSTR(kBatteryHealthPrefsAppName), kCFPreferencesCurrentUser, kCFPreferencesCurrentHost, CFSTR(kBatteryHealthPrefsContainer));
+}
+
+void saveBatteryHealthDataToPrefs(CFDictionaryRef bhData)
+{
+    CFDictionaryApplyFunction(bhData, saveBatteryHealthKeyValueToPrefs, NULL);
+    _CFPreferencesSynchronizeWithContainer(CFSTR(kBatteryHealthPrefsAppName), kCFPreferencesCurrentUser, kCFPreferencesCurrentHost, CFSTR(kBatteryHealthPrefsContainer));
+}
+
+void removeKeyFromBatteryHealthDataPrefs(CFStringRef key)
+{
+    saveBatteryHealthKeyValueToPrefs(key, NULL, NULL);
+    _CFPreferencesSynchronizeWithContainer(CFSTR(kBatteryHealthPrefsAppName), kCFPreferencesCurrentUser, kCFPreferencesCurrentHost, CFSTR(kBatteryHealthPrefsContainer));
+}
+
+CFDictionaryRef copyBatteryHealthDataFromPrefs( )
+{
+    CFDictionaryRef dict = NULL;
+    CFIndex count;
+    dict = _CFPreferencesCopyMultipleWithContainer(NULL, CFSTR(kBatteryHealthPrefsAppName), kCFPreferencesCurrentUser, kCFPreferencesCurrentHost, CFSTR(kBatteryHealthPrefsContainer));
+    if ((dict == NULL) || (CFDictionaryGetCount(dict) == 0)) {
+        INFO_LOG("Failed to read battery health data from custom container location\n");
+        if (dict) {
+            CFRelease(dict);
+            dict = NULL;
+        }
+
+        // Check for health data in the previous location
+        dict = CFPreferencesCopyMultiple(NULL, CFSTR(kBatteryHealthPrefsAppName), kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+        if ((dict != NULL) && ((count = CFDictionaryGetCount(dict)) != 0)) {
+            INFO_LOG("Battery data read from default prefs\n");
+            // Save the data to new location and delete it from old location
+            saveBatteryHealthDataToPrefs(dict);
+
+            CFTypeRef *keys = malloc(sizeof(CFTypeRef) * count);
+            if (keys != NULL) {
+                CFDictionaryGetKeysAndValues(dict, (const void **)keys, NULL);
+                for (int i = 0; i < count; i++) {
+                    CFPreferencesSetValue(keys[i], NULL, CFSTR(kBatteryHealthPrefsAppName), kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+                    INFO_LOG("Deleting key %@ from old store\n", keys[i]);
+                }
+                free(keys);
+            }
+            else {
+                ERROR_LOG("Failed to allocate memory to delete battery data from default prefs\n");
+            }
+        }
+        else {
+            INFO_LOG("Failed to read battery data from default prefs\n");
+        }
+    }
+    return dict;
+}
+
+CFDictionaryRef copyPowerlogBatteryHealthData()
+{
+    CFDictionaryRef oldBHData = NULL;
+    container_error_t localError = CONTAINER_ERROR_NONE;
+    CFStringRef containerPath = NULL;
+
+    // Read powerlog's battery health data from its CFPrefs container
+    const char *containerCStringPath = container_system_group_path_for_identifier(NULL, "systemgroup.com.apple.powerlog", &localError);
+    if (containerCStringPath) {
+        containerPath = CFStringCreateWithCString(NULL, containerCStringPath, kCFStringEncodingUTF8);
+        free((void *)containerCStringPath);
+    } else {
+        ERROR_LOG("Error fetching group container systemgroup.com.apple.powerlog : %llu", localError);
+    }
+
+    if (containerPath) {
+        oldBHData = _CFPreferencesCopyMultipleWithContainer(NULL, CFSTR("com.apple.powerlogd"),
+                kCFPreferencesCurrentUser, kCFPreferencesCurrentHost, containerPath);
+        CFRelease(containerPath);
+    }
+    return oldBHData;
+}
+#else
+// XCTest helper functions
+void setBatteryHealthP0Threshold(uint64_t p0)
+{
+    batteryHealthP0Threshold = p0;
+}
+void setSmcBasedDevice(bool enable)
+{
+    smcBasedDevice = enable;
+}
+void setBatteryUPOAwareness(bool awareness)
+{
+    batteryHealthUPOAware = awareness;
+}
+void setNCCFilteringState(bool enable)
+{
+    nccp_cc_filtering = enable;
+}
+#endif
+
+
+/*
+ * This function returns previous battery health data saved to disk.
+ * This function will return NULL only when there is no previous battery health data in powerd's CFPrefs
+ * and system is not unlocked even once to migrate data from powerlog.
+ */
+CFMutableDictionaryRef copyBatteryHealthData( )
+{
+    CFDictionaryRef dict;
+    CFMutableDictionaryRef bhData;
+    CFDictionaryRef oldBHData = NULL;
+    CFStringRef oldSerialNo = NULL;
+    IOPSBatteryHealthServiceFlags oldSvcFlags = 0;
+    IOPSBatteryHealthServiceState oldSvcState = 0;
+    CFNumberRef oldMaxCapacity = NULL;
+
+    dict = copyBatteryHealthDataFromPrefs();
+    if (dict && (CFDictionaryGetCount(dict) != 0)) {
+        bhData = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, dict);
+        CFRelease(dict);
+        return bhData;
+    }
+    if (dict) {
+        CFRelease(dict);
+    }
+
+    // There is no battery health data in powerd's CFPrefs.
+    // First migrate the old Battery Health data maintained by powerlog. Migration can't be done until first unlock is done.
+    if (MKBDeviceUnlockedSinceBoot() != 1) {
+        ERROR_LOG("powerlog's battery health data can't be migrated until first unlock\n");
+        return NULL;
+    }
+
+    bhData = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (bhData == NULL) {
+        ERROR_LOG("Failed to create dictionary to hold battery data\n");
+        return NULL;
+    }
+
+    oldBHData = copyPowerlogBatteryHealthData();
+
+    if (oldBHData) {
+        // Below key names are as used by powerlog
+        CFDictionaryGetValueIfPresent(oldBHData, CFSTR("BatterySerial"), (const void **)&oldSerialNo);
+        CFDictionaryGetValueIfPresent(oldBHData, CFSTR("MaximumCapacityPercent"), (const void **)&oldMaxCapacity);
+
+        CFDictionaryGetIntValue(oldBHData, CFSTR("batteryServiceFlags"), oldSvcFlags);
+        CFDictionaryGetIntValue(oldBHData, CFSTR("batteryServiceRecommended"), oldSvcState);
+    }
+    INFO_LOG("Battery Health data from powerlog's prefs. SvcFlags:0x%x SvcState:%d MaxCapacity:%{public}@\n",
+              oldSvcFlags, oldSvcState, oldMaxCapacity);
+
+    if (isA_CFString(oldSerialNo)) {
+        CFDictionarySetValue(bhData, CFSTR(kIOPSBatterySerialNumberKey), oldSerialNo);
+    }
+    else {
+        INFO_LOG("No battery serial number found powerlog's battery health state.\n");
+    }
+
+    // Migrate old Service Flags to newer version
+    IOPSBatteryHealthServiceFlags newSVCFlags = migrateSvcFlags(oldSvcState, oldSvcFlags);
+    CFDictionarySetIntValue(bhData, CFSTR(kIOPSBatteryHealthServiceFlagsKey), newSVCFlags);
+
+    INFO_LOG("Battery service flags after migration: 0x%x\n", newSVCFlags);
+
+    // OldSvcState and oldMaxCapacity are re-used as-is
+    CFDictionarySetIntValue(bhData, CFSTR(kIOPSBatteryHealthServiceStateKey), oldSvcState);
+
+    if (isA_CFNumber(oldMaxCapacity)) {
+        CFDictionarySetValue(bhData, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), oldMaxCapacity);
+    }
+    else {
+        INFO_LOG("No MaxBatteryCapacity found in powerlog's battery health state\n");
+    }
+
+    if (oldBHData) {
+        CFRelease(oldBHData);
+    }
+    return bhData;
+}
+
+void initBatteryHealthData()
+{
+    int status;
+    int token;
+    CFDictionaryRef dict;
+
+    status = notify_register_dispatch("com.apple.system.batteryHealth.p0Threshold", &token, _getPMMainQueue(),
+            ^(int token) {
+                notify_get_state(token, &batteryHealthP0Threshold);
+                INFO_LOG("Received notification for batteryHealthP0Threshold. Value set to %lld\n", batteryHealthP0Threshold);
+            });
+    if (status != NOTIFY_STATUS_OK) {
+        ERROR_LOG("Failed to register for P0 threshold notifications. rc=%d\n", status);
+    }
+    else {
+        notify_get_state(token, &batteryHealthP0Threshold);
+        INFO_LOG("batteryHealthP0Threshold set to %lld\n", batteryHealthP0Threshold);
+    }
+
+    status = notify_register_dispatch("com.apple.system.batteryHealth.UPOAware", &token, _getPMMainQueue(),
+            ^(int token) {
+                notify_get_state(token, &batteryHealthUPOAware);
+                INFO_LOG("Received notification for batteryHealthUPOAware. Value set to %lld\n", batteryHealthUPOAware);
+            });
+    if (status != NOTIFY_STATUS_OK) {
+        ERROR_LOG("Failed to register for battery health UPO Aware notifications. rc=%d\n", status);
+    }
+    else {
+        notify_get_state(token, &batteryHealthUPOAware);
+        INFO_LOG("batteryHealthUPOAware set to %lld\n", batteryHealthUPOAware);
+    }
+
+    dict = copyBatteryHealthDataFromPrefs();
+    if ((dict == NULL) || (CFDictionaryGetCount(dict) == 0)) {
+        // There is no battery health data saved.
+        // Register for first unlock notification and migrate battery health from powerlog after unlock
+        status = notify_register_dispatch(kMobileKeyBagFirstUnlockNotificationID, &token, _getPMMainQueue(),
+                ^(int token) {
+                    CFMutableDictionaryRef  outDict;
+                    IOPMBattery **_battArray = NULL, *batt = NULL;
+
+                    outDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                        &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+                    if (!outDict) {
+                        ERROR_LOG("Failed to create dictionary to trigger battery health data migration\n");
+                        return;
+                    }
+
+                    INFO_LOG("Triggering battery health data migration from powerlog\n");
+                    if ((_battArray = _batteries()) && (batt = _battArray[0])) {
+                        _setBatteryHealthData(outDict, batt);
+                    }
+                    else {
+                        ERROR_LOG("Battery Data not found");
+                    }
+
+                    CFRelease(outDict);
+                });
+        if (status != NOTIFY_STATUS_OK) {
+            ERROR_LOG("Failed to register for first unlock notification. rc=%d\n", status);
+        }
+    }
+    if (dict) {
+        CFRelease(dict);
+    }
+}
+
+void checkNominalCapacity(CFDictionaryRef batteryProps, CFMutableDictionaryRef bhData,
+        IOPSBatteryHealthServiceFlags *svcFlags)
+{
+    int ncc = 0;
+    int designCap = 0;
+    int nccp = 0;
+    int prevNccp = -1;
+
+    if (svcFlags == NULL) {
+        return;
+    }
+    if (bhData == NULL) {
+        *svcFlags |= kBHSvcFlagNCCNotDet;
+    }
+
+    CFDictionaryGetIntValue(batteryProps, CFSTR("NominalChargeCapacity"), ncc);
+    CFDictionaryGetIntValue(batteryProps, CFSTR(kIOPMPSDesignCapacityKey), designCap);
+
+    CFDictionaryGetIntValue(bhData, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), prevNccp);
+
+    if (ncc && (designCap > 0)) {
+        nccp = ceil((double)ncc/(double)designCap * 100);
+    }
+    else {
+        nccp = 0;
+    }
+
+    // The NCC Not Determinable flag will be set if DesignCapacity ≤ 0, if NCC% ∉ [1,150], or
+    // if either NominalChargeCapacity or DesignCapacity keys are missing from battery properties.
+    if ((nccp < kMinNominalCapacityPercentage) || (nccp > kMaxNominalCapacityPercentage)) {
+        ERROR_LOG("Failed to calculate Nominal Capacity percentage. NominalCapacity:%d DesignCapacity:%d\n",
+                ncc, designCap);
+        *svcFlags |= kBHSvcFlagNCCNotDet;
+
+        // No need to update anything else
+        return;
+    }
+
+    // NOTE: nccp_cc_filtering is assumed to be true before we read SMC key. Assuming 'nccp_cc_filtering' is false can
+    // lead to sudden drop on MaxCapacity on devices that support CycleCount based filtering.
+    if (nccp_cc_filtering == true) {
+        int cycleCount = -1;
+        int prevCycleCount = -1;
+
+        CFDictionaryGetIntValue(bhData, CFSTR(kIOPMPSCycleCountKey), prevCycleCount);
+        CFDictionaryGetIntValue(batteryProps, CFSTR(kIOPMPSCycleCountKey), cycleCount);
+        if (cycleCount == -1) {
+            ERROR_LOG("Failed to calculate Nominal Capacity percentage. NominalCapacity:%d DesignCapacity:%d CycleCount:%d\n",
+                      ncc, designCap, cycleCount);
+            *svcFlags |= kBHSvcFlagNCCNotDet;
+
+            // No need to update anything else
+            return;
+        }
+        // If previous cycle count data used in BH calculation is not available, reset it to current battery cycle count.
+        if (prevCycleCount == -1) {
+            prevCycleCount = cycleCount;
+            INFO_LOG("Previous cycle count data is not available. Reset to %d\n", cycleCount);
+        }
+
+        // If previous NCCP is not available and cycle count is <= kTrueNCCCycleCountThreshold, consider this
+        // as new battery and set NCCP to kInitialNominalCapacityPercentage.
+        if (prevNccp == -1) {
+            if (cycleCount <= kTrueNCCCycleCountThreshold) {
+                nccp = kInitialNominalCapacityPercentage;
+            }
+            prevNccp = nccp;
+            INFO_LOG("Previous NCCP data not available. Reset to %d. Cycle Count: %d\n", nccp, cycleCount);
+        }
+
+
+        // NCCP can only decrease from previous value.
+        // NCCP can be reduced by utmost kNCCChangeLimit after cycle count has gone up by kNCCMinCycleCountChange.
+        if ((cycleCount - prevCycleCount >= kNCCMinCycleCountChange) && (prevNccp - nccp >= kNCCChangeLimit)) {
+            nccp = prevNccp - kNCCChangeLimit;
+            INFO_LOG("Changing NCCP from %d -> %d after cycle count change(%d->%d). NCC:%d DesignCap:%d\n",
+                    prevNccp, nccp, prevCycleCount, cycleCount, ncc, designCap);
+        }
+        else {
+            nccp = prevNccp;
+            cycleCount = prevCycleCount;
+        }
+
+        CFDictionarySetIntValue(bhData, CFSTR(kIOPMPSCycleCountKey), cycleCount);
+    }
+    else {
+        static uint64_t nccpUpdate_ts = 0;
+        uint64_t currentTime = getMonotonicContinuousTime();
+        uint64_t timeDelta = currentTime - nccpUpdate_ts;
+
+        // Remove Cycle Count value from bhData. This avoids MaxCapacity change before nccp_cc_filtering is set
+        // to appropriate value at boot. nccp_cc_filtering is assumed to be true by default.
+        CFDictionaryRemoveValue(bhData, CFSTR(kIOPMPSCycleCountKey));
+        removeKeyFromBatteryHealthDataPrefs(CFSTR(kIOPMPSCycleCountKey));
+
+        if (prevNccp == -1) {
+            prevNccp = nccp;
+            nccpUpdate_ts = currentTime;
+            INFO_LOG("Previous NCCP data not available. Reset to %d.\n", nccp);
+        }
+
+        // NCCP can be updated only once every 24hrs.
+        // NCCP can only decrease from previous value
+        if ((prevNccp <= nccp) || (timeDelta < battReadTimeDelta))  {
+            DEBUG_LOG("Using previous NCCP value %d\n", prevNccp);
+            nccp = prevNccp;
+        }
+        else {
+            INFO_LOG("Changing NCCP from %d -> %d after %llu secs. NCC:%d DesignCap:%d\n", prevNccp, nccp, timeDelta, ncc, designCap);
+            nccpUpdate_ts = currentTime;
+        }
+    }
+
+    if (nccp < kNominalCapacityPercetageThreshold) {
+        *svcFlags |= kBHSvcFlagNCC;
+        INFO_LOG("Nominal Capacity percentage(%d) is less than the threshold(%d)\n", nccp, kNominalCapacityPercetageThreshold);
+    }
+
+    CFDictionarySetIntValue(bhData, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), nccp);
+
+    DEBUG_LOG("Battery NominalCapacity:%d DesignCapacity:%d NCC:%d\n", ncc, designCap, nccp);
+}
+
+void checkUPOCount(IOPSBatteryHealthServiceFlags *svcFlags)
+{
+    CFTypeRef n;
+    static int mitigatedUPOCnt = 0;
+
+    if (!batteryHealthUPOAware) {
+        ERROR_LOG("Battery health UPO Aware value not set\n");
+        *svcFlags |= kBHSvcFlagUPOPrimeNotDet;
+        return;
+    }
+    if (batteryHealthUPOAware == kBatteryHealthWithoutUPO) {
+        // Not all models' battery health need UPO check
+        return;
+    }
+
+    // This value has to be read every time as publisher of this value may not have published
+    // by the time powerd reads this value.
+    // Also, this key is not published when mitigatedUPOCnt is zero.
+    n = CFPreferencesCopyValue(CFSTR(kCFPrefsMitigatedUPOCountKey), CFSTR(kCFPrefsUPOMetricsDomain),
+            kCFPreferencesCurrentUser, kCFPreferencesCurrentHost);
+
+    if (isA_CFNumber(n)) {
+        CFNumberGetValue(n, kCFNumberIntType, &mitigatedUPOCnt);
+        DEBUG_LOG("Mitigated UPO count:%d\n", mitigatedUPOCnt);
+    }
+    else if (n) {
+        ERROR_LOG("Unexpected data type for mitigatedUPOCnt(type:%lu)\n", CFGetTypeID(n));
+    }
+    else {
+        DEBUG_LOG("Unable to read mitigatedUPOCnt. Considering it as 0\n");
+    }
+
+    if (mitigatedUPOCnt > kMitigatedUPOCountThreshold) {
+        *svcFlags |= kBHSvcFlagUPOPrime;
+        INFO_LOG("Mitigated UPO count(%d) is greater than the threshold(%d)\n", mitigatedUPOCnt, kMitigatedUPOCountThreshold);
+    }
+
+    if (n) {
+        CFRelease(n);
+    }
+}
+
+void checkWeightedRa(CFDictionaryRef batteryProps, IOPSBatteryHealthServiceFlags *svcFlags)
+{
+    CFDictionaryRef batteryData = NULL;
+    static int weightedRa = -1;
+    static uint64_t wraUpdate_ts = 0;
+    uint64_t currentTime = getMonotonicContinuousTime();
+    uint64_t timeDelta = currentTime - wraUpdate_ts;
+
+    if (batteryHealthP0Threshold == 0) {
+        ERROR_LOG("Battery P0 threshold is not set\n");
+        *svcFlags |= kBHSvcFlagWRaNotDet;
+        return;
+    }
+    if (batteryHealthP0Threshold == -1) {
+        // batteryHealthP0Threshold will be set to -1 on models with chemID specific
+        // P0 thresholds, but device has unknown chemId.
+        ERROR_LOG("Failed to get Battery health P0 threshold value\n");
+        *svcFlags |= kBHSvcFlagChemIDNotDet;
+    }
+    else {
+        if ((weightedRa <= 0) || (timeDelta >= battReadTimeDelta)) {
+            weightedRa = -1; // Reset to -1 to avoid re-using previous value
+            batteryData = CFDictionaryGetValue(batteryProps, CFSTR("BatteryData"));
+            if (batteryData) {
+                CFDictionaryGetIntValue(batteryData, CFSTR("WeightedRa"), weightedRa);
+            }
+            DEBUG_LOG("Using updated wRA %d from battery properties after %llu secs\n", weightedRa, timeDelta);
+            wraUpdate_ts = currentTime;
+        }
+        else {
+            DEBUG_LOG("Using previous wRA %d\n", weightedRa);
+        }
+
+        if (weightedRa <= 0) {
+            ERROR_LOG("Failed to read battery weightedRa\n");
+            *svcFlags |= kBHSvcFlagWRaNotDet;
+        }
+        else if (weightedRa >= batteryHealthP0Threshold) {
+            *svcFlags |= kBHSvcFlagWRa;
+            INFO_LOG("WeightedRa(%d) is >= threshold(%llu)\n", weightedRa, batteryHealthP0Threshold);
+        }
+    }
+}
+
+void checkCellDisconnectCount(CFDictionaryRef batteryProps, IOPSBatteryHealthServiceFlags *svcFlags)
+{
+    int bcdc = -1;
+
+    if (!smcBasedDevice) {
+        // Cell disconnect count property is set only on SMC based devices.
+        return;
+    }
+
+    CFDictionaryGetIntValue(batteryProps, CFSTR("BatteryCellDisconnectCount"), bcdc);
+    if (bcdc < 0) {
+        ERROR_LOG("Failed to read battery cell disconnect count\n");
+        *svcFlags |= kBHSvcFlagBCDCNotDet;
+    }
+    else if (bcdc >= kBatteryCellDisconnectThreshold) {
+        *svcFlags |= kBHSvcFlagBCDC;
+        INFO_LOG("BCDC(%d) is greater than the threshold(%d)\n", bcdc, kBatteryCellDisconnectThreshold);
+    }
+}
+
+//
+// updateBatteryServiceState - Updates Battery Health service state data in 'bhData' with new state based on
+// Service Flags(svcFlags) passed to the function
+//
+void updateBatteryServiceState(CFDictionaryRef battProps, CFMutableDictionaryRef bhData, IOPSBatteryHealthServiceFlags svcFlags)
+{
+    IOPSBatteryHealthServiceFlags prevSvcFlags = 0;
+    IOPSBatteryHealthServiceState svcState, prevSvcState;
+
+    prevSvcState = kBHSvcStateUnknown;
+    prevSvcFlags = 0;
+    svcState = kBHSvcStateNone;
+
+
+    CFDictionaryGetIntValue(bhData, CFSTR(kIOPSBatteryHealthServiceFlagsKey), prevSvcFlags);
+    CFDictionaryGetIntValue(bhData, CFSTR(kIOPSBatteryHealthServiceStateKey), prevSvcState);
+
+    // Carry over the sticky bits of Service Flags
+    svcFlags |= (prevSvcFlags & kBHSvcFlagStickyBits);
+
+    if (svcFlags & kBHSvcFlagNoSerial) {
+        svcState = kBHSvcStateUnknown;
+    }
+    else if (svcFlags & kBHSvcFlagNonDetBits) {
+        // If any service condition couldn't be determined then change service state as NotDeterminable
+        svcState = kBHSvcStateNotDeterminable;
+        INFO_LOG("Unable to determine Battery Health Service state. Service Flags:0x%x Service State:%d\n", svcFlags, svcState);
+    }
+    else {
+        // Set the service state based on the service flags
+        bool ppc = false;
+        if (batteryHealthUPOAware == kBatteryHealthUsesUPO) {
+            ppc = ((svcFlags & (kBHSvcFlagUPOPrime|kBHSvcFlagWRa)) == (kBHSvcFlagUPOPrime|kBHSvcFlagWRa));
+        }
+        else {
+            ppc = (svcFlags & kBHSvcFlagWRa) ? true : false;
+        }
+
+        if (svcFlags & kBHSvcFlagBCDC) {
+            svcState = kBHSvcStateBCDC;
+        }
+        else if ((svcFlags & (kBHSvcFlagNCC)) && ppc) {
+            svcState = kBHSvcStateNominalChargeAndPeakPower;
+        }
+        else if (ppc) {
+            svcState = kBHSvcStatePeakPowerCapacity;
+        }
+        else if (svcFlags & (kBHSvcFlagNCC)) {
+            svcState = kBHSvcStateNominalChargeCapacity;
+        }
+        else if (svcFlags & kBHSvcFlagRBATT) {
+            svcState = kBHSvcStateRBATT;
+        }
+        else if ((prevSvcState == kBHSvcStateUnknown) || (prevSvcState == kBHSvcStateNotDeterminable)) {
+            svcState = kBHSvcStateNone;
+        }
+    }
+
+    CFDictionarySetIntValue(bhData, CFSTR(kIOPSBatteryHealthServiceFlagsKey), svcFlags);
+    CFDictionarySetIntValue(bhData, CFSTR(kIOPSBatteryHealthServiceStateKey), svcState);
+}
+
+void _setBatteryHealthData(
+    CFMutableDictionaryRef  outDict,
+    IOPMBattery  *b)
+{
+    IOPSBatteryHealthServiceFlags svcFlags = kBatteryHealthCurrentVersion;
+    IOPSBatteryHealthServiceState svcState = 0;
+    CFDictionaryRef  batteryProps = b->properties;
+
+    CFMutableDictionaryRef bhData = copyBatteryHealthData();
+    if (bhData == NULL) {
+        // Unable to get previous health data. Can't provide any health info at this point.
+        // Do not save this info to disk, as this is a transient state
+        svcFlags |= kBHSvcFlagUnknownPrevState;
+        svcState = kBHSvcStateDataNotMigrated;
+
+        CFDictionarySetIntValue(outDict, CFSTR(kIOPSBatteryHealthServiceFlagsKey), svcFlags);
+        CFDictionarySetIntValue(outDict, CFSTR(kIOPSBatteryHealthServiceStateKey), svcState);
+        // Don't set Max Capacity
+
+        ERROR_LOG("Unable to get previous battery health state. Service Flags:0x%x Service State:%d\n",
+                svcFlags, svcState);
+
+        return;
+    }
+
+    CFStringRef battPropsSerial = CFDictionaryGetValue(batteryProps, CFSTR("Serial"));
+    CFStringRef bhDataSerial = CFDictionaryGetValue(bhData, CFSTR(kIOPSBatterySerialNumberKey));
+
+    if ( ( ((bhDataSerial == NULL) || (battPropsSerial == NULL)) && (bhDataSerial != battPropsSerial)) ||
+            ((bhDataSerial != NULL) && (battPropsSerial != NULL) && (CFStringCompare(bhDataSerial, battPropsSerial, 0) != kCFCompareEqualTo)) ) {
+        // Reset sticky bits of service Flags, reset Service state to Unknown.
+        // Save this new serial number from battery props in the bhData
+        svcFlags &= ~(kBHSvcFlagStickyBits);
+
+        // Remove BH data about previous battery to force re-evaluation for new battery
+        CFDictionaryRemoveValue(bhData, CFSTR(kIOPSBatteryHealthMaxCapacityPercent));
+        CFDictionaryRemoveValue(bhData, CFSTR(kIOPMPSCycleCountKey));
+        CFDictionaryRemoveValue(bhData, CFSTR(kIOPSBatteryHealthServiceStateKey));
+
+        removeKeyFromBatteryHealthDataPrefs(CFSTR(kIOPSBatteryHealthMaxCapacityPercent));
+        removeKeyFromBatteryHealthDataPrefs(CFSTR(kIOPMPSCycleCountKey));
+        removeKeyFromBatteryHealthDataPrefs(CFSTR(kIOPSBatteryHealthServiceStateKey));
+
+        if (battPropsSerial == NULL) {
+            CFDictionaryRemoveValue(bhData, CFSTR(kIOPSBatterySerialNumberKey));
+            removeKeyFromBatteryHealthDataPrefs(CFSTR(kIOPSBatterySerialNumberKey));
+        }
+        else {
+            CFDictionarySetValue(bhData, CFSTR(kIOPSBatterySerialNumberKey), battPropsSerial);
+        }
+
+        CFDictionarySetIntValue(bhData, CFSTR(kIOPSBatteryHealthServiceFlagsKey), svcFlags);
+        saveBatteryHealthDataToPrefs(bhData);
+        INFO_LOG("Battery serial number changed.\n");
+    }
+
+    // Reset flags for battery serial errors and set them again if still applicable
+    svcFlags &= ~(kBHSvcFlagNoSerial|kBHSvcFlagEmptySerial);
+    if ((battPropsSerial == NULL) || (CFStringGetLength(battPropsSerial) == 0)) {
+        ERROR_LOG("Invalid battery serial number(%{public}@) in battery properties\n", battPropsSerial);
+
+        if (battPropsSerial == NULL) {
+            svcFlags |= kBHSvcFlagNoSerial;
+        }
+        else if (CFStringGetLength(battPropsSerial) == 0) {
+            svcFlags |= kBHSvcFlagEmptySerial;
+        }
+
+        ERROR_LOG("Unable to get serial number of the battery. Service Flags:0x%x Service State:%d\n",
+                svcFlags, svcState);
+    }
+
+    CFTypeRef flagsRef, stateRef, capRef, cycleCountRef;
+    flagsRef = stateRef = capRef = cycleCountRef = NULL;
+    CFDictionaryGetValueIfPresent(bhData, CFSTR(kIOPSBatteryHealthServiceFlagsKey), (const void **)&flagsRef);
+    CFDictionaryGetValueIfPresent(bhData, CFSTR(kIOPSBatteryHealthServiceStateKey), (const void **)&stateRef);
+    CFDictionaryGetValueIfPresent(bhData, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), (const void **)&capRef);
+    CFDictionaryGetValueIfPresent(bhData, CFSTR(kIOPMPSCycleCountKey), (const void **)&cycleCountRef);
+    INFO_LOG("Previous Battery Health: Flags:%{public}@ State:%{public}@ MaxCapacity:%{public}@ CycleCount:%{public}@\n",
+            flagsRef, stateRef, capRef, cycleCountRef);
+
+    checkNominalCapacity(batteryProps, bhData, &svcFlags);
+    checkUPOCount(&svcFlags);
+    checkWeightedRa(batteryProps, &svcFlags);
+    checkCellDisconnectCount(batteryProps, &svcFlags);
+
+    updateBatteryServiceState(batteryProps, bhData, svcFlags);
+    saveBatteryHealthDataToPrefs(bhData);
+
+    flagsRef = stateRef = capRef = NULL;
+    flagsRef = CFDictionaryGetValue(bhData, CFSTR(kIOPSBatteryHealthServiceFlagsKey));
+    if (isA_CFNumber(flagsRef)) {
+        CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthServiceFlagsKey), flagsRef);
+    }
+    stateRef = CFDictionaryGetValue(bhData, CFSTR(kIOPSBatteryHealthServiceStateKey));
+    if (isA_CFNumber(stateRef)) {
+        CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthServiceStateKey), stateRef);
+    }
+    capRef = CFDictionaryGetValue(bhData, CFSTR(kIOPSBatteryHealthMaxCapacityPercent));
+    if (isA_CFNumber(capRef)) {
+        CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthMaxCapacityPercent), capRef);
+    }
+    CFDictionaryGetValueIfPresent(bhData, CFSTR(kIOPMPSCycleCountKey), (const void **)&cycleCountRef);
+
+    INFO_LOG("Updated Battery Health: Flags:%{public}@ State:%{public}@ MaxCapacity:%{public}@ CycleCount:%{public}@\n",
+            flagsRef, stateRef, capRef, cycleCountRef);
+    CFRelease(bhData);
+
+}
+
+
+__private_extern__ void setBHUpdteTimeDelta(xpc_object_t remoteConnection, xpc_object_t msg)
+{
+    int64_t timeDelta = 0;
+
+    if (!msg) {
+        ERROR_LOG("Invalid message\n");
+        return;
+    }
+    xpc_object_t respMsg = xpc_dictionary_create_reply(msg);
+    if (respMsg == NULL) {
+        ERROR_LOG("Failed to create response message\n");
+        return;
+    }
+
+    if (!isSenderEntitled(remoteConnection, CFSTR("com.apple.private.iokit.batteryTester"), true)) {
+        ERROR_LOG("Ignoring custom battery properties message from unprivileged sender\n");
+        xpc_dictionary_set_uint64(respMsg, kMsgReturnCode, kIOReturnNotPrivileged);
+        goto exit;
+    }
+
+    timeDelta = xpc_dictionary_get_int64(msg, kSetBHUpdateTimeDelta);
+    if ((timeDelta <= 0) || (timeDelta > UINT32_MAX)) {
+        ERROR_LOG("Received invalid time delta %lld\n", timeDelta);
+        xpc_dictionary_set_uint64(respMsg, kMsgReturnCode, kIOReturnBadArgument);
+        goto exit;
+    }
+    battReadTimeDelta = (uint32_t)timeDelta;
+
+    INFO_LOG("Changed NCC update time delta to %u\n", battReadTimeDelta);
+    xpc_dictionary_set_uint64(respMsg, kMsgReturnCode, kIOReturnSuccess);
+
+exit:
+    xpc_connection_send_message(remoteConnection, respMsg);
+    xpc_release(respMsg);
+}
+
+
+#else
 // Set health & confidence
-void _setBatteryHealthConfidence(
+void _setBatteryHealthData(
     CFMutableDictionaryRef  outDict,
     IOPMBattery             *b)
 {
@@ -1028,14 +1819,12 @@ void _setBatteryHealthConfidence(
         CFDictionarySetValue( outDict, CFSTR(kIOPSBatteryFailureModesKey), permanentFailures);
         CFRelease(permanentFailures);
     }
-    
+
     static char* batteryHealth = "";
-    
+
     // Permanent failure -> Poor health
-    if (_batteryHas(b, CFSTR(kIOPMPSErrorConditionKey)))
-    {
-        if (CFEqual(b->failureDetected, CFSTR(kBatteryPermFailureString)))
-        {
+    if (_batteryHas(b, CFSTR(kIOPMPSErrorConditionKey))) {
+        if (CFEqual(b->failureDetected, CFSTR(kBatteryPermFailureString))) {
             CFDictionarySetValue(outDict,
                     CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSPoorValue));
             CFDictionarySetValue(outDict,
@@ -1043,14 +1832,14 @@ void _setBatteryHealthConfidence(
             // Specifically log that the battery condition is permanent failure
             CFDictionarySetValue(outDict,
                     CFSTR(kIOPSBatteryHealthConditionKey), CFSTR(kIOPSPermanentFailureValue));
-            
+
             if (strncmp(batteryHealth, kIOPSPoorValue, sizeof(kIOPSPoorValue))) {
                 logASLBatteryHealthChanged(kIOPSPoorValue,
                                            batteryHealth,
                                            kIOPSPermanentFailureValue);
                 batteryHealth = kIOPSPoorValue;
             }
-            
+
             return;
         }
     }
@@ -1058,10 +1847,14 @@ void _setBatteryHealthConfidence(
     double compareRatioTo = 0.80;
     double capRatio = 1.0;
 
-    if (0 != b->designCap)
-    {
-        capRatio =  ((double)b->maxCap + kSmartBattReserve_mAh) / (double)b->designCap;
+#if TARGET_OS_OSX || TARGET_OS_BRIDGE
+    // This test was designed for MacOS only and false triggers on Watches due
+    // to Dali reserve.
+    // iOS/WatchOS use different ways to determine battery health.
+    if (b->designCap) {
+        capRatio = ((double)b->maxCap + kSmartBattReserve_mAh) / (double)b->designCap;
     }
+#endif
     bool cyclesExceedStandard = false;
 
     if (b->markedDeclining) {
@@ -1076,8 +1869,7 @@ void _setBatteryHealthConfidence(
 
     time_t currentTime = 0;
     bool canCompareTime = true;
-    
-    
+
     struct timeval t;
     // retrieve current time
     if (gettimeofday(&t, NULL) == -1) {
@@ -1086,13 +1878,13 @@ void _setBatteryHealthConfidence(
     else {
         currentTime = t.tv_sec;
     }
-    
+
     if (capRatio > 1.2) {
         // Poor|Perm Failure = max-capacity is more than 1.2x of the design-capacity.
         CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSPoorValue));
         CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthConditionKey),
                              CFSTR(kIOPSPermanentFailureValue));
-        
+
         if (strncmp(batteryHealth, kIOPSPoorValue, sizeof(kIOPSPoorValue))) {
             logASLBatteryHealthChanged(kIOPSPoorValue,
                                        batteryHealth,
@@ -1109,7 +1901,7 @@ void _setBatteryHealthConfidence(
         b->markedDeclining = 0;
         // Good = CapRatio > 80% (plus or minus the 3% hysteresis mentioned above)
         CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSGoodValue));
-        
+
         if ((batteryHealth[0] != 0) && (strncmp(batteryHealth, kIOPSGoodValue, sizeof(kIOPSGoodValue)))) {
             logASLBatteryHealthChanged(kIOPSGoodValue,
                                        batteryHealth,
@@ -1132,7 +1924,7 @@ void _setBatteryHealthConfidence(
         }
         // mark as declining to use hysteresis.
         b->markedDeclining = 1;
-        
+
         // battery health status must be confirmed over a 7-day observation
         // period [7*86400]
         if (canCompareTime && (currentTime - b->lowCapRatioSinceTime <= 604800)) {
@@ -1149,7 +1941,7 @@ void _setBatteryHealthConfidence(
         else {
             // the 7-day observation period is complete, or the timestamps cannot
             // be compared now; set the kIOPSBatteryHealthKey to Fair/Poor/Check
-            
+
             if (cyclesExceedStandard) {
                 if (capRatio >= 0.50) {
                     // Fair = ExceedingCycles && CapRatio >= 50% && CapRatio < 80%
@@ -1193,6 +1985,7 @@ void _setBatteryHealthConfidence(
     }
     return;
 }
+#endif
 
 bool isFullyCharged(IOPMBattery *b)
 {
@@ -1291,11 +2084,6 @@ CFDictionaryRef packageKernelPowerSource(IOPMBattery *b, PSStruct *ps)
         set_capacity = set_charge = 0;
     }
     
-    if (control.noPoll) {
-        // 55% & 5:55 remaining means that battery polling is stopped for performance testing.
-        set_charge = 55;
-    }
-
     // Set maximum capacity
     n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &set_capacity);
     if(n) {
@@ -1314,12 +2102,7 @@ CFDictionaryRef packageKernelPowerSource(IOPMBattery *b, PSStruct *ps)
     CFDictionarySetValue(mDict, CFSTR(kIOPSIsPresentKey),
                 b->isPresent ? kCFBooleanTrue:kCFBooleanFalse);
 
-    if (control.noPoll) {
-        // 55% & 5:55 remaining means that battery polling is stopped for performance testing.
-        minutes = 355;
-    } else {
-        minutes = b->swCalculatedTR;
-    }
+    minutes = b->swCalculatedTR;
 
     temp = 0;
     n0 = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &temp);
@@ -1370,8 +2153,10 @@ CFDictionaryRef packageKernelPowerSource(IOPMBattery *b, PSStruct *ps)
     }
     CFRelease(n0);
 
+#if TARGET_OS_OSX
     // Set health & confidence
-    _setBatteryHealthConfidence(mDict, b);
+    _setBatteryHealthData(mDict, b);
+#endif
 
 
     // Set name
@@ -1405,7 +2190,6 @@ __private_extern__ void readAndPublishACAdapter(bool adapterExists, CFDictionary
     // Make sure we re-read the adapter on wake from sleep
     if (control.readACAdapterAgain) {
         control.readACAdapterAgain = false;
-        
         if (adapterDetails) {
             CFRelease(adapterDetails);
             adapterDetails = NULL;
@@ -1414,10 +2198,7 @@ __private_extern__ void readAndPublishACAdapter(bool adapterExists, CFDictionary
 
     if (adapterExists) {
         if (!newAdapter) {
-            newAdapter = _copyACAdapterInfo(adapterDetails);
-            if (newAdapter == NULL) {
-                goto exit;
-            }
+            goto exit;
         }
         else {
             CFRetain(newAdapter);
@@ -1659,7 +2440,7 @@ kern_return_t _io_ps_new_pspowersource(
     ps->procdeathsrc= dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC,
                                                 callerPID,
                                                 DISPATCH_PROC_EXIT,
-                                                dispatch_get_main_queue());
+                                                _getPMMainQueue());
 
     /* Setup automatic cleanup if client process dies
      */
@@ -1690,7 +2471,7 @@ kern_return_t _io_ps_new_pspowersource(
         }
         bzero(ps, sizeof(PSStruct));
 
-        dispatch_async(dispatch_get_main_queue(), ^()
+        dispatch_async(_getPMMainQueue(), ^()
                        {
                            HandlePublishAllPowerSources();
                        });
@@ -1782,7 +2563,7 @@ kern_return_t _io_ps_update_pspowersource(
                 }
                 next->description = details;
                 updateLogBuffer(next, false);
-                dispatch_async(dispatch_get_main_queue(), ^()
+                dispatch_async(_getPMMainQueue(), ^()
                            {
                                HandlePublishAllPowerSources();
                            });
@@ -1822,8 +2603,15 @@ kern_return_t _io_ps_release_pspowersource(
     return 0;
 }
 
+CFDictionaryRef copyWithBatteryHealthData(audit_token_t token, CFDictionaryRef batteryData)
+{
+    CFRetain(batteryData);
+    return batteryData;
+}
+
 kern_return_t _io_ps_copy_powersources_info(
-    mach_port_t            server __unused,
+    mach_port_t             server __unused,
+    audit_token_t           token,
     int                     type,
     vm_offset_t             *ps_ptr,
     mach_msg_type_number_t  *ps_len,
@@ -1867,8 +2655,15 @@ kern_return_t _io_ps_copy_powersources_info(
         if (!return_value) {
             return_value = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
         }
-        CFArrayAppendValue(return_value,
-                           (const void *)gPSList[i].description);
+        if ((gPSList[i].psType == kPSTypeIntBattery) && gPSList[i].description) {
+            CFDictionaryRef updatedData = copyWithBatteryHealthData(token, gPSList[i].description);
+            CFArrayAppendValue(return_value, updatedData);
+            CFRelease(updatedData);
+        }
+        else {
+            CFArrayAppendValue(return_value, (const void *)gPSList[i].description);
+        }
+
     }
 
     if (!return_value) {
@@ -1895,95 +2690,12 @@ kern_return_t _io_ps_copy_powersources_info(
     return 0;
 }
 
-#if TARGET_OS_IPHONE
-static bool CheckAccessoryLedChange(PSStruct *ps, CFDictionaryRef update)
-{
-        CFArrayRef old_leds = CFDictionaryGetValue(ps->description, CFSTR(kIOPSLEDsKey));
-        CFArrayRef new_leds = CFDictionaryGetValue(update, CFSTR(kIOPSLEDsKey));
-
-        if (!old_leds && !new_leds) {
-            return false;
-        }
-
-        if (!!old_leds ^ !!new_leds) {
-            return true;
-        }
-
-        size_t old_led_cnt = CFArrayGetCount(old_leds);
-        size_t new_led_cnt = CFArrayGetCount(new_leds);
-
-        // no entries
-        if (!old_led_cnt && !new_led_cnt) {
-            return false;
-        }
-
-        // notify if number of LEDs differs
-        if (old_led_cnt != new_led_cnt) {
-            return true;
-        }
-
-        // entries exist -> compare
-        for (size_t i = 0; i < new_led_cnt; i++) {
-            CFDictionaryRef old_led = CFArrayGetValueAtIndex(old_leds, i);
-            CFDictionaryRef new_led = CFArrayGetValueAtIndex(new_leds, i);
-
-            CFTypeRef old_value = CFDictionaryGetValue(old_led, CFSTR(kIOPSLedStateKey));
-            CFTypeRef new_value = CFDictionaryGetValue(new_led, CFSTR(kIOPSLedStateKey));
-            if (!!old_value ^ !!new_value) {
-                return true;
-            }
-            if (old_value && new_value && !CFEqual(old_value, new_value)) {
-                return true;
-            }
-
-            old_value = CFDictionaryGetValue(old_led, CFSTR(kIOPSLedColorKey));
-            new_value = CFDictionaryGetValue(new_led, CFSTR(kIOPSLedColorKey));
-            if (!!old_value ^ !!new_value) {
-                return true;
-            }
-            if (old_value && new_value && !CFEqual(old_value, new_value)) {
-                return true;
-            }
-        }
-
-        return false;
-}
-
-static bool CheckAccessoryAdapterChange(PSStruct *ps, CFDictionaryRef update)
-{
-        CFDictionaryRef old_adapter = CFDictionaryGetValue(ps->description, CFSTR(kIOPMPSAdapterDetailsKey));
-        CFDictionaryRef new_adapter = CFDictionaryGetValue(update, CFSTR(kIOPMPSAdapterDetailsKey));
-
-        if (!old_adapter && !new_adapter) {
-            return false;
-        }
-
-        if (!!old_adapter ^ !!new_adapter) {
-            return true;
-        }
-
-        int old_fc = 0, new_fc = 0;
-        CFDictionaryGetIntValue(old_adapter, CFSTR(kIOPSPowerAdapterFamilyKey), old_fc);
-        CFDictionaryGetIntValue(new_adapter, CFSTR(kIOPSPowerAdapterFamilyKey), new_fc);
-        if (old_fc != new_fc) {
-            return true;
-        }
-
-
-        return false;
-}
-#endif
 
 static IOReturn HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update)
 {
     CFNumberRef     n = NULL;
     int  old_cap = 0, new_cap = 0;
     CFStringRef old_src = NULL, new_src = NULL;
-#if TARGET_OS_IPHONE
-    CFStringRef old_name, new_name;
-    CFStringRef old_pname, new_pname;
-    bool  old_exists, new_exists;
-#endif
 
     /* update dictionary is validated by the caller */
 
@@ -2032,36 +2744,6 @@ static IOReturn HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update
             do_notify_ps = true;
         }
 
-#if TARGET_OS_IPHONE
-        old_name = new_name = NULL;
-        old_exists = CFDictionaryGetValueIfPresent(ps->description, CFSTR(kIOPSNameKey), (const void **)&old_name);
-        new_exists = CFDictionaryGetValueIfPresent(update, CFSTR(kIOPSNameKey), (const void **)&new_name);
-        if ((old_exists != new_exists) ||
-            (isA_CFString(old_name) && isA_CFString(new_name) &&
-            !CFEqual(old_name, new_name))) {
-
-            do_notify_ps = true; // Not the right notification
-        }
-
-        old_pname = new_pname = NULL;
-        old_exists = CFDictionaryGetValueIfPresent(ps->description, CFSTR(kIOPSPartNameKey), (const void **)&old_pname);
-        new_exists = CFDictionaryGetValueIfPresent(update, CFSTR(kIOPSPartNameKey), (const void **)&new_pname);
-        if ((old_exists != new_exists) ||
-            (isA_CFString(old_pname) && isA_CFString(new_pname) &&
-            !CFEqual(old_pname, new_pname))) {
-
-            do_notify_ps = true; // Not the right notification
-        }
-
-        // Notify for AirPod case LED changes (rdar://problem/37842910)
-        if (CheckAccessoryLedChange(ps, update)) {
-            do_notify_ps = true; // Not the right notification
-        }
-
-        if (CheckAccessoryAdapterChange(ps, update)) {
-            do_notify_ps = true;
-        }
-#endif
 
         if (do_notify_ps) {
             notify_post(kIOPSAccNotifyPowerSource);
@@ -2077,8 +2759,8 @@ static IOReturn HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update
     }
     else {
         /* This is a new accessory with power source */
-        notify_post(kIOPSAccNotifyTimeRemaining);
         notify_post(kIOPSAccNotifyAttach);
+        notify_post(kIOPSAccNotifyTimeRemaining);
         INFO_LOG("Posted notifications for new power source id %ld\n", ps->psid);
     }
 
@@ -2224,6 +2906,5 @@ exit:
     return KERN_SUCCESS;
 
 }
-
 
 

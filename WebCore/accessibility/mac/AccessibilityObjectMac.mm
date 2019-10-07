@@ -30,7 +30,7 @@
 #import "RenderObject.h"
 #import "Settings.h"
 
-#if HAVE(ACCESSIBILITY) && PLATFORM(MAC)
+#if ENABLE(ACCESSIBILITY) && PLATFORM(MAC)
 
 #import "WebAccessibilityObjectWrapperMac.h"
 #import "Widget.h"
@@ -59,7 +59,13 @@ void AccessibilityObject::overrideAttachmentParent(AccessibilityObject* parent)
     [[wrapper() attachmentView] accessibilitySetOverrideValue:parentWrapper forAttribute:NSAccessibilityParentAttribute];
     ALLOW_DEPRECATED_DECLARATIONS_END
 }
-    
+
+// On iOS, we don't have to return the value in the title. We can return the actual title, given the API.
+bool AccessibilityObject::fileUploadButtonReturnsValueInTitle() const
+{
+    return true;
+}
+
 bool AccessibilityObject::accessibilityIgnoreAttachment() const
 {
     // FrameView attachments are now handled by AccessibilityScrollView, 
@@ -124,4 +130,4 @@ void AccessibilityObject::setCaretBrowsingEnabled(bool on)
 
 } // WebCore
 
-#endif // HAVE(ACCESSIBILITY) && PLATFORM(MAC)
+#endif // ENABLE(ACCESSIBILITY) && PLATFORM(MAC)

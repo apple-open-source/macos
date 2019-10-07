@@ -166,6 +166,9 @@ extern CFStringRef kSecRequirementKeyEntitlements;
 extern CFStringRef kSecRequirementKeyIdentifier;
 extern CFStringRef kSecRequirementKeyPackageChecksum;
 extern CFStringRef kSecRequirementKeyChecksumAlgorithm;
+extern CFStringRef kSecRequirementKeySecureTimestamp;
+extern CFStringRef kSecRequirementKeyTeamIdentifier;
+
 /*!
 	@function SecRequirementEvaluate
 	Explicitly evaluate a SecRequirementRef against context provided in the call.

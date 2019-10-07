@@ -32,13 +32,13 @@
 #include <TargetConditionals.h>
 
 #if USE_KEYSTORE
-#include <libaks.h>
+#include "OSX/utilities/SecAKSWrappers.h"
 
 #include "SecdTestKeychainUtilities.h"
 
 int secd_36_ks_encrypt(int argc, char *const *argv)
 {
-    plan_tests(8);
+    plan_tests(9);
 
     secd_test_setup_temp_keychain("secd_36_ks_encrypt", NULL);
 
@@ -55,8 +55,8 @@ int secd_36_ks_encrypt(int argc, char *const *argv)
 
 
     /* Create and lock custom keybag */
-    is(kIOReturnSuccess, aks_create_bag(passcode, passcode_len, kAppleKeyStoreDeviceBag, &keybag), "create keybag");
-    is(kIOReturnSuccess, aks_get_lock_state(keybag, &state), "get keybag state");
+    is(kAKSReturnSuccess, aks_create_bag(passcode, passcode_len, kAppleKeyStoreDeviceBag, &keybag), "create keybag");
+    is(kAKSReturnSuccess, aks_get_lock_state(keybag, &state), "get keybag state");
     is(0, (int)(state&keybag_state_locked), "keybag unlocked");
 
     data = (__bridge CFDictionaryRef)@{

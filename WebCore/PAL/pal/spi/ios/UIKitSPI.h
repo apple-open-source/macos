@@ -23,6 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if PLATFORM(IOS_FAMILY)
+
 WTF_EXTERN_C_BEGIN
 typedef struct __GSKeyboard* GSKeyboardRef;
 WTF_EXTERN_C_END
@@ -30,10 +32,12 @@ WTF_EXTERN_C_END
 #if USE(APPLE_INTERNAL_SDK)
 
 #import <UIKit/NSParagraphStyle_Private.h>
+#import <UIKit/NSTextAttachment_Private.h>
 #import <UIKit/NSTextList.h>
 #import <UIKit/UIApplicationSceneConstants.h>
 #import <UIKit/UIApplication_Private.h>
 #import <UIKit/UIColor_Private.h>
+#import <UIKit/UIFont_Private.h>
 #import <UIKit/UIInterface_Private.h>
 #import <UIKit/UIScreen_Private.h>
 #import <UIKit/UIViewController_Private.h>
@@ -47,9 +51,14 @@ WTF_EXTERN_C_END
 @interface UIApplication ()
 + (UIApplicationSceneClassicMode)_classicMode;
 - (GSKeyboardRef)_hardwareKeyboard;
+- (CGFloat)_iOSMacScale;
 @end
 
-#else
+#if __has_include(<UIKit/UIFocusRingStyle.h>)
+#import <UIKit/UIFocusRingStyle.h>
+#endif
+
+#else // USE(APPLE_INTERNAL_SDK)
 
 #import <UIKit/UIKit.h>
 
@@ -57,11 +66,18 @@ WTF_EXTERN_C_END
 #import <UIKit/NSItemProvider+UIKitAdditions.h>
 #endif
 
-NS_ASSUME_NONNULL_BEGIN
-
 typedef NS_ENUM(NSInteger, UIApplicationSceneClassicMode) {
     UIApplicationSceneClassicModeOriginalPad = 4,
 };
+
+typedef enum {
+    UIFontTraitPlain       = 0x00000000,
+    UIFontTraitItalic      = 0x00000001, // 1 << 0
+    UIFontTraitBold        = 0x00000002, // 1 << 1
+    UIFontTraitThin        = (1 << 2),
+    UIFontTraitLight       = (1 << 3),
+    UIFontTraitUltraLight  = (1 << 4)
+} UIFontTrait;
 
 @interface NSParagraphStyle ()
 - (NSArray *)textLists;
@@ -71,10 +87,15 @@ typedef NS_ENUM(NSInteger, UIApplicationSceneClassicMode) {
 - (void)setTextLists:(NSArray *)textLists;
 @end
 
+@interface NSTextAttachment ()
+- (id)initWithFileWrapper:(NSFileWrapper *)fileWrapper;
+@end
+
 @interface NSTextList : NSObject
 - (instancetype)initWithMarkerFormat:(NSString *)format options:(NSUInteger)mask;
 @property (readonly, copy) NSString *markerFormat;
 @property NSInteger startingItemNumber;
+- (NSString *)markerForItemNumber:(NSInteger)itemNum;
 @end
 
 @interface UIApplication ()
@@ -86,14 +107,25 @@ typedef NS_ENUM(NSInteger, UIApplicationSceneClassicMode) {
 @interface UIColor ()
 
 + (UIColor *)systemBlueColor;
++ (UIColor *)systemBrownColor;
 + (UIColor *)systemGrayColor;
 + (UIColor *)systemGreenColor;
 + (UIColor *)systemOrangeColor;
 + (UIColor *)systemPinkColor;
++ (UIColor *)systemPurpleColor;
 + (UIColor *)systemRedColor;
 + (UIColor *)systemYellowColor;
++ (UIColor *)systemTealColor;
 
 + (UIColor *)_disambiguated_due_to_CIImage_colorWithCGColor:(CGColorRef)cgColor;
+
+- (CGFloat)alphaComponent;
+
+@end
+
+@interface UIFont ()
+
++ (UIFont *)fontWithFamilyName:(NSString *)familyName traits:(UIFontTrait)traits size:(CGFloat)fontSize;
 
 @end
 
@@ -107,12 +139,30 @@ typedef NS_ENUM(NSInteger, UIApplicationSceneClassicMode) {
 + (UIViewController *)viewControllerForView:(UIView *)view;
 @end
 
-NS_ASSUME_NONNULL_END
-
 #if __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000
 @interface NSURL ()
-@property (nonatomic, copy, nullable, setter=_setTitle:) NSString *_title;
+@property (nonatomic, copy, setter=_setTitle:) NSString *_title;
 @end
 #endif
 
+#endif // USE(APPLE_INTERNAL_SDK)
+
+#if ENABLE(FULL_KEYBOARD_ACCESS)
+@interface UIColor (IPI)
++ (UIColor *)keyboardFocusIndicatorColor;
+@end
+
+@interface UIFocusRingStyle (Staging_47831886)
++ (CGFloat)cornerRadius;
++ (CGFloat)maxAlpha;
++ (CGFloat)alphaThreshold;
+@end
 #endif
+
+#if HAVE(OS_DARK_MODE_SUPPORT)
+@interface UIColor (UIColorInternal)
++ (UIColor *)tableCellDefaultSelectionTintColor;
+@end
+#endif
+
+#endif // PLATFORM(IOS_FAMILY)

@@ -1,14 +1,11 @@
 /*
  * Administration CGI for CUPS.
  *
- * Copyright 2007-2018 by Apple Inc.
- * Copyright 1997-2007 by Easy Software Products.
+ * Copyright © 2007-2019 by Apple Inc.
+ * Copyright © 1997-2007 by Easy Software Products.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 /*
@@ -39,14 +36,11 @@ static int	current_device = 0;	/* Current device shown */
  */
 
 static void	choose_device_cb(const char *device_class, const char *device_id, const char *device_info, const char *device_make_and_model, const char *device_uri, const char *device_location, const char *title);
-static void	do_add_rss_subscription(http_t *http);
 static void	do_am_class(http_t *http, int modify);
 static void	do_am_printer(http_t *http, int modify);
-static void	do_cancel_subscription(http_t *http);
 static void	do_config_server(http_t *http);
 static void	do_delete_class(http_t *http);
 static void	do_delete_printer(http_t *http);
-static void	do_export(http_t *http);
 static void	do_list_printers(http_t *http);
 static void	do_menu(http_t *http);
 static void	do_set_allowed_users(http_t *http);
@@ -169,12 +163,6 @@ main(void)
       do_set_options(http, 0);
     else if (!strcmp(op, "config-server"))
       do_config_server(http);
-    else if (!strcmp(op, "export-samba"))
-      do_export(http);
-    else if (!strcmp(op, "add-rss-subscription"))
-      do_add_rss_subscription(http);
-    else if (!strcmp(op, "cancel-subscription"))
-      do_cancel_subscription(http);
     else
     {
      /*
@@ -315,202 +303,6 @@ choose_device_cb(
   cgiSetArray("device_location", current_device, device_location);
 
   current_device ++;
-}
-
-
-/*
- * 'do_add_rss_subscription()' - Add a RSS subscription.
- */
-
-static void
-do_add_rss_subscription(http_t *http)	/* I - HTTP connection */
-{
-  ipp_t		*request,		/* IPP request data */
-		*response;		/* IPP response data */
-  char		rss_uri[1024];		/* RSS notify-recipient URI */
-  int		num_events;		/* Number of events */
-  const char	*events[12],		/* Subscribed events */
-		*subscription_name,	/* Subscription name */
-		*printer_uri,		/* Printer URI */
-		*ptr,			/* Pointer into name */
-		*user;			/* Username */
-  int		max_events;		/* Maximum number of events */
-
-
- /*
-  * See if we have all of the required information...
-  */
-
-  subscription_name = cgiGetVariable("SUBSCRIPTION_NAME");
-  printer_uri       = cgiGetVariable("PRINTER_URI");
-  num_events        = 0;
-
-  if (cgiGetVariable("EVENT_JOB_CREATED"))
-    events[num_events ++] = "job-created";
-  if (cgiGetVariable("EVENT_JOB_COMPLETED"))
-    events[num_events ++] = "job-completed";
-  if (cgiGetVariable("EVENT_JOB_STOPPED"))
-    events[num_events ++] = "job-stopped";
-  if (cgiGetVariable("EVENT_JOB_CONFIG_CHANGED"))
-    events[num_events ++] = "job-config-changed";
-  if (cgiGetVariable("EVENT_PRINTER_STOPPED"))
-    events[num_events ++] = "printer-stopped";
-  if (cgiGetVariable("EVENT_PRINTER_ADDED"))
-    events[num_events ++] = "printer-added";
-  if (cgiGetVariable("EVENT_PRINTER_MODIFIED"))
-    events[num_events ++] = "printer-modified";
-  if (cgiGetVariable("EVENT_PRINTER_DELETED"))
-    events[num_events ++] = "printer-deleted";
-  if (cgiGetVariable("EVENT_SERVER_STARTED"))
-    events[num_events ++] = "server-started";
-  if (cgiGetVariable("EVENT_SERVER_STOPPED"))
-    events[num_events ++] = "server-stopped";
-  if (cgiGetVariable("EVENT_SERVER_RESTARTED"))
-    events[num_events ++] = "server-restarted";
-  if (cgiGetVariable("EVENT_SERVER_AUDIT"))
-    events[num_events ++] = "server-audit";
-
-  if ((ptr = cgiGetVariable("MAX_EVENTS")) != NULL)
-    max_events = atoi(ptr);
-  else
-    max_events = 0;
-
-  if (!subscription_name || !printer_uri || !num_events ||
-      max_events <= 0 || max_events > 9999)
-  {
-   /*
-    * Don't have everything we need, so get the available printers
-    * and classes and (re)show the add page...
-    */
-
-    if (cgiGetVariable("EVENT_JOB_CREATED"))
-      cgiSetVariable("EVENT_JOB_CREATED", "CHECKED");
-    if (cgiGetVariable("EVENT_JOB_COMPLETED"))
-      cgiSetVariable("EVENT_JOB_COMPLETED", "CHECKED");
-    if (cgiGetVariable("EVENT_JOB_STOPPED"))
-      cgiSetVariable("EVENT_JOB_STOPPED", "CHECKED");
-    if (cgiGetVariable("EVENT_JOB_CONFIG_CHANGED"))
-      cgiSetVariable("EVENT_JOB_CONFIG_CHANGED", "CHECKED");
-    if (cgiGetVariable("EVENT_PRINTER_STOPPED"))
-      cgiSetVariable("EVENT_PRINTER_STOPPED", "CHECKED");
-    if (cgiGetVariable("EVENT_PRINTER_ADDED"))
-      cgiSetVariable("EVENT_PRINTER_ADDED", "CHECKED");
-    if (cgiGetVariable("EVENT_PRINTER_MODIFIED"))
-      cgiSetVariable("EVENT_PRINTER_MODIFIED", "CHECKED");
-    if (cgiGetVariable("EVENT_PRINTER_DELETED"))
-      cgiSetVariable("EVENT_PRINTER_DELETED", "CHECKED");
-    if (cgiGetVariable("EVENT_SERVER_STARTED"))
-      cgiSetVariable("EVENT_SERVER_STARTED", "CHECKED");
-    if (cgiGetVariable("EVENT_SERVER_STOPPED"))
-      cgiSetVariable("EVENT_SERVER_STOPPED", "CHECKED");
-    if (cgiGetVariable("EVENT_SERVER_RESTARTED"))
-      cgiSetVariable("EVENT_SERVER_RESTARTED", "CHECKED");
-    if (cgiGetVariable("EVENT_SERVER_AUDIT"))
-      cgiSetVariable("EVENT_SERVER_AUDIT", "CHECKED");
-
-    request  = ippNewRequest(CUPS_GET_PRINTERS);
-    response = cupsDoRequest(http, request, "/");
-
-    cgiSetIPPVars(response, NULL, NULL, NULL, 0);
-
-    ippDelete(response);
-
-    cgiStartHTML(cgiText(_("Add RSS Subscription")));
-
-    cgiCopyTemplateLang("add-rss-subscription.tmpl");
-
-    cgiEndHTML();
-    return;
-  }
-
- /*
-  * Make sure we have a username...
-  */
-
-  if ((user = getenv("REMOTE_USER")) == NULL)
-  {
-    puts("Status: 401\n");
-    exit(0);
-  }
-
- /*
-  * Validate the subscription name...
-  */
-
-  for (ptr = subscription_name; *ptr; ptr ++)
-    if ((*ptr >= 0 && *ptr <= ' ') || *ptr == 127 || *ptr == '/' ||
-        *ptr == '?' || *ptr == '#')
-      break;
-
-  if (*ptr)
-  {
-    cgiSetVariable("ERROR",
-                   cgiText(_("The subscription name may not "
-			     "contain spaces, slashes (/), question marks (?), "
-			     "or the pound sign (#).")));
-    cgiStartHTML(_("Add RSS Subscription"));
-    cgiCopyTemplateLang("error.tmpl");
-    cgiEndHTML();
-    return;
-  }
-
- /*
-  * Add the subscription...
-  */
-
-  ptr = subscription_name + strlen(subscription_name) - 4;
-  if (ptr < subscription_name || strcmp(ptr, ".rss"))
-    httpAssembleURIf(HTTP_URI_CODING_ALL, rss_uri, sizeof(rss_uri), "rss",
-                     NULL, NULL, 0, "/%s.rss?max_events=%d", subscription_name,
-		     max_events);
-  else
-    httpAssembleURIf(HTTP_URI_CODING_ALL, rss_uri, sizeof(rss_uri), "rss",
-                     NULL, NULL, 0, "/%s?max_events=%d", subscription_name,
-		     max_events);
-
-  request = ippNewRequest(IPP_CREATE_PRINTER_SUBSCRIPTION);
-
-  if (!_cups_strcasecmp(printer_uri, "#ALL#"))
-    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
-                 NULL, "ipp://localhost/");
-  else
-    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
-                 NULL, printer_uri);
-
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "requesting-user-name",
-               NULL, user);
-
-  ippAddString(request, IPP_TAG_SUBSCRIPTION, IPP_TAG_URI,
-               "notify-recipient-uri", NULL, rss_uri);
-  ippAddStrings(request, IPP_TAG_SUBSCRIPTION, IPP_TAG_KEYWORD, "notify-events",
-                num_events, NULL, events);
-  ippAddInteger(request, IPP_TAG_SUBSCRIPTION, IPP_TAG_INTEGER,
-                "notify-lease-duration", 0);
-
-  ippDelete(cupsDoRequest(http, request, "/"));
-
-  if (cupsLastError() == IPP_NOT_AUTHORIZED)
-  {
-    puts("Status: 401\n");
-    exit(0);
-  }
-  else if (cupsLastError() > IPP_OK_CONFLICT)
-  {
-    cgiStartHTML(_("Add RSS Subscription"));
-    cgiShowIPPError(_("Unable to add RSS subscription"));
-  }
-  else
-  {
-   /*
-    * Redirect successful updates back to the admin page...
-    */
-
-    cgiSetVariable("refresh_page", "5;URL=/admin");
-    cgiStartHTML(_("Add RSS Subscription"));
-    cgiCopyTemplateLang("subscription-added.tmpl");
-  }
-
-  cgiEndHTML();
 }
 
 
@@ -767,7 +559,7 @@ do_am_class(http_t *http,		/* I - HTTP connection */
     attr = ippAddStrings(request, IPP_TAG_PRINTER, IPP_TAG_URI, "member-uris",
                          num_printers, NULL, NULL);
     for (i = 0; i < num_printers; i ++)
-      attr->values[i].string.text = _cupsStrAlloc(cgiGetArray("MEMBER_URIS", i));
+      ippSetString(request, &attr, i, cgiGetArray("MEMBER_URIS", i));
   }
 
  /*
@@ -897,16 +689,13 @@ do_am_printer(http_t *http,		/* I - HTTP connection */
   if ((name = cgiGetVariable("PRINTER_NAME")) != NULL)
   {
     for (ptr = name; *ptr; ptr ++)
-      if ((*ptr >= 0 && *ptr <= ' ') || *ptr == 127 || *ptr == '/' || *ptr == '#')
+      if ((*ptr >= 0 && *ptr <= ' ') || *ptr == 127 || *ptr == '/' || *ptr == '\\' || *ptr == '?' || *ptr == '\'' || *ptr == '\"' || *ptr == '#')
 	break;
 
     if (*ptr || ptr == name || strlen(name) > 127)
     {
       cgiSetVariable("ERROR",
-		     cgiText(_("The printer name may only contain up to "
-			       "127 printable characters and may not "
-			       "contain spaces, slashes (/), or the "
-			       "pound sign (#).")));
+		     cgiText(_("The printer name may only contain up to 127 printable characters and may not contain spaces, slashes (/ \\), quotes (' \"), question mark (?), or the pound sign (#).")));
       cgiStartHTML(title);
       cgiCopyTemplateLang("error.tmpl");
       cgiEndHTML();
@@ -1439,88 +1228,6 @@ do_am_printer(http_t *http,		/* I - HTTP connection */
 
   if (oldinfo)
     ippDelete(oldinfo);
-}
-
-
-/*
- * 'do_cancel_subscription()' - Cancel a subscription.
- */
-
-static void
-do_cancel_subscription(http_t *http)/* I - HTTP connection */
-{
-  ipp_t		*request;		/* IPP request data */
-  const char	*var,			/* Form variable */
-		*user;			/* Username */
-  int		id;			/* Subscription ID */
-
-
- /*
-  * See if we have all of the required information...
-  */
-
-  if ((var = cgiGetVariable("NOTIFY_SUBSCRIPTION_ID")) != NULL)
-    id = atoi(var);
-  else
-    id = 0;
-
-  if (id <= 0)
-  {
-    cgiSetVariable("ERROR", cgiText(_("Bad subscription ID")));
-    cgiStartHTML(_("Cancel RSS Subscription"));
-    cgiCopyTemplateLang("error.tmpl");
-    cgiEndHTML();
-    return;
-  }
-
- /*
-  * Require a username...
-  */
-
-  if ((user = getenv("REMOTE_USER")) == NULL)
-  {
-    puts("Status: 401\n");
-    exit(0);
-  }
-
- /*
-  * Cancel the subscription...
-  */
-
-  request = ippNewRequest(IPP_CANCEL_SUBSCRIPTION);
-
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
-               NULL, "ipp://localhost/");
-  ippAddInteger(request, IPP_TAG_OPERATION, IPP_TAG_INTEGER,
-                "notify-subscription-id", id);
-
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "requesting-user-name",
-               NULL, user);
-
-  ippDelete(cupsDoRequest(http, request, "/"));
-
-  if (cupsLastError() == IPP_NOT_AUTHORIZED)
-  {
-    puts("Status: 401\n");
-    exit(0);
-  }
-  else if (cupsLastError() > IPP_OK_CONFLICT)
-  {
-    cgiStartHTML(_("Cancel RSS Subscription"));
-    cgiShowIPPError(_("Unable to cancel RSS subscription"));
-  }
-  else
-  {
-   /*
-    * Redirect successful updates back to the admin page...
-    */
-
-    cgiSetVariable("refresh_page", "5;URL=/admin");
-    cgiStartHTML(_("Cancel RSS Subscription"));
-    cgiCopyTemplateLang("subscription-canceled.tmpl");
-  }
-
-  cgiEndHTML();
 }
 
 
@@ -2229,141 +1936,6 @@ do_delete_printer(http_t *http)		/* I - HTTP connection */
 
 
 /*
- * 'do_export()' - Export printers to Samba.
- */
-
-static void
-do_export(http_t *http)			/* I - HTTP connection */
-{
-  int		i, j;			/* Looping vars */
-  ipp_t		*request,		/* IPP request */
-		*response;		/* IPP response */
-  const char	*username,		/* Samba username */
-		*password,		/* Samba password */
-		*export_all;		/* Export all printers? */
-  int		export_count,		/* Number of printers to export */
-		printer_count;		/* Number of available printers */
-  const char	*name,			/* What name to pull */
-		*dest;			/* Current destination */
-  char		ppd[1024];		/* PPD file */
-
-
- /*
-  * Get form data...
-  */
-
-  username     = cgiGetVariable("USERNAME");
-  password     = cgiGetVariable("PASSWORD");
-  export_all   = cgiGetVariable("EXPORT_ALL");
-  export_count = cgiGetSize("EXPORT_NAME");
-
- /*
-  * Get list of available printers...
-  */
-
-  cgiSetSize("PRINTER_NAME", 0);
-  cgiSetSize("PRINTER_EXPORT", 0);
-
-  request = ippNewRequest(CUPS_GET_PRINTERS);
-
-  ippAddInteger(request, IPP_TAG_OPERATION, IPP_TAG_ENUM,
-                "printer-type", 0);
-
-  ippAddInteger(request, IPP_TAG_OPERATION, IPP_TAG_ENUM,
-                "printer-type-mask", CUPS_PRINTER_CLASS | CUPS_PRINTER_REMOTE);
-
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
-               "requested-attributes", NULL, "printer-name");
-
-  if ((response = cupsDoRequest(http, request, "/")) != NULL)
-  {
-    cgiSetIPPVars(response, NULL, NULL, NULL, 0);
-    ippDelete(response);
-
-    if (!export_all)
-    {
-      printer_count = cgiGetSize("PRINTER_NAME");
-
-      for (i = 0; i < printer_count; i ++)
-      {
-        dest = cgiGetArray("PRINTER_NAME", i);
-
-        for (j = 0; j < export_count; j ++)
-	  if (!_cups_strcasecmp(dest, cgiGetArray("EXPORT_NAME", j)))
-            break;
-
-        cgiSetArray("PRINTER_EXPORT", i, j < export_count ? "Y" : "");
-      }
-    }
-  }
-
- /*
-  * Export or get the printers to export...
-  */
-
-  if (username && *username && password && *password &&
-      (export_all || export_count > 0))
-  {
-   /*
-    * Do export...
-    */
-
-    fputs("DEBUG: Export printers...\n", stderr);
-
-    if (export_all)
-    {
-      name         = "PRINTER_NAME";
-      export_count = cgiGetSize("PRINTER_NAME");
-    }
-    else
-      name = "EXPORT_NAME";
-
-    for (i = 0; i < export_count; i ++)
-    {
-      dest = cgiGetArray(name, i);
-
-      if (!cupsAdminCreateWindowsPPD(http, dest, ppd, sizeof(ppd)))
-        break;
-
-      j = cupsAdminExportSamba(dest, ppd, "localhost", username, password,
-                               stderr);
-
-      unlink(ppd);
-
-      if (!j)
-        break;
-    }
-
-    if (i < export_count)
-      cgiSetVariable("ERROR", cupsLastErrorString());
-    else
-    {
-      cgiStartHTML(cgiText(_("Export Printers to Samba")));
-      cgiCopyTemplateLang("samba-exported.tmpl");
-      cgiEndHTML();
-      return;
-    }
-  }
-  else if (username && !*username)
-    cgiSetVariable("ERROR",
-                   cgiText(_("A Samba username is required to export "
-		             "printer drivers")));
-  else if (username && (!password || !*password))
-    cgiSetVariable("ERROR",
-                   cgiText(_("A Samba password is required to export "
-		             "printer drivers")));
-
- /*
-  * Show form...
-  */
-
-  cgiStartHTML(cgiText(_("Export Printers to Samba")));
-  cgiCopyTemplateLang("samba-export.tmpl");
-  cgiEndHTML();
-}
-
-
-/*
  * 'do_list_printers()' - List available printers.
  */
 
@@ -2413,7 +1985,7 @@ do_list_printers(http_t *http)		/* I - HTTP connection */
          attr;
 	 attr = ippFindNextAttribute(response, "device-uri", IPP_TAG_URI))
     {
-      cupsArrayAdd(printer_devices, _cupsStrAlloc(attr->values[0].string.text));
+      cupsArrayAdd(printer_devices, strdup(attr->values[0].string.text));
     }
 
    /*
@@ -2551,7 +2123,7 @@ do_list_printers(http_t *http)		/* I - HTTP connection */
       for (printer_device = (char *)cupsArrayFirst(printer_devices);
            printer_device;
 	   printer_device = (char *)cupsArrayNext(printer_devices))
-        _cupsStrFree(printer_device);
+        free(printer_device);
 
       cupsArrayDelete(printer_devices);
     }
@@ -2577,10 +2149,6 @@ do_menu(http_t *http)			/* I - HTTP connection */
   int		num_settings;		/* Number of server settings */
   cups_option_t	*settings;		/* Server settings */
   const char	*val;			/* Setting value */
-  char		filename[1024];		/* Temporary filename */
-  const char	*datadir;		/* Location of data files */
-  ipp_t		*request,		/* IPP request */
-		*response;		/* IPP response */
 
 
  /*
@@ -2673,55 +2241,6 @@ do_menu(http_t *http)			/* I - HTTP connection */
   cgiSetVariable("MAX_LOG_SIZE", val);
 
   cupsFreeOptions(num_settings, settings);
-
- /*
-  * See if Samba and the Windows drivers are installed...
-  */
-
-  if ((datadir = getenv("CUPS_DATADIR")) == NULL)
-    datadir = CUPS_DATADIR;
-
-  snprintf(filename, sizeof(filename), "%s/drivers/pscript5.dll", datadir);
-  if (!access(filename, R_OK))
-  {
-   /*
-    * Found Windows 2000 driver file, see if we have smbclient and
-    * rpcclient...
-    */
-
-    if (cupsFileFind("smbclient", getenv("PATH"), 1, filename,
-                     sizeof(filename)) &&
-        cupsFileFind("rpcclient", getenv("PATH"), 1, filename,
-	             sizeof(filename)))
-      cgiSetVariable("HAVE_SAMBA", "Y");
-    else
-    {
-      if (!cupsFileFind("smbclient", getenv("PATH"), 1, filename,
-                        sizeof(filename)))
-        fputs("ERROR: smbclient not found!\n", stderr);
-
-      if (!cupsFileFind("rpcclient", getenv("PATH"), 1, filename,
-                        sizeof(filename)))
-        fputs("ERROR: rpcclient not found!\n", stderr);
-    }
-  }
-  else
-    perror(filename);
-
- /*
-  * Subscriptions...
-  */
-
-  request = ippNewRequest(IPP_GET_SUBSCRIPTIONS);
-
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
-               NULL, "ipp://localhost/");
-
-  if ((response = cupsDoRequest(http, request, "/")) != NULL)
-  {
-    cgiSetIPPVars(response, NULL, NULL, NULL, 0);
-    ippDelete(response);
-  }
 
  /*
   * Finally, show the main menu template...
@@ -2948,7 +2467,7 @@ do_set_allowed_users(http_t *http)	/* I - HTTP connection */
         * Add the name...
 	*/
 
-        attr->values[i].string.text = _cupsStrAlloc(ptr);
+        ippSetString(request, &attr, i, ptr);
 
        /*
         * Advance to the next name...
@@ -3757,8 +3276,8 @@ do_set_options(http_t *http,		/* I - HTTP connection */
 
     attr = ippAddStrings(request, IPP_TAG_PRINTER, IPP_TAG_NAME,
                          "job-sheets-default", 2, NULL, NULL);
-    attr->values[0].string.text = _cupsStrAlloc(cgiGetVariable("job_sheets_start"));
-    attr->values[1].string.text = _cupsStrAlloc(cgiGetVariable("job_sheets_end"));
+    ippSetString(request, &attr, 0, cgiGetVariable("job_sheets_start"));
+    ippSetString(request, &attr, 1, cgiGetVariable("job_sheets_end"));
 
     if ((var = cgiGetVariable("printer_error_policy")) != NULL)
       ippAddString(request, IPP_TAG_PRINTER, IPP_TAG_NAME,
@@ -4220,6 +3739,11 @@ get_printer_ppd(const char *uri,	/* I - Printer URI */
 		host[256],		/* Hostname */
 		resource[256];		/* Resource path */
   int		port;			/* Port number */
+  static const char * const pattrs[] =	/* Printer attributes we need */
+  {
+    "all",
+    "media-col-database"
+  };
 
 
  /*
@@ -4260,6 +3784,7 @@ get_printer_ppd(const char *uri,	/* I - Printer URI */
 
   request = ippNewRequest(IPP_OP_GET_PRINTER_ATTRIBUTES);
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL, uri);
+  ippAddStrings(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD, "requested-attributes",  (int)(sizeof(pattrs) / sizeof(pattrs[0])), NULL, pattrs);
   response = cupsDoRequest(http, request, resource);
 
   if (!_ppdCreateFromIPP(buffer, bufsize, response))

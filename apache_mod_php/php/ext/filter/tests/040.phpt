@@ -24,7 +24,7 @@ var_dump(filter_has_var("", "cc"));
 
 echo "Done\n";
 ?>
---EXPECTF--	
+--EXPECTF--
 Warning: filter_has_var() expects exactly 2 parameters, 0 given in %s on line %d
 bool(false)
 bool(false)
@@ -40,6 +40,6 @@ bool(false)
 bool(false)
 bool(false)
 
-Warning: filter_has_var() expects parameter 1 to be integer, string given in %s on line %d
+Warning: filter_has_var() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 Done

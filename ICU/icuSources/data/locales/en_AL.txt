@@ -13,7 +13,27 @@ en_AL{
                 accountingFormat{"#,##0.00 ¤;(#,##0.00 ¤)"}
             }
             symbols{
+                decimal{","}
                 group{" "}
+            }
+        }
+    }
+    calendar{
+        gregorian{
+            DateTimePatterns{
+                "h:mm:ss a, zzzz",
+                "h:mm:ss a, z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, d MMMM y",
+                "d MMMM y",
+                "d MMM y",
+                "d.M.yy",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
             }
         }
     }

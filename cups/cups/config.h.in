@@ -1,14 +1,11 @@
 /*
  * Configuration file for CUPS.
  *
- * Copyright 2007-2017 by Apple Inc.
+ * Copyright 2007-2019 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 #ifndef _CUPS_CONFIG_H_
@@ -20,6 +17,7 @@
 
 #define CUPS_SVERSION	""
 #define CUPS_MINIMAL	""
+#define CUPS_LITE	0
 
 
 /*
@@ -322,21 +320,9 @@
  */
 
 #undef HAVE_AUTHORIZATION_H
-#undef HAVE_SECBASEPRIV_H
 #undef HAVE_SECCERTIFICATE_H
-#undef HAVE_SECIDENTITYSEARCHPRIV_H
 #undef HAVE_SECITEM_H
-#undef HAVE_SECITEMPRIV_H
 #undef HAVE_SECPOLICY_H
-#undef HAVE_SECPOLICYPRIV_H
-#undef HAVE_SECURETRANSPORTPRIV_H
-
-
-/*
- * Do we have the cssmErrorString function?
- */
-
-#undef HAVE_CSSMERRORSTRING
 
 
 /*
@@ -344,20 +330,6 @@
  */
 
 #undef HAVE_SECGENERATESELFSIGNEDCERTIFICATE
-
-
-/*
- * Do we have the SecKeychainOpen function?
- */
-
-#undef HAVE_SECKEYCHAINOPEN
-
-
-/*
- * Do we have (a working) SSLSetEnabledCiphers function?
- */
-
-#undef HAVE_SSLSETENABLEDCIPHERS
 
 
 /*
@@ -502,26 +474,10 @@
 
 
 /*
- * Various scripting languages...
- */
-
-#undef HAVE_JAVA
-#define CUPS_JAVA	"/usr/bin/java"
-#undef HAVE_PERL
-#define CUPS_PERL	"/usr/bin/perl"
-#undef HAVE_PHP
-#define CUPS_PHP	"/usr/bin/php"
-#undef HAVE_PYTHON
-#define CUPS_PYTHON	"/usr/bin/python"
-
-
-/*
- * Do we have CoreFoundation public and private headers?
+ * Do we have CoreFoundation public headers?
  */
 
 #undef HAVE_COREFOUNDATION_H
-#undef HAVE_CFPRIV_H
-#undef HAVE_CFBUNDLEPRIV_H
 
 
 /*
@@ -550,7 +506,6 @@
  */
 
 #undef HAVE_MEMBERSHIP_H
-#undef HAVE_MEMBERSHIPPRIV_H
 #undef HAVE_MBR_UID_TO_UUID
 
 
@@ -703,14 +658,6 @@
  */
 
 #undef HAVE_XPC
-#undef HAVE_XPC_PRIVATE_H
-
-
-/*
- * Do we have Mini-XML?
- */
-
-#undef HAVE_MXML_H
 
 
 /*

@@ -42,6 +42,8 @@ struct InteractionInformationRequest {
     bool includeSnapshot { false };
     bool includeLinkIndicator { false };
 
+    bool linkIndicatorShouldHaveLegacyMargins { false };
+
     InteractionInformationRequest() { }
     explicit InteractionInformationRequest(WebCore::IntPoint point)
     {

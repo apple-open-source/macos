@@ -24,15 +24,15 @@
 
 // Test syncing between SecItemDataSource and SOSTestDataSource
 
-#include <SOSCircle/Regressions/SOSTestDevice.h>
-#include <SOSCircle/Regressions/SOSTestDataSource.h>
+#include "keychain/SecureObjectSync/Regressions/SOSTestDevice.h"
+#include "keychain/SecureObjectSync/Regressions/SOSTestDataSource.h"
 #include "secd_regressions.h"
 #include "SecdTestKeychainUtilities.h"
 
-#include <Security/SecureObjectSync/SOSDigestVector.h>
-#include <Security/SecureObjectSync/SOSEngine.h>
-#include <Security/SecureObjectSync/SOSPeer.h>
-#include <Security/SecureObjectSync/SOSChangeTracker.h>
+#include "keychain/SecureObjectSync/SOSDigestVector.h"
+#include "keychain/SecureObjectSync/SOSEngine.h"
+#include "keychain/SecureObjectSync/SOSPeer.h"
+#import "keychain/SecureObjectSync/SOSChangeTracker.h"
 #include <Security/SecBase64.h>
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>

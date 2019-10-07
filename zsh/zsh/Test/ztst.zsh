@@ -315,26 +315,44 @@ ZTST_diff() {
       
   if (( diff_pat )); then
     local -a diff_lines1 diff_lines2
-    integer failed i
+    integer failed i l
+    local p
 
-    diff_lines1=("${(f)$(<$argv[-2])}")
-    diff_lines2=("${(f)$(<$argv[-1])}")
+    diff_lines1=("${(f@)$(<$argv[-2])}")
+    diff_lines2=("${(f@)$(<$argv[-1])}")
     if (( ${#diff_lines1} != ${#diff_lines2} )); then
       failed=1
+      print -r "Pattern match filead, line mismatch (${#diff_lines1}/${#diff_lines2}):"
     else
       for (( i = 1; i <= ${#diff_lines1}; i++ )); do
 	if [[ ${diff_lines2[i]} != ${~diff_lines1[i]} ]]; then
 	  failed=1
+	  print -r "Pattern match failed, line $i:"
 	  break
 	fi
       done
     fi
     if (( failed )); then
-      print -rl "Pattern match failed:" \<${^diff_lines1} \>${^diff_lines2}
+      for (( l = 1; l <= ${#diff_lines1}; ++l )); do
+	if (( l == i )); then
+	  p="-"
+	else
+	  p=" "
+	fi
+	print -r -- "$p<${diff_lines1[l]}"
+      done
+      for (( l = 1; l <= ${#diff_lines2}; ++l )); do
+	if (( l == i )); then
+	  p="+"
+	else
+	  p=" "
+	fi
+	print -r -- "$p>${diff_lines2[l]}"
+      done
       diff_ret=1
     fi
   else
-    diff_out=$(diff "$@")
+    diff_out=$(diff -a "$@")
     diff_ret="$?"
     if [[ "$diff_ret" != "0" ]]; then
       print -r -- "$diff_out"

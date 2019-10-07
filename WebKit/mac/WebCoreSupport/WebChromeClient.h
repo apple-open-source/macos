@@ -31,6 +31,10 @@
 #import <WebCore/FocusDirection.h>
 #import <wtf/Forward.h>
 
+namespace WebCore {
+class HTMLImageElement;
+}
+
 @class WebView;
 
 // FIXME: This class is used as a concrete class on Mac, but on iOS this is an abstract
@@ -99,13 +103,14 @@ private:
     WebCore::IntPoint screenToRootView(const WebCore::IntPoint&) const final;
     WebCore::IntRect rootViewToScreen(const WebCore::IntRect&) const final;
 
-#if PLATFORM(IOS_FAMILY)
     WebCore::IntPoint accessibilityScreenToRootView(const WebCore::IntPoint&) const final;
     WebCore::IntRect rootViewToAccessibilityScreen(const WebCore::IntRect&) const final;
-#endif
+
+    void didFinishLoadingImageForElement(WebCore::HTMLImageElement&) final;
 
     PlatformPageClient platformPageClient() const final;
     void contentsSizeChanged(WebCore::Frame&, const WebCore::IntSize&) const final;
+    void intrinsicContentsSizeChanged(const WebCore::IntSize&) const final { }
     void scrollRectIntoView(const WebCore::IntRect&) const final;
 
     void setStatusbarText(const String&) override;
@@ -120,10 +125,6 @@ private:
     void exceededDatabaseQuota(WebCore::Frame&, const String& databaseName, WebCore::DatabaseDetails) final;
     void reachedMaxAppCacheSize(int64_t spaceNeeded) final;
     void reachedApplicationCacheOriginQuota(WebCore::SecurityOrigin&, int64_t totalSpaceNeeded) final;
-
-#if ENABLE(DASHBOARD_SUPPORT)
-    void annotatedRegionsChanged() final;
-#endif
 
     void runOpenPanel(WebCore::Frame&, WebCore::FileChooser&) override;
     void showShareSheet(WebCore::ShareDataWithParsedURL&, CompletionHandler<void(bool)>&&) override;
@@ -168,9 +169,10 @@ private:
     bool shouldPaintEntireContents() const final;
 
     void attachRootGraphicsLayer(WebCore::Frame&, WebCore::GraphicsLayer*) override;
-    void attachViewOverlayGraphicsLayer(WebCore::Frame&, WebCore::GraphicsLayer*) final;
+    void attachViewOverlayGraphicsLayer(WebCore::GraphicsLayer*) final;
     void setNeedsOneShotDrawingSynchronization() final;
     void scheduleCompositingLayerFlush() final;
+    bool needsImmediateRenderingUpdate() const final { return true; }
 
     CompositingTriggerFlags allowedCompositingTriggers() const final
     {

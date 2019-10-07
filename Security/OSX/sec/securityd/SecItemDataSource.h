@@ -30,7 +30,7 @@
 #ifndef _SECURITYD_SECITEMDATASOURCE_H_
 #define _SECURITYD_SECITEMDATASOURCE_H_
 
-#include <Security/SecureObjectSync/SOSDataSource.h>
+#include "keychain/SecureObjectSync/SOSDataSource.h"
 #include <utilities/SecDb.h>
 
 __BEGIN_DECLS

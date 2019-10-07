@@ -110,9 +110,6 @@ BE_handle_info_t BE_handle_info;
 static AST_interface_n_t * the_interface = NULL;
 
 //centeris wfu to keep track of the cpp_quotes in between interfaces
-static AST_cpp_quote_n_t * global_cppquotes = NULL;
-
-static AST_cpp_quote_n_t * global_cppquotes_post = NULL;
 
 /******************************************************************************/
 /*                                                                            */
@@ -491,6 +488,15 @@ static void CSPELL_client_stub_routine
 /*    Stub for an operation with [encode] or [decode] attribute               */
 /*                                                                            */
 /******************************************************************************/
+void DDBE_spell_pickling_stub
+(
+ FILE *fid,
+ AST_interface_n_t *p_interface, /* Ptr to AST interface node */
+ char const *p_interface_name,   /* Ptr to name of interface */
+ AST_operation_n_t *p_operation, /* Ptr to operation node */
+ boolean use_internal_name       /* use internal name if true */
+);
+
 void DDBE_spell_pickling_stub
 (
     FILE *fid,

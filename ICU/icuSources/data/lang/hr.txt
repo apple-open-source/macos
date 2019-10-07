@@ -93,6 +93,7 @@ hr{
         car{"karipski"}
         cay{"cayuga"}
         cch{"atsam"}
+        ccp{"chakma"}
         ce{"čečenski"}
         ceb{"cebuano"}
         cgg{"chiga"}
@@ -276,6 +277,7 @@ hr{
         krl{"karelijski"}
         kru{"kuruški"}
         ks{"kašmirski"}
+        ks_Arab{"kašmirski (naskh)"}
         ksb{"shambala"}
         ksf{"bafia"}
         ksh{"kelnski"}
@@ -390,6 +392,7 @@ hr{
         osa{"osage"}
         ota{"turski - otomanski"}
         pa{"pandžapski"}
+        pa_Arab{"pandžapski (naskh)"}
         pag{"pangasinan"}
         pal{"pahlavi"}
         pam{"pampanga"}
@@ -518,6 +521,7 @@ hr{
         umb{"umbundu"}
         und{"nepoznati jezik"}
         ur{"urdski"}
+        ur_Arab{"urdski (naskh)"}
         uz{"uzbečki"}
         vai{"vai"}
         ve{"venda"}
@@ -567,6 +571,7 @@ hr{
     Scripts{
         Afak{"afaka pismo"}
         Arab{"arapsko pismo"}
+        Aran{"nastaliq"}
         Armi{"aramejsko pismo"}
         Armn{"armensko pismo"}
         Avst{"avestansko pismo"}
@@ -676,6 +681,7 @@ hr{
         Phnx{"feničko pismo"}
         Plrd{"pollard fonetsko pismo"}
         Prti{"pisani parthian"}
+        Qaag{"zawgyi"}
         Rjng{"rejang pismo"}
         Roro{"rongorongo pismo"}
         Runr{"runsko pismo"}
@@ -916,17 +922,17 @@ hr{
         VALENCIA{"valencijski"}
         WADEGILE{"Wade-Giles romanizacija"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.42"}
     characterLabelPattern{
-        all{"{0} — Sve"}
+        all{"{0} – sve"}
         category-list{"{0}: {1}"}
-        compatibility{"{0} — Kompatibilnost"}
-        enclosed{"{0} — Priloženo"}
-        extended{"{0} — Prošireno"}
-        historic{"{0} — Povijesno"}
-        miscellaneous{"{0} — Razno"}
-        other{"{0} — Ostalo"}
-        scripts{"Pisma — {0}"}
+        compatibility{"{0} – kompatibilnost"}
+        enclosed{"{0} – priloženo"}
+        extended{"{0} – prošireno"}
+        historic{"{0} – povijesno"}
+        miscellaneous{"{0} – razno"}
+        other{"{0} – ostalo"}
+        scripts{"pisma – {0}"}
         strokes{
             few{"{0} poteza"}
             one{"{0} potez"}
@@ -937,10 +943,5 @@ hr{
         language{"Jezik: {0}"}
         script{"Pismo: {0}"}
         territory{"Regija: {0}"}
-    }
-    localeDisplayPattern{
-        keyTypePattern{"{0}: {1}"}
-        pattern{"{0} ({1})"}
-        separator{"{0}, {1}"}
     }
 }

@@ -31,12 +31,14 @@
 #import "keychain/ckks/CKKSResultOperation.h"
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ckks/CKKSLockStateTracker.h"
+#import "keychain/ot/ObjCImprovements.h"
 
 @interface CKKSLockStateTracker ()
-@property (readwrite) bool isLocked;
+@property bool queueIsLocked;
 @property dispatch_queue_t queue;
 @property NSOperationQueue* operationQueue;
 @property NSHashTable<id<CKKSLockStateNotification>> *observers;
+@property (assign) int notify_token;
 
 @property (nullable) NSDate* lastUnlockedTime;
 
@@ -49,32 +51,49 @@
         _queue = dispatch_queue_create("lock-state-tracker", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
         _operationQueue = [[NSOperationQueue alloc] init];
 
-        _isLocked = true;
+        _notify_token = NOTIFY_TOKEN_INVALID;
+        _queueIsLocked = true;
         _observers = [NSHashTable weakObjectsHashTable];
         [self resetUnlockDependency];
 
-        __weak __typeof(self) weakSelf = self;
+        WEAKIFY(self);
 
         // If this is a live server, register with notify
         if(!SecCKKSTestsEnabled()) {
-            int token = 0;
-            notify_register_dispatch(kUserKeybagStateChangeNotification, &token, _queue, ^(int t) {
-                [weakSelf _onqueueRecheck];
+            notify_register_dispatch(kUserKeybagStateChangeNotification, &_notify_token, _queue, ^(int t) {
+                STRONGIFY(self);
+                [self _onqueueRecheck];
             });
         }
 
         dispatch_async(_queue, ^{
-            [weakSelf _onqueueRecheck];
+            STRONGIFY(self);
+            [self _onqueueRecheck];
         });
     }
     return self;
+}
+
+- (void)dealloc {
+    if (_notify_token != NOTIFY_TOKEN_INVALID) {
+        notify_cancel(_notify_token);
+    }
+}
+
+- (bool)isLocked {
+    // if checking close after launch ``isLocked'' needs to be blocked on the initial fetch operation
+    __block bool locked;
+    dispatch_sync(_queue, ^{
+        locked = self->_queueIsLocked;
+    });
+    return locked;
 }
 
 - (NSDate*)lastUnlockTime {
     // If unlocked, the last unlock time is now. Otherwise, used the cached value.
     __block NSDate* date = nil;
     dispatch_sync(self.queue, ^{
-        if(self.isLocked) {
+        if(self.queueIsLocked) {
             date = self.lastUnlockedTime;
         } else {
             date = [NSDate date];
@@ -85,9 +104,10 @@
 }
 
 -(NSString*)description {
+    bool isLocked = self.isLocked;
     return [NSString stringWithFormat: @"<CKKSLockStateTracker: %@ last:%@>",
-            self.isLocked ? @"locked" : @"unlocked",
-            self.isLocked ? self.lastUnlockedTime : @"now"];
+            isLocked ? @"locked" : @"unlocked",
+            isLocked ? self.lastUnlockedTime : @"now"];
 }
 
 -(void)resetUnlockDependency {
@@ -116,12 +136,12 @@
     dispatch_assert_queue(self.queue);
 
     static bool first = true;
-    bool wasLocked = self.isLocked;
-    self.isLocked = [CKKSLockStateTracker queryAKSLocked];
+    bool wasLocked = self.queueIsLocked;
+    self.queueIsLocked = [CKKSLockStateTracker queryAKSLocked];
 
-    if(wasLocked != self.isLocked || first) {
+    if(wasLocked != self.queueIsLocked || first) {
         first = false;
-        if(self.isLocked) {
+        if(self.queueIsLocked) {
             // We're locked now.
             [self resetUnlockDependency];
 
@@ -134,11 +154,12 @@
             self.lastUnlockedTime = [NSDate date];
         }
 
-        bool isUnlocked = (self.isLocked == false);
+        bool isUnlocked = (self.queueIsLocked == false);
         for (id<CKKSLockStateNotification> observer in _observers) {
             __strong typeof(observer) strongObserver = observer;
-            if (strongObserver == NULL)
+            if (strongObserver == nil) {
                 return;
+            }
             dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
                 [strongObserver lockStateChangeNotification:isUnlocked];
             });
@@ -153,19 +174,45 @@
 }
 
 -(bool)isLockedError:(NSError *)error {
-    return ([error.domain isEqualToString:@"securityd"] || [error.domain isEqualToString:(__bridge NSString*)kSecErrorDomain])
-            && error.code == errSecInteractionNotAllowed;
+    bool isLockedError = error.code == errSecInteractionNotAllowed &&
+        ([error.domain isEqualToString:@"securityd"] || [error.domain isEqualToString:(__bridge NSString*)kSecErrorDomain]);
+
+    /*
+     * If we are locked, and the the current lock state track disagree, lets double check
+     * if we are actually locked since we might have missed a lock state notification,
+     * and cause spinning to happen.
+     *
+     * We don't update the local variable, since the error code was a locked error.
+     */
+    if (isLockedError) {
+        dispatch_sync(self.queue, ^{
+            if (self.queueIsLocked == false) {
+                [self _onqueueRecheck];
+            }
+        });
+    }
+    return isLockedError;
 }
 
 -(void)addLockStateObserver:(id<CKKSLockStateNotification>)object
 {
     dispatch_async(self.queue, ^{
         [self->_observers addObject:object];
-        bool isUnlocked = (self.isLocked == false);
+        bool isUnlocked = (self.queueIsLocked == false);
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
             [object lockStateChangeNotification:isUnlocked];
         });
     });
+}
+
++ (CKKSLockStateTracker*)globalTracker
+{
+    static CKKSLockStateTracker* tracker;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        tracker = [[CKKSLockStateTracker alloc] init];
+    });
+    return tracker;
 }
 
 

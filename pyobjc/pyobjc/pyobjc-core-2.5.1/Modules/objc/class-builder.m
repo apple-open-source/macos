@@ -1736,7 +1736,7 @@ object_method_finalize(
 	objc_superSetClass(spr, (Class)userdata);
 	objc_superSetReceiver(spr, self);
 
-	objc_msgSendSuper(&spr, _meth);
+	((void (*)(struct objc_super *, SEL))objc_msgSendSuper)(&spr, _meth);
 }
 
 /* -dealloc */
@@ -1784,7 +1784,7 @@ object_method_dealloc(
 	objc_superSetClass(spr, (Class)userdata);
 	objc_superSetReceiver(spr, self);
 
-	objc_msgSendSuper(&spr, _meth);
+	((void (*)(struct objc_super *, SEL))objc_msgSendSuper)(&spr, _meth);
 }
 
 /* -copyWithZone:(NSZone*)zone */
@@ -1808,7 +1808,7 @@ object_method_copyWithZone_(
 
 	objc_superSetClass(spr, (Class)userdata);
 	objc_superSetReceiver(spr, self);
-	copy = objc_msgSendSuper(&spr, _meth, zone);
+	copy = ((id (*)(struct objc_super *, SEL, NSZone*))objc_msgSendSuper)(&spr, _meth, zone);
 
 	if (copy == nil) {
 		*(id*)resp = nil;
@@ -1930,7 +1930,7 @@ object_method_methodSignatureForSelector(
 	objc_superSetReceiver(spr, self);
 
 	NS_DURING
-		*presult = objc_msgSendSuper(&spr, _meth, aSelector);
+	*presult = ((id (*)(struct objc_super *, SEL, SEL))objc_msgSendSuper)(&spr, _meth, aSelector);
 	NS_HANDLER
 		*presult = nil;
 	NS_ENDHANDLER
@@ -2039,7 +2039,7 @@ object_method_forwardInvocation(
 		objc_superSetClass(spr, (Class)userdata);
 		objc_superSetReceiver(spr, self);
 		PyGILState_Release(state);
-		objc_msgSendSuper(&spr, _meth, invocation);
+	((void (*)(struct objc_super *, SEL, NSInvocation*))objc_msgSendSuper)(&spr, _meth, invocation);
 		return;
 	}
 
@@ -2415,7 +2415,7 @@ object_method_valueForKey_(
 	NS_DURING
 		objc_superSetClass(spr, (Class)userdata);
 		objc_superSetReceiver(spr, self);
-		*((id *)retval) = (id)objc_msgSendSuper(&spr, _meth, key);
+	*((id *)retval) = ((id (*)(struct objc_super *, SEL, NSString*))objc_msgSendSuper)(&spr, _meth, key);
 	NS_HANDLER
 
 		/* Parent doesn't know the key, try to create in the 
@@ -2489,13 +2489,13 @@ object_method_willOrDidChangeValueForKey_(
 	if (_UseKVO(self, key, isSet)) {
 		objc_superSetClass(spr, (Class)userdata);
 		objc_superSetReceiver(spr, self);
-		(void)objc_msgSendSuper(&spr, _meth, key);
+		((void (*)(struct objc_super *, SEL, NSString*))objc_msgSendSuper)((void)objc_msgSendSuper(&spr, _meth, key);spr, _meth, key);
 	}
 
 #else
 	objc_superSetClass(spr, (Class)userdata);
 	objc_superSetReceiver(spr, self);
-	(void)objc_msgSendSuper(&spr, _meth, key);
+	((void (*)(struct objc_super *, SEL, NSString*))objc_msgSendSuper)((void)objc_msgSendSuper(&spr, _meth, key);spr, _meth, key);
 #endif
 
 }
@@ -2535,7 +2535,7 @@ object_method_setValue_forKey_(
 		// First check super
 		objc_superSetClass(spr, (Class)userdata);
 		objc_superSetReceiver(spr, self);
-		(void)objc_msgSendSuper(&spr, _meth, value, key);
+	 ((void (*)(struct objc_super *, SEL, id, NSString*))objc_msgSendSuper)(&spr, _meth, value, key);
 	NS_HANDLER
 		/* Parent doesn't know the key, try to create in the 
 		 * python side, just like for plain python objects.

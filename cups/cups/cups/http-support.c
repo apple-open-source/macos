@@ -4,13 +4,8 @@
  * Copyright 2007-2018 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 /*
@@ -18,15 +13,16 @@
  */
 
 #include "cups-private.h"
+#include "debug-internal.h"
 #ifdef HAVE_DNSSD
 #  include <dns_sd.h>
-#  ifdef WIN32
+#  ifdef _WIN32
 #    include <io.h>
 #  elif defined(HAVE_POLL)
 #    include <poll.h>
 #  else
 #    include <sys/select.h>
-#  endif /* WIN32 */
+#  endif /* _WIN32 */
 #elif defined(HAVE_AVAHI)
 #  include <avahi-client/client.h>
 #  include <avahi-client/lookup.h>
@@ -1327,7 +1323,7 @@ _httpSetDigestAuthString(
   size_t	hashsize;		/* Size of hash */
 
 
-  DEBUG_printf(("2_httpSetDigestAuthString(http=%p, nonce=\"%s\", method=\"%s\", resource=\"%s\")", http, nonce, method, resource));
+  DEBUG_printf(("2_httpSetDigestAuthString(http=%p, nonce=\"%s\", method=\"%s\", resource=\"%s\")", (void *)http, nonce, method, resource));
 
   if (nonce && *nonce && strcmp(nonce, http->nonce))
   {
@@ -1768,9 +1764,6 @@ _httpResolveURI(
     _http_uribuf_t	uribuf;		/* URI buffer */
     int			offline = 0;	/* offline-report state set? */
 #  ifdef HAVE_DNSSD
-#    ifdef WIN32
-#      pragma comment(lib, "dnssd.lib")
-#    endif /* WIN32 */
     DNSServiceRef	ref,		/* DNS-SD master service reference */
 			domainref = NULL,/* DNS-SD service reference for domain */
 			ippref = NULL,	/* DNS-SD service reference for network IPP */
@@ -1899,11 +1892,11 @@ _httpResolveURI(
 	  FD_ZERO(&input_set);
 	  FD_SET(DNSServiceRefSockFD(ref), &input_set);
 
-#      ifdef WIN32
+#      ifdef _WIN32
 	  stimeout.tv_sec  = (long)timeout;
 #      else
 	  stimeout.tv_sec  = timeout;
-#      endif /* WIN32 */
+#      endif /* _WIN32 */
 	  stimeout.tv_usec = 0;
 
 	  fds = select(DNSServiceRefSockFD(ref)+1, &input_set, NULL, NULL,

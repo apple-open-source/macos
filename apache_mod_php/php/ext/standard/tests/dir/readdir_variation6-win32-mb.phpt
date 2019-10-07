@@ -9,7 +9,7 @@ if (substr(PHP_OS, 0, 3) != 'WIN') {
 --FILE--
 <?php
 /* Prototype  : string readdir([resource $dir_handle])
- * Description: Read directory entry from dir_handle 
+ * Description: Read directory entry from dir_handle
  * Source code: ext/standard/dir.c
  */
 
@@ -67,7 +67,7 @@ closedir();
 $dir_path = dirname(__FILE__) . "/私はガラスを食べられますreaddir_variation6";
 rmdir($dir_path);
 ?>
---EXPECTF--
+--EXPECT--
 *** Testing readdir() : usage variations ***
 
 -- Reading Directory Contents with Previous Handle --

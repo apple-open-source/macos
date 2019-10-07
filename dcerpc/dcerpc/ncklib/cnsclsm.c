@@ -1476,7 +1476,7 @@ INTERNAL unsigned32     handle_first_frag_action_rtn
                  */
                 rpc_dce_svc_printf (
                     __FILE__, __LINE__,
-                    "%s %x",
+                    "%s %s",
                     rpc_svc_auth,
                     svc_c_sev_error,
                     rpc_m_call_failed_s,
@@ -2910,7 +2910,7 @@ PRIVATE unsigned32     rpc__cn_call_sm_protocol_error
      */
     rpc_dce_svc_printf (
         __FILE__, __LINE__,
-        "%d %d %x",
+        "%d %d %p",
         rpc_svc_cn_state,
         svc_c_sev_fatal | svc_c_action_abort,
         RPC_CALL_IS_SERVER( (rpc_call_rep_t *)call_rep ) ?

@@ -1,5 +1,5 @@
 //
-//  TestKeyRepeats.m
+//  TestKeyboardServicePlugin.m
 //  IOHIDFamily
 //
 //  Created by YG on 10/31/16.
@@ -12,6 +12,7 @@
 #import "IOHIDUserDeviceTestController.h"
 #import "IOHIDDeviceTestController.h"
 #import "IOHIDUnitTestDescriptors.h"
+#import <IOKit/hid/IOHIDServiceKeys.h>
 
 
 typedef struct {
@@ -52,13 +53,17 @@ static uint8_t descriptor[] = {
     self.eventSystem = IOHIDEventSystemClientCreateWithType (kCFAllocatorDefault, kIOHIDEventSystemClientTypeMonitor, NULL);
     HIDXCTAssertAndThrowTrue(self.eventSystem != NULL);
     
-    NSDictionary *matching = @{@kIOHIDPhysicalDeviceUniqueIDKey : uniqueID};
+    NSDictionary *matching = @{
+                                @kIOHIDPhysicalDeviceUniqueIDKey : uniqueID,
+                                @"Hidden" : @"*"
+                               };
     
     IOHIDEventSystemClientSetMatching(self.eventSystem , (__bridge CFDictionaryRef)matching);
     
     self.testServiceExpectation = [[XCTestExpectation alloc] initWithDescription:@"Expectation: Test HID service"];
     
     IOHIDServiceClientBlock handler = ^(void * _Nullable target __unused, void * _Nullable refcon __unused, IOHIDServiceClientRef  _Nonnull service __unused) {
+        NSLog(@"service: %@", service);
         self.eventService = service;
         [self.testServiceExpectation fulfill];
     };
@@ -84,6 +89,8 @@ static uint8_t descriptor[] = {
                                    @kIOHIDReportDescriptorKey : [NSData dataWithBytes:descriptor length:sizeof(descriptor)],
                                    @kIOHIDVendorIDKey   : @(555),
                                    @kIOHIDProductIDKey  : @(555),
+                                   @"Hidden" : @YES,
+                                   @kIOHIDAltHandlerIdKey : @(88)
                                    };
     self.userDevice =  IOHIDUserDeviceCreate(kCFAllocatorDefault, (CFDictionaryRef)description);
 
@@ -104,8 +111,7 @@ static uint8_t descriptor[] = {
 }
 
 
-
-- (void)checkRepeats: (NSUInteger) initialDelayMS :(NSUInteger) repeatDelayMS :(NSUInteger) repeatTime
+- (BOOL)checkRepeats: (NSUInteger) initialDelayMS :(NSUInteger) repeatDelayMS :(NSUInteger) repeatTime
 {
     
     XCTWaiterResult result;
@@ -120,12 +126,13 @@ static uint8_t descriptor[] = {
     IOHIDServiceClientSetProperty(self.eventService,
                                   CFSTR(kIOHIDServiceInitialKeyRepeatDelayKey),
                                   (__bridge CFTypeRef _Nonnull)(valueInitialRepeat));
+    
     IOHIDServiceClientSetProperty(self.eventService,
                                   CFSTR(kIOHIDServiceKeyRepeatDelayKey),
                                   (__bridge CFTypeRef _Nonnull)(valueRepeatDelay));
 
  
-    TestLog("initialDelayMS: %d, repeatDelayMS:%d repeatTime:%d", (int)initialDelayMS, (int)repeatDelayMS, (int)repeatTime);
+    TestLog("initialDelayMS:%d, repeatDelayMS:%d repeatTime:%d", (int)initialDelayMS, (int)repeatDelayMS, (int)repeatTime);
     
     HIDKeyboardDescriptorInputReport report;
     memset(&report, 0, sizeof(report));
@@ -146,35 +153,37 @@ static uint8_t descriptor[] = {
     });
  
     result = [XCTWaiter waitForExpectations:@[self.testKbcUpEventExpectation] timeout:10];
-    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_HIDUTIL,
-                                result == XCTWaiterResultCompleted,
-                                "%@",
-                                self.testKbcUpEventExpectation);
+    HIDXCTAssertWithParametersAndReturn(RETURN_FROM_TEST | COLLECT_HIDUTIL,
+                                        result == XCTWaiterResultCompleted,
+                                        NO,
+                                        "%@",
+                                        self.testKbcUpEventExpectation);
     
-    
-    NSInteger expectedCount = (repeatTime * 1000 - initialDelayMS) / repeatDelayMS;
+    NSUInteger expectedCount = (repeatTime * 1000 - initialDelayMS) / repeatDelayMS;
     NSLog (@"expected count %d actual count %d", (int)expectedCount, (int)self.events.count);
     
-    HIDXCTAssertWithParameters(RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_HIDUTIL,
-                               VALUE_IN_RANGE(expectedCount, VALUE_PST(self.events.count,-20) , VALUE_PST(self.events.count,+20)),
-                               "expected count %d actual count %d",
-                               (int)expectedCount,
-                               (int)self.events.count
-                               );
+    HIDXCTAssertWithParametersAndReturn(RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_HIDUTIL | COLLECT_LOGARCHIVE,
+                                        VALUE_IN_RANGE(expectedCount, VALUE_PST(self.events.count,-20) , VALUE_PST(self.events.count,+20)),
+                                        NO,
+                                        "expected count %d actual count %d",
+                                        (int)expectedCount,
+                                        (int)self.events.count
+                                        );
     
     
     uint64_t delta =  NS_TO_MS(IOHIDInitTestAbsoluteTimeToNanosecond (IOHIDEventGetTimeStamp((IOHIDEventRef)self.events[1]) - IOHIDEventGetTimeStamp((IOHIDEventRef)self.events[0]))) ;
     
 
-    HIDXCTAssertWithParameters(RETURN_FROM_TEST | COLLECT_TAILSPIN,
-                               VALUE_IN_RANGE(delta , VALUE_PST(initialDelayMS,-20) , VALUE_PST(initialDelayMS,+20)),
-                               "initial delay:%d expected:%d - %d first:%@ next:%@",
-                               (int)delta,
-                               (int)VALUE_PST(initialDelayMS,-20),
-                               (int)VALUE_PST(initialDelayMS,+20),
-                               self.events[0],
-                               self.events[0]
-                               );
+    HIDXCTAssertWithParametersAndReturn(COLLECT_TAILSPIN | COLLECT_LOGARCHIVE,
+                                        VALUE_IN_RANGE(delta , VALUE_PST(initialDelayMS,-20) , VALUE_PST(initialDelayMS,+20)),
+                                        NO,
+                                        "initial delay:%d expected:%d - %d first:%@ next:%@",
+                                        (int)delta,
+                                        (int)VALUE_PST(initialDelayMS,-20),
+                                        (int)VALUE_PST(initialDelayMS,+20),
+                                        self.events[0],
+                                        self.events[0]
+                                        );
 
     
     for (size_t index = 2; index < (self.events.count - 1); index++) {
@@ -184,19 +193,22 @@ static uint8_t descriptor[] = {
         delta = NS_TO_MS(IOHIDInitTestAbsoluteTimeToNanosecond (next - prev));
         NSLog (@"repeat:%d expected:%d", (int)delta, (int)repeatDelayMS);
         
-        HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_TAILSPIN,
-                                    VALUE_IN_RANGE(delta , VALUE_PST(repeatDelayMS,-20) , VALUE_PST(repeatDelayMS,+20)),
-                                    "repeat: %d  expected:%d - %d prev:%@ nexy:%@",
-                                    (int)delta ,
-                                    (int)VALUE_PST(repeatDelayMS,-20),
-                                    (int)VALUE_PST(repeatDelayMS,+20),
-                                    self.events[index - 1],
-                                    self.events[index]
-                                    );
+        HIDXCTAssertWithParametersAndReturn (RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_LOGARCHIVE,
+                                             VALUE_IN_RANGE(delta , VALUE_PST(repeatDelayMS,-20) , VALUE_PST(repeatDelayMS,+20)),
+                                             NO,
+                                             "repeat:%d  expected:%d - %d prev:%@ next:%@",
+                                             (int)delta,
+                                             (int)VALUE_PST(repeatDelayMS,-20),
+                                             (int)VALUE_PST(repeatDelayMS,+20),
+                                             self.events[index - 1],
+                                             self.events[index]
+                                             );
     }
+    return YES;
 }
 
-- (void) MAC_OS_ONLY_TEST_CASE(testKeyRepeat) {
+
+- (void) testKeyRepeat {
     XCTWaiterResult result;
 
     KEY_REPEAT_INFO  info [] = {
@@ -205,15 +217,36 @@ static uint8_t descriptor[] = {
     };
   
     result = [XCTWaiter waitForExpectations:@[self.testServiceExpectation] timeout:20];
-    HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_IOREG,
+    HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_IOREG | COLLECT_LOGARCHIVE,
                                 result == XCTWaiterResultCompleted,
-                                "%@",
-                                self.testServiceExpectation);
+                                "%@ result:%d",
+                                self.testServiceExpectation,
+                                (int)result);
 
     for (size_t index = 0; index < (sizeof (info) / sizeof(info[0]));index++) {
-        [self checkRepeats:info[index].initialDelay :info[index].repeatDelay : info[index].repeatTime];
+        if ( NO == [self checkRepeats:info[index].initialDelay :info[index].repeatDelay : info[index].repeatTime]) {
+            return;
+        }
         [self.events removeAllObjects];
     }
+}
+
+- (void)MAC_OS_ONLY_TEST_CASE(testKeyboardLayoutProperty)
+{
+    XCTWaiterResult result;
+    NSNumber *layout = nil;
+    
+    result = [XCTWaiter waitForExpectations:@[self.testServiceExpectation] timeout:5];
+    HIDXCTAssertWithParameters ( RETURN_FROM_TEST | COLLECT_TAILSPIN | COLLECT_IOREG | COLLECT_LOGARCHIVE,
+                                result == XCTWaiterResultCompleted,
+                                "%@ result:%d",
+                                self.testServiceExpectation,
+                                (int)result);
+    
+    // keyboard plugin publishes the kIOHIDSubinterfaceIDKey based on the
+    // kIOHIDAltHandlerIdKey property on the device.
+    layout = (NSNumber *)CFBridgingRelease(IOHIDServiceClientCopyProperty(_eventService, CFSTR(kIOHIDSubinterfaceIDKey)));
+    XCTAssert(layout && [layout isEqualToNumber:@(88)]);
 }
 
 @end

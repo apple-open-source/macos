@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009, 2011, 2012, 2014, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009, 2011, 2012, 2014, 2015, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -134,7 +134,7 @@ main(int argc, char **argv)
 			CFRelease(newSet);
 
 			CFStringDelete(str, CFRangeMake(0, CFStringGetLength(prefix)));
-			newSet = CFStringCreateCopy(NULL, newSet);
+			newSet = CFStringCreateCopy(NULL, str);
 			CFRelease(str);
 
 			range = CFStringFind(newSet, CFSTR("/"), 0);

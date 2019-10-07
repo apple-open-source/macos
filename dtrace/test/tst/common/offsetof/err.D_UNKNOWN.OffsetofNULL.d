@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_UNKNOWN.OffsetofNULL.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: Querying the offsetof an non-member variable of a struct throws
  * a D_UNKNOWN error.

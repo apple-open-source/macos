@@ -2,14 +2,14 @@
  * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <CoreFoundation/CoreFoundation.h>
@@ -78,7 +78,7 @@ CFStringRef createKextNameFromPlist(
     CFDictionaryRef entries, CFDictionaryRef kextPlist);
 int getBundleIDAndVersion(CFDictionaryRef kextPlist, unsigned index,
     char ** bundle_id_out, char ** bundle_version_out);
-    
+
 Boolean writeFileInDirectory(
     const char * basePath,
     char       * subPath,
@@ -103,7 +103,7 @@ For each arch:
             - Plist different:
                 - cannot handle, error; or save to separate path
         - Else add kext to assembled list
-        
+
     - Need to save infoDict, executable, resources
 #endif /* 0 */
 
@@ -264,7 +264,7 @@ int main (int argc, const char * argv[]) {
         goto finish;
     }
 
-    mkextFileContents = mmap(0, (size_t)stat_buf.st_size, PROT_READ, 
+    mkextFileContents = mmap(0, (size_t)stat_buf.st_size, PROT_READ,
         MAP_FILE|MAP_PRIVATE, mkextFileFD, 0);
     if (mkextFileContents == (u_int8_t *)-1) {
         fprintf(stderr, "can't map file %s\n", mkextFile);
@@ -491,7 +491,7 @@ Boolean writeMkext2EntriesToDirectory(
     Boolean         result          = false;
     CFMutableSetRef kextNames       = NULL;  // must release
     CFIndex         count, i;
-    
+
     if (!createCFMutableSet(&kextNames, &kCFTypeSetCallBacks)) {
         OSKextLogMemError();
     }
@@ -540,7 +540,7 @@ Boolean writeMkext2ToDirectory(
         OSKextLogMemError();
         goto finish;
     }
-    
+
     kextURL = OSKextGetURL(aKext);
     if (!CFURLGetFileSystemRepresentation(kextURL, /* resolveToBase */ true,
         (UInt8 *)kextPath, sizeof(kextPath))) {
@@ -564,7 +564,7 @@ Boolean writeMkext2ToDirectory(
         OSKextLogMemError();
         goto finish;
     }
-    
+
    /* Splat off the ".kext" suffix if needed so we can build
     * numbered variants.
     */
@@ -590,7 +590,7 @@ Boolean writeMkext2ToDirectory(
     CFSetAddValue(kextNames, kextName);
 
     kextNameCStringAlloced = createUTF8CStringForCFString(kextName);
-    
+
    /*****
     * Write the plist file.
     */

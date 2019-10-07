@@ -5,12 +5,12 @@ Test mktime() function : usage variation - Passing unexpected values to first ar
 /* Prototype  : int mktime  ([ int $hour= date("H")  [, int $minute= date("i")  [, int $second= date("s")  [, int $month= date("n")  [, int $day= date("j")  [, int $year= date("Y")  [, int $is_dst= -1  ]]]]]]] )
  * Description: Get Unix timestamp for a date
  * Source code: ext/date/php_date.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing mktime() : usage variation -  unexpected values to first argument \$hour***\n";
 
-//Set the default time zone 
+//Set the default time zone
 date_default_timezone_set("Europe/London");
 
 //get an unset variable
@@ -89,8 +89,8 @@ $inputs = array(
 
       // unset data
       'unset var' => @$unset_var,
-      
-      // resource 
+
+      // resource
       'resource' => $file_handle
 );
 
@@ -100,7 +100,7 @@ $sec = 45;
 $month = 7;
 $day = 2;
 $year = 1963;
-$is_dst = 0; 
+$is_dst = 0;
 
 foreach($inputs as $variation =>$hour) {
       echo "\n-- $variation --\n";
@@ -135,22 +135,22 @@ int(%i)
 
 -- empty array --
 
-Warning: mktime() expects parameter 1 to be integer, array given in %s on line %d
+Warning: mktime() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
 -- int indexed array --
 
-Warning: mktime() expects parameter 1 to be integer, array given in %s on line %d
+Warning: mktime() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
 -- associative array --
 
-Warning: mktime() expects parameter 1 to be integer, array given in %s on line %d
+Warning: mktime() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
 -- nested arrays --
 
-Warning: mktime() expects parameter 1 to be integer, array given in %s on line %d
+Warning: mktime() expects parameter 1 to be int, array given in %s on line %d
 bool(false)
 
 -- uppercase NULL --
@@ -173,42 +173,42 @@ int(%i)
 
 -- empty string DQ --
 
-Warning: mktime() expects parameter 1 to be integer, string given in %s on line %d
+Warning: mktime() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 -- empty string SQ --
 
-Warning: mktime() expects parameter 1 to be integer, string given in %s on line %d
+Warning: mktime() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 -- string DQ --
 
-Warning: mktime() expects parameter 1 to be integer, string given in %s on line %d
+Warning: mktime() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 -- string SQ --
 
-Warning: mktime() expects parameter 1 to be integer, string given in %s on line %d
+Warning: mktime() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 -- mixed case string --
 
-Warning: mktime() expects parameter 1 to be integer, string given in %s on line %d
+Warning: mktime() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 -- heredoc --
 
-Warning: mktime() expects parameter 1 to be integer, string given in %s on line %d
+Warning: mktime() expects parameter 1 to be int, string given in %s on line %d
 bool(false)
 
 -- instance of classWithToString --
 
-Warning: mktime() expects parameter 1 to be integer, object given in %s on line %d
+Warning: mktime() expects parameter 1 to be int, object given in %s on line %d
 bool(false)
 
 -- instance of classWithoutToString --
 
-Warning: mktime() expects parameter 1 to be integer, object given in %s on line %d
+Warning: mktime() expects parameter 1 to be int, object given in %s on line %d
 bool(false)
 
 -- undefined var --
@@ -219,6 +219,6 @@ int(%i)
 
 -- resource --
 
-Warning: mktime() expects parameter 1 to be integer, resource given in %s on line %d
+Warning: mktime() expects parameter 1 to be int, resource given in %s on line %d
 bool(false)
 ===DONE===

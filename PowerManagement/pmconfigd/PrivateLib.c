@@ -23,6 +23,7 @@
 
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFXPCBridge.h>
 #include <IOKit/IOHibernatePrivate.h>
 #include <IOKit/hidsystem/IOHIDLib.h>
 #include <IOKit/graphics/IOGraphicsTypes.h>
@@ -48,6 +49,10 @@
 #include <dispatch/dispatch.h>
 #include <notify.h>
 #include <xpc/private.h>
+#include <IOKit/pwr_mgt/powermanagement_mig.h>
+#include <spawn.h>
+#include <spawn_private.h>
+#include <crt_externs.h>
 
 #include "Platform.h"
 #include "PrivateLib.h"
@@ -108,11 +113,12 @@ enum
 static CFMutableSetRef     physicalBatteriesSet = NULL;
 
 static IOPMBattery         **physicalBatteriesArray = NULL;
+static CFDictionaryRef     customBatteryProps = NULL;
 
 static int sleepCntSinceBoot = 0;
 static int sleepCntSinceFailure = -1;
 
-__private_extern__ bool             isDisplayAsleep( );
+__private_extern__ bool isDisplayAsleep(void);
 
 // Cached data for LowCapRatio
 static time_t               cachedLowCapRatioTime = 0;
@@ -220,26 +226,15 @@ __private_extern__ SCDynamicStoreRef _getSharedPMDynamicStore(void)
     return gSCDynamicStore;
 }
 
-__private_extern__ CFRunLoopRef         _getPMRunLoop(void)
+__private_extern__ dispatch_queue_t         _getPMMainQueue(void)
 {
-    static CFRunLoopRef     pmRLS = NULL;
+    static dispatch_queue_t     pmRLS = NULL;
 
     if (!pmRLS) {
-        pmRLS = CFRunLoopGetCurrent();
+        pmRLS = dispatch_queue_create_with_target("Power Management main queue", NULL, NULL);
     }
 
     return pmRLS;
-}
-
-__private_extern__ dispatch_queue_t     _getPMDispatchQueue(void)
-{
-    static dispatch_queue_t pmQ = NULL;
-
-    if (!pmQ) {
-        pmQ = dispatch_queue_create("Power Management configd queue", NULL);
-    }
-
-    return pmQ;
 }
 
 asl_object_t getSleepCntObject(char *store)
@@ -1045,13 +1040,18 @@ __private_extern__ void _batteryChanged(IOPMBattery *changed_battery)
         changed_battery->properties = NULL;
         newBattery = false;
     }
+    if (isA_CFDictionary(customBatteryProps)) {
+        props = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, customBatteryProps);
+    }
+    else {
 
-    kr = IORegistryEntryCreateCFProperties(
-                            changed_battery->me,
-                            &props,
-                            kCFAllocatorDefault, 0);
-    if(KERN_SUCCESS != kr) {
-        goto exit;
+        kr = IORegistryEntryCreateCFProperties(
+                changed_battery->me,
+                &props,
+                kCFAllocatorDefault, 0);
+        if(KERN_SUCCESS != kr) {
+            goto exit;
+        }
     }
 
     if (CFDictionaryGetValueIfPresent(props, CFSTR(kIOPMPSBatteryInstalledKey), (const void **)&battInstalled) &&
@@ -1088,6 +1088,118 @@ __private_extern__ bool _batteryHas(IOPMBattery *b, CFStringRef property)
     // If the battery's descriptior dictionary has an entry at all for the
     // given 'property' it is supported, i.e. the battery 'has' it.
     return CFDictionaryGetValue(b->properties, property) ? true : false;
+}
+
+bool isSenderEntitled(xpc_object_t remoteConnection, CFStringRef entitlementString, bool requireRoot)
+{
+    audit_token_t token;
+    CFTypeRef  entitlement = NULL;
+    SecTaskRef secTask = NULL;
+    bool entitled = false;
+
+    if (requireRoot && !callerIsRoot(xpc_connection_get_euid(remoteConnection))) {
+        goto exit;
+    }
+    xpc_connection_get_audit_token(remoteConnection, &token);
+    secTask = SecTaskCreateWithAuditToken(kCFAllocatorDefault, token);
+    if (secTask) {
+        entitlement = SecTaskCopyValueForEntitlement(secTask, entitlementString, NULL);
+    }
+
+    entitled = (entitlement != NULL);
+
+exit:
+    if (secTask) {
+        CFRelease(secTask);
+    }
+    if (entitlement) {
+        CFRelease(entitlement);
+    }
+
+    return entitled;
+
+}
+
+__private_extern__ void resetCustomBatteryProps(xpc_object_t remoteConnection, xpc_object_t msg)
+{
+
+    if (!msg) {
+        ERROR_LOG("Invalid message\n");
+        return;
+    }
+    
+    xpc_object_t respMsg = xpc_dictionary_create_reply(msg);
+    if (respMsg == NULL) {
+        ERROR_LOG("Failed to create response message\n");
+        return;
+    }
+
+    if (!isSenderEntitled(remoteConnection, CFSTR("com.apple.private.iokit.batteryTester"), true)) {
+        ERROR_LOG("Ignoring request to reset custom battery properties from unprivileged sender\n");
+        xpc_dictionary_set_uint64(respMsg, kMsgReturnCode, kIOReturnNotPrivileged);
+        goto exit;
+    }
+
+    if (xpc_dictionary_get_value(msg, kResetCustomBatteryProps) && customBatteryProps) {
+        CFRelease(customBatteryProps);
+        customBatteryProps = NULL;
+
+        BatterySetNoPoll(false);
+        BatteryTimeRemaining_finish();
+        xpc_dictionary_set_uint64(respMsg, kMsgReturnCode, kIOReturnSuccess);
+        INFO_LOG("System reset to use default battery properties\n");
+    }
+exit:
+    xpc_connection_send_message(remoteConnection, respMsg);
+    xpc_release(respMsg);
+}
+
+__private_extern__ void setCustomBatteryProps(xpc_object_t remoteConnection, xpc_object_t msg)
+{
+    xpc_object_t xpcBatteryProps = NULL;
+    CFDictionaryRef batteryProps = NULL;
+
+    if (!msg) {
+        ERROR_LOG("Invalid message\n");
+        return;
+    }
+    xpc_object_t respMsg = xpc_dictionary_create_reply(msg);
+    if (respMsg == NULL) {
+        ERROR_LOG("Failed to create response message\n");
+        return;
+    }
+
+    if (!isSenderEntitled(remoteConnection, CFSTR("com.apple.private.iokit.batteryTester"), true)) {
+        ERROR_LOG("Ignoring custom battery properties message from unprivileged sender\n");
+        xpc_dictionary_set_uint64(respMsg, kMsgReturnCode, kIOReturnNotPrivileged);
+        goto exit;
+    }
+
+    xpcBatteryProps = xpc_dictionary_get_value(msg, kCustomBatteryProps);
+    if (xpcBatteryProps) {
+        batteryProps = _CFXPCCreateCFObjectFromXPCObject(xpcBatteryProps);
+    }
+    if (!isA_CFDictionary(batteryProps)) {
+        ERROR_LOG("Received invalid data thru custom battery properties message\n");
+        xpc_dictionary_set_uint64(respMsg, kMsgReturnCode, kIOReturnBadArgument);
+        goto exit;
+    }
+
+    if (customBatteryProps) {
+        CFRelease(customBatteryProps);
+    }
+    INFO_LOG("System updated to use custom battery properties\n");
+    BatterySetNoPoll(true);
+    customBatteryProps = CFRetain(batteryProps);
+    BatteryTimeRemaining_finish();
+    xpc_dictionary_set_uint64(respMsg, kMsgReturnCode, kIOReturnSuccess);
+
+exit:
+    xpc_connection_send_message(remoteConnection, respMsg);
+    if (batteryProps) {
+        CFRelease(batteryProps);
+    }
+    xpc_release(respMsg);
 }
 
 
@@ -1237,7 +1349,22 @@ __private_extern__ void logASLMessagePMStart(void)
     }
 }
 
-#if TCPKEEPALIVE
+__private_extern__ void logASLMessageSMCShutdownCause(int shutdownCause)
+{
+    const char *shutdownCauseString = smcShutdownCauseString(shutdownCause);
+    aslmsg m;
+    m = new_msg_pmset_log();
+    asl_set(m, kPMASLDomainKey, kPMASLDomainSMCShutdownCause);
+    asl_set(m, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
+    char buf[120];
+    snprintf(buf, sizeof(buf), "SMC shutdown cause: %d: %s", shutdownCause, shutdownCauseString);
+    asl_set(m, ASL_KEY_MSG, buf);
+    asl_send(NULL, m);
+    INFO_LOG("%s\n", buf);
+    asl_release(m);
+
+}
+
 
 static void attachTCPKeepAliveKeys(
                                    aslmsg m,
@@ -1264,7 +1391,6 @@ static void attachTCPKeepAliveKeys(
     }
 }
 
-#endif
 
 __private_extern__ void logASLMessageSleep(
     const char *sig,
@@ -1305,8 +1431,7 @@ __private_extern__ void logASLMessageSleep(
         
     } else {
         success = false;
-        snprintf(messageString, sizeof(messageString), "Sleep Failure [code:%s]",
-                failureStr);
+        snprintf(messageString, sizeof(messageString), "Failure during sleep: %s : %s", failureStr, (sig) ? sig : "");
     }
 
     getPowerState(&pwrSrc, &percentage);
@@ -1321,6 +1446,8 @@ __private_extern__ void logASLMessageSleep(
         asl_set(m, kPMASLPowerSourceKey, (pwrSrc == kACPowered) ? "AC" : "Batt");
 
         attachTCPKeepAliveKeys(m, tcpKeepAliveString, sizeof(tcpKeepAliveString));
+        snprintf(messageString, sizeof(messageString), "%s:%s",
+                messageString, tcpKeepAliveString);
     }
     else {
         asl_set(m, kPMASLDomainKey, kPMASLDomainSWFailure);
@@ -1333,8 +1460,6 @@ __private_extern__ void logASLMessageSleep(
         asl_set(m, kPMASLUUIDKey, uuidString);
     }
     
-    snprintf(messageString, sizeof(messageString), "%s:%s",
-            messageString, tcpKeepAliveString);
     
     asl_set(m, kPMASLSignatureKey, sig);
     asl_set(m, ASL_KEY_MSG, messageString);
@@ -1408,9 +1533,8 @@ __private_extern__ void logASLMessageWake(
         asl_set(m, kPMASLBatteryPercentageKey, battCap);
         asl_set(m, kPMASLPowerSourceKey, (pwrSrc == kACPowered) ? "AC" : "BATT");
     } else {
-        detailString = failureStr;
-        snprintf(buf, sizeof(buf), "%s during wake", 
-                 (sig) ? sig : "");
+        snprintf(buf, sizeof(buf), "Failure during wake: %s : %s", 
+                 failureStr, (sig) ? sig : "");
         success = false;
 
     }
@@ -1506,8 +1630,8 @@ __private_extern__ void logASLMessageWake(
         strncat(buf, cBuf, sizeof(buf)-strlen(buf)-1);
     }
 
-    snprintf(buf, sizeof(buf), "%s %s %s:\n", buf,
-          detailString ? "due to" : "",
+    snprintf(buf, sizeof(buf), "%s %s %s\n", buf,
+          detailString ? ": due to" : "",
           detailString ? detailString : "");
 
     INFO_LOG("%{public}s\n", buf);
@@ -1633,10 +1757,10 @@ __private_extern__ void logASLDisplayStateChange()
 
     if (displayOff) {
         /* Log all assertions when display goes off */
-        CFRunLoopPerformBlock(_getPMRunLoop(), kCFRunLoopDefaultMode, ^{ logASLAllAssertions(); });
-        CFRunLoopWakeUp(_getPMRunLoop());
+        dispatch_async(_getPMMainQueue(), ^{
+            logASLAllAssertions();
+        });
     }
-
 }
 
 
@@ -2033,9 +2157,7 @@ __private_extern__ void logASLMessageIgnoredDWTEmergency(void)
     bzero(tcpKeepAliveString, sizeof(tcpKeepAliveString));
 
     m = new_msg_pmset_log();
-#if TCPKEEPALIVE
     attachTCPKeepAliveKeys(m, tcpKeepAliveString, sizeof(tcpKeepAliveString));
-#endif
     
     asl_set(m, kPMASLDomainKey, kPMASLDomainThermalEvent);
 
@@ -2063,10 +2185,8 @@ __private_extern__ void logASLMessageSleepCanceledAtLastCall(
 
     m = new_msg_pmset_log();
 
-#if TCPKEEPALIVE
     if (tcpka_active)
         attachTCPKeepAliveKeys(m, tcpKeepAliveString, sizeof(tcpKeepAliveString));
-#endif
 
     asl_set(m, kPMASLDomainKey, kPMASLDomainSleepRevert);
 
@@ -2281,7 +2401,7 @@ void initializeMT2Aggregator(void)
     mt2->demandSleepAppTimeouts             = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, NULL);
     mt2->darkwakeSleepAppTimeouts           = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, NULL);
 
-    mt2->nextFireSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+    mt2->nextFireSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _getPMMainQueue());
     if (mt2->nextFireSource) {
         dispatch_source_set_event_handler(mt2->nextFireSource, ^(){ mt2PublishReports(); });
         dispatch_source_set_timer(mt2->nextFireSource, dispatch_time(DISPATCH_TIME_NOW, kMT2CheckIntervalTimer),
@@ -2626,7 +2746,7 @@ void mt2RecordThermalEvent(uint32_t description)
 }
 
 /* PMConnection.c */
-bool isA_DarkWakeState();
+bool isA_DarkWakeState(void);
 
 void mt2RecordAssertionEvent(assertionOps action, assertion_t *theAssertion)
 {
@@ -2863,6 +2983,7 @@ static void logASLMessageHibernateStatistics(void)
     int                     hibernateMode = 0;
     char                    valuestring[25];
     int                     hibernateDelay = 0;
+    int64_t                 hibernateDelayHigh = 0;
     char                    buf[100];
     char                    uuidString[150];
 
@@ -2899,6 +3020,8 @@ static void logASLMessageHibernateStatistics(void)
         CFRelease(hibernateDelayNum);
     }
 
+    GetPMSettingNumber(CFSTR(kIOPMDeepSleepDelayHighKey), &hibernateDelayHigh);
+
     statsData = (CFDataRef)_copyRootDomainProperty(CFSTR(kIOPMSleepStatisticsKey));
     if (statsData && (stats = (PMStatsStruct *)CFDataGetBytePtr(statsData)))
     {
@@ -2919,7 +3042,7 @@ static void logASLMessageHibernateStatistics(void)
         snprintf(buf, sizeof(buf), "rd=%qd ms", readHIBImageMS);
     asl_set(m, kPMASLDelayKey, buf);
 
-    snprintf(buf, sizeof(buf), "hibmode=%d standbydelay=%d", hibernateMode, hibernateDelay);
+    snprintf(buf, sizeof(buf), "hibmode=%d standbydelaylow=%d standbydelayhigh=%lld", hibernateMode, hibernateDelay, hibernateDelayHigh);
     asl_set(m, ASL_KEY_MSG, buf);
 
     if (m) {
@@ -3065,64 +3188,48 @@ static void setSMCProperty(void)
                         kCFBooleanTrue);
 }
 
-static void handleMachCalendarMessage(CFMachPortRef port, void *msg,
-                                            CFIndex size, void *info)
+static kern_return_t armMachCalendarNotification(mach_port_t port)
 {
     kern_return_t  result;
-    mach_port_t    mport = CFMachPortGetPort(port);
     mach_port_t    host_port;
 
-    // Re-register for notification
+    // register for notification
     host_port = mach_host_self();
-    result = host_request_notification(host_port, HOST_NOTIFY_CALENDAR_CHANGE, mport);
+    result = host_request_notification(host_port,HOST_NOTIFY_CALENDAR_CHANGE, port);
     if (host_port) {
         mach_port_deallocate(mach_task_self(), host_port);
     }
-    if (result != KERN_SUCCESS) {
-        return;
-    }
 
-    setSMCProperty();
+    return result;
+}
+
+static void calChangeReceiveChannelHandler(void *context, dispatch_mach_reason_t reason,
+                                           dispatch_mach_msg_t message, mach_error_t error)
+{
+    if (reason == DISPATCH_MACH_MESSAGE_RECEIVED) {
+        mach_msg_header_t *hdr = dispatch_mach_msg_get_msg(message, NULL);
+        if (armMachCalendarNotification(hdr->msgh_local_port) == KERN_SUCCESS) {
+            setSMCProperty();
+        }
+        mach_msg_destroy(hdr);
+    }
 }
 
 static void registerForCalendarChangedNotification(void)
 {
-    mach_port_t tport;
-    mach_port_t host_port;
-    kern_return_t result;
-    CFRunLoopSourceRef rls;
-    static CFMachPortRef        calChangeReceivePort = NULL;
+    static dispatch_mach_t        calChangeReceiveChannel = NULL;
+    mach_port_t port;
 
     // allocate the mach port we'll be listening to
-    result = mach_port_allocate(mach_task_self(),MACH_PORT_RIGHT_RECEIVE, &tport);
-    if (result != KERN_SUCCESS) {
+    port = mach_port_allocate(mach_task_self(),MACH_PORT_RIGHT_RECEIVE, &port);
+    if (port != KERN_SUCCESS) {
         return;
     }
 
-    calChangeReceivePort = CFMachPortCreateWithPort(
-            kCFAllocatorDefault,
-            tport,
-            (CFMachPortCallBack)handleMachCalendarMessage,
-            NULL, /* context */
-            false); /* shouldFreeInfo */
-    if (calChangeReceivePort) {
-        rls = CFMachPortCreateRunLoopSource(
-                kCFAllocatorDefault,
-                calChangeReceivePort,
-                0); /* index Order */
-        if (rls) {
-            CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-            CFRelease(rls);
-        }
-        CFRelease(calChangeReceivePort);
-    }
+    calChangeReceiveChannel = dispatch_mach_create_f("PowerManagement/calendar", _getPMMainQueue(), NULL, calChangeReceiveChannelHandler);
+    dispatch_mach_connect(calChangeReceiveChannel, port, MACH_PORT_NULL, NULL);
 
-    // register for notification
-    host_port = mach_host_self();
-    host_request_notification(host_port,HOST_NOTIFY_CALENDAR_CHANGE, tport);
-    if (host_port) {
-        mach_port_deallocate(mach_task_self(), host_port);
-    }
+    armMachCalendarNotification(port);
 }
 
 __private_extern__ uint64_t monotonicTS2Secs(uint64_t tsc)
@@ -3136,11 +3243,13 @@ __private_extern__ uint64_t monotonicTS2Secs(uint64_t tsc)
     return ( (tsc * timebaseInfo.numer) / (timebaseInfo.denom * NSEC_PER_SEC));
 
 }
+#if !POWERD_IOS_XCTEST
 /* Returns monotonic continuous time in secs */
 __private_extern__ uint64_t getMonotonicContinuousTime( )
 {
     return monotonicTS2Secs(mach_continuous_time());
 }
+#endif
 
 /* Returns monotonic time in secs */
 __private_extern__ uint64_t getMonotonicTime( )
@@ -3245,45 +3354,8 @@ exit:
 }
 
 /************************************************************************/
-/************************************************************************/
-/************************************************************************/
-/************************************************************************/
-/************************************************************************/
 
 // Code to read AppleSMC
-
-/************************************************************************/
-/************************************************************************/
-/************************************************************************/
-/************************************************************************/
-/************************************************************************/
-// Forwards
-
-/* Legacy format */
-
-#define kACCRCBit               56  // size 8
-#define kACIDBit                44  // size 12
-#define kACPowerBit             36  // size 8
-#define kACRevisionBit          32  // size 4
-#define kACSerialBit            8   // size 24
-#define kACFamilyBit            0   // size 8
-
-/* New format (intro'd in Jan 2012) */
-
-//#define kACCRCBit             56   // 8 bits, same as in legacy
-#define kACCurrentIdBit         48   // 8 bits
-//#define kACCommEnableBit      45   // 1 bit; doesn't contain meaningful information
-#define kACSourceIdBit          44   // 3 bits
-//#define kACPowerBit           36   // 8 bits, same as in legacy
-#define kACVoltageIDBit         33   // 3 bits
-//#define kACSerialBit          8    // 25 bits
-//#define kACFamilyBit          0    // 8 bits, same as in legacy
-
-#define k3BitMask       0x7
-
-
-
-
 
 /************************************************************************/
 __private_extern__ CFDictionaryRef _copyACAdapterInfo(CFDictionaryRef oldACDict)
@@ -3395,4 +3467,45 @@ exit:
     if (dict) CFRelease(dict);
     IOObjectRelease(optionsRef);
     return ret;
+}
+
+int
+pluginExecCommand(const char *path, char *const argv[],
+		dispatch_queue_t queue,
+		void (*callback)(pid_t pid, int status))
+{
+    posix_spawn_file_actions_t fattr;
+    pid_t pid = -1;
+    int save_errno, rc;
+
+    posix_spawn_file_actions_init(&fattr);
+    posix_spawn_file_actions_addopen(&fattr, STDIN_FILENO,  "/dev/null", O_RDONLY, 0666);
+    posix_spawn_file_actions_addopen(&fattr, STDOUT_FILENO, "/dev/null", O_WRONLY, 0666);
+    posix_spawn_file_actions_addopen(&fattr, STDERR_FILENO, "/dev/null", O_WRONLY, 0666);
+
+    rc = posix_spawn(&pid, path, &fattr, NULL, argv, *_NSGetEnviron());
+    save_errno = errno;
+
+    posix_spawn_file_actions_destroy(&fattr);
+
+    if (rc == -1) {
+        errno = save_errno;
+        return -1;
+    }
+
+    if (callback) {
+        dispatch_source_t src;
+
+        src = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC,
+                                     pid, DISPATCH_PROC_EXIT, queue);
+        dispatch_source_set_event_handler(src, ^{
+            int status;
+            waitpid(pid, &status, 0);
+            callback(pid, status);
+            dispatch_source_cancel(src);
+            dispatch_release(src);
+        });
+        dispatch_activate(src);
+    }
+    return 0;
 }

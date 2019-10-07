@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.substr.d	1.2	08/04/09 SMI"
-
 #pragma D option quiet
 #pragma D option strsize=32
 #pragma D option statusrate=100ms

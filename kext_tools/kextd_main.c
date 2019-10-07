@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -11,10 +11,10 @@
  * unlawful or unlicensed copies of an Apple operating system, or to
  * circumvent, violate, or enable the circumvention or violation of, any
  * terms of an Apple operating system software license agreement.
- * 
+ *
  * Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -22,7 +22,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 #include <CoreFoundation/CoreFoundation.h>
@@ -74,6 +74,7 @@
 #include "signposts.h"
 #include "staging.h"
 #include "kextaudit.h"
+#include "driverkit.h"
 
 /*******************************************************************************
 * Globals set from invocation arguments (xxx - could use fewer globals).
@@ -113,7 +114,7 @@ const NXArchInfo        * gKernelArchInfo                   = NULL;  // do not f
 
 ExitStatus                sKextdExitStatus                  = kKextdExitOK;
 
-static AuthOptions_t      sKextdAuthenticationOptions       = {0};
+AuthOptions_t      KextdAuthenticationOptions       = {0};
 
 /*******************************************************************************
  * Static routines.
@@ -194,7 +195,7 @@ int main(int argc, char * const * argv)
     if (!sToolArgs.debugMode) {
         tool_openlog("com.apple.kextd");
     }
-    
+
    /*****
     * Set an environment variable that children (such as kextcache)
     * can use to alter behavior (logging to syslog etc.).
@@ -215,18 +216,24 @@ int main(int argc, char * const * argv)
     /* Setup OSKext authentication options, starting with networking disabled
      * and using the boot timer to enable it shortly after boot.
      */
-    sKextdAuthenticationOptions.allowNetwork = false;
-    sKextdAuthenticationOptions.isCacheLoad = false;
-    sKextdAuthenticationOptions.performFilesystemValidation = true;
-    sKextdAuthenticationOptions.performSignatureValidation = true;
-    sKextdAuthenticationOptions.requireSecureLocation = true;
-    sKextdAuthenticationOptions.respectSystemPolicy = true;
-    _OSKextSetAuthenticationFunction(&authenticateKext, &sKextdAuthenticationOptions);
+    KextdAuthenticationOptions.allowNetwork = false;
+    KextdAuthenticationOptions.isCacheLoad = false;
+    KextdAuthenticationOptions.performFilesystemValidation = true;
+    KextdAuthenticationOptions.performSignatureValidation = true;
+    KextdAuthenticationOptions.requireSecureLocation = true;
+    KextdAuthenticationOptions.respectSystemPolicy = true;
+    KextdAuthenticationOptions.checkDextApproval = true;
+    KextdAuthenticationOptions.is_kextcache = false;
+    _OSKextSetAuthenticationFunction(&authenticateKext, &KextdAuthenticationOptions);
     _OSKextSetStrictAuthentication(true);
 
     /* Set up auditing of kext loads, see kextaudit.c */
     _OSKextSetLoadAuditFunction(&KextAuditLoadCallback);
     setVariantSuffix();
+
+    /* Add cdhashes of DriverKit executables to personalities that are added
+     * to the personality cache or sent down to the kernel. */
+    _OSKextSetPersonalityPatcherFunction(&addCDHashToDextPersonality);
 
     gRepositoryURLs = OSKextGetSystemExtensionsFolderURLs();
     if (!gRepositoryURLs) {
@@ -293,7 +300,7 @@ int main(int argc, char * const * argv)
         }
         CFRelease(propertyValues);
     }
-    
+
    /* Note: We are not going to try to update the OSBunderHelpers cache
     * this early as it isn't needed until login. It should normally be
     * up to date anyhow so let's keep startup I/O to an absolute minimum.
@@ -319,7 +326,7 @@ finish:
 #endif /* ifndef NO_CFUserNotification */
 
     kextd_stop_volwatch();    // no-op if watch_volumes not called
-    
+
     if (sKextdExitStatus == kKextdExitHelp) {
         sKextdExitStatus = kKextdExitOK;
     }
@@ -366,7 +373,7 @@ readArgs(
     } else {
         toolArgs->firstBoot = false;
     }
- 
+
     while ((optchar = getopt_long_only(argc, (char * const *)argv,
         kOptChars, sOptInfo, &longindex)) != -1) {
 
@@ -380,15 +387,15 @@ readArgs(
                 result = kKextdExitHelp;
                 goto finish;
                 break;
-                
+
             case kOptNoCaches:
                 toolArgs->useRepositoryCaches = false;
                 break;
-                
+
             case kOptDebug:
                 toolArgs->debugMode = true;
                 break;
-                
+
             case kOptQuiet:
                 beQuiet();
                 break;
@@ -427,7 +434,7 @@ readArgs(
             "Extra input on command line; %s....", argv[0]);
         goto finish;
     }
-    
+
     result = EX_OK;
 
 finish:
@@ -563,7 +570,7 @@ ExitStatus setUpServer(KextdArgs * toolArgs)
     if (kextd_watch_volumes()) {
         goto finish;
     }
-    
+
     sKextdSignalMachPort = CFMachPortCreate(kCFAllocatorDefault,
         handleSignalInRunloop, NULL, NULL);
     if (!sKextdSignalMachPort) {
@@ -676,7 +683,7 @@ ExitStatus setUpServer(KextdArgs * toolArgs)
                                     UnsignedKextCallback,
                                     CFSTR("Unsigned Kext Notification"),
                                     NULL,
-                                    CFNotificationSuspensionBehaviorDeliverImmediately);    
+                                    CFNotificationSuspensionBehaviorDeliverImmediately);
 #endif
 
     /* Sign up to receive notifications when kexts are loaded.
@@ -730,7 +737,7 @@ void NoLoadSigFailureKextCallback(CFNotificationCenterRef center,
             writeKextAlertPlist(userInfo, NO_LOAD_KEXT_ALERT);
         });
     }
-   
+
     return;
 }
 
@@ -751,7 +758,7 @@ void RevokedCertKextCallback(CFNotificationCenterRef center,
             sendRevokedCertAlert(userInfo);
         });
     }
-    
+
     return;
 }
 
@@ -773,7 +780,7 @@ void UnsignedKextCallback(CFNotificationCenterRef center,
             writeKextAlertPlist(userInfo, UNSIGNED_KEXT_ALERT);
         });
     }
-    
+
     return;
 }
 #endif
@@ -795,7 +802,7 @@ void InvalidSignedKextCallback(CFNotificationCenterRef center,
             writeKextAlertPlist(userInfo, INVALID_SIGNATURE_KEXT_ALERT);
         });
     }
-    
+
     return;
 }
 
@@ -816,7 +823,7 @@ void ExcludedKextCallback(CFNotificationCenterRef center,
             writeKextAlertPlist(userInfo, EXCLUDED_KEXT_ALERT);
         });
     }
-    
+
     return;
 }
 
@@ -833,7 +840,7 @@ void LoadedKextCallback(CFNotificationCenterRef center,
    if (userInfo) {
         CFArrayRef myValue;
         myValue = CFDictionaryGetValue(userInfo, CFSTR("KextArrayKey"));
-       
+
        if (myValue && CFGetTypeID(myValue) == CFArrayGetTypeID()) {
            /* synchronize access to our plist file,
               and write after 5 secs delay to catch new kernel load requests.
@@ -844,7 +851,7 @@ void LoadedKextCallback(CFNotificationCenterRef center,
            });
        }
     }
-    
+
     return;
 }
 
@@ -862,18 +869,18 @@ bool isBootRootActive(void)
     if (!chosen) {
         goto finish;
     }
-    
+
     bootrootProp = IORegistryEntryCreateCFProperty(
         chosen, CFSTR(kBootRootActiveKey), kCFAllocatorDefault,
         0 /* options */);
-        
+
    /* Mere presence of the property indicates that we are
     * boot!=root, type and value are irrelevant.
     */
     if (bootrootProp) {
         result = true;
     }
-    
+
 finish:
     if (chosen)       IOObjectRelease(chosen);
     SAFE_RELEASE(bootrootProp);
@@ -923,7 +930,7 @@ void handleSignalInRunloop(
 {
     kextd_mach_msg_signal_t * signal_msg = (kextd_mach_msg_signal_t *)msg;
     int                       signum = signal_msg->signum;
-    
+
     if (signum == SIGHUP) {
         rescanExtensions();
     } else if (signum == SIGTERM) {
@@ -932,7 +939,7 @@ void handleSignalInRunloop(
     } else if (signum == SIGCHLD) {
         pid_t child_pid    = -1;
         int   child_status = 0;
-        
+
        /* Reap all spawned child processes that have exited.
         */
         do {
@@ -959,7 +966,7 @@ void handleSignalInRunloop(
                     child_pid, WEXITSTATUS(child_status));
             }
         } while (child_pid > 0);
-        
+
     }
 
     return;
@@ -998,7 +1005,7 @@ void readExtensions(void)
         /* force reading all extensions */
         releaseExtensions(/* timer */ NULL, /* context */ NULL);
     }
-    
+
     if (result == EX_OK && timercmp(&lastModTime, &tempTimes[1], !=)) {
         lastAccessTime.tv_sec = tempTimes[0].tv_sec;
         lastAccessTime.tv_usec = tempTimes[0].tv_usec;
@@ -1098,7 +1105,7 @@ void LoadLatestExcludeList()
 void enableNetworkAuthentication(void)
 {
     // Avoid using the network during boot - <rdar://35004679>
-    sKextdAuthenticationOptions.allowNetwork = true;
+    KextdAuthenticationOptions.allowNetwork = true;
 }
 
 /*
@@ -1126,7 +1133,7 @@ void rescanExtensions(void)
     // Before sending personalities and triggering matching, ensure
     // the latest AKEL has been loaded.
     LoadLatestExcludeList();
-    
+
     // need to trigger check_rebuild (in watchvol.c) for mkext, etc
     // perhaps via mach message to the notification port
     // should we let it handle the ResetAllRepos?

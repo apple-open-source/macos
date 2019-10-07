@@ -26,16 +26,17 @@
 #import <CloudKit/CloudKit.h>
 #import <XCTest/XCTest.h>
 #import <OCMock/OCMock.h>
+#import <SecurityFoundation/SFDigestOperation.h>
 #import <SecurityFoundation/SFKey.h>
 #import <SecurityFoundation/SFKey_Private.h>
-#import <SecurityFoundation/SFDigestOperation.h>
+#import <SecurityFoundation/SFIdentity.h>
 
 #import "keychain/ckks/tests/CloudKitMockXCTest.h"
 #import "keychain/ckks/tests/CloudKitKeychainSyncingMockXCTest.h"
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSKey.h"
 #import "keychain/ckks/CKKSPeer.h"
-#import "keychain/ckks/CKKSTLKShare.h"
+#import "keychain/ckks/CKKSTLKShareRecord.h"
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
@@ -43,18 +44,23 @@
 #import "keychain/ckks/tests/MockCloudKit.h"
 #import "keychain/ckks/tests/CKKSTests.h"
 #import "keychain/ot/OTDefines.h"
+#import "keychain/ot/OctagonCKKSPeerAdapter.h"
+
+#import "keychain/ckks/tests/CKKSMockOctagonAdapter.h"
+
+@class OctagonSelfPeer;
 
 @interface CloudKitKeychainSyncingTLKSharingTests : CloudKitKeychainSyncingTestsBase
 @property CKKSSOSSelfPeer* remotePeer1;
 @property CKKSSOSPeer* remotePeer2;
 
+@property OctagonSelfPeer* selfOTPeer1;
+@property id<CKKSPeer> remoteOTPeer2;
 
 @property CKKSSOSSelfPeer* untrustedPeer;
 
 @property (nullable) NSMutableSet<id<CKKSSelfPeer>>* pastSelfPeers;
 
-// Used to test a single code path. If true, no past self peers will be valid
-@property bool breakLoadSelfPeerEncryptionKey;
 @end
 
 @implementation CloudKitKeychainSyncingTLKSharingTests
@@ -64,26 +70,41 @@
 
     self.pastSelfPeers = [NSMutableSet set];
 
-    // Use the upsetting old-style mocks so we can ignore the enum
-    [[[[self.mockCKKSViewManager stub] andCall:@selector(fakeLoadRestoredBottledKeysOfType:error:)
-                                      onObject:self] ignoringNonObjectArgs]
-     loadRestoredBottledKeysOfType:0 error:[OCMArg anyObjectRef]];
-
     self.remotePeer1 = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"remote-peer1"
                                                     encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
-                                                       signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]];
+                                                       signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
+                                                         viewList:self.managedViewList];
 
     self.remotePeer2 = [[CKKSSOSPeer alloc] initWithSOSPeerID:@"remote-peer2"
                                               encryptionPublicKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]].publicKey
-                                                 signingPublicKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]].publicKey];
+                                                 signingPublicKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]].publicKey
+                                                     viewList:self.managedViewList];
 
     // Local SOS trusts these peers
-    [self.currentPeers addObject:self.remotePeer1];
-    [self.currentPeers addObject:self.remotePeer2];
+    [self.mockSOSAdapter.trustedPeers addObject:self.remotePeer1];
+    [self.mockSOSAdapter.trustedPeers addObject:self.remotePeer2];
 
     self.untrustedPeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"untrusted-peer"
                                                       encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
-                                                         signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]];
+                                                         signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
+                                                           viewList:self.managedViewList];
+
+    /*
+     * Octagon glue
+     */
+    SFKeyPair *signingKeyPair = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
+    SFKeyPair *encrytionKeyPair = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
+
+    self.selfOTPeer1 = [[OctagonSelfPeer alloc] initWithPeerID:@"SHA256:ot-self-peer"
+                                                signingIdentity:[[SFIdentity alloc] initWithKeyPair: signingKeyPair]
+                                            encryptionIdentity:[[SFIdentity alloc] initWithKeyPair: encrytionKeyPair]];
+    self.remoteOTPeer2 = nil;
+
+    self.mockOctagonAdapter = [[CKKSMockOctagonAdapter alloc] initWithSelfPeer:self.selfOTPeer1
+                                                                  trustedPeers:[NSSet set]
+                                                                     essential:YES];
+    self.mockOctagonAdapter.selfViewList = self.managedViewList;
+
 }
 
 - (void)tearDown {
@@ -91,55 +112,10 @@
     self.remotePeer1 = nil;
     self.remotePeer2 = nil;
     self.untrustedPeer = nil;
+    self.selfOTPeer1 = nil;
+    self.remoteOTPeer2 = nil;
 
     [super tearDown];
-}
-
-
-- (NSArray<NSDictionary *>* _Nullable)fakeLoadRestoredBottledKeysOfType:(OctagonKeyType)keyType error:(NSError**)error {
-    if(self.aksLockState) {
-        if(error) {
-            *error = [NSError errorWithDomain:(__bridge NSString*)kSecErrorDomain code:errSecInteractionNotAllowed userInfo:nil];
-        }
-        return nil;
-    } else {
-        if(self.breakLoadSelfPeerEncryptionKey && keyType == OctagonEncryptionKey) {
-            if(error) {
-                *error = [NSError errorWithDomain:(__bridge NSString*)kSecErrorDomain code:errSecItemNotFound userInfo:nil];
-            }
-            return nil;
-        }
-
-        // Convert self.pastSelfPeers into an array of dictionaries
-        NSMutableArray<NSDictionary*>* keys = [NSMutableArray array];
-
-        for(id<CKKSSelfPeer> peer in self.pastSelfPeers) {
-            SFECKeyPair* key = nil;
-
-            switch(keyType) {
-                case OctagonSigningKey:
-                    key = peer.signingKey;
-                    break;
-                case OctagonEncryptionKey:
-                    key = peer.encryptionKey;
-                    break;
-            }
-
-            XCTAssertNotNil(key, "Should have a key at this point");
-
-            NSData* signingPublicKeyHashBytes = [SFSHA384DigestOperation digest:peer.signingKey.publicKey.keyData];
-            NSString* signingPublicKeyHash = [signingPublicKeyHashBytes base64EncodedStringWithOptions:0];
-
-            NSDictionary* dict = @{
-                                   (id)kSecAttrAccount : peer.peerID,
-                                   (id)kSecAttrLabel : signingPublicKeyHash,
-                                   (id)kSecValueData : key.keyData,
-                                   };
-            [keys addObject:dict];
-        }
-
-        return keys;
-    }
 }
 
 - (void)testAcceptExistingTLKSharedKeyHierarchy {
@@ -176,7 +152,8 @@
     }];
 }
 
-- (void)testAcceptExistingTLKSharedKeyHierarchyForPastSelf {
+/* As part of 48178481, we disabled CKKS 'past selves' for SOS */
+- (void)DISABLEDtestAcceptExistingTLKSharedKeyHierarchyForPastSelf {
     // Test starts with no keys in CKKS database, but one in our fake CloudKit.
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
 
@@ -184,18 +161,19 @@
     [self putTLKSharesInCloudKit:self.keychainZoneKeys.tlk from:self.remotePeer1 zoneID:self.keychainZoneID];
 
     // Self rolls its keys and ID...
-    [self.pastSelfPeers addObject:self.currentSelfPeer];
-    self.currentSelfPeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"new-local-peer"
+    [self.pastSelfPeers addObject:self.mockSOSAdapter.selfPeer];
+    self.mockSOSAdapter.selfPeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"new-local-peer"
                                                         encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
-                                                           signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]];
+                                                           signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
+                                                                     viewList:self.managedViewList];
 
     // The CKKS subsystem should accept the keys, and share the TLK back to itself
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID
                checkModifiedRecord:^BOOL(CKRecord* _Nonnull record) {
-                   CKKSTLKShare* share = [[CKKSTLKShare alloc] initWithCKRecord:record];
-                   XCTAssertEqualObjects(share.receiver.peerID, self.currentSelfPeer.peerID, "Receiver peerID on TLKShare should match current self");
-                   XCTAssertEqualObjects(share.receiver.publicEncryptionKey, self.currentSelfPeer.publicEncryptionKey, "Receiver encryption key on TLKShare should match current self");
-                   XCTAssertEqualObjects(share.senderPeerID, self.currentSelfPeer.peerID, "Sender of TLKShare should match current self");
+                   CKKSTLKShareRecord* share = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
+                   XCTAssertEqualObjects(share.share.receiverPeerID, self.mockSOSAdapter.selfPeer.peerID, "Receiver peerID on TLKShare should match current self");
+                   XCTAssertEqualObjects(share.share.receiverPublicEncryptionKeySPKI, self.mockSOSAdapter.selfPeer.publicEncryptionKey.keyData, "Receiver encryption key on TLKShare should match current self");
+                   XCTAssertEqualObjects(share.senderPeerID, self.mockSOSAdapter.selfPeer.peerID, "Sender of TLKShare should match current self");
                    return TRUE;
                }];
     [self startCKKSSubsystem];
@@ -221,26 +199,6 @@
 
         return false;
     }];
-}
-
-- (void)testDontCrashOnHalfBottle {
-    self.breakLoadSelfPeerEncryptionKey = true;
-
-    // Test starts with no keys in CKKS database, but one in our fake CloudKit.
-    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
-
-    // Test also starts with the TLK shared to all trusted peers from peer1
-    [self putTLKSharesInCloudKit:self.keychainZoneKeys.tlk from:self.remotePeer1 zoneID:self.keychainZoneID];
-
-    // Self rolls its keys and ID...
-    [self.pastSelfPeers addObject:self.currentSelfPeer];
-    self.currentSelfPeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"new-local-peer"
-                                                        encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
-                                                           signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]];
-
-    // CKKS should enter 'waitfortlk' without crashing
-    [self startCKKSSubsystem];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "Key state should become waitfortlk");
 }
 
 - (void)testAcceptExistingTLKSharedKeyHierarchyAndUse {
@@ -297,9 +255,9 @@
         XCTAssertNotNil(strongSelf, "self exists");
 
         NSError* error = nil;
-        CKKSTLKShare* share = [CKKSTLKShare share:strongSelf.keychainZoneKeys.tlk
-                                               as:strongSelf.currentSelfPeer
-                                               to:strongSelf.currentSelfPeer
+        CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:strongSelf.keychainZoneKeys.tlk
+                                                           as:strongSelf.mockSOSAdapter.selfPeer
+                                                           to:strongSelf.mockSOSAdapter.selfPeer
                                             epoch:-1
                                          poisoned:0
                                             error:&error];
@@ -338,7 +296,7 @@
 
     // Make another share, but from an untrusted peer to some other peer. local shouldn't necessarily care.
     NSError* error = nil;
-    CKKSTLKShare* share = [CKKSTLKShare share:self.keychainZoneKeys.tlk
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.keychainZoneKeys.tlk
                                            as:self.untrustedPeer
                                            to:self.remotePeer1
                                         epoch:-1
@@ -355,7 +313,7 @@
 
     [self.keychainView dispatchSync:^bool {
         NSError* blockerror = nil;
-        CKKSTLKShare* localshare = [CKKSTLKShare tryFromDatabaseFromCKRecordID:shareCKRecord.recordID error:&blockerror];
+        CKKSTLKShareRecord* localshare = [CKKSTLKShareRecord tryFromDatabaseFromCKRecordID:shareCKRecord.recordID error:&blockerror];
         XCTAssertNil(blockerror, "Shouldn't error finding TLKShare record in database");
         XCTAssertNotNil(localshare, "Should be able to find a TLKShare record in database");
         return true;
@@ -369,7 +327,7 @@
     // Should be gone now.
     [self.keychainView dispatchSync:^bool {
         NSError* blockerror = nil;
-        CKKSTLKShare* localshare = [CKKSTLKShare tryFromDatabaseFromCKRecordID:shareCKRecord.recordID error:&blockerror];
+        CKKSTLKShareRecord* localshare = [CKKSTLKShareRecord tryFromDatabaseFromCKRecordID:shareCKRecord.recordID error:&blockerror];
 
         XCTAssertNil(blockerror, "Shouldn't error trying to find non-existent TLKShare record in database");
         XCTAssertNil(localshare, "Shouldn't be able to find a TLKShare record in database");
@@ -468,7 +426,7 @@
     // Now, delete all the TLK Shares, so CKKS will upload them again
     [self.keychainView dispatchSync:^bool {
         NSError* error = nil;
-        [CKKSTLKShare deleteAll:self.keychainZoneID error:&error];
+        [CKKSTLKShareRecord deleteAll:self.keychainZoneID error:&error];
         XCTAssertNil(error, "Shouldn't be an error deleting all TLKShares");
 
         NSArray<CKRecord*>* records = [self.zones[self.keychainZoneID].currentDatabase allValues];
@@ -484,6 +442,7 @@
     // Restart. We expect an upload of 3 TLK shares.
     [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords:0 tlkShareRecords:3 zoneID:self.keychainZoneID];
     self.keychainView = [self.injectedManager restartZone: self.keychainZoneID.zoneName];
+    [self beginSOSTrustedViewOperation:self.keychainView];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
@@ -628,14 +587,14 @@
 
     // The CKKS subsystem should go into waitfortlk, since it doesn't trust this peer, but the peer is active
     [self startCKKSSubsystem];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "Key state should become waitfortlk");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:2000*NSEC_PER_SEC], "Key state should become waitfortlk");
 
     // Wait to be sure we really get into that state
     [self.keychainView waitForOperationsOfClass:[CKKSProcessReceivedKeysOperation class]];
 
     // Now, trust the previously-untrusted peer
-    [self.currentPeers addObject: self.untrustedPeer];
-    [self.injectedManager sendTrustedPeerSetChangedUpdate];
+    [self.mockSOSAdapter.trustedPeers addObject: self.untrustedPeer];
+    [self.mockSOSAdapter sendTrustedPeerSetChangedUpdate];
 
     // The CKKS subsystem should now accept the key, and share the TLK back to itself
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
@@ -652,10 +611,10 @@
 - (void)testSendNewTLKSharesOnTrustSetAddition {
     // step 1: add a new peer; we should share the TLK with them
     // start with no trusted peers
-    [self.currentPeers removeAllObjects];
+    [self.mockSOSAdapter.trustedPeers removeAllObjects];
 
-    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
+    [self performOctagonTLKUpload:self.ckksViews];
 
     [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID
                           checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
@@ -664,8 +623,8 @@
 
     // Cool! New peer arrives!
     [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
-    [self.currentPeers addObject:self.remotePeer1];
-    [self.injectedManager sendTrustedPeerSetChangedUpdate];
+    [self.mockSOSAdapter.trustedPeers addObject:self.remotePeer1];
+    [self.mockSOSAdapter sendTrustedPeerSetChangedUpdate];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
@@ -676,8 +635,8 @@
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
 
     // CKKS should not upload a tlk share for this peer
-    [self.currentPeers addObject:self.remotePeer2];
-    [self.injectedManager sendTrustedPeerSetChangedUpdate];
+    [self.mockSOSAdapter.trustedPeers addObject:self.remotePeer2];
+    [self.mockSOSAdapter sendTrustedPeerSetChangedUpdate];
 
     [self.keychainView waitUntilAllOperationsAreFinished];
 }
@@ -685,10 +644,10 @@
 - (void)testFillInMissingPeerSharesAfterUnlock {
     // step 1: add a new peer; we should share the TLK with them
     // start with no trusted peers
-    [self.currentPeers removeAllObjects];
+    [self.mockSOSAdapter.trustedPeers removeAllObjects];
 
-    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
+    [self performOctagonTLKUpload:self.ckksViews];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should become 'ready'");
 
@@ -702,8 +661,8 @@
     [self.lockStateTracker recheck];
 
     // New peer arrives! This can't actually happen (since we have to be unlocked to accept a new peer), but this will exercise CKKS
-    [self.currentPeers addObject:self.remotePeer1];
-    [self.injectedManager sendTrustedPeerSetChangedUpdate];
+    [self.mockSOSAdapter.trustedPeers addObject:self.remotePeer1];
+    [self.mockSOSAdapter sendTrustedPeerSetChangedUpdate];
 
     // CKKS should notice that it has things to do...
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReadyPendingUnlock] wait:20*NSEC_PER_SEC], @"Key state should become 'readypendingunlock'");
@@ -722,10 +681,10 @@
 - (void)testAddItemDuringNewTLKSharesOnTrustSetAddition {
     // step 1: add a new peer; we should share the TLK with them
     // start with no trusted peers
-    [self.currentPeers removeAllObjects];
+    [self.mockSOSAdapter.trustedPeers removeAllObjects];
 
-    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:1 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
+    [self performOctagonTLKUpload:self.ckksViews];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
@@ -734,8 +693,8 @@
     [self holdCloudKitModifications];
 
     [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
-    [self.currentPeers addObject:self.remotePeer1];
-    [self.injectedManager sendTrustedPeerSetChangedUpdate];
+    [self.mockSOSAdapter.trustedPeers addObject:self.remotePeer1];
+    [self.mockSOSAdapter sendTrustedPeerSetChangedUpdate];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
@@ -762,9 +721,10 @@
     [self putTLKSharesInCloudKit:self.keychainZoneKeys.tlk from:self.remotePeer1 zoneID:self.keychainZoneID];
 
     // self no longer has that key pair, but it does have a new one with the same peer ID....
-    self.currentSelfPeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:self.currentSelfPeer.peerID
+    self.mockSOSAdapter.selfPeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:self.mockSOSAdapter.selfPeer.peerID
                                                         encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
-                                                           signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]];
+                                                           signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
+                                                                     viewList:self.managedViewList];
     self.pastSelfPeers = [NSMutableSet set];
 
     // CKKS should become very upset, and enter waitfortlk.
@@ -779,8 +739,8 @@
 
     // step 1: add a new peer; we should share the TLK with them
     // start with no trusted peers
-    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:3 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
+    [self performOctagonTLKUpload:self.ckksViews];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
@@ -788,15 +748,15 @@
     // Remote peer rolls its encryption key...
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID
                checkModifiedRecord:^BOOL(CKRecord* _Nonnull record) {
-                   CKKSTLKShare* share = [[CKKSTLKShare alloc] initWithCKRecord:record];
-                   XCTAssertEqualObjects(share.receiver.peerID, self.remotePeer1.peerID, "Receiver peerID on TLKShare should match remote peer");
-                   XCTAssertEqualObjects(share.receiver.publicEncryptionKey, self.remotePeer1.publicEncryptionKey, "Receiver encryption key on TLKShare should match remote peer");
-                   XCTAssertEqualObjects(share.senderPeerID, self.currentSelfPeer.peerID, "Sender of TLKShare should match current self");
+                   CKKSTLKShareRecord* share = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
+                   XCTAssertEqualObjects(share.share.receiverPeerID, self.remotePeer1.peerID, "Receiver peerID on TLKShare should match remote peer");
+                   XCTAssertEqualObjects(share.share.receiverPublicEncryptionKeySPKI, self.remotePeer1.publicEncryptionKey.keyData, "Receiver encryption key on TLKShare should match remote peer");
+                   XCTAssertEqualObjects(share.senderPeerID, self.mockSOSAdapter.selfPeer.peerID, "Sender of TLKShare should match current self");
                    return TRUE;
                }];
 
     self.remotePeer1.encryptionKey = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
-    [self.injectedManager sendTrustedPeerSetChangedUpdate];
+    [self.mockSOSAdapter sendTrustedPeerSetChangedUpdate];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
@@ -810,7 +770,7 @@
     // This recovers from the remote peer losing its Octagon keys and making new ones
 
     // For this test, only have one peer
-    self.currentPeers = [NSMutableSet setWithObject:self.remotePeer1];
+    self.mockSOSAdapter.trustedPeers = [NSMutableSet setWithObject:self.remotePeer1];
 
     // Test starts with nothing in database, but one in our fake CloudKit.
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
@@ -828,10 +788,10 @@
     // Remote peer discovers its error and sends a new TLKShare! CKKS should recover and share itself a TLKShare
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID
                checkModifiedRecord:^BOOL(CKRecord* _Nonnull record) {
-                   CKKSTLKShare* share = [[CKKSTLKShare alloc] initWithCKRecord:record];
-                   XCTAssertEqualObjects(share.receiver.peerID, self.currentSelfPeer.peerID, "Receiver peerID on TLKShare should match self peer");
-                   XCTAssertEqualObjects(share.receiver.publicEncryptionKey, self.currentSelfPeer.publicEncryptionKey, "Receiver encryption key on TLKShare should match self peer");
-                   XCTAssertEqualObjects(share.senderPeerID, self.currentSelfPeer.peerID, "Sender of TLKShare should match current self");
+                   CKKSTLKShareRecord* share = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
+                   XCTAssertEqualObjects(share.share.receiverPeerID, self.mockSOSAdapter.selfPeer.peerID, "Receiver peerID on TLKShare should match self peer");
+                   XCTAssertEqualObjects(share.share.receiverPublicEncryptionKeySPKI, self.mockSOSAdapter.selfPeer.publicEncryptionKey.keyData, "Receiver encryption key on TLKShare should match self peer");
+                   XCTAssertEqualObjects(share.senderPeerID, self.mockSOSAdapter.selfPeer.peerID, "Sender of TLKShare should match current self");
                    return TRUE;
                }];
 
@@ -849,7 +809,7 @@
     // This recovers from the local peer losing its Octagon keys and making new ones
 
     // For this test, only have one peer
-    self.currentPeers = [NSMutableSet setWithObject:self.remotePeer1];
+    self.mockSOSAdapter.trustedPeers = [NSMutableSet setWithObject:self.remotePeer1];
 
     // Test starts with nothing in database, but one in our fake CloudKit.
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
@@ -864,15 +824,15 @@
     // Remote peer rolls its signing key, but hasn't updated its TLKShare. We should send it one.
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID
                checkModifiedRecord:^BOOL(CKRecord* _Nonnull record) {
-                   CKKSTLKShare* share = [[CKKSTLKShare alloc] initWithCKRecord:record];
-                   XCTAssertEqualObjects(share.receiver.peerID, self.remotePeer1.peerID, "Receiver peerID on TLKShare should match remote peer");
-                   XCTAssertEqualObjects(share.receiver.publicEncryptionKey, self.remotePeer1.publicEncryptionKey, "Receiver encryption key on TLKShare should match remote peer");
-                   XCTAssertEqualObjects(share.senderPeerID, self.currentSelfPeer.peerID, "Sender of TLKShare should match current self");
+                   CKKSTLKShareRecord* share = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
+                   XCTAssertEqualObjects(share.share.receiverPeerID, self.remotePeer1.peerID, "Receiver peerID on TLKShare should match remote peer");
+                   XCTAssertEqualObjects(share.share.receiverPublicEncryptionKeySPKI, self.remotePeer1.publicEncryptionKey.keyData, "Receiver encryption key on TLKShare should match remote peer");
+                   XCTAssertEqualObjects(share.senderPeerID, self.mockSOSAdapter.selfPeer.peerID, "Sender of TLKShare should match current self");
                    return TRUE;
                }];
 
     self.remotePeer1.signingKey = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
-    [self.injectedManager sendTrustedPeerSetChangedUpdate];
+    [self.mockSOSAdapter sendTrustedPeerSetChangedUpdate];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
@@ -896,17 +856,20 @@
 
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID
                checkModifiedRecord:^BOOL(CKRecord* _Nonnull record) {
-                   CKKSTLKShare* share = [[CKKSTLKShare alloc] initWithCKRecord:record];
-                   XCTAssertEqualObjects(share.receiver.peerID, self.remotePeer2.peerID, "Receiver peerID on TLKShare should match remote peer");
-                   XCTAssertEqualObjects(share.receiver.publicEncryptionKey, self.remotePeer2.publicEncryptionKey, "Receiver encryption key on TLKShare should match remote peer");
-                   XCTAssertEqualObjects(share.senderPeerID, self.currentSelfPeer.peerID, "Sender of TLKShare should match current self");
+                   CKKSTLKShareRecord* share = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
+                   XCTAssertEqualObjects(share.share.receiverPeerID, self.remotePeer2.peerID, "Receiver peerID on TLKShare should match remote peer");
+                   XCTAssertEqualObjects(share.share.receiverPublicEncryptionKeySPKI, self.remotePeer2.publicEncryptionKey.keyData, "Receiver encryption key on TLKShare should match remote peer");
+                   XCTAssertEqualObjects(share.senderPeerID, self.mockSOSAdapter.selfPeer.peerID, "Sender of TLKShare should match current self");
                    return TRUE;
                }];
 
-    CKKSSOSPeer* brokenRemotePeer1 = [[CKKSSOSPeer alloc] initWithSOSPeerID:self.remotePeer1.peerID encryptionPublicKey:nil signingPublicKey:nil];
-    [self.currentPeers removeObject:self.remotePeer1];
-    [self.currentPeers addObject:brokenRemotePeer1];
-    [self.injectedManager sendTrustedPeerSetChangedUpdate];
+    CKKSSOSPeer* brokenRemotePeer1 = [[CKKSSOSPeer alloc] initWithSOSPeerID:self.remotePeer1.peerID
+                                                        encryptionPublicKey:nil
+                                                           signingPublicKey:nil
+                                                                   viewList:self.managedViewList];
+    [self.mockSOSAdapter.trustedPeers removeObject:self.remotePeer1];
+    [self.mockSOSAdapter.trustedPeers addObject:brokenRemotePeer1];
+    [self.mockSOSAdapter sendTrustedPeerSetChangedUpdate];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
@@ -936,26 +899,27 @@
 
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:2 zoneID:self.keychainZoneID
                checkModifiedRecord:^BOOL(CKRecord* _Nonnull record) {
-                   CKKSTLKShare* share = [[CKKSTLKShare alloc] initWithCKRecord:record];
-                   if([share.receiver.peerID isEqualToString:self.remotePeer1.peerID]) {
+                   CKKSTLKShareRecord* share = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
+                   if([share.share.receiverPeerID isEqualToString:self.remotePeer1.peerID]) {
                        [peer1Share fulfill];
-                       XCTAssertEqualObjects(share.receiver.publicEncryptionKey, self.remotePeer1.publicEncryptionKey, "Receiver encryption key on TLKShare should match remote peer1");
+                       XCTAssertEqualObjects(share.share.receiverPublicEncryptionKeySPKI, self.remotePeer1.publicEncryptionKey.keyData, "Receiver encryption key on TLKShare should match remote peer1");
                    }
-                   if([share.receiver.peerID isEqualToString:self.remotePeer2.peerID]) {
+                   if([share.share.receiverPeerID isEqualToString:self.remotePeer2.peerID]) {
                        [peer2Share fulfill];
-                       XCTAssertEqualObjects(share.receiver.publicEncryptionKey, self.remotePeer2.publicEncryptionKey, "Receiver encryption key on TLKShare should match remote peer2");
+                       XCTAssertEqualObjects(share.share.receiverPublicEncryptionKeySPKI, self.remotePeer2.publicEncryptionKey.keyData, "Receiver encryption key on TLKShare should match remote peer2");
                    }
 
-                   XCTAssertEqualObjects(share.senderPeerID, self.currentSelfPeer.peerID, "Sender of TLKShare should match current self");
+                   XCTAssertEqualObjects(share.senderPeerID, self.mockSOSAdapter.selfPeer.peerID, "Sender of TLKShare should match current self");
                    return TRUE;
                }];
 
     CKKSSOSPeer* brokenRemotePeer1 = [[CKKSSOSPeer alloc] initWithSOSPeerID:self.remotePeer1.peerID
                                                         encryptionPublicKey:self.remotePeer1.publicEncryptionKey
-                                                           signingPublicKey:nil];
-    [self.currentPeers removeObject:self.remotePeer1];
-    [self.currentPeers addObject:brokenRemotePeer1];
-    [self.injectedManager sendTrustedPeerSetChangedUpdate];
+                                                           signingPublicKey:nil
+                                                                   viewList:self.managedViewList];
+    [self.mockSOSAdapter.trustedPeers removeObject:self.remotePeer1];
+    [self.mockSOSAdapter.trustedPeers addObject:brokenRemotePeer1];
+    [self.mockSOSAdapter sendTrustedPeerSetChangedUpdate];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
@@ -981,19 +945,19 @@
     // Local peer rolls its encryption key (and loses the old ones)
     [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID
                checkModifiedRecord:^BOOL(CKRecord* _Nonnull record) {
-                   CKKSTLKShare* share = [[CKKSTLKShare alloc] initWithCKRecord:record];
-                   XCTAssertEqualObjects(share.receiver.peerID, self.currentSelfPeer.peerID, "Receiver peerID on TLKShare should match current self");
-                   XCTAssertEqualObjects(share.receiver.publicEncryptionKey, self.currentSelfPeer.publicEncryptionKey, "Receiver encryption key on TLKShare should match current self");
-                   XCTAssertEqualObjects(share.senderPeerID, self.currentSelfPeer.peerID, "Sender of TLKShare should match current self");
+                   CKKSTLKShareRecord* share = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
+                   XCTAssertEqualObjects(share.share.receiverPeerID, self.mockSOSAdapter.selfPeer.peerID, "Receiver peerID on TLKShare should match current self");
+                   XCTAssertEqualObjects(share.share.receiverPublicEncryptionKeySPKI, self.mockSOSAdapter.selfPeer.publicEncryptionKey.keyData, "Receiver encryption key on TLKShare should match current self");
+                   XCTAssertEqualObjects(share.senderPeerID, self.mockSOSAdapter.selfPeer.peerID, "Sender of TLKShare should match current self");
                    NSError* signatureVerifyError = nil;
-                   XCTAssertTrue([share verifySignature:share.signature verifyingPeer:self.currentSelfPeer error:&signatureVerifyError], "New share's signature should verify");
+                   XCTAssertTrue([share verifySignature:share.signature verifyingPeer:self.mockSOSAdapter.selfPeer error:&signatureVerifyError], "New share's signature should verify");
                    XCTAssertNil(signatureVerifyError, "Should be no error verifying signature on new TLKShare");
                    return TRUE;
                }];
 
-    self.currentSelfPeer.encryptionKey = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
+    self.mockSOSAdapter.selfPeer.encryptionKey = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
     self.pastSelfPeers = [NSMutableSet set];
-    [self.injectedManager sendSelfPeerChangedUpdate];
+    [self.mockSOSAdapter sendSelfPeerChangedUpdate];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
@@ -1001,19 +965,19 @@
     // Now, local peer loses and rolls its signing key (and loses the old one)
     [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID
                checkModifiedRecord:^BOOL(CKRecord* _Nonnull record) {
-                   CKKSTLKShare* share = [[CKKSTLKShare alloc] initWithCKRecord:record];
-                   XCTAssertEqualObjects(share.receiver.peerID, self.currentSelfPeer.peerID, "Receiver peerID on TLKShare should match current self");
-                   XCTAssertEqualObjects(share.receiver.publicEncryptionKey, self.currentSelfPeer.publicEncryptionKey, "Receiver encryption key on TLKShare should match current self");
-                   XCTAssertEqualObjects(share.senderPeerID, self.currentSelfPeer.peerID, "Sender of TLKShare should match current self");
+                   CKKSTLKShareRecord* share = [[CKKSTLKShareRecord alloc] initWithCKRecord:record];
+                   XCTAssertEqualObjects(share.share.receiverPeerID, self.mockSOSAdapter.selfPeer.peerID, "Receiver peerID on TLKShare should match current self");
+                   XCTAssertEqualObjects(share.share.receiverPublicEncryptionKeySPKI, self.mockSOSAdapter.selfPeer.publicEncryptionKey.keyData, "Receiver encryption key on TLKShare should match current self");
+                   XCTAssertEqualObjects(share.senderPeerID, self.mockSOSAdapter.selfPeer.peerID, "Sender of TLKShare should match current self");
                    NSError* signatureVerifyError = nil;
-                   XCTAssertTrue([share verifySignature:share.signature verifyingPeer:self.currentSelfPeer error:&signatureVerifyError], "New share's signature should verify");
+                   XCTAssertTrue([share verifySignature:share.signature verifyingPeer:self.mockSOSAdapter.selfPeer error:&signatureVerifyError], "New share's signature should verify");
                    XCTAssertNil(signatureVerifyError, "Should be no error verifying signature on new TLKShare");
                    return TRUE;
                }];
 
-    self.currentSelfPeer.signingKey = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
+    self.mockSOSAdapter.selfPeer.signingKey = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
     self.pastSelfPeers = [NSMutableSet set];
-    [self.injectedManager sendSelfPeerChangedUpdate];
+    [self.mockSOSAdapter sendSelfPeerChangedUpdate];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
@@ -1049,7 +1013,8 @@
     // CKKS shouldn't reset this zone, due to a very recent (but untrusted) TLK Share. You can hit this getting a circle reset; the device with the TLKs will have a CFU.
     CKKSSOSSelfPeer* untrustedPeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"untrusted-peer"
                                                                   encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
-                                                                     signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]];
+                                                                     signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
+                                                                       viewList:self.managedViewList];
     [self putTLKShareInCloudKit:self.keychainZoneKeys.tlk from:untrustedPeer to:untrustedPeer zoneID:self.keychainZoneID];
 
     NSDateComponents* offset = [[NSDateComponents alloc] init];
@@ -1078,7 +1043,8 @@
     // CKKS shouldn't reset this zone, due to a recent TLK Share (indicating the presence of TLKs)
     CKKSSOSSelfPeer* untrustedPeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"untrusted-peer"
                                                                   encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
-                                                                     signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]];
+                                                                     signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
+                                                                       viewList:self.managedViewList];
     [self putTLKShareInCloudKit:self.keychainZoneKeys.tlk from:untrustedPeer to:untrustedPeer zoneID:self.keychainZoneID];
 
     NSDateComponents* offset = [[NSDateComponents alloc] init];
@@ -1093,9 +1059,8 @@
 
     self.silentZoneDeletesAllowed = true;
     self.keychainZone.flag = true;
-    [self expectCKModifyKeyRecords:3 currentKeyPointerRecords:3 tlkShareRecords:3 zoneID:self.keychainZoneID];
     [self startCKKSSubsystem];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateResettingZone] wait:20*NSEC_PER_SEC], @"Key state should become 'resetzone'");
+    [self performOctagonTLKUpload:self.ckksViews];
 
     // Then we should reset.
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
@@ -1105,7 +1070,7 @@
     XCTAssertFalse(self.keychainZone.flag, "Zone flag should have been reset to false");
 }
 
-- (void)testNoSelfEncryptionKeys {
+- (void)testNoSOSSelfEncryptionKeys {
     // If you lose your local encryption keys, CKKS should do something reasonable
 
     // Test also starts with the TLK shared to all trusted peers from peer1
@@ -1114,10 +1079,9 @@
     [self saveTLKSharesInLocalDatabase:self.keychainZoneID];
 
     // But, we lost our local keys :(
-    id<CKKSSelfPeer> oldSelfPeer = self.currentSelfPeer;
+    CKKSSOSSelfPeer* oldSelfPeer = self.mockSOSAdapter.selfPeer;
 
-    self.currentSelfPeer = nil;
-    self.currentSelfPeerError = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecParam description:@"injected test failure"];
+    self.mockSOSAdapter.selfPeerError = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecParam description:@"injected test failure"];
 
     // CKKS subsystem should realize that it can't read the shares it has, and enter waitfortlk
     [self startCKKSSubsystem];
@@ -1138,14 +1102,178 @@
     // It'll also upload itself a TLK share
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
 
-    self.currentSelfPeer = oldSelfPeer;
-    self.currentSelfPeerError = nil;
+    self.mockSOSAdapter.selfPeer = oldSelfPeer;
+    self.mockSOSAdapter.selfPeerError = nil;
 
-    [self.injectedManager sendSelfPeerChangedUpdate];
+    [self.mockSOSAdapter sendSelfPeerChangedUpdate];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become 'ready''");
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForCKModifications];
+}
+
+- (void)testNoSOSSelfEncryptionKeysDuringCreation {
+    // If you lose your local encryption keys, CKKS should do something reasonable
+
+    // But, things don't exist :(
+    self.mockSOSAdapter.selfPeerError = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecParam description:@"injected test failure"];
+
+    [self startCKKSSubsystem];
+
+    NSMutableArray<CKKSResultOperation<CKKSKeySetProviderOperationProtocol>*>* keysetOps = [NSMutableArray array];
+    for(CKKSKeychainView* view in self.ckksViews) {
+        XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLKCreation] wait:40*NSEC_PER_SEC], @"key state should enter 'waitfortlkcreation' (view %@)", view);
+        [keysetOps addObject: [view findKeySet]];
+    }
+
+    // Now that we've kicked them all off, wait for them to not crash
+    for(CKKSKeychainView* view in self.ckksViews) {
+        XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateError] wait:40*NSEC_PER_SEC], @"key state should enter 'error'");
+    }
+
+    /*
+    // Fetching status should be quick
+    XCTestExpectation* callbackOccurs = [self expectationWithDescription:@"callback-occurs"];
+    [self.ckksControl rpcStatus:@"keychain" reply:^(NSArray<NSDictionary*>* result, NSError* error) {
+        XCTAssertNil(error, "should be no error fetching status for keychain");
+        [callbackOccurs fulfill];
+    }];
+    [self waitForExpectations:@[callbackOccurs] timeout:20];
+
+    // But, if by some miracle those keys come back, CKKS should be able to recover
+    // It'll also upload itself a TLK share
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+
+    self.mockSOSAdapter.selfPeer = oldSelfPeer;
+    self.mockSOSAdapter.selfPeerError = nil;
+
+    [self.mockSOSAdapter sendSelfPeerChangedUpdate];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become 'ready''");
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];*/
+}
+
+
+- (void)testNoOctagonSelfEncryptionKeys {
+    // If you lose your local encryption keys, CKKS should do something reasonable
+
+    // Test also starts with the TLK shared to all trusted peers from peer1
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putTLKSharesInCloudKit:self.keychainZoneKeys.tlk from:self.remotePeer1 zoneID:self.keychainZoneID];
+    [self saveTLKSharesInLocalDatabase:self.keychainZoneID];
+
+
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become 'ready'");
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    // But, we lose our local keys :(
+    self.mockSOSAdapter.selfPeerError = [NSError errorWithDomain:TrustedPeersHelperErrorDomain
+                                                            code:1
+                                                     description:@"injected test failure (Octagon key loss)"];
+
+    // Kick off TLK checking
+    [self.keychainView trustedPeerSetChanged:self.mockSOSAdapter];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "Key state should become 'untrusted'");
+
+    // Fetching status should be quick
+    XCTestExpectation* callbackOccurs = [self expectationWithDescription:@"callback-occurs"];
+    [self.ckksControl rpcStatus:@"keychain" reply:^(NSArray<NSDictionary*>* result, NSError* error) {
+        XCTAssertNil(error, "should be no error fetching status for keychain");
+        [callbackOccurs fulfill];
+    }];
+    [self waitForExpectations:@[callbackOccurs] timeout:20];
+
+    // and it should pause, and not spin infinitely
+    XCTAssertNotEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateInitialized] wait:2*NSEC_PER_SEC], "Key state should not become 'initialized'");
+}
+
+- (void)testLoseTrustIfSelfPeerNotTrusted {
+    // If you decide you don't trust yourself, CKKS should do something reasonable
+
+    // Test also starts with the TLK shared to all trusted peers from peer1
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putTLKSharesInCloudKit:self.keychainZoneKeys.tlk from:self.remotePeer1 zoneID:self.keychainZoneID];
+    [self saveTLKSharesInLocalDatabase:self.keychainZoneID];
+
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become 'ready'");
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    self.mockSOSAdapter.excludeSelfPeerFromTrustSet = true;
+
+    // Kick off TLK checking
+    [self.keychainView trustedPeerSetChanged:self.mockSOSAdapter];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "Key state should become 'untrusted'");
+
+    // and it should pause, and not spin infinitely
+    XCTAssertNotEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateInitialized] wait:2*NSEC_PER_SEC], "Key state should not become 'initialized'");
+}
+
+- (void)testDontLoseTrustIfNonessentialTrustStateIsBroken {
+    // if a non-essential but broken peer provider exists, CKKS shouldn't pay it any mind
+
+    // Test also starts with the TLK shared to all trusted peers from peer1
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putTLKSharesInCloudKit:self.keychainZoneKeys.tlk from:self.remotePeer1 zoneID:self.keychainZoneID];
+    [self saveTLKSharesInLocalDatabase:self.keychainZoneID];
+
+
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become 'ready'");
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    // To fake this, make another mock SOS adapter, but make it nonessential
+    CKKSSOSSelfPeer* brokenSelfPeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"local-peer"
+                                                                   encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
+                                                                      signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
+                                                                        viewList:self.managedViewList];
+    CKKSMockSOSPresentAdapter* brokenAdapter = [[CKKSMockSOSPresentAdapter alloc] initWithSelfPeer:brokenSelfPeer
+                                                                                      trustedPeers:[NSSet set]
+                                                                                         essential:NO];
+    brokenAdapter.excludeSelfPeerFromTrustSet = true;
+
+    [self.keychainView endTrustedOperation];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "Key state should become 'waitfortrust'");
+
+    [self.keychainView beginTrustedOperation:@[self.mockSOSAdapter, brokenAdapter] suggestTLKUpload:self.suggestTLKUpload];
+
+    // CKKS should ignore the non-essential and broken peer adapter
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become 'ready'");
+}
+
+- (void)testTLKSharesForOctagonPeer {
+    // Launch first for SOS only
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
+
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:3 zoneID:self.keychainZoneID];
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    [self.keychainView endTrustedOperation];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "Key state should become 'waitfortrust'");
+
+    // Spin up Octagon. We expect an upload of 3 TLK shares, this time for the octagon peer
+    [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    [self.keychainView beginTrustedOperation:@[self.mockSOSAdapter, self.mockOctagonAdapter] suggestTLKUpload:self.suggestTLKUpload];
+    [self.mockOctagonAdapter sendTrustedPeerSetChangedUpdate];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
 }
 
 @end

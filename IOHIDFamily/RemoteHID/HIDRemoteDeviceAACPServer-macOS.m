@@ -211,26 +211,25 @@ exit:
 
 
 -(IOReturn) remoteDeviceSetReport:(HIDRemoteDevice *) device
-                             type:(IOHIDReportType) type
+                             type:(HIDReportType) type
                          reportID:(__unused uint8_t)reportID
-                           report:(uint8_t *) report
-                     reportLength:(NSUInteger) reportLength
+                           report:(NSData *) report
 {
     IOReturn status = kIOReturnSuccess;
     HIDDeviceReport * devicePacket;
     HIDTransportHeader * header;
-    NSMutableData * data = [[NSMutableData alloc] initWithLength:reportLength + sizeof(HIDDeviceReport) + sizeof(HIDTransportHeader)];
+    NSMutableData * data = [[NSMutableData alloc] initWithLength:report.length + sizeof(HIDDeviceReport) + sizeof(HIDTransportHeader)];
     
-    os_log_debug (RemoteHIDLog (), "remoteDeviceSetReport deviceID:0x%llx type:%d reportLength:%d", device.deviceID, type, (int)reportLength);
+    os_log_debug (RemoteHIDLog (), "remoteDeviceSetReport deviceID:0x%llx type:%ld report:%@", device.deviceID, (long)type, report);
  
     devicePacket = (HIDDeviceReport *) ((uint8_t *)data.bytes + sizeof(HIDTransportHeader));
     header =  (HIDTransportHeader *) ((uint8_t *)data.bytes);
     
-    memcpy(devicePacket->data, report, reportLength);
+    memcpy(devicePacket->data, report.bytes, report.length);
     devicePacket->header.deviceID    = (uint32_t) device.deviceID;
     devicePacket->header.packetType  = HIDPacketTypeSetReport;
     devicePacket->reportType         = type;
-    devicePacket->header.length      = (uint32_t)reportLength + sizeof(HIDDeviceReport);
+    devicePacket->header.length      = (uint32_t)report.length + sizeof(HIDDeviceReport);
     header->generation               = ++generation;
     
     IOBluetoothDevice * btDevice =  (IOBluetoothDevice *) device.endpoint;
@@ -253,10 +252,9 @@ exit:
 }
 
 -(IOReturn) remoteDeviceGetReport:(HIDRemoteDevice *) device
-                             type:(IOHIDReportType) type
+                             type:(HIDReportType) type
                          reportID:(uint8_t) reportID
-                           report:(__unused uint8_t *) report
-                     reportLength:(__unused NSUInteger *) reportLength
+                           report:(NSMutableData * __unused) report
 {
     NSMutableData * data = [[NSMutableData alloc] initWithLength:sizeof(HIDDeviceReport) + sizeof(HIDTransportHeader) + 1];
     IOReturn status = kIOReturnSuccess;
@@ -281,6 +279,12 @@ exit:
 exit:
 
     return status;
+}
+
+-(uint64_t) syncRemoteTimestamp:(__unused uint64_t)inTimestamp forEndpoint:(__unused __nonnull id)endpoint
+{
+    // BT timestamp API not available
+    return mach_absolute_time();
 }
 
 @end

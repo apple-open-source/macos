@@ -34,7 +34,7 @@
 
 namespace WTF {
 
-static constexpr unsigned maxCapacity = String::MaxLength + 1;
+static constexpr unsigned maxCapacity = String::MaxLength;
 
 static unsigned expandedCapacity(unsigned capacity, unsigned requiredLength)
 {
@@ -220,7 +220,7 @@ void StringBuilder::reserveCapacity(unsigned newCapacity)
         unsigned length = m_length.unsafeGet();
         if (newCapacity > length) {
             if (!length) {
-                LChar* nullPlaceholder = 0;
+                LChar* nullPlaceholder = nullptr;
                 allocateBuffer(nullPlaceholder, newCapacity);
             } else if (m_string.is8Bit())
                 allocateBuffer(m_string.characters8(), newCapacity);
@@ -273,7 +273,7 @@ CharType* StringBuilder::appendUninitializedSlow(unsigned requiredLength)
         reallocateBuffer<CharType>(expandedCapacity(capacity(), requiredLength));
     } else {
         ASSERT(m_string.length() == m_length.unsafeGet<unsigned>());
-        allocateBuffer(m_length ? m_string.characters<CharType>() : 0, expandedCapacity(capacity(), requiredLength));
+        allocateBuffer(m_length ? m_string.characters<CharType>() : nullptr, expandedCapacity(capacity(), requiredLength));
     }
     if (UNLIKELY(hasOverflowed()))
         return nullptr;
@@ -310,7 +310,7 @@ void StringBuilder::append(const UChar* characters, unsigned length)
             allocateBufferUpConvert(m_buffer->characters8(), expandedCapacity(capacity(), requiredLength.unsafeGet()));
         } else {
             ASSERT(m_string.length() == m_length.unsafeGet<unsigned>());
-            allocateBufferUpConvert(m_string.isNull() ? 0 : m_string.characters8(), expandedCapacity(capacity(), requiredLength.unsafeGet()));
+            allocateBufferUpConvert(m_string.isNull() ? nullptr : m_string.characters8(), expandedCapacity(capacity(), requiredLength.unsafeGet()));
         }
         if (UNLIKELY(hasOverflowed()))
             return;
@@ -378,7 +378,7 @@ void StringBuilder::appendNumber(int number)
     numberToStringSigned<StringBuilder>(number, this);
 }
 
-void StringBuilder::appendNumber(unsigned int number)
+void StringBuilder::appendNumber(unsigned number)
 {
     numberToStringUnsigned<StringBuilder>(number, this);
 }
@@ -403,16 +403,34 @@ void StringBuilder::appendNumber(unsigned long long number)
     numberToStringUnsigned<StringBuilder>(number, this);
 }
 
-void StringBuilder::appendNumber(double number, unsigned precision, TrailingZerosTruncatingPolicy trailingZerosTruncatingPolicy)
+void StringBuilder::appendFixedPrecisionNumber(float number, unsigned precision, TrailingZerosTruncatingPolicy policy)
 {
     NumberToStringBuffer buffer;
-    append(numberToFixedPrecisionString(number, precision, buffer, trailingZerosTruncatingPolicy == TruncateTrailingZeros));
+    append(numberToFixedPrecisionString(number, precision, buffer, policy == TruncateTrailingZeros));
 }
 
-void StringBuilder::appendECMAScriptNumber(double number)
+void StringBuilder::appendFixedPrecisionNumber(double number, unsigned precision, TrailingZerosTruncatingPolicy policy)
+{
+    NumberToStringBuffer buffer;
+    append(numberToFixedPrecisionString(number, precision, buffer, policy == TruncateTrailingZeros));
+}
+
+void StringBuilder::appendNumber(float number)
 {
     NumberToStringBuffer buffer;
     append(numberToString(number, buffer));
+}
+
+void StringBuilder::appendNumber(double number)
+{
+    NumberToStringBuffer buffer;
+    append(numberToString(number, buffer));
+}
+
+void StringBuilder::appendFixedWidthNumber(float number, unsigned decimalPlaces)
+{
+    NumberToStringBuffer buffer;
+    append(numberToFixedWidthString(number, decimalPlaces, buffer));
 }
 
 void StringBuilder::appendFixedWidthNumber(double number, unsigned decimalPlaces)

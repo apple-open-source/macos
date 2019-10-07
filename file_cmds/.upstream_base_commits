@@ -1,0 +1,2 @@
+#freebsd = https://github.com/freebsd/freebsd.git
+chmod/chmod.1	freebsd	bin/chmod/chmod.1	14889ebf5bdeaead21c00f70044d9acbb923f6b0

@@ -42,9 +42,9 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <config.h>
-#include <sasl.h>
-#include <prop.h>
+#include "config.h"
+#include "sasl.h"
+#include "prop.h"
 #include <ctype.h>
 #include <stdio.h>
 #include "saslint.h"

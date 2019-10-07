@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>validate</key>
+	<dict>
+		<key>tcp</key>
+		<dict/>
+		<key>tls</key>
+		<dict>
+			<key>max_version</key>
+			<integer>771</integer>
+			<key>false_start_enabled</key>
+			<false/>
+		</dict>
+	</dict>
+	<key>transform</key>
+	<dict>
+		<key>tcp</key>
+		<dict/>
+		<key>tls</key>
+		<dict>
+			<key>max_version</key>
+			<integer>772</integer>
+			<key>false_start_enabled</key>
+			<true/>
+		</dict>
+	</dict>
+</dict>
+</plist>

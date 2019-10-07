@@ -36,7 +36,7 @@ int PersonalizeOSVolume(BLContextPtr context, const char *volumePath, const char
 {
 	__block int                 ret = 0;
 	NSAutoreleasePool			*pool = [[NSAutoreleasePool alloc] init];
-	OSPersonalizationController *pc = [OSPersonalizationController sharedController];
+	OSPersonalizationController *pc;
 	char						prebootMount[MAXPATHLEN];
 	NSURL                       *vURL;
 	NSURL						*pURL = nil;
@@ -53,6 +53,11 @@ int PersonalizeOSVolume(BLContextPtr context, const char *volumePath, const char
 	bool						mustCleanupRoots = false;
 	bool						mustUnmountPreboot = false;
 
+	// OSPersonalization is weak-linked, so check to make sure it's present
+	if ([OSPersonalizationController class] == nil) {
+		return ENOTSUP;
+	}
+	pc = [OSPersonalizationController sharedController];
 	if (statfs(volumePath, &sfs) < 0) {
 		ret = errno;
 		goto exit;

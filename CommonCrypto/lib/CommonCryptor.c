@@ -29,7 +29,6 @@
 // #define COMMON_CRYPTOR_FUNCTIONS
 
 #include "ccGlobals.h"
-#include "ccMemory.h"
 #include "ccdebug.h"
 #include <CommonCrypto/CommonCryptor.h>
 #include <CommonCrypto/CommonCryptorSPI.h>
@@ -121,13 +120,13 @@ static inline CCCryptorStatus ccSetupCryptor(CCCryptor *ref, CCAlgorithm cipher,
         case kCCEncrypt:
         case kCCDecrypt:
             if((retval = setCryptorCipherMode(ref, cipher, mode, op)) != kCCSuccess) return retval;
-            if((ref->ctx[op].data = CC_XMALLOC(ref->modeDesc->mode_get_ctx_size(ref->symMode[op]))) == NULL) return kCCMemoryFailure;
+            if((ref->ctx[op].data = malloc(ref->modeDesc->mode_get_ctx_size(ref->symMode[op]))) == NULL) return kCCMemoryFailure;
             break;
         case kCCBoth:
             if((retval = setCryptorCipherMode(ref, cipher, mode, kCCEncrypt)) != kCCSuccess) return retval;
-            if((ref->ctx[kCCEncrypt].data = CC_XMALLOC(ref->modeDesc->mode_get_ctx_size(ref->symMode[kCCEncrypt]))) == NULL) return kCCMemoryFailure;
+            if((ref->ctx[kCCEncrypt].data = malloc(ref->modeDesc->mode_get_ctx_size(ref->symMode[kCCEncrypt]))) == NULL) return kCCMemoryFailure;
             if((retval = setCryptorCipherMode(ref, cipher, mode, kCCDecrypt)) != kCCSuccess) return retval;
-            if((ref->ctx[kCCDecrypt].data = CC_XMALLOC(ref->modeDesc->mode_get_ctx_size(ref->symMode[kCCDecrypt]))) == NULL) return kCCMemoryFailure;
+            if((ref->ctx[kCCDecrypt].data = malloc(ref->modeDesc->mode_get_ctx_size(ref->symMode[kCCDecrypt]))) == NULL) return kCCMemoryFailure;
             break;
     }
     
@@ -140,12 +139,6 @@ static inline CCCryptorStatus ccSetupCryptor(CCCryptor *ref, CCAlgorithm cipher,
                 ref->padptr = &ccpkcs7_pad;
             else
                 ref->padptr = &ccpkcs7_ecb_pad;
-            break;
-        case ccCBCCTS1:
-            ref->padptr = &cccts1_pad;
-            break;
-        case ccCBCCTS2:
-            ref->padptr = &cccts2_pad;
             break;
         case ccCBCCTS3:
             ref->padptr = &cccts3_pad;
@@ -193,6 +186,7 @@ static int check_algorithm_keysize(CCAlgorithm alg, size_t keysize)
 
 static inline CCCryptorStatus ccInitCryptor(CCCryptor *ref, const void *key, unsigned long key_len, const void *tweak_key, const void *iv)
 {
+    int ccrc = CCERR_OK;
     if( check_algorithm_keysize(ref->cipher, key_len) <0 )
         return kCCKeySizeError;
 
@@ -200,7 +194,7 @@ static inline CCCryptorStatus ccInitCryptor(CCCryptor *ref, const void *key, uns
     uint8_t defaultIV[blocksize];
     
     if(iv == NULL) {
-        CC_XZEROMEM(defaultIV, blocksize);
+        cc_clear(blocksize, defaultIV);
         iv = defaultIV;
     }
      
@@ -212,37 +206,73 @@ static inline CCCryptorStatus ccInitCryptor(CCCryptor *ref, const void *key, uns
     switch(op) {
         case kCCEncrypt:
         case kCCDecrypt:
-            ref->modeDesc->mode_setup(ref->symMode[ref->op], iv, key, key_len, tweak_key, 0, 0, ref->ctx[ref->op]);
+            ccrc = ref->modeDesc->mode_setup(ref->symMode[ref->op], iv, key, key_len, tweak_key, 0, 0, ref->ctx[ref->op]);
             break;
         case kCCBoth:
-            ref->modeDesc->mode_setup(ref->symMode[kCCEncrypt], iv, key, key_len, tweak_key, 0, 0, ref->ctx[kCCEncrypt]);
-            ref->modeDesc->mode_setup(ref->symMode[kCCDecrypt], iv, key, key_len, tweak_key, 0, 0, ref->ctx[kCCDecrypt]);
+            ccrc = ref->modeDesc->mode_setup(ref->symMode[kCCEncrypt], iv, key, key_len, tweak_key, 0, 0, ref->ctx[kCCEncrypt]);
+            ccrc |= ref->modeDesc->mode_setup(ref->symMode[kCCDecrypt], iv, key, key_len, tweak_key, 0, 0, ref->ctx[kCCDecrypt]);
             break;
     }
-    return kCCSuccess;    
+
+    // In practice we won't fail on initialization of anything except
+    // 1. XTS when the data key and tweak key are equal
+    // 2. 3DES when the key's are equal
+    // We need to ignore the error in these cases so as not to break clients.
+    if (ccrc == CCERR_OK) {
+        return kCCSuccess;
+    } else if (ref->cipher == kCCAlgorithm3DES || ref->mode == kCCModeXTS) {
+        // Ignore the error
+        return kCCSuccess;
+    } else {
+        return kCCUnspecifiedError;
+    }
 }
 
 static inline CCCryptorStatus ccDoEnCrypt(CCCryptor *ref, const void *dataIn, size_t dataInLength, void *dataOut) {
     if(!ref->modeDesc->mode_encrypt) return kCCParamError;
-    ref->modeDesc->mode_encrypt(ref->symMode[kCCEncrypt], dataIn, dataOut, dataInLength, ref->ctx[kCCEncrypt]);
+    
+    int ccrc = ref->modeDesc->mode_encrypt(ref->symMode[kCCEncrypt], dataIn, dataOut, dataInLength, ref->ctx[kCCEncrypt]);
+    
+    if (ccrc == CCMODE_INVALID_CALL_SEQUENCE) {
+        return kCCCallSequenceError;
+    } else if (ccrc != CCERR_OK) {
+        return kCCParamError;
+    }
     return kCCSuccess;
 }
 
 static inline CCCryptorStatus ccDoDeCrypt(CCCryptor *ref, const void *dataIn, size_t dataInLength, void *dataOut) {
     if(!ref->modeDesc->mode_decrypt) return kCCParamError;
-    ref->modeDesc->mode_decrypt(ref->symMode[kCCDecrypt], dataIn, dataOut, dataInLength, ref->ctx[kCCDecrypt]);
+    
+    int ccrc = ref->modeDesc->mode_decrypt(ref->symMode[kCCDecrypt], dataIn, dataOut, dataInLength, ref->ctx[kCCDecrypt]);
+    
+    if (ccrc == CCMODE_INVALID_CALL_SEQUENCE) {
+        return kCCCallSequenceError;
+    } else if (ccrc != CCERR_OK) {
+        return kCCParamError;
+    }
     return kCCSuccess;
 }
 
 static inline CCCryptorStatus ccDoEnCryptTweaked(CCCryptor *ref, const void *dataIn, size_t dataInLength, void *dataOut, const void *tweak) {
     if(!ref->modeDesc->mode_encrypt_tweaked) return kCCParamError;
-    ref->modeDesc->mode_encrypt_tweaked(ref->symMode[kCCEncrypt], dataIn, dataInLength, dataOut, tweak, ref->ctx[kCCEncrypt]);
+    
+    int ccrc = ref->modeDesc->mode_encrypt_tweaked(ref->symMode[kCCEncrypt], dataIn, dataInLength, dataOut, tweak, ref->ctx[kCCEncrypt]);
+    
+    if (ccrc != CCERR_OK) {
+        return kCCParamError;
+    }
     return kCCSuccess;
 }
 
 static inline CCCryptorStatus ccDoDeCryptTweaked(CCCryptor *ref, const void *dataIn, size_t dataInLength, void *dataOut, const void *tweak) {
     if(!ref->modeDesc->mode_decrypt_tweaked) return kCCParamError;
-    ref->modeDesc->mode_decrypt_tweaked(ref->symMode[kCCDecrypt], dataIn, dataInLength, dataOut, tweak, ref->ctx[kCCDecrypt]);
+    
+    int ccrc = ref->modeDesc->mode_decrypt_tweaked(ref->symMode[kCCDecrypt], dataIn, dataInLength, dataOut, tweak, ref->ctx[kCCDecrypt]);
+    
+    if (ccrc != CCERR_OK) {
+        return kCCParamError;
+    }
     return kCCSuccess;
 }
 
@@ -261,7 +291,7 @@ static inline CCCryptorStatus ccSetIV(CCCryptor *ref, const void *iv, size_t ivL
 }
 
 static inline void ccClearCryptor(CCCryptor *ref) {
-    CC_XZEROMEM(ref->buffptr, sizeof(ref->buffptr));
+    cc_clear(sizeof(ref->buffptr), ref->buffptr);
     CCOperation op = ref->op;
     
     // This will clear both sides of the context/mode pairs for now.
@@ -269,13 +299,13 @@ static inline void ccClearCryptor(CCCryptor *ref) {
     switch(op) {
         case kCCEncrypt:
         case kCCDecrypt:
-            CC_XZEROMEM(ref->ctx[ref->op].data, ref->modeDesc->mode_get_ctx_size(ref->symMode[ref->op]));
-            CC_XFREE(ref->ctx[ref->op].data, ref->modeDesc->mode_get_ctx_size(ref->symMode[ref->op]));
+            cc_clear(ref->modeDesc->mode_get_ctx_size(ref->symMode[ref->op]), ref->ctx[ref->op].data);
+            free(ref->ctx[ref->op].data);
             break;
         case kCCBoth:
             for(int i = 0; i<2; i++) {
-                CC_XZEROMEM(ref->ctx[i].data, ref->modeDesc->mode_get_ctx_size(ref->symMode[i]));
-                CC_XFREE(ref->ctx[i].data, ref->modeDesc->mode_get_ctx_size(ref->symMode[i]));
+                cc_clear(ref->modeDesc->mode_get_ctx_size(ref->symMode[i]), ref->ctx[i].data);
+                free(ref->ctx[i].data);
             }
             break;
     }
@@ -318,7 +348,7 @@ ccCreateCompatCryptorFromData(const void *data, size_t dataLength, size_t *dataU
 }
 
 static inline int ccAddBuff(CCCryptor *cryptor, const void *dataIn, size_t dataInLength) {
-    CC_XMEMCPY((char *) cryptor->buffptr + cryptor->bufferPos, dataIn, dataInLength);
+    memcpy((char *) cryptor->buffptr + cryptor->bufferPos, dataIn, dataInLength);
     cryptor->bufferPos += dataInLength;
     return (int) dataInLength;
 }
@@ -424,7 +454,7 @@ CCCryptorStatus CCCryptorCreateWithMode(
 	const void 		*tweak,			/* raw tweak material */
 	size_t 			 __unused tweakLength,	
 	int				 __unused numRounds,		/* 0 == default */
-	CCModeOptions 	options,
+	CCModeOptions 	__unused options,
 	CCCryptorRef	*cryptorRef)	/* RETURNED */
 {
 	CCCryptorStatus retval = kCCSuccess;
@@ -432,19 +462,6 @@ CCCryptorStatus CCCryptorCreateWithMode(
     uint8_t *alignedKey = NULL;
 
     CC_DEBUG_LOG("Entering Op: %d Mode: %d Cipher: %d Padding: %d\n", op, mode, alg, padding);
-
-    // For now we're mapping these two AES selectors to the stock one.
-    if(alg == kCCAlgorithmAES128NoHardware || alg == kCCAlgorithmAES128WithHardware) 
-        alg = kCCAlgorithmAES128;
-    
-    /* corecrypto only implements CTR_BE.  No use of CTR_LE was found so we're marking
-       this as unimplemented for now.  Also in Lion this was defined in reverse order.
-       See <rdar://problem/10306112> */
-    
-    if(mode == kCCModeCTR && options != kCCModeOptionCTR_BE) {
-        CC_DEBUG_LOG("Mode is CTR, but options isn't BE\n", op, mode, alg, padding);
-        return kCCUnimplemented;
-    }
 
     // validate pointers
 	if((cryptorRef == NULL) || (key == NULL)) {
@@ -459,14 +476,14 @@ CCCryptorStatus CCCryptorCreateWithMode(
      */
     
     if((intptr_t) key & KEYALIGNMENT) {
-        if((alignedKey = CC_XMALLOC(keyLength)) == NULL) {
+        if((alignedKey = malloc(keyLength)) == NULL) {
             return kCCMemoryFailure;
         }
-        CC_XMEMCPY(alignedKey, key, keyLength);
+        memcpy(alignedKey, key, keyLength);
         key = alignedKey;
     }
-    
-    if((cryptor = (CCCryptor *)CC_XMALLOC(DEFAULT_CRYPTOR_MALLOC)) == NULL) {
+
+    if((cryptor = (CCCryptor *)malloc(DEFAULT_CRYPTOR_MALLOC)) == NULL) {
         retval = kCCMemoryFailure;
         goto out;
     }
@@ -493,7 +510,7 @@ out:
         *cryptorRef = NULL;
         if(cryptor) {
             ccClearCryptor(cryptor);
-            CC_XFREE(cryptor, DEFAULT_CRYPTOR_MALLOC);
+            free(cryptor);
         }
     } else {
         // printf("Blocksize = %d mode = %d pad = %d\n", ccGetBlockSize(cryptor), cryptor->mode, padding);
@@ -501,8 +518,8 @@ out:
     
     // Things to destroy all the time
     if(alignedKey) {
-        CC_XZEROMEM(alignedKey, keyLength);
-        CC_XFREE(alignedKey, keyLength);
+        cc_clear(keyLength, alignedKey);
+        free(alignedKey);
     }
     
     return retval;
@@ -517,7 +534,7 @@ CCCryptorStatus CCCryptorRelease(
     CC_DEBUG_LOG("Entering\n");
     if(cryptor) {
         ccClearCryptor(cryptor);
-        CC_XFREE(cryptor, DEFAULT_CRYPTOR_MALLOC);
+        free(cryptor);
     }
 	return kCCSuccess;
 }
@@ -731,7 +748,7 @@ CCCryptorStatus CCCryptorFinal(
             return kCCBufferTooSmall;
         }
         if(dataOut) {
-            CC_XMEMCPY(dataOut, tmpbuf, moved);
+            memcpy(dataOut, tmpbuf, moved);
             if(dataOutMoved) *dataOutMoved = moved;
         }
 		cryptor->bufferPos = 0;
@@ -742,7 +759,7 @@ CCCryptorStatus CCCryptorFinal(
             return kCCBufferTooSmall;
         }
         if(dataOut) {
-            CC_XMEMCPY(dataOut, tmpbuf, moved);
+            memcpy(dataOut, tmpbuf, moved);
             if(dataOutMoved) *dataOutMoved = moved;
         }
         cryptor->bytesProcessed += moved;
@@ -781,7 +798,7 @@ CCCryptorStatus CCCryptorReset_binary_compatibility(
         retval = ccSetIV(cryptor, iv, ccGetCipherBlockSize(cryptor));
     } else {
         uint8_t ivzero[ccGetCipherBlockSize(cryptor)];
-        CC_XZEROMEM(ivzero, ccGetCipherBlockSize(cryptor));
+        cc_clear(ccGetCipherBlockSize(cryptor), ivzero);
         retval = ccSetIV(cryptor, ivzero, ccGetCipherBlockSize(cryptor));
     }
     if(retval == kCCParamError) return kCCSuccess; //that is for when reset is unimplemented
@@ -790,17 +807,21 @@ CCCryptorStatus CCCryptorReset_binary_compatibility(
 
 CCCryptorStatus CCCryptorReset(CCCryptorRef cryptorRef, const void *iv)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if(!ProgramLinkedOnOrAfter_macOS1013_iOS11()) //switch to the old behavior
         return CCCryptorReset_binary_compatibility(cryptorRef, iv);
+#pragma clang diagnostic pop
     
     //continue with the new behavior: can only be called for CBC
     CC_DEBUG_LOG("Entering\n");
     CCCryptor *cryptor = getRealCryptor(cryptorRef, 1);
     if(!cryptor) return kCCParamError;
-    if(cryptor->mode!=kCCModeCBC) return kCCUnimplemented;
-    
-    
+    if(cryptor->mode != kCCModeCBC && cryptor->mode != kCCModeCTR) {
+        return kCCUnimplemented;
+    }
     CCCryptorStatus retval;
+    
     /*
         This routine resets all buffering and sets or clears the IV.  It is
         documented to throw away any in-flight buffer data. Currectly, it only works
@@ -818,7 +839,7 @@ CCCryptorStatus CCCryptorReset(CCCryptorRef cryptorRef, const void *iv)
         retval = ccSetIV(cryptor, iv, ccGetCipherBlockSize(cryptor));
     } else {
         uint8_t ivzero[ccGetCipherBlockSize(cryptor)];
-        CC_XZEROMEM(ivzero, ccGetCipherBlockSize(cryptor));
+        cc_clear(ccGetCipherBlockSize(cryptor), ivzero);
         retval = ccSetIV(cryptor, ivzero, ccGetCipherBlockSize(cryptor));
     }
     
@@ -926,33 +947,44 @@ CCCryptorStatus CCCryptorAddParameter(
     CC_DEBUG_LOG("Entering\n");
     CCCryptor   *cryptor = getRealCryptor(cryptorRef, 1);
     if(!cryptor) return kCCParamError;
+    
+    int rc = CCERR_OK;
 
     switch(parameter) {
     case kCCParameterIV:
         // GCM version
         if(cryptor->mode == kCCModeGCM) {
-            int rc = ccgcm_set_iv_legacy(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, dataSize, data);
-            if (rc) return kCCParamError;
+            rc = ccgcm_set_iv_legacy(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, dataSize, data);
+            if (rc != CCERR_OK) return kCCParamError;
         } else if(cryptor->mode == kCCModeCCM) {
             ccm_nonce_ctx *ccm = cryptor->ctx[cryptor->op].ccm;
             ccm->nonce_size = dataSize;
-            CC_XMEMCPY(ccm->nonce_buf, data, dataSize);
+            memcpy(ccm->nonce_buf, data, dataSize);
         } else return kCCUnimplemented;
         break;
 
     case kCCParameterAuthData:
         // GCM version
         if(cryptor->mode == kCCModeGCM) {
-            ccgcm_gmac(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, dataSize, data);
+            rc = ccgcm_aad(cryptor->symMode[cryptor->op].gcm,cryptor->ctx[cryptor->op].gcm, dataSize, data);
+            if (rc != CCERR_OK) {
+                return kCCCallSequenceError;
+            }
         } else if(cryptor->mode == kCCModeCCM) {
             if(!ccm_ready(cryptor->ctx[cryptor->op])) return kCCParamError;
             ccm_nonce_ctx *ccm = cryptor->ctx[cryptor->op].ccm;
             const struct ccmode_ccm *mode = cryptor->symMode[cryptor->op].ccm;
             ccm->ad_len = dataSize;
-            ccccm_set_iv(mode,&ccm->ccm, (ccccm_nonce *) &ccm->nonce,
+            rc = ccccm_set_iv(mode,&ccm->ccm, (ccccm_nonce *) &ccm->nonce,
                     ccm->nonce_size, ccm->nonce_buf, ccm->mac_size, ccm->ad_len, ccm->total_len);
-            ccccm_cbcmac(mode,&ccm->ccm, (ccccm_nonce *) &ccm->nonce,
+            if (rc != CCERR_OK) {
+                return kCCParamError;
+            }
+            rc = ccccm_cbcmac(mode,&ccm->ccm, (ccccm_nonce *) &ccm->nonce,
                     ccm->ad_len, data);
+            if (rc != CCERR_OK) {
+                return kCCCallSequenceError;
+            }
         } else return kCCUnimplemented;
         break;
         
@@ -991,7 +1023,7 @@ CCCryptorStatus CCCryptorGetParameter(
             return kCCUnimplemented;
         } else if(cryptor->mode == kCCModeCCM) {
             ccm_nonce_ctx *ccm = cryptor->ctx[cryptor->op].ccm;
-            CC_XMEMCPY(data, ccm->mac, ccm->mac_size);
+            memcpy(data, ccm->mac, ccm->mac_size);
             *dataSize = ccm->mac_size;
         } else return kCCUnimplemented;
         break;

@@ -12,15 +12,13 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
    +----------------------------------------------------------------------+
-   | Authors: Zeev Suraski <zeev@zend.com>                                |
+   | Authors: Zeev Suraski <zeev@php.net>                                 |
    |          Jani Taskinen <jani@php.net>                                |
    |          Marcus Boerger <helly@php.net>                              |
    |          Nuno Lopes <nlopess@php.net>                                |
    |          Scott MacVicar <scottmac@php.net>                           |
    +----------------------------------------------------------------------+
 */
-
-/* $Id$ */
 
 #include <errno.h>
 #include "zend.h"
@@ -142,13 +140,14 @@ ZEND_API zend_ini_scanner_globals ini_scanner_globals;
 	ZVAL_NEW_STR(retval, zend_string_init(str, len, ZEND_SYSTEM_INI))
 
 
-#define RETURN_TOKEN(type, str, len) {                       \
-	if (SCNG(scanner_mode) == ZEND_INI_SCANNER_TYPED) {      \
-		zend_ini_copy_typed_value(ini_lval, type, str, len); \
-	} else {                                                 \
-		zend_ini_copy_value(ini_lval, str, len);             \
-	}                                                        \
-	return type;                                             \
+#define RETURN_TOKEN(type, str, len) {                             \
+	if (SCNG(scanner_mode) == ZEND_INI_SCANNER_TYPED &&            \
+		(YYSTATE == STATE(ST_VALUE) || YYSTATE == STATE(ST_RAW))) {\
+		zend_ini_copy_typed_value(ini_lval, type, str, len);       \
+	} else {                                                       \
+		zend_ini_copy_value(ini_lval, str, len);                   \
+	}                                                              \
+	return type;                                                   \
 }
 
 static inline int convert_to_number(zval *retval, const char *str, const int str_len)
@@ -501,6 +500,7 @@ SECTION_VALUE_CHARS ([^$\n\r;"'\]\\]|("\\"{ANY_CHAR})|{LITERAL_DOLLAR})
 
 <ST_RAW>{RAW_VALUE_CHARS} { /* Raw value, only used when SCNG(scanner_mode) == ZEND_INI_SCANNER_RAW. */
 	unsigned char *sc = NULL;
+	EAT_LEADING_WHITESPACE();
 	while (YYCURSOR < YYLIMIT) {
 		switch (*YYCURSOR) {
 			case '\n':
@@ -511,28 +511,34 @@ SECTION_VALUE_CHARS ([^$\n\r;"'\]\\]|("\\"{ANY_CHAR})|{LITERAL_DOLLAR})
 				if (sc == NULL) {
 					sc = YYCURSOR;
 				}
-				/* no break */
+				YYCURSOR++;
+				break;
+			case '"':
+				if (yytext[0] == '"') {
+					sc = NULL;
+				}
+				YYCURSOR++;
+				break;
 			default:
 				YYCURSOR++;
 				break;
 		}
 	}
 end_raw_value_chars:
-	yyleng = YYCURSOR - SCNG(yy_text);
-
-	/* Eat trailing semicolons */
-	while (yytext[yyleng - 1] == ';') {
-		yyleng--;
+	if (sc) {
+		yyleng = sc - SCNG(yy_text);
+	} else {
+		yyleng = YYCURSOR - SCNG(yy_text);
 	}
+
+	EAT_TRAILING_WHITESPACE();
 
 	/* Eat leading and trailing double quotes */
 	if (yyleng > 1 && yytext[0] == '"' && yytext[yyleng - 1] == '"') {
 		SCNG(yy_text)++;
 		yyleng = yyleng - 2;
-	} else if (sc) {
-		YYCURSOR = sc;
-		yyleng = YYCURSOR - SCNG(yy_text);
 	}
+
 	RETURN_TOKEN(TC_RAW, yytext, yyleng);
 }
 

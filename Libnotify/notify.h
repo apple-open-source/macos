@@ -76,7 +76,7 @@
  */
 
 /*! @defineblock Status Codes
- * Status codes returned by the API.
+ * Status codes returned by the API. See notify(3) for detailed description.
  */
 #define NOTIFY_STATUS_OK 0
 #define NOTIFY_STATUS_INVALID_NAME 1
@@ -86,7 +86,12 @@
 #define NOTIFY_STATUS_INVALID_SIGNAL 5
 #define NOTIFY_STATUS_INVALID_REQUEST 6
 #define NOTIFY_STATUS_NOT_AUTHORIZED 7
+#define NOTIFY_STATUS_OPT_DISABLE 8
+#define NOTIFY_STATUS_SERVER_NOT_FOUND 9
+#define NOTIFY_STATUS_NULL_INPUT 10
+
 #define NOTIFY_STATUS_FAILED 1000000
+
 /*! @/defineblock */
 
 /*!
@@ -200,7 +205,7 @@ OS_EXPORT uint32_t notify_register_signal(const char *name, int sig, int *out_to
  */
 OS_EXPORT uint32_t notify_register_mach_port(const char *name, mach_port_t *notify_port, int flags, int *out_token);
 
-/*
+/*!
  * Request notification by a write to a file descriptor. 
  *
  * Notifications are delivered by a write to a file descriptor.
@@ -325,7 +330,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
  * Determine if a token is valid (currently registered).
  * Negative integer values are always invalid.  Positive or
  * zero values are valid only if they are associated with an
- * existing registratiom.
+ * existing registration.
  *
  * @param val
  *     (input) integer value

@@ -435,7 +435,7 @@ static CSSM_DB_UNIQUE_RECORD_PTR tpCrlLookup(
 	else {
 		/* right now */
 		StLock<Mutex> _(tpTimeLock());
-		timeAtNowPlus(0, TIME_CSSM, timeStr);
+		timeAtNowPlus(0, TP_TIME_CSSM, timeStr);
 	}
 	CSSM_DATA timeData;
 	timeData.Data = (uint8 *)timeStr;

@@ -332,6 +332,7 @@ void PrintHIDDescriptor(const uint8_t *reportDesc, uint32_t length)
                         case kHIDPage_PID: sprintf((char *)tempbufvalue, "PID"); break;
                         case kHIDPage_Unicode: sprintf((char *)tempbufvalue, "Unicode"); break;
                         case kHIDPage_AlphanumericDisplay: sprintf((char *)tempbufvalue, "Alphanumeric Display"); break;
+                        case kHIDPage_Sensor: sprintf((char *)tempbufvalue, "Sensor"); break;
                         case kHIDPage_Monitor: sprintf((char *)tempbufvalue, "Monitor"); break;
                         case kHIDPage_MonitorEnumerated: sprintf((char *)tempbufvalue, "Monitor Enumerated Values"); break;
                         case kHIDPage_MonitorVirtual: sprintf((char *)tempbufvalue, "VESA Virtual Controls"); break;
@@ -399,6 +400,8 @@ void PrintHIDDescriptor(const uint8_t *reportDesc, uint32_t length)
                             case kHIDUsage_GD_CountedBuffer: sprintf((char *)tempbuf, "Counted Buffer"); break;
                             case kHIDUsage_GD_ByteCount: sprintf((char *)tempbuf, "Byte Count"); break;
                             case kHIDUsage_GD_MotionWakeup: sprintf((char *)tempbuf, "Motion Wakeup"); break;
+                            case kHIDUsage_GD_Start: sprintf((char *)tempbuf, "Start"); break;
+                            case kHIDUsage_GD_Select: sprintf((char *)tempbuf, "Select"); break;
                                 
                             case kHIDUsage_GD_Vx: sprintf((char *)tempbuf, "Vx"); break;
                             case kHIDUsage_GD_Vy: sprintf((char *)tempbuf, "Vy"); break;
@@ -423,6 +426,50 @@ void PrintHIDDescriptor(const uint8_t *reportDesc, uint32_t length)
                             case kHIDUsage_GD_SystemMenuUp: sprintf((char *)tempbuf, "System Menu Up"); break;
                             case kHIDUsage_GD_SystemMenuDown: sprintf((char *)tempbuf, "System Menu Down"); break;
                                 
+                            case kHIDUsage_GD_DPadUp: sprintf((char *)tempbuf, "D-Pad Up"); break;
+                            case kHIDUsage_GD_DPadDown: sprintf((char *)tempbuf, "D-Pad Down"); break;
+                            case kHIDUsage_GD_DPadRight: sprintf((char *)tempbuf, "D-Pad Right"); break;
+                            case kHIDUsage_GD_DPadLeft: sprintf((char *)tempbuf, "D-Pad Left"); break;
+                            case kHIDUsage_GD_IndexTrigger: sprintf((char *)tempbuf, "Index Trigger"); break;
+                            case kHIDUsage_GD_PalmTrigger: sprintf((char *)tempbuf, "Palm Trigger"); break;
+                            case kHIDUsage_GD_Thumbstick: sprintf((char *)tempbuf, "Thumbstick"); break;
+                            
+                            default: sprintf((char *)tempbuf, "%d (0x%x)", (int)value, (unsigned int)value); break;
+                        }
+                        strcat((char *)tempbuf, (char *)")");
+                    }
+                    else if (usagePage == kHIDPage_Telephony)
+                    {
+                        strcat((char *)buf, (char *)"(");
+                        switch (value)
+                        {
+                            case kHIDUsage_Tfon_Phone: sprintf((char *)tempbuf, "Phone"); break;
+                            case kHIDUsage_Tfon_Headset: sprintf((char *)tempbuf, "Headset"); break;
+                            case kHIDUsage_Tfon_HookSwitch: sprintf((char *)tempbuf, "Hook Switch"); break;
+                            default: sprintf((char *)tempbuf, "%d (0x%x)", (int)value, (unsigned int)value); break;
+                        }
+                        strcat((char *)tempbuf, (char *)")");
+                    }
+                    else if (usagePage == kHIDPage_Consumer)
+                    {
+                        strcat((char *)buf, (char *)"(");
+                        switch (value)
+                        {
+                            case kHIDUsage_Csmr_ConsumerControl: sprintf((char *)tempbuf, "Consumer Control"); break;
+                            case kHIDUsage_Csmr_Menu: sprintf((char *)tempbuf, "Menu"); break;
+                            case kHIDUsage_Csmr_Play: sprintf((char *)tempbuf, "Play"); break;
+                            case kHIDUsage_Csmr_Pause: sprintf((char *)tempbuf, "Pause"); break;
+                            case kHIDUsage_Csmr_FastForward: sprintf((char *)tempbuf, "Fast Forward"); break;
+                            case kHIDUsage_Csmr_Rewind: sprintf((char *)tempbuf, "Rewind"); break;
+                            case kHIDUsage_Csmr_ScanNextTrack: sprintf((char *)tempbuf, "Scan Next Track"); break;
+                            case kHIDUsage_Csmr_ScanPreviousTrack: sprintf((char *)tempbuf, "Scan Previous Track"); break;
+                            case kHIDUsage_Csmr_Stop: sprintf((char *)tempbuf, "Stop"); break;
+                            case kHIDUsage_Csmr_Eject: sprintf((char *)tempbuf, "Eject"); break;
+                            case kHIDUsage_Csmr_PlayOrPause: sprintf((char *)tempbuf, "Play or Pause"); break;
+                            case kHIDUsage_Csmr_Mute: sprintf((char *)tempbuf, "Mute"); break;
+                            case kHIDUsage_Csmr_VolumeIncrement: sprintf((char *)tempbuf, "Volume Increment"); break;
+                            case kHIDUsage_Csmr_VolumeDecrement: sprintf((char *)tempbuf, "Volume Decrement"); break;
+                            case kHIDUsage_Csmr_ACHome: sprintf((char *)tempbuf, "AC Home"); break;
                             default: sprintf((char *)tempbuf, "%d (0x%x)", (int)value, (unsigned int)value); break;
                         }
                         strcat((char *)tempbuf, (char *)")");
@@ -625,6 +672,24 @@ void PrintHIDDescriptor(const uint8_t *reportDesc, uint32_t length)
                             case 0xac: sprintf((char *)tempbuf, "RAM Pool Available"); break;
                                 
                                 
+                            default: sprintf((char *)tempbuf, "%d (0x%x)", (int)value, (unsigned int)value); break;
+                        }
+                        strcat((char *)tempbuf, (char *)")");
+                    }
+                    else if (usagePage == kHIDPage_Sensor)
+                    {
+                        strcat((char *)buf, (char *)"(");
+                        switch (value)
+                        {
+                            case kHIDUsage_Snsr_Sensor: sprintf((char *)tempbuf, "Sensor"); break;
+                            case kHIDUsage_Snsr_Biometric: sprintf((char *)tempbuf, "Biometric"); break;
+                            case kHIDUsage_Snsr_Location: sprintf((char *)tempbuf, "Location"); break;
+                            case kHIDUsage_Snsr_Motion: sprintf((char *)tempbuf, "Motion"); break;
+                            case kHIDUsage_Snsr_Orientation: sprintf((char *)tempbuf, "Orientation"); break;
+                            case kHIDUsage_Snsr_Other: sprintf((char *)tempbuf, "Other"); break;
+                            case kHIDUsage_Snsr_Other_Generic: sprintf((char *)tempbuf, "Other Generic"); break;
+                            case kHIDUsage_Snsr_Property_ReportInterval: sprintf((char *)tempbuf, "Property: Report Interval"); break;
+                            case kHIDUsage_Snsr_Data_Custom: sprintf((char *)tempbuf, "Data Field: Custom"); break;
                             default: sprintf((char *)tempbuf, "%d (0x%x)", (int)value, (unsigned int)value); break;
                         }
                         strcat((char *)tempbuf, (char *)")");

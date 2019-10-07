@@ -133,7 +133,7 @@ br{
         GU{"Guam"}
         GW{"Ginea-Bissau"}
         GY{"Guyana"}
-        HK{"Hong Kong RMD Sina"}
+        HK{"Hong Kong"}
         HM{"Inizi Heard ha McDonald"}
         HN{"Honduras"}
         HR{"Kroatia"}
@@ -187,7 +187,7 @@ br{
         ML{"Mali"}
         MM{"Myanmar (Birmania)"}
         MN{"Mongolia"}
-        MO{"Macau RMD Sina"}
+        MO{"Macau"}
         MP{"Inizi Mariana an Norzh"}
         MQ{"Martinik"}
         MR{"Maouritania"}
@@ -297,8 +297,6 @@ br{
     }
     Countries%short{
         GB{"RU"}
-        HK{"Hong Kong"}
-        MO{"Macau"}
         PS{"Palestina"}
         US{"SU"}
     }
@@ -311,5 +309,5 @@ br{
         MK{"Makedonia (RYKM)"}
         TL{"Timor ar Reter"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.86"}
 }

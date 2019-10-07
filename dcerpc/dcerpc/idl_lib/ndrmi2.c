@@ -471,7 +471,8 @@ void rpc_ss_ndr_m_struct_pointees
     idl_ulong_int switch_index; /* Index of switch field for non-encapsulated
                                                                         union */
     idl_boolean add_null;       /* Dummy argument in procedure call */
-
+    rpc_void_p_t tmp;
+    
     defn_vec_ptr = IDL_msp->IDL_type_vec + defn_index;
     IDL_GET_LONG_FROM_VECTOR(offset_index,defn_vec_ptr);
     struct_offset_vec_ptr = IDL_msp->IDL_offset_vec + offset_index;
@@ -655,14 +656,16 @@ void rpc_ss_ndr_m_struct_pointees
                 offset = *offset_vec_ptr;
                 offset_vec_ptr++;
                 field_defn_ptr = IDL_msp->IDL_type_vec + field_defn_index;
-                if (*(rpc_void_p_t *)((idl_byte *)struct_addr+offset) != NULL)
+                memcpy(&tmp, (idl_byte *)struct_addr+offset, sizeof(rpc_void_p_t));
+                
+                if (tmp != NULL)
                 {
                     rpc_ss_pointee_desc_from_data( field_defn_ptr,
-                            *(rpc_void_p_t *)((idl_byte *)struct_addr+offset),
+                            tmp,
                             struct_addr,
                             struct_offset_vec_ptr, &pointee_desc, IDL_msp );
                     rpc_ss_ndr_marsh_pointee( field_defn_ptr,
-                            *(rpc_void_p_t *)((idl_byte *)struct_addr+offset),
+                            tmp,
                             idl_true, &pointee_desc, IDL_msp );
                 }
                 break;
@@ -672,14 +675,15 @@ void rpc_ss_ndr_m_struct_pointees
                 offset = *offset_vec_ptr;
                 offset_vec_ptr++;
                 field_defn_ptr = IDL_msp->IDL_type_vec + field_defn_index;
-                if (*(rpc_void_p_t *)((idl_byte *)struct_addr+offset) != NULL)
+                memcpy(&tmp, (idl_byte *)struct_addr+offset, sizeof(rpc_void_p_t));
+                if (tmp != NULL)
                 {
                     rpc_ss_pointee_desc_from_data( field_defn_ptr,
-                            *(rpc_void_p_t *)((idl_byte *)struct_addr+offset),
+                            tmp,
                             struct_addr,
                             struct_offset_vec_ptr, &pointee_desc, IDL_msp );
                     rpc_ss_ndr_marsh_pointee( field_defn_ptr,
-                            *(rpc_void_p_t *)((idl_byte *)struct_addr+offset),
+                            tmp,
                             idl_false, &pointee_desc, IDL_msp );
                 }
                 break;
@@ -689,12 +693,13 @@ void rpc_ss_ndr_m_struct_pointees
                 offset = *offset_vec_ptr;
                 offset_vec_ptr++;
                 field_defn_ptr = IDL_msp->IDL_type_vec + field_defn_index;
+                memcpy(&tmp, (idl_byte *)struct_addr+offset, sizeof(rpc_void_p_t));
                 rpc_ss_pointee_desc_from_data( field_defn_ptr,
-                            *(rpc_void_p_t *)((idl_byte *)struct_addr+offset),
+                            tmp,
                             struct_addr,
                             struct_offset_vec_ptr, &pointee_desc, IDL_msp );
                 rpc_ss_ndr_marsh_pointee( field_defn_ptr,
-                            *(rpc_void_p_t *)((idl_byte *)struct_addr+offset),
+                            tmp,
                             idl_false, &pointee_desc, IDL_msp );
                 break;
             case IDL_DT_TRANSMIT_AS:
@@ -858,18 +863,18 @@ void rpc_ss_ndr_m_dfc_arr_ptees
 	    rpc_ss_fixed_bounds_from_vector(dimensionality, defn_vec_ptr,
 					    &bounds_list, IDL_msp);
 	else
-	    bounds_list = (IDL_bound_pair_t *)defn_vec_ptr;
+        bounds_list = (IDL_bound_pair_t *) (void *) defn_vec_ptr;
         defn_vec_ptr += dimensionality * sizeof(IDL_bound_pair_t);
     }
     rpc_ss_ndr_m_f_or_c_arr_ptees( array_addr, dimensionality, bounds_list,
                                   defn_vec_ptr, IDL_msp );
     if (IDL_msp->IDL_type_vec[TVEC_INT_REP_OFFSET] == NDR_LOCAL_INT_REP)
     {
-	if (IDL_M_FLAGS_TEST(flags,IDL_M_CONF_ARRAY))
-	  rpc_ss_mem_item_free(&IDL_msp->IDL_mem_handle, (byte_p_t)bounds_list);
+        if (IDL_M_FLAGS_TEST(flags,IDL_M_CONF_ARRAY))
+            rpc_ss_mem_item_free(&IDL_msp->IDL_mem_handle, (byte_p_t)bounds_list);
     }
     else
-	rpc_ss_mem_item_free(&IDL_msp->IDL_mem_handle, (byte_p_t)bounds_list);
+        rpc_ss_mem_item_free(&IDL_msp->IDL_mem_handle, (byte_p_t)bounds_list);
 }
 
 /******************************************************************************/
@@ -894,6 +899,7 @@ static void rpc_ss_ndr_m_v_or_o_arr_ptees
     idl_ulong_int element_offset_index;
     IDL_varying_control_t *control_data;    /* List of data used to control
                                                 marshalling loops */
+    rpc_void_p_t tmp;
     int i;
     idl_byte *inner_slice_address;  /* Address of 1-dim subset of array */
     int dim;    /* Index through array dimensions */
@@ -953,13 +959,14 @@ static void rpc_ss_ndr_m_v_or_o_arr_ptees
             else
             {
                 /* Array of pointers */
-                if (*(rpc_void_p_t *)inner_slice_address != NULL)
+                memcpy(&tmp, (idl_byte *)inner_slice_address, sizeof(rpc_void_p_t));
+                if (tmp != NULL)
                 {
                     rpc_ss_pointee_desc_from_data( defn_vec_ptr,
-                                           *(rpc_void_p_t *)inner_slice_address,
+                                           tmp,
                                            NULL, NULL, &pointee_desc, IDL_msp );
                     rpc_ss_ndr_marsh_pointee( defn_vec_ptr,
-                                          *(rpc_void_p_t *)inner_slice_address,
+                                          tmp,
                                           (base_type == IDL_DT_FULL_PTR),
                                           &pointee_desc, IDL_msp );
                 }
@@ -1005,7 +1012,7 @@ void rpc_ss_ndr_m_dvo_arr_ptees
     idl_ulong_int *Z_values;
     IDL_bound_pair_t *range_list;
     idl_boolean add_null;       /* Dummy argument in procedure call */
-
+    
     defn_vec_ptr = IDL_msp->IDL_type_vec + defn_index;
     dimensionality = (idl_ulong_int)*defn_vec_ptr;
     defn_vec_ptr++;
@@ -1019,11 +1026,12 @@ void rpc_ss_ndr_m_dvo_arr_ptees
     }
     else
     {
-	if (IDL_msp->IDL_type_vec[TVEC_INT_REP_OFFSET] != NDR_LOCAL_INT_REP)
-	    rpc_ss_fixed_bounds_from_vector(dimensionality, defn_vec_ptr,
-					    &bounds_list, IDL_msp);
-	else
-	    bounds_list = (IDL_bound_pair_t *)defn_vec_ptr;
+        if (IDL_msp->IDL_type_vec[TVEC_INT_REP_OFFSET] != NDR_LOCAL_INT_REP)
+            rpc_ss_fixed_bounds_from_vector(dimensionality, defn_vec_ptr,
+                                            &bounds_list, IDL_msp);
+        else
+            bounds_list = (IDL_bound_pair_t *) (void *) defn_vec_ptr;
+
         defn_vec_ptr += dimensionality * sizeof(IDL_bound_pair_t);
     }
     Z_values = NULL;
@@ -1039,9 +1047,9 @@ void rpc_ss_ndr_m_dvo_arr_ptees
     rpc_ss_mem_item_free(&IDL_msp->IDL_mem_handle, (byte_p_t)Z_values);
     if (IDL_msp->IDL_type_vec[TVEC_INT_REP_OFFSET] == NDR_LOCAL_INT_REP)
     {
-	if (IDL_M_FLAGS_TEST(flags,IDL_M_CONF_ARRAY))
-	    rpc_ss_mem_item_free(&IDL_msp->IDL_mem_handle,
-				 (byte_p_t)bounds_list);
+        if (IDL_M_FLAGS_TEST(flags,IDL_M_CONF_ARRAY))
+            rpc_ss_mem_item_free(&IDL_msp->IDL_mem_handle,
+                     (byte_p_t)bounds_list);
     }
     else
 	rpc_ss_mem_item_free(&IDL_msp->IDL_mem_handle, (byte_p_t)bounds_list);
@@ -1126,17 +1134,20 @@ void rpc_ss_pointee_desc_from_data
     {
         case IDL_DT_VARYING_ARRAY:
 	    if (IDL_msp->IDL_type_vec[TVEC_INT_REP_OFFSET] != NDR_LOCAL_INT_REP){
-		/* Use storage after Z_values and range list for bounds list */
-		p_pointee_desc->bounds_list =  (IDL_bound_pair_t *)
-		    (p_pointee_desc->Z_values + p_pointee_desc->dimensionality)
-		    + p_pointee_desc->dimensionality;
-		rpc_ss_fixed_bounds_from_vector(p_pointee_desc->dimensionality,
-						array_defn_ptr,
-						&(p_pointee_desc->bounds_list),
-						IDL_msp);
-	    }
+            /* Use storage after Z_values and range list for bounds list */
+            p_pointee_desc->bounds_list =  (IDL_bound_pair_t *)
+                (p_pointee_desc->Z_values + p_pointee_desc->dimensionality)
+                + p_pointee_desc->dimensionality;
+            rpc_ss_fixed_bounds_from_vector(p_pointee_desc->dimensionality,
+                            array_defn_ptr,
+                            &(p_pointee_desc->bounds_list),
+                            IDL_msp);
+            }
 	    else
-		p_pointee_desc->bounds_list = (IDL_bound_pair_t *)array_defn_ptr;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-align"
+            p_pointee_desc->bounds_list = (IDL_bound_pair_t *)array_defn_ptr;
+#pragma clang diagnostic pop
             /* Build the range list in store allocated for the pointee desc,
                 following the Z-values */
             p_pointee_desc->range_list =  (IDL_bound_pair_t *)

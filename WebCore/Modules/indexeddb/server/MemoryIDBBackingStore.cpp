@@ -363,9 +363,11 @@ IDBError MemoryIDBBackingStore::getRecord(const IDBResourceIdentifier& transacti
         return IDBError { UnknownError, "No backing store object store found"_s };
 
     switch (type) {
-    case IDBGetRecordDataType::KeyAndValue:
-        outValue = objectStore->valueForKeyRange(range);
+    case IDBGetRecordDataType::KeyAndValue: {
+        auto key = objectStore->lowestKeyWithRecordInRange(range);
+        outValue = { key, key.isNull() ? ThreadSafeDataBuffer() : objectStore->valueForKey(key), objectStore->info().keyPath() };
         break;
+    }
     case IDBGetRecordDataType::KeyOnly:
         outValue = objectStore->lowestKeyWithRecordInRange(range);
         break;
@@ -590,6 +592,12 @@ IDBObjectStoreInfo* MemoryIDBBackingStore::infoForObjectStore(uint64_t objectSto
 void MemoryIDBBackingStore::deleteBackingStore()
 {
     // The in-memory IDB backing store doesn't need to do any cleanup when it is deleted.
+}
+
+uint64_t MemoryIDBBackingStore::databasesSizeForOrigin() const
+{
+    // FIXME: Implement this.
+    return 0;
 }
 
 } // namespace IDBServer

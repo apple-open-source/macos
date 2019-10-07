@@ -102,16 +102,15 @@ CaptureSourceOrError GStreamerVideoCaptureSource::create(String&& deviceID, Stri
 {
     auto device = GStreamerVideoCaptureDeviceManager::singleton().gstreamerDeviceWithUID(deviceID);
     if (!device) {
-        auto errorMessage = String::format("GStreamerVideoCaptureSource::create(): GStreamer did not find the device: %s.", deviceID.utf8().data());
+        auto errorMessage = makeString("GStreamerVideoCaptureSource::create(): GStreamer did not find the device: ", deviceID, '.');
         return CaptureSourceOrError(WTFMove(errorMessage));
     }
 
     auto source = adoptRef(*new GStreamerVideoCaptureSource(device.value(), WTFMove(hashSalt)));
 
     if (constraints) {
-        auto result = source->applyConstraints(*constraints);
-        if (result)
-            return WTFMove(result.value().first);
+        if (auto result = source->applyConstraints(*constraints))
+            return WTFMove(result->badConstraint);
     }
     return CaptureSourceOrError(WTFMove(source));
 }
@@ -127,14 +126,14 @@ DisplayCaptureFactory& GStreamerVideoCaptureSource::displayFactory()
 }
 
 GStreamerVideoCaptureSource::GStreamerVideoCaptureSource(String&& deviceID, String&& name, String&& hashSalt, const gchar *source_factory)
-    : RealtimeVideoSource(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalt))
+    : RealtimeVideoCaptureSource(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalt))
     , m_capturer(std::make_unique<GStreamerVideoCapturer>(source_factory))
 {
     initializeGStreamerDebug();
 }
 
 GStreamerVideoCaptureSource::GStreamerVideoCaptureSource(GStreamerCaptureDevice device, String&& hashSalt)
-    : RealtimeVideoSource(String { device.persistentId() }, String { device.label() }, WTFMove(hashSalt))
+    : RealtimeVideoCaptureSource(String { device.persistentId() }, String { device.label() }, WTFMove(hashSalt))
     , m_capturer(std::make_unique<GStreamerVideoCapturer>(device))
 {
     initializeGStreamerDebug();
@@ -161,14 +160,21 @@ void GStreamerVideoCaptureSource::startProducingData()
     m_capturer->play();
 }
 
+void GStreamerVideoCaptureSource::processNewFrame(Ref<MediaSample>&& sample)
+{
+    if (!isProducingData() || muted())
+        return;
+
+    dispatchMediaSampleToObservers(WTFMove(sample));
+}
+
 GstFlowReturn GStreamerVideoCaptureSource::newSampleCallback(GstElement* sink, GStreamerVideoCaptureSource* source)
 {
     auto gstSample = adoptGRef(gst_app_sink_pull_sample(GST_APP_SINK(sink)));
     auto mediaSample = MediaSampleGStreamer::create(WTFMove(gstSample), WebCore::FloatSize(), String());
 
-    // FIXME - Check how presentationSize is supposed to be used here.
-    callOnMainThread([protectedThis = makeRef(*source), mediaSample = WTFMove(mediaSample)] {
-        protectedThis->videoSampleAvailable(mediaSample.get());
+    source->scheduleDeferredTask([source, sample = WTFMove(mediaSample)] () mutable {
+        source->processNewFrame(WTFMove(sample));
     });
 
     return GST_FLOW_OK;

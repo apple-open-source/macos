@@ -41,13 +41,12 @@ var_dump( compare_stats($old_stat, $new_stat, $affected_members, "!=") );
 
 echo "\n--- Done ---";
 ?>
-
 --CLEAN--
 <?php
 $file_path = dirname(__FILE__);
 rmdir("$file_path/lstat_stat_variation17");
 ?>
---EXPECTF--
+--EXPECT--
 *** Testing lstat() on a dir after changing its access permission ***
 bool(true)
 bool(true)

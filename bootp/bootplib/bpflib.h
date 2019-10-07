@@ -26,7 +26,7 @@
 #define _S_BPFLIB_H
 
 int bpf_get_blen(int fd, int * blen);
-int bpf_new();
+int bpf_new(void);
 int bpf_dispose(int fd);
 int bpf_setif(int fd, const char * en_name);
 int bpf_set_immediate(int fd, u_int value);

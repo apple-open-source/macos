@@ -174,7 +174,7 @@ NO_CAT_FOR_NONSTD_LL
 BROWSER_IS
 	"\n за разглеждане на ръководството във формат HTML се използва %s\n"
 HTMLPAGER_IS
-	"\nза преобразуването на HTML към текст се използва %s"
+	"\nза преобразуването на HTML към текст се използва %s\n"
 FOUND_FILE
 	"manfile_from_sec_and_dir() откри %s\n"
 CALLTRACE1

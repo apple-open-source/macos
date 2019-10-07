@@ -100,13 +100,15 @@ private:
 class Requirement::Context {
 protected:
 	Context()
-		: certs(NULL), info(NULL), entitlements(NULL), identifier(""), directory(NULL), packageChecksum(NULL), packageAlgorithm(kSecCodeSignatureNoHash), forcePlatform(false) { }
+		: certs(NULL), info(NULL), entitlements(NULL), identifier(""), directory(NULL), packageChecksum(NULL), packageAlgorithm(kSecCodeSignatureNoHash), forcePlatform(false), secureTimestamp(NULL) { }
 
 public:
 	Context(CFArrayRef certChain, CFDictionaryRef infoDict, CFDictionaryRef entitlementDict, const std::string &ident,
-			const CodeDirectory *dir, CFDataRef packageChecksum, SecCSDigestAlgorithm packageAlgorithm, bool force_platform)
+			const CodeDirectory *dir, CFDataRef packageChecksum, SecCSDigestAlgorithm packageAlgorithm, bool force_platform, CFDateRef secure_timestamp,
+			const char *teamID)
 		: certs(certChain), info(infoDict), entitlements(entitlementDict), identifier(ident), directory(dir),
-			packageChecksum(packageChecksum), packageAlgorithm(packageAlgorithm), forcePlatform(force_platform)  { }
+			packageChecksum(packageChecksum), packageAlgorithm(packageAlgorithm), forcePlatform(force_platform),
+			secureTimestamp(secure_timestamp), teamIdentifier(teamID)   { }
 
 	CFArrayRef certs;								// certificate chain
 	CFDictionaryRef info;							// Info.plist
@@ -116,6 +118,8 @@ public:
 	CFDataRef packageChecksum;					// package checksum
 	SecCSDigestAlgorithm packageAlgorithm; 		// package checksum algorithm
 	bool forcePlatform;
+	CFDateRef secureTimestamp;
+	const char *teamIdentifier;					// team identifier
 
 	SecCertificateRef cert(int ix) const;			// get a cert from the cert chain (NULL if not found)
 	unsigned int certCount() const;				// length of cert chain (including root)
@@ -167,6 +171,7 @@ enum ExprOp {
 	opPlatform,						// platform constraint [integer]
 	opNotarized,					// has a developer id+ ticket
 	opCertFieldDate,				// extension value as timestamp [cert index; field name; match suffix]
+	opLegacyDevID,					// meets legacy (pre-notarization required) policy
 	exprOpCount						// (total opcode count in use)
 };
 

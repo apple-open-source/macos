@@ -31,6 +31,7 @@
 #import "CDMFairPlayStreaming.h"
 #import "CDMKeySystemConfiguration.h"
 #import "CDMMediaCapability.h"
+#import "InitDataRegistry.h"
 #import "NotImplemented.h"
 #import "SharedBuffer.h"
 #import "TextDecoder.h"
@@ -38,19 +39,11 @@
 #import <objc/runtime.h>
 #import <pal/spi/mac/AVFoundationSPI.h>
 #import <wtf/Algorithms.h>
-#import <WebCore/FileSystem.h>
-#import <wtf/SoftLinking.h>
+#import <wtf/FileSystem.h>
+#import <wtf/text/Base64.h>
 #import <wtf/text/StringHash.h>
 
-SOFT_LINK_FRAMEWORK_OPTIONAL(AVFoundation)
-SOFT_LINK_CLASS_OPTIONAL(AVFoundation, AVContentKeySession);
-SOFT_LINK_CLASS_OPTIONAL(AVFoundation, AVContentKeyResponse);
-SOFT_LINK_CLASS_OPTIONAL(AVFoundation, AVURLAsset);
-SOFT_LINK_CONSTANT_MAY_FAIL(AVFoundation, AVContentKeySystemFairPlayStreaming, NSString*)
-
-#if PLATFORM(IOS_FAMILY)
-SOFT_LINK_CLASS_OPTIONAL(AVFoundation, AVPersistableContentKeyRequest);
-#endif
+#import <pal/cocoa/AVFoundationSoftLink.h>
 
 static const NSString *PlaybackSessionIdKey = @"PlaybackSessionID";
 
@@ -138,13 +131,13 @@ namespace WebCore {
 
 bool CDMInstanceFairPlayStreamingAVFObjC::supportsPersistableState()
 {
-    return [getAVContentKeySessionClass() respondsToSelector:@selector(pendingExpiredSessionReportsWithAppIdentifier:storageDirectoryAtURL:)];
+    return [PAL::getAVContentKeySessionClass() respondsToSelector:@selector(pendingExpiredSessionReportsWithAppIdentifier:storageDirectoryAtURL:)];
 }
 
 bool CDMInstanceFairPlayStreamingAVFObjC::supportsPersistentKeys()
 {
 #if PLATFORM(IOS_FAMILY)
-    return getAVPersistableContentKeyRequestClass();
+    return PAL::getAVPersistableContentKeyRequestClass();
 #else
     return false;
 #endif
@@ -152,7 +145,7 @@ bool CDMInstanceFairPlayStreamingAVFObjC::supportsPersistentKeys()
 
 bool CDMInstanceFairPlayStreamingAVFObjC::supportsMediaCapability(const CDMMediaCapability& capability)
 {
-    if (![getAVURLAssetClass() isPlayableExtendedMIMEType:capability.contentType])
+    if (![PAL::getAVURLAssetClass() isPlayableExtendedMIMEType:capability.contentType])
         return false;
 
     // FairPlay only supports 'cbcs' encryption:
@@ -177,7 +170,7 @@ CDMInstance::SuccessValue CDMInstanceFairPlayStreamingAVFObjC::initializeWithCon
     if (configuration.sessionTypes.contains(CDMSessionType::PersistentLicense) && !supportsPersistentKeys())
         return Failed;
 
-    if (!canLoadAVContentKeySystemFairPlayStreaming())
+    if (!PAL::canLoad_AVFoundation_AVContentKeySystemFairPlayStreaming())
         return Failed;
 
     return Succeeded;
@@ -303,7 +296,7 @@ Vector<Ref<SharedBuffer>> CDMInstanceSessionFairPlayStreamingAVFObjC::keyIDs()
     return keyIDs;
 }
 
-void CDMInstanceSessionFairPlayStreamingAVFObjC::requestLicense(LicenseType licenseType, const AtomicString& initDataType, Ref<SharedBuffer>&& initData, LicenseCallback&& callback)
+void CDMInstanceSessionFairPlayStreamingAVFObjC::requestLicense(LicenseType licenseType, const AtomString& initDataType, Ref<SharedBuffer>&& initData, LicenseCallback&& callback)
 {
     if (!isLicenseTypeSupported(licenseType)) {
         callback(SharedBuffer::create(), emptyString(), false, Failed);
@@ -327,6 +320,12 @@ void CDMInstanceSessionFairPlayStreamingAVFObjC::requestLicense(LicenseType lice
         initializationData = initData->createNSData();
     else if (initDataType == CDMPrivateFairPlayStreaming::skdName())
         identifier = adoptNS([[NSString alloc] initWithData:initData->createNSData().get() encoding:NSUTF8StringEncoding]);
+#if HAVE(FAIRPLAYSTREAMING_CENC_INITDATA)
+    else if (initDataType == InitDataRegistry::cencName()) {
+        String psshString = base64Encode(initData->data(), initData->size());
+        initializationData = [NSJSONSerialization dataWithJSONObject:@{ @"pssh": (NSString*)psshString } options:NSJSONWritingPrettyPrinted error:nil];
+    }
+#endif
     else {
         callback(SharedBuffer::create(), emptyString(), false, Failed);
         return;
@@ -370,7 +369,7 @@ void CDMInstanceSessionFairPlayStreamingAVFObjC::updateLicense(const String&, Li
         }
 
         RetainPtr<NSData> appIdentifier = certificate->createNSData();
-        [getAVContentKeySessionClass() removePendingExpiredSessionReports:expiredSessions.get() withAppIdentifier:appIdentifier.get() storageDirectoryAtURL:storageURL];
+        [PAL::getAVContentKeySessionClass() removePendingExpiredSessionReports:expiredSessions.get() withAppIdentifier:appIdentifier.get() storageDirectoryAtURL:storageURL];
         callback(false, { }, WTF::nullopt, WTF::nullopt, Succeeded);
         return;
     }
@@ -391,7 +390,7 @@ void CDMInstanceSessionFairPlayStreamingAVFObjC::updateLicense(const String&, Li
         return;
     }
 
-    [m_currentRequest processContentKeyResponse:[getAVContentKeyResponseClass() contentKeyResponseWithFairPlayStreamingKeyResponseData:responseData.createNSData().get()]];
+    [m_currentRequest processContentKeyResponse:[PAL::getAVContentKeyResponseClass() contentKeyResponseWithFairPlayStreamingKeyResponseData:responseData.createNSData().get()]];
 
     // FIXME(rdar://problem/35592277): stash the callback and call it once AVContentKeyResponse supports a success callback.
     struct objc_method_description method = protocol_getMethodDescription(@protocol(AVContentKeySessionDelegate), @selector(contentKeySession:contentKeyRequestDidSucceed:), NO, YES);
@@ -423,7 +422,7 @@ void CDMInstanceSessionFairPlayStreamingAVFObjC::loadSession(LicenseType license
 
         RetainPtr<NSData> appIdentifier = certificate->createNSData();
         KeyStatusVector changedKeys;
-        for (NSData* expiredSessionData in [getAVContentKeySessionClass() pendingExpiredSessionReportsWithAppIdentifier:appIdentifier.get() storageDirectoryAtURL:storageURL]) {
+        for (NSData* expiredSessionData in [PAL::getAVContentKeySessionClass() pendingExpiredSessionReportsWithAppIdentifier:appIdentifier.get() storageDirectoryAtURL:storageURL]) {
             NSDictionary *expiredSession = [NSPropertyListSerialization propertyListWithData:expiredSessionData options:kCFPropertyListImmutable format:nullptr error:nullptr];
             NSString *playbackSessionIdValue = (NSString *)[expiredSession objectForKey:PlaybackSessionIdKey];
             if (![playbackSessionIdValue isKindOfClass:[NSString class]])
@@ -482,7 +481,7 @@ void CDMInstanceSessionFairPlayStreamingAVFObjC::removeSessionData(const String&
         RetainPtr<NSData> appIdentifier = certificate->createNSData();
         RetainPtr<NSMutableArray> expiredSessionsArray = adoptNS([[NSMutableArray alloc] init]);
         KeyStatusVector changedKeys;
-        for (NSData* expiredSessionData in [getAVContentKeySessionClass() pendingExpiredSessionReportsWithAppIdentifier:appIdentifier.get() storageDirectoryAtURL:storageURL]) {
+        for (NSData* expiredSessionData in [PAL::getAVContentKeySessionClass() pendingExpiredSessionReportsWithAppIdentifier:appIdentifier.get() storageDirectoryAtURL:storageURL]) {
             NSDictionary *expiredSession = [NSPropertyListSerialization propertyListWithData:expiredSessionData options:kCFPropertyListImmutable format:nullptr error:nullptr];
             NSString *playbackSessionIdValue = (NSString *)[expiredSession objectForKey:PlaybackSessionIdKey];
             if (![playbackSessionIdValue isKindOfClass:[NSString class]])
@@ -715,9 +714,9 @@ AVContentKeySession* CDMInstanceSessionFairPlayStreamingAVFObjC::ensureSession()
 
     auto storageURL = m_instance->storageURL();
     if (!m_instance->persistentStateAllowed() || !storageURL)
-        m_session = [getAVContentKeySessionClass() contentKeySessionWithKeySystem:getAVContentKeySystemFairPlayStreaming()];
+        m_session = [PAL::getAVContentKeySessionClass() contentKeySessionWithKeySystem:AVContentKeySystemFairPlayStreaming];
     else
-        m_session = [getAVContentKeySessionClass() contentKeySessionWithKeySystem:getAVContentKeySystemFairPlayStreaming() storageDirectoryAtURL:storageURL];
+        m_session = [PAL::getAVContentKeySessionClass() contentKeySessionWithKeySystem:AVContentKeySystemFairPlayStreaming storageDirectoryAtURL:storageURL];
 
     if (!m_session)
         return nullptr;

@@ -24,6 +24,7 @@
 #include <IOKit/system.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/IODataQueueShared.h>
+#include <AssertMacros.h>
 #include "IOHIDEventQueue.h"
     
 #define super IOSharedDataQueue
@@ -74,6 +75,9 @@ Boolean IOHIDEventQueue::enqueue(void *data, UInt32 dataSize)
     // if we are not started, then dont enqueue
     // for now, return true, since we dont wish to push an error back
     if ((_state & (kHIDQueueStarted | kHIDQueueDisabled)) == kHIDQueueStarted) {
+        // Update queue usage stats
+        updateUsageCounts();
+
         ret = super::enqueue(data, dataSize);
         if (!ret) {
             _enqueueErrorCount++;
@@ -125,9 +129,64 @@ bool IOHIDEventQueue::serialize(OSSerialize * serializer) const
             dict->setObject("entrySize", num);
             num->release();
         }
+        OSDictionary * usageDict = copyUsageCountDict();
+        if (usageDict) {
+            dict->setObject("UsagePercentHist", usageDict);
+            OSSafeReleaseNULL(usageDict);
+        }
         ret = dict->serialize(serializer);
         dict->release();
     }
     
     return ret;
+}
+
+void IOHIDEventQueue::updateUsageCounts()
+{
+    static uint32_t lastHead = 0;
+    uint32_t head = dataQueue->head;
+    uint32_t tail = dataQueue->tail;
+    uint64_t queueUsage;
+
+    // Submit queue usage at local maximum queue size.
+    // (immediately before consumer dequeues)
+    require_quiet(lastHead != 0 && head != lastHead, exit);
+
+    if (lastHead < tail) {
+        queueUsage = tail - lastHead;
+    }
+    else {
+        queueUsage = getQueueSize() - (lastHead - tail);
+    }
+    queueUsage = (queueUsage * 100) / getQueueSize();
+
+    // Bucket the % usage into 0, 1, 2, 3, ...
+    queueUsage /= HID_QUEUE_BUCKET_DENOM;
+    require(queueUsage < HID_QUEUE_USAGE_BUCKETS, exit);
+
+    _usageCounts[queueUsage]++;
+
+exit:
+    lastHead = head;
+
+    return;
+}
+
+OSDictionary *IOHIDEventQueue::copyUsageCountDict() const
+{
+    OSDictionary *dict = OSDictionary::withCapacity(HID_QUEUE_USAGE_BUCKETS);
+
+    require(dict, exit);
+
+    for (size_t i = 0; i < HID_QUEUE_USAGE_BUCKETS; i++) {
+        char        key[256] = {0};
+        OSNumber *  num = OSNumber::withNumber(_usageCounts[i], 64);
+        if (num && snprintf(key, sizeof(key), "%u", (unsigned int)i*HID_QUEUE_BUCKET_DENOM) > 0) {
+            dict->setObject(key, num);
+            OSSafeReleaseNULL(num);
+        }
+    }
+
+exit:
+    return dict;
 }

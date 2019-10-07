@@ -3,11 +3,31 @@
 fr_CA{
     NumberElements{
         latn{
+            patterns{
+                decimalFormat{"#,##0.###"}
+            }
             patternsLong{
                 decimalFormat{
                     1000{
                         one{"0 mille"}
                         other{"0 mille"}
+                    }
+                    10000{
+                        other{"00 mille"}
+                    }
+                    100000{
+                        other{"000 mille"}
+                    }
+                    1000000{
+                        one{"0 million"}
+                        other{"0 millions"}
+                    }
+                    10000000{
+                        one{"00 million"}
+                        other{"00 millions"}
+                    }
+                    100000000{
+                        other{"000 millions"}
                     }
                 }
             }
@@ -63,6 +83,26 @@ fr_CA{
                     }
                 }
                 decimalFormat{
+                    1000{
+                        one{"0 k"}
+                        other{"0 k"}
+                    }
+                    10000{
+                        other{"00 k"}
+                    }
+                    100000{
+                        other{"000 k"}
+                    }
+                    1000000{
+                        one{"0 M"}
+                        other{"0 M"}
+                    }
+                    10000000{
+                        other{"00 M"}
+                    }
+                    100000000{
+                        other{"000 M"}
+                    }
                     1000000000{
                         one{"0 G"}
                         other{"0 G"}
@@ -89,9 +129,14 @@ fr_CA{
                     }
                 }
             }
+            symbols{
+                group{" "}
+                minusSign{"-"}
+                plusSign{"+"}
+            }
         }
     }
-    Version{"2.1.38.73"}
+    Version{"2.1.47.86"}
     calendar{
         coptic{
             monthNames{
@@ -208,7 +253,7 @@ fr_CA{
                 "EEEE d MMMM y G",
                 "d MMMM y G",
                 "d MMM y G",
-                "yy-MM-dd GGGGG",
+                "y-MM-dd GGGGG",
                 "{1} {0}",
                 "{1} 'à' {0}",
                 "{1} 'à' {0}",
@@ -240,6 +285,51 @@ fr_CA{
                 yyyyMd{"y-MM-dd G"}
             }
             intervalFormats{
+                Bh{
+                    B{"h 'h' B – h 'h' B"}
+                    h{"h – h 'h' B"}
+                }
+                Bhm{
+                    B{"h 'h' mm B – h 'h' mm B"}
+                    h{"h 'h' mm – h 'h' mm B"}
+                    m{"h 'h' mm – h 'h' mm B"}
+                }
+                Gy{
+                    G{"y G – y G"}
+                }
+                GyM{
+                    G{"y-MM GGGGG – y-MM GGGGG"}
+                    M{"y-MM – y-MM GGGGG"}
+                    y{"y-MM – y-MM GGGGG"}
+                }
+                GyMEd{
+                    G{"E y-MM-dd GGGGG – E y-MM-dd GGGGG"}
+                    M{"E y-MM-dd GGGGG – E y-MM-dd GGGGG"}
+                    d{"E y-MM-dd – E y-MM-dd GGGGG"}
+                    y{"E y-MM-dd – E y-MM-dd GGGGG"}
+                }
+                GyMMM{
+                    G{"MMM y G – MMM y G"}
+                    M{"MMM y – MMM y G"}
+                    y{"MMM y – MMM y G"}
+                }
+                GyMMMEd{
+                    G{"E d MMM y G – E d MMM y G"}
+                    M{"E d MMM – E d MMM y G"}
+                    d{"E d MMM – E d MMM y G"}
+                    y{"E d MMM y – E d MMM y G"}
+                }
+                GyMMMd{
+                    G{"d MMM y G – d MMM y G"}
+                    M{"d MMM – d MMM y G"}
+                    y{"d MMM y – d MMM y G"}
+                }
+                GyMd{
+                    G{"y-MM-dd GGGGG – y-MM-dd GGGGG"}
+                    M{"y-MM-dd – y-MM-dd GGGGG"}
+                    d{"y-MM-dd – y-MM-dd GGGGG"}
+                    y{"y-MM-dd – y-MM-dd GGGGG"}
+                }
                 MEd{
                     M{"E MM-dd – E MM-dd"}
                     d{"E MM-dd – E MM-dd"}
@@ -289,7 +379,7 @@ fr_CA{
                 "EEEE d MMMM y",
                 "d MMMM y",
                 "d MMM y",
-                "yy-MM-dd",
+                "y-MM-dd",
                 "{1} {0}",
                 "{1} 'à' {0}",
                 "{1} 'à' {0}",
@@ -324,6 +414,30 @@ fr_CA{
                 yMEd{"E y-MM-dd"}
                 yMM{"y-MM"}
                 yMd{"y-MM-dd"}
+            }
+            dayNames{
+                format{
+                    narrow{
+                        "D",
+                        "L",
+                        "M",
+                        "M",
+                        "J",
+                        "V",
+                        "S",
+                    }
+                }
+                stand-alone{
+                    narrow{
+                        "D",
+                        "L",
+                        "M",
+                        "M",
+                        "J",
+                        "V",
+                        "S",
+                    }
+                }
             }
             dayPeriod{
                 format{
@@ -361,6 +475,10 @@ fr_CA{
                         night1{"nuit"}
                         pm{"p.m."}
                     }
+                    wide{
+                        am{"a.m."}
+                        pm{"p.m."}
+                    }
                 }
             }
             eras{
@@ -370,6 +488,51 @@ fr_CA{
                 }
             }
             intervalFormats{
+                Bh{
+                    B{"h 'h' B – h 'h' B"}
+                    h{"h – h 'h' B"}
+                }
+                Bhm{
+                    B{"h 'h' mm B – h 'h' mm B"}
+                    h{"h 'h' mm – h 'h' mm B"}
+                    m{"h 'h' mm – h 'h' mm B"}
+                }
+                Gy{
+                    G{"y G – y G"}
+                }
+                GyM{
+                    G{"y-MM GGGGG – y-MM GGGGG"}
+                    M{"y-MM – y-MM GGGGG"}
+                    y{"y-MM – y-MM GGGGG"}
+                }
+                GyMEd{
+                    G{"E y-MM-dd GGGGG – E y-MM-dd GGGGG"}
+                    M{"E y-MM-dd – E y-MM-dd GGGGG"}
+                    d{"E y-MM-dd – E y-MM-dd GGGGG"}
+                    y{"E y-MM-dd – E y-MM-dd GGGGG"}
+                }
+                GyMMM{
+                    G{"MMM y G – MMM y G"}
+                    M{"MMM y – MMM y G"}
+                    y{"MMM y – MMM y G"}
+                }
+                GyMMMEd{
+                    G{"E d MMM y G – E d MMM y G"}
+                    M{"E d MMM – E d MMM y G"}
+                    d{"E d MMM – E d MMM y G"}
+                    y{"E d MMM y – E d MMM y G"}
+                }
+                GyMMMd{
+                    G{"d MMM y G – d MMM y G"}
+                    M{"d MMM – d MMM y G"}
+                    y{"d MMM y – d MMM y G"}
+                }
+                GyMd{
+                    G{"y-MM-dd GGGGG – y-MM-dd GGGGG"}
+                    M{"y-MM-dd – y-MM-dd GGGGG"}
+                    d{"y-MM-dd – y-MM-dd GGGGG"}
+                    y{"y-MM-dd – y-MM-dd GGGGG"}
+                }
                 H{
                     H{"H 'h' – H 'h'"}
                 }
@@ -467,8 +630,91 @@ fr_CA{
                 }
             }
         }
+        hebrew{
+            eras{
+                abbreviated{
+                    "AM",
+                }
+            }
+            monthNames{
+                format{
+                    abbreviated{
+                        "tis.",
+                        "hes.",
+                        "kis.",
+                        "téb.",
+                        "sché.",
+                        "ad.I",
+                        "adar",
+                        "nis.",
+                        "iyar",
+                        "siv.",
+                        "tam.",
+                        "av",
+                        "ell.",
+                        "ad.II",
+                    }
+                    narrow{
+                        "T",
+                        "H",
+                        "K",
+                        "T",
+                        "S",
+                        "A",
+                        "A",
+                        "N",
+                        "I",
+                        "S",
+                        "T",
+                        "A",
+                        "E",
+                        "A",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "tis.",
+                        "hes.",
+                        "kis.",
+                        "téb.",
+                        "sché.",
+                        "ad.I",
+                        "adar",
+                        "nis.",
+                        "iyar",
+                        "siv.",
+                        "tam.",
+                        "av",
+                        "ell.",
+                        "ad.II",
+                    }
+                    narrow{
+                        "T",
+                        "H",
+                        "K",
+                        "T",
+                        "S",
+                        "A",
+                        "A",
+                        "N",
+                        "I",
+                        "S",
+                        "T",
+                        "A",
+                        "E",
+                        "A",
+                    }
+                }
+            }
+        }
         indian{
             eras{
+                abbreviated{
+                    "Saka",
+                }
+                narrow{
+                    "Saka",
+                }
                 wide{
                     "Saka",
                 }
@@ -622,7 +868,6 @@ fr_CA{
         ideographic_desc_characters{"symboles de description sinographique"}
         keycap{"dessus de touche"}
         sign_standard_symbols{"signe ou symbole"}
-        smiley{"émoticône"}
         south_asian_scripts{"écritures d’Asie du Sud"}
         southeast_asian_scripts{"écritures d’Asie du Sud-Est"}
         western_asian_scripts{"écritures d’Asie de l’Ouest"}
@@ -634,16 +879,36 @@ fr_CA{
         quotationStart{"«"}
     }
     fields{
+        day{
+            relative{
+                "-1"{"hier"}
+                "-2"{"avant-hier"}
+                "0"{"aujourd’hui"}
+                "1"{"demain"}
+                "2"{"après-demain"}
+            }
+        }
         day-narrow{
             relative{
+                "-1"{"hier"}
                 "-2"{"avant-hier"}
+                "0"{"aujourd’hui"}
+                "1"{"demain"}
                 "2"{"après-demain"}
             }
         }
         day-short{
             relative{
+                "-1"{"hier"}
                 "-2"{"avant-hier"}
+                "0"{"aujourd’hui"}
+                "1"{"demain"}
                 "2"{"après-demain"}
+            }
+            relativeTime{
+                future{
+                    other{"dans {0} j"}
+                }
             }
         }
         dayOfYear{
@@ -676,13 +941,6 @@ fr_CA{
                 }
             }
         }
-        month-narrow{
-            relativeTime{
-                future{
-                    other{"+{0} m."}
-                }
-            }
-        }
         quarter{
             relative{
                 "-1"{"le trimestre dernier"}
@@ -690,8 +948,23 @@ fr_CA{
                 "1"{"le trimestre prochain"}
             }
         }
+        quarter-narrow{
+            relative{
+                "-1"{"trim. dernier"}
+                "0"{"ce trim."}
+                "1"{"trim.prochain"}
+            }
+        }
+        quarter-short{
+            relative{
+                "-1"{"trim. dernier"}
+                "0"{"ce trim."}
+                "1"{"trim. prochain"}
+            }
+        }
         sat-narrow{
             relative{
+                "-1"{"sam. dernier"}
                 "0"{"ce sam"}
                 "1"{"sam proch"}
             }
@@ -795,16 +1068,8 @@ fr_CA{
                 }
             }
         }
-        year-narrow{
-            relative{
-                "0"{"cette année"}
-            }
-        }
         year-short{
             dn{"a"}
-            relative{
-                "0"{"cette année"}
-            }
         }
     }
 }

@@ -34,7 +34,7 @@ then
 	echo "ERROR!"
 	echo "run ./MacOSX/configure from the source top directory"
 	echo -e $NORMAL
-	exit;
+	exit -1
 fi
 
 # find pcsc-lite header files in MacOSX/
@@ -48,7 +48,7 @@ LIBUSB_ARCHIVE="$LIBUSB_DIR"/libusb-1.0.a
 LIBUSB_CFLAGS=$(pkg-config --cflags --static libusb-1.0)
 LIBUSB_LIBS=$(pkg-config --libs --static libusb-1.0)
 
-if ls "$LIBUSB_DIR"/*.dylib 2> /dev/null
+if ls "$LIBUSB_DIR"/libusb-1.0*.dylib 2> /dev/null
 then
 	echo -en $RED
 	echo "*****************************"
@@ -56,7 +56,7 @@ then
 	echo "*****************************"
 	echo -en $NORMAL
 	echo "Rename it to force a static link"
-	exit
+	exit -1
 fi
 
 # RESPONSECODE is already defined by PCSC/wintypes.h

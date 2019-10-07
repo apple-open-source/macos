@@ -5,7 +5,7 @@
 .Nm kext logging
 .Nd verbose/logging flags for kernel extensions (kexts) in the kernel and command-line utilities
 .Sh DESCRIPTION
-The kext management facilities of Mac OS X
+The kext management facilities of macOS
 allow for logging of kext activity at all system levels,
 from the kernel to the user-space kext daemon and most command-line kext tools.
 The
@@ -106,7 +106,7 @@ about compression and architectures processed.
 Debug-level information about internal operations.
 .It 6
 Identical to level 5 but with bit 0x8 turned on
-(see the hecadecimal log specification for details).
+(see the hexadecimal log specification for details).
 .El
 .Sh BINARY LOG SPECIFICATION
 The binary log specification is a 32-bit value comprising a log level with a bitmask
@@ -222,7 +222,7 @@ do this for all verbose levels of their
 .Fl verbose
 flag.
 .Sh MAPPING VERBOSE LEVELS TO LOG SPECIFICATIONS
-Here is a list of the exact hecadecimal log specifications
+Here is a list of the exact hexadecimal log specifications
 applied by each of the
 .Fl verbose
 levels:

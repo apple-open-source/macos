@@ -361,13 +361,13 @@ boolean FILE_parse              /* Returns TRUE on success */
 #if defined(HASDIRTREE)
     FILE_k_t    filekind;       /* File kind */
     char const  *pn;
-    int         pn_len,
+    size_t      pn_len,
                 leaf_len;
-    int         i,
+    long        i,
                 j;
-    int         leaf_start,
+    long        leaf_start,
                 ext_start;
-    int         dir_end,
+    long        dir_end,
                 leaf_end;
     boolean     slash_seen,
                 dot_seen;
@@ -600,6 +600,12 @@ boolean FILE_kind               /* Returns TRUE on success */
 **
 **  Scans a pathname to see if it contains an environment variable reference.
 */
+
+boolean FILE_contains_ev_ref    /* Returns TRUE if filespec contains an */
+/* environment variable reference */
+(
+    STRTAB_str_t    fs_id       /* [in] Filespec stringtable ID */
+);
 
 boolean FILE_contains_ev_ref    /* Returns TRUE if filespec contains an */
                                 /* environment variable reference */

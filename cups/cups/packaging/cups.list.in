@@ -1,22 +1,19 @@
 #
 # ESP Package Manager (EPM) file list for CUPS.
 #
-# Copyright 2007-2017 by Apple Inc.
-# Copyright 1997-2007 by Easy Software Products, all rights reserved.
+# Copyright © 2007-2019 by Apple Inc.
+# Copyright © 1997-2007 by Easy Software Products, all rights reserved.
 #
-# These coded instructions, statements, and computer programs are the
-# property of Apple Inc. and are protected by Federal copyright
-# law.  Distribution and use rights are outlined in the file "LICENSE.txt"
-# which should have been included with this file.  If this file is
-# file is missing or damaged, see the license at "http://www.cups.org/".
+# Licensed under Apache License v2.0.  See the file "LICENSE" for more
+# information.
 #
 
 # Product information
 %product CUPS
-%copyright 2007-2017` by Apple Inc.
+%copyright 2007-2019 by Apple Inc.
 %vendor Apple Inc.
-#%license LICENSE.txt
-%readme LICENSE.txt
+#%license LICENSE
+%readme LICENSE
 %format rpm
 # Red Hat and their epochs...
 %version 1:@CUPS_VERSION@
@@ -197,7 +194,7 @@ $sysconfdir=@sysconfdir@
 $top_srcdir=@top_srcdir@
 
 #
-# ESP variables...
+# CUPS variables...
 #
 
 $AMANDIR=@AMANDIR@
@@ -231,13 +228,6 @@ $CUPS_PRIMARY_SYSTEM_GROUP=@CUPS_PRIMARY_SYSTEM_GROUP@
 $CUPS_PERM=0@CUPS_CONFIG_FILE_PERM@
 
 $INSTALLSTATIC=@INSTALLSTATIC@
-
-$MAN1EXT=@MAN1EXT@
-$MAN3EXT=@MAN3EXT@
-$MAN5EXT=@MAN5EXT@
-$MAN7EXT=@MAN7EXT@
-$MAN8EXT=@MAN8EXT@
-$MAN8DIR=@MAN8DIR@
 
 $LIBZ=@LIBZ@
 $DSOLIBS=@DSOLIBS@
@@ -288,6 +278,9 @@ f 0555 root sys $SERVERBIN/cgi-bin/classes.cgi cgi-bin/classes.cgi
 f 0555 root sys $SERVERBIN/cgi-bin/help.cgi cgi-bin/help.cgi
 f 0555 root sys $SERVERBIN/cgi-bin/jobs.cgi cgi-bin/jobs.cgi
 f 0555 root sys $SERVERBIN/cgi-bin/printers.cgi cgi-bin/printers.cgi
+d 0755 root sys $SERVERBIN/command -
+f 0555 root sys $SERVERBIN/command/ippevepcl tools/ippevepcl
+f 0555 root sys $SERVERBIN/command/ippeveps tools/ippeveps
 d 0755 root sys $SERVERBIN/daemon -
 f 0555 root sys $SERVERBIN/daemon/cups-deviced scheduler/cups-deviced
 f 0555 root sys $SERVERBIN/daemon/cups-driverd scheduler/cups-driverd
@@ -310,26 +303,16 @@ f 0555 root sys $SERVERBIN/daemon/cups-lpd scheduler/cups-lpd
 %subpackage
 
 # Admin commands
-d 0755 root sys $BINDIR -
-l 0755 root sys $BINDIR/enable $SBINDIR/cupsaccept
-l 0755 root sys $BINDIR/disable $SBINDIR/cupsaccept
-d 0755 root sys $LIBDIR -
-l 0755 root sys $LIBDIR/accept $SBINDIR/cupsaccept
-l 0755 root sys $LIBDIR/lpadmin $SBINDIR/lpadmin
-l 0755 root sys $LIBDIR/reject $SBINDIR/cupsaccept
 d 0755 root sys $SBINDIR -
-l 0755 root sys $SBINDIR/accept cupsaccept
 f 0555 root sys $SBINDIR/cupsaccept systemv/cupsaccept
-f 0555 root sys $SBINDIR/cupsaddsmb systemv/cupsaddsmb
 f 0555 root sys $SBINDIR/cupsctl systemv/cupsctl
-l 0755 root sys $SBINDIR/cupsdisable accept
-l 0755 root sys $SBINDIR/cupsenable accept
-l 0755 root sys $SBINDIR/cupsreject accept
+l 0755 root sys $SBINDIR/cupsdisable cupsaccept
+l 0755 root sys $SBINDIR/cupsenable cupsaccept
+l 0755 root sys $SBINDIR/cupsreject cupsaccept
 f 0555 root sys $SBINDIR/lpadmin systemv/lpadmin
 f 0555 root sys $SBINDIR/lpc berkeley/lpc
 f 0555 root sys $SBINDIR/lpinfo systemv/lpinfo
 f 0555 root sys $SBINDIR/lpmove systemv/lpmove
-l 0755 root sys $SBINDIR/reject cupsaccept
 
 %system irix
 l 0755 root sys /usr/etc/lpc $SBINDIR/lpc
@@ -338,9 +321,12 @@ l 0755 root sys /usr/etc/lpc $SBINDIR/lpc
 # User commands
 d 0755 root sys $BINDIR -
 f 0555 root sys $BINDIR/cancel systemv/cancel
-f 0555 root sys $BINDIR/cupstestdsc systemv/cupstestdsc
 f 0555 root sys $BINDIR/cupstestppd systemv/cupstestppd
-f 0555 root sys $BINDIR/ipptool test/ipptool
+f 0555 root sys $BINDIR/ippeveprinter tools/ippeveprinter
+%if DNSSD_BACKEND
+f 0555 root sys $BINDIR/ippfind tools/ippfind
+%endif
+f 0555 root sys $BINDIR/ipptool tools/ipptool
 f 0555 root sys $BINDIR/lp systemv/lp
 f 0555 root sys $BINDIR/lpoptions systemv/lpoptions
 f 0555 root sys $BINDIR/lpq berkeley/lpq
@@ -357,45 +343,16 @@ l 0755 root sys /usr/bsd/lprm $BINDIR/lprm
 # DSOs
 %if DSOLIBS
 %subpackage libs
-%system hpux
-f 0555 root sys $LIBDIR/libcups.sl.2 cups/libcups.sl.2 nostrip()
-l 0755 root sys $LIBDIR/libcups.sl libcups.sl.2
-f 0555 root sys $LIBDIR/libcupscgi.sl.1 cgi-bin/libcupscgi.sl.1 nostrip()
-l 0755 root sys $LIBDIR/libcupscgi.sl libcupscgi.sl.1
-f 0555 root sys $LIBDIR/libcupsimage.sl.2 filter/libcupsimage.sl.2 nostrip()
-l 0755 root sys $LIBDIR/libcupsimage.sl libcupsimage.sl.2
-f 0555 root sys $LIBDIR/libcupsmime.sl.1 scheduler/libcupsmime.sl.1 nostrip()
-l 0755 root sys $LIBDIR/libcupsmime.sl libcupsmime.sl.1
-f 0555 root sys $LIBDIR/libcupsppdc.sl.1 ppdc/libcupsppdc.sl.1 nostrip()
-l 0755 root sys $LIBDIR/libcupsppdc.sl libcupsppdc.sl.1
-%system aix
-f 0555 root sys $LIBDIR/libcups_s.a cups/libcups_s.a nostrip()
-f 0555 root sys $LIBDIR/libcupscgi_s.a cgi-bin/libcupscgi_s.a nostrip()
-f 0555 root sys $LIBDIR/libcupsimage_s.a filter/libcupsimage_s.a nostrip()
-f 0555 root sys $LIBDIR/libcupsmime_s.a scheduler/libcupsmime_s.a nostrip()
-f 0555 root sys $LIBDIR/libcupsppdc_s.a ppdc/libcupsppdc_s.a nostrip()
 %system darwin
 f 0555 root sys $LIBDIR/libcups.2.dylib cups/libcups.2.dylib nostrip()
 l 0755 root sys $LIBDIR/libcups.dylib libcups.2.dylib
-f 0555 root sys $LIBDIR/libcupscgi.1.dylib cgi-bin/libcupscgi.1.dylib nostrip()
-l 0755 root sys $LIBDIR/libcupscgi.dylib libcupscgi.1.dylib
 f 0555 root sys $LIBDIR/libcupsimage.2.dylib filter/libcupsimage.2.dylib nostrip()
 l 0755 root sys $LIBDIR/libcupsimage.dylib libcupsimage.2.dylib
-f 0555 root sys $LIBDIR/libcupsmime.1.dylib scheduler/libcupsmime.1.dylib nostrip()
-l 0755 root sys $LIBDIR/libcupsmime.dylib libcupsmime.1.dylib
-f 0555 root sys $LIBDIR/libcupsppdc.1.dylib ppdc/libcupsppdc.1.dylib nostrip()
-l 0755 root sys $LIBDIR/libcupsppdc.dylib libcupsppdc.1.dylib
-%system !hpux !aix !darwin
+%system !darwin
 f 0555 root sys $LIBDIR/libcups.so.2 cups/libcups.so.2 nostrip()
 l 0755 root sys $LIBDIR/libcups.so libcups.so.2
-f 0555 root sys $LIBDIR/libcupscgi.so.1 cgi-bin/libcupscgi.so.1 nostrip()
-l 0755 root sys $LIBDIR/libcupscgi.so libcupscgi.so.1
 f 0555 root sys $LIBDIR/libcupsimage.so.2 filter/libcupsimage.so.2 nostrip()
 l 0755 root sys $LIBDIR/libcupsimage.so libcupsimage.so.2
-f 0555 root sys $LIBDIR/libcupsmime.so.1 scheduler/libcupsmime.so.1 nostrip()
-l 0755 root sys $LIBDIR/libcupsmime.so libcupsmime.so.1
-f 0555 root sys $LIBDIR/libcupsppdc.so.1 ppdc/libcupsppdc.so.1 nostrip()
-l 0755 root sys $LIBDIR/libcupsppdc.so libcupsppdc.so.1
 %system all
 %subpackage
 %endif
@@ -450,17 +407,11 @@ d 0755 root sys $DATADIR/examples -
 f 0444 root sys $DATADIR/examples examples/*.drv
 
 d 0755 root sys $DATADIR/ipptool -
-f 0444 root sys $DATADIR/ipptool/create-printer-subscription.test test/create-printer-subscription.test
-f 0444 root sys $DATADIR/ipptool/get-completed-jobs.test test/get-completed-jobs.test
-f 0444 root sys $DATADIR/ipptool/get-jobs.test test/get-jobs.test
-f 0444 root sys $DATADIR/ipptool/get-printer-attributes.test test/get-printer-attributes.test
-f 0444 root sys $DATADIR/ipptool/print-job.test test/print-job.test
-f 0444 root sys $DATADIR/ipptool test/document-*.p*
-f 0444 root sys $DATADIR/ipptool test/ipp-*.test
-f 0444 root sys $DATADIR/ipptool test/onepage-*.p*
-f 0444 root sys $DATADIR/ipptool test/testfile.*
-f 0444 root sys $DATADIR/ipptool/color.jpg test/color.jpg
-f 0444 root sys $DATADIR/ipptool/gray.jpg test/gray.jpg
+f 0444 root sys $DATADIR/ipptool examples/*.jpg
+f 0444 root sys $DATADIR/ipptool examples/*.test
+f 0444 root sys $DATADIR/ipptool examples/document-*.p*
+f 0444 root sys $DATADIR/ipptool examples/onepage-*.p*
+f 0444 root sys $DATADIR/ipptool examples/testfile.*
 
 d 0755 root sys $DATADIR/mime -
 f 0444 root sys $DATADIR/mime/mime.convs conf/mime.convs
@@ -560,7 +511,7 @@ f 0444 root sys $LIBDIR/libcupsimage.a filter/libcupsimage.a
 
 d 0755 root sys $DOCDIR/help -
 f 0444 root sys $DOCDIR/help doc/help/api*.html
-f 0444 root sys $DOCDIR/help/cupspm.html doc/help/cupspm.html
+f 0444 root sys $DOCDIR/help doc/help/cupspm.*
 f 0444 root sys $DOCDIR/help/postscript-driver.html doc/help/postscript-driver.html
 f 0444 root sys $DOCDIR/help/ppd-compiler.html doc/help/ppd-compiler.html
 f 0444 root sys $DOCDIR/help/raster-driver.html doc/help/raster-driver.html
@@ -574,8 +525,10 @@ f 0444 root sys $DOCDIR doc/*.html
 f 0444 root sys $DOCDIR/apple-touch-icon.png doc/apple-touch-icon.png
 d 0755 root sys $DOCDIR/help -
 f 0444 root sys $DOCDIR/help/accounting.html doc/help/accounting.html
+f 0444 root sys $DOCDIR/help/admin.html doc/help/admin.html
 f 0444 root sys $DOCDIR/help/cgi.html doc/help/cgi.html
 f 0444 root sys $DOCDIR/help/encryption.html doc/help/encryption.html
+f 0444 root sys $DOCDIR/help/firewalls.html doc/help/firewalls.html
 f 0444 root sys $DOCDIR/help/glossary.html doc/help/glossary.html
 f 0444 root sys $DOCDIR/help/kerberos.html doc/help/kerberos.html
 f 0444 root sys $DOCDIR/help/license.html doc/help/license.html
@@ -640,67 +593,65 @@ f 0444 root sys $DOCDIR/ru doc/ru/*.html
 
 # Man pages
 d 0755 root sys $AMANDIR -
-d 0755 root sys $AMANDIR/man$MAN8DIR -
+d 0755 root sys $AMANDIR/man8 -
 d 0755 root sys $MANDIR -
 d 0755 root sys $MANDIR/man1 -
 d 0755 root sys $MANDIR/man5 -
 d 0755 root sys $MANDIR/man7 -
 
-f 0444 root sys $MANDIR/man1/cancel.$MAN1EXT man/cancel.$MAN1EXT
-f 0444 root sys $MANDIR/man1/cups.$MAN1EXT man/cups.$MAN1EXT
-f 0444 root sys $MANDIR/man1/cupstestdsc.$MAN1EXT man/cupstestdsc.$MAN1EXT
-f 0444 root sys $MANDIR/man1/cupstestppd.$MAN1EXT man/cupstestppd.$MAN1EXT
-f 0444 root sys $MANDIR/man1/ippfind.$MAN1EXT man/ippfind.$MAN1EXT
-f 0444 root sys $MANDIR/man1/ipptool.$MAN1EXT man/ipptool.$MAN1EXT
-f 0444 root sys $MANDIR/man1/lp.$MAN1EXT man/lp.$MAN1EXT
-f 0444 root sys $MANDIR/man1/lpoptions.$MAN1EXT man/lpoptions.$MAN1EXT
-f 0444 root sys $MANDIR/man1/lpq.$MAN1EXT man/lpq.$MAN1EXT
-f 0444 root sys $MANDIR/man1/lpr.$MAN1EXT man/lpr.$MAN1EXT
-f 0444 root sys $MANDIR/man1/lprm.$MAN1EXT man/lprm.$MAN1EXT
-f 0444 root sys $MANDIR/man1/lpstat.$MAN1EXT man/lpstat.$MAN1EXT
+f 0444 root sys $MANDIR/man1/cancel.1 man/cancel.1
+f 0444 root sys $MANDIR/man1/cups.1 man/cups.1
+f 0444 root sys $MANDIR/man1/cupstestppd.1 man/cupstestppd.1
+f 0444 root sys $MANDIR/man1/ippeveprinter.1 man/ippeveprinter.1
+f 0444 root sys $MANDIR/man1/ippfind.1 man/ippfind.1
+f 0444 root sys $MANDIR/man1/ipptool.1 man/ipptool.1
+f 0444 root sys $MANDIR/man1/lp.1 man/lp.1
+f 0444 root sys $MANDIR/man1/lpoptions.1 man/lpoptions.1
+f 0444 root sys $MANDIR/man1/lpq.1 man/lpq.1
+f 0444 root sys $MANDIR/man1/lpr.1 man/lpr.1
+f 0444 root sys $MANDIR/man1/lprm.1 man/lprm.1
+f 0444 root sys $MANDIR/man1/lpstat.1 man/lpstat.1
 
-f 0444 root sys $MANDIR/man5/classes.conf.$MAN5EXT man/classes.conf.$MAN5EXT
-f 0444 root sys $MANDIR/man5/client.conf.$MAN5EXT man/client.conf.$MAN5EXT
-f 0444 root sys $MANDIR/man5/cups-files.conf.$MAN5EXT man/cups-files.conf.$MAN5EXT
-f 0444 root sys $MANDIR/man5/cups-snmp.conf.$MAN5EXT man/cups-snmp.conf.$MAN5EXT
-f 0444 root sys $MANDIR/man5/cupsd.conf.$MAN5EXT man/cupsd.conf.$MAN5EXT
-f 0444 root sys $MANDIR/man5/cupsd-logs.$MAN5EXT man/cupsd-logs.$MAN5EXT
-f 0444 root sys $MANDIR/man5/ipptoolfile.$MAN5EXT man/ipptoolfile.$MAN5EXT
-f 0444 root sys $MANDIR/man5/mailto.conf.$MAN5EXT man/mailto.conf.$MAN5EXT
-f 0444 root sys $MANDIR/man5/mime.convs.$MAN5EXT man/mime.convs.$MAN5EXT
-f 0444 root sys $MANDIR/man5/mime.types.$MAN5EXT man/mime.types.$MAN5EXT
-f 0444 root sys $MANDIR/man5/printers.conf.$MAN5EXT man/printers.conf.$MAN5EXT
+f 0444 root sys $MANDIR/man5/classes.conf.5 man/classes.conf.5
+f 0444 root sys $MANDIR/man5/client.conf.5 man/client.conf.5
+f 0444 root sys $MANDIR/man5/cups-files.conf.5 man/cups-files.conf.5
+f 0444 root sys $MANDIR/man5/cups-snmp.conf.5 man/cups-snmp.conf.5
+f 0444 root sys $MANDIR/man5/cupsd.conf.5 man/cupsd.conf.5
+f 0444 root sys $MANDIR/man5/cupsd-logs.5 man/cupsd-logs.5
+f 0444 root sys $MANDIR/man5/ipptoolfile.5 man/ipptoolfile.5
+f 0444 root sys $MANDIR/man5/mailto.conf.5 man/mailto.conf.5
+f 0444 root sys $MANDIR/man5/mime.convs.5 man/mime.convs.5
+f 0444 root sys $MANDIR/man5/mime.types.5 man/mime.types.5
+f 0444 root sys $MANDIR/man5/printers.conf.5 man/printers.conf.5
 
-l 0644 root sys $AMANDIR/man$MAN8DIR/accept.$MAN8EXT cupsaccept.$MAN8EXT
-f 0444 root sys $AMANDIR/man$MAN8DIR/cupsaccept.$MAN8EXT man/cupsaccept.$MAN8EXT
-f 0444 root sys $AMANDIR/man$MAN8DIR/cupsaddsmb.$MAN8EXT man/cupsaddsmb.$MAN8EXT
-l 0644 root sys $AMANDIR/man$MAN8DIR/cupsreject.$MAN8EXT cupsaccept.$MAN8EXT
-f 0444 root sys $AMANDIR/man$MAN8DIR/cupsctl.$MAN8EXT man/cupsctl.$MAN8EXT
-f 0444 root sys $AMANDIR/man$MAN8DIR/cupsfilter.$MAN8EXT man/cupsfilter.$MAN8EXT
-f 0444 root sys $AMANDIR/man$MAN8DIR/cups-snmp.$MAN8EXT man/cups-snmp.$MAN8EXT
-f 0444 root sys $AMANDIR/man$MAN8DIR/cupsd.$MAN8EXT man/cupsd.$MAN8EXT
-f 0444 root sys $AMANDIR/man$MAN8DIR/cupsd-helper.$MAN8EXT man/cupsd-helper.$MAN8EXT
-l 0644 root sys $AMANDIR/man$MAN8DIR/cupsdisable.$MAN8EXT cupsenable.$MAN8EXT
-f 0444 root sys $AMANDIR/man$MAN8DIR/cupsenable.$MAN8EXT man/cupsenable.$MAN8EXT
-l 0644 root sys $AMANDIR/man$MAN8DIR/disable.$MAN8EXT cupsenable.$MAN8EXT
-l 0644 root sys $AMANDIR/man$MAN8DIR/enable.$MAN8EXT cupsenable.$MAN8EXT
-f 0444 root sys $AMANDIR/man$MAN8DIR/lpadmin.$MAN8EXT man/lpadmin.$MAN8EXT
-f 0444 root sys $AMANDIR/man$MAN8DIR/lpc.$MAN8EXT man/lpc.$MAN8EXT
-f 0444 root sys $AMANDIR/man$MAN8DIR/lpinfo.$MAN8EXT man/lpinfo.$MAN8EXT
-f 0444 root sys $AMANDIR/man$MAN8DIR/lpmove.$MAN8EXT man/lpmove.$MAN8EXT
-l 0644 root sys $AMANDIR/man$MAN8DIR/reject.$MAN8EXT cupsaccept.$MAN8EXT
+f 0444 root sys $MANDIR/man7/ippevepcl.7 man/ippevepcl.7
+l 0644 root sys $MANDIR/man7/ippeveps.7 ippevepcl.7
+
+f 0444 root sys $AMANDIR/man8/cupsaccept.8 man/cupsaccept.8
+l 0644 root sys $AMANDIR/man8/cupsreject.8 cupsaccept.8
+f 0444 root sys $AMANDIR/man8/cupsctl.8 man/cupsctl.8
+f 0444 root sys $AMANDIR/man8/cupsfilter.8 man/cupsfilter.8
+f 0444 root sys $AMANDIR/man8/cups-snmp.8 man/cups-snmp.8
+f 0444 root sys $AMANDIR/man8/cupsd.8 man/cupsd.8
+f 0444 root sys $AMANDIR/man8/cupsd-helper.8 man/cupsd-helper.8
+l 0644 root sys $AMANDIR/man8/cupsdisable.8 cupsenable.8
+f 0444 root sys $AMANDIR/man8/cupsenable.8 man/cupsenable.8
+f 0444 root sys $AMANDIR/man8/lpadmin.8 man/lpadmin.8
+f 0444 root sys $AMANDIR/man8/lpc.8 man/lpc.8
+f 0444 root sys $AMANDIR/man8/lpinfo.8 man/lpinfo.8
+f 0444 root sys $AMANDIR/man8/lpmove.8 man/lpmove.8
 
 %subpackage devel
-f 0444 root sys $MANDIR/man1/cups-config.$MAN1EXT man/cups-config.$MAN1EXT
-f 0444 root sys $MANDIR/man1/ man/ppd*.$MAN1EXT
-f 0444 root sys $MANDIR/man5/ppdcfile.$MAN5EXT man/ppdcfile.$MAN5EXT
-f 0444 root sys $MANDIR/man7/backend.$MAN7EXT man/backend.$MAN7EXT
-f 0444 root sys $MANDIR/man7/filter.$MAN7EXT man/filter.$MAN7EXT
-f 0444 root sys $MANDIR/man7/notifier.$MAN7EXT man/notifier.$MAN7EXT
+f 0444 root sys $MANDIR/man1/cups-config.1 man/cups-config.1
+f 0444 root sys $MANDIR/man1/ man/ppd*.1
+f 0444 root sys $MANDIR/man5/ppdcfile.5 man/ppdcfile.5
+f 0444 root sys $MANDIR/man7/backend.7 man/backend.7
+f 0444 root sys $MANDIR/man7/filter.7 man/filter.7
+f 0444 root sys $MANDIR/man7/notifier.7 man/notifier.7
 
 %subpackage lpd
-d 0755 root sys $AMANDIR/man$MAN8DIR -
-f 0444 root sys $AMANDIR/man$MAN8DIR/cups-lpd.$MAN8EXT man/cups-lpd.$MAN8EXT
+d 0755 root sys $AMANDIR/man8 -
+f 0444 root sys $AMANDIR/man8/cups-lpd.8 man/cups-lpd.8
 %subpackage
 
 # Startup scripts

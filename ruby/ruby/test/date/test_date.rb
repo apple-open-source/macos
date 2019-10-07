@@ -1,4 +1,4 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 require 'test/unit'
 require 'date'
 
@@ -137,7 +137,7 @@ class TestDate < Test::Unit::TestCase
     d = Date.new
     d.freeze
     assert_equal(true, d.frozen?)
-    assert_instance_of(Fixnum, d.yday)
+    assert_instance_of(Integer, d.yday)
     assert_instance_of(String, d.to_s)
   end
 

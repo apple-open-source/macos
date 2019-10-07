@@ -36,7 +36,7 @@ pt{
         ak{"akan"}
         akk{"acadiano"}
         ale{"aleúte"}
-        alt{"altai do sul"}
+        alt{"altai meridional"}
         am{"amárico"}
         an{"aragonês"}
         ang{"inglês arcaico"}
@@ -46,7 +46,7 @@ pt{
         arc{"aramaico"}
         arn{"mapudungun"}
         arp{"arapaho"}
-        ars{"árabe - Négede"}
+        ars{"árabe négede"}
         arw{"arauaqui"}
         as{"assamês"}
         asa{"asu"}
@@ -93,6 +93,7 @@ pt{
         car{"caribe"}
         cay{"cayuga"}
         cch{"atsam"}
+        ccp{"Chakma"}
         ce{"checheno"}
         ceb{"cebuano"}
         cgg{"chiga"}
@@ -104,7 +105,7 @@ pt{
         chn{"jargão Chinook"}
         cho{"choctaw"}
         chp{"chipewyan"}
-        chr{"cherokee"}
+        chr{"cheroqui"}
         chy{"cheiene"}
         ckb{"curdo central"}
         co{"corso"}
@@ -241,7 +242,7 @@ pt{
         kbl{"kanembu"}
         kcg{"tyap"}
         kde{"maconde"}
-        kea{"kabuverdianu"}
+        kea{"crioulo cabo-verdiano"}
         kfo{"koro"}
         kg{"congolês"}
         kha{"khasi"}
@@ -266,6 +267,7 @@ pt{
         krl{"carélio"}
         kru{"kurukh"}
         ks{"caxemira"}
+        ks_Arab{"caxemira (nasqui)"}
         ksb{"shambala"}
         ksf{"bafia"}
         ksh{"kölsch"}
@@ -380,6 +382,7 @@ pt{
         osa{"osage"}
         ota{"turco otomano"}
         pa{"panjabi"}
+        pa_Arab{"panjabi (nasqui)"}
         pag{"pangasinã"}
         pal{"pálavi"}
         pam{"pampanga"}
@@ -441,7 +444,7 @@ pt{
         sk{"eslovaco"}
         sl{"esloveno"}
         sm{"samoano"}
-        sma{"sami do sul"}
+        sma{"sami meridional"}
         smj{"sami de Lule"}
         smn{"sami de Inari"}
         sms{"sami de Skolt"}
@@ -506,6 +509,7 @@ pt{
         umb{"umbundu"}
         und{"idioma desconhecido"}
         ur{"urdu"}
+        ur_Arab{"urdu (nasqui)"}
         uz{"uzbeque"}
         vai{"vai"}
         ve{"venda"}
@@ -553,6 +557,7 @@ pt{
     }
     Scripts{
         Arab{"árabe"}
+        Aran{"nastaliq"}
         Armi{"armi"}
         Armn{"armênio"}
         Avst{"avéstico"}
@@ -648,6 +653,7 @@ pt{
         Phnx{"fenício"}
         Plrd{"fonético pollard"}
         Prti{"prti"}
+        Qaag{"zawgyi"}
         Rjng{"rejang"}
         Roro{"rongorongo"}
         Runr{"rúnico"}
@@ -786,8 +792,8 @@ pt{
             strict{"Quebra de linha com estilo estrito"}
         }
         m0{
-            bgn{"BGN"}
-            ungegn{"UNGEGN"}
+            bgn{"Transliteração BGN EUA"}
+            ungegn{"Transliteração UN GEGN"}
         }
         ms{
             metric{"Sistema métrico"}
@@ -880,19 +886,19 @@ pt{
         VALENCIA{"valenciano"}
         WADEGILE{"romanização Wade-Giles"}
     }
-    Version{"2.1.41.97"}
+    Version{"2.1.48.42"}
     characterLabelPattern{
-        all{"{0} — Tudo"}
+        all{"{0} — todos"}
         category-list{"{0}: {1}"}
-        compatibility{"{0} — Compatibilidade"}
-        enclosed{"{0} — Incluso"}
-        extended{"{0} — Estendido"}
-        historic{"{0} — Histórico"}
-        miscellaneous{"{0} — Diverso"}
-        other{"{0} — Outro"}
-        scripts{"Escritas — {0}"}
+        compatibility{"{0} — compatibilidade"}
+        enclosed{"{0} — fechado"}
+        extended{"{0} — estendido"}
+        historic{"{0} — histórico"}
+        miscellaneous{"{0} — diversos"}
+        other{"{0} — outro"}
+        scripts{"escritas — {0}"}
         strokes{
-            one{"{0} traços"}
+            one{"{0} traço"}
             other{"{0} traços"}
         }
     }

@@ -324,13 +324,19 @@ void CurlHandle::enableSSLForHost(const String& host)
         setCACertPath(path->utf8().data());
 }
 
+void CurlHandle::disableServerTrustEvaluation()
+{
+    setSslVerifyPeer(CurlHandle::VerifyPeer::Disable);
+    setSslVerifyHost(CurlHandle::VerifyHost::LooseNameCheck);
+}
+
 CURLcode CurlHandle::willSetupSslCtx(void* sslCtx)
 {
     if (!sslCtx)
         return CURLE_ABORTED_BY_CALLBACK;
 
     if (!m_sslVerifier)
-        m_sslVerifier = std::make_unique<CurlSSLVerifier>(*this, sslCtx);
+        m_sslVerifier = std::make_unique<CurlSSLVerifier>(sslCtx);
 
     return CURLE_OK;
 }
@@ -386,10 +392,8 @@ void CurlHandle::setUrl(const URL& url)
 void CurlHandle::appendRequestHeaders(const HTTPHeaderMap& headers)
 {
     if (headers.size()) {
-        for (auto& entry : headers) {
-            auto& value = entry.value;
+        for (auto& entry : headers)
             appendRequestHeader(entry.key, entry.value);
-        }
     }
 }
 
@@ -632,6 +636,13 @@ void CurlHandle::setSslCtxCallbackFunction(curl_ssl_ctx_callback callbackFunc, v
 {
     curl_easy_setopt(m_handle, CURLOPT_SSL_CTX_DATA, userData);
     curl_easy_setopt(m_handle, CURLOPT_SSL_CTX_FUNCTION, callbackFunc);
+}
+
+void CurlHandle::setDebugCallbackFunction(curl_debug_callback callbackFunc, void* userData)
+{
+    curl_easy_setopt(m_handle, CURLOPT_DEBUGFUNCTION, callbackFunc);
+    curl_easy_setopt(m_handle, CURLOPT_DEBUGDATA, userData);
+    curl_easy_setopt(m_handle, CURLOPT_VERBOSE, 1L);
 }
 
 void CurlHandle::enableConnectionOnly()

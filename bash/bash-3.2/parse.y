@@ -3098,7 +3098,7 @@ cond_error ()
   char *etext;
 
   if (EOF_Reached && cond_token != COND_ERROR)		/* [[ */
-    parser_error (cond_lineno, _("unexpected EOF while looking for `]]'"));
+    parser_error (cond_lineno, "%s", _("unexpected EOF while looking for `]]'"));
   else if (cond_token != COND_ERROR)
     {
       if (etext = error_token_from_token (cond_token))
@@ -3107,7 +3107,7 @@ cond_error ()
 	  free (etext);
 	}
       else
-	parser_error (cond_lineno, _("syntax error in conditional expression"));
+	parser_error (cond_lineno, "%s", _("syntax error in conditional expression"));
     }
 }
 
@@ -3189,7 +3189,7 @@ cond_term ()
 	      free (etext);
 	    }
 	  else
-	    parser_error (lineno, _("expected `)'"));
+	    parser_error (lineno, "%s", _("expected `)'"));
 	  COND_RETURN_ERROR ();
 	}
       term = make_cond_node (COND_EXPR, (WORD_DESC *)NULL, term, (COND_COM *)NULL);
@@ -3221,7 +3221,7 @@ cond_term ()
 	      free (etext);
 	    }
 	  else
-	    parser_error (line_number, _("unexpected argument to conditional unary operator"));
+	    parser_error (line_number, "%s", _("unexpected argument to conditional unary operator"));
 	  COND_RETURN_ERROR ();
 	}
 
@@ -3265,7 +3265,7 @@ cond_term ()
 	      free (etext);
 	    }
 	  else
-	    parser_error (line_number, _("conditional binary operator expected"));
+	    parser_error (line_number, "%s", _("conditional binary operator expected"));
 	  dispose_cond_node (tleft);
 	  COND_RETURN_ERROR ();
 	}
@@ -3286,7 +3286,7 @@ cond_term ()
 	      free (etext);
 	    }
 	  else
-	    parser_error (line_number, _("unexpected argument to conditional binary operator"));
+	    parser_error (line_number, "%s", _("unexpected argument to conditional binary operator"));
 	  dispose_cond_node (tleft);
 	  dispose_word (op);
 	  COND_RETURN_ERROR ();
@@ -4818,7 +4818,7 @@ parse_compound_assignment (retlenp)
 	{
 	  current_token = tok;	/* for error reporting */
 	  if (tok == yacc_EOF)	/* ( */
-	    parser_error (orig_line_number, _("unexpected EOF while looking for matching `)'"));
+	    parser_error (orig_line_number, "%s", _("unexpected EOF while looking for matching `)'"));
 	  else
 	    yyerror(NULL);	/* does the right thing */
 	  if (wl)

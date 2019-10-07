@@ -3,6 +3,13 @@ set -x
 
 # Installs Libc header files
 
+if [ -n "${DRIVERKIT}" -a -z "${DRIVERKITSDK}" ]; then
+	# Run script in the mode that installs public DriverKit SDK headers first:
+	# required to get the correct header unifdef ordering, that mode strips out more
+	# and rewrites all headers under the parent directory (/System/DriverKit)
+	DRIVERKITSDK=1 SDK_INSTALL_HEADERS_ROOT="${SDK_INSTALL_ROOT}" "${BASH}" -e "$0"
+fi
+
 MKDIR="mkdir -p"
 INSTALL=install
 MV=mv
@@ -26,14 +33,16 @@ else
     HDRROOT=${DSTROOT}
 fi
 
-INCDIR=${HDRROOT}/${PUBLIC_HEADERS_FOLDER_PATH}
-LOCINCDIR=${HDRROOT}/${PRIVATE_HEADERS_FOLDER_PATH}
-SYSTEMFRAMEWORK=${HDRROOT}/System/Library/Frameworks/System.framework
-KERNELFRAMEWORK=${HDRROOT}/System/Library/Frameworks/Kernel.framework
+INCDIR=${HDRROOT}/${SDK_INSTALL_HEADERS_ROOT}/usr/include
+LOCINCDIR=${HDRROOT}/${SDK_INSTALL_HEADERS_ROOT}/usr/local/include
+SYSTEMFRAMEWORK=${HDRROOT}/${SDK_INSTALL_HEADERS_ROOT}/System/Library/Frameworks/System.framework
+KERNELFRAMEWORK=${HDRROOT}/${SDK_INSTALL_HEADERS_ROOT}/System/Library/Frameworks/Kernel.framework
 
 PRIVHDRS=${SYSTEMFRAMEWORK}/Versions/B/PrivateHeaders
 PRIVKERNELHDRS=${KERNELFRAMEWORK}/Versions/A/PrivateHeaders
 INSTALLMODE=$([[ `id -u` -eq 0 ]] && echo 444 || echo 644)
+
+if [ -z "${DRIVERKITSDK}" ]; then
 
 INSTHDRS=(
 	${SRCROOT}/gen/get_compat.h
@@ -49,6 +58,7 @@ INC_INSTHDRS=(
 	_types.h
 	_wctype.h
 	_xlocale.h
+	_ctermid.h
 	aio.h
 	alloca.h
 	ar.h
@@ -209,50 +219,128 @@ SYS_INSTHDRS=(
 )
 PRIVUUID_INSTHDRS=( ${SRCROOT}/uuid/namespace.h )
 
-${MKDIR} ${INCDIR}/arpa
-${MKDIR} ${INCDIR}/libkern
-${MKDIR} ${INCDIR}/malloc
-${MKDIR} ${INCDIR}/protocols
-${MKDIR} ${INCDIR}/secure
-${MKDIR} ${INCDIR}/sys
-${MKDIR} ${INCDIR}/xlocale
-${MKDIR} ${INCDIR}/_types
+else # DRIVERKITSDK
+
+# Public DriverKit SDK headers
+
+UNIFDEFARGS="${UNIFDEFARGS} -U_USE_EXTENDED_LOCALES_"
+
+INC_INSTHDRS=(
+	__wctype.h
+	_ctype.h
+	_locale.h
+	_stdio.h
+	_types.h
+	_wctype.h
+	alloca.h
+	assert.h
+	ctype.h
+	inttypes.h
+	limits.h
+	locale.h
+	runetype.h
+	stddef.h
+	stdio.h
+	stdint.h
+	stdlib.h
+	string.h
+	strings.h
+	time.h
+	wchar.h
+	wctype.h
+)
+
+TYPES_INSTHDRS=(
+	${SRCROOT}/include/_types/_intmax_t.h
+	${SRCROOT}/include/_types/_uint16_t.h
+	${SRCROOT}/include/_types/_uint32_t.h
+	${SRCROOT}/include/_types/_uint64_t.h
+	${SRCROOT}/include/_types/_uint8_t.h
+	${SRCROOT}/include/_types/_uintmax_t.h
+	${SRCROOT}/include/_types/_wctrans_t.h
+	${SRCROOT}/include/_types/_wctype_t.h
+)
+
+INC_INSTHDRS=(
+	"${INC_INSTHDRS[@]/#/${SRCROOT}/include/}"
+)
+INSTHDRS=( "${INSTHDRS[@]}" "${INC_INSTHDRS[@]}" )
+
+INC_SECURE_INSTHDRS=( _common.h _string.h _strings.h _stdio.h )
+SECURE_INSTHDRS=( "${INC_SECURE_INSTHDRS[@]/#/${SRCROOT}/include/secure/}" )
+
+fi # DRIVERKITSDK
+
+if [ -n "${INSTHDRS}" ]; then
+${MKDIR} ${INCDIR}
 ${INSTALL} -m ${INSTALLMODE} ${INSTHDRS[@]} ${INCDIR}
-${INSTALL} -m ${INSTALLMODE} ${ARPA_INSTHDRS[@]} ${INCDIR}/arpa
-if [ "x${FEATURE_MEM_NOTIFICATION_APIS}" == "x1" ]; then
-${INSTALL} -m ${INSTALLMODE} ${MEM_INSTHDRS[@]} ${INCDIR}/libkern
 fi
-if [ "x${FEATURE_THERM_NOTIFICATION_APIS}" == "x1" ]; then
+if [ -n "${ARPA_INSTHDRS}" ]; then
+${MKDIR} ${INCDIR}/arpa
+${INSTALL} -m ${INSTALLMODE} ${ARPA_INSTHDRS[@]} ${INCDIR}/arpa
+fi
+if [ -n "${THERM_INSTHDRS}" ]; then
+${MKDIR} ${INCDIR}/libkern
 ${INSTALL} -m ${INSTALLMODE} ${THERM_INSTHDRS[@]} ${INCDIR}/libkern
 fi
+if [ -n "${PROTO_INSTHDRS}" ]; then
+${MKDIR} ${INCDIR}/protocols
 ${INSTALL} -m ${INSTALLMODE} ${PROTO_INSTHDRS[@]} ${INCDIR}/protocols
+fi
+if [ -n "${SECURE_INSTHDRS}" ]; then
+${MKDIR} ${INCDIR}/secure
 ${INSTALL} -m ${INSTALLMODE} ${SECURE_INSTHDRS[@]} ${INCDIR}/secure
+fi
+if [ -n "${SYS_INSTHDRS}" ]; then
+${MKDIR} ${INCDIR}/sys
 ${INSTALL} -m ${INSTALLMODE} ${SYS_INSTHDRS[@]} ${INCDIR}/sys
+fi
+if [ -n "${XLOCALE_INSTHDRS}" ]; then
+${MKDIR} ${INCDIR}/xlocale
 ${INSTALL} -m ${INSTALLMODE} ${XLOCALE_INSTHDRS[@]} ${INCDIR}/xlocale
+fi
+if [ -n "${TYPES_INSTHDRS}" ]; then
+${MKDIR} ${INCDIR}/_types
 ${INSTALL} -m ${INSTALLMODE} ${TYPES_INSTHDRS[@]} ${INCDIR}/_types
+fi
+if [ -n "${LOCALHDRS}" ]; then
 ${MKDIR} ${LOCINCDIR}
-${MKDIR} ${LOCINCDIR}/os
 ${INSTALL} -m ${INSTALLMODE} ${LOCALHDRS[@]} ${LOCINCDIR}
+fi
+if [ -n "${OS_LOCALHDRS}" ]; then
+${MKDIR} ${LOCINCDIR}/os
 ${INSTALL} -m ${INSTALLMODE} ${OS_LOCALHDRS[@]} ${LOCINCDIR}/os
-${MKDIR} ${PRIVHDRS}/btree
-${MKDIR} ${PRIVHDRS}/machine
-${MKDIR} ${PRIVHDRS}/uuid
-${MKDIR} ${PRIVHDRS}/sys
-${MKDIR} ${PRIVKERNELHDRS}/uuid
+fi
+if [ -n "${PRIV_INSTHDRS}" ]; then
+${MKDIR} ${PRIVHDRS}
 ${INSTALL} -m ${INSTALLMODE} ${PRIV_INSTHDRS[@]} ${PRIVHDRS}
+fi
+if [ -n "${PRIV_BTREEHDRS}" ]; then
+${MKDIR} ${PRIVHDRS}/btree
 ${INSTALL} -m ${INSTALLMODE} ${PRIV_BTREEHDRS[@]} ${PRIVHDRS}/btree
-${MV} ${INCDIR}/asm.h ${PRIVHDRS}/machine
+fi
+if [ -n "${SYS_INSTHDRS}" ]; then
+${MKDIR} ${PRIVHDRS}/sys
 ${INSTALL} -m ${INSTALLMODE} ${SYS_INSTHDRS[@]} ${PRIVHDRS}/sys
+fi
+if [ -n "${PRIVUUID_INSTHDRS}" ]; then
+${MKDIR} ${PRIVHDRS}/uuid
 ${INSTALL} -m ${INSTALLMODE} ${PRIVUUID_INSTHDRS[@]} ${PRIVHDRS}/uuid
+${MKDIR} ${PRIVKERNELHDRS}/uuid
 ${INSTALL} -m ${INSTALLMODE} ${PRIVUUID_INSTHDRS[@]} ${PRIVKERNELHDRS}/uuid
+fi
+if [ -f "${INCDIR}/asm.h" ]; then
+${MKDIR} ${PRIVHDRS}/machine
+${MV} ${INCDIR}/asm.h ${PRIVHDRS}/machine
+fi
 
-for i in `${FIND} "${HDRROOT}" -name \*.h -print0 | ${XARGS} -0 ${GREP} -l '^//Begin-Libc'`; do
+for i in `${FIND} "${HDRROOT}/${SDK_INSTALL_HEADERS_ROOT}" -name \*.h -print0 | ${XARGS} -0 ${GREP} -l '^//Begin-Libc'`; do
 	${CHMOD} u+w $i &&
 	${ECHO} ${ED} - $i \< ${SRCROOT}/xcodescripts/strip-header.ed &&
 	${ED} - $i < ${SRCROOT}/xcodescripts/strip-header.ed &&
 	${CHMOD} u-w $i || exit 1;
 done
-for i in `${FIND} "${HDRROOT}" -name \*.h -print0 | ${XARGS} -0 ${FGREP} -l -e UNIFDEF -e OPEN_SOURCE`; do
+for i in `${FIND} "${HDRROOT}/${SDK_INSTALL_HEADERS_ROOT}" -name \*.h -print0 | ${XARGS} -0 ${FGREP} -l -e UNIFDEF -e OPEN_SOURCE -e _USE_EXTENDED_LOCALES_`; do
 	${CHMOD} u+w $i &&
 	${CP} $i $i.orig &&
 	${ECHO} ${UNIFDEF} ${UNIFDEFARGS} $i.orig \> $i &&

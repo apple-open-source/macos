@@ -51,7 +51,7 @@
 #endif
 #include <sys/socket.h>
 
-#include <schedule.h>
+#include "schedule.h"
 
 #if __has_include(<nw/private.h>)
 #include <nw/private.h>

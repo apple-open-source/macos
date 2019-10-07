@@ -1,0 +1,46 @@
+
+syntax = "proto2";
+
+option objc_class_naming = "extended";
+option objc_class_visibility = "hidden";
+
+package OT;
+
+message AccountMetadataClassC {
+
+    // The state of accounts on the system is complicated. Here's how we handle them:
+    //  If there is no account, we will be in NO_ACCOUNT and have no altDSID
+    //  If there is an SA account, we will bt in NO_ACCOUNT and have an altDSID
+    //  If there is an HSA2 account, we will be in ACCOUNT_AVAILABLE and have an altDSID
+
+    enum AccountState {
+        UNKNOWN = 0;
+        NO_ACCOUNT = 1;
+        ACCOUNT_AVAILABLE = 2;
+        ACCOUNT_AVAILABLE_UNUSED = 3;
+    }
+
+    enum TrustState {
+        UNKNOWN = 0;
+        UNTRUSTED = 1;
+        TRUSTED = 2;
+    }
+
+    enum AttemptedAJoinState {
+        UNKNOWN = 0;
+        NOTATTEMPTED = 1;
+        ATTEMPTED = 2;
+    }
+
+    optional string peerID = 1;
+    optional AccountState icloudAccountState = 2;
+    optional int64 epoch = 3;
+    optional string altDSID = 4;
+
+    optional TrustState trustState = 5;
+
+    // Holds the time, in milliseconds since 1970, that the last health checkup query to Cuttlefish was successfully performed
+    optional uint64 lastHealthCheckup = 6;
+
+    optional AttemptedAJoinState attemptedJoin = 7;
+}

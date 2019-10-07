@@ -1,4 +1,4 @@
-.TH "ZSHCONTRIB" "1" "December 11, 2016" "zsh 5\&.3"
+.TH "ZSHCONTRIB" "1" "February 3, 2019" "zsh 5\&.7\&.1"
 .SH "NAME"
 zshcontrib \- user contributions to zsh
 .\" Yodl file: Zsh/contrib.yo
@@ -41,7 +41,7 @@ distribution in your home directory, you would use the commands:
 .RS
 .nf
 \fBmkdir ~/zsh_help
-perl ~/zsh\-5\&.3/Util/helpfiles ~/zsh_help\fP
+perl ~/zsh\-5\&.7\&.1/Util/helpfiles ~/zsh_help\fP
 .fi
 .RE
 .PP
@@ -181,7 +181,7 @@ Run \fBzkbd\fP either as an autoloaded function, or as a shell script:
 .PP
 .RS
 .nf
-\fBzsh \-f ~/zsh\-5\&.3/Functions/Misc/zkbd\fP
+\fBzsh \-f ~/zsh\-5\&.7\&.1/Functions/Misc/zkbd\fP
 .fi
 .RE
 .PP
@@ -237,7 +237,7 @@ command and redirect the output into a file:
 .PP
 .RS
 .nf
-\fB\&. ~/zsh\-5\&.3/Util/reporter > zsh\&.report\fP
+\fB\&. ~/zsh\-5\&.7\&.1/Util/reporter > zsh\&.report\fP
 .fi
 .RE
 .PP
@@ -919,44 +919,45 @@ they are referred to within the system:
 .PD 0
 .TP
 Bazaar (\fBbzr\fP)
-\fBhttp://bazaar\&.canonical\&.com/\fP
+\fBhttps://bazaar\&.canonical\&.com/\fP
 .TP
 Codeville (\fBcdv\fP)
 \fBhttp://freecode\&.com/projects/codeville/\fP
 .TP
 Concurrent Versioning System (\fBcvs\fP)
-\fBhttp://www\&.nongnu\&.org/cvs/\fP
+\fBhttps://www\&.nongnu\&.org/cvs/\fP
 .TP
 Darcs (\fBdarcs\fP)
 \fBhttp://darcs\&.net/\fP
 .TP
 Fossil (\fBfossil\fP)
-\fBhttp://fossil\-scm\&.org/\fP
+\fBhttps://fossil\-scm\&.org/\fP
 .TP
 Git (\fBgit\fP)
-\fBhttp://git\-scm\&.com/\fP
+\fBhttps://git\-scm\&.com/\fP
 .TP
 GNU arch (\fBtla\fP)
-\fBhttp://www\&.gnu\&.org/software/gnu\-arch/\fP
+\fBhttps://www\&.gnu\&.org/software/gnu\-arch/\fP
 .TP
 Mercurial (\fBhg\fP)
-\fBhttp://mercurial\&.selenic\&.com/\fP
+\fBhttps://www\&.mercurial\-scm\&.org/\fP
 .TP
 Monotone (\fBmtn\fP)
-\fBhttp://monotone\&.ca/\fP
+\fBhttps://monotone\&.ca/\fP
 .TP
 Perforce (\fBp4\fP)
-\fBhttp://www\&.perforce\&.com/\fP
+\fBhttps://www\&.perforce\&.com/\fP
 .TP
 Subversion (\fBsvn\fP)
-\fBhttp://subversion\&.apache\&.org/\fP
+\fBhttps://subversion\&.apache\&.org/\fP
 .TP
 SVK (\fBsvk\fP)
-\fBhttp://svk\&.bestpractical\&.com/\fP
+\fBhttps://svk\&.bestpractical\&.com/\fP
 .PD
 .PP
 There is also support for the patch management system \fBquilt\fP
-(\fBhttp://savannah\&.nongnu\&.org/projects/quilt\fP)\&. See \fBQuilt Support\fP
+(\fBhttps://savannah\&.nongnu\&.org/projects/quilt\fP)\&. See
+\fBQuilt Support\fP
 below for details\&.
 .PP
 To load \fBvcs_info\fP:
@@ -969,6 +970,7 @@ To load \fBvcs_info\fP:
 .PP
 It can be used in any existing prompt, because it does not require any
 specific \fB$psvar\fP entries to be available\&.
+.PP
 .PP
 .SS "Quickstart"
 .PP
@@ -1065,9 +1067,17 @@ First, the context in which we are working:
 \fIvcs\-string\fP
 is one of: \fBgit\fP, \fBgit\-svn\fP, \fBgit\-p4\fP, \fBhg\fP, \fBhg\-git\fP,
 \fBhg\-hgsubversion\fP, \fBhg\-hgsvn\fP, \fBdarcs\fP, \fBbzr\fP, \fBcdv\fP, \fBmtn\fP,
-\fBsvn\fP, \fBcvs\fP, \fBsvk\fP, \fBtla\fP, \fBp4\fP or \fBfossil\fP\&. When hooks are
-active the hooks name is added after a `+\&'\&. (See \fBHooks in vcs_info\fP
-below\&.)
+\fBsvn\fP, \fBcvs\fP, \fBsvk\fP, \fBtla\fP, \fBp4\fP or \fBfossil\fP\&.
+This is followed by `\fB\&.quilt\-\fP\fIquilt\-mode\fP\&' in Quilt mode
+(see \fBQuilt Support\fP for details)
+and by `\fB+\fP\fIhook\-name\fP\&' while hooks are active
+(see \fBHooks in vcs_info\fP for details)\&.
+.RS
+.PP
+
+Currently, hooks in quilt mode don\&'t add the `\fB\&.quilt\-\fP\fIquilt\-mode\fP' information\&.
+This may change in the future\&.
+.RE
 .TP
 \fIuser\-context\fP
 is a freely configurable string, assignable by
@@ -1325,6 +1335,8 @@ below for details\&.
 This pair of styles format the patch information used by the \fB%m\fP expando in
 formats and actionformats for the \fBgit\fP and \fBhg\fP backends\&.  The value is
 subject to certain \fB%\fP\-expansions described below\&.
+The expanded value is made available in the global \fBbackend_misc\fP array as
+\fB${backend_misc[patches]}\fP (also if a \fBset\-patch\-format\fP hook is used)\&.
 .TP
 \fBget\-unapplied\fP
 This boolean style controls whether a backend should attempt to gather a list
@@ -1473,8 +1485,8 @@ decide what this replacement expands to\&.
 .RS
 .PP
 The \fBhg\fP and \fBgit\fP backends use this expando to display patch information\&.
-\fBhg\fP sources patch information from the \fBmq\fP extensions; \fBgit\fP from the
-\fBrebase\fP command and from the and \fBstgit\fP extension\&.  The \fBpatch\-format\fP
+\fBhg\fP sources patch information from the \fBmq\fP extensions; \fBgit\fP from in\-progress
+\fBrebase\fP and \fBcherry\-pick\fP operations and from the \fBstgit\fP extension\&.  The \fBpatch\-format\fP
 and \fBnopatch\-format\fP styles control the generated string\&.  The former is used
 when at least one patch from the patch queue has been applied, and the latter
 otherwise\&.
@@ -1484,6 +1496,19 @@ to \fBmq\fP information)\&.  See the \fBget\-mq\fP and \fBget\-bookmarks\fP styl
 of these styles may be enabled at the same time\&.  If both are enabled, both
 resulting strings will be shown separated by a semicolon (that cannot currently
 be customized)\&.
+.PP
+The \fBquilt\fP `standalone\&' backend sets this expando to the same value as the
+\fB%Q\fP expando\&.
+.RE
+.TP
+\fB%Q\fP
+Quilt series information\&.
+When quilt is used (either in `addon\&' mode or as a `standalone' backend),
+this expando is set to quilt series\&' \fBpatch\-format\fP string\&.
+The \fBset\-patch\-format\fP hook and \fBnopatch\-format\fP style are honoured\&.
+.RS
+.PP
+See \fBQuilt Support\fP below for details\&.
 .RE
 .PP
 In \fBbranchformat\fP these replacements are done:
@@ -1548,6 +1573,13 @@ mechanism can handle it\&. Similarly, to hand down \fB%b\fP from
 cannot be easily avoided\&. Luckily we do not clash with a lot of prompt
 expansions and this only needs to be done for those\&.
 .PP
+When one of the \fBgen\-applied\-string\fP, \fBgen\-unapplied\-string\fP, and
+\fBset\-patch\-format\fP hooks is defined,
+applying \fB%\fP\-escaping (`\fBfoo=${foo//\&'%'/%%}\fP') to the interpolated values
+for use in the prompt is the responsibility of those hooks (jointly);
+when neither of those hooks is defined, \fBvcs_info\fP handles escaping by itself\&.
+We regret this coupling, but it was required for backwards compatibility\&.
+.PP
 .SS "Quilt Support"
 .PP
 \fBQuilt\fP is not a version control system, therefore this is not implemented
@@ -1562,13 +1594,26 @@ The \fBvcs_info\fP integration tries to support both ways of using quilt by
 having two slightly different modes of operation: `addon\&' mode and
 `standalone\&' mode)\&.
 .PP
+Quilt integration is off by default; to enable it, set the \fBuse\-quilt\fP style,
+and add \fB%Q\fP to your \fBformats\fP or \fBactionformats\fP style:
+.RS
+.nf
+\fBzstyle \&':vcs_info:*' use\-quilt true\fP
+.fi
+.RE
+.PP
+Styles looked up from the Quilt support code include `\fB\&.quilt\-\fP\fIquilt\-mode\fP\&'
+in the \fIvcs\-string\fP part of the context, where \fIquilt\-mode\fP is either
+\fBaddon\fP or \fBstandalone\fP\&.
+Example: \fB:vcs_info:git\&.quilt\-addon:default:\fP\fIrepo\-root\-name\fP\&.
+.PP
 For `addon\&' mode to become active \fBvcs_info\fP must have already detected a
 real version control system controlling the directory\&. If that is the case,
 a directory that holds quilt\&'s patches needs to be found\&. That directory is
 configurable via the `\fBQUILT_PATCHES\fP\&' environment variable\&. If that
 variable exists its value is used, otherwise the value `\fBpatches\fP\&' is
 assumed\&. The value from \fB$QUILT_PATCHES\fP can be overwritten using the
-\fB`quilt\-patches\&'\fP style\&. (Note: you can use \fBvcs_info\fP to keep the value
+`\fBquilt\-patches\fP\&' style\&. (Note: you can use \fBvcs_info\fP to keep the value
 of \fB$QUILT_PATCHES\fP correct all the time via the \fBpost\-quilt\fP hook)\&.
 .PP
 When the directory in question is found, quilt is assumed to be active\&. To
@@ -1582,8 +1627,9 @@ to know which patches of a series are not yet applied, you need to activate
 the \fBget\-unapplied\fP style in the appropriate context\&.
 .PP
 \fBvcs_info\fP allows for very detailed control over how the gathered
-information is presented (see the below sections, \fBStyles\fP and \fBHooks in
-vcs_info\fP), all of which are documented below\&. Note there are a number of
+information is presented (see 
+the \fBConfiguration\fP and \fBHooks in vcs_info\fP sections),
+all of which are documented below\&. Note there are a number of
 other patch tracking systems that work on top of a certain version control
 system (like \fBstgit\fP for \fBgit\fP, or \fBmq\fP for \fBhg\fP); the configuration
 for systems like that are generally configured the same way as the \fBquilt\fP
@@ -1645,7 +1691,8 @@ Note, if there is both a function and a variable by the name of
 The main function, that runs all backends and assembles all data into
 \fB${vcs_info_msg_*_}\fP\&. This is the function you want to call from
 \fBprecmd\fP if you want to include up\-to\-date information in your prompt (see
-\fBVariable description\fP below)\&. If an argument is given, that string will be
+\fBVariable Description\fP
+below)\&.  If an argument is given, that string will be
 used instead of \fBdefault\fP in the \fIuser\-context\fP field of the style
 context\&.
 .TP
@@ -1653,7 +1700,8 @@ context\&.
 Statically registers a number of functions to a given hook\&. The hook needs
 to be given as the first argument; what follows is a list of hook\-function
 names to register to the hook\&. The `\fB+vi\-\fP\&' prefix needs to be left out
-here\&. See \fBHooks in vcs_info\fP below for details\&.
+here\&. See \fBHooks in vcs_info\fP
+below for details\&.
 .TP
 \fBvcs_info_hookdel\fP
 Remove hook\-functions from a given hook\&. The hook needs to be given as the
@@ -1661,8 +1709,9 @@ first non\-option argument; what follows is a list of hook\-function
 names to un\-register from the hook\&. If `\fB\-a\fP\&' is used as the first
 argument, \fBall\fP occurrences of the functions are unregistered\&. Otherwise
 only the last occurrence is removed (if a function was registered to a hook
-more than once) \&. The `\fB+vi\-\fP\&' prefix needs to be left out here\&. See
-\fBHooks in vcs_info\fP below for details\&.
+more than once)\&. The `\fB+vi\-\fP\&' prefix needs to be left out here\&.
+See \fBHooks in vcs_info\fP
+below for details\&.
 .TP
 \fBvcs_info_lastmsg\fP
 Outputs the last \fB${vcs_info_msg_*_}\fP value\&.
@@ -1823,10 +1872,11 @@ so far in the opposite order, which means that the first argument is the
 top\-most patch and so forth\&.
 .PP
 When setting \fBret\fP to non\-zero, the string in
-\fB${hook_com[applied\-string]}\fP will be used in the \fB%m\fP escape in
-\fBformats\fP and \fBactionformats\fP; it will be available in the global
-\fBbackend_misc\fP array as \fB$backend_misc[patches]}\fP; and it will be
+\fB${hook_com[applied\-string]}\fP will be
 available as \fB%p\fP in the \fBpatch\-format\fP and \fBnopatch\-format\fP styles\&.
+This hook is, in concert with \fBset\-patch\-format\fP, responsible for
+\fB%\fP\-escaping that value for use in the prompt\&.
+(See the \fBOddities\fP section\&.)
 .RE
 .TP
 \fBgen\-unapplied\-string\fP
@@ -1836,12 +1886,15 @@ generated; the \fBget\-unapplied\fP style must be true\&.
 .RS
 .PP
 This hook gets the names of all unapplied patches which \fBvcs_info\fP
-collected so far in the opposite order, which mean that the first argument is
+collected so far in order, which means that the first argument is
 the patch next\-in\-line to be applied and so forth\&.
 .PP
 When setting \fBret\fP to non\-zero, the string in
 \fB${hook_com[unapplied\-string]}\fP will be available as \fB%u\fP in the
 \fBpatch\-format\fP and \fBnopatch\-format\fP styles\&.
+This hook is, in concert with \fBset\-patch\-format\fP, responsible for
+\fB%\fP\-escaping that value for use in the prompt\&.
+(See the \fBOddities\fP section\&.)
 .RE
 .TP
 \fBgen\-mqguards\-string\fP
@@ -1935,6 +1988,11 @@ controllable in addition to that\&.
 If \fBret\fP is set to non\-zero, the string in \fB${hook_com[patch\-replace]}\fP
 will be used unchanged instead of an expanded format from \fBpatch\-format\fP or
 \fBnopatch\-format\fP\&.
+.PP
+This hook is, in concert with the \fBgen\-applied\-string\fP or
+\fBgen\-unapplied\-string\fP hooks if they are defined, responsible for
+\fB%\fP\-escaping the final \fBpatch\-format\fP value for use in the prompt\&.
+(See the \fBOddities\fP section\&.)
 .RE
 .TP
 \fBset\-message\fP
@@ -1964,8 +2022,9 @@ If \fBret\fP is set to non\-zero, the string in
 \fBvcs_info\fP\&.
 .RE
 .PP
-If all of this sounds rather confusing, take a look at the \fBExamples\fP
-section below and also in the \fBMisc/vcs_info\-examples\fP file in the Zsh source\&.
+If all of this sounds rather confusing, take a look at
+the \fBExamples\fP section below
+and also in the \fBMisc/vcs_info\-examples\fP file in the Zsh source\&.
 They contain some explanatory code\&.
 .PP
 .SS "Examples"
@@ -2152,8 +2211,9 @@ This concludes our guided tour through zsh\&'s \fBvcs_info\fP\&.
 You should make sure all the functions from the \fBFunctions/Prompts\fP
 directory of the source distribution are available; they all begin with
 the string `\fBprompt_\fP\&' except for the special function`\fBpromptinit\fP'\&.
-You also need the `\fBcolors\fP\&' function from \fBFunctions/Misc\fP\&.  All of
-these functions may already have been installed on your system; if not,
+You also need the `\fBcolors\fP\&' and `\fBadd\-zsh\-hook\fP' functions from
+\fBFunctions/Misc\fP\&.
+All these functions may already be installed on your system; if not,
 you will need to find them and copy them\&.  The directory should appear as
 one of the elements of the \fBfpath\fP array (this should already be the
 case if they were installed), and at least the function \fBpromptinit\fP
@@ -2226,6 +2286,81 @@ Each available \fItheme\fP has a setup function which is called by the
 other functions as necessary to maintain the prompt, including functions
 used to preview the prompt or provide help for its use\&.  You should not
 normally call a theme\&'s setup function directly\&.
+.PP
+.SS "Utility Themes"
+.PP
+.PD 0
+.TP
+.PD
+\fBprompt off\fP
+The theme `\fBoff\fP\&' sets all the prompt variables to minimal values with
+no special effects\&.
+.TP
+\fBprompt default\fP
+The theme `\fBdefault\fP\&' sets all prompt variables to the same state as
+if an interactive zsh was started with no initialization files\&.
+.TP
+\fBprompt restore\fP
+The special theme `\fBrestore\fP\&' erases all theme settings and sets prompt
+variables to their state before the first time the `\fBprompt\fP\&' function
+was run, provided each theme has properly defined its cleanup (see below)\&.
+.RS
+.PP
+Note that you can undo `\fBprompt off\fP\&' and `\fBprompt default\fP' with
+`\fBprompt restore\fP\&', but a second restore does not undo the first\&.
+.RE
+.PP
+.SS "Writing Themes"
+.PP
+The first step for adding your own theme is to choose a name for it,
+and create a file `\fBprompt_\fIname\fP_setup\fP\&' in a directory in your
+\fBfpath\fP, such as \fB~/myfns\fP in the example above\&.  The file should
+at minimum contain assignments for the prompt variables that your
+theme wishes to modify\&.  By convention, themes use \fBPS1\fP, \fBPS2\fP,
+\fBRPS1\fP, etc\&., rather than the longer \fBPROMPT\fP and \fBRPROMPT\fP\&.
+.PP
+The file is autoloaded as a function in the current shell context, so
+it may contain any necessary commands to customize your theme, including
+defining additional functions\&.  To make some complex tasks easier, your
+setup function may also do any of the following:
+.PP
+.PD 0
+.TP
+.PD
+Assign \fBprompt_opts\fP
+The array \fBprompt_opts\fP may be assigned any of \fB"bang"\fP, \fB"cr"\fP,
+\fB"percent"\fP, \fB"sp"\fP, and/or \fB"subst"\fP as values\&.  The corresponding
+setopts (\fBpromptbang\fP, etc\&.) are turned on, all other prompt\-related
+options are turned off\&.  The \fBprompt_opts\fP array preserves setopts even
+beyond the scope of \fBlocaloptions\fP, should your function need that\&.
+.TP
+Modify precmd and preexec
+Use of \fBadd\-zsh\-hook\fP is recommended\&.  The \fBprecmd\fP and \fBpreexec\fP
+hooks are automatically adjusted if the prompt theme changes or is
+disabled\&.
+.TP
+Declare cleanup
+If your function makes any other changes that should be undone when the
+theme is disabled, your setup function may call
+.RS
+.nf
+\fBprompt_cleanup \fIcommand\fP\fP
+.fi
+.RE
+where \fIcommand\fP should be suitably quoted\&.  If your theme is ever
+disabled or replaced by another, \fIcommand\fP is executed with \fBeval\fP\&.
+You may declare more than one such cleanup hook\&.
+.TP
+Define preview
+Define or autoload a function \fBprompt_\fIname\fP_preview\fP to display
+a simulated version of your prompt\&.  A simple default previewer is
+defined by \fBpromptinit\fP for themes that do not define their own\&.
+This preview function is called by `\fBprompt \-p\fP\&'\&.
+.TP
+Provide help
+Define or autoload a function \fBprompt_\fIname\fP_help\fP to display
+documentation or help text for your theme\&.
+This help function is called by `\fBprompt \-h\fP\&'\&.
 .PP
 .SH "ZLE FUNCTIONS"
 .PP

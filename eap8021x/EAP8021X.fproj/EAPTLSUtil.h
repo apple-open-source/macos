@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,6 +36,8 @@
  * - created
  */
 
+#include <TargetConditionals.h>
+#include <os/availability.h>
 #include <Security/SecureTransport.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecPolicy.h>
@@ -47,7 +49,6 @@
 #include <EAP8021X/EAP.h>
 #include <EAP8021X/EAPTLS.h>
 #include <EAP8021X/EAPClientTypes.h>
-#include <TargetConditionals.h>
 
 typedef struct memoryBuffer_s {
     void *			data;
@@ -165,8 +166,6 @@ EAPSecPolicyCopy(SecPolicyRef * ret_policy);
 CFStringRef
 EAPTLSPacketCopyDescription(EAPTLSPacketRef eaptls_pkt, bool * packet_is_valid);
 
-
-#if TARGET_OS_EMBEDDED
 /*
  * Function: EAPTLSSecTrustSaveExceptionsBinding
  * Purpose:
@@ -180,7 +179,7 @@ EAPTLSPacketCopyDescription(EAPTLSPacketRef eaptls_pkt, bool * packet_is_valid);
 bool
 EAPTLSSecTrustSaveExceptionsBinding(SecTrustRef trust, 
 				    CFStringRef domain, CFStringRef identifier,
-				    CFStringRef server_hash_str);
+				    CFStringRef server_hash_str) API_AVAILABLE(ios(8.0), watchos(5.0), tvos(9.0)) API_UNAVAILABLE(macos, iosmac);
 /*
  * Function: EAPTLSSecTrustApplyExceptionsBinding
  * Purpose:
@@ -194,7 +193,7 @@ EAPTLSSecTrustSaveExceptionsBinding(SecTrustRef trust,
 bool
 EAPTLSSecTrustApplyExceptionsBinding(SecTrustRef trust, CFStringRef domain, 
 				     CFStringRef identifier,
-				     CFStringRef server_cert_hash);
+				     CFStringRef server_cert_hash) API_AVAILABLE(ios(8.0), watchos(5.0), tvos(9.0)) API_UNAVAILABLE(macos, iosmac);
 
 /* 
  * Function: EAPTLSRemoveTrustExceptionsBindings
@@ -207,7 +206,7 @@ EAPTLSSecTrustApplyExceptionsBinding(SecTrustRef trust, CFStringRef domain,
  */
 void
 EAPTLSRemoveTrustExceptionsBindings(CFStringRef domain,
-				    CFStringRef identifier);
+				    CFStringRef identifier) API_AVAILABLE(ios(8.0), watchos(5.0), tvos(9.0)) API_UNAVAILABLE(macos, iosmac);
 
 /*
  * Function: EAPTLSCopyTrustExceptionBindings
@@ -217,7 +216,7 @@ EAPTLSRemoveTrustExceptionsBindings(CFStringRef domain,
  *   NULL if trust exception list is not found for the given identifier and trust domain.
  */
 CFDictionaryRef
-EAPTLSCopyTrustExceptionBindings(CFStringRef domain, CFStringRef identifier);
+EAPTLSCopyTrustExceptionBindings(CFStringRef domain, CFStringRef identifier) API_AVAILABLE(ios(8.0), watchos(5.0), tvos(9.0)) API_UNAVAILABLE(macos, iosmac);
 
 /*
  * Function: EAPTLSSetTrustExceptionBindings
@@ -226,7 +225,7 @@ EAPTLSCopyTrustExceptionBindings(CFStringRef domain, CFStringRef identifier);
  *
  */
 void
-EAPTLSSetTrustExceptionBindings(CFStringRef domain, CFStringRef identifier, CFDictionaryRef exceptionList);
+EAPTLSSetTrustExceptionBindings(CFStringRef domain, CFStringRef identifier, CFDictionaryRef exceptionList) API_AVAILABLE(ios(8.0), watchos(5.0), tvos(9.0)) API_UNAVAILABLE(macos, iosmac);
 
 /*
  * Function: EAPTLSCreateSecTrust
@@ -240,9 +239,7 @@ EAPTLSSetTrustExceptionBindings(CFStringRef domain, CFStringRef identifier, CFDi
  */
 SecTrustRef
 EAPTLSCreateSecTrust(CFDictionaryRef properties, CFArrayRef server_certs,
-		     CFStringRef domain, CFStringRef identifier);
-
-#endif /* TARGET_OS_EMBEDDED */
+		     CFStringRef domain, CFStringRef identifier) API_AVAILABLE(ios(8.0), watchos(5.0), tvos(9.0)) API_UNAVAILABLE(macos, iosmac);
 
 /*
  * Function: EAPTLSCopyIdentityChain
@@ -255,6 +252,7 @@ EAPTLSCopyIdentityTrustChain(SecIdentityRef sec_identity,
 			     CFDictionaryRef properties,
 			     CFArrayRef * ret_array);
 
-#define EAP_SHAREABILITY_SPI_AVAILABLE 1
+OSStatus
+EAPTLSSecTrustEvaluate(SecTrustRef trust, SecTrustResultType *result);
 
 #endif /* _EAP8021X_EAPTLSUTIL_H */

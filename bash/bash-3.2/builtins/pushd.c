@@ -88,7 +88,7 @@ pushd_builtin (list)
     {
       if (directory_list_offset == 0)
 	{
-	  builtin_error (_("no other directory"));
+	  builtin_error ("%s", _("no other directory"));
 	  return (EXECUTION_FAILURE);
 	}
 

@@ -57,37 +57,37 @@ __private_extern__ void PMConnection_prime(void);
 
 // PMAssertions.c calls into this when a PreventSystemSleep assertion is taken
 __private_extern__ IOReturn _unclamp_silent_running(bool sendNewCapBits);
-__private_extern__ bool isInSilentRunningMode();
+__private_extern__ bool isInSilentRunningMode(void);
 
 __private_extern__ bool _can_revert_sleep(void);
 __private_extern__ void _set_sleep_revert(bool state);
 
-__private_extern__ io_connect_t getRootDomainConnect();
-__private_extern__ bool isA_BTMtnceWake();
-__private_extern__ bool isA_SleepSrvcWake();
-__private_extern__ void set_SleepSrvcWake();
-__private_extern__ bool isA_FullWake();
-__private_extern__ void cancelPowerNapStates( );
+__private_extern__ io_connect_t getRootDomainConnect(void);
+__private_extern__ bool isA_BTMtnceWake(void);
+__private_extern__ bool isA_SleepSrvcWake(void);
+__private_extern__ void set_SleepSrvcWake(void);
+__private_extern__ bool isA_FullWake(void);
+__private_extern__ void cancelPowerNapStates(void);
 
-__private_extern__ bool isA_SleepState();
-__private_extern__ bool isA_DarkWakeState();
-__private_extern__ bool isA_NotificationDisplayWake();
-__private_extern__ void set_NotificationDisplayWake();
-__private_extern__ void cancel_NotificationDisplayWake();
+__private_extern__ bool isA_SleepState(void);
+__private_extern__ bool isA_DarkWakeState(void);
+__private_extern__ bool isA_NotificationDisplayWake(void);
+__private_extern__ void set_NotificationDisplayWake(void);
+__private_extern__ void cancel_NotificationDisplayWake(void);
 
 __private_extern__ void InternalEvalConnections(void);
 __private_extern__ kern_return_t getPlatformSleepType(uint32_t *sleepType, uint32_t *standbyTimer);
 __private_extern__ void setDwlInterval(uint32_t newInterval);
 __private_extern__ int getBTWakeInterval(void);
-__private_extern__ uint64_t getCurrentWakeTime();
-__private_extern__ void updateWakeTime();
-__private_extern__ void updateCurrentWakeStart();
-__private_extern__ void updateCurrentWakeEnd();
+__private_extern__ uint64_t getCurrentWakeTime(void);
+__private_extern__ void updateWakeTime(void);
+__private_extern__ void updateCurrentWakeStart(uint64_t timestamp);
+__private_extern__ void updateCurrentWakeEnd(uint64_t timestamp);
 
-__private_extern__ int getCurrentSleepServiceCapTimeout();
+__private_extern__ int getCurrentSleepServiceCapTimeout(void);
 /** Sets whether processes should get modified vm behavior for darkwake. */
 __private_extern__ void setVMDarkwakeMode(bool darkwakeMode);
-__private_extern__ void cancelDarkWakeCapabilitiesTimer();
+__private_extern__ void cancelDarkWakeCapabilitiesTimer(void);
 
 #ifdef XCTEST
 __private_extern__ void xctSetPowerState(uint32_t powerState);

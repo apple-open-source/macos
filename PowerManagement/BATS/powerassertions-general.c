@@ -27,11 +27,11 @@ static void assertAllAtOnce(void);
 static void assertOneAtATime(void);
 static void assertionOnOff(void);
 static void copyDeviceRestartPreventers(void);
-static void test_IOPMCopyAssertionActivityAggregate();
-static void test_assertionExceptions();
-static void test_IOPMPerformBlockWithAssertion();
-static void test_sysQualifiers();
-static void testUserActivityAssertion();
+static void test_IOPMCopyAssertionActivityAggregate(void);
+static void test_assertionExceptions(void);
+static void test_IOPMPerformBlockWithAssertion(void);
+static void test_sysQualifiers(void);
+static void testUserActivityAssertion(void);
 
 int gPassCnt = 0, gFailCnt = 0;
 
@@ -40,7 +40,7 @@ int gPassCnt = 0, gFailCnt = 0;
 #define kKnownGoodAssertionType     CFSTR("NoDisplaySleepAssertion")
 
 
-int main()
+int main(int argc, char *argv[])
 {
 
     START_TEST("Test Assertions APIs\n");

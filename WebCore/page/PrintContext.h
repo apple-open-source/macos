@@ -21,6 +21,7 @@
 #pragma once
 
 #include "FrameDestructionObserver.h"
+#include "LengthBox.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
@@ -38,6 +39,7 @@ class IntRect;
 class Node;
 
 class PrintContext : public FrameDestructionObserver {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     WEBCORE_EXPORT explicit PrintContext(Frame*);
     WEBCORE_EXPORT ~PrintContext();
@@ -55,6 +57,8 @@ public:
     size_t pageCount() const { return m_pageRects.size(); }
     const IntRect& pageRect(size_t pageNumber) const { return m_pageRects[pageNumber]; }
     const Vector<IntRect>& pageRects() const { return m_pageRects; }
+    WEBCORE_EXPORT FloatBoxExtent computedPageMargin(FloatBoxExtent printMargin);
+    WEBCORE_EXPORT FloatSize computedPageSize(FloatSize pageSize, FloatBoxExtent printMargin);
 
     WEBCORE_EXPORT float computeAutomaticScaleFactor(const FloatSize& availablePaperSize);
 

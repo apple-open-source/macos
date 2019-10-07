@@ -313,7 +313,7 @@ bin_sysopen(char *nam, char **args, Options ops, UNUSED(int func))
     int flags = O_NOCTTY | append | ((append || write) ?
 	(read ? O_RDWR : O_WRONLY) : O_RDONLY);
     char *opt, *ptr, *nextopt, *fdvar;
-    int o, fd, explicit = -1;
+    int o, fd, moved_fd, explicit = -1;
     mode_t perms = 0666;
 #if defined(FD_CLOEXEC) && !defined(O_CLOEXEC)
     int fdflags;
@@ -376,22 +376,32 @@ bin_sysopen(char *nam, char **args, Options ops, UNUSED(int func))
 	zwarnnam(nam, "can't open file %s: %e", *args, errno);
 	return 1;
     }
-    fd = (explicit > -1) ? redup(fd, explicit) : movefd(fd);
-    if (fd == -1) {
+    moved_fd = (explicit > -1) ? redup(fd, explicit) : movefd(fd);
+    if (moved_fd == -1) {
 	zwarnnam(nam, "can't open file %s", *args);
 	return 1;
     }
 
-#if defined(FD_CLOEXEC) && !defined(O_CLOEXEC)
+#ifdef FD_CLOEXEC
+#ifdef O_CLOEXEC
+    /*
+     * the O_CLOEXEC is a flag attached to the *file descriptor*, not the
+     * *open file description* so it doesn't survive a dup(). If that flag was
+     * requested and the fd was moved, we need to reapply it to the moved fd
+     * even if the original one was open with O_CLOEXEC
+     */
+    if ((flags & O_CLOEXEC) && fd != moved_fd)
+#else
     if (fdflags)
-	fcntl(fd, F_SETFD, FD_CLOEXEC);
-#endif
+#endif /* O_CLOEXEC */
+	fcntl(moved_fd, F_SETFD, FD_CLOEXEC);
+#endif /* FD_CLOEXEC */
     if (explicit == -1) {
-	fdtable[fd] = FDT_EXTERNAL;
-	setiparam(fdvar, fd);
-	/* if setting the variable failed, close fd to avoid leak */
+	fdtable[moved_fd] = FDT_EXTERNAL;
+	setiparam(fdvar, moved_fd);
+	/* if setting the variable failed, close moved_fd to avoid leak */
 	if (errflag)
-	    zclose(fd);
+	    zclose(moved_fd);
     }
 
     return 0;
@@ -639,22 +649,30 @@ bin_zsystem_flock(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
     if (timeout > 0) {
 	time_t end = time(NULL) + (time_t)timeout;
 	while (fcntl(flock_fd, F_SETLK, &lck) < 0) {
-	    if (errflag)
+	    if (errflag) {
+                zclose(flock_fd);
 		return 1;
+            }
 	    if (errno != EINTR && errno != EACCES && errno != EAGAIN) {
+                zclose(flock_fd);
 		zwarnnam(nam, "failed to lock file %s: %e", args[0], errno);
 		return 1;
 	    }
-	    if (time(NULL) >= end)
+	    if (time(NULL) >= end) {
+                zclose(flock_fd);
 		return 2;
+            }
 	    sleep(1);
 	}
     } else {
 	while (fcntl(flock_fd, timeout == 0 ? F_SETLK : F_SETLKW, &lck) < 0) {
-	    if (errflag)
+	    if (errflag) {
+                zclose(flock_fd);
 		return 1;
+            }
 	    if (errno == EINTR)
 		continue;
+            zclose(flock_fd);
 	    zwarnnam(nam, "failed to lock file %s: %e", args[0], errno);
 	    return 1;
 	}
@@ -754,6 +772,8 @@ fillpmsysparams(Param pm, const char *name)
 	num = (int)getpid();
     } else if (!strcmp(name, "ppid")) {
 	num = (int)getppid();
+    } else if (!strcmp(name, "procsubstpid")) {
+	num = (int)procsubstpid;
     } else {
 	pm->u.str = dupstring("");
 	pm->node.flags |= PM_UNSET;
@@ -786,6 +806,8 @@ scanpmsysparams(UNUSED(HashTable ht), ScanFunc func, int flags)
     fillpmsysparams(&spm, "pid");
     func(&spm.node, flags);
     fillpmsysparams(&spm, "ppid");
+    func(&spm.node, flags);
+    fillpmsysparams(&spm, "procsubstpid");
     func(&spm.node, flags);
 }
 

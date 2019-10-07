@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_DECL_INCOMPLETE.simple.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Declaring an inner union without defining it else where should throw

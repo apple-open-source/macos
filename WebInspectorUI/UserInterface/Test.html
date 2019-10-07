@@ -37,10 +37,13 @@
 
     <script src="Base/WebInspector.js"></script>
     <script src="Base/Platform.js"></script>
+    <script src="Base/Debouncer.js"></script>
     <script src="Base/DebuggableType.js"></script>
     <script src="Base/LinkedList.js"></script>
     <script src="Base/ListMultimap.js"></script>
+    <script src="Base/Multimap.js"></script>
     <script src="Base/Object.js"></script>
+    <script src="Base/Throttler.js"></script>
 
     <script src="Test/TestHarness.js"></script>
     <script src="Test/FrontendTestHarness.js"></script>
@@ -54,6 +57,7 @@
     <script src="Base/DOMUtilities.js"></script>
     <script src="Base/EventListener.js"></script>
     <script src="Base/EventListenerSet.js"></script>
+    <script src="Base/FileUtilities.js"></script>
     <script src="Base/ImageUtilities.js"></script>
     <script src="Base/MIMETypeUtilities.js"></script>
     <script src="Base/ObjectStore.js"></script>
@@ -79,6 +83,7 @@
     <script src="Protocol/WorkerTarget.js"></script>
 
     <script src="Protocol/InspectorObserver.js"></script>
+    <script src="Protocol/CPUProfilerObserver.js"></script>
     <script src="Protocol/CSSObserver.js"></script>
     <script src="Protocol/CanvasObserver.js"></script>
     <script src="Protocol/ConsoleObserver.js"></script>
@@ -112,6 +117,9 @@
     <script src="Models/LocalScript.js"></script>
 
     <script src="Models/Breakpoint.js"></script>
+    <script src="Models/CPUInstrument.js"></script>
+    <script src="Models/CPUTimeline.js"></script>
+    <script src="Models/CPUTimelineRecord.js"></script>
     <script src="Models/CSSCompletions.js"></script>
     <script src="Models/CSSKeywordCompletions.js"></script>
     <script src="Models/CSSMedia.js"></script>
@@ -198,14 +206,16 @@
     <script src="Models/SourceCodeRevision.js"></script>
     <script src="Models/SourceCodeTimeline.js"></script>
     <script src="Models/SourceMap.js"></script>
-    <script src="Models/SourceMapResource.js"></script>
     <script src="Models/StackTrace.js"></script>
     <script src="Models/TextRange.js"></script>
     <script src="Models/TimelineMarker.js"></script>
     <script src="Models/TimelineRecording.js"></script>
+    <script src="Models/URLBreakpoint.js"></script>
     <script src="Models/WebSocketResource.js"></script>
     <script src="Models/WrappedPromise.js"></script>
-    <script src="Models/XHRBreakpoint.js"></script>
+
+    <script src="Models/LocalResource.js"></script>
+    <script src="Models/SourceMapResource.js"></script>
 
     <script src="Models/AuditTestBase.js"></script>
     <script src="Models/AuditTestCase.js"></script>
@@ -252,6 +262,8 @@
     <script src="Views/Resizer.js"></script>
     <script src="Views/Table.js"></script>
     <script src="Views/TableColumn.js"></script>
+    <script src="Views/TreeElement.js"></script>
+    <script src="Views/TreeOutline.js"></script>
 
     <script type="text/javascript">
         WI.sharedApp = new WI.TestAppController;

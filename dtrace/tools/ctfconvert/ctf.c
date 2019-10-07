@@ -33,7 +33,8 @@
 #include <strings.h>
 #include <ctype.h>
 #include <zlib.h>
-#include <elf.h>
+
+#include <sys/elf.h>
 
 #include "ctf_headers.h"
 #include "ctftools.h"
@@ -68,6 +69,7 @@ struct ctf_buf {
 	size_t ctb_size;	/* size of buffer */
 	int nptent;		/* number of processed types */
 	int ntholes;		/* number of type holes */
+	int nptrauth;		/* number of ptrauth */
 };
 
 /*PRINTFLIKE1*/
@@ -158,7 +160,7 @@ write_objects(iidesc_t *idp, ctf_buf_t *b)
 
 	ctf_buf_write(b, &id, sizeof (id));
 
-	debug(3, "Wrote object %s (%d)\n", (idp ? idp->ii_name : "(null)"), id);
+	debug(3, "Wrote object %s (%d)\n", (idp ? idp->ii_name->value : "(null)"), id);
 }
 
 static void
@@ -193,7 +195,7 @@ write_functions(iidesc_t *idp, ctf_buf_t *b)
 		ctf_buf_write(b, &id, sizeof (id));
 	}
 
-	debug(3, "Wrote function %s (%d args)\n", idp->ii_name, nargs);
+	debug(3, "Wrote function %s (%d args)\n", idp->ii_name->value, nargs);
 }
 
 /*
@@ -218,7 +220,7 @@ write_sized_type_rec(ctf_buf_t *b, ctf_type_t *ctt, size_t size)
 	}
 }
 
-	static void
+static void
 write_unsized_type_rec(ctf_buf_t *b, ctf_type_t *ctt)
 {
 	ctf_stype_t *cts = (ctf_stype_t *)ctt;
@@ -300,6 +302,7 @@ write_type(tdesc_t *tp, ctf_buf_t *b)
 	case POINTER:
 		ctt.ctt_info = CTF_TYPE_INFO(CTF_K_POINTER, isroot, 0);
 		ctt.ctt_type = tp->t_tdesc->t_id;
+		debug(3, "pointer with %llu\n", tp->t_tdesc->t_id);
 		write_unsized_type_rec(b, &ctt);
 		break;
 
@@ -421,6 +424,17 @@ write_type(tdesc_t *tp, ctf_buf_t *b)
 		write_unsized_type_rec(b, &ctt);
 		break;
 
+	case PTRAUTH:
+		ctt.ctt_info = CTF_TYPE_INFO(CTF_K_PTRAUTH, isroot, 1);
+		ctt.ctt_type = tp->t_ptrauth->pta_type->t_id;
+		write_unsized_type_rec(b, &ctt);
+
+		data = CTF_PTRAUTH_DATA(tp->t_ptrauth->pta_key, tp->t_ptrauth->pta_discriminator, tp->t_ptrauth->pta_discriminated);
+		ctf_buf_write(b, &data, sizeof (data));
+
+		b->nptrauth++;
+
+		break;
 	default:
 		warning("Can't write unknown type %d\n", tp->t_type);
 	}
@@ -599,7 +613,6 @@ ctf_gen(iiburst_t *iiburst, size_t *resszp, int do_compress)
 	 * integers; we pad these out to the next 4-byte boundary if needed.
 	 */
 	h.cth_magic = CTF_MAGIC;
-	h.cth_version = CTF_VERSION;
 	h.cth_flags = do_compress ? CTF_F_COMPRESS : 0;
 	h.cth_parlabel = strtab_insert(&buf->ctb_strtab,
 	    iiburst->iib_td->td_parlabel);
@@ -607,8 +620,7 @@ ctf_gen(iiburst_t *iiburst, size_t *resszp, int do_compress)
 	    iiburst->iib_td->td_parname);
 
 	h.cth_lbloff = 0;
-	(void) list_iter(iiburst->iib_td->td_labels, (int (*)())write_label,
-	    buf);
+	tdata_label_iter(iiburst->iib_td, (int (*)())write_label, buf);
 
 	pad_buffer(buf, 2);
 	h.cth_objtoff = ctf_buf_cur(buf);
@@ -622,12 +634,18 @@ ctf_gen(iiburst_t *iiburst, size_t *resszp, int do_compress)
 
 	pad_buffer(buf, 4);
 	h.cth_typeoff = ctf_buf_cur(buf);
-	(void) list_iter(iiburst->iib_types, (int (*)())write_type, buf);
+	array_sort(iiburst->iib_types, tdesc_idcmp);
+	(void) array_iter(iiburst->iib_types, (int (*)())write_type, buf);
 
-	debug(2, "CTF wrote %d types\n", list_count(iiburst->iib_types));
+	debug(2, "CTF wrote %d types\n", array_count(iiburst->iib_types));
 
 	h.cth_stroff = ctf_buf_cur(buf);
 	h.cth_strlen = strtab_size(&buf->ctb_strtab);
+
+	/*
+	 * Encoded pointers are only supported in V3 or later
+	 */
+	h.cth_version = buf->nptrauth > 0 ? CTF_VERSION : CTF_VERSION_2;
 
 	/*
 	 * We only do compression for ctfmerge, as ctfconvert is only
@@ -673,6 +691,9 @@ count_types(ctf_header_t *h, caddr_t data)
 		switch (CTF_INFO_KIND(ctt->ctt_info)) {
 		case CTF_K_INTEGER:
 		case CTF_K_FLOAT:
+			dptr += 4;
+			break;
+		case CTF_K_PTRAUTH:
 			dptr += 4;
 			break;
 		case CTF_K_POINTER:
@@ -799,18 +820,18 @@ resurrect_objects(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 			parseterminate("Reference to invalid type %d", id);
 		}
 
-		ii = iidesc_new(symit_name(si));
+		ii = iidesc_new(atom_get(symit_name(si)));
 		ii->ii_dtype = tdarr[id];
 		if (GELF_ST_BIND(sym->st_info) == STB_LOCAL) {
 			ii->ii_type = II_SVAR;
-			ii->ii_owner = xstrdup(symit_curfile(si));
+			ii->ii_owner = atom_get(symit_curfile(si));
 		} else
 			ii->ii_type = II_GVAR;
 		hash_add(td->td_iihash, ii);
 
 		debug(3, "Resurrected %s object %s (%d) from %s\n",
 		    (ii->ii_type == II_GVAR ? "global" : "static"),
-		    ii->ii_name, id, (ii->ii_owner ? ii->ii_owner : "(none)"));
+		    ii->ii_name->value, id, atom_pretty(ii->ii_owner, "(none)"));
 	}
 }
 
@@ -849,11 +870,11 @@ resurrect_functions(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 		if (retid >= tdsize)
 			parseterminate("Reference to invalid type %d", retid);
 
-		ii = iidesc_new(symit_name(si));
+		ii = iidesc_new(atom_get(symit_name(si)));
 		ii->ii_dtype = tdarr[retid];
 		if (GELF_ST_BIND(sym->st_info) == STB_LOCAL) {
 			ii->ii_type = II_SFUN;
-			ii->ii_owner = xstrdup(symit_curfile(si));
+			ii->ii_owner = atom_get(symit_curfile(si));
 		} else
 			ii->ii_type = II_GFUN;
 		ii->ii_nargs = CTF_INFO_VLEN(info);
@@ -879,7 +900,7 @@ resurrect_functions(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 
 		debug(3, "Resurrected %s function %s (%d, %d args)\n",
 		    (ii->ii_type == II_GFUN ? "global" : "static"),
-		    ii->ii_name, retid, ii->ii_nargs);
+		    ii->ii_name->value, retid, ii->ii_nargs);
 	}
 }
 
@@ -899,11 +920,13 @@ resurrect_types(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 	int iicnt = 0;
 	tid_t tid, argid;
 	int kind, vlen;
+	int nargs, vargs;
 	int i;
 
 	elist_t **epp;
 	mlist_t **mpp;
 	intr_t *ip;
+	ptrauth_t *pta;
 
 	ctf_type_t *ctt;
 	ctf_array_t *cta;
@@ -936,9 +959,9 @@ resurrect_types(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 				"Unable to cope with non-zero strtab id");
 		if (CTF_NAME_OFFSET(ctt->ctt_name) != 0) {
 			tdp->t_name =
-			    xstrdup(sbuf + CTF_NAME_OFFSET(ctt->ctt_name));
+			    atom_get(sbuf + CTF_NAME_OFFSET(ctt->ctt_name));
 		} else
-			tdp->t_name = NULL;
+			tdp->t_name = ATOM_NULL;
 
 		kind = CTF_INFO_KIND(ctt->ctt_info);
 		vlen = CTF_INFO_VLEN(ctt->ctt_info);
@@ -1020,7 +1043,7 @@ resurrect_types(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 					dptr += sizeof (ctf_member_t);
 
 					*mpp = xmalloc(sizeof (mlist_t));
-					(*mpp)->ml_name = xstrdup(sbuf +
+					(*mpp)->ml_name = atom_get(sbuf +
 					    ctm->ctm_name);
 					(*mpp)->ml_type = tdarr[ctm->ctm_type];
 					(*mpp)->ml_offset = ctm->ctm_offset;
@@ -1035,7 +1058,7 @@ resurrect_types(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 					dptr += sizeof (ctf_lmember_t);
 
 					*mpp = xmalloc(sizeof (mlist_t));
-					(*mpp)->ml_name = xstrdup(sbuf +
+					(*mpp)->ml_name = atom_get(sbuf +
 					    ctlm->ctlm_name);
 					(*mpp)->ml_type =
 					    tdarr[ctlm->ctlm_type];
@@ -1059,7 +1082,7 @@ resurrect_types(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 				dptr += sizeof (ctf_enum_t);
 
 				*epp = xmalloc(sizeof (elist_t));
-				(*epp)->el_name = xstrdup(sbuf + cte->cte_name);
+				(*epp)->el_name = atom_get(sbuf + cte->cte_name);
 				(*epp)->el_number = cte->cte_value;
 			}
 			*epp = NULL;
@@ -1067,7 +1090,6 @@ resurrect_types(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 
 		case CTF_K_FORWARD:
 			tdp->t_type = FORWARD;
-			list_add(&td->td_fwdlist, tdp);
 			break;
 
 		case CTF_K_TYPEDEF:
@@ -1087,17 +1109,18 @@ resurrect_types(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 
 		case CTF_K_FUNCTION:
 			tdp->t_type = FUNCTION;
-			tdp->t_fndef = xcalloc(sizeof (fndef_t));
-			tdp->t_fndef->fn_ret = tdarr[ctt->ctt_type];
 
 			/* LINTED - pointer alignment */
+			vargs = nargs = 0;
 			if (vlen > 0 && *(ushort_t *)(dptr +
 			    (sizeof (ushort_t) * (vlen - 1))) == 0)
-				tdp->t_fndef->fn_vargs = 1;
+				vargs = 1;
+			nargs = vlen - vargs;
 
-			tdp->t_fndef->fn_nargs = vlen - tdp->t_fndef->fn_vargs;
-			tdp->t_fndef->fn_args = xcalloc(sizeof (tdesc_t) *
-			    vlen - tdp->t_fndef->fn_vargs);
+			tdp->t_fndef = xcalloc(sizeof (fndef_t) + sizeof(tdesc_t *) * nargs);
+			tdp->t_fndef->fn_ret = tdarr[ctt->ctt_type];
+			tdp->t_fndef->fn_vargs = vargs;
+			tdp->t_fndef->fn_nargs = nargs;
 
 			for (i = 0; i < vlen; i++) {
 				/* LINTED - pointer alignment */
@@ -1115,6 +1138,22 @@ resurrect_types(ctf_header_t *h, tdata_t *td, tdesc_t **tdarr, int tdsize,
 		case CTF_K_RESTRICT:
 			tdp->t_type = RESTRICT;
 			tdp->t_tdesc = tdarr[ctt->ctt_type];
+			break;
+
+		case CTF_K_PTRAUTH:
+			tdp->t_type = PTRAUTH;
+
+			/* LINTED - pointer alignment */
+			data = *((uint_t *)dptr);
+			dptr += sizeof (uint_t);
+
+			pta = xcalloc(sizeof (ptrauth_t));
+			pta->pta_discriminator = CTF_PTRAUTH_DISCRIMINATOR(data);
+			pta->pta_discriminated = CTF_PTRAUTH_DISCRIMINATED(data);
+			pta->pta_key = CTF_PTRAUTH_KEY(data);
+			pta->pta_type = tdarr[ctt->ctt_type];
+
+			tdp->t_ptrauth = pta;
 			break;
 
 		case CTF_K_UNKNOWN:
@@ -1167,7 +1206,7 @@ ctf_parse(ctf_header_t *h, caddr_t buf, symit_data_t *si, char *label)
 		tdarr[i]->t_id = i;
 	}
 
-	td->td_parlabel = xstrdup(buf + h->cth_stroff + h->cth_parlabel);
+	td->td_parlabel = atom_get(buf + h->cth_stroff + h->cth_parlabel);
 
 	/* we have the technology - we can rebuild them */
 	idx = resurrect_labels(h, td, buf, label);
@@ -1239,7 +1278,7 @@ ctf_load(char *file, caddr_t buf, size_t bufsz, symit_data_t *si, char *label)
 	if (h->cth_magic != CTF_MAGIC)
 		parseterminate("Corrupt CTF - bad magic 0x%x", h->cth_magic);
 
-	if (h->cth_version != CTF_VERSION)
+	if (h->cth_version != CTF_VERSION_2 && h->cth_version != CTF_VERSION_3)
 		parseterminate("Unknown CTF version %d", h->cth_version);
 
 	ctfdatasz = h->cth_stroff + h->cth_strlen;

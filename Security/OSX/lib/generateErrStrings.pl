@@ -92,7 +92,7 @@
 #
 # The English versions of the error messages can be seen with:
 #
-#	cat /System/Library/Frameworks/Security.framework/Resources/English.lproj/SecErrorMessages.strings
+#	cat /System/Library/Frameworks/Security.framework/Resources/en.lproj/SecErrorMessages.strings
 #
 # find -H -X -x . -name "*.h" -print0 2>/dev/null | xargs -0 grep -ri err
 # -----------------------------------------------------------------------------------
@@ -110,7 +110,7 @@ die "Usage:  $0 <gendebug> <tmpdir> <.strings file> <list of headers>\n" if ($#A
 $GENDEBUGSTRINGS=$ARGV[0];			# If "YES", include all strings & don't localize 
 $TMPDIR=$ARGV[1];					# temporary directory for program compile, link, run
 $TARGETSTR=$ARGV[2];				# path of .strings file, e.g. 
-									#	${DERIVED_SRC}/English.lproj/SecErrorMessages.strings
+									#	${DERIVED_SRC}/en.lproj/SecErrorMessages.strings
 @INPUTFILES=@ARGV[3 .. 9999];		# list of input files
 
 $#INPUTFILES = $#ARGV - 3;			# truncate to actual number of files

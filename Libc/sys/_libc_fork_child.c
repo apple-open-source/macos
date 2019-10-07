@@ -24,7 +24,11 @@
  * _libc_fork_child() is called from Libsystem's libSystem_atfork_child()
  */
 #include <TargetConditionals.h>
+#if __has_include(<CrashReporterClient.h>)
 #include <CrashReporterClient.h>
+#else
+#define CRSetCrashLogMessage(...)
+#endif
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wstrict-prototypes"

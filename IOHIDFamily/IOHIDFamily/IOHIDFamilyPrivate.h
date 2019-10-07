@@ -28,6 +28,9 @@
 #include "IOHIDDevice.h"
 #endif
 
+#include "IOHIDDebug.h"
+#include <pexpert/pexpert.h>
+
 __BEGIN_DECLS
 
 #ifdef KERNEL
@@ -49,6 +52,31 @@ void handle_stackshot_keychord(uint32_t keycode);
 
 #define NX_HARDWARE_TICKLE  (NX_LASTEVENT+1)
 #endif
+
+bool isSingleUser();
+
+#define kHIDDtraceDebug "hid_dtrace_debug"
+
+__attribute__((optnone)) __attribute__((unused)) static uint32_t gIOHIDFamilyDtraceDebug()
+{
+    static uint32_t debug = 0xffffffff;
+    
+    if (debug == 0xffffffff) {
+        debug = 0;
+        
+        if (!PE_parse_boot_argn(kHIDDtraceDebug, &debug, sizeof (debug))) {
+            debug = 0;
+        }
+    }
+    
+    return debug;
+}
+
+/*!
+ used as dtrace probe
+ funcType : 1(getReport), 2(setReport), 3(handleReport),
+ */
+void hid_trace(HIDTraceFunctionType functionType, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3, uintptr_t arg4, uintptr_t arg5);
 
 __END_DECLS
 

@@ -23,6 +23,8 @@
 #ifndef _IOKIT_HID_IOHIDDESCRIPTORPARSERPRIVATE_H
 #define _IOKIT_HID_IOHIDDESCRIPTORPARSERPRIVATE_H
 
+#include "IOHIDDescriptorParser.h"
+
 /* the following constants are from the USB HID Specification (www.usb.org)*/
 
 #ifdef __cplusplus
@@ -290,7 +292,7 @@ typedef HIDPreparsedData * HIDPreparsedDataPtr;
 
 
 // Private methods
-extern 
+extern
 OSStatus
 HIDGetCollectionExtendedNodes ( HIDCollectionExtendedNodePtr	collectionNodes,
                                 UInt32 *			collectionNodesSize,

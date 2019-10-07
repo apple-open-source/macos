@@ -768,7 +768,7 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
                         CFStringRef role = CFArrayGetValueAtIndex( roles, i );
 
                         if ( ( CFGetTypeID( role ) == CFStringGetTypeID() ) &&
-                             ( (CFStringCompare( role, CFSTR("PreBoot"), 0 ) == 0) ) )
+                             ( (CFStringCompare( role, CFSTR("PreBoot"), kCFCompareCaseInsensitive ) == 0) ) )
                         {
                             status = 0;
                             break;

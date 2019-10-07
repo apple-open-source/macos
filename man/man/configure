@@ -228,6 +228,19 @@ eval $compile
 if test -s conftest && ./conftest 2>/dev/null; then
   DEFS="$DEFS -DSTDC_HEADERS"
 fi
+echo checking for Windows EXEEXT
+EXEEXT=
+test -f ./conftest.exe && EXEEXT=.exe
+
+rm -f conftest conftest.c
+
+echo checking for sys/termios.h
+echo "#include <sys/termios.h>
+main() { exit(0); }" > conftest.c
+eval $compile
+if test -s conftest && ./conftest 2>/dev/null; then
+  DEFS="$DEFS -DTERMIOS_HEADER"
+fi
 rm -f conftest conftest.c
 
 echo checking for POSIX.1 header files
@@ -553,26 +566,26 @@ if [ x$default = x ]; then
             found=true
             eval $filter=""
           fi
-        elif test -f `echo $tmp | awk '{print $1}'`
+        elif test -f `echo $tmp | $awk '{print $1}'`
         then
           found=true
           eval $filter=\""$tmp"\"
         else
           found=false
           echo ""
-          echo "`echo $tmp | awk '{print $1}'` doesn't seem to exist!  Try again or enter \`missing'"
+          echo "`echo $tmp | $awk '{print $1}'` doesn't seem to exist!  Try again or enter \`missing'"
         fi
-      elif test `eval echo \\$$filter | awk '{print $1}'` = "missing"
+      elif test `eval echo \\$$filter | $awk '{print $1}'` = "missing"
       then
         found=true
         eval $filter=""
-      elif test -f `eval echo \\$$filter | awk '{print $1}'`
+      elif test -f `eval echo \\$$filter | $awk '{print $1}'`
       then
         found=true
       else
         found=false
         echo ""
-        echo "`eval echo \\$$filter | awk '{print $1}'` doesn't seem to exist!  Try again or enter \`missing'"
+        echo "`eval echo \\$$filter | $awk '{print $1}'` doesn't seem to exist!  Try again or enter \`missing'"
       fi
     done
   done
@@ -582,7 +595,7 @@ else
   for filter in $FILTERS
   do
     echo "$filter command:	`eval echo \\$$filter`"
-    if test `eval echo \\$$filter | awk '{print $1}'` = "missing"
+    if test `eval echo \\$$filter | $awk '{print $1}'` = "missing"
     then
       eval $filter=""
     fi
@@ -1001,7 +1014,7 @@ then
   then
     DO_COMPRESSION=true
     compress=
-    for i in bzip2 gzip bzip tzip pack compress freeze yabba
+    for i in xz lzma bzip2 gzip bzip tzip pack compress freeze yabba
     do
       eval F$i=missing
       for j in $DEFPATH
@@ -1025,22 +1038,22 @@ then
         read tmp
         if test -n "$tmp"
         then
-          if test -f `echo $tmp | awk '{print $1}'`
+          if test -f `echo $tmp | $awk '{print $1}'`
           then
             found=true
             compress=$tmp
           else
             found=false
             echo ""
-            echo "`echo $tmp | awk '{print $1}'` doesn't seem to exist!  Try again!"
+            echo "`echo $tmp | $awk '{print $1}'` doesn't seem to exist!  Try again!"
           fi
-        elif test -f `echo "$compress" | awk '{print $1}'`
+        elif test -f `echo "$compress" | $awk '{print $1}'`
         then
           found=true
         else
           found=false
           echo ""
-          echo "`echo "$compress" | awk '{print $1}'` doesn't seem to exist!  Try again!"
+          echo "`echo "$compress" | $awk '{print $1}'` doesn't seem to exist!  Try again!"
         fi
       done
     else
@@ -1054,6 +1067,8 @@ then
     fi
 
     case $compress in
+      *xz*) ext=".xz" ;;
+      *lzma*) ext=".lzma" ;;
       *bzip2*) ext=".bz2" ;;
       *gzip*) ext=".gz" ;;
       *bzip*) ext=".bz" ;;
@@ -1096,7 +1111,7 @@ then
 fi
 
 # unconditionally handle uncompression
-UNCOMPRESSORS="gunzip bzip2 pcat zcat fcat unyabba"
+UNCOMPRESSORS="unxz unlzma gunzip bzip2 pcat zcat fcat unyabba"
 for i in $UNCOMPRESSORS
 do
   eval F$i=missing
@@ -1109,6 +1124,10 @@ do
     fi
   done
 done
+unxz=missing
+if [ $Funxz != missing ]; then
+  unxz="$Funxz -c"
+fi
 gunzip=missing
 if [ $Fgunzip != missing ]; then
   gunzip="$Fgunzip -c"
@@ -1116,6 +1135,10 @@ fi
 bzip2=missing
 if [ $Fbzip2 != missing ]; then
   bzip2="$Fbzip2 -c -d"
+fi
+unlzma=missing
+if [ $Funlzma != missing ]; then
+  unlzma="$Funlzma -c -d"
 fi
 pcat="$Fpcat"
 zcat="$Fzcat"
@@ -1139,11 +1162,17 @@ if [ x$default = x ]; then
     do
       echo ""
       case $filter in
+	unxz)
+	  echo "Command to use for .xz files (standard xz)"
+	  echo $n "[`eval echo \\$$filter`] $c" ;;
 	gunzip)
 	  echo "Command to use for .gz files (standard gzip)"
 	  echo $n "[`eval echo \\$$filter`] $c" ;;
 	bzip2)
 	  echo "Command to use for .bz2 files (standard bzip2)"
+	  echo $n "[`eval echo \\$$filter`] $c" ;;
+	unlzma)
+	  echo "Command to use for .lzma files (standard lzma)"
 	  echo $n "[`eval echo \\$$filter`] $c" ;;
         pcat)
           echo "Command to use for .z files (pack/unpack)"
@@ -1165,26 +1194,26 @@ if [ x$default = x ]; then
         then
           found=true
           eval $filter=""
-        elif test -f `echo $tmp | awk '{print $1}'`
+        elif test -f `echo $tmp | $awk '{print $1}'`
         then
           found=true
           eval $filter=\""$tmp"\"
         else
           found=false
           echo ""
-          echo "`echo $tmp | awk '{print $1}'` doesn't seem to exist!  Try again or enter \`missing'"
+          echo "`echo $tmp | $awk '{print $1}'` doesn't seem to exist!  Try again or enter \`missing'"
         fi
-      elif test `eval echo \\$$filter | awk '{print $1}'` = "missing"
+      elif test `eval echo \\$$filter | $awk '{print $1}'` = "missing"
       then
         found=true
         eval $filter=""
-      elif test -f `eval echo \\$$filter | awk '{print $1}'`
+      elif test -f `eval echo \\$$filter | $awk '{print $1}'`
       then
         found=true
       else
         found=false
         echo ""
-        echo "`eval echo \\$$filter | awk '{print $1}'` doesn't seem to exist!  Try again or enter \`missing'"
+        echo "`eval echo \\$$filter | $awk '{print $1}'` doesn't seem to exist!  Try again or enter \`missing'"
       fi
     done
   done
@@ -1194,7 +1223,7 @@ else
   for filter in $UNCOMPRESSORS
   do
     echo "$filter command:   	`eval echo \\$$filter`"
-    if test `eval echo \\$$filter | awk '{print $1}'` = "missing"
+    if test `eval echo \\$$filter | $awk '{print $1}'` = "missing"
     then
       eval $filter=""
     fi
@@ -1204,8 +1233,10 @@ fi
 # set $decompress to the program that decompresses things
 # with the $compress_ext extension.
 case $compress_ext in
+  .xz) decompress=$unxz ;;
   .gz) decompress=$gunzip ;;
   .bz2) decompress=$bzip2 ;;
+  .lzma) decompress=$unlzma ;;
   .z) decompress=$pcat ;;
   .Z) decompress=$zcat ;;
   .F) decompress=$fcat ;;
@@ -1218,7 +1249,7 @@ then
   DEFS="$DEFS -DDO_COMPRESS"
 fi
 
-man=$bindir/man
+man=$bindir/man$EXEEXT
 apropos=$bindir/apropos
 whatis=$bindir/whatis
 man2dvi=$bindir/man2dvi
@@ -1236,6 +1267,7 @@ fi
 allargs='$@'
 infiles='$infiles'
 infile='$infile'
+shebang='`sed -n -e 1p $infile.in`'
 cb='$cb'
 cs='$cs'
 ce='$ce'
@@ -1259,7 +1291,11 @@ do
   *.1|*.5|*.8|*.man)
     cb=$mancomment; cs=$mancomment; ce=$mancomment;;
   *)
-    cb="#"; cs="#"; ce="#";;
+    case "$shebang" in
+    '#!'*) cb="$shebang";;
+    *)     cb="#";;
+    esac
+    cs="#"; ce="#";;
   esac
   echo "$cb"                                                    > $infile
   echo "$cs Generated automatically from $infile.in by the"     >> $infile
@@ -1269,6 +1305,7 @@ do
   sed -e '
 s,@version@,$version,
 s,@CC@,$CC,
+s,@EXEEXT@,$EXEEXT,
 s,@BUILD_CC@,$BUILD_CC,
 s,@INSTALL@,$INSTALL,
 s,@DEFS@,$DEFS,
@@ -1291,8 +1328,10 @@ s,@pic@,$pic,
 s,@fcat@,$fcat,
 s,@pcat@,$pcat,
 s,@zcat@,$zcat,
+s,@unxz@,$unxz,
 s,@gunzip@,$gunzip,
 s,@bzip2@,$bzip2,
+s,@unlzma@,$unlzma,
 s,@unyabba@,$unyabba,
 s,@compress@,$compress,
 s,@compress_ext@,$compress_ext,

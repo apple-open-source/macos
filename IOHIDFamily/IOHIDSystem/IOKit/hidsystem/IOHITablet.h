@@ -55,8 +55,12 @@ typedef void (*ProximityEventCallback)(
                         /* atTime */       AbsoluteTime  ts,
                         /* sender */       OSObject *    sender,
                         /* refcon */       void *        refcon);
-                                  
+
+#if defined(KERNEL) && !defined(KERNEL_PRIVATE)
+class __deprecated_msg("Use DriverKit") IOHITablet : public IOHIPointing
+#else
 class IOHITablet : public IOHIPointing
+#endif
 {
     OSDeclareDefaultStructors(IOHITablet);
     friend class IOHITabletPointer;
@@ -82,7 +86,7 @@ protected:
 public:
     static UInt16 generateTabletID();
 
-    virtual bool init(OSDictionary * propTable);
+    virtual bool init(OSDictionary * propTable) APPLE_KEXT_OVERRIDE;
     virtual bool open(IOService *	client,
                       IOOptionBits	options,
                       RelativePointerEventAction	rpeAction,

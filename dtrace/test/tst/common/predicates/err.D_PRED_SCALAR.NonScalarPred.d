@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_PRED_SCALAR.NonScalarPred.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Predicate result must be of scalar type.

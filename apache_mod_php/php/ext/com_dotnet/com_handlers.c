@@ -16,8 +16,6 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id$ */
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -231,14 +229,14 @@ static HashTable *com_properties_get(zval *object)
 	 * infinite recursion when the hash is displayed via var_dump().
 	 * Perhaps it is best to leave it un-implemented.
 	 */
-	return NULL;
+	return &zend_empty_array;
 }
 
 static void function_dtor(zval *zv)
 {
 	zend_internal_function *f = (zend_internal_function*)Z_PTR_P(zv);
 
-	zend_string_release(f->function_name);
+	zend_string_release_ex(f->function_name, 0);
 	if (f->arg_info) {
 		efree(f->arg_info);
 	}
@@ -302,7 +300,7 @@ static union _zend_function *com_method_get(zend_object **object_ptr, zend_strin
 							f.arg_info = ecalloc(bindptr.lpfuncdesc->cParams, sizeof(zend_arg_info));
 
 							for (i = 0; i < bindptr.lpfuncdesc->cParams; i++) {
-								f.arg_info[i].allow_null = 1;
+								f.arg_info[i].type = ZEND_TYPE_ENCODE(0,1);
 								if (bindptr.lpfuncdesc->lprgelemdescParam[i].paramdesc.wParamFlags & PARAMFLAG_FOUT) {
 									f.arg_info[i].pass_by_reference = ZEND_SEND_BY_REF;
 								}
@@ -484,6 +482,7 @@ static int com_object_cast(zval *readobj, zval *writeobj, int type)
 
 	switch(type) {
 		case IS_LONG:
+		case _IS_NUMBER:
 			vt = VT_INT;
 			break;
 		case IS_DOUBLE:

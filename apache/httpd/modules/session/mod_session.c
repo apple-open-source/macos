@@ -126,20 +126,23 @@ static apr_status_t ap_session_load(request_rec * r, session_rec ** z)
 
     /* found a session that hasn't expired? */
     now = apr_time_now();
+
     if (zz) {
-        if (zz->expiry && zz->expiry < now) {
+        /* load the session attibutes */
+        rv = ap_run_session_decode(r, zz);
+ 
+        /* having a session we cannot decode is just as good as having
+           none at all */
+       if (OK != rv) {
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01817)
+                    "error while decoding the session, "
+                    "session not loaded: %s", r->uri);
             zz = NULL;
         }
-        else {
-            /* having a session we cannot decode is just as good as having
-               none at all */
-            rv = ap_run_session_decode(r, zz);
-            if (OK != rv) {
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01817)
-                              "error while decoding the session, "
-                              "session not loaded: %s", r->uri);
-                zz = NULL;
-            }
+
+       /* invalidate session if session is expired */
+        if (zz && zz->expiry && zz->expiry < now) {
+            zz = NULL;
         }
     }
 
@@ -177,6 +180,7 @@ static apr_status_t ap_session_save(request_rec * r, session_rec * z)
 {
     if (z) {
         apr_time_t now = apr_time_now();
+        apr_time_t initialExpiry = z->expiry;
         int rv = 0;
 
         session_dir_conf *dconf = ap_get_module_config(r->per_dir_config,
@@ -206,6 +210,17 @@ static apr_status_t ap_session_save(request_rec * r, session_rec * z)
         if (z->dirty && z->maxage) {
             z->expiry = now + z->maxage * APR_USEC_PER_SEC;
         } 
+
+        /* don't save if the only change is the expiry by a small amount */
+        if (!z->dirty && dconf->expiry_update_time
+                && (z->expiry - initialExpiry < dconf->expiry_update_time)) {
+            return APR_SUCCESS;
+        }
+
+        /* also don't save sessions that didn't change at all */
+        if (!z->dirty && !z->maxage) {
+            return APR_SUCCESS;
+        }
 
         /* encode the session */
         rv = ap_run_session_encode(r, z);
@@ -553,6 +568,10 @@ static void *merge_session_dir_config(apr_pool_t * p, void *basev, void *addv)
     new->env_set = add->env_set || base->env_set;
     new->includes = apr_array_append(p, base->includes, add->includes);
     new->excludes = apr_array_append(p, base->excludes, add->excludes);
+    new->expiry_update_time = (add->expiry_update_set == 0)
+                                ? base->expiry_update_time
+                                : add->expiry_update_time;
+    new->expiry_update_set = add->expiry_update_set || base->expiry_update_set;
 
     return new;
 }
@@ -622,6 +641,21 @@ static const char *add_session_exclude(cmd_parms * cmd, void *dconf, const char 
     return NULL;
 }
 
+static const char *
+     set_session_expiry_update(cmd_parms * parms, void *dconf, const char *arg)
+{
+    session_dir_conf *conf = dconf;
+
+    conf->expiry_update_time = atoi(arg);
+    if (conf->expiry_update_time < 0) {
+        return "SessionExpiryUpdateInterval must be positive or nul";
+    }
+    conf->expiry_update_time = apr_time_from_sec(conf->expiry_update_time);
+    conf->expiry_update_set = 1;
+
+    return NULL;
+}
+
 
 static const command_rec session_cmds[] =
 {
@@ -637,6 +671,9 @@ static const command_rec session_cmds[] =
                   "URL prefixes to include in the session. Defaults to all URLs"),
     AP_INIT_TAKE1("SessionExclude", add_session_exclude, NULL, RSRC_CONF|OR_AUTHCFG,
                   "URL prefixes to exclude from the session. Defaults to no URLs"),
+    AP_INIT_TAKE1("SessionExpiryUpdateInterval", set_session_expiry_update, NULL, RSRC_CONF|OR_AUTHCFG,
+                  "time interval for which a session's expiry time may change "
+                  "without having to be rewritten. Zero to disable"),
     {NULL}
 };
 

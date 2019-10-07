@@ -21,9 +21,12 @@ xitem(em(Parameter Expansion))
 xitem(em(Command Substitution))
 xitem(em(Arithmetic Expansion))
 item(em(Brace Expansion))(
-These five are performed in one step in left-to-right fashion.  After
-these expansions, all unquoted occurrences of the characters `tt(\)',
-`tt(')' and `tt(")' are removed.
+These five are performed in left-to-right fashion.  On each argument,
+any of the five steps that are needed are performed one after the other.
+Hence, for example, all the parts of parameter expansion are completed
+before command substitution is started.  After these expansions, all
+unquoted occurrences of the characters `tt(\)',`tt(')' and `tt(")' are
+removed.
 )
 item(em(Filename Expansion))(
 If the tt(SH_FILE_EXPANSION) option is set, the order of expansion is
@@ -80,10 +83,10 @@ subsect(Overview)
 vindex(histchars, use of)
 A history expansion begins with the first character of the tt(histchars)
 parameter, which is `tt(!)' by default, and may occur anywhere on the
-command line; history expansions do not nest.  The `tt(!)' can be escaped
-with `tt(\)' or can be enclosed between a pair of single quotes (tt(''))
-to suppress its special meaning.  Double quotes will em(not) work for
-this.  Following this history character is an optional event designator
+command line, including inside double quotes (but not inside single quotes
+tt('...') or C-style quotes tt($'...') nor when escaped with a backslash).  
+
+The first character is followed by an optional event designator
 (ifzman(see )noderef(Event Designators)) and then an optional word
 designator (noderef(Word Designators)); if neither of these designators is
 present, no history expansion occurs.
@@ -92,6 +95,8 @@ Input lines containing history expansions are echoed after being expanded,
 but before any other expansions take place and before the command is
 executed.  It is this expanded form that is recorded as the history event
 for later references.
+
+History expansions do not nest.
 
 By default, a history reference with no event designator refers to the
 same event as any preceding history reference on that command line; if it
@@ -856,8 +861,9 @@ all arguments to be removed.
 Internally, each such expansion is converted into the
 equivalent list for brace expansion.  E.g., tt(${^var}) becomes
 tt({$var[1],$var[2],)...tt(}), and is processed as described in
-noderef(Brace Expansion) below.
-If word splitting is also in effect the
+noderef(Brace Expansion) below: note, however, the expansion
+happens immediately, with any explicit brace expansion
+happening later.  If word splitting is also in effect the
 tt($var[)var(N)tt(]) may themselves be split into different list
 elements.
 )
@@ -955,15 +961,25 @@ This is distinct from em(field splitting) by the tt(f), tt(s)
 or tt(z) flags, which still applies within each array element.
 )
 item(tt(A))(
-Create an array parameter with `tt(${)...tt(=)...tt(})',
+Convert the substitution into an array expression, even if it otherwise
+would be scalar.  This has lower precedence than subscripting, so one
+level of nested expansion is required in order that subscripts apply
+to array elements.  Thus tt(${${LPAR()A)tt(RPAR())var(name)tt(}[1]})
+yields the full value of var(name) when var(name) is scalar.
+
+This assigns an array parameter with `tt(${)...tt(=)...tt(})',
 `tt(${)...tt(:=)...tt(})' or `tt(${)...tt(::=)...tt(})'.
-If this flag is repeated (as in `tt(AA)'), create an associative
+If this flag is repeated (as in `tt(AA)'), assigns an associative
 array parameter.  Assignment is made before sorting or padding;
 if field splitting is active, the var(word) part is split before
 assignment.  The var(name) part may be a subscripted range for
-ordinary arrays; the var(word) part em(must) be converted to
-an array, for example by using `tt(${(AA)=)var(name)tt(=)...tt(})'
-to activate field splitting, when creating an associative array.
+ordinary arrays; when assigning an associative array, the var(word)
+part em(must) be converted to an array, for example by using
+`tt(${(AA)=)var(name)tt(=)...tt(})' to activate field splitting.
+
+Surrounding context such as additional nesting or use of the value
+in a scalar assignment may cause the array to be joined back into
+a single string again.
 )
 item(tt(a))(
 Sort in array index order; when combined with `tt(O)' sort in reverse
@@ -1011,9 +1027,10 @@ ifnzman(noderef(Filename Expansion))\
 ifzman(the section FILENAME EXPANSION below).
 )
 item(tt(e))(
-Perform em(parameter expansion), em(command substitution) and
-em(arithmetic expansion) on the result. Such expansions can be
-nested but too deep recursion may have unpredictable effects.
+Perform single word shell expansions, namely em(parameter expansion),
+em(command substitution) and em(arithmetic expansion), on the
+result. Such expansions can be nested but too deep recursion may have
+unpredictable effects.
 )
 item(tt(f))(
 Split the result of the expansion at newlines. This is a shorthand
@@ -1039,7 +1056,9 @@ If var(name) refers to an associative array, substitute the em(keys)
 (element names) rather than the values of the elements.  Used with
 subscripts (including ordinary arrays), force indices or keys to be
 substituted even if the subscript form refers to values.  However,
-this flag may not be combined with subscript ranges.
+this flag may not be combined with subscript ranges.  With the
+tt(KSH_ARRAYS) option a subscript `tt([*])' or `tt([@])' is needed
+to operate on the whole array, as usual.
 )
 item(tt(L))(
 Convert all letters in the result to lower case.
@@ -1664,10 +1683,17 @@ any trailing newlines deleted.
 If the substitution is not enclosed in double quotes, the
 output is broken into words using the tt(IFS) parameter.
 vindex(IFS, use of)
+
 The substitution `tt($LPAR()cat) var(foo)tt(RPAR())' may be replaced
-by the equivalent but faster `tt($LPAR()<)var(foo)tt(RPAR())'.
-In either case, if the option tt(GLOB_SUBST) is set,
-the output is eligible for filename generation.
+by the faster `tt($LPAR()<)var(foo)tt(RPAR())'.  In this case var(foo)
+undergoes single word shell expansions (em(parameter expansion),
+em(command substitution) and em(arithmetic expansion)), but not
+filename generation.
+
+If the option tt(GLOB_SUBST) is set, the result of any unquoted command
+substitution, including the special form just mentioned, is eligible for
+filename generation.
+
 texinode(Arithmetic Expansion)(Brace Expansion)(Command Substitution)(Expansion)
 sect(Arithmetic Expansion)
 cindex(arithmetic expansion)
@@ -1985,7 +2011,7 @@ The character is 7-bit, i.e. is a single-byte character without
 the top bit set.
 )
 item(tt([:blank:]))(
-The character is either space or tab
+The character is a blank character
 )
 item(tt([:cntrl:]))(
 The character is a control character
@@ -2100,6 +2126,7 @@ Matches either var(x) or var(y).
 This operator has lower precedence than any other.
 The `tt(|)' character
 must be within parentheses, to avoid interpretation as a pipeline.
+The alternatives are tried in order from left to right.
 )
 item(tt(^)var(x))(
 (Requires tt(EXTENDED_GLOB) to be set.)

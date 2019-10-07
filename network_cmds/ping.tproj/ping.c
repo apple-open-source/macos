@@ -654,9 +654,8 @@ main(int argc, char *const *argv)
 				errx(1, "gethostbyname2: illegal address");
 			memcpy(&sock_in.sin_addr, hp->h_addr_list[0],
 			    sizeof(sock_in.sin_addr));
-			(void)strncpy(snamebuf, hp->h_name,
-			    sizeof(snamebuf) - 1);
-			snamebuf[sizeof(snamebuf) - 1] = '\0';
+			(void)strlcpy(snamebuf, hp->h_name,
+			    sizeof(snamebuf));
 			shostname = snamebuf;
 		}
 		if (bind(s, (struct sockaddr *)&sock_in, sizeof sock_in) == -1)
@@ -682,8 +681,7 @@ main(int argc, char *const *argv)
 		if ((unsigned)hp->h_length > sizeof(to->sin_addr))
 			errx(1, "gethostbyname2 returned an illegal address");
 		memcpy(&to->sin_addr, hp->h_addr_list[0], sizeof to->sin_addr);
-		(void)strncpy(hnamebuf, hp->h_name, sizeof(hnamebuf) - 1);
-		hnamebuf[sizeof(hnamebuf) - 1] = '\0';
+		(void)strlcpy(hnamebuf, hp->h_name, sizeof(hnamebuf));
 		hostname = hnamebuf;
 	}
 

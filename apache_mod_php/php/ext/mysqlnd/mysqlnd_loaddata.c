@@ -123,7 +123,7 @@ void mysqlnd_local_infile_end(void * ptr)
 
 
 /* {{{ mysqlnd_local_infile_default */
-void
+PHPAPI void
 mysqlnd_local_infile_default(MYSQLND_CONN_DATA * conn)
 {
 	conn->infile.local_infile_init = mysqlnd_local_infile_init;
@@ -156,6 +156,8 @@ mysqlnd_handle_local_infile(MYSQLND_CONN_DATA * conn, const char * const filenam
 
 	if (!(conn->options->flags & CLIENT_LOCAL_FILES)) {
 		php_error_docref(NULL, E_WARNING, "LOAD DATA LOCAL INFILE forbidden");
+		SET_CLIENT_ERROR(conn->error_info, CR_UNKNOWN_ERROR, UNKNOWN_SQLSTATE,
+						"LOAD DATA LOCAL INFILE is forbidden, check mysqli.allow_local_infile");
 		/* write empty packet to server */
 		ret = net->data->m.send(net, vio, empty_packet, 0, conn->stats, conn->error_info);
 		*is_warning = TRUE;
@@ -216,8 +218,7 @@ infile_error:
 											PROT_OK_PACKET, FALSE, COM_QUERY, FALSE,
 											conn->error_info,
 											conn->upsert_status,
-											&conn->last_message,
-											conn->persistent)) {
+											&conn->last_message)) {
 		result = FAIL;
 	}
 

@@ -72,6 +72,7 @@
 #include <vproc_priv.h>
 #include <dispatch/dispatch.h>
 #include <xpc/xpc.h>
+#include <os/transaction_private.h>
 
 #include "libpfkey.h"
 
@@ -109,6 +110,8 @@
 #include <libproc.h>
 
 
+#define IKEv1_TRANSACTION	"IKEv1_Transaction"
+
 extern pid_t racoon_pid;
 extern int launchdlaunched;
 static void close_session (int);
@@ -128,6 +131,8 @@ static int64_t racoon_keepalive = -1;
 dispatch_queue_t main_queue;
 
 static NEPolicySessionRef policySession = NULL;
+
+static os_transaction_t g_ikev1_transaction = NULL;
 
 /*
  * This is used to (manually) update racoon's launchd keepalive, which is needed because racoon is (mostly) 
@@ -314,13 +319,15 @@ session(void)
 				"cannot open %s", pid_file);
 		}
 	}
+
+	if (g_ikev1_transaction == NULL) {
+		g_ikev1_transaction = os_transaction_create(IKEv1_TRANSACTION);
+	}
 	
-	xpc_transaction_begin();
-	
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	// enable keepalive for recovery (from crashes and bad exits... after init)
 	(void)launchd_update_racoon_keepalive(true);
-#endif // !TARGET_OS_EMBEDDED
+#endif // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 		
     // Off to the races!
     if (!terminated) {
@@ -342,12 +349,15 @@ close_session(int error)
 	ike_session_flush_all_phase1(false);
 	close_sockets();
 
-	xpc_transaction_end();
+	if (g_ikev1_transaction != NULL) {
+		os_release(g_ikev1_transaction);
+		g_ikev1_transaction = NULL;
+	}
 	
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	// a clean exit, so disable launchd keepalive
 	(void)launchd_update_racoon_keepalive(false);
-#endif // !TARGET_OS_EMBEDDED
+#endif // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 	plog(ASL_LEVEL_NOTICE, "racoon shutdown\n");
 	exit(0);
@@ -425,10 +435,10 @@ check_flushsa()
 		return;
 	}
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	if (lcconf->vt)
 		vproc_transaction_end(NULL, lcconf->vt);
-#endif
+#endif // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
     close_session(0);
 }
 
@@ -535,7 +545,7 @@ check_sigreq()
                 if (lcconf->logfile_param == NULL && logFileStr[0] == 0)
                     plogresetfile(lcconf->pathinfo[LC_PATHTYPE_LOGFILE]);
 				            
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
                 if (no_remote_configs(TRUE)) {
 #if ENABLE_NO_SA_FLUSH
                     close_session(0);
@@ -549,7 +559,7 @@ check_sigreq()
                     dying();
 #endif /* ENABLE_NO_SA_FLUSH */
                 }
-#endif
+#endif // (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
                 break;
                 

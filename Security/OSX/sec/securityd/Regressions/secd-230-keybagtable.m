@@ -53,7 +53,7 @@ sudo defaults read /Library/Preferences/com.apple.security V10SchemaUpgradeTest
 #endif
 
 #if USE_KEYSTORE
-#include <libaks.h>
+#include "OSX/utilities/SecAKSWrappers.h"
 
 #include "SecdTestKeychainUtilities.h"
 
@@ -94,15 +94,15 @@ static bool createCustomKeybag() {
     int passcode_len=(int)strlen(passcode);
     const bool kTestLockedKeybag = false;
 
-    ok(kIOReturnSuccess==aks_create_bag(passcode, passcode_len, kAppleKeyStoreDeviceBag, &keybag), "create keybag");
-    ok(kIOReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
+    ok(kAKSReturnSuccess==aks_create_bag(passcode, passcode_len, kAppleKeyStoreDeviceBag, &keybag), "create keybag");
+    ok(kAKSReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
     ok(!(state&keybag_state_locked), "keybag unlocked");
     SecItemServerSetKeychainKeybag(keybag);
 
     if (kTestLockedKeybag) {
         /* lock */
-        ok(kIOReturnSuccess==aks_lock_bag(keybag), "lock keybag");
-        ok(kIOReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
+        ok(kAKSReturnSuccess==aks_lock_bag(keybag), "lock keybag");
+        ok(kAKSReturnSuccess==aks_get_lock_state(keybag, &state), "get keybag state");
         ok(state&keybag_state_locked, "keybag locked");
     }
 

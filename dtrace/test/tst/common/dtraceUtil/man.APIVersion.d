@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)man.APIVersion.d	1.1	06/08/28 SMI"
-
 /* Assertion:
  * Use the -V option to printout API version.
  *

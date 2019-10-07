@@ -13,13 +13,11 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Stig Bakken <ssb@php.net>                                   |
-   |          Zeev Suraski <zeev@zend.com>                                |
+   |          Zeev Suraski <zeev@php.net>                                 |
    |          Rasmus Lerdorf <rasmus@php.net>                             |
    |          Pierre Joye <pierre@php.net>                                |
    +----------------------------------------------------------------------+
 */
-
-/* $Id$ */
 
 #include <stdlib.h>
 
@@ -129,12 +127,12 @@ PHPAPI zend_string *php_crypt(const char *password, const int pass_len, const ch
 
 			crypt_res = php_sha512_crypt_r(password, salt, output, PHP_MAX_SALT_LEN);
 			if (!crypt_res) {
-				memset(output, 0, PHP_MAX_SALT_LEN);
+				ZEND_SECURE_ZERO(output, PHP_MAX_SALT_LEN);
 				efree(output);
 				return NULL;
 			} else {
 				result = zend_string_init(output, strlen(output), 0);
-				memset(output, 0, PHP_MAX_SALT_LEN);
+				ZEND_SECURE_ZERO(output, PHP_MAX_SALT_LEN);
 				efree(output);
 				return result;
 			}
@@ -144,12 +142,12 @@ PHPAPI zend_string *php_crypt(const char *password, const int pass_len, const ch
 
 			crypt_res = php_sha256_crypt_r(password, salt, output, PHP_MAX_SALT_LEN);
 			if (!crypt_res) {
-				memset(output, 0, PHP_MAX_SALT_LEN);
+				ZEND_SECURE_ZERO(output, PHP_MAX_SALT_LEN);
 				efree(output);
 				return NULL;
 			} else {
 				result = zend_string_init(output, strlen(output), 0);
-				memset(output, 0, PHP_MAX_SALT_LEN);
+				ZEND_SECURE_ZERO(output, PHP_MAX_SALT_LEN);
 				efree(output);
 				return result;
 			}
@@ -245,9 +243,11 @@ PHP_FUNCTION(crypt)
 	size_t str_len, salt_in_len = 0;
 	zend_string *result;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|s", &str, &str_len, &salt_in, &salt_in_len) == FAILURE) {
-		return;
-	}
+	ZEND_PARSE_PARAMETERS_START(1, 2)
+		Z_PARAM_STRING(str, str_len)
+		Z_PARAM_OPTIONAL
+		Z_PARAM_STRING(salt_in, salt_in_len)
+	ZEND_PARSE_PARAMETERS_END();
 
 	salt[0] = salt[PHP_MAX_SALT_LEN] = '\0';
 

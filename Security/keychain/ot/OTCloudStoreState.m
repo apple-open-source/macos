@@ -97,7 +97,7 @@
     }
 }
 
-- (void) setChangeToken: (CKServerChangeToken*) token {
+- (void)setChangeToken: (CKServerChangeToken*) token {
     self.encodedChangeToken = token ? [NSKeyedArchiver archivedDataWithRootObject:token requiringSecureCoding:YES error:nil] : nil;
 }
 
@@ -136,16 +136,12 @@
              };
 }
 
-+ (instancetype) fromDatabaseRow: (NSDictionary*) row {
-    NSISO8601DateFormatter* dateFormat = [[NSISO8601DateFormatter alloc] init];
-    
-    return [[OTCloudStoreState alloc] initWithCKZone: row[@"ckzone"]
-                                          zoneCreated: [row[@"ckzonecreated"] boolValue]
-                                       zoneSubscribed: [row[@"ckzonesubscribed"] boolValue]
-                                          changeToken: ![row[@"changetoken"] isEqual: [NSNull null]] ?
-            [[NSData alloc] initWithBase64EncodedString: row[@"changetoken"] options:0] :
-            nil
-                                            lastFetch: [row[@"lastfetch"] isEqual: [NSNull null]] ? nil : [dateFormat dateFromString: row[@"lastfetch"]]
++ (instancetype)fromDatabaseRow:(NSDictionary<NSString*, CKKSSQLResult*>*)row {
+    return [[OTCloudStoreState alloc] initWithCKZone:row[@"ckzone"].asString
+                                         zoneCreated:row[@"ckzonecreated"].asBOOL
+                                      zoneSubscribed:row[@"ckzonesubscribed"].asBOOL
+                                         changeToken:row[@"changetoken"].asBase64DecodedData
+                                           lastFetch:row[@"lastfetch"].asISO8601Date
             ];
 }
 

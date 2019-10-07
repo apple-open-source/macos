@@ -492,7 +492,8 @@ static void idl_es_encode_get_xfer_syntax
     rpc_if_rep_t *p_if_spec;
 
     p_es_state = (IDL_es_state_t *)h;
-    p_if_spec = (rpc_if_rep_t *)ifp;
+    
+    p_if_spec = (rpc_if_rep_t *) (void *) ifp;
     if ( uuid_is_nil(&(p_es_state->IDL_pickle_header.IDL_syntax_id.id),
                      (error_status_t *)&IDL_msp->IDL_status) )
     {
@@ -678,7 +679,7 @@ void idl_es_encode_attach_buff
         case IDL_incremental_k:
             (*(p_es_state->IDL_write))(p_es_state->IDL_state,
                                       IDL_msp->IDL_buff_addr,
-                                      IDL_msp->IDL_mp - IDL_msp->IDL_data_addr);
+                                      (idl_ulong_int) (IDL_msp->IDL_mp - IDL_msp->IDL_data_addr));
             break;
         case IDL_fixed_k:
             /* Can only happen at end of operation - do nothing */
@@ -686,7 +687,7 @@ void idl_es_encode_attach_buff
         case IDL_dynamic_k:
             p_iovec_elt = p_es_state->IDL_dyn_buff_chain_tail->IDL_p_iovec_elt;
             p_iovec_elt->data_addr = (byte_p_t)IDL_msp->IDL_data_addr;
-            p_iovec_elt->data_len = IDL_msp->IDL_mp - IDL_msp->IDL_data_addr;
+            p_iovec_elt->data_len = (idl_ulong_int) (IDL_msp->IDL_mp - IDL_msp->IDL_data_addr);
             break;
         default:
 #ifdef DEBUG_INTERP
@@ -745,7 +746,7 @@ static void idl_es_put_encoding_header
     idl_ushort_int vers_field;
 
     p_es_state = (IDL_es_state_t *)(IDL_msp->IDL_pickling_handle);
-    p_if_spec = (rpc_if_rep_t *)ifp;
+    p_if_spec = (rpc_if_rep_t *) (void *) ifp;
 
     IDL_MARSH_USMALL(&version);
     IDL_MARSH_USMALL(&ndr_g_local_drep.int_rep);
@@ -1060,7 +1061,7 @@ void idl_es_before_interp_call
                 else
                     idl_es_get_encoding_header(&p_es_state->IDL_pickle_header, IDL_msp);
             }
-            p_if_spec = (rpc_if_rep_t *)ifp;
+            p_if_spec = (rpc_if_rep_t *) (void *) ifp;
 
             /*
              * Don't check interface uuid's or version number if the user
@@ -1203,8 +1204,8 @@ void idl_es_after_interp_call
                 break;
             case IDL_fixed_k:
                 /* Set size of pickle for user */
-                *(p_es_state->IDL_esize) = IDL_msp->IDL_mp
-                                                     - IDL_msp->IDL_data_addr;
+                *(p_es_state->IDL_esize) = (idl_ulong_int) (IDL_msp->IDL_mp
+                                                     - IDL_msp->IDL_data_addr);
                 break;
             case IDL_dynamic_k:
                 if ( (p_es_state->IDL_dyn_buff_chain_head->IDL_next == NULL)

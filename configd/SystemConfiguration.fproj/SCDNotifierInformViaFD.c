@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2008-2011, 2013, 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2008-2011, 2013, 2015-2017, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -45,9 +45,6 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 				    int32_t		identifier,
 				    int			*fd)
 {
-#ifdef	VERBOSE_ACTIVITY_LOGGING
-	struct os_activity_scope_state_s	activity_state;
-#endif	// VERBOSE_ACTIVITY_LOGGING
 	int					fildes[2]	= { -1, -1 };
 	fileport_t				fileport	= MACH_PORT_NULL;
 	int					ret;
@@ -93,10 +90,6 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 		goto fail;
 	}
 
-#ifdef	VERBOSE_ACTIVITY_LOGGING
-	os_activity_scope_enter(storePrivate->activity, &activity_state);
-#endif	// VERBOSE_ACTIVITY_LOGGING
-
     retry :
 
 	status = notifyviafd(storePrivate->server,
@@ -110,10 +103,6 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 						     "SCDynamicStoreNotifyFileDescriptor notifyviafd()")) {
 		goto retry;
 	}
-
-#ifdef	VERBOSE_ACTIVITY_LOGGING
-	os_activity_scope_leave(&activity_state);
-#endif	// VERBOSE_ACTIVITY_LOGGING
 
 	if (status != KERN_SUCCESS) {
 		_SCErrorSet(status);

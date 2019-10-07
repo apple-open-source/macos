@@ -42,8 +42,10 @@
 			<string>handle-pkware-verification-bit from Debian</string>
 			<string>initialize-the-symlink-flag from Debian</string>
 			<string>increase-size-of-cfactorstr from Debian</string>
-                        <string>Apple-patch</string>
-                        <string>patch-quarantine</string>
+			<string>Apple-patch</string>
+			<string>patch-quarantine</string>
+			<string>&lt;rdar://problem/25537454&gt; Format string misuse in zip [-Wformat-security]</string>
+			<string>Remove unsupported MacOS9 options from man page (4126223)</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>unzip</string>

@@ -1020,7 +1020,7 @@ call_NSDecimalNumber_decimalWithDecimal_(
 			  PyObjCSelector_GetClass(method),
 			  PyObjCClass_GetClass(self));
 
-		res = objc_msgSendSuper(&super,
+		res = ((id (*)(struct objc_super *, SEL, NSDecimal))objc_msgSendSuper)(&super,
 				PyObjCSelector_GetSelector(method),
 				*aDecimal);
 	PyObjC_HANDLER
@@ -1052,7 +1052,7 @@ call_NSDecimalNumber_initWithDecimal_(
 			PyObjCSelector_GetClass(method),
 			PyObjCObject_GetObject(self));
 
-		res = objc_msgSendSuper(&super,
+		res = ((id (*)(struct objc_super *, SEL, NSDecimal))objc_msgSendSuper)(&super,
 				PyObjCSelector_GetSelector(method),
 				*aDecimal);
 	PyObjC_HANDLER

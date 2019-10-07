@@ -278,6 +278,7 @@
 <li><a href="mod/mod_socache_dbm.html">Apache モジュール mod_socache_dbm</a></li>
 <li><a href="mod/mod_socache_dc.html">Apache モジュール mod_socache_dc</a></li>
 <li><a href="mod/mod_socache_memcache.html">Apache モジュール mod_socache_memcache</a></li>
+<li><a href="mod/mod_socache_redis.html">Apache モジュール mod_socache_redis</a></li>
 <li><a href="mod/mod_socache_shmcb.html">Apache モジュール mod_socache_shmcb</a></li>
 <li><a href="mod/mod_speling.html">Apache モジュール mod_speling</a></li>
 <li><a href="mod/mod_ssl.html">Apache モジュール mod_ssl</a></li>
@@ -341,7 +342,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/sitemap.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2018 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
+<p class="apache">Copyright 2019 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
 <p class="menu"><a href="./mod/">モジュール</a> | <a href="./mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">用語</a> | <a href="./sitemap.html">サイトマップ</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

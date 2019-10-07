@@ -379,7 +379,7 @@ call_instanceMethodForSelector_(PyObject* method, PyObject* self, PyObject* args
 	}
 
 	PyObjC_DURING
-		retval = (IMP)objc_msgSend(PyObjCClass_GetClass(self),
+	retval = ((IMP (*)(Class, SEL, SEL))objc_msgSend)(PyObjCClass_GetClass(self),
 			PyObjCSelector_GetSelector(method),
 			selector);
 	PyObjC_HANDLER
@@ -455,7 +455,7 @@ call_methodForSelector_(PyObject* method, PyObject* self, PyObject* args)
 	objc_superSetClass(super, object_getClass(objc_superGetReceiver(super)));
 
 	PyObjC_DURING
-		retval = (IMP)objc_msgSendSuper(&super,
+	retval = ((IMP (*)(struct objc_super *, SEL, SEL))objc_msgSendSuper)(&super,
 			PyObjCSelector_GetSelector(method),
 			selector);
 	PyObjC_HANDLER

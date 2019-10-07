@@ -78,6 +78,8 @@
 
 #include <pthread.h>
 
+#include "../edt_fstab/edt_fstab.h"
+
 struct syncarg {
     const char *mntname;
     int wakeup_flag;
@@ -213,8 +215,10 @@ main(int argc, char *argv[])
 		}
 		break;
 	case 1:
-		if (setfsent() == 0)
-			err(1, "%s", _PATH_FSTAB);
+        if ((setup_fsent() == 0)) {
+            fprintf(stderr, "Can't get filesystem checklist: %s\n", strerror(errno));
+            exit(1);
+        }
 		errs = umountall(typelist);
 		break;
 	case 0:
@@ -230,10 +234,11 @@ int
 umountall(char **typelist)
 {
 	struct fstab *fs;
-	int rval, cp_len;
+    int rval;
+    size_t cp_len;
 	char *cp;
 
-	while ((fs = getfsent()) != NULL) {
+	while ((fs = get_fsent()) != NULL) {
 		/* Ignore the root. */
 		if (strcmp(fs->fs_file, "/") == 0)
 			continue;
@@ -624,7 +629,7 @@ sysctl_fsid(
 	vc.vc_fsid = *fsid;
 	vc.vc_ptr = newp;
 	vc.vc_len = newlen;
-	return (sysctl(ctlname, ctllen + 1, oldp, oldlenp, &vc, sizeof(vc)));
+	return (sysctl(ctlname, (uint32_t)(ctllen + 1), oldp, oldlenp, &vc, sizeof(vc)));
 }
 
 

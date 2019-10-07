@@ -26,7 +26,7 @@ var_dump(gzencode($string, 9, ZLIB_ENCODING_DEFLATE));
 
 echo "Done\n";
 ?>
---EXPECTF--	
+--EXPECTF--
 Warning: gzencode() expects at least 1 parameter, 0 given in %s on line %d
 NULL
 
@@ -41,11 +41,11 @@ bool(false)
 
 Warning: gzencode(): encoding mode must be either ZLIB_ENCODING_RAW, ZLIB_ENCODING_GZIP or ZLIB_ENCODING_DEFLATE in %s on line %d
 bool(false)
-string(%d) "%s"
-string(%d) "%s"
+string(%d) "%a"
+string(%d) "%a"
 
 Warning: gzencode(): encoding mode must be either ZLIB_ENCODING_RAW, ZLIB_ENCODING_GZIP or ZLIB_ENCODING_DEFLATE in %s on line %d
 bool(false)
-string(%d) "%s"
-string(%d) "%s"
+string(%d) "%a"
+string(%d) "%a"
 Done

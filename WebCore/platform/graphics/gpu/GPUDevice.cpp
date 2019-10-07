@@ -32,23 +32,42 @@
 #include "GPUBindGroupLayoutDescriptor.h"
 #include "GPUBuffer.h"
 #include "GPUBufferDescriptor.h"
+#include "GPUCommandBuffer.h"
+#include "GPUComputePipeline.h"
+#include "GPUComputePipelineDescriptor.h"
 #include "GPUPipelineLayout.h"
 #include "GPUPipelineLayoutDescriptor.h"
 #include "GPURenderPipeline.h"
 #include "GPURenderPipelineDescriptor.h"
+#include "GPUSampler.h"
+#include "GPUSamplerDescriptor.h"
 #include "GPUShaderModule.h"
 #include "GPUShaderModuleDescriptor.h"
+#include "GPUSwapChainDescriptor.h"
+#include "GPUTexture.h"
+#include "GPUTextureDescriptor.h"
+#include <wtf/Optional.h>
 
 namespace WebCore {
 
-RefPtr<GPUBuffer> GPUDevice::createBuffer(GPUBufferDescriptor&& descriptor) const
+RefPtr<GPUBuffer> GPUDevice::tryCreateBuffer(const GPUBufferDescriptor& descriptor, bool isMappedOnCreation)
 {
-    return GPUBuffer::create(*this, WTFMove(descriptor));
+    return GPUBuffer::tryCreate(makeRef(*this), descriptor, isMappedOnCreation);
 }
 
-RefPtr<GPUBindGroupLayout> GPUDevice::tryCreateBindGroupLayout(GPUBindGroupLayoutDescriptor&& descriptor) const
+RefPtr<GPUTexture> GPUDevice::tryCreateTexture(const GPUTextureDescriptor& descriptor) const
 {
-    return GPUBindGroupLayout::tryCreate(*this, WTFMove(descriptor));
+    return GPUTexture::tryCreate(*this, descriptor);
+}
+
+RefPtr<GPUSampler> GPUDevice::tryCreateSampler(const GPUSamplerDescriptor& descriptor) const
+{
+    return GPUSampler::tryCreate(*this, descriptor);
+}
+
+RefPtr<GPUBindGroupLayout> GPUDevice::tryCreateBindGroupLayout(const GPUBindGroupLayoutDescriptor& descriptor) const
+{
+    return GPUBindGroupLayout::tryCreate(*this, descriptor);
 }
 
 Ref<GPUPipelineLayout> GPUDevice::createPipelineLayout(GPUPipelineLayoutDescriptor&& descriptor) const
@@ -56,27 +75,37 @@ Ref<GPUPipelineLayout> GPUDevice::createPipelineLayout(GPUPipelineLayoutDescript
     return GPUPipelineLayout::create(WTFMove(descriptor));
 }
 
-RefPtr<GPUShaderModule> GPUDevice::createShaderModule(GPUShaderModuleDescriptor&& descriptor) const
+RefPtr<GPUShaderModule> GPUDevice::tryCreateShaderModule(const GPUShaderModuleDescriptor& descriptor) const
 {
-    return GPUShaderModule::create(*this, WTFMove(descriptor));
+    return GPUShaderModule::tryCreate(*this, descriptor);
 }
 
-RefPtr<GPURenderPipeline> GPUDevice::createRenderPipeline(GPURenderPipelineDescriptor&& descriptor) const
+RefPtr<GPURenderPipeline> GPUDevice::tryCreateRenderPipeline(const GPURenderPipelineDescriptor& descriptor) const
 {
-    return GPURenderPipeline::create(*this, WTFMove(descriptor));
+    return GPURenderPipeline::tryCreate(*this, descriptor);
 }
 
-RefPtr<GPUCommandBuffer> GPUDevice::createCommandBuffer()
+RefPtr<GPUComputePipeline> GPUDevice::tryCreateComputePipeline(const GPUComputePipelineDescriptor& descriptor) const
 {
-    return GPUCommandBuffer::create(*this);
+    return GPUComputePipeline::tryCreate(*this, descriptor);
 }
 
-RefPtr<GPUQueue> GPUDevice::getQueue()
+RefPtr<GPUCommandBuffer> GPUDevice::tryCreateCommandBuffer() const
+{
+    return GPUCommandBuffer::tryCreate(*this);
+}
+
+RefPtr<GPUQueue> GPUDevice::tryGetQueue() const
 {
     if (!m_queue)
-        m_queue = GPUQueue::create(*this);
+        m_queue = GPUQueue::tryCreate(*this);
 
     return m_queue;
+}
+    
+void GPUDevice::setSwapChain(RefPtr<GPUSwapChain>&& swapChain)
+{
+    m_swapChain = WTFMove(swapChain);
 }
 
 } // namespace WebCore

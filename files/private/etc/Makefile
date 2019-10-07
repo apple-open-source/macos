@@ -59,6 +59,9 @@ endif
 ifeq "$(CONTENT_PLATFORM)" "ios"
 	$(_v) cat paths.iPhone >> "$(Destination)/paths"
 endif
+ifeq "$(CONTENT_PLATFORM)" "osx"
+	$(_v) cat paths.macOS >> "$(Destination)/paths"
+endif
 	$(_v) $(INSTALL_FILE) -m 0644 -c protocols	 "$(Destination)/protocols"
 	$(_v) $(INSTALL_FILE) -m 0644 -c rpc		 "$(Destination)/rpc"
 	$(_v) $(INSTALL_FILE) -m 0644 -c services	 "$(Destination)/services"

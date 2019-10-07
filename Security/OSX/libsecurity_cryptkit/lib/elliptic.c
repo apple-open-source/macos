@@ -351,7 +351,6 @@ void set_priv_key_giant(key k, giant privGiant)
 	curveParams *cp = k->cp;
 
 	/* elliptiy multiply of initial public point times private key */
-	#if CRYPTKIT_ELL_PROJ_ENABLE
 	if((k->twist == CURVE_PLUS) && (cp->curveType == FCT_Weierstrass)) {
 		/* projective */
 
@@ -374,9 +373,7 @@ void set_priv_key_giant(key k, giant privGiant)
 		freePointProj(pt1);	// FIXME - clear the giants
 	}
 	else {
-	#else
-	{
-	#endif	/* CRYPTKIT_ELL_PROJ_ENABLE */
+        
 		/* FEE */
 		if(k->twist == CURVE_PLUS) {
 			gtog(cp->x1Plus, k->x);

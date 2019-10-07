@@ -44,7 +44,7 @@ configuration_profile_create_notification_key(const char *ident)
 		return out;
 	}
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	if (strchr(ident + 1, '/') != NULL) return NULL;
 	asprintf(&out, "%s%s/%s.plist", NOTIFY_PATH_SERVICE, CPROF_PATH, ident);
 #endif
@@ -68,7 +68,7 @@ configuration_profile_copy_property_list(const char *ident)
 	{
 		snprintf(path, sizeof(path), "%s", ident);
 	}
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	else
 	{
 		if (strchr(ident + 1, '/') != NULL) return NULL;

@@ -49,7 +49,7 @@ void WKCookieManagerGetHostnamesWithCookies(WKCookieManagerRef cookieManagerRef,
 
 void WKCookieManagerDeleteCookiesForHostname(WKCookieManagerRef cookieManagerRef, WKStringRef hostname)
 {
-    toImpl(cookieManagerRef)->deleteCookiesForHostname(PAL::SessionID::defaultSessionID(), toImpl(hostname)->string());
+    toImpl(cookieManagerRef)->deleteCookiesForHostnames(PAL::SessionID::defaultSessionID(), { toImpl(hostname)->string() });
 }
 
 void WKCookieManagerDeleteAllCookies(WKCookieManagerRef cookieManagerRef)
@@ -62,9 +62,12 @@ void WKCookieManagerDeleteAllCookiesModifiedAfterDate(WKCookieManagerRef cookieM
     toImpl(cookieManagerRef)->deleteAllCookiesModifiedSince(PAL::SessionID::defaultSessionID(), WallTime::fromRawSeconds(date), [](CallbackBase::Error){});
 }
 
-void WKCookieManagerSetHTTPCookieAcceptPolicy(WKCookieManagerRef cookieManager, WKHTTPCookieAcceptPolicy policy)
+void WKCookieManagerSetHTTPCookieAcceptPolicy(WKCookieManagerRef cookieManager, WKHTTPCookieAcceptPolicy policy, void* context, WKCookieManagerSetHTTPCookieAcceptPolicyFunction callback)
 {
-    toImpl(cookieManager)->setHTTPCookieAcceptPolicy(PAL::SessionID::defaultSessionID(), toHTTPCookieAcceptPolicy(policy), [](CallbackBase::Error){});
+    toImpl(cookieManager)->setHTTPCookieAcceptPolicy(PAL::SessionID::defaultSessionID(), toHTTPCookieAcceptPolicy(policy), [context, callback](CallbackBase::Error error) {
+        if (callback)
+            callback(error != CallbackBase::Error::None ? toAPI(API::Error::create().ptr()) : nullptr, context);
+    });
 }
 
 void WKCookieManagerGetHTTPCookieAcceptPolicy(WKCookieManagerRef cookieManager, void* context, WKCookieManagerGetHTTPCookieAcceptPolicyFunction callback)

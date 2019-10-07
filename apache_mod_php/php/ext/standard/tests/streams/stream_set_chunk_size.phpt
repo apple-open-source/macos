@@ -52,7 +52,6 @@ echo "\nerror conditions\n";
 var_dump(stream_set_chunk_size($f, 0));
 var_dump(stream_set_chunk_size($f, -1));
 var_dump(stream_set_chunk_size($f, array()));
-
 --EXPECTF--
 bool(true)
 should return previous chunk size (8192)
@@ -89,5 +88,5 @@ bool(false)
 Warning: stream_set_chunk_size(): The chunk size must be a positive integer, given -1 in %s on line %d
 bool(false)
 
-Warning: stream_set_chunk_size() expects parameter 2 to be integer, array given in %s on line %d
+Warning: stream_set_chunk_size() expects parameter 2 to be int, array given in %s on line %d
 bool(false)

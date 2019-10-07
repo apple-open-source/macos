@@ -27,6 +27,7 @@
 	<key>ACSupportedAccountTypes</key>
 	<array>
 		<string>com.apple.account.AppleAccount</string>
+		<string>com.apple.account.idms</string>
 	</array>
 </dict>
 </plist>

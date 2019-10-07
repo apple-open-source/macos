@@ -9,7 +9,7 @@ Test date() function : usage variation - Passing unexpected values to second arg
 
 echo "*** Testing date() : usage variation -  unexpected values to second argument \$timestamp***\n";
 
-//Set the default time zone 
+//Set the default time zone
 date_default_timezone_set("Europe/London");
 
 //get an unset variable
@@ -89,8 +89,8 @@ $inputs = array(
 
       // unset data
       'unset var' => @$unset_var,
-      
-      // resource 
+
+      // resource
       'resource' => $file_handle
 );
 
@@ -132,22 +132,22 @@ string(24) "January 1, 1970, 1:00 am"
 
 -- empty array --
 
-Warning: date() expects parameter 2 to be integer, array given in %s on line %d
+Warning: date() expects parameter 2 to be int, array given in %s on line %d
 bool(false)
 
 -- int indexed array --
 
-Warning: date() expects parameter 2 to be integer, array given in %s on line %d
+Warning: date() expects parameter 2 to be int, array given in %s on line %d
 bool(false)
 
 -- associative array --
 
-Warning: date() expects parameter 2 to be integer, array given in %s on line %d
+Warning: date() expects parameter 2 to be int, array given in %s on line %d
 bool(false)
 
 -- nested arrays --
 
-Warning: date() expects parameter 2 to be integer, array given in %s on line %d
+Warning: date() expects parameter 2 to be int, array given in %s on line %d
 bool(false)
 
 -- uppercase NULL --
@@ -170,42 +170,42 @@ string(24) "January 1, 1970, 1:00 am"
 
 -- empty string DQ --
 
-Warning: date() expects parameter 2 to be integer, string given in %s on line %d
+Warning: date() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 
 -- empty string SQ --
 
-Warning: date() expects parameter 2 to be integer, string given in %s on line %d
+Warning: date() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 
 -- string DQ --
 
-Warning: date() expects parameter 2 to be integer, string given in %s on line %d
+Warning: date() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 
 -- string SQ --
 
-Warning: date() expects parameter 2 to be integer, string given in %s on line %d
+Warning: date() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 
 -- mixed case string --
 
-Warning: date() expects parameter 2 to be integer, string given in %s on line %d
+Warning: date() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 
 -- heredoc --
 
-Warning: date() expects parameter 2 to be integer, string given in %s on line %d
+Warning: date() expects parameter 2 to be int, string given in %s on line %d
 bool(false)
 
 -- instance of classWithToString --
 
-Warning: date() expects parameter 2 to be integer, object given in %s on line %d
+Warning: date() expects parameter 2 to be int, object given in %s on line %d
 bool(false)
 
 -- instance of classWithoutToString --
 
-Warning: date() expects parameter 2 to be integer, object given in %s on line %d
+Warning: date() expects parameter 2 to be int, object given in %s on line %d
 bool(false)
 
 -- undefined var --
@@ -216,7 +216,6 @@ string(24) "January 1, 1970, 1:00 am"
 
 -- resource --
 
-Warning: date() expects parameter 2 to be integer, resource given in %s on line %d
+Warning: date() expects parameter 2 to be int, resource given in %s on line %d
 bool(false)
 ===DONE===
-

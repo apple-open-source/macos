@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -109,14 +109,6 @@ public:
         ASSERT(graph.m_plan.weakReferences().contains(cell));
 
         return constIntPtr(bitwise_cast<intptr_t>(cell));
-    }
-
-    template<typename Key>
-    LValue weakPoisonedPointer(DFG::Graph& graph, JSCell* cell)
-    {
-        ASSERT(graph.m_plan.weakReferences().contains(cell));
-
-        return constIntPtr(bitwise_cast<intptr_t>(cell) ^ Key::key());
     }
 
     LValue weakPointer(DFG::FrozenValue* value)
@@ -388,7 +380,7 @@ public:
     LValue call(LType type, LValue function, const VectorType& vector)
     {
         B3::CCallValue* result = m_block->appendNew<B3::CCallValue>(m_proc, type, origin(), function);
-        result->children().appendVector(vector);
+        result->appendArgs(vector);
         return result;
     }
     LValue call(LType type, LValue function) { return m_block->appendNew<B3::CCallValue>(m_proc, type, origin(), function); }

@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,7 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -36,7 +38,7 @@ static char sccsid[] = "@(#)var.c	8.3 (Berkeley) 5/4/95";
 #endif
 #endif /* not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/bin/sh/var.c 306843 2016-10-08 13:40:12Z jilles $");
+__FBSDID("$FreeBSD: head/bin/sh/var.c 329221 2018-02-13 16:48:57Z bdrewery $");
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -69,7 +71,9 @@ __FBSDID("$FreeBSD: head/bin/sh/var.c 306843 2016-10-08 13:40:12Z jilles $");
 #endif
 
 
+#ifndef VTABSIZE
 #define VTABSIZE 39
+#endif
 
 
 struct varinit {
@@ -513,7 +517,7 @@ bltinunsetlocale(void)
 		if (localevar(cmdenviron->args[i])) {
 			setlocale(LC_ALL, "");
 			updatecharset();
-			return;
+			break;
 		}
 	}
 	INTON;

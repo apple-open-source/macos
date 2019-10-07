@@ -6,15 +6,15 @@
 //
 
 #import <Foundation/Foundation.h>
-#include <Security/SecureObjectSync/SOSAccount.h>
+#include "keychain/SecureObjectSync/SOSAccount.h"
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
-#include <Security/SecureObjectSync/SOSInternal.h>
-#include <Security/SecureObjectSync/SOSUserKeygen.h>
-#include <Security/SecureObjectSync/SOSTransport.h>
+#include "keychain/SecureObjectSync/SOSInternal.h"
+#include "keychain/SecureObjectSync/SOSUserKeygen.h"
+#include "keychain/SecureObjectSync/SOSTransport.h"
 #include <Security/SecureObjectSync/SOSViews.h>
-#include <Security/SecureObjectSync/SOSAccountTrustClassic+Expansion.h>
-#include <Security/SecureObjectSync/SOSTransportMessage.h>
-#include <Security/SecureObjectSync/SOSPeerOTRTimer.h>
+#include "keychain/SecureObjectSync/SOSAccountTrustClassic+Expansion.h"
+#include "keychain/SecureObjectSync/SOSTransportMessage.h"
+#include "keychain/SecureObjectSync/SOSPeerOTRTimer.h"
 
 #import "SOSAccountTesting.h"
 #import "SOSTransportTestTransports.h"
@@ -26,7 +26,7 @@
 #include "SOSTestDataSource.h"
 
 #include "SOSRegressionUtilities.h"
-#include "SecRecoveryKey.h"
+#include <Security/SecRecoveryKey.h>
 
 #include <utilities/SecCFWrappers.h>
 #include <Security/SecKeyPriv.h>
@@ -37,8 +37,7 @@
 #import "SOSTransportTestTransports.h"
 #include "SOSTestDevice.h"
 #include "SOSTestDataSource.h"
-#include <Security/SecureObjectSync/SOSAccountTrustClassic+Circle.h>
-static int kTestTestCount = 114;
+#include "keychain/SecureObjectSync/SOSAccountTrustClassic+Circle.h"
 
 
 static void tests(void)
@@ -162,7 +161,7 @@ static void tests(void)
 
 int secd_155_otr_negotiation_monitor(int argc, char *const *argv)
 {
-    plan_tests(kTestTestCount);
+    plan_tests(44);
     
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
 

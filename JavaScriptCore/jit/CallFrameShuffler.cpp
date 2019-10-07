@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,8 +51,14 @@ CallFrameShuffler::CallFrameShuffler(CCallHelpers& jit, const CallFrameShuffleDa
         m_lockedRegisters.clear(GPRInfo::toRegister(i));
     for (unsigned i = FPRInfo::numberOfRegisters; i--; )
         m_lockedRegisters.clear(FPRInfo::toRegister(i));
-    // ... as well as the runtime registers.
+
+#if USE(JSVALUE64)
+    // ... as well as the runtime registers on 64-bit architectures.
+    // However do not use these registers on 32-bit architectures since
+    // saving and restoring callee-saved registers in CallFrameShuffler isn't supported
+    // on 32-bit architectures yet.
     m_lockedRegisters.exclude(RegisterSet::vmCalleeSaveRegisters());
+#endif
 
     ASSERT(!data.callee.isInJSStack() || data.callee.virtualRegister().isLocal());
     addNew(VirtualRegister(CallFrameSlot::callee), data.callee);
@@ -448,9 +454,9 @@ void CallFrameShuffler::prepareForTailCall()
 #if CPU(ARM_THUMB2) || CPU(ARM64)
     m_jit.loadPtr(MacroAssembler::Address(MacroAssembler::framePointerRegister, CallFrame::returnPCOffset()),
         MacroAssembler::linkRegister);
-#if USE(POINTER_PROFILING)
+#if CPU(ARM64E)
     m_jit.addPtr(MacroAssembler::TrustedImm32(sizeof(CallerFrameAndPC)), MacroAssembler::framePointerRegister);
-    m_jit.untagPtr(MacroAssembler::linkRegister, MacroAssembler::framePointerRegister);
+    m_jit.untagPtr(MacroAssembler::framePointerRegister, MacroAssembler::linkRegister);
     m_jit.subPtr(MacroAssembler::TrustedImm32(sizeof(CallerFrameAndPC)), MacroAssembler::framePointerRegister);
 #endif
 

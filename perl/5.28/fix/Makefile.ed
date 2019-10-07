@@ -1,0 +1,3 @@
+/-o perl/s//-mdynamic-no-pic &/
+g,//$,d
+w

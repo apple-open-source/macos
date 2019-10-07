@@ -68,6 +68,7 @@
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoadRequest.h>
 #import <WebCore/FrameView.h>
+#import <WebCore/FullscreenManager.h>
 #import <WebCore/GraphicsLayer.h>
 #import <WebCore/HTMLInputElement.h>
 #import <WebCore/HTMLNames.h>
@@ -122,6 +123,7 @@ NSString *WebConsoleMessageContentBlockerMessageSource = @"ContentBlockerMessage
 NSString *WebConsoleMessageOtherMessageSource = @"OtherMessageSource";
 NSString *WebConsoleMessageMediaMessageSource = @"MediaMessageSource";
 NSString *WebConsoleMessageWebRTCMessageSource = @"WebRTCMessageSource";
+NSString *WebConsoleMessageMediaSourceMessageSource = @"MediaSourceMessageSource";
 
 NSString *WebConsoleMessageDebugMessageLevel = @"DebugMessageLevel";
 NSString *WebConsoleMessageLogMessageLevel = @"LogMessageLevel";
@@ -242,8 +244,8 @@ Page* WebChromeClient::createWindow(Frame& frame, const FrameLoadRequest&, const
     WebView *newWebView;
 
 #if ENABLE(FULLSCREEN_API)
-    if (frame.document() && frame.document()->webkitCurrentFullScreenElement())
-        frame.document()->webkitCancelFullScreen();
+    if (frame.document() && frame.document()->fullscreenManager().currentFullscreenElement())
+        frame.document()->fullscreenManager().cancelFullscreen();
 #endif
     
     if ([delegate respondsToSelector:@selector(webView:createWebViewWithRequest:windowFeatures:)]) {
@@ -397,6 +399,8 @@ inline static NSString *stringForMessageSource(MessageSource source)
         return WebConsoleMessageMediaMessageSource;
     case MessageSource::WebRTC:
         return WebConsoleMessageWebRTCMessageSource;
+    case MessageSource::MediaSource:
+        return WebConsoleMessageMediaSourceMessageSource;
     }
     ASSERT_NOT_REACHED();
     return @"";
@@ -596,17 +600,19 @@ IntRect WebChromeClient::rootViewToScreen(const IntRect& r) const
     return r;
 }
 
-#if PLATFORM(IOS_FAMILY)
 IntPoint WebChromeClient::accessibilityScreenToRootView(const IntPoint& p) const
 {
-    return p;
+    return screenToRootView(p);
 }
 
 IntRect WebChromeClient::rootViewToAccessibilityScreen(const IntRect& r) const
 {
-    return r;
+    return rootViewToScreen(r);
 }
-#endif
+
+void WebChromeClient::didFinishLoadingImageForElement(HTMLImageElement&)
+{
+}
 
 PlatformPageClient WebChromeClient::platformPageClient() const
 {
@@ -699,17 +705,6 @@ void WebChromeClient::reachedApplicationCacheOriginQuota(SecurityOrigin& origin,
 
     END_BLOCK_OBJC_EXCEPTIONS;
 }
-
-#if ENABLE(DASHBOARD_SUPPORT)
-
-void WebChromeClient::annotatedRegionsChanged()
-{
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
-    CallUIDelegate(m_webView, @selector(webView:dashboardRegionsChanged:), [m_webView _dashboardRegions]);
-    END_BLOCK_OBJC_EXCEPTIONS;
-}
-
-#endif
 
 #if ENABLE(INPUT_TYPE_COLOR)
 
@@ -948,7 +943,7 @@ void WebChromeClient::attachRootGraphicsLayer(Frame& frame, GraphicsLayer* graph
 #endif
 }
 
-void WebChromeClient::attachViewOverlayGraphicsLayer(Frame&, GraphicsLayer*)
+void WebChromeClient::attachViewOverlayGraphicsLayer(GraphicsLayer*)
 {
     // FIXME: If we want view-relative page overlays in Legacy WebKit, this would be the place to hook them up.
 }

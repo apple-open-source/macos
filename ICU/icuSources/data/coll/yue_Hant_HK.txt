@@ -1,5 +1,0 @@
-﻿// © 2016 and later: Unicode, Inc. and others. Apple addition.
-// License & terms of use: http://www.unicode.org/copyright.html#License
-yue_Hant_HK{
-    "%%ALIAS"{"zh_Hant"}
-}

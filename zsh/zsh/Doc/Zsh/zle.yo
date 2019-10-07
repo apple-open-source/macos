@@ -47,11 +47,11 @@ by default be entered in emacs mode by holding the alt key and typing
 a number, or pressing escape before each digit, and in vi command mode
 by typing the number before entering a command.  Generally the numeric
 argument causes the next command entered to be repeated the specified
-number of times, unless otherwise noted below. See also
+number of times, unless otherwise noted below; this is implemented
+by the tt(digit-argument) widget. See also
 ifzman(the em(Arguments) subsection of the em(Widgets) section )\
 ifnzman(noderef(Arguments) )\
-for some other ways the numeric argument can be modified. The default
-bindings mentioned here use the tt(digit-argument) widget.
+for some other ways the numeric argument can be modified.
 
 startmenu()
 menu(Keymaps)
@@ -342,7 +342,7 @@ findex(vared)
 cindex(parameters, editing)
 cindex(editing parameters)
 redef(SPACES)(0)(tt(ifztexi(NOTRANS(@ @ @ @ @ @ ))ifnztexi(      )))
-xitem(tt(vared )[ tt(-Aache) ] [ tt(-p) var(prompt) ] [ tt(-r) var(rprompt) ])
+xitem(tt(vared )[ tt(-Aacghe) ] [ tt(-p) var(prompt) ] [ tt(-r) var(rprompt) ])
 xitem(SPACES()[ tt(-M) var(main-keymap) ] [ tt(-m) var(vicmd-keymap) ])
 xitem(SPACES()[ tt(-i) var(init-widget) ] [ tt(-f) var(finish-widget) ])
 item(SPACES()[ tt(-t) var(tty) ] var(name))(
@@ -353,7 +353,9 @@ When the tt(-c) flag is given, the parameter is created if it doesn't
 already exist.  The tt(-a) flag may be given with tt(-c) to create
 an array parameter, or the tt(-A) flag to create an associative array.
 If the type of an existing parameter does not match the type to be
-created, the parameter is unset and recreated.
+created, the parameter is unset and recreated.  The tt(-g) flag may
+be given to suppress warnings from the tt(WARN_CREATE_GLOBAL)
+and tt(WARN_NESTED_VAR) options.
 
 If an array or array slice is being edited, separator characters as defined
 in tt($IFS) will be shown quoted with a backslash, as will backslashes
@@ -750,12 +752,12 @@ sect(User-Defined Widgets)
 cindex(widgets, user-defined)
 User-defined widgets, being implemented as shell functions,
 can execute any normal shell command.  They can also run other widgets
-(whether built-in or user-defined) using the tt(zle) builtin command.
-The standard input of the function is closed to prevent external commands
-from unintentionally blocking ZLE by reading from the terminal, but
-tt(read -k) or tt(read -q) can be used to read characters.  Finally,
-they can examine and edit the ZLE buffer being edited by
-reading and setting the special parameters described below.
+(whether built-in or user-defined) using the tt(zle) builtin command. The
+standard input of the function is redirected from /dev/null to prevent
+external commands from unintentionally blocking ZLE by reading from the
+terminal, but tt(read -k) or tt(read -q) can be used to read characters.
+Finally, they can examine and edit the ZLE buffer being edited by reading
+and setting the special parameters described below.
 
 cindex(parameters, editor)
 cindex(parameters, zle)
@@ -864,6 +866,12 @@ vindex(KEYS)
 item(tt(KEYS) (scalar))(
 The keys typed to invoke this widget, as a literal string; read-only.
 )
+vindex(KEYS_QUEUED_COUNT)
+item(tt(KEYS_QUEUED_COUNT) (integer))(
+The number of bytes pushed back to the input queue and therefore
+available for reading immediately before any I/O is done; read-only.
+See also tt(PENDING); the two values are distinct.
+)
 vindex(killring)
 item(tt(killring) (array))(
 The array of previously killed items, with the most recently killed first.
@@ -919,7 +927,8 @@ item(tt(PENDING) (integer))(
 The number of bytes pending for input, i.e. the number of bytes which have
 already been typed and can immediately be read. On systems where the shell
 is not able to get this information, this parameter will always have a
-value of zero.  Read-only.
+value of zero.  Read-only.  See also tt(KEYS_QUEUED_COUNT); the two
+values are distinct.
 )
 vindex(PREBUFFER)
 item(tt(PREBUFFER) (scalar))(
@@ -1075,6 +1084,13 @@ assigned by widgets that insert text in a yank-like fashion, for example
 wrappers of tt(bracketed-paste).  See also tt(zle -f).
 
 tt(YANK_ACTIVE) is read-only.
+)
+vindex(ZLE_RECURSIVE)
+item(tt(ZLE_RECURSIVE) (integer))(
+Usually zero, but incremented inside any instance of
+tt(recursive-edit).  Hence indicates the current recursion level.
+
+tt(ZLE_RECURSIVE) is read-only.
 )
 vindex(ZLE_STATE)
 item(tt(ZLE_STATE) (scalar))(
@@ -2655,7 +2671,9 @@ cindex(escape sequences, terminal, for highlighting)
 cindex(terminal escape sequences for highlighting)
 item(tt(fg_start_code) (tt(\e[3)))(
 The start of the escape sequence for the foreground colour.
-This is followed by an ASCII digit representing the colour.
+This is followed by one to three ASCII digits representing the colour.
+Only used for palette colors, i.e. not 24-bit colors specified via a
+color triplet.
 )
 item(tt(fg_default_code) (tt(9)))(
 The number to use instead of the colour to reset the default foreground
@@ -2666,7 +2684,7 @@ The end of the escape sequence for the foreground colour.
 )
 item(tt(bg_start_code) (tt(\e[4)))(
 The start of the escape sequence for the background colour.
-This is followed by an ASCII digit representing the colour.
+See tt(fg_start_code) above.
 )
 item(tt(bg_default_code) (tt(9)))(
 The number to use instead of the colour to reset the default
@@ -2687,8 +2705,9 @@ this to appear with other types of highlighting; it is used to override
 a default.
 )
 item(tt(fg=)var(colour))(
-The foreground colour should be set to var(colour), a decimal integer
-or the name of one of the eight most widely-supported colours.
+The foreground colour should be set to var(colour), a decimal integer,
+the name of one of the eight most widely-supported colours or as a
+`tt(#)' followed by an RGB triplet in hexadecimal format.
 
 Not all terminals support this and, of those that do, not all provide
 facilities to test the support, hence the user should decide based on the
@@ -2704,6 +2723,15 @@ number of colours supported may be tested by the command `tt(echotc
 Co)'; if this succeeds, it indicates a limit on the number of colours which
 will be enforced by the line editor.  The number of colours is in any case
 limited to 256 (i.e. the range 0 to 255).
+
+Some modern terminal emulators have support for 24-bit true colour (16
+million colours). In this case, the hex triplet format can be used. This
+consists of either a three or six digit hexadecimal number describing
+the red, green and blue components of the colour. Hex triplets can also
+be used with 88 and 256 colour terminals via the tt(zsh/nearcolor)
+module (see ifzman(zmanref(zshmodules))\
+ifnzman(noderef(The zsh/nearcolor Module))\
+).
 
 Colour is also known as color.
 )

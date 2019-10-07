@@ -25,8 +25,6 @@
 
 #import "WKWebViewPrivate.h"
 
-#if WK_API_ENABLED
-
 #import "SameDocumentNavigationType.h"
 #import "WKShareSheet.h"
 #import "WKWebViewConfiguration.h"
@@ -101,7 +99,9 @@ struct PrintInfo;
 
 - (void)_scrollToContentScrollPosition:(WebCore::FloatPoint)scrollPosition scrollOrigin:(WebCore::IntPoint)scrollOrigin;
 - (BOOL)_scrollToRect:(WebCore::FloatRect)targetRect origin:(WebCore::FloatPoint)origin minimumScrollDistance:(float)minimumScrollDistance;
-- (void)_scrollByContentOffset:(WebCore::FloatPoint)offset;
+- (double)_initialScaleFactor;
+- (double)_contentZoomScale;
+- (double)_targetContentZoomScaleForRect:(const WebCore::FloatRect&)targetRect currentScale:(double)currentScale fitEntireRect:(BOOL)fitEntireRect minimumScale:(double)minimumScale maximumScale:(double)maximumScale;
 - (void)_zoomToFocusRect:(const WebCore::FloatRect&)focusedElementRect selectionRect:(const WebCore::FloatRect&)selectionRectInDocumentCoordinates insideFixed:(BOOL)insideFixed fontSize:(float)fontSize minimumScale:(double)minimumScale maximumScale:(double)maximumScale allowScaling:(BOOL)allowScaling forceScroll:(BOOL)forceScroll;
 - (BOOL)_zoomToRect:(WebCore::FloatRect)targetRect withOrigin:(WebCore::FloatPoint)origin fitEntireRect:(BOOL)fitEntireRect minimumScale:(double)minimumScale maximumScale:(double)maximumScale minimumScrollDistance:(float)minimumScrollDistance;
 - (void)_zoomOutWithOrigin:(WebCore::FloatPoint)origin animated:(BOOL)animated;
@@ -140,7 +140,6 @@ struct PrintInfo;
 - (void)_didChangeEditorState;
 
 - (void)_addShortcut:(id)sender;
-- (void)_arrowKey:(id)sender;
 - (void)_define:(id)sender;
 - (void)_lookup:(id)sender;
 - (void)_share:(id)sender;
@@ -170,11 +169,10 @@ struct PrintInfo;
 @property (nonatomic, readonly) UIEdgeInsets _computedObscuredInset;
 @property (nonatomic, readonly) UIEdgeInsets _computedUnobscuredSafeAreaInset;
 @property (nonatomic, readonly, getter=_isRetainingActiveFocusedState) BOOL _retainingActiveFocusedState;
-#endif
 
-#if ENABLE(ACCESSIBILITY_EVENTS)
-- (void)_updateAccessibilityEventsEnabled;
-#endif
+- (BOOL)_effectiveAppearanceIsDark;
+- (BOOL)_effectiveUserInterfaceLevelIsElevated;
+#endif // PLATFORM(IOS_FAMILY)
 
 #if ENABLE(ATTACHMENT_ELEMENT)
 - (void)_didRemoveAttachment:(API::Attachment&)attachment;
@@ -196,17 +194,13 @@ struct PrintInfo;
 WKWebView* fromWebPageProxy(WebKit::WebPageProxy&);
 
 #if ENABLE(FULLSCREEN_API) && PLATFORM(IOS_FAMILY)
-@interface WKWebView (FullScreenAPI)
--(BOOL)hasFullScreenWindowController;
+@interface WKWebView (FullScreenAPI_Internal)
 -(WKFullScreenWindowController *)fullScreenWindowController;
--(void)closeFullScreenWindowController;
-@end
-#endif // ENABLE(FULLSCREEN_API) && PLATFORM(IOS_FAMILY)
-
-#if PLATFORM(IOS_FAMILY) && !PLATFORM(IOSMAC)
-@interface WKWebView (_WKWebViewPrintFormatter)
-@property (nonatomic, readonly) id <_WKWebViewPrintProvider> _printProvider;
 @end
 #endif
 
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
+@interface WKWebView (_WKWebViewPrintFormatter)
+@property (nonatomic, readonly) id <_WKWebViewPrintProvider> _printProvider;
+@end
 #endif

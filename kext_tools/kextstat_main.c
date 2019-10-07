@@ -2,14 +2,14 @@
  * Copyright (c) 2006, 2014 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <IOKit/kext/OSKext.h>
@@ -134,7 +134,7 @@ ExitStatus readArgs(int argc, char * const * argv, KextstatArgs * toolArgs)
     ExitStatus   result        = EX_USAGE;
     CFStringRef  scratchString = NULL;  // must release
     int          optChar       = 0;
-    
+
     bzero(toolArgs, sizeof(*toolArgs));
 
    /*****
@@ -180,11 +180,11 @@ ExitStatus readArgs(int argc, char * const * argv, KextstatArgs * toolArgs)
                 }
                 CFArrayAppendValue(toolArgs->bundleIDs, scratchString);
                 break;
-                
+
             case kOptArchitecture:
                 toolArgs->flagShowArchitecture = true;
                 break;
-                
+
             case kOptSort:
                 toolArgs->flagSortByLoadAddress = true;
                 break;
@@ -242,7 +242,7 @@ void printKextInfo(CFDictionaryRef kextInfo, KextstatArgs * toolArgs)
     uint32_t          cpuSubTypeValue        = (uint32_t)-1;
     char            * bundleIDCString        = NULL;  // must free
     char            * bundleVersionCString   = NULL;  // must free
-    
+
     CFIndex           count, i;
 
     loadTag = (CFNumberRef)CFDictionaryGetValue(kextInfo,
@@ -373,10 +373,10 @@ void printKextInfo(CFDictionaryRef kextInfo, KextstatArgs * toolArgs)
 
     fprintf(stdout, " %s",
         bundleIDCString ? bundleIDCString : kStringInvalidLong);
-        
+
     fprintf(stdout, " (%s)",
         bundleVersionCString ? bundleVersionCString : kStringInvalidLong);
-    
+
     if (kextUUID && (CFDataGetTypeID() == CFGetTypeID(kextUUID))) {
         uuid_unparse(CFDataGetBytePtr(kextUUID), kextUUIDCString);
         fprintf(stdout, " %s", kextUUIDCString);
@@ -395,7 +395,7 @@ void printKextInfo(CFDictionaryRef kextInfo, KextstatArgs * toolArgs)
 
         CFArraySortValues(sortedLoadTags, RANGE_ALL(sortedLoadTags),
             &compareNumbers, /* context */ NULL);
-        
+
         fprintf(stdout, " <");
         count = CFArrayGetCount(sortedLoadTags);
         for (i = 0; i < count; i++) {
@@ -414,7 +414,7 @@ void printKextInfo(CFDictionaryRef kextInfo, KextstatArgs * toolArgs)
 
         fprintf(stdout, ">");
     }
-    
+
     fprintf(stdout, "\n");
 
 finish:
@@ -446,10 +446,10 @@ int compareKextInfo(const void * vKextInfo1, const void * vKextInfo2)
     CFNumberRef     loadTag2 = CFDictionaryGetValue(kextInfo2, CFSTR(kOSBundleLoadTagKey));
     OSKextLoadTag   tag1Value = kOSKextInvalidLoadTag;
     OSKextLoadTag   tag2Value = kOSKextInvalidLoadTag;
-    
+
     getNumValue(loadTag1, kCFNumberSInt32Type, &tag1Value);
     getNumValue(loadTag2, kCFNumberSInt32Type, &tag2Value);
-    
+
     if (tag1Value == tag2Value) {
         /* Whether invalid or valid, same is same. */
         result = 0;
@@ -462,7 +462,7 @@ int compareKextInfo(const void * vKextInfo1, const void * vKextInfo2)
     } else if (tag2Value < tag1Value) {
         result = 1;
     }
-    
+
     return result;
 }
 
@@ -473,7 +473,7 @@ int compareKextInfoLoadAddress(const void * vKextInfo1, const void * vKextInfo2)
     int             result = 0;
     CFDictionaryRef kextInfo1 = *(CFDictionaryRef *)vKextInfo1;
     CFDictionaryRef kextInfo2 = *(CFDictionaryRef *)vKextInfo2;
-    
+
     CFNumberRef       loadAddress1            = NULL;  // do not release
     uint64_t          loadAddressValue1       = (uint64_t)-1;
     CFNumberRef       loadAddress2            = NULL;  // do not release
@@ -490,7 +490,7 @@ int compareKextInfoLoadAddress(const void * vKextInfo1, const void * vKextInfo2)
     if (!getNumValue(loadAddress2, kCFNumberSInt64Type, &loadAddressValue2)) {
         loadAddressValue2 = (uint64_t)-1;
     }
-    
+
     if (loadAddressValue1 == loadAddressValue2) {
         /* Whether invalid or valid, same is same. */
         result = 0;
@@ -503,7 +503,7 @@ int compareKextInfoLoadAddress(const void * vKextInfo1, const void * vKextInfo2)
     } else if (loadAddressValue2 < loadAddressValue1) {
         result = 1;
     }
-    
+
     return result;
 }
 
@@ -529,7 +529,7 @@ CFComparisonResult compareNumbers(
 static void usage(UsageLevel usageLevel)
 {
     fprintf(stderr, "usage: %s [-a] [-k] [-l] [-b bundle_id] ...\n", progname);
-        
+
     if (usageLevel == kUsageLevelBrief) {
         fprintf(stderr, "\nUse %s -%s (-%c) for a list of options.\n",
             progname, kOptNameHelp, kOptHelp);
@@ -546,7 +546,7 @@ static void usage(UsageLevel usageLevel)
             kOptNameArchitecture, kOptArchitecture);
     fprintf(stderr, "-%s (-%c): Sort by load address.\n",
             kOptNameSort, kOptSort);
-    
+
     return;
 }
 

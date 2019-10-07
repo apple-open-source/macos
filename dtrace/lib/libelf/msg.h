@@ -27,8 +27,6 @@
 
 typedef int Msg;
 
-#define _elf_seterr(msg, x) _SHIM_elf_seterr(x)
-#define EFMT_ARUNKNM 0
-#define EFMT_ARSTRNM 0
+#define _elf_seterr(msg, x) _elf_seterr(x)
 
 #endif /* _MSG_H */

@@ -71,7 +71,6 @@ enum {
 
 #define kOptNamePLists                  "plists"
 #define kOptNameLoadList                "load-list"
-
 /* Misc flags.
  */
 #define kOptNameNoAuthentication        "no-authentication"
@@ -86,6 +85,7 @@ enum {
 #define kOptKernel                'K'
 // 'q' in kext_tools_util.h
 #define kOptTests                 't'
+// 'T' in kext_tools_util.h
 // 'v' in kext_tools_util.h
 #define kOptNoAuthentication      'z'
 
@@ -105,7 +105,7 @@ enum {
 #define kLongOptPLists                   (-15)
 #define kLongOptLoadList                 (-16)
 
-#define kOptChars                ":a:b:c:ehK:lLnNqsStvz"
+#define kOptChars                ":a:b:c:ehK:lLnNqsStT:vz"
 
 int longopt = 0;
 
@@ -119,6 +119,7 @@ struct option sOptInfo[] = {
     { kOptNameUncompressed,             no_argument,        &longopt, kLongOptUncompressed },
 
     { kOptNameArch,                     required_argument,  NULL,     kOptArch },
+    { kOptNameTargetOverride,           required_argument,  NULL,     kOptTargetOverride },
     { kOptNameVolumeRoot,               required_argument,  &longopt, kLongOptVolumeRoot },
 
     { kOptNameBundleIdentifier,         required_argument,  NULL,     kOptBundleIdentifier },
@@ -168,11 +169,12 @@ typedef struct {
     CFMutableArrayRef  repositoryURLs;   // just non-kext directories
     CFMutableArrayRef  namedKextURLs;
     CFMutableArrayRef  targetArchs;
+    char             * targetForKextVariants;
 
     CFArrayRef         allKexts;         // directories + named
     CFArrayRef         repositoryKexts;  // all from directories (may include named)
     CFArrayRef         namedKexts;
-    
+
     Boolean     compress;
     uint32_t    compressionType;
     Boolean     uncompress;

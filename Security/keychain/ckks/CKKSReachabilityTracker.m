@@ -31,11 +31,14 @@
 #import <sys/socket.h>
 #import <netinet/in.h>
 
+#import <nw/private.h>
+
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ckks/CKKSResultOperation.h"
 #import "keychain/ckks/CKKSReachabilityTracker.h"
 #import "keychain/ckks/CKKSAnalytics.h"
+#import "keychain/ot/ObjCImprovements.h"
 
 // force reachability timeout every now and then
 #define REACHABILITY_TIMEOUT (12 * 3600 * NSEC_PER_SEC)
@@ -44,20 +47,11 @@
 @property bool haveNetwork;
 @property dispatch_queue_t queue;
 @property NSOperationQueue* operationQueue;
-@property (assign) SCNetworkReachabilityRef reachability;
+@property nw_path_monitor_t networkMonitor;
 @property dispatch_source_t timer;
 @end
 
 @implementation CKKSReachabilityTracker
-
-static void
-callout(SCNetworkReachabilityRef reachability,
-        SCNetworkReachabilityFlags flags,
-        void *context)
-{
-    CKKSReachabilityTracker *tracker = (__bridge id)context;
-    [tracker _onqueueRecheck:flags];
-}
 
 - (instancetype)init {
     if((self = [super init])) {
@@ -68,31 +62,29 @@ callout(SCNetworkReachabilityRef reachability,
             [self _onQueueResetReachabilityDependency];
         });
 
-        __weak __typeof(self) weakSelf = self;
+        WEAKIFY(self);
 
         if(!SecCKKSTestsEnabled()) {
-            struct sockaddr_in zeroAddress;
-            bzero(&zeroAddress, sizeof(zeroAddress));
-            zeroAddress.sin_len = sizeof(zeroAddress);
-            zeroAddress.sin_family = AF_INET;
+            _networkMonitor = nw_path_monitor_create();
+            nw_path_monitor_set_queue(self.networkMonitor, _queue);
+            nw_path_monitor_set_update_handler(self.networkMonitor, ^(nw_path_t  _Nonnull path) {
+                STRONGIFY(self);
+                bool networkAvailable = (nw_path_get_status(path) == nw_path_status_satisfied);
 
-            _reachability = SCNetworkReachabilityCreateWithAddress(NULL, (struct sockaddr *)&zeroAddress);
-
-            SCNetworkReachabilityContext context = {0, (__bridge void *)(self), NULL, NULL, NULL};
-            SCNetworkReachabilitySetDispatchQueue(_reachability, _queue);
-            SCNetworkReachabilitySetCallback(_reachability, callout, &context);
+                secinfo("ckksnetwork", "nw_path update: network is %@", networkAvailable ? @"available" : @"unavailable");
+                [self _onqueueSetNetworkReachability:networkAvailable];
+            });
+            nw_path_monitor_start(self.networkMonitor);
         }
-
-        [weakSelf recheck];
     }
     return self;
 }
 
--(NSString*)description {
+- (NSString*)description {
     return [NSString stringWithFormat: @"<CKKSReachabilityTracker: %@>", self.haveNetwork ? @"online" : @"offline"];
 }
 
--(bool)currentReachability {
+- (bool)currentReachability {
     __block bool currentReachability = false;
     dispatch_sync(self.queue, ^{
         currentReachability = self.haveNetwork;
@@ -100,10 +92,10 @@ callout(SCNetworkReachabilityRef reachability,
     return currentReachability;
 }
 
--(void)_onQueueRunreachabilityDependency
+- (void)_onQueueRunReachabilityDependency
 {
     dispatch_assert_queue(self.queue);
-    // We're have network now, or timer expired, either way, execute dependency
+    // We have network now, or the timer expired. Either way, execute dependency
     if (self.reachabilityDependency) {
         [self.operationQueue addOperation: self.reachabilityDependency];
         self.reachabilityDependency = nil;
@@ -114,19 +106,16 @@ callout(SCNetworkReachabilityRef reachability,
     }
 }
 
--(void)_onQueueResetReachabilityDependency {
+- (void)_onQueueResetReachabilityDependency {
     dispatch_assert_queue(self.queue);
 
     if(self.reachabilityDependency == nil || ![self.reachabilityDependency isPending]) {
-        __weak __typeof(self) weakSelf = self;
+        WEAKIFY(self);
 
         secnotice("ckksnetwork", "Network unavailable");
         self.reachabilityDependency = [CKKSResultOperation named:@"network-available-dependency" withBlock: ^{
-            __typeof(self) strongSelf = weakSelf;
-            if (strongSelf == nil) {
-                return;
-            }
-            if (strongSelf.haveNetwork) {
+            STRONGIFY(self);
+            if (self.haveNetwork) {
                 secnotice("ckksnetwork", "Network available");
             } else {
                 secnotice("ckksnetwork", "Network still not available, retrying after waiting %2.1f hours",
@@ -142,13 +131,13 @@ callout(SCNetworkReachabilityRef reachability,
                                             (dispatch_source_timer_flags_t)0,
                                             self.queue);
         dispatch_source_set_event_handler(self.timer, ^{
-            __typeof(self) strongSelf = weakSelf;
-            if (strongSelf == nil) {
+            STRONGIFY(self);
+            if (self == nil) {
                 return;
             }
-            if (strongSelf.timer) {
+            if (self.timer) {
                 [[CKKSAnalytics logger] noteEvent:CKKSEventReachabilityTimerExpired];
-                [strongSelf _onQueueRunreachabilityDependency];
+                [self _onQueueRunReachabilityDependency];
             }
         });
 
@@ -160,51 +149,65 @@ callout(SCNetworkReachabilityRef reachability,
     }
 }
 
--(void)_onqueueRecheck:(SCNetworkReachabilityFlags)flags {
+- (void)_onqueueSetNetworkReachability:(bool)haveNetwork {
     dispatch_assert_queue(self.queue);
 
-    const SCNetworkReachabilityFlags reachabilityFlags =
-        kSCNetworkReachabilityFlagsReachable
-        | kSCNetworkReachabilityFlagsConnectionAutomatic
-#if TARGET_OS_IPHONE
-        | kSCNetworkReachabilityFlagsIsWWAN
-#endif
-        ;
-
     bool hadNetwork = self.haveNetwork;
-    self.haveNetwork = !!(flags & reachabilityFlags);
+    self.haveNetwork = !!(haveNetwork);
 
     if(hadNetwork != self.haveNetwork) {
         if(self.haveNetwork) {
             // We're have network now
-            [self _onQueueRunreachabilityDependency];
+            [self _onQueueRunReachabilityDependency];
         } else {
             [self _onQueueResetReachabilityDependency];
         }
     }
 }
 
-+ (SCNetworkReachabilityFlags)getReachabilityFlags:(SCNetworkReachabilityRef)target
+- (void)setNetworkReachability:(bool)reachable
 {
-    SCNetworkReachabilityFlags flags;
-    if (SCNetworkReachabilityGetFlags(target, &flags))
-        return flags;
-    return 0;
-}
-
--(void)recheck {
     dispatch_sync(self.queue, ^{
-        SCNetworkReachabilityFlags flags = [CKKSReachabilityTracker getReachabilityFlags:self.reachability];
-        [self _onqueueRecheck:flags];
+        [self _onqueueSetNetworkReachability:reachable];
     });
 }
 
--(bool)isNetworkError:(NSError *)error {
-    if (error == nil)
+- (bool)isNetworkError:(NSError *)error {
+    return [CKKSReachabilityTracker isNetworkError:error];
+}
+
++ (bool)isNetworkError:(NSError *)error {
+    if (error == nil) {
         return false;
-    return ([error.domain isEqualToString:CKErrorDomain] &&
-            (error.code == CKErrorNetworkUnavailable
-             || error.code == CKErrorNetworkFailure));
+    }
+
+    if([CKKSReachabilityTracker isNetworkFailureError:error]) {
+        return true;
+    }
+
+    if ([error.domain isEqualToString:CKErrorDomain] &&
+            (error.code == CKErrorNetworkUnavailable)) {
+        return true;
+    }
+
+    if ([error.domain isEqualToString:NSURLErrorDomain] &&
+        error.code == NSURLErrorTimedOut) {
+        return true;
+    }
+
+    return false;
+}
+
++ (bool)isNetworkFailureError:(NSError *)error
+{
+    if (error == nil) {
+        return false;
+    }
+    if ([error.domain isEqualToString:CKErrorDomain] && error.code == CKErrorNetworkFailure) {
+        return true;
+    }
+
+    return false;
 }
 
 @end

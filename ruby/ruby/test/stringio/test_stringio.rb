@@ -14,6 +14,27 @@ class TestStringIO < Test::Unit::TestCase
 
   include TestEOF::Seek
 
+  def test_initialize
+    assert_kind_of StringIO, StringIO.new
+    assert_kind_of StringIO, StringIO.new('str')
+    assert_kind_of StringIO, StringIO.new('str', 'r+')
+    assert_raise(ArgumentError) { StringIO.new('', 'x') }
+    assert_raise(ArgumentError) { StringIO.new('', 'rx') }
+    assert_raise(ArgumentError) { StringIO.new('', 'rbt') }
+    assert_raise(TypeError) { StringIO.new(nil) }
+    assert_raise(TypeError) { StringIO.new('str', nil) }
+
+    o = Object.new
+    def o.to_str
+      nil
+    end
+    assert_raise(TypeError) { StringIO.new(o) }
+    def o.to_str
+      'str'
+    end
+    assert_kind_of StringIO, StringIO.new(o)
+  end
+
   def test_truncate
     io = StringIO.new("")
     io.puts "abc"
@@ -53,8 +74,45 @@ class TestStringIO < Test::Unit::TestCase
     assert_equal("abc\n", StringIO.new("abc\n\ndef\n").gets)
     assert_equal("abc\n\ndef\n", StringIO.new("abc\n\ndef\n").gets(nil))
     assert_equal("abc\n\n", StringIO.new("abc\n\ndef\n").gets(""))
+    stringio = StringIO.new("abc\n\ndef\n")
+    assert_equal("abc\n\n", stringio.gets(""))
+    assert_equal("def\n", stringio.gets(""))
     assert_raise(TypeError){StringIO.new("").gets(1, 1)}
     assert_nothing_raised {StringIO.new("").gets(nil, nil)}
+
+    assert_string("", Encoding::UTF_8, StringIO.new("foo").gets(0))
+  end
+
+  def test_gets_chomp
+    assert_equal(nil, StringIO.new("").gets(chomp: true))
+    assert_equal("", StringIO.new("\n").gets(chomp: true))
+    assert_equal("a", StringIO.new("a\n").gets(chomp: true))
+    assert_equal("a", StringIO.new("a\nb\n").gets(chomp: true))
+    assert_equal("a", StringIO.new("a").gets(chomp: true))
+    assert_equal("a", StringIO.new("a\nb").gets(chomp: true))
+    assert_equal("abc", StringIO.new("abc\n\ndef\n").gets(chomp: true))
+    assert_equal("abc\n\ndef", StringIO.new("abc\n\ndef\n").gets(nil, chomp: true))
+    assert_equal("abc\n", StringIO.new("abc\n\ndef\n").gets("", chomp: true))
+    stringio = StringIO.new("abc\n\ndef\n")
+    assert_equal("abc\n", stringio.gets("", chomp: true))
+    assert_equal("def", stringio.gets("", chomp: true))
+
+    assert_string("", Encoding::UTF_8, StringIO.new("\n").gets(chomp: true))
+  end
+
+  def test_gets_chomp_eol
+    assert_equal(nil, StringIO.new("").gets(chomp: true))
+    assert_equal("", StringIO.new("\r\n").gets(chomp: true))
+    assert_equal("a", StringIO.new("a\r\n").gets(chomp: true))
+    assert_equal("a", StringIO.new("a\r\nb\r\n").gets(chomp: true))
+    assert_equal("a", StringIO.new("a").gets(chomp: true))
+    assert_equal("a", StringIO.new("a\r\nb").gets(chomp: true))
+    assert_equal("abc", StringIO.new("abc\r\n\r\ndef\r\n").gets(chomp: true))
+    assert_equal("abc\r\n\r\ndef", StringIO.new("abc\r\n\r\ndef\r\n").gets(nil, chomp: true))
+    assert_equal("abc\r\n", StringIO.new("abc\r\n\r\ndef\r\n").gets("", chomp: true))
+    stringio = StringIO.new("abc\r\n\r\ndef\r\n")
+    assert_equal("abc\r\n", stringio.gets("", chomp: true))
+    assert_equal("def", stringio.gets("", chomp: true))
   end
 
   def test_readlines
@@ -137,6 +195,25 @@ class TestStringIO < Test::Unit::TestCase
     f = StringIO.new(s)
     f.print("\u{3053 3093 306b 3061 306f ff01}".b)
     assert_equal(Encoding::UTF_8, s.encoding, "honor the original encoding over ASCII-8BIT")
+  end
+
+  def test_write_integer_overflow
+    long_max = (1 << (RbConfig::SIZEOF["long"] * 8 - 1)) - 1
+    f = StringIO.new
+    f.pos = long_max
+    assert_raise(ArgumentError) {
+      f.write("pos + len overflows")
+    }
+  end
+
+  def test_write_with_multiple_arguments
+    s = ""
+    f = StringIO.new(s, "w")
+    f.write("foo", "bar")
+    f.close
+    assert_equal("foobar", s)
+  ensure
+    f.close unless f.closed?
   end
 
   def test_set_encoding
@@ -375,6 +452,10 @@ class TestStringIO < Test::Unit::TestCase
     t.ungetbyte("\u{30eb 30d3 30fc}")
     assert_equal(0, t.pos)
     assert_equal("\u{30eb 30d3 30fc}\u7d05\u7389bar\n", s)
+
+    assert_nothing_raised {t.ungetbyte(-1)}
+    assert_nothing_raised {t.ungetbyte(256)}
+    assert_nothing_raised {t.ungetbyte(1<<64)}
   end
 
   def test_ungetc
@@ -446,6 +527,17 @@ class TestStringIO < Test::Unit::TestCase
   def test_each
     f = StringIO.new("foo\nbar\nbaz\n")
     assert_equal(["foo\n", "bar\n", "baz\n"], f.each.to_a)
+    f.rewind
+    assert_equal(["foo", "bar", "baz"], f.each(chomp: true).to_a)
+    f = StringIO.new("foo\nbar\n\nbaz\n")
+    assert_equal(["foo\nbar\n\n", "baz\n"], f.each("").to_a)
+    f.rewind
+    assert_equal(["foo\nbar\n", "baz"], f.each("", chomp: true).to_a)
+
+    f = StringIO.new("foo\r\nbar\r\n\r\nbaz\r\n")
+    assert_equal(["foo\r\nbar\r\n\r\n", "baz\r\n"], f.each("").to_a)
+    f.rewind
+    assert_equal(["foo\r\nbar\r\n", "baz"], f.each("", chomp: true).to_a)
   end
 
   def test_putc
@@ -496,13 +588,20 @@ class TestStringIO < Test::Unit::TestCase
     assert_equal("\u3042\u3044", f.read(nil, nil), bug5207)
     f.rewind
     s = ""
-    f.read(nil, s)
+    assert_same(s, f.read(nil, s))
     assert_equal("\u3042\u3044", s, bug5207)
     f.rewind
     # not empty buffer
     s = "0123456789"
-    f.read(nil, s)
+    assert_same(s, f.read(nil, s))
     assert_equal("\u3042\u3044", s)
+
+    bug13806 = '[ruby-core:82349] [Bug #13806]'
+    assert_string("", Encoding::UTF_8, f.read, bug13806)
+    assert_string("", Encoding::UTF_8, f.read(nil, nil), bug13806)
+    s.force_encoding(Encoding::US_ASCII)
+    assert_same(s, f.read(nil, s))
+    assert_string("", Encoding::UTF_8, s, bug13806)
   end
 
   def test_readpartial
@@ -627,9 +726,10 @@ class TestStringIO < Test::Unit::TestCase
     s = StringIO.new
     s.freeze
     bug = '[ruby-core:33648]'
-    assert_raise(RuntimeError, bug) {s.puts("foo")}
-    assert_raise(RuntimeError, bug) {s.string = "foo"}
-    assert_raise(RuntimeError, bug) {s.reopen("")}
+    exception_class = defined?(FrozenError) ? FrozenError : RuntimeError
+    assert_raise(exception_class, bug) {s.puts("foo")}
+    assert_raise(exception_class, bug) {s.string = "foo"}
+    assert_raise(exception_class, bug) {s.reopen("")}
   end
 
   def test_frozen_string
@@ -656,5 +756,34 @@ class TestStringIO < Test::Unit::TestCase
 
     bug_11945 = '[ruby-core:72699] [Bug #11945]'
     assert_equal Encoding::ASCII_8BIT, s.external_encoding, bug_11945
+  end
+
+  def test_new_block_warning
+    assert_warn(/does not take block/) do
+      StringIO.new {}
+    end
+  end
+
+  def test_overflow
+    skip if RbConfig::SIZEOF["void*"] > RbConfig::SIZEOF["long"]
+    limit = (1 << (RbConfig::SIZEOF["void*"]*8-1)) - 0x10
+    assert_separately(%w[-rstringio], "#{<<-"begin;"}\n#{<<-"end;"}")
+    begin;
+      limit = #{limit}
+      ary = []
+      while true
+        x = "a"*0x100000
+        break if [x].pack("p").unpack("i!")[0] < 0
+        ary << x
+        skip if ary.size > 100
+      end
+      s = StringIO.new(x)
+      s.gets("xxx", limit)
+      assert_equal(0x100000, s.pos)
+    end;
+  end
+
+  def assert_string(content, encoding, str, mesg = nil)
+    assert_equal([content, encoding], [str, str.encoding], mesg)
   end
 end

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -101,14 +101,14 @@ int get_array_option(CFPropertyListRef options, CFStringRef entity, CFStringRef 
             if (isString(string)) {
                 opt[0] = 0;
                 CFStringGetCString(string, (char*)opt, optsiz, kCFStringEncodingMacRoman);
-                *outlen = strlen((char*)opt);
+                *outlen = (u_int32_t)strlen((char*)opt);
             }
             return (count > (index + 1));
         }
     }
     
     strlcpy((char*)opt, (char*)defaultval, optsiz);
-    *outlen = strlen((char*)opt);
+    *outlen = (u_int32_t)strlen((char*)opt);
     return 0;
 }
 
@@ -127,13 +127,13 @@ void get_str_option (CFPropertyListRef options, CFStringRef entity, CFStringRef 
         ref  = CFDictionaryGetValue(dict, property);
         if (isString(ref)) {
             CFStringGetCString(ref, (char*)opt, optsiz, kCFStringEncodingUTF8);
-            *outlen = strlen((char*)opt);
+            *outlen = (u_int32_t)strlen((char*)opt);
             return;
         }
     }
 
     strlcpy((char*)opt, (char*)defaultval, optsiz);
-    *outlen = strlen((char*)opt);
+    *outlen = (u_int32_t)strlen((char*)opt);
 }
 
 // ----------------------------------------------------------------------------
@@ -203,7 +203,7 @@ int GetStrFromDict (CFDictionaryRef dict, CFStringRef property, char *outstr, in
 		|| !CFStringGetCString(ref, outstr, maxlen, kCFStringEncodingUTF8))
 		strncpy(outstr, defaultval, maxlen);
 	
-	return strlen(outstr);
+	return (int)strlen(outstr);
 }
 
 // ----------------------------------------------------------------------------

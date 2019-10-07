@@ -182,11 +182,11 @@
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <TargetConditionals.h>
 #include <Availability.h>
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 #include <CoreFoundation/CFUserNotification.h>
 #include <CoreFoundation/CFUserNotificationPriv.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 
 #include "rfc_options.h"
 #include "dhcp_options.h"
@@ -215,7 +215,7 @@
 #include "IPConfigurationServiceInternal.h"
 #include "IPConfigurationControlPrefs.h"
 #include "CGA.h"
-#include "IPv6Socket.h"
+#include "ICMPv6Socket.h"
 #include "report_symptoms.h"
 #include "bootp_transmit.h"
 
@@ -272,10 +272,10 @@ struct ServiceInfo {
     CFStringRef			child_serviceID;
     dispatch_source_t		pid_source;
     void * 			private;
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     CFUserNotificationRef	user_notification;
     CFRunLoopSourceRef		user_rls;
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
     union {
 	ServiceIPv4		v4;
 	ServiceIPv6		v6;
@@ -577,10 +577,10 @@ static struct in_addr		S_netboot_server_ip;
 static char			S_netboot_ifname[IFNAMSIZ + 1];
 
 static boolean_t		S_awake = TRUE;
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 static boolean_t		S_use_maintenance_wake = TRUE;
 static boolean_t		S_wake_event_sent;
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 static uint32_t			S_wake_generation;
 static absolute_time_t		S_wake_time;
 
@@ -1595,9 +1595,9 @@ ServiceFree(void * arg)
     }
     config_method_stop(service_p);
     service_publish_clear(service_p);
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     ServiceRemoveAddressConflict(service_p);
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
     my_CFRelease(&service_p->serviceID);
     my_CFRelease(&service_p->parent_serviceID);
     my_CFRelease(&service_p->child_serviceID);
@@ -2156,7 +2156,6 @@ IFState_update_media_status(IFStateRef ifstate)
 	CFStringRef		ssid;
 
 	ssid = S_copy_ssid_bssid(ifstate, &bssid);
-
 	/* remember the ssid */
 	IFState_set_ssid_bssid(ifstate, ssid, &bssid);
 	my_CFRelease(&ssid);
@@ -2238,6 +2237,9 @@ IFState_set_ssid_bssid(IFStateRef ifstate, CFStringRef ssid,
 	CFRelease(ifstate->ssid);
     }
     ifstate->ssid = ssid;
+    if (ssid == NULL) {
+	bssid = NULL;
+    }
     IFState_set_bssid(ifstate, bssid);
     return;
 }
@@ -2415,11 +2417,11 @@ IFStateGetDisableUntilNeededRequested(IFStateRef ifstate)
 	if (dun_p->prefs_set) {
 	    requested = dun_p->prefs_requested;
 	}
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 	else {
 	    requested = if_is_tethered(ifstate->if_p);
 	}
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
     }
     return (requested);
 }
@@ -2442,9 +2444,9 @@ IFStateSetDisableUntilNeededRequested(IFStateRef ifstate,
     }
     else {
 	dun_p->prefs_set = FALSE;
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 	requested = if_is_tethered(ifstate->if_p);
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
     }
     if (requested != old_requested) {
 	/* disable until needed request changed */
@@ -2755,10 +2757,10 @@ service_publish_clear(ServiceRef service_p)
 			 kSCEntNetDNS, dns_dict, &entity_count);
 	set_entity_value(entities, values, N_PUBLISH_ENTITIES,
 			 kSCEntNetDHCP, NULL, &entity_count);
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 	set_entity_value(entities, values, N_PUBLISH_ENTITIES,
 			 kSCEntNetSMB, NULL, &entity_count);
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 	ServiceSetActiveDuringSleepNeedsAttention(service_p);
     }
     else {
@@ -3034,13 +3036,13 @@ ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p)
     IPv4ClasslessRouteRef	routes = NULL;
     int				routes_count = 0;
     CFStringRef			serviceID;
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     CFMutableDictionaryRef	smb_dict = NULL;
     const uint8_t *		smb_nodetype = NULL;
     int				smb_nodetype_len = 0;
     struct in_addr *		smb_server = NULL;
     int				smb_server_len = 0;
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
     CFDictionaryRef		values[N_PUBLISH_ENTITIES];
 
     if (service_p->serviceID == NULL) {
@@ -3190,7 +3192,7 @@ ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p)
     set_entity_value(entities, values, N_PUBLISH_ENTITIES,
 		     kSCEntNetDNS, dns_dict, &entity_count);
 
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     /* SMB */
     if (options != NULL) {
 	if (dhcp_parameter_is_ok(dhcptag_nb_over_tcpip_name_server_e)) {
@@ -3251,7 +3253,7 @@ ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p)
     }
     set_entity_value(entities, values, N_PUBLISH_ENTITIES,
 		     kSCEntNetSMB, smb_dict, &entity_count);
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
     
     /* DHCP */
     if (dhcp_info_p != NULL && dhcp_info_p->pkt_size != 0) {
@@ -3270,9 +3272,9 @@ ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p)
     my_CFRelease(&ipv4_dict);
     my_CFRelease(&dns_dict);
     my_CFRelease(&dhcp_dict);
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     my_CFRelease(&smb_dict);
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
     all_services_ready();
     ServiceSetActiveDuringSleepNeedsAttention(service_p);
     setDisableUntilNeededNeedsAttention();
@@ -4017,10 +4019,9 @@ service_set_address(ServiceRef service_p,
 	}
     }
     if (broadcast.s_addr == 0) {
-	broadcast = hltoip(iptohl(addr) | ~iptohl(mask));
+	broadcast.s_addr = addr.s_addr | ~mask.s_addr;
     }
-    netaddr = hltoip(iptohl(addr) & iptohl(mask));
-
+    netaddr.s_addr = addr.s_addr & mask.s_addr;
     my_log(LOG_NOTICE,
 	   "%s %s: setting " IP_FORMAT " netmask " IP_FORMAT 
 	   " broadcast " IP_FORMAT, 
@@ -7239,7 +7240,7 @@ power_notification_init()
     return (power_connection);
 }
 
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 #define POWER_INTEREST	(kIOPMEarlyWakeNotification	\
 			 | kIOPMCapabilityNetwork	\
 			 | kIOPMCapabilityCPU)
@@ -7323,7 +7324,7 @@ new_power_notification_init(void)
     return;
 }
 
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 
 static boolean_t
 start_initialization(SCDynamicStoreRef session)
@@ -7361,16 +7362,16 @@ start_initialization(SCDynamicStoreRef session)
     configure_from_cache(session);
 
     /* register for sleep/wake */
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     if (S_use_maintenance_wake) {
 	new_power_notification_init();
     }
     else {
 	S_power_connection = power_notification_init();
     }
-#else /* ! TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_OSX */
     S_power_connection = power_notification_init();
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
     return (TRUE);
 }
 
@@ -7567,8 +7568,10 @@ S_copy_ssid_bssid(IFStateRef ifstate, struct ether_addr * ap_mac)
 	goto done;
     }
     ssid = CFDataCreateMutable(kCFAllocatorDefault, 0);
-    if (Apple80211Get((Apple80211Ref)wref, APPLE80211_IOC_SSID, 0, 
-		      ssid, 0) == kA11NoErr) {
+    if ((Apple80211Get(wref, APPLE80211_IOC_SSID, 0, ssid, 0) == kA11NoErr)
+	&& (Apple80211Get(wref, APPLE80211_IOC_BSSID, 0,
+			  ap_mac, sizeof(*ap_mac)) == kA11NoErr)) {
+	/* we have both the SSID and BSSID */
 	ssid_str = CFStringCreateWithBytes(NULL,
 					   CFDataGetBytePtr(ssid),
 					   CFDataGetLength(ssid),
@@ -7583,8 +7586,6 @@ S_copy_ssid_bssid(IFStateRef ifstate, struct ether_addr * ap_mac)
 	}
     }
     CFRelease(ssid);
-    (void)Apple80211Get((Apple80211Ref)wref, APPLE80211_IOC_BSSID, 0, 
-			ap_mac, sizeof(*ap_mac));
 
  done:
     if (wref != NULL) {
@@ -7606,7 +7607,7 @@ S_copy_ssid_bssid(IFStateRef ifstate, struct ether_addr * ap_mac)
 #else /* NO_WIRELESS */
 
 static CFStringRef
-S_copy_ssid_bssid(CFStringRef ifname, struct ether_addr * ap_mac)
+S_copy_ssid_bssid(IFStateRef ifstate, struct ether_addr * ap_mac)
 {
     return (NULL);
 }
@@ -8023,7 +8024,7 @@ handle_change(SCDynamicStoreRef session, CFArrayRef changes, void * arg)
     return;
 }
 
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 
 static void
 user_confirm(CFUserNotificationRef userNotification, 
@@ -8203,7 +8204,7 @@ ServiceReportIPv6AddressConflict(ServiceRef service_p,
     return;
 }
 
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 
 PRIVATE_EXTERN CFStringRef
 ServiceCopyWakeID(ServiceRef service_p)
@@ -8580,12 +8581,12 @@ S_set_globals(void)
 	= S_get_plist_int(plist,
 			  CFSTR("WakeSkewSeconds"),
 			  WAKE_SKEW_SECS);
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
     S_use_maintenance_wake
 	= S_get_plist_boolean(plist,
 			      CFSTR("UseMaintenanceWake"),
 			      TRUE);
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
     S_configure_ipv6 = S_get_plist_boolean(plist,
 					   CFSTR("ConfigureIPv6"),
 					   TRUE);

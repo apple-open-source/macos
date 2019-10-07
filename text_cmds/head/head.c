@@ -148,6 +148,8 @@ head(FILE *fp, int cnt)
 			err(1, "stdout");
 		cnt--;
 	}
+
+	fflush(fp);
 }
 
 static void

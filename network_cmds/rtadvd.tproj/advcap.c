@@ -187,9 +187,9 @@ getent(bp, name, cp)
 				}
 				break;
 			}
-			if (cp >= bp + BUFSIZ) {
+			if (cp >= bp + BUFSIZ - 1) {
 				write(STDERR_FILENO, "Remcap entry too long\n",
-				      23);
+				      22);
 				break;
 			} else
 				*cp++ = c;

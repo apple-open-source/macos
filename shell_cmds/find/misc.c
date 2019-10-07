@@ -101,9 +101,6 @@ queryuser(char *argv[])
 		(void)fprintf(stderr, "\n");
 		(void)fflush(stderr);
 	}
-#ifdef __APPLE__
-        return (resp[0] == 'y');
-#else
-        return (rpmatch(resp) == 1);
-#endif
+
+	return (rpmatch(resp) == 1);
 }

@@ -2,7 +2,7 @@
 //  TestIOReportingHIDDevice.m
 //  IOHIDFamilyUnitTests
 //
-//  Created by AB on 1/11/19.
+//  Created by AB on 4/22/19.
 //
 
 #import <XCTest/XCTest.h>
@@ -58,7 +58,7 @@ static void _initIOReporting(void)
 
 static IOReturn __setReportCallback(void * _Nullable refcon, IOHIDReportType __unused type, uint32_t __unused reportID, uint8_t * report __unused, CFIndex reportLength) {
     
-    if (reportLength < sizeof(uint32_t) + 1) {
+    if ((unsigned long)reportLength < sizeof(uint32_t) + 1) {
         return kIOReturnError;
     }
     
@@ -108,12 +108,12 @@ static IOReturn __setReportCallback(void * _Nullable refcon, IOHIDReportType __u
     
     _userDevice = IOHIDUserDeviceCreate(kCFAllocatorDefault, (CFDictionaryRef)deviceConfig);
     
-    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, _userDevice != NULL);
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, _userDevice != NULL);
     
     IOHIDUserDeviceRegisterSetReportCallback(_userDevice, __setReportCallback, (__bridge void*)self);
     
     _queue = dispatch_queue_create("com.apple.user-device-test", NULL);
-    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, _queue != NULL);
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, _queue != NULL);
     
     IOHIDUserDeviceScheduleWithDispatchQueue (_userDevice, _queue);
     
@@ -138,13 +138,13 @@ static IOReturn __setReportCallback(void * _Nullable refcon, IOHIDReportType __u
     
     _initIOReporting();
     
-    [_memoryChecker assertObjectsOfTypes:@[@"HIDDisplayIOReportingInterface",@"IOHIDDevice",@"HIDElement",@"IOHIDTransaction", @"IOHIDManager",@"CFDataRef"] invalidAfterScope:^{
+    [_memoryChecker assertObjectsOfTypes:@[@"HIDDisplayIOReportingInterface",@"CFDataRef"] invalidAfterScope:^{
         
         @autoreleasepool {
             
             _hidDisplayInterface = HIDDisplayCreateIOReportingInterfaceWithContainerID((__bridge CFStringRef)_containerID);
             
-            HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, _hidDisplayInterface != NULL);
+            HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, _hidDisplayInterface != NULL);
             
             uint32_t testCommand = 1;
             NSData *outputData = [[NSData alloc] initWithBytes:&testCommand length:sizeof(uint32_t)];
@@ -154,7 +154,7 @@ static IOReturn __setReportCallback(void * _Nullable refcon, IOHIDReportType __u
             HIDDisplayIOReportingSetInputDataHandler(_hidDisplayInterface, ^(CFDataRef  _Nonnull inputData) {
                 
                 NSString *dataString = [NSString stringWithUTF8String:((__bridge NSData*)inputData).bytes];
-               
+                
                 NSLog(@"%@",dataString);
                 
                 if ([[NSString stringWithFormat:@"%s",testData1] isEqualToString:dataString]) {
@@ -163,7 +163,7 @@ static IOReturn __setReportCallback(void * _Nullable refcon, IOHIDReportType __u
                     NSLog(@"No Match");
                 }
                 
-               [_testGetReportExpectation fulfill];
+                [_testGetReportExpectation fulfill];
                 
             });
             
@@ -179,13 +179,13 @@ static IOReturn __setReportCallback(void * _Nullable refcon, IOHIDReportType __u
             HIDDisplayIOReportingSetOutputData(_hidDisplayInterface, (__bridge CFDataRef)outputData, NULL);
             
             XCTWaiterResult result = [XCTWaiter waitForExpectations:@[_testSetReportExpectation, _testGetReportExpectation, _testReportMatchExpectation] timeout:10];
-            HIDXCTAssertWithParameters (RETURN_FROM_TEST,
+            HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_HIDUTIL | COLLECT_IOREG,
                                         result == XCTWaiterResultCompleted,
                                         "result:%ld %@ %@ %@",
                                         (long)result,
                                         _testSetReportExpectation,_testGetReportExpectation, _testReportMatchExpectation);
-
-
+            
+            
             HIDDisplayIOReportingCancel(_hidDisplayInterface);
             
             result = [XCTWaiter waitForExpectations:@[_cancelHandlerExpectation] timeout:10];
@@ -196,11 +196,10 @@ static IOReturn __setReportCallback(void * _Nullable refcon, IOHIDReportType __u
             }
             
             
-            
         }
     }];
     
-
+    
     
 }
 

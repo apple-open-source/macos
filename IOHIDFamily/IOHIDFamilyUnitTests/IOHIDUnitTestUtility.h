@@ -25,7 +25,7 @@
 #define OS_TYPE_MAC(x)       D ## x
 #define OS_TYPE_EMBEDDED(x)  D ## x
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 #undef OS_TYPE_EMBEDDED
 #define OS_TYPE_EMBEDDED(x) x
 #else
@@ -93,31 +93,38 @@ void IOHIDUnitTestRunPosixCommand(char *const argv[], NSString *stdoutFile);
 void IOHIDUnitTestCollectLogs (uint32_t logTypes, char * fileName, int line);
 
 
-#define  COLLECT_HIDUTIL 	0x1
-#define  COLLECT_SPINDUMP 	0x2
+#define  COLLECT_HIDUTIL     0x1
+#define  COLLECT_SPINDUMP     0x2
 #define  COLLECT_LOGARCHIVE 0x4
-#define  COLLECT_IOREG 		0x8
-#define  COLLECT_TAILSPIN 	0x10
-#define  RETURN_FROM_TEST 	0x80000000
+#define  COLLECT_IOREG         0x8
+#define  COLLECT_TAILSPIN     0x10
+#define  RETURN_FROM_TEST     0x80000000
 
-#define  COLLECT_ALL 		0x7FFFFFFF
+#define  COLLECT_ALL         0x7FFFFFFF
 
 
 #define __SHORT_FORM_OF_FILE__ \
     (strrchr(__FILE__,'/') ? strrchr(__FILE__,'/')+1 : __FILE__)
 
 #define HIDXCTAssertWithLogs(expression, ...) \
-	HIDXCTAssertWithParameters (COLLECT_ALL, COLLECT_ALL, __VA_ARGS__)
+    HIDXCTAssertWithParameters (COLLECT_ALL, COLLECT_ALL, __VA_ARGS__)
+
+#define HIDXCTAssertWithParametersReturnValue
 
 #define HIDXCTAssertWithParameters(params, expression, ...) \
+    HIDXCTAssertWithParametersAndReturn(params, expression, HIDXCTAssertWithParametersReturnValue, __VA_ARGS__)
+
+#define HIDXCTAssertWithParametersAndReturn(params, expression, ret, ...) \
 do { \
     _XCTPrimitiveAssertTrue(self, expression, @#expression, __VA_ARGS__); \
     BOOL expressionValue = !!(expression); \
     if (!expressionValue) { \
         IOHIDUnitTestCollectLogs ((params), __SHORT_FORM_OF_FILE__, __LINE__); \
-        if ((params) & RETURN_FROM_TEST) return; \
+        if ((params) & RETURN_FROM_TEST) return ret; \
     } \
 } while (0);
+
+
 
 #undef check_compile_time
 #if( !defined( check_compile_time ) )

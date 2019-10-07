@@ -25,15 +25,20 @@
 #ifndef _IOKIT_IOHIDEVENTDATA_H
 #define _IOKIT_IOHIDEVENTDATA_H
 
+#if TARGET_OS_DRIVERKIT
+#include <DriverKit/IOTypes.h>
+#include <HIDDriverKit/IOHIDEventTypes.h>
+#else
 #include <IOKit/IOTypes.h>
 #include <IOKit/hid/IOHIDEventTypes.h>
+#endif
 
 #ifdef KERNEL
 #include <IOKit/IOLib.h>
 
 #define IOHIDEventRef IOHIDEvent *
 #else
-#include <IOKit/hid/IOHIDEvent.h>
+//#include <IOKit/hid/IOHIDEvent.h>
 typedef struct IOHIDEventData IOHIDEventData;
 #endif
 
@@ -87,7 +92,11 @@ struct IOHIDEventData {
 };
 //@todo review 
 
+#if TARGET_OS_DRIVERKIT
+#include <HIDDriverKit/IOHIDEventStructDefs.h>
+#else
 #include <IOKit/hid/IOHIDEventStructDefs.h>
+#endif
 
 enum {
     kIOHIDEventOptionIgnore         = 0xf0000000,
@@ -236,6 +245,10 @@ typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
     }                                                                                                                        \
     _IOHIDUnknowDefaultField(event, field)
 
+#if TARGET_OS_DRIVERKIT
+#include <HIDDriverKit/IOHIDEventMacroDefs.h>
+#else
 #include <IOKit/hid/IOHIDEventMacroDefs.h>
+#endif
 
 #endif /* _IOKIT_HID_IOHIDEVENTDATA_H */

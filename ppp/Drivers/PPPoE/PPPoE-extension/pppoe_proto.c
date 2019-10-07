@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -54,10 +54,10 @@ Definitions
 Declarations
 ----------------------------------------------------------------------------- */
 
-void pppoe_init();
+void pppoe_init(void);
 int pppoe_ctloutput(struct socket *so, struct sockopt *sopt);
-int pppoe_usrreq();
-void pppoe_slowtimo();
+int pppoe_usrreq(void);
+void pppoe_slowtimo(void);
 
 int pppoe_attach(struct socket *, int, struct proc *);
 int pppoe_detach(struct socket *);

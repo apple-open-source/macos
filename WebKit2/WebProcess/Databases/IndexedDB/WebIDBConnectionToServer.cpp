@@ -64,17 +64,14 @@ WebIDBConnectionToServer::WebIDBConnectionToServer(PAL::SessionID sessionID)
 
     m_isOpenInServer = sendSync(Messages::NetworkConnectionToWebProcess::EstablishIDBConnectionToServer(sessionID), Messages::NetworkConnectionToWebProcess::EstablishIDBConnectionToServer::Reply(m_identifier));
 
-    // FIXME: This creates a reference cycle, so neither this object nor the IDBConnectionToServer will ever be deallocated.
     m_connectionToServer = IDBClient::IDBConnectionToServer::create(*this);
 }
 
 WebIDBConnectionToServer::~WebIDBConnectionToServer()
 {
-    if (m_isOpenInServer)
-        send(Messages::NetworkConnectionToWebProcess::RemoveIDBConnectionToServer(m_identifier));
 }
 
-IPC::Connection* WebIDBConnectionToServer::messageSenderConnection()
+IPC::Connection* WebIDBConnectionToServer::messageSenderConnection() const
 {
     return &WebProcess::singleton().ensureNetworkProcessConnection().connection();
 }
@@ -146,7 +143,7 @@ void WebIDBConnectionToServer::renameIndex(const IDBRequestData& requestData, ui
 
 void WebIDBConnectionToServer::putOrAdd(const IDBRequestData& requestData, const IDBKeyData& keyData, const IDBValue& value, const IndexedDB::ObjectStoreOverwriteMode mode)
 {
-    send(Messages::WebIDBConnectionToClient::PutOrAdd(requestData, keyData, value, static_cast<unsigned>(mode)));
+    send(Messages::WebIDBConnectionToClient::PutOrAdd(requestData, keyData, value, mode));
 }
 
 void WebIDBConnectionToServer::getRecord(const IDBRequestData& requestData, const IDBGetRecordData& getRecordData)

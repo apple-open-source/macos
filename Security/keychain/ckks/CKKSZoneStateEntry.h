@@ -33,6 +33,8 @@
 #import <CloudKit/CloudKit.h>
 #import "keychain/ckks/CKKSFixups.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 /*
  * This class hold the state for a particular zone: has the zone been created, have we subscribed to it,
  * what's the current change token, etc.
@@ -51,14 +53,14 @@
 @property NSString* ckzone;
 @property bool ckzonecreated;
 @property bool ckzonesubscribed;
-@property (getter=getChangeToken, setter=setChangeToken:) CKServerChangeToken* changeToken;
-@property NSData* encodedChangeToken;
-@property NSDate* lastFetchTime;
+@property (nullable, getter=getChangeToken, setter=setChangeToken:) CKServerChangeToken* changeToken;
+@property (nullable) NSData* encodedChangeToken;
+@property (nullable) NSDate* lastFetchTime;
 
 @property CKKSFixup lastFixup;
 
-@property CKKSRateLimiter* rateLimiter;
-@property NSData* encodedRateLimiter;
+@property (nullable) CKKSRateLimiter* rateLimiter;
+@property (nullable) NSData* encodedRateLimiter;
 
 + (instancetype)state:(NSString*)ckzone;
 
@@ -68,16 +70,17 @@
 - (instancetype)initWithCKZone:(NSString*)ckzone
                    zoneCreated:(bool)ckzonecreated
                 zoneSubscribed:(bool)ckzonesubscribed
-                   changeToken:(NSData*)changetoken
-                     lastFetch:(NSDate*)lastFetch
+                   changeToken:(NSData* _Nullable)changetoken
+                     lastFetch:(NSDate* _Nullable)lastFetch
                      lastFixup:(CKKSFixup)lastFixup
-            encodedRateLimiter:(NSData*)encodedRateLimiter;
+            encodedRateLimiter:(NSData* _Nullable)encodedRateLimiter;
 
 - (CKServerChangeToken*)getChangeToken;
-- (void)setChangeToken:(CKServerChangeToken*)token;
+- (void)setChangeToken:(CKServerChangeToken* _Nullable)token;
 
 - (BOOL)isEqual:(id)object;
 @end
 
+NS_ASSUME_NONNULL_END
 #endif
 #endif /* CKKSZoneStateEntry_h */

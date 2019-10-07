@@ -125,7 +125,7 @@ check_loop_level ()
 {
 #if defined (BREAK_COMPLAINS)
   if (loop_level == 0 && posixly_correct == 0)
-    builtin_error (_("only meaningful in a `for', `while', or `until' loop"));
+    builtin_error ("%s", _("only meaningful in a `for', `while', or `until' loop"));
 #endif /* BREAK_COMPLAINS */
 
   return (loop_level);

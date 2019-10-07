@@ -14,6 +14,7 @@
 #include "debugging.h"
 #include "engine.h"
 #include "connection.h"
+#include "AuthorizationTags.h"
 
 #include <bsm/libbsm.h>
 #include <Security/Authorization.h>
@@ -647,6 +648,18 @@ authorization_copy_info(connection_t conn, xpc_object_t message, xpc_object_t re
 #if DEBUG
     os_log_debug(AUTHD_LOG, "server: Dumping requested AuthRef items: %{public}@", items);
 #endif
+
+    if (auth_items_exist(local_items, kAuthorizationEnvironmentPassword)) {
+        // check if caller is entitled to get the password
+        CFTypeRef extract_password_entitlement = process_copy_entitlement_value(proc, "com.apple.authorization.extract-password");
+        if (extract_password_entitlement && (CFGetTypeID(extract_password_entitlement) == CFBooleanGetTypeID()) && extract_password_entitlement == kCFBooleanTrue) {
+            os_log_debug(AUTHD_LOG, "server: caller allowed to extract password");
+        } else {
+            os_log_error(AUTHD_LOG, "server: caller NOT allowed to extract password");
+            auth_items_remove(local_items, kAuthorizationEnvironmentPassword);
+        }
+        CFReleaseSafe(extract_password_entitlement);
+    }
 
     //reply
     xpc_object_t outItems = auth_items_export_xpc(local_items);

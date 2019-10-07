@@ -21,8 +21,20 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import <OCMock/OCMock.h>
 #import <XCTest/XCTest.h>
+
+// securityuploadd does not do anything or build meaningful code on simulator, so no tests either.
+#if TARGET_OS_SIMULATOR
+
+@interface SupdTests : XCTestCase
+@end
+
+@implementation SupdTests
+@end
+
+#else
+
+#import <OCMock/OCMock.h>
 #import "supd.h"
 #import <Security/SFAnalytics.h>
 #import "SFAnalyticsDefines.h"
@@ -44,7 +56,7 @@ static NSInteger _reporterWrites;
 
 + (NSString*)databasePath
 {
-    return [_path stringByAppendingFormat:@"/ckks_%ld.db", _testnum];
+    return [_path stringByAppendingFormat:@"/ckks_%ld.db", (long)_testnum];
 }
 
 @end
@@ -60,7 +72,7 @@ static NSInteger _reporterWrites;
 
 + (NSString*)databasePath
 {
-    return [_path stringByAppendingFormat:@"/sos_%ld.db", _testnum];
+    return [_path stringByAppendingFormat:@"/sos_%ld.db", (long)_testnum];
 }
 
 @end
@@ -76,7 +88,7 @@ static NSInteger _reporterWrites;
 
 + (NSString*)databasePath
 {
-    return [_path stringByAppendingFormat:@"/pcs_%ld.db", _testnum];
+    return [_path stringByAppendingFormat:@"/pcs_%ld.db", (long)_testnum];
 }
 
 @end
@@ -91,7 +103,7 @@ static NSInteger _reporterWrites;
 
 + (NSString*)databasePath
 {
-    return [_path stringByAppendingFormat:@"/tls_%ld.db", _testnum];
+    return [_path stringByAppendingFormat:@"/tls_%ld.db", (long)_testnum];
 }
 
 @end
@@ -123,7 +135,7 @@ static NSInteger _reporterWrites;
 
 - (SFAnalyticsTopic *)TrustTopic {
     for (SFAnalyticsTopic *topic in _supd.analyticsTopics) {
-        if ([topic.internalTopicName isEqualToString:SFAnaltyicsTopicTrust]) {
+        if ([topic.internalTopicName isEqualToString:SFAnalyticsTopicTrust]) {
             return topic;
         }
     }
@@ -153,13 +165,13 @@ static NSInteger _reporterWrites;
     for (NSDictionary* event in data[@"events"]) {
         if ([event isKindOfClass:[NSDictionary class]]) {
             NSLog(@"build: \"%@\", eventbuild: \"%@\"", build, event[@"build"]);
-            XCTAssertTrue([event[@"build"] isEqual:build], @"event contains correct build string");
-            XCTAssertTrue([event[@"product"] isEqual:product], @"event contains correct product string");
+            XCTAssertEqualObjects(event[@"build"], build, @"event contains correct build string");
+            XCTAssertEqualObjects(event[@"product"], product, @"event contains correct product string");
             XCTAssertTrue([event[@"eventTime"] isKindOfClass:[NSNumber class]], @"event contains an NSNumber 'eventTime");
             NSDate* eventTime = [NSDate dateWithTimeIntervalSince1970:[event[@"eventTime"] doubleValue]];
             XCTAssertTrue([[NSDate date] timeIntervalSinceDate:eventTime] < 3, @"eventTime is sane");
             XCTAssertTrue([event[@"eventType"] isKindOfClass:[NSString class]], @"all events have a type");
-            XCTAssertTrue([event[@"topic"] isEqual:topic], @"all events have a topic name");
+            XCTAssertEqualObjects(event[@"topic"], topic, @"all events have a topic name");
         } else {
             XCTFail(@"event %@ is an NSDictionary", event);
         }
@@ -327,19 +339,23 @@ static NSInteger _reporterWrites;
     ++_testnum;
 
     id mockTopic = OCMStrictClassMock([SFAnalyticsTopic class]);
-    NSString *ckksPath = [_path stringByAppendingFormat:@"/ckks_%ld.db", _testnum];
-    NSString *sosPath = [_path stringByAppendingFormat:@"/sos_%ld.db", _testnum];
-    NSString *pcsPath = [_path stringByAppendingFormat:@"/pcs_%ld.db", _testnum];
-    NSString *tlsPath = [_path stringByAppendingFormat:@"/tls_%ld.db", _testnum];
+    NSString *ckksPath = [_path stringByAppendingFormat:@"/ckks_%ld.db", (long)_testnum];
+    NSString *sosPath = [_path stringByAppendingFormat:@"/sos_%ld.db", (long)_testnum];
+    NSString *pcsPath = [_path stringByAppendingFormat:@"/pcs_%ld.db", (long)_testnum];
+    NSString *tlsPath = [_path stringByAppendingFormat:@"/tls_%ld.db", (long)_testnum];
+    NSString *signInPath = [_path stringByAppendingFormat:@"/signin_%ld.db", (long)_testnum];
+    NSString *cloudServicesPath = [_path stringByAppendingFormat:@"/cloudServices_%ld.db", (long)_testnum];
     OCMStub([mockTopic databasePathForCKKS]).andReturn(ckksPath);
     OCMStub([mockTopic databasePathForSOS]).andReturn(sosPath);
     OCMStub([mockTopic databasePathForPCS]).andReturn(pcsPath);
     OCMStub([mockTopic databasePathForTLS]).andReturn(tlsPath);
+    OCMStub([mockTopic databasePathForSignIn]).andReturn(signInPath);
+    OCMStub([mockTopic databasePathForCloudServices]).andReturn(cloudServicesPath);
 
     // These are not used for testing, but real data can pollute tests so point to empty DBs
-    NSString *localpath = [_path stringByAppendingFormat:@"/local_empty_%ld.db", _testnum];
-    NSString *trustPath = [_path stringByAppendingFormat:@"/trust_empty_%ld.db", _testnum];
-    NSString *trustdhealthPath = [_path stringByAppendingFormat:@"/trustdhealth_empty_%ld.db", _testnum];
+    NSString *localpath = [_path stringByAppendingFormat:@"/local_empty_%ld.db", (long)_testnum];
+    NSString *trustPath = [_path stringByAppendingFormat:@"/trust_empty_%ld.db", (long)_testnum];
+    NSString *trustdhealthPath = [_path stringByAppendingFormat:@"/trustdhealth_empty_%ld.db", (long)_testnum];
     OCMStub([mockTopic databasePathForLocal]).andReturn(localpath);
     OCMStub([mockTopic databasePathForTrust]).andReturn(trustPath);
     OCMStub([mockTopic databasePathForTrustdHealth]).andReturn(trustdhealthPath);
@@ -356,12 +372,6 @@ static NSInteger _reporterWrites;
     _sosAnalytics = [FakeSOSAnalytics new];
     _pcsAnalytics = [FakePCSAnalytics new];
     _tlsAnalytics = [FakeTLSAnalytics new];
-
-    // These are only useful for debugging
-//    NSLog(@"ckks sqlite3 %@", [FakeCKKSAnalytics databasePath]);
-//    NSLog(@"sos  sqlite3 %@", [FakeSOSAnalytics databasePath]);
-//    NSLog(@"pcs  sqlite3 %@", [FakePCSAnalytics databasePath]);
-//    NSLog(@"tls  sqlite3 %@", [FakeTLSAnalytics databasePath]);
 
     // Forcibly override analytics flags and enable them by default
     deviceAnalyticsOverride = YES;
@@ -475,7 +485,7 @@ static NSInteger _reporterWrites;
     [_tlsAnalytics logHardFailureForEventNamed:@"tlsunittestevent" withAttributes:tlsAttrs];
     [_tlsAnalytics logSoftFailureForEventNamed:@"tlsunittestevent" withAttributes:tlsAttrs];
 
-    NSDictionary* data = [self getJSONDataFromSupdWithTopic:SFAnaltyicsTopicTrust];
+    NSDictionary* data = [self getJSONDataFromSupdWithTopic:SFAnalyticsTopicTrust];
     [self inspectDataBlobStructure:data forTopic:[[self TrustTopic] splunkTopicName]];
 
     if (analyticsEnabled) {
@@ -736,6 +746,22 @@ static NSInteger _reporterWrites;
     [self sampleStatisticsInEvents:data[@"events"] name:sampleName values:@[@313.37] amount:2];
 }
 
+- (void)testInvalidJSON
+{
+    NSData* bad = [@"let's break supd!" dataUsingEncoding:NSUTF8StringEncoding];
+    [_ckksAnalytics logHardFailureForEventNamed:@"testEvent" withAttributes:@{ @"dataAttribute" : bad}];
+
+    NSDictionary* data = [self getJSONDataFromSupd];
+    XCTAssertNotNil(data);
+    XCTAssertNotNil(data[@"events"]);
+    NSUInteger foundErrorEvents = 0;
+    for (NSDictionary* event in data[@"events"]) {
+        if ([event[SFAnalyticsEventType] isEqualToString:SFAnalyticsEventTypeErrorEvent] && [event[SFAnalyticsEventErrorDestription] isEqualToString:@"JSON:testEvent"]) {
+            ++foundErrorEvents;
+        }
+    }
+    XCTAssertEqual(foundErrorEvents, 1);
+}
 
 
 // TODO
@@ -757,3 +783,5 @@ static NSInteger _reporterWrites;
 }
 
 @end
+
+#endif  // !TARGET_OS_SIMULATOR

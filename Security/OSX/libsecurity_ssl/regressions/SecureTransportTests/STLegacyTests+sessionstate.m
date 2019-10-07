@@ -39,6 +39,9 @@
 
 #import "STLegacyTests.h"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 @implementation STLegacyTests (sessionstate)
 
 #define test_printf(x...)
@@ -84,7 +87,7 @@ int tls_buffer_free(tls_buffer *buf)
 #pragma mark -
 #pragma mark SecureTransport support
 
-#if 0
+#if SECTRANS_VERBOSE_DEBUG
 static void hexdump(const char *s, const uint8_t *bytes, size_t len) {
 	size_t ix;
     printf("socket %s(%p, %lu)\n", s, bytes, len);
@@ -120,7 +123,7 @@ static OSStatus SocketRead(SSLConnectionRef h, void *data, size_t *length)
 
     struct RecQueueItem *item = STAILQ_FIRST(&handle->rec_queue);
 
-    if(item==NULL) {
+    if(item == NULL) {
         test_printf("%s: %p no data available\n", __FUNCTION__, h);
         return errSSLWouldBlock;
     }
@@ -129,7 +132,7 @@ static OSStatus SocketRead(SSLConnectionRef h, void *data, size_t *length)
 
     test_printf("%s: %p %zd bytes available in %p\n", __FUNCTION__, h, avail, item);
 
-    if(avail > *length) {
+    if (avail > *length) {
         memcpy(data, item->record.data+item->offset, *length);
         item->offset += *length;
     } else {
@@ -304,46 +307,6 @@ int mySSLRecordSetProtocolVersionFunc(tls_handshake_ctx_t ref,
 }
 
 
-static int
-tls_handshake_save_session_data_callback(tls_handshake_ctx_t ctx, tls_buffer sessionKey, tls_buffer sessionData)
-{
-    ssl_test_handle __unused *handle = (ssl_test_handle *)ctx;
-
-    test_printf("%s: %p\n", __FUNCTION__, handle);
-
-    return -1;
-}
-
-static int
-tls_handshake_load_session_data_callback(tls_handshake_ctx_t ctx, tls_buffer sessionKey, tls_buffer *sessionData)
-{
-    ssl_test_handle __unused *handle = (ssl_test_handle *)ctx;
-
-    test_printf("%s: %p\n", __FUNCTION__, handle);
-
-    return -1;
-}
-
-static int
-tls_handshake_delete_session_data_callback(tls_handshake_ctx_t ctx, tls_buffer sessionKey)
-{
-    ssl_test_handle __unused *handle = (ssl_test_handle *)ctx;
-
-    test_printf("%s: %p\n", __FUNCTION__, handle);
-
-    return -1;
-}
-
-static int
-tls_handshake_delete_all_sessions_callback(tls_handshake_ctx_t ctx)
-{
-    ssl_test_handle __unused *handle = (ssl_test_handle *)ctx;
-
-    test_printf("%s: %p\n", __FUNCTION__, handle);
-
-    return -1;
-}
-
 /* TLS callbacks */
 tls_handshake_callbacks_t myTLS_handshake_callbacks = {
     .write = tls_handshake_write_callback,
@@ -355,17 +318,13 @@ tls_handshake_callbacks_t myTLS_handshake_callbacks = {
     .rollback_write_cipher = mySSLRecordRollbackWriteCipherFunc,
     .advance_read_cipher = mySSLRecordAdvanceReadCipherFunc,
     .set_protocol_version = mySSLRecordSetProtocolVersionFunc,
-    .load_session_data = tls_handshake_load_session_data_callback,
-    .save_session_data = tls_handshake_save_session_data_callback,
-    .delete_session_data = tls_handshake_delete_session_data_callback,
-    .delete_all_sessions = tls_handshake_delete_all_sessions_callback,
 };
 
 
 static void
 ssl_test_handle_destroy(ssl_test_handle *handle)
 {
-    if(handle) {
+    if (handle) {
         if(handle->parser) tls_stream_parser_destroy(handle->parser);
         if(handle->record) tls_record_destroy(handle->record);
         if(handle->hdsk) tls_handshake_destroy(handle->hdsk);
@@ -435,6 +394,7 @@ out:
 
     ssl_test_handle *client;
     SSLSessionState state;
+    Boolean option;
 
     client = ssl_test_handle_create(false);
 
@@ -443,6 +403,9 @@ out:
     ortn = SSLGetSessionState(client->st, &state);
     require_noerr(ortn, out);
     XCTAssertEqual(state, kSSLIdle, "State should be Idle");
+    ortn = SSLGetSessionOption(client->st, kSSLSessionOptionBreakOnServerAuth, &option);
+    require_noerr(ortn, out);
+    XCTAssertEqual(option, true, "Session should break on Server auth");
 
     do {
         ortn = SSLHandshake(client->st);
@@ -450,13 +413,12 @@ out:
 
         require_noerr(SSLGetSessionState(client->st, &state), out);
 
-        if (ortn == errSSLPeerAuthCompleted || ortn == errSSLWouldBlock)
-        {
-            require_action(state==kSSLHandshake, out, ortn = -1);
+        if (ortn == errSSLPeerAuthCompleted || ortn == errSSLWouldBlock) {
+            require_action(state == kSSLHandshake, out, ortn = -1);
         }
 
-    } while(ortn==errSSLWouldBlock ||
-            ortn==errSSLPeerAuthCompleted);
+    } while(ortn == errSSLWouldBlock ||
+            ortn == errSSLPeerAuthCompleted);
 
 
     XCTAssertEqual(ortn, 0, "Unexpected SSLHandshake exit code");
@@ -464,20 +426,20 @@ out:
 
     uint8_t buffer[128];
     size_t available = 0;
+    size_t avail = 0;
 
     test_printf("Initial handshake done\n");
 
     do {
+        XCTAssertEqual(errSecSuccess, SSLGetBufferedReadSize(client->st, &avail));
         ortn = SSLRead(client->st, buffer, sizeof(buffer), &available);
         test_printf("SSLRead returned err=%d, avail=%zd\n", (int)ortn, available);
         require_noerr(SSLGetSessionState(client->st, &state), out);
 
-        if (ortn == errSSLPeerAuthCompleted)
-        {
-            require_action(state==kSSLHandshake, out, ortn = -1);
+        if (ortn == errSSLPeerAuthCompleted) {
+            require_action(state == kSSLHandshake, out, ortn = -1);
         }
-
-    } while(available==0);
+    } while (available == 0);
 
     XCTAssertEqual(ortn, 0, "Unexpected SSLRead exit code");
     XCTAssertEqual(state, kSSLConnected, "State should be Connected");
@@ -490,3 +452,5 @@ out:
 }
 
 @end
+
+#pragma clang diagnostic pop

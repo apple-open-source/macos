@@ -10,6 +10,12 @@ struct top_uinteger {
     uint64_t value; 
 };
 
+/* this indicates whether the sample being collected is the first
+ * so that no +/- is shown next to statistics when the first sample
+ * is being displayed
+ */
+extern bool first_sample;
+
 struct top_uinteger top_init_uinteger(uint64_t value, bool is_negative);
 
 struct top_uinteger top_sub_uinteger(const struct top_uinteger *a, const struct top_uinteger *b);

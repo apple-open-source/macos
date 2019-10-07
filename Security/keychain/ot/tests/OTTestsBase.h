@@ -29,17 +29,24 @@
 #import <Foundation/Foundation.h>
 #import <XCTest/XCTest.h>
 #import <OCMock/OCMock.h>
-
 #import "keychain/ot/OTContext.h"
+#import "keychain/ot/OTJoiningConfiguration.h"
 #import "keychain/ot/OTEscrowKeys.h"
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTControl.h"
 #import "keychain/ot/OTManager.h"
-#import "SFPublicKey+SPKI.h"
-#import <Security/SecKey.h>
+#import "keychain/ot/OTClique.h"
+#import "keychain/ot/OTCuttlefishContext.h"
+#import "keychain/ot/OTClientStateMachine.h"
+#import "KeychainCircle/KCJoiningRequestSession+Internal.h"
+#import "KeychainCircle/KCJoiningAcceptSession+Internal.h"
+#import "KeychainCircle/KCJoiningSession.h"
 
+#import <Security/SecKey.h>
+#import <Security/SecBase.h>
 #import <SecurityFoundation/SFKey.h>
 #import <SecurityFoundation/SFKey_Private.h>
+#include "keychain/SecureObjectSync/SOSPeerInfoInternal.h"
 
 #import "keychain/ckks/tests/CloudKitKeychainSyncingTestsBase.h"
 #import "keychain/ckks/tests/CloudKitMockXCTest.h"
@@ -48,11 +55,20 @@
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSViewManager.h"
 
+#import <corecrypto/cchkdf.h>
+#import <corecrypto/ccsha2.h>
+#import <corecrypto/ccec.h>
+
 NS_ASSUME_NONNULL_BEGIN
 
 @interface OTTestsBase : CloudKitKeychainSyncingTestsBase <OTContextIdentityProvider>
 @property id otControl;
+@property id otControlAcceptor;
+
+
 @property OTManager* manager;
+@property OTManager* managerForAcceptor;
+
 @property (nonatomic, strong) OTCloudStore*         cloudStore;
 @property (nonatomic, strong) OTLocalStore*         localStore;
 @property (nonatomic, strong) FakeCKZone*           otFakeZone;
@@ -65,6 +81,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong) NSString* egoPeerID;
 @property (nonatomic, strong) NSString* sosPeerID;
 @property (nonatomic, strong) OTEscrowKeys* escrowKeys;
+
+// Manager-owned cuttlefish context
+@property OTCuttlefishContext* cuttlefishContext;
 
 @property (nonatomic, strong) FakeCKZone* rampZone;
 @property (nonatomic, strong) CKRecord *enrollRampRecord;
@@ -80,10 +99,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, strong) CKRecordZoneID* rampZoneID;
 
--(OTRamp*) fakeRamp:(NSString*)recordName featureName:(NSString*)featureName;
+- (OTRamp*)fakeRamp:(NSString*)recordName
+        featureName:(NSString*)featureName
+     accountTracker:(CKKSAccountStateTracker*)accountTracker
+  lockStateStracker:(CKKSLockStateTracker*)lockStateTracker
+reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker;
 
--(void)expectAddedCKModifyRecords:(NSDictionary<NSString*, NSNumber*>*)records holdFetch:(BOOL)shouldHoldTheFetch;
--(void)expectDeletedCKModifyRecords:(NSDictionary<NSString*, NSNumber*>*)records holdFetch:(BOOL)shouldHoldTheFetch;
+-(void) expectAddedCKModifyRecords:(NSDictionary<NSString*, NSNumber*>*)records holdFetch:(BOOL)shouldHoldTheFetch;
+-(void) expectDeletedCKModifyRecords:(NSDictionary<NSString*, NSNumber*>*)records holdFetch:(BOOL)shouldHoldTheFetch;
 -(void) setUpRampRecordsInCloudKitWithFeatureOn;
 -(void) setUpRampRecordsInCloudKitWithFeatureOff;
 

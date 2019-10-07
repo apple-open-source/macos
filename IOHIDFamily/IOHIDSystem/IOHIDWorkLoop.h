@@ -10,8 +10,8 @@ class IOHIDWorkLoop : public IOWorkLoop
 protected:
 	lck_grp_t *	fLockGroup;
 	
-	bool init ( void );
-	void free ( void );
+	bool init ( void ) APPLE_KEXT_OVERRIDE;
+	void free ( void ) APPLE_KEXT_OVERRIDE;
 	
 public:
     // Create a workloop

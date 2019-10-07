@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +27,6 @@
 
 #if ENABLE(WEBASSEMBLY)
 
-#include "JSCPoison.h"
 #include "JSDestructibleObject.h"
 #include "JSObject.h"
 #include "WasmLimits.h"
@@ -53,10 +52,11 @@ public:
     uint32_t length() const { return m_table->length(); }
     uint32_t allocatedLength() const { return m_table->allocatedLength(length()); }
     bool grow(uint32_t delta) WARN_UNUSED_RETURN;
-    JSObject* getFunction(uint32_t);
-    void clearFunction(uint32_t);
-    void setFunction(VM&, uint32_t, WebAssemblyFunction*);
-    void setFunction(VM&, uint32_t, WebAssemblyWrapperFunction*);
+    JSValue get(uint32_t);
+    void set(uint32_t, WebAssemblyFunction*);
+    void set(uint32_t, WebAssemblyWrapperFunction*);
+    void set(uint32_t, JSValue);
+    void clear(uint32_t);
 
     Wasm::Table* table() { return m_table.ptr(); }
 
@@ -66,12 +66,7 @@ private:
     static void destroy(JSCell*);
     static void visitChildren(JSCell*, SlotVisitor&);
 
-    PoisonedRef<JSWebAssemblyTablePoison, Wasm::Table> m_table;
-
-    template<typename T>
-    using PoisonedBarrier = PoisonedWriteBarrier<JSWebAssemblyTablePoison, T>;
-
-    MallocPtr<PoisonedBarrier<JSObject>> m_jsFunctions;
+    Ref<Wasm::Table> m_table;
 };
 
 } // namespace JSC

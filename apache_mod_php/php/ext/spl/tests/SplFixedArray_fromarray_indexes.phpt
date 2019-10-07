@@ -4,7 +4,7 @@ Create a SplFixedArray from an array using the fromArray() function use the defa
 Philip Norton philipnorton42@gmail.com
 --FILE--
 <?php
-$array = SplFixedArray::fromArray(array(1 => 1, 
+$array = SplFixedArray::fromArray(array(1 => 1,
 										2 => '2',
 										3 => false));
 var_dump($array);
@@ -16,7 +16,7 @@ object(SplFixedArray)#1 (4) {
   [1]=>
   int(1)
   [2]=>
-  %string|unicode%(1) "2"
+  string(1) "2"
   [3]=>
   bool(false)
 }

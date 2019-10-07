@@ -48,8 +48,6 @@ private:
     void updateCachedSystemFontDescription(CSSValueID, FontCascadeDescription&) const override;
 
 public:
-#ifndef GTK_API_VERSION_2
-
     // A method asking if the theme's controls actually care about redrawing when hovered.
     bool supportsHover(const RenderStyle&) const override { return true; }
 
@@ -80,6 +78,8 @@ public:
     Color platformActiveListBoxSelectionForegroundColor(OptionSet<StyleColor::Options>) const override;
     Color platformInactiveListBoxSelectionBackgroundColor(OptionSet<StyleColor::Options>) const override;
     Color platformInactiveListBoxSelectionForegroundColor(OptionSet<StyleColor::Options>) const override;
+
+    Color disabledTextColor(const Color&, const Color&) const override;
 
     Seconds caretBlinkInterval() const override;
 
@@ -168,8 +168,6 @@ private:
 #endif
 #endif
 
-    bool isControlStyled(const RenderStyle&, const BorderData&, const FillLayer&, const Color&) const override;
-
     Seconds animationRepeatIntervalForProgressBar(RenderProgress&) const override;
     Seconds animationDurationForProgressBar(RenderProgress&) const override;
     void adjustProgressBarStyle(StyleResolver&, RenderStyle&, const Element*) const override;
@@ -189,7 +187,6 @@ private:
 #endif
 
     static IntRect calculateProgressRect(const RenderObject&, const IntRect&);
-#endif // GTK_API_VERSION_2
 };
 
 } // namespace WebCore

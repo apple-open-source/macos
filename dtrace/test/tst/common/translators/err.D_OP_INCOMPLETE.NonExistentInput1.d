@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_OP_INCOMPLETE.NonExistentInput1.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Test the declaration of a translator with a non-existent input type.

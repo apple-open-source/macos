@@ -1,5 +1,5 @@
 --TEST--
-Test imap_body() function : basic functionality 
+Test imap_body() function : basic functionality
 --SKIPIF--
 <?php
 require_once(dirname(__FILE__).'/skipif.inc');
@@ -22,8 +22,8 @@ if (!is_resource($imap_stream)) {
 }
 
 $check = imap_check($imap_stream);
-echo "Msg Count in new mailbox: ". $check->Nmsgs . "\n";    
-    
+echo "Msg Count in new mailbox: ". $check->Nmsgs . "\n";
+
 // show body for msg 1
 var_dump(imap_body($imap_stream, 1));
 
@@ -34,7 +34,7 @@ imap_close($imap_stream);
 ?>
 ===Done===
 --CLEAN--
-<?php 
+<?php
 require_once('clean.inc');
 ?>
 --EXPECTF--
@@ -43,6 +43,6 @@ Create a new mailbox for test
 Create a temporary mailbox and add 1 msgs
 .. mailbox '%s' created
 Msg Count in new mailbox: 1
-%unicode|string%(%d) "1: this is a test message, please ignore%a"
-%unicode|string%(%d) "1: this is a test message, please ignore%a"
+string(%d) "1: this is a test message, please ignore%a"
+string(%d) "1: this is a test message, please ignore%a"
 ===Done===

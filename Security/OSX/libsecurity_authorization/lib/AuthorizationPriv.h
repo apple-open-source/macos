@@ -56,6 +56,7 @@ enum {
 	kAuthorizationFlagLeastPrivileged		= (1 << 5),
 	kAuthorizationFlagSheet					= (1 << 6),
 	kAuthorizationFlagIgnorePasswordOnly	= (1 << 7),
+    kAuthorizationFlagIgnoreDarkWake        = (1 << 8),
 };
 
 /*!
@@ -210,6 +211,63 @@ OSStatus SessionSetUserPreferences(SecuritySessionId session);
  */
 OSStatus AuthorizationEnableSmartCard(AuthorizationRef _Nonnull authRef, Boolean enable);
 
+/*!
+     @function AuthorizationExecuteWithPrivilegesInternal
+     Run an executable tool with enhanced privileges after passing
+     suitable authorization procedures. Allows better control and communication
+     with privileged tool.
+     
+     @param authorization An authorization reference that is used to authorize
+     access to the enhanced privileges. It is also passed to the tool for
+     further access control.
+     @param pathToTool Full pathname to the tool that should be executed
+     with enhanced privileges.
+     @param arguments An argv-style vector of strings to be passed to the tool.
+     @param newProcessPid (output, optional) PID of privileged process is stored here.
+     @param uid Desired UID under which privileged tool should be running.
+     @param stdOut File descriptor of the pipe which should be used to receive stdout from the privileged tool, use -1 if not needed.
+     @param stdErr File descriptor of the pipe which should be used to receive stderr from the privileged tool, use -1 if not needed.
+     @param stdIn File descriptor which will contain write-end of the stdin pipe of the privileged tool, use -1 if not needed.
+     @param processFinished This block is called when privileged process finishes.
+     */
+    OSStatus AuthorizationExecuteWithPrivilegesInternal(const AuthorizationRef _Nonnull authorization,
+                                                        const char * _Nonnull pathToTool,
+                                                        const char * _Nonnull const * _Nonnull arguments,
+                                                        pid_t * _Nullable newProcessPid,
+                                                        const uid_t uid,
+                                                        int stdOut,
+                                                        int stdErr,
+                                                        int stdIn,
+                                                        void(^__nullable processFinished)(const int exitStatus));
+    
+/*!
+     @function AuthorizationExecuteWithPrivilegesExternalFormInternal
+     Run an executable tool with enhanced privileges after passing
+     suitable authorization procedures. Allows better control and communication
+     with privileged tool.
+     
+     @param extAuthorization authorization in external form that is used to authorize
+     access to the enhanced privileges. It is also passed to the tool for
+     further access control.
+     @param pathToTool Full pathname to the tool that should be executed
+     with enhanced privileges.
+     @param arguments An argv-style vector of strings to be passed to the tool.
+     @param newProcessPid (output, optional) PID of privileged process is stored here.
+     @param uid Desired UID under which privileged tool should be running.
+     @param stdOut File descriptor of the pipe which should be used to receive stdout from the privileged tool, use -1 if not needed.
+     @param stdErr File descriptor of the pipe which should be used to receive stderr from the privileged tool, use -1 if not needed.
+     @param stdIn File descriptor which will contain write-end of the stdin pipe of the privileged tool, use -1 if not needed.
+     @param processFinished This block is called when privileged process finishes.
+     */
+    OSStatus AuthorizationExecuteWithPrivilegesExternalFormInternal(const AuthorizationExternalForm * _Nonnull extAuthorization,
+                                                                    const char * _Nonnull pathToTool,
+                                                                    const char * _Nullable const * _Nullable arguments,
+                                                                    pid_t * _Nullable newProcessPid,
+                                                                    const uid_t uid,
+                                                                    int stdOut,
+                                                                    int stdErr,
+                                                                    int stdIn,
+                                                                    void(^__nullable processFinished)(const int exitStatus));
 #if defined(__cplusplus)
 }
 #endif

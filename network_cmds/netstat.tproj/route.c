@@ -168,12 +168,15 @@ pr_family(int af)
 #ifndef INET6
 #define	WID_DST(af) 	18	/* width of destination column */
 #define	WID_GW(af)	18	/* width of gateway column */
+#define	WID_RT_IFA(af)	18	/* width of source column */
 #define	WID_IF(af)	7	/* width of netif column */
 #else
 #define	WID_DST(af) \
 	((af) == AF_INET6 ? (lflag ? 39 : (nflag ? 39: 18)) : 18)
 #define	WID_GW(af) \
 	((af) == AF_INET6 ? (lflag ? 31 : (nflag ? 31 : 18)) : 18)
+#define	WID_RT_IFA(af) \
+	((af) == AF_INET6 ? (lflag ? 39 : (nflag ? 39 : 18)) : 18)
 #define	WID_IF(af)	((af) == AF_INET6 ? 8 : 7)
 #endif /*INET6*/
 
@@ -183,44 +186,38 @@ pr_family(int af)
 void
 pr_rthdr(int af)
 {
-
-	if (Aflag)
-		printf("%-8.8s ","Address");
-	if (af == AF_INET || lflag) {
+	if (lflag) {
 		if (lflag > 2)
-			printf("%-*.*s %-*.*s %-10.10s %6.6s %8.8s %6.6s %*.*s %6s "
-			       "%10s %10s %8s %8s %8s\n",
-			       WID_DST(af), WID_DST(af), "Destination",
-			       WID_GW(af), WID_GW(af), "Gateway",
-			       "Flags", "Refs", "Use", "Mtu",
-			       WID_IF(af), WID_IF(af), "Netif", "Expire",
-			       "rtt(ns)", "rttvar(ns)", "recvpipe", "sendpipe", "ssthresh");
-		else if (lflag > 1)
-			printf("%-*.*s %-*.*s %-10.10s %6.6s %8.8s %6.6s %*.*s %6s "
-			       "%10s %10s\n",
-			       WID_DST(af), WID_DST(af), "Destination",
-			       WID_GW(af), WID_GW(af), "Gateway",
-			       "Flags", "Refs", "Use", "Mtu",
-			       WID_IF(af), WID_IF(af), "Netif", "Expire",
-			       "rtt(ns)", "rttvar(ns)");
-		else if (lflag == 1)
-			printf("%-*.*s %-*.*s %-10.10s %6.6s %8.8s %6.6s %*.*s %6s\n",
+			printf("%-*.*s %-*.*s %-*.*s %-10.10s %6.6s %8.8s %6.6s %*.*s %6s "
+				"%10s %10s %8s %8s %8s\n",
 				WID_DST(af), WID_DST(af), "Destination",
 				WID_GW(af), WID_GW(af), "Gateway",
+				WID_RT_IFA(af), WID_RT_IFA(af), "RT_IFA",
+				"Flags", "Refs", "Use", "Mtu",
+				WID_IF(af), WID_IF(af), "Netif", "Expire",
+				"rtt(ms)", "rttvar(ms)", "recvpipe", "sendpipe", "ssthresh");
+		else if (lflag > 1)
+			printf("%-*.*s %-*.*s %-*.*s %-10.10s %6.6s %8.8s %6.6s %*.*s %6s "
+				"%10s %10s\n",
+				WID_DST(af), WID_DST(af), "Destination",
+				WID_GW(af), WID_GW(af), "Gateway",
+				WID_RT_IFA(af), WID_RT_IFA(af), "RT_IFA",
+				"Flags", "Refs", "Use", "Mtu",
+				WID_IF(af), WID_IF(af), "Netif", "Expire",
+				"rtt(ms)", "rttvar(ms)");
+		else
+			printf("%-*.*s %-*.*s %-*.*s %-10.10s %6.6s %8.8s %6.6s %*.*s %6s\n",
+				WID_DST(af), WID_DST(af), "Destination",
+				WID_GW(af), WID_GW(af), "Gateway",
+				WID_RT_IFA(af), WID_RT_IFA(af), "RT_IFA",
 				"Flags", "Refs", "Use", "Mtu",
 				WID_IF(af), WID_IF(af), "Netif", "Expire");
-		else
-			printf("%-*.*s %-*.*s %-10.10s %6.6s %8.8s %*.*s %6s\n",
-				WID_DST(af), WID_DST(af), "Destination",
-				WID_GW(af), WID_GW(af), "Gateway",
-				"Flags", "Refs", "Use",
-				WID_IF(af), WID_IF(af), "Netif", "Expire");
-	} else {
-		printf("%-*.*s %-*.*s %-10.10s %8.8s %6s\n",
+    }  else {
+		printf("%-*.*s %-*.*s %-10.10s %*.*s %6s\n",
 			WID_DST(af), WID_DST(af), "Destination",
 			WID_GW(af), WID_GW(af), "Gateway",
-			"Flags", "Netif", "Expire");
-}
+			"Flags", WID_IF(af), WID_IF(af), "Netif", "Expire");
+	}
 }
 
 /*
@@ -316,18 +313,22 @@ np_rtentry(struct rt_msghdr2 *rtm)
 
 	p_sockaddr(rti_info[RTAX_GATEWAY], NULL, RTF_HOST,
 	    WID_GW(addr.u_sa.sa_family));
+
+	if (lflag && (rtm->rtm_addrs & RTA_IFA)) {
+		p_sockaddr(rti_info[RTAX_IFA], NULL, RTF_HOST,
+		    WID_RT_IFA(addr.u_sa.sa_family));
+	}
 	
 	p_flags(rtm->rtm_flags, "%-10.10s ");
 
-	if (addr.u_sa.sa_family == AF_INET || lflag) {
+	if (lflag) {
 		printf("%6u %8u ", rtm->rtm_refcnt, (unsigned int)rtm->rtm_use);
-		if (lflag) {
-			if (rtm->rtm_rmx.rmx_mtu != 0)
-				printf("%6u ", rtm->rtm_rmx.rmx_mtu);
-			else
-				printf("%6s ", "");
-		}
+		if (rtm->rtm_rmx.rmx_mtu != 0)
+			printf("%6u ", rtm->rtm_rmx.rmx_mtu);
+		else
+			printf("%6s ", "");
 	}
+
 	if (rtm->rtm_index != lastindex) {
 		if_indextoname(rtm->rtm_index, ifname);
 		lastindex = rtm->rtm_index;
@@ -512,8 +513,7 @@ routename(uint32_t in)
 		}
 	}
 	if (cp) {
-		strncpy(line, cp, sizeof(line) - 1);
-		line[sizeof(line) - 1] = '\0';
+		strlcpy(line, cp, sizeof(line));
 	} else {
 #define C(x)	((x) & 0xff)
 		in = ntohl(in);
@@ -591,7 +591,7 @@ netname(uint32_t in, uint32_t mask)
 		}
 	}
 	if (cp)
-		strncpy(line, cp, sizeof(line) - 1);
+		strlcpy(line, cp, sizeof(line));
 	else {
 		switch (dmask) {
 		case IN_CLASSA_NET:

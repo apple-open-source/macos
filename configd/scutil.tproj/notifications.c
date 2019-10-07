@@ -42,10 +42,6 @@
 #include "notifications.h"
 
 
-static int			osig;
-static struct sigaction		*oact	= NULL;
-
-
 static char *
 elapsed()
 {
@@ -380,7 +376,7 @@ do_notify_file(int argc, char **argv)
 		return;
 	}
 
-	bzero(buf.data, sizeof(buf.data));
+	memset(buf.data, 0, sizeof(buf.data));
 	bufPtr = &buf.data[0];
 	needed = sizeof(buf.gotID);
 	while (needed > 0) {
@@ -420,82 +416,6 @@ do_notify_file(int argc, char **argv)
 }
 
 
-static void
-signalCatcher(int signum)
-{
-	static int	n = 0;
-
-	SCPrint(TRUE, stdout, CFSTR("Received sig%s (#%d).\n"), sys_signame[signum], n++);
-	return;
-}
-
-
-__private_extern__
-void
-do_notify_signal(int argc, char **argv)
-{
-	int			sig;
-	pid_t			pid;
-	struct sigaction	nact;
-
-	if (isdigit(*argv[0])) {
-		if ((sscanf(argv[0], "%d", &sig) != 1) || (sig <= 0) || (sig >= NSIG)) {
-			SCPrint(TRUE, stdout, CFSTR("signal must be in the range of 1 .. %d.\n"), NSIG-1);
-			return;
-		}
-	} else {
-		for (sig = 1; sig < NSIG; sig++) {
-			if (strcasecmp(argv[0], sys_signame[sig]) == 0)
-				break;
-		}
-		if (sig >= NSIG) {
-			CFMutableStringRef	str;
-
-			SCPrint(TRUE, stdout, CFSTR("Signal must be one of the following:\n"));
-
-			str = CFStringCreateMutable(NULL, 0);
-			for (sig = 1; sig < NSIG; sig++) {
-				CFStringAppendFormat(str, NULL, CFSTR(" %-6s"), sys_signame[sig]);
-				if ((sig % 10) == 0) {
-					CFStringAppendFormat(str, NULL, CFSTR("\n"));
-				}
-			}
-			if ((sig % 10) != 0) {
-				CFStringAppendFormat(str, NULL, CFSTR("\n"));
-			}
-			SCPrint(TRUE, stdout, CFSTR("%@"), str);
-			CFRelease(str);
-			return;
-		}
-
-	}
-
-	if ((argc != 2) || (sscanf(argv[1], "%d", &pid) != 1)) {
-		pid = getpid();
-	}
-
-	if (oact != NULL) {
-		(void) sigaction(osig, oact, NULL);	/* restore original signal handler */
-	} else {
-		oact = malloc(sizeof(struct sigaction));
-	}
-
-	nact.sa_handler = signalCatcher;
-	sigemptyset(&nact.sa_mask);
-	nact.sa_flags = SA_RESTART;
-	(void) sigaction(sig, &nact, oact);
-	osig = sig;
-	SCPrint(TRUE, stdout, CFSTR("signal handler started.\n"));
-
-	if (!SCDynamicStoreNotifySignal(store, pid, sig)) {
-		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
-		return;
-	}
-
-	return;
-}
-
-
 __private_extern__
 void
 do_notify_cancel(int argc, char **argv)
@@ -522,12 +442,6 @@ do_notify_cancel(int argc, char **argv)
 
 	if (notifyRl != NULL) {
 		CFRunLoopStop(notifyRl);
-	}
-
-	if (oact != NULL) {
-		(void) sigaction(osig, oact, NULL);	/* restore original signal handler */
-		free(oact);
-		oact = NULL;
 	}
 
 	return;

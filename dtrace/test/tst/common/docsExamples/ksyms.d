@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)ksyms.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  *	Verify doc example 7-2

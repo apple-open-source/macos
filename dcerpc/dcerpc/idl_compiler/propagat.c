@@ -702,6 +702,8 @@ static void PROP_process_pa_type
 **      PROP_up_types_list -- The propagat global to hold list.
 */
 
+void PROP_process_up_type( AST_type_n_t *type_node_ptr );
+
 void PROP_process_up_type
 (
     AST_type_n_t *type_node_ptr

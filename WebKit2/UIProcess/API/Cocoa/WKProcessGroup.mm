@@ -26,8 +26,6 @@
 #import "config.h"
 #import "WKProcessGroupPrivate.h"
 
-#if WK_API_ENABLED
-
 #import "APINavigationData.h"
 #import "APIProcessPoolConfiguration.h"
 #import "ObjCObjectGraph.h"
@@ -52,9 +50,9 @@
 #import <WebCore/WebCoreThreadSystemInterface.h>
 #endif
 
-IGNORE_WARNINGS_BEGIN("deprecated-implementations")
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 @implementation WKProcessGroup {
-IGNORE_WARNINGS_END
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     RefPtr<WebKit::WebProcessPool> _processPool;
 
     WeakObjCPtr<id <WKProcessGroupDelegate>> _delegate;
@@ -217,14 +215,19 @@ static void setUpHistoryClient(WKProcessGroup *processGroup, WKContextRef contex
 - (void)setDelegate:(id <WKProcessGroupDelegate>)delegate
 {
     _delegate = delegate;
+
+    // If the client can observe when the connection to the WebProcess injected bundle is established, then we cannot
+    // safely delay the launch of the WebProcess until something is loaded in the web view.
+    if ([delegate respondsToSelector:@selector(processGroup:didCreateConnectionToWebProcessPlugIn:)])
+        _processPool->disableDelayedWebProcessLaunch();
 }
 
 @end
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-IGNORE_WARNINGS_BEGIN("deprecated-implementations")
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 @implementation WKProcessGroup (Private)
-IGNORE_WARNINGS_END
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (WKContextRef)_contextRef
 {
@@ -247,5 +250,3 @@ IGNORE_WARNINGS_END
 
 @end
 ALLOW_DEPRECATED_DECLARATIONS_END
-
-#endif // WK_API_ENABLED

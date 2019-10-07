@@ -71,6 +71,7 @@ static bool test_kextaudit_multiversed_roundtrip(void)
 		.performSignatureValidation  = true,
 		.requireSecureLocation       = true,
 		.respectSystemPolicy         = false,
+		.checkDextApproval           = false,
 		.allowNetwork                = false,
 		.isCacheLoad                 = false,
 	};

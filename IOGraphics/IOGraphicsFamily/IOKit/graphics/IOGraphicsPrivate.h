@@ -31,6 +31,16 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/graphics/IOGraphicsTypesPrivate.h>
 
+#if __cplusplus >= 201402L
+namespace iog {
+template <typename T> constexpr T
+gmin(const T& x, const T& y) { return (x < y) ? x : y; }
+template <typename T> constexpr T
+gmax(const T& x, const T& y) { return (x > y) ? x : y; }
+template <typename T> constexpr T
+gclamp(const T& min_, const T& x, const T& max_) { return gmin(gmax(min_, x), max_); }
+} // namespace iog
+#endif
 
 #if 1
 #define KPRINTF(_fmt_, vargs...)     kprintf(_fmt_, ## vargs)
@@ -184,10 +194,6 @@ static inline void *OBFUSCATE(void *p)
 #define kIOFBWaitCursorPeriodKey        "IOFBWaitCursorPeriod"
 #endif
 
-#ifndef kIOUserClientSharedInstanceKey
-#define kIOUserClientSharedInstanceKey  "IOUserClientSharedInstance"
-#endif
-
 #ifndef kIOHibernateOptionsKey
 #define kIOHibernateOptionsKey      "IOHibernateOptions"
 #endif
@@ -222,7 +228,7 @@ inline void bzero_nc( void * p, UInt32 l )              { bzero( p, l ); }
 #define getPowerState() pm_vars->myCurrentState
 #endif
 
-extern atomic_uint_fast32_t gIOGDebugFlags;
+extern atomic_uint_fast64_t gIOGDebugFlags;
 enum {
 	kIOGDbgLidOpen                      = 0x00000001,
 	kIOGDbgVBLThrottle                  = 0x00000002,

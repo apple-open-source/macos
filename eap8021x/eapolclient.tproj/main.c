@@ -62,33 +62,7 @@
 #include "myCFUtil.h"
 #include "mylog.h"
 #include "EAPOLControlPrefs.h"
-
-extern EAPClientPluginFuncRef
-md5_introspect(EAPClientPluginFuncName name);
-
-extern EAPClientPluginFuncRef
-eaptls_introspect(EAPClientPluginFuncName name);
-
-extern EAPClientPluginFuncRef
-eapttls_introspect(EAPClientPluginFuncName name);
-
-extern EAPClientPluginFuncRef
-peap_introspect(EAPClientPluginFuncName name);
-
-extern EAPClientPluginFuncRef
-eapmschapv2_introspect(EAPClientPluginFuncName name);
-
-extern EAPClientPluginFuncRef
-eapgtc_introspect(EAPClientPluginFuncName name);
-
-extern EAPClientPluginFuncRef
-eapfast_introspect(EAPClientPluginFuncName name);
-
-extern EAPClientPluginFuncRef
-eapsim_introspect(EAPClientPluginFuncName name);
-
-extern EAPClientPluginFuncRef
-eapaka_introspect(EAPClientPluginFuncName name);
+#include "EAPClientPluginIntrospect.h"
 
 typedef struct {
     EAPClientPluginFuncIntrospect *	introspect_func;

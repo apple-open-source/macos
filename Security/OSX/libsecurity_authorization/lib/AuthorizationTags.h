@@ -76,5 +76,12 @@
 */
 #define kAuthorizationEnvironmentIcon  "icon"
 
+/*!
+    @define kAuthorizationPamResult
+    Return code provided by PAM module
+ */
+#define kAuthorizationPamResult  "pam_result"
+
+
 
 #endif /* !_SECURITY_AUTHORIZATIONTAGS_H_ */

@@ -1082,15 +1082,7 @@ zccmd_input(const char *nam, char **args)
 #endif
 
     /*
-     * Some documentation for wgetch() says:
-
-       The behavior of getch and friends in the presence of  handled  signals
-       is  unspecified  in the SVr4 and XSI Curses documentation.  Under his-
-       torical curses implementations, it varied  depending  on  whether  the
-       operating system's implementation of handled signal receipt interrupts
-       a read(2) call in progress or not, and also (in some  implementations)
-       depending  on  whether  an input timeout or non-blocking mode has been
-       set.
+     * Linux, OS X, FreeBSD documentation for wgetch() mentions:
 
        Programmers concerned about portability should be prepared for  either
        of  two cases: (a) signal receipt does not interrupt getch; (b) signal
@@ -1098,21 +1090,16 @@ zccmd_input(const char *nam, char **args)
        EINTR.  Under the ncurses implementation, handled signals never inter-
        rupt getch.
 
-     * The observed behavior, however, is different:  wgetch() consistently
-     * returns ERR with EINTR when a signal is handled by the shell "trap"
-     * command mechanism.  Further, it consistently returns ERR twice, the
-     * second time without even attempting to repeat the interrupted read,
-     * which has the side-effect of NOT updating errno.  A third call will
-     * then begin reading again.
+     * Some observed behavior: wgetch() returns ERR with EINTR when a signal is
+     * handled by the shell "trap" command mechanism. Observed that it returns
+     * ERR twice, the second time without even attempting to repeat the
+     * interrupted read. Third call will then begin reading again.
      *
-     * Therefore, to properly implement signal trapping, we must (1) call
-     * wgetch() in a loop as long as errno remains EINTR, and (2) clear
-     * errno only before beginning the loop, not on every pass.
-     *
-     * There remains a potential bug here in that, if the caller has set
-     * a timeout for the read [see zccmd_timeout()] the countdown is very
-     * likely restarted on every call to wgetch(), so an interrupted call
-     * might wait much longer than desired.
+     * Because of widespread of previous implementation that called wget*ch
+     * possibly indefinitely many times after ERR/EINTR, and because of the
+     * above observation, wget_wch call is repeated after each ERR/EINTR, but
+     * errno is being reset (it wasn't) and the loop to all means should break.
+     * Problem: the timeout may be waited twice.
      */
     errno = 0;
 
@@ -1120,6 +1107,7 @@ zccmd_input(const char *nam, char **args)
     while ((ret = wget_wch(w->win, &wi)) == ERR) {
 	if (errno != EINTR || errflag || retflag || breaks || exit_pending)
 	    break;
+        errno = 0;
     }
     switch (ret) {
     case OK:
@@ -1146,6 +1134,7 @@ zccmd_input(const char *nam, char **args)
     while ((ci = wgetch(w->win)) == ERR) {
 	if (errno != EINTR || errflag || retflag || breaks || exit_pending)
 	    return 1;
+        errno = 0;
     }
     if (ci >= 256) {
 	keypadnum = ci;
@@ -1501,6 +1490,74 @@ zccmd_touch(const char *nam, char **args)
     return ret;
 }
 
+static int
+zccmd_resize(const char *nam, char **args)
+{
+#ifdef HAVE_RESIZE_TERM
+    int y, x, do_endwin=0, do_save=1;
+    LinkNode stdscr_win = zcurses_getwindowbyname("stdscr");
+
+    if (stdscr_win) {
+        y = atoi(args[0]);
+        x = atoi(args[1]);
+        if (args[2]) {
+            if (0 == strcmp(args[2], "endwin")) {
+                do_endwin=1;
+            } else if (0 == strcmp(args[2], "endwin_nosave")) {
+                do_endwin=1;
+                do_save=0;
+            } else if (0 == strcmp(args[2], "nosave")) {
+                do_save=0;
+            } else {
+                zwarnnam(nam, "`resize' expects `endwin', `nosave' or `endwin_nosave' for third argument, if given");
+            }
+        }
+
+        if (y == 0 && x == 0 && args[2] == NULL) {
+            // Special case to just test that curses has resize_term. #ifdef
+            // HAVE_RESIZE_TERM will result in return value 2 if resize_term
+            // is not available.
+            return 0;
+        } else {
+            // Without this call some window moves are innacurate. Tested on
+            // OS X ncurses 5.4, Homebrew ncursesw 6.0-2, Arch Linux ncursesw
+            // 6.0, Ubuntu 14.04 ncurses 5.9, FreeBSD ncursesw.so.8
+            //
+            // On the other hand, the whole resize goal can be (from tests)
+            // accomplished by calling endwin and refresh. But to secure any
+            // future problems, resize_term is provided, and it is featured
+            // with endwin, so that users have multiple options.
+            if (do_endwin) {
+                endwin();
+            }
+
+            if( resize_term( y, x ) == OK ) {
+                // Things work without this, but we need to get out from
+                // endwin (i.e. call refresh), and in theory store new
+                // curses state (the resize might have changed it), which
+                // should be presented to terminal only after refresh.
+                if (do_endwin || do_save) {
+                    ZCWin w;
+                    w = (ZCWin)getdata(stdscr_win);
+                    wnoutrefresh(w->win);
+                    doupdate();
+                }
+
+                if (do_save) {
+                    gettyinfo(&curses_tty_state);
+                }
+                return 0;
+            } else {
+                return 1;
+            }
+        }
+    } else {
+        return 1;
+    }
+#else
+    return 2;
+#endif
+}
 
 /*********************
   Main builtin handler
@@ -1534,6 +1591,7 @@ bin_zcurses(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 	{"mouse", zccmd_mouse, 0, -1},
 	{"querychar", zccmd_querychar, 1, 2},
 	{"touch", zccmd_touch, 1, -1},
+	{"resize", zccmd_resize, 2, 3},
 	{NULL, (zccmd_t)0, 0, 0}
     };
 

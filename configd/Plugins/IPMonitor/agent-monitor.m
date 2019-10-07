@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,9 +23,22 @@
 
 #import "controller.h"
 
+static Boolean
+haveNetworkExtensionFramework()
+{
+	Boolean	haveFramework;
+
+	haveFramework = ([NEPolicy class] != nil);
+	return haveFramework;
+}
+
 void
 process_AgentMonitor(void)
 {
+	if (!haveNetworkExtensionFramework()) {
+		return;
+	}
+
 	SC_log(LOG_DEBUG, "Triggering AgentMonitor");
 	@autoreleasepool {
 		AgentController *controller = [AgentController sharedController];
@@ -46,6 +59,10 @@ process_AgentMonitor(void)
 void
 process_AgentMonitor_DNS(void)
 {
+	if (!haveNetworkExtensionFramework()) {
+		return;
+	}
+
 	SC_log(LOG_DEBUG, "Triggering AgentMonitor for DNS");
 	@autoreleasepool {
 		AgentController *controller = [AgentController sharedController];
@@ -65,6 +82,10 @@ process_AgentMonitor_DNS(void)
 void
 process_AgentMonitor_Proxy(void)
 {
+	if (!haveNetworkExtensionFramework()) {
+		return;
+	}
+
 	SC_log(LOG_DEBUG, "Triggering AgentMonitor for Proxy");
 	@autoreleasepool {
 		AgentController *controller = [AgentController sharedController];
@@ -85,6 +106,11 @@ const void *
 copy_proxy_information_for_agent_uuid(uuid_t uuid, uint64_t *length)
 {
 	__block const void *buffer = NULL;
+
+	if (!haveNetworkExtensionFramework()) {
+		return NULL;
+	}
+
 	@autoreleasepool {
 		AgentController *controller = [AgentController sharedController];
 		if (controller == nil) {
@@ -105,6 +131,11 @@ const void *
 copy_dns_information_for_agent_uuid(uuid_t uuid, uint64_t *length)
 {
 	__block const void *buffer = NULL;
+
+	if (!haveNetworkExtensionFramework()) {
+		return NULL;
+	}
+
 	@autoreleasepool {
 		AgentController *controller = [AgentController sharedController];
 		if (controller == nil) {

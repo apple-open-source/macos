@@ -7,7 +7,7 @@
 //
 
 #import <Foundation/Foundation.h>
-#include "SecureObjectSync/SOSPeerInfo.h"
+#include "keychain/SecureObjectSync/SOSPeerInfo.h"
 
 typedef enum {
     ApplicantWaiting,

@@ -42,6 +42,7 @@
 #include "child.h"
 #include <syslog.h>
 #include <mach/mach_error.h>
+#include "SecRandom.h"
 #include <securityd_client/xdr_cssm.h>
 #include <securityd_client/xdr_auth.h>
 #include <securityd_client/xdr_dldb.h>
@@ -49,6 +50,7 @@
 #include <security_utilities/casts.h>
 #include <Security/AuthorizationTagsPriv.h>
 #include <AssertMacros.h>
+#include <security_utilities/errors.h>
 
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFDictionary.h>
@@ -254,16 +256,6 @@ kern_return_t ucsp_server_setupThread(UCSP_ARGS, mach_port_t taskPort)
 	END_IPCN(CSSM)
 	if (*rcode)
 		Syslog::notice("setupThread failed rcode=%d", *rcode);
-	return KERN_SUCCESS;
-}
-
-
-kern_return_t ucsp_server_teardown(UCSP_ARGS)
-{
-	BEGIN_IPCN
-    secinfo("SecServer", "request entry: teardown");
-	Server::active().endConnection(replyPort);
-	END_IPCN(CSSM)
 	return KERN_SUCCESS;
 }
 
@@ -1131,30 +1123,6 @@ kern_return_t ucsp_server_deriveKey(UCSP_ARGS, DbHandle db, DATA_IN(context), Ke
 	END_IPC(CSP)
 }
 
-
-//
-// Random generation
-//
-kern_return_t ucsp_server_generateRandom(UCSP_ARGS, uint32 ssid, DATA_IN(context), DATA_OUT(data))
-{
-	BEGIN_IPC(generateRandom)
-	CopyOutContext ctx(context, contextLength);
-	if (ssid)
-		CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
-
-	// default version (use /dev/random)
-	Allocator &allocator = Allocator::standard(Allocator::sensitive);
-	if (size_t bytes = ctx.context().getInt(CSSM_ATTRIBUTE_OUTPUT_SIZE)) {
-		void *buffer = allocator.malloc(bytes);
-		Server::active().random(buffer, bytes);
-		*data = buffer;
-		*dataLength = int_cast<size_t, mach_msg_type_number_t>(bytes);
-		Server::releaseWhenDone(allocator, buffer);
-	}
-	END_IPC(CSP)
-}
-
-
 //
 // ACL management.
 // Watch out for the memory-management tap-dance.
@@ -1350,77 +1318,15 @@ kern_return_t ucsp_server_postNotification(UCSP_ARGS, uint32 domain, uint32 even
 // Child check-in service.
 // Note that this isn't using the standard argument pattern.
 //
-kern_return_t ucsp_server_childCheckIn(mach_port_t serverPort,
+kern_return_t ucsp_server_childCheckIn(audit_token_t auditToken, mach_port_t serverPort,
 	mach_port_t servicePort, mach_port_t taskPort)
 {
 	BEGIN_IPCS
-	ServerChild::checkIn(servicePort, TaskPort(taskPort).pid());
+	ServerChild::checkIn(servicePort, audit_token_to_pid(auditToken));
+    // Will be NULL from newer frameworks, but mach_port_deallocate doesn't seem to mind
 	END_IPCS(mach_port_deallocate(mach_task_self(), taskPort))
 }
 
-
-//
-// Code Signing Hosting registration.
-// Note that the Code Signing Proxy facility (implementing the "cshosting"
-// IPC protocol) is elsewhere.
-//
-kern_return_t ucsp_server_registerHosting(UCSP_ARGS, mach_port_t hostingPort, uint32 flags)
-{
-	BEGIN_IPC(registerHosting)
-	connection.process().registerCodeSigning(hostingPort, flags);
-	END_IPC(CSSM)
-}
-
-kern_return_t ucsp_server_hostingPort(UCSP_ARGS, pid_t hostPid, mach_port_t *hostingPort)
-{
-	BEGIN_IPC(hostingPort)
-	if (RefPointer<Process> process = Server::active().findPid(hostPid))
-		*hostingPort = process->hostingPort();
-	else
-		*hostingPort = MACH_PORT_NULL;
-	secinfo("hosting", "hosting port for for pid=%d is port %d", hostPid, *hostingPort);
-	END_IPC(CSSM)
-}
-
-
-kern_return_t ucsp_server_setGuest(UCSP_ARGS, SecGuestRef guest, SecCSFlags flags)
-{
-	BEGIN_IPC(setGuest)
-	connection.guestRef(guest, flags);
-	END_IPC(CSSM)
-}
-
-
-kern_return_t ucsp_server_createGuest(UCSP_ARGS, SecGuestRef host,
-	uint32_t status, const char *path, DATA_IN(cdhash), DATA_IN(attributes),
-	SecCSFlags flags, SecGuestRef *newGuest)
-{
-	BEGIN_IPC(createGuest)
-    checkPathLength(path);
-	*newGuest = connection.process().createGuest(host, status, path, DATA(cdhash), DATA(attributes), flags);
-	END_IPC(CSSM)
-}
-
-kern_return_t ucsp_server_setGuestStatus(UCSP_ARGS, SecGuestRef guest,
-	uint32_t status, DATA_IN(attributes))
-{
-	BEGIN_IPC(setGuestStatus)
-	connection.process().setGuestStatus(guest, status, DATA(attributes));
-	END_IPC(CSSM)
-}
-
-kern_return_t ucsp_server_removeGuest(UCSP_ARGS, SecGuestRef host, SecGuestRef guest)
-{
-	BEGIN_IPC(removeGuest)
-	connection.process().removeGuest(host, guest);
-	END_IPC(CSSM)
-}
-
-kern_return_t ucsp_server_helpCheckLoad(UCSP_ARGS, const char path[PATH_MAX], uint32_t type)
-{
-	BEGIN_IPC(helpCheckLoad)
-	END_IPC(CSSM)
-}
 
 //
 // Testing-related RPCs

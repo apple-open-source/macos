@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.SizeofStrConst.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION: sizeof returns the size in bytes of any D expression or data
  * type. When a raw string is passed to the sizeof operator, the compiler

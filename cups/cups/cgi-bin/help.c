@@ -4,11 +4,7 @@
  * Copyright 2007-2011 by Apple Inc.
  * Copyright 1997-2006 by Easy Software Products.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
  */
 
 /*
@@ -333,20 +329,22 @@ main(int  argc,				/* I - Number of command-line arguments */
     if ((fp = cupsFileOpen(filename, "r")) != NULL)
     {
       int	inbody;			/* Are we inside the body? */
-
+      char	*lineptr;		/* Pointer into line */
 
       inbody = 0;
 
       while (cupsFileGets(fp, line, sizeof(line)))
       {
+        for (lineptr = line; *lineptr && isspace(*lineptr & 255); lineptr ++);
+
         if (inbody)
 	{
-	  if (!_cups_strncasecmp(line, "</BODY>", 7))
+	  if (!_cups_strncasecmp(lineptr, "</BODY>", 7))
 	    break;
 
 	  printf("%s\n", line);
         }
-	else if (!_cups_strncasecmp(line, "<BODY", 5))
+	else if (!_cups_strncasecmp(lineptr, "<BODY", 5))
 	  inbody = 1;
       }
 

@@ -37,30 +37,12 @@
 #include "castContext.h"
 #include <Security/cssmapple.h>
 
-/*
- * These #defines are mainly to facilitate measuring the performance of our own
- * implementation vs. the ones in BSafe. This factory gets called first; if
- * we disable e.g. DES here the BSAFE version will be used.
- */
-#ifdef	BSAFE_CSP_ENABLE
-
-#define MAF_DES_ENABLE		0
-#define MAF_DES3_ENABLE		0
-#define MAF_RC2_ENABLE		0
-#define MAF_RC4_ENABLE		0
-#define MAF_RC5_ENABLE		0
-#define MAF_MAC_ENABLE		0
-
-#else	/* !BSAFE_CSP_ENABLE, normal case */
-
 #define MAF_DES_ENABLE		1
 #define MAF_DES3_ENABLE		1
 #define MAF_RC2_ENABLE		1
 #define MAF_RC4_ENABLE		1
 #define MAF_RC5_ENABLE		1
 #define MAF_MAC_ENABLE		1
-
-#endif	/* BSAFE_CSP_ENABLE */
 
 #if	(!MAF_DES_ENABLE || !MAF_DES3_ENABLE || !MAF_RC2_ENABLE || !MAF_RC4_ENABLE || \
 		!MAF_RC5_ENABLE || !MAF_MAC_ENABLE)

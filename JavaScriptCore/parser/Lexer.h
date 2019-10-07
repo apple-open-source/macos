@@ -88,8 +88,8 @@ public:
     void setSawError(bool sawError) { m_error = sawError; }
     String getErrorMessage() const { return m_lexErrorMessage; }
     void setErrorMessage(const String& errorMessage) { m_lexErrorMessage = errorMessage; }
-    String sourceURL() const { return m_sourceURLDirective; }
-    String sourceMappingURL() const { return m_sourceMappingURLDirective; }
+    String sourceURLDirective() const { return m_sourceURLDirective; }
+    String sourceMappingURLDirective() const { return m_sourceMappingURLDirective; }
     void clear();
     void setOffset(int offset, int lineStartOffset)
     {
@@ -179,11 +179,11 @@ private:
     ALWAYS_INLINE StringParseResult parseTemplateLiteral(JSTokenData*, RawStringsBuildMode);
     
     using NumberParseResult = Variant<double, const Identifier*>;
-    ALWAYS_INLINE NumberParseResult parseHex();
+    ALWAYS_INLINE Optional<NumberParseResult> parseHex();
     ALWAYS_INLINE Optional<NumberParseResult> parseBinary();
     ALWAYS_INLINE Optional<NumberParseResult> parseOctal();
     ALWAYS_INLINE Optional<NumberParseResult> parseDecimal();
-    ALWAYS_INLINE void parseNumberAfterDecimalPoint();
+    ALWAYS_INLINE bool parseNumberAfterDecimalPoint();
     ALWAYS_INLINE bool parseNumberAfterExponentIndicator();
     ALWAYS_INLINE bool parseMultilineComment();
 

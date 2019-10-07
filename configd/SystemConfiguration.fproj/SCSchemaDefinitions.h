@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -252,11 +252,10 @@
  *   kSCPropNetPPPDisconnectOnLogout                    "DisconnectOnLogout"           CFNumber (0 or 1)
  *   kSCPropNetPPPDisconnectOnSleep                     "DisconnectOnSleep"            CFNumber (0 or 1)
  *   kSCPropNetPPPDisconnectTime                        "DisconnectTime"               CFNumber
- *   kSCPropNetPPPIdleReminderTimer                     "IdleReminderTimer"            CFNumber
  *   kSCPropNetPPPIdleReminder                          "IdleReminder"                 CFNumber (0 or 1)
+ *   kSCPropNetPPPIdleReminderTimer                     "IdleReminderTimer"            CFNumber
  *   kSCPropNetPPPLastCause                             "LastCause"                    CFNumber
  *   kSCPropNetPPPLogfile                               "Logfile"                      CFString
- *   kSCPropNetPPPPlugins                               "Plugins"                      CFArray[CFString]
  *   kSCPropNetPPPRetryConnectTime                      "RetryConnectTime"             CFNumber
  *   kSCPropNetPPPSessionTimer                          "SessionTimer"                 CFNumber
  *   kSCPropNetPPPStatus                                "Status"                       CFNumber
@@ -264,7 +263,6 @@
  *   kSCPropNetPPPVerboseLogging                        "VerboseLogging"               CFNumber (0 or 1)
  *
  *   --- Auth: ---
- *   kSCPropNetPPPAuthEAPPlugins                        "AuthEAPPlugins"               CFArray[CFString]
  *   kSCPropNetPPPAuthName                              "AuthName"                     CFString
  *   kSCPropNetPPPAuthPassword                          "AuthPassword"                 CFString
  *   kSCPropNetPPPAuthPasswordEncryption                "AuthPasswordEncryption"       CFString
@@ -1586,18 +1584,18 @@ extern const CFStringRef kSCPropNetPPPDisconnectTime                        API_
 #define kSCPropNetPPPDisconnectTime kSCPropNetPPPDisconnectTime
 
 /*!
-  @const kSCPropNetPPPIdleReminderTimer
-  @discussion Value is a CFNumber
- */
-extern const CFStringRef kSCPropNetPPPIdleReminderTimer                     API_AVAILABLE(macos(10.1)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
-#define kSCPropNetPPPIdleReminderTimer kSCPropNetPPPIdleReminderTimer
-
-/*!
   @const kSCPropNetPPPIdleReminder
   @discussion Value is a CFNumber (0 or 1)
  */
 extern const CFStringRef kSCPropNetPPPIdleReminder                          API_AVAILABLE(macos(10.1)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 #define kSCPropNetPPPIdleReminder kSCPropNetPPPIdleReminder
+
+/*!
+  @const kSCPropNetPPPIdleReminderTimer
+  @discussion Value is a CFNumber
+ */
+extern const CFStringRef kSCPropNetPPPIdleReminderTimer                     API_AVAILABLE(macos(10.1)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
+#define kSCPropNetPPPIdleReminderTimer kSCPropNetPPPIdleReminderTimer
 
 /*!
   @const kSCPropNetPPPLastCause
@@ -1617,7 +1615,7 @@ extern const CFStringRef kSCPropNetPPPLogfile                               API_
   @const kSCPropNetPPPPlugins
   @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetPPPPlugins                               API_AVAILABLE(macos(10.2)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
+extern const CFStringRef kSCPropNetPPPPlugins                               API_DEPRECATED("No longer supported", macos(10.2,10.15)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 #define kSCPropNetPPPPlugins kSCPropNetPPPPlugins
 
 /*!
@@ -1659,7 +1657,7 @@ extern const CFStringRef kSCPropNetPPPVerboseLogging                        API_
   @const kSCPropNetPPPAuthEAPPlugins
   @discussion Value is a CFArray[CFString]
  */
-extern const CFStringRef kSCPropNetPPPAuthEAPPlugins                        API_AVAILABLE(macos(10.3)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
+extern const CFStringRef kSCPropNetPPPAuthEAPPlugins                        API_DEPRECATED("No longer supported", macos(10.3,10.15)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 #define kSCPropNetPPPAuthEAPPlugins kSCPropNetPPPAuthEAPPlugins
 
 /*!

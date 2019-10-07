@@ -30,8 +30,6 @@
 #ifndef	_DECL_H
 #define	_DECL_H
 
-#pragma ident	"@(#)decl.h	1.23	08/03/18 SMI" 	/* SVr4.0 1.9	*/
-
 #define SEG_CTF "__CTF"
 #define SECT_CTF "__ctf"
 
@@ -65,29 +63,10 @@ typedef pthread_key_t thread_key_t;
 #include <unistd.h>
 #define PAGESIZE getpagesize()
 
-#define SHT_SPARC_GOTDATA -1
-#define SHT_AMD64_UNWIND -1
-
-#define SWAP16(v)		v = OSSwapInt16(v)
-#define SWAP32(v)		v = OSSwapInt32(v)
-#define SWAP64(v)		v = OSSwapInt64(v)
-
-#include <mach-o/loader.h>
-extern void __swap_mach_header(struct mach_header *);
-extern void __swap_mach_header_64(struct mach_header_64 *);
-extern void __swap_segment_command(struct segment_command *);
-extern void __swap_segment_command_64(struct segment_command_64 *);
-extern void __swap_section(struct section *);
-extern void __swap_section_64(struct section_64 *);
-extern void __swap_symtab_command(struct symtab_command *);
-
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-typedef struct Member	Member;
-typedef struct Memlist	Memlist;
-typedef struct Memident	Memident;
 typedef struct Dnode	Dnode;
 typedef struct Snode32	Snode32;
 typedef struct Snode64	Snode64;
@@ -329,15 +308,6 @@ typedef enum
  *			archive to the member bytes (not the hdr).  If an
  *			archive member slides, memoff changes.
  *
- *	ed_siboff	Similar to ed_memoff, this gives the offset from
- *			the beginning of the nesting file to the following
- *			sibling's header (not the sibling's bytes).  This
- *			value is necessary, because of archive sliding.
- *
- *	ed_nextoff	For an archive, this gives the offset of the next
- *			member to process on elf_begin.  That is,
- *			(ed_ident + ed_nextoff) gives pointer to member hdr.
- *
  *	Keeping these absolute and relative offsets allows nesting of
  *	files, including archives within archives, etc.  The only current
  *	nesting file is archive, but others might be supported.
@@ -357,9 +327,6 @@ struct Elf
 	int		ed_fd;		/* file descriptor */
 	Status		ed_status;	/* file's memory status */
 	off_t		ed_baseoff;	/* base file offset, zero based */
-	size_t		ed_memoff;	/* offset within archive */
-	size_t		ed_siboff;	/* sibling offset with archive */
-	size_t		ed_nextoff;	/* next archive member hdr offset */
 	char		*ed_image;	/* pointer to file image */
 	size_t		ed_imagesz;	/* # bytes in ed_image */
 	char		*ed_wrimage;	/* pointer to output image */
@@ -381,18 +348,7 @@ struct Elf
 	Elf_Scn		*ed_hdscn;	/* head scn */
 	Elf_Scn		*ed_tlscn;	/* tail scn */
 	size_t		ed_scntabsz;	/* number sects. alloc. in table */
-	Memlist		*ed_memlist;	/* list of archive member nodes */
-	Member		*ed_armem;	/* archive member header */
-	Elf_Void	*ed_arsym;	/* archive symbol table */
-	size_t		ed_arsymsz;	/* archive symbol table size */
-	size_t		ed_arsymoff;	/* archive symbol table hdr offset */
-	char		*ed_arstr;	/* archive string table */
-	size_t		ed_arstrsz;	/* archive string table size */
-	size_t		ed_arstroff;	/* archive string table hdr offset */
 	unsigned	ed_myflags;	/* EDF_... */
-	unsigned	ed_ehflags;	/* ehdr flags */
-	unsigned	ed_phflags;	/* phdr flags */
-	unsigned	ed_uflags;	/* elf descriptor flags */
 };
 
 NOTE(RWLOCK_PROTECTS_DATA(Elf::ed_rwlock, Elf))
@@ -422,19 +378,11 @@ NOTE(RWLOCK_COVERS_LOCKS(Elf::ed_rwlock, Elf_Scn::s_mutex))
 		(void) rw_unlock(&((Elf *)e)->ed_rwlock);
 #endif
 
-#define	EDF_ASALLOC	0x1	/* applies to ed_arsym */
 #define	EDF_EHALLOC	0x2	/* applies to ed_ehdr */
 #define	EDF_PHALLOC	0x4	/* applies to ed_phdr */
 #define	EDF_SHALLOC	0x8	/* applies to ed_shdr */
-#define	EDF_COFFAOUT	0x10	/* original file was coff a.out */
-#define	EDF_RAWALLOC	0x20	/* applies to ed_raw */
 #define	EDF_READ	0x40	/* file can be read */
 #define	EDF_WRITE	0x80	/* file can be written */
-#define	EDF_MEMORY	0x100	/* file opened via elf_memory() */
-#define	EDF_ASTRALLOC	0x200	/* applies to ed_arstr */
-#define	EDF_MPROTECT	0x400	/* applies to slideable archives */
-#define	EDF_IMALLOC	0x800	/* wrimage dynamically allocated */
-#define	EDF_WRALLOC	0x1000	/* wrimage is to by dyn allocated */
 #define	EDF_RDKERNTYPE	0x2000	/* When Mach-o is fat, choose member matching the running kernel. */
 
 
@@ -490,24 +438,17 @@ typedef enum
 #endif
 
 
-extern Member		*_elf_armem(Elf *, char *, size_t);
 extern void		_elf_arinit(Elf *);
 extern Okay		_elf_cook(Elf *);
 extern Okay		_elf_cookscn(Elf_Scn * s);
 extern Okay		_elf32_cookscn(Elf_Scn * s);
 extern Okay		_elf64_cookscn(Elf_Scn * s);
-extern Dnode		*_elf_dnode(void);
 extern Elf_Data		*_elf_locked_getdata(Elf_Scn *, Elf_Data *);
-extern size_t		_elf32_entsz(Elf *elf, Elf32_Word, unsigned);
-extern size_t		_elf64_entsz(Elf *elf, Elf64_Word, unsigned);
 extern Okay		_elf_inmap(Elf *);
-extern char		*_elf_outmap(int, size_t, unsigned *);
-extern size_t		_elf_outsync(int, char *, size_t, unsigned);
 extern size_t		_elf32_msize(Elf_Type, unsigned);
 extern size_t		_elf64_msize(Elf_Type, unsigned);
 extern Elf_Type		_elf32_mtype(Elf *, Elf32_Word, unsigned);
 extern Elf_Type		_elf64_mtype(Elf *, Elf64_Word, unsigned);
-extern char		*_elf_read(int, off_t, size_t);
 extern Snode32		*_elf32_snode(void);
 extern Snode64		*_elf64_snode(void);
 extern void		_elf_unmap(char *, size_t);
@@ -518,18 +459,13 @@ extern int		_elf32_shdr(Elf *, int);
 extern int		_elf64_ehdr(Elf *, int);
 extern int		_elf64_phdr(Elf *, int);
 extern int		_elf64_shdr(Elf *, int);
-extern int		_elf_byte;
-extern const Elf32_Ehdr	_elf32_ehdr_init;
 extern const Elf64_Ehdr	_elf64_ehdr_init;
 extern unsigned		_elf_encode;
 extern void		_elf_seterr(Msg, int);
 extern const Snode32	_elf32_snode_init;
 extern const Snode64	_elf64_snode_init;
-extern const Dnode	_elf_dnode_init;
 extern unsigned		_elf_work;
 extern mutex_t		_elf_globals_mutex;
-extern off_t		_elf64_update(Elf * elf, Elf_Cmd cmd);
-extern int		_elf64_swap_wrimage(Elf *elf);
 
 /* CSTYLED */
 NOTE(MUTEX_PROTECTS_DATA(_elf_globals_mutex, \

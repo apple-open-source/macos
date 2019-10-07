@@ -12,9 +12,9 @@ if (substr(PHP_OS, 0, 3) != 'WIN') {
 --FILE--
 <?php
 /* Prototype  : bool touch(string filename [, int time [, int atime]])
- * Description: Set modification time of file 
+ * Description: Set modification time of file
  * Source code: ext/standard/filestat.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 echo "*** Testing touch() : usage variation ***\n";
@@ -126,19 +126,19 @@ bool(true)
 bool(true)
 
 --empty array--
-Error: 2 - touch() expects parameter 3 to be integer, array given, %s(%d)
+Error: 2 - touch() expects parameter 3 to be int, array given, %s(%d)
 NULL
 
 --int indexed array--
-Error: 2 - touch() expects parameter 3 to be integer, array given, %s(%d)
+Error: 2 - touch() expects parameter 3 to be int, array given, %s(%d)
 NULL
 
 --associative array--
-Error: 2 - touch() expects parameter 3 to be integer, array given, %s(%d)
+Error: 2 - touch() expects parameter 3 to be int, array given, %s(%d)
 NULL
 
 --nested arrays--
-Error: 2 - touch() expects parameter 3 to be integer, array given, %s(%d)
+Error: 2 - touch() expects parameter 3 to be int, array given, %s(%d)
 NULL
 
 --uppercase NULL--
@@ -160,35 +160,35 @@ bool(true)
 bool(true)
 
 --empty string DQ--
-Error: 2 - touch() expects parameter 3 to be integer, string given, %s(%d)
+Error: 2 - touch() expects parameter 3 to be int, string given, %s(%d)
 NULL
 
 --empty string SQ--
-Error: 2 - touch() expects parameter 3 to be integer, string given, %s(%d)
+Error: 2 - touch() expects parameter 3 to be int, string given, %s(%d)
 NULL
 
 --string DQ--
-Error: 2 - touch() expects parameter 3 to be integer, string given, %s(%d)
+Error: 2 - touch() expects parameter 3 to be int, string given, %s(%d)
 NULL
 
 --string SQ--
-Error: 2 - touch() expects parameter 3 to be integer, string given, %s(%d)
+Error: 2 - touch() expects parameter 3 to be int, string given, %s(%d)
 NULL
 
 --mixed case string--
-Error: 2 - touch() expects parameter 3 to be integer, string given, %s(%d)
+Error: 2 - touch() expects parameter 3 to be int, string given, %s(%d)
 NULL
 
 --heredoc--
-Error: 2 - touch() expects parameter 3 to be integer, string given, %s(%d)
+Error: 2 - touch() expects parameter 3 to be int, string given, %s(%d)
 NULL
 
 --instance of classWithToString--
-Error: 2 - touch() expects parameter 3 to be integer, object given, %s(%d)
+Error: 2 - touch() expects parameter 3 to be int, object given, %s(%d)
 NULL
 
 --instance of classWithoutToString--
-Error: 2 - touch() expects parameter 3 to be integer, object given, %s(%d)
+Error: 2 - touch() expects parameter 3 to be int, object given, %s(%d)
 NULL
 
 --undefined var--
@@ -197,4 +197,3 @@ bool(true)
 --unset var--
 bool(true)
 ===DONE===
-

@@ -192,8 +192,13 @@
 				<string>alt-dyld</string>
 				<string>/usr/bin/yes</string>
 			</array>
-			<key>EligibleResource</key>
-			<string>deviceClass == &apos;iPhone&apos;</string>
+			<key>RequiredResources</key>
+			<array>
+				<dict>
+					<key>Properties</key>
+					<string>deviceClass == &apos;iPhone&apos;</string>
+				</dict>
+			</array>
 			<key>IgnoreCrashes</key>
 			<array>
 			</array>

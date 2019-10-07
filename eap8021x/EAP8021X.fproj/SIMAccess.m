@@ -34,7 +34,7 @@
 
 #import <Foundation/Foundation.h>
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 
 #include <CoreTelephony/CTServerConnectionPriv.h>
 #include <CoreTelephony/CTServerConnectionSubscriber.h>
@@ -105,7 +105,7 @@ SubscriptionContextMatchingSlotGet(CoreTelephonyClient *coreTelephonyclient, NSU
     return matchingSubscriptionCtx;
 }
 
-PRIVATE_EXTERN CFStringRef
+CFStringRef
 _SIMCopyIMSI(CFDictionaryRef properties)
 {
     @autoreleasepool {
@@ -151,7 +151,7 @@ _SIMCopyIMSI(CFDictionaryRef properties)
     }
 }
 
-PRIVATE_EXTERN CFStringRef
+CFStringRef
 _SIMCopyRealm(CFDictionaryRef properties)
 {
     @autoreleasepool {
@@ -210,7 +210,7 @@ _SIMCopyRealm(CFDictionaryRef properties)
     }
 }
 
-PRIVATE_EXTERN CFDictionaryRef
+CFDictionaryRef
 _SIMCopyEncryptedIMSIInfo(EAPType type)
 {
     @autoreleasepool {
@@ -262,7 +262,7 @@ _SIMCopyEncryptedIMSIInfo(EAPType type)
     }
 }
 
-PRIVATE_EXTERN void
+void
 _SIMReportDecryptionError(CFDataRef encryptedIdentity)
 {
     @autoreleasepool {
@@ -291,7 +291,7 @@ _SIMReportDecryptionError(CFDataRef encryptedIdentity)
     }
 }
 
-PRIVATE_EXTERN CFDictionaryRef
+CFDictionaryRef
 _SIMCreateAuthResponse(CFStringRef slotUUID, CFDictionaryRef auth_params)
 {
     @autoreleasepool {
@@ -450,7 +450,7 @@ SIMCreateAuthResponse(CFStringRef slotUUID, CFDictionaryRef request)
     return (response);
 }
 
-PRIVATE_EXTERN bool
+bool
 SIMAuthenticateGSM(CFDictionaryRef properties, const uint8_t * rand_p, int count,
 		   uint8_t * kc_p, uint8_t * sres_p)
 {
@@ -523,7 +523,7 @@ AKAAuthResultsSetValuesWithResponse(AKAAuthResultsRef results,
     return;
 }
 
-PRIVATE_EXTERN bool
+bool
 SIMAuthenticateAKA(CFDictionaryRef properties, CFDataRef rand, CFDataRef autn, AKAAuthResultsRef results)
 {
     CFDictionaryRef	request;
@@ -552,6 +552,7 @@ SIMAuthenticateAKA(CFDictionaryRef properties, CFDataRef rand, CFDataRef autn, A
 
 #pragma mark - SIMStatusIndicator Interface
 
+__attribute__((visibility("hidden")))
 @interface SIMStatusIndicator : NSObject <CoreTelephonyClientSubscriberDelegate> {
 
 }
@@ -626,44 +627,44 @@ _SIMAccessConnectionRegisterForNotification(CFTypeRef connection, SIMAccessConne
     }
 }
 
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 
-PRIVATE_EXTERN void
+void
 AKAAuthResultsSetCK(AKAAuthResultsRef results, CFDataRef ck)
 {
     my_FieldSetRetainedCFType(&results->ck, ck);
     return;
 }
 
-PRIVATE_EXTERN void
+void
 AKAAuthResultsSetIK(AKAAuthResultsRef results, CFDataRef ik)
 {
     my_FieldSetRetainedCFType(&results->ik, ik);
     return;
 }
 
-PRIVATE_EXTERN void
+void
 AKAAuthResultsSetRES(AKAAuthResultsRef results, CFDataRef res)
 {
     my_FieldSetRetainedCFType(&results->res, res);
     return;
 }
 
-PRIVATE_EXTERN void
+void
 AKAAuthResultsSetAUTS(AKAAuthResultsRef results, CFDataRef auts)
 {
     my_FieldSetRetainedCFType(&results->auts, auts);
     return;
 }
 
-PRIVATE_EXTERN void
+void
 AKAAuthResultsInit(AKAAuthResultsRef results)
 {
     bzero(results, sizeof(*results));
     return;
 }
 
-PRIVATE_EXTERN void
+void
 AKAAuthResultsRelease(AKAAuthResultsRef results)
 {
     AKAAuthResultsSetCK(results, NULL);

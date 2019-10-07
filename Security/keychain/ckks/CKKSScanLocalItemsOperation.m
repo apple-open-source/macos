@@ -34,6 +34,7 @@
 #import "keychain/ckks/CKKSKey.h"
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSManifest.h"
+#import "keychain/ckks/CKKSItemEncrypter.h"
 
 #import "CKKSPowerCollection.h"
 
@@ -72,6 +73,8 @@
         ckkserror("ckksscan", ckks, "no CKKS object");
         return;
     }
+
+    [ckks.launch addEvent:@"scan-local-items"];
 
     [ckks dispatchSyncWithAccountKeys: ^bool{
         if(self.cancelled) {
@@ -189,7 +192,13 @@
                             }
                             [mirrorUUIDs removeObject:uuid];
                             ckksinfo("ckksscan", ckks, "Existing mirror entry with UUID %@", uuid);
-                            return;
+
+                            if([self areEquivalent:item ckksItem:ckme.item]) {
+                                // Fair enough.
+                                return;
+                            } else {
+                                ckksnotice("ckksscan", ckks, "Existing mirror entry with UUID %@ does not match local item", uuid);
+                            }
                         }
 
                         // We don't care about the oqe state here, just that one exists
@@ -327,6 +336,49 @@
         ckks.droppedItems = false;
         return true;
     }];
+}
+
+- (BOOL)areEquivalent:(SecDbItemRef)item ckksItem:(CKKSItem*)ckksItem
+{
+    CKKSKeychainView* ckks = self.ckks;
+
+    NSError* localerror = nil;
+    NSDictionary* attributes = [CKKSIncomingQueueOperation decryptCKKSItemToAttributes:ckksItem error:&localerror];
+    if(!attributes || localerror) {
+        ckksnotice("ckksscan", ckks, "Could not decrypt item for comparison: %@", localerror);
+        return YES;
+    }
+
+    CFErrorRef cferror = NULL;
+    NSDictionary* objdict = (NSMutableDictionary*)CFBridgingRelease(SecDbItemCopyPListWithMask(item, kSecDbSyncFlag, &cferror));
+    localerror = (NSError*)CFBridgingRelease(cferror);
+
+    if(!objdict || localerror) {
+        ckksnotice("ckksscan", ckks, "Could not get item contents for comparison: %@", localerror);
+
+        // Fail open: assert that this item doesn't match
+        return NO;
+    }
+
+    for(id key in objdict) {
+        // Okay, but seriously storing dates as floats was a mistake.
+        // Don't compare cdat and mdat, as they'll usually be different.
+        // Also don't compare the sha1, as it hashes that double.
+        if([key isEqual:(__bridge id)kSecAttrCreationDate] ||
+           [key isEqual:(__bridge id)kSecAttrModificationDate] ||
+           [key isEqual:(__bridge id)kSecAttrSHA1]) {
+            continue;
+        }
+
+        id value = objdict[key];
+        id attributesValue = attributes[key];
+
+        if(![value isEqual:attributesValue]) {
+            return NO;
+        }
+    }
+
+    return YES;
 }
 
 @end;

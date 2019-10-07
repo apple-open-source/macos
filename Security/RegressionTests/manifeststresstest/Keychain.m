@@ -43,7 +43,7 @@ static NSString *kService = @"manifeststresstest";
                             (id)kSecAttrAccount : name,
                             (id)kSecValueData : [value dataUsingEncoding:NSUTF8StringEncoding],
                             (id)kSecAttrSynchronizable: (id)kCFBooleanTrue,
-                            (id)kSecAttrNoLegacy : (id)kCFBooleanTrue,
+                            (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
                             (id)kSecAttrSyncViewHint : view,
                             (id)kSecReturnPersistentRef: @YES,
                             };
@@ -150,7 +150,7 @@ static NSString *kService = @"manifeststresstest";
                             (id)kSecClass : (id)kSecClassGenericPassword,
                             (id)kSecAttrAccessGroup : kAccessGroup,
                             (id)kSecAttrService : kService,
-                            (id)kSecAttrNoLegacy : (id)kCFBooleanTrue,
+                            (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
                             (id)kSecAttrSynchronizable: (id)kCFBooleanTrue,
                             };
     OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, (CFTypeRef *)&result);

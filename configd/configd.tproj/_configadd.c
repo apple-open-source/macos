@@ -104,7 +104,6 @@ _configadd(mach_port_t 			server,
 	/* un-serialize the key */
 	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
-		goto done;
 	}
 
 	/* un-serialize the data */

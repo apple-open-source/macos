@@ -33,6 +33,7 @@
 #import "PDFKitSPI.h"
 #import "UIKitSPI.h"
 #import "WKActionSheetAssistant.h"
+#import "WKKeyboardScrollingAnimator.h"
 #import "WKUIDelegatePrivate.h"
 #import "WKWebEvent.h"
 #import "WKWebViewInternal.h"
@@ -44,6 +45,7 @@
 #import <wtf/MainThread.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/WeakObjCPtr.h>
+#import <wtf/cocoa/Entitlements.h>
 #import <wtf/cocoa/NSURLExtras.h>
 
 @interface WKPDFView () <PDFHostViewControllerDelegate, WKActionSheetAssistantDelegate>
@@ -67,6 +69,7 @@
     WebKit::InteractionInformationAtPosition _positionInformation;
     RetainPtr<NSString> _suggestedFilename;
     WeakObjCPtr<WKWebView> _webView;
+    RetainPtr<WKKeyboardScrollViewAnimator> _keyboardScrollingAnimator;
 }
 
 - (void)dealloc
@@ -74,6 +77,7 @@
     [_actionSheetAssistant cleanupSheet];
     [[_hostViewController view] removeFromSuperview];
     [_pageNumberIndicator removeFromSuperview];
+    [_keyboardScrollingAnimator invalidate];
     std::memset(_passwordForPrinting.mutableData(), 0, _passwordForPrinting.length());
     [super dealloc];
 }
@@ -81,6 +85,10 @@
 - (BOOL)web_handleKeyEvent:(::UIEvent *)event
 {
     auto webEvent = adoptNS([[WKWebEvent alloc] initWithEvent:event]);
+
+    if ([_keyboardScrollingAnimator beginWithEvent:webEvent.get()])
+        return YES;
+    [_keyboardScrollingAnimator handleKeyEvent:webEvent.get()];
     return NO;
 }
 
@@ -105,8 +113,15 @@
     if (!(self = [super initWithFrame:frame webView:webView]))
         return nil;
 
-    self.backgroundColor = UIColor.grayColor;
-    webView.scrollView.backgroundColor = UIColor.grayColor;
+#if USE(PDFKIT_BACKGROUND_COLOR)
+    UIColor *backgroundColor = PDFHostViewController.backgroundColor;
+#else
+    UIColor *backgroundColor = UIColor.grayColor;
+#endif
+    self.backgroundColor = backgroundColor;
+    webView.scrollView.backgroundColor = backgroundColor;
+
+    _keyboardScrollingAnimator = adoptNS([[WKKeyboardScrollViewAnimator alloc] initWithScrollView:webView.scrollView]);
 
     _webView = webView;
     return self;
@@ -134,7 +149,6 @@
 
         UIView *hostView = hostViewController.view;
         hostView.frame = webView.bounds;
-        hostView.backgroundColor = UIColor.grayColor;
 
         UIScrollView *scrollView = webView.scrollView;
         [self removeFromSuperview];
@@ -344,6 +358,16 @@ static NSStringCompareOptions stringCompareOptions(_WKFindOptions findOptions)
     return self._contentView;
 }
 
++ (BOOL)web_requiresCustomSnapshotting
+{
+#if HAVE(PDFHOSTVIEWCONTROLLER_SNAPSHOTTING)
+    static bool hasGlobalCaptureEntitlement = WTF::processHasEntitlement("com.apple.QuartzCore.global-capture");
+    return !hasGlobalCaptureEntitlement;
+#else
+    return false;
+#endif
+}
+
 - (void)web_scrollViewDidScroll:(UIScrollView *)scrollView
 {
     [_hostViewController updatePDFViewLayout];
@@ -369,6 +393,16 @@ static NSStringCompareOptions stringCompareOptions(_WKFindOptions findOptions)
     [_hostViewController beginPDFViewRotation];
     updateBlock();
     [_hostViewController endPDFViewRotation];
+}
+
+- (void)web_snapshotRectInContentViewCoordinates:(CGRect)rectInContentViewCoordinates snapshotWidth:(CGFloat)snapshotWidth completionHandler:(void (^)(CGImageRef))completionHandler
+{
+#if HAVE(PDFHOSTVIEWCONTROLLER_SNAPSHOTTING)
+    CGRect rectInHostViewCoordinates = [self._contentView convertRect:rectInContentViewCoordinates toView:[_hostViewController view]];
+    [_hostViewController snapshotViewRect:rectInHostViewCoordinates snapshotWidth:@(snapshotWidth) afterScreenUpdates:NO withResult:^(UIImage *image) {
+        completionHandler(image.CGImage);
+    }];
+#endif
 }
 
 - (NSData *)web_dataRepresentation
@@ -509,6 +543,7 @@ static NSStringCompareOptions stringCompareOptions(_WKFindOptions findOptions)
 
 - (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant shareElementWithURL:(NSURL *)url rect:(CGRect)boundingRect
 {
+    // FIXME: We should use WKShareSheet instead of UIWKSelectionAssistant for this.
     auto selectionAssistant = adoptNS([[UIWKSelectionAssistant alloc] initWithView:[_hostViewController view]]);
     [selectionAssistant showShareSheetFor:WTF::userVisibleString(url) fromRect:boundingRect];
 }

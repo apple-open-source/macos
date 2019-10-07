@@ -47,7 +47,7 @@ NS_ASSUME_NONNULL_BEGIN
            at:(NSDate*)time
     limitTime:(NSDate* _Nonnull __autoreleasing* _Nonnull)limitTime;
 
-- (instancetype _Nullable)init;
+- (instancetype)init;
 - (instancetype _Nullable)initWithCoder:(NSCoder* _Nullable)coder NS_DESIGNATED_INITIALIZER;
 - (NSUInteger)stateSize;
 - (void)reset;

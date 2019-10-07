@@ -1230,7 +1230,6 @@ private:
         ASSERT(i < m_scopeStack.size());
         while (true) {
             // Annex B.3.5 exempts `try {} catch (e) { var e; }` from being a syntax error.
-            // FIXME: This exemption should not apply if the var declaration is a for-of initializer.
             if (m_scopeStack[i].hasLexicallyDeclaredVariable(*ident) && !m_scopeStack[i].isSimpleCatchParameterScope())
                 return DeclarationResult::InvalidDuplicateDeclaration;
 
@@ -1666,6 +1665,8 @@ private:
 
     template <class TreeBuilder> NEVER_INLINE const char* metaPropertyName(TreeBuilder&, TreeExpression);
 
+    template <class TreeBuilder> ALWAYS_INLINE bool isSimpleAssignmentTarget(TreeBuilder&, TreeExpression);
+
     ALWAYS_INLINE int isBinaryOperator(JSTokenType);
     bool allowAutomaticSemicolon();
     
@@ -1876,7 +1877,6 @@ private:
     JSToken m_token;
     bool m_allowsIn;
     JSTextPosition m_lastTokenEndPosition;
-    bool m_syntaxAlreadyValidated;
     int m_statementDepth;
     RefPtr<SourceProviderCache> m_functionCache;
     SourceElements* m_sourceElements;
@@ -1959,8 +1959,8 @@ std::unique_ptr<ParsedNode> Parser<LexerType>::parse(ParserError& error, const I
         result->setEndOffset(m_lexer->currentOffset());
 
         if (!isFunctionParseMode(parseMode)) {
-            m_source->provider()->setSourceURLDirective(m_lexer->sourceURL());
-            m_source->provider()->setSourceMappingURLDirective(m_lexer->sourceMappingURL());
+            m_source->provider()->setSourceURLDirective(m_lexer->sourceURLDirective());
+            m_source->provider()->setSourceMappingURLDirective(m_lexer->sourceMappingURLDirective());
         }
     } else {
         // We can never see a syntax error when reparsing a function, since we should have

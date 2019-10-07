@@ -9,16 +9,14 @@
 #
 # Usage:
 #
-#   makedarwinup radar-number-or-label
+#   makedarwinup [-build build] [-project project] [-train train] radar-number-or-label
 #
-
-if test $# != 1; then
-	echo "Usage: makedarwinup [-build build] [-train name] radar-number-or-label"
-	exit 1
-fi
 
 build=""
 train=""
+label=""
+project="cups"
+buildall="-buildAllAliases"
 
 while test $# -gt 0; do
         opt="$1"
@@ -29,12 +27,19 @@ while test $# -gt 0; do
         		build="$1"
         		shift
         		;;
+        	-project)
+        		project="$1"
+			if test $project != cups; then
+				buildall="-noBuildAllAliases"
+			fi
+        		shift
+        		;;
         	-train)
         		train="$1"
         		shift
         		;;
         	-*)
-        		echo "Usage: makedarwinup [-build build] [-train name] radar-number-or-label"
+        		echo "Usage: makedarwinup [-build build] [-project project] [-train name] radar-number-or-label"
         		exit 1
         		;;
         	*)
@@ -43,30 +48,72 @@ while test $# -gt 0; do
         esac
 done
 
-if test "x$train" = x; then
-	if test "x$build" = x; then
-		build=`sw_vers -buildVersion`
-	fi
-
-	train=`xbs getTrainForBuild $build --quiet`
+if test "x$label" = x; then
+	echo "Usage: makedarwinup [-build build] [-project project] [-train name] radar-number-or-label"
+	exit 1
 fi
 
-echo Building cups for $train...
+if test "x$train" = x; then
+	case $project in
+		cups_ios*)
+			if test "x$build" = x; then
+				build=`xcodebuild -sdk iphoneos -version ProductBuildVersion`
+			fi
 
-echo sudo xbs buildit . -update Prevailing$train -project cups -arch i386 -arch x86_64 -rootsDirectory /private/var/tmp AD_HOC_CODE_SIGN_IDENTITY=- -archive -archiveName cups-$label -archiveOutputDir ~/Desktop -dsymsInDstroot -buildAllAliases -noverify
-sudo xbs buildit . -update Prevailing$train -project cups -arch i386 -arch x86_64 -rootsDirectory /private/var/tmp AD_HOC_CODE_SIGN_IDENTITY=- -archive -archiveName cups-$label -archiveOutputDir ~/Desktop -dsymsInDstroot -buildAllAliases -noverify || exit 1
-rm -f ~/Desktop/Shared_cups-${label}_HDRDSTROOT_osx.tar.gz
-mv -f ~/Desktop/Shared_cups-${label}_DSTROOT_osx.tar.gz ~/Desktop/cups-$label.tar.gz
+			train=`xbs getTrainForBuild --embedded $build --quiet`
+			;;
+		*)
+			if test "x$build" = x; then
+				build=`xcodebuild -sdk macosx -version ProductBuildVersion`
+			fi
 
-echo "Send ~/Desktop/cups-$label.tar.gz to tester."
-echo ""
-echo "Use the following commands to install the root:"
-echo ""
-echo "  sudo darwinup install ~/Desktop/cups-$label.tar.gz"
-echo "  sudo killall cupsd"
-echo "  cupsctl --debug-logging"
-echo ""
-echo "Use the following commands to remove the root:"
-echo ""
-echo "  sudo darwinup uninstall cups-$label.tar.gz"
-echo "  sudo killall cupsd"
+			train=`xbs getTrainForBuild $build --quiet`
+			;;
+	esac
+fi
+
+# See whether we are running at Apple or remotely...
+address="`ifconfig en0 | grep 'inet 17.' | awk '{print $2}'`"
+if test "x$address" = x; then
+	tprefix="Stashed"
+else
+	tprefix="Prevailing"
+fi
+
+echo Building $project for $train...
+
+echo sudo xbs buildit -update $tprefix$train -project $project -useSharedSDKContentRoot -sharedSDKContentRoot /private/tmp/printing.$train -archive -archiveName $project-$label -archiveOutputDir ~/Desktop -dsymsInDstroot $buildall -noverify -codesign .
+sudo xbs buildit -update $tprefix$train -project $project -useSharedSDKContentRoot -sharedSDKContentRoot /private/tmp/printing.$train -archive -archiveName $project-$label -archiveOutputDir ~/Desktop -dsymsInDstroot $buildall -noverify -codesign .
+
+if test $? = 0; then
+	say "Darwin up build successful."
+else
+	say "Darwin up build failed."
+	exit 1
+fi
+
+if test $project = cups; then
+	rm -f ~/Desktop/Shared_$project-${label}_HDRDSTROOT_*.tar.gz
+	mv -f ~/Desktop/Shared_$project-${label}_SDKContentRoot_*.tar.gz ~/Desktop/$project-sdk-$label.tar.gz
+	mv -f ~/Desktop/Shared_$project-${label}_DSTROOT_*.tar.gz ~/Desktop/$project-$label.tar.gz
+else
+	rm -f ~/Desktop/$project-${label}_APIDSTROOT*.tar.gz
+	mv -f ~/Desktop/$project-${label}_SDKContentRoot*.tar.gz ~/Desktop/$project-sdk-$label.tar.gz
+	mv -f ~/Desktop/$project-${label}_DSTROOT*.tar.gz ~/Desktop/$project-$label.tar.gz
+fi
+
+echo "Send ~/Desktop/$project-$label.tar.gz to tester."
+
+if test $project = cups; then
+	echo ""
+	echo "Use the following commands to install the root:"
+	echo ""
+	echo "  sudo darwinup install ~/Desktop/$project-$label.tar.gz"
+	echo "  sudo killall cupsd"
+	echo "  cupsctl --debug-logging"
+	echo ""
+	echo "Use the following commands to remove the root:"
+	echo ""
+	echo "  sudo darwinup uninstall $project-$label.tar.gz"
+	echo "  sudo killall cupsd"
+fi

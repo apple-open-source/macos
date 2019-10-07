@@ -32,6 +32,9 @@
 #include <unistd.h>
 #include <errno.h>
 #include <apfs/apfs_fsctl.h>
+#include <System/sys/snapshot.h>
+#include <IOKit/storage/IOMedia.h>
+#include <IOKit/IOBSD.h>
 
 #include "bless.h"
 #include "bless_private.h"
@@ -116,4 +119,96 @@ int BLCreateAPFSVolumeInformationDictionary(BLContextPtr context, const char *mo
     
     *outDict = dict;
     return 0;
+}
+
+int BLGetAPFSSnapshotBlessData(BLContextPtr context, const char *mountpoint, uuid_string_t snap_uuid)
+{
+    if (!snap_uuid) {
+        return -1;
+    }
+
+    apfs_snap_name_lookup_t snap_lookup_data = {0};
+    snap_lookup_data.type = SNAP_LOOKUP_ROOT;
+
+    if (fsctl(mountpoint, APFSIOC_SNAP_LOOKUP, (void *)&snap_lookup_data, 0)) {
+        return -1;
+    }
+
+    if (snap_lookup_data.snap_xid != 0) {
+        uuid_unparse(snap_lookup_data.snap_uuid, snap_uuid);
+    } else {
+        memset(snap_uuid, 0, sizeof(uuid_string_t));
+    }
+
+    return 0;
+}
+
+int BLSetAPFSSnapshotBlessData(BLContextPtr context, const char *mountpoint, uuid_string_t snap_uuid)
+{
+    apfs_snap_name_lookup_t snap_lookup_data = {0};
+    int vol_fd, err = 0;
+
+    if (!snap_uuid) {
+        return -1;
+    }
+
+    if ((vol_fd = open(mountpoint, O_RDONLY, 0 )) < 0) {
+        return -1;
+    }
+
+    // passing an empty snapshot uuid is used to bless the live fs
+    // this is done by calling fs_snapshot_root with an empty snapshot name
+    // so no need for snapshot lookup when blessing the live fs
+    if (strlen(snap_uuid)) {
+        err = uuid_parse(snap_uuid, snap_lookup_data.snap_uuid);
+        snap_lookup_data.type = SNAP_LOOKUP_BY_UUID;
+
+        if (!err) {
+            err = fsctl(mountpoint, APFSIOC_SNAP_LOOKUP, (void *)&snap_lookup_data, 0);
+        }
+    }
+
+    if (!err) {
+        err = fs_snapshot_root(vol_fd, snap_lookup_data.snap_name, 0);
+    }
+
+    close(vol_fd);
+    return err;
+}
+
+CFStringRef BLGetAPFSBlessedVolumeBSDName(BLContextPtr context, const char *mountpoint, char *bless_folder, uuid_string_t vol_uuid)
+{
+    char *slash;
+    uuid_t c_uuid;
+    CFStringRef uuid, bsd_name = NULL;
+    CFMutableDictionaryRef matching = NULL;
+    io_service_t service = IO_OBJECT_NULL;
+
+    if (!vol_uuid) {
+        return NULL;
+    }
+
+    memset(vol_uuid, 0, sizeof(uuid_string_t));
+    memmove(bless_folder, bless_folder + strlen(mountpoint), strlen(bless_folder) - strlen(mountpoint) + 1);
+    slash = strchr(bless_folder + 1, '/');
+
+    if (slash) *slash = '\0';
+    if (uuid_parse(bless_folder + 1, c_uuid)) {
+        return NULL;
+    }
+
+    uuid = CFStringCreateWithCString(kCFAllocatorDefault, bless_folder + 1, kCFStringEncodingUTF8);
+    matching = IOServiceMatching("AppleAPFSVolume");
+    CFDictionarySetValue(matching, CFSTR(kIOMediaUUIDKey), uuid);
+    CFRelease(uuid);
+
+    service = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
+    if (service) {
+        bsd_name = IORegistryEntryCreateCFProperty(service, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
+        if (bsd_name) strcpy(vol_uuid, bless_folder + 1);
+    }
+
+    *slash = '/';
+
+    return bsd_name;
 }

@@ -197,7 +197,7 @@
         return;
 
     // Mac platform only supports word boundaries.
-    m_synthesizerObject->client()->boundaryEventOccurred(*m_utterance, WebCore::SpeechWordBoundary, characterRange.location);
+    m_synthesizerObject->client()->boundaryEventOccurred(*m_utterance, WebCore::SpeechBoundary::SpeechWordBoundary, characterRange.location);
 }
 
 @end
@@ -273,6 +273,11 @@ void PlatformSpeechSynthesizer::speak(RefPtr<PlatformSpeechSynthesisUtterance>&&
 }
 
 void PlatformSpeechSynthesizer::cancel()
+{
+    [m_platformSpeechWrapper.get() cancel];
+}
+
+void PlatformSpeechSynthesizer::resetState()
 {
     [m_platformSpeechWrapper.get() cancel];
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,6 +55,7 @@
 #include <stdio.h>
 #include "host_identifier.h"
 #include "netinfo.h"
+#include "symbol_scope.h"
 
 /*
  * Imported from Libinfo START ---v
@@ -89,7 +90,7 @@
 	obj = (void *)realloc((void *)(obj), \
 			      sizeof(*(obj)) * ((len) - 1))
 
-void
+PRIVATE_EXTERN void
 ni_proplist_insert(
 		ni_proplist *pl,
 		const ni_property prop,
@@ -106,7 +107,7 @@ ni_proplist_insert(
 	pl->nipl_len++;
 }
 
-void
+PRIVATE_EXTERN void
 ni_proplist_delete(
 		ni_proplist *pl,
 		ni_index which
@@ -121,7 +122,7 @@ ni_proplist_delete(
 	MM_SHRINK_ARRAY(pl->nipl_val, pl->nipl_len--);
 }
 
-void
+PRIVATE_EXTERN void
 ni_proplist_free(
 		 ni_proplist *pl
 		 )
@@ -138,7 +139,7 @@ ni_proplist_free(
 	NI_INIT(pl);
 }
 
-ni_proplist
+PRIVATE_EXTERN ni_proplist
 ni_proplist_dup(
 	     const ni_proplist pl
 	     )
@@ -155,7 +156,7 @@ ni_proplist_dup(
 	return (newlist);
 }
 
-ni_index
+PRIVATE_EXTERN ni_index
 ni_proplist_match(
 	       const ni_proplist pl,
 	       ni_name_const pname,
@@ -184,7 +185,7 @@ ni_proplist_match(
 }
 
 
-ni_property
+PRIVATE_EXTERN ni_property
 ni_prop_dup(
 	 const ni_property prop
 	 )
@@ -196,7 +197,7 @@ ni_prop_dup(
 	return (newprop);
 }
 
-void
+PRIVATE_EXTERN void
 ni_prop_free(
 	     ni_property *prop
 	     )
@@ -205,7 +206,7 @@ ni_prop_free(
 	ni_namelist_free(&prop->nip_val);
 }
 
-int
+PRIVATE_EXTERN int
 ni_name_match(
 	   ni_name_const nm1,
 	   ni_name_const nm2
@@ -214,7 +215,7 @@ ni_name_match(
 	return (strcmp(nm1, nm2) == 0);
 }
 
-ni_name
+PRIVATE_EXTERN ni_name
 ni_name_dup(
 	 ni_name_const nm
 	 )
@@ -223,7 +224,7 @@ ni_name_dup(
 }
 
 
-void
+PRIVATE_EXTERN void
 ni_name_free(
 	     ni_name *nm
 	     )
@@ -234,7 +235,7 @@ ni_name_free(
 	}
 }
 
-ni_namelist
+PRIVATE_EXTERN ni_namelist
 ni_namelist_dup(
 	     const ni_namelist nl
 	     )
@@ -250,7 +251,7 @@ ni_namelist_dup(
 	return (newlist);
 }
 
-void
+PRIVATE_EXTERN void
 ni_namelist_free(
 	      ni_namelist *nl
 	      )
@@ -267,7 +268,7 @@ ni_namelist_free(
 	NI_INIT(nl);
 }
 
-void
+PRIVATE_EXTERN void
 ni_namelist_insert(
 		ni_namelist *nl,
 		ni_name_const nm,
@@ -284,7 +285,7 @@ ni_namelist_insert(
 	nl->ninl_len++;
 }
 
-void
+PRIVATE_EXTERN void
 ni_namelist_delete(
 		ni_namelist *nl,
 		ni_index which
@@ -299,7 +300,7 @@ ni_namelist_delete(
 	MM_SHRINK_ARRAY(nl->ninl_val, nl->ninl_len--);
 }
 
-ni_index
+PRIVATE_EXTERN ni_index
 ni_namelist_match(
 	       const ni_namelist nl,
 	       ni_name_const nm
@@ -323,7 +324,7 @@ ni_namelist_match(
  * Exported routines
  */
 
-void
+PRIVATE_EXTERN void
 ni_proplist_dump(ni_proplist * pl)
 {
     int i, j;
@@ -343,7 +344,7 @@ ni_proplist_dump(ni_proplist * pl)
     }
 }
 
-void
+PRIVATE_EXTERN void
 ni_set_prop(ni_proplist * pl_p, ni_name prop, ni_name value, 
 	    boolean_t * modified)
 {
@@ -362,7 +363,7 @@ ni_set_prop(ni_proplist * pl_p, ni_name prop, ni_name value,
     return;
 }
 
-void
+PRIVATE_EXTERN void
 ni_delete_prop(ni_proplist * pl_p, ni_name prop, boolean_t * modified)
 {
     int where;

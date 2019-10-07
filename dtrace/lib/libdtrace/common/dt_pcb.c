@@ -176,6 +176,7 @@ dt_pcb_pop(dtrace_hdl_t *dtp, int err)
 	dt_difo_free(dtp, pcb->pcb_difo);
 
 	free(pcb->pcb_filetag);
+	free(pcb->pcb_filebuf);
 	free(pcb->pcb_sflagv);
 
 	dtp->dt_pcb = pcb->pcb_prev;

@@ -25,7 +25,8 @@
 
 #pragma once
 
-#include "CookiesStrategy.h"
+#include "CookieJar.h"
+#include "PageIdentifier.h"
 #include "SameSiteInfo.h"
 #include <pal/SessionID.h>
 #include <wtf/URL.h>
@@ -38,7 +39,7 @@ struct CookieRequestHeaderFieldProxy {
     SameSiteInfo sameSiteInfo;
     URL url;
     Optional<uint64_t> frameID;
-    Optional<uint64_t> pageID;
+    Optional<PageIdentifier> pageID;
     IncludeSecureCookies includeSecureCookies { IncludeSecureCookies::No };
 
     template<class Encoder> void encode(Encoder&) const;
@@ -71,11 +72,14 @@ Optional<CookieRequestHeaderFieldProxy> CookieRequestHeaderFieldProxy::decode(De
         return WTF::nullopt;
     if (!decoder.decode(result.frameID))
         return WTF::nullopt;
-    if (!decoder.decode(result.pageID))
+    Optional<Optional<PageIdentifier>> pageID;
+    decoder >> pageID;
+    if (!pageID)
         return WTF::nullopt;
+    result.pageID = *pageID;
     if (!decoder.decode(result.includeSecureCookies))
         return WTF::nullopt;
-    return WTFMove(result);
+    return result;
 }
 
 } // namespace WebCore

@@ -1,0 +1,186 @@
+package SecC2MP;
+
+option java_package="com.apple.edge.metricsedge.model";
+option java_outer_classname = "C2Metric";
+
+option (objc_class_default_visibility) = "hidden";
+
+message Error {
+    optional string error_domain = 1;
+    optional int64 error_code = 2;
+    optional string error_description = 3;
+    optional Error underlying_error = 4;
+}
+
+message CloudKitOperationGroupInfo {
+    optional string operation_group_id = 1;
+    optional string operation_group_name = 2;
+
+    optional bool operation_group_triggered = 101;
+}
+
+message CloudKitOperationInfo {
+    optional string operation_id = 1;
+    optional string operation_type = 2;
+
+    optional bool operation_triggered = 101;
+
+    optional uint32 operation_group_index = 201; // Index of associated Metric.CloudKitInfo.operation_group
+}
+
+message Metric {
+    enum Type {
+        none_type = 0;
+
+        network_event_type = 200;
+        generic_event_type = 201;
+    }
+    optional Type metric_type = 1;
+
+    message DeviceInfo {
+        optional string product_name = 101;
+        optional string product_type = 102;
+        optional string product_version = 103;
+        optional string product_build = 104;
+        optional bool is_apple_internal = 105;
+
+        optional string process_name = 201;
+        optional string process_version = 202;
+        optional string process_uuid = 203;
+
+        optional string user_default_test_name = 301;
+        message InternalTestConfig {
+            optional string key = 101;
+            optional string value = 102;
+        }
+        repeated InternalTestConfig internal_test_config = 302;
+    }
+    optional DeviceInfo device_info = 2;
+
+    message CloudKitInfo {
+        optional string client_process_version = 102;
+        optional string client_bundle_id = 103;
+
+        optional string container = 201;
+        optional string environment = 202;
+        optional bool anonymous = 203;
+
+        repeated CloudKitOperationGroupInfo operation_group = 301;
+        optional uint64 report_operation_group_frequency = 302;
+        optional uint64 report_operation_group_frequency_base = 303;
+
+        repeated CloudKitOperationInfo client_operation = 401;
+        optional uint64 report_client_operation_frequency = 402;
+        optional uint64 report_client_operation_frequency_base = 403;
+    }
+    optional CloudKitInfo cloudkit_info = 3;
+
+    message ServerInfo {
+        optional string service_name = 102;
+        optional string partition = 103;
+        optional string service_build = 104;
+        optional string service_instance = 105;
+    }
+    optional ServerInfo server_info = 4;
+
+    enum Trigger {
+        none_trigger = 0;
+
+        user_default_trigger = 1;
+        frequency_trigger = 2;
+        response_header_trigger = 4; // Can only trigger NetworkStatistic metrics.
+        client_operation_frequency_trigger = 8;
+        operation_group_frequency_trigger = 16;
+        push_trigger = 32;
+    }
+    optional uint64 triggers = 100;
+    optional uint64 report_frequency = 101;
+    optional uint64 report_frequency_base = 102;
+
+    optional NetworkEvent network_event = 200;
+    optional GenericEvent generic_event = 201;
+}
+
+message NetworkEvent {
+    enum Trigger {  // Deprecated. Use Metric.Trigger instead.
+        none_trigger = 0;
+
+        user_default_trigger = 1;
+        frequency_trigger = 2;
+        response_header_trigger = 4;
+    }
+    optional uint64 triggers = 1; // Deprecated. Use Metric.triggers instead.
+    optional uint64 report_frequency = 2; // Deprecated. Use Metric.report_frequency instead.
+    optional uint64 report_frequency_base = 3; // Deprecated. Use Metric.report_frequency_base instead.
+
+    optional string network_task_description = 101;
+    optional string network_hostname = 102;
+    optional string network_remote_addresss_and_port = 103;
+    optional string network_connection_uuid = 104;
+    optional bool network_connection_reused = 105;
+    optional string network_interface_identifier = 106;
+    optional string network_protocol_name = 107;
+    optional uint32 network_request_header_size = 108;
+    optional uint64 network_request_body_bytes_sent = 109;
+    optional uint32 network_response_header_size = 110;
+    optional uint64 network_response_body_bytes_received = 111;
+    optional uint32 network_previous_attempt_count = 112;
+    optional Error network_fatal_error = 113;
+    optional uint64 network_status_code = 114;
+    optional string network_request_uri = 115;
+
+    optional uint64 timestamp_c2_init = 201;
+    optional uint64 timestamp_c2_start = 202;
+    optional uint64 timestamp_c2_now = 203;
+    optional uint64 timestamp_dns_start = 204;
+    optional uint64 timestamp_dns_end = 205;
+    optional uint64 timestamp_tcp_start = 206;
+    optional uint64 timestamp_tcp_end = 207;
+    optional uint64 timestamp_ssl_start = 208;
+    optional uint64 timestamp_request_start = 209;
+    optional uint64 timestamp_request_end = 210;
+    optional uint64 timestamp_response_start = 211;
+    optional uint64 timestamp_response_end = 212;
+
+    optional string options_quality_of_service = 301;
+    optional bool options_out_of_process = 302;
+    optional bool options_out_of_process_force_discretionary = 303;
+    optional bool options_allow_expensive_access = 304;
+    optional bool options_allow_power_nap_scheduling = 305;
+    optional uint32 options_timeout_interval_for_request = 306;
+    optional uint32 options_timeout_interval_for_resource = 307;
+    optional string options_source_application_bundle_identifier = 308;
+    optional string options_source_application_secondary_identifier = 309;
+    optional bool options_apple_id_context = 310;
+    optional bool options_tls_pinning_required = 311;
+}
+
+message GenericEvent {
+    enum Type {
+        none = 0;
+
+        cloudkit = 101;
+        cloudkit_client = 201;
+        server = 301;
+    }
+    optional Type type = 1;
+
+    optional string name = 101;
+
+    optional uint64 timestamp_start = 201;
+    optional uint64 timestamp_end = 202;
+
+    message GenericEventMetric {
+        optional string key = 101;
+
+        message GenericEventMetricValue {
+            optional string string_value = 101;
+            optional double double_value = 102;
+            optional uint64 date_value = 103;
+
+            optional Error error_value = 201;
+        }
+        optional GenericEventMetricValue value = 201;
+    }
+    repeated GenericEventMetric metric = 301;
+}

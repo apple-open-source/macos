@@ -24,30 +24,7 @@
 #ifndef IOHIDProperties_h
 #define IOHIDProperties_h
 
-/*!
- * @define      kIOHIDPointerAccelerationKey
- *
- * @abstract    CFNumber that contains the pointer acceleration value.
- */
-#define kIOHIDPointerAccelerationKey                "HIDPointerAcceleration"
-
-/*!
- * @define      kIOHIDPointerAccelerationTypeKey
- *
- * @abstract    CFString containing the type of acceleration for pointer.
- *              Supported types are:
- *                  <code>kIOHIDPointerAccelerationKey</code>
- *                  <code>kIOHIDMouseScrollAccelerationKey</code>
- *                  <code>kIOHIDTrackpadAccelerationType</code>
- */
-#define kIOHIDPointerAccelerationTypeKey            "HIDPointerAccelerationType"
-
-/*!
- * @define      kIOHIDMouseScrollAccelerationKey
- *
- * @abstract    CFNumber that contains the mouse scroll acceleration value.
- */
-#define kIOHIDMouseScrollAccelerationKey            "HIDMouseScrollAcceleration"
+#include <IOKit/hid/IOHIDEventServiceKeys.h>
 
 /*!
  * @define      kIOHIDMouseAccelerationType
@@ -55,24 +32,6 @@
  * @abstract    CFNumber that contains the mouse acceleration value.
  */
 #define kIOHIDMouseAccelerationType                 "HIDMouseAcceleration"
-#define kIOHIDMouseAccelerationTypeKey              kIOHIDMouseAccelerationType
-
-/*!
- * @define      kIOHIDScrollAccelerationKey
- *
- * @abstract    CFNumber that contains the scroll acceleration value.
- */
-#define kIOHIDScrollAccelerationKey                 "HIDScrollAcceleration"
-
-/*!
- * @define      kIOHIDScrollAccelerationTypeKey
- *
- * @abstract    CFString containing the type of acceleration for scroll.
- *              Supported types are:
- *                  <code>kIOHIDMouseScrollAccelerationKey</code>
- *                  <code>kIOHIDTrackpadScrollAccelerationKey</code>
- */
-#define kIOHIDScrollAccelerationTypeKey             "HIDScrollAccelerationType"
 
 /*!
  * @define      kIOHIDPointerButtonMode
@@ -127,5 +86,13 @@
  * @abstract    CFNumber containing the HID idle time in microseconds.
  */
 #define kIOHIDIdleTimeMicrosecondsKey               "HIDIdleTimeMicroseconds"
+
+/*!
+ * @define      kIOHIDServiceCapsLockStateKey
+ *
+ * @abstract    CFBoolean for setting/getting the caps lock state of the
+ *              service. The caps lock LED will be updated to reflect the state.
+ */
+#define kIOHIDServiceCapsLockStateKey                "HIDCapsLockState"
 
 #endif /* IOHIDProperties_h */

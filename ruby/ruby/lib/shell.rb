@@ -12,13 +12,12 @@
 
 require "e2mmap"
 
-require "thread" unless defined?(Mutex)
-
 require "forwardable"
 
 require "shell/error"
 require "shell/command-processor"
 require "shell/process-controller"
+require "shell/version"
 
 # Shell implements an idiomatic Ruby interface for common UNIX shell commands.
 #
@@ -100,12 +99,15 @@ class Shell
 
   @debug_display_process_id = false
   @debug_display_thread_id = true
-  @debug_output_mutex = Mutex.new
+  @debug_output_mutex = Thread::Mutex.new
+  @default_system_path = nil
+  @default_record_separator = nil
 
   class << Shell
     extend Forwardable
 
-    attr_accessor :cascade, :debug, :verbose
+    attr_accessor :cascade, :verbose
+    attr_reader :debug
 
     alias debug? debug
     alias verbose? verbose
@@ -168,7 +170,7 @@ class Shell
     end
 
     # os resource mutex
-    mutex_methods = ["unlock", "lock", "locked?", "synchronize", "try_lock", "exclusive_unlock"]
+    mutex_methods = ["unlock", "lock", "locked?", "synchronize", "try_lock"]
     for m in mutex_methods
       def_delegator("@debug_output_mutex", m, "debug_output_"+m.to_s)
     end
@@ -210,7 +212,8 @@ class Shell
   # Returns the umask
   attr_accessor :umask
   attr_accessor :record_separator
-  attr_accessor :verbose, :debug
+  attr_accessor :verbose
+  attr_reader :debug
 
   def debug=(val)
     @debug = val

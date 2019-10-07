@@ -25,7 +25,12 @@
 #ifndef COMMON_BASE_XX_H
 #define COMMON_BASE_XX_H
 
+#if defined(_MSC_VER)
+#include <availability.h>
+#else
 #include <os/availability.h>
+#endif
+
 
 #if !defined(COMMON_NUMERICS_H)
 #include <CommonNumerics/CommonNumerics.h>

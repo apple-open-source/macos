@@ -1,6 +1,5 @@
-/* -*- Mode: C; tab-width: 4 -*-
- *
- * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
+/*
+ * Copyright (c) 2002-2019 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +32,7 @@ D2DStatus D2DStartBrowsingForKeyOnTransport(const Byte *key, const size_t keySiz
 D2DStatus D2DStopBrowsingForKeyOnTransport(const Byte *key, const size_t keySize, D2DTransportType transport) __attribute__((weak_import));
 void D2DStartResolvingPairOnTransport(const Byte *key, const size_t keySize, const Byte *value, const size_t valueSize, D2DTransportType transport) __attribute__((weak_import));
 void D2DStopResolvingPairOnTransport(const Byte *key, const size_t keySize, const Byte *value, const size_t valueSize, D2DTransportType transport) __attribute__((weak_import));
-D2DStatus D2DTerminate() __attribute__((weak_import));
+D2DStatus D2DTerminate(void) __attribute__((weak_import));
 
 #pragma mark - D2D Support
 
@@ -245,8 +244,7 @@ mDNSlocal void D2DBrowseListRetain(const domainname *const name, mDNSu16 type)
 
     if (!*ptr)
     {
-        *ptr = mDNSPlatformMemAllocate(sizeof(**ptr));
-        mDNSPlatformMemZero(*ptr, sizeof(**ptr));
+        *ptr = (D2DBrowseListElem *) mDNSPlatformMemAllocateClear(sizeof(**ptr));
         (*ptr)->type = type;
         AssignDomainName(&(*ptr)->name, name);
     }
@@ -351,7 +349,7 @@ mDNSlocal mStatus xD2DParse(const mDNSu8 * const lhs, const mDNSu16 lhs_len, con
         LogInfo("xD2DParse: got rr: %s", CRDisplayString(m, &m->rec.r));
     }
 
-    *D2DListp = mDNSPlatformMemAllocate(sizeof(D2DRecordListElem) + (m->rec.r.resrec.rdlength <= sizeof(RDataBody) ? 0 : m->rec.r.resrec.rdlength - sizeof(RDataBody)));
+    *D2DListp = (D2DRecordListElem *) mDNSPlatformMemAllocateClear(sizeof(D2DRecordListElem) + (m->rec.r.resrec.rdlength <= sizeof(RDataBody) ? 0 : m->rec.r.resrec.rdlength - sizeof(RDataBody)));
     if (!*D2DListp) return mStatus_NoMemoryErr;
 
     AuthRecord *rr = &(*D2DListp)->ar;
@@ -924,6 +922,31 @@ mDNSexport void external_stop_resolving_service(mDNSInterfaceID InterfaceID, con
         external_stop_browsing_for_service(AWDLInterfaceID, fqdn, kDNSType_TXT, 0);
         external_stop_browsing_for_service(AWDLInterfaceID, fqdn, kDNSType_SRV, 0);
     }
+}
+
+mDNSexport mDNSBool callExternalHelpers(mDNSInterfaceID InterfaceID, const domainname *const domain, DNSServiceFlags flags)
+{
+    // Only call D2D layer routines if request applies to a D2D interface and the domain is "local".
+    if (    (((InterfaceID == mDNSInterface_Any) && (flags & (kDNSServiceFlagsIncludeP2P | kDNSServiceFlagsIncludeAWDL | kDNSServiceFlagsAutoTrigger)))
+            || mDNSPlatformInterfaceIsD2D(InterfaceID) || (InterfaceID == mDNSInterface_BLE))
+        && IsLocalDomain(domain))
+    {
+        return mDNStrue;
+    }
+    else
+        return mDNSfalse;
+}
+
+// Used to derive the original D2D specific flags specified by the client in the registration
+// when we don't have access to the original flag (kDNSServiceFlags*) values.
+mDNSexport mDNSu32 deriveD2DFlagsFromAuthRecType(AuthRecType authRecType)
+{
+    mDNSu32 flags = 0;
+    if ((authRecType == AuthRecordAnyIncludeP2P) || (authRecType == AuthRecordAnyIncludeAWDLandP2P))
+        flags |= kDNSServiceFlagsIncludeP2P;
+    else if ((authRecType == AuthRecordAnyIncludeAWDL) || (authRecType == AuthRecordAnyIncludeAWDLandP2P))
+        flags |= kDNSServiceFlagsIncludeAWDL;
+    return flags;
 }
 
 void initializeD2DPlugins(mDNS *const m)

@@ -34,7 +34,7 @@
 #include <Security/SecCertificate.h>
 #include <Security/SecKey.h>
 #include <pthread.h>
-#include "SecIdentityPriv.h"
+#include <Security/SecIdentityPriv.h>
 #include <Security/SecInternal.h>
 #include <utilities/SecCFWrappers.h>
 

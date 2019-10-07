@@ -155,6 +155,10 @@ static struct bootcamp_formatter_options {
 	long long num_sectors;          /* Size of device in sectors. */
 	long cluster_size;              /* Format with this cluster size. */
 	char *label;                    /* Volume label. */
+	BOOL mft_rec_size_align_sec;    /* FALSE = MFT record size can be
+	                                 * smaller than one sector.
+	                                 * TRUE = MFT record size must be
+	                                 * minimum one sector. */
 } opts;
 
 /*
@@ -3237,7 +3241,8 @@ static BOOL bootcamp_formatter_override_vol_params(ntfs_volume *vol)
 	 * at least as big as a sector.
 	 */
 	vol->mft_record_size = 1024;
-	if (vol->mft_record_size < (u32)opts.sector_size)
+	if (opts.mft_rec_size_align_sec &&
+			vol->mft_record_size < (u32)opts.sector_size)
 		vol->mft_record_size = opts.sector_size;
 	vol->mft_record_size_bits = ffs(vol->mft_record_size) - 1;
 	ntfs_log_debug("mft record size = %u bytes\n",
@@ -4456,13 +4461,17 @@ __attribute__ ((noreturn)) static void usage(void)
 int main(int argc, char *argv[])
 {
 	char *device;
+	BOOL mft_rec_size_align_sec = FALSE;
 	char *label = NULL;
 	int ret;
 	int ch;
 	
-	while ((ch = getopt(argc, argv, "v:")) != -1)
+	while ((ch = getopt(argc, argv, "mv:")) != -1)
 	{
 		switch (ch) {
+			case 'm':
+				mft_rec_size_align_sec = TRUE;
+				break;
 			case 'v':
 				label = optarg;
 				break;
@@ -4479,7 +4488,7 @@ int main(int argc, char *argv[])
 	else
 		usage();
 
-	ntfs_log_set_handler(ntfs_log_handler_outerr);
+	ntfs_log_set_handler(ntfs_log_handler_outerr_syslog);
 	ntfs_log_clear_levels(NTFS_LOG_LEVEL_QUIET | NTFS_LOG_LEVEL_VERBOSE |
 		NTFS_LOG_LEVEL_PROGRESS);
 	utils_set_locale();
@@ -4489,6 +4498,7 @@ int main(int argc, char *argv[])
 		opts.label = label;
 	}
 	opts.dev_name = device;
+	opts.mft_rec_size_align_sec = mft_rec_size_align_sec;
 
 	ret = bootcamp_formatter_redirect(&opts);
 	if(!ret) {

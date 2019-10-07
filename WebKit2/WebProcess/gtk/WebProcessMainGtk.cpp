@@ -27,7 +27,7 @@
 #include "config.h"
 #include "WebProcessMainUnix.h"
 
-#include "ChildProcessMain.h"
+#include "AuxiliaryProcessMain.h"
 #include "WebProcess.h"
 #include <WebCore/SoupNetworkSession.h>
 #include <gtk/gtk.h>
@@ -41,16 +41,16 @@
 namespace WebKit {
 using namespace WebCore;
 
-class WebProcessMain final: public ChildProcessMainBase {
+class WebProcessMain final: public AuxiliaryProcessMainBase {
 public:
     bool platformInitialize() override
     {
-#ifndef NDEBUG
+#if ENABLE(DEVELOPER_MODE)
         if (g_getenv("WEBKIT2_PAUSE_WEB_PROCESS_ON_LAUNCH"))
             g_usleep(30 * G_USEC_PER_SEC);
 #endif
 
-#if (USE(COORDINATED_GRAPHICS_THREADED) || USE(GSTREAMER_GL)) && PLATFORM(X11)
+#if (USE(COORDINATED_GRAPHICS) || USE(GSTREAMER_GL)) && PLATFORM(X11)
         XInitThreads();
 #endif
         gtk_init(nullptr, nullptr);
@@ -64,7 +64,7 @@ public:
 
 int WebProcessMainUnix(int argc, char** argv)
 {
-    return ChildProcessMain<WebProcess, WebProcessMain>(argc, argv);
+    return AuxiliaryProcessMain<WebProcess, WebProcessMain>(argc, argv);
 }
 
 } // namespace WebKit

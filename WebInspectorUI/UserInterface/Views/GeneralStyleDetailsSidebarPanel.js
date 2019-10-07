@@ -45,39 +45,26 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
         return nodeToInspect.nodeType() === Node.ELEMENT_NODE;
     }
 
-    visibilityDidChange()
+    hidden()
     {
-        super.visibilityDidChange();
+        super.hidden();
+
+        if (this._panel)
+            this._panel.hidden();
+    }
+
+    shown()
+    {
+        super.shown();
 
         if (!this._panel)
             return;
 
-        if (!this.visible) {
-            this._panel.hidden();
-            return;
-        }
+        console.assert(this.visible, `Shown panel ${this._identifier} must be visible.`);
 
         this._updateNoForcedPseudoClassesScrollOffset();
-
         this._panel.shown();
         this._panel.markAsNeedsRefresh(this.domNode);
-    }
-
-    computedStyleDetailsPanelShowProperty(property)
-    {
-        this.parentSidebar.selectedSidebarPanel = "style-rules";
-
-        let styleRulesPanel = null;
-        for (let sidebarPanel of this.parentSidebar.sidebarPanels) {
-            if (!(sidebarPanel instanceof WI.RulesStyleDetailsSidebarPanel))
-                continue;
-
-            styleRulesPanel = sidebarPanel;
-            break;
-        }
-
-        console.assert(styleRulesPanel, "Styles panel is missing.");
-        styleRulesPanel.panel.scrollToSectionAndHighlightProperty(property);
     }
 
     // StyleDetailsPanel delegate
@@ -359,7 +346,7 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
         while (this._classListContainer.children.length > 1)
             this._classListContainer.children[1].remove();
 
-        let classes = this.domNode.getAttribute("class");
+        let classes = this.domNode.getAttribute("class") || [];
         let classToggledMap = this.domNode[WI.GeneralStyleDetailsSidebarPanel.ToggledClassesSymbol];
         if (!classToggledMap)
             classToggledMap = this.domNode[WI.GeneralStyleDetailsSidebarPanel.ToggledClassesSymbol] = new Map;
@@ -459,4 +446,4 @@ WI.GeneralStyleDetailsSidebarPanel.NoFilterMatchInSectionClassName = "filter-sec
 WI.GeneralStyleDetailsSidebarPanel.NoFilterMatchInPropertyClassName = "filter-property-non-matching";
 
 WI.GeneralStyleDetailsSidebarPanel.ToggledClassesSymbol = Symbol("css-style-details-sidebar-panel-toggled-classes-symbol");
-WI.GeneralStyleDetailsSidebarPanel.ToggledClassesDragType = "text/classname";
+WI.GeneralStyleDetailsSidebarPanel.ToggledClassesDragType = "web-inspector/css-class";

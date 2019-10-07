@@ -383,8 +383,8 @@ void CHK_type_cs
 )
 {
     char const          *type_name;     /* Type name */
-    int                 type_len;       /* Length of type name */
-    int                 max_len;        /* Maximum identifier length */
+    size_t               type_len;       /* Length of type name */
+    size_t               max_len;        /* Maximum identifier length */
 
     /* Types with the [cs_char] attribute cannot be nested */
     if (type_p->cs_char_type != NULL

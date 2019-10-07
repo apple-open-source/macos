@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.BufSizeVariations1.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * Verify the behavior of variations in bufsize.

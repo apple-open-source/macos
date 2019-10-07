@@ -144,6 +144,7 @@
 		<key>OpenSourceModifications</key>
 		<array>
 		    <string>fix libSystem loading in ffidlrt</string>
+		    <string>move away from deprecated ffi api</string>
 		</array>
 	</dict>
 	<dict>

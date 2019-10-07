@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)tst.UnionAssoc.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * When a union is used as a key for an associative array, the key is formed

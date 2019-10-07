@@ -1,4 +1,4 @@
-.TH "ZSH" "1" "December 11, 2016" "zsh 5\&.3"
+.TH "ZSH" "1" "February 3, 2019" "zsh 5\&.7\&.1"
 .SH "NAME"
 zsh \- the Z shell
 .\" Yodl file: Zsh/intro.yo
@@ -43,8 +43,12 @@ a number of sections:
 .SH "DESCRIPTION"
 Zsh is a UNIX command interpreter (shell) usable as an interactive
 login shell and as a shell script command processor\&.  Of the standard shells,
-zsh most closely resembles \fBksh\fP but includes many enhancements\&.  Zsh
-has command line editing, builtin spelling correction, programmable
+zsh most closely resembles \fBksh\fP but includes many enhancements\&.  It
+does not provide compatibility with POSIX or other shells in its
+default operating mode:  see
+the section Compatibility below\&.
+.PP
+Zsh has command line editing, builtin spelling correction, programmable
 command completion, shell functions (with autoloading), a history
 mechanism, and a host of other features\&.
 .\" Yodl file: Zsh/metafaq.yo
@@ -56,34 +60,16 @@ coordinated by Peter Stephenson \fB<pws@zsh\&.org>\fP\&.  The coordinator
 can be contacted at \fB<coordinator@zsh\&.org>\fP, but matters relating to
 the code should generally go to the mailing list\&.
 .SH "AVAILABILITY"
-Zsh is available from the following anonymous FTP sites\&.  These mirror
-sites are kept frequently up to date\&.  The sites marked with \fI(H)\fP may be
-mirroring \fBftp\&.cs\&.elte\&.hu\fP instead of the primary site\&.
+Zsh is available from the following HTTP and anonymous FTP site\&.
 .PP
-.PD 0
-.TP
-.PD
-Primary site
 .nf
 \fBftp://ftp\&.zsh\&.org/pub/\fP
-\fBhttp://www\&.zsh\&.org/pub/\fP
+\fBhttps://www\&.zsh\&.org/pub/\fP
 .fi
-.TP
-Australia
-.nf
-\fBftp://ftp\&.zsh\&.org/pub/\fP
-\fBhttp://www\&.zsh\&.org/pub/\fP
-\fBhttp://mirror\&.dejanseo\&.com\&.au/pub/zsh/\fP
-.fi
-.TP
-Hungary
-.nf
-\fBftp://ftp\&.cs\&.elte\&.hu/pub/zsh/\fP
-\fBhttp://www\&.cs\&.elte\&.hu/pub/zsh/\fP
-.fi
+)
 .PP
 The up\-to\-date source code is available via Git from Sourceforge\&.  See
-\fBhttp://sourceforge\&.net/projects/zsh/\fP for details\&.  A summary of
+\fBhttps://sourceforge\&.net/projects/zsh/\fP for details\&.  A summary of
 instructions for the archive can be found at
 \fBhttp://zsh\&.sourceforge\&.net/\fP\&.
 .PP
@@ -134,7 +120,7 @@ maintained by Karsten Thygesen \fB<karthy@kom\&.auc\&.dk>\fP\&.
 The mailing lists are archived; the archives can be accessed via the
 administrative addresses listed above\&.  There is also a hypertext
 archive, maintained by Geoff Wing \fB<gcw@zsh\&.org>\fP, available at
-\fBhttp://www\&.zsh\&.org/mla/\fP\&.
+\fBhttps://www\&.zsh\&.org/mla/\fP\&.
 .SH "THE ZSH FAQ"
 Zsh has a list of Frequently Asked Questions (FAQ), maintained by
 Peter Stephenson \fB<pws@zsh\&.org>\fP\&.  It is regularly posted to the
@@ -143,7 +129,7 @@ The latest version can be found at any of the Zsh FTP sites, or at
 \fBhttp://www\&.zsh\&.org/FAQ/\fP\&.  The contact address for FAQ\-related matters
 is \fB<faqmaster@zsh\&.org>\fP\&.
 .SH "THE ZSH WEB PAGE"
-Zsh has a web page which is located at \fBhttp://www\&.zsh\&.org/\fP\&.  This is
+Zsh has a web page which is located at \fBhttps://www\&.zsh\&.org/\fP\&.  This is
 maintained by Karsten Thygesen \fB<karthy@zsh\&.org>\fP, of SunSITE Denmark\&.
 The contact address for web\-related matters is \fB<webmaster@zsh\&.org>\fP\&.
 .SH "THE ZSH USERGUIDE"
@@ -154,10 +140,6 @@ cabbalistic, hierographic, or downright mystifying (for example, the word
 \fBhttp://zsh\&.sourceforge\&.net/Guide/\fP\&.  At the time of writing, chapters
 dealing with startup files and their contents and the new completion system
 were essentially complete\&.
-.SH "THE ZSH WIKI"
-A `wiki\&' website for zsh has been created at \fBhttp://www\&.zshwiki\&.org/\fP\&.
-This is a site which can be added to and modified directly by users without
-any special permission\&.  You can add your own zsh tips and configurations\&.
 .\" Yodl file: Zsh/invoke.yo
 .SH "INVOCATION"
 The following flags are interpreted by the shell when invoked to determine
@@ -197,6 +179,19 @@ the remaining arguments are assigned to the positional parameters\&.
 For further options, which are common to invocation and the \fBset\fP
 builtin, see
 \fIzshoptions\fP(1)\&.
+.PP
+The long option `\fB\-\fP\fB\-emulate\fP\&' followed (in a separate word) by an
+emulation mode may be passed to the shell\&.
+The emulation modes are those described for the \fBemulate\fP builtin,
+see
+\fIzshbuiltins\fP(1)\&.
+The `\fB\-\fP\fB\-emulate\fP\&' option must precede any other options (which might
+otherwise be overridden), but following options are honoured, so
+may be used to modify the requested emulation mode\&.  Note that certain
+extra steps are taken to ensure a smooth emulation when this option
+is used compared with the \fBemulate\fP command within the shell: for
+example, variables that conflict with POSIX usage such as \fBpath\fP are
+not defined within the shell\&.
 .PP
 Options may be specified by name using the \fB\-o\fP option\&.  \fB\-o\fP acts like
 a single\-letter option, but takes a following string as the option name\&.
@@ -454,15 +449,20 @@ file will be used instead\&.
 \fIrc\fP(1),
 \fIbash\fP(1),
 \fIksh\fP(1),
+\fIzshall\fP(1),
 \fIzshbuiltins\fP(1),
 \fIzshcompwid\fP(1),
 \fIzshcompsys\fP(1),
 \fIzshcompctl\fP(1),
+\fIzshcontrib\fP(1),
 \fIzshexpn\fP(1),
 \fIzshmisc\fP(1),
 \fIzshmodules\fP(1),
 \fIzshoptions\fP(1),
 \fIzshparam\fP(1),
+\fIzshroadmap\fP(1),
+\fIzshtcpsys\fP(1),
+\fIzshzftpsys\fP(1),
 \fIzshzle\fP(1)
 .PP
 \fBIEEE Standard for information Technology \-

@@ -28,8 +28,8 @@
 #ifndef _SECURITYD_SECDBQUERY_H_
 #define _SECURITYD_SECDBQUERY_H_
 
-#include <securityd/SecKeybagSupport.h>
-#include <securityd/SecDbItem.h>
+#include "securityd/SecKeybagSupport.h"
+#include "securityd/SecDbItem.h"
 
 __BEGIN_DECLS
 

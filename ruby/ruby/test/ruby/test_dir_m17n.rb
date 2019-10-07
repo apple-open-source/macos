@@ -22,6 +22,7 @@ class TestDir_M17N < Test::Unit::TestCase
         assert_include(ents, filename)
       EOS
 
+      return if /cygwin/ =~ RUBY_PLATFORM
       assert_separately(%w[-EASCII-8BIT], <<-EOS, :chdir=>dir)
         filename = #{code}.chr('UTF-8').force_encoding("ASCII-8BIT")
         opts = {:encoding => Encoding.default_external} if /mswin|mingw/ =~ RUBY_PLATFORM
@@ -58,6 +59,7 @@ class TestDir_M17N < Test::Unit::TestCase
   end
 
   def test_filename_extutf8_invalid
+    return if /cygwin/ =~ RUBY_PLATFORM
     # High Sierra's APFS cannot use invalid filenames
     return if Bug::File::Fs.fsname(Dir.tmpdir) == "apfs"
     with_tmpdir {|d|
@@ -175,6 +177,7 @@ class TestDir_M17N < Test::Unit::TestCase
   ## others
 
   def test_filename_bytes_euc_jp
+    return if /cygwin/ =~ RUBY_PLATFORM
     with_tmpdir {|d|
       assert_separately(%w[-EEUC-JP], <<-'EOS', :chdir=>d)
         filename = "\xA4\xA2".force_encoding("euc-jp")
@@ -191,6 +194,7 @@ class TestDir_M17N < Test::Unit::TestCase
   end
 
   def test_filename_euc_jp
+    return if /cygwin/ =~ RUBY_PLATFORM
     with_tmpdir {|d|
       assert_separately(%w[-EEUC-JP], <<-'EOS', :chdir=>d)
         filename = "\xA4\xA2".force_encoding("euc-jp")
@@ -236,6 +240,7 @@ class TestDir_M17N < Test::Unit::TestCase
   end
 
   def test_filename_ext_euc_jp_and_int_utf_8
+    return if /cygwin/ =~ RUBY_PLATFORM
     with_tmpdir {|d|
       assert_separately(%w[-EEUC-JP], <<-'EOS', :chdir=>d)
         filename = "\xA4\xA2".force_encoding("euc-jp")
@@ -407,12 +412,12 @@ class TestDir_M17N < Test::Unit::TestCase
     with_tmpdir {|d|
       orig = %W"d\u{e9}tente x\u{304c 304e 3050 3052 3054}"
       orig.each {|n| open(n, "w") {}}
+      enc = Encoding.find("filesystem")
+      enc = Encoding::ASCII_8BIT if enc == Encoding::US_ASCII
       if /mswin|mingw/ =~ RUBY_PLATFORM
-        opts = {:encoding => Encoding.default_external}
+        opts = {:encoding => enc}
         orig.map! {|o| o.encode("filesystem") rescue o.tr("^a-z", "?")}
       else
-        enc = Encoding.find("filesystem")
-        enc = Encoding::ASCII_8BIT if enc == Encoding::US_ASCII
         orig.each {|o| o.force_encoding(enc) }
       end
       ents = Dir.entries(".", opts).reject {|n| /\A\./ =~ n}

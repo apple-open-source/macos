@@ -114,7 +114,7 @@ IOHIDSessionFilterPlugInInterface IOHIDEventSystemStatistics::sIOHIDEventSystemS
     IOHIDEventSystemStatistics::unregisterService,
     IOHIDEventSystemStatistics::scheduleWithDispatchQueue,
     IOHIDEventSystemStatistics::unscheduleFromDispatchQueue,
-    NULL,
+    IOHIDEventSystemStatistics::getPropertyForClient,
     NULL,
 };
 
@@ -302,8 +302,6 @@ void IOHIDEventSystemStatistics::registerService(IOHIDServiceRef service)
         CFTypeRef   obj;
         uint32_t    vendorID = 0;
         
-        ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryKeyboardEnumerationCountKey), 1);
-        
         obj = IOHIDServiceGetProperty(service, CFSTR(kIOHIDVendorIDKey));
         if (obj && CFGetTypeID(obj) == CFNumberGetTypeID())
             CFNumberGetValue((CFNumberRef)obj, kCFNumberIntType, &vendorID);
@@ -311,6 +309,13 @@ void IOHIDEventSystemStatistics::registerService(IOHIDServiceRef service)
         // Check for Apple vendorID.
         if (vendorID != kAppleVendorID)
             return;
+
+        // Check for AccessoryID Bus transport.
+        obj = IOHIDServiceGetProperty(service, CFSTR(kIOHIDTransportKey));
+        if (!obj || CFGetTypeID(obj) != CFStringGetTypeID() || !CFEqual((CFStringRef)obj, CFSTR(kIOHIDTransportAIDBValue)))
+            return;
+
+        ADClientAddValueForScalarKey(CFSTR(kAggregateDictionaryKeyboardEnumerationCountKey), 1);
         
         if (_keyServices)
             CFSetAddValue(_keyServices, service);
@@ -382,6 +387,44 @@ void IOHIDEventSystemStatistics::unscheduleFromDispatchQueue(dispatch_queue_t qu
         dispatch_release(_pending_source);
         _pending_source = NULL;
     }
+}
+
+//------------------------------------------------------------------------------
+// IOHIDNXEventTranslatorSessionFilter::getPropertyForClient
+//------------------------------------------------------------------------------
+CFTypeRef IOHIDEventSystemStatistics::getPropertyForClient (void * self, CFStringRef key, CFTypeRef client) {
+    return static_cast<IOHIDEventSystemStatistics *>(self)->getPropertyForClient(key,client);
+}
+
+CFTypeRef IOHIDEventSystemStatistics::getPropertyForClient (CFStringRef key, CFTypeRef client __unused) {
+    CFTypeRef result = NULL;
+
+    if (CFEqual(key, CFSTR(kIOHIDSessionFilterDebugKey))) {
+        
+        CFMutableDictionaryRefWrap debug;
+
+        debug.SetValueForKey(CFSTR("Class"), CFSTR("IOHIDEventSystemStatistics"));
+
+        if (_keyServices) {
+            __block CFMutableArrayRefWrap kbcServices;
+            _IOHIDCFSetApplyBlock (_keyServices, ^(CFTypeRef value) {
+                kbcServices.Append(IOHIDServiceGetRegistryID((IOHIDServiceRef)value));
+            });
+            debug.SetValueForKey(CFSTR("KeyboardServices"), kbcServices.Reference());
+        }
+
+        if (_hesServices) {
+            __block CFMutableArrayRefWrap hesServices;
+            _IOHIDCFSetApplyBlock (_keyServices, ^(CFTypeRef value) {
+                hesServices.Append(IOHIDServiceGetRegistryID((IOHIDServiceRef)value));
+            });
+            debug.SetValueForKey(CFSTR("HESServices"), hesServices.Reference());
+        }
+
+        result = CFRetain(debug.Reference());
+    }
+
+    return result;
 }
 
 //------------------------------------------------------------------------------

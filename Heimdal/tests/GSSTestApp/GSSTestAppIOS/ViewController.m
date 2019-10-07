@@ -54,7 +54,7 @@
 
     NSString *name = [segue identifier];
 
-    if ([name isEqualToString:@"UIWebView"] || [name isEqualToString:@"WKWebView"]) {
+    if ([name isEqualToString:@"WKWebView"]) {
         WebbyViewController *vc = [segue destinationViewController];
         vc.type = [segue identifier];
     }

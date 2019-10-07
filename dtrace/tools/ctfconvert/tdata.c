@@ -55,7 +55,7 @@ int
 tdesc_layouthash(int nbuckets, void *node)
 {
 	tdesc_t *tdp = node;
-	char *name = NULL;
+	atom_t *name = ATOM_NULL;
 	ulong_t h = 0;
 
 	if (tdp->t_name)
@@ -68,6 +68,9 @@ tdesc_layouthash(int nbuckets, void *node)
 		case CONST:
 		case RESTRICT:
 			name = tdp->t_tdesc->t_name;
+			break;
+		case PTRAUTH:
+			name = tdp->t_ptrauth->pta_type->t_name;
 			break;
 		case FUNCTION:
 			h = tdp->t_fndef->fn_nargs +
@@ -103,7 +106,7 @@ tdesc_layouthash(int nbuckets, void *node)
 	}
 
 	if (name)
-		return (hash_name(nbuckets, name));
+		h = atom_hash(name);
 
 	return (h % nbuckets);
 }
@@ -113,15 +116,13 @@ tdesc_layoutcmp(void *arg1, void *arg2)
 {
 	tdesc_t *tdp1 = arg1, *tdp2 = arg2;
 
-	if (tdp1->t_name == NULL) {
-		if (tdp2->t_name == NULL)
-			return (0);
-		else
-			return (-1);
-	} else if (tdp2->t_name == NULL)
+	if (tdp1->t_name == tdp2->t_name)
+		return 0;
+	if (tdp1->t_name == ATOM_NULL)
+		return (-1);
+	if (tdp2->t_name == ATOM_NULL)
 		return (1);
-	else
-		return (strcmp(tdp1->t_name, tdp2->t_name));
+	return (strcmp(tdp1->t_name->value, tdp2->t_name->value));
 }
 
 int
@@ -148,12 +149,12 @@ tdesc_namehash(int nbuckets, void *data)
 {
 	tdesc_t *tdp = data;
 	ulong_t h, g;
-	char *c;
+	const char *c;
 
-	if (tdp->t_name == NULL)
+	if (tdp->t_name == ATOM_NULL)
 		return (0);
 
-	for (h = 0, c = tdp->t_name; *c; c++) {
+	for (h = 0, c = tdp->t_name->value; *c; c++) {
 		h = (h << 4) + *c;
 		if ((g = (h & 0xf0000000)) != 0) {
 			h ^= (g >> 24);
@@ -169,7 +170,7 @@ tdesc_namecmp(void *arg1, void *arg2)
 {
 	tdesc_t *tdp1 = arg1, *tdp2 = arg2;
 
-	return (!streq(tdp1->t_name, tdp2->t_name));
+	return tdp1->t_name != tdp2->t_name;
 }
 
 /*ARGSUSED1*/
@@ -196,6 +197,12 @@ free_ardef(tdesc_t *tdp)
 }
 
 static void
+free_fundef(tdesc_t *tdp)
+{
+	free(tdp->t_fndef);
+}
+
+static void
 free_mlist(tdesc_t *tdp)
 {
 	mlist_t *ml = tdp->t_members;
@@ -204,9 +211,6 @@ free_mlist(tdesc_t *tdp)
 	while (ml) {
 		oml = ml;
 		ml = ml->ml_next;
-
-		if (oml->ml_name)
-			free(oml->ml_name);
 		free(oml);
 	}
 }
@@ -220,36 +224,32 @@ free_elist(tdesc_t *tdp)
 	while (el) {
 		oel = el;
 		el = el->el_next;
-
-		if (oel->el_name)
-			free(oel->el_name);
 		free(oel);
 	}
 }
 
 static void (*free_cbs[])(tdesc_t *) = {
 	NULL,
-	free_intr,
-	NULL,
-	free_ardef,
-	NULL,
-	free_mlist,
-	free_mlist,
-	free_elist,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL
+	free_intr,	/* intrinsic */
+	NULL,		/* pointer */
+	free_ardef,	/* array */
+	free_fundef,	/* function */
+	free_mlist,	/* struct */
+	free_mlist,	/* union */
+	free_elist,	/* enum */
+	NULL,		/* forward */
+	NULL,		/* typedef */
+	NULL,		/* typedef_unres */
+	NULL,		/* volatile */
+	NULL,		/* const */
+	NULL,		/* restrict */
+	NULL		/* ptrauth */
 };
 
 /*ARGSUSED1*/
 static int
 tdesc_free_cb(tdesc_t *tdp, void *private)
 {
-	if (tdp->t_name)
-		free(tdp->t_name);
 	if (free_cbs[tdp->t_type])
 		free_cbs[tdp->t_type](tdp);
 	free(tdp);
@@ -264,8 +264,10 @@ tdesc_free(tdesc_t *tdp)
 }
 
 static int
-tdata_label_cmp(labelent_t *le1, labelent_t *le2)
+tdata_label_cmp(void *e1, void *e2)
 {
+	labelent_t *le1 = e1;
+	labelent_t *le2 = e2;
 	return (le1->le_idx - le2->le_idx);
 }
 
@@ -274,57 +276,17 @@ tdata_label_add(tdata_t *td, char *label, int idx)
 {
 	labelent_t *le = xmalloc(sizeof (*le));
 
-	le->le_name = xstrdup(label);
+	le->le_name = atom_get(label);
 	le->le_idx = (idx == -1 ? td->td_nextid - 1 : idx);
 
-	slist_add(&td->td_labels, le, (int (*)())tdata_label_cmp);
-}
-
-static int
-tdata_label_top_cb(void *data, void *arg)
-{
-	labelent_t *le = data;
-	labelent_t **topp = arg;
-
-	*topp = le;
-
-	return (1);
+	array_add(&td->td_labels, le);
 }
 
 labelent_t *
 tdata_label_top(tdata_t *td)
 {
-	labelent_t *top = NULL;
-
-	(void) list_iter(td->td_labels, tdata_label_top_cb, &top);
-
-	return (top);
-}
-
-static int
-tdata_label_find_cb(labelent_t *le, labelent_t *tmpl)
-{
-	return (streq(le->le_name, tmpl->le_name));
-}
-
-int
-tdata_label_find(tdata_t *td, char *label)
-{
-	labelent_t let;
-	labelent_t *ret;
-
-	if (streq(label, "BASE")) {
-		ret = (labelent_t *)list_first(td->td_labels);
-		return (ret ? ret->le_idx : -1);
-	}
-
-	let.le_name = label;
-
-	if (!(ret = (labelent_t *)list_find(td->td_labels, &let,
-	    (int (*)())tdata_label_find_cb)))
-		return (-1);
-
-	return (ret->le_idx);
+	array_sort(td->td_labels, tdata_label_cmp);
+	return array_get(td->td_labels, -1);
 }
 
 static int
@@ -341,26 +303,30 @@ tdata_label_newmax_cb(void *data, void *arg)
 	return (0);
 }
 
+int
+tdata_label_iter(tdata_t *td, int (*cb)(labelent_t *, void *), void *priv)
+{
+	array_sort(td->td_labels, tdata_label_cmp);
+	return array_iter(td->td_labels, (int(*)())cb, priv);
+}
+
 void
 tdata_label_newmax(tdata_t *td, int newmax)
 {
-	(void) list_iter(td->td_labels, tdata_label_newmax_cb, &newmax);
+	(void) array_iter(td->td_labels, tdata_label_newmax_cb, &newmax);
 }
 
 /*ARGSUSED1*/
 static void
-tdata_label_free_cb(labelent_t *le, void *private)
+tdata_label_free_cb(void *le, void *private)
 {
-	if (le->le_name)
-		free(le->le_name);
 	free(le);
 }
 
 void
 tdata_label_free(tdata_t *td)
 {
-	list_free(td->td_labels, (void (*)())tdata_label_free_cb, NULL);
-	td->td_labels = NULL;
+	array_free(&td->td_labels, tdata_label_free_cb, NULL);
 }
 
 tdata_t *
@@ -392,12 +358,8 @@ tdata_free(tdata_t *td)
 	hash_free(td->td_iihash, (void (*)())iidesc_free, NULL);
 	hash_free(td->td_layouthash, (void (*)())tdesc_free_cb, NULL);
 	hash_free(td->td_idhash, NULL, NULL);
-	list_free(td->td_fwdlist, NULL, NULL);
 
 	tdata_label_free(td);
-
-	free(td->td_parlabel);
-	free(td->td_parname);
 
 	pthread_mutex_destroy(&td->td_mergelock);
 
@@ -430,7 +392,8 @@ static tdtrav_cb_f build_hashes_cbs[] = {
 	tdtrav_assert,	/* typedef_unres */
 	build_hashes,	/* volatile */
 	build_hashes,	/* const */
-	build_hashes	/* restrict */
+	build_hashes,	/* restrict */
+	build_hashes	/* ptrauth */
 };
 
 static void
@@ -459,12 +422,7 @@ tdata_merge(tdata_t *td1, tdata_t *td2)
 	/* Add td2's type tree to the hashes */
 	tdata_build_hashes_common(td1, td2->td_iihash);
 
-	list_concat(&td1->td_fwdlist, td2->td_fwdlist);
-	td2->td_fwdlist = NULL;
-
-	slist_merge(&td1->td_labels, td2->td_labels,
-	    (int (*)())tdata_label_cmp);
-	td2->td_labels = NULL;
+	array_concat(&td1->td_labels, &td2->td_labels);
 
 	/* free the td2 hashes (data is now part of td1) */
 

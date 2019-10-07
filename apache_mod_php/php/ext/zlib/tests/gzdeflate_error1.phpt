@@ -1,17 +1,17 @@
 --TEST--
-Test gzdeflate() function : error conditions 
+Test gzdeflate() function : error conditions
 --SKIPIF--
-<?php 
+<?php
 if (!extension_loaded("zlib")) {
-	print "skip - ZLIB extension not loaded"; 
-}	 
+	print "skip - ZLIB extension not loaded";
+}
 ?>
 --FILE--
 <?php
 /* Prototype  : string gzdeflate(string data [, int level, [int encoding]])
- * Description: Gzip-compress a string 
+ * Description: Gzip-compress a string
  * Source code: ext/zlib/zlib.c
- * Alias to functions: 
+ * Alias to functions:
  */
 
 /*
@@ -33,16 +33,16 @@ $extra_arg = 10;
 var_dump( gzdeflate($data, $level, $encoding, $extra_arg) );
 
 echo "\n-- Testing with incorrect compression level --\n";
-$bad_level = 99; 
+$bad_level = 99;
 var_dump(gzdeflate($data, $bad_level));
 
 echo "\n-- Testing with incorrect encoding --\n";
-$bad_encoding = 99; 
+$bad_encoding = 99;
 var_dump(gzdeflate($data, $level, $bad_encoding));
 
 class Tester {
     function Hello() {
-        echo "Hello\n"; 
+        echo "Hello\n";
     }
 }
 
@@ -81,6 +81,6 @@ bool(false)
 Warning: gzdeflate() expects parameter 1 to be string, object given in %s on line %d
 NULL
 
-Warning: gzdeflate() expects parameter 2 to be integer, object given in %s on line %d
+Warning: gzdeflate() expects parameter 2 to be int, object given in %s on line %d
 NULL
 ===Done===

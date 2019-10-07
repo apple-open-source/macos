@@ -192,7 +192,7 @@ start:
 	add	r1, sp, #4		// get argv into r1
 	add	r4, r0, #1		// calculate argc + 1 into r4
 	add	r2, r1, r4, lsl #2	// get address of env[0] into r2
-	bic	sp, sp, #7		// force eight-byte alignment
+	bic	sp, sp, #15		// force sixteen-byte alignment
 #if OLD_LIBSYSTEM_SUPPORT	
 	bl	__start
 	.long	0xe1200070		// should never return

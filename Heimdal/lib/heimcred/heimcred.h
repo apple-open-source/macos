@@ -49,6 +49,9 @@ HeimCredCreate(CFDictionaryRef attributes, CFErrorRef *error);
 CFUUIDRef
 HeimCredGetUUID(HeimCredRef);
 
+CFDictionaryRef
+HeimCredGetAttributes(HeimCredRef);
+
 HeimCredRef
 HeimCredCopyFromUUID(CFUUIDRef);
 
@@ -92,7 +95,7 @@ CFDictionaryRef
 HeimCredCopyStatus(CFStringRef mech);
 
 CFDictionaryRef
-HeimCredDoAuth(HeimCredRef cred, CFDictionaryRef input);
+HeimCredDoAuth(HeimCredRef cred, CFDictionaryRef attributes, CFErrorRef *error);
 
 /*
  * Only valid client side

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <TargetConditionals.h>
 #include "NICache.h"
 #include "NICachePrivate.h"
 #include "netinfo.h"
@@ -54,7 +55,7 @@ const CFStringRef	kDHCPSPropIdentifier = CFSTR(NIPROP_IDENTIFIER);
 const CFStringRef	kDHCPSPropDHCPHWAddress = CFSTR(NIPROP_HWADDR);
 const CFStringRef	kDHCPSPropDHCPIPAddress = CFSTR(NIPROP_IPADDR);
 const CFStringRef	kDHCPSPropDHCPLease = CFSTR(NIPROP_DHCP_LEASE);
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 const CFStringRef	kDHCPSPropNetBootArch = CFSTR(NIPROP_NETBOOT_ARCH);
 const CFStringRef	kDHCPSPropNetBootSysid = CFSTR(NIPROP_NETBOOT_SYSID);
 const CFStringRef	kDHCPSPropNetBootLastBootTime = CFSTR(NIPROP_NETBOOT_LAST_BOOT_TIME);
@@ -63,7 +64,7 @@ const CFStringRef	kDHCPSPropNetBootImageID = CFSTR(NIPROP_NETBOOT_IMAGE_ID);
 const CFStringRef	kDHCPSPropNetBootImageIndex = CFSTR(NIPROP_NETBOOT_IMAGE_INDEX);
 const CFStringRef	kDHCPSPropNetBootImageKind = CFSTR(NIPROP_NETBOOT_IMAGE_KIND);
 const CFStringRef	kDHCPSPropNetBootImageIsInstall = CFSTR(NIPROP_NETBOOT_IMAGE_IS_INSTALL);
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 
 static CFStringRef
 create_cfstring(const char * name)
@@ -218,7 +219,7 @@ cook_for_dhcp(CFArrayRef arr)
     return (arr);
 }
 
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 static CFArrayRef
 cook_for_netboot(CFArrayRef arr) 
 {
@@ -296,7 +297,7 @@ cook_for_netboot(CFArrayRef arr)
     }
     return (arr);
 }
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 
 CFArrayRef
 DHCPSDHCPLeaseListCreate()
@@ -315,7 +316,7 @@ DHCPSDHCPLeaseListCreate()
     return (arr);
 }
 
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 CFArrayRef
 DHCPSNetBootClientListCreate()
 {
@@ -331,7 +332,7 @@ DHCPSNetBootClientListCreate()
     }
     return (arr);
 }
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 
 #include <SystemConfiguration/SystemConfiguration.h>
 

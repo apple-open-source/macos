@@ -16,16 +16,16 @@ read [ -rszpqAclneE ] [ -t [ num ] ] [ -k [ num ] ] [ -d delim ]
               `y'  if  this  character was `y' or `Y' and to `n' other-
               wise.  With this flag set the return status is zero  only
               if the character was `y' or `Y'.  This option may be used
-              with a timeout (see  -t);  if  the  read  times  out,  or
-              encounters  end  of file, status 2 is returned.  Input is
+              with a timeout (see -t); if the read times  out,  or  en-
+              counters  end  of  file,  status 2 is returned.  Input is
               read from the terminal unless one of -u or -p is present.
               This option may also be used within zle widgets.
 
        -k [ num ]
               Read  only  one (or num) characters.  All are assigned to
-              the first name, without word  splitting.   This  flag  is
-              ignored  when -q is present.  Input is read from the ter-
-              minal unless one of -u or -p is present.  This option may
+              the first name, without word splitting.  This flag is ig-
+              nored  when -q is present.  Input is read from the termi-
+              nal unless one of -u or -p is present.  This  option  may
               also be used within zle widgets.
 
               Note  that  despite  the  mnemonic `key' this option does
@@ -35,8 +35,8 @@ read [ -rszpqAclneE ] [ -t [ num ] ] [ -k [ num ] ] [ -d delim ]
        -z     Read one entry from the editor buffer stack and assign it
               to the first  name,  without  word  splitting.   Text  is
               pushed  onto  the stack with `print -z' or with push-line
-              from the line  editor  (see  zshzle(1)).   This  flag  is
-              ignored when the -k or -q flags are present.
+              from the line editor (see zshzle(1)).  This flag  is  ig-
+              nored when the -k or -q flags are present.
 
        -e
        -E     The  input  read is printed (echoed) to the standard out-
@@ -66,8 +66,8 @@ read [ -rszpqAclneE ] [ -t [ num ] ] [ -k [ num ] ] [ -d delim ]
        -p     Input is read from the coprocess.
 
        -d delim
-              Input is terminated  by  the  first  character  of  delim
-              instead of by newline.
+              Input is terminated by the first character of  delim  in-
+              stead of by newline.
 
        -t [ num ]
               Test if input is available before attempting to read.  If
@@ -75,8 +75,8 @@ read [ -rszpqAclneE ] [ -t [ num ] ] [ -k [ num ] ] [ -d delim ]
               evaluated  to  give  a  number of seconds, which may be a
               floating point number; in this case the read times out if
               input  is  not available within this time.  If num is not
-              present, it is taken to be zero,  so  that  read  returns
-              immediately  if  no  input  is available.  If no input is
+              present, it is taken to be zero, so that read returns im-
+              mediately  if  no  input  is  available.   If no input is
               available, return status 1 and do not set any variables.
 
               This option is not available when reading from the editor
@@ -100,8 +100,8 @@ read [ -rszpqAclneE ] [ -t [ num ] ] [ -k [ num ] ] [ -d delim ]
        is used as a prompt on standard error when the shell is interac-
        tive.
 
-       The  value  (exit  status)  of  read is 1 when an end-of-file is
-       encountered, or when -c or -l is present and the command is  not
+       The  value (exit status) of read is 1 when an end-of-file is en-
+       countered, or when -c or -l is present and the  command  is  not
        called  from a compctl function, or as described for -q.  Other-
        wise the value is 0.
 

@@ -13,8 +13,8 @@ Dave Kelsey <d_kelsey@uk.ibm.com>
  Description: Closes an open file pointer
 
  Prototype: bool feof ( resource $handle )
- Description: Returns TRUE if the file pointer is at EOF or an error occurs 
-   (including socket timeout); otherwise returns FALSE. 
+ Description: Returns TRUE if the file pointer is at EOF or an error occurs
+   (including socket timeout); otherwise returns FALSE.
 */
 
 echo "*** Testing error conditions for fopen(), fclsoe() & feof() ***\n";
@@ -29,7 +29,7 @@ $fp = fopen(__FILE__, "r");
 fclose($fp);
 var_dump( fclose($fp) ); // closed handle
 var_dump( fclose(__FILE__) ); // invalid handle
-var_dump( fclose() ); // zero argument 
+var_dump( fclose() ); // zero argument
 
 //feof()
 var_dump( feof($fp) );  // closed handle
@@ -118,10 +118,10 @@ bool(false)
 Warning: fopen(10): failed to open stream: No such file or directory in %s on line %d
 bool(false)
 
-Warning: fclose() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: fclose() expects parameter 1 to be resource, int given in %s on line %d
 bool(false)
 
-Warning: feof() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: feof() expects parameter 1 to be resource, int given in %s on line %d
 bool(false)
 -- Iteration 3 --
 
@@ -138,10 +138,10 @@ bool(false)
 Warning: fopen(1): failed to open stream: No such file or directory in %s on line %d
 bool(false)
 
-Warning: fclose() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: fclose() expects parameter 1 to be resource, bool given in %s on line %d
 bool(false)
 
-Warning: feof() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: feof() expects parameter 1 to be resource, bool given in %s on line %d
 bool(false)
 -- Iteration 5 --
 

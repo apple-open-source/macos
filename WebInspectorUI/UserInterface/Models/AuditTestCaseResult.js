@@ -48,80 +48,126 @@ WI.AuditTestCaseResult = class AuditTestCaseResult extends WI.AuditTestResultBas
         if (typeof payload !== "object" || payload === null)
             return null;
 
-        let {type, name, description, level, data, metadata} = payload;
-
-        if (type !== WI.AuditTestCaseResult.TypeIdentifier)
+        if (payload.type !== WI.AuditTestCaseResult.TypeIdentifier)
             return null;
 
-        if (typeof name !== "string")
+        if (typeof payload.name !== "string") {
+            WI.AuditManager.synthesizeError(WI.UIString("\u0022%s\u0022 has a non-string \u0022%s\u0022 value").format(payload.name, WI.unlocalizedString("name")));
             return null;
+        }
 
-        if (!Object.values(WI.AuditTestCaseResult.Level).includes(level))
+        if (!Object.values(WI.AuditTestCaseResult.Level).includes(payload.level)) {
+            WI.AuditManager.synthesizeError(WI.UIString("\u0022%s\u0022 has an invalid \u0022%s\u0022 value").format(payload.name, WI.unlocalizedString("level")));
             return null;
+        }
 
-        if (typeof data !== "object" || data === null)
-            data = {};
-        else {
+        if (typeof payload.data !== "object" || payload.data === null) {
+            if ("data" in payload)
+                WI.AuditManager.synthesizeWarning(WI.UIString("\u0022%s\u0022 has a non-object \u0022%s\u0022 value").format(payload.name, WI.unlocalizedString("data")));
+            payload.data = {};
+        } else {
             function checkArray(key) {
-                if (!data[key])
+                if (!(key in payload.data))
                     return;
 
-                if (!Array.isArray(data[key]))
-                    data[key] = [];
+                if (!Array.isArray(payload.data[key])) {
+                    WI.AuditManager.synthesizeWarning(WI.UIString("\u0022%s\u0022 has a non-array \u0022%s\u0022 value").format(payload.name, WI.unlocalizedString("data.%s").format(key)));
+                    payload.data[key] = [];
+                }
 
-                data[key] = data[key].filter((item) => typeof item === "string");
+                payload.data[key] = payload.data[key].filter((item) => typeof item === "string");
             }
             checkArray("domNodes");
             checkArray("domAttributes");
             checkArray("errors");
         }
 
-        if (typeof metadata !== "object" || metadata === null)
-            metadata = {};
-        else {
-            metadata.startTimestamp = typeof metadata.startTimestamp === "string" ? new Date(metadata.startTimestamp) : null;
-            metadata.asyncTimestamp = typeof metadata.asyncTimestamp === "string" ? new Date(metadata.asyncTimestamp) : null;
-            metadata.endTimestamp = typeof metadata.endTimestamp === "string" ? new Date(metadata.endTimestamp) : null;
-            metadata.url = typeof metadata.url === "string" ? metadata.url : null;
+        if (typeof payload.metadata !== "object" || payload.metadata === null) {
+            if ("metadata" in payload)
+                WI.AuditManager.synthesizeWarning(WI.UIString("\u0022%s\u0022 has a non-object \u0022%s\u0022 value").format(payload.name, WI.unlocalizedString("metadata")));
+
+            payload.metadata = {};
+        } else {
+            if (typeof payload.metadata.startTimestamp === "string")
+                payload.metadata.startTimestamp = new Date(payload.metadata.startTimestamp);
+            else {
+                if ("startTimestamp" in payload.metadata)
+                    WI.AuditManager.synthesizeWarning(WI.UIString("\u0022%s\u0022 has a non-object \u0022%s\u0022 value").format(payload.name, WI.unlocalizedString("metadata.startTimestamp")));
+
+                payload.metadata.startTimestamp = null;
+            }
+
+            if (typeof payload.metadata.asyncTimestamp === "string")
+                payload.metadata.asyncTimestamp = new Date(payload.metadata.asyncTimestamp);
+            else {
+                if ("asyncTimestamp" in payload.metadata)
+                    WI.AuditManager.synthesizeWarning(WI.UIString("\u0022%s\u0022 has a non-object \u0022%s\u0022 value").format(payload.name, WI.unlocalizedString("metadata.asyncTimestamp")));
+
+                payload.metadata.asyncTimestamp = null;
+            }
+
+            if (typeof payload.metadata.endTimestamp === "string")
+                payload.metadata.endTimestamp = new Date(payload.metadata.endTimestamp);
+            else {
+                if ("endTimestamp" in payload.metadata)
+                    WI.AuditManager.synthesizeWarning(WI.UIString("\u0022%s\u0022 has a non-object \u0022%s\u0022 value").format(payload.name, WI.unlocalizedString("metadata.endTimestamp")));
+
+                payload.metadata.endTimestamp = null;
+            }
+
+            if (typeof payload.metadata.url !== "string") {
+                if ("url" in payload.metadata)
+                    WI.AuditManager.synthesizeWarning(WI.UIString("\u0022%s\u0022 has a non-object \u0022%s\u0022 value").format(payload.name, WI.unlocalizedString("metadata.url")));
+
+                payload.metadata.url = null;
+            }
         }
 
         let options = {};
-        if (typeof description === "string")
-            options.description = description;
-        if (!isEmptyObject(data)) {
+
+        if (typeof payload.description === "string")
+            options.description = payload.description;
+        else if ("description" in payload)
+            WI.AuditManager.synthesizeWarning(WI.UIString("\u0022%s\u0022 has a non-string \u0022%s\u0022 value").format(payload.name, WI.unlocalizedString("description")));
+
+        if (!isEmptyObject(payload.data)) {
             options.data = {};
-            if (data.domNodes && data.domNodes.length) {
-                if (window.DOMAgent && (!metadata.url || metadata.url === WI.networkManager.mainFrame.url)) {
-                    let documentNode = await new Promise((resolve) => WI.domManager.requestDocument(resolve));
-                    options.resolvedDOMNodes = await Promise.all(data.domNodes.map(async (domNodeString) => {
-                        let nodeId = 0;
-                        try {
-                            nodeId = await WI.domManager.querySelector(documentNode, domNodeString);
-                        } catch { }
-                        return WI.domManager.nodeForId(nodeId) || null;
-                    }));
+            for (let key in payload.data) {
+                if (key === "domNodes" || key === "domAttributes" || key === "errors") {
+                    if (!payload.data[key].length)
+                        continue;
                 }
 
-                options.data.domNodes = data.domNodes;
+                if (key === "domNodes") {
+                    if (window.DOMAgent && (!payload.metadata.url || payload.metadata.url === WI.networkManager.mainFrame.url)) {
+                        let documentNode = await new Promise((resolve) => WI.domManager.requestDocument(resolve));
+                        options.resolvedDOMNodes = await Promise.all(payload.data.domNodes.map(async (domNodeString) => {
+                            let nodeId = 0;
+                            try {
+                                nodeId = await WI.domManager.querySelector(documentNode, domNodeString);
+                            } catch { }
+                            return WI.domManager.nodeForId(nodeId) || null;
+                        }));
+                    }
+                }
+
+                options.data[key] = payload.data[key];
             }
-            if (data.domAttributes && data.domAttributes.length)
-                options.data.domAttributes = data.domAttributes;
-            if (data.errors && data.errors.length)
-                options.data.errors = data.errors;
-        }
-        if (!isEmptyObject(metadata)) {
-            options.metadata = {};
-            if (metadata.startTimestamp && !isNaN(metadata.startTimestamp))
-                options.metadata.startTimestamp = metadata.startTimestamp;
-            if (metadata.asyncTimestamp && !isNaN(metadata.asyncTimestamp))
-                options.metadata.asyncTimestamp = metadata.asyncTimestamp;
-            if (metadata.endTimestamp && !isNaN(metadata.endTimestamp))
-                options.metadata.endTimestamp = metadata.endTimestamp;
-            if (metadata.url)
-                options.metadata.url = metadata.url;
         }
 
-        return new WI.AuditTestCaseResult(name, level, options);
+        if (!isEmptyObject(payload.metadata)) {
+            options.metadata = {};
+            if (payload.metadata.startTimestamp && !isNaN(payload.metadata.startTimestamp))
+                options.metadata.startTimestamp = payload.metadata.startTimestamp;
+            if (payload.metadata.asyncTimestamp && !isNaN(payload.metadata.asyncTimestamp))
+                options.metadata.asyncTimestamp = payload.metadata.asyncTimestamp;
+            if (payload.metadata.endTimestamp && !isNaN(payload.metadata.endTimestamp))
+                options.metadata.endTimestamp = payload.metadata.endTimestamp;
+            if (payload.metadata.url)
+                options.metadata.url = payload.metadata.url;
+        }
+
+        return new WI.AuditTestCaseResult(payload.name, payload.level, options);
     }
 
     // Public
@@ -167,13 +213,14 @@ WI.AuditTestCaseResult = class AuditTestCaseResult extends WI.AuditTestResultBas
         json.level = this._level;
 
         let data = {};
-        if (this._data.domNodes && this._data.domNodes.length) {
-            data.domNodes = this._data.domNodes;
-            if (this._data.domAttributes && this._data.domAttributes.length)
-                data.domAttributes = this._data.domAttributes;
+        for (let key in this._data) {
+            if (key === "domNodes" || key === "domAttributes" || key === "errors") {
+                if (!this._data[key].length)
+                    continue;
+            }
+
+            data[key] = this._data[key];
         }
-        if (this._data.errors && this._data.errors.length)
-            data.errors = this._data.errors;
         if (!isEmptyObject(data))
             json.data = data;
 

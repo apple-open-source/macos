@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>IO-Socket-SSL</string>
+        <key>OpenSourceVersion</key>
+        <string>2.066</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/S/SU/SULLR/IO-Socket-SSL-2.066.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2019-03-30</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

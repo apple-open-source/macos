@@ -26,8 +26,12 @@
 #if !TARGET_OS_BRIDGE
 
 #if USE_KEYSTORE
+#if __has_include(<libaks.h>)
 #import <libaks.h>
+#endif
+#if __has_include(<libaks_ref_key.h>)
 #import <libaks_ref_key.h>
+#endif
 #endif
 
 #import <Foundation/Foundation.h>

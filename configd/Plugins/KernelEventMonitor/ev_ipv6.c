@@ -30,7 +30,6 @@
 
 
 #include "eventmon.h"
-#include "cache.h"
 #include "ev_ipv6.h"
 
 #define s6_addr16 __u6_addr.__u6_addr16
@@ -196,7 +195,7 @@ copyIF(CFStringRef key, CFMutableDictionaryRef oldIFs, CFMutableDictionaryRef ne
 	if (CFDictionaryGetValueIfPresent(newIFs, key, (const void **)&dict)) {
 		newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
 	} else {
-		dict = cache_SCDynamicStoreCopyValue(store, key);
+		dict = SCDynamicStoreCopyValue(store, key);
 		if (dict) {
 			CFDictionarySetValue(oldIFs, key, dict);
 			if (isA_CFDictionary(dict)) {
@@ -236,16 +235,16 @@ updateStore(const void *key, const void *value, void *context)
 	if (!dict || !CFEqual(dict, newDict)) {
 		if (CFDictionaryGetCount(newDict) > 0) {
 			SC_log(LOG_DEBUG, "Update interface configuration: %@: %@", key, newDict);
-			cache_SCDynamicStoreSetValue(store, key, newDict);
+			SCDynamicStoreSetValue(store, key, newDict);
 		} else if (dict) {
 			CFDictionaryRef		oldDict;
 
-			oldDict = cache_SCDynamicStoreCopyValue(store, key);
+			oldDict = SCDynamicStoreCopyValue(store, key);
 			if (oldDict != NULL) {
 				SC_log(LOG_DEBUG, "Update interface configuration: %@: <removed>", key);
 				CFRelease(oldDict);
 			}
-			cache_SCDynamicStoreRemoveValue(store, key);
+			SCDynamicStoreRemoveValue(store, key);
 		}
 		network_changed = TRUE;
 	}
@@ -336,7 +335,7 @@ interface_update_ipv6(struct ifaddrs *ifap, const char *if_name)
 			}
 		}
 
-		bzero((char *)&ifr6, sizeof(ifr6));
+		memset((char *)&ifr6, 0, sizeof(ifr6));
 		strlcpy(ifr6.ifr_name, ifa->ifa_name, sizeof(ifr6.ifr_name));
 		ifr6.ifr_addr = *sin6;
 		if (ioctl(sock, SIOCGIFAFLAG_IN6, &ifr6) == -1) {
@@ -437,7 +436,7 @@ ipv6_duplicated_address(const char * if_name, const struct in6_addr * addr,
 	    CFStringAppendFormat(key, NULL, CFSTR("%s%02x"),
 				 (i == 0) ? "/" : ":", hw_addr_bytes[i]);
 	}
-	cache_SCDynamicStoreNotifyValue(store, key);
+	SCDynamicStoreNotifyValue(store, key);
 	CFRelease(key);
 	CFRelease(prefix);
 	CFRelease(if_name_cf);
@@ -457,7 +456,7 @@ nat64_prefix_request(const char *if_name)
 							    kSCEntNetNAT64PrefixRequest);
 	CFRelease(if_name_cf);
 	SC_log(LOG_DEBUG, "Post NAT64 prefix request: %@", key);
-	cache_SCDynamicStoreNotifyValue(store, key);
+	SCDynamicStoreNotifyValue(store, key);
 	CFRelease(key);
 }
 
@@ -474,6 +473,6 @@ ipv6_router_expired(const char *if_name)
 							    kSCEntNetIPv6RouterExpired);
 	CFRelease(if_name_cf);
 	SC_log(LOG_DEBUG, "Post IPv6 Router Expired: %@", key);
-	cache_SCDynamicStoreNotifyValue(store, key);
+	SCDynamicStoreNotifyValue(store, key);
 	CFRelease(key);
 }

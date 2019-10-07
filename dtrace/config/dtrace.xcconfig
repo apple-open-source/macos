@@ -1,3 +1,3 @@
-// On OSX, binaries are not built fat.
-VALID_ARCHS[sdk=macosx*] = $(ARCHS_STANDARD_64_BIT)
-ARCHS[sdk=macosx*] = $(ARCHS_STANDARD_64_BIT)
+#include "dtrace_executable.xcconfig"
+INSTALL_PATH = /usr/sbin/;
+

@@ -1,7 +1,7 @@
 .\" Man page for apropos
 .\"
 .\" Copyright (c) 1990, 1991, John W. Eaton.
-.\" Traduction franÃ§aise RenÃ© Cougnenc - Mai 1995.
+.\" Traduction française René Cougnenc - Mai 1995.
 .\"
 .\" You may distribute under the terms of the GNU General Public
 .\" License as specified in the README file that comes with the man 1.0
@@ -16,14 +16,14 @@
 .TH APROPOS 1 "19 septembre 2005" "Manuel Linux" "Commandes utilisateur"
 .LO 1
 .SH NOM
-apropos \- recherche de chaÃ®nes de caractÃ¨res dans la base de donnÃ©es whatis
+apropos \- recherche de chaînes de caractères dans la base de données whatis
 .SH SYNOPSIS
 .BI apropos
-mot-clÃ© ...
+mot-clé ...
 .SH DESCRIPTION
-apropos effectue une recherche de chaÃ®nes de caractÃ¨res dans un
-ensemble de fichiers de donnÃ©es contenant de brÃ¨ves descriptions des
-commandes systÃ¨me, et affiche le rÃ©sultat sur la sortie standard.
+apropos effectue une recherche de chaînes de caractères dans un
+ensemble de fichiers de données contenant de brèves descriptions des
+commandes système, et affiche le résultat sur la sortie standard.
 
 .SH AUTEUR
 John W. Eaton est l'auteur historique de
@@ -36,12 +36,12 @@ Federico Lucifredi <flucifredi@acm.org> en assure aujourd'hui la maintenance.
 
 .SH TRADUCTION
 .PP
-Ce document est une traduction rÃ©alisÃ©e par RenÃ© Cougnenc en mai 1995 et mise
-Ã  jour par Alain Portal <aportal AT univ-montp2 DOT fr> le 7 novembre 2005.
+Ce document est une traduction réalisée par René Cougnenc en mai 1995 et mise
+à jour par Alain Portal <aportal AT univ-montp2 DOT fr> le 7 novembre 2005.
 .PP
-L'Ã©quipe de traduction a fait le maximum pour rÃ©aliser une adaptation
-franÃ§aise de qualitÃ©. La version anglaise la plus Ã  jour de ce document est
-toujours consultable via la commande\ : Â«\ \fBLANG=en\ man\ 1\ apropos\fR\ Â».
-N'hÃ©sitez pas Ã  signaler Ã  l'auteur ou au traducteur, selon le cas, toute
+L'équipe de traduction a fait le maximum pour réaliser une adaptation
+française de qualité. La version anglaise la plus à jour de ce document est
+toujours consultable via la commande\ : «\ \fBLANG=en\ man\ 1\ apropos\fR\ ».
+N'hésitez pas à signaler à l'auteur ou au traducteur, selon le cas, toute
 erreur dans cette page de manuel.
 

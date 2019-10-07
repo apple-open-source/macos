@@ -31,8 +31,8 @@
 #ifndef _SECURITY_SECOCSPCACHE_H_
 #define _SECURITY_SECOCSPCACHE_H_
 
-#include <securityd/SecOCSPRequest.h>
-#include <securityd/SecOCSPResponse.h>
+#include "securityd/SecOCSPRequest.h"
+#include "securityd/SecOCSPResponse.h"
 #include <CoreFoundation/CFURL.h>
 
 __BEGIN_DECLS

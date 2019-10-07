@@ -465,6 +465,7 @@ dt_idcook_regs(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *ap)
 static void
 dt_idcook_type(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *args)
 {
+#pragma unused(argc, args)
 	if (idp->di_type == CTF_ERR) {
 		dtrace_hdl_t *dtp = yypcb->pcb_hdl;
 		dtrace_typeinfo_t dtt;
@@ -487,6 +488,7 @@ dt_idcook_type(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *args)
 static void
 dt_idcook_thaw(dt_node_t *dnp, dt_ident_t *idp, int argc, dt_node_t *args)
 {
+#pragma unused(argc, args)
 	if (idp->di_ctfp != NULL && idp->di_type != CTF_ERR)
 		dt_node_type_assign(dnp, idp->di_ctfp, idp->di_type, B_FALSE);
 }
@@ -539,6 +541,7 @@ dt_iddtor_inline(dt_ident_t *idp)
 static void
 dt_iddtor_none(dt_ident_t *idp)
 {
+#pragma unused(idp)
 	/* do nothing */
 }
 
@@ -559,6 +562,7 @@ dt_idsize_type(dt_ident_t *idp)
 static size_t
 dt_idsize_none(dt_ident_t *idp)
 {
+#pragma unused(idp)
 	return (0);
 }
 
@@ -616,7 +620,7 @@ dt_idhash_populate(dt_idhash_t *dhp)
 	const dt_ident_t *idp = dhp->dh_tmpl;
 
 	dhp->dh_tmpl = NULL; /* clear dh_tmpl first to avoid recursion */
-	dt_dprintf("populating %s idhash from %p\n", dhp->dh_name, (void *)idp);
+	dt_dprintf("populating %s idhash from %p", dhp->dh_name, (void *)idp);
 
 	for (; idp->di_name != NULL; idp++) {
 		if (dt_idhash_insert(dhp, idp->di_name,

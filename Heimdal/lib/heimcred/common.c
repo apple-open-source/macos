@@ -121,11 +121,12 @@ HeimCredCopyDebugName(CFTypeRef cf)
 	CFTypeRef server = CFDictionaryGetValue(cred->attributes, kHEIMAttrServerName);
 	CFTypeRef parent = CFDictionaryGetValue(cred->attributes, kHEIMAttrParentCredential);
 	CFTypeRef group = CFDictionaryGetValue(cred->attributes, kHEIMAttrLeadCredential);
-
+	CFTypeRef uid = CFDictionaryGetValue(cred->attributes, kHEIMAttrUserID);
+	
 	int lead = group ? CFBooleanGetValue(group) : false;
 	CFTypeRef acl = CFDictionaryGetValue(cred->attributes, kHEIMAttrBundleIdentifierACL);
-	return CFStringCreateWithFormat(NULL, NULL, CFSTR("HeimCred<%@ group: %@ parent: %@ client: %@ server: %@ lead: %s ACL: %@>"),
-					cred->uuid, group, parent, client, server, lead ? "yes" : "no", acl ? acl : CFSTR(""));
+	return CFStringCreateWithFormat(NULL, NULL, CFSTR("HeimCred<%@ group: %@ parent: %@ client: %@ server: %@ lead: %s ACL: %@, UID: %@>"),
+					cred->uuid, group, parent, client, server, lead ? "yes" : "no", acl ? acl : CFSTR(""), uid);
     } else {
 	return CFStringCreateWithFormat(NULL, NULL, CFSTR("HeimCred<%@>"), cred->uuid);
     }

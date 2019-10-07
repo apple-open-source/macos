@@ -37,7 +37,9 @@
 #define __strftimelike(fmtarg)
 #endif
 
+#ifndef UNIFDEF_DRIVERKIT
 typedef	int		__darwin_nl_item;
+#endif /* UNIFDEF_DRIVERKIT */
 typedef	int		__darwin_wctrans_t;
 #ifdef __LP64__
 typedef	__uint32_t	__darwin_wctype_t;

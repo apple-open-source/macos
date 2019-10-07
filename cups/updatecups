@@ -1,0 +1,33 @@
+#!/bin/sh
+#
+# Script to merge changes from the CUPS Github repository to the CUPS Apple
+# repository.
+#
+# Usage: updatecups path-to-cups-github-source
+#
+
+if test $# != 1; then
+	echo Usage: updatecups path-to-cups-github-source
+	exit 1
+fi
+
+githubpath="$1"
+githubdate=`date "+%Y-%m-%d"`
+githubrev=`cd "$githubpath"; git show | head -1 | awk '{print $2}'`
+
+appledate=`plutil -p cups.plist | grep OpenSourceImportDate | awk -F\" '{print $4}'`
+applerev=`plutil -p cups.plist | grep OpenSourceRevision | awk -F\" '{print $4}'`
+
+echo "Updating from Apple revision $applerev ($appledate)"
+echo "to Github revision $githubrev ($githubdate)..."
+
+(cd "$githubpath"; git diff $applerev) | sed -E -e '1,$s/^diff --git a\/([^ ]+) b\/(.*)$/diff --git a\/cups\/\1 b\/cups\/\2/' -e '1,$s/^--- a\//--- a\/cups\//' -e '1,$s/^\+\+\+ b\//+++ b\/cups\//' -e '1,$s/^rename from (.*)$/rename from cups\/\1/' -e '1,$s/^rename to (.*)$/rename to cups\/\1/'  >$githubrev.patch
+
+git apply $githubrev.patch || exit 1
+
+mv cups.plist cups.plist.O
+sed -e '1,$s/$appledate/$githubdate/' -e '1,$s/$applerev/$githubrev/' <cups.plist.O >cups.plist
+
+git commit -a -e -m "Sync Github CUPS ($githubrev) changes to Apple CUPS."
+rm $githubrev.patch
+

@@ -139,6 +139,13 @@ void IOMedia::free(void)
     // Free all of this object's outstanding resources.
     //
 
+    if (_expansionData)
+    {
+        IOLockFree(mediaManagementLock);
+        mediaProbeList->release();
+        IODelete(_expansionData, ExpansionData, 1);
+    }
+
     if (_openClients)  _openClients->release();
 
     super::free();
@@ -629,12 +636,12 @@ void IOMedia::handleClose(IOService * client, IOOptionBits options)
             {
                 if ( driver != client )
                 {
-                    driver->requestProbe( 0 );
+                    scheduleProbe ( driver );
                 }
             }
             else
             {
-                registerService( kIOServiceAsynchronous );
+                scheduleRegisterService( );
             }
         }
     }
@@ -648,6 +655,54 @@ handleCloseErr:
     if ( driver )
     {
         driver->release( );
+    }
+}
+
+void IOMedia::scheduleProbe ( IOService * driver )
+{
+    IOLockLock(mediaManagementLock);
+    mediaProbeList->setObject( driver );
+    IOLockUnlock(mediaManagementLock);
+}
+
+void IOMedia::scheduleRegisterService( )
+{
+    IOLockLock(mediaManagementLock);
+    mediaNeedRegisterService = true;
+    IOLockUnlock(mediaManagementLock);
+}
+
+void IOMedia::close(IOService *       client,
+                    IOOptionBits      options)
+{
+    super::close( client, options );
+    while (mediaProbeList->getCount())
+    {
+        IOService *   driver;
+
+        IOLockLock(mediaManagementLock);
+        driver = OSDynamicCast( IOService, mediaProbeList->getObject( 0 ) );
+        if ( driver )
+        {
+            driver->retain();
+            mediaNeedRegisterService = false;
+        }
+        mediaProbeList->removeObject( 0 );
+        IOLockUnlock(mediaManagementLock);
+
+        if ( driver )
+        {
+            if ( isInactive( ) == false )
+            {
+                driver->requestProbe(0);
+            }
+            driver->release();
+        }
+    }
+
+    if (mediaNeedRegisterService) {
+        mediaNeedRegisterService = false;
+        registerService( kIOServiceAsynchronous );
     }
 }
 
@@ -743,10 +798,10 @@ void IOMedia::write(IOService *           client,
 
     if (_openLevel == kIOStorageAccessReader)  // (instantaneous value, no lock)
     {
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
         complete(completion, kIOReturnNotPrivileged);
         return;
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
     }
 
     if (_isWritable == 0)
@@ -824,9 +879,9 @@ IOReturn IOMedia::synchronize(IOService *                 client,
 
     if (_openLevel == kIOStorageAccessReader)  // (instantaneous value, no lock)
     {
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
         return kIOReturnNotPrivileged;
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
     }
 
     if (_isWritable == 0)
@@ -872,9 +927,9 @@ IOReturn IOMedia::unmap(IOService *           client,
 
     if (_openLevel == kIOStorageAccessReader)  // (instantaneous value, no lock)
     {
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
         return kIOReturnNotPrivileged;
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
     }
 
     if (_isWritable == 0)
@@ -1216,6 +1271,24 @@ bool IOMedia::init(UInt64               base,
     bool isRemovable;
     bool mediaParametersHaveChanged = false;
 
+    // Initialize _expansionData
+    if (_expansionData == 0)
+    {
+
+        _expansionData = IONew(ExpansionData, 1);
+        if (_expansionData == 0)  goto error_exit;
+
+        bzero( _expansionData, sizeof( ExpansionData ) );
+
+        mediaManagementLock = IOLockAlloc();
+        if (mediaManagementLock == NULL) goto error_exit;
+
+        mediaProbeList = OSArray::withCapacity( 1 );
+        if (mediaProbeList == NULL) goto error_exit;
+
+        mediaNeedRegisterService = false;
+    }
+
     // Ask our superclass' opinion.
 
     if (_openClients == 0)
@@ -1384,6 +1457,21 @@ handleParametersHaveChanged:
     }
 ///w:stop
     return true;
+
+error_exit:
+
+    if (_openClients) {
+        _openClients->release();
+        _openClients = NULL;
+    }
+
+    if (_expansionData) {
+        if (mediaManagementLock) IOLockFree(mediaManagementLock);
+        if (mediaProbeList) mediaProbeList->release();
+        IODelete(_expansionData, ExpansionData, 1);
+    }
+
+    return false;
 }
 
 IOMediaAttributeMask IOMedia::getAttributes() const

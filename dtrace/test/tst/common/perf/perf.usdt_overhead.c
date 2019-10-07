@@ -72,6 +72,7 @@ enable_dtrace_probes(char const* str)
 	dtrace_prog_t *prog;
 	dtrace_proginfo_t info;
 
+	T_SETUPBEGIN;
 	if ((g_dtp = dtrace_open(DTRACE_VERSION, 0, &err)) == NULL) {
 		T_FAIL("failed to initialize dtrace");
 		return -1;
@@ -87,6 +88,8 @@ enable_dtrace_probes(char const* str)
 		fprintf(stderr, "failed to enable probes");
 		return -1;
 	}
+	T_SETUPEND;
+
 	return 0;
 }
 
@@ -160,9 +163,4 @@ T_DECL(dtrace_spawn_1, "spawn latency with dtrace on and one USDT provider", T_M
 T_DECL(dtrace_spawn_10, "spawn latency with dtrace on and 10 USDT providers", T_META_CHECK_LEAKS(false))
 {
 	posix_spawn_test(true, "./usdt_overhead_helper.10");
-}
-
-T_DECL(dtrace_spawn_100, "spawn latency with dtrace and on 100 USDT providers", T_META_CHECK_LEAKS(false))
-{
-	posix_spawn_test(true, "./usdt_overhead_helper.100");
 }

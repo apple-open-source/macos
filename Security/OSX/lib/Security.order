@@ -1940,7 +1940,6 @@ _SSLProcessServerHello
 _sslVerifyProtVersion
 _FindCipherSpec
 _sslVerifySelectedCipher
-_SSLReallocBuffer
 _SSLProcessCertificate
 _sslVerifyCertChain
 _sslPubKeyFromCert

@@ -20,12 +20,12 @@
 #include "config.h"
 #include "WebKitAccessibleInterfaceValue.h"
 
-#if HAVE(ACCESSIBILITY)
+#if ENABLE(ACCESSIBILITY)
 
 #include "AccessibilityObject.h"
 #include "HTMLNames.h"
+#include "WebKitAccessible.h"
 #include "WebKitAccessibleUtil.h"
-#include "WebKitAccessibleWrapperAtk.h"
 #include <wtf/text/CString.h>
 
 using namespace WebCore;
@@ -35,7 +35,7 @@ static AccessibilityObject* core(AtkValue* value)
     if (!WEBKIT_IS_ACCESSIBLE(value))
         return 0;
 
-    return webkitAccessibleGetAccessibilityObject(WEBKIT_ACCESSIBLE(value));
+    return &webkitAccessibleGetAccessibilityObject(WEBKIT_ACCESSIBLE(value));
 }
 
 static bool webkitAccessibleSetNewValue(AtkValue* coreValue, const gdouble newValue)
@@ -49,7 +49,7 @@ static bool webkitAccessibleSetNewValue(AtkValue* coreValue, const gdouble newVa
     value = std::max(static_cast<double>(coreObject->minValueForRange()), newValue);
     value = std::min(static_cast<double>(coreObject->maxValueForRange()), newValue);
 
-    coreObject->setValue(String::number(value));
+    coreObject->setValue(String::numberToStringFixedPrecision(value));
     return TRUE;
 }
 
@@ -64,7 +64,6 @@ static float webkitAccessibleGetIncrementValue(AccessibilityObject* coreObject)
     return step < 1 ? 1 : step;
 }
 
-#if ATK_CHECK_VERSION(2,11,92)
 static void webkitAccessibleGetValueAndText(AtkValue* value, gdouble* currentValue, gchar** alternativeText)
 {
     g_return_if_fail(ATK_VALUE(value));
@@ -114,7 +113,7 @@ static AtkRange* webkitAccessibleGetRange(AtkValue* value)
     gchar* valueDescription = g_strdup_printf("%s", coreObject->valueDescription().utf8().data());
     return atk_range_new(minValue, maxValue, valueDescription);
 }
-#endif
+
 static void webkitAccessibleValueGetCurrentValue(AtkValue* value, GValue* gValue)
 {
     g_return_if_fail(ATK_VALUE(value));
@@ -187,12 +186,10 @@ static void webkitAccessibleValueGetMinimumIncrement(AtkValue* value, GValue* gV
 
 void webkitAccessibleValueInterfaceInit(AtkValueIface* iface)
 {
-#if ATK_CHECK_VERSION(2,11,92)
     iface->get_value_and_text = webkitAccessibleGetValueAndText;
     iface->get_increment = webkitAccessibleGetIncrement;
     iface->set_value = webkitAccessibleSetValue;
     iface->get_range = webkitAccessibleGetRange;
-#endif
     iface->get_current_value = webkitAccessibleValueGetCurrentValue;
     iface->get_maximum_value = webkitAccessibleValueGetMaximumValue;
     iface->get_minimum_value = webkitAccessibleValueGetMinimumValue;

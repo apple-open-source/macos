@@ -3,13 +3,7 @@
  *
  * Copyright 2009-2016 by Apple Inc.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
  */
 
 #ifndef _CUPS_PWG_PRIVATE_H_
@@ -44,8 +38,8 @@ extern void		_pwgGenerateSize(char *keyword, size_t keysize,
 extern int		_pwgInitSize(pwg_size_t *size, ipp_t *job,
 				     int *margins_set)
 				     _CUPS_INTERNAL_MSG("Use pwgInitSize instead.");
-extern const pwg_media_t *_pwgMediaTable(size_t *num_media);
-extern pwg_media_t *_pwgMediaNearSize(int width, int length, int epsilon);
+extern const pwg_media_t *_pwgMediaTable(size_t *num_media) _CUPS_PRIVATE;
+extern pwg_media_t *_pwgMediaNearSize(int width, int length, int epsilon) _CUPS_PRIVATE;
 
 #  ifdef __cplusplus
 }

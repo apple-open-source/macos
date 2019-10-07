@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,7 +47,7 @@ static uid_t S_uid = -1;
 static pid_t S_pid = -1;
 
 
-#if ! TARGET_OS_EMBEDDED
+#if TARGET_OS_OSX
 #define	kIPConfigurationServiceEntitlement	NULL
 
 static boolean_t
@@ -56,7 +56,7 @@ S_has_entitlement(audit_token_t token, CFStringRef entitlement)
     return (FALSE);
 }
 
-#else /* ! TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_OSX */
 #define	kIPConfigurationServiceEntitlement	CFSTR("com.apple.IPConfigurationService")	/* boolean */
 
 #include <Security/SecTask.h>
@@ -81,7 +81,7 @@ S_has_entitlement(audit_token_t token, CFStringRef entitlement)
     }
     return (ret);
 }
-#endif /* ! TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_OSX */
 
 static void
 S_process_audit_token(audit_token_t audit_token)

@@ -67,12 +67,12 @@ enum {
 	CSSM_TP_OCSP_REQUIRE_RESP_NONCE					= 0x00000080
 };
 
-typedef struct {
+typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER {
 	uint32							Version;	
 	CSSM_APPLE_TP_OCSP_OPT_FLAGS	Flags;
 	CSSM_DATA_PTR					LocalResponder;		/* URI */
 	CSSM_DATA_PTR					LocalResponderCert;	/* X509 DER encoded cert */
-} CSSM_APPLE_TP_OCSP_OPTIONS;
+} CSSM_APPLE_TP_OCSP_OPTIONS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 enum
 {

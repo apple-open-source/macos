@@ -46,7 +46,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <config.h>
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -57,9 +57,9 @@
 #include <stdarg.h>
 #include <ctype.h>
 
-#include <sasl.h>
-#include <saslutil.h>
-#include <saslplug.h>
+#include "sasl.h"
+#include "saslutil.h"
+#include "saslplug.h"
 #include "saslint.h"
 
 #ifdef WIN32

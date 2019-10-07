@@ -43,7 +43,6 @@ namespace SecurityServer {
 UnixPlusPlus::StaticForkMonitor ClientSession::mHasForked;
 ModuleNexus<ClientSession::Global> ClientSession::mGlobal;
 const char *ClientSession::mContactName;
-SecGuestRef ClientSession::mDedicatedGuest = kSecNoGuest;
 
 
 //
@@ -93,12 +92,6 @@ void ClientSession::activate()
         secinfo("SSclnt", "Thread registered with %s", mContactName);
 	}
 	
-	// if the thread's guest state has changed, tell securityd
-	if (thread.currentGuest != thread.lastGuest) {
-		IPCN(ucsp_client_setGuest(UCSP_ARGS, thread.currentGuest, kSecCSDefaultFlags));
-		thread.lastGuest = thread.currentGuest;
-		secinfo("SSclnt", "switched guest state to 0x%x", thread.currentGuest);
-	}
 }
 
 //
@@ -198,7 +191,7 @@ void ClientSession::childCheckIn(Port serverPort, Port taskPort)
 	if (originPort != securitydPort.port())
 		CssmError::throwMe(CSSM_ERRCODE_VERIFICATION_FAILURE);
 	mach_port_mod_refs(mach_task_self(), originPort, MACH_PORT_RIGHT_SEND, -1);
-	check(ucsp_client_childCheckIn(securitydPort, serverPort, taskPort));
+	check(ucsp_client_childCheckIn(securitydPort, serverPort, MACH_PORT_NULL));
 }
 
 

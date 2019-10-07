@@ -26,7 +26,9 @@
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
-#if !TARGET_OS_IPHONE
+#include <TargetConditionals.h>
+
+#if !TARGET_OS_IPHONE && !TARGET_OS_DRIVERKIT
 
 #define WEAK_SYMBOL_LD_CMD(sym, version) \
         __asm__(".section __TEXT,__const\n\t" \

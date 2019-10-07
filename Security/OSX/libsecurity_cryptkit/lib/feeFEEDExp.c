@@ -32,8 +32,6 @@
 
 #include "ckconfig.h"
 
-#if	CRYPTKIT_ASYMMETRIC_ENABLE
-
 #include "feeTypes.h"
 #include "feeFEEDExp.h"
 #include "feePublicKey.h"
@@ -732,4 +730,3 @@ feeReturn feeFEEDExpDecrypt(feeFEEDExp feed,
 
 }
 
-#endif	/* CRYPTKIT_ASYMMETRIC_ENABLE */

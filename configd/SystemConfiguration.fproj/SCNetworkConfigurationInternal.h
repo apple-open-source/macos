@@ -29,17 +29,14 @@
 #include <CoreFoundation/CFRuntime.h>
 
 #ifndef	SC_LOG_HANDLE
-#define	SC_LOG_HANDLE	__log_SCNetworkConfiguration()
+#define	SC_LOG_HANDLE	__log_SCNetworkConfiguration
 #endif	// SC_LOG_HANDLE
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
 #include "SCPreferencesPathKey.h"
-#include <IOKit/IOKitLib.h>
-
-#if	!TARGET_OS_SIMULATOR
 #include "IPMonitorControl.h"
-#endif	// !TARGET_OS_SIMULATOR
+#include <IOKit/IOKitLib.h>
 
 
 typedef struct {
@@ -169,7 +166,7 @@ typedef struct {
 	} usb;
 
 	// misc
-	int			sort_order;		// sort order for this interface
+	unsigned int		sort_order;		// sort order for this interface
 
 	// for BOND interfaces
 	Boolean			supportsBond;
@@ -194,10 +191,9 @@ typedef struct {
 		CFDictionaryRef		options;
 	} vlan;
 
-#if	!TARGET_OS_SIMULATOR
 	// for interface rank assertions
 	IPMonitorControlRef	IPMonitorControl;
-#endif	// !TARGET_OS_SIMULATOR
+
 } SCNetworkInterfacePrivate, *SCNetworkInterfacePrivateRef;
 
 
@@ -338,7 +334,7 @@ __SCNetworkInterfaceIsValidExtendedConfigurationType
 						 CFStringRef		extendedType,
 						 Boolean		requirePerInterface);
 
-CFDictionaryRef
+CFPropertyListRef
 __SCNetworkInterfaceGetTemplateOverrides	(SCNetworkInterfaceRef	interface,
 						 CFStringRef		overrideType);
 
@@ -436,6 +432,9 @@ __SCNetworkServiceCreatePrivate			(CFAllocatorRef		allocator,
 						 SCNetworkInterfaceRef	interface);
 
 Boolean
+__SCNetworkServiceExists			(SCNetworkServiceRef	service);
+
+Boolean
 __SCNetworkServiceExistsForInterface		(CFArrayRef		services,
 						 SCNetworkInterfaceRef	interface);
 
@@ -474,6 +473,10 @@ __SCNetworkServiceAddProtocolToService		(SCNetworkServiceRef		service,
 
 #pragma mark -
 #pragma mark SCNetworkSet configuration (internal)
+
+
+Boolean
+__SCNetworkSetExists				(SCNetworkSetRef		set);
 
 
 #pragma mark -

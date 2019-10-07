@@ -43,7 +43,7 @@ function typedArraySpeciesConstructor(value)
         @throwTypeError("|this|.constructor is not an Object or undefined");
 
     constructor = constructor.@speciesSymbol;
-    if (constructor == null)
+    if (@isUndefinedOrNull(constructor))
         return @typedArrayGetOriginalConstructor(value);
     // The lack of an @isConstructor(constructor) check here is not observable because
     // the first thing we will do with the value is attempt to construct the result with it.
@@ -72,21 +72,21 @@ function values()
 {
     "use strict";
     @typedArrayLength(this);
-    return new @createArrayIterator(this, "value", @arrayIteratorValueNext);
+    return new @ArrayIterator(this, "value", @arrayIteratorValueNext);
 }
 
 function keys()
 {
     "use strict";
     @typedArrayLength(this);
-    return new @createArrayIterator(this, "key", @arrayIteratorKeyNext);
+    return new @ArrayIterator(this, "key", @arrayIteratorKeyNext);
 }
 
 function entries()
 {
     "use strict";
     @typedArrayLength(this);
-    return new @createArrayIterator(this, "key+value", @arrayIteratorKeyValueNext);
+    return new @ArrayIterator(this, "key+value", @arrayIteratorKeyValueNext);
 }
 
 function every(callback /*, thisArg */)
@@ -340,7 +340,7 @@ function map(callback /*, thisArg */)
         result = new (@typedArrayGetOriginalConstructor(this))(length);
     else {
         var speciesConstructor = constructor.@speciesSymbol;
-        if (speciesConstructor === null || speciesConstructor === @undefined)
+        if (@isUndefinedOrNull(speciesConstructor))
             result = new (@typedArrayGetOriginalConstructor(this))(length);
         else {
             result = new speciesConstructor(length);
@@ -381,7 +381,7 @@ function filter(callback /*, thisArg */)
         result = new (@typedArrayGetOriginalConstructor(this))(resultLength);
     else {
         var speciesConstructor = constructor.@speciesSymbol;
-        if (speciesConstructor === null || speciesConstructor === @undefined)
+        if (@isUndefinedOrNull(speciesConstructor))
             result = new (@typedArrayGetOriginalConstructor(this))(resultLength);
         else {
             result = new speciesConstructor(resultLength);

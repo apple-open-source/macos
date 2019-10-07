@@ -1,4 +1,4 @@
-.TH "ZSHEXPN" "1" "December 11, 2016" "zsh 5\&.3"
+.TH "ZSHEXPN" "1" "February 3, 2019" "zsh 5\&.7\&.1"
 .SH "NAME"
 zshexpn \- zsh expansion and substitution
 .\" Yodl file: Zsh/expn.yo
@@ -31,9 +31,12 @@ under Aliasing in \fIzshmisc\fP(1)\&.
 .TP
 .PD
 \fIBrace Expansion\fP
-These five are performed in one step in left\-to\-right fashion\&.  After
-these expansions, all unquoted occurrences of the characters `\fB\e\fP\&',
-`\fB\&'\fP' and `\fB"\fP' are removed\&.
+These five are performed in left\-to\-right fashion\&.  On each argument,
+any of the five steps that are needed are performed one after the other\&.
+Hence, for example, all the parts of parameter expansion are completed
+before command substitution is started\&.  After these expansions, all
+unquoted occurrences of the characters `\fB\e\fP\&',`\fB'\fP' and `\fB"\fP' are
+removed\&.
 .TP
 \fIFilename Expansion\fP
 If the \fBSH_FILE_EXPANSION\fP option is set, the order of expansion is
@@ -62,10 +65,10 @@ EXPANSION OF PROMPT SEQUENCES in \fIzshmisc\fP(1)) is the number that is to be a
 .SS "Overview"
 A history expansion begins with the first character of the \fBhistchars\fP
 parameter, which is `\fB!\fP\&' by default, and may occur anywhere on the
-command line; history expansions do not nest\&.  The `\fB!\fP\&' can be escaped
-with `\fB\e\fP\&' or can be enclosed between a pair of single quotes (\fB''\fP)
-to suppress its special meaning\&.  Double quotes will \fInot\fP work for
-this\&.  Following this history character is an optional event designator
+command line, including inside double quotes (but not inside single quotes
+\fB\&'\&.\&.\&.'\fP or C\-style quotes \fB$'\&.\&.\&.'\fP nor when escaped with a backslash)\&.  
+.PP
+The first character is followed by an optional event designator
 (see the section `Event Designators\&') and then an optional word
 designator (the section `Word Designators\&'); if neither of these designators is
 present, no history expansion occurs\&.
@@ -74,6 +77,8 @@ Input lines containing history expansions are echoed after being expanded,
 but before any other expansions take place and before the command is
 executed\&.  It is this expanded form that is recorded as the history event
 for later references\&.
+.PP
+History expansions do not nest\&.
 .PP
 By default, a history reference with no event designator refers to the
 same event as any preceding history reference on that command line; if it
@@ -927,8 +932,9 @@ all arguments to be removed\&.
 Internally, each such expansion is converted into the
 equivalent list for brace expansion\&.  E\&.g\&., \fB${^var}\fP becomes
 \fB{$var[1],$var[2],\fP\&.\&.\&.\fB}\fP, and is processed as described in
-the section `Brace Expansion\&' below\&.
-If word splitting is also in effect the
+the section `Brace Expansion\&' below: note, however, the expansion
+happens immediately, with any explicit brace expansion
+happening later\&.  If word splitting is also in effect the
 \fB$var[\fP\fIN\fP\fB]\fP may themselves be split into different list
 elements\&.
 .RE
@@ -1023,15 +1029,27 @@ This is distinct from \fIfield splitting\fP by the \fBf\fP, \fBs\fP
 or \fBz\fP flags, which still applies within each array element\&.
 .TP
 \fBA\fP
-Create an array parameter with `\fB${\fP\&.\&.\&.\fB=\fP\&.\&.\&.\fB}\fP\&',
+Convert the substitution into an array expression, even if it otherwise
+would be scalar\&.  This has lower precedence than subscripting, so one
+level of nested expansion is required in order that subscripts apply
+to array elements\&.  Thus \fB${${(A\fP\fB)\fP\fIname\fP\fB}[1]}\fP
+yields the full value of \fIname\fP when \fIname\fP is scalar\&.
+.RS
+.PP
+This assigns an array parameter with `\fB${\fP\&.\&.\&.\fB=\fP\&.\&.\&.\fB}\fP\&',
 `\fB${\fP\&.\&.\&.\fB:=\fP\&.\&.\&.\fB}\fP\&' or `\fB${\fP\&.\&.\&.\fB::=\fP\&.\&.\&.\fB}\fP'\&.
-If this flag is repeated (as in `\fBAA\fP\&'), create an associative
+If this flag is repeated (as in `\fBAA\fP\&'), assigns an associative
 array parameter\&.  Assignment is made before sorting or padding;
 if field splitting is active, the \fIword\fP part is split before
 assignment\&.  The \fIname\fP part may be a subscripted range for
-ordinary arrays; the \fIword\fP part \fImust\fP be converted to
-an array, for example by using `\fB${(AA)=\fP\fIname\fP\fB=\fP\&.\&.\&.\fB}\fP\&'
-to activate field splitting, when creating an associative array\&.
+ordinary arrays; when assigning an associative array, the \fIword\fP
+part \fImust\fP be converted to an array, for example by using
+`\fB${(AA)=\fP\fIname\fP\fB=\fP\&.\&.\&.\fB}\fP\&' to activate field splitting\&.
+.PP
+Surrounding context such as additional nesting or use of the value
+in a scalar assignment may cause the array to be joined back into
+a single string again\&.
+.RE
 .TP
 \fBa\fP
 Sort in array index order; when combined with `\fBO\fP\&' sort in reverse
@@ -1088,9 +1106,10 @@ argument\&.  This is the reverse of `\fB~\fP\&' substitution:  see
 the section FILENAME EXPANSION below\&.
 .TP
 \fBe\fP
-Perform \fIparameter expansion\fP, \fIcommand substitution\fP and
-\fIarithmetic expansion\fP on the result\&. Such expansions can be
-nested but too deep recursion may have unpredictable effects\&.
+Perform single word shell expansions, namely \fIparameter expansion\fP,
+\fIcommand substitution\fP and \fIarithmetic expansion\fP, on the
+result\&. Such expansions can be nested but too deep recursion may have
+unpredictable effects\&.
 .TP
 \fBf\fP
 Split the result of the expansion at newlines\&. This is a shorthand
@@ -1116,7 +1135,9 @@ If \fIname\fP refers to an associative array, substitute the \fIkeys\fP
 (element names) rather than the values of the elements\&.  Used with
 subscripts (including ordinary arrays), force indices or keys to be
 substituted even if the subscript form refers to values\&.  However,
-this flag may not be combined with subscript ranges\&.
+this flag may not be combined with subscript ranges\&.  With the
+\fBKSH_ARRAYS\fP option a subscript `\fB[*]\fP\&' or `\fB[@]\fP' is needed
+to operate on the whole array, as usual\&.
 .TP
 \fBL\fP
 Convert all letters in the result to lower case\&.
@@ -1784,10 +1805,17 @@ accents, like `\fB`\fP\&.\&.\&.\fB`\fP\&', is replaced with its standard output,
 any trailing newlines deleted\&.
 If the substitution is not enclosed in double quotes, the
 output is broken into words using the \fBIFS\fP parameter\&.
+.PP
 The substitution `\fB$(cat\fP \fIfoo\fP\fB)\fP\&' may be replaced
-by the equivalent but faster `\fB$(<\fP\fIfoo\fP\fB)\fP\&'\&.
-In either case, if the option \fBGLOB_SUBST\fP is set,
-the output is eligible for filename generation\&.
+by the faster `\fB$(<\fP\fIfoo\fP\fB)\fP\&'\&.  In this case \fIfoo\fP
+undergoes single word shell expansions (\fIparameter expansion\fP,
+\fIcommand substitution\fP and \fIarithmetic expansion\fP), but not
+filename generation\&.
+.PP
+If the option \fBGLOB_SUBST\fP is set, the result of any unquoted command
+substitution, including the special form just mentioned, is eligible for
+filename generation\&.
+.PP
 .SH "ARITHMETIC EXPANSION"
 A string of the form `\fB$[\fP\fIexp\fP\fB]\fP\&' or
 `\fB$((\fP\fIexp\fP\fB))\fP\&' is substituted
@@ -2090,7 +2118,7 @@ The character is 7\-bit, i\&.e\&. is a single\-byte character without
 the top bit set\&.
 .TP
 \fB[:blank:]\fP
-The character is either space or tab
+The character is a blank character
 .TP
 \fB[:cntrl:]\fP
 The character is a control character
@@ -2209,6 +2237,7 @@ Matches either \fIx\fP or \fIy\fP\&.
 This operator has lower precedence than any other\&.
 The `\fB|\fP\&' character
 must be within parentheses, to avoid interpretation as a pipeline\&.
+The alternatives are tried in order from left to right\&.
 .TP
 \fB^\fP\fIx\fP
 (Requires \fBEXTENDED_GLOB\fP to be set\&.)

@@ -1,4 +1,4 @@
-The 'curl' subdirectory is based on curl 7.51.0
+The 'curl' subdirectory is based on curl 7.64.1
 
 == Updating ==
 
@@ -27,11 +27,6 @@ SDKROOT=macosx.internal ./configure --enable-hidden-symbols --enable-threaded-re
 
 iOS (etc):
 SDKROOT=macosx.internal ./configure --enable-hidden-symbols --enable-threaded-resolver --disable-ldap --with-darwinssl
-
-Changes to include/curl/curlbuild.h post-configure:
-  (1) Add #ifdef __LP64__ for CURL_SIZEOF_LONG.
-  (2) Change CURL_TYPEOF_CURL_OFF_T and associated defines to int64_t (configure gets it wrong for 32-bit).
-		(requires CURL_PULL_STDINT_H, CURL_PULL_INTTYPES_H)
 
 Changes to curl_config.h post-configure:
   (1) Add #ifdef __LP64__ for SIZEOF_LONG, SIZEOF_SIZE_T, SIZEOF_TIME_T, SIZEOF_VOIDP

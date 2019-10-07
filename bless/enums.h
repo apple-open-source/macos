@@ -79,6 +79,7 @@ enum {
     kuse9,				/* 40 */
     kverbose,
     kversion,
+    ksnapshot,
     klast
 };
 

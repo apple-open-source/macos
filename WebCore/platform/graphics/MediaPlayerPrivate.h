@@ -68,7 +68,7 @@ public:
 
     virtual void play() = 0;
     virtual void pause() = 0;    
-    virtual void setShouldBufferData(bool) { }
+    virtual void setBufferingPolicy(MediaPlayer::BufferingPolicy) { }
 
     virtual bool supportsPictureInPicture() const { return false; }
     virtual bool supportsFullscreen() const { return false; }
@@ -284,6 +284,8 @@ public:
 #endif
 
     virtual bool performTaskAtMediaTime(WTF::Function<void()>&&, MediaTime) { return false; }
+
+    virtual bool shouldIgnoreIntrinsicSize() { return false; }
 };
 
 }

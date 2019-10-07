@@ -28,15 +28,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FileStream_h
-#define FileStream_h
+#pragma once
 
-#include "FileSystem.h"
+#include <wtf/FileSystem.h>
 
 namespace WebCore {
 
 // All methods are synchronous.
 class FileStream {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     FileStream();
     ~FileStream();
@@ -64,5 +64,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // FileStream_h

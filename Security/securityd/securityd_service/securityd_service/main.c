@@ -5,7 +5,6 @@
 #include <libaks.h>
 
 #include <sandbox.h>
-#include <vproc.h>
 #include <xpc/xpc.h>
 #include <xpc/private.h>
 #include <dispatch/dispatch.h>
@@ -231,7 +230,8 @@ _kb_verify_create_path(service_user_record_t * ur)
         }
     }
     if (!created) {
-        require_action(mkpath_np(kb_path, 0700) == 0, done, os_log(OS_LOG_DEFAULT, "could not create path: %{public}s %{darwin.errno}d", kb_path, errno));
+        errno_t err = mkpath_np(kb_path, 0700);
+        require_action(err == 0 || err == EEXIST, done, os_log(OS_LOG_DEFAULT, "could not create path: %{public}s %{darwin.errno}d", kb_path, err));
         created = true;
     }
 
@@ -430,7 +430,7 @@ _kb_get_session_handle(service_context_t * context, keybag_handle_t * handle_out
 done:
     if (rc == KB_BagNotLoaded) {
         if (service_kb_load(context) == KB_Success) {
-            if (_service_kb_get_system(context->s_uid, handle_out) == kIOReturnSuccess) {
+            if (_service_kb_get_system(context->s_uid, handle_out) == kAKSReturnSuccess) {
                 rc = KB_Success;
             }
         }
@@ -574,7 +574,7 @@ _service_kb_load_uid(uid_t s_uid, uint64_t * kcv)
         int _stage = 0;
 
         rc = _service_kb_get_system(s_uid, &session_handle);
-        if (rc == kIOReturnNotFound) {
+        if (rc == kAKSReturnNotFound) {
             require_action(ur = get_user_record(s_uid), done, rc = KB_GeneralError; _stage = 1);
             require_action(bag_file = _kb_copy_bag_filename(ur, kb_bag_type_user), done, rc = KB_GeneralError; _stage = 2);
             require_action_quiet(_kb_load_bag_from_disk(ur, bag_file, &buf, &buf_size, kcv), done, rc = KB_BagNotFound; _stage = 3);
@@ -637,11 +637,11 @@ service_kb_unload(service_context_t *context)
         keybag_handle_t session_handle = bad_keybag_handle;
 
         rc = _service_kb_get_system(context->s_uid, &session_handle);
-        if (rc == kIOReturnNotFound) {
+        if (rc == kAKSReturnNotFound) {
             // No session bag, nothing to do
             rc = KB_Success;
             return;
-        } else if (rc != kIOReturnSuccess) {
+        } else if (rc != kAKSReturnSuccess) {
             os_log(OS_LOG_DEFAULT, "error locating session keybag for uid (%i) in session (%i)", context->s_uid, context->s_id);
             rc = KB_BagError;
             return;
@@ -1019,7 +1019,9 @@ OSStatus service_stash_set_key(service_context_t * context, xpc_object_t event, 
 
     const uint8_t *keydata = xpc_dictionary_get_data(event, SERVICE_XPC_KEY, &keydata_len);
     require(keydata, done);
+    require(keydata_len <= MAX_KEY_SIZE, done);
 
+    _Static_assert(sizeof(inStruct1.inKey.key.key) == MAX_KEY_SIZE, "unexpected aks raw key size");
     memcpy(&inStruct1.inKey.key.key, keydata, keydata_len);
     inStruct1.inKey.key.keysize = (cryptosize_t) keydata_len;
     len = sizeof(outStruct1);
@@ -1032,6 +1034,7 @@ OSStatus service_stash_set_key(service_context_t * context, xpc_object_t event, 
 
     // Now using the uuid stash it as the master key
     setStashKey_InStruct_t inStruct2;
+    _Static_assert(sizeof(outStruct1.uuid) == sizeof(inStruct2.uuid), "invalid uuid size(s)");
     memcpy(&inStruct2.uuid, &outStruct1.uuid, sizeof(outStruct1.uuid));
     inStruct2.type  = kAppleFDEKeyStoreStash_master;
 
@@ -1263,10 +1266,8 @@ void service_peer_event_handler(xpc_connection_t connection, xpc_object_t event)
 
         switch (request) {
             case SERVICE_KB_CREATE:
-                //                if (kb_service_has_entitlement(peer, "com.apple.keystore.device")) {
                 secret = xpc_dictionary_get_data(event, SERVICE_XPC_SECRET, &secret_len);
                 rc = service_kb_create(context, secret, (int)secret_len);
-                //                }
                 break;
             case SERVICE_KB_LOAD:
                 rc = service_kb_load(context);
@@ -1458,9 +1459,9 @@ int main(int argc, const char * argv[])
         // It is safe to cast 'peer' to xpc_connection_t assuming
         // we have a correct configuration in our launchd.plist.
         xpc_connection_set_event_handler(peer, ^(xpc_object_t event) {
-            vproc_transaction_t transaction = vproc_transaction_begin(NULL);
+            xpc_transaction_begin();
             service_peer_event_handler(peer, event);
-            vproc_transaction_end(NULL, transaction);
+            xpc_transaction_end();
         });
         xpc_connection_resume(peer);
     });

@@ -7,7 +7,7 @@ if (PHP_INT_SIZE != 4) die("skip this test is for 32bit platform only");
 --FILE--
 <?php
 /* Prototype  : proto array array_fill(int start_key, int num, mixed val)
- * Description: Create an array containing num elements starting with index start_key each initialized to val 
+ * Description: Create an array containing num elements starting with index start_key each initialized to val
  * Source code: ext/standard/array.c
  */
 
@@ -17,7 +17,7 @@ if (PHP_INT_SIZE != 4) die("skip this test is for 32bit platform only");
 
 echo "*** Testing array_fill() : usage variations ***\n";
 
-// Initialise function arguments not being substituted 
+// Initialise function arguments not being substituted
 $num = 2;
 $val = 100;
 
@@ -60,13 +60,13 @@ $values = array(
   /* 11 */  NULL,
             null,
 
-            // boolean values 
+            // boolean values
   /* 13 */  true,
             false,
             TRUE,
             FALSE,
 
-            // empty string 
+            // empty string
   /* 17 */  "",
             '',
 
@@ -80,14 +80,14 @@ $values = array(
             // undefined  variable
             @$undefined_var,
 
-            // unset variable 
+            // unset variable
             @$unset_var,
 
             // resource variable
   /* 24 */  $fp
 );
 
-// loop through each element of the array for start_key 
+// loop through each element of the array for start_key
 // check the working of array_fill()
 echo "--- Testing array_fill() with different values for 'start_key' arg ---\n";
 $counter = 1;
@@ -95,9 +95,9 @@ for($index = 0; $index < count($values); $index ++)
 {
   echo "-- Iteration $counter --\n";
   $start_key = $values[$index];
- 
+
   var_dump( array_fill($start_key,$num,$val) );
- 
+
   $counter ++;
 }
 
@@ -125,7 +125,7 @@ array(2) {
 }
 -- Iteration 3 --
 
-Warning: array_fill() expects parameter 1 to be integer, float given in %s%eext%estandard%etests%earray%earray_fill_variation1.php on line 92
+Warning: array_fill() expects parameter 1 to be int, float given in %s%eext%estandard%etests%earray%earray_fill_variation1.php on line 92
 NULL
 -- Iteration 4 --
 array(2) {
@@ -143,23 +143,23 @@ array(2) {
 }
 -- Iteration 6 --
 
-Warning: array_fill() expects parameter 1 to be integer, array given in %sarray_fill_variation1.php on line %d
+Warning: array_fill() expects parameter 1 to be int, array given in %sarray_fill_variation1.php on line %d
 NULL
 -- Iteration 7 --
 
-Warning: array_fill() expects parameter 1 to be integer, array given in %sarray_fill_variation1.php on line %d
+Warning: array_fill() expects parameter 1 to be int, array given in %sarray_fill_variation1.php on line %d
 NULL
 -- Iteration 8 --
 
-Warning: array_fill() expects parameter 1 to be integer, array given in %sarray_fill_variation1.php on line %d
+Warning: array_fill() expects parameter 1 to be int, array given in %sarray_fill_variation1.php on line %d
 NULL
 -- Iteration 9 --
 
-Warning: array_fill() expects parameter 1 to be integer, array given in %sarray_fill_variation1.php on line %d
+Warning: array_fill() expects parameter 1 to be int, array given in %sarray_fill_variation1.php on line %d
 NULL
 -- Iteration 10 --
 
-Warning: array_fill() expects parameter 1 to be integer, array given in %sarray_fill_variation1.php on line %d
+Warning: array_fill() expects parameter 1 to be int, array given in %sarray_fill_variation1.php on line %d
 NULL
 -- Iteration 11 --
 array(2) {
@@ -205,23 +205,23 @@ array(2) {
 }
 -- Iteration 17 --
 
-Warning: array_fill() expects parameter 1 to be integer, string given in %sarray_fill_variation1.php on line %d
+Warning: array_fill() expects parameter 1 to be int, string given in %sarray_fill_variation1.php on line %d
 NULL
 -- Iteration 18 --
 
-Warning: array_fill() expects parameter 1 to be integer, string given in %sarray_fill_variation1.php on line %d
+Warning: array_fill() expects parameter 1 to be int, string given in %sarray_fill_variation1.php on line %d
 NULL
 -- Iteration 19 --
 
-Warning: array_fill() expects parameter 1 to be integer, string given in %sarray_fill_variation1.php on line %d
+Warning: array_fill() expects parameter 1 to be int, string given in %sarray_fill_variation1.php on line %d
 NULL
 -- Iteration 20 --
 
-Warning: array_fill() expects parameter 1 to be integer, string given in %sarray_fill_variation1.php on line %d
+Warning: array_fill() expects parameter 1 to be int, string given in %sarray_fill_variation1.php on line %d
 NULL
 -- Iteration 21 --
 
-Warning: array_fill() expects parameter 1 to be integer, object given in %sarray_fill_variation1.php on line %d
+Warning: array_fill() expects parameter 1 to be int, object given in %sarray_fill_variation1.php on line %d
 NULL
 -- Iteration 22 --
 array(2) {
@@ -239,6 +239,6 @@ array(2) {
 }
 -- Iteration 24 --
 
-Warning: array_fill() expects parameter 1 to be integer, resource given in %sarray_fill_variation1.php on line %d
+Warning: array_fill() expects parameter 1 to be int, resource given in %sarray_fill_variation1.php on line %d
 NULL
 Done

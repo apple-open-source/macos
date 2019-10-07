@@ -49,7 +49,6 @@ routine _notify_server_check
 	ServerAuditToken audit : audit_token_t
 );
 
-#ifndef BUILDING_TESTS
 routine _notify_server_get_state
 (
 	server : mach_port_t;
@@ -58,9 +57,7 @@ routine _notify_server_get_state
 	out status : int;
 	ServerAuditToken audit : audit_token_t
 );
-#else
-skip;
-#endif
+
 
 routine _notify_server_suspend
 (
@@ -78,24 +75,21 @@ routine _notify_server_resume
 	ServerAuditToken audit : audit_token_t
 );
 
-routine _notify_server_suspend_pid
+simpleroutine _notify_server_suspend_pid
 (
 	server : mach_port_t;
 	pid : int;
-	out status : int;
 	ServerAuditToken audit : audit_token_t
 );
 
-routine _notify_server_resume_pid
+simpleroutine _notify_server_resume_pid
 (
 	server : mach_port_t;
 	pid : int;
-	out status : int;
 	ServerAuditToken audit : audit_token_t
 );
 
-// We simulate the server calls when testing
-#ifndef BUILDING_TESTS
+
 
 MsgOption MACH_SEND_PROPAGATE_QOS;
 
@@ -170,7 +164,7 @@ simpleroutine _notify_server_register_mach_port_2
 	server : mach_port_t;
 	name : notify_name;
 	token: int;
-	port : mach_port_move_send_t;
+	port : mach_port_make_send_t;
 	ServerAuditToken audit : audit_token_t
 );
 
@@ -180,17 +174,6 @@ simpleroutine _notify_server_cancel_2
 	token : int;
 	ServerAuditToken audit : audit_token_t
 );
-#else
-skip;
-skip;
-skip;
-skip;
-skip;
-skip;
-skip;
-skip;
-skip;
-#endif
 
 routine _notify_server_get_state_2
 (
@@ -259,7 +242,7 @@ routine _notify_server_regenerate
 	ServerAuditToken audit : audit_token_t
 );
 
-#ifndef BUILDING_TESTS
+
 routine _notify_server_checkin
 (
 	server : mach_port_t;
@@ -268,9 +251,7 @@ routine _notify_server_checkin
 	out status : int;
 	ServerAuditToken audit : audit_token_t
 );
-#else
-skip;
-#endif
+
 
 routine _notify_server_dump
 (

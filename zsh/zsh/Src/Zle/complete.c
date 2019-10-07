@@ -715,11 +715,10 @@ bin_compadd(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 	    case 'E':
                 if (p[1]) {
                     dat.dummies = atoi(p + 1);
-                    p = "" - 1;
+		    p += strlen(p+1);
                 } else if (argv[1]) {
                     argv++;
                     dat.dummies = atoi(*argv);
-                    p = "" - 1;
                 } else {
                     zwarnnam(name, "number expected after -%c", *p);
 		    zsfree(mstr);
@@ -744,13 +743,12 @@ bin_compadd(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 		    /* Pasted argument: -Xfoo. */
 		    if (!*sp)
 			*sp = p + 1;
-		    p = "" - 1;
+		    p += strlen(p+1);
 		} else if (argv[1]) {
 		    /* Argument in a separate word: -X foo. */
 		    argv++;
 		    if (!*sp)
 			*sp = *argv;
-		    p = "" - 1;
 		} else {
 		    /* Missing argument: argv[N] == "-X", argv[N+1] == NULL. */
 		    zwarnnam(name, e, *p);
@@ -901,7 +899,7 @@ do_comp_vars(int test, int na, char *sa, int nb, char *sb, int mod)
 		return 0;
 
 	    singsub(&sa);
-	    pp = patcompile(sa, PAT_STATIC, NULL);
+	    pp = patcompile(sa, PAT_HEAPDUP, NULL);
 
 	    for (i--, p = compwords + i; i >= 0; p--, i--) {
 		if (pattry(pp, *p)) {
@@ -934,19 +932,45 @@ do_comp_vars(int test, int na, char *sa, int nb, char *sb, int mod)
 	}
     case CVT_PRENUM:
     case CVT_SUFNUM:
-	if (!na)
-	    return 1;
-	if (na > 0 &&
-	    (int)strlen(test == CVT_PRENUM ? compprefix : compsuffix) >= na) {
-	    if (mod) {
-		if (test == CVT_PRENUM)
-		    ignore_prefix(na);
-		else
-		    ignore_suffix(na);
-		return 1;
-	    }
+	if (na < 0)
 	    return 0;
+	if (na > 0 && mod) {
+#ifdef MULTIBYTE_SUPPORT
+	    if (isset(MULTIBYTE)) {
+		if (test == CVT_PRENUM) {
+		    const char *ptr = compprefix;
+		    int len = 1;
+		    int sum = 0;
+		    while (*ptr && na && len) {
+			wint_t wc;
+			len = mb_metacharlenconv(ptr, &wc);
+			ptr += len;
+			sum += len;
+			na--;
+		    }
+		    if (na)
+			return 0;
+		    na = sum;
+		} else {
+		    char *end = compsuffix + strlen(compsuffix);
+		    char *ptr = end;
+		    while (na-- && ptr > compsuffix)
+			 ptr = backwardmetafiedchar(compsuffix, ptr, NULL);
+		    if (na >= 0)
+			return 0;
+		    na = end - ptr;
+		}
+	    } else
+#endif
+	    if ((int)strlen(test == CVT_PRENUM ? compprefix : compsuffix) >= na)
+		return 0;
+	    if (test == CVT_PRENUM)
+		ignore_prefix(na);
+	    else
+		ignore_suffix(na);
+	    return 1;
 	}
+	return 1;
     case CVT_PREPAT:
     case CVT_SUFPAT:
 	{
@@ -955,7 +979,7 @@ do_comp_vars(int test, int na, char *sa, int nb, char *sb, int mod)
 	    if (!na)
 		return 0;
 
-	    if (!(pp = patcompile(sa, PAT_STATIC, 0)))
+	    if (!(pp = patcompile(sa, PAT_HEAPDUP, 0)))
 		return 0;
 
 	    if (test == CVT_PREPAT) {
@@ -1301,7 +1325,8 @@ set_compstate(UNUSED(Param pm), HashTable ht)
 
 		    break;
 		}
-    deleteparamtable(ht);
+    if (ht != pm->u.hash)
+	deleteparamtable(ht);
 }
 
 /**/

@@ -8,7 +8,8 @@
 #ifndef HIDRemoteSimpleServer_h
 #define HIDRemoteSimpleServer_h
 
-#import "HIDUserDevice.h"
+#import <HID/HID.h>
+#include <IOKit/hid/IOHIDKeys.h>
 
 //
 // Timeout on get report in sec
@@ -41,18 +42,18 @@
 -(void) disconnectAll;
 -(void) endpointMessageHandler:(__nonnull id) endpoint data:(uint8_t * __nonnull) data size:(size_t) dataSize;
 -(IOReturn) remoteDeviceSetReport:(HIDRemoteDevice * __nonnull) device
-                             type:(IOHIDReportType) type
+                             type:(HIDReportType) type
                          reportID:(uint8_t) reportID
-                           report:( uint8_t * _Nonnull ) report
-                     reportLength:(NSUInteger) reportLength;
+                           report:(NSData * _Nonnull ) report;
 
 -(IOReturn) remoteDeviceGetReport:(HIDRemoteDevice * __nonnull) device
-                             type:(IOHIDReportType) type
+                             type:(HIDReportType) type
                          reportID:(uint8_t) reportID
-                           report:(uint8_t * __nonnull) report
-                     reportLength:(NSUInteger * __nonnull) reportLength;
+                           report:(NSMutableData * __nonnull) report;
 
 -(BOOL) createRemoteDevice:(__nonnull id) endpoint  deviceID:(uint64_t) deviceID property:(NSMutableDictionary * __nonnull) property;
+
+-(uint64_t) syncRemoteTimestamp:(uint64_t)inTimestamp forEndpoint:(__nonnull id)endpoint;
 
 @end
 

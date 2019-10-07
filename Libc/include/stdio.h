@@ -63,6 +63,7 @@
 
 #include <_stdio.h>
 
+#ifndef UNIFDEF_DRIVERKIT
 __BEGIN_DECLS
 extern FILE *__stdinp;
 extern FILE *__stdoutp;
@@ -199,7 +200,7 @@ size_t	 fwrite(const void * __restrict __ptr, size_t __size, size_t __nitems, FI
 int	 getc(FILE *);
 int	 getchar(void);
 char	*gets(char *);
-void	 perror(const char *);
+void	 perror(const char *) __cold;
 int	 printf(const char * __restrict, ...) __printflike(1, 2);
 int	 putc(int, FILE *);
 int	 putchar(int);
@@ -235,11 +236,7 @@ __END_DECLS
 #define	L_ctermid	1024	/* size for ctermid(); PATH_MAX */
 
 __BEGIN_DECLS
-#ifndef __CTERMID_DEFINED
-/* Multiply defined in stdio.h and unistd.h by SUS */
-#define __CTERMID_DEFINED 1
-char	*ctermid(char *);
-#endif
+#include <_ctermid.h>
 
 #if defined(_DARWIN_UNLIMITED_STREAMS) || defined(_DARWIN_C_SOURCE)
 FILE	*fdopen(int, const char *) __DARWIN_ALIAS_STARTING(__MAC_10_6, __IPHONE_3_2, __DARWIN_EXTSN(fdopen));
@@ -458,6 +455,22 @@ __END_DECLS
 
 #endif /* __DARWIN_C_LEVEL >= __DARWIN_C_FULL */
 
+#else /* UNIFDEF_DRIVERKIT */
+#define	EOF	(-1)
+
+__BEGIN_DECLS
+int	 sscanf(const char * __restrict, const char * __restrict, ...) __scanflike(2, 3);
+#if __DARWIN_C_LEVEL >= 200112L || defined(_C99_SOURCE) || defined(__cplusplus)
+int	 snprintf(char * __restrict __str, size_t __size, const char * __restrict __format, ...) __printflike(3, 4);
+int	 vsnprintf(char * __restrict __str, size_t __size, const char * __restrict __format, va_list) __printflike(3, 0);
+int	 vsscanf(const char * __restrict __str, const char * __restrict __format, va_list) __scanflike(2, 0);
+#endif /* __DARWIN_C_LEVEL >= 200112L || defined(_C99_SOURCE) || defined(__cplusplus) */
+#if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+int	 asprintf(char ** __restrict, const char * __restrict, ...) __printflike(2, 3);
+int	 vasprintf(char ** __restrict, const char * __restrict, va_list) __printflike(2, 0);
+#endif /* __DARWIN_C_LEVEL >= __DARWIN_C_FULL */
+__END_DECLS
+#endif /* UNIFDEF_DRIVERKIT */
 
 #ifdef _USE_EXTENDED_LOCALES_
 #include <xlocale/_stdio.h>

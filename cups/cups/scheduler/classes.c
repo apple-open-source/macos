@@ -1,14 +1,10 @@
 /*
  * Printer class routines for the CUPS scheduler.
  *
- * Copyright 2007-2014 by Apple Inc.
+ * Copyright 2007-2017 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
  */
 
 /*
@@ -345,6 +341,13 @@ cupsdLoadAllClasses(void)
     {
       cupsdLogMessage(CUPSD_LOG_ERROR,
                       "Syntax error on line %d of classes.conf.", linenum);
+    }
+    else if (!_cups_strcasecmp(line, "PrinterId"))
+    {
+      if (value && (i = atoi(value)) > 0)
+        p->printer_id = i;
+      else
+        cupsdLogMessage(CUPSD_LOG_ERROR, "Bad PrinterId on line %d of classes.conf.", linenum);
     }
     else if (!_cups_strcasecmp(line, "UUID"))
     {
@@ -712,6 +715,9 @@ cupsdSaveAllClasses(void)
       cupsFilePrintf(fp, "<DefaultClass %s>\n", pclass->name);
     else
       cupsFilePrintf(fp, "<Class %s>\n", pclass->name);
+
+    if (pclass->printer_id)
+      cupsFilePrintf(fp, "PrinterId %d\n", pclass->printer_id);
 
     cupsFilePrintf(fp, "UUID %s\n", pclass->uuid);
 

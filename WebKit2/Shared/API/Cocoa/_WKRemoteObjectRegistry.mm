@@ -26,8 +26,6 @@
 #import "config.h"
 #import "_WKRemoteObjectRegistryInternal.h"
 
-#if WK_API_ENABLED
-
 #import "APIDictionary.h"
 #import "BlockSPI.h"
 #import "Connection.h"
@@ -48,6 +46,7 @@ static const void* replyBlockKey = &replyBlockKey;
 
 @interface NSMethodSignature ()
 - (NSString *)_typeString;
+- (NSMethodSignature *)_signatureForBlockAtArgumentIndex:(NSInteger)idx;
 @end
 
 NSString * const invocationKey = @"invocation";
@@ -186,6 +185,28 @@ static uint64_t generateReplyIdentifier()
     return *_remoteObjectRegistry;
 }
 
+static bool validateReplyBlockSignature(NSMethodSignature *wireBlockSignature, Protocol *protocol, SEL selector, NSUInteger blockIndex)
+{
+    // Required, non-inherited method:
+    const char* methodTypeEncoding = _protocol_getMethodTypeEncoding(protocol, selector, true, true);
+    // @optional, non-inherited method:
+    if (!methodTypeEncoding)
+        methodTypeEncoding = _protocol_getMethodTypeEncoding(protocol, selector, false, true);
+
+    ASSERT(methodTypeEncoding);
+    if (!methodTypeEncoding)
+        return false;
+
+    NSMethodSignature *targetMethodSignature = [NSMethodSignature signatureWithObjCTypes:methodTypeEncoding];
+    ASSERT(targetMethodSignature);
+    if (!targetMethodSignature)
+        return false;
+    NSMethodSignature *expectedBlockSignature = [targetMethodSignature _signatureForBlockAtArgumentIndex:blockIndex];
+    ASSERT(expectedBlockSignature);
+
+    return [wireBlockSignature isEqual:expectedBlockSignature];
+}
+
 - (void)_invokeMethod:(const WebKit::RemoteObjectInvocation&)remoteObjectInvocation
 {
     auto& interfaceIdentifier = remoteObjectInvocation.interfaceIdentifier();
@@ -220,8 +241,13 @@ static uint64_t generateReplyIdentifier()
                 continue;
 
             // We found the block.
-            // FIXME: Validate the signature.
             NSMethodSignature *wireBlockSignature = [NSMethodSignature signatureWithObjCTypes:replyInfo->blockSignature.utf8().data()];
+
+            if (!validateReplyBlockSignature(wireBlockSignature, [interface protocol], invocation.selector, i)) {
+                NSLog(@"_invokeMethod: Failed to validate reply block signature: %@", wireBlockSignature._typeString);
+                ASSERT_NOT_REACHED();
+                continue;
+            }
 
             RetainPtr<_WKRemoteObjectRegistry> remoteObjectRegistry = self;
             uint64_t replyID = replyInfo->replyID;
@@ -320,5 +346,3 @@ static uint64_t generateReplyIdentifier()
 }
 
 @end
-
-#endif // WK_API_ENABLED

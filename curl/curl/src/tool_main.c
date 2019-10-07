@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2014, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2019, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -38,6 +38,7 @@
 
 #include "tool_cfgable.h"
 #include "tool_convert.h"
+#include "tool_doswin.h"
 #include "tool_msgs.h"
 #include "tool_operate.h"
 #include "tool_panykey.h"
@@ -61,6 +62,15 @@
  */
 int vms_show = 0;
 #endif
+
+#ifdef __MINGW32__
+/*
+ * There seems to be no way to escape "*" in command-line arguments with MinGW
+ * when command-line argument globbing is enabled under the MSYS shell, so turn
+ * it off.
+ */
+int _CRT_glob = 0;
+#endif /* __MINGW32__ */
 
 /* if we build a static library for unit tests, there is no main() function */
 #ifndef UNITTESTS
@@ -102,7 +112,7 @@ static void memory_tracking_init(void)
       env[CURL_MT_LOGFNAME_BUFSIZE-1] = '\0';
     strcpy(fname, env);
     curl_free(env);
-    curl_memdebug(fname);
+    curl_dbg_memdebug(fname);
     /* this weird stuff here is to make curl_free() get called
        before curl_memdebug() as otherwise memory tracking will
        log a free() without an alloc! */
@@ -113,7 +123,7 @@ static void memory_tracking_init(void)
     char *endptr;
     long num = strtol(env, &endptr, 10);
     if((endptr != env) && (endptr == env + strlen(env)) && (num > 0))
-      curl_memlimit(num);
+      curl_dbg_memlimit(num);
     curl_free(env);
   }
 }
@@ -138,6 +148,7 @@ static CURLcode main_init(struct GlobalConfig *config)
   /* Initialise the global config */
   config->showerror = -1;             /* Will show errors */
   config->errors = stderr;            /* Default errors to stderr */
+  config->styled_output = TRUE;       /* enable detection */
 
   /* Allocate the initial operate config */
   config->first = config->last = malloc(sizeof(struct OperationConfig));
@@ -181,7 +192,7 @@ static CURLcode main_init(struct GlobalConfig *config)
   return result;
 }
 
-static void free_config_fields(struct GlobalConfig *config)
+static void free_globalconfig(struct GlobalConfig *config)
 {
   Curl_safefree(config->trace_dump);
 
@@ -218,12 +229,57 @@ static void main_free(struct GlobalConfig *config)
     PR_Cleanup();
   }
 #endif
-  free_config_fields(config);
+  free_globalconfig(config);
 
   /* Free the config structures */
   config_free(config->last);
   config->first = NULL;
   config->last = NULL;
+}
+
+#ifdef _WIN32
+/* TerminalSettings for Windows */
+static struct TerminalSettings {
+  HANDLE hStdOut;
+  DWORD dwOutputMode;
+} TerminalSettings;
+
+static void configure_terminal(void)
+{
+  /*
+   * If we're running Windows, enable VT output.
+   * Note: VT mode flag can be set on any version of Windows, but VT
+   * processing only performed on Win10 >= Creators Update)
+   */
+
+  /* Define the VT flags in case we're building with an older SDK */
+#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
+    #define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+#endif
+
+  memset(&TerminalSettings, 0, sizeof(TerminalSettings));
+
+  /* Enable VT output */
+  TerminalSettings.hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+  if((TerminalSettings.hStdOut != INVALID_HANDLE_VALUE)
+    && (GetConsoleMode(TerminalSettings.hStdOut,
+                       &TerminalSettings.dwOutputMode))) {
+    SetConsoleMode(TerminalSettings.hStdOut,
+                   TerminalSettings.dwOutputMode
+                   | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+  }
+}
+#else
+#define configure_terminal()
+#endif
+
+static void restore_terminal(void)
+{
+#ifdef _WIN32
+  /* Restore Console output mode and codepage to whatever they were
+   * when Curl started */
+  SetConsoleMode(TerminalSettings.hStdOut, TerminalSettings.dwOutputMode);
+#endif
 }
 
 /*
@@ -234,6 +290,9 @@ int main(int argc, char *argv[])
   CURLcode result = CURLE_OK;
   struct GlobalConfig global;
   memset(&global, 0, sizeof(global));
+
+  /* Perform any platform-specific terminal configuration */
+  configure_terminal();
 
   main_checkfds();
 
@@ -247,6 +306,21 @@ int main(int argc, char *argv[])
   /* Initialize the curl library - do not call any libcurl functions before
      this point */
   result = main_init(&global);
+
+#ifdef WIN32
+  /* Undocumented diagnostic option to list the full paths of all loaded
+     modules, regardless of whether or not initialization succeeded. */
+  if(argc == 2 && !strcmp(argv[1], "--dump-module-paths")) {
+    struct curl_slist *item, *head = GetLoadedModulePaths();
+    for(item = head; item; item = item->next) {
+      printf("%s\n", item->data);
+    }
+    curl_slist_free_all(head);
+    if(!result)
+      main_free(&global);
+  }
+  else
+#endif /* WIN32 */
   if(!result) {
     /* Start our curl operation */
     result = operate(&global, argc, argv);
@@ -259,6 +333,9 @@ int main(int argc, char *argv[])
     /* Perform the main cleanup */
     main_free(&global);
   }
+
+  /* Return the terminal to its original state */
+  restore_terminal();
 
 #ifdef __NOVELL_LIBC__
   if(getenv("_IN_NETWARE_BASH_") == NULL)

@@ -22,14 +22,14 @@
  */
 
 // #define COMMON_HMAC_FUNCTIONS
+#include <stdlib.h>
 #include <CommonCrypto/CommonHMAC.h>
-#include <CommonCrypto/CommonHmacSPI.h>
+#include <CommonCrypto/CommonHMacSPI.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <CommonCrypto/CommonDigestSPI.h>
 #include "CommonDigestPriv.h"
 #include <corecrypto/cchmac.h>
 #include <corecrypto/cc_priv.h>
-#include "ccMemory.h"
 #include "ccdebug.h"
 
 #ifndef	NDEBUG
@@ -65,8 +65,11 @@ typedef struct {
 
 
 const ccHmac2DigestConversion ccconversionTable[] = {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     { kCCHmacAlgSHA1, kCCDigestSHA1, "sha1" },
     { kCCHmacAlgMD5, kCCDigestMD5, "md5" },
+#pragma clang diagnostic pop
     { kCCHmacAlgSHA224, kCCDigestSHA224, "sha224" },
     { kCCHmacAlgSHA256, kCCDigestSHA256, "sha256" },
     { kCCHmacAlgSHA384, kCCDigestSHA384, "sha384" },
@@ -107,8 +110,8 @@ void CCHmacInit(
         return;
     }
 
-	CC_XZEROMEM(hmacCtx, sizeof(_NewHmacContext));
-	
+	cc_clear(sizeof(_NewHmacContext), hmacCtx);
+
     if((hmacCtx->di = convertccHmacSelector(algorithm)) == NULL) {
         CC_DEBUG_LOG( "CCHMac Unknown Digest %d\n", algorithm);
         return;
@@ -143,8 +146,8 @@ void CCHmacFinal(
 void
 CCHmacDestroy(CCHmacContextRef ctx)
 {
-	CC_XZEROMEM(ctx, sizeof(_NewHmacContext));
-    CC_XFREE(ctx, sizeof(_NewHmacContext));
+	cc_clear(sizeof(_NewHmacContext), ctx);
+    free(ctx);
 }
 
 
@@ -190,13 +193,13 @@ CCHmacCreate(CCDigestAlg alg, const void *key, size_t keyLength)
     
     CC_DEBUG_LOG("Entering\n");
 	/* if this fails, it's time to adjust CC_HMAC_CONTEXT_SIZE */
-    if((hmacCtx = CC_XMALLOC(sizeof(_NewHmacContext))) == NULL) return NULL;
-	
-	CC_XZEROMEM(hmacCtx, sizeof(_NewHmacContext));
-	
+    if((hmacCtx = malloc(sizeof(_NewHmacContext))) == NULL) return NULL;
+
+	cc_clear(sizeof(_NewHmacContext), hmacCtx);
+
     if((hmacCtx->di = CCDigestGetDigestInfo(alg)) == NULL) {
         CC_DEBUG_LOG( "CCHMac Unknown Digest %d\n");
-        CC_XFREE(hmacCtx, sizeof(_NewHmacContext));
+        free(hmacCtx);
         return NULL;
 	}
     
@@ -215,9 +218,9 @@ CCHmacClone(CCHmacContextRef ctx) {
     
     CC_DEBUG_LOG("Entering\n");
 	/* if this fails, it's time to adjust CC_HMAC_CONTEXT_SIZE */
-    if((hmacCtx = CC_XMALLOC(sizeof(_NewHmacContext))) == NULL) return NULL;
-	
-	CC_XMEMCPY(hmacCtx, ctx, sizeof(_NewHmacContext));
+    if((hmacCtx = malloc(sizeof(_NewHmacContext))) == NULL) return NULL;
+
+	memcpy(hmacCtx, ctx, sizeof(_NewHmacContext));
 	return (CCHmacContextRef) hmacCtx;
 }
 

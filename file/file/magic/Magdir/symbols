@@ -1,0 +1,4 @@
+# `file` magic for Compact Type Format (CTF)
+
+0 leshort 0xcff1 Compact Type Format data
+0 beshort 0xcff1 Compact Type Format data

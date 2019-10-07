@@ -86,9 +86,6 @@ static const frtnItem frtnStrings[] = {
  */
 void initCryptKit(void)
 {
-	#if		GIANTS_VIA_STACK
-	curveParamsInitGiants();
-	#endif
 }
 
 /*
@@ -96,9 +93,6 @@ void initCryptKit(void)
  */
 void terminateCryptKit(void)
 {
-	#if		GIANTS_VIA_STACK
-	freeGiantStacks();
-	#endif
 }
 
 /*
@@ -264,41 +258,6 @@ void printKey(const key k) {}
 void printCurveParams(const curveParams *p) {}
 
 #endif	/* FEE_DEBUG */
-
-#if	defined(NeXT) && !defined(WIN32)
-
-void getpassword(const char *prompt, char *pbuf)
-{
-        struct sgttyb ttyb;
-        int flags;
-        register char *p;
-        register int c;
-        FILE *fi;
-        void (*sig)(int);
-
-        if ((fi = fdopen(open("/dev/tty", 2, 0), "r")) == NULL)
-                fi = stdin;
-        else
-                setbuf(fi, (char *)NULL);
-        sig = signal(SIGINT, SIG_IGN);
-        ioctl(fileno(fi), TIOCGETP, &ttyb);
-        flags = ttyb.sg_flags;
-        ttyb.sg_flags &= ~ECHO;
-        ioctl(fileno(fi), TIOCSETP, &ttyb);
-        fprintf(stderr, "%s", prompt); fflush(stderr);
-        for (p=pbuf; (c = getc(fi))!='\n' && c!=EOF;) {
-                if (p < &pbuf[PHRASELEN-1])
-                        *p++ = c;
-        }
-        *p = '\0';
-        fprintf(stderr, "\n"); fflush(stderr);
-        ttyb.sg_flags = flags;
-        ioctl(fileno(fi), TIOCSETP, &ttyb);
-        (void)signal(SIGINT, sig);
-        if (fi != stdin)
-                fclose(fi);
-}
-#endif	// NeXT
 
 /*
  * serialize, deserialize giants's n[] to/from byte stream.

@@ -35,7 +35,6 @@
 #import <wtf/MainThread.h>
 
 namespace WebCore {
-using namespace WTF;
 
 int windowsKeyCodeForKeyCode(uint16_t keyCode)
 {
@@ -273,7 +272,7 @@ OptionSet<PlatformEvent::Modifier> PlatformKeyboardEvent::currentStateOfModifier
     if (currentModifiers & ::shiftKey)
         modifiers.add(PlatformEvent::Modifier::ShiftKey);
     if (currentModifiers & ::controlKey)
-        modifiers.add(PlatformEvent::Modifier::CtrlKey);
+        modifiers.add(PlatformEvent::Modifier::ControlKey);
     if (currentModifiers & ::optionKey)
         modifiers.add(PlatformEvent::Modifier::AltKey);
     if (currentModifiers & ::cmdKey)

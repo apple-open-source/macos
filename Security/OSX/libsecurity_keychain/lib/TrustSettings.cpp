@@ -28,7 +28,7 @@
 
 #include "TrustSettings.h"
 #include "TrustSettingsSchema.h"
-#include "SecTrustSettings.h"
+#include <Security/SecTrustSettings.h>
 #include "TrustSettingsUtils.h"
 #include "TrustKeychains.h"
 #include "Certificate.h"
@@ -1222,10 +1222,10 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 	OSStatus ortn = errSecSuccess;
 	SecPolicyRef certPolicy;
 	SecTrustedApplicationRef certApp;
+	CFTypeRef oidData = NULL;
 
 	/* convert */
 	for(CFIndex dex=0; dex<numSpecs; dex++) {
-		CFTypeRef   oidData = NULL;
 		CFStringRef policyName = NULL;
 		CFDataRef   appData = NULL;
 		CFStringRef policyStr = NULL;
@@ -1325,7 +1325,7 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 			&kCFTypeDictionaryValueCallBacks);
 		if(oidData) {
 			CFDictionaryAddValue(outDict, kSecTrustSettingsPolicy, oidData);
-			CFRelease(oidData);			// owned by dictionary
+			CFReleaseNull(oidData);			// owned by dictionary
 		}
 		if(policyName) {
 			CFDictionaryAddValue(outDict, kSecTrustSettingsPolicyName, policyName);
@@ -1396,6 +1396,7 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 
 	}	/* for each usage constraint dictionary */
 
+	CFReleaseNull(oidData);
 	CFRelease(tmpInArray);
 	if(ortn) {
 		CFRelease(outArray);

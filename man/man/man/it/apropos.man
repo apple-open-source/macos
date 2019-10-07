@@ -3,6 +3,8 @@
 .\" Copyright (c) 1990, 1991, John W. Eaton.
 .\" Traduzione italiana by Michele Dalla Silvestra - dalla@maya.dei.unipd.it
 .\" Luglio 1996
+.\" Aggiornamento alla versione 1.6d di Giulio Daprelà <giulio@pluto.it>
+.\" Agosto 2006
 .\"
 .\" You may distribute under the terms of the GNU General Public
 .\" License as specified in the README file that comes with the man 1.0
@@ -14,7 +16,7 @@
 .\" The University of Texas at Austin
 .\" Austin, Texas  78712
 .\"
-.TH apropos 1 "15 gennaio 1991"
+.TH apropos 1 "19 settembre 2005"
 .LO 1
 .SH NOME
 apropos \- ricerca stringhe nel database di whatis
@@ -25,7 +27,11 @@ parola ...
 apropos ricerca una parola chiave in database contenenti brevi
 descrizioni dei comandi di sistema e mostra i risultati sullo
 standard output.
-
-Il database whatis è creato usando il comando @makewhatis@.
+.SH AUTORE
+John W. Eaton è l'autore originale di
+.BR "man" .
+Zeyd M. Ben-Halim ha rilasciato man 1.2, e Andries Brouwer le versioni da 
+1.3 a 1.5p.
+Federico Lucifredi <flucifredi@acm.org> è il maintainer attuale.
 .SH "VEDERE ANCHE"
 whatis(1), man(1).

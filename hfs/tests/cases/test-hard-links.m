@@ -112,7 +112,7 @@ static void run(void)
 
 	assert_no_err(unlink(file2));
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	// Same as the last sequence but with directory hard links
 
 	assert_no_err(mkdir(dir1, 0777));
@@ -224,7 +224,7 @@ static void run(void)
 
 	assert(!systemx("/sbin/fsck_hfs", SYSTEMX_QUIET, "-ld", mut_vol_device, NULL));
 
-#endif
+#endif //!(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 	return;
 }

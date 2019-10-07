@@ -3,16 +3,16 @@ Test get_resource_type() function : usage variations - different data types as h
 --FILE--
 <?php
 /* Prototype  : string get_resource_type  ( resource $handle  )
- * Description:  Returns the resource type 
+ * Description:  Returns the resource type
  * Source code: Zend/zend_builtin_functions.c
- */		
+ */
 
 echo "*** Testing get_resource_type() : variation test ***\n";
 
 class Hello {
   public function SayHello($arg) {
   	echo "Hello\n";
-  } 
+  }
 }
 
 $res = fopen(__FILE__, "r");
@@ -39,12 +39,12 @@ foreach($vars as $variation =>$object) {
 
 -- bool --
 
-Warning: get_resource_type() expects parameter 1 to be resource, boolean given in %s on line %d
+Warning: get_resource_type() expects parameter 1 to be resource, bool given in %s on line %d
 NULL
 
 -- int 10 --
 
-Warning: get_resource_type() expects parameter 1 to be resource, integer given in %s on line %d
+Warning: get_resource_type() expects parameter 1 to be resource, int given in %s on line %d
 NULL
 
 -- float 10.5 --

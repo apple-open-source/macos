@@ -38,6 +38,12 @@
 
 #include <math.h>
 
+#define ADD_ALLOC_TEST 0
+#define WRITE_HOUR_MISMATCH_ERRS 0
+
+#if ADD_ALLOC_TEST
+static void TestPerf(void);
+#endif
 static void TestExtremeDates(void);
 static void TestAllLocales(void);
 static void TestRelativeCrash(void);
@@ -51,8 +57,12 @@ static void TestApplyPatnOverridesTimeSep(void);
 static void Test12HrFormats(void);
 #if !U_PLATFORM_HAS_WIN32_API
 static void TestTimeUnitFormat(void); /* Apple-specific */
+static void TestTimeUnitFormatWithNumStyle(void); /* Apple-specific */
 #endif
 static void TestRemapPatternWithOpts(void); /* Apple-specific */
+#if WRITE_HOUR_MISMATCH_ERRS
+static void WriteHourMismatchErrs(void); /* 52980140*/
+#endif
 
 void addDateForTest(TestNode** root);
 
@@ -60,6 +70,9 @@ void addDateForTest(TestNode** root);
 
 void addDateForTest(TestNode** root)
 {
+#if ADD_ALLOC_TEST
+    TESTCASE(TestPerf);
+#endif
     TESTCASE(TestDateFormat);
     TESTCASE(TestRelativeDateFormat);
     TESTCASE(TestSymbols);
@@ -78,8 +91,12 @@ void addDateForTest(TestNode** root)
     TESTCASE(Test12HrFormats);
 #if !U_PLATFORM_HAS_WIN32_API
     TESTCASE(TestTimeUnitFormat); /* Apple-specific */
+    TESTCASE(TestTimeUnitFormatWithNumStyle); /* Apple-specific */
 #endif
     TESTCASE(TestRemapPatternWithOpts); /* Apple-specific */
+#if WRITE_HOUR_MISMATCH_ERRS
+    TESTCASE(WriteHourMismatchErrs); /* 52980140 */
+#endif
 }
 /* Testing the DateFormat API */
 static void TestDateFormat()
@@ -570,7 +587,7 @@ static void TestRelativeDateFormat()
 
                 strPtr = u_strstr(strDateTime, minutesStr);
                 if ( strPtr != NULL ) {
-                    int32_t beginIndex = strPtr - strDateTime;
+                    int32_t beginIndex = (int32_t)(strPtr - strDateTime);
                     if ( fp.beginIndex != beginIndex ) {
                         log_err("UFieldPosition beginIndex %d, expected %d, in udat_format timeStyle SHORT dateStyle (%d | UDAT_RELATIVE)\n", fp.beginIndex, beginIndex, *stylePtr );
                     }
@@ -1077,7 +1094,7 @@ static void VerifygetSymbols(UDateFormat* datfor, UDateFormatSymbolType type, in
     UErrorCode status = U_ZERO_ERROR;
     UChar *result=NULL;
     int32_t resultlength, resultlengthout;
-    int32_t patternSize = strlen(expected) + 1;
+    int32_t patternSize = (int32_t)strlen(expected) + 1;
 
     pattern=(UChar*)malloc(sizeof(UChar) * patternSize);
     u_unescape(expected, pattern, patternSize);
@@ -1112,7 +1129,7 @@ static void VerifysetSymbols(UDateFormat* datfor, UDateFormatSymbolType type, in
     UChar *value=NULL;
     int32_t resultlength, resultlengthout;
     UErrorCode status = U_ZERO_ERROR;
-    int32_t valueLen, valueSize = strlen(expected) + 1;
+    int32_t valueLen, valueSize = (int32_t)strlen(expected) + 1;
 
     value=(UChar*)malloc(sizeof(UChar) * valueSize);
     valueLen = u_unescape(expected, value, valueSize);
@@ -1600,7 +1617,6 @@ static void TestContext(void) {
             log_data_err("FAIL: udatpg_open for locale %s, status %s\n", textContextItemPtr->locale, u_errorName(status) );
         }
     }
-
     for (textRelContextItemPtr = textContextRelativeItems; textRelContextItemPtr->locale != NULL; ++textRelContextItemPtr) {
         UErrorCode status = U_ZERO_ERROR;
         UCalendar* ucal = ucal_open(zoneGMT, -1, "root", UCAL_GREGORIAN, &status);
@@ -1715,6 +1731,7 @@ static void TestOverrideNumberFormat(void) {
 
     // loop 5 times to check getter/setter
     for (i = 0; i < 5; i++){
+        status = U_ZERO_ERROR;
         UNumberFormat* overrideFmt;
         overrideFmt = unum_open(UNUM_DEFAULT, NULL, 0, localeString, NULL, &status);
         assertSuccess("unum_open()", &status);
@@ -1728,15 +1745,19 @@ static void TestOverrideNumberFormat(void) {
         }
     }
     {
+      status = U_ZERO_ERROR;
       UNumberFormat* overrideFmt;
       overrideFmt = unum_open(UNUM_DEFAULT, NULL, 0, localeString, NULL, &status);
       assertSuccess("unum_open()", &status);
-      udat_setNumberFormat(fmt, overrideFmt); // test the same override NF will not crash
+      if (U_SUCCESS(status)) {
+        udat_setNumberFormat(fmt, overrideFmt); // test the same override NF will not crash
+      }
       unum_close(overrideFmt);
     }
     udat_close(fmt);
 
     for (i=0; i<UPRV_LENGTHOF(overrideNumberFormat); i++){
+        status = U_ZERO_ERROR;
         UChar ubuf[kUbufMax];
         UDateFormat* fmt2;
         UNumberFormat* overrideFmt2;
@@ -1746,6 +1767,10 @@ static void TestOverrideNumberFormat(void) {
 
         overrideFmt2 = unum_open(UNUM_DEFAULT, NULL, 0, localeString, NULL, &status);
         assertSuccess("unum_open() in loop", &status);
+
+        if (U_FAILURE(status)) {
+            continue;
+        }
 
         u_uastrcpy(fields, overrideNumberFormat[i][0]);
         u_unescape(overrideNumberFormat[i][1], expected, UPRV_LENGTHOF(expected));
@@ -1966,9 +1991,8 @@ static void TestForceGannenNumbering(void) {
                     log_err("Fail in udat_format locale %s: %s", locID, u_errorName(status));
                 } else if (testStrLen < 3 || testString[2] != 0x5143) {
                     char bbuf[kBbufMax];
-                    UErrorCode convStatus = U_ZERO_ERROR;
-                    u_strToUTF8(bbuf, kBbufMax, NULL, testString, testStrLen, &convStatus);
-                    log_err("Formatting year 1 as Gannen, (conv status %s) got %s but expected 3rd char to be 0x5143", u_errorName(convStatus), bbuf);
+                    u_austrncpy(bbuf, testString, testStrLen);
+                    log_err("Formatting year 1 as Gannen, got%s but expected 3rd char to be 0x5143", bbuf);
                 }
                 udat_close(testFmt);
             }
@@ -1993,7 +2017,20 @@ static const StandardPatternItem stdPatternItems[] = {
     { "en_JP", UDAT_MEDIUM, UDAT_SHORT, "Feb 25, 2015 5:10" },
     { "en_CN", UDAT_MEDIUM, UDAT_SHORT, "Feb 25, 2015 at 5:10 AM" },
     { "en_TW", UDAT_MEDIUM, UDAT_SHORT, "Feb 25, 2015 at 5:10 AM" },
-    { "en_KR", UDAT_MEDIUM, UDAT_SHORT, "25 Feb 2015 at 5:10 AM" },
+    { "en_KR", UDAT_MEDIUM, UDAT_SHORT, "Feb 25, 2015 5:10 AM" },
+    // Add tests for Apple <rdar://problem/51014042>; currently no specific locales for these
+    { "en_AZ", UDAT_MEDIUM, UDAT_SHORT, "Feb 25, 2015 at 05:10" }, // en uses h, AZ Azerbaijanvpref cycle H
+    { "fr_US", UDAT_NONE, UDAT_SHORT, "5:10 AM" }, // fr uses H, US pref cycle h
+    { "rkt",   UDAT_NONE, UDAT_SHORT, "5:10 AM" }, // rkt (no locale) => rkt_Beng_BD, BD pref cycle h unlike root H
+    // Add tests for Apple <rdar://problem/47494884>
+    { "ur_PK",      UDAT_MEDIUM, UDAT_SHORT, "25 \\u0641\\u0631\\u0648\\u060C 2015 5:10 \\u0642.\\u062F." },
+    { "ur_IN",      UDAT_MEDIUM, UDAT_SHORT, "\\u06F2\\u06F5 \\u0641\\u0631\\u0648\\u060C \\u06F2\\u06F0\\u06F1\\u06F5 \\u06F5:\\u06F1\\u06F0 \\u0642.\\u062F." },
+    { "ur_Arab",    UDAT_MEDIUM, UDAT_SHORT, "25 \\u0641\\u0631\\u0648\\u060C 2015 5:10 \\u0642.\\u062F." },
+    { "ur_Aran",    UDAT_MEDIUM, UDAT_SHORT, "25 \\u0641\\u0631\\u0648\\u060C 2015 5:10 \\u0642.\\u062F." },
+    { "ur_Arab_PK", UDAT_MEDIUM, UDAT_SHORT, "25 \\u0641\\u0631\\u0648\\u060C 2015 5:10 \\u0642.\\u062F." },
+    { "ur_Aran_PK", UDAT_MEDIUM, UDAT_SHORT, "25 \\u0641\\u0631\\u0648\\u060C 2015 5:10 \\u0642.\\u062F." },
+    { "ur_Arab_IN", UDAT_MEDIUM, UDAT_SHORT, "\\u06F2\\u06F5 \\u0641\\u0631\\u0648\\u060C \\u06F2\\u06F0\\u06F1\\u06F5 \\u06F5:\\u06F1\\u06F0 \\u0642.\\u062F." },
+    { "ur_Aran_IN", UDAT_MEDIUM, UDAT_SHORT, "\\u06F2\\u06F5 \\u0641\\u0631\\u0648\\u060C \\u06F2\\u06F0\\u06F1\\u06F5 \\u06F5:\\u06F1\\u06F0 \\u0642.\\u062F." },
     { NULL, (UDateFormatStyle)0, (UDateFormatStyle)0, NULL } /* terminator */
 };
 
@@ -2198,7 +2235,6 @@ static void Test12HrFormats(void) {
 }
 
 #if !U_PLATFORM_HAS_WIN32_API
-/* *** */
 
 typedef struct {
     const char*           locale;
@@ -2282,6 +2318,67 @@ static void TestTimeUnitFormat(void) { /* Apple-specific */
     }
 
 }
+
+typedef struct {
+    const char*         locale;
+    UNumberFormatStyle  numStyle;
+    UATimeUnitStyle     width;
+    UATimeUnitField     field;
+    double              value;
+    const UChar*        expect;
+} TimeUnitWithNumStyleItem;
+static const TimeUnitWithNumStyleItem tuNumStyleItems[] = {
+    { "en_US", UNUM_PATTERN_DECIMAL/*0*/,  UATIMEUNITSTYLE_FULL/*0*/, UATIMEUNITFIELD_SECOND/*6*/, 0.0, u"0 seconds" },
+    { "en_US", UNUM_DECIMAL,               UATIMEUNITSTYLE_FULL,      UATIMEUNITFIELD_SECOND,      0.0, u"0 seconds" },
+    { "en_US", UNUM_CURRENCY,              UATIMEUNITSTYLE_FULL,      UATIMEUNITFIELD_SECOND,      0.0, u"$0.00 seconds" },
+    { "en_US", UNUM_PERCENT,               UATIMEUNITSTYLE_FULL,      UATIMEUNITFIELD_SECOND,      0.0, u"0% seconds" },
+    { "en_US", UNUM_SCIENTIFIC/*4*/,       UATIMEUNITSTYLE_FULL,      UATIMEUNITFIELD_SECOND,      0.0, u"0E0 seconds" },
+    { "en_US", UNUM_SPELLOUT/*5*/,         UATIMEUNITSTYLE_FULL,      UATIMEUNITFIELD_SECOND,      0.0, u"zero seconds" }, // uses RuleBasedNumberFormat, got U_UNSUPPORTED_ERROR
+    { "en_US", UNUM_ORDINAL,               UATIMEUNITSTYLE_FULL,      UATIMEUNITFIELD_SECOND,      0.0, u"0th seconds" },  // uses RuleBasedNumberFormat, got U_UNSUPPORTED_ERROR
+    { "en_US", UNUM_DURATION,              UATIMEUNITSTYLE_FULL,      UATIMEUNITFIELD_SECOND,      0.0, u"0 sec. seconds" }, // uses RuleBasedNumberFormat, got U_UNSUPPORTED_ERROR
+    { "en_US", UNUM_NUMBERING_SYSTEM/*8*/, UATIMEUNITSTYLE_FULL,      UATIMEUNITFIELD_SECOND,      0.0, u"௦ seconds" },    // uses RuleBasedNumberFormat, got U_UNSUPPORTED_ERROR
+    // skip UNUM_PATTERN_RULEBASED/*9*/                                                                                    // uses RuleBasedNumberFormat
+    // { "en_US", UNUM_CURRENCY_ISO/*10*/,    UATIMEUNITSTYLE_FULL,      UATIMEUNITFIELD_SECOND,      0.0, u"USD 0.00 seconds" }, // currently produces u"USD 0.0 seconds0"
+    { "en_US", UNUM_CURRENCY_PLURAL,       UATIMEUNITSTYLE_FULL,      UATIMEUNITFIELD_SECOND,      0.0, u"0.00 US dollars seconds" },
+    { "en_US", UNUM_CURRENCY_ACCOUNTING,   UATIMEUNITSTYLE_FULL,      UATIMEUNITFIELD_SECOND,      0.0, u"$0.00 seconds" },
+    { "en_US", UNUM_CASH_CURRENCY,         UATIMEUNITSTYLE_FULL,      UATIMEUNITFIELD_SECOND,      0.0, u"$0.00 seconds" },
+    { "en_US", UNUM_DECIMAL_COMPACT_SHORT, UATIMEUNITSTYLE_FULL,      UATIMEUNITFIELD_SECOND,      0.0, u"0 seconds" },
+    { "en_US", UNUM_DECIMAL_COMPACT_LONG,  UATIMEUNITSTYLE_FULL,      UATIMEUNITFIELD_SECOND,      0.0, u"0 seconds" },
+    { "en_US", UNUM_CURRENCY_STANDARD/*16*/,UATIMEUNITSTYLE_FULL,     UATIMEUNITFIELD_SECOND,      0.0, u"$0.00 seconds" },
+    { NULL, 0, 0, 0, 0.0, NULL }
+};
+
+enum { kBBufMax = 196 };
+
+static void TestTimeUnitFormatWithNumStyle(void) { /* Apple-specific */
+    const TimeUnitWithNumStyleItem* itemPtr;
+    for (itemPtr = tuNumStyleItems; itemPtr->locale != NULL; itemPtr++) {
+        UErrorCode status = U_ZERO_ERROR;
+        UNumberFormat *numFormat = unum_open(itemPtr->numStyle, NULL, 0, itemPtr->locale, NULL, &status);
+        if ( U_FAILURE(status) ) {
+            log_data_err("unum_open for locale %s, style %d: status %s\n", itemPtr->locale, itemPtr->numStyle, u_errorName(status));
+        } else {
+            UATimeUnitFormat *tuFormat = uatmufmt_openWithNumberFormat(itemPtr->locale, itemPtr->width, numFormat, &status);
+            if ( U_FAILURE(status) ) {
+                log_data_err("uatmufmt_openWithNumberFormat for locale %s, numStyle %d, width %d: status %s\n", itemPtr->locale, itemPtr->numStyle, itemPtr->width, u_errorName(status));
+            } else {
+                UChar ubuf[kUBufMax] = {0};
+                int32_t ulen = uatmufmt_format(tuFormat, itemPtr->value, itemPtr->field, ubuf, kUBufMax, &status);
+                if ( U_FAILURE(status) ) {
+                    log_err("uatmufmt_format for locale %s, numStyle %d, width %d, field %d: status %s\n", itemPtr->locale, itemPtr->numStyle, itemPtr->width, itemPtr->field, u_errorName(status));
+                } else if (u_strcmp(ubuf, itemPtr->expect) != 0) {
+                    char bbufExp[kBBufMax];
+                    char bbufGet[kBBufMax];
+                    u_strToUTF8(bbufExp, kBBufMax, NULL, itemPtr->expect, -1, &status);
+                    u_strToUTF8(bbufGet, kBBufMax, NULL, ubuf, ulen, &status);
+                    log_err("uatmufmt_format for locale %s, numStyle %d, width %d, field %d:\n  expect %s\n  get    %s\n", itemPtr->locale, itemPtr->numStyle, itemPtr->width, itemPtr->field, bbufExp, bbufGet);
+                }
+                uatmufmt_close(tuFormat);
+            }
+        }
+    }
+}
+
 #endif
 
 typedef enum RemapTesttype {
@@ -2869,6 +2966,69 @@ static const char * remapResults_en_IL[] = {
     NULL
 };
 
+static const char * remapResults_es_PR_japanese[] = { // rdar://52461062
+    "h:mm:ss a zzzz", // full
+    "HH:mm:ss zzzz",  //   force24
+    "h:mm:ss a zzzz", //   force12
+    "h:mm:ss a z",    // long
+    "HH:mm:ss z",     //   force24
+    "h:mm:ss a z",    //   force12
+    "h:mm:ss a",      // medium
+    "HH:mm:ss",       //   force24
+    "h:mm:ss a",      //   force12
+    "h:mm a",         // short
+    "HH:mm",          //   force24
+    "h:mm a",         //   force12
+    "EEEE, d 'de' MMMM 'de' y G, h:mm:ss a z", // long_df
+    "EEEE, d 'de' MMMM 'de' y G, HH:mm:ss z",  //   force24
+    "EEEE, d 'de' MMMM 'de' y G, h:mm:ss a z", //   force12
+    "MM/dd/yy GGGGG h:mm a", // short_ds
+    "MM/dd/yy GGGGG HH:mm",  //   force24
+    "MM/dd/yy GGGGG h:mm a", //   force12
+
+    "h:mm:ss a",      // jmmss
+    "HH:mm:ss",       //   force24
+    "h:mm:ss a",      //   force12
+    "h:mm:ss a",      // jjmmss
+    "HH:mm:ss",       //   force24
+    "HH:mm:ss",       //   force24 | match hour field length
+    "h:mm:ss a",      //   force12
+    "hh:mm:ss a",     //   force12 | match hour field length
+    "hh:mm",          // Jmm
+    "HH:mm",          //   force24
+    "hh:mm",          //   force12
+    "h:mm:ss a v",    // jmsv
+    "HH:mm:ss v",     //   force24
+    "h:mm:ss a v",    //   force12
+    "h:mm:ss a z",    // jmsz
+    "HH:mm:ss z",     //   force24
+    "h:mm:ss a z",    //   force12
+
+    "h:mm:ss a",                          // "h:mm:ss"
+    "HH:mm:ss",                           //
+    "a'xx'h:mm:ss d MMM y",               // "a'xx'h:mm:ss d MMM y"
+    "HH:mm:ss d MMM y",                   //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' h:mm:ss a 'hrs'"
+    "EEE, d MMM y 'aha' HH:mm:ss 'hrs'",  //
+    "EEE, d MMM y 'aha' a'xx'h:mm:ss",    // "EEE, d MMM y 'aha' a'xx'h:mm:ss"
+    "EEE, d MMM y 'aha' HH:mm:ss",        //
+    "yyMMddhhmmss",                       // "yyMMddhhmmss"
+    "yyMMddHHmmss",                       //
+
+    "h:mm:ss a",                          // "H:mm:ss"
+    "H:mm:ss",                            //
+    "h:mm:ss a d MMM y",                  // "H:mm:ss d MMM y"
+    "H:mm:ss d MMM y",                    //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' H:mm:ss 'hrs'"
+    "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
+    "EEE, d MMM y 'aha' h'h'mm'm'ss a",   // "EEE, d MMM y 'aha' H'h'mm'm'ss"
+    "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+
+    "uuuu-MM-dd h:mm:ss a '+0000'",       //
+
+    NULL
+};
+
 typedef struct {
     const char * locale;
     const char ** resultsPtr;
@@ -2883,6 +3043,7 @@ static const RemapPatternLocaleResults remapLocResults[] = {
     { "hi",     remapResults_hi   },
     { "ar",     remapResults_ar   },
     { "en_IL",  remapResults_en_IL },
+    { "es_PR@calendar=japanese",  remapResults_es_PR_japanese },
     { NULL,     NULL }
 };
 
@@ -2950,5 +3111,207 @@ static void TestRemapPatternWithOpts(void) { /* Apple-specific */
         }
     }
 }
+
+#if ADD_ALLOC_TEST
+#include <stdio.h>
+#include <unistd.h>
+static const UChar* tzName = u"US/Pacific";
+static const UDate udatToUse = 1290714600000.0; // Thurs, Nov. 25, 2010 11:50:00 AM PT
+static const UChar* dateStrEST = u"Thursday, November 25, 2010 at 11:50:00 AM EST";
+enum { kUCharsOutMax = 128, kBytesOutMax = 256, kRepeatCount = 100, SLEEPSECS = 6 };
+
+static void TestPerf(void) {
+    UDateFormat *udatfmt;
+    UErrorCode status = U_ZERO_ERROR;
+    printf("\n# TestPerf start; sleeping %d seconds to check heap.\n", SLEEPSECS); sleep(SLEEPSECS);
+    udatfmt = udat_open(UDAT_FULL, UDAT_FULL, "en_US", tzName, -1, NULL, 0, &status);
+    if ( U_SUCCESS(status) ) {
+        UChar outUChars[kUCharsOutMax];
+        int32_t count, datlen, datlen2, parsePos;
+        UDate dateParsed, dateParsed2;
+
+        datlen = udat_format(udatfmt, udatToUse, outUChars, kUCharsOutMax, NULL, &status);
+        printf("# TestPerf after first open & format, status %d; sleeping %d seconds to check heap.\n", status, SLEEPSECS); sleep(SLEEPSECS);
+
+        for (count = kRepeatCount; count-- > 0;) {
+            status = U_ZERO_ERROR;
+            datlen2 = udat_format(udatfmt, udatToUse, outUChars, kUCharsOutMax, NULL, &status);
+            if ( U_FAILURE(status) || datlen2 != datlen ) {
+                printf("# TestPerf udat_format unexpected result.\n");
+                break;
+            }
+        }
+        printf("# TestPerf after many more format, status %d; sleeping %d seconds to check heap.\n", status, SLEEPSECS); sleep(SLEEPSECS);
+
+        udat_setLenient(udatfmt, TRUE);
+        status = U_ZERO_ERROR;
+        parsePos = 0;
+        dateParsed = udat_parse(udatfmt, dateStrEST, -1, &parsePos, &status);
+        printf("# TestPerf after first parse lenient diff style/zone, status %d; sleeping %d seconds to check heap.\n", status, SLEEPSECS); sleep(SLEEPSECS);
+        
+        for (count = kRepeatCount; count-- > 0;) {
+            status = U_ZERO_ERROR;
+            parsePos = 0;
+            dateParsed2 = udat_parse(udatfmt, dateStrEST, -1, &parsePos, &status);
+            if ( U_FAILURE(status) || dateParsed2 != dateParsed ) {
+                printf("# TestPerf udat_parse unexpected result.\n");
+                break;
+            }
+        }
+        printf("# TestPerf after many more parse, status %d; sleeping %d seconds to check heap.\n", status, SLEEPSECS); sleep(SLEEPSECS);
+
+        udat_close(udatfmt);
+        printf("# TestPerf after udat_close; sleeping %d seconds to check heap.\n", SLEEPSECS); sleep(SLEEPSECS);
+    }
+}
+#endif /* #if ADD_ALLOC_TEST */
+
+#if WRITE_HOUR_MISMATCH_ERRS
+// WriteHourMismatchErrs stuff 52980140
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+static const char* langs[] = {
+	"ar", "ca", "cs", "da", "de", "el", "en", "es", "fi", "fr", "he",
+	"hi", "hr", "hu", "id", "it", "ja", "ko", "ms", "nb", "nl", "pl",
+	"pt", "ro", "ru", "sk", "sv", "th", "tr", "uk", "vi", "zh" }; // handle "yue" separately
+enum { kNlangs = sizeof(langs)/sizeof(langs[0]) };
+
+static const char* cals[] = {
+	"buddhist",
+	"chinese",
+	"coptic",
+	"ethiopic",
+	"gregorian",
+	"hebrew",
+	"indian",
+	"islamic-umalqura",
+	"islamic",
+	"japanese",
+	"persian",
+	NULL
+};
+
+enum { kLBufMax = 63 };
+
+static int compKeys(const void* keyval, const void* baseval) {
+    const char* keystr = (const char*)keyval;
+    const char* basestr = *(const char**)baseval;
+    return strcmp(keystr,basestr);
+}
+
+static UBool useLocale(const char* locale) {
+    if (strncmp(locale, "yue", 3) == 0) {
+        return TRUE;
+    }
+    if (locale[2]==0 || locale[2]=='_') {
+    	char lang[3] = {0,0,0};
+    	strncpy(lang,locale,2);
+    	if (bsearch(&lang, langs, kNlangs, sizeof(char*), compKeys) != NULL) {
+    		return TRUE;
+    	}
+    }
+    return FALSE;
+}
+
+static UBool patIsBad(const UChar* ubuf) {
+    return (u_strchr(ubuf,0x251C)!=NULL || u_strchr(ubuf,0x2524)!=NULL || u_strstr(ubuf,u": ")!=NULL);
+}
+
+
+static void WriteHourMismatchErrs(void) { /* Apple-specific */
+	int32_t iloc, nloc = uloc_countAvailable();
+	int32_t errcnt = 0;
+	printf("# uloc_countAvailable: %d\n", nloc);
+	for (iloc = 0; iloc < nloc; iloc++) {
+	    const char* locale = uloc_getAvailable(iloc);
+	    if (useLocale(locale)) {
+	    	const char** calsPtr = cals;
+	    	const char* cal;
+	    	while ((cal = *calsPtr++) != NULL) {
+				char fullLocale[kLBufMax+1];
+				UErrorCode status = U_ZERO_ERROR;
+				strncpy(fullLocale, locale, kLBufMax);
+				fullLocale[kLBufMax] = 0;
+				uloc_setKeywordValue("calendar", cal, fullLocale, kLBufMax, &status);
+				if ( U_SUCCESS(status) ) {
+					fullLocale[kLBufMax] = 0;
+					UDateFormat* udat = udat_open(UDAT_SHORT, UDAT_NONE, fullLocale, NULL, 0, NULL, 0, &status);
+					UDateTimePatternGenerator* udatpg = udatpg_open(fullLocale, &status);
+					if ( U_FAILURE(status) ) {
+						printf("# udat_open/udatpg_open for locale %s: %s\n", fullLocale, u_errorName(status));
+					} else {
+						UChar ubufs[kUBufMax];
+						UChar ubufp[kUBufMax];
+						char bbufs[kBBufMax];
+						char bbufpj[kBBufMax];
+						char bbufpH[kBBufMax];
+						char bbufph[kBBufMax];
+						int32_t ulen;
+						int8_t errors[4] = {0,0,0,0};
+						
+						status = U_ZERO_ERROR;
+						ulen = udat_toPattern(udat, FALSE, ubufs, kUBufMax, &status);
+						u_strToUTF8(bbufs, kBBufMax, NULL, ubufs, ulen, &status);
+						if ( U_FAILURE(status) ) {
+						    printf("# udat_toPattern for locale %s: %s\n", fullLocale, u_errorName(status));
+						    strcpy(bbufs, "****");
+						    errors[0] = 3;
+						} else if (patIsBad(ubufs)) {
+						    errors[0] = 2;
+						}
+
+						status = U_ZERO_ERROR;
+						ulen = udatpg_getBestPattern(udatpg, u"jmm", 3, ubufp, kUBufMax, &status);
+						u_strToUTF8(bbufpj, kBBufMax, NULL, ubufp, ulen, &status);
+						if ( U_FAILURE(status) ) {
+						    printf("# udatpg_getBestPat jmm for locale %s: %s\n", fullLocale, u_errorName(status));
+						    strcpy(bbufpj, "****");
+						    errors[1] = 3;
+						} else if (patIsBad(ubufp)) {
+						    errors[1] = 2;
+						} else if (errors[0] == 0 && u_strcmp(ubufp,ubufs) != 0) {
+						    errors[0] = 1;
+						}
+
+						status = U_ZERO_ERROR;
+						ulen = udatpg_getBestPattern(udatpg, u"Hmm", 3, ubufp, kUBufMax, &status);
+						u_strToUTF8(bbufpH, kBBufMax, NULL, ubufp, ulen, &status);
+						if ( U_FAILURE(status) ) {
+						    printf("# udatpg_getBestPat Hmm for locale %s: %s\n", fullLocale, u_errorName(status));
+						    strcpy(bbufpH, "****");
+						    errors[2] = 3;
+						} else if (patIsBad(ubufp)) {
+						    errors[2] = 2;
+						}
+
+						status = U_ZERO_ERROR;
+						ulen = udatpg_getBestPattern(udatpg, u"hmm", 3, ubufp, kUBufMax, &status);
+						u_strToUTF8(bbufph, kBBufMax, NULL, ubufp, ulen, &status);
+						if ( U_FAILURE(status) ) {
+						    printf("# udatpg_getBestPat hmm for locale %s: %s\n", fullLocale, u_errorName(status));
+						    strcpy(bbufph, "****");
+						    errors[3] = 3;
+						} else if (patIsBad(ubufp)) {
+						    errors[3] = 2;
+						}
+						
+						if ( errors[0] || errors[1] || errors[2] || errors[3]) {
+						    printf("%-36s\tshr-%d %-8s\tjmm-%d %-18s\tHmm-%d %-18s\thmm-%d %-18s\n", fullLocale,
+						    		errors[0], bbufs, errors[1], bbufpj, errors[2], bbufpH, errors[3], bbufph);
+						    errcnt++;
+						}
+
+						udatpg_close(udatpg);
+						udat_close(udat);
+					}
+				}
+	    	}
+	    }
+	}
+	printf("# total err lines: %d\n", errcnt);
+}
+#endif /* #if WRITE_HOUR_MISMATCH_ERRS */
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

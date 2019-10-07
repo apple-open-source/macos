@@ -48,7 +48,7 @@ extern "C" {
 	to find one or more keychain items which match specified attributes, use the SecItemCopyMatching API (see SecItem.h).
 */
 OSStatus SecKeychainSearchCreateFromAttributesExtended(CFTypeRef keychainOrArray, SecItemClass itemClass, const SecKeychainAttributeList *attrList, CSSM_DB_CONJUNCTIVE dbConjunctive, CSSM_DB_OPERATOR dbOperator, SecKeychainSearchRef *searchRef)
-	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+	CSSM_DEPRECATED;
 
 #if defined(__cplusplus)
 }

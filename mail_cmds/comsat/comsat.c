@@ -1,6 +1,6 @@
-/*	$NetBSD: comsat.c,v 1.14 1998/07/06 06:47:38 mrg Exp $	*/
-
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -12,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -35,13 +31,17 @@
 
 #include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1980, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+__unused static const char copyright[] =
+"@(#) Copyright (c) 1980, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
+#endif /* not lint */
+
+#ifndef lint
 #if 0
-static char sccsid[] = "from: @(#)comsat.c	8.1 (Berkeley) 6/4/93";
-#else
-__RCSID("$NetBSD: comsat.c,v 1.14 1998/07/06 06:47:38 mrg Exp $");
+static char sccsid[] = "@(#)comsat.c	8.1 (Berkeley) 6/4/93";
 #endif
+__unused static const char rcsid[] =
+  "$FreeBSD$";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -53,84 +53,51 @@ __RCSID("$NetBSD: comsat.c,v 1.14 1998/07/06 06:47:38 mrg Exp $");
 #include <netinet/in.h>
 
 #include <ctype.h>
+#include <err.h>
 #include <errno.h>
 #include <netdb.h>
 #include <paths.h>
 #include <pwd.h>
+#include <termios.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
-#include <termios.h>
-#include <time.h>
-#include <vis.h>
 #include <unistd.h>
 #include <utmpx.h>
 
-int	logging;
-int	debug = 0;
+static int	debug = 0;
 #define	dsyslog	if (debug) syslog
 
 #define MAXIDLE	120
 
-char	hostname[MAXHOSTNAMELEN+1];
-struct	utmpx *utmpx = NULL;
-time_t	lastmsgtime;
-int	nutmpx, uf;
+static char	hostname[MAXHOSTNAMELEN];
 
-void jkfprintf __P((FILE *, char[], off_t));
-void mailfor __P((char *));
-void notify __P((struct utmpx *, off_t));
-void onalrm __P((int));
-void reapchildren __P((int));
-int main __P((int, char *[]));
+static void	jkfprintf(FILE *, char[], char[], off_t);
+static void	mailfor(char *);
+static void	notify(struct utmpx *, char[], off_t, int);
+static void	reapchildren(int);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc __unused, char *argv[] __unused)
 {
 	struct sockaddr_in from;
-	int cc, ch;
 	socklen_t fromlen;
-	char msgbuf[100];
-	sigset_t sigset;
-	extern char *__progname;
+	int cc;
+	char msgbuf[256];
 
 	/* verify proper invocation */
 	fromlen = sizeof(from);
-	if (getsockname(0, (struct sockaddr *)&from, &fromlen) < 0) {
-		(void)fprintf(stderr,
-		    "comsat: getsockname: %s.\n", strerror(errno));
-		exit(1);
-	}
-
+	if (getsockname(0, (struct sockaddr *)&from, &fromlen) < 0)
+		err(1, "getsockname");
 	openlog("comsat", LOG_PID, LOG_DAEMON);
-	while ((ch = getopt(argc, argv, "l")) != -1)
-		switch (ch) {
-		case 'l':
-			logging = 1;
-			break;
-		default:
-			syslog(LOG_ERR, "usage: %s [-l]", __progname);
-			exit(1);
-		}
 	if (chdir(_PATH_MAILDIR)) {
 		syslog(LOG_ERR, "chdir: %s: %m", _PATH_MAILDIR);
-		(void)recv(0, msgbuf, sizeof(msgbuf) - 1, 0);
+		(void) recv(0, msgbuf, sizeof(msgbuf) - 1, 0);
 		exit(1);
 	}
-	if ((uf = open(_PATH_UTMPX, O_RDONLY, 0)) < 0) {
-		syslog(LOG_ERR, "open: %s: %m", _PATH_UTMPX);
-		(void)recv(0, msgbuf, sizeof(msgbuf) - 1, 0);
-		exit(1);
-	}
-	(void)time(&lastmsgtime);
 	(void)gethostname(hostname, sizeof(hostname));
-	hostname[sizeof(hostname) - 1] = '\0';
-	onalrm(0);
-	(void)signal(SIGALRM, onalrm);
 	(void)signal(SIGTTOU, SIG_IGN);
 	(void)signal(SIGCHLD, reapchildren);
 	for (;;) {
@@ -141,145 +108,133 @@ main(argc, argv)
 			errno = 0;
 			continue;
 		}
-		if (!nutmpx)		/* no one has logged in yet */
-			continue;
-		sigemptyset(&sigset);
-		sigaddset(&sigset, SIGALRM);
-		sigprocmask(SIG_SETMASK, &sigset, NULL);
 		msgbuf[cc] = '\0';
-		(void)time(&lastmsgtime);
 		mailfor(msgbuf);
-		sigemptyset(&sigset);
-		sigprocmask(SIG_SETMASK, &sigset, NULL);
+		sigsetmask(0L);
 	}
 }
 
-void
-reapchildren(signo)
-	int signo;
+static void
+reapchildren(int signo __unused)
 {
-
 	while (wait3(NULL, WNOHANG, NULL) > 0);
 }
 
-void
-onalrm(signo)
-	int signo;
+static void
+mailfor(char *name)
 {
-	static u_int utmpxsize;		/* last malloced size for utmpx */
-	static time_t utmpxmtime;	/* last modification time for utmpx */
-	struct stat statbf;
-
-	if (time(NULL) - lastmsgtime >= MAXIDLE)
-		exit(0);
-	(void)alarm((u_int)15);
-	(void)fstat(uf, &statbf);
-	if (statbf.st_mtime > utmpxmtime) {
-		utmpxmtime = statbf.st_mtime;
-		if (statbf.st_size > utmpxsize) {
-			utmpxsize = statbf.st_size + 10 * sizeof(struct utmpx);
-			if ((utmpx = realloc(utmpx, utmpxsize)) == NULL) {
-				syslog(LOG_ERR, "%s", strerror(errno));
-				exit(1);
-			}
-		}
-		/* the first record is just a signature, so it is skipped */
-		(void)lseek(uf, (off_t)sizeof(struct utmpx), SEEK_SET);
-		nutmpx = read(uf, utmpx, statbf.st_size - sizeof(struct utmpx))/sizeof(struct utmpx);
-	}
-}
-
-void
-mailfor(name)
-	char *name;
-{
-	struct utmpx *utp = &utmpx[nutmpx];
+	struct utmpx *utp;
 	char *cp;
+	char *file;
 	off_t offset;
+	int folder;
+	char buf[sizeof(_PATH_MAILDIR) + sizeof(utp->ut_user) + 1];
+	char buf2[sizeof(_PATH_MAILDIR) + sizeof(utp->ut_user) + 1];
 
 	if (!(cp = strchr(name, '@')))
 		return;
 	*cp = '\0';
-	offset = atoi(cp + 1);
-	while (--utp >= utmpx)
-		if (utp->ut_type == USER_PROCESS && !strncmp(utp->ut_user, name, sizeof(utp->ut_user)))
-			notify(utp, offset);
+	offset = strtoll(cp + 1, NULL, 10);
+	if (!(cp = strchr(cp + 1, ':')))
+		file = name;
+	else
+		file = cp + 1;
+	sprintf(buf, "%s/%.*s", _PATH_MAILDIR, (int)sizeof(utp->ut_user),
+	    name);
+	if (*file != '/') {
+		sprintf(buf2, "%s/%.*s", _PATH_MAILDIR,
+		    (int)sizeof(utp->ut_user), file);
+		file = buf2;
+	}
+	folder = strcmp(buf, file);
+	setutxent();
+	while ((utp = getutxent()) != NULL)
+		if (utp->ut_type == USER_PROCESS && !strcmp(utp->ut_user, name))
+			notify(utp, file, offset, folder);
+	endutxent();
 }
 
-static char *cr;
+static const char *cr;
 
-void
-notify(utp, offset)
-	struct utmpx *utp;
-	off_t offset;
+static void
+notify(struct utmpx *utp, char file[], off_t offset, int folder)
 {
 	FILE *tp;
-	struct passwd *p;
 	struct stat stb;
-	struct termios ttybuf;
-	char tty[40], name[sizeof(utp->ut_user) + 1];
+	struct termios tio;
+	char tty[20];
+	const char *s = utp->ut_line;
 
-	(void)snprintf(tty, sizeof(tty), "%s%.*s",
-	    _PATH_DEV, (int)sizeof(utp->ut_line), utp->ut_line);
-	if (strchr(tty + sizeof(_PATH_DEV) - 1, '/')) {
+	if (strncmp(s, "pts/", 4) == 0)
+		s += 4;
+	if (strchr(s, '/')) {
 		/* A slash is an attempt to break security... */
-		/*
-		 * XXX but what about something like "/dev/pts/5"
-		 * that we may one day "support". ?
-		 */
-		syslog(LOG_AUTH | LOG_NOTICE, "'/' in \"%s\"", tty);
+		syslog(LOG_AUTH | LOG_NOTICE, "Unexpected `/' in `%s'",
+		    utp->ut_line);
 		return;
 	}
-	if (stat(tty, &stb) || !(stb.st_mode & S_IEXEC)) {
+	(void)snprintf(tty, sizeof(tty), "%s%.*s",
+	    _PATH_DEV, (int)sizeof(utp->ut_line), utp->ut_line);
+	if (stat(tty, &stb) == -1 || !(stb.st_mode & (S_IXUSR | S_IXGRP))) {
 		dsyslog(LOG_DEBUG, "%s: wrong mode on %s", utp->ut_user, tty);
 		return;
 	}
-	dsyslog(LOG_DEBUG, "notify %s on %s\n", utp->ut_user, tty);
-	if (fork())
+	dsyslog(LOG_DEBUG, "notify %s on %s", utp->ut_user, tty);
+	switch (fork()) {
+	case -1:
+		syslog(LOG_NOTICE, "fork failed (%m)");
 		return;
-	(void)signal(SIGALRM, SIG_DFL);
-	(void)alarm((u_int)30);
+	case 0:
+		break;
+	default:
+		return;
+	}
 	if ((tp = fopen(tty, "w")) == NULL) {
 		dsyslog(LOG_ERR, "%s: %s", tty, strerror(errno));
-		_exit(-1);
+		_exit(1);
 	}
-	(void)tcgetattr(fileno(tp), &ttybuf);
-	cr = (ttybuf.c_oflag & ONLCR) && (ttybuf.c_oflag & OPOST) ?
-	    "\n" : "\n\r";
-	(void)strncpy(name, utp->ut_user, sizeof(utp->ut_user));
-	name[sizeof(name) - 1] = '\0';
-
-	/* Set uid/gid/groups to users in case mail drop is on nfs */
-	if ((p = getpwnam(name)) == NULL ||
-	    initgroups(p->pw_name, p->pw_gid) < 0 ||
-	    setgid(p->pw_gid) < 0 ||
-	    setuid(p->pw_uid) < 0)
-		_exit(-1);
-
-	if (logging)
-		syslog(LOG_INFO, "biff message for %s", name);
-
-	(void)fprintf(tp, "%s\007New mail for %s@%.*s\007 has arrived:%s----%s",
-	    cr, name, (int)sizeof(hostname), hostname, cr, cr);
-	jkfprintf(tp, name, offset);
+	(void)tcgetattr(fileno(tp), &tio);
+	cr = ((tio.c_oflag & (OPOST|ONLCR)) == (OPOST|ONLCR)) ?  "\n" : "\n\r";
+	switch (stb.st_mode & (S_IXUSR | S_IXGRP)) {
+	case S_IXUSR:
+	case (S_IXUSR | S_IXGRP):
+		(void)fprintf(tp, 
+		    "%s\007New mail for %s@%.*s\007 has arrived%s%s%s:%s----%s",
+		    cr, utp->ut_user, (int)sizeof(hostname), hostname,
+		    folder ? cr : "", folder ? "to " : "", folder ? file : "",
+		    cr, cr);
+		jkfprintf(tp, utp->ut_user, file, offset);
+		break;
+	case S_IXGRP:
+		(void)fprintf(tp, "\007");
+		(void)fflush(tp);      
+		(void)sleep(1);
+		(void)fprintf(tp, "\007");
+		break;
+	default:
+		break;
+	}	
 	(void)fclose(tp);
 	_exit(0);
 }
 
-void
-jkfprintf(tp, name, offset)
-	FILE *tp;
-	char name[];
-	off_t offset;
+static void
+jkfprintf(FILE *tp, char user[], char file[], off_t offset)
 {
+	unsigned char *cp, ch;
 	FILE *fi;
 	int linecnt, charcnt, inheader;
-	char line[BUFSIZ], visline[BUFSIZ*4];
+	struct passwd *p;
+	unsigned char line[BUFSIZ];
 
-	if ((fi = fopen(name, "r")) == NULL)
+	/* Set effective uid to user in case mail drop is on nfs */
+	if ((p = getpwnam(user)) != NULL)
+		(void) setuid(p->pw_uid);
+
+	if ((fi = fopen(file, "r")) == NULL)
 		return;
 
-	(void)fseek(fi, offset, SEEK_SET);
+	(void)fseeko(fi, offset, SEEK_CUR);
 	/*
 	 * Print the first 7 lines or 560 characters of the new mail
 	 * (whichever comes first).  Skip header crap other than
@@ -288,15 +243,15 @@ jkfprintf(tp, name, offset)
 	linecnt = 7;
 	charcnt = 560;
 	inheader = 1;
-	while (fgets(line, sizeof(line), fi) != NULL) {
+	while (fgets((char *)line, sizeof(line), fi) != NULL) {
 		if (inheader) {
 			if (line[0] == '\n') {
 				inheader = 0;
 				continue;
 			}
 			if (line[0] == ' ' || line[0] == '\t' ||
-			    (strncasecmp(line, "From:", 5) &&
-			    strncasecmp(line, "Subject:", 8)))
+			    (strncmp((char *)line, "From:", 5) &&
+			    strncmp((char *)line, "Subject:", 8)))
 				continue;
 		}
 		if (linecnt <= 0 || charcnt <= 0) {
@@ -305,8 +260,26 @@ jkfprintf(tp, name, offset)
 			return;
 		}
 		/* strip weird stuff so can't trojan horse stupid terminals */
-		(void)strvis(visline, line, VIS_CSTYLE);
-		fputs(visline, tp);
+		for (cp = line; (ch = *cp) && ch != '\n'; ++cp, --charcnt) {
+			/* disable upper controls and enable all other
+			   8bit codes due to lack of locale knowledge
+			 */
+			if (((ch & 0x80) && ch < 0xA0) ||
+			    (!(ch & 0x80) && !isprint(ch) &&
+			     !isspace(ch) && ch != '\a' && ch != '\b')
+			   ) {
+				if (ch & 0x80) {
+					ch &= ~0x80;
+					(void)fputs("M-", tp);
+				}
+				if (iscntrl(ch)) {
+					ch ^= 0x40;
+					(void)fputc('^', tp);
+				}
+			}
+			(void)fputc(ch, tp);
+		}
+		(void)fputs(cr, tp);
 		--linecnt;
 	}
 	(void)fprintf(tp, "----%s\n", cr);

@@ -3,7 +3,7 @@ Test usort() function : usage variations - Pass different data types as $array_a
 --FILE--
 <?php
 /* Prototype  : bool usort(array $array_arg, string $cmp_function)
- * Description: Sort an array by values using a user-defined comparison function 
+ * Description: Sort an array by values using a user-defined comparison function
  * Source code: ext/standard/array.c
  */
 
@@ -72,7 +72,7 @@ $inputs = array(
        false,
        TRUE,
        FALSE,
-       
+
        // empty data
 /*16*/ "",
        '',
@@ -82,7 +82,7 @@ $inputs = array(
 /*19*/ "string",
        'string',
        $heredoc,
-       
+
        // object data
 /*22*/ new classA(),
 
@@ -113,22 +113,22 @@ fclose($fp);
 
 -- Iteration 1 --
 
-Warning: usort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: usort() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 2 --
 
-Warning: usort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: usort() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 3 --
 
-Warning: usort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: usort() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 4 --
 
-Warning: usort() expects parameter 1 to be array, integer given in %s on line %d
+Warning: usort() expects parameter 1 to be array, int given in %s on line %d
 NULL
 
 -- Iteration 5 --
@@ -168,22 +168,22 @@ NULL
 
 -- Iteration 12 --
 
-Warning: usort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: usort() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 13 --
 
-Warning: usort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: usort() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 14 --
 
-Warning: usort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: usort() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 15 --
 
-Warning: usort() expects parameter 1 to be array, boolean given in %s on line %d
+Warning: usort() expects parameter 1 to be array, bool given in %s on line %d
 NULL
 
 -- Iteration 16 --

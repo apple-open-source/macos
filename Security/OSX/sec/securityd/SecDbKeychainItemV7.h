@@ -24,12 +24,14 @@
 #import "SecKeybagSupport.h"
 #import <Foundation/Foundation.h>
 #import <ProtocolBuffer/PBCodable.h>
+#import "CheckV12DevEnabled.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface SecDbKeychainItemV7 : NSObject
 
 @property (nonatomic, readonly) keyclass_t keyclass;
+@property (nonatomic, readonly) NSData* backupUUID;
 
 - (nullable instancetype)initWithData:(NSData*)data decryptionKeybag:(keybag_handle_t)decryptionKeybag error:(NSError**)error;
 - (instancetype)initWithSecretAttributes:(NSDictionary*)secretAttributes metadataAttributes:(NSDictionary*)metadataAttributes tamperCheck:(NSString*)tamperCheck keyclass:(keyclass_t)keyclass;
@@ -51,9 +53,6 @@ extern const NSInteger SecDbKeychainErrorDeserializationFailed;
 
 @interface SecDbKeychainItemV7 (UnitTesting)
 
-+ (bool)aksEncryptWithKeybag:(keybag_handle_t)keybag keyclass:(keyclass_t)keyclass keyData:(NSData*)keyData outKeyclass:(keyclass_t* _Nullable)outKeyclass wrappedKey:(NSMutableData*)wrappedKey error:(NSError**)error;
-+ (bool)aksDecryptWithKeybag:(keybag_handle_t)keybag keyclass:(keyclass_t)keyclass wrappedKeyData:(NSData*)wrappedKeyData outKeyclass:(keyclass_t* _Nullable)outKeyclass unwrappedKey:(NSMutableData*)unwrappedKey error:(NSError**)error;
-
 + (bool)isKeychainUnlocked;
 
 @property (readonly) NSData* encryptedMetadataBlob;
@@ -61,20 +60,6 @@ extern const NSInteger SecDbKeychainErrorDeserializationFailed;
 
 - (BOOL)encryptMetadataWithKeybag:(keybag_handle_t)keybag error:(NSError**)error;
 - (BOOL)encryptSecretDataWithKeybag:(keybag_handle_t)keybag accessControl:(SecAccessControlRef)accessControl acmContext:(nullable NSData*)acmContext error:(NSError**)error;
-
-@end
-
-// For Db resets _only_
-@interface SecDbKeychainMetadataKeyStore : NSObject
-
-+ (bool)cachingEnabled;
-
-+ (void)resetSharedStore;
-+ (instancetype)sharedStore;
-
-- (instancetype)init NS_UNAVAILABLE;
-
-- (void)dropClassAKeys;
 
 @end
 

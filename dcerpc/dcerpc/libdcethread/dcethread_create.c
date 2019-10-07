@@ -136,7 +136,7 @@ dcethread_create(dcethread** _thread, dcethread_attr* attr, void *(*start_routin
     start_args->self = thread = dcethread__new();
 
     /* Record if this thread was created joinably */
-    if (!attr || (pthread_attr_getdetachstate(attr, &detachstate), detachstate == PTHREAD_CREATE_JOINABLE))
+    if (!attr || ((void) (pthread_attr_getdetachstate(attr, &detachstate)), detachstate == PTHREAD_CREATE_JOINABLE))
     {
 	thread->flag.joinable = 1;
     }

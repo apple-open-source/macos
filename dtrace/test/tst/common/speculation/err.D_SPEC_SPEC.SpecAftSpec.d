@@ -24,8 +24,6 @@
  * Use is subject to license terms.
  */
 
-#pragma ident	"@(#)err.D_SPEC_SPEC.SpecAftSpec.d	1.1	06/08/28 SMI"
-
 /*
  * ASSERTION:
  * A clause can contain only one speculate() call.

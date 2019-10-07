@@ -35,7 +35,7 @@
 #import <TargetConditionals.h>
 #import <syslog.h>
 
-#define PLATFORM_SUPPORT_CLASS_F TARGET_OS_EMBEDDED
+#define PLATFORM_SUPPORT_CLASS_F (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 
 #import <AssertMacros.h>

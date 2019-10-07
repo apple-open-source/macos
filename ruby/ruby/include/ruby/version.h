@@ -2,7 +2,7 @@
 
   ruby/version.h -
 
-  $Author: naruse $
+  $Author: matz $
   created at: Wed May 13 12:56:56 JST 2009
 
   Copyright (C) 1993-2009 Yukihiro Matsumoto
@@ -13,7 +13,7 @@
 
 /*
  * This file contains only
- * - never-changeable informations, and
+ * - never-changeable information, and
  * - interfaces accessible from extension libraries.
  *
  * Never try to check RUBY_VERSION_CODE etc in extension libraries,
@@ -31,7 +31,7 @@
 
 /* API version */
 #define RUBY_API_VERSION_MAJOR 2
-#define RUBY_API_VERSION_MINOR 3
+#define RUBY_API_VERSION_MINOR 6
 #define RUBY_API_VERSION_TEENY 0
 #define RUBY_API_VERSION_CODE (RUBY_API_VERSION_MAJOR*10000+RUBY_API_VERSION_MINOR*100+RUBY_API_VERSION_TEENY)
 

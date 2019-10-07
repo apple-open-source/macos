@@ -800,10 +800,8 @@ end_mask:
                  * set clocking interface or bandwidth value
                  */
                 if (av[0][0] >= 'a' && av[0][0] <= 'z') {
-                    int l = sizeof(p.if_name)-1;
                     /* interface name */
-                    strncpy(p.if_name, av[0], l);
-                    p.if_name[l] = '\0';
+                    strlcpy(p.if_name, av[0], sizeof(p.if_name));
                     p.bandwidth = 0;
                 } else {
                     p.if_name[0] = '\0';

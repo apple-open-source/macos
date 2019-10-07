@@ -8,7 +8,7 @@ function_exists('mb_ereg_match') or die("skip mb_ereg_match() is not available i
 --FILE--
 <?php
 /* Prototype  : bool mb_ereg_match(string $pattern, string $string [,string $option])
- * Description: Regular expression match for multibyte string 
+ * Description: Regular expression match for multibyte string
  * Source code: ext/mbstring/php_mbregex.c
  */
 
@@ -21,15 +21,15 @@ echo "*** Testing mb_ereg_match() : error conditions ***\n";
 
 //Test mb_ereg_match with one more than the expected number of arguments
 echo "\n-- Testing mb_ereg_match() function with more than expected no. of arguments --\n";
-$pattern = b'string_val';
-$string = b'string_val';
+$pattern = 'string_val';
+$string = 'string_val';
 $option = 'string_val';
 $extra_arg = 10;
 var_dump( mb_ereg_match($pattern, $string, $option, $extra_arg) );
 
 // Testing mb_ereg_match with one less than the expected number of arguments
 echo "\n-- Testing mb_ereg_match() function with less than expected no. of arguments --\n";
-$pattern = b'string_val';
+$pattern = 'string_val';
 var_dump( mb_ereg_match($pattern) );
 
 // Testing mb_ereg_match with zero arguments

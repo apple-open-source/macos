@@ -53,12 +53,6 @@ public:
     {
     }
 
-    TextRunIterator(const TextRunIterator& other)
-        : m_textRun(other.m_textRun)
-        , m_offset(other.m_offset)
-    {
-    }
-
     unsigned offset() const { return m_offset; }
     void increment() { m_offset++; }
     bool atEnd() const { return !m_textRun || m_offset >= m_textRun->length(); }
@@ -114,6 +108,10 @@ GraphicsContextState::StateChangeFlags GraphicsContextStateChange::changesFromSt
     CHECK_FOR_CHANGED_PROPERTY(ShadowsIgnoreTransformsChange, shadowsIgnoreTransforms);
     CHECK_FOR_CHANGED_PROPERTY(DrawLuminanceMaskChange, drawLuminanceMask);
     CHECK_FOR_CHANGED_PROPERTY(ImageInterpolationQualityChange, imageInterpolationQuality);
+
+#if HAVE(OS_DARK_MODE_SUPPORT)
+    CHECK_FOR_CHANGED_PROPERTY(UseDarkAppearanceChange, useDarkAppearance);
+#endif
 
     return changeFlags;
 }
@@ -183,7 +181,12 @@ void GraphicsContextStateChange::accumulate(const GraphicsContextState& state, G
 
     if (flags & GraphicsContextState::ImageInterpolationQualityChange)
         m_state.imageInterpolationQuality = state.imageInterpolationQuality;
-    
+
+#if HAVE(OS_DARK_MODE_SUPPORT)
+    if (flags & GraphicsContextState::UseDarkAppearanceChange)
+        m_state.useDarkAppearance = state.useDarkAppearance;
+#endif
+
     m_changeFlags |= flags;
 }
 
@@ -251,6 +254,11 @@ void GraphicsContextStateChange::apply(GraphicsContext& context) const
 
     if (m_changeFlags & GraphicsContextState::ImageInterpolationQualityChange)
         context.setImageInterpolationQuality(m_state.imageInterpolationQuality);
+
+#if HAVE(OS_DARK_MODE_SUPPORT)
+    if (m_changeFlags & GraphicsContextState::UseDarkAppearanceChange)
+        context.setUseDarkAppearance(m_state.useDarkAppearance);
+#endif
 }
 
 void GraphicsContextStateChange::dump(TextStream& ts) const
@@ -318,6 +326,11 @@ void GraphicsContextStateChange::dump(TextStream& ts) const
 
     if (m_changeFlags & GraphicsContextState::DrawLuminanceMaskChange)
         ts.dumpProperty("draw-luminance-mask", m_state.drawLuminanceMask);
+
+#if HAVE(OS_DARK_MODE_SUPPORT)
+    if (m_changeFlags & GraphicsContextState::UseDarkAppearanceChange)
+        ts.dumpProperty("use-dark-appearance", m_state.useDarkAppearance);
+#endif
 }
 
 TextStream& operator<<(TextStream& ts, const GraphicsContextStateChange& stateChange)
@@ -653,7 +666,7 @@ void GraphicsContext::drawGlyphs(const Font& font, const GlyphBuffer& buffer, un
     FontCascade::drawGlyphs(*this, font, buffer, from, numGlyphs, point, fontSmoothingMode);
 }
 
-void GraphicsContext::drawEmphasisMarks(const FontCascade& font, const TextRun& run, const AtomicString& mark, const FloatPoint& point, unsigned from, Optional<unsigned> to)
+void GraphicsContext::drawEmphasisMarks(const FontCascade& font, const TextRun& run, const AtomString& mark, const FloatPoint& point, unsigned from, Optional<unsigned> to)
 {
     if (paintingDisabled())
         return;
@@ -944,6 +957,15 @@ void GraphicsContext::setDrawLuminanceMask(bool drawLuminanceMask)
     if (m_impl)
         m_impl->updateState(m_state, GraphicsContextState::DrawLuminanceMaskChange);
 }
+
+#if HAVE(OS_DARK_MODE_SUPPORT)
+void GraphicsContext::setUseDarkAppearance(bool useDarkAppearance)
+{
+    m_state.useDarkAppearance = useDarkAppearance;
+    if (m_impl)
+        m_impl->updateState(m_state, GraphicsContextState::UseDarkAppearanceChange);
+}
+#endif
 
 #if !USE(CG) && !USE(DIRECT2D)
 // Implement this if you want to go push the drawing mode into your native context immediately.

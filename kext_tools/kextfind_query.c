@@ -2,14 +2,14 @@
  * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <CoreFoundation/CoreFoundation.h>
@@ -237,7 +237,7 @@ Boolean parseBundleName(
     if (!parseArgument(element, &argv[index], &index, user_data, error)) {
         goto finish;
     }
-    
+
     QEQueryElementSetPredicate(element, CFSTR(kPredNameBundleName));
     result = true;
 
@@ -278,7 +278,7 @@ Boolean evalBundleName(
     }
 
     CFOptionFlags searchOptions = 0;
-    
+
     if (context->caseInsensitive ||
         CFDictionaryGetValue(element,
             CFSTR(kSearchStyleCaseInsensitive))) {
@@ -960,7 +960,7 @@ Boolean evalVersion(
         }
         break;
       default:
-        OSKextLog(/* kext */ NULL, 
+        OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
             "Internal evaluation error.");
         *error = kQEQueryErrorEvaluationCallbackFailed;
@@ -993,7 +993,7 @@ Boolean parseCompatibleWithVersion(
 
     compatible_version = OSKextParseVersionString(argv[index]);
     if (compatible_version == -1) {
-        OSKextLog(/* kext */ NULL, 
+        OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
             "Invalid version string '%s'.", argv[index]);
         goto finish;
@@ -1137,7 +1137,7 @@ finish:
     }
     if (result == -1) {
         *error = kQEQueryErrorInvalidOrMissingArgument;
-        OSKextLog(/* kext */ NULL, 
+        OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
             "Invalid version string '%s'.", string);
         result = 0;
@@ -1194,7 +1194,7 @@ Boolean parseArch(
         }
         archinfo = NXGetArchInfoFromName(arch);
         if (!archinfo) {
-            OSKextLog(/* kext */ NULL, 
+            OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
             "Unknown architecture %s.", arch);
             *error = kQEQueryErrorInvalidOrMissingArgument;
@@ -1295,7 +1295,7 @@ Boolean evalArchExact(
     char * arch = NULL;  // must free
     struct mach_header * farch;
     const NXArchInfo * archinfo = NULL;
-   
+
     fiter = createFatIteratorForKext(theKext);
     if (!fiter) {
         goto finish;
@@ -1476,7 +1476,7 @@ Boolean evalDefinesOrReferencesSymbol(
                     result = true;
                 }
             }
-            
+
             if (result) {
                 goto finish;
             }
@@ -1676,13 +1676,13 @@ Boolean parseExec(
         index++;
     }
 
-    OSKextLog(/* kext */ NULL, 
+    OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
             "No terminating ; for %s.", kPredNameExec);
     *error = kQEQueryErrorInvalidOrMissingArgument;
 finish:
     SAFE_RELEASE(arg);
-    *num_used += index; 
+    *num_used += index;
     return result;
 }
 
@@ -1722,7 +1722,7 @@ Boolean evalExec(
 
     kextURL = OSKextGetURL(theKext);
     if (!kextURL) {
-        OSKextLog(theKext, 
+        OSKextLog(theKext,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
             "Kext has no URL!");
         *error = kQEQueryErrorUnspecified;
@@ -1743,7 +1743,7 @@ Boolean evalExec(
     }
     kextBundle = CFBundleCreate(kCFAllocatorDefault, kextURL);
     if (!kextBundle) {
-        OSKextLog(/* kext */ NULL, 
+        OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
             "Can't create bundle for %s.", kextPathBuffer);
         *error = kQEQueryErrorNoMemory;
@@ -2032,12 +2032,12 @@ handleNonOption(int opt_char,
 
     if (opt_char) {
         if (context->assertiveness == kKextfindQuibbling) {
-            OSKextLog(/* kext */ NULL, 
+            OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
                 QUIBBLE_OPT, argv[last_optind]);
             optind = last_optind;
         } else if (context->assertiveness == kKextfindPicky) {
-            OSKextLog(/* kext */ NULL, 
+            OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
                 PICKY_OPT, argv[last_optind], argv[0]);
             *error = kQEQueryErrorInvalidOrMissingArgument;
@@ -2048,12 +2048,12 @@ handleNonOption(int opt_char,
         switch (longopt) {
           case kLongOptQueryPredicate:
             if (context->assertiveness == kKextfindQuibbling) {
-                OSKextLog(/* kext */ NULL, 
+                OSKextLog(/* kext */ NULL,
                     kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
                     QUIBBLE_PRED, argv[last_optind]);
                 optind = last_optind;
             } else if (context->assertiveness == kKextfindPicky) {
-                OSKextLog(/* kext */ NULL, 
+                OSKextLog(/* kext */ NULL,
                     kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
                     PICKY_PRED, argv[last_optind]);
                 *error = kQEQueryErrorInvalidOrMissingArgument;

@@ -4,8 +4,149 @@ CHANGES FROM PREVIOUS VERSIONS OF ZSH
 
 Note also the list of incompatibilities in the README file.
 
-Changes from 5.2 to 5.3
------------------------
+Changes since 5.6.2
+-------------------
+
+Support for 24-bit true color terminals has been added. Hex triplets
+can be used when specifying colours for prompts and line editor
+highlighting. On 88 and 256 colour terminals, a new zsh/nearcolor module
+allows colours specified with hex triplets to be matched against the
+nearest available colour.
+
+The zsh/datetime module's strftime builtin now accepts an argument
+specifying the nanoseconds time component; both arguments can be omitted
+to use the current time.
+
+Changes from 5.6.1 to 5.6.2
+---------------------------
+
+Fix another SIGTTOU case.
+
+Fix SIGWINCH being ignored when zsh is not in the foreground.
+
+The release tarballs are now compressed using xz(1), whereas previously
+both xz(1) and gzip(1) versions were available.  If this gets in your way,
+give us a shout.
+
+Changes from 5.6 to 5.6.1
+-------------------------
+
+Fix packaging issue that broke runhelp.
+
+Fix a regression with pipelines getting backgrounded and emitting SIGTTOU.
+
+Changes from 5.5.1-test-2 to 5.6
+--------------------------------
+
+CVE-2018-0502: Data from the second line of a #! script file might be passed to
+execve().  For example, in the following situation -
+.
+    printf '#!foo\nbar' > baz
+    ./baz
+.
+the shell might take "bar" rather than "foo" for the argv[0] to be passed to
+execve().  [ Reported by Anthony Sottile and Buck Evan. ]
+
+CVE-2018-13259: A shebang line longer than 64 characters would be truncated.
+For example, in the following situation:
+.
+    ( printf '#!'; repeat 64 printf 'x'; printf 'y' ) > foo
+    ./foo
+.
+the shell might execute x...x (64 repetitions) rather than x...xy (64 x's,
+one y).  [ Reported by Daniel Shahaf. ]
+
+Changes from 5.5.1 to 5.5.1-test-2
+----------------------------------
+
+Non-stop IEEE 754 arithmetic support - Inf and NaN are now returned
+from floating point operations where errors were printed before.
+Inf and NaN are also recognised in arithmetic expressions.
+
+In shell patterns, [[:blank:]] now honours the locale instead of
+matching exclusively on space and tab, like for the other POSIX
+character classes or for extended regular expressions.
+
+The zsh/system module now provides the PID of the last process
+substitution via $sysparams[procsubstpid].
+
+Time formatting via the %D prompt escape now offers nanosecond
+precision with the %. and %N format specifiers. Additionally,
+nanosecond precision on file times is supported in the module
+zsh/stat.
+
+The zsh/mathfunc module now includes a log2() function.
+
+The parameter ZLE_RECURSIVE has been added to indicate the
+current ZLE recursion level.
+
+Changes from 5.5 to 5.5.1
+-------------------------
+
+Apart from a fix for a configuration problem finding signal names from
+(some) recent versions of glibc, there are only minor changes.
+
+Changes from 5.4.2 to 5.5
+-------------------------
+
+The effect of the NO_INTERACTIVE_COMMENTS option extends into $(...) and
+`...` command substitutions when used on the command line.  Previously,
+comments were always recognized within command substitutions unless the
+comment character "#" was disabled via reset of $histchars.
+
+An alternative assignment syntax for indicating indices for arrays
+and keys for associative arrays:
+
+typeset -a array=([1]=first [2]=second)
+typeset -A assoc=([key1]=val1 [key2]=val2)
+
+is allowed for compatibility with other shells.  In the case of normal
+arrays the new syntax can be mixed with the old.
+
+The %E, %S, and %U TIMEFMT specifiers now support m and u prefixes
+(e.g., %mE) to output times in milliseconds and microseconds,
+respectively.
+
+The option CHECK_RUNNING_JOBS was added to control whether zsh should
+check for running jobs in addition to suspended ones with CHECK_JOBS.
+It is enabled by default.
+
+Changes from 5.3.1 to 5.4.2
+---------------------------
+
+There are only minor changes between 5.4 and 5.4.2.
+
+The 'exec' and 'command' precommand modifiers, and options to them, are
+now parsed after parameter expansion.  Previously, both the modifier and
+any options to it were parsed between alias expansion and parameter
+expansion (see zshexpn(1)), so they could neither be quoted nor be the
+result of parameter expansion.  Examples: 's=command; $s -V ls' and
+'\command -V ls' now work as expected.
+
+Functions executed by ZLE widgets no longer have their standard input
+closed, but redirected from /dev/null instead. That still guards
+against user defined widgets inadvertently reading from the tty device.
+
+There is an option WARN_NESTED_VAR, a companion to the existing
+WARN_CREATE_GLOBAL that causes a warning if a function updates a
+variable from an enclosing scope without using typeset -g.  It can be
+turned on for an individual function with "functions -W".
+
+zmodload now has an option -s to be silent on a failure to find a module
+but still print other errors.
+
+The autoload builtin gained several new features to load functions from a
+file path determined at the time of definition rather than at the time of
+loading.
+
+The zsh/parameter module now exposes the file paths associated with
+shell functions via the parameters functions_source and
+dis_functions_source.
+
+Changes from 5.2 to 5.3.1
+-------------------------
+
+There are only minor compatibility fixes between 5.3 and 5.3.1.
 
 It is possible to enable character width support for Unicode 9 by
 configuring with `--enable-unicode9'; this compiles in some additional

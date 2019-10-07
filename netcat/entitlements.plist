@@ -6,5 +6,7 @@
 	<true/>
 	<key>com.apple.security.network.server</key>
 	<true/>
+	<key>com.apple.developer.networking.tcp_ka_offload</key>
+	<true/>
 </dict>
 </plist>

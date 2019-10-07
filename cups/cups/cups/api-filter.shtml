@@ -1,14 +1,11 @@
 <!--
   Filter and backend programming introduction for CUPS.
 
-  Copyright 2007-2016 by Apple Inc.
-  Copyright 1997-2006 by Easy Software Products, all rights reserved.
+  Copyright © 2007-2016 by Apple Inc.
+  Copyright © 1997-2006 by Easy Software Products, all rights reserved.
 
-  These coded instructions, statements, and computer programs are the
-  property of Apple Inc. and are protected by Federal copyright
-  law.  Distribution and use rights are outlined in the file "LICENSE.txt"
-  which should have been included with this file.  If this file is
-  file is missing or damaged, see the license at "http://www.cups.org/".
+  Licensed under Apache License v2.0.  See the file "LICENSE" for more
+  information.
 -->
 
 <h2 class='title'><a name="OVERVIEW">Overview</a></h2>
@@ -871,4 +868,7 @@ void *my_data;
 
 </ol>
 
-<blockquote><b>Note:</b> The sandbox profile used in CUPS 2.0 still allows some actions that are not listed above - these privileges will be removed over time until the profile matches the list above.</blockquote>
+<blockquote><b>Note:</b>
+
+<p>The sandbox profile used in CUPS still allows some actions that are not listed above - these privileges will be removed over time until the profile matches the list above.</p>
+</blockquote>

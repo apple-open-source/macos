@@ -22,7 +22,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/hid/IOHIDEventSystem.h>
-#include <IOHIDParameter.h>
+#include <IOKit/hidsystem/IOHIDParameter.h>
 #include <IOKit/IOKitLib.h>
 #include <mach/mach.h>
 #include <CoreFoundation/CFLogUtilities.h>

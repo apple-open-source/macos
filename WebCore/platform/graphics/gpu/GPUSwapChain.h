@@ -28,6 +28,7 @@
 #if ENABLE(WEBGPU)
 
 #include "GPUTexture.h"
+#include <wtf/OptionSet.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RetainPtr.h>
 
@@ -39,7 +40,9 @@ namespace WebCore {
 
 class GPUDevice;
 
-enum class GPUTextureFormatEnum;
+struct GPUSwapChainDescriptor;
+
+enum class GPUTextureFormat;
 
 using PlatformDrawableSmartPtr = RetainPtr<CAMetalDrawable>;
 using PlatformLayer = CALayer;
@@ -47,21 +50,27 @@ using PlatformSwapLayerSmartPtr = RetainPtr<WebGPULayer>;
 
 class GPUSwapChain : public RefCounted<GPUSwapChain> {
 public:
-    static RefPtr<GPUSwapChain> create();
+    static RefPtr<GPUSwapChain> tryCreate(const GPUSwapChainDescriptor&, int width, int height);
 
-    void setDevice(const GPUDevice&);
-    void setFormat(GPUTextureFormatEnum);
-    void reshape(int width, int height);
-    RefPtr<GPUTexture> getNextTexture();
-    void present();
+    RefPtr<GPUTexture> tryGetCurrentTexture();
 
+#if USE(METAL)
+    RetainPtr<CAMetalDrawable> takeDrawable();
+#endif
+
+    // For GPUCanvasContext.
     PlatformLayer* platformLayer() const;
 
+    void present();
+    void reshape(int width, int height);
+    void destroy() { m_currentDrawable = nullptr; }
+
 private:
-    GPUSwapChain(PlatformSwapLayerSmartPtr&&);
+    GPUSwapChain(PlatformSwapLayerSmartPtr&&, OptionSet<GPUTextureUsage::Flags>);
 
     PlatformSwapLayerSmartPtr m_platformSwapLayer;
     PlatformDrawableSmartPtr m_currentDrawable;
+    OptionSet<GPUTextureUsage::Flags> m_usage;
 };
 
 } // namespace WebCore

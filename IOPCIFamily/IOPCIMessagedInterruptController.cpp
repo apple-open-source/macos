@@ -222,10 +222,25 @@ IOInterruptVector * IOPCIMessagedInterruptController::allocVectors(uint32_t coun
     for (uint32_t i = 0; i < count; i++)
     {
         vectors[i].interruptLock = IOLockAlloc();
-        if (!vectors[i].interruptLock) return (0);
+        if (!vectors[i].interruptLock)
+        {
+            goto fail;
+        }
     }
 
     return (vectors);
+
+fail:
+    for (uint32_t i = 0; i < count; i++)
+    {
+        if (vectors[i].interruptLock)
+        {
+            IOLockFree(vectors[i].interruptLock);
+            vectors[i].interruptLock = NULL;
+        }
+    }
+    IOSafeDeleteNULL(vectors, IOInterruptVector, count);
+    return (0);
 }
 
 bool IOPCIMessagedInterruptController::init(UInt32 numVectors, UInt32 baseVector)

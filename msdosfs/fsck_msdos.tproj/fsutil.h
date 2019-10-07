@@ -61,7 +61,3 @@ void setcdevname __P((const char *));
 #define CHECK_PREEN	1
 #define	CHECK_VERBOSE	2
 #define	CHECK_DEBUG	4
-
-struct fstab;
-int checkfstab __P((int, int, void *(*)(struct fstab *), 
-    int (*) (const char *, const char *, const char *, void *, pid_t *)));

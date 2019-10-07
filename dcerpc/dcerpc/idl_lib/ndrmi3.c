@@ -132,14 +132,14 @@ void rpc_ss_ndr_marsh_scalar
             IDL_MARSH_ALIGN_MP( IDL_msp, 8 );
             rpc_ss_ndr_marsh_check_buffer( 8, IDL_msp );
             rpc_marshall_long_float(IDL_msp->IDL_mp,
-                                    *(idl_long_float *)param_addr);
+                                    (idl_long_float *)param_addr);
             IDL_msp->IDL_mp += 8;
             IDL_msp->IDL_left_in_buff -= 8;
             return;
         case IDL_DT_ENUM:
             IDL_MARSH_ALIGN_MP( IDL_msp, 2 );
             rpc_ss_ndr_marsh_check_buffer( 2, IDL_msp );
-            rpc_marshall_enum(IDL_msp->IDL_mp, *(int *)param_addr);
+            rpc_marshall_enum(IDL_msp->IDL_mp, (int *)param_addr);
             IDL_msp->IDL_mp += 2;
             IDL_msp->IDL_left_in_buff -= 2;
             return;
@@ -147,7 +147,7 @@ void rpc_ss_ndr_marsh_scalar
             IDL_MARSH_ALIGN_MP( IDL_msp, 4 );
             rpc_ss_ndr_marsh_check_buffer( 4, IDL_msp );
             rpc_marshall_short_float(IDL_msp->IDL_mp,
-                                    *(idl_short_float *)param_addr);
+                                    (idl_short_float *)param_addr);
             IDL_msp->IDL_mp += 4;
             IDL_msp->IDL_left_in_buff -= 4;
             return;
@@ -162,14 +162,14 @@ void rpc_ss_ndr_marsh_scalar
             IDL_MARSH_ALIGN_MP( IDL_msp, 2 );
             rpc_ss_ndr_marsh_check_buffer( 2, IDL_msp );
             rpc_marshall_short_int(IDL_msp->IDL_mp,
-                                     *(idl_short_int *)param_addr);
+                                     (idl_short_int *)param_addr);
             IDL_msp->IDL_mp += 2;
             IDL_msp->IDL_left_in_buff -= 2;
             return;
         case IDL_DT_LONG:
             IDL_MARSH_ALIGN_MP( IDL_msp, 4 );
             rpc_ss_ndr_marsh_check_buffer( 4, IDL_msp );
-            rpc_marshall_long_int(IDL_msp->IDL_mp, *(idl_long_int *)param_addr);
+            rpc_marshall_long_int(IDL_msp->IDL_mp, (idl_long_int *)param_addr);
             IDL_msp->IDL_mp += 4;
             IDL_msp->IDL_left_in_buff -= 4;
             return;
@@ -177,7 +177,7 @@ void rpc_ss_ndr_marsh_scalar
             IDL_MARSH_ALIGN_MP( IDL_msp, 8 );
             rpc_ss_ndr_marsh_check_buffer( 8, IDL_msp );
             rpc_marshall_hyper_int(IDL_msp->IDL_mp,
-                                     *(idl_hyper_int *)param_addr);
+                                     (idl_hyper_int *)param_addr);
             IDL_msp->IDL_mp += 8;
             IDL_msp->IDL_left_in_buff -= 8;
             return;
@@ -192,7 +192,7 @@ void rpc_ss_ndr_marsh_scalar
             IDL_MARSH_ALIGN_MP( IDL_msp, 2 );
             rpc_ss_ndr_marsh_check_buffer( 2, IDL_msp );
             rpc_marshall_ushort_int(IDL_msp->IDL_mp,
-                                     *(idl_ushort_int *)param_addr);
+                                     (idl_ushort_int *)param_addr);
             IDL_msp->IDL_mp += 2;
             IDL_msp->IDL_left_in_buff -= 2;
             return;
@@ -200,7 +200,7 @@ void rpc_ss_ndr_marsh_scalar
             IDL_MARSH_ALIGN_MP( IDL_msp, 4 );
             rpc_ss_ndr_marsh_check_buffer( 4, IDL_msp );
             rpc_marshall_ulong_int(IDL_msp->IDL_mp,
-                                                 *(idl_ulong_int *)param_addr);
+                                                 (idl_ulong_int *)param_addr);
             IDL_msp->IDL_mp += 4;
             IDL_msp->IDL_left_in_buff -= 4;
             return;
@@ -208,14 +208,14 @@ void rpc_ss_ndr_marsh_scalar
             IDL_MARSH_ALIGN_MP( IDL_msp, 8 );
             rpc_ss_ndr_marsh_check_buffer( 8, IDL_msp );
             rpc_marshall_uhyper_int(IDL_msp->IDL_mp,
-                                     *(idl_uhyper_int *)param_addr);
+                                     (idl_uhyper_int *)param_addr);
             IDL_msp->IDL_mp += 8;
             IDL_msp->IDL_left_in_buff -= 8;
             return;
         case IDL_DT_V1_ENUM:
             IDL_MARSH_ALIGN_MP( IDL_msp, 4 );
             rpc_ss_ndr_marsh_check_buffer( 4, IDL_msp );
-            rpc_marshall_v1_enum(IDL_msp->IDL_mp, *(int *)param_addr);
+            rpc_marshall_v1_enum(IDL_msp->IDL_mp, (ndr_ulong_int *)param_addr);
             IDL_msp->IDL_mp += 4;
             IDL_msp->IDL_left_in_buff -= 4;
             return;
@@ -223,7 +223,7 @@ void rpc_ss_ndr_marsh_scalar
             IDL_MARSH_ALIGN_MP( IDL_msp, 4 );
             rpc_ss_ndr_marsh_check_buffer( 4, IDL_msp );
             rpc_marshall_ulong_int(IDL_msp->IDL_mp,
-                                             *(idl_ulong_int *)(param_addr));
+                                             (idl_ulong_int *)(param_addr));
 #ifdef IDL_ENABLE_STATUS_MAPPING
             rpc_ss_map_local_to_dce_status((error_status_t *)(IDL_msp->IDL_mp));
 #endif
@@ -281,14 +281,14 @@ void rpc_ss_ndr_marsh_bounded_scalar
             IDL_MARSH_ALIGN_MP( IDL_msp, 8 );
             rpc_ss_ndr_marsh_check_buffer( 8, IDL_msp );
             rpc_marshall_long_float(IDL_msp->IDL_mp,
-                                    *(idl_long_float *)param_addr);
+                                    (idl_long_float *)param_addr);
             IDL_msp->IDL_mp += 8;
             IDL_msp->IDL_left_in_buff -= 8;
             return;
         case IDL_DT_ENUM:
             IDL_MARSH_ALIGN_MP( IDL_msp, 2 );
             rpc_ss_ndr_marsh_check_buffer( 2, IDL_msp );
-            rpc_marshall_enum(IDL_msp->IDL_mp, *(int *)param_addr);
+            rpc_marshall_enum(IDL_msp->IDL_mp, (int *)param_addr);
             IDL_msp->IDL_mp += 2;
             IDL_msp->IDL_left_in_buff -= 2;
             return;
@@ -297,7 +297,7 @@ void rpc_ss_ndr_marsh_bounded_scalar
             IDL_MARSH_ALIGN_MP( IDL_msp, 4 );
             rpc_ss_ndr_marsh_check_buffer( 4, IDL_msp );
             rpc_marshall_short_float(IDL_msp->IDL_mp,
-                                    *(idl_short_float *)param_addr);
+                                    (idl_short_float *)param_addr);
             IDL_msp->IDL_mp += 4;
             IDL_msp->IDL_left_in_buff -= 4;
             return;
@@ -314,7 +314,7 @@ void rpc_ss_ndr_marsh_bounded_scalar
             IDL_MARSH_ALIGN_MP( IDL_msp, 2 );
             rpc_ss_ndr_marsh_check_buffer( 2, IDL_msp );
             rpc_marshall_short_int(IDL_msp->IDL_mp,
-                                     *(idl_short_int *)param_addr);
+                                     (idl_short_int *)param_addr);
             IDL_msp->IDL_mp += 2;
             IDL_msp->IDL_left_in_buff -= 2;
             return;
@@ -322,7 +322,7 @@ void rpc_ss_ndr_marsh_bounded_scalar
             IDL_CHECK_RANGE_LONG( *range_bounds, param_addr );
             IDL_MARSH_ALIGN_MP( IDL_msp, 4 );
             rpc_ss_ndr_marsh_check_buffer( 4, IDL_msp );
-            rpc_marshall_long_int(IDL_msp->IDL_mp, *(idl_long_int *)param_addr);
+            rpc_marshall_long_int(IDL_msp->IDL_mp, (idl_long_int *)param_addr);
             IDL_msp->IDL_mp += 4;
             IDL_msp->IDL_left_in_buff -= 4;
             return;
@@ -330,7 +330,7 @@ void rpc_ss_ndr_marsh_bounded_scalar
             IDL_MARSH_ALIGN_MP( IDL_msp, 8 );
             rpc_ss_ndr_marsh_check_buffer( 8, IDL_msp );
             rpc_marshall_hyper_int(IDL_msp->IDL_mp,
-                                     *(idl_hyper_int *)param_addr);
+                                     (idl_hyper_int *)param_addr);
             IDL_msp->IDL_mp += 8;
             IDL_msp->IDL_left_in_buff -= 8;
             return;
@@ -347,7 +347,7 @@ void rpc_ss_ndr_marsh_bounded_scalar
             IDL_MARSH_ALIGN_MP( IDL_msp, 2 );
             rpc_ss_ndr_marsh_check_buffer( 2, IDL_msp );
             rpc_marshall_ushort_int(IDL_msp->IDL_mp,
-                                     *(idl_ushort_int *)param_addr);
+                                     (idl_ushort_int *)param_addr);
             IDL_msp->IDL_mp += 2;
             IDL_msp->IDL_left_in_buff -= 2;
             return;
@@ -356,7 +356,7 @@ void rpc_ss_ndr_marsh_bounded_scalar
             IDL_MARSH_ALIGN_MP( IDL_msp, 4 );
             rpc_ss_ndr_marsh_check_buffer( 4, IDL_msp );
             rpc_marshall_ulong_int(IDL_msp->IDL_mp,
-                                                 *(idl_ulong_int *)param_addr);
+                                                 (idl_ulong_int *)param_addr);
             IDL_msp->IDL_mp += 4;
             IDL_msp->IDL_left_in_buff -= 4;
             return;
@@ -364,14 +364,14 @@ void rpc_ss_ndr_marsh_bounded_scalar
             IDL_MARSH_ALIGN_MP( IDL_msp, 8 );
             rpc_ss_ndr_marsh_check_buffer( 8, IDL_msp );
             rpc_marshall_uhyper_int(IDL_msp->IDL_mp,
-                                     *(idl_uhyper_int *)param_addr);
+                                     (idl_uhyper_int *)param_addr);
             IDL_msp->IDL_mp += 8;
             IDL_msp->IDL_left_in_buff -= 8;
             return;
         case IDL_DT_V1_ENUM:
             IDL_MARSH_ALIGN_MP( IDL_msp, 4 );
             rpc_ss_ndr_marsh_check_buffer( 4, IDL_msp );
-            rpc_marshall_v1_enum(IDL_msp->IDL_mp, *(int *)param_addr);
+            rpc_marshall_v1_enum(IDL_msp->IDL_mp, (int *)param_addr);
             IDL_msp->IDL_mp += 4;
             IDL_msp->IDL_left_in_buff -= 4;
             return;
@@ -379,7 +379,7 @@ void rpc_ss_ndr_marsh_bounded_scalar
             IDL_MARSH_ALIGN_MP( IDL_msp, 4 );
             rpc_ss_ndr_marsh_check_buffer( 4, IDL_msp );
             rpc_marshall_ulong_int(IDL_msp->IDL_mp,
-                                             *(idl_ulong_int *)(param_addr));
+                                             (idl_ulong_int *)(param_addr));
 #ifdef IDL_ENABLE_STATUS_MAPPING
             rpc_ss_map_local_to_dce_status((error_status_t *)(IDL_msp->IDL_mp));
 #endif
@@ -852,7 +852,10 @@ void rpc_ss_ndr_marsh_xmit_as
 {
     idl_ulong_int routine_index;    /* Index in routine vector of routine group
                                                             for this type */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wstrict-prototypes"
     void (**routine_ptr)();         /* Pointer to routine group */
+#pragma clang diagnostic pop
     rpc_void_p_t transmitted_data;
     idl_byte *defn_vec_ptr;
     idl_byte transmitted_type;      /* Type of transmitted data */

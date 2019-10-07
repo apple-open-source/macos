@@ -71,6 +71,7 @@ Chapter 3:  How to get various things to work
 3.26. Why is my output duplicated with `foo 2>&1 >foo.out | bar'?
 3.27. What are these `^' and `~' pattern characters, anyway?
 3.28. How do I edit the input buffer in $EDITOR?
+3.29. Why does `which' output for missing commands go to stdout?
 
 Chapter 4:  The mysteries of completion
 4.1. What is completion?
@@ -250,7 +251,7 @@ To get it to work, retrieve the source distribution (see question
 1.5: What's the latest version?
 
 
-Zsh 5.3 is the latest production version.  For details of all the
+Zsh 5.7.1 is the latest production version.  For details of all the
   changes, see the NEWS file in the source distribution.
 
 A beta of the next version is sometimes available.  Development of zsh is
@@ -276,30 +277,11 @@ Note also that as the shell changes, it may become incompatible with
 
 The coordinator of development is currently me; the alias
   coordinator@zsh.org <coordinator@zsh.org> can be used to contact whoever is in the hot
-  seat.  The following are known mirrors (kept frequently up to date); the
-  first is the official archive site, currently in Australia.  All are
-  available by anonymous FTP.  The major sites keep test versions in the
+  seat.  https://www.zsh.org/ is the official
+  archive site, currently in Australia.  Test versions are kept in the
   `testing' subdirectory: such up-to-the-minute development versions should
   only be retrieved if you actually plan to help test the latest version of
-  the shell.  The following list also appears on the WWW at
-  http://www.zsh.org/ .
-
-
-
-Primary site: 
-ftp://ftp.zsh.org/pub/
-http://www.zsh.org/pub/
-
-
-Australia: 
-ftp://ftp.zsh.org/pub/
-http://www.zsh.org/pub/
-http://mirror.dejanseo.com.au/pub/zsh/
-
-
-Hungary: 
-ftp://ftp.cs.elte.hu/pub/zsh/
-http://www.cs.elte.hu/pub/zsh/
+  the shell.
 
 A Windows port was created by Amol Deshpandem based on 3.0.5 (which
   is now rather old).  This has now been restored and can be found at
@@ -1955,6 +1937,37 @@ When typing a long command interactively, it's possible to edit it in $EDITOR
   in your ~/.zshrc, typing `^F c' will open the entered-so-far
   command-line for editing.  The command will not be automatically executed;
   quitting the editor will only return to zsh's command-line editing mode.
+
+
+3.29: Why does `which' output for missing commands go to stdout?
+
+
+The issue is that if you run:
+  
+    which non-existent-command
+  
+  the error message goes, unusually, to standard output rather than
+  to standard error.  Other shells send this message to standard error,
+  as they would if the command was about to be executed but could not be
+  found.
+
+The original reason for this is that this behaviour is inherited from
+  previous versions of `which', a builtin in later versions of csh,
+  the C shell, as well as tcsh, an adaptation of the C Shell with better
+  editing, and is also available as a separate script sometimes still
+  found in certain distributions.  Other shells had equivalent commands,
+  `whence' and `type, that zsh has also adopted.  So in fact
+  this has always been a feature of `which'.  (It would be possible
+  to change this in emulation modes; however, so far this possibility
+  has been seen as more of an additional confusion than a help.)
+
+If you want some further rationalisation, you might note that
+  `which' is designed as a way of outputting information about a
+  command.  So `this command can be found in ...' and `this command
+  can't be found' are both bits of information here, unlike the case
+  where the command is to be executed.  So although it differs from
+  other Bourne-style shells it is in fact self-consistent.  Note that
+  the exit status does reflect the fact the command can't be found.
 
 
 Chapter 4: The mysteries of completion

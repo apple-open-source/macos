@@ -163,6 +163,9 @@ struct GraphicsContextState {
         ShouldSubpixelQuantizeFontsChange       = 1 << 19,
         DrawLuminanceMaskChange                 = 1 << 20,
         ImageInterpolationQualityChange         = 1 << 21,
+#if HAVE(OS_DARK_MODE_SUPPORT)
+        UseDarkAppearanceChange                 = 1 << 22,
+#endif
     };
     typedef uint32_t StateChangeFlags;
 
@@ -199,6 +202,9 @@ struct GraphicsContextState {
     bool shadowsUseLegacyRadius : 1;
 #endif
     bool drawLuminanceMask : 1;
+#if HAVE(OS_DARK_MODE_SUPPORT)
+    bool useDarkAppearance : 1;
+#endif
 };
 
 struct ImagePaintingOptions {
@@ -348,6 +354,8 @@ public:
 
     WEBCORE_EXPORT void save();
     WEBCORE_EXPORT void restore();
+    
+    unsigned stackSize() const { return m_stack.size(); }
 
     // These draw methods will do both stroking and filling.
     // FIXME: ...except drawRect(), which fills properly but always strokes
@@ -410,9 +418,14 @@ public:
     void setTextDrawingMode(TextDrawingModeFlags);
     TextDrawingModeFlags textDrawingMode() const { return m_state.textDrawingMode; }
 
+#if HAVE(OS_DARK_MODE_SUPPORT)
+    void setUseDarkAppearance(bool);
+    bool useDarkAppearance() const { return m_state.useDarkAppearance; }
+#endif
+
     float drawText(const FontCascade&, const TextRun&, const FloatPoint&, unsigned from = 0, Optional<unsigned> to = WTF::nullopt);
     void drawGlyphs(const Font&, const GlyphBuffer&, unsigned from, unsigned numGlyphs, const FloatPoint&, FontSmoothingMode);
-    void drawEmphasisMarks(const FontCascade&, const TextRun&, const AtomicString& mark, const FloatPoint&, unsigned from = 0, Optional<unsigned> to = WTF::nullopt);
+    void drawEmphasisMarks(const FontCascade&, const TextRun&, const AtomString& mark, const FloatPoint&, unsigned from = 0, Optional<unsigned> to = WTF::nullopt);
     void drawBidiText(const FontCascade&, const TextRun&, const FloatPoint&, FontCascade::CustomFontNotReadyAction = FontCascade::DoNotPaintIfFontNotReady);
 
     void applyState(const GraphicsContextState&);
@@ -685,6 +698,27 @@ private:
     GraphicsContext& m_context;
     bool m_saveAndRestore;
 };
+
+
+class GraphicsContextStateStackChecker {
+public:
+    GraphicsContextStateStackChecker(GraphicsContext& context)
+        : m_context(context)
+        , m_stackSize(context.stackSize())
+    { }
+    
+    ~GraphicsContextStateStackChecker()
+    {
+        if (m_context.stackSize() != m_stackSize)
+            WTFLogAlways("GraphicsContext %p stack changed by %d", this, (int)m_context.stackSize() - (int)m_stackSize);
+    }
+
+private:
+    GraphicsContext& m_context;
+    unsigned m_stackSize;
+};
+
+
 
 class InterpolationQualityMaintainer {
 public:

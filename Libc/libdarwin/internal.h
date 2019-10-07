@@ -42,6 +42,7 @@
 #include <mach/message.h>
 #include <mach/host_priv.h>
 #include <mach/host_reboot.h>
+#include <mach/kern_return.h>
 
 #include <sys/sysctl.h>
 #include <sys/reboot.h>
@@ -57,6 +58,7 @@
 #include <sys/paths.h>
 #include <sys/spawn.h>
 #include <sys/proc_info.h>
+#include <crt_externs.h>
 
 #define OS_CRASH_ENABLE_EXPERIMENTAL_LIBTRACE 1
 #include <os/assumes.h>
@@ -77,10 +79,9 @@
 #include <bootstrap_priv.h>
 #include <assert.h>
 
-#define RDAR_12809455 1
-
 #include "h/bsd.h"
 #include "h/cleanup.h"
+#include "h/ctl.h"
 #include "h/err.h"
 #include "h/errno.h"
 #include "h/mach_exception.h"
@@ -90,12 +91,15 @@
 #include "h/string.h"
 
 #if DARWIN_TAPI
+#undef os_assert_mach
+#undef os_assert_mach_port_status
+
 // Duplicate declarations to make TAPI happy. This header is included in the
 // TAPI build as an extra public header.
 API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
 OS_EXPORT OS_NONNULL1
 void
-os_assert_mach(const char *op, kern_return_t kr);
+(os_assert_mach)(const char *op, kern_return_t kr);
 
 API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
 OS_EXPORT
